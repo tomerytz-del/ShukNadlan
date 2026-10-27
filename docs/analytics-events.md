@@ -453,3 +453,4 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `fair_view` | **v10**: `/open-house` נטען עם הדגל | `state`: ‏`live` \| `empty`, `n` (כמה דירות ביריד) |
 | `fair_agent_cta` | **v10**: כפתור בבלוק "רוצים להכניס דירה ליריד?" ב-`/open-house` | `cta`: ‏`add` \| `join` |
 | `fair_signup_open` (‏`via`) | **ערך חדש, רק עם דגל v10**: מגע ראשון בטופס היריד v2 בדף | `via`: ‏`page` |
+| `likes_bubble_open` | **v10**: הבועה "הרשימה שלי" (מעל גבריאלה, בדפים הציבוריים) נפתחה | `count` |
