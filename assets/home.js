@@ -2458,7 +2458,10 @@ function bindRowScroller(row){
       });
       team.appendChild(faces);
       const n = item.team.length;
-      team.appendChild(mk('span', '', n === 1 ? 'מתווך/ת אחד/ת בצוות' : `צוות של ${n} מתווכים`));
+      // v10: ניסוח ניטרלי, בלי "/ת" (‏C7)
+      team.appendChild(mk('span', '', v10On()
+        ? (n === 1 ? 'צוות של 1' : `צוות של ${n} יועצי נדל״ן`)
+        : (n === 1 ? 'מתווך/ת אחד/ת בצוות' : `צוות של ${n} מתווכים`)));
       info.appendChild(team);
     }
 
@@ -7389,7 +7392,8 @@ function syncV10Tabs(st){
   if (!v10On() || !sentence) return;
   const s = st || sentence.state();
   const commercial = !!sentence.Core.TYPES.find(t => t.key === s.type)?.commercial;
-  const on = commercial ? 'commercial' : (s.deal || '');
+  // משפט נקי - "למכירה" מסומנת כברירת המחדל של הכרטיס, בלי לסנן (‏v10DefaultSale)
+  const on = commercial ? 'commercial' : (s.deal || (sentence.isClean() ? 'sale' : ''));
   document.querySelectorAll('.v10-tab').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.v10Deal === on));
   });
@@ -7661,15 +7665,12 @@ function v10Chip(href, label, n, group, tag, ico, labelDesktop){
     : `<span class="v10-chip-l">${escapeHtml(label)}</span>`;
   return `<a class="v10-chip" href="${escapeHtml(href)}" data-q-group="${group}" data-q-tag="${escapeHtml(tag)}">${icon}${l}<span class="v10-chip-n">${n}</span></a>`;
 }
-/* v10: "למכירה" מסומנת בטעינה, כמו באבטיפוס - רק בדף הבית הנקי (בלי פרמטרים
-   בכתובת), ובשקט: בלי חיפוש שנרשם, בלי לגעת במדף או במפה. */
+/* v10: "למכירה" מסומנת בטעינה, כמו באבטיפוס - אבל רק כסימון של הלשונית.
+   המשפט נשאר נקי: הלשונית שבברירת המחדל אינה סינון של הגולש/ת, ולכן אין
+   "ניקוי החיפוש", אין ?deal=sale בכתובת, והמונה סופר את כל הנכסים. לחיצה על
+   הלשונית (או כל שינוי אחר) היא שמסננת (‏syncV10Tabs). */
 function v10DefaultSale(){
-  if (!v10On() || !sentence || !sentence.loaded() || location.search.replace(/[?&]beta=[01]/, '')) return;
-  const st = sentence.state();
-  if (st.deal || st.type !== 'any') return;
-  sentenceQuiet = true;
-  try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
-  syncSearchStateFromSentence(sentence.state());
+  if (!v10On() || !sentence || !sentence.loaded()) return;
   syncV10Tabs();
 }
 function renderQuickSearch(properties){
@@ -7757,8 +7758,10 @@ function renderV10Fair(){
   const day = d.toLocaleDateString('he-IL', { day: 'numeric' });
   const month = d.toLocaleDateString('he-IL', { month: 'long' });
   const fairId = 'open_house_' + d.toISOString().slice(0, 10);
+  // ‏C9: תמיד שתי תמונות - קודם נכסים עם תמונה, ונכס בלי תמונה (או שאין שני) מקבל את הרקע עם הסיכה
   const thumbs = live.filter(p => p.images && p.images[0]).slice(0, 2);
-  const thumbHtml = (thumbs.length ? thumbs : [{}, {}]).slice(0, 2).map(p => p.images
+  while (thumbs.length < 2) thumbs.push({});
+  const thumbHtml = thumbs.map(p => p.images
     ? `<span class="v10-fair-th"><img src="${escapeHtml(p.images[0])}" alt="" loading="lazy" decoding="async" onerror="v10ImgFail(this)"></span>`
     : `<span class="v10-fair-th">${v10ImgFb()}</span>`).join('');
   host.innerHTML =
@@ -7808,8 +7811,50 @@ function v10GabAlert(rows, n){
   box.querySelector('.gab-alert-go').addEventListener('click', () => {
     buyState.source = 'homepage_buyer_wizard';
     openBuyerPanel(true);
+    v10BuyPrefill(sentence && sentence.loaded() ? sentence.state() : null);
     document.getElementById('buyerBanner')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+}
+/* ‏"עדכנו אותי": האשף נפתח ממולא מהחיפוש שעל המסך - סוג עסקה, עיר או שכונה,
+   חדרים ותקציב. **בלי שמירה שקטה:** שום דבר לא נשלח עד הכפתור של האשף עצמו,
+   כי הגולש/ת עוד לא מסר/ה פרטי קשר ולא אישר/ה. רק UI מקומי (לחיצה על
+   הלשוניות של האשף מפעילה את אותו קוד של לחיצה ידנית). */
+function v10BuyPrefill(st){
+  if (!st) return;
+  const commercial = !!sentence.Core.TYPES.find(t => t.key === st.type)?.commercial;
+  const dealBtn = document.querySelector(`#buyDealToggle button[data-buy-deal="${commercial ? 'commercial' : (st.deal === 'rent' ? 'rent' : 'sale')}"]`);
+  dealBtn?.click();
+  if (commercial && st.deal){
+    document.querySelector(`#buyCommercialToggle button[data-buy-cdeal="${st.deal === 'rent' ? 'rent' : 'sale'}"]`)?.click();
+  }
+  // אזור: שכונה (‏hood:<id>) - העיר שלה והשכונה מסומנת; יישוב (‏city:<שם>) - היישוב
+  buyState.hoods.clear();
+  const area = String(st.area || '');
+  if (area.indexOf('hood:') === 0){
+    const h = hoodState.byId?.get(area.slice(5)) || hoodState.rows.find(r => String(r.id) === area.slice(5));
+    if (h){ buyState.city = h.city; buyState.hoods.add(h.id); }
+  } else if (area.indexOf('city:') === 0){
+    buyState.city = area.slice(5);
+  } else if (st.city){
+    buyState.city = st.city;
+  }
+  renderBuyerHoods();
+  // חדרים: הטווח של המשפט (‏[מינימום, מקסימום]) על הצ'יפים של האשף
+  buyState.rooms.clear();
+  if (st.rooms && !commercial){
+    const [lo, hi] = st.rooms;
+    document.querySelectorAll('#buyRoomsChips .chip[data-buy-rooms]').forEach(chip => {
+      const v = chip.dataset.buyRooms;
+      const on = v === '+6' ? hi >= 6 : (Number(v) >= lo && Number(v) <= hi);
+      chip.setAttribute('aria-pressed', String(on));
+      if (on) buyState.rooms.add(v);
+    });
+  } else {
+    document.querySelectorAll('#buyRoomsChips .chip[data-buy-rooms]').forEach(chip => chip.setAttribute('aria-pressed', 'false'));
+  }
+  const setNum = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ? String(v) : ''; };
+  setNum('buyPriceMin', st.priceMin);
+  setNum('buyPriceMax', st.priceMax);
 }
 
 /* ---------- כפתור הנגישות (v10) ----------

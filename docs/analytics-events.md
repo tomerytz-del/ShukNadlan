@@ -73,6 +73,8 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
 | `swipe_end_view` | **v10**: הוצג כרטיס הסיום | `likes` |
 | `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: טופסי `/swipe` | `form_id`: ‏`swipe_up` \| `swipe_sponsored` \| `swipe_end_alert` |
+| `gab_quick_pick` | **v10**: בחירה מהירה בחלונית של גבריאלה - השיחה הקצרה באתר, בלי וואטסאפ ובלי רשת (‏`assets/gabriela-widget.js`) | `choice`: ‏`buy` \| `rent` \| `owner` \| `fair` \| `swipe` |
+| `swipe_start` (‏`via`) | **ערך חדש, רק עם דגל v10**: הכפתור הכחול בתשובה של גבריאלה | `via`: ‏`gabriela` |
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה

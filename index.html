@@ -16,8 +16,10 @@ if(q==='0')localStorage.removeItem('sk_beta_hero');
 if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
 <!-- תמונת ה-LCP היא רקע CSS. בלי preload הדפדפן מגלה אותה רק אחרי ה-style.
      media תואם את כלל הרוחב: 800 בנייד, הקובץ המלא משם והלאה. -->
-<link rel="preload" as="image" href="/assets/hero-valley-800.webp" fetchpriority="high" media="(max-width: 759px)">
-<link rel="preload" as="image" href="/assets/hero-valley.webp" fetchpriority="high" media="(min-width: 760px)">
+<!-- עם דגל v10 התמונות האלה לא מוצגות (‏hero-valley-m/-d במקומן), ולכן הן נטענות רק בלי הדגל -->
+<script>(function(){if(document.documentElement.classList.contains('beta-hero'))return;
+[['/assets/hero-valley-800.webp','(max-width: 759px)'],['/assets/hero-valley.webp','(min-width: 760px)']].forEach(function(a){
+var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.setAttribute('fetchpriority','high');l.media=a[1];document.head.appendChild(l);});})();</script>
 <script src="assets/auth-return.js" data-catch></script>
 <script src="assets/esc.js"></script>
 <script src="assets/markets.js"></script>
@@ -3342,6 +3344,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero body .hero.hero-valley.map-closed{background:var(--bg-subtle,#f6f7fb)}
   html.beta-hero body .hero.hero-valley.map-closed::before,
   html.beta-hero body .hero.hero-valley.map-closed::after{display:none}
+  /* ‏C4: אף תמונת רקע ישנה לא יורדת עם הדגל - גם כשהמפה נפתחת וה-::before חוזר */
+  html.beta-hero body .hero.hero-valley::before{background-image:none}
   html.beta-hero body .hero.map-closed .hero-overlay{padding:0 0 22px}
   html.beta-hero .gabv8{display:block;position:relative;margin-inline:calc(50% - 50vw);
     background:#0d1b3d url("/assets/hero-valley-m.webp") center 38%/cover no-repeat}
@@ -3410,6 +3414,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     border:1.5px solid var(--v10-navy);border-radius:12px;background:rgba(255,255,255,.75);color:var(--v10-navy);
     font:inherit;font-size:15px;font-weight:700;cursor:pointer}
   html.beta-hero .hero-map-btn svg{width:18px;height:18px;flex:none}
+  /* ‏C8: ‏design-system.css מעגל כל ‎-btn‎ ל-10px וכל ‎-card‎ ל-16px ב-!important, וכלל ישן נתן מסגרת של 1px */
+  html.beta-hero body .hero .hero-map-btn{border:1.5px solid var(--v10-navy) !important;border-radius:12px !important}
+  html.beta-hero body .hero .ss-card{border-radius:18px !important}
+  @media(min-width:760px){html.beta-hero body .hero .ss-card{border-radius:22px !important}}
   html.beta-hero .hero-map-btn:hover{background:#fff}
   html.beta-hero .hero-map-btn:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
   html.beta-hero .hero-swipe-link{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--v10-navy);font-size:15px;font-weight:700;
@@ -3694,6 +3702,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 
   /* ---------- כותרות (‏6.17): כל h2 של סקשן בטוקן --sec-h ---------- */
   html.beta-hero body main h2:not(.visually-hidden):not(.sr-only){font-size:var(--sec-h) !important;font-weight:800;line-height:1.2 !important;text-wrap:balance}
+  /* ‏C5: "בעלי מקצוע נבחרים" עדיין ישבה ב-Frank Ruhl - כל h2 ב-Heebo 800 */
+  html.beta-hero body #proStrip .ps-head h2{font-family:Heebo,system-ui,sans-serif;font-weight:800}
+  /* ‏C6: הכלל הישן ‏.ai-promo-cta b::after הוסיף חץ גם ל-<b> שבשורה החדשה - החץ היחיד הוא זה שבסוף השורה */
+  html.beta-hero body #aiPromo .ai-promo-cta b::after,html.beta-hero body #aiPromo .ai-promo-cta::after{content:none}
   /* לשוניות משרדים / מתווכים: סגנון הצ'יפ האחיד - בלי מילוי כהה */
   html.beta-hero body #dealmakers .dm-tabs [role="tab"]{border:1.5px solid #d5dae6;background:#fff;color:#1b1f2a;font-weight:600}
   html.beta-hero body #dealmakers .dm-tabs [role="tab"][aria-selected="true"]{border-color:var(--v10-navy);background:rgba(14,42,107,.08);color:var(--v10-navy);font-weight:800}
@@ -3712,7 +3724,11 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero body header.site .logo{flex:none}
   @media(max-width:759px){
     html.beta-hero body .hdr-mkt{flex:none;margin-inline-start:6px;padding:0 10px;font-size:13px;min-height:36px}
-    html.beta-hero body .hdr-mkt .hdr-mkt-l{display:none}
+    /* ‏C8: השם נשאר גם בטלפון ("עפולה וה… ▾", כמו בעיצוב) ונחתך בשלוש נקודות לפני "כניסה" */
+    html.beta-hero body .hdr-mkt{flex:0 1 auto;min-width:0;max-width:128px;gap:4px}
+    /* מקום לשם: שוליים צרים יותר, ו"כניסה" בלי האייקון (כמו בעיצוב) */
+    html.beta-hero body header.site .header-inner{padding-inline:12px;gap:8px}
+    html.beta-hero body .hdr-login svg{display:none}
     html.beta-hero body header.site .logo-word [data-market-label]{display:block;font-size:10.5px;max-width:110px}
     /* לוגו ושם קטנים יותר בטלפון (בקשת תומר, 27.10.2026) */
     html.beta-hero body header.site .logo{gap:7px}

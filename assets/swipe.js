@@ -19,8 +19,13 @@
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
   var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, street, address, house_number, ' +
     'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, ' +
-    'neighborhood_id, sales_area, agencies(name, slug, logo_url), neighborhoods(name)';
+    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, agencies(name, slug, logo_url), neighborhoods(name)';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
+
+  /* ‏מתג כיבוי לכרטיסים הממומנים (החלטת A2): כבוי - כל משבצת ממומנת הופכת לנכס,
+     גם כש-sponsors מלא, ולכן אין "ממומן", אין sponsored_impression/click ואין ליד
+     ממומן. מדליקים רק אחרי שיש מפרסם משלם וצינור ליד שנבדק (‏docs/swipe-mode.md). */
+  var SPONSORED_ENABLED = false;
 
   /* ---------- סדר הכרטיסים (‏seq-v1). ‏sponsors ריק = אין כרטיסים ממומנים ---------- */
   var SEQ_CONFIG = {
@@ -212,8 +217,14 @@
     var h = Math.sin(x / 2) * Math.sin(x / 2) + Math.cos(a * t) * Math.cos(c * t) * Math.sin(y / 2) * Math.sin(y / 2);
     return 2 * R * Math.asin(Math.sqrt(h));
   }
+  /* ‏?fair=1 (מגבריאלה): רק נכסים שביריד הבתים הפתוחים עכשיו - אותו תנאי של הבאנר בדף הבית */
+  function fairLive(p) {
+    var now = Date.now(), s = Date.parse(p.open_house_start), e = Date.parse(p.open_house_end);
+    return !!p.open_house && s <= now && e > now;
+  }
   function matches(p, f) {
     if (!dealOk(p, f.deal)) return false;
+    if (f.fair && !fairLive(p)) return false;
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
     if (f.budget && Number(p.price) > f.budget) return false;
@@ -280,7 +291,7 @@
     var deal = { sale: 'למכירה', rent: 'להשכרה', commercial: 'מסחרי' }[filter.deal];
     var area = filter.near ? 'לידי' : filter.area === 'all' ? marketLabel : filter.area === 'main' ? mainCity :
       filter.area === 'around' ? 'יישובי הסביבה' : filter.area.slice(5);
-    $('swSumText').textContent = deal + ' · ' + area;
+    $('swSumText').textContent = (filter.fair ? 'יריד הבתים הפתוחים · ' : '') + deal + ' · ' + area;
   }
   function marketOfCity(city) {
     var list = (window.ShukMarkets && ShukMarkets.list) || [];
@@ -393,6 +404,14 @@
     return Array.prototype.filter.call(root.querySelectorAll('a[href],button:not([disabled]),input,textarea,select,[tabindex]:not([tabindex="-1"]),[role="button"]'),
       function (el) { return el.offsetParent !== null; });
   }
+  /* גובה שורת הפעולות: הגיליון נעצר מעליה, וכפתור הנגישות וגבריאלה יושבים מעליה (‏swipe.css) */
+  function measureActions() {
+    var act = $('swActions');
+    var hgt = act && act.getBoundingClientRect().height;
+    if (hgt) document.documentElement.style.setProperty('--sw-act-h', Math.ceil(hgt) + 'px');
+  }
+  measureActions();
+  window.addEventListener('resize', measureActions);
   function openDialog(el) {
     el.hidden = false;
     document.body.classList.add('sw-locked');
@@ -429,6 +448,11 @@
 
   /* ---------- 3. החפיסה ---------- */
   var deck = [], idx = 0, history_ = [], likes = loadLikes(), view = 'deck';
+  /* ‏shown: כמה ממומנים וכתבות **הוצגו** בביקור (התקרה היא לביקור). ‏counts: כמה
+     נכנסו לחפיסה הנוכחית, ומתחיל ממה שכבר הוצג. עד כאן ספרנו כרטיס כשנבנה, ולכן
+     החפיסה שנבנית מאחורי חלון הסינון בטעינה - ואיש לא רואה - "ניצלה" את הכתבה
+     ואת הממומנים, ואחרי "התחילו להחליק" הם לא הופיעו בכלל */
+  var shown = { sponsored: 0, articles: 0 };
   var counts = { sponsored: 0, articles: 0 };
   var firstSession = (function () {
     var key = 'sk_feed_session_counted', n;
@@ -457,6 +481,7 @@
   }
   function fillSlot(kind, used) {
     if (kind === 'spon_agency' || kind === 'spon_pro') {
+      if (!SPONSORED_ENABLED) return null;
       if (counts.sponsored >= SEQ_CONFIG.maxSponsored) return null;
       var want = kind === 'spon_agency' ? 'agency' : 'pro';
       var s = SEQ_CONFIG.sponsors.filter(function (x) { return x.kind === want && !used[x.id]; })[0];
@@ -474,7 +499,8 @@
   }
   function buildDeck() {
     var props = filtered();
-    // ‏counts לא מתאפס כאן: "3 ממומנים ו-1 כתבה" הם לסשן, לא לחפיסה
+    // "3 ממומנים ו-1 כתבה" הם לביקור: החפיסה מקבלת רק את מה שעוד לא הוצג
+    counts = { sponsored: shown.sponsored, articles: shown.articles };
     /* ‏minGap חל בין שני כרטיסים ממומנים (6/8 ← 16 ← 26). בין 13 ל-16 יש רק שני
        נכסים, והמפרט (קריטריון 25) דורש את שניהם - ולכן שאלה וכתבה אינן נספרות */
     var out = [], used = {}, pi = 0, pos = 1, sinceSpon = Infinity;
@@ -596,6 +622,7 @@
     if (!$('swFilter').hidden) return;
     if (c.slot === 'end') { shukTrack('swipe_end_view', { likes: likes.length }); return; }
     shukTrack('swipe_card_view', { slot: c.slot, position: c.pos });
+    if (!c.counted && (c.sponsor || c.slot === 'article')) { c.counted = true; shown[c.sponsor ? 'sponsored' : 'articles']++; }
     if (c.sponsor) {
       impTimer = setTimeout(function () { if (cur() === c) shukTrack('sponsored_impression', { slot: c.slot, sponsor_id: c.sponsor.id, position: c.pos }); }, 1000);
       var v = document.querySelector('#swTopCard video');
@@ -722,6 +749,8 @@
   document.addEventListener('keydown', function (e) {
     if (openStack.length || view !== 'deck') return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    // חיצים ורווח בתוך גבריאלה או תפריט הנגישות שייכים להם, לא לחפיסה
+    if (e.target.closest && e.target.closest('#gabW,.a11y-panel')) return;
     var c = cur();
     if (e.key === 'ArrowRight') { e.preventDefault(); decide('like'); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); decide('skip'); }
@@ -802,8 +831,7 @@
       img: c.sponsor.logo || '', slug: c.sponsor.slug || '', href: c.sponsor.slug ? (c.sponsor.kind === 'pro' ? '/professional?slug=' : '/agency?slug=') + encodeURIComponent(c.sponsor.slug) : '' };
     var label = c.p ? ctaLabel(adv) : (c.sponsor.kind === 'agency' ? 'יצירת קשר עם המשרד' : 'יצירת קשר עם המפרסם');
     sheetCard.label = label;
-    var act = $('swActions');
-    if (act) document.documentElement.style.setProperty('--sw-act-h', Math.ceil(act.getBoundingClientRect().height) + 'px');
+    measureActions();
     $('swSheetBody').innerHTML = bannerHtml(adv, label) + formHtml(c) + (c.p ? propInfoHtml(c.p) : '');
     $('swCtaBar').hidden = false;
     syncCta();
@@ -900,6 +928,7 @@
     };
     return (code && m[code]) || fallback;
   }
+  var SOURCE_LINE = 'מקור: גלישה בהחלקה';
   function submitLead() {
     var c = sheetCard, btn = $('swCta');
     btn.disabled = true; btn.textContent = 'שולחים…'; $('swLErr').textContent = '';
@@ -908,7 +937,8 @@
     if (c.p) {
       var line = answerLine();
       var msg = (($('swLMsg') || {}).value || '').trim();
-      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg + (line ? '\n' + line : '')) || null, source: 'swipe_up' })
+      // מקור הליד ב-CRM: ‏swipe (‏KNOWN_SOURCES ב-lead-routing.ts). השורה האחרונה בהודעה אומרת לסוכן/ת מאיפה הגיע
+      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE, source: 'swipe' })
         .then(function () { shukTrack('generate_lead', { form_id: 'swipe_up', item_name: c.p.title || '', value: Number(c.p.price) || 0, currency: 'ILS' }); });
     } else if (c.sponsor.kind === 'pro') {
       // משכנתאות - לצינור הקיים (‏mortgage-lead-intake), כמו הטופס בדף הבית
@@ -919,7 +949,7 @@
     } else {
       var interest = answers.interest || '';
       var body = { full_name: name, phone: phone, agency_slug: c.sponsor.slug, consent_agent_contact: true, lead_only: true,
-        free_text: 'עניין: ' + (interest || '-') + ' · כניסה: ' + (answers.entry || '-'), source: 'swipe_sponsored',
+        free_text: 'עניין: ' + (interest || '-') + ' · כניסה: ' + (answers.entry || '-') + '\n' + SOURCE_LINE, source: 'swipe_sponsored',
         /* ‏saved-search-intake דוחה חיפוש בלי קריטריון - העיר של השוק, בלי חדרים ובלי מחיר */
         cities: [mainCity] };
       if (interest === 'קנייה') body.deal_type = 'sale';
@@ -1025,8 +1055,19 @@
       if (el) el.setAttribute('aria-label', title(c.p) + ', ' + fmtPrice(c.p));
       m.on('click', function () { openSheetFor(c); });
     });
-    if (props.length) {
-      try { map.fitBounds(L.latLngBounds(props.map(function (c) { return [+c.p.lat, +c.p.lng]; })), { padding: [40, 40], maxZoom: 15 }); } catch (e) {}
+    /* ‏C10: המפה מתמקדת בתוצאות המסוננות. נקודה מחוץ לישראל, או רחוקה יותר
+       מ-25 ק"מ מהחציון (קואורדינטות שגויות במסד), אינה מושכת את המפה לכל הארץ */
+    var pts = props.map(function (c) { return [+c.p.lat, +c.p.lng]; })
+      .filter(function (q) { return q[0] > 29 && q[0] < 33.6 && q[1] > 34 && q[1] < 36; });
+    if (pts.length > 2) {
+      var med = function (i) { var v = pts.map(function (q) { return q[i]; }).sort(function (a, b) { return a - b; }); return v[v.length >> 1]; };
+      var mLat = med(0), mLng = med(1);
+      var near = pts.filter(function (q) { return km(mLat, mLng, q[0], q[1]) <= 25; });
+      if (near.length) pts = near;
+    }
+    if (pts.length) {
+      map.invalidateSize();
+      try { map.fitBounds(L.latLngBounds(pts), { padding: [48, 48], maxZoom: 15 }); } catch (e) {}
     }
   }
   function renderList() {
@@ -1167,6 +1208,7 @@
   /* ---------- התחלה ---------- */
   var urlDeal = params.get('deal');
   if (urlDeal === 'rent' || urlDeal === 'sale' || urlDeal === 'commercial') filter.deal = urlDeal;
+  if (params.get('fair') === '1') filter.fair = true;
   renderLikes();
   document.body.dataset.view = 'deck';
   $('swDeck').innerHTML = '<div class="sw-loading" role="status">טוענים נכסים…</div>';
