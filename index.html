@@ -3373,6 +3373,14 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero body .hero.map-closed .gabv8-band h1{margin:0;color:#fff;font-size:var(--sec-h);font-weight:800;line-height:1.2;
     letter-spacing:0;text-align:center;text-wrap:balance;white-space:normal}
   html.beta-hero body .hero.map-closed .gabv8-band .hero-h1-break{display:inline}
+  /* ‏§H1 (תומר 27.10): בטלפון הכותרת בשורה אחת; מתחת ל-340px, או כשהיא בכל זאת גולשת (‏.h1-wrap
+     מ-home.js אחרי טעינת הגופנים) - שתי שורות מאוזנות */
+  @media(max-width:600px){
+    html.beta-hero body .hero.map-closed .gabv8-band h1{white-space:nowrap;font-family:Heebo,system-ui,sans-serif;font-size:clamp(17px,5.4vw,24px);
+      font-weight:800;letter-spacing:-.01em}
+  }
+  @media(max-width:339px){html.beta-hero body .hero.map-closed .gabv8-band h1{white-space:normal;text-wrap:balance}}
+  html.beta-hero body .hero.map-closed .gabv8-band h1.h1-wrap{white-space:normal;text-wrap:balance}
   html.beta-hero .gabv8-band .mkt-menu-btn{color:#fff;background:rgba(255,255,255,.18)}
   /* ‏F/V1: שבב ההדמיות - שורה אחת, שקוף, מעל ה-H1. לא כפתור ממולא (הזהב נשאר היחיד) */
   html.beta-hero body #heroSection .gabv8-band .hero-badges{display:flex;justify-content:center;margin:0 0 6px;gap:0}

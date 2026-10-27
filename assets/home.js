@@ -4388,7 +4388,9 @@ function renderHeroStats(){
   const aiBadge = document.getElementById('heroAiBadge');
   const aiCount = document.getElementById('heroAiCount');
   if (aiBadge && aiCount && heroStatsState.ai){
-    aiCount.textContent = heroStatsState.ai === 1
+    /* v10 (בדיקה חוזרת P1-12): בלי מספר שמשתנה מיום ליום בטקסט שיווקי - "הדמיה לנכסים באתר",
+       כמו כותרת הבאנר. בלי הדגל - כמו קודם */
+    aiCount.textContent = v10On() ? 'הדמיה לנכסים באתר' : heroStatsState.ai === 1
       ? 'נכס אחד עם הדמיית AI'
       : `${heroStatsState.ai.toLocaleString('he-IL')} נכסים עם הדמיית AI`;
     // v10 (‏F/V1): "✨ N נכסים עם הדמיית AI · לפני ואחרי" - נקודה במקום הקו
@@ -4454,7 +4456,8 @@ function showAiPromo(count){
   box.hidden = false;
   // v10: שורת ההעתק המדויקת (המספר מהנתונים)
   const line = document.getElementById('aiV10Line');
-  if (line && v10On()) line.textContent = `${n} מהנכסים כבר כוללים הדמיית AI, ולכל נכס אחר אפשר ליצור הדמיה בלחיצה.`;
+  // בלי מספר שמשתנה מיום ליום (P1-12)
+  if (line && v10On()) line.textContent = 'חלק מהנכסים כבר כוללים הדמיית AI, ולכל נכס אחר אפשר ליצור הדמיה בלחיצה.';
 }
 
 async function initAiPromoThumb(){
@@ -7530,6 +7533,14 @@ document.addEventListener('click', e => {
     (document.getElementById('searchResults') || document.getElementById('allProps'))?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
   } else document.getElementById('allProps')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
 });
+// ‏§H1: אם הכותרת בכל זאת רחבה מהמסך (גופן חלופי, שם שוק ארוך) - שתי שורות מאוזנות במקום גלישה
+(function(){
+  const h = document.querySelector('.gabv8-band h1');
+  if (!h || !v10On()) return;
+  const fit = () => { h.classList.remove('h1-wrap'); if (h.scrollWidth > h.clientWidth + 1) h.classList.add('h1-wrap'); };
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(fit);
+  window.addEventListener('resize', fit);
+})();
 // נצנוץ אחד על "גלישה בהחלקה", פעם במכשיר
 (function(){
   const b = document.querySelector('.v10-view.is-swipe');
