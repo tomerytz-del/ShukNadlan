@@ -53,8 +53,10 @@ import {
   ownsRow,
   parseAgreementButton,
   parseImageDeleteButton,
+  confirmWritesNow,
   pendingStoreMissing,
   REISSUE_BUTTON_TTL_MS,
+  reissueOldAgreementPlan,
   REISSUE_BUSY,
   REISSUE_DONE,
   REISSUE_OLD_CANCELLED,
@@ -2775,7 +2777,8 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
       const positions = (Array.isArray(input.positions) ? input.positions : []).map(Number);
       const planned = imagesAfterRemove(images, positions);
       if (!planned.ok) return { ok: false, error: planned.error };
-      if (input.confirm !== true) {
+      // עם outbox אין מחיקה מהמודל, גם כש-confirm=true. רק הכפתור מוחק.
+      if (!confirmWritesNow(!!ctx.outbox, input.confirm)) {
         const buttons = imageDeleteButtons(propertyId, positions, images);
         if (ctx.outbox && buttons) {
           const label = existing.title ? ` מ-${existing.title}` : "";
@@ -2793,7 +2796,9 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
         return {
           ok: false,
           needs_confirmation: true,
-          error: "מחיקת תמונה דורשת אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה במפורש.",
+          error: ctx.outbox
+            ? "מחיקת תמונה יוצאת רק בכפתור אישור. לא נמחק כלום."
+            : "מחיקת תמונה דורשת אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה במפורש.",
         };
       }
       next = planned.next;
@@ -5772,8 +5777,29 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
 
   // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
   // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף (createAgreementRows).
-  const made = await createAgreementRows(ctx, build, signers,
-    consentId ? { marketing_consent_id: consentId } : {});
+  const requestedAlso = Array.isArray(input.also_client_ids)
+    ? [...new Set((input.also_client_ids as unknown[]).map((id) => String(id || "").trim()).filter(Boolean))]
+    : [];
+  let keptAlso = requestedAlso;
+  if (requestedAlso.length) {
+    const { data: ownedAlso, error: alsoErr } = await ctx.supabase
+      .from("agent_clients")
+      .select("id")
+      .eq("agent_id", ctx.agent.id)
+      .in("id", requestedAlso);
+    if (alsoErr) {
+      console.error("agreement extra clients lookup failed", alsoErr.code);
+    } else {
+      const ok = new Set(((ownedAlso || []) as { id: string }[]).map((row) => String(row.id)));
+      keptAlso = requestedAlso.filter((id) => ok.has(id));
+    }
+  }
+  const agreementExtra: Record<string, unknown> = consentId ? { marketing_consent_id: consentId } : {};
+  if (keptAlso.length) {
+    const linkedIds = signers.map((sg) => sg.client_id).filter((id): id is string => !!id);
+    agreementExtra.client_ids = [...new Set([...linkedIds, ...keptAlso])];
+  }
+  const made = await createAgreementRows(ctx, build, signers, agreementExtra);
   if (!made.ok) {
     // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
     if (consentId) await ctx.supabase.from("agreements").delete().eq("id", consentId).eq("agent_id", ctx.agent.id);
@@ -5887,7 +5913,7 @@ function askAgreementConfirm(
     kind: "buttons",
     body: action === "cancel"
       ? "לבטל את ההסכם? ביטול של בלעדיות מבטל גם את טופס ההסכמה."
-      : "להוציא הסכם חדש מאותם פרטים, ולבטל את הישן אם הוא עוד לא נחתם?",
+      : "להוציא הסכם חדש מאותם פרטים? בלעדיות חתומה נשארת עד שהחדש ייחתם.",
     buttons,
   });
   return {
@@ -5968,18 +5994,31 @@ async function reissueOwnedAgreement(
   }
   let tail = "";
   const status = String(row.status || "");
-  const cancelSigned = status === "signed" && String(row.kind || "").startsWith("exclusive_");
-  if (status === "draft" || status === "sent" || status === "viewed" || cancelSigned) {
+  const plan = newId ? reissueOldAgreementPlan(status, String(row.kind || "")) : "keep";
+  if (plan === "cancel") {
     const { error } = await ctx.supabase.from("agreements")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", agreementId)
       .eq("agent_id", ctx.agent.id)
-      .in("status", cancelSigned ? ["signed"] : ["draft", "sent", "viewed"]);
+      .in("status", ["draft", "sent", "viewed"]);
     if (error) {
       console.error("agreement cancel after reissue failed", error.code);
       tail = " ההסכם הישן לא בוטל. אפשר לבטל אותו בנפרד.";
     } else {
-      tail = cancelSigned ? " הבלעדיות הקודמת בוטלה." : " ההסכם הישן בוטל.";
+      tail = " ההסכם הישן בוטל.";
+    }
+  } else if (plan === "supersede") {
+    // הבלעדיות החתומה נשארת עד שהחדש נחתם. הטריגר מבטל אותה בחתימה.
+    // עמודה חסרה (הפונקציה לפני המיגרציה): לא מבטלים.
+    const { error } = await ctx.supabase.from("agreements")
+      .update({ replaces_agreement_id: agreementId })
+      .eq("id", newId)
+      .eq("agent_id", ctx.agent.id);
+    if (error) {
+      console.error("agreement supersede link failed", error.code);
+      tail = " הבלעדיות החתומה נשארת בתוקף. הקישור להחלפה בחתימה לא נשמר.";
+    } else {
+      tail = " הבלעדיות החתומה נשארת בתוקף עד שהחדש ייחתם.";
     }
   } else if (status === "signed") {
     tail = " ההסכם החתום נשאר. החדש הוא מסמך נפרד.";
@@ -5993,7 +6032,7 @@ async function reissueOwnedAgreement(
 
 async function toolCancelAgreement(ctx: ToolContext, input: Record<string, unknown>) {
   const agreementId = String(input.agreement_id || "");
-  if (input.confirm !== true) return askAgreementConfirm(ctx, "cancel", agreementId);
+  if (!confirmWritesNow(!!ctx.outbox, input.confirm)) return askAgreementConfirm(ctx, "cancel", agreementId);
   return { ok: true, note: await cancelOwnedAgreement(ctx.supabase, ctx.agent, agreementId) };
 }
 
@@ -6010,29 +6049,13 @@ async function askReissueConfirm(
       error: "צריך אישור מפורש. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
     };
   }
-  const id = newPendingActionId();
-  const { error } = await ctx.supabase.from("whatsapp_pending_actions").insert({
-    id,
-    agent_id: ctx.agent.id,
-    action: "reissue",
-    subject_id: agreementId,
-    payload: overrides,
-    expires_at: new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString(),
-  });
-  if (error) {
-    console.error("pending reissue save failed", error.code);
-    return {
-      ok: false,
-      error: pendingStoreMissing(error)
-        ? REISSUE_STORE_MISSING
-        : "לא הצלחתי לשמור את הבקשה. ההסכם הישן נשאר. אפשר לנסות שוב.",
-    };
-  }
-  const buttons = agreementConfirmButtons("reissue", id);
+  const saved = await saveReissueRequest(ctx, agreementId, overrides);
+  if ("error" in saved) return saved;
+  const buttons = agreementConfirmButtons("reissue", saved.id);
   if (!buttons) return { ok: false, error: "חסר מזהה הסכם." };
   ctx.outbox.push({
     kind: "buttons",
-    body: "להוציא הסכם חדש עם הפרטים שסיכמנו, ולבטל את הישן? בלעדיות חתומה תוחלף.",
+    body: "להוציא הסכם חדש עם הפרטים שסיכמנו? בלעדיות חתומה נשארת עד שהחדש ייחתם.",
     buttons,
   });
   return {
@@ -6042,10 +6065,67 @@ async function askReissueConfirm(
   };
 }
 
+async function saveReissueRequest(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+): Promise<{ id: string } | { error: string; ok: false }> {
+  const expires = new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString();
+  const open = () => ctx.supabase.from("whatsapp_pending_actions")
+    .select("id, claimed_at")
+    .eq("agent_id", ctx.agent.id)
+    .eq("action", "reissue")
+    .eq("subject_id", agreementId)
+    .is("executed_at", null)
+    .is("new_subject_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data: existing, error: openErr } = await open();
+  if (openErr && !pendingStoreMissing(openErr)) {
+    console.error("pending reissue lookup failed", openErr.code);
+  }
+  if (!openErr && existing?.id) {
+    if (!existing.claimed_at) {
+      const { error: updErr } = await ctx.supabase.from("whatsapp_pending_actions")
+        .update({ payload: overrides, expires_at: expires })
+        .eq("id", existing.id)
+        .eq("agent_id", ctx.agent.id)
+        .is("claimed_at", null)
+        .is("executed_at", null);
+      if (updErr) console.error("pending reissue refresh failed", updErr.code);
+    }
+    return { id: String(existing.id) };
+  }
+  const id = newPendingActionId();
+  const { error } = await ctx.supabase.from("whatsapp_pending_actions").insert({
+    id,
+    agent_id: ctx.agent.id,
+    action: "reissue",
+    subject_id: agreementId,
+    payload: overrides,
+    expires_at: expires,
+  });
+  if (error && String(error.code || "") === "23505") {
+    const { data: again } = await open();
+    if (again?.id) return { id: String(again.id) };
+  }
+  if (error) {
+    console.error("pending reissue save failed", error.code);
+    return {
+      ok: false,
+      error: pendingStoreMissing(error)
+        ? REISSUE_STORE_MISSING
+        : "לא הצלחתי לשמור את הבקשה. ההסכם הישן נשאר. אפשר לנסות שוב.",
+    };
+  }
+  return { id };
+}
+
 async function toolReissueAgreement(ctx: ToolContext, input: Record<string, unknown>) {
   const agreementId = String(input.agreement_id || "");
   const overrides = reissueOverridePayload(input);
-  if (input.confirm !== true) return askReissueConfirm(ctx, agreementId, overrides);
+  if (!confirmWritesNow(!!ctx.outbox, input.confirm)) return askReissueConfirm(ctx, agreementId, overrides);
   const before = ctx.outbox?.length || 0;
   const done = await reissueOwnedAgreement(ctx, agreementId, overrides);
   return {
