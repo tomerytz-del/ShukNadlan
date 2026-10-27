@@ -4,7 +4,13 @@
 import { readFileSync } from "node:fs";
 import {
   CANCEL_NOTIFY_BUTTON_TITLE,
+  CANCEL_SEARCH_FUTURE_MS,
+  CANCEL_SEARCH_LIMIT,
+  CANCEL_SEARCH_PAST_MS,
+  cancelSearchBounds,
+  clipWhatsappBody,
   clientNameMatches,
+  showingCloseNotifyButton,
   extractClock,
   ilClock,
   notifiedRequestIds,
@@ -84,6 +90,26 @@ assert(sql.includes("related_showcase_id"), "related showcase");
 assert(sql.includes("s.status = 'active'"), "active showcase");
 assert(sql.includes("cancel_unnotified"), "flag column");
 assert(sql.includes("client_showcases_cancel_future_meetings"), "future meetings trigger");
+assert(sql.includes("related_meeting_id"), "meeting on the notification");
+assert(sql.includes("'סיור בוטל'"), "agent title, not a client message");
+assert(sql.includes("insert into public.notifications"), "agent is notified");
+assert(!sql.includes("net.http_post"), "trigger does not call out");
+assert(sql.includes("'meeting_id',    n.related_meeting_id"), "claim carries the meeting");
+
+const bounds = cancelSearchBounds(Date.parse("2026-10-27T12:00:00.000Z"));
+assert(Date.parse(bounds.toIso) - Date.parse(bounds.fromIso) === CANCEL_SEARCH_PAST_MS + CANCEL_SEARCH_FUTURE_MS, "window");
+assert(CANCEL_SEARCH_LIMIT > 40, "name search is wider than the old cap");
+const meet = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const btn = showingCloseNotifyButton([{ type: "showcase_meeting", title: "סיור בוטל עם דנה", meeting_id: meet }]);
+assert(btn?.id === `scn:${meet}` && btn.title.length <= 20, "scn button");
+assert(showingCloseNotifyButton([
+  { type: "showcase_meeting", title: "סיור בוטל", meeting_id: meet },
+  { type: "showcase_meeting", title: "סיור בוטל", meeting_id: meet },
+]) === null, "two meetings, no single button");
+assert(showingCloseNotifyButton([{ type: "new_lead", title: "סיור בוטל", meeting_id: meet }]) === null, "wrong type");
+const long = "https://shuknadlan.co.il/crm?goto=accClients&client=" + "x".repeat(2000);
+const clipped = clipWhatsappBody(`שורה\n${long}`, 80);
+assert(clipped.length <= 80 && !clipped.includes("https://shuknadlan.co.il/crm?goto=accClients&client=x"), clipped);
 assert(!sql.includes("5604fa17"), "no data cleanup of the meeting already handled");
 assert(!/update\s+[\s\S]{0,40}5604fa17/i.test(sql), "no update of that meeting");
 

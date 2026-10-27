@@ -83,3 +83,40 @@ export function notifiedRequestIds(results: { id: string; sent: boolean }[]): st
 
 /** כפתור אחרי ביטול. הכותרת עד 20 יחידות UTF-16 (Meta). */
 export const CANCEL_NOTIFY_BUTTON_TITLE = "להודיע על הביטול";
+
+/** חיפוש ביטול לפי שם: סיורים שכבר התחילו לאחרונה, והקרובים בשלושת השבועות. */
+export const CANCEL_SEARCH_PAST_MS = 6 * 60 * 60 * 1000;
+export const CANCEL_SEARCH_FUTURE_MS = 21 * 24 * 60 * 60 * 1000;
+export const CANCEL_SEARCH_LIMIT = 80;
+
+export function cancelSearchBounds(now: number): { fromIso: string; toIso: string } {
+  return {
+    fromIso: new Date(now - CANCEL_SEARCH_PAST_MS).toISOString(),
+    toIso: new Date(now + CANCEL_SEARCH_FUTURE_MS).toISOString(),
+  };
+}
+
+const SHOWING_CLOSE_TITLE = "סיור בוטל";
+
+/** כפתור scn: רק על התראת סגירה אחת, כדי שהסוכן/ת יחליט/תחליט אם לעדכן את מי שכבר קיבל בקשה. */
+export function showingCloseNotifyButton(
+  items: { type: string; title?: string | null; meeting_id?: string | null }[],
+): { id: string; title: string } | null {
+  if (items.length !== 1) return null;
+  const it = items[0];
+  const id = String(it.meeting_id || "");
+  if (it.type !== "showcase_meeting") return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
+  if (!String(it.title || "").startsWith(SHOWING_CLOSE_TITLE)) return null;
+  if (CANCEL_NOTIFY_BUTTON_TITLE.length > 20) return null;
+  return { id: `scn:${id.toLowerCase()}`, title: CANCEL_NOTIFY_BUTTON_TITLE };
+}
+
+/** חיתוך גוף הודעה בלי לקטוע קישור ובלי לחתוך באמצע שורה אם יש שורה קודמת. */
+export function clipWhatsappBody(text: string, max = 1024): string {
+  if (text.length <= max) return text;
+  let cut = text.slice(0, max);
+  const nl = cut.lastIndexOf("\n");
+  if (nl >= Math.floor(max * 0.5)) cut = cut.slice(0, nl);
+  return cut.replace(/https?:\/\/\S*$/u, "").trimEnd();
+}

@@ -49,11 +49,20 @@ $$;
 
 revoke all on function public.client_showcase_meetings_cancel_coord() from public, anon, authenticated;
 
+-- מזהה הסיור על ההתראה לסוכן/ת, כדי שכפתור scn: ייצא בלי לשלוח ללקוח/ה.
+alter table public.notifications
+  add column if not exists related_meeting_id uuid
+  references public.client_showcase_meetings(id) on delete set null;
+
+comment on column public.notifications.related_meeting_id is
+  'סיור מיניסייט שההתראה עוסקת בו. סגירת מיניסייט כותבת אותו כדי שכפתור scn: יוכל לעדכן את מי שכבר קיבל בקשה.';
+
 -- ---------------------------------------------------------------------------
 -- סגירת מיניסייט (גם כשלקוח/ה נסגר/ה, דרך agent_clients_close_showcase)
 -- מבטלת סיורים עתידיים שעוד לא התקיימו. עדכון הסטטוס מפעיל את
 -- client_showcase_meetings_cancel_coord, ושם נסגרות הבקשות הפתוחות.
--- סיור שכבר עבר לא נוגעים בו.
+-- סיור שכבר עבר לא נוגעים בו. אם מישהו כבר קיבל בקשה, נכתבת התראה
+-- לסוכן/ת (לא הודעה ללקוח/ה) עם related_meeting_id.
 -- ---------------------------------------------------------------------------
 create or replace function public.client_showcases_cancel_future_meetings()
 returns trigger
@@ -61,13 +70,57 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  r          record;
+  v_names    text;
+  v_client   uuid;
+  v_agent    uuid;
+  v_who      text;
 begin
-  update public.client_showcase_meetings
-     set status = 'canceled',
-         decided_at = now()
-   where showcase_id = new.id
-     and status in ('requested', 'confirmed')
-     and starts_at > now();
+  select s.agent_id, s.client_id, nullif(btrim(c.full_name), '')
+    into v_agent, v_client, v_who
+    from public.client_showcases s
+    left join public.agent_clients c on c.id = s.client_id
+   where s.id = new.id;
+
+  for r in
+    update public.client_showcase_meetings
+       set status = 'canceled',
+           decided_at = now()
+     where showcase_id = new.id
+       and status in ('requested', 'confirmed')
+       and starts_at > now()
+    returning id, starts_at, agenda_item_id
+  loop
+    -- הטריגר על הסיור כבר סימן cancel_unnotified למי שקיבל בקשה.
+    -- ההודעה אליהם לא יוצאת מכאן. הסוכן/ת מקבל/ת התראה עם כפתור scn:.
+    select string_agg(coalesce(nullif(btrim(q.target_name), ''), 'ללא שם'), ', ' order by q.created_at)
+      into v_names
+      from public.showing_coord_requests q
+     where q.meeting_id = r.id
+       and q.cancel_unnotified;
+
+    if v_agent is null or v_names is null then
+      continue;
+    end if;
+
+    insert into public.notifications
+      (agent_id, type, title, body, related_client_id, related_showcase_id,
+       related_agenda_item_id, related_meeting_id)
+    values (
+      v_agent,
+      'showcase_meeting',
+      left('סיור בוטל' || coalesce(' עם ' || v_who, '') || ' - המיניסייט נסגר', 200),
+      left(
+        'הביקור ב-' || to_char(r.starts_at at time zone 'Asia/Jerusalem', 'DD.MM HH24:MI')
+        || ' בוטל כי המיניסייט נסגר. בקשת תיאום כבר יצאה אל: ' || v_names
+        || '. ההודעה אליהם לא נשלחה. הכפתור שולח רק למי שכבר קיבל בקשה.',
+        400),
+      v_client,
+      new.id,
+      r.agenda_item_id,
+      r.id);
+  end loop;
   return null;
 end;
 $$;
@@ -298,3 +351,118 @@ $$;
 
 revoke all on function public.showing_coord_ready() from public, anon, authenticated;
 grant execute on function public.showing_coord_ready() to service_role;
+
+-- ---------------------------------------------------------------------------
+-- notification_push_claim: אותו גוף כמו 20270902090000, ועוד meeting_id.
+-- העמודה חסרה לפני המיגרציה הזו, ולכן הפונקציה מוחלפת רק כאן.
+-- ---------------------------------------------------------------------------
+create or replace function public.notification_push_claim(p_limit int default 20)
+returns table (log_id uuid, agent_id uuid, display_name text, phone_e164 text,
+               channel_mode text, items jsonb, item_count int)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  a         record;
+  v_items   jsonb;
+  v_ids     uuid[];
+  v_types   text[];
+  v_log     uuid;
+  v_mode    text;
+  v_taken   int := 0;
+  v_cap     int := least(greatest(coalesce(p_limit, 20), 1), 200);
+  v_look    int := coalesce((select value::int from public.pricing_config
+                              where key = 'notif_push_lookback_hours'), 12);
+  v_look_p  int := coalesce((select value::int from public.pricing_config
+                              where key = 'notif_push_priority_lookback_hours'), 72);
+  v_prio    text[] := public.notification_push_priority_types();
+  v_digest  int := coalesce((select value::int from public.pricing_config
+                              where key = 'notif_push_ambient_digest_minutes'), 180);
+  v_wake    boolean;
+begin
+  -- קריאה אחת בכל רגע (20270425090000). שלושה cron-ים קוראים ל-notification-push
+  -- (הכללי כל 5 דקות, היומן וסיכומי הסיור כל דקה), וכשהם נפגשים באותה שנייה
+  -- שתי קריאות רצו במקביל, אף אחת לא ראתה את שורת היומן של השנייה, ושתיהן
+  -- שלחו. הנעילה משתחררת בסוף הטרנזקציה, והקריאה השנייה רואה את מה שנרשם.
+  perform pg_advisory_xact_lock(hashtext('notification_push_claim'));
+
+  -- רישום בלבד; החסימה כבר שוחררה על ידי הפרדיקט.
+  perform public.notification_push_reconcile();
+
+  for a in select * from public.notification_push_due_agents() loop
+    exit when v_taken >= v_cap;
+
+    -- המזהים נוסעים עם ההתראה: ‏notification-push בונה מהם את הקישור הישיר
+    -- לפריט (itemPath), במקום קישור לקטגוריה.
+    select jsonb_agg(jsonb_build_object(
+             'type',        n.type,
+             'title',       n.title,
+             'body',        n.body,
+             'property_id', n.related_property_id,
+             'client_id',   coalesce(n.related_client_id,
+                                     (select s.client_id from public.client_showcases s
+                                       where s.id = n.related_showcase_id)),
+             'lead_id',     n.related_lead_id,
+             -- נכס של משרד אחר (שיתוף) נפתח ב"שותפו איתי", לא ב"הנכסים שלי"
+             'property_mine', (select p.agent_id = n.agent_id or p.referred_by is not distinct from n.agent_id
+                                 from public.properties p where p.id = n.related_property_id),
+             'agenda_item_id', n.related_agenda_item_id,
+             'agreement_id',  n.related_agreement_id,
+             'meeting_id',    n.related_meeting_id,
+             -- ביקורת ממתינה - למי שמאשר/ת אותה; מפורסמת - לדף הסוכן/ת. לסוכן/ת
+             -- שהביקורת עליו/ה וממתינה אין מה לעשות איתה, ולכן אין לה יעד.
+             'review_id', (select rv.id from public.reviews rv
+                            where rv.id = n.related_review_id and rv.status = 'pending'
+                              and rv.agent_id is distinct from n.agent_id),
+             'review_agent_slug', (select m.slug from public.reviews rv
+                                     join public.agency_members m on m.id = rv.agent_id
+                                    where rv.id = n.related_review_id and rv.status = 'published')
+           ) order by n.created_at desc),
+           array_agg(n.id order by n.created_at desc),
+           array_agg(distinct n.type),
+           -- יש כאן משהו שמצדיק הודעה: התראה שאינה רקע, או רקע שחיכה עד התקציר
+           bool_or(not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
+                   or n.created_at <= now() - make_interval(mins => v_digest))
+      into v_items, v_ids, v_types, v_wake
+      from public.notifications n
+     where n.agent_id = a.agent_id
+       and not n.read
+       and n.type = any(a.whatsapp_types)
+       and (n.created_at > now() - make_interval(hours =>
+              case when n.type = any(v_prio) then v_look_p else v_look end)
+            -- רילס ותוכן שיווקי שנוצרו בשקט מחכים לסוף השקט (20270902090000)
+            or public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at))
+       and not exists (
+         select 1 from public.notification_push_log l
+          where l.agent_id = n.agent_id
+            and n.id = any(l.notification_ids)
+            -- התראה שנכנסה לשורה שלא יצאה טרם נשלחה. בלי התנאי הזה היא
+            -- הייתה נעלמת מכל הודעה עתידית, לנצח.
+            and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
+       -- תזכורת ישנה אינה עוקפת שעות שקט: היא מחכה לבוקר (20270422090000)
+       and not public.notification_push_stale_in_quiet(n.type, n.agent_id, n.created_at);
+
+    continue when v_items is null or not v_wake;
+
+    v_mode := case when a.in_service_window then 'text' else 'template' end;
+
+    insert into public.notification_push_log
+      (agent_id, notification_ids, types, channel_mode, whatsapp_status)
+    values (a.agent_id, v_ids, v_types, v_mode, 'pending')
+    returning id into v_log;
+
+    v_taken := v_taken + 1;
+
+    return query select v_log, a.agent_id, a.display_name, a.phone_e164,
+                        v_mode, v_items, jsonb_array_length(v_items);
+  end loop;
+end;
+$$;
+
+
+comment on function public.notification_push_claim(int) is
+  'כמו 20270902090000, ובנוסף meeting_id מ-related_meeting_id כדי שסגירת מיניסייט תוכל לשלוח כפתור scn: בלי הודעה ללקוח/ה (20271027150050).';
+
+revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
+grant execute on function public.notification_push_claim(int) to service_role;
