@@ -1,0 +1,46 @@
+name: מחפש/ת מהרשתות לביקוש הפתוח
+
+# social_buyer_open_demand_enabled נולד 0. ב-1 הטריגר שאחרי saved_searches
+# מעביר kind=buyer ל-open_demand בלי שם ובלי טלפון, ולא שולח התראה.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271028240000_social_buyer_open_demand.sql"
+      - "scripts/social_buyer_demand_test.py"
+      - ".github/workflows/social_buyer_demand.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271028240000_social_buyer_open_demand.sql"
+      - "scripts/social_buyer_demand_test.py"
+      - ".github/workflows/social_buyer_demand.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: לקוח Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: ביקוש פתוח
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+        run: python3 scripts/social_buyer_demand_test.py

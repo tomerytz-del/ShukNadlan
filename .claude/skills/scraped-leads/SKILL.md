@@ -46,6 +46,15 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 בליד שנוצר מהסכמה הקישור יושב ב-`raw_message` (נחשף בפתיחה) ולא ב-
 `property_details` (גלוי בליד נעול): הוא מזהה את האדם.
 
+מחפש/ת מפייסבוק או מאינסטגרם (`kind=buyer`) יכול/ה להיכנס לכאן בלי הסורק,
+רק כש-`social_buyer_open_demand_enabled` הוא 1. הדגל נולד 0. הטריגר
+`social_buyer_to_open_demand` רץ אחרי insert ל-`saved_searches` ולא נוגע
+ב-`social-lead-intake`, ב-`notify_agent_on_new_lead` או ב-
+`notifications_apply_preferences`. הוא כותב `open_demand` אנונימי
+(`raw_name` / `raw_phone` / `raw_message` ריקים) ולא קורא ל-
+`scraped_lead_notify_demand`. ההתראה יוצאת אחר כך מ-`scraped_leads_lifecycle`.
+המסלול המלא: `docs/social-leads.md`, "מחפש/ת לביקוש הפתוח".
+
 ## 3. "עובד/ת בעיר" ו"מתעסק/ת בסוג" - שתי פונקציות, שלושה צרכנים
 
 `agent_works_city` ו-`agent_handles_type` קובעות את הסוכן/ת שמקבל/ת ליד אחרי
