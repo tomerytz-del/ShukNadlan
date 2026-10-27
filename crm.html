@@ -6430,6 +6430,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-banner--warn{background:var(--nv-warn-soft);color:var(--nv-warn);font-weight:600}
   .ui-banner--warn .ui-link{color:var(--nv-warn);text-decoration:underline}
   .ui-banner--info{background:#F3F6FD;border:1px solid #DCE5FB;color:var(--nv-ink)}
+  .social-prompt{margin:0 0 16px}
+  .social-prompt-acts{display:flex;flex-wrap:wrap;gap:8px}
   .ui-banner--urgent{background:var(--nv-ink);color:#fff;font-weight:600}
   .ui-banner--urgent::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;background:var(--nv-urgent);
     box-shadow:0 0 0 4px rgba(194,65,12,.3)}
@@ -7835,6 +7837,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            docs/agent-onboarding.md). כל התוכן נבנה ב-renderOnboarding. -->
       <section class="onb2" id="onbGuide" hidden aria-labelledby="onbTitle"></section>
 
+
       <!-- ==========================================================
            "ראשי" — תמונת המצב
            ----------------------------------------------------------
@@ -7856,6 +7859,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="dash-brief" id="dashBrief" hidden></div>
           </div>
         </header>
+
+        <!-- ---------- "נתייג אותך בפרסומים" ----------
+             לכל סוכן/ת, חדש/ה וותיק/ה, שעוד לא אישר/ה תיוג - ולמנהל/ת גם כשהמשרד
+             לא אישר. לא צעד במדריך ההתחלה, כי המדריך אינו מגיע לוותיקים
+             (agent_onboarding_state מחזירה להם אפס שורות). נבנה ב-loadSocialPrompt,
+             ונעלם אחרי אישור או "לא עכשיו" (docs/social-tagging.md). -->
+        <div class="ui-banner ui-banner--info social-prompt" id="socialPrompt" hidden role="region" aria-label="תיוג בפרסומים">
+          <span class="ui-banner-text"><b>📣 רוצה שנתייג אותך בפרסומים?</b><br>
+            <span id="socialPromptText">כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.</span></span>
+          <span class="social-prompt-acts">
+            <button type="button" class="ui-btn" id="socialPromptGo">להוספת הרשתות</button>
+            <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptOffice" hidden>גם למשרד</button>
+            <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptLater">לא עכשיו</button>
+          </span>
+        </div>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
              (homeCoachSync ב-assets/crm-coach.js), ונבנית פעם אחת - כך שציור
