@@ -371,6 +371,37 @@ export function publishErrorText(message: string | null | undefined): string {
   return redactPublishError(message) ?? PUBLISH_FAILED;
 }
 
+/** הפונקציה עוד לא עלתה: יצירת הטיוטה ממשיכה בלי האזהרה. */
+export function draftElsewhereMissing(error: { code?: string } | null | undefined): boolean {
+  const code = String(error?.code || "");
+  return code === "42883" || code === "PGRST202";
+}
+
+/**
+ * אזהרה בזמן טיוטה, בלי שם של מתווך/ת ומשרד אחר. clear ו-unknown אינם אזהרה.
+ * החסימה עצמה נשארת בטריגר, במעבר ל-active.
+ */
+export function elsewhereDraftWarning(state: string | null | undefined): string | null {
+  if (state === "exclusive_elsewhere") {
+    return `${PUBLISH_EXCLUSIVE_ELSEWHERE} הטיוטה נשמרה, והפרסום ייעצר עד הסכם בלעדיות חתום.`;
+  }
+  if (state === "duplicate_elsewhere") {
+    return `${PUBLISH_DUPLICATE_ELSEWHERE} הטיוטה נשמרה.`;
+  }
+  if (state === "duplicate_same_agency") {
+    return `${PUBLISH_DUPLICATE_SAME} הטיוטה נשמרה.`;
+  }
+  return null;
+}
+
+/**
+ * כפתור שפג (שש שעות), "לא עכשיו" ו"לערוך" לא מוחקים את הטיוטה ולא מפרסמים.
+ * התזכורת השבועית בוחרת unpublished לפי unpublished_at, לא לפי כפתור פתוח.
+ */
+export function unpublishedAfterUnconfirmedPublish(_kind: "expired" | "no" | "edit"): "unpublished" {
+  return "unpublished";
+}
+
 export function reissueDecisionText(decision: ReissueDecision): string | null {
   switch (decision.kind) {
     case "run":

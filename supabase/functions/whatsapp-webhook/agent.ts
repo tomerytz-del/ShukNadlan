@@ -83,10 +83,12 @@ import {
   publishClickDecision,
   publishConfirmButtons,
   publishDecisionText,
+  draftElsewhereMissing,
+  elsewhereDraftWarning,
   publishErrorText,
   publishStoreBlocked,
   publishWritesNow,
-  redactPublishError,
+  unpublishedAfterUnconfirmedPublish,
   REISSUE_BUTTON_TTL_MS,
   reissueOldAgreementPlan,
   REISSUE_BUSY,
@@ -454,6 +456,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "יוצר נכס חדש בשם הסוכן/ת ולא מפרסם אותו. הנכס נשמר unpublished, " +
       "ובוואטסאפ יוצאים כפתורי פרסום. הוא לא באתר עד לאישור. " +
+      "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
+      "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished. " +
       "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
       "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
@@ -483,7 +487,9 @@ const TOOLS: Anthropic.Tool[] = [
       "ניחוש (מכירה/השכרה לפי מחיר, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
       "לשאול קודם (\"78 מסחריים סווגו לפי מחיר - לאשר?\") ולהעביר את הסוגים שאושרו ב-accept_guesses. " +
       "בלי accept_guesses, כשיש ניחושים, לא נקלט כלום וחוזר needs_confirmation. " +
-      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות.",
+      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות. " +
+      "הסטטוס הוא מהקובץ, ובלי עמודה הנכס נקלט active. זה לא מסלול השאלה של create_property: " +
+      "הסוכן/ת כבר אישר/ה את הקובץ, ואותה ליבה רצה באשף. מודעה של משרד אחר עדיין נחסמת בפרסום.",
     input_schema: {
       type: "object",
       properties: {
@@ -2100,6 +2106,39 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
   return { match: matches[0], total: matches.length };
 }
 
+/** אזהרה בלבד. כשל או פונקציה שטרם עלתה לא עוצרים את הטיוטה. */
+async function elsewhereDraftNote(
+  ctx: ToolContext,
+  payload: Record<string, unknown>,
+): Promise<string | null> {
+  const num = (v: unknown): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const floor = num(payload.floor);
+  try {
+    const { data, error } = await ctx.supabase.rpc("gabriela_draft_elsewhere", {
+      p_agent_id: ctx.agent.id,
+      p_agency_id: ctx.agent.agency_id,
+      p_city: payload.city == null ? null : String(payload.city),
+      p_street: payload.street == null ? null : String(payload.street),
+      p_house_number: payload.house_number == null ? null : String(payload.house_number),
+      p_rooms: num(payload.rooms),
+      p_floor: floor != null && Number.isInteger(floor) ? floor : null,
+      p_deal_type: payload.deal_type == null || payload.deal_type === "" ? null : String(payload.deal_type),
+    });
+    if (error) {
+      if (!draftElsewhereMissing(error)) console.error("draft elsewhere check failed", error.code);
+      return null;
+    }
+    return elsewhereDraftWarning(typeof data === "string" ? data : null);
+  } catch (err) {
+    console.error("draft elsewhere check failed", err);
+    return null;
+  }
+}
+
 /* העיר של המשרד (agencies.city_id). עד השווקים זו הייתה "עפולה" קבועה,
    ומשרד בחיפה שהכתיב "דירת 4 חדרים בהרצל" היה מקבל נכס בעפולה. שתי שאילתות
    ולא embed, וכל כשל נופל לעפולה. docs/regional-pages.md */
@@ -2257,10 +2296,13 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   if (error) {
     await returnPendingImages(ctx, images);
-    const safe = redactPublishError(error.message);
-    if (safe) console.error("create property blocked", error.code, error.message);
-    return { ok: false, error: safe || error.message };
+    console.error("create property blocked", error.code, error.message);
+    return { ok: false, error: publishErrorText(error.message) };
   }
+  // אזהרה בלבד, ורק בטיוטה. פרסום מיידי נחסם בטריגר והשגיאה כבר בטוחה.
+  const elsewhereWarning = payload.status === "active"
+    ? null
+    : await elsewhereDraftNote(ctx, payload);
 
   ctx.conv.last_property_id = data.id;
   if (!holdImages) ctx.conv.pending_images = [];
@@ -2287,6 +2329,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
       : {}),
     ...(hoodWarning || {}),
+    ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
     ...(payload.status === "active" ? { link: propertyLink(data.id) } : {}),
     ...propertyCreatedEdit(ctx, data.id, data.title),
   };
@@ -2531,7 +2574,9 @@ async function askPublishConfirm(
   return {
     ok: true,
     needs_confirmation: true,
-    guidance: "יצאו כפתורי אישור. אל תאמרי שהנכס פורסם.",
+    guidance:
+      "יצאו כפתורי אישור. אל תאמרי שהנכס פורסם. " +
+      "בלי לחיצה בתוך שש שעות, או בבחירה לא עכשיו, הנכס נשאר unpublished ולא נמחק.",
   };
 }
 
@@ -6715,7 +6760,11 @@ async function runPendingPublish(
   if ("missing" in loaded) return { text: PUBLISH_STORE_MISSING };
   if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
   const first = publishClickDecision(loaded.row, Date.now());
-  if (first.kind !== "run") return { text: publishDecisionText(first) || PUBLISH_BUSY };
+  if (first.kind !== "run") {
+    // פקיעה לא נוגעת בנכס. unpublishedAfterUnconfirmedPublish הוא החוזה עם התזכורת.
+    if (first.kind === "expired") void unpublishedAfterUnconfirmedPublish("expired");
+    return { text: publishDecisionText(first) || PUBLISH_BUSY };
+  }
 
   const nowIso = new Date().toISOString();
   const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
@@ -6826,7 +6875,10 @@ export async function listingActionReply(
 
   const publish = parsePublishButton(buttonId);
   if (!publish) return null;
-  if (publish.action === "no") return { text: "הנכס לא פורסם." };
+  if (publish.action === "no") {
+    void unpublishedAfterUnconfirmedPublish("no");
+    return { text: "הנכס לא פורסם." };
+  }
   if (publish.action === "edit") return publishEditReply(supabase, agent, publish);
   return runPendingPublish(supabase, agent, publish.requestId, publish.propertyId);
 }
@@ -6845,6 +6897,7 @@ async function publishEditReply(
     }
     propertyId = String(loaded.row.subject_id);
   }
+  void unpublishedAfterUnconfirmedPublish("edit");
   const url = crmPropertyLink(propertyId);
   if (!url) return { text: "אפשר לערוך את הנכס מאזור האישי." };
   return {
@@ -8112,7 +8165,9 @@ const SYSTEM_STATIC: string = (() => {
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
     "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאים שלושה כפתורים: לפרסם, לא עכשיו, לערוך. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
-      "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר.",
+      "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר. " +
+      "אם חזר elsewhere_warning - אמרי אותו כמו שהוא, בלי להוסיף שם. " +
+      "בלי לחיצה בתוך שש שעות, או בבחירה לא עכשיו, הנכס נשאר unpublished ולא נמחק.",
     "- פרסום (set_property_status עם active) שולח כפתורי אישור והנכס לא עולה לפניהם, " +
       "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הכפתור. sold, rented ו-archived לא מחכים לכפתור. " +
       "confirm=true מתפרסם רק כשאין כפתורים (מייל) ואחרי אישור מפורש.",
