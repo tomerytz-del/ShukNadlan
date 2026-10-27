@@ -191,6 +191,11 @@ UTILITY עם כפתור `לפתיחה` והבסיס `https://shuknadlan.co.il{{1
 ארבע (מנהל/ת המשרד, או מנהל/ת פלטפורמה). היא מחזירה 0 כשהדגל 0 או
 כשהחלון סגור, ואינה משתמשת ב-`agenda_reminder`.
 
+`lead_escalations` נקראת רק ב-`service_role`, בלי טלפון ובלי שם. למחפש/ת
+מהרשתות `lead_id` הוא ה-`search_id` שחוזר מ-`social-lead-intake` (הקליטה
+לא משתנה). ביקוש פתוח נכתב `escalated_4h` אחרי 4 שעות פתוחות אם אין
+תפיסה (`claimed_by`) ואין משיכה. השאילתה ב-`docs/notifications-center.md`.
+
 ‏`agenda_reminder` עוקף את שניהם (שעות וימים), בכוונה - "ביטלתי" שעה לפני
 פגישה בשבת חייב לצאת. **אבל רק בחצי השעה הראשונה** (‏`notif_push_urgent_fresh_minutes`,
 ‏`notification_push_stale_in_quiet`, ‏`20270422090000`): תזכורת ישנה יותר מחכה

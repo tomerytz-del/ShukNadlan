@@ -640,6 +640,30 @@ select public.notification_push_suppress(true);
 מנהל/ת המשרד, ואם אין, מנהל/ת הפלטפורמה. ליד בארכיון, ליד שכבר נענה,
 וליד ישן משבוע לא נכנסים. אין שליחה מהמיגרציה עצמה.
 
+`lead_escalations` (`20271028250000`) היא מה שגבריאלה קוראת לפי מזהה,
+בלי טלפון ובלי שם. `service_role` בלבד. `social-lead-intake` לא משתנה.
+
+```sql
+select stage, escalated_at, escalated_to_role, resolved_at, resolution
+  from public.lead_escalations
+ where lead_id = '<uuid>'
+ order by escalated_at;
+```
+
+לליד משויך ה-uuid הוא `leads.id`. למחפש/ת (`kind=buyer`) הוא ה-`search_id`
+שחוזר מ-`social-lead-intake` (`saved_searches.id`). שדה `lead_id` בתשובה
+הזאת נשאר ריק.
+
+`stage` הוא `reminder_2h` או `escalated_4h`. `escalated_to_role` הוא
+`agent`, `manager`, `platform_admin`, או `unclaimed`. `resolution` ריק
+כל עוד לא טופל: `opened` אחרי מענה, `claimed` אחרי תפיסה או משיכה,
+`closed` אחרי ארכיון.
+
+מחפש/ת שכבר בביקוש הפתוח נכתב/ת כ-`escalated_4h` / `unclaimed` אחרי 4
+שעות פתוחות (אותו חלון: שישי עד 13:00, וכלום עד ראשון 08:00) אם אין
+`claimed_by` ואין משיכה (`unlocked_at` מאוחר מ-`created_at`). תפיסה או
+משיכה בתוך ארבע השעות האלה לא נכתבת.
+
 ## בדיקה
 
 הטריגרים נבדקו על מופע Postgres מקומי מול סכימת עצמות: ביקורת `pending`
