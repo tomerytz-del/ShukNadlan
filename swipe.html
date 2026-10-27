@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<!-- דגל v10 (‏?beta=1 / ‏?beta=0), אותו קוד כמו ב-index.html. בלי הדגל הדף הזה אינו קיים: חזרה לדף הבית. docs/swipe-mode.md -->
+<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
+if(q==='1')localStorage.setItem('sk_beta_hero','1');
+if(q==='0')localStorage.removeItem('sk_beta_hero');
+if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}
+if(!document.documentElement.classList.contains('beta-hero'))location.replace('/');})();</script>
+<script src="assets/esc.js"></script>
+<script src="assets/events.js"></script>
+<script src="assets/markets.js"></script>
+<script src="assets/city-context.js"></script>
+<script src="assets/market-scope.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>גלישה בהחלקה | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA). הבלוק חוזר בכל דף: לאתר אין תבנית משותפת. docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js"></script>
+<!-- אימות הבעלות מול Google Search Console. docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<!-- ‏מצב ניסיון מאחורי דגל: לא באינדקס, לא ב-sitemap, והכתובת הקנונית היא דף הבית (‏PRIVATE ב-scripts/check_canonical.py) -->
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://shuknadlan.co.il/">
+<meta name="description" content="גלישה בהחלקה בין הנכסים באזור: ימינה לשמירה, שמאלה לדילוג, ולמעלה לפרטים ויצירת קשר.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/swipe.css">
+</head>
+<body class="sw-body">
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<main class="sw" id="sw">
+  <header class="sw-top">
+    <a class="sw-logo" href="/" aria-label="שוק נדל״ן - לדף הבית">
+      <img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">
+      <span>שוק נדל״ן</span>
+    </a>
+    <button type="button" class="sw-sum" id="swSum" aria-haspopup="dialog" aria-controls="swFilter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/></svg>
+      <span id="swSumText">כל הנכסים</span>
+    </button>
+    <div class="sw-top-end">
+      <button type="button" class="sw-ic" id="swFilterBtn" aria-label="סינון" aria-haspopup="dialog" aria-controls="swFilter">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+      </button>
+      <button type="button" class="sw-ic sw-help" id="swHelp" aria-label="איך זה עובד" title="איך זה עובד">?</button>
+      <button type="button" class="sw-ic sw-likes" id="swLikes" aria-label="נכסים שאהבתי">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
+        <b id="swLikesN">0</b>
+      </button>
+    </div>
+  </header>
+
+  <nav class="sw-views" role="tablist" aria-label="תצוגה">
+    <button type="button" role="tab" aria-selected="true" aria-controls="swDeckView" data-view="deck">החלקה</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="swListView" data-view="list">רשימה</button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="swMapView" data-view="map">מפה</button>
+  </nav>
+
+  <section class="sw-deck-view" id="swDeckView" role="tabpanel" aria-label="גלישה בהחלקה">
+    <div class="sw-keys" aria-hidden="true">
+      <span><kbd>→</kbd> שמירה</span><span><kbd>←</kbd> דילוג</span><span><kbd>↑</kbd> פרטים</span><span><kbd>רווח</kbd> תמונה</span>
+    </div>
+    <div class="sw-deck" id="swDeck" aria-live="polite"></div>
+    <div class="sw-actions" id="swActions">
+      <a class="sw-act sw-act-call" id="swCall" href="#" aria-label="התקשרות" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+      </a>
+      <button type="button" class="sw-act sw-act-skip" id="swSkip" aria-label="דילוג">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <button type="button" class="sw-act sw-act-undo" id="swUndo" aria-label="ביטול Z" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
+        <span class="sw-act-cap">ביטול Z</span>
+      </button>
+      <button type="button" class="sw-act sw-act-like" id="swLike" aria-label="שמירה">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
+      </button>
+      <a class="sw-act sw-act-wa" id="swWa" href="#" aria-label="וואטסאפ" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.7 15l-1.3 5 5.1-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.4.1-.2 0-.3 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <section class="sw-list-view" id="swListView" role="tabpanel" aria-label="רשימת הנכסים" hidden>
+    <p class="sw-list-count" id="swListCount"></p>
+    <div class="sw-list" id="swList"></div>
+  </section>
+
+  <section class="sw-map-view" id="swMapView" role="tabpanel" aria-label="מפת הנכסים" hidden>
+    <div class="sw-map" id="swMap"></div>
+    <div class="sw-map-chip" id="swMapChip" role="status" hidden>
+      <span>מפת הרקע לא זמינה כרגע</span>
+      <button type="button" id="swMapChipX" aria-label="סגירת ההודעה"><span aria-hidden="true">✕</span></button>
+    </div>
+  </section>
+</main>
+
+<!-- הסינון לפני ההחלקה -->
+<div class="sw-sheet-wrap" id="swFilter" role="dialog" aria-modal="true" aria-labelledby="swFilterTitle" hidden>
+  <div class="sw-scrim" data-close></div>
+  <div class="sw-sheet sw-fsheet">
+    <span class="sw-grip" aria-hidden="true"></span>
+    <div class="sw-fhead">
+      <h2 id="swFilterTitle">סינון</h2>
+      <button type="button" class="sw-link" id="swFReset">איפוס</button>
+    </div>
+    <div class="sw-fbody">
+      <div class="sw-tabs" role="tablist" aria-label="סוג עסקה" id="swFDeal">
+        <button type="button" role="tab" aria-selected="true" data-deal="sale">קנייה</button>
+        <button type="button" role="tab" aria-selected="false" data-deal="rent">שכירות</button>
+        <button type="button" role="tab" aria-selected="false" data-deal="commercial">מסחרי</button>
+      </div>
+      <h3 class="sw-flabel">אזור ויישוב</h3>
+      <div class="sw-chips" id="swFArea"></div>
+      <div class="sw-chips sw-sub" id="swFTowns" hidden></div>
+      <div class="sw-other" id="swFOther" hidden>
+        <div class="sw-tabs sw-tabs-sm" role="tablist" aria-label="אזור בארץ" id="swFOtherTabs">
+          <button type="button" role="tab" aria-selected="true" data-group="north">צפון</button>
+          <button type="button" role="tab" aria-selected="false" data-group="center">מרכז</button>
+          <button type="button" role="tab" aria-selected="false" data-group="south">דרום</button>
+        </div>
+        <div class="sw-chips" id="swFOtherList"></div>
+      </div>
+      <p class="sw-fnote" id="swFLocNote" role="status"></p>
+      <h3 class="sw-flabel" id="swFBudgetL">תקציב</h3>
+      <div class="sw-chips" id="swFBudget"></div>
+      <h3 class="sw-flabel" id="swFRoomsL">חדרים</h3>
+      <div class="sw-chips" id="swFRooms"></div>
+    </div>
+    <div class="sw-ffoot">
+      <p class="sw-fcount" id="swFCount" aria-live="polite"></p>
+      <button type="button" class="sw-gold" id="swFGo">התחילו להחליק</button>
+    </div>
+  </div>
+</div>
+
+<!-- פרטי הנכס (החלקה למעלה) -->
+<div class="sw-sheet-wrap" id="swSheet" role="dialog" aria-modal="true" aria-labelledby="swSheetTitle" hidden>
+  <div class="sw-scrim" data-close></div>
+  <div class="sw-sheet sw-dsheet">
+    <span class="sw-grip" aria-hidden="true"></span>
+    <button type="button" class="sw-x" data-close aria-label="סגירה"><span aria-hidden="true">✕</span></button>
+    <div class="sw-dscroll" id="swSheetBody"></div>
+    <div class="sw-cta-bar" id="swCtaBar">
+      <button type="button" class="sw-gold" id="swCta"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ההדרכה, פעמיים לכל מכשיר -->
+<div class="sw-tour" id="swTour" role="dialog" aria-modal="true" aria-labelledby="swTourText" hidden>
+  <div class="sw-tour-box">
+    <p class="sw-tour-step" id="swTourStep"></p>
+    <p class="sw-tour-text" id="swTourText"></p>
+    <div class="sw-tour-btns">
+      <button type="button" class="sw-white" id="swTourOk">הבנתי</button>
+      <button type="button" class="sw-link sw-link-light" id="swTourSkip">דלג על ההדרכה</button>
+    </div>
+  </div>
+</div>
+
+<div class="sw-toast" id="swToast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/map-tiles.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" defer
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/swipe.js" defer></script>
+</body>
+</html>
