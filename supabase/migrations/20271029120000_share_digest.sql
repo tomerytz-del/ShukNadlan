@@ -268,6 +268,7 @@ begin
 
   for ag in
     select m.id,
+           m.tier,
            nullif(btrim(coalesce(m.phone_e164, '')), '') as phone,
            coalesce(
              (select c.last_message_at > pg_catalog.now() - interval '23 hours'
@@ -319,8 +320,11 @@ begin
          and l.created_at > pg_catalog.now() - interval '24 hours'
          and public.notification_push_log_holds(l.whatsapp_status, l.created_at)
     );
+    -- מסלול free לא מחובר לגבריאלה, ולכן אין לו וואטסאפ. הסיכום נשאר בפעמון.
     -- בחלון: הודעה אחת עם רשימה. מחוץ לחלון: רק אם עוד אין תבנית היום.
-    v_suppress := ag.phone is null or (not ag.in_window and v_tpl);
+    v_suppress := ag.tier is distinct from 'mid' and ag.tier is distinct from 'premium'
+      or ag.phone is null
+      or (not ag.in_window and v_tpl);
 
     insert into public.notifications (agent_id, type, title, body, suppress_push)
     values (
@@ -409,7 +413,7 @@ end;
 $$;
 
 comment on function public.share_digest_build() is
-  'סיכום שיתופים אחד לסוכן/ת, בחלון של 10 דקות אחרי share_digest_hhmm (ברירת מחדל 12:30 ישראל). דגל כבוי: 0. לא שולח תבנית שנייה באותו יום.';
+  'סיכום שיתופים אחד לסוכן/ת, בחלון של 10 דקות אחרי share_digest_hhmm (ברירת מחדל 12:30 ישראל). דגל כבוי: 0. לא שולח תבנית שנייה באותו יום. מסלול שאינו mid או premium נשאר בפעמון.';
 
 revoke all on function public.share_digest_build() from public, anon, authenticated;
 grant execute on function public.share_digest_build() to service_role;

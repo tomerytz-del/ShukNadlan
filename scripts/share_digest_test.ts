@@ -37,6 +37,7 @@ check(
 );
 check("סוג חדש", sql.includes("notification_types_add(array['share_digest'])"));
 check("תבנית אחת", sql.includes("l.channel_mode = 'template'") && sql.includes("not ag.in_window and v_tpl"));
+check("free בלי וואטסאפ", sql.includes("ag.tier is distinct from 'mid' and ag.tier is distinct from 'premium'"));
 check("תצוגה בלי טלפון", sql.includes("agent_first_name text") && !/phone/.test(
   sql.slice(sql.indexOf("function public.share_digest_preview"), sql.indexOf("comment on function public.share_digest_preview")),
 ));
