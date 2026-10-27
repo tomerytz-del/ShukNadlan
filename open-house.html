@@ -11,6 +11,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<!-- מצב ניסיון v10 (‏?beta=1 / localStorage.sk_beta_hero), כמו בדף הבית. בלי הדגל - הדף של היום -->
+<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
+if(q==='1')localStorage.setItem('sk_beta_hero','1');
+if(q==='0')localStorage.removeItem('sk_beta_hero');
+if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יריד הבתים הפתוחים - דירות ללא עמלת תיווך בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -483,6 +488,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/regional-pages.md) -->
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
+<!-- v10 בלבד (חלק 7 §A): יוצאים מיד בלי הדגל -->
+<script defer src="assets/fair-signup.js"></script>
+<script defer src="assets/open-house-v10.js"></script>
 <script defer src="assets/market-text.js"></script>
 </head>
 <body>
@@ -1159,7 +1167,7 @@ const fairShelf = PropShelf.create({
   rowExtra: p => OpenHouse.countdownHtml(p, { className:'oh-row-countdown', label:false }),
   /* כמה שווה ה"ללא עמלת תיווך" על הנכס הזה, מתחת למחיר - באריח ובשורה
      הדחוסה (‏cfg.priceExtra ב-assets/prop-shelf.js) */
-  priceExtra: fairSaveHtml,
+  priceExtra: document.documentElement.classList.contains('beta-hero') ? null : fairSaveHtml,   // v10: בלי מספר שמשתנה
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים ביריד`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
@@ -1436,6 +1444,9 @@ signupForm.addEventListener('submit', async (e) => {
 (async function initFair(){
   try{
     const list = await loadFairProperties();
+    // ‏assets/open-house-v10.js (רק עם הדגל) בונה מעל אותם נתונים
+    window.__fairState = { list };
+    document.dispatchEvent(new CustomEvent('fair:loaded', { detail: { list } }));
     if (!list.length){
       /* יחידה אחת במקום שתיים: הטופס עובר אל תוך ההודעה, והרצועה שממנה
          הגיע יורדת. ‏appendChild מזיז את האלמנט עם המאזינים שכבר עליו —

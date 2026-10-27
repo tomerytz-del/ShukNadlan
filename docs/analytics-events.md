@@ -450,3 +450,6 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `article_card_open` (‏`via`) | **פרמטר חדש, רק עם דגל v10**: הכתבה נפתחת בגיליון בתוך ההחלקה, ולא כקישור | `article_id`, `via`: ‏`button` \| `like` \| `up` \| `tap` |
 | `article_sheet_full_click` | **v10**: "להמשך הכתבה ←" בגיליון הכתבה | `article_id` |
 | `swipe_start` (‏`fair`) | **פרמטר חדש, רק עם דגל v10**: ההחלקה התחילה עם המתג "רק דירות ללא עמלת תיווך" | `fair`: ‏`1` |
+| `fair_view` | **v10**: `/open-house` נטען עם הדגל | `state`: ‏`live` \| `empty`, `n` (כמה דירות ביריד) |
+| `fair_agent_cta` | **v10**: כפתור בבלוק "רוצים להכניס דירה ליריד?" ב-`/open-house` | `cta`: ‏`add` \| `join` |
+| `fair_signup_open` (‏`via`) | **ערך חדש, רק עם דגל v10**: מגע ראשון בטופס היריד v2 בדף | `via`: ‏`page` |
