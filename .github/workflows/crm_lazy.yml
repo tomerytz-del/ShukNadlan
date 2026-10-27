@@ -1,0 +1,35 @@
+name: סקריפטי ה-CRM לא חוסמים ציור
+
+# מסך הכניסה חיכה לסקריפטים שב-head. הם defer, והכבדים (מפה, הסכמים,
+# GovMap) נטענים רק כשהמסך שלהם נפתח. הבדיקה קוראת קבצים, בלי דפדפן.
+
+on:
+  pull_request:
+    paths:
+      - "crm.html"
+      - "assets/crm-lazy.js"
+      - "scripts/crm_lazy_test.mjs"
+      - "scripts/check_gtm.py"
+      - ".github/workflows/crm_lazy.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crm.html"
+      - "assets/crm-lazy.js"
+      - "scripts/crm_lazy_test.mjs"
+      - "scripts/check_gtm.py"
+      - ".github/workflows/crm_lazy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת הדחייה
+        run: node scripts/crm_lazy_test.mjs
+      - name: תגיות GTM
+        run: python3 scripts/check_gtm.py

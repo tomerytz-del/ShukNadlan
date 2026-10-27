@@ -828,12 +828,33 @@ function showScreen(name){
   // הפאנלים המכווצים נמדדים רק כשהם באמת על המסך: אלמנט בתוך display:none
   // מחזיר scrollHeight אפס, וחצי מאפס אינו חצי
   if (onDashboard) requestAnimationFrame(dashPanelsMeasure);
+  // בלי ?goto= המסך הוא הבית. דוחים את המדידה כדי שהשאילתות יצאו קודם.
+  if (onDashboard && !new URLSearchParams(location.search).get('goto')){
+    const idle = window.requestIdleCallback || (fn => setTimeout(fn, 2000));
+    idle(() => armTrackers(), { timeout: 4000 });
+  }
 }
 
 /* הודעה שממתינה למסך הכניסה. נחוצה כי כשחוזרים מ-Google עם שגיאה, המסך שמוצג
    בסוף הוא מסך הכניסה — ובלי זה הסוכן/ת פשוט "מוצא/ת את עצמו/ה" מול טופס
    הסיסמה בלי שום הסבר למה ההתחברות לא עבדה. */
 let pendingAuthMessage = '';
+
+/* מדידה אחרי שהמסך כבר מצויר. gtm.js מושך גם את gtag ואת פיקסל Meta,
+   ובקו איטי הם התחרו בציור. ההסכמה נשארת מה שמכולת GTM מגדירה. */
+let trackersFallbackArmed = false;
+function armTrackers(delay){
+  const run = () => {
+    if (window.shukArmTrackers) window.shukArmTrackers();
+  };
+  if (!delay){
+    requestAnimationFrame(() => requestAnimationFrame(run));
+    return;
+  }
+  if (trackersFallbackArmed) return;
+  trackersFallbackArmed = true;
+  setTimeout(run, delay);
+}
 
 function showLoginCard(message){
   clearTimeout(bootWatchdog);
@@ -865,6 +886,8 @@ function showLoginCard(message){
   document.getElementById('authJoinWrap').style.display = (invited || openingAgency) ? 'none' : '';
   resetGoogleButton();
   showScreen('login');
+  // ביקור שנשאר על מסך הכניסה עדיין נמדד, אחרי שהטופס כבר על המסך
+  armTrackers(12000);
 }
 
 function showBootCard(message){
@@ -2418,21 +2441,21 @@ function handleGotoParam(){
       location.pathname + (search ? '?' + search : '') + location.hash);
   }
 
-  if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
+  if (raw === 'adminOps'){ openAdminOpsPanel(); armTrackers(); return; }
   /* פעולות שאינן קטגוריה (CRM_ACTIONS): ‏?goto=cma פותח את בחירת הנכס לדוח,
      ‏?goto=cmaAddress את הטופס לכתובת. כך המנטור, גבריאלה והעזרה מקשרים
      ישר לפעולה ולא רק למסך. */
-  if (Object.prototype.hasOwnProperty.call(CRM_ACTIONS, raw)){ CRM_ACTIONS[raw](); return; }
-  if (raw === 'license'){ openLicenseCard(); return; }
-  if (raw === 'adminHome'){ openAdminHome(); return; }
-  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
+  if (Object.prototype.hasOwnProperty.call(CRM_ACTIONS, raw)){ CRM_ACTIONS[raw](); armTrackers(); return; }
+  if (raw === 'license'){ openLicenseCard(); armTrackers(); return; }
+  if (raw === 'adminHome'){ openAdminHome(); armTrackers(); return; }
+  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)){ armTrackers(); return; }
   /* יעד של ניהול הפלטפורמה (כל פריט בקבוצות a* של NAV_GROUPS, גם פאנל
      dashPanel*) מעביר קודם לתצוגת הניהול - אחרת הוא מוסתר, והקישור נוחת
      על הדשבורד של הסוכן/ת. docs/admin-navigation.md */
   let switched = false;
   if (NAV_TAB_OF.get(raw) === 'admin' && currentAgent && currentAgent.is_platform_admin
       && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
-  if (!navAccVisible(accAliasTarget(raw))) return;
+  if (!navAccVisible(accAliasTarget(raw))){ armTrackers(); return; }
   gotoSection(raw);
   /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
      גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
@@ -2460,6 +2483,7 @@ function handleGotoParam(){
   if (raw === 'accPlanning') runPlanningFromParam(planQ);
   // ‏lead_prefs_default (notification-push, itemPath): חלק העדפות הלידים מקופל
   if (raw === 'accPrefs' && focus === 'lead_prefs' && typeof openLeadPrefs === 'function') openLeadPrefs();
+  armTrackers();
 }
 
 /* ‏?goto=accPlanning&plan_city=…&plan_street=…&plan_num=… (או plan_gush +
@@ -10705,6 +10729,7 @@ async function govmapPlanningLookup(q, feedback, upgradeNotice){
     upgradeNotice.style.display = 'block';
     return;
   }
+  if (window.crmNeed) await Promise.all([crmNeed('govmap'), crmNeed('map')]);
   if (!window.GovmapLookup){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'לא הצלחנו לטעון את GovMap - נסו לרענן את הדף';
@@ -10841,7 +10866,14 @@ function renderPlanningResult(d){
   // מפת החלקה — נבנית מחדש בכל חיפוש (Leaflet לא תומך ביצירה כפולה על אותו div)
   const mapEl = document.getElementById('planMap');
   if (planningMap){ planningMap.remove(); planningMap = null; }
-  if (!window.L || !d.lat || !d.lng){ mapEl.style.display = 'none'; return; }
+  if (!window.L || !d.lat || !d.lng){
+    mapEl.style.display = 'none';
+    if (d.lat && d.lng && window.crmNeed && !d._mapLibs){
+      d._mapLibs = true;
+      crmNeed('map').then(() => renderPlanningResult(d));
+    }
+    return;
+  }
   mapEl.style.display = 'block';
 
   /* מפה בגובה 280px בתוך פאנל נגלל היא מלכודת גלילה: הגלגלת מעליה הייתה
@@ -10972,6 +11004,7 @@ async function loadBranding(agencyId){
     }
     if (brAreaPicker) brAreaPicker.set({ kind: def.kind, markets: def.markets });
   });
+  if (window.crmNeed && !window.Specialties) await crmNeed('specialties');
   const stored = agency.colors || {};
   // שורה בלי צבע ראשי היא ברירת המחדל - כך נשמרת, וכך נראים כל המשרדים
   // שמעולם לא נגעו במקטע הזה
@@ -12261,6 +12294,10 @@ function syncOpenHouseFields(){
   startEl.min = openHouseToday();
   endEl.min = startEl.value || openHouseToday();
 
+  if (!window.OpenHouse){
+    if (window.crmNeed) crmNeed('property').then(syncOpenHouseFields);
+    return;
+  }
   const err = openHouseError();
   note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
   if (err){ note.textContent = err; return; }
@@ -15088,6 +15125,7 @@ async function loadPropertyViewCounts(propertyIds){
 }
 
 async function loadProperties(agentId){
+  const libsP = window.crmNeed ? crmNeed('property') : Promise.resolve();
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
@@ -15129,6 +15167,7 @@ async function loadProperties(agentId){
   dashProperties = props || [];
   myPropertyRows = props || [];
   myPropertyAgentId = agentId;
+  await libsP;
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
@@ -26266,7 +26305,16 @@ function scrollToTopOf(el){
 /* ---------- ניווט מהדשבורד אל הקטגוריה המלאה ----------
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
+function prefetchSectionLibs(accId){
+  if (!window.crmNeed || !accId) return;
+  if (accId === 'accProperties' || accId === 'accPlanning') crmNeed('property');
+  if (accId === 'accPlanning'){ crmNeed('map'); crmNeed('govmap'); }
+  if (accId === 'accAgreements') crmNeed('agreements');
+  if (accId === 'accProfile' || accId === 'accBranding') crmNeed('specialties');
+}
+
 function gotoSection(accId, focusId, opts){
+  prefetchSectionLibs(accId);
   const scrollSel = opts && opts.scrollTo;
   if ((scrollSel === '#setLeadPrefs' || scrollSel === '#setOwnerSwitch')
       && typeof openLeadPrefsSheet === 'function'
@@ -32148,6 +32196,7 @@ const agrKindLabel = kind => { const t = agrTpl(kind); return t ? t.docTitle : k
 /* ---------- טעינה ורשימה ---------- */
 
 async function loadAgreements(){
+  const libsP = window.crmNeed ? crmNeed('agreements') : Promise.resolve();
   const listEl = document.getElementById('agreementsList');
   if (!listEl) return;
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -32165,6 +32214,7 @@ async function loadAgreements(){
             'signers:agreement_signers(id, agreement_id, ord, party, full_name, phone, email, ' +
             'signed_at, method, viewed_at, mail_sent_at, mail_error, self_fill, details_filled_at, client_id)')
     .order('created_at', { ascending:false });
+  await libsP;
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">' + (missingSchema(error)
