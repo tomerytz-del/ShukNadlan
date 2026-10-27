@@ -105,6 +105,8 @@ function fakeSb(opts: {
   work?: { lead_id: string; agent_id: string; stage: string }[];
   openError?: boolean;
   notifyError?: boolean;
+  notifyWindowError?: boolean;
+  notices?: { type?: string; related_lead_id?: string; title?: string; created_at?: string }[];
   touchError?: string;
   touchMissing?: boolean;
 }) {
@@ -118,6 +120,7 @@ function fakeSb(opts: {
     const self = () => q;
     q.select = self;
     q.eq = (k: string, v: unknown) => { filters[k] = v; return q; };
+    q.gt = (k: string, v: unknown) => { filters[k] = v; return q; };
     q.gte = (k: string, v: unknown) => { filters[k] = v; return q; };
     q.is = (k: string, v: unknown) => { filters[k] = v; return q; };
     q.in = (k: string, v: unknown) => { filters[k] = v; return q; };
@@ -171,7 +174,18 @@ function fakeSb(opts: {
         });
       }
       if (table === "notifications") {
-        return chain("notifications", "notify", async (_filters, payload) => {
+        return chain("notifications", "notify", async (filters, payload) => {
+          if (!payload) {
+            if (opts.notifyWindowError) return { data: null, error: { code: "57014" } };
+            const since = filters.created_at;
+            const rows = (opts.notices ?? []).filter((n) => {
+              if (filters.type !== undefined && n.type !== filters.type) return false;
+              if (filters.related_lead_id !== undefined && n.related_lead_id !== filters.related_lead_id) return false;
+              if (typeof since === "string" && !(String(n.created_at) > since)) return false;
+              return true;
+            });
+            return { data: rows.slice(0, 1), error: null };
+          }
           if (opts.notifyError) return { data: null, error: { code: "42501" } };
           notes.push((payload ?? {}) as Record<string, unknown>);
           return { data: null, error: null };
@@ -193,17 +207,19 @@ const base: AttachInput = {
   sourceLabel: "טופס לידים במטא · מוכר/ת",
   internal: true,
 };
+/** פנייה עם שולחן. בלי משרד ובלי סוכן/ת זו פניית פלטפורמה, והיא אינה נשאלת. */
+const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
 
 {
   const none = fakeSb({ phone: null });
-  const miss = await attachToOpenLead(none, base);
+  const miss = await attachToOpenLead(none, desk);
   ok("טלפון שלא מנורמל אינו כפילות", miss === null);
   ok("בלי נרמול אין קריאה ללידים", none.calls.every((c) => c.op === "rpc"));
 }
 
 {
   const broken = fakeSb({ phone: "972501234567", leadsError: { code: "42703" } });
-  ok("עמודה שטרם עלתה מדלגת וממשיכה ל-insert", await attachToOpenLead(broken, base) === null);
+  ok("עמודה שטרם עלתה מדלגת וממשיכה ל-insert", await attachToOpenLead(broken, desk) === null);
   ok("אין עדכון כשהעמודה חסרה", broken.updates.length === 0);
 }
 
@@ -234,6 +250,10 @@ const base: AttachInput = {
   const touchAt = sb.calls.findIndex((c) => c.table === "lead_phone_touch");
   const noteAt = sb.calls.findIndex((c) => c.table === "notifications");
   ok("העדכון במסד לפני ההתראה", touchAt >= 0 && noteAt > touchAt);
+  const windowQ = sb.calls.find((c) => c.table === "notifications" && !c.payload);
+  ok("חלון ההתראה נשאל לפי סוג, ליד, ו-24 שעות",
+    windowQ?.filters.type === "new_lead" && windowQ?.filters.related_lead_id === "lead-1" &&
+    typeof windowQ?.filters.created_at === "string");
 }
 
 {
@@ -253,7 +273,7 @@ const base: AttachInput = {
     leads: [{ id: "closed", agent_id: "agt", status: "unlocked", created_at: recent, raw_message: "נסגר" }],
     work: [{ lead_id: "closed", agent_id: "agt", stage: "won" }],
   });
-  ok("ליד שנסגר אינו בולע פנייה חדשה", await attachToOpenLead(sb, base) === null && sb.updates.length === 0);
+  ok("ליד שנסגר אינו בולע פנייה חדשה", await attachToOpenLead(sb, desk) === null && sb.updates.length === 0);
 }
 
 {
@@ -262,15 +282,15 @@ const base: AttachInput = {
     leads: [{ id: "arch", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent }],
     archived: ["arch"],
   });
-  ok("ליד בארכיון אינו פתוח", await attachToOpenLead(sb, base) === null);
+  ok("ליד בארכיון אינו פתוח", await attachToOpenLead(sb, desk) === null);
 }
 
 {
   const short = fakeSb({ phone: "972501234567", leads: [] });
-  ok("פחות מ-9 ספרות אינה כפילות", await attachToOpenLead(short, { ...base, phone: "12" }) === null);
+  ok("פחות מ-9 ספרות אינה כפילות", await attachToOpenLead(short, { ...desk, phone: "12" }) === null);
   ok("פחות מ-9 ספרות אינה נרמול", short.calls.length === 0);
   const empty = fakeSb({ phone: "972501234567", leads: [] });
-  ok("אין ליד בחלון - ממשיכים ל-insert", await attachToOpenLead(empty, base) === null && empty.updates.length === 0);
+  ok("אין ליד בחלון - ממשיכים ל-insert", await attachToOpenLead(empty, desk) === null && empty.updates.length === 0);
 }
 
 {
@@ -279,7 +299,7 @@ const base: AttachInput = {
     leads: [{ id: "lead-1", agent_id: "agt", status: "masked", created_at: recent, raw_message: null }],
     openError: true,
   });
-  ok("בדיקת פתוח שנכשלה אינה ממזגת", await attachToOpenLead(sb, base) === null && sb.updates.length === 0);
+  ok("בדיקת פתוח שנכשלה אינה ממזגת", await attachToOpenLead(sb, desk) === null && sb.updates.length === 0);
 }
 
 {
@@ -287,17 +307,17 @@ const base: AttachInput = {
     phone: "972501234567",
     leads: [{ id: "hid", agent_id: "agt", agency_id: "ag1", status: "masked", created_at: recent }],
   });
-  ok("ליד מוסתר אינו בולע פנייה", await attachToOpenLead(masked, base) === null && masked.notes.length === 0);
+  ok("ליד מוסתר אינו בולע פנייה", await attachToOpenLead(masked, desk) === null && masked.notes.length === 0);
   const pending = fakeSb({
     phone: "972501234567",
     leads: [{ id: "pay", agent_id: "agt", agency_id: "ag1", status: "pending_charge", created_at: recent }],
   });
-  ok("ליד שממתין לחיוב אינו בולע פנייה", await attachToOpenLead(pending, base) === null);
+  ok("ליד שממתין לחיוב אינו בולע פנייה", await attachToOpenLead(pending, desk) === null);
   const loose = fakeSb({
     phone: "972501234567",
     leads: [{ id: "free", agent_id: null, agency_id: "ag1", status: "unlocked", created_at: recent }],
   });
-  ok("ליד בלי סוכן/ת אינו בולע פנייה", await attachToOpenLead(loose, base) === null);
+  ok("ליד בלי סוכן/ת אינו בולע פנייה", await attachToOpenLead(loose, desk) === null);
 }
 
 {
@@ -336,6 +356,62 @@ const base: AttachInput = {
 }
 
 {
+  const openLead: OpenLeadRow = {
+    id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent, raw_message: "ישן",
+  };
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const recentOriginal = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notices: [{ type: "new_lead", related_lead_id: "lead-1", title: "ליד חדש: בעל נכס", created_at: hourAgo }],
+  });
+  const quiet = await attachToOpenLead(recentOriginal, desk);
+  ok("new_lead מהיממה האחרונה חוסם התראה חוזרת",
+    quiet?.lead_id === "lead-1" && recentOriginal.updates.length === 1 && recentOriginal.notes.length === 0);
+  const repeatTitle = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notices: [{ type: "new_lead", related_lead_id: "lead-1", title: "פנייה נוספת על ליד קיים", created_at: hourAgo }],
+  });
+  const again = await attachToOpenLead(repeatTitle, { ...desk, externalRef: "998878" });
+  ok("פנייה נוספת שנייה בתוך 24 שעות נוגעת בליד בלי התראה",
+    again?.lead_id === "lead-1" && repeatTitle.updates.length === 1 && repeatTitle.notes.length === 0);
+  const oldNotice = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notices: [{
+      type: "new_lead", related_lead_id: "lead-1", title: "פנייה נוספת על ליד קיים",
+      created_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+    }],
+  });
+  const after = await attachToOpenLead(oldNotice, { ...desk, externalRef: "998879" });
+  ok("התראה מלפני יותר מ-24 שעות אינה חוסמת",
+    after?.lead_id === "lead-1" && oldNotice.notes.length === 1 && oldNotice.notes[0].title === "פנייה נוספת על ליד קיים");
+  const otherLead = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notices: [{ type: "new_lead", related_lead_id: "lead-9", title: "ליד חדש", created_at: hourAgo }],
+  });
+  ok("new_lead של ליד אחר אינו חוסם",
+    (await attachToOpenLead(otherLead, { ...desk, externalRef: "998880" }))?.lead_id === "lead-1" && otherLead.notes.length === 1);
+  const otherType = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notices: [{ type: "system", related_lead_id: "lead-1", title: "מערכת", created_at: hourAgo }],
+  });
+  ok("התראה שאינה new_lead אינה חוסמת",
+    (await attachToOpenLead(otherType, { ...desk, externalRef: "998881" }))?.lead_id === "lead-1" && otherType.notes.length === 1);
+  const brokenWindow = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notifyWindowError: true,
+  });
+  const safe = await attachToOpenLead(brokenWindow, { ...desk, externalRef: "998882" });
+  ok("כשל בבדיקת החלון מדלג על ההתראה ומשאיר את המגע",
+    safe?.lead_id === "lead-1" && brokenWindow.updates.length === 1 && brokenWindow.notes.length === 0);
+}
+
+{
   const sb = fakeSb({
     phone: "972501234567",
     touchError: "42501",
@@ -360,7 +436,7 @@ const base: AttachInput = {
     raw_message: "כתבתי בדף",
   });
   const onlyPage = fakeSb({ phone: "972501234567", leads: [page("p", "agency_page")] });
-  ok("ליד מדף משרד אינו בולע פניית פלטפורמה", await attachToOpenLead(onlyPage, base) === null && onlyPage.updates.length === 0 && onlyPage.notes.length === 0);
+  ok("ליד מדף משרד אינו בולע פניית פלטפורמה", await attachToOpenLead(onlyPage, base) === null && onlyPage.calls.length === 0);
   const agentPage = fakeSb({ phone: "972501234567", leads: [page("p", "agent_page")] });
   ok("ליד מדף סוכן/ת אינו בולע פניית פלטפורמה", await attachToOpenLead(agentPage, base) === null);
   const prefixed = fakeSb({ phone: "972501234567", leads: [page("p", "agency_page_owner_wizard")] });
@@ -378,7 +454,7 @@ const base: AttachInput = {
     ],
   });
   const hit = await attachToOpenLead(mixed, base);
-  ok("ליד משויך אינו יעד של פניית פלטפורמה, וליד דף אינו נבחר במקומו", hit === null && mixed.updates.length === 0);
+  ok("ליד משויך אינו יעד של פניית פלטפורמה, וליד דף אינו נבחר במקומו", hit === null && mixed.calls.length === 0);
 
   const nullSource = fakeSb({
     phone: "972501234567",
@@ -390,7 +466,7 @@ const base: AttachInput = {
   ok("source ריק עם משרד אינו בולע פניית פלטפורמה",
     !isPlatformTarget({ agency_id: "ag-old", agent_id: "agt", source: null }) &&
     await attachToOpenLead(nullSource, { ...base, matchAddress: true, city: "עפולה", address: "הרצל 12" }) === null &&
-    nullSource.updates.length === 0);
+    nullSource.calls.length === 0);
   ok("source ריק עם סוכן/ת בלבד אינו יעד פלטפורמה", !isPlatformTarget({ agency_id: null, agent_id: "agt", source: null }));
   ok("בלי משרד ובלי סוכן/ת ובלי דף זה יעד פלטפורמה", isPlatformTarget({ agency_id: null, agent_id: null, source: null }));
   ok("דף בלי משרד אינו יעד פלטפורמה", !isPlatformTarget({ agency_id: null, agent_id: null, source: "agency_page" }));
@@ -398,7 +474,8 @@ const base: AttachInput = {
     phone: "972501234567",
     leads: [{ id: "u", agent_id: null, agency_id: null, status: "unlocked", source: null, created_at: recent }],
   });
-  ok("יעד פלטפורמה בלי סוכן/ת אינו נבלע", await attachToOpenLead(unassigned, base) === null && unassigned.updates.length === 0);
+  ok("יעד פלטפורמה בלי סוכן/ת אינו נבלע, ובלי קריאה למסד",
+    await attachToOpenLead(unassigned, base) === null && unassigned.calls.length === 0);
 
   const sameDeskPage = fakeSb({
     phone: "972501234567",
@@ -457,18 +534,20 @@ const base: AttachInput = {
     leads: [{ ...stored("הרצל 12"), source: "agency_page", agency_id: "ag-page", id: "page-own" }],
   });
   ok("גם עם אותה כתובת, ליד דף אינו בולע פניית פלטפורמה",
-    await attachToOpenLead(pageAddr, { ...ownerBase, agencyId: null, agentId: null }) === null && pageAddr.updates.length === 0);
+    await attachToOpenLead(pageAddr, { ...ownerBase, agencyId: null, agentId: null }) === null && pageAddr.calls.length === 0);
 }
 
 {
   const rows = pageLeadInsertAttempts({ city: "עפולה" }, "property_inquiry", "agency_page");
   ok("כל ניסיון insert של ליד דף נושא source",
-    rows.length === 3 && rows.every((row) => row.source === "agency_page"));
+    rows.length === 2 && rows.every((row) => row.source === "agency_page"));
+  ok("אין שני ניסיונות זהים לפני הנפילה לבעלים",
+    rows[0].lead_type === "property_inquiry" && rows[1].lead_type === "owner_inbound");
   ok("הניסיון האחרון שומר source גם כשהסוג יורד",
-    rows[2].lead_type === "owner_inbound" && rows[2].source === "agency_page");
+    rows[1].lead_type === "owner_inbound" && rows[1].source === "agency_page");
   const ownerRows = pageLeadInsertAttempts({ city: "עפולה" }, "owner_inbound", "agent_page");
-  ok("ליד בעלים מדף סוכן/ת נושא source בכל ניסיון",
-    ownerRows.every((row) => row.source === "agent_page" && row.lead_type === "owner_inbound"));
+  ok("ליד בעלים מדף סוכן/ת הוא ניסיון אחד עם source",
+    ownerRows.length === 1 && ownerRows[0].source === "agent_page" && ownerRows[0].lead_type === "owner_inbound");
 }
 
 // ---------------------------------------------------------------------------

@@ -8,17 +8,18 @@
 //
 // נמצא, ורק לקורא פנימי (service role): לא מכניסים שורה ולא מריצים רוטציה.
 // lead_phone_touch מוסיף את ההודעה ל-raw_message ואת המקור ל-source_touches
-// ב-update אחד. רק אם העדכון הצליח, הסוכן/ת שכבר רואה/ה את הליד מקבל/ת
-// התראת new_lead עם כותרת "פנייה נוספת" (בלי רוטציה). כישלון העדכון מחזיר
-// null והקורא מכניס שורה חדשה. כישלון ההתראה אחרי עדכון שהצליח אינו פותח
+// ב-update אחד. רק אם העדכון הצליח, והליד לא קיבל new_lead ב-24 השעות
+// האחרונות, הסוכן/ת שכבר רואה/ה את הליד מקבל/ת התראת new_lead עם כותרת
+// "פנייה נוספת" (בלי רוטציה). כישלון העדכון מחזיר null והקורא מכניס שורה
+// חדשה. כישלון ההתראה, או כשל בבדיקת החלון, אחרי עדכון שהצליח אינו פותח
 // ליד שני. ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
 //
 // שולחן: כשיש agency_id ו-agent_id בפנייה, שניהם חייבים להתאים. פניית
-// פלטפורמה (בלי שניהם) מצמידה רק ליעד שגם לו אין משרד ואין סוכן/ת, וש-
-// source שלו אינו דף. source ריק עם משרד או סוכן/ת אינו יעד. בעל/ת נכס מצמיד/ה רק
-// לאותה עיר ואותו רחוב, ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת
-// באחד הצדדים אין הצמדה. פנייה על נכס בלי property_id (מחשבון תשואה)
-// אינה מצמידה.
+// פלטפורמה (מטא או רשת, בלי שניהם) אינה מתמזגת לפי טלפון בכלל: יעד בלי
+// סוכן/ת אינו גלוי, וליד גלוי אינו יעד. אותו external_ref נתפס בשכבה של
+// (source, external_ref). בעל/ת נכס מצמיד/ה רק לאותה עיר ואותו רחוב,
+// ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת באחד הצדדים אין הצמדה.
+// פנייה על נכס בלי property_id (מחשבון תשואה) אינה מצמידה.
 //
 // מהדפדפן אין מיזוג בכלל: לא דגל duplicate, לא lead_id של ליד אחר, ולא
 // כתיבה ל-raw_message של מישהו/י אחר/ת. התשובה היא insert רגיל.
@@ -49,6 +50,12 @@ export function metaAdsSourceLabel(source: string | null | undefined): string | 
 
 /** 30 יום - אותו חלון של שיחה שמצטרפת לליד פתוח (agent_call_to_lead). */
 export const OPEN_LEAD_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * חלון ההתראה החוזרת. לכל היותר new_lead אחד לליד בחלון הזה, כולל
+ * "ליד חדש" המקורי. פנייה נוספת בתוך החלון עדיין נוגעת בליד.
+ */
+export const REPEAT_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** הסטטוסים החיים של leads. אין status של closed/lost; הסגירה היא ארכיון ושלב. */
 const OPEN_STATUSES = new Set(["masked", "unlocked", "pending_charge"]);
@@ -89,9 +96,10 @@ export function isPageRoutedSource(source: string | null | undefined): boolean {
 }
 
 /**
- * יעד של פניית פלטפורמה (אין משרד ואין סוכן/ת בבקשה):
- * בלי agency_id, בלי agent_id, ו-source שאינו דף.
- * source ריק עם משרד או עם סוכן/ת אינו יעד. לא ממלאים לאחור שורות ישנות.
+ * יעד תיאורטי של פניית פלטפורמה: בלי agency_id, בלי agent_id, ו-source
+ * שאינו דף. source ריק עם משרד או עם סוכן/ת אינו יעד.
+ * אין קורא בהצמדה. ליד גלוי דורש agent_id, והיעד דורש agent_id ריק,
+ * אז אין שורה שעוברת את שניהם. attachToOpenLead חוזר null בלי שאילתה.
  */
 export function isPlatformTarget(row: {
   agency_id?: string | null;
@@ -308,6 +316,10 @@ export async function attachToOpenLead(
   if (input.matchProperty && !input.propertyId) return null;
   // דף עם משרד ובלי סוכן/ת: אין שולחן להצמיד אליו, ולא בוחרים סוכן/ת אחר/ת.
   if (input.agencyId && !input.agentId) return null;
+  // פניית פלטפורמה (מטא או רשת, בלי משרד ובלי סוכן/ת) אינה מתמזגת לפי
+  // טלפון. יעד בלי agent_id אינו עובר את leadIsVisible, אז אין מה לחפש.
+  // אותו external_ref נתפס ב-(source, external_ref), לא כאן.
+  if (!input.agencyId && !input.agentId) return null;
   // בעל/ת נכס בלי כתובת שאפשר להשוות אינו נבלע בליד של נכס אחר.
   const wantAddress = input.matchAddress ? parseAddressIdentity(input.city, input.address) : null;
   if (input.matchAddress && !wantAddress) return null;
@@ -353,11 +365,6 @@ export async function attachToOpenLead(
   }
   if (rows.length === 0) return null;
 
-  // פניית פלטפורמה מצמידה רק ליעד בלי משרד ובלי סוכן/ת, ושאינו מדף.
-  // source ריק עם משרד או סוכן/ת (ליד דף שניסיון ישן איבד את העמודה, או
-  // שורה ישנה) אינו יעד. הסינון ב-JS: not in ב-SQL היה מוריד גם null.
-  const platformIncoming = !input.agencyId && !input.agentId;
-  if (platformIncoming) rows = rows.filter(isPlatformTarget);
   if (wantAddress) rows = rows.filter((r) => sameOwnerAddress(wantAddress, addressFromStoredLead(r)));
   if (rows.length === 0) return null;
 
@@ -414,6 +421,27 @@ export async function attachToOpenLead(
   // ההתראה אחרי עדכון שהצליח. כישלון שלה אינו פותח ליד שני: ההודעה כבר על הליד.
   // אין רוטציה: לא נגענו ב-lead_distribution_rotation. משימת היומן אינה נכפלת
   // כי source_key שלה הוא lead:<id> (on conflict do nothing).
+  // לכל היותר new_lead אחד לליד ב-24 שעות, כולל "ליד חדש" שנכתב ביצירה.
+  // כשל בבדיקה מדלג על ההתראה ולא שולח כפילות. המגע נשאר.
+  const sinceNotice = new Date(Date.now() - REPEAT_NOTICE_WINDOW_MS).toISOString();
+  let noticeBlocked = true;
+  try {
+    const prev = await sb.from("notifications")
+      .select("id")
+      .eq("type", "new_lead")
+      .eq("related_lead_id", chosen.id)
+      .gt("created_at", sinceNotice)
+      .limit(1);
+    if (prev.error || !Array.isArray(prev.data)) {
+      console.warn("lead phone dedupe notify skipped", prev.error?.code || "notify-window");
+    } else {
+      noticeBlocked = prev.data.length > 0;
+    }
+  } catch {
+    console.warn("lead phone dedupe notify skipped", "notify-window");
+  }
+  if (noticeBlocked) return { lead_id: touchedId };
+
   const notice = repeatNotice(chosen);
   try {
     const note = await sb.from("notifications").insert({

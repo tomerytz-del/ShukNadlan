@@ -71,21 +71,20 @@ export type PropertyAttachContext = {
 };
 
 /**
- * שלושת ניסיונות ה-insert של ליד מדף. כולם נושאים source.
- * ניסיון בלי source היה שומר ליד של דף עם source ריק, והוא נראה אחר כך
- * כמו ליד פלטפורמה ויכול לבלוע פנייה. הסוג יורד ל-owner_inbound רק
- * בניסיון האחרון, אם property_inquiry אינו ערך חוקי בסביבה.
+ * ניסיונות ה-insert של ליד מדף. כולם נושאים source.
+ * ניסיון בלי source היה שומר ליד של דף עם source ריק.
+ * הסוג יורד ל-owner_inbound רק בניסיון האחרון, אם property_inquiry
+ * אינו ערך חוקי בסביבה. כשהסוג המועדף כבר owner_inbound אין ניסיון שני:
+ * הוא היה זהה לראשון.
  */
 export function pageLeadInsertAttempts(
   baseRow: Record<string, unknown>,
   preferredType: string,
   pageSource: string,
 ): Record<string, unknown>[] {
-  return [
-    { ...baseRow, lead_type: preferredType, source: pageSource },
-    { ...baseRow, lead_type: preferredType, source: pageSource },
-    { ...baseRow, lead_type: "owner_inbound", source: pageSource },
-  ];
+  const full = { ...baseRow, lead_type: preferredType, source: pageSource };
+  if (preferredType === "owner_inbound") return [full];
+  return [full, { ...baseRow, lead_type: "owner_inbound", source: pageSource }];
 }
 
 /** פנייה על נכס: אותו נכס ואותו שולחן. בלי סוכן/ת או בלי משרד אין למי להצמיד. */
