@@ -61,22 +61,60 @@ Content-Type: application/json
 
 ## מי רשאי/ת לסמן מקור חברתי
 
-פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי ו-`external_ref`
-מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח ה-service role
-(‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר `social-lead-intake`
-אחרי שאימתה את הסוד. מהדפדפן `source: "facebook_dm"` נופל לברירת המחדל של
-הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים "מפייסבוק" ולזהם את הדוח.
-אותו כלל ל-`lead_only` ב-`saved-search-intake`.
+פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי, `meta_ads_*`
+ו-`external_ref` מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח
+ה-service role (‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר
+`social-lead-intake` אחרי שאימתה את הסוד, או `ads-leads-webhook` /
+`ads-admin`. מהדפדפן `source: "facebook_dm"` או `source: "meta_ads_owner_form"`
+נופל לברירת המחדל של הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים
+"מפייסבוק" או "מטא" ולזהם את הדוח. אותו כלל ל-`lead_only` ב-`saved-search-intake`.
 
-## כפילויות - שתי שכבות
+## כפילויות - שלוש שכבות
 
 1. **`social_leads.zernio_id`** (מפתח ראשי) ו-`social_lead_claim` - אותה תבנית
    כמו `ads_leads`: השורה נשמרת קודם, וקורא אחד בלבד שולח למסלול.
 2. **`leads (source, external_ref)` ייחודי** - ‏`property-inquiry-intake`,
    ‏`agent-direct-inquiry-intake` ו-`owner-lead-intake` מקבלים `external_ref`
    ומחזירים `{ duplicate: true, lead_id }` כשהליד כבר קיים (גם במרוץ, דרך
-   ה-unique). **ה-ref אינו ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד
-   (‏`assets/crm-leads.js`), ושם יש תווית קריאה - "פייסבוק · הודעה".
+   ה-unique). טופס מטא שולח `external_ref = meta_lead_id`. **ה-ref אינו
+   ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד (‏`assets/crm-leads.js`),
+   ושם יש תווית קריאה - "פייסבוק · הודעה" או "טופס לידים במטא · מוכר/ת".
+3. **אותו טלפון בשני מסלולים, רק מקורא פנימי** - ‏`leads.phone_e164`
+   (‏`normalize_msisdn`, כמו `saved_searches`) ואינדקס לא ייחודי. לפני
+   insert, טופס מטא או פייסבוק/אינסטגרם מחפשים ליד מאותו `phone_e164`
+   ואותו `lead_type` מ-30 הימים.
+
+   - **בעל/ת נכס מטופס מטא או מפייסבוק/אינסטגרם אינו מתמזג לפי טלפון.**
+     הבקשה לא כוללת רחוב, ובכוונה לא מוסיפים אותו. מיזוג לפי טלפון בפועל
+     הוא רק **פנייה על נכס** (אותו `property_id`, אותו `agency_id` ואותו
+     `agent_id`). מחשבון תשואה הוא `property_inquiry` בלי נכס, ושם אין מיזוג.
+     אותו `external_ref` עדיין מחזיר את הליד הקיים (שכבה 2).
+   - אם בכל זאת מגיעה כתובת של בעל/ת נכס, ההצמדה דורשת אותה עיר ואותו
+     רחוב, ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת באחד הצדדים אין
+     הצמדה. "4 חדרים" אינו רחוב.
+   - **ליד פלטפורמה** (הקריאה בלי משרד ובלי סוכן/ת) מצמיד רק ליעד שגם לו
+     `agency_id` ו-`agent_id` ריקים, ו-`source` אינו `agency_page` /
+     `agent_page` (או קידומת `agency_page_` / `agent_page_`). `source` ריק
+     יחד עם משרד או סוכן/ת אינו יעד, גם אם הליד פתוח. אין מילוי לאחור
+     לשורות ישנות. כשהפנייה עצמה הגיעה מדף (יש משרד וסוכן/ת), שניהם חייבים
+     להתאים.
+   - ליד מוסתר (`masked`), בלי סוכן/ת, או `pending_charge` אינו בולע פנייה.
+   - נמצא ליד `unlocked` אצל סוכן/ת: אין insert ואין רוטציה.
+     `lead_phone_touch` מוסיף את ההודעה ל-`raw_message` ואת המקור
+     ל-`source_touches` (לא בכרטיס) **באותו update**, בלי לכתוב
+     ל-`phone_e164`. רק אם העדכון הצליח נכתבת `new_lead` עם הכותרת
+     "פנייה נוספת על ליד קיים" ו-`related_lead_id`. כישלון העדכון מחזיר
+     את הקליטה ל-insert רגיל. כישלון ההתראה אחרי עדכון שהצליח אינו פותח
+     ליד שני.
+   - **אין משימת יומן שנייה.** הטריגר על `new_lead` קורא ל-
+     `agent_agenda_add_auto` עם `source_key` = `lead:<id>`, ו-
+     `on conflict do nothing` בולע את הפנייה הנוספת (`docs/agent-agenda.md`).
+   - התשובה לקורא הפנימי `{ duplicate: true, lead_id }`.
+     **מהדפדפן אין מיזוג.** `ownerPhoneAttach` / `propertyPhoneAttach`
+     מחזירות null כש-`isInternalCaller` נכשל, `attachToOpenLead` אינו
+     נקרא, והטופס מקבל את צורת התשובה הרגילה (`success`, `lead_id` של
+     השורה החדשה, ובפנייה על נכס גם `auto_unlocked` ו-`note`) בלי
+     `duplicate` ובלי מזהה של ליד אחר.
 
 ## ליד בלי התראות (`lead_only`)
 

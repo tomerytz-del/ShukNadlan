@@ -1,0 +1,134 @@
+-- ============================================================================
+-- כפילות לידים בין טופס מטא לבין פייסבוק/אינסטגרם - טלפון מנורמל
+--
+-- version 20271028240000: מעל 20271028120000 שב-main, ומעל
+-- 20271028150000_agent_default_city.sql ו-20271028230000 ש-PR-ים פתוחים כבר תפסו.
+--
+-- עד כאן שתי שכבות בלבד, ושתיהן בתוך מסלול אחד:
+--   * ads_leads.meta_lead_id / social_leads.zernio_id - אותו אירוע פעמיים
+--   * leads (source, external_ref) - אותו מזהה ספק באותו source
+--
+-- אין עמודה או אינדקס על הטלפון ב-leads, ולכן אותו אדם שמילא טופס מיידי
+-- וגם כתב לגבריאלה בפייסבוק נולד כשני לידים, שתי התראות ושתי רוטציות.
+-- ‏owner-lead-intake גם לא כתב source ל-meta_ads_owner_form (רק למקור
+-- חברתי), אז הליד ממטא נספר כליד בלי מקור.
+--
+-- מה נכנס:
+--   1. leads.phone_e164 - generated מ-raw_phone דרך normalize_msisdn(),
+--      אותה פונקציה של saved_searches.phone_e164. אין ב-leads עמודת טלפון
+--      אחרת, אז המילוי של השורות הקיימות הוא העמודה המחושבת עצמה.
+--   2. אינדקס לא ייחודי. ייחוד על טלפון היה חוסם מחפש/ת שהפך/ה לבעלים,
+--      וליד חדש אחרי 30 יום או אחרי סגירה. החלון והסטטוס נבדקים בקליטה.
+--   3. leads.source_touches - מערך קטן של מקורות נוספים שצורפו לליד פתוח
+--      ({source, external_ref, at}), בלי להחליף את source של השורה.
+--      לא ב-leads_masked: המזהה אצל הספק אינו מוצג לסוכן/ת.
+--      ההודעה החדשה מצטרפת ל-raw_message, שכבר מוצג אחרי פתיחה.
+--
+-- "פתוח" בקליטה: status ב-masked / unlocked / pending_charge, לא בארכיון,
+-- והשלב של הסוכן/ת המשויך/ת אינו not_relevant (לא רלוונטי) או won (נסגר).
+-- מיזוג בפועל רק כשהליד unlocked ויש לו/לה סוכן/ת, ורק מקורא פנימי.
+-- דף משרד או סוכן/ת מצמיד רק לאותו agency_id ולאותו agent_id.
+-- ליד פלטפורמה (בלי משרד ובלי סוכן/ת בבקשה) מצמיד רק ליעד שגם לו
+-- agency_id ו-agent_id ריקים, ו-source אינו agency_page / agent_page.
+-- source ריק עם משרד או סוכן/ת אינו יעד. אין מילוי לאחור. הסינון בקליטה.
+-- ‏lead_phone_touch מוסיף את ההודעה ואת המקור ב-update אחד, בלי לגעת
+-- ב-phone_e164. ההתראה נכתבת רק אחרי שהוא מצליח.
+-- ‏docs/social-leads.md, docs/marketing-console.md, docs/data-retention.md.
+--
+-- phone_e164 היא generated, כמו mortgage_leads.phone_e164 ששברה את
+-- data_retention_run כשמישהו כתב אליה (20270905090000). אסור להשמה אליה.
+-- ‏raw_phone = null במדיניות leads_pii מחשב אותה מחדש ל-null, וזה מה
+-- ש-data_retention_run כבר עושה. הגוף שלה לא נוגע ב-phone_e164.
+--
+-- ביקורת כותבים ל-leads (הפרודקשן, קריאה בלבד, 27.10.2026): אף אחד אינו
+-- כותב את השורה בשלמותה ואינו עושה insert ... select *. כולם מונים עמודות:
+--   data_retention_run, claim_lead, mark_lead_responded, refer_to_agent,
+--   agenda_first_response, agent_calls_first_response, agent_call_to_lead,
+--   store_purchase_to_lead, scraped_lead_set_consent,
+--   adopt_released_member_into_agency.
+-- ‏adopt_released_member_into_agency מעדכנת leads רק ב-agency_id
+-- (where agent_id = p_member_id). היא אינה כותבת phone_e164.
+-- ‏claim_lead עושה select * into leads%rowtype לקריאה, וה-update שאחריו
+-- מונה עמודות. ארכיון אינו משחזר שורה: מחיקה מ-lead_archives בלבד.
+-- ‏source_touches אינה generated, וכתיבה אליה מותרת.
+-- ============================================================================
+
+alter table public.leads
+  add column if not exists phone_e164 text
+  generated always as (public.normalize_msisdn(raw_phone)) stored;
+
+comment on column public.leads.phone_e164 is
+  'טלפון הפונה בפורמט E.164 בלי פלוס (972521112222), נגזר מ-raw_phone דרך normalize_msisdn כמו saved_searches.phone_e164. לא ייחודי: זיהוי כפילות של ליד פתוח מ-30 הימים האחרונים נעשה בקליטה. docs/social-leads.md';
+
+create index if not exists leads_phone_e164_type_created_idx
+  on public.leads (phone_e164, lead_type, created_at desc)
+  where phone_e164 is not null;
+
+alter table public.leads
+  add column if not exists source_touches jsonb not null default '[]'::jsonb;
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'leads_source_touches_array') then
+    alter table public.leads add constraint leads_source_touches_array
+      check (jsonb_typeof(source_touches) = 'array');
+  end if;
+end $$;
+
+comment on column public.leads.source_touches is
+  'מקורות נוספים שצורפו לליד קיים (טופס מטא אחרי הודעה בפייסבוק, ולהפך) בלי ליד שני. כל איבר: source, external_ref, at. לא מוצג בכרטיס. ההוספה היא lead_phone_touch, יחד עם שורת ההודעה ב-raw_message. docs/social-leads.md';
+
+-- ההודעה והמקור מתווספים באותו update, אחרי נעילת השורה. קריאה-ואז-כתיבה
+-- מהקליטה הייתה מאבדת מגע כששתי פניות מגיעות יחד. אינה כותבת ל-phone_e164
+-- (עמודה מחושבת). SECURITY INVOKER: ה-RLS של הקורא/ת חל, וההרשאה היא
+-- service_role בלבד כי רק פונקציית הקליטה קוראת לזה.
+create or replace function public.lead_phone_touch(
+  p_lead_id uuid,
+  p_note text,
+  p_touch jsonb
+) returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+  v_note text := left(coalesce(p_note, ''), 1500);
+begin
+  update public.leads
+  set
+    raw_message = left(
+      case
+        when btrim(v_note) = '' then raw_message
+        when coalesce(raw_message, '') = '' then v_note
+        when position(v_note in raw_message) > 0 then raw_message
+        else raw_message || chr(10) || v_note
+      end,
+      4000),
+    source_touches = coalesce(
+      (
+        select jsonb_agg(elem order by ord)
+        from (
+          select elem, ord
+          from jsonb_array_elements(
+            case
+              when p_touch is null or jsonb_typeof(p_touch) <> 'object'
+                then coalesce(source_touches, '[]'::jsonb)
+              else coalesce(source_touches, '[]'::jsonb) || jsonb_build_array(p_touch)
+            end
+          ) with ordinality as t(elem, ord)
+          order by ord desc
+          limit 20
+        ) kept
+      ),
+      '[]'::jsonb)
+  where id = p_lead_id
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+revoke all on function public.lead_phone_touch(uuid, text, jsonb) from public, anon, authenticated;
+grant execute on function public.lead_phone_touch(uuid, text, jsonb) to service_role;
+
+comment on function public.lead_phone_touch(uuid, text, jsonb) is
+  'מוסיף שורת פנייה ל-raw_message ומקור ל-source_touches ב-update אחד. לא נוגע ב-phone_e164. נקרא רק מ-service_role בקליטת ליד פנימית, ואז נכתבת ההתראה. docs/social-leads.md';
