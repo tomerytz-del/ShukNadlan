@@ -82,6 +82,90 @@ export function clipUtf16(s: string, max: number): string {
   return s.slice(0, Math.max(0, end));
 }
 
+function cleanTitle(title: string, fallback: string): string {
+  return String(title || "").replace(/\s+/g, " ").trim() || fallback;
+}
+
+/** מילה ראשונה בגוף, כסיומת שמבדילה שתי כותרות זהות. */
+function nameHint(body: string | null | undefined): string {
+  const word = String(body || "").replace(/\s+/g, " ").trim().split(" ")[0] || "";
+  if (word.length < 2 || word.length > 12 || word === ALL_LABEL) return "";
+  if (!/^[\p{L}][\p{L}'׳.-]*$/u.test(word)) return "";
+  return word;
+}
+
+/**
+ * כותרות כפתור ייחודיות בתוך max יחידות UTF-16.
+ * וואטסאפ דוחה הודעה ששני כפתורים בה חולקים כותרת, וחיתוך ל-20
+ * הופך "ליד חדש: התעניינות בנכס" לכפילות. הראשונה נשארת, והשאר
+ * מקבלות את המילה הראשונה בגוף או מספר. "הכול" נשמר כמו שהוא.
+ * null כשאין מקום לסיומת - הקורא יורד לרשימה, או לטקסט.
+ */
+export function distinctButtonTitles(
+  rows: { title: string; hint?: string | null }[],
+  max: number,
+): string[] | null {
+  const cleaned = rows.map((row) => String(row.title || "").replace(/\s+/g, " ").trim());
+  const hints = rows.map((row) => nameHint(row.hint));
+  const clipped = cleaned.map((title) => clipUtf16(title || "פתח", max));
+  const out: string[] = new Array(rows.length);
+  const used = new Set<string>();
+  const reserved = new Set<number>();
+  const allIdx = cleaned.lastIndexOf(ALL_LABEL);
+  if (allIdx >= 0 && clipped[allIdx] && !used.has(clipped[allIdx])) {
+    out[allIdx] = clipped[allIdx];
+    used.add(clipped[allIdx]);
+    reserved.add(allIdx);
+  }
+  const groups = new Map<string, number[]>();
+  clipped.forEach((title, i) => {
+    if (reserved.has(i)) return;
+    const list = groups.get(title) || [];
+    list.push(i);
+    groups.set(title, list);
+  });
+  const take = (i: number, candidate: string): boolean => {
+    const title = candidate.trim();
+    if (!title || title.length > max || title !== candidate || used.has(title)) return false;
+    out[i] = title;
+    used.add(title);
+    return true;
+  };
+  const suffixed = (i: number, suffix: string): string => {
+    if (suffix.length >= max) return "";
+    return (clipUtf16(cleaned[i] || "פתח", max - suffix.length) + suffix).trim();
+  };
+  for (const idxs of groups.values()) {
+    const colliding = idxs.length > 1 || used.has(clipped[idxs[0]]);
+    for (let k = 0; k < idxs.length; k++) {
+      const i = idxs[k];
+      if ((!colliding || k === 0) && take(i, clipped[i])) continue;
+      if (hints[i] && take(i, suffixed(i, " " + hints[i]))) continue;
+      let placed = false;
+      for (let n = 2; n < 100; n++) {
+        if (take(i, suffixed(i, " " + String(n)))) {
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) return null;
+    }
+  }
+  if (out.some((title) => !title)) return null;
+  return out;
+}
+
+/** דחיית כפתור או רשימה נשלחת שוב כטקסט. ביטול של הנמען/ת לא נשלח שוב. */
+export function resendInteractiveAsText(
+  payloadType: string,
+  ok: boolean,
+  errorBody: string,
+  optedOutCode: number,
+): boolean {
+  if (ok || payloadType !== "interactive") return false;
+  return !String(errorBody || "").includes(String(optedOutCode));
+}
+
 /**
  * הנתיב היחסי של התראה. אותו סדר כמו openNotificationTarget ב-crm.js:
  * ליד מתוך תזכורת, יומן, הסכם, העדפות לידים, ביקוש פתוח, נכסים שלא באוויר,
@@ -134,6 +218,7 @@ export function notificationPath(it: NotifTarget): string | null {
   if (lead && ["new_lead", "review_request", "system"].includes(it.type)) {
     return `/crm?goto=accLeads&lead=${lead}`;
   }
+  // new_lead בלי lead_id, או עם מזהה שאינו uuid, נפתח לרשימת הלידים בלי כרטיס.
   if (it.type === "new_lead") return OPEN_LEADS_PATH;
   if (it.type === "burst_digest") return "/crm?goto=bell";
   return null;
@@ -341,7 +426,8 @@ function allScreensPath(
 /**
  * יעד אחד = כפתור קישור. שני יעדים = עד שלושה כפתורי תשובה
  * (שני היעדים ו"הכול"). משלושה = רשימה (עד 9) ועוד "הכול".
- * לא ל-/crm בלי יעד.
+ * כותרת כפולה אחרי החיתוך מקבלת סיומת. בלי מקום לסיומת, שני
+ * היעדים יורדים לרשימה. לא ל-/crm בלי יעד.
  */
 export function screenBundle(
   items: ScreenRef[],
@@ -370,34 +456,50 @@ export function screenBundle(
   const shared = new Set(unique.map((it) => it.type)).size === 1 ? unique[0].type : "all";
   const allPath = withClick(allScreensPath(unique, categoryPathForType), shared);
   if (unique.length === 2) {
-    const buttonRows: NavRow[] = [];
+    const prepared: { id: string; title: string; hint: string | null }[] = [];
     for (const it of unique) {
       const path = withClick(it.path, it.type);
       const id = encodeNavId(path);
       if (!id) continue;
-      const title = clipUtf16(
-        String(it.title || "").replace(/\s+/g, " ").trim() || ctaLabel(it.path),
-        BUTTON_TITLE_MAX,
-      );
-      buttonRows.push({ id, title });
+      prepared.push({
+        id,
+        title: cleanTitle(it.title, ctaLabel(it.path)),
+        hint: it.body ?? null,
+      });
     }
     const allId = encodeNavId(allPath);
-    if (allId && buttonRows.length === 2) buttonRows.push({ id: allId, title: ALL_LABEL });
-    if (buttonRows.length >= 2 && buttonRows.length <= 3) {
-      return { kind: "buttons", rows: buttonRows, allPath };
+    if (allId && prepared.length === 2) prepared.push({ id: allId, title: ALL_LABEL, hint: null });
+    const titles = prepared.length >= 2 && prepared.length <= 3
+      ? distinctButtonTitles(prepared, BUTTON_TITLE_MAX)
+      : null;
+    if (titles) {
+      return {
+        kind: "buttons",
+        rows: prepared.map((row, i) => ({ id: row.id, title: titles[i] })),
+        allPath,
+      };
     }
   }
-  const rows: NavRow[] = [];
+  const prepared: { id: string; title: string; hint: string | null; description?: string }[] = [];
   for (const it of unique.slice(0, LIST_ROW_MAX)) {
     const path = withClick(it.path, it.type);
     const id = encodeNavId(path);
     if (!id) continue;
-    const title = clipUtf16(String(it.title || "").replace(/\s+/g, " ").trim() || ctaLabel(it.path), LIST_TITLE_MAX);
     const description = clipUtf16(String(it.body || "").replace(/\s+/g, " ").trim(), LIST_DESC_MAX);
-    rows.push(description ? { id, title, description } : { id, title });
+    prepared.push({
+      id,
+      title: cleanTitle(it.title, ctaLabel(it.path)),
+      hint: it.body ?? null,
+      ...(description ? { description } : {}),
+    });
   }
   const allId = encodeNavId(allPath);
-  if (allId) rows.push({ id: allId, title: ALL_LABEL, description: "הרשימה המסוננת" });
+  if (allId) prepared.push({ id: allId, title: ALL_LABEL, hint: null, description: "הרשימה המסוננת" });
+  const listTitles = distinctButtonTitles(prepared, LIST_TITLE_MAX);
+  const rows: NavRow[] = prepared.map((row, i) => {
+    const title = listTitles ? listTitles[i] : clipUtf16(row.title, LIST_TITLE_MAX);
+    return row.description ? { id: row.id, title, description: row.description } : { id: row.id, title };
+  });
   if (rows.length < 2) {
     const path = withClick(unique[0].path, unique[0].type);
     return { kind: "single", path, label: ctaLabel(path) };
@@ -507,11 +609,11 @@ export function utilityTemplateMessage(opts: {
           type: "button",
           sub_type: "url",
           index: "0",
-        parameters: [{ type: "text", text: utilitySuffix(opts.path) }],
-      },
-    ],
-  },
-};
+          parameters: [{ type: "text", text: utilitySuffix(opts.path) }],
+        },
+      ],
+    },
+  };
 }
 
 /**
