@@ -17,7 +17,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>כל המתווכים בשוק הנדל״ן</title>
+<title>יועצי נדל״ן ומתווכים בעפולה והסביבה | שוק הנדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
@@ -51,7 +51,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="כל המתווכים והמתווכות בעפולה והסביבה בעמוד אחד - חיפוש לפי שם, משרד תיווך, תחום התמחות ודירוג כוכבים, עם מעבר ישיר לעמוד האישי ולוואטסאפ.">
+<meta name="description" content="יועצי נדל״ן ומתווכים בעפולה והסביבה בעמוד אחד - חיפוש לפי שם, משרד תיווך, תחום התמחות ודירוג כוכבים, עם מעבר ישיר לעמוד האישי ולוואטסאפ.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="כל המתווכים בשוק הנדל״ן">
 <meta property="og:description" content="כל המתווכים והמתווכות בעפולה והסביבה - דירוגי לקוחות, תחומי התמחות ומספר הנכסים הפעילים של כל אחד ואחת.">
@@ -367,9 +367,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="wrap">
 
     <div class="hero">
-      <p class="eyebrow">מתווכי נדל״ן</p>
-      <h1>כל המתווכים והמתווכות בעפולה והסביבה</h1>
-      <p class="lede">מחפשים מתווך באזור? כל <a href="/afula/מתווכים">המתווכים בעפולה</a> מרוכזים בעמוד אחד, עם דירוגים, תחומי התמחות ומעבר ישיר לוואטסאפ.</p>
+      <p class="eyebrow">יועצי נדל״ן</p>
+      <h1>כל יועצי הנדל״ן בעפולה והסביבה</h1>
+      <p class="lede">מחפשים יועץ נדל״ן באזור? כל <a href="/afula/מתווכים">יועצי הנדל״ן בעפולה</a> מרוכזים בעמוד אחד, עם דירוגים, תחומי התמחות ומעבר ישיר לוואטסאפ.</p>
       <p class="lede">חפשו לפי שם, לפי משרד התיווך, לפי תחום התמחות או לפי דירוג הכוכבים שקיבלו מלקוחות</p>
     </div>
 
@@ -380,7 +380,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
         </svg>
         <input type="search" id="agentSearch" placeholder="חיפוש לפי שם, שם משרד או תחום התמחות…"
-               aria-label="חיפוש לפי שם מתווך/ת, שם משרד או תחום התמחות" autocomplete="off">
+               aria-label="חיפוש לפי שם יועץ נדל״ן, שם משרד או תחום התמחות" autocomplete="off">
       </div>
 
       <div class="tool-row">
@@ -408,16 +408,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="result-count" id="resultCount" aria-live="polite"></p>
     </div>
 
-    <div class="state" id="loadingState">טוען את רשימת המתווכים…</div>
+    <div class="state" id="loadingState">טוען את רשימת יועצי הנדל״ן…</div>
 
     <div class="state" id="emptyState" hidden>
-      <h2>אין כאן מתווכים עדיין</h2>
+      <h2>אין כאן יועצי נדל״ן עדיין</h2>
       <p>הפלטפורמה בהרצה. בינתיים אפשר לחזור לדף הבית ולראות מה חדש בשוק.</p>
       <a href="/" class="btn btn-teal" style="margin-top:16px">לדף הבית</a>
     </div>
 
     <div class="state" id="noResultsState" hidden>
-      <h2>לא נמצא מתווך/ת מתאים/ה</h2>
+      <h2>לא נמצאו יועצי נדל״ן מתאימים</h2>
       <p>נסו שם אחר, משרד אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
       <button type="button" class="btn btn-ghost" id="noResultsReset" style="margin-top:16px">איפוס הסינון</button>
     </div>
@@ -425,14 +425,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="grid" id="agentsGrid"></div>
 
     <section class="join-band" id="joinBand" hidden>
-      <h2>מתווכים ומתווכות - רוצים עמוד משלכם?</h2>
+      <h2>יועצי נדל״ן - רוצים עמוד משלכם?</h2>
       <p>
-        כרטיס מתווך/ת נפתח דרך משרד התיווך: אם המשרד שלכם כבר בפלטפורמה, בקשו
+        כרטיס יועץ נדל״ן נפתח דרך משרד התיווך: אם המשרד שלכם כבר בפלטפורמה, בקשו
         מהמנהל/ת לצרף אתכם לצוות, ואם עוד לא - זו נקודת ההתחלה.
       </p>
       <div class="join-actions">
         <a href="/agency-signup" class="btn btn-teal">הצטרפות כמשרד תיווך</a>
-        <a href="/crm" class="btn btn-ghost">כניסת מתווכים</a>
+        <a href="/crm" class="btn btn-ghost">כניסת יועצי נדל״ן</a>
       </div>
     </section>
   </div>
@@ -611,7 +611,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
               <label class="buy-check" for="buyConsent">
                 <input type="checkbox" id="buyConsent">
-                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+                <span>אשמח שיועצי נדל״ן מהאזור יפנו אליי עם נכסים מתאימים</span>
               </label>
 
               <p class="wiz-err" id="buyErr3"></p>
@@ -643,7 +643,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -704,7 +704,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>בעלי מקצוע</h4></summary>
         <div class="footer-col-links">
           <a href="/agencies">כל משרדי התיווך</a>
-          <a href="/agents">כל המתווכים</a>
+          <a href="/agents">כל יועצי הנדל״ן</a>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
@@ -718,7 +718,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </nav>
@@ -748,8 +748,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
-      <a href="/afula/מתווכים">מתווכים בעפולה</a>
-      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+      <a href="/afula/מתווכים">יועצי נדל״ן בעפולה</a>
+      <a href="/agents">יועצי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
@@ -806,7 +806,7 @@ const ETHICS_BADGE_MINI =
 function waLink(phone, name){
   const text = [
     'היי' + (name ? ' ' + name : '') + ',',
-    'הגעתי דרך רשימת המתווכים בשוק הנדל״ן של עפולה והסביבה ואשמח להתייעץ לגבי נכס.',
+    'הגעתי דרך רשימת יועצי הנדל״ן בשוק הנדל״ן של עפולה והסביבה ואשמח להתייעץ לגבי נכס.',
     window.location.href,
   ].join('\n');
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
@@ -905,7 +905,7 @@ function starsHtml(rating){
 }
 
 function agentCardHtml(a){
-  const name = a.display_name || 'מתווך/ת';
+  const name = a.display_name || 'יועץ נדל״ן';
   // agent.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן לקשר,
   // ולכן הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
   const key = a.slug || a.id;
@@ -971,7 +971,7 @@ function agentCardHtml(a){
       </div>
       <div class="ag-actions">
         ${href
-          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד המתווך/ת</a>`
+          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד יועץ הנדל״ן</a>`
           : '<span class="ag-cta is-static">העמוד האישי בהכנה</span>'}
         ${contact}
       </div>
@@ -982,7 +982,7 @@ function agentCardHtml(a){
    רינדור
    ============================================================================ */
 function renderCounts(list){
-  const many = n => n === 1 ? 'מתווך/ת אחד/ת' : n + ' מתווכים';
+  const many = n => n === 1 ? 'יועץ נדל״ן אחד' : n + ' יועצי נדל״ן';
   el('resultCount').innerHTML = list.length
     ? (isFiltered()
         ? `${escapeHtml(many(list.length))} מתוך ${agents.length} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`
@@ -1140,7 +1140,7 @@ async function loadMembers(sb){
   for (const fields of MEMBER_TIERS){
     const { data, error } = await sb.from('agency_members_public').select(fields).limit(500);
     if (!error) return data || [];
-    console.warn('טעינת המתווכים בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
+    console.warn('טעינת יועצי הנדל״ן בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
   }
   return [];
 }
@@ -1323,7 +1323,7 @@ function applyDeepLink(){
       propsLoaded,
     )));
   } catch(e){
-    console.warn('טעינת רשימת המתווכים נכשלה, משתמש בנתוני fallback:', e);
+    console.warn('טעינת רשימת יועצי הנדל״ן נכשלה, משתמש בנתוני fallback:', e);
     finish(FALLBACK_AGENTS);
   }
 })();

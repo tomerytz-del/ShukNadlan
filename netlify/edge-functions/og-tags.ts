@@ -856,7 +856,7 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
     "@id": `${canonical}#agent`,
     name: String(m.display_name || ""),
     url: canonical,
-    jobTitle: "מתווך/ת נדל״ן",
+    jobTitle: "יועץ נדל״ן",
     description,
   };
   if (m.photo_url) person.image = absolute(m.photo_url);
