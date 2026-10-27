@@ -27,6 +27,7 @@ import {
   serviceMarketSlug,
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
+import { CRM_EDIT_LABEL, propertyCityWhenOmitted } from "./listing-defaults.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
@@ -230,7 +231,13 @@ const propertyFields = {
   },
   description: { type: "string", description: "תיאור חופשי של הנכס." },
   rooms: { type: "number", description: "מספר חדרים (אפשר 3.5)." },
-  city: { type: "string", description: "עיר. ברירת מחדל: העיר של המשרד של הסוכן/ת." },
+  city: {
+    type: "string",
+    description:
+      "עיר, רק אם הסוכן/ת אמר/ה אותה. אם לא נאמרה עיר - אל תשלח/י את השדה: " +
+      "הקוד שם את עיר ברירת המחדל השמורה של הסוכן/ת, ואם אין - את עיר המשרד. " +
+      "אל תמלא/י את עיר המשרד בעצמך.",
+  },
   street: { type: "string", description: "שם רחוב בלי מספר בית." },
   house_number: { type: "string", description: "מספר בית בלבד." },
   neighborhood: {
@@ -363,7 +370,8 @@ const TOOLS: Anthropic.Tool[] = [
     name: "create_property",
     description:
       "יוצר נכס חדש בשם הסוכן/ת ומפרסם אותו במצב active. תמונות שהגיעו בשיחה " +
-      "וטרם שויכו לנכס מתחברות אליו אוטומטית. כשהעיר עפולה ויש רחוב ומספר בית, " +
+      "וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
+      "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
       "אם אותה כתובת כבר קיימת אצל הסוכן/ת (גם אם נמכרה או בארכיון) הכלי לא " +
       "יוצר כפילות אלא מחזיר duplicate - ראו את הכלל בהוראות.",
@@ -1481,7 +1489,8 @@ const TOOLS: Anthropic.Tool[] = [
       "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile). " +
       "אין תמונת נושא אישית: הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, ומנהל/ת " +
       "המשרד מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים. מספר רישיון, טלפון " +
-      "ומסלול אינם נערכים כאן.",
+      "ומסלול אינם נערכים כאן. default_city = עיר קבועה לנכס חדש כשהסוכן/ת לא " +
+      "אמר/ה עיר. זו הגדרה שנשמרת. מחרוזת ריקה מוחקת אותה.",
     input_schema: {
       type: "object",
       properties: {
@@ -1517,6 +1526,13 @@ const TOOLS: Anthropic.Tool[] = [
           type: "boolean",
           description: "האם תמונת הסוכן/ת מופיעה ברילסים, בסטוריז ובמודעות שהאתר מפיק. " +
             "\"בלי תמונה שלי בסרטון\" = false; אז הפרסומים יוצאים עם השם, הטלפון ולוגו המשרד בלבד.",
+        },
+        default_city: {
+          type: "string",
+          description:
+            "העיר הקבועה לנכס חדש כשהסוכן/ת לא אמר/ה עיר (\"עפולה\", \"תשמרי שעפולה ברירת המחדל\"). " +
+            "מחרוזת ריקה מוחקת את ההגדרה, ואז נכס בלי עיר נרשם בעיר המשרד. " +
+            "זה לא אזור הפעילות באתר (service_markets) ולא עיר המשרד.",
         },
       },
       required: [],
@@ -1907,10 +1923,9 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
   return { match: matches[0], total: matches.length };
 }
 
-/* העיר שנכס חדש נוצר בה כשהסוכן/ת לא אמר/ה: העיר של המשרד (agencies.city_id).
-   עד השווקים זו הייתה "עפולה" קבועה, ומשרד בחיפה שהכתיב "דירת 4 חדרים בהרצל"
-   היה מקבל נכס בעפולה. שתי שאילתות ולא embed, וכל כשל נופל לעפולה - בדיוק
-   ההתנהגות שהייתה. docs/regional-pages.md */
+/* העיר של המשרד (agencies.city_id). עד השווקים זו הייתה "עפולה" קבועה,
+   ומשרד בחיפה שהכתיב "דירת 4 חדרים בהרצל" היה מקבל נכס בעפולה. שתי שאילתות
+   ולא embed, וכל כשל נופל לעפולה. docs/regional-pages.md */
 async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
   try {
     const { data: agency } = await ctx.supabase
@@ -1922,6 +1937,34 @@ async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
   } catch {
     return "עפולה";
   }
+}
+
+/* העיר שהסוכן/ת שמר/ה (agency_members.default_city_id). שאילתה נפרדת:
+   העמודה חסרה עד שהמיגרציה רצה, ו-select על עמודה חסרה אינו יכול לשבת
+   על טעינת הסוכן/ת. כשל או עמודה חסרה = אין עיר שמורה. */
+async function savedListingCityName(ctx: ToolContext): Promise<string | null> {
+  try {
+    const { data, error } = await ctx.supabase.from("agency_members")
+      .select("default_city_id").eq("id", ctx.agent.id).maybeSingle();
+    if (error) {
+      const missing = error.code === "42703" || error.code === "PGRST204"
+        || String(error.message || "").includes("default_city_id");
+      if (!missing) console.error("default city load failed", error.message);
+      return null;
+    }
+    if (!data?.default_city_id) return null;
+    const { data: city, error: cityErr } = await ctx.supabase.from("cities")
+      .select("name").eq("id", data.default_city_id).maybeSingle();
+    if (cityErr) return null;
+    return String(city?.name || "").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** נכס בלי עיר: העיר השמורה, ואם אין - עיר המשרד (ואם אין - עפולה). */
+async function listingCityWhenOmitted(ctx: ToolContext): Promise<string> {
+  return propertyCityWhenOmitted(await savedListingCityName(ctx), await agencyDefaultCity(ctx));
 }
 
 /* פין לנכס בכל עיר שיש לה ספק גאוקוד פעיל. עפולה נשארת על הקבועים שבקוד
@@ -1940,7 +1983,9 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   const payload = pickWritable(input);
   payload.category ??= "residential";
-  payload.city ??= await agencyDefaultCity(ctx);
+  // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
+  const statedCity = String(payload.city ?? "").trim();
+  payload.city = statedCity || await listingCityWhenOmitted(ctx);
   payload.agent_id = ctx.agent.id;
   payload.agency_id = ctx.agent.agency_id;
   payload.status = "active";
@@ -2048,7 +2093,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       : {}),
     ...(hoodWarning || {}),
     link: propertyLink(data.id),
-    ...crmButton(ctx, crmPropertyLink(data.id)),
+    ...propertyCreatedEdit(ctx, data.id, data.title),
   };
 }
 
@@ -2088,13 +2133,34 @@ async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, 
 function crmButton(
   ctx: ToolContext,
   url: string | undefined,
-  label = "✏️ עריכה ב-CRM",
+  label = CRM_EDIT_LABEL,
   body = "לעריכה, לתמונות ולשאר הפרטים:",
   field = "crm_link",
 ): Record<string, unknown> {
   if (!url) return {};
   if (!ctx.outbox) return { [field]: url };
   ctx.outbox.push({ kind: "cta", body, label, url });
+  return { crm_button_sent: true };
+}
+
+/** כפתור עריכה של נכס שנוצר עכשיו. כמה כאלה באותו תור מתקפלים להודעה אחת. */
+function propertyCreatedEdit(
+  ctx: ToolContext,
+  id: string,
+  title: unknown,
+): Record<string, unknown> {
+  const url = crmPropertyLink(id);
+  if (!url) return {};
+  if (!ctx.outbox) return { crm_link: url };
+  const listLine = String(title || "").replace(/\s+/g, " ").trim().slice(0, 80) || "נכס";
+  ctx.outbox.push({
+    kind: "cta",
+    body: "לעריכה, לתמונות ולשאר הפרטים:",
+    label: CRM_EDIT_LABEL,
+    url,
+    batch: "property_created",
+    listLine,
+  });
   return { crm_button_sent: true };
 }
 
@@ -4796,7 +4862,15 @@ function showcaseSendUrl(token: string, first: string, clientWa: string | undefi
 
 /** הודעה שיוצאת אחרי התשובה של המודל (‏index.ts, ‏sendOutbox). */
 export type OutboxItem =
-  | { kind: "cta"; body: string; label: string; url: string }
+  | {
+    kind: "cta";
+    body: string;
+    label: string;
+    url: string;
+    /** נכס שנוצר בתור הזה. שניים או יותר מתקפלים להודעה אחת לפני השליחה. */
+    batch?: "property_created";
+    listLine?: string;
+  }
   | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] };
 
 // כותרות עד 20 תווים (Meta דוחה את ההודעה כולה). נמדד: 15 ו-14.
@@ -5890,6 +5964,7 @@ async function toolProfileGet(ctx: ToolContext) {
     credentials: row.credentials,
     specialties: row.specialties || [],
     specialty_options: PROFILE_SPECIALTIES,
+    default_city: await savedListingCityName(ctx),
     missing: profileGaps(row),
     page_url: agentPageUrl(row.slug),
   };
@@ -5947,6 +6022,18 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     }
   }
 
+  if (input.default_city !== undefined) {
+    const name = noLongDash(String(input.default_city ?? "")).trim().slice(0, 80);
+    if (!name) {
+      patch.default_city_id = null;
+    } else {
+      const { data: cityId, error: cityErr } = await ctx.supabase.rpc("city_id_for_name", { p_name: name });
+      if (cityErr) problems.push("לא הצלחתי לזהות את העיר. בקש/י את שם היישוב שוב.");
+      else if (typeof cityId !== "string" || !cityId) problems.push(`לא מצאתי יישוב בשם "${name}".`);
+      else patch.default_city_id = cityId;
+    }
+  }
+
   if (problems.length) {
     return {
       error: problems.join(" "),
@@ -5990,12 +6077,28 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   }
 
   if (!Object.keys(patch).length) {
-    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות, תמונות, והאם התמונה מופיעה בפרסומים." };
+    return {
+      error: "לא צוין מה לשנות.",
+      hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות, תמונות, עיר ברירת מחדל לנכס חדש, והאם התמונה מופיעה בפרסומים.",
+    };
   }
 
   patch.updated_at = new Date().toISOString();
-  const { data: saved, error } = await ctx.supabase.from("agency_members")
+  let citySettingDropped = false;
+  let { data: saved, error } = await ctx.supabase.from("agency_members")
     .update(patch).eq("id", ctx.agent.id).select(PROFILE_SELECT).single();
+  // העמודה חסרה כשהפונקציה עלתה לפני המיגרציה. שאר הפרופיל נשמר בלעדיה.
+  if ((error?.code === "42703" || error?.code === "PGRST204") && "default_city_id" in patch) {
+    const rest = { ...patch };
+    delete rest.default_city_id;
+    const onlyStamp = Object.keys(rest).every((k) => k === "updated_at");
+    if (onlyStamp) {
+      return { error: "שמירת עיר ברירת המחדל עדיין לא עלתה. אפשר לנסות שוב בעוד כמה דקות." };
+    }
+    citySettingDropped = true;
+    ({ data: saved, error } = await ctx.supabase.from("agency_members")
+      .update(rest).eq("id", ctx.agent.id).select(PROFILE_SELECT).single());
+  }
 
   if (error || !saved) {
     if (taken.length) await returnPendingImages(ctx, taken);
@@ -6010,15 +6113,39 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   if (taken.length > 1) {
     notes.push(`נבחרה התמונה האחרונה מתוך ${taken.length}; השאר נשארו ממתינות לצירוף לנכס.`);
   }
+  let defaultCity: string | null | undefined;
+  if ("default_city_id" in patch && !citySettingDropped) {
+    if (!patch.default_city_id) defaultCity = null;
+    else {
+      const { data: city } = await ctx.supabase.from("cities")
+        .select("name").eq("id", patch.default_city_id).maybeSingle();
+      // מחרוזת ריקה = השם לא חזר, אבל השמירה עצמה הצליחה. null = בוטל.
+      defaultCity = String(city?.name || "").trim();
+    }
+  }
+  if (citySettingDropped) {
+    notes.push("עיר ברירת המחדל עדיין לא נשמרה. אפשר לנסות שוב בעוד כמה דקות.");
+  }
+  const cityGuidance = citySettingDropped
+    ? " אמור/אמרי שעיר ברירת המחדל עדיין לא נשמרה."
+    : defaultCity === undefined
+      ? ""
+      : defaultCity
+        ? ` אמור/אמרי שעיר ברירת המחדל לנכס חדש היא ${defaultCity}.`
+        : patch.default_city_id
+          ? " אמור/אמרי שעיר ברירת המחדל לנכס חדש נשמרה."
+          : " אמור/אמרי שבוטלה עיר ברירת המחדל, ונכס בלי עיר יירשם בעיר המשרד.";
 
   return {
     ok: true,
-    changed: Object.keys(patch).filter((k) => k !== "updated_at" && k !== "photo_position"),
+    changed: Object.keys(patch).filter((k) =>
+      k !== "updated_at" && k !== "photo_position" && !(citySettingDropped && k === "default_city_id")),
+    default_city: defaultCity,
     notes: notes.length ? notes : undefined,
     missing: profileGaps(row),
     page_url: agentPageUrl(row.slug),
     guidance: "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. אם missing אינו ריק - " +
-      "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר.",
+      "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר." + cityGuidance,
   };
 }
 
@@ -6792,6 +6919,9 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "נכסים:",
     "- השדות ההכרחיים ליצירת נכס הם סוג נכס, סוג עסקה ומחיר בלבד - אם יש אותם, צור/צרי את הנכס והשלם/י את השאר ממה שנאמר.",
+    "- **עיר בנכס חדש:** רק אם הסוכן/ת אמר/ה אותה. אם לא - אל תשלח/י city ב-create_property. " +
+      "הקוד ממלא את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. אל תעתיק/י את עיר המשרד לשדה.",
+    "- כמה נכסים נוצרו באותו תור: אשר/י בקצרה, בלי קישור CRM לכל אחד. כפתור עריכה אחד יוצא אחרי התשובה ומפרט אותם.",
     "- אם חסר אחד מהשלושה, בקש/י בשאלה אחת קצרה רק את מה שחסר.",
     "- לפני שינוי או ארכוב של נכס קיים - ודא/י שאת/ה יודע/ת על איזה נכס מדובר. אם לא, קרא/י ל-list_properties.",
     "- **למצוא נכס שלך (לעדכון, לקישור) = list_properties עם query**, ולא משיכת כל הרשימה וסריקה שלה. " +
@@ -7055,6 +7185,9 @@ const SYSTEM_STATIC: string = (() => {
       "\"קריית ביאליק\") = האזור שמכיל אותם; אם לא ברור לאיזה אזור - שאל/י עם האפשרויות. " +
       "מקום שאינו באף אזור - אמור/י שהוא עוד לא באזורים שלנו, ואל תשמור/י טקסט חופשי. " +
       "בכל אזור שנבחר מופיעים באתר הסוכן/ת והמשרד.",
+    "- **עיר קבועה לנכס חדש** (\"העיר שלי עפולה\", \"תשמרי שעפולה ברירת המחדל\") = " +
+      "update_profile עם default_city. זו הגדרה שנשמרת. אל תאמרי שאין דרך לשמור אותה. " +
+      "\"תבטלי את עיר ברירת המחדל\" = default_city ריק. זה לא אזור הפעילות באתר ולא עיר המשרד.",
     "- מספר רישיון וטלפון אינם נערכים בצ'אט - הפנה/י לדשבורד.",
     "",
     "יומן, פגישות ותזכורות:",
@@ -7111,6 +7244,7 @@ function sessionContext(
   conv: ConversationState,
   gaps: string[] = [],
   pendingSince: number | null = null,
+  listingCity: string | null = null,
 ): string {
   const now = Date.now();
   const today = ilDateOf(now);
@@ -7156,6 +7290,13 @@ function sessionContext(
         "(\"אני 12 שנה בתחום\", תמונה עם \"תמונת פרופיל\") - update_profile.",
     );
   }
+  lines.push(
+    "",
+    listingCity
+      ? `עיר ברירת מחדל לנכס חדש: ${listingCity}. כשהסוכן/ת לא אמר/ה עיר - אל תשלח/י city.`
+      : "אין עיר ברירת מחדל שמורה לנכס חדש. נכס בלי עיר נרשם בעיר המשרד. " +
+        "בקשה לשמור עיר קבועה - update_profile עם default_city. אל תאמרי שאין דרך לשמור.",
+  );
   if (conv.last_property_id) {
     lines.push(
       "",
@@ -7272,12 +7413,13 @@ export async function runAgentTurn(opts: {
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
   const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
+  const listingCity = await savedListingCityName(ctx);
 
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince), userContent) },
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity), userContent) },
   ];
 
   let finalText = "";

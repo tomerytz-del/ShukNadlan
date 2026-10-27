@@ -220,7 +220,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 
 | כלי | מה זה עושה |
 |---|---|
-| `create_property` | יוצר נכס חדש במצב `active`, מצרף תמונות ממתינות, ומנסה למצוא קואורדינטות |
+| `create_property` | יוצר נכס חדש במצב `active`, מצרף תמונות ממתינות, ומנסה למצוא קואורדינטות. עיר שלא נאמרה: עיר ברירת המחדל של הסוכן/ת (`agency_members.default_city_id`), ואם אין - עיר המשרד |
 | `import_properties_file` | קולט קובץ נכסים שנשלח בשיחה (Excel/CSV, כולל יד2) - כל השורות, באותה ליבה של האשף ב-CRM. רק אחרי אישור, עם ה-`job_id` מהבלוק `[ייבוא נכסים]` (גם מקובץ שצורף למייל). ניחושים (מכירה/השכרה לפי מחיר, מחיר למ"ר, סוג מהכותרת) רק לפי `accept_guesses` - בלעדיו חוזר `needs_confirmation`. מודעת יד2 שכבר אצל הסוכן/ת מתעדכנת בלי לדרוס; של עמית/ה נפסלת (`docs/property-import.md`) |
 | `update_property` | מעדכן שדות בנכס קיים |
 | `set_property_status` | `active` / `sold` / `rented` / `archived` |
@@ -353,7 +353,15 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | כלי | מה זה עושה |
 |---|---|
 | `profile_get` | הפרופיל כפי שהוא בדף (`/agent?slug=`), ומה חסר בו |
-| `update_profile` | שם, ביו, אזורי פעילות (רק מרשימת האזורים, `service_markets`), השכלה/הסמכות, ותק ותחומי התמחות; ותמונה שנשלחה בשיחה כתמונת פרופיל (`photo=profile`). אין תמונת נושא אישית: `photo=cover` מחזיר `cover_is_agency` והסבר, כי הרצועה היא תמונת המשרד |
+| `update_profile` | שם, ביו, אזורי פעילות (רק מרשימת האזורים, `service_markets`), השכלה/הסמכות, ותק ותחומי התמחות; ותמונה שנשלחה בשיחה כתמונת פרופיל (`photo=profile`). אין תמונת נושא אישית: `photo=cover` מחזיר `cover_is_agency` והסבר, כי הרצועה היא תמונת המשרד. `default_city` שומרת עיר קבועה לנכס חדש (דרך `city_id_for_name`); מחרוזת ריקה מוחקת |
+
+**עיר ברירת מחדל לנכס.** `default_city` ב-`update_profile` נשמרת ב-
+`agency_members.default_city_id` אחרי `city_id_for_name` (כולל כינויים). זו
+אינה `service_area` ואינה עיר ברירת המחדל של טופס לידים. נכס חדש בלי עיר
+נופל אליה, ורק אם אין - לעיר המשרד. לפני שהמיגרציה רצה הקריאה נכשלת בשקט
+והיצירה נשארת על עיר המשרד. כמה נכסים שנוצרים באותו תור יוצאים עם כפתור
+"עריכה ב-CRM" אחד אל רשימת הנכסים, לא כפתור לכל נכס. נכס יחיד נשאר עם
+הכפתור שלו.
 
 **רשימה סגורה של שדות, וזה הגבול היחיד.** הבוט רץ כ-service_role, ו-
 `protect_sensitive_agency_member_fields` מדלגת על service_role לגמרי: מסלול,
