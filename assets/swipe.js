@@ -1061,7 +1061,8 @@
       kind: 'up',
       text: (d ? 'גררו למעלה או הקישו ↑ לפרטי הנכס,' : 'החליקו למעלה לפרטי הנכס,') + ' ✦ הדמיה ויצירת קשר',
       sub: d ? 'הפרטים, ההדמיה ויצירת הקשר נפתחים בגיליון על הכרטיס' : 'בגיליון הפרטים: תמונות, מפה, תיאור ויצירת קשר',
-      art: '<span class="sw-co-ups">' + UP + UP + '</span><span class="sw-co-hand-y">' + HAND + '</span>' +
+      art: '<span class="sw-co-uline"></span><b class="sw-co-uword">לפרטי<br>הנכס</b>' +
+        '<span class="sw-co-ups">' + UP + UP + '</span><span class="sw-co-hand-y"><span class="sw-co-rip"></span>' + HAND + '</span>' +
         '<span class="sw-co-peek"><i></i><b>פרטי הנכס</b><span><em>✦ הדמיה</em><em>מפה ותיאור</em><em>יצירת קשר</em></span></span>'
     });
     return steps;
