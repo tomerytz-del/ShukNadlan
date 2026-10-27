@@ -42,6 +42,42 @@ export function likeSafe(value: string): string {
   return `%${value.replace(/[%_\\]/g, "\\$&")}%`;
 }
 
+/**
+ * שם עיר קנוני דרך city_id_for_name (שם, ואז city_aliases). בלי התאמה
+ * נשאר מה שהוקלד, כדי שהסינון לא ייעלם. כשל של ה-RPC משאיר את המקור.
+ */
+export async function canonicalCityName(
+  supabase: SupabaseClient,
+  name: string | null | undefined,
+): Promise<string | null> {
+  const raw = text(name);
+  if (!raw) return null;
+  const { data, error } = await supabase.rpc("city_id_for_name", { p_name: raw });
+  if (error || !data) return raw;
+  const { data: city, error: cityErr } = await supabase.from("cities").select("name").eq("id", data).maybeSingle();
+  if (cityErr || !city?.name) return raw;
+  return String(city.name);
+}
+
+/** שורת לוג לחיפוש בלי תוצאות. רק שדות החיפוש, בלי הערות ובלי טלפון. */
+export function searchMissRow(
+  agentId: string,
+  args: Record<string, unknown>,
+): { agent_id: string; city: string | null; area: string | null; deal_type: string | null } {
+  return {
+    agent_id: agentId,
+    city: text(args.city),
+    area: text(args.area),
+    deal_type: text(args.deal_type),
+  };
+}
+
+export function searchMissStoreMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  return code === "42P01" || code === "PGRST204" || code === "PGRST205";
+}
+
 // מפתח ההשוואה לשמות אזורים (‏"סי 1" = C1) - ‏SearchCore.areaKey, משותף לאתר.
 
 /**
