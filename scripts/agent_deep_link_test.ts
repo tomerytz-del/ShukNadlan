@@ -22,7 +22,9 @@ import {
   stripHttpUrls,
   containsHttpUrl,
   actionTemplateMessage,
+  distinctButtonTitles,
   replyButtonsMessage,
+  resendInteractiveAsText,
   utilitySuffix,
   utilityTemplateMessage,
   utf16Length,
@@ -186,6 +188,48 @@ const fallback = listTextFallback("https://shuknadlan.co.il", "איזה נכס �
 check("נפילת רשימה כוללת את הקישור", fallback.includes(`הרצל: https://shuknadlan.co.il/crm?goto=accProperties&property=${ID}`));
 check("שורה בלי nav נשארת כותרת", fallback.includes("רק אתר") && !fallback.includes("dest:site"));
 
+const sameLead = "ליד חדש: התעניינות בנכס";
+const dupLeads = screenBundle([
+  { type: "new_lead", path: `/crm?goto=accLeads&lead=${ID}`, title: sameLead, body: "דנה כהן" },
+  { type: "new_lead", path: `/crm?goto=accLeads&lead=${ID2}`, title: sameLead, body: "יוסי לוי" },
+], () => "/crm?goto=accLeads");
+check("שתי כותרות זהות נשארות כפתורים", dupLeads.kind === "buttons" && dupLeads.rows.length === 3);
+if (dupLeads.kind === "buttons") {
+  const titles = dupLeads.rows.map((row) => row.title);
+  const sent = (replyButtonsMessage("972500000000", "מה שחדש", dupLeads.rows).interactive as {
+    action: { buttons: { reply: { title: string } }[] };
+  }).action.buttons.map((b) => b.reply.title);
+  check("הכותרות ייחודיות ובתוך 20", new Set(sent).size === sent.length && sent.every((t) => utf16Length(t) <= 20 && t === t.trim() && t.length > 0), sent);
+  check("הכול לא מקבל סיומת", titles[2] === "הכול" && sent.filter((t) => t === "הכול").length === 1);
+  check("הכפילות מקבלת את השם", titles[0] !== titles[1] && (titles[1].includes("יוסי") || / \d+$/.test(titles[1])));
+}
+
+const longTitle = "ג".repeat(20);
+const dupLong = screenBundle([
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: longTitle, body: "" },
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: longTitle, body: "" },
+], () => "/crm?goto=accProperties");
+check("בלי שם מוסיפים מספר", dupLong.kind === "buttons" && dupLong.rows[0].title === longTitle && / \d+$/.test(dupLong.rows[1].title) && utf16Length(dupLong.rows[1].title) <= 20 && dupLong.rows[2].title === "הכול");
+
+const titledAll = screenBundle([
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "הכול", body: "דנה" },
+  { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "הרצל", body: "" },
+], () => "/crm?goto=accProperties");
+check("הכול נשמר לכפתור הרשימה", titledAll.kind === "buttons" && titledAll.rows[2].title === "הכול" && titledAll.rows[0].title !== "הכול" && titledAll.rows[1].title === "הרצל" && new Set(titledAll.rows.map((row) => row.title)).size === 3);
+
+const listDup = screenBundle([
+  { type: "new_lead", path: `/crm?goto=accLeads&lead=${ID}`, title: "ליד חדש", body: "דנה" },
+  { type: "new_lead", path: `/crm?goto=accLeads&lead=${ID2}`, title: "ליד חדש", body: "יוסי" },
+  { type: "new_lead", path: `/crm?goto=accLeads&lead=${ID3}`, title: "ליד חדש", body: "רן כהן" },
+], () => "/crm?goto=accLeads");
+check("רשימה עם כותרת כפולה נשארת ייחודית", listDup.kind === "list" && listDup.rows.at(-1)?.title === "הכול" && new Set(listDup.rows.map((row) => row.title)).size === listDup.rows.length && listDup.rows.every((row) => utf16Length(row.title) <= 24));
+check("בלי מקום לסיומת אין כותרות", distinctButtonTitles([{ title: "א" }, { title: "א" }], 1) === null);
+
+check("דחיית כפתור נשלחת כטקסט", resendInteractiveAsText("interactive", false, "{\"error\":{\"code\":131009}}", 131050));
+check("ביטול של הנמען לא נשלח שוב", !resendInteractiveAsText("interactive", false, "Recipient opted out 131050", 131050));
+check("טקסט שנדחה לא נשלח שוב כטקסט", !resendInteractiveAsText("text", false, "no", 131050));
+check("הצלחה לא נשלחת שוב", !resendInteractiveAsText("interactive", true, "", 131050));
+
 const demands = screenBundle([
   { type: "open_demand", path: "/crm?goto=accLeads&tab=demand", title: "א" },
   { type: "open_demand", path: "/crm?goto=accLeads&tab=demand", title: "ב" },
@@ -262,10 +306,58 @@ check("תבנית פעולה בלי כתובת ובלוכסן", !containsHttpUrl
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
 check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage") && push.includes("replyButtonsMessage"));
 check("נפילה לטקסט שומרת את ה-wc שנכנס לגוף", push.includes("stampPaths") && !push.includes("tokens = []"));
+const fallbackAt = push.indexOf('payload.type === "interactive"');
+const pushFallback = fallbackAt >= 0 ? push.slice(fallbackAt, push.indexOf("if (!res.ok)", fallbackAt + 10)) : "";
+check("דחייה נופלת לטקסט עם הקישור", pushFallback.includes("resendInteractiveAsText") && pushFallback.includes("textBody(name, items, false, topics, true, stampPaths(stampedPlan))") && pushFallback.includes('type: "text"'));
 check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATSAPP_NOTIFY_TEMPLATE") && push.includes("mode === \"template\" && WA_UTILITY"));
 check("התבנית הישנה עדיין כפתור הפסקה", push.includes("`/crm?goto=${MANAGE_ACC}`"));
 check("סוד הפעולה מוריד כתובות מהגוף", push.includes("WHATSAPP_NOTIFY_ACTION_TEMPLATE") && push.includes("templateSummary(items, false)") && push.includes("actionTemplateMessage"));
 check("הפעמון מעדיף action_path", crm.includes("openStoredActionPath(n.action_path)"));
+const storedFn = crm.slice(crm.indexOf("function openStoredActionPath"), crm.indexOf("function openNotificationTarget"));
+const visAt = storedFn.indexOf("navAccVisible");
+const openAt = storedFn.indexOf("handleGotoParam()");
+const urlAt = storedFn.indexOf("history.replaceState");
+check("נתיב שמור נבדק לפני פתיחה", visAt >= 0 && visAt < urlAt && urlAt < openAt && storedFn.includes("accAliasTarget"));
+
+const agentState = { is_platform_admin: false };
+let replaced: string | null = null;
+let opened = false;
+let assigned: string | null = null;
+const openStored = new Function(
+  "location", "history", "NAV_TAB_OF", "currentAgent", "navAccVisible", "accAliasTarget", "handleGotoParam", "URL",
+  `${storedFn}\nreturn openStoredActionPath;`,
+)(
+  { origin: "https://shuknadlan.co.il", assign: (url: string) => { assigned = url; } },
+  { state: null, replaceState: (_s: unknown, _t: string, url: string) => { replaced = url; } },
+  new Map([["dashPanelMarkets", "admin"]]),
+  agentState,
+  (id: string) => id === "accLeads",
+  (id: string) => id,
+  () => { opened = true; },
+  URL,
+) as (path: string) => boolean;
+const hidden = openStored("/crm?goto=accTeam");
+check("קטגוריה מוסתרת לא נפתחת", hidden === false && replaced === null && opened === false);
+replaced = null;
+opened = false;
+const shown = openStored(`/crm?goto=accLeads&lead=${ID}`);
+check("קטגוריה גלויה נפתחת", shown === true && opened && replaced === `/crm?goto=accLeads&lead=${ID}`);
+replaced = null;
+opened = false;
+const adminHidden = openStored("/crm?goto=dashPanelMarkets");
+check("פאנל ניהול חסום לסוכן/ת", adminHidden === false && replaced === null && opened === false);
+agentState.is_platform_admin = true;
+replaced = null;
+opened = false;
+const adminShown = openStored("/crm?goto=dashPanelMarkets");
+check("פאנל ניהול נפתח למנהל/ת", adminShown === true && opened && replaced === "/crm?goto=dashPanelMarkets");
+agentState.is_platform_admin = false;
+replaced = null;
+opened = false;
+const bell = openStored("/crm?goto=bell");
+check("פעמון שמור נפתח", bell === true && opened && replaced === "/crm?goto=bell");
+const agentPage = openStored("/agent?slug=dana#reviewsSec");
+check("דף סוכן/ת שמור עובר", agentPage === true && assigned === "/agent?slug=dana#reviewsSec");
 const mig = readFileSync(new URL("../supabase/migrations/20271028210000_notification_action_path.sql", import.meta.url), "utf8");
 check("העמודה וה-claim", mig.includes("add column if not exists action_path") && mig.includes("'action_path', n.action_path") && mig.includes("notification_types_add(array['leads_digest'])"));
 

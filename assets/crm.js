@@ -2680,7 +2680,16 @@ function openStoredActionPath(path){
     location.assign(u.pathname + u.search + u.hash);
     return true;
   }
-  if (u.pathname !== '/crm' || !u.searchParams.get('goto')) return false;
+  if (u.pathname !== '/crm') return false;
+  const raw = u.searchParams.get('goto');
+  if (!raw) return false;
+  // קטגוריה מוסתרת לתפקיד הזה לא נפתחת. אותה בדיקה כמו handleGotoParam,
+  // לפני החלפת הכתובת, כדי שהפעמון ייפול ליעד האחר. פאנל ניהול אצל
+  // מנהל/ת הפלטפורמה נפתח שם, אחרי המעבר לתצוגה.
+  if (/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) {
+    const adminOk = NAV_TAB_OF.get(raw) === 'admin' && currentAgent && currentAgent.is_platform_admin;
+    if (!adminOk && !navAccVisible(accAliasTarget(raw))) return false;
+  }
   history.replaceState(history.state, '', u.pathname + u.search + u.hash);
   handleGotoParam();
   return true;

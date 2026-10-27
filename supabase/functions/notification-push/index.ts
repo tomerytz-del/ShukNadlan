@@ -26,6 +26,7 @@ import {
   OPT_OUT_BARE,
   parseNavId,
   replyButtonsMessage,
+  resendInteractiveAsText,
   screenBundle,
   stripHttpUrls,
   type ClickRecord,
@@ -650,7 +651,7 @@ async function sendWhatsapp(
   // שההתראה לא תיפול בגלל הצורה שלה.
   if (!res.ok && payload.type === "interactive") {
     const raw = await res.text();
-    if (!raw.includes(String(WA_OPTED_OUT))) {
+    if (resendInteractiveAsText(String(payload.type), false, raw, WA_OPTED_OUT)) {
       console.error("cta_url rejected, sending as text", raw.slice(0, 300));
       // הטקסט נושא את אותם wc. מוחקים טוקן שלא נכנס לגוף (חיתוך אורך),
       // כדי שלחיצה לא תיספר בלי שליחה תואמת, ושליחה לא תיספר בלי הקישור.
