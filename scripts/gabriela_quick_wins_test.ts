@@ -30,6 +30,10 @@ check("חיפוש ריק אינו תופס הכל", !clientMatchesQuery("  ", { 
 check("דני כהן אינו רון כהן", !namesLikelySame("דני כהן", "רון כהן") && namesNeedConfirm("דני כהן", "רון כהן"));
 check("דוד ודויד עם אותו שם משפחה", namesLikelySame("דוד כהן", "דויד כהן") && !namesNeedConfirm("דוד כהן", "דויד כהן"));
 check("כהן לבדו אינו דני כהן", !namesLikelySame("כהן", "דני כהן"));
+check("ישי לוי אינו לוי כהן", !namesLikelySame("ישי לוי", "לוי כהן") && !namesNeedConfirm("ישי לוי", "לוי כהן"));
+check("רוני כהן אינו רון כהן", !namesLikelySame("רוני כהן", "רון כהן") && namesNeedConfirm("רוני כהן", "רון כהן"));
+check("י מובילה נשמרת", nameSkeleton("ישי") === "ישי" && nameSkeleton("ישי לוי").startsWith("ישי"));
+check("י סופית אינה נמחקת", nameSkeleton("רוני") === "רוני" && nameSkeleton("רוני") !== nameSkeleton("רון") && nameSkeleton("לוי") === "לוי");
 
 const billing = llmFailureKind({ message: "Your credit balance is too low to access the Anthropic API." });
 const transient = llmFailureKind({ status: 529, message: "overloaded" });
@@ -60,6 +64,15 @@ check("https נשאר", urlInSay(agr?.say || "").startsWith("https://shuknadlan.
 const sql = readFileSync(new URL("../supabase/migrations/20271027150100_gabriela_quick_wins.sql", import.meta.url), "utf8");
 check("מרווח ברירת מחדל 1500", sql.includes("default 1500") && sql.includes("coalesce(p_gap_ms, 1500)") && !sql.includes("default 2000"));
 check("ניקוי חריצי שליחה ישנים", sql.includes("interval '7 days'"));
+check("כפילות לקוח ב-SQL על כל הקובץ", sql.includes("function public.agent_client_duplicate") && sql.includes("client_name_skeleton") && sql.includes("from public.agent_clients"));
+const agentSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
+const createClient = agentSrc.slice(agentSrc.indexOf("async function findClientDuplicates"), agentSrc.indexOf("async function toolUpdateClient"));
+check("יצירת לקוח לא נעצרת ב-500", createClient.includes('rpc("agent_client_duplicate"') && createClient.includes(".range(") && !createClient.includes(".limit(500)"));
+const indexSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
+const outer = indexSrc.slice(indexSrc.indexOf("message handling failed"), indexSrc.indexOf("status handling failed"));
+check("כשל שליחה לא עוצר סטטוסים", outer.includes("llm failure reply failed"));
+check("סוכן לא פעיל לא מקבל קישור", outer.includes('.eq("active", true)'));
+check("בוט ציבורי כבוי בלי הודעת כשל ללא מוכר", outer.includes("!agentId && !publicBotEnabled"));
 
 resetPairPaceForTests(0);
 let running = 0;

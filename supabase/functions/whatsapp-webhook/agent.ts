@@ -4278,6 +4278,73 @@ async function toolListCalls(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+type ClientDupHit = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  status: string;
+  kind: "duplicate" | "confirm";
+};
+
+/**
+ * כפילות על כל הלקוחות של הסוכן/ת. ה-RPC משווה במסד; אם הוא עוד לא נפרס
+ * (הפונקציה עלתה לפני המיגרציה) עוברים על כל השורות בעמודים, לא על 500.
+ * null = הבדיקה נכשלה, ואסור ליצור כרטיס.
+ */
+async function findClientDuplicates(
+  ctx: ToolContext,
+  fullName: string,
+  phone: string,
+): Promise<ClientDupHit[] | null> {
+  const { data, error } = await ctx.supabase.rpc("agent_client_duplicate", {
+    p_agent_id: ctx.agent.id,
+    p_full_name: fullName,
+    p_phone: phone,
+  });
+  if (!error) {
+    return ((data || []) as ClientDupHit[]).map((row) => ({
+      id: String(row.id),
+      full_name: String(row.full_name || ""),
+      phone: row.phone ? String(row.phone) : null,
+      status: String(row.status || ""),
+      kind: row.kind === "confirm" ? "confirm" : "duplicate",
+    }));
+  }
+  const missing = /agent_client_duplicate|PGRST202|schema cache/i.test(String(error.message || ""));
+  if (!missing) {
+    console.error("client duplicate lookup failed", error.message);
+    return null;
+  }
+  const page = 1000;
+  const hits: ClientDupHit[] = [];
+  for (let from = 0; from < 20000; from += page) {
+    const { data: rows, error: pageErr } = await ctx.supabase
+      .from("agent_clients")
+      .select("id, full_name, phone, status")
+      .eq("agent_id", ctx.agent.id)
+      .order("id", { ascending: true })
+      .range(from, from + page - 1);
+    if (pageErr) {
+      console.error("client duplicate scan failed", pageErr.message);
+      return null;
+    }
+    for (const c of rows || []) {
+      const same = namesLikelySame(c.full_name, fullName) || phonesMatch(phone, c.phone);
+      const confirm = !same && namesNeedConfirm(c.full_name, fullName);
+      if (!same && !confirm) continue;
+      hits.push({
+        id: String(c.id),
+        full_name: String(c.full_name || ""),
+        phone: c.phone ? String(c.phone) : null,
+        status: String(c.status || ""),
+        kind: same ? "duplicate" : "confirm",
+      });
+    }
+    if (!rows || rows.length < page) break;
+  }
+  return hits;
+}
+
 async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>) {
   const fullName = String(input.full_name || "").trim();
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
@@ -4289,19 +4356,19 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   // בדשבורד. הוא אינו מרחיב את הראייה — ה-RLS היא לפי agent_id בלבד.
   payload.agency_id = ctx.agent.agency_id;
 
-  // כפילות: אותו שם או אותו טלפון אצל אותו/ה סוכן/ת. בוואטסאפ זה קורה יותר
-  // מבדשבורד — "תוסיף את משפחת כהן" נאמר בלי לראות את הקובץ — ולקוח/ה כפול/ה
-  // פירושו שני כרטיסים עם חצי מהדרישות בכל אחד.
+  // כפילות: אותו שם או אותו טלפון אצל אותו/ה סוכן/ת, על כל הקובץ
+  // ולא על 500 האחרונים. בוואטסאפ זה קורה יותר מבדשבורד - "תוסיף את
+  // משפחת כהן" נאמר בלי לראות את הקובץ - ולקוח/ה כפול/ה פירושו שני
+  // כרטיסים עם חצי מהדרישות בכל אחד.
   const phone = String(input.phone || "");
-  const { data: existing } = await ctx.supabase
-    .from("agent_clients")
-    .select("id, full_name, phone, status")
-    .eq("agent_id", ctx.agent.id)
-    .limit(500);
-  const dup = (existing || []).find((c) =>
-    namesLikelySame(c.full_name, fullName) ||
-    phonesMatch(phone, c.phone)
-  );
+  const existing = await findClientDuplicates(ctx, fullName, phone);
+  if (existing === null) {
+    return {
+      ok: false,
+      error: "לא הצלחתי לבדוק כפילות בקובץ הלקוחות. לא נוצר כרטיס. אפשר לנסות שוב.",
+    };
+  }
+  const dup = existing.find((c) => c.kind === "duplicate");
   if (dup && !input.force_new) {
     return {
       ok: false,
@@ -4318,7 +4385,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   // שם משפחה זהה ושם פרטי אחר ("דני כהן" / "רון כהן") אינו כפילות.
   // לא יוצרים בשקט ולא חוסמים: שואלים, ו-force_new רק אחרי אישור.
   const maybe = !input.force_new
-    ? (existing || []).find((c) => namesNeedConfirm(c.full_name, fullName))
+    ? existing.find((c) => c.kind === "confirm")
     : undefined;
   if (maybe) {
     return {

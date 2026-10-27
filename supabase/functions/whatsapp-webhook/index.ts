@@ -1758,15 +1758,24 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
         } catch (err) {
           console.error("message handling failed", err);
           // גם כשל מחוץ ל-try של המודל לא משאיר את הפונה בלי תשובה.
-          // סוכן/ת מקבל/ת קישור לאזור האישי. לקוח/ה, בעלים, חותם/ת וגולש/ת לא.
+          // סוכן/ת פעיל/ה מקבל/ת קישור לאזור האישי. לקוח/ה, בעלים, חותם/ת
+          // וגולש/ת לא. כשל בשליחה כאן לא מונע טיפול ב-statuses שבהמשך.
           const from = String(msg?.from || "");
           if (!from) continue;
-          const { data: who } = await supabase.from("agency_members")
-            .select("id")
-            .eq("phone_e164", from)
-            .limit(1);
-          const agentId = who?.[0]?.id ? String(who[0].id) : null;
-          await replyAfterLlmFailure(from, agentId, err, msg?.id ? String(msg.id) : null);
+          try {
+            const { data: who } = await supabase.from("agency_members")
+              .select("id")
+              .eq("phone_e164", from)
+              .eq("active", true)
+              .limit(1);
+            const agentId = who?.[0]?.id ? String(who[0].id) : null;
+            // בוט ציבורי כבוי: שולח/ת לא מוכר/ת לא מקבל/ת הודעת כשל.
+            // ההודעה הקבועה יוצאת רק במסלול הרגיל, כמו קודם.
+            if (!agentId && !publicBotEnabled) continue;
+            await replyAfterLlmFailure(from, agentId, err, msg?.id ? String(msg.id) : null);
+          } catch (sendErr) {
+            console.error("llm failure reply failed", sendErr);
+          }
         }
       }
       // ‏statuses מגיעים לאותו וובהוק. עד היום הם נזרקו, ולכן "נשלח" היה כל

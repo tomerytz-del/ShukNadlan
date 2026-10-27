@@ -21,9 +21,20 @@ export function phonesMatch(a: unknown, b: unknown): boolean {
 }
 
 /**
+ * י' באמצע המילה יורדת ("דויד"/"דוד"). י' בראש המילה ו-י' בסופה נשארות:
+ * מחיקה של כולן הפכה את "ישי לוי" ל"לו" ואת "רוני" ל"רון".
+ * אותו כלל ב-client_name_skeleton במיגרציה 20271027150100.
+ */
+function stripMedialYod(word: string): string {
+  if (word.length <= 2) return word;
+  const mid = word.slice(1, -1).replace(/י/g, "");
+  return word[0] + mid + word[word.length - 1];
+}
+
+/**
  * שלד להשוואת שם: אותיות סופיות, בלי ניקוד וגרשיים, ו"ו כפולה לו אחת,
- * כ/ק לאות אחת, ט/ת לאות אחת, ובלי י'. "קלפון" ו"כלפון" יוצאים זהים,
- * וכך גם "דויד"/"דוד" ו"וייצמן"/"ויצמן".
+ * כ/ק לאות אחת, ט/ת לאות אחת, ובלי י' באמצע המילה. "קלפון" ו"כלפון"
+ * יוצאים זהים, וכך גם "דויד"/"דוד" ו"וייצמן"/"ויצמן".
  */
 export function nameSkeleton(raw: unknown): string {
   let s = String(raw ?? "").normalize("NFKC");
@@ -32,7 +43,7 @@ export function nameSkeleton(raw: unknown): string {
   s = s.replace(/[^א-תA-Za-z0-9\s]/g, " ");
   s = s.replace(/ו{2,}/g, "ו");
   s = s.replace(/[כק]/g, "ק").replace(/[טת]/g, "ת");
-  s = s.replace(/י/g, "");
+  s = s.split(" ").map(stripMedialYod).join(" ");
   return s.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
