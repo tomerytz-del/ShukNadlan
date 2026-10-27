@@ -3417,6 +3417,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero body #ssCard .ss-mic:not([hidden]){display:inline-flex;width:44px;min-height:44px;height:44px;align-self:center;
     border-radius:999px;color:var(--v10-navy);background:rgba(14,42,107,.07)}
   html.beta-hero body #ssCard .ss-mic.is-listening{color:#fff;background:var(--v10-navy);animation:v10MicPulse 1.2s ease-in-out infinite}
+  @keyframes v10MicHintIn{from{opacity:0;transform:translate(-6px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
+  @keyframes v10MicHintOut{to{opacity:0;transform:translate(-6px,-50%)}}
+  @media(prefers-reduced-motion:reduce){html.beta-hero body .ss-mic-hint,html.beta-hero body .ss-mic-hint.is-leaving{animation:none}}
   @keyframes v10MicPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,.55)}50%{box-shadow:0 0 0 8px rgba(201,162,39,0)}}
   @media(prefers-reduced-motion:reduce){html.beta-hero body #ssCard .ss-mic.is-listening{animation:none}}
   @media(max-width:759px){
@@ -3435,9 +3438,12 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     html.beta-hero body #ssCard .hs-toggle span,html.beta-hero body #ssCard .hs-toggle .hs-toggle-chev{display:none}
     html.beta-hero body #ssCard .hs-toggle svg:first-child{width:20px;height:20px}
     html.beta-hero body #ssCard .hs-filter.is-collapsed{display:none}
-    /* הבועה של המיקרופון נפתחת מעל השדה ולא על הכפתור הזהב */
-    html.beta-hero body .ss-mic-hint{top:auto;bottom:calc(100% + 8px)}
-    html.beta-hero body .ss-mic-hint::before{bottom:auto;top:100%;border-bottom-color:transparent;border-top-color:var(--sapphire)}
+    /* הבועה של המיקרופון נפתחת לצידו, בתוך השדה - לא על הלשוניות ולא על הכפתור הזהב */
+    html.beta-hero body .ss-mic-hint{top:50%;bottom:auto;right:auto;left:calc(100% + 10px);transform:translateY(-50%);
+      animation:v10MicHintIn .25s ease-out both}
+    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s ease-in both}
+    html.beta-hero body .ss-mic-hint::before{top:50%;bottom:auto;left:auto;right:100%;margin:-6px 0 0;border:6px solid transparent;border-right-color:var(--sapphire)}
+    html.beta-hero.mic-hint-on .hs-q{visibility:visible}
   }
 
   /* ---------- מפת השכונות (‏#hoodMapSec) ---------- */
