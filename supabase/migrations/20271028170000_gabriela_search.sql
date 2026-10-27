@@ -405,13 +405,17 @@ begin
            and w.warned_at > r.last_at
            and w.warned_at < now() - interval '7 days';
 
-        insert into public.notifications (agent_id, type, title, body, related_client_id)
+        -- suppress_push בעמודות: זו התראה חיה (שבוע לפני מחיקה), לא מילוי
+        -- היסטוריה. false משאיר אותה לדחיפה. בלי העמודה הבדיקה חוסמת
+        -- את הקובץ, כי הוא אחרי 20271028140000.
+        insert into public.notifications (agent_id, type, title, body, related_client_id, suppress_push)
         select r.agent_id, 'retention_warning',
                'כרטיס לקוח/ה יימחק בעוד שבוע',
                'הכרטיס של ' || coalesce(nullif(r.full_name, ''), 'לקוח/ה') ||
                ' לא היה פעיל שנתיים, ולכן יימחק בעוד שבוע לפי מדיניות השמירה. '
                || 'כל עדכון בכרטיס משאיר אותו.',
-               r.id
+               r.id,
+               false
           from _ret_clients r
          where r.agent_id is not null
            and r.last_at < v_cut + interval '7 days'
