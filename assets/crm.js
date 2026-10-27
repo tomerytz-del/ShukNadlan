@@ -19800,6 +19800,19 @@ function buildLeadTab(lead, agentId){
    את הצורך גלוי — זה מה שמשכנע לפתוח. ליד פתוח: חיוג ווואטסאפ בראש,
    השלב וההערה באמצע, ופעולות הניהול (חוות דעת, הפנייה, ארכיון) קטנות
    ושקטות בתחתית. */
+/* כלל היריד (חלק 7 §A.4b): פנייה שהגיעה בזמן שהדירה הייתה ביריד - ללא עמלת תיווך לקונה,
+   גם אחרי שהיריד נגמר. הזכאות נקבעת במסד ברגע ההכנסה (‏leads.open_house_eligible,
+   docs/proposals/open_house_lead_eligibility.sql); בלי העמודה - אין תג */
+function leadFairChip(lead){
+  if (!lead || lead.open_house_eligible !== true) return '';
+  const end = lead.open_house_end_snapshot ? new Date(lead.open_house_end_snapshot) : null;
+  const d = end && !isNaN(end) ? end.toLocaleDateString('he-IL', { day:'numeric', month:'numeric', timeZone:'Asia/Jerusalem' }) : '';
+  const tip = !d ? 'הפנייה הגיעה בזמן שהדירה הייתה ביריד הבתים הפתוחים'
+    : end < new Date() ? 'היריד לדירה הסתיים ב-' + d + '; הפנייה הגיעה לפני כן'
+    : 'הפנייה הגיעה בזמן שהדירה ביריד, עד ' + d;
+  return '<span class="lc-fair" title="' + esc(tip) + '">פנייה בתקופת היריד · ללא עמלת תיווך</span>';
+}
+
 function buildLeadCard(lead, agentId, isArchived){
   const kind = leadKind(lead);
   const unlocked = lead.status === 'unlocked';
@@ -19816,6 +19829,7 @@ function buildLeadCard(lead, agentId, isArchived){
         <div class="lc-badges">
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
+          ${leadFairChip(lead)}
         </div>
         <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
         <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>

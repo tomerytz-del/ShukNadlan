@@ -643,3 +643,22 @@ select public.open_house_digest_pending() as has_pending;
 select count(*) from public.properties
 where open_house and open_house_end <= now();
 ```
+
+## הזכאות נקבעת ברגע הפנייה (החלטת תומר, 27.10.2026)
+
+מי שפונה על דירה **בזמן שהיא ביריד** לא משלם/ת עמלת תיווך, גם אם ההסכם נחתם
+אחר כך. שדות `open_house_*` על הנכס משתנים או מתנקים אחרי היריד, ולכן הם אינם
+יכולים להוכיח את זה חודש אחרי: **הליד זוכר בעצמו.**
+
+- ‏`leads.open_house_eligible` ו-`leads.open_house_end_snapshot` נכתבים בטריגר
+  `before insert` (‏`leads_open_house_snapshot`) מהנכס שב-`property_id`, באותו
+  חלון של `OpenHouse.live`. ערך שנשלח מהדפדפן נדרס, ועדכון מאוחר יותר אינו נוגע
+  בהם (‏`leads_open_house_freeze`). כל ערוץ שיוצר ליד על הנכס מקבל את זה מעצמו.
+- ב-CRM: תג זהב **"פנייה בתקופת היריד · ללא עמלת תיווך"** בכרטיס הליד
+  (‏`leadFairChip` ב-`assets/crm.js`), עם תאריך הסיום בתיאור. נשאר לתמיד.
+- בהתראה לסוכן/ת על ליד חדש (‏`notify_agent_on_new_lead`) אותה שורה בסוף הגוף.
+- **המיגרציה נכתבה ולא הוחלה:** `docs/proposals/open_house_lead_eligibility.sql`.
+  עד שתוחל אין עמודה, והכרטיס פשוט לא מציג תג.
+
+קבלה: ליד דקה לפני `open_house_end` - דלוק; דקה אחרי - כבוי; שינוי `open_house_end`
+אחר כך אינו משנה לידים קיימים.
