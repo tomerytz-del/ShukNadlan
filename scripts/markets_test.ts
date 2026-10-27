@@ -352,9 +352,13 @@ check("בית שאן → beit-shean", reg.locate(32.497, 35.497)?.slug === "beit
 check("טירת צבי → beit-shean", reg.locate(32.423, 35.527)?.slug === "beit-shean");
 check("הגבול עם טבריה בדרום: 35.5456 → טבריה, 35.5457 → בית שאן (32.71)",
   reg.locate(32.71, 35.5456)?.slug === "tiberias" && reg.locate(32.71, 35.5457)?.slug === "beit-shean");
-check("הגבול עם טבריה במזרח הכנרת: 35.5499 → טבריה, 35.5501 → בית שאן (32.75)",
-  reg.locate(32.75, 35.5499)?.slug === "tiberias" && reg.locate(32.75, 35.5501)?.slug === "beit-shean");
+check("הגבול עם טבריה במזרח הכנרת: 35.5599 → טבריה, 35.5601 → בית שאן (32.75)",
+  reg.locate(32.75, 35.5599)?.slug === "tiberias" && reg.locate(32.75, 35.5601)?.slug === "beit-shean");
+check("חמי טבריה → tiberias", reg.locate(32.766117, 35.55151)?.slug === "tiberias");
+check("רצועת המלונות מדרום לטבריה (32.768, 35.552) → tiberias",
+  reg.locate(32.768, 35.552)?.slug === "tiberias");
 check("פוריה עילית → tiberias", reg.locate(32.732736, 35.546162)?.slug === "tiberias");
+check("פוריה נווה עובד → tiberias", reg.locate(32.743763, 35.53811)?.slug === "tiberias");
 check("פוריה כפר עבודה → tiberias", reg.locate(32.719846, 35.545563)?.slug === "tiberias");
 check("מגדל → tiberias", reg.locate(32.839494, 35.499849)?.slug === "tiberias");
 check("גינוסר → tiberias", reg.locate(32.848666, 35.523152)?.slug === "tiberias");
