@@ -36,6 +36,7 @@ insert into public.pricing_config (key, value, description) values
   ('notif_burst_global_hour', 130, 'מעל זה הודעות sent בשעה האחרונה, לכל הסוכנים: מפסק. בערך פי שלושה מ-p95, מעל המקסימום 72.'),
   ('notif_burst_max_items', 24, 'מעל זה פריטים בהודעה אחת: גוף קצר עם קישור לאתר, לא רשימה. מעל מקסימום יום שנמדד (18).'),
   ('notif_burst_scraped_stale_days', 14, 'ביקוש פתוח שפורסם לפני זה יוצא רק לאתר. יום 7 של מחזור החיים עדיין נדחף.'),
+  ('notif_burst_demand_fanout', 15, 'כמה סוכנים לכל היותר מקבלים וואטסאפ על ביקוש פתוח אחד. השאר נשארים בפעמון. 0 מבטל את התקרה. דירוג: עיר מדויקת, ואז פעילות אחרונה.'),
   ('notif_burst_breaker', 0, '1: מפסק גלובלי דלוק. יורד לבד כשהחלון חזר מתחת לסף, אלא אם notif_burst_manual_pause דלוק. לא מסמן skipped.'),
   ('notif_burst_manual_pause', 0, '1: מפסק גלובלי עד שמנהל/ת מאפס/ת. ליד אמיתי, סיור ומוגן עדיין יוצאים. השאר נדחה.'),
   ('notification_burst_guard_enabled', 1, '1: מפסקי ההתפרצות והתקרות פעילים. 0: הם כבויים בלי דיפלוי. ישן, מילוי ובקשת תמונות נשארים.')
@@ -178,6 +179,9 @@ create trigger client_match_alerts_stamp_suppress
 -- פוסט בן פחות מ-14 יום (כולל היום השביעי של scraped_leads_lifecycle)
 -- עדיין נדחף. ישן יותר, או push_site_only, נשאר באתר.
 -- agent_works_city לא מוחלפת: נקראת כמו שהיא אחרי 20271028090000.
+-- תקרת הפצה לפוסט (notif_burst_demand_fanout, ברירת מחדל 15): כולם
+-- מקבלים שורה בפעמון. וואטסאפ יוצא רק לראשונים, לפי דיוק העיר ואז
+-- הפעילות האחרונה. 0 מבטל את התקרה. אף אחד לא נמחק מהרשימה.
 -- ---------------------------------------------------------------------------
 create or replace function public.scraped_lead_notify_demand(p_id uuid)
 returns int
@@ -193,6 +197,9 @@ declare
   v_days  int := greatest(1, coalesce(
             (select value::int from public.pricing_config
               where key = 'notif_burst_scraped_stale_days'), 14));
+  v_cap   int := coalesce(
+            (select value::int from public.pricing_config
+              where key = 'notif_burst_demand_fanout'), 15);
   v_site  boolean;
 begin
   select * into r from public.scraped_leads where id = p_id for update;
@@ -220,10 +227,35 @@ begin
     || '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.';
 
   insert into public.notifications (agent_id, type, title, body, suppress_push)
-  select m.id, 'open_demand', v_title, left(v_body, 500), v_site
-    from public.agency_members m
-   where m.active and public.agent_works_city(m.id, r.city_id)
-     and public.agent_handles_type(m.id, r.property_type, r.deal_type);
+  select s.id, 'open_demand', v_title, left(v_body, 500),
+         v_site or (v_cap > 0 and s.rn > v_cap)
+    from (
+      select m.id,
+             row_number() over (
+               order by
+                 case
+                   when a.city_id = r.city_id then 0
+                   when exists (
+                     select 1
+                       from public.agent_lead_preferences lp
+                       join public.neighborhoods n
+                         on n.id = any (lp.preferred_neighborhoods)
+                      where lp.agent_id = m.id
+                        and lp.active
+                        and n.city_id = r.city_id
+                   ) then 1
+                   else 2
+                 end,
+                 w.last_message_at desc nulls last,
+                 m.id
+             ) as rn
+        from public.agency_members m
+        left join public.agencies a on a.id = m.agency_id
+        left join public.whatsapp_conversations w on w.agent_id = m.id
+       where m.active
+         and public.agent_works_city(m.id, r.city_id)
+         and public.agent_handles_type(m.id, r.property_type, r.deal_type)
+    ) s;
   get diagnostics v_n = row_count;
 
   update public.scraped_leads set demand_notified_at = now() where id = p_id;
@@ -231,7 +263,7 @@ begin
 end $$;
 
 comment on function public.scraped_lead_notify_demand(uuid) is
-  'התראת open_demand לכל סוכן/ת בעיר ובסוג, פעם אחת לפוסט. פוסט ישן מ-14 יום או push_site_only נשאר באתר. docs/scraped-leads.md';
+  'התראת open_demand לכל סוכן/ת בעיר ובסוג, פעם אחת לפוסט. וואטסאפ רק ל-15 הראשונים (עיר מדויקת ואז פעילות). השאר בפעמון. פוסט ישן או push_site_only כולו באתר. docs/scraped-leads.md';
 
 revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;

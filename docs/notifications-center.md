@@ -579,7 +579,7 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 | מחולל | מה קורה בעומס |
 | --- | --- |
-| `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
+| `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. `notif_burst_demand_fanout` (15, `0` מבטל) מגביל וואטסאפ לפוסט: עיר מדויקת ואז פעילות אחרונה. השאר בפעמון, בלי דילוג. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
 | `share_property_for_agent` | "נכס חדש שותף איתך". הטריגר מדליק `suppress_push` אם `notification_push_suppress(true)` נקרא קודם באותה טרנזקציה |
 | `generate_client_match_alerts` + `client_match_digest_run` | התאמה בזמן הדגל מקבלת `push_site_only`. סיכום שכולו כאלה לא יוצא לוואטסאפ, גם כשאין עדיין `last_sent_at`. התאמה חיה כן |
 | `notify_agent_on_new_lead` | לא שונתה. `photo_request` מטופל ב-`notification_push_burst_prepare` לפי `leads.source` |

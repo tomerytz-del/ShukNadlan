@@ -142,6 +142,21 @@ check("skipped 25 שעות אחורה", sql.includes("now() - interval '25 hours
 check("ops_alert", sql.includes("'ops_alert'") && sql.includes("וואטסאפ לסוכנים הושהה"));
 check("מיפוי ביקוש", sql.includes("function public.scraped_leads_mark_remap"));
 check("14 יום", sql.includes("notif_burst_scraped_stale_days"));
+const demandStart = sql.indexOf("function public.scraped_lead_notify_demand");
+const demandEnd = sql.indexOf("comment on function public.scraped_lead_notify_demand");
+const demand = sql.slice(demandStart, demandEnd);
+check("תקרת הפצה 15, ואפס מבטל", sql.includes("('notif_burst_demand_fanout', 15,")
+  && demand.includes("where key = 'notif_burst_demand_fanout'), 15")
+  && demand.includes("v_cap > 0 and s.rn > v_cap"));
+check("כולם נכנסים, אף אחד לא נמחק מההפצה", demand.includes("insert into public.notifications")
+  && demand.includes("demand_notified_at = now()")
+  && !demand.includes("limit ")
+  && demand.includes("public.agent_works_city(m.id, r.city_id)")
+  && demand.includes("public.agent_handles_type"));
+check("דירוג: עיר המשרד, שכונה, ואז שיחה אחרונה", demand.includes("when a.city_id = r.city_id then 0")
+  && demand.includes("preferred_neighborhoods")
+  && demand.includes("w.last_message_at desc nulls last"));
+check("פוסט ישן עדיין אתר לכולם", demand.includes("v_site or (v_cap > 0 and s.rn > v_cap)"));
 check("תצוגת מעקב", sql.includes("notification_push_burst_status") && sql.includes("security_invoker"));
 check("revoke ל-authenticated על התצוגה", sql.includes(
   "revoke all on table public.notification_push_burst_status from public, anon, authenticated",
