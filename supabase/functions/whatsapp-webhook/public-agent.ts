@@ -71,12 +71,11 @@ import {
 // פחות. לכן כל תשובה כאן נגמרת בקישור. הפרטים: `docs/analytics-events.md`.
 // ============================================================================
 
-// המודל כסוד, כמו בבוט של הסוכנים. **הבוט הציבורי הוא המועמד החזק יותר
-// למודל זול**: הוא נפח גבוה, חשוף לכל מי שראה את המספר, והמשימה שלו
-// (חיפוש והפניה) צרה מזו של העוזר. ברירת המחדל נשארת Opus עד שתימדד
-// איכות, והמתג נפרד כדי שאפשר יהיה להחליף כאן בלי לגעת בערוץ העבודה
-// של הסוכנים.
-const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5";
+// המודל כסוד, כמו בבוט של הסוכנים. ברירת המחדל היא אותו Opus 5.5 של
+// העוזר (27.10.2026): Opus 5 יקר יותר וחלש יותר. המתג נפרד כדי שאפשר
+// יהיה להחליף כאן בלי לגעת בערוץ העבודה של הסוכנים. אם
+// WHATSAPP_PUBLIC_BOT_MODEL מוגדר בסוד - הוא גובר על ברירת המחדל.
+const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5-5";
 const PUBLIC_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT") || "")
   ? Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT")
   : "low") as "low" | "medium" | "high";

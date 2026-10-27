@@ -140,7 +140,8 @@ export async function transcribeMedia(opts: {
   const text = await transcribe(opts.openaiKey, copy, WHISPER_MIME[ext] || mime, ext, hint);
   if (!text) {
     console.error("media transcription failed", mime, ext, opts.fileName || "", sniff(bytes));
-    return fail("לא הצלחתי לתמלל את ההקלטה. אפשר לשלוח אותה שוב כקובץ MP3 או M4A, או לכתוב את הפרטים?",
+    return fail(
+      "לא הצלחתי לתמלל את ההקלטה, גם אחרי ניסיון נוסף. אפשר לשלוח אותה שוב כקובץ MP3 או M4A, או לכתוב את הפרטים?",
       "transcription_failed");
   }
   return { ok: true, text };

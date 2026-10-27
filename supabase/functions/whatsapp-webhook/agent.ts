@@ -30,6 +30,9 @@ import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-
 import { fuzzyMatches } from "./fuzzy-text.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
+import { clientMatchesQuery, namesLikelySame, phonesMatch } from "./hebrew-name.ts";
+import { pageLink, pageLinkTopics } from "./crm-pages.ts";
+import { llmFailureKind } from "./llm-fallback.ts";
 import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
   accessTokenFor,
@@ -892,7 +895,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מחזיר את קובץ הלקוחות של הסוכן/ת עם הדרישות של כל אחד/ת, ולצד כל " +
       "לקוח/ה גם מספר ההתאמות הפתוחות וההתאמה החזקה ביותר. זה הכלי גם לשאלת " +
-      "'כמה לקוחות יש לי' וגם למצוא את מזהה הלקוח/ה לפי שם.",
+      "'כמה לקוחות יש לי' וגם למצוא את מזהה הלקוח/ה לפי שם. החיפוש סלחן " +
+      "לכתיב (כ/ק, ט/ת, ו/וו, י' חסרה) ולטלפון בלי קשר לקידומת.",
     input_schema: {
       type: "object",
       properties: {
@@ -1088,7 +1092,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "ההסכמים של הסוכן/ת: סוג, סטטוס, מי החותמים ומי מהם כבר חתם/ה. " +
       "להשתמש לשאלות \"מה ממתין לחתימה\", \"האם X חתם/ה\", ולמצוא את מזהה " +
-      "ההסכם. **אין דרך ליצור או לתקן הסכם מכאן** - זה נעשה באשף בדשבורד.",
+      "ההסכם. יצירה = prepare_agreement. ביטול או תיקון נוסח של הסכם שכבר " +
+      "נוצר = page_link עם topic agreements (ו-agreement_id אם יש).",
     input_schema: {
       type: "object",
       properties: {
@@ -1201,6 +1206,12 @@ const TOOLS: Anthropic.Tool[] = [
           },
         },
         notes: { type: "string", description: "הערות שייכנסו למסמך." },
+        force_new: {
+          type: "boolean",
+          description:
+            "true רק אחרי שהסוכן/ת אישר/ה שטיוטה קיימת לא מתאימה וצריך הסכם חדש. " +
+            "בלי זה, טיוטה פתוחה לאותו לקוח/ה ואותו נכס מוחזרת במקום ליצור עוד אחת.",
+        },
       },
       required: ["kind", "client_id", "property_ids"],
     },
@@ -1509,6 +1520,27 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: "page_link",
+    description:
+      "קישור ישיר לעמוד הנכון ב-CRM, כשאין כלי שעושה את הפעולה מכאן. " +
+      "להשתמש במקום לומר \"אני לא יכולה\" או \"היכנסו לדשבורד\". " +
+      "topic: agreements (ביטול/תיקון הסכם שננעל), property, client, showcase, " +
+      "agenda, google_calendar (חיבור יומן Google - אי אפשר מכאן), leads, " +
+      "notifications, marketing (פייסבוק/מודעה), import (יד2/אקסל), home. " +
+      "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא.",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", enum: [...pageLinkTopics()] },
+        agreement_id: { type: "string" },
+        property_id: { type: "string" },
+        client_id: { type: "string" },
+        lead_id: { type: "string" },
+      },
+      required: ["topic"],
     },
   },
 ];
@@ -4049,8 +4081,14 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     // ‏escape על הפסיק והסוגריים: מחרוזת חיפוש עם פסיק הייתה נקראת כשני
     // תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
     const safe = q.replace(/[,()*]/g, " ").trim();
-    if (safe) {
-      const or = `full_name.ilike.%${safe}%,phone.ilike.%${safe}%`;
+    const digits = q.replace(/\D/g, "");
+    const parts: string[] = [];
+    if (safe) parts.push(`full_name.ilike.%${safe}%`);
+    // טלפון: גם הספרות כמו שהוקלדו וגם 9 האחרונות, כדי ש-050 ו-972 ייפגשו
+    if (digits.length >= 7) parts.push(`phone.ilike.%${digits.slice(-9)}%`);
+    else if (safe) parts.push(`phone.ilike.%${safe}%`);
+    if (parts.length) {
+      const or = parts.join(",");
       query = query.or(or);
       counter = counter.or(or);
     }
@@ -4062,6 +4100,31 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
   ]);
   if (error) return { ok: false, error: error.message };
   if (matchCountErr) console.warn("client match count failed", matchCountErr.message);
+
+  // ilike מפספס כ/ק וט/ת. אם החיפוש לא מילא את החלון, עוברים על הקובץ
+  // (עד 500) ומוסיפים התאמה סלחנית. בלי query אין מה לסלוח.
+  let rows = data || [];
+  let fuzzyAdded = 0;
+  if (q && rows.length < limit) {
+    let poolQuery = ctx.supabase
+      .from("agent_clients")
+      .select("id, full_name, phone, email, notes, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features, created_at")
+      .eq("agent_id", ctx.agent.id)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (input.status) poolQuery = poolQuery.eq("status", String(input.status));
+    else if (!input.all_statuses) poolQuery = poolQuery.eq("status", "active");
+    const { data: pool, error: poolErr } = await poolQuery;
+    if (poolErr) console.warn("fuzzy client search failed", poolErr.message);
+    const have = new Set(rows.map((c) => c.id));
+    for (const c of pool || []) {
+      if (have.has(c.id) || !clientMatchesQuery(q, c)) continue;
+      rows.push(c);
+      have.add(c.id);
+      fuzzyAdded++;
+      if (rows.length >= limit) break;
+    }
+  }
 
   // ספירת ההתאמות לכל לקוח/ה בקריאה אחת (ולא שאילתה לכל שורה). כשל כאן אינו
   // מפיל את הרשימה — הדרישות והטלפון הם עיקר התשובה, וההתאמות תוספת.
@@ -4089,8 +4152,8 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .eq("agent_id", ctx.agent.id);
 
   // עיון ברשימה מול שליפה של לקוח/ה. ראו ההסבר מעל הפונקציה.
-  const browsing = data.length > NOTES_FULL_WINDOW;
-  const matching = typeof totalMatching === "number" ? totalMatching : data.length;
+  const browsing = rows.length > NOTES_FULL_WINDOW;
+  const matching = (typeof totalMatching === "number" ? totalMatching : rows.length) + fuzzyAdded;
   let notesTrimmed = 0;
 
   return {
@@ -4100,10 +4163,11 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     // כמה תואמים את הסינון שהוחזר — זה מה שמגדיר אם הרשימה חתוכה, ולא
     // ‏total_all: חיפוש שמצא שלושה מתוך מאה אינו רשימה חתוכה.
     total_matching: matching,
-    truncated: matching > data.length,
-    returned: data.length,
+    truncated: matching > rows.length,
+    returned: rows.length,
     query: q || undefined,
-    clients: data.map((c) => {
+    spelling_tolerant: fuzzyAdded > 0 || undefined,
+    clients: rows.map((c) => {
       const full = String(c.notes ?? "");
       const trim = browsing && full.length > NOTES_BROWSE_CHARS;
       if (trim) notesTrimmed++;
@@ -4121,8 +4185,11 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
       };
     }),
     note: [
-      matching > data.length
-        ? `מוצגים ${data.length} מתוך ${matching}. לצמצום - query.`
+      matching > rows.length
+        ? `מוצגים ${rows.length} מתוך ${matching}. לצמצום - query.`
+        : null,
+      fuzzyAdded
+        ? "נמצא גם לפי כתיב קרוב או טלפון מנורמל. אמתי את השם מול הסוכן/ת לפני עדכון."
         : null,
       notesTrimmed
         ? `ההערות של ${notesTrimmed} לקוחות נגזמו כי הרשימה ארוכה - לקריאה מלאה, query על השם.`
@@ -4225,15 +4292,15 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   // כפילות: אותו שם או אותו טלפון אצל אותו/ה סוכן/ת. בוואטסאפ זה קורה יותר
   // מבדשבורד — "תוסיף את משפחת כהן" נאמר בלי לראות את הקובץ — ולקוח/ה כפול/ה
   // פירושו שני כרטיסים עם חצי מהדרישות בכל אחד.
-  const phone = String(input.phone || "").replace(/\D/g, "");
+  const phone = String(input.phone || "");
   const { data: existing } = await ctx.supabase
     .from("agent_clients")
     .select("id, full_name, phone, status")
     .eq("agent_id", ctx.agent.id)
-    .limit(300);
+    .limit(500);
   const dup = (existing || []).find((c) =>
-    normText(c.full_name) === normText(fullName) ||
-    (!!phone && String(c.phone || "").replace(/\D/g, "").slice(-9) === phone.slice(-9))
+    namesLikelySame(c.full_name, fullName) ||
+    phonesMatch(phone, c.phone)
   );
   if (dup && !input.force_new) {
     return {
@@ -5206,6 +5273,37 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   // ---- הנכסים
   const requested = (input.property_ids as string[] | undefined) || [];
   if (!requested.length) return { ok: false, error: "לא נבחרו נכסים להסכם." };
+
+  // טיוטה פתוחה לאותו לקוח/ה, אותו טופס ואותו נכס - לא עוד אחת.
+  // "קלפון"/"כלפון" יצר בעבר כרטיס כפול ושמונה טיוטות.
+  if (!input.force_new) {
+    const { data: open } = await ctx.supabase
+      .from("agreements")
+      .select("id, title, status, kind, property_ids, created_at")
+      .eq("agent_id", ctx.agent.id)
+      .eq("kind", kind)
+      .in("status", ["draft", "sent", "viewed"])
+      .contains("client_ids", [client.id])
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const want = new Set(requested.map(String));
+    const same = (open || []).find((row) => {
+      const ids = ((row.property_ids as string[] | null) || []).map(String);
+      return ids.some((pid) => want.has(pid));
+    });
+    if (same) {
+      return {
+        ok: false,
+        duplicate: true,
+        agreement_id: same.id,
+        title: same.title,
+        status: same.status,
+        error:
+          "כבר יש הסכם פתוח לאותו לקוח/ה ואותו נכס. לא נוצרה טיוטה נוספת. " +
+          "שאלי אם להשתמש בקיימת (agreement_sign_links) או להוציא חדשה (force_new, רק אחרי אישור).",
+      };
+    }
+  }
 
   const { data: rows } = await ctx.supabase
     .from("properties")
@@ -6441,6 +6539,23 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   return { ok: true, action, item: shaped };
 }
 
+function toolPageLink(input: Record<string, unknown>) {
+  const link = pageLink(SITE_BASE_URL || "https://shuknadlan.co.il", input);
+  if (!link) {
+    return {
+      ok: false,
+      error: "נושא לא מוכר.",
+      topics: pageLinkTopics(),
+    };
+  }
+  return {
+    ok: true,
+    url: link.say.slice(link.say.lastIndexOf("https://")),
+    say: link.say,
+    guidance: "כתוב/י לסוכן/ת את say כמו שהוא. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
+  };
+}
+
 async function runTool(
   ctx: ToolContext,
   name: string,
@@ -6508,6 +6623,7 @@ async function runTool(
       case "agenda_free_slots": return await toolAgendaFreeSlots(ctx, input);
       case "profile_get": return await toolProfileGet(ctx);
       case "update_profile": return await toolUpdateProfile(ctx, input);
+      case "page_link": return toolPageLink(input);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
     }
   } catch (err) {
@@ -6564,6 +6680,12 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
+    "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
+      "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
+      "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
+      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
+    "- **כשבאמת אין כלי** (ביטול או תיקון נוסח של הסכם שכבר ננעל, חיבור יומן Google, כיבוי התראות): " +
+      "page_link, ואת say מעתיקים כמו שהוא. משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב.",
     "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
@@ -6776,9 +6898,9 @@ const SYSTEM_STATIC: string = (() => {
     "- בהתאמה שאינה שלך (source agency, shared או market) הוסף/י את שם הסוכן/ת המפרסם/ת והטלפון (ובשיתוף או market - גם את המשרד) - בלעדיהם אין מה לעשות עם ההתאמה.",
     "",
     "הסכמים:",
-    "- אפשר **ליצור** הסכם מכאן (prepare_agreement, למטה), אבל **אי אפשר לתקן או " +
-      "לבטל** - גוף המסמך ננעל במסד ברגע היצירה. תיקון = ביטול והוצאת הסכם חדש, " +
-      "באשף \"החתם לקוח\" בדשבורד.",
+    "- אפשר **ליצור** הסכם מכאן (prepare_agreement). גוף המסמך ננעל ברגע היצירה, " +
+      "ולכן תיקון נוסח או ביטול של הסכם שכבר נוצר = page_link עם topic agreements " +
+      "(ו-agreement_id). אל תאמרי שאין דרך בלי הקישור.",
     "- agreement_sign_links מחזיר קישור אישי לכל חותם/ת שטרם חתם/ה. הצג/י אותו עם השם " +
       "שלידו, ואמור/אמרי במשפט אחד שהקישור אישי ואין להעביר אותו הלאה - הסוכן/ת הוא/היא " +
       "שמעביר/ה אותו לחותם/ת עצמו/ה.",
@@ -6977,6 +7099,12 @@ const LOOP_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_A
 export async function callClaude(
   params: Anthropic.MessageCreateParamsNonStreaming,
 ): Promise<Anthropic.Message> {
+  // בלי הבטא גם הודעת המאמץ (LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
+  // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
+  const plain = () => anthropic.messages.create({
+    ...params,
+    messages: params.messages.filter((m) => (m.role as string) !== "system"),
+  });
   try {
     // deno-lint-ignore no-explicit-any
     return await (anthropic.beta.messages.create as any)({
@@ -6985,13 +7113,17 @@ export async function callClaude(
       fallbacks: "default",
     });
   } catch (err) {
+    // יתרה שנגמרה לא תיפתר בניסיון שני, והוא רק מעכב את התשובה לסוכן/ת.
+    if (llmFailureKind(err) === "billing") throw err;
     console.warn("beta fallbacks unavailable, retrying without", err);
-    // בלי הבטא גם הודעת המאמץ (‏LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
-    // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
-    return await anthropic.messages.create({
-      ...params,
-      messages: params.messages.filter((m) => (m.role as string) !== "system"),
-    });
+    try {
+      return await plain();
+    } catch (err2) {
+      if (llmFailureKind(err2) !== "transient") throw err2;
+      console.warn("llm transient, retrying once", err2);
+      await new Promise((r) => setTimeout(r, 800));
+      return await plain();
+    }
   }
 }
 
