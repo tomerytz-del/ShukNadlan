@@ -3871,7 +3871,13 @@ function openMapView(source, opener){
   initMapDraw();
   if (heroMap) setTimeout(()=>{
     heroMap.invalidateSize({ pan:false });
-    fitMapToMarkers();
+    /* v10: מה-hero וממפת השכונות, כשלא נבחר אזור - מרכז העיר ולא כל הנכסים:
+       כמה מודעות רחוקות (נתניה, ירושלים) הרחיקו את ההתאמה עד מפת הארץ */
+    if (v10On() && (source === 'hero_cta' || source === 'hood_section') && v10NoAreaChosen()){
+      // בטלפון הריפוד של visibleMapPadding הוא של המפה הסגורה ודוחף את העיר לראש המסך
+      const narrow = window.innerWidth < MAP_COLUMN_MIN_WIDTH;
+      heroMap.setView(narrow ? CityCtx.center() : cityViewCenter(CITY_ZOOM), CITY_ZOOM, { animate:false });
+    } else fitMapToMarkers();
     updateSplitPanel();
   }, 60);
   document.getElementById('mapCloseBtn')?.focus({ preventScroll:true });
@@ -7539,4 +7545,10 @@ function buildHoodMap(box, hoods){
   }
   map.on('zoomend', draw);
   draw();
+}
+
+// אין אזור בחיפוש ואין שכונה מסומנת - המפה נפתחת על העיר (‏openMapView)
+function v10NoAreaChosen(){
+  const st = sentence && sentence.state ? sentence.state() : null;
+  return (!st || !st.area || st.area === 'all') && !hoodState.selected.size;
 }
