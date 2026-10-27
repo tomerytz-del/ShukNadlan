@@ -125,6 +125,15 @@ async function renderData(supabase: Sb, propertyId: string) {
     agentRes = await supabase.from("agency_members").select(memberCols).eq("id", property.agent_id).maybeSingle();
   }
   const agent = agentRes.data ?? {};
+  const isTomer = property.agent_id === TOMER_AGENT_ID;
+
+  // ‏ads_settings.disclosure_line הוא מ-26.10.2026 רק 'שוק נדל"ן' - השורה של
+  // שיווק הפלטפורמה, בלי שם ורישיון. בנכסים של תומר השם והרישיון חובה
+  // (‏27.10.2026), ולכן השורה נבנית מהרשומה שלו ב-agency_members, וההגדרה
+  // הכללית היא רק גיבוי כשחסר שם או מספר רישיון.
+  const disclosure = isTomer && agent.display_name && agent.license_number
+    ? `שוק נדל"ן | ${agent.display_name}, רישיון תיווך ${agent.license_number}`
+    : (discRes.data?.value ?? null);
 
   return {
     property,
@@ -142,8 +151,8 @@ async function renderData(supabase: Sb, propertyId: string) {
     },
     agency: { name: agencyRes.data?.name ?? null, logo_url: agencyRes.data?.logo_url ?? null },
     // שורת הגילוי של תומר - רק בנכסים שלו עצמו. סוכנים אחרים במשרד אינם תומר.
-    is_tomer: property.agent_id === TOMER_AGENT_ID,
-    disclosure_line: property.agent_id === TOMER_AGENT_ID ? (discRes.data?.value ?? null) : null,
+    is_tomer: isTomer,
+    disclosure_line: isTomer ? disclosure : null,
   };
 }
 

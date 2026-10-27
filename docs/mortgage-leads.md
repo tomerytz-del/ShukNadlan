@@ -59,7 +59,9 @@ purchase_mortgage_lead()  ניכוי ארנק + status='sold' + יומן חיו�
   לגמרי ולא נשענים על RLS בלבד.
 - `mortgage_leads_public` — ה-view של המדף: נתוני המחשבון בלבד
   (מחיר נכס, הון עצמי, אחוז מימון, ריבית, תקופה, החזר חודשי, `has_email`).
-  ל-`authenticated` בלבד — זהו מלאי מקצועי בתוך ה-CRM ולא ויטרינה פומבית.
+  ל-`authenticated` יש `SELECT` בלבד. זהו מלאי מקצועי בתוך ה-CRM ולא
+  ויטרינה פומבית. כתיבה דרך ה-view נשללת, כי הוא רץ כבעלים ועוקף RLS.
+  הקליטה והרכישה אינן עוברות בו.
 - `mortgage_lead_purchases` — יומן החיובים. `unique(lead_id)` מונע מכירה כפולה.
 - `agency_members.is_mortgage_advisor` — מי רואה את המדף ורשאי לקנות.
 - `pricing_config.mortgage_lead_price` = 50.

@@ -206,6 +206,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="field"><label for="managerEmail">אימייל</label><input type="email" id="managerEmail" required autocomplete="username" dir="ltr" style="text-align:right"></div>
     <div class="field"><label for="managerPassword">סיסמה (8 תווים לפחות)</label><input type="password" id="managerPassword" required minlength="8" autocomplete="new-password"></div>
 
+    <!-- ‏רשתות חברתיות - רשות. לתיוג הסוכן/ת והמשרד בפרסומי הנכסים, ורק עם
+         האישור שבתיבה (docs/social-tagging.md). agency-signup שומר אותם בעדכון
+         נפרד, ואפשר להשלים ולבטל אחר כך בפרופיל ובדף המשרד ב-CRM. -->
+    <div class="field">
+      <label for="managerInstagram">שם משתמש באינסטגרם <span style="font-weight:400">(אופציונלי)</span></label>
+      <input type="text" id="managerInstagram" maxlength="80" placeholder="למשל tomer.nadlan" dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="managerFacebook">קישור לפייסבוק <span style="font-weight:400">(אופציונלי)</span></label>
+      <input type="url" id="managerFacebook" maxlength="300" placeholder="https://www.facebook.com/..." dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="agencyInstagram">אינסטגרם של המשרד <span style="font-weight:400">(אופציונלי)</span></label>
+      <input type="text" id="agencyInstagram" maxlength="80" placeholder="למשל alpha.nadlan" dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="agencyFacebook">דף הפייסבוק העסקי של המשרד <span style="font-weight:400">(אופציונלי)</span></label>
+      <input type="url" id="agencyFacebook" maxlength="300" placeholder="https://www.facebook.com/..." dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="consent">
+      <input type="checkbox" id="socialConsent">
+      <label for="socialConsent">אני מאשר/ת לשוק הנדל״ן לתייג אותי (ואת המשרד) בפרסומי הנכסים שלי ברשתות החברתיות. אפשר לבטל בכל רגע מהפרופיל.</label>
+    </div>
+
     <!-- ‏הצטרפות לפלטפורמה = התחייבות לקוד האתי. האישור נרשם במסד ברגע פתיחת
          המשרד (agency-signup חותם על שורת המנהל/ת ועל שורת המשרד), ולכן תו
          האיכות פעיל כבר בכניסה הראשונה. הבדיקה נאכפת גם בשרת ולא רק כאן. -->
@@ -333,6 +357,35 @@ function ilMobile(raw){
   return /^05\d{8}$/.test(d);
 }
 
+/* ‏שדות הרשתות (רשות). אותו נרמול כמו socialReadFields ב-crm.js ו-
+   social_instagram_norm / social_facebook_norm במסד, שבודק שוב. */
+function readSocialFields(){
+  const ig = id => String(document.getElementById(id).value || '').trim().toLowerCase()
+    .replace(/^(https?:\/\/)?(www\.)?(instagram\.com|instagr\.am)\//, '')
+    .replace(/[/?#].*$/, '').replace(/^@+/, '');
+  const fb = id => String(document.getElementById(id).value || '').trim()
+    .replace(/^(https?:\/\/)?(www\.|m\.)?facebook\.com\//i, 'https://www.facebook.com/')
+    .replace(/\/+$/, '');
+  const value = {
+    instagram_handle: ig('managerInstagram') || null,
+    facebook_url: fb('managerFacebook') || null,
+    agency_instagram_handle: ig('agencyInstagram') || null,
+    agency_facebook_page_url: fb('agencyFacebook') || null,
+    consent: document.getElementById('socialConsent').checked,
+  };
+  for (const h of [value.instagram_handle, value.agency_instagram_handle]){
+    if (h && !/^[a-z0-9._]{1,30}$/.test(h)){
+      return { error: 'שם המשתמש באינסטגרם אינו תקין - רק אותיות באנגלית, ספרות, נקודה וקו תחתון, עד 30 תווים.' };
+    }
+  }
+  for (const u of [value.facebook_url, value.agency_facebook_page_url]){
+    if (u && (!/^https:\/\/(www\.)?facebook\.com\/\S+$/.test(u) || u.length > 300)){
+      return { error: 'הקישור לפייסבוק צריך להתחיל ב-https://www.facebook.com/' };
+    }
+  }
+  return { value };
+}
+
 async function signInAfterSignup(email, password){
   try{
     const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
@@ -431,6 +484,12 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'הסיסמה צריכה להכיל לפחות 8 תווים';
     return;
   }
+  const social = readSocialFields();
+  if (social.error){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = social.error;
+    return;
+  }
   if (!document.getElementById('ethicsConsent').checked){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'כדי להמשיך יש לאשר את תנאי השימוש וקוד האתיקה';
@@ -452,6 +511,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         address: agencyAddress,
         service_markets: serviceMarkets,
         ethics_code_accepted: true,
+        social: social.value,
       }),
     });
     const data = await res.json();

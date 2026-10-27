@@ -53,5 +53,5 @@ where status in ('new','sold');
 comment on view public.mortgage_leads_public is
   'מדף לידי המשכנתאות — נתוני המחשבון והקשר הנכס בלבד. ללא שם, ללא טלפון, ללא אימייל.';
 
-revoke select on public.mortgage_leads_public from anon;
+revoke all on public.mortgage_leads_public from public, anon, authenticated;
 grant select on public.mortgage_leads_public to authenticated;
