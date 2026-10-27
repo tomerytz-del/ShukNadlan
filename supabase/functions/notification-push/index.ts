@@ -22,6 +22,8 @@ import {
   NOTIFY_ACTION_LANG_ENV,
   NOTIFY_UTILITY_ENV,
   NOTIFY_UTILITY_LANG_ENV,
+  TXN_UTILITY_ENV,
+  TXN_UTILITY_LANG_ENV,
   notificationPath,
   OPT_OUT_BARE,
   parseNavId,
@@ -29,6 +31,8 @@ import {
   resendInteractiveAsText,
   screenBundle,
   stripHttpUrls,
+  txnUtilityEligible,
+  txnUtilitySummary,
   type ClickRecord,
   type NotifTarget,
   type ScreenPlan,
@@ -89,6 +93,10 @@ const WA_ACTION = Deno.env.get(NOTIFY_ACTION_ENV) || "";
 const WA_ACTION_LANG = Deno.env.get(NOTIFY_ACTION_LANG_ENV) || "he";
 const WA_UTILITY = Deno.env.get(NOTIFY_UTILITY_ENV) || "";
 const WA_UTILITY_LANG = Deno.env.get(NOTIFY_UTILITY_LANG_ENV) || "he";
+// תבנית UTILITY לליד חדש ולתזכורת שאינה סיור (WHATSAPP_TXN_UTILITY_TEMPLATE).
+// ריק = התבנית המאושרת. סיור והודעה מעורבת לא נכנסים לכאן.
+const WA_TXN = Deno.env.get(TXN_UTILITY_ENV) || "";
+const WA_TXN_LANG = Deno.env.get(TXN_UTILITY_LANG_ENV) || "he";
 
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
@@ -541,7 +549,22 @@ async function sendWhatsapp(
     return null;
   };
 
-  if (mode === "template" && WA_ACTION) {
+  if (mode === "template" && WA_TXN && txnUtilityEligible(items)) {
+    const plan = screenBundle(screensOf(items), categoryFor);
+    const path = plan.kind === "single" ? plan.path
+      : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
+      : withClick("/crm?goto=bell", "bell");
+    tokens = clickRecords({ kind: "single", path, label: "" });
+    // {{2}} הוא פעולה אחת, לא סיכום. הכפתור הוא https://shuknadlan.co.il{{1}}.
+    payload = actionTemplateMessage({
+      to,
+      templateName: WA_TXN,
+      lang: WA_TXN_LANG,
+      name: firstName(name) || "שלום",
+      summary: txnUtilitySummary(items),
+      path,
+    });
+  } else if (mode === "template" && WA_ACTION) {
     const plan = screenBundle(screensOf(items), categoryFor);
     const path = plan.kind === "single" ? plan.path
       : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
