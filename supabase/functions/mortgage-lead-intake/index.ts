@@ -77,6 +77,9 @@ Deno.serve(async (req: Request) => {
   // וזו בדיוק ההבחנה שהמדף קיים כדי להציג ליועצ/ת.
   const SOURCES = ["homepage_calculator", "property_page", "whatsapp_bot"];
   // מקור חברתי (גבריאלה בפייסבוק/אינסטגרם) - רק מ-social-lead-intake, ‏docs/social-leads.md
+  // מקור חברתי נשמר כפי שנשלח (facebook_dm / facebook_comment /
+  // instagram_dm / instagram_comment). עמודת channel (facebook / instagram)
+  // נגזרת ממנו בטריגר mortgage_lead_set_channel. חוזה הקריאה לא משתנה.
   const social = typeof body.source === "string" && SOCIAL_SOURCES.has(body.source) && isInternalCaller(req);
   const source = social ? body.source : SOURCES.includes(body.source) ? body.source : "homepage_calculator";
 

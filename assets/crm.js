@@ -2405,12 +2405,13 @@ function handleGotoParam(){
   const filter = params.get('filter');
   const importJob = params.get('import');
   const tab = params.get('tab');
+  const mortgageId = params.get('mortgage');
   // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
   const planQ = ['plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
     .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import', 'tab',
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import', 'tab', 'mortgage',
      'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
       .forEach(k => params.delete(k));
     const search = params.toString();
@@ -2453,7 +2454,10 @@ function handleGotoParam(){
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
   if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
-  if (raw === 'accLeadShelf' && tab === 'mortgage') setShelfTab('mortgage');
+  if (raw === 'accLeadShelf' && tab === 'mortgage') {
+    setShelfTab('mortgage');
+    if (mortgageId) openPurchasedMortgageFromParam(mortgageId);
+  }
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -2483,6 +2487,24 @@ function runPlanningFromParam(q){
 
 /* פותח שורה ברשימת טאבים (buildTabRow) וגולל אליה. ‏key ו-list הם מה שבנה
    את מזהה הפאנל - ‏'tabPanel-' + list + '-' + key. */
+/* ‏?goto=accLeadShelf&tab=mortgage&mortgage=<id> - ליד משכנתא שנותב בחינם.
+   הרשימה נטענת עם הדשבורד, ולכן המזהה נשמר גם אם הקישור הגיע לפניה. */
+let pendingMortgageLeadId = null;
+function openPurchasedMortgageFromParam(id){
+  if (!UUID_PARAM_RE.test(id || '')) return;
+  pendingMortgageLeadId = id;
+  shelfExpanded.mortgageBought.add(id);
+  setShelfTab('mortgage');
+  const panel = document.getElementById('tabPanel-boughtMortgage-' + id);
+  const tab = panel && panel.closest('.prop-tab');
+  if (tab && !tab.classList.contains('is-open')) {
+    const head = tab.querySelector('.prop-tab-head');
+    if (head) head.click();
+  } else if (tab) {
+    tab.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+}
+
 function scrollToTabRow(list, key){
   setTimeout(() => {
     const panel = document.getElementById('tabPanel-' + list + '-' + key);
@@ -2637,6 +2659,8 @@ function openNotificationTarget(n){
     return go('accClients', () => openClientFromParam(clientId));
   if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
     return go('accLeads', openLeadsDemand);
+  if (n.type === 'mortgage_social' && n.related_mortgage_lead_id)
+    return go('accLeadShelf', () => openPurchasedMortgageFromParam(n.related_mortgage_lead_id));
   if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
       && allLeads.some(l => l.id === n.related_lead_id))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
@@ -20619,7 +20643,7 @@ async function loadMortgageSocialRouteCount(){
     el.textContent = '';
     return;
   }
-  const n = Number(data.routed);
+  const n = Number(data.free_routed != null ? data.free_routed : data.routed);
   if (!Number.isFinite(n)){
     el.textContent = '';
     return;
@@ -20811,6 +20835,9 @@ async function loadPurchasedMortgageLeads(agentId){
   // הכותרות של הנכסים בלידים שנרכשו לא בהכרח נטענו במדף (ליד שנמכר יורד ממנו)
   await loadMortgageLeadProperties(leads);
 
+  if (pendingMortgageLeadId && leads.some(l => l.id === pendingMortgageLeadId)) {
+    shelfExpanded.mortgageBought.add(pendingMortgageLeadId);
+  }
   listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
   const tabsWrap = listEl.querySelector('.prop-tabs');
   leads.forEach(lead => {
@@ -20827,6 +20854,9 @@ async function loadPurchasedMortgageLeads(agentId){
       buildCard: ()=> buildPurchasedMortgageCard(lead),
     }));
   });
+  if (pendingMortgageLeadId && leads.some(l => l.id === pendingMortgageLeadId)) {
+    scrollToTabRow('boughtMortgage', pendingMortgageLeadId);
+  }
 }
 
 function buildPurchasedMortgageCard(lead){

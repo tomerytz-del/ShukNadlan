@@ -32,6 +32,10 @@ check("בלי טלפון קשיח", !/\+972|05\d{7,8}|phone_e164\s*=/.test(sql))
 check("ההתראה בלי פרטי הפונה", !/new\.phone|new\.full_name|new\.email/.test(sql));
 check("חינם", /0,\s*'success',\s*'social_route'/.test(sql));
 check("סכום אפס", /select new\.id, m\.id, m\.agency_id, 0, 'success', 'social_route'/.test(sql));
+check("ערוץ מפורש", sql.includes("channel in ('facebook', 'instagram')") && sql.includes("mortgage_lead_set_channel"));
+check("היקף כרשימה", sql.includes("mortgage_free_route_sources") && sql.includes("'facebook_dm'") && sql.includes("'instagram_comment'"));
+check("ספירת לידים חינם", sql.includes("'free_routed', v_count"));
+check("קישור לליד", sql.includes("related_mortgage_lead_id") && sql.includes("&mortgage="));
 check("בלי חיוב ארנק", !/credit_balance/.test(sql));
 check("מונה", sql.includes("create table if not exists public.mortgage_social_routes"));
 check("בדיקה אחרי 10 בלי לעצור", sql.includes("'review_after', 10") && sql.includes("v_count >= 10") && !/count\(\*\)\s*<\s*10/.test(sql));
@@ -48,9 +52,9 @@ check("הרשאות הטריגר", sql.includes("revoke all on function public.m
 check("הרשאות המונה", sql.includes("revoke all on function public.mortgage_social_route_stats() from public, anon") && sql.includes("grant execute on function public.mortgage_social_route_stats() to authenticated, service_role"));
 check("שם פרטי בלבד בפירוט", sql.includes("split_part(coalesce(m.display_name, ''), ' ', 1)") && !/'phone'/.test(sql));
 check("המונה במגירה", html.includes('id="mortgageSocialRouteCount"') && crm.includes("loadMortgageSocialRouteCount") && crm.includes("ההסכם לבדיקה"));
-check("הכפתור למגירה", push.includes('mortgage_social: "accLeadShelf"') && push.includes('"/crm?goto=accLeadShelf&tab=mortgage"') && crm.includes("tab === 'mortgage'"));
-check("הפעמון לאותה קטגוריה", crm.includes("type:'mortgage_social'") && crm.includes("goto:'accLeadShelf'"));
-check("הקליטה לא נערכה", !intake.includes("mortgage_social_route") && !social.includes("mortgage_social_route"));
+check("הכפתור לכרטיס הליד", push.includes('mortgage_social: "accLeadShelf"') && push.includes("&mortgage=${mortgage}") && crm.includes("openPurchasedMortgageFromParam"));
+check("הפעמון לאותו ליד", crm.includes("type:'mortgage_social'") && crm.includes("related_mortgage_lead_id"));
+check("הקליטה לא מנתבת", !intake.includes("mortgage_social_route") && !social.includes("mortgage_social_route") && intake.includes("mortgage_lead_set_channel"));
 
 if (failed) {
   console.log("\n" + failed + " failed");

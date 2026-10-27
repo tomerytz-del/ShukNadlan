@@ -54,26 +54,37 @@ Content-Type: application/json
 ### ליד משכנתא מהרשתות, בחינם, כשהדגל דלוק
 
 ברירת המחדל לא משתנה: `kind = mortgage` נכתב ל-`mortgage_leads` ונשאר
-`new` על המדף בתשלום. `social-lead-intake` ו-`mortgage-lead-intake` לא
-השתנו. נקודת החיבור היא טריגר `after insert` על `mortgage_leads`
-(`mortgage_social_route`, מיגרציה `20271029100000`), והוא רץ רק כש-
-`pricing_config.mortgage_social_route_enabled = 1`.
+`new` על המדף בתשלום. חוזה הקריאה של `social-lead-intake` לא השתנה.
+`mortgage-lead-intake` כותבת למקור חברתי את `source` שנשלח אליה:
+`facebook_dm`, `facebook_comment`, `instagram_dm` או `instagram_comment`
+(רק מקורא פנימי). טריגר `before insert` (`mortgage_lead_set_channel`)
+ממלא את `channel` ב-`facebook` או `instagram`. מקור של האתר נשאר בלי
+`channel`.
 
-כשהדגל דלוק והמקור הוא אחד מארבעת הערוצים החברתיים, הליד מסומן `sold`
-ללא חיוב ארנק (`mortgage_lead_purchases.amount = 0`,
-`payment_method = 'social_route'`). היועצ/ת נבחר/ת מ-
-`agency_members.is_mortgage_advisor` (פעיל/ה, `closed_at` ריק) - הדגל,
-לא תפקיד ולא מספר טלפון. אם יש יותר מאחד/ת, מי שקיבל/ה הכי מעט שיוכים,
-ואז ה-`id` הנמוך. אין יועצ/ת - הליד נשאר על המדף.
+ההיקף הוא הרשימה `mortgage_free_route_sources`, לא רשימה בקוד. ברירת
+המחדל היא ארבעת המקורות האלה בלבד. מקור של האתר או של טופס מטא נוסף
+בשורה. זה פתוח, יחד עם זהות היועץ/ת: היום זה
+`agency_members.is_mortgage_advisor` (פעיל/ה, `closed_at` ריק), בלי
+מספר טלפון.
+
+הטריגר `mortgage_social_route` (מיגרציה `20271029100000`) רץ אחרי
+ה-insert רק כש-`pricing_config.mortgage_social_route_enabled = 1`
+והמקור ברשימה. הליד מסומן `sold` אצל היועצ/ת עם הכי מעט שיוכים (ואז
+ה-`id` הנמוך), בלי חיוב ארנק: `sold_to_agent_id`, ו-
+`mortgage_lead_purchases.amount = 0` עם
+`payment_method = 'social_route'`. סכום 0 הוא מה שמבדיל ניתוב חינם
+ממכירה. אין יועצ/ת - הליד נשאר על המדף.
 
 כל שיוך נספר ב-`mortgage_social_routes`. `mortgage_social_route_stats`
-מחזיר את המונה ליועצ/ת (ולמנהל/ת פלטפורמה גם פירוט לפי שם פרטי).
+מחזיר `free_routed` ליועצ/ת (ולמנהל/ת פלטפורמה גם פירוט לפי שם פרטי).
 `review_due` נדלק מ-10 לידים, והניתוב לא נעצר - ההסכם נבדק ביד. המונה
-מוצג במגירת המשכנתאות ב-CRM. ההתראה `mortgage_social` נפתחת לאותה מגירה
-(`?goto=accLeadShelf&tab=mortgage`). אין בה שם או טלפון של הפונה.
+מוצג במגירת המשכנתאות ב-CRM. ההתראה `mortgage_social` נכתבת
+ל-`notifications` עם `related_mortgage_lead_id`, והקישור פותח את כרטיס
+הליד: `?goto=accLeadShelf&tab=mortgage&mortgage=<id>`. אין בה שם או
+טלפון של הפונה.
 
-`lead_routing_log` עדיין רושם `shelf` מתוך `mortgage-lead-intake`, כי
-הפונקציה הזו לא נערכה. השיוך החינמי נספר רק ב-`mortgage_social_routes`.
+`lead_routing_log` עדיין רושם `shelf` מתוך `mortgage-lead-intake`.
+השיוך החינמי נספר רק ב-`mortgage_social_routes`.
 
 כל ניתוב נרשם ב-`lead_routing_log` בפונקציית הקליטה עצמה (‏`docs/lead-routing.md`),
 עם המקור החברתי. ‏`social_leads` שומרת לכל `zernio_id` מה נשלח, לאן, ומה חזר

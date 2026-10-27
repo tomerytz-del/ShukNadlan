@@ -173,6 +173,8 @@ type Item = {
   review_agent_slug?: string | null;
   // ‏new_lead בלבד: נטען ב-loadLeadInfo (lead-alert.ts). חסר - הנוסח הגנרי.
   lead?: LeadInfo | null;
+  // ‏mortgage_social. חסר עד שהמיגרציה עלתה, ואז הקישור הוא כרטיס הליד.
+  mortgage_lead_id?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -241,7 +243,12 @@ function itemPath(it: Item): string | null {
   if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
   // ביקוש פתוח אינו ליד ואין לו מזהה בהתראה; כולם באותה לשונית
   if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
-  if (it.type === "mortgage_social") return "/crm?goto=accLeadShelf&tab=mortgage";
+  if (it.type === "mortgage_social") {
+    const mortgage = uuidOr(it.mortgage_lead_id);
+    return mortgage
+      ? `/crm?goto=accLeadShelf&tab=mortgage&mortgage=${mortgage}`
+      : "/crm?goto=accLeadShelf&tab=mortgage";
+  }
   if (it.type === "review_new" || it.type === "review_alert") {
     if (review) return `/crm?goto=accReviews&review=${review}`;
     if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
