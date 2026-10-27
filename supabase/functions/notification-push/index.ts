@@ -212,7 +212,7 @@ type Item = {
   review_agent_slug?: string | null;
   // ‏new_lead בלבד: נטען ב-loadLeadInfo (lead-alert.ts). חסר - הנוסח הגנרי.
   lead?: LeadInfo | null;
-  // ‏סגירת מיניסייט (20271028100000). חסר - אין כפתור scn:.
+  // ‏סגירת מיניסייט (20271028121000). חסר - אין כפתור scn:.
   meeting_id?: string | null;
   // ‏תקציר התפרצות (20271028140000). חסר בהודעה רגילה.
   count?: number | null;

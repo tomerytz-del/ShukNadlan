@@ -463,7 +463,7 @@ comment on function public.notification_push_burst_prepare() is
 revoke all on function public.notification_push_burst_prepare() from public, anon, authenticated;
 grant execute on function public.notification_push_burst_prepare() to service_role;
 
--- אותו claim כמו 20271028120000, עם ההכנה, בלי חלון של 7 ימים לוואטסאפ,
+-- אותו claim כמו 20271028133000, עם ההכנה, בלי חלון של 7 ימים לוואטסאפ,
 -- ותקרת התפרצות מעל תקרת 12 של due_agents.
 create or replace function public.notification_push_claim(p_limit int default 20)
 returns table (log_id uuid, agent_id uuid, display_name text, phone_e164 text,

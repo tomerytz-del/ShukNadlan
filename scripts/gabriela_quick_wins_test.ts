@@ -64,7 +64,7 @@ check("בלי לומר היכנסו לדשבורד", !(agr?.say.includes("היכ
 check("http לא נחתך", urlInSay("פתחו כאן: http://127.0.0.1:8888/crm?goto=accAgenda") === "http://127.0.0.1:8888/crm?goto=accAgenda");
 check("https נשאר", urlInSay(agr?.say || "").startsWith("https://shuknadlan.co.il/crm"));
 
-const sql = readFileSync(new URL("../supabase/migrations/20271028110000_gabriela_quick_wins.sql", import.meta.url), "utf8");
+const sql = readFileSync(new URL("../supabase/migrations/20271028122000_gabriela_quick_wins.sql", import.meta.url), "utf8");
 check("מרווח ברירת מחדל 1500", sql.includes("default 1500") && sql.includes("coalesce(p_gap_ms, 1500)") && !sql.includes("default 2000"));
 check("ניקוי חריצי שליחה ישנים", sql.includes("interval '7 days'"));
 check("כפילות לקוח ב-SQL על כל הקובץ", sql.includes("function public.agent_client_duplicate") && sql.includes("client_name_skeleton") && sql.includes("from public.agent_clients"));

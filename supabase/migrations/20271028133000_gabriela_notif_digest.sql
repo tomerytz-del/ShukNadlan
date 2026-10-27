@@ -343,7 +343,7 @@ comment on function public.notification_push_due_agents() is
 revoke all on function public.notification_push_due_agents() from public, anon, authenticated;
 grant execute on function public.notification_push_due_agents() to service_role;
 
--- אותו claim כמו 20271028100000, עם meeting_id, ועם החזקה של התראה
+-- אותו claim כמו 20271028121000, עם meeting_id, ועם החזקה של התראה
 -- מופחתת עד 7 ימים. סוג מוגן נשמר 72 שעות כמו עדיפות, כדי שתקרה יומית
 -- לא תמחק ליד או התראת אבטחה אחרי 12 שעות.
 create or replace function public.notification_push_claim(p_limit int default 20)
@@ -443,7 +443,7 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'כמו 20271028100000 כש-notif_digest_enabled = 0: עדיפות 72 שעות, כל השאר 12, ו-quiet_hold. כשהדגל 1 סוג רגיל נשמר 7 ימים לחלון הבא, ו-less_hold חל.';
+  'כמו 20271028121000 כש-notif_digest_enabled = 0: עדיפות 72 שעות, כל השאר 12, ו-quiet_hold. כשהדגל 1 סוג רגיל נשמר 7 ימים לחלון הבא, ו-less_hold חל.';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
