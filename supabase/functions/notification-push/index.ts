@@ -134,6 +134,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   onboarding_property: "accProperties",
   onboarding_client: "accClients",
   onboarding_lead: "accLeadShelf",
+  mortgage_social: "accLeadShelf",
   onboarding_agreement: "accAgreements",
   // ‏תזכורת אימות רישיון (20270723090000) - לכרטיס הרישיון בראש הדשבורד,
   // שאינו קטגוריה; ‏handleGotoParam ב-crm.js מכיר את license.
@@ -240,6 +241,7 @@ function itemPath(it: Item): string | null {
   if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
   // ביקוש פתוח אינו ליד ואין לו מזהה בהתראה; כולם באותה לשונית
   if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
+  if (it.type === "mortgage_social") return "/crm?goto=accLeadShelf&tab=mortgage";
   if (it.type === "review_new" || it.type === "review_alert") {
     if (review) return `/crm?goto=accReviews&review=${review}`;
     if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;

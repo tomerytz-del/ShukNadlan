@@ -2453,6 +2453,7 @@ function handleGotoParam(){
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
   if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
+  if (raw === 'accLeadShelf' && tab === 'mortgage') setShelfTab('mortgage');
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -20287,8 +20288,14 @@ function renderShelfTabs(){
     pane.hidden = pane.dataset.shelfPane !== shelfTab);
 }
 
+let pendingShelfTab = null;
+
 function setShelfTab(tab){
-  if (tab === 'mortgage' && !shelfMortgageOpen) return;
+  if (tab === 'mortgage' && !shelfMortgageOpen){
+    pendingShelfTab = 'mortgage';
+    return;
+  }
+  pendingShelfTab = null;
   shelfTab = tab;
   renderShelfTabs();
 }
@@ -20300,6 +20307,10 @@ function setShelfMortgageVisible(open){
   const btn = document.querySelector('#shelfTabs [data-shelf-tab="mortgage"]');
   if (btn) btn.hidden = !shelfMortgageOpen;
   if (!shelfMortgageOpen && shelfTab === 'mortgage') shelfTab = 'rss';
+  if (shelfMortgageOpen && pendingShelfTab === 'mortgage'){
+    pendingShelfTab = null;
+    shelfTab = 'mortgage';
+  }
   renderShelfTabs();
   refreshShelfCounts();
 }
@@ -20600,6 +20611,34 @@ document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
 let mortgageLeadPrice = 50;
 let mortgageShelfLeads = [];
 
+async function loadMortgageSocialRouteCount(){
+  const el = document.getElementById('mortgageSocialRouteCount');
+  if (!el) return;
+  const { data, error } = await sb.rpc('mortgage_social_route_stats');
+  if (error || !data || data.error){
+    el.textContent = '';
+    return;
+  }
+  const n = Number(data.routed);
+  if (!Number.isFinite(n)){
+    el.textContent = '';
+    return;
+  }
+  const reviewAfter = Number(data.review_after) || 10;
+  let text = n === 1
+    ? 'ליד אחד מהרשתות הגיע בלי חיוב'
+    : n + ' לידים מהרשתות הגיעו בלי חיוב';
+  if (data.review_due) text += ' - ההסכם לבדיקה (אחרי ' + reviewAfter + ')';
+  if (currentAgent && currentAgent.is_platform_admin && Array.isArray(data.advisors) && data.advisors.length){
+    const bits = data.advisors.map(a => {
+      const name = String(a.first_name || '').trim() || 'יועץ';
+      return name + ' ' + Number(a.routed || 0);
+    }).join(', ');
+    text += '. לפי יועץ: ' + bits;
+  }
+  el.textContent = text;
+}
+
 async function loadMortgageShelf(agentId){
   const listEl = document.getElementById('mortgageShelfList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -20613,6 +20652,7 @@ async function loadMortgageShelf(agentId){
 
   mortgageLeadPrice = priceOf('mortgage_lead_price', 50);
   document.getElementById('mortgageShelfPriceLabel').textContent = shekel(mortgageLeadPrice);
+  await loadMortgageSocialRouteCount();
 
   if (error){
     const missing = /does not exist|schema cache/i.test(error.message || '');
@@ -24866,6 +24906,11 @@ const NOTIF_TYPES = [
     sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
     // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
     when: ()=> false },
+  { type:'mortgage_social', tone:'', goto:'accLeadShelf', focus:'#purchasedMortgageList',
+    title:'ליד משכנתא מהרשתות',
+    sub:'ליד ייעוץ משכנתאות מערוץ חברתי, בלי חיוב. נפתח במגירת המשכנתאות, ברשימת הלידים שרכשת.',
+    when: ()=> !!(currentAgent && currentAgent.is_mortgage_advisor),
+    refresh: ()=> setShelfTab('mortgage') },
   /* תזכורת לאימות רישיון, 48 שעות ושבוע אחרי ההרשמה (license-reminder). היעד
      הוא כרטיס הרישיון בראש הדשבורד, שאינו קטגוריה - ולכן בלי goto, והלחיצה
      עוברת ב-openLicenseCard (כמו security_alert). ‏when: רק כל עוד יש מה לאשר. */
