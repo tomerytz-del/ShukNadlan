@@ -1754,6 +1754,8 @@ const propsShelf = PropShelf.create({
   // נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות". במסחרי אין פיצול כזה
   // ממילא: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס מסחרי.
   roomsType:'דירה', roomsLabel:'דירות',
+  // v10: תגית "✨ עם הדמיה" בשורת התגיות, והתגית "הדמיית AI" גם בשורה הדחוסה בטלפון (‏F/V2-V3)
+  vizTag: v10On(), rowViz: v10On(),
   // שני המלאים חולקים היום שורת תגיות אחת, ובתקרה של שמונה סוגי הנכס
   // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
   kindTagsMax:14,
@@ -4376,6 +4378,8 @@ function renderHeroStats(){
     aiCount.textContent = heroStatsState.ai === 1
       ? 'נכס אחד עם הדמיית AI'
       : `${heroStatsState.ai.toLocaleString('he-IL')} נכסים עם הדמיית AI`;
+    // v10 (‏F/V1): "✨ N נכסים עם הדמיית AI · לפני ואחרי" - נקודה במקום הקו
+    if (v10On()){ const sep = aiBadge.querySelector('.hero-badge-sep'); if (sep) sep.textContent = '·'; }
     aiBadge.hidden = false;
   }
 
@@ -4398,7 +4402,10 @@ function countAddedToday(properties){
 }
 
 // התגית היא הדרך הקצרה ביותר למסנן ההדמיות, שעד היום הגיעו אליו רק דרך ‎?ai=1‎
-document.getElementById('heroAiBadge')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
+document.getElementById('heroAiBadge')?.addEventListener('click', ()=>{
+  if (v10On() && window.shukTrack) shukTrack('ai_hero_chip_click', {});
+  ShukSearch.applyAiFilter();
+});
 
 /* ============================================================
    באנר ההדמיות — בסוף תיבת הנכסים
@@ -4843,7 +4850,12 @@ try {
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
        אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
        רק את מה שכבר על המסך. */
-    PropertyCard.visualizedIds(sb, properties.map(p => p.id)).then(ids=>{
+    /* v10 (‏F/V7): כל הנכסים עם הדמיה (שאילתה אחת, בלי חיתוך ל-200 מזהים) מצטלבים
+       עם הנכסים הפעילים שנטענו לשוק - אותו מספר ל-hero, לבאנר, לתגית ולגבריאלה */
+    (v10On()
+      ? PropertyCard.allVisualizedIds(sb).then(all => new Set(properties.map(p => p.id).filter(id => all.has(id))))
+      : PropertyCard.visualizedIds(sb, properties.map(p => p.id))).then(ids=>{
+      if (v10On()) window.ShukViz = { n: ids.size, total: properties.length, coverage: properties.length ? ids.size / properties.length : 0 };
       // גם קבוצה ריקה: ‎?ai=1‎ בלי אף נכס עם הדמיה הוא אפס תוצאות, לא "הכול"
       if (sentence && !ids.size) sentence.setAiIds(ids);
       if (!ids.size) return;
@@ -7177,7 +7189,8 @@ let freeTextFeatures = new Set();
         case 'search_slot_open':       shukTrack('search_slot_open', p); break;
         case 'search_slot_select':     shukTrack('search_slot_select', p); break;
         case 'search_freetext_submit': shukTrack('search_freetext_submit', p); break;
-        case 'search_submit':          shukTrack('search_submit', p); break;
+        // v10 (‏F/V3): ‏viz:1 כשהחיפוש מוגבל לנכסים עם הדמיה
+        case 'search_submit':          shukTrack('search_submit', (v10On() && sentence && sentence.state().ai) ? Object.assign({ viz: 1 }, p) : p); break;
         case 'search_empty_widen':     shukTrack('search_empty_widen', p); break;
       }
     },
@@ -7980,3 +7993,17 @@ document.addEventListener('click', e => {
   window.shukTrack('swipe_start', { deal: st.deal || (sentence.Core.TYPES.find(t => t.key === st.type)?.commercial ? 'commercial' : 'all'),
     region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek', via: a.dataset.swipeVia });
 });
+
+/* ---------- v10 (‏F/V2): לחיצה על "הדמיית AI" באריח או בשורה - דף הנכס, ישר להדמיה ----------
+   שאר האריח פותח את דף הנכס כרגיל. ‏#viz נקרא ב-assets/property.js כשההדמיה נחשפת. */
+document.addEventListener('click', e => {
+  if (!v10On()) return;
+  const badge = e.target.closest && e.target.closest('#allProps [data-viz-jump], #allProps .pc-badge.is-ai');
+  if (!badge) return;
+  const host = badge.closest('a.prop-row, [data-pid]');
+  const id = host && (host.dataset.pid || new URL(host.href, location.href).searchParams.get('id'));
+  if (!id) return;
+  e.preventDefault();
+  e.stopPropagation();
+  location.href = '/property?id=' + encodeURIComponent(id) + '#viz';
+}, true);

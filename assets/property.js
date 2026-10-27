@@ -1520,6 +1520,8 @@ async function loadVisualizations(p){
     // ובנכס מסחרי שם ההצעה עצמה ("איך ייראה כאן העסק שלך") היא המוצר.
     section.hidden = false;
     revealVizJumpButton();
+    // ‏#viz: התגית "הדמיית AI" בדף הבית (v10) - ישר לבלוק ההדמיה
+    if (location.hash === '#viz') setTimeout(() => (document.getElementById('aiShowcase') || section).scrollIntoView({ block:'start' }), 300);
 
     if (vizState.isPrivate){
       // פותחים על הסגנון שכבר קיים כדי שהמבקר/ת יראה תמונה מיד; אם אין סט

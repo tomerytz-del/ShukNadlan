@@ -71,15 +71,19 @@
   /* כרטיסי נכס ומחירים - הבועית לא יושבת עליהם */
   var CARDS = '.prop-card, [data-property-card], .sr-row, .sr-price';
   var TYPING_MS = 900;
+  /* "לרוב הנכסים יש הדמיה" - רק כשזה נכון: ‏window.ShukViz.coverage (חלק הנכסים הפעילים
+     בשוק שיש להם הדמיה, home.js / swipe.js) לפחות חצי. בלי נתון - בלי המשפט */
+  function vizMost() { var v = window.ShukViz; return !!(v && v.total && v.coverage >= 0.5); }
   function v10Reply(key) {
     var mkt = (window.CityContext && window.CityContext.label && window.CityContext.label()) || 'עפולה והעמק';
+    var viz = vizMost() ? ' ולרוב הנכסים יש ✨ הדמיית AI שמראה איך הם יכולים להיראות.' : '';
     return {
-      buy: { text: 'מעולה! ספרו לי עיר וחדרים ואשלח התאמות. בינתיים, רוצים לגלות נכסים למכירה בהחלקה?', cta: 'גלו נכסים למכירה בהחלקה', href: '/swipe?deal=sale' },
-      rent: { text: 'בכיף! באיזו שכונה ועד כמה בחודש? אפשר גם להתחיל מהחלקה מהירה על כל השכירויות', cta: 'גלו שכירויות בהחלקה', href: '/swipe?deal=rent' },
+      buy: { text: 'מעולה! ספרו לי עיר וחדרים ואשלח התאמות. בינתיים, רוצים לגלות נכסים למכירה בהחלקה?' + viz, cta: 'גלו נכסים למכירה בהחלקה', href: '/swipe?deal=sale' },
+      rent: { text: 'בכיף! באיזו שכונה ועד כמה בחודש? אפשר גם להתחיל מהחלקה מהירה על כל השכירויות.' + viz, cta: 'גלו שכירויות בהחלקה', href: '/swipe?deal=rent' },
       owner: { text: 'אחבר אתכם למשרד תיווך מוביל באזור, כולל הערכת שווי חינם והדמיית AI לנכס שלכם.' },
       // ‏?fair=1 - ‏swipe.js מסנן לנכסים שביריד עכשיו
       fair: { text: 'ביריד יש דירות ב' + mkt + ' ללא עמלת תיווך, לזמן מוגבל. רוצים לעבור עליהן בהחלקה?', cta: 'להחליק על דירות היריד', href: '/swipe?deal=sale&fair=1' },
-      swipe: { text: 'יאללה! ימינה שומרים, שמאלה מדלגים, ולכל נכס יש ✨ הדמיה.', cta: 'התחילו להחליק', href: '/swipe' }
+      swipe: { text: vizMost() ? 'יאללה! ימינה שומרים, שמאלה מדלגים, ולרוב הנכסים יש ✨ הדמיה.' : 'יאללה! ימינה שומרים, שמאלה מדלגים.', cta: 'התחילו להחליק', href: '/swipe' }
     }[key];
   }
 
@@ -220,7 +224,25 @@
     '#gabW button.gw-choice svg{width:18px;height:18px;flex:none}',
     '#gabW button.gw-choice.is-swipe{border-width:2px;background:rgba(14,42,107,.06)}',
     '@media(hover:hover){#gabW button.gw-choice.is-swipe:hover{background:var(--gw-navy);color:#fff}}',
-    '@media(prefers-reduced-motion:reduce){#gabW .gw-typing i{animation:none;opacity:.7}}'
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-typing i{animation:none;opacity:.7}}',
+    /* v10: כותרת קבועה עם ×, גלילה רק בגוף השיחה, ושורת וואטסאפ קבועה למטה */
+    '#gabW.is-v10 .gw-panel{display:flex;flex-direction:column;overflow:hidden}',
+    '#gabW.is-v10 .gw-head{flex:none}',
+    '#gabW.is-v10 .gw-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:6px}',
+    '#gabW .gw-foot{flex:none;padding:10px 14px 12px;border-top:1px solid var(--gw-line);background:#fff;border-radius:0 0 17px 17px}',
+    '#gabW .gw-foot .gw-note{margin-top:6px}',
+    '@media(max-width:600px){#gabW.is-v10 .gw-panel{max-height:min(72dvh,580px);bottom:var(--gw-bottom)}',
+    '  #gabW.is-v10.is-open .gw-bubble{display:none}}',
+    '@media(min-width:601px){#gabW.is-v10 .gw-panel{width:360px;max-height:min(620px,calc(100dvh - 120px))}}',
+    /* אחרי הבחירה הראשונה: שורה אחת של צ'יפים קטנים שנגללת לרוחב */
+    '#gabW .gw-choices.is-compact{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;margin:0;padding:2px 0}',
+    '#gabW .gw-choices.is-compact::-webkit-scrollbar{display:none}',
+    '#gabW .gw-choices.is-compact li{flex:none}',
+    '#gabW .gw-choices.is-compact .gw-choice{width:auto;min-height:36px;padding:6px 12px;font-size:13px;white-space:nowrap;border-width:1.5px}',
+    '#gabW .gw-choices.is-compact .gw-choice svg{width:15px;height:15px}',
+    '#gabW .gw-ex{display:flex;flex-direction:column;gap:8px}',
+    '#gabW .gw-ex.is-old .gw-reply{display:none}',
+    '#gabW .gw-ex.is-old .gw-me{opacity:.65}'
   ].join('\n');
   var CARDS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="12" height="16" rx="2.5"/><path d="M4.5 6.5v11A2.5 2.5 0 0 0 7 20h8"/></svg>';
 
@@ -261,8 +283,9 @@
     panel.appendChild(head);
 
     var body = el('div', { 'class': 'gw-body' });
-    body.appendChild(el('p', { 'class': 'gw-msg' },
-      'היי, אני גבריאלה, העוזרת החכמה של שוק הנדל״ן. אעזור לך למצוא את הנכס הנכון. מה מחפשים?'));
+    body.appendChild(el('p', { 'class': 'gw-msg' }, v10
+      ? 'היי, אני גבריאלה, העוזרת החכמה של שוק הנדל״ן. אעזור לכם למצוא את הנכס הנכון. מה מחפשים?'
+      : 'היי, אני גבריאלה, העוזרת החכמה של שוק הנדל״ן. אעזור לך למצוא את הנכס הנכון. מה מחפשים?'));
     // v10: השיחה הקצרה - בין הפתיח לבחירות, שנשארות מתחתיה
     var conv = el('div', { 'class': 'gw-conv', role: 'log', 'aria-live': 'polite', 'aria-label': 'השיחה עם גבריאלה' });
     if (v10) body.appendChild(conv);
@@ -276,9 +299,12 @@
     go.innerHTML = WA_ICON + '<span>המשך בוואטסאפ</span>';
     free.appendChild(input);
     free.appendChild(go);
-    body.appendChild(free);
-    body.appendChild(el('p', { 'class': 'gw-note' }, 'השיחה ממשיכה בוואטסאפ, וגבריאלה עונה מיד'));
+    // v10: הטקסט החופשי ו"המשך בוואטסאפ" בשורה קבועה בתחתית - לא נגללים עם השיחה
+    var foot = v10 ? el('div', { 'class': 'gw-foot' }) : body;
+    foot.appendChild(free);
+    foot.appendChild(el('p', { 'class': 'gw-note' }, 'השיחה ממשיכה בוואטסאפ, וגבריאלה עונה מיד'));
     panel.appendChild(body);
+    if (v10) panel.appendChild(foot);
 
     var BUBBLE_LABEL = v10 ? 'צ׳אט עם גבריאלה' : 'שיחה עם גבריאלה, העוזרת בוואטסאפ';
     var bubble = el('button', { type: 'button', 'class': 'gw-bubble', 'aria-expanded': 'false', 'aria-controls': 'gabWPanel',
@@ -373,17 +399,24 @@
     /* v10: בחירה מהירה - בועה של הגולש/ת, הקלדה, ואז התשובה. בלי וואטסאפ ובלי רשת */
     var lastPick = null;
     var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    function scrollConv() { panel.scrollTop = panel.scrollHeight; }
+    // רק גוף השיחה נגלל - הכותרת וה-× נשארים על המסך
+    function scrollConv() { body.scrollTop = body.scrollHeight; }
     function pick(key, label) {
       // בחירת ההחלקה אינה הודעה לבוט - וואטסאפ נשאר עם הבחירה הקודמת
       lastPick = CHOICES.filter(function (c) { return c.key === key; })[0] || lastPick;
       syncFree();
       // shukTrack ישירות ולא עוטף: check_gtm_container.py מוצא אירועים לפי השם הזה
       if (window.shukTrack) window.shukTrack('gab_quick_pick', { choice: key });
-      conv.appendChild(el('p', { 'class': 'gw-me' }, label));
+      // אחרי הבחירה הראשונה: הבחירות הופכות לשורה אחת קטנה, ורק שתי השיחות האחרונות פתוחות
+      list.classList.add('is-compact');
+      var ex = el('div', { 'class': 'gw-ex' });
+      ex.appendChild(el('p', { 'class': 'gw-me' }, label));
       var typing = el('div', { 'class': 'gw-typing', 'aria-label': 'גבריאלה מקלידה' });
       typing.innerHTML = '<i></i><i></i><i></i>';
-      conv.appendChild(typing);
+      ex.appendChild(typing);
+      conv.appendChild(ex);
+      var exs = conv.querySelectorAll('.gw-ex');
+      for (var i = 0; i < exs.length - 2; i++) exs[i].classList.add('is-old');
       scrollConv();
       setTimeout(function () {
         var r = v10Reply(key);
@@ -402,9 +435,20 @@
         var b = e.target.closest && e.target.closest('button[data-pick]');
         if (b) pick(b.getAttribute('data-pick'), b.textContent.trim());
       });
+      /* הכפתור הכחול: ‏gab_swipe_cta ולא swipe_start - ב-/swipe "התחילו להחליק" שולח
+         swipe_start משלו, ושני אירועים היו סופרים את אותה התחלה פעמיים. בדף /swipe
+         עצמו הכפתור מחיל את הסינון במקום (‏window.SwipeApp) ולא טוען את הדף מחדש */
       conv.addEventListener('click', function (e) {
         var a = e.target.closest && e.target.closest('a.gw-cta');
-        if (a && window.shukTrack) window.shukTrack('swipe_start', { via: 'gabriela' });
+        if (!a) return;
+        var q = new URLSearchParams((a.getAttribute('href') || '').split('?')[1] || '');
+        var region = (window.CityContext && window.CityContext.market && (window.CityContext.market() || {}).slug) || '';
+        if (window.shukTrack) window.shukTrack('gab_swipe_cta', { deal: q.get('deal') || '', region: region });
+        if (/^\/swipe/.test(location.pathname) && window.SwipeApp && window.SwipeApp.apply) {
+          e.preventDefault();
+          setOpen(false);
+          window.SwipeApp.apply({ deal: q.get('deal') || '', fair: q.get('fair') === '1' });
+        }
       });
     }
     /* הקישור של "המשך בוואטסאפ" מתעדכן בכל הקלדה, כדי שהלחיצה תהיה לחיצה
@@ -442,13 +486,15 @@
         var params = { trigger: why };
         if (source) params.source = source;
         if (window.shukTrack) window.shukTrack('gab_widget_open', params);
-        if (why === 'click') setTimeout(function () { var f = list.querySelector('a'); if (f) f.focus(); }, 60);
+        if (why === 'click') setTimeout(function () { var f = list.querySelector('a,button.gw-choice'); if (f) f.focus({ preventScroll: true }); }, 60);
       }
       sync();
     }
     /* פתיחה מבחוץ: כרטיס גבריאלה ב-hero של v10 (‏assets/home.js). Escape וה-✕
        מחזירים את הפוקוס למי שפתח. מחזיר false כשאין חלונית (העוזרת כבויה). */
     window.GabWidget = {
+      /* קישור wa.me לגבריאלה עם תג המקור (‏taggedHello) - "שליחת הרשימה לגבריאלה" ב-/swipe */
+      link: function (text) { return waHref(text); },
       open: function (source) {
         returnFocus = document.activeElement;
         setOpen(true, 'click', source || 'external');
@@ -459,8 +505,9 @@
       setOpen(false);
       var back = returnFocus;
       returnFocus = null;
-      if (back && back.focus && document.contains(back) && back.offsetParent !== null) back.focus();
-      else bubble.focus();
+      // ‏preventScroll: סגירה לא מקפיצה את הדף אל מי שפתח (כרטיס ה-hero בראש הדף)
+      if (back && back.focus && document.contains(back) && back.offsetParent !== null) back.focus({ preventScroll: true });
+      else bubble.focus({ preventScroll: true });
     }
     bubble.addEventListener('click', function () { returnFocus = null; setOpen(!open, 'click'); });
     tipGo.addEventListener('click', function () { returnFocus = null; setOpen(true, 'tip'); });

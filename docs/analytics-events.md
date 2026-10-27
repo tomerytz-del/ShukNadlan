@@ -74,7 +74,12 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `swipe_end_view` | **v10**: הוצג כרטיס הסיום | `likes` |
 | `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: טופסי `/swipe` | `form_id`: ‏`swipe_up` \| `swipe_sponsored` \| `swipe_end_alert` |
 | `gab_quick_pick` | **v10**: בחירה מהירה בחלונית של גבריאלה - השיחה הקצרה באתר, בלי וואטסאפ ובלי רשת (‏`assets/gabriela-widget.js`) | `choice`: ‏`buy` \| `rent` \| `owner` \| `fair` \| `swipe` |
-| `swipe_start` (‏`via`) | **ערך חדש, רק עם דגל v10**: הכפתור הכחול בתשובה של גבריאלה | `via`: ‏`gabriela` |
+| `gab_swipe_cta` | **v10**: הכפתור הכחול בתשובה של גבריאלה (במקום `swipe_start`, כדי שהתחלה אחת לא תיספר פעמיים) | `deal`, `region` |
+| `swipe_start` / `search_submit` (‏`viz`) | **פרמטר חדש, רק עם דגל v10**: הסינון "✨ רק נכסים עם הדמיה" דלוק | `viz`: ‏`1` |
+| `swipe_nudge_view` | **v10**: הוצגה הכוונה אחרי לייק ב-`/swipe` | `kind`: ‏`first` \| `three`, `likes` |
+| `swipe_nudge_click` | **v10**: לחיצה בהכוונה | `kind`, `cta`: ‏`list` \| `share` \| `visit` |
+| `swipe_share` | **v10**: שיתוף רשימת "אהבתי" | `method`: ‏`native` \| `whatsapp`, `count` |
+| `ai_hero_chip_click` | **v10**: השבב "✨ N נכסים עם הדמיית AI" ב-hero | - |
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה

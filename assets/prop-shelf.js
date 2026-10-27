@@ -308,6 +308,7 @@
     function propCard(p) {
       var el = document.createElement('div');
       el.className = 'prop-card pc-cover';
+      if (cfg.rowViz) el.dataset.pid = p.id;
       el.innerHTML =
         '<div class="thumb' + (hasPhoto(p) ? '' : ' no-photo') + '" style="' + thumbStyle(p) + '">' +
           fallback(p) +
@@ -391,7 +392,9 @@
         '<span class="pr-main">' +
           '<span class="pr-line pr-what">' + escAttr(what) + '</span>' +
           '<span class="pr-line pr-facts">' + escAttr(facts.join(' · ')) + '</span>' +
-          '<span class="pr-line pr-price"><span class="pr-amt">' + priceText + '</span><span class="pr-deal">' + deal + '</span></span>' +
+          '<span class="pr-line pr-price"><span class="pr-amt">' + priceText + '</span><span class="pr-deal">' + deal + '</span>' +
+            // ‏cfg.rowViz (דף הבית עם דגל v10): אותה תגית של האריח, גם בשורה הדחוסה
+            (cfg.rowViz && visualized.has(p.id) ? '<span class="pr-ai" data-viz-jump>✨ הדמיית AI</span>' : '') + '</span>' +
           (cfg.priceExtra ? cfg.priceExtra(p) : '') +
         '</span>' +
         '<svg class="pr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
@@ -475,7 +478,14 @@
          ממלאים את מה שנשאר עד התקרה, לפי כמה מהם יש. */
       var kinds = roomTags.concat(typeTags).slice(0, cfg.kindTagsMax || PP_KIND_TAGS_MAX);
 
+      /* ‏cfg.vizTag (דף הבית עם דגל v10): "✨ עם הדמיה" ראשונה בשורה - נכסים שיש להם
+         הדמיית AI מפורסמת (‏setVisualized). בלי הדמיות במלאי - אין תגית */
+      var vizTags = cfg.vizTag && visualized.size ? counted([
+        { key: 'viz', group: 'viz', label: '✨ עם הדמיה', test: function (p) { return visualized.has(p.id); } },
+      ]) : [];
+
       tags = [].concat(
+        vizTags,
         cats.length > 1 ? cats : [],
         deals.length > 1 ? deals : [],
         kinds.length > 1 ? kinds : []
@@ -726,6 +736,7 @@
          ולכן היא נמסרת בנפרד ומציירת מחדש רק את מה שכבר על המסך. */
       setVisualized: function (ids) {
         visualized = ids || new Set();
+        if (cfg.vizTag && state.all.length) { buildTags(); renderTags(); }
         if (state.all.length) renderGrid();
       },
       /* הדלקת תגית מבחוץ (עוגן הפוטר). מחזירה false כשאין תגית כזו במלאי,

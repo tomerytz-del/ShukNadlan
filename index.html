@@ -3337,7 +3337,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 
   /* מה ש-v10h מחליף: מוסתר ולא נמחק */
   html.beta-hero #heroStats,html.beta-hero #gabrielaHero,html.beta-hero #buyerStartBtn,html.beta-hero #dmQuick,
-  html.beta-hero .map-peek-open,html.beta-hero #heroSection .hero-badges,html.beta-hero #ssCard .hs-q,
+  html.beta-hero .map-peek-open,html.beta-hero #heroSection #heroTodayBadge,html.beta-hero #ssCard .hs-q,
   html.beta-hero #ssCard .ss-adv{display:none !important}
 
   /* ---------- ה-hero: תמונת העמק, כרטיס גבריאלה, הדמות והפס הכהה ---------- */
@@ -3374,6 +3374,21 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     letter-spacing:0;text-align:center;text-wrap:balance;white-space:normal}
   html.beta-hero body .hero.map-closed .gabv8-band .hero-h1-break{display:inline}
   html.beta-hero .gabv8-band .mkt-menu-btn{color:#fff;background:rgba(255,255,255,.18)}
+  /* ‏F/V1: שבב ההדמיות - שורה אחת, שקוף, מעל ה-H1. לא כפתור ממולא (הזהב נשאר היחיד) */
+  html.beta-hero body #heroSection .gabv8-band .hero-badges{display:flex;justify-content:center;margin:0 0 6px;gap:0}
+  html.beta-hero body #heroSection .gabv8-band .hero-badges:not(:has(#heroAiBadge:not([hidden]))){display:none}
+  html.beta-hero body #heroSection .hero-badge-ai{display:inline-flex;align-items:center;gap:5px;height:26px;min-height:26px;padding:0 11px;margin:0;
+    border-radius:999px !important;background:rgba(255,255,255,.14);border:1px solid rgba(229,199,106,.45);color:#fff;
+    font:inherit;font-size:12px;font-weight:700;line-height:1;box-shadow:none;cursor:pointer;position:relative}
+  html.beta-hero body #heroSection .hero-badge-ai::before{content:"";position:absolute;inset:-9px 0}
+  html.beta-hero body #heroSection .hero-badge-ai .hero-badge-star{color:var(--v10-gold-l)}
+  html.beta-hero body #heroSection .hero-badge-ai span{color:#fff}
+  html.beta-hero body #heroSection .hero-badge-ai .hero-badge-star{color:#e5c76a}
+  html.beta-hero body #heroSection .hero-badge-ai:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
+  @media(min-width:760px){html.beta-hero body #heroSection .hero-badge-ai{font-size:13px}}
+  /* ‏F/V2: "✨ הדמיית AI" בשורה הדחוסה - גלולה כחולה ליד גלולת העסקה */
+  html.beta-hero .prop-row .pr-ai{flex:none;display:inline-flex;align-items:center;margin-inline-start:6px;padding:2px 8px;border-radius:999px;
+    background:var(--v10-navy);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
   html.beta-hero .gabv8-band .mkt-menu-btn:hover{background:rgba(255,255,255,.3)}
   /* "הצג במפה" מעל תיבת הנכסים כפול ל"חיפוש במפה" שב-hero (‏6.18: בלי כפילות) */
   html.beta-hero #allPropsMapBtn{display:none !important}
