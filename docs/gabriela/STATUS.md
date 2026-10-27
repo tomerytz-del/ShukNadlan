@@ -53,7 +53,7 @@
 | #1031 תזכורת ירדו מפרסום | `cursor/gabriela-unpublished-nudge-4477` | `f85c1263e06919fa7fd4848b734d4fe29ca4be22` | `20271028190000` |
 | #1032 כפתור ליעד | `cursor/gabriela-deep-links-4477` | `657878e07dd6cd34cc68c6680ece1d01dd01e18a` | אין |
 | #1035 מדידת לחיצה | `cursor/gabriela-deeplink-timing-4477` | `5b9288d374e5c3221870f2aaeaa078b7ecad99ad` | `20271028200000` |
-| #1036 כפתור פעולה | `cursor/gabriela-action-template-4477` | `2b0a76e766142cfe61b17f4aabe006618b11d344` | `20271028210000` |
+| #1036 כפתור פעולה | `cursor/gabriela-action-template-4477` | `8c4518a14bcff850734e6aa1937ea0a3135b1e74` | `20271028210000` |
 
 סבב 3: גוף סגירת המיניסייט לא מבטיח כפתור `scn:` שאין בתבנית. שלד השם
 זהה ב-TS וב-SQL (NFKC וקיפול רווח), ו-`agent_client_duplicate` בלי grant
