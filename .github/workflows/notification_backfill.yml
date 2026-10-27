@@ -1,0 +1,34 @@
+name: מילוי התראות
+
+# מיגרציה שכותבת ל-notifications או ל-client_match_alerts בלי סימון
+# מילוי שופכת וואטסאפ. הבדיקה קוראת קבצים בלבד.
+#
+# אין paths על pull_request: בדיקה נדרשת שאינה רצה נשארת waiting
+# וחוסמת מיזוג. ב-push ל-main הפילטר נשאר, כי שם היא אינה נדרשת.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/check_notification_backfill.py"
+      - ".github/workflows/notification_backfill.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: מילוי התראות
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: בדיקת סימון מילוי
+        run: |
+          python3 scripts/check_notification_backfill_test.py
+          python3 scripts/check_notification_backfill.py
