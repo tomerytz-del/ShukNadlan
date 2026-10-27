@@ -180,7 +180,7 @@ function statCellsHtml(){
   if (agencyStats.ethics){
     cells.push('<div class="stat-cell is-badge" id="ethicsCell">' +
       '<div class="n" id="ethicsBadgeSlot"></div>' +
-      '<div class="l">חתום על התקן האתי</div></div>');
+      '<div class="l">✦ מחויבות לשירות הוגן</div></div>');   // השם מ-27.10 (חלק 7, החלטה 8)
   }
   /* הדירוג אינו תא בסרגל: הוא כבר מופיע בבאנר עצמו (‏heroRating, עם
      הכוכבים ומספר הביקורות מאחוריו) ושוב בכותרת מקטע הביקורות. תא שלישי
