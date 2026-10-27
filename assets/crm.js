@@ -2206,6 +2206,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
   loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  loadSocialPrompt().catch(err => console.warn('כרטיס התיוג אינו זמין:', err));
   licenseHoldP = refreshLicenseHold();
   setAgentBalance(agent.credit_balance);
 
@@ -7653,6 +7654,50 @@ async function pfSocialInit(agentId){
   pfSocialReady = true;
 }
 
+/* "רוצה שנתייג אותך בפרסומים?" בדף הבית (#socialPrompt). מוצג כל עוד
+   הסוכן/ת לא אישר/ה תיוג, או - למנהל/ת - המשרד לא אישר. "לא עכשיו" מסתיר
+   ל-30 יום בדפדפן הזה בלבד: זו תזכורת, לא הסכמה, ולכן אינה נשמרת במסד.
+   שגיאה (העמודות עוד לא קיימות) = הכרטיס פשוט לא מוצג. */
+const SOCIAL_PROMPT_KEY = 'shuknadlan.social_prompt_later';
+const SOCIAL_PROMPT_SNOOZE_MS = 30 * 24 * 3600 * 1000;
+async function loadSocialPrompt(){
+  const box = document.getElementById('socialPrompt');
+  if (!box || !currentAgent) return;
+  box.hidden = true;
+  let laterAt = 0;
+  try { laterAt = Number(localStorage.getItem(SOCIAL_PROMPT_KEY)) || 0; } catch(_){ }
+  if (Date.now() - laterAt < SOCIAL_PROMPT_SNOOZE_MS) return;
+
+  const isManager = currentAgent.role === 'manager' && !!currentAgent.agency_id;
+  const [mine, office] = await Promise.all([
+    sb.from('agency_members').select('social_tag_consent').eq('id', currentAgent.id).maybeSingle(),
+    isManager
+      ? sb.from('agency_social').select('social_tag_consent').eq('agency_id', currentAgent.agency_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (mine.error || !mine.data) return;
+  const agentNeeds = !mine.data.social_tag_consent;
+  const officeNeeds = isManager && !office.error && !(office.data && office.data.social_tag_consent);
+  if (!agentNeeds && !officeNeeds) return;
+
+  document.getElementById('socialPromptText').textContent = agentNeeds
+    ? 'כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.'
+    : 'את/ה כבר מתויג/ת. הוסיפו גם את האינסטגרם ודף הפייסבוק של המשרד, כדי שנתייג אותו בכל פרסום של נכסי המשרד.';
+  const go = document.getElementById('socialPromptGo');
+  const officeBtn = document.getElementById('socialPromptOffice');
+  go.hidden = !agentNeeds;
+  officeBtn.hidden = !officeNeeds;
+  officeBtn.textContent = agentNeeds ? 'גם למשרד' : 'לפרטי המשרד';
+  officeBtn.classList.toggle('ui-btn--secondary', agentNeeds);
+  go.onclick = () => gotoSection('accProfile', 'pfInstagram', { scrollTo:'.pf-social' });
+  officeBtn.onclick = () => gotoSection('accBranding', 'brInstagram', { scrollTo:'.br-social' });
+  document.getElementById('socialPromptLater').onclick = () => {
+    try { localStorage.setItem(SOCIAL_PROMPT_KEY, String(Date.now())); } catch(_){ }
+    box.hidden = true;
+  };
+  box.hidden = false;
+}
+
 let brSocialReady = false;
 async function brSocialInit(agencyId){
   const box = document.querySelector('.br-social');
@@ -8148,6 +8193,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       document.getElementById('pfInstagram').value = soc.instagram_handle || '';
       document.getElementById('pfFacebook').value = soc.facebook_url || '';
       document.getElementById('pfSocialConsent').checked = !!soc.social_tag_consent;
+      loadSocialPrompt(); // הכרטיס בדף הבית נעלם אחרי אישור
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
@@ -11463,6 +11509,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
       document.getElementById('brInstagram').value = soc.instagram_handle || '';
       document.getElementById('brFacebook').value = soc.facebook_page_url || '';
       document.getElementById('brSocialConsent').checked = !!soc.social_tag_consent;
+      loadSocialPrompt(); // הכרטיס בדף הבית נעלם אחרי אישור
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
