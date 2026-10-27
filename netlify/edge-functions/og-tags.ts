@@ -236,8 +236,9 @@ type Meta = {
   /* ‏אלמנט ריק שמקבל מבנה ולא רק טקסט (‏גוף הכתבה, "על המשרד"). ה-HTML
      נבנה כאן בבריחה מלאה, וה-JS בונה אחריו את אותו מבנה ב-textContent. */
   inner?: { id: string; html: string }[];
-  /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער. */
-  paint?: { count: number; html: string; lcp: string };
+  /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער.
+     placeholder: אין תמונה ואין סרטון, וה-LCP הוא רקע .bento-empty. */
+  paint?: { count: number; html: string; lcp: string; placeholder?: boolean };
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -587,7 +588,9 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
   const images = (Array.isArray(p.images) ? p.images : []).map(absolute).filter(Boolean);
   const video = isFileVideo(p.video_url);
   const poster = (video && absolute(p.video_poster_url)) || images[0] || "";
-  if (!poster) return { count: 1, html: "", lcp: "" };
+  /* סרטון בלי פוסטר אינו .bento-empty: ה-JS בונה תא וידאו, לא את רקע
+     הפלייסהולדר. preload של התמונה הזו היה יורד בלי שיוצג. */
+  if (!poster) return { count: 1, html: "", lcp: "", placeholder: !video };
   const thumb = (src: string, last: boolean) =>
     `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="" loading="lazy"></div>`;
   if (video) {
@@ -1182,16 +1185,19 @@ function insertAfterCharset(html: string, tags: string): string {
   return html.replace(/<head[^>]*>/i, (m) => `${m}\n${tags}`);
 }
 
-function heroHead(lcp: string): string[] {
+function heroHead(lcp: string, placeholder = false): string[] {
   const tags = [
     `<link rel="preconnect" href="${SUPABASE_URL}" crossorigin>`,
     `<link rel="preconnect" href="${SUPABASE_URL}">`,
   ];
-  /* בלי תמונת שער ה-LCP הוא רקע ‎.bento-empty‎ (‏property-placeholder.jpg),
-     והוא נוסף רק אחרי שה-JS מצייר. preload מגלה אותו עם ה-HTML.
-     נכס שיש לו תמונה נשאר על כתובת ה-render, לא על הפלייסהולדר. */
+  /* בלי תמונת שער ובלי סרטון ה-LCP הוא רקע ‎.bento-empty‎
+     (‏property-placeholder.jpg), והוא נוסף רק אחרי שה-JS מצייר.
+     preload מגלה אותו עם ה-HTML. נכס עם תמונה נשאר על כתובת ה-render.
+     סרטון בלי פוסטר אינו הפלייסהולדר הזה. */
   if (!lcp) {
-    tags.push(`<link rel="preload" as="image" href="/assets/property-placeholder.jpg" fetchpriority="high">`);
+    if (placeholder) {
+      tags.push(`<link rel="preload" as="image" href="/assets/property-placeholder.jpg" fetchpriority="high">`);
+    }
     return tags;
   }
   try {
@@ -1256,7 +1262,7 @@ function inject(html: string, m: Meta): string {
     if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
     /* ה-preload יושב מיד אחרי charset, לא לפני </head>. בסוף ה-head
        הוא מתגלה רק אחרי ~100KB של CSS, והסקריפטים כבר תפסו את הרשת. */
-    out = insertAfterCharset(out, heroHead(m.paint.lcp).join("\n"));
+    out = insertAfterCharset(out, heroHead(m.paint.lcp, m.paint.placeholder === true).join("\n"));
   }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח

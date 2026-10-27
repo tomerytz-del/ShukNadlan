@@ -559,7 +559,7 @@ propHttp.push(
     && storedReel.includes(`src="${amp(R800)}"`)
     && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
     && storedReel.includes(`data-full="${amp(ORIG)}"`)
-    && !storedReel.includes("<video>")
+    && !storedReel.includes("<video")
     && !storedReel.includes("property-placeholder.jpg")],
 );
 const bare = await visible({
@@ -574,6 +574,17 @@ propHttp.push(
     && !bare.includes("data-lcp")
     && bare.includes("application/ld+json")
     && bare.includes('rel="canonical"')],
+);
+const videoBare = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  video_url: "https://cdn.example/property-videos/marketing-reel-a.mp4",
+  video_poster_url: null,
+}, { display_name: "דנה כהן" });
+propHttp.push(
+  ["סרטון בלי פוסטר: אין preload לפלייסהולדר ואין <video",
+    !videoBare.includes("property-placeholder.jpg")
+    && !videoBare.includes("<video")],
 );
 resetLastGood();
 const propGood = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 200, PROPERTY);

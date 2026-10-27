@@ -504,8 +504,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* סימון לטעינת המפה. גובה 1px ולא 0: צופה חיתוך לא מדווח על אלמנט בלי שטח.
      #mapSection עצמו hidden, וצופה לא רואה אותו. */
   #mapArm{height:1px;margin:0;padding:0;border:0;overflow:hidden}
-  #propMap{height:230px}
-  @media(min-width:760px){#propMap{height:290px}}
+  #propMap{height:230px;min-height:230px}
+  @media(min-width:760px){#propMap{height:290px;min-height:290px}}
+  /* המקום נשמר ברגע שהזכאות ידועה, לפני ש-Leaflet יורד. בלי הרקע
+     המלבן הריק נראה כמו תא שבור. */
+  #mapSection.map-pending #propMap{background:#e7eef2}
   /* פינת ההגדלה יושבת בקצה העליון־חיצוני, כי התחתית שמורה לקרדיטים של
      Leaflet ופקדי הזום כבויים במפה הקטנה */
   .map-expand{

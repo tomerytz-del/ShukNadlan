@@ -1230,61 +1230,56 @@ function ensureMapStack(){
   return mapStackPromise;
 }
 
-/* #mapSection מוסתר ולכן אינו תופס גובה, והסימון שמעליו יושב במסך
-   הראשון גם כשהמפה הפתוחה כבר מתחת לקפל. צופה רגיל היה מוריד את
-   MapLibre בטעינה ודוחף את באנר המחפשים. אם הסימון כבר במסך, מחכים
-   לגלילה הראשונה. אם הוא מתחת למסך, הצופה מתחיל מיד ובלי מרווח.
+/* הזכאות נשאלת מיד, והגובה נשמר לפני ש-Leaflet יורד. מרווח על הצופה
+   היה כולל את המפה של המודעה שנמדדה: היא יושבת כ-10px מתחת לקפל,
+   ו-300px היו מורידים את MapLibre בטעינה. צופה בלי מרווח נדלק
+   כשהסקציה נכנסת למסך, וגם אם היא כבר שם ברגע ה-observe.
    בלי IntersectionObserver המפה נטענת מיד, כמו קודם. */
 function armPropertyMap(p, addressText){
   if (!p || p.lat == null || p.lng == null || !window.supabase) return;
-  const start = ()=> initPropertyMap(p, addressText);
-  const arm = document.getElementById('mapArm');
-  if (!arm || !window.IntersectionObserver){
-    start();
-    return;
-  }
-  let started = false;
-  const io = new IntersectionObserver((entries)=>{
-    if (started || !entries.some(e => e.isIntersecting)) return;
-    started = true;
-    io.disconnect();
-    start();
+  const section = document.getElementById('mapSection');
+  if (!section) return;
+  const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  Promise.all([propertyMapEnabled(p.id), fonts]).then(([enabled]) => {
+    if (!enabled || !section.isConnected) return;
+    section.classList.add('map-pending');
+    section.hidden = false;
+    const expand = document.getElementById('mapExpandBtn');
+    if (expand) expand.hidden = true;
+    const start = ()=> initPropertyMap(p, addressText);
+    const arm = document.getElementById('mapArm') || section;
+    if (!window.IntersectionObserver){
+      start();
+      return;
+    }
+    let started = false;
+    const io = new IntersectionObserver((entries)=>{
+      if (started || !entries.some(e => e.isIntersecting)) return;
+      started = true;
+      io.disconnect();
+      start();
+    });
+    io.observe(arm);
   });
-  // עמודה שעדיין לא נפרסה מחזירה top=0 וגובה 0. מידה כזו אינה
-  // "מתחת למסך", והצופה היה נדלק מיד. ממתינים לפריסה, ואם היא לא
-  // מגיעה — רק לגלילה.
-  const decide = (tries)=>{
-    const rect = arm.getBoundingClientRect();
-    const h = rect.height || arm.offsetHeight;
-    if (h === 0 && tries < 8){
-      requestAnimationFrame(()=> decide(tries + 1));
-      return;
-    }
-    const inView = h > 0 && rect.top < window.innerHeight && rect.top + h > 0;
-    if (!inView && h > 0){
-      io.observe(arm);
-      return;
-    }
-    const onScroll = ()=>{
-      window.removeEventListener('scroll', onScroll);
-      io.observe(arm);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-  };
-  decide(0);
 }
 
+let mapEnabledCache = null;
 async function propertyMapEnabled(id){
-  try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data, error } = await sb.rpc('property_map_enabled', { p_property_id: id });
-    if (error) throw error;
-    return data === true;
-  } catch(e){
-    // ה-RPC עדיין לא הותקן, או שהקריאה נכשלה — נופלים לצד הבטוח ולא מציגים
-    console.warn('בדיקת הזכאות למפת הנכס נכשלה:', e);
-    return false;
-  }
+  if (mapEnabledCache && mapEnabledCache.id === id) return mapEnabledCache.promise;
+  const promise = (async ()=>{
+    try{
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { data, error } = await sb.rpc('property_map_enabled', { p_property_id: id });
+      if (error) throw error;
+      return data === true;
+    } catch(e){
+      // ה-RPC עדיין לא הותקן, או שהקריאה נכשלה — נופלים לצד הבטוח ולא מציגים
+      console.warn('בדיקת הזכאות למפת הנכס נכשלה:', e);
+      return false;
+    }
+  })();
+  mapEnabledCache = { id, promise };
+  return promise;
 }
 
 async function initPropertyMap(p, addressText){
@@ -1296,9 +1291,15 @@ async function initPropertyMap(p, addressText){
     await ensureMapStack();
   } catch(e){
     console.warn('מפת הנכס לא נטענה:', e);
+    section.hidden = true;
+    section.classList.remove('map-pending');
     return;
   }
-  if (!window.L) return;
+  if (!window.L){
+    section.hidden = true;
+    section.classList.remove('map-pending');
+    return;
+  }
 
   // חשיפת הסקציה לפני יצירת המפה: Leaflet מודד את גודל הקונטיינר ברגע
   // היצירה, ובתוך section[hidden] הוא היה מקבל 0×0 ומצייר אריחים אפורים
@@ -1335,6 +1336,9 @@ async function initPropertyMap(p, addressText){
       note.textContent = addressText || '';
     }
     propMapReady = true;
+    section.classList.remove('map-pending');
+    const expand = document.getElementById('mapExpandBtn');
+    if (expand) expand.hidden = false;
   } catch(e){
     console.warn('מפת הנכס לא נטענה:', e);
     section.hidden = true;
