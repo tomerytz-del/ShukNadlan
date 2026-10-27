@@ -236,6 +236,36 @@ Deno.serve(async (req: Request) => {
       if (mErr) console.warn("service markets not saved", mErr.code, mErr.message);
     }
 
+    // ‏רשתות חברתיות ואישור התיוג (רשות; docs/social-tagging.md). עדכון נפרד
+    // מאותה סיבה: שם משתמש שנדחה באילוץ משאיר משרד בלי אינסטגרם, ולא בלי
+    // משרד. הנרמול והחותמת של האישור נעשים בטריגרים במסד, וזה מה שמשלים/ה
+    // אחר כך ב-CRM. אישור אחד בטופס חל על הסוכן/ת ועל המשרד.
+    const social = body.social && typeof body.social === "object" ? body.social : null;
+    if (social) {
+      const str = (v: unknown, max: number) =>
+        typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
+      const consent = social.consent === true;
+      const memberSocial = {
+        instagram_handle: str(social.instagram_handle, 80),
+        facebook_url: str(social.facebook_url, 300),
+        social_tag_consent: consent,
+      };
+      if (memberSocial.instagram_handle || memberSocial.facebook_url || consent) {
+        const { error: sErr } = await supabase.from("agency_members").update(memberSocial).eq("id", member.id);
+        if (sErr) console.warn("member social not saved", sErr.code, sErr.message);
+      }
+      const agencySocial = {
+        agency_id: agency.id,
+        instagram_handle: str(social.agency_instagram_handle, 80),
+        facebook_page_url: str(social.agency_facebook_page_url, 300),
+        social_tag_consent: consent,
+      };
+      if (agencySocial.instagram_handle || agencySocial.facebook_page_url || consent) {
+        const { error: aErr } = await supabase.from("agency_social").upsert(agencySocial, { onConflict: "agency_id" });
+        if (aErr) console.warn("agency social not saved", aErr.code, aErr.message);
+      }
+    }
+
     // ההתראה למנהל/ת הפלטפורמה — **אחרי** ההטבה ולא לפניה, כדי שהמסלול
     // שבהודעה יהיה המסלול שבאמת יושב על השורה. ראו _shared/platform-signup-alert.ts.
     await announcePlatformSignup(supabase, member.id, "agency");

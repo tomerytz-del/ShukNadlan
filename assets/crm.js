@@ -7608,6 +7608,67 @@ async function pfShowPhotoInAdsInit(agentId){
   };
 }
 
+/* ---------- תיוג בפרסומים (docs/social-tagging.md) ----------
+   שם משתמש באינסטגרם, קישור לפייסבוק ואישור תיוג - לסוכן/ת ב-agency_members,
+   ולמשרד ב-agency_social. אותו נרמול כמו social_instagram_norm /
+   social_facebook_norm במסד, כדי שהשגיאה תוצג כאן ולא תיפול באילוץ.
+   ‏**נטען בשאילתה נפרדת ולא ב-AGENT_FIELDS**, מאותה סיבה של show_photo_in_ads:
+   לפני שהמיגרציה רצה הכרטיס פשוט מוסתר, והשמירה מדלגת עליו. */
+function socialNormInstagram(v){
+  return String(v || '').trim().toLowerCase()
+    .replace(/^(https?:\/\/)?(www\.)?(instagram\.com|instagr\.am)\//, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/^@+/, '');
+}
+function socialNormFacebook(v){
+  return String(v || '').trim()
+    .replace(/^(https?:\/\/)?(www\.|m\.)?facebook\.com\//i, 'https://www.facebook.com/')
+    .replace(/\/+$/, '');
+}
+/* מחזיר { instagram, facebook } מנורמלים, או { error } בעברית */
+function socialReadFields(igId, fbId){
+  const instagram = socialNormInstagram(document.getElementById(igId).value);
+  const facebook = socialNormFacebook(document.getElementById(fbId).value);
+  if (instagram && !/^[a-z0-9._]{1,30}$/.test(instagram)){
+    return { error: 'שם המשתמש באינסטגרם אינו תקין - רק אותיות באנגלית, ספרות, נקודה וקו תחתון, עד 30 תווים.' };
+  }
+  if (facebook && (!/^https:\/\/(www\.)?facebook\.com\/\S+$/.test(facebook) || facebook.length > 300)){
+    return { error: 'הקישור לפייסבוק צריך להתחיל ב-https://www.facebook.com/' };
+  }
+  return { instagram: instagram || null, facebook: facebook || null };
+}
+
+let pfSocialReady = false;
+async function pfSocialInit(agentId){
+  const card = document.querySelector('.pf-social');
+  pfSocialReady = false;
+  if (!card || !agentId) return;
+  const { data, error } = await sb.from('agency_members')
+    .select('instagram_handle, facebook_url, social_tag_consent').eq('id', agentId).maybeSingle();
+  if (error || !data){ card.hidden = true; return; }
+  card.hidden = false;
+  document.getElementById('pfInstagram').value = data.instagram_handle || '';
+  document.getElementById('pfFacebook').value = data.facebook_url || '';
+  document.getElementById('pfSocialConsent').checked = !!data.social_tag_consent;
+  pfSocialReady = true;
+}
+
+let brSocialReady = false;
+async function brSocialInit(agencyId){
+  const box = document.querySelector('.br-social');
+  brSocialReady = false;
+  if (!box || !agencyId) return;
+  const { data, error } = await sb.from('agency_social')
+    .select('instagram_handle, facebook_page_url, social_tag_consent').eq('agency_id', agencyId).maybeSingle();
+  // ‏maybeSingle בלי שורה = משרד שעוד לא מילא; שגיאה = הטבלה עוד לא קיימת
+  if (error){ box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('brInstagram').value = (data && data.instagram_handle) || '';
+  document.getElementById('brFacebook').value = (data && data.facebook_page_url) || '';
+  document.getElementById('brSocialConsent').checked = !!(data && data.social_tag_consent);
+  brSocialReady = true;
+}
+
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
@@ -7648,6 +7709,7 @@ function loadProfileSettings(agent){
   renderProfilePreview();
   loadAgencyCover(agent.agency_id);
   pfShowPhotoInAdsInit(agent.id);
+  pfSocialInit(agent.id);
 }
 
 /* ---------- עיצוב דף הסוכן/ת ----------
@@ -7985,6 +8047,12 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
     return;
   }
+  const social = pfSocialReady ? socialReadFields('pfInstagram', 'pfFacebook') : null;
+  if (social && social.error){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = social.error;
+    return;
+  }
 
   const uploading = (profileState.photo && !profileState.photo.url)
     || profileState.gallery.some(g => !g.url);
@@ -8067,6 +8135,19 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       }
       if (mErr) console.warn('אזורי הפעילות לא נשמרו:', mErr);
       else { saved.service_markets = serviceMarkets; pfPropertyScope = scope; }
+    }
+
+    // רשתות ותיוג - עדכון נפרד (ראו pfSocialInit). החותמת של האישור נקבעת במסד
+    if (social){
+      const { data: soc, error: sErr } = await sb.from('agency_members').update({
+        instagram_handle: social.instagram,
+        facebook_url: social.facebook,
+        social_tag_consent: document.getElementById('pfSocialConsent').checked,
+      }).eq('id', currentAgent.id).select('instagram_handle, facebook_url, social_tag_consent').single();
+      if (sErr) throw sErr;
+      document.getElementById('pfInstagram').value = soc.instagram_handle || '';
+      document.getElementById('pfFacebook').value = soc.facebook_url || '';
+      document.getElementById('pfSocialConsent').checked = !!soc.social_tag_consent;
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
@@ -10877,6 +10958,7 @@ async function loadBranding(agencyId){
   renderDescriptionCount();
   document.getElementById('brAddress').value = agency.address || '';
   document.getElementById('brViewPageLink').href = '/agency?slug=' + encodeURIComponent(agency.slug);
+  brSocialInit(agencyId);
   renderPaletteGrid();
   renderBgChoice();
   renderBrandImages();
@@ -11317,6 +11399,12 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
   if (!brandingState || !currentAgent) return;
   const btn = document.getElementById('brSaveBtn');
   const feedback = document.getElementById('brFeedback');
+  const social = brSocialReady ? socialReadFields('brInstagram', 'brFacebook') : null;
+  if (social && social.error){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = social.error;
+    return;
+  }
   btn.disabled = true; btn.textContent = 'שומר…';
   feedback.style.color = 'var(--ink-soft)';
   feedback.textContent = 'מעלה תמונות…';
@@ -11360,6 +11448,21 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
         .update({ service_markets: a.markets, property_scope: a.kind || 'all' }).eq('id', currentAgent.agency_id);
       if (aErr) console.warn('תחום ואזורי הפעילות של המשרד לא נשמרו:', aErr);
       else agencyAreaDefaults = { kind: a.kind || 'all', markets: a.markets };
+    }
+
+    // רשתות ותיוג המשרד - ב-agency_social ולא ב-agencies, שהיא ציבורית
+    // (ראו brSocialInit). החותמת של האישור נקבעת במסד
+    if (social){
+      const { data: soc, error: sErr } = await sb.from('agency_social').upsert({
+        agency_id: currentAgent.agency_id,
+        instagram_handle: social.instagram,
+        facebook_page_url: social.facebook,
+        social_tag_consent: document.getElementById('brSocialConsent').checked,
+      }, { onConflict: 'agency_id' }).select('instagram_handle, facebook_page_url, social_tag_consent').single();
+      if (sErr) throw sErr;
+      document.getElementById('brInstagram').value = soc.instagram_handle || '';
+      document.getElementById('brFacebook').value = soc.facebook_page_url || '';
+      document.getElementById('brSocialConsent').checked = !!soc.social_tag_consent;
     }
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
