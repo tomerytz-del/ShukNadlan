@@ -61,22 +61,32 @@ Content-Type: application/json
 
 ## מי רשאי/ת לסמן מקור חברתי
 
-פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי ו-`external_ref`
-מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח ה-service role
-(‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר `social-lead-intake`
-אחרי שאימתה את הסוד. מהדפדפן `source: "facebook_dm"` נופל לברירת המחדל של
-הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים "מפייסבוק" ולזהם את הדוח.
-אותו כלל ל-`lead_only` ב-`saved-search-intake`.
+פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי, `meta_ads_*`
+ו-`external_ref` מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח
+ה-service role (‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר
+`social-lead-intake` אחרי שאימתה את הסוד, או `ads-leads-webhook` /
+`ads-admin`. מהדפדפן `source: "facebook_dm"` או `source: "meta_ads_owner_form"`
+נופל לברירת המחדל של הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים
+"מפייסבוק" או "מטא" ולזהם את הדוח. אותו כלל ל-`lead_only` ב-`saved-search-intake`.
 
-## כפילויות - שתי שכבות
+## כפילויות - שלוש שכבות
 
 1. **`social_leads.zernio_id`** (מפתח ראשי) ו-`social_lead_claim` - אותה תבנית
    כמו `ads_leads`: השורה נשמרת קודם, וקורא אחד בלבד שולח למסלול.
 2. **`leads (source, external_ref)` ייחודי** - ‏`property-inquiry-intake`,
    ‏`agent-direct-inquiry-intake` ו-`owner-lead-intake` מקבלים `external_ref`
    ומחזירים `{ duplicate: true, lead_id }` כשהליד כבר קיים (גם במרוץ, דרך
-   ה-unique). **ה-ref אינו ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד
-   (‏`assets/crm-leads.js`), ושם יש תווית קריאה - "פייסבוק · הודעה".
+   ה-unique). טופס מטא שולח `external_ref = meta_lead_id`. **ה-ref אינו
+   ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד (‏`assets/crm-leads.js`),
+   ושם יש תווית קריאה - "פייסבוק · הודעה" או "טופס לידים במטא · מוכר/ת".
+3. **אותו טלפון בשני מסלולים** - ‏`leads.phone_e164` (‏`normalize_msisdn`,
+   כמו `saved_searches`) ואינדקס לא ייחודי. לפני insert, פנייה על נכס וליד
+   בעלים מחפשים ליד **פתוח** מאותו `phone_e164` ואותו `lead_type` מ-30
+   הימים (בפנייה על נכס גם אותו `property_id`). פתוח = `masked` /
+   `unlocked` / `pending_charge`, לא ב-`lead_archives`, ושלב הסוכן/ת
+   המשויך/ת אינו `not_relevant` או `won`. נמצא: אין insert, אין רוטציה
+   ואין התראת `new_lead`. ההודעה מצטרפת ל-`raw_message`, והמקור הנוסף
+   נרשם ב-`source_touches` (לא בכרטיס). התשובה `{ duplicate: true, lead_id }`.
 
 ## ליד בלי התראות (`lead_only`)
 

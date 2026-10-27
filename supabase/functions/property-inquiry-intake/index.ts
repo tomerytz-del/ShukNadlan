@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
 import {
   cleanExternalRef,
   isInternalCaller,
@@ -47,8 +48,9 @@ Deno.serve(async (req: Request) => {
   // הליד - כמו היום. ליד מטופס של מטא (ads-leads-webhook) נושא
   // meta_ads_property_form, ובלי זה היה נספר כפנייה מדף הנכס.
   //
-  // מקור חברתי (‏facebook_dm...) ו-external_ref - רק מקורא פנימי: ‏social-lead-intake
-  // מאמתת את גבריאלה וקוראת לכאן עם ה-service role. ‏docs/social-leads.md.
+  // מקור חברתי (‏facebook_dm...) ו-meta_ads_* ו-external_ref - רק מקורא
+  // פנימי: ‏social-lead-intake ו-meta-leads (‏service role). מהדפדפן המקור
+  // נופל. ‏external_ref של מטא הוא meta_lead_id. ‏docs/social-leads.md.
   const trusted = isInternalCaller(req);
   const source = normalizeSource(body?.source, "", trusted);
   const externalRef = trusted && source ? cleanExternalRef(body?.external_ref) : null;
@@ -83,6 +85,20 @@ Deno.serve(async (req: Request) => {
     if (propErr || !property) return json({ error: "property_not_found" }, 404);
     if (property.status !== "active") return json({ error: "property_not_active" }, 400);
 
+    /* אותו טלפון, אותו נכס, ליד פתוח מ-30 הימים - לא ליד שני ולא התראה
+       שנייה. ניסיון חוזר של אותו external_ref כבר חזר למעלה. */
+    const merged = await attachToOpenLead(supabase, {
+      phone,
+      leadType: "property_inquiry",
+      matchProperty: true,
+      propertyId: property.id,
+      source: source || null,
+      externalRef,
+      message: typeof message === "string" ? message : null,
+      sourceLabel: socialSourceLabel(source) || metaAdsSourceLabel(source),
+    });
+    if (merged) return json({ success: true, duplicate: true, lead_id: merged.lead_id });
+
     const tier = (property as any).agency_members?.tier ?? "free";
     const autoUnlock = tier === "mid" || tier === "premium";
 
@@ -100,7 +116,7 @@ Deno.serve(async (req: Request) => {
     };
     if (source) insertPayload.source = source;
     // ‏source_detail מוצג לסוכן/ת בכרטיס - תווית קריאה, לא המזהה של הספק
-    const detail = socialSourceLabel(source);
+    const detail = socialSourceLabel(source) || metaAdsSourceLabel(source);
     if (detail) insertPayload.source_detail = detail;
     if (externalRef) insertPayload.external_ref = externalRef;
 
