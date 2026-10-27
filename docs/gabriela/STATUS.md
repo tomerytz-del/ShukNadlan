@@ -41,7 +41,7 @@
 | --- | --- | --- |
 | #1018 סיורים | `cursor/gabriela-cancel-showing-4477` | `8f06a04bbee298df63dff069f30d5291a02cdbf0` |
 | #1019 ניצחונות מהירים | `cursor/gabriela-quick-wins-4477` | `e160c71bc1bdd11017b862ea4ad62edfac1ad7a9` |
-| #1020 תקציר התראות | `cursor/gabriela-notif-digest-4477` | ראש הענף אחרי הדחיפה של תיקוני הביקורת |
+| #1020 תקציר התראות | `cursor/gabriela-notif-digest-4477` | `790d5b03cda69f5a562fb0e8f02149bffa228662` |
 
 ## סטטוס ביצוע
 
