@@ -26,6 +26,7 @@ import {
 } from "../supabase/functions/_shared/lead-dedupe.ts";
 import {
   duplicateLeadBody,
+  leadInsertRetryable,
   ownerPhoneAttach,
   pageLeadInsertAttempts,
   propertyPhoneAttach,
@@ -106,7 +107,7 @@ function fakeSb(opts: {
   openError?: boolean;
   notifyError?: boolean;
   notifyWindowError?: boolean;
-  notices?: { type?: string; related_lead_id?: string; title?: string; created_at?: string }[];
+  notices?: { type?: string; related_lead_id?: string; agent_id?: string; title?: string; created_at?: string }[];
   touchError?: string;
   touchMissing?: boolean;
 }) {
@@ -181,6 +182,7 @@ function fakeSb(opts: {
             const rows = (opts.notices ?? []).filter((n) => {
               if (filters.type !== undefined && n.type !== filters.type) return false;
               if (filters.related_lead_id !== undefined && n.related_lead_id !== filters.related_lead_id) return false;
+              if (filters.agent_id !== undefined && n.agent_id !== filters.agent_id) return false;
               if (typeof since === "string" && !(String(n.created_at) > since)) return false;
               return true;
             });
@@ -240,20 +242,22 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
   ok("עדכון אחד", sb.updates.length === 1);
   const payload = sb.updates[0].payload;
   ok("ההודעה צורפה", String(payload.raw_message).includes("פנייה נוספת") && String(payload.raw_message).includes("מהדירה ברחוב הרצל"));
-  const touches = payload.source_touches as { source: string; external_ref: string }[];
+  const touches = payload.source_touches as { source: string; external_ref: string; notify_skipped?: string }[];
   ok("המקור הנוסף נרשם בלי להחליף את הליד", touches.length === 1 && touches[0].source === "meta_ads_owner_form" && touches[0].external_ref === "998877");
+  ok("מגע שההתראה שלו נשלחת אינו מסומן כדילוג", touches[0].notify_skipped === undefined);
   ok("הטלפון אינו בגוף העדכון", !JSON.stringify(payload).includes("050") && !JSON.stringify(payload).includes("972501234567"));
   ok("הסוכן/ת מקבל/ת התראת פנייה נוספת על הליד",
     sb.notes.length === 1 && sb.notes[0].type === "new_lead" && sb.notes[0].agent_id === "agt" &&
     sb.notes[0].related_lead_id === "lead-1" && sb.notes[0].title === "פנייה נוספת על ליד קיים");
   ok("גוף ההתראה בלי הטלפון", !JSON.stringify(sb.notes[0]).includes("972") && !JSON.stringify(sb.notes[0]).includes("050"));
   const touchAt = sb.calls.findIndex((c) => c.table === "lead_phone_touch");
-  const noteAt = sb.calls.findIndex((c) => c.table === "notifications");
-  ok("העדכון במסד לפני ההתראה", touchAt >= 0 && noteAt > touchAt);
+  const insertAt = sb.calls.findIndex((c) => c.table === "notifications" && c.payload);
+  ok("העדכון במסד לפני ההתראה", touchAt >= 0 && insertAt > touchAt);
   const windowQ = sb.calls.find((c) => c.table === "notifications" && !c.payload);
-  ok("חלון ההתראה נשאל לפי סוג, ליד, ו-24 שעות",
+  ok("חלון ההתראה נשאל לפי סוג, ליד, סוכן/ת, ו-24 שעות",
     windowQ?.filters.type === "new_lead" && windowQ?.filters.related_lead_id === "lead-1" &&
-    typeof windowQ?.filters.created_at === "string");
+    windowQ?.filters.agent_id === "agt" && typeof windowQ?.filters.created_at === "string");
+  ok("בדיקת החלון לפני המגע", sb.calls.findIndex((c) => c.table === "notifications" && !c.payload) < touchAt);
 }
 
 {
@@ -363,7 +367,7 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
   const recentOriginal = fakeSb({
     phone: "972501234567",
     leads: [openLead],
-    notices: [{ type: "new_lead", related_lead_id: "lead-1", title: "ליד חדש: בעל נכס", created_at: hourAgo }],
+    notices: [{ type: "new_lead", related_lead_id: "lead-1", agent_id: "agt", title: "ליד חדש: בעל נכס", created_at: hourAgo }],
   });
   const quiet = await attachToOpenLead(recentOriginal, desk);
   ok("new_lead מהיממה האחרונה חוסם התראה חוזרת",
@@ -371,7 +375,7 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
   const repeatTitle = fakeSb({
     phone: "972501234567",
     leads: [openLead],
-    notices: [{ type: "new_lead", related_lead_id: "lead-1", title: "פנייה נוספת על ליד קיים", created_at: hourAgo }],
+    notices: [{ type: "new_lead", related_lead_id: "lead-1", agent_id: "agt", title: "פנייה נוספת על ליד קיים", created_at: hourAgo }],
   });
   const again = await attachToOpenLead(repeatTitle, { ...desk, externalRef: "998878" });
   ok("פנייה נוספת שנייה בתוך 24 שעות נוגעת בליד בלי התראה",
@@ -380,7 +384,7 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
     phone: "972501234567",
     leads: [openLead],
     notices: [{
-      type: "new_lead", related_lead_id: "lead-1", title: "פנייה נוספת על ליד קיים",
+      type: "new_lead", related_lead_id: "lead-1", agent_id: "agt", title: "פנייה נוספת על ליד קיים",
       created_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
     }],
   });
@@ -390,14 +394,14 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
   const otherLead = fakeSb({
     phone: "972501234567",
     leads: [openLead],
-    notices: [{ type: "new_lead", related_lead_id: "lead-9", title: "ליד חדש", created_at: hourAgo }],
+    notices: [{ type: "new_lead", related_lead_id: "lead-9", agent_id: "agt", title: "ליד חדש", created_at: hourAgo }],
   });
   ok("new_lead של ליד אחר אינו חוסם",
     (await attachToOpenLead(otherLead, { ...desk, externalRef: "998880" }))?.lead_id === "lead-1" && otherLead.notes.length === 1);
   const otherType = fakeSb({
     phone: "972501234567",
     leads: [openLead],
-    notices: [{ type: "system", related_lead_id: "lead-1", title: "מערכת", created_at: hourAgo }],
+    notices: [{ type: "system", related_lead_id: "lead-1", agent_id: "agt", title: "מערכת", created_at: hourAgo }],
   });
   ok("התראה שאינה new_lead אינה חוסמת",
     (await attachToOpenLead(otherType, { ...desk, externalRef: "998881" }))?.lead_id === "lead-1" && otherType.notes.length === 1);
@@ -407,8 +411,18 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
     notifyWindowError: true,
   });
   const safe = await attachToOpenLead(brokenWindow, { ...desk, externalRef: "998882" });
+  const skipped = (brokenWindow.updates[0]?.payload.source_touches as { notify_skipped?: string }[] | undefined)?.[0];
   ok("כשל בבדיקת החלון מדלג על ההתראה ומשאיר את המגע",
     safe?.lead_id === "lead-1" && brokenWindow.updates.length === 1 && brokenWindow.notes.length === 0);
+  ok("כשל החלון נרשם על המגע", skipped?.notify_skipped === "window_lookup_error");
+  const reassigned = fakeSb({
+    phone: "972501234567",
+    leads: [openLead],
+    notices: [{ type: "new_lead", related_lead_id: "lead-1", agent_id: "agt-old", title: "ליד חדש: בעל נכס", created_at: hourAgo }],
+  });
+  ok("התראה לסוכן/ת הקודם/ת אינה חוסמת את המשויך/ת עכשיו",
+    (await attachToOpenLead(reassigned, { ...desk, externalRef: "998883" }))?.lead_id === "lead-1" &&
+    reassigned.notes.length === 1 && reassigned.notes[0].agent_id === "agt");
 }
 
 {
@@ -548,6 +562,16 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
   const ownerRows = pageLeadInsertAttempts({ city: "עפולה" }, "owner_inbound", "agent_page");
   ok("ליד בעלים מדף סוכן/ת הוא ניסיון אחד עם source",
     ownerRows.length === 1 && ownerRows[0].source === "agent_page" && ownerRows[0].lead_type === "owner_inbound");
+  ok("שגיאה חולפת מנסה שוב", leadInsertRetryable("40001") && leadInsertRetryable("40P01") && leadInsertRetryable("57014") && leadInsertRetryable(null));
+  ok("אילוץ אינו ניסיון חוזר",
+    !leadInsertRetryable("23505") && !leadInsertRetryable("23514") && !leadInsertRetryable("23502") && !leadInsertRetryable("23503"));
+  ok("שגיאת עמודה אינה חולפת", !leadInsertRetryable("42703"));
+  ok("הקליטה מנסה שוב רק דרך leadInsertRetryable",
+    ownerIdxIncludesRetry(readFileSync(new URL("../supabase/functions/owner-lead-intake/index.ts", import.meta.url), "utf8")));
+}
+
+function ownerIdxIncludesRetry(src: string): boolean {
+  return src.includes("leadInsertRetryable") && src.includes("retried");
 }
 
 // ---------------------------------------------------------------------------

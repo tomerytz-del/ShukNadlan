@@ -8,11 +8,13 @@
 //
 // נמצא, ורק לקורא פנימי (service role): לא מכניסים שורה ולא מריצים רוטציה.
 // lead_phone_touch מוסיף את ההודעה ל-raw_message ואת המקור ל-source_touches
-// ב-update אחד. רק אם העדכון הצליח, והליד לא קיבל new_lead ב-24 השעות
-// האחרונות, הסוכן/ת שכבר רואה/ה את הליד מקבל/ת התראת new_lead עם כותרת
-// "פנייה נוספת" (בלי רוטציה). כישלון העדכון מחזיר null והקורא מכניס שורה
-// חדשה. כישלון ההתראה, או כשל בבדיקת החלון, אחרי עדכון שהצליח אינו פותח
-// ליד שני. ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
+// ב-update אחד. רק אם העדכון הצליח, והסוכן/ת המשויך/ת עכשיו לא קיבל/ה
+// new_lead על הליד ב-24 השעות האחרונות, הוא/היא מקבל/ת התראת new_lead
+// עם כותרת "פנייה נוספת" (בלי רוטציה). העברה לסוכן/ת אחר/ת בתוך החלון
+// כן מודיעה. כישלון העדכון מחזיר null והקורא מכניס שורה חדשה. כישלון
+// ההתראה אחרי עדכון שהצליח אינו פותח ליד שני. כשל בבדיקת החלון מדלג על
+// ההתראה ורושם notify_skipped=window_lookup_error על מגע ה-source_touches.
+// ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
 //
 // שולחן: כשיש agency_id ו-agent_id בפנייה, שניהם חייבים להתאים. פניית
 // פלטפורמה (מטא או רשת, בלי שניהם) אינה מתמזגת לפי טלפון בכלל: יעד בלי
@@ -52,10 +54,13 @@ export function metaAdsSourceLabel(source: string | null | undefined): string | 
 export const OPEN_LEAD_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * חלון ההתראה החוזרת. לכל היותר new_lead אחד לליד בחלון הזה, כולל
- * "ליד חדש" המקורי. פנייה נוספת בתוך החלון עדיין נוגעת בליד.
+ * חלון ההתראה החוזרת. לכל היותר new_lead אחד לליד ולסוכן/ת המשויך/ת
+ * בחלון הזה, כולל "ליד חדש" המקורי. פנייה נוספת בתוך החלון עדיין נוגעת בליד.
  */
 export const REPEAT_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** נכתב על מגע ה-source_touches כשבדיקת החלון נכשלה וההתראה דולגה. */
+export const REPEAT_NOTICE_SKIPPED = "window_lookup_error";
 
 /** הסטטוסים החיים של leads. אין status של closed/lost; הסגירה היא ארכיון ושלב. */
 const OPEN_STATUSES = new Set(["masked", "unlocked", "pending_charge"]);
@@ -395,18 +400,45 @@ export async function attachToOpenLead(
     return { lead_id: chosen.id };
   }
 
-  // קודם העדכון, בשאילתה אחת. כישלון - אין התראה, והקורא מכניס ליד חדש.
+  // חלון ההתראה לפני המגע, כדי שכשל ייכתב על אותו אובייקט ב-source_touches.
+  // agent_id הוא הנמען. התראה לסוכן/ת הקודם/ת אינה חוסמת את מי שהליד אצלו/ה עכשיו.
+  // כשל: אין התראה, והדגל נשמר עם המגע. אין רוטציה.
+  const sinceNotice = new Date(Date.now() - REPEAT_NOTICE_WINDOW_MS).toISOString();
+  let noticeBlocked = true;
+  let windowLookupError = false;
+  try {
+    const prev = await sb.from("notifications")
+      .select("id")
+      .eq("type", "new_lead")
+      .eq("related_lead_id", chosen.id)
+      .eq("agent_id", chosen.agent_id)
+      .gt("created_at", sinceNotice)
+      .limit(1);
+    if (prev.error || !Array.isArray(prev.data)) {
+      windowLookupError = true;
+      console.warn("lead phone dedupe notify skipped", prev.error?.code || "notify-window");
+    } else {
+      noticeBlocked = prev.data.length > 0;
+    }
+  } catch {
+    windowLookupError = true;
+    console.warn("lead phone dedupe notify skipped", "notify-window");
+  }
+
+  // העדכון בשאילתה אחת. כישלון - אין התראה, והקורא מכניס ליד חדש.
   const noteLine = appendLeadNote(null, input.sourceLabel, input.message);
+  const touch: Record<string, unknown> = {
+    source: input.source,
+    external_ref: input.externalRef,
+    at: new Date().toISOString(),
+  };
+  if (windowLookupError) touch.notify_skipped = REPEAT_NOTICE_SKIPPED;
   let touchedId: string | null = null;
   try {
     const upd = await sb.rpc("lead_phone_touch", {
       p_lead_id: chosen.id,
       p_note: noteLine,
-      p_touch: {
-        source: input.source,
-        external_ref: input.externalRef,
-        at: new Date().toISOString(),
-      },
+      p_touch: touch,
     });
     if (upd.error || typeof upd.data !== "string" || !upd.data) {
       console.warn("lead phone dedupe note skipped", upd.error?.code || "update");
@@ -419,27 +451,7 @@ export async function attachToOpenLead(
   }
 
   // ההתראה אחרי עדכון שהצליח. כישלון שלה אינו פותח ליד שני: ההודעה כבר על הליד.
-  // אין רוטציה: לא נגענו ב-lead_distribution_rotation. משימת היומן אינה נכפלת
-  // כי source_key שלה הוא lead:<id> (on conflict do nothing).
-  // לכל היותר new_lead אחד לליד ב-24 שעות, כולל "ליד חדש" שנכתב ביצירה.
-  // כשל בבדיקה מדלג על ההתראה ולא שולח כפילות. המגע נשאר.
-  const sinceNotice = new Date(Date.now() - REPEAT_NOTICE_WINDOW_MS).toISOString();
-  let noticeBlocked = true;
-  try {
-    const prev = await sb.from("notifications")
-      .select("id")
-      .eq("type", "new_lead")
-      .eq("related_lead_id", chosen.id)
-      .gt("created_at", sinceNotice)
-      .limit(1);
-    if (prev.error || !Array.isArray(prev.data)) {
-      console.warn("lead phone dedupe notify skipped", prev.error?.code || "notify-window");
-    } else {
-      noticeBlocked = prev.data.length > 0;
-    }
-  } catch {
-    console.warn("lead phone dedupe notify skipped", "notify-window");
-  }
+  // משימת היומן אינה נכפלת כי source_key שלה הוא lead:<id> (on conflict do nothing).
   if (noticeBlocked) return { lead_id: touchedId };
 
   const notice = repeatNotice(chosen);

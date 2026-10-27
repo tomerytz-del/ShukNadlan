@@ -76,7 +76,38 @@ export type PropertyAttachContext = {
  * הסוג יורד ל-owner_inbound רק בניסיון האחרון, אם property_inquiry
  * אינו ערך חוקי בסביבה. כשהסוג המועדף כבר owner_inbound אין ניסיון שני:
  * הוא היה זהה לראשון.
+ *
+ * הקורא היחיד הוא הלולאה ב-owner-lead-intake. השורה הכפולה שהייתה כאן
+ * נתנה לה ניסיון שני על כל שגיאה, כולל חולפת. הניסיון החולף יושב עכשיו
+ * ב-leadInsertRetryable, לא בשורה זהה בתוכנית.
  */
+
+/**
+ * ניסיון insert שני של אותה שורה, רק כשהשגיאה עשויה לעבור.
+ * מחלקה 23 (אילוץ: unique, check, FK, not null) אינה חוזרת.
+ * בלי SQLSTATE (נפילת רשת) כן, פעם אחת. שאר הקודים לא.
+ */
+const TRANSIENT_INSERT_CODES = new Set([
+  "40001", // serialization_failure
+  "40P01", // deadlock_detected
+  "55P03", // lock_not_available
+  "53300", // too_many_connections
+  "57014", // query_canceled
+  "57P03", // cannot_connect_now
+  "08000",
+  "08001",
+  "08003",
+  "08004",
+  "08006",
+  "08007",
+]);
+
+export function leadInsertRetryable(code: string | null | undefined): boolean {
+  if (!code) return true;
+  if (code.startsWith("23")) return false;
+  return TRANSIENT_INSERT_CODES.has(code);
+}
+
 export function pageLeadInsertAttempts(
   baseRow: Record<string, unknown>,
   preferredType: string,

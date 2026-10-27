@@ -102,16 +102,28 @@ Content-Type: application/json
    - נמצא ליד `unlocked` אצל סוכן/ת: אין insert ואין רוטציה.
      `lead_phone_touch` מוסיף את ההודעה ל-`raw_message` ואת המקור
      ל-`source_touches` (לא בכרטיס) **באותו update**, בלי לכתוב
-     ל-`phone_e164`. רק אם העדכון הצליח נבדק חלון ההתראה, ואז נכתבת
-     `new_lead` עם הכותרת "פנייה נוספת על ליד קיים" ו-`related_lead_id`.
-     **לכל היותר התראת `new_lead` אחת לאותו ליד ב-24 שעות.** הבדיקה היא
-     שורה ב-`notifications` עם `type = new_lead`, `related_lead_id` של
-     הליד, ו-`created_at` מאוחר מ-`now() - 24h`. "ליד חדש" שנכתב ביצירת
-     הליד נספר גם הוא, ולכן פנייה נוספת באותו יום אינה שולחת התראה שנייה.
-     פנייה נוספת בתוך החלון עדיין מריצה את `lead_phone_touch`. נמצאה שורה,
-     או שהשאילתה נכשלה - אין insert להתראה, והמגע נשאר. כישלון העדכון
-     מחזיר את הקליטה ל-insert רגיל. כישלון ההתראה אחרי עדכון שהצליח אינו
-     פותח ליד שני.
+     ל-`phone_e164`. חלון ההתראה נבדק לפני העדכון, כדי שכשל ייכתב על
+     אותו מגע. רק אם העדכון הצליח והחלון פנוי נכתבת `new_lead` עם הכותרת
+     "פנייה נוספת על ליד קיים" ו-`related_lead_id`.
+     **לכל היותר התראת `new_lead` אחת לאותו ליד ולאותו/ה סוכן/ת ב-24 שעות.**
+     הבדיקה היא שורה ב-`notifications` עם `type = new_lead`,
+     `related_lead_id` של הליד, `agent_id` של הסוכן/ת שהליד משויך/ת אליו/ה
+     עכשיו, ו-`created_at` מאוחר מ-`now() - 24h`. "ליד חדש" שנכתב ביצירת
+     הליד נספר גם הוא. התראה שיצאה לסוכן/ת הקודם/ת אינה חוסמת את מי שקיבל/ה
+     את הליד בהעברה. פנייה נוספת בתוך החלון עדיין מריצה את `lead_phone_touch`.
+     נמצאה שורה - אין insert להתראה, והמגע נשאר. כשל בשאילתה - אין insert
+     להתראה, והמגע נכתב עם `notify_skipped` = `window_lookup_error`.
+     כישלון העדכון מחזיר את הקליטה ל-insert רגיל. כישלון ההתראה אחרי עדכון
+     שהצליח אינו פותח ליד שני.
+
+     דילוג בגלל כשל בחלון, מ-`leads.source_touches` (לא בכרטיס):
+
+     ```sql
+     select l.id, elem->>'at' as at, elem->>'source' as source
+     from public.leads l
+     cross join lateral jsonb_array_elements(l.source_touches) elem
+     where elem->>'notify_skipped' = 'window_lookup_error';
+     ```
    - **אין משימת יומן שנייה.** הטריגר על `new_lead` קורא ל-
      `agent_agenda_add_auto` עם `source_key` = `lead:<id>`, ו-
      `on conflict do nothing` בולע את הפנייה הנוספת (`docs/agent-agenda.md`).
