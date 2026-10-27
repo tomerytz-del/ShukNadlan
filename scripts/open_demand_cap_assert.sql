@@ -190,4 +190,19 @@ begin
   ) then
     raise exception 'ineligible logged';
   end if;
+
+  -- הפונקציה חסרה אחרי ההחלה: הפוסט עדיין מופץ, וה-cron לא נופל.
+  drop function public.notifications_suppress_on();
+  perform set_config('app.suppress_push', '1', true);
+  delete from public.notifications;
+  insert into public.scraped_leads (status, lead_type, deal_type, city_id, city, property_type, posted_at)
+  values ('open_demand', 'seeker_inbound', 'sale', v_city, 'עפולה', 'דירה', now())
+  returning id into v_post;
+  v_n := public.scraped_lead_notify_demand(v_post);
+  if v_n <> 7 then
+    raise exception 'missing suppress fn count %', v_n;
+  end if;
+  if exists (select 1 from public.notifications where suppress_push) then
+    raise exception 'missing fn still suppressed';
+  end if;
 end $$;

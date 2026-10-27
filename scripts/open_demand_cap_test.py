@@ -3,6 +3,7 @@
 """תקרת ביקוש פתוח: המיגרציה פעמיים על Postgres מקומי, ואז התרחישים."""
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -36,6 +37,8 @@ for required in (
     "not_found",
     "notification_type_enabled",
     "notifications_suppress_on",
+    "to_regprocedure('public.notifications_suppress_on()')",
+    "add column if not exists push_site_only",
     "notif_burst_scraped_stale_days",
     "nulls first",
     "random()",
@@ -51,19 +54,43 @@ if "('open_demand_notify_cap_enabled', 0," not in sql:
 if "('open_demand_notify_cap', 8," not in sql:
     sys.exit("תקרת ברירת המחדל אינה 8")
 
+# #1025 רץ קודם כששני הקבצים קיימים. החלפה כאן הייתה דורסת את הגוף שלו.
+collapsed = re.sub(r"\s+", " ", sql.lower())
+if "create or replace function public.notifications_suppress_on" in collapsed:
+    sys.exit("המיגרציה מחליפה את notifications_suppress_on")
 
-def psql(db, *files):
-    cmd = ["psql", "-v", "ON_ERROR_STOP=1", "-q", db]
+
+def psql(db, *files, sql=None):
+    cmd = ["psql", "-v", "ON_ERROR_STOP=1", "-q", "-tA", db]
+    if sql is not None:
+        cmd.extend(["-c", sql])
     for path in files:
         cmd.extend(["-f", str(path)])
-    subprocess.check_call(cmd, env={**os.environ, "PGOPTIONS": "-c client_min_messages=warning"})
+    out = subprocess.check_output(
+        cmd, env={**os.environ, "PGOPTIONS": "-c client_min_messages=warning"}, text=True
+    )
+    return out.strip()
 
 
 def main():
     db = os.environ.get("ODCAP_DB", "odcap_test")
-    subprocess.check_call(["dropdb", "--if-exists", db])
-    subprocess.check_call(["createdb", db])
+    subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", db])
+    subprocess.check_call(["createdb", "--maintenance-db=postgres", db])
     psql(db, SETUP)
+    # גוף שכבר קיים (#1025 רץ קודם) לא מוחלף.
+    psql(
+        db,
+        sql="""
+        create function public.notifications_suppress_on()
+        returns boolean language sql stable set search_path = ''
+        as $$ select true $$;
+        """,
+    )
+    psql(db, MIGRATION)
+    kept = psql(db, sql="select public.notifications_suppress_on()")
+    if kept != "t":
+        sys.exit(f"המיגרציה החליפה פונקציה קיימת: {kept}")
+    psql(db, sql="drop function public.notifications_suppress_on()")
     psql(db, MIGRATION)
     psql(db, MIGRATION)
     psql(db, ASSERT)

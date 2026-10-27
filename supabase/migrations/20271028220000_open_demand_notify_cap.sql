@@ -2,6 +2,13 @@
 -- נשארת כמו 20271028140000 (כל סוכן/ת בעיר ובסוג, פוסט ישן או
 -- push_site_only נשאר באתר).
 --
+-- עומדת לבד. הפרודקשן ב-20271028120000. notifications_suppress_on()
+-- ו-scraped_leads.push_site_only נולדים ב-20271028140000 (#1025),
+-- שעדיין לא שם. אם הם חסרים, הם נוצרים כאן. פונקציה שכבר קיימת
+-- לא מוחלפת: כששני הקבצים בריפו, 20271028140000 רץ קודם והגוף שלו נשמר.
+-- הקריאה בודקת to_regprocedure ודולגת על ההשתקה אם הפונקציה חסרה,
+-- כדי ש-scraped_leads_lifecycle לא ייפול על פוסט אחד.
+--
 -- כש-open_demand_notify_cap_enabled = 1, כל פוסט יוצא לעד
 -- open_demand_notify_cap סוכנים (ברירת מחדל 8, הטווח שביקשנו 8-10).
 -- הרלוונטיות נשארת agent_works_city ו-agent_handles_type.
@@ -69,21 +76,37 @@ alter table public.open_demand_notify_log enable row level security;
 revoke all on table public.open_demand_notify_log from public, anon, authenticated;
 grant select, insert, update, delete on table public.open_demand_notify_log to service_role;
 
-do $$ begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'open_demand_notify_log_reason_chk'
-  ) then
-    alter table public.open_demand_notify_log
-      add constraint open_demand_notify_log_reason_chk
-      check (reason in ('no_pull', 'recent_pull'));
-  end if;
-  if not exists (
-    select 1 from pg_constraint where conname = 'open_demand_notify_log_rank_chk'
-  ) then
-    alter table public.open_demand_notify_log
-      add constraint open_demand_notify_log_rank_chk check (rank >= 1);
+-- אותה עמודה כמו ב-20271028140000. בלי זה r.push_site_only מפיל את
+-- scraped_lead_notify_demand, ו-scraped_leads_lifecycle נופל על הפוסט.
+alter table public.scraped_leads
+  add column if not exists push_site_only boolean not null default false;
+
+comment on column public.scraped_leads.push_site_only is
+  'true: ההתראה על הביקוש נשארת באתר. מיגרציית מיפוי מחדש קוראת ל-scraped_leads_mark_remap. לא מעדכנים כאן שורות קיימות.';
+
+-- אותו גוף כמו ב-20271028140000, ורק אם הוא עדיין לא קיים.
+-- create or replace היה דורס את #1025 כשהקובץ הזה רץ אחריו.
+do $$
+begin
+  if pg_catalog.to_regprocedure('public.notifications_suppress_on()') is null then
+    execute $fn$
+      create function public.notifications_suppress_on()
+      returns boolean
+      language sql
+      stable
+      set search_path = ''
+      as $body$
+        select coalesce(current_setting('app.suppress_push', true), '') in ('on', 'true', '1');
+      $body$
+    $fn$;
   end if;
 end $$;
+
+comment on function public.notifications_suppress_on() is
+  'האם הטרנזקציה הנוכחית ביקשה לא לדחוף לוואטסאפ. current_setting עם missing_ok.';
+
+revoke all on function public.notifications_suppress_on() from public, anon, authenticated;
+grant execute on function public.notifications_suppress_on() to service_role;
 
 -- הגוף זהה ל-20271028140000 כשהדגל כבוי. כשהוא דלוק נוספים דירוג, תקרה ויומן.
 create or replace function public.scraped_lead_notify_demand(p_id uuid)
@@ -104,6 +127,7 @@ declare
   v_on     boolean;
   v_cap    int;
   v_look   int;
+  v_suppress boolean := false;
 begin
   select * into r from public.scraped_leads where id = p_id for update;
   if not found or r.demand_notified_at is not null or r.claimed_by is not null
@@ -111,9 +135,14 @@ begin
     return 0;
   end if;
 
+  -- AND לא מדלג על שם פונקציה שחסרה: היא נפתרת בתכנון המשפט.
+  -- execute רץ רק אחרי to_regprocedure, ולכן פוסט לא מפיל את ה-cron.
+  if pg_catalog.to_regprocedure('public.notifications_suppress_on()') is not null then
+    execute 'select public.notifications_suppress_on()' into v_suppress;
+  end if;
   v_site := coalesce(r.push_site_only, false)
     or (r.posted_at is not null and r.posted_at < now() - make_interval(days => v_days))
-    or public.notifications_suppress_on();
+    or coalesce(v_suppress, false);
 
   v_on := coalesce((select value::int from public.pricing_config
                      where key = 'open_demand_notify_cap_enabled'), 0) = 1;
@@ -207,9 +236,10 @@ begin
         join ins i on i.agent_id = p.agent_id
       returning agent_id
     )
+    -- ins ו-logged משנות נתונים. CTE כזה רץ עד הסוף גם כשהשאילתה
+    -- הראשית לא קוראת את השורות שלו, ולכן היומן נכתב בלי תנאי על logged.
     select count(*)::int into v_n
-      from ins
-     where (select count(*) from logged) >= 0;
+      from ins;
   end if;
 
   update public.scraped_leads set demand_notified_at = now() where id = p_id;

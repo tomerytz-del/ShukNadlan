@@ -42,8 +42,7 @@ create table if not exists public.scraped_leads (
   move_in text,
   demand_notified_at timestamptz,
   claimed_by uuid,
-  claimed_at timestamptz,
-  push_site_only boolean not null default false
+  claimed_at timestamptz
 );
 
 create table if not exists public.notifications (
@@ -103,13 +102,6 @@ as $$
   select not exists (
     select 1 from public.cap_stub_block b
      where b.agent_id = p_agent_id and b.kind = 'mute')
-$$;
-
-create or replace function public.notifications_suppress_on()
-returns boolean
-language sql stable set search_path = ''
-as $$
-  select coalesce(current_setting('app.suppress_push', true), '') in ('on', 'true', '1')
 $$;
 
 create or replace function public.notifications_apply_preferences()
