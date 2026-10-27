@@ -43,6 +43,9 @@ on:
       - "scripts/check_function_grants.py"
       - "scripts/check_table_grants.py"
       - "scripts/check_table_grants_test.py"
+      - "scripts/check_leads_masked_invoker.py"
+      - "scripts/check_leads_masked_invoker_test.py"
+      - "schema.sql"
       - ".github/workflows/function_grants.yml"
   workflow_dispatch:
 
@@ -74,3 +77,12 @@ jobs:
 
       - name: בדיקת הרשאות טבלאות חדשות
         run: python3 scripts/check_table_grants.py
+
+      # ‏create or replace על leads_masked בלי security_invoker מאפס את
+      # האפשרות. ה-view רץ כבעלים, עוקף RLS, ומפתח ה-anon קורא כל ליד.
+      # הבדיקה העצמית קודם, מאותה סיבה כמו הרשאות הטבלאות.
+      - name: בדיקה עצמית - security_invoker על leads_masked
+        run: python3 scripts/check_leads_masked_invoker_test.py
+
+      - name: leads_masked עם security_invoker
+        run: python3 scripts/check_leads_masked_invoker.py

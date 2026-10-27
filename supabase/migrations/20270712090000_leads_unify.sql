@@ -261,8 +261,17 @@ revoke all on function public.notify_agent_on_new_lead() from public, anon, auth
 
 -- ---------------------------------------------------------------------------
 -- 6. leads_masked - שתי עמודות חדשות בסוף
+--
+-- security_invoker חובה. create or replace בלי האפשרות מאפס אותה, וה-view
+-- חוזר לרוץ כבעלים (postgres, BYPASSRLS) בלי where. כך מפתח ה-anon הציבורי
+-- קרא את כל הלידים הפתוחים. הבדיקה scripts/check_leads_masked_invoker.py
+-- חוסמת את זה.
+--
+-- revoke לפני grant: view חדש נולד עם ALL ל-anon ול-authenticated מכוח
+-- הרשאות ברירת המחדל של הסכימה, ו-grant select מוסיף ואינו מחליף.
 -- ---------------------------------------------------------------------------
-create or replace view public.leads_masked as
+create or replace view public.leads_masked
+with (security_invoker = true) as
  select id,
     lead_type,
     deal_type,
@@ -302,6 +311,9 @@ create or replace view public.leads_masked as
     source_detail,
     origin_id
    from public.leads l;
+
+revoke all on public.leads_masked from public, anon, authenticated;
+grant select on public.leads_masked to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 7. backfill

@@ -95,7 +95,8 @@
 הרשאת ה-SELECT של `anon` הוסרה מ-`rss_leads` ומ-`rss_sources`: מבקר לא מזוהה
 לא יכול לגעת בטבלאות עצמן, אלא רק ב-view `rss_leads_public`. ה-linter של
 Supabase מסמן את ה-view כ-"Security Definer View" — זה מכוון, אותה תבנית של
-`leads_masked` ו-`agency_members_public` הקיימים בפרויקט.
+`agency_members_public`. ‏`leads_masked` דווקא רץ כ-`security_invoker`; בלי זה
+הוא חושף את כל הלידים למפתח הציבורי.
 
 ## שלב 2 — סודות ב-GitHub
 
