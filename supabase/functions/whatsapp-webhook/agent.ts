@@ -501,6 +501,14 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "discard_pending_images",
+    description:
+      "מוריד את כל התמונות שממתינות לשיוך בשיחה, כך שלא יצורפו לשום נכס - לא לקיים " +
+      "ולא לחדש הבא. להשתמש כשהסוכן/ת אומר/ת שהתמונות לא שייכות לנכס (צילום מסך, " +
+      "מסמך, תמונה בטעות), או עונה \"לא שייכות\".",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
     name: "manage_images",
     description:
       "סדר ומחיקה של תמונות בנכס קיים. התמונה הראשונה היא התמונה הראשית בכרטיס " +
@@ -1921,8 +1929,17 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   // "לצלם את הדירה ולשלוח בוואטסאפ יחד עם הטקסט". ‏**לקיחה אטומית** ולא
   // ‏`ctx.conv.pending_images`: ברשימה שבזיכרון חסרות תמונות מאותו אלבום
   // שהגיעו בבקשות מקבילות (מיגרציה 20270115095000).
-  const images = await takePendingImages(ctx);
+  //
+  // ‏**אבל לא תמונות ותיקות** (27.10.2026): רשימה שהוותיקה בה מלפני יותר
+  // מ-20 דקות - שאלה שלא נענתה, צילום מסך מהבוקר - נשארת בצד, והנכס נוצר
+  // בלעדיה. גבריאלה שואלת, ו-attach_images מצרף אחרי "כן".
+  const since = await pendingImagesSince(ctx);
+  const holdImages = since != null && Date.now() - since > PENDING_IMAGES_STALE_MS;
+  const images = holdImages ? [] : await takePendingImages(ctx);
   if (images.length) payload.images = images;
+  const heldCount = holdImages
+    ? (await ctx.supabase.rpc("whatsapp_pending_image_count", { p_agent_id: ctx.agent.id })).data ?? 0
+    : 0;
 
   const { data, error } = await ctx.supabase
     .from("properties")
@@ -1936,13 +1953,22 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   ctx.conv.last_property_id = data.id;
-  ctx.conv.pending_images = [];
+  if (!holdImages) ctx.conv.pending_images = [];
 
   return {
     ok: true,
     property_id: data.id,
     title: data.title,
     images_attached: images.length,
+    ...(heldCount
+      ? {
+        images_held: heldCount,
+        images_held_note:
+          `${heldCount} תמונות שממתינות בשיחה מ-${new Date(since!).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })} ` +
+          "**לא** צורפו לנכס, כי הן ותיקות. שאלי את הסוכן/ת אם הן שייכות לנכס הזה: כן = " +
+          "attach_images עם property_id, לא = discard_pending_images. אל תאמרי שצורפו.",
+      }
+      : {}),
     // ‏lat מהשורה שנשמרה ולא מה-payload: פין משוער באזור תעשייה נקבע בטריגר
     on_map: data.lat != null,
     ...(data.location_precision === "zone"
@@ -2412,6 +2438,26 @@ async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>
   ctx.conv.last_property_id = propertyId;
   return { ok: true, property_id: propertyId, images_added: urls.length, total_images: total };
 }
+
+/** "לא שייכות": הממתינות יורדות מהרשימה, ולא יצורפו לשום נכס (27.10.2026). */
+async function toolDiscardPendingImages(ctx: ToolContext) {
+  const urls = await takePendingImages(ctx);
+  ctx.conv.pending_images = [];
+  return urls.length
+    ? { ok: true, discarded: urls.length, note: "הן לא צורפו לשום נכס ולא יצורפו." }
+    : { ok: true, discarded: 0, note: "לא היו תמונות שממתינות לשיוך." };
+}
+
+/** מתי נכנסה הממתינה הוותיקה ביותר (מיגרציה 20270906090000), או null. */
+async function pendingImagesSince(ctx: ToolContext): Promise<number | null> {
+  const { data } = await ctx.supabase.from("whatsapp_conversations")
+    .select("pending_images_since").eq("agent_id", ctx.agent.id).maybeSingle();
+  const at = Date.parse(String(data?.pending_images_since || ""));
+  return Number.isFinite(at) ? at : null;
+}
+
+// אותו סף של השאלה בוובהוק (‏`PHOTO_ASK_GAP_MS` ב-index.ts)
+const PENDING_IMAGES_STALE_MS = 20 * 60 * 1000;
 
 /**
  * סדר ומחיקה של תמונות בנכס.
@@ -6267,6 +6313,7 @@ async function runTool(
       case "list_properties": return await toolListProperties(ctx, input);
       case "search_properties": return await toolSearchProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
+      case "discard_pending_images": return await toolDiscardPendingImages(ctx);
       case "manage_images": return await toolManageImages(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
       case "property_link": return await toolPropertyLink(ctx, input);
@@ -6626,6 +6673,13 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
       "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
+    "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**: אחרי רגע קצר הן מצטרפות לנכס " +
+      "שעבדתם עליו, ואם עברו 20 דקות מאז שנגעתם בו - נשאלת שאלה בכפתורים (📎 לנכס הקודם / " +
+      "🏠 נכס חדש / 🗑 לא לשום נכס). כל צירוף כזה מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
+      "בתמונות]\" עם הנכס ומספרי התמונות. **לעולם אל תאמרי שתמונה \"לא צורפה\" בלי לבדוק**: " +
+      "קראי את ההיסטוריה, ואם יש ספק - manage_images עם list. מספר התמונות בנכס אינו אומר מה הן. " +
+      "כשהסוכן/ת מבקש/ת להוריד תמונה שצורפה בטעות - manage_images עם remove, מיד אחרי שזיהית " +
+      "איזו (זו שצורפה אחרונה = המספר הגבוה). אחר כך אמרי מה ירד.",
     "",
     "הפרופיל האישי (דף הסוכן/ת באתר):",
     "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. **אין תמונת נושא אישית**: " +
@@ -6686,7 +6740,12 @@ const SYSTEM_STATIC: string = (() => {
  * הסיבה שהחלוקה עובדת: ההוראות (‏~29KB) נקראות מהמטמון, ורק מאות התווים
  * האלה נשלחים במלואם.
  */
-function sessionContext(agent: AgentRow, conv: ConversationState, gaps: string[] = []): string {
+function sessionContext(
+  agent: AgentRow,
+  conv: ConversationState,
+  gaps: string[] = [],
+  pendingSince: number | null = null,
+): string {
   const now = Date.now();
   const today = ilDateOf(now);
   // שעון ישראל ולא UTC: אחרי 21:00 בקיץ ‏toISOString כבר מחזיר את מחר, ו"מחר
@@ -6708,10 +6767,20 @@ function sessionContext(agent: AgentRow, conv: ConversationState, gaps: string[]
     );
   }
   if (conv.pending_images.length) {
+    // הכלל כפי שהקוד עושה אותו, ולא "יצירת נכס תצרף אותן" - זה מה שגבריאלה
+    // תיארה לסוכן (27.10.2026), והוא כבר לא נכון לתמונות ותיקות.
+    const stale = pendingSince != null && Date.now() - pendingSince > PENDING_IMAGES_STALE_MS;
+    const when = pendingSince != null
+      ? ` (הוותיקה מ-${new Date(pendingSince).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })})`
+      : "";
     lines.push(
       "",
-      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס. ` +
-        "יצירת נכס חדש תצרף אותן אוטומטית; לצירוף לנכס קיים יש להשתמש ב-attach_images.",
+      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס${when}. ` +
+        (stale
+          ? "הן מלפני יותר מ-20 דקות: create_property **לא** יצרף אותן, ואין לצרף אותן לשום נכס " +
+            "בלי שהסוכן/ת אמר/ה לאיזה. "
+          : "create_property יצרף אותן לנכס החדש. ") +
+        "לנכס קיים - attach_images. לא שייכות לשום נכס - discard_pending_images.",
     );
   }
   if (gaps.length) {
@@ -6823,12 +6892,13 @@ export async function runAgentTurn(opts: {
   const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
+  const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
 
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps), userContent) },
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince), userContent) },
   ];
 
   let finalText = "";
