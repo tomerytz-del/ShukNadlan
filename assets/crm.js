@@ -2717,7 +2717,7 @@ function openNotificationTarget(n){
     return go('accClients', () => openClientFromParam(clientId));
   if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
     return go('accLeads', openLeadsDemand);
-  if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
+  if (n.related_lead_id && ['new_lead','review_request','system','lead_response_reminder','lead_response_escalation'].includes(n.type)
       && allLeads.some(l => l.id === n.related_lead_id))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
   if (n.related_property_id && sharedWithMeRows.some(r => r.property_id === n.related_property_id))
@@ -25145,6 +25145,13 @@ const NOTIF_TYPES = [
     when: ()=> false },
   /* בוואטסאפ היא עוקפת שעות שקט ומרווח קיבוץ - ראו סעיף 9 ב-
      ‏20270125090000_agent_agenda.sql. */
+  { type:'lead_response_reminder', tone:'deal', goto:'accLeads', focus:'#leadsList',
+    title:'ליד בלי מענה',
+    sub:'עברו שעתיים והליד עדיין בלי מענה. בוואטסאפ זה יוצא רק בחלון השליחה.' },
+  { type:'lead_response_escalation', tone:'deal', goto:'accLeads', focus:'#leadsList',
+    title:'ליד בלי מענה - למנהל/ת',
+    sub:'עברו ארבע שעות בלי מענה. ההתראה למנהל/ת המשרד, או למנהל/ת הפלטפורמה אם אין מנהל/ת.',
+    when: ()=> currentAgent && (currentAgent.role === 'manager' || currentAgent.is_platform_admin) },
   { type:'agenda_reminder', tone:'deal', goto:'accAgenda',  focus:'#agList',
     title:'תזכורות מהיומן',
     sub:'פגישה שמתקרבת, משימה שהגיע זמנה או שבאיחור. בוואטסאפ היא יוצאת גם בשעות השקט, כי את השעה קבעת בעצמך.',
