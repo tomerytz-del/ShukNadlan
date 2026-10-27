@@ -449,6 +449,10 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 שתיים ביומן בהפרש 43ms). מי שמגדיר/ה את claim מחדש - מעתיק/ה את הנעילה, ו-cron
 חדש שקורא ל-`notification-push` אינו צריך תיאום משלו.
 
+לחיצה על כפתור היעד נמדדת ב-`deeplink_timings` (`docs/whatsapp-deep-links.md`).
+`notification_push_log.click_tokens` שומר את `wc` כשההודעה יצאה, כדי לחבר את
+`sent_at` ללחיצה.
+
 ### ליד חדש: הנוסח המלא בוואטסאפ (24.10.2026)
 
 ל-`new_lead` יש בוואטסאפ נוסח משלו (‏`notification-push/lead-alert.ts`): שם הפונה,

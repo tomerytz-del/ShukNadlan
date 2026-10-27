@@ -45,7 +45,7 @@ import {
   topicLabel,
 } from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { absoluteUrl, ctaLabel, parseNavId } from "../_shared/agent-deep-link.ts";
+import { absoluteUrl, ctaLabel, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -193,7 +193,7 @@ async function replyAfterLlmFailure(
       kind: "cta",
       body: failText,
       label: "לאזור האישי",
-      url: absoluteUrl(SITE_BASE, FALLBACK_AGENT_PATH),
+      url: withClickUrl(absoluteUrl(SITE_BASE, FALLBACK_AGENT_PATH), "fallback"),
     }], agentId);
   } else {
     await reply(to, failText, agentId);

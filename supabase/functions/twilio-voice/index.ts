@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
+import { withClick } from "../_shared/agent-deep-link.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
@@ -215,12 +216,15 @@ async function notifyAgent(
   if (!to) return;
   const body = waBody(text).slice(0, 4000);
   const action = opts.action && opts.action.body ? opts.action : null;
+  const suffix = opts.urlSuffix
+    ? withClick(opts.urlSuffix.startsWith("/") ? opts.urlSuffix : `/${opts.urlSuffix}`, "call")
+    : "";
 
   if (await inWindow(agent.id) || !WA_TEMPLATE) {
     // הקישור לכרטיס - כפתור ולא שורה בטקסט (12.10.2026, "פחות קישורים"). ל-
     // ‏cta_url יש גוף עד 1024 תווים: ארוך מזה - הטקסט, ואחריו הכפתור לבד.
     // נדחה - הקישור חוזר כשורה בטקסט.
-    const ctaUrl = opts.cta && opts.urlSuffix ? `${SITE}${opts.urlSuffix}` : null;
+    const ctaUrl = opts.cta && suffix ? `${SITE}${suffix}` : null;
     const ctaMsg = (b: string) => ({
       recipient_type: "individual", to, type: "interactive",
       interactive: {
@@ -300,7 +304,7 @@ async function notifyAgent(
           type: "button",
           sub_type: "url",
           index: "0",
-          parameters: [{ type: "text", text: opts.urlSuffix || "/crm?goto=accClients" }],
+          parameters: [{ type: "text", text: suffix || withClick("/crm?goto=accClients", "call") }],
         },
       ],
     },

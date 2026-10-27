@@ -836,6 +836,7 @@ function showScreen(name){
 let pendingAuthMessage = '';
 
 function showLoginCard(message){
+  if (window.dlMark) window.dlMark('login');
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
   const alreadyOnLogin = document.getElementById('loginCardMain').style.display === 'block';
@@ -1982,6 +1983,7 @@ function routeAfterAuth(session, { force = false } = {}){
       // הדשבורד גלשה החוצה והחזירה את הסוכן/ת לטופס הסיסמה אחרי שההתחברות
       // כבר הצליחה — בדיוק ההרגשה של "פתאום חוזרים למסך הכניסה".
       console.error(err);
+      if (dashboard.style.display !== 'block' && window.dlMark) window.dlMark('error');
       if (dashboard.style.display === 'block'){
         // הדשבורד כבר על המסך: כשל בטעינת קטגוריה בודדת לא מוחק את מה שכבר נטען
         showToast('חלק מהנתונים לא נטענו. נסו לרענן את הדף.');
@@ -1995,6 +1997,7 @@ function routeAfterAuth(session, { force = false } = {}){
 }
 
 async function routeAfterAuthOnce(user){
+  if (window.dlMark) window.dlMark('auth');
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
   routedUserId = user.id;
@@ -2411,13 +2414,14 @@ function handleGotoParam(){
 
   if (window.history && window.history.replaceState){
     ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import', 'tab',
-     'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
+     'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka', 'wc', 'wt']
       .forEach(k => params.delete(k));
     const search = params.toString();
     history.replaceState(history.state, '',
       location.pathname + (search ? '?' + search : '') + location.hash);
   }
 
+  try {
   if (raw === 'adminOps'){ openAdminOpsPanel(); return; }
   /* פעולות שאינן קטגוריה (CRM_ACTIONS): ‏?goto=cma פותח את בחירת הנכס לדוח,
      ‏?goto=cmaAddress את הטופס לכתובת. כך המנטור, גבריאלה והעזרה מקשרים
@@ -2462,6 +2466,23 @@ function handleGotoParam(){
   if (raw === 'accPlanning') runPlanningFromParam(planQ);
   // ‏lead_prefs_default (notification-push, itemPath): חלק העדפות הלידים מקופל
   if (raw === 'accPrefs' && focus === 'lead_prefs' && typeof openLeadPrefs === 'function') openLeadPrefs();
+  } finally {
+    if (window.dlMark) {
+      window.dlMark('route');
+      var dlId = raw === 'bell' ? 'bellPanel' : raw;
+      var dlSeen = function(){
+        var dlEl = document.getElementById(dlId);
+        return !!(dlEl && dlEl.getClientRects().length);
+      };
+      if (dlSeen()) window.dlMark('visible');
+      else {
+        var dlN = 0, dlT = setInterval(function(){
+          if (dlSeen()) { clearInterval(dlT); window.dlMark('visible'); }
+          else if (++dlN > 40) clearInterval(dlT);
+        }, 250);
+      }
+    }
+  }
 }
 
 /* ‏?goto=accPlanning&plan_city=…&plan_street=…&plan_num=… (או plan_gush +

@@ -7,6 +7,8 @@ import {
   BUTTON_TITLE_MAX,
   ctaLabel,
   ctaMessage,
+  clickRecords,
+  clickToken,
   encodeNavId,
   isSafeCrmPath,
   listMessage,
@@ -21,6 +23,8 @@ import {
   utilitySuffix,
   utilityTemplateMessage,
   utf16Length,
+  withClick,
+  withClickUrl,
 } from "../supabase/functions/_shared/agent-deep-link.ts";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -105,7 +109,8 @@ const many = screenBundle([
 ], (type) => type === "new_lead" ? "/crm?goto=accLeads" : "/crm?goto=accProperties");
 check("כמה יעדים הם רשימה", many.kind === "list");
 if (many.kind === "list") {
-  check("הכול אחרון", many.rows.at(-1)?.title === "הכול" && many.rows.at(-1)?.id === encodeNavId("/crm?goto=accLeads"));
+  const allRow = parseNavId(many.rows.at(-1)?.id || "");
+  check("הכול אחרון", many.rows.at(-1)?.title === "הכול" && !!allRow && allRow.startsWith("/crm?goto=accLeads") && /[?&]wc=[a-f][a-f0-9]{11}/.test(allRow));
   check("עד עשר שורות", many.rows.length <= 10 && many.rows.length === 4);
   check("מזהי nav", many.rows.every((row) => parseNavId(row.id)));
   const msg = listMessage("972500000000", "מה שחדש אצלך:\nדנה\nיוסי", many.button, many.section, many.rows);
@@ -118,7 +123,7 @@ const props = screenBundle([
   { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "הרצל 1" },
   { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "הרצל 2" },
 ], () => "/crm?goto=accProperties");
-check("הכול של נכסים הוא הרשימה", props.kind === "list" && props.kind === "list" && props.allPath === "/crm?goto=accProperties");
+check("הכול של נכסים הוא הרשימה", props.kind === "list" && props.allPath.startsWith("/crm?goto=accProperties&wc="));
 
 const demands = screenBundle([
   { type: "open_demand", path: "/crm?goto=accLeads&tab=demand", title: "א" },
@@ -153,6 +158,19 @@ const utilBtn = (((util.template as { components: { type: string; parameters?: {
   .find((c) => c.type === "button")!.parameters!)[0].text;
 check("תבנית בלי כתובת בגוף", !containsHttpUrl(utilBody));
 check("סיומת בלי לוכסן מוביל", utilBtn === utilitySuffix(`/crm?goto=accLeads&lead=${ID}`) && !utilBtn.startsWith("/"));
+const stamped = withClick(`/crm?goto=accLeads&lead=${ID}`, "new_lead");
+const stampedWc = (stamped.match(/[?&]wc=([a-f0-9]+)/) || [])[1] || "";
+check("wc אטום על כפתור", /^[a-f][a-f0-9]{11}$/.test(stampedWc) && stamped.includes("wt=new_lead") && stamped.includes(`lead=${ID}`));
+check("wc אינו הטלפון ואינו ה-uuid", stampedWc !== ID.replace(/-/g, "").slice(0, 12) && !stampedWc.startsWith("972") && /[a-f]/.test(stampedWc));
+check("נתיב עם wc עדיין בטוח", isSafeCrmPath(stamped) && (encodeNavId(stamped) || "").length <= 200);
+check("wc קיים לא מוכפל", withClick(stamped, "other") === stamped);
+check("כתובת מלאה מקבלת wc", /wc=[a-f][a-f0-9]{11}/.test(withClickUrl("https://shuknadlan.co.il/crm?goto=bell", "fallback")));
+check("קישור ציבורי בלי wc", withClickUrl("https://shuknadlan.co.il/property?id=" + ID, "page") === "https://shuknadlan.co.il/property?id=" + ID);
+if (one.kind === "single") {
+  const rec = clickRecords(one);
+  check("רשומת לחיצה אחת", rec.length === 1 && rec[0].wt === "new_lead" && rec[0].wc === (one.path.match(/wc=([a-f0-9]+)/) || [])[1]);
+}
+check("טוקן מתחיל באות", /^[a-f][a-f0-9]{11}$/.test(clickToken()));
 check("בסיס התבנית קבוע בקוד", readFileSync(new URL("../supabase/functions/_shared/agent-deep-link.ts", import.meta.url), "utf8").includes("https://shuknadlan.co.il/"));
 
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
