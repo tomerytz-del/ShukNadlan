@@ -141,7 +141,7 @@ View בלי `security_invoker` — אותה תבנית כמו `rss_leads_public`
 העמודה `fits_me` קוראת ל-`agent_share_fit`. PostgreSQL בודק `EXECUTE` על
 פונקציה מול המשתמש/ת שקורא/ת את ה-view, לא מול הבעלים. ‏`20270711090000`
 שללה את `authenticated`, ומסך "נכסים ששותפו איתי" חזר 403.
-‏`20270902090000_baseline_urgent_fixes_20261027` מחזירה `EXECUTE`
+‏`20270903090000_baseline_urgent_fixes_20261027` מחזירה `EXECUTE`
 ל-`authenticated` בלבד. ‏`anon` נשאר סגור.
 
 ה-view חושף `display_name` ו-`phone` של מי ששיתף — זו כל תכלית השת״פ (צריך למי

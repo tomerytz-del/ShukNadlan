@@ -334,7 +334,7 @@ COMPANY_REGISTRY_TIMEOUT_MS      ברירת מחדל 6000
 נבדק מול מסד אמיתי: סוכן/ת תיווך מחובר/ת מקבל/ת 0 שורות מהמדף.
 
 כתיבה דרך ה-view (‏`INSERT` / `UPDATE` / `DELETE` ושאר הרשאות הכתיבה)
-נסגרה ב-`20270902090000` ל-`public`, ל-`anon` ול-`authenticated`.
+נסגרה ב-`20270903090000` ל-`public`, ל-`anon` ול-`authenticated`.
 ‏`SELECT` ל-`authenticated` נשאר, ו-`security_invoker` נשאר `false`.
 אותה סגירת כתיבה, בלי להדליק `security_invoker`, חלה גם על
 `saved_search_leads_public`.
