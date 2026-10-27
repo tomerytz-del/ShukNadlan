@@ -12,6 +12,20 @@ let gapOverride: number | null = null;
 let reserve: Reserve | null = null;
 const chains = new Map<string, Promise<unknown>>();
 const lastSent = new Map<string, number>();
+const MAX_LAST_SENT = 500;
+
+function prunePace(now = Date.now()): void {
+  const staleMs = 10 * 60_000;
+  for (const [key, at] of lastSent) {
+    if (now - at > staleMs) lastSent.delete(key);
+  }
+  if (lastSent.size <= MAX_LAST_SENT) return;
+  const oldest = [...lastSent.entries()].sort((a, b) => a[1] - b[1]);
+  for (const [key, at] of oldest) {
+    if (lastSent.size <= MAX_LAST_SENT / 2) break;
+    if (now - at > pairGapMs()) lastSent.delete(key);
+  }
+}
 
 function readEnvGap(): number {
   try {
@@ -54,7 +68,12 @@ function sleep(ms: number): Promise<void> {
  * מריצה את השליחה אחרי כל שליחה קודמת לאותו מספר, עם מרווח.
  * ההודעה הראשונה יוצאת מיד. כישלון אינו שובר את השרשרת של הבאה.
  */
+export function pairPaceTracked(): { chains: number; lastSent: number } {
+  return { chains: chains.size, lastSent: lastSent.size };
+}
+
 export function paceRecipient<T>(phone: string, fn: () => Promise<T>): Promise<T> {
+  prunePace();
   const key = digits(phone);
   const prev = chains.get(key) ?? Promise.resolve();
   const run = prev.then(async () => {
@@ -76,8 +95,13 @@ export function paceRecipient<T>(phone: string, fn: () => Promise<T>): Promise<T
       return await fn();
     } finally {
       lastSent.set(key, Date.now());
+      if (lastSent.size > MAX_LAST_SENT) prunePace();
     }
   });
-  chains.set(key, run.then(() => undefined, () => undefined));
+  const slot = run.then(() => undefined, () => undefined);
+  chains.set(key, slot);
+  slot.then(() => {
+    if (chains.get(key) === slot) chains.delete(key);
+  });
   return run;
 }

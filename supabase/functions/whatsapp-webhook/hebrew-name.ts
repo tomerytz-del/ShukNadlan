@@ -37,25 +37,46 @@ export function nameSkeleton(raw: unknown): string {
 }
 
 function tokens(skeleton: string): string[] {
-  return skeleton.split(" ").filter((w) => w.length >= 3);
+  // מאורך 2, כדי ששם פרטי קצר אחרי הורדת י' ("דני" -> "דנ") לא ייעלם
+  // וישאיר רק את שם המשפחה. "דני כהן" ו"רון כהן" אינם אותו אדם.
+  return skeleton.split(" ").filter((w) => w.length >= 2);
 }
 
 /**
- * אותו אדם בסבירות גבוהה: שלד זהה (מאורך 2, כדי ש"דן" יתפוס את עצמו),
- * או שכל מילה מובהקת בשם הקצר נמצאת בארוך ("כלפון" בתוך "משפחת כלפון").
+ * אותו אדם בסבירות גבוהה.
+ * שני שמות מלאים: השם הפרטי חייב להתאים, וגם מילה נוספת (שם משפחה).
+ * שם של מילה אחת: רק אם הוא השם הפרטי, או מילה של 4 אותיות ומעלה
+ * ("כלפון" בתוך "משפחת כלפון"). "כהן" לבדו אינו תופס את "דני כהן".
  */
 export function namesLikelySame(a: unknown, b: unknown): boolean {
-  const sa = nameSkeleton(a);
-  const sb = nameSkeleton(b);
-  if (!sa || !sb) return false;
-  const ca = sa.replace(/ /g, "");
-  const cb = sb.replace(/ /g, "");
-  if (sa === sb && ca.length >= 2) return true;
-  const ta = tokens(sa);
-  const tb = tokens(sb);
+  const ta = tokens(nameSkeleton(a));
+  const tb = tokens(nameSkeleton(b));
   if (!ta.length || !tb.length) return false;
+  if (ta.length >= 2 && tb.length >= 2) {
+    if (ta[0] !== tb[0]) return false;
+    return ta.slice(1).some((w) => tb.slice(1).includes(w));
+  }
   const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
-  return short.every((w) => long.includes(w));
+  if (short.length === 1 && long.length >= 2) {
+    const w = short[0];
+    if (w === long[0]) return true;
+    return w.length >= 4 && long.includes(w);
+  }
+  return short[0] === long[0];
+}
+
+/**
+ * אותו שם משפחה, שם פרטי אחר. לא חוסמים יצירה - שואלים את הסוכן/ת.
+ * טלפון זהה נשאר חסימה נפרדת, ב-phonesMatch.
+ */
+export function namesNeedConfirm(a: unknown, b: unknown): boolean {
+  const ta = tokens(nameSkeleton(a));
+  const tb = tokens(nameSkeleton(b));
+  if (ta.length < 2 || tb.length < 2) return false;
+  if (ta[0] === tb[0]) return false;
+  const lastA = ta[ta.length - 1];
+  const lastB = tb[tb.length - 1];
+  return lastA.length >= 3 && lastA === lastB;
 }
 
 /** חיפוש: שם סלחני, או טלפון כשיש לפחות 7 ספרות בשאילתה. */
