@@ -319,3 +319,17 @@
 | שבב ב-hero | `#heroAiBadge` בפס הכהה מעל ה-H1 | "✨ N נכסים עם הדמיית AI · לפני ואחרי", שקוף ולא ממולא; לחיצה = `applyAiFilter`, אירוע `ai_hero_chip_click`. ‏"נוספו היום" מוסתר. הכפתור הזהב נשאר מעל הקפל ב-360×780 |
 | התג על האריחים | `.pc-badge.is-ai`, ו-`.pr-ai` בשורה הדחוסה (‏`rowViz` ב-`prop-shelf.js`) | לחיצה על התג - דף הנכס עם `#viz`, ש-`property.js` גולל אליו כשההדמיה נחשפת |
 | תגית סינון | "✨ עם הדמיה" ראשונה בשורת התגיות (‏`vizTag`) | תגית מדף כמו האחרות - מסננת את המדף והמפה; `search_submit` נושא `viz:1` כשהמשפט מסונן להדמיות |
+
+**היקף המספר (V7): השוק, לא האתר.** השבב, שורת הבאנר, ה-CTA "לצפייה ב-N
+הנכסים" ותגית "✨ עם הדמיה" מציגים את אותו N, והוא נספר כך:
+
+```sql
+select count(distinct p.id)
+from properties p
+join cities c on c.name = p.city
+join property_visualizations_public v on v.property_id = p.id
+where p.status = 'active' and c.market_slug = 'afula-emek';
+```
+
+ב-27.10.2026 זה נתן 171 מתוך 231 נכסים פעילים בשוק (מול 186 באתר כולו).
+מספרי הכותרת נשארים על `_public` ולא על `property_visualizations_recent`.

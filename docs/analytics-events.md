@@ -56,30 +56,6 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `crm_lead_handled` | "טופל" על ליד חדש (השלב עובר ל"נוצר קשר ראשוני") | — |
 | `crm_lead_handled_undo` | ביטול הסימון מטוסט "ביטול", בתוך כחמש שניות | — |
 | `crm_home_summary` | לחיצה על שורה ב"הנה תמונת המצב שלך להיום" | `summary_item`: `leads` \| `meetings` \| `late` \| `expiring` \| `exclusive` |
-| `map_open` | **רק עם דגל v10 (‏`html.beta-hero`)**: המפה נפתחה במסך מלא (‏`openMapView` ב-`assets/home.js`). בלי הדגל הדחיפה לא קורית, כמו קודם | `source`: ‏`hero_cta` (חיפוש במפה ב-hero) \| `hood_section` (מפת השכונות) \| `results_header` \| `fab` \| `menu` |
-| `gab_widget_open` (‏`source`) | **ערך חדש, רק עם דגל v10**: נפתחה מכרטיס גבריאלה ב-hero דרך `GabWidget.open` (‏`trigger` נשאר `click`). פתיחה מהבועה - בלי `source`, כמו קודם | `source`: ‏`hero_cta` (‏"בואו נתחיל") \| `hero_figure` (הדמות) |
-| `region_select` | **v10**: נבחר שוק בבורר שבהדר או במסנן של `/swipe` | `region` (‏slug), `group`: ‏`live` \| `north` \| `center` \| `south`, `via`: ‏`header` \| `swipe_filter` \| `my_location` |
-| `quick_search_tag_click` | **v10**: צ'יפ בחיפוש המהיר (‏`#quickSearchSec`) | `group`: ‏`hood` \| `type` \| `area`, `tag` |
-| `fair_banner_click` | **v10**: לחיצה על באנר היריד | `fair_id` (‏`open_house_<תאריך סיום>`) |
-| `site_stats_view` | **v10**: המונים (‏`#dmStats`) נכנסו למסך, פעם אחת בדף | `source`: ‏`cache` \| `client`, `deals_shown`: ‏0 \| 1 |
-| `swipe_start` | **v10**: "התחילו להחליק" ב-`/swipe`, או הקישור מה-hero / מבאנר ההדמיות | `deal`, `region`, `via`: ‏`swipe_filter` \| `hero_link` \| `ai_banner` |
-| `swipe_tour_skip` | **v10**: דילוג על ההדרכה ב-`/swipe` | `visit`: ‏1 \| 2 |
-| `swipe_card_view` | **v10**: כרטיס נעשה פעיל ב-`/swipe` | `slot`: ‏`property` \| `spon_agency` \| `spon_pro` \| `article` \| `engage` \| `end`, `position` |
-| `swipe_like` | **v10**: החלקה ימינה / לב | `slot`, `position` |
-| `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
-| `swipe_up_open` | **v10**: נפתח גיליון הפרטים | `slot`, `position` |
-| `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
-| `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
-| `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
-| `swipe_end_view` | **v10**: הוצג כרטיס הסיום | `likes` |
-| `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: טופסי `/swipe` | `form_id`: ‏`swipe_up` \| `swipe_sponsored` \| `swipe_end_alert` |
-| `gab_quick_pick` | **v10**: בחירה מהירה בחלונית של גבריאלה - השיחה הקצרה באתר, בלי וואטסאפ ובלי רשת (‏`assets/gabriela-widget.js`) | `choice`: ‏`buy` \| `rent` \| `owner` \| `fair` \| `swipe` |
-| `gab_swipe_cta` | **v10**: הכפתור הכחול בתשובה של גבריאלה (במקום `swipe_start`, כדי שהתחלה אחת לא תיספר פעמיים) | `deal`, `region` |
-| `swipe_start` / `search_submit` (‏`viz`) | **פרמטר חדש, רק עם דגל v10**: הסינון "✨ רק נכסים עם הדמיה" דלוק | `viz`: ‏`1` |
-| `swipe_nudge_view` | **v10**: הוצגה הכוונה אחרי לייק ב-`/swipe` | `kind`: ‏`first` \| `three`, `likes` |
-| `swipe_nudge_click` | **v10**: לחיצה בהכוונה | `kind`, `cta`: ‏`list` \| `share` \| `visit` |
-| `swipe_share` | **v10**: שיתוף רשימת "אהבתי" | `method`: ‏`native` \| `whatsapp`, `count` |
-| `ai_hero_chip_click` | **v10**: השבב "✨ N נכסים עם הדמיית AI" ב-hero | - |
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
@@ -401,3 +377,39 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 זה תופס כי הנתונים *כן* נאספים — הם פשוט בלתי נראים. ‏GA4 לא רושם מימדים
 למפרע: מה שנאסף לפני הרישום לא יופיע גם אחריו. לכן כדאי לרשום את המימדים
 באותו יום שמפרסמים את התגיות, ולא אחרי שמגלים שהדוח ריק.
+
+## v10 מאחורי דגל (‏`?beta=1`, PR 1010)
+
+כל האירועים כאן נשלחים **רק עם הדגל** (‏`html.beta-hero`). הם בטבלה נפרדת בסוף
+הקובץ ולא באמצע הטבלה שלמעלה, כדי לא להתנגש עם PR-ים אחרים שמוסיפים לה שורות.
+
+| אירוע | מתי | פרמטרים |
+| --- | --- | --- |
+| `map_open` | **רק עם דגל v10 (‏`html.beta-hero`)**: המפה נפתחה במסך מלא (‏`openMapView` ב-`assets/home.js`). בלי הדגל הדחיפה לא קורית, כמו קודם | `source`: ‏`hero_cta` (חיפוש במפה ב-hero) \| `hood_section` (מפת השכונות) \| `results_header` \| `fab` \| `menu` |
+| `gab_widget_open` (‏`source`) | **ערך חדש, רק עם דגל v10**: נפתחה מכרטיס גבריאלה ב-hero דרך `GabWidget.open` (‏`trigger` נשאר `click`). פתיחה מהבועה - בלי `source`, כמו קודם | `source`: ‏`hero_cta` (‏"בואו נתחיל") \| `hero_figure` (הדמות) |
+| `region_select` | **v10**: נבחר שוק בבורר שבהדר או במסנן של `/swipe` | `region` (‏slug), `group`: ‏`live` \| `north` \| `center` \| `south`, `via`: ‏`header` \| `swipe_filter` \| `my_location` |
+| `quick_search_tag_click` | **v10**: צ'יפ בחיפוש המהיר (‏`#quickSearchSec`) | `group`: ‏`hood` \| `type` \| `area`, `tag` |
+| `fair_banner_click` | **v10**: לחיצה על באנר היריד | `fair_id` (‏`open_house_<תאריך סיום>`) |
+| `site_stats_view` | **v10**: המונים (‏`#dmStats`) נכנסו למסך, פעם אחת בדף | `source`: ‏`cache` \| `client`, `deals_shown`: ‏0 \| 1 |
+| `swipe_start` | **v10**: "התחילו להחליק" ב-`/swipe`, או הקישור מה-hero / מבאנר ההדמיות | `deal`, `region`, `via`: ‏`swipe_filter` \| `hero_link` \| `ai_banner` |
+| `swipe_tour_skip` | **v10**: דילוג על ההדרכה ב-`/swipe` | `visit`: ‏1 \| 2 |
+| `swipe_like` | **v10**: החלקה ימינה / לב | `slot`, `position` |
+| `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
+| `swipe_up_open` | **v10**: נפתח גיליון הפרטים | `slot`, `position` |
+| `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
+| `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
+| `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
+| `swipe_end_view` | **v10**: הוצג כרטיס הסיום | `likes` |
+| `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: טופסי `/swipe` | `form_id`: ‏`swipe_up` \| `swipe_sponsored` \| `swipe_end_alert` |
+| `gab_quick_pick` | **v10**: בחירה מהירה בחלונית של גבריאלה - השיחה הקצרה באתר, בלי וואטסאפ ובלי רשת (‏`assets/gabriela-widget.js`) | `choice`: ‏`buy` \| `rent` \| `owner` \| `fair` \| `swipe` |
+| `gab_swipe_cta` | **v10**: הכפתור הכחול בתשובה של גבריאלה (במקום `swipe_start`, כדי שהתחלה אחת לא תיספר פעמיים) | `deal`, `region` |
+| `swipe_start` / `search_submit` (‏`viz`) | **פרמטר חדש, רק עם דגל v10**: הסינון "✨ רק נכסים עם הדמיה" דלוק | `viz`: ‏`1` |
+| `swipe_share` | **v10**: שיתוף רשימת "אהבתי" | `method`: ‏`native` \| `whatsapp`, `count` |
+| `ai_hero_chip_click` | **v10**: השבב "✨ N נכסים עם הדמיית AI" ב-hero | - |
+| `swipe_card_view` | **v10**: כרטיס נעשה פעיל ב-`/swipe` | `slot`: ‏`property` \| `spon_agency` \| `spon_pro` \| `article` \| `end`, `position` |
+| `swipe_nudge_view` | **v10**: עלה הגיליון התחתון של ההכוונה ב-`/swipe` | `kind`: ‏`like1` \| `like3` \| `like6` \| `alert` \| `tour_end` \| `help` \| `viz` |
+| `swipe_nudge_click` | **v10**: כפתור בגיליון | `kind`, `cta`: ‏`list` \| `share` \| `visit` \| `gab_list` \| `later` \| `start` \| `tour` \| `gabriela` \| `viz_ok` \| `studio` |
+| `swipe_nudge_dismiss` | **v10**: הגיליון נסגר בלי כפתור | `kind`, `how`: ‏`x` \| `backdrop` \| `swipe` \| `esc` |
+| `swipe_help_open` | **v10**: כפתור "?" ב-`/swipe` פתח את "איך מחליקים" | - |
+| `swipe_help_click` | **v10**: כפתור בגיליון העזרה | `cta`: ‏`tour` \| `gabriela` |
+| `contact_bot` (‏`entry`) | **ערך חדש, רק עם דגל v10**: "שליחת הרשימה לגבריאלה" ב-"אהבתי (N)" ובגיליון של הלייק השישי | `entry`: ‏`swipe_likes` |

@@ -141,6 +141,9 @@ const KNOWN_SOURCES = new Set([
   // ‏lead_source_channel() ממפה אותם ל-other עד שיהיה להם ערוץ משלו.
   "swipe",
   "swipe_sponsored",
+  // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
+  // של saved-search-intake ונרשם כסוכן החכם של דף הבית
+  "swipe_end",
   // גבריאלה בפייסבוק ובאינסטגרם (Zernio → social-lead-intake, ‏docs/social-leads.md).
   // **רק מקורא פנימי** - ראו SOCIAL_SOURCES למטה.
   ...SOCIAL_SOURCES_LIST,

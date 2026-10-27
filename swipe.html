@@ -71,7 +71,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="button" class="sw-ic" id="swFilterBtn" aria-label="סינון" aria-haspopup="dialog" aria-controls="swFilter">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
       </button>
-      <button type="button" class="sw-ic sw-help" id="swHelp" aria-label="איך זה עובד" title="איך זה עובד">?</button>
+      <button type="button" class="sw-ic sw-help" id="swHelp" aria-label="עזרה בגלישה" title="עזרה בגלישה" aria-haspopup="dialog">?</button>
       <button type="button" class="sw-ic sw-likes" id="swLikes" aria-label="נכסים שאהבתי">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
         <b id="swLikesN">0</b><span class="sw-likes-l" id="swLikesL" hidden>· הרשימה שלי</span>
@@ -90,8 +90,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span><kbd>→</kbd> אהבתי</span><span><kbd>←</kbd> דילוג</span><span><kbd>↑</kbd> פרטים</span><span><kbd>רווח</kbd> תמונה</span>
     </div>
     <div class="sw-deck" id="swDeck" aria-live="polite"></div>
-    <!-- הכוונה אחרי לייק (‏nudge ב-swipe.js): הודעה של גבריאלה מעל הכרטיס, אף פעם לא שליחה -->
-    <div class="sw-nudge" id="swNudge" role="status" hidden></div>
     <div class="sw-actions" id="swActions">
       <!-- סדר מימין לשמאל: וואטסאפ · ♥ (ימין, כמו ההחלקה ימינה ו-→) · ביטול · ✕ (שמאל) · חיוג -->
       <a class="sw-act sw-act-wa" id="swWa" href="#" aria-label="וואטסאפ" hidden>
@@ -124,7 +122,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="sw-likes-view" id="swLikesView" aria-labelledby="swLvTitle" hidden>
     <div class="sw-lv-head">
       <h2 id="swLvTitle">אהבתי (<span id="swLvN">0</span>)</h2>
-      <button type="button" class="sw-link" id="swLvBack">חזרה להחלקה</button>
+      <button type="button" class="sw-link" id="swLvBack">← חזרה להחלקה</button>
     </div>
     <div class="sw-list" id="swLvList"></div>
     <div class="sw-lv-empty" id="swLvEmpty" hidden>
@@ -133,7 +131,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="sw-lv-bar" id="swLvBar" hidden>
       <button type="button" class="sw-white" id="swLvShare">שיתוף הרשימה</button>
-      <a class="sw-wa-btn" id="swLvGab" href="#" target="_blank" rel="noopener" data-bot data-bot-entry="swipe_likes" hidden>שליחת הרשימה לגבריאלה</a>
+      <a class="sw-navy sw-lv-gab" id="swLvGab" href="#" target="_blank" rel="noopener" data-bot data-bot-entry="swipe_likes" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.7 15l-1.3 5 5.1-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>שליחת הרשימה לגבריאלה</a>
     </div>
   </section>
 
@@ -209,9 +207,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="sw-tour-text" id="swTourText"></p>
     <p class="sw-tour-sub" id="swTourSub"></p>
     <div class="sw-tour-btns">
-      <button type="button" class="sw-white" id="swTourOk">הבנתי</button>
-      <button type="button" class="sw-link sw-link-light" id="swTourSkip">דלג על ההדרכה</button>
+      <button type="button" class="sw-navy sw-tour-ok" id="swTourOk">הבנתי</button>
+      <button type="button" class="sw-link sw-link-light" id="swTourSkip">דילוג על ההדרכה</button>
     </div>
+  </div>
+</div>
+
+<!-- גיליון תחתון אחד לכל ההכוונה בהחלקה (‏bsOpen ב-swipe.js): אחד בכל פעם, בתור, לא מסתיר את התמונה והמחיר -->
+<div class="sw-bs-wrap" id="swBsWrap" hidden>
+  <div class="sw-bs-dim" data-bs-close="backdrop"></div>
+  <div class="sw-bs" id="swBs" role="dialog" aria-modal="true" aria-labelledby="swBsTitle">
+    <span class="sw-bs-grip" aria-hidden="true"></span>
+    <button type="button" class="sw-bs-x" data-bs-close="x" aria-label="סגירה"><span aria-hidden="true">✕</span></button>
+    <div class="sw-bs-art" id="swBsArt" aria-hidden="true"></div>
+    <h2 class="sw-bs-title" id="swBsTitle"></h2>
+    <p class="sw-bs-sub" id="swBsSub"></p>
+    <div class="sw-bs-body" id="swBsBody"></div>
+    <div class="sw-bs-btns" id="swBsBtns"></div>
   </div>
 </div>
 
