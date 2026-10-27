@@ -5,11 +5,12 @@
 // יוצאת רק כשהסוכן/ת אישר/ה (notify_targets או כפתור scn:).
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { phoneE164 } from "../_shared/meeting-client.ts";
+import { inWindow, phoneE164 } from "../_shared/meeting-client.ts";
 import { sendText } from "./whatsapp.ts";
 import {
   NON_FINAL_COORD,
   NOTIFY_COORD,
+  notifiedRequestIds,
   pickShowings,
 } from "./showing-match.ts";
 
@@ -53,40 +54,48 @@ function whenText(iso: string): string {
   });
 }
 
-export async function loadShowings(
+type ShowcaseEmbed = {
+  id: string;
+  status: string | null;
+  client_id: string | null;
+  agent_id: string;
+};
+
+type MeetingRow = {
+  id: string;
+  showcase_id: string;
+  property_ids: string[] | null;
+  starts_at: string;
+  status: string;
+  note: string | null;
+  agenda_item_id: string | null;
+  client_showcases: ShowcaseEmbed | ShowcaseEmbed[] | null;
+};
+
+const MEETING_SELECT =
+  "id, showcase_id, property_ids, starts_at, status, note, agenda_item_id, client_showcases!inner(id, status, client_id, agent_id)";
+
+function showcaseOf(row: { client_showcases?: ShowcaseEmbed | ShowcaseEmbed[] | null }): ShowcaseEmbed | null {
+  const sc = row.client_showcases;
+  if (!sc) return null;
+  return Array.isArray(sc) ? sc[0] || null : sc;
+}
+
+async function rowsFromMeetings(
   supabase: SupabaseClient,
-  agentId: string,
-  fromIso: string,
-  toIso: string | null,
-): Promise<{ ok: true; rows: RawShowing[] } | { ok: false; error: string }> {
-  const { data: shows, error: showErr } = await supabase.from("client_showcases")
-    .select("id, status, client_id")
-    .eq("agent_id", agentId);
-  if (showErr) return { ok: false, error: showErr.message };
-  const showBy = new Map((shows || []).map((s) => [String(s.id), s]));
-  const showIds = [...showBy.keys()];
-  if (!showIds.length) return { ok: true, rows: [] };
-
-  let q = supabase.from("client_showcase_meetings")
-    .select("id, showcase_id, property_ids, starts_at, status, note, agenda_item_id")
-    .in("showcase_id", showIds)
-    .in("status", ["requested", "confirmed"])
-    .gte("starts_at", fromIso)
-    .order("starts_at", { ascending: true })
-    .limit(40);
-  if (toIso) q = q.lt("starts_at", toIso);
-  const { data: meetings, error } = await q;
-  if (error) return { ok: false, error: error.message };
-
-  const clientIds = [...new Set((shows || []).map((s) => s.client_id).filter(Boolean))];
+  meetings: MeetingRow[],
+): Promise<RawShowing[]> {
+  const clientIds = [...new Set(meetings.map((m) => {
+    const id = showcaseOf(m)?.client_id;
+    return id ? String(id) : "";
+  }).filter(Boolean))];
   const { data: clients } = clientIds.length
     ? await supabase.from("agent_clients").select("id, full_name, status").in("id", clientIds)
     : { data: [] as { id: string; full_name: string; status: string }[] };
   const clientBy = new Map((clients || []).map((c) => [String(c.id), c]));
-
-  const rows: RawShowing[] = (meetings || []).map((m) => {
-    const sc = showBy.get(String(m.showcase_id));
-    const client = sc ? clientBy.get(String(sc.client_id)) : undefined;
+  return meetings.map((m) => {
+    const sc = showcaseOf(m);
+    const client = sc?.client_id ? clientBy.get(String(sc.client_id)) : undefined;
     return {
       meeting_id: String(m.id),
       client_id: sc?.client_id ? String(sc.client_id) : null,
@@ -100,7 +109,27 @@ export async function loadShowings(
       agenda_item_id: m.agenda_item_id ? String(m.agenda_item_id) : null,
     };
   });
-  return { ok: true, rows };
+}
+
+export async function loadShowings(
+  supabase: SupabaseClient,
+  agentId: string,
+  fromIso: string,
+  toIso: string | null,
+): Promise<{ ok: true; rows: RawShowing[] } | { ok: false; error: string }> {
+  // הסינון דרך המיניסייט עצמו, לא in(...) על כל המיניסייטים של הסוכן/ת.
+  // רשימה ארוכה חורגת מאורך ה-URL של PostgREST והשאילתה נופלת בשקט.
+  let q = supabase.from("client_showcase_meetings")
+    .select(MEETING_SELECT)
+    .eq("client_showcases.agent_id", agentId)
+    .in("status", ["requested", "confirmed"])
+    .gte("starts_at", fromIso)
+    .order("starts_at", { ascending: true })
+    .limit(40);
+  if (toIso) q = q.lt("starts_at", toIso);
+  const { data: meetings, error } = await q;
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, rows: await rowsFromMeetings(supabase, (meetings || []) as MeetingRow[]) };
 }
 
 async function propertyLines(supabase: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
@@ -174,10 +203,17 @@ async function ownedMeeting(
   agentId: string,
   meetingId: string,
 ): Promise<RawShowing | null> {
-  const since = new Date(Date.now() - 7 * 864e5).toISOString();
-  const loaded = await loadShowings(supabase, agentId, since, null);
-  if (!loaded.ok) return null;
-  return loaded.rows.find((r) => r.meeting_id === meetingId) || null;
+  // לפי מזהה, בלי תקרת 40 של הרשימה ובלי חלון של שבעה ימים. סיור שלא
+  // נכנס לרשימה עדיין שייך לסוכן/ת, וביטול לפי meeting_id חייב למצוא אותו.
+  const { data, error } = await supabase.from("client_showcase_meetings")
+    .select(MEETING_SELECT)
+    .eq("id", meetingId)
+    .eq("client_showcases.agent_id", agentId)
+    .in("status", ["requested", "confirmed"])
+    .maybeSingle();
+  if (error || !data) return null;
+  const rows = await rowsFromMeetings(supabase, [data as MeetingRow]);
+  return rows[0] || null;
 }
 
 export interface CancelOutcome {
@@ -256,11 +292,19 @@ export async function cancelShowingForAgent(
     .in("status", [...NON_FINAL_COORD]);
   const reqs = openReqs || [];
 
-  const { error: meetErr } = await supabase.from("client_showcase_meetings")
+  const { data: updated, error: meetErr } = await supabase.from("client_showcase_meetings")
     .update({ status: "canceled", decided_at: new Date().toISOString() })
     .eq("id", chosen.meeting_id)
-    .in("status", ["requested", "confirmed"]);
+    .in("status", ["requested", "confirmed"])
+    .select("id");
   if (meetErr) return { ok: false, error: meetErr.message, guidance: "הביטול לא נשמר." };
+  if (!updated?.length) {
+    return {
+      ok: false,
+      error: "הסיור כבר בוטל, או שהשתנה בינתיים.",
+      guidance: "אל תאמרי שבוטל. list_showings אם צריך לראות מה עוד פתוח.",
+    };
+  }
 
   if (chosen.agenda_item_id) {
     await supabase.from("agent_agenda_items")
@@ -288,11 +332,13 @@ export async function cancelShowingForAgent(
 
   let notified: { name: string; sent: boolean }[] | undefined;
   if (input.notify_targets && tellRows.length) {
-    notified = await sendCancelNotices(supabase, agentId, chosen, tellRows);
-    if (tellIds.length) {
+    const sent = await sendCancelNotices(supabase, agentId, chosen, tellRows);
+    notified = sent.map((s) => ({ name: s.name, sent: s.sent }));
+    const cleared = notifiedRequestIds(sent);
+    if (cleared.length) {
       await supabase.from("showing_coord_requests")
         .update({ cancel_unnotified: false })
-        .in("id", tellIds);
+        .in("id", cleared);
     }
   }
 
@@ -314,39 +360,44 @@ async function sendCancelNotices(
   supabase: SupabaseClient,
   agentId: string,
   meeting: RawShowing,
-  rows: { target_name: string | null; target_phone: string | null; property_id: string }[],
-): Promise<{ name: string; sent: boolean }[]> {
+  rows: { id: string; target_name: string | null; target_phone: string | null; property_id: string }[],
+): Promise<{ id: string; name: string; sent: boolean }[]> {
   const { data: member } = await supabase.from("agency_members")
     .select("display_name, agency_id")
     .eq("id", agentId)
     .maybeSingle();
   const places = await propertyLines(supabase, rows.map((r) => String(r.property_id)));
   const who = String(member?.display_name || "").trim();
-  const out: { name: string; sent: boolean }[] = [];
+  const out: { id: string; name: string; sent: boolean }[] = [];
   for (const row of rows) {
+    const id = String(row.id);
     const name = String(row.target_name || "").trim() || "שלום";
     const to = phoneE164(row.target_phone);
     const place = places.get(String(row.property_id)) || "הנכס";
     const from = who ? `כאן ${who}. ` : "";
     const text = `שלום ${name}, ${from}הביקור שתואם ${whenText(meeting.starts_at)} ב${place} בוטל. אין צורך להגיע. תודה.`;
-    if (!to) {
-      out.push({ name, sent: false });
+    // בלי מספר או בלי חלון 24 שעות הטקסט החופשי נדחה. הדגל נשאר, כדי
+    // שהכפתור יוכל לנסות שוב כשיהיה חלון.
+    if (!to || !(await inWindow(supabase, to))) {
+      out.push({ id, name, sent: false });
       continue;
     }
     try {
       const waId = await sendText(to, text);
-      await supabase.from("whatsapp_messages").insert({
+      const { error: logErr } = await supabase.from("whatsapp_messages").insert({
         wa_message_id: waId,
         direction: "out",
         wa_phone: to,
+        agent_id: agentId,
         msg_type: "text",
         body: text.slice(0, 2000),
         status: waId ? "sent" : null,
       });
-      out.push({ name, sent: !!waId });
+      if (logErr) console.error("showing cancel log failed", logErr);
+      out.push({ id, name, sent: true });
     } catch (err) {
       console.error("showing cancel notice failed", err);
-      out.push({ name, sent: false });
+      out.push({ id, name, sent: false });
     }
   }
   return out;
@@ -395,12 +446,17 @@ export async function showingCancelNotifyReply(
     agenda_item_id: null,
   };
   const sent = await sendCancelNotices(supabase, agentId, meeting, data);
-  await supabase.from("showing_coord_requests")
-    .update({ cancel_unnotified: false })
-    .in("id", data.map((r) => String(r.id)));
+  const cleared = notifiedRequestIds(sent);
+  if (cleared.length) {
+    await supabase.from("showing_coord_requests")
+      .update({ cancel_unnotified: false })
+      .in("id", cleared);
+  }
   const ok = sent.filter((s) => s.sent).map((s) => s.name);
   const no = sent.filter((s) => !s.sent).map((s) => s.name);
-  const parts = ["שלחתי שהביקור בוטל."];
+  const parts = ok.length
+    ? ["שלחתי שהביקור בוטל."]
+    : ["הסיור כבר בוטל, אבל הודעת הביטול לא יצאה."];
   if (ok.length) parts.push(`הגיע אל: ${ok.join(", ")}.`);
   if (no.length) parts.push(`לא יצא אל: ${no.join(", ")} (אין חלון וואטסאפ או אין מספר).`);
   return parts.join(" ");

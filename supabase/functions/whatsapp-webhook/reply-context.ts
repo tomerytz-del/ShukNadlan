@@ -37,6 +37,7 @@ export async function loadReplyPrefix(
     if (ids.length) {
       const { data: notes } = await supabase.from("notifications")
         .select("title, body")
+        .eq("agent_id", agentId)
         .in("id", ids.slice(0, 8));
       const first = (notes || [])[0] as { title?: string; body?: string } | undefined;
       const prefix = replyPrefix(first || null);
@@ -45,6 +46,7 @@ export async function loadReplyPrefix(
     const { data: prior } = await supabase.from("whatsapp_messages")
       .select("body")
       .eq("wa_message_id", id)
+      .eq("agent_id", agentId)
       .limit(1)
       .maybeSingle();
     return replyPrefix(prior?.body ? { title: String(prior.body).slice(0, 400) } : null);
@@ -72,6 +74,7 @@ export async function loadRecentPushesNote(
     if (!ids.length) return "";
     const { data: notes } = await supabase.from("notifications")
       .select("id, title, body")
+      .eq("agent_id", agentId)
       .in("id", ids);
     const byId = new Map((notes || []).map((n) => [String(n.id), n]));
     const items: { at: string; text: string }[] = [];
