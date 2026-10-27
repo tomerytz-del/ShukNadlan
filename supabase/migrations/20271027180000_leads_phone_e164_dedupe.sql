@@ -23,7 +23,23 @@
 --
 -- "פתוח" בקליטה: status ב-masked / unlocked / pending_charge, לא בארכיון,
 -- והשלב של הסוכן/ת המשויך/ת אינו not_relevant (לא רלוונטי) או won (נסגר).
+-- מיזוג בפועל רק כשהליד unlocked ויש לו/לה סוכן/ת, ורק מקורא פנימי.
+-- דף משרד או סוכן/ת מצמיד רק לאותו agency_id ולאותו agent_id.
 -- ‏docs/lead-card.md, docs/social-leads.md, docs/marketing-console.md.
+--
+-- phone_e164 היא generated, כמו mortgage_leads.phone_e164 ששברה את
+-- data_retention_run כשמישהו כתב אליה (20270905090000). אסור להשמה אליה.
+-- ‏raw_phone = null במדיניות leads_pii מחשב אותה מחדש ל-null, וזה מה
+-- ש-data_retention_run כבר עושה. הגוף שלה לא נוגע ב-phone_e164.
+--
+-- ביקורת כותבים ל-leads (הפרודקשן, קריאה בלבד, 27.10.2026): אף אחד אינו
+-- כותב את השורה בשלמותה ואינו עושה insert ... select *. כולם מונים עמודות:
+--   data_retention_run, claim_lead, mark_lead_responded, refer_to_agent,
+--   agenda_first_response, agent_calls_first_response, agent_call_to_lead,
+--   store_purchase_to_lead, scraped_lead_set_consent.
+-- ‏claim_lead עושה select * into leads%rowtype לקריאה, וה-update שאחריו
+-- מונה עמודות. ארכיון אינו משחזר שורה: מחיקה מ-lead_archives בלבד.
+-- ‏source_touches אינה generated, וכתיבה אליה מותרת.
 -- ============================================================================
 
 alter table public.leads

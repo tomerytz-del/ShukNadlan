@@ -92,9 +92,11 @@ function fakeSb(opts: {
   archived?: string[];
   work?: { lead_id: string; agent_id: string; stage: string }[];
   openError?: boolean;
+  notifyError?: boolean;
 }) {
   const calls: Call[] = [];
   const updates: { id: string; payload: Record<string, unknown> }[] = [];
+  const notes: Record<string, unknown>[] = [];
   function chain(table: string, op: string, run: (filters: Record<string, unknown>, payload?: unknown) => Promise<{ data: unknown; error: unknown }>) {
     const filters: Record<string, unknown> = {};
     let payload: unknown;
@@ -108,6 +110,7 @@ function fakeSb(opts: {
     q.order = self;
     q.limit = self;
     q.update = (p: unknown) => { payload = p; return q; };
+    q.insert = (p: unknown) => { payload = p; return q; };
     q.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
       calls.push({ table, op, filters: { ...filters }, payload });
       return run(filters, payload).then(resolve, reject);
@@ -117,6 +120,7 @@ function fakeSb(opts: {
   const sb = {
     calls,
     updates,
+    notes,
     rpc: async (fn: string) => {
       calls.push({ table: fn, op: "rpc", filters: {} });
       if (opts.normError) return { data: null, error: { code: "42883" } };
@@ -139,6 +143,13 @@ function fakeSb(opts: {
           return { data: (opts.archived ?? []).map((lead_id) => ({ lead_id })), error: null };
         });
       }
+      if (table === "notifications") {
+        return chain("notifications", "notify", async (_filters, payload) => {
+          if (opts.notifyError) return { data: null, error: { code: "42501" } };
+          notes.push((payload ?? {}) as Record<string, unknown>);
+          return { data: null, error: null };
+        });
+      }
       return chain("lead_work", "work", async () => ({ data: opts.work ?? [], error: null }));
     },
   };
@@ -153,6 +164,7 @@ const base: AttachInput = {
   externalRef: "998877",
   message: "מהדירה ברחוב הרצל",
   sourceLabel: "טופס לידים במטא · מוכר/ת",
+  internal: true,
 };
 
 {
@@ -170,20 +182,28 @@ const base: AttachInput = {
 
 {
   const openLead: OpenLeadRow = {
-    id: "lead-1", agent_id: "agt", status: "masked", created_at: recent,
-    raw_message: "כתבתי בפייסבוק", source_touches: [],
+    id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent,
+    raw_message: "כתבתי בפייסבוק", source_touches: [], city: "עפולה", property_type: "דירה", deal_type: "sale",
   };
   const sb = fakeSb({ phone: "972501234567", leads: [openLead] });
-  const hit = await attachToOpenLead(sb, { ...base, matchProperty: true, propertyId: "prop-9" });
+  const hit = await attachToOpenLead(sb, {
+    ...base, matchProperty: true, propertyId: "prop-9", agencyId: "ag1", agentId: "agt",
+  });
   ok("ליד פתוח מוחזר ככפילות", hit?.lead_id === "lead-1");
   const q = sb.calls.find((c) => c.table === "leads" && !c.payload);
-  ok("הסינון הוא הטלפון, הסוג והנכס", q?.filters.phone_e164 === "972501234567" && q?.filters.lead_type === "owner_inbound" && q?.filters.property_id === "prop-9");
+  ok("הסינון הוא הטלפון, הסוג, הנכס והשולחן",
+    q?.filters.phone_e164 === "972501234567" && q?.filters.lead_type === "owner_inbound" &&
+    q?.filters.property_id === "prop-9" && q?.filters.agency_id === "ag1" && q?.filters.agent_id === "agt");
   ok("עדכון אחד", sb.updates.length === 1);
   const payload = sb.updates[0].payload;
   ok("ההודעה צורפה", String(payload.raw_message).includes("פנייה נוספת") && String(payload.raw_message).includes("מהדירה ברחוב הרצל"));
   const touches = payload.source_touches as { source: string; external_ref: string }[];
   ok("המקור הנוסף נרשם בלי להחליף את הליד", touches.length === 1 && touches[0].source === "meta_ads_owner_form" && touches[0].external_ref === "998877");
   ok("הטלפון אינו בגוף העדכון", !JSON.stringify(payload).includes("050") && !JSON.stringify(payload).includes("972501234567"));
+  ok("הסוכן/ת מקבל/ת התראת פנייה נוספת על הליד",
+    sb.notes.length === 1 && sb.notes[0].type === "new_lead" && sb.notes[0].agent_id === "agt" &&
+    sb.notes[0].related_lead_id === "lead-1" && sb.notes[0].title === "פנייה נוספת על ליד קיים");
+  ok("גוף ההתראה בלי הטלפון", !JSON.stringify(sb.notes[0]).includes("972") && !JSON.stringify(sb.notes[0]).includes("050"));
 }
 
 {
@@ -194,7 +214,7 @@ const base: AttachInput = {
   };
   const sb = fakeSb({ phone: "972501234567", leads: [openLead] });
   const hit = await attachToOpenLead(sb, base);
-  ok("אותו meta_lead_id שכבר צורף חוזר בלי עדכון שני", hit?.lead_id === "lead-1" && sb.updates.length === 0);
+  ok("אותו meta_lead_id שכבר צורף חוזר בלי עדכון שני", hit?.lead_id === "lead-1" && sb.updates.length === 0 && sb.notes.length === 0);
 }
 
 {
@@ -209,7 +229,7 @@ const base: AttachInput = {
 {
   const sb = fakeSb({
     phone: "972501234567",
-    leads: [{ id: "arch", agent_id: "agt", status: "masked", created_at: recent }],
+    leads: [{ id: "arch", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent }],
     archived: ["arch"],
   });
   ok("ליד בארכיון אינו פתוח", await attachToOpenLead(sb, base) === null);
@@ -230,6 +250,58 @@ const base: AttachInput = {
     openError: true,
   });
   ok("בדיקת פתוח שנכשלה אינה ממזגת", await attachToOpenLead(sb, base) === null && sb.updates.length === 0);
+}
+
+{
+  const masked = fakeSb({
+    phone: "972501234567",
+    leads: [{ id: "hid", agent_id: "agt", agency_id: "ag1", status: "masked", created_at: recent }],
+  });
+  ok("ליד מוסתר אינו בולע פנייה", await attachToOpenLead(masked, base) === null && masked.notes.length === 0);
+  const pending = fakeSb({
+    phone: "972501234567",
+    leads: [{ id: "pay", agent_id: "agt", agency_id: "ag1", status: "pending_charge", created_at: recent }],
+  });
+  ok("ליד שממתין לחיוב אינו בולע פנייה", await attachToOpenLead(pending, base) === null);
+  const loose = fakeSb({
+    phone: "972501234567",
+    leads: [{ id: "free", agent_id: null, agency_id: "ag1", status: "unlocked", created_at: recent }],
+  });
+  ok("ליד בלי סוכן/ת אינו בולע פנייה", await attachToOpenLead(loose, base) === null);
+}
+
+{
+  const sb = fakeSb({
+    phone: "972501234567",
+    leads: [
+      { id: "a", agent_id: "agt-a", agency_id: "ag-a", status: "unlocked", created_at: recent },
+      { id: "b", agent_id: "agt-b", agency_id: "ag-b", status: "unlocked", created_at: older },
+    ],
+  });
+  ok("שני משרדים אינם מתמזגים", await attachToOpenLead(sb, base) === null && sb.notes.length === 0 && sb.updates.length === 0);
+}
+
+{
+  const sb = fakeSb({ phone: "972501234567", leads: [] });
+  ok("בלי נכס אין מיזוג של פנייה", await attachToOpenLead(sb, { ...base, matchProperty: true, propertyId: null }) === null);
+  ok("בלי נכס אין קריאה למסד", sb.calls.length === 0);
+  const pub = fakeSb({
+    phone: "972501234567",
+    leads: [{ id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent }],
+  });
+  ok("דפדפן אינו ממזג", await attachToOpenLead(pub, { ...base, internal: false }) === null && pub.calls.length === 0);
+  const noAgent = fakeSb({ phone: "972501234567", leads: [] });
+  ok("משרד בלי סוכן/ת אינו מצמיד", await attachToOpenLead(noAgent, { ...base, agencyId: "ag1", agentId: null }) === null);
+  ok("משרד בלי סוכן/ת אינו קורא למסד", noAgent.calls.length === 0);
+}
+
+{
+  const sb = fakeSb({
+    phone: "972501234567",
+    notifyError: true,
+    leads: [{ id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent, raw_message: "ישן" }],
+  });
+  ok("התראה שנכשלה אינה ממזגת", await attachToOpenLead(sb, base) === null && sb.updates.length === 0);
 }
 
 // ---------------------------------------------------------------------------

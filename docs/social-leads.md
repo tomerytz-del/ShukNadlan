@@ -79,14 +79,20 @@ Content-Type: application/json
    ה-unique). טופס מטא שולח `external_ref = meta_lead_id`. **ה-ref אינו
    ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד (‏`assets/crm-leads.js`),
    ושם יש תווית קריאה - "פייסבוק · הודעה" או "טופס לידים במטא · מוכר/ת".
-3. **אותו טלפון בשני מסלולים** - ‏`leads.phone_e164` (‏`normalize_msisdn`,
-   כמו `saved_searches`) ואינדקס לא ייחודי. לפני insert, פנייה על נכס וליד
-   בעלים מחפשים ליד **פתוח** מאותו `phone_e164` ואותו `lead_type` מ-30
-   הימים (בפנייה על נכס גם אותו `property_id`). פתוח = `masked` /
-   `unlocked` / `pending_charge`, לא ב-`lead_archives`, ושלב הסוכן/ת
-   המשויך/ת אינו `not_relevant` או `won`. נמצא: אין insert, אין רוטציה
-   ואין התראת `new_lead`. ההודעה מצטרפת ל-`raw_message`, והמקור הנוסף
-   נרשם ב-`source_touches` (לא בכרטיס). התשובה `{ duplicate: true, lead_id }`.
+3. **אותו טלפון בשני מסלולים, רק מקורא פנימי** - ‏`leads.phone_e164`
+   (‏`normalize_msisdn`, כמו `saved_searches`) ואינדקס לא ייחודי. לפני
+   insert, טופס מטא או פייסבוק/אינסטגרם מחפשים ליד מאותו `phone_e164`
+   ואותו `lead_type` מ-30 הימים. בפנייה על נכס גם אותו `property_id`,
+   אותו `agency_id` ואותו `agent_id`. דף משרד או דף סוכן/ת (‏`owner_inbound`)
+   מצמיד רק לאותו שולחן. מחשבון תשואה הוא `property_inquiry` בלי נכס, ושם
+   אין מיזוג. ליד מוסתר (`masked`), בלי סוכן/ת, או `pending_charge` אינו
+   בולע פנייה: נכנסת שורה חדשה. נמצא ליד `unlocked` אצל סוכן/ת: אין insert
+   ואין רוטציה, ההודעה מצטרפת ל-`raw_message`, המקור נרשם ב-`source_touches`
+   (לא בכרטיס), והסוכן/ת מקבל/ת `new_lead` עם הכותרת "פנייה נוספת על ליד
+   קיים" ו-`related_lead_id`. התשובה לקורא הפנימי `{ duplicate: true, lead_id }`.
+   **מהדפדפן אין מיזוג.** הטופס הציבורי ממשיך ל-insert ומקבל את צורת
+   התשובה הרגילה, בלי `duplicate` ובלי מזהה של ליד אחר. כך מספר טלפון
+   אינו מגלה אם יש ליד פתוח, ואין כתיבה ל-`raw_message` של מישהו אחר.
 
 ## ליד בלי התראות (`lead_only`)
 

@@ -6,11 +6,17 @@
 // התראות ושתי רוטציות. כאן, לפני ה-insert: ליד פתוח מאותו טלפון מנורמל,
 // אותו lead_type, ובפנייה על נכס גם אותו נכס, מ-30 הימים האחרונים.
 //
-// נמצא - לא מכניסים שורה, לא מריצים רוטציה ולא קוראים ל-logLeadRouting
-// (הטריגר notify_agent_on_new_lead רץ על insert בלבד). ההודעה מצטרפת
-// ל-raw_message, והמקור הנוסף נרשם ב-source_touches.
+// נמצא, ורק לקורא פנימי (service role): לא מכניסים שורה ולא מריצים רוטציה.
+// ההודעה מצטרפת ל-raw_message, המקור הנוסף נרשם ב-source_touches, והסוכן/ת
+// שכבר רואה/ה את הליד מקבל/ת התראת new_lead עם כותרת "פנייה נוספת" (בלי
+// רוטציה). ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים, והקורא
+// מכניס שורה חדשה. דף משרד או סוכן/ת מצמיד רק לאותו משרד ולאותו/ה סוכן/ת.
+// פנייה על נכס בלי property_id (מחשבון תשואה) אינה מצמידה.
 //
-// עמודה שטרם עלתה (האתר/הפונקציה לפני המיגרציה) - מדלגים ומכניסים כרגיל.
+// מהדפדפן אין מיזוג בכלל: לא דגל duplicate, לא lead_id של ליד אחר, ולא
+// כתיבה ל-raw_message של מישהו/י אחר/ת. התשובה היא insert רגיל.
+//
+// עמודה שטרם עלתה (הפונקציה לפני המיגרציה) - מדלגים ומכניסים כרגיל.
 // אין כאן PII בלוג: לא הטלפון ולא גוף ההודעה.
 // ============================================================================
 
@@ -46,11 +52,35 @@ const CLOSED_STAGES = new Set(["not_relevant", "won"]);
 export type OpenLeadRow = {
   id: string;
   agent_id: string | null;
+  agency_id?: string | null;
   created_at: string;
   status?: string | null;
   raw_message?: string | null;
   source_touches?: unknown;
+  city?: string | null;
+  property_type?: string | null;
+  deal_type?: string | null;
 };
+
+/** הסוכן/ת כבר רואה/ה את הליד: משויך/ת, ו-status פתוח. מוסתר וממתין לחיוב אינם. */
+export function leadIsVisible(row: OpenLeadRow): boolean {
+  return row.status === "unlocked" && !!row.agent_id;
+}
+
+/** שני לידים פתוחים ממשרדים או מסוכנים שונים - לא בוחרים מנצח. */
+export function sameDesk(rows: OpenLeadRow[]): boolean {
+  if (rows.length === 0) return false;
+  const agency = rows[0].agency_id ?? null;
+  const agent = rows[0].agent_id ?? null;
+  return rows.every((r) => (r.agency_id ?? null) === agency && (r.agent_id ?? null) === agent);
+}
+
+/** כותרת קלה יותר מ"ליד חדש". הקישור הוא related_lead_id, כמו בהתראה הרגילה. */
+export function repeatNotice(row: OpenLeadRow): { title: string; body: string } {
+  const deal = row.deal_type === "sale" ? "מכירה" : row.deal_type === "rent" ? "השכרה" : "";
+  const body = [row.city, row.property_type, deal, "פתוח"].filter(Boolean).join(" · ").slice(0, 300);
+  return { title: "פנייה נוספת על ליד קיים", body: body || "פתוח" };
+}
 
 export type LeadWorkStage = { lead_id: string; agent_id: string; stage: string };
 
@@ -123,6 +153,11 @@ export type AttachInput = {
   externalRef: string | null;
   message: string | null;
   sourceLabel: string | null;
+  /** false לדפדפן. בלי זה הפונקציה מחזירה null והקורא מכניס ליד חדש. */
+  internal: boolean;
+  /** דף משרד, דף סוכן/ת, או הנכס עצמו. בלי ערך אין סינון - ואז sameDesk שומר. */
+  agencyId?: string | null;
+  agentId?: string | null;
 };
 
 type QueryError = { code?: string; message?: string } | null;
@@ -137,6 +172,13 @@ export async function attachToOpenLead(
   sb: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<QueryResult>; from: (table: string) => any },
   input: AttachInput,
 ): Promise<{ lead_id: string } | null> {
+  // הדפדפן אינו לומד אם יש ליד פתוח, ואינו כותב לליד של מישהו אחר.
+  if (!input.internal) return null;
+  // מחשבון תשואה: property_inquiry בלי נכס. is(null) היה מצמיד כל משרד לכל משרד.
+  if (input.matchProperty && !input.propertyId) return null;
+  // דף עם משרד ובלי סוכן/ת: אין שולחן להצמיד אליו, ולא בוחרים סוכן/ת אחר/ת.
+  if (input.agencyId && !input.agentId) return null;
+
   const digits = String(input.phone || "").replace(/\D/g, "");
   if (digits.length < 9) return null;
 
@@ -153,15 +195,16 @@ export async function attachToOpenLead(
 
   const since = new Date(Date.now() - OPEN_LEAD_WINDOW_MS).toISOString();
   let query = sb.from("leads")
-    .select("id, agent_id, status, created_at, raw_message, source_touches")
+    .select("id, agent_id, agency_id, status, created_at, raw_message, source_touches, city, property_type, deal_type")
     .eq("phone_e164", e164)
     .eq("lead_type", input.leadType)
     .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(8);
-  if (input.matchProperty) {
-    query = input.propertyId ? query.eq("property_id", input.propertyId) : query.is("property_id", null);
-  }
+  if (input.matchProperty) query = query.eq("property_id", input.propertyId);
+  // דף משרד, דף סוכן/ת, או נכס: רק אותו שולחן. לא מצמידים ליד של משרד א' למשרד ב'.
+  if (input.agencyId) query = query.eq("agency_id", input.agencyId);
+  if (input.agentId) query = query.eq("agent_id", input.agentId);
 
   let rows: OpenLeadRow[] = [];
   try {
@@ -194,11 +237,34 @@ export async function attachToOpenLead(
     return null;
   }
 
-  const chosen = pickOpenLead(rows, archived.map((a) => a.lead_id), work);
-  if (!chosen) return null;
+  // מוסתר, בלי סוכן/ת, או pending_charge - הסוכן/ת לא רואה/ה, אז לא בולעים את הפנייה.
+  const visible = rows.filter(leadIsVisible);
+  if (!sameDesk(visible)) return null;
+  const chosen = pickOpenLead(visible, archived.map((a) => a.lead_id), work);
+  if (!chosen?.agent_id) return null;
 
   if (touchSeen(chosen.source_touches, input.source, input.externalRef)) {
     return { lead_id: chosen.id };
+  }
+
+  // קודם התראה. כישלון - הקורא מכניס ליד חדש, והטריגר על insert מודיע.
+  // אין רוטציה: לא נגענו ב-lead_distribution_rotation.
+  const notice = repeatNotice(chosen);
+  try {
+    const note = await sb.from("notifications").insert({
+      agent_id: chosen.agent_id,
+      type: "new_lead",
+      title: notice.title,
+      body: notice.body,
+      related_lead_id: chosen.id,
+    });
+    if (note.error) {
+      console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
+      return null;
+    }
+  } catch {
+    console.warn("lead phone dedupe notify skipped", "notify");
+    return null;
   }
 
   const raw_message = appendLeadNote(chosen.raw_message, input.sourceLabel, input.message);

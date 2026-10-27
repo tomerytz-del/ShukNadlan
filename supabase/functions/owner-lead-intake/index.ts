@@ -262,18 +262,24 @@ Deno.serve(async (req: Request) => {
     const pageSource = agentRouting ? "agent_page" : "agency_page";
     const insertedType = agencyRouting ? preferredType : "owner_inbound";
 
-    /* אותו טלפון ואותו סוג, ליד פתוח מ-30 הימים - לא ליד שני, לא רוטציה
-       ולא התראה. ניסיון חוזר של אותו external_ref כבר חזר למעלה. */
-    const merged = await attachToOpenLead(supabase, {
-      phone,
-      leadType: insertedType,
-      matchProperty: insertedType === "property_inquiry",
-      propertyId: null,
-      source: inboundSource || null,
-      externalRef,
-      message: rawMessage,
-      sourceLabel: trackedLabel,
-    });
+    /* owner_inbound בלבד. מחשבון תשואה הוא property_inquiry בלי נכס, ושם
+       אין למי להצמיד. דף משרד או סוכן/ת מצמיד רק לאותו שולחן. מהדפדפן
+       (לא trusted) ממשיך ל-insert, בלי duplicate ובלי lead_id של ליד אחר.
+       ליד שכבר פתוח אצל הסוכן/ת מקבל התראת "פנייה נוספת", בלי רוטציה. */
+    const merged = trusted && insertedType === "owner_inbound"
+      ? await attachToOpenLead(supabase, {
+        phone,
+        leadType: "owner_inbound",
+        matchProperty: false,
+        agencyId: agencyRouting?.agencyId ?? null,
+        agentId: agencyRouting?.agentId ?? null,
+        source: inboundSource || null,
+        externalRef,
+        message: rawMessage,
+        sourceLabel: trackedLabel,
+        internal: true,
+      })
+      : null;
     if (merged) return json({ success: true, duplicate: true, lead_id: merged.lead_id });
 
     // שלב 1: התאמה שכונתית מדויקת (מודול 2 §5, שלב 3a)

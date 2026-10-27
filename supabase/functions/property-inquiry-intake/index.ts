@@ -85,18 +85,24 @@ Deno.serve(async (req: Request) => {
     if (propErr || !property) return json({ error: "property_not_found" }, 404);
     if (property.status !== "active") return json({ error: "property_not_active" }, 400);
 
-    /* אותו טלפון, אותו נכס, ליד פתוח מ-30 הימים - לא ליד שני ולא התראה
-       שנייה. ניסיון חוזר של אותו external_ref כבר חזר למעלה. */
-    const merged = await attachToOpenLead(supabase, {
-      phone,
-      leadType: "property_inquiry",
-      matchProperty: true,
-      propertyId: property.id,
-      source: source || null,
-      externalRef,
-      message: typeof message === "string" ? message : null,
-      sourceLabel: socialSourceLabel(source) || metaAdsSourceLabel(source),
-    });
+    /* אותו טלפון, אותו נכס, אותו משרד ואותו/ה סוכן/ת, ליד שכבר פתוח אצלם
+       מ-30 הימים. רק מקורא פנימי. מהדפדפן ממשיכים ל-insert הרגיל, בלי
+       לגלות lead_id של ליד אחר. בלי סוכן/ת על הנכס אין למי להצמיד. */
+    const merged = trusted && property.agent_id && property.agency_id
+      ? await attachToOpenLead(supabase, {
+        phone,
+        leadType: "property_inquiry",
+        matchProperty: true,
+        propertyId: property.id,
+        agencyId: property.agency_id,
+        agentId: property.agent_id,
+        source: source || null,
+        externalRef,
+        message: typeof message === "string" ? message : null,
+        sourceLabel: socialSourceLabel(source) || metaAdsSourceLabel(source),
+        internal: true,
+      })
+      : null;
     if (merged) return json({ success: true, duplicate: true, lead_id: merged.lead_id });
 
     const tier = (property as any).agency_members?.tier ?? "free";
