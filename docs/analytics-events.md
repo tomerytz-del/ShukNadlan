@@ -431,3 +431,5 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `home_view_mode` | **v10**: אחד משלושת כפתורי התצוגה בדף הבית (‏`.v10-views`) | `mode`: ‏`swipe` \| `map` \| `list`, `deal`, `region` |
 | `swipe_invite_view` | **v10**: כרטיס ההזמנה להחלקה (התא הראשון בתיבת הנכסים) חצי גלוי, פעם אחת בצפייה בדף | `count` |
 | `swipe_start` (‏`via`, ‏`count`) | **ערכים חדשים, רק עם דגל v10**: מכפתור "גלישה בהחלקה" (‏`hero_views`) ומכרטיס ההזמנה (‏`home_invite_card`, עם `count` - כמה נכסים להחלקה) | `via`: ‏`hero_views` \| `home_invite_card`, `count` |
+| `swipe_reel_play` | **v10**: רילס של נכס התחיל להתנגן ב-`/swipe`, פעם אחת לכרטיס | `property_id` |
+| `swipe_reel_unmute` | **v10**: "הפעילו קול לשמוע את הקריינות" ברילס | `property_id` |

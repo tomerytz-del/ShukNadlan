@@ -19,7 +19,7 @@
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
   var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, city_id, street, address, house_number, ' +
     'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, ' +
-    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name)';
+    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_url, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name)';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
 
   /* ‏מתג כיבוי לכרטיסים הממומנים (החלטת A2): כבוי - כל משבצת ממומנת הופכת לנכס,
@@ -176,13 +176,17 @@
     if (vizMap.has(p.id) && vizPair.get(p.id) !== null) return '';   // הזוג עוד נטען
     return 'invite';
   }
+  /* ---------- רילס (סבב 5 §2): ‏video_url של הנכס, שקופית ראשונה, מושתק עם הצעה להפעיל קול ---------- */
+  function hasReel(p) { return !!(p && typeof p.video_url === 'string' && /^https:\/\//i.test(p.video_url.trim())); }
   function slides(p) {
-    var sp = vizSpecial(p);
-    return sp ? photos(p).concat(['#viz:' + sp]) : photos(p);
+    var sp = vizSpecial(p), list = photos(p);
+    if (hasReel(p)) list = ['#reel'].concat(list);
+    return sp ? list.concat(['#viz:' + sp]) : list;
   }
-  function slideKind(s) { return s === '#viz:ba' ? 'ba' : s === '#viz:invite' ? 'invite' : ''; }
+  function slideKind(s) { return s === '#viz:ba' ? 'ba' : s === '#viz:invite' ? 'invite' : s === '#reel' ? 'reel' : ''; }
   function slideBase(p, s) {
     var k = slideKind(s);
+    if (k === 'reel') return (p.video_poster_url && /^https?:\/\//.test(p.video_poster_url) && p.video_poster_url) || photos(p)[0] || '';
     if (k === 'ba') return vizPair.get(p.id).after;
     if (k === 'invite') return photos(p)[0];
     return s;
@@ -396,7 +400,7 @@
   }
   function activeFilters() {
     return (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
-      (filter.viz ? 1 : 0) + (filter.fair ? 1 : 0) + (filter.photos ? 0 : 1);
+      (filter.viz ? 1 : 0) + (filter.fair ? 1 : 0) + (filter.reel ? 1 : 0) + (filter.photos ? 0 : 1);
   }
   /* המצב בכתובת (‏replaceState): ערכי ברירת המחדל לא נכתבים, ו-reload משחזר */
   function writeUrl() {
@@ -467,6 +471,7 @@
     if (f.viz && !vizMap.has(p.id)) return false;
     if (f.photos && !hasPhoto(p)) return false;
     if (f.type && !typeOk(p, f.type)) return false;
+    if (f.reel && !hasReel(p)) return false;
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
     if (f.budget && Number(p.price) > f.budget) return false;
@@ -533,6 +538,9 @@
       var k = countFor({ type: t[0] });
       return k || filter.type === t[0] ? chip(esc(t[1]) + ' ' + n(k), 'data-type="' + t[0] + '"', filter.type === t[0]) : '';
     }).join('');
+    var reelN = countFor({ reel: true });
+    $('swFReel').hidden = $('swFReelL').hidden = !reelN && !filter.reel;
+    $('swFReel').innerHTML = chip('▶ רק נכסים עם סרטון ' + n(reelN), 'data-reelchip="1"', !!filter.reel);
     $('swFFair').innerHTML = chip('ללא עמלת תיווך (יריד הבתים הפתוחים) ' + n(countFor({ fair: true })), 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
     var c = filtered().length;
@@ -631,6 +639,7 @@
     if (b.dataset.viz) { filter.viz = !filter.viz; renderFilter(); return; }
     if (b.dataset.type !== undefined) { filter.type = b.dataset.type; renderFilter(); return; }
     if (b.dataset.fairchip) { filter.fair = !filter.fair; renderFilter(); return; }
+    if (b.dataset.reelchip) { filter.reel = !filter.reel; renderFilter(); return; }
     if (b.dataset.photos) { filter.photos = !filter.photos; store('sk_swipe_photos_only', filter.photos ? null : '0'); renderFilter(); return; }
   });
   function askLocation() {
@@ -649,7 +658,7 @@
   }
   $('swFReset').addEventListener('click', function () {
     // "ניקוי הכול": גם היריד, סוג הנכס והמיון; "רק עם תמונות" חוזר לדלוק
-    filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false };
+    filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
     sortKey = 'rec'; syncSortBtn();
     store('sk_swipe_photos_only', null);
     shukTrack('swipe_filter_clear', { view: view });
@@ -684,6 +693,7 @@
     el.hidden = false;
     document.body.classList.add('sw-locked');
     openStack.push(el);
+    setTimeout(reelSync, 0);
     setTimeout(function () { var f = focusables(el)[0]; if (f) f.focus({ preventScroll: true }); }, 30);
   }
   function closeDialog(el, back) {
@@ -692,6 +702,7 @@
     openStack = openStack.filter(function (x) { return x !== el; });
     if (!openStack.length) document.body.classList.remove('sw-locked');
     if (back && back.focus && document.contains(back)) back.focus({ preventScroll: true });
+    setTimeout(reelSync, 0);
     // גיליון תחתון שחיכה בתור עולה 600ms אחרי שהדיאלוג נסגר
     setTimeout(bsDrain, 600);
   }
@@ -779,8 +790,24 @@
      גשר אחד ואז אלה שבלי (מקודמים, ואז החדשים). כבוי: אלה שבלי נשזרים רק בזנב - 7 עם ואחד בלי,
      לעולם לא שניים ברצף ולא יותר מאחד בכל 8 כרטיסים; מה שלא נכנס בזנב מופיע ברשימה ובמפה */
   var npRest = [];
+  /* רילס בסדר "מומלצים": אחד במקומות 2, 6, 10, 14… של הנכסים (מאלה שמתאימים לסינון, בלי חזרה) */
+  function promoteReels(list) {
+    if (sortKey !== 'rec') return list;
+    var reels = list.filter(hasReel);
+    if (!reels.length) return list;
+    var used = new Set(), rest = list.slice(), out = [];
+    for (var i = 0; rest.length; i++) {
+      var slot = i === 1 || (i > 1 && (i - 1) % 4 === 0);
+      var r = slot ? reels.filter(function (x) { return !used.has(x); })[0] : null;
+      if (r) { used.add(r); rest.splice(rest.indexOf(r), 1); out.push(r); continue; }
+      var nxt = rest.shift();
+      if (used.has(nxt)) { i--; continue; }
+      out.push(nxt);
+    }
+    return out;
+  }
   function deckProps() {
-    var props = sortProps(filtered());
+    var props = promoteReels(sortProps(filtered()));
     npRest = [];
     if (filter.photos) {
       var rest = filtered(Object.assign({}, filter, { photos: false })).filter(function (p) { return !hasPhoto(p); });
@@ -855,6 +882,7 @@
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
         (p.property_type ? '<span class="sw-tag is-type">' + esc(p.property_type) + '</span>' : '') +
+        (hasReel(p) ? '<span class="sw-tag sw-reel-tag"><i aria-hidden="true">▶</i> רילס<b></b></span>' : '') +
         '<span class="sw-count" aria-hidden="true"' + (ph.length > 1 ? '' : ' hidden') + '>' + (at + 1) + '/' + ph.length + '</span></div>' +
         '<button type="button" class="sw-vpill" data-vpill aria-label="איך זה יכול להיראות? מעבר להשוואת לפני ואחרי"' + (top && vizPair.get(p.id) && !sp ? '' : ' hidden') + '>✨ איך זה יכול להיראות?</button>' +
         '<div class="sw-cbody"><p class="sw-price">' + esc(fmtPrice(p)) + '</p>' +
@@ -913,12 +941,62 @@
   function barsHtml(ph, at) {
     if (ph.length < 2) return '';
     return ph.slice(0, 10).map(function (u, i) {
-      var cl = [i === at ? 'on' : '', slideKind(u) === 'ba' ? 'is-viz' : ''].filter(Boolean).join(' ');
+      var cl = [i === at ? 'on' : '', slideKind(u) === 'ba' ? 'is-viz' : '', slideKind(u) === 'reel' ? 'is-reel' : ''].filter(Boolean).join(' ');
       return '<span' + (cl ? ' class="' + cl + '"' : '') + '></span>';
     }).join('');
   }
   /* השכבה שמעל התמונה בשקופית המיוחדת: לפני/אחרי (התמונה עצמה היא ה"אחרי"), או ההזמנה */
+  var reelSound = false;   // אחרי הפעלת קול פעם אחת - הרילסים הבאים בביקור מתחילים עם קול (אם הדפדפן מרשה)
+  function reelLayer(p) {
+    var poster = slideBase(p, '#reel');
+    return '<div class="sw-reel-wrap"><video class="sw-reel" muted playsinline loop preload="none" draggable="false"' +
+      (poster ? ' poster="' + esc(sized(poster, cardW())) + '"' : '') + ' src="' + esc(p.video_url.trim()) + '"></video>' +
+      (reduceMotion ? '<button type="button" class="sw-reel-play" data-reel-play aria-label="הפעלת הסרטון">▶</button>' : '') +
+      '<button type="button" class="sw-reel-snd" data-reel-snd' + (reelSound ? ' hidden' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>הפעילו קול לשמוע את הקריינות</button>' +
+      '<button type="button" class="sw-reel-mute" data-reel-mute aria-label="השתקה" title="השתקה"' + (reelSound ? '' : ' hidden') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m23 9-6 6M17 9l6 6"/></svg></button></div>';
+  }
+  /* רק וידאו אחד מתנגן: של הכרטיס העליון, כשהשקופית שלו היא הרילס, בלי גיליון/הדרכה/תצוגה אחרת */
+  function reelSync() {
+    var top = $('swTopCard'), v = top && top.querySelector('.sw-card.is-reel video.sw-reel');
+    document.querySelectorAll('#swDeck video.sw-reel').forEach(function (x) { if (x !== v && !x.paused) x.pause(); });
+    if (!v) return;
+    var ok = view === 'deck' && !openStack.length && $('swTour').hidden && !reduceMotion && !v.dataset.err;
+    if (!ok) { if (!v.paused) v.pause(); return; }
+    if (!v.paused) return;
+    v.muted = !reelSound;
+    var c = cur();
+    var go = v.play();
+    if (go && go.then) go.then(function () {
+      if (c && c.p && !c.reelPlayed) { c.reelPlayed = true; shukTrack('swipe_reel_play', { property_id: c.p.id }); }
+    }, function () {
+      // עם קול הדפדפן חוסם לפעמים - משתיקים ומנסים פעם אחת
+      if (!v.muted) { v.muted = true; reelSound = false; reelUi(top); v.play().catch(function () {}); }
+    });
+  }
+  function reelUi(top) {
+    var snd = top && top.querySelector('[data-reel-snd]'), mute = top && top.querySelector('[data-reel-mute]');
+    if (snd) snd.hidden = reelSound;
+    if (mute) mute.hidden = !reelSound;
+  }
+  function bindReel(top, c) {
+    var v = top && top.querySelector('video.sw-reel');
+    if (!v || v._bound) return;
+    v._bound = true;
+    // הכפתור "הפעילו קול" יושב מעל בלוק הטקסט של הכרטיס
+    var body = top.querySelector('.sw-cbody'), w = top.querySelector('.sw-reel-wrap');
+    if (body && w) w.style.setProperty('--cbody-h', body.offsetHeight + 'px');
+    v.addEventListener('error', function () { v.dataset.err = '1'; v.hidden = true; var cd = v.closest('.sw-card'); if (cd) cd.classList.add('reel-err'); });   // התמונה שמתחת (הפוסטר) נשארת
+    v.addEventListener('loadedmetadata', function () {
+      var d = Math.round(v.duration || 0), tag = top.querySelector('.sw-reel-tag b');
+      if (tag && d) tag.textContent = ' · ' + Math.floor(d / 60) + ':' + String(d % 60).padStart(2, '0');
+    });
+    v.addEventListener('timeupdate', function () {
+      var seg = top.querySelector('.sw-bars span:first-child');
+      if (seg && v.duration) seg.style.setProperty('--p', (v.currentTime / v.duration * 100).toFixed(1) + '%');
+    });
+  }
   function layerHtml(p, sp) {
+    if (sp === 'reel') return reelLayer(p);
     if (sp === 'ba') { var v = vizPair.get(p.id); return baHtml(v, true, baFit(v)); }
     if (sp !== 'invite') return '';
     var line = isComm(p) ? 'ראו איך הוא יכול להיראות כעסק שלכם'
@@ -1082,6 +1160,8 @@
     bindGestures(top);
     var tc = top.querySelector('.sw-card.is-ba,.sw-card.is-invite');
     if (tc) { bindBa(tc.querySelector('.sw-ba'), true); vizSlideSeen(c, tc.classList.contains('is-ba') ? 'ba' : 'invite'); }
+    bindReel(top, c);
+    setTimeout(reelSync, 0);
     syncActions();
     onCardView(c);
     vizPrime();
@@ -1181,13 +1261,14 @@
       img.setAttribute('data-orig', u); img.src = sized(u, cardW());
     }
     if (blur && u) blur.src = sized(u, 40);
-    var was = card.classList.contains('is-ba') ? 'ba' : card.classList.contains('is-invite') ? 'invite' : '';
+    var was = card.classList.contains('is-ba') ? 'ba' : card.classList.contains('is-invite') ? 'invite' : card.classList.contains('is-reel') ? 'reel' : '';
     card.classList.toggle('is-ba', sp === 'ba');
     card.classList.toggle('is-invite', sp === 'invite');
+    card.classList.toggle('is-reel', sp === 'reel');
     if (sp === 'ba') card.setAttribute('data-fit', baFit(vizPair.get(c.p.id)));
     else if (was === 'ba' && img && img.complete) fitCard(img);
     var layer = top.querySelector('.sw-vlayer');
-    if (layer && was !== sp) { layer.innerHTML = layerHtml(c.p, sp); bindBa(layer.querySelector('.sw-ba'), true); }
+    if (layer && was !== sp) { layer.innerHTML = layerHtml(c.p, sp); bindBa(layer.querySelector('.sw-ba'), true); bindReel(top, c); }
     var bars = top.querySelector('.sw-bars');
     if (bars) bars.innerHTML = barsHtml(ph, at);
     var cnt = top.querySelector('.sw-count');
@@ -1197,7 +1278,8 @@
     var up = top.querySelector('.sw-up'), vc = top.querySelector('.sw-vcta');
     if (up) up.hidden = sp === 'ba';
     if (vc) vc.hidden = sp !== 'ba';
-    if (sp && was !== sp) vizSlideSeen(c, sp);
+    if ((sp === 'ba' || sp === 'invite') && was !== sp) vizSlideSeen(c, sp);
+    reelSync();
   }
 
   /* מחוות: גרירה לצדדים (אהבתי/דילוג), למעלה (פרטים), והקשה על צידי התמונה (תמונה) */
@@ -1248,6 +1330,18 @@
     card.addEventListener('click', function (e) {
       var c = cur();
       if (e.target.closest('[data-up]')) { openSheetFor(c); return; }
+      // רילס: קול, השתקה, והפעלה ידנית ב-reduced motion
+      var rv = top.querySelector('video.sw-reel');
+      if (e.target.closest('[data-reel-snd]') && rv) {
+        e.stopPropagation(); reelSound = true; rv.muted = false; reelUi(top);
+        rv.play().catch(function () { rv.muted = true; reelSound = false; reelUi(top); });
+        shukTrack('swipe_reel_unmute', { property_id: c.p.id }); return;
+      }
+      if (e.target.closest('[data-reel-mute]') && rv) { e.stopPropagation(); reelSound = false; rv.muted = true; reelUi(top); return; }
+      if (e.target.closest('[data-reel-play]') && rv) {
+        e.stopPropagation(); rv.muted = !reelSound; rv.play().catch(function () {});
+        e.target.closest('[data-reel-play]').hidden = true; return;
+      }
       // ‏"לפרטי הנכס ←" - קישור רגיל; רק נמדד, ולא נבלע בגרירה (P0-1)
       if (e.target.closest('[data-open]')) {
         e.stopPropagation();
@@ -1929,6 +2023,7 @@
     setTimeout(function () { if (first) first.focus({ preventScroll: true }); }, 40);
     shukTrack('swipe_nudge_view', { kind: kind });
     if (kind === 'help') shukTrack('swipe_help_open', {});
+    setTimeout(reelSync, 0);
     clearTimeout(bsT);
   }
   function bsClose(how) {
@@ -1941,6 +2036,7 @@
     openStack = openStack.filter(function (x) { return x !== wrap; });
     if (!openStack.length) document.body.classList.remove('sw-locked');
     if (how) shukTrack('swipe_nudge_dismiss', { kind: kind, how: how });
+    setTimeout(reelSync, 0);
     if (kind === 'viz') setTimeout(baIntro, 0);   // "הבנתי, בואו נשווה" (או סגירה) - ואז הידית זזה
     var back = bsOpener && document.contains(bsOpener) && bsOpener.offsetParent !== null ? bsOpener : (document.querySelector('#swTopCard .sw-card'));
     if (back && back.focus) back.focus({ preventScroll: true });
@@ -2225,6 +2321,7 @@
     $('swMapView').hidden = v !== 'map';
     $('swLikesView').hidden = v !== 'likes';
     if (v === 'likes') $('swLikes').setAttribute('aria-current', 'page'); else $('swLikes').removeAttribute('aria-current');
+    setTimeout(reelSync, 0);
     if (v === 'list') renderList();
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
