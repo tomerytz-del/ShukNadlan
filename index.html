@@ -3408,6 +3408,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hero-map-btn svg{width:18px;height:18px;flex:none}
   html.beta-hero .hero-map-btn:hover{background:#fff}
   html.beta-hero .hero-map-btn:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
+  html.beta-hero .hero-swipe-link{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--v10-navy);font-size:15px;font-weight:700;
+    text-decoration:underline;text-underline-offset:3px}
+  html.beta-hero .hero-swipe-link svg{width:18px;height:18px;flex:none}
   /* המיקרופון: אותו כפתור ואותו JS, רק הצבעים - כחול וטבעת זהב במקום אדום */
   html.beta-hero body #ssCard .ss-mic:not([hidden]){display:inline-flex;width:44px;min-height:44px;height:44px;align-self:center;
     border-radius:999px;color:var(--v10-navy);background:rgba(14,42,107,.07)}
@@ -3501,6 +3504,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero #aiPromo .ai-v10-tag.is-before{right:10px}
   html.beta-hero #aiPromo .ai-v10-tag.is-after{left:10px}
   html.beta-hero .ai-v10-cap{display:block;order:4;margin:-4px 0 0;color:rgba(255,255,255,.72);font-size:12.5px}
+  html.beta-hero body #aiPromo .ai-v10-swipe{order:5;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;
+    padding:0 20px;border:1.5px solid var(--v10-gold-l);border-radius:12px;color:var(--v10-gold-l);font-size:15px;font-weight:700;text-decoration:none}
+  html.beta-hero body #aiPromo .ai-v10-swipe:hover{background:rgba(229,199,106,.1)}
   html.beta-hero .ai-v10-cap:empty{display:none}
   html.beta-hero body #aiPromo .ai-promo-go{order:5;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:0;
     border-radius:12px;background:var(--v10-gold);color:var(--v10-deep);font-size:15.5px;font-weight:800;box-shadow:0 6px 16px rgba(201,162,39,.3)}
@@ -3519,6 +3525,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     html.beta-hero body #aiPromo .ai-promo-thumb{grid-area:thumb;aspect-ratio:auto;min-height:320px}
     html.beta-hero .ai-v10-cap{grid-area:cap;margin:0}
     html.beta-hero body #aiPromo .ai-promo-go{grid-area:go;width:auto;justify-self:start;align-self:start;padding:0 26px}
+    html.beta-hero body #aiPromo .ai-v10-swipe{grid-area:go;justify-self:end;align-self:start;margin-top:6px}
     html.beta-hero body #aiPromo .ai-promo-cta{grid-area:cta;text-align:center;padding-top:14px}
     html.beta-hero body #aiPromo .ai-promo-go{margin-top:6px}
   }
@@ -3691,8 +3698,14 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hdr-mkt-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   html.beta-hero .hdr-mkt-c{flex:none;font-size:11px}
   html.beta-hero body .logo-word [data-market-label]{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  @media(max-width:759px){html.beta-hero body .hdr-mkt{max-width:118px;padding:0 9px;font-size:13px;min-height:36px}}
-  @media(max-width:380px){html.beta-hero body .hdr-mkt{max-width:96px;margin-inline-start:4px}}
+  /* הלוגו לא מתכווץ; הכפתור הוא מה שנחתך (בשלוש נקודות) לפני "כניסה" */
+  html.beta-hero body header.site .logo{flex:none}
+  @media(max-width:759px){
+    html.beta-hero body .hdr-mkt{flex:none;margin-inline-start:6px;padding:0 10px;font-size:13px;min-height:36px}
+    html.beta-hero body .hdr-mkt .hdr-mkt-l{display:none}
+    html.beta-hero body header.site .logo-word [data-market-label]{display:none}
+  }
+  @media(max-width:380px){html.beta-hero body .hdr-mkt{margin-inline-start:4px;padding:0 7px}}
   html.beta-hero .gabv8-band .mkt-menu-btn{display:none}
   /* התפריט עם הדגל: שווקים עם מספר נכסים, "אזור אחר" עם צפון / מרכז / דרום */
   html.beta-hero .mkt-menu .mkt-n{min-width:34px;padding:2px 8px;border-radius:999px;background:#fff;border:1px solid rgba(14,42,107,.18);
@@ -4125,6 +4138,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="v10-hero-more v10-only">
             <button type="button" class="hero-map-btn" data-map-open="hero_cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>חיפוש במפה</button>
+            <a class="hero-swipe-link" href="/swipe" data-swipe-via="hero_link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="11" height="15" rx="2" transform="rotate(8 13.5 10.5)"/><path d="M5 7.5 4.2 17a2 2 0 0 0 1.8 2.2l7 .6"/></svg>או גלישה בהחלקה</a>
           </div>
 
           <span class="visually-hidden" id="ssLive" aria-live="polite"></span>
@@ -4618,6 +4632,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
     <p class="ai-v10-cap v10-only" id="aiV10Cap"></p>
+    <a class="ai-v10-swipe v10-only" href="/swipe" data-swipe-via="ai_banner">נסו בהחלקה <span aria-hidden="true">←</span></a>
     <button type="button" class="ai-promo-cta" id="aiPromoCta">
       <span class="ai-v10-owner v10-only"><b>חושבים למכור או להשכיר?</b> השאירו פרטים, וגם הנכס שלכם יכול להתפרסם באתר עם הדמיות AI <span aria-hidden="true">←</span></span>
       <b>חושבים למכור או להשכיר?</b>

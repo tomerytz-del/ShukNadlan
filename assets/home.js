@@ -7914,3 +7914,12 @@ window.v10MarketCityCounts = function(){
   }
   return v10CityCountsP;
 };
+
+// כניסות לגלישה בהחלקה (‏/swipe): הקישור ב-hero ובבאנר ההדמיות - רק עם הדגל
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[data-swipe-via]');
+  if (!a || !v10On() || !window.shukTrack || !sentence) return;
+  const st = sentence.state();
+  window.shukTrack('swipe_start', { deal: st.deal || (sentence.Core.TYPES.find(t => t.key === st.type)?.commercial ? 'commercial' : 'all'),
+    region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek', via: a.dataset.swipeVia });
+});

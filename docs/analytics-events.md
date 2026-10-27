@@ -58,6 +58,21 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `crm_home_summary` | לחיצה על שורה ב"הנה תמונת המצב שלך להיום" | `summary_item`: `leads` \| `meetings` \| `late` \| `expiring` \| `exclusive` |
 | `map_open` | **רק עם דגל v10 (‏`html.beta-hero`)**: המפה נפתחה במסך מלא (‏`openMapView` ב-`assets/home.js`). בלי הדגל הדחיפה לא קורית, כמו קודם | `source`: ‏`hero_cta` (חיפוש במפה ב-hero) \| `hood_section` (מפת השכונות) \| `results_header` \| `fab` \| `menu` |
 | `gab_widget_open` (‏`source`) | **ערך חדש, רק עם דגל v10**: נפתחה מכרטיס גבריאלה ב-hero דרך `GabWidget.open` (‏`trigger` נשאר `click`). פתיחה מהבועה - בלי `source`, כמו קודם | `source`: ‏`hero_cta` (‏"בואו נתחיל") \| `hero_figure` (הדמות) |
+| `region_select` | **v10**: נבחר שוק בבורר שבהדר או במסנן של `/swipe` | `region` (‏slug), `group`: ‏`live` \| `north` \| `center` \| `south`, `via`: ‏`header` \| `swipe_filter` \| `my_location` |
+| `quick_search_tag_click` | **v10**: צ'יפ בחיפוש המהיר (‏`#quickSearchSec`) | `group`: ‏`hood` \| `type` \| `area`, `tag` |
+| `fair_banner_click` | **v10**: לחיצה על באנר היריד | `fair_id` (‏`open_house_<תאריך סיום>`) |
+| `site_stats_view` | **v10**: המונים (‏`#dmStats`) נכנסו למסך, פעם אחת בדף | `source`: ‏`cache` \| `client`, `deals_shown`: ‏0 \| 1 |
+| `swipe_start` | **v10**: "התחילו להחליק" ב-`/swipe`, או הקישור מה-hero / מבאנר ההדמיות | `deal`, `region`, `via`: ‏`swipe_filter` \| `hero_link` \| `ai_banner` |
+| `swipe_tour_skip` | **v10**: דילוג על ההדרכה ב-`/swipe` | `visit`: ‏1 \| 2 |
+| `swipe_card_view` | **v10**: כרטיס נעשה פעיל ב-`/swipe` | `slot`: ‏`property` \| `spon_agency` \| `spon_pro` \| `article` \| `engage` \| `end`, `position` |
+| `swipe_like` | **v10**: החלקה ימינה / לב | `slot`, `position` |
+| `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
+| `swipe_up_open` | **v10**: נפתח גיליון הפרטים | `slot`, `position` |
+| `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
+| `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
+| `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
+| `swipe_end_view` | **v10**: הוצג כרטיס הסיום | `likes` |
+| `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: טופסי `/swipe` | `form_id`: ‏`swipe_up` \| `swipe_sponsored` \| `swipe_end_alert` |
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
