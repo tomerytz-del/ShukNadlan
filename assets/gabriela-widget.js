@@ -237,7 +237,8 @@
 
     /* ---------- פתיחה וסגירה ---------- */
     var open = false;
-    function setOpen(on, why) {
+    var returnFocus = null;
+    function setOpen(on, why, source) {
       if (on === open) return;
       open = on;
       if (on) hideTip();
@@ -246,17 +247,36 @@
       bubble.setAttribute('aria-label', on ? 'סגירת החלונית של גבריאלה' : 'שיחה עם גבריאלה, העוזרת בוואטסאפ');
       if (on) {
         storageSet(AUTO_KEY, '1');
-        // shukTrack ישירות ולא עוטף: check_gtm_container.py מוצא אירועים לפי השם הזה
-        if (window.shukTrack) window.shukTrack('gab_widget_open', { trigger: why });
+        // shukTrack ישירות ולא עוטף: check_gtm_container.py מוצא אירועים לפי השם הזה.
+        // ‏source רק מהפתיחה החיצונית (‏GabWidget.open, ה-hero של v10) - בלעדיה האירוע כמו קודם
+        var params = { trigger: why };
+        if (source) params.source = source;
+        if (window.shukTrack) window.shukTrack('gab_widget_open', params);
         if (why === 'click') setTimeout(function () { var f = list.querySelector('a'); if (f) f.focus(); }, 60);
       }
       sync();
     }
-    bubble.addEventListener('click', function () { setOpen(!open, 'click'); });
-    tip.addEventListener('click', function () { setOpen(true, 'tip'); });
-    x.addEventListener('click', function () { setOpen(false); bubble.focus(); });
+    /* פתיחה מבחוץ: כרטיס גבריאלה ב-hero של v10 (‏assets/home.js). Escape וה-✕
+       מחזירים את הפוקוס למי שפתח. מחזיר false כשאין חלונית (העוזרת כבויה). */
+    window.GabWidget = {
+      open: function (source) {
+        returnFocus = document.activeElement;
+        setOpen(true, 'click', source || 'external');
+        return true;
+      }
+    };
+    function closeAndFocus() {
+      setOpen(false);
+      var back = returnFocus;
+      returnFocus = null;
+      if (back && back.focus && document.contains(back) && back.offsetParent !== null) back.focus();
+      else bubble.focus();
+    }
+    bubble.addEventListener('click', function () { returnFocus = null; setOpen(!open, 'click'); });
+    tip.addEventListener('click', function () { returnFocus = null; setOpen(true, 'tip'); });
+    x.addEventListener('click', closeAndFocus);
     document.addEventListener('keydown', function (e) {
-      if (open && e.key === 'Escape') { setOpen(false); bubble.focus(); }
+      if (open && e.key === 'Escape') closeAndFocus();
     });
     // מעבר לוואטסאפ סוגר את החלונית - בחזרה לדף היא לא מחכה פתוחה
     root.addEventListener('click', function (e) {
@@ -273,7 +293,10 @@
       root.classList.toggle('is-hidden', heroOn && !open);
       root.classList.toggle('is-away', !open && (avoidOn || typing));
     }
-    var heroCta = PAGE === 'home' && document.querySelector('#gabCtaWrap .gab-cta');
+    // ‏v10 (‏html.beta-hero): הכרטיס הישן מוסתר, ו-[data-gab-hero] הוא מה שעל המסך
+    var heroCta = PAGE === 'home' && (document.documentElement.classList.contains('beta-hero')
+      ? document.querySelector('[data-gab-hero]')
+      : document.querySelector('#gabCtaWrap .gab-cta'));
     if ('IntersectionObserver' in window) {
       if (heroCta) {
         heroOn = true;

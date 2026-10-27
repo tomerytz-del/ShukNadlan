@@ -3882,6 +3882,8 @@ function openMapView(source, opener){
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event:'map_open', source: source || 'results_header' });
   */
+  // v10 מאחורי הדגל בלבד: עכשיו יש טריגר ותגית (‏gtm/container.json); בלי הדגל ה-dataLayer כמו ב-main
+  if (v10On() && window.shukTrack) window.shukTrack('map_open', { source: source || 'results_header' });
 }
 
 function closeMapViewNow(){
@@ -3989,7 +3991,7 @@ function bindMapOpenFab(){
     let listOn = false, headOn = false;
     seen.forEach((on, el)=>{
       if (!on) return;
-      if (el.matches('.map-open-btn')) headOn = true;
+      if (el.matches('.map-open-btn, .hero-map-btn')) headOn = true;
       else listOn = true;
     });
     fab.hidden = !listOn || headOn;
@@ -4002,6 +4004,8 @@ function bindMapOpenFab(){
     const el = document.getElementById(id);
     if (el) io.observe(el);
   });
+  // v10: "חיפוש במפה" שב-hero הוא אותו כפתור - הגלולה לא עולה עליו
+  if (v10On()) document.querySelectorAll('.hero-map-btn').forEach(el => io.observe(el));
   const watchShelfBtn = ()=>{
     mountAllPropsMapBtn();
     const b = document.getElementById('allPropsMapBtn');
@@ -4802,6 +4806,7 @@ try {
     heroStatsState.today = countAddedToday(properties);
     renderHeroStats();
     computeHoodGeometry(properties);
+    initHoodMapSec(properties);
     renderHoodFilter();
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
@@ -6913,6 +6918,7 @@ function renderKindChips(st){
 }
 
 function onSentenceChange(results, st, reason){
+  syncV10Tabs(st);
   renderAdvancedBadge();
   renderClearButton();
   renderKindChips(st);
@@ -7348,3 +7354,189 @@ let freeTextFeatures = new Set();
 })();
 
 applyDeepLinkFilters();
+
+/* ============================================================
+   v10 מאחורי הדגל (‏html.beta-hero, ‏?beta=1). בלי הדגל אף אחת מהפונקציות
+   כאן אינה עושה דבר, וה-dataLayer זהה ל-main. ‏docs/home-page-sections.md,
+   "v10 מאחורי דגל".
+   ============================================================ */
+function v10On(){ return document.documentElement.classList.contains('beta-hero'); }
+
+/* הלשוניות למכירה · להשכרה · מסחרי: אותו מנגנון של המשפט (‏setDeal / patch),
+   ולכן המונה על הכפתור הזהב (‏renderCount) והיעד שלו מתעדכנים מעצמם */
+function syncV10Tabs(st){
+  if (!v10On() || !sentence) return;
+  const s = st || sentence.state();
+  const commercial = !!sentence.Core.TYPES.find(t => t.key === s.type)?.commercial;
+  const on = commercial ? 'commercial' : (s.deal || '');
+  document.querySelectorAll('.v10-tab').forEach(b => {
+    b.setAttribute('aria-selected', String(b.dataset.v10Deal === on));
+  });
+}
+document.querySelectorAll('.v10-tab').forEach(b => b.addEventListener('click', () => {
+  if (!v10On() || !sentence || !sentence.loaded()) return;
+  const deal = b.dataset.v10Deal;
+  if (deal === 'commercial') sentence.patch({ deal: null, type: 'commercial' });
+  else sentence.setDeal(deal);
+  syncV10Tabs();
+}));
+
+/* כרטיס גבריאלה וה-hero: החלונית הצפה (‏GabWidget), ואם העוזרת כבויה - אותו
+   כפתור שהכרטיס הישן מפעיל (‏renderGabrielaCta: הסוכן החכם). לעולם לא לבד. */
+function v10OpenGabriela(source){
+  if (window.GabWidget && window.GabWidget.open(source)) return;
+  document.querySelector('#gabCtaWrap .gab-cta')?.click();
+}
+document.getElementById('gabV8Go')?.addEventListener('click', () => { if (v10On()) v10OpenGabriela('hero_cta'); });
+document.getElementById('gabV8Fig')?.addEventListener('click', () => { if (v10On()) v10OpenGabriela('hero_figure'); });
+
+/* ---------- מפת השכונות (‏#hoodMapSec) ----------
+   מופע Leaflet שני ולא אינטראקטיבי, שנוצר רק כשהסקשן נכנס למסך. המונים
+   מהנכסים שכבר נטענו (‏allActiveProperties) והמרכזים מ-computeHoodGeometry -
+   בלי שאילתה חדשה. פינים קרובים מ-46px מתאחדים לעיגול ‎+N‎, ושני עיגולים
+   קרובים מ-50px מתאחדים שוב. לחיצה על עיגול מקרבת שתי רמות. */
+const HM_MERGE_PX = 46, HM_MERGE2_PX = 50, HM_NAMES_ZOOM = 15;
+function hoodMapData(properties){
+  const counts = new Map();
+  let located = 0;
+  properties.forEach(p => {
+    if (p.lat && p.lng) located++;
+    if (p.neighborhood_id) counts.set(p.neighborhood_id, (counts.get(p.neighborhood_id) || 0) + 1);
+  });
+  const hoods = hoodState.rows
+    .filter(h => counts.get(h.id) && hoodState.centers.get(h.id))
+    .map(h => ({ id: h.id, name: h.name, n: counts.get(h.id), center: hoodState.centers.get(h.id).center }));
+  return { hoods, located };
+}
+
+function initHoodMapSec(properties){
+  const sec = document.getElementById('hoodMapSec');
+  if (!v10On() || !sec) return;
+  const { hoods, located } = hoodMapData(properties);
+  const sub = document.getElementById('hoodMapSub');
+  if (sub) sub.textContent = `${hoods.length} שכונות · ${located} נכסים פעילים עם מיקום במפה. המספר על כל שכונה הוא מספר הנכסים הפעילים בה.`;
+  if (!hoods.length){ sec.hidden = true; return; }
+  const box = document.getElementById('hoodMap');
+  if (!window.L || !box){ hoodMapChips(hoods); return; }
+  const start = () => { try { buildHoodMap(box, hoods); } catch(e){ console.warn('מפת השכונות:', e); hoodMapChips(hoods); } };
+  if (!('IntersectionObserver' in window)) return start();
+  const io = new IntersectionObserver(en => {
+    if (!en.some(x => x.isIntersecting)) return;
+    io.disconnect();
+    start();
+  }, { rootMargin: '200px' });
+  io.observe(box);
+}
+
+// בלי Leaflet: השכונות כצ'יפים, כל אחד קישור אמיתי לתוצאות (‏?q= נפתר לשכונה במשפט)
+function hoodMapChips(hoods){
+  const wrap = document.getElementById('hoodMapChips');
+  const box = document.querySelector('#hoodMapSec .hood-map-box');
+  if (!wrap) return;
+  if (box) box.hidden = true;
+  wrap.innerHTML = hoods.slice().sort((a, b) => b.n - a.n)
+    .map(h => `<a href="/?q=${encodeURIComponent(h.name)}">${escapeHtml(h.name)} <b>${h.n}</b></a>`).join('');
+  wrap.hidden = false;
+}
+
+function hmPinIcon(h){
+  return L.divIcon({
+    className: '', iconSize: [27, 32], iconAnchor: [13, 32],
+    html: `<span class="hm-pin"><span class="hm-pin-n">${h.n}</span>` +
+      '<img class="hm-pin-logo" src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">' +
+      `<span class="hm-pin-name">${escapeHtml(h.name)}</span></span>`,
+  });
+}
+
+function hmClusters(map, hoods){
+  const merge = (items, px) => {
+    const out = [];
+    items.forEach(it => {
+      const hit = out.find(c => c.pt.distanceTo(it.pt) < px);
+      if (!hit){ out.push({ ...it, members: it.members.slice() }); return; }
+      const w = hit.n + it.n;
+      hit.pt = L.point((hit.pt.x * hit.n + it.pt.x * it.n) / w, (hit.pt.y * hit.n + it.pt.y * it.n) / w);
+      hit.n = w;
+      hit.members = hit.members.concat(it.members);
+    });
+    return out;
+  };
+  const first = hoods.slice().sort((a, b) => b.n - a.n)
+    .map(h => ({ n: h.n, pt: map.latLngToContainerPoint(h.center), members: [h] }));
+  return merge(merge(first, HM_MERGE_PX), HM_MERGE2_PX);
+}
+
+function buildHoodMap(box, hoods){
+  const map = L.map(box, {
+    zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+    boxZoom: false, keyboard: false, touchZoom: false, tap: false,
+  });
+  map.fitBounds(L.latLngBounds(hoods.map(h => h.center)), { animate: false, maxZoom: 14, paddingTopLeft: [36, 64], paddingBottomRight: [36, 28] });
+  map.attributionControl.setPosition('bottomleft');
+  const layer = L.layerGroup().addTo(map);
+  const touch = window.matchMedia('(hover:none)').matches;
+
+  const tilesFailed = () => {
+    if (box.classList.contains('tiles-off')) return;
+    box.classList.add('tiles-off');
+    const chip = document.getElementById('hoodMapChip');
+    if (chip && !chip.dataset.closed) chip.hidden = false;
+  };
+  document.getElementById('hoodMapChipX')?.addEventListener('click', e => {
+    e.stopPropagation();
+    const chip = document.getElementById('hoodMapChip');
+    chip.hidden = true;
+    chip.dataset.closed = '1';
+  });
+  if (window.MapTiles){
+    MapTiles.addTo(map).then(tl => {
+      if (!tl) return;
+      if (tl.on) tl.on('tileerror', tilesFailed);
+      const gl = tl.getMaplibreMap && tl.getMaplibreMap();
+      if (gl && gl.on) gl.on('error', tilesFailed);
+    }, tilesFailed);
+  } else tilesFailed();
+
+  const open = (e) => openMapView('hood_section', e && e.target);
+  map.on('click', () => open());
+
+  function draw(){
+    layer.clearLayers();
+    box.classList.toggle('is-close', map.getZoom() >= HM_NAMES_ZOOM);
+    hmClusters(map, hoods).forEach(c => {
+      const at = map.containerPointToLatLng(c.pt);
+      if (c.members.length === 1){
+        const h = c.members[0];
+        const m = L.marker(h.center, { icon: hmPinIcon(h), keyboard: true, title: '' }).addTo(layer);
+        const el = m.getElement();
+        if (el) el.setAttribute('aria-label', `${h.name}: ${h.n} נכסים`);
+        m.on('click', ev => {
+          L.DomEvent.stopPropagation(ev);
+          const pin = el && el.querySelector('.hm-pin');
+          // במגע: הקשה ראשונה מציגה את השם, השנייה פותחת את המפה
+          if (touch && pin && !pin.classList.contains('is-named')){
+            box.querySelectorAll('.hm-pin.is-named').forEach(p => p.classList.remove('is-named'));
+            pin.classList.add('is-named');
+            return;
+          }
+          open(ev.originalEvent);
+        });
+        return;
+      }
+      const label = `+${c.n}`;
+      const m = L.marker(at, {
+        keyboard: true,
+        icon: L.divIcon({ className: '', iconSize: [46, 46], iconAnchor: [23, 23],
+          html: `<span class="hm-cluster${c.n > 99 ? ' is-wide' : ''}">${label}</span>` }),
+      }).addTo(layer);
+      const el = m.getElement();
+      if (el) el.setAttribute('aria-label', `${c.members.map(h => h.name).join(', ')}: ${c.n} נכסים. לחיצה מקרבת`);
+      m.on('click', ev => {
+        L.DomEvent.stopPropagation(ev);
+        map.setView(at, map.getZoom() + 2);
+      });
+    });
+  }
+  map.on('zoomend', draw);
+  draw();
+}

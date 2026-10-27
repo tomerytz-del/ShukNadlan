@@ -260,6 +260,10 @@ const UNTOUCHED: [string, string][] = [
   ["מחיר שרירותי", "/?deal=sale&maxPrice=1317000"],
   ["צירוף ברשימה ועוד פרמטר", "/?deal=sale&rooms=4&page=3"],
   ["פרמטר סינון נוסף", "/?deal=sale&rooms=4&ai=1"],
+  /* דגל v10 (‏docs/home-page-sections.md): התצוגה החדשה אינה כתובת חדשה */
+  ["דגל v10 בדף הבית", "/?beta=1"],
+  ["כיבוי דגל v10", "/?beta=0"],
+  ["דגל v10 על עמוד ברשימה", "/?deal=sale&rooms=4&beta=1"],
 ];
 for (const [name, url] of UNTOUCHED) {
   const r = await serve(url);

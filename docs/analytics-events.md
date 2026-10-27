@@ -56,6 +56,8 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `crm_lead_handled` | "טופל" על ליד חדש (השלב עובר ל"נוצר קשר ראשוני") | — |
 | `crm_lead_handled_undo` | ביטול הסימון מטוסט "ביטול", בתוך כחמש שניות | — |
 | `crm_home_summary` | לחיצה על שורה ב"הנה תמונת המצב שלך להיום" | `summary_item`: `leads` \| `meetings` \| `late` \| `expiring` \| `exclusive` |
+| `map_open` | **רק עם דגל v10 (‏`html.beta-hero`)**: המפה נפתחה במסך מלא (‏`openMapView` ב-`assets/home.js`). בלי הדגל הדחיפה לא קורית, כמו קודם | `source`: ‏`hero_cta` (חיפוש במפה ב-hero) \| `hood_section` (מפת השכונות) \| `results_header` \| `fab` \| `menu` |
+| `gab_widget_open` (‏`source`) | **ערך חדש, רק עם דגל v10**: נפתחה מכרטיס גבריאלה ב-hero דרך `GabWidget.open` (‏`trigger` נשאר `click`). פתיחה מהבועה - בלי `source`, כמו קודם | `source`: ‏`hero_cta` (‏"בואו נתחיל") \| `hero_figure` (הדמות) |
 
 הגיליון ב-CRM (`assets/crm-profile-nudge.js`) דוחף את ארבעת אירועי
 `profile_nudge_*`. הדף אינו טוען את `events.js` (סוכן/ת שפונה ללקוח/ה
