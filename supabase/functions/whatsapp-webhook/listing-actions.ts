@@ -230,6 +230,87 @@ export function reissueClickDecision(
   return { kind: "run", agreementId: row.subject_id, overrides: payload };
 }
 
+export const PUBLISH_YES = "כן, לפרסם";
+export const PUBLISH_NO = "לא עכשיו";
+export const PUBLISH_DONE = "הנכס כבר פורסם, ולא מפרסמים שוב.";
+export const PUBLISH_EXPIRED = "הבקשה לפרסם פגה. אפשר לבקש שוב.";
+export const PUBLISH_MISSING = "הבקשה לפרסם לא נמצאה. אפשר לבקש שוב.";
+export const PUBLISH_BUSY = "הפרסום כבר בטיפול. אם הנכס לא עלה, אפשר לבקש שוב.";
+export const PUBLISH_STORE_MISSING =
+  "אי אפשר לאשר פרסום כרגע. אפשר לנסות שוב אחרי עדכון המערכת.";
+export const PUBLISH_FAILED = "לא הצלחתי לפרסם את הנכס. אפשר לנסות שוב.";
+export const PUBLISH_ALREADY = "הנכס כבר באוויר.";
+
+const PUBLISH_RE = /^pubx:(y|n):([0-9a-f]{12})$/i;
+
+export function publishConfirmButtons(requestId: string): { id: string; title: string }[] | null {
+  if (!/^[0-9a-f]{12}$/i.test(requestId)) return null;
+  if (utf16len(PUBLISH_YES) > 20 || utf16len(PUBLISH_NO) > 20) return null;
+  const yes = `pubx:y:${requestId.toLowerCase()}`;
+  if (yes.length > 200) return null;
+  return [
+    { id: yes, title: PUBLISH_YES },
+    { id: `pubx:n:${requestId.toLowerCase()}`, title: PUBLISH_NO },
+  ];
+}
+
+export function parsePublishButton(buttonId: string): { yes: boolean; requestId: string } | null {
+  const m = PUBLISH_RE.exec(String(buttonId || "").trim());
+  if (!m) return null;
+  return { yes: m[1].toLowerCase() === "y", requestId: m[2].toLowerCase() };
+}
+
+export type PublishDecision =
+  | { kind: "missing" }
+  | { kind: "expired" }
+  | { kind: "busy" }
+  | { kind: "done"; text: string }
+  | { kind: "run"; propertyId: string };
+
+/** לחיצה שנייה על כפתור שכבר פורסם לא מפרסמת שוב. */
+export function publishClickDecision(
+  row: PendingActionRow | null | undefined,
+  nowMs: number,
+): PublishDecision {
+  if (!row || row.action !== "publish" || !row.subject_id) return { kind: "missing" };
+  if (row.executed_at) {
+    return { kind: "done", text: String(row.result || "").trim() || PUBLISH_DONE };
+  }
+  const exp = Date.parse(String(row.expires_at || ""));
+  if (!Number.isFinite(exp) || exp <= nowMs) return { kind: "expired" };
+  if (row.claimed_at) return { kind: "busy" };
+  return { kind: "run", propertyId: row.subject_id };
+}
+
+export function publishDecisionText(decision: PublishDecision): string | null {
+  switch (decision.kind) {
+    case "run":
+      return null;
+    case "done":
+      return decision.text;
+    case "expired":
+      return PUBLISH_EXPIRED;
+    case "busy":
+      return PUBLISH_BUSY;
+    default:
+      return PUBLISH_MISSING;
+  }
+}
+
+/** 23514: ה-check עדיין מתיר רק reissue. לא לפרסם בלי שהבקשה נשמרה. */
+export function publishStoreBlocked(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (String(error.code || "") === "23514") return true;
+  return pendingStoreMissing(error);
+}
+
+/** הודעת בלעדיות בעברית עוברת. אנגלית גולמית לא. */
+export function publishErrorText(message: string | null | undefined): string {
+  const msg = String(message || "").replace(/[—–]/g, "-").trim();
+  if (/[א-ת]/.test(msg)) return msg;
+  return PUBLISH_FAILED;
+}
+
 export function reissueDecisionText(decision: ReissueDecision): string | null {
   switch (decision.kind) {
     case "run":
