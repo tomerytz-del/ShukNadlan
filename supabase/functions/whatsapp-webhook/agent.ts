@@ -28,6 +28,8 @@ import {
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
+import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
+import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
   accessTokenFor,
@@ -186,6 +188,8 @@ export interface ConversationState {
   profile_touched?: boolean;
   /** בתור הנוכחי בלבד: גבריאלה עוד לא אמרה לסוכן/ת את שמה (‏index.ts בודק ביומן). */
   introduce?: boolean;
+  /** בתור הנוכחי בלבד, לא נשמר: התראות שיצאו בשעתיים האחרונות. */
+  recent_note?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1355,7 +1359,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "agenda_list",
     description:
       "מה יש ביומן: \"מה יש לי היום/מחר/השבוע\", \"מה באיחור\", \"אילו משימות פתוחות\". " +
-      "מחזיר גם את item_id לעדכון.",
+      "מחזיר גם סיורי מיניסייט בטווח (showings), גם אם אינם פריט יומן, ואת item_id לעדכון.",
     input_schema: {
       type: "object",
       properties: {
@@ -1413,6 +1417,42 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["item_id", "action"],
+    },
+  },
+  {
+    name: "list_showings",
+    description:
+      "סיורי מיניסייט של הסוכן/ת (בקשות ביקור), כולל סיור שהכרטיס שלו נסגר והסיור עוד רשום. " +
+      "\"תבטל את הסיור עם X\" / \"הפגישה ב-18:00\" - קודם כאן, עם השם (גם באיות לא מדויק) והשעה. " +
+      "זה אינו היומן: סיור מאושר בלבד מופיע גם ב-agenda_list.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "שם הלקוח/ה, גם מתמלול. אפשר לכלול שעה, למשל 18:00." },
+        time: { type: "string", description: "שעה HH:MM בשעון ישראל, אם נאמרה בנפרד." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "cancel_showing",
+    description:
+      "מבטל סיור מיניסייט וסוגר בקשות תיאום פתוחות (pending, sending, sent, postpone, confirmed). " +
+      "confirm=true רק אחרי שהסוכן/ת אישר/ה את הסיור הזה (שם ושעה). בלי confirm, או כשיש יותר " +
+      "מאחד, הכלי לא מבטל. notify_targets=true רק אחרי שהסוכן/ת ביקש/ה להודיע למי שכבר קיבל בקשה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        meeting_id: { type: "string", description: "מ-list_showings או מ-showings שב-agenda_list." },
+        query: { type: "string", description: "שם, אם אין meeting_id." },
+        time: { type: "string", description: "שעה HH:MM בשעון ישראל." },
+        confirm: { type: "boolean", description: "true רק אחרי אישור מפורש על הסיור הזה." },
+        notify_targets: {
+          type: "boolean",
+          description: "לשלוח עכשיו הודעת ביטול למי שכבר קיבל בקשת תיאום. רק אחרי שהסוכן/ת אמר/ה שכן.",
+        },
+      },
+      required: [],
     },
   },
   {
@@ -5939,7 +5979,7 @@ function agendaDbError(error: { message?: string }): string {
 }
 
 const AGENDA_SELECT =
-  "id, kind, title, notes, location, due_at, priority, status, source, client_id, property_id, remind_before";
+  "id, kind, title, notes, location, due_at, priority, status, source, source_key, client_id, property_id, remind_before";
 
 async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>>) {
   const clientIds = [...new Set(rows.map((r) => r.client_id).filter(Boolean))] as string[];
@@ -6209,6 +6249,80 @@ async function agendaGcalOffer(ctx: ToolContext, kind: string, due: string | nul
     "הסנכרון מתבצע רק עבור פגישות נדל\"ן שנוצרות במערכת.";
 }
 
+function showingWindow(
+  range: string,
+  todayIl: string,
+  date: string,
+): { fromIso: string; toIso: string | null } | null {
+  const dayStart = (d: string) => ilLocalToIso(d, "00:00")!;
+  const addDays = (d: string, n: number) => ilDateOf(Date.parse(dayStart(d)) + n * 864e5 + 6 * 3600e3);
+  if (range === "overdue") return null;
+  if (range === "today") return { fromIso: dayStart(todayIl), toIso: dayStart(addDays(todayIl, 1)) };
+  if (range === "tomorrow") return { fromIso: dayStart(addDays(todayIl, 1)), toIso: dayStart(addDays(todayIl, 2)) };
+  if (range === "week") return { fromIso: new Date().toISOString(), toIso: dayStart(addDays(todayIl, 8)) };
+  if (range === "date") {
+    if (!ilLocalToIso(date, "00:00")) return null;
+    return { fromIso: dayStart(date), toIso: dayStart(addDays(date, 1)) };
+  }
+  return {
+    fromIso: new Date(Date.now() - 6 * 3600e3).toISOString(),
+    toIso: new Date(Date.now() + 60 * 864e5).toISOString(),
+  };
+}
+
+function showingForModel(s: ShowingView) {
+  return {
+    meeting_id: s.meeting_id,
+    client: s.client_name,
+    when: s.when,
+    status: s.status,
+    closed: s.closed || undefined,
+    note: s.note || undefined,
+    properties: s.properties,
+    coord_open: s.coord_open.length ? s.coord_open : undefined,
+  };
+}
+
+async function toolListShowings(ctx: ToolContext, input: Record<string, unknown>) {
+  const res = await listShowingsForAgent(ctx.supabase, ctx.agent.id, {
+    fromIso: new Date(Date.now() - 6 * 3600e3).toISOString(),
+    toIso: new Date(Date.now() + 60 * 864e5).toISOString(),
+    query: String(input.query || ""),
+    clock: input.time ? String(input.time) : null,
+  });
+  if (!res.ok) {
+    return { ok: false, error: res.error, guidance: "נסי שוב. אל תאמרי שאין סיור." };
+  }
+  return {
+    ok: true,
+    count: res.showings.length,
+    showings: res.showings.map(showingForModel),
+    guidance: res.showings.length
+      ? "אלה סיורי המיניסייט. closed=true: הכרטיס נסגר והסיור עוד רשום. ביטול רק ב-cancel_showing אחרי אישור על הסיור הזה."
+      : "אין סיור מיניסייט בטווח. אם יש התראה אחרונה בהקשר - אמרי מה כתוב בה. אל תאמרי שאין פגישה בלי agenda_list.",
+  };
+}
+
+async function toolCancelShowing(ctx: ToolContext, input: Record<string, unknown>) {
+  const res = await cancelShowingForAgent(ctx.supabase, ctx.agent.id, {
+    meeting_id: input.meeting_id ? String(input.meeting_id) : undefined,
+    query: input.query ? String(input.query) : undefined,
+    clock: input.time ? String(input.time) : null,
+    confirm: input.confirm === true,
+    notify_targets: input.notify_targets === true,
+  });
+  if (res.offer_notify && res.canceled && ctx.outbox) {
+    ctx.outbox.push({
+      kind: "buttons",
+      body: "הסיור בוטל. להודיע למי שכבר קיבל בקשת תיאום?",
+      buttons: [{ id: `scn:${res.canceled.meeting_id}`, title: CANCEL_NOTIFY_BUTTON_TITLE }],
+    });
+  }
+  return res.canceled
+    ? { ...res, canceled: showingForModel(res.canceled) }
+    : res;
+}
+
 async function toolAgendaList(ctx: ToolContext, input: Record<string, unknown>) {
   const range = String(input.range || "today");
   const todayIl = ilDateOf(Date.now());
@@ -6235,15 +6349,44 @@ async function toolAgendaList(ctx: ToolContext, input: Record<string, unknown>) 
 
   const { data, error } = await q.order("due_at", { ascending: true, nullsFirst: false }).limit(40);
   if (error) return { ok: false, error: agendaDbError(error) };
-  const items = await agendaShape(ctx, data || []);
+
+  let showings: ShowingView[] = [];
+  let showingsFailed = false;
+  const window = showingWindow(range, todayIl, String(input.date || ""));
+  if (window) {
+    const listed = await listShowingsForAgent(ctx.supabase, ctx.agent.id, {
+      fromIso: window.fromIso,
+      toIso: window.toIso,
+      query,
+      clock: null,
+    });
+    if (listed.ok) showings = listed.showings;
+    else showingsFailed = true;
+  }
+  const meetingIds = new Set(showings.map((s) => s.meeting_id));
+  const linkedAgenda = new Set(
+    showings.map((s) => s.agenda_item_id).filter((id): id is string => !!id),
+  );
+  const raw = (data || []).filter((r) => {
+    const sk = String((r as { source_key?: string }).source_key || "");
+    const mid = sk.startsWith("showcase_meeting:") ? sk.slice("showcase_meeting:".length) : "";
+    if (mid && meetingIds.has(mid)) return false;
+    if (linkedAgenda.has(String(r.id))) return false;
+    return true;
+  });
+  const items = await agendaShape(ctx, raw);
+  const showingOut = showings.map(showingForModel);
+  const failNote = showingsFailed ? " סיורי המיניסייט לא נטענו - אל תאמרי שאין סיור." : "";
   return {
     ok: true,
     range,
-    count: items.length,
+    count: items.length + showingOut.length,
     items,
-    guidance: items.length
-      ? "רשימה קצרה בסגנון וואטסאפ: שעה, מה, עם מי. באיחור - לסמן. בלי item_id."
-      : "אין כלום בטווח הזה - אמור/אמרי זאת במשפט אחד.",
+    showings: showingOut,
+    guidance: (items.length || showingOut.length)
+      ? "רשימה קצרה בסגנון וואטסאפ: שעה, מה, עם מי. באיחור - לסמן. בלי item_id. " +
+        "סיור מיניסייט (showings) אינו פריט יומן עד שהוא מאושר - ביטול שלו הוא cancel_showing." + failNote
+      : "אין פריט יומן ואין סיור מיניסייט בטווח. אם הסוכן/ת מתכוון/ת לפגישה מהתראה - אמרי מה כתוב בהתראה שבהקשר, ואל תאמרי שאין פגישה." + failNote,
   };
 }
 
@@ -6359,6 +6502,8 @@ async function runTool(
       // יומן
       case "agenda_add": return await toolAgendaAdd(ctx, input);
       case "agenda_list": return await toolAgendaList(ctx, input);
+      case "list_showings": return await toolListShowings(ctx, input);
+      case "cancel_showing": return await toolCancelShowing(ctx, input);
       case "agenda_update": return await toolAgendaUpdate(ctx, input);
       case "agenda_free_slots": return await toolAgendaFreeSlots(ctx, input);
       case "profile_get": return await toolProfileGet(ctx);
@@ -6707,8 +6852,13 @@ const SYSTEM_STATIC: string = (() => {
       "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
     "- אחרי סיור הלקוח/ה נשאל/ת איך היה, והתשובה פותחת משימה אוטומטית. \"תשלחי לה נכסים דומים\" / " +
       "\"נכסים אחרים\" (גם ממשימה כזו) = client_matches, ואז הצע/י create_showcase - כמו \"שלח חומר ללקוח\".",
-    "- \"מה יש לי היום/מחר/השבוע\" = agenda_list. \"עשיתי\" / \"בוצע\" / \"תדחה בשעה\" / " +
-      "\"תבטל את הפגישה\" = agenda_update (item_id מ-agenda_list עם query).",
+    "- \"מה יש לי היום/מחר/השבוע\" = agenda_list. התשובה כוללת גם סיורי מיניסייט שעוד לא ביומן.",
+    "- \"תבטל את הסיור\" / \"תבטל את הפגישה עם X\" = קודם list_showings (שם, גם באיות סלחני, ושעה). " +
+      "אם אין סיור - agenda_list. ביטול סיור = cancel_showing עם confirm רק אחרי שהסוכן/ת אישר/ה " +
+      "את הסיור הזה (שם ושעה). אם מישהו כבר קיבל בקשת תיאום - שאלי אם להודיע, ואז notify_targets.",
+    "- לעולם אל תאמרי \"לא מצאתי פגישה\" או \"לא ביטלתי\" בלי list_showings ובלי ההתראות האחרונות " +
+      "שבהקשר. סיור מיניסייט אינו פריט יומן עד שהוא מאושר. אם הסוכן/ת משיב/ה על הודעה, ההקשר אומר על מה.",
+    "- \"עשיתי\" / \"בוצע\" / \"תדחה בשעה\" על פריט יומן = agenda_update (item_id מ-agenda_list עם query).",
     "- התזכורת יוצאת לבד בזמן - בוואטסאפ ובפעמון בדשבורד. **אל תבטיח/י שתכתוב/י בעצמך**; " +
       "המערכת היא ששולחת. היומן המלא נמצא בדשבורד בקטגוריה \"יומן ומשימות\".",
     "- אם חזר past - המועד עבר; שאל/י לאיזה מועד התכוון/ה ואל תקבע/י לבד.",
@@ -6803,6 +6953,9 @@ function sessionContext(
       `הלקוח/ה האחרון/ה שנגעת בו/בה בשיחה הזו: ${conv.last_client_id}. ` +
         "אם הסוכן/ת אומר/ת \"תעדכן לו את התקציב\" בלי לומר שם - זה/זו מי שמדובר בו/בה.",
     );
+  }
+  if (conv.recent_note) {
+    lines.push("", conv.recent_note);
   }
 
   return lines.join("\n");

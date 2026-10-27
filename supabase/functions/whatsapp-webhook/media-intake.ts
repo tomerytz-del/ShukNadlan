@@ -52,6 +52,7 @@ export const MEDIA_TOOLS: ReadonlySet<string> = new Set([
   "property_link",
   "agenda_list",
   "agenda_free_slots",
+  "list_showings",
 ]);
 
 export const MEDIA_TOOLS_DENIED =
