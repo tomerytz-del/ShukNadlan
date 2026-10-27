@@ -46,7 +46,7 @@
 | #1019 ניצחונות מהירים | `cursor/gabriela-quick-wins-4477` | `f454feeda2e6ebff23072478e65bae499420dad2` | `20271028110000` |
 | #1020 תקציר התראות | `cursor/gabriela-notif-digest-4477` | `e85c932d3227a7bfa9c8ad938f6266e50145cd5c` | `20271028120000` |
 | #1025 שמירה מפני התפרצות | `cursor/gabriela-burst-guard-4477` | `320a7512a492d1862a7509fe9e66fff42776d648` | `20271028140000` |
-| #1027 עיר ברירת מחדל וכפתור עריכה אחד | `cursor/gabriela-default-city-4477` | `46eb92e466bf8687e364779bc058e88dcf8fcfad` | `20271028150000` |
+| #1027 עיר ברירת מחדל וכפתור עריכה אחד | `cursor/gabriela-default-city-4477` | `09e46ce57810230487bdef111d1dc8b5b579208a` | `20271028150000` |
 
 סבב 3: גוף סגירת המיניסייט לא מבטיח כפתור `scn:` שאין בתבנית. שלד השם
 זהה ב-TS וב-SQL (NFKC וקיפול רווח), ו-`agent_client_duplicate` בלי grant
