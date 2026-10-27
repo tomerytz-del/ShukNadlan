@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 import { mapPool } from "../_shared/pool.ts";
@@ -287,7 +287,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
 
 // תזכורת אחת לסוכן/ת לשבוע, דרך הפעמון. הדגל כבוי סופר ולא כותב.
 // הפונקציה עולה לפני המיגרציה: חוסר ה-RPC אינו מפיל את שאר התזכורות.
-async function enqueueUnpublishedNudges(sb: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: any; error: any }> }) {
+async function enqueueUnpublishedNudges(sb: SupabaseClient) {
   try {
     const { data, error } = await sb.rpc("unpublished_nudge_enqueue", { p_limit: 25 });
     if (error) {
@@ -319,6 +319,8 @@ Deno.serve(async (req: Request) => {
   const auth = authorizeInternalCaller(req);
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
+  // מפתח service_role: ב-agent_reminders_claim ‏auth.role() הוא service_role
+  // ו-current_agent_id() ריק. הפונקציה פתוחה רק לתפקיד הזה, לא ל-anon.
   const sb = createClient(supabaseUrl, serviceRoleKey);
   await enqueueUnpublishedNudges(sb);
 

@@ -293,6 +293,24 @@ export function unpublishedNudgeButtons(
   return buttons;
 }
 
+/** לפרסם מהכפתור רק טיוטה. unpublished הוא הטיוטה במסד. sold ו-archived לא. */
+export function unpublishedNudgeCanPublish(status: string | null | undefined): boolean {
+  return status === "unpublished" || status === "draft";
+}
+
+/** הכפתור בוואטסאפ נשאר לחיץ. בלי תזכורת מהשבוע האחרון לא מפרסמים ממנו. */
+export const UNPUB_BUTTON_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function unpublishedNudgeButtonFresh(
+  createdAt: string | null | undefined,
+  nowMs: number,
+): boolean {
+  const t = Date.parse(String(createdAt || ""));
+  if (!Number.isFinite(t)) return false;
+  if (t > nowMs + 5 * 60 * 1000) return false;
+  return nowMs - t <= UNPUB_BUTTON_TTL_MS;
+}
+
 export function parseUnpublishedNudgeButton(
   buttonId: string,
 ): { action: "publish" | "share" | "snooze" | "mute"; propertyId: string } | null {
