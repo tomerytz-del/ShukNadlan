@@ -859,7 +859,10 @@ def contact_line(p):
 def closing_lines(p, disc, platform):
     """The single place where the site appears (owner rule 2026-10-24):
     IG: 🔖 מודעה N באתר שוק הנדל״ן | shuknadlan.co.il   FB: 🔖 מודעה N באתר שוק הנדל״ן: <property link>
-    Tomer's own properties: his disclosure line follows it."""
+    Tomer's own properties: his disclosure line comes BEFORE it (2026-10-27): a line of text right after the
+    link line glues onto the URL when a composer drops the newline (Facebook groups, 27.10 13:18 - the link
+    became ...?id=<uuid>שוק and 404'd). The link line is therefore always the last text line of the block
+    (only a blank line + hashtags follow; a lost newline there gives <uuid>#tag, a harmless fragment)."""
     n = p["listing_number"]
     if platform == "ig_page":
         L = [f"🔖 מודעה מס' {n} באתר shuknadlan.co.il"]
@@ -867,7 +870,7 @@ def closing_lines(p, disc, platform):
         L = [f"🔖 מודעה {n} באתר שוק הנדל״ן: {SITE.format(p['id'])}" if platform == "fb"
              else f"🔖 מודעה {n} באתר שוק הנדל״ן | shuknadlan.co.il"]
     if is_tomer(p):
-        L.append(disc if disc and disc != SITE_LINE else DEFAULT_DISCLOSURE)
+        L.insert(0, disc if disc and disc != SITE_LINE else DEFAULT_DISCLOSURE)
     return L
 
 

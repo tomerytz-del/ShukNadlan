@@ -21950,8 +21950,8 @@ async function loadClients(){
 
   // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה.
   // ‏client_match_top מחזירה את אותה ספירה ובנוסף את ההתאמה החזקה ביותר,
-  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts היא
-  // בשביל מסד שהמיגרציה החדשה עדיין לא רצה בו — אז פשוט אין תצוגה מקדימה.
+  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts רק
+  // כשהפונקציה עצמה חסרה (מסד שהמיגרציה עדיין לא רצה בו).
   clientMatchCounts = {};
   clientMatchTop = {};
   const { data: tops, error: topError } = await topsP;
@@ -21960,9 +21960,13 @@ async function loadClients(){
       clientMatchCounts[r.client_id] = r.match_count;
       if (r.top_score) clientMatchTop[r.client_id] = r;
     });
-  } else {
+  } else if (topError.code === 'PGRST202' || topError.code === '42883') {
+    // ‏רק כשהפונקציה עצמה חסרה (מסד ישן). ‏timeout (‏57014) או 5xx - לא:
+    // ‏client_match_counts עושה בדיוק את אותה עבודה ונופלת 8 שניות אחריה.
     const { data: counts } = await sb.rpc('client_match_counts');
     (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+  } else {
+    console.warn('client_match_top failed:', topError);
   }
 
   // המיניסייטים הפעילים - התגית בשורה והפאנל בכרטיס (assets/crm-showcase.js)
