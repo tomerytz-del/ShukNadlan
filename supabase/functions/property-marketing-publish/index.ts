@@ -294,17 +294,17 @@ function postCta(row: any, channel: "facebook" | "instagram"): string | null {
     : `👇 לצפייה ${what} כנסו לקישור`;
 }
 
-// ‏שורת הגילוי של תומר (27.10.2026): בנכסים של תומר עצמו - שם ורישיון תיווך,
-// חובה. בנכסים של כל סוכן/ת אחר/ת, גם בנדל"ן עפולה - שם ומשרד בלבד, בלי
-// מספר רישיון. המספר נקרא מ-agency_members ולא נכתב כאן (‏tomerLicense).
-const TOMER_AGENT_ID = "2f552dcf-90d0-4578-9038-cc6e7b9e26a5";
-
+// ‏רישיון התיווך בשורת "לפרטים" (27.10.2026): כל פוסט נושא את השם ואת מספר
+// הרישיון של הסוכן/ת של הנכס עצמו/ה - של תומר בנכסים שלו, של טל בנכסים שלה.
+// רק רישיון שאומת ברשם או אושר ידנית (‏verified / manual), כמו שורת הסוכן/ת
+// במודעות של ads-admin: מספר שלא נמצא ברשם לא יוצא בפרסום, והשורה יוצאת בלעדיו.
 // deno-lint-ignore no-explicit-any
-async function tomerLicense(sb: any, agentId: string | null | undefined): Promise<string | null> {
-  if (agentId !== TOMER_AGENT_ID) return null;
-  const { data: m } = await sb.from("agency_members").select("license_number")
+async function agentLicense(sb: any, agentId: string | null | undefined): Promise<string | null> {
+  if (!agentId) return null;
+  const { data: m } = await sb.from("agency_members").select("license_number, license_status")
     .eq("id", agentId).maybeSingle();
-  return m?.license_number ? String(m.license_number).trim() || null : null;
+  if (!m?.license_number || !["verified", "manual"].includes(m.license_status)) return null;
+  return String(m.license_number).trim() || null;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -662,14 +662,14 @@ async function handle(
   // זולה בהרבה משינוי סוג ההחזרה של הפונקציה במסד.
   // ‏באותה קריאה: הסוכן/ת, לשורת הקריאה לפעולה (‏ctaTier), ויחידת המחיר
   // (‏price_unit - "למ״ר" במקום "לחודש", docs/price-unit.md), ורישיון התיווך
-  // בנכסים של תומר (‏tomerLicense).
+  // של הסוכן/ת (‏agentLicense).
   if (!("price_includes_vat" in row) || !("price_unit" in row) || !("cta_tier" in row) || !("agent_license" in row)) {
     const { data: prop } = await sb.from("properties").select("price_includes_vat, price_unit, agent_id")
       .eq("id", row.property_id).maybeSingle();
     if (!("price_includes_vat" in row)) row.price_includes_vat = prop?.price_includes_vat ?? null;
     if (!("price_unit" in row)) row.price_unit = prop?.price_unit ?? null;
     row.cta_tier = await ctaTier(sb, prop?.agent_id);
-    row.agent_license = await tomerLicense(sb, prop?.agent_id);
+    row.agent_license = await agentLicense(sb, prop?.agent_id);
   }
 
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
