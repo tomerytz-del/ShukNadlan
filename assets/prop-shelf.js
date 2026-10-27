@@ -314,13 +314,16 @@
           fallback(p) +
           PropertyCard.coverVideoHtml(p) +
           (isPromoted(p) ? '<span class="ribbon">מקודם</span>' : '') +
-          PropertyCard.badgesHtml(p, { aiViz: visualized.has(p.id), photo: hasPhoto(p) }) +
+          /* ‏cfg.rowViz (דף הבית עם דגל v10, סבב 4 חלק 2): התג "הדמיית AI" יורד מהתמונה
+             לשורת הטקסט - תמונה אמיתית לעולם אינה מסומנת כהדמיה */
+          PropertyCard.badgesHtml(p, { aiViz: !cfg.rowViz && visualized.has(p.id), photo: hasPhoto(p) }) +
           PropertyCard.mediaHtml(p) +
           (cfg.overlay ? cfg.overlay(p) : '') +
         '</div>' +
         '<div class="body">' +
           PropertyCard.priceHtml(p) +
           (cfg.priceExtra ? cfg.priceExtra(p) : '') +
+          (cfg.rowViz && visualized.has(p.id) ? '<span class="pr-ai pc-ai-row" data-viz-jump>✨ הדמיית AI</span>' : '') +
           PropertyCard.titleHtml(p) +
           PropertyCard.whereHtml(p, cfg.whereOpts) +
           PropertyCard.factsHtml(p) +

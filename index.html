@@ -3389,6 +3389,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   /* ‏F/V2: "✨ הדמיית AI" בשורה הדחוסה - גלולה כחולה ליד גלולת העסקה */
   html.beta-hero .prop-row .pr-ai{flex:none;display:inline-flex;align-items:center;margin-inline-start:6px;padding:2px 8px;border-radius:999px;
     background:var(--v10-navy);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
+  /* סבב 4 חלק 2: באריח התג יושב בשורת הטקסט, מתחת למחיר, ולא על התמונה */
+  html.beta-hero .prop-card .pc-ai-row{display:inline-flex;align-items:center;align-self:flex-start;margin:4px 0 2px;padding:2px 8px;border-radius:999px;
+    background:var(--v10-navy);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
   html.beta-hero .gabv8-band .mkt-menu-btn:hover{background:rgba(255,255,255,.3)}
   /* "הצג במפה" מעל תיבת הנכסים כפול ל"חיפוש במפה" שב-hero (‏6.18: בלי כפילות) */
   html.beta-hero #allPropsMapBtn{display:none !important}
@@ -4687,7 +4690,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap ai-promo-sec" aria-label="הדמיות AI">
   <div class="ai-promo" id="aiPromo" hidden>
     <div class="ai-promo-copy">
-      <h2 class="ai-v10-title v10-only"><span class="ai-v10-star" aria-hidden="true">✦</span> הדמיה לכל נכס</h2>
+      <h2 class="ai-v10-title v10-only"><span class="ai-v10-star" aria-hidden="true">✦</span> הדמיה לנכסים באתר</h2>
       <p class="ai-v10-line v10-only" id="aiV10Line"></p>
       <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים כאן כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
       <p class="ai-promo-sub">ראו איך כל נכס ייראה אחרי שיפוץ - בלחיצה אחת.</p>

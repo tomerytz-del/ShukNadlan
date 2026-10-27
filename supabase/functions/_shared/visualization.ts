@@ -1024,7 +1024,7 @@ export function corsHeaders() {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-sk-device",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
 }

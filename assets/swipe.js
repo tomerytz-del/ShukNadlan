@@ -26,6 +26,10 @@
      גם כש-sponsors מלא, ולכן אין "ממומן", אין sponsored_impression/click ואין ליד
      ממומן. מדליקים רק אחרי שיש מפרסם משלם וצינור ליד שנבדק (‏docs/swipe-mode.md). */
   var SPONSORED_ENABLED = false;
+  /* יצירת הדמיה מתוך ההחלקה (חלק 2 §5.3): כבוי עד שהמיגרציה של הבלם לגולש/ת
+     (‏docs/proposals/visualization_visitor_cap.sql) תוחל. הקריאה, שקופית לפני/אחרי
+     והסטודיו עובדים גם כך - במקום הכפתור יש קישור לדף הנכס. */
+  var VIZ_SWIPE_GENERATE = false;
 
   /* ---------- סדר הכרטיסים (‏seq-v1). ‏sponsors ריק = אין כרטיסים ממומנים ---------- */
   var SEQ_CONFIG = {
@@ -103,41 +107,121 @@
     return 'src="' + esc(small) + '"' + (small !== u ? ' data-orig="' + esc(u) + '"' : '');
   }
   function isComm(p) { return p.category === 'commercial'; }
-  /* ---------- הדמיות AI (‏property_visualizations_public, F/V4) ----------
-     ‏vizMap: מזהה נכס → עד שתי הדמיות (‏living_room קודם), כל אחת עם "לפני" ו"אחרי".
-     נטען אחרי הנכסים ובלי לעכב את הכרטיס הראשון. ‏slides() = התמונות האמיתיות
-     ואחריהן ההדמיות: **הכרטיס לעולם לא נפתח על הדמיה**. */
-  var vizMap = new Map(), vizReady = false;
+  /* ---------- הדמיות AI בהחלקה (סבב 4, חלק 2) ----------
+     ‏property_visualizations_recent ולא ‎_public‎: השני הוא סט הבסיס בלבד, ו-recent
+     כולל גם הדמיות לפי דרישה - מה שדף הנכס מציג. נטען אחרי הנכסים ובלי לעכב את
+     הכרטיס הראשון. ‏vizMap: מזהה נכס → כל השורות, ממוינות כמו pickViz (בסיס קודם,
+     אחר כך סלון → חלל העסק → מטבח → חזית, אחר כך החדש).
+     **תמונה אמיתית לעולם אינה מסומנת כהדמיה:** ההדמיה היא שקופית אחת בסוף הקרוסלה,
+     לפני/אחרי, ורק אחרי ששתי התמונות שלה נטענו (‏vizPrep). אם אף זוג לא נטען -
+     שקופית הזמנה ("✨ צרו הדמיה לנכס הזה") במקומה. */
+  var vizMap = new Map(), vizBase = new Set(), vizReady = false;
+  var vizPair = new Map(), vizPrepP = new Map(), vizBad = new Set(), vizElig = new Map(), vizEligP = new Map();
+  var VIZ_ORDER = ['living_room', 'interior_main', 'kitchen', 'exterior'];
+  var LAND_RE = /מגרש|קרקע|נחל|משק|חקלא/;   // זהה ל-isLandType ב-_shared/visualization.ts
+  function isLand(p) { return LAND_RE.test((p && p.property_type) || ''); }
   function vizOf(p) { return (p && vizMap.get(p.id)) || null; }
+  /* השקופית המיוחדת של הנכס: ‏'ba' (לפני/אחרי), ‏'invite' (הזמנה) או '' */
+  function vizSpecial(p) {
+    if (!p || !photos(p).length) return '';
+    if (vizPair.get(p.id)) return 'ba';
+    if (!vizReady || isLand(p) || vizElig.get(p.id) !== true) return '';
+    if (vizMap.has(p.id) && vizPair.get(p.id) !== null) return '';   // הזוג עוד נטען
+    return 'invite';
+  }
   function slides(p) {
-    var real = photos(p), v = vizOf(p);
-    return v ? real.concat(v.map(function (x) { return x.after; })) : real;
+    var sp = vizSpecial(p);
+    return sp ? photos(p).concat(['#viz:' + sp]) : photos(p);
+  }
+  function slideKind(s) { return s === '#viz:ba' ? 'ba' : s === '#viz:invite' ? 'invite' : ''; }
+  function slideBase(p, s) {
+    var k = slideKind(s);
+    if (k === 'ba') return vizPair.get(p.id).after;
+    if (k === 'invite') return photos(p)[0];
+    return s;
   }
   function loadViz(rows) {
     var ids = rows.map(function (p) { return p.id; });
     if (!ids.length || !sb) return Promise.resolve();
+    var COLS = 'property_id, target, style_key, source_image_url, result_url, is_base, created_at';
     var chunks = [];
     for (var i = 0; i < ids.length; i += 80) chunks.push(ids.slice(i, i + 80));
+    function q(part, cols) {
+      return sb.from('property_visualizations_recent').select(cols).in('property_id', part).order('created_at', { ascending: false });
+    }
     return Promise.all(chunks.map(function (part) {
-      return sb.from('property_visualizations_public').select('property_id, target, source_image_url, result_url').in('property_id', part)
-        .then(function (r) { return (r && !r.error && r.data) || []; }, function () { return []; });
+      // ‏business_type נוסף ל-view מאוחר יותר; בלעדיו - אותה שאילתה בלי העמודה (כמו property.js)
+      return q(part, COLS + ', business_type').then(function (r) {
+        if (r && !r.error) return r.data || [];
+        return q(part, COLS).then(function (r2) { return (r2 && !r2.error && r2.data) || []; });
+      }).then(null, function () { return []; });
     })).then(function (parts) {
       var by = {};
       parts.forEach(function (list) {
         list.forEach(function (v) {
           if (!v || !v.result_url) return;
-          (by[v.property_id] = by[v.property_id] || []).push({ target: v.target || '', after: v.result_url, before: v.source_image_url || '' });
+          (by[v.property_id] = by[v.property_id] || []).push({ target: v.target || '', style: v.style_key || '', biz: v.business_type || '',
+            after: v.result_url, before: v.source_image_url || '', base: !!v.is_base, at: v.created_at || '' });
+          if (v.is_base) vizBase.add(v.property_id);
         });
       });
       Object.keys(by).forEach(function (id) {
-        var list = by[id].sort(function (a, b) { return (a.target === 'living_room' ? 0 : 1) - (b.target === 'living_room' ? 0 : 1); });
-        vizMap.set(id, list.slice(0, 2));
+        var rank = function (t) { var i = VIZ_ORDER.indexOf(t); return i < 0 ? 9 : i; };
+        vizMap.set(id, by[id].sort(function (a, b) {
+          return (b.base - a.base) || (rank(a.target) - rank(b.target)) || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
+        }));
       });
       vizReady = true;
-      // אותו נתון לגבריאלה: "לרוב הנכסים יש הדמיה" רק כשזה נכון (‏gabriela-widget.js)
-      var n = rows.filter(function (p) { return vizMap.has(p.id); }).length;
+      /* מספרי הכותרת נשארים על סט הבסיס (‏_public, חלק 2 §5.1) - זה מה ש-recent
+         מסמן ‏is_base. אותו נתון לגבריאלה: "לרוב הנכסים יש הדמיה" רק כשזה נכון */
+      var n = rows.filter(function (p) { return vizBase.has(p.id); }).length;
       window.ShukViz = { n: n, total: rows.length, coverage: rows.length ? n / rows.length : 0 };
     });
+  }
+  /* תמונה שנטענה באמת (או נכשלה / 8 שניות) - לפני שמציירים זוג לפני/אחרי */
+  function loadImg(u) {
+    return new Promise(function (ok, bad) {
+      if (!u || vizBad.has(u)) { bad('load_error'); return; }
+      var im = new Image(), t = setTimeout(function () { vizBad.add(u); bad('timeout'); }, 8000);
+      im.onload = function () { clearTimeout(t); if (im.naturalWidth > 0) ok(); else { vizBad.add(u); bad('load_error'); } };
+      im.onerror = function () { clearTimeout(t); vizBad.add(u); bad('load_error'); };
+      im.src = sized(u, 800);
+    });
+  }
+  function vizPrep(p) {
+    if (!vizMap.has(p.id) || vizPrepP.has(p.id)) return vizPrepP.get(p.id) || Promise.resolve();
+    var list = vizMap.get(p.id).filter(function (v) { return v.before && v.after; }), reason = 'no_pair';
+    var pr = (function tryAt(i) {
+      if (i >= list.length) return Promise.reject(reason);
+      return Promise.all([loadImg(list[i].after), loadImg(list[i].before)]).then(function () { return list[i]; },
+        function (r) { reason = r || 'load_error'; return tryAt(i + 1); });
+    })(0).then(function (v) { vizPair.set(p.id, v); }, function (r) {
+      vizPair.set(p.id, null);
+      shukTrack('viz_ba_fallback', { property_id: p.id, reason: String(r || 'load_error') });
+      return vizEligible(p);   // אין זוג שנטען - שקופית הזמנה במקומו, אם הנכס זכאי
+    });
+    vizPrepP.set(p.id, pr);
+    return pr;
+  }
+  /* הזכאות נשאלת מהמסד (‏property_visualizations_enabled), כמו בדף הנכס */
+  function vizEligible(p) {
+    if (vizEligP.has(p.id)) return vizEligP.get(p.id);
+    var pr = !sb || isLand(p) || !photos(p).length ? Promise.resolve(false)
+      : sb.rpc('property_visualizations_enabled', { p_property_id: p.id }).then(function (r) { return !!(r && !r.error && r.data); }, function () { return false; });
+    pr = pr.then(function (ok) { vizElig.set(p.id, ok); });
+    vizEligP.set(p.id, pr);
+    return pr;
+  }
+  /* הכרטיס שעל המסך ושניים אחריו: הזוג נטען מראש, והשקופית מצטרפת כשהוא מוכן */
+  function vizPrime() {
+    if (!vizReady) return;
+    for (var i = idx; i < Math.min(deck.length, idx + 3); i++) {
+      (function (c) {
+        if (!c || c.slot !== 'property' || !photos(c.p).length) return;
+        var pr = vizMap.has(c.p.id) ? vizPrep(c.p) : vizEligible(c.p);
+        pr.then(function () { if (cur() === c && $('swTopCard')) syncSlide($('swTopCard'), c); });
+      })(deck[i]);
+    }
   }
   function fmtPrice(p) {
     var n = Number(p.price);
@@ -578,21 +662,25 @@
     var dbg = DEBUG ? '<span class="sw-dbg">' + esc(c.slot) + ' · ' + c.pos + '</span>' : '';
     if (c.slot === 'property') {
       var p = c.p, ph = slides(p), adv = advertiser(p), at = (top && c.photo) || 0;
-      var img = ph.length ? '<img class="sw-cimg" draggable="false" data-fb="sw-cimg" ' + imgSrc(ph[at], 800) + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async">'
+      if (at >= ph.length) at = c.photo = 0;
+      var sp = top ? slideKind(ph[at]) : '';
+      var img = ph.length ? '<img class="sw-cimg" draggable="false" data-fb="sw-cimg" ' + imgSrc(slideBase(p, ph[at]), 800) + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async">'
         : imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
-      var bars = ph.length > 1 ? '<div class="sw-bars" aria-hidden="true">' + ph.slice(0, 10).map(function (_, i) { return '<span' + (i === at ? ' class="on"' : '') + '></span>'; }).join('') + '</div>' : '';
+      var bars = '<div class="sw-bars" aria-hidden="true">' + barsHtml(ph, at) + '</div>';
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
-      return '<article class="sw-card" data-slot="property" aria-label="' + esc(title(p) + ', ' + fmtPrice(p)) + '">' + img + bars + dbg +
+      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + '" data-slot="property" aria-label="' + esc(title(p) + ', ' + fmtPrice(p)) + '">' + img +
+        '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
         (p.property_type ? '<span class="sw-tag is-type">' + esc(p.property_type) + '</span>' : '') +
-        (vizOf(p) ? vizTagHtml(p, at) : '') +
-        (ph.length > 1 ? '<span class="sw-count" aria-hidden="true">' + (at + 1) + '/' + ph.length + '</span>' : '') + '</div>' +
+        '<span class="sw-count" aria-hidden="true"' + (ph.length > 1 ? '' : ' hidden') + '>' + (at + 1) + '/' + ph.length + '</span></div>' +
+        '<button type="button" class="sw-vpill" data-vpill aria-label="איך זה יכול להיראות? מעבר להשוואת לפני ואחרי"' + (top && vizPair.get(p.id) && !sp ? '' : ' hidden') + '>✨ איך זה יכול להיראות?</button>' +
         '<div class="sw-cbody"><p class="sw-price">' + esc(fmtPrice(p)) + '</p>' +
         '<h2 class="sw-ctitle">' + esc(title(p)) + '</h2>' +
         (facts ? '<p class="sw-facts">' + esc(facts) + '</p>' : '') +
         '<p class="sw-where"><span aria-hidden="true">📍</span> ' + esc(where(p)) + '</p>' +
         '<p class="sw-by">' + esc(adv.type === 'private' ? 'מודעה פרטית' : adv.name) + '</p>' +
-        '<button type="button" class="sw-up" data-up>פרטים ויצירת קשר <span aria-hidden="true">↑</span></button></div>' +
+        '<button type="button" class="sw-up" data-up' + (sp === 'ba' ? ' hidden' : '') + '>פרטים ויצירת קשר <span aria-hidden="true">↑</span></button>' +
+        '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b></button></div>' +
         '<span class="sw-stamp is-like" aria-hidden="true">אהבתי</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
     }
     if (c.slot === 'spon_agency') {
@@ -627,11 +715,91 @@
     }
     return endCardHtml(dbg);
   }
-  /* ‏✨ הדמיה על כל כרטיס שיש לו הדמיה; בשקופית "אחרי" - זהב, "✨ הדמיה · אחרי" (וב"לפני" בלחיצה ארוכה) */
-  function isAfter(p, i) { return !!vizOf(p) && i >= photos(p).length; }
-  function vizTagHtml(p, i) {
-    var after = isAfter(p, i);
-    return '<span class="sw-vtag' + (after ? ' is-after' : '') + '">' + (after ? '✨ הדמיה · אחרי' : '✨ הדמיה') + '</span>';
+  function barsHtml(ph, at) {
+    if (ph.length < 2) return '';
+    return ph.slice(0, 10).map(function (u, i) {
+      var cl = [i === at ? 'on' : '', slideKind(u) === 'ba' ? 'is-viz' : ''].filter(Boolean).join(' ');
+      return '<span' + (cl ? ' class="' + cl + '"' : '') + '></span>';
+    }).join('');
+  }
+  /* השכבה שמעל התמונה בשקופית המיוחדת: לפני/אחרי (התמונה עצמה היא ה"אחרי"), או ההזמנה */
+  function layerHtml(p, sp) {
+    if (sp === 'ba') return baHtml(vizPair.get(p.id), false);
+    if (sp !== 'invite') return '';
+    var line = isComm(p) ? 'ראו איך הוא יכול להיראות כעסק שלכם'
+      : p.deal_type === 'rent' ? 'ראו איך הוא יכול להיראות מרוהט ומעוצב' : 'ראו איך הוא יכול להיראות אחרי שיפוץ';
+    return '<div class="sw-inv"><h3 class="sw-inv-t">✨ צרו הדמיה לנכס הזה</h3><p class="sw-inv-s">' + esc(line) + '</p>' +
+      '<button type="button" class="sw-gold sw-inv-b" data-studio="invite">✨ צרו הדמיה</button></div>';
+  }
+  var baHintGone = false;   // "גררו להשוואה" עד הגרירה הראשונה בביקור
+  function baHtml(v, withAfter) {
+    return '<div class="sw-ba' + (baHintGone ? ' is-touched' : '') + '" style="--pos:50%">' +
+      (withAfter ? '<img class="sw-ba-after" draggable="false" data-fb="sw-ba-after" ' + imgSrc(v.after, 800) + ' alt="אחרי - הדמיית AI">' : '') +
+      '<img class="sw-ba-before" draggable="false" data-fb="sw-ba-before" ' + imgSrc(v.before, 800) + ' alt="לפני - הצילום האמיתי">' +
+      '<span class="sw-ba-line" aria-hidden="true"></span><span class="sw-ba-knob" aria-hidden="true">‹ ›</span>' +
+      '<span class="sw-ba-lbl is-before" aria-hidden="true">לפני</span><span class="sw-ba-lbl is-after" aria-hidden="true">אחרי · ✨ הדמיית AI</span>' +
+      '<span class="sw-ba-hint" aria-hidden="true">גררו להשוואה</span>' +
+      '<div class="sw-ba-strip" role="slider" tabindex="0" aria-label="ידית השוואה: גררו להשוואה בין לפני לאחרי" aria-valuemin="3" aria-valuemax="97" aria-valuenow="50"></div></div>';
+  }
+  /* רק רצועה של 56px סביב הקו היא הידית: שם הגרירה לא מגיעה לכרטיס. מחוץ לה - החלקה רגילה */
+  function bindBa(el) {
+    if (!el) return;
+    var strip = el.querySelector('.sw-ba-strip'), on = false;
+    function set(pos) {
+      pos = Math.max(3, Math.min(97, pos));
+      el.style.setProperty('--pos', pos + '%');
+      strip.setAttribute('aria-valuenow', String(Math.round(pos)));
+    }
+    function touched() { baHintGone = true; el.classList.add('is-touched'); }
+    function fromX(x) { var r = el.getBoundingClientRect(); if (r.width) set((x - r.left) / r.width * 100); }
+    strip.addEventListener('pointerdown', function (e) {
+      e.stopPropagation(); e.preventDefault();
+      on = true; el.classList.add('is-dragging'); touched();
+      try { strip.setPointerCapture(e.pointerId); } catch (er) {}
+      fromX(e.clientX);
+    });
+    strip.addEventListener('pointermove', function (e) { if (!on) return; e.stopPropagation(); fromX(e.clientX); });
+    ['pointerup', 'pointercancel'].forEach(function (t) {
+      strip.addEventListener(t, function (e) { if (!on) return; e.stopPropagation(); on = false; el.classList.remove('is-dragging'); });
+    });
+    strip.addEventListener('click', function (e) { e.stopPropagation(); });
+    strip.addEventListener('keydown', function (e) {
+      var k = e.key, v = Number(strip.getAttribute('aria-valuenow')) || 50;
+      var d = k === 'ArrowLeft' ? -5 : k === 'ArrowRight' ? 5 : k === 'Home' ? -100 : k === 'End' ? 100 : 0;
+      if (!d && k !== ' ') return;
+      e.preventDefault(); e.stopPropagation();
+      if (d) { set(v + d); touched(); }
+    });
+    el._set = set;
+  }
+  /* פעם במכשיר: הידית זזה 50% → 70% וחוזרת, כשהשקופית גלויה ואין גיליון מעליה */
+  function baIntro() {
+    if (store('sk_viz_ba_intro') || reduceMotion) return;
+    setTimeout(function () {
+      var c = cur(), top = $('swTopCard'), el = top && top.querySelector('.sw-card.is-ba .sw-ba');
+      if (!el || !el._set || openStack.length || bsKind || store('sk_viz_ba_intro')) return;
+      store('sk_viz_ba_intro', '1');
+      var legs = [[50, 70], [70, 50]], t0 = 0, leg = 0, D = 850;
+      var ease = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+      function frame(ts) {
+        if (!t0) t0 = ts;
+        var k = Math.min(1, (ts - t0) / D), a = legs[leg];
+        if (el.classList.contains('is-dragging') || cur() !== c) return;
+        el._set(a[0] + (a[1] - a[0]) * ease(k));
+        if (k < 1) requestAnimationFrame(frame);
+        else if (++leg < legs.length) { t0 = 0; requestAnimationFrame(frame); }
+      }
+      requestAnimationFrame(frame);
+    }, 450);
+  }
+  function vizSlideSeen(c, sp) {
+    c.vizSeen = c.vizSeen || {};
+    if (!c.vizSeen[sp]) { c.vizSeen[sp] = true; shukTrack('viz_slide_view', { property_id: c.p.id, kind: sp }); }
+    if (sp !== 'ba') return;
+    if (!store('sk_viz_intro_sheet')) {
+      store('sk_viz_intro_sheet', '1');
+      bsOpen('viz', { onStudio: function () { openSheetFor(c, { tab: 'viz', from: 'nudge' }); } });
+    } else baIntro();
   }
   function readTime(a) { var w = String((a.subtitle || '') + ' ' + (a.title || '')).split(/\s+/).length; return Math.max(2, Math.round(w / 6)) + ' דק׳ קריאה'; }
 
@@ -680,8 +848,11 @@
     var top = $('swTopCard');
     top.querySelectorAll('.sw-card').forEach(function (el) { el.setAttribute('tabindex', '0'); });
     bindGestures(top);
+    var tc = top.querySelector('.sw-card.is-ba,.sw-card.is-invite');
+    if (tc) { bindBa(tc.querySelector('.sw-ba')); vizSlideSeen(c, tc.classList.contains('is-ba') ? 'ba' : 'invite'); }
     syncActions();
     onCardView(c);
+    vizPrime();
     if (tourPending && view === 'deck' && !openStack.length) maybeTour();
   }
   var impTimer = 0;
@@ -750,27 +921,36 @@
     var ph = slides(c.p);
     if (ph.length < 2) return;
     c.photo = ((c.photo || 0) + step + ph.length) % ph.length;
-    showSlide(top, c, ph[c.photo]);
-    top.querySelectorAll('.sw-bars span').forEach(function (s, i) { s.classList.toggle('on', i === c.photo); });
-    var cnt = top.querySelector('.sw-count');
-    if (cnt) cnt.textContent = (c.photo + 1) + '/' + ph.length;
-    var tag = top.querySelector('.sw-vtag');
-    if (tag) tag.outerHTML = vizTagHtml(c.p, c.photo);
+    syncSlide(top, c);
   }
-  function showSlide(top, c, url) {
+  /* השקופית הנוכחית: התמונה, השכבה (לפני/אחרי או הזמנה), הפסים, המונה, הגלולה והכפתור שבתחתית.
+     נקרא גם כשהזוג או הזכאות מגיעים אחרי שהכרטיס כבר על המסך */
+  function syncSlide(top, c) {
+    var card = top && top.querySelector('.sw-card');
+    if (!card || !c || !c.p) return;
+    var ph = slides(c.p);
+    if ((c.photo || 0) >= ph.length) c.photo = 0;
+    var at = c.photo || 0, s = ph[at], sp = slideKind(s);
     var img = top.querySelector('.sw-cimg');
-    if (img && img.tagName === 'IMG') { img.setAttribute('data-orig', url); img.src = sized(url, 800); }
-  }
-  /* לחיצה ארוכה על שקופית "אחרי": מציגה את ה"לפני" כל עוד האצבע על המסך */
-  function holdBefore(top, on) {
-    var c = cur();
-    if (!c || !c.p || !isAfter(c.p, c.photo || 0)) return false;
-    var v = vizOf(c.p)[(c.photo || 0) - photos(c.p).length];
-    if (!v || !v.before) return false;
-    showSlide(top, c, on ? v.before : v.after);
-    var tag = top.querySelector('.sw-vtag');
-    if (tag) tag.textContent = on ? 'לפני' : '✨ הדמיה · אחרי';
-    return true;
+    if (img && img.tagName === 'IMG' && s) {
+      var u = slideBase(c.p, s);
+      if (img.getAttribute('data-orig') !== u) { img.setAttribute('data-orig', u); img.src = sized(u, 800); }
+    }
+    var was = card.classList.contains('is-ba') ? 'ba' : card.classList.contains('is-invite') ? 'invite' : '';
+    card.classList.toggle('is-ba', sp === 'ba');
+    card.classList.toggle('is-invite', sp === 'invite');
+    var layer = top.querySelector('.sw-vlayer');
+    if (layer && was !== sp) { layer.innerHTML = layerHtml(c.p, sp); bindBa(layer.querySelector('.sw-ba')); }
+    var bars = top.querySelector('.sw-bars');
+    if (bars) bars.innerHTML = barsHtml(ph, at);
+    var cnt = top.querySelector('.sw-count');
+    if (cnt) { cnt.textContent = (at + 1) + '/' + ph.length; cnt.hidden = ph.length < 2; }
+    var pill = top.querySelector('.sw-vpill');
+    if (pill) pill.hidden = !(vizPair.get(c.p.id) && !sp);
+    var up = top.querySelector('.sw-up'), vc = top.querySelector('.sw-vcta');
+    if (up) up.hidden = sp === 'ba';
+    if (vc) vc.hidden = sp !== 'ba';
+    if (sp && was !== sp) vizSlideSeen(c, sp);
   }
 
   /* מחוות: גרירה לצדדים (אהבתי/דילוג), למעלה (פרטים), והקשה על צידי התמונה (תמונה) */
@@ -779,7 +959,7 @@
     if (!card) return;
     // במחשב: בלי גרירה מקורית של תמונה (אחרת הכרטיס לא זז והחותמת נשארת ב-0)
     top.addEventListener('dragstart', function (e) { e.preventDefault(); });
-    var sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false, holdT = 0, held = false;
+    var sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false;
     var stampLike = card.querySelector('.sw-stamp.is-like'), stampSkip = card.querySelector('.sw-stamp.is-skip');
     // החותמת מתמלאת עם הגרירה (‏dx/100), ובמאה פיקסלים ההחלטה נופלת
     function stamps(v) {
@@ -788,27 +968,22 @@
     }
     card.addEventListener('pointerdown', function (e) {
       if (e.target.closest('button,a,input,label,form,textarea')) return;
-      drag = true; moved = false; held = false; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+      drag = true; moved = false; sx = e.clientX; sy = e.clientY; dx = dy = 0;
       card.setPointerCapture(e.pointerId);
       card.style.transition = 'none';
-      clearTimeout(holdT);
-      holdT = setTimeout(function () { if (drag && !moved) held = holdBefore(top, true); }, 380);
     });
     card.addEventListener('pointermove', function (e) {
       if (!drag) return;
       dx = e.clientX - sx; dy = e.clientY - sy;
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) { moved = true; clearTimeout(holdT); }
-      if (held) return;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
       card.style.transform = 'translate(' + dx + 'px,' + Math.min(0, dy) + 'px) rotate(' + (dx / 22) + 'deg)';
       stamps(dx);
     });
     function end() {
       if (!drag) return;
       drag = false;
-      clearTimeout(holdT);
       card.style.transition = '';
       stamps(0);
-      if (held) { held = false; holdBefore(top, false); card.style.transform = ''; return; }
       var c = cur();
       if (c && c.slot !== 'end' && dx > 100) { decide('like'); return; }
       if (c && c.slot !== 'end' && dx < -100) { decide('skip'); return; }
@@ -825,6 +1000,13 @@
     card.addEventListener('click', function (e) {
       var c = cur();
       if (e.target.closest('[data-up]')) { openSheetFor(c); return; }
+      // ‏✨ איך זה יכול להיראות? - ישר לשקופית לפני/אחרי (האחרונה)
+      if (e.target.closest('[data-vpill]')) {
+        shukTrack('viz_pill_click', { property_id: c.p.id });
+        c.photo = slides(c.p).length - 1; syncSlide(top, c); return;
+      }
+      var st_ = e.target.closest('[data-studio]');
+      if (st_) { openSheetFor(c, { tab: 'viz', from: st_.dataset.studio }); return; }
       if (e.target.closest('[data-spon-cta]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); openSheetFor(c); return; }
       if (e.target.closest('[data-spon-link]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); return; }
       if (e.target.closest('[data-article]')) { shukTrack('article_card_open', { article_id: String(c.article.id) }); return; }
@@ -934,18 +1116,295 @@
     var label = c.p ? ctaLabel(adv) : (c.sponsor.kind === 'agency' ? 'יצירת קשר עם המשרד' : 'יצירת קשר עם המפרסם');
     sheetCard.label = label;
     measureActions();
-    $('swSheetBody').innerHTML = bannerHtml(adv, label) + formHtml(c, opts.msg) + (c.p ? propInfoHtml(c.p) : '');
+    var studio = studioOk(c);
+    $('swSheetBody').innerHTML = (studio ? '<div class="sw-tabs" role="tablist" aria-label="פרטי הנכס והדמיה">' +
+        '<button type="button" role="tab" id="swTabBtnInfo" data-tab="info" aria-controls="swTabInfo" aria-selected="true">פרטים</button>' +
+        '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
+      '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg) + (c.p ? propInfoHtml(c.p) : '') + '</div>' +
+      (studio ? '<div id="swTabViz" class="sw-studio" role="tabpanel" aria-labelledby="swTabBtnViz" hidden></div>' : '');
     $('swCtaBar').hidden = false;
+    st = null;
     syncCta();
     if (opts.form) toggleForm(true);
     openDialog($('swSheet'));
+    if (studio && opts.tab === 'viz') setTab('viz', opts.from);
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
     shukTrack('swipe_up_open', { slot: c.slot, position: c.pos });
     if (c.p && c.p.lat && c.p.lng) setTimeout(function () { miniMap(c.p); }, 60);
   }
+  /* ---------- 4א. הסטודיו: לשונית "✨ הדמיה" בגיליון (חלק 2 §4) ----------
+     נפתחת מהגלולה, מהכפתור שמתחת לשקופית ומההזמנה; כל דרך אחרת פותחת "פרטים".
+     התוצאות נשמרות על הנכס ומוצגות לכל מבקר/ת (כמו בדף הנכס) - ההערה אומרת זאת. */
+  var VIZ_STYLES = [['modern_clean', 'מודרני נקי'], ['mediterranean_white', 'ים-תיכוני לבן'], ['warm_scandi', 'סקנדינבי חמים'], ['modern_luxury', 'יוקרה מודרנית']];
+  var VIZ_ICON = { living_room: '🛋️', kitchen: '🍳', bedroom: '🛏️', exterior: '🏡', interior_main: '🏪' };
+  var VIZ_DAILY = 10, VIZ_URL = SUPABASE_URL + '/functions/v1/property-visualize';
+  var VIZ_FAIL = 'לא הצלחנו ליצור את ההדמיה כרגע. נסו שוב מאוחר יותר.';
+  var VIZ_LIMIT = 'הגעתם למכסה היומית של ההדמיות. נשמח לראותכם מחר ✨';
+  var st = null, vizToken = 0;
+  function studioOk(c) {
+    var p = c && c.p;
+    return !!(p && photos(p).length && !isLand(p) && (vizMap.has(p.id) || vizElig.get(p.id) === true));
+  }
+  function vizTargets(p) {
+    return isComm(p) ? ['interior_main', 'exterior'] : p.deal_type === 'rent' ? ['living_room', 'bedroom', 'exterior'] : ['living_room', 'kitchen', 'exterior'];
+  }
+  function vizRoom(p, t) {
+    if (t === 'exterior') return isComm(p) ? 'חזית העסק' : p.deal_type === 'rent' ? 'החצר' : 'החזית';
+    return { living_room: 'הסלון', kitchen: 'המטבח', bedroom: 'חדר השינה', interior_main: 'חלל העסק' }[t] || t;
+  }
+  /* זהה ל-bizKey ב-assets/property.js ול-businessKey ב-property-visualize */
+  function bizKey(x) {
+    var k = String(x == null ? '' : x).normalize('NFKC').toLowerCase().replace(/["'`\u05F3\u05F4.,!?()\-\u2013\u2014]/g, ' ').replace(/\s+/g, ' ').trim();
+    return k ? 'biz:' + k : '_';
+  }
+  function vizKeyOf(p, v) { return isComm(p) ? bizKey(v.biz) : (v.style || '_'); }
+  function vizFind(p, target, key) {
+    var hit = null;
+    (vizMap.get(p.id) || []).forEach(function (v) {
+      if (v.target === target && vizKeyOf(p, v) === key && (!hit || v.at > hit.at)) hit = v;
+    });
+    return hit;
+  }
+  function vizDay() {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+  function vizUsed() { return Number(store('sk_viz_gen_' + vizDay())) || 0; }
+  function vizLeft() { return Math.max(0, VIZ_DAILY - vizUsed()); }
+  function deviceId() {
+    var id = store('sk_device_id');
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      store('sk_device_id', id);
+    }
+    return id;
+  }
+  function setTab(t, from) {
+    var info = $('swTabInfo'), viz = $('swTabViz');
+    if (!viz) return;
+    info.hidden = t !== 'info'; viz.hidden = t !== 'viz';
+    ['Info', 'Viz'].forEach(function (k) {
+      var b = $('swTabBtn' + k), on = k.toLowerCase() === t;
+      b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
+    });
+    $('swCtaBar').hidden = t === 'viz';
+    if (t === 'viz') {
+      if (!st) studioInit(sheetCard.p);
+      renderStudio();
+      shukTrack('viz_studio_open', { property_id: sheetCard.p.id, from: from || 'tab' });
+    }
+    $('swSheetBody').scrollTop = 0;
+  }
+  function studioInit(p) {
+    var first = vizPair.get(p.id) || (vizMap.get(p.id) || [])[0] || null;
+    st = { p: p, comm: isComm(p), target: first ? first.target : vizTargets(p)[0], key: '', bizLabel: '', other: false,
+      busy: false, t0: 0, pending: null, total: 0, msg: '', limit: false, saved: false };
+    if (vizTargets(p).indexOf(st.target) < 0) st.target = vizTargets(p)[0];
+    if (first) { st.key = vizKeyOf(p, first); st.bizLabel = first.biz || ''; }
+    else if (!st.comm) st.key = VIZ_STYLES[0][0];
+    if (st.comm && !st.key) st.other = true;
+  }
+  function bizChips(p) {
+    var seen = {}, out = [];
+    (vizMap.get(p.id) || []).slice().sort(function (a, b) { return a.at < b.at ? 1 : -1; }).forEach(function (v) {
+      var k = bizKey(v.biz);
+      if (k === '_' || seen[k] || out.length >= 6) return;
+      seen[k] = 1; out.push([k, v.biz.trim()]);
+    });
+    return out;
+  }
+  function studioStage() {
+    var p = st.p, r = vizFind(p, st.target, st.key), src = (r && r.before) || photos(p)[0];
+    if (st.busy) {
+      var sec = (Date.now() - st.t0) / 1000;
+      var step = sec < 12 ? 'מזהים את החדר בתמונה…' : sec < 45 ? 'מעצבים: ' + studioStyleLabel() + '…' : 'מלטשים פרטים אחרונים…';
+      var pct = st.total ? Math.min(92, Math.round(((st.total - (st.pending || []).length) / st.total) * 80 + Math.min(12, sec / 10))) : Math.min(92, Math.round(sec / 1.8));
+      return '<div class="sw-st-busy"><img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="" aria-hidden="true"><span class="sw-st-shim" aria-hidden="true"></span>' +
+        '<div class="sw-st-prog" role="status" aria-live="polite"><p>' + esc(step) + '</p>' +
+        (st.total > 1 ? '<p class="sw-st-k">מוכנות ' + (st.total - (st.pending || []).length) + ' מתוך ' + st.total + '</p>' : '') +
+        '<span class="sw-st-bar"><i style="width:' + pct + '%"></i></span><b>' + pct + '%</b></div></div>';
+    }
+    if (r && r.before) return baHtml({ before: r.before, after: r.after }, true);
+    if (r) return '<img data-fb="sw-st-src" class="sw-st-src is-only" ' + imgSrc(r.after, 800) + ' alt="' + esc('הדמיית AI - ' + vizRoom(p, st.target)) + '">';
+    var over = '';
+    if (st.msg) over = '<div class="sw-st-err" role="alert"><p>' + esc(st.msg) + '</p>' + (st.limit ? '' : '<button type="button" class="sw-white" data-gen-retry>נסו שוב</button>') + '</div>';
+    else if (!VIZ_SWIPE_GENERATE) over = '<a class="sw-st-link" href="/property?id=' + encodeURIComponent(p.id) + '#viz">ליצירת הדמיה בסגנון הזה - בדף הנכס ←</a>';
+    else if (!st.comm) over = '<button type="button" class="sw-gold sw-st-gen" data-gen' + (vizLeft() ? '' : ' disabled') + '>' + (vizLeft() ? '✨ צור הדמיה' : 'הגעתם למכסה היומית') + '</button>';
+    return '<div class="sw-st-empty"><img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="' + esc(title(p)) + '">' + (over ? '<div class="sw-st-over">' + over + '</div>' : '') + '</div>';
+  }
+  function studioStyleLabel() {
+    if (st.comm) return st.bizLabel || 'העסק';
+    var s_ = VIZ_STYLES.filter(function (x) { return x[0] === st.key; })[0];
+    return s_ ? s_[1] : '';
+  }
+  function renderStudio() {
+    var box = $('swTabViz');
+    if (!box || !st) return;
+    var p = st.p, r = vizFind(p, st.target, st.key);
+    var kind = st.comm ? 'הדמיית עסק' : p.deal_type === 'rent' ? 'הדמיית הום סטיילינג' : 'הדמיית שיפוץ';
+    var head = [kind, vizRoom(p, st.target), studioStyleLabel()].filter(Boolean).join(' · ');
+    var rooms_ = vizTargets(p).map(function (t) {
+      var has = (vizMap.get(p.id) || []).some(function (v) { return v.target === t; });
+      return '<button type="button" class="sw-st-chip" data-room="' + t + '" aria-pressed="' + (t === st.target) + '"' + (st.busy ? ' disabled' : '') + '>' +
+        '<span aria-hidden="true">' + (VIZ_ICON[t] || '') + '</span> ' + esc(vizRoom(p, t)) + (has ? '<i class="sw-st-dot" aria-label="יש הדמיה"></i>' : '') + '</button>';
+    }).join('');
+    var styles_;
+    if (!st.comm) {
+      styles_ = '<div class="sw-st-styles">' + VIZ_STYLES.map(function (x) {
+        var v = vizFind(p, st.target, x[0]);
+        return '<button type="button" class="sw-st-style" data-style="' + x[0] + '" aria-pressed="' + (x[0] === st.key) + '"' + (st.busy ? ' disabled' : '') + '>' +
+          (v ? '<img ' + imgSrc(v.after, 240) + ' alt="" loading="lazy" data-fb="sw-st-th">' : '<span class="sw-st-th" aria-hidden="true">✨</span>') +
+          '<span>' + esc(x[1]) + (v ? ' <b aria-label="יש הדמיה">✦</b>' : '') + '</span></button>';
+      }).join('') + '</div>';
+    } else {
+      var chips = bizChips(p);
+      styles_ = '<div class="sw-st-row">' + chips.map(function (b) {
+        return '<button type="button" class="sw-st-chip" data-biz="' + esc(b[0]) + '" data-biz-label="' + esc(b[1]) + '" aria-pressed="' + (!st.other && b[0] === st.key) + '"' + (st.busy ? ' disabled' : '') + '>' + esc(b[1].length > 40 ? b[1].slice(0, 39) + '…' : b[1]) + ' <b aria-hidden="true">✦</b></button>';
+      }).join('') + '<button type="button" class="sw-st-chip" data-biz-other aria-pressed="' + st.other + '"' + (st.busy ? ' disabled' : '') + '>עסק אחר…</button></div>' +
+        (st.other ? '<label class="sw-field"><span>איזה עסק?</span><input id="swStBiz" maxlength="80" placeholder="למשל: בית קפה, קליניקה, חנות בגדים" value="' + esc(st.bizLabel) + '"></label>' : '');
+    }
+    var contact = st.comm && VIZ_SWIPE_GENERATE && !r ? '<form class="sw-st-form" id="swStForm" novalidate>' +
+      '<label class="sw-field"><span>שם</span><input id="swStName" autocomplete="name" required></label>' +
+      '<label class="sw-field"><span>טלפון</span><input id="swStPhone" type="tel" inputmode="tel" autocomplete="tel" required></label>' +
+      '<label class="sw-consent"><input type="checkbox" id="swStConsent"> <span>מאשרים פנייה חוזרת מהמשרד המפרסם בנוגע להדמיה, בהתאם ל<a href="/terms" target="_blank">תנאי השימוש</a> ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a>.</span></label>' +
+      '<p class="sw-ferr" id="swStErr" role="alert"></p>' +
+      '<button type="submit" class="sw-gold sw-wide"' + (st.busy || !vizLeft() ? ' disabled' : '') + '>צור הדמיה ושליחת פרטים</button></form>' : '';
+    var quota = VIZ_SWIPE_GENERATE && !r ? (vizLeft() ? '<p class="sw-st-q">נותרו ' + vizLeft() + ' מתוך ' + VIZ_DAILY + ' הדמיות היום</p>'
+      : '<p class="sw-st-q is-soft">' + esc(VIZ_LIMIT) + '</p>') : '';
+    box.innerHTML = '<p class="sw-st-head"><b>' + esc(head) + '</b>' + (r ? ' <span class="sw-st-real">הדמיה אמיתית</span>' : '') + '</p>' +
+      '<div class="sw-st-stage">' + studioStage() + '</div>' + (st.busy ? '' : quota) +
+      (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר ברשימה שלי' : '♡ שמירה לרשימה שלי') + '</button>' : '') +
+      '<h3 class="sw-sub-h"><span class="sw-st-n">1</span> ' + (st.comm ? 'איזה חלל?' : 'איזה חדר?') + '</h3><div class="sw-st-row">' + rooms_ + '</div>' +
+      '<h3 class="sw-sub-h"><span class="sw-st-n">2</span> ' + (st.comm ? 'איזה עסק תפתחו כאן?' : 'איזה סגנון?') + '</h3>' + styles_ + contact +
+      '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והמשרד המפרסם יחזור אליכם.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
+    bindBa(box.querySelector('.sw-ba'));
+  }
+  function vizGenerate(contact) {
+    if (!VIZ_SWIPE_GENERATE || !st || st.busy) return;
+    if (!vizLeft()) { st.msg = VIZ_LIMIT; st.limit = true; renderStudio(); return; }
+    var p = st.p, body = { property_id: p.id };
+    if (st.comm) { body.business_type = st.bizLabel; body.name = contact.name; body.phone = contact.phone; body.source = 'swipe'; }
+    else body.style = st.key;
+    var token = ++vizToken, key = st.key, target = st.target, space = target;
+    var styleP = st.comm ? ('biz:' + bizKey(st.bizLabel).slice(4)).slice(0, 40) : key;
+    st.busy = true; st.msg = ''; st.limit = false; st.t0 = Date.now(); st.pending = null; st.total = 0;
+    renderStudio();
+    var stage = $('swTabViz').querySelector('.sw-st-stage');
+    if (stage) stage.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    var tick = setInterval(function () { if (token !== vizToken || !st || !st.busy) clearInterval(tick); else renderStudioStage(); }, 1500);
+    function done(result, msg) {
+      clearInterval(tick);
+      shukTrack('viz_generate', { property_id: p.id, space: space, style: styleP, result: result, source: 'swipe' });
+      if (token !== vizToken || !st) return;
+      st.busy = false;
+      if (msg) { st.msg = msg; st.limit = result === 'visitor_rate_limited' || result === 'rate_limited'; }
+      renderStudio();
+    }
+    function merge(rows) {
+      var list = vizMap.get(p.id) || [];
+      (rows || []).forEach(function (r) {
+        if (!r || !r.result_url) return;
+        list.push({ target: r.target || '', style: st.comm ? '' : key, biz: st.comm ? st.bizLabel : '', after: r.result_url, before: r.source_image_url || '', base: false, at: new Date().toISOString() });
+      });
+      vizMap.set(p.id, list);
+    }
+    fetch(VIZ_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'x-sk-device': deviceId() }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(null, function () { return {}; }).then(function (d) { return { ok: r.ok, d: d || {} }; }); })
+      .then(function (x) {
+        var d = x.d;
+        if (!x.ok || d.error) {
+          var code = d.error || 'error';
+          var res = { visitor_rate_limited: 'visitor_rate_limited', rate_limited: 'rate_limited', busy: 'busy', not_available: 'not_available', land_not_supported: 'land' }[code] || 'error';
+          done(res, d.message || (res === 'visitor_rate_limited' ? VIZ_LIMIT : VIZ_FAIL));
+          return;
+        }
+        merge(d.ready);
+        if (!d.job_id) { done('cached'); return; }
+        store('sk_viz_gen_' + vizDay(), String(vizUsed() + 1));   // רק בקשה שיצרה עבודה נספרת
+        st.pending = (d.pending_targets || []).slice(); st.total = st.pending.length;
+        var deadline = Date.now() + 180000;
+        (function poll() {
+          setTimeout(function () {
+            if (token !== vizToken) { clearInterval(tick); return; }   // הגיליון נסגר: העבודה ממשיכה בשרת
+            sb.rpc('visualization_job_status', { p_job_id: d.job_id }).then(function (rs) {
+              var rows = (rs && rs.data) || [];
+              merge(rows.filter(function (r) { return r.item_status === 'done' && !vizFind(p, r.target, key); }));
+              st.pending = st.pending.filter(function (t) { return !rows.some(function (r) { return r.target === t && r.item_status !== 'pending' && r.item_status !== 'processing'; }); });
+              var js = rows[0] && rows[0].job_status;
+              if (js === 'done') { if (vizFind(p, target, key)) done('done'); else done('error', VIZ_FAIL); }
+              else if (js === 'failed') done('error', VIZ_FAIL);
+              else if (Date.now() > deadline) done('timeout', VIZ_FAIL);
+              else poll();
+            }, function () { if (Date.now() > deadline) done('timeout', VIZ_FAIL); else poll(); });
+          }, 4000);
+        })();
+      }, function () { done('error', VIZ_FAIL); });
+  }
+  function renderStudioStage() {
+    var el = $('swTabViz') && $('swTabViz').querySelector('.sw-st-stage');
+    if (el && st) el.innerHTML = studioStage();
+  }
+  function studioSave() {
+    var p = st.p, r = vizFind(p, st.target, st.key);
+    if (!r) return;
+    if (likes.indexOf(p.id) < 0) { likes.push(p.id); saveLikes(); syncActions(); }
+    var map = {};
+    try { map = JSON.parse(store('sk_swipe_likes_viz') || '{}') || {}; } catch (e) { map = {}; }
+    map[p.id] = { style: st.comm ? bizKey(st.bizLabel) : st.key, result_url: r.after };
+    store('sk_swipe_likes_viz', JSON.stringify(map));
+    st.saved = true;
+    shukTrack('viz_save', { property_id: p.id, style: st.comm ? ('biz:' + bizKey(st.bizLabel).slice(4)).slice(0, 40) : st.key });
+    renderStudio();
+    toast('נשמר ברשימה שלי, יחד עם ההדמיה');
+  }
+  function likedViz(id) {
+    try { var m = JSON.parse(store('sk_swipe_likes_viz') || '{}') || {}; return m[id] && m[id].result_url; } catch (e) { return ''; }
+  }
+  var toastT = 0;
+  function toast(msg) {
+    var t = $('swToast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 3200);
+  }
+  $('swSheetBody').addEventListener('click', function (e) {
+    var tb = e.target.closest('[data-tab]');
+    if (tb) { setTab(tb.dataset.tab, 'tab'); return; }
+    if (!st || !e.target.closest('#swTabViz')) return;
+    var b;
+    if ((b = e.target.closest('[data-room]'))) { st.target = b.dataset.room; st.msg = ''; st.saved = false; renderStudio(); return; }
+    if ((b = e.target.closest('[data-style]'))) { st.key = b.dataset.style; st.msg = ''; st.saved = false; renderStudio(); return; }
+    if ((b = e.target.closest('[data-biz]'))) { st.key = b.dataset.biz; st.bizLabel = b.dataset.bizLabel; st.other = false; st.msg = ''; st.saved = false; renderStudio(); return; }
+    if (e.target.closest('[data-biz-other]')) { st.other = true; st.key = bizKey(st.bizLabel); renderStudio(); var bi = $('swStBiz'); if (bi) bi.focus(); return; }
+    if (e.target.closest('[data-gen]') || e.target.closest('[data-gen-retry]')) {
+      st.msg = '';
+      if (st.comm) { renderStudio(); var n_ = $('swStName'); if (n_) n_.focus(); return; }
+      vizGenerate(); return;
+    }
+    if (e.target.closest('[data-viz-save]')) studioSave();
+  });
+  $('swSheetBody').addEventListener('keydown', function (e) {
+    if (e.target.getAttribute('role') !== 'tab' || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    var next = e.target.dataset.tab === 'info' ? 'viz' : 'info';
+    setTab(next, 'tab'); $(next === 'viz' ? 'swTabBtnViz' : 'swTabBtnInfo').focus();
+  });
+  $('swSheetBody').addEventListener('input', function (e) {
+    if (e.target.id === 'swStBiz' && st) { st.bizLabel = e.target.value; st.key = bizKey(e.target.value); }
+  });
+  $('swSheetBody').addEventListener('submit', function (e) {
+    if (e.target.id !== 'swStForm') return;
+    e.preventDefault();
+    var name = $('swStName').value.trim(), phone = $('swStPhone').value.trim(), err = $('swStErr');
+    var miss = !st.bizLabel.trim() ? 'יש לציין איזה עסק תפתחו בנכס' : name.length < 2 ? 'נא להזין שם' : phone.replace(/\D/g, '').length < 9 ? 'נא להזין מספר טלפון תקין'
+      : !$('swStConsent').checked ? 'צריך לסמן את האישור כדי לשלוח' : '';
+    if (miss) { err.textContent = miss; return; }
+    vizGenerate({ name: name, phone: phone });
+  });
+
   var ownBack = false;   // ‏history.back() שלנו - ה-popstate שלו לא סוגר גיליון שנפתח בינתיים
   function closeSheet(fromPop) {
     if ($('swSheet').hidden) return;
+    vizToken++;   // הפסקת ה-polling; העבודה עצמה ממשיכה בשרת
+    st = null;
     closeDialog($('swSheet'), sheetOpener);
     if (sheetPushed && !fromPop) { sheetPushed = false; ownBack = true; history.back(); }
     sheetPushed = false;
@@ -1190,6 +1649,7 @@
     openStack = openStack.filter(function (x) { return x !== wrap; });
     if (!openStack.length) document.body.classList.remove('sw-locked');
     if (how) shukTrack('swipe_nudge_dismiss', { kind: kind, how: how });
+    if (kind === 'viz') setTimeout(baIntro, 0);   // "הבנתי, בואו נשווה" (או סגירה) - ואז הידית זזה
     var back = bsOpener && document.contains(bsOpener) && bsOpener.offsetParent !== null ? bsOpener : (document.querySelector('#swTopCard .sw-card'));
     if (back && back.focus) back.focus({ preventScroll: true });
     setTimeout(bsDrain, 600);
@@ -1303,7 +1763,7 @@
     $('swLvList').innerHTML = list.map(function (p) {
       var ph = photos(p);
       return '<div class="sw-li sw-lv-row"><button type="button" class="sw-lv-open" data-like-open="' + esc(p.id) + '">' +
-        (ph.length ? '<img ' + imgSrc(ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></button>' +
         '<button type="button" class="sw-lv-heart" data-like-remove="' + esc(p.id) + '" aria-pressed="true" aria-label="' + esc('הסרה מהרשימה: ' + title(p)) + '">♥</button></div>';
     }).join('');
@@ -1425,7 +1885,7 @@
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
       return '<button type="button" class="sw-li" data-pos="' + c.pos + '">' +
-        (ph.length ? '<img ' + imgSrc(ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
         (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
@@ -1602,8 +2062,8 @@
       buildDeck();
       loadViz(rows).then(function () {
         renderFilter();
-        // הכרטיס שעל המסך מקבל את ההדמיות שלו בלי לאבד את התמונה שבה הוא עומד
-        if (!deciding && deck.length) renderDeck();
+        // הכרטיס שעל המסך מקבל את שקופית ההדמיה שלו כשהזוג נטען, בלי לצייר אותו מחדש
+        vizPrime();
       });
     });
   }

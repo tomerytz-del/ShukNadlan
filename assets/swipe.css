@@ -76,7 +76,7 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-by{font-size:12.5px;color:rgba(255,255,255,.7)}
 .sw-up{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:6px;padding:0 4px;border:0;background:none;color:#fff;
   font:inherit;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.sw-stamp{position:absolute;top:70px;z-index:3;padding:6px 16px;border-radius:12px;font-size:22px;font-weight:900;opacity:0;transition:opacity .1s}
+.sw-stamp{position:absolute;top:70px;z-index:3;pointer-events:none;padding:6px 16px;border-radius:12px;font-size:22px;font-weight:900;opacity:0;transition:opacity .1s}
 .sw-stamp.is-like{left:20px;border:3px solid #fff;background:#157a3c;transform:rotate(-12deg)}
 .sw-stamp.is-skip{right:20px;border:3px solid #fff;background:#b3261e;transform:rotate(12deg)}
 .sw-card.show-like .is-like,.sw-card.show-skip .is-skip{opacity:1}
@@ -397,8 +397,82 @@ body[data-view="likes"]{--a11y-bottom:calc(78px + var(--sw-safe-b))}
 html.beta-hero body.sw-body[data-view="likes"]:has(.a11y-fab) #gabW{--gw-bottom:calc(78px + var(--sw-safe-b))}
 
 /* ‏✨ הדמיה על הכרטיס, וזהב בשקופית "אחרי" */
-.sw-vtag{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(13,27,61,.6);color:#fff;white-space:nowrap}
-.sw-vtag.is-after{background:#c9a227;color:#0d1b3d;font-weight:800}
+/* ---------- הדמיות AI בהחלקה (סבב 4, חלק 2): בלי תג על תמונה אמיתית ---------- */
+.sw-vlayer{position:absolute;inset:0;pointer-events:none}
+.sw-vlayer>*{pointer-events:auto}
+.sw-vlayer:empty{display:none}
+.sw-bars span.is-viz{background:rgba(229,199,106,.55)}
+.sw-bars span.is-viz.on{background:#e5c76a}
+.sw-vpill{position:absolute;top:52px;left:14px;z-index:3;padding:8px 13px;border:0;border-radius:999px;background:#fff;color:#0d1b3d;
+  font:inherit;font-size:13.5px;font-weight:800;line-height:1.2;box-shadow:0 6px 20px rgba(0,0,0,.28);cursor:pointer;touch-action:manipulation}
+.sw-vcta{display:inline-flex;align-items:center;gap:6px;min-height:40px;margin-top:8px;padding:0 14px;border:1px solid rgba(229,199,106,.75);border-radius:999px;
+  background:#0e2a6b;color:#fff;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.sw-vcta b{color:#e5c76a;font-weight:800}
+/* לפני/אחרי: ה"אחרי" למטה (התמונה של הכרטיס), ה"לפני" מעליו וחתוך משמאל - "לפני" בימין (תחילת ה-RTL) */
+.sw-ba{position:absolute;inset:0;--pos:50%}
+.sw-ba-after,.sw-ba-before{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.sw-ba-before{clip-path:inset(0 0 0 var(--pos))}
+.sw-ba-line{position:absolute;top:0;bottom:0;left:var(--pos);z-index:2;width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.35);pointer-events:none}
+.sw-ba-knob{position:absolute;top:50%;left:var(--pos);z-index:2;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:#fff;color:#0d1b3d;
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;letter-spacing:2px;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none;direction:ltr}
+.sw-ba-lbl{position:absolute;top:52px;z-index:2;padding:4px 10px;border-radius:999px;background:rgba(13,27,61,.6);color:#fff;font-size:12px;font-weight:800;pointer-events:none;white-space:nowrap}
+.sw-ba-lbl.is-before{right:14px}.sw-ba-lbl.is-after{left:14px}
+.sw-ba-hint{position:absolute;top:calc(50% + 32px);left:var(--pos);z-index:2;transform:translateX(-50%);padding:4px 10px;border-radius:999px;background:rgba(13,27,61,.72);
+  color:#fff;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}
+.sw-ba.is-touched .sw-ba-hint{display:none}
+.sw-ba-strip{position:absolute;top:0;bottom:0;left:calc(var(--pos) - 28px);z-index:2;width:56px;touch-action:none;cursor:ew-resize}
+.sw-ba-strip:focus-visible{outline:3px solid #e5c76a;outline-offset:-3px;border-radius:12px}
+/* הזמנה: התמונה הראשונה מטושטשת, והתוכן ב-62% העליונים */
+.sw-card.is-invite .sw-cimg{filter:blur(10px) brightness(.6) saturate(1.1);transform:scale(1.1)}
+.sw-inv{position:absolute;top:0;left:0;right:0;height:62%;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:56px 22px 0;text-align:center}
+html body .sw-inv-t{margin:0;font-family:Heebo,system-ui,sans-serif;font-size:22px;font-weight:800;color:#fff;text-wrap:balance}
+.sw-inv-s{margin:0;font-size:14.5px;font-weight:600;color:rgba(255,255,255,.92)}
+.sw-inv-b{min-height:48px;margin-top:6px;padding:0 22px;border-radius:999px;background:#c9a227;color:#0d1b3d;font-size:16px;font-weight:800}
+@media (min-width:1024px){
+  .sw-vpill{top:56px;padding:10px 16px;font-size:15px}
+  .sw-vcta{font-size:14.5px}
+  .sw-ba-lbl{top:58px}
+  html body .sw-inv-t{font-size:26px}.sw-inv-s{font-size:16px}
+}
+/* לשוניות הגיליון: פרטים | ✨ הדמיה */
+.sw-tabs{position:sticky;top:-12px;z-index:3;display:flex;gap:4px;margin:-4px 0 12px;margin-inline-end:46px;padding:4px;border-radius:14px;background:var(--sw-cream,#f4f1e8)}
+.sw-tabs [role=tab]{flex:1;min-height:42px;border:0;border-radius:10px;background:transparent;color:var(--sw-title);font:inherit;font-size:15px;font-weight:800;cursor:pointer}
+.sw-tabs [role=tab][aria-selected=true]{background:#fff;color:var(--sw-navy);box-shadow:0 2px 8px rgba(13,27,61,.12)}
+/* הסטודיו */
+.sw-st-head{margin:0 0 10px;font-size:14px;color:var(--sw-title)}
+.sw-st-real{display:inline-block;margin-inline-start:6px;padding:2px 8px;border-radius:999px;background:#e7f4ec;color:#157a3c;font-size:12px;font-weight:800}
+.sw-st-stage{position:relative;scroll-margin-top:64px;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#0d1b3d;color:#fff}
+.sw-st-src{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sw-st-busy .sw-st-src{filter:blur(4px) brightness(.7)}
+.sw-st-shim{position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.18) 50%,transparent 70%);background-size:200% 100%;animation:swShim 1.6s linear infinite}
+@keyframes swShim{from{background-position:200% 0}to{background-position:-200% 0}}
+.sw-st-prog{position:absolute;inset:auto 16px 16px;display:flex;flex-direction:column;gap:6px;text-align:center}
+html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.45)}
+.sw-st-k{font-size:13px;opacity:.9}
+.sw-st-bar{display:block;height:6px;border-radius:3px;background:rgba(255,255,255,.25);overflow:hidden}
+.sw-st-bar i{display:block;height:100%;background:#e5c76a;transition:width .6s ease}
+.sw-st-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(13,27,61,.35)}
+.sw-st-gen{min-height:46px;padding:0 22px;border-radius:999px;background:#c9a227;color:#0d1b3d;font-weight:800}
+.sw-st-link{padding:10px 16px;border-radius:999px;background:#fff;color:var(--sw-navy);font-weight:800;text-decoration:none}
+.sw-st-err{max-width:320px;padding:14px;border-radius:14px;background:#fff;color:var(--sw-title);text-align:center}
+.sw-st-err p{margin:0 0 10px}
+.sw-st-q{margin:8px 0 0;font-size:13px;color:var(--sw-body)}
+.sw-st-save{margin-top:10px}
+.sw-st-n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-inline-end:4px;border-radius:50%;background:var(--sw-navy);color:#fff;font-size:12.5px}
+.sw-st-row{display:flex;flex-wrap:wrap;gap:8px}
+.sw-st-chip{position:relative;display:inline-flex;align-items:center;gap:4px;min-height:40px;padding:0 14px;border:1.5px solid var(--sw-line);border-radius:999px;background:#fff;
+  color:var(--sw-title);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.sw-st-chip[aria-pressed=true]{border-color:var(--sw-navy);background:rgba(14,42,107,.08);color:var(--sw-navy)}
+.sw-st-dot{width:8px;height:8px;border-radius:50%;background:#2e9e5b}
+.sw-st-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.sw-st-style{display:flex;flex-direction:column;gap:6px;padding:6px;border:1.5px solid var(--sw-line);border-radius:14px;background:#fff;color:var(--sw-title);font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-align:start}
+.sw-st-style[aria-pressed=true]{border-color:var(--sw-navy);box-shadow:0 0 0 2px rgba(14,42,107,.15)}
+.sw-st-style img,.sw-st-style .sw-st-th{width:100%;aspect-ratio:4/3;border-radius:10px;object-fit:cover;background:var(--sw-cream,#f4f1e8);display:flex;align-items:center;justify-content:center}
+.sw-st-style b{color:#c9a227}
+.sw-st-form{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.sw-st-note{margin:14px 0 4px;font-size:11.5px;color:var(--sw-body)}
+.sw-st-q.is-soft{color:var(--sw-body)}
+@media (prefers-reduced-motion:reduce){.sw-st-shim{animation:none}}
 .sw-stamp{transition:none}
 
 /* ---------- סבב 4: הגיליון התחתון (‏#swBs) ---------- */

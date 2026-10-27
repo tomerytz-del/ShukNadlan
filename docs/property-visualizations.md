@@ -370,6 +370,15 @@ POST { property_id, style?, business_type?, business_description?, name, phone }
   `rpc('visualization_job_status', { p_job_id })`.
 - בלם קצב: `visualization_ondemand_daily_cap` בקשות ל-24 שעות **פר נכס**
   (לא פר גולש/ת — אין לנו זהות אמינה בצד הזה).
+- **בלם לגולש/ת** (‏PR 1010, מחכה למיגרציה): עד 10 בקשות שמייצרות הדמיה ב-24
+  שעות לפי מכשיר **או** IP. הדפדפן שולח `x-sk-device` (‏`sk_device_id`), וה-IP
+  נשמר רק כ-`sha256(ip || VIZ_IP_SALT)` - בלי הסוד אין גיבוב ונספר רק המכשיר.
+  מעל המכסה: ‏`429 visitor_rate_limited`; בקשה שנייה כשעבודה של אותו מכשיר עוד
+  `processing` (פחות מ-3 דקות): ‏`429 busy`. קאש ובקשה שנכשלה אינם נספרים.
+  העמודות `device_id`/`client_ip_hash` נוספות ב-`docs/proposals/visualization_visitor_cap.sql`
+  שתומר מחיל; עד אז השאילתה נכשלת על עמודה חסרה והבלם פשוט לא פעיל.
+- `source: "swipe"` בגוף הבקשה (נכס מסחרי מ-`/swipe`): הליד נושא `source = 'swipe'`
+  ושורת "מקור: גלישה בהחלקה".
 - **עסק שכבר הודמה בנכס** (אותו סוג עסק מנורמל, מאותה תמונת מקור) אינו
   נוצר מחדש: התשובה היא `{ ok, job_id: null, ready, already_exists: true }`,
   והדף כותב מעל הכפתור "כבר בוצעה הדמיה ל"בית קפה" בנכס הזה" ומציג אותה —

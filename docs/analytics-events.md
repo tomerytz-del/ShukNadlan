@@ -413,3 +413,9 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_help_open` | **v10**: כפתור "?" ב-`/swipe` פתח את "איך מחליקים" | - |
 | `swipe_help_click` | **v10**: כפתור בגיליון העזרה | `cta`: ‏`tour` \| `gabriela` |
 | `contact_bot` (‏`entry`) | **ערך חדש, רק עם דגל v10**: "שליחת הרשימה לגבריאלה" ב-"אהבתי (N)" ובגיליון של הלייק השישי | `entry`: ‏`swipe_likes` |
+| `viz_pill_click` | **v10**: "✨ איך זה יכול להיראות?" על כרטיס ב-`/swipe` - קפיצה לשקופית לפני/אחרי | `property_id` |
+| `viz_slide_view` | **v10**: שקופית ההדמיה של כרטיס הוצגה, פעם אחת לכרטיס | `property_id`, `kind`: ‏`ba` (לפני/אחרי) \| `invite` (הזמנה ליצור) |
+| `viz_studio_open` | **v10**: נפתחה לשונית "✨ הדמיה" בגיליון | `property_id`, `from`: ‏`pill` \| `slide_cta` \| `invite` \| `nudge` \| `tab` |
+| `viz_save` | **v10**: "♡ שמירה לרשימה שלי" בסטודיו | `property_id`, `style` (מפתח סגנון, או `biz:<עסק>` עד 40 תווים) |
+| `viz_generate` | **v10, כבוי עד `VIZ_SWIPE_GENERATE`**: סוף בקשת הדמיה מהסטודיו, פעם אחת לבקשה. בלי שם ובלי טלפון | `property_id`, `space` (המטרה), `style`, `result`: ‏`done` \| `cached` \| `error` \| `timeout` \| `rate_limited` \| `visitor_rate_limited` \| `busy` \| `not_available` \| `land`, `source`: ‏`swipe` |
+| `viz_ba_fallback` | **v10**: אף זוג לפני/אחרי של הנכס לא נטען, ובמקומו שקופית הזמנה | `property_id`, `reason`: ‏`load_error` \| `timeout` \| `no_pair` |
