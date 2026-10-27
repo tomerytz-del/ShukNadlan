@@ -102,6 +102,7 @@ const FINDING_PARAMS: Record<string, string> = {
   stale_listings: "&filter=stale",
   video_opportunity: "&filter=no_video",
   idle_listings: "&focus=new",
+  unpublished_listings: "&filter=unpublished",
 };
 
 function itemUrl(it: Item): string {
