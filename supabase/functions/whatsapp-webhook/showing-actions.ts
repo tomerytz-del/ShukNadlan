@@ -8,6 +8,8 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { inWindow, phoneE164 } from "../_shared/meeting-client.ts";
 import { sendText } from "./whatsapp.ts";
 import {
+  CANCEL_SEARCH_LIMIT,
+  cancelSearchBounds,
   NON_FINAL_COORD,
   NOTIFY_COORD,
   notifiedRequestIds,
@@ -116,7 +118,8 @@ export async function loadShowings(
   agentId: string,
   fromIso: string,
   toIso: string | null,
-): Promise<{ ok: true; rows: RawShowing[] } | { ok: false; error: string }> {
+  limit = 40,
+): Promise<{ ok: true; rows: RawShowing[]; truncated: boolean } | { ok: false; error: string }> {
   // הסינון דרך המיניסייט עצמו, לא in(...) על כל המיניסייטים של הסוכן/ת.
   // רשימה ארוכה חורגת מאורך ה-URL של PostgREST והשאילתה נופלת בשקט.
   let q = supabase.from("client_showcase_meetings")
@@ -125,11 +128,15 @@ export async function loadShowings(
     .in("status", ["requested", "confirmed"])
     .gte("starts_at", fromIso)
     .order("starts_at", { ascending: true })
-    .limit(40);
+    .limit(limit);
   if (toIso) q = q.lt("starts_at", toIso);
   const { data: meetings, error } = await q;
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, rows: await rowsFromMeetings(supabase, (meetings || []) as MeetingRow[]) };
+  if (error) {
+    console.error("load showings failed", error.message);
+    return { ok: false, error: "לא הצלחתי לטעון את הסיורים. אפשר לנסות שוב." };
+  }
+  const rows = await rowsFromMeetings(supabase, (meetings || []) as MeetingRow[]);
+  return { ok: true, rows, truncated: rows.length >= limit };
 }
 
 async function propertyLines(supabase: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
@@ -244,19 +251,20 @@ export async function cancelShowingForAgent(
       };
     }
   } else {
+    const bounds = cancelSearchBounds(Date.now());
     const loaded = await loadShowings(
-      supabase, agentId, new Date(Date.now() - 6 * 3600_000).toISOString(), null,
+      supabase, agentId, bounds.fromIso, bounds.toIso, CANCEL_SEARCH_LIMIT,
     );
     if (!loaded.ok) return { ok: false, error: loaded.error, guidance: "נסי שוב." };
     const picked = pickShowings(loaded.rows, input.query || "", input.clock || null);
     if (!picked.length) {
       return {
         ok: false,
-        error: "אין סיור מיניסייט שמתאים.",
+        error: "אין סיור מיניסייט שמתאים בחלון: משש השעות האחרונות ועד שלושה שבועות קדימה.",
         guidance: "אם יש התראה אחרונה בהקשר - אמרי מה כתוב בה. אל תאמרי שאין פגישה בלי agenda_list.",
       };
     }
-    if (picked.length > 1 || !input.confirm) {
+    if (picked.length > 1 || !input.confirm || loaded.truncated) {
       const showings = await decorateShowings(supabase, picked);
       return {
         ok: true,
@@ -264,7 +272,9 @@ export async function cancelShowingForAgent(
         showings,
         guidance: picked.length > 1
           ? "יותר מסיור אחד. שאלי איזה (שם ושעה) ורק אז cancel_showing עם meeting_id ו-confirm."
-          : "נמצא סיור אחד. אמרי את השם והשעה ושאלי אישור. confirm רק אחרי שהסוכן/ת אישר/ה את הסיור הזה.",
+          : loaded.truncated
+            ? "החלון מלא ולא בטוח שזה הסיור היחיד. הציגי את מה שמצאת ושאלי אישור עם meeting_id."
+            : "נמצא סיור אחד. אמרי את השם והשעה ושאלי אישור. confirm רק אחרי שהסוכן/ת אישר/ה את הסיור הזה.",
       };
     }
     chosen = picked[0];
@@ -285,11 +295,19 @@ export async function cancelShowingForAgent(
 
   // לפני עדכון הסטטוס: הטריגר במסד מבטל את הבקשות הפתוחות ברגע שהסיור
   // עובר ל-canceled, ואז השאילתה הזו כבר לא רואה אותן.
-  const { data: openReqs } = await supabase.from("showing_coord_requests")
+  const { data: openReqs, error: reqErr } = await supabase.from("showing_coord_requests")
     .select("id, status, target_name, target_phone, property_id")
     .eq("meeting_id", chosen.meeting_id)
     .eq("agent_id", agentId)
     .in("status", [...NON_FINAL_COORD]);
+  if (reqErr) {
+    console.error("showing coord read failed", reqErr.message);
+    return {
+      ok: false,
+      error: "לא הצלחתי לקרוא את בקשות התיאום, והסיור לא בוטל. אפשר לנסות שוב.",
+      guidance: "אל תאמרי שאף אחד לא קיבל בקשה, ואל תאמרי שהסיור בוטל.",
+    };
+  }
   const reqs = openReqs || [];
 
   const { data: updated, error: meetErr } = await supabase.from("client_showcase_meetings")
@@ -297,7 +315,10 @@ export async function cancelShowingForAgent(
     .eq("id", chosen.meeting_id)
     .in("status", ["requested", "confirmed"])
     .select("id");
-  if (meetErr) return { ok: false, error: meetErr.message, guidance: "הביטול לא נשמר." };
+  if (meetErr) {
+    console.error("showing cancel failed", meetErr.message);
+    return { ok: false, error: "הביטול לא נשמר. אפשר לנסות שוב.", guidance: "הביטול לא נשמר." };
+  }
   if (!updated?.length) {
     return {
       ok: false,
@@ -306,12 +327,18 @@ export async function cancelShowingForAgent(
     };
   }
 
+  let agendaNote = "";
   if (chosen.agenda_item_id) {
-    await supabase.from("agent_agenda_items")
+    const agenda = await supabase.from("agent_agenda_items")
       .update({ status: "canceled" })
       .eq("id", chosen.agenda_item_id)
       .eq("agent_id", agentId)
-      .eq("status", "open");
+      .eq("status", "open")
+      .select("id");
+    if (agenda.error) {
+      console.error("agenda cancel failed", agenda.error.message);
+      agendaNote = " פריט היומן לא עודכן.";
+    }
   }
 
   const tellRows = reqs.filter((r) => (NOTIFY_COORD as readonly string[]).includes(String(r.status)));
@@ -321,14 +348,35 @@ export async function cancelShowingForAgent(
       .update({ status: "canceled", cancel_unnotified: true })
       .in("id", tellIds);
     if (flagged.error) {
-      await supabase.from("showing_coord_requests").update({ status: "canceled" }).in("id", tellIds);
+      console.error("showing coord flag failed", flagged.error.message);
+      const fallback = await supabase.from("showing_coord_requests")
+        .update({ status: "canceled" })
+        .in("id", tellIds)
+        .select("id");
+      if (fallback.error) {
+        console.error("showing coord fallback failed", fallback.error.message);
+        return {
+          ok: false,
+          error: "הסיור בוטל, אבל סגירת בקשות התיאום לא הושלמה. אפשר לנסות שוב.",
+          guidance: "אמרי שהסיור בוטל ושהבקשות לא נסגרו.",
+        };
+      }
     }
   }
-  await supabase.from("showing_coord_requests")
+  const closed = await supabase.from("showing_coord_requests")
     .update({ status: "canceled" })
     .eq("meeting_id", chosen.meeting_id)
     .eq("agent_id", agentId)
-    .in("status", [...NON_FINAL_COORD]);
+    .in("status", [...NON_FINAL_COORD])
+    .select("id");
+  if (closed.error) {
+    console.error("showing coord close failed", closed.error.message);
+    return {
+      ok: false,
+      error: "הסיור בוטל, אבל סגירת בקשות התיאום לא הושלמה. אפשר לנסות שוב.",
+      guidance: "אמרי שהסיור בוטל ושהבקשות לא נסגרו.",
+    };
+  }
 
   let notified: { name: string; sent: boolean }[] | undefined;
   if (input.notify_targets && tellRows.length) {
@@ -348,11 +396,11 @@ export async function cancelShowingForAgent(
     canceled: view,
     notified,
     offer_notify: !input.notify_targets && tellRows.length > 0,
-    guidance: input.notify_targets
+    guidance: (input.notify_targets
       ? "אמרי שבוטל, ולמי נשלחה הודעה ולמי לא."
       : tellRows.length
         ? `הסיור בוטל. בקשות התיאום נסגרו. ${names} כבר קיבלו בקשה - שאלי אם להודיע להם על הביטול, או שהכפתור ישאל.`
-        : "הסיור בוטל. אין מי שכבר קיבל בקשת תיאום.",
+        : "הסיור בוטל. אין מי שכבר קיבל בקשת תיאום.") + agendaNote,
   };
 }
 
