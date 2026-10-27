@@ -3135,7 +3135,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
     feedback.style.color = 'var(--teal)';
-    feedback.textContent = 'הפנייה נשלחה! המתווך יחזור אליכם בקרוב';
+    feedback.textContent = 'הפנייה נשלחה! יועץ הנדל״ן יחזור אליכם בקרוב';
     /* רק אחרי שהשרת אישר. ליד שנכשל בשליחה אינו ליד. */
     if (window.shukTrack) shukTrack('generate_lead', {
       form_id: inquirySource === 'photo_request' ? 'photo_request' : 'property_inquiry',

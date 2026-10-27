@@ -1581,7 +1581,7 @@ async function loadLeadingAgents(){
         return String(x.display_name || '').localeCompare(String(y.display_name || ''), 'he');
       });
   } catch(e){
-    console.warn('טעינת מתווכים מובילים נכשלה:', e);
+    console.warn('טעינת יועצי נדל״ן מובילים נכשלה:', e);
     return [];
   }
 }
@@ -1718,7 +1718,7 @@ function renderOpenHouseBanner(count){
       `<span class="oh-feature-copy">` +
         `<span class="oh-feature-kicker">יריד הבתים הפתוחים · אל תחמיצו!</span>` +
         `<h2 class="oh-feature-title">דירות ב${escapeHtml(label)} ${OpenHouse.NO_FEE}<br>- לזמן מוגבל!</h2>` +
-        `<span class="oh-feature-text">מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך. המבצע בתוקף לתקופה קצובה בלבד!</span>` +
+        `<span class="oh-feature-text">מגוון דירות אטרקטיביות ישירות מיועצי נדל״ן, ללא דמי תיווך. המבצע בתוקף לתקופה קצובה בלבד!</span>` +
         `<span class="oh-feature-cta">לצפייה בדירות ביריד ←</span>` +
       `</span>` +
       `<span class="oh-feature-img" aria-hidden="true"></span>` +
@@ -1872,7 +1872,7 @@ window.addEventListener('hashchange', ppApplyHash);
 const FALLBACK_ARTICLES = [
   {title:'מדריך: כמה הון עצמי באמת צריך לדירה ראשונה בעפולה', kicker:'מדריכים', excerpt:'הכללים של בנק ישראל, העלויות הנלוות שאף אחד לא מספר עליהן, ואיך מחשבים נכון.'},
   {title:'שכונת גבעת המורה - לאן הולכים המחירים ב-2026', kicker:'ניתוח שוק', excerpt:'שלוש שנים של עסקאות, פרויקטים בבנייה והשפעת הרכבת על הביקוש.'},
-  {title:'בלעדיות מול פרסום פתוח: מה באמת משתלם למוכרים', kicker:'בלוג המתווכים', excerpt:'מה אומרים הנתונים על זמן מכירה ועל הפער בין מחיר מבוקש למחיר בפועל.'},
+  {title:'בלעדיות מול פרסום פתוח: מה באמת משתלם למוכרים', kicker:'הבלוג של יועצי הנדל״ן', excerpt:'מה אומרים הנתונים על זמן מכירה ועל הפער בין מחיר מבוקש למחיר בפועל.'},
   {title:'חמישה דברים לבדוק לפני שחותמים על חוזה שכירות', kicker:'שוכרים', excerpt:'ערבויות, תיקונים, מדד וצמדות - הסעיפים ששווה לקרוא פעמיים.'},
 ];
 
@@ -1901,7 +1901,8 @@ async function loadArticles(){
     if (data && data.length){
       return data.map(a => ({
         title: a.title || 'כתבה',
-        kicker: a.category || 'מגזין שוק נדל״ן',
+        // הקטגוריה במסד "בלוג המתווכים" מוצגת כ"הבלוג של יועצי הנדל״ן"
+        kicker: (a.category === 'בלוג המתווכים' ? 'הבלוג של יועצי הנדל״ן' : a.category) || 'מגזין שוק נדל״ן',
         excerpt: a.subtitle || '',
         url: '/article?slug=' + encodeURIComponent(a.slug || a.id),
         image: a.cover_url || '',
@@ -2201,13 +2202,13 @@ const DM_TABS = {
             empty:'אין משרד עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   agents: {
-    placeholder:'שם מתווך/ת או משרד…',
+    placeholder:'שם יועץ נדל״ן או משרד…',
     href:'/agents',
-    seeAll: n => `צפייה בכל ${n} המתווכים ←`,
+    seeAll: n => `צפייה בכל ${n} יועצי הנדל״ן ←`,
     cta:'לפרופיל ולנכסים ←',
-    empty:'לא נמצא מתווך/ת שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
+    empty:'לא נמצאו יועצי נדל״ן שמתאימים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
-            empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
+            empty:'אין יועצי נדל״ן עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
 };
 
@@ -2247,7 +2248,7 @@ function dmFromAgency(a, i, team){
 }
 
 function dmFromAgent(m, i){
-  const name = m.display_name || 'מתווך/ת';
+  const name = m.display_name || 'יועץ נדל״ן';
   return {
     name, kind:'agent',
     href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
@@ -2471,7 +2472,7 @@ function bindRowScroller(row){
       // v10: ניסוח ניטרלי, בלי "/ת" (‏C7)
       team.appendChild(mk('span', '', v10On()
         ? (n === 1 ? 'צוות של 1' : `צוות של ${n} יועצי נדל״ן`)
-        : (n === 1 ? 'מתווך/ת אחד/ת בצוות' : `צוות של ${n} מתווכים`)));
+        : (n === 1 ? 'יועץ נדל״ן אחד בצוות' : `צוות של ${n} יועצי נדל״ן`)));
       info.appendChild(team);
     }
 
@@ -4166,7 +4167,7 @@ function initGabChat(){
   const city = (document.querySelector('[data-gab-city]')?.textContent || 'עפולה').trim();
   const SCENES = [
     ['היי גבריאלה, אני מחפש 4 חדרים ב' + city + ' עד 1.6 מיליון ₪', 'מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.'],
-    ['תמצאי לי מתווך שמתמחה בנכסים מסחריים ב' + city, 'יש כמה משרדים שמתמחים במסחרי באזור. הנה הפרטים שלהם.'],
+    ['תמצאי לי יועץ נדל״ן שמתמחה בנכסים מסחריים ב' + city, 'יש כמה משרדים שמתמחים במסחרי באזור. הנה הפרטים שלהם.'],
     ['דירה להשכרה עם מרפסת וחניה, עד 5,000 ₪', 'מצאתי כמה דירות. רוצה שאעדכן אותך כשתעלה עוד אחת?'],
     ['יש פרויקטים חדשים מקבלן ב' + city + '?', 'כן, יש פרויקטים בשיווק עכשיו. שולחת לך את הפרטים.'],
     ['כמה יהיה ההחזר החודשי על משכנתא של מיליון ₪?', 'חישבתי לך הערכה. רוצה שיועץ משכנתאות יחזור אליך?'],
