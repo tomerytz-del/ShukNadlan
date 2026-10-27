@@ -27,7 +27,14 @@ import {
   serviceMarketSlug,
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
-import { CRM_EDIT_LABEL, propertyCityWhenOmitted } from "./listing-defaults.ts";
+import {
+  CRM_EDIT_LABEL,
+  type ListingCitySlot,
+  listingCityColumnMissing,
+  loadListingCityOnce,
+  propertyCityWhenOmitted,
+  storeListingCity,
+} from "./listing-defaults.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
@@ -739,7 +746,11 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        city: { type: "string", description: "העיר. ברירת מחדל: העיר של המשרד." },
+        city: {
+          type: "string",
+          description:
+            "העיר, רק אם נאמרה. אם לא - אל תשלח/י: הקוד שם את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד.",
+        },
         street: { type: "string", description: "שם רחוב, בלי מספר בית." },
         house_number: { type: "string", description: "מספר בית." },
         gush: { type: "string", description: "מספר גוש, ספרות בלבד." },
@@ -1570,6 +1581,8 @@ interface ToolContext {
   conv: ConversationState;
   /** הודעות כפתורים שיוצאות אחרי התשובה (‏index.ts). חסר בתור שאינו מוואטסאפ. */
   outbox?: OutboxItem[];
+  /** עיר ברירת המחדל של התור. נטענת פעם אחת, לא בכל כלי. */
+  listingCitySlot?: ListingCitySlot;
 }
 
 // ---------------------------------------------------------------------------
@@ -1939,32 +1952,43 @@ async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
   }
 }
 
-/* העיר שהסוכן/ת שמר/ה (agency_members.default_city_id). שאילתה נפרדת:
-   העמודה חסרה עד שהמיגרציה רצה, ו-select על עמודה חסרה אינו יכול לשבת
-   על טעינת הסוכן/ת. כשל או עמודה חסרה = אין עיר שמורה. */
-async function savedListingCityName(ctx: ToolContext): Promise<string | null> {
+function listingCitySlot(ctx: ToolContext): ListingCitySlot {
+  return ctx.listingCitySlot ??= { loaded: false, name: null };
+}
+
+/* העיר שהסוכן/ת שמר/ה. השאילתה רצה פעם אחת לתור (listingCitySlot) כי העמודה
+   אינה בטעינת הסוכן/ת: עד המיגרציה היא חסרה. רק 42703 הוא "עוד לא עלתה". */
+async function readSavedListingCity(ctx: ToolContext): Promise<string | null> {
   try {
     const { data, error } = await ctx.supabase.from("agency_members")
       .select("default_city_id").eq("id", ctx.agent.id).maybeSingle();
     if (error) {
-      const missing = error.code === "42703" || error.code === "PGRST204"
-        || String(error.message || "").includes("default_city_id");
-      if (!missing) console.error("default city load failed", error.message);
+      if (!listingCityColumnMissing(error)) console.error("default city load failed", error.code, error.message);
       return null;
     }
     if (!data?.default_city_id) return null;
     const { data: city, error: cityErr } = await ctx.supabase.from("cities")
       .select("name").eq("id", data.default_city_id).maybeSingle();
-    if (cityErr) return null;
+    if (cityErr) {
+      console.error("default city name failed", cityErr.code, cityErr.message);
+      return null;
+    }
     return String(city?.name || "").trim() || null;
-  } catch {
+  } catch (err) {
+    console.error("default city load failed", err);
     return null;
   }
 }
 
+async function savedListingCityName(ctx: ToolContext): Promise<string | null> {
+  return loadListingCityOnce(listingCitySlot(ctx), () => readSavedListingCity(ctx));
+}
+
 /** נכס בלי עיר: העיר השמורה, ואם אין - עיר המשרד (ואם אין - עפולה). */
 async function listingCityWhenOmitted(ctx: ToolContext): Promise<string> {
-  return propertyCityWhenOmitted(await savedListingCityName(ctx), await agencyDefaultCity(ctx));
+  const saved = await savedListingCityName(ctx);
+  // עיר שמורה חוסכת את שאילתת המשרד. בלי שמורה - עיר המשרד, ואז עפולה.
+  return propertyCityWhenOmitted(saved, saved ? null : await agencyDefaultCity(ctx));
 }
 
 /* פין לנכס בכל עיר שיש לה ספק גאוקוד פעיל. עפולה נשארת על הקבועים שבקוד
@@ -4037,7 +4061,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const gate = await planningTierGate(ctx);
   if (gate) return gate;
 
-  const city = clean(input.city) || await agencyDefaultCity(ctx);
+  const city = clean(input.city) || await listingCityWhenOmitted(ctx);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -6087,8 +6111,8 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   let citySettingDropped = false;
   let { data: saved, error } = await ctx.supabase.from("agency_members")
     .update(patch).eq("id", ctx.agent.id).select(PROFILE_SELECT).single();
-  // העמודה חסרה כשהפונקציה עלתה לפני המיגרציה. שאר הפרופיל נשמר בלעדיה.
-  if ((error?.code === "42703" || error?.code === "PGRST204") && "default_city_id" in patch) {
+  // העמודה חסרה כשהפונקציה עלתה לפני המיגרציה. רק 42703. שאר הפרופיל נשמר בלעדיה.
+  if (listingCityColumnMissing(error) && "default_city_id" in patch) {
     const rest = { ...patch };
     delete rest.default_city_id;
     const onlyStamp = Object.keys(rest).every((k) => k === "updated_at");
@@ -6117,11 +6141,14 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   if ("default_city_id" in patch && !citySettingDropped) {
     if (!patch.default_city_id) defaultCity = null;
     else {
-      const { data: city } = await ctx.supabase.from("cities")
+      const { data: city, error: cityErr } = await ctx.supabase.from("cities")
         .select("name").eq("id", patch.default_city_id).maybeSingle();
+      if (cityErr) console.error("default city name failed", cityErr.code, cityErr.message);
       // מחרוזת ריקה = השם לא חזר, אבל השמירה עצמה הצליחה. null = בוטל.
       defaultCity = String(city?.name || "").trim();
     }
+    // שאר הכלים בתור (יצירת נכס, בדיקה תכנונית) קוראים מהזיכרון ולא שוב מהמסד.
+    storeListingCity(listingCitySlot(ctx), defaultCity || null);
   }
   if (citySettingDropped) {
     notes.push("עיר ברירת המחדל עדיין לא נשמרה. אפשר לנסות שוב בעוד כמה דקות.");
