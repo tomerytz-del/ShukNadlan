@@ -263,9 +263,20 @@ async function replyButtons(
 }
 
 async function restoreLessNotifs(to: string, agentId: string, type: string | null): Promise<void> {
-  let q = supabase.from("agent_notif_less").delete().eq("agent_id", agentId);
-  if (type) q = q.eq("notif_type", type);
-  const { error } = await q;
+  const released = await supabase.rpc("notification_push_less_release", {
+    p_agent: agentId,
+    p_type: type,
+  });
+  let error = released.error;
+  if (error) {
+    // הפונקציה עולה עם המיגרציה. עד אז אותה מחיקה, בלי לסמן skipped.
+    let q = supabase.from("agent_notif_less").delete().eq("agent_id", agentId);
+    if (type) q = q.eq("notif_type", type);
+    error = (await q).error;
+  } else if (released.data !== true) {
+    await reply(to, "לא מצאתי הפחתה להחזיר.", agentId);
+    return;
+  }
   if (error) {
     console.error("notif less restore failed", error.message);
     await reply(to, "לא הצלחתי להחזיר את ההתראות. אפשר לנסות שוב, או מהמסך התראות והודעות.", agentId);
@@ -1587,7 +1598,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         if (isLessKeptType(lessType)) {
           await reply(
             from,
-            `${topicLabel(lessType)} נשארות כרגיל. ליד, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת לא מופחתים.`,
+            `${topicLabel(lessType)} נשארות כרגיל. ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת לא מופחתים.`,
             agent.id,
           );
           return;
@@ -1605,7 +1616,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         const lessBody =
           `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. ` +
           `הן יוצאות רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, ל-${LESS_HOLD_DAYS} יום. ` +
-          `ליד, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת ממשיכים כרגיל. ` +
+          `ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת ממשיכים כרגיל. ` +
           `להחזרה: הכפתור, "${RESTORE_COMMAND}", או המסך התראות והודעות.`;
         await replyButtons(from, lessBody, [{ id: `nmore:${lessType}`, title: RESTORE_TITLE }], agent.id);
         return;
