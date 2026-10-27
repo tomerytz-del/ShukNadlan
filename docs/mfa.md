@@ -67,9 +67,15 @@ Auth מתיר להסיר אפליקציה רק מ-session שנכנס עם קוד
 `using (true)` ב-`public` או ב-`storage`. policy כזו הייתה דולפת דרך
 האיפוס, ולכן **אסור להוסיף אחת כזו**.
 
-"מי חייב/ת אימות ועוד לא אימת/ה" מוגדר במקום אחד: `_mfa_pending_self()`.
+"מי חייב/ת אימות ועוד לא אימת/ה" בנתיב הרגיל של `mfa_pre_request` נבדק
+לפי היקף, כל מקור בבלוק משלו: תפקיד (`_mfa_role_required_self`, שקוראת
+ל-`_mfa_role_required`), הרשמה (`_mfa_enrolled`: וואטסאפ או TOTP מאומת),
+ואז session מאומת (`_mfa_session_verified`). `_mfa_pending_self()` נשארת
+ההגדרה המאוחדת, ומתג `_mfa_break_glass()` (כבוי כברירת מחדל) חוזר אליה.
 ‏`mfa_status()` מחזירה ל-CRM ולפונקציות ה-Edge `pending`, `enabled`
-(וואטסאפ), `totp` (אפליקציה), `required`, `admin` ו-`manager`.
+(וואטסאפ), `totp` (אפליקציה), `required`, `admin`, `manager`,
+ו-`check_error` (true כשה-pre-request או חיפוש ב-`mfa_status` נתקלו
+בשגיאה; אבחון, לא גייט).
 
 ## הזרימה ב-CRM
 
@@ -105,13 +111,39 @@ values ('<user_id>', '<session_id>', 'manual', now());
 זה עוקף את האימות **ל-session אחד בלבד**, ולכן רק אחרי זיהוי מלא של
 הפונה.
 
-## כשלים: פתוח בשרת, סגור ב-Edge
+## כשלים: סגור לפי היקף, וסגור ב-Edge
 
-- **`mfa_pre_request` נכשל/ת פתוח.** אם הבדיקה עצמה זורקת (למשל הרשאה
-  שהשתנתה בגרסה של Supabase), הבקשה עוברת וב-Postgres נרשם `warning`. בכשל
-  סגור כל משתמש/ת היה/תה הופך/ת לאורח/ת, וה-CRM היה נופל לכולם.
-- **`mfa-gate.ts` נכשל סגור** (‏503 `mfa_check_failed`). כאן אין סכנה
-  גורפת: אם PostgREST לא עונה, גם שאר הפונקציה הייתה נכשלת.
+מ-`20271027150000` ה-pre-request נכשל **סגור לפי היקף**. הכשל הפתוח
+(‏`exception when others` ואז `return`) הורד: שגיאה בבדיקה כבר אינה
+מכניסה מנהל/ת עם גישת `authenticated` מלאה.
+
+- אם כל בדיקות ההיקף הצליחו ואומרות "לא בטווח" - הבקשה עוברת. סוכן/ת
+  רגיל/ה לא נפגע/ת.
+- אם מקור אומר "בטווח", או שהבדיקה זרקה - נדרש session מאומת. אין אימות,
+  או שגם הבדיקה הזו זרקה - ה-claims מתאפסים לאורח/ת. `shuk.mfa_pending_sub`
+  נשמר (כדי ש-`mfa_status()` ו-`wa_login_start()` ומסך האימות ימשיכו
+  לעבוד), ו-`shuk.mfa_check_error` = `1`.
+- `mfa_status()` מבודדת כל חיפוש. טבלה שבורה עדיין מחזירה `pending`
+  (נקרא מ-`shuk.mfa_pending_sub`, בלי גישה לטבלה) ו-`check_error: true`.
+  ‏`_shared/mfa-gate.ts` קורא את `.pending` ולא שינה התנהגות: `pending`
+  הוא 403 `mfa_required`, וקריאה שנכשלה ל-`mfa_status` היא 503
+  `mfa_check_failed`.
+- `QUERY_CANCELED` (`statement_timeout`) אינו נתפס ב-`WHEN OTHERS` ומבטל
+  את הבקשה ממילא.
+- המתנה למנעול בתוך פונקציות העזר חסומה ב-2 שניות (`lock_timeout` ברמת
+  הפונקציה). שאר הבקשה שומר את ה-timeout הרגיל.
+
+המחיר של סגירה, אם בדיקה נשברת:
+
+- `agent_wa_2fa` או `auth.mfa_factors` (בדיקת ההרשמה), וגם
+  `agency_members` בבדיקת התפקיד - השגיאה נספרת כ"אולי בטווח". כל מי
+  שאינו `aal2` ובלי session מאומת הופך/ת לאורח/ת עד האימות. מנהל/ת בלי
+  נייד ננעל/ת בלי מוצא.
+- `wa_login_verifications` - בדיקת ה-session נחשבת "לא מאומת". מי שבטווח
+  (או שההיקף לא ודאי) יורד/ת לאורח/ת, ולא יכול/ה להשלים אימות.
+- עד כארבעה בלוקי `exception` קטנים לבקשה. לא נמדד בעומס.
+
+המוצא באירוע הוא מתג ה-break-glass למטה, לא פתיחה שקטה.
 
 ## נייד שהוחלף, או טלפון שאבד
 
@@ -129,15 +161,36 @@ values ('<user_id>', '<session_id>', 'manual', now());
 - **Realtime** אינו עובר ב-pre-request, אבל אינו בשימוש. מי שמוסיף/ה
   `channel()` על טבלה פרטית צריך/ה policy מגבילה כמו זו של Storage.
 - **חובה לכל סוכני המשרד** (הגדרה של מנהל/ת המשרד) עוד לא קיימת. המקום
-  להוסיף אותה הוא `_mfa_pending_self()`.
+  להוסיף אותה הוא `_mfa_role_required()`: ה-pre-request קורא לה דרך
+  `_mfa_role_required_self`, ו-`_mfa_pending_self()` (מתג החירום) קוראת
+  לה גם היא. את אותו תנאי צריך לשקף גם ב-`mfa_status()`, שמחשבת
+  `required` בעצמה.
 
 ## ביטול חירום
 
-מיגרציה חדשה עם:
+**מתג break-glass**, `public._mfa_break_glass()`. כבוי כברירת מחדל
+(`select false`). רק הבעלים מגדיר/ה אותו מחדש; `authenticated` יכול/ה
+רק להריץ. כשהוא דלוק, ה-pre-request חוזר להתנהגות הישנה (פתוח בכשל,
+דרך `_mfa_pending_self()`), מהבקשה הבאה, בלי `reload`. מתג GUC
+(`alter role authenticator set shuk.mfa_fail_open`) נבדק ב-27.10.2026
+ואינו עובד ב-Supabase: postgres אינו superuser, ו-supautils מתיר רק
+`pgrst.*` וכדומה (‏42501).
+
+הדלקה, ב-SQL editor כ-postgres. זו החלפת גוף של פונקציה קיימת, לא
+`apply_migration` ולא שורה ב-`schema_migrations`:
+
+```sql
+create or replace function public._mfa_break_glass() returns boolean
+  language sql stable set search_path = '' as $f$ select true $f$;
+```
+
+כיבוי, אותו משפט עם `select false`. אחרי האירוע מכבים: מתג דלוק מחזיר
+את החולשה שהמיגרציה סגרה.
+
+**כיבוי מלא של ה-hook**, אם גם המתג אינו מספיק. מיגרציה חדשה, לא דרך
+הדשבורד (`CLAUDE.md`, "אין להחיל DDL מחוץ לצינור"):
 
 ```sql
 alter role authenticator reset pgrst.db_pre_request;
 notify pgrst, 'reload config';
 ```
-
-לא דרך הדשבורד: ראו `CLAUDE.md`, "אין להחיל DDL מחוץ לצינור".
