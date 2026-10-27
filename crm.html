@@ -11320,6 +11320,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
 
           </section>
+          <!-- ‏תיוג בפרסומי הנכסים (‏agency_members.instagram_handle, facebook_url,
+               social_tag_consent; docs/social-tagging.md). נטען בשאילתה נפרדת -
+               ראו pfSocialInit - ונשמר עם כפתור השמירה של הטופס. הכרטיס מוסתר
+               כשהעמודות עוד לא קיימות. השדות אינם מוצגים באתר. -->
+          <section class="ui-card pg-card pf-social" aria-labelledby="pfCardSocial" hidden>
+            <div class="pg-card-head"><h3 class="ui-h3" id="pfCardSocial">רשתות חברתיות</h3><p class="ui-hint"><span>הוסיפו את האינסטגרם שלכם כדי שנתייג אתכם בפרסומי הנכסים שלכם.</span></p></div>
+          <div class="field">
+            <label for="pfInstagram">שם משתמש באינסטגרם</label>
+            <input type="text" id="pfInstagram" maxlength="80" placeholder="למשל tomer.nadlan" dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+            <p class="pg-field-hint">אפשר להדביק גם קישור לפרופיל או לכתוב עם @.</p>
+          </div>
+          <div class="field">
+            <label for="pfFacebook">קישור לפרופיל או לדף בפייסבוק</label>
+            <input type="url" id="pfFacebook" maxlength="300" placeholder="https://www.facebook.com/..." dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="checkbox-item"><input type="checkbox" id="pfSocialConsent"> אני מאשר/ת לשוק הנדל״ן לתייג אותי בפרסומי הנכסים שלי ברשתות החברתיות</label>
+            <p class="pg-field-hint">אפשר לבטל בכל רגע. בלי האישור לא נתייג אותך, גם אם מילאת את השדות. הפרטים האלה אינם מוצגים באתר.</p>
+          </div>
+          </section>
           <section class="ui-card pg-card" aria-labelledby="pfCardAreas">
             <div class="pg-card-head"><h3 class="ui-h3" id="pfCardAreas">תחום ואזורי פעילות</h3></div>
           <!-- ‏תחום ואזורי הפעילות (assets/crm-areas.js, docs/area-scope.md): באילו
@@ -11458,6 +11478,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field">
           <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
           <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
+        </div>
+
+        <!-- ---------- רשתות חברתיות ----------
+             לתיוג המשרד בפרסומי הנכסים (‏agency_social; docs/social-tagging.md).
+             טבלה נפרדת מ-agencies, שהיא ציבורית - השדות לא מוצגים באתר. נטען
+             ב-brSocialInit ונשמר עם "שמירת דף המשרד"; מוסתר כשהטבלה חסרה. -->
+        <div class="br-social" hidden>
+          <div class="form-subheading">רשתות חברתיות</div>
+          <div class="field">
+            <label for="brInstagram">שם המשתמש של המשרד באינסטגרם</label>
+            <input type="text" id="brInstagram" maxlength="80" placeholder="למשל alpha.nadlan" dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="brFacebook">קישור לדף העסקי בפייסבוק</label>
+            <input type="url" id="brFacebook" maxlength="300" placeholder="https://www.facebook.com/..." dir="ltr" style="text-align:right" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="checkbox-item"><input type="checkbox" id="brSocialConsent"> אני מאשר/ת לשוק הנדל״ן לתייג את המשרד בפרסומי הנכסים שלו ברשתות החברתיות</label>
+            <div class="hint">אפשר לבטל בכל רגע. כל סוכן/ת מאשר/ת את התיוג האישי בפרופיל שלו/ה. הפרטים האלה אינם מוצגים באתר.</div>
+          </div>
         </div>
 
         <!-- ---------- תחומי התמחות ----------
