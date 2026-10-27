@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
-import { duplicateLeadBody, ownerPhoneAttach, pageLeadInsertAttempts } from "../_shared/lead-attach-plan.ts";
+import { duplicateLeadBody, leadInsertRetryable, ownerPhoneAttach, pageLeadInsertAttempts } from "../_shared/lead-attach-plan.ts";
 import {
   audienceSize,
   logLeadRouting,
@@ -346,9 +346,10 @@ Deno.serve(async (req: Request) => {
 
     /* סדר הניסיונות. ליד רגיל של הפלטפורמה נשאר שורה אחת, בלי source.
        ליד מדף נושא source בכל ניסיון. ניסיון בלי source שמר ליד של דף
-       עם עמודה ריקה, והצמדה של פלטפורמה ראתה אותו כליד בלי מקור.
-       הניסיון האחרון מוריד רק את סוג הליד ל-owner_inbound, אם
-       property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים. */
+       עם עמודה ריקה. הניסיון האחרון מוריד רק את סוג הליד ל-owner_inbound,
+       אם property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים.
+       שגיאה חולפת עם SQLSTATE מהרשימה מנסה את אותה שורה פעם נוספת.
+       בלי SQLSTATE, וגם אילוץ, עוברים לשורה הבאה בלי ניסיון שני. */
     const attempts: Record<string, unknown>[] = agencyRouting
       ? pageLeadInsertAttempts(baseRow, preferredType, pageSource)
       : trackedLabel
@@ -361,15 +362,21 @@ Deno.serve(async (req: Request) => {
     let lead: any = null;
     let leadErr: any = null;
     for (const row of attempts) {
-      ({ data: lead, error: leadErr } = await supabase
-        .from("leads").insert(row).select().single());
-      if (!leadErr) break;
-      // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
-      if (externalRef && (leadErr as any).code === "23505") {
-        const { data: dup } = await supabase.from("leads").select("id")
-          .eq("source", inboundSource).eq("external_ref", externalRef).maybeSingle();
-        if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+      let retried = false;
+      for (;;) {
+        ({ data: lead, error: leadErr } = await supabase
+          .from("leads").insert(row).select().single());
+        if (!leadErr) break;
+        // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
+        if (externalRef && (leadErr as any).code === "23505") {
+          const { data: dup } = await supabase.from("leads").select("id")
+            .eq("source", inboundSource).eq("external_ref", externalRef).maybeSingle();
+          if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+        }
+        if (retried || !leadInsertRetryable((leadErr as { code?: string }).code)) break;
+        retried = true;
       }
+      if (!leadErr) break;
     }
 
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);

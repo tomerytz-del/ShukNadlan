@@ -71,21 +71,50 @@ export type PropertyAttachContext = {
 };
 
 /**
- * שלושת ניסיונות ה-insert של ליד מדף. כולם נושאים source.
- * ניסיון בלי source היה שומר ליד של דף עם source ריק, והוא נראה אחר כך
- * כמו ליד פלטפורמה ויכול לבלוע פנייה. הסוג יורד ל-owner_inbound רק
- * בניסיון האחרון, אם property_inquiry אינו ערך חוקי בסביבה.
+ * ניסיונות ה-insert של ליד מדף. כולם נושאים source.
+ * ניסיון בלי source היה שומר ליד של דף עם source ריק.
+ * הסוג יורד ל-owner_inbound רק בניסיון האחרון, אם property_inquiry
+ * אינו ערך חוקי בסביבה. כשהסוג המועדף כבר owner_inbound אין ניסיון שני:
+ * הוא היה זהה לראשון.
+ *
+ * הקורא היחיד הוא הלולאה ב-owner-lead-intake. השורה הכפולה שהייתה כאן
+ * נתנה לה ניסיון שני על כל שגיאה, כולל חולפת. הניסיון החולף יושב עכשיו
+ * ב-leadInsertRetryable, לא בשורה זהה בתוכנית.
  */
+
+/**
+ * ניסיון insert שני של אותה שורה, רק כשה-SQLSTATE ברשימה החולפת.
+ * בלי SQLSTATE (נפילת רשת, 502, 504) אין ניסיון: ה-insert אולי כבר נשמר,
+ * וליד מדף בלי external_ref היה נכפל, והטריגר היה שולח new_lead שני.
+ * מחלקה 23 (unique, check, FK, not null) אינה ברשימה.
+ */
+const TRANSIENT_INSERT_CODES = new Set([
+  "40001", // serialization_failure
+  "40P01", // deadlock_detected
+  "55P03", // lock_not_available
+  "53300", // too_many_connections
+  "57014", // query_canceled
+  "57P03", // cannot_connect_now
+  "08000",
+  "08001",
+  "08003",
+  "08004",
+  "08006",
+  "08007",
+]);
+
+export function leadInsertRetryable(code: string | null | undefined): boolean {
+  return !!code && TRANSIENT_INSERT_CODES.has(code);
+}
+
 export function pageLeadInsertAttempts(
   baseRow: Record<string, unknown>,
   preferredType: string,
   pageSource: string,
 ): Record<string, unknown>[] {
-  return [
-    { ...baseRow, lead_type: preferredType, source: pageSource },
-    { ...baseRow, lead_type: preferredType, source: pageSource },
-    { ...baseRow, lead_type: "owner_inbound", source: pageSource },
-  ];
+  const full = { ...baseRow, lead_type: preferredType, source: pageSource };
+  if (preferredType === "owner_inbound") return [full];
+  return [full, { ...baseRow, lead_type: "owner_inbound", source: pageSource }];
 }
 
 /** פנייה על נכס: אותו נכס ואותו שולחן. בלי סוכן/ת או בלי משרד אין למי להצמיד. */

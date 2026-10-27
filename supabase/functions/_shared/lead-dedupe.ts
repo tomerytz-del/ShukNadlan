@@ -8,17 +8,21 @@
 //
 // נמצא, ורק לקורא פנימי (service role): לא מכניסים שורה ולא מריצים רוטציה.
 // lead_phone_touch מוסיף את ההודעה ל-raw_message ואת המקור ל-source_touches
-// ב-update אחד. רק אם העדכון הצליח, הסוכן/ת שכבר רואה/ה את הליד מקבל/ת
-// התראת new_lead עם כותרת "פנייה נוספת" (בלי רוטציה). כישלון העדכון מחזיר
-// null והקורא מכניס שורה חדשה. כישלון ההתראה אחרי עדכון שהצליח אינו פותח
-// ליד שני. ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
+// ב-update אחד. רק אם העדכון הצליח, והסוכן/ת המשויך/ת עכשיו לא קיבל/ה
+// new_lead על הליד ב-24 השעות האחרונות, הוא/היא מקבל/ת התראת new_lead
+// עם כותרת "פנייה נוספת" (בלי רוטציה). העברה לסוכן/ת אחר/ת בתוך החלון
+// כן מודיעה. כישלון העדכון מחזיר null והקורא מכניס שורה חדשה. כישלון
+// ההתראה אחרי עדכון שהצליח אינו פותח ליד שני. כשל בבדיקת החלון נרשם
+// notify_skipped=window_lookup_error על המגע. כשל ב-insert של ההתראה
+// מוסיף מגע שני עם notify_skipped=notify_insert_error, בלי שורת הודעה נוספת.
+// ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
 //
 // שולחן: כשיש agency_id ו-agent_id בפנייה, שניהם חייבים להתאים. פניית
-// פלטפורמה (בלי שניהם) מצמידה רק ליעד שגם לו אין משרד ואין סוכן/ת, וש-
-// source שלו אינו דף. source ריק עם משרד או סוכן/ת אינו יעד. בעל/ת נכס מצמיד/ה רק
-// לאותה עיר ואותו רחוב, ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת
-// באחד הצדדים אין הצמדה. פנייה על נכס בלי property_id (מחשבון תשואה)
-// אינה מצמידה.
+// פלטפורמה (מטא או רשת, בלי שניהם) אינה מתמזגת לפי טלפון בכלל: יעד בלי
+// סוכן/ת אינו גלוי, וליד גלוי אינו יעד. אותו external_ref נתפס בשכבה של
+// (source, external_ref). בעל/ת נכס מצמיד/ה רק לאותה עיר ואותו רחוב,
+// ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת באחד הצדדים אין הצמדה.
+// פנייה על נכס בלי property_id (מחשבון תשואה) אינה מצמידה.
 //
 // מהדפדפן אין מיזוג בכלל: לא דגל duplicate, לא lead_id של ליד אחר, ולא
 // כתיבה ל-raw_message של מישהו/י אחר/ת. התשובה היא insert רגיל.
@@ -49,6 +53,18 @@ export function metaAdsSourceLabel(source: string | null | undefined): string | 
 
 /** 30 יום - אותו חלון של שיחה שמצטרפת לליד פתוח (agent_call_to_lead). */
 export const OPEN_LEAD_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * חלון ההתראה החוזרת. לכל היותר new_lead אחד לליד ולסוכן/ת המשויך/ת
+ * בחלון הזה, כולל "ליד חדש" המקורי. פנייה נוספת בתוך החלון עדיין נוגעת בליד.
+ */
+export const REPEAT_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** נכתב על מגע ה-source_touches כשבדיקת החלון נכשלה וההתראה דולגה. */
+export const REPEAT_NOTICE_SKIPPED = "window_lookup_error";
+
+/** מגע שני, בלי שורת הודעה, כש-insert של ההתראה עצמה נכשל. */
+export const REPEAT_NOTICE_INSERT_SKIPPED = "notify_insert_error";
 
 /** הסטטוסים החיים של leads. אין status של closed/lost; הסגירה היא ארכיון ושלב. */
 const OPEN_STATUSES = new Set(["masked", "unlocked", "pending_charge"]);
@@ -89,9 +105,10 @@ export function isPageRoutedSource(source: string | null | undefined): boolean {
 }
 
 /**
- * יעד של פניית פלטפורמה (אין משרד ואין סוכן/ת בבקשה):
- * בלי agency_id, בלי agent_id, ו-source שאינו דף.
- * source ריק עם משרד או עם סוכן/ת אינו יעד. לא ממלאים לאחור שורות ישנות.
+ * יעד תיאורטי של פניית פלטפורמה: בלי agency_id, בלי agent_id, ו-source
+ * שאינו דף. source ריק עם משרד או עם סוכן/ת אינו יעד.
+ * אין קורא בהצמדה. ליד גלוי דורש agent_id, והיעד דורש agent_id ריק,
+ * אז אין שורה שעוברת את שניהם. attachToOpenLead חוזר null בלי שאילתה.
  */
 export function isPlatformTarget(row: {
   agency_id?: string | null;
@@ -308,6 +325,10 @@ export async function attachToOpenLead(
   if (input.matchProperty && !input.propertyId) return null;
   // דף עם משרד ובלי סוכן/ת: אין שולחן להצמיד אליו, ולא בוחרים סוכן/ת אחר/ת.
   if (input.agencyId && !input.agentId) return null;
+  // פניית פלטפורמה (מטא או רשת, בלי משרד ובלי סוכן/ת) אינה מתמזגת לפי
+  // טלפון. יעד בלי agent_id אינו עובר את leadIsVisible, אז אין מה לחפש.
+  // אותו external_ref נתפס ב-(source, external_ref), לא כאן.
+  if (!input.agencyId && !input.agentId) return null;
   // בעל/ת נכס בלי כתובת שאפשר להשוות אינו נבלע בליד של נכס אחר.
   const wantAddress = input.matchAddress ? parseAddressIdentity(input.city, input.address) : null;
   if (input.matchAddress && !wantAddress) return null;
@@ -353,11 +374,6 @@ export async function attachToOpenLead(
   }
   if (rows.length === 0) return null;
 
-  // פניית פלטפורמה מצמידה רק ליעד בלי משרד ובלי סוכן/ת, ושאינו מדף.
-  // source ריק עם משרד או סוכן/ת (ליד דף שניסיון ישן איבד את העמודה, או
-  // שורה ישנה) אינו יעד. הסינון ב-JS: not in ב-SQL היה מוריד גם null.
-  const platformIncoming = !input.agencyId && !input.agentId;
-  if (platformIncoming) rows = rows.filter(isPlatformTarget);
   if (wantAddress) rows = rows.filter((r) => sameOwnerAddress(wantAddress, addressFromStoredLead(r)));
   if (rows.length === 0) return null;
 
@@ -388,18 +404,45 @@ export async function attachToOpenLead(
     return { lead_id: chosen.id };
   }
 
-  // קודם העדכון, בשאילתה אחת. כישלון - אין התראה, והקורא מכניס ליד חדש.
+  // חלון ההתראה לפני המגע, כדי שכשל ייכתב על אותו אובייקט ב-source_touches.
+  // agent_id הוא הנמען. התראה לסוכן/ת הקודם/ת אינה חוסמת את מי שהליד אצלו/ה עכשיו.
+  // כשל: אין התראה, והדגל נשמר עם המגע. אין רוטציה.
+  const sinceNotice = new Date(Date.now() - REPEAT_NOTICE_WINDOW_MS).toISOString();
+  let noticeBlocked = true;
+  let windowLookupError = false;
+  try {
+    const prev = await sb.from("notifications")
+      .select("id")
+      .eq("type", "new_lead")
+      .eq("related_lead_id", chosen.id)
+      .eq("agent_id", chosen.agent_id)
+      .gt("created_at", sinceNotice)
+      .limit(1);
+    if (prev.error || !Array.isArray(prev.data)) {
+      windowLookupError = true;
+      console.warn("lead phone dedupe notify skipped", prev.error?.code || "notify-window");
+    } else {
+      noticeBlocked = prev.data.length > 0;
+    }
+  } catch {
+    windowLookupError = true;
+    console.warn("lead phone dedupe notify skipped", "notify-window");
+  }
+
+  // העדכון בשאילתה אחת. כישלון - אין התראה, והקורא מכניס ליד חדש.
   const noteLine = appendLeadNote(null, input.sourceLabel, input.message);
+  const touch: Record<string, unknown> = {
+    source: input.source,
+    external_ref: input.externalRef,
+    at: new Date().toISOString(),
+  };
+  if (windowLookupError) touch.notify_skipped = REPEAT_NOTICE_SKIPPED;
   let touchedId: string | null = null;
   try {
     const upd = await sb.rpc("lead_phone_touch", {
       p_lead_id: chosen.id,
       p_note: noteLine,
-      p_touch: {
-        source: input.source,
-        external_ref: input.externalRef,
-        at: new Date().toISOString(),
-      },
+      p_touch: touch,
     });
     if (upd.error || typeof upd.data !== "string" || !upd.data) {
       console.warn("lead phone dedupe note skipped", upd.error?.code || "update");
@@ -412,8 +455,9 @@ export async function attachToOpenLead(
   }
 
   // ההתראה אחרי עדכון שהצליח. כישלון שלה אינו פותח ליד שני: ההודעה כבר על הליד.
-  // אין רוטציה: לא נגענו ב-lead_distribution_rotation. משימת היומן אינה נכפלת
-  // כי source_key שלה הוא lead:<id> (on conflict do nothing).
+  // משימת היומן אינה נכפלת כי source_key שלה הוא lead:<id> (on conflict do nothing).
+  if (noticeBlocked) return { lead_id: touchedId };
+
   const notice = repeatNotice(chosen);
   try {
     const note = await sb.from("notifications").insert({
@@ -423,9 +467,33 @@ export async function attachToOpenLead(
       body: notice.body,
       related_lead_id: chosen.id,
     });
-    if (note.error) console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
+    if (note.error) {
+      console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
+      await markRepeatNoticeSkipped(sb, chosen.id, touch);
+    }
   } catch {
     console.warn("lead phone dedupe notify skipped", "notify");
+    await markRepeatNoticeSkipped(sb, chosen.id, touch);
   }
   return { lead_id: touchedId };
+}
+
+/** ה-insert של ההתראה נכשל אחרי שהמגע כבר נשמר. מגע שני עם הדגל, בלי הערה כפולה. */
+async function markRepeatNoticeSkipped(
+  sb: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data?: unknown; error?: { code?: string } | null }> },
+  leadId: string,
+  touch: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const marked = await sb.rpc("lead_phone_touch", {
+      p_lead_id: leadId,
+      p_note: "",
+      p_touch: { ...touch, notify_skipped: REPEAT_NOTICE_INSERT_SKIPPED },
+    });
+    if (marked.error || typeof marked.data !== "string" || !marked.data) {
+      console.warn("lead phone dedupe notify mark skipped", marked.error?.code || "mark");
+    }
+  } catch {
+    console.warn("lead phone dedupe notify mark skipped", "mark");
+  }
 }
