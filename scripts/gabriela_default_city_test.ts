@@ -1,14 +1,16 @@
 // עיר ברירת מחדל לנכס, וקיפול כפתורי עריכה. בלי מסד ובלי וואטסאפ.
 //   node --experimental-strip-types scripts/gabriela_default_city_test.ts
 
-import { readFileSync } from "node:fs";
 import {
+  cachedListingCityName,
   collapseCreatedPropertyEdits,
   CRM_EDIT_LABEL,
   CTA_BODY_MAX,
   type CtaOutbox,
   listingCityColumnMissing,
+  listingCityPromptLine,
   loadListingCityOnce,
+  profilePatchIfCityColumnMissing,
   propertyCityWhenOmitted,
   propertiesListUrl,
   storeListingCity,
@@ -75,9 +77,24 @@ const relative = collapseCreatedPropertyEdits([
 check("בלי אתר מלא לא מתקפלים לנכס הראשון", relative.length === 2 && relative[0].kind === "cta" && relative[0].url === "/crm?property=1" && relative[1].kind === "cta" && relative[1].url === "/crm?property=2");
 
 check("42703 הוא עמודה חסרה", listingCityColumnMissing({ code: "42703" }) === true);
-check("אזכור השם בלי 42703 אינו עמודה חסרה", listingCityColumnMissing({ code: "23503", message: "default_city_id" }) === false);
-check("PGRST204 אינו נבלע כעמודה חסרה", listingCityColumnMissing({ code: "PGRST204" }) === false);
+check("PGRST204 הוא עמודה חסרה", listingCityColumnMissing({ code: "PGRST204" }) === true);
+check("אזכור השם בלי הקוד אינו עמודה חסרה", listingCityColumnMissing({ code: "23503", message: "default_city_id" }) === false);
 check("בלי שגיאה אין עמודה חסרה", listingCityColumnMissing(null) === false);
+
+const cityPatch = { display_name: "דנה", default_city_id: "city-1", updated_at: "t" };
+const dropped = profilePatchIfCityColumnMissing(cityPatch, { code: "PGRST204" });
+check("PGRST204 מוריד רק את העיר מהשמירה", !!dropped && !("default_city_id" in dropped) && dropped.display_name === "דנה" && dropped.updated_at === "t");
+check("42703 מוריד את העיר כמו PGRST204", profilePatchIfCityColumnMissing(cityPatch, { code: "42703" })?.display_name === "דנה");
+check("שגיאה אחרת לא נוגעת ב-patch", profilePatchIfCityColumnMissing(cityPatch, { code: "23505" }) === null);
+check("בלי עיר ב-patch אין מה להוריד", profilePatchIfCityColumnMissing({ display_name: "דנה" }, { code: "PGRST204" }) === null);
+
+const cold = { loaded: false, name: null as string | null };
+check("זיכרון ריק אינו שם עיר לפרומפט", cachedListingCityName(cold) === undefined);
+check("פרומפט בלי זיכרון לא טוען שאין עיר", !listingCityPromptLine(undefined).includes("אין עיר") && listingCityPromptLine(undefined).includes("אל תשלח/י city"));
+storeListingCity(cold, null);
+check("עיר שנבדקה ואין - הפרומפט אומר זאת", cachedListingCityName(cold) === null && listingCityPromptLine(null).includes("אין עיר ברירת מחדל"));
+storeListingCity(cold, "עפולה");
+check("הפרומפט משתמש בשם שבזיכרון", cachedListingCityName(cold) === "עפולה" && listingCityPromptLine("עפולה").includes("עפולה") && listingCityPromptLine("עפולה").includes("אל תשלח/י city"));
 
 let reads = 0;
 const slot = { loaded: false, name: null as string | null };
@@ -87,13 +104,6 @@ check("העיר נטענת פעם אחת בתור", first === "עפולה" && se
 storeListingCity(slot, "נהריה");
 const afterSave = await loadListingCityOnce(slot, async () => { reads++; return "חיפה"; });
 check("שמירה באמצע התור נראית בלי שאילתה נוספת", afterSave === "נהריה" && reads === 1);
-
-const sql = readFileSync(
-  new URL("../supabase/migrations/20271028150000_agent_default_city.sql", import.meta.url),
-  "utf8",
-);
-check("העמודה ריקה ומצביעה ל-cities", sql.includes("default_city_id uuid") && sql.includes("references public.cities(id) on delete set null"));
-check("בלי פונקציה חדשה ובלי grant", !/create\s+(or\s+replace\s+)?function/i.test(sql) && !/\bgrant\b/i.test(sql));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

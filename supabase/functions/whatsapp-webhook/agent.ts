@@ -28,10 +28,13 @@ import {
 } from "../_shared/service-markets.ts";
 import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
 import {
+  cachedListingCityName,
   CRM_EDIT_LABEL,
   type ListingCitySlot,
   listingCityColumnMissing,
+  listingCityPromptLine,
   loadListingCityOnce,
+  profilePatchIfCityColumnMissing,
   propertyCityWhenOmitted,
   storeListingCity,
 } from "./listing-defaults.ts";
@@ -1621,6 +1624,32 @@ export async function loadProfile(
   return (data as unknown as Record<string, unknown>) || null;
 }
 
+/** הפרופיל של התור, ובאותה קריאה גם את העיר - בלי שאילתה נפרדת לפרומפט. */
+async function loadProfileForTurn(ctx: ToolContext): Promise<Record<string, unknown> | null> {
+  const slot = listingCitySlot(ctx);
+  const { data, error } = await ctx.supabase.from("agency_members")
+    .select(`${PROFILE_SELECT}, default_city_id`).eq("id", ctx.agent.id).maybeSingle();
+  if (listingCityColumnMissing(error)) {
+    storeListingCity(slot, null);
+    return loadProfile(ctx.supabase, ctx.agent.id);
+  }
+  if (error) {
+    console.error("profile load failed", error);
+    return null;
+  }
+  const row = (data as unknown as Record<string, unknown>) || null;
+  const cityId = row?.default_city_id;
+  if (!cityId) {
+    storeListingCity(slot, null);
+    return row;
+  }
+  const { data: city, error: cityErr } = await ctx.supabase.from("cities")
+    .select("name").eq("id", cityId).maybeSingle();
+  if (cityErr) console.error("default city name failed", cityErr.code, cityErr.message);
+  storeListingCity(slot, String(city?.name || "").trim() || null);
+  return row;
+}
+
 function agentPageUrl(slug: unknown): string | undefined {
   return SITE_BASE_URL && slug ? `${SITE_BASE_URL}/agent?slug=${encodeURIComponent(String(slug))}` : undefined;
 }
@@ -1956,8 +1985,8 @@ function listingCitySlot(ctx: ToolContext): ListingCitySlot {
   return ctx.listingCitySlot ??= { loaded: false, name: null };
 }
 
-/* העיר שהסוכן/ת שמר/ה. השאילתה רצה פעם אחת לתור (listingCitySlot) כי העמודה
-   אינה בטעינת הסוכן/ת: עד המיגרציה היא חסרה. רק 42703 הוא "עוד לא עלתה". */
+/* העיר שהסוכן/ת שמר/ה. התור טוען אותה פעם אחת לתוך listingCitySlot (יחד עם
+   הפרופיל). כלי שרץ אחר כך קורא מהזיכרון. 42703 ו-PGRST204 = העמודה עוד לא עלתה. */
 async function readSavedListingCity(ctx: ToolContext): Promise<string | null> {
   try {
     const { data, error } = await ctx.supabase.from("agency_members")
@@ -6111,10 +6140,9 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   let citySettingDropped = false;
   let { data: saved, error } = await ctx.supabase.from("agency_members")
     .update(patch).eq("id", ctx.agent.id).select(PROFILE_SELECT).single();
-  // העמודה חסרה כשהפונקציה עלתה לפני המיגרציה. רק 42703. שאר הפרופיל נשמר בלעדיה.
-  if (listingCityColumnMissing(error) && "default_city_id" in patch) {
-    const rest = { ...patch };
-    delete rest.default_city_id;
+  // העמודה חסרה כשהפונקציה עלתה לפני המיגרציה. 42703 או PGRST204. שאר הפרופיל נשמר בלעדיה.
+  const rest = profilePatchIfCityColumnMissing(patch, error);
+  if (rest) {
     const onlyStamp = Object.keys(rest).every((k) => k === "updated_at");
     if (onlyStamp) {
       return { error: "שמירת עיר ברירת המחדל עדיין לא עלתה. אפשר לנסות שוב בעוד כמה דקות." };
@@ -7271,7 +7299,7 @@ function sessionContext(
   conv: ConversationState,
   gaps: string[] = [],
   pendingSince: number | null = null,
-  listingCity: string | null = null,
+  listingCity?: string | null,
 ): string {
   const now = Date.now();
   const today = ilDateOf(now);
@@ -7317,13 +7345,7 @@ function sessionContext(
         "(\"אני 12 שנה בתחום\", תמונה עם \"תמונת פרופיל\") - update_profile.",
     );
   }
-  lines.push(
-    "",
-    listingCity
-      ? `עיר ברירת מחדל לנכס חדש: ${listingCity}. כשהסוכן/ת לא אמר/ה עיר - אל תשלח/י city.`
-      : "אין עיר ברירת מחדל שמורה לנכס חדש. נכס בלי עיר נרשם בעיר המשרד. " +
-        "בקשה לשמור עיר קבועה - update_profile עם default_city. אל תאמרי שאין דרך לשמור.",
-  );
+  lines.push("", listingCityPromptLine(listingCity));
   if (conv.last_property_id) {
     lines.push(
       "",
@@ -7448,9 +7470,9 @@ export async function runAgentTurn(opts: {
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
   const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
-  const gaps = profileGaps(await loadProfile(supabase, agent.id));
+  const gaps = profileGaps(await loadProfileForTurn(ctx));
   const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
-  const listingCity = await savedListingCityName(ctx);
+  const listingCity = cachedListingCityName(ctx.listingCitySlot);
 
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [

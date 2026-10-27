@@ -52,11 +52,50 @@ export function propertiesListUrl(sample: string): string | null {
   return `${m[1]}/crm?goto=accProperties`;
 }
 
-/** עמודה שעוד לא קיימת. רק 42703 של Postgres. שם העמודה בטקסט השגיאה אינו זה. */
+/**
+ * עמודה שעוד לא קיימת. Postgres מחזיר 42703; PostgREST מחזיר PGRST204
+ * על אותה עמודה חסרה. שם העמודה בטקסט השגיאה אינו זה.
+ */
 export function listingCityColumnMissing(
   error: { code?: string; message?: string } | null | undefined,
 ): boolean {
-  return error?.code === "42703";
+  return error?.code === "42703" || error?.code === "PGRST204";
+}
+
+/**
+ * ה-patch בלי default_city_id, רק כשהעמודה עוד לא נפרסה והשמירה נגעה בה.
+ * null = להשאיר את השגיאה כמו שהיא.
+ */
+export function profilePatchIfCityColumnMissing(
+  patch: Record<string, unknown>,
+  error: { code?: string; message?: string } | null | undefined,
+): Record<string, unknown> | null {
+  if (!listingCityColumnMissing(error)) return null;
+  if (!Object.prototype.hasOwnProperty.call(patch, "default_city_id")) return null;
+  const rest = { ...patch };
+  delete rest.default_city_id;
+  return rest;
+}
+
+/** השם שכבר נטען לתור. undefined = עוד לא נטען, ואין לקרוא למסד בשביל הפרומפט. */
+export function cachedListingCityName(
+  slot: ListingCitySlot | undefined,
+): string | null | undefined {
+  if (!slot?.loaded) return undefined;
+  return slot.name;
+}
+
+/** שורת הפרומפט. עיר ידועה, "אין שמורה", או כלל בלי טענה כשהזיכרון ריק. */
+export function listingCityPromptLine(cached: string | null | undefined): string {
+  if (cached) {
+    return `עיר ברירת מחדל לנכס חדש: ${cached}. כשהסוכן/ת לא אמר/ה עיר - אל תשלח/י city.`;
+  }
+  if (cached === null) {
+    return "אין עיר ברירת מחדל שמורה לנכס חדש. נכס בלי עיר נרשם בעיר המשרד. " +
+      "בקשה לשמור עיר קבועה - update_profile עם default_city. אל תאמרי שאין דרך לשמור.";
+  }
+  return "כשהסוכן/ת לא אמר/ה עיר - אל תשלח/י city. הקוד שם את העיר השמורה, ואם אין - את עיר המשרד. " +
+    "בקשה לשמור עיר קבועה - update_profile עם default_city.";
 }
 
 /** העיר השמורה של התור. הקריאה למסד רצה פעם אחת; שמירה באמצע התור מעדכנת בלי שאילתה. */
