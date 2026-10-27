@@ -8,7 +8,7 @@ import {
 import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
-import { burstText, collapseForSend, BURST_DIGEST_TYPE } from "./burst-guard.ts";
+import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -441,11 +441,11 @@ async function loadDigestFlags(
     const on = (key: string) => data.some((row: { key?: string; value?: unknown }) =>
       row.key === key && Number(row.value) === 1);
     const digest = on("notif_digest_enabled");
-    const seenGuard = data.some((row: { key?: string }) => row.key === "notification_burst_guard_enabled");
+    const guardRow = data.find((row: { key?: string }) => row.key === "notification_burst_guard_enabled");
     return {
       less: digest,
       topics: digest && on("notif_topic_group"),
-      guardOn: seenGuard ? on("notification_burst_guard_enabled") : true,
+      guardOn: guardRow ? guardEnabled(guardRow.value) : true,
     };
   } catch {
     return off;

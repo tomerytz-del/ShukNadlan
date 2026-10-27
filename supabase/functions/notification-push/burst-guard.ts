@@ -1,30 +1,12 @@
-// שמירה מפני התפרצות וואטסאפ. התקרות והמפסק חיים ב-SQL
+// שמירה מפני התפרצות וואטסאפ. התקרות, המסלולים והמפסק חיים ב-SQL
 // (מיגרציה 20271028140000). כאן רק מה שהשליחה עצמה צריכה:
 // לא לקפל ליד אמיתי או סוג מוגן לתוך "יש לך N", וגוף התקציר.
-// המתג notification_burst_guard_enabled כבוי: אין קיפול.
+// המתג notification_burst_guard_enabled: כל ערך שאינו 0 הוא דלוק.
 
 import { isLessKeptType } from "./notif-digest.ts";
 
-export const BURST_DEFAULTS = {
-  hourCap: 12,
-  dayCap: 30,
-  leadHourCap: 20,
-  leadDayCap: 40,
-  showingHourCap: 20,
-  showingDayCap: 40,
-  staleHours: 12,
-  urgentHours: 72,
-  agentPending: 30,
-  createdMinutes: 15,
-  createdMax: 300,
-  globalHour: 130,
-  maxItems: 24,
-  scrapedStaleDays: 14,
-} as const;
-
 export const BURST_DIGEST_TYPE = "burst_digest";
-
-export type BurstBucket = "lead" | "showing" | "general";
+const BURST_MAX_ITEMS = 24;
 
 export type BurstItem = {
   type: string;
@@ -34,44 +16,16 @@ export type BurstItem = {
   body?: string | null;
 };
 
-/** ליד אמיתי משתמש בתקרת הלידים. בקשת תמונות וכל השאר - בתקרה הכללית. */
-export function burstBucket(items: BurstItem[]): BurstBucket {
-  if (items.length === 0) return "general";
-  if (items.every((it) => it.type === "showcase_meeting")) return "showing";
-  if (items.every((it) => it.type === "new_lead" && it.source !== "photo_request")) return "lead";
-  return "general";
-}
-
-export function burstCaps(
-  bucket: BurstBucket,
-  cfg: typeof BURST_DEFAULTS = BURST_DEFAULTS,
-): { hour: number; day: number } {
-  if (bucket === "lead") return { hour: cfg.leadHourCap, day: cfg.leadDayCap };
-  if (bucket === "showing") return { hour: cfg.showingHourCap, day: cfg.showingDayCap };
-  return { hour: cfg.hourCap, day: cfg.dayCap };
-}
-
-export function overBurstCap(
-  sentHour: number,
-  sentDay: number,
-  caps: { hour: number; day: number },
-): boolean {
-  return sentHour >= caps.hour || sentDay >= caps.day;
+/** 0 כבוי. כל מספר אחר דלוק, כמו ב-SQL (<> 0). */
+export function guardEnabled(value: unknown): boolean {
+  const n = Number(value);
+  return Number.isFinite(n) && n !== 0;
 }
 
 /** ליד אמיתי, סיור, תזכורת, אבטחה, תקציב, ops. בקשת תמונות לא. */
 export function isBurstExempt(item: { type: string; source?: string | null }): boolean {
   if (item.type === "new_lead" && item.source === "photo_request") return false;
   return isLessKeptType(item.type);
-}
-
-/** בקשת תמונות: לכל היותר הודעה אחת לנכס. החדשה נשארת, השאר באתר. */
-export function photoRequestKeep<T extends { id: string; createdAt: number }>(
-  rows: T[],
-  alreadySent: boolean,
-): T | null {
-  if (alreadySent || rows.length === 0) return null;
-  return [...rows].sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? 1 : -1))[0];
 }
 
 export function burstDigestItem(count: number): BurstItem {
@@ -85,7 +39,7 @@ export function burstDigestItem(count: number): BurstItem {
 
 export function collapseForSend<T extends BurstItem>(
   items: T[],
-  maxItems = BURST_DEFAULTS.maxItems,
+  maxItems = BURST_MAX_ITEMS,
   guardOn = true,
 ): T[] {
   if (!guardOn) return items;

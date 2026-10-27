@@ -552,23 +552,24 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 | מפתח | ברירת מחדל | מה קורה מעליו |
 | --- | --- | --- |
-| `notification_burst_guard_enabled` | 1 | 0 מכבה את המפסקים ואת התקרות בלי דיפלוי. ישן, מילוי ובקשת תמונות נשארים |
-| `notif_burst_hour_cap` / `notif_burst_day_cap` | 12 / 30 | רק סוג שאינו מוגן. הודעה אחת "יש לך N התראות חדשות באתר", ואחר כך באותה שעה הגלישה **נדחית** לתקציר הבא. לא `skipped`. `greatest(1, ...)` כדי ש-0 לא יחסום הכל |
-| `notif_burst_lead_hour_cap` / `notif_burst_lead_day_cap` | 20 / 40 | מסלול של `new_lead` שאינו `photo_request`. מעל זה נדחה, בפרטים, לא נבלע בתקציר |
-| `notif_burst_showing_hour_cap` / `notif_burst_showing_day_cap` | 20 / 40 | מסלול של `showcase_meeting`. אותו כלל |
-| `notif_burst_max_items` | 24 | גוף של לא-מוגן נהיה תקציר. מוגן לא נכנס לתוכו |
-| `notif_burst_stale_hours` / `notif_burst_urgent_hours` | 12 / 72 | **רק** ישן מזה נרשם `skipped` (25 שעות אחורה). דחוף נשאר עד 72. דגל תקציר כבוי: `quiet_hold` נשאר |
-| `notif_burst_agent_pending` | 30 | מעל זה פריטים לא-מוגנים: תקציר, ואחר כך דחייה. `agenda_reminder`, `lead_unrouted`, `security_alert` ושאר המוגנים יוצאים בפרטים |
-| `notif_burst_created_max` | 300 ב-15 דקות | נספר רק מה שעדיין ממתין לדחיפה: לא נקרא, לא `suppress_push`, לא מוגן, ולא שורה שכבר ביומן. המפסק **דוחה**, לא רושם `skipped` |
-| `notif_burst_global_hour` | 130 | מפסק גלובלי. ליד אמיתי, סיור ומוגן עדיין יוצאים |
-| `notif_burst_manual_pause` | 0 | 1: אותו מפסק גלובלי, עד שמנהל/ת מאפס/ת |
-| `notif_burst_breaker` | 0 | 1 כל עוד המפסק הגלובלי דלוק. יורד כשהחלון חוזר מתחת לסף, בלי לסמן את התור |
+| `notification_burst_guard_enabled` | 1 | כל ערך שאינו 0 מדליק. 0 מכבה את המפסקים ואת התקרות בלי דיפלוי. ישן, מילוי ובקשת תמונות נשארים |
+| `notif_burst_hour_cap` / `notif_burst_day_cap` | 12 / 30 | רק הודעות שאינן עדיפות (ליד, סיור, תזכורת לא נספרים). שני פריטים או יותר נהיים "יש לך N". פריט אחד לא. אחר כך באותה שעה הגלישה **נדחית**. לא `skipped` |
+| `notif_burst_lead_hour_cap` / `notif_burst_lead_day_cap` | 20 / 40 | נספרות רק הודעות עם ליד אמיתי. חל על כל פריט כזה, גם בהודעה מעורבת וגם במפסק |
+| `notif_burst_showing_hour_cap` / `notif_burst_showing_day_cap` | 20 / 40 | אותו דבר ל-`showcase_meeting`, בנפרד מהלידים |
+| `notif_burst_max_items` | 24 | גוף של לא-מוגן נהיה תקציר, מ-2 פריטים. מוגן לא נכנס לתוכו |
+| `notif_burst_stale_hours` / `notif_burst_urgent_hours` | 12 / 72 | **רק** ישן מזה נרשם `skipped`. דחוי נמדד מ-`push_deferred_at`, לא מ-`created_at`, אז השהיה ארוכה מ-12 שעות לא מוחקת אותו לוואטסאפ |
+| `notif_burst_agent_pending` | 30 | מעל זה פריטים לא-מוגנים: תקציר (מ-2), ואחר כך דחייה. מוגן יוצא בפרטים |
+| `notif_burst_created_max` | 300 ב-15 דקות | נספר רק מה שעדיין ממתין לדחיפה. המפסק **דוחה**, לא רושם `skipped` |
+| `notif_burst_global_hour` | 130 | מפסק גלובלי. יורד רק אחרי 30 דקות מתחת ל-70% (`notif_burst_hysteresis_pct`, `notif_burst_rearm_minutes`) |
+| `notif_burst_manual_pause` | 0 | כל ערך שאינו 0: אותו מפסק, עד שמנהל/ת מאפס/ת |
+| `notif_burst_breaker` | 0 | כל ערך שאינו 0 כל עוד המפסק דלוק. `notification_push_ready` לא מעיר את הקרון כל 5 דקות כשאין מוגן שמחכה |
 
 אף מסלול לא מסמן `read`. `skipped` נשמר לישן, למילוי, ולבקשת תמונות
-כפולה. מפסק ותקרה דוחים. `ops_alert` "וואטסאפ לסוכנים הושהה" נכתב למנהלי
-הפלטפורמה **בלי** `suppress_push`, פעם ב-6 שעות כל עוד לא נקרא, ויוצא
-אליהם בוואטסאפ כי `ops_alert` מוגן. תמונת המצב: `notification_push_burst_status`
-(ל-`service_role`).
+כפולה. מפסק ותקרה דוחים, ומעדכנים `push_deferred_at` כדי שהפריט ישרוד
+מעבר ל-12 שעות. `ops_alert` "וואטסאפ לסוכנים הושהה" נכתב **לכל** מנהל/ת
+בנפרד, **בלי** `suppress_push`, פעם ב-6 שעות כל עוד לא נקרא אצלו/ה, ויוצא
+בוואטסאפ כי `ops_alert` מוגן. תמונת המצב: `notification_push_burst_status`
+(ל-`service_role`). התור תלוי ב-`notification_push_log_holds` מ-`20271028120000`.
 
 בקשת תמונות (`leads.source = photo_request`) אינה עוברת בתקרת הלידים:
 לכל היותר וואטסאפ אחד לסוכן/ת לנכס ביממה, והשאר באתר. `notify_agent_on_new_lead`
@@ -579,7 +580,7 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 | מחולל | מה קורה בעומס |
 | --- | --- |
-| `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. `notif_burst_demand_fanout` (15, `0` מבטל) מגביל וואטסאפ לפוסט: עיר מדויקת ואז פעילות אחרונה. השאר בפעמון, בלי דילוג. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
+| `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. `notif_burst_demand_fanout` (15, מתחת ל-51-54 שנמדדו, `0` מבטל) מגביל וואטסאפ לפוסט: עיר מדויקת ואז פעילות אחרונה. השאר בפעמון, בלי דילוג. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
 | `share_property_for_agent` | "נכס חדש שותף איתך". הטריגר מדליק `suppress_push` אם `notification_push_suppress(true)` נקרא קודם באותה טרנזקציה |
 | `generate_client_match_alerts` + `client_match_digest_run` | התאמה בזמן הדגל מקבלת `push_site_only`. סיכום שכולו כאלה לא יוצא לוואטסאפ, גם כשאין עדיין `last_sent_at`. התאמה חיה כן |
 | `notify_agent_on_new_lead` | לא שונתה. `photo_request` מטופל ב-`notification_push_burst_prepare` לפי `leads.source` |

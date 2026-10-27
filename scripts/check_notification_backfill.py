@@ -34,7 +34,8 @@ GENERATORS = (
     'client_match_digest_run',
 )
 CALL_RE = re.compile(
-    r'\b(?:select|perform)\s+(?:public\.)?(?:' + '|'.join(GENERATORS) + r')\s*\(',
+    r'\b(?:select|perform)\s+(?:\*\s+from\s+)?(?:public\.)?(?:' + '|'.join(GENERATORS) + r')\s*\('
+    r'|\bfrom\s+(?:public\.)?(?:' + '|'.join(GENERATORS) + r')\s*\(',
     re.I,
 )
 SUPPRESS_CALL_RE = re.compile(

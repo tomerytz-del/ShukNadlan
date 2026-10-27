@@ -60,6 +60,10 @@ CASES = [
         f'{NEW}_call.sql':
             "select public.notify_agent_on_new_lead('00000000-0000-0000-0000-000000000001');",
     }),
+    ('select star from מחולל נחסם', 1, {
+        f'{NEW}_star.sql':
+            'select * from public.generate_client_match_alerts();',
+    }),
     ('מחולל אחרי הדגל עובר', 0, {
         f'{NEW}_call_ok.sql':
             'select public.notification_push_suppress(true);\n'

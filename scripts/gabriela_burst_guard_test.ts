@@ -3,15 +3,11 @@
 
 import { readFileSync } from "node:fs";
 import {
-  BURST_DEFAULTS,
-  burstBucket,
-  burstCaps,
   burstDigestItem,
   burstText,
   collapseForSend,
+  guardEnabled,
   isBurstExempt,
-  overBurstCap,
-  photoRequestKeep,
 } from "../supabase/functions/notification-push/burst-guard.ts";
 
 let failed = 0;
@@ -41,14 +37,12 @@ const guardSrc = readFileSync(
   "utf8",
 );
 
-check("תקרה כללית מעל 7 בשעה ו-18 ביום", BURST_DEFAULTS.hourCap > 7 && BURST_DEFAULTS.dayCap > 18);
-check("יום של 18 ושעה של 7 לא עוברים את התקרה", !overBurstCap(7, 18, burstCaps("general")));
-check("שעה 12 כבר מעליה", overBurstCap(12, 3, burstCaps("general")));
-check("ליד אמיתי לא נתפס בתקרה הכללית", !overBurstCap(3, 3, burstCaps("lead")));
-check("סיור לא נתפס בתקרה הכללית", !overBurstCap(2, 2, burstCaps("showing")));
-check("בקשת תמונות היא תקרה כללית", burstBucket([{ type: "new_lead", source: "photo_request" }]) === "general");
-check("ליד בלי מקור הוא תקרת לידים", burstBucket([{ type: "new_lead" }]) === "lead");
-check("ערבוב ליד וסיור הוא כללי", burstBucket([{ type: "new_lead" }, { type: "showcase_meeting" }]) === "general");
+check("תקרות ב-SQL מעל מה שנמדד", sql.includes("('notif_burst_hour_cap', 12,")
+  && sql.includes("('notif_burst_day_cap', 30,")
+  && sql.includes("('notif_burst_lead_hour_cap', 20,")
+  && sql.includes("('notif_burst_showing_hour_cap', 20,"));
+check("מתג: 0 כבוי, כל ערך אחר דלוק", !guardEnabled(0) && guardEnabled(1) && guardEnabled(2) && !guardEnabled("no"));
+check("השליחה משתמשת באותו מתג", push.includes("guardEnabled"));
 
 check("ישן: quiet hold לא נסגר כשהתקציר כבוי", prep.includes(
   "not (v_digest_on = 0 and public.notification_push_quiet_hold",
@@ -64,7 +58,7 @@ const breaker = prep.slice(prep.indexOf("if v_guard = 0 then"));
 check("המפסק הגלובלי לא כותב skipped", breaker.length > 0 && !breaker.includes("'skipped'") && !breaker.includes("burst breaker; site only"));
 check("מפסק סוכן לא כותב skipped", !sql.includes("burst agent pending"));
 check("301 בחלון מדליק את הדגל, 72 שליחות לא", prep.includes("v_created > v_created_max") && prep.includes("v_sends > v_global_max"));
-check("השהיה ידנית מדליקה את אותו דגל", prep.includes("v_manual = 1 or v_created > v_created_max"));
+check("השהיה ידנית מדליקה את אותו דגל", prep.includes("v_manual <> 0 or v_created > v_created_max"));
 check("מתג כבוי יוצא לפני המפסק ומכבה אותו", prep.includes("if v_guard = 0 then") && prep.includes("notification_burst_guard_enabled"));
 check("מתג הכיבוי נולד דלוק", sql.includes("('notification_burst_guard_enabled', 1,"));
 
@@ -76,13 +70,21 @@ check("תזכורת, סיור, ליד לא משויך ואבטחה מוגנים"
 ].every((type) => isBurstExempt({ type })));
 check("system ו-open_demand אינם מוגנים", !isBurstExempt({ type: "system" }) && !isBurstExempt({ type: "open_demand" }));
 
-check("מפסק: מוגן יוצא בפרטים, ובלי מוגן אין שליחה", claim.includes("if v_pause then")
-  && claim.includes("v_items := v_ex_items")
-  && claim.includes("if coalesce(array_length(v_ex_ids, 1), 0) = 0 then"));
+check("מפסק: מוגן יוצא, ובלי מה לשלוח אין הודעה", claim.includes("v_pause or v_hold_general")
+  && claim.includes("if coalesce(jsonb_array_length(v_items), 0) = 0 then"));
 check("ה-claim לא רושם skipped", !claim.includes("'skipped'") && !claim.includes("burst cap; site only"));
-check("גלישה נדחית לתקציר הבא", claim.includes("overflow_defer") && claim.includes("v_hold_general and v_digest_sent"));
-check("תקציר נרשם רק על הלא-מוגן", claim.includes("v_ids := v_gen_ids"));
+check("גלישה נדחית לתקציר הבא", claim.includes("overflow_defer") && claim.includes("not v_digest_sent"));
+check("תקציר נרשם רק על הלא-מוגן, ומשניים", claim.includes("v_ids := v_gen_ids")
+  && claim.includes("coalesce(v_gen_n, 0) >= 2"));
 check("תור סוכן מעל 30 דוחה לא-מוגן ולא מוחק אותו", claim.includes("v_gen_n, 0) > v_pending_max"));
+check("תקרה לפי מסלול ועל כל פריט", claim.includes("notification_push_item_lane")
+  && claim.includes("v_lead_over")
+  && claim.includes("v_show_over")
+  && !claim.includes("v_all_lead"));
+check("עדיפות לא מדליקה את התקרה הכללית", claim.includes("notification_push_priority_types()")
+  && claim.includes("photo_request"));
+check("דחייה שורדת מעבר ל-12 שעות", claim.includes("push_deferred_at")
+  && claim.includes("notification_push_mark_deferred"));
 check("תקרה לפחות 1", claim.includes(
   "greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_hour_cap'), 12))",
 ) && claim.includes(
@@ -117,12 +119,13 @@ check("מתג כבוי לא מקפל", collapseForSend(
 check("תקציר מהמסד לא נפרש", collapseForSend([burstDigestItem(9), { type: "system" }]).length === 1);
 check("מתחת לסף נשאר", collapseForSend([{ type: "new_lead" }, { type: "system" }]).length === 2);
 
-const keep = photoRequestKeep([
-  { id: "a", createdAt: 1 },
-  { id: "b", createdAt: 2 },
-], false);
-check("נשארת בקשת התמונות החדשה", keep?.id === "b");
-check("אחרי שכבר נשלחה לא נשלחת עוד", photoRequestKeep([{ id: "a", createdAt: 1 }], true) === null);
+check("בקשת תמונות: החדשה נשארת", prep.includes("(n3.created_at, n3.id) > (n.created_at, n.id)"));
+check("היסטרזיס 70 אחוז ו-30 דקות", prep.includes("notif_burst_hysteresis_pct")
+  && prep.includes("v_rearm * 60") && prep.includes("v_below"));
+check("ops לכל מנהל", prep.includes("n.agent_id = m.id"));
+check("ready מודע למפסק", sql.includes("function public.notification_push_ready")
+  && sql.includes("notification_push_has_backlog(true)")
+  && sql.includes("notif_burst_checked_at"));
 
 const text = burstText("דנה לוי", 12, "https://shuknadlan.co.il", "https://shuknadlan.co.il/crm?goto=accNotifPrefs");
 check("נוסח התקציר", text.includes("דנה, יש לך 12 התראות חדשות באתר.") && text.includes("https://shuknadlan.co.il/crm"));
@@ -145,9 +148,21 @@ check("14 יום", sql.includes("notif_burst_scraped_stale_days"));
 const demandStart = sql.indexOf("function public.scraped_lead_notify_demand");
 const demandEnd = sql.indexOf("comment on function public.scraped_lead_notify_demand");
 const demand = sql.slice(demandStart, demandEnd);
-check("תקרת הפצה 15, ואפס מבטל", sql.includes("('notif_burst_demand_fanout', 15,")
+function fanoutSplit(recipients: number, cap: number) {
+  if (cap <= 0) return { push: recipients, bell: 0 };
+  const push = Math.min(recipients, cap);
+  return { push, bell: recipients - push };
+}
+const fanoutCap = Number(sql.match(/\('notif_burst_demand_fanout', (\d+),/)?.[1]);
+check("תקרת הפצה 15, מתחת ל-51-54 שנמדדו, ואפס מבטל", fanoutCap === 15
+  && fanoutCap < 51
   && demand.includes("where key = 'notif_burst_demand_fanout'), 15")
-  && demand.includes("v_cap > 0 and s.rn > v_cap"));
+  && demand.includes("v_cap > 0 and s.rn > v_cap")
+  && sql.includes("51 עד 54"));
+check("54 סוכנים: 15 וואטסאפ ו-39 בפעמון", fanoutSplit(54, fanoutCap).push === 15
+  && fanoutSplit(54, fanoutCap).bell === 39);
+check("51 סוכנים: 15 וואטסאפ ו-36 בפעמון", fanoutSplit(51, fanoutCap).bell === 36);
+check("אפס מבטל את התקרה על 54", fanoutSplit(54, 0).push === 54 && fanoutSplit(54, 0).bell === 0);
 check("כולם נכנסים, אף אחד לא נמחק מההפצה", demand.includes("insert into public.notifications")
   && demand.includes("demand_notified_at = now()")
   && !demand.includes("limit ")
