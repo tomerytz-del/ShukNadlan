@@ -37,14 +37,18 @@ function stripMedialYod(word: string): string {
  * יוצאים זהים, וכך גם "דויד"/"דוד" ו"וייצמן"/"ויצמן".
  */
 export function nameSkeleton(raw: unknown): string {
+  // אותו סדר כמו client_name_skeleton: NFKC, רווח מכל סוג לפני פיצול
+  // המילים, ואז lower. split על רווח רגיל בלבד היה משאיר טאב בתוך המילה.
   let s = String(raw ?? "").normalize("NFKC");
   s = s.replace(/[֑-ׇ]/g, "").replace(/["'״׳`]/g, "");
   s = s.replace(/[םןץףך]/g, (c) => FINALS[c] || c);
-  s = s.replace(/[^א-תA-Za-z0-9\s]/g, " ");
+  s = s.replace(/\s/g, " ");
+  s = s.replace(/[^א-תA-Za-z0-9 ]/g, " ");
   s = s.replace(/ו{2,}/g, "ו");
   s = s.replace(/[כק]/g, "ק").replace(/[טת]/g, "ת");
+  s = s.replace(/ +/g, " ").trim();
   s = s.split(" ").map(stripMedialYod).join(" ");
-  return s.replace(/\s+/g, " ").trim().toLowerCase();
+  return s.replace(/ +/g, " ").trim().toLowerCase();
 }
 
 function tokens(skeleton: string): string[] {
