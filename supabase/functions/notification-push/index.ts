@@ -502,10 +502,11 @@ async function sendWhatsapp(
     if (!body || containsHttpUrl(body) || body.length > 1024) return null;
     if (plan.kind === "single") {
       tokens = clickRecords(plan);
+      const rich = richLead(items);
       return ctaMessage(
         to,
         body,
-        richLead(items) ? LEAD_CTA : plan.label,
+        rich && !rich.masked ? LEAD_CTA : plan.label,
         absoluteUrl(SITE_BASE, plan.path),
       );
     }
@@ -684,15 +685,27 @@ Deno.serve(async (req: Request) => {
   // בסבב הבא.
   const { data: batch, error } = await sb.rpc("notification_push_claim", { p_limit: BATCH });
   if (error) return json({ error: "db_error", detail: error.message }, 500);
-  if (!batch || batch.length === 0) return json({ sent: 0, failed: 0, empty: true });
+  let rows = Array.isArray(batch) ? [...batch] : [];
+  // ליד נעול ל-free. הפונקציה חסרה עד שהמיגרציה רצה, והשליחה הרגילה ממשיכה.
+  const free = await sb.rpc("free_locked_lead_claim", { p_limit: BATCH });
+  if (free.error) {
+    const msg = String(free.error.message || "");
+    const code = String(free.error.code || "");
+    const missing = code === "PGRST202" || code === "42883"
+      || /PGRST202|42883|does not exist|schema cache/i.test(msg);
+    if (!missing) console.error("free_locked_lead_claim", msg);
+  } else if (Array.isArray(free.data) && free.data.length) {
+    rows = rows.concat(free.data);
+  }
+  if (rows.length === 0) return json({ sent: 0, failed: 0, empty: true });
 
   let sent = 0, failed = 0;
 
   // ‏new_lead: שם הפונה, הערוץ והנכס (lead-alert.ts). כשל - מפה ריקה, נוסח ישן.
-  const leadInfo = await loadLeadInfo(sb, batch as Record<string, any>[]);
+  const leadInfo = await loadLeadInfo(sb, rows as Record<string, any>[]);
   const digest = await loadDigestFlags(sb);
 
-  await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
+  await mapPool(rows as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
     let items = collapseForSend(withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
