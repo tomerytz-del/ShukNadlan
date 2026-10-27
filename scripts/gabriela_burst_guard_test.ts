@@ -154,6 +154,8 @@ check("המלאי בתיעוד", [
   "notify_agent_on_new_lead",
   "property_offers_claim",
   "photo_request",
+  "properties_client_match_alerts",
+  "neighborhood_id",
 ].every((name) => doc.includes(name)));
 
 if (failed) {

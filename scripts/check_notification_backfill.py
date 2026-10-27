@@ -104,6 +104,32 @@ def scan(sql: str) -> bool:
     return any(unmarked(body) for body in bodies)
 
 
+HOOD_UPDATE_RE = re.compile(
+    r'\bupdate\s+(?:only\s+)?(?:public\.)?properties\b',
+    re.I,
+)
+
+
+def hood_backfill_unmarked(sql: str) -> bool:
+    """עדכון neighborhood_id על properties בלי השתקה הוא גל התאמות.
+
+    הטריגרים properties_client_match_alerts ו-properties_prune_stale_alerts
+    רצים על כל שורה פעילה שהשכונה שלה משתנה. מילוי חוזר חייב
+    notification_push_suppress לפני ה-update, או לרוץ במנות מחוץ למיגרציה.
+    """
+    code = strip_comments(sql)
+    for match in HOOD_UPDATE_RE.finditer(code):
+        window = code[match.start():match.start() + 1200]
+        semi = window.find(';')
+        stmt = window if semi < 0 else window[:semi]
+        if not re.search(r'\bneighborhood_id\s*=', stmt, re.I):
+            continue
+        if suppress_before(code, match.start()):
+            continue
+        return True
+    return False
+
+
 def main(root: str = '.') -> int:
     bad = 0
     files = sorted(glob.glob(os.path.join(root, 'supabase/migrations/*.sql')))
@@ -113,15 +139,23 @@ def main(root: str = '.') -> int:
             continue
         checked += 1
         sql = open(path, encoding='utf-8').read()
+        rel = os.path.relpath(path, root)
         if scan(sql):
             bad += 1
-            rel = os.path.relpath(path, root)
             print(f'✗ {rel}')
             print('    insert או קריאה למחולל התראות בלי סימון מילוי.')
             print('    suppress_push ב-WHERE אינו נחשב. צריך את העמודה')
             print('    ב-insert, או select public.notification_push_suppress(true)')
             print('    לפני הכתיבה באותו גוף.')
             print('    התיעוד: docs/notifications-center.md, "שמירה מפני התפרצות".')
+        if hood_backfill_unmarked(sql):
+            bad += 1
+            print(f'✗ {rel}')
+            print('    update של properties.neighborhood_id בלי השתקת דחיפה.')
+            print('    הטריגר יוצר גל התאמות. צריך')
+            print('    select public.notification_push_suppress(true) לפניו,')
+            print('    או מנות מחוץ למיגרציה.')
+            print('    התיעוד: docs/notifications-center.md, "מלאי מחוללים".')
     if bad:
         print(f'\n{bad} מיגרציות כותבות התראות בלי סימון מילוי.')
         return 1

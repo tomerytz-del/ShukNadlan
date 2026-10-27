@@ -69,7 +69,7 @@ export function featureWritePlan(opts: {
   max_price?: number | null;
 }): { preferred: string[] | undefined; ask: string[] | undefined; suggested: string[] } {
   const suggested = opts.notesSent ? featuresInNotes(opts.notes, opts.category) : [];
-  const preferred = opts.notesSent && !opts.requiredSent ? suggested : undefined;
+  const preferred = opts.notesSent && !opts.requiredSent && suggested.length ? suggested : undefined;
   const asked = requirementsFromNotes(opts.notesSent ? opts.notes : "", {
     deal_type: opts.deal_type,
     category: opts.category,
@@ -118,7 +118,25 @@ export function neighborhoodAllows(opts: {
   if (!opts.clientHoodId) return true;
   if (!opts.hoodBelongs) return true;
   if (!opts.propertyInHoodCity) return true;
+  // שכונה שלא מולאה במודעה היא "לא ידוע", לא "שכונה אחרת".
+  if (!opts.propertyHoodId) return true;
   return opts.propertyHoodId === opts.clientHoodId;
+}
+
+/**
+ * דירוג מההערות מתווסף למה שכבר שמור. אותו סט לא נכתב שוב,
+ * והערות בלי מאפיין לא מוחקות דירוג קיים.
+ */
+export function mergePreferredFeatures(
+  current: readonly string[] | null | undefined,
+  derived: readonly string[] | null | undefined,
+): string[] | undefined {
+  const nextDerived = (derived || []).map(String).filter(Boolean);
+  if (!nextDerived.length) return undefined;
+  const cur = [...new Set((current || []).map(String).filter(Boolean))].sort();
+  const next = [...new Set([...cur, ...nextDerived])].sort();
+  if (next.length === cur.length && next.every((value, i) => value === cur[i])) return undefined;
+  return next;
 }
 
 /** שינוי ערים בלי שם שכונה חדש מוחק שכונה שכבר לא שייכת. כשל בפענוח לא מוחק. */
