@@ -530,3 +530,171 @@ export function reissuePrepareInput(
 function utf16len(s: string): number {
   return [...s].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0);
 }
+
+export type PublishChannel = "site" | "social" | "brokers" | "save";
+
+export interface PublishDestination {
+  code: string;
+  title: string;
+  description: string;
+  channels: PublishChannel[];
+  edit: boolean;
+}
+
+/** רשימה אחת, בחירה אחת. הכותרות בתוך 24 יחידות UTF-16 של Meta. */
+export const PUBLISH_DESTINATIONS: PublishDestination[] = [
+  {
+    code: "asb",
+    title: "אתר + רשתות + מתווכים",
+    description: "האתר, תור לפייסבוק ולאינסטגרם, ושת״פ למשרדים",
+    channels: ["site", "social", "brokers"],
+    edit: false,
+  },
+  {
+    code: "as",
+    title: "אתר + רשתות",
+    description: "האתר, ותור לפייסבוק ולאינסטגרם",
+    channels: ["site", "social"],
+    edit: false,
+  },
+  {
+    code: "a",
+    title: "רק אתר",
+    description: "דף הנכס באתר, בלי רשתות ובלי שת״פ",
+    channels: ["site"],
+    edit: false,
+  },
+  {
+    code: "ab",
+    title: "אתר + מתווכים",
+    description: "האתר, ושת״פ למשרדים אחרים",
+    channels: ["site", "brokers"],
+    edit: false,
+  },
+  {
+    code: "m",
+    title: "רק לשמור במאגר",
+    description: "בלי אתר, בלי רשתות ובלי שת״פ",
+    channels: ["save"],
+    edit: false,
+  },
+  {
+    code: "e",
+    title: "לערוך",
+    description: "פתיחת הכרטיס ב-CRM, בלי לפרסם",
+    channels: [],
+    edit: true,
+  },
+];
+
+export const DEST_LIST_BUTTON = "לאן לפרסם";
+export const DEST_LIST_SECTION = "בחירה אחת";
+
+/** לכל נכס: לכל היותר שורת תור לפייסבוק ואחת לאינסטגרם. בלי התראה. */
+export const SOCIAL_QUEUE_ROWS_PER_PROPERTY = 2;
+
+const DEST_RE = /^dst:(asb|as|ab|a|m|e):([0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export function publishDestinationList(
+  requestId: string,
+  propertyId: string,
+): { button: string; section: string; rows: { id: string; title: string; description: string }[] } | null {
+  if (!/^[0-9a-f]{12}$/i.test(requestId) || !PUBLISH_UUID_RE.test(propertyId)) return null;
+  if (utf16len(DEST_LIST_BUTTON) > 20 || utf16len(DEST_LIST_SECTION) > 24) return null;
+  const rows = PUBLISH_DESTINATIONS.map((row) => {
+    const id = `dst:${row.code}:${requestId.toLowerCase()}:${propertyId.toLowerCase()}`;
+    return { id, title: row.title, description: row.description, code: row.code };
+  });
+  if (rows.length > 10) return null;
+  if (rows.some((row) => row.id.length > 200 || utf16len(row.title) > 24 || utf16len(row.description) > 72)) {
+    return null;
+  }
+  return {
+    button: DEST_LIST_BUTTON,
+    section: DEST_LIST_SECTION,
+    rows: rows.map(({ id, title, description }) => ({ id, title, description })),
+  };
+}
+
+export function parsePublishDestination(
+  buttonId: string,
+): { code: string; requestId: string; propertyId: string; channels: PublishChannel[]; edit: boolean } | null {
+  const m = DEST_RE.exec(String(buttonId || "").trim());
+  if (!m) return null;
+  const found = PUBLISH_DESTINATIONS.find((row) => row.code === m[1].toLowerCase());
+  if (!found) return null;
+  return {
+    code: found.code,
+    requestId: m[2].toLowerCase(),
+    propertyId: m[3].toLowerCase(),
+    channels: found.channels.slice(),
+    edit: found.edit,
+  };
+}
+
+/** אותו מזהה בקשה לשתי שורות: הלחיצה השנייה נתקעת בבקשה שכבר בוצעה. */
+export function destinationSameRequest(a: string, b: string): boolean {
+  const left = parsePublishDestination(a);
+  const right = parsePublishDestination(b);
+  if (!left || !right) return false;
+  return left.requestId === right.requestId && left.propertyId === right.propertyId;
+}
+
+/** אתר מעלה טיוטה. רק מאגר מוריד נכס שכבר באוויר. נמכר לא זז. */
+export function destinationStatusPatch(
+  channels: readonly string[],
+  status: string,
+): "active" | "unpublished" | null {
+  const save = channels.length === 1 && channels[0] === "save";
+  if (save && status === "active") return "unpublished";
+  if (channels.includes("site") && (status === "unpublished" || status === "draft")) return "active";
+  return null;
+}
+
+/**
+ * רשתות לא יוצאות מהלחיצה. דגל כבוי, או נכס שלא באוויר: רק הסימון.
+ * דגל דלוק ונכס באוויר: התור (השהיה ותקרה יומית), לא פוסט.
+ */
+export function socialEnqueuePlan(
+  channels: readonly string[],
+  flagOn: boolean,
+  willBeActive: boolean,
+): "skip" | "record" | "queue" {
+  if (!channels.includes("social")) return "skip";
+  if (!willBeActive || !flagOn) return "record";
+  return "queue";
+}
+
+export function destinationReply(input: {
+  channels: readonly string[];
+  status: string;
+  licenseHeld: boolean;
+  social: "skip" | "record" | "queue";
+  brokersSent: boolean;
+}): string {
+  const save = input.channels.length === 1 && input.channels[0] === "save";
+  if (save) {
+    return "הנכס נשמר במאגר ולא פורסם. אפשר לשנות את היעד אחר כך מהכרטיס או מכאן.";
+  }
+  const parts: string[] = [];
+  if (input.licenseHeld) {
+    parts.push("היעד נשמר. הנכס יעלה לאוויר ברגע שרישיון התיווך יאושר.");
+  } else if (input.status === "active") {
+    parts.push("הנכס באתר.");
+  } else {
+    parts.push("היעד נשמר. הנכס לא באתר.");
+  }
+  if (input.social === "record") {
+    parts.push(input.status === "active"
+      ? "הרשתות נרשמו וייכנסו לתור כשהאפשרות תידלק, עם ההשהיה והתקרה היומית."
+      : "הרשתות נרשמו. הן ייכנסו לתור אחרי שהנכס באוויר, אם האפשרות דלוקה.");
+  } else if (input.social === "queue") {
+    parts.push("הרשתות נכנסו לתור הפרסום, עם ההשהיה והתקרה היומית.");
+  }
+  if (input.channels.includes("brokers")) {
+    parts.push(input.brokersSent
+      ? "השת״פ יצא למשרדים, עד התקרה לנכס, ובלי מספר טלפון."
+      : "השת״פ נרשם. ההפצה למשרדים יוצאת רק כשהאפשרות דלוקה, עד תקרה של משרדים לנכס, ובלי מספר טלפון.");
+  }
+  return parts.join(" ");
+}

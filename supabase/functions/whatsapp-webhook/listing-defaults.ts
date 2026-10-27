@@ -25,7 +25,15 @@ export type ButtonOutbox = {
   buttons: { id: string; title: string }[];
 };
 
-export type BatchableOutbox = CtaOutbox | ButtonOutbox;
+export type ListOutbox = {
+  kind: "list";
+  body: string;
+  button: string;
+  section: string;
+  rows: { id: string; title: string; description?: string }[];
+};
+
+export type BatchableOutbox = CtaOutbox | ButtonOutbox | ListOutbox;
 
 /**
  * עיר לנכס חדש כשהסוכן/ת לא אמר/ה עיר.

@@ -137,6 +137,29 @@ mark_property_publication → posted + post_id + הטקסט שיצא
 אחרת השורה יוצאת בלי מספר. ‏`ads_settings.disclosure_line` אינו נקרא כאן.
 ברילסים הכלל שונה - שם רק בנכסים של תומר: `docs/property-marketing-video.md`.
 
+### יעד מוואטסאפ
+
+גבריאלה שואלת לכל נכס לאן להוציא אותו (רשימה אחת, בחירה אחת). `social`
+ב-`properties.publish_channels` הוא בקשה להיכנס **לתור הזה**, לא פוסט.
+`NULL` בעמודה הוא נכס שלא נשאל (CRM, אתר, ייבוא, אישור במייל): הטריגר
+הקיים ממשיך להכניס אותו כשהוא נעשה `active`.
+
+מערך מפורש בלי `social` מדלג על התור. מערך עם `social` מחכה לדגל
+`gabriela_social_publish_enabled` (נולד 0): כבוי שומר את הסימון על הנכס,
+דלוק קורא ל-`queue_property_publication`. לכל נכס לכל היותר שתי שורות,
+אחת ל-`facebook_page` ואחת ל-`instagram`, בזכות `unique (property_id, channel)`
+ובלי `p_force` שמאפס שורה קיימת. אין כאן רילס, ואין התראה.
+
+ההשהיה (`facebook_autopost_delay_minutes`, 20) והתקרה היומית
+(`facebook_autopost_daily_cap`, 12 לערוץ) נשארות במשיכה מהתור. נכס שכבר
+`active` וסומן לרשתות אחר כך מחכה לסבב הבא של `property-marketing-publish`
+(עד 5 דקות) ואז לאותה השהיה. הסבב קורא ל-`gabriela_social_drain` עד 10
+נכסים, ורק כשהדגל דלוק. מילוי המוני של `publish_channels` במיגרציה חסום
+ב-`check_notification_backfill.py`: הוא היה מכניס גל לתור.
+
+החתימה בפוסט נשארת `contactLine`: השם והרישיון של סוכן/ת **הנכס**, ורק
+רישיון שאומת או אושר ידנית. שם או רישיון של משרד אחר לא נכתבים.
+
 ## הפרמטרים העסקיים
 
 כולם ב-`pricing_config`, כמו כל מספר עסקי בפרויקט:
@@ -144,6 +167,7 @@ mark_property_publication → posted + post_id + הטקסט שיצא
 | מפתח | ברירת מחדל | מה זה |
 | --- | --- | --- |
 | `facebook_autopost_enabled` | 1 | מתג הכיבוי. `0` עוצר את הפרסום האוטומטי מיד |
+| `gabriela_social_publish_enabled` | 0 | נכס שסומן לרשתות מוואטסאפ נכנס לתור. `0` שומר את הסימון ולא מכניס |
 | `facebook_autopost_delay_minutes` | 20 | כמה ממתינים אחרי שמירת הנכס |
 | `facebook_autopost_daily_cap` | 12 | תקרת פוסטים ליממה. עודף נשאר בתור ויוצא למחרת |
 | `facebook_autopost_max_attempts` | 5 | ניסיונות לפני `failed` (‏30 דקות בין ניסיונות) |

@@ -35,6 +35,16 @@ import {
   publishStoreBlocked,
   unpublishedAfterUnconfirmedPublish,
   publishWritesNow,
+  PUBLISH_DESTINATIONS,
+  DEST_LIST_BUTTON,
+  DEST_LIST_SECTION,
+  SOCIAL_QUEUE_ROWS_PER_PROPERTY,
+  publishDestinationList,
+  parsePublishDestination,
+  destinationSameRequest,
+  destinationStatusPatch,
+  socialEnqueuePlan,
+  destinationReply,
   REISSUE_EXPIRED,
   reissueOldAgreementPlan,
   REISSUE_OLD_CANCELLED,
@@ -286,6 +296,90 @@ check("אותו משרד בטיוטה בלי שם עמית/ה", (elsewhereDraftW
 check("clear אינו אזהרה", elsewhereDraftWarning("clear") === null && elsewhereDraftWarning("unknown") === null && elsewhereDraftWarning(null) === null);
 check("פונקציית אזהרה חסרה אינה כשל יצירה", draftElsewhereMissing({ code: "42883" }) && draftElsewhereMissing({ code: "PGRST202" }) && draftElsewhereMissing({ code: "42P01" }) === false);
 check("כפתור שפג משאיר unpublished", unpublishedAfterUnconfirmedPublish("expired") === "unpublished" && unpublishedAfterUnconfirmedPublish("no") === "unpublished" && unpublishedAfterUnconfirmedPublish("edit") === "unpublished");
+
+function utf16(s: string): number {
+  return [...s].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0);
+}
+const destList = publishDestinationList(pubId, propertyUuid);
+const destRows = destList?.rows || [];
+check("רשימת יעד", !!destList
+  && destList.button === DEST_LIST_BUTTON
+  && destList.section === DEST_LIST_SECTION
+  && destRows.length === PUBLISH_DESTINATIONS.length
+  && destRows.length === 6);
+check("מגבלות רשימה", utf16(DEST_LIST_BUTTON) <= 20
+  && utf16(DEST_LIST_SECTION) <= 24
+  && destRows.every((row) => row.id.length <= 200 && utf16(row.title) <= 24 && utf16(row.description) <= 72));
+check("מזהה שורה נושא נכס ובקשה", destRows.every((row) =>
+  row.id === `dst:${parsePublishDestination(row.id)?.code}:${pubId}:${propertyUuid}`));
+check("כל יעד חוזר מהמזהה", PUBLISH_DESTINATIONS.every((row) => {
+  const id = `dst:${row.code}:${pubId}:${propertyUuid}`;
+  const parsed = parsePublishDestination(id);
+  return !!parsed
+    && parsed.code === row.code
+    && parsed.edit === row.edit
+    && parsed.channels.join(",") === row.channels.join(",")
+    && parsed.propertyId === propertyUuid
+    && parsed.requestId === pubId;
+}));
+check("כפתור ישן אינו יעד", parsePublishDestination(`pubx:y:${pubId}:${propertyUuid}`) === null);
+check("יעד בלי נכס נופל", publishDestinationList(pubId, "not-a-uuid") === null);
+const siteSocial = destRows.find((row) => row.title === "אתר + רשתות");
+const saveOnly = destRows.find((row) => row.title === "רק לשמור במאגר");
+check("שתי שורות של אותה בקשה", !!siteSocial && !!saveOnly
+  && destinationSameRequest(siteSocial.id, saveOnly.id));
+check("בקשה אחרת אינה אותה לחיצה", !destinationSameRequest(
+  siteSocial?.id || "",
+  `dst:a:${"ab".repeat(6)}:${propertyUuid}`,
+));
+check("נכס אחר אינו אותה לחיצה", !destinationSameRequest(
+  siteSocial?.id || "",
+  `dst:as:${pubId}:22222222-2222-4222-8222-222222222222`,
+));
+check("לחיצה שנייה על אותה בקשה לא רצה", publishClickDecision(
+  { ...pubRow, id: pubId, executed_at: new Date().toISOString(), result: "הנכס באתר." },
+  Date.now(),
+).kind === "done");
+check("מאגר מוריד נכס שבאוויר", destinationStatusPatch(["save"], "active") === "unpublished");
+check("אתר מעלה טיוטה", destinationStatusPatch(["site", "social"], "unpublished") === "active"
+  && destinationStatusPatch(["site"], "draft") === "active");
+check("מאגר על טיוטה לא משנה סטטוס", destinationStatusPatch(["save"], "unpublished") === null);
+check("נמכר לא זז", destinationStatusPatch(["site"], "sold") === null
+  && destinationStatusPatch(["save"], "archived") === null);
+check("בלי רשתות אין תור", socialEnqueuePlan(["site"], true, true) === "skip");
+check("דגל כבוי רק רושם", socialEnqueuePlan(["site", "social"], false, true) === "record");
+check("נכס שלא באוויר רק רושם", socialEnqueuePlan(["social"], true, false) === "record");
+check("דגל דלוק ונכס באוויר נכנס לתור", socialEnqueuePlan(["site", "social", "brokers"], true, true) === "queue");
+check("לכל נכס שתי שורות תור", SOCIAL_QUEUE_ROWS_PER_PROPERTY === 2);
+const queued = destinationReply({
+  channels: ["site", "social", "brokers"],
+  status: "active",
+  licenseHeld: false,
+  social: "queue",
+  brokersSent: true,
+});
+const recorded = destinationReply({
+  channels: ["site", "brokers"],
+  status: "active",
+  licenseHeld: false,
+  social: "skip",
+  brokersSent: false,
+});
+const saved = destinationReply({
+  channels: ["save"],
+  status: "unpublished",
+  licenseHeld: false,
+  social: "skip",
+  brokersSent: false,
+});
+check("תשובת תור בלי מקף ארוך ובלי שם", !queued.includes(longDash)
+  && !queued.includes("תומר")
+  && !queued.includes("יצחק")
+  && queued.includes("תור")
+  && queued.includes("תקרה")
+  && queued.includes("בלי מספר טלפון"));
+check("שת״פ שנרשם אומר תקרה ובלי טלפון", recorded.includes("תקרה") && recorded.includes("בלי מספר טלפון"));
+check("רק מאגר לא מפרסם", saved.includes("נשמר במאגר") && saved.includes("לא פורסם"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

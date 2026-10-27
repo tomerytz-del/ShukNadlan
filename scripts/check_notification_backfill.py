@@ -110,6 +110,21 @@ HOOD_UPDATE_RE = re.compile(
 )
 
 
+PUBLISH_CHANNELS_UPDATE_RE = re.compile(
+    r'\bupdate\s+(?:only\s+)?(?:public\.)?properties\b[\s\S]{0,800}?\bpublish_channels\s*=',
+    re.I,
+)
+
+
+def publish_channels_backfill(sql: str) -> bool:
+    """מילוי publish_channels על נכסים קיימים מכניס גל לתור הרשתות.
+
+    הבחירה היא per property. עדכון המוני בזמן שהדגל דלוק עובר בטריגר
+    של כל שורה. מילוי כזה לא נכתב במיגרציה.
+    """
+    return bool(PUBLISH_CHANNELS_UPDATE_RE.search(strip_comments(sql)))
+
+
 def hood_backfill_unmarked(sql: str) -> bool:
     """עדכון neighborhood_id על properties בלי השתקה הוא גל התאמות.
 
@@ -148,6 +163,12 @@ def main(root: str = '.') -> int:
             print('    ב-insert, או select public.notification_push_suppress(true)')
             print('    לפני הכתיבה באותו גוף.')
             print('    התיעוד: docs/notifications-center.md, "שמירה מפני התפרצות".')
+        if publish_channels_backfill(sql):
+            bad += 1
+            print(f'✗ {rel}')
+            print('    update של properties.publish_channels במיגרציה.')
+            print('    זו בחירה per property. מילוי המוני נכנס לתור הרשתות.')
+            print('    התיעוד: docs/facebook-auto-publish.md, "יעד מוואטסאפ".')
         if hood_backfill_unmarked(sql):
             bad += 1
             print(f'✗ {rel}')
