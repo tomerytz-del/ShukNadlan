@@ -3,33 +3,48 @@
 --
 -- ## 1. client_property_match בלי search_path
 --
--- שתי העומסים הם LANGUAGE sql IMMUTABLE עם SET search_path = ''. פונקציית
--- SQL עם SET אינה מוטמעת, ולכן match_properties_for_client קוראת לה כקופסה
--- שחורה לכל זוג לקוח/ה x נכס (כ-3ms לקריאה). client_match_top עוברת על כל
--- הלקוחות הפעילים ונופלת ב-statement_timeout של 8 שניות (נמדד 23.5 שניות
--- לסוכן/ת עם 78 לקוחות).
+-- שתי העומסים הם LANGUAGE sql IMMUTABLE עם SET search_path = ''. ב-PG 17
+-- (הפרודקשן הוא 17.6) פונקציית SQL עם proconfig אינה מוטמעת. הקריאה החיה
+-- היא cross join lateral מתוך match_properties_for_client (plpgsql),
+-- ו-client_match_top / client_match_counts קוראות ל-plpgsql הזה, לא
+-- לפונקציית הציון ישירות. בלי הטמעה כל זוג לקוח/ה x נכס הוא Function Scan
+-- (כ-3ms), ו-client_match_top נופלת ב-statement_timeout של 8 שניות.
 --
--- RESET search_path משאיר את הגוף כמו שהוא ומאפשר הטמעה. הגוף מלא
--- בסכימה (public.*), הפונקציות אינן SECURITY DEFINER, ושני הקוראים
--- (match_properties_for_client, client_match_*) הם SECURITY DEFINER עם
--- search_path = '' - אז אחרי ההטמעה ה-search_path האפקטיבי נשאר ריק.
--- יועץ האבטחה של Supabase יציג אותן תחת function_search_path_mutable.
--- זה חריג מתועד, לא חור: הבדיקה ב-ops_agent/probes/security.py נשארת
--- על SECURITY DEFINER בלבד, ובכוונה אינה כוללת את שתי אלה.
+-- הטמעת SRF (inline_set_returning_function) קורית רק כשהקריאה ב-FROM או
+-- ב-LATERAL, והיא כן מקבלת גוף שהוא WITH ... SELECT יחיד. מה שחוסם אותה
+-- כאן הוא ה-SET, לא ה-CTE. הטמעה סקלרית (ב-SELECT list) דורשת גם
+-- proretset = false וגם ביטוי SELECT יחיד בלי FROM - שתי העומסים מחזירות
+-- TABLE, אז היא אינה רלוונטית, והקריאות שלנו אינן שם.
+--
+-- RESET search_path מוריד את ה-proconfig. EXPLAIN VERBOSE על אותו גוף,
+-- אותה חתימה ואותו LATERAL, ב-PostgreSQL 16.15 (אותם תנאים ב-
+-- inline_set_returning_function כמו REL_17_STABLE): עם SET יש
+-- "Function Scan on client_property_match"; אחרי RESET אין Function Scan,
+-- והציון, ה-gate ו-CTE miss יושבים בתוכנית. אותו דבר בתוך RETURN QUERY
+-- של פונקציית plpgsql בצורת match_properties_for_client (auto_explain
+-- על השאילתה הפנימית). לכן אין לשכפל את נוסחת הציון בקוראים.
+--
+-- הגוף מלא בסכימה (public.*), הפונקציות אינן SECURITY DEFINER, והקוראים
+-- נועלים search_path = ''. יועץ האבטחה של Supabase יציג אותן תחת
+-- function_search_path_mutable. זה חריג מתועד, לא חור: הבדיקה ב-
+-- ops_agent/probes/security.py נשארת על SECURITY DEFINER בלבד.
 --
 -- ## 2. cron.job_run_details
 --
 -- admin_command_center.health.cron_failed_24h סרק את כל היסטוריית ה-cron
 -- (מאות אלפי שורות, בלי אינדקס על end_time). הבעלים הוא supabase_admin,
--- ולכן אין להוסיף אינדקס מכאן. השאילתה חסומה ל-30000 runid אחרונים
--- (המפתח המונוטוני) ועדיין מסננת 24 שעות ו-status = failed.
+-- ולכן אין להוסיף אינדקס מכאן. חלון runid קבוע של 30000 מתכווץ מתחת
+-- ל-24 שעות כשקצב ההרצות עולה. לפני השאילתה: max(runid), ואז קריאת
+-- PK לשורת הגבול, והכפלת החלון עד שמונה פעמים עד שהשורה הזו הסתיימה
+-- לפני 24 שעות. על החלון: end_time >= now() - 24 hours ו-status = failed.
 --
--- ניקוי יומי ב-pg_cron שומר 3 ימים. כל הרצה מוחקת במנות של 50,000, עד
--- 400,000 שורות, כדי לא להחזיק מחיקה אחת ענקית. המחיקה הראשונה אינה
--- בתוך המיגרציה: המיגרציה היא טרנזקציה אחת, אי אפשר COMMIT בין מנות,
--- ו-VACUUM אינו רץ בתוך טרנזקציה. אחרי המחיקות autovacuum מחזיר את
--- המקום לשימוש חוזר. VACUUM FULL (החזרה למערכת ההפעלה) דורש נעילה
--- בלעדית מול כתיבה כל דקה - לא כאן.
+-- הניקוי שומר 3 ימים. כל הרצה של pg_cron היא טרנזקציה אחת, ו-pg_cron
+-- פותח אותה לפני הפקודה, אז COMMIT בתוך פרוצדורה נכשל. לכן כל הרצה
+-- מוחקת לכל היותר 20,000 שורות. בהתחלה כל 5 דקות; הרצה שמחקה פחות
+-- מהתקרה מעבירה את התזמון ל-03:23 היומי, והרצה שנתקלת שוב בתקרה
+-- מחזירה את התזמון לכל 5 דקות. המחיקה אינה בתוך המיגרציה: זו
+-- טרנזקציה אחת. אחרי המחיקות autovacuum מחזיר את המקום לשימוש חוזר.
+-- VACUUM FULL דורש נעילה בלעדית מול כתיבה כל דקה - לא כאן.
 --
 -- ההרשאות של admin_command_center אינן משתנות: SECURITY DEFINER,
 -- search_path ריק, EXECUTE ל-authenticated בלבד, והבדיקה
@@ -75,32 +90,45 @@ revoke all on schema private from public, anon, authenticated, service_role;
 -- 2. ניקוי היסטוריית cron
 -- ---------------------------------------------------------------------------
 
-create or replace function private.cron_history_retention(p_max integer default 400000)
+-- מחיקה אחת לכל היותר. pg_cron עוטף את הפקודה בטרנזקציה, אז לולאה כאן
+-- עדיין מוחקת הכל בטרנזקציה אחת, ו-COMMIT בפרוצדורה נכשל
+-- (invalid transaction termination).
+create or replace function private.cron_history_retention(p_batch integer default 20000)
 returns integer
 language plpgsql
 security definer
 set search_path = ''
 as $ret$
 declare
-  batch integer;
-  total integer := 0;
-  cap integer := least(greatest(coalesce(p_max, 50000), 1), 400000);
+  batch integer := 0;
+  cap integer := least(greatest(coalesce(p_batch, 20000), 1), 20000);
+  v_job bigint;
 begin
   -- שורות שהריצה שלהן עוד פתוחה: end_time הוא null, והתנאי אינו בוחר אותן.
-  loop
-    delete from cron.job_run_details
-     where runid in (
-       select d.runid
-         from cron.job_run_details d
-        where d.end_time < now() - interval '3 days'
-        order by d.runid
-        limit 50000
-     );
-    get diagnostics batch = row_count;
-    total := total + batch;
-    exit when batch = 0 or total >= cap;
-  end loop;
-  return total;
+  delete from cron.job_run_details
+   where runid in (
+     select d.runid
+       from cron.job_run_details d
+      where d.end_time < now() - interval '3 days'
+      order by d.runid
+      limit cap
+   );
+  get diagnostics batch = row_count;
+
+  -- תקרה מלאה: עוד יש פיגור, אז כל 5 דקות. פחות מזה: הפיגור נגמר, ודי
+  -- ביום אחד. שינוי התזמון של הריצה הנוכחית חל מהריצה הבאה.
+  select j.jobid into v_job from cron.job j where j.jobname = 'cron-history-retention';
+  if v_job is not null then
+    begin
+      perform cron.alter_job(
+        v_job,
+        schedule := case when batch >= cap then '*/5 * * * *' else '23 3 * * *' end
+      );
+    exception when others then
+      raise warning 'cron-history-retention schedule: %', sqlerrm;
+    end;
+  end if;
+  return batch;
 end
 $ret$;
 
@@ -116,14 +144,14 @@ begin
     where exists (select 1 from cron.job where jobname = 'cron-history-retention');
   perform cron.schedule(
     'cron-history-retention',
-    '23 3 * * *',
-    'select private.cron_history_retention(400000)'
+    '*/5 * * * *',
+    'select private.cron_history_retention(20000)'
   );
 end
 $$;
 
 -- ---------------------------------------------------------------------------
--- שאילתת מרכז הפיקוד. הגוף זהה ל-20270722090000 חוץ מחלון ה-runid.
+-- שאילתת מרכז הפיקוד. הגוף זהה ל-20270722090000 חוץ מחלון ה-cron.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.admin_command_center()
@@ -142,9 +170,27 @@ declare
   v_supply     numeric;
   v_demand     numeric;
   v_out        jsonb;
+  v_run_max    bigint;
+  v_run_span   bigint := 40000;
+  v_bound_at   timestamptz;
+  v_i          int;
 begin
   if not public.current_is_platform_admin() then
     raise exception 'not_platform_admin' using errcode = '42501';
+  end if;
+
+  -- חלון ה-runid נמדד מהקצב, לא קבוע: שורת ה-PK בגבול חייבת להסתיים
+  -- לפני 24 השעות, אחרת חלון צר מהקצב האמיתי מפיל כשלונות בשקט.
+  -- שמונה הכפלות מ-40000 מכסות גם קצב של מאות אלפי הרצות ביום.
+  select max(d.runid) into v_run_max from cron.job_run_details d;
+  if v_run_max is not null then
+    for v_i in 1..8 loop
+      select coalesce(d.end_time, d.start_time) into v_bound_at
+        from cron.job_run_details d
+       where d.runid = v_run_max - v_run_span;
+      exit when v_bound_at is null or v_bound_at <= now() - interval '24 hours';
+      v_run_span := v_run_span * 2;
+    end loop;
   end if;
 
   select count(*) into v_agents
@@ -207,14 +253,15 @@ begin
       'findings_medium', (select count(*) from public.ops_findings f
                            where f.resolved_at is null and f.severity = 'medium'
                              and (f.muted_until is null or f.muted_until < now())),
-      -- 30000 runid אחרונים מכסים יותר מ-24 שעות (כ-16 אלף הרצות ביום).
       -- אין אינדקס על end_time: הטבלה בבעלות supabase_admin.
+      -- v_run_span מחושב למעלה כך שהגבול ישן מ-24 שעות, ו-end_time
+      -- חותך את מה שבתוך החלון לכשלונות שהסתיימו ב-24 השעות האלה.
       'cron_failed_24h', coalesce((select jsonb_agg(distinct j.jobname)
                                      from cron.job_run_details d
                                      join cron.job j on j.jobid = d.jobid
-                                    where d.runid > (select max(runid) - 30000 from cron.job_run_details)
+                                    where d.runid > v_run_max - v_run_span
                                       and d.status = 'failed'
-                                      and d.start_time > now() - interval '24 hours'), '[]'::jsonb),
+                                      and d.end_time >= now() - interval '24 hours'), '[]'::jsonb),
       'markets_oldest_hours', (select round((extract(epoch from now() - min(s.computed_at)) / 3600.0)::numeric, 1)
                                  from public.market_snapshots s),
       'markets_errors',  (select count(*) from public.market_snapshots s
@@ -240,7 +287,7 @@ end $$;
 
 
 comment on function public.admin_command_center() is
-  'מרכז הפיקוד של מנהל/ת הפלטפורמה: בריאות המרקטפלייס עם התגים, זמן התגובה עם המדגם שלו, בריאות המערכת, מוכנות השווקים וההודעות האחרונות. מנהל/ת פלטפורמה בלבד (42501). cron_failed_24h סורק רק 30000 runid אחרונים (20271027140000).';
+  'מרכז הפיקוד של מנהל/ת הפלטפורמה: בריאות המרקטפלייס עם התגים, זמן התגובה עם המדגם שלו, בריאות המערכת, מוכנות השווקים וההודעות האחרונות. מנהל/ת פלטפורמה בלבד (42501). cron_failed_24h: end_time ב-24 השעות האחרונות, בתוך חלון runid שמוגדל עד שהגבול שלו ישן מ-24 שעות (20271027140000).';
 
 revoke all on function public.admin_command_center() from public, anon, authenticated;
 grant execute on function public.admin_command_center() to authenticated;
