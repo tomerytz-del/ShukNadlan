@@ -83,9 +83,10 @@ export type PropertyAttachContext = {
  */
 
 /**
- * ניסיון insert שני של אותה שורה, רק כשהשגיאה עשויה לעבור.
- * מחלקה 23 (אילוץ: unique, check, FK, not null) אינה חוזרת.
- * בלי SQLSTATE (נפילת רשת) כן, פעם אחת. שאר הקודים לא.
+ * ניסיון insert שני של אותה שורה, רק כשה-SQLSTATE ברשימה החולפת.
+ * בלי SQLSTATE (נפילת רשת, 502, 504) אין ניסיון: ה-insert אולי כבר נשמר,
+ * וליד מדף בלי external_ref היה נכפל, והטריגר היה שולח new_lead שני.
+ * מחלקה 23 (unique, check, FK, not null) אינה ברשימה.
  */
 const TRANSIENT_INSERT_CODES = new Set([
   "40001", // serialization_failure
@@ -103,9 +104,7 @@ const TRANSIENT_INSERT_CODES = new Set([
 ]);
 
 export function leadInsertRetryable(code: string | null | undefined): boolean {
-  if (!code) return true;
-  if (code.startsWith("23")) return false;
-  return TRANSIENT_INSERT_CODES.has(code);
+  return !!code && TRANSIENT_INSERT_CODES.has(code);
 }
 
 export function pageLeadInsertAttempts(

@@ -111,18 +111,19 @@ Content-Type: application/json
      עכשיו, ו-`created_at` מאוחר מ-`now() - 24h`. "ליד חדש" שנכתב ביצירת
      הליד נספר גם הוא. התראה שיצאה לסוכן/ת הקודם/ת אינה חוסמת את מי שקיבל/ה
      את הליד בהעברה. פנייה נוספת בתוך החלון עדיין מריצה את `lead_phone_touch`.
-     נמצאה שורה - אין insert להתראה, והמגע נשאר. כשל בשאילתה - אין insert
-     להתראה, והמגע נכתב עם `notify_skipped` = `window_lookup_error`.
-     כישלון העדכון מחזיר את הקליטה ל-insert רגיל. כישלון ההתראה אחרי עדכון
-     שהצליח אינו פותח ליד שני.
+     נמצאה שורה - אין insert להתראה, והמגע נשאר. כשל בשאילתת החלון - אין
+     insert להתראה, והמגע נכתב עם `notify_skipped` = `window_lookup_error`.
+     כשל ב-insert של ההתראה עצמה אינו פותח ליד שני, ומוסיף מגע שני (בלי
+     שורת הודעה נוספת) עם `notify_skipped` = `notify_insert_error`.
+     כישלון `lead_phone_touch` מחזיר את הקליטה ל-insert רגיל.
 
-     דילוג בגלל כשל בחלון, מ-`leads.source_touches` (לא בכרטיס):
+     שני הדילוגים, מ-`leads.source_touches` (לא בכרטיס):
 
      ```sql
-     select l.id, elem->>'at' as at, elem->>'source' as source
+     select l.id, elem->>'notify_skipped' as why, elem->>'at' as at, elem->>'source' as source
      from public.leads l
      cross join lateral jsonb_array_elements(l.source_touches) elem
-     where elem->>'notify_skipped' = 'window_lookup_error';
+     where elem->>'notify_skipped' in ('window_lookup_error', 'notify_insert_error');
      ```
    - **אין משימת יומן שנייה.** הטריגר על `new_lead` קורא ל-
      `agent_agenda_add_auto` עם `source_key` = `lead:<id>`, ו-

@@ -348,7 +348,8 @@ Deno.serve(async (req: Request) => {
        ליד מדף נושא source בכל ניסיון. ניסיון בלי source שמר ליד של דף
        עם עמודה ריקה. הניסיון האחרון מוריד רק את סוג הליד ל-owner_inbound,
        אם property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים.
-       שגיאה חולפת מנסה את אותה שורה פעם נוספת. אילוץ עובר לשורה הבאה. */
+       שגיאה חולפת עם SQLSTATE מהרשימה מנסה את אותה שורה פעם נוספת.
+       בלי SQLSTATE, וגם אילוץ, עוברים לשורה הבאה בלי ניסיון שני. */
     const attempts: Record<string, unknown>[] = agencyRouting
       ? pageLeadInsertAttempts(baseRow, preferredType, pageSource)
       : trackedLabel

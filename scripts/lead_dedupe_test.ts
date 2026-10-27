@@ -356,7 +356,9 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
     leads: [{ id: "lead-1", agent_id: "agt", agency_id: "ag1", status: "unlocked", created_at: recent, raw_message: "ישן" }],
   });
   const hit = await attachToOpenLead(sb, { ...base, agencyId: "ag1", agentId: "agt" });
-  ok("עדכון שהצליח נשאר גם כשההתראה נכשלת", hit?.lead_id === "lead-1" && sb.updates.length === 1 && sb.notes.length === 0);
+  const mark = (sb.updates[1]?.payload.source_touches as { notify_skipped?: string }[] | undefined)?.[0];
+  ok("עדכון שהצליח נשאר גם כשההתראה נכשלת", hit?.lead_id === "lead-1" && sb.updates.length === 2 && sb.notes.length === 0);
+  ok("כשל בהכנסת ההתראה נרשם על מגע שני", mark?.notify_skipped === "notify_insert_error");
 }
 
 {
@@ -562,7 +564,8 @@ const desk: AttachInput = { ...base, agencyId: "ag1", agentId: "agt" };
   const ownerRows = pageLeadInsertAttempts({ city: "עפולה" }, "owner_inbound", "agent_page");
   ok("ליד בעלים מדף סוכן/ת הוא ניסיון אחד עם source",
     ownerRows.length === 1 && ownerRows[0].source === "agent_page" && ownerRows[0].lead_type === "owner_inbound");
-  ok("שגיאה חולפת מנסה שוב", leadInsertRetryable("40001") && leadInsertRetryable("40P01") && leadInsertRetryable("57014") && leadInsertRetryable(null));
+  ok("שגיאה חולפת מנסה שוב", leadInsertRetryable("40001") && leadInsertRetryable("40P01") && leadInsertRetryable("57014"));
+  ok("בלי SQLSTATE אין ניסיון שני", !leadInsertRetryable(null) && !leadInsertRetryable(undefined) && !leadInsertRetryable(""));
   ok("אילוץ אינו ניסיון חוזר",
     !leadInsertRetryable("23505") && !leadInsertRetryable("23514") && !leadInsertRetryable("23502") && !leadInsertRetryable("23503"));
   ok("שגיאת עמודה אינה חולפת", !leadInsertRetryable("42703"));

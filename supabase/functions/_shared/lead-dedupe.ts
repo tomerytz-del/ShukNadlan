@@ -12,8 +12,9 @@
 // new_lead על הליד ב-24 השעות האחרונות, הוא/היא מקבל/ת התראת new_lead
 // עם כותרת "פנייה נוספת" (בלי רוטציה). העברה לסוכן/ת אחר/ת בתוך החלון
 // כן מודיעה. כישלון העדכון מחזיר null והקורא מכניס שורה חדשה. כישלון
-// ההתראה אחרי עדכון שהצליח אינו פותח ליד שני. כשל בבדיקת החלון מדלג על
-// ההתראה ורושם notify_skipped=window_lookup_error על מגע ה-source_touches.
+// ההתראה אחרי עדכון שהצליח אינו פותח ליד שני. כשל בבדיקת החלון נרשם
+// notify_skipped=window_lookup_error על המגע. כשל ב-insert של ההתראה
+// מוסיף מגע שני עם notify_skipped=notify_insert_error, בלי שורת הודעה נוספת.
 // ליד מוסתר, בלי סוכן/ת, או שעוד לא נפתח - לא מצמידים.
 //
 // שולחן: כשיש agency_id ו-agent_id בפנייה, שניהם חייבים להתאים. פניית
@@ -61,6 +62,9 @@ export const REPEAT_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** נכתב על מגע ה-source_touches כשבדיקת החלון נכשלה וההתראה דולגה. */
 export const REPEAT_NOTICE_SKIPPED = "window_lookup_error";
+
+/** מגע שני, בלי שורת הודעה, כש-insert של ההתראה עצמה נכשל. */
+export const REPEAT_NOTICE_INSERT_SKIPPED = "notify_insert_error";
 
 /** הסטטוסים החיים של leads. אין status של closed/lost; הסגירה היא ארכיון ושלב. */
 const OPEN_STATUSES = new Set(["masked", "unlocked", "pending_charge"]);
@@ -463,9 +467,33 @@ export async function attachToOpenLead(
       body: notice.body,
       related_lead_id: chosen.id,
     });
-    if (note.error) console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
+    if (note.error) {
+      console.warn("lead phone dedupe notify skipped", note.error.code || "notify");
+      await markRepeatNoticeSkipped(sb, chosen.id, touch);
+    }
   } catch {
     console.warn("lead phone dedupe notify skipped", "notify");
+    await markRepeatNoticeSkipped(sb, chosen.id, touch);
   }
   return { lead_id: touchedId };
+}
+
+/** ה-insert של ההתראה נכשל אחרי שהמגע כבר נשמר. מגע שני עם הדגל, בלי הערה כפולה. */
+async function markRepeatNoticeSkipped(
+  sb: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data?: unknown; error?: { code?: string } | null }> },
+  leadId: string,
+  touch: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const marked = await sb.rpc("lead_phone_touch", {
+      p_lead_id: leadId,
+      p_note: "",
+      p_touch: { ...touch, notify_skipped: REPEAT_NOTICE_INSERT_SKIPPED },
+    });
+    if (marked.error || typeof marked.data !== "string" || !marked.data) {
+      console.warn("lead phone dedupe notify mark skipped", marked.error?.code || "mark");
+    }
+  } catch {
+    console.warn("lead phone dedupe notify mark skipped", "mark");
+  }
 }
