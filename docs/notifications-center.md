@@ -594,7 +594,7 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 | מחולל | מה קורה בעומס |
 | --- | --- |
 | `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. `notif_burst_demand_fanout` (15, מתחת ל-51-54 שנמדדו, `0` מבטל) מגביל וואטסאפ לפוסט: עיר מדויקת ואז פעילות אחרונה. השאר בפעמון, בלי דילוג. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
-| `share_property_for_agent` | "נכס חדש שותף איתך". הטריגר מדליק `suppress_push` אם `notification_push_suppress(true)` נקרא קודם באותה טרנזקציה |
+| `share_property_for_agent` | "נכס חדש שותף איתך". הטריגר מדליק `suppress_push` אם `notification_push_suppress(true)` נקרא קודם באותה טרנזקציה. כש-`share_digest_enabled = 1` (ברירת מחדל 0, `20271029120000`) טריגר נפרד משאיר כל שיתוף בפעמון, ו-`share_digest_build` כותב סיכום אחד ב-12:30 (‏`share_digest_hhmm`, שעון ישראל). נכנס רק מה שנוצר אחרי הסיכום הקודם ושאין לו שורת `notification_push_log`. מחוץ לחלון הסיכום מצטרף לתבנית היומית, או נשאר בפעמון אם כבר יצאה. `share_property_for_agent` לא הוחלפה |
 | `generate_client_match_alerts` + `client_match_digest_run` | התאמה בזמן הדגל מקבלת `push_site_only`. סיכום שכולו כאלה לא יוצא לוואטסאפ, גם כשאין עדיין `last_sent_at`. התאמה חיה כן |
 | `properties_client_match_alerts` / `properties_prune_stale_alerts` | רצים גם כש-`properties.neighborhood_id` משתנה (`20271029170000`). מילוי שכונה לנכסים פעילים הוא גל התאמות: `notification_push_suppress(true)` לפני ה-update, או מנות. `check_notification_backfill.py` חוסם מיגרציה בלי הסימון |
 | `notify_agent_on_new_lead` | לא שונתה. `photo_request` מטופל ב-`notification_push_burst_prepare` לפי `leads.source` |
