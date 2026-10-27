@@ -15,6 +15,10 @@ export const ALL_LABEL = "הכול";
 export const OPT_OUT_BARE = "להפסקת ההתראות: מסך התראות והודעות.";
 export const NOTIFY_UTILITY_ENV = "WHATSAPP_NOTIFY_UTILITY_TEMPLATE";
 export const NOTIFY_UTILITY_LANG_ENV = "WHATSAPP_NOTIFY_UTILITY_TEMPLATE_LANG";
+export const NOTIFY_ACTION_ENV = "WHATSAPP_NOTIFY_ACTION_TEMPLATE";
+export const NOTIFY_ACTION_LANG_ENV = "WHATSAPP_NOTIFY_ACTION_TEMPLATE_LANG";
+export const OPEN_LEADS_PATH = "/crm?goto=accLeads";
+export const OPEN_DEMAND_PATH = "/crm?goto=accLeads&tab=demand";
 export const REMINDER_UTILITY_ENV = "WHATSAPP_REMINDER_UTILITY_TEMPLATE";
 export const REMINDER_UTILITY_LANG_ENV = "WHATSAPP_REMINDER_UTILITY_TEMPLATE_LANG";
 export const UTILITY_URL_BASE = "https://shuknadlan.co.il/";
@@ -41,6 +45,7 @@ export type NotifTarget = {
   agreement_id?: string | null;
   review_id?: string | null;
   review_agent_slug?: string | null;
+  action_path?: string | null;
 };
 
 export type ScreenRef = {
@@ -54,6 +59,7 @@ export type NavRow = { id: string; title: string; description?: string };
 
 export type ScreenPlan =
   | { kind: "single"; path: string; label: string }
+  | { kind: "buttons"; rows: NavRow[]; allPath: string }
   | { kind: "list"; button: string; section: string; rows: NavRow[]; allPath: string }
   | { kind: "none" };
 
@@ -81,7 +87,18 @@ export function clipUtf16(s: string, max: number): string {
  * ליד מתוך תזכורת, יומן, הסכם, העדפות לידים, ביקוש פתוח, נכסים שלא באוויר,
  * ביקורת, התאמה ללקוח/ה, נכס של משרד אחר, נכס, לקוח/ה, ליד.
  */
+/** נתיב שנשמר על ההתראה. רק נתיב יחסי ש-handleGotoParam פותח. */
+export function storedActionPath(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const path = v.trim();
+  if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) return null;
+  if (path.length > 180 || /\s/.test(path)) return null;
+  return isSafeCrmPath(path) ? path : null;
+}
+
 export function notificationPath(it: NotifTarget): string | null {
+  const stored = storedActionPath(it.action_path);
+  if (stored) return stored;
   const property = uuidOr(it.property_id);
   const client = uuidOr(it.client_id);
   const lead = uuidOr(it.lead_id);
@@ -93,7 +110,8 @@ export function notificationPath(it: NotifTarget): string | null {
   if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
   if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
   if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
-  if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
+  if (it.type === "open_demand") return OPEN_DEMAND_PATH;
+  if (it.type === "leads_digest" || it.type === "digest") return OPEN_LEADS_PATH;
   if (it.type === "unpublished_nudge" && !property) {
     return "/crm?goto=accProperties&filter=unpublished";
   }
@@ -116,6 +134,7 @@ export function notificationPath(it: NotifTarget): string | null {
   if (lead && ["new_lead", "review_request", "system"].includes(it.type)) {
     return `/crm?goto=accLeads&lead=${lead}`;
   }
+  if (it.type === "new_lead") return OPEN_LEADS_PATH;
   if (it.type === "burst_digest") return "/crm?goto=bell";
   return null;
 }
@@ -150,6 +169,7 @@ export function ctaLabel(url: string): string {
   if (url.includes("filter=no_video")) return "🎬 בלי סרטון";
   if (url.includes("focus=new")) return "➕ נכס חדש";
   if (url.includes("tab=demand")) return "📣 לביקוש הפתוח";
+  if (url.includes("accLeads") && !/[?&]lead=/.test(url)) return "👈 ללידים";
   if (url.includes("goto=bell")) return "🔔 כל ההתראות";
   if (url.includes("accNotifPrefs")) return "⚙️ להתראות";
   if (url.includes("goto=license")) return "📄 לרישיון";
@@ -233,7 +253,7 @@ export function parseNavId(id: string): string | null {
 export function clickRecords(plan: ScreenPlan): ClickRecord[] {
   const paths: string[] = [];
   if (plan.kind === "single") paths.push(plan.path);
-  else if (plan.kind === "list") {
+  else if (plan.kind === "list" || plan.kind === "buttons") {
     for (const row of plan.rows) {
       const path = parseNavId(row.id);
       if (path) paths.push(path);
@@ -254,6 +274,11 @@ export function clickRecords(plan: ScreenPlan): ClickRecord[] {
 /** סיומת לכפתור URL דינמי. הבסיס בתבנית הוא https://shuknadlan.co.il/ */
 export function utilitySuffix(path: string): string {
   return path.replace(/^\/+/, "");
+}
+
+/** סיומת לתבנית שהבסיס שלה הוא https://shuknadlan.co.il בלי לוכסן. */
+export function actionSuffix(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export function absoluteUrl(siteBase: string, path: string): string {
@@ -284,10 +309,12 @@ function allScreensPath(
   const types = new Set(items.map((it) => it.type));
   if (types.size === 1) {
     const t = [...types][0];
-    if (t === "open_demand") return "/crm?goto=accLeads&tab=demand";
+    if (t === "open_demand") return OPEN_DEMAND_PATH;
     if (t === "unpublished_nudge") return "/crm?goto=accProperties&filter=unpublished";
     if (t === "client_match") return "/crm?goto=accClients";
-    if (t === "new_lead" || t === "review_request") return "/crm?goto=accLeads";
+    if (t === "new_lead" || t === "review_request" || t === "leads_digest" || t === "digest") {
+      return OPEN_LEADS_PATH;
+    }
     if (t === "burst_digest") return "/crm?goto=bell";
     if (t === "match_digest") return "/crm?goto=accAlerts";
     const cat = categoryPathForType(t);
@@ -312,8 +339,9 @@ function allScreensPath(
 }
 
 /**
- * יעד אחד = כפתור קישור. כמה יעדים = רשימה (עד 9) ועוד "הכול" לרשימה
- * המסוננת. לא ל-/crm בלי יעד.
+ * יעד אחד = כפתור קישור. שני יעדים = עד שלושה כפתורי תשובה
+ * (שני היעדים ו"הכול"). משלושה = רשימה (עד 9) ועוד "הכול".
+ * לא ל-/crm בלי יעד.
  */
 export function screenBundle(
   items: ScreenRef[],
@@ -341,6 +369,24 @@ export function screenBundle(
   }
   const shared = new Set(unique.map((it) => it.type)).size === 1 ? unique[0].type : "all";
   const allPath = withClick(allScreensPath(unique, categoryPathForType), shared);
+  if (unique.length === 2) {
+    const buttonRows: NavRow[] = [];
+    for (const it of unique) {
+      const path = withClick(it.path, it.type);
+      const id = encodeNavId(path);
+      if (!id) continue;
+      const title = clipUtf16(
+        String(it.title || "").replace(/\s+/g, " ").trim() || ctaLabel(it.path),
+        BUTTON_TITLE_MAX,
+      );
+      buttonRows.push({ id, title });
+    }
+    const allId = encodeNavId(allPath);
+    if (allId && buttonRows.length === 2) buttonRows.push({ id: allId, title: ALL_LABEL });
+    if (buttonRows.length >= 2 && buttonRows.length <= 3) {
+      return { kind: "buttons", rows: buttonRows, allPath };
+    }
+  }
   const rows: NavRow[] = [];
   for (const it of unique.slice(0, LIST_ROW_MAX)) {
     const path = withClick(it.path, it.type);
@@ -357,6 +403,25 @@ export function screenBundle(
     return { kind: "single", path, label: ctaLabel(path) };
   }
   return { kind: "list", button: OPEN_LIST_BUTTON, section: OPEN_LIST_BUTTON, rows, allPath };
+}
+
+export function replyButtonsMessage(to: string, body: string, rows: NavRow[]): Record<string, unknown> {
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: body },
+      action: {
+        buttons: rows.slice(0, 3).map((row) => ({
+          type: "reply",
+          reply: { id: row.id.slice(0, 256), title: clipUtf16(row.title, BUTTON_TITLE_MAX) },
+        })),
+      },
+    },
+  };
 }
 
 export function ctaMessage(to: string, body: string, label: string, url: string): Record<string, unknown> {
@@ -442,7 +507,50 @@ export function utilityTemplateMessage(opts: {
           type: "button",
           sub_type: "url",
           index: "0",
-          parameters: [{ type: "text", text: utilitySuffix(opts.path) }],
+        parameters: [{ type: "text", text: utilitySuffix(opts.path) }],
+      },
+    ],
+  },
+};
+}
+
+/**
+ * תבנית הפעולה (WHATSAPP_NOTIFY_ACTION_TEMPLATE). כפתור URL דינמי:
+ * הבסיס https://shuknadlan.co.il והפרמטר הוא הנתיב עם לוכסן מוביל.
+ * {{2}} בלי כתובת. כשהסוד ריק הקורא נשאר על התבנית המאושרת.
+ */
+export function actionTemplateMessage(opts: {
+  to: string;
+  templateName: string;
+  lang: string;
+  name: string;
+  summary: string;
+  path: string;
+}): Record<string, unknown> {
+  const summary = stripHttpUrls(opts.summary)
+    .replace(/\s*[\r\n\t]+\s*/g, " ")
+    .replace(/ {4,}/g, "   ")
+    .slice(0, 900);
+  return {
+    messaging_product: "whatsapp",
+    to: opts.to,
+    type: "template",
+    template: {
+      name: opts.templateName,
+      language: { code: opts.lang || "he" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: (opts.name || "שלום").slice(0, 60) },
+            { type: "text", text: summary || "-" },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [{ type: "text", text: actionSuffix(opts.path) }],
         },
       ],
     },

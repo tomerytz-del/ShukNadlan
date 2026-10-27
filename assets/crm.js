@@ -2643,7 +2643,24 @@ function openLeadFromParam(id){
 /* היעד של התראה בפעמון, כשיש לה פריט אחד: אותם שלושה פותחים כמו הקישור
    מהוואטסאפ, ולפי אותו סדר (itemPath ב-notification-push). מחזירה true
    כשטיפלה בניווט. */
+function openStoredActionPath(path){
+  if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//') || path.indexOf('://') >= 0 || path.length > 180 || /\s/.test(path)) return false;
+  let u;
+  try { u = new URL(path, location.origin); }
+  catch (e) { return false; }
+  if (u.origin !== location.origin) return false;
+  if (u.pathname === '/agent' && u.searchParams.get('slug')){
+    location.assign(u.pathname + u.search + u.hash);
+    return true;
+  }
+  if (u.pathname !== '/crm' || !u.searchParams.get('goto')) return false;
+  history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+  handleGotoParam();
+  return true;
+}
+
 function openNotificationTarget(n){
+  if (openStoredActionPath(n.action_path)) return true;
   const clientId = n.related_client_id;
   const go = (acc, open) => {
     if (!navAccVisible(accAliasTarget(acc))) return false;
@@ -25030,6 +25047,10 @@ const NOTIF_TYPES = [
   { type:'new_lead',       tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ליד חדש',
     sub:'פנייה חדשה שהשתייכה אליך - בעל/ת נכס, מתעניין/ת בנכס או פנייה ישירה.' },
+  { type:'leads_digest',   tone:'',       goto:'accLeads',    focus:'#leadsList',
+    title:'סיכום לידים',
+    sub:'כמה לידים פתוחים יחד. נפתח לרשימת הלידים, לא לליד אחד.',
+    when: ()=> false },
   { type:'open_demand',    tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ביקוש פתוח',
     sub:'מישהו/י בעיר שלך כתב/ה בפייסבוק מה הוא/היא מחפש/ת או מוכר/ת. חינם, לכל הסוכנים באזור.' },
