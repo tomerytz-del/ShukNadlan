@@ -85,6 +85,19 @@
       return typeof u === 'string' && (/^https?:\/\//i.test(u.trim()) || /^(\/(?!\/)|assets\/)/i.test(u.trim()));
     });
   }
+  /* תמונה מוקטנת מהאחסון (‏render/image, כמו cardImgUrl ב-home.js): התמונות
+     נשמרות בגודל מלא, ובטלפון כל כרטיס היה מוריד כמה MB. כתובת שאינה
+     מהאחסון שלנו - כמו שהיא. ‏data-orig מאפשר חזרה למקור אם ההקטנה נכשלה. */
+  function sized(u, w) {
+    var s = String(u || ''), marker = '/storage/v1/object/public/', at = s.indexOf(marker);
+    if (at < 0) return s;
+    var path = s.slice(at + marker.length).split(/[?#]/)[0];
+    return path ? s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&quality=65' : s;
+  }
+  function imgSrc(u, w) {
+    var small = sized(u, w);
+    return 'src="' + esc(small) + '"' + (small !== u ? ' data-orig="' + esc(u) + '"' : '');
+  }
   function isComm(p) { return p.category === 'commercial'; }
   function fmtPrice(p) {
     var n = Number(p.price);
@@ -130,6 +143,9 @@
   document.addEventListener('error', function (e) {
     var t = e.target;
     if (!t || t.tagName !== 'IMG' || !t.hasAttribute('data-fb')) return;
+    // קודם המקור בגודל מלא (פעם אחת), ורק אם גם הוא נכשל - הגרדיאנט
+    var orig = t.getAttribute('data-orig');
+    if (orig) { t.removeAttribute('data-orig'); t.src = orig; return; }
     var box = document.createElement('div');
     box.className = 'sw-img-fb ' + (t.getAttribute('data-fb') || '');
     box.setAttribute('role', 'img');
@@ -466,7 +482,7 @@
     var dbg = DEBUG ? '<span class="sw-dbg">' + esc(c.slot) + ' · ' + c.pos + '</span>' : '';
     if (c.slot === 'property') {
       var p = c.p, ph = photos(p), adv = advertiser(p);
-      var img = ph.length ? '<img class="sw-cimg" data-fb="sw-cimg" src="' + esc(ph[0]) + '" alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async">'
+      var img = ph.length ? '<img class="sw-cimg" data-fb="sw-cimg" ' + imgSrc(ph[0], 800) + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async">'
         : imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
       var bars = ph.length > 1 ? '<div class="sw-bars" aria-hidden="true">' + ph.slice(0, 8).map(function (_, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '></span>'; }).join('') + '</div>' : '';
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
@@ -616,7 +632,7 @@
     if (ph.length < 2) return;
     c.photo = ((c.photo || 0) + step + ph.length) % ph.length;
     var img = top.querySelector('.sw-cimg');
-    if (img && img.tagName === 'IMG') img.src = ph[c.photo];
+    if (img && img.tagName === 'IMG') { img.setAttribute('data-orig', ph[c.photo]); img.src = sized(ph[c.photo], 800); }
     top.querySelectorAll('.sw-bars span').forEach(function (s, i) { s.classList.toggle('on', i === c.photo); });
     var cnt = top.querySelector('.sw-count');
     if (cnt) cnt.textContent = (c.photo + 1) + '/' + ph.length;
@@ -733,7 +749,7 @@
     var desc = p.marketing_description || p.description || '';
     var gm = p.lat && p.lng ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.lat + ',' + p.lng) : '';
     return '<h3 class="sw-sub-h">פרטי הנכס</h3>' +
-      (shown.length ? '<div class="sw-gal">' + shown.map(function (u, i) { return '<img src="' + esc(u) + '" alt="' + esc(title(p) + ' - תמונה ' + (i + 1)) + '" loading="lazy" width="220" height="150" data-fb="sw-gimg">'; }).join('') + '</div>' +
+      (shown.length ? '<div class="sw-gal">' + shown.map(function (u, i) { return '<img ' + imgSrc(u, 480) + ' alt="' + esc(title(p) + ' - תמונה ' + (i + 1)) + '" loading="lazy" width="220" height="150" data-fb="sw-gimg">'; }).join('') + '</div>' +
         '<p class="sw-gal-n">' + ph.length + ' תמונות בנכס · מוצגות ' + shown.length + '</p>'
         : '<div class="sw-gal">' + imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-gimg') + '</div>') +
       '<p class="sw-dprice">' + esc(fmtPrice(p)) + '</p><p class="sw-dtitle">' + esc(title(p)) + '</p>' +
@@ -975,7 +991,7 @@
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
       return '<button type="button" class="sw-li" data-pos="' + c.pos + '">' +
-        (ph.length ? '<img src="' + esc(ph[0]) + '" alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        (ph.length ? '<img ' + imgSrc(ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
         (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
