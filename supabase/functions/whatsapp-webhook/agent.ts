@@ -29,12 +29,21 @@ import {
 import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
-  canonicalCityName,
+  canonicalCity,
   filterByArea,
   searchMissRow,
   searchMissStoreMissing,
+  shouldLogSearchMiss,
 } from "./property-search.ts";
-import { clientColumnMissing, requirementsFromNotes } from "./client-requirements.ts";
+import {
+  capCities,
+  CLIENT_CITY_CAP,
+  clientColumnMissing,
+  featureWritePlan,
+  hoodBelongsToCities,
+  shouldClearNeighborhood,
+  type NamedCity,
+} from "./client-requirements.ts";
 import {
   cachedListingCityName,
   CRM_EDIT_LABEL,
@@ -325,7 +334,12 @@ const clientFields = {
   full_name: { type: "string", description: "שם הלקוח/ה או שם המשפחה." },
   phone: { type: "string", description: "טלפון, בכל פורמט." },
   email: { type: "string", description: "אימייל." },
-  notes: { type: "string", description: "הערות חופשיות - מה שנאמר ואין לו שדה." },
+  notes: {
+    type: "string",
+    description:
+      "הערות חופשיות. מאפיין שנאמר כאן נשמר כדירוג, לא כתנאי, " +
+      "אלא אם נשלח גם ב-required_features אחרי שהסוכן/ת אישר/ה שהוא חובה.",
+  },
   client_kind: {
     type: "string",
     enum: ["seeker", "owner"],
@@ -356,11 +370,16 @@ const clientFields = {
   cities: {
     type: "array",
     items: { type: "string" },
-    description: "ערים. מערך ריק = כל עיר. שם או כינוי, הקוד שומר את השם הקנוני.",
+    description:
+      "ערים. מערך ריק = כל עיר. שם או כינוי. נשמר הכתיב שהוקלד, וההתאמה גם לפי מזהה העיר. " +
+      "יותר מ-8 לא נשמרות, והתשובה אומרת כמה ירדו.",
   },
   neighborhood: {
     type: "string",
-    description: "שכונה בעיר של הלקוח/ה. לא נשמרת כטקסט: הופכת ל-neighborhood_id. בלי עיר אי אפשר.",
+    description:
+      "שכונה. לא נשמרת כטקסט: הופכת ל-neighborhood_id. מחפשים אותה בכל הערים, לא רק בראשונה. " +
+      "מחרוזת ריקה מוחקת. שינוי ערים מוחק שכונה שכבר לא שייכת לאף עיר. " +
+      "היא מסננת רק נכסים בעיר שלה, ולא מסתירה עיר אחרת.",
   },
   min_price: { type: "number", description: "תחתית התקציב בשקלים." },
   max_price: { type: "number", description: "תקרת התקציב בשקלים. שכירות = מחיר חודשי." },
@@ -376,8 +395,9 @@ const clientFields = {
     type: "array",
     items: { type: "string" },
     description:
-      `מאפיינים שהם תנאי. למגורים: ${RESIDENTIAL_FEATURES.join(", ")}. ` +
-      `למסחרי: ${COMMERCIAL_FEATURES.join(", ")}. מערך ריק = אין תנאי.`,
+      `מאפיינים שהם תנאי, רק אחרי שהסוכן/ת אישר/ה. למגורים: ${RESIDENTIAL_FEATURES.join(", ")}. ` +
+      `למסחרי: ${COMMERCIAL_FEATURES.join(", ")}. מערך ריק = אין תנאי. ` +
+      "מאפיין מההערות לא נכתב לכאן אוטומטית.",
   },
 } as const;
 
@@ -1012,6 +1032,8 @@ const TOOLS: Anthropic.Tool[] = [
     name: "update_client",
     description:
       "מעדכן פרטים או דרישות של לקוח/ה קיים/ת. שולחים רק את מה שמשתנה. " +
+      "עדכון בלי הערות לא נוגע במאפיינים ולא שואל שוב על עסקה, עיר או תקציב. " +
+      "הערות שנשלחות באותו עדכון שומרות מאפיינים כדירוג, לא כתנאי. " +
       "לביטול דרישה שולחים מערך ריק (למשל cities: []).",
     input_schema: {
       type: "object",
@@ -2525,7 +2547,7 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 const AGENT_SEARCH_FIELDS =
   "id, listing_number, title, property_type, deal_type, category, price, price_unit, rooms, " +
   "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
-  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, neighborhoods(name), " +
+  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, city_id, neighborhoods(name), " +
   "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
 
 const SOURCE_ORDER: Record<string, number> = { own: 0, agency: 1, shared: 2, market: 3 };
@@ -2565,7 +2587,7 @@ async function agentPropertySearch(
   ctx: ToolContext,
   args: Record<string, unknown>,
   limit: number,
-): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown> } | { ok: false; error: string }> {
+): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown>; searched: boolean } | { ok: false; error: string }> {
   const pools = await searchPools(ctx);
   const uuid = /^[0-9a-f-]{36}$/i;
 
@@ -2576,11 +2598,20 @@ async function agentPropertySearch(
   if (shared.length) ors.push(`id.in.(${shared.join(",")})`);
   const cities = pools.marketCityIds.filter((id) => uuid.test(id));
   if (cities.length) ors.push(`city_id.in.(${cities.join(",")})`);
-  if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {} };
+  if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {}, searched: false };
 
   const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
+  let cityId: string | null = null;
   if (typeof args.city === "string" && args.city.trim()) {
-    args = { ...args, city: await canonicalCityName(ctx.supabase, args.city) };
+    const raw = args.city;
+    const canon = await canonicalCity(ctx.supabase, raw);
+    cityId = canon?.id || null;
+    args = {
+      ...args,
+      city: canon?.name || raw.trim(),
+      city_raw: raw.trim(),
+      city_id: cityId,
+    };
   }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
@@ -2596,7 +2627,7 @@ async function agentPropertySearch(
   let rows = (data || []) as Array<Record<string, unknown>>;
   let hint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true });
+    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true, cityId });
     rows = res.rows;
     hint = res.hint;
   }
@@ -2646,14 +2677,14 @@ async function agentPropertySearch(
       link: propertyLink(String(p.id)),
     };
   });
-  return { ok: true, total: tagged.length, by_source: bySource, results, hint };
+  return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true };
 }
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
   const res = await agentPropertySearch(ctx, input, limit);
   if (!res.ok) return res;
-  if (!res.total) await logAgentSearchMiss(ctx, input);
+  if (shouldLogSearchMiss(res.total, res.searched)) await logAgentSearchMiss(ctx, input);
 
   // המאפיינים שנדרשו הם סינון קשיח (‏contains). כשאין אף נכס עם כולם - סופרים
   // כמה יש בלי הדרישה הזו, ולפי איזה מאפיין חסר, כדי לשאול ולא להציע מעצמנו.
@@ -4593,18 +4624,21 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
-  await canonicalizeClientCities(ctx, payload);
-  const asked = requirementsFromNotes(String(input.notes || ""), {
-    deal_type: payload.deal_type as string | undefined,
+  const citiesDropped = await canonicalizeClientCities(ctx, payload);
+  const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
+  const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
+  const planned = featureWritePlan({
+    isCreate: true,
+    notesSent,
+    notes: String(input.notes || ""),
+    requiredSent,
     category: payload.category as string | undefined,
+    deal_type: payload.deal_type as string | undefined,
     cities: payload.cities as string[] | undefined,
     min_price: payload.min_price as number | undefined,
     max_price: payload.max_price as number | undefined,
-    required_features: payload.required_features as string[] | undefined,
   });
-  if (asked.features.length && payload.required_features === undefined) {
-    payload.required_features = asked.features;
-  }
+  if (planned.preferred) payload.preferred_features = planned.preferred;
   const hoodErr = await attachClientNeighborhood(ctx, input, payload);
   if (hoodErr) return { ok: false, error: hoodErr };
   // ‏agency_id נשמר כדי שהרשומה תדע מאיזה משרד היא נוצרה, בדיוק כמו בטופס
@@ -4664,9 +4698,9 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     .insert(payload)
     .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
-  if (error && clientColumnMissing(error) && payload.neighborhood_id) {
-    neighborhoodDeferred = true;
-    delete payload.neighborhood_id;
+  if (error && clientColumnMissing(error) && hasNewClientColumn(payload)) {
+    neighborhoodDeferred = "neighborhood_id" in payload;
+    stripNewClientColumns(payload);
     ({ data, error } = await ctx.supabase
       .from("agent_clients")
       .insert(payload)
@@ -4681,14 +4715,16 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     client_id: data.id,
     full_name: data.full_name,
     needs: clientNeeds(data),
-    ask: asked.ask.length ? asked.ask : undefined,
+    ask: planned.ask,
+    suggested_features: planned.suggested.length ? planned.suggested : undefined,
+    cities_note: citiesDropped
+      ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
+      : undefined,
     neighborhood_deferred: neighborhoodDeferred || undefined,
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: asked.ask.length
-      ? "שאלי בשאלה אחת את מה שב-ask. אל תמציאי עיר, תקציב או סוג עסקה."
-      : undefined,
+    guidance: clientWriteGuidance(planned, true),
   };
 }
 
@@ -4698,22 +4734,22 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
-  await canonicalizeClientCities(ctx, payload);
-  const notes = String(input.notes ?? (existing as { notes?: string }).notes ?? "");
-  const asked = requirementsFromNotes(notes, {
-    deal_type: (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
+  const citiesDropped = await canonicalizeClientCities(ctx, payload);
+  const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
+  const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
+  const planned = featureWritePlan({
+    isCreate: false,
+    notesSent,
+    notes: String(input.notes || ""),
+    requiredSent,
     category: (payload.category as string | undefined) ?? (existing as { category?: string }).category,
+    deal_type: (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
     cities: (payload.cities as string[] | undefined) ?? (existing as { cities?: string[] }).cities,
     min_price: (payload.min_price as number | undefined) ?? (existing as { min_price?: number }).min_price,
     max_price: (payload.max_price as number | undefined) ?? (existing as { max_price?: number }).max_price,
-    required_features: (payload.required_features as string[] | undefined) ??
-      (existing as { required_features?: string[] }).required_features,
   });
-  const hadFeatures = ((existing as { required_features?: string[] }).required_features || []).length > 0;
-  if (asked.features.length && payload.required_features === undefined && !hadFeatures) {
-    payload.required_features = asked.features;
-  }
-  const hoodErr = await attachClientNeighborhood(ctx, input, payload, existing as { cities?: string[] });
+  if (planned.preferred) payload.preferred_features = planned.preferred;
+  const hoodErr = await attachClientNeighborhood(ctx, input, payload, existing as { cities?: string[] }, clientId);
   if (hoodErr) return { ok: false, error: hoodErr };
   if (!Object.keys(payload).length) return { ok: false, error: "לא נשלח אף שדה לעדכון." };
   payload.updated_at = new Date().toISOString();
@@ -4726,9 +4762,9 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     .eq("agent_id", ctx.agent.id)
     .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
-  if (error && clientColumnMissing(error) && payload.neighborhood_id) {
-    neighborhoodDeferred = true;
-    delete payload.neighborhood_id;
+  if (error && clientColumnMissing(error) && hasNewClientColumn(payload)) {
+    neighborhoodDeferred = "neighborhood_id" in payload;
+    stripNewClientColumns(payload);
     ({ data, error } = await ctx.supabase
       .from("agent_clients")
       .update(payload)
@@ -4746,22 +4782,75 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     full_name: data.full_name,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     needs: clientNeeds(data),
-    ask: asked.ask.length ? asked.ask : undefined,
+    suggested_features: notesSent && planned.suggested.length ? planned.suggested : undefined,
+    cities_note: citiesDropped
+      ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
+      : undefined,
     neighborhood_deferred: neighborhoodDeferred || undefined,
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
+    guidance: notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
   };
 }
 
-async function canonicalizeClientCities(ctx: ToolContext, payload: Record<string, unknown>): Promise<void> {
-  if (!Array.isArray(payload.cities)) return;
+function clientWriteGuidance(
+  planned: { ask?: string[]; suggested: string[] },
+  isCreate: boolean,
+): string | undefined {
+  const parts: string[] = [];
+  if (isCreate && planned.ask?.length) {
+    parts.push("שאלי בשאלה אחת את מה שב-ask. אל תמציאי עיר, תקציב או סוג עסקה.");
+  }
+  if (planned.suggested.length) {
+    parts.push(
+      "suggested_features הם דירוג מההערות, לא תנאי. אל תכתבי אותם ל-required_features " +
+      "בלי שהסוכן/ת אישר/ה שהם חובה.",
+    );
+  }
+  return parts.length ? parts.join(" ") : undefined;
+}
+
+const NEW_CLIENT_COLUMNS = ["neighborhood_id", "preferred_features"] as const;
+
+function hasNewClientColumn(payload: Record<string, unknown>): boolean {
+  return NEW_CLIENT_COLUMNS.some((key) => key in payload);
+}
+
+function stripNewClientColumns(payload: Record<string, unknown>): void {
+  for (const key of NEW_CLIENT_COLUMNS) delete payload[key];
+}
+
+async function canonicalizeClientCities(ctx: ToolContext, payload: Record<string, unknown>): Promise<number> {
+  if (!Array.isArray(payload.cities)) return 0;
+  const capped = capCities(payload.cities);
   const names: string[] = [];
-  for (const raw of payload.cities.slice(0, 8)) {
-    const name = await canonicalCityName(ctx.supabase, String(raw || ""));
-    if (name && !names.includes(name)) names.push(name);
+  const seenIds = new Set<string>();
+  for (const raw of capped.kept) {
+    const canon = await canonicalCity(ctx.supabase, String(raw || ""));
+    if (!canon) continue;
+    if (canon.id) {
+      if (seenIds.has(canon.id)) continue;
+      seenIds.add(canon.id);
+    }
+    const stored = canon.raw || canon.name;
+    if (stored && !names.includes(stored)) names.push(stored);
   }
   payload.cities = names;
+  return capped.dropped;
+}
+
+async function cityRefs(ctx: ToolContext, cities: readonly string[]): Promise<{ refs: NamedCity[]; resolved: boolean }> {
+  const refs: NamedCity[] = [];
+  let resolved = false;
+  for (const raw of cities) {
+    const canon = await canonicalCity(ctx.supabase, raw);
+    if (!canon) continue;
+    if (canon.id) resolved = true;
+    refs.push({ name: canon.name || canon.raw, id: canon.id });
+    if (canon.raw && canon.raw !== canon.name) refs.push({ name: canon.raw, id: canon.id });
+  }
+  return { refs, resolved };
 }
 
 async function attachClientNeighborhood(
@@ -4769,16 +4858,96 @@ async function attachClientNeighborhood(
   input: Record<string, unknown>,
   payload: Record<string, unknown>,
   existing?: { cities?: string[] | null },
+  clientId?: string,
 ): Promise<string | null> {
-  const asked = String(input.neighborhood || "").trim();
-  if (!asked) return null;
+  const sent = Object.prototype.hasOwnProperty.call(input, "neighborhood");
+  const asked = sent ? String(input.neighborhood ?? "").trim() : "";
   const fromPayload = Array.isArray(payload.cities) ? payload.cities.map(String).filter(Boolean) : [];
-  const city = fromPayload[0] || (existing?.cities || []).map(String).find(Boolean) || "";
-  if (!city) return "כדי לשמור שכונה צריך גם עיר.";
-  const hood = await resolvePropertyHood(ctx, city, asked);
-  if ("error" in hood) return hood.error;
-  payload.neighborhood_id = hood.id;
+  const cities = fromPayload.length ? fromPayload : (existing?.cities || []).map(String).filter(Boolean);
+  const citiesChanged = Array.isArray(payload.cities) && !sameStringList(payload.cities, existing?.cities);
+
+  if (sent && !asked) {
+    payload.neighborhood_id = null;
+    return null;
+  }
+  if (asked) {
+    if (!cities.length) return "כדי לשמור שכונה צריך גם עיר.";
+    const hood = await resolveHoodInCities(ctx, cities, asked);
+    if ("error" in hood) return hood.error;
+    payload.neighborhood_id = hood.id;
+    return null;
+  }
+  if (!clientId || !shouldClearNeighborhood({
+    citiesChanged,
+    neighborhoodSent: sent,
+    hasHood: true,
+    belongs: false,
+    resolved: true,
+  })) return null;
+  const current = await loadClientHood(ctx, clientId);
+  if (!current.ok || !current.hood) return null;
+  const { refs, resolved } = await cityRefs(ctx, cities);
+  if (shouldClearNeighborhood({
+    citiesChanged: true,
+    neighborhoodSent: false,
+    hasHood: true,
+    belongs: hoodBelongsToCities(current.hood, refs),
+    resolved,
+  })) payload.neighborhood_id = null;
   return null;
+}
+
+function sameStringList(next: unknown, prev: readonly string[] | null | undefined): boolean {
+  const a = Array.isArray(next) ? next.map(String) : [];
+  const b = (prev || []).map(String);
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+async function loadClientHood(
+  ctx: ToolContext,
+  clientId: string,
+): Promise<{ ok: true; hood: { city: string | null; city_id: string | null } | null } | { ok: false }> {
+  const { data, error } = await ctx.supabase
+    .from("agent_clients")
+    .select("neighborhood_id, neighborhoods(city, city_id)")
+    .eq("id", clientId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (error) {
+    if (!clientColumnMissing(error)) console.error("client hood load failed", error.code);
+    return { ok: false };
+  }
+  const row = data as { neighborhood_id?: string | null; neighborhoods?: { city?: string | null; city_id?: string | null } | { city?: string | null; city_id?: string | null }[] | null } | null;
+  if (!row?.neighborhood_id) return { ok: true, hood: null };
+  const hood = Array.isArray(row.neighborhoods) ? row.neighborhoods[0] : row.neighborhoods;
+  if (!hood) return { ok: true, hood: null };
+  return { ok: true, hood: { city: hood.city || null, city_id: hood.city_id || null } };
+}
+
+async function resolveHoodInCities(
+  ctx: ToolContext,
+  cities: string[],
+  name: string,
+): Promise<{ id: string; name: string } | { error: string; known: string[] }> {
+  const hits: { id: string; name: string; city: string }[] = [];
+  const seen = new Set<string>();
+  for (const city of cities) {
+    const hood = await resolvePropertyHood(ctx, city, name);
+    if (!("id" in hood)) continue;
+    if (seen.has(hood.id)) continue;
+    seen.add(hood.id);
+    hits.push({ id: hood.id, name: hood.name, city });
+  }
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1) {
+    return {
+      error: `השכונה קיימת בכמה ערים (${hits.map((h) => h.city).join(", ")}). צריך עיר אחת.`,
+      known: hits.map((h) => h.name),
+    };
+  }
+  const first = await resolvePropertyHood(ctx, cities[0], name);
+  if ("error" in first) return first;
+  return first;
 }
 
 async function toolSetClientStatus(ctx: ToolContext, input: Record<string, unknown>) {
@@ -7758,8 +7927,10 @@ const SYSTEM_STATIC: string = (() => {
       "אם להציג גם נכסים בלי המאפיין (\"אין כרגע עם ממ״ד ומעלית. יש 3 בלי מעלית - להציג?\"), ורק אחרי " +
       "\"כן\" - client_matches עם waive_features של מה שאושר. ליד נכס עם missing_required כתוב/כתבי " +
       "מה חסר בו. ויתור אינו משנה את הכרטיס; אם הסוכן/ת אומר/ת שהדרישה ירדה - update_client.",
-    "- סוכן/ת שמזכיר/ה דרישה של לקוח/ה שאינה בכרטיס (\"דני צריך ממ״ד\") - update_client עם " +
-      "required_features (בתוספת למה שיש), ואז client_matches. אחרת ההתאמות מתעלמות ממנה.",
+    "- סוכן/ת שמאשר/ת שדרישה היא חובה (\"דני צריך ממ״ד\") - update_client עם " +
+      "required_features (בתוספת למה שיש), ואז client_matches. מאפיין שעולה רק מההערות " +
+      "(suggested_features) הוא דירוג, לא תנאי, ואין לכתוב אותו ל-required_features בלי האישור הזה. " +
+      "ask על עסקה, עיר או תקציב חוזר רק ביצירת כרטיס.",
     "- **create_showcase אחרי ויתור - עם property_ids** של הנכסים שהוצגו. בלי property_ids " +
       "נלקחות רק ההתאמות המלאות.",
     "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
