@@ -3656,6 +3656,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     html.beta-hero #allProps .ppv-short{display:none}
     html.beta-hero #allProps .ppv-long{display:inline}
   }
+  /* ‏A3-1: צ'יפי הסוג מעל התוצאות - 44px לפחות (היו 38px) */
+  html.beta-hero #searchResults .sr-kinds button{min-height:44px}
   /* ‏F8c (בדיקת 29.10): "סינון מתקדם" ו"ניקוי החיפוש" בראש התוצאות - גלולה נייבי במסגרת, 44px (היו ריבועים לבנים של 36px) */
   html.beta-hero body #searchResults .sr-head .sr-clear{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;
     border:1.5px solid #0e2a6b;border-radius:22px;background:#fff;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif}
@@ -5916,6 +5918,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/project-card.js"></script>
 <script src="assets/exit-guard.js" data-auto></script>
 <script src="assets/filter-config.js"></script>
+<script src="assets/filter-sheet.js" defer></script>
 <script src="assets/search-core.js"></script>
 <script src="assets/sentence-search.js"></script>
 <script src="assets/owner-wizard.js"></script>

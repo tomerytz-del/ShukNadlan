@@ -5137,7 +5137,12 @@ function mainFreeText(){
   return '';
 }
 
-function openModal(id){
+function openModal(id, trigger){
+  // ‏A3-2: עם הדגל, שני חלונות הסינון הם FilterSheet (‏openHomeFilterSheet)
+  if (/^(residential|commercial)FilterModal$/.test(id) && v10On() && window.FilterSheet && sentence && sentence.loaded()){
+    openHomeFilterSheet(trigger || document.activeElement);
+    return;
+  }
   const el = document.getElementById(id);
   if (/FilterModal$/.test(id) && v10On() && window.shukTrack) window.shukTrack('adv_filter_open', { deal: advDeal(), surface: 'home_modal' });
   // ‏P1-L: חלון סינון שנפתח שוב מתחיל בראש הגולל, לא במקום שבו נסגר
@@ -7052,10 +7057,37 @@ function v10MiniSwipe(btn){
 function applyAdvancedFilters(){
   collectFormValues();
   document.querySelectorAll('.filter-modal-overlay').forEach(m => m.classList.remove('open'));
+  const b = buildAdvanced(searchState.activeTab);
+  const { s, commercial, propFeats, pt, rooms } = b;
+  advancedCount = b.checks;
+  appliedAdvancedQs = b.checks ? advancedToParams(s, commercial) : '';
+  sentence.applyAdvanced(b.patch, b.pred, b.label);
+  if (v10On() && window.shukTrack){
+    // שמות השדות בלבד, בלי ערכים
+    const fields = [...propFeats, ...s.listingFeatures];
+    [['price', s.priceMin || s.priceMax], ['ppsqm', s.ppsqmMin || s.ppsqmMax], ['type', pt.length || (s.types && s.types.length)], ['rooms', rooms.length],
+     ['floor', s.floorMin || s.floorMax], ['size', s.sizeMin || s.sizeMax], ['condition', !commercial && s.condition],
+     ['status', s.projectStatus], ['newOnly', s.newOnly], ['soon', s.moveInSoon], ['moveIn', s.moveInDate], ['text', s.freeText],
+     ['restrooms', commercial && s.restrooms], ['storageAt', commercial && s.storage], ['mamadAt', commercial && s.mamad],
+     ['hoods', s.hoods && s.hoods.size]]
+      .forEach(([k, v]) => { if (v) fields.push(k); });
+    let results = null;
+    try { results = sentence.count(); } catch (e) {}
+    window.shukTrack('adv_filter_apply', { deal: advDeal(), surface: 'home_modal', fields: fields.join(',').slice(0, 100),
+      field_count: fields.length, result_count: results, missing_shown: 0 });
+  }
+}
+
+/* המשפט והפרדיקט של הסינון המתקדם, מתוך searchState (‏r או c לפי tab). ‏applyAdvancedFilters
+   מחילה אותם, ו-FilterSheet (‏A3-2) סופרת איתם את הטיוטה - כך המונה בחלון שווה לתוצאה.
+   ‏s.types (מערך מפתחות של FilterConfig) קיים רק כשהבחירה הגיעה מ-FilterSheet: אז הסוג,
+   העסקה וההדמיה הם המצב המלא של החלון, ולא תוספת למשפט. */
+function buildAdvanced(tab){
   const Core = sentence.Core;
-  const commercial = searchState.activeTab === 'commercial';
+  const commercial = tab === 'commercial';
   const s = commercial ? searchState.c : searchState.r;
   const cur = sentence.state();
+  const fromSheet = Array.isArray(s.types);
 
   const patch = {};
   // במסחרי אין חדרים (החלון אינו מציג אותם) - ושארית מחיפוש מגורים לא מסננת
@@ -7071,11 +7103,18 @@ function applyAdvancedFilters(){
   patch.priceMax = s.priceMax ? Number(s.priceMax) : null;
   patch.priceMin = s.priceMin ? Number(s.priceMin) : null;
   if (commercial) patch.deal = s.deal || null;
+  else if (fromSheet) patch.deal = tab;
+  if (fromSheet) patch.ai = !!searchState.hasAi;
 
   const checks = [];
+  const pt = [...s.ptypes];
+  if (fromSheet){
+    // ‏FilterConfig.TYPES: אחד ← הסוג במשפט, כמה ← types, אף אחד ← "הכול" של העסקה
+    if (s.types.length > 1) patch.types = s.types.slice();
+    else patch.type = s.types[0] || (commercial ? 'commercial' : 'any');
+  } else {
   /* סוג הנכס: קבוצה שלמה ← הסוג במשפט; ערך אחד ← הסוג "הגולמי"; כמה ערכים
      שאינם קבוצה ← פרדיקט, והמשפט אומר "נכס" / "נכס מסחרי". */
-  const pt = [...s.ptypes];
   const same = (a, b)=> a.length === b.length && a.every(x => b.includes(x));
   const group = Core.TYPES.find(t => t.ptypes && same(t.ptypes, pt) && !!t.commercial === commercial);
   if (!pt.length) patch.type = commercial ? 'commercial' : (Core.typeDef(cur.type).commercial ? 'any' : cur.type);
@@ -7088,13 +7127,13 @@ function applyAdvancedFilters(){
     patch.types = cur.types && cur.types.length && same([...new Set(curPt)], pt) ? cur.types : pt.map(x => 'raw:' + x);
   }
   else { patch.type = commercial ? 'commercial' : 'any'; checks.push(p => pt.includes(p.property_type)); }
+  }
   if (v10On()){
     const hs = [...(s.hoods || [])];
     if (hs.length > 1) patch.hoods = hs;
     else if (hs.length === 1) patch.area = hs[0];
     else if (/^hood:/.test(cur.area || '') || (cur.hoods && cur.hoods.length)) patch.area = 'all';
   }
-
   const feats = p => Array.isArray(p.features) ? p.features : [];
   [...s.listingFeatures].forEach(code => {
     if (code === 'has_photo') checks.push(p => Array.isArray(p.images) && p.images.length > 0);
@@ -7121,7 +7160,7 @@ function applyAdvancedFilters(){
   /* מחיר למ"ר: price_per_sqm במסד מתעלם מ-price_unit (‏docs/proposals/filters_per_deal.sql),
      ולכן כאן - מחיר שכבר למ"ר נשאר, ואחרת מחיר חלקי שטח */
   // ‏R5-8: מחיר למ"ר ו"פרויקטים חדשים" רק במכירה (ומחיר למ"ר גם במסחרי), גם אם נשארו מבחירה קודמת
-  const saleTab = searchState.activeTab === 'sale';
+  const saleTab = tab === 'sale';
   const lo = commercial || saleTab ? num(s.ppsqmMin) : null, hi = commercial || saleTab ? num(s.ppsqmMax) : null;
   if (lo !== null || hi !== null) checks.push(p => {
     const v = pricePerSqm(p);
@@ -7130,7 +7169,7 @@ function applyAdvancedFilters(){
   if (!commercial && saleTab && s.newOnly) checks.push(p => !!p.project_status || p.condition === 'new_from_contractor');
   if (!commercial && s.condition) checks.push(p => p.condition === s.condition);
   // סטטוס הפרויקט רק במכירה (‏P1-N1); מוסתר בשכירות ובמסחרי ולכן לא חל שם
-  if (s.projectStatus && (!v10On() || (!commercial && searchState.activeTab === 'sale'))) checks.push(p => p.project_status === s.projectStatus);
+  if (s.projectStatus && (!v10On() || (!commercial && tab === 'sale'))) checks.push(p => p.project_status === s.projectStatus);
   if (s.moveInSoon) checks.push(p => p.move_in_soon === true);
   if (s.moveInDate) checks.push(p => !!p.move_in_date && p.move_in_date >= s.moveInDate);
   if (commercial){
@@ -7141,8 +7180,6 @@ function applyAdvancedFilters(){
   const q = Core.norm(s.freeText || '');
   if (q) checks.push(p => Core.norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).includes(q));
 
-  advancedCount = checks.length;
-  appliedAdvancedQs = checks.length ? advancedToParams(s, commercial) : '';
   /* כשהסינון הוא רק מאפיינים, ההודעה על חיפוש ריק אומרת על מה מוותרים
      ("בלי ממ״ד יש 12 נכסים") - ולא "בלי הסינון המתקדם". */
   let label = null;
@@ -7151,21 +7188,169 @@ function applyAdvancedFilters(){
     const list = propFeats.map(f => names.get(f) || f);
     label = list.length > 1 ? list.slice(0, -1).join(', ') + ' ו' + list[list.length - 1] : list[0];
   }
-  sentence.applyAdvanced(patch, checks.length ? (p => checks.every(c => c(p))) : null, label);
-  if (v10On() && window.shukTrack){
-    // שמות השדות בלבד, בלי ערכים
-    const fields = [...propFeats, ...s.listingFeatures];
-    [['price', s.priceMin || s.priceMax], ['ppsqm', s.ppsqmMin || s.ppsqmMax], ['type', pt.length], ['rooms', rooms.length],
-     ['floor', s.floorMin || s.floorMax], ['size', s.sizeMin || s.sizeMax], ['condition', !commercial && s.condition],
-     ['status', s.projectStatus], ['newOnly', s.newOnly], ['soon', s.moveInSoon], ['moveIn', s.moveInDate], ['text', s.freeText],
-     ['restrooms', commercial && s.restrooms], ['storageAt', commercial && s.storage], ['mamadAt', commercial && s.mamad],
-     ['hoods', s.hoods && s.hoods.size]]
-      .forEach(([k, v]) => { if (v) fields.push(k); });
-    let results = null;
-    try { results = sentence.count(); } catch (e) {}
-    window.shukTrack('adv_filter_apply', { deal: advDeal(), surface: 'home_modal', fields: fields.join(',').slice(0, 100),
-      field_count: fields.length, result_count: results, missing_shown: 0 });
-  }
+  return { patch, pred: checks.length ? (p => checks.every(c => c(p))) : null, checks: checks.length, label, s, commercial, propFeats, pt, rooms };
+}
+
+/* ---------- ‏A3-2 / A3-3: תיבת הסינון האחידה בדף הבית (‏assets/filter-sheet.js) ----------
+   עם הדגל, כל מקום שפתח את "סינון מתקדם" (המשפט, ראש התוצאות, "סינון" במדף, הפאנל שב-hero
+   והחלון המסחרי) פותח את FilterSheet. הסעיפים בסדר המשותף 1-13 (‏docs/filter-sheet.md), הסוגים
+   מ-FilterConfig.TYPES (‏C3), הטיוטה היא עותק של searchState, והמונה בחלון מחושב ב-buildAdvanced
+   של אותה טיוטה - כמו ההחלה. ההחלה עוברת ב-applyAdvancedFilters, ושורות התוצאות נשארות
+   התצוגה (‏R0/R1) באותה נקודה על המסך. */
+const FS_BLANK = {
+  r: () => ({ priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, newOnly:false, hoods:new Set(), types:[] }),
+  c: () => ({ deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, hoods:new Set(), types:[] }),
+};
+function fsClone(o){
+  const c = {};
+  Object.keys(o).forEach(k => { const v = o[k]; c[k] = v instanceof Set ? new Set(v) : Array.isArray(v) ? v.slice() : v; });
+  return c;
+}
+// הסוגים שבמשפט, כמפתחות של FilterConfig (‏"הכול" של העסקה = אף אחד)
+function fsTypesFromSentence(commercial){
+  const st = sentence.state();
+  const keys = st.types && st.types.length ? st.types : (st.type && st.type !== 'any' && st.type !== 'commercial' ? [st.type] : []);
+  const allowed = new Set((FC_TYPES[commercial ? 'comm' : 'res'] || []).map(t => t.key));
+  return keys.filter(k => allowed.has(k) && k !== 'any' && k !== 'commercial');
+}
+// המונה של הטיוטה: אותו buildAdvanced על עותק של searchState, ואותו filter של התוצאות
+function fsCount(d, patchOver){
+  const keep = { r: searchState.r, c: searchState.c, ai: searchState.hasAi };
+  try {
+    searchState.r = fsClone(d.r); searchState.c = fsClone(d.c); searchState.hasAi = d.ai;
+    const k = d.tab === 'commercial' ? 'c' : 'r';
+    if (patchOver) Object.assign(searchState[k], patchOver);
+    const b = buildAdvanced(d.tab);
+    return sentence.countWith(b.patch, b.pred);
+  } catch (e){ return 0; }
+  finally { searchState.r = keep.r; searchState.c = keep.c; searchState.hasAi = keep.ai; }
+}
+// השדות ש-collectFormValues קוראת מהחלון הישן - כדי שההחלה תקרא בדיוק את הטיוטה
+function fsWriteDom(d){
+  const put = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : String(v); };
+  const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+  ['r', 'c'].forEach(pre => {
+    const x = d[pre];
+    put(pre + 'PriceMin', x.priceMin); put(pre + 'PriceMax', x.priceMax);
+    put(pre + 'FloorMin', x.floorMin); put(pre + 'FloorMax', x.floorMax);
+    put(pre + 'SizeMin', x.sizeMin); put(pre + 'SizeMax', x.sizeMax);
+    put(pre + 'MoveInDate', x.moveInDate); chk(pre + 'MoveInSoon', x.moveInSoon);
+    put(pre + 'FreeText', x.freeText); put(pre + 'PpsqmMin', x.ppsqmMin); put(pre + 'PpsqmMax', x.ppsqmMax);
+    put(pre + 'ProjectStatus', x.projectStatus);
+  });
+  put('rCondition', d.r.condition); chk('rNewOnly', d.r.newOnly);
+}
+function fsSelectOpts(id){
+  const el = document.getElementById(id);
+  return el ? [...el.options].filter(o => o.value).map(o => ({ value: o.value, label: o.textContent.replace(/\s*\(.*\)\s*$/, '').trim() })) : [];
+}
+function openHomeFilterSheet(trigger){
+  const tab0 = searchState.activeTab;
+  const d = { tab: tab0, r: fsClone(searchState.r), c: fsClone(searchState.c), ai: !!searchState.hasAi };
+  d.r.hoods = new Set(searchState.r.hoods || []); d.c.hoods = new Set(searchState.c.hoods || []);
+  d.r.types = tab0 !== 'commercial' ? fsTypesFromSentence(false) : [];
+  d.c.types = tab0 === 'commercial' ? fsTypesFromSentence(true) : [];
+  d.r.ptypes = new Set(); d.c.ptypes = new Set();
+  const X = () => d.tab === 'commercial' ? d.c : d.r;
+  const comm = () => d.tab === 'commercial';
+  // מונה לאפשרות: הטיוטה עם השינוי הזה בלבד
+  const cnt = over => fsCount(d, over);
+  const set = (k, v) => { X()[k] = v; };
+  const setOf = k => [...(X()[k] || [])];
+  const pool = () => (allActiveProperties || []).filter(p => comm()
+    ? p.category === 'commercial' && (!d.c.deal || p.deal_type === d.c.deal)
+    : p.category !== 'commercial' && p.deal_type === d.tab);
+  const sections = [
+    { key: 'deal', title: 'סוג עסקה', kind: 'seg', wide: true,
+      options: () => [{ value: 'sale', label: 'מכירה' }, { value: 'rent', label: 'השכרה' }, { value: 'commercial', label: 'מסחרי' }],
+      get: () => d.tab, set: (_, v) => { d.tab = v; } },
+    { key: 'cdeal', title: 'מסחרי למכירה או להשכרה', kind: 'seg', wide: true, hidden: () => !comm(),
+      options: () => [{ value: '', label: 'הכול' }, { value: 'sale', label: 'מכירה' }, { value: 'rent', label: 'השכרה' }],
+      get: () => d.c.deal || '', set: (_, v) => { d.c.deal = v; } },
+    { key: 'type', title: 'סוג נכס', kind: 'chips', multi: true, wide: true,
+      options: () => (FC_TYPES[comm() ? 'comm' : 'res'] || []).filter(t => t.key !== 'any' && t.key !== 'commercial')
+        .map(t => ({ value: t.key, label: t.label, count: cnt({ types: [t.key] }) })),
+      get: () => X().types, set: (_, v) => set('types', v) },
+    { key: 'hoods', title: 'אזור ושכונות', kind: 'chips', multi: true, wide: true,
+      options: () => {
+        const names = new Map();
+        pool().forEach(p => { if (p.neighborhood_id && !names.has('hood:' + p.neighborhood_id)) names.set('hood:' + p.neighborhood_id, p.neighborhood_name || ''); });
+        return [...names.entries()].filter(([, n]) => n).map(([k, n]) => ({ value: k, label: n, count: cnt({ hoods: new Set([k]) }) }))
+          .sort((a, b) => b.count - a.count);
+      },
+      get: () => setOf('hoods'), set: (_, v) => set('hoods', new Set(v)) },
+    { key: 'rooms', title: 'חדרים', kind: 'chips', multi: true,
+      hidden: () => comm() || (d.r.types.length > 0 && d.r.types.every(k => k === 'land')),
+      options: () => ROOM_OPTIONS_V10.map(r => ({ value: r, label: r === '+6' ? '6+' : r, count: cnt({ rooms: new Set([r]) }) })),
+      get: () => setOf('rooms'), set: (_, v) => set('rooms', new Set(v)) },
+    { key: 'price', title: 'מחיר', kind: 'range', placeholders: ['מ-₪', 'עד ₪'],
+      get: () => [X().priceMin, X().priceMax], set: (_, v) => { X().priceMin = v[0]; X().priceMax = v[1]; } },
+    { key: 'ppsqm', title: 'מחיר למ"ר', kind: 'range', placeholders: ['מ-₪ למ״ר', 'עד ₪ למ״ר'], hidden: () => d.tab === 'rent',
+      get: () => [X().ppsqmMin, X().ppsqmMax], set: (_, v) => { X().ppsqmMin = v[0]; X().ppsqmMax = v[1]; } },
+    { key: 'listing', title: 'מאפייני מודעה', kind: 'chips', multi: true, wide: true,
+      options: () => {
+        const moshav = pool().some(p => (p.features || []).includes('moshav_kibbutz_only'));
+        const list = LISTING_FEATURES.filter(([k]) => k !== 'moshav_kibbutz_only' || (!comm() && (moshav || X().listingFeatures.has(k))))
+          .map(([k, l]) => ({ value: k, label: l, count: cnt({ listingFeatures: new Set([...X().listingFeatures, k]) }) }));
+        // ‏✨ הדמיה - דגל מחוץ ל-r/c (‏searchState.hasAi), באותו סעיף
+        const ai = { value: '__ai', label: '✨ עם הדמיה', count: (() => { const k = d.ai; d.ai = true; const n = cnt(); d.ai = k; return n; })() };
+        return [ai].concat(list);
+      },
+      get: () => (d.ai ? ['__ai'] : []).concat(setOf('listingFeatures')),
+      set: (_, v) => { d.ai = v.includes('__ai'); X().listingFeatures = new Set(v.filter(x => x !== '__ai')); } },
+    { key: 'features', title: 'מאפייני הנכס', kind: 'chips', multi: true, wide: true,
+      options: () => (comm() ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES)
+        .filter(([k]) => d.tab !== 'rent' || k !== 'exclusive')
+        .map(([k, l]) => ({ value: k, label: l, count: cnt({ propertyFeatures: new Set([...X().propertyFeatures, k]) }) })),
+      get: () => setOf('propertyFeatures'), set: (_, v) => set('propertyFeatures', new Set(v)) },
+    { key: 'floor', title: 'קומה', kind: 'range', more: true, placeholders: ['מקומה', 'עד קומה'],
+      get: () => [X().floorMin, X().floorMax], set: (_, v) => { X().floorMin = v[0]; X().floorMax = v[1]; } },
+    { key: 'size', title: () => comm() ? 'גודל (במ"ר)' : 'גודל דירה (במ"ר)', kind: 'range', more: true, placeholders: ['מ-מ״ר', 'עד מ״ר'],
+      get: () => [X().sizeMin, X().sizeMax], set: (_, v) => { X().sizeMin = v[0]; X().sizeMax = v[1]; } },
+    { key: 'condition', title: 'מצב הנכס', kind: 'chips', more: true, hidden: () => comm(),
+      options: () => fsSelectOpts('rCondition').map(o => Object.assign(o, { count: cnt({ condition: o.value }) })),
+      get: () => d.r.condition || null, set: (_, v) => { d.r.condition = v || ''; } },
+    { key: 'newOnly', title: 'פרויקטים חדשים', kind: 'chips', more: true, hidden: () => d.tab !== 'sale',
+      options: () => [{ value: '1', label: 'פרויקטים חדשים ונכסים חדשים מקבלן', count: cnt({ newOnly: true }) }],
+      get: () => d.r.newOnly ? '1' : null, set: (_, v) => { d.r.newOnly = !!v; } },
+    { key: 'status', title: 'סטטוס הפרויקט', kind: 'chips', more: true, hidden: () => d.tab !== 'sale' || !(d.r.newOnly || d.r.projectStatus),
+      options: () => fsSelectOpts('rProjectStatus').map(o => Object.assign(o, { count: cnt({ projectStatus: o.value }) })),
+      get: () => d.r.projectStatus || null, set: (_, v) => { d.r.projectStatus = v || ''; } },
+    { key: 'entry', title: () => comm() ? 'כניסה' : 'תאריך כניסה', kind: 'chips', more: true,
+      options: () => [{ value: '1', label: comm() ? 'פנוי לכניסה מיידית' : 'כניסה קרובה (מיידית עד שנה)', count: cnt({ moveInSoon: true }) }],
+      get: () => X().moveInSoon ? '1' : null, set: (_, v) => { X().moveInSoon = !!v; } },
+  ].concat(['restrooms:שירותים', 'storage:מחסן', 'mamad:ממ"ד'].map(x => {
+    const [k, t] = x.split(':');
+    return { key: k, title: t, kind: 'seg', more: true, hidden: () => !comm(),
+      options: () => [{ value: '', label: 'הכל' }, { value: 'building', label: 'בבניין' }, { value: 'unit', label: 'בנכס' }],
+      get: () => d.c[k] || '', set: (_, v) => { d.c[k] = v; } };
+  })).concat([
+    { key: 'text', title: 'חיפוש חופשי', kind: 'text', more: true, wide: true, placeholder: 'מילות חיפוש נוספות',
+      get: () => X().freeText || '', set: (_, v) => { X().freeText = v; } },
+  ]);
+  if (window.shukTrack) window.shukTrack('adv_filter_open', { deal: d.tab === 'commercial' ? 'commercial' : d.tab, surface: 'home_modal' });
+  FilterSheet.open({
+    // ‏A4 (גבריאלה 20:30): "סינון נכסים" / "סינון נדל״ן מסחרי"
+    title: dd => dd.tab === 'commercial' ? 'סינון נדל״ן מסחרי' : 'סינון נכסים',
+    surface: 'home', trigger: trigger || null, draft: d,
+    sections,
+    count: dd => fsCount(dd),
+    onReset: dd => {
+      dd.r = FS_BLANK.r(); dd.c = FS_BLANK.c(); dd.ai = false;
+      if (window.shukTrack) window.shukTrack('adv_filter_clear', { deal: dd.tab === 'commercial' ? 'commercial' : dd.tab, surface: 'home_modal' });
+    },
+    onApply: dd => {
+      const title = document.getElementById('searchResultsTitle');
+      const anchor = resultsMode && title ? title.getBoundingClientRect().top : null;
+      searchState.activeTab = dd.tab;
+      searchState.r = fsClone(dd.r); searchState.c = fsClone(dd.c); searchState.hasAi = dd.ai;
+      fsWriteDom(dd);
+      applyAdvancedFilters();
+      // ‏R0/R1: השורות הן התצוגה אחרי החלה, מכל מקום שהחלון נפתח ממנו
+      if (!resultsMode) showSentenceResults({ track: false });
+      else if (anchor != null && title){ const dlt = title.getBoundingClientRect().top - anchor; if (Math.abs(dlt) >= 1) window.scrollBy(0, dlt); }
+    },
+  });
 }
 
 function pricePerSqm(p){

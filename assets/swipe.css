@@ -932,3 +932,23 @@ body[data-view=list] .sw-layout{display:inline-flex}
   .sw-act-wa{width:48px;height:48px}
 }
 @media (max-width:399px){body[data-view=list] .sw-ctl .sw-sortn{display:none}}
+
+/* ---------- ‏A3-2 / A3-3 בגיליון הסינון של /swipe: אותם טוקנים של FilterSheet (‏assets/filter-sheet.css) ----------
+   צ'יפ 44px ברדיוס 22 במסגרת נייבי, לחוץ - נייבי מלא; "ניקוי הכול" במסגרת נייבי ליד ההחלה הזהובה;
+   מושבת באפס; ומ-1024px חלון ממורכז של 880px בשני טורים */
+#swFilter .sw-chip{min-height:44px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:22px;background:#fff;color:#0e2a6b;font-weight:700}
+#swFilter .sw-chip[aria-pressed="true"]{background:#0e2a6b;color:#fff;border-color:#0e2a6b}
+#swFilter .sw-chip[aria-pressed="true"] .sw-chip-n{color:#fff;opacity:.8}
+#swFilter .sw-tabs button{min-height:46px}
+#swFilter .sw-fhead h2{color:#0e2a6b}
+.sw-fbtns{display:flex;gap:8px;width:100%}
+.sw-fbtns .sw-gold{flex:1}
+.sw-freset{flex:0 0 auto;min-height:50px;padding:0 18px;border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;font:inherit;font-size:15px;font-weight:800;cursor:pointer}
+.sw-freset:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
+#swFGo:disabled{background:#ece8dc;color:#6b6450;cursor:not-allowed;box-shadow:none}
+.sw-fsr{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (min-width:1024px){
+  #swFilter .sw-fsheet{width:880px;max-width:calc(100vw - 48px)}
+  #swFilter .sw-fpair{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;align-items:start}
+}
+

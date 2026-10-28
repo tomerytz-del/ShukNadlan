@@ -400,13 +400,19 @@
   /* ---------- 2. הסינון ---------- */
   var filter = { deal: 'sale', area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
   /* ‏P0-3: סוג נכס - בחירה אחת. ‏sort אחד להחלקה, לרשימה ולמפה; "מומלצים" = סדר החפיסה */
-  var TYPES = [['apt', 'דירה', /^(דירה|דופלקס|טריפלקס|סטודיו|יחידת דיור|מרתף)/], ['house', 'בית פרטי/קוטג׳', /בית פרטי|קוטג|דו משפחתי|וילה/],
-    ['garden', 'דירת גן', /דירת גן/], ['roof', 'גג/פנטהאוז', /גג|פנטהאוז/],
-    /* ‏C3 (תומר 22:12): משקים ונחלות - סוג משלו, לא מגרש (‏FilterConfig.FARM_PTYPES, ‏assets/filter-config.js) */
-    ['farm', 'משקים ונחלות', /^(משק חקלאי\/נחלה|משק עזר)$/], ['land', 'מגרש', /מגרש|קרקע/], ['comm', 'מסחרי', null],
-    /* ‏P1-N1: תת-סוגים מסחריים - מוצגים רק כשהעסקה "מסחרי" (ושם בלי "מסחרי" הכפול) */
-    ['c_office', 'משרדים', /משרד/, 1], ['c_shop', 'חנויות ושטח מסחרי', /חנו|שטח מסחרי|קליניק/, 1], ['c_industry', 'מבני תעשייה', /תעשי/, 1],
-    ['c_storage', 'מחסנים', /מחס[ןנ]/, 1], ['c_hall', 'אולמות', /אול[םמ]/, 1], ['c_land', 'מגרשים', /מגרש/, 1]];
+  /* ‏R6 (‏A3-1): המפתחות והתוויות של FilterConfig.TYPES (‏assets/filter-config.js) - אותם סוגים כמו
+     בצ'יפים מעל התוצאות ובחלון הסינון בדף הבית: דירות, בתים, משקים ונחלות (‏C3), מגרשים; ובמסחרי
+     משרדים, חנויות, מבני תעשייה, מחסנים, מגרשים מסחריים. ‏[מפתח, תווית, ביטוי על property_type, מסחרי] */
+  var FC_LABEL = {};
+  ((window.FilterConfig && FilterConfig.TYPES) ? FilterConfig.TYPES.res.concat(FilterConfig.TYPES.comm) : []).forEach(function (t) { FC_LABEL[t.key] = t.label; });
+  function fcl(k, fb) { return FC_LABEL[k] || fb; }
+  var TYPES = [['flats', fcl('flats', 'דירות'), /^(דירה|דופלקס|טריפלקס|סטודיו|יחידת דיור|מרתף)|דירת גן|גג|פנטהאוז/], ['house', fcl('house', 'בתים'), /בית פרטי|קוטג|דו משפחתי|וילה/],
+    ['farm', fcl('farm', 'משקים ונחלות'), /^(משק חקלאי\/נחלה|משק עזר)$/], ['land', fcl('land', 'מגרשים'), /מגרש|קרקע/], ['comm', 'מסחרי', null],
+    /* ‏P1-N1: תת-סוגים מסחריים - מוצגים רק כשהעסקה "מסחרי" */
+    ['office', fcl('office', 'משרדים'), /משרד/, 1], ['shop', fcl('shop', 'חנויות'), /חנו|שטח מסחרי|קליניק/, 1], ['industry', fcl('industry', 'מבני תעשייה'), /תעשי/, 1],
+    ['warehouse', fcl('warehouse', 'מחסנים'), /מחס[ןנ]/, 1], ['comm_land', fcl('comm_land', 'מגרשים מסחריים'), /מגרש/, 1]];
+  // קישורים ישנים עם המפתחות הקודמים של /swipe (‏?type=apt, ‏c_office...)
+  var TYPE_ALIAS = { apt: 'flats', garden: 'flats', roof: 'flats', c_office: 'office', c_shop: 'shop', c_industry: 'industry', c_storage: 'warehouse', c_land: 'comm_land' };
   function typeOk(p, key) {
     if (!key) return true;
     var t = TYPES.filter(function (x) { return x[0] === key; })[0];
@@ -472,7 +478,7 @@
     var cdl0 = params.get('cdeal'); if (filter.deal === 'commercial' && (cdl0 === 'rent' || cdl0 === 'sale')) filter.cdeal = cdl0;
     var b = Number(params.get('budget')), bl = budgetsFor();
     if (b > 0 && b < bl.length) filter.budget = bl[b];
-    var t = params.get('type'); if (TYPES.some(function (x) { return x[0] === t; })) filter.type = t;
+    var t = params.get('type'); t = TYPE_ALIAS[t] || t; if (TYPES.some(function (x) { return x[0] === t; })) filter.type = t;
     var cdl = params.get('cdeal'); if (cdl === 'rent' || cdl === 'sale') filter.cdeal = cdl;
     if (params.get('photos') === '0') filter.photos = false;
     if (params.get('fair') === '1') filter.fair = true;
@@ -710,6 +716,9 @@
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
     var c = shownCount();
     $('swFCount').textContent = c === 1 ? 'נכס אחד מתאים' : c + ' נכסים מתאימים';
+    // ‏A4 (גבריאלה 20:30): השורה לקורא מסך, בהשהיה כדי שלא תוקרא אחרי כל לחיצה
+    clearTimeout(fSrT);
+    fSrT = setTimeout(function () { var sr = $('swFSr'); if (sr) sr.textContent = c === 0 ? 'אין נכסים שמתאימים לסינון' : c === 1 ? 'מוצג נכס אחד' : 'מוצגים ' + c + ' נכסים'; }, 700);
     // הכפתור אומר מה יקרה בתצוגה שבה נמצאים (P0-3 §4); מ"אהבתי" - בתצוגה שאליה נחזור (‏P0-E)
     var dest = view === 'likes' ? likesReturnView() : view;
     $('swFGo').textContent = dest === 'list' ? (view === 'likes' ? 'הצגת ' + c + ' נכסים ברשימה' : 'הצגת ' + c + ' נכסים') : dest === 'map' ? 'הצגת ' + c + ' נכסים במפה' : 'הצגת ' + c + ' נכסים בהחלקה';
@@ -720,9 +729,15 @@
     if (sb) { sb.hidden = !nf; sb.textContent = nf || ''; }
     var fl = nf ? 'סינון, ' + nf + ' פעילים' : 'סינון';
     $('swFilterBtn').setAttribute('aria-label', fl); $('swFilterBtn').title = fl;
-    $('swFGo').disabled = false;
+    /* ‏A4: אפס תוצאות - הכפתור מושבת עם "אין תוצאות. אפשר לשנות את הסינון". חוץ מהיריד: שם
+       אפס הוא כרטיס "כרגע אין יריד פעיל" עם ההרשמה, ולכן הכפתור נשאר */
+    var none = c === 0 && !filter.fair;
+    $('swFGo').disabled = none;
+    $('swFGo').setAttribute('aria-disabled', String(none));
+    if (none) $('swFGo').textContent = 'אין תוצאות. אפשר לשנות את הסינון';
     renderSummary();
   }
+  var fSrT = 0;
   function renderSummary() {
     var deal = { sale: 'למכירה', rent: 'להשכרה', commercial: 'מסחרי' }[filter.deal] +
       (filter.deal === 'commercial' && filter.cdeal ? (filter.cdeal === 'rent' ? ' להשכרה' : ' למכירה') : '');

@@ -169,9 +169,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="sw-sheet sw-fsheet">
     <span class="sw-grip" aria-hidden="true"></span>
     <div class="sw-fhead">
-      <h2 id="swFilterTitle">סינון</h2>
+      <!-- ‏A3-2 / A4 (גבריאלה 20:30): הכותרת, ו"ניקוי הכול" בתחתית ליד ההחלה, כמו ב-FilterSheet של דף הבית -->
+      <h2 id="swFilterTitle">סינון נכסים להחלקה</h2>
       <span class="sw-fhead-acts">
-        <button type="button" class="sw-link" id="swFReset">ניקוי הכול</button>
         <button type="button" class="sw-fclose" data-close aria-label="סגירת הסינון">✕</button>
       </span>
     </div>
@@ -179,12 +179,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <!-- ‏R5-5: מסננים שהגיעו מדף הבית (‏hf=) ושאין להם בקר בגיליון -->
       <div class="sw-fext" id="swFExt" hidden></div>
       <div class="sw-tabs" role="tablist" aria-label="סוג עסקה" id="swFDeal">
-        <button type="button" role="tab" aria-selected="true" data-deal="sale">קנייה</button>
-        <button type="button" role="tab" aria-selected="false" data-deal="rent">שכירות</button>
+        <button type="button" role="tab" aria-selected="true" data-deal="sale">מכירה</button>
+        <button type="button" role="tab" aria-selected="false" data-deal="rent">השכרה</button>
         <button type="button" role="tab" aria-selected="false" data-deal="commercial">מסחרי</button>
       </div>
       <!-- במסחרי: השכרה או מכירה (בקשת תומר 28.10) -->
       <div class="sw-chips sw-cdeal" id="swFCDeal" role="group" aria-label="השכרה או מכירה" hidden></div>
+      <!-- ‏A3-2: הסדר המשותף - סוג עסקה, סוג נכס, אזור, חדרים, מחיר, מאפייני מודעה -->
+      <h3 class="sw-flabel">סוג נכס</h3>
+      <div class="sw-chips" id="swFType"></div>
       <h3 class="sw-flabel">אזור ויישוב</h3>
       <div class="sw-chips" id="swFArea"></div>
       <div class="sw-chips sw-sub" id="swFTowns" hidden></div>
@@ -197,12 +200,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="sw-chips" id="swFOtherList"></div>
       </div>
       <p class="sw-fnote" id="swFLocNote" role="status"></p>
-      <h3 class="sw-flabel" id="swFBudgetL">תקציב</h3>
-      <div class="sw-chips" id="swFBudget"></div>
-      <h3 class="sw-flabel" id="swFRoomsL">חדרים</h3>
-      <div class="sw-chips" id="swFRooms"></div>
-      <h3 class="sw-flabel">סוג נכס</h3>
-      <div class="sw-chips" id="swFType"></div>
+      <!-- ‏A3-3: במחשב חדרים ותקציב זה לצד זה -->
+      <div class="sw-fpair">
+        <div class="sw-fcol"><h3 class="sw-flabel" id="swFRoomsL">חדרים</h3>
+        <div class="sw-chips" id="swFRooms"></div></div>
+        <div class="sw-fcol"><h3 class="sw-flabel" id="swFBudgetL">תקציב</h3>
+        <div class="sw-chips" id="swFBudget"></div></div>
+      </div>
       <!-- מתגי "רק נכסים עם…" בשתי עמודות, כדי לקצר את הגלילה (בקשת תומר 28.10). תא שהמתג שלו מוסתר יורד -->
       <div class="sw-fgrid">
         <div class="sw-fcell">
@@ -226,8 +230,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="sw-ffoot">
       <p class="sw-fnote" id="swFLikesNote" hidden>הסינון חל על הנכסים להחלקה. הרשימה שלי נשארת כמו שהיא.</p>
-      <p class="sw-fcount" id="swFCount" aria-live="polite"></p>
-      <button type="button" class="sw-gold" id="swFGo">התחילו להחליק</button>
+      <p class="sw-fcount" id="swFCount"></p>
+      <p class="sw-fsr" id="swFSr" aria-live="polite" aria-atomic="true"></p>
+      <div class="sw-fbtns">
+        <button type="button" class="sw-freset" id="swFReset" aria-label="ניקוי כל הסינונים">ניקוי הכול</button>
+        <button type="button" class="sw-gold" id="swFGo">התחילו להחליק</button>
+      </div>
       <!-- ‏R8: איפוס "כבר ראיתם" - מוצג רק כשיש מה לאפס (‏syncResetSeen) -->
       <button type="button" class="sw-link sw-freset-seen" id="swFResetSeen" hidden>התחלה מחדש</button>
     </div>

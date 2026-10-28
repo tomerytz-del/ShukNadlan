@@ -2064,6 +2064,9 @@
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },
+      /* ‏FilterSheet (‏A3-2): כמה נכסים יוצגו עם טיוטה - שינוי במשפט ופרדיקט מתקדם אחר מזה
+         שמוחל עכשיו (‏null - בלי). אותו filter של התוצאות, ולכן המונה בחלון שווה לתוצאה */
+      countWith: function (patch, extra) { return filter(props, applyPatch(st, patch || {}), assign(ctx, { extra: extra || null })).length; },
       /* יש מה לנקות: משפט שאינו ברירת המחדל, סינון מתקדם, או טקסט בשדה */
       isClean: function () {
         return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();
