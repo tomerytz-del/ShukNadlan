@@ -25551,10 +25551,12 @@ function notifVisibleTypes(){
 async function loadNotifPrefs(agentId){
   // ‏'*' מאותה סיבה של הפעמון: ‏whatsapp_off_types חדשה (20270125090000).
   // שורת "פחות כאלה" נטענת בנפרד: לפני המיגרציה הטבלה חסרה, והמסך נשאר בלי הרשימה.
-  const [prefs, less] = await Promise.all([
+  const [prefs, less, cadenceFlag] = await Promise.all([
     sb.from('agent_notification_preferences').select('*').eq('agent_id', agentId).maybeSingle(),
     sb.from('agent_notif_less').select('notif_type, expires_at').eq('agent_id', agentId),
+    sb.rpc('notif_cadence_button_on'),
   ]);
+  notifCadenceFlag = !cadenceFlag.error && cadenceFlag.data === true;
 
   // שגיאה כאן משמעה שהמיגרציה עוד לא רצה על המסד. במצב כזה לא חוסמים כלום:
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.

@@ -38,6 +38,7 @@ import {
   offWarn,
   orderCadenceGroups,
   parseCadenceTap,
+  parseOutside,
   typeConfirmLine,
   typeListRows,
   utf16len,
@@ -174,11 +175,17 @@ test("אישור קצר, בלי תאריך, וחלון הסיכום", () => {
   assert.equal(digestChannel(false, "cap", false), "bell");
   assert.equal(digestChannel(false, "cap", true), "template");
   assert.equal(digestChannel(false, "bell", true), "bell");
-  assert.equal(digestChannel(false, "send", false), "bell");
-  assert.equal(digestChannel(false, "send", true, 1), "template");
-  assert.equal(digestChannel(true, "send", false, 3), "text");
+  assert.equal(parseOutside("send"), "cap");
+  assert.equal(parseOutside("bell"), "bell");
+  assert.equal(digestChannel(false, parseOutside("send"), false), "bell");
+  assert.equal(digestChannel(false, parseOutside("send"), true, 1), "template");
+  assert.equal(digestChannel(true, parseOutside("send"), false, 3), "text");
   assert.equal(digestChannel(false, "cap", true, 3), "bell");
-  assert.equal(digestChannel(false, "send", true, 3), "bell");
+  assert.equal(digestChannel(false, parseOutside("send"), true, 3), "bell");
+  for (const id of ["new_leads", "open_demand", "matches", "system_mentor"]) {
+    assert.equal(CADENCE_GROUPS.find((g) => g.id === id)?.confirmOff, true, id);
+  }
+  assert.equal(CADENCE_GROUPS.find((g) => g.id === "meetings")?.confirmOff, false);
 });
 
 test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת הליד", () => {
@@ -217,7 +224,28 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   const settings = readFileSync(join(root, "assets/crm-settings.js"), "utf8");
   assert.match(settings, /npCadence-/);
   assert.match(settings, /whatsapp_cadence/);
+  assert.match(settings, /cadenceChipsVisible/);
+  assert.match(settings, /notifCadenceFlag/);
+  assert.match(settings, /assistantTierOk/);
+  assert.match(settings, /data-cadence-off-yes/);
+  assert.match(settings, /cadenceOffArmed/);
   assert.doesNotMatch(settings, /lead_wa_cadence/);
+  const claimStart = migration.indexOf("create or replace function public.notification_push_claim");
+  const claimEnd = migration.indexOf("comment on function public.notification_push_claim(int)", claimStart);
+  const claim = migration.slice(claimStart, claimEnd);
+  assert.match(claim, /not n\.suppress_push/);
+  assert.match(claim, /notification_push_burst_prepare\(\)/);
+  assert.match(claim, /'action_path', n\.action_path/);
+  assert.match(claim, /notification_push_lead_wa_sendable\(n\.agent_id, n\.type, n\.created_at\)/);
+  assert.match(claim, /notif_burst_stale_hours/);
+  assert.match(claim, /burst_digest/);
+  assert.doesNotMatch(claim, /24 \* 7/);
+  assert.match(migration, /v_type in \('new_leads', 'open_demand', 'matches', 'system_mentor'\)/);
+  assert.match(migration, /c\.value in \('cap', 'bell'\)/);
+  assert.doesNotMatch(migration, /c\.value in \('cap', 'bell', 'send'\)/);
+  const single = push.slice(push.indexOf('if (plan.kind === "single")'), push.indexOf('if (plan.kind === "buttons")'));
+  assert.match(single, /return ctaMessage\(/);
+  assert.doesNotMatch(single, /replyButtonsMessage/);
   assert.match(setup, /התאמת קצב התראות/);
   assert.match(setup, /לא מגישים/);
 });

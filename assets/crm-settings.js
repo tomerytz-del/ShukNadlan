@@ -549,19 +549,42 @@ function notifGroupCadence(groupId) {
   return 'each';
 }
 
+let notifCadenceFlag = false;
+const cadenceOffArmed = new Set();
+
+function cadenceChipsVisible() {
+  return notifCadenceFlag === true && typeof assistantTierOk === 'function' && assistantTierOk();
+}
+
 function cadenceGroupsHtml() {
+  if (!cadenceChipsVisible()) return '';
   return `<section class="np2-cadence" id="npCadenceGroups">`
     + NOTIF_CADENCE_GROUPS.map(g => {
       const current = notifGroupCadence(g.id);
       const chips = g.mode === 'locked' ? '' : `<div class="ui-chips" data-ui-single id="npCadenceChips-${g.id}" role="group" aria-labelledby="npCadLbl-${g.id}">`
         + g.choices.map(([v, l]) => uiChip(l, { value:v, on: v === current, icon:false })).join('')
         + `</div>`;
+      const offYes = g.choices.some(([v]) => v === 'off')
+        ? `<p class="ui-hint" data-cadence-off-box="${g.id}" hidden><button type="button" class="ui-btn ui-btn--secondary" data-cadence-off-yes="${g.id}">מאשר/ת, ללא התראות</button></p>`
+        : '';
       return `<div class="np2-rem" id="npCadence-${g.id}" data-cadence-for="${g.id}">`
         + `<div class="set-field"><span class="set-field-label" id="npCadLbl-${g.id}">${escapeHtml(g.title)}</span>`
         + chips
-        + `<p class="ui-hint">${escapeHtml(g.hint)}</p></div></div>`;
+        + `<p class="ui-hint">${escapeHtml(g.hint)}</p>`
+        + offYes
+        + `</div></div>`;
     }).join('')
     + `</section>`;
+}
+
+function syncCadenceOffConfirm() {
+  document.querySelectorAll('[data-cadence-off-box]').forEach(box => {
+    const id = box.getAttribute('data-cadence-off-box');
+    const chips = document.getElementById('npCadenceChips-' + id);
+    const selected = chips ? (uiChipValues(chips)[0] || '') : '';
+    const saved = notifGroupCadence(id);
+    box.hidden = !(selected === 'off' && saved !== 'off' && !cadenceOffArmed.has(id));
+  });
 }
 
 function focusNotifCadence(focus) {
@@ -716,6 +739,7 @@ function renderNotifScreen(){
   const ls = document.getElementById('rmLastSent');
   if (ls) ls.textContent = lastSentText;
   renderNotifLess();
+  syncCadenceOffConfirm();
 }
 
 /* המצב של כל המסך, כאובייקט אחד - לפס השמירה ולשמירה עצמה */
@@ -731,9 +755,13 @@ function notifScreenState(){
     quiet: quietRead('np'),
     cadences: Object.fromEntries(NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked').map(g => {
       const el = document.getElementById('npCadenceChips-' + g.id);
-      const raw = el ? (uiChipValues(el)[0] || notifGroupCadence(g.id)) : notifGroupCadence(g.id);
+      let raw = el ? (uiChipValues(el)[0] || notifGroupCadence(g.id)) : notifGroupCadence(g.id);
       const allowed = g.choices.map(c => c[0]);
-      return [g.id, allowed.includes(raw) ? raw : notifGroupCadence(g.id)];
+      if (!allowed.includes(raw)) raw = notifGroupCadence(g.id);
+      if (raw === 'off' && notifGroupCadence(g.id) !== 'off' && !cadenceOffArmed.has(g.id)) {
+        raw = notifGroupCadence(g.id);
+      }
+      return [g.id, raw];
     })),
     rem: capEl ? {
       channels: uiChipValues(document.getElementById('npRemCh')).sort(),
@@ -870,8 +898,11 @@ async function saveNotifPrefsRows(s){
     whatsapp_off_types: whatsappOff,
     updated_at: nowIso,
   };
-  const patch = { ...base, whatsapp_cadence: nextMap };
-  if (sinceChanged) patch.whatsapp_cadence_since = nextSince;
+  const patch = { ...base };
+  if (cadenceChipsVisible()) {
+    patch.whatsapp_cadence = nextMap;
+    if (sinceChanged) patch.whatsapp_cadence_since = nextSince;
+  }
   let saved = await sb.from('agent_notification_preferences').upsert(patch, { onConflict:'agent_id' });
   if (saved.error && /whatsapp_cadence|42703|schema cache/i.test(saved.error.message || '')) {
     saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
@@ -921,6 +952,7 @@ function wireNotifScreen(){
 
   screen.addEventListener('input', e => {
     if (e.target.closest('#npQuietEditor')) quietPaint('np');
+    syncCadenceOffConfirm();
     syncNotifScreen();
   });
   screen.addEventListener('change', e => {
@@ -928,6 +960,12 @@ function wireNotifScreen(){
   });
 
   screen.addEventListener('click', e => {
+    const offYes = e.target.closest('[data-cadence-off-yes]');
+    if (offYes) {
+      cadenceOffArmed.add(offYes.getAttribute('data-cadence-off-yes'));
+      syncCadenceOffConfirm();
+      screen.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     const restore = e.target.closest('[data-np-less-restore]');
     if (restore){
       const type = restore.getAttribute('data-np-less-restore');

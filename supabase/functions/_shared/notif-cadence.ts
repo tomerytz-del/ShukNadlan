@@ -35,9 +35,9 @@ export type CadenceGroup = {
 export const CADENCE_GROUPS: CadenceGroup[] = [
   { id: "new_leads", title: "לידים חדשים", mode: "choices", confirmOff: true },
   { id: "meetings", title: "פגישות וסיורים", mode: "locked", confirmOff: false },
-  { id: "open_demand", title: "ביקוש פתוח", mode: "choices", confirmOff: false },
-  { id: "matches", title: "התאמות", mode: "choices", confirmOff: false },
-  { id: "system_mentor", title: "מערכת ומנטור", mode: "digest", confirmOff: false },
+  { id: "open_demand", title: "ביקוש פתוח", mode: "choices", confirmOff: true },
+  { id: "matches", title: "התאמות", mode: "choices", confirmOff: true },
+  { id: "system_mentor", title: "מערכת ומנטור", mode: "digest", confirmOff: true },
 ];
 
 /** מיפוי מפורש. onboarding_lead בקבוצה 1. שאר onboarding_* בקבוצה 5. */
@@ -208,6 +208,9 @@ export function offWarn(groupId: string): string {
   if (groupId === "matches") {
     return "בלי התראה מפסידים עסקאות שת״פ, ולקוחות שאהבו נכס מחכים. ההתאמות גם אצל הלקוחות ובפעמון.";
   }
+  if (groupId === "system_mentor") {
+    return "בלי הסיכום, עדכוני מערכת ומנטור נשארים רק בפעמון ולא יוצאים כוואטסאפ. לאשר?";
+  }
   return "בלי וואטסאפ הפריטים נשארים בפעמון. לאשר?";
 }
 
@@ -297,7 +300,7 @@ export function parseCadenceTap(id: string): CadenceTap | null {
   if (back && cadenceGroup(back[1])) return { kind: "back", type: back[1] };
   return null;
 }
-export type OutsideMode = "cap" | "bell" | "send";
+export type OutsideMode = "cap" | "bell";
 
 export type CadenceRow = { id: string; choice: CadenceChoice; title: string; description: string };
 
@@ -477,7 +480,7 @@ export function digestChannel(
   ordinal = 1,
 ): "text" | "template" | "bell" {
   // הסיכום השלישי ביום אינו תבנית: טקסט רק בתוך חלון 24 השעות, אחרת פעמון.
-  // הוא לא נספר בתקרה ולא עוקף אותה. send אינו עוקף את התקרה גם בשני הראשונים.
+  // לכל היותר שתי תבניות ביום, 8 שעות ביניהן. אין מצב send שעוקף את התקרה.
   if (ordinal >= 3) return inWindow ? "text" : "bell";
   if (inWindow) return "text";
   if (outside === "bell") return "bell";
@@ -485,7 +488,7 @@ export function digestChannel(
 }
 
 export function parseOutside(value: string | null | undefined): OutsideMode {
-  if (value === "bell" || value === "send" || value === "cap") return value;
+  if (value === "bell") return "bell";
   return "cap";
 }
 

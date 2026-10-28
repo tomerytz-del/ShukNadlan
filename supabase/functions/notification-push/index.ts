@@ -541,13 +541,6 @@ async function sendWhatsapp(
     if (!body || containsHttpUrl(body) || body.length > 1024) return null;
     if (plan.kind === "single") {
       tokens = clickRecords(plan);
-      const nav = cadenceOn ? encodeNavId(plan.path) : null;
-      if (nav) {
-        return replyButtonsMessage(to, body, [
-          { id: nav, title: richLead(items) ? LEAD_CTA : plan.label },
-          cadenceButton,
-        ]);
-      }
       return ctaMessage(
         to,
         body,
@@ -675,13 +668,7 @@ async function sendWhatsapp(
     };
   } else {
     const interactive = mode === "template" ? null : inWindow();
-    payload = interactive || (cadenceOn && mode !== "template"
-      ? replyButtonsMessage(
-        to,
-        clipWhatsappBody(textBody(name, items, false, topics, true, true), 1024),
-        [cadenceButton],
-      )
-      : linked());
+    payload = interactive || linked();
   }
 
   return paceRecipient(to, async () => {
