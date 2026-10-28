@@ -3592,6 +3592,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero #allProps .pp-view-btn svg{color:#c9a227}
   html.beta-hero .sr-swipe{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;font:800 14px Heebo,system-ui,sans-serif;text-decoration:none}
   html.beta-hero .sr-swipe[hidden]{display:none}
+  /* ‏R5-4: בחירה מרובה בפאנל הסינון */
+  html.beta-hero .hs-field.has-multi > select{display:none}
+  html.beta-hero .hs-field.has-multi{grid-column:1/-1}
+  html.beta-hero .hs-multi{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  html.beta-hero .hs-mchip,html.beta-hero .hs-hoods-btn{min-height:44px;padding:0 12px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif;cursor:pointer}
+  html.beta-hero .hs-mchip[aria-pressed="true"]{background:#0e2a6b;color:#fff}
+  html.beta-hero .hs-mn{font-weight:600;opacity:.75}
+  html.beta-hero .hs-hoods-btn{width:100%;text-align:start;border-radius:12px}
+  html.beta-hero .hs-hoods-list{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+  html.beta-hero .hs-hoods-list[hidden]{display:none}
   html.beta-hero .sr-swipe svg{color:#c9a227}
   html.beta-hero #allProps .pp-filter-btn:focus-visible,html.beta-hero #allProps .pp-view-btn:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
   @media(max-width:759px){

@@ -6967,7 +6967,11 @@ function applyAdvancedFilters(){
   else if (group) patch.type = group.key;
   else if (pt.length === 1) patch.type = 'raw:' + pt[0];
   // ‏R5-4 (v10): כמה סוגים נכנסים למשפט ולכתובת (‏ptype=a,b), לא רק כפרדיקט
-  else if (v10On()) patch.types = pt.map(x => 'raw:' + x);
+  else if (v10On()){
+    // הקבוצות שנבחרו (‏"דירה" = דירה, דופלקס…) נשארות קבוצות, ולא נפרשות לערכים גולמיים
+    const curPt = (cur.types || []).flatMap(k => Core.typeDef(k).ptypes || []);
+    patch.types = cur.types && cur.types.length && same([...new Set(curPt)], pt) ? cur.types : pt.map(x => 'raw:' + x);
+  }
   else { patch.type = commercial ? 'commercial' : 'any'; checks.push(p => pt.includes(p.property_type)); }
   if (v10On()){
     const hs = [...(s.hoods || [])];
@@ -7523,6 +7527,63 @@ let freeTextFeatures = new Set();
     $('hsStorage').value = feats.has('storage') ? '1' : '';
     const fl = (commercial ? searchState.c : searchState.r).floorMin;
     $('hsFloor').value = fl != null && fl !== '' ? String(fl) : '';
+    if (v10On()) fillMulti(st, commercial);
+  }
+
+  /* ‏R5-4 (v10): חדרים, סוג ושכונות - בחירה מרובה בצ'יפים במקום select אחד.
+     ‏OR בתוך קבוצה, ‏AND בין קבוצות; אפשרות בלי נכסים לא מוצגת (חוץ ממה שנבחר) */
+  const sel = { rooms: new Set(), types: new Set(), hoods: new Set() };
+  function multiBox(id, label){
+    const field = $(id).closest('.hs-field');
+    let box = field.querySelector('.hs-multi');
+    if (!box){
+      box = document.createElement('div');
+      box.className = 'hs-multi';
+      box.setAttribute('role', 'group');
+      box.setAttribute('aria-label', label);
+      field.appendChild(box);
+      field.classList.add('has-multi');
+      box.addEventListener('click', e => {
+        const b = e.target.closest('[data-v]');
+        if (!b) return;
+        const set = sel[box.dataset.kind];
+        if (set.has(b.dataset.v)) set.delete(b.dataset.v); else set.add(b.dataset.v);
+        b.setAttribute('aria-pressed', String(set.has(b.dataset.v)));
+        if (box.dataset.kind === 'hoods') syncHoodBtn();
+      });
+    }
+    return box;
+  }
+  const chipHtml = (kind, v, l, n) => `<button type="button" class="hs-mchip" data-v="${escAttr(v)}" aria-pressed="${sel[kind].has(v)}">${escAttr(l)}${n != null ? ` <span class="hs-mn">${n}</span>` : ''}</button>`;
+  function syncHoodBtn(){
+    const b = document.getElementById('hsHoodsBtn');
+    if (b) b.firstChild.textContent = sel.hoods.size ? `שכונות (${sel.hoods.size}) ` : 'כל השכונות ';
+  }
+  function fillMulti(st, commercial){
+    // חדרים
+    sel.rooms = new Set(st.roomsIn && st.roomsIn.length ? st.roomsIn.map(n => n >= 6 ? '6' : String(n))
+      : st.rooms ? [String(Math.min(6, Math.floor(st.rooms[0])))] : []);
+    const rb = multiBox('hsRooms', 'חדרים'); rb.dataset.kind = 'rooms';
+    rb.innerHTML = ['2', '3', '4', '5', '6'].map(n => chipHtml('rooms', n, n === '6' ? '6+' : n)).join('');
+    // סוג נכס, עם מונה
+    const types = commercial ? sentence.Core.TYPES.filter(t => t.commercial && t.key !== 'commercial')
+      : sentence.Core.TYPES.filter(t => !t.commercial && !t.chipOnly && t.key !== 'any');
+    sel.types = new Set(st.types && st.types.length ? st.types : (st.type && st.type !== 'any' && st.type !== 'commercial' ? [st.type] : []));
+    const tb = multiBox('hsType', 'סוג נכס'); tb.dataset.kind = 'types';
+    tb.innerHTML = types.map(t => [t, sentence.count({ type: t.key, types: null })])
+      .filter(([t, n]) => n > 0 || sel.types.has(t.key))
+      .map(([t, n]) => chipHtml('types', t.key, t.label, n)).join('');
+    // שכונות: כפתור שפותח רשימה, ממוינת לפי מספר הנכסים
+    const areas = (sentence.areas() || []).filter(a => a.key.indexOf('hood:') === 0);
+    sel.hoods = new Set(st.hoods && st.hoods.length ? st.hoods : (/^hood:/.test(st.area || '') ? [st.area] : []));
+    const hb = multiBox('hsHood', 'שכונות'); hb.dataset.kind = 'hoods';
+    const list = areas.map(a => [a, sentence.count({ area: a.key, hoods: null })])
+      .filter(([a, n]) => n > 0 || sel.hoods.has(a.key)).sort((x, y) => y[1] - x[1]);
+    hb.innerHTML = `<button type="button" class="hs-hoods-btn" id="hsHoodsBtn" aria-expanded="false">כל השכונות <span aria-hidden="true">▾</span></button>` +
+      `<div class="hs-hoods-list" hidden>${list.map(([a, n]) => chipHtml('hoods', a.key, a.label, n)).join('')}</div>`;
+    const btn = hb.querySelector('.hs-hoods-btn'), lst = hb.querySelector('.hs-hoods-list');
+    btn.addEventListener('click', () => { lst.hidden = !lst.hidden; btn.setAttribute('aria-expanded', String(!lst.hidden)); });
+    syncHoodBtn();
   }
 
   function setMode(next){
@@ -7550,7 +7611,7 @@ let freeTextFeatures = new Set();
     if (open){
       // ‏v10: לפי הלשונית שנבחרה (כולל מסחרי), כי שורת העסקה מוסתרת
       const tab = v10On() && document.querySelector('[data-v10-deal][aria-selected="true"]');
-      if (tab) setMode(tab.dataset.v10Deal);
+      if (tab) { if (mode !== tab.dataset.v10Deal) setMode(tab.dataset.v10Deal); }
       else if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
       pills.find(b => b.dataset.hsDeal === mode)?.focus({ preventScroll:true });
     } else if (mode) setMode(mode);
@@ -7558,7 +7619,7 @@ let freeTextFeatures = new Set();
 
   // ‏v10: בלי שורת העסקה הכפולה - הפאנל הפתוח עוקב אחרי הלשונית שנבחרה
   document.querySelectorAll('[data-v10-deal]').forEach(t => t.addEventListener('click', () => {
-    if (v10On() && !wrap.classList.contains('is-collapsed')) setMode(t.dataset.v10Deal);
+    if (v10On() && !wrap.classList.contains('is-collapsed') && mode !== t.dataset.v10Deal) setMode(t.dataset.v10Deal);
   }));
 
   $('hsCity').addEventListener('change', () => {
@@ -7576,6 +7637,13 @@ let freeTextFeatures = new Set();
     const commercial = mode === 'commercial';
     const deal = commercial ? ($('hsCommDeal').value || null) : mode;
     const area = $('hsHood').value || $('hsCity').value || 'all';
+    if (v10On()){
+      const types = [...sel.types], hoods = [...sel.hoods];
+      const patch = { deal };
+      if (types.length > 1) patch.types = types; else { patch.type = types[0] || (commercial ? 'commercial' : 'any'); }
+      if (hoods.length > 1) patch.hoods = hoods; else patch.area = hoods[0] || $('hsCity').value || 'all';
+      sentence.patch(patch);
+    } else
     sentence.patch({ deal, area, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
 
     const st = sentence.state();
@@ -7583,6 +7651,8 @@ let freeTextFeatures = new Set();
     const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
     const pre = searchState.activeTab === 'commercial' ? 'c' : 'r';
     const rooms = commercial ? '' : $('hsRooms').value;
+    if (v10On()) s.rooms = new Set(commercial ? [] : [...sel.rooms].map(n => n === '6' ? '+6' : n));
+    else
     s.rooms = new Set(!rooms ? [] : ROOM_OPTIONS.filter(o => {
       const n = o === '+6' ? 6 : parseFloat(o);
       return rooms === '5' ? n >= 5 : (n >= Number(rooms) && n < Number(rooms) + 1);

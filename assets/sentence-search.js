@@ -727,7 +727,8 @@
       ptype.split(',').forEach(function (v) {
         v = v.trim();
         var g = TYPES.filter(function (t) { return t.url === v; })[0];
-        var k = g ? g.key : (/^[֐-׿\w'"/ .-]{1,40}$/.test(v) ? 'raw:' + v : null);
+        // ערך קנוני (‏url), מפתח של קבוצה בלי url (‏apt), או ערך גולמי מהמסד
+        var k = g ? g.key : TYPE_BY_KEY[v] ? v : (/^[֐-׿\w'"/ .-]{1,40}$/.test(v) ? 'raw:' + v : null);
         if (k && keys.indexOf(k) < 0) keys.push(k);
       });
       if (keys.length > 1) { st.types = keys; st.type = typeDef(keys[0]).commercial ? 'commercial' : 'any'; }
