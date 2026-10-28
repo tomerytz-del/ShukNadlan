@@ -307,10 +307,12 @@ Deno.serve(async (req: Request) => {
         if (!slotMissing && slot.data === "cap") {
           phoneHeld = true;
         }
-        if (!slotMissing && slot.data === "ok") {
+        if (!slotMissing && (slot.data === "ok" || slot.data === "already")) {
           tookClaim = true;
-          const push = await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
-          pushSent = !push.error && Number(push.data) > 0;
+          if (slot.data === "ok") {
+            const push = await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
+            pushSent = !push.error && Number(push.data) > 0;
+          }
         }
       }
     }

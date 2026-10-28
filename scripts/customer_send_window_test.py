@@ -473,6 +473,16 @@ $$;
         "t",
         "דגל חג דלוק ודגל שישי כבוי: יום כיפור סגור",
     )
+    expect(
+        f"select public.notification_agent_send_quiet(21, 8, '{{5,6}}', {at('2026-09-20 12:00:00')}, 0)",
+        "f",
+        "ערב חג לפני 13:00 פתוח",
+    )
+    expect(
+        f"select public.notification_agent_send_quiet(21, 8, '{{5,6}}', {at('2026-09-20 13:00:00')}, 0)",
+        "t",
+        "ערב חג מ-13:00 סגור בלי דגל שישי",
+    )
 
     notify = (ROOT / "supabase/functions/saved-search-notify/index.ts").read_text(encoding="utf-8")
     held = notify.find("if (phoneHeld)")

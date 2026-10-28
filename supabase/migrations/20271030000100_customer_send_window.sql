@@ -175,7 +175,13 @@ as $$
             and exists (
               select 1 from public.il_holidays h
                where h.holiday_date = (p_at at time zone 'Asia/Jerusalem')::date
-                 and h.kind = 'holiday'
+                 and (
+                   h.kind = 'holiday'
+                   or (
+                     h.kind = 'eve'
+                     and extract(hour from (p_at at time zone 'Asia/Jerusalem'))::int >= 13
+                   )
+                 )
             )
            then true
            when coalesce(p_window_on, 0) = 1 then
