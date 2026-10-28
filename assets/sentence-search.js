@@ -340,12 +340,24 @@
         return { value: d, label: d ? dealLabel(d) : 'לקנות או לשכור', count: count({ deal: d }), selected: st.deal === d };
       });
     } else if (slot === 'type') {
-      var keys = TYPES.filter(function (t) { return !t.chipOnly; }).map(function (t) { return t.key; });
-      if (keys.indexOf(st.type) < 0) keys.push(st.type);
+      /* ‏P1-N1: במסחרי - רק סוגים מסחריים שיש בהם נכסים, ובסוף "← חיפוש מגורים"; במגורים
+         (או בלי סוג) - סוגי המגורים ו"נכס מסחרי" אחד, בלי חנות/משרד/מחסן בנפרד. כך דירה
+         ופנטהאוז לא מוצעים למי שמחפש/ת משרד, ולהפך */
+      var comm = !!typeDef(st.type).commercial;
+      var keys = TYPES.filter(function (t) {
+        if (t.chipOnly) return false;
+        if (comm) return t.commercial && t.key !== 'commercial';
+        return !t.commercial || t.key === 'commercial';
+      }).map(function (t) { return t.key; });
+      if (keys.indexOf(st.type) < 0 && !(comm && st.type === 'commercial')) keys.push(st.type);
       list = keys.map(function (k) {
         var t = typeDef(k);
         return { value: k, label: t.optionLabel || t.label, count: count({ type: k }), selected: st.type === k };
-      });
+      }).filter(function (o) { return !comm || o.count > 0 || o.selected; });
+      if (comm) {
+        list.unshift({ value: 'commercial', label: 'כל הנכסים המסחריים', count: count({ type: 'commercial' }), selected: st.type === 'commercial' });
+        list.push({ value: 'any', label: '← חיפוש מגורים', count: count({ type: 'any' }), selected: false });
+      }
     } else if (slot === 'area') {
       list.push({ value: 'all', label: areaLabel('all', areas, ctx), count: count({ area: 'all' }), selected: st.area === 'all' });
       if (ctx && ctx.canNear) list.push({ value: 'near', label: '📍 לידי', count: st.area === 'near' ? count({ area: 'near' }) : null, selected: st.area === 'near' });

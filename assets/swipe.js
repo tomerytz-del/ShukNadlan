@@ -389,12 +389,16 @@
   var filter = { deal: 'sale', area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
   /* ‏P0-3: סוג נכס - בחירה אחת. ‏sort אחד להחלקה, לרשימה ולמפה; "מומלצים" = סדר החפיסה */
   var TYPES = [['apt', 'דירה', /^(דירה|דופלקס|טריפלקס|סטודיו|יחידת דיור|מרתף)/], ['house', 'בית פרטי/קוטג׳', /בית פרטי|קוטג|דו משפחתי|וילה/],
-    ['garden', 'דירת גן', /דירת גן/], ['roof', 'גג/פנטהאוז', /גג|פנטהאוז/], ['land', 'מגרש', /מגרש|קרקע|נחלה|משק/], ['comm', 'מסחרי', null]];
+    ['garden', 'דירת גן', /דירת גן/], ['roof', 'גג/פנטהאוז', /גג|פנטהאוז/], ['land', 'מגרש', /מגרש|קרקע|נחלה|משק/], ['comm', 'מסחרי', null],
+    /* ‏P1-N1: תת-סוגים מסחריים - מוצגים רק כשהעסקה "מסחרי" (ושם בלי "מסחרי" הכפול) */
+    ['c_office', 'משרדים', /משרד/, 1], ['c_shop', 'חנויות ושטח מסחרי', /חנו|שטח מסחרי|קליניק/, 1], ['c_industry', 'מבני תעשייה', /תעשי/, 1],
+    ['c_storage', 'מחסנים', /מחס[ןנ]/, 1], ['c_hall', 'אולמות', /אול[םמ]/, 1], ['c_land', 'מגרשים', /מגרש/, 1]];
   function typeOk(p, key) {
     if (!key) return true;
     var t = TYPES.filter(function (x) { return x[0] === key; })[0];
     if (!t) return true;
     if (key === 'comm') return isComm(p);
+    if (t[3]) return isComm(p) && t[2].test(p.property_type || '');
     return !isComm(p) && t[2].test(p.property_type || '');
   }
   var SORTS = [['rec', 'מומלצים'], ['new', 'חדשים ביותר'], ['price_asc', 'מחיר: מהנמוך לגבוה'], ['price_desc', 'מחיר: מהגבוה לנמוך'], ['ppsqm', 'מחיר למ״ר'], ['size', 'שטח: מהגדול לקטן']];
@@ -566,7 +570,10 @@
     $('swFViz').hidden = $('swFVizL').hidden = !vizReady || (!vizN && !filter.viz);
     $('swFViz').innerHTML = chip('✨ רק נכסים עם הדמיה ' + n(vizN), 'data-viz="1"', !!filter.viz);
     // סוג בלי אף נכס בסינון אינו מוצג (חוץ מהנבחר) - לעולם לא בחירה שמובילה לאפס
-    $('swFType').innerHTML = chip('הכול', 'data-type=""', !filter.type) + TYPES.map(function (t) {
+    var commDeal = filter.deal === 'commercial';
+    $('swFType').innerHTML = chip('הכול', 'data-type=""', !filter.type) + TYPES.filter(function (t) {
+      return commDeal ? !!t[3] : !t[3] && t[0] !== 'comm';
+    }).map(function (t) {
       var k = countFor({ type: t[0] });
       return k || filter.type === t[0] ? chip(esc(t[1]) + ' ' + n(k), 'data-type="' + t[0] + '"', filter.type === t[0]) : '';
     }).join('');
@@ -653,7 +660,7 @@
   $('swFilter').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.deal) { filter.deal = b.dataset.deal; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0; renderFilter(); return; }
+    if (b.dataset.deal) { if (b.dataset.deal !== filter.deal) filter.type = ''; filter.deal = b.dataset.deal; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0; renderFilter(); return; }
     if (b.dataset.toggle === 'towns') { townsOpen = !townsOpen; renderFilter(); return; }
     if (b.dataset.toggle === 'other') { otherOpen = !otherOpen; renderFilter(); return; }
     if (b.dataset.group) { otherGroup = b.dataset.group; renderOther(); return; }

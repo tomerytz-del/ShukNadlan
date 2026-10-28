@@ -4852,6 +4852,20 @@ function syncCommercialDealToggle(){
     b.classList.toggle('active', b.dataset.cdeal === searchState.c.deal));
 }
 
+const COMMERCIAL_PTYPE_LABELS = { 'סטודיו': 'סטודיו (מסחרי)', 'מרתף': 'מרתף מסחרי' };
+function commercialPtypeOptions(){
+  const n = new Map();
+  (allActiveProperties || []).forEach(p => {
+    if (p.category !== 'commercial' || !p.property_type || p.property_type === 'כללי') return;
+    if (searchState.c.deal && p.deal_type !== searchState.c.deal) return;
+    n.set(p.property_type, (n.get(p.property_type) || 0) + 1);
+  });
+  const list = COMMERCIAL_PTYPES.filter(t => t !== 'כללי' && (n.get(t) || searchState.c.ptypes.has(t)));
+  // סוג שנמצא במלאי ואינו ברשימה הקבועה - גם הוא מוצג
+  n.forEach((c, t) => { if (!list.includes(t)) list.push(t); });
+  return list.sort((a, b) => (n.get(b) || 0) - (n.get(a) || 0))
+    .map(t => [t, (COMMERCIAL_PTYPE_LABELS[t] || t) + ' · ' + (n.get(t) || 0)]);
+}
 function initFilterModals(){
   renderPills(document.getElementById('rRoomsPills'), ROOM_OPTIONS, searchState.r.rooms);
   Object.entries(RESIDENTIAL_PTYPES).forEach(([cat, list])=>{
@@ -4860,8 +4874,12 @@ function initFilterModals(){
   renderCheckboxes(document.getElementById('rListingFeatures'), LISTING_FEATURES, searchState.r.listingFeatures);
   renderCheckboxes(document.getElementById('rPropertyFeatures'), RESIDENTIAL_PROPERTY_FEATURES, searchState.r.propertyFeatures);
 
-  renderPills(document.getElementById('cPtypePills'), COMMERCIAL_PTYPES, searchState.c.ptypes);
-  renderCheckboxes(document.getElementById('cListingFeatures'), LISTING_FEATURES, searchState.c.listingFeatures);
+  // ‏P1-N1: סוגים מסחריים מהנתונים, עם מונה; "כללי" לעולם לא, ו"רק מושבים וקיבוצים" לא במסחרי
+  renderPills(document.getElementById('cPtypePills'), commercialPtypeOptions(), searchState.c.ptypes);
+  renderCheckboxes(document.getElementById('cListingFeatures'), LISTING_FEATURES.filter(([k]) => k !== 'moshav_kibbutz_only'), searchState.c.listingFeatures);
+  // סטטוס הפרויקט רק במכירה
+  const rps = document.getElementById('rProjectStatusSec');
+  if (rps) rps.hidden = searchState.activeTab === 'rent';
   renderCheckboxes(document.getElementById('cPropertyFeatures'), COMMERCIAL_PROPERTY_FEATURES, searchState.c.propertyFeatures);
 
   document.querySelectorAll('.tri-toggle').forEach(group=>{
@@ -4884,6 +4902,8 @@ function initFilterModals(){
     btn.addEventListener('click', ()=>{
       searchState.c.deal = btn.dataset.cdeal;
       syncCommercialDealToggle();
+      // המונים של סוגי הנכס תלויים בעסקה
+      renderPills(document.getElementById('cPtypePills'), commercialPtypeOptions(), searchState.c.ptypes);
       // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
       // שברשימת השכונות
       renderHoodFilter();
@@ -6848,7 +6868,12 @@ document.getElementById('ssQuery')?.addEventListener('input', renderClearButton)
    הכתובת והשורות זזים יחד. ‏flats - כל הדירות (רגילה, גן, גג), ‏chipOnly
    ב-sentence-search.js. סוג אחר שנבחר במשפט (‏"דירת גן", "משרד") - אף כפתור
    אינו מסומן. */
-const KIND_CHIPS = ['any', 'flats', 'house', 'land', 'commercial'];
+const KIND_CHIPS = ['any', 'flats', 'house', 'land', 'commercial', 'shop', 'office', 'industry', 'warehouse', 'comm_land'];
+/* ‏P1-N1: במסחרי שורת הסוג היא "הכול" (כל המסחרי) והסוגים המסחריים שיש בהם נכסים, עם מונה -
+   בלי "דירות" ו"בתים". במגורים - השורה המקורית */
+const KIND_ROW_RES = [['any','הכול'], ['flats','דירות'], ['house','בתים'], ['land','מגרשים'], ['commercial','מסחרי']];
+const KIND_ROW_COMM = [['commercial','הכול'], ['office','משרדים'], ['shop','חנויות'], ['industry','מבני תעשייה'], ['warehouse','מחסנים'], ['comm_land','מגרשים מסחריים']];
+let kindRowMode = 'res';
 let kindChipsWired = false;
 function renderKindChips(st){
   const box = document.getElementById('srKinds');
@@ -6866,6 +6891,15 @@ function renderKindChips(st){
     });
   }
   const type = (st && st.type) || 'any';
+  const comm = !!(sentence && sentence.Core && sentence.Core.typeDef(type).commercial);
+  const mode = comm ? 'comm' : 'res';
+  if (mode !== kindRowMode || comm){
+    kindRowMode = mode;
+    const row = comm
+      ? KIND_ROW_COMM.map(([k, l]) => [k, l, sentence.loaded() ? sentence.count({ type: k }) : 0]).filter(([k, , n]) => k === 'commercial' || n > 0 || k === type)
+      : KIND_ROW_RES.map(([k, l]) => [k, l, null]);
+    box.innerHTML = row.map(([k, l, n]) => '<button type="button" data-kind="' + k + '" aria-pressed="false">' + escapeHtml(l) + (n != null && k !== 'commercial' ? ' · ' + n : '') + '</button>').join('');
+  }
   box.querySelectorAll('button[data-kind]').forEach(b =>
     b.setAttribute('aria-pressed', b.dataset.kind === type ? 'true' : 'false'));
 }

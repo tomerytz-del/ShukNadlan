@@ -4622,7 +4622,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
           </select>
         </div>
-        <div class="filter-section">
+        <div class="filter-section" id="rProjectStatusSec">
           <h4>סטטוס הפרויקט</h4>
           <select id="rProjectStatus" class="filter-select">
             <option value="">הכל</option>
@@ -4698,7 +4698,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h4>מאפייני הנכס</h4>
           <div class="checkbox-grid" id="cPropertyFeatures"></div>
         </div>
-        <div class="filter-section">
+        <!-- ‏P1-N1: סטטוס פרויקט - במכירה בלבד; במסחרי נכס אחד, והשדה מוסתר (ה-id נשאר לקוד) -->
+        <div class="filter-section" hidden>
           <h4>סטטוס הפרויקט</h4>
           <select id="cProjectStatus" class="filter-select">
             <option value="">הכל</option>
@@ -4734,10 +4735,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h4>ממ"ד</h4>
           <div class="tri-toggle" data-tri="cMamad"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
         </div>
+        <!-- ‏P1-N1: במסחרי מתג אחד במקום תאריך + "כניסה קרובה" (‏move_in_soon) -->
         <div class="filter-section">
-          <h4>תאריך כניסה</h4>
-          <input type="date" id="cMoveInDate" class="filter-select" style="margin-bottom:8px">
-          <label class="checkbox-item"><input type="checkbox" id="cMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
+          <h4>כניסה</h4>
+          <input type="date" id="cMoveInDate" class="filter-select" hidden>
+          <label class="checkbox-item"><input type="checkbox" id="cMoveInSoon"> פנוי לכניסה מיידית</label>
         </div>
         <div class="filter-section">
           <h4>חיפוש חופשי</h4>
