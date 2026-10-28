@@ -649,6 +649,15 @@ export const SOCIAL_QUEUE_ROWS_PER_PROPERTY = 2;
 
 const DEST_RE = /^dst:(asb|as|ab|a|m|e):([0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
+/** לחיצה ישנה על שורת רשתות, כשהדגל כבוי, נשמרת כמו השורה בלי רשתות. */
+export function publishChannelsToStore(
+  channels: readonly string[],
+  socialOn: boolean,
+): string[] {
+  if (socialOn) return channels.slice();
+  return channels.filter((channel) => channel !== "social");
+}
+
 /** דגל הרשתות כבוי: אין שורה שמבטיחה פייסבוק או אינסטגרם. */
 export function publishDestinations(socialOn: boolean): PublishDestination[] {
   if (socialOn) return PUBLISH_DESTINATIONS;

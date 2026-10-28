@@ -51,6 +51,7 @@ import {
   destinationMenuGuidance,
   publishDestinationList,
   parsePublishDestination,
+  publishChannelsToStore,
   destinationSameRequest,
   destinationStatusPatch,
   socialEnqueuePlan,
@@ -437,6 +438,17 @@ const offReply = destinationReply({
   social: socialEnqueuePlan(["site", "social", "brokers"], false, true),
   brokersSent: false,
 });
+const staleAs = parsePublishDestination(`dst:as:${pubId}:${propertyUuid}`);
+const staleAsb = parsePublishDestination(`dst:asb:${pubId}:${propertyUuid}`);
+const storedAs = staleAs ? publishChannelsToStore(staleAs.channels, false) : [];
+const storedAsb = staleAsb ? publishChannelsToStore(staleAsb.channels, false) : [];
+check("לחיצת dst:as ישנה בלי דגל לא שומרת social", storedAs.join(",") === "site"
+  && !storedAs.includes("social"));
+check("לחיצת dst:asb ישנה בלי דגל היא אתר ומתווכים", storedAsb.join(",") === "site,brokers"
+  && !storedAsb.includes("social"));
+check("דגל דלוק שומר את social מהלחיצה", !!staleAs && !!staleAsb
+  && publishChannelsToStore(staleAs.channels, true).includes("social")
+  && publishChannelsToStore(staleAsb.channels, true).includes("social"));
 check("תשובה לא אומרת שהרשתות נרשמו כשהדגל כבוי", !offReply.includes("הרשתות נרשמו")
   && !offReply.includes("פייסבוק")
   && !offReply.includes("אינסטגרם")

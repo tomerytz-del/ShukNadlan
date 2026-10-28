@@ -97,6 +97,7 @@ import {
   destinationReply,
   destinationStatusPatch,
   parsePublishDestination,
+  publishChannelsToStore,
   publishDestinationList,
   socialEnqueuePlan,
   unpublishedAfterUnconfirmedPublish,
@@ -7149,10 +7150,12 @@ async function runPendingDestination(
     return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
   }
 
-  const nextStatus = destinationStatusPatch(choice.channels, String(prop.status || ""));
+  const socialOn = await gabrielaSocialFlagOn(supabase);
+  const channels = publishChannelsToStore(choice.channels, socialOn);
+  const nextStatus = destinationStatusPatch(channels, String(prop.status || ""));
   const patch: Record<string, unknown> = {
-    publish_channels: choice.channels,
-    share_with_brokers: choice.channels.includes("brokers"),
+    publish_channels: channels,
+    share_with_brokers: channels.includes("brokers"),
     updated_at: nowIso,
   };
   if (nextStatus) patch.status = nextStatus;
@@ -7174,9 +7177,9 @@ async function runPendingDestination(
   await clearPublishAsk(supabase, propertyId);
   const status = String(updated.status || "");
   const licenseHeld = !!(updated.license_hold_at) || (nextStatus === "active" && status !== "active");
-  const social = socialEnqueuePlan(choice.channels, await gabrielaSocialFlagOn(supabase), status === "active");
+  const social = socialEnqueuePlan(channels, socialOn, status === "active");
   let brokersSent = false;
-  if (choice.channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
+  if (channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
     const { data, error: collabErr } = await supabase.rpc("unpublished_collab_request", {
       p_property_id: propertyId,
       p_agent_id: agent.id,
@@ -7189,7 +7192,7 @@ async function runPendingDestination(
     }
   }
   const text = destinationReply({
-    channels: choice.channels,
+    channels,
     status,
     licenseHeld,
     social,
