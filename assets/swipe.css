@@ -798,3 +798,7 @@ body[data-view=list] .sw-layout{display:inline-flex}
 .sw-fcell:has(> .sw-chips[hidden]){display:none}
 .sw-fcell .sw-chips{flex-wrap:wrap}
 .sw-fcell .sw-chip{max-width:100%;white-space:normal;text-align:center;line-height:1.25}
+
+/* גיליון הסינון: לשוניות העסקה לא דביקות - דביקות הן עלו על הכותרת "אזור ויישוב" בגלילה */
+#swFDeal{position:static;margin:0 0 12px}
+.sw-cdeal{margin:-4px 0 12px}

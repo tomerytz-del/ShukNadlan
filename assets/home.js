@@ -7755,6 +7755,8 @@ function v10SwipeHref(src){
   const st = sentence ? sentence.state() : {};
   const deal = v10Deal(st), q = new URLSearchParams();
   if (deal !== 'sale') q.set('deal', deal);
+  // מסחרי להשכרה / למכירה - הבחירה של /swipe עצמו (‏cdeal)
+  if (deal === 'commercial' && (st.deal === 'rent' || st.deal === 'sale')) q.set('cdeal', st.deal);
   const hf = v10FilterParams();
   if (hf) q.set('hf', hf);
   if (src) q.set('src', src);
