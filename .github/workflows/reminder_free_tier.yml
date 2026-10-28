@@ -1,0 +1,38 @@
+name: תזכורת בלי וואטסאפ בחינם
+
+# 20271030183000: מסלול חינם לא נבחר לוואטסאפ ב-agent_reminder_due_agents.
+# מסלול mid/premium נשאר עם הערוץ, כולל הנפילה למייל בלי מספר.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
+      - "scripts/reminder_free_tier_test.py"
+      - ".github/workflows/reminder_free_tier.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
+      - "scripts/reminder_free_tier_test.py"
+      - ".github/workflows/reminder_free_tier.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת מסלול מול ערוץ התזכורת
+        run: python3 scripts/reminder_free_tier_test.py
