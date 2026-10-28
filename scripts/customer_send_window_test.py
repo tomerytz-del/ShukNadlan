@@ -262,7 +262,11 @@ $$;
         ('cccccccc-cccc-cccc-cccc-ccccccccccc4', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb4', '{prop}', 'deferred', {base} - interval '3 hours'),
         ('cccccccc-cccc-cccc-cccc-ccccccccccc5', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb4', '{prop}', 'deferred', {base} - interval '1 hour');
     """)
+    # הטריגר על pending בודק את השעון האמיתי. כאן בודקים את prepare
+    # עם חותמת היסטורית, בלי שהוא יהפוך את השורה ל-quiet בלילה.
+    psql("alter table public.saved_search_alerts disable trigger app_push_on_saved_search_alert")
     psql(f"select public.customer_prepare({base})")
+    psql("alter table public.saved_search_alerts enable trigger app_push_on_saved_search_alert")
     expect(
         "select status || ' ' || coalesce(last_error, '') from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc4'",
         "skipped merged",
@@ -420,17 +424,30 @@ $$;
       values ('cccccccc-cccc-cccc-cccc-cccccccccc10', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb10',
               'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10', 'deferred', now() - interval '1 hour');
     """)
+    window_now = psql("select public.send_window_open('customer_push', now())")
     psql("select public.customer_prepare(now())")
-    expect(
-        "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
-        "1",
-        "שחרור ל-pending שולח דחיפה",
-    )
-    expect(
-        f"select sent_count from public.customer_phone_day where contact_key = '{push_phone}'",
-        "1",
-        "הדחיפה לא תופסת מקום שני",
-    )
+    if window_now == "t":
+        expect(
+            "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
+            "1",
+            "שחרור ל-pending שולח דחיפה",
+        )
+        expect(
+            f"select sent_count from public.customer_phone_day where contact_key = '{push_phone}'",
+            "1",
+            "הדחיפה לא תופסת מקום שני",
+        )
+    else:
+        expect(
+            "select status from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
+            "deferred",
+            "מחוץ לחלון השחרור נשאר דחוי",
+        )
+        expect(
+            "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
+            "0",
+            "מחוץ לחלון אין דחיפה",
+        )
 
     one = phone_with_minute(5)
     one_alert = "cccccccc-cccc-cccc-cccc-cccccccccc13"
@@ -465,7 +482,9 @@ $$;
       values ('cccccccc-cccc-cccc-cccc-cccccccccc16', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb16',
               'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa16', 'deferred', {at('2026-08-02 09:00:00')});
     """)
+    psql("alter table public.saved_search_alerts disable trigger app_push_on_saved_search_alert")
     psql(f"select public.customer_prepare({at('2026-08-02 11:00:00')})")
+    psql("alter table public.saved_search_alerts enable trigger app_push_on_saved_search_alert")
     expect(
         "select status || ' ' || coalesce(last_error, '') from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-cccccccccc16'",
         "deferred cap",

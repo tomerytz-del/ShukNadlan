@@ -128,7 +128,12 @@ def main() -> int:
         fail("פיזור הבוקר של הסוכנים נעלם מ-due_agents")
     demand = final["public.scraped_lead_notify_demand"]
     off = demand.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in demand else demand
-    if "notif_burst_demand_fanout" not in off or ("s.rn > v_fanout" not in off and "s.rn > v_cap" not in off):
+    fanout_guard = (
+        "s.rn > v_fanout" in off
+        or "(s.rn + v_prior) > v_fanout" in off
+        or "s.rn > v_cap" in off
+    )
+    if "notif_burst_demand_fanout" not in off or not fanout_guard:
         fail(f"דגל כבוי ב-{where['public.scraped_lead_notify_demand']} בלי תקרת 15")
     due = final["public.notification_push_due_agents"]
     claim = final["public.notification_push_claim"]
@@ -150,7 +155,11 @@ def main() -> int:
         fail("claim האחרון בלי action_path או showcase_id")
     notify = final["public.scraped_lead_notify_demand"]
     off = notify.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in notify else notify
-    if "s.rn > v_cap" not in off and "s.rn > v_fanout" not in off:
+    if (
+        "s.rn > v_cap" not in off
+        and "s.rn > v_fanout" not in off
+        and "(s.rn + v_prior) > v_fanout" not in off
+    ):
         fail("תקרת 15 של הביקוש הפתוח נעלמה מהגוף האחרון")
     backlog = final.get("public.notification_push_has_backlog", "")
     if "skipped_template_cap" in backlog and "interval '72 hours'" not in backlog:
