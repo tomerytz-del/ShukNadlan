@@ -62,7 +62,7 @@ Content-Type: application/json
 
 ## מחפש/ת לביקוש הפתוח
 
-`social_buyer_open_demand_enabled` נולד **0** ב-`20271028240000`. ב-0 אין
+`social_buyer_open_demand_enabled` נולד **0** ב-`20271029240000`. ב-0 אין
 שינוי: `kind=buyer` נשאר במדף "מחפשי דירה".
 
 המסלול, בלי שינוי ב-`social-lead-intake`, ב-`notify_agent_on_new_lead`

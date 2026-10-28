@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MIG = ROOT / "supabase/migrations/20271028240000_social_buyer_open_demand.sql"
+MIG = ROOT / "supabase/migrations/20271029240000_social_buyer_open_demand.sql"
 DB = os.environ.get("SOCIAL_BUYER_TEST_DB", "social_buyer_demand_test")
 CITY = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
 

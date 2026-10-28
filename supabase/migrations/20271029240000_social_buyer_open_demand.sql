@@ -132,7 +132,7 @@ end;
 $$;
 
 comment on function public.social_buyer_to_open_demand() is
-  'אחרי insert ל-saved_searches: מחפש/ת מ-social_leads (kind=buyer) יורד/ת מהמדף ונכנס/ת לביקוש פתוח אנונימי. דגל 0 אינו נוגע. לא שולח התראה (20271028240000).';
+  'אחרי insert ל-saved_searches: מחפש/ת מ-social_leads (kind=buyer) יורד/ת מהמדף ונכנס/ת לביקוש פתוח אנונימי. דגל 0 אינו נוגע. לא שולח התראה (20271029240000).';
 
 revoke all on function public.social_buyer_to_open_demand() from public, anon, authenticated;
 grant execute on function public.social_buyer_to_open_demand() to service_role;

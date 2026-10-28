@@ -6,13 +6,13 @@ name: מחפש/ת מהרשתות לביקוש הפתוח
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271028240000_social_buyer_open_demand.sql"
+      - "supabase/migrations/20271029240000_social_buyer_open_demand.sql"
       - "scripts/social_buyer_demand_test.py"
       - ".github/workflows/social_buyer_demand.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271028240000_social_buyer_open_demand.sql"
+      - "supabase/migrations/20271029240000_social_buyer_open_demand.sql"
       - "scripts/social_buyer_demand_test.py"
       - ".github/workflows/social_buyer_demand.yml"
   workflow_dispatch:
