@@ -1,16 +1,16 @@
--- לקוחות של הבוט הציבורי שקיבלו מענה חלופי ולא תשובה אמיתית בשעתיים.
+-- לקוחות של הבוט הציבורי שמחכים אחרי מענה חלופי.
 --
 -- קריאה בלבד, ל-service_role. אין כאן שליחה, אין טלפון ואין גוף הודעה
--- בתוצאה. הטלפון משמש רק בתוך החיבור ליומן, כדי לדעת אם יצאה תשובה
--- ואם חלון 24 השעות של וואטסאפ עדיין פתוח.
+-- בתוצאה. הטלפון משמש רק בתוך החיבור ליומן.
 --
--- "תשובה אמיתית" היא הודעה יוצאת של הבוט הציבורי (agent_id ריק, בלי
--- שגיאה, ולא status = failed) בחלון (זמן המענה, שעתיים]. השליחה של
--- המענה החלופי עצמו אינה תשובה: היא ההודעה היוצאת הראשונה בשתי הדקות
--- שאחרי כל שורת sent באותה שיחה. מענה חלופי נוסף בתוך השעתיים גם הוא
--- אינו סוגר את החלון.
+-- שורה אחת לשיחה: המענה החלופי האחרון ב-48 השעות. הוא נכנס רק אם עברו
+-- שעתיים מאז, ולא יצאה אחריו שום תשובה אמיתית. תשובה אחרי יותר משעתיים
+-- מורידה את השיחה. מענה צעיר משעתיים עוד לא נספר.
 --
--- שורה נכנסת רק אחרי שהשעתיים חלפו. אחרת עוד אי אפשר לדעת שהלקוח/ה חיכה.
+-- תשובה אמיתית היא הודעה יוצאת של הבוט הציבורי (agent_id ריק, בלי שגיאה,
+-- ולא status = failed) שאינה אחד משני הנוסחים המאושרים. מזהה ההודעה של
+-- המענה נודע רק אחרי השליחה, אחרי ש-gabriela_llm_fallback_log כבר נרשם,
+-- ולכן הזיהוי כאן הוא לפי הנוסח המדויק ולא לפי חלון של שתי דקות.
 
 create or replace function public.gabriela_waiting_customers()
 returns table (
@@ -23,57 +23,48 @@ stable
 security definer
 set search_path = ''
 as $$
+  with latest as (
+    select distinct on (f.conversation_id)
+           f.conversation_id,
+           f.created_at as fallback_at
+      from public.gabriela_llm_fallbacks f
+     where f.channel = 'public'
+       and f.sent
+       and f.created_at > now() - interval '48 hours'
+     order by f.conversation_id, f.created_at desc
+  )
   select
-    f.conversation_id,
-    f.created_at as fallback_at,
+    l.conversation_id,
+    l.fallback_at,
     coalesce((
       select max(inn.created_at)
         from public.whatsapp_messages inn
        where inn.wa_phone = c.wa_phone
          and inn.direction = 'in'
     ), '-infinity'::timestamptz) > now() - interval '24 hours' as window_open
-  from public.gabriela_llm_fallbacks f
+  from latest l
   join public.whatsapp_public_conversations c
-    on c.id = f.conversation_id
-  where f.channel = 'public'
-    and f.sent
-    and f.created_at <= now() - interval '2 hours'
+    on c.id = l.conversation_id
+  where l.fallback_at <= now() - interval '2 hours'
     and not exists (
       select 1
         from public.whatsapp_messages m
        where m.wa_phone = c.wa_phone
          and m.direction = 'out'
          and m.agent_id is null
-         and m.created_at > f.created_at
-         and m.created_at <= f.created_at + interval '2 hours'
+         and m.created_at > l.fallback_at
          and coalesce(m.error, '') = ''
          and coalesce(m.status, '') <> 'failed'
-         and not exists (
-           select 1
-             from public.gabriela_llm_fallbacks fb
-            where fb.conversation_id = f.conversation_id
-              and fb.channel = 'public'
-              and fb.sent
-              and m.created_at >= fb.created_at
-              and m.created_at < fb.created_at + interval '2 minutes'
-              and m.id = (
-                select m0.id
-                  from public.whatsapp_messages m0
-                 where m0.wa_phone = c.wa_phone
-                   and m0.direction = 'out'
-                   and m0.agent_id is null
-                   and m0.created_at >= fb.created_at
-                   and m0.created_at < fb.created_at + interval '2 minutes'
-                 order by m0.created_at, m0.id
-                 limit 1
-              )
+         and coalesce(m.body, '') not in (
+           'סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?',
+           'סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: https://shuknadlan.co.il'
          )
     )
-  order by f.created_at;
+  order by l.fallback_at;
 $$;
 
 comment on function public.gabriela_waiting_customers() is
-  'שיחות הבוט הציבורי שקיבלו מענה חלופי (sent) ולא תשובת בוט אמיתית בשעתיים. מזהה שיחה, זמן המענה, וחלון 24 השעות. בלי טלפון ובלי גוף. service_role בלבד.';
+  'שיחה אחת: המענה החלופי האחרון ב-48 שעות, אם עברו שעתיים ואין אחריו תשובת בוט. מזהה שיחה, זמן המענה, וחלון 24 השעות. בלי טלפון ובלי גוף. service_role בלבד.';
 
 revoke all on function public.gabriela_waiting_customers() from public, anon, authenticated;
 grant execute on function public.gabriela_waiting_customers() to service_role;
