@@ -80,12 +80,12 @@ def psql_error_lines(stderr: str) -> list[str]:
 
 
 def _ident_char(c: str) -> bool:
-    return c == "_" or c.isalnum()
+    """המשך מזהה כמו ident_cont של Postgres: אות, ספרה, _, $, וכל תו מעל ASCII.
 
-
-def _dollar_continues_ident(c: str) -> bool:
-    """$ באמצע מזהה (t$a$) אינו פותח ציטוט. גם ספרה, כמו ב-E'."""
-    return ("A" <= c <= "Z") or ("a" <= c <= "z") or ("0" <= c <= "9") or c in "_$"
+    אותו מבחן לפני $ (שלא ייפתח ציטוט באמצע ט$a$ או café$a$) ולפני E'
+    (ש-x$E' לא ייקרא כמחרוזת בריחה).
+    """
+    return c.isalnum() or c in "_$" or ord(c) >= 128
 
 
 # תגית: $ + מזהה אופציונלי שמתחיל באות או בקו תחתון + $. $1$ אינו ציטוט.
@@ -192,7 +192,7 @@ def meta_command_lines(sql: str) -> list[int]:
             continue
         if c == "$":
             # t$a$ הוא מזהה אחד. $1 הוא פרמטר, לא תגית (תגית לא מתחילה בספרה).
-            if i == 0 or not _dollar_continues_ident(sql[i - 1]):
+            if i == 0 or not _ident_char(sql[i - 1]):
                 m = _DOLLAR_TAG.match(sql, i)
                 if m:
                     i, line = _skip_dollar(sql, i, line, m.group(0))
@@ -277,6 +277,15 @@ CREATE TABLE public.t (id int);
         fail(f"\\! אחרי $1 לא נחסם: {meta_command_lines(positional)}")
     if meta_command_lines("select $1$;\n\\! echo PWN\n") != [2]:
         fail("$1$ נפתח כציטוט ובלע את ה-backslash")
+    hebrew = "create table ט$a$ (id int);\n\\! echo PWN\n"
+    if meta_command_lines(hebrew) != [2]:
+        fail(f"\\! אחרי ט$a$ לא נחסם: {meta_command_lines(hebrew)}")
+    cafe = "create table café$a$ (id int);\n\\! echo PWN\n"
+    if meta_command_lines(cafe) != [2]:
+        fail(f"\\! אחרי café$a$ לא נחסם: {meta_command_lines(cafe)}")
+    xed = "select 1 as x$E'\\' \\! echo PWN"
+    if meta_command_lines(xed) != [1]:
+        fail(f"\\! אחרי x$E' לא נחסם: {meta_command_lines(xed)}")
     if meta_command_lines("do $$\nbegin\n  perform 1;\nend\n$$;\n"):
         fail("גוף פונקציה סומן כפקודת psql")
     if meta_command_lines("select '\\! echo hi';\n"):
