@@ -377,18 +377,45 @@ export function actionSuffix(path: string): string {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
-export type TxnItem = { type: string; meeting_id?: string | null };
+export type TxnItem = {
+  type: string;
+  meeting_id?: string | null;
+  showcase_id?: string | null;
+};
 
 /**
  * ליד חדש, או תזכורת מהיומן שאינה סיור.
- * סיור (showcase_meeting, showcase_activity, או agenda_reminder עם meeting_id)
- * אינו זכאי. ערבוב סוגים, או סוג אחר, נופל לתבנית הקיימת.
+ * סיור (showcase_meeting, showcase_activity, או agenda_reminder עם meeting_id
+ * או showcase_id) אינו זכאי. "לפני הסיור" ו"עוד חצי שעה" נושאים רק
+ * related_showcase_id. ערבוב סוגים, או סוג אחר, נופל לתבנית הקיימת.
  */
 export function txnUtilityKind(it: TxnItem): "new_lead" | "reminder" | null {
   if (it.type === "showcase_meeting" || it.type === "showcase_activity") return null;
   if (it.type === "new_lead") return "new_lead";
-  if (it.type === "agenda_reminder" && !it.meeting_id) return "reminder";
+  if (it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id) return "reminder";
   return null;
+}
+
+/** תזכורת בלי meeting_id ועם מיניסייט היא סיור, ונשארת מחוץ לתבנית העסקה. */
+export function withShowcaseOnReminders<T extends TxnItem>(items: T[], showcaseIds: string[]): T[] {
+  const id = showcaseIds.find((value) => !!value);
+  if (!id) return items;
+  return items.map((it) =>
+    it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id
+      ? { ...it, showcase_id: id }
+      : it
+  );
+}
+
+/**
+ * {{1}} בתבנית העסקה הוא שורת הפתיחה כולה.
+ * בלי שם, או כשהשם עצמו "שלום", נשאר "שלום," כדי שלא ייצא "שלום שלום,".
+ * המחרוזת אינה ריקה.
+ */
+export function txnUtilityGreeting(displayName: string | null): string {
+  const first = String(displayName || "").trim().split(/\s+/)[0] || "";
+  if (!first || first === "שלום") return "שלום,";
+  return `שלום ${first},`;
 }
 
 export function txnUtilityEligible(items: TxnItem[]): boolean {
