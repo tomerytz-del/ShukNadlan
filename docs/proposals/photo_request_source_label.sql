@@ -1,7 +1,7 @@
 -- ============================================================================
 -- מקור ליד photo_request - "בקשו תמונות מהמפרסם" בנכס בלי תמונות (PR 1010,
--- הצעה (‏docs/proposals): לא רצה. תומר מאשר ומעביר ל-supabase/migrations עם version חדש.
 -- סבב 4 חלק 3, ‏docs/no-photo.md).
+-- הצעה (‏docs/proposals): לא רצה. תומר מאשר ומעביר ל-supabase/migrations עם version חדש.
 --
 -- ‏lead_source_label: תווית "בקשת תמונות" לצד תוויות הרשתות. ‏lead_source_channel
 -- אינה משתנה: photo_request נופל ל-else ('other'), כמו swipe.
