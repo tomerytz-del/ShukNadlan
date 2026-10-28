@@ -11,6 +11,18 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271030210000_scraped_lead_matching.sql"
 
 SETUP = r"""
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin;
+  end if;
+end $$;
+
 create table public.pricing_config (
   key text primary key,
   value int not null,
@@ -360,6 +372,28 @@ def main():
     if psql(db, sql_text="select count(*) from public.notifications") != "1":
         fail("אחרי תפיסה יצאה התראה נוספת")
 
+    # כיבוי הדגל בין הגלים לא שולח שוב למי שכבר קיבל, וסופר אותו בתקרת 15.
+    psql(db, sql_text="update public.pricing_config set value = 1 where key = 'notif_burst_demand_fanout'")
+    reset_post("owner_inbound")
+    if psql(db, sql_text=f"select public.scraped_lead_notify_demand('{post}')") != "1":
+        fail("גל ראשון לפני כיבוי הדגל")
+    first_push = psql(db, sql_text=f"select suppress_push from public.notifications where agent_id = '{a1}'")
+    if first_push != "f":
+        fail(f"הראשון בתקרה היה צריך וואטסאפ: {first_push}")
+    psql(db, sql_text="update public.pricing_config set value = 0 where key = 'scraped_lead_matching_enabled'")
+    second_n = psql(db, sql_text=f"select public.scraped_lead_notify_demand('{post}')")
+    if second_n != "1":
+        fail(f"אחרי כיבוי הדגל רק מי שנשאר היה צריך לקבל: {second_n}")
+    if psql(db, sql_text=f"select count(*) from public.notifications where agent_id = '{a1}'") != "1":
+        fail("כיבוי הדגל שלח שוב למי שכבר קיבל")
+    second_push = psql(db, sql_text=f"select suppress_push from public.notifications where agent_id = '{a2}'")
+    if second_push != "t":
+        fail(f"הגל הקודם לא נספר בתקרת 15: {second_push}")
+    psql(db, sql_text="""
+      update public.pricing_config set value = 15 where key = 'notif_burst_demand_fanout';
+      update public.pricing_config set value = 1 where key = 'scraped_lead_matching_enabled';
+    """)
+
     # שדות חסרים: עדיין התאמה, ציון נמוך יותר מפוסט מלא.
     reset_post("owner_inbound", rooms=None, budget=None)
     low = psql(db, sql_text=f"select score::text from public.scraped_lead_matches('{post}') where agent_id = '{a1}'")
@@ -367,6 +401,11 @@ def main():
     high = psql(db, sql_text=f"select score::text from public.scraped_lead_matches('{post}') where agent_id = '{a1}'")
     if not low or not high or int(low) >= int(high):
         fail(f"שדה חסר לא נשאר ציון נמוך: {low} מול {high}")
+    reset_post("owner_inbound", rooms="4", budget=None)
+    psql(db, sql_text=f"select public.scraped_lead_notify_demand('{post}')")
+    soft = psql(db, sql_text=f"select body from public.notifications where agent_id = '{a1}'")
+    if "בעיר הזו" not in soft or "בדיוק כזה" in soft:
+        fail(f"בלי מחיר לא אומרים בדיוק כזה: {soft}")
     if psql(db, sql_text=f"select match_kind from public.scraped_lead_matches('{post}') where agent_id = '{a1}'") != "has_seeker":
         fail("ליד בעלים לא סומן has_seeker")
 

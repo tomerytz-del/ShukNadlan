@@ -4,6 +4,8 @@
 -- ובחירת הסוכן/ת ב-scraped_lead_set_consent זהות למה שרץ היום.
 -- דלוק: מי שיש לו/ה התאמה מקבל/ת את התראת open_demand מיד, עם שורה אחת
 -- למה. השאר מקבלים אותה כעבור 30 דקות, רק אם הביקוש עוד לא נתפס.
+-- הגל השני נבדק כל 10 דקות. אם הדגל כבה או שהתקרה נדלקת אחרי הגל
+-- הראשון, המסלול הישן לא שולח שוב למי שכבר קיבל, וסופר אותם בתקרת 15.
 -- תקרת open_demand_notify_cap לא משתנה: כשהיא דלוקה המסלול הישן רץ.
 --
 -- השליחה נשארת שורת notifications. שעות שקט, מסלול חינם בלי וואטסאפ,
@@ -109,14 +111,14 @@ grant select, insert, update, delete on table public.scraped_lead_match_dispatch
 
 -- שורה אחת להתראה. בלי שם מלא, בלי טלפון, בלי קישור.
 create or replace function public.scraped_lead_match_line(
-  p_kind text, p_score int, p_rooms numeric, p_street text
+  p_kind text, p_exact boolean, p_rooms numeric, p_street text
 ) returns text
 language sql
 immutable
 set search_path = ''
 as $$
   select case
-    when p_kind = 'has_seeker' and coalesce(p_score, 0) >= 35
+    when p_kind = 'has_seeker' and coalesce(p_exact, false)
       then 'יש לך לקוח שמחפש בדיוק כזה'
     when p_kind = 'has_seeker'
       then 'יש לך לקוח שמחפש בעיר הזו'
@@ -136,12 +138,12 @@ as $$
   end;
 $$;
 
-comment on function public.scraped_lead_match_line(text, int, numeric, text) is
-  'שורה אחת לסוכן/ת על התאמה. בלי טלפון ובלי קישור.';
+comment on function public.scraped_lead_match_line(text, boolean, numeric, text) is
+  'שורה אחת לסוכן/ת על התאמה. בדיוק כזה רק כשעיר, עסקה, חדרים ומחיר נפגשו. בלי טלפון ובלי קישור.';
 
-revoke all on function public.scraped_lead_match_line(text, int, numeric, text)
+revoke all on function public.scraped_lead_match_line(text, boolean, numeric, text)
   from public, anon, authenticated;
-grant execute on function public.scraped_lead_match_line(text, int, numeric, text) to service_role;
+grant execute on function public.scraped_lead_match_line(text, boolean, numeric, text) to service_role;
 
 -- agent_id, ציון, סוג, ומזהים של הסוכן/ת עצמו/ה בלבד.
 create or replace function public.scraped_lead_matches(p_id uuid)
@@ -150,7 +152,8 @@ returns table (
   score int,
   match_kind text,
   matched_client_ids uuid[],
-  matched_property_ids uuid[]
+  matched_property_ids uuid[],
+  exact boolean
 )
 language sql
 stable
@@ -178,7 +181,14 @@ as $$
                   and l.budget <= c.max_price * 1.10
                  then 25 else 0
                end
-           )::int as score
+           )::int as score,
+           (
+             l.deal_type is not null and c.deal_type = l.deal_type
+             and l.rooms is not null and (c.min_rooms is not null or c.max_rooms is not null)
+             and l.budget is not null and c.max_price is not null
+             and l.budget <= c.max_price * 1.10
+             and (c.min_price is null or l.budget >= c.min_price)
+           ) as exact
       from lead l
       join public.agent_clients c
         on c.client_kind = 'seeker'
@@ -223,7 +233,14 @@ as $$
                   and l.neighborhood_id = any (ss.neighborhood_ids)
                  then 20 else 0
                end
-           )::int
+           )::int,
+           (
+             l.deal_type is not null and ss.deal_type = l.deal_type
+             and l.rooms is not null and (ss.min_rooms is not null or ss.max_rooms is not null)
+             and l.budget is not null and ss.max_price is not null
+             and l.budget <= ss.max_price * 1.10
+             and (ss.min_price is null or l.budget >= ss.min_price)
+           )
       from lead l
       join public.saved_searches ss
         on ss.sold_to_agent_id is not null
@@ -271,7 +288,12 @@ as $$
                  when l.neighborhood_id is not null and p.neighborhood_id = l.neighborhood_id
                  then 20 else 0
                end
-           )::int as score
+           )::int as score,
+           (
+             l.deal_type is not null and p.deal_type = l.deal_type
+             and l.rooms is not null and p.rooms is not null and abs(p.rooms - l.rooms) <= 1
+             and l.budget is not null and p.price is not null and p.price <= l.budget * 1.15
+           ) as exact
       from lead l
       join public.properties p on p.agent_id is not null
      where l.lead_type = 'seeker_inbound'
@@ -309,7 +331,8 @@ as $$
            (array_agg(r.property_id order by r.score desc, r.property_id)
               filter (where r.property_id is not null))[1:12],
            '{}'::uuid[]
-         )
+         ),
+         coalesce((array_agg(r.exact order by r.score desc))[1], false)
     from rows r
    where r.agent_id is not null
    group by r.agent_id;
@@ -388,6 +411,7 @@ declare
   v_done   boolean := false;
   v_hits   int := 0;
   v_all    int := 0;
+  v_prior  int := 0;
   v_rn     int := 0;
   v_nid    uuid;
   v_line   text;
@@ -476,7 +500,7 @@ begin
         join public.scraped_lead_demand_audience(p_id) a on a.agent_id = h.agent_id;
       if v_hits > 0 then
         for rec in
-          select h.agent_id, h.score, h.match_kind, h.matched_client_ids, h.matched_property_ids
+          select h.agent_id, h.score, h.match_kind, h.matched_client_ids, h.matched_property_ids, h.exact
             from public.scraped_lead_matches(p_id) h
             join public.scraped_lead_demand_audience(p_id) a on a.agent_id = h.agent_id
            order by h.score desc, a.base_rn
@@ -489,7 +513,7 @@ begin
               from public.properties p
              where p.id = rec.matched_property_ids[1];
           end if;
-          v_line := public.scraped_lead_match_line(rec.match_kind, rec.score, v_prooms, v_street);
+          v_line := public.scraped_lead_match_line(rec.match_kind, rec.exact, v_prooms, v_street);
           insert into public.notifications (
             agent_id, type, title, body, suppress_push,
             match_score, match_kind, matched_client_ids, matched_property_ids
@@ -523,13 +547,19 @@ begin
     end if;
   end if;
 
+  -- מי שכבר קיבל בגל הראשון לא מקבל שוב, ונספר בתקרת 15.
+  v_prior := coalesce((
+    select count(*)::int from public.scraped_lead_match_dispatch d
+     where d.scraped_lead_id = p_id
+  ), 0);
+
   if not v_on then
     v_fanout := coalesce(
       (select value::int from public.pricing_config
         where key = 'notif_burst_demand_fanout'), 15);
     insert into public.notifications (agent_id, type, title, body, suppress_push)
     select s.id, 'open_demand', v_title, left(v_body, 500),
-           v_site or (v_fanout > 0 and s.rn > v_fanout)
+           v_site or (v_fanout > 0 and (s.rn + v_prior) > v_fanout)
       from (
         select m.id,
                row_number() over (
@@ -556,6 +586,10 @@ begin
          where m.active
            and public.agent_works_city(m.id, r.city_id)
            and public.agent_handles_type(m.id, r.property_type, r.deal_type)
+           and not exists (
+             select 1 from public.scraped_lead_match_dispatch d
+              where d.scraped_lead_id = p_id and d.agent_id = m.id
+           )
       ) s;
     get diagnostics v_n = row_count;
   else
@@ -591,6 +625,10 @@ begin
          and public.notification_type_enabled(m.id, 'open_demand')
          and public.agent_works_city(m.id, r.city_id)
          and public.agent_handles_type(m.id, r.property_type, r.deal_type)
+         and not exists (
+           select 1 from public.scraped_lead_match_dispatch d
+            where d.scraped_lead_id = p_id and d.agent_id = m.id
+         )
     ),
     ranked as (
       select e.agent_id, e.last_pull, e.last_notified,
@@ -680,7 +718,7 @@ begin
   end if;
   perform cron.schedule(
     'scraped-lead-matching-rest',
-    '59 * * * *',
+    '*/10 * * * *',
     'select public.scraped_lead_matching_rest()'
   );
 end $$;
@@ -827,7 +865,7 @@ begin
    where id = p_id;
 
   if v_match and v_by = 'match' and v_agent is not null and v_lead is not null then
-    select h.score, h.match_kind, h.matched_client_ids, h.matched_property_ids
+    select h.score, h.match_kind, h.matched_client_ids, h.matched_property_ids, h.exact
       into v_hit
       from public.scraped_lead_matches(p_id) h
      where h.agent_id = v_agent;
@@ -839,7 +877,7 @@ begin
           from public.properties p
          where p.id = v_hit.matched_property_ids[1];
       end if;
-      v_line := public.scraped_lead_match_line(v_hit.match_kind, v_hit.score, v_prooms, v_street);
+      v_line := public.scraped_lead_match_line(v_hit.match_kind, v_hit.exact, v_prooms, v_street);
       update public.notifications n
          set match_score = v_hit.score,
              match_kind = v_hit.match_kind,
