@@ -46,7 +46,7 @@
     '.lk-head{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}' +
     '.lk-head h2{margin:0;font-size:22px;font-weight:800;color:#0e2a6b;flex:1}' +
     '.lk-x{width:44px;height:44px;border:1px solid #e3e8f2;border-radius:50%;background:#fff;color:#1b1f2a;font-size:16px;cursor:pointer}' +
-    '.lk-list{flex:1;overflow:auto;padding:0 14px 8px;display:flex;flex-direction:column;gap:8px}' +
+    '.lk-list{flex:1;overflow:auto;overflow-anchor:none;padding:0 14px 8px;display:flex;flex-direction:column;gap:8px}' +
     '.lk-row{position:relative;display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #e3e8f2;border-radius:14px}' +
     '.lk-row a{display:flex;align-items:center;gap:10px;flex:1;min-width:0;color:inherit;text-decoration:none}' +
     '.lk-row img,.lk-ph{width:84px;height:64px;border-radius:10px;object-fit:cover;flex:none;background:#eef1f7}' +
@@ -131,6 +131,8 @@
     wrap.hidden = false;
     shukTrack('likes_bubble_open', { count: likes().length });
     render(); load();
+    // ‏P1-L: הפאנל נפתח בראש הרשימה; הסרה וביטול בתוכו (‏render) שומרים את המיקום
+    $('lkList').scrollTop = 0;
     setTimeout(function () { var x = wrap.querySelector('.lk-x'); if (x) x.focus(); }, 30);
   }
   function close() {

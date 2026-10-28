@@ -88,7 +88,7 @@
     var st = { deal: 'sale', kind: 'residential', address: '', condition: null, rooms: null, subtype: null, size: null, features: [], name: '', phone: '', when: '' };
 
     function setError(step, message) { $('wizErr' + step).textContent = message || ''; }
-    function goToStep(n) {
+    function goToStep(n, byUser) {
       wizForm.querySelectorAll('.wiz-panel').forEach(function (p) { p.classList.toggle('active', Number(p.dataset.panel) === n); });
       root.querySelectorAll('#wizSteps li').forEach(function (li) {
         var s = Number(li.dataset.step);
@@ -96,6 +96,19 @@
         li.classList.toggle('done', s < n);
       });
       if (cfg.onStep) cfg.onStep(n);
+      /* ‏P1-L: שלב חדש מתחיל בראש האשף, מתחת לכותרת הדביקה - ולא באמצע הטופס של השלב הקודם */
+      if (byUser) {
+        var header = document.querySelector('header.site');
+        var hb = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+        var steps = root.querySelector('#wizSteps') || root;
+        var top = steps.getBoundingClientRect().top;
+        if (top < hb || top > window.innerHeight * 0.5) {
+          var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          window.scrollTo({ top: Math.max(0, top + window.scrollY - hb - 8), behavior: reduce ? 'auto' : 'smooth' });
+        }
+        var first = wizForm.querySelector('.wiz-panel.active input:not([type=hidden]), .wiz-panel.active select, .wiz-panel.active textarea');
+        if (first && first.type !== 'radio' && first.type !== 'checkbox') first.focus({ preventScroll: true });
+      }
     }
     // כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
     [['wizAddress', 1], ['wizName', 3], ['wizPhone', 3]].forEach(function (x) {
@@ -161,13 +174,13 @@
       btn.addEventListener('click', function () {
         var from = Number(btn.closest('.wiz-panel').dataset.panel);
         if (!validateStep(from)) return;
-        goToStep(Number(btn.dataset.next));
+        goToStep(Number(btn.dataset.next), true);
       });
     });
     wizForm.querySelectorAll('[data-back]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         setError(Number(btn.closest('.wiz-panel').dataset.panel), '');
-        goToStep(Number(btn.dataset.back));
+        goToStep(Number(btn.dataset.back), true);
       });
     });
 

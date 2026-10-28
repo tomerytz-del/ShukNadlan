@@ -4907,7 +4907,14 @@ function mainFreeText(){
   return '';
 }
 
-function openModal(id){ document.getElementById(id).classList.add('open'); }
+function openModal(id){
+  const el = document.getElementById(id);
+  // ‏P1-L: חלון סינון שנפתח שוב מתחיל בראש הגולל, לא במקום שבו נסגר
+  const body = el.querySelector('.filter-modal-body');
+  el.classList.add('open');
+  // אחרי ההצגה: בגוף מוסתר (‏display:none) האיפוס לא נקלט
+  if (body) body.scrollTop = 0;
+}
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('[data-close-modal]').forEach(el=>{
   el.addEventListener('click', ()=> closeModal(el.dataset.closeModal));
@@ -8059,3 +8066,56 @@ document.addEventListener('click', e => {
   e.stopPropagation();
   location.href = '/property?id=' + encodeURIComponent(id) + '#viz';
 }, true);
+
+/* ---------- חזרה מדף נכס לאותו מקום ברשימה (‏P1-L) ----------
+   בלי זה "אחורה" מדף נכס נחת אלפי פיקסלים מתחת (‏1187 ← 5631 בטלפון): הדפדפן משחזר
+   פיקסלים לפני שהנכסים נטענו, והרשימה גדלה מתחתיו. נשמר עוגן - הקישור העליון לדף
+   נכס שנראה מתחת לכותרת - וההיסט שלו, ובחזרה גוללים אליו כשהוא מופיע. */
+(function homeScrollMemory(){
+  const KEY = 'sk_home_scroll';
+  const here = () => location.pathname + location.search;
+  const sameHref = href => [...document.querySelectorAll('a[href]')].filter(a => a.getAttribute('href') === href && a.getBoundingClientRect().height);
+  const headerBottom = () => Math.max(0, document.querySelector('header.site')?.getBoundingClientRect().bottom || 0);
+  window.addEventListener('pagehide', () => {
+    const hb = headerBottom();
+    const links = document.querySelectorAll('main a[href*="/property?id="], #searchResults a[href*="/property?id="], a.prop-card[href*="/property?id="]');
+    let anchor = null;
+    for (const a of links){
+      const r = a.getBoundingClientRect();
+      if (r.height && r.bottom > hb + 10){ anchor = a; break; }
+    }
+    // אותו נכס יכול להופיע בכמה מקומות (מדף, תוצאות, מפה) - נשמר גם המופע
+    const href = anchor ? anchor.getAttribute('href') : null;
+    const nth = anchor ? sameHref(href).indexOf(anchor) : -1;
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ key: here(), y: window.scrollY,
+        href, nth, off: anchor ? Math.round(anchor.getBoundingClientRect().top) : 0 }));
+    } catch(e){ /* אחסון חסום */ }
+  });
+  let back = false;
+  try { const nav = performance.getEntriesByType('navigation')[0]; back = !!nav && nav.type === 'back_forward'; } catch(e){ /* דפדפן ישן */ }
+  if (!back) return;
+  let m = null;
+  try { m = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch(e){ m = null; }
+  if (!m || !m.y) return;
+  try { history.scrollRestoration = 'manual'; } catch(e){ /* דפדפן ישן */ }
+  let tries = 0, stable = 0, lastY = -1;
+  const timer = setInterval(() => {
+    tries++;
+    let el = null;
+    if (m.href){
+      const all = sameHref(m.href);
+      el = all[m.nth] || null;
+    }
+    const y = el ? el.getBoundingClientRect().top + window.scrollY - m.off : (document.documentElement.scrollHeight > m.y + innerHeight / 2 ? m.y : -1);
+    if (y >= 0){
+      window.scrollTo(0, y);
+      stable = Math.abs(y - lastY) < 2 ? stable + 1 : 0;
+      lastY = y;
+    }
+    // נעצרים כשהמיקום התייצב, אחרי 5 שניות, או ברגע שהגולש/ת גולל/ת בעצמו/ה
+    if (stable >= 3 || tries > 33) clearInterval(timer);
+  }, 150);
+  const stop = () => { clearInterval(timer); };
+  ['wheel', 'touchstart', 'keydown'].forEach(t => window.addEventListener(t, stop, { once:true, passive:true }));
+})();

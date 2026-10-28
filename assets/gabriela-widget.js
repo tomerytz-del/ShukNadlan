@@ -248,10 +248,13 @@
     '  #gabW.is-v10.is-open .gw-bubble{display:none}}',
     '@media(min-width:601px){#gabW.is-v10 .gw-panel{width:360px;max-height:min(620px,calc(100dvh - 120px))}}',
     /* אחרי הבחירה הראשונה: שורה אחת של צ'יפים קטנים שנגללת לרוחב */
-    '#gabW .gw-choices.is-compact{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;margin:0;padding:2px 0}',
-    '#gabW .gw-choices.is-compact::-webkit-scrollbar{display:none}',
-    '#gabW .gw-choices.is-compact li{flex:none}',
-    '#gabW .gw-choices.is-compact .gw-choice{width:auto;min-height:36px;padding:6px 12px;font-size:13px;white-space:nowrap;border-width:1.5px}',
+    /* ‏P1-A: רשת של שתי עמודות, לפני הבחירה הראשונה ואחריה - שורה אחת נגללת לרוחב הסתירה
+       צ'יפים מחוץ לפאנל. "רוצים לגלות נכסים בהחלקה?" והנכס שבדף - שורה מלאה */
+    '#gabW.is-v10 .gw-choices{grid-template-columns:1fr 1fr;overflow:visible}',
+    '#gabW.is-v10 .gw-choices li.gw-full{grid-column:1/-1}',
+    '#gabW.is-v10 .gw-choice{white-space:normal;min-height:44px;width:100%;box-sizing:border-box}',
+    '#gabW .gw-choices.is-compact{gap:6px;margin:0;padding:2px 0}',
+    '#gabW .gw-choices.is-compact .gw-choice{min-height:44px;padding:6px 10px;font-size:13px;border-width:1.5px}',
     '#gabW .gw-choices.is-compact .gw-choice svg{width:15px;height:15px}',
     '#gabW .gw-ex{display:flex;flex-direction:column;gap:8px}',
     '#gabW .gw-ex.is-old .gw-reply{display:none}',
@@ -411,7 +414,7 @@
       list.innerHTML = '';
       var p = ctx && ctx.property;
       if (p && p.id) {
-        var li = el('li');
+        var li = el('li', { 'class': 'gw-full' });
         li.appendChild(waLink('gw-choice is-prop', 'widget_property', propertyLine(p), 'פרטים על הנכס הזה'));
         list.appendChild(li);
       }
@@ -423,7 +426,7 @@
       });
       // בדף ההחלקה עצמו אין טעם להציע החלקה
       if (v10 && GAB_SWIPE_CHIP && !/^\/swipe/.test(location.pathname)) {
-        var sl = el('li');
+        var sl = el('li', { 'class': 'gw-full' });
         var sb = el('button', { type: 'button', 'class': 'gw-choice is-swipe', 'data-pick': 'swipe' });
         sb.innerHTML = CARDS_ICON + '<span>רוצים לגלות נכסים בהחלקה?</span>';
         sl.appendChild(sb);
@@ -434,8 +437,15 @@
     /* v10: בחירה מהירה - בועה של הגולש/ת, הקלדה, ואז התשובה. בלי וואטסאפ ובלי רשת */
     var lastPick = null;
     var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // רק גוף השיחה נגלל - הכותרת וה-× נשארים על המסך
-    function scrollConv() { body.scrollTop = body.scrollHeight; }
+    /* רק גוף השיחה נגלל - הכותרת וה-× נשארים על המסך. ‏P1-A: לא לתחתית (ההודעה האחרונה
+       נחתכה מלמעלה), אלא לראש ההודעה האחרונה של גבריאלה; בזמן ההקלדה - לבועה של הגולש/ת */
+    function scrollToLatest() {
+      var mine = conv.querySelector('.gw-ex:last-child .gw-typing') ? conv.querySelector('.gw-ex:last-child .gw-me') : null;
+      var replies = conv.querySelectorAll('.gw-reply');
+      var last = mine || replies[replies.length - 1] || body.querySelector('.gw-msg');
+      if (!last) return;
+      body.scrollTop = Math.max(0, last.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 8);
+    }
     function pick(key, label) {
       // בחירת ההחלקה אינה הודעה לבוט - וואטסאפ נשאר עם הבחירה הקודמת
       lastPick = CHOICES.filter(function (c) { return c.key === key; })[0] || lastPick;
@@ -452,7 +462,7 @@
       conv.appendChild(ex);
       var exs = conv.querySelectorAll('.gw-ex');
       for (var i = 0; i < exs.length - 2; i++) exs[i].classList.add('is-old');
-      scrollConv();
+      scrollToLatest();
       setTimeout(function () {
         var r = v10Reply(key);
         var box = el('div', { 'class': 'gw-reply' });
@@ -462,7 +472,7 @@
           box.appendChild(a);
         }
         typing.replaceWith(box);
-        scrollConv();
+        scrollToLatest();
       }, reduceMotion ? 0 : TYPING_MS);
     }
     if (v10) {
@@ -522,6 +532,7 @@
         if (source) params.source = source;
         if (window.shukTrack) window.shukTrack('gab_widget_open', params);
         if (why === 'click') setTimeout(function () { var f = list.querySelector('a,button.gw-choice'); if (f) f.focus({ preventScroll: true }); }, 60);
+        if (v10) requestAnimationFrame(scrollToLatest);
       }
       sync();
     }

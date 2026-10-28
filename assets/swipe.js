@@ -423,7 +423,9 @@
   function writeUrl() {
     try {
       var q = new URLSearchParams(location.search);
-      ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort'].forEach(function (k) { q.delete(k); });
+      ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view'].forEach(function (k) { q.delete(k); });
+      // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
+      if (view === 'list' || view === 'map') q.set('view', view);
       if (filter.deal !== 'sale') q.set('deal', filter.deal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
@@ -725,7 +727,14 @@
   }
   measureActions();
   window.addEventListener('resize', measureActions);
+  /* ‏P1-L: חלון שנפתח עם תוכן מתחיל בראש הגולל. רינדור מחדש בתוך חלון פתוח (שבב בסינון)
+     אינו עובר כאן, ולכן שומר את המיקום */
+  function resetScroll(el) { if (el) { el.scrollTop = 0; el.scrollLeft = 0; } }
+  function resetDialogScroll(el) { el.querySelectorAll('.sw-dscroll, .sw-fbody').forEach(resetScroll); }
   function openDialog(el) {
+    resetDialogScroll(el);
+    // ושוב אחרי שהתמונות התחילו להיטען - נגד עיגון גלילה
+    requestAnimationFrame(function () { resetDialogScroll(el); });
     el.hidden = false;
     document.body.classList.add('sw-locked');
     openStack.push(el);
@@ -2337,7 +2346,7 @@
       '<div class="sw-art-cover">' + artCover(a, 'sw-art-cimg') + '</div>' +
       '<h2 class="sw-art-stitle">' + esc(a.title) + '</h2>' + (a.subtitle ? '<p class="sw-art-ssub">' + esc(a.subtitle) + '</p>' : '') +
       '<p class="sw-art-meta">' + esc(readTime(a)) + '</p><div class="sw-art-body">' + out.join('') + '</div>' +
-      '<p class="sw-art-more"><a href="/article?slug=' + encodeURIComponent(a.slug || a.id) + '" data-art-full>להמשך הכתבה ←</a></p>' +
+      '<p class="sw-art-more"><a href="/article?slug=' + encodeURIComponent(a.slug || a.id) + '" data-art-full>להמשך קריאה ←</a></p>' +
       '<button type="button" class="sw-navy sw-wide" data-art-back>חזרה להחלקה</button></div>';
     $('swCtaBar').hidden = true;
     openDialog($('swSheet'));
@@ -2394,6 +2403,7 @@
     $('swBsSub').textContent = sub_;
     $('swBsSub').hidden = !sub_;
     $('swBsBody').innerHTML = d.body ? d.body(ctx) : '';
+    resetScroll($('swBs'));
     $('swBsBtns').innerHTML = d.btns.map(function (b) {
       return '<button type="button" class="' + b[1] + ' sw-bs-btn" data-bs-cta="' + b[0] + '">' + esc(b[2]) + '</button>';
     }).join('');
@@ -2669,11 +2679,11 @@
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
       if (!ph.length && window.NoPhoto) {
-        return '<div class="sw-li sw-lv-row sw-li-np"><button type="button" class="sw-lv-open" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
+        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><button type="button" class="sw-lv-open" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
           '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></button>' +
           '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
       }
-      return '<button type="button" class="sw-li" data-pos="' + c.pos + '">' +
+      return '<button type="button" class="sw-li" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
         (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
@@ -2712,6 +2722,7 @@
     if (v === 'list') renderList();
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
+    if (v !== 'likes') writeUrl();
   }
   document.querySelectorAll('.sw-views [data-view]').forEach(function (b) {
     b.addEventListener('click', function () { setView(b.dataset.view); });
@@ -2849,7 +2860,31 @@
   $('swHelp').addEventListener('click', function () { bsOpen('help'); });
 
   /* ---------- התחלה ---------- */
-  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort'].some(function (k) { return params.has(k); });
+  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view'].some(function (k) { return params.has(k); });
+  /* ‏P1-L: חזרה מדף נכס לרשימה - אותו נכס באותו מקום. נשמר ב-pagehide לפי הכתובת, עם עוגן
+     (הנכס העליון שנראה) ולא רק פיקסלים, כי תמונות שעוד לא נטענו מזיזות את הגובה */
+  var SCROLL_KEY = 'sk_sw_scroll';
+  try { history.scrollRestoration = 'manual'; } catch (e) { /* דפדפן ישן */ }
+  window.addEventListener('pagehide', function () {
+    if (view !== 'list') return;
+    var rows = document.querySelectorAll('#swList [data-pid]'), top = null;
+    for (var i = 0; i < rows.length; i++) { var r = rows[i].getBoundingClientRect(); if (r.bottom > 80) { top = rows[i]; break; } }
+    try {
+      sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ key: location.pathname + location.search, y: window.scrollY,
+        id: top ? top.dataset.pid : null, off: top ? Math.round(top.getBoundingClientRect().top) : 0 }));
+    } catch (e) { /* אחסון חסום */ }
+  });
+  function restoreListScroll() {
+    var m = null;
+    try { m = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null'); } catch (e) { m = null; }
+    if (!m || m.key !== location.pathname + location.search || view !== 'list') return;
+    function go() {
+      var el = m.id && document.querySelector('#swList [data-pid="' + (window.CSS && CSS.escape ? CSS.escape(m.id) : m.id) + '"]');
+      if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - m.off);
+      else window.scrollTo(0, m.y);
+    }
+    go(); requestAnimationFrame(go); setTimeout(go, 400);
+  }
   function cameBack() {
     try { var nav = performance.getEntriesByType('navigation')[0]; return !!nav && nav.type === 'back_forward'; } catch (e) { return false; }
   }
@@ -2868,6 +2903,9 @@
          מדף הבית) או חזרה ב"אחורה" מדף נכס - בלי גיליון שנפתח מעצמו (‏P0-C, ‏P1-L) */
       if (!urlHasFilter && !cameBack()) openFilter($('swSum'));
       buildDeck();
+      var v0 = params.get('view');
+      if (v0 === 'list' || v0 === 'map') setView(v0);
+      if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {
         renderFilter();
         // הכרטיס שעל המסך מקבל את שקופית ההדמיה שלו כשהזוג נטען, בלי לצייר אותו מחדש
