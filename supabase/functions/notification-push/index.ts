@@ -178,7 +178,7 @@ type Item = {
   lead?: LeadInfo | null;
   // ‏סגירת מיניסייט (20271029121000). חסר - אין כפתור scn:.
   meeting_id?: string | null;
-  // ‏תקציר התפרצות (20271028140000). חסר בהודעה רגילה.
+  // ‏תקציר התפרצות (20271029140000). חסר בהודעה רגילה.
   count?: number | null;
   // מקור הליד. photo_request אינו מוגן גם כשהסוג הוא new_lead.
   source?: string | null;

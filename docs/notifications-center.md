@@ -542,7 +542,7 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 
 ## שמירה מפני התפרצות
 
-מיגרציה `20271028140000_gabriela_burst_guard.sql`. דולקת כברירת מחדל
+מיגרציה `20271029140000_gabriela_burst_guard.sql`. דולקת כברירת מחדל
 (`notification_burst_guard_enabled = 1`), מעל התקרה
 של 12, המרווח של 10 דקות, פער התבנית ו-`quiet_hold`. `notification_push_due_agents`
 לא מוחלפת. יום רגיל לא מגיע לסף: ב-30 הימים שלפני 27.10.2026 נמדדו
@@ -596,7 +596,7 @@ select public.notification_push_suppress(true);
 
 הדגל לא שורד ל-cron. מחולל שרץ אחר כך חייב עמודה (`suppress_push` או
 `push_site_only`). `scripts/check_notification_backfill.py` חוסם מיגרציה
-מ-`20271028140000` ואילך. `suppress_push` שמופיע רק ב-`WHERE` אינו נחשב.
+מ-`20271029140000` ואילך. `suppress_push` שמופיע רק ב-`WHERE` אינו נחשב.
 גם קריאה ל-`notify_agent_on_new_lead`, `scraped_lead_notify_demand`,
 `share_property_for_agent`, `generate_client_match_alerts` או
 `client_match_digest_run` בלי `notification_push_suppress(true)` לפניה

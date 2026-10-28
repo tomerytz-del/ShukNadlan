@@ -11,7 +11,7 @@ app.suppress_push הוא לטרנזקציה, והעמודה נשארת ל-cron.
 insert גלוי. הסימון חייב להיות בעמודות ה-insert, או קריאה ל-
 notification_push_suppress() לפני הכתיבה באותו גוף.
 
-הסף הוא מיגרציית השמירה (20271028140000) כולל. קבצים ישנים יותר
+הסף הוא מיגרציית השמירה (20271029140000) כולל. קבצים ישנים יותר
 נכתבו לפני העמודה, והבדיקה לא מלמדת אותם מחדש.
 
     python3 scripts/check_notification_backfill.py
@@ -21,7 +21,7 @@ import os
 import re
 import sys
 
-CUTOFF = '20271028140000'
+CUTOFF = '20271029140000'
 INSERT_RE = re.compile(
     r'\binsert\s+into\s+(?:public\.)?(notifications|client_match_alerts)\b',
     re.I,
