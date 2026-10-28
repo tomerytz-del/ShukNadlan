@@ -80,12 +80,22 @@ def psql_error_lines(stderr: str) -> list[str]:
 
 
 def _ident_char(c: str) -> bool:
-    """המשך מזהה כמו ident_cont של Postgres: אות, ספרה, _, $, וכל תו מעל ASCII.
-
-    אותו מבחן לפני $ (שלא ייפתח ציטוט באמצע ט$a$ או café$a$) ולפני E'
-    (ש-x$E' לא ייקרא כמחרוזת בריחה).
-    """
+    """המשך מזהה כמו ident_cont של Postgres: אות, ספרה, _, $, וכל תו מעל ASCII."""
     return c.isalnum() or c in "_$" or ord(c) >= 128
+
+
+def _dollar_continues_identifier(sql: str, i: int) -> bool:
+    """$ בתוך מזהה אמיתי אינו פותח ציטוט. אחרי מספר (1$a$) הוא כן פותח.
+
+    הולכים אחורה על רצף תווי המזהה. רק רצף שלא מתחיל בספרה הוא מזהה.
+    """
+    j = i - 1
+    while j >= 0 and _ident_char(sql[j]):
+        j -= 1
+    if j + 1 == i:
+        return False
+    first = sql[j + 1]
+    return not ("0" <= first <= "9")
 
 
 # תגית: $ + מזהה אופציונלי שמתחיל באות או בקו תחתון + $. $1$ אינו ציטוט.
@@ -191,8 +201,8 @@ def meta_command_lines(sql: str) -> list[int]:
                 i += 2
             continue
         if c == "$":
-            # t$a$ הוא מזהה אחד. $1 הוא פרמטר, לא תגית (תגית לא מתחילה בספרה).
-            if i == 0 or not _ident_char(sql[i - 1]):
+            # t$a$ הוא מזהה אחד. 1$a$ הוא מספר ואז ציטוט. $1 אינו תגית.
+            if not _dollar_continues_identifier(sql, i):
                 m = _DOLLAR_TAG.match(sql, i)
                 if m:
                     i, line = _skip_dollar(sql, i, line, m.group(0))
@@ -286,6 +296,13 @@ CREATE TABLE public.t (id int);
     xed = "select 1 as x$E'\\' \\! echo PWN"
     if meta_command_lines(xed) != [1]:
         fail(f"\\! אחרי x$E' לא נחסם: {meta_command_lines(xed)}")
+    number = "select 1$a$ ' $a$ \\! echo PWN\n';\n"
+    if meta_command_lines(number) != [1]:
+        fail(f"\\! אחרי 1$a$ לא נחסם: {meta_command_lines(number)}")
+    # select 1$a$x$a$ : המספר נגמר, $a$ נפתח, הגוף הוא x, ו-$a$ סוגר.
+    # backslash בגוף אינו פקודה.
+    if meta_command_lines("select 1$a$x\\!$a$\n"):
+        fail("select 1$a$x$a$ לא לקסיקון כציטוט")
     if meta_command_lines("do $$\nbegin\n  perform 1;\nend\n$$;\n"):
         fail("גוף פונקציה סומן כפקודת psql")
     if meta_command_lines("select '\\! echo hi';\n"):
