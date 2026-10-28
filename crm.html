@@ -1767,6 +1767,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pc-owner{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
     font-size:.74rem;color:var(--txt-soft,var(--ink-soft))}
   .pc-owner-lbl{font-weight:600}
+  .pc-dest{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+    font-size:.74rem;color:var(--txt-soft,var(--ink-soft));font-weight:600}
+  .pc-dest select{font:inherit;font-weight:700;max-width:100%;
+    color:var(--ink,#0F3435);background:var(--surface,#fff);
+    border:1.5px solid var(--edge,var(--line));border-radius:8px;padding:3px 8px}
   .pc-owner-act{display:inline-flex;align-items:center;gap:5px;
     padding:3px 9px;border-radius:999px;text-decoration:none;
     border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
@@ -9144,6 +9149,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="expiring">תוקף נגמר בקרוב</option>
           <option value="stale">לא עודכנו מזמן</option>
           <option value="expired">פג תוקף</option>
+          <option value="unpublished">ירדו מפרסום</option>
         </select>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
           <input type="text" id="propPriceMin" inputmode="decimal" autocomplete="off" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
@@ -9468,6 +9474,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <datalist id="clCityOptions"></datalist>
             </div>
             <p class="pf-note cf-note-under">ריק = כל עיר.</p>
+
+            <div class="field">
+              <label for="clNeighborhood">שכונה</label>
+              <select id="clNeighborhood">
+                <option value="">בלי שכונה</option>
+              </select>
+            </div>
+            <p class="pf-note cf-note-under">בלי שכונה = לא מסננים לפיה. נכס באותה עיר בלי שכונה במודעה עדיין מתאים. אפשר לנקות את הבחירה.</p>
 
             <div class="cf-block-title">סוגי נכס מועדפים</div>
             <div class="pf-chips cf-chips" id="clPropertyTypes"></div>
@@ -11687,6 +11701,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="ui-hint" id="npWaNote"></p>
           </section>
 
+          <section class="ui-card np2-sec" id="npLessBox" hidden aria-labelledby="npLessTitle">
+            <h3 class="ui-h3" id="npLessTitle">פחות התראות</h3>
+            <p class="ui-hint"><span>סוגים שביקשת פחות מהם בוואטסאפ. הם יוצאים רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, עד שהבקשה פגה.</span><span>ליד, סיור ותזכורת מהיומן לא מושפעים. החזרה כאן, או בוואטסאפ עם "החזר התראות".</span></p>
+            <div id="npLessList"></div>
+          </section>
+
           <section class="np2-types" aria-labelledby="npTypesTitle">
             <div class="set-block-head">
               <h3 class="ui-h3" id="npTypesTitle">לפי סוג התראה</h3>
@@ -12564,6 +12584,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
      crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
 <script src="assets/cma-render.js"></script>
+<!-- לפני crm.js, לא אחריו. boot() מחכה ל-getSession שכבר נפתר, וההמשך
+     רץ לפני הסקריפט הבא. אם המדידה נטענת אחרי crm.js, סימון הכניסה
+     והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר ירד מהכתובת. -->
+<script src="assets/deeplink-timing.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>

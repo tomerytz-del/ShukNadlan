@@ -1,7 +1,9 @@
 // עטיפה דקה מעל Meta WhatsApp Cloud API (Graph API).
 // כל הקריאות היוצאות לוואטסאפ עוברות דרך כאן.
 
+import { encodeNavId, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { paceRecipient } from "../_shared/wa-pair-pace.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
@@ -59,6 +61,24 @@ async function messageIdFrom(res: Response): Promise<string | null> {
 }
 
 /**
+ * כל הודעה לנמען עוברת במרווח (‏131056). קריאת סטטוס והורדת מדיה לא.
+ * השרשרת חיה ב-`wa-pair-pace`, משותפת גם ל-notification-push.
+ */
+function postMessage(to: string, payload: unknown, failLabel: string): Promise<string | null> {
+  return paceRecipient(to, async () => {
+    const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new Error(`${failLabel} ${res.status}: ${await res.text()}`);
+    }
+    return await messageIdFrom(res);
+  });
+}
+
+/**
  * שולחת הודעת טקסט. זורקת אם Meta החזירה שגיאה, ומחזירה את מזהה ההודעה
  * שלה למעקב מסירה.
  */
@@ -68,22 +88,13 @@ export async function sendText(to: string, body: string): Promise<string | null>
     ? clean.slice(0, MAX_TEXT_LEN - 1) + "…"
     : clean;
 
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      text: { preview_url: false, body: text },
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`whatsapp send failed ${res.status}: ${await res.text()}`);
-  }
-  return await messageIdFrom(res);
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: { preview_url: false, body: text },
+  }, "whatsapp send failed");
 }
 
 // כיתוב של הודעת תמונה מוגבל ל-1024 תווים, ולא ל-4096 כמו טקסט. הודעה
@@ -104,34 +115,25 @@ export async function sendImage(
     ? clean.slice(0, MAX_CAPTION_LEN - 1) + "…"
     : clean;
 
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "image",
-      image: { link: imageUrl, caption: text },
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`whatsapp image send failed ${res.status}: ${await res.text()}`);
-  }
-  return await messageIdFrom(res);
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "image",
+    image: { link: imageUrl, caption: text },
+  }, "whatsapp image send failed");
 }
 
 /** קובץ שמע לפי קישור (עד 16MB). הקישור חייב להיות נגיש ל-Meta - כתובת חתומה
  *  של Storage עובדת. משמש את ההקלטות של צוות ההטמעה (csm-notify.ts). */
 export async function sendAudio(to: string, audioUrl: string): Promise<string | null> {
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "audio", audio: { link: audioUrl } }),
-  });
-  if (!res.ok) throw new Error(`whatsapp audio send failed ${res.status}: ${await res.text()}`);
-  return await messageIdFrom(res);
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "audio",
+    audio: { link: audioUrl },
+  }, "whatsapp audio send failed");
 }
 
 // מגבלות של הודעת כפתורים ב-Cloud API: עד שלושה כפתורים, כותרת של עד 20
@@ -161,36 +163,77 @@ export async function sendButtons(
     ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…"
     : clean;
 
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: { text },
-        action: {
-          buttons: buttons.slice(0, MAX_BUTTONS).map((b) => ({
-            type: "reply",
-            reply: {
-              id: b.id.slice(0, 256),
-              // ‏Array.from ולא slice: אימוג'י הוא שתי יחידות UTF-16, וחיתוך
-              // באמצע שלו משאיר תו שבור שמטא דוחה.
-              title: Array.from(formatForWhatsapp(b.title)).slice(0, MAX_BUTTON_TITLE).join(""),
-            },
-          })),
-        },
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text },
+      action: {
+        buttons: buttons.slice(0, MAX_BUTTONS).map((b) => ({
+          type: "reply",
+          reply: {
+            id: b.id.slice(0, 256),
+            // ‏Array.from ולא slice: אימוג'י הוא שתי יחידות UTF-16, וחיתוך
+            // באמצע שלו משאיר תו שבור שמטא דוחה.
+            title: Array.from(formatForWhatsapp(b.title)).slice(0, MAX_BUTTON_TITLE).join(""),
+          },
+        })),
       },
-    }),
-  });
+    },
+  }, "whatsapp buttons send failed");
+}
 
-  if (!res.ok) {
-    throw new Error(`whatsapp buttons send failed ${res.status}: ${await res.text()}`);
-  }
-  return await messageIdFrom(res);
+const MAX_LIST_ROWS = 10;
+const MAX_LIST_TITLE = 24;
+const MAX_LIST_BUTTON = 20;
+const MAX_LIST_DESC = 72;
+const MAX_LIST_SECTION = 24;
+
+/**
+ * רשימת בחירה אחת (interactive · list). הלחיצה חוזרת כ-list_reply.id.
+ * כפתור הפתיחה עד 20, כותרת שורה עד 24, תיאור עד 72, מזהה עד 200, עד 10 שורות.
+ */
+export async function sendList(
+  to: string,
+  body: string,
+  button: string,
+  section: string,
+  rows: { id: string; title: string; description?: string }[],
+): Promise<string | null> {
+  const clean = formatForWhatsapp(body);
+  const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
+  const sliced = rows.slice(0, MAX_LIST_ROWS).map((row) => {
+    const description = row.description
+      ? Array.from(formatForWhatsapp(row.description)).slice(0, MAX_LIST_DESC).join("")
+      : "";
+    const path = parseNavId(row.id);
+    const id = path ? (encodeNavId(withClick(path, "list")) || row.id) : row.id;
+    return {
+      id: id.slice(0, 200),
+      title: Array.from(formatForWhatsapp(row.title)).slice(0, MAX_LIST_TITLE).join(""),
+      ...(description ? { description } : {}),
+    };
+  });
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      body: { text },
+      action: {
+        button: Array.from(formatForWhatsapp(button)).slice(0, MAX_LIST_BUTTON).join(""),
+        sections: [{
+          title: Array.from(formatForWhatsapp(section)).slice(0, MAX_LIST_SECTION).join(""),
+          rows: sliced,
+        }],
+      },
+    },
+  }, "whatsapp list send failed");
 }
 
 /**
@@ -207,31 +250,24 @@ export async function sendCtaUrl(
 ): Promise<string | null> {
   const clean = formatForWhatsapp(body);
   const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "interactive",
-      interactive: {
-        type: "cta_url",
-        body: { text },
-        action: {
-          name: "cta_url",
-          parameters: {
-            display_text: Array.from(formatForWhatsapp(label)).slice(0, MAX_BUTTON_TITLE).join(""),
-            url,
-          },
+  const stamped = withClickUrl(url, "cta");
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "cta_url",
+      body: { text },
+      action: {
+        name: "cta_url",
+        parameters: {
+          display_text: Array.from(formatForWhatsapp(label)).slice(0, MAX_BUTTON_TITLE).join(""),
+          url: stamped,
         },
       },
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`whatsapp cta_url send failed ${res.status}: ${await res.text()}`);
-  }
-  return await messageIdFrom(res);
+    },
+  }, "whatsapp cta_url send failed");
 }
 
 /**
@@ -242,15 +278,12 @@ export async function sendContactCard(
   to: string,
   contact: { name: string; company: string; phoneDigits: string; url?: string },
 ): Promise<string | null> {
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "contacts",
-      contacts: [{
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "contacts",
+    contacts: [{
         name: {
           formatted_name: `${contact.name} - ${contact.company}`,
           first_name: contact.name,
@@ -264,13 +297,7 @@ export async function sendContactCard(
         }],
         ...(contact.url ? { urls: [{ url: contact.url, type: "WORK" }] } : {}),
       }],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`whatsapp contact send failed ${res.status}: ${await res.text()}`);
-  }
-  return await messageIdFrom(res);
+  }, "whatsapp contact send failed");
 }
 
 const NOTIFY_TEMPLATE = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE") || "";
@@ -299,14 +326,11 @@ export async function sendNotifyTemplate(
     .replace(/ {4,}/g, "   ")
     .slice(0, 900);
 
-  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
         name: NOTIFY_TEMPLATE,
         language: { code: NOTIFY_TEMPLATE_LANG },
         components: [
@@ -325,13 +349,7 @@ export async function sendNotifyTemplate(
           },
         ],
       },
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`whatsapp template send failed ${res.status}: ${await res.text()}`);
-  }
-  return await messageIdFrom(res);
+  }, "whatsapp template send failed");
 }
 
 /**
