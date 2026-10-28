@@ -119,7 +119,8 @@ function check(name: string, ok: boolean) {
   check("שער עם מידות ו-webp", !!hero && hero[0].includes('width="1200"') && hero[0].includes('height="520"')
     && hero[0].includes("format=webp") && hero[0].includes('fetchpriority="high"'));
   check("קרדיט גלוי ו-og:image", html.includes("צילום: תומר")
-    && html.includes('property="og:image" content="https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/neighborhood-covers/'));
+    && html.includes('property="og:image" content="https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/neighborhood-covers/')
+    && html.includes("width=1200") && html.includes("height=630"));
   check("preload לשער, כרטיס לא LCP", html.includes('rel="preload" as="image"') && html.includes("neighborhood-covers")
     && !html.includes('property-images/a.jpg" fetchpriority'));
 }
@@ -245,13 +246,15 @@ resetLastGood();
 {
   const plain = await run(URL_HOOD, 200, HOOD);
   const plainHtml = await plain.text();
-  check("שם לבוט: גבעת המורה", plainHtml.includes('data-hood-name="שכונת גבעת המורה"'));
+  check("שם לבוט: גבעת המורה", plainHtml.includes('data-hood-name="גבעת המורה"')
+    && plainHtml.includes('data-hood-city="עפולה"'));
   const gereshName = "ג\u05f3ת";
   const gersh = { ...HOOD, name: gereshName, slug: "gat" };
   const gres = await run(URL_HOOD, 200, gersh);
   const ghtml = await gres.text();
-  check("שם לבוט עם גרש", ghtml.includes('data-hood-name="שכונת ' + gereshName + '"'));
+  check("שם לבוט עם גרש", ghtml.includes('data-hood-name="' + gereshName + '"'));
 
+  const H = (globalThis as unknown as { ShukHood: { hoodHello: (n: string, c: string) => string } }).ShukHood;
   const botSrc = readFileSync(new URL("../assets/bot-link.js", import.meta.url), "utf8")
     .replace(/\(window\);\s*$/, "(globalThis); return globalThis.ShukBot;");
   const ShukBot = new Function(botSrc)() as { link: (hello: string) => string };
@@ -260,15 +263,19 @@ resetLastGood();
     for (const [phrase, entry] of phrases) if (text.includes(phrase)) return entry;
     return "direct";
   }
-  function helloFor(name: string): string {
-    const label = /^(השכונה|שכונת|שכונה)(\s|$)/.test(name) ? name : "שכונת " + name;
-    return "שלום, הגעתי מהאתר, מדף " + label + ", ואשמח לעזרה במציאת נכס";
-  }
-  for (const sample of ["גבעת המורה", gereshName, "א\u05f4ב"]) {
-    const msg = helloFor(sample);
+  const samples: [string, string, string][] = [
+    ["גבעת המורה", "מגדל העמק", "שלום, הגעתי מהאתר, מדף שכונת גבעת המורה במגדל העמק, ואשמח לעזרה במציאת נכס"],
+    ["מרכז", "קרית טבעון", "שלום, הגעתי מהאתר, מדף שכונת מרכז בקרית טבעון, ואשמח לעזרה במציאת נכס"],
+    ["השכונה", "תל-עדשים", "שלום, הגעתי מהאתר, מדף השכונה בתל-עדשים, ואשמח לעזרה במציאת נכס"],
+    ["עפולה עלית", "עפולה", "שלום, הגעתי מהאתר, מדף שכונת עפולה עלית, ואשמח לעזרה במציאת נכס"],
+    [gereshName, "בית שאן", "שלום, הגעתי מהאתר, מדף שכונת " + gereshName + " בבית שאן, ואשמח לעזרה במציאת נכס"],
+  ];
+  for (const [hood, city, expected] of samples) {
+    const msg = H.hoodHello(hood, city);
     const url = ShukBot.link(msg);
     const text = new URL(url).searchParams.get("text");
-    check("קידוד וואטסאפ: " + sample, entryOf(msg) === "site" && !msg.includes("מדף הבית")
+    check("קידוד וואטסאפ: " + hood + " / " + city, msg === expected && entryOf(msg) === "site"
+      && !msg.includes("מדף הבית")
       && url.startsWith("https://wa.me/972532494740?text=")
       && url.includes(encodeURIComponent(msg))
       && text === msg);

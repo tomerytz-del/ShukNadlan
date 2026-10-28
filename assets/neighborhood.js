@@ -11,7 +11,8 @@
   var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
   /* אותם ערכים כמו SR_SORTS ב-assets/home.js. לא טוענים את home.js. */
   var SORTS = ['default', 'new', 'price-asc', 'price-desc'];
-  var state = { deal: '', kind: '', rooms: 0, min: 0, max: 0, sort: 'default', shown: 12 };
+  var SORT_LABEL = { 'default': 'מומלצים', 'new': 'חדשים', 'price-asc': 'מחיר עולה', 'price-desc': 'מחיר יורד' };
+  var state = { deal: '', kind: '', rooms: 0, min: 0, max: 0, sort: 'default', shown: 12, vis: false, view: 'grid', panel: '' };
   var rows = null;
   var wired = false;
 
@@ -63,6 +64,7 @@
       if (state.deal && p.deal_type !== state.deal) return false;
       if (types && types.indexOf(p.property_type) < 0) return false;
       if (state.rooms && !(Number(p.rooms) >= state.rooms)) return false;
+      if (state.vis && readList().some(function (x) { return x.vis === true || x.vis === false; }) && p.vis !== true) return false;
       var price = priceOf(p);
       if (state.min && (price === null || price < state.min)) return false;
       if (state.max && (price === null || price > state.max)) return false;
@@ -96,6 +98,8 @@
     var H = window.ShukHood;
     if (!box || !H || !H.resultsHtml) return;
     box.innerHTML = '<h2>נכסים בשכונה</h2>' + H.resultsHtml(sorted(filtered()), state.shown, false);
+    var ul = box.querySelector('.hood-props');
+    if (ul && state.view === 'rows') ul.classList.add('is-rows');
   }
 
   function syncPressed() {
@@ -103,6 +107,25 @@
     if (!bar) return;
     bar.querySelectorAll('[data-hood="deal"]').forEach(function (b) {
       b.setAttribute('aria-pressed', (b.getAttribute('data-v') || '') === state.deal ? 'true' : 'false');
+    });
+    var vis = bar.querySelector('[data-hood="vis"]');
+    if (vis) vis.setAttribute('aria-pressed', state.vis ? 'true' : 'false');
+    var label = document.getElementById('hoodSortLabel');
+    if (label) label.textContent = SORT_LABEL[state.sort] || 'מומלצים';
+    var view = bar.querySelector('[data-hood="view"]');
+    if (view) {
+      view.setAttribute('aria-pressed', state.view === 'rows' ? 'true' : 'false');
+      view.textContent = state.view === 'rows' ? '☰' : '▦';
+    }
+    ['filter', 'sort'].forEach(function (name) {
+      var btn = bar.querySelector('[data-hood="panel"][data-v="' + name + '"]');
+      var panel = document.getElementById(name === 'filter' ? 'hoodFilterPanel' : 'hoodSortPanel');
+      var open = state.panel === name;
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (panel) {
+        panel.classList.toggle('is-open', open);
+        panel.hidden = !open;
+      }
     });
   }
 
@@ -120,6 +143,24 @@
       state.shown = 12;
       syncPressed();
       paint();
+    } else if (kind === 'panel') {
+      var which = t.getAttribute('data-v') || '';
+      state.panel = state.panel === which ? '' : which;
+      syncPressed();
+    } else if (kind === 'view') {
+      state.view = state.view === 'rows' ? 'grid' : 'rows';
+      syncPressed();
+      paint();
+    } else if (kind === 'vis') {
+      state.vis = !state.vis;
+      state.shown = 12;
+      syncPressed();
+      paint();
+    } else if (kind === 'sort') {
+      state.sort = SORTS.indexOf(t.getAttribute('data-v')) >= 0 ? t.getAttribute('data-v') : 'default';
+      state.panel = '';
+      syncPressed();
+      paint();
     } else if (kind === 'clear') {
       state.deal = '';
       state.kind = '';
@@ -127,6 +168,7 @@
       state.min = 0;
       state.max = 0;
       state.sort = 'default';
+      state.vis = false;
       state.shown = 12;
       var bar = document.getElementById('hoodFilters');
       if (bar) {
@@ -147,7 +189,7 @@
     var kind = t.getAttribute('data-hood');
     if (kind === 'kind') { state.kind = t.value || ''; state.shown = 12; paint(); }
     else if (kind === 'rooms') { state.rooms = Number(t.value) || 0; state.shown = 12; paint(); }
-    else if (kind === 'sort') { state.sort = SORTS.indexOf(t.value) >= 0 ? t.value : 'default'; paint(); }
+    else if (kind === 'sort' && t.value) { state.sort = SORTS.indexOf(t.value) >= 0 ? t.value : 'default'; paint(); }
   }
 
   function onInput(e) {
@@ -166,8 +208,10 @@
       /* "הגעתי מהאתר" הוא ביטוי ב-SITE_ENTRY_PHRASES. siteEntryOf מחפש
          includes בלי נרמול, והראשון ברשימה גובר. "מדף שכונת" אינו "מדף הבית".
          ShukBot.link מקודד את כל ההודעה ב-encodeURIComponent. */
-      var name = slot.getAttribute('data-hood-name') || '';
-      var HOOD_HELLO = 'שלום, הגעתי מהאתר, מדף ' + name + ', ואשמח לעזרה במציאת נכס';
+      var rawName = slot.getAttribute('data-hood-name') || '';
+      var city = slot.getAttribute('data-hood-city') || '';
+      var place = (window.ShukHood && ShukHood.hoodPlace) ? ShukHood.hoodPlace(rawName, city) : rawName;
+      var HOOD_HELLO = 'שלום, הגעתי מהאתר, מדף ' + place + ', ואשמח לעזרה במציאת נכס';
       slot.innerHTML = ShukBot.anchorHtml(HOOD_HELLO, 'שיחה עם גבריאלה', 'hood-btn hood-btn-ghost');
     }
     var alertBtn = document.getElementById('hoodAlert');

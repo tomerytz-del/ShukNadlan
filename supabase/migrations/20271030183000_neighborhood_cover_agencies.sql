@@ -200,7 +200,11 @@ as $page$
   ), p as (
     select pr.id, pr.title, pr.property_type, pr.deal_type, pr.price, pr.price_unit,
            pr.rooms, pr.size_sqm, pr.built_size_sqm,
-           pr.images[1] as image, pr.updated_at, pr.created_at
+           pr.images[1] as image, pr.updated_at, pr.created_at,
+           exists (
+             select 1 from public.property_visualizations v
+              where v.property_id = pr.id and v.status = 'done'
+           ) as vis
       from public.properties pr, h
      where pr.neighborhood_id = h.id and pr.status = 'active'
   )
@@ -226,11 +230,11 @@ as $page$
     'rent_max', (select max(p.price) from p where p.deal_type = 'rent' and p.price > 0),
     'props', coalesce((select jsonb_agg(to_jsonb(x) order by x.updated_at desc) from (
                select p.id, p.title, p.property_type, p.deal_type, p.price, p.price_unit,
-                      p.rooms, p.size_sqm, p.built_size_sqm, p.image, p.updated_at, p.created_at
+                      p.rooms, p.size_sqm, p.built_size_sqm, p.image, p.updated_at, p.created_at, p.vis
                  from p order by p.updated_at desc nulls last limit 12) x), '[]'::jsonb),
     'listings', coalesce((select jsonb_agg(to_jsonb(x) order by x.updated_at desc) from (
                select p.id, p.title, p.property_type, p.deal_type, p.price, p.price_unit,
-                      p.rooms, p.size_sqm, p.built_size_sqm, p.image, p.updated_at, p.created_at
+                      p.rooms, p.size_sqm, p.built_size_sqm, p.image, p.updated_at, p.created_at, p.vis
                  from p order by p.updated_at desc nulls last limit 240) x), '[]'::jsonb),
     'agencies', coalesce((
       select jsonb_agg(jsonb_build_object(

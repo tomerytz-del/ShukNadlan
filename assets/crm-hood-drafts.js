@@ -120,6 +120,9 @@ async function hoodDraftsRunNow(){
    ומחפשים שם ב-ilike, ואם יש עוד תוצאות הן בעמוד הבא. */
 let hoodCoverRows = [];
 let hoodCoverOffset = 0;
+let hoodCoverToken = 0;
+let hoodCoverSession = null;
+let hoodCoverBusy = false;
 const HOOD_COVER_PAGE = 80;
 
 function hoodCoverUuidOk(id){
@@ -159,16 +162,16 @@ async function loadHoodCover(){
   }
   const cities = [];
   for (let from = 0; from < 5000; from += 1000){
-    const { data, error } = await sb.from('cities').select('name').order('name').range(from, from + 999);
+    const { data, error } = await sb.from('cities').select('id,name').order('name').range(from, from + 999);
     if (error || !data || !data.length) break;
-    data.forEach(r => { if (r.name) cities.push(r.name); });
+    data.forEach(r => { if (r.id && r.name) cities.push(r); });
     if (data.length < 1000) break;
   }
   host.innerHTML = '<div class="hd-head"><h4>תמונת שער לשכונה</h4></div>'
     + '<p class="acc-sub">מוצגת בראש דף השכונה. בלי תמונה הדף נשאר עם רקע כהה והכותרת. בחרו עיר, או חפשו לפי שם.</p>'
     + '<div class="hd-acts">'
     + '<select id="hoodCoverCity" aria-label="עיר"><option value="">כל הערים</option>'
-    + cities.map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('')
+    + cities.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('')
     + '</select>'
     + '<input type="search" id="hoodCoverQ" placeholder="שם שכונה" aria-label="שם שכונה">'
     + '<button type="button" class="btn btn-ghost" id="hoodCoverFind">חיפוש</button>'
@@ -187,17 +190,28 @@ async function loadHoodCover(){
 
 async function hoodCoverSearch(reset){
   const status = document.getElementById('hoodCoverStatus');
-  const city = (document.getElementById('hoodCoverCity').value || '').trim();
-  const q = (document.getElementById('hoodCoverQ').value || '').trim().replace(/[%_*,]/g, '');
-  if (!city && q.length < 2){
-    if (status) status.textContent = 'בחרו עיר, או הקלידו לפחות שתי אותיות מהשם.';
-    return;
+  if (!reset && (hoodCoverBusy || !hoodCoverSession)) return;
+  if (reset){
+    const cityId = (document.getElementById('hoodCoverCity').value || '').trim();
+    const q = (document.getElementById('hoodCoverQ').value || '').trim().replace(/[%_*,]/g, '');
+    if (!cityId && q.length < 2){
+      if (status) status.textContent = 'בחרו עיר, או הקלידו לפחות שתי אותיות מהשם.';
+      return;
+    }
+    hoodCoverOffset = 0;
+    hoodCoverToken += 1;
+    hoodCoverSession = { cityId: cityId, q: q, token: hoodCoverToken };
   }
-  if (reset) hoodCoverOffset = 0;
-  let query = sb.from('neighborhoods').select('id,name,city,cover_path,cover_alt,cover_credit,poi');
-  if (city) query = query.eq('city', city);
-  if (q) query = query.ilike('name', '%' + q + '%');
-  const { data, error } = await query.order('name').range(hoodCoverOffset, hoodCoverOffset + HOOD_COVER_PAGE - 1);
+  const session = hoodCoverSession;
+  const token = session.token;
+  const from = hoodCoverOffset;
+  hoodCoverBusy = true;
+  let query = sb.from('neighborhoods').select('id,name,city,city_id,cover_path,cover_alt,cover_credit,poi');
+  if (session.cityId) query = query.eq('city_id', session.cityId);
+  if (session.q) query = query.ilike('name', '%' + session.q + '%');
+  const { data, error } = await query.order('name').order('id').range(from, from + HOOD_COVER_PAGE - 1);
+  if (token !== hoodCoverToken) return;
+  hoodCoverBusy = false;
   if (error){
     if (status) status.textContent = (error.code === '42703' || error.code === 'PGRST204')
       ? '' : 'שגיאה בטעינת השכונות: ' + heErr(error);
@@ -251,10 +265,13 @@ async function hoodCoverSave(clear){
   if (!row) return;
   const fileEl = document.getElementById('hoodCoverFile');
   const file = fileEl && fileEl.files && fileEl.files[0];
-  let path = clear ? null : (row.cover_path || null);
   const saveBtn = document.getElementById('hoodCoverSave');
   if (saveBtn) saveBtn.disabled = true;
   try {
+    const live = await sb.from('neighborhoods').select('cover_path').eq('id', row.id).maybeSingle();
+    if (live.error) throw live.error;
+    const currentPath = live.data ? (live.data.cover_path || null) : null;
+    let path = clear ? null : currentPath;
     if (!clear && file){
       const type = file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
       if (!/^image\/(jpeg|png|webp)$/.test(file.type || '')) throw new Error('סוג הקובץ צריך להיות JPG, PNG או WebP.');
@@ -280,10 +297,10 @@ async function hoodCoverSave(clear){
       },
     });
     if (error){
-      if (path && path !== row.cover_path) sb.storage.from('neighborhood-covers').remove([path]).catch(() => {});
+      if (path && path !== currentPath) sb.storage.from('neighborhood-covers').remove([path]).catch(() => {});
       throw error;
     }
-    const previous = row.cover_path || null;
+    const previous = currentPath;
     if (previous && previous !== path) sb.storage.from('neighborhood-covers').remove([previous]).catch(() => {});
     showToast(clear ? 'תמונת השער הוסרה' : 'תמונת השער נשמרה');
     const fresh = await sb.from('neighborhoods').select('id,name,city,cover_path,cover_alt,cover_credit,poi').eq('id', row.id).maybeSingle();

@@ -48,6 +48,16 @@
     if (/^(השכונה|שכונת|שכונה)(\s|$)/.test(n)) return n;
     return 'שכונת ' + n;
   }
+  /* "ב{עיר}" תמיד, אלא אם שם השכונה כבר מכיל את העיר, או שאין עיר. */
+  function hoodPlace(name, city) {
+    var label = hoodLabel(name);
+    var c = String(city || '').trim();
+    if (!c || label.indexOf(c) >= 0) return label;
+    return label + ' ב' + c;
+  }
+  function hoodHello(name, city) {
+    return 'שלום, הגעתי מהאתר, מדף ' + hoodPlace(name, city) + ', ואשמח לעזרה במציאת נכס';
+  }
   function heading(d) { return hoodLabel(d.name) + (d.city ? ', ' + d.city : ''); }
   function inHood(name) {
     var n = String(name || '').trim();
@@ -134,6 +144,7 @@
       srcset: src + ' 800w, ' + u(1200, 520, 'webp') + ' 1200w',
       jpg: u(800, 347, ''),
       full: ORIGIN + '/storage/v1/object/public/neighborhood-covers/' + p,
+      og: u(1200, 630, ''),
       alt: String(d.cover_alt || '').trim(),
       credit: String(d.cover_credit || '').trim(),
     };
@@ -161,7 +172,7 @@
   }
   function ogImage(d) {
     var c = coverModel(d);
-    return c ? c.full : '';
+    return c ? c.og : '';
   }
 
   function propCard(p, eager) {
@@ -287,31 +298,27 @@
   function kpis(d) {
     var saleNote = [d.props_sale ? num(d.props_sale) + ' למכירה' : '', d.props_rent ? num(d.props_rent) + ' להשכרה' : '']
       .filter(Boolean).join(' · ');
-    var range = d.sale_min ? money(d.sale_min) : '';
-    var rangeNote = d.sale_max ? 'עד ' + money(d.sale_max) : '';
-    var period = (d.period_start && d.period_end) ? monthYear(d.period_start) + ' עד ' + monthYear(d.period_end) : '';
     return '<div class="hood-kpis">'
       + kpi('נכסים פעילים', num(d.props_active || 0), saleNote)
-      + kpi('טווח למכירה', range, rangeNote)
-      + kpi('מחיר עסקה חציוני', d.median_price != null ? money(d.median_price) : '', d.deals ? num(d.deals) + ' עסקאות' : '')
-      + kpi('חציון למ״ר', d.median_ppsqm != null ? money(d.median_ppsqm) : '', period)
-      + '</div>';
+      + kpi('מחיר חציוני', d.median_price != null ? money(d.median_price) : '', '')
+      + kpi('עסקאות · 12 חודשים', d.deals ? num(d.deals) : '', '')
+      + kpi('חציון למ״ר', d.median_ppsqm != null ? money(d.median_ppsqm) : '', '')
+      + '</div><p class="hood-kpi-src">מקור העסקאות: רשות המסים</p>';
   }
 
   function filters(d) {
     return '<div class="hood-filters" id="hoodFilters">'
-      + '<div class="hood-filters-row" role="group" aria-label="סוג עסקה בשכונה">'
+      + '<div class="hood-seg" role="group" aria-label="סוג עסקה בשכונה">'
       + '<button type="button" data-hood="deal" data-v="" aria-pressed="true">הכל</button>'
       + '<button type="button" data-hood="deal" data-v="sale" aria-pressed="false">קנייה <span>' + num(d.props_sale || 0) + '</span></button>'
       + '<button type="button" data-hood="deal" data-v="rent" aria-pressed="false">שכירות <span>' + num(d.props_rent || 0) + '</span></button>'
-      + '<label class="hood-sort">מיון <select data-hood="sort" aria-label="מיון">'
-      + '<option value="default">מומלצים</option>'
-      + '<option value="new">חדשים ראשונים</option>'
-      + '<option value="price-asc">מחיר: מהנמוך לגבוה</option>'
-      + '<option value="price-desc">מחיר: מהגבוה לנמוך</option>'
-      + '</select></label>'
       + '</div>'
-      + '<div class="hood-filters-row">'
+      + '<div class="hood-tools">'
+      + '<button type="button" data-hood="panel" data-v="filter" aria-expanded="false">סינון</button>'
+      + '<button type="button" data-hood="panel" data-v="sort" aria-expanded="false">מיון: <span id="hoodSortLabel">מומלצים</span></button>'
+      + '<button type="button" class="hood-view" data-hood="view" aria-pressed="false" aria-label="תצוגת רשת או רשימה">▦</button>'
+      + '</div>'
+      + '<div class="hood-panel" id="hoodFilterPanel" hidden>'
       + '<select data-hood="kind" aria-label="סוג נכס">'
       + '<option value="">כל הסוגים</option><option value="flats">דירות</option>'
       + '<option value="house">בתים</option><option value="land">מגרשים</option>'
@@ -321,7 +328,14 @@
       + '<option value="4">4+</option><option value="5">5+</option></select>'
       + '<input data-hood="min" inputmode="numeric" placeholder="מ-" aria-label="ממחיר">'
       + '<input data-hood="max" inputmode="numeric" placeholder="עד" aria-label="עד מחיר">'
+      + '<button type="button" class="hood-switch" data-hood="vis" aria-pressed="false"><span class="hood-switch-ui" aria-hidden="true"></span>רק עם הדמיה</button>'
       + '<button type="button" data-hood="clear">ניקוי</button>'
+      + '</div>'
+      + '<div class="hood-panel" id="hoodSortPanel" hidden>'
+      + '<button type="button" data-hood="sort" data-v="default">מומלצים</button>'
+      + '<button type="button" data-hood="sort" data-v="new">חדשים</button>'
+      + '<button type="button" data-hood="sort" data-v="price-asc">מחיר עולה</button>'
+      + '<button type="button" data-hood="sort" data-v="price-desc">מחיר יורד</button>'
       + '</div></div>';
   }
 
@@ -330,7 +344,7 @@
       + '<p class="hood-cta-k">גבריאלה · עוזרת החיפוש של שוק נדל״ן</p>'
       + '<h2>מחפשים ' + escapeHtml(inHood(d.name)) + '? גבריאלה תעזור למצוא</h2>'
       + '<button type="button" class="hood-btn hood-btn-gold" id="hoodAlert">קבלו התראה על נכסים חדשים בשכונה</button>'
-      + '<span id="hoodBotSlot" data-hood-name="' + escapeHtml(hoodLabel(d.name)) + '"></span>'
+      + '<span id="hoodBotSlot" data-hood-name="' + escapeHtml(d.name || '') + '" data-hood-city="' + escapeHtml(d.city || '') + '"></span>'
       + '</section>';
   }
 
@@ -342,8 +356,10 @@
         + (d.period_start && d.period_end ? ', ' + monthYear(d.period_start) + ' עד ' + monthYear(d.period_end) : '')
         + '. קבוצה עם פחות מ-5 עסקאות מוצגת בלי חציון.') + '</p>';
     if (rows.length) {
-      html += '<div class="deals-scroll"><table class="deals-table deals-rooms"><thead><tr><th>חדרים</th><th>עסקאות</th>'
-        + '<th>מחיר חציוני</th><th>חציון למ״ר</th></tr></thead><tbody>'
+      html += '<div class="deals-scroll"><table class="deals-table deals-rooms"><thead><tr>'
+        + '<th>חדרים</th><th>עסקאות</th><th><span class="hood-th-long">מחיר חציוני</span><span class="hood-th-short">מחיר</span></th>'
+        + '<th><span class="hood-th-long">חציון למ״ר</span><span class="hood-th-short">למ״ר</span></th>'
+        + '</tr></thead><tbody>'
         + rows.map(function (r) {
           return '<tr><td>' + escapeHtml(roomsLabel(r.rooms)) + '</td><td>' + num(r.deals) + '</td>'
             + '<td class="deals-price">' + escapeHtml(r.median_price == null ? '-' : money(r.median_price)) + '</td><td>'
@@ -444,7 +460,7 @@
     }
     return '<figure class="hood-figure">'
       + '<div class="hood-hero' + (c ? '' : ' hood-hero-empty') + '">' + media
-      + '<div class="hood-hero-shade"></div>'
+      + '<div class="hood-hero-shade" aria-hidden="true"></div>'
       + '<div class="hood-hero-copy">' + h + '</div></div>'
       + caption + '</figure>';
   }
@@ -463,7 +479,7 @@
     return Array.isArray(d.props) ? d.props : [];
   }
   function publicListing(p) {
-    return {
+    var row = {
       id: p.id, title: p.title || '', property_type: p.property_type || '', deal_type: p.deal_type || '',
       price: p.price == null ? null : p.price, price_unit: p.price_unit || null,
       rooms: p.rooms == null ? null : p.rooms, size_sqm: p.size_sqm == null ? null : p.size_sqm,
@@ -471,6 +487,8 @@
       image: typeof p.image === 'string' && p.image.indexOf(IMG_HOST) === 0 ? p.image : null,
       updated_at: p.updated_at || null, created_at: p.created_at || null,
     };
+    if (p.vis === true || p.vis === false) row.vis = p.vis;
+    return row;
   }
   function dataBlob(rows) {
     var json = JSON.stringify({ listings: rows.map(publicListing) })
@@ -527,6 +545,6 @@
   root.ShukHood = {
     render: render, title: title, description: description, jsonLd: jsonLd, path: path,
     lcpHref: lcpHref, lcpPreload: lcpPreload, ogImage: ogImage, heading: heading,
-    hoodLabel: hoodLabel, resultsHtml: resultsHtml,
+    hoodLabel: hoodLabel, hoodPlace: hoodPlace, hoodHello: hoodHello, resultsHtml: resultsHtml,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
