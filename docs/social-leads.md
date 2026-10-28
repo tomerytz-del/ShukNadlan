@@ -108,23 +108,20 @@ Content-Type: application/json
      לא מחזירים את הקישור לפני התפיסה.
    - הודעה פרטית בלי פוסט: נפתח ליד `masked` מהפרטים שב-`saved_searches`,
      ו-`claim_lead` מחייבת כמו כל ליד. התשובה מכילה `lead_id` בלי טלפון.
-     כש-`social_buyer_handoff_enabled` הוא 1 נכתבת שורה ב-`social_buyer_handoffs`
-     (`lead_id`, `agent_id`, שם פרטי בלבד, `created_at`, `status`). אין שליחה
-     לפונה מהריפו. הדגל נולד 0.
+     כש-`social_buyer_handoff_enabled` הוא 1, ורק אחרי ש-`claim_lead` הצליח,
+     נכתבת שורה ב-`seeker_handoffs` להודעה פרטית (`facebook_dm` או
+     `instagram_dm`) בלי פוסט ועם `external_ref`. תגובה בלי פוסט פותחת ליד
+     ולא נכנסת לתור. אין שליחה לפונה מהריפו. הדגל נולד 0.
 
-   שאילתת התור לגבריאלה של מטא, בלי טלפון:
+   השאילתה של גבריאלה במטא:
 
    ```sql
-   select h.lead_id, h.agent_id, h.agent_first_name, h.created_at, h.status,
-          sl.channel, sl.zernio_id,
-          public.social_buyer_conversation_id(sl.payload) as conversation_id
-     from public.social_buyer_handoffs h
-     join public.scraped_leads sc on sc.lead_id = h.lead_id
-     join public.social_leads sl on sl.zernio_id = sc.external_ref
-    where h.status = 'pending'
-      and h.created_at > now() - interval '24 hours'
-    order by h.created_at;
+   select id, lead_id, agent_first_name, source, external_ref, created_at
+     from public.seeker_handoffs_pending();
    ```
+
+   אחרי הטיפול: `select public.mark_handoff('<id>'::uuid, 'sent');`
+   (`expired` או `failed` באותה פונקציה). רק מ-`pending`, וקריאה חוזרת לאותו סטטוס לא משנה כלום.
 
 ## מי רשאי/ת לסמן מקור חברתי
 

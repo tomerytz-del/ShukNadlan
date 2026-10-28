@@ -135,26 +135,100 @@ do $$ begin
 end $$;
 
 -- תור לגבריאלה של מטא. אין בו טלפון, שם של הפונה, או קישור.
-create table if not exists public.social_buyer_handoffs (
+-- שורה נכתבת רק אחרי תפיסה שהצליחה, ורק כשהדגל דלוק.
+create table if not exists public.seeker_handoffs (
   id uuid primary key default gen_random_uuid(),
   lead_id uuid not null references public.leads(id) on delete cascade,
   agent_id uuid not null references public.agency_members(id) on delete cascade,
   agent_first_name text not null,
-  status text not null default 'pending',
+  source text not null,
+  external_ref text not null,
   created_at timestamptz not null default now(),
-  constraint social_buyer_handoffs_status_chk check (status in ('pending', 'sent', 'skipped', 'failed')),
-  constraint social_buyer_handoffs_name_chk check (
+  status text not null default 'pending',
+  status_at timestamptz not null default now(),
+  constraint seeker_handoffs_source_chk check (source in ('facebook_dm', 'instagram_dm')),
+  constraint seeker_handoffs_status_chk check (status in ('pending', 'sent', 'expired', 'failed')),
+  constraint seeker_handoffs_name_chk check (
     char_length(agent_first_name) between 1 and 40
     and agent_first_name !~ '[0-9]'
-  )
+  ),
+  constraint seeker_handoffs_lead_uidx unique (lead_id)
 );
 
-comment on table public.social_buyer_handoffs is
-  'תור מסירה לגבריאלה של מטא: ליד, סוכן/ת, ושם פרטי בלבד. אין טלפון. לא נשלח מכאן כלום לפונה.';
+comment on table public.seeker_handoffs is
+  'תור מסירה לגבריאלה של מטא אחרי תפיסה של הודעה פרטית בלי פוסט. שם פרטי של הסוכן/ת ו-zernio_id. אין טלפון. לא נשלח מכאן כלום לפונה.';
 
-alter table public.social_buyer_handoffs enable row level security;
-revoke all on table public.social_buyer_handoffs from public, anon, authenticated;
-grant select, insert, update, delete on table public.social_buyer_handoffs to service_role;
+alter table public.seeker_handoffs enable row level security;
+revoke all on table public.seeker_handoffs from public, anon, authenticated;
+grant select, insert, update, delete on table public.seeker_handoffs to service_role;
+
+create or replace function public.seeker_handoffs_pending()
+returns table (
+  id uuid,
+  lead_id uuid,
+  agent_first_name text,
+  source text,
+  external_ref text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select h.id, h.lead_id, h.agent_first_name, h.source, h.external_ref, h.created_at
+    from public.seeker_handoffs h
+   where h.status = 'pending'
+   order by h.created_at, h.id;
+$$;
+
+comment on function public.seeker_handoffs_pending() is
+  'שורות המסירה שממתינות. בלי טלפון ובלי agent_id. service_role בלבד.';
+
+revoke all on function public.seeker_handoffs_pending() from public, anon, authenticated;
+grant execute on function public.seeker_handoffs_pending() to service_role;
+
+create or replace function public.mark_handoff(p_id uuid, p_status text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_status text;
+  v_n int;
+begin
+  if p_status is null or p_status not in ('sent', 'expired', 'failed') then
+    return false;
+  end if;
+  select h.status into v_status
+    from public.seeker_handoffs h
+   where h.id = p_id
+   for update;
+  if not found then
+    return false;
+  end if;
+  if v_status = p_status then
+    return true;
+  end if;
+  if v_status is distinct from 'pending' then
+    return false;
+  end if;
+  update public.seeker_handoffs
+     set status = p_status,
+         status_at = now()
+   where id = p_id
+     and status = 'pending';
+  get diagnostics v_n = row_count;
+  return v_n = 1;
+end;
+$$;
+
+comment on function public.mark_handoff(uuid, text) is
+  'מעביר מסירה מ-pending ל-sent, expired או failed. קריאה חוזרת לאותו סטטוס לא משנה את status_at. service_role בלבד.';
+
+revoke all on function public.mark_handoff(uuid, text) from public, anon, authenticated;
+grant execute on function public.mark_handoff(uuid, text) to service_role;
 
 -- מזהה שיחה ב-payload, אם גבריאלה שלחה אחד. אין עמודה כזו היום.
 create or replace function public.social_buyer_conversation_id(p_payload jsonb)
@@ -323,11 +397,15 @@ begin
     end if;
     v_queue := coalesce((select value::int from public.pricing_config
                           where key = 'social_buyer_handoff_enabled'), 0);
-    if v_queue = 1 and not exists (
-      select 1 from public.social_buyer_handoffs h where h.lead_id = v_lead
-    ) then
-      insert into public.social_buyer_handoffs (lead_id, agent_id, agent_first_name, status)
-      values (v_lead, v_agent, v_first, 'pending');
+    if v_queue = 1
+       and s.source in ('facebook_dm', 'instagram_dm')
+       and nullif(btrim(coalesce(s.external_ref, '')), '') is not null then
+      insert into public.seeker_handoffs (
+        lead_id, agent_id, agent_first_name, source, external_ref, status, status_at
+      ) values (
+        v_lead, v_agent, v_first, s.source, s.external_ref, 'pending', now()
+      )
+      on conflict (lead_id) do nothing;
     end if;
   exception when others then
     return jsonb_build_object(

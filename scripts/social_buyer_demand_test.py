@@ -30,6 +30,8 @@ HELPERS = (
     "social_post_host_ok(",
     "social_buyer_source_post_url(",
     "social_buyer_handover(",
+    "seeker_handoffs_pending(",
+    "mark_handoff(",
     "social_buyer_to_open_demand(",
     "open_demand_claim(",
     "scraped_lead_notify_demand(",
@@ -165,11 +167,16 @@ create table public.leads (
   source text, source_detail text, external_ref text,
   unlocked_by uuid, unlocked_at timestamptz, created_at timestamptz default now()
 );
-create table public.social_buyer_handoffs (
+create table public.seeker_handoffs (
   id uuid primary key default gen_random_uuid(),
-  lead_id uuid not null, agent_id uuid not null,
-  agent_first_name text not null, status text not null default 'pending',
-  created_at timestamptz not null default now()
+  lead_id uuid not null unique,
+  agent_id uuid not null,
+  agent_first_name text not null,
+  source text not null,
+  external_ref text not null,
+  created_at timestamptz not null default now(),
+  status text not null default 'pending',
+  status_at timestamptz not null default now()
 );
 create function public.claim_lead(p_lead_id uuid, p_agent_id uuid)
 returns jsonb language plpgsql as $$
@@ -310,17 +317,36 @@ insert into public.pricing_config (key, value) values
         )
         if "lead_id" not in hand or "post_url" in hand or "phone" in hand or "050" in hand or "דנה" in hand:
             fail(f"המסירה חשפה פרטים: {hand}")
-        if psql("select count(*) from public.social_buyer_handoffs") != "0":
+        if psql("select count(*) from public.seeker_handoffs") != "0":
             fail("התור נכתב כשהדגל כבוי")
         psql("update public.pricing_config set value = 1 where key = 'social_buyer_handoff_enabled'")
         hand = psql(
             "select public.social_buyer_handover(id)::text from public.scraped_leads "
             "where external_ref = 'z-buyer'"
         )
-        queued = psql("select agent_first_name || '|' || status from public.social_buyer_handoffs")
-        if queued != "תומר|pending" or "050" in queued or "יצחק" in queued:
-            fail(f"תור המסירה: {queued}")
-        print("✓ הודעה פרטית: ליד בלי טלפון ב-JSON, ותור עם שם פרטי בלבד")
+        pending = psql(
+            "select source || '|' || external_ref || '|' || agent_first_name "
+            "from public.seeker_handoffs_pending()"
+        )
+        if pending != "facebook_dm|z-buyer|תומר" or "050" in pending or "יצחק" in pending:
+            fail(f"תור המסירה: {pending}")
+        hid = psql("select id::text from public.seeker_handoffs")
+        if psql(f"select public.mark_handoff('{hid}', 'skipped')") != "f":
+            fail("סטטוס לא חוקי התקבל")
+        if psql(f"select public.mark_handoff('{hid}', 'sent')") != "t":
+            fail("sent לא עבר")
+        stamped = psql(f"select status_at::text from public.seeker_handoffs where id = '{hid}'")
+        if psql(f"select public.mark_handoff('{hid}', 'sent')") != "t":
+            fail("sent חוזר לא היה שקט")
+        if psql(f"select status_at::text from public.seeker_handoffs where id = '{hid}'") != stamped:
+            fail("קריאה חוזרת הזיזה את status_at")
+        if psql(f"select public.mark_handoff('{hid}', 'failed')") != "f":
+            fail("מעבר מ-sent ל-failed עבר")
+        if psql(f"select status from public.seeker_handoffs where id = '{hid}'") != "sent":
+            fail("הסטטוס השתנה אחרי סירוב")
+        if psql("select count(*) from public.seeker_handoffs_pending()") != "0":
+            fail("שורה שנשלחה עדיין ממתינה")
+        print("✓ הודעה פרטית: ליד בלי טלפון, תור רק כשהדגל דלוק, וסימון שקט")
 
         psql_script(extract(MIG, "open_demand_claim("))
         claimed = psql(
@@ -457,6 +483,37 @@ select id, now(), now() - interval '2 days'
 
         if psql("select count(*) from public.scraped_leads") != "4":
             fail("נוצרו שורות מיותרות")
+        psql_script(
+            "insert into public.social_leads (zernio_id, channel, kind, status, payload) values "
+            "('z-ig', 'instagram_dm', 'buyer', 'routing', jsonb_build_object('phone', '0501234666')),"
+            "('z-cmt', 'facebook_comment', 'buyer', 'routing', jsonb_build_object('phone', '0501234555'));"
+            "insert into public.saved_searches (phone, source, lead_status, status) values "
+            "('0501234666', 'instagram_dm', 'archived', 'active'),"
+            "('0501234555', 'facebook_comment', 'archived', 'active');"
+            "insert into public.scraped_leads (lead_type, status, source, post_url, external_ref, city) values "
+            "('seeker_inbound', 'open_demand', 'instagram_dm', "
+            "'https://shuknadlan.co.il/crm?goto=accLeads&tab=demand', 'z-ig', 'עפולה'),"
+            "('seeker_inbound', 'open_demand', 'facebook_comment', "
+            "'https://shuknadlan.co.il/crm?goto=accLeads&tab=demand', 'z-cmt', 'עפולה'),"
+            "('seeker_inbound', 'open_demand', 'facebook_dm', "
+            "'https://shuknadlan.co.il/crm?goto=accLeads&tab=demand', null, 'עפולה');"
+        )
+        for ref in ("z-ig", "z-cmt"):
+            psql(
+                "select public.social_buyer_handover(id)::text from public.scraped_leads "
+                f"where external_ref = '{ref}'"
+            )
+        psql(
+            "select public.social_buyer_handover(id)::text from public.scraped_leads "
+            "where external_ref is null"
+        )
+        got = psql(
+            "select coalesce(string_agg(source || '|' || external_ref, ',' order by external_ref), '') "
+            "from public.seeker_handoffs"
+        )
+        if got != "facebook_dm|z-buyer,instagram_dm|z-ig":
+            fail(f"התור קיבל מי שאינו הודעה פרטית: {got}")
+        print("✓ תגובה ובלי external_ref לא נכנסים לתור")
         print("עבר")
         return 0
     finally:
