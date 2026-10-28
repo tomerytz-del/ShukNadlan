@@ -83,6 +83,16 @@ def main() -> int:
     urgent = src.split("as urgent", 1)[0]
     if "lead_response_reminder" in urgent.split("array[")[-1]:
         fail("ההסלמה סומנה urgent ועוקפת שקט")
+    prio = extract(MIG, "notification_push_priority_types(")
+    if "lead_response" in prio:
+        fail("ההסלמה ב-notification_push_priority_types ועוקפת את התקרה")
+    quiet_fn = extract(MIG, "notification_agent_send_quiet(")
+    if "array_remove" in quiet_fn:
+        fail("יום 5 מוסר מכל סוכן/ת")
+    ts = (ROOT / "supabase/functions/notification-push/index.ts").read_text(encoding="utf-8")
+    prio_line = next(l for l in ts.splitlines() if "const PRIORITY_TYPES" in l)
+    if "lead_response" in prio_line:
+        fail("PRIORITY_TYPES עדיין כולל את ההסלמה")
 
     subprocess.run(["dropdb", "--if-exists", DB], check=False)
     subprocess.run(["createdb", DB], check=True)
@@ -92,10 +102,11 @@ def main() -> int:
         setup += extract(MIG, "notification_agent_send_quiet(")
         setup += extract(ESC, "notification_business_elapsed(")
         table_at = esc.find("create table if not exists public.lead_escalations")
-        table_to = esc.find("create or replace function public.lead_response_escalations")
-        if table_at < 0 or table_to < table_at:
+        state_at = esc.find("create table if not exists public.notification_send_window_state")
+        fn_at = esc.find("create or replace function public.lead_response_escalations")
+        if table_at < 0 or state_at < table_at or fn_at < state_at:
             fail("לא נחתכה הטבלה")
-        setup += esc[table_at:table_to]
+        setup += esc[table_at:state_at]
         setup += """
 create function public.phone_tail9(p text) returns text language sql immutable as $$
   select case when length(regexp_replace(coalesce(p, ''), '\\D', '', 'g')) >= 9
@@ -105,7 +116,8 @@ create table public.pricing_config (key text primary key, value int, description
 insert into public.pricing_config (key, value) values ('notif_send_window_friday_enabled', 0);
 create table public.agency_members (
   id uuid primary key, agency_id uuid, role text, active boolean default true,
-  closed_at timestamptz, is_platform_admin boolean default false, display_name text
+  closed_at timestamptz, is_platform_admin boolean default false, display_name text,
+  created_at timestamptz not null default now()
 );
 create table public.leads (
   id uuid primary key, agent_id uuid, agency_id uuid,
@@ -135,6 +147,7 @@ create table public.scraped_leads (
   claimed_by uuid, claimed_at timestamptz
 );
 """
+        setup += esc[state_at:fn_at]
         setup += extract(ESC, "lead_response_escalations(")
         psql_script(setup)
 
@@ -158,6 +171,8 @@ create table public.scraped_leads (
         quiet = [
             ("דגל 0: שישי 10:00 שקט", 0, "2026-10-30 10:00:00+02", "{5,6}", "t"),
             ("דגל 1: שישי 10:00 פתוח", 1, "2026-10-30 10:00:00+02", "{5,6}", "f"),
+            ("דגל 1: שישי מפורש נשאר שקט", 1, "2026-10-30 10:00:00+02", "{5}", "t"),
+            ("דגל 1: סדר הפוך אינו ברירת המחדל", 1, "2026-10-30 10:00:00+02", "{6,5}", "t"),
             ("דגל 1: שישי 14:00 סגור", 1, "2026-10-30 14:00:00+02", "{5,6}", "t"),
             ("דגל 1: שבת סגורה גם בלי יום 6", 1, "2026-10-31 12:00:00+02", "{}", "t"),
             ("דגל 1: חמישי 20:00 פתוח", 1, "2026-10-29 20:00:00+02", "{5,6}", "f"),
@@ -196,20 +211,31 @@ create table public.scraped_leads (
         mgr = "22222222-2222-4222-8222-222222222222"
         admin = "33333333-3333-4333-8333-333333333333"
         agency = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        mgr2 = "22222222-2222-4222-8222-222222222223"
+        admin2 = "33333333-3333-4333-8333-333333333334"
         lead3 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
         lead5 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2"
         lead_old = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3"
+        lead_long = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4"
+        lead_two = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb5"
+        lead_solo = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb6"
+        lead_self = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb7"
         fri_10 = "2026-10-30 10:00:00+02"
+        fri_11 = "2026-10-30 11:00:00+02"
+        fri_12 = "2026-10-30 12:00:00+02"
         fri_14 = "2026-10-30 14:00:00+02"
+        thu_08 = "2026-10-29 08:00:00+02"
+        thu_19 = "2026-10-29 19:00:00+02"
         psql_script(f"""
-insert into public.agency_members (id, agency_id, role, active, is_platform_admin)
+insert into public.agency_members (id, agency_id, role, active, is_platform_admin, created_at)
 values
-  ('{agent}', '{agency}', 'agent', true, false),
-  ('{mgr}', '{agency}', 'manager', true, false),
-  ('{admin}', null, 'agent', true, true);
+  ('{agent}', '{agency}', 'agent', true, false, timestamptz '2020-01-01'),
+  ('{mgr}', '{agency}', 'manager', true, false, timestamptz '2020-01-02'),
+  ('{admin}', null, 'agent', true, true, timestamptz '2019-01-01');
 insert into public.leads (id, agent_id, agency_id, created_at) values
   ('{lead3}', '{agent}', '{agency}', timestamptz '{fri_10}' - interval '3 hours'),
-  ('{lead5}', '{agent}', '{agency}', timestamptz '{fri_10}' - interval '5 hours');
+  ('{lead5}', '{agent}', '{agency}', timestamptz '{fri_10}' - interval '5 hours'),
+  ('{lead_long}', '{agent}', '{agency}', timestamptz '{thu_08}');
 """)
         n = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
         if n != "0" or psql("select count(*) from public.notifications") != "0":
@@ -219,6 +245,11 @@ insert into public.leads (id, agent_id, agency_id, created_at) values
         print("✓ דגל 0 אינו כותב")
 
         psql("update public.pricing_config set value = 1 where key = 'notif_send_window_friday_enabled'")
+        if psql("select enabled_at is not null from public.notification_send_window_state where id = 1") != "t":
+            fail("הדלקה לא רשמה enabled_at")
+        print("✓ הדלקה רושמת enabled_at")
+        # החותמת על רגע השישי עצמו: שלושת הלידים נוצרו לפניה.
+        psql(f"update public.notification_send_window_state set enabled_at = timestamptz '{fri_10}'")
         n = psql(f"select public.lead_response_escalations(timestamptz '{fri_14}')")
         if n != "0" or psql("select count(*) from public.notifications") != "0":
             fail("שישי 14:00 כתב שורות")
@@ -227,52 +258,111 @@ insert into public.leads (id, agent_id, agency_id, created_at) values
         print("✓ חלון סגור אינו כותב")
 
         n = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
+        if n != "0" or psql("select count(*) from public.notifications") != "0":
+            fail("ליד מלפני ההדלקה הוסלם")
+        print("✓ ליד מלפני ההדלקה אינו נכנס")
+
+        psql("update public.notification_send_window_state set enabled_at = timestamptz '2026-10-01'")
+        n = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
         if n != "3":
-            fail(f"ציפינו 3 שורות (תזכורת+הסלמה לשני לידים חלקי), קיבלנו {n}")
-        # lead3 is 3h: reminder only. lead5 is 5h: reminder + manager.
+            fail(f"ציפינו 3 תזכורות בלי הסלמה, קיבלנו {n}")
         got_types = psql(
             "select related_lead_id::text || ' ' || type || ' ' || agent_id::text "
             "from public.notifications order by 1"
         )
         wanted = "\n".join([
             f"{lead3} lead_response_reminder {agent}",
-            f"{lead5} lead_response_escalation {mgr}",
             f"{lead5} lead_response_reminder {agent}",
+            f"{lead_long} lead_response_reminder {agent}",
         ])
         if got_types != wanted:
             fail(f"נמענים לא נכונים:\n{got_types}\n---\n{wanted}")
+        if psql("select count(*) from public.notifications where type = 'lead_response_escalation'") != "0":
+            fail("תזכורת והסלמה יצאו באותו סבב")
         if psql("select count(*) from public.notifications where type = 'agenda_reminder'") != "0":
             fail("נכתב agenda_reminder")
-        got_esc = psql(
-            "select lead_id::text || ' ' || stage || ' ' || escalated_to_role "
-            "|| ' ' || coalesce(resolution, '-') "
-            "from public.lead_escalations order by 1"
-        )
-        wanted_esc = "\n".join([
-            f"{lead3} reminder_2h agent -",
-            f"{lead5} escalated_4h manager -",
-            f"{lead5} reminder_2h agent -",
-        ])
-        if got_esc != wanted_esc:
-            fail(f"lead_escalations:\n{got_esc}\n---\n{wanted_esc}")
-        print("✓ שעתיים לסוכן/ת, ארבע למנהל/ת, בלי agenda_reminder")
+        print("✓ שעתיים פעילות: תזכורת בלבד, גם לליד בן יום")
 
-        again = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
-        if again != "0" or psql("select count(*) from public.notifications") != "3":
+        n = psql(f"select public.lead_response_escalations(timestamptz '{fri_11}')")
+        if n != "0" or psql("select count(*) from public.notifications") != "3":
+            fail("שעה פעילה אחת אחרי התזכורת כבר הסלימה")
+        print("✓ הסלמה מחכה שעתיים פעילות אחרי התזכורת")
+
+        n = psql(f"select public.lead_response_escalations(timestamptz '{fri_12}')")
+        if n != "3":
+            fail(f"ציפינו 3 הסלמות, קיבלנו {n}")
+        dests = psql(
+            "select related_lead_id::text || ' ' || agent_id::text "
+            "from public.notifications where type = 'lead_response_escalation' order by 1"
+        )
+        wanted_dest = "\n".join([
+            f"{lead3} {mgr}",
+            f"{lead5} {mgr}",
+            f"{lead_long} {mgr}",
+        ])
+        if dests != wanted_dest:
+            fail(f"הסלמה לא למנהל/ת הוותיק/ה:\n{dests}\n---\n{wanted_dest}")
+        print("✓ הסלמה למנהל/ת אחד/ת, אחרי התזכורת")
+
+        again = psql(f"select public.lead_response_escalations(timestamptz '{fri_12}')")
+        if again != "0" or psql("select count(*) from public.notifications") != "6":
             fail("הסבב השני כתב כפילות")
         print("✓ אין כפילות")
 
-        psql("delete from public.notifications")
-        psql(f"update public.agency_members set active = false where id = '{mgr}'")
-        psql(f"delete from public.leads where id = '{lead3}'")
+        psql_script(f"""
+insert into public.agency_members (id, agency_id, role, active, is_platform_admin, created_at)
+values
+  ('{mgr2}', '{agency}', 'manager', true, false, timestamptz '2024-01-01'),
+  ('{admin2}', null, 'agent', true, true, timestamptz '2024-06-01');
+insert into public.leads (id, agent_id, agency_id, created_at) values
+  ('{lead_two}', '{agent}', '{agency}', timestamptz '{thu_19}');
+insert into public.lead_escalations (lead_id, stage, escalated_at, escalated_to_role)
+values ('{lead_two}', 'reminder_2h', timestamptz '{thu_19}', 'agent');
+""")
         n = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
-        dest = psql(
-            f"select agent_id::text from public.notifications "
-            f"where type = 'lead_response_escalation' and related_lead_id = '{lead5}'"
+        two = psql(
+            "select string_agg(agent_id::text, ',' order by agent_id::text) "
+            f"from public.notifications where related_lead_id = '{lead_two}' "
+            "and type = 'lead_response_escalation'"
         )
-        if dest != admin:
-            fail(f"בלי מנהל/ת הציפייה למנהל/ת פלטפורמה, קיבלנו {dest}")
-        print("✓ בלי מנהל/ת ההסלמה למנהל/ת הפלטפורמה")
+        if n != "1" or two != mgr:
+            fail(f"שני מנהלים: ציפינו רק לוותיק, קיבלנו n={n} dest={two}")
+        print("✓ שני מנהלים: רק הוותיק")
+
+        psql(f"update public.agency_members set active = false where id in ('{mgr}', '{mgr2}')")
+        psql_script(f"""
+insert into public.leads (id, agent_id, agency_id, created_at) values
+  ('{lead_solo}', '{agent}', '{agency}', timestamptz '{thu_19}');
+insert into public.lead_escalations (lead_id, stage, escalated_at, escalated_to_role)
+values ('{lead_solo}', 'reminder_2h', timestamptz '{thu_19}', 'agent');
+""")
+        n = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
+        solo = psql(
+            "select string_agg(agent_id::text, ',' order by agent_id::text) "
+            f"from public.notifications where related_lead_id = '{lead_solo}' "
+            "and type = 'lead_response_escalation'"
+        )
+        if n != "1" or solo != admin:
+            fail(f"בלי מנהל/ת: ציפינו למנהל/ת הפלטפורמה הוותיק/ה, קיבלנו n={n} dest={solo}")
+        print("✓ בלי מנהל/ת ההסלמה למנהל/ת פלטפורמה אחד/ת")
+
+        psql(f"update public.agency_members set role = 'manager' where id = '{agent}'")
+        psql_script(f"""
+insert into public.leads (id, agent_id, agency_id, created_at) values
+  ('{lead_self}', '{agent}', '{agency}', timestamptz '{thu_19}');
+insert into public.lead_escalations (lead_id, stage, escalated_at, escalated_to_role)
+values ('{lead_self}', 'reminder_2h', timestamptz '{thu_19}', 'agent');
+""")
+        n = psql(f"select public.lead_response_escalations(timestamptz '{fri_10}')")
+        self_rows = psql(
+            "select type || ' ' || agent_id::text from public.notifications "
+            f"where related_lead_id = '{lead_self}' order by 1"
+        )
+        if self_rows != f"lead_response_escalation {admin}":
+            fail(f"סוכן/ת שהוא/היא המנהל/ת קיבל/ה כפילות:\n{self_rows}")
+        print("✓ סוכן/ת שהוא/היא המנהל/ת: הסלמה אחת למנהל/ת הפלטפורמה")
+        psql(f"update public.agency_members set role = 'agent' where id = '{agent}'")
+        psql(f"update public.agency_members set active = true where id = '{mgr}'")
 
         psql("delete from public.notifications")
         psql(f"update public.leads set first_response_at = created_at where id = '{lead5}'")
@@ -419,6 +509,51 @@ values ('{born_lead}', '{agent}', '{agency}', timestamptz '{thu_19}',
         ) != "unclaimed":
             fail("ראשון 08:00 לא כתב את ההסלמה שחיכתה")
         print("✓ ראשון 08:00 כותב הסלמה שהבשילה בסוף השבוע")
+
+        lead_pause = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8"
+        sun_09 = "2026-11-01 09:00:00+02"
+        sun_10 = "2026-11-01 10:00:00+02"
+        psql(f"insert into public.leads (id, agent_id, agency_id, created_at) values "
+             f"('{lead_pause}', '{agent}', '{agency}', timestamptz '{fri_12}')")
+        psql(f"select public.lead_response_escalations(timestamptz '{sat_12}')")
+        if psql(f"select count(*) from public.lead_escalations where lead_id = '{lead_pause}'") != "0":
+            fail("שבת ספרה את הליד כאילו השעון רץ")
+        psql(f"select public.lead_response_escalations(timestamptz '{sun_08}')")
+        if psql(f"select count(*) from public.lead_escalations where lead_id = '{lead_pause}'") != "0":
+            fail("ראשון 08:00 הסלים ליד עם שעה פעילה אחת")
+        psql(f"select public.lead_response_escalations(timestamptz '{sun_09}')")
+        pause = psql(
+            "select stage from public.lead_escalations "
+            f"where lead_id = '{lead_pause}' order by stage"
+        )
+        if pause != "reminder_2h":
+            fail(f"השעון לא נעצר בסוף השבוע: {pause}")
+        print("✓ השעון נעצר מחוץ לחלון, וההסלמה לא יוצאת עם התזכורת")
+
+        cap_ids = [f"eeeeeeee-eeee-4eee-8eee-eeeeeeeeee{i:02d}" for i in range(1, 13)]
+        values = ",\n".join(
+            f"('{i}', '{agent}', '{agency}', timestamptz '{sun_08}')" for i in cap_ids
+        )
+        psql(f"insert into public.leads (id, agent_id, agency_id, created_at) values {values}")
+        n = psql(f"select public.lead_response_escalations(timestamptz '{sun_10}')")
+        got = psql(
+            "select count(*) from public.lead_escalations "
+            f"where stage = 'reminder_2h' and lead_id in ({','.join(repr(i) for i in cap_ids)})"
+        )
+        if n != "10" or got != "10":
+            fail(f"תקרה: ציפינו 10, קיבלנו n={n} rows={got}")
+        n2 = psql(f"select public.lead_response_escalations(timestamptz '{sun_10}')")
+        got2 = psql(
+            "select count(*) from public.lead_escalations "
+            f"where stage = 'reminder_2h' and lead_id in ({','.join(repr(i) for i in cap_ids)})"
+        )
+        esc_n = psql(
+            "select count(*) from public.lead_escalations "
+            f"where stage = 'escalated_4h' and lead_id in ({','.join(repr(i) for i in cap_ids)})"
+        )
+        if n2 != "2" or got2 != "12" or esc_n != "0":
+            fail(f"השאר לא נדחה: n2={n2} rows={got2} esc={esc_n}")
+        print("✓ תקרה 10 בסבב, והשאר בסבב הבא")
         print("עבר")
         return 0
     finally:

@@ -281,9 +281,10 @@ function itemPath(it: Item): string | null {
   return notificationPath(it as NotifTarget);
 }
 
-// ‏notification_push_priority_types() במסד (20270420090000): מה שאדם מחכה לו
-// בצד השני. הם עולים לראש ההודעה, כדי שחיתוך האורך (4000 / 900) לא יפגע בהם.
-const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead", "lead_response_reminder", "lead_response_escalation"];
+// ‏notification_push_priority_types() במסד (20270420090000): מה שעוקף את
+// התקרה היומית. lead_response_reminder ו-lead_response_escalation אינם
+// כאן: הם נספרים בתקרה, וכשהיא מלאה נשארים בפעמון.
+const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
 
 // רקע: שיתוף נכס ממשרד אחר ונרשם/ת חדש/ה לפלטפורמה. במסד הם לא מעירים שליחה
 // לבד (notification_push_is_ambient), וכאן הם מתקפלים לשורה אחת לכל סוג - ב-

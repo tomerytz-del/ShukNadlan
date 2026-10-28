@@ -9,12 +9,16 @@
 --   · משישי 13:00 עד ראשון 08:00 לא יוצא כלום
 -- שעות השקט של הסוכן/ת עדיין חלות בתוך החלון, והן יכולות רק לצמצם.
 -- שבת סגורה גם אם הסוכן/ת הוריד/ה אותה מ-quiet_days.
+-- בחירה מפורשת של שישי כיום שקט נשארת. רק ברירת המחדל {5,6} נפתחת
+-- בשישי בבוקר. שורות קיימות אינן נערכות.
 -- agenda_reminder נשאר החריג היחיד שעוקף את השקט, כמו היום.
 --
--- הסלמה על ליד בלי מענה (lead_response_escalations) רצה כל 15 דקות
--- ומחזירה 0 כל עוד הדגל 0 או שהחלון סגור. אין insert, ואין שליחה.
--- שעתיים: תזכורת לסוכן/ת. ארבע שעות: מנהל/ת המשרד, או מנהל/ת הפלטפורמה
--- אם אין מנהל/ת פעיל/ה. אלה אינם agenda_reminder, ולכן אינם עוקפים שקט.
+-- שני סוגי המענה אינם בעדיפות: הם נספרים בתקרה היומית, וכשהיא מלאה
+-- נשארים בפעמון. רק new_lead ו-agenda_reminder (ו-showcase_meeting
+-- שכבר היה) עוקפים את התקרה.
+--
+-- גוף ההסלמה ב-20271029250000. כאן רק החתימה, כדי שה-cron ייווצר.
+-- הדגל נשאר 0.
 -- ============================================================================
 
 insert into public.pricing_config (key, value, description)
@@ -48,8 +52,9 @@ grant execute on function public.notification_send_window_open(timestamptz) to s
 
 -- ---------------------------------------------------------------------------
 -- 2. שקט אפקטיבי. דגל 0 = agent_reminder_quiet_at כמו היום.
---    דגל 1 = החלון של הפלטפורמה, וגם שעות/ימים של הסוכן/ת בלי יום שישי
---    כיום שלם (אחרת {5,6} חוסם את שישי בבוקר).
+--    דגל 1 = החלון של הפלטפורמה, ושעות/ימים של הסוכן/ת.
+--    יום 5 יורד רק כש-quiet_days הוא בדיוק ברירת המחדל {5,6}.
+--    מערך אחר, כולל שישי שנבחר במפורש, נשאר כמו שהוא.
 -- ---------------------------------------------------------------------------
 create or replace function public.notification_agent_send_quiet(
   p_from int,
@@ -68,7 +73,11 @@ as $$
              not public.notification_send_window_open(p_at)
              or public.agent_reminder_quiet_at(
                   p_at, p_from, p_to,
-                  array_remove(coalesce(p_days, '{}'::smallint[]), 5::smallint))
+                  case
+                    when coalesce(p_days, '{5,6}'::smallint[]) = '{5,6}'::smallint[]
+                      then '{6}'::smallint[]
+                    else coalesce(p_days, '{5,6}'::smallint[])
+                  end)
            else
              public.agent_reminder_quiet_at(
                p_at, p_from, p_to, coalesce(p_days, '{5,6}'::smallint[]))
@@ -76,14 +85,15 @@ as $$
 $$;
 
 comment on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) is
-  'האם הרגע שקט לשליחת התראות. דגל 0 שומר את שישי-שבת. דגל 1 פותח שישי 08:00-13:00 וסוגר עד ראשון 08:00 (20271029235000).';
+  'האם הרגע שקט לשליחת התראות. דגל 0 שומר את שישי-שבת. דגל 1 פותח שישי 08:00-13:00 רק לברירת המחדל {5,6}. בחירת שישי נשארת (20271029235000).';
 
 revoke all on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) from public, anon, authenticated;
 grant execute on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 3. שני סוגים. אדם מחכה, אז הם בעדיפות - ושקט עדיין חל, כי הם לא
---    agenda_reminder.
+-- 3. שני סוגים. הם אינם בעדיפות: התקרה היומית חלה עליהם, וכשהיא מלאה
+--    notification_push_due_agents משאיר אותם מחוץ ל-whatsapp_types
+--    והם נשארים בפעמון. new_lead ו-agenda_reminder ממשיכים לצאת.
 -- ---------------------------------------------------------------------------
 select public.notification_types_add(array['lead_response_reminder', 'lead_response_escalation']);
 
@@ -94,13 +104,12 @@ immutable
 set search_path = ''
 as $$
   select array[
-    'agenda_reminder', 'showcase_meeting', 'new_lead',
-    'lead_response_reminder', 'lead_response_escalation'
+    'agenda_reminder', 'showcase_meeting', 'new_lead'
   ]::text[];
 $$;
 
 comment on function public.notification_push_priority_types() is
-  'סוגי התראה שעוקפים בוואטסאפ את התקרה היומית ואת מרווח הקיבוץ, ונשמרים 72 שעות ולא 12. שקט חל על כולם חוץ מ-agenda_reminder (20270420090000, 20271029235000).';
+  'סוגי התראה שעוקפים בוואטסאפ את התקרה היומית ואת מרווח הקיבוץ, ונשמרים 72 שעות ולא 12. lead_response_reminder ו-lead_response_escalation אינם כאן (20270420090000, 20271029235000).';
 
 revoke all on function public.notification_push_priority_types() from public, anon, authenticated;
 grant execute on function public.notification_push_priority_types() to service_role;
@@ -277,8 +286,10 @@ revoke all on function public.notification_push_due_agents() from public, anon, 
 grant execute on function public.notification_push_due_agents() to service_role;
 
 -- ---------------------------------------------------------------------------
--- 5. הסלמה. לא נקראת מהמיגרציה. cron כל 15 דקות, ומחזיר 0 כשהדגל 0
---    או כשהחלון סגור - אין שורה ואין וואטסאפ.
+-- 5. החתימה בלבד. הגוף שכותב תזכורות והסלמות ב-20271029250000:
+--    חותמת הדלקה, שעות פעילות, תקרה 10 בסבב, נמען אחד,
+--    ואידמפוטנטיות ב-lead_escalations. הדגל נשאר 0, והפונקציה
+--    הזו מחזירה 0 גם אם מישהו מדליק אותו לפני שהקובץ הבא רץ.
 -- ---------------------------------------------------------------------------
 create or replace function public.lead_response_escalations(p_now timestamptz default now())
 returns int
@@ -286,96 +297,18 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  v_flag int;
-  v_n    int := 0;
-  v_ins  int;
 begin
-  v_flag := coalesce((select value::int from public.pricing_config
-                       where key = 'notif_send_window_friday_enabled'), 0);
-  if v_flag <> 1 or not public.notification_send_window_open(p_now) then
+  if coalesce((select value::int from public.pricing_config
+                where key = 'notif_send_window_friday_enabled'), 0) <> 1
+     or not public.notification_send_window_open(p_now) then
     return 0;
   end if;
-
-  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
-  select l.agent_id, 'lead_response_reminder',
-         'ליד בלי מענה',
-         'עברו שעתיים והליד עדיין בלי מענה.',
-         l.id, false
-    from public.leads l
-    join public.agency_members m on m.id = l.agent_id and m.active and m.closed_at is null
-   where l.agent_id is not null
-     and l.first_response_at is null
-     and l.created_at <= p_now - interval '2 hours'
-     and l.created_at > p_now - interval '7 days'
-     and not exists (select 1 from public.lead_archives a where a.lead_id = l.id)
-     and not exists (
-       select 1 from public.notifications n
-        where n.type = 'lead_response_reminder'
-          and n.related_lead_id = l.id
-          and n.agent_id = l.agent_id
-     );
-  get diagnostics v_ins = row_count;
-  v_n := v_n + v_ins;
-
-  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
-  select mgr.id, 'lead_response_escalation',
-         'ליד בלי מענה - למנהל/ת',
-         'עברו ארבע שעות בלי מענה לליד.',
-         l.id, false
-    from public.leads l
-    join public.agency_members mgr
-      on mgr.agency_id = coalesce(l.agency_id, (select am.agency_id from public.agency_members am where am.id = l.agent_id))
-     and mgr.role = 'manager'
-     and mgr.active
-     and mgr.closed_at is null
-   where l.first_response_at is null
-     and l.created_at <= p_now - interval '4 hours'
-     and l.created_at > p_now - interval '7 days'
-     and not exists (select 1 from public.lead_archives a where a.lead_id = l.id)
-     and not exists (
-       select 1 from public.notifications n
-        where n.type = 'lead_response_escalation'
-          and n.related_lead_id = l.id
-          and n.agent_id = mgr.id
-     );
-  get diagnostics v_ins = row_count;
-  v_n := v_n + v_ins;
-
-  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
-  select adm.id, 'lead_response_escalation',
-         'ליד בלי מענה - למנהל/ת',
-         'עברו ארבע שעות בלי מענה לליד.',
-         l.id, false
-    from public.leads l
-    join public.agency_members adm on adm.is_platform_admin and adm.active and adm.closed_at is null
-   where l.first_response_at is null
-     and l.created_at <= p_now - interval '4 hours'
-     and l.created_at > p_now - interval '7 days'
-     and not exists (select 1 from public.lead_archives a where a.lead_id = l.id)
-     and not exists (
-       select 1
-         from public.agency_members mgr
-        where mgr.agency_id = coalesce(l.agency_id, (select am.agency_id from public.agency_members am where am.id = l.agent_id))
-          and mgr.role = 'manager'
-          and mgr.active
-          and mgr.closed_at is null
-     )
-     and not exists (
-       select 1 from public.notifications n
-        where n.type = 'lead_response_escalation'
-          and n.related_lead_id = l.id
-          and n.agent_id = adm.id
-     );
-  get diagnostics v_ins = row_count;
-  v_n := v_n + v_ins;
-
-  return v_n;
+  return 0;
 end;
 $$;
 
 comment on function public.lead_response_escalations(timestamptz) is
-  'תזכורת אחרי שעתיים ומנהל/ת אחרי ארבע, רק כש-notif_send_window_friday_enabled=1 והחלון פתוח. לא agenda_reminder. דגל 0 מחזיר 0 (20271029235000).';
+  'חתימה. הגוף ב-20271029250000. דגל 0 או חלון סגור מחזיר 0, וגם דגל 1 מחזיר 0 עד שהקובץ הבא מחליף את הגוף (20271029235000).';
 
 revoke all on function public.lead_response_escalations(timestamptz) from public, anon, authenticated;
 grant execute on function public.lead_response_escalations(timestamptz) to service_role;

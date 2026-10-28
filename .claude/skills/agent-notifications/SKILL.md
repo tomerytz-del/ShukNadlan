@@ -184,12 +184,17 @@ UTILITY עם כפתור `לפתיחה` והבסיס `https://shuknadlan.co.il{{1
 היום (`quiet_days` כולל 5). כשהוא 1, `notification_agent_send_quiet`
 פותח שישי 08:00-13:00 שעון ישראל וסוגר מ-13:00 עד ראשון 08:00. שבת
 סגורה גם בלי יום 6 בהעדפות. שעות השקט של הסוכן/ת עדיין מצמצמות בתוך
-החלון. ‏`agenda_reminder` נשאר החריג היחיד.
+החלון. יום 5 יורד רק כש-`quiet_days` הוא בדיוק `{5,6}`. בחירה מפורשת
+של שישי נשארת, ושורות קיימות אינן נערכות. ‏`agenda_reminder` נשאר
+החריג היחיד.
 
 הסלמה על ליד בלי מענה (`lead_response_escalations`, כל 15 דקות) כותבת
-`lead_response_reminder` אחרי שעתיים ו-`lead_response_escalation` אחרי
-ארבע (מנהל/ת המשרד, או מנהל/ת פלטפורמה). היא מחזירה 0 כשהדגל 0 או
-כשהחלון סגור, ואינה משתמשת ב-`agenda_reminder`.
+`lead_response_reminder` אחרי שעתיים פעילות, ואחרי שעתיים פעילות נוספות
+`lead_response_escalation` לנמען אחד (המנהל/ת הוותיק/ה, או מנהל/ת
+הפלטפורמה הוותיק/ה אם אין או אם הסוכן/ת הוא/היא המנהל/ת). לא שתיהן
+באותו סבב, עד 10 מכל שלב, ורק לליד שנוצר אחרי `enabled_at`. היא מחזירה
+0 כשהדגל 0 או כשהחלון סגור. שני הסוגים אינם ב-`notification_push_priority_types`
+ואינם ב-`PRIORITY_TYPES`: הם נספרים בתקרה, וכשהיא מלאה נשארים בפעמון.
 
 `lead_escalations` נקראת רק ב-`service_role`, בלי טלפון ובלי שם. למחפש/ת
 מהרשתות `lead_id` הוא ה-`search_id` שחוזר מ-`social-lead-intake` (הקליטה
@@ -239,7 +244,9 @@ UTILITY עם כפתור `לפתיחה` והבסיס `https://shuknadlan.co.il{{1
 
 **סוג חדש - לאיזו קבוצה?** שאלה אחת: האם אדם מחכה לתשובה בצד השני (לקוח/ה,
 ליד, פגישה)? אז עדיפות - רשימה ב-`notification_push_priority_types` וב-
-`PRIORITY_TYPES` ב-`notification-push`, **שתיהן**. האם הוא נכתב בכמויות
+`PRIORITY_TYPES` ב-`notification-push`, **שתיהן**. חריג מפורש:
+`lead_response_reminder` ו-`lead_response_escalation` אינם בעדיפות, למרות
+שאדם מחכה. הם נספרים בתקרה ונשארים בפעמון כשהיא מלאה. האם הוא נכתב בכמויות
 (מאות ביום) ואינו דורש פעולה עכשיו? אז רקע - ב-`notification_push_is_ambient`
 וב-`isShare`/`isSignup` (‏`arrange`) ב-`notification-push`. אחרת - כלום.
 
