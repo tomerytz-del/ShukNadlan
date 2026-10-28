@@ -1,0 +1,28 @@
+name: פונקציות משותפות - תקרת ביקוש
+
+# הגוף האחרון של scraped_lead_notify_demand. דגל כבוי שומר את 15 של ההתפרצות.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/shared_fn_invariants_test.py"
+      - ".github/workflows/shared_fn_invariants.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/shared_fn_invariants_test.py"
+      - ".github/workflows/shared_fn_invariants.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: גוף אחרון
+        run: python3 scripts/shared_fn_invariants_test.py

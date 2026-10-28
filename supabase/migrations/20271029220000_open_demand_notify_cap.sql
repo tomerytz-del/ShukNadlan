@@ -126,6 +126,7 @@ declare
   v_site   boolean;
   v_on     boolean;
   v_cap    int;
+  v_fanout int;
   v_look   int;
   v_suppress boolean := false;
 begin
@@ -168,11 +169,40 @@ begin
     || '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.';
 
   if not v_on then
+    -- דגל כבוי: אותה תקרת 15 של 20271029140000. כולם בפעמון, וואטסאפ רק לראשונים.
+    v_fanout := coalesce(
+      (select value::int from public.pricing_config
+        where key = 'notif_burst_demand_fanout'), 15);
     insert into public.notifications (agent_id, type, title, body, suppress_push)
-    select m.id, 'open_demand', v_title, left(v_body, 500), v_site
-      from public.agency_members m
-     where m.active and public.agent_works_city(m.id, r.city_id)
-       and public.agent_handles_type(m.id, r.property_type, r.deal_type);
+    select s.id, 'open_demand', v_title, left(v_body, 500),
+           v_site or (v_fanout > 0 and s.rn > v_fanout)
+      from (
+        select m.id,
+               row_number() over (
+                 order by
+                   case
+                     when a.city_id = r.city_id then 0
+                     when exists (
+                       select 1
+                         from public.agent_lead_preferences lp
+                         join public.neighborhoods n
+                           on n.id = any (lp.preferred_neighborhoods)
+                        where lp.agent_id = m.id
+                          and lp.active
+                          and n.city_id = r.city_id
+                     ) then 1
+                     else 2
+                   end,
+                   w.last_message_at desc nulls last,
+                   m.id
+               ) as rn
+          from public.agency_members m
+          left join public.agencies a on a.id = m.agency_id
+          left join public.whatsapp_conversations w on w.agent_id = m.id
+         where m.active
+           and public.agent_works_city(m.id, r.city_id)
+           and public.agent_handles_type(m.id, r.property_type, r.deal_type)
+      ) s;
     get diagnostics v_n = row_count;
   else
     with eligible as (
