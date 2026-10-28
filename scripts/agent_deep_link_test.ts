@@ -22,6 +22,10 @@ import {
   stripHttpUrls,
   containsHttpUrl,
   actionTemplateMessage,
+  txnUtilityEligible,
+  txnUtilityGreeting,
+  txnUtilitySummary,
+  withShowcaseOnReminders,
   distinctButtonTitles,
   replyButtonsMessage,
   resendInteractiveAsText,
@@ -303,6 +307,30 @@ const actionBody = actionParts.find((c) => c.type === "body")!.parameters![1].te
 const actionBtn = actionParts.find((c) => c.type === "button")!.parameters![0].text;
 check("תבנית פעולה בלי כתובת ובלוכסן", !containsHttpUrl(actionBody) && actionBtn === "/crm?goto=accLeads");
 
+check("ליד חדש זכאי לתבנית העסקה", txnUtilityEligible([{ type: "new_lead" }]));
+check("תזכורת בלי סיור זכאית", txnUtilityEligible([{ type: "agenda_reminder", meeting_id: null, showcase_id: null }]));
+check("סיור עם פגישה אינו זכאי", !txnUtilityEligible([{ type: "agenda_reminder", meeting_id: ID }]));
+check("תזכורת עם מיניסייט בלי פגישה אינה זכאית", !txnUtilityEligible([{ type: "agenda_reminder", meeting_id: null, showcase_id: ID }]));
+check("תזכורת שנושאת רק מיניסייט אינה זכאית", !txnUtilityEligible([{ type: "agenda_reminder", showcase_id: ID }]));
+check("מיניסייט מהיומן מסמן את התזכורת", !txnUtilityEligible(withShowcaseOnReminders(
+  [{ type: "agenda_reminder", meeting_id: null }],
+  [ID],
+)));
+check("בלי מיניסייט התזכורת נשארת", txnUtilityEligible(withShowcaseOnReminders(
+  [{ type: "agenda_reminder", meeting_id: null, showcase_id: null }],
+  [],
+)));
+check("בקשת סיור אינה זכאית", !txnUtilityEligible([{ type: "showcase_meeting" }]) && !txnUtilityEligible([{ type: "showcase_activity" }]));
+check("ערבוב ליד ותזכורת נופל", !txnUtilityEligible([{ type: "new_lead" }, { type: "agenda_reminder", showcase_id: null }]));
+check("סוג אחר נופל", !txnUtilityEligible([{ type: "open_demand" }]) && !txnUtilityEligible([]));
+check("בלי שם הברכה היא שלום", txnUtilityGreeting(null) === "שלום," && txnUtilityGreeting("  ") === "שלום,");
+check("שם לא מוכפל", txnUtilityGreeting("דנה כהן") === "שלום דנה," && txnUtilityGreeting("שלום") === "שלום,");
+const leadLine = txnUtilitySummary([{ type: "new_lead" }]);
+const remLine = txnUtilitySummary([{ type: "agenda_reminder" }]);
+check("נוסח ליד הוא פעולה אחת", leadLine === "התקבל ליד חדש וממתין למענה שלך" && !/עדכון|מה שחדש|פעילות בחשבון/.test(leadLine) && !containsHttpUrl(leadLine));
+check("נוסח תזכורת הוא פעולה אחת", remLine === "תזכורת: משימה שהגיע מועדה ממתינה לטיפול שלך" && !containsHttpUrl(remLine));
+check("כמה לידים נשארים פעולה", txnUtilitySummary([{ type: "new_lead" }, { type: "new_lead" }]) === "התקבלו לידים חדשים וממתינים למענה שלך");
+
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
 check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage") && push.includes("replyButtonsMessage"));
 check("נפילה לטקסט שומרת את ה-wc שנכנס לגוף", push.includes("stampPaths") && !push.includes("tokens = []"));
@@ -310,6 +338,13 @@ const fallbackAt = push.indexOf('payload.type === "interactive"');
 const pushFallback = fallbackAt >= 0 ? push.slice(fallbackAt, push.indexOf("if (!res.ok)", fallbackAt + 10)) : "";
 check("דחייה נופלת לטקסט עם הקישור", pushFallback.includes("resendInteractiveAsText") && pushFallback.includes("textBody(name, items, false, topics, true, stampPaths(stampedPlan))") && pushFallback.includes('type: "text"'));
 check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATSAPP_NOTIFY_TEMPLATE") && push.includes("mode === \"template\" && WA_UTILITY"));
+check("תבנית העסקה רק לזכאים ונופלת בלי הסוד", push.includes("WHATSAPP_TXN_UTILITY_TEMPLATE") && push.includes("txnUtilityEligible(items)") && push.includes("txnUtilitySummary(items)") && push.includes("actionTemplateMessage"));
+const txnAt = push.indexOf("WA_TXN && txnUtilityEligible");
+const txnBlock = txnAt >= 0 ? push.slice(txnAt, push.indexOf("else if", txnAt)) : "";
+check("ברכת העסקה בלי שם כפול", txnBlock.includes("txnUtilityGreeting(name)") && !txnBlock.includes('|| "שלום"'));
+check("סיור נקרא לפני השליחה", push.includes("reminderShowcaseIds") && push.includes("related_showcase_id") && push.includes("withShowcaseOnReminders"));
+const claimSql = readFileSync(new URL("../supabase/migrations/20271029210000_notification_action_path.sql", import.meta.url), "utf8");
+check("ה-claim מחזיר showcase_id", claimSql.includes("'showcase_id'") && claimSql.includes("n.related_showcase_id"));
 check("התבנית הישנה עדיין כפתור הפסקה", push.includes("`/crm?goto=${MANAGE_ACC}`"));
 check("סוד הפעולה מוריד כתובות מהגוף", push.includes("WHATSAPP_NOTIFY_ACTION_TEMPLATE") && push.includes("templateSummary(items, false)") && push.includes("actionTemplateMessage"));
 check("הפעמון מעדיף action_path", crm.includes("openStoredActionPath(n.action_path)"));

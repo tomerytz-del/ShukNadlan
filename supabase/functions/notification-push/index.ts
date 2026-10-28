@@ -22,6 +22,8 @@ import {
   NOTIFY_ACTION_LANG_ENV,
   NOTIFY_UTILITY_ENV,
   NOTIFY_UTILITY_LANG_ENV,
+  TXN_UTILITY_ENV,
+  TXN_UTILITY_LANG_ENV,
   notificationPath,
   OPT_OUT_BARE,
   parseNavId,
@@ -29,6 +31,10 @@ import {
   resendInteractiveAsText,
   screenBundle,
   stripHttpUrls,
+  txnUtilityEligible,
+  txnUtilityGreeting,
+  txnUtilitySummary,
+  withShowcaseOnReminders,
   type ClickRecord,
   type NotifTarget,
   type ScreenPlan,
@@ -89,6 +95,10 @@ const WA_ACTION = Deno.env.get(NOTIFY_ACTION_ENV) || "";
 const WA_ACTION_LANG = Deno.env.get(NOTIFY_ACTION_LANG_ENV) || "he";
 const WA_UTILITY = Deno.env.get(NOTIFY_UTILITY_ENV) || "";
 const WA_UTILITY_LANG = Deno.env.get(NOTIFY_UTILITY_LANG_ENV) || "he";
+// תבנית UTILITY לליד חדש ולתזכורת שאינה סיור (WHATSAPP_TXN_UTILITY_TEMPLATE).
+// ריק = התבנית המאושרת. סיור והודעה מעורבת לא נכנסים לכאן.
+const WA_TXN = Deno.env.get(TXN_UTILITY_ENV) || "";
+const WA_TXN_LANG = Deno.env.get(TXN_UTILITY_LANG_ENV) || "he";
 
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
@@ -219,6 +229,8 @@ type Item = {
   lead?: LeadInfo | null;
   // ‏סגירת מיניסייט (20271029121000). חסר - אין כפתור scn:.
   meeting_id?: string | null;
+  // סיור ממיניסייט (related_showcase_id). חסר או null = לא סיור.
+  showcase_id?: string | null;
   // ‏תקציר התפרצות (20271029140000). חסר בהודעה רגילה.
   count?: number | null;
   // מקור הליד. photo_request אינו מוגן גם כשהסוג הוא new_lead.
@@ -543,7 +555,22 @@ async function sendWhatsapp(
     return null;
   };
 
-  if (mode === "template" && WA_ACTION) {
+  if (mode === "template" && WA_TXN && txnUtilityEligible(items)) {
+    const plan = screenBundle(screensOf(items), categoryFor);
+    const path = plan.kind === "single" ? plan.path
+      : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
+      : withClick("/crm?goto=bell", "bell");
+    tokens = clickRecords({ kind: "single", path, label: "" });
+    // {{2}} הוא פעולה אחת, לא סיכום. הכפתור הוא https://shuknadlan.co.il{{1}}.
+    payload = actionTemplateMessage({
+      to,
+      templateName: WA_TXN,
+      lang: WA_TXN_LANG,
+      name: txnUtilityGreeting(name),
+      summary: txnUtilitySummary(items),
+      path,
+    });
+  } else if (mode === "template" && WA_ACTION) {
     const plan = screenBundle(screensOf(items), categoryFor);
     const path = plan.kind === "single" ? plan.path
       : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
@@ -690,6 +717,27 @@ async function sendWhatsapp(
   });
 }
 
+/** מזהי מיניסייט על ההתראות שכבר נתפסו ביומן. null = לא הצלחנו לקרוא. */
+async function reminderShowcaseIds(
+  sb: { from: (table: string) => any },
+  logId: string,
+): Promise<string[] | null> {
+  const { data: log, error } = await sb.from("notification_push_log")
+    .select("notification_ids")
+    .eq("id", logId)
+    .maybeSingle();
+  if (error || !log || !Array.isArray(log.notification_ids)) return null;
+  if (log.notification_ids.length === 0) return [];
+  const { data, error: noteErr } = await sb.from("notifications")
+    .select("related_showcase_id")
+    .in("id", log.notification_ids)
+    .not("related_showcase_id", "is", null);
+  if (noteErr) return null;
+  return (data || [])
+    .map((row: { related_showcase_id?: string | null }) => row.related_showcase_id || "")
+    .filter((id: string) => id.length > 0);
+}
+
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
   const auth = authorizeInternalCaller(req);
@@ -724,6 +772,20 @@ Deno.serve(async (req: Request) => {
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
     ))), undefined, digest.guardOn);
+    if (items.some((it) => it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id)) {
+      const showcaseIds = await reminderShowcaseIds(sb, row.log_id);
+      if (showcaseIds == null) {
+        // בלי הוכחה שזו לא סיור, לא שולחים על תבנית העסקה.
+        console.error("showcase reminder lookup failed", row.log_id);
+        items = items.map((it) =>
+          it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id
+            ? { ...it, showcase_id: "unknown" }
+            : it
+        );
+      } else {
+        items = withShowcaseOnReminders(items, showcaseIds);
+      }
+    }
     const onlyType = items.length > 0 && new Set(items.map((it) => it.type)).size === 1
       ? items[0].type
       : null;

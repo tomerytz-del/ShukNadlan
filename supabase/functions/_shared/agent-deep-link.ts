@@ -21,6 +21,9 @@ export const OPEN_LEADS_PATH = "/crm?goto=accLeads";
 export const OPEN_DEMAND_PATH = "/crm?goto=accLeads&tab=demand";
 export const REMINDER_UTILITY_ENV = "WHATSAPP_REMINDER_UTILITY_TEMPLATE";
 export const REMINDER_UTILITY_LANG_ENV = "WHATSAPP_REMINDER_UTILITY_TEMPLATE_LANG";
+// ריק = התבנית המאושרת. רק ליד חדש ותזכורת שאינה סיור. docs/whatsapp-setup.md
+export const TXN_UTILITY_ENV = "WHATSAPP_TXN_UTILITY_TEMPLATE";
+export const TXN_UTILITY_LANG_ENV = "WHATSAPP_TXN_UTILITY_TEMPLATE_LANG";
 export const UTILITY_URL_BASE = "https://shuknadlan.co.il/";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -372,6 +375,70 @@ export function utilitySuffix(path: string): string {
 /** סיומת לתבנית שהבסיס שלה הוא https://shuknadlan.co.il בלי לוכסן. */
 export function actionSuffix(path: string): string {
   return path.startsWith("/") ? path : `/${path}`;
+}
+
+export type TxnItem = {
+  type: string;
+  meeting_id?: string | null;
+  showcase_id?: string | null;
+};
+
+/**
+ * ליד חדש, או תזכורת מהיומן שאינה סיור.
+ * סיור (showcase_meeting, showcase_activity, או agenda_reminder עם meeting_id
+ * או showcase_id) אינו זכאי. "לפני הסיור" ו"עוד חצי שעה" נושאים רק
+ * related_showcase_id. ערבוב סוגים, או סוג אחר, נופל לתבנית הקיימת.
+ */
+export function txnUtilityKind(it: TxnItem): "new_lead" | "reminder" | null {
+  if (it.type === "showcase_meeting" || it.type === "showcase_activity") return null;
+  if (it.type === "new_lead") return "new_lead";
+  if (it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id) return "reminder";
+  return null;
+}
+
+/** תזכורת בלי meeting_id ועם מיניסייט היא סיור, ונשארת מחוץ לתבנית העסקה. */
+export function withShowcaseOnReminders<T extends TxnItem>(items: T[], showcaseIds: string[]): T[] {
+  const id = showcaseIds.find((value) => !!value);
+  if (!id) return items;
+  return items.map((it) =>
+    it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id
+      ? { ...it, showcase_id: id }
+      : it
+  );
+}
+
+/**
+ * {{1}} בתבנית העסקה הוא שורת הפתיחה כולה.
+ * בלי שם, או כשהשם עצמו "שלום", נשאר "שלום," כדי שלא ייצא "שלום שלום,".
+ * המחרוזת אינה ריקה.
+ */
+export function txnUtilityGreeting(displayName: string | null): string {
+  const first = String(displayName || "").trim().split(/\s+/)[0] || "";
+  if (!first || first === "שלום") return "שלום,";
+  return `שלום ${first},`;
+}
+
+export function txnUtilityEligible(items: TxnItem[]): boolean {
+  if (!items.length) return false;
+  const kinds = items.map(txnUtilityKind);
+  if (kinds.some((k) => k == null)) return false;
+  return kinds.every((k) => k === kinds[0]);
+}
+
+/** שורה אחת על פעולה אחת. בלי כתובת, בלי "עדכון" ובלי דייג'סט. */
+export function txnUtilitySummary(items: TxnItem[]): string {
+  const kind = items.length ? txnUtilityKind(items[0]) : null;
+  if (kind === "new_lead") {
+    return items.length === 1
+      ? "התקבל ליד חדש וממתין למענה שלך"
+      : "התקבלו לידים חדשים וממתינים למענה שלך";
+  }
+  if (kind === "reminder") {
+    return items.length === 1
+      ? "תזכורת: משימה שהגיע מועדה ממתינה לטיפול שלך"
+      : "תזכורת: משימות שהגיע מועדן ממתינות לטיפול שלך";
+  }
+  return "-";
 }
 
 export function absoluteUrl(siteBase: string, path: string): string {

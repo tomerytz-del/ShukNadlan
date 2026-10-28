@@ -136,6 +136,12 @@
 `WHATSAPP_NOTIFY_UTILITY_TEMPLATE` נשאר למקרה שהבסיס המאושר הוא עם לוכסן
 בסוף (`https://shuknadlan.co.il/`). הוא רץ רק אם סוד הפעולה ריק.
 
+ליד חדש ותזכורת שאינה סיור אינם עולים על התבנית הזו. יש להם חבילה נפרדת,
+`agent_txn_action`, ורק כש-`WHATSAPP_TXN_UTILITY_TEMPLATE` מוגדר. סיור
+נשאר על התבנית המאושרת, כולל תזכורת שנושאת רק `related_showcase_id`.
+החבילה המדויקת להגשה: `docs/whatsapp-setup.md`,
+"תבנית UTILITY לליד חדש ולתזכורת". הסוד נשאר ריק עד אישור.
+
 ## נתיב שמור, ורשימת לידים
 
 `notifications.action_path` הוא נתיב יחסי שמתחיל ב-`/`. אם הוא תקין,
