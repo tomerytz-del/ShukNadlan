@@ -141,8 +141,13 @@
   function cardW() {
     var d = $('swDeck'), r = d ? d.getBoundingClientRect() : null, dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (!r || !r.width) return 1000;
+    // ‏R8 (טלפון): תמונה לרוחב ממלאת כרטיס לאורך (cover) - הרוחב לפי הגובה, כדי שהחיתוך יישאר חד
+    if (mobileCover(r.width, r.height)) return Math.max(r.height * dpr * 1.6, r.width * dpr);
     return Math.max(r.height * dpr * 0.75, r.width * dpr * 1.22);
   }
+  /* ‏R8 (P0, תומר 28.10): בטלפון הכרטיס לאורך, ותמונה לרוחב שהוצגה כרצועה (frame) באמצע
+     כרטיס כחול הפכה את "חלון התמונה" לקטן. בטלפון - cover תמיד; במחשב כמו קודם */
+  function mobileCover(cw, ch) { return window.innerWidth < 760 && cw && ch && cw / ch < 1; }
   /* התאמה לכל תמונה (חלק 6 §3): לאורך - cover עם 50% 42%; לרוחב או ריבוע - frame (ברוחב
      הכרטיס, ממורכזת לגובה, מעל העתק מטושטש); רזולוציה נמוכה - בלי הגדלה מעבר ל-1.5× */
   function fitMode(nw, nh, cw, ch) {
@@ -150,6 +155,9 @@
     var r = nw / nh, c = cw / ch, v = Math.min(r, c) / Math.max(r, c);
     if (v >= 0.72) return 'cover';
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    /* בכרטיס לאורך רזולוציה נמוכה נמדדת בגובה (שם התמונה נמתחת), בפיקסלים של CSS: תמונה רגילה
+       של 1280×720 נמתחת ל-737 בטלפון גבוה - רכה מעט, אבל לא שוב "חלון קטן". ‏low רק מתחת ל-1.5× */
+    if (mobileCover(cw, ch)) return nh * 1.5 < ch ? 'low' : 'cover';
     return nw * 1.5 / dpr < cw ? 'low' : 'frame';
   }
   function fitCard(img) {
@@ -704,8 +712,10 @@
     var dest = view === 'likes' ? likesReturnView() : view;
     $('swFGo').textContent = dest === 'list' ? (view === 'likes' ? 'הצגת ' + c + ' נכסים ברשימה' : 'הצגת ' + c + ' נכסים') : dest === 'map' ? 'הצגת ' + c + ' נכסים במפה' : 'הצגת ' + c + ' נכסים בהחלקה';
     $('swFLikesNote').hidden = view !== 'likes';
-    var nf = activeFilters(), badge = $('swFBadge');
+    var nf = activeFilters(), badge = $('swFBadge'), sb = $('swSumBadge');
     badge.hidden = !nf; badge.textContent = nf || '';
+    // בטלפון הסינון נפתח רק מהגלולה שבראש המסך - המונה עליה
+    if (sb) { sb.hidden = !nf; sb.textContent = nf || ''; }
     var fl = nf ? 'סינון, ' + nf + ' פעילים' : 'סינון';
     $('swFilterBtn').setAttribute('aria-label', fl); $('swFilterBtn').title = fl;
     $('swFGo').disabled = false;

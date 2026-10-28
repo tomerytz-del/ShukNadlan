@@ -847,3 +847,40 @@ body[data-view=list] .sw-layout{display:inline-flex}
 .sw-seen-end .sw-wide{min-height:46px}
 .sw-freset-seen{display:block;margin:8px auto 0;min-height:44px}
 .sw-freset-seen[hidden]{display:none}
+
+/* ---------- ‏R8 (P0, תומר 28.10): הכרטיס והתמונה בטלפון ----------
+   הסיבה: מאז resize=contain תמונה לרוחב הוצגה כרצועה (frame) באמצע הכרטיס, ומעליה שלוש
+   שורות כותרת (166px). עכשיו: התמונה ממלאת (fitMode/cardW), הדף בגובה 100svh בלי גלילה
+   (svh ולא dvh - סרגל הדפדפן לא מסתיר את הפעולות), כותרת שורה אחת ושורת בקרה אחת (≤102px),
+   שכבת מידע קומפקטית, ופעולות שתמיד על המסך. במחשב בלי שינוי */
+.sw-sum-badge{margin-inline-start:2px;flex:none}
+@media (min-width:760px){.sw-sum-badge{display:none !important}}
+@media (max-width:759px){
+  .sw-top{padding:4px 0}
+  .sw-ctl{display:flex;align-items:center;gap:8px;margin:0 0 6px;min-width:0}
+  .sw-ctl .sw-views{flex:none;margin:0;padding:0;gap:0;border-radius:12px;overflow:hidden}
+  .sw-ctl .sw-views button{position:relative;flex:none;width:44px;min-height:44px;padding:0;border-radius:0;display:inline-flex;align-items:center;justify-content:center}
+  .sw-ctl .sw-views button[aria-selected="true"]{border-radius:10px}
+  .sw-vl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .sw-ctl .sw-sortbar{flex:1;min-width:0;max-width:none;margin:0;padding:0}
+  .sw-ctl .sw-sortn{white-space:nowrap}
+  #swFilterBtn{display:none}
+  .sw-sortchip{position:relative;white-space:nowrap;padding:0 12px}
+  .sw-sortchip::before{content:"";position:absolute;inset:-4px 0}
+  /* ברשימה: כפתור אחד שמחליף בין שורות לרשת (המצב הנוכחי כבר על המסך) */
+  .sw-ctl .sw-layout button[aria-pressed=true]{display:none}
+  body[data-view=deck] .sw{height:100svh;min-height:0;padding-bottom:0}
+  body[data-view=deck] .sw-deck{min-height:0;max-height:none}
+  .sw-card::after{background:linear-gradient(to bottom,rgba(13,27,61,.38) 0%,rgba(13,27,61,0) 16%,rgba(13,27,61,0) 62%,rgba(13,27,61,.92) 100%)}
+  .sw-cbody{padding:8px 14px 10px}
+  .sw-price{font-size:23px;line-height:1.15}
+  .sw-ctitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sw-facts{margin-top:2px}
+  .sw-where,.sw-by{display:none}
+  .sw-acts{margin-top:4px}
+  .sw-actions{gap:12px;padding:8px 0 calc(8px + var(--sw-safe-b))}
+  .sw-act-skip,.sw-act-like{width:60px;height:60px}
+  .sw-act-undo,.sw-act-call{width:44px;height:44px}
+  .sw-act-wa{width:48px;height:48px}
+}
+@media (max-width:399px){body[data-view=list] .sw-ctl .sw-sortn{display:none}}
