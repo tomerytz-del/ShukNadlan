@@ -540,6 +540,69 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 הכפתור נשלח רק כשהתקציר דלוק, כל הפריטים באותו סוג שאינו דחוף, וההודעה אינה תבנית.
 אי אפשר לערבב אותו עם כפתור הקישור, ולכן הקישורים נשארים בגוף.
 
+## שמירה מפני התפרצות
+
+מיגרציה `20271029140000_gabriela_burst_guard.sql`. דולקת כברירת מחדל
+(`notification_burst_guard_enabled = 1`), מעל התקרה
+של 12, המרווח של 10 דקות, פער התבנית ו-`quiet_hold`. `notification_push_due_agents`
+לא מוחלפת. יום רגיל לא מגיע לסף: ב-30 הימים שלפני 27.10.2026 נמדדו
+2,200 הודעות `sent`, ממוצע 3.09 לסוכן ביום, מקסימום יום 18 ושעה 7.
+שעה גלובלית: מקסימום 72, p95 כ-43. יצירה ב-15 דקות: p99 156, מקסימום
+1,855 (כולן `system`).
+
+| מפתח | ברירת מחדל | מה קורה מעליו |
+| --- | --- | --- |
+| `notification_burst_guard_enabled` | 1 | כל ערך שאינו 0 מדליק. 0 מכבה את המפסקים ואת התקרות בלי דיפלוי. ישן, מילוי ובקשת תמונות נשארים |
+| `notif_burst_hour_cap` / `notif_burst_day_cap` | 12 / 30 | רק הודעות שאינן עדיפות (ליד, סיור, תזכורת לא נספרים). שני פריטים או יותר נהיים "יש לך N". פריט אחד לא. אחר כך באותה שעה הגלישה **נדחית**. לא `skipped` |
+| `notif_burst_lead_hour_cap` / `notif_burst_lead_day_cap` | 20 / 40 | נספרות רק הודעות עם ליד אמיתי. חל על כל פריט כזה, גם בהודעה מעורבת וגם במפסק |
+| `notif_burst_showing_hour_cap` / `notif_burst_showing_day_cap` | 20 / 40 | אותו דבר ל-`showcase_meeting`, בנפרד מהלידים |
+| `notif_burst_max_items` | 24 | גוף של לא-מוגן נהיה תקציר, מ-2 פריטים. מוגן לא נכנס לתוכו |
+| `notif_burst_stale_hours` / `notif_burst_urgent_hours` | 12 / 72 | **רק** ישן מזה נרשם `skipped`. דחוי נמדד מ-`push_deferred_at`, לא מ-`created_at`, אז השהיה ארוכה מ-12 שעות לא מוחקת אותו לוואטסאפ |
+| `notif_burst_agent_pending` | 30 | מעל זה פריטים לא-מוגנים: תקציר (מ-2), ואחר כך דחייה. מוגן יוצא בפרטים |
+| `notif_burst_created_max` | 300 ב-15 דקות | נספר רק מה שעדיין ממתין לדחיפה. המפסק **דוחה**, לא רושם `skipped` |
+| `notif_burst_global_hour` | 130 | מפסק גלובלי. יורד רק אחרי 30 דקות מתחת ל-70% (`notif_burst_hysteresis_pct`, `notif_burst_rearm_minutes`) |
+| `notif_burst_manual_pause` | 0 | כל ערך שאינו 0: אותו מפסק, עד שמנהל/ת מאפס/ת |
+| `notif_burst_breaker` | 0 | כל ערך שאינו 0 כל עוד המפסק דלוק. `notification_push_ready` לא מעיר את הקרון כל 5 דקות כשאין מוגן שמחכה |
+
+אף מסלול לא מסמן `read`. `skipped` נשמר לישן, למילוי, ולבקשת תמונות
+כפולה. מפסק ותקרה דוחים, ומעדכנים `push_deferred_at` כדי שהפריט ישרוד
+מעבר ל-12 שעות. `ops_alert` "וואטסאפ לסוכנים הושהה" נכתב **לכל** מנהל/ת
+בנפרד, **בלי** `suppress_push`, פעם ב-6 שעות כל עוד לא נקרא אצלו/ה, ויוצא
+בוואטסאפ כי `ops_alert` מוגן. תמונת המצב: `notification_push_burst_status`
+(ל-`service_role`). התור תלוי ב-`notification_push_log_holds` מ-`20271029133000`.
+
+בקשת תמונות (`leads.source = photo_request`) אינה עוברת בתקרת הלידים:
+לכל היותר וואטסאפ אחד לסוכן/ת לנכס ביממה, והשאר באתר. `notify_agent_on_new_lead`
+לא הוחלפה. ליד קונה אמיתי, כולל מקורות חדשים של אותו משפך, עדיין יוצא
+מיד עד התקרה הגבוהה.
+
+### מלאי מחוללים
+
+| מחולל | מה קורה בעומס |
+| --- | --- |
+| `scraped_lead_notify_demand` / `scraped_leads_lifecycle` | `open_demand`. פוסט ישן מ-14 יום, או `scraped_leads.push_site_only`, נשאר באתר. יום 7 של הביקוש עדיין נדחף. `notif_burst_demand_fanout` (15, מתחת ל-51-54 שנמדדו, `0` מבטל) מגביל וואטסאפ לפוסט: עיר מדויקת ואז פעילות אחרונה. השאר בפעמון, בלי דילוג. מיגרציית מיפוי קוראת ל-`scraped_leads_mark_remap()` (לא רצה לבד) |
+| `share_property_for_agent` | "נכס חדש שותף איתך". הטריגר מדליק `suppress_push` אם `notification_push_suppress(true)` נקרא קודם באותה טרנזקציה |
+| `generate_client_match_alerts` + `client_match_digest_run` | התאמה בזמן הדגל מקבלת `push_site_only`. סיכום שכולו כאלה לא יוצא לוואטסאפ, גם כשאין עדיין `last_sent_at`. התאמה חיה כן |
+| `notify_agent_on_new_lead` | לא שונתה. `photo_request` מטופל ב-`notification_push_burst_prepare` לפי `leads.source` |
+| `property_offers_claim` | לא כותב ל-`notifications`. תקרה קיימת: עד 4 ביממה. בלי שינוי |
+| רילס יומי | עד 3 ביום, ושעות שקט. בלי שינוי (`docs/property-marketing-video.md`) |
+| `security_alert` / `budget_alert` / `ops_alert` | מוגנים. יוצאים בפרטים גם במפסק, ולא נספרים בסף ה-300 |
+
+לפני `insert` ל-`notifications` או ל-`client_match_alerts` במיגרציה:
+
+```sql
+select public.notification_push_suppress(true);
+```
+
+הדגל לא שורד ל-cron. מחולל שרץ אחר כך חייב עמודה (`suppress_push` או
+`push_site_only`). `scripts/check_notification_backfill.py` חוסם מיגרציה
+מ-`20271029140000` ואילך. `suppress_push` שמופיע רק ב-`WHERE` אינו נחשב.
+גם קריאה ל-`notify_agent_on_new_lead`, `scraped_lead_notify_demand`,
+`share_property_for_agent`, `generate_client_match_alerts` או
+`client_match_digest_run` בלי `notification_push_suppress(true)` לפניה
+באותו גוף נחסמת. `set_config` בתוך הגדרת הפונקציה אינו מכסה `insert`
+שמחוץ לה.
+
 ## בדיקה
 
 הטריגרים נבדקו על מופע Postgres מקומי מול סכימת עצמות: ביקורת `pending`
