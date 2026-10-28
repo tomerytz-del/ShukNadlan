@@ -276,15 +276,18 @@ document.addEventListener('keydown', (e)=>{
   if (e.key === 'Escape' && mobileMenu.classList.contains('open')) closeMobileMenu();
 });
 
-/* ---------- "איך עובד הדירוג?" (מתוך תפריט ההמבורגר) ----------
-   שאר הפריטים בתפריט הם עוגנים שסוגרים אותו מעצמם בניווט; זה פותח מודאל
-   ולכן צריך לסגור את התפריט במפורש. */
+/* ---------- "איך עובד הדירוג?" ----------
+   ‏P1-T2: נפתח מה-(i) שליד "משרדים מובילים" (‏v10), ובלי הדגל - מהקישור "איך נקבע
+   הדירוג?" שליד "צפייה בכל". ה-(i) של "האנשים מאחורי העסקאות" הוא בועה רגילה. */
 const ratingInfoModal = document.getElementById('ratingInfoModal');
 function ratingInfoClose(){ ratingInfoModal.classList.remove('open'); }
-document.getElementById('ratingInfoLink').addEventListener('click', (e)=>{
-  e.preventDefault();
-  closeMobileMenu();
-  ratingInfoModal.classList.add('open');
+[['ratingInfoLink', 'dm_top_title'], ['ratingInfoLink2', 'dm_link']].forEach(([id, from]) => {
+  document.getElementById(id)?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    closeMobileMenu();
+    ratingInfoModal.classList.add('open');
+    if (window.shukTrack) window.shukTrack('rating_info_open', { from });
+  });
 });
 document.getElementById('ratingInfoClose').addEventListener('click', ratingInfoClose);
 document.getElementById('ratingInfoDone').addEventListener('click', ratingInfoClose);
@@ -1371,12 +1374,20 @@ async function loadLeadingAgents(){
           // ‏avg_rating הוא null למי שאין לו/ה ביקורות — סוכן/ת חדש/ה לא
           // מקבל/ת "0 כוכבים" אלא פשוט לא מוצג/ת עם דירוג, כמו במשרדים.
           rating: agg?.avg_rating != null ? Number(agg.avg_rating) : null,
+          composite_score: ranking?.composite_score ?? null,
           reviews_count: Number(agg?.review_count) || 0,
           active_properties_count: cardByAgent[m.id]?.active_count ?? (ranking?.active_properties_count ?? 0),
           specs: cardByAgent[m.id]?.specs || [],
         };
       })
       .sort((x, y)=>{
+        /* ‏P1-T2 (ד-4): כמו המשרדים - לפי composite_score מ-agent_rankings (משוקלל מול ממוצע
+           הפלטפורמה, ולכן יועץ/ת חדש/ה לא נענש/ת), ורק בלעדיו לפי הדירוג הגולמי */
+        const cx = Number(x.composite_score), cy = Number(y.composite_score);
+        const hx = x.composite_score != null && isFinite(cx), hy = y.composite_score != null && isFinite(cy);
+        if (hx && !hy) return -1;
+        if (!hx && hy) return 1;
+        if (hx && hy && cy !== cx) return cy - cx;
         if (x.rating !== null && y.rating === null) return -1;
         if (x.rating === null && y.rating !== null) return 1;
         if (x.rating !== null && y.rating !== null && y.rating !== x.rating) return y.rating - x.rating;
@@ -1556,7 +1567,8 @@ function renderOpenHouseBanner(count){
    עדיין שני מדפים — המלאי של משרד אחד קטן, ושניהם נכנסים למסך ממילא. */
 const propsShelf = PropShelf.create({
   mount:'allProps', titleId:'allPropsTitle', title:marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label),
-  info:'פרטי ומסחרי, מכירה והשכרה - כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
+  infoId:'props_shelf',
+  info:'פרטי ומסחרי, מכירה והשכרה - כל הנכסים הפעילים של משרדי התיווך באזור, מהחדש לישן. נכסים מקודמים, כשיש, מופיעים ראשונים.',
   // מסגרת אחת סביב הכול, ושתי שורות נכסים בפתיחה: זה מה שנשאר משתי
   // הסקציות שהתמזגו — תצוגה אחת שנקראת כתצוגה אחת, בלי לוותר על כמות
   // הנכסים שהן הציגו יחד.
@@ -2211,7 +2223,12 @@ function bindRowScroller(row){
       img.addEventListener('error', ()=> img.remove());
       cover.appendChild(img);
     }
-    if (item.rank) cover.appendChild(mk('span', 'dm-flag is-rank', `★ #${item.rank} בדירוג`));
+    if (item.rank){
+      // תג בלבד (הכרטיס כולו קישור) - ההסבר ב"איך נקבע הדירוג" (‏P1-T2)
+      const flag = mk('span', 'dm-flag is-rank', `★ #${item.rank} בדירוג`);
+      flag.title = "לפי דירוג הלקוחות - הסבר ב'איך נקבע הדירוג'";
+      cover.appendChild(flag);
+    }
     if (item.countNum > 0) cover.appendChild(mk('span', 'dm-flag is-count', dmCount(item.countNum)));
     el.appendChild(cover);
 
@@ -2401,6 +2418,8 @@ function bindRowScroller(row){
 
   function render(){
     const conf = DM_TABS[state.tab];
+    const topT = document.getElementById('dmTopTitleT');
+    if (topT) topT.textContent = state.tab === 'agents' ? 'יועצי נדל״ן מובילים' : 'משרדים מובילים';
     const q = state.query.trim().toLowerCase();
     const list = data[state.tab].filter(it =>
       (!q || it.search.toLowerCase().includes(q)) &&
@@ -7630,6 +7649,14 @@ function renderDmStats(){
     if (v){ tile.querySelector('.dm-stat-n').textContent = Number(v).toLocaleString('he-IL'); any = true; }
   });
   wrap.hidden = !any;
+  /* ‏P1-T1: שורת המקור לפי הקוביות שמוצגות בפועל - הנכסים והמשרדים מנתוני האתר, ורשות
+     המיסים או משרד המשפטים רק כשהקובייה שלהם גלויה */
+  const note = document.getElementById('dmStatsNote');
+  if (note){
+    const shown = k => { const t = wrap.querySelector('[data-stat="' + k + '"]'); return !!t && !t.hidden; };
+    note.textContent = ['מנתוני האתר, מתעדכן בכל כניסה', shown('deals') ? 'עסקאות: רשות המיסים' : '', shown('license') ? 'רישיונות: משרד המשפטים' : '']
+      .filter(Boolean).join(' · ');
+  }
   if (any && !dmStatsState.io && 'IntersectionObserver' in window){
     dmStatsState.io = new IntersectionObserver(en => {
       if (!en.some(x => x.isIntersecting) || dmStatsState.viewed) return;
@@ -8138,4 +8165,67 @@ document.addEventListener('click', e => {
       requestAnimationFrame(function () { titleQueued = false; iconTitles(); });
     }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] });
   }
+})();
+
+/* ---------- ‏P1-E: "הנכסים שאהבתי" בכותרת במחשב ----------
+   מוצג רק כשיש נכס שמור, מתעדכן מ-storage (שמירה בלשונית ההחלקה), ופותח את אותו
+   פאנל של הבועה (‏assets/likes-bubble.js, נטען לפי הצורך) */
+(function headerLikes(){
+  const btn = document.getElementById('hdrLikes');
+  if (!btn) return;
+  const count = () => { try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean).length; } catch(e){ return 0; } };
+  function sync(){
+    const n = count();
+    btn.hidden = !n || !v10On();
+    document.getElementById('hdrLikesN').textContent = n;
+    const l = 'הנכסים שאהבתי (' + n + ')';
+    btn.setAttribute('aria-label', l); btn.title = l;
+  }
+  sync();
+  window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') sync(); });
+  btn.addEventListener('click', () => {
+    if (window.LikesBubble) { LikesBubble.open(); return; }
+    const sc = document.createElement('script');
+    sc.src = '/assets/likes-bubble.js';
+    sc.onload = () => { if (window.LikesBubble) LikesBubble.open(); };
+    document.head.appendChild(sc);
+  });
+})();
+
+/* ---------- ‏P1-S: נענוע לאייקון "גלישה בהחלקה" ----------
+   כל 5 שניות, 6 פעמים, רק כשהכפתור על המסך. יציאה מהמסך עוצרת אותו לסשן; מי שכבר
+   נכנס/ה ל-/swipe (‏sk_swipe_used) לא רואה אותו יותר. רק transform - בלי CLS */
+(function swipeNudge(){
+  if (!v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+  try {
+    if (localStorage.getItem('sk_swipe_used') || sessionStorage.getItem('sk_swipe_nudge_done')) return;
+  } catch(e){ return; }
+  const done = () => { try { sessionStorage.setItem('sk_swipe_nudge_done', '1'); } catch(e){ /* מצב פרטי */ } };
+  function arm(el){
+    if (!el) return;
+    let started = false, left = false;
+    new IntersectionObserver((es, io) => es.forEach(en => {
+      if (en.isIntersecting && !left){ started = true; el.classList.add('is-nudge'); }
+      else if (started && !en.isIntersecting){ left = true; el.classList.remove('is-nudge'); io.disconnect(); done(); }
+    }), { threshold: 0.6 }).observe(el);
+    el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeNudge'){ el.classList.remove('is-nudge'); done(); } });
+  }
+  arm(document.querySelector('.v10-view.is-swipe'));
+  // כרטיס ההזמנה נבנה אחרי טעינת הנכסים
+  const t = setInterval(() => { const inv = document.querySelector('#allProps .pc-swipe-invite'); if (inv){ clearInterval(t); arm(inv); } }, 800);
+  setTimeout(() => clearInterval(t), 15000);
+})();
+
+/* ---------- ‏P1-T1: ‏info_open - פתיחה ראשונה של כל (i) בטעינה ----------
+   ‏data-info-id על הכפתור; בועה שנפתחת שוב באותה טעינה אינה נספרת */
+(function infoOpen(){
+  const seen = new Set();
+  const fire = el => {
+    const id = el && el.dataset.infoId;
+    if (!id || seen.has(id) || !v10On()) return;
+    seen.add(id);
+    if (window.shukTrack) window.shukTrack('info_open', { info_id: id, surface: 'home' });
+  };
+  document.addEventListener('click', e => fire(e.target.closest && e.target.closest('[data-info-id]')));
+  document.addEventListener('mouseover', e => fire(e.target.closest && e.target.closest('.info-dot[data-info-id]')));
 })();

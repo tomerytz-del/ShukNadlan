@@ -3454,6 +3454,23 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   @keyframes v10Shim{from{background-position:180% 0}to{background-position:-60% 0}}
   @media(max-width:759px){html.beta-hero body .hero .v10-view{min-height:44px;font-size:13px;flex-direction:column;gap:2px;padding:6px 4px}}
   @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-shimmer{animation:none}}
+  /* ‏P1-T2: ה-(i) של הדירוג ליד "משרדים מובילים", באותה הזחה כמו ב-h2 */
+  .dm-top-title{position:relative}
+  .dm-top-title > .info-dot{margin-inline-start:6px;vertical-align:middle}
+  .dm-rating-link{margin-inline-start:14px;padding:0;border:0;background:none;color:#0e2a6b;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;min-height:44px}
+  /* ‏P1-S: נענוע קטן לאייקון של "גלישה בהחלקה" (והתג בכרטיס ההזמנה) - רק האייקון זז, 6 פעמים ועוצר.
+     על הכפתור הזה הריחוף של P1-S גובר על זה של P1-J - אנימציה אחת בכל רגע */
+  html.beta-hero .v10-view.is-swipe.is-nudge svg,html.beta-hero .pc-swipe-invite.is-nudge .psi-tag svg{transform-origin:50% 85%;animation:v10SwipeNudge 5s ease-in-out 2.4s 6}
+  @keyframes v10SwipeNudge{0%,76%,100%{transform:none}80%{transform:translateX(-3px) rotate(-12deg)}86%{transform:translateX(3px) rotate(10deg)}91%{transform:translateX(-1px) rotate(-5deg)}95%{transform:none}}
+  html.beta-hero .v10-view.is-swipe .vi .vi-top{transform:none !important}
+  @media (hover:hover) and (pointer:fine){html.beta-hero .v10-view.is-swipe:hover svg,html.beta-hero .v10-view.is-swipe:focus-visible svg{animation:none;transform:translateX(-2px) rotate(-8deg);transition:transform .2s ease-out}}
+  @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-swipe svg,html.beta-hero .pc-swipe-invite .psi-tag svg{animation:none !important;transform:none !important}}
+  /* ‏P1-E: לב בכותרת במחשב, זהב (ד-15), מונה נייבי */
+  .hdr-likes{display:none}
+  @media(min-width:1024px){html.beta-hero .hdr-likes:not([hidden]){position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
+    margin-inline-end:8px;border:1.5px solid #ecdca6;border-radius:50%;background:#fbf5e2;color:#a8841a;cursor:pointer}}
+  .hdr-likes b{position:absolute;top:-5px;left:-5px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#0e2a6b;color:#fff;font-size:12px;font-weight:800;line-height:20px;text-align:center;box-sizing:border-box}
+  .hdr-likes:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
   /* ‏P1-J: אייקונים לכפתורי התצוגה, ותנועה קטנה בריחוף (רק עכבר, ובלי reduced-motion). ‏.vi קיים רק בכפתורים האלה */
   .vi .vi-top,.vi .vi-l1,.vi .vi-l2,.vi .vi-l3,.vi .vi-pinb{transform-box:fill-box;transform-origin:50% 100%;transition:transform .2s ease-out}
   .vi .vi-l2{transition-delay:40ms}.vi .vi-l3{transition-delay:80ms}
@@ -3946,6 +3963,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="#articles">כתבות</a>
     </nav>
     <div class="header-actions">
+      <!-- ‏P1-E: "הנכסים שאהבתי" בכותרת במחשב (v10), פותח את הפאנל של assets/likes-bubble.js -->
+      <button type="button" class="hdr-likes v10-only" id="hdrLikes" aria-label="הנכסים שאהבתי (0)" title="הנכסים שאהבתי (0)" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
+        <b id="hdrLikesN" aria-hidden="true">0</b>
+      </button>
       <a href="/crm" class="btn btn-teal" style="display:none" id="cta-desktop">כניסת יועצי נדל״ן</a>
       <a href="/crm" class="hdr-login" id="hdrLogin">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4357,14 +4379,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="hero-stats-group hero-marks">
            <div class="hero-marks-row">
             <a class="hero-mark" href="/ethics-code"
-               data-info="מוענק רק למי שאישר את הקוד האתי, ומוסר מיד עם הפרה. לחצו לקוד המלא.">
+               data-info-id="hero_ethics" data-info="מוענק רק למי שאישר את הקוד האתי, ומוסר מיד עם הפרה. לחצו לקוד המלא.">
               <img class="hero-mark-seal" src="assets/badge-ethics.png" width="384" height="384"
                    alt="" decoding="async">
               <span class="hero-mark-cap">תו האמון והאיכות</span>
             </a>
 
             <button type="button" class="hero-mark"
-                    data-info="רק לקוחות שסגרו עסקה מדרגים כאן. אין דירוגים אנונימיים.">
+                    data-info-id="hero_rating" data-info="רק מי שפנה דרך האתר וקיבל שירות יכול לדרג - ביקורת אחת לכל פנייה. אין דירוגים אנונימיים.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <defs>
@@ -4384,8 +4406,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <span class="hero-mark-cap">דירוג מלקוחות אמיתיים</span>
             </button>
 
-            <button type="button" class="hero-mark"
-                    data-info="אותו נכס לא מתפרסם פעמיים - כל מודעה נבדקת מול כל הנכסים באתר.">
+            <button type="button" class="hero-mark" data-info-id="hero_no_duplicates"
+                    data-info="כל מודעה נבדקת מול כל הנכסים באתר, ואותו נכס לא מופיע פעמיים.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -4396,7 +4418,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   <path d="m14.7 16.9 1.6 1.6 3.1-3.3" stroke="var(--teal)" stroke-width="1.9"/>
                 </svg>
               </span>
-              <span class="hero-mark-cap">כל נכס מאומת</span>
+              <span class="hero-mark-cap">בלי כפילויות</span>
             </button>
            </div>
 
@@ -4902,9 +4924,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div>
           <div class="head-line">
             <h2 id="dealmakersTitle">האנשים מאחורי העסקאות<button
-                    type="button" class="info-dot" id="ratingInfoLink"
-                    aria-haspopup="dialog" data-info="לחיצה - איך נקבע הדירוג"
-                    aria-label="איך עובד הדירוג של המשרדים ויועצי הנדל״ן">i</button></h2>
+                    type="button" class="info-dot" data-info-id="dealmakers" data-market-aria="data-info"
+                    data-info="משרדי התיווך ויועצי הנדל״ן שפועלים בעפולה והעמק, עם הנכסים הפעילים של כל אחד. הרשימות והמונים נטענים מנתוני האתר בכל כניסה לדף."
+                    aria-label="מידע על הסקציה">i</button></h2>
           </div>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן ב<span data-market-label>עפולה והעמק</span>, במקום אחד</p>
         </div>
@@ -4917,8 +4939,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="dm-stat" data-stat="agents" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">יועצי נדל״ן</span><span class="dm-stat-c">פעילים באתר</span></div>
           <div class="dm-stat" data-stat="props" hidden><b class="dm-stat-n"></b><span class="dm-stat-l">נכסים פעילים</span><span class="dm-stat-c">באתר עכשיו</span></div>
         </div>
-        <p class="dm-stats-note">מעודכן ממאגר רשות המיסים</p>
-        <h3 class="dm-top-title">משרדים מובילים</h3>
+        <p class="dm-stats-note" id="dmStatsNote">מנתוני האתר, מתעדכן בכל כניסה</p>
+        <h3 class="dm-top-title" id="dmTopTitle"><span id="dmTopTitleT">משרדים מובילים</span><button type="button" class="info-dot" id="ratingInfoLink"
+            aria-haspopup="dialog" aria-label="איך נקבע הדירוג" data-info="לחיצה - איך נקבע הדירוג">i</button></h3>
       </div>
 
       <div class="dm-bar">
@@ -4955,7 +4978,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="dm-dots" id="dmDots" aria-hidden="true"></div>
       </div>
 
-      <p class="dm-all"><a href="/agencies" id="dmSeeAll">צפייה בכל משרדי התיווך ←</a></p>
+      <p class="dm-all"><a href="/agencies" id="dmSeeAll">צפייה בכל משרדי התיווך ←</a>
+        <!-- בלי הדגל כותרת "משרדים מובילים" מוסתרת, ולכן ההסבר על הדירוג כאן (‏P1-T2) -->
+        <button type="button" class="dm-rating-link v10-hide" id="ratingInfoLink2" aria-haspopup="dialog">איך נקבע הדירוג?</button></p>
     </div>
   </section>
 
@@ -5045,7 +5070,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div>
         <div class="head-line">
           <h2>פרויקטים חדשים מקבלנים ויזמים<button
-                  type="button" class="info-dot" aria-label="מידע על הרצועה"
+                  type="button" class="info-dot" data-info-id="new_projects" aria-label="מידע על הרצועה"
                   data-info="דירות מקבלן בעפולה והעמק - ישירות מהיזם, בלי תיווך" data-market-aria="data-info">i</button></h2>
         </div>
       </div>

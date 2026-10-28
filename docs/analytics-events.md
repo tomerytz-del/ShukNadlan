@@ -463,3 +463,5 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `map_legend_toggle` | לחיצה על סוג עסקה במקרא של מפת ההחלקה (‏P1-I). בהחלקה הסינון מחזיק סוג אחד, ולכן הלחיצה מחליפה את הסוג | `kind`: ‏`sale` \| `rent` \| `commercial`, `on`: ‏`1`, `view`: ‏`swipe_map` |
 | `map_cluster_click` | לחיצה על אשכול נכסים במפת ההחלקה - המפה מתקרבת לגבולות האשכול | `count`, `zoom` |
 | `map_marker_open` | נפתח נכס מסמן במפת ההחלקה (‏P1-M) | `property_id`, `deal`: ‏`sale` \| `rent` \| `commercial` |
+| `info_open` | פתיחה ראשונה של כפתור (i) בטעינה, בלחיצה או בריחוף (‏P1-T1, v10) | `info_id`: ‏`dealmakers` \| `new_projects` \| `props_shelf` \| `approx_location` \| `hero_ethics` \| `hero_rating` \| `hero_no_duplicates`, `surface`: ‏`home` |
+| `rating_info_open` | נפתח "איך עובד הדירוג?" (‏P1-T2) | `from`: ‏`dm_top_title` (ה-(i) ליד "משרדים מובילים") \| `dm_link` (הקישור בלי הדגל) |

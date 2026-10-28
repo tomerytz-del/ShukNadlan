@@ -3005,6 +3005,8 @@
   }
 
   /* ---------- התחלה ---------- */
+  // ‏P1-S: מי שנכנס/ה להחלקה פעם אחת - בלי נענוע לכפתור בדף הבית
+  try { localStorage.setItem('sk_swipe_used', '1'); } catch (e) { /* מצב פרטי */ }
   var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view'].some(function (k) { return params.has(k); });
   /* ‏P1-L: חזרה מדף נכס לרשימה - אותו נכס באותו מקום. נשמר ב-pagehide לפי הכתובת, עם עוגן
      (הנכס העליון שנראה) ולא רק פיקסלים, כי תמונות שעוד לא נטענו מזיזות את הגובה */

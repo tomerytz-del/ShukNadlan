@@ -2,7 +2,7 @@
  * ‏"הרשימה שלי" מחוץ להחלקה (בקשת תומר 27.10, P1-10 בסבב התיקונים) - v10 בלבד.
  *
  * מי ששמר/ה נכס בהחלקה (‏localStorage.sk_swipe_likes) מקבל/ת בדפים הציבוריים
- * בועה עגולה בסגנון בועת גבריאלה: לב ירוק, טבעת זהב ומונה כחול. היא נכנסת
+ * בועה עגולה בסגנון בועת גבריאלה: לב זהב (ד-15), טבעת זהב ומונה כחול. היא נכנסת
  * ל-#gabW ולכן נערמת מעל גבריאלה באותו צד (12px), עולה איתה מעל פס הקשר
  * הדביק בדף הנכס (‏--gw-bottom), ואינה פותחת פינה חדשה. בלי נכסים שמורים -
  * אין בועה, וב-/swipe היא לא נטענת (הגלולה "הרשימה שלי" כבר בראש המסך).
@@ -27,7 +27,7 @@
   var css = document.createElement('style');
   css.textContent =
     '#gabW .gw-likes{position:fixed;z-index:204;left:var(--gw-left);bottom:calc(var(--gw-bottom) + 68px);display:flex;align-items:center;gap:8px;' +
-    '  height:56px;min-width:56px;padding:0;border:0;border-radius:999px;background:#fff;color:#1a8a4a;cursor:pointer;' +
+    '  height:56px;min-width:56px;padding:0;border:0;border-radius:999px;background:#fff;color:#a8841a;cursor:pointer;' +
     '  box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.25);font-family:Heebo,system-ui,sans-serif;justify-content:center;transition:padding .25s ease}' +
     '#gabW .gw-likes .lk-h{font-size:24px;line-height:1}' +
     '#gabW .gw-likes .lk-n{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#0e2a6b;color:#fff;' +
@@ -89,7 +89,8 @@
     btn.hidden = !n;
     btn.querySelector('.lk-n').textContent = n;
     btn.querySelector('.lk-t').textContent = '♥ ' + n + ' · הרשימה שלי';
-    btn.setAttribute('aria-label', 'הרשימה שלי, ' + n + ' נכסים שאהבתי');
+    // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר
+    btn.setAttribute('aria-label', 'הנכסים שאהבתי (' + n + ')'); btn.title = 'הנכסים שאהבתי (' + n + ')';
   }
   function price(p) {
     var v = Number(p.price);

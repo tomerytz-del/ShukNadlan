@@ -222,7 +222,7 @@
   function buildSkeleton(root, cfg) {
     var tag = cfg.headingTag || 'h2';
     var info = cfg.info
-      ? '<button type="button" class="info-dot" aria-label="מידע על התצוגה" data-info="' +
+      ? '<button type="button" class="info-dot" aria-label="מידע על התצוגה"' + (cfg.infoId ? ' data-info-id="' + escAttr(cfg.infoId) + '"' : '') + ' data-info="' +
         escAttr(cfg.info) + '">i</button>'
       : '';
     var head = cfg.title
