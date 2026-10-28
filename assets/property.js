@@ -536,10 +536,10 @@ function renderGallery(p){
       const where = [p.neighborhoods?.name || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
       main.innerHTML = NoPhoto.html(p, { agent: p.agency_members || null, agency: p.agencies || null, private: !p.agent_id && !agencyNameOf(p) }, 'hero', { facts, where, title: p.title || '' });
       main.addEventListener('click', (e)=>{
-        const ask = e.target.closest('[data-np-cta]'), talk = e.target.closest('[data-np-contact]');
-        if (!ask && !talk) return;
-        if (ask && window.shukTrack) shukTrack('photo_request', { property_id: p.id, level: ask.dataset.level || 'c', surface: 'hero' });
-        openInquiry(!!ask);
+        const ask = e.target.closest('[data-np-cta]');
+        if (!ask) return;
+        if (window.shukTrack) shukTrack('photo_request', { property_id: p.id, level: ask.dataset.level || 'c', surface: 'hero' });
+        openInquiry(true);
       });
       grid.appendChild(main);
     } else if (!galleryImages.length){

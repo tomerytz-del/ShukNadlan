@@ -23,7 +23,7 @@ html body .np .np-s{color:rgba(255,255,255,.9)}
 .np-gold{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border:0;border-radius:14px;
   background:linear-gradient(180deg,#e0bb3c,#c9a227);color:#0d2350;font:inherit;font-size:16px;font-weight:800;cursor:pointer;text-decoration:none}
 .np-wide{width:100%}
-.np-gold:focus-visible,.np-link:focus-visible,.np-under:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.np-gold:focus-visible,.np-link:focus-visible{outline:3px solid #fff;outline-offset:2px}
 /* כרטיס ההחלקה */
 .np-swipe-in{position:absolute;top:58px;left:16px;right:16px;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .np-who{margin:0;font-size:14px;font-weight:700;color:#fff}
@@ -50,7 +50,6 @@ html body .np .np-s{color:rgba(255,255,255,.9)}
 .np-hero .np-t{font-size:36px}
 .np-hero .np-s{margin-top:8px;font-size:18px}
 .np-btns{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
-.np-under{min-height:44px;padding:0 4px;border:0;background:none;color:#fff;font:inherit;font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .np-agent{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:200px;padding:18px 20px;border:1px solid rgba(255,255,255,.18);border-radius:20px;
   background:rgba(255,255,255,.1);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-align:center}
 .np-agent .np-av{margin-bottom:6px}

@@ -470,3 +470,4 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `dm_search` | חיפוש בתיבת הסקציה, 800ms אחרי ההקלדה האחרונה. בלי הטקסט | `tab`, `q_len`, `results`, `matched`: ‏`name` \| `spec` \| `area` \| `none` |
 | `dm_filter_empty` | צירוף התמחות ואזור בלי תוצאות (פעם אחת לצירוף) | `tab`, `spec`, `area`: ‏`hood` \| `city` \| `all` |
 | `dm_filter_clear` | "לנקות את הסינון" / "להציג את כל האזורים" במצב הריק | `tab` |
+| `social_prompt_dismiss` | ‏CRM: "לא עכשיו" בכרטיס התיוג בפרסומים (‏P1-R). נדחף ישירות ל-dataLayer (ה-CRM אינו טוען את events.js) | `mode`: ‏`later` \| `never` |

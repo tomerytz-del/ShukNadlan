@@ -7670,11 +7670,14 @@ async function pfSocialInit(agentId){
    ל-30 יום בדפדפן הזה בלבד: זו תזכורת, לא הסכמה, ולכן אינה נשמרת במסד.
    שגיאה (העמודות עוד לא קיימות) = הכרטיס פשוט לא מוצג. */
 const SOCIAL_PROMPT_KEY = 'shuknadlan.social_prompt_later';
+const SOCIAL_PROMPT_NEVER_KEY = 'shuknadlan.social_prompt_never';
 const SOCIAL_PROMPT_SNOOZE_MS = 30 * 24 * 3600 * 1000;
 async function loadSocialPrompt(){
   const box = document.getElementById('socialPrompt');
   if (!box || !currentAgent) return;
   box.hidden = true;
+  // ‏P1-R: "לא להציע לי שוב" - יציאה לפני השאילתות למסד. הרשתות בפרופיל ובמיתוג נשארות זמינות
+  try { if (localStorage.getItem(SOCIAL_PROMPT_NEVER_KEY)) return; } catch(_){ }
   let laterAt = 0;
   try { laterAt = Number(localStorage.getItem(SOCIAL_PROMPT_KEY)) || 0; } catch(_){ }
   if (Date.now() - laterAt < SOCIAL_PROMPT_SNOOZE_MS) return;
@@ -7691,9 +7694,10 @@ async function loadSocialPrompt(){
   const officeNeeds = isManager && !office.error && !(office.data && office.data.social_tag_consent);
   if (!agentNeeds && !officeNeeds) return;
 
+  document.getElementById('socialPromptTitle').textContent = agentNeeds ? '📣 רוצה שנתייג אותך בפרסומים?' : '📣 תיוג בפרסומים של הנכסים';
   document.getElementById('socialPromptText').textContent = agentNeeds
     ? 'כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.'
-    : 'את/ה כבר מתויג/ת. הוסיפו גם את האינסטגרם ודף הפייסבוק של המשרד, כדי שנתייג אותו בכל פרסום של נכסי המשרד.';
+    : 'התיוג האישי כבר פעיל. כדאי להוסיף גם את האינסטגרם ודף הפייסבוק של המשרד, כדי שנתייג אותו בכל פרסום של נכסי המשרד.';
   const go = document.getElementById('socialPromptGo');
   const officeBtn = document.getElementById('socialPromptOffice');
   go.hidden = !agentNeeds;
@@ -7703,6 +7707,18 @@ async function loadSocialPrompt(){
   go.onclick = () => gotoSection('accProfile', 'pfInstagram', { scrollTo:'.pf-social' });
   officeBtn.onclick = () => gotoSection('accBranding', 'brInstagram', { scrollTo:'.br-social' });
   document.getElementById('socialPromptLater').onclick = () => {
+    const never = document.getElementById('socialPromptNever')?.checked;
+    // ה-CRM אינו טוען את events.js - נדחף ישירות ל-dataLayer של GTM
+    const shukTrack = window.shukTrack || ((n, prm) => { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event: n }, prm)); });
+    shukTrack('social_prompt_dismiss', { mode: never ? 'never' : 'later' });
+    if (never){
+      try { localStorage.setItem(SOCIAL_PROMPT_NEVER_KEY, '1'); } catch(_){ }
+      box.querySelector('.social-prompt-acts').hidden = true;
+      box.querySelector('.social-prompt-never').hidden = true;
+      document.getElementById('socialPromptText').textContent = 'בסדר, לא נציע שוב. אפשר להוסיף רשתות בכל זמן בפרופיל ← רשתות חברתיות.';
+      setTimeout(() => { box.hidden = true; box.querySelector('.social-prompt-acts').hidden = false; box.querySelector('.social-prompt-never').hidden = false; }, 6000);
+      return;
+    }
     try { localStorage.setItem(SOCIAL_PROMPT_KEY, String(Date.now())); } catch(_){ }
     box.hidden = true;
   };
@@ -8204,6 +8220,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       document.getElementById('pfInstagram').value = soc.instagram_handle || '';
       document.getElementById('pfFacebook').value = soc.facebook_url || '';
       document.getElementById('pfSocialConsent').checked = !!soc.social_tag_consent;
+      // אישור תיוג מאוחר יותר מבטל את "לא להציע לי שוב" (‏P1-R)
+      if (soc.social_tag_consent) { try { localStorage.removeItem(SOCIAL_PROMPT_NEVER_KEY); } catch(_){ } }
       loadSocialPrompt(); // הכרטיס בדף הבית נעלם אחרי אישור
     }
 

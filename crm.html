@@ -6432,6 +6432,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-banner--warn .ui-link{color:var(--nv-warn);text-decoration:underline}
   .ui-banner--info{background:#F3F6FD;border:1px solid #DCE5FB;color:var(--nv-ink)}
   .social-prompt{margin:0 0 16px}
+  /* ‏P1-R: כפתור ראשי נייבי ומשני במסגרת נייבי; [hidden] גובר על .ui-btn (אחרת שני כפתורים ראשיים) */
+  .social-prompt [hidden]{display:none !important}
+  .social-prompt .ui-btn{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .social-prompt .ui-btn.ui-btn--secondary{background:#fff;color:#0e2a6b;border:1.5px solid #0e2a6b}
+  .social-prompt-never{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:4px;font-size:13px;color:#6b7280;cursor:pointer}
+  .social-prompt-never input{width:18px;height:18px;margin:0}
   .social-prompt-acts{display:flex;flex-wrap:wrap;gap:8px}
   .ui-banner--urgent{background:var(--nv-ink);color:#fff;font-weight:600}
   .ui-banner--urgent::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;background:var(--nv-urgent);
@@ -7867,13 +7873,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              (agent_onboarding_state מחזירה להם אפס שורות). נבנה ב-loadSocialPrompt,
              ונעלם אחרי אישור או "לא עכשיו" (docs/social-tagging.md). -->
         <div class="ui-banner ui-banner--info social-prompt" id="socialPrompt" hidden role="region" aria-label="תיוג בפרסומים">
-          <span class="ui-banner-text"><b>📣 רוצה שנתייג אותך בפרסומים?</b><br>
+          <span class="ui-banner-text"><b id="socialPromptTitle">📣 רוצה שנתייג אותך בפרסומים?</b><br>
             <span id="socialPromptText">כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.</span></span>
           <span class="social-prompt-acts">
             <button type="button" class="ui-btn" id="socialPromptGo">להוספת הרשתות</button>
             <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptOffice" hidden>גם למשרד</button>
             <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptLater">לא עכשיו</button>
           </span>
+          <!-- ‏P1-R: "לא עכשיו" עם הסימון - לא מציעים שוב (בדפדפן הזה; ד-7) -->
+          <label class="social-prompt-never"><input type="checkbox" id="socialPromptNever"> לא להציע לי שוב</label>
         </div>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
@@ -11933,7 +11941,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <a href="/professional-signup">הרשמת בעל מקצוע</a>
         <a href="/agency">עמוד משרד תיווך</a>
         <a href="/agent">עמוד סוכן/ת</a>
-        <a href="/property">עמוד נכס</a>
         <a href="/review-request">בקשת חוות דעת</a>
       </div>
       <p class="dev-note">עמודי משרד/סוכן/נכס דורשים פרמטר (slug או id) - נוח להגיע אליהם מהאתר הציבורי.</p>

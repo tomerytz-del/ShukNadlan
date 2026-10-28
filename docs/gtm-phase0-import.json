@@ -6020,6 +6020,78 @@
                 "consentSettings": {
                     "consentStatus": "NOT_SET"
                 }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "164",
+                "name": "GA4 — social_prompt_dismiss",
+                "type": "gaawe",
+                "notes": "v10 מאחורי הדגל (html.beta-hero) - docs/analytics-events.md",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "mode"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - mode}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "social_prompt_dismiss"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "firingTriggerId": [
+                    "160"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
             }
         ],
         "trigger": [
@@ -7767,6 +7839,31 @@
                                 "type": "TEMPLATE",
                                 "key": "arg1",
                                 "value": "dm_filter_clear"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793000000001"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "160",
+                "name": "CE — social_prompt_dismiss",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "social_prompt_dismiss"
                             }
                         ]
                     }

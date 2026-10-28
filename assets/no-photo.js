@@ -131,8 +131,8 @@
     if (surface === 'hero') {
       return '<div class="' + cls(lv, k, 'np-hero') + '"' + data + '>' + bg(k, 1200) + BRAND +
         '<div class="np-hero-in"><div class="np-msg"><h2 class="np-t">' + esc(STR.title) + '</h2><p class="np-s">' + esc(STR.sub) + '</p>' +
-        '<div class="np-btns"><button type="button" class="np-gold" data-np-cta data-surface="hero" data-level="' + lv + '">' + esc(STR.cta) + '</button>' +
-        '<button type="button" class="np-under" data-np-contact>יצירת קשר עם המפרסם</button></div></div>' +
+        // ‏P1-B: בלי "יצירת קשר עם המפרסם" כאן - כרטיס הקשר והגלולה כבר בדף, ושלישי היה כפילות
+        '<div class="np-btns"><button type="button" class="np-gold" data-np-cta data-surface="hero" data-level="' + lv + '">' + esc(STR.cta) + '</button></div></div>' +
         '<div class="np-agent">' + avatar(k, 112) + '<p class="np-name">' + esc(c.private ? 'מודעה פרטית' : (c.agent && c.agent.display_name) || (c.agency && c.agency.name) || '') + '</p>' +
         (!c.private && c.agent && c.agency && c.agency.name ? '<p class="np-ag">' + esc(c.agency.name) + '</p>' : '') +
         '<p class="np-by">' + esc(STR.by) + '</p></div></div>' +
