@@ -13,6 +13,8 @@ export const CADENCE_OFF_CONFIRM_TITLE = "מאשר/ת, ללא התראות";
 export const CADENCE_BACK_TITLE = "חזרה לאפשרויות";
 export const CADENCE_OFF_WARN =
   "בלי התראות בוואטסאפ לא תצא הודעה על ליד חדש ולא על התאמה. פנייה חדשה עלולה להישאר בלי מענה.";
+export const CADENCE_OFF_AFTER =
+  "מעכשיו לידים והתאמות מחכים בפעמון. אפשר לשאול אותי: אילו לידים יש בביקוש הפתוח? אפשר לשנות את זה בכל רגע.";
 export const CADENCE_MENU_BODY =
   "איך לשלוח לך לידים חדשים בוואטסאפ?\nאפשר תמיד לשנות את זה גם במערכת.";
 

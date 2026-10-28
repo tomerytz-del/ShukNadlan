@@ -772,9 +772,9 @@ comment on function public.notification_push_claim(int) is
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
 
--- אותה שאילתה של open_demand_list() ב-CRM, עם סוכן/ת מפורש/ת.
--- הדפדפן נשאר על הפונקציה בלי ארגומנט (current_agent_id).
-create or replace function public.open_demand_list_for_agent(p_agent uuid)
+-- שאילתה אחת. הלשונית ב-CRM והעטיפה של גבריאלה קוראות רק לה.
+-- תקרת #1037 (8-10) מגבילה רק את דחיפת הוואטסאפ, לא את הרשימה הזו.
+create or replace function public.open_demand_rows(p_agent uuid)
 returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
                city text, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
                budget numeric, move_in text, summary text, open_demand_at timestamptz,
@@ -797,11 +797,11 @@ as $$
    limit 200;
 $$;
 
-comment on function public.open_demand_list_for_agent(uuid) is
-  'ביקוש פתוח לאותו סינון של open_demand_list, לסוכן/ת שגבריאלה מזהה. service_role בלבד.';
+comment on function public.open_demand_rows(uuid) is
+  'רשימת הביקוש הפתוח. ערי העבודה ומי שתפס/ה. לא לקרוא מהדפדפן.';
 
-revoke all on function public.open_demand_list_for_agent(uuid) from public, anon, authenticated;
-grant execute on function public.open_demand_list_for_agent(uuid) to service_role;
+revoke all on function public.open_demand_rows(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_rows(uuid) to service_role;
 
 create or replace function public.open_demand_list()
 returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
@@ -813,32 +813,161 @@ stable
 security definer
 set search_path = ''
 as $$
-  select * from public.open_demand_list_for_agent(public.current_agent_id());
+  select * from public.open_demand_rows(public.current_agent_id());
 $$;
 
 comment on function public.open_demand_list() is
-  'ביקוש פתוח (אנונימי) בערים שהסוכן/ת המחובר/ת עובד/ת בהן. אותה שאילתה כמו open_demand_list_for_agent.';
+  'ביקוש פתוח לסוכן/ת המחובר/ת. אותה שאילתה כמו open_demand_rows.';
 
-create or replace function public.open_demand_cap_full(p_agent uuid)
-returns boolean
+revoke all on function public.open_demand_list() from public, anon, authenticated;
+grant execute on function public.open_demand_list() to authenticated, service_role;
+
+create or replace function public.open_demand_list_for_agent(p_agent uuid)
+returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
+               city text, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
+               budget numeric, move_in text, summary text, open_demand_at timestamptz,
+               no_broker text, mine boolean)
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select coalesce((
-    select count(*)
-      from public.scraped_leads s
-     where s.claimed_by = p_agent
-       and s.claimed_at >= (date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem')
-  ), 0) >= coalesce((select value from public.pricing_config where key = 'open_demand_claims_daily'), 2)::int;
+  select * from public.open_demand_rows(p_agent);
 $$;
 
-comment on function public.open_demand_cap_full(uuid) is
-  'האם הסוכן/ת מיצה/תה את תקרת "אני פונה" להיום, באותו יום מקומי של open_demand_stats.';
+comment on function public.open_demand_list_for_agent(uuid) is
+  'אותה רשימה כמו open_demand_list, לסוכן/ת שגבריאלה מזהה. service_role בלבד.';
 
-revoke all on function public.open_demand_cap_full(uuid) from public, anon, authenticated;
-grant execute on function public.open_demand_cap_full(uuid) to service_role;
+revoke all on function public.open_demand_list_for_agent(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_list_for_agent(uuid) to service_role;
 
-revoke all on function public.open_demand_list() from public, anon, authenticated;
-grant execute on function public.open_demand_list() to authenticated, service_role;
+create or replace function public.open_demand_stats_core(p_agent uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with me as (
+    select p_agent as id,
+           (date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem') as day0
+  ),
+  cap as (
+    select coalesce((select value from public.pricing_config where key = 'open_demand_claims_daily'), 2)::int as n
+  )
+  select jsonb_build_object(
+    'claimed_today', (select count(*) from public.scraped_leads s, me
+                       where s.claimed_at >= me.day0 and public.agent_works_city(me.id, s.city_id)),
+    'my_today', (select count(*) from public.scraped_leads s, me
+                  where s.claimed_by = me.id and s.claimed_at >= me.day0),
+    'daily_cap', (select n from cap));
+$$;
+
+revoke all on function public.open_demand_stats_core(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_stats_core(uuid) to service_role;
+
+create or replace function public.open_demand_stats()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.open_demand_stats_core(public.current_agent_id());
+$$;
+
+comment on function public.open_demand_stats() is
+  'ביקוש פתוח: כמה נתפסו היום בערים של הסוכן/ת, כמה תפס/ה, והתקרה היומית.';
+
+revoke all on function public.open_demand_stats() from public, anon, authenticated;
+grant execute on function public.open_demand_stats() to authenticated, service_role;
+
+create or replace function public.open_demand_stats_for_agent(p_agent uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.open_demand_stats_core(p_agent);
+$$;
+
+revoke all on function public.open_demand_stats_for_agent(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_stats_for_agent(uuid) to service_role;
+
+-- "אני פונה". הגוף היחיד. העטיפות רק בוחרות מי הסוכן/ת.
+create or replace function public.open_demand_claim_core(p_agent uuid, p_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  s       public.scraped_leads%rowtype;
+  v_cap   int;
+  v_used  int;
+  v_day0  timestamptz := date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem';
+begin
+  if p_agent is null then
+    return jsonb_build_object('error', 'not_agent');
+  end if;
+  perform pg_advisory_xact_lock(hashtext('open_demand_claim:' || p_agent::text));
+
+  select * into s from public.scraped_leads where id = p_id for update;
+  if not found
+     or not public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
+     or not public.agent_works_city(p_agent, s.city_id) then
+    return jsonb_build_object('error', 'not_found');
+  end if;
+  if s.claimed_by = p_agent then
+    return jsonb_build_object('success', true, 'post_url', s.post_url, 'already_mine', true);
+  end if;
+  if s.claimed_by is not null then
+    return jsonb_build_object('error', 'claimed');
+  end if;
+
+  v_cap := coalesce((select value from public.pricing_config where key = 'open_demand_claims_daily'), 2)::int;
+  select count(*) into v_used from public.scraped_leads
+   where claimed_by = p_agent and claimed_at >= v_day0;
+  if v_used >= v_cap then
+    return jsonb_build_object('error', 'daily_cap', 'daily_cap', v_cap);
+  end if;
+
+  update public.scraped_leads set claimed_by = p_agent, claimed_at = now() where id = p_id;
+  return jsonb_build_object('success', true, 'post_url', s.post_url,
+                            'my_today', v_used + 1, 'daily_cap', v_cap);
+end;
+$$;
+
+revoke all on function public.open_demand_claim_core(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_claim_core(uuid, uuid) to service_role;
+
+create or replace function public.open_demand_claim(p_id uuid)
+returns jsonb
+language sql
+security definer
+set search_path = ''
+as $$
+  select public.open_demand_claim_core(public.current_agent_id(), p_id);
+$$;
+
+comment on function public.open_demand_claim(uuid) is
+  '"אני פונה" של הסוכן/ת המחובר/ת. הגוף ב-open_demand_claim_core.';
+
+revoke all on function public.open_demand_claim(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_claim(uuid) to authenticated, service_role;
+
+create or replace function public.open_demand_claim_for_agent(p_agent uuid, p_id uuid)
+returns jsonb
+language sql
+security definer
+set search_path = ''
+as $$
+  select public.open_demand_claim_core(p_agent, p_id);
+$$;
+
+comment on function public.open_demand_claim_for_agent(uuid, uuid) is
+  '"אני פונה" לסוכן/ת שגבריאלה מזהה. service_role בלבד. פרטי הקשר רק בתשובת הצלחה, לפי כללי התפיסה.';
+
+revoke all on function public.open_demand_claim_for_agent(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_claim_for_agent(uuid, uuid) to service_role;

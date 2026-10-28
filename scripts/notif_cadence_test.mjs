@@ -15,6 +15,7 @@ import {
   CADENCE_CTA,
   CADENCE_LIST_BUTTON,
   CADENCE_MENU_BODY,
+  CADENCE_OFF_AFTER,
   CADENCE_OFF_CONFIRM_TITLE,
   CADENCE_OFF_WARN,
   CADENCE_PATH,
@@ -27,7 +28,10 @@ import {
   utf16len,
 } from "../supabase/functions/_shared/notif-cadence.ts";
 import {
+  CLAIM_TITLE,
   DEMAND_FORBIDDEN,
+  claimRows,
+  excludeSocialBuyer,
   hasCalendarDate as demandHasDate,
   openDemandBrief,
 } from "../supabase/functions/_shared/open-demand-brief.ts";
@@ -46,6 +50,8 @@ test("כותרות הכפתור והשורות בתוך המגבלה, ומזהי
   assert.ok(utf16len(CADENCE_OFF_CONFIRM_TITLE) <= 20, CADENCE_OFF_CONFIRM_TITLE);
   assert.ok(utf16len(CADENCE_BACK_TITLE) <= 20, CADENCE_BACK_TITLE);
   assert.equal(hasCalendarDate(CADENCE_OFF_WARN), false);
+  assert.equal(hasCalendarDate(CADENCE_OFF_AFTER), false);
+  assert.match(CADENCE_OFF_AFTER, /ביקוש הפתוח/);
   assert.ok(utf16len(CADENCE_CTA) <= 20);
   assert.ok(utf16len(CADENCE_LIST_BUTTON) <= 20);
   const rows = cadenceRows(9, [9, 13, 17]);
@@ -98,7 +104,13 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(migration, /client_match', 'match_digest'/);
   assert.match(migration, /notif_cadence_pending/);
   assert.match(migration, /interval '30 minutes'/);
-  assert.match(migration, /open_demand_list_for_agent/);
+  assert.match(migration, /open_demand_rows\(public\.current_agent_id\(\)\)/);
+  assert.match(migration, /open_demand_rows\(p_agent\)/);
+  assert.match(migration, /open_demand_claim_core\(public\.current_agent_id\(\)/);
+  assert.match(migration, /open_demand_claim_core\(p_agent, p_id\)/);
+  assert.match(migration, /open_demand_stats_core/);
+  assert.match(migration, /revoke all on function public\.open_demand_list_for_agent/);
+  assert.match(migration, /revoke all on function public\.open_demand_claim_for_agent/);
   assert.match(migration, /notify_agent_on_new_lead/);
   assert.doesNotMatch(migration, /create or replace function public\.notify_agent_on_new_lead/);
   assert.doesNotMatch(migration, /create or replace function public\.notifications_apply_preferences/);
@@ -111,10 +123,30 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
 
 test("ביקוש פתוח בלי פרטי קשר ובלי תאריך", () => {
   const agent = readFileSync(join(root, "supabase/functions/whatsapp-webhook/agent.ts"), "utf8");
-  const tool = agent.slice(agent.indexOf("async function toolOpenDemandList"), agent.indexOf("async function toolListLeads"));
+  const tool = agent.slice(agent.indexOf("async function toolOpenDemandLeads"), agent.indexOf("async function toolListLeads"));
   assert.match(tool, /tier === "free"/);
   assert.match(tool, /open_demand_list_for_agent/);
+  assert.match(tool, /open_demand_stats_for_agent/);
+  assert.match(tool, /social_buyer_open_demand_enabled/);
+  assert.match(tool, /excludeSocialBuyer/);
   assert.doesNotMatch(tool, /post_url|display_phone|raw_name|email/);
+  assert.equal(excludeSocialBuyer(false, "seeker_inbound", "facebook_dm"), false);
+  assert.equal(excludeSocialBuyer(true, "seeker_inbound", "facebook_dm"), true);
+  assert.equal(excludeSocialBuyer(true, "seeker_inbound", "facebook_group"), false);
+  assert.equal(excludeSocialBuyer(true, "owner_inbound", "facebook_dm"), false);
+  const claims = claimRows([
+    { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", summary: "מחפש/ת לקנות דירה · עפולה", locked: false },
+    { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", summary: "מחפש/ת לקנות דירה · עפולה", locked: false },
+    { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", summary: "מוכר/ת דירה", locked: true },
+  ]);
+  assert.equal(claims.length, 2);
+  assert.equal(new Set(claims.map((row) => row.id)).size, 2);
+  assert.equal(new Set(claims.map((row) => row.title)).size, 2);
+  for (const row of claims) {
+    assert.ok(row.title.length <= 24);
+    assert.equal(row.description, CLAIM_TITLE);
+    assert.equal(demandHasDate(row.title), false);
+  }
   const brief = openDemandBrief({
     id: "11111111-1111-1111-1111-111111111111",
     lead_type: "seeker_inbound",

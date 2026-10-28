@@ -52,6 +52,7 @@ import {
   CADENCE_CTA,
   CADENCE_LIST_BUTTON,
   CADENCE_MENU_BODY,
+  CADENCE_OFF_AFTER,
   CADENCE_OFF_CONFIRM_ID,
   CADENCE_OFF_CONFIRM_TITLE,
   CADENCE_OFF_WARN,
@@ -1509,6 +1510,15 @@ async function handleCadenceTap(agentId: string, from: string, cadenceId: string
     await sendCadenceList(agentId, from, Number(row.daily_hour) || 9, hoursOf(row));
     return;
   }
+  if (choice === "off") {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: CADENCE_OFF_AFTER,
+      label: CADENCE_CTA,
+      url: absoluteUrl(SITE_BASE, withClick(CADENCE_PATH, "lead_cadence")),
+    }], agentId);
+    return;
+  }
   const line = confirmLine(
     choice,
     row.changed === true,
@@ -1516,6 +1526,37 @@ async function handleCadenceTap(agentId: string, from: string, cadenceId: string
     hoursOf(row),
   );
   await reply(from, line, agentId);
+}
+
+async function handleOpenDemandClaim(agentId: string, from: string, rawId: string): Promise<void> {
+  const id = rawId.slice("odc:".length);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    await reply(from, "הכפתור הזה כבר לא בתוקף.", agentId);
+    return;
+  }
+  const { data, error } = await supabase.rpc("open_demand_claim_for_agent", {
+    p_agent: agentId,
+    p_id: id,
+  });
+  if (error) {
+    await reply(from, "לא הצלחתי לשמור את הפנייה. אפשר לנסות מהלשונית ביקוש פתוח.", agentId);
+    return;
+  }
+  const result = (data || {}) as { success?: boolean; error?: string; post_url?: string };
+  if (result.success && /^https:\/\//.test(result.post_url || "")) {
+    await reply(from, `הביקוש שמור אליך. אפשר להגיב רק בפוסט, לא ב-SMS ולא בוואטסאפ:\n${result.post_url}`, agentId);
+    return;
+  }
+  if (result.success) {
+    await reply(from, "הביקוש שמור אליך. אין כאן פרטי קשר.", agentId);
+    return;
+  }
+  const text = result.error === "claimed"
+    ? "סוכן/ת אחר/ת כבר פנה/תה לביקוש הזה."
+    : result.error === "daily_cap"
+    ? "הגעת לתקרה היומית. מחר אפשר שוב."
+    : "הביקוש כבר לא פתוח.";
+  await reply(from, text, agentId);
 }
 
 async function handleMessage(msg: Record<string, any>): Promise<void> {
@@ -1614,6 +1655,15 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (!agent.active) {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
+    return;
+  }
+  const buttonId = msg.type === "button"
+    ? String(msg.button?.payload || "")
+    : msg.type === "interactive"
+    ? String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "")
+    : "";
+  if (buttonId.startsWith("odc:")) {
+    await handleOpenDemandClaim(agent.id, from, buttonId);
     return;
   }
   const cadenceId = cadenceIdFromMessage(msg);

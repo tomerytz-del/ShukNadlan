@@ -20,9 +20,12 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import {
+  CLAIM_TITLE,
   OPEN_DEMAND_LIMIT,
   OPEN_DEMAND_MAX,
   OPEN_DEMAND_SEE_ALL,
+  claimRows,
+  excludeSocialBuyer,
   openDemandBrief,
   type DemandRow,
 } from "../_shared/open-demand-brief.ts";
@@ -1471,11 +1474,11 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: "open_demand_list",
+    name: "open_demand_leads",
     description:
       "ביקוש פתוח שמתאים לסוכן/ת לפי ערי העבודה, אותה רשימה כמו לשונית ביקוש פתוח ב-CRM. " +
-      "אין שם, טלפון, מייל או פרופיל. כל פריט הוא תקציר (סוג, אזור, חדרים או תקציב, ומתי בלי תאריך) " +
-      "ונתיב action_path. פריט נעול חוזר עם locked והנתיב לפתיחה. " +
+      "אין שם, טלפון, מייל או פרופיל לפני שאני פונה. כל פריט הוא תקציר (סוג, אזור, חדרים או תקציב, ומתי בלי תאריך) " +
+      "ונתיב action_path. כפתור אני פונה תופס את הביקוש. פריט נעול חוזר עם locked והנתיב לפתיחה. " +
       "מסלול חינם לא מחובר לגבריאלה. עד 8 פריטים, ואז כפתור לכל הרשימה.",
     input_schema: {
       type: "object",
@@ -7491,49 +7494,78 @@ async function toolAskMentor(ctx: ToolContext, input: Record<string, unknown>) {
 // ---------------------------------------------------------------------------
 // לידים והתראות
 // ---------------------------------------------------------------------------
-async function toolOpenDemandList(ctx: ToolContext, input: Record<string, unknown>) {
+async function toolOpenDemandLeads(ctx: ToolContext, input: Record<string, unknown>) {
   if (ctx.agent.tier === "free") {
     return { ok: false, error: "מסלול חינם לא מחובר לגבריאלה, ואין גישה לביקוש הפתוח." };
   }
   const limit = Math.min(OPEN_DEMAND_MAX, Math.max(5, Number(input.limit) || OPEN_DEMAND_LIMIT));
-  const { data, error } = await ctx.supabase.rpc("open_demand_list_for_agent", { p_agent: ctx.agent.id });
+  const [{ data, error }, stats, flagRow] = await Promise.all([
+    ctx.supabase.rpc("open_demand_list_for_agent", { p_agent: ctx.agent.id }),
+    ctx.supabase.rpc("open_demand_stats_for_agent", { p_agent: ctx.agent.id }),
+    ctx.supabase.from("pricing_config").select("value").eq("key", "social_buyer_open_demand_enabled").maybeSingle(),
+  ]);
   if (error) return { ok: false, error: error.message };
-  const rows = (data || []) as Array<DemandRow & { neighborhood_id?: string | null }>;
+  const socialOn = Number(flagRow.data?.value) === 1;
+  const rows = ((data || []) as Array<DemandRow & { neighborhood_id?: string | null; lead_type?: string | null; source?: string | null }>)
+    .filter((row) => !excludeSocialBuyer(socialOn, row.lead_type, row.source));
   const hoodIds = [...new Set(rows.map((r) => r.neighborhood_id).filter(Boolean))] as string[];
   const hoods = new Map<string, string>();
   if (hoodIds.length) {
     const { data: names } = await ctx.supabase.from("neighborhoods").select("id,name").in("id", hoodIds);
     for (const n of names || []) hoods.set(String(n.id), String(n.name || ""));
   }
-  const { data: capFullRaw } = await ctx.supabase.rpc("open_demand_cap_full", { p_agent: ctx.agent.id });
-  const capFull = capFullRaw === true;
+  const statsJson = (stats.data || {}) as { my_today?: number; daily_cap?: number };
+  const capFull = Number(statsJson.my_today || 0) >= Number(statsJson.daily_cap || 0) && Number(statsJson.daily_cap || 0) > 0;
   const now = new Date();
   const shown = rows.slice(0, limit);
   const items = shown.map((row) => {
     const locked = capFull && !row.mine;
     const brief = openDemandBrief({
-      ...row,
+      id: row.id,
+      lead_type: row.lead_type,
+      city: row.city,
       neighborhood: row.neighborhood_id ? hoods.get(String(row.neighborhood_id)) || "" : "",
+      deal_type: row.deal_type,
+      property_type: row.property_type,
+      rooms: row.rooms,
+      budget: row.budget,
+      posted_at: row.posted_at,
+      mine: row.mine,
     }, now, locked);
     return { id: row.id, ...brief };
   });
-  const pushed = ctx.outbox && items.length
-    ? pushScreens(ctx, [
-      ...items.map((item) => ({
-        type: "open_demand",
-        path: item.action_path,
-        title: item.locked ? "ביקוש נעול" : "ביקוש פתוח",
-        body: item.summary,
-      })),
-      { type: "open_demand", path: OPEN_DEMAND_SEE_ALL, title: "כל הביקוש", body: "" },
-    ], "איזה ביקוש לפתוח?", OPEN_DEMAND_SEE_ALL)
-    : null;
+  if (ctx.outbox && items.some((item) => !item.locked)) {
+    const rowsForClaim = claimRows(items);
+    if (rowsForClaim.length === 1) {
+      ctx.outbox.push({
+        kind: "buttons",
+        body: items.find((item) => !item.locked)?.summary || CLAIM_TITLE,
+        buttons: [{ id: rowsForClaim[0].id, title: CLAIM_TITLE }],
+      });
+    } else if (rowsForClaim.length > 1) {
+      ctx.outbox.push({
+        kind: "list",
+        body: "אפשר לפנות לביקוש אחד. הפרטים נשארים בלי שם ובלי טלפון עד הלחיצה.",
+        button: CLAIM_TITLE,
+        section: "ביקוש פתוח",
+        rows: rowsForClaim,
+      });
+    }
+  }
+  if (ctx.outbox) {
+    ctx.outbox.push({
+      kind: "cta",
+      body: "כל הביקוש הפתוח בעיר שלך:",
+      label: "כל הביקוש",
+      url: `${SITE_BASE_URL}${OPEN_DEMAND_SEE_ALL}`,
+    });
+  }
   return {
     ok: true,
     returned: items.length,
     total: rows.length,
     see_all: OPEN_DEMAND_SEE_ALL,
-    ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
+    ...(ctx.outbox ? { buttons_sent: true } : {}),
     items,
   };
 }
@@ -8542,7 +8574,7 @@ async function runTool(
 
       // לידים והתראות
       case "list_leads": return await toolListLeads(ctx, input);
-      case "open_demand_list": return await toolOpenDemandList(ctx, input);
+      case "open_demand_leads": return await toolOpenDemandLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
       case "whatsapp_alerts": return await toolWhatsappAlerts(ctx, input);
       // יומן
@@ -8615,7 +8647,7 @@ const SYSTEM_STATIC: string = (() => {
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
       "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query. " +
-      "ביקוש פתוח (\"אילו לידים יש בביקוש הפתוח\") = open_demand_list. בלי שם, טלפון או מייל.",
+      "ביקוש פתוח (\"אילו לידים יש בביקוש הפתוח\") = open_demand_leads. בלי שם, טלפון או מייל, עד שלוחצים אני פונה.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
       "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
       "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
