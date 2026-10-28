@@ -51,6 +51,52 @@ Content-Type: application/json
 | `owner` | `owner-lead-intake` - הרוטציה הרגילה | `leads.source`, `source_detail` |
 | `mortgage` | `mortgage-lead-intake` - מדף היועצים | `mortgage_leads.source` |
 
+### ליד משכנתא מהרשתות, בחינם, כשהדגל דלוק
+
+ברירת המחדל לא משתנה: `kind = mortgage` נכתב ל-`mortgage_leads` ונשאר
+`new` על המדף בתשלום. חוזה הקריאה של `social-lead-intake` לא השתנה.
+`mortgage-lead-intake` כותבת למקור חברתי את `source` שנשלח אליה:
+`facebook_dm`, `facebook_comment`, `instagram_dm` או `instagram_comment`
+(רק מקורא פנימי). טריגר `before insert` (`mortgage_lead_set_channel`)
+ממלא את `channel` ב-`facebook` או `instagram`. מקור של האתר נשאר בלי
+`channel`.
+
+ההיקף הוא הרשימה `mortgage_free_route_sources`, לא רשימה בקוד. ברירת
+המחדל היא ארבעת המקורות האלה בלבד. מקור של האתר או של טופס מטא נוסף
+בשורה. זה פתוח, יחד עם זהות היועץ/ת: היום זה
+`agency_members.is_mortgage_advisor` (פעיל/ה, `closed_at` ריק), בלי
+מספר טלפון.
+
+הטריגר `mortgage_social_route` (מיגרציה `20271029270000`) רץ אחרי
+ה-insert רק כש-`pricing_config.mortgage_social_route_enabled = 1`
+והמקור ברשימה. הליד מסומן `sold` אצל היועצ/ת עם הכי מעט שיוכים (ואז
+ה-`id` הנמוך), בלי חיוב ארנק: `sold_to_agent_id`, ו-
+`mortgage_lead_purchases.amount = 0` עם
+`payment_method = 'social_route'`. סכום 0 הוא מה שמבדיל ניתוב חינם
+ממכירה. אין יועצ/ת - הליד נשאר על המדף.
+
+`store_purchase_to_lead` כותב את שורת ה-`leads` (`lead_type = 'store'`)
+בתוך אותו update. מיד אחר כך המקור מתעדכן לערוץ החברתי
+(`facebook_dm` / `facebook_comment` / `instagram_dm` /
+`instagram_comment`) ו-`source_detail` ל-`משכנתאות · פייסבוק · חינם` או
+`משכנתאות · אינסטגרם · חינם`. רכישה בתשלום נשארת `source = 'store'`
+ו-`משכנתאות`, כי העדכון רץ רק על השורה שזה עתה נכתבה כך.
+
+כל שיוך נספר ב-`mortgage_social_routes`. `mortgage_social_route_stats`
+מחזיר `free_routed` ליועצ/ת (ולמנהל/ת פלטפורמה גם פירוט לפי שם פרטי).
+`review_due` נדלק מ-10 לידים, והניתוב לא נעצר - ההסכם נבדק ביד. המונה
+מוצג במגירת המשכנתאות ב-CRM, בלי לחכות לו לפני ציור המדף. ההתראה היא
+`new_lead` אחת, עם `related_lead_id` של שורת ה-`leads`, וכותרת
+`ליד משכנתא חדש מהרשתות`. `new_lead` כבר ב-`notification_push_priority_types`,
+והקישור הקיים פותח את כרטיס הליד (`?goto=accLeads&lead=<id>`).
+`notify_agent_on_new_lead` אינו כותב שורה שנייה: הוא חוזר מיד על
+`lead_type = 'store'`. אין בה שם או טלפון של הפונה. `suppress_push`
+דלוק כשהיועץ/ת אינם ב-Professional או ב-Elite, כי מסלול free אינו
+מחובר לגבריאלה.
+
+`lead_routing_log` עדיין רושם `shelf` מתוך `mortgage-lead-intake`.
+השיוך החינמי נספר רק ב-`mortgage_social_routes`.
+
 כל ניתוב נרשם ב-`lead_routing_log` בפונקציית הקליטה עצמה (‏`docs/lead-routing.md`),
 עם המקור החברתי. ‏`social_leads` שומרת לכל `zernio_id` מה נשלח, לאן, ומה חזר
 (‏`target`, ‏`error`) - קריאה למנהל/ת הפלטפורמה בלבד.
