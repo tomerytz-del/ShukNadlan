@@ -85,6 +85,11 @@ def bodies(text: str) -> list[tuple[str, str]]:
     return found
 
 
+def version_of(path: Path) -> str:
+    name = path.name
+    return name[:14] if len(name) >= 14 and name[:14].isdigit() else name
+
+
 def main() -> int:
     if not WIN.is_file():
         fail("חסרה 20271030000100_customer_send_window.sql")
@@ -103,7 +108,8 @@ def main() -> int:
 
     final: dict[str, str] = {}
     where: dict[str, str] = {}
-    for path in sorted(MIG.glob("*.sql")):
+    # סדר הפריסה הוא ה-version, לא שם הקובץ שאחריו.
+    for path in sorted(MIG.glob("*.sql"), key=lambda p: (version_of(p), p.name)):
         for name, body in bodies(path.read_text(encoding="utf-8")):
             final[name] = body
             where[name] = path.name

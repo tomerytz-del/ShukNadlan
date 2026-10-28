@@ -339,11 +339,42 @@ $$;
     )
 
     defn = psql("select pg_get_functiondef('public.notification_push_due_agents()'::regprocedure)")
-    if "agent_backlog_waiting" not in defn or "not public.agent_backlog_waiting" in defn:
-        fail("פיזור הסוכנים עדיין מוריד את כל הסוכן")
-    for kind in ("new_lead", "agenda_reminder", "showcase_meeting"):
-        if kind not in defn:
-            fail(f"הפיזור לא פוטר את {kind}")
+    quiet_at = defn.find("notification_agent_send_quiet")
+    spread_at = defn.find("agent_backlog_waiting")
+    if quiet_at < 0 or spread_at < 0 or quiet_at > spread_at:
+        fail("פיזור הבוקר רץ לפני שעות השקט")
+    if "cfg.priority" not in defn[spread_at:spread_at + 400]:
+        fail("הפיזור לא משתמש ב-cfg.priority")
+    if "array['new_lead'" in defn:
+        fail("הפיזור מחזיק רשימת סוגים קשיחה")
+
+    notify = (ROOT / "supabase/functions/saved-search-notify/index.ts").read_text(encoding="utf-8")
+    if notify.find("if (phoneHeld)") > notify.find("await sendEmail("):
+        fail("מייל יוצא גם כשהתקרה מלאה")
+    email_catch = notify.split("await sendEmail(a);", 1)[1][:500]
+    if "customer_phone_release" not in email_catch:
+        fail("כישלון מייל לא משחרר את התפיסה")
+
+    dig_only = phone_with_minute(0)
+    psql(f"""
+      insert into public.properties (id, status, city) values
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9', 'active', 'עפולה');
+      insert into public.saved_searches (id, full_name, phone_e164, status, cities)
+      values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9', 'בדיקה', '{dig_only}', 'active', array['עפולה']);
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at) values
+        ('cccccccc-cccc-cccc-cccc-cccccccccc11', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9',
+         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9', 'pending', now()),
+        ('cccccccc-cccc-cccc-cccc-cccccccccc12', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb9',
+         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9', 'deferred', now());
+      insert into public.customer_message_holds (phone_e164, audience, alert_id, reason, deliver_on, created_at) values
+        ('{dig_only}', 'saved_search', 'cccccccc-cccc-cccc-cccc-cccccccccc11', 'quiet', '2026-08-02', now()),
+        ('{dig_only}', 'saved_search', 'cccccccc-cccc-cccc-cccc-cccccccccc12', 'quiet', '2026-08-02', now());
+    """)
+    groups = psql(f"select coalesce(string_agg(x::text, ','), '') from public.customer_digest_groups({base}) d, unnest(d.alert_ids) x")
+    if "cccccccccc11" in groups:
+        fail("תקציר כולל התראה ממתינה")
+    if "cccccccccc12" not in groups:
+        fail(f"תקציר לא כולל דחויה: {groups}")
 
     psql("update public.pricing_config set value = 1 where key = 'customer_send_window_enabled'")
     psql("""
@@ -360,6 +391,7 @@ $$;
     """)
     push_phone = phone_with_minute(0)
     psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    psql("update public.saved_search_alerts set status = 'skipped' where status = 'deferred'")
     psql(f"""
       insert into public.properties (id, status, city, title) values
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10', 'active', 'עפולה', 'דירה');

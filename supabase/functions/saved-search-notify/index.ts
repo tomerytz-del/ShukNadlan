@@ -256,7 +256,7 @@ Deno.serve(async (req: Request) => {
     return json({ sent: 0, failed: 0, deferred: false, reason: "window_error" }, 500);
   }
   const flagOn = !flagMissing && flag.data === true;
-  if (!flagMissing) {
+  if (!flagOn && !flagMissing) {
     const prep = await sb.rpc("customer_prepare");
     if (prep.error && prep.error.code !== "PGRST202" && prep.error.code !== "42883") {
       console.error("customer prepare failed", prep.error.code);
@@ -311,11 +311,17 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (phoneHeld) {
+      await sb.rpc("customer_message_defer", { p_alert_id: a.alert_id, p_reason: "cap" });
+      deferred++;
+      continue;
+    }
+
     let waStatus = wantWhatsapp ? "pending" : "not_requested";
     let emStatus = wantEmail ? "pending" : "not_requested";
     const errors: string[] = [];
 
-    if (wantWhatsapp && !phoneHeld) {
+    if (wantWhatsapp) {
       try {
         await sendWhatsapp(a);
         waStatus = "sent";
@@ -345,23 +351,11 @@ Deno.serve(async (req: Request) => {
         emStatus = "sent";
       } catch (err) {
         emStatus = "failed";
+        if (flagOn && contactKey && waStatus !== "sent") {
+          await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
+        }
         errors.push(`email: ${err instanceof Error ? err.message : String(err)}`);
       }
-    }
-
-    // הסטטוס הכולל נגזר במסד מהשניים, ולא נשלח מכאן - "נשלחה" הוא החלטה
-    // של המוצר (ערוץ אחד שהצליח מספיק), לא של הקוד ששלח.
-    if (phoneHeld) {
-      await sb.rpc("customer_message_defer", { p_alert_id: a.alert_id, p_reason: "cap" });
-      if (emStatus === "sent") {
-        await sb.rpc("customer_note_channel", {
-          p_alert_id: a.alert_id,
-          p_email_status: "sent",
-          p_whatsapp_status: null,
-        });
-      }
-      deferred++;
-      continue;
     }
 
     const { error: markErr } = await sb.rpc("mark_saved_search_alert", {

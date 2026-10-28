@@ -634,7 +634,7 @@ begin
   with ranked as (
     select a.id,
            row_number() over (
-             partition by public.customer_contact_key(s.phone_e164, s.email), a.property_id
+             partition by public.customer_contact_key(s.phone_e164, s.email, s.id), a.property_id
              order by a.created_at desc, a.id desc
            ) as rn
       from public.saved_search_alerts a
@@ -660,14 +660,14 @@ begin
   end if;
 
   for r in
-    select a.id, a.created_at, s.phone_e164, s.email
+    select a.id, a.created_at, s.phone_e164, s.email, s.id as search_id
       from public.saved_search_alerts a
       join public.saved_searches s on s.id = a.search_id
      where a.status = 'deferred'
        and a.created_at >= v_at - interval '72 hours'
      order by a.created_at desc, a.id desc
   loop
-    v_key := public.customer_contact_key(r.phone_e164, r.email);
+    v_key := public.customer_contact_key(r.phone_e164, r.email, r.search_id);
     if v_key is null or v_key = any(v_seen) then
       continue;
     end if;
@@ -803,7 +803,7 @@ begin
        and h.alert_id is not null
        and a.created_at >= v_from
        and a.created_at >= v_at - interval '72 hours'
-       and a.status in ('pending', 'deferred')
+       and a.status = 'deferred'
        and p.status = 'active'
        and public.saved_search_matches(s, p)
        and public.customer_spread_minute(h.phone_e164)
@@ -1071,16 +1071,16 @@ as $$
   shaped as (
     select a.id, a.display_name, a.phone_e164, a.in_window,
            case
+             when public.notification_agent_send_quiet(
+                    a.quiet_from, a.quiet_to, a.quiet_days, now(), cfg.window_on)
+             then array(select t from unnest(a.whatsapp_types) t where t = any(cfg.urgent))
              when coalesce((select value::int from public.pricing_config
                              where key = 'agent_holiday_window_enabled'), 0) = 1
               and public.agent_backlog_waiting(a.id, pg_catalog.now())
              then array(
                select t from unnest(a.whatsapp_types) t
-                where t = any(array['new_lead', 'agenda_reminder', 'showcase_meeting']::text[])
+                where t = any(cfg.priority)
              )
-             when public.notification_agent_send_quiet(
-                    a.quiet_from, a.quiet_to, a.quiet_days, now(), cfg.window_on)
-             then array(select t from unnest(a.whatsapp_types) t where t = any(cfg.urgent))
              when cfg.stop_131049 = 1
               and not a.in_window
               and coalesce(r.hit_131049, false)
