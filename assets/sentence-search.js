@@ -533,6 +533,50 @@
     return n % 1 === 0 ? [n, n + 0.5] : [n, n];
   }
 
+  /* ---------- מספרים שנאמרו בקול (R8) ----------
+     הזיהוי בכרום מחזיר בדרך כלל ספרות, אבל לא תמיד (וספארי משתנה): "מיליון ושבע מאות",
+     "שני מיליון", "מיליון וחצי", "חמשת אלפים", "שלושת וחצי", "שבע מאות אלף". הופכים אותם
+     לספרות לפני הפענוח, שמבין רק ספרות. רק בצירוף למיליון/אלף/מאות - "ארבעה חדרים" לא נוגעים */
+  var SPOKEN_UNITS = { 'אחד': 1, 'אחת': 1, 'שני': 2, 'שתי': 2, 'שניים': 2, 'שתיים': 2, 'שלוש': 3, 'שלושה': 3, 'שלושת': 3,
+    'ארבע': 4, 'ארבעה': 4, 'ארבעת': 4, 'חמש': 5, 'חמישה': 5, 'חמשת': 5, 'שש': 6, 'שישה': 6, 'ששת': 6,
+    'שבע': 7, 'שבעה': 7, 'שבעת': 7, 'שמונה': 8, 'שמונת': 8, 'תשע': 9, 'תשעה': 9, 'תשעת': 9, 'עשר': 10, 'עשרה': 10, 'עשרת': 10 };
+  var SPOKEN_TENS = { 'עשרים': 20, 'שלושים': 30, 'ארבעים': 40, 'חמישים': 50, 'שישים': 60, 'שבעים': 70, 'שמונים': 80, 'תשעים': 90 };
+  var SU = Object.keys(SPOKEN_UNITS).sort(function (a, b) { return b.length - a.length; }).join('|');
+  var ST = Object.keys(SPOKEN_TENS).join('|');
+  var SH = '(?:מאה|מאתיים|(?:' + SU + ') מאות)';
+  function hundreds(w) {
+    if (!w) return 0;
+    if (w === 'מאה') return 1;
+    if (w === 'מאתיים') return 2;
+    return SPOKEN_UNITS[w.split(' ')[0]] || 0;
+  }
+  function spokenNumbers(text) {
+    var t = ' ' + String(text || '').replace(/\s+/g, ' ').trim() + ' ';
+    var B = '(?=[ ,.?!])';
+    // "שבע מאות (ו)חמישים אלף" → 750000
+    t = t.replace(new RegExp(' (' + SH + ')(?: ו(' + ST + '|' + SU + '))? אלף' + B, 'g'), function (m, h, x) {
+      return ' ' + (hundreds(h) * 100 + (SPOKEN_TENS[x] || SPOKEN_UNITS[x] || 0)) * 1000;
+    });
+    // "(שני|2) מיליון (ו)(חצי|רבע|שבע מאות (אלף))" / "שניים וחצי מיליון"
+    t = t.replace(new RegExp(' (' + SU + ') וחצי (?:מיליון|מליון)' + B, 'g'), function (m, u) { return ' ' + (SPOKEN_UNITS[u] + 0.5) + ' מיליון'; });
+    t = t.replace(new RegExp('(?: (' + SU + '|\\d+(?:\\.\\d+)?))? (?:מיליון|מליון)(?: ו?(חצי|רבע|' + SH + ')(?: אלף)?)?' + B, 'g'), function (m, u, f) {
+      var base = u ? (SPOKEN_UNITS[u] || parseFloat(u)) : 1;
+      var add = f === 'חצי' ? 0.5 : f === 'רבע' ? 0.25 : f ? hundreds(f) / 10 : 0;
+      return ' ' + Math.round((base + add) * 100) / 100 + ' מיליון';
+    });
+    // "חמשת אלפים (ו)(חצי|חמש מאות)" → 5500; "אלף וחמש מאות" → 1500
+    t = t.replace(new RegExp(' (?:(' + SU + '|' + ST + ') )?(?:אלפים|אלף)(?: ו(חצי|' + SH + '))?' + B, 'g'), function (m, u, f, at, all) {
+      // ‏"5 אלף" כבר מובן לפענוח - רק מילים
+      if (!u && (!/^ אלף/.test(m) || /\d$/.test(all.slice(0, at)))) return m;
+      var base = u ? (SPOKEN_UNITS[u] || SPOKEN_TENS[u]) : 1;
+      var add = f === 'חצי' ? 500 : f ? hundreds(f) * 100 : 0;
+      return ' ' + (base * 1000 + add);
+    });
+    // "שלושת וחצי" (צורת סמיכות = אלפים) → 3500
+    t = t.replace(/ (שלושת|ארבעת|חמשת|ששת|שבעת|שמונת|תשעת|עשרת) וחצי(?=[ ,.?!])/g, function (m, u) { return ' ' + (SPOKEN_UNITS[u] * 1000 + 500); });
+    return t.trim();
+  }
+
   function parse(text, st, areas, places) {
     var patch = {}, fields = [];
     var t = norm(text);
@@ -926,6 +970,7 @@
     parse: parse, compileQuery: compileQuery, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
     advancedFromParams: advancedFromParams, typesLabel: typesLabel, hoodsLabel: hoodsLabel, roomsInLabel: roomsInLabel,
+    spokenNumbers: spokenNumbers,
   };
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = Core; return; }
@@ -1365,6 +1410,7 @@
     }
 
     /* ---------- השדה החכם ---------- */
+    var parsedFieldsLast = '';
     function runParse() {
       var text = (input.value || '').trim();
       parsedText = text;
@@ -1438,7 +1484,8 @@
           opts.onWordMiss('feature', wordMiss, areas.mainCity || '');
         }
       }
-      track('search_freetext_submit', { parsed_fields: fields.concat(feats.length ? ['features'] : []).join(',') || 'none', field_count: fields.length });
+      parsedFieldsLast = fields.concat(feats.length ? ['features'] : []).join(',');
+      track('search_freetext_submit', { parsed_fields: parsedFieldsLast || 'none', field_count: fields.length, source: querySource });
       return fields.length > 0 || feats.length > 0;
     }
 
@@ -1456,7 +1503,7 @@
       keyboardOpen = false;
       render();
       var list = results();
-      track('search_submit', { result_count: list.length });
+      track('search_submit', { result_count: list.length, source: querySource });
       if (typeof opts.onSubmit === 'function') opts.onSubmit(list, st);
     }
 
@@ -1540,147 +1587,246 @@
       change(h.patch, 'widen');
     });
 
-    /* מיקרופון: Web Speech API היכן שיש, ואחרת הכפתור לא מוצג בכלל. */
+    /* ---------- חיפוש קולי (R8, אושר בידי תומר 28.10.2026) ----------
+       לחיצה אחת מתחילה; הטיימר שלנו מסיים 1.6 שניות אחרי המילה האחרונה; לחיצה נוספת
+       מסיימת מוקדם; ✕ (או Esc, או מעבר לשונית) מבטל בלי לחפש. אין "החזקה": היא לא
+       קיימת בחיפוש (Google, YouTube, Airbnb), ‏continuous=false סגר את ההקלטה גם
+       כשהאצבע עוד על הכפתור, והתחלה ב-pointerdown אינה מחווה מוכרת ב-iOS. ‏click בלבד -
+       אותו מסלול גם למקלדת ולקורא מסך. התוצאה עוברת באותו מסלול כמו Enter
+       (‏opts.onQuery - מספר מודעה, בעלי מקצוע), והתמלול לא נשלח לשום מקום.
+       הנוסח: גבריאלה (קשר עם לקוחות). ‏docs/sentence-search.md, "חיפוש קולי". */
     var Rec = root.SpeechRecognition || root.webkitSpeechRecognition;
+    var voiceOn = false;            // הטייפר (למטה) לא רץ בזמן הקשבה
+    var typerApi = null;
+    var querySource = 'typed';      // ‏source באירועי החיפוש
+    var VOICE_OFF_KEY = 'ss_voice_off';
+    var UA = root.navigator ? root.navigator.userAgent || '' : '';
+    var IN_APP = /FBAN|FBAV|Instagram|Line\/|TikTok|Snapchat/i.test(UA);
+    var IOS = /iP(hone|ad|od)/.test(UA) || (/Macintosh/.test(UA) && root.navigator && root.navigator.maxTouchPoints > 1);
+    var IOS_SAFARI = IOS && /Safari\//.test(UA) && !/CriOS|FxiOS|EdgiOS|GSA\//.test(UA) && !IN_APP;
+    var WEBKIT = /AppleWebKit/.test(UA) && !/Chrome|Chromium|CriOS|Edg\//.test(UA);
+    var uaClass = IN_APP ? 'in_app' : IOS_SAFARI ? 'ios_safari' : IOS ? 'ios_other' : WEBKIT ? 'webkit' : 'chromium';
+    var VOICE = {
+      wait: 'רגע…',
+      perm: 'הדפדפן יבקש אישור למיקרופון. אנחנו לא שומרים את ההקלטה.',
+      hearing: 'מקשיבים… לחיצה נוספת מסיימת',
+      busy: 'מחפשים…',
+      none: 'לא שמענו כלום. אפשר לנסות שוב או לכתוב בשדה.',
+      cancel: 'החיפוש הקולי בוטל.',
+      denied: 'אין אישור למיקרופון. אפשר לאשר אותו בהגדרות האתר בדפדפן, או לכתוב בשדה.',
+      browser: 'בדפדפן הזה החיפוש הקולי לא זמין. אפשר לפתוח את האתר ב-Chrome או ב-Safari, או לכתוב בשדה.',
+      iphone: 'כדי לחפש בקול באייפון צריך להפעיל את ההכתבה בהגדרות המקלדת. בינתיים אפשר לכתוב בשדה.',
+      nomic: 'לא מצאנו מיקרופון במכשיר. אפשר לכתוב בשדה.',
+      network: 'אין חיבור לשירות הזיהוי כרגע. אפשר לנסות שוב או לכתוב בשדה.',
+      other: 'החיפוש הקולי לא עבד הפעם. אפשר לנסות שוב או לכתוב בשדה.'
+    };
+    var VOICE_SILENCE = 1600, VOICE_NO_SPEECH = 6000, VOICE_MAX = 12000, VOICE_WATCHDOG = 4000;
+    function sessFlag(k, v) { try { if (v === undefined) return root.sessionStorage.getItem(k); root.sessionStorage.setItem(k, v); } catch (e) { return null; } }
     if (micBtn) {
-      if (!Rec) micBtn.hidden = true;
+      if (!Rec || sessFlag(VOICE_OFF_KEY)) micBtn.hidden = true;
       else {
         micBtn.hidden = false;
-        /* הזיהוי הפעיל. לחיצה בזמן הקשבה עוצרת אותו - קודם כל לחיצה יצרה
-           מופע חדש, והשני נפל ב-InvalidStateError או ביטל את הראשון
-           (‏aborted) והציג "לא זמין" על חיפוש שעבד. */
-        var listening = null;
-        /* שתי דרכים לאותו כפתור. לחיצה קצרה: מתחילים, והזיהוי נסגר לבד בסוף
-           המשפט (או בלחיצה נוספת). החזקה: מקליטים כל עוד האצבע על הכפתור,
-           ועזיבה עוצרת ומחפשת - כמו הודעה קולית בוואטסאפ. ההחזקה אינה
-           מחליפה את הלחיצה: מקלדת וקורא מסך אינם יכולים "להחזיק".
-           ‏audioOn: עזיבה עוצרת רק אחרי שההקשבה באמת התחילה (‏onstart).
-           בפעם הראשונה הדפדפן מבקש הרשאה, וכדי לאשר צריך להרים את האצבע -
-           בלי הבדיקה הזו האישור עצמו היה עוצר את ההקלטה. */
-        var HOLD_NOTE = 'מקשיבים... עזבו את הכפתור כדי לחפש';
-        var TAP_NOTE = 'מקשיבים... לחיצה נוספת עוצרת';
-        var pressed = false, holdMode = false, holdTimer = 0;
-        var pressStops = false, skipClick = false, audioOn = false;
-        var stopListening = function () {
-          if (listening) { try { listening.stop(); } catch (e) { /* כבר נעצר */ } }
-        };
-        var startListening = function () {
-          var typed = input.value;
-          var heard = '';
-          var failed = false;
-          audioOn = false;
-          try {
-            var rec = new Rec();
-            rec.lang = 'he-IL';
-            /* תוצאות ביניים נכתבות לשדה תוך כדי דיבור: בלעדיהן הגולש/ת מדבר/ת
-               לתוך שתיקה עד שהזיהוי נסגר, ולא יודע/ת אם שומעים */
-            rec.interimResults = true;
-            rec.continuous = false;
-            rec.maxAlternatives = 1;
-            listening = rec;
-            micBtn.classList.add('is-listening');
-            micBtn.setAttribute('aria-pressed', 'true');
-            rec.onresult = function (ev) {
-              var text = '';
-              for (var i = 0; i < ev.results.length; i++) {
-                if (ev.results[i] && ev.results[i][0]) text += ev.results[i][0].transcript;
-              }
-              heard = text.trim();
-              if (heard) input.value = heard;
-            };
-            /* "מקשיבים" רק כשהזיהוי באמת שומע: הוא מתחיל כשלוש-עשיריות שנייה
-               אחרי הלחיצה, ומי שמדבר/ת לפני כן מאבד/ת את המילה הראשונה */
-            rec.onstart = function () {
-              if (listening !== rec) return;
-              audioOn = true;
-              if (noteEl) noteEl.textContent = pressed ? HOLD_NOTE : TAP_NOTE;
-            };
-            var stop = function () {
-              if (listening === rec) { listening = null; audioOn = false; }
-              micBtn.classList.remove('is-listening');
-              micBtn.setAttribute('aria-pressed', 'false');
-            };
-            /* הפענוח קורה ב-onend ולא ב-onresult: עם תוצאות ביניים onresult
-               נורה כמה פעמים, ובחלק מהדפדפנים (ספארי) התוצאה האחרונה אינה
-               מסומנת isFinal. ‏onend מגיע פעם אחת, אחרי שהכל נשמע. */
-            rec.onend = function () {
-              stop();
-              if (failed) return;
-              /* דיבור שזוהה פותח את התוצאות מיד, בלי "הצג N נכסים". ב-Enter
-                 זה הפוך בכוונה - מי שמקליד/ה עוד מלטש/ת - אבל סוף ההקלטה הוא
-                 כבר "סיימתי", ובטלפון לא היה ברור שיש עוד לחיצה. מה שלא זוהה
-                 נשאר במשפט עם "לא זיהיתי", כדי לא לפתוח רשימה שאינה החיפוש. */
-              if (heard) { input.value = heard; if (runParse()) submit(); }
-              else { input.value = typed; if (noteEl) noteEl.textContent = 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'; }
-            };
-            /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
-               נלחץ ולא קרה דבר. עכשיו כל כשל אומר מה קרה. */
-            rec.onerror = function (ev) {
-              var code = ev && ev.error;
-              /* ‏aborted הוא עצירה שלנו, ו-no-speech מטופל ב-onend. מה שנשמע עד
-                 הכשל (למשל network באמצע משפט) עדיין מפוענח שם. */
-              if (code === 'aborted' || code === 'no-speech' || heard) return;
-              failed = true;
-              stop();
-              input.value = typed;
-              /* קוד השגיאה נכתב בסוגריים: בלעדיו "לא עובד" מהטלפון של גולש/ת
-                 אינו ניתן לאבחון - ‏not-allowed (הרשאה/מדיניות), ‏network (שירות
-                 הזיהוי של הדפדפן), ‏audio-capture (אין מיקרופון) הם שלוש בעיות
-                 שונות לגמרי. */
-              if (noteEl) noteEl.textContent =
-                (code === 'not-allowed' || code === 'service-not-allowed'
-                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות האתר בדפדפן, או לכתוב בשדה.'
-                  : code === 'audio-capture'
-                      ? 'לא נמצא מיקרופון במכשיר - אפשר לכתוב בשדה.'
-                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
-                (code ? ' (' + code + ')' : '');
-            };
-            if (noteEl) noteEl.textContent = 'רגע...';
-            rec.start();
-          } catch (err) {
-            listening = null;
-            micBtn.classList.remove('is-listening');
-            micBtn.setAttribute('aria-pressed', 'false');
-            if (noteEl) noteEl.textContent = 'החיפוש הקולי לא זמין בדפדפן הזה - אפשר לכתוב בשדה. (' + ((err && err.name) || 'error') + ')';
-          }
-        };
+        micBtn.setAttribute('aria-pressed', 'false');
+        // ✕ בזמן הקשבה - במקום כפתור הסינון שלידו (‏.is-voice על הכרטיס)
+        var cancelBtn = doc.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'ss-mic-cancel';
+        cancelBtn.hidden = true;
+        cancelBtn.setAttribute('aria-label', 'ביטול החיפוש הקולי');
+        cancelBtn.textContent = '✕';
+        micBtn.parentNode.insertBefore(cancelBtn, micBtn.nextSibling);
+        // הודעה לקורא מסך על התוצאה (‏noteEl כבר מציג את "שמענו")
+        var srEl = doc.createElement('span');
+        srEl.className = 'ss-sr';
+        srEl.setAttribute('aria-live', 'polite');
+        srEl.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
+        card.appendChild(srEl);
 
-        micBtn.addEventListener('pointerdown', function (e) {
-          if (e.button !== 0) return;
-          skipClick = true;                 // ה-click שאחרי מטופל כאן, לא שם
-          if (listening) { pressStops = true; return; }
-          pressStops = false;
-          pressed = true;
-          holdMode = false;
-          /* ‏capture: העזיבה מגיעה לכפתור גם אם האצבע גלשה ממנו בזמן הדיבור */
-          try { micBtn.setPointerCapture(e.pointerId); } catch (err) { /* לא נתמך */ }
-          startListening();
-          root.clearTimeout(holdTimer);
-          holdTimer = root.setTimeout(function () {
-            if (!pressed) return;
-            holdMode = true;
-            if (audioOn && noteEl) noteEl.textContent = HOLD_NOTE;
-          }, 400);
-        });
-        var release = function () {
-          root.setTimeout(function () { skipClick = false; }, 500);
-          if (pressStops) { pressStops = false; stopListening(); return; }
-          if (!pressed) return;
-          pressed = false;
-          root.clearTimeout(holdTimer);
-          if (holdMode && audioOn) stopListening();
-          else if (audioOn && noteEl) noteEl.textContent = TAP_NOTE;
-          holdMode = false;
+        var permState = 'unknown';
+        try {
+          if (root.navigator.permissions && root.navigator.permissions.query) {
+            root.navigator.permissions.query({ name: 'microphone' }).then(function (r) {
+              permState = r.state;
+              r.onchange = function () { permState = r.state; };
+            }, function () {});
+          }
+        } catch (e) { /* לא נתמך */ }
+
+        var vs = null;   // ההקלטה הפעילה
+        var buzz = function () { try { if (root.navigator.vibrate) root.navigator.vibrate(10); } catch (e) {} };
+        var setNote = function (t) { if (noteEl) noteEl.textContent = t; };
+        var uiOn = function () {
+          voiceOn = true;
+          micBtn.classList.add('is-listening');
+          micBtn.setAttribute('aria-pressed', 'true');
+          card.classList.add('is-voice');
+          cancelBtn.hidden = false;
+          if (typerApi) typerApi.clear();
+          input.setAttribute('placeholder', 'מקשיבים…');
         };
-        micBtn.addEventListener('pointerup', release);
-        micBtn.addEventListener('pointercancel', release);
-        /* לחיצה ארוכה בטלפון פותחת תפריט או מסמנת טקסט */
-        micBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-        /* מקלדת וקורא מסך מגיעים רק לכאן (‏Enter/רווח) - לחיצה מתחילה ועוצרת */
+        var uiOff = function () {
+          voiceOn = false;
+          micBtn.classList.remove('is-listening', 'is-busy');
+          micBtn.setAttribute('aria-pressed', 'false');
+          card.classList.remove('is-voice');
+          input.classList.remove('is-interim');
+          cancelBtn.hidden = true;
+          placeholder();
+          if (typerApi && input.value === '') root.setTimeout(typerApi.start, 600);
+        };
+        var clearTimers = function (v) { ['tWatch', 'tNoSpeech', 'tSilence', 'tMax', 'tEnd'].forEach(function (k) { root.clearTimeout(v[k]); }); };
+        var hideForSession = function () { sessFlag(VOICE_OFF_KEY, '1'); micBtn.hidden = true; cancelBtn.hidden = true; };
+        var fail = function (v, code) {
+          if (v.done) return;
+          v.done = true;
+          clearTimers(v);
+          try { v.rec.abort(); } catch (e) {}
+          if (vs === v) vs = null;
+          input.value = v.typed;
+          uiOff();
+          track('voice_error', { code: code, ua_class: uaClass });
+          var hide = code === 'service-not-allowed' || code === 'watchdog' || (code === 'not-allowed' && permState !== 'prompt');
+          if (IN_APP && hide) { setNote(VOICE.browser); hideForSession(); return; }
+          setNote(code === 'not-allowed' ? VOICE.denied
+            : code === 'service-not-allowed' ? (IOS_SAFARI ? VOICE.iphone : VOICE.browser)
+            : code === 'watchdog' ? VOICE.browser
+            : code === 'audio-capture' ? VOICE.nomic
+            : code === 'network' ? VOICE.network : VOICE.other);
+        };
+        /* סיום: הטיימר שלנו, לחיצה, מקסימום - עוצרים את הזיהוי, והעיבוד ב-onend (התוצאה
+           האחרונה מגיעה אחרי stop). ‏onend שלא מגיע - מעבדים אחרי שנייה וחצי בכל זאת */
+        var finish = function (v, reason) {
+          if (v.done || v.ending) return;
+          v.ending = true;
+          v.reason = reason;
+          clearTimers(v);
+          micBtn.classList.add('is-busy');
+          setNote(VOICE.busy);
+          buzz();
+          if (reason !== 'browser') { try { v.rec.stop(); } catch (e) {} v.tEnd = root.setTimeout(function () { process(v); }, 1500); }
+          else process(v);
+        };
+        var process = function (v) {
+          if (v.done) return;
+          v.done = true;
+          clearTimers(v);
+          if (vs === v) vs = null;
+          var text = (v.final + ' ' + v.interim).replace(/\s+/g, ' ').trim();
+          uiOff();
+          if (!text) {
+            input.value = v.typed;
+            setNote(VOICE.none);
+            track('voice_no_speech', {});
+            if (typerApi && input.value === '') typerApi.start();
+            return;
+          }
+          var spoken = spokenNumbers(text);
+          input.value = spoken;
+          // ‏input: מה שהדף עושה על הקלדה (הצעת בעלי מקצוע) קורה גם לדיבור
+          input.dispatchEvent(new root.Event('input', { bubbles: true }));
+          var base = { chars: text.length, words: text.split(' ').length, duration_ms: Date.now() - v.t0, end_reason: v.reason || 'browser' };
+          var lowConf = v.conf != null && v.conf < 0.5;
+          var go = function (handled) {
+            if (handled) { track('voice_result', Object.assign(base, { parsed_fields: 'routed' })); setNote('שמענו: ' + text); return; }
+            querySource = 'voice';
+            var ok = false;
+            try { ok = lowConf ? false : runParse(); } finally { querySource = 'typed'; }
+            var parsed = noteEl ? noteEl.textContent.replace(/^הבנתי: /, '') : '';
+            track('voice_result', Object.assign(base, { parsed_fields: ok ? (parsedFieldsLast || 'features') : 'none' }));
+            if (!ok) { setNote('שמענו: "' + text + '", אבל לא זיהינו מה לחפש. אפשר לתקן בשדה ולחפש.'); return; }
+            querySource = 'voice';
+            try { submit(); } finally { querySource = 'typed'; }
+            setNote('שמענו: ' + text + ' · הבנו: ' + parsed);
+            var n = results().length;
+            srEl.textContent = n === 0 ? 'לא נמצאו נכסים עבור: ' + text : n === 1 ? 'נמצא נכס אחד עבור: ' + text : 'נמצאו ' + n + ' נכסים עבור: ' + text;
+          };
+          var r = typeof opts.onQuery === 'function' ? opts.onQuery(spoken, 'voice') : false;
+          if (r && typeof r.then === 'function') r.then(go, function () { go(false); }); else go(!!r);
+        };
+        var cancel = function (why) {
+          var v = vs;
+          if (!v || v.done) return;
+          v.done = true;
+          clearTimers(v);
+          try { v.rec.abort(); } catch (e) {}
+          vs = null;
+          input.value = v.typed;
+          uiOff();
+          track('voice_cancel', { at_ms: Date.now() - v.t0 });
+          if (why === 'hidden') return;
+          setNote(VOICE.cancel);
+          root.setTimeout(function () { if (noteEl && noteEl.textContent === VOICE.cancel) noteEl.textContent = ''; }, 3000);
+        };
+        var start = function () {
+          if (permState === 'denied') { setNote(VOICE.denied); track('voice_error', { code: 'denied', ua_class: uaClass }); return; }
+          var v = { typed: input.value, final: '', interim: '', t0: Date.now(), conf: null, done: false, ending: false, heardAny: false };
+          var rec;
+          try { rec = new Rec(); } catch (e) { fail({ typed: input.value, rec: {}, done: false }, 'other'); return; }
+          v.rec = rec;
+          rec.lang = 'he-IL';
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+          // ‏Chromium: ‏continuous כדי שהדפדפן לא יחתוך אחרי חצי שנייה - הטיימר שלנו מסיים.
+          // ‏WebKit: ‏false (היו שם תוצאות כפולות ב-continuous) - צריך בדיקה על מכשיר
+          rec.continuous = !WEBKIT;
+          vs = v;
+          uiOn();
+          buzz();
+          setNote(permState === 'prompt' ? VOICE.wait + ' ' + VOICE.perm : VOICE.wait);
+          track('voice_start', { surface: opts.surface || 'home', perm_state: permState });
+          v.tWatch = root.setTimeout(function () { if (!v.started) fail(v, 'watchdog'); }, VOICE_WATCHDOG);
+          rec.onstart = function () {
+            if (vs !== v || v.done) return;
+            v.started = true;
+            root.clearTimeout(v.tWatch);
+            var ex = examplePhrases(areas, false)[0];
+            setNote('מקשיבים…' + (ex ? ' אפשר לומר למשל: ' + ex : ''));
+            track('voice_listening', {});
+            v.tNoSpeech = root.setTimeout(function () { if (!v.heardAny) finish(v, 'silence'); }, VOICE_NO_SPEECH);
+            v.tMax = root.setTimeout(function () { finish(v, 'max'); }, VOICE_MAX);
+          };
+          rec.onresult = function (ev) {
+            if (vs !== v || v.done) return;
+            var fin = '', mid = '';
+            for (var i = 0; i < ev.results.length; i++) {
+              var r_ = ev.results[i];
+              if (!r_ || !r_[0]) continue;
+              if (r_.isFinal) { fin += r_[0].transcript; if (typeof r_[0].confidence === 'number' && r_[0].confidence > 0) v.conf = v.conf == null ? r_[0].confidence : Math.min(v.conf, r_[0].confidence); }
+              else mid += r_[0].transcript;
+            }
+            v.final = fin.trim(); v.interim = mid.trim();
+            var shown = (v.final + ' ' + v.interim).trim();
+            if (!shown) return;
+            if (!v.heardAny) { v.heardAny = true; root.clearTimeout(v.tNoSpeech); setNote(VOICE.hearing); }
+            input.value = shown;
+            input.classList.toggle('is-interim', !!v.interim);
+            root.clearTimeout(v.tSilence);
+            v.tSilence = root.setTimeout(function () { finish(v, 'silence'); }, VOICE_SILENCE);
+          };
+          rec.onerror = function (ev) {
+            var code = ev && ev.error;
+            if (vs !== v || v.done) return;
+            if (code === 'aborted') return;
+            if (code === 'no-speech') { finish(v, 'browser'); return; }
+            // מה שנשמע עד הכשל (‏network באמצע משפט) עדיין מעובד
+            if (v.heardAny) { finish(v, 'browser'); return; }
+            fail(v, code || 'other');
+          };
+          rec.onend = function () {
+            if (v.done) return;
+            if (!v.ending) { v.ending = true; v.reason = 'browser'; }
+            process(v);
+          };
+          try { rec.start(); } catch (e) { fail(v, 'other'); }
+        };
         micBtn.addEventListener('click', function () {
-          if (skipClick) { skipClick = false; return; }
-          if (listening) stopListening(); else startListening();
+          if (vs && !vs.done) { if (!vs.ending) finish(vs, 'tap'); return; }
+          start();
         });
+        cancelBtn.addEventListener('click', function () { cancel('btn'); micBtn.focus(); });
+        card.addEventListener('keydown', function (e) { if (e.key === 'Escape' && vs && !vs.done) { e.preventDefault(); cancel('esc'); } });
+        doc.addEventListener('visibilitychange', function () { if (doc.hidden && vs) cancel('hidden'); });
+        root.addEventListener('pagehide', function () { if (vs) cancel('hidden'); });
       }
     }
 
@@ -1714,7 +1860,7 @@
         return l.length ? l : [mq.matches ? shortPlaceholder : longPlaceholder].filter(Boolean);
       }
       function blocked() {
-        return doc.hidden || !visible || doc.activeElement === input || input.value !== '' || !list().length;
+        return voiceOn || doc.hidden || !visible || doc.activeElement === input || input.value !== '' || !list().length;
       }
       function sync() {
         field.classList.toggle('has-value', input.value !== '');
@@ -1757,6 +1903,8 @@
           if (visible) start(); else stop();
         }).observe(field);
       }
+      // החיפוש הקולי עוצר ומנקה את הטייפר, ומפעיל אותו שוב כשהשדה נשאר ריק
+      typerApi = { start: start, clear: function () { stop(); out.textContent = ''; } };
       sync();
       start();
     })();

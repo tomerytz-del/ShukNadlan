@@ -428,4 +428,22 @@ test('compileQuery - אותו פענוח לשדה החכם ולחיפוש בנכ
   assert.ok(!cq.fields.length && !cq.features.length);
 });
 
+/* ‏R8: מספרים שנאמרו בקול - לספרות לפני הפענוח (‏spokenNumbers) */
+test('חיפוש קולי: מספרים במילים', () => {
+  const cases = [
+    ['דירה עד מיליון ושבע מאות אלף', 1700000], ['דירה עד מיליון ושבע מאות', 1700000], ['עד שני מיליון', 2000000],
+    ['דירה עד מיליון וחצי', 1500000], ['דירה עד מיליון', 1000000], ['שניים וחצי מיליון', 2500000],
+    ['דירה להשכרה עד חמשת אלפים', 5000], ['להשכרה עד שלושת וחצי', 3500], ['דירה עד שבע מאות אלף', 700000],
+    ['עד שבע מאות וחמישים אלף', 750000], ['להשכרה עד ארבעת אלפים וחמש מאות', 4500], ['להשכרה עד אלף וחמש מאות', 1500],
+  ];
+  cases.forEach(([text, want]) => {
+    const r = C.parse(C.spokenNumbers(text), C.defaultState(), AREAS);
+    assert.strictEqual(r.patch.priceMax, want, text + ' → ' + C.spokenNumbers(text));
+  });
+  // מילים שאינן מחיר לא משתנות
+  assert.strictEqual(C.spokenNumbers('דירת ארבעה חדרים בעפולה'), 'דירת ארבעה חדרים בעפולה');
+  assert.strictEqual(C.spokenNumbers('עד 5 אלף'), 'עד 5 אלף');
+  assert.strictEqual(C.spokenNumbers('עד 1.5 מיליון'), 'עד 1.5 מיליון');
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

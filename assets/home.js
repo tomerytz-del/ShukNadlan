@@ -4117,51 +4117,55 @@ function initGabChat(){
 initGabChat();
 
 /* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
-   "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
-   בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
-   מפריעה. **היא נשארת עד שלוחצים על המיקרופון** (החלטת בעל/ת האתר, אוקטובר
-   2026) - לא טיימר ולא כל מגע בדף.
-
-   הסימון ב-localStorage ‏(shuk_mic_hint) הוא **זמן** הלחיצה על המיקרופון:
-   מי שעוד לא לחץ/ה רואה אותה בכל ביקור, ומי שלחץ/ה - שוב אחרי 24 שעות
-   (‏MIC_HINT_AGAIN, החלטת בעל/ת האתר). לא מוצגת אם בינתיים הגולש/ת
-   כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא מהמסך. ‏aria-hidden: לקורא מסך
-   המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם המיקרופון
-   מוצג בכלל (‏Web Speech API). */
+   "אפשר לחפש בקול: לוחצים ומדברים" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא
+   בטעינה: בטעינה העין עוד סורקת את הכותרת וגבריאלה.
+   ‏R8 (28.10.2026, במקום "נשארת עד שלוחצים על המיקרופון"): נסגרת בכל לחיצה, פוקוס או
+   גלילה, ומעצמה אחרי 6 שניות; לכל היותר 3 פעמים (‏shuk_mic_hint_n), ולחיצה על
+   המיקרופון מסיימת אותה לתמיד. לחיצה על הבועה רק סוגרת - לא מתחילה הקלטה. ב-v10 היא
+   מעל כרטיס החיפוש ולא על השדה. לא מוצגת אם הגולש/ת כבר בשדה, כתב/ה בו, או שהשדה
+   יצא מהמסך. ‏aria-hidden: לקורא מסך המיקרופון כבר אומר "חיפוש קולי". */
 const MIC_HINT_DELAY = 3500;
-const MIC_HINT_AGAIN = 24 * 60 * 60 * 1000;   // חוזרת פעם ביום גם למי שכבר לחץ/ה
+const MIC_HINT_SHOW = 6000;
+const MIC_HINT_MAX = 3;
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
-  // נלחץ ב-24 השעות האחרונות? (ערך ישן "1" אינו זמן - ולכן הבועה חוזרת גם אליו)
-  const clickedRecently = () => Date.now() - Number(localStorage.getItem('shuk_mic_hint')) < MIC_HINT_AGAIN;
-  try { if (clickedRecently()) return; }
+  const shownN = () => Number(localStorage.getItem('shuk_mic_hint_n')) || 0;
+  try { if (shownN() >= MIC_HINT_MAX) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
-  let tip = null;
-  // הלחיצה על המיקרופון (או על הבועה, שיושבת בתוכו) - מסירה ולא חוזרת
-  mic.addEventListener('click', ()=>{
-    try { localStorage.setItem('shuk_mic_hint', String(Date.now())); } catch(e){}
+  let tip = null, tHide = 0;
+  // לחיצה על הבועה עצמה נסגרת ב-click שלה (אחרת ה-click היה נוחת על המיקרופון)
+  const onAny = e => { if (tip && e.target && tip.contains(e.target)) return; dismiss(); };
+  const dismiss = () => {
     if (!tip) return;
     const t = tip; tip = null;
+    clearTimeout(tHide);
+    ['pointerdown', 'focusin', 'scroll'].forEach(ev => window.removeEventListener(ev, onAny, true));
     document.documentElement.classList.remove('mic-hint-on');
     t.classList.add('is-leaving');
     setTimeout(()=> t.remove(), 250);
+  };
+  mic.addEventListener('click', ()=>{
+    try { localStorage.setItem('shuk_mic_hint_n', String(MIC_HINT_MAX)); } catch(e){}
+    dismiss();
   }, { once:true });
   setTimeout(()=>{
     const input = document.getElementById('ssQuery');
-    if (document.hidden || !input || document.activeElement === input || input.value) return;
+    if (document.hidden || !input || document.activeElement === input || input.value || mic.hidden) return;
     const r = mic.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
-    if (clickedRecently()) return;                              // כבר לחצו בינתיים
+    try { if (shownN() >= MIC_HINT_MAX) return; localStorage.setItem('shuk_mic_hint_n', String(shownN() + 1)); } catch(e){ return; }
     tip = document.createElement('span');
     tip.className = 'ss-mic-hint';
     tip.setAttribute('aria-hidden', 'true');
-    tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+    tip.textContent = 'אפשר לחפש בקול: לוחצים ומדברים';
+    // הבועה בתוך הכפתור (מחוץ ל-v10): לחיצה עליה לא מגיעה למיקרופון
+    tip.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); dismiss(); });
     const card = v10On() && mic.closest('.ss-card');
     if (card){
       /* ‏P2-7 (v10): מעל כרטיס החיפוש ולא על השדה - ה-placeholder נשאר גלוי. החץ למטה, מול
-         המיקרופון; הבועה בתוך רוחב הכרטיס. לחיצה עליה = לחיצה על המיקרופון */
+         המיקרופון; הבועה בתוך רוחב הכרטיס */
       tip.classList.add('is-above');
       card.appendChild(tip);
       const cr = card.getBoundingClientRect(), mr = mic.getBoundingClientRect(), w = tip.offsetWidth;
@@ -4169,11 +4173,13 @@ function showMicHint(){
       const left = Math.max(0, Math.min(cr.width - w, mx - w / 2));
       tip.style.left = left + 'px';
       tip.style.setProperty('--mh-arrow', (mx - left) + 'px');
-      tip.addEventListener('click', () => mic.click());
     } else
     mic.appendChild(tip);
     // הבועה יושבת על התווית "מה אתם מחפשים" - מסתירים אותה בלי להזיז דבר
     document.documentElement.classList.add('mic-hint-on');
+    tHide = setTimeout(dismiss, MIC_HINT_SHOW);
+    // הלחיצה/הגלילה הבאה - אחרי שהבועה כבר על המסך
+    setTimeout(()=> { if (tip) ['pointerdown', 'focusin', 'scroll'].forEach(ev => window.addEventListener(ev, onAny, true)); }, 50);
   }, MIC_HINT_DELAY);
 }
 
@@ -7397,6 +7403,9 @@ let freeTextFeatures = new Set();
     },
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
+    // ‏R8: החיפוש הקולי עובר באותו מסלול כמו Enter (מספר מודעה, בעלי מקצוע)
+    onQuery: (t, source)=> window.ShukHomeQuery ? window.ShukHomeQuery(t, source) : false,
+    surface: 'home',
     onAreaMiss: logAreaMiss,
     onWordMiss: logWordMiss,
     urlExtra: ()=> appliedAdvancedQs,
@@ -7414,6 +7423,13 @@ let freeTextFeatures = new Set();
         // v10 (‏F/V3): ‏viz:1 כשהחיפוש מוגבל לנכסים עם הדמיה
         case 'search_submit':          shukTrack('search_submit', (v10On() && sentence && sentence.state().ai) ? Object.assign({ viz: 1 }, p) : p); break;
         case 'search_empty_widen':     shukTrack('search_empty_widen', p); break;
+        // ‏R8: החיפוש הקולי - בלי התמלול עצמו
+        case 'voice_start':            shukTrack('voice_start', p); break;
+        case 'voice_listening':        shukTrack('voice_listening', p); break;
+        case 'voice_result':           shukTrack('voice_result', p); break;
+        case 'voice_cancel':           shukTrack('voice_cancel', p); break;
+        case 'voice_no_speech':        shukTrack('voice_no_speech', p); break;
+        case 'voice_error':            shukTrack('voice_error', p); break;
       }
     },
   });
@@ -8983,39 +8999,49 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
     show('');
     passOn();
   });
+  /* ‏R8: מסלול אחד ל-Enter ולחיפוש הקולי (‏onQuery ב-sentence-search.js): מספר מודעה,
+     בעלי מקצוע ומספר לבדו. ‏true = טופל כאן (מעבר, או הצעה בתיבה); ‏false = לפירוש הרגיל */
+  const LISTING_RE = /^(?:(?:מודעה|נכס)\s*(?:מספר\s*)?#?\s*|מספר\s*|#)(\d{3,7})$/;
+  const routes = t => LISTING_RE.test(t) || /^(\d{3,7})$/.test(t) || (proOf(t) && !PROPERTY_WORDS.test(t.replace(proOf(t).re, '')));
+  async function homeQuery(t, source){
+    t = String(t || '').trim();
+    const pre = t.match(LISTING_RE);
+    if (pre){
+      const p = await lookup(Number(pre[1]));
+      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
+      if (p){ location.href = listingHref(p); return true; }
+      show('<p>לא מצאנו מודעה פעילה עם המספר הזה.</p>');
+      return true;
+    }
+    const hit = proOf(t);
+    if (hit && !PROPERTY_WORDS.test(t.replace(hit.re, ''))){
+      const href = proHref(hit, await activePros());
+      shukTrack('search_pro_click', { type: href === '/professionals' ? 'all' : hit.type, surface: 'home' });
+      location.href = href;
+      return true;
+    }
+    const bare = t.match(/^(\d{3,7})$/);
+    if (bare){
+      /* ‏R5-7: רק אם אין מודעה כזו - הפירוש כמחיר ממשיך. אם יש: ההצעה, וקישור שני שמפעיל את הפירוש */
+      const p = await lookup(Number(bare[1]));
+      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
+      if (!p) return false;
+      const bits = [p.property_type, p.city, p.price ? '₪' + Number(p.price).toLocaleString('he-IL') : ''].filter(Boolean).join(' · ');
+      show('<a href="' + escapeHtml(listingHref(p)) + '">מעבר למודעה #' + escapeHtml(String(p.listing_number)) + (bits ? ' (' + escapeHtml(bits) + ')' : '') + ' ←</a>' +
+        '<button type="button" class="ss-suggest-alt" data-as-price>או: חיפוש נכסים עד ₪' + escapeHtml(Number(bare[1]).toLocaleString('en-US')) + '</button>');
+      return true;
+    }
+    return false;
+  }
+  window.ShukHomeQuery = homeQuery;
   // ‏capture במסמך: לפני שהמשפט מפרש את הטקסט כמחיר ולפני שהטופס נשלח
   document.addEventListener('keydown', async e => {
     if (e.key !== 'Enter' || e.target !== input || passing) return;
     const t = input.value.trim();
-    const pre = t.match(/^(?:מודעה\s*#?\s*|#)(\d{3,7})$/);
-    if (pre){
-      e.preventDefault(); e.stopPropagation();
-      const p = await lookup(Number(pre[1]));
-      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
-      if (p){ location.href = listingHref(p); return; }
-      show('<p>לא מצאנו מודעה פעילה עם המספר הזה.</p>');
-      return;
-    }
-    const hit = proOf(t);
-    if (hit && !PROPERTY_WORDS.test(t.replace(hit.re, ''))){
-      e.preventDefault(); e.stopPropagation();
-      const href = proHref(hit, await activePros());
-      shukTrack('search_pro_click', { type: href === '/professionals' ? 'all' : hit.type, surface: 'home' });
-      location.href = href;
-      return;
-    }
-    const bare = t.match(/^(\d{3,7})$/);
-    if (bare){
-      /* ‏R5-7: עוצרים לפני ה-await (אחריו כבר מאוחר), ורק אם אין מודעה כזו - הפירוש
-         כמחיר ממשיך. אם יש: ההצעה, וקישור שני שמפעיל את הפירוש */
-      e.preventDefault(); e.stopPropagation();
-      const p = await lookup(Number(bare[1]));
-      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
-      if (!p){ passOn(); return; }
-      const bits = [p.property_type, p.city, p.price ? '₪' + Number(p.price).toLocaleString('he-IL') : ''].filter(Boolean).join(' · ');
-      show('<a href="' + escapeHtml(listingHref(p)) + '">מעבר למודעה #' + escapeHtml(String(p.listing_number)) + (bits ? ' (' + escapeHtml(bits) + ')' : '') + ' ←</a>' +
-        '<button type="button" class="ss-suggest-alt" data-as-price>או: חיפוש נכסים עד ₪' + escapeHtml(Number(bare[1]).toLocaleString('en-US')) + '</button>');
-    }
+    if (!routes(t)) return;
+    // עוצרים לפני ה-await (אחריו כבר מאוחר); מה שלא טופל ממשיך לפירוש הרגיל
+    e.preventDefault(); e.stopPropagation();
+    if (!(await homeQuery(t, 'typed'))) passOn();
   }, true);
 })();
 

@@ -496,3 +496,10 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_seen_end_view` | ‏R8: הכרטיס "ראיתם את כל הנכסים בסינון הזה" | `passed_n` (כמה מהנכסים שכבר נראו דולגו), `likes` |
 | `swipe_seen_end_click` | ‏R8: כפתור בכרטיס הזה | `cta`: ‏`passed` \| `likes` \| `alert` \| `filter` |
 | `swipe_reset_seen` | ‏R8: "התחלה מחדש" אושרה - סימון הנכסים שכבר נראו התאפס ("אהבתי" לא) | `seen_n` |
+| `voice_start` | ‏R8: לחיצה על המיקרופון בשדה החיפוש - התחלת הקשבה. בלי התמלול עצמו, בכל אירועי הקול | `surface`: ‏`home`, `perm_state`: ‏`granted` \| `prompt` \| `denied` \| `unknown` |
+| `voice_listening` | ‏R8: הדפדפן באמת מקשיב (‏onstart) | - |
+| `voice_result` | ‏R8: ההקשבה הסתיימה ונשמע טקסט | `chars`, `words`, `duration_ms`, `parsed_fields` (שמות השדות שזוהו, `none`, או `routed` כשהלך למספר מודעה / בעלי מקצוע), `end_reason`: ‏`silence` \| `tap` \| `max` \| `browser` |
+| `voice_cancel` | ‏R8: ‏✕, ‏Esc או מעבר לשונית בזמן הקשבה - בלי חיפוש | `at_ms` |
+| `voice_no_speech` | ‏R8: לא נשמע כלום (6 שניות בלי דיבור) | - |
+| `voice_error` | ‏R8: החיפוש הקולי נכשל. לגולש/ת מוצגת הודעה בעברית, והקוד רק כאן | `code` (‏`not-allowed`, ‏`service-not-allowed`, ‏`watchdog`, ‏`audio-capture`, ‏`network`, ‏`denied`, ‏`other`), `ua_class`: ‏`chromium` \| `webkit` \| `ios_safari` \| `ios_other` \| `in_app` |
+| (פרמטר חדש) `search_freetext_submit.source`, `search_submit.source` | ‏R8: מאיפה הגיע החיפוש | `source`: ‏`voice` \| `typed` |
