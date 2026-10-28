@@ -445,7 +445,7 @@
       if (extQs) q.set('hf', extQs);
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
-      if (view === 'list' || view === 'map') q.set('view', view);
+      if (view === 'list' || view === 'map' || view === 'likes') q.set('view', view);
       if (filter.deal !== 'sale') q.set('deal', filter.deal);
       if (filter.deal === 'commercial' && filter.cdeal) q.set('cdeal', filter.cdeal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
@@ -945,6 +945,8 @@
     var o = null;
     try { o = JSON.parse((seenBack ? seenBack.getItem(SEEN_KEY) : seenMem) || 'null'); } catch (e) { o = null; }
     if (!o || o.v !== 1 || !o.items || typeof o.items !== 'object') o = { v: 1, last: 0, items: {} };
+    // ‏A2-4: המקום בחפיסה לכל מצב (‏fair - היריד, ‏all - שאר הנכסים): מזהה הכרטיס העליון, או 'end'
+    if (!o.pos || typeof o.pos !== 'object') o.pos = {};
     return seenPrune(o);
   }
   var seen = seenLoad(), seenDirty = {}, seenWipe = false, seenT = 0;
@@ -954,6 +956,7 @@
     if (seenWipe) { o.items = {}; seenWipe = false; }
     Object.keys(seenDirty).forEach(function (k) { if (!o.items[k] || o.items[k][0] <= seenDirty[k][0]) o.items[k] = seenDirty[k]; });
     o.last = Math.max(o.last || 0, seen.last || 0);
+    o.pos = Object.assign({}, o.pos, seen.pos);
     seenPrune(o);
     var raw = JSON.stringify(o);
     try { if (seenBack) seenBack.setItem(SEEN_KEY, raw); else seenMem = raw; } catch (e) { seenMem = raw; seenBack = null; }
@@ -1368,7 +1371,8 @@
         '<p class="sw-npb-sub">' + esc(bs ? bs.bridgeSub(c.count) : '') + '</p></div>' +
         '<button type="button" class="sw-npb-list" data-np-list>' + esc(bs ? bs.bridgeList : '') + '</button></article>';
     }
-    if (c.slot === 'seen_end') return seenEndHtml(c, dbg);
+    // ‏A2-4: ביריד, "ראיתם את כל הנכסים" הוא כרטיס סוף היריד - עם ההמשך לשאר הנכסים
+    if (c.slot === 'seen_end') return filter.fair ? fairEndHtml(dbg, 'seen_end') : seenEndHtml(c, dbg);
     return endCardHtml(dbg);
   }
   /* ‏R8: "ראיתם את כל הנכסים בסינון הזה" - לפני הנכסים שכבר נראו. כל כפתור רק כשהוא רלוונטי.
@@ -1603,7 +1607,78 @@
   var SELLER_ART = '<span class="sw-seller-art" aria-hidden="true"><svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="#c9a227" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M14 31 32 17l18 14"/><path d="M18 28v19h14"/><path d="M46 28v6"/><circle cx="44" cy="43" r="5"/><path d="M40 47l-6 6M37 50l2 2M35 52l2 2"/></svg></span>';
 
+  /* ‏A2-4 (תומר 19:58, הנוסח של גבריאלה 20:11): סוף היריד אינו סוף הדרך - כמה נכסים שמחוץ
+     ליריד, באותו סינון, עוד לא נראו (כולל אלה שבלי תמונה, כמו shownCount) */
+  function nonFairPool() {
+    var f = Object.assign({}, filter, { fair: false });
+    var list = filtered(f);
+    if (f.photos) list = list.concat(filtered(Object.assign({}, f, { photos: false })).filter(function (p) { return !hasPhoto(p); }));
+    return list.filter(function (p) { return !fairLive(p) && likes.indexOf(p.id) < 0; });
+  }
+  function fairEndCounts() {
+    var pool = nonFairPool();
+    var fresh = pool.filter(function (p) { var s_ = seenState(p); return s_ === 'new' || s_ === 'drop' || s_ === 'unseen'; }).length;
+    return { total: pool.length, fresh: fresh };
+  }
+  function fairEndHtml(dbg, slot) {
+    var k = fairEndCounts(), body;
+    if (k.fresh > 0) {
+      body = '<button type="button" class="sw-gold sw-wide sw-fair-go" data-fair-continue="continue">להמשיך לשאר הנכסים' +
+          '<span class="sw-fair-go-n">' + (k.fresh === 1 ? 'נכס אחד שעוד לא ראיתם' : k.fresh.toLocaleString('he-IL') + ' נכסים שעוד לא ראיתם') + '</span></button>' +
+        '<p class="sw-end-line">מחוץ ליריד יש גם נכסים עם עמלת תיווך.</p>';
+    } else if (k.total > 0) {
+      body = '<p class="sw-end-line">ראיתם גם את כל הנכסים שמחוץ ליריד. אפשר <button type="button" class="sw-link sw-link-inline" data-fair-widen>להרחיב את החיפוש</button>.</p>' +
+        '<button type="button" class="sw-link sw-link-light" data-fair-continue="again">לעבור שוב על הנכסים שמחוץ ליריד</button>';
+    } else {
+      body = '<p class="sw-end-line">כרגע אין נכסים נוספים שמתאימים לחיפוש.</p>' +
+        '<p class="sw-end-line"><button type="button" class="sw-link sw-link-inline" data-fair-widen>אפשר להרחיב את החיפוש.</button></p>';
+    }
+    var share = likes.length ? '<button type="button" class="sw-link sw-link-light" id="swShare">שיתוף הרשימה (' + likes.length + ')</button>' : '';
+    return '<article class="sw-card sw-end sw-fair-end" data-slot="' + (slot || 'end') + '" data-fair-end="' + k.fresh + '" aria-label="ראיתם את כל הנכסים ביריד">' + (dbg || '') +
+      '<div class="sw-end-in"><span class="sw-end-av"><img src="/assets/gabriela-cutout-400.webp" alt="" width="84" height="84" ' +
+      'onerror="this.onerror=null;this.src=\'/assets/logo-shuknadlan.svg\'"></span>' +
+      '<h2 class="sw-end-title">ראיתם את כל הנכסים ביריד</h2>' + body + share + '</div></article>';
+  }
+  /* מעבר בין היריד לשאר הנכסים (‏A2-4): ‏pushState בלי טעינה, ו"אחורה" מחזיר לכרטיס סוף היריד.
+     המקום בכל מצב נשמר ב-seen.pos (אותו אחסון של "ממשיכים מאיפה שעצרתם") */
+  function fairMode() { return filter.fair ? 'fair' : 'all'; }
+  function rememberPos() {
+    var c = cur();
+    if (!c) return;
+    seen.pos = seen.pos || {};
+    seen.pos[fairMode()] = c.slot === 'end' || c.slot === 'seen_end' ? c.slot : c.p ? String(c.p.id) : seen.pos[fairMode()];
+    seenFlush();
+  }
+  function resumePos() {
+    var want = seen.pos && seen.pos[fairMode()];
+    if (!want) return;
+    // שני כרטיסי הסוף של היריד הם אותו כרטיס - בלי ציור (ואירוע צפייה) נוסף
+    if ((want === 'end' || want === 'seen_end') && cur() && /end$/.test(cur().slot)) return;
+    for (var i = 0; i < deck.length; i++) {
+      var c = deck[i];
+      if (c.slot === want || (c.p && String(c.p.id) === want)) { idx = i; renderDeck(); return; }
+    }
+  }
+  function setFairMode(on, how) {
+    rememberPos();
+    if (how === 'push') {
+      try {
+        history.replaceState(Object.assign({}, history.state, { swFair: fairMode() }), '');
+        history.pushState({ swFair: on ? 'fair' : 'all' }, '');
+      } catch (e) { /* בלי History API - רק המצב בזיכרון */ }
+    }
+    filter.fair = !!on; deck = []; buildDeck(); renderSummary(); renderFilter();
+    resumePos();
+  }
+  window.addEventListener('popstate', function (e) {
+    var m = e.state && e.state.swFair;
+    if (!m || m === fairMode()) return;
+    setFairMode(m === 'fair', 'pop');
+    shukTrack('swipe_fair_back', { to: m });
+  });
+
   function endCardHtml(dbg) {
+    if (filter.fair && deck.some(function (x) { return x.slot === 'property'; })) return fairEndHtml(dbg);
     /* יריד בלי דירות (כפתור היריד של גבריאלה, וכרגע אין יריד חי): לא חפיסה ריקה אלא הסבר ושתי דרכים */
     if (filter.fair && !deck.some(function (x) { return x.slot === 'property'; })) {
       return '<article class="sw-card sw-end" data-slot="end" aria-label="כרגע אין יריד פעיל">' + (dbg || '') +
@@ -1619,7 +1694,6 @@
       'onerror="this.onerror=null;this.src=\'/assets/logo-shuknadlan.svg\'"></span>' +
       '<h2 class="sw-end-title">ראיתם את כל הנכסים באזור</h2>' +
       '<p class="sw-end-line">לצפייה בנכסים נוספים אפשר להרחיב את החיפוש, או להשאיר פרטים ולהתעדכן ראשונים כשנכס חדש ייכנס לשוק.</p>' +
-      '<p class="sw-end-gold">בלי פרסומות, רק נכסים</p>' +
       '<button type="button" class="sw-gold sw-wide" id="swWiden">הרחבת החיפוש</button>' +
       alertBlock('end') + share + '</div></article>';
   }
@@ -1663,7 +1737,17 @@
     document.querySelectorAll('#swDeck video').forEach(function (v) { v.pause(); });
     // כרטיס שמאחורי חלון הסינון עוד לא נצפה - ‏swipe_start בונה את החפיסה מחדש
     if (!$('swFilter').hidden) return;
-    if (c.slot === 'end') { shukTrack('swipe_end_view', { likes: likes.length }); return; }
+    if (c.slot === 'end') {
+      var fe_ = document.querySelector('#swTopCard [data-fair-end]');
+      if (fe_) shukTrack('swipe_fair_end_view', { unseen_n: Number(fe_.dataset.fairEnd) || 0, likes: likes.length });
+      else shukTrack('swipe_end_view', { likes: likes.length });
+      return;
+    }
+    if (c.slot === 'seen_end' && filter.fair) {
+      var fs_ = document.querySelector('#swTopCard [data-fair-end]');
+      shukTrack('swipe_fair_end_view', { unseen_n: fs_ ? Number(fs_.dataset.fairEnd) || 0 : 0, likes: likes.length });
+      return;
+    }
     if (c.slot === 'seen_end') { shukTrack('swipe_seen_end_view', { passed_n: c.passed, likes: likes.length }); return; }
     var nofee = c.slot === 'property' && fairLive(c.p);
     var cv = nofee ? { slot: c.slot, position: c.pos, nofee: 1 } : { slot: c.slot, position: c.pos };
@@ -1920,7 +2004,16 @@
       if (e.target.closest('[data-spon-link]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); return; }
       if (e.target.closest('#swWiden')) { openFilter(e.target); return; }
       if (e.target.closest('[data-fair-signup]')) { openFairSignup('empty_fair'); return; }
-      if (e.target.closest('[data-fair-off]')) { filter.fair = false; deck = []; buildDeck(); renderSummary(); return; }
+      if (e.target.closest('[data-fair-off]')) { shukTrack('swipe_fair_continue', { cta: 'fair_off', unseen_n: 0 }); setFairMode(false, 'push'); return; }
+      var fc_ = e.target.closest('[data-fair-continue]');
+      if (fc_) {
+        var fe_ = fc_.closest('[data-fair-end]'), fn_ = fe_ ? Number(fe_.dataset.fairEnd) || 0 : 0;
+        shukTrack('swipe_fair_continue', { cta: fc_.dataset.fairContinue, unseen_n: fn_ });
+        setFairMode(false, 'push');
+        if (fc_.dataset.fairContinue === 'continue') toast('ממשיכים לנכסים שמחוץ ליריד');
+        return;
+      }
+      if (e.target.closest('[data-fair-widen]')) { shukTrack('swipe_fair_widen', { unseen_n: 0 }); openFilter(e.target); return; }
       if (e.target.closest('#swShare')) { shareLikes(); return; }
       var sc_ = e.target.closest('[data-seen-cta]');
       if (sc_) {
@@ -2953,6 +3046,12 @@
       else if (view === 'likes') renderLikesView();
     }, function () {});
   }
+  function propHref(p) { return '/property?id=' + encodeURIComponent(p.id); }
+  /* פתיחת דף הנכס מקישור ברשימה או ב"אהבתי": ניווט רגיל של ה-<a>, ורק מדידה כאן */
+  function propLinkOpen(p, from) {
+    shukTrack('swipe_list_open', { property_id: String(p.id), from: from });
+    if (window.shukBrowseMark) shukBrowseMark('swipe', p.id);
+  }
   function renderLikesView() {
     var list = likedProps();
     // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
@@ -2962,9 +3061,9 @@
     $('swLvBar').hidden = !likes.length;
     $('swLvList').innerHTML = list.map(function (p) {
       var ph = photos(p);
-      return '<div class="sw-li sw-lv-row"><button type="button" class="sw-lv-open" data-like-open="' + esc(p.id) + '">' +
+      return '<div class="sw-li sw-lv-row"><a class="sw-lv-open" href="' + propHref(p) + '" data-like-open="' + esc(p.id) + '">' +
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : window.NoPhoto ? '<span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
-        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></button>' +
+        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></a>' +
         // ‏P0-9: הלב רק מסמן שהנכס שמור; ההסרה - כפתור ✕ אדום, עם אישור וביטול
         '<span class="sw-lv-heart" role="img" aria-label="שמור ברשימה">♥</span>' +
         '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהרשימה שלי"><span aria-hidden="true">✕</span></button></div>';
@@ -2990,10 +3089,12 @@
       bsOpen('unlike', { id: rm.dataset.likeRemove, sub: rp ? title(rp) : '' });
       return;
     }
+    /* ‏C10 (תומר 22:35): נכס ב"אהבתי" נפתח בדף הנכס המלא, כמו ברשימה. הרשימה עצמה נשארת
+       במכשיר (‏sk_swipe_likes), ו"אחורה" חוזר למסך הזה (‏view=likes בכתובת) */
     var o = e.target.closest('[data-like-open]');
     if (!o) return;
     var p = likedProps().filter(function (x) { return String(x.id) === o.dataset.likeOpen; })[0];
-    if (p) openSheetFor({ slot: 'property', p: p, pos: 'likes' });
+    if (p) propLinkOpen(p, 'likes');
   });
   $('swLvShare').addEventListener('click', function () { shareLikes(); });
   $('swLvBack').addEventListener('click', function () { setView('deck'); });
@@ -3185,14 +3286,14 @@
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
       if (!ph.length && window.NoPhoto) {
-        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><button type="button" class="sw-lv-open" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
-          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span></button>' +
+        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
+          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span></a>' +
           '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
       }
-      return '<button type="button" class="sw-li" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
+      return '<a class="sw-li" href="' + propHref(p) + '" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span>' +
-        (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
+        (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</a>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
   var listLikedOnly = false, listNpOnly = false;
@@ -3228,13 +3329,32 @@
       if (rc) npRequest(rc, window.NoPhoto ? NoPhoto.level(rc.p, npCtx(rc.p)) : 'c', 'row');
       return;
     }
-    var b = e.target.closest('[data-pos]');
+    /* ‏A2-5 (תומר 20:03): שורה ואריח ברשימה הם קישור לדף הנכס - בלי הגיליון התחתון. "אחורה"
+       מדף הנכס חוזר לרשימה (‏view=list בכתובת, ‏restoreListScroll). הגיליון נשאר להחלקה
+       למעלה, ל-ArrowUp ולפינים במפה */
+    var b = e.target.closest('a[data-pos]');
     if (!b) return;
     var c = deck.filter(function (x) { return String(x.pos) === b.dataset.pos; })[0];
-    openSheetFor(c);
+    if (c && c.p) propLinkOpen(c.p, 'list');
   });
   function likesReturnView() { return preLikes === 'map' || preLikes === 'list' ? preLikes : 'deck'; }
+  /* ‏A2-5 (תומר 20:03): בהחלקה על היריד, "רשימה" היא דף היריד עצמו - שם הספירה לאחור, הטופס
+     וההסבר. אותו סינון שאפשר להעביר: עסקה, יישוב וחדרים (‏open-house-v10.js מדליק את התגיות) */
+  function fairListHref(src) {
+    var q = new URLSearchParams();
+    if (filter.area && filter.area.indexOf('city:') === 0) q.set('city', filter.area.slice(5));
+    if (filter.deal === 'sale' || filter.deal === 'rent') q.set('deal', filter.deal);
+    if (filter.rooms) q.set('rooms', String(filter.rooms));
+    if (params.get('beta') === '1') q.set('beta', '1');
+    q.set('src', src || 'swipe_list');
+    return '/open-house?' + q.toString();
+  }
   function setView(v, likedOnly, npOnly) {
+    if (v === 'list' && filter.fair && !likedOnly && !npOnly) {
+      shukTrack('swipe_fair_list', { deal: filter.deal, rooms: filter.rooms || 0 });
+      location.href = fairListHref('swipe_list');
+      return;
+    }
     if (v === 'likes' && view !== 'likes') preLikes = view;
     // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
     if (v !== 'map' && v !== 'likes') lastView = v;
@@ -3253,7 +3373,7 @@
     if (v === 'list') renderList();
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
-    if (v !== 'likes') writeUrl();
+    writeUrl();
     /* ‏P1-G: "?" מסביר איך מחליקים - רק בהחלקה. visibility ולא display, כדי שהפס לא יקפוץ */
     var help = $('swHelp'), onDeck = v === 'deck';
     help.style.visibility = onDeck ? '' : 'hidden';
@@ -3445,6 +3565,8 @@
     try { var nav = performance.getEntriesByType('navigation')[0]; return !!nav && nav.type === 'back_forward'; } catch (e) { return false; }
   }
   readUrl();
+  // ‏A2-5: קישור ישן לרשימה של היריד (‏?fair=1&view=list) - ישר לדף היריד, בלי רשומה בהיסטוריה
+  if (filter.fair && params.get('view') === 'list') { location.replace(fairListHref('swipe_list_link')); return; }
   syncSortBtn();
   var urlDeal = params.get('deal');
   if (urlDeal === 'rent' || urlDeal === 'sale' || urlDeal === 'commercial') filter.deal = urlDeal;
@@ -3461,7 +3583,7 @@
       buildDeck();
       maybeResume();
       var v0 = params.get('view');
-      if (v0 === 'list' || v0 === 'map') setView(v0);
+      if (v0 === 'list' || v0 === 'map' || v0 === 'likes') setView(v0);
       if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {
         if (ext && ext.st.ai) buildDeck();   // ‏hf עם ai=1 - החפיסה אחרי שההדמיות ידועות

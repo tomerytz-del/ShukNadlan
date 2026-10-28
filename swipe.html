@@ -38,9 +38,9 @@ if(!document.documentElement.classList.contains('beta-hero'))location.replace('/
 <script defer src="assets/pwa-install.js"></script>
 <!-- אימות הבעלות מול Google Search Console. docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
-<!-- ‏מצב ניסיון מאחורי דגל: לא באינדקס, לא ב-sitemap, והכתובת הקנונית היא דף הבית (‏PRIVATE ב-scripts/check_canonical.py) -->
+<!-- ‏מצב ניסיון מאחורי דגל: לא באינדקס ולא ב-sitemap (‏PRIVATE ב-scripts/check_canonical.py). בלי canonical:
+     ‏noindex יחד עם canonical לדף אחר הן שתי הצהרות סותרות (‏A-SEO-4, ‏og-tags.ts) -->
 <meta name="robots" content="noindex,follow">
-<link rel="canonical" href="https://shuknadlan.co.il/">
 <meta name="description" content="גלישה בהחלקה בין הנכסים באזור: ימינה אהבתי, שמאלה דילוג, ולמעלה לפרטים ויצירת קשר.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

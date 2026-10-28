@@ -175,12 +175,28 @@
     faq();
   }
 
+  /* ‏A2-5 (תומר 20:03): "רשימה" בהחלקה על היריד מגיעה לכאן עם ‏deal ו-rooms. התגיות של המדף
+     נדלקות רק אם הן קיימות במלאי (‏selectTag מחזירה false אחרת) - בלי מדף ריק. המדף מתמלא
+     אחרי fair:loaded באותו tick (‏initFair ב-open-house.html), ולכן setTimeout */
+  function preselect() {
+    var deal = params.get('deal'), rooms = Number(params.get('rooms'));
+    if ((deal !== 'sale' && deal !== 'rent') && !rooms) return;
+    setTimeout(function () {
+      if (typeof fairShelf === 'undefined' || !fairShelf.selectTag) return;
+      var on = false;
+      if (deal === 'sale' || deal === 'rent') on = fairShelf.selectTag(deal) || on;
+      if (rooms >= 1 && rooms <= 9) {
+        for (var r = rooms; r <= rooms + 0.5; r += 0.5) if (fairShelf.selectTag('rooms:' + r, on)) { on = true; break; }
+      }
+    }, 0);
+  }
+
   function start() {
     steps();
     agents();
     signup();
-    if (window.__fairState) withData(window.__fairState.list || []);
-    else document.addEventListener('fair:loaded', function (e) { withData((e.detail && e.detail.list) || []); }, { once: true });
+    if (window.__fairState) { withData(window.__fairState.list || []); preselect(); }
+    else document.addEventListener('fair:loaded', function (e) { withData((e.detail && e.detail.list) || []); preselect(); }, { once: true });
   }
   document.addEventListener('click', function (e) {
     var a = e.target.closest('[data-ohv-agent]');

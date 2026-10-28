@@ -495,6 +495,12 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | (פרמטר חדש) `swipe_card_view.seen_state` | ‏R8: רק כשיש היסטוריה במכשיר | `seen_state`: ‏`new` \| `drop` \| `unseen` \| `seen` |
 | `swipe_seen_end_view` | ‏R8: הכרטיס "ראיתם את כל הנכסים בסינון הזה" | `passed_n` (כמה מהנכסים שכבר נראו דולגו), `likes` |
 | `swipe_seen_end_click` | ‏R8: כפתור בכרטיס הזה | `cta`: ‏`passed` \| `likes` \| `alert` \| `filter` |
+| `swipe_fair_end_view` | ‏A2-4: כרטיס סוף היריד בהחלקה ("ראיתם את כל הנכסים ביריד") | `unseen_n` (כמה נכסים מחוץ ליריד עוד לא נראו), `likes` |
+| `swipe_fair_continue` | ‏A2-4: מעבר מהיריד לשאר הנכסים | `cta`: ‏`continue` \| `again` \| `fair_off`, ‏`unseen_n` |
+| `swipe_fair_widen` | ‏A2-4: "להרחיב את החיפוש" בכרטיס סוף היריד | `unseen_n` |
+| `swipe_fair_back` | ‏A2-4: "אחורה"/"קדימה" בדפדפן בין היריד לשאר הנכסים | `to`: ‏`fair` \| `all` |
+| `swipe_fair_list` | ‏A2-5: "רשימה" בהחלקה על היריד - מעבר לדף היריד | `deal`, `rooms` |
+| `swipe_list_open` | ‏A2-5 / C10: נכס נפתח מהרשימה או מ"אהבתי" בדף הנכס | `property_id`, `from`: ‏`list` \| `likes` |
 | `swipe_reset_seen` | ‏R8: "התחלה מחדש" אושרה - סימון הנכסים שכבר נראו התאפס ("אהבתי" לא) | `seen_n` |
 | `voice_start` | ‏R8: לחיצה על המיקרופון בשדה החיפוש - התחלת הקשבה. בלי התמלול עצמו, בכל אירועי הקול | `surface`: ‏`home`, `perm_state`: ‏`granted` \| `prompt` \| `denied` \| `unknown` |
 | `voice_listening` | ‏R8: הדפדפן באמת מקשיב (‏onstart) | - |

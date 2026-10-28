@@ -19,7 +19,7 @@
    שני מדפים, פרטי ומסחרי, כי שם המלאי קטן ומי ששואל "מה יש למשרד"
    מקבל את שניהם על מסך אחד ממילא.
 
-     PropShelf.create(cfg)  →  { set(list), setVisualized(ids), selectTag(key) }
+     PropShelf.create(cfg)  →  { set(list), setVisualized(ids), selectTag(key, add) }
 
    ‏cfg.afterGrid מקבל אלמנט שיושב בין הגריד לכפתור "עוד" — בדף הבית
    זה באנר ההדמיות.
@@ -765,7 +765,9 @@
          כדי שהעוגן לא יגלול לתצוגה שלא השתנתה. ‏key ריק מכבה את הסינון
          כולו — זה מה ש"כל הנכסים" בפוטר אומר, כשמגיעים אליו מתוך עוגן
          שהדליק תגית. */
-      selectTag: function (key) {
+      /* ‏add (‏A2-5): מוסיף לתגיות שכבר דלוקות במקום להחליף אותן - "מכירה" ו"דירות 4 חד׳"
+         יחד, כשמגיעים לדף היריד מרשימת ההחלקה */
+      selectTag: function (key, add) {
         if (!key) {
           if (!state.tags.size) return true;
           state.tags.clear();
@@ -776,7 +778,7 @@
           return true;
         }
         if (!byKey.has(key)) return false;
-        state.tags = new Set([key]);
+        if (add) state.tags.add(key); else state.tags = new Set([key]);
         reset();
         renderTags();
         renderGrid();
