@@ -441,7 +441,7 @@ begin
 
         -- suppress_push בעמודות: זו התראה חיה (שבוע לפני מחיקה), לא מילוי
         -- היסטוריה. false משאיר אותה לדחיפה. בלי העמודה הבדיקה חוסמת
-        -- את הקובץ, כי הוא אחרי 20271028140000.
+        -- את הקובץ, כי הוא אחרי 20271029140000.
         insert into public.notifications (agent_id, type, title, body, related_client_id, suppress_push)
         select r.agent_id, 'retention_warning',
                'כרטיס לקוח/ה יימחק בעוד שבוע',
@@ -469,7 +469,7 @@ begin
       drop table if exists _ret_clients;
 
     elsif s.policy = 'whatsapp_pending_actions' then
-      -- נשמר מ-20271028165000. בלי הענף הזה ההחלפה של הפונקציה מוחקת את הניקוי.
+      -- נשמר מ-20271029165000. בלי הענף הזה ההחלפה של הפונקציה מוחקת את הניקוי.
       select count(*) into v_n from public.whatsapp_pending_actions a
        where (a.executed_at is not null and a.executed_at < v_cut)
           or (a.executed_at is null and a.expires_at < v_cut);

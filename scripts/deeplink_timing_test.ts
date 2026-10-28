@@ -12,7 +12,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 
 const sql = readFileSync(
-  new URL("../supabase/migrations/20271028200000_deeplink_timings.sql", import.meta.url),
+  new URL("../supabase/migrations/20271029200000_deeplink_timings.sql", import.meta.url),
   "utf8",
 );
 const js = readFileSync(new URL("../assets/deeplink-timing.js", import.meta.url), "utf8");
