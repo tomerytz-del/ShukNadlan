@@ -1,5 +1,5 @@
 -- גבריאלה: שמירה מפני התפרצות וואטסאפ לסוכנים.
--- תלוי ב-notification_push_log_holds ממיגרציה 20271028120000 (#1020).
+-- תלוי ב-notification_push_log_holds ממיגרציה 20271029133000 (#1020).
 --
 -- התקרות הקיימות (12 ביום, מרווח 10 דקות, פער תבנית 240, מבט 12/72
 -- ו-quiet_hold) לא זזות. notification_push_due_agents לא מוחלפת.
@@ -577,7 +577,7 @@ comment on function public.notification_push_burst_prepare() is
 revoke all on function public.notification_push_burst_prepare() from public, anon, authenticated;
 grant execute on function public.notification_push_burst_prepare() to service_role;
 
--- אותו claim כמו 20271028120000, עם ההכנה, בלי חלון של 7 ימים לוואטסאפ,
+-- אותו claim כמו 20271029133000, עם ההכנה, בלי חלון של 7 ימים לוואטסאפ,
 -- ותקרת התפרצות מעל תקרת 12 של due_agents.
 create or replace function public.notification_push_claim(p_limit int default 20)
 returns table (log_id uuid, agent_id uuid, display_name text, phone_e164 text,
@@ -907,7 +907,7 @@ comment on function public.notification_push_has_backlog(boolean) is
 revoke all on function public.notification_push_has_backlog(boolean) from public, anon, authenticated;
 grant execute on function public.notification_push_has_backlog(boolean) to service_role;
 
--- תלוי ב-notification_push_log_holds מ-20271028120000. בזמן מפסק חוזר
+-- תלוי ב-notification_push_log_holds מ-20271029133000. בזמן מפסק חוזר
 -- true רק אם יש מוגן, או שעברו notif_burst_rearm_minutes מאז ההערכה
 -- האחרונה (כדי שההיסטרזיס יוכל לכבות את המפסק).
 create or replace function public.notification_push_ready()
