@@ -42,6 +42,7 @@ import {
   CLAIM_TITLE,
   DEMAND_FORBIDDEN,
   claimRows,
+  directPostUrl,
   excludeSocialBuyer,
   hasCalendarDate as demandHasDate,
   openDemandBrief,
@@ -132,7 +133,11 @@ test("אישור קצר, בלי תאריך, וחלון הסיכום", () => {
   assert.equal(digestChannel(false, "cap", false), "bell");
   assert.equal(digestChannel(false, "cap", true), "template");
   assert.equal(digestChannel(false, "bell", true), "bell");
-  assert.equal(digestChannel(false, "send", false), "template");
+  assert.equal(digestChannel(false, "send", false), "bell");
+  assert.equal(digestChannel(false, "send", true, 1), "template");
+  assert.equal(digestChannel(true, "send", false, 3), "text");
+  assert.equal(digestChannel(false, "cap", true, 3), "bell");
+  assert.equal(digestChannel(false, "send", true, 3), "bell");
 });
 
 test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת הליד", () => {
@@ -144,6 +149,8 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(migration, /p_type = 'client_match'/);
   assert.match(migration, /agent_type_cadence\(p_agent, 'match_digest'\)/);
   assert.match(migration, /whatsapp_template_cap_decide\(v_count, v_hours, false/);
+  assert.match(migration, /digest_ordinal/);
+  assert.match(migration, /coalesce\(v_ordinal, 1\) >= 3/);
   assert.match(migration, /p_except uuid default null/);
   assert.match(migration, /notif_cadence_pending/);
   assert.match(migration, /interval '30 minutes'/);
@@ -214,6 +221,14 @@ test("ביקוש פתוח בלי פרטי קשר ובלי תאריך", () => {
   for (const key of Object.keys(brief)) assert.equal(DEMAND_FORBIDDEN.includes(key), false, key);
   assert.equal(demandHasDate(brief.summary + brief.age), false);
   assert.match(brief.action_path, /tab=demand&demand=/);
+  assert.equal(directPostUrl("https://www.facebook.com/groups/1/posts/2"), "https://www.facebook.com/groups/1/posts/2");
+  assert.equal(directPostUrl("https://m.facebook.com/story.php?id=1"), "https://m.facebook.com/story.php?id=1");
+  assert.equal(directPostUrl("https://instagram.com/p/abc"), "https://instagram.com/p/abc");
+  assert.equal(directPostUrl("http://www.facebook.com/x"), null);
+  assert.equal(directPostUrl("https://evil.facebook.com/x"), null);
+  assert.equal(directPostUrl("https://user:pass@facebook.com/x"), null);
+  assert.equal(directPostUrl("https://shuknadlan.co.il/crm?goto=accLeads&tab=demand"), null);
+  assert.equal(DEMAND_FORBIDDEN.includes("source_post_url"), true);
   const locked = openDemandBrief({
     id: "11111111-1111-1111-1111-111111111111",
     city: "עפולה",

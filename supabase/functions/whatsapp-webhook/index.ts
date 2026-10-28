@@ -69,6 +69,7 @@ import {
   typeConfirmLine,
   typeListRows,
 } from "../_shared/notif-cadence.ts";
+import { directPostUrl } from "../_shared/open-demand-brief.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -1621,9 +1622,30 @@ async function handleOpenDemandClaim(agentId: string, from: string, rawId: strin
     await reply(from, "לא הצלחתי לשמור את הפנייה. אפשר לנסות מהלשונית ביקוש פתוח.", agentId);
     return;
   }
-  const result = (data || {}) as { success?: boolean; error?: string; post_url?: string };
-  if (result.success && /^https:\/\//.test(result.post_url || "")) {
-    await reply(from, `הביקוש שמור אליך. אפשר להגיב רק בפוסט, לא ב-SMS ולא בוואטסאפ:\n${result.post_url}`, agentId);
+  const result = (data || {}) as {
+    success?: boolean;
+    error?: string;
+    post_url?: string;
+    source_post_url?: string;
+    lead_id?: string;
+  };
+  const post = directPostUrl(result.source_post_url) || directPostUrl(result.post_url);
+  if (result.success && post) {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "הביקוש שמור אליך. אפשר להגיב רק בפוסט, לא ב-SMS ולא בוואטסאפ.",
+      label: "לפוסט",
+      url: post,
+    }], agentId);
+    return;
+  }
+  if (result.success && /^[0-9a-f-]{36}$/i.test(result.lead_id || "")) {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "הביקוש שמור אליך. פרטי הקשר בכרטיס הליד.",
+      label: "לליד",
+      url: absoluteUrl(SITE_BASE, withClick(`/crm?goto=accLeads&lead=${result.lead_id}`, "open_demand")),
+    }], agentId);
     return;
   }
   if (result.success) {

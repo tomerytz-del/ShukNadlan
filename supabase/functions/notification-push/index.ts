@@ -785,7 +785,12 @@ async function sendLeadDigests(sb: ReturnType<typeof createClient>): Promise<voi
   for (const row of data as Record<string, any>[]) {
     const leads = Array.isArray(row.leads) ? row.leads : [];
     const ids = leads.map((lead: { id?: string }) => lead.id).filter((id: string) => !!id);
-    const channel = digestChannel(!!row.in_window, parseOutside(row.outside_mode), row.cap_allows === true);
+    const channel = digestChannel(
+      !!row.in_window,
+      parseOutside(row.outside_mode),
+      row.cap_allows === true,
+      Number(row.digest_ordinal) || 1,
+    );
     const finish = (outcome: "sent" | "bell", mode: string) => sb.rpc("notif_cadence_digest_finish", {
       p_agent: row.agent_id,
       p_slot: row.slot_key,

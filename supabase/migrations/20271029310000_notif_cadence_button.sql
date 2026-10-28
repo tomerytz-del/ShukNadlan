@@ -450,6 +450,7 @@ returns table (
   notif_type text,
   outside_mode text,
   cap_allows boolean,
+  digest_ordinal int,
   leads jsonb
 )
 language plpgsql
@@ -547,6 +548,12 @@ begin
     notif_type := r.notif_type;
     outside_mode := public.notif_lead_digest_outside();
     cap_allows := public.lead_wa_digest_cap_allows(r.id);
+    select count(*)::int into digest_ordinal
+      from public.notif_cadence_digest d
+     where d.agent_id = r.id
+       and d.slot_key like to_char(now() at time zone 'Asia/Jerusalem', 'YYYY-MM-DD') || '%'
+       and split_part(d.slot_key, ':', 2) = r.notif_type
+       and d.outcome in ('pending', 'sent', 'bell');
     leads := v_leads;
     return next;
   end loop;
@@ -570,9 +577,22 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_ordinal int;
+  v_mode text := p_mode;
 begin
   if p_outcome not in ('sent', 'bell') then
     return;
+  end if;
+  select count(*)::int into v_ordinal
+    from public.notif_cadence_digest d
+   where d.agent_id = p_agent
+     and d.slot_key like to_char(now() at time zone 'Asia/Jerusalem', 'YYYY-MM-DD') || '%'
+     and split_part(d.slot_key, ':', 2) = split_part(p_slot, ':', 2)
+     and d.outcome in ('pending', 'sent', 'bell');
+  -- הסיכום השלישי ביום אינו נרשם כתבנית.
+  if coalesce(v_ordinal, 1) >= 3 then
+    v_mode := 'text';
   end if;
   update public.notif_cadence_digest d
      set outcome = p_outcome
@@ -585,7 +605,7 @@ begin
       p_agent,
       p_ids,
       array['lead_digest'],
-      case when p_mode = 'template' then 'template' else 'text' end,
+      case when v_mode = 'template' then 'template' else 'text' end,
       'sent'
     );
   end if;
@@ -872,7 +892,9 @@ stable
 security definer
 set search_path = ''
 as $$
-  select s.id, s.lead_type, s.source, s.source_detail, s.post_url, s.posted_at, s.city, s.neighborhood_id,
+  select s.id, s.lead_type, s.source, s.source_detail,
+         case when coalesce(s.post_url, '') like '%tab=demand%' then null else s.post_url end,
+         s.posted_at, s.city, s.neighborhood_id,
          s.deal_type, s.property_type, s.rooms, s.budget, s.move_in, s.demand_summary,
          coalesce(s.open_demand_at, s.created_at), s.no_broker,
          s.claimed_by is not null
@@ -994,6 +1016,7 @@ declare
   s       public.scraped_leads%rowtype;
   v_cap   int;
   v_used  int;
+  v_source text;
   v_day0  timestamptz := date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem';
 begin
   if p_agent is null then
@@ -1007,8 +1030,19 @@ begin
      or not public.agent_works_city(p_agent, s.city_id) then
     return jsonb_build_object('error', 'not_found');
   end if;
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'scraped_leads' and column_name = 'source_post_url'
+  ) then
+    execute 'select source_post_url from public.scraped_leads where id = $1'
+      into v_source using p_id;
+  end if;
   if s.claimed_by = p_agent then
-    return jsonb_build_object('success', true, 'post_url', s.post_url, 'already_mine', true);
+    return jsonb_build_object(
+      'success', true,
+      'post_url', case when coalesce(s.post_url, '') like '%tab=demand%' then null else s.post_url end,
+      'source_post_url', v_source,
+      'already_mine', true);
   end if;
   if s.claimed_by is not null then
     return jsonb_build_object('error', 'claimed');
@@ -1022,8 +1056,11 @@ begin
   end if;
 
   update public.scraped_leads set claimed_by = p_agent, claimed_at = now() where id = p_id;
-  return jsonb_build_object('success', true, 'post_url', s.post_url,
-                            'my_today', v_used + 1, 'daily_cap', v_cap);
+  return jsonb_build_object(
+    'success', true,
+    'post_url', case when coalesce(s.post_url, '') like '%tab=demand%' then null else s.post_url end,
+    'source_post_url', v_source,
+    'my_today', v_used + 1, 'daily_cap', v_cap);
 end;
 $$;
 

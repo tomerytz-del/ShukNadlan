@@ -7,8 +7,33 @@ export const CLAIM_TITLE = "אני פונה";
 export const CLAIM_ID_PREFIX = "odc:";
 export const DEMAND_FORBIDDEN = [
   "phone", "email", "name", "raw_name", "display_name", "display_phone",
-  "post_url", "profile", "fb_id", "facebook_id",
+  "post_url", "source_post_url", "profile", "fb_id", "facebook_id",
 ];
+
+const POST_HOSTS = new Set([
+  "facebook.com",
+  "www.facebook.com",
+  "m.facebook.com",
+  "fb.com",
+  "www.fb.com",
+  "instagram.com",
+  "www.instagram.com",
+]);
+
+/** קישור פוסט אחרי תפיסה. https בלבד, ורק מארחי פייסבוק ואינסטגרם. */
+export function directPostUrl(raw: string | null | undefined): string | null {
+  const text = String(raw || "").trim();
+  if (!text.startsWith("https://") || text.length > 600) return null;
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  if (!POST_HOSTS.has(url.hostname.toLowerCase())) return null;
+  return text;
+}
 
 export type DemandRow = {
   id: string;

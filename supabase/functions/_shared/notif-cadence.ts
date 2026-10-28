@@ -380,10 +380,13 @@ export function digestChannel(
   inWindow: boolean,
   outside: OutsideMode,
   capAllows: boolean,
+  ordinal = 1,
 ): "text" | "template" | "bell" {
+  // הסיכום השלישי ביום אינו תבנית: טקסט רק בתוך חלון 24 השעות, אחרת פעמון.
+  // הוא לא נספר בתקרה ולא עוקף אותה. send אינו עוקף את התקרה גם בשני הראשונים.
+  if (ordinal >= 3) return inWindow ? "text" : "bell";
   if (inWindow) return "text";
   if (outside === "bell") return "bell";
-  if (outside === "send") return "template";
   return capAllows ? "template" : "bell";
 }
 
