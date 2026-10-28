@@ -3358,6 +3358,14 @@
     return '/open-house?' + q.toString();
   }
   function setView(v, likedOnly, npOnly) {
+    /* ‏F8a: ההדרכה שייכת להחלקה - מעבר לרשימה, למפה או ל"אהבתי" סוגר אותה, בלי לסמן אותה
+       כ"נראתה" (בביקור הבא היא תוצג שוב, כמו מי שלא סיים/ה אותה) */
+    if (v !== 'deck' && !$('swTour').hidden) {
+      clearTimeout(tourT);
+      var tc = $('swTopCard') && $('swTopCard').querySelector('.sw-card');
+      if (tc) tc.classList.remove('sw-co-wig', 'sw-co-upc', 'sw-touring', 'sw-touring-up', 'sw-co-still');
+      closeDialog($('swTour'));
+    }
     if (v === 'list' && filter.fair && !likedOnly && !npOnly) {
       shukTrack('swipe_fair_list', { deal: filter.deal, rooms: filter.rooms || 0 });
       location.href = fairListHref('swipe_list');

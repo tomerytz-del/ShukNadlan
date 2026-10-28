@@ -36,6 +36,7 @@
     '#gabW .gw-likes.is-pill{padding:0 16px}#gabW .gw-likes.is-pill .lk-t{display:inline}#gabW .gw-likes.is-pill .lk-n{display:none}' +
     '#gabW .gw-likes:focus-visible{outline:3px solid #c9a227;outline-offset:3px}' +
     '#gabW.is-min .gw-likes{bottom:calc(var(--gw-bottom) + 56px)}' +
+    '#gabW .gw-likes.is-aside{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,visibility 0s .2s}' +
     '@media(min-width:1024px){#gabW.is-v10:not(.is-min) .gw-likes{bottom:calc(var(--gw-bottom) + 76px)}}' +
     '#gabW.is-open .gw-likes{display:none}' +
     '.lk-wrap{position:fixed;inset:0;z-index:2000;font-family:Heebo,system-ui,sans-serif;direction:rtl}.lk-wrap[hidden]{display:none}' +
@@ -71,6 +72,24 @@
   btn.className = 'gw-likes';
   btn.innerHTML = '<span class="lk-h" aria-hidden="true">♥</span><span class="lk-n" aria-hidden="true"></span><span class="lk-t" aria-hidden="true"></span>';
   root.appendChild(btn);
+
+  /* ‏F8b (בדיקת 29.10): בטלפון הבועה כיסתה את המחיר של שורת תוצאות. כשהשורות עוברות ב-120px
+     התחתונים של המסך היא נעלמת (הלב בכותרת נשאר), וחוזרת כשהן יוצאות משם */
+  (function () {
+    var rows = document.getElementById('searchResultsRows');
+    if (!rows || !('IntersectionObserver' in window)) return;
+    var io = null;
+    function arm() {
+      if (io) io.disconnect();
+      if (window.innerWidth >= 760) { btn.classList.remove('is-aside'); return; }
+      io = new IntersectionObserver(function (es) {
+        es.forEach(function (en) { btn.classList.toggle('is-aside', en.isIntersecting); });
+      }, { rootMargin: '-' + Math.max(0, window.innerHeight - 120) + 'px 0px 0px 0px' });
+      io.observe(rows);
+    }
+    arm();
+    window.addEventListener('resize', arm);
+  })();
 
   var wrap = document.createElement('div');
   wrap.className = 'lk-wrap';
