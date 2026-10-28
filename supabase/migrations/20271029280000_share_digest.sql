@@ -6,20 +6,39 @@
 -- טריגר נפרד מדליק suppress_push על השורה הבודדת כשהדגל דלוק, והפעמון
 -- נשאר. הסיכום נבנה ב-share_digest_build.
 --
--- נכנס רק מה שנוצר אחרי הסיכום הקודם (או אחרי enabled_at) ושאין לו
--- שום שורה ב-notification_push_log. מה שכבר יצא לא יוצא שוב.
--- מחוץ לחלון 24 השעות הסיכום הוא התבנית היחידה של היום, או נשאר
--- בפעמון אם כבר יצאה תבנית. לא תבנית שנייה (131049).
+-- נכנס רק מה שנוצר אחרי enabled_at (חותמת ההדלקה) ואחרי הסיכום הקודם,
+-- ושאין לו שורת notification_push_log. שיתוף מלפני ההדלקה לא נכנס.
+-- מה שכבר יצא לא יוצא שוב.
+--
+-- בחלון 24 השעות: הודעת טקסט עם כפתור. מחוץ לחלון: פעמון בלבד.
+-- הסיכום לעולם אינו תבנית UTILITY. התבנית שמורה ללידים ולתזכורות.
+--
+-- סדר מיזוג: #1025 (suppress_push ושומר ההתפרצות) ו-#1036 (action_path)
+-- לפני ה-PR הזה. #1049 (notification_agent_send_quiet) רשות: אם הפונקציה
+-- קיימת קוראים לה עם חלון דלוק, ואם לא - אותו כלל משוכפל כאן.
+-- שישי 12:30 יוצא. שבת נשארת שקטה. שעות השקט של הסוכן/ת עדיין מצמצמות.
+--
+-- יצירה מפוזרת 12:30-13:00: שש משבצות של 5 דקות לפי hash(agent_id).
+-- share_digest אינו ב-notification_push_priority_types ואינו ב-
+-- notification_push_less_kept_types, ולכן תקרת השעה (12), תקרת היום (30),
+-- תקרת היצירה (300 ב-15 דקות) והתקרה הגלובלית (130 בשעה) חלות עליו.
 
 insert into public.pricing_config (key, value, description)
 values
   ('share_digest_enabled', 0,
    '1 = שיתוף נכס נשאר בפעמון ונכנס לסיכום אחד ביום. 0 = כל שיתוף יוצא כמו היום.'),
   ('share_digest_hhmm', 1230,
-   'שעת הסיכום בשעון ישראל, HHMM. 1230 = 12:30. חלון של 10 דקות.')
+   'שעת תחילת הסיכום בשעון ישראל, HHMM. 1230 = 12:30. חלון של 30 דקות, שש משבצות של 5 דקות.')
 on conflict (key) do nothing;
 
 select public.notification_types_add(array['share_digest']);
+
+-- העמודות מגיעות מ-#1025 ומ-#1036. אם הקובץ הזה רץ קודם, הן נוצרות כאן
+-- כדי שההכנסה והדחיפה לא ייפלו. אילוץ הנתיב וה-claim נשארים ב-#1036.
+alter table public.notifications
+  add column if not exists suppress_push boolean not null default false;
+alter table public.notifications
+  add column if not exists action_path text;
 
 create table if not exists public.share_digest_state (
   id         int primary key check (id = 1),
@@ -37,12 +56,11 @@ create table if not exists public.share_digest_runs (
   id              uuid primary key default gen_random_uuid(),
   agent_id        uuid not null references public.agency_members(id) on delete cascade,
   ran_at          timestamptz not null default now(),
-  notification_id uuid references public.notifications(id) on delete set null,
-  folded_log_id   uuid
+  notification_id uuid references public.notifications(id) on delete set null
 );
 
 comment on table public.share_digest_runs is
-  'סיכום שיתופים אחד לסוכן/ת ליום. folded_log_id מתמלא אם השורות נכנסו לתבנית שכבר יצאה.';
+  'סיכום שיתופים אחד לסוכן/ת ליום. אין קיפול לתבנית.';
 
 create index if not exists share_digest_runs_agent_idx
   on public.share_digest_runs (agent_id, ran_at desc);
@@ -150,11 +168,10 @@ security definer
 set search_path = ''
 as $$
   with cut as (
-    select coalesce(
-      (select s.enabled_at from public.share_digest_state s where s.id = 1),
-      (date_trunc('day', pg_catalog.now() at time zone 'Asia/Jerusalem')
-        at time zone 'Asia/Jerusalem')
-    ) as since
+    select s.enabled_at as since
+      from public.share_digest_state s
+     where s.id = 1
+       and s.enabled_at is not null
   )
   select split_part(btrim(coalesce(m.display_name, '')), ' ', 1),
          coalesce(nullif(split_part(btrim(coalesce(sh.display_name, '')), ' ', 1), ''), 'משרד'),
@@ -172,10 +189,9 @@ as $$
    where n.type = 'system'
      and n.title = 'נכס חדש שותף איתך'
      and n.related_property_id is not null
-     and n.created_at > greatest(
-           cut.since,
-           coalesce((select max(r.ran_at) from public.share_digest_runs r
-                      where r.agent_id = n.agent_id), cut.since))
+     and n.created_at > cut.since
+     and n.created_at > coalesce((select max(r.ran_at) from public.share_digest_runs r
+                                   where r.agent_id = n.agent_id), cut.since)
      and not exists (
        select 1 from public.notification_push_log l
         where n.id = any (l.notification_ids))
@@ -185,7 +201,7 @@ as $$
 $$;
 
 comment on function public.share_digest_preview() is
-  'תצוגה יבשה של הסיכום הבא. שמות פרטיים, סוג ומחיר. לא כותבת.';
+  'תצוגה יבשה של הסיכום הבא. רק אחרי enabled_at. שמות פרטיים, סוג ומחיר. לא כותבת.';
 
 revoke all on function public.share_digest_preview() from public, anon, authenticated;
 grant execute on function public.share_digest_preview() to service_role;
@@ -222,20 +238,28 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_on      int;
-  v_since   timestamptz;
-  v_local   timestamp;
-  v_today   date;
-  v_now_min int;
-  v_hhmm    int;
-  v_tgt     int;
-  v_delta   int;
-  v_sent    int := 0;
-  v_nid     uuid;
-  v_n       int;
+  v_on       int;
+  v_since    timestamptz;
+  v_local    timestamp;
+  v_today    date;
+  v_now_min  int;
+  v_hhmm     int;
+  v_tgt      int;
+  v_delta    int;
+  v_sent     int := 0;
+  v_nid      uuid;
+  v_n        int;
+  v_lines    int;
+  v_slot     int;
+  v_quiet    boolean;
+  v_dow      int;
+  v_hour     int;
   v_suppress boolean;
-  v_tpl     boolean;
-  ag        record;
+  v_rows     jsonb;
+  v_body     text;
+  v_path     text;
+  v_prop     uuid;
+  ag         record;
 begin
   v_on := coalesce((select value from public.pricing_config
                      where key = 'share_digest_enabled'), 0);
@@ -245,7 +269,8 @@ begin
 
   select s.enabled_at into v_since
     from public.share_digest_state s
-   where s.id = 1;
+   where s.id = 1
+     and s.enabled_at is not null;
   if v_since is null then
     return 0;
   end if;
@@ -260,7 +285,8 @@ begin
   end if;
   v_tgt := (v_hhmm / 100) * 60 + (v_hhmm % 100);
   v_delta := (v_now_min - v_tgt + 1440) % 1440;
-  if v_delta >= 10 then
+  -- 12:30 עד 13:00. דקה שפוספסת נתפסת בהמשך החלון, לא הולכת לאיבוד.
+  if v_delta >= 30 then
     return 0;
   end if;
 
@@ -289,10 +315,9 @@ begin
             and n.type = 'system'
             and n.title = 'נכס חדש שותף איתך'
             and n.related_property_id is not null
-            and n.created_at > greatest(
-                  v_since,
-                  coalesce((select max(r.ran_at) from public.share_digest_runs r
-                             where r.agent_id = m.id), v_since))
+            and n.created_at > v_since
+            and n.created_at > coalesce((select max(r.ran_at) from public.share_digest_runs r
+                                          where r.agent_id = m.id), v_since)
             and not exists (
               select 1 from public.notification_push_log l
                where n.id = any (l.notification_ids))
@@ -301,9 +326,38 @@ begin
                where sl.source_notification_id = n.id)
        )
   loop
-    if public.agent_reminder_quiet_now(ag.quiet_from, ag.quiet_to, ag.quiet_days) then
+    -- שש משבצות של 5 דקות. אחרי שהמשבצת נפתחה, כל דקה בחלון עדיין תופסת.
+    v_slot := mod(pg_catalog.hashtext(ag.id::text)::bigint, 6);
+    if v_slot < 0 then
+      v_slot := v_slot + 6;
+    end if;
+    if v_delta < v_slot * 5 then
       continue;
     end if;
+
+    -- שישי עד 13:00 פתוח גם כש-quiet_days כולל 5. שבת סגורה.
+    -- חלון 1 קבוע: הדגל הגלובלי של #1049 לא חוסם את הסיכום של 12:30.
+    v_quiet := false;
+    if to_regprocedure('public.notification_agent_send_quiet(integer,integer,smallint[],timestamp with time zone,integer)') is not null then
+      execute 'select public.notification_agent_send_quiet($1, $2, $3, $4, 1)'
+        into v_quiet
+        using ag.quiet_from, ag.quiet_to, ag.quiet_days, pg_catalog.now();
+    else
+      v_dow := extract(dow from v_local)::int;
+      v_hour := extract(hour from v_local)::int;
+      if v_dow = 6 or (v_dow = 5 and v_hour >= 13) or v_hour < 8 or v_hour >= 21 then
+        v_quiet := true;
+      else
+        v_quiet := public.agent_reminder_quiet_now(
+          ag.quiet_from,
+          ag.quiet_to,
+          array_remove(coalesce(ag.quiet_days, '{5,6}'::smallint[]), 5::smallint));
+      end if;
+    end if;
+    if v_quiet then
+      continue;
+    end if;
+
     if exists (
       select 1 from public.share_digest_runs r
        where r.agent_id = ag.id
@@ -312,43 +366,17 @@ begin
       continue;
     end if;
 
-    v_tpl := exists (
-      select 1
-        from public.notification_push_log l
-       where l.agent_id = ag.id
-         and l.channel_mode = 'template'
-         and l.created_at > pg_catalog.now() - interval '24 hours'
-         and public.notification_push_log_holds(l.whatsapp_status, l.created_at)
-    );
-    -- מסלול free לא מחובר לגבריאלה, ולכן אין לו וואטסאפ. הסיכום נשאר בפעמון.
-    -- בחלון: הודעה אחת עם רשימה. מחוץ לחלון: רק אם עוד אין תבנית היום.
-    v_suppress := ag.tier is distinct from 'mid' and ag.tier is distinct from 'premium'
-      or ag.phone is null
-      or (not ag.in_window and v_tpl);
-
-    insert into public.notifications (agent_id, type, title, body, suppress_push)
-    values (
-      ag.id,
-      'share_digest',
-      'סיכום נכסים ששותפו איתך',
-      'סיכום נכסים ששותפו איתך',
-      v_suppress
-    )
-    returning id into v_nid;
-
-    insert into public.share_digest_lines (
-      notification_id, source_notification_id, property_id,
-      sharer_first_name, property_type, price_label
-    )
-    select v_nid,
-           n.id,
-           p.id,
-           coalesce(nullif(split_part(btrim(coalesce(sh.display_name, '')), ' ', 1), ''), 'משרד'),
-           coalesce(nullif(btrim(p.property_type), ''), 'נכס'),
-           case
-             when p.price is null or p.price <= 0 then 'מחיר לא צוין'
-             else trim(to_char(p.price, 'FM999,999,999')) || ' ₪'
-           end
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'source_id', n.id,
+             'property_id', p.id,
+             'sharer', coalesce(nullif(split_part(btrim(coalesce(sh.display_name, '')), ' ', 1), ''), 'משרד'),
+             'ptype', coalesce(nullif(btrim(p.property_type), ''), 'נכס'),
+             'price', case
+               when p.price is null or p.price <= 0 then 'מחיר לא צוין'
+               else trim(to_char(p.price, 'FM999,999,999')) || ' ₪'
+             end
+           )), '[]'::jsonb)
+      into v_rows
       from public.notifications n
       join public.properties p on p.id = n.related_property_id
       left join public.agency_members sh on sh.id = p.agent_id
@@ -356,52 +384,76 @@ begin
        and n.type = 'system'
        and n.title = 'נכס חדש שותף איתך'
        and n.related_property_id is not null
-       and n.created_at > greatest(
-             v_since,
-             coalesce((select max(r.ran_at) from public.share_digest_runs r
-                        where r.agent_id = ag.id), v_since))
+       and n.created_at > v_since
+       and n.created_at > coalesce((select max(r.ran_at) from public.share_digest_runs r
+                                     where r.agent_id = ag.id), v_since)
        and not exists (
          select 1 from public.notification_push_log l
           where n.id = any (l.notification_ids))
        and not exists (
          select 1 from public.share_digest_lines sl
           where sl.source_notification_id = n.id);
-    get diagnostics v_n = row_count;
 
-    if coalesce(v_n, 0) = 0 then
-      delete from public.notifications where id = v_nid;
+    v_n := coalesce(jsonb_array_length(v_rows), 0);
+    if v_n = 0 then
       continue;
     end if;
 
-    update public.notifications n
-       set body = left(coalesce((
-             select string_agg(g.block, E'\n\n' order by g.sharer)
-               from (
-                 select l.sharer_first_name as sharer,
-                        l.sharer_first_name || E'\n' || string_agg(
-                          l.property_type || ' · ' || l.price_label,
-                          E'\n' order by l.property_type, l.property_id::text
-                        ) as block
-                   from public.share_digest_lines l
-                  where l.notification_id = v_nid
-                  group by l.sharer_first_name
-               ) g
-           ), 'סיכום נכסים ששותפו איתך'), 2000),
-           related_property_id = (
-             select case when count(*) = 1 then (array_agg(l.property_id))[1] else null end
-               from public.share_digest_lines l
-              where l.notification_id = v_nid
-           ),
-           action_path = (
-             select case
-               when count(*) = 1
-                 then '/crm?goto=accSharedWithMe&property=' || (array_agg(l.property_id))[1]::text
-               else '/crm?goto=accSharedWithMe'
-             end
-               from public.share_digest_lines l
-              where l.notification_id = v_nid
-           )
-     where n.id = v_nid;
+    select case when count(*) = 1 then (array_agg(x.property_id))[1] else null end
+      into v_prop
+      from jsonb_to_recordset(v_rows) as x(
+        source_id uuid, property_id uuid, sharer text, ptype text, price text
+      );
+    v_path := case
+      when v_n = 1 then '/crm?goto=accSharedWithMe&property=' || v_prop::text
+      else '/crm?goto=accSharedWithMe'
+    end;
+    select left(coalesce(string_agg(g.block, E'\n\n' order by g.sharer),
+                         'סיכום נכסים ששותפו איתך'), 2000)
+      into v_body
+      from (
+        select x.sharer,
+               x.sharer || E'\n' || string_agg(
+                 x.ptype || ' · ' || x.price,
+                 E'\n' order by x.ptype, x.property_id::text
+               ) as block
+          from jsonb_to_recordset(v_rows) as x(
+            source_id uuid, property_id uuid, sharer text, ptype text, price text
+          )
+         group by x.sharer
+      ) g;
+
+    -- מסלול free ומי שמחוץ לחלון 24 השעות: פעמון בלבד. בלי תבנית.
+    v_suppress := ag.tier is distinct from 'mid' and ag.tier is distinct from 'premium'
+      or ag.phone is null
+      or not ag.in_window;
+
+    insert into public.notifications (
+      agent_id, type, title, body, suppress_push, action_path, related_property_id
+    )
+    values (
+      ag.id,
+      'share_digest',
+      'סיכום נכסים ששותפו איתך',
+      v_body,
+      v_suppress,
+      v_path,
+      v_prop
+    )
+    returning id into v_nid;
+
+    insert into public.share_digest_lines (
+      notification_id, source_notification_id, property_id,
+      sharer_first_name, property_type, price_label
+    )
+    select v_nid, x.source_id, x.property_id, x.sharer, x.ptype, x.price
+      from jsonb_to_recordset(v_rows) as x(
+        source_id uuid, property_id uuid, sharer text, ptype text, price text
+      );
+    get diagnostics v_lines = row_count;
+    if coalesce(v_lines, 0) <> v_n then
+      raise exception 'share_digest lines missing for %', ag.id;
+    end if;
 
     insert into public.share_digest_runs (agent_id, ran_at, notification_id)
     values (ag.id, pg_catalog.now(), v_nid);
@@ -413,10 +465,82 @@ end;
 $$;
 
 comment on function public.share_digest_build() is
-  'סיכום שיתופים אחד לסוכן/ת, בחלון של 10 דקות אחרי share_digest_hhmm (ברירת מחדל 12:30 ישראל). דגל כבוי: 0. לא שולח תבנית שנייה באותו יום. מסלול שאינו mid או premium נשאר בפעמון.';
+  'סיכום שיתופים אחד לסוכן/ת, בחלון של 30 דקות אחרי share_digest_hhmm (ברירת מחדל 12:30 ישראל), מפוזר לשש משבצות. דגל כבוי: 0. בחלון 24 השעות טקסט עם כפתור. מחוץ לו פעמון, בלי תבנית. שישי עד 13:00 יוצא, שבת שקטה. מסלול שאינו mid או premium נשאר בפעמון.';
 
 revoke all on function public.share_digest_build() from public, anon, authenticated;
 grant execute on function public.share_digest_build() to service_role;
+
+-- דחיפת האפליקציה מ-20270822090000, עם שני שינויים: suppress_push עוצר
+-- אותה (שיתוף בודד בזמן הדגל, וסיכום שנשאר בפעמון), ו-action_path גובר
+-- כדי שהדחיפה תיפתח על הגוף הסופי ולא על /crm.
+create or replace function public.app_push_on_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid;
+  v_path text;
+  v_dev uuid;
+begin
+  if coalesce(new.suppress_push, false) then
+    return new;
+  end if;
+
+  select am.user_id into v_user
+  from public.agency_members am
+  where am.id = new.agent_id;
+  if v_user is null then
+    return new;
+  end if;
+
+  v_path := case
+    when coalesce(btrim(new.action_path), '') <> '' then new.action_path
+    when new.type = 'lead_prefs_default' then '/crm?goto=accPrefs&focus=lead_prefs'
+    when new.type = 'open_demand' then '/crm?goto=accLeads&tab=demand'
+    when new.related_agreement_id is not null
+      then '/crm?goto=accAgreements&agreement=' || new.related_agreement_id::text
+    when new.type in ('review_new', 'review_alert') and new.related_review_id is not null
+      then '/crm?goto=accReviews&review=' || new.related_review_id::text
+    when new.type = 'agenda_reminder' and new.related_lead_id is not null
+      then '/crm?goto=accLeads&lead=' || new.related_lead_id::text
+    when new.type = 'agenda_reminder' and new.related_agenda_item_id is not null
+      then '/crm?goto=accAgenda&agenda=' || new.related_agenda_item_id::text
+    when new.type = 'client_match' and new.related_client_id is not null
+      then '/crm?goto=accClients&client=' || new.related_client_id::text || '&focus=matches'
+    when new.related_property_id is not null
+      and new.type is distinct from 'deal_closed'
+      and new.type is distinct from 'client_match'
+      then '/crm?goto=accProperties&property=' || new.related_property_id::text
+    when new.related_client_id is not null
+      then '/crm?goto=accClients&client=' || new.related_client_id::text
+    when new.related_lead_id is not null and new.type in ('new_lead', 'review_request', 'system')
+      then '/crm?goto=accLeads&lead=' || new.related_lead_id::text
+    else '/crm'
+  end;
+
+  for v_dev in
+    select d.id from public.app_push_devices d
+    where d.user_id = v_user and d.disabled_at is null
+  loop
+    perform public.app_push_enqueue(
+      v_dev,
+      new.title,
+      new.body,
+      'https://shuknadlan.co.il' || v_path,
+      'notification',
+      new.id
+    );
+  end loop;
+  return new;
+exception when others then
+  raise warning 'app_push_on_notification: %', sqlerrm;
+  return new;
+end;
+$$;
+
+revoke all on function public.app_push_on_notification() from public, anon, authenticated;
 
 do $$
 begin

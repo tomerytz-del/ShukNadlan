@@ -289,13 +289,31 @@ const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
 // 11.10.2026 נכתבו 678 התראות "נכס חדש שותף איתך" ביום אחד.
 const isShare = (it: Item) => it.type === "system" && it.property_id != null && it.property_mine === false;
 
+/** כשל בקריאת שורות הסיכום. לא שולחים את מציין המקום, ומסמנים failed כדי שהסבב הבא ינסה שוב פעם אחת. */
+class ShareDigestLinesError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ShareDigestLinesError";
+  }
+}
+
 /** סיכום שיתופים: שורה לכל נכס, לפני arrange, כדי שלא יתקפל ל"N נכסים". */
 async function expandShareDigest(sb: { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string; code?: string } | null }> }, logId: string, items: Item[]): Promise<Item[]> {
   if (!items.some((it) => it.type === "share_digest")) return items;
   const { data, error } = await sb.rpc("share_digest_lines_for_log", { p_log_id: logId });
-  if (error || !Array.isArray(data) || data.length === 0) return items;
+  if (error) {
+    console.error("share_digest_lines_for_log failed", logId, error.message || error.code || "");
+    throw new ShareDigestLinesError(error.message || "share_digest_lines_for_log failed");
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    console.error("share_digest_lines_for_log empty", logId);
+    throw new ShareDigestLinesError("share_digest_lines_for_log returned no lines");
+  }
   const lines = shareDigestItems(data as ShareDigestLine[]);
-  if (!lines.length) return items;
+  if (!lines.length) {
+    console.error("share_digest_lines_for_log unusable", logId);
+    throw new ShareDigestLinesError("share_digest lines had no property");
+  }
   return items.filter((it) => it.type !== "share_digest").concat(lines);
 }
 const isSignup = (it: Item) => it.type === "platform_signup";
@@ -734,7 +752,46 @@ Deno.serve(async (req: Request) => {
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
     );
-    const expanded = await expandShareDigest(sb, row.log_id, base);
+    let expanded: Item[];
+    try {
+      expanded = await expandShareDigest(sb, row.log_id, base);
+    } catch (err) {
+      if (!(err instanceof ShareDigestLinesError)) throw err;
+      // לא נשלח כלום. failed לא חוסם, אז הסבב הבא תופס את אותה התראה פעם אחת.
+      const msg = err.message.slice(0, 500);
+      console.error("share digest lines failed, retry next cycle", row.log_id, msg);
+      const { error: markErr } = await sb.rpc("notification_push_mark", {
+        p_log_id: row.log_id,
+        p_status: "failed",
+        p_error: msg,
+      });
+      if (markErr) console.error("mark failed", row.log_id, markErr.message);
+      failed++;
+      return;
+    }
+    // מחוץ לחלון ה-claim מסמן template. תוכן "שותף איתך" אינו יוצא כתבנית.
+    if (row.channel_mode === "template" && expanded.some((it) => it.type === "share_digest")) {
+      const rest = expanded.filter((it) => it.type !== "share_digest");
+      if (rest.length === 0) {
+        console.error("share digest bell only, never a utility template", row.log_id);
+        const { error: skipErr } = await sb.from("notification_push_log").update({
+          whatsapp_status: "skipped",
+          last_error: "share_digest bell only; never a utility template",
+        }).eq("id", row.log_id);
+        if (skipErr) {
+          console.error("skip share digest template failed", row.log_id, skipErr.message);
+          const { error: markErr } = await sb.rpc("notification_push_mark", {
+            p_log_id: row.log_id,
+            p_status: "failed",
+            p_error: "share_digest bell only; never a utility template",
+          });
+          if (markErr) console.error("mark failed", row.log_id, markErr.message);
+        }
+        failed++;
+        return;
+      }
+      expanded = rest;
+    }
     let items = collapseForSend(withLeadLines(arrange(expanded)), undefined, digest.guardOn);
     const onlyType = items.length > 0 && new Set(items.map((it) => it.type)).size === 1
       ? items[0].type
