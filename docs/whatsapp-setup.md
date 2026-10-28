@@ -105,8 +105,9 @@ Dashboard → Project Settings → **Edge Functions → Secrets** (או `supabas
 | `WHATSAPP_APP_SECRET` | ✅ | App Secret — משמש לאימות חתימת הוובהוק |
 | `WHATSAPP_VERIFY_TOKEN` | ✅ | מחרוזת אקראית שאתם ממציאים; חייבת להיות זהה למה שתזינו ב-Meta |
 | `ANTHROPIC_API_KEY` | ✅ | מפתח API מ-[console.anthropic.com](https://console.anthropic.com/) — מפעיל את הבוט |
-| `WHATSAPP_BOT_MODEL` | ⬜ | המודל של העוזר. ברירת מחדל `claude-opus-5`; `claude-sonnet-5` זול פי 2.5 לטוקן. ראו "המודל והעלות" למטה |
-| `WHATSAPP_PUBLIC_BOT_MODEL` | ⬜ | אותו דבר לבוט הציבורי, בנפרד — ראו [`whatsapp-public-bot.md`](whatsapp-public-bot.md) |
+| `WHATSAPP_BOT_MODEL` | ⬜ | המודל של העוזר. ברירת המחדל בקוד נשארת `claude-opus-5`; בפרודקשן הסוד כבר `claude-opus-5-5` והוא גובר. לא משנים את ברירת המחדל בקוד |
+| `WHATSAPP_PUBLIC_BOT_MODEL` | ⬜ | הבוט הציבורי. בלי סוד נשאר `claude-opus-5`. `gabriela_public_opus_55=1` מעביר ל-`claude-opus-5-5`. סוד שמוגדר גובר על הדגל. ראו [`whatsapp-public-bot.md`](whatsapp-public-bot.md) |
+| `WHATSAPP_PAIR_GAP_MS` | ⬜ | מרווח במילישניות בין הודעות לאותו נמען (ברירת מחדל 1500, בין 0 ל-20000). 0 מכבה. בין פונקציות המרווח נשמר ב-`whatsapp_pair_reserve` |
 | `OPENAI_API_KEY` | ⬜ | לתמלול הקלטות קוליות (Whisper). בלעדיו הבוט יבקש טקסט במקום |
 | `SITE_BASE_URL` | ⬜ | כתובת הבסיס של האתר, למשל `https://shuknadlan.co.il` — בלעדיה אין קישור לנכס, ו-`agreement_sign_links` מסרב לבנות קישור חתימה |
 | `WHATSAPP_GRAPH_VERSION` | ⬜ | ברירת מחדל `v23.0` |
@@ -863,10 +864,18 @@ Supabase → Edge Functions → Secrets
 WHATSAPP_BOT_MODEL = claude-sonnet-5
 ```
 
-ברירת המחדל נשארת `claude-opus-5` בכוונה: **החלפת מודל היא החלטת איכות**,
-והיא לא אמורה לקרות בשקט בפריסה. המתג קיים כדי שאפשר יהיה למדוד ולחזור אחורה
-בלי לגעת בקוד — אותה תבנית שכבר קיימת ב-`property-description` וב-
-`property-marketing-publish` (שתיהן על Sonnet).
+ברירת המחדל של עוזר הסוכנים נשארת `claude-opus-5` בקוד בכוונה: **החלפת מודל
+היא החלטת איכות**, והיא לא אמורה לקרות בשקט בפריסה. בפרודקשן הסוד
+`WHATSAPP_BOT_MODEL` כבר `claude-opus-5-5` והוא גובר על ברירת המחדל. המתג
+קיים כדי שאפשר יהיה למדוד ולחזור אחורה בלי לגעת בקוד — אותה תבנית שכבר
+קיימת ב-`property-description` וב-`property-marketing-publish` (שתיהן על Sonnet).
+
+הבוט הציבורי נפרד: בלי סוד הוא נשאר `claude-opus-5`. המעבר ל-`claude-opus-5-5`
+יושב בדגל `gabriela_public_opus_55` (נולד 0). סוד `WHATSAPP_PUBLIC_BOT_MODEL`
+גובר על הדגל. ראו `whatsapp-public-bot.md`.
+
+מרווח בין הודעות לאותו נמען (Meta 131056): `WHATSAPP_PAIR_GAP_MS`, ברירת
+מחדל 1500. בין הבוט לבין `notification-push` המרווח נשמר ב-`whatsapp_pair_reserve`.
 
 **‏שני דברים לדעת לפני שמחליפים:**
 
