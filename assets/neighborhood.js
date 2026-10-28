@@ -38,14 +38,16 @@
   }
 
   function fromProperty(p) {
-    var img = p && Array.isArray(p.images) && typeof p.images[0] === 'string' ? p.images[0] : null;
-    return {
+    var img = p && typeof p.image === 'string' ? p.image : null;
+    var row = {
       id: p.id, title: p.title || '', property_type: p.property_type || '', deal_type: p.deal_type || '',
       price: p.price == null ? null : p.price, price_unit: p.price_unit || null,
       rooms: p.rooms == null ? null : p.rooms, size_sqm: p.size_sqm == null ? null : p.size_sqm,
       built_size_sqm: p.built_size_sqm == null ? null : p.built_size_sqm,
       image: img, updated_at: p.updated_at || null, created_at: p.created_at || null,
     };
+    if (p && (p.vis === true || p.vis === false)) row.vis = p.vis;
+    return row;
   }
 
   function listIdle() {
@@ -53,24 +55,32 @@
       && state.sort === 'default' && state.shown === 12;
   }
 
+  var LIST_CAP = 240;
+  var fillAbort = null;
   /* 12 הכרטיסים הראשונים נשארים ב-HTML. שאר הפעילים נטענים אחרי הציור,
-     בעמודים, כדי שהסינון יכסה את כולם בלי לחכות להם ל-LCP. */
+     מהשורה שאחרי מה שכבר יש, כדי לא להוריד אותם שוב. */
   function fillListings() {
+    if (fillAbort) fillAbort.abort();
     var data = readPayload();
     var total = Number(data.total) || 0;
-    if (!total || readList().length >= total) return;
+    var have = readList().slice();
+    if (!total || have.length >= total || have.length >= LIST_CAP) return;
+    var ctrl = new AbortController();
+    fillAbort = ctrl;
     function headers() {
       return { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY };
     }
     function finish(list) {
-      if (!list || !list.length) return;
+      if (ctrl.signal.aborted || !list || list.length <= have.length) return;
       rows = list;
       var box = document.getElementById('hoodResults');
       if (!box) return;
       if (listIdle()) {
         var count = box.querySelector('.hood-count');
-        if (count) count.textContent = 'מציג ' + Math.min(12, list.length) + ' מתוך ' + list.length + ' נכסים';
-        if (list.length > 12 && !box.querySelector('[data-hood="more"]')) {
+        if (count && window.ShukHood && ShukHood.countLine) {
+          count.textContent = ShukHood.countLine(Math.min(state.shown, list.length), list.length, total);
+        }
+        if (list.length > state.shown && !box.querySelector('[data-hood="more"]')) {
           var more = document.createElement('p');
           more.className = 'hood-more-wrap';
           more.innerHTML = '<button type="button" class="hood-btn hood-btn-line" data-hood="more">עוד נכסים</button>';
@@ -80,31 +90,42 @@
       }
       paint();
     }
-    function page(id, from, acc) {
-      var q = SUPABASE_URL + '/rest/v1/properties?select=id,title,property_type,deal_type,price,price_unit,rooms,size_sqm,built_size_sqm,images,updated_at,created_at'
+    function page(id, from, acc, seen) {
+      if (ctrl.signal.aborted || acc.length >= total || acc.length >= LIST_CAP) { finish(acc); return; }
+      var q = SUPABASE_URL + '/rest/v1/properties?select=id,title,property_type,deal_type,price,price_unit,rooms,size_sqm,built_size_sqm,image:images->0,updated_at,created_at'
         + '&neighborhood_id=eq.' + encodeURIComponent(id)
         + '&status=eq.active&order=updated_at.desc.nullslast&limit=80&offset=' + from;
-      fetch(q, { headers: headers() }).then(function (r) {
+      fetch(q, { headers: headers(), signal: ctrl.signal }).then(function (r) {
         if (!r.ok) throw new Error('http');
         return r.json();
       }).then(function (batch) {
-        var part = Array.isArray(batch) ? batch.map(fromProperty) : [];
-        acc = acc.concat(part);
-        if (part.length === 80 && acc.length < 240 && acc.length < total) page(id, from + 80, acc);
+        var part = Array.isArray(batch) ? batch : [];
+        for (var i = 0; i < part.length && acc.length < LIST_CAP; i++) {
+          var row = fromProperty(part[i]);
+          if (!row.id || seen[row.id]) continue;
+          seen[row.id] = 1;
+          acc.push(row);
+        }
+        if (part.length === 80 && acc.length < total && acc.length < LIST_CAP) page(id, from + part.length, acc, seen);
         else finish(acc);
-      }).catch(function () {});
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+      });
     }
     function start(id) {
-      if (id) page(id, 0, []);
+      if (!id || ctrl.signal.aborted) return;
+      var seen = {};
+      for (var i = 0; i < have.length; i++) if (have[i] && have[i].id) seen[have[i].id] = 1;
+      page(id, have.length, have.slice(), seen);
     }
     if (data.id) { start(data.id); return; }
     if (!data.city || !data.slug) return;
     var nq = SUPABASE_URL + '/rest/v1/neighborhoods?select=id&limit=1&order=created_at.asc'
       + '&slug=eq.' + encodeURIComponent(data.slug)
       + '&city=eq.' + encodeURIComponent(data.city);
-    fetch(nq, { headers: headers() }).then(function (r) { return r.ok ? r.json() : []; })
+    fetch(nq, { headers: headers(), signal: ctrl.signal }).then(function (r) { return r.ok ? r.json() : []; })
       .then(function (found) { start(found && found[0] && found[0].id); })
-      .catch(function () {});
+      .catch(function (err) { if (err && err.name === 'AbortError') return; });
   }
 
   function priceOf(p) {
@@ -171,7 +192,10 @@
     var box = document.getElementById('hoodResults');
     var H = window.ShukHood;
     if (!box || !H || !H.resultsHtml) return;
-    box.innerHTML = '<h2>נכסים בשכונה</h2>' + H.resultsHtml(sorted(filtered()), state.shown, false);
+    var data = readPayload();
+    var all = Number(data.total) || 0;
+    var wide = state.deal || state.kind || state.rooms || state.min || state.max || state.vis || state.sort !== 'default';
+    box.innerHTML = '<h2>נכסים בשכונה</h2>' + H.resultsHtml(sorted(filtered()), state.shown, false, wide ? 0 : all);
     var ul = box.querySelector('.hood-props');
     if (ul && state.view === 'rows') ul.classList.add('is-rows');
   }

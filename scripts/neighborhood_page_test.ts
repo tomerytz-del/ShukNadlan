@@ -146,6 +146,20 @@ function check(name: string, ok: boolean) {
     && !html.includes('property-images/a.jpg" fetchpriority'));
 }
 {
+  const credited = {
+    ...HOOD,
+    cover_path: "11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.jpg",
+    cover_credit: { author: "תומר", license: "CC BY", url: "https://example.com/lic" },
+  };
+  const res = await run(URL_HOOD, 200, credited);
+  const html = await res.text();
+  check("קרדיט אובייקט", html.includes("צילום: תומר · ")
+    && html.includes('href="https://example.com/lic"')
+    && html.includes('target="_blank"')
+    && html.includes('rel="noopener noreferrer"')
+    && html.includes(">CC BY</a>"));
+}
+{
   const named = { ...HOOD, name: "השכונה הצפון מערבית", slug: "השכונה-הצפון-מערבית" };
   const res = await run(URL_HOOD, 200, named);
   const html = await res.text();
@@ -205,12 +219,13 @@ function check(name: string, ok: boolean) {
     { name: "משרד לדוגמה", slug: "demo-office", n: 3, phone: "053-9876543", email: "secret@example.com", license_number: "99999",
       logo: "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/logo.jpg" },
     { name: "r.b נכסים", slug: "rb", n: 1 },
+    { name: "נדל\u05F4ן עפולה", slug: "nd", n: 1 },
   ] };
   const res = await run(URL_HOOD, 200, offices);
   const html = await res.text();
   check("משרד בלי טלפון", html.includes("/agency?slug=demo-office") && html.includes("יועצי נדל״ן")
     && html.includes("3 נכסים בשכונה") && !html.includes("053-9876543") && !html.includes("secret@example.com") && !html.includes("99999")
-    && html.includes(">RB<"));
+    && html.includes(">RB<") && html.includes(">נע<"));
 }
 resetLastGood();
 {

@@ -58,8 +58,43 @@ begin
   end if;
 end $$;
 
+-- נבדק מול הפרודקשן ב-28.10.2026: אין cover_credit ואין admin_hood_cover_set,
+-- ולכן אין חתימה ישנה להסיר.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.neighborhoods'::regclass
+      and conname = 'neighborhoods_cover_credit_shape'
+  ) then
+    alter table public.neighborhoods
+      add constraint neighborhoods_cover_credit_shape check (
+        cover_credit is null
+        or (
+          jsonb_typeof(cover_credit) = 'object'
+          and cover_credit - 'author' - 'license' - 'url' = '{}'::jsonb
+          and (not jsonb_exists(cover_credit, 'author') or (
+            jsonb_typeof(cover_credit->'author') = 'string'
+            and char_length(cover_credit->>'author') between 1 and 80
+          ))
+          and (not jsonb_exists(cover_credit, 'license') or (
+            jsonb_typeof(cover_credit->'license') = 'string'
+            and char_length(cover_credit->>'license') between 1 and 80
+          ))
+          and (not jsonb_exists(cover_credit, 'url') or (
+            jsonb_typeof(cover_credit->'url') = 'string'
+            and char_length(cover_credit->>'url') between 1 and 300
+            and cover_credit->>'url' ~ '^https://'
+          ))
+        )
+      );
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------
--- דלי ציבורי. הקריאה היא התמונה בדף. הכתיבה רק למנהל/ת פלטפורמה.
+-- דלי ציבורי. כתובת /object/public/ נפתחת בלי מדיניות SELECT.
+-- מדיניות SELECT בלי TO הייתה נותנת לכל אחד לרשום את קבצי הדלי.
+-- הכתיבה רק למנהל/ת פלטפורמה.
 -- ---------------------------------------------------------------------------
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -73,9 +108,6 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "hood cover public read" on storage.objects;
-create policy "hood cover public read"
-  on storage.objects for select
-  using (bucket_id = 'neighborhood-covers');
 
 drop policy if exists "hood cover admin insert" on storage.objects;
 create policy "hood cover admin insert"

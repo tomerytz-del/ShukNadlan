@@ -164,7 +164,7 @@
       credit: d.cover_credit || '',
     };
   }
-  /* מחרוזת ישנה ("צילום: שם") או אובייקט {author, license, url}. */
+  /* מחרוזת ישנה, או אובייקט. תמיד "צילום:", והרישיון הוא הקישור. */
   function creditHtml(raw) {
     if (typeof raw === 'string') {
       var t = raw.trim();
@@ -175,11 +175,16 @@
     var license = String(raw.license || '').trim();
     var url = String(raw.url || '').trim();
     if (!/^https:\/\//i.test(url)) url = '';
-    var bits = [];
-    if (author) bits.push(escapeHtml(author));
-    if (license) bits.push(escapeHtml(license));
-    if (url) bits.push('<a href="' + escapeHtml(url) + '" rel="noopener noreferrer">קישור</a>');
-    return bits.join(' · ');
+    if (!author && !license) return '';
+    var html = 'צילום:';
+    if (author) html += ' ' + escapeHtml(author);
+    if (license) {
+      html += author ? ' · ' : ' ';
+      html += url
+        ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(license) + '</a>'
+        : escapeHtml(license);
+    }
+    return html;
   }
   function lcpHref(d) {
     var c = coverModel(d);
@@ -236,14 +241,24 @@
       + '</span></a></li>';
   }
 
+  var LIST_CAP = 240;
+  /* מתוך X הוא props_active, לא כמה שורות כבר ירדו. מעל 240 אומרים את התקרה. */
+  function countLine(shown, loaded, total) {
+    var n = Math.min(Number(shown) || 0, Number(loaded) || 0);
+    var all = Number(total);
+    if (isFinite(all) && all > LIST_CAP) {
+      return 'מציג ' + num(n) + ' מתוך ' + num(LIST_CAP) + ' נכסים. הסינון חל על '
+        + num(LIST_CAP) + ' הראשונים, מתוך ' + num(Math.round(all)) + ' פעילים';
+    }
+    var denom = Number(loaded) || 0;
+    if (isFinite(all) && all > denom) denom = Math.round(all);
+    return 'מציג ' + num(n) + ' מתוך ' + num(denom) + ' נכסים';
+  }
   /* eagerFirst רק ב-SSR ובלי תמונת שער: אז הכרטיס הראשון הוא ה-LCP. */
   function resultsHtml(list, shown, eagerFirst, total) {
     var rows = Array.isArray(list) ? list : [];
     var n = Math.min(shown || rows.length, rows.length);
-    var denom = rows.length;
-    var extra = Number(total);
-    if (isFinite(extra) && extra > denom) denom = Math.round(extra);
-    var html = '<p class="hood-count">מציג ' + num(n) + ' מתוך ' + num(denom) + ' נכסים</p>';
+    var html = '<p class="hood-count">' + escapeHtml(countLine(n, rows.length, total)) + '</p>';
     if (!rows.length) {
       return html + '<p class="hood-empty">אין נכסים שמתאימים לסינון. <button type="button" data-hood="clear">ניקוי הסינון</button></p>';
     }
@@ -428,18 +443,16 @@
       .replace(/\s+/g, ' ')
       .trim();
   }
-  /* אותיות בלבד. "r.b נכסים" הוא R ו-B, לא התו הראשון של כל מילה. */
+  /* גרשיים יורדים קודם, ואז פיצול ברווח ובנקודה. "נדל״ן עפולה" הוא נע. */
   function initials(name) {
-    var s = officeName(name);
+    var s = officeName(name).replace(/["״׳']/g, '');
     var letters = [];
-    var words = s.split(/\s+/).filter(Boolean);
+    var words = s.split(/[\s.]+/).filter(Boolean);
     for (var i = 0; i < words.length && letters.length < 2; i++) {
-      var bits = words[i].split(/[^A-Za-z\u0590-\u05FF]+/).filter(Boolean);
-      for (var j = 0; j < bits.length && letters.length < 2; j++) {
-        var ch = bits[j].charAt(0);
-        if (/[A-Za-z]/.test(ch)) ch = ch.toUpperCase();
-        letters.push(ch);
-      }
+      var ch = words[i].charAt(0);
+      if (!/[A-Za-z\u05D0-\u05EA]/.test(ch)) continue;
+      if (/[A-Za-z]/.test(ch)) ch = ch.toUpperCase();
+      letters.push(ch);
     }
     return letters.join('') || 'מ';
   }
@@ -607,6 +620,7 @@
     render: render, title: title, description: description, jsonLd: jsonLd, path: path,
     lcpHref: lcpHref, lcpPreload: lcpPreload, ogImage: ogImage, heading: heading,
     hoodLabel: hoodLabel, hoodPlace: hoodPlace, hoodHello: hoodHello, visAvailable: visAvailable,
+    countLine: countLine,
     resultsHtml: resultsHtml,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
