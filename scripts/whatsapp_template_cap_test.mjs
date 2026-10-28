@@ -87,6 +87,17 @@ test("0, 1 או 2 תבניות; מתחת ל-8 שעות ומעליהן; ליד מ
   : ["postgres", "-v", "ON_ERROR_STOP=1", "-q"];
 
 const sql = `
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role;
+  end if;
+end $$;
 begin;
 ${extract("whatsapp_template_local_day")}
 ${extract("whatsapp_template_cap_decide")}
@@ -166,6 +177,17 @@ test("שלוש שורות skipped_template_cap לא מורידות סוכן/ת �
     : ["postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"];
   const due = extract("notification_push_due_agents");
   const sql = `
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role;
+  end if;
+end $$;
 begin;
 create table public.pricing_config (key text primary key, value int, description text);
 insert into public.pricing_config (key, value) values ('notif_push_max_failures_24h', 3);
@@ -214,11 +236,25 @@ rollback;
   assert.equal(out, "1 0");
 });
 
+const ROLES = `
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role;
+  end if;
+end $$;
+`;
+
 function psql(sql) {
   const psqlArgs = process.env.PGHOST
     ? ["-h", process.env.PGHOST, "-U", process.env.PGUSER || "postgres", "-d", process.env.PGDATABASE || "postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"]
     : ["postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"];
-  return execFileSync("psql", psqlArgs, { input: sql, encoding: "utf8" }).trim();
+  return execFileSync("psql", psqlArgs, { input: ROLES + sql, encoding: "utf8" }).trim();
 }
 
 test("התקרה כבויה בלי תקציר, ו-1.5 לא מתעגל", () => {
