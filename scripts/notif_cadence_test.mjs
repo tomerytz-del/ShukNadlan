@@ -10,10 +10,13 @@ import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CADENCE_BACK_TITLE,
   CADENCE_BUTTON_TITLE,
   CADENCE_CTA,
   CADENCE_LIST_BUTTON,
   CADENCE_MENU_BODY,
+  CADENCE_OFF_CONFIRM_TITLE,
+  CADENCE_OFF_WARN,
   CADENCE_PATH,
   cadenceRows,
   confirmLine,
@@ -23,6 +26,11 @@ import {
   hasCalendarDate,
   utf16len,
 } from "../supabase/functions/_shared/notif-cadence.ts";
+import {
+  DEMAND_FORBIDDEN,
+  hasCalendarDate as demandHasDate,
+  openDemandBrief,
+} from "../supabase/functions/_shared/open-demand-brief.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migration = readFileSync(
@@ -35,6 +43,9 @@ const setup = readFileSync(join(root, "docs/whatsapp-setup.md"), "utf8");
 
 test("כותרות הכפתור והשורות בתוך המגבלה, ומזהים ייחודיים", () => {
   assert.ok(utf16len(CADENCE_BUTTON_TITLE) <= 20);
+  assert.ok(utf16len(CADENCE_OFF_CONFIRM_TITLE) <= 20, CADENCE_OFF_CONFIRM_TITLE);
+  assert.ok(utf16len(CADENCE_BACK_TITLE) <= 20, CADENCE_BACK_TITLE);
+  assert.equal(hasCalendarDate(CADENCE_OFF_WARN), false);
   assert.ok(utf16len(CADENCE_CTA) <= 20);
   assert.ok(utf16len(CADENCE_LIST_BUTTON) <= 20);
   const rows = cadenceRows(9, [9, 13, 17]);
@@ -84,6 +95,10 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(migration, /'notif_cadence_button_enabled', 'false'/);
   assert.match(migration, /notif_lead_digest_outside', 'cap'/);
   assert.match(migration, /notification_push_lead_wa_sendable/);
+  assert.match(migration, /client_match', 'match_digest'/);
+  assert.match(migration, /notif_cadence_pending/);
+  assert.match(migration, /interval '30 minutes'/);
+  assert.match(migration, /open_demand_list_for_agent/);
   assert.match(migration, /notify_agent_on_new_lead/);
   assert.doesNotMatch(migration, /create or replace function public\.notify_agent_on_new_lead/);
   assert.doesNotMatch(migration, /create or replace function public\.notifications_apply_preferences/);
@@ -92,6 +107,36 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(hook, /cadenceIdFromMessage/);
   assert.match(setup, /התאמת קצב התראות/);
   assert.match(setup, /לא מגישים/);
+});
+
+test("ביקוש פתוח בלי פרטי קשר ובלי תאריך", () => {
+  const agent = readFileSync(join(root, "supabase/functions/whatsapp-webhook/agent.ts"), "utf8");
+  const tool = agent.slice(agent.indexOf("async function toolOpenDemandList"), agent.indexOf("async function toolListLeads"));
+  assert.match(tool, /tier === "free"/);
+  assert.match(tool, /open_demand_list_for_agent/);
+  assert.doesNotMatch(tool, /post_url|display_phone|raw_name|email/);
+  const brief = openDemandBrief({
+    id: "11111111-1111-1111-1111-111111111111",
+    lead_type: "seeker_inbound",
+    city: "עפולה",
+    neighborhood: "גבעת המורה",
+    deal_type: "sale",
+    property_type: "דירה",
+    rooms: 4,
+    budget: 1500000,
+    posted_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  }, new Date(), false);
+  for (const key of Object.keys(brief)) assert.equal(DEMAND_FORBIDDEN.includes(key), false, key);
+  assert.equal(demandHasDate(brief.summary + brief.age), false);
+  assert.match(brief.action_path, /tab=demand&demand=/);
+  const locked = openDemandBrief({
+    id: "11111111-1111-1111-1111-111111111111",
+    city: "עפולה",
+    posted_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+  }, new Date(), true);
+  assert.equal(locked.locked, true);
+  assert.match(locked.action_path, /tab=demand$/);
+  assert.match(locked.age, /יום /);
 });
 
 test("חלון הסיכום במסד זהה לכלל בשעון ירושלים", () => {

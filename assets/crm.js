@@ -2409,12 +2409,13 @@ function handleGotoParam(){
   const status = params.get('status');
   const importJob = params.get('import');
   const tab = params.get('tab');
+  const demandId = params.get('demand');
   // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
   const planQ = ['plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
     .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'status', 'import', 'tab',
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'status', 'import', 'tab', 'demand',
      'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka', 'wc', 'wt']
       .forEach(k => params.delete(k));
     const search = params.toString();
@@ -2466,7 +2467,15 @@ function handleGotoParam(){
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
-  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') {
+    openLeadsDemand();
+    if (UUID_PARAM_RE.test(demandId || '')) {
+      setTimeout(() => {
+        const el = document.querySelector('[data-demand-id="' + demandId + '"]');
+        if (el) scrollToTopOf(el);
+      }, 800);
+    }
+  }
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);

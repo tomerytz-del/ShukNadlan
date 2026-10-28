@@ -741,10 +741,10 @@ async function cadenceFlagOn(sb: ReturnType<typeof createClient>): Promise<boole
 async function prepareLeadCadence(
   sb: ReturnType<typeof createClient>,
   logId: string,
-): Promise<"send" | "strip" | "drop"> {
+): Promise<string> {
   const { data, error } = await sb.rpc("notification_push_prepare_lead_cadence", { p_log_id: logId });
   if (error) return "send";
-  return data === "strip" || data === "drop" ? data : "send";
+  return typeof data === "string" ? data : "send";
 }
 
 function digestLeadRows(leads: { lead_id?: string | null; title?: string | null }[]) {
@@ -902,7 +902,10 @@ Deno.serve(async (req: Request) => {
     if (cadenceOn) {
       const prepared = await prepareLeadCadence(sb, row.log_id);
       if (prepared === "drop") return;
-      if (prepared === "strip") items = items.filter((it) => it.type !== "new_lead");
+      if (prepared.startsWith("strip:")) {
+        const dropTypes = new Set(prepared.slice("strip:".length).split(",").filter(Boolean));
+        items = items.filter((it) => !dropTypes.has(it.type));
+      }
       if (items.length === 0) return;
     }
 

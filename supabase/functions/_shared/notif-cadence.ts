@@ -7,6 +7,12 @@ export const CADENCE_OPEN_ID = "ncad:open";
 export const CADENCE_PATH = "/crm?goto=accNotifPrefs&focus=lead_wa";
 export const CADENCE_CTA = "קצב הלידים";
 export const CADENCE_LIST_BUTTON = "בחירת קצב";
+export const CADENCE_OFF_CONFIRM_ID = "ncad:off:yes";
+export const CADENCE_BACK_ID = "ncad:back";
+export const CADENCE_OFF_CONFIRM_TITLE = "מאשר/ת, ללא התראות";
+export const CADENCE_BACK_TITLE = "חזרה לאפשרויות";
+export const CADENCE_OFF_WARN =
+  "בלי התראות בוואטסאפ לא תצא הודעה על ליד חדש ולא על התאמה. פנייה חדשה עלולה להישאר בלי מענה.";
 export const CADENCE_MENU_BODY =
   "איך לשלוח לך לידים חדשים בוואטסאפ?\nאפשר תמיד לשנות את זה גם במערכת.";
 
@@ -76,12 +82,14 @@ export function cadenceRows(dailyHour: number, hours: number[]): CadenceRow[] {
 }
 
 export function cadenceChoiceFromId(id: string): CadenceChoice | null {
+  if (id === CADENCE_OFF_CONFIRM_ID) return "off";
   const row = cadenceRows(9, [9, 13, 17]).find((r) => r.id === id);
   return row ? row.choice : null;
 }
 
 export function isCadenceId(id: string): boolean {
-  return id === CADENCE_OPEN_ID || cadenceChoiceFromId(id) !== null;
+  return id === CADENCE_OPEN_ID || id === CADENCE_BACK_ID || id === CADENCE_OFF_CONFIRM_ID
+    || cadenceChoiceFromId(id) !== null;
 }
 
 /** מזהה הלחיצה מהודעת כפתור, תבנית או רשימה. */

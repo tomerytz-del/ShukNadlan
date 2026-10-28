@@ -47,9 +47,14 @@ import {
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { absoluteUrl, ctaLabel, listTextFallback, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import {
+  CADENCE_BACK_ID,
+  CADENCE_BACK_TITLE,
   CADENCE_CTA,
   CADENCE_LIST_BUTTON,
   CADENCE_MENU_BODY,
+  CADENCE_OFF_CONFIRM_ID,
+  CADENCE_OFF_CONFIRM_TITLE,
+  CADENCE_OFF_WARN,
   CADENCE_OPEN_ID,
   CADENCE_PATH,
   cadenceChoiceFromId,
@@ -1417,7 +1422,67 @@ async function applyWhatsappStop(agentId: string, from: string): Promise<void> {
   }], agentId);
 }
 
+async function sendCadenceList(
+  agentId: string,
+  from: string,
+  dailyHour: number,
+  hours: number[],
+): Promise<void> {
+  const rows = cadenceRows(dailyHour, hours);
+  let waMessageId: string | null = null;
+  try {
+    waMessageId = await sendList(from, CADENCE_MENU_BODY, CADENCE_LIST_BUTTON, "קצב הלידים", rows);
+  } catch (err) {
+    console.error("cadence list failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: from,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body: CADENCE_MENU_BODY,
+    status: waMessageId ? "sent" : null,
+  });
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "אפשר תמיד לשנות את זה גם במערכת.",
+    label: CADENCE_CTA,
+    url: absoluteUrl(SITE_BASE, withClick(CADENCE_PATH, "lead_cadence")),
+  }], agentId);
+}
+
 async function handleCadenceTap(agentId: string, from: string, cadenceId: string): Promise<void> {
+  const hoursOf = (row: { hours?: unknown }) =>
+    Array.isArray(row?.hours) ? row.hours.map(Number) : [9, 13, 17];
+  if (cadenceId === CADENCE_BACK_ID) {
+    const { data } = await supabase.rpc("notif_cadence_apply", {
+      p_agent: agentId, p_event: "back", p_choice: null,
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    await sendCadenceList(agentId, from, Number(row?.daily_hour) || 9, hoursOf(row || {}));
+    return;
+  }
+  if (cadenceId === "ncad:off") {
+    const { data, error } = await supabase.rpc("notif_cadence_apply", {
+      p_agent: agentId, p_event: "ask", p_choice: "off",
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row?.enabled) {
+      await sendOutbox(from, [{
+        kind: "cta",
+        body: "אפשר תמיד לשנות את זה גם במערכת.",
+        label: CADENCE_CTA,
+        url: absoluteUrl(SITE_BASE, withClick(CADENCE_PATH, "lead_cadence")),
+      }], agentId);
+      return;
+    }
+    await replyButtons(from, CADENCE_OFF_WARN, [
+      { id: CADENCE_OFF_CONFIRM_ID, title: CADENCE_OFF_CONFIRM_TITLE },
+      { id: CADENCE_BACK_ID, title: CADENCE_BACK_TITLE },
+    ], agentId);
+    return;
+  }
   const choice = cadenceId === CADENCE_OPEN_ID ? null : cadenceChoiceFromId(cadenceId);
   const { data, error } = await supabase.rpc("notif_cadence_apply", {
     p_agent: agentId,
@@ -1426,42 +1491,29 @@ async function handleCadenceTap(agentId: string, from: string, cadenceId: string
   });
   const row = Array.isArray(data) ? data[0] : data;
   const enabled = !!row?.enabled;
-  const path = withClick(CADENCE_PATH, "lead_cadence");
-  const cta = {
-    kind: "cta" as const,
-    body: "אפשר תמיד לשנות את זה גם במערכת.",
-    label: CADENCE_CTA,
-    url: absoluteUrl(SITE_BASE, path),
-  };
   if (error || !enabled) {
-    await sendOutbox(from, [cta], agentId);
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "אפשר תמיד לשנות את זה גם במערכת.",
+      label: CADENCE_CTA,
+      url: absoluteUrl(SITE_BASE, withClick(CADENCE_PATH, "lead_cadence")),
+    }], agentId);
+    return;
+  }
+  if (row?.expired) {
+    await reply(from, "האישור פג, ולא נשמר דבר.", agentId);
+    await sendCadenceList(agentId, from, Number(row.daily_hour) || 9, hoursOf(row));
     return;
   }
   if (!choice) {
-    const rows = cadenceRows(Number(row.daily_hour) || 9, Array.isArray(row.hours) ? row.hours.map(Number) : [9, 13, 17]);
-    let waMessageId: string | null = null;
-    try {
-      waMessageId = await sendList(from, CADENCE_MENU_BODY, CADENCE_LIST_BUTTON, "קצב הלידים", rows);
-    } catch (err) {
-      console.error("cadence list failed", err);
-    }
-    await supabase.from("whatsapp_messages").insert({
-      wa_message_id: waMessageId,
-      direction: "out",
-      wa_phone: from,
-      agent_id: agentId,
-      msg_type: "interactive",
-      body: CADENCE_MENU_BODY,
-      status: waMessageId ? "sent" : null,
-    });
-    await sendOutbox(from, [cta], agentId);
+    await sendCadenceList(agentId, from, Number(row.daily_hour) || 9, hoursOf(row));
     return;
   }
   const line = confirmLine(
     choice,
     row.changed === true,
     Number(row.daily_hour) || 9,
-    Array.isArray(row.hours) ? row.hours.map(Number) : [9, 13, 17],
+    hoursOf(row),
   );
   await reply(from, line, agentId);
 }

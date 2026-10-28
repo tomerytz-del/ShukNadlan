@@ -57,7 +57,7 @@ create table if not exists public.notif_cadence_log (
   event text not null,
   choice text,
   created_at timestamptz not null default now(),
-  constraint notif_cadence_log_event_chk check (event in ('open', 'choose')),
+  constraint notif_cadence_log_event_chk check (event in ('open', 'choose', 'ask', 'back')),
   constraint notif_cadence_log_choice_chk check (
     choice is null or choice in ('each', 'daily', 'thrice', 'off'))
 );
@@ -71,6 +71,19 @@ create index if not exists notif_cadence_log_agent_idx
 alter table public.notif_cadence_log enable row level security;
 revoke all on table public.notif_cadence_log from public, anon, authenticated;
 grant select, insert, update, delete on table public.notif_cadence_log to service_role;
+
+-- בחירת "ללא התראות" שלא אושרה. נמחקת אחרי 30 דקות בלי שמירה.
+create table if not exists public.notif_cadence_pending (
+  agent_id uuid primary key references public.agency_members(id) on delete cascade,
+  expires_at timestamptz not null
+);
+
+comment on table public.notif_cadence_pending is
+  'אישור שני לכיבוי התראות הוואטסאפ. בלי אישור בזמן לא נשמר דבר.';
+
+alter table public.notif_cadence_pending enable row level security;
+revoke all on table public.notif_cadence_pending from public, anon, authenticated;
+grant select, insert, update, delete on table public.notif_cadence_pending to service_role;
 
 create table if not exists public.notif_cadence_digest (
   agent_id uuid not null references public.agency_members(id) on delete cascade,
@@ -146,7 +159,7 @@ revoke all on function public.agent_lead_wa_since(uuid) from public, anon, authe
 grant execute on function public.agent_lead_wa_since(uuid) to service_role;
 
 -- true: מותר לכלול את ההתראה בהודעת וואטסאפ מיידית.
--- קצב שאינו each מוציא new_lead מההודעה. הפעמון לא נסגר.
+-- off: ליד חדש והתאמות נשארים בפעמון. daily/thrice: רק הליד המיידי נדחה לסיכום.
 create or replace function public.notification_push_lead_wa_sendable(
   p_agent uuid,
   p_type text,
@@ -158,8 +171,10 @@ security definer
 set search_path = ''
 as $$
   select case
-    when p_type is distinct from 'new_lead' then true
     when not public.notif_cadence_button_on() then true
+    when public.agent_lead_wa_cadence(p_agent) = 'off'
+         and p_type in ('new_lead', 'client_match', 'match_digest') then false
+    when p_type is distinct from 'new_lead' then true
     when public.agent_lead_wa_cadence(p_agent) <> 'each' then false
     when public.agent_lead_wa_since(p_agent) is null then true
     else p_created >= public.agent_lead_wa_since(p_agent)
@@ -167,7 +182,7 @@ as $$
 $$;
 
 comment on function public.notification_push_lead_wa_sendable(uuid, text, timestamptz) is
-  'האם התראה מותרת בוואטסאפ המיידי. דגל כבוי: תמיד כן. דלוק: ליד חדש לפי lead_wa_cadence, בלי לשפוך צבר ישן.';
+  'האם התראה מותרת בוואטסאפ המיידי. דגל כבוי: תמיד כן. off: בלי וואטסאפ על ליד והתאמה. daily/thrice: ליד חדש רק בסיכום.';
 
 revoke all on function public.notification_push_lead_wa_sendable(uuid, text, timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_push_lead_wa_sendable(uuid, text, timestamptz) to service_role;
@@ -218,7 +233,12 @@ begin
        set notification_ids = v_keep,
            types = v_types
      where l.id = p_log_id;
-    return 'strip';
+    return 'strip:' || coalesce((
+      select string_agg(distinct n.type, ',')
+        from public.notifications n
+       where n.id = any(coalesce(v_ids, '{}'::uuid[]))
+         and not (n.id = any(v_keep))
+    ), '');
   end if;
   return 'send';
 end;
@@ -541,6 +561,8 @@ create or replace function public.notif_cadence_apply(
 ) returns table (
   enabled boolean,
   changed boolean,
+  needs_confirm boolean,
+  expired boolean,
   choice text,
   daily_hour int,
   hours int[]
@@ -553,21 +575,67 @@ declare
   v_on boolean := public.notif_cadence_button_on();
   v_old text;
   v_choice text;
+  v_exp timestamptz;
+  v_event text;
 begin
   v_choice := case
     when p_choice in ('each', 'daily', 'thrice', 'off') then p_choice
     else null
   end;
+  v_event := case p_event
+    when 'choose' then 'choose'
+    when 'ask' then 'ask'
+    when 'back' then 'back'
+    else 'open'
+  end;
   insert into public.notif_cadence_log (agent_id, event, choice)
-  values (p_agent, case when p_event = 'choose' then 'choose' else 'open' end, v_choice);
+  values (p_agent, v_event, v_choice);
 
   enabled := v_on;
   daily_hour := public.notif_lead_digest_daily_hour();
   hours := public.notif_lead_digest_hours();
   choice := coalesce(v_choice, public.agent_lead_wa_cadence(p_agent));
   changed := false;
+  needs_confirm := false;
+  expired := false;
 
-  if p_event is distinct from 'choose' or v_choice is null or not v_on then
+  if not v_on then
+    return next;
+    return;
+  end if;
+
+  if p_event = 'back' then
+    delete from public.notif_cadence_pending where agent_id = p_agent;
+    return next;
+    return;
+  end if;
+
+  -- "ללא התראות" לא נשמר לפני האישור השני.
+  if p_event = 'ask' and v_choice = 'off' then
+    insert into public.notif_cadence_pending (agent_id, expires_at)
+    values (p_agent, now() + interval '30 minutes')
+    on conflict (agent_id) do update
+      set expires_at = excluded.expires_at;
+    needs_confirm := true;
+    choice := 'off';
+    return next;
+    return;
+  end if;
+
+  if p_event = 'choose' and v_choice = 'off' then
+    select d.expires_at into v_exp
+      from public.notif_cadence_pending d
+     where d.agent_id = p_agent;
+    if v_exp is null or v_exp < now() then
+      delete from public.notif_cadence_pending where agent_id = p_agent;
+      expired := true;
+      changed := false;
+      choice := public.agent_lead_wa_cadence(p_agent);
+      return next;
+      return;
+    end if;
+    delete from public.notif_cadence_pending where agent_id = p_agent;
+  elsif p_event is distinct from 'choose' or v_choice is null then
     return next;
     return;
   end if;
@@ -595,7 +663,7 @@ end;
 $$;
 
 comment on function public.notif_cadence_apply(uuid, text, text) is
-  'רושם לחיצה או בחירה. בחירה זהה לא משנה את lead_wa_since ולא כותבת התראה. דגל כבוי: נרשם, בלי לשנות קצב.';
+  'רושם לחיצה או בחירה. ללא התראות נשמר רק אחרי אישור בתוך 30 דקות. בחירה זהה לא מזיזה את lead_wa_since ולא כותבת התראה.';
 
 revoke all on function public.notif_cadence_apply(uuid, text, text) from public, anon, authenticated;
 grant execute on function public.notif_cadence_apply(uuid, text, text) to service_role;
@@ -703,3 +771,74 @@ comment on function public.notification_push_claim(int) is
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
+
+-- אותה שאילתה של open_demand_list() ב-CRM, עם סוכן/ת מפורש/ת.
+-- הדפדפן נשאר על הפונקציה בלי ארגומנט (current_agent_id).
+create or replace function public.open_demand_list_for_agent(p_agent uuid)
+returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
+               city text, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
+               budget numeric, move_in text, summary text, open_demand_at timestamptz,
+               no_broker text, mine boolean)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.id, s.lead_type, s.source, s.source_detail, s.post_url, s.posted_at, s.city, s.neighborhood_id,
+         s.deal_type, s.property_type, s.rooms, s.budget, s.move_in, s.demand_summary,
+         coalesce(s.open_demand_at, s.created_at), s.no_broker,
+         s.claimed_by is not null
+    from public.scraped_leads s
+   where p_agent is not null
+     and public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
+     and (s.claimed_by is null or s.claimed_by = p_agent)
+     and public.agent_works_city(p_agent, s.city_id)
+   order by s.claimed_by is not null, s.posted_at desc
+   limit 200;
+$$;
+
+comment on function public.open_demand_list_for_agent(uuid) is
+  'ביקוש פתוח לאותו סינון של open_demand_list, לסוכן/ת שגבריאלה מזהה. service_role בלבד.';
+
+revoke all on function public.open_demand_list_for_agent(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_list_for_agent(uuid) to service_role;
+
+create or replace function public.open_demand_list()
+returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
+               city text, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
+               budget numeric, move_in text, summary text, open_demand_at timestamptz,
+               no_broker text, mine boolean)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select * from public.open_demand_list_for_agent(public.current_agent_id());
+$$;
+
+comment on function public.open_demand_list() is
+  'ביקוש פתוח (אנונימי) בערים שהסוכן/ת המחובר/ת עובד/ת בהן. אותה שאילתה כמו open_demand_list_for_agent.';
+
+create or replace function public.open_demand_cap_full(p_agent uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((
+    select count(*)
+      from public.scraped_leads s
+     where s.claimed_by = p_agent
+       and s.claimed_at >= (date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem')
+  ), 0) >= coalesce((select value from public.pricing_config where key = 'open_demand_claims_daily'), 2)::int;
+$$;
+
+comment on function public.open_demand_cap_full(uuid) is
+  'האם הסוכן/ת מיצה/תה את תקרת "אני פונה" להיום, באותו יום מקומי של open_demand_stats.';
+
+revoke all on function public.open_demand_cap_full(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_cap_full(uuid) to service_role;
+
+revoke all on function public.open_demand_list() from public, anon, authenticated;
+grant execute on function public.open_demand_list() to authenticated, service_role;

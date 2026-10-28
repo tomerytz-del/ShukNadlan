@@ -19,6 +19,13 @@ import {
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
+import {
+  OPEN_DEMAND_LIMIT,
+  OPEN_DEMAND_MAX,
+  OPEN_DEMAND_SEE_ALL,
+  openDemandBrief,
+  type DemandRow,
+} from "../_shared/open-demand-brief.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
 import {
   SERVICE_MARKET_LABELS,
@@ -1459,6 +1466,21 @@ const TOOLS: Anthropic.Tool[] = [
           description: "סינון. ברירת מחדל: הכול.",
         },
         limit: { type: "integer", description: "ברירת מחדל 10." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "open_demand_list",
+    description:
+      "ביקוש פתוח שמתאים לסוכן/ת לפי ערי העבודה, אותה רשימה כמו לשונית ביקוש פתוח ב-CRM. " +
+      "אין שם, טלפון, מייל או פרופיל. כל פריט הוא תקציר (סוג, אזור, חדרים או תקציב, ומתי בלי תאריך) " +
+      "ונתיב action_path. פריט נעול חוזר עם locked והנתיב לפתיחה. " +
+      "מסלול חינם לא מחובר לגבריאלה. עד 8 פריטים, ואז כפתור לכל הרשימה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", description: "5 עד 8. ברירת מחדל 6." },
       },
       required: [],
     },
@@ -7469,6 +7491,53 @@ async function toolAskMentor(ctx: ToolContext, input: Record<string, unknown>) {
 // ---------------------------------------------------------------------------
 // לידים והתראות
 // ---------------------------------------------------------------------------
+async function toolOpenDemandList(ctx: ToolContext, input: Record<string, unknown>) {
+  if (ctx.agent.tier === "free") {
+    return { ok: false, error: "מסלול חינם לא מחובר לגבריאלה, ואין גישה לביקוש הפתוח." };
+  }
+  const limit = Math.min(OPEN_DEMAND_MAX, Math.max(5, Number(input.limit) || OPEN_DEMAND_LIMIT));
+  const { data, error } = await ctx.supabase.rpc("open_demand_list_for_agent", { p_agent: ctx.agent.id });
+  if (error) return { ok: false, error: error.message };
+  const rows = (data || []) as Array<DemandRow & { neighborhood_id?: string | null }>;
+  const hoodIds = [...new Set(rows.map((r) => r.neighborhood_id).filter(Boolean))] as string[];
+  const hoods = new Map<string, string>();
+  if (hoodIds.length) {
+    const { data: names } = await ctx.supabase.from("neighborhoods").select("id,name").in("id", hoodIds);
+    for (const n of names || []) hoods.set(String(n.id), String(n.name || ""));
+  }
+  const { data: capFullRaw } = await ctx.supabase.rpc("open_demand_cap_full", { p_agent: ctx.agent.id });
+  const capFull = capFullRaw === true;
+  const now = new Date();
+  const shown = rows.slice(0, limit);
+  const items = shown.map((row) => {
+    const locked = capFull && !row.mine;
+    const brief = openDemandBrief({
+      ...row,
+      neighborhood: row.neighborhood_id ? hoods.get(String(row.neighborhood_id)) || "" : "",
+    }, now, locked);
+    return { id: row.id, ...brief };
+  });
+  const pushed = ctx.outbox && items.length
+    ? pushScreens(ctx, [
+      ...items.map((item) => ({
+        type: "open_demand",
+        path: item.action_path,
+        title: item.locked ? "ביקוש נעול" : "ביקוש פתוח",
+        body: item.summary,
+      })),
+      { type: "open_demand", path: OPEN_DEMAND_SEE_ALL, title: "כל הביקוש", body: "" },
+    ], "איזה ביקוש לפתוח?", OPEN_DEMAND_SEE_ALL)
+    : null;
+  return {
+    ok: true,
+    returned: items.length,
+    total: rows.length,
+    see_all: OPEN_DEMAND_SEE_ALL,
+    ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
+    items,
+  };
+}
+
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
 
@@ -8473,6 +8542,7 @@ async function runTool(
 
       // לידים והתראות
       case "list_leads": return await toolListLeads(ctx, input);
+      case "open_demand_list": return await toolOpenDemandList(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
       case "whatsapp_alerts": return await toolWhatsappAlerts(ctx, input);
       // יומן
@@ -8544,7 +8614,8 @@ const SYSTEM_STATIC: string = (() => {
     "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
-      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
+      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query. " +
+      "ביקוש פתוח (\"אילו לידים יש בביקוש הפתוח\") = open_demand_list. בלי שם, טלפון או מייל.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
       "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
       "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
