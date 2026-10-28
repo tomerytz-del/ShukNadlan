@@ -1031,3 +1031,38 @@ body[data-view=list] .sw-layout{display:inline-flex}
 /* "איך נוח לכם?" - וואטסאפ (ירוק, כי זה וואטסאפ) או חיוג */
 .sw-bs-row{display:flex;gap:10px;justify-content:center}
 .sw-bs-row .sw-wa-btn,.sw-bs-row .sw-white{min-height:48px;min-width:132px}
+/* השכבה התחתונה: מחיר, שכונה ועיר, נתונים, כפתור זהב אחד; ומתחתיה שמירה · ביטול · דילוג בעיגולים */
+.sw-area,.sw-cmain{display:none}
+.sw-act-lbl{display:none}
+@media (max-width:759px){
+  body[data-view=deck] .sw-acts,body[data-view=deck] .sw-ctitle,body[data-view=deck] .sw-where,body[data-view=deck] .sw-by{display:none}
+  body[data-view=deck] .sw-top-card .sw-cbody{padding:0 16px calc(96px + var(--sw-safe-b))}
+  /* בלי ה-56px של גבריאלה הפתוחה (למעלה): בפריסה הזו הבועה יורדת לשורת העיגולים (‏§9) */
+  body.sw-body[data-view=deck]:has(#gabW:not(.is-min)) .sw-top-card .sw-cbody{padding-bottom:calc(96px + var(--sw-safe-b))}
+  body[data-view=deck] .sw-price{font-size:30px;font-weight:800;line-height:1.1}
+  body[data-view=deck] .sw-area{display:block;margin:4px 0 0;font-size:15px;font-weight:600;color:#fff;opacity:.95}
+  html body[data-view=deck] .sw-card .sw-area{color:#fff}
+  body[data-view=deck] .sw-facts{font-size:14.5px;margin-top:3px}
+  body[data-view=deck] .sw-cmain{display:flex;align-items:center;justify-content:center;width:100%;height:48px;min-height:48px;margin-top:12px;border:0;border-radius:14px;
+    background:#c9a227;color:#0e2a6b;font:800 16px Heebo,system-ui,sans-serif;box-shadow:0 4px 14px rgba(13,27,61,.3)}
+  /* שורת העיגולים: שמירה (ימין) · ביטול · דילוג (שמאל), כמו כיווני ההחלקה */
+  /* ‏32px ולא 10px: כמו שנמדד במוקאפ (העיגולים ב-550 ב-360x640) - כך התוויות "שמירה"/"דילוג" לא נחתכות בתחתית */
+  body[data-view=deck] #swActions{position:absolute;left:0;right:0;bottom:calc(32px + var(--sw-safe-b));z-index:30;padding:0;gap:28px;align-items:flex-start;pointer-events:none}
+  body[data-view=deck] #swActions>*{pointer-events:auto}
+  body[data-view=deck] #swWa,body[data-view=deck] #swCall{display:none}
+  body[data-view=deck] .sw-act{width:58px;height:58px;border-radius:50%;color:#fff;box-shadow:0 4px 14px rgba(13,27,61,.35);overflow:visible}
+  body[data-view=deck] .sw-act svg{width:27px;height:27px}
+  body[data-view=deck] .sw-act-like{background:#1f8a4c;border:1.5px solid rgba(255,255,255,.7)}
+  body[data-view=deck] .sw-act-like[aria-pressed="true"]{background:#1f8a4c}
+  body[data-view=deck] .sw-act-skip{background:rgba(14,42,107,.7);border:1.5px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  body[data-view=deck] .sw-act-undo{width:44px;height:44px;margin-top:7px;background:rgba(14,42,107,.55);border:1px solid rgba(255,255,255,.45)}
+  body[data-view=deck] .sw-act-undo svg{width:20px;height:20px}
+  body[data-view=deck] .sw-act-undo:disabled{opacity:.45}
+  body[data-view=deck] .sw-act-lbl{display:block;position:absolute;top:100%;margin-top:3px;font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(13,27,61,.9);white-space:nowrap}
+  /* גיליון הפרטים עולה עד למטה (העיגולים מתחתיו), וכפתור הזהב שבו נשאר מעל פס הבית */
+  body[data-view=deck] #swSheet{bottom:0}
+  body[data-view=deck] #swSheet .sw-sheet{max-height:80svh;border-radius:22px 22px 0 0}
+  body[data-view=deck] #swSheet .sw-cta-bar{padding-bottom:calc(12px + var(--sw-safe-b))}
+  /* כפתור קשר זהב אחד בגיליון (‏#swCta). הגלולה שבבאנר נשארת ב-DOM (‏toggleForm כותב לחץ שלה) */
+  .sw-dsheet .sw-bn-pill{display:none}
+}

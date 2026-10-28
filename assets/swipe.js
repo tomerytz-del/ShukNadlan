@@ -324,6 +324,8 @@
   function street(p) { return maskHouse(p.street || p.address || '', p.house_number).replace(/^רחוב\s+/, ''); }
   function hood(p) { return (p.neighborhoods && p.neighborhoods.name) || p.sales_area || ''; }
   function where(p) { var h = hood(p); return [street(p), h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
+  // ‏Variant C: שכונה ועיר על הכרטיס בטלפון, בלי רחוב ומספר בית (הגיליון נשאר עם where)
+  function area(p) { var h = hood(p); return [h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
   function title(p) { return maskHouse(p.title || '', p.house_number) || p.property_type || 'נכס'; }
   function rooms(p) { var r = Number(p.rooms); return isFinite(r) && r > 0 ? String(Number(r.toFixed(1))) : ''; }
   function initials(name) {
@@ -1332,6 +1334,7 @@
         '<button type="button" class="sw-vpill" data-vpill aria-label="איך זה יכול להיראות? מעבר להשוואת לפני ואחרי"' + (top && vizPair.get(p.id) && !sp ? '' : ' hidden') + '>✨ איך זה יכול להיראות?</button>' +
         '<div class="sw-cbody"><p class="sw-price">' + esc(fmtPrice(p)) + '</p>' +
         (nofee ? '<p class="sw-nofee-end">' + esc(FAIR_NAME + ' · ' + OpenHouse.endLabel(p)) + '</p>' : '') +
+        (area(p) ? '<p class="sw-area"><span aria-hidden="true">📍</span> ' + esc(area(p)) + '</p>' : '') +
         '<h2 class="sw-ctitle">' + esc(title(p)) + '</h2>' +
         (facts ? '<p class="sw-facts">' + esc(facts) + '</p>' : '') +
         '<p class="sw-where"><span aria-hidden="true">📍</span> ' + esc(where(p)) + '</p>' +
@@ -1339,7 +1342,9 @@
         // ‏P0-1: כפתור ראשי לדף הנכס בכל שקופית; "פרטים ויצירת קשר" (הגיליון) משני, ובשקופית לפני/אחרי - ההדמיה במקומו
         '<div class="sw-acts"><a class="sw-open" href="/property?id=' + encodeURIComponent(p.id) + '" data-open>לפרטי הנכס ←</a>' +
         '<button type="button" class="sw-up" data-up' + (sp === 'ba' ? ' hidden' : '') + '>פרטים ויצירת קשר <span aria-hidden="true">↑</span></button>' +
-        '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b></button></div></div>' +
+        '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b></button></div>' +
+        // ‏Variant C: בטלפון כפתור זהב אחד במקום שורת sw-acts (מוצג רק שם, ‏swipe.css)
+        '<button type="button" class="sw-gold sw-cmain" data-up>לפרטים ויצירת קשר</button></div>' +
         '<span class="sw-stamp is-like" aria-hidden="true">אהבתי</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
     }
     if (c.slot === 'spon_agency') {
@@ -1822,6 +1827,9 @@
       $('swWa').href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים');
     }
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
+    // ‏WCAG 2.5.3: בטלפון השם הנגיש מכיל את המילה הגלויה מתחת לכפתור
+    $('swLike').setAttribute('aria-label', phoneC() ? 'שמירה' : 'אהבתי');
+    $('swUndo').setAttribute('aria-label', phoneC() ? 'ביטול' : 'ביטול Z');
     syncRail(c, adv, phone);
   }
   /* ‏Variant C: המסילה רק על כרטיס נכס. "ליועץ" לפי סוג המפרסם, כמו ctaLabel: עם טלפון - וואטסאפ
