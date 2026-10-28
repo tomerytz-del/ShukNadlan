@@ -66,6 +66,21 @@ def main() -> int:
     bill = "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: https://shuknadlan.co.il"
     if other not in src or bill not in src:
         fail("הנוסח המאושר אינו מסומן כמענה חלופי")
+    texts = subprocess.run(
+        ["node", "--experimental-strip-types", "--input-type=module", "-e",
+         "import { fallbackReply } from './supabase/functions/whatsapp-webhook/llm-fallback.ts';\n"
+         "const bill = fallbackReply('billing', 'visitor', 'https://shuknadlan.co.il');\n"
+         "const other = fallbackReply('other', 'visitor', '/');\n"
+         "if (fallbackReply('billing', 'visitor', 'https://shuknadlan.co.il/') !== bill) process.exit(2);\n"
+         "if (fallbackReply('transient', 'visitor', 'x') !== other) process.exit(3);\n"
+         "process.stdout.write(bill + '\\n' + other);"],
+        cwd=ROOT, text=True, capture_output=True,
+    )
+    if texts.returncode != 0:
+        fail(f"הנוסח מ-llm-fallback.ts לא נקרא:\n{texts.stderr}")
+    produced = texts.stdout.split("\n")
+    if len(produced) != 2 or any(line not in src for line in produced):
+        fail("הנוסח במיגרציה אינו זהה תו-תו ל-llm-fallback.ts: " + repr(produced))
 
     subprocess.run(["dropdb", "--if-exists", DB], check=False)
     subprocess.run(["createdb", DB], check=True)
@@ -130,7 +145,11 @@ insert into public.whatsapp_public_conversations (id, wa_phone) values
   ('10000000-0000-4000-8000-000000000011', '972500000011'),
   ('10000000-0000-4000-8000-000000000012', '972500000012'),
   ('10000000-0000-4000-8000-000000000013', '972500000013'),
-  ('10000000-0000-4000-8000-000000000014', '972500000014');
+  ('10000000-0000-4000-8000-000000000014', '972500000014'),
+  ('10000000-0000-4000-8000-000000000015', '972500000015'),
+  ('10000000-0000-4000-8000-000000000016', '972500000016'),
+  ('10000000-0000-4000-8000-000000000017', '972500000017'),
+  ('10000000-0000-4000-8000-000000000018', '972500000018');
 
 -- 1. מחכה, החלון פתוח. רק שליחת המענה עצמו.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
@@ -234,6 +253,37 @@ insert into public.whatsapp_messages (direction, wa_phone, body, status, created
   ('in', '972500000014', 'נכנסת', null, (select t from tclock) - interval '20 minutes'),
   ('out', '972500000014', 'סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?', 'sent', (select t from tclock) - interval '5 hours' + interval '5 seconds'),
   ('out', '972500000014', 'סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: https://shuknadlan.co.il', 'sent', (select t from tclock) - interval '30 minutes' + interval '5 seconds');
+
+-- 15. אישור כניסה אוטומטי אינו תשובה.
+insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
+values ('10000000-0000-4000-8000-000000000015', 'public', 'other', true, (select t from tclock) - interval '3 hours');
+insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
+  ('in', '972500000015', 'נכנסת', null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000015', 'סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000015', '✅ הכניסה אומתה. אפשר לחזור לאתר.', 'sent', (select t from tclock) - interval '2 hours');
+
+-- 16. אישור חתימה אוטומטי אינו תשובה.
+insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
+values ('10000000-0000-4000-8000-000000000016', 'public', 'other', true, (select t from tclock) - interval '3 hours');
+insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
+  ('in', '972500000016', 'נכנסת', null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000016', 'סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000016', 'אומת ✅ אפשר לחזור לדף ההסכם - הוא ייפתח לבד בתוך כמה שניות.', 'sent', (select t from tclock) - interval '2 hours');
+
+-- 17. גוף ריק אינו תשובה.
+insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
+values ('10000000-0000-4000-8000-000000000017', 'public', 'other', true, (select t from tclock) - interval '3 hours');
+insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
+  ('in', '972500000017', 'נכנסת', null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000017', 'סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000017', '   ', 'sent', (select t from tclock) - interval '2 hours');
+
+-- 18. sent=true אבל השליחה נכשלה. נשאר ברשימה.
+insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
+values ('10000000-0000-4000-8000-000000000018', 'public', 'other', true, (select t from tclock) - interval '3 hours');
+insert into public.whatsapp_messages (direction, wa_phone, body, error, status, created_at) values
+  ('in', '972500000018', 'נכנסת', null, null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000018', 'סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?', 'graph', 'failed', (select t from tclock) - interval '3 hours' + interval '5 seconds');
 commit;
 """
     proc = subprocess.run(
@@ -291,6 +341,10 @@ select w.conversation_id::text || '|' || w.window_open || '|' ||
         "10000000-0000-4000-8000-000000000009|true|true",
         "10000000-0000-4000-8000-000000000010|true|true",
         "10000000-0000-4000-8000-000000000011|true|true",
+        "10000000-0000-4000-8000-000000000015|true|true",
+        "10000000-0000-4000-8000-000000000016|true|true",
+        "10000000-0000-4000-8000-000000000017|true|true",
+        "10000000-0000-4000-8000-000000000018|true|true",
     ]
     if got != expect:
         fail("תוצאה לא צפויה:\n" + "\n".join(got) + "\nצפוי:\n" + "\n".join(expect))
