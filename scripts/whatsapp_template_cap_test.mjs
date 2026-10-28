@@ -59,15 +59,23 @@ test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow 
   assert.match(due, /l\.whatsapp_status = 'failed'/);
   assert.doesNotMatch(due, /not public\.notification_push_log_holds\(l\.whatsapp_status/);
   assert.match(claim, /interval '72 hours'/);
+  assert.match(claim, /n\.created_at > pg_catalog\.now\(\) - interval '72 hours'/);
   assert.match(claim, /whatsapp_template_cap_limit\('whatsapp_template_cap_daily'/);
-  assert.match(claim, /not v_cap_held/);
+  assert.match(claim, /if v_pause then/);
+  assert.match(claim, /elsif not v_cap_held then/);
+  assert.doesNotMatch(claim, /if v_guard = 1 and not v_cap_held/);
+  assert.doesNotMatch(claim, /whatsapp_template_cap_limit\([^)]*\)::int/);
   assert.doesNotMatch(claim, /false, 1, 2, 8/);
+  const on = extract("whatsapp_template_cap_on");
+  assert.match(on, /notif_digest_enabled/);
   const backlog = readFileSync(
     join(root, "supabase/migrations/20271030000300_template_cap_backlog.sql"),
     "utf8",
   );
   assert.match(backlog, /skipped_template_cap/);
-  assert.match(backlog, /a\.in_service_window/);
+  assert.match(backlog, /interval '72 hours'/);
+  assert.match(backlog, /n\.created_at > pg_catalog\.now\(\) - interval '72 hours'/);
+  assert.doesNotMatch(backlog, /whatsapp_template_local_day/);
   assert.doesNotMatch(backlog, /a\.in_window\b/);
   assert.match(push, /templateCapAllows\(sb, row\.log_id\)/);
   assert.match(push, /rpc\("whatsapp_template_cap_allow"/);
@@ -204,4 +212,170 @@ rollback;
 `;
   const out = execFileSync("psql", psqlArgs, { input: sql, encoding: "utf8" }).trim();
   assert.equal(out, "1 0");
+});
+
+function psql(sql) {
+  const psqlArgs = process.env.PGHOST
+    ? ["-h", process.env.PGHOST, "-U", process.env.PGUSER || "postgres", "-d", process.env.PGDATABASE || "postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"]
+    : ["postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"];
+  return execFileSync("psql", psqlArgs, { input: sql, encoding: "utf8" }).trim();
+}
+
+test("התקרה כבויה בלי תקציר, ו-1.5 לא מתעגל", () => {
+  const out = psql(`
+begin;
+create table public.app_config (key text primary key, value text);
+create table public.pricing_config (key text primary key, value int);
+${extract("whatsapp_template_cap_limit")}
+${extract("whatsapp_template_cap_on")}
+insert into public.app_config (key, value) values
+  ('whatsapp_template_cap_enabled', 'true'),
+  ('whatsapp_template_cap_daily', '1.5'),
+  ('whatsapp_template_cap_gap_hours', '1.5');
+select public.whatsapp_template_cap_on()::text
+  || ' ' || public.whatsapp_template_cap_limit('whatsapp_template_cap_daily', 1)::text
+  || ' ' || public.whatsapp_template_cap_limit('whatsapp_template_cap_gap_hours', 8)::text;
+`);
+  assert.equal(out.split("\n").pop(), "false 1 1.5");
+  const on = psql(`
+begin;
+create table public.app_config (key text primary key, value text);
+create table public.pricing_config (key text primary key, value int);
+insert into public.app_config (key, value) values ('whatsapp_template_cap_enabled', 'true');
+insert into public.pricing_config (key, value) values ('notif_digest_enabled', 1);
+${extract("whatsapp_template_cap_on")}
+select public.whatsapp_template_cap_on()::text;
+`);
+  assert.equal(on.split("\n").pop(), "true");
+});
+
+test("פריט שנעצר לפני 14 שעות מעיר את הקרון", () => {
+  const backlog = readFileSync(
+    join(root, "supabase/migrations/20271030000300_template_cap_backlog.sql"),
+    "utf8",
+  );
+  const out = psql(`
+begin;
+create table public.pricing_config (key text primary key, value int);
+insert into public.pricing_config (key, value) values
+  ('notif_push_lookback_hours', 12),
+  ('notif_push_priority_lookback_hours', 72);
+create table public.notifications (
+  id uuid primary key, agent_id uuid, type text, read boolean, suppress_push boolean,
+  created_at timestamptz, push_deferred_at timestamptz, related_property_id uuid,
+  related_lead_id uuid
+);
+create table public.leads (id uuid primary key, source text);
+create table public.notification_push_log (
+  id uuid primary key default gen_random_uuid(), agent_id uuid,
+  notification_ids uuid[], whatsapp_status text, created_at timestamptz
+);
+create function public.notification_push_due_agents()
+returns table (agent_id uuid, display_name text, phone_e164 text, whatsapp_types text[], in_service_window boolean)
+language sql as $$
+  select '11111111-1111-1111-1111-111111111111'::uuid, 't', '+972501111111',
+         array['open_demand']::text[], false
+$$;
+create function public.notification_push_priority_types() returns text[] language sql as $$
+  select array['new_lead']::text[] $$;
+create function public.notification_push_burst_exempt(p_type text, p_source text) returns boolean language sql as $$
+  select false $$;
+create function public.notification_push_log_holds(p_status text, p_created timestamptz) returns boolean language sql as $$
+  select p_status in ('sent', 'skipped') $$;
+create function public.notification_push_stale_in_quiet(p_type text, p_agent uuid, p_created timestamptz) returns boolean language sql as $$
+  select false $$;
+create function public.notification_push_is_ambient(p_type text, p_agent uuid, p_property uuid) returns boolean language sql as $$
+  select false $$;
+create function public.whatsapp_template_cap_on() returns boolean language sql as $$ select true $$;
+insert into public.notifications (id, agent_id, type, read, suppress_push, created_at) values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '11111111-1111-1111-1111-111111111111',
+   'open_demand', false, false, now() - interval '14 hours'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', '11111111-1111-1111-1111-111111111111',
+   'open_demand', false, false, now() - interval '80 hours');
+insert into public.notification_push_log (agent_id, notification_ids, whatsapp_status, created_at) values
+  ('11111111-1111-1111-1111-111111111111', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1']::uuid[],
+   'skipped_template_cap', now() - interval '14 hours'),
+  ('11111111-1111-1111-1111-111111111111', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2']::uuid[],
+   'skipped_template_cap', now() - interval '80 hours');
+${backlog}
+select public.notification_push_has_backlog(false)::text;
+delete from public.notifications where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';
+select public.notification_push_has_backlog(false)::text;
+`);
+  const lines = out.split("\n").filter((line) => line !== "");
+  assert.deepEqual(lines.slice(-2), ["true", "false"]);
+});
+
+test("מפסק ידני חוסם פריט שנעצר בתקרה", () => {
+  const out = psql(`
+begin;
+create table public.pricing_config (key text primary key, value int);
+insert into public.pricing_config (key, value) values
+  ('notification_burst_guard_enabled', 1),
+  ('notif_burst_manual_pause', 1),
+  ('notif_burst_breaker', 0),
+  ('notif_digest_enabled', 1),
+  ('notif_digest_window_minutes', 15);
+create table public.notifications (
+  id uuid primary key, agent_id uuid, type text, title text, body text,
+  read boolean, suppress_push boolean, created_at timestamptz,
+  related_property_id uuid, related_client_id uuid, related_showcase_id uuid,
+  related_lead_id uuid, action_path text, related_agenda_item_id uuid,
+  related_agreement_id uuid, related_meeting_id uuid, related_review_id uuid
+);
+create table public.leads (id uuid primary key, source text);
+create table public.properties (id uuid primary key, agent_id uuid, referred_by uuid);
+create table public.client_showcases (id uuid primary key, client_id uuid);
+create table public.reviews (id uuid primary key, status text, agent_id uuid);
+create table public.agency_members (id uuid primary key, slug text);
+create table public.notification_push_log (
+  id uuid primary key default gen_random_uuid(), agent_id uuid,
+  notification_ids uuid[], types text[], channel_mode text,
+  whatsapp_status text, last_error text, created_at timestamptz default now()
+);
+create function public.notification_push_burst_prepare() returns void language sql as $$ select null::void $$;
+create function public.notification_push_due_agents()
+returns table (agent_id uuid, display_name text, phone_e164 text, whatsapp_types text[], in_service_window boolean)
+language sql as $$
+  select '11111111-1111-1111-1111-111111111111'::uuid, 't', '+972501111111',
+         array['open_demand']::text[], true
+$$;
+create function public.notification_push_priority_types() returns text[] language sql as $$
+  select array['new_lead']::text[] $$;
+create function public.notification_push_burst_exempt(p_type text, p_source text) returns boolean language sql as $$
+  select false $$;
+create function public.notification_push_is_ambient(p_type text, p_agent uuid, p_property uuid) returns boolean language sql as $$
+  select false $$;
+create function public.notification_push_less_kept(p_type text) returns boolean language sql as $$
+  select false $$;
+create function public.notification_push_quiet_hold(p_type text, p_agent uuid, p_created timestamptz) returns boolean language sql as $$
+  select false $$;
+create function public.notification_push_log_holds(p_status text, p_created timestamptz) returns boolean language sql as $$
+  select p_status in ('sent', 'skipped') $$;
+create function public.notification_push_stale_in_quiet(p_type text, p_agent uuid, p_created timestamptz) returns boolean language sql as $$
+  select false $$;
+create function public.notif_il_digest_open(p_window int) returns boolean language sql as $$ select true $$;
+create function public.whatsapp_template_cap_on() returns boolean language sql as $$ select true $$;
+create function public.whatsapp_template_cap_limit(p_key text, p_default numeric) returns numeric language sql as $$
+  select p_default $$;
+create function public.whatsapp_template_cap_usage(p_agent uuid, p_except uuid)
+returns table (n int, last_at timestamptz) language sql as $$ select 2, now() $$;
+create function public.whatsapp_template_cap_decide(
+  p_count int, p_hours numeric, p_exempt boolean, p_daily numeric, p_hard numeric, p_gap numeric
+) returns boolean language sql as $$ select false $$;
+create function public.whatsapp_template_cap_allow(p_log uuid) returns boolean language sql as $$ select true $$;
+insert into public.notifications (id, agent_id, type, title, read, suppress_push, created_at)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '11111111-1111-1111-1111-111111111111',
+        'open_demand', 't', false, false, now() - interval '1 hour');
+insert into public.notification_push_log (agent_id, notification_ids, whatsapp_status, created_at)
+values ('11111111-1111-1111-1111-111111111111',
+        array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1']::uuid[],
+        'skipped_template_cap', now() - interval '1 hour');
+${extract("notification_push_claim")}
+select count(*)::text from public.notification_push_claim(20);
+update public.pricing_config set value = 0 where key = 'notif_burst_manual_pause';
+select count(*)::text from public.notification_push_claim(20);
+`);
+  const lines = out.split("\n").filter((line) => line !== "");
+  assert.deepEqual(lines.slice(-2), ["0", "1"]);
 });

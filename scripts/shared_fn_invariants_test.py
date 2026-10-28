@@ -153,7 +153,9 @@ def main() -> int:
     if "s.rn > v_cap" not in off and "s.rn > v_fanout" not in off:
         fail("תקרת 15 של הביקוש הפתוח נעלמה מהגוף האחרון")
     backlog = final.get("public.notification_push_has_backlog", "")
-    if "skipped_template_cap" in backlog and "a.in_service_window" not in backlog:
+    if "skipped_template_cap" in backlog and "interval '72 hours'" not in backlog:
+        fail("has_backlog לא שומר פריט תקרה 72 שעות")
+    if "a.in_window" in backlog and "a.in_service_window" not in backlog:
         fail("has_backlog מסנן תקרה בעמודה שאינה ב-due_agents")
     if version_of(Path(where["public.notification_push_has_backlog"])) < "20271030000300":
         fail("has_backlog האחרון בסדר הפריסה ישן ממסנן התקרה")

@@ -1110,7 +1110,9 @@ WHATSAPP_BOT_MODEL = claude-sonnet-5
    הסוגים שבעדיפות (סעיף 5). השאר מחכה ומצטרף לתבנית הבאה. בתוך החלון
    (טקסט חופשי) אין שינוי. ‏`20270825090000_notification_push_template_gap.sql`.
 8. **תקרת תבניות לסוכן/ת, כבויה.** ‏`app_config.whatsapp_template_cap_enabled`
-   הוא `false`. כל עוד הוא כבוי אין תקרה ואין שורת דילוג. כשהוא `true`:
+   הוא `false`. היא נדלקת רק כשהערך הוא `1` / `true` / `on` / `yes`
+   **וגם** `notif_digest_enabled = 1`. בלי התקציר פריט שנעצר נשאר בפעמון,
+   ולכן `whatsapp_template_cap_on()` מחזירה false. כשהיא דלוקה:
    תבנית אחת ביום מקומי (אסיה/ירושלים), שנייה רק אחרי 8 שעות, וגג של 2.
    2 הוא גג, לא יעד. טקסט בתוך חלון 24 השעות לא נספר.
    הפטור הוא `app_config.whatsapp_template_cap_exempt_types`, מערך JSON.

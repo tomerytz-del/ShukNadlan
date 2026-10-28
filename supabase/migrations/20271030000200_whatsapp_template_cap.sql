@@ -102,12 +102,14 @@ revoke all on function public.whatsapp_template_local_day(timestamptz) from publ
 grant execute on function public.whatsapp_template_local_day(timestamptz) to service_role;
 
 -- true = מותר לשלוח. p_exempt עוקף את הגג. 2 הוא גג: שניה רק אחרי המרווח.
+-- daily ו-hard הם numeric כדי ש-1.5 לא יתעגל ב-cast ל-int.
+drop function if exists public.whatsapp_template_cap_decide(int, numeric, boolean, int, int, numeric);
 create or replace function public.whatsapp_template_cap_decide(
   p_count int,
   p_hours numeric,
   p_exempt boolean,
-  p_daily int,
-  p_hard int,
+  p_daily numeric,
+  p_hard numeric,
   p_gap_hours numeric
 ) returns boolean
 language sql
@@ -125,11 +127,11 @@ as $$
   end;
 $$;
 
-comment on function public.whatsapp_template_cap_decide(int, numeric, boolean, int, int, numeric) is
+comment on function public.whatsapp_template_cap_decide(int, numeric, boolean, numeric, numeric, numeric) is
   'האם תבנית נוספת מותרת. ליד ותזכורת (p_exempt) יוצאים גם מעל הגג. בלי פטור: מתחת לברירת היום כן, בגג לא, ובין לבין רק אחרי מרווח השעות.';
 
-revoke all on function public.whatsapp_template_cap_decide(int, numeric, boolean, int, int, numeric) from public, anon, authenticated;
-grant execute on function public.whatsapp_template_cap_decide(int, numeric, boolean, int, int, numeric) to service_role;
+revoke all on function public.whatsapp_template_cap_decide(int, numeric, boolean, numeric, numeric, numeric) from public, anon, authenticated;
+grant execute on function public.whatsapp_template_cap_decide(int, numeric, boolean, numeric, numeric, numeric) to service_role;
 
 create or replace function public.whatsapp_template_cap_on()
 returns boolean
@@ -141,11 +143,13 @@ as $$
   select lower(btrim(coalesce(
            (select c.value from public.app_config c
              where c.key = 'whatsapp_template_cap_enabled'),
-           'false'))) in ('1', 'true', 'on', 'yes');
+           'false'))) in ('1', 'true', 'on', 'yes')
+     and coalesce((select value::int from public.pricing_config
+                    where key = 'notif_digest_enabled'), 0) = 1;
 $$;
 
 comment on function public.whatsapp_template_cap_on() is
-  'האם תקרת התבניות דלוקה. ברירת המחדל false, וכל ערך אחר מ-1/true/on/yes נשאר כבוי.';
+  'תקרת התבניות דלוקה רק כשהדגל ב-app_config הוא 1/true/on/yes וגם notif_digest_enabled = 1. בלי תקציר פריט שנעצר נשאר בפעמון, ולכן התקרה כבויה.';
 
 revoke all on function public.whatsapp_template_cap_on() from public, anon, authenticated;
 grant execute on function public.whatsapp_template_cap_on() to service_role;
@@ -160,7 +164,10 @@ set search_path = ''
 as $$
   select coalesce(
     (select case
-              when c.value ~ '^[0-9]+(\.[0-9]+)?$' then c.value::numeric
+              when p_key in ('whatsapp_template_cap_daily', 'whatsapp_template_cap_hard_max')
+                   and c.value ~ '^[0-9]+$' then c.value::numeric
+              when p_key not in ('whatsapp_template_cap_daily', 'whatsapp_template_cap_hard_max')
+                   and c.value ~ '^[0-9]+(\.[0-9]+)?$' then c.value::numeric
               else null
             end
        from public.app_config c
@@ -283,8 +290,8 @@ declare
   v_status text;
   v_error  text;
   v_types  text[];
-  v_daily  int;
-  v_hard   int;
+  v_daily  numeric;
+  v_hard   numeric;
   v_gap    numeric;
   v_count  int;
   v_last   timestamptz;
@@ -328,23 +335,9 @@ begin
     v_hours := extract(epoch from (now() - v_last)) / 3600.0;
   end if;
 
-  select case when c.value ~ '^[0-9]+$' then c.value::int else null end
-    into v_daily
-    from public.app_config c
-   where c.key = 'whatsapp_template_cap_daily';
-  v_daily := coalesce(v_daily, 1);
-
-  select case when c.value ~ '^[0-9]+$' then c.value::int else null end
-    into v_hard
-    from public.app_config c
-   where c.key = 'whatsapp_template_cap_hard_max';
-  v_hard := coalesce(v_hard, 2);
-
-  select case when c.value ~ '^[0-9]+(\.[0-9]+)?$' then c.value::numeric else null end
-    into v_gap
-    from public.app_config c
-   where c.key = 'whatsapp_template_cap_gap_hours';
-  v_gap := coalesce(v_gap, 8);
+  v_daily := public.whatsapp_template_cap_limit('whatsapp_template_cap_daily', 1);
+  v_hard := public.whatsapp_template_cap_limit('whatsapp_template_cap_hard_max', 2);
+  v_gap := public.whatsapp_template_cap_limit('whatsapp_template_cap_gap_hours', 8);
 
   if public.whatsapp_template_cap_decide(v_count, v_hours, false, v_daily, v_hard, v_gap) then
     return true;
@@ -689,6 +682,7 @@ begin
                 or (
                   public.whatsapp_template_cap_on()
                   and v_digest_on = 1
+                  and n.created_at > pg_catalog.now() - interval '72 hours'
                   and exists (
                     select 1 from public.notification_push_log lheld
                      where lheld.agent_id = n.agent_id
@@ -723,8 +717,8 @@ begin
                             case when u.last_at is null then null
                                  else extract(epoch from (pg_catalog.now() - u.last_at)) / 3600.0 end,
                             false,
-                            public.whatsapp_template_cap_limit('whatsapp_template_cap_daily', 1)::int,
-                            public.whatsapp_template_cap_limit('whatsapp_template_cap_hard_max', 2)::int,
+                            public.whatsapp_template_cap_limit('whatsapp_template_cap_daily', 1),
+                            public.whatsapp_template_cap_limit('whatsapp_template_cap_hard_max', 2),
                             public.whatsapp_template_cap_limit('whatsapp_template_cap_gap_hours', 8))
                      from public.whatsapp_template_cap_usage(a.agent_id, null) u
                  ), false)
@@ -754,9 +748,16 @@ begin
          )
       );
 
-    -- מתג כבוי: אותה הודעה כמו בלי תקרת ההתפרצות. ישן ומילוי כבר סוננו בהכנה.
-    -- פריטי תקרה לא נכנסים לפרץ של הבוקר.
-    if v_guard = 1 and not v_cap_held then
+    -- המפסק והמפסק הידני נבדקים תמיד. פריט תקרה מדלג רק על תקרת השעה, היום ומספר הפריטים.
+    if v_guard = 1 then
+      if v_pause then
+        if coalesce(array_length(v_ex_ids, 1), 0) = 0 then
+          continue;
+        end if;
+        v_items := v_ex_items;
+        v_ids := v_ex_ids;
+        v_types := v_ex_types;
+      elsif not v_cap_held then
       v_hour_cap := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_hour_cap'), 12));
       v_day_cap := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_day_cap'), 30));
 
@@ -793,15 +794,7 @@ begin
           or v_sent_day >= greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_showing_day_cap'), 40));
       end if;
 
-      -- מפסק: ליד אמיתי ומוגן יוצאים בפרטים. בלי מוגן אין שליחה, ואין skipped.
-      if v_pause then
-        if coalesce(array_length(v_ex_ids, 1), 0) = 0 then
-          continue;
-        end if;
-        v_items := v_ex_items;
-        v_ids := v_ex_ids;
-        v_types := v_ex_types;
-      elsif v_lane_over then
+      if v_lane_over then
         -- תקרת המסלול של ליד או סיור: נדחה, לא תקציר ולא skipped.
         continue;
       elsif v_hold_general and coalesce(array_length(v_ex_ids, 1), 0) > 0 then
@@ -820,6 +813,7 @@ begin
           'count', coalesce(v_gen_n, 0)));
         v_ids := v_gen_ids;
         v_types := coalesce(v_gen_types, '{}') || array['burst_digest'];
+      end if;
       end if;
     end if;
 
