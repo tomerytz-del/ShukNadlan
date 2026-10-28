@@ -102,15 +102,21 @@ export function shouldLogSearchMiss(total: number, searched: boolean): boolean {
 }
 
 /** שורת לוג לחיפוש בלי תוצאות. רק שדות החיפוש, בלי הערות ובלי טלפון. */
+function withoutPhone(value: string | null): string | null {
+  if (!value) return null;
+  const cleaned = value.replace(/(?:\+?\d[\d\-\s().]{7,}\d)/g, " ").replace(/\s+/g, " ").trim();
+  return cleaned || null;
+}
+
 export function searchMissRow(
   agentId: string,
   args: Record<string, unknown>,
 ): { agent_id: string; city: string | null; area: string | null; deal_type: string | null } {
   return {
     agent_id: agentId,
-    city: text(args.city),
-    area: text(args.area),
-    deal_type: text(args.deal_type),
+    city: withoutPhone(text(args.city)),
+    area: withoutPhone(text(args.area)),
+    deal_type: withoutPhone(text(args.deal_type)),
   };
 }
 

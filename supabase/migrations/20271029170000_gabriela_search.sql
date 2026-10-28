@@ -304,10 +304,14 @@ create trigger properties_prune_stale_alerts
      or old.neighborhood_id is distinct from new.neighborhood_id))
   execute function public.properties_prune_stale_alerts();
 
--- חיפושים בלי תוצאות. כבוי: הריצה רק סופרת. 90 יום אחרי שיופעל.
-insert into public.data_retention_settings (policy, keep_for, description)
-values ('search_misses', interval '90 days', 'חיפושי סוכן/ת בלי תוצאות. נשאר כבוי עד אישור.')
-on conflict (policy) do nothing;
+-- חיפושים בלי תוצאות. 90 יום, בלי טלפון, והמדיניות דולקת.
+insert into public.data_retention_settings (policy, keep_for, enabled, description)
+values ('search_misses', interval '90 days', true,
+        'חיפושי סוכן/ת בלי תוצאות. בלי טלפון. נמחקים אחרי 90 יום.')
+on conflict (policy) do update
+  set enabled = true,
+      keep_for = excluded.keep_for,
+      description = excluded.description;
 
 -- אותו גוף כמו 20271029165000: ענף whatsapp_pending_actions נשמר, וענף search_misses נוסף.
 create or replace function public.data_retention_run()
