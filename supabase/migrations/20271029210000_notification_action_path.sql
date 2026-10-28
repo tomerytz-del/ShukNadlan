@@ -127,7 +127,6 @@ begin
                  'agenda_item_id', n.related_agenda_item_id,
                  'agreement_id',  n.related_agreement_id,
                  'meeting_id',    n.related_meeting_id,
-                 'showcase_id',   n.related_showcase_id,
                  'review_id', (select rv.id from public.reviews rv
                                 where rv.id = n.related_review_id and rv.status = 'pending'
                                   and rv.agent_id is distinct from n.agent_id),
@@ -242,7 +241,7 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'כמו 20271029140000, ומוסיף action_path ו-showcase_id לכל פריט. השדות ריקים עד שמי שכותב התראה ממלא אותם.';
+  'כמו 20271029140000, ומוסיף action_path לכל פריט. השדה ריק עד שמי שכותב התראה ממלא אותו.';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
