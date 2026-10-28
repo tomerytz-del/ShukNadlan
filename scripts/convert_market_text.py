@@ -45,8 +45,8 @@ RULES = [
      r'aria-label="\1" data-market-aria="aria-label"'),
     # שורת התיאור בפוטר. ‏**רק בתוך <span>** - אותו משפט יושב גם ב-JSON-LD
     # של index.html, ו-HTML בתוך מחרוזת JSON שובר את הנתונים המובנים לגוגל.
-    (re.compile(r'<span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>'),
-     '<span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>'),
+    (re.compile(r'<span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>'),
+     '<span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>'),
     # קישורי הפוטר "למכירה בעפולה" / "להשכרה בעפולה"
     (re.compile(r'>(למכירה|להשכרה) בעפולה<'),
      r'>\1 ב<span data-market-city>עפולה</span><'),
@@ -93,7 +93,7 @@ UNMARKED = [
     re.compile(r'<span>עפולה והעמק</span>'),
     re.compile(r'alt="שוק הנדל״ן של עפולה והסביבה"(?! data-market-aria)'),
     re.compile(r'aria-label="שוק הנדל״ן(?: של|,) עפולה (?:והסביבה|והעמק) - לדף הבית"(?! data-market-aria)'),
-    re.compile(r'<span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק'),
+    re.compile(r'<span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע בעפולה והעמק'),
     re.compile(r'<details class="footer-wrap footer-seo" id="footerSeo"(?! data-market-default-only)'),
 ]
 

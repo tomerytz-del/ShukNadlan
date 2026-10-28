@@ -48,12 +48,113 @@
   /* כפתורי הבחירה המהירה. ההודעה היא מה שגבריאלה מקבלת - כל אחת מהן היא
      דבר שהבוט עושה (search_properties, owner_lead, open_house_signup). */
   var CHOICES = [
-    { key: 'buy',   label: 'מחפש/ת לקנות',          text: 'היי גבריאלה, אני מחפש/ת דירה לקנייה' },
-    { key: 'rent',  label: 'מחפש/ת להשכיר',          text: 'היי גבריאלה, אני מחפש/ת דירה להשכרה' },
-    { key: 'owner', label: 'רוצה למכור',            text: 'היי גבריאלה, אני רוצה למכור או להשכיר נכס' },
+    // התוויות ניטרליות (משימה 1 בבריף); ה-text שנשלח לבוט וה-entry לא השתנו
+    { key: 'buy',   label: 'לקנות נכס',             text: 'היי גבריאלה, אני מחפש/ת דירה לקנייה' },
+    { key: 'rent',  label: 'לשכור נכס',             text: 'היי גבריאלה, אני מחפש/ת דירה להשכרה' },
+    { key: 'owner', label: 'למכור נכס',             text: 'היי גבריאלה, אני רוצה למכור או להשכיר נכס' },
     { key: 'fair',  label: 'יריד הבתים הפתוחים',     text: 'היי גבריאלה, אשמח לשמוע על יריד הבתים הפתוחים ללא עמלת תיווך' }
   ];
   var FREE_DEFAULT = 'היי גבריאלה, אשמח לעזרה';
+  // ‏P1-P: התחומים לפי professionals.html (‏TYPE_PLURAL); "כל בעלי המקצוע" - בלי type
+  var GW_PROS = [['mortgage_advisor', 'יועצי משכנתאות'], ['appraiser', 'שמאי מקרקעין'], ['real_estate_lawyer', 'עורכי דין מקרקעין'],
+    ['architect', 'אדריכלים'], ['interior_designer', 'מעצבי פנים'], ['', 'כל בעלי המקצוע']];
+  /* תחום בלי אף בעל/ת מקצוע פעיל/ה לא מוצג, כדי שלא ינחתו על דף ריק. אותו מקור כמו
+     professionals.html (‏professional_cards_public). כשל - רק "כל בעלי המקצוע" */
+  /* ‏P2-6: מקור אחד לכתובת ולמפתח הציבורי - window.SHUK_SB (‏home.js), ובדף שאינו מגדיר אותו
+     ברירת המחדל כאן. אותו מפתח publishable שבכל הדפים */
+  function sbConf() {
+    var c = window.SHUK_SB || {};
+    return { url: c.url || 'https://obookujgolazrwycsiyn.supabase.co', key: c.key || 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx' };
+  }
+  function sbGet(path) {
+    var c = sbConf();
+    return fetch(c.url + '/rest/v1/' + path, { headers: { apikey: c.key, Authorization: 'Bearer ' + c.key } })
+      .then(function (r) { return r.ok ? r.json() : []; });
+  }
+  var prosTypesP = null;
+  function prosTypes() {
+    if (prosTypesP) return prosTypesP;
+    prosTypesP = sbGet('professional_cards_public?select=advertiser_type&limit=500').then(function (rows) {
+      var set = {};
+      (rows || []).forEach(function (x) { if (x && x.advertiser_type) set[x.advertiser_type] = 1; });
+      return set;
+    }).catch(function () { return {}; });
+    return prosTypesP;
+  }
+  /* ‏P0-1: יש לפחות פרויקט אחד באוויר? כשל = לא (השאלה על פרויקטים מדולגת) */
+  var projectsLiveP = null;
+  function projectsLive() {
+    if (projectsLiveP) return projectsLiveP;
+    projectsLiveP = sbGet('projects_public?select=id&limit=1').then(function (rows) { return !!(rows && rows.length); })
+      .catch(function () { return false; });
+    return projectsLiveP;
+  }
+  var PRO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>';
+  /* ‏P1-Q: דוגמאות שאלות שמוקלדות בשדה (v10). ניטרליות, בלי מספרים שמשתנים מיום ליום.
+     הנוסח אושר בידי גבריאלה (28.10); ‏docs/qa/gab-hints-answers.md. ‏when: השאלה מוצגת רק
+     כשיש בפועל שמאי/ת פעיל/ה או פרויקט באוויר - בלי שינוי קוד כשהם מגיעים */
+  var GW_HINTS = [
+    { k: 'buy4',  t: 'דירת 4 חדרים בעפולה עד 1.5 מיליון?' },
+    { k: 'rent',  t: 'מה יש להשכרה במרכז עפולה?' },
+    { k: 'value', t: 'כמה שווה הדירה שלי?' },
+    { k: 'nofee', t: 'יש נכסים בלי עמלת תיווך?' },
+    { k: 'viz',   t: 'אפשר לראות הדמיה של הנכס משופץ?' },
+    { k: 'house', t: 'מחפשים בית פרטי בעמק' },
+    { k: 'shop',  t: 'חנות להשכרה בעפולה' },
+    { k: 'appr',  t: 'רוצים להתייעץ עם שמאי', when: 'appraiser' },
+    { k: 'proj',  t: 'פרויקטים חדשים בעפולה עילית', when: 'projects' },
+    { k: 'balc',  t: 'דירה עם מרפסת וחניה' }
+  ];
+  /* השאלות שעברו את תנאי ה-when. עד שהבדיקות חוזרות - רק אלה שאין להן תנאי */
+  var hintsLiveP = null;
+  function liveHints() {
+    if (hintsLiveP) return hintsLiveP;
+    hintsLiveP = Promise.all([prosTypes(), projectsLive()]).then(function (r) {
+      var ok = { appraiser: !!r[0].appraiser, projects: !!r[1] };
+      return GW_HINTS.filter(function (h) { return !h.when || ok[h.when]; });
+    }).catch(function () { return GW_HINTS.filter(function (h) { return !h.when; }); });
+    return hintsLiveP;
+  }
+  /* ‏surface של אירועי הווידג'ט: שם הדף בלי סיומת ("home" לדף הבית) */
+  function surfaceName() {
+    var p = location.pathname.replace(/^\/+|\.html$|\/+$/g, '');
+    p = p.split('/')[0];
+    return !p || p === 'index' ? 'home' : p;
+  }
+
+  /* ---------- v10 (‏html.beta-hero בלבד): שיחה קצרה בתוך האתר ----------
+     בחירה מהירה לא פותחת וואטסאפ: היא מוסיפה בועה של הגולש/ת, שלוש נקודות
+     של הקלדה, ואת התשובה של גבריאלה - לפעמים עם כפתור לגלישה בהחלקה. "המשך
+     בוואטסאפ" (הכפתור הירוק היחיד) לוקח את ההודעה של הבחירה האחרונה, עם אותו
+     data-bot-entry, כך שהבוט מקבל בדיוק את מה שקיבל קודם. אין כאן שליחה לשרת.
+     ‏GAB_SWIPE_CHIP: הבחירה החמישית, "רוצים לגלות נכסים בהחלקה?". כבויה מ-28.10 (החלטת תומר, אישור גבריאלה):
+     כפולה לתשובות "לקנות"/"לשכור", שכבר מציעות "גלו נכסים בהחלקה". */
+  var GAB_SWIPE_CHIP = false;
+  var V10_TITLE = 'גבריאלה · עוזרת הנדל״ן החכמה';
+  var V10_TIP = 'צריכים עזרה למצוא? אני כאן 👋';
+  var V10_TIP_DELAY = 20000;
+  /* דף תוצאות = דף הבית עם סינון בכתובת. רק שם עולה הבועית, ולעולם לא בדף נכס */
+  var RESULTS_PARAMS = ['deal', 'ptype', 'q', 'rooms', 'maxPrice'];
+  /* כרטיסי נכס ומחירים - הבועית לא יושבת עליהם */
+  var CARDS = '.prop-card, [data-property-card], .sr-row, .sr-price';
+  var TYPING_MS = 900;
+  /* "לרוב הנכסים יש הדמיה" - רק כשזה נכון: ‏window.ShukViz.coverage (חלק הנכסים הפעילים
+     בשוק שיש להם הדמיה, home.js / swipe.js) לפחות חצי. בלי נתון - בלי המשפט */
+  function vizMost() { var v = window.ShukViz; return !!(v && v.total && v.coverage >= 0.5); }
+  function v10Reply(key) {
+    var mkt = (window.CityContext && window.CityContext.label && window.CityContext.label()) || 'עפולה והעמק';
+    var viz = vizMost() ? ' ולרוב הנכסים יש ✨ הדמיית AI שמראה איך הם יכולים להיראות.' : '';
+    return {
+      buy: { text: 'מעולה! ספרו לי עיר וחדרים ואשלח התאמות. בינתיים, רוצים לגלות נכסים למכירה בהחלקה?' + viz, cta: 'גלו נכסים למכירה בהחלקה', href: '/swipe?deal=sale' },
+      rent: { text: 'בכיף! באיזו שכונה ועד כמה בחודש? אפשר גם להתחיל מהחלקה מהירה על כל השכירויות.' + viz, cta: 'גלו שכירויות בהחלקה', href: '/swipe?deal=rent' },
+      owner: { text: 'אחבר אתכם למשרד תיווך מוביל באזור, כולל הערכת שווי חינם והדמיית AI לנכס שלכם.' },
+      // ‏?fair=1 - ‏swipe.js מסנן לנכסים שביריד עכשיו
+      fair: { text: 'ביריד יש דירות ב' + mkt + ' ללא עמלת תיווך, לזמן מוגבל. רוצים לעבור עליהן בהחלקה?', cta: 'להחליק על דירות היריד', href: '/swipe?deal=sale&fair=1' },
+      // ‏P1-P: בלי בוט - קישורים לדפי בעלי המקצוע לפי תחום
+      pro: { text: 'באיזה תחום תרצו עזרה?', pros: true },
+      swipe: { text: vizMost() ? 'יאללה! ימינה שומרים, שמאלה מדלגים, ולרוב הנכסים יש ✨ הדמיה.' : 'יאללה! ימינה שומרים, שמאלה מדלגים.', cta: 'התחילו להחליק', href: '/swipe' }
+    }[key];
+  }
 
   var ctx = window.gabWidgetContext || null;   // ‏{ property: {...} } מ-property.js
 
@@ -139,8 +240,107 @@
     '#gabW a.gw-go:hover{background:var(--gw-wa-h);color:#fff}',
     '#gabW a.gw-go svg{width:20px;height:20px;flex:none}',
     '#gabW .gw-note{margin:10px 0 0;font-size:12.5px;color:var(--gw-muted);text-align:center}',
-    '@media(prefers-reduced-motion:reduce){#gabW .gw-bubble,#gabW .gw-panel,#gabW .gw-tip{transition:none}}'
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-bubble,#gabW .gw-panel,#gabW .gw-tip{transition:none}}',
+    /* v10 (html.beta-hero בלבד) */
+    'html.beta-hero body:has(.a11y-fab) #gabW{--gw-bottom:calc(16px + env(safe-area-inset-bottom,0px));--gw-left:16px}',
+    '@media(max-width:600px){html.beta-hero body:has(.a11y-fab) #gabW{--gw-bottom:calc(12px + env(safe-area-inset-bottom,0px));--gw-left:12px}}',
+    'html.beta-hero body.sticky-on #gabW{--gw-bottom:calc(90px + env(safe-area-inset-bottom,0px))}',
+    '#gabW .gw-pill,#gabW .gw-min{display:none}',
+    '@media(min-width:1024px){',
+    '  #gabW.is-v10:not(.is-min) .gw-bubble{width:auto;height:64px;padding:0 18px 0 6px;border-radius:999px;border:2.5px solid #1a8a4a;',
+    '    background:#fff;display:flex;align-items:center;gap:10px;flex-direction:row-reverse}',
+    '  #gabW.is-v10:not(.is-min) .gw-bubble img{width:52px;height:52px;flex:none;background:#fff1c9}',
+    '  #gabW.is-v10:not(.is-min) .gw-dot{right:auto;left:42px;bottom:6px}',
+    '  #gabW.is-v10:not(.is-min) .gw-pill{display:flex;flex-direction:column;align-items:flex-start;text-align:right;line-height:1.25}',
+    '  #gabW.is-v10 .gw-pill b{font-size:16px;color:#0d1b3d}',
+    '  #gabW.is-v10 .gw-pill small{font-size:12.5px;color:#4a5060}',
+    '  #gabW.is-v10:not(.is-min):not(.is-hidden):not(.is-away):not(.is-open) .gw-min{display:flex;position:fixed;z-index:207;',
+    '    left:calc(var(--gw-left) - 6px);bottom:calc(var(--gw-bottom) + 46px);width:22px;height:22px;padding:0;border:1px solid #e3e8f2;',
+    '    border-radius:50%;background:#fff;color:#0e2a6b;font-size:15px;line-height:1;align-items:center;justify-content:center;cursor:pointer;',
+    '    box-shadow:0 2px 6px rgba(13,27,61,.2)}',
+    '  #gabW.is-v10 .gw-min::before{content:"";position:absolute;inset:-11px}',
+    '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '  #gabW.is-v10 .gw-tip{left:calc(var(--gw-left) + 230px)}',
+    '}',
+    /* סבב 5 §3: בטלפון ✕ בפינה העליונה של הבועה (רחוק מקצה המסך), ומזעור ללשונית צרה בקצה */
+    '@media(max-width:1023px){',
+    '  #gabW.is-v10:not(.is-min):not(.is-hidden):not(.is-away):not(.is-open) .gw-min{display:flex;position:fixed;z-index:207;',
+    '    left:calc(var(--gw-left) + 44px);bottom:calc(var(--gw-bottom) + 42px);width:22px;height:22px;padding:0;border:1px solid #e3e8f2;',
+    '    border-radius:50%;background:#fff;color:#0e2a6b;font-size:15px;line-height:1;align-items:center;justify-content:center;cursor:pointer;',
+    '    box-shadow:0 2px 6px rgba(13,27,61,.2)}',
+    '  #gabW.is-v10 .gw-min::before{content:"";position:absolute;inset:-11px}',
+    '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '  #gabW.is-v10.is-min .gw-bubble{left:0;width:18px;height:44px;border:0;border-radius:0 10px 10px 0;overflow:hidden;',
+    '    box-shadow:inset 0 0 0 2px #c9a227,2px 2px 8px rgba(13,27,61,.25)}',
+    '  #gabW.is-v10.is-min .gw-bubble img{width:44px;height:44px;max-width:none;object-fit:cover;object-position:30% 10%;margin-left:-13px}',
+    '  #gabW.is-v10.is-min .gw-dot{display:none}',
+    '}',
+    '@media(min-width:1024px){#gabW.is-v10.is-min .gw-bubble{width:44px;height:44px;border:0;box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.3)}',
+    '#gabW.is-v10.is-min .gw-dot{width:11px;height:11px}}',
+    '#gabW.is-v10.is-min .gw-panel{bottom:calc(var(--gw-bottom) + 56px)}',
+    '#gabW.is-v10.is-min .gw-tip{opacity:0;visibility:hidden}',
+    /* v10: בועה של 56px בטלפון, והשיחה הקצרה בתוך החלונית */
+    '#gabW.is-v10 .gw-bubble{width:56px;height:56px;border-width:2px}',
+    '#gabW.is-v10 .gw-tip{display:flex;align-items:flex-start;gap:8px;padding:8px 12px 8px 8px;cursor:default}',
+    '@media(max-width:1023px){#gabW.is-v10 .gw-tip{left:calc(var(--gw-left) + 66px)}}',
+    '#gabW .gw-tip-t{all:unset;flex:1;cursor:pointer;font:inherit;font-size:14px;font-weight:700;line-height:1.35;color:var(--gw-ink)}',
+    '#gabW .gw-tip-x{position:relative;flex:none;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:#f1f4f9;color:var(--gw-navy);',
+    '  font:inherit;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}',
+    '#gabW .gw-tip-x::before{content:"";position:absolute;inset:-10px}',
+    '#gabW .gw-tip :focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '#gabW .gw-conv{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}',
+    '#gabW .gw-conv:empty{display:none}',
+    '#gabW .gw-me{align-self:flex-start;max-width:85%;margin:0;padding:8px 12px;border-radius:14px 14px 14px 4px;background:#eaf0fb;color:#0d1b3d;font-size:13px;line-height:1.5;font-weight:600}',
+    '#gabW .gw-reply,#gabW .gw-typing{align-self:flex-end;max-width:88%;padding:9px 12px;border:1px solid var(--gw-line);border-radius:14px 14px 4px 14px;background:#fff;color:var(--gw-ink)}',
+    '#gabW .gw-reply p{margin:0;font-size:13px;line-height:1.5}',
+    '#gabW a.gw-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;min-height:40px;padding:0 14px;border-radius:12px;',
+    '  background:var(--gw-navy);color:#fff;font-weight:800;font-size:13.5px;text-decoration:none}',
+    '#gabW a.gw-cta:hover{background:#0a1f52;color:#fff}',
+    '#gabW .gw-typing{display:inline-flex;gap:4px;align-items:center}',
+    '#gabW .gw-typing i{width:6px;height:6px;border-radius:50%;background:#8a93a8;animation:gwDot 1s ease-in-out infinite}',
+    '#gabW .gw-typing i:nth-child(2){animation-delay:.15s}#gabW .gw-typing i:nth-child(3){animation-delay:.3s}',
+    '@keyframes gwDot{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-3px)}}',
+    '#gabW button.gw-choice{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:42px;padding:9px 12px;',
+    '  border:1.5px solid var(--gw-navy);border-radius:999px;background:#fff;color:var(--gw-navy);font:inherit;font-weight:700;font-size:15px;line-height:1.3;cursor:pointer}',
+    '@media(hover:hover){#gabW button.gw-choice:hover{background:var(--gw-navy);color:#fff}}',
+    '#gabW button.gw-choice svg{width:18px;height:18px;flex:none}',
+    '#gabW button.gw-choice.is-swipe{border-width:2px;background:rgba(14,42,107,.06)}',
+    '@media(hover:hover){#gabW button.gw-choice.is-swipe:hover{background:var(--gw-navy);color:#fff}}',
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-typing i{animation:none;opacity:.7}}',
+    /* v10: כותרת קבועה עם ×, גלילה רק בגוף השיחה, ושורת וואטסאפ קבועה למטה */
+    '#gabW.is-v10 .gw-panel{display:flex;flex-direction:column;overflow:hidden}',
+    '#gabW.is-v10 .gw-head{flex:none}',
+    '#gabW.is-v10 .gw-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:6px}',
+    '#gabW .gw-foot{flex:none;padding:10px 14px 12px;border-top:1px solid var(--gw-line);background:#fff;border-radius:0 0 17px 17px}',
+    '#gabW .gw-foot .gw-note{margin-top:6px}',
+    '@media(max-width:600px){#gabW.is-v10 .gw-panel{max-height:min(72dvh,580px);bottom:var(--gw-bottom)}',
+    '  #gabW.is-v10.is-open .gw-bubble{display:none}}',
+    '@media(min-width:601px){#gabW.is-v10 .gw-panel{width:360px;max-height:min(620px,calc(100dvh - 120px))}}',
+    /* אחרי הבחירה הראשונה: שורה אחת של צ'יפים קטנים שנגללת לרוחב */
+    /* ‏P1-A: רשת של שתי עמודות, לפני הבחירה הראשונה ואחריה - שורה אחת נגללת לרוחב הסתירה
+       צ'יפים מחוץ לפאנל. "רוצים לגלות נכסים בהחלקה?" והנכס שבדף - שורה מלאה */
+    '#gabW.is-v10 .gw-choices{grid-template-columns:1fr 1fr;overflow:visible}',
+    '#gabW.is-v10 .gw-choices li.gw-full{grid-column:1/-1}',
+    '#gabW.is-v10 .gw-choice{white-space:normal;min-height:44px;width:100%;box-sizing:border-box}',
+    '#gabW .gw-choices.is-compact{gap:6px;margin:0;padding:2px 0}',
+    '#gabW .gw-choices.is-compact .gw-choice{min-height:44px;padding:6px 10px;font-size:13px;border-width:1.5px}',
+    '#gabW .gw-choices.is-compact .gw-choice svg{width:15px;height:15px}',
+    '#gabW .gw-pros{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 0;padding:0;list-style:none}',
+    /* מספר אי-זוגי של תחומים (הרשימה דינמית): האחרון בשורה מלאה, בלי תא ריק */
+    '#gabW .gw-pros>li:last-child:nth-child(odd){grid-column:1/-1}',
+    '#gabW .gw-pro{display:flex;align-items:center;justify-content:center;min-height:44px;padding:6px 10px;border:1.5px solid var(--gw-navy);border-radius:12px;background:#fff;color:var(--gw-navy);font-weight:700;font-size:13.5px;text-align:center;text-decoration:none;line-height:1.3}',
+    '#gabW .gw-pro:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '@media(hover:hover){#gabW .gw-pro:hover{background:var(--gw-navy);color:#fff}}',
+    '#gabW .gw-inwrap{position:relative}',
+    '#gabW .gw-type{position:absolute;inset-inline-start:13px;max-width:calc(100% - 26px);top:50%;transform:translateY(-50%);color:#6b7280;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;pointer-events:auto}',
+    '#gabW .gw-type:not(.is-static)::after{content:"|";margin-inline-start:1px;animation:gwCaret 1s steps(1) infinite}',
+    '@keyframes gwCaret{50%{opacity:0}}',
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-type::after{animation:none}}',
+    '#gabW .gw-ex{display:flex;flex-direction:column;gap:8px}',
+    '#gabW .gw-ex.is-old .gw-reply{display:none}',
+    '#gabW .gw-ex.is-old .gw-me{opacity:.65}'
   ].join('\n');
+  var CARDS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="12" height="16" rx="2.5"/><path d="M4.5 6.5v11A2.5 2.5 0 0 0 7 20h8"/></svg>';
 
   var WA_ICON = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.7-.3-1.4-.7-2-1.3-.5-.5-1-1.1-1.3-1.7-.1-.2 0-.4.1-.5l.4-.5.3-.5v-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.6.6-.9 1.4-.9 2.2.1.9.4 1.8 1 2.6 1.1 1.6 2.5 2.9 4.2 3.7.5.2.9.4 1.4.5.5.2 1 .2 1.5.1.6-.1 1.1-.5 1.4-1 .2-.3.2-.7.1-1-.1-.1-.3-.2-.5-.3z"/></svg>';
 
@@ -157,17 +357,18 @@
   }
 
   function build() {
+    var v10 = document.documentElement.classList.contains('beta-hero');
     var style = el('style', { id: 'gabWStyle' });
     style.textContent = CSS;
     document.head.appendChild(style);
 
-    var root = el('div', { id: 'gabW', 'class': 'is-hidden' });
+    var root = el('div', { id: 'gabW', 'class': 'is-hidden', 'data-browse': 'gabriela' });
 
     var panel = el('div', { 'class': 'gw-panel', id: 'gabWPanel', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'gabWTitle' });
     var head = el('div', { 'class': 'gw-head' });
     head.appendChild(el('img', { src: AVATAR, width: '40', height: '40', alt: '' }));
     var who = el('div');
-    who.appendChild(el('b', { id: 'gabWTitle' }, 'גבריאלה'));
+    who.appendChild(el('b', { id: 'gabWTitle' }, v10 ? V10_TITLE : 'גבריאלה'));
     var status = el('span', { 'class': 'gw-status' });
     status.appendChild(el('i', { 'aria-hidden': 'true' }));
     status.appendChild(document.createTextNode('זמינה עכשיו בוואטסאפ'));
@@ -178,8 +379,12 @@
     panel.appendChild(head);
 
     var body = el('div', { 'class': 'gw-body' });
-    body.appendChild(el('p', { 'class': 'gw-msg' },
-      'היי, אני גבריאלה, העוזרת החכמה של שוק הנדל״ן. אעזור לך למצוא את הנכס הנכון. מה מחפשים?'));
+    body.appendChild(el('p', { 'class': 'gw-msg' }, v10
+      ? 'היי, אני גבריאלה, העוזרת החכמה של שוק הנדל״ן. אעזור לכם למצוא את הנכס הנכון. מה מחפשים?'
+      : 'היי, אני גבריאלה, העוזרת החכמה של שוק הנדל״ן. אעזור לך למצוא את הנכס הנכון. מה מחפשים?'));
+    // v10: השיחה הקצרה - בין הפתיח לבחירות, שנשארות מתחתיה
+    var conv = el('div', { 'class': 'gw-conv', role: 'log', 'aria-live': 'polite', 'aria-label': 'השיחה עם גבריאלה' });
+    if (v10) body.appendChild(conv);
     var list = el('ul', { 'class': 'gw-choices', 'aria-label': 'בחירה מהירה' });
     body.appendChild(list);
 
@@ -188,38 +393,216 @@
       placeholder: 'או כתבו לגבריאלה מה מחפשים', 'aria-label': 'הודעה לגבריאלה' });
     var go = waLink('gw-go', 'widget_free', FREE_DEFAULT, '');
     go.innerHTML = WA_ICON + '<span>המשך בוואטסאפ</span>';
-    free.appendChild(input);
+    // ‏P1-Q: השכבה עם השאלה המוקלדת יושבת מעל השדה, ואינה משנה את ה-placeholder (קורא מסך)
+    var inWrap = v10 ? el('div', { 'class': 'gw-inwrap' }) : null;
+    var typeEl = v10 ? el('span', { 'class': 'gw-type', 'aria-hidden': 'true' }) : null;
+    if (v10) { inWrap.appendChild(input); inWrap.appendChild(typeEl); free.appendChild(inWrap); }
+    else free.appendChild(input);
     free.appendChild(go);
-    body.appendChild(free);
-    body.appendChild(el('p', { 'class': 'gw-note' }, 'השיחה ממשיכה בוואטסאפ, וגבריאלה עונה מיד'));
+    // v10: הטקסט החופשי ו"המשך בוואטסאפ" בשורה קבועה בתחתית - לא נגללים עם השיחה
+    var foot = v10 ? el('div', { 'class': 'gw-foot' }) : body;
+    foot.appendChild(free);
+    foot.appendChild(el('p', { 'class': 'gw-note' }, 'השיחה ממשיכה בוואטסאפ, וגבריאלה עונה מיד'));
     panel.appendChild(body);
+    if (v10) panel.appendChild(foot);
 
+    var BUBBLE_LABEL = v10 ? 'צ׳אט עם גבריאלה' : 'שיחה עם גבריאלה, העוזרת בוואטסאפ';
     var bubble = el('button', { type: 'button', 'class': 'gw-bubble', 'aria-expanded': 'false', 'aria-controls': 'gabWPanel',
-      'aria-label': 'שיחה עם גבריאלה, העוזרת בוואטסאפ' });
+      'aria-label': BUBBLE_LABEL });
     bubble.appendChild(el('img', { src: AVATAR, width: '60', height: '60', alt: '' }));
     bubble.appendChild(el('span', { 'class': 'gw-dot', 'aria-hidden': 'true' }));
 
-    var tip = el('button', { type: 'button', 'class': 'gw-tip', tabindex: '-1', 'aria-hidden': 'true' }, TIP_TEXT);
+    var tip, tipGo, tipX = null;
+    if (v10) {
+      // v10: הבועית נשארת עד ✕ או לחיצה, ולכן היא נגישה למקלדת
+      tip = el('div', { 'class': 'gw-tip' });
+      tipGo = el('button', { type: 'button', 'class': 'gw-tip-t' }, V10_TIP);
+      tipX = el('button', { type: 'button', 'class': 'gw-tip-x', 'aria-label': 'סגירת ההודעה' }, '×');
+      tip.appendChild(tipGo);
+      tip.appendChild(tipX);
+    } else {
+      tip = tipGo = el('button', { type: 'button', 'class': 'gw-tip', tabindex: '-1', 'aria-hidden': 'true' }, TIP_TEXT);
+    }
 
     root.appendChild(panel);
     root.appendChild(tip);
     root.appendChild(bubble);
     document.body.appendChild(root);
 
+    /* ---------- v10 (רק עם html.beta-hero): גלולה במחשב, מזעור, והתקפלות ליד הפוטר ----------
+       ‏✕ מקפל לאווטאר של 44px באותה פינה (לחיצה עליו פותחת כרגיל), נשמר
+       לסשן (‏sk_gabi_min). כשהפוטר על המסך - אווטאר, בלי בועית, כדי שהשורה
+       המשפטית תישאר קריאה. לעולם לא נעלמת לגמרי. */
+    var manualMin = false, footerMin = false, restored = false;
+    var desk = window.matchMedia('(min-width:1024px)');
+    /* ‏/swipe בטלפון (סבב 5 §3): מתחילה כלשונית בקצה, כדי לא לשבת על הכרטיס */
+    var swipePage = !!document.querySelector('body.sw-body');
+    var MIN_KEY = swipePage ? 'sk_gabi_min_sw' : 'sk_gabi_min';   // ב-/swipe ההתחלה אחרת, ולכן מפתח משלו
+    function syncMin() {
+      // ליד הפוטר: מזעור גם בטלפון (השורה המשפטית נשארת גלויה), אלא אם הוחזרה בביקור הזה
+      var min = manualMin || (footerMin && (desk.matches || !restored));
+      root.classList.toggle('is-min', min);
+      bubble.setAttribute('aria-label', min && !desk.matches ? 'פתיחת גבריאלה' : BUBBLE_LABEL);
+      if (min) hideTip();
+    }
+    if (v10) {
+      root.classList.add('is-v10');
+      var pill = el('span', { 'class': 'gw-pill', 'aria-hidden': 'true' });
+      pill.appendChild(el('b', null, 'גבריאלה'));
+      pill.appendChild(el('small', null, 'עוזרת הנדל״ן החכמה'));
+      bubble.appendChild(pill);
+      var minBtn = el('button', { type: 'button', 'class': 'gw-min', 'aria-label': 'מזעור גבריאלה' }, '×');
+      root.appendChild(minBtn);
+      minBtn.addEventListener('click', function () {
+        manualMin = true;
+        storageSet(MIN_KEY, '1');
+        syncMin();
+        bubble.focus();
+      });
+      var st0 = storageGet(MIN_KEY);
+      manualMin = st0 === '1' || (swipePage && !desk.matches && st0 !== '0');
+      restored = st0 === '0';
+      /* בטלפון לחיצה על הלשונית מחזירה את הבועה (ב-/swipe היא פותחת את השיחה, כמו הבועה) */
+      bubble.addEventListener('click', function (e) {
+        if (desk.matches || swipePage || !root.classList.contains('is-min')) return;
+        e.stopImmediatePropagation();
+        manualMin = false; restored = true;
+        storageSet(MIN_KEY, '0');
+        syncMin();
+      }, true);
+      var feet = document.querySelectorAll('footer');
+      var foot = document.querySelector('footer.site') || feet[feet.length - 1];
+      if (foot && 'IntersectionObserver' in window) {
+        new IntersectionObserver(function (en) { footerMin = en[0].isIntersecting; syncMin(); }, { threshold: 0 }).observe(foot);
+      }
+      // תמונה שנכשלה: הגזירה על רקע קרם, אף פעם לא תמונה שבורה
+      Array.prototype.forEach.call(root.querySelectorAll('img'), function (im) {
+        im.addEventListener('error', function once() {
+          im.removeEventListener('error', once);
+          im.src = '/assets/gabriela-cutout-400.webp';
+          im.style.background = '#f6f1e7';
+        });
+      });
+      syncMin();
+      /* "הרשימה שלי" מעל גבריאלה (‏assets/likes-bubble.js) - רק כשיש נכס שמור, ולא ב-/swipe */
+      var hasLikes = false;
+      try { hasLikes = (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).length > 0; } catch (e) {}
+      if (hasLikes && !swipePage) {
+        var ls = document.createElement('script');
+        ls.src = '/assets/likes-bubble.js'; ls.defer = true;
+        document.head.appendChild(ls);
+      }
+    }
+
     function fillChoices() {
       list.innerHTML = '';
       var p = ctx && ctx.property;
       if (p && p.id) {
-        var li = el('li');
+        var li = el('li', { 'class': 'gw-full' });
         li.appendChild(waLink('gw-choice is-prop', 'widget_property', propertyLine(p), 'פרטים על הנכס הזה'));
         list.appendChild(li);
       }
-      CHOICES.forEach(function (c) {
-        var li = el('li');
-        li.appendChild(waLink('gw-choice', 'widget_' + c.key, c.text, c.label));
+      CHOICES.forEach(function (c, i) {
+        // ‏v10 בשתי עמודות: מספר בחירות אי-זוגי - האחרונה בשורה מלאה, בלי תא ריק לידה
+        var li = el('li', v10 && CHOICES.length % 2 && i === CHOICES.length - 1 ? { 'class': 'gw-full' } : null);
+        if (v10) li.appendChild(el('button', { type: 'button', 'class': 'gw-choice', 'data-pick': c.key }, c.label));
+        else li.appendChild(waLink('gw-choice', 'widget_' + c.key, c.text, c.label));
         list.appendChild(li);
       });
+      // ‏P1-P (v10): אחרי "יריד הבתים הפתוחים" - בעלי מקצוע, בלי וואטסאפ
+      if (v10) {
+        // ‏R5-9: בשורה מלאה - בחצי שורה הטקסט נשבר לשתי שורות ומשאיר חור
+        var pl = el('li', { 'class': 'gw-full' });
+        var pb = el('button', { type: 'button', 'class': 'gw-choice', 'data-pick': 'pro' });
+        pb.innerHTML = PRO_ICON + '<span>התייעצות עם בעלי מקצוע</span>';
+        pl.appendChild(pb);
+        list.appendChild(pl);
+      }
+      // בדף ההחלקה עצמו אין טעם להציע החלקה
+      if (v10 && GAB_SWIPE_CHIP && !/^\/swipe/.test(location.pathname)) {
+        var sl = el('li', { 'class': 'gw-full' });
+        var sb = el('button', { type: 'button', 'class': 'gw-choice is-swipe', 'data-pick': 'swipe' });
+        sb.innerHTML = CARDS_ICON + '<span>רוצים לגלות נכסים בהחלקה?</span>';
+        sl.appendChild(sb);
+        list.appendChild(sl);
+      }
       syncFree();
+    }
+    /* v10: בחירה מהירה - בועה של הגולש/ת, הקלדה, ואז התשובה. בלי וואטסאפ ובלי רשת */
+    var lastPick = null;
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    /* רק גוף השיחה נגלל - הכותרת וה-× נשארים על המסך. ‏P1-A: לא לתחתית (ההודעה האחרונה
+       נחתכה מלמעלה), אלא לראש ההודעה האחרונה של גבריאלה; בזמן ההקלדה - לבועה של הגולש/ת */
+    function scrollToLatest() {
+      var mine = conv.querySelector('.gw-ex:last-child .gw-typing') ? conv.querySelector('.gw-ex:last-child .gw-me') : null;
+      var replies = conv.querySelectorAll('.gw-reply');
+      var last = mine || replies[replies.length - 1] || body.querySelector('.gw-msg');
+      if (!last) return;
+      body.scrollTop = Math.max(0, last.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 8);
+    }
+    function pick(key, label) {
+      // בחירת ההחלקה אינה הודעה לבוט - וואטסאפ נשאר עם הבחירה הקודמת
+      lastPick = CHOICES.filter(function (c) { return c.key === key; })[0] || lastPick;
+      syncFree();
+      // shukTrack ישירות ולא עוטף: check_gtm_container.py מוצא אירועים לפי השם הזה
+      if (window.shukTrack) window.shukTrack('gab_quick_pick', { choice: key });
+      // אחרי הבחירה הראשונה: הבחירות הופכות לשורה אחת קטנה, ורק שתי השיחות האחרונות פתוחות
+      list.classList.add('is-compact');
+      var ex = el('div', { 'class': 'gw-ex' });
+      ex.appendChild(el('p', { 'class': 'gw-me' }, label));
+      var typing = el('div', { 'class': 'gw-typing', 'aria-label': 'גבריאלה מקלידה' });
+      typing.innerHTML = '<i></i><i></i><i></i>';
+      ex.appendChild(typing);
+      conv.appendChild(ex);
+      var exs = conv.querySelectorAll('.gw-ex');
+      for (var i = 0; i < exs.length - 2; i++) exs[i].classList.add('is-old');
+      scrollToLatest();
+      setTimeout(function () {
+        var r = v10Reply(key);
+        var box = el('div', { 'class': 'gw-reply' });
+        box.appendChild(el('p', null, r.text));
+        if (r.cta) {
+          var a = el('a', { 'class': 'gw-cta', href: r.href, 'data-swipe-via': 'gabriela' }, r.cta);
+          box.appendChild(a);
+        }
+        if (r.pros) {
+          var ul = el('ul', { 'class': 'gw-pros', 'aria-label': 'תחומי בעלי המקצוע' });
+          box.appendChild(ul);
+          prosTypes().then(function (active) {
+            GW_PROS.filter(function (x) { return !x[0] || active[x[0]]; }).forEach(function (x) {
+              var li = el('li');
+              li.appendChild(el('a', { 'class': 'gw-pro', href: '/professionals' + (x[0] ? '?type=' + x[0] : ''), 'data-pro-type': x[0] || 'all' }, x[1]));
+              ul.appendChild(li);
+            });
+            scrollToLatest();
+          });
+        }
+        typing.replaceWith(box);
+        scrollToLatest();
+      }, reduceMotion ? 0 : TYPING_MS);
+    }
+    if (v10) {
+      list.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('button[data-pick]');
+        if (b) pick(b.getAttribute('data-pick'), b.textContent.trim());
+      });
+      /* הכפתור הכחול: ‏gab_swipe_cta ולא swipe_start - ב-/swipe "התחילו להחליק" שולח
+         swipe_start משלו, ושני אירועים היו סופרים את אותה התחלה פעמיים. בדף /swipe
+         עצמו הכפתור מחיל את הסינון במקום (‏window.SwipeApp) ולא טוען את הדף מחדש */
+      conv.addEventListener('click', function (e) {
+        var pa = e.target.closest && e.target.closest('a.gw-pro');
+        if (pa && window.shukTrack) { window.shukTrack('gab_pro_pick', { type: pa.getAttribute('data-pro-type') }); return; }
+        var a = e.target.closest && e.target.closest('a.gw-cta');
+        if (!a) return;
+        var q = new URLSearchParams((a.getAttribute('href') || '').split('?')[1] || '');
+        var region = (window.CityContext && window.CityContext.market && (window.CityContext.market() || {}).slug) || '';
+        if (window.shukTrack) window.shukTrack('gab_swipe_cta', { deal: q.get('deal') || '', region: region });
+        if (/^\/swipe/.test(location.pathname) && window.SwipeApp && window.SwipeApp.apply) {
+          e.preventDefault();
+          setOpen(false);
+          window.SwipeApp.apply({ deal: q.get('deal') || '', fair: q.get('fair') === '1' });
+        }
+      });
     }
     /* הקישור של "המשך בוואטסאפ" מתעדכן בכל הקלדה, כדי שהלחיצה תהיה לחיצה
        רגילה על <a> - נספרת ב-events.js ונפתחת כקישור ולא כ-window.open
@@ -229,34 +612,147 @@
       var p = ctx && ctx.property;
       var msg = t ? 'היי גבריאלה, ' + t : FREE_DEFAULT;
       if (p && p.id) msg += ' (לגבי הנכס: ' + (p.title || '') + ', מזהה: ' + p.id + ')';
+      // v10: בלי טקסט חופשי - ההודעה והכניסה של הבחירה האחרונה, כמו שהבוט קיבל אותן קודם
+      var entry = 'widget_free';
+      if (!t && lastPick) { msg = lastPick.text; entry = 'widget_' + lastPick.key; }
+      go.setAttribute('data-bot-entry', entry);
       go.href = waHref(msg);
     }
     fillChoices();
     input.addEventListener('input', syncFree);
+
+    /* ---------- ‏P1-Q: מכונת כתיבה בשדה ----------
+       הקלדה 45ms לתו, השהייה 1.8 שניות, מחיקה 25ms לתו, הפסקה 0.4 שניות. טיימר אחד, רץ רק
+       כשהחלונית פתוחה, הדף גלוי, השדה ריק ובלי פוקוס. ‏reduced-motion: שאלה אחת קבועה. */
+    var hint = { on: false, t: 0, order: [], i: 0, txt: '', pos: 0, phase: 'type', seen: false, list: null };
+    function hintOrder() {
+      var list = hint.list || [];
+      var idx = list.map(function (_, i) { return i; });
+      for (var k = idx.length - 1; k > 0; k--) { var j = Math.floor(Math.random() * (k + 1)); var tmp = idx[k]; idx[k] = idx[j]; idx[j] = tmp; }
+      // בעמודי שכירות, מסחרי ופרויקטים - השאלה שמתאימה לעמוד קודם, אם היא עברה את ה-when
+      var q = location.search + location.pathname;
+      var key = /deal=rent/.test(q) ? 'rent' : /commercial/.test(q) ? 'shop' : /projects/.test(q) ? 'proj' : '';
+      var fi = -1;
+      list.forEach(function (h, i) { if (h.k === key) fi = i; });
+      var first = fi >= 0 ? [fi] : [];
+      return first.concat(idx.filter(function (x) { return first.indexOf(x) < 0; }));
+    }
+    function hintText(n) { var h = hint.list && hint.list[hint.order[n]]; return h ? h.t : ''; }
+    function hintCanRun() { return v10 && open && !document.hidden && !input.value && document.activeElement !== input; }
+    function hintTick() {
+      hint.t = 0;
+      if (!hintCanRun()) { hintStop(); return; }
+      var full = hintText(hint.i);
+      var delay = 45;
+      if (hint.phase === 'type') {
+        hint.pos++;
+        if (hint.pos >= full.length) { hint.phase = 'hold'; delay = 1800; }
+      } else if (hint.phase === 'hold') { hint.phase = 'erase'; delay = 25; }
+      else if (hint.phase === 'erase') {
+        hint.pos--; delay = 25;
+        if (hint.pos <= 0) { hint.phase = 'pause'; delay = 400; }
+      } else {
+        hint.phase = 'type'; hint.pos = 0;
+        hint.i = (hint.i + 1) % hint.order.length;
+        if (hint.i === 0) hint.order = hintOrder();
+      }
+      typeEl.textContent = hintText(hint.i).slice(0, hint.pos);
+      hint.t = setTimeout(hintTick, delay);
+    }
+    function hintStart() {
+      if (!v10 || hint.on || !hintCanRun()) return;
+      // הרשימה נקבעת פעם אחת, אחרי שתי הבדיקות (שמאים, פרויקטים)
+      if (!hint.list) { liveHints().then(function (l) { hint.list = l; hintStart(); }); return; }
+      if (!hint.list.length) return;
+      hint.on = true; hint.seen = true;
+      if (!hint.order.length) hint.order = hintOrder();
+      input.setAttribute('placeholder', '');
+      typeEl.hidden = false;
+      if (reduceMotion) { typeEl.textContent = hintText(0); typeEl.classList.add('is-static'); return; }
+      hint.phase = 'type'; hint.pos = 0;
+      hint.t = setTimeout(hintTick, 400);
+    }
+    function hintStop() {
+      if (!v10) return;
+      clearTimeout(hint.t); hint.t = 0; hint.on = false;
+      typeEl.hidden = true;
+      input.setAttribute('placeholder', 'כתבו לגבריאלה…');
+    }
+    if (v10) {
+      input.addEventListener('focus', hintStop);
+      input.addEventListener('input', hintStop);
+      input.addEventListener('blur', function () { setTimeout(hintStart, 600); });
+      document.addEventListener('visibilitychange', function () { if (document.hidden) hintStop(); else hintStart(); });
+      // לחיצה על השאלה ממלאת אותה בשדה
+      typeEl.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        var h = hint.list && hint.list[hint.order[reduceMotion ? 0 : hint.i]];
+        if (!h) return;
+        hintStop();
+        // הנוסח המדויק של GW_HINTS, בלי תוספת: גבריאלה מזהה כך שיחות שהתחילו משאלה לדוגמה
+        input.value = h.t;
+        syncFree();
+        input.focus();
+        // ‏hint_index: המקום ב-GW_HINTS (לא ברשימה המסוננת), כדי שהמספר יציב
+        if (window.shukTrack) window.shukTrack('gab_hint_click', { hint_index: GW_HINTS.indexOf(h) });
+      });
+    }
     free.addEventListener('submit', function (e) { e.preventDefault(); syncFree(); go.click(); });
+    /* ‏P0-4: טקסט חופשי שיוצא לוואטסאפ - האם הגולש/ת ראה/תה שאלה לדוגמה. בסיס לבדיקת 48
+       השעות של גבריאלה. נורה לפני שהקישור נפתח (לחיצה על "המשך בוואטסאפ" או Enter) */
+    go.addEventListener('click', function () {
+      if (!input.value.trim()) return;
+      if (window.shukTrack) window.shukTrack('gab_free_submit', { hint_seen: hint.seen ? 1 : 0, surface: surfaceName() });
+    });
 
     /* ---------- פתיחה וסגירה ---------- */
     var open = false;
-    function setOpen(on, why) {
+    var returnFocus = null;
+    function setOpen(on, why, source) {
       if (on === open) return;
       open = on;
       if (on) hideTip();
       root.classList.toggle('is-open', on);
+      if (on) setTimeout(hintStart, 300); else hintStop();
       bubble.setAttribute('aria-expanded', on ? 'true' : 'false');
-      bubble.setAttribute('aria-label', on ? 'סגירת החלונית של גבריאלה' : 'שיחה עם גבריאלה, העוזרת בוואטסאפ');
+      bubble.setAttribute('aria-label', on ? 'סגירת החלונית של גבריאלה' : BUBBLE_LABEL);
       if (on) {
         storageSet(AUTO_KEY, '1');
-        // shukTrack ישירות ולא עוטף: check_gtm_container.py מוצא אירועים לפי השם הזה
-        if (window.shukTrack) window.shukTrack('gab_widget_open', { trigger: why });
-        if (why === 'click') setTimeout(function () { var f = list.querySelector('a'); if (f) f.focus(); }, 60);
+        // shukTrack ישירות ולא עוטף: check_gtm_container.py מוצא אירועים לפי השם הזה.
+        // ‏source רק מהפתיחה החיצונית (‏GabWidget.open, ה-hero של v10) - בלעדיה האירוע כמו קודם
+        var params = { trigger: why };
+        if (source) params.source = source;
+        if (window.shukTrack) window.shukTrack('gab_widget_open', params);
+        if (why === 'click') setTimeout(function () { var f = list.querySelector('a,button.gw-choice'); if (f) f.focus({ preventScroll: true }); }, 60);
+        if (v10) requestAnimationFrame(scrollToLatest);
       }
       sync();
     }
-    bubble.addEventListener('click', function () { setOpen(!open, 'click'); });
-    tip.addEventListener('click', function () { setOpen(true, 'tip'); });
-    x.addEventListener('click', function () { setOpen(false); bubble.focus(); });
+    /* פתיחה מבחוץ: כרטיס גבריאלה ב-hero של v10 (‏assets/home.js). Escape וה-✕
+       מחזירים את הפוקוס למי שפתח. מחזיר false כשאין חלונית (העוזרת כבויה). */
+    window.GabWidget = {
+      /* קישור wa.me לגבריאלה עם תג המקור (‏taggedHello) - "שליחת הרשימה לגבריאלה" ב-/swipe */
+      link: function (text) { return waHref(text); },
+      open: function (source) {
+        returnFocus = document.activeElement;
+        setOpen(true, 'click', source || 'external');
+        return true;
+      }
+    };
+    function closeAndFocus() {
+      setOpen(false);
+      var back = returnFocus;
+      returnFocus = null;
+      // ‏preventScroll: סגירה לא מקפיצה את הדף אל מי שפתח (כרטיס ה-hero בראש הדף)
+      if (back && back.focus && document.contains(back) && back.offsetParent !== null) back.focus({ preventScroll: true });
+      else bubble.focus({ preventScroll: true });
+    }
+    bubble.addEventListener('click', function () { returnFocus = null; setOpen(!open, 'click'); });
+    tipGo.addEventListener('click', function () { returnFocus = null; setOpen(true, 'tip'); });
+    if (tipX) tipX.addEventListener('click', function () { hideTip(); bubble.focus(); });
+    x.addEventListener('click', closeAndFocus);
     document.addEventListener('keydown', function (e) {
-      if (open && e.key === 'Escape') { setOpen(false); bubble.focus(); }
+      if (open && e.key === 'Escape') closeAndFocus();
     });
     // מעבר לוואטסאפ סוגר את החלונית - בחזרה לדף היא לא מחכה פתוחה
     root.addEventListener('click', function (e) {
@@ -273,7 +769,10 @@
       root.classList.toggle('is-hidden', heroOn && !open);
       root.classList.toggle('is-away', !open && (avoidOn || typing));
     }
-    var heroCta = PAGE === 'home' && document.querySelector('#gabCtaWrap .gab-cta');
+    // ‏v10 (‏html.beta-hero): הכרטיס הישן מוסתר, ו-[data-gab-hero] הוא מה שעל המסך
+    var heroCta = PAGE === 'home' && (document.documentElement.classList.contains('beta-hero')
+      ? document.querySelector('[data-gab-hero]')
+      : document.querySelector('#gabCtaWrap .gab-cta'));
     if ('IntersectionObserver' in window) {
       if (heroCta) {
         heroOn = true;
@@ -310,6 +809,17 @@
       }
       return false;
     }
+    /* v10: הבועית לא יושבת על כרטיס נכס או על מחיר */
+    function overlapsCard(node) {
+      var r = node.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      var cards = document.querySelectorAll(CARDS);
+      for (var i = 0; i < cards.length; i++) {
+        var q = cards[i].getBoundingClientRect();
+        if (q.width && q.height && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) return true;
+      }
+      return false;
+    }
     var guardQueued = false;
     function guardContact() {
       if (guardQueued) return;
@@ -317,7 +827,7 @@
       requestAnimationFrame(function () {
         guardQueued = false;
         if (open && overlapsContact(panel)) setOpen(false);
-        if (tipOn && overlapsContact(tip)) hideTip();
+        if (tipOn && (overlapsContact(tip) || (v10 && overlapsCard(tip)))) hideTip();
       });
     }
     window.addEventListener('scroll', guardContact, { passive: true });
@@ -337,17 +847,25 @@
       storageSet(AUTO_KEY, '1');
       root.classList.add('is-tip');
       tipOn = true;
-      if (overlapsContact(tip)) { hideTip(); return; }
-      tipTimer = setTimeout(hideTip, TIP_MS);
+      if (overlapsContact(tip) || (v10 && overlapsCard(tip))) { hideTip(); return; }
+      // v10: נשארת עד ✕, לחיצה, או עד שהיא נוגעת בכרטיס
+      if (!v10) tipTimer = setTimeout(hideTip, TIP_MS);
+    }
+    /* v10: רק בדף תוצאות (דף הבית עם סינון בכתובת), אחרי 20 שניות, פעם בביקור */
+    function resultsPage() {
+      if (PAGE !== 'home') return false;
+      var q = new URLSearchParams(location.search);
+      return RESULTS_PARAMS.some(function (k) { return q.get(k); });
     }
     function maybeAuto() {
       if (!due || open || tipOn || storageGet(AUTO_KEY) || heroOn || avoidOn || typing) return;
+      if (v10 && (!resultsPage() || root.classList.contains('is-min'))) return;
       showTip();
     }
-    setTimeout(function () { due = true; maybeAuto(); }, AUTO_DELAY);
+    setTimeout(function () { due = true; maybeAuto(); }, v10 ? V10_TIP_DELAY : AUTO_DELAY);
     window.addEventListener('scroll', function () {
       var h = document.documentElement.scrollHeight - window.innerHeight;
-      if (!due && h > 0 && window.scrollY / h >= AUTO_SCROLL) { due = true; }
+      if (!v10 && !due && h > 0 && window.scrollY / h >= AUTO_SCROLL) { due = true; }
       maybeAuto();
     }, { passive: true });
 

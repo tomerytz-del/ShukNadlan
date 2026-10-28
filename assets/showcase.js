@@ -222,7 +222,7 @@
           ${a.photo_url ? `<img class="agent" src="${esc(a.photo_url)}" alt="${esc(a.name)}">` : ''}
           <div style="min-width:0">
             <div class="agent-name">${esc(a.name || '')}</div>
-            <div class="agent-sub">${esc(['מתווך/ת מוסמך/ת', a.license_number && 'רישיון ' + a.license_number, a.agency_name].filter(Boolean).join(' · '))}</div>
+            <div class="agent-sub">${esc(['יועץ נדל״ן', a.license_number && 'רישיון ' + a.license_number, a.agency_name].filter(Boolean).join(' · '))}</div>
           </div>
         </div>
         <h1>${esc(state.client_name)}, ${a.name ? 'בחרתי' : 'נבחרו'} בשבילך ${state.items.length === 1 ? 'נכס אחד' : esc(state.items.length) + ' נכסים'}</h1>

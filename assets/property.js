@@ -1,5 +1,9 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+/* לקוח אחד לכל הדף: כל createClient יוצר GoTrueClient משלו, ושמונה כאלה על אותו
+   אחסון הפיקו בקונסול "Multiple GoTrueClient instances" (P2) */
+let sbShared = null;
+function sbClient(){ return sbShared || (sbShared = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)); }
 const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
@@ -168,6 +172,8 @@ function agencyNameOf(p){ return (p && (p.agency_name || (p.agencies && p.agenci
 
 function thumbFallback(p){
   if (p && p.images && p.images[0]) return '';
+  // v10 (סבב 4 חלק 3): אווטאר, הסבר וקישור "בקשו תמונות מהמפרסם" - assets/no-photo.js
+  if (window.NoPhoto && NoPhoto.on()) return NoPhoto.html(p, {}, 'card');
   const name = agencyNameOf(p);
   const logo = agencyLogoOf(p) || (name ? '' : SITE_LOGO);
   const mark = logo
@@ -207,7 +213,7 @@ function logPropertyView(propertyId){
       sessionId = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       sessionStorage.setItem('shuknadlan_session_id', sessionId);
     }
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     sb.from('property_views').insert({ property_id: propertyId, visitor_session_id: sessionId })
       .then(({ error }) => { if (error) console.warn('view logging failed:', error); });
   } catch(e){ console.warn('view logging failed:', e); }
@@ -242,10 +248,10 @@ async function loadProperty(){
   }
   try{
     if (!window.supabase) throw new Error('supabase-js לא נטען');
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url, colors), neighborhoods(name)')
+      .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -257,12 +263,15 @@ async function loadProperty(){
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
       const { data: agentRow } = await sb.from('agency_members_public')
-        .select('display_name, slug, phone_e164, photo_url, photo_position, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
+        .select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
     currentProperty = data;
+    if (window.NoPhoto && NoPhoto.on()) NoPhoto.useClient(sb);
     renderProperty(data);
+    // ‏#contact&ask=photos - "בקשו תמונות" מאריח של נכס בלי תמונות (v10): הטופס, עם ההודעה המלאה
+    if (window.NoPhoto && NoPhoto.on() && /ask=photos/.test(location.hash)) openInquiry(true);
     logPropertyView(id);
     /* ‏property_views במסד סופר צפיות לצורך הדוחות של המשרד; זה אותו רגע,
        ל-GA4, עם הפילוח שהמסד לא נותן — מאיזה קמפיין או חיפוש הגיעה הצפייה. */
@@ -519,6 +528,19 @@ function renderGallery(p){
       // ה-src נשמר בצד. הוא נכנס לאלמנט רק בלחיצה או אחרי הטעינה, ב-setupHeroSound.
       // הפוסטר הוא <img> ולא poster של הווידאו, כדי שהתמונה תהיה מועמדת ה-LCP.
       attachHeroVideo(main, videoSrc, poster);
+      grid.appendChild(main);
+    } else if (!galleryImages.length && window.NoPhoto && NoPhoto.on()){
+      // v10 (סבב 4 חלק 3): התא הראשי מסביר שאין תמונות ומציע לבקש אותן מהמפרסם
+      main.classList.add('bento-empty', 'np-host');
+      const facts = [p.rooms ? p.rooms + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
+      const where = [p.neighborhoods?.name || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
+      main.innerHTML = NoPhoto.html(p, { agent: p.agency_members || null, agency: p.agencies || null, private: !p.agent_id && !agencyNameOf(p) }, 'hero', { facts, where, title: p.title || '' });
+      main.addEventListener('click', (e)=>{
+        const ask = e.target.closest('[data-np-cta]');
+        if (!ask) return;
+        if (window.shukTrack) shukTrack('photo_request', { property_id: p.id, level: ask.dataset.level || 'c', surface: 'hero' });
+        openInquiry(true);
+      });
       grid.appendChild(main);
     } else if (!galleryImages.length){
       main.classList.add('bento-empty');
@@ -898,7 +920,7 @@ function sanitizeTourScenes(raw){
 async function loadVirtualTour(p){
   if (!window.supabase) return;
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb
       .from('property_virtual_tours')
       .select('initial_scene, scenes')
@@ -1213,7 +1235,7 @@ function propMapTiles(map){
 
 async function propertyMapEnabled(id){
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb.rpc('property_map_enabled', { p_property_id: id });
     if (error) throw error;
     return data === true;
@@ -1318,7 +1340,7 @@ function isLandProperty(p){
 async function loadPlanningInfo(p){
   if (!window.supabase) return;
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     const { data, error } = await sb.rpc('property_planning_public', { p_property_id: p.id });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
@@ -1425,7 +1447,7 @@ const VIZ_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-visualize';
 
 const VIZ_STYLES = [
   { key:'modern_clean',        label:'מודרני נקי',   tag:'לבן, אפור בהיר ואלון' },
-  { key:'mediterranean_white', label:'ים-תיכוני לבן', tag:'טיח, אבן טבעית וצמחייה' },
+  { key:'mediterranean_white', label:'ים תיכוני לבן', tag:'טיח, אבן טבעית וצמחייה' },
   { key:'warm_scandi',         label:'סקנדינבי חמים', tag:'עץ אלון, בז\' רך ו-Japandi' },
   { key:'modern_luxury',       label:'יוקרה מודרנית', tag:'שיש, פליז ותאורה דרמטית' },
 ];
@@ -1516,11 +1538,13 @@ async function loadVisualizations(p){
   if (!(Array.isArray(p.images) && p.images.some(Boolean))) return;
   const section = document.getElementById('vizSection');
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
 
     // הזכאות נשאלת מה-DB ולא נגזרת בצד הלקוח, כדי שתהיה הגדרה אחת בלבד
     // ל"מי זכאי" — אותה פונקציה שה-Edge Function נשען עליה.
-    const { data: enabled } = await sb.rpc('property_visualizations_enabled', { p_property_id: p.id });
+    // ‏P1-K1: אותו עזר של ההחלקה (‏assets/viz-eligibility.js) - והכלל עצמו רק ב-RPC
+    const enabled = window.canVisualize ? await window.canVisualize(p, sb)
+      : (await sb.rpc('property_visualizations_enabled', { p_property_id: p.id })).data;
     if (!enabled) return;
 
     vizState.propertyId = p.id;
@@ -1568,12 +1592,25 @@ async function loadVisualizations(p){
     // ובנכס מסחרי שם ההצעה עצמה ("איך ייראה כאן העסק שלך") היא המוצר.
     section.hidden = false;
     revealVizJumpButton();
+    // ‏#viz: התגית "הדמיית AI" בדף הבית (v10) - ישר לבלוק ההדמיה
+    if (location.hash === '#viz') setTimeout(() => (document.getElementById('aiShowcase') || section).scrollIntoView({ block:'start' }), 300);
 
     if (vizState.isPrivate){
       // פותחים על הסגנון שכבר קיים כדי שהמבקר/ת יראה תמונה מיד; אם אין סט
       // בסיס בכלל, נופלים לסגנון הראשון וכל הארבעה זמינים לפי דרישה.
       const first = vizState.byStyle.keys().next();
       vizState.current = first.done ? VIZ_STYLES[0].key : first.value;
+      /* ‏?viz_style=<key> (מההזמנה ב-/swipe): נפתחים על הסגנון שביקשו, גם בלי הדמיה בו -
+         ואז "עדיין אין הדמיה בסגנון X" והכפתור ברצועה. בלי יצירה אוטומטית. מפתח לא מוכר - מתעלמים.
+         הפרמטר יורד מהכתובת, כדי שקישור משותף יישאר נקי */
+      const want = new URLSearchParams(location.search).get('viz_style');
+      if (want && VIZ_STYLES.some(s => s.key === want)){
+        vizState.current = want;
+        if (window.shukTrack) shukTrack('viz_deeplink_land', { style: want, source: 'swipe' });
+      }
+      if (want){
+        try { const u = new URL(location.href); u.searchParams.delete('viz_style'); history.replaceState(history.state, '', u); } catch(e){}
+      }
     } else {
       // במסחרי ה"סגנונות" הם העסקים שכבר הודמו בנכס, והתיבה נפתחת על
       // האחרון שבהם. הבלוק נפתח מיד ולא אחרי לחיצה: בלעדיו הכפתור שברצועה
@@ -2117,7 +2154,7 @@ async function requestVisualization(){
 
     showToast(vizState.isPrivate
       ? 'ההדמיה מוכנה'
-      : 'ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
+      : 'ההדמיה מוכנה. יועץ הנדל״ן יחזור אליכם בקרוב');
   } catch(e){
     // המצב בלבד — ‎finally‎ שמתחת מרנדר, ושם הפסקה נשתלת מעל הכפתור ונכתבת.
     vizState.error = e.message || 'שגיאה ביצירת ההדמיה';
@@ -2180,7 +2217,7 @@ function mergeVizResults(rows){
 /* ההדמיה רצה ברקע ב-Edge Function ולכן המעקב הוא polling על ה-RPC.
    ה-job_id הוא כרטיס הכניסה לתוצאה — הוא נמסר רק למי שביקש/ה. */
 async function pollVisualizationJob(jobId, pendingTargets){
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sb = sbClient();
   const DEADLINE = Date.now() + 180000;
   let remaining = pendingTargets.slice();
 
@@ -2259,7 +2296,7 @@ function similarityScore(p, c){
 async function loadSimilarProperties(p){
   if (!window.supabase) return [];
   try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = sbClient();
     // הלוגו של המשרד נטען יחד עם הנכס כדי שאריח בלי תמונות יציג את מיתוגו
     const base = () => {
       let q = sb.from('properties').select('*, agencies(name, logo_url)').eq('status', 'active').neq('id', p.id);
@@ -2308,7 +2345,9 @@ function renderSimilarProperties(list){
   list.forEach((sp, i)=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
+    // ‏A-SEO-2: קישור אמיתי שנמתח על האריח (‏.pc-link, ‏assets/prop-shelf.css) - לא ניווט ב-JS
     card.innerHTML = `
+      <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}" aria-label="${escapeHtml(sp.title || sp.property_type || 'נכס')}"></a>
       <div class="thumb" style="${thumbStyle(sp, i)}">
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}
@@ -2320,7 +2359,6 @@ function renderSimilarProperties(list){
         ${PropertyCard.whereHtml(sp)}
         ${PropertyCard.factsHtml(sp)}
       </div>`;
-    card.addEventListener('click', ()=> window.location.href = '/property?id=' + sp.id);
     scroll.appendChild(card);
   });
   section.hidden = false;
@@ -2502,6 +2540,19 @@ function setGabWidgetContext(p){
   window.dispatchEvent(new Event('gabwidget:context'));
 }
 
+/* "בקשו תמונות מהמפרסם" (v10, סבב 4 חלק 3): הטופס הקיים, עם ההודעה המלאה והמקור
+   photo_request. שום דבר לא נשלח בלחיצה - שם, טלפון ושליחה נשארים לגולש/ת */
+let inquirySource = '';
+function openInquiry(askPhotos){
+  const form = document.getElementById('inquiryForm');
+  if (!form) return;
+  if (askPhotos && window.NoPhoto && currentProperty){
+    document.getElementById('inqMessage').value = NoPhoto.STR.msg(currentProperty.title || 'הנכס');
+    inquirySource = 'photo_request';
+  }
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(()=>document.getElementById('inqName').focus({ preventScroll: true }), 350);
+}
 function prefillInquiryMessage(p){
   if (!p.listing_number) return;
   const box = document.getElementById('inqMessage');
@@ -2723,11 +2774,22 @@ function renderProperty(p){
   const price = priceParts(p);
   document.getElementById('heroPriceNum').innerHTML =
     escapeHtml(price.num) + (price.suffix ? `<span class="suffix">${escapeHtml(price.suffix)}</span>` : '');
+  // ‏price_per_sqm מתעלמת מ-price_unit (ב-13 מסחריים יצא 0-2 ₪): כשהמחיר כבר למ״ר - הוא עצמו (P1-N, ד-9)
+  const ppsqm = p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
   document.getElementById('heroPriceSub').textContent =
-    p.price_per_sqm ? Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
+    ppsqm ? ppsqm.toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
   document.getElementById('heroPrice').hidden = false;
 
   document.getElementById('propTitle').textContent = publicTitle(p);
+  if (p.listing_number){
+    document.getElementById('listingNoN').textContent = p.listing_number;
+    document.getElementById('listingNo').hidden = false;
+    document.getElementById('listingCopy').onclick = async (e) => {
+      try { await navigator.clipboard.writeText(String(p.listing_number)); e.target.textContent = 'הועתק'; }
+      catch(_){ e.target.textContent = String(p.listing_number); }
+      setTimeout(() => { e.target.textContent = 'העתקה'; }, 2000);
+    };
+  }
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
@@ -2791,6 +2853,17 @@ function renderProperty(p){
    כשיש מספר רישיון במסד — תג אמון בלי כיסוי גרוע מהיעדר תג.               */
 function renderAgentCard(p){
   const agent = p.agency_members;
+  /* ‏P1-V (v10): הכרטיס המשותף (‏assets/agent-card.js) במקום ראש הכרטיס, בלי כפתור ובלי
+     וואטסאפ משלו - הטופס ודרכי הקשר שמתחתיו נשארים (§C.4a, בלי כפילות) */
+  if (agent && window.AgentCard && document.documentElement.classList.contains('beta-hero')){
+    const top = document.querySelector('.agent-top');
+    const box = document.createElement('div');
+    box.className = 'agent-agc';
+    // ‏N1: בלי "✓ רישיון מאומת" - אין עדיין אימות (שער הרישיון, ד-1); המספר מוצג כעובדה, כמו קודם
+    box.innerHTML = AgentCard.html(agent, { agency: p.agencies?.name || '', actions: false, showLicense: true });
+    top.hidden = true;
+    top.after(box);
+  }
   const name = agent?.display_name || p.agencies?.name || 'צוות שוק נדל״ן';
   document.getElementById('agentCardName').textContent = name;
   document.getElementById('agentCardAgency').textContent = p.agencies?.name || '';
@@ -3133,15 +3206,16 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
         name: document.getElementById('inqName').value,
         phone: document.getElementById('inqPhone').value,
         message: document.getElementById('inqMessage').value || null,
+        ...(inquirySource ? { source: inquirySource } : {}),
       }),
     });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
     feedback.style.color = 'var(--teal)';
-    feedback.textContent = 'הפנייה נשלחה! המתווך יחזור אליכם בקרוב';
+    feedback.textContent = 'הפנייה נשלחה! יועץ הנדל״ן יחזור אליכם בקרוב';
     /* רק אחרי שהשרת אישר. ליד שנכשל בשליחה אינו ליד. */
     if (window.shukTrack) shukTrack('generate_lead', {
-      form_id: 'property_inquiry',
+      form_id: inquirySource === 'photo_request' ? 'photo_request' : 'property_inquiry',
       item_name: currentProperty.title || '',
       value: Number(currentProperty.price) || 0,
       currency: 'ILS',
@@ -3153,6 +3227,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
       currentProperty.id
     );
     document.getElementById('inquiryForm').reset();
+    inquirySource = '';
     // reset מחזיר את השדות לערך שב-HTML (ריק) — ההודעה המוכנה והפרטים
     // השמורים נכתבים שוב
     prefillInquiryMessage(currentProperty);
