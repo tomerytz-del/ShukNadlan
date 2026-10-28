@@ -93,9 +93,11 @@ import {
   publishErrorText,
   publishStoreBlocked,
   publishWritesNow,
+  destinationMenuGuidance,
   destinationReply,
   destinationStatusPatch,
   parsePublishDestination,
+  publishChannelsToStore,
   publishDestinationList,
   socialEnqueuePlan,
   unpublishedAfterUnconfirmedPublish,
@@ -2632,7 +2634,8 @@ async function askPublishConfirm(
     }
     return { ok: false, error: PUBLISH_FAILED };
   }
-  const list = publishDestinationList(id, propertyId);
+  const socialOn = await gabrielaSocialFlagOn(ctx.supabase);
+  const list = publishDestinationList(id, propertyId, socialOn);
   if (!list) return { ok: false, error: PUBLISH_FAILED };
   if (!onSite) await touchPublishAsk(ctx.supabase, propertyId, ctx.agent.id);
   const label = title.trim() ? `"${title.trim().slice(0, 80)}"` : "הנכס";
@@ -2645,13 +2648,14 @@ async function askPublishConfirm(
     section: list.section,
     rows: list.rows,
   });
+  const menu = destinationMenuGuidance(socialOn);
   return {
     ok: true,
     needs_confirmation: true,
     guidance: onSite
       ? "יצאה רשימת יעד לנכס שכבר באתר. אל תשני את הסטטוס בעצמך. בלי לחיצה הוא נשאר באתר כמו שהוא."
       : "יצאה רשימת יעד לנכס הזה. אל תאמרי שהוא פורסם. " +
-        "הבחירה היא אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
+        menu +
         "בלי לחיצה הנכס נשאר unpublished ולא נמחק, ואין פרסום אוטומטי. " +
         "אחרי 24 שעות, בתוך שעות השליחה, יוצאת תזכורת אחת. התזכורת השבועית נשארת.",
   };
@@ -7146,10 +7150,12 @@ async function runPendingDestination(
     return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
   }
 
-  const nextStatus = destinationStatusPatch(choice.channels, String(prop.status || ""));
+  const socialOn = await gabrielaSocialFlagOn(supabase);
+  const channels = publishChannelsToStore(choice.channels, socialOn);
+  const nextStatus = destinationStatusPatch(channels, String(prop.status || ""));
   const patch: Record<string, unknown> = {
-    publish_channels: choice.channels,
-    share_with_brokers: choice.channels.includes("brokers"),
+    publish_channels: channels,
+    share_with_brokers: channels.includes("brokers"),
     updated_at: nowIso,
   };
   if (nextStatus) patch.status = nextStatus;
@@ -7171,9 +7177,9 @@ async function runPendingDestination(
   await clearPublishAsk(supabase, propertyId);
   const status = String(updated.status || "");
   const licenseHeld = !!(updated.license_hold_at) || (nextStatus === "active" && status !== "active");
-  const social = socialEnqueuePlan(choice.channels, await gabrielaSocialFlagOn(supabase), status === "active");
+  const social = socialEnqueuePlan(channels, socialOn, status === "active");
   let brokersSent = false;
-  if (choice.channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
+  if (channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
     const { data, error: collabErr } = await supabase.rpc("unpublished_collab_request", {
       p_property_id: propertyId,
       p_agent_id: agent.id,
@@ -7186,7 +7192,7 @@ async function runPendingDestination(
     }
   }
   const text = destinationReply({
-    channels: choice.channels,
+    channels,
     status,
     licenseHeld,
     social,
@@ -8628,7 +8634,7 @@ const SYSTEM_STATIC: string = (() => {
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
     "- create_property: אם חזר published=true הנכס באוויר. אם חזר needs_confirmation, " +
-      "בוואטסאפ יוצאת רשימת יעד אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
+      "בוואטסאפ יוצאת רשימת יעד אחת, רק היעדים שאפשר לבצע עכשיו. אל תמני יעד שלא יצא ברשימה. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
       "בלי לחיצה הוא נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
       "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר. " +

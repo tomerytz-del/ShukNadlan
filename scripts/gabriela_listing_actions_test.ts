@@ -48,8 +48,10 @@ import {
   DEST_LIST_BUTTON,
   DEST_LIST_SECTION,
   SOCIAL_QUEUE_ROWS_PER_PROPERTY,
+  destinationMenuGuidance,
   publishDestinationList,
   parsePublishDestination,
+  publishChannelsToStore,
   destinationSameRequest,
   destinationStatusPatch,
   socialEnqueuePlan,
@@ -378,7 +380,8 @@ check("מאגר על טיוטה לא משנה סטטוס", destinationStatusPatc
 check("נמכר לא זז", destinationStatusPatch(["site"], "sold") === null
   && destinationStatusPatch(["save"], "archived") === null);
 check("בלי רשתות אין תור", socialEnqueuePlan(["site"], true, true) === "skip");
-check("דגל כבוי רק רושם", socialEnqueuePlan(["site", "social"], false, true) === "record");
+check("דגל כבוי לא מבטיח רשתות", socialEnqueuePlan(["site", "social"], false, true) === "skip"
+  && socialEnqueuePlan(["site", "social", "brokers"], false, false) === "skip");
 check("נכס שלא באוויר רק רושם", socialEnqueuePlan(["social"], true, false) === "record");
 check("דגל דלוק ונכס באוויר נכנס לתור", socialEnqueuePlan(["site", "social", "brokers"], true, true) === "queue");
 check("לכל נכס שתי שורות תור", SOCIAL_QUEUE_ROWS_PER_PROPERTY === 2);
@@ -411,6 +414,53 @@ check("תשובת תור בלי מקף ארוך ובלי שם", !queued.includes
   && queued.includes("בלי מספר טלפון"));
 check("שת״פ שנרשם אומר תקרה ובלי טלפון", recorded.includes("תקרה") && recorded.includes("בלי מספר טלפון"));
 check("רק מאגר לא מפרסם", saved.includes("נשמר במאגר") && saved.includes("לא פורסם"));
+const offList = publishDestinationList(pubId, propertyUuid, false);
+const offRows = offList?.rows || [];
+const offText = offRows.map((row) => row.title + " " + row.description).join("\n");
+check("דגל רשתות כבוי: בלי פייסבוק ובלי אינסטגרם", !!offList
+  && offRows.length === 4
+  && offRows.map((row) => parsePublishDestination(row.id)?.code).join(",") === "a,ab,m,e"
+  && !offText.includes("פייסבוק")
+  && !offText.includes("אינסטגרם")
+  && !offRows.some((row) => (parsePublishDestination(row.id)?.channels || []).includes("social")));
+check("דגל רשתות דלוק: הרשימה המלאה", destRows.length === 6
+  && destRows.some((row) => row.title === "אתר + רשתות")
+  && destRows.some((row) => row.description.includes("פייסבוק") && row.description.includes("אינסטגרם")));
+check("הנחיה בלי רשתות כשהדגל כבוי", !destinationMenuGuidance(false).includes("רשתות")
+  && !destinationMenuGuidance(false).includes("פייסבוק")
+  && destinationMenuGuidance(false).includes("רק אתר")
+  && destinationMenuGuidance(false).includes("מתווכים"));
+check("הנחיה עם רשתות כשהדגל דלוק", destinationMenuGuidance(true).includes("אתר ורשתות"));
+const offReply = destinationReply({
+  channels: ["site", "social", "brokers"],
+  status: "active",
+  licenseHeld: false,
+  social: socialEnqueuePlan(["site", "social", "brokers"], false, true),
+  brokersSent: false,
+});
+const staleAs = parsePublishDestination(`dst:as:${pubId}:${propertyUuid}`);
+const staleAsb = parsePublishDestination(`dst:asb:${pubId}:${propertyUuid}`);
+const storedAs = staleAs ? publishChannelsToStore(staleAs.channels, false) : [];
+const storedAsb = staleAsb ? publishChannelsToStore(staleAsb.channels, false) : [];
+check("לחיצת dst:as ישנה בלי דגל לא שומרת social", storedAs.join(",") === "site"
+  && !storedAs.includes("social"));
+check("לחיצת dst:asb ישנה בלי דגל היא אתר ומתווכים", storedAsb.join(",") === "site,brokers"
+  && !storedAsb.includes("social"));
+check("דגל דלוק שומר את social מהלחיצה", !!staleAs && !!staleAsb
+  && publishChannelsToStore(staleAs.channels, true).includes("social")
+  && publishChannelsToStore(staleAsb.channels, true).includes("social"));
+check("תשובה לא אומרת שהרשתות נרשמו כשהדגל כבוי", !offReply.includes("הרשתות נרשמו")
+  && !offReply.includes("פייסבוק")
+  && !offReply.includes("אינסטגרם")
+  && offReply.includes("הנכס באתר"));
+const onRecorded = destinationReply({
+  channels: ["site", "social"],
+  status: "unpublished",
+  licenseHeld: false,
+  social: socialEnqueuePlan(["site", "social"], true, false),
+  brokersSent: false,
+});
+check("דגל דלוק ונכס לא באוויר עדיין רושם רשתות", onRecorded.includes("הרשתות נרשמו"));
 const flagSql = readFileSync(new URL("../supabase/migrations/20271029180000_gabriela_publish_confirm.sql", import.meta.url), "utf8");
 check("הדגל נולד כבוי", flagSql.includes("('gabriela_ask_before_publish', 0,") && !flagSql.includes("('gabriela_ask_before_publish', 1,"));
 const nudgeSql = readFileSync(new URL("../supabase/migrations/20271029186000_gabriela_publish_ask_nudge.sql", import.meta.url), "utf8");
