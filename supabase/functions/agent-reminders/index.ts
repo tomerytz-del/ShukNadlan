@@ -390,12 +390,15 @@ Deno.serve(async (req: Request) => {
   const sb = createClient(supabaseUrl, serviceRoleKey);
   await enqueueUnpublishedNudges(sb);
 
-  // תזכורת אחת, 24 שעות אחרי שגבריאלה שאלה ולא נענתה. רק מחוץ לשעות השקט.
-  // הפונקציה לא מפרסמת. חסרה (המיגרציה עוד לא עלתה) - התזכורות הרגילות ממשיכות.
-  const nudge = await sb.rpc("gabriela_publish_ask_nudge_claim", { p_limit: 25 });
-  if (nudge.error) {
-    const code = String(nudge.error.code || "");
-    if (code !== "42883" && code !== "PGRST202") console.error("publish ask nudge failed", code);
+  // תזכורת 24 השעות רצה רק כששאלת הפרסום דלוקה. הדגל נולד 0,
+  // ואז אין שורות ב-gabriela_publish_asks ואין מה לשלוח.
+  const askFlag = await sb.from("pricing_config").select("value").eq("key", "gabriela_ask_before_publish").maybeSingle();
+  if (!askFlag.error && Number(askFlag.data?.value) === 1) {
+    const nudge = await sb.rpc("gabriela_publish_ask_nudge_claim", { p_limit: 25 });
+    if (nudge.error) {
+      const code = String(nudge.error.code || "");
+      if (code !== "42883" && code !== "PGRST202") console.error("publish ask nudge failed", code);
+    }
   }
 
   // ‏claim רושם/ת את שורות היומן **לפני** שאנחנו שולחים. נפילה מכאן והלאה

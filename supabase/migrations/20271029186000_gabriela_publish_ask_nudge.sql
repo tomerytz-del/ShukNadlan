@@ -105,7 +105,8 @@ begin
     returning a.property_id, a.agent_id, due.title
   ),
   ins as (
-    insert into public.notifications (agent_id, type, title, body, related_property_id)
+    -- suppress_push = false במפורש: זו תזכורת חיה, והיא אמורה לצאת לוואטסאפ.
+    insert into public.notifications (agent_id, type, title, body, related_property_id, suppress_push)
     select
       m.agent_id,
       'publish_ask_nudge',
@@ -116,7 +117,8 @@ begin
         else 'הנכס "' || left(btrim(m.title), 80) ||
              '" עדיין לא עלה לאתר. אם תרצו לפרסם אותו, אפשר לבחור יעד בשיחה או מהכרטיס. בלי בחירה הוא נשאר במאגר.'
       end,
-      m.property_id
+      m.property_id,
+      false
       from marked m
     returning 1
   )
