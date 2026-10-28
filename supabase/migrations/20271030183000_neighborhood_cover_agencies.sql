@@ -109,6 +109,13 @@ on conflict (id) do update
 
 drop policy if exists "hood cover public read" on storage.objects;
 
+-- remove() צריך גם SELECT. בלי זה המחיקה שקטה, והקובץ נשאר בדלי.
+-- "mfa required for storage" היא RESTRICTIVE, ולכן אין מדיניות אחרת שפותחת את הדלי.
+drop policy if exists "hood cover admin select" on storage.objects;
+create policy "hood cover admin select"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'neighborhood-covers' and public.current_is_platform_admin());
+
 drop policy if exists "hood cover admin insert" on storage.objects;
 create policy "hood cover admin insert"
   on storage.objects for insert to authenticated
@@ -265,6 +272,7 @@ as $page$
   )
   select case when not exists (select 1 from h) then null else jsonb_build_object(
     'id', (select id from h),
+    'city_id', (select city_id from h),
     'name', (select name from h),
     'slug', (select slug from h),
     'city', (select city from h),
@@ -284,14 +292,14 @@ as $page$
     'sale_max', (select max(p.price) from p where p.deal_type = 'sale' and p.price > 0),
     'rent_min', (select min(p.price) from p where p.deal_type = 'rent' and p.price > 0),
     'rent_max', (select max(p.price) from p where p.deal_type = 'rent' and p.price > 0),
-    'props', coalesce((select jsonb_agg(to_jsonb(x) order by x.updated_at desc) from (
+    'props', coalesce((select jsonb_agg(to_jsonb(x) order by x.updated_at desc nulls last, x.id desc) from (
                select p.id, p.title, p.property_type, p.deal_type, p.price, p.price_unit,
                       p.rooms, p.size_sqm, p.built_size_sqm, p.image, p.updated_at, p.created_at, p.vis
-                 from p order by p.updated_at desc nulls last limit 12) x), '[]'::jsonb),
-    'listings', coalesce((select jsonb_agg(to_jsonb(x) order by x.updated_at desc) from (
+                 from p order by p.updated_at desc nulls last, p.id desc limit 12) x), '[]'::jsonb),
+    'listings', coalesce((select jsonb_agg(to_jsonb(x) order by x.updated_at desc nulls last, x.id desc) from (
                select p.id, p.title, p.property_type, p.deal_type, p.price, p.price_unit,
                       p.rooms, p.size_sqm, p.built_size_sqm, p.image, p.updated_at, p.created_at, p.vis
-                 from p order by p.updated_at desc nulls last limit 240) x), '[]'::jsonb),
+                 from p order by p.updated_at desc nulls last, p.id desc limit 240) x), '[]'::jsonb),
     'agencies', coalesce((
       select jsonb_agg(jsonb_build_object(
                'name', s.name, 'slug', s.slug, 'logo', s.logo, 'n', s.n

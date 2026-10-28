@@ -94,7 +94,7 @@
       if (ctrl.signal.aborted || acc.length >= total || acc.length >= LIST_CAP) { finish(acc); return; }
       var q = SUPABASE_URL + '/rest/v1/properties?select=id,title,property_type,deal_type,price,price_unit,rooms,size_sqm,built_size_sqm,image:images->0,updated_at,created_at'
         + '&neighborhood_id=eq.' + encodeURIComponent(id)
-        + '&status=eq.active&order=updated_at.desc.nullslast&limit=80&offset=' + from;
+        + '&status=eq.active&order=updated_at.desc.nullslast,id.desc&limit=80&offset=' + from;
       fetch(q, { headers: headers(), signal: ctrl.signal }).then(function (r) {
         if (!r.ok) throw new Error('http');
         return r.json();
@@ -119,12 +119,30 @@
       page(id, have.length, have.slice(), seen);
     }
     if (data.id) { start(data.id); return; }
-    if (!data.city || !data.slug) return;
-    var nq = SUPABASE_URL + '/rest/v1/neighborhoods?select=id&limit=1&order=created_at.asc'
-      + '&slug=eq.' + encodeURIComponent(data.slug)
-      + '&city=eq.' + encodeURIComponent(data.city);
-    fetch(nq, { headers: headers(), signal: ctrl.signal }).then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (found) { start(found && found[0] && found[0].id); })
+    if (!data.slug) return;
+    function hoodQuery(extra) {
+      var nq = SUPABASE_URL + '/rest/v1/neighborhoods?select=id&limit=1&order=created_at.asc,id.asc'
+        + '&slug=eq.' + encodeURIComponent(data.slug) + extra;
+      return fetch(nq, { headers: headers(), signal: ctrl.signal }).then(function (r) { return r.ok ? r.json() : []; });
+    }
+    function byCityId(cityId) {
+      if (!cityId) return byCityName();
+      return hoodQuery('&city_id=eq.' + encodeURIComponent(cityId));
+    }
+    /* cities אינה קריאה ל-anon. בלי city_id נשארת התאמה על שם העיר. */
+    function byCityName() {
+      if (!data.city) return Promise.resolve([]);
+      return hoodQuery('&city=eq.' + encodeURIComponent(data.city));
+    }
+    var lookup = data.city_id
+      ? byCityId(data.city_id)
+      : (data.city_slug
+        ? fetch(SUPABASE_URL + '/rest/v1/cities?select=id&limit=1&slug=eq.' + encodeURIComponent(data.city_slug),
+            { headers: headers(), signal: ctrl.signal })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (cities) { return byCityId(cities && cities[0] && cities[0].id); })
+        : byCityName());
+    lookup.then(function (found) { start(found && found[0] && found[0].id); })
       .catch(function (err) { if (err && err.name === 'AbortError') return; });
   }
 

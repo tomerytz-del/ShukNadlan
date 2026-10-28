@@ -564,7 +564,9 @@
       listings: rows.map(publicListing),
       total: Number(d.props_active) || rows.length,
       id: d.id || null,
+      city_id: d.city_id || null,
       city: d.city || '',
+      city_slug: d.city_slug || '',
       slug: d.slug || '',
     }).replace(/&/g, '\\u0026').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
     return '<textarea id="hoodData" hidden readonly>' + json + '</textarea>';

@@ -263,6 +263,22 @@ function hoodCoverForm(){
   document.getElementById('hoodCoverClear').addEventListener('click', () => hoodCoverSave(true));
 }
 
+/* remove() בלי SELECT על הדלי מחזיר הצלחה ריקה והקובץ נשאר. כשל לא מבטל שמירה. */
+async function hoodCoverRemove(path){
+  if (!path) return true;
+  try {
+    const res = await sb.storage.from('neighborhood-covers').remove([path]);
+    if (!res || res.error || !res.data || !res.data.length){
+      console.error('hood cover remove failed', path, res && res.error);
+      return false;
+    }
+    return true;
+  } catch (err){
+    console.error('hood cover remove failed', path, err);
+    return false;
+  }
+}
+
 async function hoodCoverSave(clear){
   const pick = document.getElementById('hoodCoverPick');
   const row = hoodCoverRows.find(r => r.id === pick.value);
@@ -304,12 +320,18 @@ async function hoodCoverSave(clear){
       },
     });
     if (error){
-      if (path && path !== currentPath) sb.storage.from('neighborhood-covers').remove([path]).catch(() => {});
+      if (path && path !== currentPath) {
+        const rolled = await hoodCoverRemove(path);
+        if (!rolled) console.error('hood cover rollback left', path);
+      }
       throw error;
     }
     const previous = currentPath;
-    if (previous && previous !== path) sb.storage.from('neighborhood-covers').remove([previous]).catch(() => {});
-    showToast(clear ? 'תמונת השער הוסרה' : 'תמונת השער נשמרה');
+    let stale = false;
+    if (previous && previous !== path) stale = !(await hoodCoverRemove(previous));
+    showToast(stale
+      ? 'השער נשמר. הקובץ הקודם לא נמחק מהאחסון.'
+      : (clear ? 'תמונת השער הוסרה' : 'תמונת השער נשמרה'));
     const fresh = await sb.from('neighborhoods').select('id,name,city,cover_path,cover_alt,cover_credit,poi').eq('id', row.id).maybeSingle();
     if (fresh.data){
       const at = hoodCoverRows.findIndex(r => r.id === row.id);
