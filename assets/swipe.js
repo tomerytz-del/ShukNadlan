@@ -274,7 +274,9 @@
   /* הזכאות נשאלת מהמסד (‏property_visualizations_enabled), כמו בדף הנכס */
   function vizEligible(p) {
     if (vizEligP.has(p.id)) return vizEligP.get(p.id);
-    var pr = !sb || isLand(p) || !photos(p).length ? Promise.resolve(false)
+    // ‏P1-K1: עזר אחד (‏assets/viz-eligibility.js) - הכלל עצמו רק ב-RPC, לא כאן
+    var pr = window.canVisualize ? window.canVisualize(Object.assign({}, p, { images: photos(p) }), sb)
+      : !sb || isLand(p) || !photos(p).length ? Promise.resolve(false)
       : sb.rpc('property_visualizations_enabled', { p_property_id: p.id }).then(function (r) { return !!(r && !r.error && r.data); }, function () { return false; });
     pr = pr.then(function (ok) { vizElig.set(p.id, ok); });
     vizEligP.set(p.id, pr);
@@ -1845,12 +1847,16 @@
     return out;
   }
   function studioStage() {
-    var p = st.p, r = vizFind(p, st.target, st.key), src = (r && r.before) || photos(p)[0];
+    /* ‏P1-K1: בלי הדמיה - לא התמונה הראשונה (לפעמים צילום חוץ מתחת ל"חלל העסק"), אלא
+       המקור שהצינור היה בוחר לאותה מטרה, כשהוא ידוע מהדמיה אחרת; אחרת בלי תמונת רקע */
+    var p = st.p, r = vizFind(p, st.target, st.key);
+    var same = (vizMap.get(p.id) || []).filter(function (v) { return v.target === st.target && v.before; })[0];
+    var src = (r && r.before) || (same && same.before) || '';
     if (st.busy) {
       var sec = (Date.now() - st.t0) / 1000;
       var step = sec < 12 ? 'מזהים את החדר בתמונה…' : sec < 45 ? 'מעצבים: ' + studioStyleLabel() + '…' : 'מלטשים פרטים אחרונים…';
       var pct = st.total ? Math.min(92, Math.round(((st.total - (st.pending || []).length) / st.total) * 80 + Math.min(12, sec / 10))) : Math.min(92, Math.round(sec / 1.8));
-      return '<div class="sw-st-busy"><img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="" aria-hidden="true"><span class="sw-st-shim" aria-hidden="true"></span>' +
+      return '<div class="sw-st-busy">' + (src ? '<img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="" aria-hidden="true">' : '') + '<span class="sw-st-shim" aria-hidden="true"></span>' +
         '<div class="sw-st-prog" role="status" aria-live="polite"><p>' + esc(step) + '</p>' +
         (st.total > 1 ? '<p class="sw-st-k">מוכנות ' + (st.total - (st.pending || []).length) + ' מתוך ' + st.total + '</p>' : '') +
         '<span class="sw-st-bar"><i style="width:' + pct + '%"></i></span><b>' + pct + '%</b></div></div>';
@@ -1861,16 +1867,41 @@
     if (st.msg) over = '<div class="sw-st-err" role="alert"><p>' + esc(st.msg) + '</p>' + (st.limit ? '' : '<button type="button" class="sw-white" data-gen-retry>נסו שוב</button>') + '</div>';
     else if (!VIZ_SWIPE_GENERATE) over = '<a class="sw-st-link" href="/property?id=' + encodeURIComponent(p.id) + '#viz">ליצירת הדמיה בסגנון הזה - בדף הנכס ←</a>';
     else if (!st.comm) over = '<button type="button" class="sw-gold sw-st-gen" data-gen' + (vizLeft() ? '' : ' disabled') + '>' + (vizLeft() ? '✨ צור הדמיה' : 'הגעתם למכסה היומית') + '</button>';
-    return '<div class="sw-st-empty"><img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="' + esc(title(p)) + '">' + (over ? '<div class="sw-st-over">' + over + '</div>' : '') + '</div>';
+    return '<div class="sw-st-empty' + (src ? '' : ' is-blank') + '">' + (src ? '<img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="' + esc(title(p)) + '">' : '') + (over ? '<div class="sw-st-over">' + over + '</div>' : '') + '</div>';
   }
   function studioStyleLabel() {
     if (st.comm) return st.bizLabel || 'העסק';
     var s_ = VIZ_STYLES.filter(function (x) { return x[0] === st.key; })[0];
     return s_ ? s_[1] : '';
   }
+  /* ‏P1-K2: לשונית "✨ הדמיה" בנכס מסחרי - שתי ההדמיות האחרונות של אחרים (עסק אחד לכל חלל),
+     עדיפות למה שנוצר לפי דרישה, וכפתור זהב לדף הנכס. בלי תאריכים, מונים או מי ביקש.
+     שם העסק הוא טקסט חופשי של גולש/ת: נחתך ל-40, ולא מוצג אם יש בו רצף ספרות */
+  function bizName(b) { b = String(b || '').trim(); return !b || /\d{5,}/.test(b) ? '' : (b.length > 40 ? b.slice(0, 39) + '…' : b); }
+  function commShowcase(p) {
+    var seen = {}, list = (vizMap.get(p.id) || []).slice()
+      .sort(function (a, b) { return (a.base - b.base) || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0); })
+      .filter(function (v) { var k = bizKey(v.biz) + '|' + v.target; if (seen[k]) return false; seen[k] = 1; return true; })
+      .slice(0, 2);
+    var go = '<a class="sw-gold sw-wide sw-st-go" href="/property?id=' + encodeURIComponent(p.id) + '#viz">✨ יצירת הדמיה לעסק שלכם בדף הנכס ←</a>';
+    if (!list.length) {
+      return '<div class="sw-st-none"><h3 class="sw-sub-h">איך ייראה כאן העסק שלכם?</h3><p>מקלידים סוג עסק ומקבלים הדמיית AI של החלל</p>' + go + '</div>';
+    }
+    return '<div class="sw-st-recent">' + list.map(function (v) {
+      var name = bizName(v.biz);
+      return '<figure class="sw-st-item">' + (v.before ? baHtml({ before: v.before, after: v.after }, true, 'contain')
+        : '<img class="sw-st-src is-only" ' + imgSrc(v.after, 800) + ' alt="הדמיית AI" loading="lazy">') +
+        '<figcaption>' + (name ? '<b>' + esc(name) + '</b> · ' : '') + 'הדמיית AI</figcaption></figure>';
+    }).join('') + '</div>' + go;
+  }
   function renderStudio() {
     var box = $('swTabViz');
     if (!box || !st) return;
+    if (st.comm) {
+      box.innerHTML = '<p class="sw-st-head"><b>הדמיות עסקים בנכס</b></p>' + commShowcase(st.p);
+      box.querySelectorAll('.sw-ba').forEach(function (b) { bindBa(b); });
+      return;
+    }
     var p = st.p, r = vizFind(p, st.target, st.key);
     var kind = st.comm ? 'הדמיית עסק' : p.deal_type === 'rent' ? 'הדמיית הום סטיילינג' : 'הדמיית שיפוץ';
     var head = [kind, vizRoom(p, st.target), studioStyleLabel()].filter(Boolean).join(' · ');

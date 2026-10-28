@@ -1542,7 +1542,9 @@ async function loadVisualizations(p){
 
     // הזכאות נשאלת מה-DB ולא נגזרת בצד הלקוח, כדי שתהיה הגדרה אחת בלבד
     // ל"מי זכאי" — אותה פונקציה שה-Edge Function נשען עליה.
-    const { data: enabled } = await sb.rpc('property_visualizations_enabled', { p_property_id: p.id });
+    // ‏P1-K1: אותו עזר של ההחלקה (‏assets/viz-eligibility.js) - והכלל עצמו רק ב-RPC
+    const enabled = window.canVisualize ? await window.canVisualize(p, sb)
+      : (await sb.rpc('property_visualizations_enabled', { p_property_id: p.id })).data;
     if (!enabled) return;
 
     vizState.propertyId = p.id;

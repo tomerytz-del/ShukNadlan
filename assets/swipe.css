@@ -771,3 +771,14 @@ body[data-view=list] .sw-layout{display:inline-flex}
 }
 /* ‏P2-3: הרשימה ב"אהבתי" בטלפון - לשונית גבריאלה בקצה לא נוגעת ב-✕ ובלב */
 @media (max-width:759px){#swLvList{padding-inline-start:24px}}
+
+/* ---------- ‏P1-K1/K2: הלשונית "✨ הדמיה" ---------- */
+.sw-st-empty.is-blank{min-height:220px;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#0e2a6b,#14306f);border-radius:16px}
+.sw-st-empty.is-blank .sw-st-over{position:static}
+.sw-st-recent{display:grid;gap:12px}
+.sw-st-item{margin:0}
+.sw-st-item figcaption{margin-top:6px;font-size:13.5px;color:var(--sw-body)}
+.sw-st-item .sw-st-src.is-only{width:100%;border-radius:14px;object-fit:contain;background:#f3f5f9}
+.sw-st-go{display:flex;align-items:center;justify-content:center;margin-top:12px;min-height:48px;text-decoration:none}
+.sw-st-none{padding:18px;border:1px dashed #c9d2e3;border-radius:16px;text-align:center}
+.sw-st-none p{margin:0 0 12px;color:var(--sw-body)}
