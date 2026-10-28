@@ -430,12 +430,9 @@ function renderStickyBar(contact, waHref){
   const name = contact.display_name || 'המשרד';
   const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
 
+  // ‏P1-D: פעולות בלבד - תמונה, שם ותואר של המנהל כבר בצוות ובבאנר
+  void agencyName;
   document.getElementById('stickyInner').innerHTML = `
-    ${agentAvatarHtml(contact, 'sb-avatar')}
-    <div class="sb-text">
-      <div class="who">${escapeHtml(name)}</div>
-      <div class="what">${escapeHtml(roleLabel(contact) + ' · ' + agencyName)}</div>
-    </div>
     <div class="sb-actions">
       <a class="sb-wa" href="${escapeHtml(waHref)}" target="_blank" rel="noopener noreferrer"
          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG}<span>וואטסאפ</span></a>
@@ -491,22 +488,14 @@ function renderManagerContact(members){
   const href = waLink(manager.phone_e164,
     `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
 
-  document.getElementById('contactHeading').textContent =
-    isManager ? 'יצירת קשר עם מנהל המשרד' : 'יצירת קשר עם המשרד';
-
+  /* ‏P1-D: כתובת, הערה וטופס בלבד - המנהל מופיע פעם אחת (בצוות), וכפתורי המשרד בבאנר
+     ובסרגל הדביק. בלי "· <משרד>" בדף של המשרד עצמו */
+  void isManager; void href;
+  document.getElementById('contactHeading').textContent = 'יצירת קשר';
   document.getElementById('contactCard').innerHTML = `
-    ${agentAvatarHtml(manager, 'team-avatar')}
     <div class="contact-who">
-      <div class="name">${escapeHtml(name)}</div>
-      <div class="role">${escapeHtml(roleLabel(manager))} · ${escapeHtml(agencyName)}</div>
       ${agencyAddressHtml()}
       <p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
-    </div>
-    <div class="contact-actions">
-      <a class="cta-primary" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
-         aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ ל${escapeHtml(name.split(' ')[0])}</a>
-      <a class="cta-secondary" href="tel:+${manager.phone_e164}"
-         aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} שיחת טלפון</a>
     </div>`;
   document.getElementById('contactSec').style.display = 'block';
 }
@@ -1297,7 +1286,7 @@ async function loadReviews(sb, agencyId){
     ? Number(stats.score)
     : reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const score = avg.toFixed(1).replace(/\.0$/, '');
-  setSectionNote('reviewsSummary', `★ ${score} דירוג המשרד · ${reviewsLabel}`);
+  // ‏P1-D: הדירוג פעם אחת - בבאנר (‏heroRating)
 
   // אותו דירוג בשלושה מקומות: בבאנר כמדד אמון, בסרגל המדדים כמספר,
   // ובכותרת המקטע עצמו

@@ -1634,7 +1634,12 @@ function buildPills(agent){
     if (s && String(s).trim()) pills.push({ icon:'star', text: String(s).trim() });
   });
   if (agent.license_number){
-    pills.push({ icon:'id', text: 'רישיון תיווך ' + agent.license_number });
+    // ‏P1-D: "מאומת" רק ל-verified/manual - וה-view הציבורי אינו חושף את הסטטוס, ולכן המספר בלבד
+    pills.push({ icon:'id', text: 'רישיון תיווך · מס׳ ' + agent.license_number });
+  }
+  // ‏P1-D: התג "✦ מחויבות לשירות הוגן" (אותו has_ethics_badge) במקום החותמת "עומד בתקן האתי"
+  if (agent.has_ethics_badge){
+    pills.push({ icon:'', text: '✦ מחויבות לשירות הוגן', tone:'gold' });
   }
   if (agent.credentials){
     pills.push({ icon:'cap', text: agent.credentials, tone:'gold' });
@@ -1648,6 +1653,9 @@ function buildPills(agent){
    גרועה מהיעדר הבטחה — ומנוסח לפי השעה: "זמין לשיחה עכשיו" בשעות שבהן סביר
    להרים טלפון, ו"מגיבים בהודעה" מחוצה להן. */
 function renderAvailability(agent){
+  /* ‏P1-D: התגית נשענה על השעה בלבד ולא על נתון - יורדת. דלי זמן התגובה (‏agent_response_stats)
+     יחליף אותה אחרי docs/proposals/agent_card_fields.sql */
+  return;
   if (!agent.phone_e164) return;
   const tag = document.getElementById('availTag');
   const hour = new Date().getHours();
@@ -1695,10 +1703,9 @@ function renderContactActions(agent){
   const name = agent.display_name || 'יועץ נדל״ן';
   // בסרגל התחתון מופיעים הפנים והשם, ולא רק שורת טקסט: הפנייה נעשית לאדם,
   // וכשרואים אותו/ה היא נראית פחות כמו טופס
-  document.getElementById('sbAvatar').innerHTML = agentAvatarInner(agent);
-  document.getElementById('sbWho').textContent = name;
-  document.getElementById('sbWhat').textContent =
-    [roleLabel(agent), agent.agencies && agent.agencies.name].filter(Boolean).join(' · ');
+  /* ‏P1-D: הסרגל הדביק נושא פעולות בלבד - התמונה, השם והמשרד כבר בראש הדף */
+  document.getElementById('sbAvatar').hidden = true;
+  document.querySelector('#stickyBar .sb-text').hidden = true;
   watchStickyBar();
 
   const phone = PHONE_RE.test(String(agent.phone_e164 || '')) ? agent.phone_e164 : null;
@@ -1747,9 +1754,12 @@ function agentAvatarInner(agent){
 }
 
 function renderAgentContactCard(agent){
+  /* ‏P1-D: בסוף הדף "יצירת קשר" וטופס בלבד - תמונה, שם, תואר וכפתורי וואטסאפ/טלפון כבר
+     בראש הדף ובסרגל הדביק */
+  document.getElementById('contactHeading').textContent = 'יצירת קשר';
+  return;
   const name = agent.display_name || 'יועץ הנדל״ן';
   const first = name.split(' ')[0];
-  document.getElementById('contactHeading').textContent = 'יצירת קשר עם ' + first;
 
   const phone = PHONE_RE.test(String(agent.phone_e164 || '')) ? agent.phone_e164 : null;
   if (!phone) return;
@@ -1810,10 +1820,8 @@ function renderProfileCover(agent){
   const logo = safeImageUrl(agency.logo_url);
   cover.href = href;
   cover.setAttribute('aria-label', 'מעבר לדף המשרד ' + name);
-  cover.innerHTML = `<span class="cover-tag">
-      ${logo ? `<img src="${escapeHtml(encodeURI(logo))}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-      <span>${escapeHtml(name)}</span>
-    </span>`;
+  // ‏P1-D: הרצועה היא תמונה בלבד - שם המשרד נמצא בשורת המשנה שמתחת לשם, כקישור
+  void logo;
 }
 
 /* ראש הפרופיל — התמונות והפרטים שהסוכן/ת מעדכן/ת ב-CRM ("עדכון פרטי הסוכן/ת").
@@ -1835,8 +1843,11 @@ function renderProfileHeader(agent){
 
   document.getElementById('profileName').textContent = agent.display_name;
   const agencyEl = document.getElementById('profileAgency');
-  agencyEl.textContent = agent.agencies?.name || '';
-  if (agencyEl.textContent) applyAgencyChip(agencyEl, agent.agencies);
+  // ‏P1-D: "ייעוץ נדל״ן · <משרד>", ושם המשרד הוא הקישור לדף המשרד (פעם אחת בדף)
+  const agName = agent.agencies?.name || '';
+  const agHref = agencyPageHref(agent.agencies);
+  agencyEl.innerHTML = 'ייעוץ נדל״ן' + (agName ? ' · ' + (agHref ? `<a href="${escapeHtml(agHref)}">${escapeHtml(agName)}</a>` : escapeHtml(agName)) : '');
+  if (agName) applyAgencyChip(agencyEl, agent.agencies);
   document.getElementById('profileBio').textContent = agent.bio || 'יועץ נדל״ן באזור עפולה והעמק.';
 
   buildPills(agent);
@@ -1846,9 +1857,7 @@ function renderProfileHeader(agent){
 
   // תו האיכות מוצג רק למי שאישר/ה את הקוד האתי והתו שלו/ה בתוקף. הבוליאני
   // ‏has_ethics_badge מחושב ב-view עצמו, כדי שהתנאי לא ישוכפל בין הדפים.
-  if (agent.has_ethics_badge && window.QualityBadge){
-    QualityBadge.mount('profileBadge', { size:'xl', label:false, subject: agent.display_name });
-  }
+  // ‏P1-D: התג "✦ מחויבות לשירות הוגן" עבר לשורת התגים (‏buildPills); החותמת יורדת מכאן
 }
 
 // האם הדף כבר הוצג בפועל — ראו ה-catch של loadAgentProfile
@@ -2395,7 +2404,7 @@ async function loadAgentReviews(sb, agentId){
   const avg = reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const countLabel = reviews.length === 1 ? 'ביקורת אחת' : reviews.length + ' ביקורות';
   const score = avg.toFixed(1).replace(/\.0$/, '');
-  setSectionNote('reviewsSummary', `★ ${score} דירוג ממוצע · ${countLabel}`);
+  // ‏P1-D: הדירוג מופיע פעם אחת - בראש הדף (‏heroRating), שמקשר לכאן
 
   // אותו דירוג פעמיים בדף: בראשו כמדד אמון, ובמקטע עצמו ככותרת הביקורות
   const ratingEl = document.getElementById('heroRating');
