@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 import { mapPool } from "../_shared/pool.ts";
@@ -102,6 +102,7 @@ const FINDING_PARAMS: Record<string, string> = {
   stale_listings: "&filter=stale",
   video_opportunity: "&filter=no_video",
   idle_listings: "&focus=new",
+  unpublished_listings: "&filter=unpublished",
 };
 
 function itemUrl(it: Item): string {
@@ -284,6 +285,33 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
   }
 }
 
+// תזכורת אחת לסוכן/ת לשבוע, דרך הפעמון. הדגל כבוי סופר ולא כותב.
+// הפונקציה עולה לפני המיגרציה: חוסר ה-RPC אינו מפיל את שאר התזכורות.
+async function enqueueUnpublishedNudges(sb: SupabaseClient) {
+  try {
+    const { data, error } = await sb.rpc("unpublished_nudge_enqueue", { p_limit: 25 });
+    if (error) {
+      const code = String(error.code || "");
+      const msg = String(error.message || "");
+      if (code === "42883" || code === "PGRST202" || code === "42P01" || code === "PGRST205"
+        || /unpublished_nudge_enqueue|does not exist|schema cache/i.test(msg)) {
+        console.log("unpublished nudge not installed yet", code);
+        return;
+      }
+      console.error("unpublished nudge enqueue failed", code, msg.slice(0, 300));
+      return;
+    }
+    const row = data as { dry_run?: boolean; agents?: number; properties?: number; sent?: number } | null;
+    if (row && ((row.agents || 0) > 0 || (row.sent || 0) > 0)) {
+      console.log("unpublished nudge", JSON.stringify({
+        dry_run: row.dry_run, agents: row.agents, properties: row.properties, sent: row.sent,
+      }));
+    }
+  } catch (err) {
+    console.error("unpublished nudge enqueue threw", err instanceof Error ? err.message : String(err));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // הלולאה
 // ---------------------------------------------------------------------------
@@ -291,7 +319,10 @@ Deno.serve(async (req: Request) => {
   const auth = authorizeInternalCaller(req);
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
+  // מפתח service_role: ב-agent_reminders_claim ‏auth.role() הוא service_role
+  // ו-current_agent_id() ריק. הפונקציה פתוחה רק לתפקיד הזה, לא ל-anon.
   const sb = createClient(supabaseUrl, serviceRoleKey);
+  await enqueueUnpublishedNudges(sb);
 
   // ‏claim רושם/ת את שורות היומן **לפני** שאנחנו שולחים. נפילה מכאן והלאה
   // משאירה שורה עם status='pending' — כלומר "יצא, לא ידוע אם הגיע" — ולא
