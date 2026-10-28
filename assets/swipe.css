@@ -839,3 +839,11 @@ body[data-view=list] .sw-layout{display:inline-flex}
 /* גיליון הסינון: לשוניות העסקה לא דביקות - דביקות הן עלו על הכותרת "אזור ויישוב" בגלילה */
 #swFDeal{position:static;margin:0 0 12px}
 .sw-cdeal{margin:-4px 0 12px}
+
+/* ‏R8: "חדש" ו"המחיר ירד" בשורת התגיות - טקסט ולא רק צבע */
+.sw-tag.is-new{background:#0e2a6b;color:#fff}
+.sw-tag.is-drop{background:#c9a227;color:#0e2a6b}
+.sw-seen-end .sw-end-in{gap:10px}
+.sw-seen-end .sw-wide{min-height:46px}
+.sw-freset-seen{display:block;margin:8px auto 0;min-height:44px}
+.sw-freset-seen[hidden]{display:none}

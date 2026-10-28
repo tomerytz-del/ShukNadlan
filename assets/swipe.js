@@ -374,6 +374,8 @@
       return q.order('is_promoted', { ascending: false }).order('created_at', { ascending: false }).limit(300);
     }).then(function (res) {
       var rows = (res && !res.error && res.data) || [];
+      // ‏R8 C.9: מעל 300 נכסים פעילים, מה שלא נטען לא יופיע לעולם כ"עוד לא נראה"
+      if (rows.length === 300) console.warn('swipe: נטענו 300 נכסים - ייתכן שיש עוד שלא נטענו');
       // סבב 5 §1: בלי נכסים מעיר של שוק אחר (שדה נחום, נוף הגליל...) - הסינון בשרת עוד לא חל על אנונימיים
       if (window.MarketScope && MarketScope.keepRows) rows = MarketScope.keepRows(rows, mspec);
       var ids = rows.map(function (p) { return p.agent_id; }).filter(Boolean)
@@ -431,7 +433,7 @@
   function writeUrl() {
     try {
       var q = new URLSearchParams(location.search);
-      ['deal', 'cdeal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf'].forEach(function (k) { q.delete(k); });
+      ['deal', 'cdeal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf', 'pid'].forEach(function (k) { q.delete(k); });
       if (extQs) q.set('hf', extQs);
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
@@ -840,6 +842,7 @@
     /* ‏P0-E: מ"אהבתי" הסינון לא משנה את הרשימה השמורה - עוברים לתצוגה שממנה הגיעו */
     if (view === 'likes') { setView(likesReturnView()); window.scrollTo(0, 0); }
     if (view === 'deck') maybeTour();
+    maybeResume();
   });
   $('swSum').addEventListener('click', function () { openFilter(this); });
   $('swFilterBtn').addEventListener('click', function () { openFilter(this); });
@@ -906,6 +909,99 @@
 
   /* ---------- 3. החפיסה ---------- */
   var deck = [], idx = 0, history_ = [], likes = loadLikes(), view = 'deck';
+
+  /* ---------- 3א. "ממשיכים מאיפה שעצרתם" (R8, 28.10.2026) ----------
+     רשימת הנכסים שכבר הוצגו נשמרת **במכשיר בלבד** (‏sk_swipe_seen_v1), עד 500 נכסים ועד 60 יום:
+     ‏{v, last: תחילת הביקור הקודם, items: {id: [ts, 'v' נצפה | 'p' דילוג, מחיר, יחידת מחיר]}}.
+     בלי פרטים אישיים ובלי שליחה לשרת. אחסון חסום (Safari פרטי) - ‏sessionStorage, ואז זיכרון.
+     כתיבה: קוראים, ממזגים (החדש מנצח) וכותבים - שתי לשוניות לא דורסות זו את זו. ‏docs/swipe-mode.md */
+  var SEEN_KEY = 'sk_swipe_seen_v1', SEEN_MAX = 500, SEEN_TTL = 60 * 864e5;
+  var seenBack = (function () {
+    var t = 'sk_swipe_seen_t';
+    try { localStorage.setItem(t, '1'); localStorage.removeItem(t); return localStorage; } catch (e) {}
+    try { sessionStorage.setItem(t, '1'); sessionStorage.removeItem(t); return sessionStorage; } catch (e) {}
+    return null;
+  })();
+  var seenMem = null;
+  function seenPrune(o) {
+    var now = Date.now(), it = {};
+    Object.keys(o.items).filter(function (k) { var r = o.items[k]; return Array.isArray(r) && now - r[0] < SEEN_TTL; })
+      .sort(function (a, b) { return o.items[b][0] - o.items[a][0]; }).slice(0, SEEN_MAX)
+      .forEach(function (k) { it[k] = o.items[k]; });
+    o.items = it;
+    return o;
+  }
+  function seenLoad() {
+    var o = null;
+    try { o = JSON.parse((seenBack ? seenBack.getItem(SEEN_KEY) : seenMem) || 'null'); } catch (e) { o = null; }
+    if (!o || o.v !== 1 || !o.items || typeof o.items !== 'object') o = { v: 1, last: 0, items: {} };
+    return seenPrune(o);
+  }
+  var seen = seenLoad(), seenDirty = {}, seenWipe = false, seenT = 0;
+  function seenFlush() {
+    clearTimeout(seenT); seenT = 0;
+    var o = seenLoad();
+    if (seenWipe) { o.items = {}; seenWipe = false; }
+    Object.keys(seenDirty).forEach(function (k) { if (!o.items[k] || o.items[k][0] <= seenDirty[k][0]) o.items[k] = seenDirty[k]; });
+    o.last = Math.max(o.last || 0, seen.last || 0);
+    seenPrune(o);
+    var raw = JSON.stringify(o);
+    try { if (seenBack) seenBack.setItem(SEEN_KEY, raw); else seenMem = raw; } catch (e) { seenMem = raw; seenBack = null; }
+    seen = o; seenDirty = {};
+  }
+  function seenSoon() { if (!seenT) seenT = setTimeout(seenFlush, 500); }
+  window.addEventListener('pagehide', function () { if (seenT || seenWipe) seenFlush(); });
+  // לשונית אחרת כתבה: רק הזיכרון מתעדכן - החפיסה הנוכחית לא קופצת באמצע החלקה
+  window.addEventListener('storage', function (e) {
+    if (e.key !== SEEN_KEY) return;
+    seen = seenLoad();
+    Object.keys(seenDirty).forEach(function (k) { seen.items[k] = seenDirty[k]; });
+  });
+  function seenMark(p, act) {
+    if (!p || !p.id) return;
+    var old = seen.items[p.id];
+    // דילוג גובר על צפייה; צפייה חוזרת מעדכנת זמן ומחיר (כך "המחיר ירד" מופיע פעם אחת)
+    var rec = [Date.now(), act === 'v' && old && old[1] === 'p' ? 'p' : act, Number(p.price) || 0, p.price_unit || ''];
+    seen.items[p.id] = rec; seenDirty[p.id] = rec;
+    seenSoon();
+  }
+  function seenCount() { return Object.keys(seen.items).length; }
+  /* גבול הביקור: פעם אחת ללשונית. ‏prev = תחילת הביקור הקודם; "חוזר/ת" - היה ביקור, עברו
+     יותר מ-30 דקות, ויש נכסים שכבר נראו */
+  var visit = (function () {
+    var g = null;
+    try { g = JSON.parse(sessionStorage.getItem('sk_swipe_visit') || 'null'); } catch (e) { g = null; }
+    if (g && typeof g.p === 'number') return g;
+    var now = Date.now(), prev = seen.last || 0;
+    g = { p: prev, r: !!(prev && now - prev > 30 * 60000 && seenCount()) };
+    seen.last = now; seenFlush();
+    try { sessionStorage.setItem('sk_swipe_visit', JSON.stringify(g)); } catch (e) {}
+    return g;
+  })();
+  /* מצב הנכס בחפיסה: liked (לא בחפיסה - הוא ב"אהבתי") · new (נוסף מאז הביקור הקודם) · drop
+     (המחיר ירד מאז שנראה, אותה יחידה) · unseen · seen. מחיר 0 או ריק ("לפי בקשה") - לא ירידה */
+  function seenState(p) {
+    if (likes.indexOf(p.id) >= 0) return 'liked';
+    var r = seen.items[p.id];
+    if (!r) return visit.r && visit.p && Date.parse(p.created_at) > visit.p ? 'new' : 'unseen';
+    var pr = Number(p.price) || 0;
+    if (pr > 0 && r[2] > 0 && (p.price_unit || '') === (r[3] || '') && pr < r[2]) return 'drop';
+    return 'seen';
+  }
+  /* חלוקה יציבה: הסדר שבתוך כל דלי נשאר הסדר של היום (מיון, רילס, מרחק, יריד) */
+  function seenSplit(list) {
+    var b = { fresh: [], again: [], state: new Map() }, n = [], d = [], u = [];
+    list.forEach(function (p) {
+      var s_ = seenState(p);
+      b.state.set(p.id, s_);
+      if (s_ === 'new') n.push(p); else if (s_ === 'drop') d.push(p); else if (s_ === 'unseen') u.push(p);
+      else if (s_ === 'seen') b.again.push(p);
+    });
+    b.fresh = n.concat(d, u);
+    b.again.sort(function (x, y) { return seen.items[x.id][0] - seen.items[y.id][0]; });
+    return b;
+  }
+  var pidWant = params.get('pid');   // ‏?pid=<id>: הכרטיס הזה ראשון, גם אם נראה או נשמר; לא נכתב חזרה לכתובת
   /* ‏shown: כמה ממומנים וכתבות **הוצגו** בביקור (התקרה היא לביקור). ‏counts: כמה
      נכנסו לחפיסה הנוכחית, ומתחיל ממה שכבר הוצג. עד כאן ספרנו כרטיס כשנבנה, ולכן
      החפיסה שנבנית מאחורי חלון הסינון בטעינה - ואיש לא רואה - "ניצלה" את הכתבה
@@ -1066,6 +1162,23 @@
   }
   function buildDeck() {
     var props = deckProps();
+    /* ‏R8: מי שכבר ראה נכסים - קודם חדשים, ירידות מחיר ומה שעוד לא נראה; אחריהם כרטיס "ראיתם
+       את כל הנכסים בסינון הזה", ורק ממנו מה שכבר נראה (הישן קודם). ביקור ראשון - כמו היום */
+    var part = seenCount() ? seenSplit(props) : null, npAgain = [];
+    if (part) {
+      props = part.fresh;
+      if (npRest.length) { var npp = seenSplit(npRest); npRest = npp.fresh; npAgain = npp.again; npp.state.forEach(function (v, k) { part.state.set(k, v); }); }
+    }
+    var pinned = null;
+    if (pidWant) {
+      pinned = all.filter(function (x) { return String(x.id) === pidWant; })[0] || null;
+      pidWant = null;
+      if (pinned) {
+        props = props.filter(function (x) { return x !== pinned; });
+        npRest = npRest.filter(function (x) { return x !== pinned; });
+        if (part) { part.again = part.again.filter(function (x) { return x !== pinned; }); npAgain = npAgain.filter(function (x) { return x !== pinned; }); }
+      }
+    }
     writeUrl();
     counts = { sponsored: shown.sponsored };
     var photoN = props.filter(hasPhoto).length, longDeck = photoN >= 30;
@@ -1074,6 +1187,8 @@
     var rest = props.filter(function (p) { return fairQ.indexOf(p) < 0; });
     var out = [], used = {}, pos = 1, sinceNon = Infinity, sinceSpon = Infinity, due = [], boostDue = false, lastBoost = false, propN = 0;
     var placed = {};
+    var ssOf = function (p) { var s_ = part && part.state.get(p.id); return s_ === 'new' || s_ === 'drop' ? s_ : part ? (s_ === 'seen' ? 'seen' : 'unseen') : ''; };
+    if (pinned) { out.push({ slot: 'property', p: pinned, ss: ssOf(pinned), pos: pos++ }); propN++; sinceNon = 1; }
     while (rest.length || fairQ.length) {
       slotsAt(pos, longDeck).forEach(function (k) { due.push({ kind: k, until: pos + SEQ_CONFIG.deferMax }); });
       due = due.filter(function (d) { return d.until >= pos; });
@@ -1094,7 +1209,7 @@
         var p;
         if (boostDue && fairQ.length && !lastBoost) { p = fairQ.shift(); boostDue = false; lastBoost = true; }
         else { p = rest.length ? rest.shift() : fairQ.shift(); lastBoost = false; }
-        card = { slot: 'property', p: p };
+        card = { slot: 'property', p: p, ss: ssOf(p) };
         sinceNon++; sinceSpon++; propN++;
       }
       card.pos = pos++;
@@ -1109,13 +1224,19 @@
     // הגשר: פעם אחת בחפיסה, רק כשנשארו נכסים מתאימים בלי תמונות. אחריו אין כרטיסי הזמנה
     if (npRest.length) {
       out.push({ slot: 'np_bridge', count: npRest.length, pos: pos++ });
-      npRest.forEach(function (p) { out.push({ slot: 'property', p: p, pos: pos++ }); });
+      npRest.forEach(function (p) { out.push({ slot: 'property', p: p, ss: ssOf(p), pos: pos++ }); });
+    }
+    var again = part ? part.again.concat(npAgain) : [];
+    if (again.length) {
+      out.push({ slot: 'seen_end', passed: again.filter(function (p) { return seen.items[p.id] && seen.items[p.id][1] === 'p'; }).length, pos: pos++ });
+      again.forEach(function (p) { out.push({ slot: 'property', p: p, ss: 'seen', pos: pos++ }); });
     }
     out.push({ slot: 'end', pos: pos });
     if (DEBUG) { npAssert(out); seqAssert(out); }
     deck = out; idx = 0; history_ = [];
     $('swSortN').textContent = countLabel(shownCount());
     renderDeck();
+    syncResetSeen();
     renderList();
     if (mapReady) drawMapMarkers();
   }
@@ -1123,7 +1244,7 @@
   function seqAssert(out) {
     var last = -Infinity;
     out.forEach(function (c, i) {
-      if (c.slot === 'property' || c.slot === 'np_bridge' || c.slot === 'end') return;
+      if (c.slot === 'property' || c.slot === 'np_bridge' || c.slot === 'end' || c.slot === 'seen_end') return;
       console.assert(i - last > SEQ_CONFIG.gap, 'swipe seq-v2 R1: ' + c.slot + ' במקום ' + c.pos + ' קרוב מדי לכרטיס הקודם');
       last = i;
     });
@@ -1162,6 +1283,7 @@
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
         (nofee ? nofeeTag() : '') +
+        (c.ss === 'new' ? '<span class="sw-tag is-new">חדש</span>' : c.ss === 'drop' ? '<span class="sw-tag is-drop">המחיר ירד</span>' : '') +
         (p.property_type ? '<span class="sw-tag is-type">' + esc(p.property_type) + '</span>' : '') +
         (hasReel(p) ? '<span class="sw-tag sw-reel-tag"><i aria-hidden="true">▶</i> רילס<b></b></span>' : '') +
         '<span class="sw-count" aria-hidden="true"' + (ph.length > 1 ? '' : ' hidden') + '>' + (at + 1) + '/' + ph.length + '</span></div>' +
@@ -1236,7 +1358,28 @@
         '<p class="sw-npb-sub">' + esc(bs ? bs.bridgeSub(c.count) : '') + '</p></div>' +
         '<button type="button" class="sw-npb-list" data-np-list>' + esc(bs ? bs.bridgeList : '') + '</button></article>';
     }
+    if (c.slot === 'seen_end') return seenEndHtml(c, dbg);
     return endCardHtml(dbg);
+  }
+  /* ‏R8: "ראיתם את כל הנכסים בסינון הזה" - לפני הנכסים שכבר נראו. כל כפתור רק כשהוא רלוונטי.
+     ההתראה היא אותו טופס בדיוק (‏alertBlock/submitAlert); לא מוצעת שוב לאותו סינון (גבריאלה) */
+  function alertSig() {
+    return JSON.stringify([filter.deal, filter.cdeal || '', filter.area, filter.rooms || 0, filter.budget || 0, filter.type || '', extQs || '']);
+  }
+  function alertSentFor(sig) {
+    try { return (JSON.parse(store('sk_swipe_alert_sigs') || '[]') || []).indexOf(sig) >= 0; } catch (e) { return false; }
+  }
+  function seenEndHtml(c, dbg) {
+    var btns = '';
+    if (c.passed > 0) btns += '<button type="button" class="sw-gold sw-wide" data-seen-cta="passed">לראות שוב נכסים שדילגתם עליהם</button>';
+    if (likes.length) btns += '<button type="button" class="sw-white sw-wide" data-seen-cta="likes">הנכסים ששמרתם (' + likes.length + ')</button>';
+    var alert_ = alertSentFor(alertSig()) ? '' : alertBlock('seen', 'קבלת התראה על נכסים חדשים');
+    btns += alert_ + '<button type="button" class="sw-link sw-link-light" data-seen-cta="filter">שינוי הסינון</button>';
+    return '<article class="sw-card sw-end sw-seen-end" data-slot="seen_end" aria-label="ראיתם את כל הנכסים בסינון הזה">' + (dbg || '') +
+      '<div class="sw-end-in"><span class="sw-end-av"><img src="/assets/gabriela-cutout-400.webp" alt="" width="84" height="84" ' +
+      'onerror="this.onerror=null;this.src=\'/assets/logo-shuknadlan.svg\'"></span>' +
+      '<h2 class="sw-end-title">ראיתם את כל הנכסים בסינון הזה</h2>' +
+      '<p class="sw-end-line">נכסים חדשים נכנסים כל הזמן. בינתיים אפשר:</p>' + btns + '</div></article>';
   }
   function barsHtml(ph, at) {
     if (ph.length < 2) return '';
@@ -1470,12 +1613,12 @@
       '<button type="button" class="sw-gold sw-wide" id="swWiden">הרחבת החיפוש</button>' +
       alertBlock('end') + share + '</div></article>';
   }
-  function alertBlock(where_) {
+  function alertBlock(where_, label) {
     var id = 'swAlert_' + where_;
     return '<div class="sw-alert" data-alert="' + where_ + '">' +
       '<button type="button" class="sw-white sw-wide" data-alert-open aria-expanded="false" aria-controls="' + id + '">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>' +
-      'עדכנו אותי על נכס חדש</button>' +
+      esc(label || 'עדכנו אותי על נכס חדש') + '</button>' +
       '<form class="sw-aform" id="' + id + '" hidden novalidate>' +
       '<label class="sw-field"><span>שם</span><input name="name" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון או אימייל</span><input name="contact" autocomplete="tel" inputmode="email" required></label>' +
@@ -1504,15 +1647,20 @@
     vizPrime();
     if (tourPending && view === 'deck' && !openStack.length) maybeTour();
   }
-  var impTimer = 0;
+  var impTimer = 0, seenTimer = 0;
   function onCardView(c) {
-    clearTimeout(impTimer);
+    clearTimeout(impTimer); clearTimeout(seenTimer);
     document.querySelectorAll('#swDeck video').forEach(function (v) { v.pause(); });
     // כרטיס שמאחורי חלון הסינון עוד לא נצפה - ‏swipe_start בונה את החפיסה מחדש
     if (!$('swFilter').hidden) return;
     if (c.slot === 'end') { shukTrack('swipe_end_view', { likes: likes.length }); return; }
+    if (c.slot === 'seen_end') { shukTrack('swipe_seen_end_view', { passed_n: c.passed, likes: likes.length }); return; }
     var nofee = c.slot === 'property' && fairLive(c.p);
-    shukTrack('swipe_card_view', nofee ? { slot: c.slot, position: c.pos, nofee: 1 } : { slot: c.slot, position: c.pos });
+    var cv = nofee ? { slot: c.slot, position: c.pos, nofee: 1 } : { slot: c.slot, position: c.pos };
+    if (c.ss) cv.seen_state = c.ss;
+    shukTrack('swipe_card_view', cv);
+    // ‏R8: נכס נחשב "נצפה" אחרי שנייה למעלה (טיימר נפרד - impTimer משותף לכרטיסי ההזמנה)
+    if (c.slot === 'property') seenTimer = setTimeout(function () { if (cur() === c) seenMark(c.p, 'v'); }, 1000);
     c.viewAt = Date.now();
     if (nofee && !sessGet('sk_nofee_seen_' + c.p.id)) { sessSet('sk_nofee_seen_' + c.p.id); shukTrack('nofee_badge_view', { property_id: c.p.id, position: c.pos }); }
     if (c.slot === 'property') maybeAlertSheet();
@@ -1527,7 +1675,7 @@
   }
   function syncActions() {
     var c = cur(), p = c && c.p, adv = p ? advertiser(p) : null;
-    var end = !c || c.slot === 'end';
+    var end = !c || c.slot === 'end' || c.slot === 'seen_end';
     $('swSkip').disabled = $('swLike').disabled = end;
     $('swUndo').disabled = !history_.length;
     // ‏P0-7: ‏phone_e164 שמור בלי '+', ו-tel:9725… מחייג בטלפון מספר מקומי שגוי
@@ -1543,7 +1691,7 @@
   var deciding = false;   // הכרטיס עוד עף - לחיצה כפולה לא מדלגת על הנכס הבא
   function decide(dir, via) {
     var c = cur();
-    if (deciding || !c || c.slot === 'end') return;
+    if (deciding || !c || c.slot === 'end' || c.slot === 'seen_end') return;
     var top = $('swTopCard');
     var added = false;
     /* כרטיסי הזמנה אינם "אהבתי" ואינם "דילוג": ♥ = הפעולה הראשית, וכל השאר ממשיך הלאה */
@@ -1570,7 +1718,7 @@
     }
     // שני שמות מפורשים ולא ביטוי: כך check_gtm_container.py מוצא את שניהם
     if (dir === 'like') shukTrack('swipe_like', { slot: c.slot, position: c.pos });
-    else shukTrack('swipe_skip', { slot: c.slot, position: c.pos });
+    else { shukTrack('swipe_skip', { slot: c.slot, position: c.pos }); if (c.slot === 'property') seenMark(c.p, 'p'); }
     // ‏liked רק כשהלייק נוסף עכשיו - ביטול לא מוחק לייק ותיק
     history_.push({ i: idx, liked: added ? c.p.id : null });
     deciding = true;
@@ -1700,8 +1848,8 @@
       card.style.transition = '';
       stamps(0);
       var c = cur();
-      if (c && c.slot !== 'end' && dx > 100) { decide('like'); return; }
-      if (c && c.slot !== 'end' && dx < -100) { decide('skip'); return; }
+      if (c && c.slot !== 'end' && c.slot !== 'seen_end' && dx > 100) { decide('like'); return; }
+      if (c && c.slot !== 'end' && c.slot !== 'seen_end' && dx < -100) { decide('skip'); return; }
       card.style.transform = '';
       if (dy < -90 && Math.abs(dx) < 80) { if (c && PROMO[c.slot]) promoGo(c, 'up'); else openSheetFor(c); return; }
       if (!moved && c && PROMO[c.slot]) { tapPromo = true; return; }
@@ -1764,7 +1912,17 @@
       if (e.target.closest('[data-fair-signup]')) { openFairSignup('empty_fair'); return; }
       if (e.target.closest('[data-fair-off]')) { filter.fair = false; deck = []; buildDeck(); renderSummary(); return; }
       if (e.target.closest('#swShare')) { shareLikes(); return; }
+      var sc_ = e.target.closest('[data-seen-cta]');
+      if (sc_) {
+        var k_ = sc_.dataset.seenCta;
+        shukTrack('swipe_seen_end_click', { cta: k_ });
+        if (k_ === 'passed') { history_.push({ i: idx, liked: null }); idx = Math.min(idx + 1, deck.length - 1); renderDeck(); }
+        else if (k_ === 'likes') setView('likes');
+        else if (k_ === 'filter') openFilter(sc_);
+        return;
+      }
       var ao = e.target.closest('[data-alert-open]');
+      if (ao && ao.closest('[data-alert="seen"]')) shukTrack('swipe_seen_end_click', { cta: 'alert' });
       if (ao) {
         var form = ao.parentNode.querySelector('form');
         form.hidden = false; ao.hidden = true; ao.setAttribute('aria-expanded', 'true');
@@ -1787,7 +1945,7 @@
     var c = cur();
     if (e.key === 'ArrowRight') { e.preventDefault(); decide('like', 'key'); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); decide('skip', 'key'); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); if (c && PROMO[c.slot]) promoGo(c, 'up'); else if (c && c.slot !== 'end') openSheetFor(c); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (c && PROMO[c.slot]) promoGo(c, 'up'); else if (c && c.slot !== 'end' && c.slot !== 'seen_end') openSheetFor(c); }
     else if (e.key === 'z' || e.key === 'Z' || e.key === 'ז') { undo(); }
     else if (e.key === ' ' && c && c.slot === 'property' && !(e.target.closest && e.target.closest('button,a,[role=button],[role=tab]'))) { e.preventDefault(); nextPhoto($('swTopCard'), 1); }
   });
@@ -1892,6 +2050,7 @@
     if (studio && opts.tab === 'viz') setTab('viz', opts.from);
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
     shukTrack('swipe_up_open', { slot: c.slot, position: c.pos });
+    if (c.slot === 'property') seenMark(c.p, 'v');
     // ‏P1-M: הנכס נפתח מהתצוגה הזו - "לפרטי הנכס" בגיליון יורש את המקור
     if (c.p && window.shukBrowseMark) shukBrowseMark(view === 'list' ? 'swipe_list' : view === 'map' ? 'swipe_map' : view === 'likes' ? 'likes' : 'swipe', c.p.id);
     if (c.p && c.p.lat && c.p.lng) setTimeout(function () { miniMap(c.p); }, 60);
@@ -2394,6 +2553,7 @@
     post(SAVED_SEARCH_URL, body).then(function () {
       shukTrack('generate_lead', { form_id: 'swipe_end_alert' });
       store('sk_swipe_alert_sent', '1');
+      try { var sg = JSON.parse(store('sk_swipe_alert_sigs') || '[]') || []; if (sg.indexOf(alertSig()) < 0) sg.push(alertSig()); store('sk_swipe_alert_sigs', JSON.stringify(sg.slice(-20))); } catch (e) {}
       form.hidden = true;
       form.parentNode.querySelector('.sw-done').hidden = false;
     }, function (e) { err.textContent = errText(e, 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.'); btn.disabled = false; });
@@ -2439,6 +2599,30 @@
     return '<ul class="sw-bs-help">' + rows.map(function (r) {
       return '<li><span class="sw-bs-ic" aria-hidden="true">' + r[0] + '</span><span><b>' + esc(r[1]) + '</b> · ' + esc(r[2]) + '</span></li>';
     }).join('') + '</ul>' + (isDesktop() ? '<p class="sw-bs-keys">במקלדת: → אהבתי · ← דילוג · ↑ פרטים · רווח תמונה</p>' : '');
+  }
+  function resetSeen() {
+    var n = seenCount();
+    shukTrack('swipe_reset_seen', { seen_n: n });
+    seen.items = {}; seenDirty = {}; seenWipe = true; seenFlush();
+    buildDeck();
+    toast('מתחילים מההתחלה');
+  }
+  /* "התחלה מחדש" בתחתית גיליון הסינון - רק כשיש מה לאפס */
+  function syncResetSeen() { var b = $('swFResetSeen'); if (b) b.hidden = !seenCount(); }
+  if ($('swFResetSeen')) $('swFResetSeen').addEventListener('click', function () { closeFilter(); setTimeout(function () { bsOpen('reset'); }, 250); });
+  /* ‏R8 B.5: שורת "ממשיכים מאיפה שעצרתם" - פעם אחת בביקור למי שחוזר/ת, אחרי שהחפיסה מוצגת
+     והסינון סגור (לא מעל הגיליון שנפתח מעצמו). אין מה להמשיך - בלי הודעה, והחפיסה כבר
+     נפתחת על "ראיתם את כל הנכסים" */
+  var resumePending = visit.r && !sessGet('sk_swipe_resume_shown');
+  function maybeResume() {
+    if (!resumePending || !$('swFilter').hidden || view !== 'deck' || !deck.length) return;
+    resumePending = false; sessSet('sk_swipe_resume_shown');
+    var n = { new_n: 0, drop_n: 0, unseen_n: 0, seen_n: 0 };
+    deck.forEach(function (c) { if (c.slot === 'property' && c.ss) n[(c.ss === 'unseen' ? 'unseen' : c.ss) + '_n']++; });
+    shukTrack('swipe_resume', n);
+    if (!(n.new_n + n.drop_n + n.unseen_n)) return;
+    toast(n.new_n >= 2 ? 'ממשיכים מאיפה שעצרתם · ' + n.new_n + ' נכסים חדשים מאז הביקור הקודם'
+      : n.new_n === 1 ? 'ממשיכים מאיפה שעצרתם · נכס חדש אחד מאז הביקור הקודם' : 'ממשיכים מאיפה שעצרתם', 4000);
   }
   /* הסרה מ"הרשימה שלי" אחרי אישור, עם "ביטול" בהודעה למשך 5 שניות (P0-9) */
   function unlike(id) {
@@ -2586,7 +2770,10 @@
     tour_end: { art: HAND_ART, title: 'מוכנים? בואו נתחיל', sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. ✨ בנכסים עם הדמיה, התמונה האחרונה מראה איך הנכס יכול להיראות.',
       btns: [['start', 'sw-navy', 'התחלת החלקה'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
     help: { art: '', title: 'איך מחליקים', sub: '', body: helpBody,
-      btns: [['tour', 'sw-navy', 'הצגת ההדרכה מחדש'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
+      btns: [['tour', 'sw-navy', 'הצגת ההדרכה מחדש'], ['reset', 'sw-white', 'התחלה מחדש'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
+    // ‏R8: איפוס סימון הנכסים שכבר נראו - "אהבתי" לא נוגעים בו
+    reset: { art: '', title: 'להתחיל את ההחלקה מההתחלה?', sub: 'הנכסים ששמרתם נשארים שמורים. רק סימון הנכסים שכבר ראיתם יתאפס.',
+      btns: [['reset_ok', 'sw-navy', 'התחלה מחדש'], ['later', 'sw-link', 'ביטול']] },
     fair_signup: { art: '', title: 'דירה חדשה נכנסה ליריד? תדעו ראשונים.', sub: '', btns: [],
       body: function () {
         return window.FairSignup ? FairSignup.html({ where: 'swipe', places: (market && market.places) || [mainCity], deal: filter.deal === 'rent' ? 'rent' : 'sale',
@@ -2667,6 +2854,8 @@
       else if (cta === 'visit' && lastLiked) openSheetFor(lastLiked, { msg: 'אשמח לתאם ביקור בנכס', form: true });
       else if (cta === 'gab_list') { var g = gabListHref(); if (g) { var a = document.createElement('a'); a.href = g; a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('data-bot', ''); a.setAttribute('data-bot-entry', 'swipe_likes'); document.body.appendChild(a); a.click(); a.remove(); } }
       else if (cta === 'tour') maybeTour(true);
+      else if (cta === 'reset') setTimeout(function () { bsOpen('reset'); }, 0);
+      else if (cta === 'reset_ok') resetSeen();
       else if (cta === 'start') { var tc = document.querySelector('#swTopCard .sw-card'); if (tc) tc.focus({ preventScroll: true }); }
       else if (cta === 'gabriela') { if (window.GabWidget) window.GabWidget.open('swipe_' + kind); }
       else if (cta === 'viz_ok' && ctx && ctx.onOk) ctx.onOk();
@@ -3260,6 +3449,7 @@
          מדף הבית) או חזרה ב"אחורה" מדף נכס - בלי גיליון שנפתח מעצמו (‏P0-C, ‏P1-L) */
       if (!urlHasFilter && !cameBack()) openFilter($('swSum'));
       buildDeck();
+      maybeResume();
       var v0 = params.get('view');
       if (v0 === 'list' || v0 === 'map') setView(v0);
       if (cameBack()) restoreListScroll();

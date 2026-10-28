@@ -491,3 +491,8 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `viz_style_invite_click` | ‏R8 (v10): לחיצה על הזמנה של סגנון בלי הדמיה בסטודיו של `/swipe` (האריח או התמונה הגדולה), שמובילה ל-`/property?id=…&viz_style=<key>#viz` | `property_id`, `style` (מפתח), `space` (החדר), `source`: ‏`swipe` |
 | `viz_style_select` | ‏R8 (v10): בחירת סגנון שיש לו הדמיה בסטודיו של `/swipe` - התמונה הראשית מתחלפת | `property_id`, `style`, `space`, `source`: ‏`swipe` |
 | `viz_deeplink_land` | ‏R8: דף הנכס נפתח עם `?viz_style=<key>` מוכר (נכס פרטי בלבד), על הסגנון הזה | `style`, `source`: ‏`swipe` |
+| `swipe_resume` | ‏R8: גולש/ת חוזר/ת ל-`/swipe` (ביקור קודם לפני יותר מ-30 דקות, ויש נכסים שכבר נראו) - פעם אחת בביקור, אחרי שהחפיסה מוצגת והסינון סגור | `new_n`, `drop_n`, `unseen_n`, `seen_n` (מספרים בלבד, בתוך הסינון הפעיל) |
+| (פרמטר חדש) `swipe_card_view.seen_state` | ‏R8: רק כשיש היסטוריה במכשיר | `seen_state`: ‏`new` \| `drop` \| `unseen` \| `seen` |
+| `swipe_seen_end_view` | ‏R8: הכרטיס "ראיתם את כל הנכסים בסינון הזה" | `passed_n` (כמה מהנכסים שכבר נראו דולגו), `likes` |
+| `swipe_seen_end_click` | ‏R8: כפתור בכרטיס הזה | `cta`: ‏`passed` \| `likes` \| `alert` \| `filter` |
+| `swipe_reset_seen` | ‏R8: "התחלה מחדש" אושרה - סימון הנכסים שכבר נראו התאפס ("אהבתי" לא) | `seen_n` |

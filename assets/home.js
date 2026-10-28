@@ -7841,10 +7841,25 @@ function v10SyncSwipe(results){
     srSwipe.hidden = n < 3 || !v10FilterCount();
     srSwipe.href = v10SwipeHref('results_button');
     srSwipe.dataset.count = String(n);
-    srSwipe.querySelector('b').textContent = n.toLocaleString('he-IL');
+    /* ‏R8 (החלטת תומר): למי שכבר החליק/ה - כמה עוד לא ראה/תה בסינון הזה, לכל גולש/ת ובזמן אמת.
+       אפס, ביקור ראשון או אחסון חסום - המספר הכולל כמו קודם */
+    const fresh = v10SwipeUnseen(v10Swipeable(results));
+    srSwipe.querySelector('b').textContent = fresh == null || fresh < 1 ? n.toLocaleString('he-IL')
+      : fresh === 1 ? 'חדש אחד' : `${fresh.toLocaleString('he-IL')} חדשים`;
   }
   const inv = document.querySelector('#allProps .pc-swipe-invite');
   if (inv) v10FillInvite(inv, results);
+}
+/* כמה מהרשימה עוד לא נראו ב-/swipe (‏sk_swipe_seen_v1, ‏assets/swipe.js) ואינם ב"אהבתי".
+   ‏null כשאין היסטוריה - ואז לא מציגים "חדשים" */
+function v10SwipeUnseen(list){
+  try {
+    const st = JSON.parse(localStorage.getItem('sk_swipe_seen_v1') || 'null');
+    const items = st && st.v === 1 && st.items;
+    if (!items || !Object.keys(items).length) return null;
+    const liked = new Set(JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []);
+    return list.filter(p => !items[p.id] && !liked.has(p.id)).length;
+  } catch(e){ return null; }
 }
 /* הנכסים שאפשר להחליק עליהם במשפט הנוכחי: עם תמונה, כמו ברירת המחדל של /swipe */
 function v10Swipeable(results){
