@@ -459,10 +459,11 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_property",
     description:
-      "יוצר נכס חדש בשם הסוכן/ת ולא מפרסם אותו. הנכס נשמר unpublished, " +
+      "יוצר נכס חדש בשם הסוכן/ת. ברירת המחדל מפרסמת מיד. " +
+      "כש-gabriela_ask_before_publish הוא 1 הנכס נשמר unpublished, " +
       "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
       "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
-      "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished. " +
+      "בלי לחיצה הנכס נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
       "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
       "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
@@ -2369,7 +2370,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   };
 }
 
-/** 0 ב-gabriela_ask_before_publish מחזיר פרסום מיידי. חסר או כשל: שואלים. */
+/** 1 ב-gabriela_ask_before_publish שואל. 0, חסר או כשל: פרסום מיידי, כמו קודם. */
 async function gabrielaAsksBeforePublish(ctx: ToolContext): Promise<boolean> {
   try {
     const { data, error } = await ctx.supabase.from("pricing_config")
@@ -2588,6 +2589,7 @@ async function askPublishConfirm(
   }
   const list = publishDestinationList(id, propertyId);
   if (!list) return { ok: false, error: PUBLISH_FAILED };
+  if (!onSite) await touchPublishAsk(ctx.supabase, propertyId, ctx.agent.id);
   const label = title.trim() ? `"${title.trim().slice(0, 80)}"` : "הנכס";
   ctx.outbox.push({
     kind: "list",
@@ -2605,7 +2607,8 @@ async function askPublishConfirm(
       ? "יצאה רשימת יעד לנכס שכבר באתר. אל תשני את הסטטוס בעצמך. בלי לחיצה הוא נשאר באתר כמו שהוא."
       : "יצאה רשימת יעד לנכס הזה. אל תאמרי שהוא פורסם. " +
         "הבחירה היא אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
-        "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished ולא נמחק.",
+        "בלי לחיצה הנכס נשאר unpublished ולא נמחק, ואין פרסום אוטומטי. " +
+        "אחרי 24 שעות, בתוך שעות השליחה, יוצאת תזכורת אחת. התזכורת השבועית נשארת.",
   };
 }
 
@@ -6768,6 +6771,30 @@ async function runPendingReissue(
   return { text: done.text, outbox: outbox.length ? outbox : undefined };
 }
 
+async function touchPublishAsk(
+  supabase: SupabaseClient,
+  propertyId: string,
+  agentId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("gabriela_publish_ask_touch", {
+    p_property_id: propertyId,
+    p_agent_id: agentId,
+  });
+  if (error) {
+    const code = String(error.code || "");
+    if (code !== "42883" && code !== "PGRST202") console.error("publish ask touch failed", code);
+  }
+}
+
+async function clearPublishAsk(supabase: SupabaseClient, propertyId: string | null | undefined): Promise<void> {
+  if (!propertyId) return;
+  const { error } = await supabase.rpc("gabriela_publish_ask_clear", { p_property_id: propertyId });
+  if (error) {
+    const code = String(error.code || "");
+    if (code !== "42883" && code !== "PGRST202") console.error("publish ask clear failed", code);
+  }
+}
+
 async function releasePublishClaim(
   supabase: SupabaseClient,
   agentId: string,
@@ -6849,6 +6876,7 @@ async function runPendingPublish(
   }
   if (prop.status === "active") {
     await markPublishDone(supabase, agent.id, requestId, PUBLISH_ALREADY);
+    await clearPublishAsk(supabase, propertyId);
     return { text: PUBLISH_ALREADY };
   }
   const { error } = await supabase.from("properties")
@@ -6863,6 +6891,7 @@ async function runPendingPublish(
   const title = String(prop.title || "").trim();
   const text = title ? `הנכס "${title}" פורסם.` : "הנכס פורסם.";
   await markPublishDone(supabase, agent.id, requestId, text);
+  await clearPublishAsk(supabase, propertyId);
   return { text };
 }
 
@@ -6932,6 +6961,12 @@ export async function listingActionReply(
   if (!publish) return null;
   if (publish.action === "no") {
     void unpublishedAfterUnconfirmedPublish("no");
+    let propertyId = publish.propertyId;
+    if (!propertyId) {
+      const loaded = await loadPendingAction(supabase, agent.id, publish.requestId);
+      if ("row" in loaded && loaded.row?.subject_id) propertyId = String(loaded.row.subject_id);
+    }
+    await clearPublishAsk(supabase, propertyId);
     return { text: "הנכס לא פורסם." };
   }
   if (publish.action === "edit") return publishEditReply(supabase, agent, publish);
@@ -7045,6 +7080,7 @@ async function runPendingDestination(
     return { text: error ? publishErrorText(error.message) : "לא הצלחתי לשמור את היעד. אפשר לנסות שוב." };
   }
 
+  await clearPublishAsk(supabase, propertyId);
   const status = String(updated.status || "");
   const licenseHeld = !!(updated.license_hold_at) || (nextStatus === "active" && status !== "active");
   const social = socialEnqueuePlan(choice.channels, await gabrielaSocialFlagOn(supabase), status === "active");
@@ -7087,6 +7123,7 @@ async function publishEditReply(
     propertyId = String(loaded.row.subject_id);
   }
   void unpublishedAfterUnconfirmedPublish("edit");
+  await clearPublishAsk(supabase, propertyId);
   const url = crmPropertyLink(propertyId);
   if (!url) return { text: "אפשר לערוך את הנכס מאזור האישי." };
   return {
@@ -8353,12 +8390,12 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
-    "- create_property שומר את הנכס ולא מפרסם אותו. בוואטסאפ יוצאת רשימת יעד אחת לנכס: " +
-      "אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
+    "- create_property: אם חזר published=true הנכס באוויר. אם חזר needs_confirmation, " +
+      "בוואטסאפ יוצאת רשימת יעד אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
+      "בלי לחיצה הוא נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
       "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר. " +
-      "אם חזר elsewhere_warning - אמרי אותו כמו שהוא, בלי להוסיף שם. " +
-      "בלי לחיצה בתוך שש שעות הנכס נשאר unpublished ולא נמחק.",
+      "אם חזר elsewhere_warning - אמרי אותו כמו שהוא, בלי להוסיף שם.",
     "- שינוי יעד של נכס קיים = choose_publish_destination. לא לכתוב את הערוצים בעצמך.",
     "- פרסום (set_property_status עם active) שולח את רשימת היעד והנכס לא עולה לפניה, " +
       "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הבחירה. sold, rented ו-archived לא מחכים לרשימה. " +

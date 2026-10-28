@@ -6,8 +6,8 @@
 -- אם whatsapp-webhook עולה קודם, הטבלה או ה-check חסרים. הקוד לא
 -- מפרסם ולא נופל: הוא אומר לפרסם מאזור האישי.
 --
--- gabriela_ask_before_publish = 1 שומר נכס חדש כ-unpublished ושואל.
--- 0 מחזיר את הפרסום המיידי. חסר נשאר "לשאול".
+-- gabriela_ask_before_publish נולד 0: פרסום מיידי, כמו קודם.
+-- 1 שומר נכס חדש כ-unpublished ושואל. בלי תשובה אין פרסום אחרי זמן.
 
 alter table public.whatsapp_pending_actions
   drop constraint if exists whatsapp_pending_actions_action_chk;
@@ -20,9 +20,13 @@ comment on table public.whatsapp_pending_actions is
   'בקשת אישור מוואטסאפ שטרם בוצעה. reissue או publish. רק service_role. הכפתור נושא את id.';
 
 insert into public.pricing_config (key, value, description) values
-  ('gabriela_ask_before_publish', 1,
-   '1: גבריאלה שומרת נכס חדש כ-unpublished ושואלת לפני פרסום. 0: מפרסמת מיד, כמו קודם.')
-on conflict (key) do nothing;
+  ('gabriela_ask_before_publish', 0,
+   '0: גבריאלה מפרסמת מיד, כמו קודם. 1: שומרת נכס חדש כ-unpublished ושואלת. בלי תשובה הנכס נשאר unpublished.')
+on conflict (key) do update
+  set value = 0,
+      description = excluded.description
+  where public.pricing_config.value = 1
+    and public.pricing_config.description = '1: גבריאלה שומרת נכס חדש כ-unpublished ושואלת לפני פרסום. 0: מפרסמת מיד, כמו קודם.';
 
 -- אזהרה בזמן טיוטה. הטריגר properties_guard_duplicate רץ רק על active,
 -- ולכן טיוטה של גבריאלה הייתה נשמרת בלי לומר שמשרד אחר כבר מפרסם.

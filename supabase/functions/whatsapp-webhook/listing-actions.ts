@@ -297,12 +297,12 @@ export function publishWritesNow(hasOutbox: boolean, confirm: unknown): boolean 
   return !hasOutbox && confirm === true;
 }
 
-/** 1 ושורה חסרה: שואלים קודם. 0 הוא החזרה לפרסום מיידי. קריאה שנכשלה שואלת. */
+/** 1 שואל לפני פרסום. 0, שורה חסרה או קריאה שנכשלה: פרסום מיידי, כמו קודם. */
 export function publishAskFirst(value: unknown, readFailed = false): boolean {
-  if (readFailed) return true;
-  if (value == null || value === "") return true;
+  if (readFailed) return false;
+  if (value == null || value === "") return false;
   const n = Number(value);
-  if (!Number.isFinite(n)) return true;
+  if (!Number.isFinite(n)) return false;
   return n !== 0;
 }
 

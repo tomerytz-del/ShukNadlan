@@ -1,6 +1,7 @@
 // מחיקת תמונה וביטול/הנפקת הסכם: ההחלטה, בלי מסד ובלי וואטסאפ.
 //   node --experimental-strip-types scripts/gabriela_listing_actions_test.ts
 
+import { readFileSync } from "node:fs";
 import {
   agreementConfirmButtons,
   AGREEMENT_CANCEL_YES,
@@ -272,8 +273,8 @@ check("טבלה חסרה אומרת לפרסם באתר", PUBLISH_STORE_MISSING.
 check("confirm עם כפתורים לא מפרסם", publishWritesNow(true, true) === false);
 check("בלי כפתורים confirm מפרסם", publishWritesNow(false, true) === true);
 check("בלי כפתורים ובלי confirm לא מפרסם", publishWritesNow(false, false) === false);
-check("ברירת מחדל שואלת לפני פרסום", publishAskFirst(undefined) && publishAskFirst(1) && publishAskFirst(null, true));
-check("0 מחזיר פרסום מיידי", publishAskFirst(0) === false && publishAskFirst("0") === false);
+check("ברירת מחדל מפרסמת מיד", publishAskFirst(undefined) === false && publishAskFirst(null) === false && publishAskFirst(null, true) === false && publishAskFirst(0) === false && publishAskFirst("0") === false);
+check("1 שואל לפני פרסום", publishAskFirst(1) === true && publishAskFirst("1") === true);
 check("יצירה שואלת נשמרת unpublished", listingStatusForCreate(true) === "unpublished");
 check("יצירה בלי שאלה נשמרת active", listingStatusForCreate(false) === "active");
 const exclusive = "הנכס נמצא בבלעדיות של יוסי לוי ממשרד רימקס עפולה, ולכן אי אפשר לפרסם אותו.";
@@ -380,6 +381,10 @@ check("תשובת תור בלי מקף ארוך ובלי שם", !queued.includes
   && queued.includes("בלי מספר טלפון"));
 check("שת״פ שנרשם אומר תקרה ובלי טלפון", recorded.includes("תקרה") && recorded.includes("בלי מספר טלפון"));
 check("רק מאגר לא מפרסם", saved.includes("נשמר במאגר") && saved.includes("לא פורסם"));
+const flagSql = readFileSync(new URL("../supabase/migrations/20271029180000_gabriela_publish_confirm.sql", import.meta.url), "utf8");
+check("הדגל נולד כבוי", flagSql.includes("('gabriela_ask_before_publish', 0,") && !flagSql.includes("('gabriela_ask_before_publish', 1,"));
+const nudgeSql = readFileSync(new URL("../supabase/migrations/20271029186000_gabriela_publish_ask_nudge.sql", import.meta.url), "utf8");
+check("תזכורת 24 שעות לא מפרסמת", nudgeSql.includes("interval '24 hours'") && nudgeSql.includes("אין כאן עדכון של status ל-active") && nudgeSql.includes("row_number() over (partition by a.search_id"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
