@@ -79,7 +79,7 @@ const cleared = notifiedRequestIds([
 assert(cleared.length === 1 && cleared[0] === "sent-1", `clear only sent, got ${cleared.join(",")}`);
 
 const sql = readFileSync(
-  new URL("../supabase/migrations/20271028121000_gabriela_showings.sql", import.meta.url),
+  new URL("../supabase/migrations/20271029121000_gabriela_showings.sql", import.meta.url),
   "utf8",
 );
 assert(
