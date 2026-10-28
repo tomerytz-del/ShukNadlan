@@ -29,8 +29,8 @@ html body.sw-body.sw-locked{overflow:hidden}
   border-radius:12px;background:#fff;color:var(--sw-navy);font:inherit;font-weight:800;font-size:17px;cursor:pointer}
 .sw-ic svg{width:20px;height:20px}
 .sw-help{width:40px;min-width:40px;height:40px;border-radius:50%;border-color:var(--sw-navy)}
-/* ד-15: לב "שמור" בזהב (‏#a8841a, ניגודיות 3.4:1 לאייקון) - ירוק שמור לוואטסאפ בלבד */
-.sw-likes{color:#a8841a;background:#fbf5e2;border-color:#ecdca6}
+/* לב "שמור" וחותמת "אהבתי" בירוק (‏#1f8a4c, החלטת תומר 28.10, במקום הזהב של ד-15). גוון שונה מהירוק של כפתור הוואטסאפ (‏#157a3c) */
+.sw-likes{color:#1f8a4c;background:#e7f4ec;border-color:#bfe3cc}
 .sw-likes b{font-size:13px;color:var(--sw-title)}
 .sw-ic:focus-visible,.sw-sum:focus-visible,.sw-act:focus-visible,.sw-chip:focus-visible,.sw-views button:focus-visible,
 .sw-gold:focus-visible,.sw-white:focus-visible,.sw-link:focus-visible,.sw-banner:focus-visible,.sw-card:focus-visible,.sw-li:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
@@ -78,7 +78,7 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-up{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:6px;padding:0 4px;border:0;background:none;color:#fff;
   font:inherit;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .sw-stamp{position:absolute;top:70px;z-index:3;pointer-events:none;padding:6px 16px;border-radius:12px;font-size:22px;font-weight:900;opacity:0;transition:opacity .1s}
-.sw-stamp.is-like{left:20px;border:3px solid #fff;background:#a8841a;transform:rotate(-12deg)}
+.sw-stamp.is-like{left:20px;border:3px solid #fff;background:#1f8a4c;transform:rotate(-12deg)}
 .sw-stamp.is-skip{right:20px;border:3px solid #fff;background:#b3261e;transform:rotate(12deg)}
 .sw-card.show-like .is-like,.sw-card.show-skip .is-skip{opacity:1}
 .sw-dbg{position:absolute;bottom:8px;left:8px;z-index:5;padding:2px 8px;border-radius:6px;background:var(--sw-gold);color:var(--sw-deep);font-size:12px;font-weight:800;direction:ltr}
@@ -110,8 +110,8 @@ html body.sw-body.sw-locked{overflow:hidden}
   background:#fff;color:var(--sw-navy);cursor:pointer;box-shadow:0 4px 12px rgba(13,27,61,.07);text-decoration:none}
 .sw-act svg{width:26px;height:26px}
 .sw-act-skip{color:#b3261e;width:64px;height:64px}
-.sw-act-like{color:#a8841a;width:64px;height:64px}
-.sw-act-like[aria-pressed="true"]{background:#fbf5e2}
+.sw-act-like{color:#1f8a4c;width:64px;height:64px}
+.sw-act-like[aria-pressed="true"]{background:#e7f4ec}
 .sw-act-undo,.sw-act-call{width:48px;height:48px}
 .sw-act-undo svg,.sw-act-call svg{width:22px;height:22px}
 .sw-act-undo:disabled{opacity:.45;cursor:default}
@@ -131,7 +131,7 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-li-txt b{color:var(--sw-navy);font-size:16px;font-weight:800}
 .sw-li-txt span,.sw-li-txt small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sw-li-txt small{color:var(--sw-body)}
-.sw-li-heart{position:absolute;top:8px;left:10px;color:#a8841a}
+.sw-li-heart{position:absolute;top:8px;left:10px;color:#1f8a4c}
 .sw-map{height:calc(100dvh - 140px);min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--sw-line);background:#eef1f7}
 .sw-map.tiles-off,.sw-minimap.tiles-off{background:url("/assets/map-streets-fallback-260.svg") 0 0/260px 260px,linear-gradient(160deg,#f6f1e7,#eef1f7)}
 .sw-map.tiles-off .leaflet-tile-pane,.sw-minimap.tiles-off .leaflet-tile-pane{visibility:hidden}
@@ -395,7 +395,7 @@ html body .sw-lv-head h2{margin:0;font-size:var(--sec-h);font-weight:800;color:v
 .sw-lv-row{padding:0;cursor:default}
 .sw-lv-open{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:8px;border:0;background:none;font:inherit;color:inherit;text-align:start;cursor:pointer;border-radius:16px}
 .sw-lv-open:focus-visible,.sw-lv-heart:focus-visible{outline:3px solid var(--sw-gold);outline-offset:-3px}
-.sw-lv-heart{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin-inline-end:4px;border-radius:50%;background:#fbf5e2;color:#a8841a;font-size:16px}
+.sw-lv-heart{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin-inline-end:4px;border-radius:50%;background:#e7f4ec;color:#1f8a4c;font-size:16px}
 .sw-lv-row{position:relative}
 /* ‏P0-9: ✕ אדום בפינה; אזור נגיעה של 44px סביב עיגול של 32px */
 .sw-lv-rm{position:absolute;top:-6px;left:-6px;width:44px;height:44px;padding:6px;border:0;background:none;cursor:pointer}
@@ -521,7 +521,7 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-bs-x::before{content:"";position:absolute;inset:-3px}
 .sw-bs-art{position:relative;display:flex;justify-content:center;margin-top:4px}
 .sw-bs-av{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--sw-cream);box-shadow:0 0 0 3px #e5c76a}
-.sw-bs-heart{position:absolute;bottom:-2px;left:calc(50% + 18px);width:24px;height:24px;border-radius:50%;background:#fff;color:#a8841a;font-size:14px;line-height:24px;box-shadow:0 2px 6px rgba(13,27,61,.2)}
+.sw-bs-heart{position:absolute;bottom:-2px;left:calc(50% + 18px);width:24px;height:24px;border-radius:50%;background:#fff;color:#1f8a4c;font-size:14px;line-height:24px;box-shadow:0 2px 6px rgba(13,27,61,.2)}
 .sw-bs-svg{width:64px;height:64px}
 .sw-bs-viz{width:168px;height:96px}
 html body .sw-bs-title{margin:4px 0 0;font-family:Heebo,system-ui,sans-serif;font-size:22px;font-weight:800;line-height:1.25;color:var(--sw-title);text-wrap:balance}
