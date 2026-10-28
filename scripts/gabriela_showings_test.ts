@@ -14,6 +14,7 @@ import {
   extractClock,
   ilClock,
   notifiedRequestIds,
+  ownerCancelNotice,
   pickShowings,
 } from "../supabase/functions/whatsapp-webhook/showing-match.ts";
 import {
@@ -37,6 +38,12 @@ const at18 = "2026-10-27T16:00:00.000Z";
 const at09 = "2026-10-27T07:00:00.000Z";
 assert(ilClock(at18) === "18:00", `18:00 got ${ilClock(at18)}`);
 assert(ilClock(at09) === "09:00", `09:00 got ${ilClock(at09)}`);
+
+const cancel = ownerCancelNotice("משה כהן", "תומר יצחק", at18);
+assert(cancel === "שלום משה כהן, כאן גבריאלה משוק הנדל״ן. הביקור שתואם עם תומר ליום שלישי 18:00 בוטל, אז אין צורך להגיע. אם תרצו לתאם מועד אחר, אפשר לכתוב לי כאן.", cancel);
+assert(!cancel.includes("יצחק"), "first name only");
+assert(!/\d{4}/.test(cancel) && !/\d{1,2}[./]\d{1,2}/.test(cancel), "no date");
+assert(ownerCancelNotice("", "", at09).startsWith("שלום, כאן גבריאלה") && ownerCancelNotice("", "", at09).includes("עם הסוכן ליום שלישי 09:00"), "missing names");
 
 const rows = [
   { client_name: "שירה קאץ", starts_at: at18 },

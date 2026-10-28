@@ -46,6 +46,39 @@ export function ilClock(iso: string): string {
   return `${h.padStart(2, "0")}:${mi.padStart(2, "0")}`;
 }
 
+/** יום בשבוע ושעה, שעון ישראל. בלי תאריך: ההודעה לבעלים לא נושאת מספר. */
+export function whenWeekdayTime(iso: string): string {
+  const parts = new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const day = parts.find((p) => p.type === "weekday")?.value ?? "";
+  const h = (parts.find((p) => p.type === "hour")?.value ?? "00").padStart(2, "0");
+  const mi = (parts.find((p) => p.type === "minute")?.value ?? "00").padStart(2, "0");
+  return `${day} ${h}:${mi}`;
+}
+
+/** שם פרטי בלבד. בלי שם נשאר "הסוכן", כדי שהמשפט לא יישבר. */
+export function agentFirstName(displayName: string): string {
+  const first = String(displayName || "").trim().split(/\s+/)[0] || "";
+  return first || "הסוכן";
+}
+
+/**
+ * הודעת הביטול לבעלים ולמתווכים. גבריאלה מדברת, לא הסוכן/ת.
+ * יוצאת רק אחרי אישור, ורק בחלון. הנוסח כאן הוא כל ההודעה.
+ */
+export function ownerCancelNotice(ownerName: string, agentDisplayName: string, startsAt: string): string {
+  const name = String(ownerName || "").trim();
+  const hello = name ? `שלום ${name}` : "שלום";
+  const who = agentFirstName(agentDisplayName);
+  const when = whenWeekdayTime(startsAt);
+  return `${hello}, כאן גבריאלה משוק הנדל״ן. הביקור שתואם עם ${who} ל${when} בוטל, אז אין צורך להגיע. אם תרצו לתאם מועד אחר, אפשר לכתוב לי כאן.`;
+}
+
 export interface ShowingPick {
   client_name: string;
   starts_at: string;

@@ -13,6 +13,7 @@ import {
   NON_FINAL_COORD,
   NOTIFY_COORD,
   notifiedRequestIds,
+  ownerCancelNotice,
   pickShowings,
 } from "./showing-match.ts";
 
@@ -414,16 +415,13 @@ async function sendCancelNotices(
     .select("display_name, agency_id")
     .eq("id", agentId)
     .maybeSingle();
-  const places = await propertyLines(supabase, rows.map((r) => String(r.property_id)));
   const who = String(member?.display_name || "").trim();
   const out: { id: string; name: string; sent: boolean }[] = [];
   for (const row of rows) {
     const id = String(row.id);
     const name = String(row.target_name || "").trim() || "שלום";
     const to = phoneE164(row.target_phone);
-    const place = places.get(String(row.property_id)) || "הנכס";
-    const from = who ? `כאן ${who}. ` : "";
-    const text = `שלום ${name}, ${from}הביקור שתואם ${whenText(meeting.starts_at)} ב${place} בוטל. אין צורך להגיע. תודה.`;
+    const text = ownerCancelNotice(String(row.target_name || ""), who, meeting.starts_at);
     // בלי מספר או בלי חלון 24 שעות הטקסט החופשי נדחה. הדגל נשאר, כדי
     // שהכפתור יוכל לנסות שוב כשיהיה חלון.
     if (!to || !(await inWindow(supabase, to))) {
