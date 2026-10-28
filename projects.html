@@ -190,6 +190,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .price-pill{display:inline-flex;align-items:center;gap:6px;background:var(--gold-tint);color:#8a6d10;font-weight:800;font-size:.76rem;padding:4px 10px;margin-inline-start:8px}
   .proj-tools{padding:16px 0 4px}
   .proj-tools .search-card{margin-top:0}
+  /* ‏R5-3B: שלושת הרכיבים באותו גובה ובאותן פינות; בטלפון השדה בשורה מלאה, ומתחתיו הבורר והכפתור שווים */
+  .proj-tools .search-card > *{min-height:48px;box-sizing:border-box;border-radius:10px;font-size:.92rem}
+  .proj-tools .search-go{border-radius:10px;padding:0 22px}
+  @media (max-width:859px){
+    .proj-tools .search-card{grid-template-columns:1fr 1fr}
+    .proj-tools .search-input{grid-column:1/-1;order:-1}
+  }
   .proj-tools .quick-chip{background:#eaf0fb;border-color:#d5def2;color:#0e2a6b}
   .proj-tools .quick-chip[aria-pressed="true"]{background:#0e2a6b;color:#fff;border-color:#0e2a6b}
   .projects-guide a{color:#0e2a6b;text-decoration:underline;text-underline-offset:2px}

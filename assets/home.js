@@ -1588,7 +1588,8 @@ const propsShelf = PropShelf.create({
   invite: v10On() ? () => v10InviteCard() : null,
   // שני המלאים חולקים היום שורת תגיות אחת, ובתקרה של שמונה סוגי הנכס
   // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
-  kindTagsMax:14,
+  // ‏R5-3C (v10): בלי תגיות חדרים וסוגים - הן כפולות לחלון הסינון
+  kindTagsMax: v10On() ? 0 : 14,
   sortId:'ppSort',
   // באנר ההדמיות כבר לא בתוך התיבה (‏afterGrid): מאוקטובר 2026 הוא סקציה
   // עצמאית מתחת למבזק, ב-index.html. ‏docs/home-property-shelves.md.
@@ -6906,7 +6907,32 @@ function renderAdvancedBadge(){
   const n = sentence && sentence.hasExtra() ? advancedCount : 0;
   el.hidden = !n;
   el.textContent = n || '';
+  // אותו מונה על "סינון" בסרגל הנכסים (‏R5-3C)
+  const shelfN = document.querySelector('#allProps .pp-filter-n');
+  if (shelfN){ shelfN.hidden = !n; shelfN.textContent = n || ''; }
 }
+
+/* ‏R5-3C (v10): בסרגל "נכסים בעפולה והעמק" - "סינון" (אותו חלון כמו בחיפוש), המיון,
+   ואייקון החלקה עם הסינון הנוכחי (‏R5-5). שלושתם בשורה אחת גם בטלפון */
+(function v10ShelfToolbar(){
+  if (!v10On()) return;
+  const controls = document.querySelector('#allProps .pp-controls');
+  if (!controls || controls.querySelector('.pp-filter-btn')) return;
+  const filter = document.createElement('button');
+  filter.type = 'button';
+  filter.className = 'pp-filter-btn';
+  filter.innerHTML = 'סינון <b class="pp-filter-n" hidden></b>';
+  filter.addEventListener('click', () => document.getElementById('ssAdvancedBtn')?.click());
+  const view = document.createElement('a');
+  view.className = 'pp-view-btn';
+  view.href = '/swipe';
+  view.dataset.swipeVia = 'results_toolbar';
+  view.setAttribute('aria-label', 'גלישה בהחלקה');
+  view.title = 'גלישה בהחלקה';
+  view.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>';
+  controls.prepend(filter);
+  controls.appendChild(view);
+})();
 
 function applyAdvancedFilters(){
   collectFormValues();
@@ -7048,7 +7074,14 @@ document.getElementById('ssAdvancedBtn')?.addEventListener('click', ()=>{
 
 function renderClearButton(){
   const btn = document.getElementById('ssClearBtn');
-  if (btn && sentence) btn.classList.toggle('is-idle', sentence.isClean());
+  if (!btn || !sentence) return;
+  const st = sentence.state();
+  // ‏R5-3C: הלשונית "למכירה" שנבחרה מעצמה אינה חיפוש - אין מה לנקות
+  const onlyDefaultDeal = v10On() && st.deal === 'sale' && st.type === 'any' && (!st.area || st.area === 'all') &&
+    !st.rooms && !(st.roomsIn && st.roomsIn.length) && !(st.types && st.types.length) && !(st.hoods && st.hoods.length) &&
+    !st.priceMin && st.priceMax == null && !st.ai && !st.city && !sentence.hasExtra() &&
+    !(document.getElementById('ssQuery')?.value || '').trim();
+  btn.classList.toggle('is-idle', sentence.isClean() || onlyDefaultDeal);
 }
 
 /* ‏"ניקוי החיפוש" שבכרטיס: אותו איפוס של הכפתור שבראש התוצאות (clearSearch)
@@ -7646,6 +7679,8 @@ let v10InviteSeen = false;
 function v10SyncSwipe(results){
   if (!v10On()) return;
   document.querySelectorAll('[data-swipe-via="hero_views"]').forEach(a => { a.href = v10SwipeHref('home_views'); });
+  const shelfSwipe = document.querySelector('#allProps .pp-view-btn');
+  if (shelfSwipe) shelfSwipe.href = v10SwipeHref('results_toolbar');
   const inv = document.querySelector('#allProps .pc-swipe-invite');
   if (inv) v10FillInvite(inv, results);
 }

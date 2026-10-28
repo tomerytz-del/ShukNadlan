@@ -484,7 +484,8 @@
 
       /* החדרים קודם — הם השאלה הראשונה של מי שמחפש דירה — ושאר הסוגים
          ממלאים את מה שנשאר עד התקרה, לפי כמה מהם יש. */
-      var kinds = roomTags.concat(typeTags).slice(0, cfg.kindTagsMax || PP_KIND_TAGS_MAX);
+      // ‏kindTagsMax: 0 - בלי תגיות חדרים וסוגים (דף הבית ב-v10: הם בחלון הסינון, R5-3C)
+      var kinds = roomTags.concat(typeTags).slice(0, cfg.kindTagsMax == null ? PP_KIND_TAGS_MAX : cfg.kindTagsMax);
 
       /* ‏cfg.vizTag (דף הבית עם דגל v10): "✨ עם הדמיה" ראשונה בשורה - נכסים שיש להם
          הדמיית AI מפורסמת (‏setVisualized). בלי הדמיות במלאי - אין תגית */
