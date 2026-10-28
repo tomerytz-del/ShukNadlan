@@ -12,6 +12,8 @@
    ‏ctaHref / ctaLabel: הכפתור הוא קישור (ברירת המחדל: "צפייה בפרופיל") ולא כפתור שהדף מטפל בו.
    ‏actions: false - בלי כפתור ובלי וואטסאפ, כשבדף כבר יש דרכי קשר (§C.4a, בלי כפילות).
    ‏extraTags: תגיות זהב לפני השאר (למשל המקום בדירוג בדף הבית).
+   ‏facts: עובדות נוספות [[תווית, ערך]] (נכסים פעילים, דירוג); ‏showLicense: מספר הרישיון כעובדה.
+   ‏license_verified (התג "✓ רישיון מאומת") רק מסטטוס מאומת אמיתי - היום אין כזה ציבורי.
    ============================================================================ */
 (function (global) {
   'use strict';
@@ -83,8 +85,10 @@
       ['אזורים', a.areas && a.areas.length ? a.areas.slice(0, 2).join(', ') + (a.areas.length > 2 ? ' +' + (a.areas.length - 2) : '') : (a.service_area || '')],
       ['ניסיון', Number(a.years_experience) > 0 ? (Number(a.years_experience) === 1 ? 'שנה אחת' : a.years_experience + ' שנים') : ''],
       ['התמחות', specs[0] || ''],
-      ['שפות', langs.length > 1 || (langs[0] && langs[0] !== 'he') ? langs.join(', ') : '']
-    ].filter(function (f) { return f[1]; });
+      ['שפות', langs.length > 1 || (langs[0] && langs[0] !== 'he') ? langs.join(', ') : ''],
+      // מספר הרישיון כעובדה, לא "מאומת": שער הרישיון (ד-1) עוד לא רץ
+      ['רישיון', o.showLicense && a.license_number ? String(a.license_number) : '']
+    ].concat(o.facts || []).filter(function (f) { return f[1]; });
     var wa = waNumber(a);
     return '<div class="agc">' +
       (o.sponsored ? '<p class="agc-spon">ממומן</p>' : '') +

@@ -153,6 +153,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .grid.promoted-rail .pj-card .pj-cover-foot b{font-size:1.3rem}
   }
   .state{padding:48px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state-slot{display:grid}
+  .state-slot > .state{grid-area:1/1}
+  .state-slot:not(.is-done) > #emptyState[hidden]{display:block !important;visibility:hidden}
+  .state-slot.is-done{display:none}
   .state h2{font-size:1.2rem;margin-bottom:8px}
 
   /* ====== תיבת הלידים ======
@@ -335,12 +339,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
 
+    <!-- ‏N3: "טוען" ו"עוד אין" באותו תא - בזמן הטעינה המקום של המצב הריק כבר שמור, ותיבת
+         הלידים שמתחת לא קופצת (CLS). כשיש פרויקטים התא נסגר (‏is-done) -->
+    <div class="state-slot" id="stateSlot">
     <div class="state" id="loadingState">טוען פרויקטים…</div>
 
     <div class="state" id="emptyState" hidden>
       <h2>עוד אין כאן פרויקטים חדשים</h2>
       <p>כשיעלה פרויקט חדש הוא יופיע כאן. בינתיים כדאי לקרוא מה בודקים לפני שחותמים, ואפשר להשאיר התראה.</p>
       <a href="/#allProps" class="btn btn-teal" style="margin-top:14px">לכל הנכסים</a>
+    </div>
     </div>
 
     <!-- ====== הפרויקטים המקודמים ======
@@ -1157,6 +1165,7 @@ function applyDeepLink(){
       return;
     }
 
+    el('stateSlot').classList.add('is-done');
     fillSelects();
     applyDeepLink();
     el('fCity').value = state.city;

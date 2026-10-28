@@ -2218,9 +2218,16 @@ function bindRowScroller(row){
        הכפתור מוביל לפרופיל, הוואטסאפ מ-phone_e164; המקום בדירוג נשאר כתגית */
     if (item.kind === 'agent' && item.raw && v10On() && window.AgentCard){
       const box = mk('article', 'dm-item is-agc');
+      // ‏N2: מה שהכרטיס הקודם הציג - הנכסים הפעילים (או מה שבסינון) והביקורות
+      const facts = [];
+      const listings = item.countText || (item.countNum > 0 ? dmCount(item.countNum) : '');
+      if (listings) facts.push(['נכסים', listings]);
+      if (item.rating !== undefined) facts.push(['דירוג', item.rating !== null
+        ? '★ ' + item.rating.toFixed(1).replace(/\.0$/, '') + ' ' + (item.reviews === 1 ? '(חוות דעת אחת)' : `(${item.reviews} חוות דעת)`)
+        : 'עדיין אין ביקורות']);
       box.innerHTML = AgentCard.html(item.raw, { agency: item.raw.agency_name || '',
         ctaHref: item.href || undefined, actions: item.href ? undefined : false,
-        extraTags: item.rank ? ['★ #' + item.rank + ' בדירוג'] : [] });
+        extraTags: item.rank ? ['★ #' + item.rank + ' בדירוג'] : [], facts });
       return box;
     }
     const el = mk('article', 'dm-item');

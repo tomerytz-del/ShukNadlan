@@ -2858,8 +2858,8 @@ function renderAgentCard(p){
     const top = document.querySelector('.agent-top');
     const box = document.createElement('div');
     box.className = 'agent-agc';
-    box.innerHTML = AgentCard.html(Object.assign({}, agent, { license_verified: !!agent.license_number }),
-      { agency: p.agencies?.name || '', actions: false });
+    // ‏N1: בלי "✓ רישיון מאומת" - אין עדיין אימות (שער הרישיון, ד-1); המספר מוצג כעובדה, כמו קודם
+    box.innerHTML = AgentCard.html(agent, { agency: p.agencies?.name || '', actions: false, showLicense: true });
     top.hidden = true;
     top.after(box);
   }
