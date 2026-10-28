@@ -15097,7 +15097,7 @@ function locationSchemaMissing(error){ return !!error && /location_(precision|ra
 /* יעד הפרסום (20271029185000). בלי העמודות הכרטיס בלי הבורר, והרשימה עולה. */
 const PROPERTY_DEST_COLUMNS = ', publish_channels, share_with_brokers';
 function destSchemaMissing(error){ return !!error && /publish_channels|share_with_brokers/.test(error.message || ''); }
-/* unpublished_at (20271028190000) בנפרד: האתר עולה לפני המיגרציה. בלי
+/* unpublished_at (20271029190000) בנפרד: האתר עולה לפני המיגרציה. בלי
    העמודה הסינון "ירדו מפרסום" ריק, ולא נופלים ל-created_at. */
 const PROPERTY_UNPUBLISHED_COLUMNS = ', unpublished_at, unpublished_origin';
 function unpublishedSchemaMissing(error){ return !!error && /unpublished_(at|origin)/.test(error.message || ''); }
