@@ -89,6 +89,14 @@
   var ROOM_BUCKETS = [[2, 2.5], [3, 4.5], [4, 5.5], [5, 99]];
   var ROOMS_OPEN = 99;
 
+  function roomsInLabel(list) {
+    var parts = list.slice().sort(function (a, b) { return a - b; }).map(function (n) { return n >= 6 ? '6+' : String(n); });
+    return (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' או ' + parts[parts.length - 1] : parts[0]) + ' חדרים';
+  }
+  function roomsMatchIn(r, list) {
+    return list.some(function (n) { return n >= 6 ? r >= 6 : (r >= n && r <= n + 0.5); });
+  }
+
   function roomsLabel(r) {
     if (!r) return 'כל גודל';
     var lo = r[0], hi = r[1];
@@ -121,7 +129,10 @@
     /* ‏deal: null - לפני שנבחר משהו, המשפט אינו מסנן כלום: המפה והכפתור
        מציגים את כל הנכסים, כמו לפני החיפוש במשפט. "לקנות" כברירת מחדל
        היה מציג "הצג 36 נכסים" לגולש/ת שעוד לא ביקש/ה דבר. */
-    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null };
+    /* ‏R5-4: בחירה מרובה - roomsIn ‏([3,5,6]; ‏N = ‏N ו-N.5, ‏6 = ‏6+), ‏types (מפתחות סוג),
+       ‏hoods (מפתחות hood:). כשהם קיימים rooms / type / area הם "הכל". OR בתוך שדה, AND בין שדות. */
+    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null,
+      roomsIn: null, types: null, hoods: null };
   }
 
   /* ---------- נרמול עברית ----------
@@ -225,14 +236,16 @@
         norm(p.city).indexOf(norm(st.area.slice(5))) < 0)) return false;   // גם לא לחיפוש רחוב אחרי
     if (skip !== 'deal' && st.deal && p.deal_type !== st.deal) return false;
 
-    if (skip !== 'type' && st.type && st.type !== 'any') {
-      var t = typeDef(st.type);
-      if (t.commercial && p.category !== 'commercial') return false;
-      if (t.residential && p.category === 'commercial') return false;
-      if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;
+    if (skip !== 'type' && st.types && st.types.length) {
+      if (!st.types.some(function (k) { return typeMatches(p, k); })) return false;
+    } else if (skip !== 'type' && st.type && st.type !== 'any' && !typeMatches(p, st.type)) return false;
+
+    if (skip !== 'area' && st.hoods && st.hoods.length) {
+      var mineH = p._areas || (p.neighborhood_id ? [hoodKey(p.neighborhood_id)] : []);
+      if (!st.hoods.some(function (h) { return mineH.indexOf(h) >= 0; })) return false;
     }
 
-    if (skip !== 'area' && st.area && st.area !== 'all') {
+    if (skip !== 'area' && !(st.hoods && st.hoods.length) && st.area && st.area !== 'all') {
       var a = st.area;
       // ‏p._areas - מ-deriveAreas (‏SearchCore.propertyAreas); בלעדיו, השכונה עצמה
       var mine = p._areas || (p.neighborhood_id ? [hoodKey(p.neighborhood_id)] : []);
@@ -267,6 +280,12 @@
       if (p.rooms === null || p.rooms === undefined || !isFinite(r)) return false;
       if (r < st.rooms[0] || r > st.rooms[1]) return false;
     }
+    if (skip !== 'rooms' && st.roomsIn && st.roomsIn.length && !typeDef(st.type).noRooms) {
+      var pickedIn = typeDef(st.type);
+      if (!pickedIn.commercial && (p.category === 'commercial' || COMMERCIAL_PTYPES[p.property_type])) return false;
+      var ri = Number(p.rooms);
+      if (p.rooms === null || p.rooms === undefined || !isFinite(ri) || !roomsMatchIn(ri, st.roomsIn)) return false;
+    }
 
     if (skip !== 'price') {
       // מחיר למ״ר - כפול השטח (‏SC.comparablePrice, docs/price-unit.md)
@@ -280,6 +299,14 @@
     /* הסינון המתקדם (קומה, מ״ר, מאפיינים…) מגיע מהדף כפרדיקט: הוא חל על
        כל מונה בדיוק כמו ה-slots, ולכן המספרים נשארים נכונים גם איתו. */
     if (skip !== 'extra' && ctx.extra && !ctx.extra(p)) return false;
+    return true;
+  }
+
+  function typeMatches(p, key) {
+    var t = typeDef(key);
+    if (t.commercial && p.category !== 'commercial') return false;
+    if (t.residential && p.category === 'commercial') return false;
+    if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;
     return true;
   }
 
@@ -301,7 +328,17 @@
   function applyPatch(st, patch) {
     var next = assign(st, patch);
     if ('deal' in patch && patch.deal !== st.deal && !('priceMax' in patch)) next.priceMax = null;
-    if (typeDef(next.type).noRooms) next.rooms = null;
+    // בחירה אחת מחליפה את המרובה, ולהפך
+    if ('rooms' in patch && patch.rooms) next.roomsIn = null;
+    if ('roomsIn' in patch && patch.roomsIn && patch.roomsIn.length) next.rooms = null;
+    if ('roomsIn' in patch && patch.roomsIn && !patch.roomsIn.length) next.roomsIn = null;
+    if ('type' in patch && !('types' in patch)) next.types = null;
+    if ('types' in patch && patch.types && patch.types.length > 1) next.type = typeDef(patch.types[0]).commercial ? 'commercial' : 'any';
+    if ('types' in patch && patch.types && patch.types.length < 2) { next.type = patch.types[0] || next.type; next.types = null; }
+    if ('area' in patch && !('hoods' in patch)) next.hoods = null;
+    if ('hoods' in patch && patch.hoods && patch.hoods.length > 1) next.area = 'all';
+    if ('hoods' in patch && patch.hoods && patch.hoods.length < 2) { next.area = patch.hoods[0] || next.area; next.hoods = null; }
+    if (typeDef(next.type).noRooms) { next.rooms = null; next.roomsIn = null; }
     return next;
   }
 
@@ -322,12 +359,22 @@
     }
     var out = [
       { slot: 'deal', pre: '', value: dealLabel(st.deal) },
-      { slot: 'type', pre: '', value: typeDef(st.type).label },
-      { slot: 'area', pre: areaPrefix(areaKey), value: areaValue },
+      { slot: 'type', pre: '', value: typesLabel(st) },
+      { slot: 'area', pre: areaPrefix(areaKey), value: st.hoods && st.hoods.length ? hoodsLabel(st.hoods, areas, ctx) : areaValue },
     ];
-    if (!typeDef(st.type).noRooms) out.push({ slot: 'rooms', pre: 'עם', value: roomsLabel(st.rooms) });
+    if (!typeDef(st.type).noRooms) out.push({ slot: 'rooms', pre: 'עם', value: st.roomsIn && st.roomsIn.length ? roomsInLabel(st.roomsIn) : roomsLabel(st.rooms) });
     out.push({ slot: 'price', pre: 'ב', value: priceLabel(st.priceMax, st.deal) });
     return out;
+  }
+
+  function typesLabel(st) {
+    if (!st.types || !st.types.length) return typeDef(st.type).label;
+    var names = st.types.map(function (k) { return typeDef(k).label; });
+    return names.length > 2 ? names[0] + ' ועוד ' + (names.length - 1) + ' סוגים' : names.join(' או ');
+  }
+  function hoodsLabel(list, areas, ctx) {
+    var first = areaLabel(list[0], areas, ctx);
+    return list.length > 1 ? first + ' ובעוד ' + (list.length === 2 ? 'שכונה אחת' : (list.length - 1) + ' שכונות') : first;
   }
 
   function sameRooms(a, b) { return (!a && !b) || (a && b && a[0] === b[0] && a[1] === b[1]); }
@@ -615,9 +662,9 @@
   function parsedNote(fields, st, areas, ctx) {
     return fields.map(function (s) {
       if (s === 'deal') return st.deal === 'rent' ? 'שכירות' : 'קנייה';
-      if (s === 'type') return typeDef(st.type).label;
-      if (s === 'area') return areaLabel(st.area, areas, ctx);
-      if (s === 'rooms') return roomsLabel(st.rooms);
+      if (s === 'type') return typesLabel(st);
+      if (s === 'area') return st.hoods && st.hoods.length ? hoodsLabel(st.hoods, areas, ctx) : areaLabel(st.area, areas, ctx);
+      if (s === 'rooms') return st.roomsIn && st.roomsIn.length ? roomsInLabel(st.roomsIn) : roomsLabel(st.rooms);
       if (s === 'price') return st.priceMax === null ? 'כל תקציב' : priceLabel(st.priceMax, st.deal);
       return '';
     }).filter(Boolean).join(' · ');
@@ -675,21 +722,45 @@
 
     var ptype = get('ptype');
     var tkey = get('type');
-    if (ptype) {
+    if (ptype && ptype.indexOf(',') > 0) {
+      var keys = [];
+      ptype.split(',').forEach(function (v) {
+        v = v.trim();
+        var g = TYPES.filter(function (t) { return t.url === v; })[0];
+        var k = g ? g.key : (/^[֐-׿\w'"/ .-]{1,40}$/.test(v) ? 'raw:' + v : null);
+        if (k && keys.indexOf(k) < 0) keys.push(k);
+      });
+      if (keys.length > 1) { st.types = keys; st.type = typeDef(keys[0]).commercial ? 'commercial' : 'any'; }
+      else if (keys.length) st.type = keys[0];
+    } else if (ptype) {
       var group = TYPES.filter(function (t) { return t.url === ptype; })[0];
       if (group) st.type = group.key;
       else if (/^[֐-׿\w'"/ .-]{1,40}$/.test(ptype)) st.type = 'raw:' + ptype;
     } else if (TYPE_BY_KEY[tkey]) st.type = tkey;
 
-    st.rooms = parseRooms(get('rooms'));
+    /* ‏R5-4: ‏rooms=3,5,6+ (שלמים בפסיקים) = בחירה מרובה. עם חצי (‏3,3.5) - הטווח הישן */
+    var rawRooms = get('rooms');
+    if (/^\s*\d+\+?\s*(,\s*\+?\d+\+?\s*)+$/.test(rawRooms) && !/\./.test(rawRooms)) {
+      var ins = [];
+      rawRooms.split(',').forEach(function (v) {
+        var n = parseInt(v.replace(/\+/g, ''), 10);
+        if (n >= 1 && n <= 20) { n = Math.min(n, 6); if (ins.indexOf(n) < 0) ins.push(n); }
+      });
+      if (ins.length > 1) st.roomsIn = ins.sort(function (a, b) { return a - b; });
+      else st.rooms = parseRooms(rawRooms);
+    } else st.rooms = parseRooms(rawRooms);
     var num = function (k) { var n = Number(get(k)); return get(k) && isFinite(n) && n > 0 ? Math.round(n) : null; };
     st.priceMax = num('maxPrice');
     st.priceMin = num('minPrice');
     var q = get('q').slice(0, 80);
     if (q) st.area = 'text:' + q;
+    var hoodsRaw = get('hoods').split(',').map(function (v) { return v.trim(); })
+      .filter(function (v) { return /^[\w-]{1,64}$/.test(v); });
+    if (hoodsRaw.length > 1) { st.hoods = hoodsRaw.slice(0, 20).map(hoodKey); st.area = 'all'; }
+    else if (hoodsRaw.length === 1 && !q) st.area = hoodKey(hoodsRaw[0]);
     st.city = parseCity(get('city'));
     st.ai = get('ai') === '1';
-    if (typeDef(st.type).noRooms) st.rooms = null;
+    if (typeDef(st.type).noRooms) { st.rooms = null; st.roomsIn = null; }
     return st;
   }
 
@@ -719,14 +790,17 @@
     var t = typeDef(st.type);
     if (st.deal) p.push(['deal', st.deal]);
     else if (t.commercial) p.push(['deal', 'commercial']);
-    if (t.url) p.push(['ptype', t.url]);
+    if (st.types && st.types.length) p.push(['ptype', st.types.map(function (k) { var d = typeDef(k); return d.url || k.replace(/^raw:/, ''); }).join(',')]);
+    else if (t.url) p.push(['ptype', t.url]);
     else if (st.type && st.type !== 'any' && !(t.key === 'commercial' && !st.deal)) p.push(['type', st.type]);
-    if (st.rooms) p.push(['rooms', roomsParam(st.rooms)]);
+    if (st.roomsIn && st.roomsIn.length) p.push(['rooms', st.roomsIn.map(function (n) { return n >= 6 ? '6+' : String(n); }).join(',')]);
+    else if (st.rooms) p.push(['rooms', roomsParam(st.rooms)]);
     if (st.priceMin) p.push(['minPrice', String(st.priceMin)]);
     if (st.priceMax !== null && st.priceMax !== undefined) p.push(['maxPrice', String(st.priceMax)]);
     /* ‏"לידי" ו"האזור שסימנתי" אינם נכתבים: הם תלויים במיקום ובציור של מי
        שנמצא/ת כאן עכשיו, וקישור ששותף איתם היה נוחת על משהו אחר לגמרי. */
-    if (st.area && st.area !== 'all' && st.area !== 'near' && st.area !== 'drawn') p.push(['q', areaLabel(st.area, areas, ctx)]);
+    if (st.hoods && st.hoods.length) p.push(['hoods', st.hoods.map(function (h) { return h.replace(/^hood:/, ''); }).join(',')]);
+    else if (st.area && st.area !== 'all' && st.area !== 'near' && st.area !== 'drawn') p.push(['q', areaLabel(st.area, areas, ctx)]);
     if (st.city) p.push(['city', st.city]);
     if (st.ai) p.push(['ai', '1']);
     return p.map(function (kv) { return kv[0] + '=' + encodeURIComponent(kv[1]); }).join('&');

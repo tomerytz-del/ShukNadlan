@@ -41,7 +41,7 @@ const CSM_STAGE_ORDER = Object.fromEntries(CSM_STAGES.map((s, i) => [s.key, i]))
 /* ---------- חלק 1: שאלון האבחון ----------
    המפתחות נשמרים ב-csm_sessions.diagnostic. שאלה חדשה = שורה כאן, בלי מיגרציה. */
 const CSM_DIAG = [
-  { key:'experience', q:'כמה זמן את/ה פעיל/ה בתחום הנדל"ן?', opts:[
+  { key:'experience', q:'כמה זמן את/ה פעיל/ה בתחום הנדל״ן?', opts:[
     ['lt1', 'פחות משנה'], ['1to3', '1-3 שנים'], ['gt3', 'מעל 3 שנים'] ] },
   { key:'structure', q:'איך את/ה פועל/ת ביומיום?', opts:[
     ['solo', 'סוכן/ת עצמאי/ת לחלוטין'], ['office', 'חלק ממשרד / צוות'] ],

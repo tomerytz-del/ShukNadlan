@@ -58,9 +58,23 @@
   // ‏P1-P: התחומים לפי professionals.html (‏TYPE_PLURAL); "כל בעלי המקצוע" - בלי type
   var GW_PROS = [['mortgage_advisor', 'יועצי משכנתאות'], ['appraiser', 'שמאי מקרקעין'], ['real_estate_lawyer', 'עורכי דין מקרקעין'],
     ['architect', 'אדריכלים'], ['interior_designer', 'מעצבי פנים'], ['', 'כל בעלי המקצוע']];
+  /* תחום בלי אף בעל/ת מקצוע פעיל/ה לא מוצג, כדי שלא ינחתו על דף ריק. אותו מקור כמו
+     professionals.html (‏professional_cards_public). כשל - רק "כל בעלי המקצוע" */
+  var prosTypesP = null;
+  function prosTypes() {
+    if (prosTypesP) return prosTypesP;
+    prosTypesP = fetch('https://obookujgolazrwycsiyn.supabase.co/rest/v1/professional_cards_public?select=advertiser_type&limit=500', {
+      headers: { apikey: 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx', Authorization: 'Bearer sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx' }
+    }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+      var set = {};
+      (rows || []).forEach(function (x) { if (x && x.advertiser_type) set[x.advertiser_type] = 1; });
+      return set;
+    }).catch(function () { return {}; });
+    return prosTypesP;
+  }
   var PRO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>';
   /* ‏P1-Q: דוגמאות שאלות שמוקלדות בשדה (v10). ניטרליות, בלי מספרים שמשתנים מיום ליום */
-  var GW_HINTS = ['דירת 4 חדרים בעפולה עד 1.5 מיליון?', 'מה יש להשכרה ליד הקניון?', 'כמה שווה הדירה שלי?', 'יש נכסים בלי עמלת תיווך?',
+  var GW_HINTS = ['דירת 4 חדרים בעפולה עד 1.5 מיליון?', 'מה יש להשכרה במרכז העיר?', 'כמה שווה הדירה שלי?', 'יש נכסים בלי עמלת תיווך?',
     'אפשר לראות הדמיה של הנכס משופץ?', 'מחפשים בית פרטי בעמק', 'חנות להשכרה עם חזית לרחוב', 'רוצים להתייעץ עם שמאי',
     'פרויקטים חדשים בעפולה עילית', 'דירה עם מרפסת וחניה'];
 
@@ -92,7 +106,7 @@
       // ‏?fair=1 - ‏swipe.js מסנן לנכסים שביריד עכשיו
       fair: { text: 'ביריד יש דירות ב' + mkt + ' ללא עמלת תיווך, לזמן מוגבל. רוצים לעבור עליהן בהחלקה?', cta: 'להחליק על דירות היריד', href: '/swipe?deal=sale&fair=1' },
       // ‏P1-P: בלי בוט - קישורים לדפי בעלי המקצוע לפי תחום
-      pro: { text: 'באיזה תחום צריך עזרה?', pros: true },
+      pro: { text: 'באיזה תחום תרצו עזרה?', pros: true },
       swipe: { text: vizMost() ? 'יאללה! ימינה שומרים, שמאלה מדלגים, ולרוב הנכסים יש ✨ הדמיה.' : 'יאללה! ימינה שומרים, שמאלה מדלגים.', cta: 'התחילו להחליק', href: '/swipe' }
     }[key];
   }
@@ -449,7 +463,8 @@
       });
       // ‏P1-P (v10): אחרי "יריד הבתים הפתוחים" - בעלי מקצוע, בלי וואטסאפ
       if (v10) {
-        var pl = el('li');
+        // ‏R5-9: בשורה מלאה - בחצי שורה הטקסט נשבר לשתי שורות ומשאיר חור
+        var pl = el('li', { 'class': 'gw-full' });
         var pb = el('button', { type: 'button', 'class': 'gw-choice', 'data-pick': 'pro' });
         pb.innerHTML = PRO_ICON + '<span>התייעצות עם בעלי מקצוע</span>';
         pl.appendChild(pb);
@@ -504,12 +519,15 @@
         }
         if (r.pros) {
           var ul = el('ul', { 'class': 'gw-pros', 'aria-label': 'תחומי בעלי המקצוע' });
-          GW_PROS.forEach(function (x) {
-            var li = el('li');
-            li.appendChild(el('a', { 'class': 'gw-pro', href: '/professionals' + (x[0] ? '?type=' + x[0] : ''), 'data-pro-type': x[0] || 'all' }, x[1]));
-            ul.appendChild(li);
-          });
           box.appendChild(ul);
+          prosTypes().then(function (active) {
+            GW_PROS.filter(function (x) { return !x[0] || active[x[0]]; }).forEach(function (x) {
+              var li = el('li');
+              li.appendChild(el('a', { 'class': 'gw-pro', href: '/professionals' + (x[0] ? '?type=' + x[0] : ''), 'data-pro-type': x[0] || 'all' }, x[1]));
+              ul.appendChild(li);
+            });
+            scrollToLatest();
+          });
         }
         typing.replaceWith(box);
         scrollToLatest();

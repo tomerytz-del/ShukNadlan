@@ -4810,6 +4810,8 @@ const COMMERCIAL_PROPERTY_FEATURES = [
   ['ev_charger','עמדת טעינה לרכב חשמלי'],
 ];
 const ROOM_OPTIONS = ['1','1.5','2','2.5','3','3.5','4','4.5','5','5.5','+6'];
+/* ‏R5-4 (v10): צ'יפים שלמים, ו-N כולל את N.5. בחירה מרובה נשלחת כ-roomsIn ולא כטווח */
+const ROOM_OPTIONS_V10 = ['2','3','4','5','+6'];
 
 const searchState = {
   activeTab: 'sale', // 'sale' | 'rent' | 'commercial'
@@ -4954,7 +4956,12 @@ function advV10Layout(){
   const pre = commercial ? 'c' : 'r', s = commercial ? searchState.c : searchState.r;
   const sale = !commercial && searchState.activeTab === 'sale';
   const sec = id => document.getElementById(id)?.closest('.filter-section');
-  // מכירה בלבד
+  // מכירה בלבד; מעבר לשכירות מנקה את מה שנבחר שם (‏R5-8)
+  if (!commercial && !sale){
+    s.ppsqmMin = s.ppsqmMax = null; s.newOnly = false;
+    ['rPpsqmMin', 'rPpsqmMax'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('rNewOnly').checked = false;
+  }
   if (!commercial){
     document.getElementById('rPpsqmSec').hidden = !sale;
     document.getElementById('rNewOnlySec').hidden = !sale;
@@ -4970,6 +4977,28 @@ function advV10Layout(){
   }
   // מאפיינים עם מונה; אפס לא מוצג
   const pool = advPool(commercial);
+  // ‏R5-4: חדרים שלמים (‏N כולל N.5), בחירה מרובה
+  if (!commercial) renderPills(document.getElementById('rRoomsPills'), ROOM_OPTIONS_V10, s.rooms);
+  // ‏R5-4: שכונות, בחירה מרובה, עם מונה - רק שכונות עם נכסים בעסקה (או שנבחרו)
+  if (!s.hoods) s.hoods = new Set();
+  const modal = document.getElementById(commercial ? 'commercialFilterModal' : 'residentialFilterModal');
+  let hoodSec = modal.querySelector('[data-adv-hoods]');
+  if (!hoodSec){
+    hoodSec = document.createElement('div');
+    hoodSec.className = 'filter-section';
+    hoodSec.dataset.advHoods = '';
+    hoodSec.innerHTML = '<h4>שכונות <span class="filter-hint">(ניתן לבחור כמה)</span></h4><div class="checkbox-grid"></div>';
+    const typeSec = commercial ? document.getElementById('cPtypePills').closest('.filter-section')
+      : modal.querySelector('[data-ptype-cat]').closest('.filter-section');
+    typeSec.after(hoodSec);
+  }
+  const hn = new Map(), hname = new Map();
+  pool.forEach(p => { if (!p.neighborhood_id) return; const k = 'hood:' + p.neighborhood_id;
+    hn.set(k, (hn.get(k) || 0) + 1); if (!hname.has(k)) hname.set(k, p.neighborhood_name || ''); });
+  const hoodItems = [...new Set([...hn.keys(), ...s.hoods])].filter(k => hname.get(k) || hn.get(k))
+    .sort((a, b) => (hn.get(b) || 0) - (hn.get(a) || 0)).map(k => [k, (hname.get(k) || 'שכונה') + ' (' + (hn.get(k) || 0) + ')']);
+  hoodSec.hidden = !hoodItems.length;
+  renderCheckboxes(hoodSec.querySelector('.checkbox-grid'), hoodItems, s.hoods);
   // סוגי מגורים: רק עם נכס בעסקה, עם מונה; קבוצה ריקה יורדת
   if (!commercial){
     const tn = new Map();
@@ -6656,7 +6685,7 @@ function applyDeepLinkFilters(){
   if (isReload()){
     try {
       const url = new URL(location.href);
-      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
+      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'hoods', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה */ }
     return;
@@ -6725,7 +6754,12 @@ function applyDeepLinkFilters(){
    אחרת כל לחיצה בבורר הייתה פותחת רשימה ארוכה ודוחפת את הדף. */
 let sentenceRowsOn = false;
 
-function sentenceRoomsSet(r){
+function sentenceRoomsSet(r, roomsIn){
+  if (v10On()){
+    if (roomsIn && roomsIn.length) return new Set(roomsIn.map(n => n >= 6 ? '+6' : String(n)));
+    if (!r) return new Set();
+    return new Set(ROOM_OPTIONS_V10.filter(o => { const n = o === '+6' ? 6 : Number(o); return n >= Math.floor(r[0]) && n <= r[1]; }));
+  }
   if (!r) return new Set();
   return new Set(ROOM_OPTIONS.filter(o => {
     const n = o === '+6' ? 6 : parseFloat(o);
@@ -6740,8 +6774,12 @@ function syncSearchStateFromSentence(st){
   searchState.activeTab = commercial ? 'commercial' : (st.deal || 'sale');
   const s = commercial ? searchState.c : searchState.r;
   if (commercial) searchState.c.deal = st.deal || '';
-  s.ptypes = new Set(t.ptypes || []);
-  s.rooms = sentenceRoomsSet(st.rooms);
+  // ‏R5-4: כמה סוגים / שכונות מהמשפט
+  s.ptypes = st.types && st.types.length
+    ? new Set(st.types.flatMap(k => Core.typeDef(k).ptypes || []))
+    : new Set(t.ptypes || []);
+  s.rooms = sentenceRoomsSet(st.rooms, st.roomsIn);
+  s.hoods = new Set(st.hoods && st.hoods.length ? st.hoods : (/^hood:/.test(st.area || '') ? [st.area] : []));
   searchState.hasAi = !!st.ai;
   /* ‏collectFormValues() קורא את המחיר משדות המודאל, ולכן הוא נכתב גם לשם */
   const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = v ? String(v) : ''; };
@@ -6882,6 +6920,12 @@ function applyAdvancedFilters(){
   // במסחרי אין חדרים (החלון אינו מציג אותם) - ושארית מחיפוש מגורים לא מסננת
   if (commercial) s.rooms = new Set();
   const rooms = [...s.rooms].map(r => r === '+6' ? 6 : parseFloat(r)).filter(Number.isFinite);
+  if (v10On()){
+    /* ‏R5-2/R5-4: ‏3 ו-5 הם 3 או 5, לא 3-5. אחד → הטווח שלו (‏N עד N.5) */
+    const ints = [...new Set(rooms.map(n => Math.min(6, Math.floor(n))))].sort((a, b) => a - b);
+    patch.rooms = ints.length === 1 ? (ints[0] >= 6 ? [6, 99] : [ints[0], ints[0] + 0.5]) : null;
+    patch.roomsIn = ints.length > 1 ? ints : null;
+  } else
   patch.rooms = rooms.length ? [Math.min(...rooms), s.rooms.has('+6') ? 99 : Math.max(...rooms)] : null;
   patch.priceMax = s.priceMax ? Number(s.priceMax) : null;
   patch.priceMin = s.priceMin ? Number(s.priceMin) : null;
@@ -6896,7 +6940,15 @@ function applyAdvancedFilters(){
   if (!pt.length) patch.type = commercial ? 'commercial' : (Core.typeDef(cur.type).commercial ? 'any' : cur.type);
   else if (group) patch.type = group.key;
   else if (pt.length === 1) patch.type = 'raw:' + pt[0];
+  // ‏R5-4 (v10): כמה סוגים נכנסים למשפט ולכתובת (‏ptype=a,b), לא רק כפרדיקט
+  else if (v10On()) patch.types = pt.map(x => 'raw:' + x);
   else { patch.type = commercial ? 'commercial' : 'any'; checks.push(p => pt.includes(p.property_type)); }
+  if (v10On()){
+    const hs = [...(s.hoods || [])];
+    if (hs.length > 1) patch.hoods = hs;
+    else if (hs.length === 1) patch.area = hs[0];
+    else if (/^hood:/.test(cur.area || '') || (cur.hoods && cur.hoods.length)) patch.area = 'all';
+  }
 
   const feats = p => Array.isArray(p.features) ? p.features : [];
   [...s.listingFeatures].forEach(code => {
@@ -6923,14 +6975,17 @@ function applyAdvancedFilters(){
   range('size_sqm', s.sizeMin, s.sizeMax);
   /* מחיר למ"ר: price_per_sqm במסד מתעלם מ-price_unit (‏docs/proposals/filters_per_deal.sql),
      ולכן כאן - מחיר שכבר למ"ר נשאר, ואחרת מחיר חלקי שטח */
-  const lo = num(s.ppsqmMin), hi = num(s.ppsqmMax);
+  // ‏R5-8: מחיר למ"ר ו"פרויקטים חדשים" רק במכירה (ומחיר למ"ר גם במסחרי), גם אם נשארו מבחירה קודמת
+  const saleTab = searchState.activeTab === 'sale';
+  const lo = commercial || saleTab ? num(s.ppsqmMin) : null, hi = commercial || saleTab ? num(s.ppsqmMax) : null;
   if (lo !== null || hi !== null) checks.push(p => {
     const v = pricePerSqm(p);
     return v !== null && (lo === null || v >= lo) && (hi === null || v <= hi);
   });
-  if (!commercial && s.newOnly) checks.push(p => !!p.project_status || p.condition === 'new_from_contractor');
+  if (!commercial && saleTab && s.newOnly) checks.push(p => !!p.project_status || p.condition === 'new_from_contractor');
   if (!commercial && s.condition) checks.push(p => p.condition === s.condition);
-  if (s.projectStatus) checks.push(p => p.project_status === s.projectStatus);
+  // סטטוס הפרויקט רק במכירה (‏P1-N1); מוסתר בשכירות ובמסחרי ולכן לא חל שם
+  if (s.projectStatus && (!v10On() || (!commercial && searchState.activeTab === 'sale'))) checks.push(p => p.project_status === s.projectStatus);
   if (s.moveInSoon) checks.push(p => p.move_in_soon === true);
   if (s.moveInDate) checks.push(p => !!p.move_in_date && p.move_in_date >= s.moveInDate);
   if (commercial){
@@ -6958,7 +7013,8 @@ function applyAdvancedFilters(){
     [['price', s.priceMin || s.priceMax], ['ppsqm', s.ppsqmMin || s.ppsqmMax], ['type', pt.length], ['rooms', rooms.length],
      ['floor', s.floorMin || s.floorMax], ['size', s.sizeMin || s.sizeMax], ['condition', !commercial && s.condition],
      ['status', s.projectStatus], ['newOnly', s.newOnly], ['soon', s.moveInSoon], ['moveIn', s.moveInDate], ['text', s.freeText],
-     ['restrooms', commercial && s.restrooms], ['storageAt', commercial && s.storage], ['mamadAt', commercial && s.mamad]]
+     ['restrooms', commercial && s.restrooms], ['storageAt', commercial && s.storage], ['mamadAt', commercial && s.mamad],
+     ['hoods', s.hoods && s.hoods.size]]
       .forEach(([k, v]) => { if (v) fields.push(k); });
     let results = null;
     try { results = sentence.count(); } catch (e) {}
@@ -6984,6 +7040,8 @@ function clearAdvancedFilters(){
 document.getElementById('ssAdvancedBtn')?.addEventListener('click', ()=>{
   // המודאל נבנה מחדש מהמצב הנוכחי של המשפט (חדרים, סוג, מחיר) - הקבוצות
   // שב-searchState מתחלפות עם כל שינוי במשפט, והכפתורים חייבים את החדשות
+  // ‏R5-1: רשת ביטחון - העסקה של החלון היא תמיד זו שבמשפט, מכל מקום שפתח אותו
+  if (sentence && sentence.loaded()) syncSearchStateFromSentence(sentence.state());
   initFilterModals();
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
 });
@@ -7304,7 +7362,7 @@ let freeTextFeatures = new Set();
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
   // city= מסנן ליישוב (sentence-search) בלי להיות עמוד חדש ברשימה הסגורה
-  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
+  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'hoods', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
   /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
 
      הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה
@@ -7511,7 +7569,15 @@ let freeTextFeatures = new Set();
   }
   panel.addEventListener('submit', e => { e.preventDefault(); applyPanel(); });
   // כל שאר האפשרויות (מצב הנכס, מ״ר, תאריך כניסה…) - בחלון הקיים
-  $('hsMore').addEventListener('click', () => document.getElementById('ssAdvancedBtn')?.click());
+  // ‏R5-1: העסקה של הפאנל עוברת למשפט **לפני** שהחלון נפתח - אחרת נפתח חלון של העסקה הקודמת
+  function syncPanelDeal(){
+    if (!sentence || !sentence.loaded() || !mode) return;
+    const commercial = mode === 'commercial';
+    const deal = commercial ? ($('hsCommDeal').value || null) : mode;
+    sentence.patch({ deal, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
+    syncSearchStateFromSentence(sentence.state());
+  }
+  $('hsMore').addEventListener('click', () => { syncPanelDeal(); document.getElementById('ssAdvancedBtn')?.click(); });
 })();
 
 applyDeepLinkFilters();
@@ -8672,9 +8738,23 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
     } catch(e){ return null; }
   }
   const listingHref = p => '/property?id=' + encodeURIComponent(p.id);
+  // Enter שעצרנו ממשיך לפירוש הרגיל של המשפט
+  let passing = false;
+  function passOn(){
+    passing = true;
+    // כמו Enter אמיתי: הדגל של המשפט, ואז שליחת הטופס (אירוע סינתטי אינו שולח טופס בעצמו)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    passing = false;
+    if (input.form) { if (input.form.requestSubmit) input.form.requestSubmit(); else input.form.dispatchEvent(new Event('submit', { cancelable: true })); }
+  }
+  box.addEventListener('click', e => {
+    if (!e.target.closest('[data-as-price]')) return;
+    show('');
+    passOn();
+  });
   // ‏capture במסמך: לפני שהמשפט מפרש את הטקסט כמחיר ולפני שהטופס נשלח
   document.addEventListener('keydown', async e => {
-    if (e.key !== 'Enter' || e.target !== input) return;
+    if (e.key !== 'Enter' || e.target !== input || passing) return;
     const t = input.value.trim();
     const pre = t.match(/^(?:מודעה\s*#?\s*|#)(\d{3,7})$/);
     if (pre){
@@ -8694,13 +8774,15 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
     }
     const bare = t.match(/^(\d{3,7})$/);
     if (bare){
-      // המספר עדיין עובר לפירוש כמחיר; כאן רק הצעה, אם יש מודעה כזו
+      /* ‏R5-7: עוצרים לפני ה-await (אחריו כבר מאוחר), ורק אם אין מודעה כזו - הפירוש
+         כמחיר ממשיך. אם יש: ההצעה, וקישור שני שמפעיל את הפירוש */
+      e.preventDefault(); e.stopPropagation();
       const p = await lookup(Number(bare[1]));
       shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
-      if (p){
-        const bits = [p.property_type, p.city, p.price ? '₪' + Number(p.price).toLocaleString('he-IL') : ''].filter(Boolean).join(' · ');
-        show('<a href="' + escapeHtml(listingHref(p)) + '">מעבר למודעה #' + escapeHtml(String(p.listing_number)) + (bits ? ' (' + escapeHtml(bits) + ')' : '') + ' ←</a>');
-      }
+      if (!p){ passOn(); return; }
+      const bits = [p.property_type, p.city, p.price ? '₪' + Number(p.price).toLocaleString('he-IL') : ''].filter(Boolean).join(' · ');
+      show('<a href="' + escapeHtml(listingHref(p)) + '">מעבר למודעה #' + escapeHtml(String(p.listing_number)) + (bits ? ' (' + escapeHtml(bits) + ')' : '') + ' ←</a>' +
+        '<button type="button" class="ss-suggest-alt" data-as-price>או: חיפוש נכסים עד ₪' + escapeHtml(Number(bare[1]).toLocaleString('en-US')) + '</button>');
     }
   }, true);
 })();
