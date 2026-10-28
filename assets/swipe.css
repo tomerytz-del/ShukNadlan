@@ -477,7 +477,6 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-st-bar i{display:block;height:100%;background:#e5c76a;transition:width .6s ease}
 .sw-st-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(13,27,61,.35)}
 .sw-st-gen{min-height:46px;padding:0 22px;border-radius:999px;background:#c9a227;color:#0d1b3d;font-weight:800}
-.sw-st-link{padding:10px 16px;border-radius:999px;background:#fff;color:var(--sw-navy);font-weight:800;text-decoration:none}
 .sw-st-err{max-width:320px;padding:14px;border-radius:14px;background:#fff;color:var(--sw-title);text-align:center}
 .sw-st-err p{margin:0 0 10px}
 .sw-st-q{margin:8px 0 0;font-size:13px;color:var(--sw-body)}
@@ -493,6 +492,44 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-st-style[aria-pressed=true]{border-color:var(--sw-navy);box-shadow:0 0 0 2px rgba(14,42,107,.15)}
 .sw-st-style img,.sw-st-style .sw-st-th{width:100%;aspect-ratio:4/3;border-radius:10px;object-fit:cover;background:var(--sw-cream,#f4f1e8);display:flex;align-items:center;justify-content:center}
 .sw-st-style b{color:#c9a227}
+.sw-st-head{scroll-margin-top:64px}
+/* סגנון בלי הדמיה: הזמנה לדף הנכס (‏vizInvite ב-swipe.js). אף פעם לא ריבוע ריק - תמונת החדר
+   מרוככת מתחת לצבעי הסגנון, או הצבעים לבד. נייבי וזהב נשארים העיקר; האייקון הוא הצבע היחיד */
+.sw-st-inv{text-decoration:none;-webkit-tap-highlight-color:transparent}
+.sw-st-inv:focus-visible{outline:2px solid #c9a227;outline-offset:2px}
+.sw-st-styles{grid-auto-rows:1fr}
+.sw-st-style.sw-st-inv .sw-st-art{flex:1;aspect-ratio:auto;min-height:calc((100% - 12px) * .75)}
+.sw-st-style.sw-st-inv[aria-current]{border-color:var(--sw-navy);box-shadow:0 0 0 2px rgba(14,42,107,.15)}
+.sw-st-art{box-sizing:border-box;position:relative;isolation:isolate;overflow:hidden;width:100%;aspect-ratio:4/3;border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;text-align:center;
+  color:var(--inv-ink,#0e2a6b);background:var(--inv-base,#f4f1e8)}
+.sw-st-style .sw-st-art>img,.sw-st-art>img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;aspect-ratio:auto;border-radius:0;object-fit:cover;filter:saturate(.7) blur(1px);transform:scale(1.04)}
+.sw-st-art::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--inv-wash)}
+.sw-st-motif{display:inline-flex;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;background:var(--inv-chip,rgba(255,255,255,.7));color:var(--inv-motif,currentColor)}
+.sw-st-motif svg{width:18px;height:18px}
+.sw-st-tease{text-shadow:0 0 6px rgba(255,255,255,.9);font-size:14px;font-weight:800;line-height:1.25;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-st-cta{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-top:2px;padding:0 12px;border-radius:999px;
+  background:#0e2a6b;color:#fff;font-size:12.5px;font-weight:800;white-space:nowrap;box-shadow:0 2px 8px rgba(14,42,107,.18)}
+@media (hover:hover){.sw-st-inv:hover .sw-st-cta{background:#14378a}}
+.is-modern_clean{--inv-base:#f3f5f8;--inv-motif:#0e2a6b;
+  --inv-wash:linear-gradient(0deg,rgba(201,168,124,.45) 0 5px,transparent 5px),linear-gradient(180deg,rgba(252,253,254,.5),rgba(233,237,242,.78))}
+.is-mediterranean_white{--inv-base:#f6efe2;--inv-motif:#6b7a4b;
+  --inv-wash:radial-gradient(120% 90% at 50% 0%,rgba(255,253,248,.55) 0 40%,rgba(240,229,210,.8) 100%)}
+.is-warm_scandi{--inv-base:#efe4d3;--inv-motif:#8a6a45;
+  --inv-wash:repeating-linear-gradient(90deg,transparent 0 23px,rgba(150,112,70,.10) 23px 24px),linear-gradient(180deg,rgba(248,242,232,.5),rgba(232,216,193,.8))}
+.is-modern_luxury{--inv-base:#0e2a6b;--inv-ink:#fff;--inv-motif:#c9a227;--inv-chip:rgba(201,162,39,.16);
+  --inv-wash:repeating-linear-gradient(135deg,transparent 0 17px,rgba(201,162,39,.10) 17px 18px),linear-gradient(155deg,rgba(14,42,107,.7),rgba(8,22,58,.86))}
+.is-modern_luxury .sw-st-cta{background:#c9a227;color:#0e2a6b;box-shadow:none}
+.is-modern_luxury .sw-st-tease{text-shadow:0 1px 4px rgba(0,0,0,.5)}
+@media (hover:hover){.is-modern_luxury:hover .sw-st-cta{background:#d4b13f}}
+/* הגרסה הגדולה בתמונה הראשית - כפתור זהב */
+.sw-st-big{position:absolute;inset:0;display:block}
+.sw-st-big .sw-st-art{height:100%;aspect-ratio:auto;border-radius:0;gap:8px;padding:16px}
+.sw-st-big .sw-st-motif{width:44px;height:44px}
+.sw-st-big .sw-st-motif svg{width:24px;height:24px}
+.sw-st-big .sw-st-tease{font-size:18px}
+.sw-st-big .sw-st-cta{min-height:46px;padding:0 18px;background:#c9a227;color:#0e2a6b;font-size:14px;white-space:normal;box-shadow:none}
+@media (hover:hover){.sw-st-big:hover .sw-st-cta{background:#d4b13f}}
 .sw-st-form{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .sw-st-note{margin:14px 0 4px;font-size:11.5px;color:var(--sw-body)}
 .sw-st-q.is-soft{color:var(--sw-body)}

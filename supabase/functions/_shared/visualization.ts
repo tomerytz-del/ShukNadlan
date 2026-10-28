@@ -116,7 +116,7 @@ const STAGING_TARGET_ROOMS: Partial<Record<PrivateTarget, string[]>> = {
 // קטלוג הסגנונות — מכוון לשוק הישראלי
 //
 // ארבעה סגנונות שמכסים את רוב טעם השוק: המודרני-נקי הוא ברירת המחדל ("איך
-// זה ייראה אחרי שיפוץ קבלן"), הים-תיכוני הוא הסגנון המקומי המובהק, הסקנדינבי
+// זה ייראה אחרי שיפוץ קבלן"), הים התיכוני הוא הסגנון המקומי המובהק, הסקנדינבי
 // החמים הוא מה שמככב בפיד של קוני דירות צעירים, והיוקרה היא לנכסים היקרים.
 //
 // ‏key חייב להישאר יציב — הוא נשמר ב-property_visualizations.style_key ומהווה
@@ -197,7 +197,7 @@ export const STYLES: Record<StyleKey, StyleDef> = {
 
   mediterranean_white: {
     key: "mediterranean_white",
-    label: "ים-תיכוני לבן",
+    label: "ים תיכוני לבן",
     tagline: "טיח לבן, אבן טבעית וקשתות - הקלאסיקה המקומית",
     directives: {
       exterior:

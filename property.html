@@ -1024,6 +1024,8 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
   /* המרווח מעל התיבה נקבע ב-‎.content-col > #vizSection‎ ולא כאן: הוא
      המרווח בין *הבלוקים* בעמודה, ושתי הצהרות שמצטברות זו על זו הן בדיוק
      איך נפתח חלל שאיש לא התכוון אליו. */
+  /* ‏#viz: הרצועה לא צמודה לקצה העליון (אם תיווסף כותרת דביקה: calc(var(--header-h) + 12px)) */
+  #aiShowcase{scroll-margin-top:12px}
   #aiShowcase .ai-band{margin-block:0}
   /* ‏gap ו-padding מהודקים: ‎22px‎ בין שורות הגריד ו-‎26px‎ מתחת להצהרה יצרו
      שני חללים ריקים בתחתית התיבה — אחד בין האריחים להצהרה ואחד מתחתיה —

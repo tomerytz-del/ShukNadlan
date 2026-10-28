@@ -1447,7 +1447,7 @@ const VIZ_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-visualize';
 
 const VIZ_STYLES = [
   { key:'modern_clean',        label:'מודרני נקי',   tag:'לבן, אפור בהיר ואלון' },
-  { key:'mediterranean_white', label:'ים-תיכוני לבן', tag:'טיח, אבן טבעית וצמחייה' },
+  { key:'mediterranean_white', label:'ים תיכוני לבן', tag:'טיח, אבן טבעית וצמחייה' },
   { key:'warm_scandi',         label:'סקנדינבי חמים', tag:'עץ אלון, בז\' רך ו-Japandi' },
   { key:'modern_luxury',       label:'יוקרה מודרנית', tag:'שיש, פליז ותאורה דרמטית' },
 ];
@@ -1600,6 +1600,17 @@ async function loadVisualizations(p){
       // בסיס בכלל, נופלים לסגנון הראשון וכל הארבעה זמינים לפי דרישה.
       const first = vizState.byStyle.keys().next();
       vizState.current = first.done ? VIZ_STYLES[0].key : first.value;
+      /* ‏?viz_style=<key> (מההזמנה ב-/swipe): נפתחים על הסגנון שביקשו, גם בלי הדמיה בו -
+         ואז "עדיין אין הדמיה בסגנון X" והכפתור ברצועה. בלי יצירה אוטומטית. מפתח לא מוכר - מתעלמים.
+         הפרמטר יורד מהכתובת, כדי שקישור משותף יישאר נקי */
+      const want = new URLSearchParams(location.search).get('viz_style');
+      if (want && VIZ_STYLES.some(s => s.key === want)){
+        vizState.current = want;
+        if (window.shukTrack) shukTrack('viz_deeplink_land', { style: want, source: 'swipe' });
+      }
+      if (want){
+        try { const u = new URL(location.href); u.searchParams.delete('viz_style'); history.replaceState(history.state, '', u); } catch(e){}
+      }
     } else {
       // במסחרי ה"סגנונות" הם העסקים שכבר הודמו בנכס, והתיבה נפתחת על
       // האחרון שבהם. הבלוק נפתח מיד ולא אחרי לחיצה: בלעדיו הכפתור שברצועה

@@ -1899,7 +1899,28 @@
   /* ---------- 4א. הסטודיו: לשונית "✨ הדמיה" בגיליון (חלק 2 §4) ----------
      נפתחת מהגלולה, מהכפתור שמתחת לשקופית ומההזמנה; כל דרך אחרת פותחת "פרטים".
      התוצאות נשמרות על הנכס ומוצגות לכל מבקר/ת (כמו בדף הנכס) - ההערה אומרת זאת. */
-  var VIZ_STYLES = [['modern_clean', 'מודרני נקי'], ['mediterranean_white', 'ים-תיכוני לבן'], ['warm_scandi', 'סקנדינבי חמים'], ['modern_luxury', 'יוקרה מודרנית']];
+  var VIZ_STYLES = [['modern_clean', 'מודרני נקי'], ['mediterranean_white', 'ים תיכוני לבן'], ['warm_scandi', 'סקנדינבי חמים'], ['modern_luxury', 'יוקרה מודרנית']];
+  /* סגנון בלי הדמיה לחדר = הזמנה מעוצבת לדף הנכס (‏?viz_style=<key>#viz), לא ריבוע ריק: תמונת
+     החדר מרוככת מתחת לצבעי הסגנון (או הצבעים לבד), אייקון, שם הסגנון וכפתור. החלטת תומר 28.10 */
+  var VIZ_SVG0 = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">';
+  var VIZ_MOTIF = {
+    modern_clean: VIZ_SVG0 + '<path d="M12 3v5"/><path d="M6 14a6 6 0 0 1 12 0z"/><path d="M4 20h16"/></svg>',
+    mediterranean_white: VIZ_SVG0 + '<path d="M5 21V11a7 7 0 0 1 14 0v10"/><path d="M9 21v-5a3 3 0 0 1 6 0v5"/><path d="M3 21h18"/></svg>',
+    warm_scandi: VIZ_SVG0 + '<path d="M12 14c0-5 3-8 7-9 0 5-3 8-7 9z"/><path d="M12 14c0-4-2-6-6-7 0 4 2 6 6 7z"/><path d="M8 14h8l-1.2 7H9.2z"/></svg>',
+    modern_luxury: VIZ_SVG0 + '<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18"/><path d="M9.5 4 12 20 14.5 4"/></svg>'
+  };
+  function vizInvite(p, key, label, src, big, current) {
+    var href = '/property?id=' + encodeURIComponent(p.id) + '&viz_style=' + key + '#viz';
+    return '<a class="' + (big ? 'sw-st-empty sw-st-big' : 'sw-st-style') + ' sw-st-inv is-' + key + '" href="' + href + '" data-viz-invite="' + key + '"' +
+      (current ? ' aria-current="true"' : '') + ' aria-label="' + esc('יצירת הדמיה בסגנון ' + label + ' בדף הנכס') + '">' +
+      '<span class="sw-st-art" aria-hidden="true">' + (src ? '<img ' + imgSrc(src, big ? 800 : 240) + ' alt="" loading="lazy">' : '') +
+      '<span class="sw-st-motif">' + VIZ_MOTIF[key] + '</span><span class="sw-st-tease">' + esc(label) + '</span>' +
+      '<span class="sw-st-cta">' + (big ? esc('ליצירת הדמיה בסגנון ' + label + ' בדף הנכס') : 'ליצירת הדמיה בדף הנכס') + '</span></span></a>';
+  }
+  function vizSameSrc(p, target) {
+    var same = (vizMap.get(p.id) || []).filter(function (v) { return v.target === target && v.before; })[0];
+    return (same && same.before) || '';
+  }
   var VIZ_ICON = { living_room: '🛋️', kitchen: '🍳', bedroom: '🛏️', exterior: '🏡', interior_main: '🏪' };
   var VIZ_DAILY = 10, VIZ_URL = SUPABASE_URL + '/functions/v1/property-visualize';
   var VIZ_FAIL = 'לא הצלחנו ליצור את ההדמיה כרגע. נסו שוב מאוחר יותר.';
@@ -1995,8 +2016,8 @@
     if (r) return '<img data-fb="sw-st-src" class="sw-st-src is-only" ' + imgSrc(r.after, 800) + ' alt="' + esc('הדמיית AI - ' + vizRoom(p, st.target)) + '">';
     var over = '';
     if (st.msg) over = '<div class="sw-st-err" role="alert"><p>' + esc(st.msg) + '</p>' + (st.limit ? '' : '<button type="button" class="sw-white" data-gen-retry>נסו שוב</button>') + '</div>';
-    else if (!VIZ_SWIPE_GENERATE) over = '<a class="sw-st-link" href="/property?id=' + encodeURIComponent(p.id) + '#viz">ליצירת הדמיה בסגנון הזה - בדף הנכס ←</a>';
-    else if (!st.comm) over = '<button type="button" class="sw-gold sw-st-gen" data-gen' + (vizLeft() ? '' : ' disabled') + '>' + (vizLeft() ? '✨ צור הדמיה' : 'הגעתם למכסה היומית') + '</button>';
+    else if (!VIZ_SWIPE_GENERATE && !st.comm) return vizInvite(p, st.key, studioStyleLabel(), src, true);
+    else if (VIZ_SWIPE_GENERATE && !st.comm) over = '<button type="button" class="sw-gold sw-st-gen" data-gen' + (vizLeft() ? '' : ' disabled') + '>' + (vizLeft() ? '✨ צור הדמיה' : 'הגעתם למכסה היומית') + '</button>';
     return '<div class="sw-st-empty' + (src ? '' : ' is-blank') + '">' + (src ? '<img data-fb="sw-st-src" class="sw-st-src" ' + imgSrc(src, 800) + ' alt="' + esc(title(p)) + '">' : '') + (over ? '<div class="sw-st-over">' + over + '</div>' : '') + '</div>';
   }
   function studioStyleLabel() {
@@ -2034,7 +2055,8 @@
     }
     var p = st.p, r = vizFind(p, st.target, st.key);
     var kind = st.comm ? 'הדמיית עסק' : p.deal_type === 'rent' ? 'הדמיית הום סטיילינג' : 'הדמיית שיפוץ';
-    var head = [kind, vizRoom(p, st.target), studioStyleLabel()].filter(Boolean).join(' · ');
+    // בלי הדמיה בסגנון הזה - בלי שם הסגנון בכותרת, שלא תבטיח תמונה שאין
+    var head = [kind, vizRoom(p, st.target), r || st.busy || VIZ_SWIPE_GENERATE ? studioStyleLabel() : ''].filter(Boolean).join(' · ');
     var rooms_ = vizTargets(p).map(function (t) {
       var has = (vizMap.get(p.id) || []).some(function (v) { return v.target === t; });
       return '<button type="button" class="sw-st-chip" data-room="' + t + '" aria-pressed="' + (t === st.target) + '"' + (st.busy ? ' disabled' : '') + '>' +
@@ -2042,8 +2064,10 @@
     }).join('');
     var styles_;
     if (!st.comm) {
+      var same = vizSameSrc(p, st.target);
       styles_ = '<div class="sw-st-styles">' + VIZ_STYLES.map(function (x) {
         var v = vizFind(p, st.target, x[0]);
+        if (!v && !VIZ_SWIPE_GENERATE) return vizInvite(p, x[0], x[1], same, false, x[0] === st.key);
         return '<button type="button" class="sw-st-style" data-style="' + x[0] + '" aria-pressed="' + (x[0] === st.key) + '"' + (st.busy ? ' disabled' : '') + '>' +
           (v ? '<img ' + imgSrc(v.after, 240) + ' alt="" loading="lazy" data-fb="sw-st-th">' : '<span class="sw-st-th" aria-hidden="true">✨</span>') +
           '<span>' + esc(x[1]) + (v ? ' <b aria-label="יש הדמיה">✦</b>' : '') + '</span></button>';
@@ -2169,8 +2193,30 @@
     if (tb) { setTab(tb.dataset.tab, 'tab'); return; }
     if (!st || !e.target.closest('#swTabViz')) return;
     var b;
-    if ((b = e.target.closest('[data-room]'))) { st.target = b.dataset.room; st.msg = ''; st.saved = false; renderStudio(); return; }
-    if ((b = e.target.closest('[data-style]'))) { st.key = b.dataset.style; st.msg = ''; st.saved = false; renderStudio(); return; }
+    if ((b = e.target.closest('[data-viz-invite]'))) {
+      // קישור רגיל לדף הנכס - בלי preventDefault
+      shukTrack('viz_style_invite_click', { property_id: st.p.id, style: b.dataset.vizInvite, space: st.target, source: 'swipe' });
+      if (window.shukBrowseMark) shukBrowseMark('swipe', st.p.id);
+      return;
+    }
+    if ((b = e.target.closest('[data-room]'))) {
+      st.target = b.dataset.room; st.msg = ''; st.saved = false;
+      // בחדר שאין בו הדמיה בסגנון הנוכחי - הסגנון החדש ביותר שיש לחדר, כדי שתוצג תמונה אמיתית
+      if (!st.comm && !vizFind(st.p, st.target, st.key)) {
+        var newest = null;
+        (vizMap.get(st.p.id) || []).forEach(function (v) { if (v.target === st.target && v.style && (!newest || v.at > newest.at)) newest = v; });
+        if (newest) st.key = newest.style;
+      }
+      renderStudio(); return;
+    }
+    if ((b = e.target.closest('[data-style]'))) {
+      st.key = b.dataset.style; st.msg = ''; st.saved = false; renderStudio();
+      shukTrack('viz_style_select', { property_id: st.p.id, style: st.key, space: st.target, source: 'swipe' });
+      // השינוי קורה בתמונה למעלה - אם הכותרת מעליה מחוץ למסך, גוללים אליה (מתחת ללשוניות הדביקות)
+      var hd = $('swTabViz').querySelector('.sw-st-head'), body_ = $('swSheetBody');
+      if (hd && hd.getBoundingClientRect().top < body_.getBoundingClientRect().top + 56) hd.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+      return;
+    }
     if ((b = e.target.closest('[data-biz]'))) { st.key = b.dataset.biz; st.bizLabel = b.dataset.bizLabel; st.other = false; st.msg = ''; st.saved = false; renderStudio(); return; }
     if (e.target.closest('[data-biz-other]')) { st.other = true; st.key = bizKey(st.bizLabel); renderStudio(); var bi = $('swStBiz'); if (bi) bi.focus(); return; }
     if (e.target.closest('[data-gen]') || e.target.closest('[data-gen-retry]')) {

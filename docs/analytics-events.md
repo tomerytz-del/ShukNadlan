@@ -488,3 +488,6 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | (פרמטר חדש) `search_pro_suggest.fallback` | ‏P0-2: התחום שזוהה (למשל `appraiser`) בלי אף בעל/ת מקצוע פעיל/ה, וההצעה הפנתה ל-`/professionals` (‏`data-pro="all"`) במקום לדף ריק. `type` נשאר התחום שזוהה. באותו מצב Enter שולח `search_pro_click` עם `type: all` | `fallback`: ‏`true` |
 | (הערה) `gab_hint_click.hint_index` | מ-28.10 המיקום ב-`GW_HINTS` המלא, גם כששאלות מותנות מדולגות | |
 | (הערה) `home_view_mode.mode` | מ-28.10 בלי `list`: הכפתור "תצוגת רשימה" הוסר (החלטה 2). הערכים: ‏`swipe` \| `map` | |
+| `viz_style_invite_click` | ‏R8 (v10): לחיצה על הזמנה של סגנון בלי הדמיה בסטודיו של `/swipe` (האריח או התמונה הגדולה), שמובילה ל-`/property?id=…&viz_style=<key>#viz` | `property_id`, `style` (מפתח), `space` (החדר), `source`: ‏`swipe` |
+| `viz_style_select` | ‏R8 (v10): בחירת סגנון שיש לו הדמיה בסטודיו של `/swipe` - התמונה הראשית מתחלפת | `property_id`, `style`, `space`, `source`: ‏`swipe` |
+| `viz_deeplink_land` | ‏R8: דף הנכס נפתח עם `?viz_style=<key>` מוכר (נכס פרטי בלבד), על הסגנון הזה | `style`, `source`: ‏`swipe` |

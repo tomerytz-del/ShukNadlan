@@ -8143,7 +8143,7 @@ function renderDmStats(){
 
 /* ---------- באנר ההדמיות: ידית לפני/אחרי שגוררים, והכיתוב <חלל> · <סגנון> ---------- */
 const V10_VIZ_TARGETS = { living_room:'סלון', kitchen:'מטבח', bedroom:'חדר שינה', exterior:'חזית', interior_main:'חלל העסק' };
-const V10_VIZ_STYLES = { modern_clean:'מודרני נקי', mediterranean_white:'ים-תיכוני לבן', warm_scandi:'סקנדינבי חמים', modern_luxury:'יוקרה מודרנית' };
+const V10_VIZ_STYLES = { modern_clean:'מודרני נקי', mediterranean_white:'ים תיכוני לבן', warm_scandi:'סקנדינבי חמים', modern_luxury:'יוקרה מודרנית' };
 function v10AiSlider(thumb, row){
   thumb.insertAdjacentHTML('afterbegin',
     '<span class="ai-v10-tag is-before">לפני</span><span class="ai-v10-tag is-after">אחרי · ✦ הדמיה</span>');
