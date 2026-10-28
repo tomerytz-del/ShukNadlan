@@ -2453,7 +2453,12 @@ function bindRowScroller(row){
 
     searchEl.placeholder = conf.placeholder;
     const seeAll = document.getElementById('dmSeeAll');
-    seeAll.href = conf.href;
+    // ‏P1-U1: הסינון עובר ל-/agencies ול-/agents באותם פרמטרים (‏assets/dm-filters.js)
+    seeAll.href = conf.href + (dmF.active() && /^\/(agencies|agents)$/.test(conf.href)
+      ? '?' + new URLSearchParams(Object.assign({},
+          state.fspec !== 'all' ? { dm_spec: state.fspec } : {},
+          state.farea !== 'all' ? { dm_area: state.farea } : {})).toString()
+      : '');
     seeAll.textContent = conf.seeAll(data[state.tab].length);
     row.setAttribute('aria-labelledby', 'dmTab' + state.tab.charAt(0).toUpperCase() + state.tab.slice(1));
     // מעבר לשונית מחזיר את השורה לתחילתה, אחרת הלשונית החדשה נפתחת

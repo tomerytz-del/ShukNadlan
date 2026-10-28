@@ -16,6 +16,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/dm-filters.js" defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יועצי נדל״ן ומתווכים בעפולה והסביבה | שוק הנדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -335,6 +336,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .join-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 
   /* ====== Footer (זהה לשאר הדפים) ====== */
+  /* ‏P1-U1 (‏assets/dm-filters.js, רק ב-?beta=1) */
+  .dmf{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .dmf-row{display:flex;align-items:center;gap:10px;min-width:0}
+  .dmf-area{font:inherit;font-size:.9rem;padding:7px 12px;border:1.5px solid var(--border,#d9dee8);border-radius:999px;background:#fff;color:inherit;max-width:100%}
+  .dmf-count{margin:0;font-size:.85rem;color:var(--ink-soft,#5b6474);min-height:1em}
+  .dmf-on > :not(#dmfEmpty){display:none}
+  .dmf-empty-acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -420,6 +428,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h2>לא נמצאו יועצי נדל״ן מתאימים</h2>
       <p>נסו שם אחר, משרד אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
       <button type="button" class="btn btn-ghost" id="noResultsReset" style="margin-top:16px">איפוס הסינון</button>
+      <div id="dmfEmpty" hidden></div>
     </div>
 
     <div class="grid" id="agentsGrid"></div>
@@ -821,6 +830,8 @@ let agencyOptions = [];   // [{key, label}] — נבנה מהמתווכים שנ
 let specOptions = [];     // [{key, label}] — תחומי ההתמחות שהוקלדו ב-CRM
 let filters = { query:'', agency:'all', spec:'all', rate:'all' };
 let sortMode = 'rating';
+let dmf = null;             // ‏P1-U1: התמחות ואזור מהנכסים (‏assets/dm-filters.js, רק ב-?beta=1)
+let allProps = [];
 
 /* מדרגות הדירוג. "עם ביקורות" הוא לא סף אלא שאלה אחרת לגמרי — "הראו לי רק
    מי שכבר יש עליו/ה מה לומר" — ולכן הוא גלולה בפני עצמה ולא ערך של 0.1. */
@@ -873,7 +884,7 @@ function assignRankBadges(list){
    ============================================================================ */
 function matchesQuery(a, q){
   if (!q) return true;
-  return [a.display_name, a.agency_name, a.service_area, ...a.specialties]
+  return [a.display_name, a.agency_name, a.service_area, ...a.specialties, a._dmWords]
     .some(v => String(v || '').toLowerCase().includes(q));
 }
 const matchesAgency = (a, key) => key === 'all' || a.agency_id === key;
@@ -891,10 +902,11 @@ function passes(a, f, except){
   return Object.keys(TESTS).every(k => k === except || TESTS[k](a, f));
 }
 function visibleAgents(){
-  return agents.filter(a => passes(a, filters)).sort(COMPARE[sortMode]);
+  const list = agents.filter(a => passes(a, filters)).sort(COMPARE[sortMode]);
+  return dmf ? dmf.apply(list, byName) : list;
 }
 const isFiltered = ()=> !!filters.query.trim() || filters.agency !== 'all' ||
-  filters.spec !== 'all' || filters.rate !== 'all';
+  filters.spec !== 'all' || filters.rate !== 'all' || !!(dmf && dmf.active());
 
 /* ============================================================================
    רכיב הכרטיס
@@ -923,7 +935,7 @@ function agentCardHtml(a){
 
   const rank = a.rankBadge ? `<span class="ag-overlay ag-rank">#${a.rankBadge}</span>` : '';
   const badge = a.has_ethics_badge ? ETHICS_BADGE_MINI : '';
-  const propsLabel = a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים';
+  const propsLabel = a.dmText != null ? escapeHtml(a.dmText) : a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים';
 
   const rating = a.rating !== null
     ? `${starsHtml(a.rating)}
@@ -961,7 +973,7 @@ function agentCardHtml(a){
       <div class="ag-media">
         <span class="ag-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || 'מ')}</span>
         ${media}${rank}${badge}
-        <span class="ag-overlay ag-count"><b>${a.active_properties_count}</b> ${propsLabel}</span>
+        <span class="ag-overlay ag-count">${a.dmText != null && !a.dmN ? '' : `<b>${a.dmText != null ? a.dmN : a.active_properties_count}</b> `}${propsLabel}</span>
       </div>
       <div class="ag-body">
         <h2 class="ag-name">${escapeHtml(name)}</h2>
@@ -995,7 +1007,7 @@ function renderCounts(list){
   // המונה שעל כל גלולה נספר מול שאר הסינונים הפעילים ולא מול הסינון שהיא
   // עצמה שייכת לו — אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
   countPills('agencyPills', 'agency', (a, key)=> matchesAgency(a, key));
-  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));
+  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));   // ‏null ב-?beta=1 - ראו mountDm
   countPills('ratePills',   'rate',   (a, key)=> matchesRate(a, key));
 }
 
@@ -1017,6 +1029,12 @@ function render(){
   const list = visibleAgents();
   renderCounts(list);
   el('noResultsState').hidden = list.length > 0;
+  if (dmf){
+    dmf.after(list);
+    el('dmfEmpty').hidden = !dmf.active();
+    el('noResultsState').classList.toggle('dmf-on', dmf.active());
+    el('dmfEmpty').innerHTML = dmf.active() ? dmf.emptyHtml() : '';
+  }
   el('agentsGrid').hidden = !list.length;
   el('agentsGrid').innerHTML = list.map(agentCardHtml).join('');
 }
@@ -1069,8 +1087,9 @@ function resetFilters(){
   filters = { query:'', agency:'all', spec:'all', rate:'all' };
   el('agentSearch').value = '';
   syncPills(el('agencyPills'), 'all');
-  syncPills(el('specPills'), 'all');
+  if (el('specPills')) syncPills(el('specPills'), 'all');
   syncPills(el('ratePills'), 'all');
+  if (dmf && dmf.active()){ dmf.clear('all'); return; }
   render();
   el('toolbar').scrollIntoView({ block:'start', behavior:'smooth' });
 }
@@ -1237,6 +1256,33 @@ function applyDeepLink(){
   }
 }
 
+/* ‏dm-filters.js נטען defer, והוא רץ לפני DOMContentLoaded - הרשימה ממתינה לו רק בטעינה מהירה מהרשת */
+function whenDm(fn){
+  if (window.DmFilters) fn();
+  else document.addEventListener('DOMContentLoaded', fn, { once:true });
+}
+function mountDm(){
+  if (dmf || !window.DmFilters || !allProps.length) return;
+  const host = document.createElement('div');
+  dmf = window.DmFilters.mount({
+    host, items: agents.map(a => ({ id: a.id, declared: a.specialties })), props: allProps,
+    idKey: 'agent_id', tab: 'agents', surface: 'agents',
+    mainCity: (window.CityContext && window.CityContext.name && window.CityContext.name()) || 'עפולה',
+    onChange: render,
+  });
+  if (!dmf) return;
+  // הגלולות של התוויות המוצהרות מתחלפות באותם מפתחות כמו בדף הבית (עם המיפוי)
+  filters.spec = 'all';
+  el('specRow').hidden = false;
+  el('specRow').replaceWith(host);
+  agents.forEach(a => { a._dmWords = dmf.words(a.id); });
+  el('dmfEmpty').addEventListener('click', e => {
+    const b = e.target.closest('[data-dm-clear]');
+    if (b) dmf.clear(b.dataset.dmClear);
+  });
+  render();
+}
+
 (async function init(){
   const finish = (list)=>{
     el('loadingState').hidden = true;
@@ -1262,6 +1308,7 @@ function applyDeepLink(){
 
     el('toolbar').hidden = false;
     el('joinBand').hidden = false;
+    whenDm(mountDm);
     render();
   };
 
@@ -1282,7 +1329,7 @@ function applyDeepLink(){
         : Promise.resolve({ data: [] }),
       sb.from('agent_rankings').select('agent_id, active_properties_count').limit(500),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(5000),
-      sb.from('properties').select('agent_id').eq('status', 'active').limit(5000),
+      sb.from('properties').select('agent_id, deal_type, category, property_type, project_status, city, city_id, neighborhood_id, neighborhoods(name)').eq('status', 'active').limit(5000),
     ]);
     const dataOf = res => (res.status === 'fulfilled' && res.value.data) || [];
 
@@ -1299,6 +1346,7 @@ function applyDeepLink(){
     });
 
     const propsLoaded = propsRes.status === 'fulfilled' && !propsRes.value.error;
+    allProps = dataOf(propsRes);
     const liveCount = new Map();
     dataOf(propsRes).forEach(p=>{
       if (p.agent_id) liveCount.set(p.agent_id, (liveCount.get(p.agent_id) || 0) + 1);
