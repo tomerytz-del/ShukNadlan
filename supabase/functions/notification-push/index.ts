@@ -483,7 +483,7 @@ function templateSummary(items: Item[], withUrls = true): string {
 async function loadDigestFlags(
   sb: { from: (table: string) => any },
 ): Promise<{ less: boolean; topics: boolean; guardOn: boolean }> {
-  const off = { less: false, topics: false, guardOn: true };
+  const off = { less: false, topics: false, guardOn: false };
   try {
     const { data, error } = await sb.from("pricing_config")
       .select("key, value")
@@ -496,7 +496,7 @@ async function loadDigestFlags(
     return {
       less: digest,
       topics: digest && on("notif_topic_group"),
-      guardOn: guardRow ? guardEnabled(guardRow.value) : true,
+      guardOn: guardRow ? guardEnabled(guardRow.value) : false,
     };
   } catch {
     return off;

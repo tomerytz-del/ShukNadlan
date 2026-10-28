@@ -2556,8 +2556,8 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
 
   const existing = await ownedProperty(ctx, propertyId);
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
-  // confirm לא עוקף כפתור. רק מסלול בלי outbox (מייל) כותב ישר אחרי confirm.
-  if (status === "active" && !publishWritesNow(!!ctx.outbox, input.confirm)) {
+  // הדגל 0: כתיבה מיידית, כמו ב-main. 1: רשימת יעד בוואטסאפ, ו-confirm במייל.
+  if (status === "active" && await gabrielaAsksBeforePublish(ctx) && !publishWritesNow(!!ctx.outbox, input.confirm)) {
     return askPublishConfirm(ctx, propertyId, String(existing.title || ""));
   }
 
@@ -2661,6 +2661,12 @@ async function toolChooseDestination(ctx: ToolContext, input: Record<string, unk
   const propertyId = String(input.property_id || "");
   const existing = await ownedProperty(ctx, propertyId);
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
+  if (!await gabrielaAsksBeforePublish(ctx)) {
+    return {
+      ok: false,
+      error: "בחירת יעד כבויה. פרסום לאתר הוא set_property_status עם active.",
+    };
+  }
   const gate = await askPublishConfirm(ctx, propertyId, String(existing.title || ""));
   return { property_id: propertyId, ...gate };
 }
@@ -6848,6 +6854,9 @@ async function touchPublishAsk(
   propertyId: string,
   agentId: string,
 ): Promise<void> {
+  const flag = await supabase.from("pricing_config")
+    .select("value").eq("key", "gabriela_ask_before_publish").maybeSingle();
+  if (flag.error || !publishAskFirst(flag.data?.value)) return;
   const { error } = await supabase.rpc("gabriela_publish_ask_touch", {
     p_property_id: propertyId,
     p_agent_id: agentId,

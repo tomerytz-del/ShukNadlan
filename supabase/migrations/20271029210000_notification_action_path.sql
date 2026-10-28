@@ -83,7 +83,7 @@ declare
 begin
   perform public.notification_push_burst_prepare();
 
-  select coalesce((select value::int from public.pricing_config where key = 'notification_burst_guard_enabled'), 1),
+  select coalesce((select value::int from public.pricing_config where key = 'notification_burst_guard_enabled'), 0),
          coalesce((select value::int from public.pricing_config where key = 'notif_burst_manual_pause'), 0),
          coalesce((select value::int from public.pricing_config where key = 'notif_burst_breaker'), 0),
          greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_agent_pending'), 30))

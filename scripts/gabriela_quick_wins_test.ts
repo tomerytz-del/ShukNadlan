@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { clientMatchesQuery, nameSkeleton, namesLikelySame, namesNeedConfirm, phoneKey, phonesMatch } from "../supabase/functions/whatsapp-webhook/hebrew-name.ts";
 import { adminAlertTitle, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmFailureKind, PUBLIC_FALLBACK_SITE } from "../supabase/functions/whatsapp-webhook/llm-fallback.ts";
+import { PUBLIC_MODEL_CURRENT, PUBLIC_MODEL_NEXT, publicBotModel } from "../supabase/functions/whatsapp-webhook/public-model.ts";
 import { pageLink, urlInSay } from "../supabase/functions/whatsapp-webhook/crm-pages.ts";
 import { paceRecipient, pairPaceTracked, resetPairPaceForTests, setPairReserve } from "../supabase/functions/_shared/wa-pair-pace.ts";
 
@@ -79,6 +80,12 @@ check("שלד SQL זהה ל-TS", skeletonFn.includes("normalize(coalesce(p_raw, 
   && skeletonFn.indexOf("[[:space:]]") < skeletonFn.indexOf("regexp_split_to_array")
   && skeletonFn.includes("return lower(array_to_string(words, ' '))"));
 const dupFn = sql.slice(sql.indexOf("function public.agent_client_duplicate"), sql.indexOf("comment on function public.agent_client_duplicate"));
+check("יומן מענה חלופי בלי גוף ובלי טלפון",
+  sql.includes("gabriela_llm_fallbacks")
+  && sql.includes("interval '1 hour'")
+  && sql.includes("conversation_id uuid not null")
+  && !/gabriela_llm_fallbacks[\s\S]{0,400}phone/.test(sql)
+  && !sql.includes("gabriela_public_opus_55', 1"));
 check("duplicate לא ל-authenticated", !/security\s+definer/i.test(dupFn)
   && sql.includes("revoke all on function public.agent_client_duplicate(uuid, text, text) from public, anon, authenticated")
   && sql.includes("אין grant ל-authenticated")
@@ -89,6 +96,13 @@ check("יצירת לקוח לא נעצרת ב-500", createClient.includes('rpc("
 const indexSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
 const outer = indexSrc.slice(indexSrc.indexOf("message handling failed"), indexSrc.indexOf("status handling failed"));
 check("כשל שליחה לא עוצר סטטוסים", outer.includes("llm failure reply failed"));
+check("מענה חלופי נרשם ומוגבל לשעה", indexSrc.includes("gabriela_llm_fallback_log") && indexSrc.includes("p_reason: kind"));
+check("מודל ציבורי: סוד גובר, דגל כבוי נשאר Opus 5",
+  publicBotModel("claude-opus-5-5", 0) === "claude-opus-5-5"
+  && publicBotModel("", 0) === PUBLIC_MODEL_CURRENT
+  && publicBotModel(undefined, null) === PUBLIC_MODEL_CURRENT
+  && publicBotModel(undefined, 1) === PUBLIC_MODEL_NEXT);
+check("חימום הבוט הציבורי קורא את הדגל", indexSrc.includes("warmPublicPromptCache(supabase)"));
 check("סוכן לא פעיל לא מקבל קישור", outer.includes('.eq("active", true)'));
 check("בוט ציבורי כבוי בלי הודעת כשל ללא מוכר", outer.includes("!agentId && !publicBotEnabled"));
 

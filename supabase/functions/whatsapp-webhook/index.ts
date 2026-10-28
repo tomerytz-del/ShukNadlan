@@ -2127,7 +2127,7 @@ Deno.serve(async (req: Request) => {
     };
     const results = await Promise.all([
       ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", warmPromptCache)] : []),
-      ...(due.includes("gabriela_public") ? [warm("gabriela_public", warmPublicPromptCache)] : []),
+      ...(due.includes("gabriela_public") ? [warm("gabriela_public", () => warmPublicPromptCache(supabase))] : []),
     ]);
     console.log("cache warm", JSON.stringify(results));
     return new Response(JSON.stringify({ results }), {

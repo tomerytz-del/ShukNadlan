@@ -97,6 +97,8 @@ assert(sql.includes("related_showcase_id"), "related showcase");
 assert(sql.includes("s.status = 'active'"), "active showcase");
 assert(sql.includes("cancel_unnotified"), "flag column");
 assert(sql.includes("client_showcases_cancel_future_meetings"), "future meetings trigger");
+assert(sql.includes("showcase_close_cancels_meetings_enabled"), "close flag");
+assert(sql.includes("('showcase_close_cancels_meetings_enabled', 0,"), "close flag defaults off");
 assert(sql.includes("related_meeting_id"), "meeting on the notification");
 assert(sql.includes("'סיור בוטל'"), "agent title, not a client message");
 assert(

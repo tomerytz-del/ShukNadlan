@@ -983,6 +983,11 @@ declare
   v_key text;
   v_gate text;
 begin
+  -- עדכון status ל-pending שולח פוש רק כשחלון הלקוחות דלוק:
+  -- זה השחרור של התראה שנדחתה. הדגל נולד 0, ואז עדכון אינו שולח.
+  if tg_op = 'UPDATE' and not public.customer_send_window_on() then
+    return new;
+  end if;
   if tg_op = 'UPDATE' and old.status = 'pending' then
     return new;
   end if;

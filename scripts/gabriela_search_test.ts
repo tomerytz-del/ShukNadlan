@@ -32,6 +32,12 @@ const row = searchMissRow("agent-1", {
 });
 check("הלוג שומר רק עיר אזור ועסקה", row.city === "עפולה" && row.area === "גבעת המורה" && row.deal_type === "sale");
 check("הלוג בלי טלפון ובלי הערות", !("phone" in row) && !("notes" in row));
+const leaked = searchMissRow("agent-1", {
+  city: "עפולה 050-1234567",
+  area: "972501234567",
+  deal_type: "sale",
+});
+check("טלפון בתוך עיר או אזור לא נשמר", leaked.city === "עפולה" && leaked.area === null && leaked.deal_type === "sale");
 check("טבלה חסרה לא נחשבת תקלה", searchMissStoreMissing({ code: "PGRST205" }) && searchMissStoreMissing({ code: "23505" }) === false);
 
 const fromNotes = requirementsFromNotes("דירה עם ממ״ד וחניה", {});

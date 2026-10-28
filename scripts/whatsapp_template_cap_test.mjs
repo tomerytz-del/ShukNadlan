@@ -75,6 +75,7 @@ test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow 
   assert.match(backlog, /skipped_template_cap/);
   assert.match(backlog, /interval '72 hours'/);
   assert.match(backlog, /n\.created_at > pg_catalog\.now\(\) - interval '72 hours'/);
+  assert.match(backlog, /notif_il_digest_open/);
   assert.doesNotMatch(backlog, /whatsapp_template_local_day/);
   assert.doesNotMatch(backlog, /a\.in_window\b/);
   assert.match(push, /templateCapAllows\(sb, row\.log_id\)/);
@@ -285,7 +286,7 @@ select public.whatsapp_template_cap_on()::text;
   assert.equal(on.split("\n").pop(), "true");
 });
 
-test("פריט שנעצר לפני 14 שעות מעיר את הקרון", () => {
+test("פריט שנעצר בתקרה מעיר את הקרון רק בחלון התקציר", () => {
   const backlog = readFileSync(
     join(root, "supabase/migrations/20271030000300_template_cap_backlog.sql"),
     "utf8",
@@ -323,6 +324,7 @@ create function public.notification_push_stale_in_quiet(p_type text, p_agent uui
 create function public.notification_push_is_ambient(p_type text, p_agent uuid, p_property uuid) returns boolean language sql as $$
   select false $$;
 create function public.whatsapp_template_cap_on() returns boolean language sql as $$ select true $$;
+create function public.notif_il_digest_open(p_window int) returns boolean language sql as $$ select false $$;
 insert into public.notifications (id, agent_id, type, read, suppress_push, created_at) values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '11111111-1111-1111-1111-111111111111',
    'open_demand', false, false, now() - interval '14 hours'),
@@ -335,11 +337,13 @@ insert into public.notification_push_log (agent_id, notification_ids, whatsapp_s
    'skipped_template_cap', now() - interval '80 hours');
 ${backlog}
 select public.notification_push_has_backlog(false)::text;
+create or replace function public.notif_il_digest_open(p_window int) returns boolean language sql as $$ select true $$;
+select public.notification_push_has_backlog(false)::text;
 delete from public.notifications where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';
 select public.notification_push_has_backlog(false)::text;
 `);
   const lines = out.split("\n").filter((line) => line !== "");
-  assert.deepEqual(lines.slice(-2), ["true", "false"]);
+  assert.deepEqual(lines.slice(-3), ["false", "true", "false"]);
 });
 
 test("מפסק ידני חוסם פריט שנעצר בתקרה", () => {

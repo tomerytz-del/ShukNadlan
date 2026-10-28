@@ -17,8 +17,8 @@
 -- ל-20270825090000. הרחבה שלהם, וחלון 7 הימים לסוג רגיל, רק כשהדגל 1.
 -- התראה מופחתת שנוצרה אחרי 17:30 לא נזרקת: notification_push_less_hold
 -- שומר אותה עד 7 ימים, ורק כשהדגל דלוק. בלי שורות בטבלה אין שינוי.
--- התראות שלא נשלחו ובנות יותר מ-12 שעות (חוץ מעדיפות ומ-quiet_hold)
--- נרשמות skipped, כדי ששום דבר ישן לא ייצא כשהדגל יידלק אחר כך.
+-- אין מילוי skipped בפריסה. הדגל נולד 0, וחלון 12 השעות כבר משאיר
+-- שורה ישנה מחוץ לתור. סימון בפריסה היה משנה התראות קיימות בלי צורך.
 
 insert into public.pricing_config (key, value, description) values
   ('notif_digest_enabled', 0, '1: התראות שאינן בעדיפות יוצאות רק בחלונות התקציר, עם תקרה יומית נמוכה יותר.'),
@@ -476,29 +476,8 @@ comment on function public.notification_push_log_holds(text, timestamptz) is
 revoke all on function public.notification_push_log_holds(text, timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_push_log_holds(text, timestamptz) to service_role;
 
--- התראות שלא נשלחו ובנות יותר מ-12 שעות, חוץ מעדיפות ומ-quiet_hold
--- (אלה עדיין יוצאות היום). כך הדלקה מאוחרת של התקציר לא שופכת אותן.
-insert into public.notification_push_log
-  (agent_id, notification_ids, types, channel_mode, whatsapp_status, last_error, created_at)
-select n.agent_id,
-       array_agg(n.id),
-       array_agg(distinct n.type),
-       'text',
-       'skipped',
-       'older than 12h at digest migration; not pushed',
-       now() - interval '25 hours'
-  from public.notifications n
- where not n.read
-   and n.created_at <= now() - interval '12 hours'
-   and not (n.type = any(public.notification_push_priority_types()))
-   and not public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)
-   and not exists (
-     select 1 from public.notification_push_log l
-      where l.agent_id = n.agent_id
-        and n.id = any(l.notification_ids)
-        and public.notification_push_log_holds(l.whatsapp_status, l.created_at)
-   )
- group by n.agent_id;
+-- אין כאן סימון skipped של התראות קיימות. notif_digest_enabled נולד 0,
+-- והתור הרגיל כבר חותך ב-12 שעות. מילוי בפריסה היה משנה שורות בלי שהדגל דלוק.
 
 -- מחיקת שורת "פחות כאלה". דגל כבוי: מה שכבר מעל 12 שעות מסומן skipped
 -- ולא נשאר בלימבו. דגל דלוק: מה שבתוך 7 ימים יוצא בחלון הבא, ומה

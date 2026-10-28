@@ -12,10 +12,11 @@
 --   התראות שנוצרו ב-15 דקות: p99 156, מקסימום 1855 (system).
 -- יום רגיל לא מגיע לתקרות. מה שמעבר, אם אינו מוגן, נדחה לתקציר
 -- הבא ("יש לך N התראות חדשות באתר") או מחכה בלי רישום skipped.
--- skipped נשמר לישן מ-12 שעות, למילוי, ולבקשת תמונות כפולה.
+-- skipped נשמר לישן מ-12 שעות, למילוי, ולבקשת תמונות כפולה,
+-- ורק כש-notification_burst_guard_enabled הוא 1.
 -- ליד אמיתי, סיור וסוג מוגן יוצאים בפרטים גם כשהמפסק דלוק.
--- notification_burst_guard_enabled = 0 מכבה מפסקים ותקרות בלי דיפלוי.
--- ישן, מילוי ובקשת תמונות נשארים גם כשהמתג כבוי.
+-- notification_burst_guard_enabled = 0 מכבה מפסקים, תקרות, וגם את
+-- סימון הישן, המילוי ובקשת התמונות. אין שינוי בשורות כשהמתג כבוי.
 --
 -- דגל התקציר כבוי: quiet_hold נשאר. דגל דלוק: סוג שאינו דחוף מעל
 -- 12 שעות לא יוצא לוואטסאפ, גם אם ההחזקה של 7 הימים שמרה אותו לפעמון.
@@ -44,7 +45,7 @@ insert into public.pricing_config (key, value, description) values
   ('notif_burst_rearm_minutes', 30, 'כמה דקות הרצף מתחת לסף ההיסטרזיס צריך להחזיק לפני שהמפסק יורד.'),
   ('notif_burst_calm_since', 0, 'epoch של תחילת הרצף השקט. 0: אין רצף. נכתב על ידי notification_push_burst_prepare.'),
   ('notif_burst_checked_at', 0, 'epoch של ההערכה האחרונה. כשהמפסק דלוק ואין מוגן שמחכה, הקרון חוזר רק אחרי notif_burst_rearm_minutes.'),
-  ('notification_burst_guard_enabled', 0, '1: מפסקי ההתפרצות והתקרות פעילים. 0: הם כבויים. ישן, מילוי ובקשת תמונות נשארים.')
+  ('notification_burst_guard_enabled', 0, '1: מפסקי ההתפרצות, התקרות, וסימון ישן, מילוי ובקשת תמונות. 0: כולם כבויים, בלי סימון שורות.')
 on conflict (key) do nothing;
 
 alter table public.notifications
@@ -367,9 +368,8 @@ revoke all on function public.notification_push_mark_deferred(uuid[]) from publi
 grant execute on function public.notification_push_mark_deferred(uuid[]) to service_role;
 
 -- ---------------------------------------------------------------------------
--- הכנה לפני claim: ישן, מילוי, בקשת תמונות, ומפסק.
--- skipped רק לישן, למילוי, ולבקשת תמונות כפולה. מפסק דוחה, לא מוחק.
--- לא מסמנת read. skipped נכתב 25 שעות אחורה.
+-- הכנה לפני claim: מפסק, ורק כשהמתג דלוק גם ישן, מילוי ובקשת תמונות.
+-- מתג 0 יוצא בלי לסמן skipped. skipped נכתב 25 שעות אחורה.
 -- ---------------------------------------------------------------------------
 create or replace function public.notification_push_burst_prepare()
 returns void
@@ -402,6 +402,15 @@ declare
 begin
   perform pg_advisory_xact_lock(hashtext('notification_push_claim'));
   perform public.notification_push_reconcile();
+
+  -- המתג כבוי: אין סימון של מילוי, ישן או בקשת תמונות.
+  if v_guard = 0 then
+    update public.pricing_config set value = 0
+     where key = 'notif_burst_breaker' and value is distinct from 0;
+    update public.pricing_config set value = 0
+     where key = 'notif_burst_calm_since' and value is distinct from 0;
+    return;
+  end if;
 
   -- מילוי: לא יוצא, ולא קם אחר כך.
   insert into public.notification_push_log
@@ -486,14 +495,6 @@ begin
      )
    group by n.agent_id;
 
-  -- המתג מכבה רק את המפסק. ישן, מילוי ובקשת תמונות כבר נרשמו למעלה.
-  if v_guard = 0 then
-    update public.pricing_config set value = 0
-     where key = 'notif_burst_breaker' and value is distinct from 0;
-    update public.pricing_config set value = 0
-     where key = 'notif_burst_calm_since' and value is distinct from 0;
-    return;
-  end if;
 
   -- רק מה שעדיין ממתין לדחיפה. נקרא, מילוי, שורה שכבר נרשמה, ומוגן
   -- (ליד אמיתי, סיור, תזכורת, אבטחה) לא נספרים. שיטפון system שכבר
