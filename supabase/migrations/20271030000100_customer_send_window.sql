@@ -154,6 +154,51 @@ comment on function public.notification_send_window_open(timestamptz) is
 revoke all on function public.notification_send_window_open(timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_send_window_open(timestamptz) to service_role;
 
+-- חג נסגר כאן לפי agent_holiday_window_enabled לבד.
+-- notif_send_window_friday_enabled לא קובע אם יום כיפור שקט.
+create or replace function public.notification_agent_send_quiet(
+  p_from int,
+  p_to int,
+  p_days smallint[],
+  p_at timestamptz,
+  p_window_on int
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+           when coalesce((select value::int from public.pricing_config
+                           where key = 'agent_holiday_window_enabled'), 0) = 1
+            and exists (
+              select 1 from public.il_holidays h
+               where h.holiday_date = (p_at at time zone 'Asia/Jerusalem')::date
+                 and h.kind = 'holiday'
+            )
+           then true
+           when coalesce(p_window_on, 0) = 1 then
+             not public.notification_send_window_open(p_at)
+             or public.agent_reminder_quiet_at(
+                  p_at, p_from, p_to,
+                  case
+                    when coalesce(p_days, '{5,6}'::smallint[]) = '{5,6}'::smallint[]
+                      then '{6}'::smallint[]
+                    else coalesce(p_days, '{5,6}'::smallint[])
+                  end)
+           else
+             public.agent_reminder_quiet_at(
+               p_at, p_from, p_to, coalesce(p_days, '{5,6}'::smallint[]))
+         end;
+$$;
+
+comment on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) is
+  'חג סגור כש-agent_holiday_window_enabled דלוק, גם אם דגל שישי כבוי. דגל שישי רק פותח את שישי 08:00-13:00.';
+
+revoke all on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) from public, anon, authenticated;
+grant execute on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) to service_role;
+
 create or replace function public.customer_send_window_on()
 returns boolean
 language sql
@@ -865,8 +910,10 @@ comment on function public.customer_digest_take(timestamptz) is
 revoke all on function public.customer_digest_take(timestamptz) from public, anon, authenticated;
 grant execute on function public.customer_digest_take(timestamptz) to service_role;
 
+drop function if exists public.customer_send_saved_search_push(uuid);
+
 create or replace function public.customer_send_saved_search_push(p_alert_id uuid)
-returns void
+returns int
 language plpgsql
 security definer
 set search_path = ''
@@ -876,12 +923,13 @@ declare
   v_dev uuid;
   v_search uuid;
   v_property uuid;
+  v_n int := 0;
 begin
   select a.search_id, a.property_id into v_search, v_property
     from public.saved_search_alerts a
    where a.id = p_alert_id;
   if v_search is null then
-    return;
+    return 0;
   end if;
   select coalesce(nullif(btrim(p.title), ''), 'נכס חדש') into v_title
     from public.properties p
@@ -896,7 +944,9 @@ begin
       'https://shuknadlan.co.il/property?id=' || v_property::text,
       'saved_search', p_alert_id
     );
+    v_n := v_n + 1;
   end loop;
+  return v_n;
 end;
 $$;
 

@@ -415,6 +415,75 @@ $$;
         "הדחיפה לא תופסת מקום שני",
     )
 
+    one = phone_with_minute(5)
+    one_alert = "cccccccc-cccc-cccc-cccc-cccccccccc13"
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    expect(
+        f"select public.customer_phone_claim('{one}', {at('2026-08-02 10:00:00')}, '{one_alert}', false)",
+        "ok",
+        "תפיסה ראשונה",
+    )
+    expect(
+        f"select public.customer_phone_claim('{one}', {at('2026-08-02 10:00:00')}, '{one_alert}', false)",
+        "already",
+        "אותה התראה בשני ערוצים נספרת פעם אחת",
+    )
+    expect(
+        f"select sent_count from public.customer_phone_day where contact_key = '{one}' and day = '2026-08-02'",
+        "1",
+        "המונה נשאר 1",
+    )
+    for mins, ref in (("10:20:00", "cccccccc-cccc-cccc-cccc-cccccccccc14"), ("10:40:00", "cccccccc-cccc-cccc-cccc-cccccccccc15")):
+        expect(
+            f"select public.customer_phone_claim('{one}', {at('2026-08-02 ' + mins)}, '{ref}', false)",
+            "ok",
+            f"מילוי תקרה {mins}",
+        )
+    psql(f"""
+      insert into public.properties (id, status, city, title) values
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa16', 'active', 'עפולה', 'דירה');
+      insert into public.saved_searches (id, full_name, phone_e164, email, contact_channel, status, cities)
+      values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb16', 'בדיקה', '{one}', 'a@example.com', 'both', 'active', array['עפולה']);
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at)
+      values ('cccccccc-cccc-cccc-cccc-cccccccccc16', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb16',
+              'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa16', 'deferred', {at('2026-08-02 09:00:00')});
+    """)
+    psql(f"select public.customer_prepare({at('2026-08-02 11:00:00')})")
+    expect(
+        "select status || ' ' || coalesce(last_error, '') from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-cccccccccc16'",
+        "deferred cap",
+        "תקרה מלאה דוחה וואטסאפ ומייל יחד",
+    )
+
+    psql("update public.pricing_config set value = 0 where key = 'notif_send_window_friday_enabled'")
+    psql("update public.pricing_config set value = 0 where key = 'agent_holiday_window_enabled'")
+    psql("""
+      create or replace function public.agent_reminder_quiet_at(
+        p_at timestamptz, p_from int, p_to int, p_days smallint[]
+      ) returns boolean language sql immutable as $$ select false; $$;
+    """)
+    expect(
+        f"select public.notification_agent_send_quiet(21, 8, '{{5,6}}', {at('2026-09-21 10:00:00')}, 0)",
+        "f",
+        "בלי דגל חג, יום כיפור לא נסגר כשדגל שישי כבוי",
+    )
+    psql("update public.pricing_config set value = 1 where key = 'agent_holiday_window_enabled'")
+    expect(
+        f"select public.notification_agent_send_quiet(21, 8, '{{5,6}}', {at('2026-09-21 10:00:00')}, 0)",
+        "t",
+        "דגל חג דלוק ודגל שישי כבוי: יום כיפור סגור",
+    )
+
+    notify = (ROOT / "supabase/functions/saved-search-notify/index.ts").read_text(encoding="utf-8")
+    held = notify.find("if (phoneHeld)")
+    wa = notify.find("await sendWhatsapp(")
+    em = notify.find("await sendEmail(")
+    rel = notify.rfind("customer_phone_release")
+    if not (held < wa < em < rel):
+        fail("הדחיה המשותפת או שחרור התפיסה לא בסוף")
+    if notify.count("customer_phone_release") != 1:
+        fail("התפיסה משוחררת יותר מפעם אחת")
+
     print("✓ תוקף, דילוג, מיזוג, פיזור, מרווח, תקרה, דחיפה, וחגים עד 2028.")
     return 0
 

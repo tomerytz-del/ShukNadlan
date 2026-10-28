@@ -279,6 +279,8 @@ Deno.serve(async (req: Request) => {
       && !!a.email && a.email_status !== "sent";
     let phoneHeld = false;
     let contactKey: string | null = null;
+    let tookClaim = false;
+    let pushSent = false;
     if (flagOn && (wantWhatsapp || wantEmail)) {
       const key = await sb.rpc("customer_contact_key", {
         p_phone: a.phone_e164 ?? null,
@@ -306,7 +308,9 @@ Deno.serve(async (req: Request) => {
           phoneHeld = true;
         }
         if (!slotMissing && slot.data === "ok") {
-          await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
+          tookClaim = true;
+          const push = await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
+          pushSent = !push.error && Number(push.data) > 0;
         }
       }
     }
@@ -326,9 +330,6 @@ Deno.serve(async (req: Request) => {
         await sendWhatsapp(a);
         waStatus = "sent";
       } catch (err) {
-        if (flagOn && contactKey) {
-          await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
-        }
         waStatus = "failed";
         errors.push(`whatsapp: ${err instanceof Error ? err.message : String(err)}`);
 
@@ -351,11 +352,12 @@ Deno.serve(async (req: Request) => {
         emStatus = "sent";
       } catch (err) {
         emStatus = "failed";
-        if (flagOn && contactKey && waStatus !== "sent") {
-          await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
-        }
         errors.push(`email: ${err instanceof Error ? err.message : String(err)}`);
       }
+    }
+
+    if (tookClaim && !pushSent && waStatus !== "sent" && emStatus !== "sent") {
+      await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
     }
 
     const { error: markErr } = await sb.rpc("mark_saved_search_alert", {
