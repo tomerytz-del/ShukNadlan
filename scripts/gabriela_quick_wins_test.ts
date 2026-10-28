@@ -76,7 +76,8 @@ check("מרווח ברירת מחדל 1500", sql.includes("default 1500") && sql
 check("ניקוי חריצי שליחה ישנים", sql.includes("interval '7 days'"));
 check("כפילות לקוח ב-SQL על כל הקובץ", sql.includes("function public.agent_client_duplicate") && sql.includes("client_name_skeleton") && sql.includes("from public.agent_clients"));
 const skeletonFn = sql.slice(sql.indexOf("function public.client_name_skeleton"), sql.indexOf("function public.client_name_tokens"));
-check("שלד SQL זהה ל-TS", skeletonFn.includes("normalize(coalesce(p_raw, ''), 'NFKC')")
+check("שלד SQL זהה ל-TS", skeletonFn.includes("normalize(coalesce(p_raw, ''), NFKC)")
+  && !skeletonFn.includes("'NFKC'") && !skeletonFn.includes("'NFC'")
   && skeletonFn.indexOf("[[:space:]]") < skeletonFn.indexOf("regexp_split_to_array")
   && skeletonFn.includes("return lower(array_to_string(words, ' '))"));
 const dupFn = sql.slice(sql.indexOf("function public.agent_client_duplicate"), sql.indexOf("comment on function public.agent_client_duplicate"));
