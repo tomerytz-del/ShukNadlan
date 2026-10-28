@@ -3,6 +3,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
+import { PUBLIC_MODEL_FLAG, publicBotModel } from "./public-model.ts";
 import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
@@ -71,11 +72,9 @@ import {
 // פחות. לכן כל תשובה כאן נגמרת בקישור. הפרטים: `docs/analytics-events.md`.
 // ============================================================================
 
-// המודל כסוד, כמו בבוט של הסוכנים. ברירת המחדל היא אותו Opus 5.5 של
-// העוזר (27.10.2026): Opus 5 יקר יותר וחלש יותר. המתג נפרד כדי שאפשר
-// יהיה להחליף כאן בלי לגעת בערוץ העבודה של הסוכנים. אם
-// WHATSAPP_PUBLIC_BOT_MODEL מוגדר בסוד - הוא גובר על ברירת המחדל.
-const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5-5";
+// המודל כסוד, כמו בבוט של הסוכנים. בלי סוד נשאר Opus 5.
+// Opus 5.5 דולק רק כש-gabriela_public_opus_55 = 1, ונקרא בכל תור
+// (לא בקבוע של טעינת המודול). הסוד WHATSAPP_PUBLIC_BOT_MODEL גובר על הדגל.
 const PUBLIC_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT") || "")
   ? Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT")
   : "low") as "low" | "medium" | "high";
@@ -2492,16 +2491,34 @@ const SYSTEM_STATIC: string = (() => {
  * אותו כלל: הקידומת זהה לזו של `runPublicTurn` (מודל, `TOOLS`, `SYSTEM_STATIC`
  * עם אותו `cache_control`, ו-`PUBLIC_EFFORT`).
  */
-export async function warmPublicPromptCache(): Promise<Anthropic.Message> {
+async function resolvePublicModel(supabase: SupabaseClient): Promise<string> {
+  const env = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL");
+  if (String(env || "").trim()) return publicBotModel(env, 0);
+  try {
+    const { data, error } = await supabase.from("pricing_config")
+      .select("value").eq("key", PUBLIC_MODEL_FLAG).maybeSingle();
+    if (error) {
+      console.error("public model flag failed", error.code);
+      return publicBotModel(undefined, 0);
+    }
+    return publicBotModel(undefined, data?.value);
+  } catch (err) {
+    console.error("public model flag failed", err);
+    return publicBotModel(undefined, 0);
+  }
+}
+
+export async function warmPublicPromptCache(supabase?: SupabaseClient): Promise<Anthropic.Message> {
+  const model = supabase ? await resolvePublicModel(supabase) : publicBotModel(Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL"), 0);
   const response = await callClaude({
-    model: MODEL,
+    model,
     max_tokens: 0,
     output_config: { effort: PUBLIC_EFFORT },
     system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
     tools: TOOLS,
     messages: [{ role: "user", content: "." }],
   } as unknown as Anthropic.MessageCreateParamsNonStreaming);
-  logAiUsage(anthropicRow("gabriela_public_warm", response.model || MODEL, response.usage));
+  logAiUsage(anthropicRow("gabriela_public_warm", response.model || model, response.usage));
   return response;
 }
 
@@ -2585,6 +2602,7 @@ export async function runPublicTurn(opts: {
   profileName?: string | null;
 }): Promise<{ text: string; shareContact: boolean }> {
   const { supabase, conv, userText, waPhone } = opts;
+  const model = await resolvePublicModel(supabase);
   const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
   const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName, userText };
 
@@ -2609,7 +2627,7 @@ export async function runPublicTurn(opts: {
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const llmStart = Date.now();
     const response = await callClaude({
-      model: MODEL,
+      model,
       max_tokens: 2048,
       // ‏low הספיק כשהיו כאן ארבעה כלי חיפוש וההחלטה ביניהם הייתה חד-משמעית.
       // עם אחד-עשר כלים, שני מאגרים נפרדים (נכסים מול פרויקטים) וארבעה
@@ -2631,12 +2649,12 @@ export async function runPublicTurn(opts: {
 
     const u = response.usage as unknown as Record<string, number | undefined>;
     console.log(
-      `public-llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
+      `public-llm ${model} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
         `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0} ` +
         `ms=${Date.now() - llmStart}`,
     );
-    logAiUsage(anthropicRow("gabriela_public", response.model || MODEL, response.usage));
+    logAiUsage(anthropicRow("gabriela_public", response.model || model, response.usage));
 
     const responseText = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

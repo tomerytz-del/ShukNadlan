@@ -298,3 +298,73 @@ grant execute on function public.client_name_tokens(text) to service_role;
 grant execute on function public.client_names_likely_same(text, text) to service_role;
 grant execute on function public.client_names_need_confirm(text, text) to service_role;
 grant execute on function public.agent_client_duplicate(uuid, text, text) to service_role;
+
+-- מענה כשהמודל נכשל: לכל היותר הודעה אחת לשעה לשיחה, וכל ניסיון נרשם.
+-- אין גוף הודעה ואין טלפון. reason הוא סוג הכשל, לא הטקסט שחזר מהמודל.
+-- sent מבדיל שליחה מדיכוי, כדי שהתקרה לא תיסגר על שורה שלא יצאה.
+
+insert into public.pricing_config (key, value, description) values
+  ('gabriela_public_opus_55', 0,
+   '1: הבוט הציבורי עובר ל-claude-opus-5-5 כשאין סוד WHATSAPP_PUBLIC_BOT_MODEL. 0: נשאר claude-opus-5.')
+on conflict (key) do nothing;
+
+create table if not exists public.gabriela_llm_fallbacks (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null,
+  channel text not null,
+  created_at timestamptz not null default now(),
+  reason text not null,
+  sent boolean not null default false,
+  constraint gabriela_llm_fallbacks_channel_chk check (channel in ('agent', 'public')),
+  constraint gabriela_llm_fallbacks_reason_chk check (reason in ('billing', 'transient', 'other'))
+);
+
+comment on table public.gabriela_llm_fallbacks is
+  'כל מענה חלופי של גבריאלה כשקריאת המודל נכשלה. מזהה שיחה, ערוץ, זמן וסוג כשל. בלי גוף ובלי טלפון. רק service_role.';
+
+alter table public.gabriela_llm_fallbacks enable row level security;
+
+revoke all on table public.gabriela_llm_fallbacks from public, anon, authenticated;
+grant select, insert, update, delete on table public.gabriela_llm_fallbacks to service_role;
+
+create index if not exists gabriela_llm_fallbacks_conv_idx
+  on public.gabriela_llm_fallbacks (conversation_id, created_at desc);
+
+create or replace function public.gabriela_llm_fallback_log(
+  p_conversation_id uuid,
+  p_channel text,
+  p_reason text
+) returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_send boolean;
+  v_reason text := case when p_reason in ('billing', 'transient', 'other') then p_reason else 'other' end;
+begin
+  if p_conversation_id is null or p_channel not in ('agent', 'public') then
+    return false;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_conversation_id::text, 0));
+
+  v_send := not exists (
+    select 1 from public.gabriela_llm_fallbacks
+     where conversation_id = p_conversation_id
+       and sent
+       and created_at > now() - interval '1 hour'
+  );
+
+  insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent)
+  values (p_conversation_id, p_channel, v_reason, v_send);
+
+  return v_send;
+end;
+$$;
+
+comment on function public.gabriela_llm_fallback_log(uuid, text, text) is
+  'רושם כל מענה חלופי ומחזיר true רק אם מותר לשלוח: אין שליחה לאותה שיחה בשעה האחרונה.';
+
+revoke all on function public.gabriela_llm_fallback_log(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.gabriela_llm_fallback_log(uuid, text, text) to service_role;

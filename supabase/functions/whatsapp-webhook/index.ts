@@ -162,6 +162,22 @@ async function outboundAfterInbound(phone: string, waMessageId: string): Promise
   return !!out?.length;
 }
 
+async function fallbackConversation(
+  agentId: string | null,
+  phone: string,
+): Promise<{ id: string; channel: "agent" | "public" } | null> {
+  if (agentId) {
+    const { data, error } = await supabase.from("whatsapp_conversations")
+      .select("id").eq("agent_id", agentId).maybeSingle();
+    if (error || !data?.id) return null;
+    return { id: String(data.id), channel: "agent" };
+  }
+  const { data, error } = await supabase.from("whatsapp_public_conversations")
+    .select("id").eq("wa_phone", phone).maybeSingle();
+  if (error || !data?.id) return null;
+  return { id: String(data.id), channel: "public" };
+}
+
 async function replyAfterLlmFailure(
   to: string,
   agentId: string | null,
@@ -174,7 +190,23 @@ async function replyAfterLlmFailure(
   console.error("llm turn failed", audience, kind, isModelCallError(err), detail);
   // תשובה שכבר יצאה בתור הזה לא מקבלת הודעת כשל שנייה.
   if (inboundWaId && await outboundAfterInbound(to, inboundWaId)) return;
-  await reply(to, fallbackReply(kind, audience, SITE_BASE), agentId);
+  const conv = await fallbackConversation(agentId, to);
+  let send = true;
+  if (conv) {
+    const { data, error } = await supabase.rpc("gabriela_llm_fallback_log", {
+      p_conversation_id: conv.id,
+      p_channel: conv.channel,
+      p_reason: kind,
+    });
+    if (error) {
+      const code = String(error.code || "");
+      // הטבלה עוד לא עלתה: שולחים, כמו קודם. כשל אחר לא משתיק את התשובה.
+      if (code !== "42883" && code !== "PGRST202") console.error("llm fallback log failed", code);
+    } else {
+      send = data === true;
+    }
+  }
+  if (send) await reply(to, fallbackReply(kind, audience, SITE_BASE), agentId);
   if (!isModelCallError(err)) return;
   await alertPlatformAdmins({
     recentCount: async (type, title, since) => {
@@ -1900,7 +1932,7 @@ Deno.serve(async (req: Request) => {
     };
     const results = await Promise.all([
       ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", warmPromptCache)] : []),
-      ...(due.includes("gabriela_public") ? [warm("gabriela_public", warmPublicPromptCache)] : []),
+      ...(due.includes("gabriela_public") ? [warm("gabriela_public", () => warmPublicPromptCache(supabase))] : []),
     ]);
     console.log("cache warm", JSON.stringify(results));
     return new Response(JSON.stringify({ results }), {
