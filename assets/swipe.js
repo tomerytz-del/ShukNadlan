@@ -3371,7 +3371,9 @@
     document.body.dataset.view = v;
     listLikedOnly = !!likedOnly && v === 'list';
     listNpOnly = !!npOnly && v === 'list';
-    document.querySelectorAll('.sw-views [data-view]').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.view === v)); });
+    // ‏D2: רק שתי התצוגות האחרות; "אהבתי" אינה אחת מהן, ולכן בה מוצגת החזרה להחלקה ולרשימה
+    var shownView = v === 'likes' ? 'map' : v;
+    document.querySelectorAll('.sw-views [data-view]').forEach(function (b) { b.hidden = b.dataset.view === shownView; });
     $('swDeckView').hidden = v !== 'deck';
     $('swListView').hidden = v !== 'list';
     $('swMapView').hidden = v !== 'map';

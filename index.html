@@ -3991,6 +3991,18 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     html.beta-hero body header.site .logo-word{font-size:14px !important;line-height:1.2}
   }
   @media(max-width:380px){html.beta-hero body .hdr-mkt{margin-inline-start:4px;padding:0 7px}}
+  /* ‏F3 (בדיקת 29.10): עד 430px הבורר הוא סיכה בלבד, 44x44 (כמו במחשב צר) - בלי זה הלב דחק אותו
+     ל"נ ▾" ב-390 ולאליפסה ריקה ב-412. השם נשאר ב-aria-label ובתפריט שנפתח */
+  @media(max-width:430px){
+    html.beta-hero body header.site .hdr-mkt{flex:none;width:44px;height:44px;min-width:44px;max-width:none;padding:0;justify-content:center}
+    html.beta-hero body header.site .hdr-mkt svg{width:18px;height:18px}
+    html.beta-hero body header.site .hdr-mkt-l,html.beta-hero body header.site .hdr-mkt-c{display:none}
+    /* ‏"כניסה" הקצר עד 430px (ב-412 הארוך עם הלב גלש ב-27px), ורווחים צרים יותר */
+    html.beta-hero body header.site .hdr-login-long{display:none}
+    html.beta-hero body header.site .hdr-login-short{display:inline}
+    html.beta-hero body header.site .header-inner{padding-inline:10px;gap:6px}
+    html.beta-hero body header.site .hdr-likes:not([hidden]){margin-inline-end:0}
+  }
   html.beta-hero .gabv8-band .mkt-menu-btn{display:none}
   /* התפריט עם הדגל: שווקים עם מספר נכסים, "אזור אחר" עם צפון / מרכז / דרום */
   html.beta-hero .mkt-menu .mkt-n{min-width:34px;padding:2px 8px;border-radius:999px;background:#fff;border:1px solid rgba(14,42,107,.18);
