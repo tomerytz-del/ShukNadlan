@@ -61,6 +61,7 @@ import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
 import { pageLink, pageLinkTopics, urlInSay } from "./crm-pages.ts";
+import { ctaLabel, isSafeCrmPath, parseNavId, screenBundle, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
   agreementConfirmButtons,
   IMAGE_DELETE_STALE,
@@ -2422,6 +2423,46 @@ async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, 
  * (12.10.2026). בלי outbox (תור מייל) - השדה חוזר למודל כמו קודם, והפרומפט
  * אומר לצרף אותו.
  */
+/** כפתור אחד, או רשימה ועוד "הכול". בלי outbox לא נשלח כלום.
+ *  `listed` הם הנתיבים שבאמת נכנסו לכפתור. שורה שלא נכנסה שומרת קישור. */
+function pushScreens(
+  ctx: ToolContext,
+  screens: ScreenRef[],
+  body: string,
+  category: string,
+): { crm_button_sent?: true; listed: string[] } {
+  if (!ctx.outbox || !SITE_BASE_URL) return { listed: [] };
+  const plan = screenBundle(screens, () => category);
+  const listed = plan.kind === "single"
+    ? [plan.path]
+    : plan.kind === "list"
+    ? plan.rows.flatMap((row) => {
+      const path = parseNavId(row.id);
+      return path ? [path] : [];
+    })
+    : [];
+  if (plan.kind === "single") {
+    ctx.outbox.push({
+      kind: "cta",
+      body,
+      label: plan.label,
+      url: `${SITE_BASE_URL}${plan.path}`,
+    });
+    return { crm_button_sent: true, listed };
+  }
+  if (plan.kind === "list") {
+    ctx.outbox.push({
+      kind: "list",
+      body,
+      button: plan.button,
+      section: plan.section,
+      rows: plan.rows,
+    });
+    return { crm_button_sent: true, listed };
+  }
+  return { listed: [] };
+}
+
 function crmButton(
   ctx: ToolContext,
   url: string | undefined,
@@ -2728,6 +2769,20 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const exactTotal = typeof count === "number" ? count : data.length;
   const total = exactTotal + variants.length;
   const rows = [...data, ...variants].slice(0, limit);
+  // סטטוס שה-CRM מסנן (propStatusFilter). חיפוש חופשי בעברית אינו נתיב,
+  // ולכן "הכול" אינו מתיימר להיות תוצאת החיפוש.
+  const propertiesCategory = status && (STATUSES as readonly string[]).includes(status)
+    ? `/crm?goto=accProperties&status=${status}`
+    : "/crm?goto=accProperties";
+  const pushed = ctx.outbox && rows.length
+    ? pushScreens(ctx, rows.map((p) => ({
+      type: "listing",
+      path: `/crm?goto=accProperties&property=${String(p.id)}`,
+      title: String(p.title || p.address || "נכס"),
+      body: String(p.address || ""),
+    })), "איזה נכס לפתוח?", propertiesCategory)
+    : null;
+  const listed = new Set(pushed?.listed || []);
   return {
     ok: true,
     returned: rows.length,
@@ -2736,9 +2791,14 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     total,
     truncated: total > rows.length,
     query: q || undefined,
-    // לכל נכס הכרטיס שלו ב-CRM - "תראי לי את הנכסים בלי תמונה" צריך להיגמר
-    // בקישור שפותח אותם, לא ב"היכנס/י ל-CRM".
-    properties: rows.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
+    // בשיחת וואטסאפ הכפתור נפתח על הכרטיס. נכס שלא נכנס לרשימה (מעל 9)
+    // שומר crm_link. בלי תור (מייל) נשאר הקישור לכל שורה.
+    properties: rows.map((p) => {
+      const path = `/crm?goto=accProperties&property=${String(p.id)}`;
+      if (pushed?.crm_button_sent && listed.has(path)) return p;
+      return { ...p, crm_link: crmPropertyLink(String(p.id)) };
+    }),
+    ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
     note: [
       total > rows.length
         ? `מוצגים ${rows.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
@@ -6401,7 +6461,15 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
         .map((sg) => sg.full_name)
       : undefined,
     frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון - reissue_agreement (הסכם חדש, והישן מבוטל רק אחרי שהחדש נוצר). לביטול - cancel_agreement.",
-    manage_where: `${SITE_BASE_URL}/crm`,
+    ...(ctx.outbox && created.id
+      ? crmButton(
+        ctx,
+        SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accAgreements&agreement=${created.id}` : undefined,
+        "📝 פתיחת ההסכם",
+        "ההסכם נפתח כאן:",
+        "manage_where",
+      )
+      : { manage_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accAgreements&agreement=${created.id}` : null }),
   };
 }
 
@@ -7424,22 +7492,41 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("agent_id", ctx.agent.id)
     .eq("status", "masked");
 
+  const leads = data || [];
+  const pushed = ctx.outbox && leads.length
+    ? pushScreens(ctx, leads.map((l) => ({
+      type: "new_lead",
+      path: `/crm?goto=accLeads&lead=${String(l.id)}`,
+      title: String(l.display_name || "ליד"),
+      body: String(l.city || ""),
+    })), "איזה ליד לפתוח?", "/crm?goto=accLeads")
+    : null;
+  const listed = new Set(pushed?.listed || []);
   return {
     ok: true,
-    returned: (data || []).length,
+    returned: leads.length,
     waiting_to_unlock: masked ?? 0,
-    unlock_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accLeads` : null,
-    leads: (data || []).map((l) => ({
-      lead_id: l.id,
-      lead_type: l.lead_type,
-      status: l.status,
-      name: l.display_name,
-      phone: l.display_phone,
-      message: l.display_message,
-      city: l.city,
-      property_type: l.property_type,
-      created_at: l.created_at,
-    })),
+    ...(pushed?.crm_button_sent
+      ? { crm_button_sent: true }
+      : { unlock_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accLeads` : null }),
+    leads: leads.map((l) => {
+      const path = `/crm?goto=accLeads&lead=${String(l.id)}`;
+      const row = {
+        lead_id: l.id,
+        lead_type: l.lead_type,
+        status: l.status,
+        name: l.display_name,
+        phone: l.display_phone,
+        message: l.display_message,
+        city: l.city,
+        property_type: l.property_type,
+        created_at: l.created_at,
+      };
+      // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
+      if (pushed?.crm_button_sent && listed.has(path)) return row;
+      if (pushed?.crm_button_sent && SITE_BASE_URL) return { ...row, crm_link: `${SITE_BASE_URL}${path}` };
+      return row;
+    }),
   };
 }
 
@@ -8293,13 +8380,30 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   return { ok: true, action, item: shaped };
 }
 
-function toolPageLink(input: Record<string, unknown>) {
-  const link = pageLink(SITE_BASE_URL || "https://shuknadlan.co.il", input);
+function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
+  const base = SITE_BASE_URL || "https://shuknadlan.co.il";
+  const link = pageLink(base, input);
   if (!link) {
     return {
       ok: false,
       error: "נושא לא מוכר.",
       topics: pageLinkTopics(),
+    };
+  }
+  const url = `${base.replace(/\/$/, "")}${link.path}`;
+  if (ctx.outbox && isSafeCrmPath(link.path)) {
+    const say = link.say.replace(url, "").trim();
+    ctx.outbox.push({
+      kind: "cta",
+      body: say || "נפתח כאן:",
+      label: ctaLabel(link.path),
+      url,
+    });
+    return {
+      ok: true,
+      say,
+      crm_button_sent: true,
+      guidance: "כתוב/י את say כמו שהוא. אל תכתוב/י כתובת - הכפתור נשלח אחרי התשובה.",
     };
   }
   return {
@@ -8380,7 +8484,7 @@ async function runTool(
       case "agenda_free_slots": return await toolAgendaFreeSlots(ctx, input);
       case "profile_get": return await toolProfileGet(ctx);
       case "update_profile": return await toolUpdateProfile(ctx, input);
-      case "page_link": return toolPageLink(input);
+      case "page_link": return toolPageLink(ctx, input);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
     }
   } catch (err) {
@@ -8442,15 +8546,18 @@ const SYSTEM_STATIC: string = (() => {
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
       "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
-      "page_link, ואת say מעתיקים כמו שהוא. משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
+      "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
+      "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
       "ביטול הסכם = cancel_agreement. תיקון נוסח = reissue_agreement.",
     "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
-    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו. " +
-      "אם חזר crm_button_sent או buttons_sent - **אל תכתוב/תכתבי את הקישור ל-CRM**: הוא יוצא ככפתור אחרי התשובה. " +
-      "אחרת, אם התקבל crm_link (או שדה שנגמר ב-crm_link), צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
+    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link של נכס באתר, חתימה או מיניסייט שהסוכן/ת ביקש/ה להעביר ללקוח/ה - צרף/י אותו. " +
+      "כתובת של האזור האישי אסור להרכיב לבד: לא unlock_where, לא /crm, ולא https. " +
+      "אם חזר crm_button_sent או buttons_sent - הכפתור יוצא אחרי התשובה, ואין לכתוב כתובת במקומו. " +
+      "קישור מותר רק כשהכלי החזיר אותו בשדה (crm_link או שדה שנגמר ב-crm_link), ומעתיקים את הערך כמו שהוא. " +
+      "בלי שדה כזה אין כתובת בתשובה.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",
@@ -8773,7 +8880,8 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +
-      "לעקוף. אמור/אמרי שהפתיחה נעשית בדשבורד וצרף/י את unlock_where.",
+      "לעקוף. אמור/אמרי שהפתיחה נעשית באזור האישי. אם יצא כפתור, הוא הפתיחה. " +
+      "אל תרכיב/י כתובת, ואל תצרף/י unlock_where אם הכלי לא החזיר אותו.",
     "- \"מה חדש\" / \"מה פספסתי\" = list_notifications.",
     "- בקשה לקבל התראות בוואטסאפ (\"תעדכן אותי על לידים חדשים כאן\") = whatsapp_alerts " +
       "עם enable והסוגים המתאימים. \"תפסיק\" = disable בלי types. אם חזר muted_conflict - " +

@@ -2403,6 +2403,7 @@ function handleGotoParam(){
   const agreementId = params.get('agreement');
   const reviewId = params.get('review');
   const filter = params.get('filter');
+  const status = params.get('status');
   const importJob = params.get('import');
   const tab = params.get('tab');
   // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
@@ -2410,7 +2411,7 @@ function handleGotoParam(){
     .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'import', 'tab',
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'status', 'import', 'tab',
      'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
       .forEach(k => params.delete(k));
     const search = params.toString();
@@ -2425,6 +2426,8 @@ function handleGotoParam(){
   if (Object.prototype.hasOwnProperty.call(CRM_ACTIONS, raw)){ CRM_ACTIONS[raw](); return; }
   if (raw === 'license'){ openLicenseCard(); return; }
   if (raw === 'adminHome'){ openAdminHome(); return; }
+  // תקציר "יש לך N התראות" בוואטסאפ. הפעמון הוא המסך, לא /crm בלי יעד.
+  if (raw === 'bell'){ openNavLayer('bell'); return; }
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw)) return;
   /* יעד של ניהול הפלטפורמה (כל פריט בקבוצות a* של NAV_GROUPS, גם פאנל
      dashPanel*) מעביר קודם לתצוגת הניהול - אחרת הוא מוסתר, והקישור נוחת
@@ -2446,6 +2449,7 @@ function handleGotoParam(){
   if (raw === 'accClients' && clientId) openClientFromParam(clientId, focus);
   if (raw === 'accProperties' && propertyId) openPropertyFromParam(propertyId);
   if (raw === 'accProperties' && filter) openPropertyFilterFromParam(filter);
+  if (raw === 'accProperties' && status && !propertyId && !filter) openPropertyStatusFromParam(status);
   // קובץ נכסים שנשלח לגבריאלה: נפתח באשף לתיקון השורות שנפסלו (property-import.ts)
   if (raw === 'accProperties' && UUID_PARAM_RE.test(importJob || '')) openImportJobFromParam(importJob);
   if (raw === 'accProperties' && focus === 'new')
@@ -2538,7 +2542,7 @@ async function openReviewFromParam(id){
 }
 
 /* ממצא תזכורת ← הסינון המהיר שמראה בדיוק את הנכסים שהוא סופר. אותה טבלה
-   כמו FINDING_PARAMS ב-supabase/functions/agent-reminders - שינוי באחת מחייב
+   כמו REMINDER_FILTER_QUERY ב-_shared/agent-deep-link.ts - שינוי באחת מחייב
    את השנייה. */
 const REMINDER_FILTERS = {
   missing_images: 'no_images', expiring_listings: 'expiring',
@@ -2571,6 +2575,17 @@ function openPropertyFilterFromParam(filter){
   renderPropertiesFromTop();
   const rows = filterProperties(myPropertyRows, propertyFilterState());
   if (rows.length === 1) openPropertyFromParamKeepFilters(rows[0].id);
+}
+
+/* ‏?status=active|unpublished|sold|rented|archived לצד ?goto=accProperties.
+   "הכול" אחרי list_properties עם סטטוס. ערך שאינו בבורר לא נוגע בסינון. */
+function openPropertyStatusFromParam(status){
+  const sel = document.getElementById('propStatusFilter');
+  if (!sel || ![...sel.options].some(o => o.value === status && o.value)) return;
+  PROP_FILTER_IDS.forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
+  propOwnerTab('mine');
+  sel.value = status;
+  renderPropertiesFromTop();
 }
 
 /* ‏?property=<id> לצד ?goto=accProperties - "נכתב תיאור לנכס", "הסרטון מוכן",
