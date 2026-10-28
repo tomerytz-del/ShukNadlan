@@ -76,7 +76,7 @@ export function ownerCancelNotice(ownerName: string, agentDisplayName: string, s
   const hello = name ? `שלום ${name}` : "שלום";
   const who = agentFirstName(agentDisplayName);
   const when = whenWeekdayTime(startsAt);
-  return `${hello}, כאן גבריאלה משוק הנדל״ן. הביקור שתואם עם ${who} ל${when} בוטל, אז אין צורך להגיע. אם תרצו לתאם מועד אחר, אפשר לכתוב לי כאן.`;
+  return `${hello}, כאן גבריאלה משוק הנדל"ן. הביקור שתואם עם ${who} ל${when} בוטל, אז אין צורך להגיע. אם תרצו לתאם מועד אחר, אפשר לכתוב לי כאן.`;
 }
 
 export interface ShowingPick {
