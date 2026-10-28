@@ -111,7 +111,168 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #dealsBody .deals-rooms th,#dealsBody .deals-rooms td{padding:8px 6px}
   #dealsBody .deals-recent td::before{content:attr(data-label);color:var(--ink-muted,#6b7796);font-weight:600}
 }
+/* דף השכונה. גובה שמור להירו, למדדים, לסרגל ולמפה, כדי שהציור הראשון לא יזוז. */
+main.doc > .wrap{max-width:1180px}
+#dealsBody h2{margin:0 0 12px;font-size:22px;line-height:32px;font-weight:800;color:#1b2440}
+#dealsBody .hood-cta h2{color:#fff}
+#dealsBody .hood-cta .hood-cta-k{color:#e8d58e}
+#dealsBody .hood-page p{max-width:none}
+.hood-crumbs{font-size:13px;color:#5b6478;padding:4px 0}
+.hood-crumbs a{color:#0e2a6b;font-weight:700;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+.hood-crumbs-here{color:#1b2440;font-weight:600}
+.hood-figure{margin:0}
+/* clip רק על המסמך. על #dealsBody או .hood-page הוא חותך את
+   margin-inline:-18px של ההירו (הריפוד של .wrap) והשער לא מגיע לקצה.
+   clip ולא hidden: hidden יוצר scrollport ושובר את ה-sticky של הסרגל. */
+html,body{overflow-x:clip}
+.hood-hero{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:220px;overflow:hidden;background:#0d1b3d;color:#fff}
+.hood-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.hood-hero-shade{position:absolute;inset:0;z-index:0;background:linear-gradient(to top,rgba(13,27,61,.9) 0%,rgba(13,27,61,.45) 52%,rgba(13,27,61,.12) 100%)}
+.hood-hero-empty .hood-hero-shade{background:linear-gradient(160deg,#0e2a6b,#0d1b3d)}
+.hood-hero-copy{position:relative;z-index:1;padding:28px 16px 18px;max-width:760px}
+.hood-hero h1{margin:0 0 8px;color:#fff;font-size:28px;line-height:36px;font-weight:800}
+.hood-hero-copy p{margin:0;color:rgba(255,255,255,.92);font-size:15px;line-height:1.6;max-width:62ch}
+.hood-credit{margin:6px 0 0;font-size:12px;line-height:1.4;color:#5b6577}
+.hood-credit a{display:inline-flex;align-items:center;min-height:44px;color:#0e2a6b;font-weight:700}
+.hood-kpis,.hood-agencies-row{scrollbar-width:none}
+.hood-kpis::-webkit-scrollbar,.hood-agencies-row::-webkit-scrollbar{display:none}
+.hood-kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow:visible;align-items:stretch;padding:12px 0 0}
+.hood-kpi{min-width:0;background:#fff;border:1px solid #e3e6ef;border-radius:14px;padding:12px 14px;box-sizing:border-box;min-height:96px;display:flex;flex-direction:column}
+.hood-kpi-l{display:block;font-size:13px;color:#5b6478;white-space:nowrap}
+.hood-kpi-n{display:block;font-size:12px;color:#5b6478;margin-top:auto}
+.hood-kpi-v{display:block;margin:4px 0;font-size:18px;line-height:1.2;font-weight:800;color:#0e2a6b;white-space:nowrap}
+.hood-kpi-src{margin:8px 0 0;font-size:12px;color:#5b6478}
+.hood-kpi-v bdi,.hood-kpi-n bdi{unicode-bidi:isolate}
+.hood-filters{position:sticky;top:calc(66px + env(safe-area-inset-top,0px));z-index:30;background:#f6f7fb;border-bottom:1px solid #e3e6ef;padding:8px 0 10px}
+.hood-seg,.hood-tools,.hood-panel{display:flex;flex-wrap:nowrap;gap:8px;width:100%;min-width:0;box-sizing:border-box}
+.hood-seg{background:#eef1f8;padding:3px;border-radius:14px;gap:3px}
+.hood-seg button,.hood-tools button,.hood-panel button,.hood-panel select,.hood-panel input{font:inherit;font-size:14px;font-weight:700;height:44px;min-height:44px;box-sizing:border-box}
+.hood-seg button{flex:1 1 0;min-width:0;border:0;border-radius:11px;background:transparent;color:#0e2a6b;padding:0 4px;white-space:nowrap}
+.hood-tools{margin-top:8px}
+.hood-tools button{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:12px;border:1.5px solid #0e2a6b;background:#fff;color:#0e2a6b;padding:0 10px}
+.hood-tools .hood-view{flex:0 0 44px;width:44px;padding:0}
+.hood-filters button[aria-pressed="true"]{background:#0e2a6b;color:#fff}
+.hood-panel{display:none;flex-wrap:wrap;margin-top:8px;background:#fff;border:1px solid #e3e6ef;border-radius:14px;padding:12px;gap:8px}
+.hood-panel button{border:1.5px solid #0e2a6b;background:#fff;color:#0e2a6b;border-radius:12px;padding:0 12px;min-height:44px}
+.hood-panel button[aria-pressed="true"]{background:#0e2a6b;color:#fff}
+.hood-panel.is-open{display:flex}
+.hood-panel select,.hood-panel input{flex:1 1 120px;min-width:0;border-radius:12px;border:1.5px solid #0e2a6b;background:#fff;color:#0e2a6b;padding:0 10px}
+.hood-switch{flex:1 1 100%;display:flex;align-items:center;gap:10px;justify-content:flex-start;background:#fff;color:#0e2a6b;border:1.5px solid #0e2a6b;border-radius:12px;padding:0 12px}
+.hood-switch-ui{width:44px;height:26px;border-radius:13px;background:#c5cad6;flex:0 0 44px;position:relative}
+.hood-switch-ui::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:10px;background:#fff}
+.hood-switch[aria-checked="true"]{background:#fff;color:#0e2a6b}
+.hood-switch[aria-checked="true"] .hood-switch-ui{background:#0e2a6b}
+.hood-switch[aria-checked="true"] .hood-switch-ui::after{inset-inline-start:21px}
+.hood-count,.hood-note,.hood-empty{font-size:13px;color:#5b6478;margin:8px 0}
+.hood-props{list-style:none;padding:0;margin:8px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.hood-props.is-rows{grid-template-columns:1fr}
+.hood-props.is-rows .hood-prop{flex-direction:row}
+.hood-props.is-rows .hood-prop img,.hood-props.is-rows .hood-noimg{width:140px;height:96px;flex:0 0 auto}
+.hood-prop{display:flex;flex-direction:column;background:#fff;border:1px solid #e3e6ef;border-radius:14px;overflow:hidden;text-decoration:none;color:#1b2440;min-width:0;height:100%}
+.hood-prop img,.hood-noimg{width:100%;height:108px;object-fit:cover;background:#e9ecf3;display:block}
+.hood-noimg{position:relative;display:flex;align-items:flex-end;justify-content:center}
+.hood-prop .hood-noimg img{width:100%;height:100%;object-fit:cover}
+.hood-nophoto{position:absolute;bottom:8px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.94);color:#0e2a6b;font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px}
+.hood-prop-body{display:flex;flex-direction:column;gap:3px;padding:8px 10px 10px;min-width:0}
+.hood-prop-body strong{font-size:13.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hood-prop-body span{font-size:12.5px;color:#5b6478}
+.hood-prop-body b{color:#0e2a6b;font-size:15px}
+.hood-deals .deals-table th,.hood-deals .deals-table td{text-align:right}
+.hood-th-short{display:none}
+@media (max-width:959px){
+  .hood-th-long{display:none}
+  .hood-th-short{display:inline}
+  .hood-deals .deals-table th,.hood-deals .deals-table td{padding:8px 4px;font-size:13px}
+}
+@media (min-width:960px){
+  #dealsBody .hood-deals .deals-table{border:0;margin-top:0}
+  #dealsBody .hood-deals .deals-table thead th{background:#eef1f8;border-top:0}
+}
+.hood-about,.hood-fits,.hood-deals,.hood-faq,.hood-agencies,.hood-nearby,.hood-cta{padding-top:28px}
+.hood-about-rest{max-height:0;overflow:hidden}
+.hood-about-toggle{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hood-about-toggle:checked ~ .hood-about-rest{max-height:none}
+.hood-about-more{display:inline-flex;align-items:center;min-height:44px;margin-top:8px;color:#0e2a6b;font-weight:700;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.hood-about-more .hood-less{display:none}
+.hood-about-toggle:checked ~ .hood-about-more .hood-read{display:none}
+.hood-about-toggle:checked ~ .hood-about-more .hood-less{display:inline}
+.hood-about p,.hood-fit-prose p,.hood-faq p{font-size:16px;line-height:1.75;color:#1b2440;max-width:65ch}
+.hood-pois{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.hood-poi{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hood-poi-k{font-size:13px;color:#5b6478;min-width:54px}
+.hood-chip,.hood-near a{font-size:13.5px;padding:5px 12px;border-radius:999px;background:#fff;border:1px solid #e3e6ef;color:#1b2440}
+.hood-fits-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hood-fit{background:#fff;border:1px solid #e3e6ef;border-radius:14px;padding:14px}
+.hood-fit b{display:block;color:#0e2a6b;font-size:15px;margin-bottom:4px}
+.hood-fit span{font-size:13.5px;color:#5b6478;line-height:1.5}
+.hood-fits-list{margin:0;padding-inline-start:1.2em}
+.hood-fits-list li{margin:6px 0;font-size:16px;line-height:1.6;color:#1b2440}
+.hood-cta{background:#0e2a6b;color:#fff;border-radius:18px;padding:20px 18px}
+.hood-cta h2{color:#fff}
+.hood-cta-k{color:#e8d58e;font-size:13px;font-weight:700;margin:0 0 6px}
+.hood-btn{display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:15px;font-weight:700;border-radius:12px;padding:12px 18px;cursor:pointer;text-decoration:none;box-sizing:border-box;min-height:44px}
+.hood-btn-ghost{background:transparent;color:#c9a227;border:1.5px solid #c9a227;width:100%;margin-top:0;position:relative;z-index:1}
+.hood-cta .hood-btn,.hood-cta a{position:relative;z-index:1}
+.hood-btn-line{background:#fff;color:#0e2a6b;border:1.5px solid #0e2a6b}
+.hood-faq-list{background:#fff;border:1px solid #e3e6ef;border-radius:14px}
+.hood-faq-item{border-top:1px solid #e3e6ef}
+.hood-faq-item:first-child{border-top:0}
+.hood-faq-item summary{min-height:44px;padding:12px 16px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.hood-faq-item summary::-webkit-details-marker{display:none}
+.hood-faq-plus,.hood-faq-minus{flex:0 0 auto;width:24px;font-size:18px;font-weight:800;color:#0e2a6b;text-align:center}
+.hood-faq-minus{display:none}
+.hood-faq-item[open] .hood-faq-plus{display:none}
+.hood-faq-item[open] .hood-faq-minus{display:inline}
+.hood-faq-item h3{margin:0;font-size:15px;font-weight:700;color:#1b2440}
+.hood-faq-item p{padding:0 16px 14px;margin:0}
+.hood-agencies-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}
+.hood-office{flex:0 0 132px;background:#fff;border:1px solid #e3e6ef;border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;text-decoration:none;color:#1b2440}
+.hood-logo{width:56px;height:56px;border-radius:12px;border:1px solid #e3e6ef;background:#eef1f8;display:flex;align-items:center;justify-content:center;color:#0e2a6b;font-weight:800;overflow:hidden;position:relative}
+.hood-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+.hood-logo{font-size:14px}
+.hood-office-name{font-size:13px;font-weight:700;line-height:1.3;min-height:34px}
+.hood-office-n{font-size:12px;color:#5b6478}
+.hood-near{display:flex;gap:8px;flex-wrap:wrap}
+.hood-note a,.hood-near a{color:#0e2a6b;font-weight:600;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+footer.site .footer-seo-links a{min-height:44px;display:inline-flex;align-items:center;box-sizing:border-box}
+.hood-near span{color:#5b6478;font-weight:400}
+.hood-map{display:none;height:220px;border-radius:18px;overflow:hidden;border:1px solid #e3e6ef;background:#eef1f6;position:relative}
+.hood-map-ph{position:absolute;inset:0}
+.hood-map-ph svg{width:100%;height:100%;display:block}
+.hood-map-cap{position:absolute;bottom:8px;inset-inline-start:8px;font-size:12px;background:rgba(255,255,255,.92);border-radius:8px;padding:3px 8px;color:#5b6478;z-index:2}
+.hood-layout{display:flex;flex-direction:column}
+.hood-main,.hood-side{display:contents}
+.hood-filters{order:1}.hood-results{order:2}.hood-about{order:3}.hood-fits{order:4}
+.hood-cta{order:5}.hood-deals{order:6}.hood-agencies{order:7}.hood-faq{order:8}.hood-map{order:9}
+#hoodResults{order:2}
+@media (max-width:959px){
+  .hood-hero{margin-inline:-18px}
+}
+@media (min-width:960px){
+  .hood-hero{min-height:320px;border-radius:22px}
+  .hood-hero h1{font-size:40px;line-height:48px}
+  .hood-hero-copy{padding:48px 48px 28px}
+  .hood-hero-copy p{font-size:18px}
+  .hood-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}
+  .hood-kpi{flex:none}
+  .hood-kpi-v{font-size:26px}
+  .hood-props{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  .hood-prop img,.hood-noimg{height:180px}
+  .hood-fits-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .hood-layout{display:grid;grid-template-columns:minmax(0,68%) minmax(240px,32%);column-gap:28px;align-items:start}
+  .hood-main{display:block;grid-column:1;min-width:0}
+  .hood-side{display:flex;flex-direction:column;gap:16px;grid-column:2;position:sticky;top:calc(82px + env(safe-area-inset-top,0px));align-self:start;min-width:0}
+  .hood-filters,.hood-results,#hoodResults,.hood-about,.hood-fits,.hood-cta,.hood-deals,.hood-agencies,.hood-faq,.hood-map{order:unset}
+  .hood-map{display:block}
+  .hood-agencies-row{flex-direction:column;overflow:visible}
+  .hood-office{flex:none;width:100%;flex-direction:row;text-align:start;align-items:center;padding:8px 0;border:0;border-top:1px solid #e3e6ef;border-radius:0;background:transparent}
+  .hood-logo{width:40px;height:40px;flex:0 0 auto}
+  .hood-office-name{flex:1;min-height:0;min-width:0}
+  .hood-cta .hood-btn,.hood-btn-ghost{width:100%}
+}
 </style>
+<script defer src="assets/search-core.js"></script>
+<script defer src="assets/bot-link.js"></script>
 <script defer src="assets/neighborhood-render.js"></script>
 <script defer src="assets/neighborhood.js"></script>
 </head>
@@ -146,11 +307,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <h2>מאיפה המספרים</h2>
     <ul>
-      <li><strong>הנכסים</strong> - המודעות הפעילות באתר שהמתווכים שייכו לשכונה.</li>
+      <li><strong>הנכסים</strong> - המודעות הפעילות באתר שהמשרדים שייכו לשכונה.</li>
       <li><strong>העסקאות</strong> - עסקאות למגורים שדווחו לרשות המסים, כפי שהן מוצגות בפורטל GovMap, בשנתיים שמסתיימות בעסקה האחרונה בשכונה. בלי מגרשים, בניינים שלמים ומשקים חקלאיים.</li>
       <li><strong>לפחות 5 עסקאות</strong> - חציון של קבוצה קטנה יותר אינו מוצג.</li>
     </ul>
-    <p>מחיר חציוני אינו הערכת שווי לנכס מסוים. להערכה של נכס: <a href="/">הערכת שווי</a> בדף הבית, או <a href="/agents">מתווך/ת שמכיר/ה את האזור</a>.</p>
+    <p>מחיר חציוני אינו הערכת שווי לנכס מסוים. להערכה של נכס: <a href="/">הערכת שווי</a> בדף הבית, או <a href="/agents">יועץ/ת נדל״ן שמכיר/ה את האזור</a>.</p>
   </div>
 </main>
 

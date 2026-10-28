@@ -90,11 +90,142 @@ function check(name: string, ok: boolean) {
   check("כרטיס ראשון eager ובגודל התא", !!first && first.includes('fetchpriority="high"')
     && first.includes("/render/image/") && first.includes("width=800") && !first.includes('loading="lazy"'));
   check("שאר הכרטיסים lazy", !!second && second.includes('loading="lazy"') && !second.includes("fetchpriority"));
-  check("preload לתמונה הראשונה", html.includes('rel="preload" as="image"')
-    && html.includes("/render/image/public/property-images/a.jpg"));
+  check("בלי שער אין preload של כרטיס", !html.includes('rel="preload" as="image"'));
+  const meta = html.match(/name="description" content="([^"]*)"/);
+  check("תיאור בלי מספרים", !!meta && meta[1] === "שכונת גבעת המורה בעפולה: נכסים למכירה ולהשכרה, מחירי עסקאות ומשרדים שפעילים בשכונה."
+    && !meta[1].includes("..."));
+  check("הספירה היא כל הפעילים", html.includes("מציג 3 מתוך 5"));
+  check("בלי כפתור התראה", !html.includes("hoodAlert") && !html.includes("קבלו התראה"));
+  check("ממלא מקום בלי תמונה", html.includes("תמונת הנכס") && html.includes("/assets/property-placeholder.jpg"));
+  check("סימן פתיחה בשאלה", html.includes('class="hood-faq-plus"'));
   check("תיאור מאושר: פסקאות ושאלות", html.includes("<p>פסקה ראשונה") && html.includes("<h3>כמה עולה דירת 4 חדרים?</h3>"));
   check("FAQPage ב-JSON-LD", html.includes('"@type":"FAQPage"'));
   check("קישור לשכונה סמוכה", html.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
+  check("בלי קישור ל-swipe", !html.includes("/swipe"));
+  check("פירורי לחם גלויים", html.includes('aria-label="פירורי לחם"') && html.includes(">בית</a>")
+    && html.includes(">שכונת גבעת המורה</span>"));
+  const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  const graph = ld ? JSON.parse(ld[1]) : null;
+  const crumbs = graph && graph["@graph"].find((x: { "@type": string }) => x["@type"] === "BreadcrumbList");
+  check("JSON-LD תקין ותואם לפירורים", !!crumbs
+    && crumbs.itemListElement[0].name === "בית"
+    && crumbs.itemListElement[2].name === "שכונת גבעת המורה");
+  check("שאלות נפוצות כ-3 לכל היותר", (html.match(/<details class="hood-faq-item">/g) || []).length === 1);
+  check("חלון העסקאות הוא שנתיים", html.includes("עסקאות · שנתיים") && !html.includes("12 חודשים"));
+  check("בלי הדמיה כשאין עמודה", !html.includes("רק עם הדמיה") && !html.includes('data-hood="vis"'));
+  check("מיון מסומן", html.includes('data-hood="sort" data-v="default" aria-pressed="true"')
+    && html.includes('data-v="" aria-pressed="true"'));
+}
+{
+  const withVis = {
+    ...HOOD,
+    props: HOOD.props.map((p, i) => ({ ...p, vis: i === 0 })),
+  };
+  const res = await run(URL_HOOD, 200, withVis);
+  const html = await res.text();
+  check("מתג הדמיה רק כשיש נתון", html.includes('role="switch"') && html.includes('aria-checked="false"')
+    && html.includes("רק עם הדמיה"));
+}
+{
+  const cover = {
+    ...HOOD,
+    cover_path: "11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.jpg",
+    cover_alt: "רחוב בשכונה",
+    cover_credit: "תומר",
+  };
+  const res = await run(URL_HOOD, 200, cover);
+  const html = await res.text();
+  const hero = html.match(/<img[^>]*neighborhood-covers[^>]*>/);
+  check("שער עם מידות ו-webp", !!hero && hero[0].includes('width="1200"') && hero[0].includes('height="520"')
+    && hero[0].includes("format=webp") && hero[0].includes('fetchpriority="high"'));
+  check("קרדיט גלוי ו-og:image", html.includes("צילום: תומר")
+    && html.includes('property="og:image" content="https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/neighborhood-covers/')
+    && html.includes("width=1200") && html.includes("height=630"));
+  check("preload לשער, כרטיס לא LCP", html.includes('rel="preload" as="image"') && html.includes("imagesrcset=")
+    && html.includes('imagesizes="100vw"') && html.includes("neighborhood-covers")
+    && !html.includes('property-images/a.jpg" fetchpriority'));
+}
+{
+  const credited = {
+    ...HOOD,
+    cover_path: "11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.jpg",
+    cover_credit: { author: "תומר", license: "CC BY", url: "https://example.com/lic" },
+  };
+  const res = await run(URL_HOOD, 200, credited);
+  const html = await res.text();
+  check("קרדיט אובייקט", html.includes("צילום: תומר · ")
+    && html.includes('href="https://example.com/lic"')
+    && html.includes('target="_blank"')
+    && html.includes('rel="noopener noreferrer"')
+    && html.includes(">CC BY</a>"));
+}
+{
+  const named = { ...HOOD, name: "השכונה הצפון מערבית", slug: "השכונה-הצפון-מערבית" };
+  const res = await run(URL_HOOD, 200, named);
+  const html = await res.text();
+  check("בלי שכונת השכונה בכותרת", !html.includes("שכונת השכונה"));
+  check("H1 בלי הכפלה", html.includes('<h1 id="dealsH1">השכונה הצפון מערבית, עפולה</h1>'));
+}
+{
+  const lead = { ...HOOD, about: { ...HOOD.about, hero_intro: "משפט קצר על גבעת המורה." } };
+  const res = await run(URL_HOOD, 200, lead);
+  const html = await res.text();
+  check("פתיחה קצרה מתחת ל-H1", html.includes('<p id="dealsLead">משפט קצר על גבעת המורה.</p>'));
+  check("פתיחה קצרה בתיאור", html.includes('name="description" content="משפט קצר על גבעת המורה."')
+    && html.includes('property="og:description" content="משפט קצר על גבעת המורה."'));
+}
+{
+  const fits = { ...HOOD, about: { ...HOOD.about, fits: "• זוגות צעירים\n• משפחות" } };
+  const res = await run(URL_HOOD, 200, fits);
+  const html = await res.text();
+  check("למי מתאימה כרשימה", html.includes('<ul class="hood-fits-list">') && html.includes("<li>זוגות צעירים</li>"));
+}
+{
+  const words = Array.from({ length: 122 }, (_v, i) => "מילה" + i);
+  words[121] = "כאן.";
+  const more = "המשך שחייב להישאר ב-HTML של הדף.";
+  const long = { ...HOOD, about: { ...HOOD.about, intro: words.join(" ") + " " + more } };
+  const res = await run(URL_HOOD, 200, long);
+  const html = await res.text();
+  check("המשך קריאה אחרי סוף משפט", html.includes("להמשך קריאה ←") && html.includes("כאן.") && html.includes(more)
+    && html.includes('class="hood-about-rest"'));
+}
+{
+  const poi = { ...HOOD, poi: { parks: [], transport: ["תחנת רכבת"], education: ["  "] } };
+  const res = await run(URL_HOOD, 200, poi);
+  const html = await res.text();
+  check("צ'יפ ריק לא מוצג", html.includes("תחבורה") && html.includes("תחנת רכבת") && !html.includes("פארקים") && !html.includes("חינוך") && !html.includes("פנאי"));
+}
+{
+  const leisure = { ...HOOD, poi: { leisure: ["ספרייה"] } };
+  const res = await run(URL_HOOD, 200, leisure);
+  const html = await res.text();
+  check("פנאי כשיש נתון", html.includes("פנאי") && html.includes("ספרייה"));
+}
+{
+  const faqs = { ...HOOD, about: { ...HOOD.about, faq: [
+    { q: "שאלה אחת?", a: "תשובה אחת." },
+    { q: "שאלה שתיים?", a: "תשובה שתיים." },
+    { q: "שאלה שלוש?", a: "תשובה שלוש." },
+    { q: "שאלה רביעית שלא תוצג", a: "לא." },
+  ] } };
+  const res = await run(URL_HOOD, 200, faqs);
+  const html = await res.text();
+  check("שלוש שאלות ולא ארבע", (html.match(/<details class="hood-faq-item">/g) || []).length === 3
+    && !html.includes("שאלה רביעית"));
+}
+{
+  const offices = { ...HOOD, agencies: [
+    { name: "משרד לדוגמה", slug: "demo-office", n: 3, phone: "053-9876543", email: "secret@example.com", license_number: "99999",
+      logo: "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/logo.jpg" },
+    { name: "r.b נכסים", slug: "rb", n: 1 },
+    { name: "נדל\u05F4ן עפולה", slug: "nd", n: 1 },
+  ] };
+  const res = await run(URL_HOOD, 200, offices);
+  const html = await res.text();
+  check("משרד בלי טלפון", html.includes("/agency?slug=demo-office") && html.includes("יועצי נדל״ן")
+    && html.includes("3 נכסים בשכונה") && !html.includes("053-9876543") && !html.includes("secret@example.com") && !html.includes("99999")
+    && html.includes(">RB<") && html.includes(">נע<"));
 }
 resetLastGood();
 {
@@ -154,6 +285,49 @@ resetLastGood();
   const badHtml = await bad.text();
   check("אחרי הצלחה, כשל מגיש את אותו דף", bad.status === 200 && badHtml === goodHtml && goodHtml.includes("data-ssr"));
   check("העותק בלי Retry-After", !bad.headers.get("Retry-After"));
+}
+
+{
+  const plain = await run(URL_HOOD, 200, HOOD);
+  const plainHtml = await plain.text();
+  check("שם לבוט: גבעת המורה", plainHtml.includes('data-hood-name="גבעת המורה"')
+    && plainHtml.includes('data-hood-city="עפולה"'));
+  const gereshName = "ג\u05f3ת";
+  const gersh = { ...HOOD, name: gereshName, slug: "gat" };
+  const gres = await run(URL_HOOD, 200, gersh);
+  const ghtml = await gres.text();
+  check("שם לבוט עם גרש", ghtml.includes('data-hood-name="' + gereshName + '"'));
+
+  const hoodJs = readFileSync(new URL("../assets/neighborhood.js", import.meta.url), "utf8");
+  check("הדפדפן קורא ל-hoodHello", hoodJs.includes("ShukHood.hoodHello(rawName, city)"));
+  const H = (globalThis as unknown as { ShukHood: { hoodHello: (n: string, c: string) => string } }).ShukHood;
+  const botSrc = readFileSync(new URL("../assets/bot-link.js", import.meta.url), "utf8")
+    .replace(/\(window\);\s*$/, "(globalThis); return globalThis.ShukBot;");
+  const ShukBot = new Function(botSrc)() as { link: (hello: string) => string };
+  const phrases: [string, string][] = [["מדף הבית", "homepage"], ["חיפשתי באתר", "search_empty"], ["הגעתי מהאתר", "site"]];
+  function entryOf(text: string): string {
+    for (const [phrase, entry] of phrases) if (text.includes(phrase)) return entry;
+    return "direct";
+  }
+  const samples: [string, string, string][] = [
+    ["גבעת המורה", "מגדל העמק", "שלום, הגעתי מהאתר, מדף שכונת גבעת המורה במגדל העמק, ואשמח לעזרה במציאת נכס"],
+    ["מרכז", "קרית טבעון", "שלום, הגעתי מהאתר, מדף שכונת מרכז בקרית טבעון, ואשמח לעזרה במציאת נכס"],
+    ["השכונה", "תל-עדשים", "שלום, הגעתי מהאתר, מדף השכונה בתל-עדשים, ואשמח לעזרה במציאת נכס"],
+    ["עפולה עלית", "עפולה", "שלום, הגעתי מהאתר, מדף שכונת עפולה עלית, ואשמח לעזרה במציאת נכס"],
+    ["קרית יהודה", "יהוד", "שלום, הגעתי מהאתר, מדף שכונת קרית יהודה ביהוד, ואשמח לעזרה במציאת נכס"],
+    ["העפולה", "עפולה", "שלום, הגעתי מהאתר, מדף שכונת העפולה, ואשמח לעזרה במציאת נכס"],
+    [gereshName, "בית שאן", "שלום, הגעתי מהאתר, מדף שכונת " + gereshName + " בבית שאן, ואשמח לעזרה במציאת נכס"],
+  ];
+  for (const [hood, city, expected] of samples) {
+    const msg = H.hoodHello(hood, city);
+    const url = ShukBot.link(msg);
+    const text = new URL(url).searchParams.get("text");
+    check("קידוד וואטסאפ: " + hood + " / " + city, msg === expected && entryOf(msg) === "site"
+      && !msg.includes("מדף הבית")
+      && url.startsWith("https://wa.me/972532494740?text=")
+      && url.includes(encodeURIComponent(msg))
+      && text === msg);
+  }
 }
 
 if (failed) {
