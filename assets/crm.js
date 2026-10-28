@@ -15070,6 +15070,9 @@ function shareLevelSchemaMissing(error){ return !!error && /share_level/.test(er
    התגית "מיקום משוער", והטופס מתייחס לפין כמדויק. docs/property-map.md */
 const PROPERTY_LOCATION_COLUMNS = ', location_precision, location_radius_m';
 function locationSchemaMissing(error){ return !!error && /location_(precision|radius_m)/.test(error.message || ''); }
+/* יעד הפרסום (20271029185000). בלי העמודות הכרטיס בלי הבורר, והרשימה עולה. */
+const PROPERTY_DEST_COLUMNS = ', publish_channels, share_with_brokers';
+function destSchemaMissing(error){ return !!error && /publish_channels|share_with_brokers/.test(error.message || ''); }
 
 /* צפיות לכל נכס, נספרות במסד (property_view_counts). קודם הורדו כאן כל
    שורות property_views ונספרו בדפדפן - אלף שורות ויותר בכל כניסה, ומעבר
@@ -15094,9 +15097,15 @@ async function loadProperties(agentId){
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS)
+    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS)
     .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  if (destSchemaMissing(error)){
+    ({ data: props, error } = await sb.from('properties')
+      .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
+      .order('created_at', { ascending:false }));
+  }
   if (locationSchemaMissing(error)){
     ({ data: props, error } = await sb.from('properties')
       .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN)
@@ -15542,6 +15551,7 @@ function buildPropertyCard(p, agentId){
     <div class="pc-facts">
       ${tags}
       ${ownerHtml}
+      ${publishDestinationHtml(p, agentId)}
     </div>
     <div class="pc-col-side">
       <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
@@ -15553,6 +15563,8 @@ function buildPropertyCard(p, agentId){
     </div>
   `;
   bindHeroGallery(el, p.images || []);
+  const destSel = el.querySelector('.pc-dest-select');
+  if (destSel) destSel.addEventListener('change', () => setPublishDestination(p, destSel.value, agentId, destSel));
   bindMatchedClients(el, matched);
 
   const actions = el.querySelector('.pc-grid');
@@ -16420,6 +16432,65 @@ function askClosingDetails(property){
   const on = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) && dateRaw <= today ? dateRaw : today;
 
   return { sale_closed_price: price, sale_closed_on: on };
+}
+
+const PUBLISH_DEST_OPTIONS = [
+  ['site,social,brokers', 'אתר + רשתות + מתווכים'],
+  ['site,social', 'אתר + רשתות'],
+  ['site', 'רק אתר'],
+  ['site,brokers', 'אתר + מתווכים'],
+  ['save', 'רק לשמור במאגר'],
+];
+
+function publishDestinationHtml(p, agentId){
+  if (!p || !Object.prototype.hasOwnProperty.call(p, 'publish_channels')) return '';
+  if (p.agent_id && agentId && p.agent_id !== agentId) return '';
+  const current = Array.isArray(p.publish_channels) ? p.publish_channels.join(',') : '';
+  const opts = [['', 'לא נבחר']].concat(PUBLISH_DEST_OPTIONS).map(([value, label]) =>
+    `<option value="${esc(value)}"${value === current ? ' selected' : ''}${value === '' ? ' disabled' : ''}>${esc(label)}</option>`).join('');
+  return `<label class="pc-dest">יעד פרסום <select class="pc-dest-select" title="אתר, רשתות, מתווכים, או רק מאגר. רשתות נכנסות לתור עם תקרה יומית. שת״פ עד תקרה של משרדים לנכס, בלי טלפון.">${opts}</select></label>`;
+}
+
+async function setPublishDestination(property, value, agentId, selectEl){
+  const prev = Array.isArray(property.publish_channels) ? property.publish_channels.join(',') : '';
+  const channels = String(value || '').split(',').filter(Boolean);
+  if (!channels.length){
+    if (selectEl) selectEl.value = prev;
+    return;
+  }
+  const label = (PUBLISH_DEST_OPTIONS.find((row) => row[0] === channels.join(',')) || [])[1] || 'היעד הזה';
+  const willPublish = channels.indexOf('site') >= 0 && (property.status === 'unpublished' || property.status === 'draft');
+  const willHide = channels.length === 1 && channels[0] === 'save' && property.status === 'active';
+  const ask = willPublish
+    ? 'לפרסם את הנכס באתר (' + label + ')?'
+    : willHide
+      ? 'להוריד את הנכס מהאתר ולהשאיר אותו רק במאגר?'
+      : 'לשנות את יעד הפרסום ל' + label + '?';
+  if (!confirm(ask)){
+    if (selectEl) selectEl.value = prev;
+    return;
+  }
+  const patch = { publish_channels: channels, share_with_brokers: channels.indexOf('brokers') >= 0 };
+  if (willPublish) patch.status = 'active';
+  else if (willHide) patch.status = 'unpublished';
+  if (selectEl) selectEl.disabled = true;
+  const { error } = await sb.from('properties').update(patch).eq('id', property.id).eq('agent_id', agentId);
+  if (selectEl) selectEl.disabled = false;
+  if (error){
+    if (selectEl) selectEl.value = prev;
+    showToast(heErr(error), 6000);
+    return;
+  }
+  const held = willPublish && licenseState && !licenseState.cleared;
+  if (held) refreshLicenseHold();
+  showToast(held
+    ? 'היעד נשמר. הנכס יעלה לאוויר ברגע שרישיון התיווך יאושר'
+    : willHide
+      ? 'הנכס ירד מהאתר ונשאר במאגר'
+      : willPublish
+        ? 'הנכס באתר, לפי היעד שנבחר'
+        : 'יעד הפרסום נשמר');
+  await loadProperties(agentId);
 }
 
 async function setPropertyStatus(property, nextStatus, btn, agentId){
@@ -24896,6 +24967,9 @@ const NOTIF_TYPES = [
   { type:'marketing_copy', tone:'',       goto:'accProperties', focus:'#propertiesList',
     title:'תיאור שיווקי שנכתב אוטומטית',
     sub:'נכס שנשמר בלי תיאור שיווקי וקיבל אחד מהנתונים שהוזנו. כדאי לעבור עליו.' },
+  { type:'publish_ask_nudge', tone:'',    goto:'accProperties', focus:'#propertiesList',
+    title:'נכס שממתין לפרסום',
+    sub:'גבריאלה שאלה לאן להוציא נכס, ועברו 24 שעות בלי תשובה. הנכס נשאר במאגר.' },
   /* ‏refresh ולא רק ניווט: החתימה נכנסה למסד אחרי שהרשימה נטענה, ובלי
      טעינה מחדש ההסכם היה ממשיך להופיע כ"ממתין לחתימה" בדיוק במסך שאליו
      ההתראה הובילה. */
