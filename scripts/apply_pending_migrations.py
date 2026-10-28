@@ -79,83 +79,128 @@ def psql_error_lines(stderr: str) -> list[str]:
     return found
 
 
-def meta_command_lines(sql: str) -> list[int]:
-    """שורות ש-psql היה מריץ כפקודת meta, מחוץ למחרוזת ולהערה.
+def _ident_char(c: str) -> bool:
+    return c == "_" or c.isalnum()
 
-    db push לא מריץ \\! ו-\\c. שורה כזו נחסמת לפני שהקובץ מגיע ל-psql,
-    כדי שלא ייקרא environ של התהליך.
+
+def _advance_line(sql: str, i: int, line: int) -> tuple[int, int]:
+    if sql[i] == "\n":
+        return i + 1, line + 1
+    return i + 1, line
+
+
+def _skip_standard_string(sql: str, i: int, line: int) -> tuple[int, int]:
+    """מחרוזת '...'. גרש כפול נשאר בפנים. backslash אינו בריחה."""
+    n = len(sql)
+    i += 1
+    while i < n:
+        if sql.startswith("''", i):
+            i += 2
+            continue
+        if sql[i] == "'":
+            return i + 1, line
+        i, line = _advance_line(sql, i, line)
+    return i, line
+
+
+def _skip_escape_string(sql: str, i: int, line: int) -> tuple[int, int]:
+    """מחרוזת E'...' או e'...'. \\' הוא גרש, לא סוף המחרוזת."""
+    n = len(sql)
+    i += 2  # E'
+    while i < n:
+        if sql[i] == "\\":
+            i += 1
+            if i < n:
+                i, line = _advance_line(sql, i, line)
+            continue
+        if sql.startswith("''", i):
+            i += 2
+            continue
+        if sql[i] == "'":
+            return i + 1, line
+        i, line = _advance_line(sql, i, line)
+    return i, line
+
+
+def _skip_dollar(sql: str, i: int, line: int, tag: str) -> tuple[int, int]:
+    """גוף $tag$...$tag$ אטום ל-psql, כולל backslash שבתוכו."""
+    n = len(sql)
+    i += len(tag)
+    while i < n and not sql.startswith(tag, i):
+        i, line = _advance_line(sql, i, line)
+    if i < n:
+        i += len(tag)
+    return i, line
+
+
+def _skip_quoted_ident(sql: str, i: int, line: int, hits: list[int]) -> tuple[int, int]:
+    """מזהה "...". גרש בתוכו אינו פותח מחרוזת. backslash מחוץ למחרוזת נחסם."""
+    n = len(sql)
+    i += 1
+    while i < n:
+        if sql.startswith('""', i):
+            i += 2
+            continue
+        if sql[i] == '"':
+            return i + 1, line
+        if sql[i] == "\\":
+            if not hits or hits[-1] != line:
+                hits.append(line)
+        i, line = _advance_line(sql, i, line)
+    return i, line
+
+
+def meta_command_lines(sql: str) -> list[int]:
+    """כל backslash ש-psql היה מפרש כפקודה, לא רק בתחילת שורה.
+
+    בתוך '...', E'...' (כולל \\\\ ו-\\'), $tag$...$tag$, ובהערות -- ו-/* */
+    הוא תו רגיל. מזהה "..." עם גרש לא פותח מחרוזת. db push לא מריץ
+    את הפקודות האלה, והן נחסמות לפני שהקובץ מגיע ל-psql.
     """
     hits: list[int] = []
     i, n = 0, len(sql)
     line = 1
-    dollar = None
-    in_squote = False
-    in_line_comment = False
-    in_block = False
-    at_line_start = True
     while i < n:
         c = sql[i]
         if c == "\n":
             line += 1
             i += 1
-            in_line_comment = False
-            at_line_start = True
-            continue
-        if in_line_comment:
-            i += 1
-            continue
-        if in_block:
-            if sql.startswith("*/", i):
-                in_block = False
-                i += 2
-            else:
-                i += 1
-            at_line_start = False
-            continue
-        if dollar:
-            if sql.startswith(dollar, i):
-                i += len(dollar)
-                dollar = None
-            else:
-                i += 1
-            at_line_start = False
-            continue
-        if in_squote:
-            if c == "'" and sql.startswith("''", i):
-                i += 2
-                continue
-            if c == "'":
-                in_squote = False
-            i += 1
-            at_line_start = False
             continue
         if c in " \t\r":
             i += 1
             continue
-        if at_line_start and c == "\\" :
-            hits.append(line)
+        if sql.startswith("--", i):
+            i += 2
             while i < n and sql[i] != "\n":
                 i += 1
             continue
-        at_line_start = False
-        if sql.startswith("--", i):
-            in_line_comment = True
-            i += 2
-            continue
         if sql.startswith("/*", i):
-            in_block = True
             i += 2
-            continue
-        if c == "'":
-            in_squote = True
-            i += 1
+            while i < n and not sql.startswith("*/", i):
+                i, line = _advance_line(sql, i, line)
+            if i < n:
+                i += 2
             continue
         if c == "$":
             m = re.match(r"\$[A-Za-z0-9_]*\$", sql[i:])
             if m:
-                dollar = m.group(0)
-                i += len(dollar)
+                i, line = _skip_dollar(sql, i, line, m.group(0))
                 continue
+        if c == '"':
+            i, line = _skip_quoted_ident(sql, i, line, hits)
+            continue
+        if c in "Ee" and i + 1 < n and sql[i + 1] == "'" and (i == 0 or not _ident_char(sql[i - 1])):
+            i, line = _skip_escape_string(sql, i, line)
+            continue
+        if c == "'":
+            i, line = _skip_standard_string(sql, i, line)
+            continue
+        if c == "\\":
+            if not hits or hits[-1] != line:
+                hits.append(line)
+            while i < n and sql[i] != "\n":
+                i += 1
+            continue
         i += 1
     return hits
 
@@ -203,12 +248,65 @@ CREATE TABLE public.t (id int);
         fail("\\! בתחילת שורה לא נחסם")
     if meta_command_lines("select 1;\n  \\c other\n") != [2]:
         fail("\\c מוזח לא נחסם")
+    if meta_command_lines("select 1; \\! echo X\n") != [1]:
+        fail("\\! אחרי פקודה באותה שורה לא נחסם")
+    if meta_command_lines("select 'select 1' \\gexec\n") != [1]:
+        fail("\\gexec אחרי מחרוזת לא נחסם")
+    if meta_command_lines("select E'\\'' ;\n\\! echo X\n") != [2]:
+        fail("\\! אחרי E'\\\\'' לא נחסם")
+    if meta_command_lines("create table \"a'b\"(id int);\n\\! echo X\n") != [2]:
+        fail("\\! אחרי מזהה עם גרש לא נחסם")
     if meta_command_lines("do $$\nbegin\n  perform 1;\nend\n$$;\n"):
         fail("גוף פונקציה סומן כפקודת psql")
     if meta_command_lines("select '\\! echo hi';\n"):
         fail("backslash בתוך מחרוזת סומן כפקודת psql")
+    if meta_command_lines("select E'\\\\!';\n"):
+        fail("backslash בתוך E'...' סומן כפקודת psql")
     if meta_command_lines("do $$\n\\! echo hi\n$$;\n"):
         fail("backslash בתוך dollar quote סומן כפקודת psql")
+    if meta_command_lines("-- \\! echo\nselect 1;\n"):
+        fail("backslash בהערת שורה סומן כפקודת psql")
+    if meta_command_lines("/* \\gexec */\nselect 1;\n"):
+        fail("backslash בהערת בלוק סומן כפקודת psql")
+    if meta_command_lines("select E'\\n' || 'a';\n"):
+        fail("E'\\\\n' סומן כפקודת psql")
+    false_pos = []
+    for path in sorted(MIG_DIR.glob("*.sql")):
+        found = meta_command_lines(path.read_text(encoding="utf-8"))
+        if found:
+            false_pos.append(f"{path.name}:{found[0]}")
+    if false_pos:
+        fail("פקודת psql מדומה במיגרציה קיימת:\n" + "\n".join(false_pos[:20]))
+    print(f"✓ {len(list(MIG_DIR.glob('*.sql')))} מיגרציות בלי פקודת psql")
+    saved_skip = {k: os.environ.get(k) for k in ("FORK_PR", "GITHUB_ACTOR", "SUPABASE_DB_URL")}
+    os.environ["FORK_PR"] = "true"
+    os.environ["GITHUB_ACTOR"] = "someone"
+    if not may_skip_missing_secret():
+        fail("fork בלי סוד לא דולג")
+    os.environ["FORK_PR"] = "false"
+    os.environ["GITHUB_ACTOR"] = "dependabot[bot]"
+    if not may_skip_missing_secret():
+        fail("Dependabot בלי סוד לא דולג")
+    os.environ["GITHUB_ACTOR"] = "tomer"
+    if may_skip_missing_secret():
+        fail("PR מהריפו בלי סוד דולג")
+    os.environ["SUPABASE_DB_URL"] = "postgresql://secret.example/db"
+    clean = clean_env_for_apply()
+    if "SUPABASE_DB_URL" in clean or any("secret.example" in v for v in clean.values()):
+        fail("סביבת ה-exec כוללת את הסוד")
+    probe = subprocess.run(
+        [sys.executable, "-c",
+         "import pathlib; raw = pathlib.Path('/proc/self/environ').read_bytes(); "
+         "raise SystemExit(0 if b'SUPABASE_DB_URL=' not in raw and b'secret.example' not in raw else 1)"],
+        env=clean, capture_output=True, text=True,
+    )
+    if probe.returncode != 0:
+        fail("תהליך ההחלה רואה את הסוד ב-/proc/self/environ")
+    for key, val in saved_skip.items():
+        if val is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = val
     assert_restore_and_apply_fail()
     print("✓ סינון ה-dump")
     print("✓ ההחלה המקומית בלי כתובת פרודקשן, והקריאה אליו ב-read-only")
@@ -451,11 +549,16 @@ def gh_output(key: str, value: str) -> None:
         fh.write(f"{key}={value}\n")
 
 
-def scrub_process_env() -> None:
-    """מוציא את כתובת הפרודקשן מ-environ של התהליך עצמו, לא רק של הבן.
+def clean_env_for_apply() -> dict[str, str]:
+    """סביבה ראשונית להחלה. /proc/self/environ משקף רק את מה שהועבר ב-exec."""
+    keep = ("PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TEMP", "TMP", "USER", "LOGNAME", "SHELL", "MIGRATION_APPLY_DIR")
+    env = {key: os.environ[key] for key in keep if os.environ.get(key)}
+    env.update(_local_target())
+    return env
 
-    \\! cat /proc/<pid>/environ קורא את האב. מחיקה כאן משאירה רק יעד מקומי.
-    """
+
+def scrub_process_env() -> None:
+    """מעדכן את os.environ. זה לא מוחק את /proc/self/environ, ולכן ההחלה רצה ב-exec."""
     kept = _local_target()
     for key in list(os.environ):
         if key in ("SUPABASE_DB_URL", "PGURL", "DATABASE_URL") or key.startswith("PG"):
@@ -463,13 +566,24 @@ def scrub_process_env() -> None:
     os.environ.update(kept)
 
 
+def may_skip_missing_secret() -> bool:
+    """דילוג רק ל-fork ול-Dependabot. PR מהריפו ו-push ל-main בלי סוד נכשלים."""
+    return os.environ.get("FORK_PR") == "true" or os.environ.get("GITHUB_ACTOR") == "dependabot[bot]"
+
+
 def skip_without_secret() -> None:
+    actor = os.environ.get("GITHUB_ACTOR") or "unknown"
+    event = os.environ.get("GITHUB_EVENT_NAME") or "unknown"
+    if not may_skip_missing_secret():
+        fail(
+            f"אין SUPABASE_DB_URL (actor={actor}, event={event}). "
+            "ב-PR מהריפו וב-push ל-main זו תקלה, לא דילוג."
+        )
     if os.environ.get("FORK_PR") == "true":
         why = "PR מ-fork אינו מקבל סודות"
     else:
-        why = "אין SUPABASE_DB_URL (Dependabot, או שהסוד לא הועבר לריצה)"
-    print(f"{why}. הבדיקה דולגת ולא נכשלת.")
-    print("כדי להריץ אותה צריך את הסוד על ענף בריפו הזה.")
+        why = f"{actor} אינו מקבל את SUPABASE_DB_URL"
+    print(f"::warning::{why}. הבדיקה דולגת ולא נכשלת.")
     gh_output("apply", "false")
     (marker_dir() / "apply").write_text("false", encoding="utf-8")
 
@@ -526,11 +640,16 @@ def main() -> int:
             return fetch()
         if "--apply-local" in sys.argv:
             return apply_local()
-        # הרצה מקומית אחת: המשיכה עם הסוד, ואז מחיקתו לפני שה-SQL רץ.
+        # המשיכה עם הסוד, ואז החלפת התהליך. מחיקה מ-os.environ לא מוציאה
+        # את הערך מ-/proc/self/environ, ו-\! היה קורא אותו מהאב.
         code = fetch()
         if code != 0:
             return code
-        return apply_local()
+        flag = marker_dir() / "apply"
+        if not flag.is_file() or flag.read_text(encoding="utf-8").strip() != "true":
+            return 0
+        script = str(Path(__file__).resolve())
+        os.execve(sys.executable, [sys.executable, script, "--apply-local"], clean_env_for_apply())
     except MigrationFailed as exc:
         fail(str(exc))
         return 1
