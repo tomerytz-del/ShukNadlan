@@ -3431,6 +3431,8 @@
   document.querySelectorAll('.sw-views [data-view]').forEach(function (b) {
     b.addEventListener('click', function () { setView(b.dataset.view); });
   });
+  // ‏Variant C: בטלפון בהחלקה שורת התצוגות מוסתרת, והמפה בכותרת
+  $('swMapBtn').addEventListener('click', function () { setView('map'); });
 
   var miniMapObj = null;
   function miniMap(p) {

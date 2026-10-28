@@ -5,6 +5,7 @@
   --sw-body:#4a5060;--sw-title:#1b1f2a;--sw-line:#d5dae6;--sw-cream:#f6f1e7;--sw-bg:#f4f6fb;
   --sec-h:22px;--sub-h:15px;
   --sw-safe-b:env(safe-area-inset-bottom,0px);
+  --sw-safe-t:env(safe-area-inset-top,0px);
 }
 @media (min-width:760px){:root{--sec-h:32px;--sub-h:17px}}
 html body.sw-body{margin:0;background:var(--sw-bg);color:var(--sw-title);font-family:Heebo,system-ui,sans-serif;overflow-x:hidden}
@@ -952,3 +953,44 @@ body[data-view=list] .sw-layout{display:inline-flex}
   #swFilter .sw-fpair{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;align-items:start}
 }
 
+
+/* ---------- Variant C, phase 1 (phones) ----------
+   ‏docs/swipe-mode.md, "Variant C בטלפון". הכול רק עד 759px ורק בתצוגת ההחלקה: טאבלט, מחשב,
+   רשימה, מפה ו"אהבתי" בלי שינוי. תמונה על כל המסך, כותרת שקופה מעליה, מסילה בצד שמאל,
+   מחיר וכפתור זהב אחד למטה, ושלושה כפתורים עגולים. צללים ורקעים בנייבי, אף פעם לא שחור */
+@media (max-width:759px){
+  body[data-view=deck] .sw-ctl,body[data-view=deck] .sw-keys{display:none}
+  body[data-view=deck] .sw{position:relative;height:100svh;min-height:0;max-width:none;padding:0;margin:0;overflow:hidden}
+  body[data-view=deck] .sw-deck-view{position:absolute;inset:0;overflow:hidden}
+  body[data-view=deck] .sw-deck{position:absolute;inset:0;margin:0;max-height:none;min-height:0}
+  /* הכרטיס הבא גלוי מתחת לכרטיס שעף, כמו בטינדר. ‏z-index לשניהם: בלי ה-transform אין לכרטיס
+     התחתון הקשר משלו, והמחיר שלו (‏z-index:2) עלה מעל הכרטיס העליון */
+  body[data-view=deck] .sw-under{transform:none;opacity:1;z-index:0}
+  body[data-view=deck] .sw-top-card{z-index:1}
+  body[data-view=deck] .sw-top-card,body[data-view=deck] .sw-card,body[data-view=deck] .sw-cimg{border-radius:0;box-shadow:none}
+  body[data-view=deck] .sw-card::after{background:linear-gradient(to bottom,rgba(13,27,61,.62) 0%,rgba(13,27,61,0) 17%,rgba(13,27,61,0) 52%,rgba(13,27,61,.55) 68%,rgba(13,27,61,.94) 100%)}
+  /* כותרת שקופה: לוגו · חיפוש · מפה · ? · נגישות */
+  body[data-view=deck] .sw-top{position:absolute;top:0;left:0;right:0;z-index:40;padding:calc(6px + var(--sw-safe-t)) 10px 8px;gap:6px;background:none}
+  body[data-view=deck] .sw-logo img{width:22px;height:26px;filter:drop-shadow(0 0 3px rgba(255,255,255,.7))}
+  body[data-view=deck] #swLikes{display:none}
+  body[data-view=deck] .sw-sum{height:44px;min-height:44px;padding:0 14px;border:1px solid rgba(255,255,255,.38);background:rgba(13,27,61,.28);color:#fff;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-size:14px;font-weight:600}
+  body[data-view=deck] .sw-sum svg{color:#fff}
+  body[data-view=deck] .sw-top-end{gap:6px}
+  body[data-view=deck] .sw-top .sw-ic{width:44px;min-width:44px;height:44px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.38);background:rgba(13,27,61,.28);
+    color:#fff;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-weight:800;font-size:17px}
+  body[data-view=deck] .sw-a11y-slot{display:block;width:44px;height:44px;flex:none}
+  /* ההודעה הקופצת (עם "ביטול") מתחת לכותרת, לא על כפתור הזהב */
+  body[data-view=deck] .sw-toast{top:calc(64px + var(--sw-safe-t));bottom:auto}
+}
+.sw-hmap,.sw-a11y-slot{display:none}
+@media (max-width:759px){body[data-view=deck] .sw-hmap{display:inline-flex}}
+/* כפתור הנגישות (חובה, תמיד בהישג יד): נשאר הצומת של a11y-menu.js, ומוצמד ב-CSS מעל המקום השמור בכותרת.
+   בטלפון בהחלקה הוא אייקון בכותרת, ולכן בלי "הסתרת הכפתור" ובלי לשונית בקצה */
+@media (max-width:759px){
+  html body[data-view=deck] .a11y-fab,html.a11y-min body[data-view=deck] .a11y-fab{position:fixed;top:calc(6px + var(--sw-safe-t));left:10px;right:auto;bottom:auto;
+    width:44px;height:44px;border-radius:50%;background:#0e2a6b;border:1px solid rgba(255,255,255,.55);box-shadow:none;transform:none;z-index:150}
+  html body[data-view=deck] .a11y-fab svg,html.a11y-min body[data-view=deck] .a11y-fab svg{width:22px;height:22px;color:#fff}
+  html body[data-view=deck] .a11y-hide,html body[data-view=deck] .a11y-hide-opt{display:none}
+  html body[data-view=deck] .a11y-panel{top:calc(58px + var(--sw-safe-t));bottom:auto;left:10px;right:auto;max-height:calc(100dvh - 70px - var(--sw-safe-t))}
+}
