@@ -1493,6 +1493,12 @@
       '<button type="button" class="sw-gold sw-inv-b" data-studio="invite">✨ צרו הדמיה</button></div>';
   }
   var baHintGone = false;   // "גררו להשוואה" עד הגרירה הראשונה בביקור
+  function baHandDone(pid, set) {
+    var k = 'sk_ba_hand_done', l = [];
+    try { l = JSON.parse(sessionStorage.getItem(k) || '[]') || []; } catch (e) { l = []; }
+    if (!set) return l.indexOf(pid) >= 0;
+    if (l.indexOf(pid) < 0) { l.push(pid); try { sessionStorage.setItem(k, JSON.stringify(l.slice(-200))); } catch (e) {} }
+  }
   /* תיבה אחת לשתי השכבות (חלק 6 §5): אותו רוחב, אותו מצב ואותו object-position, ולכן הן
      מיושרות. המצב נקבע לפי ה"לפני": לאורך - כל הכרטיס; לרוחב - ברוחב הכרטיס, ממורכז לגובה */
   function baFit(v) {
@@ -1508,6 +1514,7 @@
       '<span class="sw-ba-line" aria-hidden="true"></span><span class="sw-ba-knob" aria-hidden="true">‹ ›</span>' +
       '<span class="sw-ba-lbl is-before" aria-hidden="true">לפני</span><span class="sw-ba-lbl is-after" aria-hidden="true">אחרי · ✨ הדמיית AI</span>' +
       '<span class="sw-ba-hint" aria-hidden="true">גררו להשוואה</span>' +
+      '<span class="sw-ba-hand" aria-hidden="true" hidden>' + HAND + '</span>' +
       '<div class="sw-ba-strip" role="slider" tabindex="0" aria-label="ידית השוואה: גררו להשוואה בין לפני לאחרי" aria-valuemin="3" aria-valuemax="97" aria-valuenow="50"></div></div>';
   }
   /* ‏P0-8: כל התמונה היא אזור הווילון. גרירה אופקית בכל נקודה מזיזה את הווילון ולא את הכרטיס;
@@ -1522,9 +1529,15 @@
       strip.setAttribute('aria-valuenow', String(Math.round(pos)));
     }
     function touched() { baHintGone = true; el.classList.add('is-touched'); }
+    /* ‏D1 (תומר 29.10): יד קטנה שגוררת את ידית הווילון, בפעם הראשונה בכל נכס בביקור. נעלמת
+       בנגיעה הראשונה בווילון ולא חוזרת לאותו נכס (‏sessionStorage). ‏pointer-events:none */
+    var hand = el.querySelector('.sw-ba-hand'), pid = inCard && cur() && cur().p ? String(cur().p.id) : '';
+    if (hand && pid && !baHandDone(pid)) { hand.hidden = false; el.classList.add('has-hand'); }
+    function handGone() { if (hand && !hand.hidden) { hand.hidden = true; el.classList.remove('has-hand'); baHandDone(pid, true); } }
     function fromX(x) { var r = el.getBoundingClientRect(); if (r.width) set((x - r.left) / r.width * 100); }
     el.addEventListener('pointerdown', function (e) {
       if (e.target.closest('button,a')) return;
+      handGone();
       e.stopPropagation(); e.preventDefault();
       on = true; axis = ''; sx = e.clientX; sy = e.clientY;
       try { el.setPointerCapture(e.pointerId); } catch (er) {}
@@ -1555,7 +1568,7 @@
       var d = k === 'ArrowLeft' ? -5 : k === 'ArrowRight' ? 5 : k === 'Home' ? -100 : k === 'End' ? 100 : 0;
       if (!d && k !== ' ') return;
       e.preventDefault(); e.stopPropagation();
-      if (d) { set(v + d); touched(); }
+      if (d) { set(v + d); touched(); handGone(); }
     });
     el._set = set;
     if (inCard) placeBa(el);
@@ -3442,6 +3455,14 @@
       art: '<span class="sw-co-vline"></span>' +
         '<span class="sw-co-zone is-left"><span class="sw-co-tapwrap"><span class="sw-co-rip"></span><span class="sw-co-tap">' + HAND + '</span></span><b>התמונה<br>הבאה</b></span>' +
         '<span class="sw-co-zone is-right"><span class="sw-co-tapwrap"><span class="sw-co-rip is-late"></span><span class="sw-co-tap is-late">' + HAND + '</span></span><b>התמונה<br>הקודמת</b></span>'
+    });
+    /* ‏D1 (תומר 29.10): צעד על כרטיס ההדמיה - לפני/אחרי עם ווילון שגוררים */
+    steps.push({
+      kind: 'ba',
+      text: 'בנכסים עם ✨ הדמיה: גררו את הווילון כדי להשוות',
+      sub: 'לפני - הצילום האמיתי · אחרי - הדמיית AI',
+      art: '<span class="sw-co-ba"><span class="sw-co-ba-line"></span><span class="sw-co-ba-knob">‹ ›</span><span class="sw-co-ba-hand">' + HAND + '</span>' +
+        '<b class="is-before">לפני</b><b class="is-after">אחרי · ✨ הדמיית AI</b></span>'
     });
     steps.push({
       kind: 'up',
