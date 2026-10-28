@@ -43,8 +43,19 @@ export function isModelCallError(err: unknown): boolean {
 /** המסך שנפתח מהכפתור כשהמודל לא ענה. לא כתובת בגוף ההודעה. */
 export const FALLBACK_AGENT_PATH = "/crm?goto=bell";
 
+/** הכתובת היחידה שמותר לשים במענה החלופי לגולש/ת. */
+export const PUBLIC_FALLBACK_SITE = "https://shuknadlan.co.il";
+
+/**
+ * קישור לגולש/ת. בסיס חתוך, דומיין קצר או נתיב יחסי אינם נכנסים להודעה:
+ * במקומם נשארת הכתובת המלאה.
+ */
+export function publicFallbackSite(siteBase: string): string {
+  const bare = String(siteBase || "").trim().replace(/\/+$/, "");
+  return bare === PUBLIC_FALLBACK_SITE ? bare : PUBLIC_FALLBACK_SITE;
+}
+
 export function fallbackReply(kind: LlmFailureKind, audience: FallbackAudience, siteBase: string): string {
-  const site = siteBase.replace(/\/$/, "");
   if (audience === "agent") {
     if (kind === "billing") {
       return "אני לא זמינה לרגע בגלל תקלה אצלי. אפשר להמשיך בינתיים מהאזור האישי, ולשלוח לי שוב כשזה יסתדר.";
@@ -52,10 +63,10 @@ export function fallbackReply(kind: LlmFailureKind, audience: FallbackAudience, 
     return "משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח את ההודעה שוב, או להמשיך מהאזור האישי.";
   }
   if (kind === "billing") {
-    return "אני לא זמינה לרגע בגלל תקלה אצלי. " +
-      `אפשר לנסות שוב מאוחר יותר, או להמשיך באתר: ${site}`;
+    const site = publicFallbackSite(siteBase);
+    return `סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: ${site}`;
   }
-  return "משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח את ההודעה שוב.";
+  return "סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?";
 }
 
 /** כותרת נפרדת לכל סוג, כדי שספירת כפילויות לא תבלע התראה ממקור אחר. */

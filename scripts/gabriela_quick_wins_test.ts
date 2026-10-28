@@ -4,7 +4,7 @@
 
 import { readFileSync } from "node:fs";
 import { clientMatchesQuery, nameSkeleton, namesLikelySame, namesNeedConfirm, phoneKey, phonesMatch } from "../supabase/functions/whatsapp-webhook/hebrew-name.ts";
-import { adminAlertTitle, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmFailureKind } from "../supabase/functions/whatsapp-webhook/llm-fallback.ts";
+import { adminAlertTitle, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmFailureKind, PUBLIC_FALLBACK_SITE } from "../supabase/functions/whatsapp-webhook/llm-fallback.ts";
 import { pageLink, urlInSay } from "../supabase/functions/whatsapp-webhook/crm-pages.ts";
 import { paceRecipient, pairPaceTracked, resetPairPaceForTests, setPairReserve } from "../supabase/functions/_shared/wa-pair-pace.ts";
 
@@ -46,11 +46,17 @@ check("400 אינו זמני", other === "other");
 
 const billText = fallbackReply("billing", "agent", "https://shuknadlan.co.il/");
 const otherText = fallbackReply("other", "agent", "https://shuknadlan.co.il");
-const visitorText = fallbackReply("other", "visitor", "https://shuknadlan.co.il");
-check("תשובת יתרה לסוכן/ת בלי קישור ארוך", billText.includes("לא זמינה") && !billText.includes("https://") && !billText.includes("אחזור") && !billText.includes("—"));
-check("תשובת כשל לסוכן/ת מציעה לשלוח שוב", otherText.includes("לשלוח") && !otherText.includes("https://") && !otherText.includes("—"));
+const visitorOther = "סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?";
+const visitorBill = "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: " + PUBLIC_FALLBACK_SITE;
+check("תשובת יתרה לסוכן/ת בלי קישור ארוך", billText === "אני לא זמינה לרגע בגלל תקלה אצלי. אפשר להמשיך בינתיים מהאזור האישי, ולשלוח לי שוב כשזה יסתדר.");
+check("תשובת כשל לסוכן/ת מציעה לשלוח שוב", otherText === "משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח את ההודעה שוב, או להמשיך מהאזור האישי.");
 check("כפתור הכשל פותח את הפעמון", FALLBACK_AGENT_PATH === "/crm?goto=bell");
-check("גולש בלי אזור אישי", visitorText.includes("לשלוח") && !visitorText.includes("/crm") && !visitorText.includes("אחזור"));
+check("כשל לגולש/ת בנוסח המאושר", fallbackReply("other", "visitor", PUBLIC_FALLBACK_SITE) === visitorOther);
+check("כשל זמני לגולש/ת אותו נוסח", fallbackReply("transient", "visitor", "/") === visitorOther);
+for (const base of [PUBLIC_FALLBACK_SITE, PUBLIC_FALLBACK_SITE + "/", "shuknadlan.co", "https://shuknadlan.co", "/", PUBLIC_FALLBACK_SITE + "/crm"]) {
+  const text = fallbackReply("billing", "visitor", base);
+  check("יתרה לגולש/ת בכתובת המלאה", text === visitorBill, base);
+}
 check("שגיאת מסד אינה כשל מודל", !isModelCallError({ message: "permission denied for table agent_clients", code: "42501" }));
 check("שגיאת Anthropic היא כשל מודל", isModelCallError({ name: "APIError", status: 529, message: "overloaded" }));
 check("כותרת נפרדת לכל סוג", adminAlertTitle("billing") !== adminAlertTitle("transient") && adminAlertTitle("transient") !== adminAlertTitle("other"));
