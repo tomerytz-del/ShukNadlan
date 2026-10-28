@@ -48,7 +48,7 @@ create table public.agency_members (
   display_name text,
   email text,
   phone_e164 text,
-  tier text not null,
+  tier text,
   active boolean not null default true,
   closed_at timestamptz,
   closure_requested_at timestamptz
@@ -89,14 +89,22 @@ insert into public.agency_members (id, display_name, email, phone_e164, tier) va
   ('44444444-4444-4444-4444-444444444444', 'free-email',   'free-email@example.com',   '972500000004', 'free'),
   ('55555555-5555-5555-5555-555555555555', 'mid-default',  'mid-default@example.com',  '972500000005', 'mid'),
   ('66666666-6666-6666-6666-666666666666', 'prem-both',    'prem-both@example.com',    '972500000006', 'premium'),
-  ('77777777-7777-7777-7777-777777777777', 'mid-nophone',  'mid-nophone@example.com',  null,           'mid');
+  ('77777777-7777-7777-7777-777777777777', 'mid-nophone',  'mid-nophone@example.com',  null,           'mid'),
+  ('88888888-8888-8888-8888-888888888888', 'free-noemail', null,                       '972500000008', 'free'),
+  ('99999999-9999-9999-9999-999999999999', 'null-default', 'null-default@example.com', '972500000009', null),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'null-wa',      'null-wa@example.com',      '97250000000a', null),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'free-empty',   'free-empty@example.com',   '97250000000b', 'free'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'free-wa-nomail', null,                    '97250000000c', 'free');
 
 insert into public.agent_reminder_preferences (agent_id, channels) values
   ('22222222-2222-2222-2222-222222222222', array['email','whatsapp']::text[]),
   ('33333333-3333-3333-3333-333333333333', array['whatsapp']::text[]),
   ('44444444-4444-4444-4444-444444444444', array['email']::text[]),
   ('66666666-6666-6666-6666-666666666666', array['email','whatsapp']::text[]),
-  ('77777777-7777-7777-7777-777777777777', array['whatsapp']::text[]);
+  ('77777777-7777-7777-7777-777777777777', array['whatsapp']::text[]),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', array['whatsapp']::text[]),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '{}'::text[]),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', array['whatsapp']::text[]);
 """
 
 
@@ -145,15 +153,21 @@ def main():
     psql(db, sql_text=SEED)
 
     found = channels(db)
-    expect(found, "free-default", None)
-    expect(found, "free-wa", None)
+    expect(found, "free-default", {"email"})
+    expect(found, "free-wa", {"email"})
     expect(found, "free-both", {"email"})
     expect(found, "free-email", {"email"})
+    expect(found, "free-noemail", None)
+    expect(found, "free-wa-nomail", None)
+    expect(found, "free-empty", None)
+    expect(found, "null-default", {"email"})
+    expect(found, "null-wa", {"email"})
     expect(found, "mid-default", {"whatsapp"})
     expect(found, "prem-both", {"email", "whatsapp"})
     expect(found, "mid-nophone", {"whatsapp", "email"})
-    if "whatsapp" in found.get("free-both", set()) or "whatsapp" in found.get("free-email", set()):
-        sys.exit("וואטסאפ נשאר למסלול חינם")
+    for name, ch in found.items():
+        if name.startswith(("free-", "null-")) and "whatsapp" in ch:
+            sys.exit(f"וואטסאפ נשאר ל-{name}")
     print("reminder free tier: ok")
 
 

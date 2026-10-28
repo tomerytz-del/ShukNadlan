@@ -6,10 +6,11 @@
 -- וואטסאפ לסוכנים במסלול חינם.
 --
 -- אותו תנאי כמו notification_push_due_agents: וואטסאפ רק כש-
--- tier in ('mid', 'premium'). במסלול אחר הערוץ יורד לפני הרישום
--- ביומן. אם המייל מסומן ויש כתובת, נשאר מייל. אחרת אין ערוץ עם
--- כתובת והשורה לא נבחרת. הממצאים בדשבורד לא תלויים בערוץ.
--- הנפילה למייל כשאין מספר נשארת רק במסלול בתשלום.
+-- tier in ('mid', 'premium'). מסלול חינם, וגם tier ריק, לא מקבל
+-- וואטסאפ. בלי שורת העדפות הערוץ הוא מייל אם יש כתובת, ואחרת
+-- אין שליחה. מי שבחר/ה וואטסאפ במפורש מקבל/ת מייל במקום, אם יש
+-- כתובת. מערך ערוצים ריק נשאר בלי שליחה. הנפילה למייל כשאין
+-- מספר, בלי להחליף וואטסאפ, נשארת רק במסלול בתשלום.
 -- זה חל על כל סוג בתוך ההודעה, כולל unpublished_listings.
 --
 -- אידמפוטנטית: create or replace של אותה חתימה.
@@ -68,6 +69,13 @@ as $$
                  else r.channels
                end
              else array_remove(r.channels, 'whatsapp')
+                  || case
+                       when r.email is not null
+                        and 'whatsapp' = any(r.channels)
+                        and not ('email' = any(r.channels))
+                       then array['email']::text[]
+                       else '{}'::text[]
+                     end
            end as channels,
            r.muted_kinds, r.cadence, r.cap, r.quiet_from, r.quiet_to, r.quiet_days
       from raw r
@@ -109,7 +117,7 @@ as $$
 $$;
 
 comment on function public.agent_reminder_due_agents() is
-  'הסוכנים שמותר לשלוח להם/ן הודעת תזכורת עכשיו. וואטסאפ רק ב-mid וב-premium; במסלול אחר הערוץ יורד, ומייל נשאר רק אם הוא מסומן. בלי מספר, מסלול בתשלום נופל למייל. קצב, תקרה, שעות שקט וגג כשלים כמו קודם.';
+  'הסוכנים שמותר לשלוח להם/ן הודעת תזכורת עכשיו. וואטסאפ רק ב-mid וב-premium. במסלול אחר, כולל מסלול ריק, וואטסאפ הופך למייל אם יש כתובת. בלי מספר, מסלול בתשלום נופל למייל בלי לוותר על וואטסאפ. קצב, תקרה, שעות שקט וגג כשלים כמו קודם.';
 
 revoke all on function public.agent_reminder_due_agents() from public, anon, authenticated;
 grant execute on function public.agent_reminder_due_agents() to service_role;
