@@ -479,3 +479,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `list_impression` | ‏P1-M (v10): כרטיס או שורה ברשימה שנראו ב-50% לפחות במשך שנייה. כל נכס פעם אחת בכל טעינה, במנות של עד 10 | `view`: ‏`home_list` \| `swipe_list`, `layout`: ‏`rows` \| `grid` (רק ב-`/swipe`), `ids` (מזהי נכסים, בפסיקים), `count` |
 | (פרמטר חדש) `browse` | ‏P1-M (v10): בדף נכס, על `view_item`, ‏`contact_agent`, ‏`contact_bot`, ‏`generate_lead`, ‏`share`, ‏`viz_jump_click` ושאר האירועים שבו - מאיזו צורת גלישה הגיעו לנכס **הזה** (נרשם ב-sessionStorage ברגע הלחיצה, לא בכתובת). ‏`src` נשאר "מאיפה הגיעו לאתר" | `browse`: ‏`swipe` \| `swipe_list` \| `swipe_map` \| `home_list` \| `map` \| `home` \| `gabriela` \| `likes` \| `fair` \| `similar` \| `direct` |
 | (הרחבה) `dm_filter`, ‏`dm_filter_empty`, ‏`dm_filter_clear` | ‏P1-U1 (v10): אותם אירועים גם ב-`/agencies` וב-`/agents` (‏`assets/dm-filters.js`), עם אותם פרמטרים. "צפייה בכל…" בדף הבית מעביר את `dm_spec` ו-`dm_area` | `surface`: ‏`home` \| `agencies` \| `agents` |
+| `adv_filter_open` | ‏P1-N1 (v10): נפתח חלון הסינון המתקדם בדף הבית | `deal`: ‏`sale` \| `rent` \| `commercial`, `surface`: ‏`home_modal` |
+| `adv_filter_more_open` | נפתח "עוד מאפיינים" בלחיצה (לא כשנפתח מעצמו בגלל בחירה) | `deal`, `surface` |
+| `adv_filter_apply` | "הצגת תוצאות" בחלון. שמות השדות בלבד, בלי ערכים | `deal`, `surface`, `fields` (מפתחות בפסיקים, עד 100 תווים), `field_count`, `result_count`, `missing_shown`: ‏`0` (עד P1-N2) |
+| `adv_filter_clear` | "איפוס" בחלון, בלחיצה של הגולש/ת | `deal`, `surface` |

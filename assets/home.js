@@ -4818,9 +4818,9 @@ const searchState = {
      מסחרי עם הדמיה ודירה עם הדמיה עונים על אותה שאלה — ולכן מעבר בין
      הטאבים לא מאפס אותו. */
   hasAi: false,
-  r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' },
+  r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, newOnly:false },
   // deal:'' = שני סוגי העסקה המסחריים יחד (ראו ההערה ליד הבורר ב-HTML)
-  c: { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' },
+  c: { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null },
 };
 
 function renderPills(container, options, selectedSet, labelFn){
@@ -4912,8 +4912,105 @@ function initFilterModals(){
       // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
       // שברשימת השכונות
       renderHoodFilter();
+      advV10Layout();
     });
   });
+  advV10Layout();
+}
+
+/* ---------- ‏P1-N1 (v10): חלון סינון לכל עסקה, מהנתונים ----------
+   מאפיין עם מונה לפי העסקה, ובלי מאפיין שאין לו נכס (חוץ ממה שכבר נבחר).
+   בראש החלון השדות הנפוצים, והשאר תחת "עוד מאפיינים" שנפתח מעצמו כשיש בו
+   בחירה. מכירה: מחיר למ"ר ו"פרויקטים חדשים" (סטטוס הפרויקט רק אחריו).
+   שכירות: בלי סטטוס פרויקט, בלי "בבלעדיות" ובלי התיבה המתה של מ"ר בנוי. */
+const ADV_TOP = {
+  r: ['parking','mamad','balcony','elevator','ac','storage','accessible','sun_balcony'],
+  c: ['parking','ac','high_ceiling','kitchenette','elevator','loading_ramp','meeting_room','comms'],
+};
+function advPool(commercial){
+  const deal = searchState.activeTab;
+  return (allActiveProperties || []).filter(p => commercial
+    ? p.category === 'commercial' && (!searchState.c.deal || p.deal_type === searchState.c.deal)
+    : p.category !== 'commercial' && p.deal_type === deal);
+}
+function advMoreBox(modalId){
+  const body = document.querySelector('#' + modalId + ' .filter-modal-body');
+  let box = body.querySelector('.adv-more');
+  if (box) return box;
+  box = document.createElement('details');
+  box.className = 'adv-more';
+  box.innerHTML = '<summary>עוד מאפיינים</summary><div class="adv-more-body"></div>';
+  box.addEventListener('toggle', () => {
+    if (box.open && !box.dataset.auto && window.shukTrack) window.shukTrack('adv_filter_more_open', { deal: advDeal(), surface: 'home_modal' });
+    delete box.dataset.auto;
+  });
+  body.appendChild(box);
+  return box;
+}
+const advDeal = () => searchState.activeTab === 'commercial' ? 'commercial' : searchState.activeTab;
+function advV10Layout(){
+  if (!v10On()) return;
+  const commercial = searchState.activeTab === 'commercial';
+  const pre = commercial ? 'c' : 'r', s = commercial ? searchState.c : searchState.r;
+  const sale = !commercial && searchState.activeTab === 'sale';
+  const sec = id => document.getElementById(id)?.closest('.filter-section');
+  // מכירה בלבד
+  if (!commercial){
+    document.getElementById('rPpsqmSec').hidden = !sale;
+    document.getElementById('rNewOnlySec').hidden = !sale;
+    const nb = document.getElementById('rNewOnly');
+    if (!nb.dataset.bound){
+      nb.dataset.bound = '1';
+      nb.addEventListener('change', () => { document.getElementById('rProjectStatusSec').hidden = !nb.checked; });
+    }
+    document.getElementById('rProjectStatusSec').hidden = !(sale && (nb.checked || s.projectStatus));
+    sec('rBuiltSizeToggle') && (document.getElementById('rBuiltSizeToggle').closest('label').hidden = true);
+  } else {
+    document.getElementById('cPpsqmSec').hidden = false;
+  }
+  // מאפיינים עם מונה; אפס לא מוצג
+  const pool = advPool(commercial);
+  // סוגי מגורים: רק עם נכס בעסקה, עם מונה; קבוצה ריקה יורדת
+  if (!commercial){
+    const tn = new Map();
+    pool.forEach(p => { if (p.property_type) tn.set(p.property_type, (tn.get(p.property_type) || 0) + 1); });
+    Object.entries(RESIDENTIAL_PTYPES).forEach(([cat, list]) => {
+      const box = document.querySelector(`[data-ptype-cat="${cat}"]`);
+      const opts = list.filter(t => tn.get(t) || s.ptypes.has(t)).map(t => [t, t + ' · ' + (tn.get(t) || 0)]);
+      renderPills(box, opts, s.ptypes);
+      box.closest('.ptype-group').hidden = !opts.length;
+    });
+  }
+  const all = commercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES;
+  const n = code => pool.filter(p => SearchCore.hasFeatures(p, [code])).length;
+  const shown = all.filter(([k]) => (searchState.activeTab !== 'rent' || k !== 'exclusive') && (n(k) > 0 || s.propertyFeatures.has(k)))
+    .map(([k, l]) => [k, l + ' (' + n(k) + ')']);
+  const top = shown.filter(([k]) => ADV_TOP[pre].includes(k)), more = shown.filter(([k]) => !ADV_TOP[pre].includes(k));
+  renderCheckboxes(document.getElementById(pre + 'PropertyFeatures'), top, s.propertyFeatures);
+  const box = advMoreBox(commercial ? 'commercialFilterModal' : 'residentialFilterModal');
+  const inner = box.querySelector('.adv-more-body');
+  let moreGrid = document.getElementById(pre + 'PropertyFeaturesMore');
+  if (!moreGrid){
+    const wrap = document.createElement('div');
+    wrap.className = 'filter-section';
+    wrap.innerHTML = '<h4>מאפיינים נוספים</h4><div class="checkbox-grid" id="' + pre + 'PropertyFeaturesMore"></div>';
+    inner.appendChild(wrap);
+    moreGrid = wrap.querySelector('.checkbox-grid');
+    // השדות המשניים עוברים לתוך "עוד מאפיינים"
+    (commercial ? ['cFloorMin', 'cMoveInSoon', 'cFreeText'] : ['rFloorMin', 'rSizeMin', 'rMoveInDate', 'rFreeText'])
+      .map(sec).filter(Boolean).forEach(el => inner.appendChild(el));
+    if (commercial) document.querySelectorAll('#commercialFilterModal .tri-toggle').forEach(t => inner.appendChild(t.closest('.filter-section')));
+  }
+  moreGrid.closest('.filter-section').hidden = !more.length;
+  renderCheckboxes(moreGrid, more, s.propertyFeatures);
+  // מודעה: "רק מושבים וקיבוצים" רק כשיש נכס כזה
+  const moshav = pool.filter(p => (p.features || []).includes('moshav_kibbutz_only')).length;
+  renderCheckboxes(document.getElementById(pre + 'ListingFeatures'),
+    LISTING_FEATURES.filter(([k]) => k !== 'moshav_kibbutz_only' || (!commercial && (moshav || s.listingFeatures.has(k)))), s.listingFeatures);
+  // נפתח מעצמו כשיש בו בחירה
+  const picked = more.some(([k]) => s.propertyFeatures.has(k)) || s.floorMin || s.floorMax || s.freeText || s.moveInSoon ||
+    (!commercial && (s.sizeMin || s.sizeMax || s.moveInDate)) || (commercial && (s.restrooms || s.storage || s.mamad));
+  if (picked && !box.open){ box.dataset.auto = '1'; box.open = true; }
 }
 
 // סוג העסקה נבחר מקונטיינר נפתח בתוך סרגל החיפוש (במקום שלושה טאבים).
@@ -4967,6 +5064,7 @@ function mainFreeText(){
 
 function openModal(id){
   const el = document.getElementById(id);
+  if (/FilterModal$/.test(id) && v10On() && window.shukTrack) window.shukTrack('adv_filter_open', { deal: advDeal(), surface: 'home_modal' });
   // ‏P1-L: חלון סינון שנפתח שוב מתחיל בראש הגולל, לא במקום שבו נסגר
   const body = el.querySelector('.filter-modal-body');
   el.classList.add('open');
@@ -5028,16 +5126,20 @@ document.getElementById('hoodApplyBtn').addEventListener('click', ()=>{
   closeModal('hoodFilterModal');
 });
 
+document.querySelectorAll('#rClearFilters, #cClearFilters').forEach(b => b.addEventListener('click', e => {
+  if (e.isTrusted && v10On() && window.shukTrack) window.shukTrack('adv_filter_clear', { deal: advDeal(), surface: 'home_modal' });
+}));
 document.getElementById('rClearFilters').addEventListener('click', ()=>{
-  searchState.r = { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' };
-  ['rPriceMin','rPriceMax','rFloorMin','rFloorMax','rSizeMin','rSizeMax','rMoveInDate','rFreeText'].forEach(id=> document.getElementById(id).value='');
+  searchState.r = { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, newOnly:false };
+  document.getElementById('rNewOnly').checked = false;
+  ['rPriceMin','rPriceMax','rFloorMin','rFloorMax','rSizeMin','rSizeMax','rMoveInDate','rFreeText','rPpsqmMin','rPpsqmMax'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('rCondition').value=''; document.getElementById('rProjectStatus').value='';
   document.getElementById('rMoveInSoon').checked=false; document.getElementById('rBuiltSizeToggle').checked=false;
   initFilterModals();
 });
 document.getElementById('cClearFilters').addEventListener('click', ()=>{
-  searchState.c = { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' };
-  ['cPriceMin','cPriceMax','cFloorMin','cFloorMax','cSizeMin','cSizeMax','cMoveInDate','cFreeText'].forEach(id=> document.getElementById(id).value='');
+  searchState.c = { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null };
+  ['cPriceMin','cPriceMax','cFloorMin','cFloorMax','cSizeMin','cSizeMax','cMoveInDate','cFreeText','cPpsqmMin','cPpsqmMax'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('cProjectStatus').value='';
   document.getElementById('cMoveInSoon').checked=false;
   initFilterModals();
@@ -5055,6 +5157,9 @@ function collectFormValues(){
   searchState.r.moveInDate = document.getElementById('rMoveInDate').value;
   searchState.r.moveInSoon = document.getElementById('rMoveInSoon').checked;
   searchState.r.freeText = document.getElementById('rFreeText').value;
+  searchState.r.ppsqmMin = document.getElementById('rPpsqmMin').value || null;
+  searchState.r.ppsqmMax = document.getElementById('rPpsqmMax').value || null;
+  searchState.r.newOnly = document.getElementById('rNewOnly').checked;
 
   searchState.c.priceMin = document.getElementById('cPriceMin').value || null;
   searchState.c.priceMax = document.getElementById('cPriceMax').value || null;
@@ -5066,6 +5171,8 @@ function collectFormValues(){
   searchState.c.moveInDate = document.getElementById('cMoveInDate').value;
   searchState.c.moveInSoon = document.getElementById('cMoveInSoon').checked;
   searchState.c.freeText = document.getElementById('cFreeText').value;
+  searchState.c.ppsqmMin = document.getElementById('cPpsqmMin').value || null;
+  searchState.c.ppsqmMax = document.getElementById('cPpsqmMax').value || null;
 }
 
 function countActiveFilters(){
@@ -6698,6 +6805,10 @@ const ADV_URL_PARAMS = [
   ['restrooms', 'restrooms', 'loc',  null, 'c'],
   ['storageAt', 'storage',   'loc',  null, 'c'],
   ['mamadAt',   'mamad',     'loc',  null, 'c'],
+  // ‏P1-N1: מחיר למ"ר (מחושב בדפדפן) ופרויקטים חדשים (מכירה)
+  ['ppsqmMin',  'ppsqmMin',  'num',  'PpsqmMin'],
+  ['ppsqmMax',  'ppsqmMax',  'num',  'PpsqmMax'],
+  ['newOnly',   'newOnly',   'bool', 'NewOnly', 'r'],
 ];
 
 function advancedToParams(s, commercial){
@@ -6810,6 +6921,14 @@ function applyAdvancedFilters(){
   };
   range('floor', s.floorMin, s.floorMax);
   range('size_sqm', s.sizeMin, s.sizeMax);
+  /* מחיר למ"ר: price_per_sqm במסד מתעלם מ-price_unit (‏docs/proposals/filters_per_deal.sql),
+     ולכן כאן - מחיר שכבר למ"ר נשאר, ואחרת מחיר חלקי שטח */
+  const lo = num(s.ppsqmMin), hi = num(s.ppsqmMax);
+  if (lo !== null || hi !== null) checks.push(p => {
+    const v = pricePerSqm(p);
+    return v !== null && (lo === null || v >= lo) && (hi === null || v <= hi);
+  });
+  if (!commercial && s.newOnly) checks.push(p => !!p.project_status || p.condition === 'new_from_contractor');
   if (!commercial && s.condition) checks.push(p => p.condition === s.condition);
   if (s.projectStatus) checks.push(p => p.project_status === s.projectStatus);
   if (s.moveInSoon) checks.push(p => p.move_in_soon === true);
@@ -6833,6 +6952,26 @@ function applyAdvancedFilters(){
     label = list.length > 1 ? list.slice(0, -1).join(', ') + ' ו' + list[list.length - 1] : list[0];
   }
   sentence.applyAdvanced(patch, checks.length ? (p => checks.every(c => c(p))) : null, label);
+  if (v10On() && window.shukTrack){
+    // שמות השדות בלבד, בלי ערכים
+    const fields = [...propFeats, ...s.listingFeatures];
+    [['price', s.priceMin || s.priceMax], ['ppsqm', s.ppsqmMin || s.ppsqmMax], ['type', pt.length], ['rooms', rooms.length],
+     ['floor', s.floorMin || s.floorMax], ['size', s.sizeMin || s.sizeMax], ['condition', !commercial && s.condition],
+     ['status', s.projectStatus], ['newOnly', s.newOnly], ['soon', s.moveInSoon], ['moveIn', s.moveInDate], ['text', s.freeText],
+     ['restrooms', commercial && s.restrooms], ['storageAt', commercial && s.storage], ['mamadAt', commercial && s.mamad]]
+      .forEach(([k, v]) => { if (v) fields.push(k); });
+    let results = null;
+    try { results = sentence.count(); } catch (e) {}
+    window.shukTrack('adv_filter_apply', { deal: advDeal(), surface: 'home_modal', fields: fields.join(',').slice(0, 100),
+      field_count: fields.length, result_count: results, missing_shown: 0 });
+  }
+}
+
+function pricePerSqm(p){
+  const price = Number(p.price), size = Number(p.size_sqm);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  if (p.price_unit === 'sqm') return price;
+  return Number.isFinite(size) && size > 0 ? Math.round(price / size) : null;
 }
 
 function clearAdvancedFilters(){
