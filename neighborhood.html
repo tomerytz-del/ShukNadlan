@@ -140,7 +140,7 @@ main.doc > .wrap{max-width:1180px}
 .hood-filters input{width:96px;border-radius:12px}
 .hood-filters select{border-radius:12px;max-width:150px}
 .hood-sort{display:flex;align-items:center;gap:6px;margin-inline-start:auto;font-size:13px;color:#5b6478;font-weight:700;white-space:nowrap}
-.hood-count,.hood-note,.hood-empty,.hood-soon{font-size:13px;color:#5b6478;margin:8px 0}
+.hood-count,.hood-note,.hood-empty{font-size:13px;color:#5b6478;margin:8px 0}
 .hood-props{list-style:none;padding:0;margin:8px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .hood-prop{display:flex;flex-direction:column;background:#fff;border:1px solid #e3e6ef;border-radius:14px;overflow:hidden;text-decoration:none;color:#1b2440;min-width:0;height:100%}
 .hood-prop img,.hood-noimg{width:100%;height:108px;object-fit:cover;background:#e9ecf3;display:block}
@@ -148,7 +148,6 @@ main.doc > .wrap{max-width:1180px}
 .hood-prop-body strong{font-size:13.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hood-prop-body span{font-size:12.5px;color:#5b6478}
 .hood-prop-body b{color:#0e2a6b;font-size:15px}
-.hood-soon{border:1px dashed #c9cfdc;border-radius:14px;padding:12px 14px;background:#fff}
 .hood-about,.hood-fits,.hood-deals,.hood-faq,.hood-agencies,.hood-nearby,.hood-cta{padding-top:28px}
 .hood-about-rest{max-height:0;overflow:hidden}
 .hood-about-toggle{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -198,8 +197,8 @@ main.doc > .wrap{max-width:1180px}
 .hood-map-cap{position:absolute;bottom:8px;inset-inline-start:8px;font-size:12px;background:rgba(255,255,255,.92);border-radius:8px;padding:3px 8px;color:#5b6478;z-index:2}
 .hood-layout{display:flex;flex-direction:column}
 .hood-main,.hood-side{display:contents}
-.hood-filters{order:1}.hood-results{order:2}.hood-soon{order:3}.hood-about{order:4}.hood-fits{order:5}
-.hood-cta{order:6}.hood-deals{order:7}.hood-agencies{order:8}.hood-faq{order:9}.hood-map{order:10}
+.hood-filters{order:1}.hood-results{order:2}.hood-about{order:3}.hood-fits{order:4}
+.hood-cta{order:5}.hood-deals{order:6}.hood-agencies{order:7}.hood-faq{order:8}.hood-map{order:9}
 #hoodResults{order:2}
 @media (max-width:959px){
   .hood-hero{margin-inline:-18px}
@@ -218,7 +217,7 @@ main.doc > .wrap{max-width:1180px}
   .hood-layout{display:grid;grid-template-columns:minmax(0,68%) minmax(240px,32%);column-gap:28px;align-items:start}
   .hood-main{display:block;grid-column:1;min-width:0}
   .hood-side{display:flex;flex-direction:column;gap:16px;grid-column:2;position:sticky;top:calc(82px + env(safe-area-inset-top,0px));align-self:start;min-width:0}
-  .hood-filters,.hood-results,#hoodResults,.hood-soon,.hood-about,.hood-fits,.hood-cta,.hood-deals,.hood-agencies,.hood-faq,.hood-map{order:unset}
+  .hood-filters,.hood-results,#hoodResults,.hood-about,.hood-fits,.hood-cta,.hood-deals,.hood-agencies,.hood-faq,.hood-map{order:unset}
   .hood-map{display:block}
   .hood-agencies-row{flex-direction:column;overflow:visible}
   .hood-office{flex:none;width:100%;flex-direction:row;text-align:start;align-items:center;padding:8px 0;border:0;border-top:1px solid #e3e6ef;border-radius:0;background:transparent}

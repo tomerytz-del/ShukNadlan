@@ -488,7 +488,6 @@
       + '<div class="hood-layout"><div class="hood-main">'
       + filters(d)
       + '<div id="hoodResults"><h2>נכסים בשכונה</h2>' + resultsHtml(all, 12, !cover) + '</div>'
-      + '<p class="hood-soon">בקרוב: גלישה בהחלקה בשכונה. מעבר בין נכסים בהחלקה אחת.</p>'
       + aboutBlock(d)
       + fitsBlock(d)
       + dealsBlock(d)

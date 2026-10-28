@@ -115,8 +115,31 @@ async function hoodDraftsRunNow(){
 })();
 
 /* תמונת שער וצ'יפים, ליד הטיוטות. הכתיבה ב-admin_hood_cover_set.
-   לפני המיגרציה העמודות אינן קיימות, והבלוק נשאר שקט. */
+   לפני המיגרציה העמודות אינן קיימות, והבלוק נשאר שקט.
+   אין כאן limit של 1,000 על כל הטבלה: יש יותר שכונות מזה. בוחרים עיר
+   ומחפשים שם ב-ilike, ואם יש עוד תוצאות הן בעמוד הבא. */
 let hoodCoverRows = [];
+let hoodCoverOffset = 0;
+const HOOD_COVER_PAGE = 80;
+
+function hoodCoverUuidOk(id){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''));
+}
+function hoodCoverUuid(){
+  if (crypto.randomUUID){
+    const id = String(crypto.randomUUID()).toLowerCase();
+    if (hoodCoverUuidOk(id)) return id;
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+}
+function hoodCoverPathOk(folder, path){
+  return new RegExp('^' + folder + '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|jpeg|png|webp)$', 'i').test(path);
+}
 
 async function loadHoodCover(){
   const drafts = document.getElementById('hoodDraftsBox');
@@ -127,30 +150,72 @@ async function loadHoodCover(){
     host.id = 'hoodCoverBox';
     drafts.parentNode.insertBefore(host, drafts.nextSibling);
   }
-  const { data, error } = await sb.from('neighborhoods')
-    .select('id,name,city,cover_path,cover_alt,cover_credit,poi')
-    .order('city', { ascending: true })
-    .order('name', { ascending: true })
-    .limit(1000);
-  if (error){
-    host.innerHTML = (error.code === '42703' || error.code === 'PGRST204')
+  const probe = await sb.from('neighborhoods').select('cover_path').limit(1);
+  if (probe.error){
+    host.innerHTML = (probe.error.code === '42703' || probe.error.code === 'PGRST204')
       ? ''
-      : '<div class="empty-state">' + esc('שגיאה בטעינת תמונות השער: ' + heErr(error)) + '</div>';
+      : '<div class="empty-state">' + esc('שגיאה בטעינת השכונות: ' + heErr(probe.error)) + '</div>';
     return;
   }
-  hoodCoverRows = Array.isArray(data) ? data : [];
-  host.innerHTML = '<div class="hd-head"><h4>תמונת שער לשכונה</h4></div>'
-    + '<p class="acc-sub">מוצגת בראש דף השכונה. בלי תמונה הדף נשאר עם רקע כהה והכותרת.</p>'
-    + '<label class="hd-card" style="display:block">שכונה'
-    + '<select id="hoodCoverPick" aria-label="שכונה לתמונת שער">'
-    + hoodCoverRows.map(r => '<option value="' + esc(r.id) + '">' + esc((r.city || '') + ' · ' + (r.name || '')) + '</option>').join('')
-    + '</select></label>'
-    + '<div id="hoodCoverForm"></div>';
-  const pick = document.getElementById('hoodCoverPick');
-  if (pick){
-    pick.addEventListener('change', hoodCoverForm);
-    hoodCoverForm();
+  const cities = [];
+  for (let from = 0; from < 5000; from += 1000){
+    const { data, error } = await sb.from('cities').select('name').order('name').range(from, from + 999);
+    if (error || !data || !data.length) break;
+    data.forEach(r => { if (r.name) cities.push(r.name); });
+    if (data.length < 1000) break;
   }
+  host.innerHTML = '<div class="hd-head"><h4>תמונת שער לשכונה</h4></div>'
+    + '<p class="acc-sub">מוצגת בראש דף השכונה. בלי תמונה הדף נשאר עם רקע כהה והכותרת. בחרו עיר, או חפשו לפי שם.</p>'
+    + '<div class="hd-acts">'
+    + '<select id="hoodCoverCity" aria-label="עיר"><option value="">כל הערים</option>'
+    + cities.map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join('')
+    + '</select>'
+    + '<input type="search" id="hoodCoverQ" placeholder="שם שכונה" aria-label="שם שכונה">'
+    + '<button type="button" class="btn btn-ghost" id="hoodCoverFind">חיפוש</button>'
+    + '</div>'
+    + '<p class="acc-sub" id="hoodCoverStatus"></p>'
+    + '<label class="hd-card" style="display:block">שכונה'
+    + '<select id="hoodCoverPick" aria-label="שכונה לתמונת שער"></select></label>'
+    + '<div id="hoodCoverForm"></div>';
+  document.getElementById('hoodCoverFind').addEventListener('click', () => hoodCoverSearch(true));
+  document.getElementById('hoodCoverCity').addEventListener('change', () => hoodCoverSearch(true));
+  document.getElementById('hoodCoverQ').addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ e.preventDefault(); hoodCoverSearch(true); }
+  });
+  document.getElementById('hoodCoverPick').addEventListener('change', hoodCoverForm);
+}
+
+async function hoodCoverSearch(reset){
+  const status = document.getElementById('hoodCoverStatus');
+  const city = (document.getElementById('hoodCoverCity').value || '').trim();
+  const q = (document.getElementById('hoodCoverQ').value || '').trim().replace(/[%_*,]/g, '');
+  if (!city && q.length < 2){
+    if (status) status.textContent = 'בחרו עיר, או הקלידו לפחות שתי אותיות מהשם.';
+    return;
+  }
+  if (reset) hoodCoverOffset = 0;
+  let query = sb.from('neighborhoods').select('id,name,city,cover_path,cover_alt,cover_credit,poi');
+  if (city) query = query.eq('city', city);
+  if (q) query = query.ilike('name', '%' + q + '%');
+  const { data, error } = await query.order('name').range(hoodCoverOffset, hoodCoverOffset + HOOD_COVER_PAGE - 1);
+  if (error){
+    if (status) status.textContent = (error.code === '42703' || error.code === 'PGRST204')
+      ? '' : 'שגיאה בטעינת השכונות: ' + heErr(error);
+    return;
+  }
+  const page = Array.isArray(data) ? data : [];
+  hoodCoverRows = reset ? page : hoodCoverRows.concat(page);
+  hoodCoverOffset += page.length;
+  const pick = document.getElementById('hoodCoverPick');
+  const prev = pick.value;
+  pick.innerHTML = hoodCoverRows.map(r => '<option value="' + esc(r.id) + '">' + esc((r.city || '') + ' · ' + (r.name || '')) + '</option>').join('');
+  if (hoodCoverRows.some(r => r.id === prev)) pick.value = prev;
+  const more = page.length === HOOD_COVER_PAGE
+    ? ' <button type="button" class="btn btn-ghost" id="hoodCoverMore">עוד שכונות</button>' : '';
+  if (status) status.innerHTML = (hoodCoverRows.length ? 'מוצגות ' + hoodCoverRows.length + ' שכונות.' : 'אין שכונה שמתאימה.') + more;
+  const moreBtn = document.getElementById('hoodCoverMore');
+  if (moreBtn) moreBtn.addEventListener('click', () => hoodCoverSearch(false));
+  hoodCoverForm();
 }
 
 function hoodCoverLines(v){
@@ -194,7 +259,12 @@ async function hoodCoverSave(clear){
       const type = file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
       if (!/^image\/(jpeg|png|webp)$/.test(file.type || '')) throw new Error('סוג הקובץ צריך להיות JPG, PNG או WebP.');
       if (file.size > 8 * 1024 * 1024) throw new Error('הקובץ גדול מ-8MB.');
-      path = row.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) + '.' + type;
+      const folder = String(row.id || '').toLowerCase();
+      const fileId = hoodCoverUuid();
+      path = folder + '/' + fileId + '.' + type;
+      if (!hoodCoverUuidOk(folder) || !hoodCoverUuidOk(fileId) || !hoodCoverPathOk(folder, path)){
+        throw new Error('bad_cover_path');
+      }
       const up = await sb.storage.from('neighborhood-covers').upload(path, file, { contentType: file.type, upsert: false });
       if (up.error) throw up.error;
     }
@@ -213,9 +283,15 @@ async function hoodCoverSave(clear){
       if (path && path !== row.cover_path) sb.storage.from('neighborhood-covers').remove([path]).catch(() => {});
       throw error;
     }
-    if (clear && row.cover_path) sb.storage.from('neighborhood-covers').remove([row.cover_path]).catch(() => {});
+    const previous = row.cover_path || null;
+    if (previous && previous !== path) sb.storage.from('neighborhood-covers').remove([previous]).catch(() => {});
     showToast(clear ? 'תמונת השער הוסרה' : 'תמונת השער נשמרה');
-    loadHoodCover();
+    const fresh = await sb.from('neighborhoods').select('id,name,city,cover_path,cover_alt,cover_credit,poi').eq('id', row.id).maybeSingle();
+    if (fresh.data){
+      const at = hoodCoverRows.findIndex(r => r.id === row.id);
+      if (at >= 0) hoodCoverRows[at] = fresh.data;
+    }
+    hoodCoverForm();
   } catch (e){
     const msg = String(e && e.message || '');
     showToast(/bad_cover_path/.test(msg) ? 'הקובץ לא נשמר. נסו תמונה אחרת.' : (/not_platform_admin/.test(msg) ? 'רק מנהל/ת פלטפורמה שומר/ת תמונת שער.' : heErr(e)));
