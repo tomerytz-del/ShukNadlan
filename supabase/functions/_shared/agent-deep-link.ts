@@ -15,6 +15,10 @@ export const ALL_LABEL = "הכול";
 export const OPT_OUT_BARE = "להפסקת ההתראות: מסך התראות והודעות.";
 export const NOTIFY_UTILITY_ENV = "WHATSAPP_NOTIFY_UTILITY_TEMPLATE";
 export const NOTIFY_UTILITY_LANG_ENV = "WHATSAPP_NOTIFY_UTILITY_TEMPLATE_LANG";
+export const NOTIFY_ACTION_ENV = "WHATSAPP_NOTIFY_ACTION_TEMPLATE";
+export const NOTIFY_ACTION_LANG_ENV = "WHATSAPP_NOTIFY_ACTION_TEMPLATE_LANG";
+export const OPEN_LEADS_PATH = "/crm?goto=accLeads";
+export const OPEN_DEMAND_PATH = "/crm?goto=accLeads&tab=demand";
 export const REMINDER_UTILITY_ENV = "WHATSAPP_REMINDER_UTILITY_TEMPLATE";
 export const REMINDER_UTILITY_LANG_ENV = "WHATSAPP_REMINDER_UTILITY_TEMPLATE_LANG";
 export const UTILITY_URL_BASE = "https://shuknadlan.co.il/";
@@ -41,6 +45,7 @@ export type NotifTarget = {
   agreement_id?: string | null;
   review_id?: string | null;
   review_agent_slug?: string | null;
+  action_path?: string | null;
 };
 
 export type ScreenRef = {
@@ -54,6 +59,7 @@ export type NavRow = { id: string; title: string; description?: string };
 
 export type ScreenPlan =
   | { kind: "single"; path: string; label: string }
+  | { kind: "buttons"; rows: NavRow[]; allPath: string }
   | { kind: "list"; button: string; section: string; rows: NavRow[]; allPath: string }
   | { kind: "none" };
 
@@ -76,12 +82,107 @@ export function clipUtf16(s: string, max: number): string {
   return s.slice(0, Math.max(0, end));
 }
 
+function cleanTitle(title: string, fallback: string): string {
+  return String(title || "").replace(/\s+/g, " ").trim() || fallback;
+}
+
+/** מילה ראשונה בגוף, כסיומת שמבדילה שתי כותרות זהות. */
+function nameHint(body: string | null | undefined): string {
+  const word = String(body || "").replace(/\s+/g, " ").trim().split(" ")[0] || "";
+  if (word.length < 2 || word.length > 12 || word === ALL_LABEL) return "";
+  if (!/^[\p{L}][\p{L}'׳.-]*$/u.test(word)) return "";
+  return word;
+}
+
+/**
+ * כותרות כפתור ייחודיות בתוך max יחידות UTF-16.
+ * וואטסאפ דוחה הודעה ששני כפתורים בה חולקים כותרת, וחיתוך ל-20
+ * הופך "ליד חדש: התעניינות בנכס" לכפילות. הראשונה נשארת, והשאר
+ * מקבלות את המילה הראשונה בגוף או מספר. "הכול" נשמר כמו שהוא.
+ * null כשאין מקום לסיומת - הקורא יורד לרשימה, או לטקסט.
+ */
+export function distinctButtonTitles(
+  rows: { title: string; hint?: string | null }[],
+  max: number,
+): string[] | null {
+  const cleaned = rows.map((row) => String(row.title || "").replace(/\s+/g, " ").trim());
+  const hints = rows.map((row) => nameHint(row.hint));
+  const clipped = cleaned.map((title) => clipUtf16(title || "פתח", max));
+  const out: string[] = new Array(rows.length);
+  const used = new Set<string>();
+  const reserved = new Set<number>();
+  const allIdx = cleaned.lastIndexOf(ALL_LABEL);
+  if (allIdx >= 0 && clipped[allIdx] && !used.has(clipped[allIdx])) {
+    out[allIdx] = clipped[allIdx];
+    used.add(clipped[allIdx]);
+    reserved.add(allIdx);
+  }
+  const groups = new Map<string, number[]>();
+  clipped.forEach((title, i) => {
+    if (reserved.has(i)) return;
+    const list = groups.get(title) || [];
+    list.push(i);
+    groups.set(title, list);
+  });
+  const take = (i: number, candidate: string): boolean => {
+    const title = candidate.trim();
+    if (!title || title.length > max || title !== candidate || used.has(title)) return false;
+    out[i] = title;
+    used.add(title);
+    return true;
+  };
+  const suffixed = (i: number, suffix: string): string => {
+    if (suffix.length >= max) return "";
+    return (clipUtf16(cleaned[i] || "פתח", max - suffix.length) + suffix).trim();
+  };
+  for (const idxs of groups.values()) {
+    const colliding = idxs.length > 1 || used.has(clipped[idxs[0]]);
+    for (let k = 0; k < idxs.length; k++) {
+      const i = idxs[k];
+      if ((!colliding || k === 0) && take(i, clipped[i])) continue;
+      if (hints[i] && take(i, suffixed(i, " " + hints[i]))) continue;
+      let placed = false;
+      for (let n = 2; n < 100; n++) {
+        if (take(i, suffixed(i, " " + String(n)))) {
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) return null;
+    }
+  }
+  if (out.some((title) => !title)) return null;
+  return out;
+}
+
+/** דחיית כפתור או רשימה נשלחת שוב כטקסט. ביטול של הנמען/ת לא נשלח שוב. */
+export function resendInteractiveAsText(
+  payloadType: string,
+  ok: boolean,
+  errorBody: string,
+  optedOutCode: number,
+): boolean {
+  if (ok || payloadType !== "interactive") return false;
+  return !String(errorBody || "").includes(String(optedOutCode));
+}
+
 /**
  * הנתיב היחסי של התראה. אותו סדר כמו openNotificationTarget ב-crm.js:
  * ליד מתוך תזכורת, יומן, הסכם, העדפות לידים, ביקוש פתוח, נכסים שלא באוויר,
  * ביקורת, התאמה ללקוח/ה, נכס של משרד אחר, נכס, לקוח/ה, ליד.
  */
+/** נתיב שנשמר על ההתראה. רק נתיב יחסי ש-handleGotoParam פותח. */
+export function storedActionPath(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const path = v.trim();
+  if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) return null;
+  if (path.length > 180 || /\s/.test(path)) return null;
+  return isSafeCrmPath(path) ? path : null;
+}
+
 export function notificationPath(it: NotifTarget): string | null {
+  const stored = storedActionPath(it.action_path);
+  if (stored) return stored;
   const property = uuidOr(it.property_id);
   const client = uuidOr(it.client_id);
   const lead = uuidOr(it.lead_id);
@@ -93,7 +194,8 @@ export function notificationPath(it: NotifTarget): string | null {
   if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
   if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
   if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
-  if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
+  if (it.type === "open_demand") return OPEN_DEMAND_PATH;
+  if (it.type === "leads_digest" || it.type === "digest") return OPEN_LEADS_PATH;
   if (it.type === "unpublished_nudge" && !property) {
     return "/crm?goto=accProperties&filter=unpublished";
   }
@@ -116,6 +218,8 @@ export function notificationPath(it: NotifTarget): string | null {
   if (lead && ["new_lead", "review_request", "system"].includes(it.type)) {
     return `/crm?goto=accLeads&lead=${lead}`;
   }
+  // new_lead בלי lead_id, או עם מזהה שאינו uuid, נפתח לרשימת הלידים בלי כרטיס.
+  if (it.type === "new_lead") return OPEN_LEADS_PATH;
   if (it.type === "burst_digest") return "/crm?goto=bell";
   return null;
 }
@@ -150,6 +254,7 @@ export function ctaLabel(url: string): string {
   if (url.includes("filter=no_video")) return "🎬 בלי סרטון";
   if (url.includes("focus=new")) return "➕ נכס חדש";
   if (url.includes("tab=demand")) return "📣 לביקוש הפתוח";
+  if (url.includes("accLeads") && !/[?&]lead=/.test(url)) return "👈 ללידים";
   if (url.includes("goto=bell")) return "🔔 כל ההתראות";
   if (url.includes("accNotifPrefs")) return "⚙️ להתראות";
   if (url.includes("goto=license")) return "📄 לרישיון";
@@ -241,7 +346,7 @@ export function parseNavId(id: string): string | null {
 export function clickRecords(plan: ScreenPlan): ClickRecord[] {
   const paths: string[] = [];
   if (plan.kind === "single") paths.push(plan.path);
-  else if (plan.kind === "list") {
+  else if (plan.kind === "list" || plan.kind === "buttons") {
     for (const row of plan.rows) {
       const path = parseNavId(row.id);
       if (path) paths.push(path);
@@ -262,6 +367,11 @@ export function clickRecords(plan: ScreenPlan): ClickRecord[] {
 /** סיומת לכפתור URL דינמי. הבסיס בתבנית הוא https://shuknadlan.co.il/ */
 export function utilitySuffix(path: string): string {
   return path.replace(/^\/+/, "");
+}
+
+/** סיומת לתבנית שהבסיס שלה הוא https://shuknadlan.co.il בלי לוכסן. */
+export function actionSuffix(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export function absoluteUrl(siteBase: string, path: string): string {
@@ -292,10 +402,12 @@ function allScreensPath(
   const types = new Set(items.map((it) => it.type));
   if (types.size === 1) {
     const t = [...types][0];
-    if (t === "open_demand") return "/crm?goto=accLeads&tab=demand";
+    if (t === "open_demand") return OPEN_DEMAND_PATH;
     if (t === "unpublished_nudge") return "/crm?goto=accProperties&filter=unpublished";
     if (t === "client_match") return "/crm?goto=accClients";
-    if (t === "new_lead" || t === "review_request") return "/crm?goto=accLeads";
+    if (t === "new_lead" || t === "review_request" || t === "leads_digest" || t === "digest") {
+      return OPEN_LEADS_PATH;
+    }
     if (t === "burst_digest") return "/crm?goto=bell";
     if (t === "match_digest") return "/crm?goto=accAlerts";
     const cat = categoryPathForType(t);
@@ -319,13 +431,24 @@ function allScreensPath(
   return best || "/crm?goto=bell";
 }
 
-/** "הכול" מסונן רק כשהנתיב נושא סינון. בלי סינון זו כל הרשימה. */
+/** בלי wc ו-wt. המדידה אינה חלק מהיעד, ושני כפתורים לאותו מסך הם כפילות. */
+function bareScreen(path: string): string {
+  const qAt = path.indexOf("?");
+  if (qAt < 0) return path;
+  const params = new URLSearchParams(path.slice(qAt + 1));
+  params.delete("wc");
+  params.delete("wt");
+  const rest = params.toString();
+  return rest ? `${path.slice(0, qAt)}?${rest}` : path.slice(0, qAt);
+}
+
+/** "הכול" מסונן רק כשהנתיב נושא סינון. בלי סינון זו כל הרשימה. wc ו-wt אינם סינון. */
 function allListDescription(path: string): string {
   const q = path.includes("?") ? path.slice(path.indexOf("?") + 1) : "";
   let extra = false;
   try {
     for (const key of new URLSearchParams(q).keys()) {
-      if (key !== "goto") extra = true;
+      if (key !== "goto" && key !== "wc" && key !== "wt") extra = true;
     }
   } catch {
     extra = false;
@@ -334,9 +457,11 @@ function allListDescription(path: string): string {
 }
 
 /**
- * יעד אחד = כפתור קישור. כמה יעדים = רשימה (עד 9) ועוד "הכול",
- * אלא אם היעד של "הכול" כבר שורה ברשימה (מטא דוחה מזהה כפול).
- * לא ל-/crm בלי יעד.
+ * יעד אחד = כפתור קישור. שני יעדים = עד שלושה כפתורי תשובה
+ * (שני היעדים ו"הכול"). משלושה = רשימה (עד 9) ועוד "הכול",
+ * אלא אם היעד של "הכול" כבר שורה (מטא דוחה מזהה כפול, ו-wc שונה
+ * אינו יעד שונה). כותרת כפולה אחרי החיתוך מקבלת סיומת. בלי מקום
+ * לסיומת, שני היעדים יורדים לרשימה. לא ל-/crm בלי יעד.
  */
 export function screenBundle(
   items: ScreenRef[],
@@ -366,21 +491,66 @@ export function screenBundle(
   const allBare = allScreensPath(unique, categoryPathForType);
   const allChosen = navIdOrBare(allBare, shared);
   const allPath = allChosen.path;
-  const rows: NavRow[] = [];
+  if (unique.length === 2) {
+    const prepared: { id: string; title: string; hint: string | null; path: string }[] = [];
+    for (const it of unique) {
+      const chosen = navIdOrBare(it.path, it.type);
+      if (!chosen.id) continue;
+      prepared.push({
+        id: chosen.id,
+        title: cleanTitle(it.title, ctaLabel(it.path)),
+        hint: it.body ?? null,
+        path: chosen.path,
+      });
+    }
+    const allBareKey = bareScreen(allBare);
+    const already = prepared.some((row) => row.id === allChosen.id || bareScreen(row.path) === allBareKey);
+    if (allChosen.id && prepared.length === 2 && !already) {
+      prepared.push({ id: allChosen.id, title: ALL_LABEL, hint: null, path: allPath });
+    }
+    const titles = prepared.length >= 2 && prepared.length <= 3
+      ? distinctButtonTitles(prepared, BUTTON_TITLE_MAX)
+      : null;
+    if (titles) {
+      return {
+        kind: "buttons",
+        rows: prepared.map((row, i) => ({ id: row.id, title: titles[i] })),
+        allPath,
+      };
+    }
+  }
+  const prepared: { id: string; title: string; hint: string | null; description?: string }[] = [];
   for (const it of unique.slice(0, LIST_ROW_MAX)) {
     // wc ו-wt מוסיפים כ-30 תווים. שורה שקרובה ל-200 נזרקת בשקט אם אין
     // נפילה לנתיב בלי המדידה.
     const chosen = navIdOrBare(it.path, it.type);
     if (!chosen.id) continue;
-    const title = clipUtf16(String(it.title || "").replace(/\s+/g, " ").trim() || ctaLabel(it.path), LIST_TITLE_MAX);
     const description = clipUtf16(String(it.body || "").replace(/\s+/g, " ").trim(), LIST_DESC_MAX);
-    rows.push(description ? { id: chosen.id, title, description } : { id: chosen.id, title });
+    prepared.push({
+      id: chosen.id,
+      title: cleanTitle(it.title, ctaLabel(it.path)),
+      hint: it.body ?? null,
+      ...(description ? { description } : {}),
+    });
   }
-  const allId = allChosen.id;
-  // מזהה כפול נדחה על ידי מטא, והרשימה כולה לא יוצאת.
-  if (allId && !rows.some((row) => row.id === allId)) {
-    rows.push({ id: allId, title: ALL_LABEL, description: allListDescription(allPath) });
+  const allBareKey = bareScreen(allBare);
+  // מזהה כפול נדחה על ידי מטא, והרשימה כולה לא יוצאת. wc שונה אינו יעד שונה.
+  if (
+    allChosen.id &&
+    !prepared.some((row) => row.id === allChosen.id || bareScreen(parseNavId(row.id) || "") === allBareKey)
+  ) {
+    prepared.push({
+      id: allChosen.id,
+      title: ALL_LABEL,
+      hint: null,
+      description: allListDescription(allPath),
+    });
   }
+  const listTitles = distinctButtonTitles(prepared, LIST_TITLE_MAX);
+  const rows: NavRow[] = prepared.map((row, i) => {
+    const title = listTitles ? listTitles[i] : clipUtf16(row.title, LIST_TITLE_MAX);
+    return row.description ? { id: row.id, title, description: row.description } : { id: row.id, title };
+  });
   if (rows.length < 2) {
     const path = withClick(unique[0].path, unique[0].type);
     return { kind: "single", path, label: ctaLabel(path) };
@@ -402,6 +572,25 @@ export function listTextFallback(siteBase: string, body: string, rows: NavRow[])
     lines.push(path ? `${title}: ${absoluteUrl(siteBase, path)}` : title);
   }
   return lines.join("\n");
+}
+
+export function replyButtonsMessage(to: string, body: string, rows: NavRow[]): Record<string, unknown> {
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: body },
+      action: {
+        buttons: rows.slice(0, 3).map((row) => ({
+          type: "reply",
+          reply: { id: row.id.slice(0, 256), title: clipUtf16(row.title, BUTTON_TITLE_MAX) },
+        })),
+      },
+    },
+  };
 }
 
 export function ctaMessage(to: string, body: string, label: string, url: string): Record<string, unknown> {
@@ -489,6 +678,49 @@ export function utilityTemplateMessage(opts: {
           sub_type: "url",
           index: "0",
           parameters: [{ type: "text", text: utilitySuffix(opts.path) }],
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * תבנית הפעולה (WHATSAPP_NOTIFY_ACTION_TEMPLATE). כפתור URL דינמי:
+ * הבסיס https://shuknadlan.co.il והפרמטר הוא הנתיב עם לוכסן מוביל.
+ * {{2}} בלי כתובת. כשהסוד ריק הקורא נשאר על התבנית המאושרת.
+ */
+export function actionTemplateMessage(opts: {
+  to: string;
+  templateName: string;
+  lang: string;
+  name: string;
+  summary: string;
+  path: string;
+}): Record<string, unknown> {
+  const summary = stripHttpUrls(opts.summary)
+    .replace(/\s*[\r\n\t]+\s*/g, " ")
+    .replace(/ {4,}/g, "   ")
+    .slice(0, 900);
+  return {
+    messaging_product: "whatsapp",
+    to: opts.to,
+    type: "template",
+    template: {
+      name: opts.templateName,
+      language: { code: opts.lang || "he" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: (opts.name || "שלום").slice(0, 60) },
+            { type: "text", text: summary || "-" },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [{ type: "text", text: actionSuffix(opts.path) }],
         },
       ],
     },

@@ -15,13 +15,18 @@ import {
   categoryPath,
   clickRecords,
   containsHttpUrl,
+  actionTemplateMessage,
   ctaMessage,
   listMessage,
+  NOTIFY_ACTION_ENV,
+  NOTIFY_ACTION_LANG_ENV,
   NOTIFY_UTILITY_ENV,
   NOTIFY_UTILITY_LANG_ENV,
   notificationPath,
   OPT_OUT_BARE,
   parseNavId,
+  replyButtonsMessage,
+  resendInteractiveAsText,
   screenBundle,
   stripHttpUrls,
   type ClickRecord,
@@ -80,6 +85,8 @@ const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 const WA_TEMPLATE = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE") || "";
 const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE_LANG") || "he";
 // תבנית UTILITY עם כפתור ליעד המדויק. ריק = התבנית המאושרת למעלה, בלי שינוי.
+const WA_ACTION = Deno.env.get(NOTIFY_ACTION_ENV) || "";
+const WA_ACTION_LANG = Deno.env.get(NOTIFY_ACTION_LANG_ENV) || "he";
 const WA_UTILITY = Deno.env.get(NOTIFY_UTILITY_ENV) || "";
 const WA_UTILITY_LANG = Deno.env.get(NOTIFY_UTILITY_LANG_ENV) || "he";
 
@@ -108,6 +115,9 @@ const WA_OPTED_OUT = 131050;
 const ACC_BY_TYPE: Record<string, string> = {
   improvement_suggestion: "accSuggestions",
   new_lead: "accLeads",
+  // סיכום לידים פתוחים. הרשימה, לא ליד אחד. digest הוא אותו יעד.
+  leads_digest: "accLeads",
+  digest: "accLeads",
   client_match: "accAlerts",
   listing_match: "accProperties",
   // ‏הסיכום שמחליף את שתיהן (20270426090000) - לרשימת "התראות התאמה"
@@ -211,6 +221,8 @@ type Item = {
   count?: number | null;
   // מקור הליד. photo_request אינו מוגן גם כשהסוג הוא new_lead.
   source?: string | null;
+  // notifications.action_path. חסר עד שהמיגרציה עלתה, ואז גובר על המיפוי.
+  action_path?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -422,8 +434,9 @@ function categoryFor(type: string): string | null {
  * היחיד שנשאר חד. התבנית עצמה עדיין שמה את `{{2}}` בשורה נפרדת — המגבלה היא
  * על הפרמטר, לא על הנוסח.
  *
- * הקישור הישיר נכנס בסוף הפריט ולא בכפתור: הכפתור היחיד בתבנית הוא הדרך
- * לכבות את הערוץ (ראו MANAGE_ACC), ו-WhatsApp הופך כתובת בגוף ההודעה לקישור.
+ * בלי WHATSAPP_NOTIFY_ACTION_TEMPLATE הקישור נשאר בסוף הפריט: הכפתור
+ * היחיד בתבנית המאושרת הוא כיבוי הערוץ. כשהסוד מוגדר, withUrls הוא false
+ * והכפתור הוא הנתיב של היעד.
  */
 function templateSummary(items: Item[], withUrls = true): string {
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
@@ -517,6 +530,10 @@ async function sendWhatsapp(
         absoluteUrl(SITE_BASE, plan.path),
       );
     }
+    if (plan.kind === "buttons") {
+      tokens = clickRecords(plan);
+      return replyButtonsMessage(to, body, plan.rows);
+    }
     if (plan.kind === "list") {
       tokens = clickRecords(plan);
       return listMessage(to, body, plan.button, plan.section, plan.rows);
@@ -524,10 +541,24 @@ async function sendWhatsapp(
     return null;
   };
 
-  if (mode === "template" && WA_UTILITY) {
+  if (mode === "template" && WA_ACTION) {
     const plan = screenBundle(screensOf(items), categoryFor);
     const path = plan.kind === "single" ? plan.path
-      : plan.kind === "list" ? plan.allPath
+      : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
+      : withClick("/crm?goto=bell", "bell");
+    tokens = clickRecords({ kind: "single", path, label: "" });
+    payload = actionTemplateMessage({
+      to,
+      templateName: WA_ACTION,
+      lang: WA_ACTION_LANG,
+      name: firstName(name) || "שלום",
+      summary: templateSummary(items, false),
+      path,
+    });
+  } else if (mode === "template" && WA_UTILITY) {
+    const plan = screenBundle(screensOf(items), categoryFor);
+    const path = plan.kind === "single" ? plan.path
+      : plan.kind === "list" || plan.kind === "buttons" ? plan.allPath
       : withClick("/crm?goto=bell", "bell");
     tokens = clickRecords({ kind: "single", path, label: "" });
     payload = utilityTemplateMessage({
@@ -620,7 +651,7 @@ async function sendWhatsapp(
   // שההתראה לא תיפול בגלל הצורה שלה.
   if (!res.ok && payload.type === "interactive") {
     const raw = await res.text();
-    if (!raw.includes(String(WA_OPTED_OUT))) {
+    if (resendInteractiveAsText(String(payload.type), false, raw, WA_OPTED_OUT)) {
       console.error("cta_url rejected, sending as text", raw.slice(0, 300));
       // הטקסט נושא את אותם wc. מוחקים טוקן שלא נכנס לגוף (חיתוך אורך),
       // כדי שלחיצה לא תיספר בלי שליחה תואמת, ושליחה לא תיספר בלי הקישור.
