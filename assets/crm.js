@@ -15070,7 +15070,7 @@ function shareLevelSchemaMissing(error){ return !!error && /share_level/.test(er
    התגית "מיקום משוער", והטופס מתייחס לפין כמדויק. docs/property-map.md */
 const PROPERTY_LOCATION_COLUMNS = ', location_precision, location_radius_m';
 function locationSchemaMissing(error){ return !!error && /location_(precision|radius_m)/.test(error.message || ''); }
-/* יעד הפרסום (20271028185000). בלי העמודות הכרטיס בלי הבורר, והרשימה עולה. */
+/* יעד הפרסום (20271029185000). בלי העמודות הכרטיס בלי הבורר, והרשימה עולה. */
 const PROPERTY_DEST_COLUMNS = ', publish_channels, share_with_brokers';
 function destSchemaMissing(error){ return !!error && /publish_channels|share_with_brokers/.test(error.message || ''); }
 
