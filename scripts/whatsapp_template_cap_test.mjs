@@ -58,6 +58,10 @@ test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow 
   const due = extract("notification_push_due_agents");
   assert.match(due, /l\.whatsapp_status = 'failed'/);
   assert.doesNotMatch(due, /not public\.notification_push_log_holds\(l\.whatsapp_status/);
+  assert.match(claim, /interval '72 hours'/);
+  assert.match(claim, /whatsapp_template_cap_limit\('whatsapp_template_cap_daily'/);
+  assert.match(claim, /not v_cap_held/);
+  assert.doesNotMatch(claim, /false, 1, 2, 8/);
   const backlog = readFileSync(
     join(root, "supabase/migrations/20271030000300_template_cap_backlog.sql"),
     "utf8",
@@ -180,15 +184,24 @@ create or replace function public.whatsapp_template_cap_on() returns boolean lan
 create or replace function public.notification_push_log_holds(p_status text, p_created timestamptz) returns boolean language sql as $$
   select p_status in ('sent','skipped') $$;
 insert into public.agency_members (id, display_name, phone_e164, active, tier, billing_status)
-values ('11111111-1111-1111-1111-111111111111', 't', '+972501111111', true, 'mid', 'active');
+values
+  ('11111111-1111-1111-1111-111111111111', 't', '+972501111111', true, 'mid', 'active'),
+  ('22222222-2222-2222-2222-222222222222', 'f', '+972502222222', true, 'mid', 'active');
 insert into public.notification_push_log (agent_id, whatsapp_status)
 select '11111111-1111-1111-1111-111111111111', 'skipped_template_cap' from generate_series(1,4);
+insert into public.notification_push_log (agent_id, whatsapp_status, created_at)
+select '22222222-2222-2222-2222-222222222222', 'failed', now() - interval '30 minutes'
+  from generate_series(1,3);
 ${due};
-select count(*) from public.notification_push_due_agents()
- where agent_id = '11111111-1111-1111-1111-111111111111'
-   and 'new_lead' = any(whatsapp_types);
+select
+  (select count(*)::text from public.notification_push_due_agents()
+    where agent_id = '11111111-1111-1111-1111-111111111111'
+      and 'new_lead' = any(whatsapp_types))
+  || ' ' ||
+  (select count(*)::text from public.notification_push_due_agents()
+    where agent_id = '22222222-2222-2222-2222-222222222222');
 rollback;
 `;
   const out = execFileSync("psql", psqlArgs, { input: sql, encoding: "utf8" }).trim();
-  assert.equal(out, "1");
+  assert.equal(out, "1 0");
 });

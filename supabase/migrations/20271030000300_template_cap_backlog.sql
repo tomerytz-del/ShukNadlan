@@ -56,7 +56,10 @@ as $$
                            u.n,
                            case when u.last_at is null then null
                                 else extract(epoch from (pg_catalog.now() - u.last_at)) / 3600.0 end,
-                           false, 1, 2, 8)
+                           false,
+                           public.whatsapp_template_cap_limit('whatsapp_template_cap_daily', 1)::int,
+                           public.whatsapp_template_cap_limit('whatsapp_template_cap_hard_max', 2)::int,
+                           public.whatsapp_template_cap_limit('whatsapp_template_cap_gap_hours', 8))
                     from public.whatsapp_template_cap_usage(a.agent_id, null) u
                 ), false)
               )

@@ -150,6 +150,30 @@ comment on function public.whatsapp_template_cap_on() is
 revoke all on function public.whatsapp_template_cap_on() from public, anon, authenticated;
 grant execute on function public.whatsapp_template_cap_on() to service_role;
 
+-- 1, 2 ו-8 נקראים מ-app_config. ברירת המחדל רק כשהמפתח חסר או אינו מספר.
+create or replace function public.whatsapp_template_cap_limit(p_key text, p_default numeric)
+returns numeric
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (select case
+              when c.value ~ '^[0-9]+(\.[0-9]+)?$' then c.value::numeric
+              else null
+            end
+       from public.app_config c
+      where c.key = p_key),
+    p_default);
+$$;
+
+comment on function public.whatsapp_template_cap_limit(text, numeric) is
+  'ערך מספרי מתקרת התבניות ב-app_config. חסר או לא-מספר חוזר לברירת המחדל.';
+
+revoke all on function public.whatsapp_template_cap_limit(text, numeric) from public, anon, authenticated;
+grant execute on function public.whatsapp_template_cap_limit(text, numeric) to service_role;
+
 
 -- רשימת הפטור. ערך ריק, חסר או שאינו מערך JSON חוזר לברירת המחדל.
 create or replace function public.whatsapp_template_cap_exempt_parse(p_value text)
@@ -593,6 +617,7 @@ declare
   v_hold_general boolean;
   v_lane_over boolean;
   v_cap_ok boolean;
+  v_cap_held boolean;
 begin
   perform public.notification_push_burst_prepare();
 
@@ -669,6 +694,7 @@ begin
                      where lheld.agent_id = n.agent_id
                        and n.id = any(lheld.notification_ids)
                        and lheld.whatsapp_status = 'skipped_template_cap'
+                       and lheld.created_at > pg_catalog.now() - interval '72 hours'
                   )
                 ))
            and not exists (
@@ -696,7 +722,10 @@ begin
                             u.n,
                             case when u.last_at is null then null
                                  else extract(epoch from (pg_catalog.now() - u.last_at)) / 3600.0 end,
-                            false, 1, 2, 8)
+                            false,
+                            public.whatsapp_template_cap_limit('whatsapp_template_cap_daily', 1)::int,
+                            public.whatsapp_template_cap_limit('whatsapp_template_cap_hard_max', 2)::int,
+                            public.whatsapp_template_cap_limit('whatsapp_template_cap_gap_hours', 8))
                      from public.whatsapp_template_cap_usage(a.agent_id, null) u
                  ), false)
                )
@@ -707,8 +736,27 @@ begin
 
     continue when v_items is null or not v_wake;
 
+    -- פריט שנעצר בתקרה יוצא רק בחלון תקציר (08:30, 13:00, 17:30).
+    -- תבנית רק אם decide מרשה (גג 2, מרווח 8 שעות, הפטור יוצא תמיד ונחשב).
+    -- תקרה מלאה ובחלון 24 השעות: טקסט חופשי. בלי חלון: נשאר בפעמון
+    -- עד התקציר הראשון של היום הבא. לא פרץ וואטסאפ ולא תבנית שלישית.
+    v_cap_held := public.whatsapp_template_cap_on()
+      and v_digest_on = 1
+      and coalesce(array_length(v_ids, 1), 0) > 0
+      and not exists (
+        select 1 from unnest(v_ids) as held(id)
+         where not exists (
+           select 1 from public.notification_push_log lheld
+            where lheld.agent_id = a.agent_id
+              and held.id = any(lheld.notification_ids)
+              and lheld.whatsapp_status = 'skipped_template_cap'
+              and lheld.created_at > pg_catalog.now() - interval '72 hours'
+         )
+      );
+
     -- מתג כבוי: אותה הודעה כמו בלי תקרת ההתפרצות. ישן ומילוי כבר סוננו בהכנה.
-    if v_guard = 1 then
+    -- פריטי תקרה לא נכנסים לפרץ של הבוקר.
+    if v_guard = 1 and not v_cap_held then
       v_hour_cap := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_hour_cap'), 12));
       v_day_cap := greatest(1, coalesce((select value::int from public.pricing_config where key = 'notif_burst_day_cap'), 30));
 
