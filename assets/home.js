@@ -3995,7 +3995,10 @@ function drawGabrielaCta(wrap, entry){
 
 /* שורה קטנה עם האווטאר - בתחתית התפריט הנייד ובסוף הרשימה שליד המפה */
 function gabrielaMiniHtml(cls, title, sub){
-  return '<img src="' + GAB_AVATAR + '" width="40" height="40" alt="" loading="lazy" decoding="async">' +
+  // ‏D3 (תומר 29.10, מקומות 5 ו-6, רק עם הדגל): גבריאלה בגזירה ולא בעיגול - בתפריט הנייד וברשימה שליד המפה
+  const cut = v10On() && (cls === 'menu-gab-link' || cls === 'split-gab');
+  return (cut ? '<img src="/assets/gabriela-cutout-400.webp" width="400" height="695" alt="" loading="lazy" decoding="async">'
+    : '<img src="' + GAB_AVATAR + '" width="40" height="40" alt="" loading="lazy" decoding="async">') +
     '<span><b>' + escapeHtml(title) + '</b>' + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</span>';
 }
 function gabrielaMiniLink(cls, title, sub, entry){
@@ -8565,7 +8568,7 @@ function v10GabAlert(rows, n){
   box.id = 'gabAlert';
   box.setAttribute('role', 'note');
   box.innerHTML =
-    '<img class="gab-alert-img" src="/assets/gabriela-cutout-400.webp" alt="" width="48" height="48" loading="lazy" decoding="async">' +
+    '<img class="gab-alert-img" src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" loading="lazy" decoding="async">' +
     '<div class="gab-alert-copy">' +
       `<p class="gab-alert-title">${n <= 5 ? 'לא מצאתם? גבריאלה תעדכן כשייכנס נכס מתאים' : 'עברתם על הכול? גבריאלה תעדכן כשייכנס נכס מתאים'}</p>` +
       '<p class="gab-alert-sub">נשמור את החיפוש הזה ונשלח הודעה כשיעלה נכס חדש שמתאים לו.</p>' +

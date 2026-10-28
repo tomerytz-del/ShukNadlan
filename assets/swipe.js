@@ -2705,7 +2705,8 @@
   var sessionLikes = 0, lastLiked = null;
   function sessGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
   function sessSet(k) { try { sessionStorage.setItem(k, '1'); } catch (e) {} }
-  var GAB_ART = '<img class="sw-bs-av" src="/assets/gabriela-avatar.webp" alt="" width="64" height="64" onerror="this.style.visibility=\'hidden\'">';
+  // ‏D3 מקום 2 (תומר 29.10 00:52): גבריאלה בגזירה בקצה השמאלי של הגיליון אחרי "אהבתי"
+  var GAB_ART = '<span class="sw-bs-fig" aria-hidden="true"><img src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" decoding="async" onerror="this.parentNode.style.visibility=\'hidden\'"></span>';
   var BELL_ART = '<svg class="sw-bs-svg" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="#0e2a6b"/><path d="M22 38c2-2 3-5 3-10a7 7 0 0 1 14 0c0 5 1 8 3 10z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M29 42a3 3 0 0 0 6 0" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="41" cy="22" r="4" fill="#c9a227"/></svg>';
   var HAND_ART = '<svg class="sw-bs-svg" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="#0e2a6b"/><g transform="translate(16 14) scale(1.35)" fill="none" stroke="#e5c76a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11v-1a2 2 0 0 0-4 0"/><path d="M14 10V9a2 2 0 0 0-4 0v1"/><path d="M10 9.5V4a2 2 0 0 0-4 0v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></g></svg>';
   /* ‏viz: איור טהור (בלי <img>) - אף פעם לא אייקון של תמונה שבורה */
@@ -2774,7 +2775,8 @@
     var city = filter.area.indexOf('city:') === 0 ? filter.area.slice(5) : mainCity;
     var ch = function (q, v, on) { return '<button type="button" class="sw-chip" data-sq="' + q + '" data-v="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(v) + '</button>'; };
     var rent = filter.deal === 'rent';
-    return '<div class="sw-seller-sheet"><p class="sw-seller-gab"><img src="/assets/gabriela-avatar.webp" alt="" width="48" height="48" onerror="this.style.visibility=\'hidden\'">' +
+    // ‏D3 מקום 3: גזירה בפינת התיבה, לא עיגול
+    return '<div class="sw-seller-sheet"><p class="sw-seller-gab"><img src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" decoding="async" onerror="this.style.visibility=\'hidden\'">' +
       '<span>גבריאלה: כמה פרטים קצרים, ואעביר אותם ליועץ נדל״ן אחד מהאזור.</span></p>' +
       '<form class="sw-sform" id="swSellerForm" novalidate>' +
       '<fieldset><legend>מה תרצו לעשות?</legend><div class="sw-chips">' + ch('deal', 'למכור', !rent) + ch('deal', 'להשכיר', rent) + '</div></fieldset>' +

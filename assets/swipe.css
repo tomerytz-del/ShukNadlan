@@ -583,7 +583,6 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-bs.is-tall,.sw-bs.is-help{max-height:min(72dvh,640px)}
 /* גיליונות "אהבתי" נמוכים: הכפתורים בשורה אחת, כדי שהמחיר של הכרטיס יישאר גלוי מעל הגיליון */
 .sw-bs.is-like1,.sw-bs.is-like3,.sw-bs.is-like6{gap:6px;padding-top:10px}
-.sw-bs.is-like1 .sw-bs-av,.sw-bs.is-like3 .sw-bs-av,.sw-bs.is-like6 .sw-bs-av{width:52px;height:52px}
 .sw-bs.is-like1 .sw-bs-btns,.sw-bs.is-like3 .sw-bs-btns,.sw-bs.is-like6 .sw-bs-btns{flex-direction:row}
 .sw-bs.is-like1 .sw-bs-btns>*,.sw-bs.is-like3 .sw-bs-btns>*,.sw-bs.is-like6 .sw-bs-btns>*{flex:1 1 0;min-width:0}
 @keyframes swBsUp{from{transform:translateY(100%)}to{transform:none}}
@@ -593,7 +592,20 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-bs-x{position:absolute;top:10px;left:12px;width:38px;height:38px;border:1px solid #e3e8f2;border-radius:50%;background:#fff;color:var(--sw-title);font:inherit;font-size:15px;cursor:pointer}
 .sw-bs-x::before{content:"";position:absolute;inset:-3px}
 .sw-bs-art{position:relative;display:flex;justify-content:center;margin-top:4px}
-.sw-bs-av{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--sw-cream);box-shadow:0 0 0 3px #e5c76a}
+/* ‏D3 מקום 2 (תומר 29.10 00:52): בגיליונות "אהבתי" גבריאלה בגזירה בקצה השמאלי, הטקסט והכפתורים מימין */
+.sw-bs-fig img{display:block;width:100%;height:100%;max-width:none;border:0;border-radius:0;box-shadow:none;background:none;object-fit:cover;object-position:0 0}
+.sw-bs.is-like1,.sw-bs.is-like3,.sw-bs.is-like6{min-height:196px;align-items:flex-start;text-align:right;padding:14px 20px calc(20px + var(--sw-safe-b)) 116px}
+.sw-bs.is-like1 .sw-bs-grip,.sw-bs.is-like3 .sw-bs-grip,.sw-bs.is-like6 .sw-bs-grip{position:absolute;top:8px;left:50%;margin-left:-22px}
+.sw-bs.is-like1 .sw-bs-art,.sw-bs.is-like3 .sw-bs-art,.sw-bs.is-like6 .sw-bs-art{position:absolute;left:0;bottom:0;margin:0}
+.sw-bs-fig{position:relative;display:block;width:96px;height:146px;overflow:hidden}
+.sw-bs-art .sw-bs-heart{left:68px;bottom:80px}
+.sw-bs.is-like1 :is(.sw-bs-title,.sw-bs-sub),.sw-bs.is-like3 :is(.sw-bs-title,.sw-bs-sub),.sw-bs.is-like6 :is(.sw-bs-title,.sw-bs-sub){text-align:right}
+.sw-bs.is-like1 .sw-bs-btns,.sw-bs.is-like3 .sw-bs-btns,.sw-bs.is-like6 .sw-bs-btns{align-self:stretch}
+@media(min-width:1024px){
+  .sw-bs.is-like1,.sw-bs.is-like3,.sw-bs.is-like6{width:404px;min-height:176px}
+  .sw-bs-fig{width:88px;height:126px}
+  .sw-bs-art .sw-bs-heart{left:60px;bottom:66px}
+}
 .sw-bs-heart{position:absolute;bottom:-2px;left:calc(50% + 18px);width:24px;height:24px;border-radius:50%;background:#fff;color:#1f8a4c;font-size:14px;line-height:24px;box-shadow:0 2px 6px rgba(13,27,61,.2)}
 .sw-bs-svg{width:64px;height:64px}
 .sw-bs-viz{width:168px;height:96px}
@@ -762,8 +774,9 @@ html body .sw-art-stitle{margin:14px 0 4px;font-family:Heebo,system-ui,sans-seri
 .sw-bs.is-form{max-height:min(88dvh,720px);text-align:start;align-items:stretch}
 .sw-bs.is-form .sw-bs-title{text-align:center}
 .sw-seller-sheet{display:flex;flex-direction:column;gap:10px}
-.sw-seller-gab{display:flex;align-items:center;gap:10px;margin:0;padding:10px 12px;border-radius:14px;background:var(--sw-cream);font-size:14px;line-height:1.5}
-.sw-seller-gab img{width:48px;height:48px;border-radius:50%;border:2px solid #c9a227;object-fit:cover;object-position:top;flex:none}
+/* ‏D3 מקום 3: גבריאלה בגזירה בפינה השמאלית התחתונה של התיבה */
+.sw-seller-gab{position:relative;display:flex;align-items:center;min-height:80px;margin:0;padding:12px 14px 12px 92px;border-radius:14px;background:var(--sw-cream);font-size:14px;line-height:1.5}
+.sw-seller-gab img{position:absolute;left:0;bottom:0;width:84px;height:102px;max-width:none;border:0;border-radius:0 0 0 14px;box-shadow:none;background:none;object-fit:cover;object-position:0 0;pointer-events:none}
 .sw-sform{display:flex;flex-direction:column;gap:10px}
 .sw-sform fieldset{margin:0;padding:0;border:0}
 .sw-sform legend{margin:0 0 6px;padding:0;font-size:var(--sub-h);font-weight:800;color:var(--sw-title)}

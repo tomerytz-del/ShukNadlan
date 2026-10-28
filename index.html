@@ -2313,6 +2313,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .menu-gab-link img{width:40px;height:40px;border-radius:50%;flex:none;border:2px solid var(--brass)}
   .menu-gab-link b{display:block;font-size:15px;font-weight:800}
   .menu-gab-link span span{display:block;font-size:12.5px;color:#4a5872;font-weight:500}
+  /* ‏D3 מקום 5 (תומר 29.10, עם הדגל): גבריאלה בגזירה בקצה השמאלי של השורה, ראש וכתפיים מעל הכרטיס */
+  html.beta-hero .menu-gab{margin-top:30px;margin-bottom:8px}
+  html.beta-hero .menu-gab-link,html.beta-hero .mobile-menu a.menu-gab-link{position:relative;padding-left:84px}
+  html.beta-hero .menu-gab-link img{position:absolute;left:-1px;bottom:-1px;width:76px;height:90px;max-width:none;border:0;border-radius:0 0 0 12px;box-shadow:none;background:none;object-fit:cover;object-position:0 0;pointer-events:none}
 
   .hero.hero-valley{isolation:isolate}
   .hero.hero-valley.map-closed{background:#eaf1fb}
@@ -2869,6 +2873,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   }
   .split-gab{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--brass-tint);font-size:14px;color:var(--sapphire);text-decoration:none;text-align:start;border:0;cursor:pointer;font-family:inherit;min-height:56px;box-sizing:border-box}
   .split-gab img{width:36px;height:36px;border-radius:50%;flex:none;border:2px solid var(--brass)}
+  /* ‏D3 מקום 6 (עם הדגל): הכרטיס האחרון ברשימה שליד המפה */
+  html.beta-hero .split-gab{position:relative;padding-left:88px}
+  html.beta-hero .split-gab img{position:absolute;left:0;bottom:0;width:80px;height:104px;max-width:none;border:0;border-radius:0 0 0 12px;box-shadow:none;background:none;object-fit:cover;object-position:0 0;pointer-events:none}
+  @media(min-width:1024px){html.beta-hero .split-gab{margin-top:26px;min-height:64px;padding-left:80px}html.beta-hero .split-gab img{width:72px;height:88px}}
   .split-gab b{font-weight:700}
   @media(max-width:1023px){
     .hero.map-open{--strip-h:112px}
@@ -3898,8 +3906,13 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero #searchResults .ssa-empty,html.beta-hero #ssaOpenBtn{display:none !important}
   html.beta-hero .gab-alert{display:flex;align-items:center;gap:12px;margin:14px 0 4px;padding:14px;border-radius:16px;
     border:1px solid rgba(14,42,107,.14);background:#f6f1e7 url("/assets/chat-doodle-120.svg") 0 0/120px 120px}
-  html.beta-hero .gab-alert-img{flex:none;width:48px;height:48px;border-radius:50%;object-fit:cover;object-position:top;
-    background:#f6f1e7;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--v10-gold)}
+  /* ‏D3 מקום 7 (תומר 29.10): גבריאלה בגזירה בפינה השמאלית התחתונה של התיבה, בלי עיגול וטבעת */
+  html.beta-hero .gab-alert{position:relative;min-height:164px;padding:14px 14px 14px 104px}
+  html.beta-hero .gab-alert-img{position:absolute;left:-1px;bottom:-1px;width:96px;height:156px;max-width:none;border:0;border-radius:0 0 0 16px;box-shadow:none;background:none;object-fit:cover;object-position:0 0;pointer-events:none}
+  @media(min-width:480px){
+    html.beta-hero .gab-alert{margin-top:44px;min-height:84px;padding-left:120px}
+    html.beta-hero .gab-alert-img{width:104px;height:124px}
+  }
   html.beta-hero .gab-alert-copy{flex:1;min-width:0}
   html.beta-hero .gab-alert-title{margin:0;color:var(--v10-navy);font-size:var(--sub-h);font-weight:800;line-height:1.3;text-wrap:balance}
   html.beta-hero .gab-alert-sub{margin:3px 0 0;color:var(--v10-body);font-size:13px;line-height:1.45}
