@@ -885,7 +885,13 @@
     document.body.classList.add('sw-locked');
     openStack.push(el);
     setTimeout(reelSync, 0);
-    setTimeout(function () { var f = focusables(el)[0]; if (f) f.focus({ preventScroll: true }); }, 30);
+    /* הפוקוס על כותרת החלון (‏tabindex=-1, בלי טבעת) ולא על הכפתור הראשון: בטלפון "ניקוי הכול"
+       נפתח עם מסגרת זהב, כאילו נבחר (דיווח של תומר, 29.10). קורא מסך מקריא את הכותרת */
+    setTimeout(function () {
+      var h = el.querySelector('h2, h3');
+      if (h && h.getClientRects().length) { if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); return; }
+      var f = focusables(el)[0]; if (f) f.focus({ preventScroll: true });
+    }, 30);
   }
   function closeDialog(el, back) {
     if (el.hidden) return;
