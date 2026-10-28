@@ -1549,8 +1549,15 @@
   function bindBa(el, inCard) {
     if (!el) return;
     var strip = el.querySelector('.sw-ba-strip'), on = false, sx = 0, sy = 0, axis = '';
+    /* ‏Variant C: בטלפון הווילון נעצר 56px מהקצה - שולי הידית (48px) לפחות 32px מהמסך, ולעולם לא
+       על הלשונית של גבריאלה (18px). במחשב 3-97 כמו קודם */
+    function bounds() {
+      var w = el.getBoundingClientRect().width || 1;
+      return phoneC() ? [Math.max(8, 56 / w * 100), Math.min(92, 100 - 56 / w * 100)] : [3, 97];
+    }
     function set(pos) {
-      pos = Math.max(3, Math.min(97, pos));
+      var b = bounds();
+      pos = Math.max(b[0], Math.min(b[1], pos));
       el.style.setProperty('--pos', pos + '%');
       strip.setAttribute('aria-valuenow', String(Math.round(pos)));
     }
@@ -1597,14 +1604,20 @@
       if (d) { set(v + d); touched(); handGone(); }
     });
     el._set = set;
+    var b0 = bounds();
+    strip.setAttribute('aria-valuemin', String(Math.ceil(b0[0])));
+    strip.setAttribute('aria-valuemax', String(Math.floor(b0[1])));
     if (inCard) placeBa(el);
   }
   /* ‏P0-2: הידית והרמז בחלק העליון של התמונה, מעל בלוק הטקסט (‏--ba-y לפי גובה ‎.sw-cbody‎) */
   function placeBa(el) {
     var card = el.closest('.sw-card'), body = card && card.querySelector('.sw-cbody');
     if (!card || !body) return;
-    var h = card.clientHeight, bh = body.offsetHeight;
-    el.style.setProperty('--ba-y', Math.max(70, Math.min(h * 0.38, h - bh - 60)) + 'px');
+    var h = card.clientHeight, bh = body.offsetHeight, y = Math.max(70, Math.min(h * 0.38, h - bh - 60));
+    // ‏Variant C: בטלפון הידית מעל המסילה, כדי שבעצירה השמאלית היא לא תשב עליה
+    var rail = $('swRail');
+    if (phoneC() && rail && !rail.hidden && rail.offsetHeight) y = Math.min(y, rail.getBoundingClientRect().top - card.getBoundingClientRect().top - 40);
+    el.style.setProperty('--ba-y', y + 'px');
     el.style.setProperty('--cbody-h', bh + 'px');
   }
   /* פעם במכשיר: הידית זזה 50% → 70% וחוזרת, כשהשקופית גלויה ואין גיליון מעליה */
@@ -1999,7 +2012,7 @@
     if (!card) return;
     // במחשב: בלי גרירה מקורית של תמונה (אחרת הכרטיס לא זז והחותמת נשארת ב-0)
     top.addEventListener('dragstart', function (e) { e.preventDefault(); });
-    var sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false, tapPromo = false;
+    var sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false, tapPromo = false, tapOk = true;
     var stampLike = card.querySelector('.sw-stamp.is-like'), stampSkip = card.querySelector('.sw-stamp.is-skip');
     // החותמת מתמלאת עם הגרירה (‏dx/100), ובמאה פיקסלים ההחלטה נופלת
     function stamps(v) {
@@ -2010,6 +2023,8 @@
       if (e.target.closest('button,a,input,label,form,textarea')) return;
       if (e.target.closest('.sw-ba')) return;   // הווילון - לא הכרטיס (P0-8)
       drag = true; moved = false; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+      // הקשה על התגיות, הפסים או בלוק המחיר לא מחליפה תמונה; גרירה משם עדיין מחליקה (כך מחליקים בשקופית ההדמיה)
+      tapOk = !phoneC() || !e.target.closest('.sw-ctop,.sw-bars,.sw-cbody');
       card.setPointerCapture(e.pointerId);
       card.style.transition = 'none';
     });
@@ -2031,7 +2046,7 @@
       card.style.transform = '';
       if (dy < -90 && Math.abs(dx) < 80) { if (c && PROMO[c.slot]) promoGo(c, 'up'); else openSheetFor(c); return; }
       if (!moved && c && PROMO[c.slot]) { tapPromo = true; return; }
-      if (!moved && c && c.slot === 'property') {
+      if (!moved && tapOk && c && c.slot === 'property') {
         var r = card.getBoundingClientRect();
         // RTL: הקשה בצד ימין = התמונה הקודמת, בצד שמאל = הבאה
         nextPhoto(top, (sx - r.left) < r.width / 2 ? 1 : -1);
