@@ -791,3 +791,10 @@ body[data-view=list] .sw-layout{display:inline-flex}
 .sw-fext[hidden]{display:none}
 .sw-fext-h{font-size:14px;font-weight:800;color:var(--sw-title)}
 .sw-fext-chip{min-height:44px}
+
+/* מתגי "רק נכסים עם…" בגיליון הסינון: שתי עמודות, ותא שהמתג שלו מוסתר יורד */
+.sw-fgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;align-items:start}
+.sw-fcell{min-width:0}
+.sw-fcell:has(> .sw-chips[hidden]){display:none}
+.sw-fcell .sw-chips{flex-wrap:wrap}
+.sw-fcell .sw-chip{max-width:100%;white-space:normal;text-align:center;line-height:1.25}
