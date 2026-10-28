@@ -8,6 +8,7 @@ import {
   sendButtons,
   sendContactCard,
   sendCtaUrl,
+  sendList,
   sendText,
   verifySignature,
 } from "./whatsapp.ts";
@@ -16,19 +17,35 @@ import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
+import { showingCancelNotifyReply } from "./showing-actions.ts";
+import { loadRecentPushesNote, loadReplyPrefix, rememberReplyTo } from "./reply-context.ts";
 import {
   type AgentRow,
   type ConversationState,
   loadProfile,
   type OutboxItem,
   profileGaps,
+  listingActionReply,
   runAgentTurn,
   showcaseButtonReply,
   warmPromptCache,
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { collapseCreatedPropertyEdits } from "./listing-defaults.ts";
+import { setPairReserve } from "../_shared/wa-pair-pace.ts";
+import { alertPlatformAdmins, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
+import {
+  isLessKeptType,
+  LESS_HOLD_DAYS,
+  parseLessButton,
+  parseMoreButton,
+  RESTORE_COMMAND,
+  RESTORE_TITLE,
+  topicLabel,
+} from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { absoluteUrl, ctaLabel, listTextFallback, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -128,6 +145,116 @@ const TIER_REQUIRED_MSG =
   "לפרטים ולשדרוג: https://shuknadlan.co.il/pricing";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
+const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/$/, "");
+
+// מרווח בין הודעות לאותו מספר, גם מול התראות שרצות בפונקציה אחרת.
+// בלי המיגרציה ה-RPC נכשל והמרווח המקומי ב-wa-pair-pace נשאר.
+setPairReserve(async (phone, gapMs) => {
+  const { data, error } = await supabase.rpc("whatsapp_pair_reserve", {
+    p_phone: phone,
+    p_gap_ms: gapMs,
+  });
+  if (error) return 0;
+  const n = Number(data);
+  return Number.isFinite(n) ? n : 0;
+});
+
+async function outboundAfterInbound(phone: string, waMessageId: string): Promise<boolean> {
+  const { data: inbound } = await supabase.from("whatsapp_messages")
+    .select("created_at")
+    .eq("wa_message_id", waMessageId)
+    .eq("direction", "in")
+    .maybeSingle();
+  if (!inbound?.created_at) return false;
+  const { data: out } = await supabase.from("whatsapp_messages")
+    .select("id")
+    .eq("wa_phone", phone)
+    .eq("direction", "out")
+    .gte("created_at", inbound.created_at)
+    .limit(1);
+  return !!out?.length;
+}
+
+async function fallbackConversation(
+  agentId: string | null,
+  phone: string,
+): Promise<{ id: string; channel: "agent" | "public" } | null> {
+  if (agentId) {
+    const { data, error } = await supabase.from("whatsapp_conversations")
+      .select("id").eq("agent_id", agentId).maybeSingle();
+    if (error || !data?.id) return null;
+    return { id: String(data.id), channel: "agent" };
+  }
+  const { data, error } = await supabase.from("whatsapp_public_conversations")
+    .select("id").eq("wa_phone", phone).maybeSingle();
+  if (error || !data?.id) return null;
+  return { id: String(data.id), channel: "public" };
+}
+
+async function replyAfterLlmFailure(
+  to: string,
+  agentId: string | null,
+  err: unknown,
+  inboundWaId: string | null,
+): Promise<void> {
+  const kind = llmFailureKind(err);
+  const audience = agentId ? "agent" : "visitor";
+  const detail = llmErrorText(err).slice(0, 300);
+  console.error("llm turn failed", audience, kind, isModelCallError(err), detail);
+  // תשובה שכבר יצאה בתור הזה לא מקבלת הודעת כשל שנייה.
+  if (inboundWaId && await outboundAfterInbound(to, inboundWaId)) return;
+  const conv = await fallbackConversation(agentId, to);
+  let send = true;
+  if (conv) {
+    const { data, error } = await supabase.rpc("gabriela_llm_fallback_log", {
+      p_conversation_id: conv.id,
+      p_channel: conv.channel,
+      p_reason: kind,
+    });
+    if (error) {
+      const code = String(error.code || "");
+      // הטבלה עוד לא עלתה: שולחים, כמו קודם. כשל אחר לא משתיק את התשובה.
+      if (code !== "42883" && code !== "PGRST202") console.error("llm fallback log failed", code);
+    } else {
+      send = data === true;
+    }
+  }
+  if (send) {
+    const failText = fallbackReply(kind, audience, SITE_BASE);
+    if (audience === "agent") {
+      await sendOutbox(to, [{
+        kind: "cta",
+        body: failText,
+        label: "לאזור האישי",
+        url: withClickUrl(absoluteUrl(SITE_BASE, FALLBACK_AGENT_PATH), "fallback"),
+      }], agentId);
+    } else {
+      await reply(to, failText, agentId);
+    }
+  }
+  if (!isModelCallError(err)) return;
+  await alertPlatformAdmins({
+    recentCount: async (type, title, since) => {
+      const { count } = await supabase.from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("type", type)
+        .eq("title", title)
+        .gte("created_at", since);
+      return count ?? 0;
+    },
+    adminIds: async () => {
+      const { data } = await supabase.from("agency_members")
+        .select("id")
+        .eq("is_platform_admin", true)
+        .eq("active", true);
+      return (data || []).map((r) => String(r.id));
+    },
+    insert: async (rows) => {
+      const { error } = await supabase.from("notifications").insert(rows);
+      return error?.message ?? null;
+    },
+  }, kind, detail);
+}
 
 // ---------------------------------------------------------------------------
 // יומן הודעות
@@ -149,8 +276,62 @@ async function logInbound(msg: Record<string, any>): Promise<boolean> {
   if (error) {
     if (error.code === "23505") return false; // כבר טופלה
     console.error("inbound log failed", error);
+    return true;
   }
+  await rememberReplyTo(supabase, String(msg.id || ""), msg);
   return true;
+}
+
+async function replyButtons(
+  to: string,
+  raw: string,
+  buttons: { id: string; title: string }[],
+  agentId: string,
+): Promise<void> {
+  const body = formatForWhatsapp(raw);
+  let waMessageId: string | null = null;
+  let sendError: string | null = null;
+  try {
+    waMessageId = await sendButtons(to, body, buttons);
+  } catch (err) {
+    sendError = String((err as Error)?.message || err);
+    console.error("reply buttons failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: to,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body: `${body}\n[${buttons.map((b) => b.title).join(" | ")}]`,
+    status: waMessageId ? "sent" : null,
+    error: sendError,
+  });
+  if (sendError) await reply(to, body, agentId);
+}
+
+async function restoreLessNotifs(to: string, agentId: string, type: string | null): Promise<void> {
+  const released = await supabase.rpc("notification_push_less_release", {
+    p_agent: agentId,
+    p_type: type,
+  });
+  let error = released.error;
+  if (error) {
+    // הפונקציה עולה עם המיגרציה. עד אז אותה מחיקה, בלי לסמן skipped.
+    let q = supabase.from("agent_notif_less").delete().eq("agent_id", agentId);
+    if (type) q = q.eq("notif_type", type);
+    error = (await q).error;
+  } else if (released.data !== true) {
+    await reply(to, "לא מצאתי הפחתה להחזיר.", agentId);
+    return;
+  }
+  if (error) {
+    console.error("notif less restore failed", error.message);
+    await reply(to, "לא הצלחתי להחזיר את ההתראות. אפשר לנסות שוב, או מהמסך התראות והודעות.", agentId);
+    return;
+  }
+  const what = type ? `בנושא ${topicLabel(type)} ` : "";
+  await reply(to, `החזרתי את ההתראות ${what}לקצב הרגיל.`, agentId);
 }
 
 async function reply(
@@ -194,18 +375,27 @@ async function reply(
  * כישלון אחת אינו עוצר את הבאה; ושורת היומן נושאת את השגיאה.
  */
 async function sendOutbox(to: string, items: OutboxItem[], agentId: string | null): Promise<void> {
-  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת
+  // כמה נכסים שנוצרו בתור אחד - הודעת עריכה אחת, לא כפתור לכל נכס.
+  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת.
   const seen = new Set<string>();
-  for (const item of items) {
-    const key = item.kind === "cta" ? item.url : item.buttons.map((b) => b.id).join("|");
+  for (const item of collapseCreatedPropertyEdits(items)) {
+    const key = item.kind === "cta"
+      ? item.url
+      : item.kind === "list"
+      ? item.rows.map((row) => row.id).join("|")
+      : item.buttons.map((b) => b.id).join("|");
     if (seen.has(key)) continue;
     seen.add(key);
     const logBody = item.kind === "cta"
       ? `${item.body}\n[${item.label}] ${item.url}`
+      : item.kind === "list"
+      ? `${item.body}\n[${item.rows.map((row) => row.title).join(" | ")}]`
       : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
     try {
       const waMessageId = item.kind === "cta"
         ? await sendCtaUrl(to, item.body, item.label, item.url)
+        : item.kind === "list"
+        ? await sendList(to, item.body, item.button, item.section, item.rows)
         : await sendButtons(to, item.body, item.buttons);
       await supabase.from("whatsapp_messages").insert({
         wa_message_id: waMessageId, direction: "out", wa_phone: to, agent_id: agentId,
@@ -217,8 +407,13 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
         direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
         body: logBody, error: String((err as Error)?.message || err),
       });
-      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח
+      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח.
+      // רשימה: כל שורת nav עם הכתובת שלה. בלי זה נכס או ליד שלא חזרו
+      // ב-crm_link נשארים בלי דרך פתיחה.
       if (item.kind === "cta") await reply(to, `${item.label}: ${item.url}`, agentId);
+      else if (item.kind === "list") {
+        await reply(to, listTextFallback(SITE_BASE, item.body, item.rows), agentId);
+      }
     }
   }
 }
@@ -744,7 +939,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
       const media = msg.audio || msg.voice;
       const transcript = await transcribeAudio(media.id);
       if (!transcript) {
-        await reply(from, "לא הצלחתי לשמוע את ההקלטה. אפשר לכתוב לי מה מחפשים?", null);
+        await reply(from, "לא הצלחתי לשמוע את ההקלטה, גם אחרי ניסיון נוסף. אפשר לכתוב לי מה מחפשים?", null);
         return;
       }
       userText = transcript;
@@ -819,7 +1014,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     // נשמר גם בכשל: אם הכלי הספיק לפתוח ליד לפני שהתור נפל, המונה שלו כבר
     // עלה — ותקרה שנשכחת בכל שגיאה אינה תקרה.
     await savePublicConversation(from, conv);
-    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", null);
+    await replyAfterLlmFailure(from, null, err, String(msg.id || ""));
     return;
   }
 
@@ -979,6 +1174,15 @@ function rememberPhotoAction(conv: ConversationState, text: string): void {
   conv.history = [
     ...conv.history,
     { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: טיפול בתמונות שהסוכן/ת שלח/ה]" },
+    { role: "assistant", content: text },
+  ];
+}
+
+/** לחיצה על כפתור מחיקה או הסכם. בלי זה גבריאלה לא רואה מה הוובהוק כבר עשה. */
+function rememberListingAction(conv: ConversationState, text: string): void {
+  conv.history = [
+    ...conv.history,
+    { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: לחיצה על כפתור אישור]" },
     { role: "assistant", content: text },
   ];
 }
@@ -1205,6 +1409,37 @@ async function flushImageBatch(
   await saveConversation(agentId, from, conv);
 }
 
+const WA_STOP_WORDS = new Set(["הפסק", "הפסקה", "wa_stop"]);
+
+/** הודעה שהיא רק מילת ההפסקה, או לחיצה על כפתור ההפסקה בתבנית. */
+function isWhatsappStop(msg: Record<string, any>): boolean {
+  const raw = msg.type === "button"
+    ? String(msg.button?.payload || msg.button?.text || "")
+    : msg.type === "interactive"
+    ? String(msg.interactive?.button_reply?.id || msg.interactive?.button_reply?.title || "")
+    : msg.type === "text" && !forwardedPrefix(msg)
+    ? String(msg.text?.body || "")
+    : "";
+  const token = raw.replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim();
+  return WA_STOP_WORDS.has(token);
+}
+
+/** אותו כיבוי ערוץ כמו 131050. אחריו כפתור למסך שמפעיל מחדש. */
+async function applyWhatsappStop(agentId: string, from: string): Promise<void> {
+  const { error } = await supabase.rpc("notification_push_opt_out", { p_agent_id: agentId });
+  if (error) {
+    console.error("whatsapp stop failed", error.message);
+    await reply(from, "לא הצלחתי להפסיק את ההתראות כרגע. אפשר לכבות אותן במסך התראות והודעות.", agentId);
+    return;
+  }
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "ההתראות בוואטסאפ הופסקו. להפעלה מחדש:",
+    label: ctaLabel("/crm?goto=accNotifPrefs"),
+    url: absoluteUrl(SITE_BASE, "/crm?goto=accNotifPrefs"),
+  }], agentId);
+}
+
 async function handleMessage(msg: Record<string, any>): Promise<void> {
   const from: string = msg.from;
   if (!from || !msg.id) return;
@@ -1303,6 +1538,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
     return;
   }
+  // "הפסק" / "הפסקה", או כפתור תשובה מהירה באותו טקסט. לפני המודל ולפני
+  // גייט המסלול: תבנית UTILITY אינה נושאת כפתור כיבוי, והמילה היא הכיבוי.
+  if (isWhatsappStop(msg)) {
+    await applyWhatsappStop(agent.id, from);
+    return;
+  }
   // הגייטינג נעשה כאן, לפני שההודעה מומרת לקלט ל-LLM: הבדיקה חייבת לקדום
   // לכל דבר שעולה כסף (Whisper, Claude, אחסון תמונה) ולכל דבר שכותב למסד.
   if (!TIER_ALLOWED.has(String(agent.tier))) {
@@ -1337,10 +1578,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   let newImageUrl: string | null = null;
 
   switch (msg.type) {
-    case "text":
+    case "text": {
+      const typed = String(msg.text?.body || "").trim();
+      if (typed === RESTORE_COMMAND && !forwardedPrefix(msg)) {
+        await restoreLessNotifs(from, agent.id, null);
+        return;
+      }
       userText = forwardedPrefix(msg) + (msg.text?.body || "") +
         (await catalogLinksToText(String(msg.text?.body || ""), agent.id, from));
       break;
+    }
 
     case "contacts":
       userText = await contactsToText(msg.contacts, agent.id);
@@ -1448,8 +1695,60 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
+      const buttonId = String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "");
+      const navPath = parseNavId(buttonId);
+      if (navPath) {
+        await sendOutbox(from, [{
+          kind: "cta",
+          body: "נפתח כאן:",
+          label: ctaLabel(navPath),
+          url: absoluteUrl(SITE_BASE, navPath),
+        }], agent.id);
+        return;
+      }
+      const moreType = parseMoreButton(buttonId);
+      if (moreType) {
+        await restoreLessNotifs(from, agent.id, moreType);
+        return;
+      }
+      const lessType = parseLessButton(buttonId);
+      if (lessType) {
+        if (isLessKeptType(lessType)) {
+          await reply(
+            from,
+            `${topicLabel(lessType)} נשארות כרגיל. ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת לא מופחתים.`,
+            agent.id,
+          );
+          return;
+        }
+        const until = new Date(Date.now() + LESS_HOLD_DAYS * 86400000).toISOString();
+        const { error: lessErr } = await supabase.from("agent_notif_less").upsert(
+          { agent_id: agent.id, notif_type: lessType, expires_at: until },
+          { onConflict: "agent_id,notif_type" },
+        );
+        if (lessErr) {
+          console.error("notif less save failed", lessErr.message);
+          await reply(from, "לא הצלחתי לשמור את זה. אפשר לנסות שוב אחרי עדכון המערכת.", agent.id);
+          return;
+        }
+        const lessBody =
+          `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. ` +
+          `הן יוצאות רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, ל-${LESS_HOLD_DAYS} יום. ` +
+          `ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת ממשיכים כרגיל. ` +
+          `להחזרה: הכפתור, "${RESTORE_COMMAND}", או המסך התראות והודעות.`;
+        await replyButtons(from, lessBody, [{ id: `nmore:${lessType}`, title: RESTORE_TITLE }], agent.id);
+        return;
+      }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)
       if (await photoButtonReply(agent.id, from, conv, String(msg.interactive?.button_reply?.id || ""))) {
+        return;
+      }
+      const listingAct = await listingActionReply(supabase, agentRow as unknown as AgentRow, buttonId);
+      if (listingAct) {
+        if (listingAct.text) await reply(from, listingAct.text, agent.id);
+        if (listingAct.outbox?.length) await sendOutbox(from, listingAct.outbox, agent.id);
+        rememberListingAction(conv, listingAct.text || "הפעולה מהכפתור בוצעה.");
+        await saveConversation(agent.id, from, conv);
         return;
       }
       // ‏"תצוגה מקדימה" / "נוסח להעתקה" אחרי פתיחת מיניסייט (agent.ts): המזהה
@@ -1467,6 +1766,13 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
       if (coordReply) {
         await reply(from, coordReply, agent.id);
+        return;
+      }
+      // "להודיע על הביטול" אחרי cancel_showing (showing-actions.ts).
+      const cancelNote = await showingCancelNotifyReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (cancelNote) {
+        await reply(from, cancelNote, agent.id);
         return;
       }
       // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
@@ -1514,6 +1820,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // תור אחד על כל מה שנאסף. בלי זה כל טקסט הריץ תור משלו, והתשובות סתרו זו
   // את זו (22.9: "רק חסר מחיר" ו"חסר לי סוג הנכס" באותה שנייה).
   // ‏docs/whatsapp-setup.md, מיגרציות 20270115095000 ו-20270115099000.
+  const replyLead = await loadReplyPrefix(supabase, agent.id, msg);
+  if (replyLead) userText = replyLead + userText;
+
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
     p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
   });
@@ -1560,6 +1869,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     return;
   }
 
+  // אחרי טעינת השיחה מחדש: אחרת Object.assign מוחק את ההערה.
+  conv.recent_note = await loadRecentPushesNote(supabase, agent.id);
+
   // התמונה של התור הנוכחי נשלחת למודל כדי שיוכל לשפר את התיאור
   // ("דירה משופצת עם מרפסת") מתוך מה שרואים בפועל
   if (newImageUrl) {
@@ -1589,7 +1901,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await supabase.from("whatsapp_messages")
       .update({ error: String((err as Error)?.message || err) })
       .eq("wa_message_id", msg.id);
-    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", agent.id);
+    await replyAfterLlmFailure(from, agent.id, err, String(msg.id || ""));
     return;
   }
 
@@ -1672,6 +1984,25 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
           await handleMessage(msg);
         } catch (err) {
           console.error("message handling failed", err);
+          // גם כשל מחוץ ל-try של המודל לא משאיר את הפונה בלי תשובה.
+          // סוכן/ת פעיל/ה מקבל/ת קישור לאזור האישי. לקוח/ה, בעלים, חותם/ת
+          // וגולש/ת לא. כשל בשליחה כאן לא מונע טיפול ב-statuses שבהמשך.
+          const from = String(msg?.from || "");
+          if (!from) continue;
+          try {
+            const { data: who } = await supabase.from("agency_members")
+              .select("id")
+              .eq("phone_e164", from)
+              .eq("active", true)
+              .limit(1);
+            const agentId = who?.[0]?.id ? String(who[0].id) : null;
+            // בוט ציבורי כבוי: שולח/ת לא מוכר/ת לא מקבל/ת הודעת כשל.
+            // ההודעה הקבועה יוצאת רק במסלול הרגיל, כמו קודם.
+            if (!agentId && !publicBotEnabled) continue;
+            await replyAfterLlmFailure(from, agentId, err, msg?.id ? String(msg.id) : null);
+          } catch (sendErr) {
+            console.error("llm failure reply failed", sendErr);
+          }
         }
       }
       // ‏statuses מגיעים לאותו וובהוק. עד היום הם נזרקו, ולכן "נשלח" היה כל
@@ -1796,7 +2127,7 @@ Deno.serve(async (req: Request) => {
     };
     const results = await Promise.all([
       ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", warmPromptCache)] : []),
-      ...(due.includes("gabriela_public") ? [warm("gabriela_public", warmPublicPromptCache)] : []),
+      ...(due.includes("gabriela_public") ? [warm("gabriela_public", () => warmPublicPromptCache(supabase))] : []),
     ]);
     console.log("cache warm", JSON.stringify(results));
     return new Response(JSON.stringify({ results }), {

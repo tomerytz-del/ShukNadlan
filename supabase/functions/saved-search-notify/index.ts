@@ -249,17 +249,86 @@ Deno.serve(async (req: Request) => {
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data: alerts, error } = await sb.rpc("saved_search_pending_alerts", {
-    p_limit: BATCH,
-  });
-  if (error) return json({ error: "db_error", detail: error.message }, 500);
-  if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true });
+  const flag = await sb.rpc("customer_send_window_on");
+  const flagMissing = flag.error && (flag.error.code === "PGRST202" || flag.error.code === "42883");
+  if (flag.error && !flagMissing) {
+    console.error("customer window flag failed", flag.error.code);
+    return json({ sent: 0, failed: 0, deferred: false, reason: "window_error" }, 500);
+  }
+  const flagOn = !flagMissing && flag.data === true;
+  if (!flagOn && !flagMissing) {
+    const prep = await sb.rpc("customer_prepare");
+    if (prep.error && prep.error.code !== "PGRST202" && prep.error.code !== "42883") {
+      console.error("customer prepare failed", prep.error.code);
+    }
+  }
 
-  let sent = 0, failed = 0;
+  const loaded = flagOn
+    ? await sb.rpc("customer_due_alerts", { p_limit: BATCH })
+    : await sb.rpc("saved_search_pending_alerts", { p_limit: BATCH });
+  if (loaded.error) return json({ error: "db_error", detail: loaded.error.message }, 500);
+  const alerts = loaded.data;
+  if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true, deferred: flagOn });
+
+  let sent = 0, failed = 0, deferred = 0;
 
   for (const a of alerts as any[]) {
-    const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both") && !!a.phone_e164;
-    const wantEmail = (a.contact_channel === "email" || a.contact_channel === "both") && !!a.email;
+    const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both")
+      && !!a.phone_e164 && a.whatsapp_status !== "sent";
+    const wantEmail = (a.contact_channel === "email" || a.contact_channel === "both")
+      && !!a.email && a.email_status !== "sent";
+    let phoneHeld = false;
+    let contactKey: string | null = null;
+    let tookClaim = false;
+    let pushSent = false;
+    if (flagOn && (wantWhatsapp || wantEmail)) {
+      const key = await sb.rpc("customer_contact_key", {
+        p_phone: a.phone_e164 ?? null,
+        p_email: a.email ?? null,
+        p_search_id: a.search_id,
+      });
+      contactKey = key.data ? String(key.data) : null;
+      if (contactKey) {
+        const slot = await sb.rpc("customer_phone_claim", {
+          p_key: contactKey,
+          p_ref: a.alert_id,
+          p_backlog: false,
+        });
+        const slotMissing = slot.error && (slot.error.code === "PGRST202" || slot.error.code === "42883");
+        if (slot.error && !slotMissing) {
+          console.error("customer phone claim failed", slot.error.code);
+          failed++;
+          continue;
+        }
+        if (!slotMissing && slot.data === "wait") {
+          deferred++;
+          continue;
+        }
+        if (!slotMissing && slot.data === "cap") {
+          phoneHeld = true;
+        }
+        if (!slotMissing && (slot.data === "ok" || slot.data === "already")) {
+          tookClaim = true;
+          if (slot.data === "ok") {
+            const push = await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
+            pushSent = !push.error && Number(push.data) > 0;
+          } else {
+            const prior = await sb.from("customer_phone_sends")
+              .select("push_sent_at")
+              .eq("ref_id", a.alert_id)
+              .not("push_sent_at", "is", null)
+              .limit(1);
+            pushSent = !prior.error && Array.isArray(prior.data) && prior.data.length > 0;
+          }
+        }
+      }
+    }
+
+    if (phoneHeld) {
+      await sb.rpc("customer_message_defer", { p_alert_id: a.alert_id, p_reason: "cap" });
+      deferred++;
+      continue;
+    }
 
     let waStatus = wantWhatsapp ? "pending" : "not_requested";
     let emStatus = wantEmail ? "pending" : "not_requested";
@@ -296,8 +365,10 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // הסטטוס הכולל נגזר במסד מהשניים, ולא נשלח מכאן - "נשלחה" הוא החלטה
-    // של המוצר (ערוץ אחד שהצליח מספיק), לא של הקוד ששלח.
+    if (tookClaim && !pushSent && waStatus !== "sent" && emStatus !== "sent") {
+      await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
+    }
+
     const { error: markErr } = await sb.rpc("mark_saved_search_alert", {
       p_alert_id: a.alert_id,
       p_whatsapp_status: waStatus,
@@ -310,5 +381,5 @@ Deno.serve(async (req: Request) => {
     else failed++;
   }
 
-  return json({ sent, failed, processed: alerts.length });
+  return json({ sent, failed, deferred, processed: alerts.length });
 });
