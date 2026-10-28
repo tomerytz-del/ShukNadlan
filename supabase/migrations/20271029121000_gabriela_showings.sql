@@ -464,11 +464,7 @@ $$;
 
 
 comment on function public.notification_push_claim(int) is
-<<<<<<<< HEAD:supabase/migrations/20271029121000_gabriela_showings.sql
   'כמו 20270902090000, ובנוסף meeting_id מ-related_meeting_id כדי שסגירת מיניסייט תוכל לשלוח כפתור scn: בלי הודעה ללקוח/ה (20271029121000).';
-========
-  'כמו 20270902090000, ובנוסף meeting_id מ-related_meeting_id כדי שסגירת מיניסייט תוכל לשלוח כפתור scn: בלי הודעה ללקוח/ה (20271028121000).';
->>>>>>>> 06f75d03 (מיגרציות: סיורים 121000, ניצחונות 122000, תקציר 133000):supabase/migrations/20271028121000_gabriela_showings.sql
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;
