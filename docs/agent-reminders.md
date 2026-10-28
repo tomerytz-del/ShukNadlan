@@ -91,7 +91,7 @@
 
 ### 3. הודעה אחת מקבצת את כל התזכורות
 
-חמישה ממצאים = הודעה אחת עם חמש שורות, לא חמש הודעות. חמש הודעות וואטסאפ
+כל הממצאים = הודעה אחת עם שורה לכל ממצא, לא הודעה לכל סוג. חמש הודעות וואטסאפ
 ברצף הן הדרך המהירה ביותר לגרום לסוכן/ת לחסום את המספר — וחסימה אחת עולה
 לנו בכל הנמענים העתידיים דרך דירוג האיכות של Meta.
 
@@ -101,7 +101,7 @@
 
 ## מה מזכירים
 
-חמישה סוגים, וכולם מחושבים מעמודות אמיתיות. הסדר הוא סדר הדחיפות, והוא נקבע
+שישה סוגים, וכולם מחושבים מעמודות אמיתיות. הסדר הוא סדר הדחיפות, והוא נקבע
 ב-`sort_order` במסד כדי שהמייל, הוואטסאפ והדשבורד יציגו את אותו סדר.
 
 | `kind` | מתי | מרווח מינימלי | הקטגוריה שאליה מוביל הקישור |
@@ -111,6 +111,7 @@
 | `stale_listings` | נכס פעיל שלא עודכן ולא הוקפץ 60 יום | 14 יום | "הנכסים שלי" |
 | `idle_listings` | לא נכנס נכס חדש 7 יום | 7 יום | "הנכסים שלי" |
 | `video_opportunity` | נכס פעיל בלי `video_url`, בלי `tour_3d_url` ובלי `has_virtual_tour` | 30 יום | "הנכסים שלי" |
+| `unpublished_listings` | `unpublished`, בלי `license_hold_at`, ו-`unpublished_at` ישן מ-`agent_reminder_unpublished_days` (7). לא `created_at`. שורה שמסומנת "לא עכשיו" או "בלי תזכורת" לא נספרת. `taken_down` מוזכר לכל היותר פעם ב-30 יום. מקור ריק וטיוטה נשארים שבועיים. השורה הזו בתזכורת הישנה יוצאת רק כש-`gabriela_unpublished_digest_enabled=1` | 7 יום, ו-30 ל-`taken_down` | "הנכסים שלי", מסונן לנכסים שלא באוויר |
 
 **המרווח המינימלי הוא פר סוג, ולא פר הודעה** (`agent_reminder_kind_interval`).
 זו אותה הפרדה שחוזרת בכל המבנה: הממצא נכון כל הזמן, אבל ההזכרה עליו חוזרת
@@ -127,6 +128,49 @@
 ושני תנאים ולא אחד — גם הנכס האחרון וגם מועד ההצטרפות חייבים להיות מעבר
 לסף. בלי השני, חשבון שנפתח היום וקיבל נכסים בייבוא עם תאריך היסטורי היה מקבל
 תזכורת על שתיקה ביום הראשון שלו.
+
+### נכסים שלא באוויר
+
+הגיל הוא `properties.unpublished_at`, לא `created_at`. טריגר
+`properties_stamp_unpublished_at` חותם `now()` כשסטטוס יוצא מ-`active`,
+ועל טיוטה חדשה (`unpublished` ביצירה) עם `unpublished_origin = 'draft'`.
+ירידה מ-`active` ל-`unpublished` נחתמת `taken_down`. חזרה ל-`active` מאפסת
+את שניהם. מעבר מ-`sold`, `rented` או `archived` ל-`unpublished` מאפס את
+`unpublished_at` ומסמן `draft`, כדי שהשעון לא יישאר על יום המכירה.
+שורות שכבר היו `unpublished` במיגרציה קיבלו `unpublished_at = now()`
+ובלי מקור, כדי שסבב ראשון לא ישלח, והנוסח לא טוען שהן ירדו מהמדף.
+מקור ריק אינו `taken_down`.
+
+"לא עכשיו" (`unpublished_reminder_snooze`, 30 יום) ו"בלי תזכורת" (`muted`)
+מוציאים את הנכס מהספירה. הקצב לסוכן/ת הוא שבוע (`unpublished_nudge_log`),
+ותקרה גלובלית לסבב.
+
+השליחה היא `unpublished_nudge_enqueue`, שנקראת מ-`agent-reminders` לפני
+ה-claim וסובלת פונקציה שעוד לא עלתה. הדגל `gabriela_unpublished_nudge_enabled`
+נולד 0: כבוי מחזיר ספירה ולא כותב. דלוק כותב התראה אחת מסוג
+`unpublished_nudge` עם `suppress_push = false`, כדי ש-`notification-push`
+והשמירה מפני התפרצות ישלחו אותה. נכס אחד נושא `related_property_id` ושלושה
+כפתורים בחלון 24 השעות (`unpub:p|s|n:<uuid>`: לפרסם, שת״פ, לא עכשיו).
+כמה נכסים נשארים בלי מזהה והכפתור הוא הקישור המסונן. "בלי תזכורת" הוא
+בכרטיס ב-CRM.
+
+שת״פ (`unpublished_collab_request`) נרשם תמיד. ההפצה
+(`unpublished_collab_fanout`) רצה רק כש-`gabriela_collab_share_enabled = 1`,
+הנכס `active`, יש בקשה, ועוד לא הופץ. התקרה היא משרדים לנכס
+(`gabriela_collab_fanout_cap`, 5), לא תקרה לכל משרד. הבחירה דורשת שוק
+של עיר הנכס אצל הסוכן/ת או המשרד (`service_markets`). משרד בלי שווקים
+אינו מתאים, גם אם `agent_share_fit` היה מחזיר אמת. אחר כך מי שקיבל
+הצעה הכי מזמן (`property_shares.created_at`), ואז הגרלה. בלי המשרד של
+הבעלים, בלי מספר טלפון בגוף. ההתראה היא `collab_offer` עם
+`related_property_id`. טריגר אחרי מעבר ל-`active`, וגם אחרי ש-
+`share_with_brokers` נדלק על נכס שכבר באוויר, רושם את הבקשה ומפיץ.
+בחירת היעד מוואטסאפ או מהכרטיס היא אותו מסלול, לא `shared_with_partners`.
+בקשה שנרשמה כשהדגל כבוי נשארת, ו-`unpublished_collab_drain` משלים נכס
+פעיל עם הסימון ובלי שורה, ואז מפיץ עד 20 נכסים בסבב אחרי שהדגל נדלק.
+`unpublished_nudge_enqueue` נועל `pg_advisory_xact_lock` מפני שני סבבים.
+כפתור "לפרסם" בוואטסאפ (`unpub:p`) מפרסם רק `unpublished`, רק לבעל/ת
+הנכס, ורק אם יצאה תזכורת לאותו נכס ב-7 הימים האחרונים.
+`agent_reminders_claim` נקרא עם מפתח `service_role`.
 
 ---
 
@@ -347,11 +391,12 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `stale_listings` | `/crm?goto=accProperties&filter=stale` |
 | `video_opportunity` | `/crm?goto=accProperties&filter=no_video` |
 | `idle_listings` | `/crm?goto=accProperties&focus=new` - טופס נכס חדש |
+| `unpublished_listings` | `/crm?goto=accProperties&filter=unpublished` - נכסים שלא באוויר, לא "מפורסם" |
 
 שלושה מקומות חייבים להסכים: `FINDING_PARAMS` ב-`agent-reminders`,
 ‏`REMINDER_FILTERS` ב-`crm.js` (הכפתור בדשבורד), והגדרת כל סינון
 (‏`propertyHasImage`, ‏`propertyIsExpiring`, ‏`propertyIsStale`,
-‏`propertyHasVideo`) מול התנאי שלו ב-`agent_reminder_findings`. סינון
+‏`propertyHasVideo`, ‏`propertyIsUnpublishedWaiting`) מול התנאי שלו ב-`agent_reminder_findings`. סינון
 שמוגדר אחרת מהממצא פותח "3 נכסים" לרשימה של ארבעה. לכן גם "ללא תמונות"
 מאז מתעלם מנכס שיש לו `marketing_image`, כמו הספירה במסד.
 
@@ -372,10 +417,11 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 
 **`agent_reminder_findings` היא `security invoker` ולא `definer`**, וזו שכבת
 הגנה ולא קפריזה: כשסוכן/ת קורא/ת לה, ה-RLS של `properties` חל עליו/ה. בנוסף
-יש בה שער מפורש (‏CTE בשם `target`) שמחזיר `null` כשה-`current_agent_id()`
-אינו תואם את המזהה שהתבקש — ואז כל הממצאים יוצאים ריקים. בקריאה פנימית
-`current_agent_id()` הוא `null`, ולכן השרת עובר. `agent_reminders_claim` היא
-`definer`, ולכן כשהיא קוראת מכאן ה-RLS ממילא אינו חל והיא רואה את כולם.
+יש בה שער מפורש (‏CTE בשם `target`). המזהה שהתבקש חוזר רק כש-`current_agent_id()`
+תואם, או כש-`current_agent_id()` ריק **וגם** `auth.role()` הוא `service_role`
+(סבב התזכורות), או כש-`current_agent_id()` ריק ומנהל/ת פלטפורמה. משתמש/ת
+מחובר/ת שאינו/ה סוכן/ת מקבל/ת רשימה ריקה. `agent_reminders_claim` היא
+`definer` ורצה כ-`service_role`, ולכן הסבב עדיין רואה את הסוכן/ת של השורה.
 
 ---
 
@@ -388,6 +434,13 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `agent_reminder_idle_days` | 7 | כמה ימים בלי נכס חדש נחשבים לשתיקה |
 | `agent_reminder_stale_days` | 60 | מתי מודעה נחשבת "לא נגעו בה" |
 | `agent_reminder_expiry_days` | 14 | כמה ימים לפני פקיעת תוקף מזכירים |
+| `agent_reminder_unpublished_days` | 7 | כמה ימים אחרי `unpublished_at` נכס unpublished בלי המתנה לרישיון נחשב לתזכורת. מילוי ראשון של העמודה הוא `now()`, ולכן הסבב הראשון אחרי המיגרציה לא שולח |
+| `gabriela_unpublished_nudge_enabled` | 0 | 1 כותב התראה אחת לסוכן/ת לשבוע (`unpublished_nudge`) דרך הפעמון. 0 רק סופר |
+| `gabriela_unpublished_digest_enabled` | 0 | 1 מוסיף את `unpublished_listings` לתזכורת המייל והוואטסאפ הישנה. נשאר 0 כל עוד הדחיפה היא דרך הפעמון, כדי לא לשלוח פעמיים |
+| `gabriela_unpublished_nudge_run_cap` | 25 | כמה סוכנים לכל היותר בסבב אחד |
+| `gabriela_unpublished_snooze_days` | 30 | "לא עכשיו" על נכס אחד |
+| `gabriela_collab_share_enabled` | 0 | 1 מפיץ שת״פ אחרי בקשה, ורק כשהנכס `active`. 0 רק רושם את הבקשה |
+| `gabriela_collab_fanout_cap` | 5 | כמה משרדים לכל היותר מקבלים נכס אחד שנפתח לשת״פ |
 | `agent_reminder_default_cap` | 6 | התקרה של מי שלא שינה/תה |
 | `agent_reminder_video_min_props` | 15 | מינימום נכסים בכל קבוצה ליחס הצפיות |
 | `agent_reminder_video_min_views` | 100 | מינימום צפיות בכל קבוצה ליחס הצפיות |
@@ -405,10 +458,11 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
    נבנה במסד (ההודעה יוצאת גם למי שאינו פותח/ת את הדשבורד).
 2. **שורה ב-`agent_reminder_kind_interval`** — משימה או תובנה. סוג שנשכח שם
    מקבל את ברירת המחדל השמרנית של 14 יום, ולא "בכל סבב".
-3. **שורה ב-`REMINDER_KINDS` ב-crm.html** — הכותרת וההסבר בתיבת הסימון.
+3. **שורה ב-`REMINDER_KINDS` ב-`assets/crm.js`** — הכותרת וההסבר בתיבת הסימון.
 4. **סוג על נכסים: שורה ב-`FINDING_PARAMS` וב-`REMINDER_FILTERS`**, וסינון
    מהיר ב-`#propExtraFilter` שמוגדר בדיוק כמו הממצא - אחרת הקישור פותח
-   את כל הרשימה.
+   את כל הרשימה. `unpublished` גם מחליף את סטטוס הרשימה מ-`active`, אחרת
+   הנכסים שירדו מוסתרים.
 
 סוכן/ת קיים/ת יקבל/תקבל אותו אוטומטית, כי `muted_kinds` היא רשימת מושתקים.
 סוג שנכנס למסד וטרם נרשם ב-crm.html עדיין יופיע ברשימה ועדיין יישלח — הוא רק

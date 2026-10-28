@@ -73,6 +73,10 @@ import {
   parseImageDeleteButton,
   confirmWritesNow,
   parsePublishButton,
+  parseUnpublishedNudgeButton,
+  unpublishedNudgeButtonFresh,
+  unpublishedNudgeCanPublish,
+  UNPUB_BUTTON_TTL_MS,
   listingStatusForCreate,
   pendingStoreMissing,
   PUBLISH_ALREADY,
@@ -6957,6 +6961,9 @@ export async function listingActionReply(
     return runPendingDestination(supabase, agent, destination);
   }
 
+  const nudge = parseUnpublishedNudgeButton(buttonId);
+  if (nudge) return unpublishedNudgeReply(supabase, agent, nudge);
+
   const publish = parsePublishButton(buttonId);
   if (!publish) return null;
   if (publish.action === "no") {
@@ -6979,11 +6986,15 @@ function destinationStoreMissing(error: { code?: string; message?: string } | nu
   return /publish_channels|share_with_brokers/.test(String(error?.message || ""));
 }
 
-function collabRpcMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+function rpcNotInstalled(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const code = String(error.code || "");
   if (code === "42883" || code === "PGRST202" || code === "42P01" || code === "PGRST205") return true;
   return /does not exist|schema cache/i.test(String(error.message || ""));
+}
+
+function collabRpcMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return rpcNotInstalled(error);
 }
 
 async function gabrielaSocialFlagOn(supabase: SupabaseClient): Promise<boolean> {
@@ -7106,6 +7117,116 @@ async function runPendingDestination(
   });
   await markPublishDone(supabase, agent.id, choice.requestId, text);
   return { text };
+}
+
+/**
+ * לחיצה על תזכורת של נכס אחד: לפרסם, שת״פ, לא עכשיו, או בלי תזכורת.
+ * השיתוף נרשם תמיד. ההפצה יוצאת רק כשהדגל דלוק והנכס כבר באוויר.
+ */
+async function unpublishedNudgeReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  nudge: { action: "publish" | "share" | "snooze" | "mute"; propertyId: string },
+): Promise<{ text: string }> {
+  const { data: prop, error: propErr } = await supabase.from("properties")
+    .select("id, title, status, agent_id, agency_id, license_hold_at")
+    .eq("id", nudge.propertyId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (propErr) {
+    console.error("unpublished nudge load failed", propErr.code);
+    return { text: "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." };
+  }
+  if (!prop || !ownsRow(agent, prop)) return { text: "לא נמצא נכס כזה אצל הסוכן/ת." };
+
+  if (nudge.action === "publish") {
+    if (prop.status === "active") return { text: PUBLISH_ALREADY };
+    if (!unpublishedNudgeCanPublish(prop.status)) {
+      return { text: "אפשר לפרסם מכאן רק נכס שלא באוויר. נכס שנמכר או בארכיון לא חוזר לאוויר מהכפתור." };
+    }
+    const since = new Date(Date.now() - UNPUB_BUTTON_TTL_MS).toISOString();
+    const { data: note, error: noteErr } = await supabase.from("notifications")
+      .select("created_at")
+      .eq("agent_id", agent.id)
+      .eq("type", "unpublished_nudge")
+      .eq("related_property_id", prop.id)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (noteErr) {
+      console.error("unpublished nudge age failed", noteErr.code);
+      return { text: "לא הצלחתי לבדוק את הכפתור. אפשר לפרסם מאזור האישי." };
+    }
+    if (!unpublishedNudgeButtonFresh(note?.created_at, Date.now())) {
+      return { text: "הכפתור פג. אפשר לפרסם את הנכס מאזור האישי." };
+    }
+    const nowIso = new Date().toISOString();
+    const { data: updated, error } = await supabase.from("properties")
+      .update({ status: "active", updated_at: nowIso })
+      .eq("id", prop.id)
+      .eq("agent_id", agent.id)
+      .in("status", ["unpublished", "draft"])
+      .select("status, license_hold_at, title")
+      .maybeSingle();
+    if (error) {
+      console.error("unpublished nudge publish failed", error.code, error.message);
+      return { text: publishErrorText(error.message) };
+    }
+    if (!updated) {
+      return { text: "אפשר לפרסם מכאן רק נכס שלא באוויר. נכס שנמכר או בארכיון לא חוזר לאוויר מהכפתור." };
+    }
+    if (updated?.license_hold_at || updated?.status !== "active") {
+      return { text: "הנכס יעלה לאוויר ברגע שרישיון התיווך יאושר." };
+    }
+    const title = String(updated?.title || prop.title || "").trim();
+    return { text: title ? `הנכס "${title}" פורסם.` : "הנכס פורסם." };
+  }
+
+  if (nudge.action === "share") {
+    if (prop.status !== "unpublished" && prop.status !== "draft" && prop.status !== "active") {
+      return { text: "נכס שנמכר או בארכיון לא נפתח לשת״פ מהכפתור." };
+    }
+    const { data, error } = await supabase.rpc("unpublished_collab_request", {
+      p_property_id: prop.id,
+      p_agent_id: agent.id,
+    });
+    if (error) {
+      console.error("unpublished collab failed", error.code, error.message);
+      return {
+        text: rpcNotInstalled(error)
+          ? "אפשר לרשום שת״פ מאזור האישי."
+          : "לא הצלחתי לרשום שת״פ. אפשר לנסות מאזור האישי.",
+      };
+    }
+    const row = (data || null) as { ok?: boolean; reason?: string; shared?: boolean } | null;
+    if (!row || row.ok === false) return { text: "לא הצלחתי לרשום שת״פ. אפשר לנסות מאזור האישי." };
+    if (row.reason === "flag_off") {
+      return { text: "רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה. כשיידלק, ההפצה תצא." };
+    }
+    if (row.reason === "waiting_for_publish") return { text: "רשמתי. ההפצה תצא אחרי שהנכס באוויר, בלי מספר טלפון." };
+    if (row.reason === "already_sent") return { text: "הנכס כבר נפתח לשת״פ." };
+    if (row.shared) return { text: "הנכס נפתח לשת״פ. נשלחה התראה למשרדים מתאימים, בלי מספר טלפון." };
+    return { text: "רשמתי את הבקשה לשת״פ." };
+  }
+
+  const mode = nudge.action === "mute" ? "mute" : "snooze";
+  const { data, error } = await supabase.rpc("unpublished_reminder_snooze", {
+    p_property_id: prop.id,
+    p_mode: mode,
+    p_agent_id: agent.id,
+  });
+  if (error) {
+    console.error("unpublished snooze failed", error.code, error.message);
+    return {
+      text: rpcNotInstalled(error)
+        ? "אפשר לעשות את זה מאזור האישי."
+        : "לא הצלחתי לשמור. אפשר לנסות מאזור האישי.",
+    };
+  }
+  const row = (data || null) as { ok?: boolean } | null;
+  if (!row || row.ok === false) return { text: "לא הצלחתי לשמור. אפשר לנסות מאזור האישי." };
+  return { text: mode === "mute" ? "הנכס לא יוזכר שוב." : "הנכס לא יוזכר 30 יום." };
 }
 
 /** לערוך פותח את הכרטיס ב-CRM. לא מפרסם, ולא סוגר את בקשת הפרסום. */

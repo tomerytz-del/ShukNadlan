@@ -269,6 +269,60 @@ export function publishConfirmButtons(
   ];
 }
 
+export const UNPUB_PUBLISH = "לפרסם";
+export const UNPUB_SHARE = "שת״פ";
+export const UNPUB_LATER = "לא עכשיו";
+
+const UNPUB_RE = new RegExp(`^unpub:(p|s|n|m):(${UUID})$`, "i");
+
+/** שלושה כפתורים על תזכורת של נכס אחד. בלי תזכורת (m) נשאר ב-CRM. */
+export function unpublishedNudgeButtons(
+  propertyId: string,
+): { id: string; title: string }[] | null {
+  if (!PUBLISH_UUID_RE.test(propertyId)) return null;
+  if (utf16len(UNPUB_PUBLISH) > 20 || utf16len(UNPUB_SHARE) > 20 || utf16len(UNPUB_LATER) > 20) {
+    return null;
+  }
+  const id = propertyId.toLowerCase();
+  const buttons = [
+    { id: `unpub:p:${id}`, title: UNPUB_PUBLISH },
+    { id: `unpub:s:${id}`, title: UNPUB_SHARE },
+    { id: `unpub:n:${id}`, title: UNPUB_LATER },
+  ];
+  if (buttons.some((b) => b.id.length > 200)) return null;
+  return buttons;
+}
+
+/** לפרסם מהכפתור רק טיוטה. unpublished הוא הטיוטה במסד. sold ו-archived לא. */
+export function unpublishedNudgeCanPublish(status: string | null | undefined): boolean {
+  return status === "unpublished" || status === "draft";
+}
+
+/** הכפתור בוואטסאפ נשאר לחיץ. בלי תזכורת מהשבוע האחרון לא מפרסמים ממנו. */
+export const UNPUB_BUTTON_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function unpublishedNudgeButtonFresh(
+  createdAt: string | null | undefined,
+  nowMs: number,
+): boolean {
+  const t = Date.parse(String(createdAt || ""));
+  if (!Number.isFinite(t)) return false;
+  if (t > nowMs + 5 * 60 * 1000) return false;
+  return nowMs - t <= UNPUB_BUTTON_TTL_MS;
+}
+
+export function parseUnpublishedNudgeButton(
+  buttonId: string,
+): { action: "publish" | "share" | "snooze" | "mute"; propertyId: string } | null {
+  const m = UNPUB_RE.exec(String(buttonId || "").trim());
+  if (!m) return null;
+  const letter = m[1].toLowerCase();
+  return {
+    action: letter === "p" ? "publish" : letter === "s" ? "share" : letter === "m" ? "mute" : "snooze",
+    propertyId: m[2].toLowerCase(),
+  };
+}
+
 export function parsePublishButton(
   buttonId: string,
 ): { action: "yes" | "no" | "edit"; requestId: string; propertyId: string | null } | null {

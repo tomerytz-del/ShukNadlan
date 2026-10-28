@@ -17,6 +17,7 @@ import {
   parseImageDeleteButton,
   confirmWritesNow,
   parsePublishButton,
+  parseUnpublishedNudgeButton,
   listingStatusForCreate,
   pendingStoreMissing,
   PUBLISH_DUPLICATE_ELSEWHERE,
@@ -29,6 +30,13 @@ import {
   publishAskFirst,
   publishClickDecision,
   publishConfirmButtons,
+  UNPUB_LATER,
+  UNPUB_PUBLISH,
+  UNPUB_SHARE,
+  unpublishedNudgeButtons,
+  unpublishedNudgeButtonFresh,
+  unpublishedNudgeCanPublish,
+  UNPUB_BUTTON_TTL_MS,
   publishDecisionText,
   draftElsewhereMissing,
   elsewhereDraftWarning,
@@ -239,6 +247,28 @@ check("פרסור פרסום", parsePublishButton(`pubx:y:${pubId}:${propertyUui
 check("כפתור ישן בלי מזהה נכס", parsePublishButton(`pubx:y:${pubId}`)?.action === "yes"
   && parsePublishButton(`pubx:y:${pubId}`)?.propertyId === null);
 check("הנפקה אינה פרסום", parsePublishButton("agrx:y:abc123def456") === null);
+const unpubButtons = unpublishedNudgeButtons(propertyUuid);
+check("שלושה כפתורים לנכס שלא באוויר", !!unpubButtons && unpubButtons.length === 3
+  && unpubButtons[0].title === UNPUB_PUBLISH
+  && unpubButtons[1].title === UNPUB_SHARE
+  && unpubButtons[2].title === UNPUB_LATER
+  && unpubButtons[0].id === `unpub:p:${propertyUuid}`
+  && unpubButtons[1].id === `unpub:s:${propertyUuid}`
+  && unpubButtons[2].id === `unpub:n:${propertyUuid}`
+  && unpubButtons.every((b) => b.title.length <= 20 && b.id.length <= 200));
+check("פרסור תזכורת", parseUnpublishedNudgeButton(`unpub:p:${propertyUuid}`)?.action === "publish"
+  && parseUnpublishedNudgeButton(`unpub:s:${propertyUuid.toUpperCase()}`)?.action === "share"
+  && parseUnpublishedNudgeButton(`unpub:n:${propertyUuid}`)?.action === "snooze"
+  && parseUnpublishedNudgeButton(`unpub:m:${propertyUuid}`)?.action === "mute"
+  && parseUnpublishedNudgeButton(`unpub:p:${propertyUuid}`)?.propertyId === propertyUuid);
+check("פרסום אינו תזכורת", parseUnpublishedNudgeButton(`pubx:y:${pubId}:${propertyUuid}`) === null);
+check("בלי מזהה נכס אין כפתורי תזכורת", unpublishedNudgeButtons("לא-מזהה") === null);
+check("פרסום מהכפתור רק לטיוטה", unpublishedNudgeCanPublish("unpublished") && unpublishedNudgeCanPublish("draft") && !unpublishedNudgeCanPublish("sold") && !unpublishedNudgeCanPublish("archived") && !unpublishedNudgeCanPublish("rented") && !unpublishedNudgeCanPublish("active"));
+const freshAt = new Date(Date.now() - 60 * 1000).toISOString();
+const staleAt = new Date(Date.now() - UNPUB_BUTTON_TTL_MS - 60 * 1000).toISOString();
+check("כפתור תזכורת טרי", unpublishedNudgeButtonFresh(freshAt, Date.now()));
+check("כפתור תזכורת ישן לא מפרסם", unpublishedNudgeButtonFresh(staleAt, Date.now()) === false);
+check("בלי תאריך הכפתור לא מפרסם", unpublishedNudgeButtonFresh(null, Date.now()) === false);
 const propertyId = "11111111-1111-1111-1111-111111111111";
 const pubRow = {
   id: pubId,

@@ -2543,6 +2543,7 @@ async function openReviewFromParam(id){
 const REMINDER_FILTERS = {
   missing_images: 'no_images', expiring_listings: 'expiring',
   stale_listings: 'stale', video_opportunity: 'no_video', idle_listings: 'new',
+  unpublished_listings: 'unpublished',
 };
 
 /* כל פקדי הסינון של "הנכסים שלי" (בלי המיון). רשימה אחת, כי שלושה מקומות
@@ -2563,7 +2564,9 @@ function openPropertyFilterFromParam(filter){
   if (!extra || ![...extra.options].some(o => o.value === filter && o.value)) return;
   PROP_FILTER_IDS.forEach(fid => { const el = document.getElementById(fid); if (el) el.value = ''; });
   propOwnerTab('mine');
-  document.getElementById('propStatusFilter').value = 'active';
+  // שאר הממצאים סופרים מפורסמים. "ירדו מפרסום" סופר unpublished, וסטטוס
+  // active היה מסתיר את כולם.
+  document.getElementById('propStatusFilter').value = filter === 'unpublished' ? 'unpublished' : 'active';
   extra.value = filter;
   renderPropertiesFromTop();
   const rows = filterProperties(myPropertyRows, propertyFilterState());
@@ -2632,6 +2635,8 @@ function openNotificationTarget(n){
   if (n.related_property_id && n.type !== 'client_match' && n.type !== 'deal_closed'
       && myPropertyRows.some(p => p.id === n.related_property_id))
     return go('accProperties', () => openPropertyFromParam(n.related_property_id));
+  if (n.type === 'unpublished_nudge')
+    return go('accProperties', () => openPropertyFilterFromParam('unpublished'));
   if (clientId && clientRows.some(c => c.id === clientId))
     return go('accClients', () => openClientFromParam(clientId));
   if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
@@ -14819,6 +14824,24 @@ function propertyIsStale(p){
                            new Date(p.updated_at || p.created_at).getTime());
   return touched < Date.now() - priceOf('agent_reminder_stale_days', 60) * 86400000;
 }
+/* כמו unpublished_listings ב-agent_reminder_findings: unpublished, לא ממתין
+   לרישיון, unpublished_at עבר את הסף, ולא snooze/השתקה. בלי העמודה
+   (המיגרציה עוד לא עלתה) לא נופלים ל-created_at. */
+let unpublishedReminderHidden = new Set();
+function propertyIsUnpublishedWaiting(p){
+  if (!p || p.status !== 'unpublished' || p.license_hold_at) return false;
+  if (unpublishedReminderHidden.has(p.id)) return false;
+  if (!p.unpublished_at) return false;
+  const at = new Date(p.unpublished_at).getTime();
+  if (!Number.isFinite(at)) return false;
+  const days = priceOf('agent_reminder_unpublished_days', 7);
+  return at < Date.now() - days * 86400000;
+}
+function unpublishedOriginLabel(p){
+  if (p?.unpublished_origin === 'draft') return 'טיוטה שלא פורסמה';
+  if (p?.unpublished_origin === 'taken_down') return 'ירד מפרסום';
+  return 'לא באוויר';
+}
 
 // מיון עולה/יורד על שדה מספרי: ערך חסר תמיד יורד לסוף, בשני הכיוונים —
 // נכס בלי מ״ר לא אמור לקפוץ לראש הרשימה רק כי מיינו מהנמוך לגבוה
@@ -14936,6 +14959,7 @@ function filterProperties(rows, f){
     if (f.extra === 'expiring'   && !propertyIsExpiring(p)) return false;
     if (f.extra === 'stale'      && !propertyIsStale(p)) return false;
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
+    if (f.extra === 'unpublished' && !propertyIsUnpublishedWaiting(p)) return false;
     if (f.smart && !prSmartTest(p, f.smart)) return false;
     if (!f.q) return true;
     return query ? query.rows.has(p) : propertySearchBlob(p).includes(f.q);
@@ -15073,6 +15097,10 @@ function locationSchemaMissing(error){ return !!error && /location_(precision|ra
 /* יעד הפרסום (20271029185000). בלי העמודות הכרטיס בלי הבורר, והרשימה עולה. */
 const PROPERTY_DEST_COLUMNS = ', publish_channels, share_with_brokers';
 function destSchemaMissing(error){ return !!error && /publish_channels|share_with_brokers/.test(error.message || ''); }
+/* unpublished_at (20271029190000) בנפרד: האתר עולה לפני המיגרציה. בלי
+   העמודה הסינון "ירדו מפרסום" ריק, ולא נופלים ל-created_at. */
+const PROPERTY_UNPUBLISHED_COLUMNS = ', unpublished_at, unpublished_origin';
+function unpublishedSchemaMissing(error){ return !!error && /unpublished_(at|origin)/.test(error.message || ''); }
 
 /* צפיות לכל נכס, נספרות במסד (property_view_counts). קודם הורדו כאן כל
    שורות property_views ונספרו בדפדפן - אלף שורות ויותר בכל כניסה, ומעבר
@@ -15097,12 +15125,20 @@ async function loadProperties(agentId){
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS)
+    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS)
     .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  let droppedDest = false;
   if (destSchemaMissing(error)){
+    droppedDest = true;
     ({ data: props, error } = await sb.from('properties')
-      .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS)
+      .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
+      .order('created_at', { ascending:false }));
+  }
+  if (unpublishedSchemaMissing(error)){
+    ({ data: props, error } = await sb.from('properties')
+      .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + (droppedDest ? '' : PROPERTY_DEST_COLUMNS))
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
       .order('created_at', { ascending:false }));
   }
@@ -15128,6 +15164,9 @@ async function loadProperties(agentId){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + esc(heErr(error)) + '</div>';
     return;
   }
+  unpublishedReminderHidden = new Set();
+  const { data: hiddenIds, error: hiddenErr } = await sb.rpc('unpublished_reminder_hidden_ids');
+  if (!hiddenErr && Array.isArray(hiddenIds)) hiddenIds.forEach(id => unpublishedReminderHidden.add(id));
   accSetCount('accProperties', (props||[]).length);
   renderShareLevelNotice('property', (props||[]).filter(p => p.agent_id === agentId || p.agent_id === undefined));
   // סיכום ללא פתיחה: כמה מהם חיים באתר עכשיו, וכמה כסף הם מייצגים
@@ -15601,6 +15640,30 @@ function buildPropertyCard(p, agentId){
     label:'עריכה', icon:'pencil', cls:'pc-edit',
     title:'עריכת פרטי המודעה', onClick:()=> openEditProperty(p),
   });
+
+  if (p.status === 'unpublished' && !propertyHeldForLicense(p) && (!p.agent_id || p.agent_id === agentId)){
+    const age = unpublishedOriginLabel(p);
+    addQuickAction(actions, {
+      label:'לפרסם', icon:'megaphone', tone:'share',
+      title: age + '. פרסום מחזיר את הנכס למדף ולחיפוש',
+      onClick: btn => setPropertyStatus(p, 'active', btn, agentId),
+    });
+    addQuickAction(actions, {
+      label:'שת״פ', icon:'partners',
+      title:'בקשה לשת״פ. ההפצה למשרדים אחרים יוצאת רק כשהאפשרות דלוקה, אחרי שהנכס באוויר, בלי מספר טלפון, ועד תקרה של משרדים לנכס',
+      onClick: btn => requestUnpublishedCollab(p, btn),
+    });
+    addQuickAction(actions, {
+      label:'לא עכשיו', icon:'clock',
+      title:'לא להזכיר את הנכס הזה 30 יום',
+      onClick: btn => snoozeUnpublishedReminder(p, 'snooze', btn, agentId),
+    });
+    addQuickAction(actions, {
+      label:'בלי תזכורת', icon:'close',
+      title:'לא להזכיר את הנכס הזה שוב',
+      onClick: btn => snoozeUnpublishedReminder(p, 'mute', btn, agentId),
+    });
+  }
 
   if (p.status === 'active'){
     // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה - אותו עמוד שה-QR מוביל
@@ -16491,6 +16554,46 @@ async function setPublishDestination(property, value, agentId, selectEl){
         ? 'הנכס באתר, לפי היעד שנבחר'
         : 'יעד הפרסום נשמר');
   await loadProperties(agentId);
+}
+
+async function snoozeUnpublishedReminder(p, mode, btn, agentId){
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'שומר…'); }
+  const { data, error } = await sb.rpc('unpublished_reminder_snooze', {
+    p_property_id: p.id, p_mode: mode,
+  });
+  if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+  if (error || !data || data.ok === false){
+    showToast(error ? heErr(error) : 'לא הצלחתי לשמור. אפשר לנסות שוב.', 5000);
+    return;
+  }
+  unpublishedReminderHidden.add(p.id);
+  showToast(mode === 'mute' ? 'הנכס לא יוזכר שוב.' : 'הנכס לא יוזכר 30 יום.', 4000);
+  if (agentId) renderProperties();
+}
+
+async function requestUnpublishedCollab(p, btn){
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'שומר…'); }
+  const { data, error } = await sb.rpc('unpublished_collab_request', { p_property_id: p.id });
+  if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+  if (error || !data || data.ok === false){
+    showToast(error ? heErr(error) : 'לא הצלחתי לרשום שת״פ. אפשר לנסות שוב.', 5000);
+    return;
+  }
+  if (data.reason === 'flag_off'){
+    showToast('רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה. כשיידלק, ההפצה תצא.', 5500);
+    return;
+  }
+  if (data.reason === 'waiting_for_publish'){
+    showToast('רשמתי. ההפצה תצא אחרי שהנכס באוויר, בלי מספר טלפון.', 5500);
+    return;
+  }
+  if (data.shared){
+    showToast('הנכס נפתח לשת״פ. נשלחה התראה למשרדים מתאימים, בלי מספר טלפון.', 5500);
+    return;
+  }
+  showToast('רשמתי את הבקשה לשת״פ.', 4000);
 }
 
 async function setPropertyStatus(property, nextStatus, btn, agentId){
@@ -20228,6 +20331,7 @@ const CARD_ICONS = {
   film:     '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7.5 3v18"/><path d="M16.5 3v18"/><path d="M3 9h4.5"/><path d="M16.5 9H21"/><path d="M3 15h4.5"/><path d="M16.5 15H21"/>',
   globe:    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/>',
   close:    '<path d="m18 6-12 12"/><path d="m6 6 12 12"/>',
+  clock:    '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
   // ממלא את משבצת התמונה בכרטיס נכס שאין לו אף תמונה
   home:     '<path d="m3 10.5 9-7 9 7V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9.5 21v-6h5v6"/>',
   // שני אנשים = שת"פ בין משרדים; תווית = יריד הבתים הפתוחים
@@ -24906,6 +25010,12 @@ const NOTIF_TYPES = [
   { type:'open_demand',    tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ביקוש פתוח',
     sub:'מישהו/י בעיר שלך כתב/ה בפייסבוק מה הוא/היא מחפש/ת או מוכר/ת. חינם, לכל הסוכנים באזור.' },
+  { type:'unpublished_nudge', tone:'', goto:'accProperties', focus:'#propertiesList',
+    title:'נכסים שלא באוויר',
+    sub:'תזכורת שבועית אחת: טיוטה שלא פורסמה, או נכס שירד מהמדף. בכרטיס: לפרסם, שת״פ, או לא עכשיו.' },
+  { type:'collab_offer', tone:'', goto:'accProperties', focus:'#propertiesList',
+    title:'נכס נפתח לשת״פ',
+    sub:'משרד אחר פתח נכס לשת״פ. ההודעה בלי מספר טלפון, והכרטיס נפתח במה ששותף איתך.' },
   { type:'review_new',     tone:'review', goto:'accReviews',  focus:'#reviewModerationList',
     title:'ביקורת חדשה',
     sub:'חוות דעת שהתקבלה עליך, ולמנהל/ת המשרד גם ביקורת של סוכן/ת בצוות שממתינה לאישור.' },
@@ -26162,6 +26272,8 @@ const REMINDER_KINDS = [
     sub:'לא נכנסה מודעה חדשה מזה זמן. זו התזכורת היחידה שאינה על נכס מסוים אלא על הקצב.' },
   { kind:'video_opportunity', title:'נכסים בלי סרטון או סיור',
     sub:'טיפ ולא משימה, ולכן הוא חוזר לכל היותר פעם בחודש גם כשהתדירות יומית.' },
+  { kind:'unpublished_listings', title:'נכסים שלא באוויר',
+    sub:'טיוטה שלא פורסמה, או מודעה שירדה. הגיל נמדד מרגע הירידה, לא מיצירת הנכס. המתנה לרישיון, לא עכשיו, ובלי תזכורת לא נספרים. השורה הזו בתזכורת הישנה כבויה עד שמדליקים אותה.' },
 ];
 
 const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));
