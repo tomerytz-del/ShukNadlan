@@ -21992,7 +21992,47 @@ async function loadClients(){
         : (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות'))
     : '');
   syncClientFilterOptions();
+  await ensureNeighborhoodsLoaded().catch(() => {});
   renderClients();
+}
+
+function clientNeighborhoodLabel(c){
+  if (!c || !c.neighborhood_id) return '';
+  const row = allNeighborhoods.find(n => n.id === c.neighborhood_id);
+  return row ? row.name : 'שכונה שמורה';
+}
+
+/* בורר השכונה בטופס הלקוח/ה. ריק שומר null ומנקה שכונה שמורה.
+   שכונה מעיר שכבר לא בכרטיס לא נשארת בבורר, חוץ ממקרה שהרשימה לא נטענה. */
+async function populateClientNeighborhoodSelect(selectedId){
+  const select = document.getElementById('clNeighborhood');
+  if (!select) return;
+  await ensureNeighborhoodsLoaded().catch(() => {});
+  const cityKeys = new Set(clientFormCities.map(hoodCityKey).filter(Boolean));
+  let list = cityKeys.size
+    ? allNeighborhoods.filter(n => cityKeys.has(hoodCityKey(n.city)))
+    : marketNeighborhoods();
+  if (selectedId && !list.some(n => n.id === selectedId)){
+    const kept = allNeighborhoods.find(n => n.id === selectedId);
+    const belongs = kept && (!cityKeys.size || cityKeys.has(hoodCityKey(kept.city)));
+    if (belongs) list = [kept, ...list];
+    else if (!allNeighborhoods.length) list = [{ id: selectedId, name: 'שכונה שמורה', city: '' }, ...list];
+    else selectedId = '';
+  }
+  select.innerHTML = '<option value="">בלי שכונה</option>' +
+    list.map(n => `<option value="${esc(n.id)}">${esc(n.name)}${
+      cityKeys.size > 1 && n.city ? ' (' + esc(n.city) + ')' : ''}</option>`).join('');
+  select.value = selectedId || '';
+}
+
+function refreshClientNeighborhoodSelect(){
+  const select = document.getElementById('clNeighborhood');
+  populateClientNeighborhoodSelect(select ? select.value : '');
+}
+
+function clientNeighborhoodColumnMissing(error){
+  return !!error && (error.code === '42703' || error.code === 'PGRST204')
+    && /neighborhood_id/.test(error.message || '');
 }
 
 /* באיזה צד של העסקה הלקוח/ה: client_kind + deal_type. בעל/ת נכס אינו/ה
@@ -22130,6 +22170,7 @@ function clientTabSub(c){
     c.status === 'active' ? null : (CLIENT_STATUS_LABELS[c.status] || c.status),
     clientSideLabel(c),
     (c.cities || []).length ? c.cities.join(', ') : null,
+    clientNeighborhoodLabel(c) || null,
     (c.property_types || []).length ? c.property_types.join(' / ') : null,
   ].filter(Boolean).join(' · ');
 }
@@ -22211,6 +22252,7 @@ function clientParamTags(c){
     { text: c.category === 'commercial' ? '🏪 מסחרי' : '🏠 מגורים' },
     // לבעל/ת נכס אין פרופיל חיפוש - השדות נשארים במסד אבל אינם אומרים דבר
     !owner && (c.cities || []).length && { text:'📍 ' + c.cities.join(', ') },
+    !owner && clientNeighborhoodLabel(c) && { text:'שכונה: ' + clientNeighborhoodLabel(c) },
     !owner && (c.property_types || []).length && { text: c.property_types.join(' / ') },
     !owner && size && { text:'📐 ' + size },
     !owner && (c.min_rooms || c.max_rooms) && { text:'🛏 ' + (c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים' },
@@ -22763,6 +22805,7 @@ function addClientCities(raw){
     if (!clientFormCities.includes(city)) clientFormCities.push(city);
   });
   renderClientCityChips();
+  refreshClientNeighborhoodSelect();
 }
 
 // הצעות: כל עיר שיש לה רחובות במאגר, וכל עיר שכבר מופיעה בקובץ הלקוחות
@@ -22797,6 +22840,7 @@ function syncClientCityOptions(){
     if (btn){
       clientFormCities.splice(Number(btn.dataset.removeCity), 1);
       renderClientCityChips();
+      refreshClientNeighborhoodSelect();
       input.focus();
       return;
     }
@@ -22813,6 +22857,7 @@ function resetClientForm(){
   document.getElementById('saveClientBtn').textContent = 'שמור לקוח והצלב נכסים';
   clientFormCities = [];
   renderClientCityChips();
+  populateClientNeighborhoodSelect('');
   setClientFormDeal('sale');
   setClientFormCategory('residential');
   setClientFormKind('seeker');
@@ -22849,6 +22894,7 @@ function openEditClient(c){
   document.getElementById('clStatus').value   = c.status;
   clientFormCities = (c.cities || []).slice();
   renderClientCityChips();
+  populateClientNeighborhoodSelect(c.neighborhood_id || '');
   setClientFormDeal(c.deal_type);
   setClientFormCategory(c.category || 'residential', c.property_types || [], c.required_features || []);
   // אחרי editingClientId - הוא שקובע אם כפתור השמירה אומר "שמור" או "עדכן"
@@ -23001,6 +23047,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     min_size_sqm: minSize, max_size_sqm: maxSize,
     max_floor: numOrNull('clMaxFloor'),
     required_features: getCheckedValues('clFeatures'),
+    neighborhood_id: document.getElementById('clNeighborhood').value || null,
   });
   // מקסימום החדרים ירד מהטופס (המפרט הפיזי הוא שלושה שדות), ולכן הוא לא
   // נשלח ונשמר כמו שהוא אצל מי שכבר יש לו. רק כשהמינימום החדש עוקף אותו
@@ -23026,9 +23073,22 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
     savedId = row?.id;
   }
+  let neighborhoodDeferred = false;
   // הדקה שבין פרסום ה-HTML לריצת 20270426090000 - שומרים בלי רמת השיתוף
   if (shareLevelSchemaMissing(error)){
     delete payload.share_level;
+    if (editingClientId){
+      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
+    } else {
+      let row;
+      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
+      savedId = row?.id;
+    }
+  }
+  // העמודה עולה עם 20271029170000, אחרי ה-HTML. בלי זה השמירה כולה נכשלת.
+  if (clientNeighborhoodColumnMissing(error)){
+    neighborhoodDeferred = true;
+    delete payload.neighborhood_id;
     if (editingClientId){
       ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
     } else {
@@ -23048,8 +23108,9 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   const ownerSaved = payload.client_kind === 'owner';
   // נפתח מ"הוספה לקובץ" בשורת שיחה - השיחות עם המספר יורדות מ"שיחות אחרונות"
   const fromCall = clientFormFromCall;
-  showToast(ownerSaved ? (wasEditing ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה')
-    : (wasEditing ? 'הלקוח/ה עודכן/ה - מצליבים נכסים' : 'הלקוח/ה נוסף/ה - מצליבים נכסים'));
+  showToast((ownerSaved ? (wasEditing ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה')
+    : (wasEditing ? 'הלקוח/ה עודכן/ה - מצליבים נכסים' : 'הלקוח/ה נוסף/ה - מצליבים נכסים'))
+    + (neighborhoodDeferred ? '. השכונה לא נשמרה כי העדכון למסד עוד לא עלה' : ''));
   // הצעד האחרון במדריך ההתחלה, וזה גם הרגע שבו המדריך כולו נסגר
   if (!wasEditing) refreshOnboarding();
   resetClientForm();

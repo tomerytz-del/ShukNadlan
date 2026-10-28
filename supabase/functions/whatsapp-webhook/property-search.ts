@@ -42,6 +42,84 @@ export function likeSafe(value: string): string {
   return `%${value.replace(/[%_\\]/g, "\\$&")}%`;
 }
 
+export interface ResolvedCity {
+  /** מה שהוקלד. לא מוחלף בשם קנוני, כדי לא לנתק השוואת טקסט. */
+  raw: string;
+  /** השם ברישום, אם יש. */
+  name: string;
+  id: string | null;
+}
+
+/**
+ * עיר דרך city_id_for_name (שם, ואז city_aliases). בלי התאמה נשאר מה
+ * שהוקלד, והמזהה ריק, כדי שהסינון לא ייעלם. כשל של ה-RPC משאיר את המקור.
+ */
+export async function canonicalCity(
+  supabase: SupabaseClient,
+  name: string | null | undefined,
+): Promise<ResolvedCity | null> {
+  const raw = text(name);
+  if (!raw) return null;
+  const { data, error } = await supabase.rpc("city_id_for_name", { p_name: raw });
+  if (error || !data) return { raw, name: raw, id: null };
+  const id = String(data);
+  const { data: city, error: cityErr } = await supabase.from("cities").select("name").eq("id", id).maybeSingle();
+  if (cityErr || !city?.name) return { raw, name: raw, id };
+  return { raw, name: String(city.name), id };
+}
+
+export async function canonicalCityName(
+  supabase: SupabaseClient,
+  name: string | null | undefined,
+): Promise<string | null> {
+  const city = await canonicalCity(supabase, name);
+  return city ? city.name : null;
+}
+
+const CITY_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * התאמת עיר ב-PostgREST: city_id, ואז כתיב שהוקלד, ואז השם הקנוני.
+ * "קריית מלאכי" ו-"קרית מלאכי" נפגשים ב-city_id ולא בהשוואת מחרוזת.
+ */
+export function cityMatchGroup(
+  raw: string | null | undefined,
+  canonicalName: string | null | undefined,
+  cityId: string | null | undefined,
+): string[] {
+  const parts: string[] = [];
+  if (cityId && CITY_ID_RE.test(cityId)) parts.push(`city_id.eq.${cityId}`);
+  for (const name of [raw, canonicalName]) {
+    const pat = name ? cityPattern(name) : null;
+    if (pat && !parts.includes(pat)) parts.push(pat);
+  }
+  return parts;
+}
+
+/** חיפוש בלי מאגר (ors ריק) אינו "אפס תוצאות" שרושמים. */
+export function shouldLogSearchMiss(total: number, searched: boolean): boolean {
+  return searched && !total;
+}
+
+/** שורת לוג לחיפוש בלי תוצאות. רק שדות החיפוש, בלי הערות ובלי טלפון. */
+export function searchMissRow(
+  agentId: string,
+  args: Record<string, unknown>,
+): { agent_id: string; city: string | null; area: string | null; deal_type: string | null } {
+  return {
+    agent_id: agentId,
+    city: text(args.city),
+    area: text(args.area),
+    deal_type: text(args.deal_type),
+  };
+}
+
+export function searchMissStoreMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  return code === "42P01" || code === "PGRST204" || code === "PGRST205";
+}
+
 // מפתח ההשוואה לשמות אזורים (‏"סי 1" = C1) - ‏SearchCore.areaKey, משותף לאתר.
 
 /**
@@ -95,7 +173,8 @@ export function applyPropertyFilters(
   if (category && CATEGORIES.includes(category)) query = query.eq("category", category);
 
   const city = text(args.city);
-  if (city) query = query.ilike("city", likeSafe(city));
+  const cityGroup = cityMatchGroup(text(args.city_raw) || city, city, text(args.city_id));
+  if (cityGroup.length) groups.push(cityGroup);
   if (Array.isArray(args.cities)) {
     const pats = args.cities.map((c) => text(c)).filter((c): c is string => !!c)
       .slice(0, 8).map(cityPattern).filter((c): c is string => !!c);
@@ -270,14 +349,15 @@ export async function filterByArea<T>(
   rows: T[],
   area: string,
   city: string | null,
-  opts: { withHint: boolean },
+  opts: { withHint: boolean; cityId?: string | null },
 ): Promise<{ rows: T[]; hint: Record<string, unknown> }> {
   if (!SearchCore.areaKey(area)) return { rows: [], hint: {} };
 
   // deno-lint-ignore no-explicit-any
   const cities = [...new Set(rows.map((p) => String((p as any).city || "")).filter(Boolean))].slice(0, 30);
   let hq = supabase.from("neighborhoods").select("id, name, city");
-  if (city) hq = hq.ilike("city", likeSafe(city));
+  const hoodCity = cityMatchGroup(city, city, opts.cityId);
+  if (hoodCity.length) hq = hq.or(hoodCity.join(","));
   else if (cities.length) hq = hq.in("city", cities);
   const [{ data: hoods }, { data: aliases }] = await Promise.all([
     hq.limit(1000),
