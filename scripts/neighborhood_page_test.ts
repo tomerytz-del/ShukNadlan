@@ -242,6 +242,39 @@ resetLastGood();
   check("העותק בלי Retry-After", !bad.headers.get("Retry-After"));
 }
 
+{
+  const plain = await run(URL_HOOD, 200, HOOD);
+  const plainHtml = await plain.text();
+  check("שם לבוט: גבעת המורה", plainHtml.includes('data-hood-name="שכונת גבעת המורה"'));
+  const gereshName = "ג\u05f3ת";
+  const gersh = { ...HOOD, name: gereshName, slug: "gat" };
+  const gres = await run(URL_HOOD, 200, gersh);
+  const ghtml = await gres.text();
+  check("שם לבוט עם גרש", ghtml.includes('data-hood-name="שכונת ' + gereshName + '"'));
+
+  const botSrc = readFileSync(new URL("../assets/bot-link.js", import.meta.url), "utf8")
+    .replace(/\(window\);\s*$/, "(globalThis); return globalThis.ShukBot;");
+  const ShukBot = new Function(botSrc)() as { link: (hello: string) => string };
+  const phrases: [string, string][] = [["מדף הבית", "homepage"], ["חיפשתי באתר", "search_empty"], ["הגעתי מהאתר", "site"]];
+  function entryOf(text: string): string {
+    for (const [phrase, entry] of phrases) if (text.includes(phrase)) return entry;
+    return "direct";
+  }
+  function helloFor(name: string): string {
+    const label = /^(השכונה|שכונת|שכונה)(\s|$)/.test(name) ? name : "שכונת " + name;
+    return "שלום, הגעתי מהאתר, מדף " + label + ", ואשמח לעזרה במציאת נכס";
+  }
+  for (const sample of ["גבעת המורה", gereshName, "א\u05f4ב"]) {
+    const msg = helloFor(sample);
+    const url = ShukBot.link(msg);
+    const text = new URL(url).searchParams.get("text");
+    check("קידוד וואטסאפ: " + sample, entryOf(msg) === "site" && !msg.includes("מדף הבית")
+      && url.startsWith("https://wa.me/972532494740?text=")
+      && url.includes(encodeURIComponent(msg))
+      && text === msg);
+  }
+}
+
 if (failed) {
   console.error(`\n${failed} בדיקות נכשלו`);
   process.exit(1);

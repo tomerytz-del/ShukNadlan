@@ -163,7 +163,12 @@
   function armBot() {
     var slot = document.getElementById('hoodBotSlot');
     if (slot && window.ShukBot && ShukBot.anchorHtml && !slot.firstChild) {
-      slot.innerHTML = ShukBot.anchorHtml(slot.getAttribute('data-hello') || '', 'שיחה עם גבריאלה', 'hood-btn hood-btn-ghost');
+      /* "הגעתי מהאתר" הוא ביטוי ב-SITE_ENTRY_PHRASES. siteEntryOf מחפש
+         includes בלי נרמול, והראשון ברשימה גובר. "מדף שכונת" אינו "מדף הבית".
+         ShukBot.link מקודד את כל ההודעה ב-encodeURIComponent. */
+      var name = slot.getAttribute('data-hood-name') || '';
+      var HOOD_HELLO = 'שלום, הגעתי מהאתר, מדף ' + name + ', ואשמח לעזרה במציאת נכס';
+      slot.innerHTML = ShukBot.anchorHtml(HOOD_HELLO, 'שיחה עם גבריאלה', 'hood-btn hood-btn-ghost');
     }
     var alertBtn = document.getElementById('hoodAlert');
     if (alertBtn && !alertBtn.dataset.wired) {

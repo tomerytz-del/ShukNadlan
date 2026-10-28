@@ -275,20 +275,24 @@
       }).join('') + '</div></section>';
   }
 
+  function withMoney(s) {
+    return escapeHtml(s).replace(/₪[\d,]+/g, function (m) { return '<bdi dir="ltr">' + m + '</bdi>'; });
+  }
   function kpi(label, value, note) {
     return '<div class="hood-kpi"><span class="hood-kpi-l">' + escapeHtml(label) + '</span>'
-      + '<strong class="hood-kpi-v">' + escapeHtml(value || 'אין נתון') + '</strong>'
-      + (note ? '<span class="hood-kpi-n">' + escapeHtml(note) + '</span>' : '')
+      + '<strong class="hood-kpi-v">' + (value ? withMoney(value) : 'אין נתון') + '</strong>'
+      + (note ? '<span class="hood-kpi-n">' + withMoney(note) + '</span>' : '')
       + '</div>';
   }
   function kpis(d) {
     var saleNote = [d.props_sale ? num(d.props_sale) + ' למכירה' : '', d.props_rent ? num(d.props_rent) + ' להשכרה' : '']
       .filter(Boolean).join(' · ');
-    var range = d.sale_min ? money(d.sale_min) + ' - ' + money(d.sale_max) : '';
+    var range = d.sale_min ? money(d.sale_min) : '';
+    var rangeNote = d.sale_max ? 'עד ' + money(d.sale_max) : '';
     var period = (d.period_start && d.period_end) ? monthYear(d.period_start) + ' עד ' + monthYear(d.period_end) : '';
     return '<div class="hood-kpis">'
       + kpi('נכסים פעילים', num(d.props_active || 0), saleNote)
-      + kpi('טווח למכירה', range, range ? 'מודעות פעילות' : '')
+      + kpi('טווח למכירה', range, rangeNote)
       + kpi('מחיר עסקה חציוני', d.median_price != null ? money(d.median_price) : '', d.deals ? num(d.deals) + ' עסקאות' : '')
       + kpi('חציון למ״ר', d.median_ppsqm != null ? money(d.median_ppsqm) : '', period)
       + '</div>';
@@ -315,19 +319,18 @@
       + '<select data-hood="rooms" aria-label="חדרים">'
       + '<option value="0">חדרים</option><option value="2">2+</option><option value="3">3+</option>'
       + '<option value="4">4+</option><option value="5">5+</option></select>'
-      + '<input data-hood="min" inputmode="numeric" placeholder="ממחיר" aria-label="ממחיר">'
-      + '<input data-hood="max" inputmode="numeric" placeholder="עד מחיר" aria-label="עד מחיר">'
+      + '<input data-hood="min" inputmode="numeric" placeholder="מ-" aria-label="ממחיר">'
+      + '<input data-hood="max" inputmode="numeric" placeholder="עד" aria-label="עד מחיר">'
       + '<button type="button" data-hood="clear">ניקוי</button>'
       + '</div></div>';
   }
 
   function cta(d) {
-    var hello = 'שלום, אשמח לעזרה במציאת נכס ' + inHood(d.name) + ' ב' + (d.city || '');
     return '<section class="hood-cta" id="hoodCta">'
       + '<p class="hood-cta-k">גבריאלה · עוזרת החיפוש של שוק נדל״ן</p>'
       + '<h2>מחפשים ' + escapeHtml(inHood(d.name)) + '? גבריאלה תעזור למצוא</h2>'
       + '<button type="button" class="hood-btn hood-btn-gold" id="hoodAlert">קבלו התראה על נכסים חדשים בשכונה</button>'
-      + '<span id="hoodBotSlot" data-hello="' + escapeHtml(hello) + '"></span>'
+      + '<span id="hoodBotSlot" data-hood-name="' + escapeHtml(hoodLabel(d.name)) + '"></span>'
       + '</section>';
   }
 
