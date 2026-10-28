@@ -10,6 +10,21 @@ import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts"
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
+import {
+  absoluteUrl,
+  categoryPath,
+  containsHttpUrl,
+  ctaMessage,
+  listMessage,
+  NOTIFY_UTILITY_ENV,
+  NOTIFY_UTILITY_LANG_ENV,
+  notificationPath,
+  OPT_OUT_BARE,
+  screenBundle,
+  stripHttpUrls,
+  type NotifTarget,
+  utilityTemplateMessage,
+} from "../_shared/agent-deep-link.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -59,6 +74,9 @@ const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 const WA_TEMPLATE = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE") || "";
 const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_NOTIFY_TEMPLATE_LANG") || "he";
+// תבנית UTILITY עם כפתור ליעד המדויק. ריק = התבנית המאושרת למעלה, בלי שינוי.
+const WA_UTILITY = Deno.env.get(NOTIFY_UTILITY_ENV) || "";
+const WA_UTILITY_LANG = Deno.env.get(NOTIFY_UTILITY_LANG_ENV) || "he";
 
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
@@ -241,47 +259,8 @@ const uuidOr = (v: unknown): string | null =>
  * הפרמטרים נקראים ב-handleGotoParam ב-crm.js.
  */
 function itemPath(it: Item): string | null {
-  const property = uuidOr(it.property_id);
-  const client = uuidOr(it.client_id);
-  const lead = uuidOr(it.lead_id);
-  const agenda = uuidOr(it.agenda_item_id);
-  const agreement = uuidOr(it.agreement_id);
-  const review = uuidOr(it.review_id);
-
-  // תזכורת על ליד ("לחזור לליד חדש") פותחת את הליד ולא את הפריט ביומן: שם
-  // מטפלים, והפריט ביומן היה עוד לחיצה בדרך (20270419090000). הפעמון
-  // (‏crm.js) - באותו סדר.
-  if (lead && it.type === "agenda_reminder") return `/crm?goto=accLeads&lead=${lead}`;
-  if (agenda && it.type === "agenda_reminder") return `/crm?goto=accAgenda&agenda=${agenda}`;
-  if (agreement) return `/crm?goto=accAgreements&agreement=${agreement}`;
-  // אין פריט, אבל יש יעד אחד: חלק העדפות הלידים, שמקופל ב"ההגדרות שלי"
-  if (it.type === "lead_prefs_default") return "/crm?goto=accPrefs&focus=lead_prefs";
-  // ביקוש פתוח אינו ליד ואין לו מזהה בהתראה; כולם באותה לשונית
-  if (it.type === "open_demand") return "/crm?goto=accLeads&tab=demand";
-  // כמה נכסים בהודעה אחת: אין מזהה, והרשימה המסוננת היא היעד.
-  // נכס אחד נופל לכרטיס, כמו כל התראה עם related_property_id.
-  if (it.type === "unpublished_nudge" && !property) {
-    return "/crm?goto=accProperties&filter=unpublished";
-  }
-  if (it.type === "review_new" || it.type === "review_alert") {
-    if (review) return `/crm?goto=accReviews&review=${review}`;
-    if (it.review_agent_slug) return `/agent?slug=${encodeURIComponent(it.review_agent_slug)}#reviewsSec`;
-    return null;
-  }
-  if (client && it.type === "client_match") {
-    return `/crm?goto=accClients&client=${client}&focus=matches`;
-  }
-  if (property && it.property_mine === false) {
-    return `/crm?goto=accSharedWithMe&property=${property}`;
-  }
-  if (property && it.type !== "client_match" && it.type !== "deal_closed") {
-    return `/crm?goto=accProperties&property=${property}`;
-  }
-  if (client) return `/crm?goto=accClients&client=${client}`;
-  if (lead && ["new_lead", "review_request", "system"].includes(it.type)) {
-    return `/crm?goto=accLeads&lead=${lead}`;
-  }
-  return null;
+  // הסדר ב-notificationPath (_shared/agent-deep-link.ts), וזהה לפעמון.
+  return notificationPath(it as NotifTarget);
 }
 
 // ‏notification_push_priority_types() במסד (20270420090000): מה שאדם מחכה לו
@@ -327,16 +306,31 @@ function arrange(items: Item[]): Item[] {
  * התראות בלי יעד כזה חולקות קישור אחד לכל **קטגוריה**: שלוש התאמות שמובילות
  * לאותו מסך לא צריכות שלושה קישורים זהים ברצף.
  */
-function textBody(name: string | null, items: Item[], noLinks = false, topics = false): string {
+function textBody(
+  name: string | null,
+  items: Item[],
+  noLinks = false,
+  topics = false,
+  withOptOutUrl = true,
+): string {
+  const opt = withOptOutUrl
+    ? `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`
+    : OPT_OUT_BARE;
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
   if (burst) {
+    if (noLinks && !withOptOutUrl) {
+      const count = burst.count ?? items.length;
+      const line = `יש לך ${count} התראות חדשות באתר.`;
+      const who = firstName(name);
+      return [who ? `${who}, ${line}` : line, "", opt].join("\n").slice(0, 4000);
+    }
     return burstText(name, burst.count ?? items.length, SITE_BASE, gotoUrl(MANAGE_ACC)).slice(0, 4000);
   }
   const first = firstName(name);
   const li = richLead(items);
   if (li) {
     const link = noLinks ? null : `${SITE_BASE}${itemPath(items[0])}`;
-    return leadText(first, li, link, `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`).slice(0, 4000);
+    return leadText(first, li, link, opt).slice(0, 4000);
   }
   const accs = noLinks ? [] : [...new Set(
     items.filter((it) => !itemPath(it)).map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC),
@@ -367,27 +361,10 @@ function textBody(name: string | null, items: Item[], noLinks = false, topics = 
     "",
     ...accs.map((acc) => gotoUrl(acc)),
     ...(accs.length ? [""] : []),
-    `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`,
+    opt,
   ];
   // ‏4000 ולא 4096: חיתוך שלנו עדיף על 400 מ-Meta ואפס הודעה.
   return lines.join("\n").slice(0, 4000);
-}
-
-/**
- * כשכל ההודעה מובילה ליעד אחד (התראה אחת, או כמה לאותו פריט/קטגוריה), הקישור
- * הופך לכפתור (‏cta_url) ונעלם מהגוף - "פחות קישורים, יותר כפתורים"
- * (12.10.2026). ל-Meta יש **כפתור קישור אחד להודעה**, ולכן הודעה עם כמה יעדים
- * נשארת עם קישור לכל פריט. יעד שהוא מסך ההגדרות (סוג בלי קטגוריה) אינו כפתור:
- * "פתיחה" שמובילה להגדרות הייתה מטעה. בחלון 24 השעות בלבד - התבנית כפתור קבוע.
- */
-function singleTarget(items: Item[]): string | null {
-  const urls = new Set(items.map((it) => {
-    const path = itemPath(it);
-    return path ? `${SITE_BASE}${path}` : gotoUrl(ACC_BY_TYPE[it.type] || MANAGE_ACC);
-  }));
-  if (urls.size !== 1) return null;
-  const only = [...urls][0];
-  return only === gotoUrl(MANAGE_ACC) ? null : only;
 }
 
 /** כפתורי לפרסם / שת״פ / לא עכשיו רק על תזכורת של נכס אחד, בתוך החלון. */
@@ -398,20 +375,19 @@ function nudgeReplyButtons(items: Item[]): { id: string; title: string }[] | nul
   return unpublishedNudgeButtons(property);
 }
 
-/** כותרת הכפתור לפי היעד. עד 20 יחידות UTF-16 (נמדד: הארוכה 19). */
-function ctaLabel(url: string): string {
-  if (url.includes("accAgenda")) return "📅 פתיחה ביומן";
-  if (url.includes("filter=unpublished")) return "🏠 נכסים שלא באוויר";
-  if (url.includes("tab=demand")) return "📣 לביקוש הפתוח";
-  if (url.includes("accLeads")) return "👈 פתיחת הליד";
-  if (url.includes("accClients")) return "👤 כרטיס הלקוח";
-  if (url.includes("accProperties") || url.includes("accSharedWithMe")) return "🏠 פתיחת הנכס";
-  if (url.includes("accAgreements")) return "📝 פתיחת ההסכם";
-  if (url.includes("accReviews") || url.includes("/agent?")) return "⭐ לביקורת";
-  if (url.includes("accMyDashboard")) return "🧭 לסיכום המנטור";
-  if (url.includes("accPrefs")) return "⚙️ להעדפות הלידים";
-  if (url.includes("dashPanelMarkets")) return "🗺️ לשווקים המקומיים";
-  return "👈 פתיחה";
+function screensOf(items: Item[]) {
+  return items.map((it) => ({
+    type: it.type,
+    path: itemPath(it),
+    title: it.title,
+    body: it.body,
+  }));
+}
+
+function categoryFor(type: string): string | null {
+  if (type === BURST_DIGEST_TYPE) return "/crm?goto=bell";
+  const acc = ACC_BY_TYPE[type];
+  return acc ? categoryPath(acc) : null;
 }
 
 /**
@@ -429,19 +405,21 @@ function ctaLabel(url: string): string {
  * הקישור הישיר נכנס בסוף הפריט ולא בכפתור: הכפתור היחיד בתבנית הוא הדרך
  * לכבות את הערוץ (ראו MANAGE_ACC), ו-WhatsApp הופך כתובת בגוף ההודעה לקישור.
  */
-function templateSummary(items: Item[]): string {
+function templateSummary(items: Item[], withUrls = true): string {
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
   if (burst) {
     const count = burst.count ?? items.length;
-    return `יש לך ${count} התראות חדשות באתר. ${SITE_BASE}/crm`.slice(0, 900);
+    const link = withUrls ? ` ${SITE_BASE}/crm` : "";
+    return `יש לך ${count} התראות חדשות באתר.${link}`.slice(0, 900);
   }
   return items
     .map((it) => {
       const path = itemPath(it);
+      const url = withUrls && path ? `${SITE_BASE}${path}` : null;
       if (it.type === "new_lead" && it.lead) {
-        return `• ${leadTemplateLine(it.lead, path ? `${SITE_BASE}${path}` : null, items.length === 1)}`;
+        return `• ${leadTemplateLine(it.lead, url, items.length === 1)}`;
       }
-      return `• ${it.title}${it.body ? `: ${it.body}` : ""}${path ? ` ${SITE_BASE}${path}` : ""}`;
+      return `• ${it.title}${it.body ? `: ${it.body}` : ""}${url ? ` ${url}` : ""}`;
     })
     .join(" ")
     // ‏replace לפני החיתוך: גוף התראה נכתב במסד ועשוי להכיל שורה חדשה בעצמו
@@ -493,10 +471,50 @@ async function sendWhatsapp(
   let payload: Record<string, unknown>;
   const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
-  if (mode === "template" && WA_TEMPLATE) {
+  const bare = () => stripHttpUrls(clipWhatsappBody(textBody(name, items, true, topics, false), 1024));
+  const linked = () => ({
+    messaging_product: "whatsapp",
+    recipient_type: "individual" as const,
+    to,
+    type: "text" as const,
+    text: { preview_url: false, body: textBody(name, items, false, topics) },
+  });
+  // הודעה אחת. יעד אחד = cta_url. כמה יעדים = רשימה, והלחיצה (nav:) מחזירה
+  // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט עם הקישור.
+  const inWindow = (): Record<string, unknown> | null => {
+    const plan = screenBundle(screensOf(items), categoryFor);
+    const body = bare();
+    if (!body || containsHttpUrl(body) || body.length > 1024) return null;
+    if (plan.kind === "single") {
+      return ctaMessage(
+        to,
+        body,
+        richLead(items) ? LEAD_CTA : plan.label,
+        absoluteUrl(SITE_BASE, plan.path),
+      );
+    }
+    if (plan.kind === "list") return listMessage(to, body, plan.button, plan.section, plan.rows);
+    return null;
+  };
+
+  if (mode === "template" && WA_UTILITY) {
+    const plan = screenBundle(screensOf(items), categoryFor);
+    const path = plan.kind === "single" ? plan.path
+      : plan.kind === "list" ? plan.allPath
+      : "/crm?goto=bell";
+    payload = utilityTemplateMessage({
+      to,
+      templateName: WA_UTILITY,
+      lang: WA_UTILITY_LANG,
+      name: firstName(name) || "שלום",
+      summary: templateSummary(items, false),
+      path,
+    });
+  } else if (mode === "template" && WA_TEMPLATE) {
     // שני פרמטרים בגוף התבנית: ‏{{1}} השם הפרטי · {{2}} רשימת ההתראות.
     // וכפתור URL דינמי אחד שמוביל לניהול ההתראות; הפרמטר הוא **סיומת
     // הכתובת בלבד**, כך Meta מגדירה כפתור דינמי, ולכן הקידומת נקבעת בתבנית.
+    // בלי WHATSAPP_NOTIFY_UTILITY_TEMPLATE זה נשאר בדיוק כך.
     payload = {
       messaging_product: "whatsapp",
       to,
@@ -524,7 +542,7 @@ async function sendWhatsapp(
   } else if (nudgeBtns) {
     // שלושה כפתורי תשובה על נכס אחד. אי אפשר לערבב אותם עם cta_url.
     // "בלי תזכורת" נשאר בכרטיס ב-CRM: ל-Meta יש שלושה כפתורים.
-    const body = clipWhatsappBody(textBody(name, items, true, topics), 1024);
+    const body = clipWhatsappBody(textBody(name, items, true, topics, false), 1024);
     const buttons = nudgeBtns.map((b) => ({
       type: "reply",
       reply: { id: b.id, title: b.title },
@@ -562,29 +580,7 @@ async function sendWhatsapp(
       },
     };
   } else {
-    const target = singleTarget(items);
-    const ctaBody = target ? textBody(name, items, true, topics) : "";
-    payload = target && ctaBody.length <= 1024
-      ? {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "interactive",
-        interactive: {
-          type: "cta_url",
-          body: { text: ctaBody },
-          action: { name: "cta_url", parameters: { display_text: richLead(items) ? LEAD_CTA : ctaLabel(target), url: target } },
-        },
-      }
-      : {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "text",
-        // ‏preview_url false: ההודעה נושאת קישור לדשבורד, ותצוגה מקדימה שלו
-        // תופסת חצי מסך בשביל כלום.
-        text: { preview_url: false, body: textBody(name, items, false, topics) },
-      };
+    payload = inWindow() || linked();
   }
 
   return paceRecipient(to, async () => {

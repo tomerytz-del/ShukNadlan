@@ -111,8 +111,11 @@ Dashboard → Project Settings → **Edge Functions → Secrets** (או `supabas
 | `OPENAI_API_KEY` | ⬜ | לתמלול הקלטות קוליות (Whisper). בלעדיו הבוט יבקש טקסט במקום |
 | `SITE_BASE_URL` | ⬜ | כתובת הבסיס של האתר, למשל `https://shuknadlan.co.il` — בלעדיה אין קישור לנכס, ו-`agreement_sign_links` מסרב לבנות קישור חתימה |
 | `WHATSAPP_GRAPH_VERSION` | ⬜ | ברירת מחדל `v23.0` |
-| `WHATSAPP_NOTIFY_TEMPLATE` | להתראות | שם התבנית המאושרת לדחיפת התראות הפעמון. בלעדיה נשלח טקסט חופשי, שעובד רק בתוך חלון 24 השעות |
+| `WHATSAPP_NOTIFY_TEMPLATE` | להתראות | שם התבנית המאושרת לדחיפת התראות הפעמון. בלעדיה נשלח טקסט חופשי, שעובד רק בתוך חלון 24 השעות. נשארת בתוקף כל עוד הסוד הבא ריק |
 | `WHATSAPP_NOTIFY_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
+| `WHATSAPP_NOTIFY_UTILITY_TEMPLATE` | ⬜ | תבנית UTILITY עם כפתור ליעד המדויק. **לא להגדיר לפני אישור מטא.** ריק = התבנית למעלה, בלי שינוי. ההגדרה ב-`docs/whatsapp-deep-links.md` |
+| `WHATSAPP_NOTIFY_UTILITY_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
+| `WHATSAPP_REMINDER_UTILITY_TEMPLATE` | ⬜ | אותו רעיון לתזכורות. ריק = `WHATSAPP_REMINDER_TEMPLATE` כמו היום |
 | `WHATSAPP_LEAD_ALERT_TEMPLATE` | ללידי מטא | שם התבנית `ads_lead_alert` אחרי אישור. בלעדיה התראת הליד נופלת ל-`WHATSAPP_NOTIFY_TEMPLATE`. ראו "התראה על ליד חדש ממטא" |
 | `WHATSAPP_OTP_TEMPLATE` | ⬜ | תבנית **Authentication** לקוד **יוצא** לחותם/ת על הסכם. Meta פותחת את הקטגוריה רק לעסק מאומת עם נפח שליחה גבוה, ובלעדיה החותם/ת מאמת/ת בהודעה **נכנסת** ("אימות חתימה NNNNNN") שה-webhook בודק לפני זיהוי הסוכן/ת. ראו [`client-agreements.md`](client-agreements.md) |
 | `WHATSAPP_BUSINESS_NUMBER` | ⬜ | המספר העסקי בספרות (`972…`), לקישור האימות בחתימה. ברירת מחדל זהה ל-`assets/bot-link.js` |

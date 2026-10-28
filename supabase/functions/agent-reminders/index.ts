@@ -3,6 +3,19 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 import { mapPool } from "../_shared/pool.ts";
+import {
+  absoluteUrl,
+  containsHttpUrl,
+  ctaMessage,
+  listMessage,
+  reminderFindingPath,
+  REMINDER_FILTER_QUERY,
+  REMINDER_UTILITY_ENV,
+  REMINDER_UTILITY_LANG_ENV,
+  screenBundle,
+  stripHttpUrls,
+  utilityTemplateMessage,
+} from "../_shared/agent-deep-link.ts";
 
 // ============================================================================
 // שרת התזכורות לסוכנים — מוציא את הודעת התזכורת המקובצת במייל ובוואטסאפ.
@@ -45,6 +58,9 @@ const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 const WA_TEMPLATE = Deno.env.get("WHATSAPP_REMINDER_TEMPLATE") || "";
 const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_REMINDER_TEMPLATE_LANG") || "he";
+// ריק = התבנית המאושרת למעלה, כולל כפתור ההפסקה. לא מגישים תבנית חדשה מכאן.
+const WA_UTILITY = Deno.env.get(REMINDER_UTILITY_ENV) || "";
+const WA_UTILITY_LANG = Deno.env.get(REMINDER_UTILITY_LANG_ENV) || "he";
 
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
@@ -96,18 +112,13 @@ function actionUrl(acc: string | null): string {
  * זהה לממצא ב-agent_reminder_findings (ראו propertyHasImage וחבריה ב-crm.js).
  * "לא נכנס נכס חדש" פותח את טופס הנכס החדש.
  */
-const FINDING_PARAMS: Record<string, string> = {
-  missing_images: "&filter=no_images",
-  expiring_listings: "&filter=expiring",
-  stale_listings: "&filter=stale",
-  video_opportunity: "&filter=no_video",
-  idle_listings: "&focus=new",
-  unpublished_listings: "&filter=unpublished",
-};
+// הסינון עצמו: REMINDER_FILTER_QUERY, זהה ל-REMINDER_FILTERS ב-crm.js.
+function itemPath(it: Item): string {
+  return reminderFindingPath(it.kind, it.action);
+}
 
 function itemUrl(it: Item): string {
-  const base = actionUrl(it.action);
-  return it.action === "accProperties" ? base + (FINDING_PARAMS[it.kind] || "") : base;
+  return absoluteUrl(SITE_BASE, itemPath(it));
 }
 
 const manageUrl = () => actionUrl(MANAGE_ACC);
@@ -130,14 +141,18 @@ function subjectLine(items: Item[]): string {
   return rest > 0 ? `${base} · ועוד ${rest}` : base;
 }
 
-function textBody(name: string | null, items: Item[]): string {
+function textBody(name: string | null, items: Item[], withUrls = true): string {
   const lines = [
     greeting(name),
     "כמה דברים שכדאי לדעת על המודעות שלך:",
     "",
-    ...items.map((it) => `• ${it.title}\n  ${it.body}\n  ${itemUrl(it)}`),
+    ...items.map((it) => withUrls
+      ? `• ${it.title}\n  ${it.body}\n  ${itemUrl(it)}`
+      : `• ${it.title}\n  ${it.body}`),
     "",
-    `לשינוי כמות ההודעות, הערוצים והסוגים: ${manageUrl()}`,
+    withUrls
+      ? `לשינוי כמות ההודעות, הערוצים והסוגים: ${manageUrl()}`
+      : "לשינוי כמות ההודעות: מסך התראות והודעות.",
   ];
   // ‏4000 ולא 4096: הגוף נשלח גם כ-preview בוואטסאפ, ועדיף חיתוך שלנו על 400
   // מ-Meta ואפס הודעה.
@@ -207,11 +222,11 @@ const WA_OPTED_OUT = 131050;
  * גופי הממצאים נבנים במסד ועשויים להכיל רווחים כפולים, ולכן הניקוי הוא על
  * המחרוזת כולה ולא רק על המפריד.
  */
-function waSummary(items: Item[]): string {
-  // הקישור לכל ממצא בסוף הפריט ולא בכפתור: הכפתור היחיד בתבנית הוא ניהול
-  // התזכורות, ו-WhatsApp הופך כתובת בגוף ההודעה לקישור (כמו ב-notification-push).
+function waSummary(items: Item[], withUrls = true): string {
+  // בתבנית המאושרת הקישור בסוף הפריט: הכפתור היחיד הוא ניהול התזכורות.
+  // בתבנית UTILITY החדשה (כשהסוד מוגדר) הקישור יורד לכפתור והגוף בלי כתובת.
   return items
-    .map((it) => `• ${it.title}: ${it.body} ${itemUrl(it)}`)
+    .map((it) => `• ${it.title}: ${it.body}${withUrls ? ` ${itemUrl(it)}` : ""}`)
     .join(" ")
     .replace(/\s*[\r\n\t]+\s*/g, " ")
     .replace(/ {4,}/g, "   ")
@@ -229,7 +244,31 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
 
   let payload: Record<string, unknown>;
 
-  if (WA_TEMPLATE) {
+  const reminderScreens = () => items.map((it) => ({
+    type: it.kind,
+    path: itemPath(it),
+    title: it.title,
+    body: it.body,
+  }));
+  const bareBody = () => stripHttpUrls(textBody(name, items, false)).slice(0, 1024);
+
+  if (WA_UTILITY) {
+    // כפתור ה-URL הוא היעד. ההפסקה היא תשובה מהירה "הפסקה" בהגדרת התבנית
+    // (בלי פרמטר בשליחה) וגם המילה הפסק או הפסקה בוובהוק.
+    // docs/whatsapp-deep-links.md
+    const plan = screenBundle(reminderScreens(), () => null);
+    const path = plan.kind === "single" ? plan.path
+      : plan.kind === "list" ? plan.allPath
+      : "/crm?goto=accNotifPrefs";
+    payload = utilityTemplateMessage({
+      to,
+      templateName: WA_UTILITY,
+      lang: WA_UTILITY_LANG,
+      name: String(name || "").trim().split(/\s+/)[0] || "שלום",
+      summary: waSummary(items, false),
+      path,
+    });
+  } else if (WA_TEMPLATE) {
     // שני פרמטרים בגוף התבנית, בסדר הזה:
     //   {{1}} השם הפרטי  ·  {{2}} רשימת הממצאים
     //
@@ -252,7 +291,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
             type: "body",
             parameters: [
               { type: "text", text: (String(name || "").trim().split(/\s+/)[0] || "שלום").slice(0, 60) },
-              { type: "text", text: waSummary(items) },
+              { type: "text", text: waSummary(items, true) },
             ],
           },
           {
@@ -265,16 +304,42 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
       },
     };
   } else {
-    payload = {
+    const plan = screenBundle(reminderScreens(), () => null);
+    const body = bareBody();
+    const interactive = !containsHttpUrl(body) && plan.kind === "single"
+      ? ctaMessage(to, body, plan.label, absoluteUrl(SITE_BASE, plan.path))
+      : !containsHttpUrl(body) && plan.kind === "list"
+      ? listMessage(to, body, plan.button, plan.section, plan.rows)
+      : null;
+    payload = interactive || {
       messaging_product: "whatsapp",
       recipient_type: "individual",
       to,
       type: "text",
-      text: { preview_url: false, body: textBody(name, items) },
+      text: { preview_url: false, body: textBody(name, items, true) },
     };
   }
 
-  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+  let res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+  if (!res.ok && payload.type === "interactive") {
+    const raw = await res.text();
+    if (!raw.includes(String(WA_OPTED_OUT))) {
+      console.error("reminder interactive rejected, sending as text", raw.slice(0, 300));
+      res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to,
+          type: "text",
+          text: { preview_url: false, body: textBody(name, items, true) },
+        }),
+      });
+    } else {
+      res = new Response(raw, { status: res.status });
+    }
+  }
   if (!res.ok) {
     const raw = await res.text();
     let code: number | null = null;
