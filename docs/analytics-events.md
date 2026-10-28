@@ -459,3 +459,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `sell_submit` | האשף ב-`/sell` נשלח (תשובת 2xx). בלי פרטים אישיים | `source`: ‏`sell_page` \| `sell_page_agent`, `routed`: ‏`1` \| `0` |
 | `sell_agent_card_click` | "יצירת קשר עם יועץ הנדל״ן" בכרטיס יועץ ב-`/sell` - האשף ישלח את הליד אליו/ה | `agent_id` |
 | `generate_lead` (‏`form_id`) | **ערך חדש**: האשף ב-`/sell` | `form_id`: ‏`sell_page` |
+| `swipe_list_layout` | מתג "תצוגת שורות" / "תצוגת רשת" ברשימה ב-`/swipe` (‏P1-F) | `layout`: ‏`rows` \| `grid` |
+| `map_legend_toggle` | לחיצה על סוג עסקה במקרא של מפת ההחלקה (‏P1-I). בהחלקה הסינון מחזיק סוג אחד, ולכן הלחיצה מחליפה את הסוג | `kind`: ‏`sale` \| `rent` \| `commercial`, `on`: ‏`1`, `view`: ‏`swipe_map` |
+| `map_cluster_click` | לחיצה על אשכול נכסים במפת ההחלקה - המפה מתקרבת לגבולות האשכול | `count`, `zoom` |
+| `map_marker_open` | נפתח נכס מסמן במפת ההחלקה (‏P1-M) | `property_id`, `deal`: ‏`sale` \| `rent` \| `commercial` |

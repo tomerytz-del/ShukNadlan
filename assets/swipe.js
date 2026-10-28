@@ -423,7 +423,8 @@
   function writeUrl() {
     try {
       var q = new URLSearchParams(location.search);
-      ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view'].forEach(function (k) { q.delete(k); });
+      ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout'].forEach(function (k) { q.delete(k); });
+      if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
       if (view === 'list' || view === 'map') q.set('view', view);
       if (filter.deal !== 'sale') q.set('deal', filter.deal);
@@ -796,7 +797,9 @@
     $('swLikesN').textContent = likes.length;
     $('swLikesL').hidden = !likes.length;
     $('swLikes').classList.toggle('is-pill', likes.length > 0);
-    $('swLikes').setAttribute('aria-label', likes.length ? 'הרשימה שלי, ' + likes.length + ' נכסים שאהבתי' : 'נכסים שאהבתי');
+    // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר (גם בכותרת, ‏P1-E)
+    var ll = 'הנכסים שאהבתי (' + likes.length + ')';
+    $('swLikes').setAttribute('aria-label', ll); $('swLikes').title = ll;
     if (view === 'likes') renderLikesView();
   }
 
@@ -2631,9 +2634,24 @@
     x.href = '#'; x.setAttribute('role', 'button'); x.setAttribute('aria-label', 'סגירת המפה'); x.title = 'סגירת המפה';
     x.innerHTML = '<span aria-hidden="true">✕</span>';
     zoom.insertBefore(x, zoom.firstChild);
+    [['.leaflet-control-zoom-in', 'הגדלה'], ['.leaflet-control-zoom-out', 'הקטנה']].forEach(function (z) {
+      var b = zoom.querySelector(z[0]); if (b) { b.setAttribute('aria-label', z[1]); b.title = z[1]; }
+    });
     L.DomEvent.on(x, 'click', function (e) { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); setView(lastView === 'map' ? 'list' : lastView); });
     addTiles(map, tileFallback($('swMap'), $('swMapChip')));
     markers = L.layerGroup().addTo(map);
+    map.on('zoomend', clusterDraw);
+    var lg = L.DomUtil.create('div', 'sw-map-legend', $('swMap'));
+    lg.id = 'swMapLegend'; lg.setAttribute('role', 'group'); lg.setAttribute('aria-label', 'סוגי עסקה במפה');
+    L.DomEvent.disableClickPropagation(lg);
+    lg.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-kind]');
+      if (!b || b.dataset.kind === filter.deal) return;
+      shukTrack('map_legend_toggle', { kind: b.dataset.kind, on: 1, view: 'swipe_map' });
+      filter.deal = b.dataset.kind; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0;
+      filter.type = '';   // סוג של עסקה אחת (דירה) מול אחרת (מסחרי) היה מוביל לאפס
+      buildDeck(); renderFilter();
+    });
     mapReady = true;
     drawMapMarkers();
   }
@@ -2643,20 +2661,27 @@
     if (!v) return 'לפי בקשה';
     return v >= 1000000 ? '₪' + (v / 1000000).toFixed(v % 1000000 ? 2 : 0).replace(/\.?0+$/, '') + 'M' : '₪' + v.toLocaleString('he-IL');
   }
+  /* ‏P1-I: צבע קבוע לכל סוג עסקה (בורדו מכירה, נייבי השכרה, חום מסחרי), סימן שאינו צבע
+     (‏"/חוד׳", אייקון חנות, ‏"/מ״ר"), מקרא שהוא מתג, ואשכולות במקום גלולות שנערמות */
+  function dealKindOf(p) { return isComm(p) ? 'commercial' : p.deal_type === 'rent' ? 'rent' : 'sale'; }
+  var KIND_LABEL = { sale: 'למכירה', rent: 'להשכרה', commercial: 'מסחרי' };
+  var SHOP_ICON = '<svg class="sw-pin-ic" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M4 9l1.5-5h13L20 9M4 9h16v11H4zM9 20v-6h6v6"/></svg>';
+  function pinLabel(p) {
+    var k = dealKindOf(p), v = Number(p.price);
+    if (!v) return esc('לפי בקשה');
+    if (k === 'rent') return esc('₪' + v.toLocaleString('he-IL') + '/חוד׳');
+    if (k === 'commercial') return SHOP_ICON + esc(p.price_unit === 'sqm' ? '₪' + v.toLocaleString('he-IL') + '/מ״ר' : shortPrice(p));
+    return esc(shortPrice(p));
+  }
+  var mapProps = [], mapFitted = false;
   function drawMapMarkers() {
     if (!mapReady) return;
-    markers.clearLayers();
-    var props = deck.filter(function (c) { return c.slot === 'property' && c.p.lat && c.p.lng; });
-    props.forEach(function (c) {
-      var m = L.marker([+c.p.lat, +c.p.lng], { icon: L.divIcon({ className: '', iconSize: null,
-        html: '<span class="sw-pin' + (fairLive(c.p) ? ' is-nofee' : '') + '">' + esc(shortPrice(c.p)) + '</span>' }), keyboard: true }).addTo(markers);
-      var el = m.getElement();
-      if (el) el.setAttribute('aria-label', (fairLive(c.p) ? NO_FEE + ', ' : '') + title(c.p) + ', ' + fmtPrice(c.p));
-      m.on('click', function () { openSheetFor(c); });
-    });
+    mapProps = deck.filter(function (c) { return c.slot === 'property' && c.p.lat && c.p.lng; });
+    renderLegend();
+    clusterDraw();
     /* ‏C10: המפה מתמקדת בתוצאות המסוננות. נקודה מחוץ לישראל, או רחוקה יותר
        מ-25 ק"מ מהחציון (קואורדינטות שגויות במסד), אינה מושכת את המפה לכל הארץ */
-    var pts = props.map(function (c) { return [+c.p.lat, +c.p.lng]; })
+    var pts = mapProps.map(function (c) { return [+c.p.lat, +c.p.lng]; })
       .filter(function (q) { return q[0] > 29 && q[0] < 33.6 && q[1] > 34 && q[1] < 36; });
     if (pts.length > 2) {
       var med = function (i) { var v = pts.map(function (q) { return q[i]; }).sort(function (a, b) { return a - b; }); return v[v.length >> 1]; };
@@ -2669,6 +2694,79 @@
       try { map.fitBounds(L.latLngBounds(pts), { padding: [48, 48], maxZoom: 15 }); } catch (e) {}
     }
   }
+  /* אשכול: כל נקודה מצטרפת לאשכול שמרכזו (בפיקסלים, בזום הנוכחי) קרוב מ-48px, אחרת פותחת
+     אשכול חדש. מצויר מחדש בכל zoomend */
+  var CLUSTER_PX = 48;
+  function clusterDraw() {
+    if (!mapReady) return;
+    markers.clearLayers();
+    var z = map.getZoom(), groups = [];
+    mapProps.forEach(function (c) {
+      var pt = map.project([+c.p.lat, +c.p.lng], z), hit = null;
+      for (var i = 0; i < groups.length && !hit; i++) {
+        var g = groups[i];
+        // הגלולה רחבה מגובהה (‏"₪990,000" עם אייקון), ולכן הרוחב שנבדק גדול יותר
+        if (Math.abs(g.x - pt.x) < CLUSTER_PX * 1.75 && Math.abs(g.y - pt.y) < CLUSTER_PX * 0.75) hit = g;
+      }
+      if (!hit) { hit = { x: pt.x, y: pt.y, list: [] }; groups.push(hit); }
+      hit.list.push(c);
+      hit.x += (pt.x - hit.x) / hit.list.length; hit.y += (pt.y - hit.y) / hit.list.length;
+    });
+    // מרכז שזז כשנקודות מצטרפות יכול לנחות על אשכול שכן - מאחדים עד שאין שניים נוגעים
+    for (var merged = true; merged;) {
+      merged = false;
+      for (var i = 0; i < groups.length && !merged; i++) for (var j = i + 1; j < groups.length && !merged; j++) {
+        var a = groups[i], b = groups[j], big = a.list.length > 1 || b.list.length > 1;
+        if (big && Math.abs(a.x - b.x) < CLUSTER_PX && Math.abs(a.y - b.y) < CLUSTER_PX) {
+          var n = a.list.length + b.list.length;
+          a.x = (a.x * a.list.length + b.x * b.list.length) / n; a.y = (a.y * a.list.length + b.y * b.list.length) / n;
+          a.list = a.list.concat(b.list); groups.splice(j, 1); merged = true;
+        }
+      }
+    }
+    groups.forEach(function (gr) {
+      var group = gr.list;
+      if (group.length === 1 || z >= 17) { group.forEach(pinMarker); return; }
+      var kinds = group.map(function (c) { return dealKindOf(c.p); }).filter(function (k, i, a) { return a.indexOf(k) === i; });
+      var lat = 0, lng = 0;
+      group.forEach(function (c) { lat += +c.p.lat; lng += +c.p.lng; });
+      var cls = 'sw-cluster ' + (kinds.length === 1 ? 'is-' + kinds[0] : 'is-mixed');
+      var label = group.length + ' נכסים' + (kinds.length === 1 ? ' ' + KIND_LABEL[kinds[0]] : '') + ', הגדלת המפה';
+      var m = L.marker([lat / group.length, lng / group.length], { icon: L.divIcon({ className: '', iconSize: null,
+        html: '<span class="' + cls + '">' + group.length + '</span>' }), keyboard: true, title: label }).addTo(markers);
+      var el = m.getElement();
+      if (el) el.setAttribute('aria-label', label);
+      m.on('click', function () {
+        shukTrack('map_cluster_click', { count: group.length, zoom: map.getZoom() });
+        var b = L.latLngBounds(group.map(function (c) { return [+c.p.lat, +c.p.lng]; }));
+        if (b.getNorthEast().equals(b.getSouthWest())) map.setView(b.getCenter(), 17);
+        else map.fitBounds(b, { padding: [48, 48], maxZoom: 18 });
+      });
+    });
+  }
+  function pinMarker(c) {
+    var k = dealKindOf(c.p);
+    var m = L.marker([+c.p.lat, +c.p.lng], { icon: L.divIcon({ className: '', iconSize: null,
+      html: '<span class="sw-pin is-' + k + (fairLive(c.p) ? ' is-nofee' : '') + '">' + pinLabel(c.p) + '</span>' }), keyboard: true }).addTo(markers);
+    var el = m.getElement();
+    if (el) el.setAttribute('aria-label', KIND_LABEL[k] + ', ' + (fairLive(c.p) ? NO_FEE + ', ' : '') + title(c.p) + ', ' + fmtPrice(c.p));
+    m.on('click', function () {
+      shukTrack('map_marker_open', { property_id: String(c.p.id), deal: k });
+      openSheetFor(c);
+    });
+  }
+  /* המקרא: שלושה מתגים עם מונה. בהחלקה הסינון מחזיק סוג עסקה אחד (‏filter.deal), ולכן
+     לחיצה על סוג כבוי מחליפה אליו את הסינון ואת הכתובת, והסוג הדלוק אינו נכבה (ד-29) */
+  function renderLegend() {
+    var box = $('swMapLegend');
+    if (!box) return;
+    box.innerHTML = ['sale', 'rent', 'commercial'].map(function (k) {
+      var n_ = countFor({ deal: k });
+      if (!n_ && filter.deal !== k) return '';
+      return '<button type="button" class="sw-lg is-' + k + '" data-kind="' + k + '" aria-pressed="' + (filter.deal === k) + '">' +
+        '<i aria-hidden="true"></i>' + esc({ sale: 'מכירה', rent: 'השכרה', commercial: 'מסחרי' }[k]) + ' <b>' + n_ + '</b></button>';
+    }).join('');
+  }
   function renderList() {
     var props = deck.filter(function (c) { return c.slot === 'property'; });
     $('swListCount').textContent = props.length === 1 ? 'נכס אחד' : props.length + ' נכסים';
@@ -2680,16 +2778,40 @@
       var p = c.p, ph = photos(p);
       if (!ph.length && window.NoPhoto) {
         return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><button type="button" class="sw-lv-open" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
-          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></button>' +
+          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span></button>' +
           '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
       }
       return '<button type="button" class="sw-li" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
-        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span>' +
+        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span>' +
         (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</button>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
   var listLikedOnly = false, listNpOnly = false;
+  /* ‏P1-F: בתצוגת שורות - שורה אחת: כותרת · כתובת · מחיר · חדרים · קומה · מ״ר */
+  function rowLine(p) {
+    var bits = [esc(title(p)), esc(where(p)), '<b>' + esc(fmtPrice(p)) + '</b>',
+      rooms(p) ? esc(rooms(p) + ' חד׳') : '', p.floor != null && p.floor !== '' ? esc('קומה ' + p.floor) : '', p.size_sqm ? esc(p.size_sqm + ' מ״ר') : ''];
+    return '<span class="sw-li-line">' + bits.filter(Boolean).join(' · ') + '</span>';
+  }
+  var listLayout = (function () {
+    if (params.get('layout') === 'rows') return 'rows';
+    try { return localStorage.getItem('sk_swipe_layout') === 'rows' ? 'rows' : 'grid'; } catch (e) { return 'grid'; }
+  })();
+  function applyLayout() {
+    $('swList').classList.toggle('is-rows', listLayout === 'rows');
+    document.querySelectorAll('.sw-layout [data-layout]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.layout === listLayout)); });
+  }
+  applyLayout();
+  document.querySelector('.sw-layout').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-layout]');
+    if (!b || b.dataset.layout === listLayout) return;
+    listLayout = b.dataset.layout;
+    try { localStorage.setItem('sk_swipe_layout', listLayout); } catch (err) { /* מצב פרטי */ }
+    applyLayout();
+    writeUrl();
+    shukTrack('swipe_list_layout', { layout: listLayout });
+  });
   $('swList').addEventListener('click', function (e) {
     var rq = e.target.closest('[data-np-req]');
     if (rq) {
@@ -2723,6 +2845,11 @@
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
     if (v !== 'likes') writeUrl();
+    /* ‏P1-G: "?" מסביר איך מחליקים - רק בהחלקה. visibility ולא display, כדי שהפס לא יקפוץ */
+    var help = $('swHelp'), onDeck = v === 'deck';
+    help.style.visibility = onDeck ? '' : 'hidden';
+    if (onDeck) { help.removeAttribute('aria-hidden'); help.removeAttribute('tabindex'); }
+    else { help.setAttribute('aria-hidden', 'true'); help.setAttribute('tabindex', '-1'); }
   }
   document.querySelectorAll('.sw-views [data-view]').forEach(function (b) {
     b.addEventListener('click', function () { setView(b.dataset.view); });
@@ -2857,7 +2984,25 @@
   $('swTourOk').addEventListener('click', function () { if (tourStep < tourList.length - 1) { tourStep++; showTip(); } else endTour(false); });
   $('swTourSkip').addEventListener('click', function () { endTour(true); });
   // "?" בכל רוחב: גיליון "איך מחליקים", ומשם אפשר להריץ את ההדרכה מחדש
-  $('swHelp').addEventListener('click', function () { bsOpen('help'); });
+  $('swHelp').addEventListener('click', function () { if (view === 'deck') bsOpen('help'); });
+
+  /* ‏P1-H: לכל כפתור שהוא אייקון בלבד - title זהה ל-aria-label (מקור אחד), כדי שבמחשב
+     יופיע הסבר בריחוף. רק כשאין טקסט גלוי בכפתור; מתעדכן כשה-aria-label משתנה */
+  function iconTitles(root) {
+    (root || document).querySelectorAll('button[aria-label], a[aria-label], [role=button][aria-label]').forEach(function (b) {
+      var l = b.getAttribute('aria-label');
+      if (l && !(b.innerText || '').trim() && b.title !== l) b.title = l;
+    });
+  }
+  iconTitles();
+  if (window.MutationObserver) {
+    var titleQueued = false;
+    new MutationObserver(function () {
+      if (titleQueued) return;
+      titleQueued = true;
+      requestAnimationFrame(function () { titleQueued = false; iconTitles(); });
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] });
+  }
 
   /* ---------- התחלה ---------- */
   var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view'].some(function (k) { return params.has(k); });

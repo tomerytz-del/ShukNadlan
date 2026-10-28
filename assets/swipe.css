@@ -29,7 +29,8 @@ html body.sw-body.sw-locked{overflow:hidden}
   border-radius:12px;background:#fff;color:var(--sw-navy);font:inherit;font-weight:800;font-size:17px;cursor:pointer}
 .sw-ic svg{width:20px;height:20px}
 .sw-help{width:40px;min-width:40px;height:40px;border-radius:50%;border-color:var(--sw-navy)}
-.sw-likes{color:#157a3c;background:#eef8f1;border-color:#cde9d6}
+/* ד-15: לב "שמור" בזהב (‏#a8841a, ניגודיות 3.4:1 לאייקון) - ירוק שמור לוואטסאפ בלבד */
+.sw-likes{color:#a8841a;background:#fbf5e2;border-color:#ecdca6}
 .sw-likes b{font-size:13px;color:var(--sw-title)}
 .sw-ic:focus-visible,.sw-sum:focus-visible,.sw-act:focus-visible,.sw-chip:focus-visible,.sw-views button:focus-visible,
 .sw-gold:focus-visible,.sw-white:focus-visible,.sw-link:focus-visible,.sw-banner:focus-visible,.sw-card:focus-visible,.sw-li:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
@@ -77,7 +78,7 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-up{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:6px;padding:0 4px;border:0;background:none;color:#fff;
   font:inherit;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .sw-stamp{position:absolute;top:70px;z-index:3;pointer-events:none;padding:6px 16px;border-radius:12px;font-size:22px;font-weight:900;opacity:0;transition:opacity .1s}
-.sw-stamp.is-like{left:20px;border:3px solid #fff;background:#157a3c;transform:rotate(-12deg)}
+.sw-stamp.is-like{left:20px;border:3px solid #fff;background:#a8841a;transform:rotate(-12deg)}
 .sw-stamp.is-skip{right:20px;border:3px solid #fff;background:#b3261e;transform:rotate(12deg)}
 .sw-card.show-like .is-like,.sw-card.show-skip .is-skip{opacity:1}
 .sw-dbg{position:absolute;bottom:8px;left:8px;z-index:5;padding:2px 8px;border-radius:6px;background:var(--sw-gold);color:var(--sw-deep);font-size:12px;font-weight:800;direction:ltr}
@@ -109,8 +110,8 @@ html body.sw-body.sw-locked{overflow:hidden}
   background:#fff;color:var(--sw-navy);cursor:pointer;box-shadow:0 4px 12px rgba(13,27,61,.07);text-decoration:none}
 .sw-act svg{width:26px;height:26px}
 .sw-act-skip{color:#b3261e;width:64px;height:64px}
-.sw-act-like{color:#157a3c;width:64px;height:64px}
-.sw-act-like[aria-pressed="true"]{background:#eef8f1}
+.sw-act-like{color:#a8841a;width:64px;height:64px}
+.sw-act-like[aria-pressed="true"]{background:#fbf5e2}
 .sw-act-undo,.sw-act-call{width:48px;height:48px}
 .sw-act-undo svg,.sw-act-call svg{width:22px;height:22px}
 .sw-act-undo:disabled{opacity:.45;cursor:default}
@@ -130,7 +131,7 @@ html body.sw-body.sw-locked{overflow:hidden}
 .sw-li-txt b{color:var(--sw-navy);font-size:16px;font-weight:800}
 .sw-li-txt span,.sw-li-txt small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sw-li-txt small{color:var(--sw-body)}
-.sw-li-heart{position:absolute;top:8px;left:10px;color:#157a3c}
+.sw-li-heart{position:absolute;top:8px;left:10px;color:#a8841a}
 .sw-map{height:calc(100dvh - 140px);min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--sw-line);background:#eef1f7}
 .sw-map.tiles-off,.sw-minimap.tiles-off{background:url("/assets/map-streets-fallback-260.svg") 0 0/260px 260px,linear-gradient(160deg,#f6f1e7,#eef1f7)}
 .sw-map.tiles-off .leaflet-tile-pane,.sw-minimap.tiles-off .leaflet-tile-pane{visibility:hidden}
@@ -377,7 +378,8 @@ body.sw-locked #gabW,body.sw-locked .a11y-fab,body.sw-locked .a11y-hide,body.sw-
 .sw-likes.is-pill{border-radius:999px;padding:0 12px}
 .sw-likes-l{font-size:13px;font-weight:700;color:var(--sw-title);white-space:nowrap}
 @media (max-width:420px){.sw-likes.is-pill{padding:0 9px;gap:3px}.sw-likes-l{font-size:12px}}
-@media (max-width:359px){.sw-likes-l{display:none}}
+/* ‏P1-H: התווית הגלויה "הנכסים שאהבתי" רק במחשב; בטלפון הלב והמונה */
+@media (max-width:1023px){.sw-likes-l{display:none}.sw-likes.is-pill{padding:0 10px}}
 .sw-navy{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border:0;border-radius:12px;background:var(--sw-navy);
   color:#fff;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
 .sw-navy:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
@@ -390,7 +392,7 @@ html body .sw-lv-head h2{margin:0;font-size:var(--sec-h);font-weight:800;color:v
 .sw-lv-row{padding:0;cursor:default}
 .sw-lv-open{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:8px;border:0;background:none;font:inherit;color:inherit;text-align:start;cursor:pointer;border-radius:16px}
 .sw-lv-open:focus-visible,.sw-lv-heart:focus-visible{outline:3px solid var(--sw-gold);outline-offset:-3px}
-.sw-lv-heart{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin-inline-end:4px;border-radius:50%;background:#eef8f1;color:#157a3c;font-size:16px}
+.sw-lv-heart{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin-inline-end:4px;border-radius:50%;background:#fbf5e2;color:#a8841a;font-size:16px}
 .sw-lv-row{position:relative}
 /* ‏P0-9: ✕ אדום בפינה; אזור נגיעה של 44px סביב עיגול של 32px */
 .sw-lv-rm{position:absolute;top:-6px;left:-6px;width:44px;height:44px;padding:6px;border:0;background:none;cursor:pointer}
@@ -516,7 +518,7 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-bs-x::before{content:"";position:absolute;inset:-3px}
 .sw-bs-art{position:relative;display:flex;justify-content:center;margin-top:4px}
 .sw-bs-av{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--sw-cream);box-shadow:0 0 0 3px #e5c76a}
-.sw-bs-heart{position:absolute;bottom:-2px;left:calc(50% + 18px);width:24px;height:24px;border-radius:50%;background:#fff;color:#157a3c;font-size:14px;line-height:24px;box-shadow:0 2px 6px rgba(13,27,61,.2)}
+.sw-bs-heart{position:absolute;bottom:-2px;left:calc(50% + 18px);width:24px;height:24px;border-radius:50%;background:#fff;color:#a8841a;font-size:14px;line-height:24px;box-shadow:0 2px 6px rgba(13,27,61,.2)}
 .sw-bs-svg{width:64px;height:64px}
 .sw-bs-viz{width:168px;height:96px}
 html body .sw-bs-title{margin:4px 0 0;font-family:Heebo,system-ui,sans-serif;font-size:22px;font-weight:800;line-height:1.25;color:var(--sw-title);text-wrap:balance}
@@ -706,3 +708,56 @@ html body .sw-art-stitle{margin:14px 0 4px;font-family:Heebo,system-ui,sans-seri
 
 /* ‏P1-L: גולל שהתוכן שלו מתחלף אינו מעגן את המיקום לתמונה שנטענה */
 .sw-dscroll,.sw-fbody,.sw-bs{overflow-anchor:none}
+
+/* ---------- ‏P1-F: מתג שורות / רשת ברשימה ---------- */
+.sw-layout{display:none;gap:0;border:1.5px solid var(--sw-navy);border-radius:999px;overflow:hidden}
+body[data-view=list] .sw-layout{display:inline-flex}
+.sw-layout button{width:40px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;border:0;background:#fff;color:var(--sw-navy);cursor:pointer}
+.sw-layout button[aria-pressed=true]{background:var(--sw-navy);color:#fff}
+.sw-layout button:focus-visible{outline:3px solid #e5c76a;outline-offset:-3px}
+.sw-li-line{display:none}
+.sw-list.is-rows{grid-template-columns:minmax(0,1fr)}
+.sw-list.is-rows .sw-li img,.sw-list.is-rows .sw-liimg{width:120px;height:90px;object-fit:contain;background:#f3f5f9}
+.sw-list.is-rows .sw-li-txt > b,.sw-list.is-rows .sw-li-txt > span:not(.sw-li-line),.sw-list.is-rows .sw-li-txt > small,.sw-list.is-rows .sw-li-txt > i{display:none}
+.sw-list.is-rows .sw-li-line{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;font-size:14px;line-height:1.45;color:var(--sw-title)}
+.sw-list.is-rows .sw-li-line b{color:var(--sw-navy)}
+@media (min-width:760px){.sw-list.is-rows .sw-li-line{-webkit-line-clamp:1;display:block;white-space:nowrap;text-overflow:ellipsis}}
+
+/* ---------- ‏P1-J: אייקונים לכפתורי התצוגה, ותנועה קטנה בריחוף (רק עכבר, ובלי reduced-motion) ---------- */
+.vi .vi-top,.vi .vi-l1,.vi .vi-l2,.vi .vi-l3,.vi .vi-pinb{transform-box:fill-box;transform-origin:50% 100%;transition:transform .2s ease-out}
+.vi .vi-l2{transition-delay:40ms}.vi .vi-l3{transition-delay:80ms}
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+  :hover > .vi .vi-top,:focus-visible > .vi .vi-top{transform:translateX(3px) rotate(8deg)}
+  :hover > .vi .vi-l1,:hover > .vi .vi-l2,:hover > .vi .vi-l3{transform:translateX(3px)}
+  :hover > .vi .vi-pinb{animation:viHop .22s ease-out}
+}
+@keyframes viHop{50%{transform:translateY(-3px)}}
+.sw-views button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.sw-views button .vi{flex:none}
+.sw-views button[aria-selected="true"] .vi{color:#c9a227}
+
+/* ---------- ‏P1-I: צבע קבוע לכל סוג עסקה במפה, מקרא ואשכולות ---------- */
+.sw-pin{display:inline-flex;align-items:center;gap:4px;border:1.5px solid #fff}
+.sw-pin.is-sale{background:var(--deal-sale,#6e1022)}
+.sw-pin.is-rent{background:var(--deal-rent,#0e2a6b)}
+.sw-pin.is-commercial{background:var(--deal-commercial,#9a4e00)}
+.sw-pin.is-nofee{background:#c9a227;color:#0d1b3d}
+.sw-pin.is-nofee.is-sale{border-color:var(--deal-sale,#6e1022)}
+.sw-pin.is-nofee.is-rent{border-color:var(--deal-rent,#0e2a6b)}
+.sw-pin.is-nofee.is-commercial{border-color:var(--deal-commercial,#9a4e00)}
+.sw-pin-ic{flex:none}
+.sw-cluster{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 6px;border-radius:999px;border:2px solid #fff;
+  color:#fff;font-size:13px;font-weight:800;box-shadow:0 2px 8px rgba(13,27,61,.3);transform:translate(-50%,-50%);cursor:pointer}
+.sw-cluster.is-sale{background:var(--deal-sale,#6e1022)}
+.sw-cluster.is-rent{background:var(--deal-rent,#0e2a6b)}
+.sw-cluster.is-commercial{background:var(--deal-commercial,#9a4e00)}
+.sw-cluster.is-mixed{background:#0e2a6b;box-shadow:0 0 0 2px #c9a227,0 2px 8px rgba(13,27,61,.3)}
+.sw-map-legend{position:absolute;top:48px;inset-inline-start:12px;inset-inline-end:60px;z-index:500;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.sw-map-legend .sw-lg{pointer-events:auto}
+.sw-lg{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1.5px solid #dfe3ec;border-radius:999px;background:#fff;
+  color:#0d1b3d;font:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(13,27,61,.12)}
+.sw-lg i{width:10px;height:10px;border-radius:50%}
+.sw-lg.is-sale i{background:var(--deal-sale,#6e1022)}.sw-lg.is-rent i{background:var(--deal-rent,#0e2a6b)}.sw-lg.is-commercial i{background:var(--deal-commercial,#9a4e00)}
+.sw-lg[aria-pressed=false]{opacity:.6}
+.sw-lg[aria-pressed=true]{border-color:#0e2a6b}
+.sw-lg:focus-visible{outline:3px solid #e5c76a;outline-offset:2px}

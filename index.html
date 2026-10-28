@@ -87,9 +87,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     --gold-tint:  #f7f1e2;
     --brick:      #08194a;
     --live:       #0e2a6b;
-    --deal-sale:      #0e2a6b;
-    --deal-rent:      #0e2a6b;
-    --deal-commercial:#9a4e00;
+    /* ‏--deal-*: מקור אחד ב-assets/design-system.css (מכירה בורדו, השכרה נייבי, מסחרי חום) - P1-I */
     --radius-sm:  6px;
     --radius-md:  12px;
     --radius-lg:  20px;
@@ -3456,6 +3454,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   @keyframes v10Shim{from{background-position:180% 0}to{background-position:-60% 0}}
   @media(max-width:759px){html.beta-hero body .hero .v10-view{min-height:44px;font-size:13px;flex-direction:column;gap:2px;padding:6px 4px}}
   @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-shimmer{animation:none}}
+  /* ‏P1-J: אייקונים לכפתורי התצוגה, ותנועה קטנה בריחוף (רק עכבר, ובלי reduced-motion). ‏.vi קיים רק בכפתורים האלה */
+  .vi .vi-top,.vi .vi-l1,.vi .vi-l2,.vi .vi-l3,.vi .vi-pinb{transform-box:fill-box;transform-origin:50% 100%;transition:transform .2s ease-out}
+  .vi .vi-l2{transition-delay:40ms}.vi .vi-l3{transition-delay:80ms}
+  @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+    :hover > .vi .vi-top,:focus-visible > .vi .vi-top{transform:translateX(3px) rotate(8deg)}
+    :hover > .vi .vi-l1,:hover > .vi .vi-l2,:hover > .vi .vi-l3{transform:translateX(3px)}
+    :hover > .vi .vi-pinb{animation:viHop .22s ease-out}
+  }
+  @keyframes viHop{50%{transform:translateY(-3px)}}
+
   /* חלק 4 §3: כרטיס ההזמנה להחלקה - התא הראשון בתיבת הנכסים */
   html.beta-hero .pc-swipe-invite{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-height:292px;padding:16px 14px;
     border-radius:16px;background:linear-gradient(160deg,#0e2a6b,#1c3d8f);color:#fff;text-align:center;text-decoration:none;overflow:hidden}
@@ -4259,9 +4267,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <!-- חלק 4 §2: שלושה כפתורי תצוגה שווים - החלקה (ראשי, "חדש"), מפה, רשימה -->
           <div class="v10-views v10-only" role="group" aria-label="איך להציג את הנכסים">
-            <a class="v10-view is-swipe" href="/swipe" data-swipe-via="hero_views" data-view-mode="swipe" aria-label="גלישה בהחלקה, חדש"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="11" height="15" rx="2" transform="rotate(8 13.5 10.5)"/><path d="M5 7.5 4.2 17a2 2 0 0 0 1.8 2.2l7 .6"/></svg>גלישה בהחלקה<span class="v10-new" aria-hidden="true">חדש</span></a>
-            <button type="button" class="v10-view hero-map-btn" data-map-open="hero_cta" data-view-mode="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>חיפוש במפה</button>
-            <button type="button" class="v10-view" data-view-mode="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>תצוגת רשימה</button>
+            <a class="v10-view is-swipe" href="/swipe" data-swipe-via="hero_views" data-view-mode="swipe" aria-label="גלישה בהחלקה, חדש" title="גלישה בהחלקה"><svg class="vi vi-swipe" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="vi-back" x="4" y="6" width="11" height="15" rx="2"/><rect class="vi-top" x="9" y="3" width="11" height="15" rx="2"/></svg>גלישה בהחלקה<span class="v10-new" aria-hidden="true">חדש</span></a>
+            <button type="button" class="v10-view hero-map-btn" data-map-open="hero_cta" data-view-mode="map" title="תצוגת מפה"><svg class="vi vi-pin" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="vi-pinb"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></g></svg>חיפוש במפה</button>
+            <button type="button" class="v10-view" data-view-mode="list" title="תצוגת רשימה"><svg class="vi vi-list" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path class="vi-l1" d="M4 6h16"/><path class="vi-l2" d="M4 12h16"/><path class="vi-l3" d="M4 18h16"/></svg>תצוגת רשימה</button>
           </div>
 
           <span class="visually-hidden" id="ssLive" aria-live="polite"></span>

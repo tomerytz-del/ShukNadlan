@@ -8119,3 +8119,23 @@ document.addEventListener('click', e => {
   const stop = () => { clearInterval(timer); };
   ['wheel', 'touchstart', 'keydown'].forEach(t => window.addEventListener(t, stop, { once:true, passive:true }));
 })();
+
+(function(){
+  /* ‏P1-H: לכל כפתור שהוא אייקון בלבד - title זהה ל-aria-label (מקור אחד), כדי שבמחשב
+     יופיע הסבר בריחוף. רק כשאין טקסט גלוי בכפתור; מתעדכן כשה-aria-label משתנה */
+  function iconTitles(root) {
+    (root || document).querySelectorAll('button[aria-label], a[aria-label], [role=button][aria-label]').forEach(function (b) {
+      var l = b.getAttribute('aria-label');
+      if (l && !(b.innerText || '').trim() && b.title !== l) b.title = l;
+    });
+  }
+  iconTitles();
+  if (window.MutationObserver) {
+    var titleQueued = false;
+    new MutationObserver(function () {
+      if (titleQueued) return;
+      titleQueued = true;
+      requestAnimationFrame(function () { titleQueued = false; iconTitles(); });
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] });
+  }
+})();
