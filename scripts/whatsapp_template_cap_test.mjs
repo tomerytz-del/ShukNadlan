@@ -41,6 +41,10 @@ test("הדגל כבוי, והסיבה נרשמת ביומן בלי להזיז א
   assert.doesNotMatch(migration, /claim_inner/);
   assert.match(migration, /interval '2 days'/);
   assert.match(migration, /Asia\/Jerusalem/);
+  const holds = extract("notification_push_log_holds");
+  assert.doesNotMatch(holds, /skipped_template_cap/);
+  const allow = extract("whatsapp_template_cap_allow");
+  assert.doesNotMatch(allow, /suppress_push/);
 });
 
 test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow גם ב-claim וגם בשליחה", () => {
@@ -48,6 +52,8 @@ test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow 
   const prepares = claim.match(/perform public\.notification_push_burst_prepare\(\)/g) || [];
   assert.equal(prepares.length, 1);
   assert.match(claim, /whatsapp_template_cap_allow\(v_log\)/);
+  assert.match(claim, /skipped_template_cap/);
+  assert.match(claim, /notif_il_digest_open/);
   assert.match(push, /templateCapAllows\(sb, row\.log_id\)/);
   assert.match(push, /rpc\("whatsapp_template_cap_allow"/);
 });

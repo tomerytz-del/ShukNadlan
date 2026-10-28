@@ -62,8 +62,8 @@ alter table public.notification_push_log drop constraint if exists notification_
 alter table public.notification_push_log add constraint notification_push_log_status_chk
   check (whatsapp_status in ('pending', 'sent', 'failed', 'skipped', 'skipped_template_cap'));
 
--- skipped ו-skipped_template_cap חוסמים לתמיד, כמו sent.
--- pending חוסם רק בחלון החסד (20261101090000).
+-- skipped חוסם לתמיד. skipped_template_cap לא חוסם:
+-- ההתראה נשארת בפעמון ונכנסת לתקציר היומי הבא.
 create or replace function public.notification_push_log_holds(
   p_status  text,
   p_created timestamptz
@@ -73,7 +73,7 @@ language sql
 stable
 set search_path = ''
 as $$
-  select p_status in ('sent', 'skipped', 'skipped_template_cap')
+  select p_status in ('sent', 'skipped')
       or (p_status = 'pending'
           and p_created > now() - make_interval(mins => coalesce(
                 (select value::int from public.pricing_config
@@ -81,7 +81,7 @@ as $$
 $$;
 
 comment on function public.notification_push_log_holds(text, timestamptz) is
-  'האם שורת יומן דחיפה חוסמת הודעה נוספת על אותן התראות. sent, skipped ו-skipped_template_cap חוסמים תמיד. pending חוסם רק בחלון החסד.';
+  'האם שורת יומן דחיפה חוסמת הודעה נוספת על אותן התראות. sent ו-skipped חוסמים תמיד. skipped_template_cap לא חוסם: ההתראה נשארת לפעמון ולתקציר היומי. pending חוסם רק בחלון החסד.';
 
 revoke all on function public.notification_push_log_holds(text, timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_push_log_holds(text, timestamptz) to service_role;
@@ -259,7 +259,6 @@ declare
   v_status text;
   v_error  text;
   v_types  text[];
-  v_ids    uuid[];
   v_daily  int;
   v_hard   int;
   v_gap    numeric;
@@ -268,8 +267,8 @@ declare
   v_hours  numeric;
   v_exempt boolean;
 begin
-  select l.agent_id, l.channel_mode, l.whatsapp_status, l.last_error, l.types, l.notification_ids
-    into v_agent, v_mode, v_status, v_error, v_types, v_ids
+  select l.agent_id, l.channel_mode, l.whatsapp_status, l.last_error, l.types
+    into v_agent, v_mode, v_status, v_error, v_types
     from public.notification_push_log l
    where l.id = p_log_id;
 
@@ -335,12 +334,6 @@ begin
          last_error = 'skipped_template_cap'
    where l.id = p_log_id
      and l.whatsapp_status = 'pending';
-
-  if v_ids is not null then
-    update public.notifications n
-       set suppress_push = true
-     where n.id = any(v_ids);
-  end if;
 
   return false;
 end;
@@ -672,6 +665,23 @@ begin
               where l.agent_id = n.agent_id
                 and n.id = any(l.notification_ids)
                 and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
+           and (
+             not public.whatsapp_template_cap_on()
+             or not exists (
+               select 1 from public.notification_push_log lcap
+                where lcap.agent_id = n.agent_id
+                  and n.id = any(lcap.notification_ids)
+                  and lcap.whatsapp_status = 'skipped_template_cap'
+                  and public.whatsapp_template_local_day(lcap.created_at)
+                      = public.whatsapp_template_local_day(pg_catalog.now())
+             )
+             or (
+               v_digest_on = 1
+               and public.notif_il_digest_open(coalesce(
+                     (select value::int from public.pricing_config
+                       where key = 'notif_digest_window_minutes'), 15))
+             )
+           )
            and not public.notification_push_stale_in_quiet(n.type, n.agent_id, n.created_at)
       ) s;
 

@@ -798,7 +798,10 @@ Deno.serve(async (req: Request) => {
 });
 
 // true: לשלוח. שגיאה או פונקציה חסרה לא בולעות את ההתראה.
-async function templateCapAllows(sb: ReturnType<typeof createClient>, logId: string): Promise<boolean> {
+async function templateCapAllows(
+  sb: { rpc: (fn: string, args?: Record<string, unknown>) => any },
+  logId: string,
+): Promise<boolean> {
   const { data, error } = await sb.rpc("whatsapp_template_cap_allow", { p_log_id: logId });
   if (error) {
     const missing = error.code === "PGRST202" || error.code === "42883"
