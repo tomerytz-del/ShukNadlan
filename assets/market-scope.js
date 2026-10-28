@@ -8,8 +8,9 @@
 
    - **שוק רגיל** (‏/haifa): רק הערים שלו. ‏`include`.
    - **שוק ברירת המחדל** (‏/): כל מה ש**אינו** שייך לשוק אחר - כולל שורה בלי
-     עיר מזוהה ושורה בעיר שאין לה שוק. יישובי העמק שעוד לא נכנסו לרישום
-     הופיעו באתר עד היום, והסינון אסור שיעלים אותם בשקט. ‏`exclude`.
+     שורה בעיר שאין לה שוק, ושורה בלי עיר מזוהה **שהקואורדינטות שלה בתוך
+     התיבה של השוק** (‏keepRows). יישובי העמק שעוד לא נכנסו לרישום הופיעו
+     באתר עד היום, והסינון אסור שיעלים אותם בשקט. ‏`exclude`.
 
    ## ‏המיפוי
 
@@ -133,15 +134,38 @@
     return query.or(orFilter(s));
   }
 
-  /** שורות properties שכבר נטענו - בלי אלה שבעיר של שוק אחר (‏exclude). שורה בלי
-   *  city_id, או בעיר שאין לה שוק, נשארת בשוק ברירת המחדל - כמו הכלל של המודול.
+  /* התיבה של שוק ברירת המחדל לשורות בלי city_id: ה-bbox של השוק (‏markets.js)
+     מורחב לתיבה הקבועה של עפולה והעמק, כי יישובי העמק בשוליים יוצאים מה-bbox
+     הצר של סריקת השכונות. ‏[lat_min, lng_min, lat_max, lng_max]. */
+  var DEFAULT_BOX = [32.45, 35.05, 32.80, 35.60];
+  function marketBox() {
+    var m = activeMarket(), b = m && Array.isArray(m.bbox) && m.bbox.length === 4 ? m.bbox : null;
+    if (!b) return DEFAULT_BOX;
+    return [Math.min(b[0], DEFAULT_BOX[0]), Math.min(b[1], DEFAULT_BOX[1]),
+      Math.max(b[2], DEFAULT_BOX[2]), Math.max(b[3], DEFAULT_BOX[3])];
+  }
+  function inBox(r, box) {
+    var lat = Number(r.lat), lng = Number(r.lng);
+    if (!r.lat || !r.lng || !isFinite(lat) || !isFinite(lng)) return false;
+    return lat >= box[0] && lat <= box[2] && lng >= box[1] && lng <= box[3];
+  }
+
+  /** שורות properties שכבר נטענו - בלי אלה שבעיר של שוק אחר (‏exclude). שורה בעיר
+   *  שאין לה שוק נשארת בשוק ברירת המחדל. **שורה בלי city_id** נשארת רק אם
+   *  הקואורדינטות שלה בתוך התיבה של השוק (‏P0-A2): שבעה נכסים מסחריים
+   *  ב"אזור השרון" ובצומת כנות ישבו בלי עיר והופיעו במפה של עפולה. בלי עיר
+   *  ובלי קואורדינטות - יורדת. השאילתה חייבת לבחור lat ו-lng.
    *  ‏market_slug(properties) במסד מחזירה null לגולש/ת אנונימי/ת (RLS על cities), ולכן
    *  ה-or של apply() מעביר הכול; זו רשת הביטחון בצד הלקוח, גם אחרי שהמיגרציה תוחל. */
   function keepRows(rows, s) {
     if (!s || s.mode !== 'exclude' || !Array.isArray(rows)) return rows;
-    var bad = new Set(s.ids);
-    return rows.filter(function (r) { return !r || !r.city_id || !bad.has(r.city_id); });
+    var bad = new Set(s.ids), box = marketBox();
+    return rows.filter(function (r) {
+      if (!r) return true;
+      if (!r.city_id) return inBox(r, box);
+      return !bad.has(r.city_id);
+    });
   }
 
-  global.MarketScope = { spec: spec, inMarket: inMarket, memberMarkets: memberMarkets, orFilter: orFilter, apply: apply, keepRows: keepRows, NO_CITY: NO_CITY };
+  global.MarketScope = { spec: spec, inMarket: inMarket, memberMarkets: memberMarkets, orFilter: orFilter, apply: apply, keepRows: keepRows, NO_CITY: NO_CITY, _inBox: inBox, _box: marketBox };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

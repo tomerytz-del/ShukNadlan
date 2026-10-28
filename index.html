@@ -797,7 +797,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 
   .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:0;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;padding:0 4px}
 
-  .filter-modal-overlay,.mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:300;align-items:flex-end;justify-content:center}
+  /* ‏z-index 1300: מעל המפה הפתוחה (‏.hero.map-open, 1200) - "סינון" במפה פותח את החלון הזה (P0-B) */
+  .filter-modal-overlay,.mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:1300;align-items:flex-end;justify-content:center}
   .filter-modal-overlay.open,.mlead-overlay.open{display:flex}
   .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;max-height:88dvh;border-radius:0 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:640px){

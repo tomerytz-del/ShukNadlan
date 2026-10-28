@@ -1479,7 +1479,7 @@ async function loadOpenHouseCount(){
     // שורות ולא head:true - עד שהמיגרציה של market_slug תוחל אי אפשר לסנן ספירה בשרת (סבב 5 §1)
     const { data, error } = await applyMarketFilter(sb
       .from('properties')
-      .select('id, city_id')
+      .select('id, city_id, lat, lng')
       .eq('status', 'active'), spec)
       .eq('open_house', true)
       .lte('open_house_start', nowIso)
@@ -2811,9 +2811,45 @@ function horizontalMapPadding(shellRect){
 // ממרכזת את המפה על הפינים המוצגים כרגע בתוך החלק הנראה שלה. נקראת גם אחרי
 // הגדלה/הקטנה של המפה, כי החלון הנראה משתנה ואיתו הריפוד הנכון.
 const MAP_FIT_MAX_ZOOM = 16;
+/* רשת ביטחון (P0-A): נקודה מחוץ לישראל, או רחוקה יותר מ-25 ק"מ מהחציון,
+   אינה מושכת את ההתאמה למפת הארץ - אותו כלל כמו במפת ההחלקה (swipe.js) */
+function mapFitPoints(points){
+  let pts = points.filter(q => q.lat > 29 && q.lat < 33.6 && q.lng > 34 && q.lng < 36);
+  if (pts.length > 2){
+    const med = k => { const v = pts.map(q => q[k]).sort((a, b)=> a - b); return v[v.length >> 1]; };
+    const mLat = med('lat'), mLng = med('lng');
+    const near = pts.filter(q => heroMap.distance([mLat, mLng], q) <= 25000);
+    if (near.length) pts = near;
+  }
+  return pts;
+}
+
+/* בלי אזור, שכונה, צורה מסומנת או חיפוש חופשי - אין "תוצאות" להתאים אליהן,
+   והמפה נפתחת על העיר ולא על כל הנכסים (‏P0-A, גם בלי הדגל) */
+function mapNoSelection(){
+  if (mapDraw && mapDraw.hasShape && mapDraw.hasShape()) return false;
+  if (hoodState.selected.size) return false;
+  if (searchState.freeText) return false;
+  const st = sentence && sentence.state ? sentence.state() : null;
+  return !st || ((!st.area || st.area === 'all') && !st.city);
+}
+
+/* התצוגה של המפה הפתוחה, לכל מקור (גלולה, תפריט, כפתור צף, כותרת התוצאות,
+   מפת השכונות): מרכז העיר בזום אחד קרוב יותר מזום העיר, או התאמה לתוצאות */
+function mapInitialView(){
+  if (!heroMap) return;
+  // התאמה מונפשת מהטעינה (‏fitMapToMarkers, ‏animate:true) שעוד רצה הייתה נגמרת אחרי ה-setView ודורסת אותו
+  heroMap.stop();
+  if (heroMap._animatingZoom){ heroMap.once('zoomend', mapInitialView); return; }
+  if (!mapNoSelection()){ fitMapToMarkers(); return; }
+  const z = CITY_ZOOM + 1;
+  // בטלפון הריפוד של visibleMapPadding הוא של המפה הסגורה ודוחף את העיר לראש המסך
+  const narrow = window.innerWidth < MAP_COLUMN_MIN_WIDTH;
+  heroMap.setView(narrow ? CityCtx.center() : cityViewCenter(z), z, { animate:false });
+}
 function fitMapToMarkers(){
   if (!heroMap) return;
-  const points = visibleMarkers().map(m => m.getLatLng());
+  const points = mapFitPoints(visibleMarkers().map(m => m.getLatLng()));
   // סימון השכונה הנבחרת נספר כחלק ממה שצריך להיכנס לתצוגה: בלעדיו הוא היה
   // נחתך כשהנכסים מרוכזים בפינה אחת שלו, ובשכונה שהחיפוש לא החזיר בה כלום
   // לא היה למפה בכלל לאן לעוף
@@ -3016,6 +3052,9 @@ function applyDealFilter({ fit = false } = {}){
     relayoutMapPins();
   }
   updateLegendCounts();
+  // המפה הפתוחה: "סינון" שבה מחיל חיפוש חדש, והשורה העליונה משקפת אותו (P0-B)
+  const openSummary = mapViewIsOpen() && document.getElementById('mapOpenSummary');
+  if (openSummary) openSummary.textContent = mapOpenSummaryText();
   // המקרא מסתיר פינים, והפאנל המפוצל מציג רק את מה שמצויר על המפה — ולכן
   // כיבוי "השכרה" חייב להוריד את אותם נכסים גם מהרשימה שלצדה
   updateSplitPanel();
@@ -3110,7 +3149,7 @@ function setMapExpanded(on){
   // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
   // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
   // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
-  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); if (!mapNoSelection()) fitMapToMarkers(); }, 320);
 }
 
 if (mapExpandBtn){
@@ -3182,7 +3221,8 @@ function setSplitView(on, { remember = true } = {}){
   // רוחב הקונטיינר של המפה משתנה במעבר, ו-Leaflet לא מזהה שינוי גודל בעצמו:
   // בלי invalidateSize האריחים נשארים חתוכים ברוחב הישן. ההמתנה היא לאורך
   // מעבר הגובה של ה-hero (‎transition:height .3s‎), כמו בכפתור ההגדלה.
-  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); updateSplitPanel(); }, 320);
+  // בלי בחירה נשאר המרכז: ה-setView של העיר (‏mapInitialView, ‏60ms) רץ לפני הטיימר הזה ונדרס בו
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); if (!mapNoSelection()) fitMapToMarkers(); updateSplitPanel(); }, 320);
   else updateSplitPanel();
 }
 
@@ -3693,13 +3733,9 @@ function openMapView(source, opener){
   initMapDraw();
   if (heroMap) setTimeout(()=>{
     heroMap.invalidateSize({ pan:false });
-    /* v10: מה-hero וממפת השכונות, כשלא נבחר אזור - מרכז העיר ולא כל הנכסים:
-       כמה מודעות רחוקות (נתניה, ירושלים) הרחיקו את ההתאמה עד מפת הארץ */
-    if (v10On() && (source === 'hero_cta' || source === 'hood_section') && v10NoAreaChosen()){
-      // בטלפון הריפוד של visibleMapPadding הוא של המפה הסגורה ודוחף את העיר לראש המסך
-      const narrow = window.innerWidth < MAP_COLUMN_MIN_WIDTH;
-      heroMap.setView(narrow ? CityCtx.center() : cityViewCenter(CITY_ZOOM), CITY_ZOOM, { animate:false });
-    } else fitMapToMarkers();
+    /* כשלא נבחר אזור - מרכז העיר ולא כל הנכסים: כמה מודעות רחוקות (נתניה,
+       ירושלים) הרחיקו את ההתאמה עד מפת הארץ. לכל המקורות, ולא לפי רשימה */
+    mapInitialView();
     updateSplitPanel();
   }, 60);
   document.getElementById('mapCloseBtn')?.focus({ preventScroll:true });
@@ -6789,6 +6825,10 @@ function renderKindChips(st){
     b.setAttribute('aria-pressed', b.dataset.kind === type ? 'true' : 'false'));
 }
 
+// החיפוש המהיר (‏P0-F, ליד ה-handler שלו): מוצהרים כאן כי initSentenceSearch רצה מיד
+const QUICK_NAV_KEY = 'sk_qs_nav';
+let quickApplying = false;
+let quickNavArrived = false;
 function onSentenceChange(results, st, reason){
   syncV10Tabs(st);
   v10SyncSwipe(results);
@@ -6813,8 +6853,10 @@ function onSentenceChange(results, st, reason){
     MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
     showSentenceResults({ track:false });
     renderSentenceMapTag(results, st);
+    if (quickNavArrived){ quickNavArrived = false; requestAnimationFrame(scrollToSearchResults); }
     return;
   }
+  if (!quickApplying) clearQuickPressed();
   if (reason !== 'load') searchHasRun = true;
   syncSearchStateFromSentence(st);
   setAiFilter(!!st.ai);
@@ -7067,6 +7109,20 @@ let freeTextFeatures = new Set();
       viaLink = ref.origin !== location.origin || !/^\/(index(\.html)?)?$/.test(ref.pathname);
     }
   } catch(e){ /* referrer לא תקין - כאילו אין */ }
+  /* צ'יפ של החיפוש המהיר שנפתח בלשונית חדשה (או לפני שהנכסים נטענו): סימון
+     חד-פעמי בן פחות מ-15 שניות לאותה כתובת בדיוק נחשב קישור. רענון ולשונית
+     ששוחזרה אחר כך עדיין נפתחים נקיים (‏P0-F) */
+  try {
+    const mark = JSON.parse(localStorage.getItem(QUICK_NAV_KEY) || 'null');
+    if (mark){
+      localStorage.removeItem(QUICK_NAV_KEY);
+      const dec = x => { try { return decodeURIComponent(x); } catch(e){ return x; } };
+      if (!isReload() && Date.now() - mark.t < 15000 && dec(mark.href) === dec(location.pathname + location.search)){
+        viaLink = true;
+        quickNavArrived = true;
+      }
+    }
+  } catch(e){ /* אחסון חסום - כמו בלי סימון */ }
   const hasSearch = known.some(k => params.has(k));
   if (hasSearch && !landing && !viaLink){
     try {
@@ -7525,12 +7581,6 @@ function buildHoodMap(box, hoods){
   draw();
 }
 
-// אין אזור בחיפוש ואין שכונה מסומנת - המפה נפתחת על העיר (‏openMapView)
-function v10NoAreaChosen(){
-  const st = sentence && sentence.state ? sentence.state() : null;
-  return (!st || !st.area || st.area === 'all') && !hoodState.selected.size;
-}
-
 /* ---------- המונים (‏#dmStats, ‏7b) ----------
    עד שהטבלאות site_stats / site_stats_platform קיימות (‏docs/proposals/site_stats.sql,
    TODO-ASK 11) - נפילה לצד הלקוח: נכסים ומשרדים ממה שהדף כבר טען, ואריחי
@@ -7691,9 +7741,52 @@ function renderQuickSearch(properties){
   document.getElementById('quickAreas').closest('.quick-group').hidden = !areas.length;
   sec.hidden = false;
 }
+/* ‏P0-F: צ'יפ של החיפוש המהיר הוא קישור לדף הבית עצמו (‏/?q=…), וכלל "דף הבית
+   נפתח נקי" (‏initSentenceSearch) מחק את הפרמטרים שלו - הלחיצה לא עשתה כלום.
+   ה-href נשאר קישור אמיתי (גוגל ממשיך לראות אותו), אבל לחיצה רגילה מוחלת
+   במקום על המשפט הטעון, בלי טעינה. לשונית חדשה, או לחיצה לפני שהנכסים
+   נטענו, מסמנות את הניווט ל-15 שניות (‏sk_qs_nav), והכלל מכבד את הסימון. */
+function quickNavMark(a){
+  try { localStorage.setItem(QUICK_NAV_KEY, JSON.stringify({ href: a.getAttribute('href'), t: Date.now() })); } catch(e){ /* מצב פרטי */ }
+}
+function scrollToSearchResults(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sec = document.getElementById('searchResults');
+  const target = sec && !sec.hidden && sec.offsetParent !== null ? sec : document.getElementById('heroSection');
+  if (!target) return;
+  // מתחת לכותרת הדביקה כפי שהיא נמדדת עכשיו (‏scroll-margin-top נשען על --header-h, שמפגר אחרי שינויי גובה)
+  const header = document.querySelector('header.site');
+  const hb = header && getComputedStyle(header).position !== 'static' ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - hb - 4), behavior: reduce ? 'auto' : 'smooth' });
+}
+function clearQuickPressed(){
+  document.querySelectorAll('#quickSearchSec a[data-q-group][aria-pressed]').forEach(x => x.removeAttribute('aria-pressed'));
+}
 document.getElementById('quickSearchSec')?.addEventListener('click', e => {
   const a = e.target.closest && e.target.closest('a[data-q-group]');
-  if (a && v10On() && window.shukTrack) window.shukTrack('quick_search_tag_click', { group: a.dataset.qGroup, tag: a.dataset.qTag });
+  if (!a) return;
+  if (v10On() && window.shukTrack) window.shukTrack('quick_search_tag_click', { group: a.dataset.qGroup, tag: a.dataset.qTag });
+  // ‏Ctrl/Cmd/Shift: לשונית חדשה, והקישור עובד כרגיל
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey){ quickNavMark(a); return; }
+  if (!sentence || !sentence.loaded()){ quickNavMark(a); return; }
+  e.preventDefault();
+  const C = sentence.Core;
+  // אותו פירוש כמו קישור עמוק: fromParams מתחיל מ-defaultState, ולכן הצ'יפ מחליף את המשפט ולא מצטרף אליו
+  const next = C.resolveArea(C.fromParams(new URL(a.href, location.href).searchParams), sentence.areas());
+  quickApplying = true;
+  try {
+    if (sentence.hasExtra()) clearAdvancedFilters();   // סינון מתקדם ישן לא נשאר "תקוע" מתחת לצ'יפ
+    sentence.applyAdvanced(next, null);                // touched רק למה שאינו ברירת מחדל, והכתובת נכתבת
+  } finally { quickApplying = false; }
+  showSentenceResults();
+  scrollToSearchResults();
+  clearQuickPressed();
+  a.setAttribute('aria-pressed', 'true');
+});
+// לחצן אמצעי - לשונית חדשה, בלי click
+document.getElementById('quickSearchSec')?.addEventListener('auxclick', e => {
+  const a = e.target.closest && e.target.closest('a[data-q-group]');
+  if (a && e.button === 1) quickNavMark(a);
 });
 document.getElementById('quickNearBtn')?.addEventListener('click', () => {
   // אותו מנגנון של "הצג נכסים לידי" (‏near-me.js): המיקום נשאל רק עכשיו, בלחיצה
