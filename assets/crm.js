@@ -2442,11 +2442,8 @@ function handleGotoParam(){
       && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
   if (!navAccVisible(accAliasTarget(raw))) return;
   gotoSection(raw);
-  if (raw === 'accNotifPrefs' && focus === 'lead_wa') {
-    setTimeout(() => {
-      const el = document.getElementById('npLeadCadence');
-      if (el) scrollToTopOf(el);
-    }, 400);
+  if (raw === 'accNotifPrefs' && (focus === 'lead_wa' || (focus && focus.indexOf('cadence_') === 0))) {
+    if (typeof focusNotifCadence === 'function') focusNotifCadence(focus);
   }
   /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
      גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
@@ -25532,7 +25529,8 @@ let notifMutedTypes = [];
    המאושרים של פעם, נשארה בטבלה בלי קורא. */
 let notifWhatsappOffTypes = [];
 let notifLessRows = [];
-let notifLeadCadence = 'each';
+let notifWhatsappCadence = {};
+let notifWhatsappCadenceSince = {};
 
 /* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
    ההתראות היוצא — אותו מספר, אותה זהות. הבדיקה כאן היא לתצוגה בלבד;
@@ -25562,7 +25560,10 @@ async function loadNotifPrefs(agentId){
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
   notifMutedTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.muted_types)) ? prefs.data.muted_types : [];
   notifWhatsappOffTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.whatsapp_off_types)) ? prefs.data.whatsapp_off_types : [];
-  notifLeadCadence = (!prefs.error && prefs.data && prefs.data.lead_wa_cadence) ? prefs.data.lead_wa_cadence : 'each';
+  notifWhatsappCadence = (!prefs.error && prefs.data && prefs.data.whatsapp_cadence && typeof prefs.data.whatsapp_cadence === 'object')
+    ? prefs.data.whatsapp_cadence : {};
+  notifWhatsappCadenceSince = (!prefs.error && prefs.data && prefs.data.whatsapp_cadence_since && typeof prefs.data.whatsapp_cadence_since === 'object')
+    ? prefs.data.whatsapp_cadence_since : {};
   notifLessRows = (!less.error && Array.isArray(less.data)) ? less.data : [];
   renderNotifPrefs();
 }

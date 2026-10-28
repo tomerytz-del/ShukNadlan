@@ -510,7 +510,7 @@ function mountHubQuiet(){
    כאן נכנס לקבוצת העסקאות (או לניהול הפלטפורמה, אם הוא view:'admin') - כך
    הוא לא נעלם מהמסך גם אם שכחו להוסיף אותו */
 const NOTIF_GROUPS = [
-  { key:'leads',   title:'לידים ולקוחות', types:['new_lead', 'showcase_meeting', 'showcase_activity', 'match_digest', 'retention_warning', 'client_match'] },
+  { key:'leads',   title:'לידים ולקוחות', types:['new_lead', 'open_demand', 'showcase_meeting', 'showcase_activity', 'match_digest', 'retention_warning', 'client_match'] },
   { key:'agenda',  title:'יומן והמנטור', types:['agenda_reminder', 'coach_daily', '__reminders', 'onboarding_property', 'onboarding_client', 'onboarding_agreement', 'onboarding_lead', 'onboarding_license'] },
   { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'listing_match', 'call_deleted_by_manager'] },
   { key:'reviews', title:'ביקורות', types:['review_new', 'review_request'] },
@@ -520,6 +520,43 @@ const NOTIF_GROUPS = [
 const NOTIF_URGENT = new Set(['new_lead', 'showcase_meeting', 'agenda_reminder', 'agreement_signed', 'lead_unrouted', 'security_alert']);
 const NOTIF_FREQ = { match_digest:'3 פעמים ביום', coach_daily:'כל בוקר' };
 const REMINDER_CADENCES = [['weekly', 'פעם בשבוע'], ['daily', 'עד פעם ביום'], ['off', 'כבוי']];
+
+/* אותו קטלוג כמו CADENCE_TYPES. digest=false: רק על כל פריט או ללא. */
+const NOTIF_CADENCE = {
+  new_lead: { digest: true, group: 'leads' },
+  open_demand: { digest: true, group: 'leads' },
+  match_digest: { digest: true, group: 'leads' },
+  system: { digest: true, group: 'deals' },
+  agenda_reminder: { digest: false, group: 'agenda' },
+  agreement_signed: { digest: false, group: 'deals' },
+  review_new: { digest: true, group: 'reviews' },
+  review_request: { digest: true, group: 'reviews' },
+  marketing_copy: { digest: true, group: 'deals' },
+  deal_closed: { digest: false, group: 'deals' },
+};
+const NOTIF_CADENCE_CHOICES = [['each', 'על כל פריט'], ['daily', 'פעם ביום'], ['thrice', '3 פעמים ביום'], ['off', 'ללא']];
+
+function notifTypeCadence(type) {
+  const raw = notifWhatsappCadence && notifWhatsappCadence[type];
+  const spec = NOTIF_CADENCE[type];
+  if (raw === 'each' || raw === 'daily' || raw === 'thrice' || raw === 'off') {
+    if (spec && !spec.digest && (raw === 'daily' || raw === 'thrice')) return 'each';
+    return raw;
+  }
+  if ((notifWhatsappOffTypes || []).includes(type)) return 'off';
+  return 'each';
+}
+
+function focusNotifCadence(focus) {
+  const type = focus === 'lead_wa' ? 'new_lead' : String(focus || '').replace(/^cadence_/, '');
+  if (!NOTIF_CADENCE[type]) return;
+  notifOpenGroup = NOTIF_CADENCE[type].group;
+  if (typeof renderNotifScreen === 'function') renderNotifScreen();
+  setTimeout(() => {
+    const el = document.getElementById('npCadence-' + type);
+    if (el && typeof scrollToTopOf === 'function') scrollToTopOf(el);
+  }, 400);
+}
 
 let notifPrefsReady = false;
 let notifBar = null;
@@ -548,12 +585,18 @@ function notifRowHtml(t){
   const tierOk = assistantTierOk();
   const tag = NOTIF_URGENT.has(t.type) ? '<span class="ui-tag ui-tag--urgent">דחוף</span>'
     : NOTIF_FREQ[t.type] ? `<span class="ui-tag">${escapeHtml(NOTIF_FREQ[t.type])}</span>` : '';
-  const cadence = t.type === 'new_lead' ? `<div class="np2-rem" id="npLeadCadence">`
-    + `<div class="set-field"><span class="set-field-label" id="npLeadCadLabel">קצב לידים בוואטסאפ</span>`
-    + `<div class="ui-chips" data-ui-single id="npLeadCadenceChips" role="group" aria-labelledby="npLeadCadLabel">`
-    + [['each','הודעה על כל ליד'],['daily','ריכוז פעם ביום'],['thrice','ריכוז 3 פעמים'],['off','ללא וואטסאפ']]
-        .map(([v, l]) => uiChip(l, { value:v, on: v === (notifLeadCadence || 'each'), icon:false })).join('')
-    + `</div><p class="ui-hint">אותה בחירה כמו הכפתור בוואטסאפ. בלי וואטסאפ הליד נשאר בפעמון.</p></div></div>` : '';
+  const spec = NOTIF_CADENCE[t.type];
+  const current = notifTypeCadence(t.type);
+  const choices = spec
+    ? NOTIF_CADENCE_CHOICES.filter(([v]) => spec.digest || v === 'each' || v === 'off')
+    : [];
+  const cadence = spec ? `<div class="np2-rem" id="npCadence-${escapeHtml(t.type)}" data-cadence-for="${escapeHtml(t.type)}">`
+    + `<div class="set-field"><span class="set-field-label" id="npCadLbl-${escapeHtml(t.type)}">קצב בוואטסאפ</span>`
+    + `<div class="ui-chips" data-ui-single id="npCadenceChips-${escapeHtml(t.type)}" role="group" aria-labelledby="npCadLbl-${escapeHtml(t.type)}">`
+    + choices.map(([v, l]) => uiChip(l, { value:v, on: v === current, icon:false })).join('')
+    + `</div><p class="ui-hint">${spec.digest
+      ? 'אותה בחירה כמו בוואטסאפ. ללא משאיר את זה בפעמון.'
+      : 'הסוג הזה יוצא על כל פריט, או נשאר בפעמון.'}</p></div></div>` : '';
   return `<div class="np2-row" data-type="${escapeHtml(t.type)}">`
     + `<div class="np2-text"><div class="np2-title">${escapeHtml(t.title)}${tag}</div><div class="np2-sub">${escapeHtml(t.sub)}</div></div>`
     + `<div class="np2-ch">`
@@ -682,9 +725,12 @@ function notifScreenState(){
     bellOff: rows.filter(r => !pressed(r, '[data-np-bell]')).map(r => r.dataset.type).sort(),
     waOff: rows.filter(r => !pressed(r, '[data-np-wa]')).map(r => r.dataset.type).sort(),
     quiet: quietRead('np'),
-    leadCadence: (document.getElementById('npLeadCadenceChips')
-      ? (uiChipValues(document.getElementById('npLeadCadenceChips'))[0] || 'each')
-      : (notifLeadCadence || 'each')),
+    cadences: Object.fromEntries(Object.keys(NOTIF_CADENCE).map(type => {
+      const el = document.getElementById('npCadenceChips-' + type);
+      const raw = el ? (uiChipValues(el)[0] || 'each') : notifTypeCadence(type);
+      if (!NOTIF_CADENCE[type].digest && (raw === 'daily' || raw === 'thrice')) return [type, 'each'];
+      return [type, ['each', 'daily', 'thrice', 'off'].includes(raw) ? raw : 'each'];
+    })),
     rem: capEl ? {
       channels: uiChipValues(document.getElementById('npRemCh')).sort(),
       cadence: uiChipValues(document.getElementById('npRemCadence'))[0] || 'weekly',
@@ -705,6 +751,11 @@ function notifScreenApply(s){
     wa.setAttribute('aria-pressed', String(bellOn && !s.waOff.includes(t)));
     wa.disabled = !bellOn || !tierOk;
   });
+  if (s.cadences) {
+    Object.entries(s.cadences).forEach(([type, value]) => {
+      uiSetChips(document.getElementById('npCadenceChips-' + type), [value]);
+    });
+  }
   if (s.quiet) quietApply('np', s.quiet);
   if (s.rem){
     uiSetChips(document.getElementById('npRemCh'), s.rem.channels);
@@ -796,26 +847,45 @@ async function saveNotifPrefsRows(s){
   const muted = notifMutedTypes.filter(t => !shown.includes(t)).concat(s.bellOff);
   const whatsappOff = notifWhatsappOffTypes.filter(t => !shown.includes(t))
     .concat(shown.filter(t => s.waOff.includes(t) || s.bellOff.includes(t)));
-  const { error } = await sb.from('agent_notification_preferences').upsert({
+  const nowIso = new Date().toISOString();
+  const nextMap = { ...(notifWhatsappCadence || {}) };
+  const nextSince = { ...(notifWhatsappCadenceSince || {}) };
+  let sinceChanged = false;
+  Object.keys(NOTIF_CADENCE).forEach(type => {
+    let choice = s.cadences && s.cadences[type] ? s.cadences[type] : notifTypeCadence(type);
+    if (!NOTIF_CADENCE[type].digest && (choice === 'daily' || choice === 'thrice')) choice = 'each';
+    if (s.bellOff.includes(type) || s.waOff.includes(type)) choice = 'off';
+    else if (choice === 'off') choice = 'each';
+    if (choice !== notifTypeCadence(type)) {
+      nextSince[type] = nowIso;
+      sinceChanged = true;
+    }
+    nextMap[type] = choice;
+    const offAt = whatsappOff.indexOf(type);
+    if (choice === 'off' && offAt < 0) whatsappOff.push(type);
+    if (choice !== 'off' && offAt >= 0) whatsappOff.splice(offAt, 1);
+  });
+  if (nextMap.match_digest) {
+    nextMap.client_match = nextMap.match_digest;
+    if (nextSince.match_digest) nextSince.client_match = nextSince.match_digest;
+  }
+  const base = {
     agent_id: currentAgent.id,
     muted_types: muted,
     whatsapp_off_types: whatsappOff,
-    updated_at: new Date().toISOString(),
-  }, { onConflict:'agent_id' });
-  if (error) return { error };
+    updated_at: nowIso,
+  };
+  const patch = { ...base, whatsapp_cadence: nextMap };
+  if (sinceChanged) patch.whatsapp_cadence_since = nextSince;
+  let saved = await sb.from('agent_notification_preferences').upsert(patch, { onConflict:'agent_id' });
+  if (saved.error && /whatsapp_cadence|42703|schema cache/i.test(saved.error.message || '')) {
+    saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
+  }
+  if (saved.error) return { error: saved.error };
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
-  const cadence = ['each','daily','thrice','off'].includes(s.leadCadence) ? s.leadCadence : 'each';
-  const patch = { lead_wa_cadence: cadence };
-  if (cadence !== (notifLeadCadence || 'each')) patch.lead_wa_since = new Date().toISOString();
-  let saved = await sb.from('agent_notification_preferences').update(patch).eq('agent_id', currentAgent.id);
-  if (saved.error && /lead_wa_since/.test(saved.error.message || '')) {
-    saved = await sb.from('agent_notification_preferences').update({
-      lead_wa_cadence: cadence,
-    }).eq('agent_id', currentAgent.id);
-  }
-  if (!saved.error) notifLeadCadence = cadence;
-  else if (!/lead_wa_cadence|42703|schema cache/i.test(saved.error.message || '')) return { error: saved.error };
+  notifWhatsappCadence = nextMap;
+  if (sinceChanged) notifWhatsappCadenceSince = nextSince;
   return {};
 }
 
@@ -856,6 +926,39 @@ function wireNotifScreen(){
 
   screen.addEventListener('input', e => {
     if (e.target.closest('#npQuietEditor')) quietPaint('np');
+    const chip = e.target.closest('[data-cadence-for] [data-ui-chip]');
+    const box = chip && chip.closest('[data-cadence-for]');
+    if (box) {
+      const type = box.getAttribute('data-cadence-for');
+      const choice = uiChipValues(box.querySelector('.ui-chips'))[0];
+      const row = document.querySelector('#npGroups .np2-row[data-type="' + type + '"]');
+      const wa = row && row.querySelector('[data-np-wa]');
+      const bell = row && row.querySelector('[data-np-bell]');
+      if (wa && bell && bell.getAttribute('aria-pressed') === 'true') {
+        wa.disabled = !assistantTierOk();
+        wa.setAttribute('aria-pressed', String(choice !== 'off' && assistantTierOk()));
+      }
+    }
+    const waBtn = e.target.closest('[data-np-wa]');
+    if (waBtn) {
+      const type = waBtn.closest('.np2-row') && waBtn.closest('.np2-row').dataset.type;
+      const chips = type && document.getElementById('npCadenceChips-' + type);
+      if (chips && NOTIF_CADENCE[type]) {
+        const on = waBtn.getAttribute('aria-pressed') === 'true';
+        const cur = uiChipValues(chips)[0] || 'each';
+        if (!on) uiSetChips(chips, ['off']);
+        else if (cur === 'off') uiSetChips(chips, ['each']);
+      }
+    }
+    const bellBtn = e.target.closest('[data-np-bell]');
+    if (bellBtn) {
+      const type = bellBtn.closest('.np2-row') && bellBtn.closest('.np2-row').dataset.type;
+      const chips = type && document.getElementById('npCadenceChips-' + type);
+      if (chips && NOTIF_CADENCE[type]) {
+        if (bellBtn.getAttribute('aria-pressed') !== 'true') uiSetChips(chips, ['off']);
+        else if ((uiChipValues(chips)[0] || 'off') === 'off') uiSetChips(chips, ['each']);
+      }
+    }
     syncNotifScreen();
   });
   screen.addEventListener('change', e => {
@@ -932,6 +1035,11 @@ function wireNotifScreen(){
         const bellOn = b.getAttribute('aria-pressed') === 'true';
         w.disabled = !bellOn;
         w.setAttribute('aria-pressed', String(want && bellOn));
+        const chips = document.getElementById('npCadenceChips-' + t);
+        if (chips && NOTIF_CADENCE[t]) {
+          const cur = uiChipValues(chips)[0] || 'each';
+          uiSetChips(chips, [(want && bellOn) ? (cur === 'off' ? 'each' : cur) : 'off']);
+        }
       });
       preset.dispatchEvent(new Event('input', { bubbles:true }));
       return;

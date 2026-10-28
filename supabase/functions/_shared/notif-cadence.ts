@@ -21,6 +21,190 @@ export const CADENCE_MENU_BODY =
 export const WEEKDAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"] as const;
 
 export type CadenceChoice = "each" | "daily" | "thrice" | "off";
+
+export type CadenceType = {
+  id: string;
+  title: string;
+  digest: boolean;
+  ask: boolean;
+};
+
+/** אותם סוגים ש-whatsapp_alerts ו-NOTIFY_TYPES מכירים, ועוד ביקוש פתוח. */
+export const CADENCE_TYPES: CadenceType[] = [
+  { id: "new_lead", title: "ליד חדש", digest: true, ask: true },
+  { id: "open_demand", title: "ביקוש פתוח", digest: true, ask: true },
+  { id: "match_digest", title: "התאמות", digest: true, ask: false },
+  { id: "system", title: "שותף איתך", digest: true, ask: false },
+  { id: "agenda_reminder", title: "תזכורת יומן", digest: false, ask: false },
+  { id: "agreement_signed", title: "הסכם נחתם", digest: false, ask: false },
+  { id: "review_new", title: "ביקורת חדשה", digest: true, ask: false },
+  { id: "review_request", title: "בקשת ביקורת", digest: true, ask: false },
+  { id: "marketing_copy", title: "תיאור שיווקי", digest: true, ask: false },
+  { id: "deal_closed", title: "עסקה נסגרה", digest: false, ask: false },
+];
+
+export const CADENCE_MORE_ID = "ncad:more";
+export const CADENCE_DONE_ID = "ncad:done";
+export const CADENCE_MORE_TITLE = "סוג נוסף";
+export const CADENCE_DONE_TITLE = "סיימתי";
+
+const CHOICE_CODE: Record<string, CadenceChoice> = {
+  each: "each",
+  day: "daily",
+  x3: "thrice",
+  off: "off",
+};
+
+export function cadenceType(id: string): CadenceType | undefined {
+  return CADENCE_TYPES.find((t) => t.id === id);
+}
+
+export function orderCadenceTypes(first?: string | null): CadenceType[] {
+  if (!first || !cadenceType(first)) return CADENCE_TYPES;
+  return [cadenceType(first)!, ...CADENCE_TYPES.filter((t) => t.id !== first)];
+}
+
+export function cadenceLabel(choice: CadenceChoice): string {
+  if (choice === "daily") return "פעם ביום";
+  if (choice === "thrice") return "3 פעמים ביום";
+  if (choice === "off") return "ללא";
+  return "על כל פריט";
+}
+
+export function effectiveCadence(
+  stored: Record<string, string> | null | undefined,
+  offTypes: string[] | null | undefined,
+  typeId: string,
+): CadenceChoice {
+  const raw = stored?.[typeId];
+  if (raw === "each" || raw === "daily" || raw === "thrice" || raw === "off") {
+    const type = cadenceType(typeId);
+    if (type && !type.digest && (raw === "daily" || raw === "thrice")) return "each";
+    return raw;
+  }
+  if ((offTypes || []).includes(typeId)) return "off";
+  return "each";
+}
+
+export function typeListRows(
+  first: string | null | undefined,
+  stored: Record<string, string> | null | undefined,
+  offTypes: string[] | null | undefined,
+): CadenceRow[] {
+  return orderCadenceTypes(first).map((type) => ({
+    id: `ncad:t:${type.id}`,
+    choice: effectiveCadence(stored, offTypes, type.id),
+    title: type.title,
+    description: `עכשיו: ${cadenceLabel(effectiveCadence(stored, offTypes, type.id))}`,
+  }));
+}
+
+export function cadenceOptionsFor(typeId: string): { code: string; choice: CadenceChoice; title: string }[] {
+  const type = cadenceType(typeId);
+  const all = [
+    { code: "each", choice: "each" as const, title: "על כל פריט" },
+    { code: "day", choice: "daily" as const, title: "פעם ביום" },
+    { code: "x3", choice: "thrice" as const, title: "3 פעמים ביום" },
+    { code: "off", choice: "off" as const, title: "ללא" },
+  ];
+  return type && !type.digest ? all.filter((row) => row.choice === "each" || row.choice === "off") : all;
+}
+
+export function cadenceFocus(typeId: string): string {
+  return `/crm?goto=accNotifPrefs&focus=cadence_${typeId}`;
+}
+
+export function cadenceOpenId(typeId?: string | null): string {
+  return typeId && cadenceType(typeId) ? `ncad:open:${typeId}` : CADENCE_OPEN_ID;
+}
+
+export const CADENCE_TYPES_BODY =
+  "איזה סוג התראה להתאים?\nהקצב הנוכחי מופיע ליד כל סוג.";
+export const CADENCE_TYPE_BUTTON = "בחירת סוג";
+export const CADENCE_SAVED_CTA = "ההגדרה במערכת";
+
+export function cadenceTypeBody(typeId: string): string {
+  const name = cadenceType(typeId)?.title || "הסוג";
+  return `איך לשלוח ${name} בוואטסאפ?\nאפשר תמיד לשנות את זה גם במערכת.`;
+}
+
+export function offWarn(typeId: string): string {
+  const name = cadenceType(typeId)?.title || "הסוג הזה";
+  return `בלי וואטסאפ על ${name} לא תצא הודעה על הסוג הזה. פריט חדש עלול להישאר בלי מענה.`;
+}
+
+export function offAfterText(typeId: string): string {
+  const name = cadenceType(typeId)?.title || "הסוג הזה";
+  if (typeId === "new_lead") {
+    return "מעכשיו ליד חדש מחכה בפעמון. אפשר גם לשאול אותי אילו לידים חדשים יש. אפשר לשנות את זה בכל רגע.";
+  }
+  if (typeId === "open_demand") {
+    return "מעכשיו ביקוש פתוח מחכה בפעמון. אפשר גם לשאול אותי: אילו לידים יש בביקוש הפתוח? אפשר לשנות את זה בכל רגע.";
+  }
+  return `מעכשיו ${name} מחכה בפעמון, בלי וואטסאפ. אפשר לשנות את זה בכל רגע.`;
+}
+
+export function cadenceOptionRows(typeId: string, dailyHour: number, hours: number[]): CadenceRow[] {
+  return cadenceOptionsFor(typeId).map((opt) => ({
+    id: `ncad:c:${typeId}:${opt.code}`,
+    choice: opt.choice,
+    title: opt.title,
+    description: optionDescription(opt.choice, dailyHour, hours),
+  }));
+}
+
+function optionDescription(choice: CadenceChoice, dailyHour: number, hours: number[]): string {
+  if (choice === "daily") return `הודעה אחת ביום, ${hoursPhrase([dailyHour])}. ${FRIDAY_NOTE}`;
+  if (choice === "thrice") return `${hoursPhrase(hours)}. ${FRIDAY_NOTE}`;
+  if (choice === "off") return "הפריטים נשארים בפעמון, בלי וואטסאפ";
+  return "הודעה על כל פריט, מיד כשהוא נכנס";
+}
+
+export function typeConfirmLine(
+  typeId: string,
+  choice: CadenceChoice,
+  changed: boolean,
+  dailyHour: number,
+  hours: number[],
+): string {
+  const name = cadenceType(typeId)?.title || "הסוג";
+  if (!changed) return `זה כבר הקצב של ${name}: ${cadenceLabel(choice)}.`;
+  if (choice === "each") return `מעכשיו ${name} יוצא על כל פריט.`;
+  if (choice === "daily") {
+    return `מעכשיו ${name} יוצא פעם ביום, ${hoursPhrase([dailyHour])}. ${FRIDAY_NOTE}.`;
+  }
+  if (choice === "thrice") return `מעכשיו ${name} יוצא ${hoursPhrase(hours)}. ${FRIDAY_NOTE}.`;
+  return offAfterText(typeId);
+}
+
+export type CadenceTap =
+  | { kind: "open"; type: string | null }
+  | { kind: "types" }
+  | { kind: "type"; type: string }
+  | { kind: "choice"; type: string; choice: CadenceChoice; code: string }
+  | { kind: "confirm"; type: string }
+  | { kind: "back"; type: string }
+  | { kind: "done" };
+
+export function parseCadenceTap(id: string): CadenceTap | null {
+  if (id === CADENCE_OPEN_ID) return { kind: "open", type: null };
+  if (id === CADENCE_MORE_ID) return { kind: "types" };
+  if (id === CADENCE_DONE_ID) return { kind: "done" };
+  if (id === CADENCE_BACK_ID) return { kind: "back", type: "" };
+  const open = /^ncad:open:([a-z_]+)$/.exec(id);
+  if (open && cadenceType(open[1])) return { kind: "open", type: open[1] };
+  const type = /^ncad:t:([a-z_]+)$/.exec(id);
+  if (type && cadenceType(type[1])) return { kind: "type", type: type[1] };
+  const choice = /^ncad:c:([a-z_]+):(each|day|x3|off)$/.exec(id);
+  if (choice && cadenceType(choice[1])) {
+    return { kind: "choice", type: choice[1], code: choice[2], choice: CHOICE_CODE[choice[2]] };
+  }
+  const yes = /^ncad:yes:([a-z_]+)$/.exec(id);
+  if (yes && cadenceType(yes[1])) return { kind: "confirm", type: yes[1] };
+  const back = /^ncad:back:([a-z_]+)$/.exec(id);
+  if (back && cadenceType(back[1])) return { kind: "back", type: back[1] };
+  return null;
+}
 export type OutsideMode = "cap" | "bell" | "send";
 
 export type CadenceRow = { id: string; choice: CadenceChoice; title: string; description: string };
@@ -90,8 +274,7 @@ export function cadenceChoiceFromId(id: string): CadenceChoice | null {
 }
 
 export function isCadenceId(id: string): boolean {
-  return id === CADENCE_OPEN_ID || id === CADENCE_BACK_ID || id === CADENCE_OFF_CONFIRM_ID
-    || cadenceChoiceFromId(id) !== null;
+  return parseCadenceTap(id) !== null;
 }
 
 /** מזהה הלחיצה מהודעת כפתור, תבנית או רשימה. */
@@ -137,7 +320,12 @@ export function confirmLine(
 }
 
 export function digestIntro(dow: number, hour: number): string {
-  return `הלידים החדשים, ${whenLabel(dow, hour)}.`;
+  return digestIntroFor("new_lead", dow, hour);
+}
+
+export function digestIntroFor(typeId: string, dow: number, hour: number): string {
+  const name = typeId === "new_lead" ? "הלידים החדשים" : (cadenceType(typeId)?.title || "העדכונים");
+  return `${name}, ${whenLabel(dow, hour)}.`;
 }
 
 export type JerusalemParts = { dow: number; hour: number; minute: number };

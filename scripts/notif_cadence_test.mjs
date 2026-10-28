@@ -12,19 +12,30 @@ import test from "node:test";
 import {
   CADENCE_BACK_TITLE,
   CADENCE_BUTTON_TITLE,
-  CADENCE_CTA,
+  CADENCE_DONE_TITLE,
   CADENCE_LIST_BUTTON,
-  CADENCE_MENU_BODY,
+  CADENCE_MORE_TITLE,
   CADENCE_OFF_AFTER,
   CADENCE_OFF_CONFIRM_TITLE,
-  CADENCE_OFF_WARN,
   CADENCE_PATH,
-  cadenceRows,
-  confirmLine,
+  CADENCE_SAVED_CTA,
+  CADENCE_TYPE_BUTTON,
+  CADENCE_TYPES,
+  CADENCE_TYPES_BODY,
+  cadenceFocus,
+  cadenceOpenId,
+  cadenceOptionRows,
   digestChannel,
   digestIntro,
+  digestIntroFor,
   digestSlot,
+  effectiveCadence,
   hasCalendarDate,
+  offAfterText,
+  orderCadenceTypes,
+  parseCadenceTap,
+  typeConfirmLine,
+  typeListRows,
   utf16len,
 } from "../supabase/functions/_shared/notif-cadence.ts";
 import {
@@ -49,35 +60,62 @@ test("כותרות הכפתור והשורות בתוך המגבלה, ומזהי
   assert.ok(utf16len(CADENCE_BUTTON_TITLE) <= 20);
   assert.ok(utf16len(CADENCE_OFF_CONFIRM_TITLE) <= 20, CADENCE_OFF_CONFIRM_TITLE);
   assert.ok(utf16len(CADENCE_BACK_TITLE) <= 20, CADENCE_BACK_TITLE);
-  assert.equal(hasCalendarDate(CADENCE_OFF_WARN), false);
-  assert.equal(hasCalendarDate(CADENCE_OFF_AFTER), false);
-  assert.match(CADENCE_OFF_AFTER, /ביקוש הפתוח/);
-  assert.ok(utf16len(CADENCE_CTA) <= 20);
+  assert.ok(utf16len(CADENCE_MORE_TITLE) <= 20, CADENCE_MORE_TITLE);
+  assert.ok(utf16len(CADENCE_DONE_TITLE) <= 20, CADENCE_DONE_TITLE);
+  assert.ok(utf16len(CADENCE_SAVED_CTA) <= 20);
+  assert.ok(utf16len(CADENCE_TYPE_BUTTON) <= 20);
   assert.ok(utf16len(CADENCE_LIST_BUTTON) <= 20);
-  const rows = cadenceRows(9, [9, 13, 17]);
+  assert.equal(hasCalendarDate(CADENCE_OFF_AFTER), false);
+  assert.equal(hasCalendarDate(CADENCE_TYPES_BODY), false);
+  assert.equal(CADENCE_TYPES.length, 10);
   const ids = new Set();
-  for (const row of rows) {
+  for (const row of typeListRows("agenda_reminder", { new_lead: "daily" }, ["system"])) {
     assert.ok(utf16len(row.title) <= 24, row.title);
     assert.ok(utf16len(row.description) <= 72, row.description);
     assert.ok(!ids.has(row.id));
     ids.add(row.id);
     assert.equal(hasCalendarDate(row.title + row.description), false);
   }
-  assert.equal(ids.size, 4);
-  assert.match(CADENCE_MENU_BODY, /אפשר תמיד לשנות את זה גם במערכת/);
-  assert.equal(hasCalendarDate(CADENCE_MENU_BODY), false);
+  assert.equal(ids.size, 10);
+  assert.equal(orderCadenceTypes("agenda_reminder")[0].id, "agenda_reminder");
+  assert.match(typeListRows(null, { new_lead: "daily" }, [])[0].description, /פעם ביום/);
+  assert.match(typeListRows(null, {}, ["system"])[3].description, /ללא/);
+  const agenda = cadenceOptionRows("agenda_reminder", 9, [9, 13, 17]);
+  assert.deepEqual(agenda.map((row) => row.choice), ["each", "off"]);
+  const leads = cadenceOptionRows("new_lead", 9, [9, 13, 17]);
+  assert.deepEqual(leads.map((row) => row.choice), ["each", "daily", "thrice", "off"]);
+  for (const row of [...agenda, ...leads]) {
+    assert.ok(utf16len(row.title) <= 24, row.title);
+    assert.ok(utf16len(row.description) <= 72, `${row.description} (${utf16len(row.description)})`);
+    assert.equal(hasCalendarDate(row.title + row.description), false);
+  }
+  assert.equal(new Set(leads.map((row) => row.id)).size, 4);
   assert.match(CADENCE_PATH, /focus=lead_wa/);
-  assert.doesNotMatch(CADENCE_PATH, /goto=accLeads$/);
+  assert.match(cadenceFocus("match_digest"), /focus=cadence_match_digest/);
+  assert.equal(cadenceOpenId("new_lead"), "ncad:open:new_lead");
+  assert.equal(parseCadenceTap("ncad:open:new_lead")?.kind, "open");
+  assert.equal(agenda.some((row) => row.id.endsWith(":day")), false);
+  assert.equal(parseCadenceTap("ncad:c:agenda_reminder:off")?.kind, "choice");
+  assert.equal(parseCadenceTap("ncad:yes:system")?.type, "system");
+  assert.equal(parseCadenceTap("ncad:more")?.kind, "types");
+  assert.equal(effectiveCadence({}, ["new_lead"], "new_lead"), "off");
+  assert.equal(effectiveCadence({}, [], "new_lead"), "each");
+  assert.equal(effectiveCadence({ agenda_reminder: "daily" }, [], "agenda_reminder"), "each");
 });
 
 test("אישור קצר, בלי תאריך, וחלון הסיכום", () => {
   for (const choice of ["each", "daily", "thrice", "off"]) {
-    const line = confirmLine(choice, true, 9, [9, 13, 17]);
+    const line = typeConfirmLine("new_lead", choice, true, 9, [9, 13, 17]);
     assert.equal(hasCalendarDate(line), false, line);
-    assert.ok(line.length < 180, line);
+    assert.ok(line.length < 220, line);
   }
   assert.equal(hasCalendarDate(digestIntro(0, 9)), false);
   assert.match(digestIntro(0, 9), /יום ראשון ב-9:00/);
+  assert.match(digestIntroFor("match_digest", 0, 9), /התאמות/);
+  assert.match(offAfterText("new_lead"), /לשאול אותי/);
+  assert.match(offAfterText("open_demand"), /ביקוש הפתוח/);
+  assert.doesNotMatch(offAfterText("agenda_reminder"), /לשאול/);
+  assert.equal(hasCalendarDate(offAfterText("open_demand")), false);
 
   const win = 15;
   const sunMorning = new Date("2026-07-12T06:05:00Z");
@@ -101,7 +139,12 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(migration, /'notif_cadence_button_enabled', 'false'/);
   assert.match(migration, /notif_lead_digest_outside', 'cap'/);
   assert.match(migration, /notification_push_lead_wa_sendable/);
-  assert.match(migration, /client_match', 'match_digest'/);
+  assert.match(migration, /whatsapp_cadence jsonb/);
+  assert.doesNotMatch(migration, /lead_wa_cadence/);
+  assert.match(migration, /p_type = 'client_match'/);
+  assert.match(migration, /agent_type_cadence\(p_agent, 'match_digest'\)/);
+  assert.match(migration, /whatsapp_template_cap_decide\(v_count, v_hours, false/);
+  assert.match(migration, /p_except uuid default null/);
   assert.match(migration, /notif_cadence_pending/);
   assert.match(migration, /interval '30 minutes'/);
   assert.match(migration, /open_demand_rows\(public\.current_agent_id\(\)\)/);
@@ -116,7 +159,17 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.doesNotMatch(migration, /create or replace function public\.notifications_apply_preferences/);
   assert.doesNotMatch(migration, /create or replace function public\.social_lead/);
   assert.match(push, /notification_push_prepare_lead_cadence/);
+  assert.match(push, /lead_wa_digest_cap_allows/);
+  assert.match(push, /template_cap/);
+  assert.match(push, /p_except: row\.log_id/);
+  assert.match(push, /cadenceOpenId/);
   assert.match(hook, /cadenceIdFromMessage/);
+  assert.match(hook, /p_type: type/);
+  assert.match(hook, /ncad:yes:/);
+  const settings = readFileSync(join(root, "assets/crm-settings.js"), "utf8");
+  assert.match(settings, /npCadence-/);
+  assert.match(settings, /whatsapp_cadence/);
+  assert.doesNotMatch(settings, /lead_wa_cadence/);
   assert.match(setup, /התאמת קצב התראות/);
   assert.match(setup, /לא מגישים/);
 });

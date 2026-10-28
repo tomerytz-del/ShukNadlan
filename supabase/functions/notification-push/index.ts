@@ -40,9 +40,10 @@ import {
 } from "../_shared/agent-deep-link.ts";
 import {
   CADENCE_BUTTON_TITLE,
-  CADENCE_OPEN_ID,
+  cadenceOpenId,
+  cadenceType,
   digestChannel,
-  digestIntro,
+  digestIntroFor,
   parseOutside,
 } from "../_shared/notif-cadence.ts";
 
@@ -529,7 +530,8 @@ async function sendWhatsapp(
     type: "text" as const,
     text: { preview_url: false, body: textBody(name, items, false, topics, true, cadenceOn) },
   });
-  const cadenceButton = { id: CADENCE_OPEN_ID, title: CADENCE_BUTTON_TITLE };
+  const known = items.find((it) => cadenceType(it.type)) || items[0];
+  const cadenceButton = { id: cadenceOpenId(known?.type), title: CADENCE_BUTTON_TITLE };
   // הודעה אחת. יעד אחד = cta_url. כמה יעדים = רשימה, והלחיצה (nav:) מחזירה
   // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט עם הקישור.
   const inWindow = (): Record<string, unknown> | null => {
@@ -561,7 +563,7 @@ async function sendWhatsapp(
     if (plan.kind === "list") {
       tokens = clickRecords(plan);
       const rows = cadenceOn && plan.rows.length < 10
-        ? [...plan.rows, { ...cadenceButton, description: "בחירה איך לקבל לידים חדשים" }]
+        ? [...plan.rows, { ...cadenceButton, description: "בחירה לפי סוג התראה" }]
         : plan.rows;
       return listMessage(to, body, plan.button, plan.section, rows);
     }
@@ -795,12 +797,24 @@ async function sendLeadDigests(sb: ReturnType<typeof createClient>): Promise<voi
       await finish("bell", "text");
       continue;
     }
-    const intro = digestIntro(Number(row.slot_dow) || 0, Number(row.slot_hour) || 9);
+    const intro = digestIntroFor(String(row.notif_type || "new_lead"), Number(row.slot_dow) || 0, Number(row.slot_hour) || 9);
+    const digestHome = row.notif_type === "open_demand"
+      ? "/crm?goto=accLeads&tab=demand"
+      : row.notif_type && row.notif_type !== "new_lead"
+      ? `/crm?goto=${ACC_BY_TYPE[row.notif_type] || "accNotifPrefs"}`
+      : OPEN_LEADS_PATH;
     try {
       if (channel === "text") {
         const nav = digestLeadRows(leads);
         const body = clipWhatsappBody(intro, 1024);
-        if (nav.length <= 1 && nav[0]) {
+        if (row.notif_type && row.notif_type !== "new_lead") {
+          await postGraph(ctaMessage(
+            row.phone_e164,
+            body,
+            "לרשימה",
+            absoluteUrl(SITE_BASE, withClick(digestHome, "lead_digest")),
+          ));
+        } else if (nav.length <= 1 && nav[0]) {
           await postGraph(ctaMessage(row.phone_e164, body, "לליד", absoluteUrl(SITE_BASE, nav[0].path)));
         } else if (nav.length > 1 && nav.length <= 3) {
           await postGraph(replyButtonsMessage(row.phone_e164, body, nav));
@@ -811,11 +825,11 @@ async function sendLeadDigests(sb: ReturnType<typeof createClient>): Promise<voi
             messaging_product: "whatsapp",
             to: row.phone_e164,
             type: "text",
-            text: { preview_url: false, body: `${intro}\n${SITE_BASE}${OPEN_LEADS_PATH}` },
+            text: { preview_url: false, body: `${intro}\n${SITE_BASE}${digestHome}` },
           });
         }
       } else {
-        const path = withClick(OPEN_LEADS_PATH, "lead_digest");
+        const path = withClick(digestHome, "lead_digest");
         const summary = leads.map((lead: { title?: string }) => lead.title || "ליד חדש").join(" · ").slice(0, 900);
         const name = firstName(row.display_name) || "שלום";
         const payload = WA_ACTION
@@ -907,6 +921,24 @@ Deno.serve(async (req: Request) => {
         items = items.filter((it) => !dropTypes.has(it.type));
       }
       if (items.length === 0) return;
+    }
+
+    // בחירה של סוכן/ת אינה פוטרת מתקרת התבניות. סוג שפטור במקום אחר
+    // עדיין נספר, כי lead_wa_digest_cap_allows קורא להחלטה עם exempt=false.
+    // דילוג שומר את מזהי ההתראות, כדי שהיומן יחסום שליחה חוזרת והפעמון יישאר.
+    if (cadenceOn && row.channel_mode === "template") {
+      const { data: allow, error: capErr } = await sb.rpc("lead_wa_digest_cap_allows", {
+        p_agent: row.agent_id,
+        p_except: row.log_id,
+      });
+      if (!capErr && allow === false) {
+        const { error: holdErr } = await sb.from("notification_push_log").update({
+          whatsapp_status: "skipped",
+          last_error: "template_cap",
+        }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+        if (holdErr) console.error("template cap hold failed", row.log_id, holdErr.message);
+        return;
+      }
     }
 
     try {
