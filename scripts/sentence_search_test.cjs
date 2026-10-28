@@ -446,4 +446,34 @@ test('חיפוש קולי: מספרים במילים', () => {
   assert.strictEqual(C.spokenNumbers('עד 1.5 מיליון'), 'עד 1.5 מיליון');
 });
 
+/* ‏A3-1 / C3 / C4 / R5 (PR 1010): משקים ונחלות, "למכירה" כמגורים, והכתובת הקנונית */
+test('משק ונחלה - סוג משלו, לא בית', () => {
+  const props = PROPS.concat([P({ id: 'farm1', deal_type: 'sale', property_type: 'משק חקלאי/נחלה', rooms: 5, price: 3000000 })]);
+  assert.strictEqual(C.parse('נחלה בעמק', C.defaultState(), AREAS).patch.type, 'farm');
+  assert.strictEqual(C.parse('משק עזר', C.defaultState(), AREAS).patch.type, 'farm');
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  assert.deepStrictEqual(C.filter(props, Object.assign({}, st, { type: 'farm' }), CTX).map(p => p.id), ['farm1']);
+  assert.ok(!C.filter(props, Object.assign({}, st, { type: 'house' }), Object.assign({ farmSplit: true }, CTX)).some(p => p.id === 'farm1'));
+  // בלי הדגל (‏farmSplit) - כמו היום: הנחלה היא גם "בית"
+  assert.ok(C.filter(props, Object.assign({}, st, { type: 'house' }), CTX).some(p => p.id === 'farm1'));
+});
+test('C4: למכירה בלי סוג - מגורים בלבד, רק עם saleResidential', () => {
+  const props = PROPS.concat([P({ id: 'shop1', deal_type: 'sale', category: 'commercial', property_type: 'חנויות/שטח מסחרי', price: 900000 })]);
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  assert.ok(C.filter(props, st, CTX).some(p => p.id === 'shop1'));
+  assert.ok(!C.filter(props, st, Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
+  assert.ok(C.filter(props, Object.assign({}, st, { type: 'commercial' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
+});
+test('R5: type= במקום ptype=, ו-ptype= עדיין נקרא', () => {
+  const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'garden' });
+  assert.ok(/(^|&)type=garden(&|$)/.test(C.toParams(st, AREAS, { typeParam: true })));
+  assert.ok(!/ptype=/.test(C.toParams(st, AREAS, { typeParam: true })));
+  const multi = Object.assign(C.defaultState(), { deal: 'sale', types: ['flats', 'farm'] });
+  const back = C.fromParams(new URLSearchParams(C.toParams(multi, AREAS, { typeParam: true })));
+  assert.deepStrictEqual(back.types, ['flats', 'farm']);
+  assert.strictEqual(C.fromParams(new URLSearchParams('ptype=' + encodeURIComponent('דירת גן'))).type, 'garden');
+  assert.strictEqual(C.fromParams(new URLSearchParams('type=' + encodeURIComponent('raw:דופלקס'))).type, 'raw:דופלקס');
+  assert.strictEqual(C.fromParams(new URLSearchParams('type=nonsense')).type, 'any');
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

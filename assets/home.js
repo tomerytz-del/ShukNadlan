@@ -6631,7 +6631,7 @@ async function clearSearch(){
 
   if (sentence && sentence.loaded()){
     // האיפוס מחזיר את המשפט לברירת המחדל, והוא שמצייר את המפה מחדש
-    sentenceRowsOn = false;
+    resultsMode = false;
     mapDraw?.clear();
     sentence.reset();
   } else {
@@ -6791,7 +6791,7 @@ function applyDeepLinkFilters(){
 /* שורות התוצאות שמתחת למפה נפתחות רק כשמבקשים אותן ("הצג N נכסים", Enter,
    או כתובת שמגיעה עם חיפוש). עד אז כל שינוי במשפט מזיז את המפה בלבד -
    אחרת כל לחיצה בבורר הייתה פותחת רשימה ארוכה ודוחפת את הדף. */
-let sentenceRowsOn = false;
+let resultsMode = false;
 
 function sentenceRoomsSet(r, roomsIn){
   if (v10On()){
@@ -7182,7 +7182,7 @@ document.getElementById('ssClearBtn')?.addEventListener('click', ()=>{
   document.getElementById('rClearFilters')?.click();
   document.getElementById('cClearFilters')?.click();
   advancedCount = 0;
-  sentenceRowsOn = false;
+  resultsMode = false;
   mapDraw?.clear();
   sentence.reset();
 });
@@ -7194,12 +7194,13 @@ document.getElementById('ssQuery')?.addEventListener('input', renderClearButton)
    הכתובת והשורות זזים יחד. ‏flats - כל הדירות (רגילה, גן, גג), ‏chipOnly
    ב-sentence-search.js. סוג אחר שנבחר במשפט (‏"דירת גן", "משרד") - אף כפתור
    אינו מסומן. */
-const KIND_CHIPS = ['any', 'flats', 'house', 'land', 'commercial', 'shop', 'office', 'industry', 'warehouse', 'comm_land'];
-/* ‏P1-N1: במסחרי שורת הסוג היא "הכול" (כל המסחרי) והסוגים המסחריים שיש בהם נכסים, עם מונה -
-   בלי "דירות" ו"בתים". במגורים - השורה המקורית */
-const KIND_ROW_RES = [['any','הכול'], ['flats','דירות'], ['house','בתים'], ['land','מגרשים'], ['commercial','מסחרי']];
-const KIND_ROW_COMM = [['commercial','הכול'], ['office','משרדים'], ['shop','חנויות'], ['industry','מבני תעשייה'], ['warehouse','מחסנים'], ['comm_land','מגרשים מסחריים']];
-let kindRowMode = 'res';
+/* ‏A3-1 (תומר 20:12): הסוגים, התוויות והסדר מ-FilterConfig.TYPES (‏assets/filter-config.js) -
+   אותה מפה של גיליון הסינון ושל /swipe, כולל "משקים ונחלות" (‏C3). כל צ'יפ עם מונה; סוג
+   שאין בו נכס יורד, חוץ מ"הכול" ומהסוג שנבחר. ‏R3: לחיצה מסננת במקום - הצ'יפ נשאר באותה
+   נקודה על המסך (‏≤1px), והשורות שומרות את הגובה שלהן בזמן הציור */
+const FC_TYPES = (window.FilterConfig && FilterConfig.TYPES) || { res: [], comm: [] };
+const KIND_CHIPS = [...new Set(FC_TYPES.res.concat(FC_TYPES.comm).map(t => t.key))];
+let kindRowMode = '';
 let kindChipsWired = false;
 function renderKindChips(st){
   const box = document.getElementById('srKinds');
@@ -7211,23 +7212,42 @@ function renderKindChips(st){
       if (!btn || !sentence || !sentence.loaded()) return;
       const kind = btn.dataset.kind;
       if (!KIND_CHIPS.includes(kind)) return;
-      sentence.patch({ type: kind });
+      const before = btn.getBoundingClientRect().top;
+      const rows = document.getElementById('searchResultsRows');
+      if (rows) rows.style.minHeight = rows.offsetHeight + 'px';
+      sentence.patch({ type: kind, types: null });
+      const after = box.querySelector('button[data-kind="' + kind + '"]');
+      if (after){
+        const d = after.getBoundingClientRect().top - before;
+        if (Math.abs(d) >= 1) window.scrollBy(0, d);
+      }
+      // הגובה השמור משתחרר אחרי שהתמונות של השורות קיבלו מקום
+      if (rows) requestAnimationFrame(() => requestAnimationFrame(() => { rows.style.minHeight = ''; }));
       // shukTrack ישירות: check_gtm_container מוצא אירועים לפי השם הזה
       if (window.shukTrack) shukTrack('search_slot_select', { slot: 'type', option: kind });
     });
   }
-  const type = (st && st.type) || 'any';
-  const comm = !!(sentence && sentence.Core && sentence.Core.typeDef(type).commercial);
+  const type = (st && st.types && st.types.length > 1) ? '' : ((st && st.type) || 'any');
+  const comm = !!(sentence && sentence.Core && st && sentence.Core.typeDef(st.type).commercial);
   const mode = comm ? 'comm' : 'res';
-  if (mode !== kindRowMode || comm){
+  // בלי הדגל - השורה של היום: בלי "משקים ונחלות" ובלי מונים במגורים
+  const defs = v10On() ? FC_TYPES[mode] : FC_TYPES[mode].filter(t => t.key !== 'farm');
+  if (mode !== kindRowMode){
     kindRowMode = mode;
-    const row = comm
-      ? KIND_ROW_COMM.map(([k, l]) => [k, l, sentence.loaded() ? sentence.count({ type: k }) : 0]).filter(([k, , n]) => k === 'commercial' || n > 0 || k === type)
-      : KIND_ROW_RES.map(([k, l]) => [k, l, null]);
-    box.innerHTML = row.map(([k, l, n]) => '<button type="button" data-kind="' + k + '" aria-pressed="false">' + escapeHtml(l) + (n != null && k !== 'commercial' ? ' · ' + n : '') + '</button>').join('');
+    box.innerHTML = defs.map(t => '<button type="button" data-kind="' + t.key + '" aria-pressed="false">' + escapeHtml(t.label) + '<span class="sr-kind-n"></span></button>').join('');
   }
-  box.querySelectorAll('button[data-kind]').forEach(b =>
-    b.setAttribute('aria-pressed', b.dataset.kind === type ? 'true' : 'false'));
+  // המונים: הסוג במשפט מוחלף, כל השאר (עסקה, אזור, חדרים, מחיר, מתקדם) נשאר
+  const loaded = sentence && sentence.loaded();
+  defs.forEach(t => {
+    const b = box.querySelector('button[data-kind="' + t.key + '"]');
+    if (!b) return;
+    const all = t.key === 'any' || (mode === 'comm' && t.key === 'commercial');
+    const n = loaded ? sentence.count({ type: t.key, types: null }) : null;
+    const showN = n != null && !(t.key === 'commercial' && mode === 'res') && (v10On() || mode === 'comm');
+    b.querySelector('.sr-kind-n').textContent = showN ? ' · ' + n.toLocaleString('he-IL') : '';
+    b.hidden = (v10On() || mode === 'comm') && !all && t.key !== type && n === 0 && t.key !== 'commercial';
+    b.setAttribute('aria-pressed', t.key === type ? 'true' : 'false');
+  });
 }
 
 // החיפוש המהיר (‏P0-F, ליד ה-handler שלו): מוצהרים כאן כי initSentenceSearch רצה מיד
@@ -7270,7 +7290,7 @@ function onSentenceChange(results, st, reason){
   /* המדף מתחת למפה מסונן בתגיות משלו; שינוי במשפט גובר עליהן, כמו שחיפוש
      מהסרגל עשה (ראו runSearchInner). */
   if (reason !== 'load' && ppShelfFiltered){ ppShelfFiltered = false; propsShelf.selectTag(''); }
-  renderPropertyGrid(results, sentenceRowsOn);
+  renderPropertyGrid(results, resultsMode);
   renderSentenceMapTag(results, st);
   if (reason !== 'load') noteSentenceZero(results, st);
 }
@@ -7327,7 +7347,7 @@ function noteSentenceZero(results, st){
    בחיפוש מהסרגל), והדף גולל אליהן אם הן מתחת לקפל. */
 function showSentenceResults({ track = true } = {}){
   if (!sentence) return;
-  sentenceRowsOn = true;
+  resultsMode = true;
   searchHasRun = true;
   const st = sentence.state();
   const results = sentence.results();
@@ -7425,6 +7445,10 @@ let freeTextFeatures = new Set();
   if (!window.SentenceSearch) return;   // הסקריפט נחסם - נשארים עם applyDeepLinkFilters
   sentence = SentenceSearch.mount({
     marketLabel: CityCtx.label(),
+    // ‏C4: "למכירה"/"להשכרה" בלי סוג הם מגורים בלבד; ‏R5: ‏type= בכתובת במקום ptype= (שניהם עם הדגל)
+    saleResidential: v10On(),
+    typeParam: v10On(),
+    farmSplit: v10On(),   // ‏C3: "בתים" בלי משקים ונחלות
     // ‏"דירה בנוף הגליל" - ערים שהשדה החכם מזהה גם בלי נכסים כאן (‏places ב-markets.js)
     places: (window.ShukMarkets?.list || []).flatMap(m => (m.places || []).map(name => ({
       name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CityCtx.label(), main: name === m.city,

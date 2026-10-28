@@ -39,12 +39,17 @@
      ‏noRooms: סוגים שאין להם "חדרים" - שם החלק "עם N חדרים" יורד מהמשפט.
      ‏ptypes - מהליבה (‏SC.PROPERTY_TYPES), כדי שהבוטים יחפשו באותן קבוצות. */
   var PT = SC.PROPERTY_TYPES;
+  /* ‏C3 (תומר 22:12): משקים ונחלות - קטגוריה משלה באתר (‏assets/filter-config.js). בליבה ובבוטים
+     הם עדיין "בית"; farm הוא סוג נפרד, ועם ‏ctx.farmSplit (דף הבית עם הדגל) "בית פרטי" בלעדיהם */
+  var FC = root.FilterConfig || (typeof require === 'function' ? require('./filter-config.js') : null);
+  var FARM_PTYPES = FC ? FC.FARM_PTYPES : ['משק חקלאי/נחלה', 'משק עזר'];
   var TYPES = [
     { key: 'any', label: 'נכס' },
     { key: 'apt', label: 'דירה', ptypes: PT.apt, residential: true },
     { key: 'garden', label: 'דירת גן', ptypes: PT.garden, url: 'דירת גן', residential: true },
     { key: 'penthouse', label: 'פנטהאוז', ptypes: PT.penthouse, url: 'גג/פנטהאוז', residential: true },
     { key: 'house', label: 'בית פרטי', ptypes: PT.house, url: "בית פרטי/קוטג'", residential: true },
+    { key: 'farm', label: 'משק/נחלה', optionLabel: 'משקים ונחלות', ptypes: FARM_PTYPES, url: 'משק חקלאי/נחלה', residential: true },
     { key: 'land', label: 'מגרש', ptypes: PT.land, noRooms: true },
     { key: 'shop', label: 'חנות', ptypes: PT.shop, url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
     { key: 'office', label: 'משרד', ptypes: PT.office, url: 'משרדים', commercial: true, noRooms: true },
@@ -237,8 +242,12 @@
     if (skip !== 'deal' && st.deal && p.deal_type !== st.deal) return false;
 
     if (skip !== 'type' && st.types && st.types.length) {
-      if (!st.types.some(function (k) { return typeMatches(p, k); })) return false;
-    } else if (skip !== 'type' && st.type && st.type !== 'any' && !typeMatches(p, st.type)) return false;
+      if (!st.types.some(function (k) { return typeMatches(p, k, ctx); })) return false;
+    } else if (skip !== 'type' && st.type && st.type !== 'any' && !typeMatches(p, st.type, ctx)) return false;
+    /* ‏C4 (תומר 22:13, ‏ctx.saleResidential - דף הבית עם הדגל): "למכירה" ו"להשכרה" בלי סוג הם
+       מגורים בלבד (כולל משקים ונחלות); המסחרי - רק בלשונית "מסחרי". גם המונים והשכונות */
+    else if (skip !== 'type' && ctx.saleResidential && st.deal && (!st.type || st.type === 'any') &&
+      (p.category === 'commercial' || COMMERCIAL_PTYPES[p.property_type])) return false;
 
     if (skip !== 'area' && st.hoods && st.hoods.length) {
       var mineH = p._areas || (p.neighborhood_id ? [hoodKey(p.neighborhood_id)] : []);
@@ -302,8 +311,9 @@
     return true;
   }
 
-  function typeMatches(p, key) {
+  function typeMatches(p, key, ctx) {
     var t = typeDef(key);
+    if (key === 'house' && ctx && ctx.farmSplit && FARM_PTYPES.indexOf(p.property_type) >= 0) return false;
     if (t.commercial && p.category !== 'commercial') return false;
     if (t.residential && p.category === 'commercial') return false;
     if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;
@@ -587,7 +597,8 @@
     else if (/לקנות|קני|מכיר|לרכוש|רכיש/.test(t)) patch.deal = 'sale';
 
     /* סוג הנכס - מהליבה (‏SC.typeIn), אותן מילים שגבריאלה מתרגמת בהן */
-    var tk = SC.typeIn(t);
+    // ‏C3: משק ונחלה - לפני הליבה, שבה הם "בית"
+    var tk = /(^| )[ובלה]?(משק|משקים|נחלה|נחלות)( |$)/.test(t) ? 'farm' : SC.typeIn(t);
     if (tk) patch.type = tk;
 
     var rest = t;
@@ -781,7 +792,14 @@
       var group = TYPES.filter(function (t) { return t.url === ptype; })[0];
       if (group) st.type = group.key;
       else if (/^[֐-׿\w'"/ .-]{1,40}$/.test(ptype)) st.type = 'raw:' + ptype;
-    } else if (TYPE_BY_KEY[tkey]) st.type = tkey;
+    } else if (tkey) {
+      // ‏type=<מפתח>, ‏type=a,b ו-type=raw:<ערך> (‏R5) - מפתח לא מוכר נזרק
+      var tk2 = tkey.split(',').map(function (v) { return v.trim(); }).filter(function (v) {
+        return TYPE_BY_KEY[v] || /^raw:[֐-׿\w'"/ .-]{1,40}$/.test(v);
+      });
+      if (tk2.length > 1) { st.types = tk2; st.type = typeDef(tk2[0]).commercial ? 'commercial' : 'any'; }
+      else if (tk2.length) st.type = tk2[0];
+    }
 
     /* ‏R5-4: ‏rooms=3,5,6+ (שלמים בפסיקים) = בחירה מרובה. עם חצי (‏3,3.5) - הטווח הישן */
     var rawRooms = get('rooms');
@@ -835,7 +853,13 @@
     var t = typeDef(st.type);
     if (st.deal) p.push(['deal', st.deal]);
     else if (t.commercial) p.push(['deal', 'commercial']);
-    if (st.types && st.types.length) p.push(['ptype', st.types.map(function (k) { var d = typeDef(k); return d.url || k.replace(/^raw:/, ''); }).join(',')]);
+    /* ‏R5 (‏A3-1, ‏ctx.typeParam - דף הבית עם הדגל): ‏type=<מפתח> בלבד, גם לכמה סוגים
+       (‏type=flats,farm) ולסוג גולמי (‏type=raw:דופלקס). ‏ptype= עדיין נקרא (‏fromParams) */
+    if (ctx && ctx.typeParam) {
+      var keys = st.types && st.types.length ? st.types : (st.type && st.type !== 'any' && !(t.key === 'commercial' && !st.deal) ? [st.type] : []);
+      if (keys.length) p.push(['type', keys.join(',')]);
+    }
+    else if (st.types && st.types.length) p.push(['ptype', st.types.map(function (k) { var d = typeDef(k); return d.url || k.replace(/^raw:/, ''); }).join(',')]);
     else if (t.url) p.push(['ptype', t.url]);
     else if (st.type && st.type !== 'any' && !(t.key === 'commercial' && !st.deal)) p.push(['type', st.type]);
     if (st.roomsIn && st.roomsIn.length) p.push(['rooms', st.roomsIn.map(function (n) { return n >= 6 ? '6+' : String(n); }).join(',')]);
@@ -1026,6 +1050,9 @@
     var loaded = false;
     var ctx = {
       marketLabel: opts.marketLabel || 'האזור',
+      saleResidential: !!opts.saleResidential,   // ‏C4
+      farmSplit: !!opts.farmSplit,               // ‏C3
+      typeParam: !!opts.typeParam,               // ‏R5
       aiIds: null,
       inDrawn: null,
       near: null,
