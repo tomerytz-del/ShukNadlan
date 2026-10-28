@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MIG = ROOT / "supabase/migrations"
-WIN = MIG / "20271029235900_customer_send_window.sql"
+WIN = MIG / "20271030000100_customer_send_window.sql"
 
 NEED = {
     "public.notification_push_claim": (
@@ -87,10 +87,10 @@ def bodies(text: str) -> list[tuple[str, str]]:
 
 def main() -> int:
     if not WIN.is_file():
-        fail("חסרה 20271029235900_customer_send_window.sql")
+        fail("חסרה 20271030000100_customer_send_window.sql")
     version = WIN.name.split("_", 1)[0]
-    if not (version > "20271029235000" and version < "20271029250000"):
-        fail(f"{version} אינו אחרי חלון שישי ולפני ההסלמה")
+    if not (version > "20271029250000"):
+        fail(f"{version} אינו אחרי ההסלמה של #1049")
     src = WIN.read_text(encoding="utf-8")
     if "('customer_digest_enabled', 0," not in src:
         fail("customer_digest_enabled אינו נולד 0")

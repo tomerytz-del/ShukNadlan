@@ -256,6 +256,12 @@ Deno.serve(async (req: Request) => {
     return json({ sent: 0, failed: 0, deferred: false, reason: "window_error" }, 500);
   }
   const flagOn = !flagMissing && flag.data === true;
+  if (!flagMissing) {
+    const prep = await sb.rpc("customer_prepare");
+    if (prep.error && prep.error.code !== "PGRST202" && prep.error.code !== "42883") {
+      console.error("customer prepare failed", prep.error.code);
+    }
+  }
 
   const loaded = flagOn
     ? await sb.rpc("customer_due_alerts", { p_limit: BATCH })
@@ -272,24 +278,36 @@ Deno.serve(async (req: Request) => {
     const wantEmail = (a.contact_channel === "email" || a.contact_channel === "both")
       && !!a.email && a.email_status !== "sent";
     let phoneHeld = false;
-    if (flagOn && wantWhatsapp) {
-      const slot = await sb.rpc("customer_phone_claim", {
-        p_key: a.phone_e164,
-        p_ref: a.alert_id,
-        p_backlog: false,
+    let contactKey: string | null = null;
+    if (flagOn && (wantWhatsapp || wantEmail)) {
+      const key = await sb.rpc("customer_contact_key", {
+        p_phone: a.phone_e164 ?? null,
+        p_email: a.email ?? null,
+        p_search_id: a.search_id,
       });
-      const slotMissing = slot.error && (slot.error.code === "PGRST202" || slot.error.code === "42883");
-      if (slot.error && !slotMissing) {
-        console.error("customer phone claim failed", slot.error.code);
-        failed++;
-        continue;
-      }
-      if (!slotMissing && slot.data === "wait") {
-        deferred++;
-        continue;
-      }
-      if (!slotMissing && slot.data === "cap") {
-        phoneHeld = true;
+      contactKey = key.data ? String(key.data) : null;
+      if (contactKey) {
+        const slot = await sb.rpc("customer_phone_claim", {
+          p_key: contactKey,
+          p_ref: a.alert_id,
+          p_backlog: false,
+        });
+        const slotMissing = slot.error && (slot.error.code === "PGRST202" || slot.error.code === "42883");
+        if (slot.error && !slotMissing) {
+          console.error("customer phone claim failed", slot.error.code);
+          failed++;
+          continue;
+        }
+        if (!slotMissing && slot.data === "wait") {
+          deferred++;
+          continue;
+        }
+        if (!slotMissing && slot.data === "cap") {
+          phoneHeld = true;
+        }
+        if (!slotMissing && slot.data === "ok") {
+          await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
+        }
       }
     }
 
@@ -302,8 +320,8 @@ Deno.serve(async (req: Request) => {
         await sendWhatsapp(a);
         waStatus = "sent";
       } catch (err) {
-        if (flagOn && a.phone_e164) {
-          await sb.rpc("customer_phone_release", { p_key: a.phone_e164, p_ref: a.alert_id });
+        if (flagOn && contactKey) {
+          await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
         }
         waStatus = "failed";
         errors.push(`whatsapp: ${err instanceof Error ? err.message : String(err)}`);

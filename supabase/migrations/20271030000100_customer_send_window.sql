@@ -211,7 +211,13 @@ $$;
 revoke all on function public.customer_spread_minute(text) from public, anon, authenticated;
 grant execute on function public.customer_spread_minute(text) to service_role;
 
-create or replace function public.customer_contact_key(p_phone text, p_email text)
+drop function if exists public.customer_contact_key(text, text);
+
+create or replace function public.customer_contact_key(
+  p_phone text,
+  p_email text,
+  p_search_id uuid default null
+)
 returns text
 language sql
 stable
@@ -225,14 +231,16 @@ as $$
       where p_email is not null
         and lower(s.email) = lower(btrim(p_email))
         and s.phone_e164 is not null
+      order by s.created_at, s.id
       limit 1),
     case when nullif(btrim(coalesce(p_email, '')), '') is not null
-         then 'e:' || lower(btrim(p_email)) end
+         then 'e:' || lower(btrim(p_email)) end,
+    case when p_search_id is not null then 's:' || p_search_id::text end
   );
 $$;
 
-revoke all on function public.customer_contact_key(text, text) from public, anon, authenticated;
-grant execute on function public.customer_contact_key(text, text) to service_role;
+revoke all on function public.customer_contact_key(text, text, uuid) from public, anon, authenticated;
+grant execute on function public.customer_contact_key(text, text, uuid) to service_role;
 
 create or replace function public.customer_next_open_day(p_audience text, p_at timestamptz)
 returns date
@@ -359,7 +367,7 @@ begin
     select 1 from public.customer_phone_sends s
      where s.ref_id = p_ref and s.day = v_day
   ) then
-    return 'ok';
+    return 'already';
   end if;
   if coalesce(v_n, 0) >= 3 then
     return 'cap';
@@ -368,17 +376,14 @@ begin
     return 'wait';
   end if;
 
-  v_local := v_at at time zone 'Asia/Jerusalem';
-  v_min := (extract(hour from v_local)::int * 60 + extract(minute from v_local)::int) - 8 * 60;
-  v_slot := public.customer_spread_minute(v_key);
-  if coalesce(v_n, 0) = 0 and v_last is null then
-    if p_backlog then
-      if v_min < 0 or v_min >= 60 or v_min < v_slot then
-        return 'wait';
-      end if;
-    elsif v_min >= 0 and v_min < 60 and v_min < v_slot then
-      return 'wait';
-    elsif v_min >= 60 and (abs(hashtext(v_key)) % 8) <> (floor(extract(epoch from v_at) / 900)::int % 8) then
+  -- פיזור רק לשחרור של מה שכבר נדחה, ורק עד 09:00.
+  -- מי שהתור שלו עבר משתחרר בריצה הבאה, כולל דקה 59 ב-09:00.
+  -- הודעה חדשה בתוך החלון לא מחכה לדקה ולא לדלי של 15 דקות.
+  if p_backlog and coalesce(v_n, 0) = 0 and v_last is null then
+    v_local := v_at at time zone 'Asia/Jerusalem';
+    v_min := (extract(hour from v_local)::int * 60 + extract(minute from v_local)::int) - 8 * 60;
+    v_slot := public.customer_spread_minute(v_key);
+    if v_min < 60 and v_min < v_slot then
       return 'wait';
     end if;
   end if;
@@ -525,7 +530,7 @@ begin
   end loop;
   alter table public.saved_search_alerts
     add constraint saved_search_alerts_status_check
-    check (status in ('pending', 'sent', 'failed', 'skipped', 'deferred', 'expired'));
+    check (status in ('pending', 'sent', 'failed', 'skipped', 'deferred', 'expired', 'digested'));
 end $$;
 
 create or replace function public.customer_message_defer(
@@ -595,6 +600,16 @@ declare
   v_n int := 0;
 begin
   if not public.customer_send_window_on() then
+    update public.saved_search_alerts
+       set status = 'expired',
+           last_error = 'expired'
+     where status = 'deferred'
+       and created_at < v_at - interval '72 hours';
+    update public.saved_search_alerts
+       set status = 'pending',
+           last_error = null
+     where status = 'deferred'
+       and created_at >= v_at - interval '72 hours';
     return 0;
   end if;
 
@@ -642,11 +657,6 @@ begin
       v_n := v_n + 1;
     end loop;
     return v_n;
-  end if;
-
-  if coalesce((select value::int from public.pricing_config
-                where key = 'customer_digest_enabled'), 0) = 1 then
-    return 0;
   end if;
 
   for r in
@@ -747,30 +757,9 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  v_day date := public.customer_next_open_day(p_audience, pg_catalog.now());
 begin
-  if not public.customer_send_window_on() then
-    return;
-  end if;
-  if p_audience not in ('open_house', 'customer_push', 'saved_search') then
-    return;
-  end if;
-  if p_reason not in ('quiet', 'cap') then
-    return;
-  end if;
-  if exists (
-    select 1 from public.customer_message_holds h
-     where h.audience = p_audience
-       and h.reason = p_reason
-       and h.alert_id is null
-       and h.deliver_on = v_day
-       and h.delivered_at is null
-  ) then
-    return;
-  end if;
-  insert into public.customer_message_holds (phone_e164, audience, alert_id, reason, deliver_on)
-  values (null, p_audience, null, p_reason, v_day);
+  -- אין שורת המתנה בלי התראה. החלון הסגור פשוט לא שולח.
+  return;
 end;
 $$;
 
@@ -854,10 +843,19 @@ begin
        where h.alert_id = any(d.alert_ids)
          and h.delivered_at is null
       returning h.alert_id
+    ),
+    digested as (
+      update public.saved_search_alerts a
+         set status = 'digested',
+             last_error = 'digest'
+        from marked m
+       where a.id = m.alert_id
+         and a.status in ('pending', 'deferred')
+      returning a.id
     )
     select d.phone_e164, d.deliver_on, d.held, d.alert_ids
       from due d
-     where exists (select 1 from marked m where m.alert_id = any(d.alert_ids));
+     where exists (select 1 from digested g where g.id = any(d.alert_ids));
 end;
 $$;
 
@@ -866,6 +864,44 @@ comment on function public.customer_digest_take(timestamptz) is
 
 revoke all on function public.customer_digest_take(timestamptz) from public, anon, authenticated;
 grant execute on function public.customer_digest_take(timestamptz) to service_role;
+
+create or replace function public.customer_send_saved_search_push(p_alert_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_title text;
+  v_dev uuid;
+  v_search uuid;
+  v_property uuid;
+begin
+  select a.search_id, a.property_id into v_search, v_property
+    from public.saved_search_alerts a
+   where a.id = p_alert_id;
+  if v_search is null then
+    return;
+  end if;
+  select coalesce(nullif(btrim(p.title), ''), 'נכס חדש') into v_title
+    from public.properties p
+   where p.id = v_property;
+  for v_dev in
+    select d.id from public.app_push_devices d
+     where d.saved_search_id = v_search and d.disabled_at is null
+  loop
+    perform public.app_push_enqueue(
+      v_dev, coalesce(v_title, 'נכס חדש'),
+      'נכס חדש שמתאים לחיפוש ששמרתם',
+      'https://shuknadlan.co.il/property?id=' || v_property::text,
+      'saved_search', p_alert_id
+    );
+  end loop;
+end;
+$$;
+
+revoke all on function public.customer_send_saved_search_push(uuid) from public, anon, authenticated;
+grant execute on function public.customer_send_saved_search_push(uuid) to service_role;
 
 create or replace function public.app_push_on_saved_search_alert()
 returns trigger
@@ -876,9 +912,12 @@ as $$
 declare
   v_title text;
   v_dev uuid;
-  v_phone text;
+  v_key text;
   v_gate text;
 begin
+  if tg_op = 'UPDATE' and old.status = 'pending' then
+    return new;
+  end if;
   if new.status is distinct from 'pending' then
     return new;
   end if;
@@ -905,36 +944,21 @@ begin
     return new;
   end if;
 
-  select s.phone_e164 into v_phone
+  select public.customer_contact_key(s.phone_e164, s.email, s.id) into v_key
     from public.saved_searches s
    where s.id = new.search_id;
-  if v_phone is not null and exists (
+  if v_key is not null and exists (
     select 1 from public.app_push_devices d
      where d.saved_search_id = new.search_id and d.disabled_at is null
   ) then
-    v_gate := public.customer_phone_claim(v_phone, pg_catalog.now(), new.id, false);
-    if v_gate = 'cap' then
-      return new;
+    v_gate := public.customer_phone_claim(v_key, pg_catalog.now(), new.id, tg_op = 'UPDATE');
+    if v_gate in ('ok', 'already') then
+      perform public.customer_send_saved_search_push(new.id);
     end if;
-    if v_gate <> 'ok' then
-      return new;
-    end if;
+    return new;
   end if;
 
-  select coalesce(nullif(btrim(p.title), ''), 'נכס חדש') into v_title
-    from public.properties p
-   where p.id = new.property_id;
-  for v_dev in
-    select d.id from public.app_push_devices d
-     where d.saved_search_id = new.search_id and d.disabled_at is null
-  loop
-    perform public.app_push_enqueue(
-      v_dev, coalesce(v_title, 'נכס חדש'),
-      'נכס חדש שמתאים לחיפוש ששמרתם',
-      'https://shuknadlan.co.il/property?id=' || new.property_id::text,
-      'saved_search', new.id
-    );
-  end loop;
+  perform public.customer_send_saved_search_push(new.id);
   return new;
 exception when others then
   raise warning 'app_push_on_saved_search_alert: %', sqlerrm;
@@ -943,6 +967,11 @@ end;
 $$;
 
 revoke all on function public.app_push_on_saved_search_alert() from public, anon, authenticated;
+
+drop trigger if exists app_push_on_saved_search_alert on public.saved_search_alerts;
+create trigger app_push_on_saved_search_alert
+  after insert or update of status on public.saved_search_alerts
+  for each row execute function public.app_push_on_saved_search_alert();
 
 -- הגוף האחרון של due_agents, ועוד רק פיזור הבוקר כשהדגל דלוק.
 -- תקרת התבניות נשארת בתוך הגוף (המרווח, התקרה היומית). לא נבנה מגרסה ישנה.
@@ -1042,6 +1071,13 @@ as $$
   shaped as (
     select a.id, a.display_name, a.phone_e164, a.in_window,
            case
+             when coalesce((select value::int from public.pricing_config
+                             where key = 'agent_holiday_window_enabled'), 0) = 1
+              and public.agent_backlog_waiting(a.id, pg_catalog.now())
+             then array(
+               select t from unnest(a.whatsapp_types) t
+                where t = any(array['new_lead', 'agenda_reminder', 'showcase_meeting']::text[])
+             )
              when public.notification_agent_send_quiet(
                     a.quiet_from, a.quiet_to, a.quiet_days, now(), cfg.window_on)
              then array(select t from unnest(a.whatsapp_types) t where t = any(cfg.urgent))
@@ -1103,12 +1139,7 @@ as $$
     from gated g
    where coalesce(array_length(g.types, 1), 0) > 0
      and g.phone_e164 is not null
-     and coalesce(g.fails24, 0) < g.max_fail
-     and (
-       coalesce((select value::int from public.pricing_config
-                  where key = 'agent_holiday_window_enabled'), 0) <> 1
-       or not public.agent_backlog_waiting(g.id, pg_catalog.now())
-     );
+     and coalesce(g.fails24, 0) < g.max_fail;
 $$;
 
 

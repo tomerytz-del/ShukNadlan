@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MIG = ROOT / "supabase/migrations/20271029235900_customer_send_window.sql"
+MIG = ROOT / "supabase/migrations/20271030000100_customer_send_window.sql"
 DB = os.environ.get("CUSTOMER_WINDOW_TEST_DB", "customer_window_test")
 
 
@@ -85,6 +85,7 @@ create table public.saved_searches (
   unsubscribe_token text,
   status text default 'active',
   cities text[] default '{}',
+  created_at timestamptz not null default now(),
   deal_type text,
   category text
 );
@@ -288,7 +289,101 @@ $$;
     if marked != "t":
         fail("delivered_at לא סומן")
 
-    print("✓ תוקף, דילוג, מיזוג, פיזור, מרווח, תקרה, וחגים עד 2028.")
+    late = phone_with_minute(59)
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    expect(
+        f"select public.customer_phone_claim('{late}', {at('2026-08-02 08:58:00')}, gen_random_uuid(), true)",
+        "wait",
+        "דקה 59 עוד לא ב-08:58",
+    )
+    expect(
+        f"select public.customer_phone_claim('{late}', {at('2026-08-02 09:00:00')}, gen_random_uuid(), true)",
+        "ok",
+        "דקה 59 יוצאת ב-09:00",
+    )
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    expect(
+        f"select public.customer_phone_claim('{late}', {at('2026-08-02 08:56:00')}, gen_random_uuid(), false)",
+        "ok",
+        "יריד רגיל לא מחכה לדקה",
+    )
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    noon = phone_with_minute(40)
+    expect(
+        f"select public.customer_phone_claim('{noon}', {at('2026-08-02 10:00:00')}, gen_random_uuid(), false)",
+        "ok",
+        "אחרי 09:00 אין השהיה",
+    )
+
+    psql("update public.pricing_config set value = 0 where key = 'customer_send_window_enabled'")
+    psql(f"""
+      insert into public.properties (id, status, city) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8', 'active', 'עפולה');
+      insert into public.saved_searches (id, full_name, phone_e164, status, cities)
+      values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb8', 'בדיקה', '{p_ok}', 'active', array['עפולה']);
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at) values
+        ('cccccccc-cccc-cccc-cccc-ccccccccccc8', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb8',
+         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8', 'deferred', {base} - interval '2 hours'),
+        ('cccccccc-cccc-cccc-cccc-ccccccccccc9', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb8',
+         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8', 'deferred', {base} - interval '80 hours');
+    """)
+    psql(f"select public.customer_prepare({base})")
+    expect(
+        "select status from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc8'",
+        "pending",
+        "כיבוי הדגל מחזיר דחוי ל-pending",
+    )
+    expect(
+        "select status from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc9'",
+        "expired",
+        "כיבוי הדגל לא מחזיר מה שפג",
+    )
+
+    defn = psql("select pg_get_functiondef('public.notification_push_due_agents()'::regprocedure)")
+    if "agent_backlog_waiting" not in defn or "not public.agent_backlog_waiting" in defn:
+        fail("פיזור הסוכנים עדיין מוריד את כל הסוכן")
+    for kind in ("new_lead", "agenda_reminder", "showcase_meeting"):
+        if kind not in defn:
+            fail(f"הפיזור לא פוטר את {kind}")
+
+    psql("update public.pricing_config set value = 1 where key = 'customer_send_window_enabled'")
+    psql("""
+      create table if not exists public.app_push_log (alert_id uuid, device_id uuid);
+      create table if not exists public.app_push_devices (
+        id uuid primary key, saved_search_id uuid, disabled_at timestamptz
+      );
+      create or replace function public.app_push_enqueue(
+        p_dev uuid, p_title text, p_body text, p_url text, p_kind text, p_alert uuid
+      ) returns void language plpgsql as $fn$
+      begin
+        insert into public.app_push_log (alert_id, device_id) values (p_alert, p_dev);
+      end $fn$;
+    """)
+    push_phone = phone_with_minute(0)
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    psql(f"""
+      insert into public.properties (id, status, city, title) values
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10', 'active', 'עפולה', 'דירה');
+      insert into public.saved_searches (id, full_name, phone_e164, status, cities)
+      values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb10', 'בדיקה', '{push_phone}', 'active', array['עפולה']);
+      insert into public.app_push_devices (id, saved_search_id)
+      values ('dddddddd-dddd-dddd-dddd-dddddddddd10', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb10');
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at)
+      values ('cccccccc-cccc-cccc-cccc-cccccccccc10', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb10',
+              'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10', 'deferred', now() - interval '1 hour');
+    """)
+    psql("select public.customer_prepare(now())")
+    expect(
+        "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
+        "1",
+        "שחרור ל-pending שולח דחיפה",
+    )
+    expect(
+        f"select sent_count from public.customer_phone_day where contact_key = '{push_phone}'",
+        "1",
+        "הדחיפה לא תופסת מקום שני",
+    )
+
+    print("✓ תוקף, דילוג, מיזוג, פיזור, מרווח, תקרה, דחיפה, וחגים עד 2028.")
     return 0
 
 

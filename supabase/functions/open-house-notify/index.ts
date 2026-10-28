@@ -255,7 +255,7 @@ Deno.serve(async (req: Request) => {
       const slot = await sb.rpc("customer_phone_claim", {
         p_key: claimKey,
         p_ref: claimRef,
-        p_backlog: true,
+        p_backlog: false,
       });
       const slotMissing = slot.error && (slot.error.code === "PGRST202" || slot.error.code === "42883");
       if (!slotMissing && slot.data !== "ok") { skipped++; continue; }
