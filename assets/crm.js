@@ -16611,10 +16611,10 @@ function askClosingDetails(property){
 }
 
 const PUBLISH_DEST_OPTIONS = [
-  ['site,social,brokers', 'אתר + רשתות + מתווכים'],
+  ['site,social,brokers', 'אתר + רשתות + יועצי נדל״ן'],
   ['site,social', 'אתר + רשתות'],
   ['site', 'רק אתר'],
-  ['site,brokers', 'אתר + מתווכים'],
+  ['site,brokers', 'אתר + יועצי נדל״ן'],
   ['save', 'רק לשמור במאגר'],
 ];
 
@@ -16624,7 +16624,7 @@ function publishDestinationHtml(p, agentId){
   const current = Array.isArray(p.publish_channels) ? p.publish_channels.join(',') : '';
   const opts = [['', 'לא נבחר']].concat(PUBLISH_DEST_OPTIONS).map(([value, label]) =>
     `<option value="${esc(value)}"${value === current ? ' selected' : ''}${value === '' ? ' disabled' : ''}>${esc(label)}</option>`).join('');
-  return `<label class="pc-dest">יעד פרסום <select class="pc-dest-select" title="אתר, רשתות, מתווכים, או רק מאגר. רשתות נכנסות לתור עם תקרה יומית. שת״פ עד תקרה של משרדים לנכס, בלי טלפון.">${opts}</select></label>`;
+  return `<label class="pc-dest">יעד פרסום <select class="pc-dest-select" title="אתר, רשתות, יועצי נדל״ן, או רק מאגר. רשתות נכנסות לתור עם תקרה יומית. שת״פ עד תקרה של משרדים לנכס, בלי טלפון.">${opts}</select></label>`;
 }
 
 async function setPublishDestination(property, value, agentId, selectEl){
