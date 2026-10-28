@@ -31,7 +31,7 @@ end $$;
 alter table public.neighborhoods
   add column if not exists cover_path text,
   add column if not exists cover_alt text,
-  add column if not exists cover_credit text,
+  add column if not exists cover_credit jsonb,
   add column if not exists poi jsonb not null default '{}'::jsonb;
 
 comment on column public.neighborhoods.cover_path is
@@ -39,9 +39,9 @@ comment on column public.neighborhoods.cover_path is
 comment on column public.neighborhoods.cover_alt is
   'טקסט חלופי לתמונת השער. לא כתובת ולא מספר טלפון.';
 comment on column public.neighborhoods.cover_credit is
-  'קרדיט גלוי מתחת לתמונת השער, למשל שם הצלם או הרישיון.';
+  'קרדיט גלוי מתחת לתמונת השער: author, license, url. ריק = בלי שורה.';
 comment on column public.neighborhoods.poi is
-  'צ''יפים לדף: parks, transport, education. מערכי טקסט קצרים. ריק = בלי שורה.';
+  'צ''יפים לדף: parks, transport, education, leisure. מערכי טקסט קצרים. ריק = בלי שורה.';
 
 do $$
 begin
@@ -103,7 +103,9 @@ create or replace function public.admin_hood_cover_set(
   p_path text,
   p_alt text,
   p_credit text,
-  p_poi jsonb
+  p_poi jsonb,
+  p_license text default null,
+  p_credit_url text default null
 ) returns void
 language plpgsql
 volatile
@@ -113,7 +115,10 @@ as $$
 declare
   v_path text := nullif(btrim(coalesce(p_path, '')), '');
   v_alt text := nullif(left(btrim(translate(coalesce(p_alt, ''), '—–', '--')), 180), '');
-  v_credit text := nullif(left(btrim(translate(coalesce(p_credit, ''), '—–', '--')), 160), '');
+  v_author text := nullif(left(btrim(translate(coalesce(p_credit, ''), '—–', '--')), 80), '');
+  v_license text := nullif(left(btrim(translate(coalesce(p_license, ''), '—–', '--')), 80), '');
+  v_url text := nullif(btrim(coalesce(p_credit_url, '')), '');
+  v_credit jsonb;
   v_poi jsonb;
 begin
   if not public.current_is_platform_admin() then
@@ -122,6 +127,14 @@ begin
   if not exists (select 1 from public.neighborhoods where id = p_id) then
     raise exception 'hood_not_found' using errcode = '22023';
   end if;
+  if v_url is not null and v_url !~ '^https://' then
+    v_url := null;
+  end if;
+  v_credit := case
+    when v_author is null and v_license is null and v_url is null then null
+    else jsonb_strip_nulls(jsonb_build_object('author', v_author, 'license', v_license, 'url', left(v_url, 300)))
+  end;
+
   if v_path is not null and v_path !~ (
     '^' || p_id::text || '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$'
   ) then
@@ -158,6 +171,16 @@ begin
          where btrim(coalesce(x, '')) <> ''
          limit 8
       ) s
+    ), '[]'::jsonb),
+    'leisure', coalesce((
+      select jsonb_agg(s.t) from (
+        select left(btrim(translate(x, '—–', '--')), 80) as t
+          from jsonb_array_elements_text(
+            case when jsonb_typeof(p_poi -> 'leisure') = 'array' then p_poi -> 'leisure' else '[]'::jsonb end
+          ) x
+         where btrim(coalesce(x, '')) <> ''
+         limit 8
+      ) s
     ), '[]'::jsonb)
   ) into v_poi;
 
@@ -169,11 +192,11 @@ begin
    where id = p_id;
 end $$;
 
-comment on function public.admin_hood_cover_set(uuid, text, text, text, jsonb) is
-  'תמונת שער וצ''יפים של דף שכונה. מנהל/ת פלטפורמה בלבד (42501). הנתיב הוא קובץ בדלי neighborhood-covers.';
+comment on function public.admin_hood_cover_set(uuid, text, text, text, jsonb, text, text) is
+  'תמונת שער, קרדיט (צלם, רישיון, קישור) וצ''יפים של דף שכונה. מנהל/ת פלטפורמה בלבד (42501). הנתיב הוא קובץ בדלי neighborhood-covers.';
 
-revoke all on function public.admin_hood_cover_set(uuid, text, text, text, jsonb) from public, anon, authenticated;
-grant execute on function public.admin_hood_cover_set(uuid, text, text, text, jsonb) to authenticated;
+revoke all on function public.admin_hood_cover_set(uuid, text, text, text, jsonb, text, text) from public, anon, authenticated;
+grant execute on function public.admin_hood_cover_set(uuid, text, text, text, jsonb, text, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- הדף. אותו חוזה כמו 20270815090000, ועוד שער, משרדים ורשימה לסינון.
@@ -209,6 +232,7 @@ as $page$
      where pr.neighborhood_id = h.id and pr.status = 'active'
   )
   select case when not exists (select 1 from h) then null else jsonb_build_object(
+    'id', (select id from h),
     'name', (select name from h),
     'slug', (select slug from h),
     'city', (select city from h),

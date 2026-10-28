@@ -48,15 +48,29 @@
     if (/^(השכונה|שכונת|שכונה)(\s|$)/.test(n)) return n;
     return 'שכונת ' + n;
   }
-  /* "ב{עיר}" תמיד, אלא אם שם השכונה כבר מכיל את העיר, או שאין עיר. */
+  /* "הגעתי מהאתר" חייב להישאר במחרוזת הזו: check_bot_entry.py קורא
+     משתנה שמסתיים ב-HELLO. hoodHello מרכיב ממנה את ההודעה שרצה. */
+  var SITE_HELLO = 'שלום, הגעתי מהאתר, מדף ';
+  /* העיר נשמטת רק כמילה שלמה: "יהוד" אינו בתוך "יהודה".
+     גבול הוא התחלה, סוף, רווח, מקף, מקף עברי, גרש או גרשיים.
+     קידומת בת אות אחת (ב או ה) עדיין נחשבת: "העפולה" ו"בעפולה". */
+  function cityInLabel(label, city) {
+    var c = String(city || '').trim();
+    if (!c) return false;
+    var esc = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var edge = '(?:^|[\\s\\-־׳״\'"])';
+    var tail = '(?:$|[\\s\\-־׳״\'"])';
+    return new RegExp(edge + '(?:[בה])?' + esc + tail).test(label);
+  }
+  /* "ב{עיר}" תמיד, אלא אם שם השכונה כבר מכיל את העיר כמילה, או שאין עיר. */
   function hoodPlace(name, city) {
     var label = hoodLabel(name);
     var c = String(city || '').trim();
-    if (!c || label.indexOf(c) >= 0) return label;
+    if (!c || cityInLabel(label, c)) return label;
     return label + ' ב' + c;
   }
   function hoodHello(name, city) {
-    return 'שלום, הגעתי מהאתר, מדף ' + hoodPlace(name, city) + ', ואשמח לעזרה במציאת נכס';
+    return SITE_HELLO + hoodPlace(name, city) + ', ואשמח לעזרה במציאת נכס';
   }
   function heading(d) { return hoodLabel(d.name) + (d.city ? ', ' + d.city : ''); }
   function inHood(name) {
@@ -73,26 +87,27 @@
     var t = d.about && d.about.hero_intro != null ? String(d.about.hero_intro).replace(/\s+/g, ' ').trim() : '';
     return t;
   }
+  /* מטא עד 180 תווים, על גבול מילה, בלי שלוש נקודות. */
+  function clipMeta(s) {
+    var t = String(s || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= 180) return t;
+    var cut = t.slice(0, 180);
+    var sp = cut.lastIndexOf(' ');
+    if (sp > 40) cut = cut.slice(0, sp);
+    return cut.trim();
+  }
+  /* בלי מספרים שמשתנים: לא מלאי, לא מחיר ולא ספירת עסקאות. */
   function description(d) {
     var lead = heroIntro(d);
-    if (lead) return lead;
-    var parts = [];
-    if (d.props_active) parts.push(num(d.props_active) + (d.props_active === 1 ? ' נכס פעיל' : ' נכסים פעילים')
-      + ' ' + inHood(d.name) + ' ב' + d.city);
-    else parts.push(hoodLabel(d.name) + ' ב' + d.city);
-    if (d.deals && d.median_price != null) {
-      parts.push(num(d.deals) + ' עסקאות שדווחו לרשות המסים בשנתיים האחרונות, מחיר חציוני ₪' + num(d.median_price)
-        + (d.median_ppsqm != null ? ' ו-₪' + num(d.median_ppsqm) + ' למ״ר' : ''));
-    }
-    return parts.join('. ') + '. נכסים, מחירים ומשרדים שפעילים בשכונה.';
+    if (lead) return clipMeta(lead);
+    return clipMeta(hoodPlace(d.name, d.city) + ': נכסים למכירה ולהשכרה, מחירי עסקאות ומשרדים שפעילים בשכונה.');
   }
   function heroLead(d) {
     var lead = heroIntro(d);
     if (lead) return lead;
     var intro = d.about && d.about.intro ? String(d.about.intro).replace(/\s+/g, ' ').trim() : '';
     if (!intro) return description(d);
-    if (intro.length > 180) intro = intro.slice(0, 177).replace(/\s+\S*$/, '') + '...';
-    return intro;
+    return clipMeta(intro);
   }
   /* אחרי כ-120 מילים, בסוף משפט. השאר נשאר ב-HTML ומוסתר ב-CSS. */
   function splitIntro(text) {
@@ -146,8 +161,25 @@
       full: ORIGIN + '/storage/v1/object/public/neighborhood-covers/' + p,
       og: u(1200, 630, ''),
       alt: String(d.cover_alt || '').trim(),
-      credit: String(d.cover_credit || '').trim(),
+      credit: d.cover_credit || '',
     };
+  }
+  /* מחרוזת ישנה ("צילום: שם") או אובייקט {author, license, url}. */
+  function creditHtml(raw) {
+    if (typeof raw === 'string') {
+      var t = raw.trim();
+      return t ? 'צילום: ' + escapeHtml(t) : '';
+    }
+    if (!raw || typeof raw !== 'object') return '';
+    var author = String(raw.author || '').trim();
+    var license = String(raw.license || '').trim();
+    var url = String(raw.url || '').trim();
+    if (!/^https:\/\//i.test(url)) url = '';
+    var bits = [];
+    if (author) bits.push(escapeHtml(author));
+    if (license) bits.push(escapeHtml(license));
+    if (url) bits.push('<a href="' + escapeHtml(url) + '" rel="noopener noreferrer">קישור</a>');
+    return bits.join(' · ');
   }
   function lcpHref(d) {
     var c = coverModel(d);
@@ -161,14 +193,13 @@
     }
     return '';
   }
+  /* בלי שער ה-LCP הוא הכותרת, לא כרטיס. preload של 800w מול srcset של 400w
+     היה מוריד את התמונה הגדולה בלי שהיא ה-LCP. */
   function lcpPreload(d) {
     var c = coverModel(d);
-    if (c) {
-      return '<link rel="preload" as="image" href="' + escapeHtml(c.src) + '" imagesrcset="'
-        + escapeHtml(c.srcset) + '" imagesizes="100vw" fetchpriority="high">\n';
-    }
-    var href = lcpHref(d);
-    return href ? '<link rel="preload" as="image" href="' + escapeHtml(href) + '" fetchpriority="high">\n' : '';
+    if (!c) return '';
+    return '<link rel="preload" as="image" href="' + escapeHtml(c.src) + '" imagesrcset="'
+      + escapeHtml(c.srcset) + '" imagesizes="100vw" fetchpriority="high">\n';
   }
   function ogImage(d) {
     var c = coverModel(d);
@@ -180,7 +211,9 @@
     var meta = [p.property_type, p.rooms ? p.rooms + ' חדרים' : '', p.size_sqm ? num(p.size_sqm) + ' מ״ר' : '']
       .filter(Boolean).join(' · ');
     var price = p.price ? money(p.price) + (p.deal_type === 'rent' ? ' לחודש' : '') : 'מחיר לפי פנייה';
-    var pic = '<span class="hood-noimg" aria-hidden="true"></span>';
+    var pic = '<span class="hood-noimg"><img src="/assets/property-placeholder.jpg" alt="" width="320" height="200">'
+      + '<span class="hood-nophoto"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">'
+      + '<path fill="currentColor" d="M12 4 3 11h2v8h6v-5h2v5h6v-8h2L12 4z"></path></svg>תמונת הנכס</span></span>';
     if (img) {
       var pri = eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"';
       var small = renderUrl(img, 400, 250);
@@ -204,10 +237,13 @@
   }
 
   /* eagerFirst רק ב-SSR ובלי תמונת שער: אז הכרטיס הראשון הוא ה-LCP. */
-  function resultsHtml(list, shown, eagerFirst) {
+  function resultsHtml(list, shown, eagerFirst, total) {
     var rows = Array.isArray(list) ? list : [];
     var n = Math.min(shown || rows.length, rows.length);
-    var html = '<p class="hood-count">מציג ' + num(n) + ' מתוך ' + num(rows.length) + ' נכסים</p>';
+    var denom = rows.length;
+    var extra = Number(total);
+    if (isFinite(extra) && extra > denom) denom = Math.round(extra);
+    var html = '<p class="hood-count">מציג ' + num(n) + ' מתוך ' + num(denom) + ' נכסים</p>';
     if (!rows.length) {
       return html + '<p class="hood-empty">אין נכסים שמתאימים לסינון. <button type="button" data-hood="clear">ניקוי הסינון</button></p>';
     }
@@ -245,7 +281,7 @@
   function poiHtml(d) {
     var poi = d.poi;
     if (!poi || typeof poi !== 'object') return '';
-    var groups = [['parks', 'פארקים'], ['transport', 'תחבורה'], ['education', 'חינוך']];
+    var groups = [['parks', 'פארקים'], ['transport', 'תחבורה'], ['education', 'חינוך'], ['leisure', 'פנאי']];
     var html = '';
     groups.forEach(function (g) {
       var items = Array.isArray(poi[g[0]]) ? poi[g[0]] : [];
@@ -281,7 +317,7 @@
     if (!rows.length) return '';
     return '<section class="hood-faq"><h2>שאלות נפוצות על ' + escapeHtml(hoodLabel(d.name)) + '</h2>'
       + '<div class="hood-faq-list">' + rows.map(function (f) {
-        return '<details class="hood-faq-item"><summary><h3>' + escapeHtml(f.q) + '</h3></summary><p>'
+        return '<details class="hood-faq-item"><summary><span class="hood-faq-plus" aria-hidden="true">+</span><span class="hood-faq-minus" aria-hidden="true">-</span><h3>' + escapeHtml(f.q) + '</h3></summary><p>'
           + escapeHtml(f.a) + '</p></details>';
       }).join('') + '</div></section>';
   }
@@ -295,18 +331,33 @@
       + (note ? '<span class="hood-kpi-n">' + withMoney(note) + '</span>' : '')
       + '</div>';
   }
+  /* deals, median_price ו-median_ppsqm הם אותו חלון: 24 חודשים אחורה
+     מהעסקה האחרונה (neighborhood_deal_stats_refresh, interval '24 months').
+     "נכסים פעילים" הוא המלאי עכשיו, בלי חלון. אין לכתוב כאן "12 חודשים". */
   function kpis(d) {
     var saleNote = [d.props_sale ? num(d.props_sale) + ' למכירה' : '', d.props_rent ? num(d.props_rent) + ' להשכרה' : '']
       .filter(Boolean).join(' · ');
     return '<div class="hood-kpis">'
       + kpi('נכסים פעילים', num(d.props_active || 0), saleNote)
       + kpi('מחיר חציוני', d.median_price != null ? money(d.median_price) : '', '')
-      + kpi('עסקאות · 12 חודשים', d.deals ? num(d.deals) : '', '')
+      + kpi('עסקאות · שנתיים', d.deals ? num(d.deals) : '', '')
       + kpi('חציון למ״ר', d.median_ppsqm != null ? money(d.median_ppsqm) : '', '')
       + '</div><p class="hood-kpi-src">מקור העסקאות: רשות המסים</p>';
   }
 
+  /* vis בוליאני אומר שהעמודה כבר במסד. בלי זה המתג לא מסנן כלום. */
+  function visAvailable(rows) {
+    var list = Array.isArray(rows) ? rows : [];
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i] && list[i].vis;
+      if (v === true || v === false) return true;
+    }
+    return false;
+  }
   function filters(d) {
+    var visBtn = visAvailable(catalog(d))
+      ? '<button type="button" class="hood-switch" role="switch" data-hood="vis" aria-checked="false"><span class="hood-switch-ui" aria-hidden="true"></span>רק עם הדמיה</button>'
+      : '';
     return '<div class="hood-filters" id="hoodFilters">'
       + '<div class="hood-seg" role="group" aria-label="סוג עסקה בשכונה">'
       + '<button type="button" data-hood="deal" data-v="" aria-pressed="true">הכל</button>'
@@ -328,14 +379,14 @@
       + '<option value="4">4+</option><option value="5">5+</option></select>'
       + '<input data-hood="min" inputmode="numeric" placeholder="מ-" aria-label="ממחיר">'
       + '<input data-hood="max" inputmode="numeric" placeholder="עד" aria-label="עד מחיר">'
-      + '<button type="button" class="hood-switch" data-hood="vis" aria-pressed="false"><span class="hood-switch-ui" aria-hidden="true"></span>רק עם הדמיה</button>'
+      + visBtn
       + '<button type="button" data-hood="clear">ניקוי</button>'
       + '</div>'
       + '<div class="hood-panel" id="hoodSortPanel" hidden>'
-      + '<button type="button" data-hood="sort" data-v="default">מומלצים</button>'
-      + '<button type="button" data-hood="sort" data-v="new">חדשים</button>'
-      + '<button type="button" data-hood="sort" data-v="price-asc">מחיר עולה</button>'
-      + '<button type="button" data-hood="sort" data-v="price-desc">מחיר יורד</button>'
+      + '<button type="button" data-hood="sort" data-v="default" aria-pressed="true">מומלצים</button>'
+      + '<button type="button" data-hood="sort" data-v="new" aria-pressed="false">חדשים</button>'
+      + '<button type="button" data-hood="sort" data-v="price-asc" aria-pressed="false">מחיר עולה</button>'
+      + '<button type="button" data-hood="sort" data-v="price-desc" aria-pressed="false">מחיר יורד</button>'
       + '</div></div>';
   }
 
@@ -343,7 +394,6 @@
     return '<section class="hood-cta" id="hoodCta">'
       + '<p class="hood-cta-k">גבריאלה · עוזרת החיפוש של שוק נדל״ן</p>'
       + '<h2>מחפשים ' + escapeHtml(inHood(d.name)) + '? גבריאלה תעזור למצוא</h2>'
-      + '<button type="button" class="hood-btn hood-btn-gold" id="hoodAlert">קבלו התראה על נכסים חדשים בשכונה</button>'
       + '<span id="hoodBotSlot" data-hood-name="' + escapeHtml(d.name || '') + '" data-hood-city="' + escapeHtml(d.city || '') + '"></span>'
       + '</section>';
   }
@@ -378,15 +428,20 @@
       .replace(/\s+/g, ' ')
       .trim();
   }
+  /* אותיות בלבד. "r.b נכסים" הוא R ו-B, לא התו הראשון של כל מילה. */
   function initials(name) {
-    var s = officeName(name).replace(/["״']/g, '');
-    if (!s) return 'מ';
-    var words = s.split(/\s+/).filter(Boolean);
+    var s = officeName(name);
     var letters = [];
+    var words = s.split(/\s+/).filter(Boolean);
     for (var i = 0; i < words.length && letters.length < 2; i++) {
-      if (words[i].charAt(0)) letters.push(words[i].charAt(0));
+      var bits = words[i].split(/[^A-Za-z\u0590-\u05FF]+/).filter(Boolean);
+      for (var j = 0; j < bits.length && letters.length < 2; j++) {
+        var ch = bits[j].charAt(0);
+        if (/[A-Za-z]/.test(ch)) ch = ch.toUpperCase();
+        letters.push(ch);
+      }
     }
-    return letters.join('') || s.slice(0, 2);
+    return letters.join('') || 'מ';
   }
   function agenciesBlock(d) {
     var list = Array.isArray(d.agencies) ? d.agencies : [];
@@ -455,7 +510,8 @@
         + ' width="1200" height="520" alt="' + escapeHtml(alt) + '" fetchpriority="high" decoding="async"'
         + ' data-jpg="' + escapeHtml(c.jpg) + '" data-full="' + escapeHtml(c.full) + '"'
         + ' onerror="this.onerror=null;if(this.getAttribute(\'data-tried\')){this.remove();return;}this.setAttribute(\'data-tried\',\'1\');this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-jpg\')">';
-      if (c.credit) caption = '<figcaption class="hood-credit">צילום: ' + escapeHtml(c.credit) + '</figcaption>';
+      var credit = creditHtml(c.credit);
+      if (credit) caption = '<figcaption class="hood-credit">' + credit + '</figcaption>';
       else if (c.alt) caption = '<figcaption class="hood-credit">' + escapeHtml(c.alt) + '</figcaption>';
     }
     return '<figure class="hood-figure">'
@@ -490,9 +546,14 @@
     if (p.vis === true || p.vis === false) row.vis = p.vis;
     return row;
   }
-  function dataBlob(rows) {
-    var json = JSON.stringify({ listings: rows.map(publicListing) })
-      .replace(/&/g, '\\u0026').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  function dataBlob(d, rows) {
+    var json = JSON.stringify({
+      listings: rows.map(publicListing),
+      total: Number(d.props_active) || rows.length,
+      id: d.id || null,
+      city: d.city || '',
+      slug: d.slug || '',
+    }).replace(/&/g, '\\u0026').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
     return '<textarea id="hoodData" hidden readonly>' + json + '</textarea>';
   }
 
@@ -505,7 +566,7 @@
       + kpis(d)
       + '<div class="hood-layout"><div class="hood-main">'
       + filters(d)
-      + '<div id="hoodResults"><h2>נכסים בשכונה</h2>' + resultsHtml(all, 12, !cover) + '</div>'
+      + '<div id="hoodResults"><h2>נכסים בשכונה</h2>' + resultsHtml(all, 12, !cover, d.props_active) + '</div>'
       + aboutBlock(d)
       + fitsBlock(d)
       + dealsBlock(d)
@@ -516,7 +577,7 @@
       + agenciesBlock(d)
       + '</aside></div>'
       + nearby(d)
-      + dataBlob(all)
+      + dataBlob(d, all)
       + '</div>';
     return html;
   }
@@ -545,6 +606,7 @@
   root.ShukHood = {
     render: render, title: title, description: description, jsonLd: jsonLd, path: path,
     lcpHref: lcpHref, lcpPreload: lcpPreload, ogImage: ogImage, heading: heading,
-    hoodLabel: hoodLabel, hoodPlace: hoodPlace, hoodHello: hoodHello, resultsHtml: resultsHtml,
+    hoodLabel: hoodLabel, hoodPlace: hoodPlace, hoodHello: hoodHello, visAvailable: visAvailable,
+    resultsHtml: resultsHtml,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

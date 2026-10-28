@@ -243,16 +243,20 @@ function hoodCoverForm(){
   const row = hoodCoverRows.find(r => r.id === pick.value) || {};
   const poi = row.poi && typeof row.poi === 'object' ? row.poi : {};
   const lines = k => (Array.isArray(poi[k]) ? poi[k] : []).join('\n');
+  const credit = row.cover_credit && typeof row.cover_credit === 'object' ? row.cover_credit : {};
   const preview = row.cover_path
     ? '<img class="hd-cover-prev" alt="" src="' + esc('https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/neighborhood-covers/' + row.cover_path) + '">'
     : '<p class="acc-sub">אין תמונת שער.</p>';
   form.innerHTML = preview
     + '<label>קובץ תמונה<input type="file" id="hoodCoverFile" accept="image/jpeg,image/png,image/webp"></label>'
     + '<label>טקסט חלופי<input type="text" id="hoodCoverAlt" maxlength="180" value="' + esc(row.cover_alt || '') + '"></label>'
-    + '<label>קרדיט, גלוי מתחת לתמונה<input type="text" id="hoodCoverCredit" maxlength="160" value="' + esc(row.cover_credit || '') + '" placeholder="צילום: שם"></label>'
+    + '<label>צלם/ת, לא חובה<input type="text" id="hoodCoverCredit" maxlength="80" value="' + esc(credit.author || '') + '"></label>'
+    + '<label>רישיון, לא חובה<input type="text" id="hoodCoverLicense" maxlength="80" value="' + esc(credit.license || '') + '"></label>'
+    + '<label>קישור לרישיון, לא חובה<input type="url" id="hoodCoverUrl" maxlength="300" dir="ltr" value="' + esc(credit.url || '') + '" placeholder="https://"></label>'
     + '<label>פארקים, שורה לכל מקום<textarea id="hoodCoverParks" rows="2">' + esc(lines('parks')) + '</textarea></label>'
     + '<label>תחבורה, שורה לכל מקום<textarea id="hoodCoverTransport" rows="2">' + esc(lines('transport')) + '</textarea></label>'
     + '<label>חינוך, שורה לכל מקום<textarea id="hoodCoverEducation" rows="2">' + esc(lines('education')) + '</textarea></label>'
+    + '<label>פנאי, שורה לכל מקום<textarea id="hoodCoverLeisure" rows="2">' + esc(lines('leisure')) + '</textarea></label>'
     + '<div class="hd-acts"><button type="button" class="btn btn-gold" id="hoodCoverSave">שמירת שער</button>'
     + '<button type="button" class="btn btn-ghost" id="hoodCoverClear">הסרת התמונה</button></div>';
   document.getElementById('hoodCoverSave').addEventListener('click', () => hoodCoverSave(false));
@@ -290,10 +294,13 @@ async function hoodCoverSave(clear){
       p_path: path,
       p_alt: document.getElementById('hoodCoverAlt').value,
       p_credit: document.getElementById('hoodCoverCredit').value,
+      p_license: document.getElementById('hoodCoverLicense').value,
+      p_credit_url: document.getElementById('hoodCoverUrl').value,
       p_poi: {
         parks: hoodCoverLines(document.getElementById('hoodCoverParks').value),
         transport: hoodCoverLines(document.getElementById('hoodCoverTransport').value),
         education: hoodCoverLines(document.getElementById('hoodCoverEducation').value),
+        leisure: hoodCoverLines(document.getElementById('hoodCoverLeisure').value),
       },
     });
     if (error){

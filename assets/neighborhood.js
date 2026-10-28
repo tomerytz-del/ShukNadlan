@@ -23,16 +23,88 @@
     catch (e) { return null; }
   }
 
+  function readPayload() {
+    var el = document.getElementById('hoodData');
+    if (!el) return {};
+    try { return JSON.parse(el.value) || {}; }
+    catch (e) { return {}; }
+  }
+
   function readList() {
     if (rows) return rows;
-    var el = document.getElementById('hoodData');
-    rows = [];
-    if (!el) return rows;
-    try {
-      var data = JSON.parse(el.value);
-      if (data && Array.isArray(data.listings)) rows = data.listings;
-    } catch (e) { rows = []; }
+    var data = readPayload();
+    rows = Array.isArray(data.listings) ? data.listings : [];
     return rows;
+  }
+
+  function fromProperty(p) {
+    var img = p && Array.isArray(p.images) && typeof p.images[0] === 'string' ? p.images[0] : null;
+    return {
+      id: p.id, title: p.title || '', property_type: p.property_type || '', deal_type: p.deal_type || '',
+      price: p.price == null ? null : p.price, price_unit: p.price_unit || null,
+      rooms: p.rooms == null ? null : p.rooms, size_sqm: p.size_sqm == null ? null : p.size_sqm,
+      built_size_sqm: p.built_size_sqm == null ? null : p.built_size_sqm,
+      image: img, updated_at: p.updated_at || null, created_at: p.created_at || null,
+    };
+  }
+
+  function listIdle() {
+    return !state.deal && !state.kind && !state.rooms && !state.min && !state.max && !state.vis
+      && state.sort === 'default' && state.shown === 12;
+  }
+
+  /* 12 הכרטיסים הראשונים נשארים ב-HTML. שאר הפעילים נטענים אחרי הציור,
+     בעמודים, כדי שהסינון יכסה את כולם בלי לחכות להם ל-LCP. */
+  function fillListings() {
+    var data = readPayload();
+    var total = Number(data.total) || 0;
+    if (!total || readList().length >= total) return;
+    function headers() {
+      return { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY };
+    }
+    function finish(list) {
+      if (!list || !list.length) return;
+      rows = list;
+      var box = document.getElementById('hoodResults');
+      if (!box) return;
+      if (listIdle()) {
+        var count = box.querySelector('.hood-count');
+        if (count) count.textContent = 'מציג ' + Math.min(12, list.length) + ' מתוך ' + list.length + ' נכסים';
+        if (list.length > 12 && !box.querySelector('[data-hood="more"]')) {
+          var more = document.createElement('p');
+          more.className = 'hood-more-wrap';
+          more.innerHTML = '<button type="button" class="hood-btn hood-btn-line" data-hood="more">עוד נכסים</button>';
+          box.appendChild(more);
+        }
+        return;
+      }
+      paint();
+    }
+    function page(id, from, acc) {
+      var q = SUPABASE_URL + '/rest/v1/properties?select=id,title,property_type,deal_type,price,price_unit,rooms,size_sqm,built_size_sqm,images,updated_at,created_at'
+        + '&neighborhood_id=eq.' + encodeURIComponent(id)
+        + '&status=eq.active&order=updated_at.desc.nullslast&limit=80&offset=' + from;
+      fetch(q, { headers: headers() }).then(function (r) {
+        if (!r.ok) throw new Error('http');
+        return r.json();
+      }).then(function (batch) {
+        var part = Array.isArray(batch) ? batch.map(fromProperty) : [];
+        acc = acc.concat(part);
+        if (part.length === 80 && acc.length < 240 && acc.length < total) page(id, from + 80, acc);
+        else finish(acc);
+      }).catch(function () {});
+    }
+    function start(id) {
+      if (id) page(id, 0, []);
+    }
+    if (data.id) { start(data.id); return; }
+    if (!data.city || !data.slug) return;
+    var nq = SUPABASE_URL + '/rest/v1/neighborhoods?select=id&limit=1&order=created_at.asc'
+      + '&slug=eq.' + encodeURIComponent(data.slug)
+      + '&city=eq.' + encodeURIComponent(data.city);
+    fetch(nq, { headers: headers() }).then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (found) { start(found && found[0] && found[0].id); })
+      .catch(function () {});
   }
 
   function priceOf(p) {
@@ -59,12 +131,14 @@
   }
 
   function filtered() {
+    var list = readList();
     var types = kindTypes(state.kind);
-    return readList().filter(function (p) {
+    var canVis = window.ShukHood && ShukHood.visAvailable && ShukHood.visAvailable(list);
+    return list.filter(function (p) {
       if (state.deal && p.deal_type !== state.deal) return false;
       if (types && types.indexOf(p.property_type) < 0) return false;
       if (state.rooms && !(Number(p.rooms) >= state.rooms)) return false;
-      if (state.vis && readList().some(function (x) { return x.vis === true || x.vis === false; }) && p.vis !== true) return false;
+      if (state.vis && canVis && p.vis !== true) return false;
       var price = priceOf(p);
       if (state.min && (price === null || price < state.min)) return false;
       if (state.max && (price === null || price > state.max)) return false;
@@ -109,7 +183,10 @@
       b.setAttribute('aria-pressed', (b.getAttribute('data-v') || '') === state.deal ? 'true' : 'false');
     });
     var vis = bar.querySelector('[data-hood="vis"]');
-    if (vis) vis.setAttribute('aria-pressed', state.vis ? 'true' : 'false');
+    if (vis) vis.setAttribute('aria-checked', state.vis ? 'true' : 'false');
+    bar.querySelectorAll('[data-hood="sort"]').forEach(function (b) {
+      b.setAttribute('aria-pressed', (b.getAttribute('data-v') || '') === state.sort ? 'true' : 'false');
+    });
     var label = document.getElementById('hoodSortLabel');
     if (label) label.textContent = SORT_LABEL[state.sort] || 'מומלצים';
     var view = bar.querySelector('[data-hood="view"]');
@@ -210,20 +287,10 @@
          ShukBot.link מקודד את כל ההודעה ב-encodeURIComponent. */
       var rawName = slot.getAttribute('data-hood-name') || '';
       var city = slot.getAttribute('data-hood-city') || '';
-      var place = (window.ShukHood && ShukHood.hoodPlace) ? ShukHood.hoodPlace(rawName, city) : rawName;
-      var HOOD_HELLO = 'שלום, הגעתי מהאתר, מדף ' + place + ', ואשמח לעזרה במציאת נכס';
+      var HOOD_HELLO = (window.ShukHood && ShukHood.hoodHello)
+        ? ShukHood.hoodHello(rawName, city)
+        : 'שלום, הגעתי מהאתר, מדף ' + rawName + ', ואשמח לעזרה במציאת נכס';
       slot.innerHTML = ShukBot.anchorHtml(HOOD_HELLO, 'שיחה עם גבריאלה', 'hood-btn hood-btn-ghost');
-    }
-    var alertBtn = document.getElementById('hoodAlert');
-    if (alertBtn && !alertBtn.dataset.wired) {
-      alertBtn.dataset.wired = '1';
-      alertBtn.addEventListener('click', function () {
-        var open = document.getElementById('buyerStartBtn');
-        if (!open) return;
-        open.click();
-        var banner = document.getElementById('buyerBanner');
-        if (banner && banner.scrollIntoView) banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
     }
   }
 
@@ -284,11 +351,14 @@
     var root = document.getElementById('dealsBody');
     if (!root || !root.querySelector('.hood-page')) return;
     wired = true;
+    var visBtn = root.querySelector('[data-hood="vis"]');
+    if (visBtn && !(window.ShukHood && ShukHood.visAvailable && ShukHood.visAvailable(readList()))) visBtn.remove();
     root.addEventListener('click', onClick);
     root.addEventListener('change', onChange);
     root.addEventListener('input', onInput);
     armBot();
     armMap();
+    fillListings();
   }
 
   function show(d) {

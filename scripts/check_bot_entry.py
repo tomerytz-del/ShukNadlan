@@ -38,7 +38,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEBHOOK = ROOT / "supabase/functions/whatsapp-webhook/index.ts"
 MIGRATION = ROOT / "supabase/migrations/20270214090000_whatsapp_public_entry.sql"
-HELLO_FILES = [ROOT / "assets/home.js", ROOT / "assets/bot-link.js", ROOT / "open-house.html", ROOT / "assets/landing.js", ROOT / "assets/neighborhood.js"]
+HELLO_FILES = [ROOT / "assets/home.js", ROOT / "assets/bot-link.js", ROOT / "open-house.html", ROOT / "assets/landing.js", ROOT / "assets/neighborhood.js", ROOT / "assets/neighborhood-render.js"]
 
 # משתנים שמחזיקים הודעת פתיחה ונבדקים בסעיף 1. ‏`hello` הוא הפרמטר של
 # ‏`draw()` ב-renderEmptyBotLink, ושני הערכים שלו נבדקים שם. ‏`FAIR_BOT_HELLO`
