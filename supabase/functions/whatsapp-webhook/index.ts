@@ -30,6 +30,7 @@ import {
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { collapseCreatedPropertyEdits } from "./listing-defaults.ts";
 import { setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { alertPlatformAdmins, fallbackReply, isModelCallError, llmErrorText, llmFailureKind } from "./llm-fallback.ts";
 import {
@@ -327,9 +328,10 @@ async function reply(
  * כישלון אחת אינו עוצר את הבאה; ושורת היומן נושאת את השגיאה.
  */
 async function sendOutbox(to: string, items: OutboxItem[], agentId: string | null): Promise<void> {
-  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת
+  // כמה נכסים שנוצרו בתור אחד - הודעת עריכה אחת, לא כפתור לכל נכס.
+  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת.
   const seen = new Set<string>();
-  for (const item of items) {
+  for (const item of collapseCreatedPropertyEdits(items)) {
     const key = item.kind === "cta" ? item.url : item.buttons.map((b) => b.id).join("|");
     if (seen.has(key)) continue;
     seen.add(key);
