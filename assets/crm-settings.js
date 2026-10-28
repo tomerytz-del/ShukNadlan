@@ -521,39 +521,55 @@ const NOTIF_URGENT = new Set(['new_lead', 'showcase_meeting', 'agenda_reminder',
 const NOTIF_FREQ = { match_digest:'3 פעמים ביום', coach_daily:'כל בוקר' };
 const REMINDER_CADENCES = [['weekly', 'פעם בשבוע'], ['daily', 'עד פעם ביום'], ['off', 'כבוי']];
 
-/* אותו קטלוג כמו CADENCE_TYPES. digest=false: רק על כל פריט או ללא. */
-const NOTIF_CADENCE = {
-  new_lead: { digest: true, group: 'leads' },
-  open_demand: { digest: true, group: 'leads' },
-  match_digest: { digest: true, group: 'leads' },
-  system: { digest: true, group: 'deals' },
-  agenda_reminder: { digest: false, group: 'agenda' },
-  agreement_signed: { digest: false, group: 'deals' },
-  review_new: { digest: true, group: 'reviews' },
-  review_request: { digest: true, group: 'reviews' },
-  marketing_copy: { digest: true, group: 'deals' },
-  deal_closed: { digest: false, group: 'deals' },
-};
-const NOTIF_CADENCE_CHOICES = [['each', 'על כל פריט'], ['daily', 'פעם ביום'], ['thrice', '3 פעמים ביום'], ['off', 'ללא']];
+/* אותן חמש קבוצות כמו CADENCE_GROUPS. סוג לא ממופה הוא system_mentor. */
+const NOTIF_CADENCE_GROUPS = [
+  { id:'new_leads', title:'לידים חדשים', mode:'choices',
+    choices:[['each','על כל ליד'],['daily','פעם ביום'],['thrice','3 פעמים ביום'],['off','ללא']],
+    hint:'בלי התראה המענה איטי יותר, וליד בלי מענה עלול לעבור הלאה. הלידים גם בלשונית הלידים, בפעמון, ואצל גבריאלה.' },
+  { id:'meetings', title:'פגישות וסיורים', mode:'locked', choices:[],
+    hint:'יוצא תמיד, בלי בחירת קצב. גם ביומן במערכת.' },
+  { id:'open_demand', title:'ביקוש פתוח', mode:'choices',
+    choices:[['each','על כל פריט'],['daily','פעם ביום'],['thrice','3 פעמים ביום'],['off','ללא']],
+    hint:'בלי התראה סוכנים מהירים יותר יתפסו את הביקוש. הוא גם בלשונית ביקוש פתוח, בפעמון, ואצל גבריאלה.' },
+  { id:'matches', title:'התאמות', mode:'choices',
+    choices:[['each','על כל התאמה'],['daily','פעם ביום'],['thrice','3 פעמים ביום'],['off','ללא']],
+    hint:'בלי התראה מפסידים עסקאות שת״פ, ולקוחות שאהבו נכס מחכים. ההתאמות גם אצל הלקוחות ובפעמון.' },
+  { id:'system_mentor', title:'מערכת ומנטור', mode:'digest',
+    choices:[['digest','בסיכום היומי'],['off','רק בפעמון']],
+    hint:'לא יוצא כוואטסאפ נפרד. אפשר לכלול בסיכום היומי, והוא תמיד בפעמון.' },
+];
+const NOTIF_CADENCE_GROUP_IDS = NOTIF_CADENCE_GROUPS.map(g => g.id);
 
-function notifTypeCadence(type) {
-  const raw = notifWhatsappCadence && notifWhatsappCadence[type];
-  const spec = NOTIF_CADENCE[type];
-  if (raw === 'each' || raw === 'daily' || raw === 'thrice' || raw === 'off') {
-    if (spec && !spec.digest && (raw === 'daily' || raw === 'thrice')) return 'each';
-    return raw;
-  }
-  if ((notifWhatsappOffTypes || []).includes(type)) return 'off';
+function notifGroupCadence(groupId) {
+  const spec = NOTIF_CADENCE_GROUPS.find(g => g.id === groupId);
+  if (!spec || spec.mode === 'locked') return 'each';
+  const raw = notifWhatsappCadence && notifWhatsappCadence[groupId];
+  if (spec.mode === 'digest') return raw === 'off' ? 'off' : 'digest';
+  if (raw === 'each' || raw === 'daily' || raw === 'thrice' || raw === 'off') return raw;
   return 'each';
 }
 
+function cadenceGroupsHtml() {
+  return `<section class="np2-cadence" id="npCadenceGroups">`
+    + NOTIF_CADENCE_GROUPS.map(g => {
+      const current = notifGroupCadence(g.id);
+      const chips = g.mode === 'locked' ? '' : `<div class="ui-chips" data-ui-single id="npCadenceChips-${g.id}" role="group" aria-labelledby="npCadLbl-${g.id}">`
+        + g.choices.map(([v, l]) => uiChip(l, { value:v, on: v === current, icon:false })).join('')
+        + `</div>`;
+      return `<div class="np2-rem" id="npCadence-${g.id}" data-cadence-for="${g.id}">`
+        + `<div class="set-field"><span class="set-field-label" id="npCadLbl-${g.id}">${escapeHtml(g.title)}</span>`
+        + chips
+        + `<p class="ui-hint">${escapeHtml(g.hint)}</p></div></div>`;
+    }).join('')
+    + `</section>`;
+}
+
 function focusNotifCadence(focus) {
-  const type = focus === 'lead_wa' ? 'new_lead' : String(focus || '').replace(/^cadence_/, '');
-  if (!NOTIF_CADENCE[type]) return;
-  notifOpenGroup = NOTIF_CADENCE[type].group;
+  let id = focus === 'lead_wa' || focus === 'cadence_new_lead' ? 'new_leads' : String(focus || '').replace(/^cadence_/, '');
+  if (!NOTIF_CADENCE_GROUP_IDS.includes(id)) id = 'new_leads';
   if (typeof renderNotifScreen === 'function') renderNotifScreen();
   setTimeout(() => {
-    const el = document.getElementById('npCadence-' + type);
+    const el = document.getElementById('npCadence-' + id);
     if (el && typeof scrollToTopOf === 'function') scrollToTopOf(el);
   }, 400);
 }
@@ -585,24 +601,12 @@ function notifRowHtml(t){
   const tierOk = assistantTierOk();
   const tag = NOTIF_URGENT.has(t.type) ? '<span class="ui-tag ui-tag--urgent">דחוף</span>'
     : NOTIF_FREQ[t.type] ? `<span class="ui-tag">${escapeHtml(NOTIF_FREQ[t.type])}</span>` : '';
-  const spec = NOTIF_CADENCE[t.type];
-  const current = notifTypeCadence(t.type);
-  const choices = spec
-    ? NOTIF_CADENCE_CHOICES.filter(([v]) => spec.digest || v === 'each' || v === 'off')
-    : [];
-  const cadence = spec ? `<div class="np2-rem" id="npCadence-${escapeHtml(t.type)}" data-cadence-for="${escapeHtml(t.type)}">`
-    + `<div class="set-field"><span class="set-field-label" id="npCadLbl-${escapeHtml(t.type)}">קצב בוואטסאפ</span>`
-    + `<div class="ui-chips" data-ui-single id="npCadenceChips-${escapeHtml(t.type)}" role="group" aria-labelledby="npCadLbl-${escapeHtml(t.type)}">`
-    + choices.map(([v, l]) => uiChip(l, { value:v, on: v === current, icon:false })).join('')
-    + `</div><p class="ui-hint">${spec.digest
-      ? 'אותה בחירה כמו בוואטסאפ. ללא משאיר את זה בפעמון.'
-      : 'הסוג הזה יוצא על כל פריט, או נשאר בפעמון.'}</p></div></div>` : '';
   return `<div class="np2-row" data-type="${escapeHtml(t.type)}">`
     + `<div class="np2-text"><div class="np2-title">${escapeHtml(t.title)}${tag}</div><div class="np2-sub">${escapeHtml(t.sub)}</div></div>`
     + `<div class="np2-ch">`
     +   `<button type="button" class="np2-ch-btn is-bell" data-np-bell aria-pressed="${!muted}" aria-label="${escapeHtml(t.title)} - בפעמון">${setIcon('bell')}</button>`
     +   `<button type="button" class="np2-ch-btn is-wa" data-np-wa aria-pressed="${!muted && notifWaOn(t)}" aria-label="${escapeHtml(t.title)} - בוואטסאפ"${muted || !tierOk ? ' disabled' : ''}>${setIcon('chat')}</button>`
-    + `</div></div>` + cadence;
+    + `</div></div>`;
 }
 
 function reminderRowHtml(){
@@ -684,7 +688,7 @@ function renderNotifScreen(){
   const lastSentText = lastSent ? lastSent.textContent : '';
   const groups = notifGroupsVisible();
   if (!groups.some(g => g.key === notifOpenGroup)) notifOpenGroup = groups.length ? groups[0].key : null;
-  groupsEl.innerHTML = groups.map(g => {
+  groupsEl.innerHTML = cadenceGroupsHtml() + groups.map(g => {
     const open = g.key === notifOpenGroup;
     return `<section class="ui-fold np2-group${open ? ' is-open' : ''}" id="npG-${g.key}" data-ui-fold-group="np" data-group="${g.key}">`
       + `<div class="ui-fold-head"><div class="ui-fold-title"><div><h4 class="ui-h3">${escapeHtml(g.title)}</h4><div class="ui-fold-summary" data-np-sum></div></div></div>`
@@ -725,11 +729,11 @@ function notifScreenState(){
     bellOff: rows.filter(r => !pressed(r, '[data-np-bell]')).map(r => r.dataset.type).sort(),
     waOff: rows.filter(r => !pressed(r, '[data-np-wa]')).map(r => r.dataset.type).sort(),
     quiet: quietRead('np'),
-    cadences: Object.fromEntries(Object.keys(NOTIF_CADENCE).map(type => {
-      const el = document.getElementById('npCadenceChips-' + type);
-      const raw = el ? (uiChipValues(el)[0] || 'each') : notifTypeCadence(type);
-      if (!NOTIF_CADENCE[type].digest && (raw === 'daily' || raw === 'thrice')) return [type, 'each'];
-      return [type, ['each', 'daily', 'thrice', 'off'].includes(raw) ? raw : 'each'];
+    cadences: Object.fromEntries(NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked').map(g => {
+      const el = document.getElementById('npCadenceChips-' + g.id);
+      const raw = el ? (uiChipValues(el)[0] || notifGroupCadence(g.id)) : notifGroupCadence(g.id);
+      const allowed = g.choices.map(c => c[0]);
+      return [g.id, allowed.includes(raw) ? raw : notifGroupCadence(g.id)];
     })),
     rem: capEl ? {
       channels: uiChipValues(document.getElementById('npRemCh')).sort(),
@@ -848,27 +852,18 @@ async function saveNotifPrefsRows(s){
   const whatsappOff = notifWhatsappOffTypes.filter(t => !shown.includes(t))
     .concat(shown.filter(t => s.waOff.includes(t) || s.bellOff.includes(t)));
   const nowIso = new Date().toISOString();
-  const nextMap = { ...(notifWhatsappCadence || {}) };
+  const nextMap = {};
   const nextSince = { ...(notifWhatsappCadenceSince || {}) };
   let sinceChanged = false;
-  Object.keys(NOTIF_CADENCE).forEach(type => {
-    let choice = s.cadences && s.cadences[type] ? s.cadences[type] : notifTypeCadence(type);
-    if (!NOTIF_CADENCE[type].digest && (choice === 'daily' || choice === 'thrice')) choice = 'each';
-    if (s.bellOff.includes(type) || s.waOff.includes(type)) choice = 'off';
-    else if (choice === 'off') choice = 'each';
-    if (choice !== notifTypeCadence(type)) {
-      nextSince[type] = nowIso;
+  NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked').forEach(g => {
+    const choice = s.cadences && s.cadences[g.id] ? s.cadences[g.id] : notifGroupCadence(g.id);
+    if (choice !== notifGroupCadence(g.id)) {
+      nextSince[g.id] = nowIso;
       sinceChanged = true;
     }
-    nextMap[type] = choice;
-    const offAt = whatsappOff.indexOf(type);
-    if (choice === 'off' && offAt < 0) whatsappOff.push(type);
-    if (choice !== 'off' && offAt >= 0) whatsappOff.splice(offAt, 1);
+    nextMap[g.id] = choice;
   });
-  if (nextMap.match_digest) {
-    nextMap.client_match = nextMap.match_digest;
-    if (nextSince.match_digest) nextSince.client_match = nextSince.match_digest;
-  }
+  nextMap.meetings = 'each';
   const base = {
     agent_id: currentAgent.id,
     muted_types: muted,
@@ -926,39 +921,6 @@ function wireNotifScreen(){
 
   screen.addEventListener('input', e => {
     if (e.target.closest('#npQuietEditor')) quietPaint('np');
-    const chip = e.target.closest('[data-cadence-for] [data-ui-chip]');
-    const box = chip && chip.closest('[data-cadence-for]');
-    if (box) {
-      const type = box.getAttribute('data-cadence-for');
-      const choice = uiChipValues(box.querySelector('.ui-chips'))[0];
-      const row = document.querySelector('#npGroups .np2-row[data-type="' + type + '"]');
-      const wa = row && row.querySelector('[data-np-wa]');
-      const bell = row && row.querySelector('[data-np-bell]');
-      if (wa && bell && bell.getAttribute('aria-pressed') === 'true') {
-        wa.disabled = !assistantTierOk();
-        wa.setAttribute('aria-pressed', String(choice !== 'off' && assistantTierOk()));
-      }
-    }
-    const waBtn = e.target.closest('[data-np-wa]');
-    if (waBtn) {
-      const type = waBtn.closest('.np2-row') && waBtn.closest('.np2-row').dataset.type;
-      const chips = type && document.getElementById('npCadenceChips-' + type);
-      if (chips && NOTIF_CADENCE[type]) {
-        const on = waBtn.getAttribute('aria-pressed') === 'true';
-        const cur = uiChipValues(chips)[0] || 'each';
-        if (!on) uiSetChips(chips, ['off']);
-        else if (cur === 'off') uiSetChips(chips, ['each']);
-      }
-    }
-    const bellBtn = e.target.closest('[data-np-bell]');
-    if (bellBtn) {
-      const type = bellBtn.closest('.np2-row') && bellBtn.closest('.np2-row').dataset.type;
-      const chips = type && document.getElementById('npCadenceChips-' + type);
-      if (chips && NOTIF_CADENCE[type]) {
-        if (bellBtn.getAttribute('aria-pressed') !== 'true') uiSetChips(chips, ['off']);
-        else if ((uiChipValues(chips)[0] || 'off') === 'off') uiSetChips(chips, ['each']);
-      }
-    }
     syncNotifScreen();
   });
   screen.addEventListener('change', e => {
@@ -1035,11 +997,6 @@ function wireNotifScreen(){
         const bellOn = b.getAttribute('aria-pressed') === 'true';
         w.disabled = !bellOn;
         w.setAttribute('aria-pressed', String(want && bellOn));
-        const chips = document.getElementById('npCadenceChips-' + t);
-        if (chips && NOTIF_CADENCE[t]) {
-          const cur = uiChipValues(chips)[0] || 'each';
-          uiSetChips(chips, [(want && bellOn) ? (cur === 'off' ? 'each' : cur) : 'off']);
-        }
       });
       preset.dispatchEvent(new Event('input', { bubbles:true }));
       return;

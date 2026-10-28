@@ -20,19 +20,23 @@ import {
   CADENCE_PATH,
   CADENCE_SAVED_CTA,
   CADENCE_TYPE_BUTTON,
-  CADENCE_TYPES,
+  CADENCE_EXCLUDED,
+  CADENCE_GROUPS,
+  CADENCE_GROUP_MAP,
   CADENCE_TYPES_BODY,
   cadenceFocus,
+  cadenceGroupOf,
   cadenceOpenId,
   cadenceOptionRows,
   digestChannel,
   digestIntro,
   digestIntroFor,
   digestSlot,
-  effectiveCadence,
+  effectiveGroupCadence,
   hasCalendarDate,
   offAfterText,
-  orderCadenceTypes,
+  offWarn,
+  orderCadenceGroups,
   parseCadenceTap,
   typeConfirmLine,
   typeListRows,
@@ -68,54 +72,91 @@ test("כותרות הכפתור והשורות בתוך המגבלה, ומזהי
   assert.ok(utf16len(CADENCE_LIST_BUTTON) <= 20);
   assert.equal(hasCalendarDate(CADENCE_OFF_AFTER), false);
   assert.equal(hasCalendarDate(CADENCE_TYPES_BODY), false);
-  assert.equal(CADENCE_TYPES.length, 10);
+  assert.equal(CADENCE_GROUPS.length, 5);
   const ids = new Set();
-  for (const row of typeListRows("agenda_reminder", { new_lead: "daily" }, ["system"])) {
+  for (const row of typeListRows("meetings", { new_leads: "daily" }, [])) {
     assert.ok(utf16len(row.title) <= 24, row.title);
     assert.ok(utf16len(row.description) <= 72, row.description);
     assert.ok(!ids.has(row.id));
     ids.add(row.id);
     assert.equal(hasCalendarDate(row.title + row.description), false);
   }
-  assert.equal(ids.size, 10);
-  assert.equal(orderCadenceTypes("agenda_reminder")[0].id, "agenda_reminder");
-  assert.match(typeListRows(null, { new_lead: "daily" }, [])[0].description, /פעם ביום/);
-  assert.match(typeListRows(null, {}, ["system"])[3].description, /ללא/);
-  const agenda = cadenceOptionRows("agenda_reminder", 9, [9, 13, 17]);
-  assert.deepEqual(agenda.map((row) => row.choice), ["each", "off"]);
-  const leads = cadenceOptionRows("new_lead", 9, [9, 13, 17]);
+  assert.equal(ids.size, 5);
+  assert.equal(orderCadenceGroups("meetings")[0].id, "meetings");
+  assert.match(typeListRows("new_leads", { new_leads: "daily" }, [])[0].description, /פעם ביום/);
+  assert.match(typeListRows(null, {}, [])[1].description, /יוצא תמיד/);
+  const meetings = cadenceOptionRows("meetings", 9, [9, 13, 17]);
+  assert.equal(meetings.length, 0);
+  const leads = cadenceOptionRows("new_leads", 9, [9, 13, 17]);
   assert.deepEqual(leads.map((row) => row.choice), ["each", "daily", "thrice", "off"]);
-  for (const row of [...agenda, ...leads]) {
+  const mentor = cadenceOptionRows("system_mentor", 9, [9, 13, 17]);
+  assert.deepEqual(mentor.map((row) => row.choice), ["digest", "off"]);
+  for (const row of [...leads, ...mentor]) {
     assert.ok(utf16len(row.title) <= 24, row.title);
     assert.ok(utf16len(row.description) <= 72, `${row.description} (${utf16len(row.description)})`);
     assert.equal(hasCalendarDate(row.title + row.description), false);
   }
-  assert.equal(new Set(leads.map((row) => row.id)).size, 4);
   assert.match(CADENCE_PATH, /focus=lead_wa/);
-  assert.match(cadenceFocus("match_digest"), /focus=cadence_match_digest/);
-  assert.equal(cadenceOpenId("new_lead"), "ncad:open:new_lead");
-  assert.equal(parseCadenceTap("ncad:open:new_lead")?.kind, "open");
-  assert.equal(agenda.some((row) => row.id.endsWith(":day")), false);
-  assert.equal(parseCadenceTap("ncad:c:agenda_reminder:off")?.kind, "choice");
-  assert.equal(parseCadenceTap("ncad:yes:system")?.type, "system");
+  assert.match(cadenceFocus("matches"), /focus=cadence_matches/);
+  assert.equal(cadenceOpenId("new_lead"), "ncad:open:new_leads");
+  assert.equal(cadenceOpenId("ops_alert"), "ncad:open");
+  assert.equal(parseCadenceTap("ncad:open:new_leads")?.kind, "open");
+  assert.equal(parseCadenceTap("ncad:c:meetings:off"), null);
+  assert.equal(parseCadenceTap("ncad:c:new_leads:off")?.kind, "choice");
+  assert.equal(parseCadenceTap("ncad:yes:new_leads")?.type, "new_leads");
   assert.equal(parseCadenceTap("ncad:more")?.kind, "types");
-  assert.equal(effectiveCadence({}, ["new_lead"], "new_lead"), "off");
-  assert.equal(effectiveCadence({}, [], "new_lead"), "each");
-  assert.equal(effectiveCadence({ agenda_reminder: "daily" }, [], "agenda_reminder"), "each");
+  assert.equal(effectiveGroupCadence({}, [], "meetings"), "each");
+  assert.equal(effectiveGroupCadence({ new_leads: "daily" }, [], "new_leads"), "daily");
+  assert.equal(effectiveGroupCadence({}, [], "system_mentor"), "digest");
+  assert.equal(effectiveGroupCadence({ system_mentor: "off" }, [], "system_mentor"), "off");
+});
+
+test("מיפוי קבוצות, וסוג לא מוכר נופל לקבוצה 5", () => {
+  assert.equal(cadenceGroupOf("new_lead"), "new_leads");
+  assert.equal(cadenceGroupOf("onboarding_lead"), "new_leads");
+  assert.equal(cadenceGroupOf("onboarding_property"), "system_mentor");
+  assert.equal(cadenceGroupOf("agenda_reminder"), "meetings");
+  assert.equal(cadenceGroupOf("showcase_meeting"), "meetings");
+  assert.equal(cadenceGroupOf("open_demand"), "open_demand");
+  assert.equal(cadenceGroupOf("match_digest"), "matches");
+  assert.equal(cadenceGroupOf("client_match"), "matches");
+  assert.equal(cadenceGroupOf("review_new"), "system_mentor");
+  assert.equal(cadenceGroupOf("future_type"), "system_mentor");
+  assert.equal(cadenceGroupOf("ops_alert"), null);
+  assert.equal(cadenceGroupOf("security_alert"), null);
+  assert.equal(cadenceGroupOf("platform_signup"), null);
+  assert.equal(cadenceGroupOf("deal_sync_summary"), null);
+  assert.equal(cadenceGroupOf("deal_data_gap"), null);
+  for (const [type, group] of Object.entries(CADENCE_GROUP_MAP)) {
+    assert.equal(cadenceGroupOf(type), group, type);
+    assert.equal(CADENCE_EXCLUDED.has(type), false, type);
+  }
+  for (const type of CADENCE_EXCLUDED) {
+    assert.equal(migration.includes(`'${type}', 'system_mentor'`), false, type);
+  }
+  assert.match(migration, /'new_lead', 'new_leads'/);
+  assert.match(migration, /'onboarding_lead', 'new_leads'/);
+  assert.match(migration, /else coalesce\(/);
+  assert.match(migration, /'system_mentor'\)/);
+  assert.match(migration, /notif_cadence_group\(p_type\) = 'system_mentor' then false/);
+  assert.match(migration, /allow_template := r\.notif_type is distinct from 'system_mentor'/);
+  assert.match(migration, /split_part\(p_slot, ':', 2\) = 'system_mentor'/);
 });
 
 test("אישור קצר, בלי תאריך, וחלון הסיכום", () => {
   for (const choice of ["each", "daily", "thrice", "off"]) {
-    const line = typeConfirmLine("new_lead", choice, true, 9, [9, 13, 17]);
+    const line = typeConfirmLine("new_leads", choice, true, 9, [9, 13, 17]);
     assert.equal(hasCalendarDate(line), false, line);
-    assert.ok(line.length < 220, line);
+    assert.ok(line.length < 280, line);
   }
   assert.equal(hasCalendarDate(digestIntro(0, 9)), false);
   assert.match(digestIntro(0, 9), /יום ראשון ב-9:00/);
-  assert.match(digestIntroFor("match_digest", 0, 9), /התאמות/);
-  assert.match(offAfterText("new_lead"), /לשאול אותי/);
+  assert.match(digestIntroFor("matches", 0, 9), /התאמות/);
+  assert.match(offAfterText("new_leads"), /לשאול אותי/);
+  assert.match(offAfterText("new_leads"), /לשונית הלידים/);
   assert.match(offAfterText("open_demand"), /ביקוש הפתוח/);
-  assert.doesNotMatch(offAfterText("agenda_reminder"), /לשאול/);
+  assert.match(offWarn("new_leads"), /עלול לעבור הלאה/);
+  assert.match(offWarn("matches"), /שת״פ/);
   assert.equal(hasCalendarDate(offAfterText("open_demand")), false);
 
   const win = 15;
@@ -146,8 +187,8 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(migration, /notification_push_lead_wa_sendable/);
   assert.match(migration, /whatsapp_cadence jsonb/);
   assert.doesNotMatch(migration, /lead_wa_cadence/);
-  assert.match(migration, /p_type = 'client_match'/);
-  assert.match(migration, /agent_type_cadence\(p_agent, 'match_digest'\)/);
+  assert.match(migration, /notif_cadence_group_map/);
+  assert.match(migration, /function public.notif_cadence_group/);
   assert.match(migration, /whatsapp_template_cap_decide\(v_count, v_hours, false/);
   assert.match(migration, /digest_ordinal/);
   assert.match(migration, /coalesce\(v_ordinal, 1\) >= 3/);

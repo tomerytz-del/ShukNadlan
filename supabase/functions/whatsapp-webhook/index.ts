@@ -59,7 +59,9 @@ import {
   CADENCE_TYPE_BUTTON,
   CADENCE_TYPES_BODY,
   type CadenceChoice,
+  meetingsInfo,
   cadenceFocus,
+  cadenceGroup,
   cadenceIdFromMessage,
   cadenceOptionRows,
   cadenceTypeBody,
@@ -1571,6 +1573,10 @@ async function handleCadenceTap(agentId: string, from: string, cadenceId: string
       await sendCadenceDisabled(agentId, from);
       return;
     }
+    if (cadenceGroup(typeId)?.mode === "locked") {
+      await sendCadenceSaved(agentId, from, typeId, meetingsInfo());
+      return;
+    }
     await sendCadenceOptions(agentId, from, typeId, row);
     return;
   }
@@ -1580,11 +1586,17 @@ async function handleCadenceTap(agentId: string, from: string, cadenceId: string
       await sendCadenceDisabled(agentId, from);
       return;
     }
+    if (cadenceGroup(typeId)?.mode === "locked") {
+      await sendCadenceSaved(agentId, from, typeId, meetingsInfo());
+      return;
+    }
     await sendCadenceOptions(agentId, from, typeId, row);
     return;
   }
   const choice: CadenceChoice = tap.kind === "confirm" ? "off" : tap.choice;
-  const event = tap.kind === "choice" && choice === "off" ? "ask" : "choose";
+  const event = tap.kind === "choice" && choice === "off" && cadenceGroup(typeId)?.confirmOff
+    ? "ask"
+    : "choose";
   const { row, error } = await applyCadence(agentId, typeId, event, choice);
   if (error || !row?.enabled) {
     await sendCadenceDisabled(agentId, from);

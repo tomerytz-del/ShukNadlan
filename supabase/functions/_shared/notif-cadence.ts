@@ -20,32 +20,63 @@ export const CADENCE_MENU_BODY =
 
 export const WEEKDAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"] as const;
 
-export type CadenceChoice = "each" | "daily" | "thrice" | "off";
+export type CadenceChoice = "each" | "daily" | "thrice" | "off" | "digest";
+export type CadenceGroupId = "new_leads" | "meetings" | "open_demand" | "matches" | "system_mentor";
+export type CadenceGroupMode = "choices" | "locked" | "digest";
 
-export type CadenceType = {
-  id: string;
+export type CadenceGroup = {
+  id: CadenceGroupId;
   title: string;
-  digest: boolean;
-  ask: boolean;
+  mode: CadenceGroupMode;
+  confirmOff: boolean;
 };
 
-/** אותם סוגים ש-whatsapp_alerts ו-NOTIFY_TYPES מכירים, ועוד ביקוש פתוח. */
-export const CADENCE_TYPES: CadenceType[] = [
-  { id: "new_lead", title: "ליד חדש", digest: true, ask: true },
-  { id: "open_demand", title: "ביקוש פתוח", digest: true, ask: true },
-  { id: "match_digest", title: "התאמות", digest: true, ask: false },
-  { id: "system", title: "שותף איתך", digest: true, ask: false },
-  { id: "agenda_reminder", title: "תזכורת יומן", digest: false, ask: false },
-  { id: "agreement_signed", title: "הסכם נחתם", digest: false, ask: false },
-  { id: "review_new", title: "ביקורת חדשה", digest: true, ask: false },
-  { id: "review_request", title: "בקשת ביקורת", digest: true, ask: false },
-  { id: "marketing_copy", title: "תיאור שיווקי", digest: true, ask: false },
-  { id: "deal_closed", title: "עסקה נסגרה", digest: false, ask: false },
+/** קבוצות הקצב. סוג שלא ממופה ולא מוחרג נופל ל-system_mentor. */
+export const CADENCE_GROUPS: CadenceGroup[] = [
+  { id: "new_leads", title: "לידים חדשים", mode: "choices", confirmOff: true },
+  { id: "meetings", title: "פגישות וסיורים", mode: "locked", confirmOff: false },
+  { id: "open_demand", title: "ביקוש פתוח", mode: "choices", confirmOff: false },
+  { id: "matches", title: "התאמות", mode: "choices", confirmOff: false },
+  { id: "system_mentor", title: "מערכת ומנטור", mode: "digest", confirmOff: false },
 ];
+
+/** מיפוי מפורש. onboarding_lead בקבוצה 1. שאר onboarding_* בקבוצה 5. */
+export const CADENCE_GROUP_MAP: Record<string, CadenceGroupId> = {
+  new_lead: "new_leads",
+  onboarding_lead: "new_leads",
+  agenda_reminder: "meetings",
+  showcase_meeting: "meetings",
+  open_demand: "open_demand",
+  listing_match: "matches",
+  client_match: "matches",
+  match_digest: "matches",
+  showcase_activity: "matches",
+  system: "system_mentor",
+  coach_daily: "system_mentor",
+  platform_coach: "system_mentor",
+  marketing_copy: "system_mentor",
+  review_request: "system_mentor",
+  agreement_signed: "system_mentor",
+  deal_closed: "system_mentor",
+  lead_prefs_default: "system_mentor",
+  onboarding_property: "system_mentor",
+  onboarding_client: "system_mentor",
+  onboarding_agreement: "system_mentor",
+  onboarding_license: "system_mentor",
+};
+
+/** לא בתפריט, והשליחה שלהם לא משתנה. */
+export const CADENCE_EXCLUDED = new Set([
+  "ops_alert",
+  "security_alert",
+  "platform_signup",
+  "deal_sync_summary",
+  "deal_data_gap",
+]);
 
 export const CADENCE_MORE_ID = "ncad:more";
 export const CADENCE_DONE_ID = "ncad:done";
-export const CADENCE_MORE_TITLE = "סוג נוסף";
+export const CADENCE_MORE_TITLE = "קבוצה נוספת";
 export const CADENCE_DONE_TITLE = "סיימתי";
 
 const CHOICE_CODE: Record<string, CadenceChoice> = {
@@ -53,36 +84,55 @@ const CHOICE_CODE: Record<string, CadenceChoice> = {
   day: "daily",
   x3: "thrice",
   off: "off",
+  dig: "digest",
 };
 
-export function cadenceType(id: string): CadenceType | undefined {
-  return CADENCE_TYPES.find((t) => t.id === id);
+export function cadenceGroupOf(type: string | null | undefined): CadenceGroupId | null {
+  if (!type || CADENCE_EXCLUDED.has(type)) return null;
+  return CADENCE_GROUP_MAP[type] || "system_mentor";
 }
 
-export function orderCadenceTypes(first?: string | null): CadenceType[] {
-  if (!first || !cadenceType(first)) return CADENCE_TYPES;
-  return [cadenceType(first)!, ...CADENCE_TYPES.filter((t) => t.id !== first)];
+export function cadenceGroup(id: string | null | undefined): CadenceGroup | undefined {
+  return CADENCE_GROUPS.find((g) => g.id === id);
+}
+
+export function orderCadenceGroups(first?: string | null): CadenceGroup[] {
+  const hit = cadenceGroup(first);
+  if (!hit) return CADENCE_GROUPS;
+  return [hit, ...CADENCE_GROUPS.filter((g) => g.id !== hit.id)];
 }
 
 export function cadenceLabel(choice: CadenceChoice): string {
   if (choice === "daily") return "פעם ביום";
   if (choice === "thrice") return "3 פעמים ביום";
+  if (choice === "digest") return "בסיכום היומי";
   if (choice === "off") return "ללא";
   return "על כל פריט";
 }
 
-export function effectiveCadence(
+export function groupTypes(groupId: CadenceGroupId): string[] {
+  return Object.entries(CADENCE_GROUP_MAP)
+    .filter(([, group]) => group === groupId)
+    .map(([type]) => type);
+}
+
+export function effectiveGroupCadence(
   stored: Record<string, string> | null | undefined,
   offTypes: string[] | null | undefined,
-  typeId: string,
+  groupId: string,
 ): CadenceChoice {
-  const raw = stored?.[typeId];
-  if (raw === "each" || raw === "daily" || raw === "thrice" || raw === "off") {
-    const type = cadenceType(typeId);
-    if (type && !type.digest && (raw === "daily" || raw === "thrice")) return "each";
-    return raw;
+  const group = cadenceGroup(groupId);
+  if (!group || group.mode === "locked") return "each";
+  const raw = stored?.[groupId];
+  if (group.mode === "digest") {
+    if (raw === "digest" || raw === "off") return raw;
+    const types = groupTypes("system_mentor");
+    if (types.length && types.every((type) => (offTypes || []).includes(type))) return "off";
+    return "digest";
   }
-  if ((offTypes || []).includes(typeId)) return "off";
+  if (raw === "each" || raw === "daily" || raw === "thrice" || raw === "off") return raw;
+  const types = groupTypes(group.id);
+  if (types.length && types.every((type) => (offTypes || []).includes(type))) return "off";
   return "each";
 }
 
@@ -91,57 +141,94 @@ export function typeListRows(
   stored: Record<string, string> | null | undefined,
   offTypes: string[] | null | undefined,
 ): CadenceRow[] {
-  return orderCadenceTypes(first).map((type) => ({
-    id: `ncad:t:${type.id}`,
-    choice: effectiveCadence(stored, offTypes, type.id),
-    title: type.title,
-    description: `עכשיו: ${cadenceLabel(effectiveCadence(stored, offTypes, type.id))}`,
-  }));
+  return orderCadenceGroups(first).map((group) => {
+    const choice = effectiveGroupCadence(stored, offTypes, group.id);
+    const description = group.mode === "locked"
+      ? "יוצא תמיד, בלי בחירה"
+      : `עכשיו: ${cadenceLabel(choice)}`;
+    return {
+      id: `ncad:t:${group.id}`,
+      choice,
+      title: group.title,
+      description,
+    };
+  });
 }
 
-export function cadenceOptionsFor(typeId: string): { code: string; choice: CadenceChoice; title: string }[] {
-  const type = cadenceType(typeId);
-  const all = [
-    { code: "each", choice: "each" as const, title: "על כל פריט" },
-    { code: "day", choice: "daily" as const, title: "פעם ביום" },
-    { code: "x3", choice: "thrice" as const, title: "3 פעמים ביום" },
-    { code: "off", choice: "off" as const, title: "ללא" },
+export function cadenceOptionsFor(groupId: string): { code: string; choice: CadenceChoice; title: string }[] {
+  const group = cadenceGroup(groupId);
+  if (!group || group.mode === "locked") return [];
+  if (group.mode === "digest") {
+    return [
+      { code: "dig", choice: "digest", title: "בסיכום היומי" },
+      { code: "off", choice: "off", title: "רק בפעמון" },
+    ];
+  }
+  const eachTitle = groupId === "new_leads" ? "על כל ליד" : groupId === "matches" ? "על כל התאמה" : "על כל פריט";
+  return [
+    { code: "each", choice: "each", title: eachTitle },
+    { code: "day", choice: "daily", title: "פעם ביום" },
+    { code: "x3", choice: "thrice", title: "3 פעמים ביום" },
+    { code: "off", choice: "off", title: "ללא" },
   ];
-  return type && !type.digest ? all.filter((row) => row.choice === "each" || row.choice === "off") : all;
 }
 
-export function cadenceFocus(typeId: string): string {
-  return `/crm?goto=accNotifPrefs&focus=cadence_${typeId}`;
+export function cadenceFocus(groupId: string): string {
+  return `/crm?goto=accNotifPrefs&focus=cadence_${groupId}`;
 }
 
-export function cadenceOpenId(typeId?: string | null): string {
-  return typeId && cadenceType(typeId) ? `ncad:open:${typeId}` : CADENCE_OPEN_ID;
+export function cadenceOpenId(typeOrGroup?: string | null): string {
+  const group = cadenceGroup(typeOrGroup) ? typeOrGroup : cadenceGroupOf(typeOrGroup);
+  return group ? `ncad:open:${group}` : CADENCE_OPEN_ID;
 }
 
 export const CADENCE_TYPES_BODY =
-  "איזה סוג התראה להתאים?\nהקצב הנוכחי מופיע ליד כל סוג.";
-export const CADENCE_TYPE_BUTTON = "בחירת סוג";
+  "איזו קבוצת התראות להתאים?\nהקצב הנוכחי מופיע ליד כל קבוצה.";
+export const CADENCE_TYPE_BUTTON = "בחירת קבוצה";
 export const CADENCE_SAVED_CTA = "ההגדרה במערכת";
 
-export function cadenceTypeBody(typeId: string): string {
-  const name = cadenceType(typeId)?.title || "הסוג";
+export function cadenceTypeBody(groupId: string): string {
+  if (groupId === "meetings") {
+    return "פגישות וסיורים יוצאים תמיד, בלי בחירת קצב. הם גם ביומן במערכת.";
+  }
+  if (groupId === "system_mentor") {
+    return "עדכוני מערכת ומנטור לא יוצאים כוואטסאפ נפרד. אפשר לכלול אותם בסיכום היומי, והם תמיד בפעמון.";
+  }
+  const name = cadenceGroup(groupId)?.title || "הקבוצה";
   return `איך לשלוח ${name} בוואטסאפ?\nאפשר תמיד לשנות את זה גם במערכת.`;
 }
 
-export function offWarn(typeId: string): string {
-  const name = cadenceType(typeId)?.title || "הסוג הזה";
-  return `בלי וואטסאפ על ${name} לא תצא הודעה על הסוג הזה. פריט חדש עלול להישאר בלי מענה.`;
+export function offWarn(groupId: string): string {
+  if (groupId === "new_leads") {
+    return "בלי התראות על לידים המענה איטי יותר, וליד בלי מענה עלול לעבור הלאה. לאשר?";
+  }
+  if (groupId === "open_demand") {
+    return "בלי התראה סוכנים מהירים יותר יתפסו את הביקוש. הוא גם בלשונית ביקוש פתוח, בפעמון, ואפשר לשאול אותי.";
+  }
+  if (groupId === "matches") {
+    return "בלי התראה מפסידים עסקאות שת״פ, ולקוחות שאהבו נכס מחכים. ההתאמות גם אצל הלקוחות ובפעמון.";
+  }
+  return "בלי וואטסאפ הפריטים נשארים בפעמון. לאשר?";
 }
 
-export function offAfterText(typeId: string): string {
-  const name = cadenceType(typeId)?.title || "הסוג הזה";
-  if (typeId === "new_lead") {
-    return "מעכשיו ליד חדש מחכה בפעמון. אפשר גם לשאול אותי אילו לידים חדשים יש. אפשר לשנות את זה בכל רגע.";
+export function offAfterText(groupId: string): string {
+  if (groupId === "new_leads") {
+    return "מעכשיו לידים חדשים בלי וואטסאפ. הם בלשונית הלידים, בפעמון, ואפשר לשאול אותי. אפשר לשנות בכל רגע.";
   }
-  if (typeId === "open_demand") {
-    return "מעכשיו ביקוש פתוח מחכה בפעמון. אפשר גם לשאול אותי: אילו לידים יש בביקוש הפתוח? אפשר לשנות את זה בכל רגע.";
+  if (groupId === "open_demand") {
+    return "מעכשיו ביקוש פתוח בלי וואטסאפ. הוא בלשונית ביקוש פתוח, בפעמון, ואפשר לשאול אותי אילו לידים יש בביקוש הפתוח.";
   }
-  return `מעכשיו ${name} מחכה בפעמון, בלי וואטסאפ. אפשר לשנות את זה בכל רגע.`;
+  if (groupId === "matches") {
+    return "מעכשיו התאמות בלי וואטסאפ. הן אצל הלקוחות ובפעמון. אפשר לשנות בכל רגע.";
+  }
+  if (groupId === "system_mentor") {
+    return "מעכשיו עדכוני מערכת ומנטור רק בפעמון, בלי סיכום יומי. אפשר לשנות בכל רגע.";
+  }
+  return "מעכשיו הקבוצה הזו בלי וואטסאפ. אפשר לשנות בכל רגע.";
+}
+
+export function meetingsInfo(): string {
+  return "פגישות וסיורים יוצאים תמיד, בלי בחירת קצב. הם גם ביומן במערכת.";
 }
 
 export function cadenceOptionRows(typeId: string, dailyHour: number, hours: number[]): CadenceRow[] {
@@ -161,20 +248,25 @@ function optionDescription(choice: CadenceChoice, dailyHour: number, hours: numb
 }
 
 export function typeConfirmLine(
-  typeId: string,
+  groupId: string,
   choice: CadenceChoice,
   changed: boolean,
   dailyHour: number,
   hours: number[],
 ): string {
-  const name = cadenceType(typeId)?.title || "הסוג";
-  if (!changed) return `זה כבר הקצב של ${name}: ${cadenceLabel(choice)}.`;
-  if (choice === "each") return `מעכשיו ${name} יוצא על כל פריט.`;
-  if (choice === "daily") {
-    return `מעכשיו ${name} יוצא פעם ביום, ${hoursPhrase([dailyHour])}. ${FRIDAY_NOTE}.`;
+  const name = cadenceGroup(groupId)?.title || "הקבוצה";
+  if (choice === "digest") {
+    return changed
+      ? `מעכשיו ${name} נכנסים לסיכום היומי, ובפעמון. לא כוואטסאפ נפרד.`
+      : `זה כבר הקצב של ${name}: בסיכום היומי.`;
   }
-  if (choice === "thrice") return `מעכשיו ${name} יוצא ${hoursPhrase(hours)}. ${FRIDAY_NOTE}.`;
-  return offAfterText(typeId);
+  if (!changed) return `זה כבר הקצב של ${name}: ${cadenceLabel(choice)}.`;
+  if (choice === "each") return `מעכשיו ${name} יוצאים על כל פריט.`;
+  if (choice === "daily") {
+    return `מעכשיו ${name} יוצאים פעם ביום, ${hoursPhrase([dailyHour])}. ${FRIDAY_NOTE}.`;
+  }
+  if (choice === "thrice") return `מעכשיו ${name} יוצאים ${hoursPhrase(hours)}. ${FRIDAY_NOTE}.`;
+  return offAfterText(groupId);
 }
 
 export type CadenceTap =
@@ -192,24 +284,24 @@ export function parseCadenceTap(id: string): CadenceTap | null {
   if (id === CADENCE_DONE_ID) return { kind: "done" };
   if (id === CADENCE_BACK_ID) return { kind: "back", type: "" };
   const open = /^ncad:open:([a-z_]+)$/.exec(id);
-  if (open && cadenceType(open[1])) return { kind: "open", type: open[1] };
+  if (open && cadenceGroup(open[1])) return { kind: "open", type: open[1] };
   const type = /^ncad:t:([a-z_]+)$/.exec(id);
-  if (type && cadenceType(type[1])) return { kind: "type", type: type[1] };
-  const choice = /^ncad:c:([a-z_]+):(each|day|x3|off)$/.exec(id);
-  if (choice && cadenceType(choice[1])) {
+  if (type && cadenceGroup(type[1])) return { kind: "type", type: type[1] };
+  const choice = /^ncad:c:([a-z_]+):(each|day|x3|off|dig)$/.exec(id);
+  if (choice && cadenceGroup(choice[1]) && cadenceGroup(choice[1])?.mode !== "locked") {
     return { kind: "choice", type: choice[1], code: choice[2], choice: CHOICE_CODE[choice[2]] };
   }
   const yes = /^ncad:yes:([a-z_]+)$/.exec(id);
-  if (yes && cadenceType(yes[1])) return { kind: "confirm", type: yes[1] };
+  if (yes && cadenceGroup(yes[1])) return { kind: "confirm", type: yes[1] };
   const back = /^ncad:back:([a-z_]+)$/.exec(id);
-  if (back && cadenceType(back[1])) return { kind: "back", type: back[1] };
+  if (back && cadenceGroup(back[1])) return { kind: "back", type: back[1] };
   return null;
 }
 export type OutsideMode = "cap" | "bell" | "send";
 
 export type CadenceRow = { id: string; choice: CadenceChoice; title: string; description: string };
 
-const CHOICES = new Set<CadenceChoice>(["each", "daily", "thrice", "off"]);
+const CHOICES = new Set<CadenceChoice>(["each", "daily", "thrice", "off", "digest"]);
 
 export function utf16len(s: string): number {
   return s.length;
@@ -324,7 +416,9 @@ export function digestIntro(dow: number, hour: number): string {
 }
 
 export function digestIntroFor(typeId: string, dow: number, hour: number): string {
-  const name = typeId === "new_lead" ? "הלידים החדשים" : (cadenceType(typeId)?.title || "העדכונים");
+  const name = typeId === "new_leads" || typeId === "new_lead"
+    ? "הלידים החדשים"
+    : (cadenceGroup(typeId)?.title || "העדכונים");
   return `${name}, ${whenLabel(dow, hour)}.`;
 }
 

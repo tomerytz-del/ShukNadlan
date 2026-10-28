@@ -64,7 +64,7 @@ create table if not exists public.notif_cadence_log (
   created_at timestamptz not null default now(),
   constraint notif_cadence_log_event_chk check (event in ('open', 'choose', 'ask', 'back')),
   constraint notif_cadence_log_choice_chk check (
-    choice is null or choice in ('each', 'daily', 'thrice', 'off'))
+    choice is null or choice in ('each', 'daily', 'thrice', 'off', 'digest'))
 );
 
 comment on table public.notif_cadence_log is
@@ -127,6 +127,68 @@ comment on function public.notif_cadence_button_on() is
 revoke all on function public.notif_cadence_button_on() from public, anon, authenticated;
 grant execute on function public.notif_cadence_button_on() to service_role;
 
+-- מיפוי סוג התראה לקבוצת קצב. סוג חסר נופל ל-system_mentor בפונקציה.
+create table if not exists public.notif_cadence_group_map (
+  notif_type text primary key,
+  cadence_group text not null,
+  constraint notif_cadence_group_map_group_chk check (
+    cadence_group in ('new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor'))
+);
+
+comment on table public.notif_cadence_group_map is
+  'סוג התראה לקבוצת קצב. סוג שלא כאן ולא ברשימת ההחרגה הוא system_mentor.';
+
+alter table public.notif_cadence_group_map enable row level security;
+revoke all on table public.notif_cadence_group_map from public, anon, authenticated;
+grant select, insert, update, delete on table public.notif_cadence_group_map to service_role;
+
+insert into public.notif_cadence_group_map (notif_type, cadence_group) values
+  ('new_lead', 'new_leads'),
+  ('onboarding_lead', 'new_leads'),
+  ('agenda_reminder', 'meetings'),
+  ('showcase_meeting', 'meetings'),
+  ('open_demand', 'open_demand'),
+  ('listing_match', 'matches'),
+  ('client_match', 'matches'),
+  ('match_digest', 'matches'),
+  ('showcase_activity', 'matches'),
+  ('system', 'system_mentor'),
+  ('coach_daily', 'system_mentor'),
+  ('platform_coach', 'system_mentor'),
+  ('marketing_copy', 'system_mentor'),
+  ('review_request', 'system_mentor'),
+  ('agreement_signed', 'system_mentor'),
+  ('deal_closed', 'system_mentor'),
+  ('lead_prefs_default', 'system_mentor'),
+  ('onboarding_property', 'system_mentor'),
+  ('onboarding_client', 'system_mentor'),
+  ('onboarding_agreement', 'system_mentor'),
+  ('onboarding_license', 'system_mentor')
+on conflict (notif_type) do nothing;
+
+create or replace function public.notif_cadence_group(p_type text)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p_type = any(array[
+      'ops_alert', 'security_alert', 'platform_signup', 'deal_sync_summary', 'deal_data_gap'
+    ]::text[]) then null
+    else coalesce(
+      (select g.cadence_group from public.notif_cadence_group_map g where g.notif_type = p_type),
+      'system_mentor')
+  end;
+$$;
+
+comment on function public.notif_cadence_group(text) is
+  'קבוצת הקצב של סוג. null להתראות אדמין שלא בתפריט. כל סוג אחר שלא מופה הוא system_mentor.';
+
+revoke all on function public.notif_cadence_group(text) from public, anon, authenticated;
+grant execute on function public.notif_cadence_group(text) to service_role;
+
 create or replace function public.notif_cadence_digestable(p_type text)
 returns boolean
 language sql
@@ -150,15 +212,45 @@ security definer
 set search_path = ''
 as $$
   select case
-    when p_type = 'client_match' then public.agent_type_cadence(p_agent, 'match_digest')
+    when p_type in ('new_leads', 'open_demand', 'matches') then coalesce((
+      select case when mode in ('each', 'daily', 'thrice', 'off') then mode else 'each' end
+        from (
+          select nullif(p.whatsapp_cadence ->> p_type, '') as mode
+            from public.agent_notification_preferences p
+           where p.agent_id = p_agent
+        ) s
+    ), 'each')
+    when p_type = 'meetings' then 'each'
+    when p_type = 'system_mentor' then coalesce((
+      select case when mode in ('digest', 'off') then mode else 'digest' end
+        from (
+          select nullif(p.whatsapp_cadence ->> 'system_mentor', '') as mode
+            from public.agent_notification_preferences p
+           where p.agent_id = p_agent
+        ) s
+    ), 'digest')
+    when public.notif_cadence_group(p_type) is null then 'each'
+    when public.notif_cadence_group(p_type) = 'meetings' then 'each'
+    when public.notif_cadence_group(p_type) = 'system_mentor' then
+      coalesce((
+        select case
+          when mode in ('digest', 'off') then mode
+          else 'digest'
+        end
+        from (
+          select nullif(p.whatsapp_cadence ->> 'system_mentor', '') as mode
+            from public.agent_notification_preferences p
+           where p.agent_id = p_agent
+        ) s
+      ), 'digest')
     else coalesce((
       select case
-        when mode in ('daily', 'thrice') and not public.notif_cadence_digestable(p_type) then 'each'
-        else mode
+        when mode in ('each', 'daily', 'thrice', 'off') then mode
+        else 'each'
       end
       from (
         select coalesce(
-          nullif(p.whatsapp_cadence ->> p_type, ''),
+          nullif(p.whatsapp_cadence ->> public.notif_cadence_group(p_type), ''),
           case when p_type = any(coalesce(p.whatsapp_off_types, '{}'::text[])) then 'off' else 'each' end
         ) as mode
         from public.agent_notification_preferences p
@@ -179,8 +271,12 @@ security definer
 set search_path = ''
 as $$
   select case
-    when nullif(p.whatsapp_cadence_since ->> p_type, '') is null then null
-    else (p.whatsapp_cadence_since ->> p_type)::timestamptz
+    when p_type in ('new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor') then
+      case when nullif(p.whatsapp_cadence_since ->> p_type, '') is null then null
+           else (p.whatsapp_cadence_since ->> p_type)::timestamptz end
+    when public.notif_cadence_group(p_type) is null then null
+    when nullif(p.whatsapp_cadence_since ->> public.notif_cadence_group(p_type), '') is null then null
+    else (p.whatsapp_cadence_since ->> public.notif_cadence_group(p_type))::timestamptz
   end
   from public.agent_notification_preferences p
   where p.agent_id = p_agent;
@@ -203,7 +299,10 @@ set search_path = ''
 as $$
   select case
     when not public.notif_cadence_button_on() then true
-    when public.agent_type_cadence(p_agent, p_type) = 'off' then false
+    when public.notif_cadence_group(p_type) is null then true
+    when public.notif_cadence_group(p_type) = 'meetings' then true
+    when public.notif_cadence_group(p_type) = 'system_mentor' then false
+    when public.agent_type_cadence(p_agent, p_type) in ('off', 'digest', 'daily', 'thrice') then false
     when public.agent_type_cadence(p_agent, p_type) = 'each' then
       public.agent_type_cadence_since(p_agent, p_type) is null
       or p_created >= public.agent_type_cadence_since(p_agent, p_type)
@@ -451,6 +550,7 @@ returns table (
   outside_mode text,
   cap_allows boolean,
   digest_ordinal int,
+  allow_template boolean,
   leads jsonb
 )
 language plpgsql
@@ -491,14 +591,17 @@ begin
        and m.closed_at is null
        and m.tier in ('mid', 'premium')
        and m.billing_status = 'active'
-       and e.value in ('daily', 'thrice')
-       and public.notif_cadence_digestable(e.key)
+       and (
+         (e.key in ('new_leads', 'open_demand', 'matches') and e.value in ('daily', 'thrice'))
+         or (e.key = 'system_mentor' and e.value = 'digest')
+       )
   loop
     if r.phone is null then
       continue;
     end if;
     v_slot := public.lead_wa_digest_slot(
-      now(), r.cadence, v_daily, v_hours, v_window);
+      now(), case when r.cadence = 'digest' then 'daily' else r.cadence end,
+      v_daily, v_hours, v_window);
     if v_slot is null then
       continue;
     end if;
@@ -512,7 +615,7 @@ begin
         select n.id, n.related_lead_id, n.title, n.created_at
           from public.notifications n
          where n.agent_id = r.id
-           and n.type = r.notif_type
+           and public.notif_cadence_group(n.type) = r.notif_type
            and not n.read
            and (r.since is null or n.created_at >= r.since)
            and not exists (
@@ -548,6 +651,7 @@ begin
     notif_type := r.notif_type;
     outside_mode := public.notif_lead_digest_outside();
     cap_allows := public.lead_wa_digest_cap_allows(r.id);
+    allow_template := r.notif_type is distinct from 'system_mentor';
     select count(*)::int into digest_ordinal
       from public.notif_cadence_digest d
      where d.agent_id = r.id
@@ -591,7 +695,7 @@ begin
      and split_part(d.slot_key, ':', 2) = split_part(p_slot, ':', 2)
      and d.outcome in ('pending', 'sent', 'bell');
   -- הסיכום השלישי ביום אינו נרשם כתבנית.
-  if coalesce(v_ordinal, 1) >= 3 then
+  if coalesce(v_ordinal, 1) >= 3 or split_part(p_slot, ':', 2) = 'system_mentor' then
     v_mode := 'text';
   end if;
   update public.notif_cadence_digest d
@@ -647,12 +751,22 @@ declare
   v_off text[];
 begin
   v_type := nullif(btrim(coalesce(p_type, '')), '');
+  if v_type is not null and v_type not in (
+    'new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor'
+  ) then
+    v_type := public.notif_cadence_group(v_type);
+  end if;
   v_choice := case
-    when p_choice in ('each', 'daily', 'thrice', 'off') then p_choice
+    when p_choice in ('each', 'daily', 'thrice', 'off', 'digest') then p_choice
     else null
   end;
-  if v_choice in ('daily', 'thrice') and v_type is not null
-     and not public.notif_cadence_digestable(v_type) then
+  if v_type = 'system_mentor' and v_choice in ('each', 'daily', 'thrice') then
+    v_choice := 'digest';
+  end if;
+  if v_type = 'meetings' then
+    v_choice := null;
+  end if;
+  if v_type in ('new_leads', 'open_demand', 'matches') and v_choice = 'digest' then
     v_choice := 'each';
   end if;
   v_event := case p_event
@@ -695,7 +809,13 @@ begin
     return;
   end if;
 
-  if p_event = 'ask' and v_choice = 'off' then
+  if v_type = 'meetings' then
+    choice := 'each';
+    return next;
+    return;
+  end if;
+
+  if p_event = 'ask' and v_choice = 'off' and v_type = 'new_leads' then
     insert into public.notif_cadence_pending (agent_id, notif_type, expires_at)
     values (p_agent, v_type, now() + interval '30 minutes')
     on conflict (agent_id, notif_type) do update
@@ -706,7 +826,7 @@ begin
     return;
   end if;
 
-  if p_event = 'choose' and v_choice = 'off' then
+  if p_event = 'choose' and v_choice = 'off' and v_type = 'new_leads' then
     select d.expires_at into v_exp
       from public.notif_cadence_pending d
      where d.agent_id = p_agent and d.notif_type = v_type;
@@ -743,23 +863,27 @@ begin
     set whatsapp_cadence = public.agent_notification_preferences.whatsapp_cadence || jsonb_build_object(v_type, v_choice),
         whatsapp_cadence_since = public.agent_notification_preferences.whatsapp_cadence_since || jsonb_build_object(v_type, now()),
         whatsapp_off_types = case
-          when v_choice = 'off' then (
+          when v_choice = 'off' and v_type in ('new_leads', 'open_demand', 'matches') then (
             select coalesce(array_agg(distinct t), '{}'::text[])
-              from unnest(coalesce(public.agent_notification_preferences.whatsapp_off_types, '{}'::text[]) || array[v_type]) t
+              from unnest(
+                coalesce(public.agent_notification_preferences.whatsapp_off_types, '{}'::text[])
+                || coalesce((
+                  select array_agg(g.notif_type)
+                    from public.notif_cadence_group_map g
+                   where g.cadence_group = v_type
+                ), '{}'::text[])
+              ) t
           )
-          else (
+          when v_type in ('new_leads', 'open_demand', 'matches') then (
             select coalesce(array_agg(t), '{}'::text[])
               from unnest(coalesce(public.agent_notification_preferences.whatsapp_off_types, '{}'::text[])) t
-             where t is distinct from v_type
+             where t not in (
+               select g.notif_type from public.notif_cadence_group_map g where g.cadence_group = v_type
+             )
           )
+          else public.agent_notification_preferences.whatsapp_off_types
         end,
         updated_at = now();
-  if v_type = 'match_digest' then
-    update public.agent_notification_preferences p
-       set whatsapp_cadence = p.whatsapp_cadence || jsonb_build_object('client_match', v_choice),
-           whatsapp_cadence_since = p.whatsapp_cadence_since || jsonb_build_object('client_match', now())
-     where p.agent_id = p_agent;
-  end if;
   changed := true;
   choice := v_choice;
   select q.whatsapp_cadence, coalesce(q.whatsapp_off_types, '{}'::text[])

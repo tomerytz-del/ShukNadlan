@@ -40,8 +40,8 @@ import {
 } from "../_shared/agent-deep-link.ts";
 import {
   CADENCE_BUTTON_TITLE,
+  cadenceGroupOf,
   cadenceOpenId,
-  cadenceType,
   digestChannel,
   digestIntroFor,
   parseOutside,
@@ -530,7 +530,7 @@ async function sendWhatsapp(
     type: "text" as const,
     text: { preview_url: false, body: textBody(name, items, false, topics, true, cadenceOn) },
   });
-  const known = items.find((it) => cadenceType(it.type)) || items[0];
+  const known = items.find((it) => cadenceGroupOf(it.type)) || items[0];
   const cadenceButton = { id: cadenceOpenId(known?.type), title: CADENCE_BUTTON_TITLE };
   // הודעה אחת. יעד אחד = cta_url. כמה יעדים = רשימה, והלחיצה (nav:) מחזירה
   // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט עם הקישור.
@@ -785,12 +785,15 @@ async function sendLeadDigests(sb: ReturnType<typeof createClient>): Promise<voi
   for (const row of data as Record<string, any>[]) {
     const leads = Array.isArray(row.leads) ? row.leads : [];
     const ids = leads.map((lead: { id?: string }) => lead.id).filter((id: string) => !!id);
-    const channel = digestChannel(
+    const ordinalChannel = digestChannel(
       !!row.in_window,
       parseOutside(row.outside_mode),
       row.cap_allows === true,
       Number(row.digest_ordinal) || 1,
     );
+    const channel = row.allow_template === false
+      ? (row.in_window ? "text" : "bell")
+      : ordinalChannel;
     const finish = (outcome: "sent" | "bell", mode: string) => sb.rpc("notif_cadence_digest_finish", {
       p_agent: row.agent_id,
       p_slot: row.slot_key,
@@ -805,14 +808,18 @@ async function sendLeadDigests(sb: ReturnType<typeof createClient>): Promise<voi
     const intro = digestIntroFor(String(row.notif_type || "new_lead"), Number(row.slot_dow) || 0, Number(row.slot_hour) || 9);
     const digestHome = row.notif_type === "open_demand"
       ? "/crm?goto=accLeads&tab=demand"
-      : row.notif_type && row.notif_type !== "new_lead"
-      ? `/crm?goto=${ACC_BY_TYPE[row.notif_type] || "accNotifPrefs"}`
-      : OPEN_LEADS_PATH;
+      : row.notif_type === "matches"
+      ? "/crm?goto=accAlerts"
+      : row.notif_type === "system_mentor"
+      ? "/crm?goto=bell"
+      : row.notif_type === "new_leads" || row.notif_type === "new_lead" || !row.notif_type
+      ? OPEN_LEADS_PATH
+      : `/crm?goto=${ACC_BY_TYPE[row.notif_type] || "accNotifPrefs"}`;
     try {
       if (channel === "text") {
         const nav = digestLeadRows(leads);
         const body = clipWhatsappBody(intro, 1024);
-        if (row.notif_type && row.notif_type !== "new_lead") {
+        if (row.notif_type && row.notif_type !== "new_lead" && row.notif_type !== "new_leads") {
           await postGraph(ctaMessage(
             row.phone_e164,
             body,
@@ -926,6 +933,15 @@ Deno.serve(async (req: Request) => {
         items = items.filter((it) => !dropTypes.has(it.type));
       }
       if (items.length === 0) return;
+      items = items.filter((it) => cadenceGroupOf(it.type) !== "system_mentor");
+      if (items.length === 0) {
+        await sb.from("notification_push_log").update({
+          notification_ids: [],
+          whatsapp_status: "skipped",
+          last_error: "group_digest",
+        }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+        return;
+      }
     }
 
     // בחירה של סוכן/ת אינה פוטרת מתקרת התבניות. סוג שפטור במקום אחר
