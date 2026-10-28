@@ -722,6 +722,10 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+  /* ‏A-SEO-2: "נכסים דומים" - קישור אמיתי שנמתח על האריח (‏renderSimilarProperties ב-assets/property.js) */
+  .prop-card{position:relative}
+  .prop-card > .pc-link{position:absolute;inset:0;z-index:3}
+  .prop-card > .pc-link:focus-visible{outline:3px solid var(--gold,#c9a227);outline-offset:-3px}
   .prop-card .thumb{height:94px;background-size:cover;background-position:center;position:relative}
   /* אריח נכס בלי תמונות — אותה שפה כמו ב-index.html */
   .thumb-fallback{

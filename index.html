@@ -1480,7 +1480,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     overflow:hidden;box-shadow:var(--shadow-sm);
   }
   .sr-row:hover{border-color:var(--teal)}
-  .sr-row:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  /* ‏A-SEO-2: הקישור לדף הנכס נמתח על כל השורה (‏buildSearchRow ב-assets/home.js) */
+  .sr-row{position:relative}
+  .sr-row > .pc-link{position:absolute;inset:0;z-index:1;border-radius:inherit}
+  .sr-row > .pc-link:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   .sr-thumb{flex:0 0 104px;min-height:92px;position:relative}
   .sr-thumb .ribbon{position:absolute;top:6px;right:6px}
   .sr-body{flex:1 1 auto;min-width:0;padding:10px 2px 10px 0;display:flex;flex-direction:column;justify-content:center;gap:3px}
@@ -3517,10 +3520,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .v10-view.is-swipe .vi .vi-top{transform:none !important}
   @media (hover:hover) and (pointer:fine){html.beta-hero .v10-view.is-swipe:hover svg,html.beta-hero .v10-view.is-swipe:focus-visible svg{animation:none;transform:translateX(-2px) rotate(-8deg);transition:transform .2s ease-out}}
   @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-swipe svg,html.beta-hero .pc-swipe-invite .psi-tag svg{animation:none !important;transform:none !important}}
-  /* ‏P1-E: לב בכותרת במחשב, זהב (ד-15), מונה נייבי */
+  /* ‏A-SEO-1 (סבב SEO 1): תיבת הנכסים נשארת [hidden] עד שהמלאי מגיע, ובינתיים מפת השכונות
+     שמתחתיה עולה לתוך המסך ונדחפת כשהתיבה נפתחת (‏CLS 0.30-0.40 בטלפון). עם הדגל המקום שמור
+     מראש - בגובה של שתי שורות המדף - ונעלם רק כשהמלאי הגיע ריק (‏pp-none, ‏ppSync ב-home.js) */
+  html.beta-hero #allProps[hidden]:not(.pp-none){display:block !important;visibility:hidden;min-height:1110px}
+  @media(min-width:760px){html.beta-hero #allProps[hidden]:not(.pp-none){min-height:920px}}
+  /* ‏P1-E: לב בכותרת, מונה נייבי. ‏C6 (החלטת תומר 28.10): גם בטלפון, אותו רכיב ואותה תווית */
   .hdr-likes{display:none}
-  @media(min-width:1024px){html.beta-hero .hdr-likes:not([hidden]){position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
-    margin-inline-end:8px;border:1.5px solid #bfe3cc;border-radius:50%;background:#e7f4ec;color:#1f8a4c;cursor:pointer}}
+  html.beta-hero .hdr-likes:not([hidden]){position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;
+    margin-inline-end:8px;border:1.5px solid #bfe3cc;border-radius:50%;background:#e7f4ec;color:#1f8a4c;cursor:pointer}
+  @media(max-width:1023px){html.beta-hero .hdr-likes:not([hidden]){margin-inline-end:4px}}
   .hdr-likes b{position:absolute;top:-5px;left:-5px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#0e2a6b;color:#fff;font-size:12px;font-weight:800;line-height:20px;text-align:center;box-sizing:border-box}
   .hdr-likes:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
   /* ‏P1-J: אייקונים לכפתורי התצוגה, ותנועה קטנה בריחוף (רק עכבר, ובלי reduced-motion). ‏.vi קיים רק בכפתורים האלה */

@@ -330,26 +330,32 @@
           PropertyCard.whereHtml(p, cfg.whereOpts) +
           PropertyCard.factsHtml(p) +
         '</div>';
-      /* האריח הוא קישור לכל דבר, ולכן הוא גם תחנת מקלדת: ‏role="link"‎
-         עם ‎tabindex‎ ו-Enter/רווח. בשורה הדחוסה (‏propRow) זה מגיע חינם
-         מה-‎<a>‎, וכאן הטקסט יושב מעל התמונה ולא בתוך עוגן. */
-      el.setAttribute('role', 'link');
-      el.tabIndex = 0;
-      var open = function () {
-        // ‏P1-M: ניווט ב-JS ולא דרך <a> - מקור החשיפה נרשם כאן (‏events.js)
+      /* האריח הוא קישור לכל דבר. ‏A-SEO-2 (סבב SEO 1, 28.10.2026): עד עכשיו ‏role="link"‎
+         עם ניווט ב-JS - ובדף הבית לא היה קישור אחד לנכס ב-HTML שגוגל רואה. עכשיו ‏<a>‎
+         אמיתי שנמתח על כל האריח (‏.pc-link, ‏assets/prop-shelf.css), ולא האריח כולו כעוגן:
+         בתוכו יושבים כפתורים וקישורים (מועדפים, "בקשו תמונות") ועוגן בתוך עוגן אינו HTML
+         תקין. הם עולים מעליו ב-z-index. המקלדת, הלשונית החדשה ותפריט ההקשר - מה-‏<a>‎. */
+      var link = document.createElement('a');
+      link.className = 'pc-link';
+      link.href = '/property?id=' + encodeURIComponent(p.id);
+      link.setAttribute('aria-label', String(p.title || p.property_type || 'נכס').trim());
+      link.addEventListener('click', function (e) {
+        /* שכבות האריח (‏assets/property-card.js) יוצרות הקשר ערימה משלהן, ולכן כפתור או
+           תגית לחיצה בתוכן אינם יכולים לעלות מעל הקישור. לחיצה שנחתה מעל אחד מהם עוברת
+           אליו, כמו לפני A-SEO-2 */
+        var under = global.document.elementsFromPoint ? global.document.elementsFromPoint(e.clientX, e.clientY) : [];
+        for (var i = 0; i < under.length; i++) {
+          var t = under[i];
+          if (t === link || !el.contains(t)) continue;
+          var hit = t.closest('button, a, [data-viz-jump], .pc-badge.is-ai');
+          if (hit && hit !== link && el.contains(hit)) { e.preventDefault(); hit.click(); return; }
+        }
+        // ‏P1-M: מקור החשיפה נרשם לפני הניווט (‏events.js)
         var box = el.closest && el.closest('[data-browse]');
         if (box && global.shukBrowseMark) global.shukBrowseMark(box.getAttribute('data-browse'), p.id);
-        global.location.href = '/property?id=' + encodeURIComponent(p.id);
-      };
-      el.addEventListener('click', function (e) {
-        // כפתור או קישור שיושבים על האריח (מועדפים, "בקשו תמונות") אינם ניווט לדף הנכס
-        if (e.target.closest('button, a')) return;
-        open();
       });
-      el.addEventListener('keydown', function (e) {
-        if (e.target !== el) return;
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-      });
+      // ראשון באריח: כל מה שבא אחריו ומוצב באותה שכבה נצבע מעליו
+      el.insertBefore(link, el.firstChild);
       if (cfg.bindCard) cfg.bindCard(el, p);
       return el;
     }

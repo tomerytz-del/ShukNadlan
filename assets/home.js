@@ -1643,7 +1643,10 @@ async function ppShelfToMap(items, filtered){
 let ppPrivate = null, ppCommercial = null;
 function ppSync(){
   if (ppPrivate === null && ppCommercial === null) return;
-  propsShelf.set((ppPrivate || []).concat(ppCommercial || []));
+  const all = (ppPrivate || []).concat(ppCommercial || []);
+  propsShelf.set(all);
+  // ‏A-SEO-1: המקום ששמור לתיבה (‏index.html) משתחרר רק כששתי הטעינות חזרו ריקות
+  document.getElementById('allProps')?.classList.toggle('pp-none', !all.length && ppPrivate !== null && ppCommercial !== null);
   /* העוגן מנוסה בכל סנכרון עד שהוא תופס, ולא פעם אחת אחרי הטעינה
      הראשונה: ‏#allProps-commercial שמגיע בזמן שרק המלאי הפרטי נטען מחפש
      תגית שעוד לא נבנתה — ‏selectTag מחזירה אז false, וכשהמסחרי מגיע כבר
@@ -3374,8 +3377,9 @@ function updateSplitPanel(){
       const row = buildSearchRow(p, i);
       row.addEventListener('mouseenter', ()=> hotSplitRow(p.id, true));
       row.addEventListener('mouseleave', ()=> hotSplitRow(p.id, false));
-      row.addEventListener('focus', ()=> hotSplitRow(p.id, true));
-      row.addEventListener('blur', ()=> hotSplitRow(p.id, false));
+      // הפוקוס על הקישור שבתוך השורה (‏A-SEO-2), ולכן focusin/focusout
+      row.addEventListener('focusin', ()=> hotSplitRow(p.id, true));
+      row.addEventListener('focusout', ()=> hotSplitRow(p.id, false));
       rows.appendChild(row);
     });
   }
@@ -5504,10 +5508,9 @@ function showSearchError(){
 function buildSearchRow(p, i){
   const row = document.createElement('article');
   row.className = 'sr-row';
-  row.tabIndex = 0;
-  row.setAttribute('role', 'link');
   row.dataset.propId = p.id;
   row.innerHTML = `
+    <a class="pc-link" href="/property?id=${encodeURIComponent(p.id)}" aria-label="${escAttr(p.title || p.property_type || 'נכס')}"></a>
     <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
       <div class="sr-title">${escAttr(p.title)}</div>
@@ -5518,14 +5521,12 @@ function buildSearchRow(p, i){
       <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
       <span class="sr-price">${priceLabel(p)}</span>
     </div>`;
-  const open = ()=>{
-    // ‏P1-M: ניווט ב-JS - המקור מהמכולה (רשימת התוצאות או הרשימה שליד המפה)
+  /* ‏A-SEO-2: ‏<a> אמיתי שנמתח על השורה (‏.pc-link), במקום ‏role="link"‎ וניווט ב-JS -
+     גוגל רואה את הקישור, ולשונית חדשה ותפריט הקשר עובדים. ‏P1-M: המקור נרשם לפני הניווט */
+  row.querySelector('.pc-link').addEventListener('click', ()=>{
     const box = row.closest('[data-browse]');
     if (box && window.shukBrowseMark) shukBrowseMark(box.getAttribute('data-browse'), p.id);
-    window.location.href = '/property?id=' + p.id;
-  };
-  row.addEventListener('click', open);
-  row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+  });
   return row;
 }
 
@@ -5715,7 +5716,7 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     const first = next;
     page();
     // הפוקוס עובר לשורה הראשונה שנוספה, ולא נשאר על כפתור שנעלם
-    const row = rows.querySelectorAll('.sr-row')[first];
+    const row = rows.querySelectorAll('.sr-row > .pc-link')[first];
     if (row) row.focus({ preventScroll: true });
   });
   page();

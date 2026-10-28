@@ -2345,7 +2345,9 @@ function renderSimilarProperties(list){
   list.forEach((sp, i)=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
+    // ‏A-SEO-2: קישור אמיתי שנמתח על האריח (‏.pc-link, ‏assets/prop-shelf.css) - לא ניווט ב-JS
     card.innerHTML = `
+      <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}" aria-label="${escapeHtml(sp.title || sp.property_type || 'נכס')}"></a>
       <div class="thumb" style="${thumbStyle(sp, i)}">
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}
@@ -2357,7 +2359,6 @@ function renderSimilarProperties(list){
         ${PropertyCard.whereHtml(sp)}
         ${PropertyCard.factsHtml(sp)}
       </div>`;
-    card.addEventListener('click', ()=> window.location.href = '/property?id=' + sp.id);
     scroll.appendChild(card);
   });
   section.hidden = false;
