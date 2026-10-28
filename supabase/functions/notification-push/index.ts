@@ -10,6 +10,7 @@ import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts"
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
+import { shareDigestItems, type ShareDigestLine } from "../_shared/share-digest.ts";
 import {
   absoluteUrl,
   categoryPath,
@@ -132,6 +133,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
   // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
   system: "accProperties",
+  share_digest: "accProperties",
   platform_signup: "accSubscriptions",
   // ‏פריט בתיבת המשימות של מנהל/ת הפלטפורמה שחרג מזמן היעד (docs/admin-inbox.md)
   admin_overdue: "accAdminInbox",
@@ -286,6 +288,16 @@ const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
 // לבד (notification_push_is_ambient), וכאן הם מתקפלים לשורה אחת לכל סוג - ב-
 // 11.10.2026 נכתבו 678 התראות "נכס חדש שותף איתך" ביום אחד.
 const isShare = (it: Item) => it.type === "system" && it.property_id != null && it.property_mine === false;
+
+/** סיכום שיתופים: שורה לכל נכס, לפני arrange, כדי שלא יתקפל ל"N נכסים". */
+async function expandShareDigest(sb: { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string; code?: string } | null }> }, logId: string, items: Item[]): Promise<Item[]> {
+  if (!items.some((it) => it.type === "share_digest")) return items;
+  const { data, error } = await sb.rpc("share_digest_lines_for_log", { p_log_id: logId });
+  if (error || !Array.isArray(data) || data.length === 0) return items;
+  const lines = shareDigestItems(data as ShareDigestLine[]);
+  if (!lines.length) return items;
+  return items.filter((it) => it.type !== "share_digest").concat(lines);
+}
 const isSignup = (it: Item) => it.type === "platform_signup";
 
 /**
@@ -717,11 +729,13 @@ Deno.serve(async (req: Request) => {
   const digest = await loadDigestFlags(sb);
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
-    let items = collapseForSend(withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
+    const base = ((row.items || []) as Item[]).map((it) =>
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
-    ))), undefined, digest.guardOn);
+    );
+    const expanded = await expandShareDigest(sb, row.log_id, base);
+    let items = collapseForSend(withLeadLines(arrange(expanded)), undefined, digest.guardOn);
     const onlyType = items.length > 0 && new Set(items.map((it) => it.type)).size === 1
       ? items[0].type
       : null;

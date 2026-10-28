@@ -410,6 +410,7 @@ function allScreensPath(
     }
     if (t === "burst_digest") return "/crm?goto=bell";
     if (t === "match_digest") return "/crm?goto=accAlerts";
+    if (t === "share_digest") return "/crm?goto=accSharedWithMe";
     const cat = categoryPathForType(t);
     if (cat && isSafeCrmPath(cat)) return cat;
   }
