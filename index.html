@@ -23,6 +23,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 <script src="assets/auth-return.js" data-catch></script>
 <script src="assets/esc.js"></script>
 <script src="assets/agent-card.js" defer></script>
+<script src="assets/dm-filters.js" defer></script>
 <script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
@@ -3487,22 +3488,14 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .ss-suggest[hidden]{display:none}
   .ss-suggest-alt{min-height:44px;padding:0 14px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif;cursor:pointer}
   .ss-suggest a{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;background:#c9a227;color:#0d1b3d;font-weight:800;text-decoration:none}
+  /* ‏R8: הצעת יועצי הנדל״ן מהשדה - אותו כפתור זהב, שתי שורות כשצריך */
+  .ss-suggest a.ss-advisor{min-height:44px;flex-wrap:wrap;gap:4px;white-space:normal;padding:6px 14px;border-radius:14px}
+  .ss-suggest a.ss-advisor span{font-weight:600}
   .ss-suggest a:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
   .ss-suggest p{margin:0;font-size:14px;color:#4a5060}
-  /* ‏P1-U1: שורת צ'יפים נגללת לרוחב בלי לשבור שורה, ובורר אזור */
-  html.beta-hero .dm-filters{display:flex;flex-direction:column;gap:8px;margin:10px 0 4px}
+  /* ‏P1-U1 / R8: הסינון של יועצי הנדל״ן והמשרדים - העיצוב ב-assets/filter-ui.css */
+  html.beta-hero .dm-filters{display:block;margin:10px 0 4px}
   html.beta-hero .dm-filters[hidden]{display:none}
-  .dm-chiprow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;-webkit-mask-image:linear-gradient(to left,#000 90%,transparent);mask-image:linear-gradient(to left,#000 90%,transparent)}
-  .dm-chiprow::-webkit-scrollbar{display:none}
-  .dm-chip{flex:none;min-height:40px;padding:0 14px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
-  .dm-chip[aria-pressed=true]{background:#0e2a6b;color:#fff}
-  .dm-chip:focus-visible,.dm-area select:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
-  .dm-arearow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  .dm-area{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 6px 0 12px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b}
-  .dm-area select{border:0;background:transparent;color:#0e2a6b;font:inherit;font-size:14px;font-weight:700;min-height:38px;max-width:62vw;cursor:pointer}
-  .dm-fcount{margin:0;font-size:13.5px;color:#4a5060}
-  .dm-empty-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-  .dm-empty-acts button{min-height:40px;padding:0 14px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-weight:700;cursor:pointer}
   /* ‏P1-T3: הקוביות ברשת - בטלפון עד שלוש בשורה, במחשב כולן; גובה אחיד */
   html.beta-hero body .dm-stats{display:grid;grid-template-columns:repeat(var(--dm-n,3),minmax(0,1fr));gap:6px;max-width:440px;margin-inline:auto}
   html.beta-hero body .dm-stat{max-width:none}
@@ -5109,14 +5102,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </label>
       </div>
       <!-- ‏P1-U1 (v10): התמחות ואזור, נגזרים מהנכסים הפעילים של כל משרד ויועץ/ת -->
-      <div class="dm-filters v10-only" id="dmFilters" hidden>
-        <div class="dm-chiprow" id="dmSpecChips" role="group" aria-label="סינון לפי התמחות"></div>
-        <div class="dm-arearow">
-          <label class="dm-area" for="dmArea"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="sr-only">אזור</span>
-            <select id="dmArea" aria-label="סינון לפי אזור"></select></label>
-          <p class="dm-fcount" id="dmFCount" aria-live="polite"></p>
-        </div>
-      </div>
+      <div class="dm-filters v10-only" id="dmFilters" hidden></div>
+      <!-- ‏R8: הרכיב המשותף (‏assets/dm-filters.js) בונה כאן את ההתמחות והאזור -->
 
       <div class="dm-body">
         <div class="dm-row-wrap row-scroller" id="dmRowWrap">

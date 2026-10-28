@@ -2186,7 +2186,7 @@ function bindRowScroller(row){
   const searchEl = document.getElementById('dmSearch');
   const quickEl = document.getElementById('dmQuick');
   const specEl = document.getElementById('dmSpec');
-  const state = { tab:'agencies', query:'', spec:'all', fspec:'all', farea:'all' };
+  const state = { tab:'agencies', query:'', spec:'all' };
   const dmF = initDmFilters(state, data, () => render());
 
   // המונה שעל כל לשונית נספר מול כל הרשימה ולא מול החיפוש הפעיל: הוא
@@ -2464,13 +2464,12 @@ function bindRowScroller(row){
     buildDots(list.length ? Math.min(list.length, dmLimit()) : 0);
     dmF.after(list);
 
-    searchEl.placeholder = conf.placeholder;
+    // ‏R8 (v10): החיפוש מוצא גם התמחות ושכונה (‏_dmWords)
+    searchEl.placeholder = v10On() ? 'שם, התמחות או שכונה…' : conf.placeholder;
     const seeAll = document.getElementById('dmSeeAll');
     // ‏P1-U1: הסינון עובר ל-/agencies ול-/agents באותם פרמטרים (‏assets/dm-filters.js)
     seeAll.href = conf.href + (dmF.active() && /^\/(agencies|agents)$/.test(conf.href)
-      ? '?' + new URLSearchParams(Object.assign({},
-          state.fspec !== 'all' ? { dm_spec: state.fspec } : {},
-          state.farea !== 'all' ? { dm_area: state.farea } : {})).toString()
+      ? '?' + new URLSearchParams(dmF.query()).toString()
       : '');
     seeAll.textContent = conf.seeAll(data[state.tab].length);
     row.setAttribute('aria-labelledby', 'dmTab' + state.tab.charAt(0).toUpperCase() + state.tab.slice(1));
@@ -8736,117 +8735,40 @@ document.addEventListener('click', e => {
   document.addEventListener('mouseover', e => fire(e.target.closest && e.target.closest('.info-dot[data-info-id]')));
 })();
 
-/* ---------- ‏P1-U1: משרדים ויועצי נדל״ן לפי התמחות ואזור (v10) ----------
-   נגזר מהנכסים הפעילים שכבר נטענו (אחרי keepMarketRows): פריט עובר אם יש לו לפחות
-   נכס אחד שמתאים **גם** להתמחות **וגם** לאזור. אותה גזירה כמו ה-RPC המוצע
-   ‏homepage_dm_facets (‏docs/proposals/dm_facets.sql), כדי שהמעבר אליו לא ישנה תוצאות. */
-const DM_FSPECS = [
-  { key:'sale',       label:'מכירה',          phrase:'למכירה',            words:'מכירה למכירה קנייה' },
-  { key:'rent',       label:'השכרה',          phrase:'להשכרה',            words:'השכרה שכירות להשכרה' },
-  { key:'commercial', label:'מסחרי',          phrase:'מסחריים',           words:'מסחרי חנות קליניקה מחסן' },
-  { key:'projects',   label:'פרויקטים חדשים', phrase:'בפרויקטים חדשים',    words:'פרויקט קבלן חדש מקבלן' },
-  { key:'houses',     label:'בתים פרטיים',    phrase:'- בתים פרטיים',     words:'בית פרטי וילה קוטג׳ קוטג\' דו משפחתי' },
-  { key:'land',       label:'קרקעות',         phrase:'- קרקעות ומגרשים',  words:'קרקע מגרש משק נחלה' },
-];
-function dmPropSpecs(p){
-  const out = [];
-  if (p.deal_type === 'sale') out.push('sale');
-  if (p.deal_type === 'rent') out.push('rent');
-  if (p.category === 'commercial') out.push('commercial');
-  if (String(p.project_status || '').trim()) out.push('projects');
-  if (/^(בית פרטי\/קוטג'|דו משפחתי)$/.test(String(p.property_type || ''))) out.push('houses');
-  if (/מגרש|קרקע|משק|נחלה/.test(String(p.property_type || ''))) out.push('land');
-  return out;
-}
+/* ---------- ‏P1-U1 / R8: משרדים ויועצי נדל״ן לפי התמחות ואזור (v10) ----------
+   הרכיב המשותף ל-/agents ול-/agencies (‏assets/dm-filters.js) - אותו כלל, אותה כתובת
+   ואותו מראה. כאן רק המתאם לשורה של דף הבית (שתי לשוניות, "צפייה בכל…", החיפוש החופשי). */
 function initDmFilters(state, data, rerender){
-  const noop = { apply: l => l, active: () => false, title: () => '', after(){}, fill(){}, emptyText: () => '', emptyActions: () => document.createTextNode('') };
+  const noop = { apply: l => l, active: () => false, title: () => '', after(){}, fill(){}, emptyText: () => '', emptyActions: () => document.createTextNode(''), query: () => ({}) };
   const box = document.getElementById('dmFilters');
   if (!v10On() || !box) return noop;
-  const chips = document.getElementById('dmSpecChips'), areaSel = document.getElementById('dmArea'), countEl = document.getElementById('dmFCount');
-  const kindKey = { agencies:'agency_id', agents:'agent_id' };
-  let facets = null;   // { agencies: Map(id -> [{specs, area}]), agents: … }
-  let areaNames = new Map();
   const mainCity = (() => { try { return CityCtx.name ? CityCtx.name() : 'עפולה'; } catch(e){ return 'עפולה'; } })();
   // הכתובת מהטעינה: החיפוש במשפט כותב את הכתובת מחדש (‏commitUrl) לפני שהמסננים מוכנים
-  const params = DM_URL0;
-  if (DM_FSPECS.some(x => x.key === params.get('dm_spec'))) state.fspec = params.get('dm_spec');
-  if (/^(hood|city):[\w-]+$/.test(params.get('dm_area') || '')) state.farea = params.get('dm_area');
-  const wantTab = params.get('dm_tab');
-
+  const wantTab = DM_URL0.get('dm_tab');
+  let api = null;
   function build(props){
-    facets = { agencies: new Map(), agents: new Map() };
-    areaNames = new Map();
-    (props || []).forEach(p => {
-      const specs = dmPropSpecs(p);
-      const area = p.neighborhood_id ? 'hood:' + p.neighborhood_id : p.city_id ? 'city:' + p.city_id : null;
-      if (area && !areaNames.has(area)) areaNames.set(area, { label: p.neighborhood_id ? (p.neighborhood_name || p.city) : p.city, hood: !!p.neighborhood_id });
-      Object.entries(kindKey).forEach(([tab, col]) => {
-        const id = p[col];
-        if (!id) return;
-        if (!facets[tab].has(id)) facets[tab].set(id, []);
-        facets[tab].get(id).push({ specs, area });
-      });
+    if (!window.DmFilters) return;
+    if (api){ api.setProps(props); rerender(); return; }
+    box.innerHTML = '';
+    api = window.DmFilters.mount({
+      host: box, tab: state.tab, props, surface: 'home', mainCity, countLine: true, tabParam: true,
+      tabs: {
+        agencies: { items: data.agencies.map(it => ({ id: it.id, declared: it.specs })), idKey: 'agency_id' },
+        agents:   { items: data.agents.map(it => ({ id: it.id, declared: it.specs })), idKey: 'agent_id' },
+      },
+      onChange: () => rerender(),
     });
-    // חיפוש חופשי: גם מילות ההתמחות ושמות האזורים של הנכסים
-    Object.keys(kindKey).forEach(tab => data[tab].forEach(it => {
-      const rows = facets[tab].get(it.id) || [];
-      if (!rows.length || it._dmWords) return;
-      const sp = new Set(), ar = new Set();
-      rows.forEach(r => { r.specs.forEach(x => sp.add(x)); if (r.area) ar.add(areaNames.get(r.area)?.label || ''); });
-      it._dmWords = [...sp].map(k => DM_FSPECS.find(x => x.key === k).words).concat([...ar]).join(' ');
-      it.search += ' ' + it._dmWords;
-    }));
+    if (!api) return;
     box.hidden = false;
-    fill();
+    // חיפוש חופשי: גם מילות ההתמחות ושמות האזורים של הנכסים
+    ['agencies', 'agents'].forEach(t => data[t].forEach(it => {
+      if (it._dmWords) return;
+      it._dmWords = api.words(it.id, t);
+      if (it._dmWords) it.search += ' ' + it._dmWords;
+    }));
     if (wantTab && wantTab !== state.tab) document.getElementById(wantTab === 'agents' ? 'dmTabAgents' : 'dmTabAgencies')?.click();
     else rerender();
   }
-  const count = (tab, id, spec, area) => (facets?.[tab].get(id) || [])
-    .filter(r => (spec === 'all' || r.specs.includes(spec)) && (area === 'all' || r.area === area)).length;
-
-  function fill(){
-    if (!facets) return;
-    const tab = state.tab, items = data[tab];
-    const has = k => items.some(it => count(tab, it.id, k, 'all') > 0);
-    chips.innerHTML = [{ key:'all', label:'הכל' }].concat(DM_FSPECS.filter(x => has(x.key) || state.fspec === x.key))
-      .map(x => '<button type="button" class="dm-chip" data-fspec="' + x.key + '" aria-pressed="' + (state.fspec === x.key) + '">' + escapeHtml(x.label) + '</button>').join('');
-    // אזורים עם נכס פעיל בלשונית, מהגדול לקטן: שכונות העיר הראשית, ואחריהן יישובים נוספים
-    const n = new Map();
-    items.forEach(it => (facets[tab].get(it.id) || []).forEach(r => { if (r.area) n.set(r.area, (n.get(r.area) || 0) + 1); }));
-    const opt = ([k, c]) => '<option value="' + escapeHtml(k) + '"' + (state.farea === k ? ' selected' : '') + '>' + escapeHtml(areaNames.get(k).label + ' · ' + c) + '</option>';
-    const sorted = [...n.entries()].sort((a, b) => b[1] - a[1]);
-    const hoods = sorted.filter(([k]) => areaNames.get(k).hood), towns = sorted.filter(([k]) => !areaNames.get(k).hood);
-    areaSel.innerHTML = '<option value="all">כל האזורים</option>' +
-      (hoods.length ? '<optgroup label="שכונות ב' + escapeHtml(mainCity) + '">' + hoods.map(opt).join('') + '</optgroup>' : '') +
-      (towns.length ? '<optgroup label="יישובים נוספים">' + towns.map(opt).join('') + '</optgroup>' : '');
-    if (state.farea !== 'all' && !n.has(state.farea)) state.farea = 'all';
-    areaSel.value = state.farea;
-  }
-  function writeUrl(){
-    try {
-      const u = new URL(location.href);
-      ['dm_spec', 'dm_area', 'dm_tab'].forEach(k => u.searchParams.delete(k));
-      if (state.fspec !== 'all') u.searchParams.set('dm_spec', state.fspec);
-      if (state.farea !== 'all') u.searchParams.set('dm_area', state.farea);
-      if ((state.fspec !== 'all' || state.farea !== 'all') && state.tab === 'agents') u.searchParams.set('dm_tab', 'agents');
-      history.replaceState(history.state, '', u);
-    } catch(e){ /* דפדפן שחוסם היסטוריה */ }
-  }
-  const active = () => !!facets && (state.fspec !== 'all' || state.farea !== 'all');
-  const specOf = () => DM_FSPECS.find(x => x.key === state.fspec);
-  const areaLabel = () => state.farea !== 'all' && areaNames.get(state.farea) ? 'ב' + areaNames.get(state.farea).label : '';
-  const tabNoun = () => state.tab === 'agents' ? 'יועצי נדל״ן' : 'משרדי תיווך';
-  function changed(filter, value){
-    fill(); writeUrl(); rerender();
-    if (window.shukTrack) window.shukTrack('dm_filter', { tab: state.tab, filter, value, results: lastN, surface: 'home' });
-  }
-  let lastN = 0, lastEmpty = '';
-  chips.addEventListener('click', e => {
-    const b = e.target.closest('[data-fspec]');
-    if (!b || b.dataset.fspec === state.fspec) return;
-    state.fspec = b.dataset.fspec; changed('spec', state.fspec);
-  });
-  areaSel.addEventListener('change', () => { state.farea = areaSel.value; changed('area', state.farea === 'all' ? 'all' : state.farea.split(':')[0]); });
   // ‏dm_search: ‏800ms אחרי ההקלדה האחרונה, בלי הטקסט
   let searchT = 0;
   document.getElementById('dmSearch')?.addEventListener('input', e => {
@@ -8856,60 +8778,34 @@ function initDmFilters(state, data, rerender){
     searchT = setTimeout(() => {
       const ql = q.toLowerCase();
       const list = data[state.tab].filter(it => it.search.toLowerCase().includes(ql));
+      const specs = (window.DmFilters && DmFilters.SPECS) || [];
       const matched = !list.length ? 'none' : list.some(it => it.name.toLowerCase().includes(ql)) ? 'name'
-        : DM_FSPECS.some(x => x.words.includes(q)) ? 'spec' : 'area';
+        : specs.some(x => x.words.includes(q)) ? 'spec' : 'area';
       if (window.shukTrack) window.shukTrack('dm_search', { tab: state.tab, q_len: q.length, results: list.length, matched });
     }, 800);
   });
   dmPropsHook = build;
-  // אחרי שהקורא קיבל את האובייקט (‏render נשען עליו)
-  if (allActiveProperties.length) setTimeout(() => build(allActiveProperties), 0);
+  // אחרי שהקורא קיבל את האובייקט (‏render נשען עליו); dm-filters.js נטען defer
+  const kick = () => { if (allActiveProperties.length) build(allActiveProperties); };
+  if (window.DmFilters) setTimeout(kick, 0); else document.addEventListener('DOMContentLoaded', kick, { once: true });
 
   return {
-    active,
-    fill,
+    active: () => !!api && api.active(),
+    fill: () => { if (api) api.setTab(state.tab); },
+    query: () => api ? api.query() : {},
     apply(list){
-      if (!active()) return list;
-      const tab = state.tab;
-      const sp = specOf(), al = areaLabel();
-      return list
-        .map(it => ({ it, n: count(tab, it.id, state.fspec, state.farea) }))
-        .filter(x => x.n > 0)
-        .sort((a, b) => b.n - a.n || (b.it.rating ?? -1) - (a.it.rating ?? -1) || a.it.name.localeCompare(b.it.name, 'he'))
-        .map(({ it, n }) => ({ ...it, rank: 0,
-          countText: (n === 1 ? 'נכס אחד' : n + ' נכסים') + (sp ? ' ' + sp.phrase : '') + (al ? ' ' + al : '') }));
+      if (!api) return list;
+      return api.apply(list).map(it => it.dmText ? { ...it, rank: 0, countText: it.dmText } : it);
     },
-    title(){
-      if (!active()) return '';
-      const sp = specOf();
-      return [tabNoun(), sp ? sp.phrase.replace(/^- /, '· ') : '', areaLabel()].filter(Boolean).join(' ');
-    },
-    after(list){
-      lastN = list.length;
-      countEl.textContent = active() ? (list.length === 1 ? (state.tab === 'agents' ? 'יועץ נדל״ן אחד' : 'משרד תיווך אחד') : list.length + ' ' + tabNoun()) : '';
-      const key = state.tab + '|' + state.fspec + '|' + state.farea;
-      if (active() && !list.length && key !== lastEmpty){
-        lastEmpty = key;
-        if (window.shukTrack) window.shukTrack('dm_filter_empty', { tab: state.tab, spec: state.fspec, area: state.farea === 'all' ? 'all' : state.farea.split(':')[0] });
-      }
-    },
-    emptyText(){
-      const sp = specOf(), al = areaLabel();
-      const what = [sp ? 'עם נכסים פעילים ' + sp.phrase.replace(/^- /, '') : 'עם נכסים פעילים', al].filter(Boolean).join(' ');
-      return state.tab === 'agents' ? 'לא מצאנו יועצי נדל״ן ' + what + '.' : 'לא מצאנו משרד תיווך ' + what + '.';
-    },
+    title: () => api ? api.title() : '',
+    after: list => { if (api) api.after(list); },
+    emptyText: () => api ? api.emptyHead() : '',
     emptyActions(){
       const w = document.createElement('div');
-      w.className = 'dm-empty-acts';
-      w.innerHTML = (state.farea !== 'all' ? '<button type="button" data-dm-clear="area">להציג את כל האזורים</button>' : '') +
-        '<button type="button" data-dm-clear="all">לנקות את הסינון</button>';
+      w.innerHTML = api ? api.emptyActionsHtml() : '';
       w.addEventListener('click', e => {
         const b = e.target.closest('[data-dm-clear]');
-        if (!b) return;
-        state.farea = 'all';
-        if (b.dataset.dmClear === 'all') state.fspec = 'all';
-        fill(); writeUrl(); rerender();
-        if (window.shukTrack) window.shukTrack('dm_filter_clear', { tab: state.tab });
+        if (b && api) api.clear(b.dataset.dmClear);
       });
       return w;
     },
@@ -8970,8 +8866,59 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
       shukTrack('search_pro_suggest', p);
     }
   }
+  /* ‏R8: "יועץ נדל״ן למסחרי בעפולה עלית" - הצעה ל-/agents מסונן (‏dm_spec, ‏dm_area), כמו בעלי
+     המקצוע: בלי מעבר אוטומטי, ו-Enter עובר רק כשזו כל הבקשה. המילים "סוכן"/"מתווך" נקלטות
+     מהגולש/ת בלבד - הממשק לא כותב אותן. "יועץ משכנתא" נשאר בעלי מקצוע (נבדק קודם). v10 בלבד */
+  const ADV_AGENTS = /יוע(?:ץ|צת|צי|צות)\s+(?:ה)?נדל["״']?ן|סוכ(?:ן|נת|ני|נות)\s+(?:ה)?נדל["״']?ן|מתוו(?:ך|כת|כים|כות)/;
+  const ADV_AGENCIES = /משרד(?:י)?\s+(?:ה)?תיווך/;
+  const ADV_SPEC_PHRASE = { sale: 'למכירה', rent: 'להשכרה', commercial: 'למסחרי', projects: 'לפרויקטים חדשים', houses: 'לבתים פרטיים', land: 'לקרקעות' };
+  function advisorOf(t){
+    if (!v10On() || !sentence || !sentence.loaded() || proOf(t)) return null;
+    const tab = ADV_AGENCIES.test(t) ? 'agencies' : ADV_AGENTS.test(t) ? 'agents' : null;
+    if (!tab) return null;
+    const C = sentence.Core, rest = t.replace(ADV_AGENCIES, ' ').replace(ADV_AGENTS, ' ');
+    const r = C.parse(rest, C.defaultState(), sentence.areas() || []);
+    let spec = '';
+    if (/פרויקט|מקבלן/.test(rest)) spec = 'projects';
+    else if (r.patch.type && C.typeDef(r.patch.type).commercial) spec = 'commercial';
+    else if (r.patch.type === 'house') spec = 'houses';
+    else if (r.patch.type === 'land') spec = 'land';
+    else if (r.patch.deal === 'rent' || r.patch.deal === 'sale') spec = r.patch.deal;
+    let area = '', areaLabel = '', areaKind = 'none';
+    const a = r.patch.area || '';
+    if (/^hood:/.test(a)){
+      area = a; areaKind = 'hood';
+      areaLabel = ((sentence.areas() || []).find(x => x.key === a) || {}).label || '';
+    } else if (/^city:/.test(a)){
+      // שם העיר → ‏city_id מהנכסים שכבר נטענו (‏dm_area עובד לפי מזהה)
+      const name = a.slice(5), hit = allActiveProperties.find(p => p.city === name && p.city_id);
+      if (hit){ area = 'city:' + hit.city_id; areaLabel = name; areaKind = 'city'; }
+    }
+    const q = new URLSearchParams();
+    if (spec) q.set('dm_spec', spec);
+    if (area) q.set('dm_area', area);
+    const noun = tab === 'agents' ? 'יועצי נדל״ן' : 'משרדי תיווך';
+    const label = [noun, spec ? ADV_SPEC_PHRASE[spec] : '', areaLabel ? 'ב' + areaLabel : ''].filter(Boolean).join(' ');
+    return { tab, spec, areaKind, label, href: '/' + tab + (q.toString() ? '?' + q : '') };
+  }
+  let advShown = '';
+  function renderAdvisor(){
+    const t = input.value.trim(), hit = t ? advisorOf(t) : null;
+    if (!hit){ if (advShown){ show(''); advShown = ''; } return false; }
+    show('<a class="ss-advisor" href="' + escapeHtml(hit.href) + '" data-advisor="' + hit.tab + '" data-spec="' + escapeHtml(hit.spec) + '" data-area-kind="' + hit.areaKind + '">' +
+      '<span>' + (hit.tab === 'agents' ? 'מחפשים יועצי נדל״ן?' : 'מחפשים משרד תיווך?') + '</span> ' + escapeHtml(hit.label) + ' ←</a>');
+    if (advShown !== hit.href){
+      advShown = hit.href;
+      shukTrack('search_advisor_suggest', { tab: hit.tab, spec: hit.spec || 'all', area_kind: hit.areaKind, surface: 'home' });
+    }
+    return true;
+  }
+  box.addEventListener('click', e => {
+    const a = e.target.closest('a[data-advisor]');
+    if (a) shukTrack('search_advisor_click', { tab: a.dataset.advisor, spec: a.dataset.spec || 'all', area_kind: a.dataset.areaKind, surface: 'home' });
+  });
   let t0 = 0;
-  input.addEventListener('input', () => { clearTimeout(t0); t0 = setTimeout(renderPro, 250); });
+  input.addEventListener('input', () => { clearTimeout(t0); t0 = setTimeout(() => { if (!renderAdvisor()) renderPro(); }, 250); });
   box.addEventListener('click', e => {
     const a = e.target.closest('a[data-pro]');
     if (a) shukTrack('search_pro_click', { type: a.dataset.pro, surface: 'home' });
@@ -9002,7 +8949,7 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
   /* ‏R8: מסלול אחד ל-Enter ולחיפוש הקולי (‏onQuery ב-sentence-search.js): מספר מודעה,
      בעלי מקצוע ומספר לבדו. ‏true = טופל כאן (מעבר, או הצעה בתיבה); ‏false = לפירוש הרגיל */
   const LISTING_RE = /^(?:(?:מודעה|נכס)\s*(?:מספר\s*)?#?\s*|מספר\s*|#)(\d{3,7})$/;
-  const routes = t => LISTING_RE.test(t) || /^(\d{3,7})$/.test(t) || (proOf(t) && !PROPERTY_WORDS.test(t.replace(proOf(t).re, '')));
+  const routes = t => LISTING_RE.test(t) || /^(\d{3,7})$/.test(t) || (proOf(t) && !PROPERTY_WORDS.test(t.replace(proOf(t).re, ''))) || !!advisorOf(t);
   async function homeQuery(t, source){
     t = String(t || '').trim();
     const pre = t.match(LISTING_RE);
@@ -9018,6 +8965,12 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
       const href = proHref(hit, await activePros());
       shukTrack('search_pro_click', { type: href === '/professionals' ? 'all' : hit.type, surface: 'home' });
       location.href = href;
+      return true;
+    }
+    const adv = advisorOf(t);
+    if (adv){
+      shukTrack('search_advisor_click', { tab: adv.tab, spec: adv.spec || 'all', area_kind: adv.areaKind, surface: 'home' });
+      location.href = adv.href;
       return true;
     }
     const bare = t.match(/^(\d{3,7})$/);

@@ -503,3 +503,8 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `voice_no_speech` | ‏R8: לא נשמע כלום (6 שניות בלי דיבור) | - |
 | `voice_error` | ‏R8: החיפוש הקולי נכשל. לגולש/ת מוצגת הודעה בעברית, והקוד רק כאן | `code` (‏`not-allowed`, ‏`service-not-allowed`, ‏`watchdog`, ‏`audio-capture`, ‏`network`, ‏`denied`, ‏`other`), `ua_class`: ‏`chromium` \| `webkit` \| `ios_safari` \| `ios_other` \| `in_app` |
 | (פרמטר חדש) `search_freetext_submit.source`, `search_submit.source` | ‏R8: מאיפה הגיע החיפוש | `source`: ‏`voice` \| `typed` |
+| (פרמטר חדש) `dm_filter.selected_n` | ‏R8: בחירה מרובה - כמה צ'יפים נבחרו בקבוצה אחרי הלחיצה. `value` נשאר מפתח ההתמחות או סוג האזור (`hood` \| `city`), לעולם לא מזהה | `selected_n` |
+| `dm_filter_sheet_open` | ‏R8 (v10, טלפון): נפתח הגיליון "סינון לפי התמחות ואזור" | `tab`: ‏`agencies` \| `agents`, `surface`: ‏`home` \| `agencies` \| `agents` |
+| `dm_filter_sheet_apply` | ‏R8: "הצגת N" בגיליון | `tab`, `spec_n`, `area_n`, `results`, `surface` |
+| `search_advisor_suggest` | ‏R8 (v10): שורת החיפוש בדף הבית זיהתה בקשה ליועצי נדל״ן או למשרד תיווך והציגה הצעה ל-`/agents` או `/agencies` מסונן (פעם אחת לכל הצעה). בלי הטקסט ובלי מזהים | `tab`, `spec` (מפתח או `all`), `area_kind`: ‏`hood` \| `city` \| `none`, `surface`: ‏`home` |
+| `search_advisor_click` | ‏R8: לחיצה על ההצעה הזו, או Enter / חיפוש קולי שהוביל אליה | `tab`, `spec`, `area_kind`, `surface` |

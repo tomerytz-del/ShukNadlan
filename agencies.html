@@ -399,12 +399,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* ====== Footer (זהה לדף הבית) ====== */
   /* ‏P1-U1 (‏assets/dm-filters.js, רק ב-?beta=1) */
-  .dmf{display:flex;flex-direction:column;gap:10px;min-width:0}
-  .dmf-row{display:flex;align-items:center;gap:10px;min-width:0}
-  .dmf-area{font:inherit;font-size:.9rem;padding:7px 12px;border:1.5px solid var(--border,#d9dee8);border-radius:999px;background:#fff;color:inherit;max-width:100%}
-  .dmf-count{margin:0;font-size:.85rem;color:var(--ink-soft,#5b6474);min-height:1em}
+  /* ‏R8: עיצוב הסינון ב-assets/filter-ui.css (נטען מ-dm-filters.js); כאן רק מה ששייך לדף */
   .dmf-on > :not(#dmfEmpty){display:none}
-  .dmf-empty-acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1310,6 +1306,11 @@ function mountDm(){
   if (!dmf) return;
   // הגלולות הישנות (מהנכסים, בלי מכירה/השכרה) מתחלפות בשורות המשותפות
   el('specPills').closest('.tool-row').replaceWith(host);
+  // ‏R8: החיפוש החופשי מוצא גם התמחות ושכונה; בטלפון הנוסח הארוך נחתך
+  const se = el('agencySearch'), mqS = window.matchMedia('(max-width:759px)');
+  const ph = () => { se.placeholder = mqS.matches ? 'שם משרד, התמחות או שכונה…' : 'חיפוש לפי שם משרד, התמחות או שכונה…'; };
+  ph(); if (mqS.addEventListener) mqS.addEventListener('change', ph);
+  se.setAttribute('aria-label', 'חיפוש לפי שם משרד, התמחות או שכונה');
   activeSpec = 'all';
   agencies.forEach(a => { a._dmWords = dmf.words(a.id); });
   el('dmfEmpty').addEventListener('click', e => {
