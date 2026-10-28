@@ -498,6 +498,13 @@ def assert_driver_protocol() -> None:
                 if "syntax error" in str(exc).lower():
                     fail(f"ADD VALUE נכשל מסיבה אחרת: {exc}")
         apply_sql(conn, "select 'b'::public.mood;", name="next-file")
+        apply_sql(conn, "set search_path to pg_catalog;", name="path-a")
+        apply_sql(conn, "select 1;", name="path-b")
+        with conn.cursor() as cur:
+            cur.execute("show search_path", prepare=False)
+            seen = str(cur.fetchone()[0])
+        if seen.strip() == "pg_catalog":
+            fail(f"קובץ ב' ראה search_path של קובץ א': {seen}")
         try:
             apply_sql(conn, "create index concurrently mood_idx on public.multi_stmt(id);", name="conc")
         except MigrationFailed as exc:
@@ -770,6 +777,8 @@ def simple_exec(conn, sql: str) -> None:
 
 
 def apply_sql(conn, sql: str, *, name: str) -> None:
+    # כמו ה-CLI: איפוס מצב הסשן לפני כל קובץ, כדי ש-search_path מקובץ קודם לא יישאר.
+    simple_exec(conn, "RESET ALL")
     kind = driver_limitation(sql)
     if kind == "copy-stdin":
         raise MigrationFailed(
