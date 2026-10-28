@@ -3891,6 +3891,21 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hdr-mkt svg{width:15px;height:15px;flex:none}
   html.beta-hero .hdr-mkt-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   html.beta-hero .hdr-mkt-c{flex:none;font-size:11px}
+  /* במחשב הכפתור לא מתכווץ: בלי זה הניווט דחק אותו לאייקון בלבד בצורת ביצה, צמוד ללוגו */
+  @media(min-width:760px){
+    html.beta-hero body header.site .hdr-mkt{flex:none;min-width:max-content;margin-inline:12px 4px;padding:0 14px}
+    html.beta-hero body header.site .hdr-mkt-l{overflow:visible}
+  }
+  /* מחשב צר: עיגול עם האייקון בלבד, ושם האזור בתווית ובטולטיפ */
+  @media(min-width:760px) and (max-width:1599px){
+    html.beta-hero body header.site .hdr-mkt{width:40px;height:40px;min-width:40px;padding:0;justify-content:center}
+    html.beta-hero body header.site .hdr-mkt-l,html.beta-hero body header.site .hdr-mkt-c{display:none}
+  }
+  /* ‏מחשב צר: פחות רווח בין פריטי הניווט, כדי שהלב ו"כניסת יועצי נדל״ן" לא ייחתכו בקצה */
+  @media(min-width:760px) and (max-width:1439px){html.beta-hero body header.site nav.primary{gap:18px}}
+  @media(min-width:760px) and (max-width:1279px){html.beta-hero body header.site nav.primary{gap:12px}}
+  @media(min-width:760px) and (max-width:1199px){html.beta-hero body header.site nav.primary{gap:8px}html.beta-hero body header.site nav.primary > *{font-size:14px}
+    html.beta-hero body header.site .hdr-mkt{margin-inline:4px}html.beta-hero body header.site > .wrap{gap:10px}}
   html.beta-hero body .logo-word [data-market-label]{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* הלוגו לא מתכווץ; הכפתור הוא מה שנחתך (בשלוש נקודות) לפני "כניסה" */
   html.beta-hero body header.site .logo{flex:none}
