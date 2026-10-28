@@ -493,6 +493,10 @@ $$;
         fail("הדחיה המשותפת או שחרור התפיסה לא בסוף")
     if notify.count("customer_phone_release") != 1:
         fail("התפיסה משוחררת יותר מפעם אחת")
+    if 'slot.data === "ok" || slot.data === "already"' not in notify:
+        fail("already לא נתפס יחד עם ok")
+    if 'tookClaim && !pushSent && waStatus !== "sent" && emStatus !== "sent"' not in notify:
+        fail("שחרור אחרי already בלי שליחה חסר")
 
     print("✓ תוקף, דילוג, מיזוג, פיזור, מרווח, תקרה, דחיפה, וחגים עד 2028.")
     return 0
