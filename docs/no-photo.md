@@ -50,7 +50,7 @@ C  כל השאר, וגם מודעה פרטית
 
 **המקור `photo_request`:** ב-`KNOWN_SOURCES` (‏`_shared/lead-routing.ts`, נבדק ב-
 `scripts/lead_source_test.ts`), בתווית "בקשת תמונות" ב-`LX_SOURCES` (‏`crm.js`) וב-
-`lead_source_label()` (מיגרציה `20271029140000_photo_request_source_label.sql`). הערוץ
+`lead_source_label()` (הצעה `docs/proposals/photo_request_source_label.sql`, ממתינה לאישור; עד אז הערוץ נופל ל-other). הערוץ
 (‏`lead_source_channel`) נשאר `other`. הליד מנותב ל-`properties.agent_id` כמו כל פנייה על נכס.
 
 ## סדר ב-`/swipe`

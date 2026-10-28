@@ -4,7 +4,7 @@
  * אותו טופס בדף ‏/open-house ובגיליון שבהחלקה (‏#swBs kind fair_signup), ולכן
  * הוא כאן ולא בכל אחד מהם: שני נוסחים של הסכמה הם שתי הסכמות שונות.
  *
- * ‏V2 כבוי עד שהמיגרציה ‏20271029150000_fair_signup_and_lead_consent.sql
+ * ‏V2 כבוי עד שההצעה docs/proposals/fair_signup_and_lead_consent.sql
  * והפונקציות (‏saved-search-intake עם open_house_only) באוויר. כבוי - טופס
  * האימייל הקיים (‏open-house-subscribe), כמו בדף היום.
  *

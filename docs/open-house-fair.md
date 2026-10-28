@@ -677,7 +677,7 @@ HTML ואותם נתונים (‏`window.__fairState` / האירוע `fair:loade
 - בלוק ליועצי הנדל״ן ("רוצים להכניס דירה ליריד?") וחמש שאלות. ה-FAQPage שבראש נבנה
   **מאותו מערך** בזמן ריצה, ולכן אין שני נוסחים (בלי הדגל - ה-FAQPage הסטטי של היום).
 - ההרשמה: הטופס v2 (‏`assets/fair-signup.js`, משותף לגיליון בהחלקה) רק כש-`FairSignup.V2`
-  דלוק - אחרי שהמיגרציה `20271029150000_fair_signup_and_lead_consent.sql` והפונקציות באוויר.
+  דלוק - אחרי שההצעה `docs/proposals/fair_signup_and_lead_consent.sql` (תומר מאשר ומעביר לצינור) והפונקציות באוויר.
   עד אז טופס האימייל הקיים.
 - ‏`/no-commission` ו-`/ללא-עמלת-תיווך` מפנים ב-301 לכאן (‏`_redirects`).
 - אירועים: `fair_view{state, n}`, ‏`fair_agent_cta{cta}`, ‏`fair_signup_open{via:'page'}`.

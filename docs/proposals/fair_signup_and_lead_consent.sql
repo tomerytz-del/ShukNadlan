@@ -2,7 +2,7 @@
 -- ‏הרשמה ליריד הבתים הפתוחים (v2), הסכמה עם חותמת זמן, וערוץ להחלקה
 -- (‏PR 1010, חלק 5 §9; ‏docs/open-house-fair.md, ‏docs/swipe-mode.md).
 --
--- נכתבה ב-PR ונפרסת בצינור הרגיל אחרי המיזוג. כל מה שבה אדיטיבי:
+-- הצעה (‏docs/proposals): לא רצה. תומר מאשר ומעביר ל-supabase/migrations עם version חדש. כל מה שבה אדיטיבי:
 --   1. ‏leads: ‏consent_contact_at / consent_text / consent_version - כרטיס
 --      "חושבים למכור?" בהחלקה (‏owner-lead-intake) ושאר הטפסים בעתיד.
 --   2. ‏saved_searches: ‏open_house_only + ההסכמה השיווקית עם חותמת זמן -
@@ -147,11 +147,11 @@ as $function$
       or p_source = 'agency'                    then 'agency_page'
     when p_source like 'agent\_page%'           then 'agent_page'
     when p_source like 'project%'               then 'project_page'
-    -- 20271029150000: ההרשמה ליריד בדף ‏/open-house ובגיליון שבהחלקה
+    -- ההרשמה ליריד בדף ‏/open-house ובגיליון שבהחלקה
     when p_source in ('open_house_page', 'nocommission_fair', 'swipe_fair') then 'open_house'
-    -- 20271029150000: גלישה בהחלקה (פנייה, כרטיס סיום, ממומן, חושבים למכור)
+    -- גלישה בהחלקה (פנייה, כרטיס סיום, ממומן, חושבים למכור)
     when p_source like 'swipe%'                 then 'swipe'
-    -- 20271029150000: דף "חושבים למכור?" (‏/sell)
+    -- דף "חושבים למכור?" (‏/sell)
     when p_source like 'sell\_page%'            then 'sell_page'
     when p_source like 'meta\_ads%'             then 'meta_ads'
     -- 20270806090000: גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake)

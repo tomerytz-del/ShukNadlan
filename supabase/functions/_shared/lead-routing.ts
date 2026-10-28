@@ -154,7 +154,7 @@ const KNOWN_SOURCES = new Set([
   "meta_ads_property_form",
   // גלישה בהחלקה (‏/swipe, ‏docs/swipe-mode.md): פנייה על נכס מגיליון הפרטים,
   // ופנייה למפרסם מכרטיס ממומן (כבוי כרגע - SPONSORED_ENABLED ב-assets/swipe.js).
-  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏20271029150000).
+  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏docs/proposals/fair_signup_and_lead_consent.sql, ממתינה לאישור).
   "swipe",
   "swipe_sponsored",
   // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
