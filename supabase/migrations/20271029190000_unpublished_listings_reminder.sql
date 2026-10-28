@@ -1,7 +1,7 @@
 -- תזכורת שבועית על נכסים שלא באוויר.
 --
 -- הגיל הוא unpublished_at, לא created_at: נכס ישן שירד אתמול לא נספר
--- מיד. מילוי השורות הקיימות הוא now(), כדי שסבב ראשון לא ישלח כלום.
+-- מיד. מילוי השורות הקיימות מפוזר, כדי שסף 7 הימים לא ייפול על כולן ביום אחד.
 -- unpublished_origin מבדיל טיוטה שלא פורסמה מירידה מהמדף. שורות ישנות
 -- נשארות בלי מקור, והנוסח לא טוען שהן ירדו.
 --
@@ -44,7 +44,7 @@ do $$ begin
 end $$;
 
 comment on column public.properties.unpublished_at is
-  'מתי הנכס יצא מפרסום, או מתי נוצרה טיוטה. מילוי ראשון הוא now(), לא created_at.';
+  'מתי הנכס יצא מפרסום, או מתי נוצרה טיוטה. מילוי ראשון מפזר את השעון, לא now() אחיד.';
 comment on column public.properties.unpublished_origin is
   'draft = נוצר unpublished. taken_down = היה active וירד. null = שורה ישנה בלי היסטוריה.';
 
@@ -99,12 +99,24 @@ create trigger properties_stamp_unpublished_at
   before insert or update of status on public.properties
   for each row execute function public.properties_stamp_unpublished_at();
 
--- שורות שכבר unpublished: הגיל מתחיל עכשיו. בלי זה נכס בן שנה שירד
--- אתמול היה נספר מיד. המקור נשאר ריק כי אין היסטוריית סטטוס.
-update public.properties
-   set unpublished_at = now()
- where status = 'unpublished'
-   and unpublished_at is null;
+-- שורות שכבר unpublished. now() אחיד היה מביא את כולן לסף 7 הימים
+-- באותו יום, ברגע שהדגל נדלק. updated_at או created_at מהשבועות האחרונים
+-- הוא שעון אמיתי ומפוזר. שורה ישנה יותר מקבלת גיל של 0 עד 20 יום לפי
+-- hash של המזהה, כך שסף 7 הימים נחצה בימים שונים ולא בגל אחד.
+update public.properties p
+   set unpublished_at = case
+         when p.updated_at is not null
+              and p.updated_at <= now()
+              and p.updated_at > now() - interval '21 days'
+           then p.updated_at
+         when p.created_at is not null
+              and p.created_at <= now()
+              and p.created_at > now() - interval '21 days'
+           then p.created_at
+         else now() - make_interval(days => abs(hashtext(p.id::text)) % 21)
+       end
+ where p.status = 'unpublished'
+   and p.unpublished_at is null;
 
 create index if not exists properties_unpublished_waiting_idx
   on public.properties (agent_id, unpublished_at)
@@ -118,6 +130,7 @@ create table if not exists public.unpublished_reminder_snooze (
   updated_at timestamptz not null default now(),
   primary key (agent_id, property_id)
 );
+alter table public.unpublished_reminder_snooze enable row level security;
 revoke all on table public.unpublished_reminder_snooze from public, anon, authenticated;
 grant select, insert, update, delete on table public.unpublished_reminder_snooze to service_role;
 
@@ -130,6 +143,7 @@ create table if not exists public.unpublished_nudge_log (
 );
 create index if not exists unpublished_nudge_log_agent_idx
   on public.unpublished_nudge_log (agent_id, created_at desc);
+alter table public.unpublished_nudge_log enable row level security;
 revoke all on table public.unpublished_nudge_log from public, anon, authenticated;
 grant select, insert, update, delete on table public.unpublished_nudge_log to service_role;
 
@@ -140,6 +154,7 @@ create table if not exists public.unpublished_collab_opt_in (
   fanout_at timestamptz,
   fanout_count int not null default 0
 );
+alter table public.unpublished_collab_opt_in enable row level security;
 revoke all on table public.unpublished_collab_opt_in from public, anon, authenticated;
 grant select, insert, update, delete on table public.unpublished_collab_opt_in to service_role;
 
