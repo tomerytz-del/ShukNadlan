@@ -27,6 +27,8 @@ HELPERS = (
     "social_buyer_conversation_id(",
     "social_buyer_search_conversation_id(",
     "social_buyer_caps_ready(",
+    "social_post_host_ok(",
+    "social_buyer_source_post_url(",
     "social_buyer_handover(",
     "social_buyer_to_open_demand(",
     "open_demand_claim(",
@@ -87,9 +89,8 @@ def main() -> int:
         fail("המיגרציה מפעילה התראה (מילוי לאחור)")
     if "notify_agent_on_new_lead" in code or "notifications_apply_preferences" in code:
         fail("הטריגר נוגע בפונקציות שאסור לשנות")
-    social_arm = src.split("when v_social", 1)[1].split("else", 1)[0]
-    if "פוסט" in social_arm:
-        fail("נוסח השיחה כולל את המילה פוסט")
+    if "יקבל/תקבל קישור לפוסט" not in src or "יקבל/תקבל את פרטי הקשר" not in src:
+        fail("נוסח ההתראה לא מפריד פוסט מהודעה פרטית")
     if "social_buyer_handover" not in extract(MIG, "open_demand_claim("):
         fail("התפיסה לא קוראת למסירה")
 
@@ -138,12 +139,13 @@ create table public.saved_searches (
 create table public.scraped_leads (
   id uuid primary key default gen_random_uuid(),
   lead_type text, status text, source text, source_detail text,
-  post_url text, external_ref text, posted_at timestamptz, city text, city_id uuid,
+  post_url text, source_post_url text, external_ref text, posted_at timestamptz, city text, city_id uuid,
+  neighborhood_id uuid,
   deal_type text, property_type text, rooms numeric, budget numeric,
   demand_summary text, open_demand_at timestamptz,
   raw_name text, raw_phone text, raw_message text,
   move_in text, no_broker text, push_site_only boolean default false,
-  demand_notified_at timestamptz, claimed_by uuid, claimed_at timestamptz,
+  demand_notified_at timestamptz, claimed_by uuid, claimed_at timestamptz, lead_id uuid,
   created_at timestamptz default now(),
   unique (source, external_ref)
 );
@@ -152,12 +154,33 @@ create table public.agency_members (
   active boolean default true,
   released_at timestamptz,
   license_status text,
-  agency_id uuid
+  agency_id uuid,
+  display_name text
 );
 create table public.leads (
   id uuid primary key default gen_random_uuid(),
+  lead_type text, agent_id uuid, agency_id uuid, status text,
+  raw_name text, raw_phone text, raw_message text,
+  city text, deal_type text, property_type text,
+  source text, source_detail text, external_ref text,
   unlocked_by uuid, unlocked_at timestamptz, created_at timestamptz default now()
 );
+create table public.social_buyer_handoffs (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null, agent_id uuid not null,
+  agent_first_name text not null, status text not null default 'pending',
+  created_at timestamptz not null default now()
+);
+create function public.claim_lead(p_lead_id uuid, p_agent_id uuid)
+returns jsonb language plpgsql as $$
+begin
+  update public.leads
+     set status = 'unlocked', unlocked_by = p_agent_id, unlocked_at = now()
+   where id = p_lead_id;
+  return jsonb_build_object(
+    'success', true, 'price_charged', 0, 'quota_source', 'subscription_unlimited',
+    'raw_phone', '0500000000', 'raw_name', 'דנה');
+end $$;
 create table public.notifications (
   id uuid primary key default gen_random_uuid(),
   agent_id uuid, type text, title text, body text,
@@ -279,22 +302,34 @@ insert into public.pricing_config (key, value) values
             fail(f"הסיכום חסר: {row}")
         print("✓ דגל 1 ותקרות: ארכיון בלי לעצור התראות, והקריטריונים בוחרים את השורה")
 
+        psql(f"insert into public.agency_members (id, active, display_name) values ('{AGENT}', true, 'תומר יצחק')")
+        psql("insert into public.pricing_config (key, value) values ('social_buyer_handoff_enabled', 0)")
         hand = psql(
             "select public.social_buyer_handover(id)::text from public.scraped_leads "
             "where external_ref = 'z-buyer'"
         )
-        if "pending" not in hand or "post_url" in hand or "phone" in hand or "050" in hand or "דנה" in hand:
+        if "lead_id" not in hand or "post_url" in hand or "phone" in hand or "050" in hand or "דנה" in hand:
             fail(f"המסירה חשפה פרטים: {hand}")
-        print("✓ המסירה pending בלי שם ובלי טלפון")
+        if psql("select count(*) from public.social_buyer_handoffs") != "0":
+            fail("התור נכתב כשהדגל כבוי")
+        psql("update public.pricing_config set value = 1 where key = 'social_buyer_handoff_enabled'")
+        hand = psql(
+            "select public.social_buyer_handover(id)::text from public.scraped_leads "
+            "where external_ref = 'z-buyer'"
+        )
+        queued = psql("select agent_first_name || '|' || status from public.social_buyer_handoffs")
+        if queued != "תומר|pending" or "050" in queued or "יצחק" in queued:
+            fail(f"תור המסירה: {queued}")
+        print("✓ הודעה פרטית: ליד בלי טלפון ב-JSON, ותור עם שם פרטי בלבד")
 
         psql_script(extract(MIG, "open_demand_claim("))
         claimed = psql(
             "select public.open_demand_claim(id)::text from public.scraped_leads "
             "where external_ref = 'z-buyer'"
         )
-        if "pending" not in claimed or "post_url" in claimed or "phone" in claimed or "דנה" in claimed:
+        if "lead_id" not in claimed or "source_post_url" in claimed or "phone" in claimed or "050" in claimed or "דנה" in claimed:
             fail(f"אני פונה החזיר קישור או פרטים: {claimed}")
-        print("✓ אני פונה קורא למסירה ולא לכתובת")
+        print("✓ אני פונה על הודעה פרטית מחזיר ליד, לא קישור")
 
         add_social("z-nocity", "buyer", "0509999999")
         _sid, status = add_search("0509999999", None, rooms=None, max_price=None, ptype=None)
@@ -358,7 +393,7 @@ select id, now(), now() - interval '2 days'
         if n != "8":
             fail(f"התקרה לא חתכה ל-8 ({n})")
         body = psql("select distinct body from public.notifications")
-        if "פוסט" in body or "גבריאלה" not in body or "050" in body or "דנה" in body:
+        if "פרטי הקשר" not in body or "פוסט" in body or "050" in body or "דנה" in body:
             fail(f"נוסח ההתראה: {body}")
         pulls = psql(
             "select count(*) from public.open_demand_notify_log l "
@@ -366,7 +401,38 @@ select id, now(), now() - interval '2 days'
         )
         if pulls != "0":
             fail(f"נבחרו סוכנים שתפסו ליד: {pulls}")
-        print("✓ התראת שיחה: 8 בלי תפיסה אחרונה, בלי המילה פוסט")
+        print("✓ התראת הודעה פרטית: 8 בלי תפיסה אחרונה, פרטי קשר בלי המילה פוסט")
+        add_social(
+            "z-post", "buyer", "0501234777",
+            extra="'city', 'עפולה', 'deal_type', 'sale', 'property_type', 'דירה', "
+                  "'source_post_url', 'https://www.facebook.com/groups/1/posts/2', "
+                  "'post_url', 'http://evil.example/facebook.com'",
+        )
+        _sid, status = add_search("0501234777", "עפולה")
+        if status != "archived|active":
+            fail(f"פוסט לא ירד מהמדף ({status})")
+        stored = psql(
+            "select post_url || '|' || coalesce(source_post_url, '') "
+            "from public.scraped_leads where external_ref = 'z-post'"
+        )
+        if not stored.startswith("https://shuknadlan.co.il/crm?goto=accLeads&tab=demand|https://www.facebook.com/"):
+            fail(f"הפרדת הכתובות: {stored}")
+        listed_fn = extract(MIG, "open_demand_list(")
+        if "source_post_url" in listed_fn:
+            fail("הרשימה בוחרת את קישור הפוסט")
+        psql_script(listed_fn)
+        listed = psql("select coalesce(string_agg(coalesce(post_url, ''), ','), '') from public.open_demand_list()")
+        if "facebook.com" in listed or "instagram.com" in listed:
+            fail(f"הרשימה החזירה פוסט: {listed}")
+        post_claim = psql(
+            "select public.open_demand_claim(id)::text from public.scraped_leads "
+            "where external_ref = 'z-post'"
+        )
+        if "https://www.facebook.com/groups/1/posts/2" not in post_claim or "050" in post_claim or "phone" in post_claim:
+            fail(f"התפיסה לא מסרה את הפוסט לתופס: {post_claim}")
+        if "tab=demand" in post_claim:
+            fail(f"התפיסה החזירה את קישור ה-CRM: {post_claim}")
+        print("✓ פוסט: הרשימה בלי הקישור, והתפיסה מחזירה רק אותו")
 
         psql_script(
             "create or replace function public.social_buyer_search_conversation_id(p_search_id uuid)\n"
@@ -389,7 +455,7 @@ select id, now(), now() - interval '2 days'
             fail(f"נצמד לשיחה הלא נכונה: {ref}")
         print("✓ מזהה שיחה, כשהחיפוש נושא אחד, גובר על השורה החדשה יותר")
 
-        if psql("select count(*) from public.scraped_leads") != "3":
+        if psql("select count(*) from public.scraped_leads") != "4":
             fail("נוצרו שורות מיותרות")
         print("עבר")
         return 0

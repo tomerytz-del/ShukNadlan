@@ -91,18 +91,40 @@ Content-Type: application/json
    לקבל התראות על נכסים. נכתבת שורת `scraped_leads` עם
    `status=open_demand`, `lead_type=seeker_inbound`, בלי שם, בלי טלפון
    ובלי הטקסט המקורי. `external_ref` הוא `zernio_id`.
-5. `open_demand_list` מציג את השורה מיד, ובלי `post_url` (אין פוסט; הכתובת
-   שנשמרת בטבלה רק ממלאת את האילוץ `https://`). וואטסאפ לא יוצא מהטריגר.
+5. `open_demand_list` מציג את השורה מיד, ובלי `post_url` ובלי `source_post_url`.
+   `post_url` נשאר קישור ה-CRM (`/crm?goto=accLeads&tab=demand`) רק כדי למלא
+   את אילוץ ה-https. קישור הפוסט האמיתי, אם יש, נשמר ב-`source_post_url`
+   ורק תפיסה מוצלחת מחזירה אותו. וואטסאפ לא יוצא מהטריגר.
    `scraped_leads_lifecycle` (הסבב הקיים, פעם בשעה) מודיע על שורה ש-
    `demand_notified_at` שלה ריק. המיגרציה לא קוראת ל-`scraped_lead_notify_demand`.
    ההתראה למחפש/ת כזה יוצאת לעד `open_demand_notify_cap` (8), קודם למי שלא
    תפס/ה ליד ב-14 הימים, והנוסח לא אומר להגיב בפוסט. בלי יומן התקרה השורה
    לא מופצת. אם תקרת התבניות כבויה, ההתראה נשארת בפעמון.
 6. בלי עיר, או עיר שלא זוהתה: החיפוש נשאר במדף.
-7. "אני פונה" (`open_demand_claim`) על השורה הזו קורא ל-`social_buyer_handover`
-   ולא מחזיר `post_url`, שם או טלפון. הפונקציה מחזירה `handover: pending`.
-   איך הפרטים יימסרו לסוכן/ת זו החלטה שעדיין לא נפלה, והיא מתחלפת רק שם.
-   הפרטים נשארים על שורת `saved_searches` שאורכבה, ולא מועתקים ל-`scraped_leads`.
+7. "אני פונה" (`open_demand_claim`):
+   - יש `source_post_url` חוקי (https, ורק facebook.com, fb.com, instagram.com
+     או m.facebook.com): התשובה מכילה את הקישור לפוסט, לא את קישור ה-CRM.
+     גבריאלה שולחת לתופס/ת כפתור לפוסט. הרשימה, הסטטיסטיקה, ההתראה והכלי
+     לא מחזירים את הקישור לפני התפיסה.
+   - הודעה פרטית בלי פוסט: נפתח ליד `masked` מהפרטים שב-`saved_searches`,
+     ו-`claim_lead` מחייבת כמו כל ליד. התשובה מכילה `lead_id` בלי טלפון.
+     כש-`social_buyer_handoff_enabled` הוא 1 נכתבת שורה ב-`social_buyer_handoffs`
+     (`lead_id`, `agent_id`, שם פרטי בלבד, `created_at`, `status`). אין שליחה
+     לפונה מהריפו. הדגל נולד 0.
+
+   שאילתת התור לגבריאלה של מטא, בלי טלפון:
+
+   ```sql
+   select h.lead_id, h.agent_id, h.agent_first_name, h.created_at, h.status,
+          sl.channel, sl.zernio_id,
+          public.social_buyer_conversation_id(sl.payload) as conversation_id
+     from public.social_buyer_handoffs h
+     join public.scraped_leads sc on sc.lead_id = h.lead_id
+     join public.social_leads sl on sl.zernio_id = sc.external_ref
+    where h.status = 'pending'
+      and h.created_at > now() - interval '24 hours'
+    order by h.created_at;
+   ```
 
 ## מי רשאי/ת לסמן מקור חברתי
 

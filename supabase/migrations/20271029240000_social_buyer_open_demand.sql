@@ -29,6 +29,11 @@ values ('social_buyer_open_demand_enabled', 0,
         '1: מחפש/ת מפייסבוק או מאינסטגרם יורד/ת מהמדף ונכנס/ת לביקוש הפתוח, ורק אם תקרת הביקוש ותקרת התבניות דלוקות. 0: נשאר/ת במדף כמו היום.')
 on conflict (key) do nothing;
 
+insert into public.pricing_config (key, value, description)
+values ('social_buyer_handoff_enabled', 0,
+        '1: אחרי "אני פונה" על מחפש/ת מהודעה פרטית נרשמת שורת מסירה לגבריאלה של מטא, בלי טלפון. 0: הליד נפתח, ואין שורה בתור.')
+on conflict (key) do nothing;
+
 -- מספר מה-payload בלי להפיל את ה-insert כשהטקסט אינו מספר.
 create or replace function public.social_buyer_num(p text)
 returns numeric
@@ -64,6 +69,92 @@ comment on function public.social_buyer_is_dm(text, text) is
 
 revoke all on function public.social_buyer_is_dm(text, text) from public, anon, authenticated;
 grant execute on function public.social_buyer_is_dm(text, text) to service_role;
+
+-- קישור לפוסט המקורי. https בלבד, ורק מארחים של פייסבוק ואינסטגרם.
+create or replace function public.social_post_host_ok(p_url text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_url is not null
+     and char_length(p_url) <= 600
+     and p_url ~ '^https://'
+     and p_url !~ '^https://[^/?#]*@'
+     and lower(substring(p_url from '^https://([^/:?#]+)')) in (
+           'facebook.com', 'www.facebook.com', 'm.facebook.com',
+           'fb.com', 'www.fb.com',
+           'instagram.com', 'www.instagram.com'
+         );
+$$;
+
+comment on function public.social_post_host_ok(text) is
+  'true רק ל-https בלי שם משתמש בכתובת, על facebook.com, fb.com, instagram.com או m.facebook.com.';
+
+revoke all on function public.social_post_host_ok(text) from public, anon, authenticated;
+grant execute on function public.social_post_host_ok(text) to service_role;
+
+create or replace function public.social_buyer_source_post_url(p_payload jsonb)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select s.u
+    from unnest(array[
+           'source_post_url', 'permalink', 'post_permalink', 'comment_url', 'post_url'
+         ]) with ordinality as k(key, n)
+    cross join lateral (
+      select nullif(btrim(p_payload->>k.key), '') as u
+    ) s
+   where public.social_post_host_ok(s.u)
+   order by k.n
+   limit 1;
+$$;
+
+comment on function public.social_buyer_source_post_url(jsonb) is
+  'קישור הפוסט מ-payload, אם הוא ב-allowlist. כתובת ה-CRM אינה עוברת.';
+
+revoke all on function public.social_buyer_source_post_url(jsonb) from public, anon, authenticated;
+grant execute on function public.social_buyer_source_post_url(jsonb) to service_role;
+
+alter table public.scraped_leads
+  add column if not exists source_post_url text;
+
+comment on column public.scraped_leads.source_post_url is
+  'קישור הפוסט המקורי. לא חוזר מ-open_demand_list, מסטטיסטיקה, מהתראה או מכלי, לפני תפיסה מוצלחת. post_url של מחפש/ת מהרשתות נשאר קישור ה-CRM.';
+
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'scraped_leads_source_post_url_chk'
+  ) then
+    alter table public.scraped_leads
+      add constraint scraped_leads_source_post_url_chk
+      check (source_post_url is null or public.social_post_host_ok(source_post_url));
+  end if;
+end $$;
+
+-- תור לגבריאלה של מטא. אין בו טלפון, שם של הפונה, או קישור.
+create table if not exists public.social_buyer_handoffs (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references public.leads(id) on delete cascade,
+  agent_id uuid not null references public.agency_members(id) on delete cascade,
+  agent_first_name text not null,
+  status text not null default 'pending',
+  created_at timestamptz not null default now(),
+  constraint social_buyer_handoffs_status_chk check (status in ('pending', 'sent', 'skipped', 'failed')),
+  constraint social_buyer_handoffs_name_chk check (
+    char_length(agent_first_name) between 1 and 40
+    and agent_first_name !~ '[0-9]'
+  )
+);
+
+comment on table public.social_buyer_handoffs is
+  'תור מסירה לגבריאלה של מטא: ליד, סוכן/ת, ושם פרטי בלבד. אין טלפון. לא נשלח מכאן כלום לפונה.';
+
+alter table public.social_buyer_handoffs enable row level security;
+revoke all on table public.social_buyer_handoffs from public, anon, authenticated;
+grant select, insert, update, delete on table public.social_buyer_handoffs to service_role;
 
 -- מזהה שיחה ב-payload, אם גבריאלה שלחה אחד. אין עמודה כזו היום.
 create or replace function public.social_buyer_conversation_id(p_payload jsonb)
@@ -139,30 +230,126 @@ comment on function public.social_buyer_caps_ready() is
 revoke all on function public.social_buyer_caps_ready() from public, anon, authenticated;
 grant execute on function public.social_buyer_caps_ready() to service_role;
 
--- מסירת פרטי הקשר אחרי "אני פונה". תומר מחליט איך. עד אז אין שם ואין טלפון.
--- מילוי ההחלטה מחליף רק את הפונקציה הזו.
-create or replace function public.social_buyer_handover(p_id uuid)
+-- הודעה פרטית בלי פוסט: ליד רגיל, תפיסה ותשלום כמו claim_lead, ותור בלי טלפון.
+-- פוסט (source_post_url) לא עובר כאן. אין שליחה לפונה מהריפו.
+create or replace function public.social_buyer_handover(p_id uuid, p_agent uuid default null)
 returns jsonb
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  s public.scraped_leads%rowtype;
+  s            public.scraped_leads%rowtype;
+  v_agent      uuid := coalesce(p_agent, public.current_agent_id());
+  v_agency     uuid;
+  v_first      text;
+  v_seeker     text;
+  v_phone      text;
+  v_email      text;
+  v_lead       uuid;
+  v_claim      jsonb;
+  v_queue      int;
 begin
   select * into s from public.scraped_leads where id = p_id;
   if not found or not public.social_buyer_is_dm(s.source, s.lead_type) then
     return jsonb_build_object('error', 'not_social_buyer');
   end if;
-  return jsonb_build_object('success', true, 'handover', 'pending');
+  if public.social_post_host_ok(s.source_post_url) then
+    return jsonb_build_object('error', 'has_post');
+  end if;
+  if v_agent is null then
+    return jsonb_build_object('error', 'not_agent');
+  end if;
+  if coalesce((select value::int from public.pricing_config
+                where key = 'social_buyer_open_demand_enabled'), 0) <> 1 then
+    return jsonb_build_object('error', 'flag_off');
+  end if;
+
+  select m.agency_id,
+         nullif(split_part(btrim(coalesce(m.display_name, '')), ' ', 1), '')
+    into v_agency, v_first
+    from public.agency_members m
+   where m.id = v_agent
+     and m.active;
+  if not found then
+    return jsonb_build_object('error', 'not_agent');
+  end if;
+  if v_first is null or v_first ~ '[0-9]' or char_length(v_first) > 40 then
+    v_first := 'מתווך';
+  end if;
+
+  select ss.full_name, ss.phone, ss.email
+    into v_seeker, v_phone, v_email
+    from public.saved_searches ss
+    join public.social_leads sl on sl.zernio_id = s.external_ref
+   where ss.source = s.source
+     and ss.agency_id is null
+     and ss.lead_status = 'archived'
+     and (
+       (public.phone_tail9(ss.phone) is not null
+        and public.phone_tail9(ss.phone) = public.phone_tail9(sl.payload->>'phone'))
+       or (nullif(lower(btrim(coalesce(ss.email, ''))), '') is not null
+           and lower(btrim(ss.email)) = lower(btrim(coalesce(sl.payload->>'email', ''))))
+     )
+   order by ss.id
+   limit 1;
+  if v_phone is null and v_email is null then
+    return jsonb_build_object('error', 'no_contact');
+  end if;
+
+  begin
+    select l.id into v_lead
+      from public.leads l
+     where l.source = s.source
+       and l.external_ref = s.external_ref;
+    if v_lead is null then
+      insert into public.leads (
+        lead_type, agent_id, agency_id, status,
+        raw_name, raw_phone, raw_message,
+        city, deal_type, property_type,
+        source, source_detail, external_ref
+      ) values (
+        'seeker_inbound', v_agent, v_agency, 'masked',
+        coalesce(nullif(btrim(v_seeker), ''), 'פונה מפייסבוק'),
+        v_phone, null,
+        s.city, s.deal_type, s.property_type,
+        s.source, left(coalesce(s.source_detail, s.source), 120), s.external_ref
+      )
+      returning id into v_lead;
+    end if;
+    v_claim := public.claim_lead(v_lead, v_agent);
+    if coalesce(v_claim->>'success', '') is distinct from 'true' then
+      raise exception 'claim_failed';
+    end if;
+    v_queue := coalesce((select value::int from public.pricing_config
+                          where key = 'social_buyer_handoff_enabled'), 0);
+    if v_queue = 1 and not exists (
+      select 1 from public.social_buyer_handoffs h where h.lead_id = v_lead
+    ) then
+      insert into public.social_buyer_handoffs (lead_id, agent_id, agent_first_name, status)
+      values (v_lead, v_agent, v_first, 'pending');
+    end if;
+  exception when others then
+    return jsonb_build_object(
+      'error', coalesce(nullif(v_claim->>'error', ''), 'handoff_failed')
+    );
+  end;
+
+  return jsonb_build_object(
+    'success', true,
+    'lead_id', v_lead,
+    'price_charged', v_claim->'price_charged',
+    'quota_source', v_claim->>'quota_source',
+    'handoff', case when v_queue = 1 then 'queued' else 'off' end
+  );
 end;
 $$;
 
-comment on function public.social_buyer_handover(uuid) is
-  'מסירת קשר למחפש/ת משיחת גבריאלה אחרי "אני פונה". pending: בלי שם, בלי טלפון, בלי מייל ובלי קישור. ההחלטה מתחלפת כאן בלבד.';
+comment on function public.social_buyer_handover(uuid, uuid) is
+  'הודעה פרטית בלי פוסט: ליד masked ואז claim_lead. תור המסירה רק כשהדגל דלוק, ובלי טלפון. ההחלטה מתחלפת כאן.';
 
-revoke all on function public.social_buyer_handover(uuid) from public, anon, authenticated;
-grant execute on function public.social_buyer_handover(uuid) to service_role;
+revoke all on function public.social_buyer_handover(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.social_buyer_handover(uuid, uuid) to service_role;
 
 create or replace function public.social_buyer_to_open_demand()
 returns trigger
@@ -178,6 +365,7 @@ declare
   v_rooms  numeric;
   v_budget numeric;
   v_summary text;
+  v_post text;
 begin
   if tg_op <> 'INSERT' then
     return new;
@@ -290,17 +478,20 @@ begin
     case when v_budget is not null then 'עד ₪' || to_char(v_budget, 'FM999,999,999') end
   ), 160);
 
+  v_post := public.social_buyer_source_post_url(
+    (select sl.payload from public.social_leads sl where sl.zernio_id = v_ref));
+
   begin
     insert into public.scraped_leads (
-      lead_type, status, source, source_detail, post_url, external_ref, posted_at,
+      lead_type, status, source, source_detail, post_url, source_post_url, external_ref, posted_at,
       city, city_id, deal_type, property_type, rooms, budget, demand_summary,
       open_demand_at, raw_name, raw_phone, raw_message
     ) values (
       'seeker_inbound', 'open_demand', new.source,
       left(coalesce(public.lead_source_label(new.source), new.source), 120),
-      -- האילוץ דורש https. זו לא דרך קשר: הרשימה מחזירה null, והתפיסה
-      -- קוראת ל-social_buyer_handover ולא לכתובת הזו.
+      -- האילוץ דורש https. זו כתובת ה-CRM, לא הפוסט. הפוסט ב-source_post_url.
       'https://shuknadlan.co.il/crm?goto=accLeads&tab=demand',
+      v_post,
       v_ref, now(),
       v_city, v_city_id,
       case when new.deal_type in ('sale', 'rent') then new.deal_type end,
@@ -363,7 +554,7 @@ as $$
 $$;
 
 comment on function public.open_demand_list() is
-  'ביקוש פתוח (אנונימי) בערים של הסוכן/ת. למחפש/ת משיחת גבריאלה אין post_url: אין פוסט. docs/scraped-leads.md';
+  'ביקוש פתוח בערים של הסוכן/ת. source_post_url לא נבחר כאן. למחפש/ת מהרשתות post_url יוצא null, כי בעמודה יושב קישור ה-CRM. docs/scraped-leads.md';
 
 revoke all on function public.open_demand_list() from public, anon, authenticated;
 grant execute on function public.open_demand_list() to authenticated, service_role;
@@ -396,7 +587,10 @@ begin
   end if;
   if s.claimed_by = v_agent then
     if public.social_buyer_is_dm(s.source, s.lead_type) then
-      v_hand := public.social_buyer_handover(p_id);
+      if public.social_post_host_ok(s.source_post_url) then
+        return jsonb_build_object('success', true, 'source_post_url', s.source_post_url, 'already_mine', true);
+      end if;
+      v_hand := public.social_buyer_handover(p_id, v_agent);
       return v_hand || jsonb_build_object('already_mine', true);
     end if;
     return jsonb_build_object('success', true, 'post_url', s.post_url, 'already_mine', true);
@@ -411,17 +605,29 @@ begin
     return jsonb_build_object('error', 'daily_cap', 'daily_cap', v_cap);
   end if;
 
-  update public.scraped_leads set claimed_by = v_agent, claimed_at = now() where id = p_id;
+  if public.social_buyer_is_dm(s.source, s.lead_type)
+     and public.social_post_host_ok(s.source_post_url) then
+    update public.scraped_leads set claimed_by = v_agent, claimed_at = now() where id = p_id;
+    return jsonb_build_object('success', true, 'source_post_url', s.source_post_url,
+                              'my_today', v_used + 1, 'daily_cap', v_cap);
+  end if;
   if public.social_buyer_is_dm(s.source, s.lead_type) then
-    v_hand := public.social_buyer_handover(p_id);
+    v_hand := public.social_buyer_handover(p_id, v_agent);
+    if coalesce(v_hand->>'success', '') is distinct from 'true' then
+      return v_hand;
+    end if;
+    update public.scraped_leads
+       set claimed_by = v_agent, claimed_at = now(), lead_id = nullif(v_hand->>'lead_id', '')::uuid
+     where id = p_id;
     return v_hand || jsonb_build_object('my_today', v_used + 1, 'daily_cap', v_cap);
   end if;
+  update public.scraped_leads set claimed_by = v_agent, claimed_at = now() where id = p_id;
   return jsonb_build_object('success', true, 'post_url', s.post_url,
                             'my_today', v_used + 1, 'daily_cap', v_cap);
 end $$;
 
 comment on function public.open_demand_claim(uuid) is
-  '"אני פונה": הביקוש לסוכן/ת אחד/ת. פוסט מחזיר post_url. מחפש/ת משיחת גבריאלה עובר/ת ל-social_buyer_handover, בלי שם ובלי טלפון.';
+  '"אני פונה". פוסט סרוק מחזיר post_url. מחפש/ת עם source_post_url מחזיר רק אותו. הודעה פרטית בלי פוסט פותחת ליד דרך claim_lead, בלי טלפון ב-JSON.';
 
 revoke all on function public.open_demand_claim(uuid) from public, anon, authenticated;
 grant execute on function public.open_demand_claim(uuid) to authenticated, service_role;
@@ -506,9 +712,12 @@ begin
                                 || to_char(r.budget, 'FM999,999,999') end,
                       case when r.move_in is not null then 'כניסה: ' || r.move_in end,
                       case when r.no_broker is not null then 'כתבו ללא תיווך' end)
-    || case when v_social
-            then '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
-            else '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.'
+    || case
+         when v_social and public.social_post_host_ok(r.source_post_url)
+           then '. חינם. הסוכן/ת הראשון/ה שלוחץ/ת "אני פונה" יקבל/תקבל קישור לפוסט.'
+         when v_social
+           then '. חינם. הסוכן/ת הראשון/ה שלוחץ/ת "אני פונה" יקבל/תקבל את פרטי הקשר.'
+         else '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.'
        end;
 
   if not v_use_cap then
