@@ -26373,10 +26373,12 @@ const REMINDER_KINDS = [
 
 const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));
 
-/* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents): סוכן/ת בלי
-   שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום ושקט 21→8 ובשישי-שבת. אילו הצד
-   הזה היה מציג ברירת מחדל אחרת, הטופס היה "משנה" הגדרה עוד לפני שנגעו בו.
-   וואטסאפ מאז 20270303090000 - מייל הוא ערוץ שמוסיפים. */
+/* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents) במסלול
+   בתשלום: סוכן/ת בלי שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום
+   ושקט 21→8 ובשישי-שבת. אילו הצד הזה היה מציג ברירת מחדל אחרת, הטופס היה
+   "משנה" הגדרה עוד לפני שנגעו בו. וואטסאפ מאז 20270303090000 - מייל הוא
+   ערוץ שמוסיפים. במסלול חינם (וגם כשאין tier) הוואטסאפ לא יוצא, ולכן
+   הטופס מציג מייל. ההמרה ב-reminderChannelsForScreen. */
 const REMINDER_PREF_DEFAULTS = {
   channels: ['whatsapp'],
   muted_kinds: [],
@@ -26393,6 +26395,26 @@ const REMINDER_WEEKDAY_SHORT = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'
 
 let reminderFindings = [];
 let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
+
+/* וואטסאפ לתזכורות רק ב-mid וב-premium, כמו agent_reminder_due_agents.
+   tier ריק נחשב כמו חינם: הטופס לא מציג את הערוץ. */
+function reminderWaAllowed(){
+  return typeof assistantTierOk === 'function' && assistantTierOk();
+}
+
+function reminderDefaultChannels(){
+  return reminderWaAllowed() ? REMINDER_PREF_DEFAULTS.channels.slice() : ['email'];
+}
+
+/* וואטסאפ שמור, או ברירת המחדל הישנה, מוצג כמייל כי זה מה שנשלח.
+   מערך ריק הוא כיבוי מפורש ונשאר ריק. */
+function reminderChannelsForScreen(channels){
+  const list = Array.isArray(channels) ? channels.slice() : reminderDefaultChannels();
+  if (reminderWaAllowed()) return list;
+  const rest = list.filter(c => c !== 'whatsapp');
+  if (list.includes('whatsapp') && !rest.includes('email')) rest.push('email');
+  return rest;
+}
 
 async function loadReminders(agentId){
   /* שתי הקריאות במקביל — הן אינן תלויות זו בזו, והקטגוריה הזו יושבת בהגדרות
@@ -26414,7 +26436,8 @@ async function loadReminders(agentId){
 
   const row = (!prefs.error && prefs.data) ? prefs.data : null;
   reminderPrefs = {
-    channels:        Array.isArray(row?.channels)    ? row.channels    : REMINDER_PREF_DEFAULTS.channels.slice(),
+    channels:        reminderChannelsForScreen(
+                       Array.isArray(row?.channels) ? row.channels : reminderDefaultChannels()),
     muted_kinds:     Array.isArray(row?.muted_kinds) ? row.muted_kinds : [],
     cadence:         row?.cadence ?? REMINDER_PREF_DEFAULTS.cadence,
     max_per_30_days: Number.isFinite(Number(row?.max_per_30_days))

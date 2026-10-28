@@ -558,19 +558,22 @@ function notifRowHtml(t){
 
 function reminderRowHtml(){
   const rp = reminderPrefs;
+  const waOk = reminderWaAllowed();
   const kinds = REMINDER_KINDS.map(k =>
     `<div class="np2-kind"><div class="np2-text"><div class="np2-title" id="npKind-${escapeHtml(k.kind)}">${escapeHtml(k.title)}</div><div class="np2-sub">${escapeHtml(k.sub)}</div></div>`
     + `<button type="button" class="ui-switch" data-ui-switch data-kind="${escapeHtml(k.kind)}" aria-pressed="${!rp.muted_kinds.includes(k.kind)}" aria-labelledby="npKind-${escapeHtml(k.kind)}"></button></div>`).join('');
   const cadence = ['daily', 'weekly', 'off'].includes(rp.cadence) ? rp.cadence : 'weekly';
+  const where = waOk ? 'בוואטסאפ או במייל, לא בפעמון.' : 'במייל, לא בפעמון.';
+  const waChip = waOk ? uiChip('וואטסאפ', { value:'whatsapp', on: rp.channels.includes('whatsapp') }) : '';
   return `<div class="np2-row np2-row--rem">`
     + `<div class="np2-text"><div class="np2-title">סיכום תזכורות<span class="ui-tag" id="npRemFreq"></span></div>`
-    + `<div class="np2-sub">כל מה שכדאי לטפל בו במודעות שלך, בהודעה אחת. בוואטסאפ או במייל, לא בפעמון.</div></div>`
+    + `<div class="np2-sub">כל מה שכדאי לטפל בו במודעות שלך, בהודעה אחת. ${where}</div></div>`
     + `<button type="button" class="ui-link" data-np-rem aria-expanded="false" aria-controls="npRemBody">הגדרות הסיכום</button>`
     + `</div>`
     + `<div class="np2-rem" id="npRemBody" hidden>`
     +   `<div class="set-field"><span class="set-field-label" id="npRemChLabel">לאן לשלוח</span>`
     +     `<div class="ui-chips" id="npRemCh" role="group" aria-labelledby="npRemChLabel">`
-    +       uiChip('וואטסאפ', { value:'whatsapp', on: rp.channels.includes('whatsapp') })
+    +       waChip
     +       uiChip('מייל', { value:'email', on: rp.channels.includes('email') })
     +     `</div><p class="ui-hint" id="npRemChNote"></p></div>`
     +   `<div class="set-field"><span class="set-field-label" id="npRemCadLabel">תדירות</span>`
@@ -753,8 +756,11 @@ function syncNotifScreen(){
     const freq = document.getElementById('npRemFreq');
     freq.textContent = st.cadence === 'off' || !st.channels.length || !st.cap ? 'כבוי' : st.cadence === 'daily' ? 'יומי' : 'שבועי';
     const parts = [];
+    if (!reminderWaAllowed()){
+      parts.push('במסלול חינם התזכורות מגיעות במייל. וואטסאפ זמין במסלולים בתשלום.');
+    }
     if (!st.channels.length) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה.');
-    if (st.channels.includes('whatsapp') && !(currentAgent && currentAgent.phone))
+    if (reminderWaAllowed() && st.channels.includes('whatsapp') && !(currentAgent && currentAgent.phone))
       parts.push(st.channels.includes('email')
         ? 'לוואטסאפ צריך מספר שמור ב"גבריאלה בוואטסאפ".'
         : 'לוואטסאפ צריך מספר שמור ב"גבריאלה בוואטסאפ". עד שיישמר, התזכורות יישלחו במייל.');
