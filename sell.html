@@ -11,6 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/agent-card.js" defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>הערכת שווי דירה חינם בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -738,7 +739,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      אינו מוצג בשיווק של הפלטפורמה - לפי מזהה ולא לפי שם (‏P1-C) */
   var PLATFORM_ADMIN_IDS = ['2f552dcf-90d0-4578-9038-cc6e7b9e26a5'];
   function loadAgents(wiz){
-    get('agency_members_public?select=id,slug,display_name,photo_url,photo_position,years_experience&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40')
+    get('agency_members_public?select=id,slug,display_name,photo_url,photo_position,years_experience,agency_id,specialties,service_area,has_ethics_badge,phone_e164&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40')
       .then(function(list){
         if (!Array.isArray(list) || !list.length) return;
         return get('agent_rankings?select=agent_id,composite_score&agent_id=in.(' + list.map(function(a){ return a.id; }).join(',') + ')')
@@ -746,14 +747,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             var score = {};
             (Array.isArray(rk) ? rk : []).forEach(function(r){ score[r.agent_id] = Math.max(score[r.agent_id] || 0, Number(r.composite_score) || 0); });
             list.sort(function(a, b){ return (score[b.id] || 0) - (score[a.id] || 0) || (Number(b.years_experience) || 0) - (Number(a.years_experience) || 0); });
-            render(list.slice(0, 3), wiz);
+            var top = list.slice(0, 3);
+            var ids = top.map(function(a){ return a.agency_id; }).filter(Boolean);
+            // שם המשרד בשאילתה נפרדת: embed מ-agency_members ל-agencies מחזיר PGRST201
+            return (ids.length ? get('agencies?select=id,name&id=in.(' + ids.join(',') + ')') : Promise.resolve([]))
+              .then(function(ag){
+                var name = {};
+                (Array.isArray(ag) ? ag : []).forEach(function(x){ name[x.id] = x.name; });
+                top.forEach(function(a){ a.agency_name = name[a.agency_id] || ''; });
+              }, function(){})
+              .then(function(){ render(top, wiz); });
           });
       });
   }
   function render(list, wiz){
     if (!list.length) return;
     var box = document.getElementById('slAgents');
-    box.innerHTML = list.map(function(a){
+    // ‏P1-V: הכרטיס המשותף (‏assets/agent-card.js); בלעדיו - הכרטיס הקודם
+    if (window.AgentCard) box.innerHTML = list.map(function(a){ return window.AgentCard.html(a, { agency: a.agency_name }); }).join('');
+    else box.innerHTML = list.map(function(a){
       var yrs = Number(a.years_experience) > 0 ? a.years_experience + ' שנות ניסיון' : '';
       return '<div class="sl-agent">' +
         (a.photo_url ? '<img src="' + escapeHtml(a.photo_url) + '" alt="" loading="lazy" width="84" height="84" style="object-position:' + escapeHtml(a.photo_position || '50% 25%') + '">'
