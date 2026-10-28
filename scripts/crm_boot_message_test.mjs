@@ -35,3 +35,13 @@ test('בלי מקף ארוך', () => {
     assert.equal(/[—–]/.test(bootMessageFor(raw, '')), false, raw);
   }
 });
+
+test('יעד מוסתר נשאר במשפט הכללי', () => {
+  const hidden = new Function('navAccVisible', 'accAliasTarget', block[0] + '\nreturn bootMessageFor;')(
+    (id) => id !== 'accTeam',
+    (id) => id,
+  );
+  assert.equal(hidden('accTeam', ''), 'טוענים את איזור הסוכנים…');
+  assert.equal(hidden('accLeads', 'demand'), 'פותחים את הביקושים הפתוחים…');
+  assert.equal(hidden('cma', ''), 'פותחים את דוח ה-CMA…');
+});

@@ -872,8 +872,13 @@ function showBootCard(message){
   showScreen('boot');
 }
 
-/* מסך הביניים אומר לאן הקישור הולך. בלי ?goto= נשאר המשפט הכללי. */
+/* מסך הביניים אומר לאן הקישור הולך. בלי ?goto= נשאר המשפט הכללי.
+   קטגוריה שהתפקיד הזה לא רואה (navAccVisible) לא נפתחת, והנחיתה היא
+   הדשבורד - אז גם המסך לא מבטיח מסך אחר. */
 function bootMessageFor(raw, tab){
+  const hidden = /^(acc|dashPanel)/.test(raw) && typeof navAccVisible === 'function'
+    && !navAccVisible(typeof accAliasTarget === 'function' ? accAliasTarget(raw) : raw);
+  if (hidden) return 'טוענים את איזור הסוכנים…';
   if (raw === 'accLeads' && tab === 'demand') return 'פותחים את הביקושים הפתוחים…';
   if (raw === 'accLeads') return 'פותחים את הלידים…';
   if (raw === 'accProperties') return 'פותחים את הנכסים…';
