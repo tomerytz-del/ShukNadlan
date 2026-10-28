@@ -456,6 +456,55 @@ def assert_bang_does_not_run() -> None:
         marker.unlink(missing_ok=True)
         fail("\\! רץ ויצר קובץ")
     run(["dropdb", "--if-exists", db], env=env)
+    assert_driver_protocol()
+
+
+def assert_driver_protocol() -> None:
+    """קובץ אחד = טרנזקציה אחת, כמו db push. קבצים נפרדים מתחייבים בנפרד."""
+    db = "migration_apply_protocol_test"
+    env = local_env()
+    run(["dropdb", "--if-exists", db], env=env)
+    proc = run(["createdb", db], env=env)
+    if proc.returncode != 0:
+        fail(f"createdb לפרוטוקול נכשל:\n{proc.stderr[-400:]}")
+    conn = local_connection(db)
+    try:
+        apply_sql(conn, "create table public.multi_stmt(id int); insert into public.multi_stmt values (1), (2);", name="multi")
+        with conn.cursor() as cur:
+            cur.execute("select count(*) from public.multi_stmt", prepare=False)
+            if cur.fetchone() != (2,):
+                fail("קובץ מרובה פקודות לא רץ כמחרוזת אחת")
+        apply_sql(conn, "do $$ begin insert into public.multi_stmt values (3); end $$;", name="do")
+        with conn.cursor() as cur:
+            cur.execute("select count(*) from public.multi_stmt", prepare=False)
+            if cur.fetchone() != (3,):
+                fail("בלוק DO לא רץ")
+        try:
+            apply_sql(conn, "insert into public.multi_stmt values (9); select 1/0;", name="bad")
+            fail("שגיאה באמצע קובץ לא עצרה")
+        except MigrationFailed:
+            pass
+        with conn.cursor() as cur:
+            cur.execute("select count(*) from public.multi_stmt where id = 9", prepare=False)
+            if cur.fetchone() != (0,):
+                fail("שגיאה באמצע קובץ לא התגלגלה לאחור")
+        apply_sql(conn, "do $$ begin create type public.mood as enum ('a'); end $$; alter type public.mood add value 'b';", name="enum")
+        try:
+            apply_sql(conn, "alter type public.mood add value 'c'; select 'c'::public.mood;", name="same-file-value")
+            fail("ערך enum חדש באותו קובץ היה צריך להיכשל, כמו db push")
+        except MigrationFailed as exc:
+            if "unsafe use of new value" not in str(exc).lower() and "55P04" not in str(exc):
+                # הניסוח משתנה. די שהקובץ נכשל והערך לא נשאר בשימוש.
+                if "syntax error" in str(exc).lower():
+                    fail(f"ADD VALUE נכשל מסיבה אחרת: {exc}")
+        apply_sql(conn, "select 'b'::public.mood;", name="next-file")
+        try:
+            apply_sql(conn, "create index concurrently mood_idx on public.multi_stmt(id);", name="conc")
+        except MigrationFailed as exc:
+            fail(f"CONCURRENTLY מחוץ לטרנזקציה נכשל, ו-db push מעביר אותו: {exc}")
+    finally:
+        conn.close()
+        run(["dropdb", "--if-exists", db], env=env)
 
 
 def run(cmd: list[str], *, input_text: str | None = None, env: dict | None = None, timeout: int = 600) -> subprocess.CompletedProcess[str]:
@@ -707,18 +756,17 @@ def report_driver_limitations(files: list[Path]) -> None:
 
 
 def simple_exec(conn, sql: str) -> None:
-    """פרוטוקול simple query. אין פקודות meta: \\! מגיע לשרת כתחביר."""
-    from psycopg.pq import ExecStatus
-    res = conn.pgconn.exec_(sql.encode("utf-8"))
-    if res is None:
-        raw = conn.pgconn.error_message or b""
-        text = bytes(raw).decode("utf-8", "replace")
-        raise MigrationFailed(text.strip() or "simple query נכשל בלי תוצאה")
-    ok = (ExecStatus.COMMAND_OK, ExecStatus.TUPLES_OK, ExecStatus.EMPTY_QUERY)
-    if res.status not in ok:
-        raw = res.error_message or b""
-        text = bytes(raw).decode("utf-8", "replace").strip()
-        raise MigrationFailed(text or f"simple query status {res.status}")
+    """מחרוזת אחת, בלי פרמטרים ובלי prepare: simple query, כמו db push.
+
+    פקודת \\\\ ב-psql לא קיימת כאן. השרת רואה אותה כשגיאת תחביר.
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, prepare=False)
+    except MigrationFailed:
+        raise
+    except Exception as exc:
+        raise MigrationFailed(str(exc)) from exc
 
 
 def apply_sql(conn, sql: str, *, name: str) -> None:
