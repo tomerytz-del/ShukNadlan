@@ -6488,6 +6488,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-tab{min-height:44px;padding:0 16px;border-radius:9px;border:0;background:transparent;font:inherit;font-size:15px;
     font-weight:600;color:var(--nv-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
   .ui-tab[aria-selected="true"]{background:#fff;color:var(--nv-ink);font-weight:700;box-shadow:0 1px 3px rgba(14,26,51,.12)}
+  /* ביקוש פתוח כשיש ביקושים: זהב, כדי שלא יפוספס בין הלשוניות */
+  #leadsTabs .ui-tab.has-open{background:#f7eccb;color:#7a5d0c;font-weight:800;box-shadow:inset 0 0 0 1.5px #c9a227}
+  #leadsTabs .ui-tab.has-open[aria-selected="true"]{background:#fff}
 
   /* שורת קישור עם מצב (ניהול המשרד, "לכל ההתראות") */
   .ui-row-link{display:flex;align-items:center;gap:12px;min-height:64px;border-top:1px solid var(--nv-line-soft);
@@ -9273,9 +9276,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="ui-tabs" role="tablist" id="leadsTabs" aria-label="שלב הטיפול">
             <button type="button" class="ui-tab" role="tab" data-leads-tab="new" aria-selected="true">חדשים · <span data-n>0</span></button>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="work" aria-selected="false">בטיפול · <span data-n>0</span></button>
-            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
-            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md) -->
+            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md).
+                 לפני הארכיון, ומודגש כשיש ביקושים פתוחים (‏has-open ב-crm-leads.js) -->
             <button type="button" class="ui-tab" role="tab" data-leads-tab="demand" aria-selected="false">ביקוש פתוח · <span data-n>·</span></button>
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
           </div>
           <div class="ui-chips ui-chips--scroll" data-ui-single id="leadsSrc" role="group" aria-label="מקור הליד"></div>
           <div class="ui-count" id="leadsCountLine"></div>
