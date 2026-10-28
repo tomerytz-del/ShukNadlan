@@ -25,7 +25,10 @@ const SPECIAL_GOTO = new Set(["adminOps", "license", "adminHome", "bell", "cma",
 const PARAMS = new Set([
   "goto", "client", "property", "lead", "focus", "agenda", "agreement", "review",
   "filter", "status", "import", "tab", "plan_city", "plan_street", "plan_num", "plan_gush", "plan_helka",
+  "wc", "wt",
 ]);
+const WC_RE = /^[a-f][a-f0-9]{11}$/;
+const WT_RE = /^[a-z0-9_]{1,40}$/;
 const PRIORITY = ["agenda_reminder", "showcase_meeting", "new_lead"];
 
 export type NotifTarget = {
@@ -53,6 +56,8 @@ export type ScreenPlan =
   | { kind: "single"; path: string; label: string }
   | { kind: "list"; button: string; section: string; rows: NavRow[]; allPath: string }
   | { kind: "none" };
+
+export type ClickRecord = { wc: string; wt: string; target: string };
 
 export function uuidOr(v: unknown): string | null {
   return typeof v === "string" && UUID_RE.test(v) ? v : null;
@@ -177,8 +182,39 @@ export function isSafeCrmPath(path: string): boolean {
   if (!goto || (!GOTO_RE.test(goto) && !SPECIAL_GOTO.has(goto))) return false;
   for (const [k, v] of q) {
     if (!PARAMS.has(k) || v.length > 80 || !/^[A-Za-z0-9._~%-]+$/.test(v)) return false;
+    if (k === "wc" && !WC_RE.test(v)) return false;
+    if (k === "wt" && !WT_RE.test(v)) return false;
   }
   return true;
+}
+
+/** מזהה לחיצה אטום. 12 תווי hex, הראשון אות, בלי טלפון ובלי מזהה סוכן. */
+export function clickToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  let out = "a";
+  for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
+  return out.slice(0, 12);
+}
+
+/** מוסיף wc ו-wt לנתיב /crm. נתיב שכבר נושא wc נשאר. נתיב שאינו בטוח נשאר בליהם. */
+export function withClick(path: string, msgType: string): string {
+  if (!path.startsWith("/crm?") || /(?:^|[?&])wc=/.test(path)) return path;
+  const wt = String(msgType || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 40) || "msg";
+  const next = `${path}&wc=${clickToken()}&wt=${wt}`;
+  return isSafeCrmPath(next) ? next : path;
+}
+
+export function withClickUrl(url: string, msgType: string): string {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return url;
+  }
+  if (u.pathname !== "/crm") return url;
+  const raw = `${u.pathname}${u.search}`;
+  const stamped = withClick(raw, msgType);
+  return stamped === raw ? url : `${u.origin}${stamped}`;
 }
 
 export function encodeNavId(path: string): string | null {
@@ -187,10 +223,40 @@ export function encodeNavId(path: string): string | null {
   return id.length <= LIST_ID_MAX ? id : null;
 }
 
+/** מזהה שורה לרשימה. wc נכנס רק אם הוא נשאר בתוך 200 התווים, אחרת הנתיב בלי המדידה. */
+export function navIdOrBare(path: string, msgType: string): { id: string | null; path: string } {
+  const stamped = withClick(path, msgType);
+  const stampedId = encodeNavId(stamped);
+  if (stampedId) return { id: stampedId, path: stamped };
+  return { id: encodeNavId(path), path };
+}
+
 export function parseNavId(id: string): string | null {
   if (!id.startsWith(NAV_PREFIX)) return null;
   const path = id.slice(NAV_PREFIX.length);
   return isSafeCrmPath(path) ? path : null;
+}
+
+/** ה-wc-ים שבאמת יושבים על כפתורי התוכנית. בלי כפילות. */
+export function clickRecords(plan: ScreenPlan): ClickRecord[] {
+  const paths: string[] = [];
+  if (plan.kind === "single") paths.push(plan.path);
+  else if (plan.kind === "list") {
+    for (const row of plan.rows) {
+      const path = parseNavId(row.id);
+      if (path) paths.push(path);
+    }
+  }
+  const out: ClickRecord[] = [];
+  const seen = new Set<string>();
+  for (const path of paths) {
+    const q = new URLSearchParams(path.slice(path.indexOf("?") + 1));
+    const wc = q.get("wc") || "";
+    if (!WC_RE.test(wc) || seen.has(wc)) continue;
+    seen.add(wc);
+    out.push({ wc, wt: q.get("wt") || "", target: q.get("goto") || "" });
+  }
+  return out;
 }
 
 /** סיומת לכפתור URL דינמי. הבסיס בתבנית הוא https://shuknadlan.co.il/ */
@@ -293,24 +359,30 @@ export function screenBundle(
   }
   if (unique.length === 0) return { kind: "none" };
   if (unique.length === 1) {
-    return { kind: "single", path: unique[0].path, label: ctaLabel(unique[0].path) };
+    const path = withClick(unique[0].path, unique[0].type);
+    return { kind: "single", path, label: ctaLabel(path) };
   }
-  const allPath = allScreensPath(unique, categoryPathForType);
+  const shared = new Set(unique.map((it) => it.type)).size === 1 ? unique[0].type : "all";
+  const allBare = allScreensPath(unique, categoryPathForType);
+  const allChosen = navIdOrBare(allBare, shared);
+  const allPath = allChosen.path;
   const rows: NavRow[] = [];
   for (const it of unique.slice(0, LIST_ROW_MAX)) {
-    const id = encodeNavId(it.path);
-    if (!id) continue;
+    // wc ו-wt מוסיפים כ-30 תווים. שורה שקרובה ל-200 נזרקת בשקט אם אין
+    // נפילה לנתיב בלי המדידה.
+    const chosen = navIdOrBare(it.path, it.type);
+    if (!chosen.id) continue;
     const title = clipUtf16(String(it.title || "").replace(/\s+/g, " ").trim() || ctaLabel(it.path), LIST_TITLE_MAX);
     const description = clipUtf16(String(it.body || "").replace(/\s+/g, " ").trim(), LIST_DESC_MAX);
-    rows.push(description ? { id, title, description } : { id, title });
+    rows.push(description ? { id: chosen.id, title, description } : { id: chosen.id, title });
   }
-  const allId = encodeNavId(allPath);
+  const allId = allChosen.id;
   // מזהה כפול נדחה על ידי מטא, והרשימה כולה לא יוצאת.
   if (allId && !rows.some((row) => row.id === allId)) {
     rows.push({ id: allId, title: ALL_LABEL, description: allListDescription(allPath) });
   }
   if (rows.length < 2) {
-    const path = unique[0].path;
+    const path = withClick(unique[0].path, unique[0].type);
     return { kind: "single", path, label: ctaLabel(path) };
   }
   return { kind: "list", button: OPEN_LIST_BUTTON, section: OPEN_LIST_BUTTON, rows, allPath };

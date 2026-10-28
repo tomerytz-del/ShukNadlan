@@ -7,6 +7,8 @@ import {
   BUTTON_TITLE_MAX,
   ctaLabel,
   ctaMessage,
+  clickRecords,
+  clickToken,
   encodeNavId,
   isSafeCrmPath,
   listMessage,
@@ -22,6 +24,8 @@ import {
   utilitySuffix,
   utilityTemplateMessage,
   utf16Length,
+  withClick,
+  withClickUrl,
 } from "../supabase/functions/_shared/agent-deep-link.ts";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -107,7 +111,8 @@ const many = screenBundle([
 ], (type) => type === "new_lead" ? "/crm?goto=accLeads" : "/crm?goto=accProperties");
 check("כמה יעדים הם רשימה", many.kind === "list");
 if (many.kind === "list") {
-  check("הכול אחרון", many.rows.at(-1)?.title === "הכול" && many.rows.at(-1)?.id === encodeNavId("/crm?goto=accLeads"));
+  const allRow = parseNavId(many.rows.at(-1)?.id || "");
+  check("הכול אחרון", many.rows.at(-1)?.title === "הכול" && !!allRow && allRow.startsWith("/crm?goto=accLeads") && /[?&]wc=[a-f][a-f0-9]{11}/.test(allRow));
   check("הכול בלי סינון הוא כל הרשימה", many.rows.at(-1)?.description === "כל הרשימה");
   check("אין מזהה כפול", new Set(many.rows.map((row) => row.id)).size === many.rows.length);
   check("עד עשר שורות", many.rows.length <= 10 && many.rows.length === 4);
@@ -122,7 +127,7 @@ const props = screenBundle([
   { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "הרצל 1" },
   { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "הרצל 2" },
 ], () => "/crm?goto=accProperties");
-check("הכול של נכסים הוא הרשימה", props.kind === "list" && props.kind === "list" && props.allPath === "/crm?goto=accProperties");
+check("הכול של נכסים הוא הרשימה", props.kind === "list" && props.allPath.startsWith("/crm?goto=accProperties"));
 if (props.kind === "list") {
   check("נכסים בלי סטטוס אינם הרשימה המסוננת", props.rows.at(-1)?.description === "כל הרשימה");
 }
@@ -131,7 +136,7 @@ const byStatus = screenBundle([
   { type: "listing", path: `/crm?goto=accProperties&property=${ID}`, title: "א" },
   { type: "listing", path: `/crm?goto=accProperties&property=${ID2}`, title: "ב" },
 ], () => "/crm?goto=accProperties&status=sold");
-check("הכול נושא את הסטטוס", byStatus.kind === "list" && byStatus.allPath === "/crm?goto=accProperties&status=sold");
+check("הכול נושא את הסטטוס", byStatus.kind === "list" && byStatus.allPath.startsWith("/crm?goto=accProperties&status=sold"));
 if (byStatus.kind === "list") {
   check("סטטוס הוא הרשימה המסוננת", byStatus.rows.at(-1)?.description === "הרשימה המסוננת");
   check("סטטוס הוא נתיב בטוח", isSafeCrmPath(byStatus.allPath));
@@ -158,7 +163,7 @@ check("מעל תשע נשארות תשע ועוד הכול", dozen.kind === "lis
 if (dozen.kind === "list") {
   const ids = dozen.rows.map((row) => row.id);
   check("גם בעשר אין כפילות", new Set(ids).size === ids.length);
-  check("העשירי לא ברשימה", !ids.includes(encodeNavId("/crm?goto=accProperties&property=00000009-1111-4111-8111-111111111111") || ""));
+  check("העשירי לא ברשימה", !dozen.rows.some((row) => (parseNavId(row.id) || "").includes("property=00000009-1111-4111-8111-111111111111")));
 }
 
 const fallback = listTextFallback("https://shuknadlan.co.il", "איזה נכס לפתוח?", [
@@ -201,10 +206,37 @@ const utilBtn = (((util.template as { components: { type: string; parameters?: {
   .find((c) => c.type === "button")!.parameters!)[0].text;
 check("תבנית בלי כתובת בגוף", !containsHttpUrl(utilBody));
 check("סיומת בלי לוכסן מוביל", utilBtn === utilitySuffix(`/crm?goto=accLeads&lead=${ID}`) && !utilBtn.startsWith("/"));
+const stamped = withClick(`/crm?goto=accLeads&lead=${ID}`, "new_lead");
+const stampedWc = (stamped.match(/[?&]wc=([a-f0-9]+)/) || [])[1] || "";
+check("wc אטום על כפתור", /^[a-f][a-f0-9]{11}$/.test(stampedWc) && stamped.includes("wt=new_lead") && stamped.includes(`lead=${ID}`));
+check("wc אינו הטלפון ואינו ה-uuid", stampedWc !== ID.replace(/-/g, "").slice(0, 12) && !stampedWc.startsWith("972") && /[a-f]/.test(stampedWc));
+check("נתיב עם wc עדיין בטוח", isSafeCrmPath(stamped) && (encodeNavId(stamped) || "").length <= 200);
+{
+  const head = `/crm?goto=accProperties&property=${ID}&filter=${"a".repeat(80)}&focus=`;
+  const longPath = head + "b".repeat(180 - head.length);
+  check("נתיב על תקרת 180 לא מקבל wc", longPath.length === 180 && isSafeCrmPath(longPath) && withClick(longPath, "new_lead") === longPath);
+  const bundled = screenBundle([
+    { type: "new_lead", path: longPath, title: "ארוך" },
+    { type: "agenda_reminder", path: `/crm?goto=accAgenda&agenda=${ID}`, title: "יומן" },
+  ], () => "/crm?goto=accLeads");
+  const longRow = bundled.kind === "list"
+    ? bundled.rows.find((r) => r.id.includes("filter="))
+    : null;
+  check("שורה ארוכה נופלת לנתיב בלי wc", !!longRow && !longRow.id.includes("wc=") && longRow.id.includes(`property=${ID}`));
+}
+check("wc קיים לא מוכפל", withClick(stamped, "other") === stamped);
+check("כתובת מלאה מקבלת wc", /wc=[a-f][a-f0-9]{11}/.test(withClickUrl("https://shuknadlan.co.il/crm?goto=bell", "fallback")));
+check("קישור ציבורי בלי wc", withClickUrl("https://shuknadlan.co.il/property?id=" + ID, "page") === "https://shuknadlan.co.il/property?id=" + ID);
+if (one.kind === "single") {
+  const rec = clickRecords(one);
+  check("רשומת לחיצה אחת", rec.length === 1 && rec[0].wt === "new_lead" && rec[0].wc === (one.path.match(/wc=([a-f0-9]+)/) || [])[1]);
+}
+check("טוקן מתחיל באות", /^[a-f][a-f0-9]{11}$/.test(clickToken()));
 check("בסיס התבנית קבוע בקוד", readFileSync(new URL("../supabase/functions/_shared/agent-deep-link.ts", import.meta.url), "utf8").includes("https://shuknadlan.co.il/"));
 
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
 check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage"));
+check("נפילה לטקסט שומרת את ה-wc שנכנס לגוף", push.includes("stampPaths") && !push.includes("tokens = []"));
 check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATSAPP_NOTIFY_TEMPLATE") && push.includes("mode === \"template\" && WA_UTILITY"));
 check("התבנית הישנה עדיין כפתור הפסקה", push.includes("`/crm?goto=${MANAGE_ACC}`"));
 
