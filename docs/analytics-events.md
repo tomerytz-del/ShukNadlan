@@ -465,3 +465,4 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `map_marker_open` | נפתח נכס מסמן במפת ההחלקה (‏P1-M) | `property_id`, `deal`: ‏`sale` \| `rent` \| `commercial` |
 | `info_open` | פתיחה ראשונה של כפתור (i) בטעינה, בלחיצה או בריחוף (‏P1-T1, v10) | `info_id`: ‏`dealmakers` \| `new_projects` \| `props_shelf` \| `approx_location` \| `hero_ethics` \| `hero_rating` \| `hero_no_duplicates`, `surface`: ‏`home` |
 | `rating_info_open` | נפתח "איך עובד הדירוג?" (‏P1-T2) | `from`: ‏`dm_top_title` (ה-(i) ליד "משרדים מובילים") \| `dm_link` (הקישור בלי הדגל) |
+| `site_stats_view` (‏פרמטר חדש) | ‏P1-T3: קוביית "רישיון תיווך מאומת" הוצגה (רק אחרי שער הרישיון) | `license_shown`: ‏0 \| 1 |

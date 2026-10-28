@@ -7613,6 +7613,8 @@ function buildHoodMap(box, hoods){
    העסקאות ויועצי הנדל״ן מוסתרים. בלי שאילתה חדשה ובלי שגיאה בקונסול: הדגל
    הזה נדלק רק אחרי שהמיגרציה רצה. אף אריח אינו מציג 0 או מספר קבוע. */
 const SITE_STATS_READY = false;
+// ‏P1-T3: נדלק רק אחרי docs/proposals/license_verified_gate.sql (ד-1)
+const LICENSE_GATE_LIVE = false;
 const dmStatsState = { source: 'client', cache: null, viewed: false, asked: false };
 function dmStatsMarket(){
   const m = CityCtx.market ? CityCtx.market() : null;
@@ -7641,13 +7643,21 @@ function renderDmStats(){
     agencies: c.agencies || heroStatsState.agencies || null,
     agents: c.agents || null,
     props: c.props || heroStatsState.props || null,
+    // ‏P1-T3: רק אחרי השער - בלעדיו אין דרך אמיתית לומר "כל", וגם לא מונה של מאומתים
+    license: LICENSE_GATE_LIVE ? true : null,
   };
-  let any = false;
+  let any = false, visible = 0;
   wrap.querySelectorAll('.dm-stat').forEach(tile => {
     const v = vals[tile.dataset.stat];
     tile.hidden = !v;
-    if (v){ tile.querySelector('.dm-stat-n').textContent = Number(v).toLocaleString('he-IL'); any = true; }
+    if (!v) return;
+    visible++;
+    any = true;
+    // בחותם האייקון הוא התוכן - לא כותבים מספר מעליו
+    if (!tile.classList.contains('is-seal')) tile.querySelector('.dm-stat-n').textContent = Number(v).toLocaleString('he-IL');
   });
+  const grid = document.getElementById('dmStats');
+  if (grid){ grid.style.setProperty('--dm-n', Math.min(visible, 3)); grid.style.setProperty('--dm-n-d', visible || 1); }
   wrap.hidden = !any;
   /* ‏P1-T1: שורת המקור לפי הקוביות שמוצגות בפועל - הנכסים והמשרדים מנתוני האתר, ורשות
      המיסים או משרד המשפטים רק כשהקובייה שלהם גלויה */
@@ -7662,7 +7672,7 @@ function renderDmStats(){
       if (!en.some(x => x.isIntersecting) || dmStatsState.viewed) return;
       dmStatsState.viewed = true;
       dmStatsState.io.disconnect();
-      if (window.shukTrack) window.shukTrack('site_stats_view', { source: dmStatsState.source, deals_shown: vals.deals && !document.querySelector('#dmStats [data-stat="deals"]').hidden ? 1 : 0 });
+      if (window.shukTrack) window.shukTrack('site_stats_view', { source: dmStatsState.source, deals_shown: vals.deals && !document.querySelector('#dmStats [data-stat="deals"]').hidden ? 1 : 0, license_shown: vals.license ? 1 : 0 });
     });
     dmStatsState.io.observe(wrap);
   }

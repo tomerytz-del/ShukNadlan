@@ -3228,6 +3228,21 @@
                                         "value": "{{DLV - deals_shown}}"
                                     }
                                 ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "license_shown"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - license_shown}}"
+                                    }
+                                ]
                             }
                         ]
                     },
@@ -12632,6 +12647,32 @@
                         "type": "TEMPLATE",
                         "key": "name",
                         "value": "info_id"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "125",
+                "name": "DLV - license_shown",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "license_shown"
                     }
                 ],
                 "fingerprint": "1793000000001",
