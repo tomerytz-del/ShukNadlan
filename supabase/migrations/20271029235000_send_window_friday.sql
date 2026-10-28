@@ -41,7 +41,7 @@ as $$
 $$;
 
 comment on function public.notification_send_window_open(timestamptz) is
-  'חלון השליחה של הפלטפורמה, שעון ישראל: ראשון-חמישי 08:00-21:00, שישי 08:00-13:00, וסגור משישי 13:00 עד ראשון 08:00 (20271028230000).';
+  'חלון השליחה של הפלטפורמה, שעון ישראל: ראשון-חמישי 08:00-21:00, שישי 08:00-13:00, וסגור משישי 13:00 עד ראשון 08:00 (20271029235000).';
 
 revoke all on function public.notification_send_window_open(timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_send_window_open(timestamptz) to service_role;
@@ -76,7 +76,7 @@ as $$
 $$;
 
 comment on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) is
-  'האם הרגע שקט לשליחת התראות. דגל 0 שומר את שישי-שבת. דגל 1 פותח שישי 08:00-13:00 וסוגר עד ראשון 08:00 (20271028230000).';
+  'האם הרגע שקט לשליחת התראות. דגל 0 שומר את שישי-שבת. דגל 1 פותח שישי 08:00-13:00 וסוגר עד ראשון 08:00 (20271029235000).';
 
 revoke all on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) from public, anon, authenticated;
 grant execute on function public.notification_agent_send_quiet(int, int, smallint[], timestamptz, int) to service_role;
@@ -100,13 +100,13 @@ as $$
 $$;
 
 comment on function public.notification_push_priority_types() is
-  'סוגי התראה שעוקפים בוואטסאפ את התקרה היומית ואת מרווח הקיבוץ, ונשמרים 72 שעות ולא 12. שקט חל על כולם חוץ מ-agenda_reminder (20270420090000, 20271028230000).';
+  'סוגי התראה שעוקפים בוואטסאפ את התקרה היומית ואת מרווח הקיבוץ, ונשמרים 72 שעות ולא 12. שקט חל על כולם חוץ מ-agenda_reminder (20270420090000, 20271029235000).';
 
 revoke all on function public.notification_push_priority_types() from public, anon, authenticated;
 grant execute on function public.notification_push_priority_types() to service_role;
 
 -- ---------------------------------------------------------------------------
--- 4. notification_push_due_agents - הגוף מ-20271028133000.
+-- 4. notification_push_due_agents - הגוף מ-20271029133000.
 --    השינוי היחיד: עמודת window_on, והשקט דרך notification_agent_send_quiet.
 --    urgent נשאר array['agenda_reminder'].
 -- ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@ as $$
 $$;
 
 comment on function public.notification_push_due_agents() is
-  'סוכנים שמותר לשלוח להם עכשיו התראות בוואטסאפ, ואילו סוגים. דגל notif_send_window_friday_enabled כבוי ומשאיר את שישי שקט. agenda_reminder עדיין עוקף שקט (20271028230000).';
+  'סוכנים שמותר לשלוח להם עכשיו התראות בוואטסאפ, ואילו סוגים. דגל notif_send_window_friday_enabled כבוי ומשאיר את שישי שקט. agenda_reminder עדיין עוקף שקט (20271029235000).';
 
 revoke all on function public.notification_push_due_agents() from public, anon, authenticated;
 grant execute on function public.notification_push_due_agents() to service_role;
@@ -375,7 +375,7 @@ end;
 $$;
 
 comment on function public.lead_response_escalations(timestamptz) is
-  'תזכורת אחרי שעתיים ומנהל/ת אחרי ארבע, רק כש-notif_send_window_friday_enabled=1 והחלון פתוח. לא agenda_reminder. דגל 0 מחזיר 0 (20271028230000).';
+  'תזכורת אחרי שעתיים ומנהל/ת אחרי ארבע, רק כש-notif_send_window_friday_enabled=1 והחלון פתוח. לא agenda_reminder. דגל 0 מחזיר 0 (20271029235000).';
 
 revoke all on function public.lead_response_escalations(timestamptz) from public, anon, authenticated;
 grant execute on function public.lead_response_escalations(timestamptz) to service_role;

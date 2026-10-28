@@ -7,15 +7,15 @@ name: חלון שליחה - שישי עד 13:00
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271028230000_send_window_friday.sql"
-      - "supabase/migrations/20271028250000_lead_escalations.sql"
+      - "supabase/migrations/20271029235000_send_window_friday.sql"
+      - "supabase/migrations/20271029250000_lead_escalations.sql"
       - "scripts/send_window_test.py"
       - ".github/workflows/send_window.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271028230000_send_window_friday.sql"
-      - "supabase/migrations/20271028250000_lead_escalations.sql"
+      - "supabase/migrations/20271029235000_send_window_friday.sql"
+      - "supabase/migrations/20271029250000_lead_escalations.sql"
       - "scripts/send_window_test.py"
       - ".github/workflows/send_window.yml"
   workflow_dispatch:

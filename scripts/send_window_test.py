@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MIG = ROOT / "supabase/migrations/20271028230000_send_window_friday.sql"
-ESC = ROOT / "supabase/migrations/20271028250000_lead_escalations.sql"
+MIG = ROOT / "supabase/migrations/20271029235000_send_window_friday.sql"
+ESC = ROOT / "supabase/migrations/20271029250000_lead_escalations.sql"
 QUIET = ROOT / "supabase/migrations/20270902090000_notification_push_quiet_hold.sql"
 DB = os.environ.get("SEND_WINDOW_TEST_DB", "send_window_test")
 

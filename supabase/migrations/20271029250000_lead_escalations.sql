@@ -53,7 +53,7 @@ as $$
 $$;
 
 comment on function public.notification_business_elapsed(timestamptz, timestamptz) is
-  'שעות פתוחות בין שני רגעים, שעון ישראל: ראשון-חמישי 08:00-21:00, שישי 08:00-13:00, שבת סגורה (20271028250000).';
+  'שעות פתוחות בין שני רגעים, שעון ישראל: ראשון-חמישי 08:00-21:00, שישי 08:00-13:00, שבת סגורה (20271029250000).';
 
 revoke all on function public.notification_business_elapsed(timestamptz, timestamptz) from public, anon, authenticated;
 grant execute on function public.notification_business_elapsed(timestamptz, timestamptz) to service_role;
@@ -73,7 +73,7 @@ create table if not exists public.lead_escalations (
 );
 
 comment on table public.lead_escalations is
-  'האם ליד הוסלם, בלי טלפון ובלי שם. service_role קורא. lead_id של מחפש/ת מהרשתות הוא saved_searches.id (20271028250000).';
+  'האם ליד הוסלם, בלי טלפון ובלי שם. service_role קורא. lead_id של מחפש/ת מהרשתות הוא saved_searches.id (20271029250000).';
 comment on column public.lead_escalations.lead_id is
   'leads.id לליד משויך, או saved_searches.id (ה-search_id שחוזר מ-social-lead-intake) למחפש/ת בביקוש הפתוח.';
 comment on column public.lead_escalations.stage is
@@ -87,7 +87,7 @@ revoke all on table public.lead_escalations from public, anon, authenticated, se
 grant select on table public.lead_escalations to service_role;
 
 -- ---------------------------------------------------------------------------
--- אותה פונקציה מ-20271028230000, ועוד שתי כתיבות ל-lead_escalations.
+-- אותה פונקציה מ-20271029235000, ועוד שתי כתיבות ל-lead_escalations.
 -- הספירה המוחזרת נשארת מספר שורות ההתראה, לא שורות הטבלה.
 -- ---------------------------------------------------------------------------
 create or replace function public.lead_response_escalations(p_now timestamptz default now())
@@ -341,7 +341,7 @@ end;
 $$;
 
 comment on function public.lead_response_escalations(timestamptz) is
-  'תזכורת אחרי שעתיים ומנהל/ת אחרי ארבע, וגם ביקוש פתוח אחרי 4 שעות פתוחות. כותב lead_escalations. דגל 0 או חלון סגור מחזיר 0 (20271028250000).';
+  'תזכורת אחרי שעתיים ומנהל/ת אחרי ארבע, וגם ביקוש פתוח אחרי 4 שעות פתוחות. כותב lead_escalations. דגל 0 או חלון סגור מחזיר 0 (20271029250000).';
 
 revoke all on function public.lead_response_escalations(timestamptz) from public, anon, authenticated;
 grant execute on function public.lead_response_escalations(timestamptz) to service_role;

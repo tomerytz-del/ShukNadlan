@@ -623,7 +623,7 @@ select public.notification_push_suppress(true);
 
 ## חלון שליחה, כולל שישי בבוקר
 
-`notif_send_window_friday_enabled` נולד **0** ב-`20271028230000`. ב-0,
+`notif_send_window_friday_enabled` נולד **0** ב-`20271029235000`. ב-0,
 שישי שלם שקט כמו `quiet_days` `{5,6}`. ב-1, `notification_send_window_open`:
 
 | מתי, שעון ישראל | שליחה |
@@ -640,7 +640,7 @@ select public.notification_push_suppress(true);
 מנהל/ת המשרד, ואם אין, מנהל/ת הפלטפורמה. ליד בארכיון, ליד שכבר נענה,
 וליד ישן משבוע לא נכנסים. אין שליחה מהמיגרציה עצמה.
 
-`lead_escalations` (`20271028250000`) היא מה שגבריאלה קוראת לפי מזהה,
+`lead_escalations` (`20271029250000`) היא מה שגבריאלה קוראת לפי מזהה,
 בלי טלפון ובלי שם. `service_role` בלבד. `social-lead-intake` לא משתנה.
 
 ```sql
