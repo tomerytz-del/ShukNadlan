@@ -24,7 +24,48 @@ create table if not exists public.agency_members (
   active boolean not null default true,
   released_at timestamptz,
   license_status text,
-  license_number text
+  license_number text,
+  agency_id uuid
+);
+
+-- city_id הוא uuid כמו scraped_leads.city_id: הדירוג משווה a.city_id = r.city_id.
+create table if not exists public.agencies (
+  id uuid primary key,
+  city_id uuid
+);
+
+insert into public.agencies (id, city_id)
+values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1', null)
+on conflict (id) do nothing;
+
+insert into public.agency_members (id, active, agency_id) values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa8', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa11', true, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1')
+on conflict (id) do update set agency_id = excluded.agency_id;
+
+create table if not exists public.whatsapp_conversations (
+  agent_id uuid primary key,
+  last_message_at timestamptz
+);
+
+create table if not exists public.neighborhoods (
+  id uuid primary key,
+  city_id uuid
+);
+
+create table if not exists public.agent_lead_preferences (
+  agent_id uuid,
+  active boolean,
+  preferred_neighborhoods uuid[]
 );
 
 create table if not exists public.scraped_leads (

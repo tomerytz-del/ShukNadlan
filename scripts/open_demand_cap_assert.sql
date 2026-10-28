@@ -29,18 +29,23 @@ begin
     raise exception 'lookback default';
   end if;
 
-  insert into public.agency_members (id, active, license_status, license_number) values
-    (a, true, 'verified', '1'),
-    (b, true, 'verified', '1'),
-    (c, true, 'verified', '1'),
-    (d, true, 'verified', '1'),
-    (e, true, 'verified', '1'),
-    (f, true, 'verified', '1'),
-    (g, true, 'not_found', '1'),
-    (h, true, 'verified', '1'),
-    (i, true, 'verified', '1'),
-    (j, true, 'unverified', null),
-    (k, true, 'manual', '1');
+  insert into public.agency_members (id, active, license_status, license_number, agency_id) values
+    (a, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (b, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (c, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (d, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (e, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (f, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (g, true, 'not_found', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (h, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (i, true, 'verified', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (j, true, 'unverified', null, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1'),
+    (k, true, 'manual', '1', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1')
+  on conflict (id) do update set
+    active = excluded.active,
+    license_status = excluded.license_status,
+    license_number = excluded.license_number,
+    agency_id = excluded.agency_id;
   update public.agency_members set released_at = now() where id = f;
   insert into public.cap_stub_block (agent_id, kind) values (h, 'mute'), (i, 'type');
 
