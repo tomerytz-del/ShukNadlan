@@ -558,13 +558,14 @@ function notifRowHtml(t){
 
 function reminderRowHtml(){
   const rp = reminderPrefs;
+  const shown = reminderChannelsForScreen(rp.channels);
   const waOk = reminderWaAllowed();
   const kinds = REMINDER_KINDS.map(k =>
     `<div class="np2-kind"><div class="np2-text"><div class="np2-title" id="npKind-${escapeHtml(k.kind)}">${escapeHtml(k.title)}</div><div class="np2-sub">${escapeHtml(k.sub)}</div></div>`
     + `<button type="button" class="ui-switch" data-ui-switch data-kind="${escapeHtml(k.kind)}" aria-pressed="${!rp.muted_kinds.includes(k.kind)}" aria-labelledby="npKind-${escapeHtml(k.kind)}"></button></div>`).join('');
   const cadence = ['daily', 'weekly', 'off'].includes(rp.cadence) ? rp.cadence : 'weekly';
   const where = waOk ? 'בוואטסאפ או במייל, לא בפעמון.' : 'במייל, לא בפעמון.';
-  const waChip = waOk ? uiChip('וואטסאפ', { value:'whatsapp', on: rp.channels.includes('whatsapp') }) : '';
+  const waChip = waOk ? uiChip('וואטסאפ', { value:'whatsapp', on: shown.includes('whatsapp') }) : '';
   return `<div class="np2-row np2-row--rem">`
     + `<div class="np2-text"><div class="np2-title">סיכום תזכורות<span class="ui-tag" id="npRemFreq"></span></div>`
     + `<div class="np2-sub">כל מה שכדאי לטפל בו במודעות שלך, בהודעה אחת. ${where}</div></div>`
@@ -574,7 +575,7 @@ function reminderRowHtml(){
     +   `<div class="set-field"><span class="set-field-label" id="npRemChLabel">לאן לשלוח</span>`
     +     `<div class="ui-chips" id="npRemCh" role="group" aria-labelledby="npRemChLabel">`
     +       waChip
-    +       uiChip('מייל', { value:'email', on: rp.channels.includes('email') })
+    +       uiChip('מייל', { value:'email', on: shown.includes('email') })
     +     `</div><p class="ui-hint" id="npRemChNote"></p></div>`
     +   `<div class="set-field"><span class="set-field-label" id="npRemCadLabel">תדירות</span>`
     +     `<div class="ui-chips" data-ui-single id="npRemCadence" role="group" aria-labelledby="npRemCadLabel">`
@@ -811,9 +812,10 @@ async function saveReminderPrefs(s){
   if (!remindersReady || !currentAgent || !s.rem || !s.quiet) return { error: remindersNotReady() };
   const shown = REMINDER_KINDS.map(k => k.kind);
   const muted = reminderPrefs.muted_kinds.filter(k => !shown.includes(k)).concat(s.rem.mutedKinds);
+  const channels = reminderChannelsToStore(s.rem.channels);
   const payload = {
     agent_id: currentAgent.id,
-    channels: s.rem.channels,
+    channels: channels,
     muted_kinds: muted,
     cadence: s.rem.cadence,
     max_per_30_days: s.rem.cap,
@@ -825,7 +827,7 @@ async function saveReminderPrefs(s){
   const { error } = await sb.from('agent_reminder_preferences').upsert(payload, { onConflict:'agent_id' });
   if (error) return { error };
   reminderPrefs = {
-    channels: s.rem.channels, muted_kinds: muted, cadence: s.rem.cadence, max_per_30_days: s.rem.cap,
+    channels: channels, muted_kinds: muted, cadence: s.rem.cadence, max_per_30_days: s.rem.cap,
     quiet_from_hour: s.quiet.from, quiet_to_hour: s.quiet.to, quiet_days: s.quiet.days,
   };
   document.getElementById('npRemCap').value = s.rem.cap;

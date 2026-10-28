@@ -26396,24 +26396,42 @@ const REMINDER_WEEKDAY_SHORT = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'
 let reminderFindings = [];
 let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
 
-/* וואטסאפ לתזכורות רק ב-mid וב-premium, כמו agent_reminder_due_agents.
+/* וואטסאפ לתזכורות רק כש-tier הוא mid או premium, כמו
+   agent_reminder_due_agents. billing_status לא נבדק שם, ולכן גם לא כאן.
    tier ריק נחשב כמו חינם: הטופס לא מציג את הערוץ. */
 function reminderWaAllowed(){
-  return typeof assistantTierOk === 'function' && assistantTierOk();
+  const tier = currentAgent && currentAgent.tier;
+  return tier === 'mid' || tier === 'premium';
 }
 
-function reminderDefaultChannels(){
-  return reminderWaAllowed() ? REMINDER_PREF_DEFAULTS.channels.slice() : ['email'];
-}
-
-/* וואטסאפ שמור, או ברירת המחדל הישנה, מוצג כמייל כי זה מה שנשלח.
-   מערך ריק הוא כיבוי מפורש ונשאר ריק. */
+/* לתצוגה בלבד. מה שנשמר ב-reminderPrefs.channels נשאר הבחירה של הסוכן/ת,
+   כדי ששדרוג יחזיר וואטסאפ בלי לכתוב מייל במקומו. מערך ריק הוא כיבוי
+   מפורש ונשאר ריק. */
 function reminderChannelsForScreen(channels){
-  const list = Array.isArray(channels) ? channels.slice() : reminderDefaultChannels();
+  const list = Array.isArray(channels) ? channels.slice() : REMINDER_PREF_DEFAULTS.channels.slice();
   if (reminderWaAllowed()) return list;
   const rest = list.filter(c => c !== 'whatsapp');
   if (list.includes('whatsapp') && !rest.includes('email')) rest.push('email');
   return rest;
+}
+
+function reminderChannelsEqual(a, b){
+  const x = (a || []).slice().sort();
+  const y = (b || []).slice().sort();
+  return x.length === y.length && x.every((c, i) => c === y[i]);
+}
+
+/* מה שנכתב ל-agent_reminder_preferences. אם הצ'יפים הם רק ההחלפה
+   של מסלול חינם, נשמרת הבחירה הקודמת. שינוי אמיתי (כיבוי המייל) נשמר
+   כמו שהוא, בלי וואטסאפ. */
+function reminderChannelsToStore(displayed){
+  const shown = Array.isArray(displayed) ? displayed.slice() : [];
+  if (reminderWaAllowed()) return shown;
+  const stored = Array.isArray(reminderPrefs.channels)
+    ? reminderPrefs.channels.slice()
+    : REMINDER_PREF_DEFAULTS.channels.slice();
+  if (reminderChannelsEqual(shown, reminderChannelsForScreen(stored))) return stored;
+  return shown.filter(c => c !== 'whatsapp');
 }
 
 async function loadReminders(agentId){
@@ -26436,8 +26454,9 @@ async function loadReminders(agentId){
 
   const row = (!prefs.error && prefs.data) ? prefs.data : null;
   reminderPrefs = {
-    channels:        reminderChannelsForScreen(
-                       Array.isArray(row?.channels) ? row.channels : reminderDefaultChannels()),
+    channels:        Array.isArray(row?.channels)
+                       ? row.channels.slice()
+                       : REMINDER_PREF_DEFAULTS.channels.slice(),
     muted_kinds:     Array.isArray(row?.muted_kinds) ? row.muted_kinds : [],
     cadence:         row?.cadence ?? REMINDER_PREF_DEFAULTS.cadence,
     max_per_30_days: Number.isFinite(Number(row?.max_per_30_days))
