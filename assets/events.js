@@ -174,3 +174,13 @@
     } catch(err){ /* מדידה לא שוברת אתר */ }
   }, true);
 })();
+
+/* ייחוס ביקור ראשון. נטען מכאן כי events.js כבר יושב בכל דף ציבורי,
+   בלי להוסיף תגית לכל דף. דף הרשמה בלי events.js טוען את הקובץ בעצמו. */
+if (document.readyState === "loading") {
+  document.write('<script src="/assets/visit-attr.js"><\/script>');
+} else {
+  var visitAttrScript = document.createElement("script");
+  visitAttrScript.src = "/assets/visit-attr.js";
+  document.head.appendChild(visitAttrScript);
+}

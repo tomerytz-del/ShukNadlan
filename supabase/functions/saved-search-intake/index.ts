@@ -8,6 +8,7 @@ import {
   resolveAgencyRouting,
   resolveAgentRouting,
 } from "../_shared/lead-routing.ts";
+import { stampVisitAttr } from "../_shared/visit-attr.ts";
 
 // ============================================================================
 // שמירת חיפוש של מחפש/ת דירה — "הסוכן החכם".
@@ -324,6 +325,10 @@ Deno.serve(async (req: Request) => {
 
      כפילות (‏duplicate) אינה נרשמת: לא נוצר ליד חדש, ואין מה לנתב. */
   if (result?.search_id) {
+    await stampVisitAttr(
+      (attr) => serviceClient.from("saved_searches").update(attr).eq("id", result.search_id),
+      body,
+    );
     /* ליד של משרד אינו נמדד מול המדף: הוא לא אמור להיות שם, ויש לו נמען
        אחד ידוע. שלושת המצבים שנשארו הם של ליד הפלטפורמה כמו קודם. */
     const assigned = !!assignedAgencyId;

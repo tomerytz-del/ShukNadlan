@@ -12,6 +12,7 @@ import {
   isInternalCaller,
   socialSourceLabel,
 } from "../_shared/lead-routing.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
 // רץ עם service_role — צריך לקרוא חוצי-סוכנים (agent_lead_preferences של כל הסוכנים
@@ -364,8 +365,11 @@ Deno.serve(async (req: Request) => {
     for (const row of attempts) {
       let retried = false;
       for (;;) {
-        ({ data: lead, error: leadErr } = await supabase
-          .from("leads").insert(row).select().single());
+        ({ data: lead, error: leadErr } = await writeVisitInsert(
+          (payload) => supabase.from("leads").insert(payload).select().single(),
+          row,
+          body,
+        ));
         if (!leadErr) break;
         // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
         if (externalRef && (leadErr as any).code === "23505") {

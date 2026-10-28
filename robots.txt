@@ -49,6 +49,11 @@ Disallow: /cma.html
 Disallow: /neighborhood-boundary
 Disallow: /neighborhood-boundary.html
 
+# /go/<code> הוא הפניה שסופרת קליק, לא עמוד. החסימה מונעת מגוגל לאנדקס
+# את כתובת ההפניה. לחיצה של אדם אינה נעצרת כאן.
+Disallow: /go$
+Disallow: /go/
+
 # ‏פרמטרי הסינון של דף הבית ושל דפי הרשימות היו חסומים כאן עד היום, בשלוש
 # שורות (‏filter=, sort=, page=), "עד שיהיו תגיות canonical בדפים האלה".
 # התגיות נשתלו — כל 18 הדפים הסטטיים נושאים אחת — ולכן החסימה ירדה. וזה
