@@ -239,6 +239,8 @@ type Meta = {
   /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער.
      placeholder: אין תמונה ואין פוסטר, והשער הוא קובץ הפלטפורמה. */
   paint?: { count: number; html: string; lcp: string; placeholder?: boolean };
+  /* ‏דף נכס בלי עיר ומחוץ לתיבת השוק (‏P0-A2): 200 עם כל התגיות, ועוד noindex */
+  noindex?: boolean;
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -690,7 +692,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
     "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name,logo_url)," +
-    "video_url,video_poster_url";
+    "video_url,video_poster_url,city_id,lat,lng";
   const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
@@ -728,6 +730,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     if (agent.kind === "row") agentDisplay = String(agent.row.display_name || "");
   }
   const visible = propertyVisible(p, agentDisplay);
+  const offMarket = !p.city_id && !inMarketBox(p.lat, p.lng);
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
@@ -747,7 +750,19 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
     inner: visible.inner,
     paint: heroPaint(p),
+    noindex: offMarket,
   };
+}
+
+/* ‏תיבת השוק של עפולה והעמק - אותה DEFAULT_BOX של assets/market-scope.js
+   ‏[latMin, lngMin, latMax, lngMax]. נכס בלי city_id נחשב בשוק רק אם הוא
+   בתוכה (‏PR 1010, P0-A2); בלי קואורדינטות - מחוץ לשוק. */
+const MARKET_BOX = [32.45, 35.05, 32.80, 35.60];
+function inMarketBox(lat: unknown, lng: unknown): boolean {
+  if (lat == null || lng == null || lat === "" || lng === "") return false;
+  const a = Number(lat), b = Number(lng);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return a >= MARKET_BOX[0] && a <= MARKET_BOX[2] && b >= MARKET_BOX[1] && b <= MARKET_BOX[3];
 }
 
 /* ‏הסף של agency.html (‏MIN_REVIEWS_SHOWN) - מתחתיו הדף אינו מציג דירוג. */
@@ -1266,7 +1281,9 @@ function inject(html: string, m: Meta): string {
      היא יורדת כאן. **שתי תגיות canonical גורמות לגוגל להתעלם משתיהן**,
      וזה כשל שקט לגמרי: הדף נטען, התגית שהזרקנו בתוכו, והאיחוד לא קורה. */
   out = out.replace(/<link\b[^>]*\brel="canonical"[^>]*>\s*/gi, "");
-  add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
+  /* ‏noindex בלי canonical: שתי ההצהרות יחד סותרות (‏scripts/og_tags_test.ts) */
+  if (m.noindex) add.unshift(`<meta name="robots" content="noindex,follow">`);
+  else add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
   if (!/<meta[^>]+property="og:type"/i.test(out)) {
     add.push(`<meta property="og:type" content="website">`);
   }

@@ -45,6 +45,7 @@ const PROPERTY = {
   house_number: "12",
   address: "הרצל 12",
   city: "עפולה",
+  city_id: "afula",
   images: ["/a.jpg"],
   price: 1500000,
   deal_type: "sale",
@@ -95,6 +96,9 @@ const CASES: Case[] = [
 
   /* ‏4. המסלול הרגיל, כדי שהבדיקה לא תעבור על פונקציה שהפסיקה להזריק */
   { name: "נכס קיים", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: PROPERTY, expect: "tags" },
+  /* ‏P0-A2: נכס בלי עיר - בתוך תיבת עפולה והעמק נשאר, מחוץ לה (‏"אזור השרון") noindex */
+  { name: "נכס בלי עיר בעפולה", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: { ...PROPERTY, city_id: null, lat: "32.61", lng: "35.29" }, expect: "tags" },
+  { name: "נכס בלי עיר מחוץ לשוק", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: { ...PROPERTY, city_id: null, lat: "32.3181", lng: "34.9108" }, expect: "noindex" },
   { name: "משרד קיים", url: "/agency?slug=a", status: 200, body: { name: "משרד", description: "ד" }, expect: "tags" },
   { name: "כתבה קיימת", url: "/article?slug=a", status: 200, body: { slug: "a", title: "כותרת" }, expect: "tags" },
 ];
