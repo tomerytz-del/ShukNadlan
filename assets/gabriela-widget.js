@@ -55,6 +55,10 @@
     { key: 'fair',  label: 'יריד הבתים הפתוחים',     text: 'היי גבריאלה, אשמח לשמוע על יריד הבתים הפתוחים ללא עמלת תיווך' }
   ];
   var FREE_DEFAULT = 'היי גבריאלה, אשמח לעזרה';
+  /* ‏P1-Q: דוגמאות שאלות שמוקלדות בשדה (v10). ניטרליות, בלי מספרים שמשתנים מיום ליום */
+  var GW_HINTS = ['דירת 4 חדרים בעפולה עד 1.5 מיליון?', 'מה יש להשכרה ליד הקניון?', 'כמה שווה הדירה שלי?', 'יש נכסים בלי עמלת תיווך?',
+    'אפשר לראות הדמיה של הנכס משופץ?', 'מחפשים בית פרטי בעמק', 'חנות להשכרה עם חזית לרחוב', 'רוצים להתייעץ עם שמאי',
+    'פרויקטים חדשים בעפולה עילית', 'דירה עם מרפסת וחניה'];
 
   /* ---------- v10 (‏html.beta-hero בלבד): שיחה קצרה בתוך האתר ----------
      בחירה מהירה לא פותחת וואטסאפ: היא מוסיפה בועה של הגולש/ת, שלוש נקודות
@@ -256,6 +260,11 @@
     '#gabW .gw-choices.is-compact{gap:6px;margin:0;padding:2px 0}',
     '#gabW .gw-choices.is-compact .gw-choice{min-height:44px;padding:6px 10px;font-size:13px;border-width:1.5px}',
     '#gabW .gw-choices.is-compact .gw-choice svg{width:15px;height:15px}',
+    '#gabW .gw-inwrap{position:relative}',
+    '#gabW .gw-type{position:absolute;inset-inline-start:13px;max-width:calc(100% - 26px);top:50%;transform:translateY(-50%);color:#6b7280;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;pointer-events:auto}',
+    '#gabW .gw-type:not(.is-static)::after{content:"|";margin-inline-start:1px;animation:gwCaret 1s steps(1) infinite}',
+    '@keyframes gwCaret{50%{opacity:0}}',
+    '@media(prefers-reduced-motion:reduce){#gabW .gw-type::after{animation:none}}',
     '#gabW .gw-ex{display:flex;flex-direction:column;gap:8px}',
     '#gabW .gw-ex.is-old .gw-reply{display:none}',
     '#gabW .gw-ex.is-old .gw-me{opacity:.65}'
@@ -313,7 +322,11 @@
       placeholder: 'או כתבו לגבריאלה מה מחפשים', 'aria-label': 'הודעה לגבריאלה' });
     var go = waLink('gw-go', 'widget_free', FREE_DEFAULT, '');
     go.innerHTML = WA_ICON + '<span>המשך בוואטסאפ</span>';
-    free.appendChild(input);
+    // ‏P1-Q: השכבה עם השאלה המוקלדת יושבת מעל השדה, ואינה משנה את ה-placeholder (קורא מסך)
+    var inWrap = v10 ? el('div', { 'class': 'gw-inwrap' }) : null;
+    var typeEl = v10 ? el('span', { 'class': 'gw-type', 'aria-hidden': 'true' }) : null;
+    if (v10) { inWrap.appendChild(input); inWrap.appendChild(typeEl); free.appendChild(inWrap); }
+    else free.appendChild(input);
     free.appendChild(go);
     // v10: הטקסט החופשי ו"המשך בוואטסאפ" בשורה קבועה בתחתית - לא נגללים עם השיחה
     var foot = v10 ? el('div', { 'class': 'gw-foot' }) : body;
@@ -512,6 +525,71 @@
     }
     fillChoices();
     input.addEventListener('input', syncFree);
+
+    /* ---------- ‏P1-Q: מכונת כתיבה בשדה ----------
+       הקלדה 45ms לתו, השהייה 1.8 שניות, מחיקה 25ms לתו, הפסקה 0.4 שניות. טיימר אחד, רץ רק
+       כשהחלונית פתוחה, הדף גלוי, השדה ריק ובלי פוקוס. ‏reduced-motion: שאלה אחת קבועה. */
+    var hint = { on: false, t: 0, order: [], i: 0, txt: '', pos: 0, phase: 'type', seen: false };
+    function hintOrder() {
+      var idx = GW_HINTS.map(function (_, i) { return i; });
+      for (var k = idx.length - 1; k > 0; k--) { var j = Math.floor(Math.random() * (k + 1)); var tmp = idx[k]; idx[k] = idx[j]; idx[j] = tmp; }
+      // בעמודי שכירות, מסחרי ופרויקטים - השאלות שמתאימות לעמוד קודם
+      var q = location.search + location.pathname, first = /deal=rent/.test(q) ? [1] : /commercial/.test(q) ? [6] : /projects/.test(q) ? [8] : [];
+      return first.concat(idx.filter(function (x) { return first.indexOf(x) < 0; }));
+    }
+    function hintCanRun() { return v10 && open && !document.hidden && !input.value && document.activeElement !== input; }
+    function hintTick() {
+      hint.t = 0;
+      if (!hintCanRun()) { hintStop(); return; }
+      var full = GW_HINTS[hint.order[hint.i]];
+      var delay = 45;
+      if (hint.phase === 'type') {
+        hint.pos++;
+        if (hint.pos >= full.length) { hint.phase = 'hold'; delay = 1800; }
+      } else if (hint.phase === 'hold') { hint.phase = 'erase'; delay = 25; }
+      else if (hint.phase === 'erase') {
+        hint.pos--; delay = 25;
+        if (hint.pos <= 0) { hint.phase = 'pause'; delay = 400; }
+      } else {
+        hint.phase = 'type'; hint.pos = 0;
+        hint.i = (hint.i + 1) % hint.order.length;
+        if (hint.i === 0) hint.order = hintOrder();
+      }
+      typeEl.textContent = GW_HINTS[hint.order[hint.i]].slice(0, hint.pos);
+      hint.t = setTimeout(hintTick, delay);
+    }
+    function hintStart() {
+      if (!v10 || hint.on || !hintCanRun()) return;
+      hint.on = true; hint.seen = true;
+      if (!hint.order.length) hint.order = hintOrder();
+      input.setAttribute('placeholder', '');
+      typeEl.hidden = false;
+      if (reduceMotion) { typeEl.textContent = GW_HINTS[hint.order[0]]; typeEl.classList.add('is-static'); return; }
+      hint.phase = 'type'; hint.pos = 0;
+      hint.t = setTimeout(hintTick, 400);
+    }
+    function hintStop() {
+      if (!v10) return;
+      clearTimeout(hint.t); hint.t = 0; hint.on = false;
+      typeEl.hidden = true;
+      input.setAttribute('placeholder', 'כתבו לגבריאלה…');
+    }
+    if (v10) {
+      input.addEventListener('focus', hintStop);
+      input.addEventListener('input', hintStop);
+      input.addEventListener('blur', function () { setTimeout(hintStart, 600); });
+      document.addEventListener('visibilitychange', function () { if (document.hidden) hintStop(); else hintStart(); });
+      // לחיצה על השאלה ממלאת אותה בשדה
+      typeEl.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        var at = hint.order[hint.i] || 0;
+        hintStop();
+        input.value = GW_HINTS[at];
+        syncFree();
+        input.focus();
+        if (window.shukTrack) window.shukTrack('gab_hint_click', { hint_index: at });
+      });
+    }
     free.addEventListener('submit', function (e) { e.preventDefault(); syncFree(); go.click(); });
 
     /* ---------- פתיחה וסגירה ---------- */
@@ -522,6 +600,7 @@
       open = on;
       if (on) hideTip();
       root.classList.toggle('is-open', on);
+      if (on) setTimeout(hintStart, 300); else hintStop();
       bubble.setAttribute('aria-expanded', on ? 'true' : 'false');
       bubble.setAttribute('aria-label', on ? 'סגירת החלונית של גבריאלה' : BUBBLE_LABEL);
       if (on) {

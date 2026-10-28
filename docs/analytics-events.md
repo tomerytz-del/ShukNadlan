@@ -471,3 +471,4 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `dm_filter_empty` | צירוף התמחות ואזור בלי תוצאות (פעם אחת לצירוף) | `tab`, `spec`, `area`: ‏`hood` \| `city` \| `all` |
 | `dm_filter_clear` | "לנקות את הסינון" / "להציג את כל האזורים" במצב הריק | `tab` |
 | `social_prompt_dismiss` | ‏CRM: "לא עכשיו" בכרטיס התיוג בפרסומים (‏P1-R). נדחף ישירות ל-dataLayer (ה-CRM אינו טוען את events.js) | `mode`: ‏`later` \| `never` |
+| `gab_hint_click` | לחיצה על שאלת הדוגמה שמוקלדת בשדה של גבריאלה (‏P1-Q, v10) - השאלה נכנסת לשדה | `hint_index`: ‏0-9 (מיקום ב-`GW_HINTS`) |
