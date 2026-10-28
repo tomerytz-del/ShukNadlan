@@ -1109,6 +1109,16 @@ WHATSAPP_BOT_MODEL = claude-sonnet-5
    ‏`notif_push_template_gap_minutes` (‏240) מאז התבנית הקודמת, ובתוכו - רק
    הסוגים שבעדיפות (סעיף 5). השאר מחכה ומצטרף לתבנית הבאה. בתוך החלון
    (טקסט חופשי) אין שינוי. ‏`20270825090000_notification_push_template_gap.sql`.
+8. **תקרת תבניות לסוכן/ת, כבויה.** ‏`app_config.whatsapp_template_cap_enabled`
+   הוא `false`. כל עוד הוא כבוי אין תקרה ואין שורת דילוג. כשהוא `true`:
+   תבנית אחת ביום מקומי (אסיה/ירושלים), שנייה רק אחרי 8 שעות, וגג של 2.
+   2 הוא גג, לא יעד. טקסט בתוך חלון 24 השעות לא נספר.
+   הפטור הוא `app_config.whatsapp_template_cap_exempt_types`, מערך JSON.
+   ברירת המחדל `["new_lead","agenda_reminder","showcase_meeting"]`. שינוי
+   הרשימה לא דורש מיגרציה. פטור יוצא גם מעל הגג, ונחשב בספירה אחרי שיצא.
+   סיור נשאר מחוץ לתבנית UTILITY.
+   כל השאר נרשם ב-`notification_push_log` עם `skipped_template_cap`.
+   ‏`20271030000200_whatsapp_template_cap.sql`, אחרי חלון הלקוחות.
 
 וסוג שכובה בפעמון לא ייווצר במסד מלכתחילה (הטריגר
 `notifications_apply_preferences` מחזיר `null`), ולכן גם לא יישלח. הדשבורד
@@ -1126,7 +1136,9 @@ WHATSAPP_BOT_MODEL = claude-sonnet-5
 מאז `20261101090000` הפרדיקט הוא `notification_push_log_holds`: שורה חוסמת
 רק אם היא `sent`, או `pending` בתוך חסד של 30 דקות
 (`notif_push_pending_grace_minutes`). שורה שנכשלה, או שנתקעה מעבר לחסד,
-משחררת את ההתראות שבתוכה לסבב הבא.
+משחררת את ההתראות שבתוכה לסבב הבא. מ-`20271030000200` גם `skipped` ו-
+`skipped_template_cap` חוסמים לתמיד: תבנית שדולגה בגלל התקרה לא יוצאת
+אחר כך.
 
 שלוש נקודות שקל לפספס:
 
