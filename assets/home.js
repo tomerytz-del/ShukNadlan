@@ -7457,10 +7457,18 @@ let freeTextFeatures = new Set();
     wrap.classList.toggle('is-collapsed', !open);
     toggle.setAttribute('aria-expanded', String(open));
     if (open){
-      if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
+      // ‏v10: לפי הלשונית שנבחרה (כולל מסחרי), כי שורת העסקה מוסתרת
+      const tab = v10On() && document.querySelector('[data-v10-deal][aria-selected="true"]');
+      if (tab) setMode(tab.dataset.v10Deal);
+      else if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
       pills.find(b => b.dataset.hsDeal === mode)?.focus({ preventScroll:true });
     } else if (mode) setMode(mode);
   });
+
+  // ‏v10: בלי שורת העסקה הכפולה - הפאנל הפתוח עוקב אחרי הלשונית שנבחרה
+  document.querySelectorAll('[data-v10-deal]').forEach(t => t.addEventListener('click', () => {
+    if (v10On() && !wrap.classList.contains('is-collapsed')) setMode(t.dataset.v10Deal);
+  }));
 
   $('hsCity').addEventListener('change', () => {
     $('hsHood').disabled = $('hsCity').value !== 'all';
