@@ -5,6 +5,7 @@ import { mapPool } from "../_shared/pool.ts";
 import {
   LEAD_CTA, type LeadInfo, leadListTitle, leadTemplateLine, leadText, loadLeadInfo,
 } from "./lead-alert.ts";
+import { clipWhatsappBody, showingCloseNotifyButton } from "../whatsapp-webhook/showing-match.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -172,6 +173,8 @@ type Item = {
   review_agent_slug?: string | null;
   // ‏new_lead בלבד: נטען ב-loadLeadInfo (lead-alert.ts). חסר - הנוסח הגנרי.
   lead?: LeadInfo | null;
+  // ‏סגירת מיניסייט (20271029121000). חסר - אין כפתור scn:.
+  meeting_id?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -442,6 +445,24 @@ async function sendWhatsapp(
             parameters: [{ type: "text", text: `/crm?goto=${MANAGE_ACC}` }],
           },
         ],
+      },
+    };
+  } else if (mode !== "template" && showingCloseNotifyButton(items)) {
+    const scn = showingCloseNotifyButton(items)!;
+    // כפתור תשובה. אי אפשר לערבב אותו עם cta_url, והקישור נשאר בגוף.
+    // לא נשלחת הודעה למי שקיבל את בקשת התיאום עד שהסוכן/ת לוחץ/ת.
+    const body = clipWhatsappBody(textBody(name, items, false), 1024);
+    payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: body },
+        action: {
+          buttons: [{ type: "reply", reply: { id: scn.id, title: scn.title } }],
+        },
       },
     };
   } else {
