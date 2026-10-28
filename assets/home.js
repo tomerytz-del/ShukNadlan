@@ -6957,14 +6957,19 @@ function renderAdvancedBadge(){
 /* ---------- ‏A2-6: התמונות הקבועות של הכניסות להחלקה (תומר 22:00) ----------
    ארבע תמונות AI (לא נכסים אמיתיים, ולכן alt ריק ובלי קישור לנכס): ‏ext-1 בית אבן, ‏ext-2
    בניין בוטיק, ‏ext-3 פרגולה עם נוף, ‏ext-4 מטבח. ‏ext-N.webp ‏(96x128) לכפתור שבסרגל,
-   ‏ext-N-card.webp ‏(240x320) לכרטיס ההזמנה. ‏SWIPE_THUMBS_READY נדלק כשהקבצים נכנסים
-   ל-assets/swipe-thumbs/ - עד אז הכפתור הוא האייקון של שני הכרטיסים, והכרטיס מציג את
-   תמונות הנכסים כמו היום (בלי בקשות שנופלות ב-404) */
-const SWIPE_THUMBS_READY = false;
+   ‏ext-N-card.webp ‏(240x320) לכרטיס ההזמנה, ב-assets/swipe-thumbs/ (‏29.10). ‏SWIPE_THUMBS_READY
+   כבוי - הכפתור הוא האייקון של שני הכרטיסים והכרטיס מציג את תמונות הנכסים */
+const SWIPE_THUMBS_READY = true;
 const SWIPE_THUMBS = [1, 2, 3, 4];
 const swipeThumb = (n, card) => '/assets/swipe-thumbs/ext-' + n + (card ? '-card' : '') + '.webp';
 // בערימה של שלוש מתוך ארבע: התמונה שנכנסת מלמטה היא זו שאינה מוצגת עכשיו (‏data-n)
 const swipeThumbMissing = stack => SWIPE_THUMBS.find(n => !stack.querySelector('img[data-n="' + n + '"]'));
+/* ‏C7: הכפתור והכרטיס לא מציגים את אותה תמונה למעלה באותו רגע - החלפה שהייתה מביאה למעלה את
+   התמונה העליונה של השני מדלגת על הסבב הזה */
+const swipeThumbClash = (stack, otherSel) => {
+  const next = stack.children[stack.children.length - 2], other = document.querySelector(otherSel);
+  return !!(next && other && next.dataset.n === other.dataset.n);
+};
 /* ‏C8 (ד): התגית "חדש באתר" עד 30 יום אחרי העלייה לאוויר - תאריך, לא מונה. לעדכן ביום המיזוג */
 const INVITE_NEW_TAG_UNTIL = '2026-12-01';
 const SWIPE_ICON = '<svg class="ppv-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>';
@@ -6983,26 +6988,39 @@ function v10MiniSwipe(btn){
     [2, 4, 3].map(n => '<img src="' + swipeThumb(n) + '" alt="" width="24" height="32" decoding="async" data-n="' + n + '">').join('') +
     '</span>' + SWIPE_ICON + labels;
   btn.classList.add('has-thumbs');
+  // תמונה שלא נטענה - חוזר האייקון באותו מקום ובאותו רוחב
   btn.querySelectorAll('.ppv-stack img').forEach(img => img.addEventListener('error', () => btn.classList.remove('has-thumbs'), { once:true }));
   if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
-  let swipes = 0, timer = 0;
+  let swipes = 0, timer = 0, onScreen = false, busy = false;
   const stack = btn.querySelector('.ppv-stack');
+  // ההחלפה רק אחרי שהתמונה הבאה נטענה - בלי ריבוע ריק באמצע התנועה
   const step = () => {
     const top = stack.lastElementChild;
-    if (!top || swipes >= 6){ clearInterval(timer); return; }
-    top.classList.add(swipes % 2 ? 'is-out-l' : 'is-out-r');
-    swipes++;
-    setTimeout(() => {
-      top.classList.remove('is-out-l', 'is-out-r');
-      const n = swipeThumbMissing(stack);
-      top.dataset.n = n; top.src = swipeThumb(n);
-      stack.prepend(top);
-    }, 420);
+    if (busy || !top || swipes >= 6 || !btn.classList.contains('has-thumbs')){ if (swipes >= 6) stop(); return; }
+    if (swipeThumbClash(stack, '#allProps .psi-stack img:last-child')) return;
+    busy = true;
+    const n = swipeThumbMissing(stack);
+    const pre = new Image();
+    pre.onload = () => {
+      top.classList.add(swipes % 2 ? 'is-out-l' : 'is-out-r');
+      swipes++;
+      setTimeout(() => {
+        top.classList.remove('is-out-l', 'is-out-r');
+        top.dataset.n = n; top.src = pre.src;
+        stack.prepend(top);
+        busy = false;
+      }, 420);
+    };
+    pre.onerror = () => { busy = false; };
+    pre.src = swipeThumb(n);
   };
-  new IntersectionObserver(es => es.forEach(en => {
-    clearInterval(timer); timer = 0;
-    if (en.intersectionRatio >= 0.6 && swipes < 6) timer = setInterval(step, 3600);
-  }), { threshold: [0, 0.6] }).observe(btn);
+  const stop = () => { clearInterval(timer); timer = 0; };
+  // רץ רק כש-60% מהכפתור על המסך והלשונית גלויה; ממשיך מאותה ספירה כשחוזרים
+  const sync = () => { stop(); if (onScreen && !document.hidden && swipes < 6) timer = setInterval(step, 3600); };
+  new IntersectionObserver(es => es.forEach(en => { onScreen = en.intersectionRatio >= 0.6; sync(); }), { threshold: [0, 0.6] }).observe(btn);
+  document.addEventListener('visibilitychange', sync);
+  // ריחוף בעכבר - החלקה אחת
+  btn.addEventListener('mouseenter', () => { if (swipes < 6) step(); });
 }
 
 /* ‏R5-3C (v10): בסרגל "נכסים בעפולה והעמק" - "סינון" (אותו חלון כמו בחיפוש), המיון,
@@ -8011,8 +8029,14 @@ function v10InviteRotate(a){
     if (!on || a.classList.contains('psi-ai-off')) return;
     timer = setInterval(() => {
       const top = stack.lastElementChild;
-      top.classList.add('is-out');
-      setTimeout(() => { top.classList.remove('is-out'); const n = swipeThumbMissing(stack); top.dataset.n = n; top.src = swipeThumb(n, true); stack.prepend(top); }, 450);
+      if (swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) return;
+      const n = swipeThumbMissing(stack), pre = new Image();
+      // ההחלפה רק אחרי שהתמונה הבאה נטענה
+      pre.onload = () => {
+        top.classList.add('is-out');
+        setTimeout(() => { top.classList.remove('is-out'); top.dataset.n = n; top.src = pre.src; stack.prepend(top); }, 450);
+      };
+      pre.src = swipeThumb(n, true);
     }, 4000);
   };
 }
