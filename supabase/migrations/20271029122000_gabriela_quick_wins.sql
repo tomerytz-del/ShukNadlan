@@ -132,7 +132,7 @@ declare
 begin
   -- אותו סדר כמו nameSkeleton: NFKC קודם, רווח מכל סוג (טאב, שורה)
   -- מתקפל לפני פיצול המילים, ו-lower בסוף.
-  s := normalize(coalesce(p_raw, ''), 'NFKC');
+  s := normalize(coalesce(p_raw, ''), NFKC);
   s := regexp_replace(s, '[֑-ׇ]', '', 'g');
   s := regexp_replace(s, '["''״׳`]', '', 'g');
   s := translate(s, 'םןץףך', 'מנצפכ');
