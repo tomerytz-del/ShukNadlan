@@ -504,6 +504,15 @@
     }
     return list;
   }
+  /* ‏P0-C: מונה אחד לשורת המיון ולגיליון - כמה נכסים יוצגו בפועל. עם "רק נכסים עם
+     תמונות" אלה שבלי תמונות עדיין מגיעים אחרי הגשר (‏deckProps, ‏npRest), ולכן נספרים */
+  function shownCount(f) {
+    f = f || filter;
+    var c = filtered(f).length;
+    if (f.photos) c += filtered(Object.assign({}, f, { photos: false })).filter(function (p) { return !hasPhoto(p); }).length;
+    return c;
+  }
+  function countLabel(c) { return c === 1 ? 'נכס אחד' : c + ' נכסים'; }
   function countFor(patch) {
     var f = Object.assign({}, filter, patch);
     return all.filter(function (p) { return matches(p, f); }).length;
@@ -564,13 +573,16 @@
     $('swFFair').hidden = $('swFFairL').hidden = $('swFFairH').hidden = !fairN && !filter.fair;
     $('swFFair').innerHTML = chip('רק דירות ללא עמלת תיווך', 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
-    var c = filtered().length;
+    var c = shownCount();
     $('swFCount').textContent = c === 1 ? 'נכס אחד מתאים' : c + ' נכסים מתאימים';
-    // הכפתור אומר מה יקרה בתצוגה שבה נמצאים (P0-3 §4)
-    $('swFGo').textContent = view === 'list' ? 'הצגת ' + c + ' נכסים' : view === 'map' ? 'הצגת ' + c + ' נכסים במפה' : 'הצגת ' + c + ' נכסים בהחלקה';
+    // הכפתור אומר מה יקרה בתצוגה שבה נמצאים (P0-3 §4); מ"אהבתי" - בתצוגה שאליה נחזור (‏P0-E)
+    var dest = view === 'likes' ? likesReturnView() : view;
+    $('swFGo').textContent = dest === 'list' ? (view === 'likes' ? 'הצגת ' + c + ' נכסים ברשימה' : 'הצגת ' + c + ' נכסים') : dest === 'map' ? 'הצגת ' + c + ' נכסים במפה' : 'הצגת ' + c + ' נכסים בהחלקה';
+    $('swFLikesNote').hidden = view !== 'likes';
     var nf = activeFilters(), badge = $('swFBadge');
     badge.hidden = !nf; badge.textContent = nf || '';
-    $('swFilterBtn').setAttribute('aria-label', nf ? 'סינון, ' + nf + ' פעילים' : 'סינון');
+    var fl = nf ? 'סינון, ' + nf + ' פעילים' : 'סינון';
+    $('swFilterBtn').setAttribute('aria-label', fl); $('swFilterBtn').title = fl;
     $('swFGo').disabled = false;
     renderSummary();
   }
@@ -692,6 +704,8 @@
     shukTrack('swipe_start', sp);
     closeFilter();
     buildDeck();
+    /* ‏P0-E: מ"אהבתי" הסינון לא משנה את הרשימה השמורה - עוברים לתצוגה שממנה הגיעו */
+    if (view === 'likes') { setView(likesReturnView()); window.scrollTo(0, 0); }
     if (view === 'deck') maybeTour();
   });
   $('swSum').addEventListener('click', function () { openFilter(this); });
@@ -958,8 +972,7 @@
     out.push({ slot: 'end', pos: pos });
     if (DEBUG) { npAssert(out); seqAssert(out); }
     deck = out; idx = 0; history_ = [];
-    var np_ = out.filter(function (c) { return c.slot === 'property'; }).length;
-    $('swSortN').textContent = np_ === 1 ? 'נכס אחד' : np_ + ' נכסים';
+    $('swSortN').textContent = countLabel(shownCount());
     renderDeck();
     renderList();
     if (mapReady) drawMapMarkers();
@@ -1118,6 +1131,28 @@
       if (!v.muted) { v.muted = true; reelSound = false; reelUi(top); v.play().catch(function () {}); }
     });
   }
+  /* ‏P0-D: ל-43 מתוך 59 הסרטונים אין ערוץ שמע, ו"הפעילו קול" הבטיח קריינות שלא קיימת.
+     הכפתורים מוצגים רק כש-data-audio="yes": ‏Safari ‏audioTracks, ‏Firefox ‏mozHasAudio, ‏Chrome
+     ‏webkitAudioDecodedByteCount אחרי חצי שנייה של ניגון (מפוענח גם כשהסרטון מושתק).
+     עמודה במסד (‏video_has_audio) - הצעה ב-docs/proposals/video_has_audio.sql, לא בשימוש עד שתרוץ. */
+  function detectAudio(v, w) {
+    function set(yes) { w.dataset.audio = yes ? 'yes' : 'no'; if (!yes) v.dataset.noAudio = '1'; }
+    function check() {
+      if (v.audioTracks && typeof v.audioTracks.length === 'number') return set(v.audioTracks.length > 0);
+      if (typeof v.mozHasAudio === 'boolean') return set(v.mozHasAudio);
+      if (typeof v.webkitAudioDecodedByteCount === 'number') {
+        var probe = function () {
+          if (v.currentTime < 0.5 && !v.paused) return;
+          v.removeEventListener('timeupdate', probe);
+          set(v.webkitAudioDecodedByteCount > 0);
+        };
+        v.addEventListener('timeupdate', probe);
+        return;
+      }
+      set(false);   // דפדפן שאינו מדווח - בלי כפתור, כמו בסרטון בלי קול
+    }
+    if (v.readyState >= 1) check(); else v.addEventListener('loadedmetadata', check, { once: true });
+  }
   function reelUi(top) {
     var snd = top && top.querySelector('[data-reel-snd]'), mute = top && top.querySelector('[data-reel-mute]');
     if (snd) snd.hidden = reelSound;
@@ -1130,6 +1165,7 @@
     // הכפתור "הפעילו קול" יושב מעל בלוק הטקסט של הכרטיס
     var body = top.querySelector('.sw-cbody'), w = top.querySelector('.sw-reel-wrap');
     if (body && w) w.style.setProperty('--cbody-h', body.offsetHeight + 'px');
+    if (w) detectAudio(v, w);
     v.addEventListener('error', function () { v.dataset.err = '1'; v.hidden = true; var cd = v.closest('.sw-card'); if (cd) cd.classList.add('reel-err'); });   // התמונה שמתחת (הפוסטר) נשארת
     v.addEventListener('loadedmetadata', function () {
       var d = Math.round(v.duration || 0), tag = top.querySelector('.sw-reel-tag b');
@@ -2556,7 +2592,7 @@
   };
 
   /* ---------- 5. מפה, רשימה וההדרכה ---------- */
-  var map = null, mapReady = false, markers = null, lastView = 'deck';
+  var map = null, mapReady = false, markers = null, lastView = 'deck', preLikes = 'deck';
   function tileFallback(box, chipEl) {
     var failed = function () {
       if (box.classList.contains('tiles-off')) return;
@@ -2656,9 +2692,12 @@
     var c = deck.filter(function (x) { return String(x.pos) === b.dataset.pos; })[0];
     openSheetFor(c);
   });
+  function likesReturnView() { return preLikes === 'map' || preLikes === 'list' ? preLikes : 'deck'; }
   function setView(v, likedOnly, npOnly) {
-    if (v !== 'map') lastView = v;
-    else if (view !== 'map') lastView = view;
+    if (v === 'likes' && view !== 'likes') preLikes = view;
+    // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
+    if (v !== 'map' && v !== 'likes') lastView = v;
+    else if (v === 'map' && view !== 'map' && view !== 'likes') lastView = view;
     view = v;
     document.body.dataset.view = v;
     listLikedOnly = !!likedOnly && v === 'list';
@@ -2810,6 +2849,10 @@
   $('swHelp').addEventListener('click', function () { bsOpen('help'); });
 
   /* ---------- התחלה ---------- */
+  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort'].some(function (k) { return params.has(k); });
+  function cameBack() {
+    try { var nav = performance.getEntriesByType('navigation')[0]; return !!nav && nav.type === 'back_forward'; } catch (e) { return false; }
+  }
   readUrl();
   syncSortBtn();
   var urlDeal = params.get('deal');
@@ -2821,7 +2864,9 @@
   function start() {
     load().then(function (rows) {
       all = rows;
-      openFilter($('swSum'));
+      /* ‏"הסינון לפני ההחלקה" רק בכניסה נקייה: כתובת שכבר נושאת סינון (‏reload, קישור
+         מדף הבית) או חזרה ב"אחורה" מדף נכס - בלי גיליון שנפתח מעצמו (‏P0-C, ‏P1-L) */
+      if (!urlHasFilter && !cameBack()) openFilter($('swSum'));
       buildDeck();
       loadViz(rows).then(function () {
         renderFilter();
