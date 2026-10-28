@@ -45,11 +45,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: לקוח Postgres
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: לקוח Postgres ודרייבר
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          python3 -m pip install --user 'psycopg[binary]==3.3.6'
 
-      # בלי הסוד. כאן רצה גם ההוכחה ש-psql:<stdin>:N: ERROR נספר ושקובץ
-      # שנכשל מתגלגל לאחור.
+      # בלי הסוד. הלקסר, וש-\\! דרך psycopg אינו מריץ כלום.
       - name: בדיקה עצמית
         env:
           PGHOST: localhost

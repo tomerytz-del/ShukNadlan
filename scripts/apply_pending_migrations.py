@@ -6,9 +6,10 @@
 כך נתפסת שגיאת תחביר כמו normalize(..., 'NFKC') לפני db push לפרודקשן.
 
 הסקריפט לא כותב לפרודקשן. החיבור אליו רץ עם
-default_transaction_read_only, וההחלה המקומית לא רואה את כתובת
-הפרודקשן. עדיף משתמש מסד שמותר לו רק SELECT: הדגל לא עוצר פקודת
-psql כמו \\! או \\c, והסרת המשתנה מהסביבה כן.
+default_transaction_read_only. ההחלה המקומית היא simple query דרך
+psycopg (כמו db push), בלי פקודות meta של psql, ובתהליך בלי כתובת
+הפרודקשן. הלקסר נשאר רק כלינט: אם לא ברור אם $ פותח ציטוט, שתי
+הקריאות נבדקות, ודי שפקודת backslash גלויה באחת מהן כדי לחסום.
 
   python3 scripts/apply_pending_migrations.py
   python3 scripts/apply_pending_migrations.py --self-test
@@ -84,18 +85,30 @@ def _ident_char(c: str) -> bool:
     return c.isalnum() or c in "_$" or ord(c) >= 128
 
 
-def _dollar_continues_identifier(sql: str, i: int) -> bool:
-    """$ בתוך מזהה אמיתי אינו פותח ציטוט. אחרי מספר (1$a$) הוא כן פותח.
-
-    הולכים אחורה על רצף תווי המזהה. רק רצף שלא מתחיל בספרה הוא מזהה.
-    """
+def _ident_run_before(sql: str, i: int) -> str:
+    """רצף תווי המזהה הצמוד לפני i, או מחרוזת ריקה."""
     j = i - 1
     while j >= 0 and _ident_char(sql[j]):
         j -= 1
-    if j + 1 == i:
+    return sql[j + 1:i]
+
+
+def _dollar_continues_identifier(sql: str, i: int) -> bool:
+    """$ בתוך מזהה אמיתי אינו פותח ציטוט. רצף שמתחיל בספרה אינו מזהה."""
+    run = _ident_run_before(sql, i)
+    return bool(run) and not ("0" <= run[0] <= "9")
+
+
+def _dollar_number_ambiguous(sql: str, i: int) -> bool:
+    """רצף שמתחיל בספרה ואינו רק ספרות: psql והציטוט חולקים עליו.
+
+    1$a$ הוא מספר ואז ציטוט. 1e5$a$ ו-1_000$a$ הם אצל psql טוקן אחד.
+    לא מכריעים. שתי הקריאות נסרקות.
+    """
+    run = _ident_run_before(sql, i)
+    if not run or not ("0" <= run[0] <= "9"):
         return False
-    first = sql[j + 1]
-    return not ("0" <= first <= "9")
+    return any(not ("0" <= c <= "9") for c in run)
 
 
 # תגית: $ + מזהה אופציונלי שמתחיל באות או בקו תחתון + $. $1$ אינו ציטוט.
@@ -170,61 +183,69 @@ def _skip_quoted_ident(sql: str, i: int, line: int, hits: list[int]) -> tuple[in
 
 
 def meta_command_lines(sql: str) -> list[int]:
-    """כל backslash ש-psql היה מפרש כפקודה, לא רק בתחילת שורה.
+    """לינט משני. backslash מחוץ למחרוזת ולהערה נחסם.
 
-    בתוך '...', E'...' (כולל \\\\ ו-\\'), $tag$...$tag$, ובהערות -- ו-/* */
-    הוא תו רגיל. מזהה "..." עם גרש לא פותח מחרוזת. db push לא מריץ
-    את הפקודות האלה, והן נחסמות לפני שהקובץ מגיע ל-psql.
+    אם לא ברור אם $ פותח ציטוט (רצף שמתחיל בספרה ואינו מספר שלם),
+    נסרקות שתי הקריאות. די שפקודה גלויה באחת מהן.
     """
     hits: list[int] = []
-    i, n = 0, len(sql)
-    line = 1
-    while i < n:
-        c = sql[i]
-        if c == "\n":
-            line += 1
-            i += 1
-            continue
-        if c in " \t\r":
-            i += 1
-            continue
-        if sql.startswith("--", i):
-            i += 2
-            while i < n and sql[i] != "\n":
+    n = len(sql)
+
+    def scan(i: int, line: int) -> None:
+        while i < n:
+            c = sql[i]
+            if c == "\n":
+                line += 1
                 i += 1
-            continue
-        if sql.startswith("/*", i):
-            i += 2
-            while i < n and not sql.startswith("*/", i):
-                i, line = _advance_line(sql, i, line)
-            if i < n:
+                continue
+            if c in " \t\r":
+                i += 1
+                continue
+            if sql.startswith("--", i):
                 i += 2
-            continue
-        if c == "$":
-            # t$a$ הוא מזהה אחד. 1$a$ הוא מספר ואז ציטוט. $1 אינו תגית.
-            if not _dollar_continues_identifier(sql, i):
+                while i < n and sql[i] != "\n":
+                    i += 1
+                continue
+            if sql.startswith("/*", i):
+                i += 2
+                while i < n and not sql.startswith("*/", i):
+                    i, line = _advance_line(sql, i, line)
+                if i < n:
+                    i += 2
+                continue
+            if c == "$":
+                if _dollar_continues_identifier(sql, i):
+                    i += 1
+                    continue
                 m = _DOLLAR_TAG.match(sql, i)
+                if m and _dollar_number_ambiguous(sql, i):
+                    i_open, line_open = _skip_dollar(sql, i, line, m.group(0))
+                    scan(i_open, line_open)
+                    scan(i + 1, line)
+                    return
                 if m:
                     i, line = _skip_dollar(sql, i, line, m.group(0))
                     continue
-            i += 1
-            continue
-        if c == '"':
-            i, line = _skip_quoted_ident(sql, i, line, hits)
-            continue
-        if c in "Ee" and i + 1 < n and sql[i + 1] == "'" and (i == 0 or not _ident_char(sql[i - 1])):
-            i, line = _skip_escape_string(sql, i, line)
-            continue
-        if c == "'":
-            i, line = _skip_standard_string(sql, i, line)
-            continue
-        if c == "\\":
-            if not hits or hits[-1] != line:
-                hits.append(line)
-            while i < n and sql[i] != "\n":
                 i += 1
-            continue
-        i += 1
+                continue
+            if c == '"':
+                i, line = _skip_quoted_ident(sql, i, line, hits)
+                continue
+            if c in "Ee" and i + 1 < n and sql[i + 1] == "'" and (i == 0 or not _ident_char(sql[i - 1])):
+                i, line = _skip_escape_string(sql, i, line)
+                continue
+            if c == "'":
+                i, line = _skip_standard_string(sql, i, line)
+                continue
+            if c == "\\":
+                if line not in hits:
+                    hits.append(line)
+                while i < n and sql[i] != "\n":
+                    i += 1
+                continue
+            i += 1
+
+    scan(0, 1)
     return hits
 
 
@@ -303,6 +324,12 @@ CREATE TABLE public.t (id int);
     # backslash בגוף אינו פקודה.
     if meta_command_lines("select 1$a$x\\!$a$\n"):
         fail("select 1$a$x$a$ לא לקסיקון כציטוט")
+    # מספר לא-שלם לפני $: psql קורא טוקן אחד והציטוט בולע. שתי הקריאות,
+    # ודי שאחת חושפת את ה-backslash.
+    for num in ("1e5", "1.5e3x", "1e", "0x1F", "0x", "0b1", "0o7", "1_000", "1_", "1abc", "1ט"):
+        sample_num = f"select {num}$a$ \\! echo PWN $a$;\n"
+        if not meta_command_lines(sample_num):
+            fail(f"{num}$a$ לא נחסם")
     if meta_command_lines("do $$\nbegin\n  perform 1;\nend\n$$;\n"):
         fail("גוף פונקציה סומן כפקודת psql")
     if meta_command_lines("select '\\! echo hi';\n"):
@@ -324,7 +351,10 @@ CREATE TABLE public.t (id int);
             false_pos.append(f"{path.name}:{found[0]}")
     if false_pos:
         fail("פקודת psql מדומה במיגרציה קיימת:\n" + "\n".join(false_pos[:20]))
-    print(f"✓ {len(list(MIG_DIR.glob('*.sql')))} מיגרציות בלי פקודת psql")
+    migs = sorted(MIG_DIR.glob("*.sql"))
+    print(f"✓ {len(migs)} מיגרציות בלי פקודת psql")
+    report_driver_limitations(migs)
+    assert_bang_does_not_run()
     saved_skip = {k: os.environ.get(k) for k in ("FORK_PR", "GITHUB_ACTOR", "SUPABASE_DB_URL")}
     os.environ["FORK_PR"] = "true"
     os.environ["GITHUB_ACTOR"] = "someone"
@@ -399,6 +429,32 @@ def assert_restore_and_apply_fail() -> None:
     )
     if left.stdout.strip() not in ("", "null"):
         fail(f"הטרנזקציה לא התגלגלה לאחור: {left.stdout!r}")
+    run(["dropdb", "--if-exists", db], env=env)
+
+
+def assert_bang_does_not_run() -> None:
+    """\\! אינו פקודה בדרייבר. הוא שגיאת שרת, ולא יוצר קובץ."""
+    marker = Path("/tmp/migration_apply_pwn_marker")
+    marker.unlink(missing_ok=True)
+    db = "migration_apply_driver_test"
+    env = local_env()
+    run(["dropdb", "--if-exists", db], env=env)
+    proc = run(["createdb", db], env=env)
+    if proc.returncode != 0:
+        fail(f"createdb לדרייבר נכשל:\n{proc.stderr[-400:]}")
+    conn = local_connection(db)
+    try:
+        try:
+            apply_sql(conn, f"\\! echo PWN > {marker}\n", name="bang")
+        except MigrationFailed:
+            pass
+        else:
+            fail("הדרייבר לא נכשל על \\!")
+    finally:
+        conn.close()
+    if marker.exists():
+        marker.unlink(missing_ok=True)
+        fail("\\! רץ ויצר קובץ")
     run(["dropdb", "--if-exists", db], env=env)
 
 
@@ -559,26 +615,160 @@ def reject_meta_commands(files: list[Path]) -> None:
         hits = meta_command_lines(path.read_text(encoding="utf-8"))
         if hits:
             fail(
-                f"{path.name} שורה {hits[0]} מתחילה בפקודת psql (\\). "
-                "db push לא מריץ אותן, והן נחסמות כדי שלא ייקרא environ."
+                f"{path.name} שורה {hits[0]}: פקודת backslash גלויה ללינט "
+                "(גם אם רק באחת הקריאות של $). db push לא מריץ אותה."
             )
+
+
+def literal_blank(sql: str) -> str:
+    """מחליף מחרוזות, ציטוטי דולר, מזהים והערות ברווחים. שומר שורות."""
+    out: list[str] = []
+    i, n = 0, len(sql)
+    while i < n:
+        if sql.startswith("--", i):
+            j = sql.find("\n", i)
+            if j < 0:
+                j = n
+            out.append(" " * (j - i))
+            i = j
+            continue
+        if sql.startswith("/*", i):
+            j = sql.find("*/", i + 2)
+            end = n if j < 0 else j + 2
+            chunk = sql[i:end]
+            out.append("".join("\n" if c == "\n" else " " for c in chunk))
+            i = end
+            continue
+        if sql[i] == "$":
+            m = _DOLLAR_TAG.match(sql, i)
+            if m and not _dollar_continues_identifier(sql, i):
+                tag = m.group(0)
+                j = sql.find(tag, i + len(tag))
+                end = n if j < 0 else j + len(tag)
+                chunk = sql[i:end]
+                out.append("".join("\n" if c == "\n" else " " for c in chunk))
+                i = end
+                continue
+        if sql[i] == "'":
+            j, _line = _skip_standard_string(sql, i, 1)
+            chunk = sql[i:j]
+            out.append("".join("\n" if c == "\n" else " " for c in chunk))
+            i = j
+            continue
+        if sql[i] in "Ee" and i + 1 < n and sql[i + 1] == "'" and (i == 0 or not _ident_char(sql[i - 1])):
+            j, _line = _skip_escape_string(sql, i, 1)
+            chunk = sql[i:j]
+            out.append("".join("\n" if c == "\n" else " " for c in chunk))
+            i = j
+            continue
+        if sql[i] == '"':
+            j = i + 1
+            while j < n:
+                if sql.startswith('""', j):
+                    j += 2
+                    continue
+                if sql[j] == '"':
+                    j += 1
+                    break
+                j += 1
+            chunk = sql[i:j]
+            out.append("".join("\n" if c == "\n" else " " for c in chunk))
+            i = j
+            continue
+        out.append(sql[i])
+        i += 1
+    return "".join(out)
+
+
+def driver_limitation(sql: str) -> str | None:
+    """COPY FROM stdin ו-CONCURRENTLY אינם simple query בתוך טרנזקציה."""
+    mask = literal_blank(sql)
+    if re.search(r"(?i)\bcopy\b[^;]*\bfrom\s+stdin\b", mask):
+        return "copy-stdin"
+    if re.search(
+        r"(?i)\b(?:create\s+(?:unique\s+)?index|refresh\s+materialized\s+view)\s+concurrently\b",
+        mask,
+    ):
+        return "concurrently"
+    return None
+
+
+def report_driver_limitations(files: list[Path]) -> None:
+    found = []
+    for path in files:
+        kind = driver_limitation(path.read_text(encoding="utf-8"))
+        if kind:
+            found.append(f"{path.name}: {kind}")
+    if found:
+        print("הדרייבר מטפל בהם מחוץ לטרנזקציה, או עוצר בלי להריץ:")
+        print("\n".join(found))
+    else:
+        print("✓ אין COPY FROM stdin ואין CONCURRENTLY בקובצי המיגרציה")
+
+
+def simple_exec(conn, sql: str) -> None:
+    """פרוטוקול simple query. אין פקודות meta: \\! מגיע לשרת כתחביר."""
+    from psycopg.pq import ExecStatus
+    res = conn.pgconn.exec_(sql.encode("utf-8"))
+    if res is None:
+        raw = conn.pgconn.error_message or b""
+        text = bytes(raw).decode("utf-8", "replace")
+        raise MigrationFailed(text.strip() or "simple query נכשל בלי תוצאה")
+    ok = (ExecStatus.COMMAND_OK, ExecStatus.TUPLES_OK, ExecStatus.EMPTY_QUERY)
+    if res.status not in ok:
+        raw = res.error_message or b""
+        text = bytes(raw).decode("utf-8", "replace").strip()
+        raise MigrationFailed(text or f"simple query status {res.status}")
+
+
+def apply_sql(conn, sql: str, *, name: str) -> None:
+    kind = driver_limitation(sql)
+    if kind == "copy-stdin":
+        raise MigrationFailed(
+            f"{name}: COPY FROM stdin אינו נשלח בדרייבר (אין נתוני stdin). הקובץ לא רץ."
+        )
+    if kind == "concurrently":
+        print(f"{name}: CONCURRENTLY מחוץ לטרנזקציה")
+        try:
+            simple_exec(conn, sql)
+        except MigrationFailed as exc:
+            raise MigrationFailed(f"{name} נכשלה:\n{exc}") from exc
+        return
+    simple_exec(conn, "BEGIN")
+    try:
+        simple_exec(conn, sql)
+    except MigrationFailed as exc:
+        try:
+            simple_exec(conn, "ROLLBACK")
+        except MigrationFailed:
+            pass
+        raise MigrationFailed(f"{name} נכשלה:\n{exc}") from exc
+    simple_exec(conn, "COMMIT")
+
+
+def local_connection(db: str):
+    import psycopg
+    target = _local_target()
+    kwargs: dict = {"dbname": db, "autocommit": True}
+    if target.get("PGHOST"):
+        kwargs["host"] = target["PGHOST"]
+    if target.get("PGPORT"):
+        kwargs["port"] = target["PGPORT"]
+    if target.get("PGUSER"):
+        kwargs["user"] = target["PGUSER"]
+    return psycopg.connect(**kwargs)
 
 
 def apply_files(db: str, files: list[Path]) -> None:
     reject_meta_commands(files)
-    for path in files:
-        print(f"מחיל {path.name}", flush=True)
-        sql = path.read_text(encoding="utf-8")
-        # אותה יחידה כמו db push: קובץ אחד, טרנזקציה אחת, עצירה בשגיאה הראשונה.
-        proc = run(
-            ["psql", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-q", "-d", db, "-f", "-"],
-            input_text=sql,
-            env=local_env(),
-            timeout=900,
-        )
-        if proc.returncode != 0:
-            err = proc.stderr[-2500:]
-            raise MigrationFailed(f"{path.name} נכשלה:\n{err}")
+    report_driver_limitations(files)
+    conn = local_connection(db)
+    try:
+        for path in files:
+            print(f"מחיל {path.name}", flush=True)
+            apply_sql(conn, path.read_text(encoding="utf-8"), name=path.name)
+    finally:
+        conn.close()
     print(f"✓ {len(files)} מיגרציות שעוד לא בפרודקשן עברו על Postgres")
 
 
