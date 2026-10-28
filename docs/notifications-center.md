@@ -64,6 +64,8 @@
 | `onboarding_lead` | דרבון חד-פעמי: ההסכם הראשון נוצר ועוד לא נרכש ליד | סוכן/ת חדש/ה ב-`mid`/`premium` |
 | `lead_prefs_default` | **חדש** - המערכת הגדירה לסוכן/ת שעוסק/ת במסחרי העדפות לידים, או הוסיפה "מסחרי" לקיימות (`20270807090000`, ‏`docs/crm-settings.md`). בלי פריט, ויעד אחד: `/crm?goto=accPrefs&focus=lead_prefs`, שפותח את החלק המקופל | הסוכן/ת |
 | `agenda_reminder` | תזכורת מהיומן: פגישה שמתקרבת, משימה שהגיע זמנה או שבאיחור. **היחיד שעוקף בוואטסאפ שעות שקט ומרווח.** ראו [`agent-agenda.md`](agent-agenda.md) | הסוכן/ת ב-`mid`/`premium` |
+| `lead_response_reminder` | שעתיים פעילות בלי `first_response_at`, רק לליד שנוצר אחרי `enabled_at`. נכתב רק כש-`notif_send_window_friday_enabled` הוא 1 והחלון פתוח. נספר בתקרה היומית, וכשהיא מלאה נשאר בפעמון | הסוכן/ת של הליד |
+| `lead_response_escalation` | שעתיים פעילות אחרי התזכורת, לא באותו סבב. אינו `agenda_reminder` ואינו בעדיפות | מנהל/ת אחד/ת, הוותיק/ה במשרד. אם הסוכן/ת הוא/היא המנהל/ת, או שאין מנהל/ת, מנהל/ת הפלטפורמה הוותיק/ה |
 
 ארבעת סוגי ה-`onboarding_*` הם היחידים כאן שנולדים מ**היעדר** מצב ולא
 מאירוע, ולכן גם היחידים שיוצאים פעם אחת בחיים ונעלמים מרשימת תיבות הסימון
@@ -618,6 +620,68 @@ select public.notification_push_suppress(true);
 `client_match_digest_run` בלי `notification_push_suppress(true)` לפניה
 באותו גוף נחסמת. `set_config` בתוך הגדרת הפונקציה אינו מכסה `insert`
 שמחוץ לה.
+
+## חלון שליחה, כולל שישי בבוקר
+
+`notif_send_window_friday_enabled` נולד **0** ב-`20271029235000`. ב-0,
+שישי שלם שקט כמו `quiet_days` `{5,6}`. ב-1, `notification_send_window_open`:
+
+| מתי, שעון ישראל | שליחה |
+| --- | --- |
+| ראשון-חמישי 08:00-21:00 | פתוח |
+| שישי 08:00-13:00 | פתוח. היום שישי שלם שקט, וזה השינוי |
+| שישי 13:00 עד ראשון 08:00 | סגור, כולל כל השבת |
+
+שעות השקט של הסוכן/ת עדיין חלות בתוך החלון. שבת סגורה גם אם הוסרה
+מ-`quiet_days`. `agenda_reminder` ממשיך לעקוף את השקט.
+
+יום שישי יורד מהימים השקטים **רק** כש-`quiet_days` הוא בדיוק ברירת
+המחדל `{5,6}`. סוכן/ת שבחר/ה במפורש את יום שישי נשאר/ת בשקט גם בבוקר.
+שורות קיימות אינן נערכות.
+
+`lead_response_reminder` ו-`lead_response_escalation` אינם ב-
+`notification_push_priority_types`. הם נספרים בתקרה היומית (12), וכשהיא
+מלאה `notification_push_due_agents` מוציא אותם מ-`whatsapp_types` והם
+נשארים בפעמון. `new_lead` ו-`agenda_reminder` ממשיכים לצאת.
+
+`lead_response_escalations` רצה כל 15 דקות. דגל 0 או חלון סגור: היא
+מחזירה 0 ולא כותבת שורה. השעון הוא שעות פעילות (`notification_business_elapsed`):
+הוא נעצר משישי 13:00 עד ראשון 08:00, ובלילה. ליד שנוצר לפני
+`notification_send_window_state.enabled_at` (נרשם כשהדגל עובר ל-1) לא
+נכנס. שעתיים פעילות - תזכורת לסוכן/ת, עד 10 בסבב. הסלמה רק בסבב מאוחר
+יותר, אחרי שעתיים פעילות נוספות מאז התזכורת, ולנמען אחד: המנהל/ת
+הוותיק/ה לפי `created_at`. אם הסוכן/ת הוא/היא המנהל/ת, או שאין מנהל/ת,
+ההסלמה למנהל/ת הפלטפורמה הוותיק/ה, בלי הודעה שנייה לאותו אדם. המפתח
+`(lead_id, stage)` ב-`lead_escalations` הוא האידמפוטנטיות. ליד בארכיון,
+ליד שכבר נענה, וליד ישן משבוע לא נכנסים. אין שליחה מהמיגרציה עצמה.
+
+הפעמון פותח את הליד גם כשהוא אינו ברשימה שנטענה (`allLeads`). השליפה
+לפי המזהה, וה-policy `read escalated lead` מתירה אותה רק למי שיש לו/ה
+התראת מענה על הליד הזה. אין פתיחה של כל הלידים למנהל/ת הפלטפורמה.
+
+`lead_escalations` (`20271029250000`) היא מה שגבריאלה קוראת לפי מזהה,
+בלי טלפון ובלי שם. `service_role` בלבד. `social-lead-intake` לא משתנה.
+
+```sql
+select stage, escalated_at, escalated_to_role, resolved_at, resolution
+  from public.lead_escalations
+ where lead_id = '<uuid>'
+ order by escalated_at;
+```
+
+לליד משויך ה-uuid הוא `leads.id`. למחפש/ת (`kind=buyer`) הוא ה-`search_id`
+שחוזר מ-`social-lead-intake` (`saved_searches.id`). שדה `lead_id` בתשובה
+הזאת נשאר ריק.
+
+`stage` הוא `reminder_2h` או `escalated_4h`. `escalated_to_role` הוא
+`agent`, `manager`, `platform_admin`, או `unclaimed`. `resolution` ריק
+כל עוד לא טופל: `opened` אחרי מענה, `claimed` אחרי תפיסה או משיכה,
+`closed` אחרי ארכיון.
+
+מחפש/ת שכבר בביקוש הפתוח נכתב/ת כ-`escalated_4h` / `unclaimed` אחרי 4
+שעות פתוחות (אותו חלון: שישי עד 13:00, וכלום עד ראשון 08:00) אם אין
+`claimed_by` ואין משיכה (`unlocked_at` מאוחר מ-`created_at`). תפיסה או
+משיכה בתוך ארבע השעות האלה לא נכתבת.
 
 ## בדיקה
 

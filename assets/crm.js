@@ -2651,10 +2651,19 @@ function openPropertyFromParamKeepFilters(id){
 }
 
 /* ‏?lead=<id> לצד ?goto=accLeads - ליד חדש או ליד שנמסר בהפנייה. ליד בארכיון
-   פותח את לשונית הארכיון, אחרת הוא פשוט לא היה ברשימה. */
-function openLeadFromParam(id){
+   פותח את לשונית הארכיון, אחרת הוא פשוט לא היה ברשימה.
+   ליד של הסלמה אצל מנהל/ת או אצל מנהל/ת הפלטפורמה אינו ב-allLeads
+   (הרשימה היא של הסוכן/ת). שולפים אותו לפי המזהה. ה-RLS פותח רק ליד
+   שיש עליו התראת מענה אצל מי שנכנס/ה. */
+async function openLeadFromParam(id){
   if (!UUID_PARAM_RE.test(id || '')) return;
-  if (!allLeads.some(l => l.id === id)) return;
+  if (!allLeads.some(l => l.id === id)){
+    const { data, error } = await sb.from('leads_masked').select('*').eq('id', id).maybeSingle();
+    if (error || !data || String(data.id).toLowerCase() !== id.toLowerCase()) return;
+    if (!allLeads.some(l => l.id === data.id)) allLeads.push(data);
+    try { await loadLeadCalls([data]); }
+    catch (e) { /* הכרטיס נפתח גם בלי ההקלטה */ }
+  }
   openLeadUnified(id);
   expandedLeadIds.add(id);
   // ליד בתוך קבוצה של אותו/ה פונה נמצא מתחת לשורת הקבוצה - פותחים גם אותה
@@ -2717,8 +2726,7 @@ function openNotificationTarget(n){
     return go('accClients', () => openClientFromParam(clientId));
   if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
     return go('accLeads', openLeadsDemand);
-  if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
-      && allLeads.some(l => l.id === n.related_lead_id))
+  if (n.related_lead_id && ['new_lead','review_request','system','lead_response_reminder','lead_response_escalation'].includes(n.type))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
   if (n.related_property_id && sharedWithMeRows.some(r => r.property_id === n.related_property_id))
     return go('accSharedWithMe', () => openSharedFromParam(n.related_property_id));
@@ -25145,6 +25153,13 @@ const NOTIF_TYPES = [
     when: ()=> false },
   /* בוואטסאפ היא עוקפת שעות שקט ומרווח קיבוץ - ראו סעיף 9 ב-
      ‏20270125090000_agent_agenda.sql. */
+  { type:'lead_response_reminder', tone:'deal', goto:'accLeads', focus:'#leadsList',
+    title:'ליד בלי מענה',
+    sub:'עברו שעתיים בחלון השליחה והליד עדיין בלי מענה. נספר בתקרה היומית, וכשהיא מלאה נשאר בפעמון.' },
+  { type:'lead_response_escalation', tone:'deal', goto:'accLeads', focus:'#leadsList',
+    title:'ליד בלי מענה - למנהל/ת',
+    sub:'אחרי התזכורת, למנהל/ת אחד/ת במשרד. אם הסוכן/ת הוא/היא המנהל/ת, למנהל/ת הפלטפורמה.',
+    when: ()=> currentAgent && (currentAgent.role === 'manager' || currentAgent.is_platform_admin) },
   { type:'agenda_reminder', tone:'deal', goto:'accAgenda',  focus:'#agList',
     title:'תזכורות מהיומן',
     sub:'פגישה שמתקרבת, משימה שהגיע זמנה או שבאיחור. בוואטסאפ היא יוצאת גם בשעות השקט, כי את השעה קבעת בעצמך.',

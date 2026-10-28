@@ -215,7 +215,7 @@ export function notificationPath(it: NotifTarget): string | null {
     return `/crm?goto=accProperties&property=${property}`;
   }
   if (client) return `/crm?goto=accClients&client=${client}`;
-  if (lead && ["new_lead", "review_request", "system"].includes(it.type)) {
+  if (lead && ["new_lead", "review_request", "system", "lead_response_reminder", "lead_response_escalation"].includes(it.type)) {
     return `/crm?goto=accLeads&lead=${lead}`;
   }
   // new_lead בלי lead_id, או עם מזהה שאינו uuid, נפתח לרשימת הלידים בלי כרטיס.
