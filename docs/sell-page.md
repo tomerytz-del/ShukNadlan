@@ -34,3 +34,8 @@
 - **המקורות:** ‏`sell_page` / `sell_page_agent` ב-`KNOWN_SOURCES`. שניהם נכתבים גם ל-`leads.source`, והתוויות ב-CRM הן "דף חושבים למכור".
 - **הערוץ:** ‏`lead_source_channel()` ממפה את `sell_page%` לערוץ `sell_page`.
 - **האירועים:** ‏`sell_view`, ‏`sell_wizard_step{n}`, ‏`sell_submit{source, routed}`, ‏`sell_agent_card_click{agent_id}` ו-`generate_lead{form_id:'sell_page'}`.
+
+## הניווט ויועצי הנדל״ן בדף (P1-C, 28.10)
+
+- "חושבים למכור?" בניווט של דף הבית במחשב (‏`nav.primary`) ובתפריט ההמבורגר (לשונית "כלים ותוכן"), ובראש `/sell` עצמו כעמוד הנוכחי (‏`aria-current`). שאר הדפים הציבוריים נושאים כותרת עם לוגו וקישור חזרה בלבד, והקישור שלהם הוא זה שבפוטר.
+- בלוק יועצי הנדל״ן מסנן את חשבון מנהל/ת הפלטפורמה לפי מזהה (‏`PLATFORM_ADMIN_IDS` ב-`sell.html`, ‏`agency_members.is_platform_admin` אינו ב-view הציבורי). שם או מספר רישיון של בעל האתר לא מופיעים בדף.

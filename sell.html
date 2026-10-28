@@ -259,6 +259,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .sl-faq details{background:#fff;border:1px solid #e3e8f2;border-radius:14px;padding:4px 16px;margin-top:10px}
   .sl-faq summary{cursor:pointer;font-weight:800;color:#0e2a6b;padding:12px 0;font-size:16px}
   .sl-faq p{margin:0 0 14px;line-height:1.7;color:#1b1f2a}
+  /* ‏P1-C: "חושבים למכור?" בניווט, כמו בדף הבית; כאן זה העמוד הנוכחי */
+  .sl-hnav{display:flex;align-items:center;gap:16px}
+  .sl-hnav a[aria-current]{color:#0e2a6b;font-weight:800;text-decoration:none;border-bottom:2px solid #c9a227;padding-bottom:2px}
+  @media(max-width:380px){.sl-hnav{gap:10px;font-size:14px}}
 </style>
 </head>
 <body>
@@ -273,7 +277,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
-    <a href="/" class="back-link">← דף הבית</a>
+    <nav class="sl-hnav" aria-label="ניווט ראשי">
+      <a href="/sell" aria-current="page">חושבים למכור?</a>
+      <a href="/" class="back-link">← דף הבית</a>
+    </nav>
   </div>
 </header>
 
@@ -727,8 +734,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       .then(function(r){ return r.ok ? r.json() : []; }, function(){ return []; });
   }
   function initials(n){ return String(n || '').trim().split(/\s+/).slice(0, 2).map(function(w){ return w[0] || ''; }).join(''); }
+  /* חשבון מנהל/ת הפלטפורמה (‏agency_members.is_platform_admin, שאינו ב-view הציבורי)
+     אינו מוצג בשיווק של הפלטפורמה - לפי מזהה ולא לפי שם (‏P1-C) */
+  var PLATFORM_ADMIN_IDS = ['2f552dcf-90d0-4578-9038-cc6e7b9e26a5'];
   function loadAgents(wiz){
-    get('agency_members_public?select=id,slug,display_name,photo_url,photo_position,years_experience&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&limit=40')
+    get('agency_members_public?select=id,slug,display_name,photo_url,photo_position,years_experience&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40')
       .then(function(list){
         if (!Array.isArray(list) || !list.length) return;
         return get('agent_rankings?select=agent_id,composite_score&agent_id=in.(' + list.map(function(a){ return a.id; }).join(',') + ')')
