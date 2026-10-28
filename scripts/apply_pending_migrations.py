@@ -71,6 +71,19 @@ def filter_dump(sql: str) -> str:
     return "".join(out)
 
 
+# שחזור הסכימה בריצה 40707160525 (PR #1063, 14 שגיאות) וגם ב-40706127898
+# נתן רק את שתי אלה: public כבר קיים אחרי createdb, ומפתחות זרים ל-auth.users
+# שה-dump של public לא מביא. כל שגיאה אחרת עוצרת.
+RESTORE_ALLOWED_ERRORS = (
+    'schema "public" already exists',
+    'relation "auth.users" does not exist',
+)
+
+
+def restore_error_allowed(line: str) -> bool:
+    return any(piece in line for piece in RESTORE_ALLOWED_ERRORS)
+
+
 def psql_error_lines(stderr: str) -> list[str]:
     """psql -f מקדים כל שגיאה ב-psql:<stdin>:N: ולא בשורה שמתחילה ב-ERROR."""
     found = []
@@ -288,6 +301,14 @@ CREATE TABLE public.t (id int);
     parsed = psql_error_lines(canned)
     if len(parsed) != 2 or not any("syntax error" in ln.lower() for ln in parsed):
         fail(f"קידומת psql:<stdin> לא נספרה: {parsed}")
+    if not restore_error_allowed('psql:<stdin>:4: ERROR:  relation "auth.users" does not exist'):
+        fail("FK ל-auth.users לא ברשימה")
+    if not restore_error_allowed('ERROR:  schema "public" already exists'):
+        fail("schema public already exists לא ברשימה")
+    if restore_error_allowed('ERROR:  relation "t_dup" already exists'):
+        fail("relation already exists לא אמור לעבור")
+    if restore_error_allowed('ERROR:  syntax error at or near "SELEC"'):
+        fail("שגיאת תחביר לא אמורה לעבור")
     if meta_command_lines("select 1;\n\\! echo hi\n") != [2]:
         fail("\\! בתחילת שורה לא נחסם")
     if meta_command_lines("select 1;\n  \\c other\n") != [2]:
@@ -414,6 +435,25 @@ def assert_restore_and_apply_fail() -> None:
             fail(f"restore נכשל בלי שגיאת התחביר: {exc}")
     else:
         fail("restore לא נכשל על שגיאת תחביר")
+    try:
+        restore(db, "create schema public;\n")
+    except MigrationFailed as exc:
+        fail(f"schema public already exists היה צריך לעבור: {exc}")
+    try:
+        restore(
+            db,
+            "create schema if not exists auth;\n"
+            "create table public.fk_users (id uuid references auth.users);\n",
+        )
+    except MigrationFailed as exc:
+        fail(f"FK ל-auth.users היה צריך לעבור: {exc}")
+    try:
+        restore(db, "create table public.t_extra (id int);\ncreate table public.t_extra (id int);\n")
+    except MigrationFailed as exc:
+        if "already exists" not in str(exc).lower():
+            fail(f"שגיאה לא צפויה לא זוהתה: {exc}")
+    else:
+        fail("relation already exists לא עצר את השחזור")
     bad = Path("/tmp/migration_apply_bad.sql")
     bad.write_text("CREATE TABLE rolled (id int);\nSELEC 1;\n", encoding="utf-8")
     try:
@@ -644,11 +684,12 @@ def restore(db: str, sql: str) -> None:
         timeout=900,
     )
     errors = psql_error_lines(proc.stderr)
-    # שגיאות של הרחבה חסרה או של owner אינן עוצרות. שגיאת תחביר בסכימה כן.
-    fatal = [ln for ln in errors if "syntax error" in ln.lower()]
-    if fatal:
-        raise MigrationFailed("שחזור הסכימה נעצר על תחביר:\n" + "\n".join(fatal[:20]))
-    print(f"שחזור הסכימה: {len(errors)} שגיאות (הרחבות ואובייקטים שאין בתמונה נספרים, לא עוצרים)")
+    unexpected = [ln for ln in errors if not restore_error_allowed(ln)]
+    if unexpected:
+        raise MigrationFailed(
+            "שחזור הסכימה נעצר על שגיאה שאינה ברשימה:\n" + "\n".join(unexpected[:20])
+        )
+    print(f"שחזור הסכימה: {len(errors)} שגיאות מהרשימה המותרת")
     shown = errors[:30]
     if shown:
         print("שגיאות השחזור הראשונות:")
