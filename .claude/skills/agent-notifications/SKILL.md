@@ -159,6 +159,12 @@ UTILITY עם כפתור `לפתיחה` והבסיס `https://shuknadlan.co.il{{1
 הוא הבסיס עם לוכסן בסוף. שתיהן מחכות לאישור, ולא הוגשו למטא.
 `docs/whatsapp-deep-links.md`.
 
+`WHATSAPP_TXN_UTILITY_TEMPLATE` (ריק עד אישור) מכסה רק שני סוגים: `new_lead`,
+ו-`agenda_reminder` בלי `meeting_id`. סיור (`showcase_meeting`,
+`showcase_activity`, תזכורת עם פגישה) והודעה מעורבת נשארים על התבנית
+הקיימת. `{{2}}` הוא משפט פעולה קבוע, לא דייג'סט. החבילה להגשה:
+`docs/whatsapp-setup.md`.
+
 `notifications.action_path` גובר על המיפוי כשהוא נתיב יחסי שמתחיל ב-`/`.
 `leads_digest` נפתח לרשימת הלידים (`/crm?goto=accLeads`), לא לליד אחד.
 `open_demand` נשאר `tab=demand`.
