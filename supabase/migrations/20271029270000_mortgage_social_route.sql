@@ -21,17 +21,21 @@
 -- לא סגור). אין מספר טלפון בקוד. מי היועץ/ת בפועל פתוח: הדגל הזה הוא
 -- מה שכבר מסומן במערכת.
 --
--- ההתראה mortgage_social נכתבת ל-notifications עם
--- related_mortgage_lead_id. הקישור פותח את כרטיס הליד שנרכש
--- (/crm?goto=accLeadShelf&tab=mortgage&mortgage=<id>), לא את המגירה.
--- אין בה שם או טלפון של הפונה.
+-- ההתראה היא new_lead, עם related_lead_id של שורת ה-leads ש-
+-- store_purchase_to_lead יוצרת באותו update. new_lead כבר ב-
+-- notification_push_priority_types, והקישור הקיים פותח את כרטיס הליד
+-- (/crm?goto=accLeads&lead=<id>). notify_agent_on_new_lead אינו כותב
+-- שורה שנייה: הוא חוזר מיד כש-lead_type הוא store. אין בה שם או טלפון
+-- של הפונה. המקור ב-leads הוא הערוץ החברתי (facebook_dm וחבריו),
+-- ו-source_detail אומר פייסבוק או אינסטגרם, וחינם.
 --
 -- המונה ב-mortgage_social_routes. mortgage_social_route_stats מחזיר
 -- free_routed. אחרי 10 הלידים review_due, והניתוב ממשיך - הבדיקה של
 -- ההסכם ידנית.
 -- היומן ב-mortgage-lead-intake עדיין רושם shelf. המקור לניתוב החינמי
 -- הוא mortgage_social_routes. social-lead-intake, mortgage-lead-intake,
--- notify_agent_on_new_lead ו-notifications_apply_preferences לא מוחלפות.
+-- notify_agent_on_new_lead, notifications_apply_preferences,
+-- notification_push_claim ו-app_push_on_notification לא מוחלפות.
 
 insert into public.pricing_config (key, value, description)
 values (
@@ -117,14 +121,6 @@ insert into public.mortgage_free_route_sources (source)
 values ('facebook_dm'), ('facebook_comment'), ('instagram_dm'), ('instagram_comment')
 on conflict (source) do nothing;
 
-alter table public.notifications
-  add column if not exists related_mortgage_lead_id uuid references public.mortgage_leads(id) on delete set null;
-
-comment on column public.notifications.related_mortgage_lead_id is
-  'ליד משכנתא שההתראה פותחת. הקישור: accLeadShelf&tab=mortgage&mortgage=<id>.';
-
-select public.notification_types_add(array['mortgage_social']);
-
 create table if not exists public.mortgage_social_routes (
   lead_id     uuid primary key references public.mortgage_leads(id) on delete cascade,
   advisor_id  uuid not null references public.agency_members(id) on delete cascade,
@@ -161,6 +157,8 @@ as $$
 declare
   v_on int;
   v_advisor uuid;
+  v_lead uuid;
+  v_platform text;
 begin
   if not exists (
     select 1 from public.mortgage_free_route_sources s
@@ -220,21 +218,51 @@ begin
   insert into public.mortgage_social_routes (lead_id, advisor_id)
   values (new.id, v_advisor);
 
-  insert into public.notifications (
-    agent_id, type, title, body, related_mortgage_lead_id, suppress_push
-  )
-  values (
-    v_advisor,
-    'mortgage_social',
-    'ליד משכנתא מהרשתות',
-    'ליד ייעוץ משכנתאות הגיע אליך בלי חיוב. הפרטים בכרטיס הליד, במגירת המשכנתאות.',
-    new.id,
-    coalesce((
-      select m.tier is distinct from 'mid' and m.tier is distinct from 'premium'
-        from public.agency_members m
-       where m.id = v_advisor
-    ), true)
-  );
+  -- store_purchase_to_lead רץ בתוך ה-update של sold_to_agent_id, לפני
+  -- שהשליטה חוזרת לכאן, וכותב leads עם lead_type = 'store' ו-
+  -- source_detail = 'משכנתאות'. notify_agent_on_new_lead חוזר מיד על
+  -- lead_type 'store' (וגם על 'call'), ולכן אינו כותב התראה. השורה
+  -- למטה היא ההתראה היחידה, והיא new_lead כדי שתצא גם בוואטסאפ.
+  select l.id into v_lead
+    from public.leads l
+   where l.lead_type = 'store'
+     and l.origin_id = new.id;
+
+  v_platform := case
+    when new.channel = 'facebook'
+      or new.source in ('facebook_dm', 'facebook_comment') then 'פייסבוק'
+    when new.channel = 'instagram'
+      or new.source in ('instagram_dm', 'instagram_comment') then 'אינסטגרם'
+    else null
+  end;
+
+  if v_lead is not null and v_platform is not null
+     and new.source in ('facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment') then
+    update public.leads
+       set source = new.source,
+           source_detail = 'משכנתאות · ' || v_platform || ' · חינם'
+     where id = v_lead
+       and source = 'store'
+       and source_detail = 'משכנתאות';
+  end if;
+
+  if v_lead is not null then
+    insert into public.notifications (
+      agent_id, type, title, body, related_lead_id, suppress_push
+    )
+    values (
+      v_advisor,
+      'new_lead',
+      'ליד משכנתא חדש מהרשתות',
+      'ליד ייעוץ משכנתאות הגיע אליך בלי חיוב. הפרטים בכרטיס הליד.',
+      v_lead,
+      coalesce((
+        select m.tier is distinct from 'mid' and m.tier is distinct from 'premium'
+          from public.agency_members m
+         where m.id = v_advisor
+      ), true)
+    );
+  end if;
 
   return new;
 end;
@@ -314,183 +342,3 @@ comment on function public.mortgage_social_route_stats() is
 
 revoke all on function public.mortgage_social_route_stats() from public, anon;
 grant execute on function public.mortgage_social_route_stats() to authenticated, service_role;
-
--- הקישור של ההתראה. שתי הפונקציות מוחלפות מהגרסה האחרונה שלהן
--- (20270902090000 ו-20270822090000), ועוד שדה אחד: מזהה ליד המשכנתא.
-
-create or replace function public.notification_push_claim(p_limit int default 20)
-returns table (log_id uuid, agent_id uuid, display_name text, phone_e164 text,
-               channel_mode text, items jsonb, item_count int)
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  a         record;
-  v_items   jsonb;
-  v_ids     uuid[];
-  v_types   text[];
-  v_log     uuid;
-  v_mode    text;
-  v_taken   int := 0;
-  v_cap     int := least(greatest(coalesce(p_limit, 20), 1), 200);
-  v_look    int := coalesce((select value::int from public.pricing_config
-                              where key = 'notif_push_lookback_hours'), 12);
-  v_look_p  int := coalesce((select value::int from public.pricing_config
-                              where key = 'notif_push_priority_lookback_hours'), 72);
-  v_prio    text[] := public.notification_push_priority_types();
-  v_digest  int := coalesce((select value::int from public.pricing_config
-                              where key = 'notif_push_ambient_digest_minutes'), 180);
-  v_wake    boolean;
-begin
-  -- קריאה אחת בכל רגע (20270425090000). שלושה cron-ים קוראים ל-notification-push
-  -- (הכללי כל 5 דקות, היומן וסיכומי הסיור כל דקה), וכשהם נפגשים באותה שנייה
-  -- שתי קריאות רצו במקביל, אף אחת לא ראתה את שורת היומן של השנייה, ושתיהן
-  -- שלחו. הנעילה משתחררת בסוף הטרנזקציה, והקריאה השנייה רואה את מה שנרשם.
-  perform pg_advisory_xact_lock(hashtext('notification_push_claim'));
-
-  -- רישום בלבד; החסימה כבר שוחררה על ידי הפרדיקט.
-  perform public.notification_push_reconcile();
-
-  for a in select * from public.notification_push_due_agents() loop
-    exit when v_taken >= v_cap;
-
-    -- המזהים נוסעים עם ההתראה: ‏notification-push בונה מהם את הקישור הישיר
-    -- לפריט (itemPath), במקום קישור לקטגוריה.
-    select jsonb_agg(jsonb_build_object(
-             'type',        n.type,
-             'title',       n.title,
-             'body',        n.body,
-             'property_id', n.related_property_id,
-             'client_id',   coalesce(n.related_client_id,
-                                     (select s.client_id from public.client_showcases s
-                                       where s.id = n.related_showcase_id)),
-             'lead_id',     n.related_lead_id,
-             'mortgage_lead_id', n.related_mortgage_lead_id,
-             -- נכס של משרד אחר (שיתוף) נפתח ב"שותפו איתי", לא ב"הנכסים שלי"
-             'property_mine', (select p.agent_id = n.agent_id or p.referred_by is not distinct from n.agent_id
-                                 from public.properties p where p.id = n.related_property_id),
-             'agenda_item_id', n.related_agenda_item_id,
-             'agreement_id',  n.related_agreement_id,
-             -- ביקורת ממתינה - למי שמאשר/ת אותה; מפורסמת - לדף הסוכן/ת. לסוכן/ת
-             -- שהביקורת עליו/ה וממתינה אין מה לעשות איתה, ולכן אין לה יעד.
-             'review_id', (select rv.id from public.reviews rv
-                            where rv.id = n.related_review_id and rv.status = 'pending'
-                              and rv.agent_id is distinct from n.agent_id),
-             'review_agent_slug', (select m.slug from public.reviews rv
-                                     join public.agency_members m on m.id = rv.agent_id
-                                    where rv.id = n.related_review_id and rv.status = 'published')
-           ) order by n.created_at desc),
-           array_agg(n.id order by n.created_at desc),
-           array_agg(distinct n.type),
-           -- יש כאן משהו שמצדיק הודעה: התראה שאינה רקע, או רקע שחיכה עד התקציר
-           bool_or(not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
-                   or n.created_at <= now() - make_interval(mins => v_digest))
-      into v_items, v_ids, v_types, v_wake
-      from public.notifications n
-     where n.agent_id = a.agent_id
-       and not n.read
-       and n.type = any(a.whatsapp_types)
-       and (n.created_at > now() - make_interval(hours =>
-              case when n.type = any(v_prio) then v_look_p else v_look end)
-            -- רילס ותוכן שיווקי שנוצרו בשקט מחכים לסוף השקט (20270902090000)
-            or public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at))
-       and not exists (
-         select 1 from public.notification_push_log l
-          where l.agent_id = n.agent_id
-            and n.id = any(l.notification_ids)
-            -- התראה שנכנסה לשורה שלא יצאה טרם נשלחה. בלי התנאי הזה היא
-            -- הייתה נעלמת מכל הודעה עתידית, לנצח.
-            and public.notification_push_log_holds(l.whatsapp_status, l.created_at))
-       -- תזכורת ישנה אינה עוקפת שעות שקט: היא מחכה לבוקר (20270422090000)
-       and not public.notification_push_stale_in_quiet(n.type, n.agent_id, n.created_at);
-
-    continue when v_items is null or not v_wake;
-
-    v_mode := case when a.in_service_window then 'text' else 'template' end;
-
-    insert into public.notification_push_log
-      (agent_id, notification_ids, types, channel_mode, whatsapp_status)
-    values (a.agent_id, v_ids, v_types, v_mode, 'pending')
-    returning id into v_log;
-
-    v_taken := v_taken + 1;
-
-    return query select v_log, a.agent_id, a.display_name, a.phone_e164,
-                        v_mode, v_items, jsonb_array_length(v_items);
-  end loop;
-end;
-$$;
-
-
-comment on function public.notification_push_claim(int) is
-  'תופסת לכל סוכן/ת שמותר לשלוח לו/ה את כל ההתראות הפתוחות, ורושמת שורה ב-notification_push_log. חלון המבט לאחור ארוך יותר לסוגים שבעדיפות, התראות רקע לבד יוצאות רק כתקציר (20270420090000), ותזכורת ישנה מחכה לסוף שעות השקט (20270422090000). קריאה אחת בכל רגע, בנעילה (20270425090000). marketing_copy שנוצרה בשקט אינה פגה בו: החלון נספר רק בזמן שאינו שקט (20270902090000). mortgage_social נושאת את related_mortgage_lead_id כ-mortgage_lead_id.';
-
-revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
-grant execute on function public.notification_push_claim(int) to service_role;
-
-create or replace function public.app_push_on_notification()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_user uuid;
-  v_path text;
-  v_dev uuid;
-begin
-  select am.user_id into v_user
-  from public.agency_members am
-  where am.id = new.agent_id;
-  if v_user is null then
-    return new;
-  end if;
-
-  v_path := case
-    when new.type = 'mortgage_social' and new.related_mortgage_lead_id is not null
-      then '/crm?goto=accLeadShelf&tab=mortgage&mortgage=' || new.related_mortgage_lead_id::text
-    when new.type = 'lead_prefs_default' then '/crm?goto=accPrefs&focus=lead_prefs'
-    when new.type = 'open_demand' then '/crm?goto=accLeads&tab=demand'
-    when new.related_agreement_id is not null
-      then '/crm?goto=accAgreements&agreement=' || new.related_agreement_id::text
-    when new.type in ('review_new', 'review_alert') and new.related_review_id is not null
-      then '/crm?goto=accReviews&review=' || new.related_review_id::text
-    when new.type = 'agenda_reminder' and new.related_lead_id is not null
-      then '/crm?goto=accLeads&lead=' || new.related_lead_id::text
-    when new.type = 'agenda_reminder' and new.related_agenda_item_id is not null
-      then '/crm?goto=accAgenda&agenda=' || new.related_agenda_item_id::text
-    when new.type = 'client_match' and new.related_client_id is not null
-      then '/crm?goto=accClients&client=' || new.related_client_id::text || '&focus=matches'
-    when new.related_property_id is not null
-      and new.type is distinct from 'deal_closed'
-      and new.type is distinct from 'client_match'
-      then '/crm?goto=accProperties&property=' || new.related_property_id::text
-    when new.related_client_id is not null
-      then '/crm?goto=accClients&client=' || new.related_client_id::text
-    when new.related_lead_id is not null and new.type in ('new_lead', 'review_request', 'system')
-      then '/crm?goto=accLeads&lead=' || new.related_lead_id::text
-    else '/crm'
-  end;
-
-  for v_dev in
-    select d.id from public.app_push_devices d
-    where d.user_id = v_user and d.disabled_at is null
-  loop
-    perform public.app_push_enqueue(
-      v_dev,
-      new.title,
-      new.body,
-      'https://shuknadlan.co.il' || v_path,
-      'notification',
-      new.id
-    );
-  end loop;
-  return new;
-exception when others then
-  raise warning 'app_push_on_notification: %', sqlerrm;
-  return new;
-end;
-$$;
-
-revoke all on function public.app_push_on_notification() from public, anon, authenticated;

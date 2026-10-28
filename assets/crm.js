@@ -2659,8 +2659,6 @@ function openNotificationTarget(n){
     return go('accClients', () => openClientFromParam(clientId));
   if (n.type === 'open_demand' && typeof openLeadsDemand === 'function')
     return go('accLeads', openLeadsDemand);
-  if (n.type === 'mortgage_social' && n.related_mortgage_lead_id)
-    return go('accLeadShelf', () => openPurchasedMortgageFromParam(n.related_mortgage_lead_id));
   if (n.related_lead_id && ['new_lead','review_request','system'].includes(n.type)
       && allLeads.some(l => l.id === n.related_lead_id))
     return go('accLeads', () => openLeadFromParam(n.related_lead_id));
@@ -20666,6 +20664,8 @@ async function loadMortgageSocialRouteCount(){
 async function loadMortgageShelf(agentId){
   const listEl = document.getElementById('mortgageShelfList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  // המונה נכתב ל-#mortgageSocialRouteCount כשה-rpc חוזר. הוא לא חוסם את המדף.
+  loadMortgageSocialRouteCount().catch(() => {});
 
   const { data: leads, error } = await sb
     .from('mortgage_leads_public')
@@ -20676,7 +20676,6 @@ async function loadMortgageShelf(agentId){
 
   mortgageLeadPrice = priceOf('mortgage_lead_price', 50);
   document.getElementById('mortgageShelfPriceLabel').textContent = shekel(mortgageLeadPrice);
-  await loadMortgageSocialRouteCount();
 
   if (error){
     const missing = /does not exist|schema cache/i.test(error.message || '');
@@ -24936,11 +24935,6 @@ const NOTIF_TYPES = [
     sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
     // הדרבון ירד עם הצעד (20270318090000) - השורה נשארת לניתוב התראות ישנות
     when: ()=> false },
-  { type:'mortgage_social', tone:'', goto:'accLeadShelf', focus:'#purchasedMortgageList',
-    title:'ליד משכנתא מהרשתות',
-    sub:'ליד ייעוץ משכנתאות מערוץ חברתי, בלי חיוב. נפתח במגירת המשכנתאות, ברשימת הלידים שרכשת.',
-    when: ()=> !!(currentAgent && currentAgent.is_mortgage_advisor),
-    refresh: ()=> setShelfTab('mortgage') },
   /* תזכורת לאימות רישיון, 48 שעות ושבוע אחרי ההרשמה (license-reminder). היעד
      הוא כרטיס הרישיון בראש הדשבורד, שאינו קטגוריה - ולכן בלי goto, והלחיצה
      עוברת ב-openLicenseCard (כמו security_alert). ‏when: רק כל עוד יש מה לאשר. */

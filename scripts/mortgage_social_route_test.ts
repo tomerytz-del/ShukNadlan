@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 
 const sql = readFileSync(
-  "supabase/migrations/20271029100000_mortgage_social_route.sql",
+  "supabase/migrations/20271029270000_mortgage_social_route.sql",
   "utf8",
 );
 const crm = readFileSync("assets/crm.js", "utf8");
@@ -36,16 +36,38 @@ check("סכום אפס", /select new\.id, m\.id, m\.agency_id, 0, 'success', 'so
 check("ערוץ מפורש", sql.includes("channel in ('facebook', 'instagram')") && sql.includes("mortgage_lead_set_channel"));
 check("היקף כרשימה", sql.includes("mortgage_free_route_sources") && sql.includes("'facebook_dm'") && sql.includes("'instagram_comment'"));
 check("ספירת לידים חינם", sql.includes("'free_routed', v_count"));
-check("קישור לליד", sql.includes("related_mortgage_lead_id") && sql.includes("&mortgage="));
+check(
+  "קישור לליד",
+  sql.includes("related_lead_id") &&
+    sql.includes("'new_lead'") &&
+    sql.includes("ליד משכנתא חדש מהרשתות") &&
+    !sql.includes("related_mortgage_lead_id") &&
+    !sql.includes("'mortgage_social'"),
+);
 check("בלי חיוב ארנק", !/credit_balance/.test(sql));
 check("מונה", sql.includes("create table if not exists public.mortgage_social_routes"));
 check("בדיקה אחרי 10 בלי לעצור", sql.includes("'review_after', 10") && sql.includes("v_count >= 10") && !/count\(\*\)\s*<\s*10/.test(sql));
-check("סוג דרך notification_types_add", sql.includes("notification_types_add(array['mortgage_social'])"));
+check("בלי סוג התראה חדש", !sql.includes("notification_types_add"));
 check(
   "לא מחליף את שלוש המוגנות",
   !/create or replace function public\.notify_agent_on_new_lead/.test(sql) &&
     !/create or replace function public\.notifications_apply_preferences/.test(sql) &&
+    !/create or replace function public\.notification_push_claim/.test(sql) &&
+    !/create or replace function public\.app_push_on_notification/.test(sql) &&
     !/create or replace function[\s\S]{0,80}social.lead/.test(sql),
+);
+check(
+  "מקור חברתי וחינם",
+  sql.includes("source = new.source") &&
+    sql.includes("משכנתאות · ") &&
+    sql.includes("· חינם") &&
+    sql.includes("'פייסבוק'") &&
+    sql.includes("'אינסטגרם'"),
+);
+check(
+  "התראה אחת",
+  sql.includes("notify_agent_on_new_lead") &&
+    (sql.match(/insert into public\.notifications/g) || []).length === 1,
 );
 check("לא מחליף את purchase_mortgage_lead", !/create or replace function public\.purchase_mortgage_lead/.test(sql));
 check("הרשאות הטבלה", sql.includes("revoke all on table public.mortgage_social_routes from public, anon, authenticated") && sql.includes("grant select on table public.mortgage_social_routes to authenticated, service_role"));
@@ -53,8 +75,21 @@ check("הרשאות הטריגר", sql.includes("revoke all on function public.m
 check("הרשאות המונה", sql.includes("revoke all on function public.mortgage_social_route_stats() from public, anon") && sql.includes("grant execute on function public.mortgage_social_route_stats() to authenticated, service_role"));
 check("שם פרטי בלבד בפירוט", sql.includes("split_part(coalesce(m.display_name, ''), ' ', 1)") && !/'phone'/.test(sql));
 check("המונה במגירה", html.includes('id="mortgageSocialRouteCount"') && crm.includes("loadMortgageSocialRouteCount") && crm.includes("ההסכם לבדיקה"));
-check("הכפתור לכרטיס הליד", push.includes('mortgage_social: "accLeadShelf"') && push.includes("&mortgage=${mortgage}") && crm.includes("openPurchasedMortgageFromParam"));
-check("הפעמון לאותו ליד", crm.includes("type:'mortgage_social'") && crm.includes("related_mortgage_lead_id"));
+const shelfFn = crm.slice(crm.indexOf("async function loadMortgageShelf"), crm.indexOf("async function loadMortgageLeadProperties"));
+check("המונה במקביל למדף", shelfFn.includes("loadMortgageSocialRouteCount()") && !shelfFn.includes("await loadMortgageSocialRouteCount"));
+check(
+  "הכפתור לכרטיס הליד",
+  push.includes('if (lead && ["new_lead", "review_request", "system"].includes(it.type))') &&
+    push.includes("/crm?goto=accLeads&lead=${lead}") &&
+    !push.includes("mortgage_social"),
+);
+check(
+  "הפעמון לאותו ליד",
+  crm.includes("['new_lead','review_request','system'].includes(n.type)") &&
+    crm.includes("openLeadFromParam(n.related_lead_id)") &&
+    !crm.includes("type:'mortgage_social'") &&
+    !crm.includes("related_mortgage_lead_id"),
+);
 check("הקליטה לא מנתבת", !intake.includes("mortgage_social_route") && !social.includes("mortgage_social_route") && intake.includes("mortgage_lead_set_channel"));
 
 if (failed) {
