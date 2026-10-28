@@ -165,6 +165,22 @@ Deno.serve(async (req: Request) => {
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
+  const window = await sb.rpc("send_window_open", {
+    p_audience: "open_house",
+    p_at: new Date().toISOString(),
+  });
+  const windowMissing = window.error && (window.error.code === "PGRST202" || window.error.code === "42883");
+  if (window.error && !windowMissing) {
+    console.error("open house window failed", window.error.code);
+    return json({ ok: false, sent: 0, deferred: false, reason: "window_error" }, 500);
+  }
+  if (!windowMissing && window.data === false) {
+    const held = await sb.rpc("customer_window_hold", { p_audience: "open_house", p_reason: "quiet" });
+    if (held.error && held.error.code !== "PGRST202" && held.error.code !== "42883") {
+      console.error("open house window hold failed", held.error.code);
+    }
+    return json({ ok: true, sent: 0, deferred: true, reason: "window" });
+  }
   const now = Date.now();
   const gapBefore = new Date(now - MIN_GAP_MINUTES * 60_000).toISOString();
 
