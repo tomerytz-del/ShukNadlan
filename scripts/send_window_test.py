@@ -97,7 +97,20 @@ def main() -> int:
     subprocess.run(["dropdb", "--if-exists", DB], check=False)
     subprocess.run(["createdb", DB], check=True)
     try:
-        setup = extract(QUIET, "agent_reminder_quiet_at(")
+        setup = """
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role;
+  end if;
+end $$;
+"""
+        setup += extract(QUIET, "agent_reminder_quiet_at(")
         setup += extract(MIG, "notification_send_window_open(")
         setup += extract(MIG, "notification_agent_send_quiet(")
         setup += extract(ESC, "notification_business_elapsed(")
