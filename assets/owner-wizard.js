@@ -9,7 +9,7 @@
  *     source      מזהה הווידג'ט ביומן הניתוב (‏homepage_owner_wizard / sell_page)
  *     city        העיר שנשלחת כשאין בחירה (ברירת מחדל: עפולה)
  *     cities      רשימת יישובים לבחירה בשלב 1 (‏/sell); בלי - בלי שדה
- *     extras      ‏/sell: "מתי מתכננים למכור?", "מתי נוח לדבר?" ואישור מפורש
+ *     extras      ‏/sell: "מתי מתכננים למכור?" (בהשכרה: "מתי הנכס מתפנה?"), "מתי נוח לדבר?" ואישור מפורש
  *     agentSlug() יועץ/ת שנבחר/ה מכרטיס בדף (‏sell_page_agent) - הליד אליו/ה
  *     onDone(res) אחרי שליחה מוצלחת
  *
@@ -25,6 +25,10 @@
   var CONSENT = 'אני רוצה שיועץ נדל״ן מאומת באזור ייצור איתי קשר בטלפון או ב-WhatsApp בנוגע לנכס.';
   var CONDITION_LABELS = { renovated: 'משופץ', partly_renovated: 'משופץ חלקית', needs_renovation: 'דרוש שיפוץ' };
   var WHEN_SELL = ['מיד', 'בחודשים הקרובים', 'רק בודקים'];
+  /* הנוסח לפי העסקה (אושר בידי גבריאלה, 28.10.2026). התשובות זהות בשני המסלולים */
+  var WHEN_Q = { sale: 'מתי מתכננים למכור?', rent: 'מתי הנכס מתפנה?' };
+  var SUBMIT = { sale: 'קבלת הערכת שווי חינם', rent: 'קבלת הערכת שכר דירה חינם' };
+  var DONE = { sale: 'יועץ נדל״ן מהאזור יחזור אליכם עם הערכת שווי לנכס.', rent: 'יועץ נדל״ן מהאזור יחזור אליכם עם הערכה של שכר הדירה לנכס.' };
   var esc = function (s) { return global.escapeHtml ? global.escapeHtml(s == null ? '' : String(s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
   function html(cfg) {
@@ -36,7 +40,7 @@
     var extras = cfg.extras
       ? '<label class="wiz-label" for="wizTalk">מתי נוח לדבר? <span class="wiz-hint">(לא חובה)</span></label>' +
         '<input type="text" id="wizTalk" class="wiz-input" maxlength="60" placeholder="לדוגמה: בערב, אחרי 18:00">' +
-        '<span class="wiz-label">מתי מתכננים למכור?</span><div class="owner-toggle owner-when" role="group" aria-label="מתי מתכננים למכור">' +
+        '<span class="wiz-label" id="wizWhenLabel">' + WHEN_Q.sale + '</span><div class="owner-toggle owner-when" role="group" aria-labelledby="wizWhenLabel">' +
         WHEN_SELL.map(function (w) { return '<button type="button" data-owner-when="' + esc(w) + '">' + esc(w) + '</button>'; }).join('') + '</div>' +
         '<p class="wiz-consent"><input type="checkbox" id="wizConsent"><label for="wizConsent">' + esc(CONSENT) + ' <a href="/privacy" target="_blank">מדיניות פרטיות</a></label></p>'
       : '';
@@ -65,16 +69,16 @@
       '<label><input type="checkbox" value="מעלית"> מעלית</label><label><input type="checkbox" value="עמדת טעינה לרכב חשמלי"> עמדת טעינה לרכב חשמלי</label>' +
       '<label data-kind="commercial" hidden><input type="checkbox" value="חניה"> חניה</label><label data-kind="commercial" hidden><input type="checkbox" value="חזית לרחוב"> חזית לרחוב</label></div>' +
       '<p class="wiz-err" id="wizErr2"></p><div class="wiz-nav"><button type="button" class="btn btn-ghost-light" data-back="1">→ חזרה</button><button type="button" class="btn btn-gold" data-next="3">להמשך ←</button></div>' + D + '</section>' +
-      '<section class="wiz-panel" data-panel="3"><p class="wiz-q">לאן נחזור אליכם?</p>' +
+      '<section class="wiz-panel" data-panel="3"><p class="wiz-q">איך נחזור אליכם?</p>' +
       '<label class="wiz-label" for="wizName">שם מלא</label><input type="text" id="wizName" class="wiz-input" autocomplete="name">' +
       '<label class="wiz-label" for="wizPhone">טלפון</label><input type="tel" id="wizPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel">' +
       extras +
       '<p class="wiz-err" id="wizErr3"></p><div class="wiz-nav"><button type="button" class="btn btn-ghost-light" data-back="2">→ חזרה</button>' +
-      '<button type="submit" class="btn btn-gold" id="wizSubmitBtn">קבלת הערכת שווי חינם</button></div>' +
+      '<button type="submit" class="btn btn-gold" id="wizSubmitBtn">' + SUBMIT.sale + '</button></div>' +
       (cfg.extras ? '<p class="wiz-note">הפרטים עוברים רק ליועץ נדל״ן אחד באזור שלכם.</p>' : '') + D + '</section></form>' +
       '<div class="wiz-done" id="wizDone" hidden><div class="wiz-done-mark" aria-hidden="true">✓</div>' +
       '<h3>' + (cfg.extras ? 'תודה! הפרטים נשלחו' : 'הפרטים נשלחו לבדיקה') + '</h3>' +
-      '<p>יועץ נדל״ן מהאזור יחזור אליכם בזמן קצר עם הערכת המחיר לנכס.</p>' +
+      '<p id="wizDoneText">' + DONE.sale + '</p>' +
       '<button type="button" class="btn btn-ghost-light" id="wizRestart">שליחת נכס נוסף</button>' + D + '</div>';
   }
 
@@ -122,8 +126,17 @@
         btn.classList.add('active');
         st.deal = btn.dataset.owner;
         if (ownerHeadline) ownerHeadline.textContent = st.deal === 'sale' ? 'מוכר?' : 'משכיר?';
+        syncDealCopy();
       });
     });
+    // השאלה "מתי", כפתור השליחה וטקסט הסיום - לפי מכירה או השכרה
+    function syncDealCopy() {
+      var d = st.deal === 'rent' ? 'rent' : 'sale';
+      if ($('wizWhenLabel')) $('wizWhenLabel').textContent = WHEN_Q[d];
+      var b = $('wizSubmitBtn');
+      if (!b.disabled) b.textContent = SUBMIT[d];
+      $('wizDoneText').textContent = DONE[d];
+    }
     /* מגורים או מסחרי. מסחרי מחליף בשלב 2 את החדרים בסוג הנכס ובשטח, ומחליף
        את המאפיינים של דירה (ממ״ד, מרפסת) בשל נכס מסחרי (חניה, חזית לרחוב).
        מה שסומן והוסתר יורד מהבחירה - אחרת חנות הייתה נשלחת עם "מרפסת". */
@@ -189,7 +202,7 @@
         var el = $('wizAddress');
         st.address = el.value.trim();
         if (st.address.length < 3) {
-          setError(1, 'נא להזין כתובת מדויקת - רחוב ומספר');
+          setError(1, 'נא להזין כתובת מדויקת: רחוב ומספר');
           el.classList.add('invalid'); el.focus();
           return false;
         }
@@ -227,7 +240,7 @@
       e.preventDefault();
       if (!validateStep(3)) return;
       var btn = $('wizSubmitBtn'), label = btn.textContent;
-      btn.textContent = 'שולח…';
+      btn.textContent = 'שליחה…';
       btn.disabled = true;
       var agentSlug = cfg.agentSlug ? cfg.agentSlug() : '';
       var talk = cfg.extras ? $('wizTalk').value.trim() : '';
@@ -251,7 +264,7 @@
       };
       if (agentSlug) body.agent_slug = agentSlug;
       if (cfg.extras) {
-        body.note = [st.when ? 'מתי למכור: ' + st.when : '', talk ? 'נוח לדבר: ' + talk : ''].filter(Boolean).join('\n') || null;
+        body.note = [st.when ? (st.deal === 'rent' ? 'מתי מתפנה: ' : 'מתי למכור: ') + st.when : '', talk ? 'נוח לדבר: ' + talk : ''].filter(Boolean).join('\n') || null;
         body.consent_contact = true;
         body.consent_text = CONSENT;
         body.consent_version = 'sell-v1';
@@ -266,7 +279,7 @@
           if (cfg.onDone) cfg.onDone(d, body);
         }, function (err) {
           console.error('owner-lead-intake failed:', err);
-          setError(3, 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
+          setError(3, 'השליחה נכשלה. בדקו את החיבור לאינטרנט ונסו שוב');
           btn.textContent = label;
           btn.disabled = false;
         });
@@ -280,8 +293,8 @@
       wizForm.querySelectorAll('[data-owner-when]').forEach(function (b) { b.classList.remove('active'); });
       st.address = ''; st.condition = null; st.rooms = null; st.subtype = null; st.size = null; st.features = []; st.name = ''; st.phone = ''; st.when = '';
       var btn = $('wizSubmitBtn');
-      btn.textContent = 'קבלת הערכת שווי חינם';
       btn.disabled = false;
+      syncDealCopy();
       wizDone.hidden = true;
       wizForm.hidden = false;
       $('wizSteps').hidden = false;

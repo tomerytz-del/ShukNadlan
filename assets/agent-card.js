@@ -7,8 +7,11 @@
    אין שפות, נקודת מוקד או דלי תגובה. שדה ריק מוסתר - לא "-".
    וואטסאפ: whatsapp_e164 כשיהיה, ועד אז phone_e164.
 
-   AgentCard.html(a, { agency, logo, sponsored, fairNow, contactAttr })
+   AgentCard.html(a, { agency, logo, sponsored, fairNow, contactAttr, ctaHref, actions, extraTags })
    ‏contactAttr: מאפיין שמסמן את כפתור יצירת הקשר (‏data-agent="<id>" כברירת מחדל).
+   ‏ctaHref / ctaLabel: הכפתור הוא קישור (ברירת המחדל: "צפייה בפרופיל") ולא כפתור שהדף מטפל בו.
+   ‏actions: false - בלי כפתור ובלי וואטסאפ, כשבדף כבר יש דרכי קשר (§C.4a, בלי כפילות).
+   ‏extraTags: תגיות זהב לפני השאר (למשל המקום בדירוג בדף הבית).
    ============================================================================ */
 (function (global) {
   'use strict';
@@ -48,7 +51,7 @@
     '.agc-facts dt{font-size:12px;color:#6b7280}' +
     '.agc-facts dd{margin:0;font-size:14px;font-weight:700;color:#1b1f2a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '.agc-acts{display:flex;gap:8px;margin-top:auto}' +
-    'html body .agc-cta{flex:1;min-height:46px;border:0;border-radius:12px;background:#0e2a6b;color:#fff;font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}' +
+    'html body .agc-cta{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;padding:4px 10px;text-decoration:none;box-sizing:border-box;min-height:46px;border:0;border-radius:12px;background:#0e2a6b;color:#fff;font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}' +
     '.agc-wa{flex:0 0 46px;height:46px;display:flex;align-items:center;justify-content:center;border:2px solid #0e2a6b;border-radius:12px;font-size:20px;text-decoration:none;box-sizing:border-box}' +
     '.agc-more{font-size:14px;font-weight:700;color:#0e2a6b}' +
     '.agc-cta:focus-visible,.agc-wa:focus-visible,.agc-more:focus-visible{outline:3px solid #c9a227;outline-offset:2px}';
@@ -69,7 +72,7 @@
         esc(a.photo_focal_x != null && a.photo_focal_y != null ? a.photo_focal_x + '% ' + a.photo_focal_y + '%' : (a.photo_position || '50% 30%')) + '">'
       : '<span class="agc-ph agc-ini" aria-hidden="true">' + esc(initials(name)) + '</span>';
     var sub = '<p class="agc-sub">' + esc(role(a)) + (o.agency ? ' ·' + (o.sponsored && o.logo ? ' <img src="' + esc(o.logo) + '" alt="">' : '') + ' ' + esc(o.agency) : '') + '</p>';
-    var tags = [];
+    var tags = (o.extraTags || []).map(function (t) { return '<span class="agc-tag gold">' + esc(t) + '</span>'; });
     if (a.license_verified) tags.push('<span class="agc-tag">✓ רישיון מאומת</span>');
     if (a.has_ethics_badge) tags.push('<span class="agc-tag">✦ מחויבות לשירות הוגן</span>');
     if (a.response_bucket === 'within_hour') tags.push('<span class="agc-tag">עונה בדרך כלל תוך שעה</span>');
@@ -88,10 +91,13 @@
       '<div class="agc-head">' + photo + '<div><h3 class="agc-name">' + esc(name) + '</h3>' + sub + '</div></div>' +
       (tags.length ? '<div class="agc-tags">' + tags.slice(0, 3).join('') + '</div>' : '') +
       (facts.length ? '<dl class="agc-facts">' + facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>'; }).join('') + '</dl>' : '') +
-      '<div class="agc-acts"><button type="button" class="agc-cta" ' + (o.contactAttr || 'data-agent="' + esc(a.id) + '"') + '>יצירת קשר עם יועץ הנדל״ן</button>' +
+      (o.actions === false ? '' :
+      '<div class="agc-acts">' + (o.ctaHref
+        ? '<a class="agc-cta" href="' + esc(o.ctaHref) + '">' + esc(o.ctaLabel || 'צפייה בפרופיל') + '</a>'
+        : '<button type="button" class="agc-cta" ' + (o.contactAttr || 'data-agent="' + esc(a.id) + '"') + '>יצירת קשר עם יועץ הנדל״ן</button>') +
       (wa ? '<a class="agc-wa" href="https://wa.me/' + wa + '" target="_blank" rel="noopener" aria-label="וואטסאפ ל' + esc(name) + '" title="וואטסאפ">💬</a>' : '') +
-      '</div>' +
-      (a.slug ? '<a class="agc-more" href="/agent?slug=' + encodeURIComponent(a.slug) + '">לפרופיל ←</a>' : '') +
+      '</div>') +
+      (a.slug && !(o.ctaHref && o.ctaHref.indexOf('/agent?') === 0) ? '<a class="agc-more" href="/agent?slug=' + encodeURIComponent(a.slug) + '">לפרופיל ←</a>' : '') +
       '</div>';
   }
 

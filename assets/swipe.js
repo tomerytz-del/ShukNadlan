@@ -615,10 +615,8 @@
     return c;
   }
   function countLabel(c) { return c === 1 ? 'נכס אחד' : c + ' נכסים'; }
-  function countFor(patch) {
-    var f = Object.assign({}, filter, patch);
-    return all.filter(function (p) { return matches(p, f); }).length;
-  }
+  // ‏P2-3: אותה ספירה של הכפתור "הצגת N נכסים" (כולל הנכסים בלי תמונה שאחרי הגשר)
+  function countFor(patch) { return shownCount(Object.assign({}, filter, patch)); }
   function chip(label, attrs, on, extra) {
     return '<button type="button" class="sw-chip' + (extra ? ' ' + extra : '') + '" aria-pressed="' + (on ? 'true' : 'false') + '" ' + attrs + '>' + label + '</button>';
   }

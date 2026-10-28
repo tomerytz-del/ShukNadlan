@@ -69,54 +69,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script type="application/ld+json">
 {
  "@context": "https://schema.org",
- "@type": "FAQPage",
- "mainEntity": [
-  {
-   "@type": "Question",
-   "name": "כמה עולה הערכת השווי?",
-   "acceptedAnswer": {
-    "@type": "Answer",
-    "text": "הערכת השווי ניתנת ללא עלות וללא התחייבות. היא מבוססת על עסקאות שנחתמו באזור, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך."
-   }
-  },
-  {
-   "@type": "Question",
-   "name": "מי יחזור אליי?",
-   "acceptedAnswer": {
-    "@type": "Answer",
-    "text": "יועץ נדל״ן אחד ומאומת שעובד בשכונה של הנכס. הפרטים לא מתפרסמים באתר ולא עוברים לעשרה משרדים."
-   }
-  },
-  {
-   "@type": "Question",
-   "name": "אפשר להכניס את הנכס ליריד הבתים הפתוחים?",
-   "acceptedAnswer": {
-    "@type": "Answer",
-    "text": "כן, דרך יועץ הנדל״ן. דירה ביריד מוצעת לקונים ללא עמלת תיווך לזמן מוגבל, ומקבלת חשיפה נפרדת. יועץ הנדל״ן יסביר אם זה מתאים לנכס שלכם."
-   }
-  },
-  {
-   "@type": "Question",
-   "name": "מה אם רק בודקים?",
-   "acceptedAnswer": {
-    "@type": "Answer",
-    "text": "זה בסדר גמור. בחרו \"רק בודקים\", ותקבלו הערכה בלי לחץ ובלי התחייבות להמשך."
-   }
-  },
-  {
-   "@type": "Question",
-   "name": "אפשר גם להשכיר דרך הטופס?",
-   "acceptedAnswer": {
-    "@type": "Answer",
-    "text": "כן. בשלב הראשון בוחרים \"רוצה להשכיר\", ויועץ נדל״ן מהאזור יחזור אליכם עם הערכת שכר דירה ותוכנית לשיווק הנכס."
-   }
-  }
- ]
-}
-</script>
-<script type="application/ld+json">
-{
- "@context": "https://schema.org",
  "@type": "Service",
  "serviceType": "הערכת שווי דירה",
  "name": "הערכת שווי דירה חינם בעפולה והעמק",
@@ -126,10 +78,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   "name": "שוק נדל״ן",
   "url": "https://shuknadlan.co.il/"
  },
- "areaServed": {
+ "areaServed": [{
   "@type": "City",
   "name": "עפולה"
- }
+ }, {
+  "@type": "AdministrativeArea",
+  "name": "עמק יזרעאל"
+ }]
 }
 </script>
 <script type="application/ld+json">
@@ -172,6 +127,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .sl-trust{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;font-weight:700;color:#e5c76a}
   .sl-trust li::before{content:"✓ ";color:#e5c76a}
   .sl-gold:focus-visible,.sl-out:focus-visible,.sl-agent button:focus-visible,.sl-agent a:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  /* מתחת ל-960 האשף יושב מיד מתחת לטקסט של ה-hero, ולכן הכפתור שמוביל אליו מיותר */
   @media(max-width:959px){.sl-ctas a[href="#ownerWizard"]{display:none}}
 
   /* האשף - אותו סגנון של הבאנר בדף הבית (index.html), על רקע כחול */
@@ -286,8 +242,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </header>
 
 <!-- ====== /sell - "חושבים למכור?" (‏PR 1010, חלק 7 §B; הנוסח אושר בסוכן ה-SEO 27.10) ======
-     ה-H1 וה-title סטטיים בנוסח עפולה, ובכוונה בלי data-market-*: אסור להחליף אותם בצד הלקוח
-     לפי זיהוי מיקום. כשייפתח שוק נוסף - ‏/{city}/sell עם canonical עצמי. התיעוד: docs/sell-page.md -->
+     ה-H1 וה-title בנוסח עפולה כל עוד יש שוק אחד. הוחלט (אישור SEO 4, 28.10): ‏/sell אחד שהנוסח
+     שלו מתחלף לפי השוק הפעיל (‏data-market-label, כמו דף היריד), לא דף ‏/{city}/sell לכל שוק.
+     לא לפי זיהוי מיקום. התיעוד: docs/sell-page.md -->
 <section class="sl-hero">
   <div class="wrap sl-hero-in">
     <div class="sl-hero-copy">
@@ -362,7 +319,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <section class="wrap sl-sec" aria-labelledby="slFaqT">
     <h2 id="slFaqT">שאלות נפוצות</h2>
-    <!-- אותו נוסח בדיוק ב-FAQPage שבראש הדף - מי שמשנה כאן משנה שם -->
+    <!-- מקור אחד: ה-FAQPage נבנה מהשאלות שכאן (הסקריפט שאחרי הרשימה). משנים רק כאן -->
     <div class="sl-faq" id="slFaq">
       <details open><summary>כמה עולה הערכת השווי?</summary><p>הערכת השווי ניתנת ללא עלות וללא התחייבות. היא מבוססת על עסקאות שנחתמו באזור, ואינה מהווה תחליף לשומה של שמאי מקרקעין מוסמך.</p></details>
       <details><summary>מי יחזור אליי?</summary><p>יועץ נדל״ן אחד ומאומת שעובד בשכונה של הנכס. הפרטים לא מתפרסמים באתר ולא עוברים לעשרה משרדים.</p></details>
@@ -370,6 +327,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details><summary>מה אם רק בודקים?</summary><p>זה בסדר גמור. בחרו "רק בודקים", ותקבלו הערכה בלי לחץ ובלי התחייבות להמשך.</p></details>
       <details><summary>אפשר גם להשכיר דרך הטופס?</summary><p>כן. בשלב הראשון בוחרים "רוצה להשכיר", ויועץ נדל״ן מהאזור יחזור אליכם עם הערכת שכר דירה ותוכנית לשיווק הנכס.</p></details>
     </div>
+    <script>
+    /* ה-FAQPage מהשאלות הגלויות - נוסח אחד לגולשים ולגוגל (גוגל מריצה JS בנתונים מובנים) */
+    (function () {
+      var qs = [].map.call(document.querySelectorAll('#slFaq details'), function (d) {
+        return { '@type': 'Question', name: d.querySelector('summary').textContent.trim(),
+          acceptedAnswer: { '@type': 'Answer', text: d.querySelector('p').textContent.trim() } };
+      });
+      var sc = document.createElement('script');
+      sc.type = 'application/ld+json';
+      sc.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: qs });
+      document.head.appendChild(sc);
+    })();
+    </script>
   </section>
 </main>
 

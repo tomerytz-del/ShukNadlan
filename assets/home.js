@@ -43,6 +43,8 @@ if (window.ResizeObserver){
 
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+// ‏P2-6: מקור אחד לווידג'ט של גבריאלה (‏assets/gabriela-widget.js, ‏sbConf)
+window.SHUK_SB = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
 const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 
 /* הנכסים שיש להם הדמיית AI מפורסמת — נטענים בשאילתה אחת אחרי שהנכסים
@@ -2089,6 +2091,7 @@ function dmFromAgent(m, i){
     waText: `היי ${name}, הגעתי אלייך דרך ${marketText('שוק הנדל״ן של עפולה והסביבה', m => 'שוק הנדל״ן של ' + m.label)} ואשמח לקבל פרטים.`,
     specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
+    raw: m,
   };
 }
 
@@ -2211,6 +2214,15 @@ function bindRowScroller(row){
   const WA_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.03c-.25.69-1.44 1.32-2 1.36-.51.04-1 .24-3.37-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9s.72-2.06.98-2.34c.25-.28.55-.35.74-.35l.53.01c.17.01.4-.06.62.48.24.56.8 1.94.87 2.08.07.14.12.3.02.49-.09.19-.14.3-.28.46-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.7-.81.88-1.09.19-.28.37-.23.62-.14.25.09 1.62.76 1.9.9.28.14.46.21.53.33.07.12.07.69-.18 1.38z"/></svg>';
 
   function card(item){
+    /* ‏P1-V (v10): יועץ/ת נדל״ן בכרטיס המשותף (‏assets/agent-card.js), כמו ב-/sell ובדף הנכס.
+       הכפתור מוביל לפרופיל, הוואטסאפ מ-phone_e164; המקום בדירוג נשאר כתגית */
+    if (item.kind === 'agent' && item.raw && v10On() && window.AgentCard){
+      const box = mk('article', 'dm-item is-agc');
+      box.innerHTML = AgentCard.html(item.raw, { agency: item.raw.agency_name || '',
+        ctaHref: item.href || undefined, actions: item.href ? undefined : false,
+        extraTags: item.rank ? ['★ #' + item.rank + ' בדירוג'] : [] });
+      return box;
+    }
     const el = mk('article', 'dm-item');
 
     // תמונת הנושא. היא קישור לפרופיל גם היא (לשם לוחצים), אבל מחוץ לסדר
@@ -4146,6 +4158,19 @@ function showMicHint(){
     tip.className = 'ss-mic-hint';
     tip.setAttribute('aria-hidden', 'true');
     tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+    const card = v10On() && mic.closest('.ss-card');
+    if (card){
+      /* ‏P2-7 (v10): מעל כרטיס החיפוש ולא על השדה - ה-placeholder נשאר גלוי. החץ למטה, מול
+         המיקרופון; הבועה בתוך רוחב הכרטיס. לחיצה עליה = לחיצה על המיקרופון */
+      tip.classList.add('is-above');
+      card.appendChild(tip);
+      const cr = card.getBoundingClientRect(), mr = mic.getBoundingClientRect(), w = tip.offsetWidth;
+      const mx = mr.left + mr.width / 2 - cr.left;
+      const left = Math.max(0, Math.min(cr.width - w, mx - w / 2));
+      tip.style.left = left + 'px';
+      tip.style.setProperty('--mh-arrow', (mx - left) + 'px');
+      tip.addEventListener('click', () => mic.click());
+    } else
     mic.appendChild(tip);
     // הבועה יושבת על התווית "מה אתם מחפשים" - מסתירים אותה בלי להזיז דבר
     document.documentElement.classList.add('mic-hint-on');
@@ -7550,11 +7575,46 @@ let freeTextFeatures = new Set();
         if (set.has(b.dataset.v)) set.delete(b.dataset.v); else set.add(b.dataset.v);
         b.setAttribute('aria-pressed', String(set.has(b.dataset.v)));
         if (box.dataset.kind === 'hoods') syncHoodBtn();
+        refreshCounts();
       });
     }
     return box;
   }
   const chipHtml = (kind, v, l, n) => `<button type="button" class="hs-mchip" data-v="${escAttr(v)}" aria-pressed="${sel[kind].has(v)}">${escAttr(l)}${n != null ? ` <span class="hs-mn">${n}</span>` : ''}</button>`;
+  /* ‏P2-1/P2-2: המונים בצ'יפים ובכפתור "הצג" לפי מה שנבחר בפאנל (faceted): כל צ'יפ סופר את
+     הקבוצה שלו כאילו רק הוא נבחר בה, עם כל שאר הבחירות. אותו sentence.count של המשפט.
+     מה שהפאנל מעביר דרך הסינון המתקדם (מאפיינים, קומה) אינו בספירה */
+  function panelPatch(){
+    const commercial = mode === 'commercial';
+    const types = [...sel.types], hoods = [...sel.hoods];
+    const num = id => { const v = digits($(id).value); return v ? Number(v) : null; };
+    const p = { deal: commercial ? ($('hsCommDeal').value || null) : mode, priceMax: num('hsPriceMax'), priceMin: num('hsPriceMin') };
+    if (types.length) p.types = types; else { p.type = commercial ? 'commercial' : 'any'; p.types = null; }
+    if (hoods.length) p.hoods = hoods; else { p.area = $('hsCity').value || 'all'; p.hoods = null; }
+    p.rooms = null; p.roomsIn = !commercial && sel.rooms.size ? [...sel.rooms].map(Number) : [];
+    return p;
+  }
+  function refreshCounts(){
+    if (!v10On() || !mode || !sentence || !sentence.loaded()) return;
+    const base = panelPatch();
+    panel.querySelectorAll('.hs-multi[data-kind] .hs-mchip').forEach(b => {
+      const kind = b.closest('.hs-multi').dataset.kind, v = b.dataset.v;
+      const patch = Object.assign({}, base,
+        kind === 'rooms' ? { roomsIn: [Number(v)] }
+        : kind === 'types' ? { types: [v] }
+        : { hoods: [v] });
+      const n = sentence.count(patch);
+      let c = b.querySelector('.hs-mn');
+      if (!c){ c = document.createElement('span'); c.className = 'hs-mn'; b.append(' ', c); }
+      c.textContent = n;
+      b.disabled = n === 0 && b.getAttribute('aria-pressed') !== 'true';
+    });
+    const go = panel.querySelector('.hs-go'), n = sentence.count(base);
+    if (go){
+      go.lastChild.textContent = n ? `הצג ${n.toLocaleString('he-IL')} נכסים` : 'אין נכסים מתאימים';
+      go.disabled = !n;
+    }
+  }
   function syncHoodBtn(){
     const b = document.getElementById('hsHoodsBtn');
     if (b) b.firstChild.textContent = sel.hoods.size ? `שכונות (${sel.hoods.size}) ` : 'כל השכונות ';
@@ -7584,6 +7644,7 @@ let freeTextFeatures = new Set();
     const btn = hb.querySelector('.hs-hoods-btn'), lst = hb.querySelector('.hs-hoods-list');
     btn.addEventListener('click', () => { lst.hidden = !lst.hidden; btn.setAttribute('aria-expanded', String(!lst.hidden)); });
     syncHoodBtn();
+    refreshCounts();
   }
 
   function setMode(next){
@@ -7627,6 +7688,10 @@ let freeTextFeatures = new Set();
     if ($('hsHood').disabled) $('hsHood').value = '';
   });
   ['hsPriceMax', 'hsPriceMin'].forEach(id => $(id).addEventListener('blur', e => { e.target.value = fmt(digits(e.target.value)); }));
+  // מחיר, עיר ו"השכרה או מכירה" משנים גם הם את המונים
+  let rcT = 0;
+  ['hsPriceMax', 'hsPriceMin', 'hsCity', 'hsCommDeal'].forEach(id => ['input', 'change'].forEach(ev =>
+    $(id).addEventListener(ev, () => { clearTimeout(rcT); rcT = setTimeout(refreshCounts, 150); })));
 
   // הצ'קבוקסים והשדות של הפאנל → searchState ושדות המודאל, ואז אותו applyAdvancedFilters
   function applyPanel(){
@@ -7822,18 +7887,12 @@ function v10InviteCard(){
   }
   return a;
 }
-// "תצוגת רשימה": התוצאות כמו בכפתור הזהב, וגלילה אליהן (בלי חיפוש פעיל - לתיבת הנכסים)
+// כפתורי התצוגה (‏.v10-views): מדידה בלבד - כל כפתור הוא קישור או פותח את המפה בעצמו
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-view-mode]');
   if (!b || !v10On()) return;
   const mode = b.dataset.viewMode, st = sentence ? sentence.state() : {};
   if (window.shukTrack) shukTrack('home_view_mode', { mode, deal: v10Deal(st), region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek' });
-  if (mode !== 'list') return;
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (sentence && !sentence.isClean()){
-    showSentenceResults({ track:false });
-    (document.getElementById('searchResults') || document.getElementById('allProps'))?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
-  } else document.getElementById('allProps')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
 });
 // ‏§H1: אם הכותרת בכל זאת רחבה מהמסך (גופן חלופי, שם שוק ארוך) - שתי שורות מאוזנות במקום גלישה
 (function(){
@@ -8852,11 +8911,33 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
     return hit;
   }
   function show(html){ box.innerHTML = html; box.hidden = !html; }
-  function renderPro(){
+  /* ‏P0-2: תחום בלי אף בעל/ת מקצוע פעיל/ה (היום: שמאים) - לא לדף ריק אלא לכל בעלי המקצוע.
+     אותו מקור כמו professionals.html וכמו prosTypes() בווידג'ט. כשל - הכל ל"כל בעלי המקצוע" */
+  let activeP = null;
+  function activePros(){
+    if (activeP) return activeP;
+    activeP = fetch(SUPABASE_URL + '/rest/v1/professional_cards_public?select=advertiser_type&limit=500',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY } })
+      .then(r => r.ok ? r.json() : []).then(rows => new Set((rows || []).map(x => x && x.advertiser_type).filter(Boolean)))
+      .catch(() => new Set());
+    return activeP;
+  }
+  const proHref = (hit, active) => active.has(hit.type) ? '/professionals?type=' + hit.type : '/professionals';
+  async function renderPro(){
     const t = input.value.trim(), hit = t ? proOf(t) : null;
     if (!hit){ if (proShown) show(''); proShown = ''; return; }
-    show('<a href="/professionals?type=' + hit.type + '" data-pro="' + hit.type + '">מחפשים ' + escapeHtml(hit.one) + '? לרשימת ' + escapeHtml(hit.label) + ' ←</a>');
-    if (proShown !== hit.type){ proShown = hit.type; shukTrack('search_pro_suggest', { type: hit.type, surface: 'home' }); }
+    const active = await activePros();
+    if (input.value.trim() !== t) return;
+    const ok = active.has(hit.type);
+    show(ok
+      ? '<a href="/professionals?type=' + hit.type + '" data-pro="' + hit.type + '">מחפשים ' + escapeHtml(hit.one) + '? לרשימת ' + escapeHtml(hit.label) + ' ←</a>'
+      : '<a href="/professionals" data-pro="all">מחפשים ' + escapeHtml(hit.one) + '? לכל בעלי המקצוע ←</a>');
+    if (proShown !== hit.type){
+      proShown = hit.type;
+      const p = { type: hit.type, surface: 'home' };
+      if (!ok) p.fallback = true;
+      shukTrack('search_pro_suggest', p);
+    }
   }
   let t0 = 0;
   input.addEventListener('input', () => { clearTimeout(t0); t0 = setTimeout(renderPro, 250); });
@@ -8903,8 +8984,9 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
     const hit = proOf(t);
     if (hit && !PROPERTY_WORDS.test(t.replace(hit.re, ''))){
       e.preventDefault(); e.stopPropagation();
-      shukTrack('search_pro_click', { type: hit.type, surface: 'home' });
-      location.href = '/professionals?type=' + hit.type;
+      const href = proHref(hit, await activePros());
+      shukTrack('search_pro_click', { type: href === '/professionals' ? 'all' : hit.type, surface: 'home' });
+      location.href = href;
       return;
     }
     const bare = t.match(/^(\d{3,7})$/);

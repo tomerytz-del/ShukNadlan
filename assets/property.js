@@ -263,7 +263,7 @@ async function loadProperty(){
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
       const { data: agentRow } = await sb.from('agency_members_public')
-        .select('display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
+        .select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
@@ -2841,6 +2841,17 @@ function renderProperty(p){
    כשיש מספר רישיון במסד — תג אמון בלי כיסוי גרוע מהיעדר תג.               */
 function renderAgentCard(p){
   const agent = p.agency_members;
+  /* ‏P1-V (v10): הכרטיס המשותף (‏assets/agent-card.js) במקום ראש הכרטיס, בלי כפתור ובלי
+     וואטסאפ משלו - הטופס ודרכי הקשר שמתחתיו נשארים (§C.4a, בלי כפילות) */
+  if (agent && window.AgentCard && document.documentElement.classList.contains('beta-hero')){
+    const top = document.querySelector('.agent-top');
+    const box = document.createElement('div');
+    box.className = 'agent-agc';
+    box.innerHTML = AgentCard.html(Object.assign({}, agent, { license_verified: !!agent.license_number }),
+      { agency: p.agencies?.name || '', actions: false });
+    top.hidden = true;
+    top.after(box);
+  }
   const name = agent?.display_name || p.agencies?.name || 'צוות שוק נדל״ן';
   document.getElementById('agentCardName').textContent = name;
   document.getElementById('agentCardAgency').textContent = p.agencies?.name || '';

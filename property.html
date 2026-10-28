@@ -624,6 +624,8 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
     box-shadow:var(--shadow-md);overflow:hidden;
   }
+  .agent-agc .agc{border:0;border-radius:0;border-bottom:1px solid var(--hair)}
+  .agent-top[hidden]{display:none}
   .agent-top{
     display:flex;align-items:center;gap:12px;padding:16px;
     background:linear-gradient(140deg,var(--teal-dark),var(--teal) 78%);color:#fff;
@@ -2001,6 +2003,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="toast" id="toast"></div>
 
 <script src="assets/viz-eligibility.js"></script>
+<script src="assets/agent-card.js"></script>
 <script src="assets/property.js"></script>
 
 <footer class="site">

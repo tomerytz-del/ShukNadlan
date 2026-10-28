@@ -60,30 +60,74 @@
     ['architect', 'אדריכלים'], ['interior_designer', 'מעצבי פנים'], ['', 'כל בעלי המקצוע']];
   /* תחום בלי אף בעל/ת מקצוע פעיל/ה לא מוצג, כדי שלא ינחתו על דף ריק. אותו מקור כמו
      professionals.html (‏professional_cards_public). כשל - רק "כל בעלי המקצוע" */
+  /* ‏P2-6: מקור אחד לכתובת ולמפתח הציבורי - window.SHUK_SB (‏home.js), ובדף שאינו מגדיר אותו
+     ברירת המחדל כאן. אותו מפתח publishable שבכל הדפים */
+  function sbConf() {
+    var c = window.SHUK_SB || {};
+    return { url: c.url || 'https://obookujgolazrwycsiyn.supabase.co', key: c.key || 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx' };
+  }
+  function sbGet(path) {
+    var c = sbConf();
+    return fetch(c.url + '/rest/v1/' + path, { headers: { apikey: c.key, Authorization: 'Bearer ' + c.key } })
+      .then(function (r) { return r.ok ? r.json() : []; });
+  }
   var prosTypesP = null;
   function prosTypes() {
     if (prosTypesP) return prosTypesP;
-    prosTypesP = fetch('https://obookujgolazrwycsiyn.supabase.co/rest/v1/professional_cards_public?select=advertiser_type&limit=500', {
-      headers: { apikey: 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx', Authorization: 'Bearer sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx' }
-    }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+    prosTypesP = sbGet('professional_cards_public?select=advertiser_type&limit=500').then(function (rows) {
       var set = {};
       (rows || []).forEach(function (x) { if (x && x.advertiser_type) set[x.advertiser_type] = 1; });
       return set;
     }).catch(function () { return {}; });
     return prosTypesP;
   }
+  /* ‏P0-1: יש לפחות פרויקט אחד באוויר? כשל = לא (השאלה על פרויקטים מדולגת) */
+  var projectsLiveP = null;
+  function projectsLive() {
+    if (projectsLiveP) return projectsLiveP;
+    projectsLiveP = sbGet('projects_public?select=id&limit=1').then(function (rows) { return !!(rows && rows.length); })
+      .catch(function () { return false; });
+    return projectsLiveP;
+  }
   var PRO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>';
-  /* ‏P1-Q: דוגמאות שאלות שמוקלדות בשדה (v10). ניטרליות, בלי מספרים שמשתנים מיום ליום */
-  var GW_HINTS = ['דירת 4 חדרים בעפולה עד 1.5 מיליון?', 'מה יש להשכרה במרכז העיר?', 'כמה שווה הדירה שלי?', 'יש נכסים בלי עמלת תיווך?',
-    'אפשר לראות הדמיה של הנכס משופץ?', 'מחפשים בית פרטי בעמק', 'חנות להשכרה עם חזית לרחוב', 'רוצים להתייעץ עם שמאי',
-    'פרויקטים חדשים בעפולה עילית', 'דירה עם מרפסת וחניה'];
+  /* ‏P1-Q: דוגמאות שאלות שמוקלדות בשדה (v10). ניטרליות, בלי מספרים שמשתנים מיום ליום.
+     הנוסח אושר בידי גבריאלה (28.10); ‏docs/qa/gab-hints-answers.md. ‏when: השאלה מוצגת רק
+     כשיש בפועל שמאי/ת פעיל/ה או פרויקט באוויר - בלי שינוי קוד כשהם מגיעים */
+  var GW_HINTS = [
+    { k: 'buy4',  t: 'דירת 4 חדרים בעפולה עד 1.5 מיליון?' },
+    { k: 'rent',  t: 'מה יש להשכרה במרכז עפולה?' },
+    { k: 'value', t: 'כמה שווה הדירה שלי?' },
+    { k: 'nofee', t: 'יש נכסים בלי עמלת תיווך?' },
+    { k: 'viz',   t: 'אפשר לראות הדמיה של הנכס משופץ?' },
+    { k: 'house', t: 'מחפשים בית פרטי בעמק' },
+    { k: 'shop',  t: 'חנות להשכרה בעפולה' },
+    { k: 'appr',  t: 'רוצים להתייעץ עם שמאי', when: 'appraiser' },
+    { k: 'proj',  t: 'פרויקטים חדשים בעפולה עילית', when: 'projects' },
+    { k: 'balc',  t: 'דירה עם מרפסת וחניה' }
+  ];
+  /* השאלות שעברו את תנאי ה-when. עד שהבדיקות חוזרות - רק אלה שאין להן תנאי */
+  var hintsLiveP = null;
+  function liveHints() {
+    if (hintsLiveP) return hintsLiveP;
+    hintsLiveP = Promise.all([prosTypes(), projectsLive()]).then(function (r) {
+      var ok = { appraiser: !!r[0].appraiser, projects: !!r[1] };
+      return GW_HINTS.filter(function (h) { return !h.when || ok[h.when]; });
+    }).catch(function () { return GW_HINTS.filter(function (h) { return !h.when; }); });
+    return hintsLiveP;
+  }
+  /* ‏surface של אירועי הווידג'ט: שם הדף בלי סיומת ("home" לדף הבית) */
+  function surfaceName() {
+    var p = location.pathname.replace(/^\/+|\.html$|\/+$/g, '');
+    p = p.split('/')[0];
+    return !p || p === 'index' ? 'home' : p;
+  }
 
   /* ---------- v10 (‏html.beta-hero בלבד): שיחה קצרה בתוך האתר ----------
      בחירה מהירה לא פותחת וואטסאפ: היא מוסיפה בועה של הגולש/ת, שלוש נקודות
      של הקלדה, ואת התשובה של גבריאלה - לפעמים עם כפתור לגלישה בהחלקה. "המשך
      בוואטסאפ" (הכפתור הירוק היחיד) לוקח את ההודעה של הבחירה האחרונה, עם אותו
      data-bot-entry, כך שהבוט מקבל בדיוק את מה שקיבל קודם. אין כאן שליחה לשרת.
-     ‏GAB_SWIPE_CHIP: הבחירה החמישית, "רוצים לגלות נכסים בהחלקה?". כבויה מ-28.10 (החלטת תומר):
+     ‏GAB_SWIPE_CHIP: הבחירה החמישית, "רוצים לגלות נכסים בהחלקה?". כבויה מ-28.10 (החלטת תומר, אישור גבריאלה):
      כפולה לתשובות "לקנות"/"לשכור", שכבר מציעות "גלו נכסים בהחלקה". */
   var GAB_SWIPE_CHIP = false;
   var V10_TITLE = 'גבריאלה · עוזרת הנדל״ן החכמה';
@@ -282,6 +326,8 @@
     '#gabW .gw-choices.is-compact .gw-choice{min-height:44px;padding:6px 10px;font-size:13px;border-width:1.5px}',
     '#gabW .gw-choices.is-compact .gw-choice svg{width:15px;height:15px}',
     '#gabW .gw-pros{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 0;padding:0;list-style:none}',
+    /* מספר אי-זוגי של תחומים (הרשימה דינמית): האחרון בשורה מלאה, בלי תא ריק */
+    '#gabW .gw-pros>li:last-child:nth-child(odd){grid-column:1/-1}',
     '#gabW .gw-pro{display:flex;align-items:center;justify-content:center;min-height:44px;padding:6px 10px;border:1.5px solid var(--gw-navy);border-radius:12px;background:#fff;color:var(--gw-navy);font-weight:700;font-size:13.5px;text-align:center;text-decoration:none;line-height:1.3}',
     '#gabW .gw-pro:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
     '@media(hover:hover){#gabW .gw-pro:hover{background:var(--gw-navy);color:#fff}}',
@@ -456,8 +502,9 @@
         li.appendChild(waLink('gw-choice is-prop', 'widget_property', propertyLine(p), 'פרטים על הנכס הזה'));
         list.appendChild(li);
       }
-      CHOICES.forEach(function (c) {
-        var li = el('li');
+      CHOICES.forEach(function (c, i) {
+        // ‏v10 בשתי עמודות: מספר בחירות אי-זוגי - האחרונה בשורה מלאה, בלי תא ריק לידה
+        var li = el('li', v10 && CHOICES.length % 2 && i === CHOICES.length - 1 ? { 'class': 'gw-full' } : null);
         if (v10) li.appendChild(el('button', { type: 'button', 'class': 'gw-choice', 'data-pick': c.key }, c.label));
         else li.appendChild(waLink('gw-choice', 'widget_' + c.key, c.text, c.label));
         list.appendChild(li);
@@ -577,19 +624,25 @@
     /* ---------- ‏P1-Q: מכונת כתיבה בשדה ----------
        הקלדה 45ms לתו, השהייה 1.8 שניות, מחיקה 25ms לתו, הפסקה 0.4 שניות. טיימר אחד, רץ רק
        כשהחלונית פתוחה, הדף גלוי, השדה ריק ובלי פוקוס. ‏reduced-motion: שאלה אחת קבועה. */
-    var hint = { on: false, t: 0, order: [], i: 0, txt: '', pos: 0, phase: 'type', seen: false };
+    var hint = { on: false, t: 0, order: [], i: 0, txt: '', pos: 0, phase: 'type', seen: false, list: null };
     function hintOrder() {
-      var idx = GW_HINTS.map(function (_, i) { return i; });
+      var list = hint.list || [];
+      var idx = list.map(function (_, i) { return i; });
       for (var k = idx.length - 1; k > 0; k--) { var j = Math.floor(Math.random() * (k + 1)); var tmp = idx[k]; idx[k] = idx[j]; idx[j] = tmp; }
-      // בעמודי שכירות, מסחרי ופרויקטים - השאלות שמתאימות לעמוד קודם
-      var q = location.search + location.pathname, first = /deal=rent/.test(q) ? [1] : /commercial/.test(q) ? [6] : /projects/.test(q) ? [8] : [];
+      // בעמודי שכירות, מסחרי ופרויקטים - השאלה שמתאימה לעמוד קודם, אם היא עברה את ה-when
+      var q = location.search + location.pathname;
+      var key = /deal=rent/.test(q) ? 'rent' : /commercial/.test(q) ? 'shop' : /projects/.test(q) ? 'proj' : '';
+      var fi = -1;
+      list.forEach(function (h, i) { if (h.k === key) fi = i; });
+      var first = fi >= 0 ? [fi] : [];
       return first.concat(idx.filter(function (x) { return first.indexOf(x) < 0; }));
     }
+    function hintText(n) { var h = hint.list && hint.list[hint.order[n]]; return h ? h.t : ''; }
     function hintCanRun() { return v10 && open && !document.hidden && !input.value && document.activeElement !== input; }
     function hintTick() {
       hint.t = 0;
       if (!hintCanRun()) { hintStop(); return; }
-      var full = GW_HINTS[hint.order[hint.i]];
+      var full = hintText(hint.i);
       var delay = 45;
       if (hint.phase === 'type') {
         hint.pos++;
@@ -603,16 +656,19 @@
         hint.i = (hint.i + 1) % hint.order.length;
         if (hint.i === 0) hint.order = hintOrder();
       }
-      typeEl.textContent = GW_HINTS[hint.order[hint.i]].slice(0, hint.pos);
+      typeEl.textContent = hintText(hint.i).slice(0, hint.pos);
       hint.t = setTimeout(hintTick, delay);
     }
     function hintStart() {
       if (!v10 || hint.on || !hintCanRun()) return;
+      // הרשימה נקבעת פעם אחת, אחרי שתי הבדיקות (שמאים, פרויקטים)
+      if (!hint.list) { liveHints().then(function (l) { hint.list = l; hintStart(); }); return; }
+      if (!hint.list.length) return;
       hint.on = true; hint.seen = true;
       if (!hint.order.length) hint.order = hintOrder();
       input.setAttribute('placeholder', '');
       typeEl.hidden = false;
-      if (reduceMotion) { typeEl.textContent = GW_HINTS[hint.order[0]]; typeEl.classList.add('is-static'); return; }
+      if (reduceMotion) { typeEl.textContent = hintText(0); typeEl.classList.add('is-static'); return; }
       hint.phase = 'type'; hint.pos = 0;
       hint.t = setTimeout(hintTick, 400);
     }
@@ -630,15 +686,24 @@
       // לחיצה על השאלה ממלאת אותה בשדה
       typeEl.addEventListener('mousedown', function (e) {
         e.preventDefault();
-        var at = hint.order[hint.i] || 0;
+        var h = hint.list && hint.list[hint.order[reduceMotion ? 0 : hint.i]];
+        if (!h) return;
         hintStop();
-        input.value = GW_HINTS[at];
+        // הנוסח המדויק של GW_HINTS, בלי תוספת: גבריאלה מזהה כך שיחות שהתחילו משאלה לדוגמה
+        input.value = h.t;
         syncFree();
         input.focus();
-        if (window.shukTrack) window.shukTrack('gab_hint_click', { hint_index: at });
+        // ‏hint_index: המקום ב-GW_HINTS (לא ברשימה המסוננת), כדי שהמספר יציב
+        if (window.shukTrack) window.shukTrack('gab_hint_click', { hint_index: GW_HINTS.indexOf(h) });
       });
     }
     free.addEventListener('submit', function (e) { e.preventDefault(); syncFree(); go.click(); });
+    /* ‏P0-4: טקסט חופשי שיוצא לוואטסאפ - האם הגולש/ת ראה/תה שאלה לדוגמה. בסיס לבדיקת 48
+       השעות של גבריאלה. נורה לפני שהקישור נפתח (לחיצה על "המשך בוואטסאפ" או Enter) */
+    go.addEventListener('click', function () {
+      if (!input.value.trim()) return;
+      if (window.shukTrack) window.shukTrack('gab_free_submit', { hint_seen: hint.seen ? 1 : 0, surface: surfaceName() });
+    });
 
     /* ---------- פתיחה וסגירה ---------- */
     var open = false;

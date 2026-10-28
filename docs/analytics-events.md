@@ -484,3 +484,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `adv_filter_apply` | "הצגת תוצאות" בחלון. שמות השדות בלבד, בלי ערכים | `deal`, `surface`, `fields` (מפתחות בפסיקים, עד 100 תווים), `field_count`, `result_count`, `missing_shown`: ‏`0` (עד P1-N2) |
 | `adv_filter_clear` | "איפוס" בחלון, בלחיצה של הגולש/ת | `deal`, `surface` |
 | (פרמטר חדש) `swipe_start.filters_n` | ‏R5-5 (v10): כמה מסננים עברו מדף הבית להחלקה (מספר בלבד, בלי ערכים). `via` מקבל גם `results_toolbar` (האייקון בסרגל הנכסים) ו-`results_button` ("גלישה בהחלקה · N" ליד כותרת התוצאות) | `filters_n` |
+| `gab_free_submit` | ‏P0-4 (v10): טקסט חופשי מהשדה של גבריאלה יוצא לוואטסאפ ("המשך בוואטסאפ" או Enter). נורה לפני שהקישור נפתח, רק כשיש טקסט. בסיס לבדיקת 48 השעות של השאלות לדוגמה (‏`docs/qa/gab-hints-answers.md`). בלי הטקסט עצמו | `hint_seen`: ‏`1` אם שאלה לדוגמה רצה בשדה מאז שהחלונית נפתחה, אחרת `0`; `surface`: שם הדף (`home`, ‏`property`, ‏`swipe`…) |
+| (פרמטר חדש) `search_pro_suggest.fallback` | ‏P0-2: התחום שזוהה (למשל `appraiser`) בלי אף בעל/ת מקצוע פעיל/ה, וההצעה הפנתה ל-`/professionals` (‏`data-pro="all"`) במקום לדף ריק. `type` נשאר התחום שזוהה. באותו מצב Enter שולח `search_pro_click` עם `type: all` | `fallback`: ‏`true` |
+| (הערה) `gab_hint_click.hint_index` | מ-28.10 המיקום ב-`GW_HINTS` המלא, גם כששאלות מותנות מדולגות | |
+| (הערה) `home_view_mode.mode` | מ-28.10 בלי `list`: הכפתור "תצוגת רשימה" הוסר (החלטה 2). הערכים: ‏`swipe` \| `map` | |

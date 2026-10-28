@@ -22,6 +22,7 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
 var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.setAttribute('fetchpriority','high');l.media=a[1];document.head.appendChild(l);});})();</script>
 <script src="assets/auth-return.js" data-catch></script>
 <script src="assets/esc.js"></script>
+<script src="assets/agent-card.js" defer></script>
 <script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
@@ -1645,6 +1646,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   }
   .row-nav[hidden]{display:none}
 
+  .dm-item.is-agc{border:0;background:none;box-shadow:none}
+  .dm-item.is-agc .agc{box-shadow:0 8px 24px -16px rgba(13,27,61,.4)}
   .dm-item{
     flex:0 0 82%;min-width:0;scroll-snap-align:start;position:relative;
     display:flex;flex-direction:column;overflow:hidden;
@@ -3626,7 +3629,15 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s ease-in both}
     html.beta-hero body .ss-mic-hint::before{top:50%;bottom:auto;left:auto;right:100%;margin:-6px 0 0;border:6px solid transparent;border-right-color:var(--sapphire)}
     html.beta-hero.mic-hint-on .hs-q{visibility:visible}
+    /* ‏P2-7: הבועה מעל הכרטיס (‏home.js מציב אותה), החץ למטה אל המיקרופון */
+    html.beta-hero body .ss-mic-hint.is-above{top:auto;bottom:calc(100% + 8px);right:auto;transform:none;
+      white-space:normal;max-width:min(260px,70vw);animation:v10MicHintAbove .25s ease-out both}
+    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s ease-in both}
+    html.beta-hero body .ss-mic-hint.is-above::before{top:100%;bottom:auto;right:auto;left:var(--mh-arrow,50%);margin:0 0 0 -6px;
+      border:6px solid transparent;border-top-color:var(--sapphire)}
   }
+  @keyframes v10MicHintAbove{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @keyframes v10MicHintAboveOut{to{opacity:0;transform:translateY(4px)}}
 
   /* ---------- מפת השכונות (‏#hoodMapSec) ---------- */
   html.beta-hero .hood-map-sec{display:block}

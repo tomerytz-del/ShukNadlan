@@ -25,11 +25,12 @@
   .land-hero .wrap.land-hero-copy { padding-block: 16px 44px; }
 }
 
-/* ‏R5-3 (PR 1010, החלטה 18 אושרה 28.10): כפתורי תמונת הנושא ב-silo וב-brokers.
+/* ‏R5-3 (PR 1010, החלטה 18 אושרה 28.10): כפתורי תמונת הנושא ב-silo וב-brokers. ‏12px עם !important,
+   כי design-system.css כופה 10px על כל [class*=btn] ב-!important.
    שני כפתורים שווים - זהב ראשי, נייבי שקוף משני - ואף פעם לא לבן מלא ולא "שחור".
    הסלקטורים עם body.land-page כי landing.css מגדיר צבע לכל a.land-btn בתוך .doc */
 body.land-page .land-hero .land-ctas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 440px; margin-top: 14px; }
-body.land-page .land-hero .land-btn { width: 100%; min-height: 48px; padding: 0 12px; border-radius: 12px; font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap; box-sizing: border-box; justify-content: center; }
+body.land-page .land-hero .land-btn, body.land-page .land-hero a.land-btn { width: 100%; min-height: 48px; padding: 0 12px; border-radius: 12px !important; font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap; box-sizing: border-box; justify-content: center; }
 body.land-page .land-hero a.land-btn-primary, body.land-page .land-hero .land-btn-primary { background: #c9a227; color: #0d1b3d; border: 2px solid #c9a227; }
 body.land-page .land-hero a.land-btn-ghost, body.land-page .land-hero .land-btn-ghost { background: rgba(14, 42, 107, .72); color: #fff; border: 2px solid rgba(255, 255, 255, .9); }
 @media (hover: hover) {
@@ -37,9 +38,11 @@ body.land-page .land-hero a.land-btn-ghost, body.land-page .land-hero .land-btn-
   body.land-page .land-hero a.land-btn-ghost:hover { background: #0e2a6b; }
 }
 /* הנתונים הם טקסט, לא גלולות שנראות כמו כפתורים */
-body.land-page .land-hero .land-chips { gap: 0; margin-top: 8px; }
-body.land-page .land-hero .land-chips li { background: none; padding: 0; border-radius: 0; font-size: 14px; font-weight: 600; color: #fff; }
-body.land-page .land-hero .land-chips li + li::before { content: "·"; margin-inline: 8px; opacity: .8; }
+/* ‏P2-4: הנקודה אחרי כל נתון ולא לפניו - בשבירת שורה היא נשארת בסוף השורה ולא פותחת את הבאה */
+body.land-page .land-hero .land-chips { flex-wrap: wrap; gap: 0; row-gap: 2px; margin-top: 8px; }
+body.land-page .land-hero .land-chips li { background: none; padding: 0; border-radius: 0; font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
+body.land-page .land-hero .land-chips li + li::before { content: none; }
+body.land-page .land-hero .land-chips li:not(:last-child)::after { content: "·"; margin-inline: 8px; opacity: .8; }
 /* הסינון המהיר מתחת לתמונה: בטלפון רשת 3×3 שווה, בלי גלילה אופקית ובלי צ'יפ חתוך */
 @media (max-width: 759px) {
   body.land-page .land-filters[aria-label="סינון מהיר"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: visible; scroll-snap-type: none; }
