@@ -7,12 +7,14 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20271030210000_scraped_lead_matching.sql"
+      - "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
       - "scripts/scraped_lead_matching_test.py"
       - ".github/workflows/scraped_lead_matching.yml"
   push:
     branches: [main]
     paths:
       - "supabase/migrations/20271030210000_scraped_lead_matching.sql"
+      - "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
       - "scripts/scraped_lead_matching_test.py"
       - ".github/workflows/scraped_lead_matching.yml"
   workflow_dispatch:

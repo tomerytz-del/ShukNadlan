@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271030210000_scraped_lead_matching.sql"
+FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
 
 SETUP = r"""
 do $$ begin
@@ -121,6 +122,18 @@ create table public.scraped_leads (
 create table public.scraped_lead_blocks (
   ref_hash text primary key,
   expires_at timestamptz not null
+);
+create table public.open_demand_notify_log (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  scraped_lead_id uuid not null,
+  agent_id uuid not null,
+  rank int not null,
+  reason text not null,
+  last_pull_at timestamptz,
+  last_notified_at timestamptz,
+  cap int not null,
+  lookback_days int not null
 );
 create table public.notifications (
   id uuid primary key default gen_random_uuid(),
@@ -235,6 +248,13 @@ def main():
     psql(db, sql_text=SETUP)
     psql(db, MIGRATION)
     psql(db, MIGRATION)
+    psql(db, FOLLOW)
+    psql(db, FOLLOW)
+    follow = FOLLOW.read_text(encoding="utf-8")
+    if "rk <= greatest(0, v_cap - v_prior)" not in follow:
+        fail("התקרה לא מפחיתה את גל 1")
+    if "order by s.id" not in follow or "order by id" not in follow:
+        fail("הלולאות לא נועלות לפי id")
 
     flag = psql(db, sql_text="select value::text from public.pricing_config where key = 'scraped_lead_matching_enabled'")
     if flag != "0":
@@ -392,6 +412,32 @@ def main():
     psql(db, sql_text="""
       update public.pricing_config set value = 15 where key = 'notif_burst_demand_fanout';
       update public.pricing_config set value = 1 where key = 'scraped_lead_matching_enabled';
+    """)
+
+    # תקרה שנדלקת בין הגלים סופרת את מי שכבר קיבל. נשארו שניים, המכסה 2, יוצא אחד.
+    a3 = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"
+    psql(db, sql_text=f"""
+      insert into public.agency_members (id, agency_id, tier)
+      values ('{a3}', '{agency}', 'mid')
+      on conflict (id) do nothing;
+    """)
+    reset_post("owner_inbound")
+    if psql(db, sql_text=f"select public.scraped_lead_notify_demand('{post}')") != "1":
+        fail("גל ראשון לפני הדלקת התקרה")
+    psql(db, sql_text="""
+      update public.pricing_config set value = 1 where key = 'open_demand_notify_cap_enabled';
+      update public.pricing_config set value = 2 where key = 'open_demand_notify_cap';
+    """)
+    capped = psql(db, sql_text=f"select public.scraped_lead_notify_demand('{post}')")
+    if capped != "1":
+        fail(f"התקרה לא הורידה את גל 1: {capped}")
+    if psql(db, sql_text=f"select count(*) from public.notifications where agent_id = '{a1}'") != "1":
+        fail("התקרה שלחה שוב לגל הראשון")
+    if psql(db, sql_text="select count(*) from public.notifications") != "2":
+        fail("התקרה שלחה יותר מהמקום שנשאר")
+    psql(db, sql_text="""
+      update public.pricing_config set value = 0 where key = 'open_demand_notify_cap_enabled';
+      update public.pricing_config set value = 8 where key = 'open_demand_notify_cap';
     """)
 
     # שדות חסרים: עדיין התאמה, ציון נמוך יותר מפוסט מלא.

@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MIG = ROOT / "supabase/migrations/20271030000100_customer_send_window.sql"
+FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
 DB = os.environ.get("CUSTOMER_WINDOW_TEST_DB", "customer_window_test")
 
 
@@ -131,6 +132,7 @@ create or replace function public.saved_search_matches(
 $$;
 """)
     psql_file(MIG)
+    psql_file(FOLLOW)
 
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 08:00:00')})", "t", "ראשון 08:00")
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 07:59:00')})", "f", "ראשון 07:59")
@@ -424,30 +426,24 @@ $$;
       values ('cccccccc-cccc-cccc-cccc-cccccccccc10', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb10',
               'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa10', 'deferred', now() - interval '1 hour');
     """)
-    window_now = psql("select public.send_window_open('customer_push', now())")
-    psql("select public.customer_prepare(now())")
-    if window_now == "t":
-        expect(
-            "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
-            "1",
-            "שחרור ל-pending שולח דחיפה",
-        )
-        expect(
-            f"select sent_count from public.customer_phone_day where contact_key = '{push_phone}'",
-            "1",
-            "הדחיפה לא תופסת מקום שני",
-        )
-    else:
-        expect(
-            "select status from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
-            "deferred",
-            "מחוץ לחלון השחרור נשאר דחוי",
-        )
-        expect(
-            "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
-            "0",
-            "מחוץ לחלון אין דחיפה",
-        )
+    open_at = at("2026-08-02 08:00:00")
+    psql(f"""
+      update public.saved_search_alerts
+         set created_at = {open_at} - interval '1 hour'
+       where id = 'cccccccc-cccc-cccc-cccc-cccccccccc10';
+      select set_config('app.customer_at', ({open_at})::text, false);
+      select public.customer_prepare({open_at});
+    """)
+    expect(
+        "select count(*) from public.app_push_log where alert_id = 'cccccccc-cccc-cccc-cccc-cccccccccc10'",
+        "1",
+        "שחרור ל-pending שולח דחיפה",
+    )
+    expect(
+        f"select sent_count from public.customer_phone_day where contact_key = '{push_phone}' and day = '2026-08-02'",
+        "1",
+        "הדחיפה לא תופסת מקום שני",
+    )
 
     one = phone_with_minute(5)
     one_alert = "cccccccc-cccc-cccc-cccc-cccccccccc13"
