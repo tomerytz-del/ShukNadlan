@@ -415,6 +415,10 @@ const flagSql = readFileSync(new URL("../supabase/migrations/20271029180000_gabr
 check("הדגל נולד כבוי", flagSql.includes("('gabriela_ask_before_publish', 0,") && !flagSql.includes("('gabriela_ask_before_publish', 1,"));
 const nudgeSql = readFileSync(new URL("../supabase/migrations/20271029186000_gabriela_publish_ask_nudge.sql", import.meta.url), "utf8");
 check("תזכורת 24 שעות לא מפרסמת", nudgeSql.includes("interval '24 hours'") && nudgeSql.includes("אין כאן עדכון של status ל-active") && nudgeSql.includes("row_number() over (partition by a.search_id"));
+check("דגל 0 לא כותב שאלת פרסום",
+  nudgeSql.includes("gabriela_ask_before_publish'), 0) = 0")
+  && nudgeSql.includes("gabriela_publish_ask_since")
+  && nudgeSql.includes("a.asked_at >= v_since"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

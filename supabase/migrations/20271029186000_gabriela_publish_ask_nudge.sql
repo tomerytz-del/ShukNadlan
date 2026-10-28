@@ -39,6 +39,10 @@ begin
   if p_property_id is null or p_agent_id is null then
     return;
   end if;
+  if coalesce((select value::int from public.pricing_config
+                where key = 'gabriela_ask_before_publish'), 0) = 0 then
+    return;
+  end if;
   insert into public.gabriela_publish_asks (property_id, agent_id)
   values (p_property_id, p_agent_id)
   on conflict (property_id) do nothing;
@@ -46,7 +50,7 @@ end;
 $$;
 
 comment on function public.gabriela_publish_ask_touch(uuid, uuid) is
-  'רושם שנשאלה שאלת פרסום. שורה קיימת לא מזיזה את השעון, ותזכורת שכבר יצאה לא מתאפסת.';
+  'רושם שנשאלה שאלת פרסום, רק כשהדגל 1. דגל 0 אינו כותב. שורה קיימת לא מזיזה את השעון.';
 
 revoke all on function public.gabriela_publish_ask_touch(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.gabriela_publish_ask_touch(uuid, uuid) to service_role;
@@ -76,7 +80,18 @@ set search_path = ''
 as $$
 declare
   v_n int := 0;
+  v_since timestamptz;
 begin
+  if coalesce((select value::int from public.pricing_config
+                where key = 'gabriela_ask_before_publish'), 0) = 0 then
+    return 0;
+  end if;
+  select s.enabled_at into v_since
+    from public.gabriela_publish_ask_since s
+   where s.id = 1;
+  if v_since is null then
+    return 0;
+  end if;
   with due as (
     select a.property_id, a.agent_id, p.title
       from public.gabriela_publish_asks a
@@ -85,6 +100,7 @@ begin
       left join public.agent_reminder_preferences pref on pref.agent_id = a.agent_id
      where a.nudged_at is null
        and a.asked_at <= now() - interval '24 hours'
+       and a.asked_at >= v_since
        and p.status = 'unpublished'
        and m.active
        and m.closed_at is null
@@ -129,10 +145,50 @@ end;
 $$;
 
 comment on function public.gabriela_publish_ask_nudge_claim(int) is
-  'תזכורת אחת לנכס שלא נענה, 24 שעות אחרי השאלה, רק מחוץ לשעות השקט. לא משנה את סטטוס הנכס.';
+  'תזכורת אחת לנכס שלא נענה, 24 שעות אחרי השאלה, רק מאז שהדגל נדלק ורק מחוץ לשעות השקט. לא משנה את סטטוס הנכס.';
 
 revoke all on function public.gabriela_publish_ask_nudge_claim(int) from public, anon, authenticated;
 grant execute on function public.gabriela_publish_ask_nudge_claim(int) to service_role;
+
+-- חותמת ההדלקה. שאלה שנרשמה לפניה לא יוצאת כשהדגל עולה, גם אם עברו 24 שעות.
+create table if not exists public.gabriela_publish_ask_since (
+  id int primary key,
+  enabled_at timestamptz not null
+);
+
+comment on table public.gabriela_publish_ask_since is
+  'הרגע שבו gabriela_ask_before_publish עלה ל-1. תזכורת רק לשאלה שנשאלה אחריו.';
+
+alter table public.gabriela_publish_ask_since enable row level security;
+revoke all on table public.gabriela_publish_ask_since from public, anon, authenticated;
+grant select, insert, update, delete on table public.gabriela_publish_ask_since to service_role;
+
+create or replace function public.gabriela_publish_ask_flag_touch()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.key = 'gabriela_ask_before_publish' and coalesce(new.value, 0) = 1
+     and (tg_op = 'INSERT' or coalesce(old.value, 0) is distinct from 1) then
+    insert into public.gabriela_publish_ask_since (id, enabled_at)
+    values (1, pg_catalog.now())
+    on conflict (id) do update set enabled_at = excluded.enabled_at;
+  end if;
+  return new;
+end;
+$$;
+
+comment on function public.gabriela_publish_ask_flag_touch() is
+  'במעבר gabriela_ask_before_publish מ-0 ל-1 רושם enabled_at. עדכון בלי שינוי הערך לא מזיז את החותמת.';
+
+revoke all on function public.gabriela_publish_ask_flag_touch() from public, anon, authenticated;
+
+drop trigger if exists gabriela_publish_ask_flag_touch on public.pricing_config;
+create trigger gabriela_publish_ask_flag_touch
+  after insert or update of value on public.pricing_config
+  for each row execute function public.gabriela_publish_ask_flag_touch();
 
 -- התקרה נספרת בתוך אותה משיכה. בלי row_number, עשרים נכסים חדשים לאותו
 -- חיפוש היו יוצאים בסבב אחד כל עוד sent_today עדיין 0.
