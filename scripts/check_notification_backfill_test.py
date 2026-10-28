@@ -69,6 +69,15 @@ CASES = [
             'select public.notification_push_suppress(true);\n'
             'perform public.generate_client_match_alerts();',
     }),
+    ('מילוי publish_channels נחסם', 1, {
+        f'{NEW}_channels.sql':
+            "update public.properties set publish_channels = array['site']::text[] where status = 'active';",
+    }),
+    ('השמה ל-NEW אינה מילוי', 0, {
+        f'{NEW}_sync.sql':
+            "new.publish_channels := array['site']::text[];\n"
+            "new.share_with_brokers := true;",
+    }),
     ('set_config בתוך פונקציה לא מכסה insert בחוץ', 1, {
         f'{NEW}_body.sql':
             "create function public.notification_push_suppress(p_on boolean) returns void language plpgsql as $$\n"

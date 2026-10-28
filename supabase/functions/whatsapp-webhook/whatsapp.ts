@@ -185,6 +185,54 @@ export async function sendButtons(
   }, "whatsapp buttons send failed");
 }
 
+const MAX_LIST_ROWS = 10;
+const MAX_LIST_TITLE = 24;
+const MAX_LIST_BUTTON = 20;
+const MAX_LIST_DESC = 72;
+const MAX_LIST_SECTION = 24;
+
+/**
+ * רשימת בחירה אחת (interactive · list). הלחיצה חוזרת כ-list_reply.id.
+ * כפתור הפתיחה עד 20, כותרת שורה עד 24, תיאור עד 72, מזהה עד 200, עד 10 שורות.
+ */
+export async function sendList(
+  to: string,
+  body: string,
+  button: string,
+  section: string,
+  rows: { id: string; title: string; description?: string }[],
+): Promise<string | null> {
+  const clean = formatForWhatsapp(body);
+  const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
+  const sliced = rows.slice(0, MAX_LIST_ROWS).map((row) => {
+    const description = row.description
+      ? Array.from(formatForWhatsapp(row.description)).slice(0, MAX_LIST_DESC).join("")
+      : "";
+    return {
+      id: row.id.slice(0, 200),
+      title: Array.from(formatForWhatsapp(row.title)).slice(0, MAX_LIST_TITLE).join(""),
+      ...(description ? { description } : {}),
+    };
+  });
+  return postMessage(to, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      body: { text },
+      action: {
+        button: Array.from(formatForWhatsapp(button)).slice(0, MAX_LIST_BUTTON).join(""),
+        sections: [{
+          title: Array.from(formatForWhatsapp(section)).slice(0, MAX_LIST_SECTION).join(""),
+          rows: sliced,
+        }],
+      },
+    },
+  }, "whatsapp list send failed");
+}
+
 /**
  * הודעה עם כפתור אחד שפותח קישור (interactive · cta_url). ‏**כפתור אחד בלבד**
  * להודעה - זו המגבלה של Meta, ולכן פעולה שנייה שפותחת קישור היא הודעה נפרדת

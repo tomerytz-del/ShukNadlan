@@ -8,6 +8,7 @@ import {
   sendButtons,
   sendContactCard,
   sendCtaUrl,
+  sendList,
   sendText,
   verifySignature,
 } from "./whatsapp.ts";
@@ -365,15 +366,23 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
   // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת.
   const seen = new Set<string>();
   for (const item of collapseCreatedPropertyEdits(items)) {
-    const key = item.kind === "cta" ? item.url : item.buttons.map((b) => b.id).join("|");
+    const key = item.kind === "cta"
+      ? item.url
+      : item.kind === "list"
+      ? item.rows.map((row) => row.id).join("|")
+      : item.buttons.map((b) => b.id).join("|");
     if (seen.has(key)) continue;
     seen.add(key);
     const logBody = item.kind === "cta"
       ? `${item.body}\n[${item.label}] ${item.url}`
+      : item.kind === "list"
+      ? `${item.body}\n[${item.rows.map((row) => row.title).join(" | ")}]`
       : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
     try {
       const waMessageId = item.kind === "cta"
         ? await sendCtaUrl(to, item.body, item.label, item.url)
+        : item.kind === "list"
+        ? await sendList(to, item.body, item.button, item.section, item.rows)
         : await sendButtons(to, item.body, item.buttons);
       await supabase.from("whatsapp_messages").insert({
         wa_message_id: waMessageId, direction: "out", wa_phone: to, agent_id: agentId,
@@ -1631,7 +1640,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
-      const buttonId = String(msg.interactive?.button_reply?.id || "");
+      const buttonId = String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "");
       const moreType = parseMoreButton(buttonId);
       if (moreType) {
         await restoreLessNotifs(from, agent.id, moreType);

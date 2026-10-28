@@ -93,6 +93,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   review_request: "accLeads",
   deal_closed: "accTeam",
   marketing_copy: "accProperties",
+  // נכס שגבריאלה שאלה עליו ולא נענתה (20271029186000). הקישור הוא הכרטיס.
+  publish_ask_nudge: "accProperties",
   // מנהל/ת המשרד מחק/ה שיחה (twilio-voice?task=delete) - השיחות והמספרים
   call_deleted_by_manager: "accLines",
   // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);

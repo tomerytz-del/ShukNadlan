@@ -230,6 +230,178 @@ export function reissueClickDecision(
   return { kind: "run", agreementId: row.subject_id, overrides: payload };
 }
 
+export const PUBLISH_YES = "לפרסם";
+export const PUBLISH_NO = "לא עכשיו";
+export const PUBLISH_EDIT = "לערוך";
+export const PUBLISH_DONE = "הנכס כבר פורסם, ולא מפרסמים שוב.";
+export const PUBLISH_EXPIRED = "הבקשה לפרסם פגה. אפשר לבקש שוב.";
+export const PUBLISH_MISSING = "הבקשה לפרסם לא נמצאה. אפשר לבקש שוב.";
+export const PUBLISH_BUSY = "הפרסום כבר בטיפול. אם הנכס לא עלה, אפשר לבקש שוב.";
+export const PUBLISH_STORE_MISSING =
+  "אי אפשר לאשר את הפרסום מכאן כרגע. אפשר לפרסם את הנכס מאזור האישי באתר.";
+export const PUBLISH_FAILED = "לא הצלחתי לפרסם את הנכס. אפשר לנסות שוב.";
+export const PUBLISH_ALREADY = "הנכס כבר באוויר.";
+export const PUBLISH_EXCLUSIVE_ELSEWHERE =
+  "הנכס נמצא בבלעדיות של משרד אחר, ולכן אי אפשר לפרסם אותו.";
+export const PUBLISH_DUPLICATE_ELSEWHERE =
+  "הנכס כבר מפורסם במערכת. אפשר לפרסם אותו רק עם הסכם בלעדיות חתום.";
+export const PUBLISH_DUPLICATE_SAME =
+  "הנכס כבר מפורסם במשרד שלכם. אין צורך במודעה שנייה.";
+
+const PUBLISH_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// uuid אופציונלי: כפתור ישן בלי מזהה נכס עדיין נפתר מהשורה השמורה.
+const PUBLISH_RE = /^pubx:(y|n|e):([0-9a-f]{12})(?::([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i;
+
+export function publishConfirmButtons(
+  requestId: string,
+  propertyId?: string | null,
+): { id: string; title: string }[] | null {
+  if (!/^[0-9a-f]{12}$/i.test(requestId)) return null;
+  if (utf16len(PUBLISH_YES) > 20 || utf16len(PUBLISH_NO) > 20 || utf16len(PUBLISH_EDIT) > 20) return null;
+  const prop = propertyId && PUBLISH_UUID_RE.test(propertyId) ? `:${propertyId.toLowerCase()}` : "";
+  const yes = `pubx:y:${requestId.toLowerCase()}${prop}`;
+  if (yes.length > 200) return null;
+  const id = requestId.toLowerCase();
+  return [
+    { id: yes, title: PUBLISH_YES },
+    { id: `pubx:n:${id}${prop}`, title: PUBLISH_NO },
+    { id: `pubx:e:${id}${prop}`, title: PUBLISH_EDIT },
+  ];
+}
+
+export function parsePublishButton(
+  buttonId: string,
+): { action: "yes" | "no" | "edit"; requestId: string; propertyId: string | null } | null {
+  const m = PUBLISH_RE.exec(String(buttonId || "").trim());
+  if (!m) return null;
+  const letter = m[1].toLowerCase();
+  return {
+    action: letter === "y" ? "yes" : letter === "e" ? "edit" : "no",
+    requestId: m[2].toLowerCase(),
+    propertyId: m[3] ? m[3].toLowerCase() : null,
+  };
+}
+
+export type PublishDecision =
+  | { kind: "missing" }
+  | { kind: "expired" }
+  | { kind: "busy" }
+  | { kind: "done"; text: string }
+  | { kind: "run"; propertyId: string };
+
+/**
+ * בוואטסאפ יש outbox, ולכן confirm לא מפרסם. בלי כפתורים (מייל) confirm=true
+ * הוא האישור, כי אין לאן לשלוח pubx:.
+ */
+export function publishWritesNow(hasOutbox: boolean, confirm: unknown): boolean {
+  return !hasOutbox && confirm === true;
+}
+
+/** 1 שואל לפני פרסום. 0, שורה חסרה או קריאה שנכשלה: פרסום מיידי, כמו קודם. */
+export function publishAskFirst(value: unknown, readFailed = false): boolean {
+  if (readFailed) return false;
+  if (value == null || value === "") return false;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return false;
+  return n !== 0;
+}
+
+/** טיוטה עד לכפתור. unpublished הוא מה שהאתר, החיפוש וההתראות לא מציגים. */
+export function listingStatusForCreate(askFirst: boolean): "unpublished" | "active" {
+  return askFirst ? "unpublished" : "active";
+}
+
+/** לחיצה שנייה על כפתור שכבר פורסם לא מפרסמת שוב. */
+export function publishClickDecision(
+  row: PendingActionRow | null | undefined,
+  nowMs: number,
+): PublishDecision {
+  if (!row || row.action !== "publish" || !row.subject_id) return { kind: "missing" };
+  if (row.executed_at) {
+    return { kind: "done", text: String(row.result || "").trim() || PUBLISH_DONE };
+  }
+  const exp = Date.parse(String(row.expires_at || ""));
+  if (!Number.isFinite(exp) || exp <= nowMs) return { kind: "expired" };
+  if (row.claimed_at) return { kind: "busy" };
+  return { kind: "run", propertyId: row.subject_id };
+}
+
+export function publishDecisionText(decision: PublishDecision): string | null {
+  switch (decision.kind) {
+    case "run":
+      return null;
+    case "done":
+      return decision.text;
+    case "expired":
+      return PUBLISH_EXPIRED;
+    case "busy":
+      return PUBLISH_BUSY;
+    default:
+      return PUBLISH_MISSING;
+  }
+}
+
+/** 23514: ה-check עדיין מתיר רק reissue. לא לפרסם בלי שהבקשה נשמרה. */
+export function publishStoreBlocked(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (String(error.code || "") === "23514") return true;
+  return pendingStoreMissing(error);
+}
+
+/**
+ * הודעת המסד לא יוצאת לסוכן/ת. בלעדיות ומודעה כפולה של משרד אחר מגיעות עם
+ * שם אדם ושם משרד, וזה לא של הסוכן/ת. כאן נשאר משפט בלי פרטים. null = לא
+ * הודעה מוכרת. את הטקסט הגולמי רושמים בשרת לפני הקריאה.
+ */
+export function redactPublishError(message: string | null | undefined): string | null {
+  const msg = String(message || "").replace(/[—–]/g, "-").trim();
+  if (msg.includes("הנכס נמצא בבלעדיות של")) return PUBLISH_EXCLUSIVE_ELSEWHERE;
+  if (msg.includes("הנכס כבר מפורסם במערכת")) return PUBLISH_DUPLICATE_ELSEWHERE;
+  if (msg.includes("הנכס כבר מפורסם במשרד שלכם")) {
+    const num = msg.match(/#(\d+)/);
+    return num
+      ? `הנכס כבר מפורסם במשרד שלכם (מודעה #${num[1]}). אין צורך במודעה שנייה.`
+      : PUBLISH_DUPLICATE_SAME;
+  }
+  return null;
+}
+
+/** הודעה מוכרת בלי שמות, וכל השאר משפט כללי. */
+export function publishErrorText(message: string | null | undefined): string {
+  return redactPublishError(message) ?? PUBLISH_FAILED;
+}
+
+/** הפונקציה עוד לא עלתה: יצירת הטיוטה ממשיכה בלי האזהרה. */
+export function draftElsewhereMissing(error: { code?: string } | null | undefined): boolean {
+  const code = String(error?.code || "");
+  return code === "42883" || code === "PGRST202";
+}
+
+/**
+ * אזהרה בזמן טיוטה, בלי שם של מתווך/ת ומשרד אחר. clear ו-unknown אינם אזהרה.
+ * החסימה עצמה נשארת בטריגר, במעבר ל-active.
+ */
+export function elsewhereDraftWarning(state: string | null | undefined): string | null {
+  if (state === "exclusive_elsewhere") {
+    return `${PUBLISH_EXCLUSIVE_ELSEWHERE} הטיוטה נשמרה, והפרסום ייעצר עד הסכם בלעדיות חתום.`;
+  }
+  if (state === "duplicate_elsewhere") {
+    return `${PUBLISH_DUPLICATE_ELSEWHERE} הטיוטה נשמרה.`;
+  }
+  if (state === "duplicate_same_agency") {
+    return `${PUBLISH_DUPLICATE_SAME} הטיוטה נשמרה.`;
+  }
+  return null;
+}
+
+/**
+ * כפתור שפג (שש שעות), "לא עכשיו" ו"לערוך" לא מוחקים את הטיוטה ולא מפרסמים.
+ * התזכורת השבועית בוחרת unpublished לפי unpublished_at, לא לפי כפתור פתוח.
+ */
+export function unpublishedAfterUnconfirmedPublish(_kind: "expired" | "no" | "edit"): "unpublished" {
+  return "unpublished";
+}
+
 export function reissueDecisionText(decision: ReissueDecision): string | null {
   switch (decision.kind) {
     case "run":
@@ -357,4 +529,172 @@ export function reissuePrepareInput(
 
 function utf16len(s: string): number {
   return [...s].reduce((n, ch) => n + (ch.codePointAt(0)! > 0xffff ? 2 : 1), 0);
+}
+
+export type PublishChannel = "site" | "social" | "brokers" | "save";
+
+export interface PublishDestination {
+  code: string;
+  title: string;
+  description: string;
+  channels: PublishChannel[];
+  edit: boolean;
+}
+
+/** רשימה אחת, בחירה אחת. הכותרות בתוך 24 יחידות UTF-16 של Meta. */
+export const PUBLISH_DESTINATIONS: PublishDestination[] = [
+  {
+    code: "asb",
+    title: "אתר + רשתות + מתווכים",
+    description: "האתר, תור לפייסבוק ולאינסטגרם, ושת״פ למשרדים",
+    channels: ["site", "social", "brokers"],
+    edit: false,
+  },
+  {
+    code: "as",
+    title: "אתר + רשתות",
+    description: "האתר, ותור לפייסבוק ולאינסטגרם",
+    channels: ["site", "social"],
+    edit: false,
+  },
+  {
+    code: "a",
+    title: "רק אתר",
+    description: "דף הנכס באתר, בלי רשתות ובלי שת״פ",
+    channels: ["site"],
+    edit: false,
+  },
+  {
+    code: "ab",
+    title: "אתר + מתווכים",
+    description: "האתר, ושת״פ למשרדים אחרים",
+    channels: ["site", "brokers"],
+    edit: false,
+  },
+  {
+    code: "m",
+    title: "רק לשמור במאגר",
+    description: "בלי אתר, בלי רשתות ובלי שת״פ",
+    channels: ["save"],
+    edit: false,
+  },
+  {
+    code: "e",
+    title: "לערוך",
+    description: "פתיחת הכרטיס ב-CRM, בלי לפרסם",
+    channels: [],
+    edit: true,
+  },
+];
+
+export const DEST_LIST_BUTTON = "לאן לפרסם";
+export const DEST_LIST_SECTION = "בחירה אחת";
+
+/** לכל נכס: לכל היותר שורת תור לפייסבוק ואחת לאינסטגרם. בלי התראה. */
+export const SOCIAL_QUEUE_ROWS_PER_PROPERTY = 2;
+
+const DEST_RE = /^dst:(asb|as|ab|a|m|e):([0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export function publishDestinationList(
+  requestId: string,
+  propertyId: string,
+): { button: string; section: string; rows: { id: string; title: string; description: string }[] } | null {
+  if (!/^[0-9a-f]{12}$/i.test(requestId) || !PUBLISH_UUID_RE.test(propertyId)) return null;
+  if (utf16len(DEST_LIST_BUTTON) > 20 || utf16len(DEST_LIST_SECTION) > 24) return null;
+  const rows = PUBLISH_DESTINATIONS.map((row) => {
+    const id = `dst:${row.code}:${requestId.toLowerCase()}:${propertyId.toLowerCase()}`;
+    return { id, title: row.title, description: row.description, code: row.code };
+  });
+  if (rows.length > 10) return null;
+  if (rows.some((row) => row.id.length > 200 || utf16len(row.title) > 24 || utf16len(row.description) > 72)) {
+    return null;
+  }
+  return {
+    button: DEST_LIST_BUTTON,
+    section: DEST_LIST_SECTION,
+    rows: rows.map(({ id, title, description }) => ({ id, title, description })),
+  };
+}
+
+export function parsePublishDestination(
+  buttonId: string,
+): { code: string; requestId: string; propertyId: string; channels: PublishChannel[]; edit: boolean } | null {
+  const m = DEST_RE.exec(String(buttonId || "").trim());
+  if (!m) return null;
+  const found = PUBLISH_DESTINATIONS.find((row) => row.code === m[1].toLowerCase());
+  if (!found) return null;
+  return {
+    code: found.code,
+    requestId: m[2].toLowerCase(),
+    propertyId: m[3].toLowerCase(),
+    channels: found.channels.slice(),
+    edit: found.edit,
+  };
+}
+
+/** אותו מזהה בקשה לשתי שורות: הלחיצה השנייה נתקעת בבקשה שכבר בוצעה. */
+export function destinationSameRequest(a: string, b: string): boolean {
+  const left = parsePublishDestination(a);
+  const right = parsePublishDestination(b);
+  if (!left || !right) return false;
+  return left.requestId === right.requestId && left.propertyId === right.propertyId;
+}
+
+/** אתר מעלה טיוטה. רק מאגר מוריד נכס שכבר באוויר. נמכר לא זז. */
+export function destinationStatusPatch(
+  channels: readonly string[],
+  status: string,
+): "active" | "unpublished" | null {
+  const save = channels.length === 1 && channels[0] === "save";
+  if (save && status === "active") return "unpublished";
+  if (channels.includes("site") && (status === "unpublished" || status === "draft")) return "active";
+  return null;
+}
+
+/**
+ * רשתות לא יוצאות מהלחיצה. דגל כבוי, או נכס שלא באוויר: רק הסימון.
+ * דגל דלוק ונכס באוויר: התור (השהיה ותקרה יומית), לא פוסט.
+ */
+export function socialEnqueuePlan(
+  channels: readonly string[],
+  flagOn: boolean,
+  willBeActive: boolean,
+): "skip" | "record" | "queue" {
+  if (!channels.includes("social")) return "skip";
+  if (!willBeActive || !flagOn) return "record";
+  return "queue";
+}
+
+export function destinationReply(input: {
+  channels: readonly string[];
+  status: string;
+  licenseHeld: boolean;
+  social: "skip" | "record" | "queue";
+  brokersSent: boolean;
+}): string {
+  const save = input.channels.length === 1 && input.channels[0] === "save";
+  if (save) {
+    return "הנכס נשמר במאגר ולא פורסם. אפשר לשנות את היעד אחר כך מהכרטיס או מכאן.";
+  }
+  const parts: string[] = [];
+  if (input.licenseHeld) {
+    parts.push("היעד נשמר. הנכס יעלה לאוויר ברגע שרישיון התיווך יאושר.");
+  } else if (input.status === "active") {
+    parts.push("הנכס באתר.");
+  } else {
+    parts.push("היעד נשמר. הנכס לא באתר.");
+  }
+  if (input.social === "record") {
+    parts.push(input.status === "active"
+      ? "הרשתות נרשמו וייכנסו לתור כשהאפשרות תידלק, עם ההשהיה והתקרה היומית."
+      : "הרשתות נרשמו. הן ייכנסו לתור אחרי שהנכס באוויר, אם האפשרות דלוקה.");
+  } else if (input.social === "queue") {
+    parts.push("הרשתות נכנסו לתור הפרסום, עם ההשהיה והתקרה היומית.");
+  }
+  if (input.channels.includes("brokers")) {
+    parts.push(input.brokersSent
+      ? "השת״פ יצא למשרדים, עד התקרה לנכס, ובלי מספר טלפון."
+      : "השת״פ נרשם. ההפצה למשרדים יוצאת רק כשהאפשרות דלוקה, עד תקרה של משרדים לנכס, ובלי מספר טלפון.");
+  }
+  return parts.join(" ");
 }

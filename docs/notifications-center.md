@@ -587,6 +587,8 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 | `notify_agent_on_new_lead` | לא שונתה. `photo_request` מטופל ב-`notification_push_burst_prepare` לפי `leads.source` |
 | `property_offers_claim` | לא כותב ל-`notifications`. תקרה קיימת: עד 4 ביממה. בלי שינוי |
 | רילס יומי | עד 3 ביום, ושעות שקט. בלי שינוי (`docs/property-marketing-video.md`) |
+| `gabriela_social_drain` / `properties_queue_publication` | לא כותב ל-`notifications`. לכל נכס עד 2 שורות תור (`facebook_page` ו-`instagram`). סבב עד 10 נכסים, ואז ההשהיה והתקרה היומית של התור (12 לערוץ). דגל `gabriela_social_publish_enabled` נולד 0. מילוי `publish_channels` במיגרציה חסום (`docs/facebook-auto-publish.md`, "יעד מוואטסאפ") |
+| `share_with_brokers` / `unpublished_collab_fanout` | שת״פ למשרדים. לכל נכס עד `gabriela_collab_fanout_cap` משרדים (ברירת מחדל 5, גג 20), התראה אחת למשרד, פעמון, בלי מספר טלפון. דגל `gabriela_collab_share_enabled` נולד 0. הסבב השעתי מרוקן עד 20 נכסים. `shared_with_partners` אינו הבקשה |
 | `security_alert` / `budget_alert` / `ops_alert` | מוגנים. יוצאים בפרטים גם במפסק, ולא נספרים בסף ה-300 |
 
 לפני `insert` ל-`notifications` או ל-`client_match_alerts` במיגרציה:
