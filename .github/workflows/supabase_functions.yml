@@ -77,8 +77,10 @@ jobs:
           fi
           echo "הדחיפה נוגעת במיגרציות. לא פורסים לפני שהרצת המיגרציות על הקומיט הזה ירוקה."
           for i in $(seq 1 72); do
+            # --event push: הרצה ידנית עם dry_run על אותו SHA אינה נחשבת
+            # להצלחה, וגם לא נבחרת במקום הריצה של הדחיפה.
             ROW=$(gh run list --commit "$GITHUB_SHA" --workflow supabase_migrations.yml \
-              --json status,conclusion,databaseId --jq '.[0] // empty' || true)
+              --event push --json status,conclusion,databaseId --jq '.[0] // empty' || true)
             if [ -z "$ROW" ]; then
               echo "המיגרציות עוד לא ברשימת ההרצות ($i/72)"
               sleep 10

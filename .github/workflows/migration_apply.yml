@@ -53,4 +53,6 @@ jobs:
           PGHOST: localhost
           PGUSER: postgres
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # true רק ב-PR שהענף שלו בריפו אחר. שם הסוד לא מועבר.
+          FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork && 'true' || 'false' }}
         run: python3 scripts/apply_pending_migrations.py
