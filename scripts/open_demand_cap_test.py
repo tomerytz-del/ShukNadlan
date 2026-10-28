@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20271028220000_open_demand_notify_cap.sql"
+MIGRATION = ROOT / "supabase/migrations/20271029220000_open_demand_notify_cap.sql"
 SETUP = ROOT / "scripts/open_demand_cap_setup.sql"
 ASSERT = ROOT / "scripts/open_demand_cap_assert.sql"
 

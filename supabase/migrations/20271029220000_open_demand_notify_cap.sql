@@ -1,11 +1,11 @@
 -- תקרת הפצה לביקוש פתוח. ברירת המחדל כבויה: scraped_lead_notify_demand
--- נשארת כמו 20271028140000 (כל סוכן/ת בעיר ובסוג, פוסט ישן או
+-- נשארת כמו 20271029140000 (כל סוכן/ת בעיר ובסוג, פוסט ישן או
 -- push_site_only נשאר באתר).
 --
 -- עומדת לבד. הפרודקשן ב-20271028120000. notifications_suppress_on()
--- ו-scraped_leads.push_site_only נולדים ב-20271028140000 (#1025),
+-- ו-scraped_leads.push_site_only נולדים ב-20271029140000 (#1025),
 -- שעדיין לא שם. אם הם חסרים, הם נוצרים כאן. פונקציה שכבר קיימת
--- לא מוחלפת: כששני הקבצים בריפו, 20271028140000 רץ קודם והגוף שלו נשמר.
+-- לא מוחלפת: כששני הקבצים בריפו, 20271029140000 רץ קודם והגוף שלו נשמר.
 -- הקריאה בודקת to_regprocedure ודולגת על ההשתקה אם הפונקציה חסרה,
 -- כדי ש-scraped_leads_lifecycle לא ייפול על פוסט אחד.
 --
@@ -76,7 +76,7 @@ alter table public.open_demand_notify_log enable row level security;
 revoke all on table public.open_demand_notify_log from public, anon, authenticated;
 grant select, insert, update, delete on table public.open_demand_notify_log to service_role;
 
--- אותה עמודה כמו ב-20271028140000. בלי זה r.push_site_only מפיל את
+-- אותה עמודה כמו ב-20271029140000. בלי זה r.push_site_only מפיל את
 -- scraped_lead_notify_demand, ו-scraped_leads_lifecycle נופל על הפוסט.
 alter table public.scraped_leads
   add column if not exists push_site_only boolean not null default false;
@@ -84,7 +84,7 @@ alter table public.scraped_leads
 comment on column public.scraped_leads.push_site_only is
   'true: ההתראה על הביקוש נשארת באתר. מיגרציית מיפוי מחדש קוראת ל-scraped_leads_mark_remap. לא מעדכנים כאן שורות קיימות.';
 
--- אותו גוף כמו ב-20271028140000, ורק אם הוא עדיין לא קיים.
+-- אותו גוף כמו ב-20271029140000, ורק אם הוא עדיין לא קיים.
 -- create or replace היה דורס את #1025 כשהקובץ הזה רץ אחריו.
 do $$
 begin
@@ -108,7 +108,7 @@ comment on function public.notifications_suppress_on() is
 revoke all on function public.notifications_suppress_on() from public, anon, authenticated;
 grant execute on function public.notifications_suppress_on() to service_role;
 
--- הגוף זהה ל-20271028140000 כשהדגל כבוי. כשהוא דלוק נוספים דירוג, תקרה ויומן.
+-- הגוף זהה ל-20271029140000 כשהדגל כבוי. כשהוא דלוק נוספים דירוג, תקרה ויומן.
 create or replace function public.scraped_lead_notify_demand(p_id uuid)
 returns int
 language plpgsql
