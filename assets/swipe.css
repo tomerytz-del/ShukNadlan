@@ -994,3 +994,20 @@ body[data-view=list] .sw-layout{display:inline-flex}
   html body[data-view=deck] .a11y-hide,html body[data-view=deck] .a11y-hide-opt{display:none}
   html body[data-view=deck] .a11y-panel{top:calc(58px + var(--sw-safe-t));bottom:auto;left:10px;right:auto;max-height:calc(100dvh - 70px - var(--sw-safe-t))}
 }
+/* פסי השקופיות, התגיות ושבב ה-AI מתחת לכותרת הצפה. השבב 30px לעין, ‏44px למגע */
+@media (max-width:759px){
+  body[data-view=deck] .sw-bars{top:calc(58px + var(--sw-safe-t));left:12px;right:12px}
+  body[data-view=deck] .sw-ctop{top:calc(68px + var(--sw-safe-t));left:12px;right:12px}
+  body[data-view=deck] .sw-tag{font-size:12px;padding:3px 9px}
+  body[data-view=deck] .sw-vpill{top:calc(100px + var(--sw-safe-t));left:12px;height:30px;min-height:0;padding:0 11px;font-size:12px;font-weight:700;border-radius:999px;
+    background:rgba(255,255,255,.82);color:#0e2a6b;box-shadow:0 2px 8px rgba(13,27,61,.18);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  body[data-view=deck] .sw-vpill::before{content:"";position:absolute;inset:-7px -2px}
+  body[data-view=deck] .sw-ba-lbl{top:calc(100px + var(--sw-safe-t))}
+  /* מה שישב בראש הכרטיס יורד אל מתחת לכותרת: קול הרילס, חותמות ההחלקה, "ממומן" ונכס בלי תמונות */
+  body[data-view=deck] .sw-reel-mute{top:calc(100px + var(--sw-safe-t));left:12px}
+  body[data-view=deck] .sw-reel-snd{top:calc(152px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-stamp{top:calc(132px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-spon-badge{top:calc(68px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-card.is-np .np-brand{top:calc(104px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-card.is-np .np-swipe-in{top:calc(136px + var(--sw-safe-t))}
+}
