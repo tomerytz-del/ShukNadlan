@@ -584,7 +584,7 @@ Meta; ההחלטה התהפכה, וכל הסוכנים הקיימים הועבר
 מעבר ל-12 שעות. `ops_alert` "וואטסאפ לסוכנים הושהה" נכתב **לכל** מנהל/ת
 בנפרד, **בלי** `suppress_push`, פעם ב-6 שעות כל עוד לא נקרא אצלו/ה, ויוצא
 בוואטסאפ כי `ops_alert` מוגן. תמונת המצב: `notification_push_burst_status`
-(ל-`service_role`). התור תלוי ב-`notification_push_log_holds` מ-`20271028120000`.
+(ל-`service_role`). התור תלוי ב-`notification_push_log_holds` מ-`20271029133000`.
 
 בקשת תמונות (`leads.source = photo_request`) אינה עוברת בתקרת הלידים:
 לכל היותר וואטסאפ אחד לסוכן/ת לנכס ביממה, והשאר באתר. `notify_agent_on_new_lead`
