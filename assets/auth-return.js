@@ -89,6 +89,10 @@
      שמודבק עליו היה יוצר ?goto=…?code=… כש-catchLanding מוסיף את תשובת
      Google. הערכים נשמרים כאן ומוחזרים לכתובת רק אחרי שחוזרים ליעד. */
   var QUERY_KEY = 'shuknadlan.auth_return_query';
+  /* יעד שנשמר לפני יציאה ל-Google. מי שביטל/ה את ההתחברות וחזר/ה ל-CRM
+     אחר כך לא אמור/ה להיזרק למסך הישן, וגם חזרה שהתעכבה יותר מעשר דקות
+     לא פותחת יעד שכבר לא רלוונטי. */
+  var QUERY_TTL_MS = 10 * 60 * 1000;
 
   function allowlistedQuery(search){
     var params = parse(String(search || '').replace(/^\?/, ''));
@@ -115,17 +119,39 @@
       global.sessionStorage.setItem(STORE_KEY, value);
       // כניסה בלי יעד מוחקת יעד ישן, כדי שסבב Google הבא לא יקפוץ אליו
       var query = allowlistedQuery(global.location.search);
-      if (query) global.sessionStorage.setItem(QUERY_KEY, query);
-      else global.sessionStorage.removeItem(QUERY_KEY);
+      if (query){
+        global.sessionStorage.setItem(QUERY_KEY, JSON.stringify({
+          q: query, t: global.Date.now(),
+        }));
+      } else global.sessionStorage.removeItem(QUERY_KEY);
     }
     catch (e) { /* גלישה פרטית חוסמת אחסון; נשארים עם ברירת המחדל */ }
   }
 
+  function clearQuery(){
+    try { global.sessionStorage.removeItem(QUERY_KEY); }
+    catch (e) { /* אין אחסון — אין גם מה למחוק */ }
+  }
+
   function storedQuery(){
-    var value = '';
-    try { value = global.sessionStorage.getItem(QUERY_KEY) || ''; }
-    catch (e) { value = ''; }
-    return allowlistedQuery(value);
+    var raw = '';
+    try { raw = global.sessionStorage.getItem(QUERY_KEY) || ''; }
+    catch (e) { raw = ''; }
+    if (!raw) return '';
+    var query = '';
+    var savedAt = 0;
+    if (raw.charAt(0) === '{'){
+      try {
+        var obj = JSON.parse(raw);
+        query = obj && obj.q ? String(obj.q) : '';
+        savedAt = obj && obj.t ? Number(obj.t) : 0;
+      } catch (e) { query = ''; }
+    }
+    if (!query || !savedAt || (global.Date.now() - savedAt) > QUERY_TTL_MS){
+      clearQuery();
+      return '';
+    }
+    return allowlistedQuery(query);
   }
 
   /* current גובר: תשובת Google (code / error) שנמצאת כבר בכתובת לא נדרסת
@@ -140,6 +166,9 @@
   /* מחזיר את יעד הקישור לכתובת של הדף שכבר נטען (חזרה ישר ל-CRM, בלי
      סיבוב דרך דף הבית). לא נוגע ב-hash: שם יושבת תשובת implicit. */
   function restoreQuery(){
+    // בלי תשובת Google בכתובת זו כניסה רגילה. יעד שנשמר מסבב שלא הושלם
+    // נשאר באחסון עד שיפוג, ולא נפתח עכשיו.
+    if (!hasAuthResponse()) return false;
     var extra = storedQuery();
     if (!extra) return false;
     if (!samePage(global.location.pathname, storedPath())) return false;
@@ -154,7 +183,7 @@
       var search = cur.toString();
       global.history.replaceState(global.history.state, '',
         global.location.pathname + (search ? '?' + search : '') + global.location.hash);
-      global.sessionStorage.removeItem(QUERY_KEY);
+      clearQuery();
     } catch (e) { return false; }
     return changed;
   }
@@ -203,8 +232,8 @@
 
   var tag = document.currentScript;
   if (tag && tag.hasAttribute('data-catch')){
-    if (!catchLanding()) restoreQuery();
-  } else {
+    if (!catchLanding() && hasAuthResponse()) restoreQuery();
+  } else if (hasAuthResponse()) {
     restoreQuery();
   }
 })(window);

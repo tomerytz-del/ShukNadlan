@@ -46,6 +46,7 @@ function boot(startHref){
   const document = { currentScript: { hasAttribute(){ return false; } } };
   const window = {
     URLSearchParams,
+    Date,
     location,
     history,
     sessionStorage,
@@ -53,7 +54,8 @@ function boot(startHref){
   };
   window.window = window;
   const context = createContext(window);
-  runInContext(SRC, context, { filename: 'assets/auth-return.js' });
+  const rerun = () => runInContext(SRC, context, { filename: 'assets/auth-return.js' });
+  rerun();
   return {
     auth: window.AuthReturn,
     store,
@@ -61,6 +63,7 @@ function boot(startHref){
     history,
     href: () => href,
     params: () => new URL(href).searchParams,
+    rerun,
   };
 }
 
@@ -134,6 +137,31 @@ test('יעד שכבר בכתובת לא נדרס, וכניסה בלי יעד מ�
   clean.store.set('shuknadlan.auth_return_query', 'goto=accLeads');
   clean.auth.remember();
   assert.equal(clean.store.get('shuknadlan.auth_return_query'), undefined);
+});
+
+test('טעינת CRM בלי תשובת Google לא פותחת יעד ישן', () => {
+  const page = boot('https://shuknadlan.co.il/crm?goto=accLeads&lead=' + LEAD + '&wc=a1b2c3d4e5f6&wt=new_lead');
+  page.auth.remember();
+  const saved = page.store.get('shuknadlan.auth_return_query');
+  assert.match(saved, /"t":\d+/);
+  const later = boot('https://shuknadlan.co.il/crm');
+  later.store.set('shuknadlan.auth_return', '/crm');
+  later.store.set('shuknadlan.auth_return_query', saved);
+  later.rerun();
+  assert.equal(later.params().get('goto'), null);
+  assert.equal(later.params().get('lead'), null);
+  assert.equal(later.store.get('shuknadlan.auth_return_query'), saved);
+});
+
+test('יעד ישן מעשר דקות נמחק ולא נפתח גם עם תשובת Google', () => {
+  const back = boot('https://shuknadlan.co.il/crm?code=late');
+  back.store.set('shuknadlan.auth_return', '/crm');
+  back.store.set('shuknadlan.auth_return_query', JSON.stringify({
+    q: 'goto=accLeads&lead=' + LEAD, t: Date.now() - 11 * 60 * 1000,
+  }));
+  assert.equal(back.auth.restoreQuery(), false);
+  assert.equal(back.params().get('goto'), null);
+  assert.equal(back.store.get('shuknadlan.auth_return_query'), undefined);
 });
 
 test('ערך שהוא כתובת או סקריפט לא נשמר', () => {
