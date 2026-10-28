@@ -43,6 +43,32 @@ import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
 import { pageLink, pageLinkTopics, urlInSay } from "./crm-pages.ts";
+import {
+  agreementConfirmButtons,
+  IMAGE_DELETE_STALE,
+  imageDeleteButtons,
+  imageDeleteMatches,
+  imagesAfterRemove,
+  newPendingActionId,
+  ownsRow,
+  parseAgreementButton,
+  parseImageDeleteButton,
+  confirmWritesNow,
+  pendingStoreMissing,
+  REISSUE_BUTTON_TTL_MS,
+  reissueOldAgreementPlan,
+  REISSUE_BUSY,
+  REISSUE_DONE,
+  REISSUE_OLD_CANCELLED,
+  REISSUE_STORE_MISSING,
+  reissueBlockedKind,
+  reissueClickDecision,
+  reissueDecisionText,
+  reissueOverridePayload,
+  reissuePrepareInput,
+  type PendingActionRow,
+  type ReissueDecision,
+} from "./listing-actions.ts";
 import { llmFailureKind } from "./llm-fallback.ts";
 import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
@@ -539,7 +565,8 @@ const TOOLS: Anthropic.Tool[] = [
       "סדר ומחיקה של תמונות בנכס קיים. התמונה הראשונה היא התמונה הראשית בכרטיס " +
       "ובדף הנכס. המספור הוא לפי הסדר בדף הנכס, מ-1. ‏list = כמה תמונות יש ומה " +
       "הסדר · set_main = תמונה position הופכת לראשית · move = העברת position " +
-      "למקום to · remove = מחיקת positions מהנכס.",
+      "למקום to · remove = בקשת מחיקה. בלי confirm יוצאים כפתורי אישור והתמונות " +
+      "נשארות. confirm=true רק אחרי שהסוכן/ת אישר/ה.",
     input_schema: {
       type: "object",
       properties: {
@@ -551,6 +578,10 @@ const TOOLS: Anthropic.Tool[] = [
           type: "array",
           items: { type: "integer" },
           description: "מספרי התמונות למחיקה (מ-1). ל-remove.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "true רק אחרי אישור מפורש למחיקה. בלי זה יוצאים כפתורים ולא נמחק כלום.",
         },
       },
       required: ["property_id", "action"],
@@ -1114,8 +1145,10 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "ההסכמים של הסוכן/ת: סוג, סטטוס, מי החותמים ומי מהם כבר חתם/ה. " +
       "להשתמש לשאלות \"מה ממתין לחתימה\", \"האם X חתם/ה\", ולמצוא את מזהה " +
-      "ההסכם. יצירה = prepare_agreement. ביטול או תיקון נוסח של הסכם שכבר " +
-      "נוצר = page_link עם topic agreements (ו-agreement_id אם יש).",
+      "ההסכם. יצירה = prepare_agreement. ביטול = cancel_agreement. תיקון נוסח " +
+      "= reissue_agreement (הסכם חדש, והישן מבוטל רק אחרי שהחדש נוצר; " +
+      "בלעדיות שכבר נחתמה מוחלפת). " +
+      "תצוגה מלאה של המסמך = page_link עם topic agreements.",
     input_schema: {
       type: "object",
       properties: {
@@ -1223,6 +1256,10 @@ const TOOLS: Anthropic.Tool[] = [
               full_name: { type: "string" },
               phone: { type: "string" },
               email: { type: "string" },
+              client_id: {
+                type: "string",
+                description: "מזהה מהקובץ, אם החותם/ת הנוסף/ת הוא/היא לקוח/ה של הסוכן/ת.",
+              },
             },
             required: ["full_name"],
           },
@@ -1249,6 +1286,45 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: { agreement_id: { type: "string" } },
+      required: ["agreement_id"],
+    },
+  },
+  {
+    name: "cancel_agreement",
+    description:
+      "מבטל הסכם של הסוכן/ת. בלי confirm יוצאים כפתורי אישור ולא משתנה כלום. " +
+      "confirm=true רק אחרי שהסוכן/ת אישר/ה. ביטול בלעדיות מבטל גם את טופס " +
+      "ההסכמה לשיווק, ולהפך. גוף המסמך לא נערך.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agreement_id: { type: "string" },
+        confirm: { type: "boolean", description: "true רק אחרי אישור מפורש." },
+      },
+      required: ["agreement_id"],
+    },
+  },
+  {
+    name: "reissue_agreement",
+    description:
+      "מוציא הסכם חדש מאותם פרטים. תיקונים (עמלה, תאריכים, הערות, מייל) נשמרים בבקשה " +
+      "והכפתור נושא את המזהה שלה. רק אם היצירה הצליחה מבוטל הישן, כולל בלעדיות שכבר נחתמה. " +
+      "בלי confirm יוצאים כפתורי אישור. טופס הסכמה לשיווק לא מונפק לבד. " +
+      "אם חסר שדה, הישן נשאר וחוזר missing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agreement_id: { type: "string" },
+        confirm: { type: "boolean", description: "true רק אחרי אישור מפורש." },
+        commission_pct: { type: "number" },
+        commission_amount: { type: "number" },
+        commission_basis: { type: "string", enum: ["price", "monthly", "yearly", "flat"] },
+        exclusive_from: { type: "string" },
+        exclusive_until: { type: "string" },
+        notes: { type: "string" },
+        client_email: { type: "string" },
+        in_person_only: { type: "boolean" },
+      },
       required: ["agreement_id"],
     },
   },
@@ -1557,7 +1633,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "קישור ישיר לעמוד הנכון ב-CRM, כשאין כלי שעושה את הפעולה מכאן. " +
       "להשתמש במקום לומר \"אני לא יכולה\" או \"היכנסו לדשבורד\". " +
-      "topic: agreements (ביטול/תיקון הסכם שננעל), property, client, showcase, " +
+      "topic: agreements (תצוגה מלאה של המסמך; ביטול ותיקון נעשים ב-cancel_agreement " +
+      "וב-reissue_agreement), property, client, showcase, " +
       "agenda, google_calendar (חיבור יומן Google - אי אפשר מכאן), leads, " +
       "notifications, marketing (פייסבוק/מודעה), import (יד2/אקסל), home. " +
       "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא.",
@@ -1900,10 +1977,11 @@ async function resolvePropertyHood(
 async function ownedProperty(ctx: ToolContext, propertyId: string) {
   const { data } = await ctx.supabase
     .from("properties")
-    .select("id, title, images, street, house_number, city")
+    .select("id, title, images, street, house_number, city, agent_id, agency_id")
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
+  if (!data || !ownsRow(ctx.agent, data)) return null;
   return data;
 }
 
@@ -2696,11 +2774,34 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
       const [moved] = next.splice(from - 1, 1);
       next.splice(to - 1, 0, moved);
     } else if (action === "remove") {
-      const drop = new Set(
-        (Array.isArray(input.positions) ? input.positions : []).map(Number).filter(valid),
-      );
-      if (!drop.size) return { ok: false, error: `צריך את מספרי התמונות למחיקה, בין 1 ל-${n}.` };
-      next = images.filter((_, i) => !drop.has(i + 1));
+      const positions = (Array.isArray(input.positions) ? input.positions : []).map(Number);
+      const planned = imagesAfterRemove(images, positions);
+      if (!planned.ok) return { ok: false, error: planned.error };
+      // עם outbox אין מחיקה מהמודל, גם כש-confirm=true. רק הכפתור מוחק.
+      if (!confirmWritesNow(!!ctx.outbox, input.confirm)) {
+        const buttons = imageDeleteButtons(propertyId, positions, images);
+        if (ctx.outbox && buttons) {
+          const label = existing.title ? ` מ-${existing.title}` : "";
+          ctx.outbox.push({
+            kind: "buttons",
+            body: `למחוק ${planned.removed} תמונות${label}?`,
+            buttons,
+          });
+          return {
+            ok: true,
+            needs_confirmation: true,
+            guidance: "יצאו כפתורי אישור. אל תאמרי שהתמונות נמחקו.",
+          };
+        }
+        return {
+          ok: false,
+          needs_confirmation: true,
+          error: ctx.outbox
+            ? "מחיקת תמונה יוצאת רק בכפתור אישור. לא נמחק כלום."
+            : "מחיקת תמונה דורשת אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה במפורש.",
+        };
+      }
+      next = planned.next;
     } else {
       return { ok: false, error: "פעולה לא מוכרת." };
     }
@@ -5582,6 +5683,12 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     client_id: String(client.id),
   }];
   for (const extra of (input.extra_signers as Record<string, unknown>[] | undefined) || []) {
+    const rawId = String(extra.client_id || "").trim();
+    let extraClientId: string | null = null;
+    if (rawId) {
+      const owned = await ownedClient(ctx, rawId);
+      if (owned) extraClientId = String(owned.id);
+    }
     signers.push({
       party: "partner",
       full_name: String(extra.full_name || "").trim(),
@@ -5590,7 +5697,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       phone: String(extra.phone || "").trim() || null,
       email: String(extra.email || "").trim() || null,
       address: null,
-      client_id: null,
+      client_id: extraClientId,
     });
   }
 
@@ -5670,8 +5777,29 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
 
   // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
   // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף (createAgreementRows).
-  const made = await createAgreementRows(ctx, build, signers,
-    consentId ? { marketing_consent_id: consentId } : {});
+  const requestedAlso = Array.isArray(input.also_client_ids)
+    ? [...new Set((input.also_client_ids as unknown[]).map((id) => String(id || "").trim()).filter(Boolean))]
+    : [];
+  let keptAlso = requestedAlso;
+  if (requestedAlso.length) {
+    const { data: ownedAlso, error: alsoErr } = await ctx.supabase
+      .from("agent_clients")
+      .select("id")
+      .eq("agent_id", ctx.agent.id)
+      .in("id", requestedAlso);
+    if (alsoErr) {
+      console.error("agreement extra clients lookup failed", alsoErr.code);
+    } else {
+      const ok = new Set(((ownedAlso || []) as { id: string }[]).map((row) => String(row.id)));
+      keptAlso = requestedAlso.filter((id) => ok.has(id));
+    }
+  }
+  const agreementExtra: Record<string, unknown> = consentId ? { marketing_consent_id: consentId } : {};
+  if (keptAlso.length) {
+    const linkedIds = signers.map((sg) => sg.client_id).filter((id): id is string => !!id);
+    agreementExtra.client_ids = [...new Set([...linkedIds, ...keptAlso])];
+  }
+  const made = await createAgreementRows(ctx, build, signers, agreementExtra);
   if (!made.ok) {
     // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
     if (consentId) await ctx.supabase.from("agreements").delete().eq("id", consentId).eq("agent_id", ctx.agent.id);
@@ -5738,9 +5866,427 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
           !(sg.email || "").trim())
         .map((sg) => sg.full_name)
       : undefined,
-    frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון - ביטול ההסכם והוצאת חדש, באשף שבדשבורד.",
+    frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון - reissue_agreement (הסכם חדש, והישן מבוטל רק אחרי שהחדש נוצר). לביטול - cancel_agreement.",
     manage_where: `${SITE_BASE_URL}/crm`,
   };
+}
+
+const AGREEMENT_MUTABLE =
+  "id, agent_id, agency_id, kind, status, title, commission_pct, commission_amount, " +
+  "commission_note, exclusive_from, exclusive_until, notes, property_ids, client_ids";
+
+async function loadOwnedAgreement(
+  supabase: SupabaseClient,
+  agent: { id: string; agency_id?: string | null },
+  agreementId: string,
+): Promise<{ row: Record<string, unknown> } | { error: string }> {
+  const { data, error } = await supabase.from("agreements")
+    .select(AGREEMENT_MUTABLE)
+    .eq("id", agreementId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (error) {
+    console.error("agreement load failed", error.code);
+    return { error: "לא הצלחתי לקרוא את ההסכם. אפשר לנסות שוב." };
+  }
+  if (!data || !ownsRow(agent, data as unknown as { agent_id: string; agency_id?: string | null })) {
+    return { error: "לא נמצא הסכם כזה אצל הסוכן/ת." };
+  }
+  return { row: data as unknown as Record<string, unknown> };
+}
+
+function askAgreementConfirm(
+  ctx: ToolContext,
+  action: "cancel" | "reissue",
+  agreementId: string,
+): Record<string, unknown> {
+  const buttons = agreementConfirmButtons(action, agreementId);
+  if (!buttons) return { ok: false, error: "חסר מזהה הסכם." };
+  if (!ctx.outbox) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "צריך אישור מפורש. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+    };
+  }
+  ctx.outbox.push({
+    kind: "buttons",
+    body: action === "cancel"
+      ? "לבטל את ההסכם? ביטול של בלעדיות מבטל גם את טופס ההסכמה."
+      : "להוציא הסכם חדש מאותם פרטים? בלעדיות חתומה נשארת עד שהחדש ייחתם.",
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהפעולה כבר נעשתה.",
+  };
+}
+
+async function cancelOwnedAgreement(
+  supabase: SupabaseClient,
+  agent: { id: string; agency_id?: string | null },
+  agreementId: string,
+): Promise<string> {
+  const loaded = await loadOwnedAgreement(supabase, agent, agreementId);
+  if ("error" in loaded) return loaded.error;
+  const row = loaded.row;
+  if (row.status === "cancelled") return "ההסכם כבר מבוטל.";
+  const { error } = await supabase.from("agreements")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("id", agreementId)
+    .eq("agent_id", agent.id);
+  if (error) {
+    console.error("agreement cancel failed", error.code);
+    return "לא הצלחתי לבטל את ההסכם. אפשר לנסות שוב, או לבטל בדשבורד.";
+  }
+  const kind = String(row.kind || "");
+  const pair = kind.startsWith("exclusive_")
+    ? " גם טופס ההסכמה לשיווק שצמוד אליו מתבטל."
+    : kind.startsWith("marketing_")
+      ? " גם הבלעדיות שצמודה אליו מתבטלת."
+      : "";
+  const title = String(row.title || "").trim();
+  return title ? `ההסכם "${title}" בוטל.${pair}` : `ההסכם בוטל.${pair}`;
+}
+
+async function reissueOwnedAgreement(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+  onCreated?: (newAgreementId: string) => Promise<void>,
+): Promise<{ text: string; newAgreementId?: string }> {
+  const loaded = await loadOwnedAgreement(ctx.supabase, ctx.agent, agreementId);
+  if ("error" in loaded) return { text: loaded.error };
+  const row = loaded.row;
+  const blocked = reissueBlockedKind(String(row.kind || ""));
+  if (blocked) return { text: blocked };
+  const { data: signers, error: signerErr } = await ctx.supabase.from("agreement_signers")
+    .select("full_name, phone, email, ord, client_id")
+    .eq("agreement_id", agreementId)
+    .order("ord");
+  if (signerErr) {
+    console.error("agreement signers failed", signerErr.code);
+    return { text: "לא הצלחתי לקרוא את החותמים. ההסכם הישן נשאר." };
+  }
+  const input = reissuePrepareInput(
+    row as unknown as Parameters<typeof reissuePrepareInput>[0],
+    (signers || []) as Parameters<typeof reissuePrepareInput>[1],
+    overrides,
+  );
+  if ("error" in input) return { text: `${input.error} ההסכם הישן נשאר.` };
+  const prepared = await toolPrepareAgreement(ctx, input) as Record<string, unknown>;
+  if (!prepared.ok) {
+    const missing = Array.isArray(prepared.missing) ? prepared.missing.map(String).join("; ") : "";
+    return {
+      text: missing
+        ? `ההסכם הישן נשאר. כדי להוציא חדש חסר: ${missing}`
+        : `${String(prepared.error || "ההסכם החדש לא נוצר.")} ההסכם הישן נשאר.`,
+    };
+  }
+  const newId = String(prepared.agreement_id || "");
+  if (newId && onCreated) {
+    try {
+      await onCreated(newId);
+    } catch (err) {
+      console.error("pending reissue mark failed", err instanceof Error ? err.message : err);
+    }
+  }
+  let tail = "";
+  const status = String(row.status || "");
+  const plan = newId ? reissueOldAgreementPlan(status, String(row.kind || "")) : "keep";
+  if (plan === "cancel") {
+    const { error } = await ctx.supabase.from("agreements")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("id", agreementId)
+      .eq("agent_id", ctx.agent.id)
+      .in("status", ["draft", "sent", "viewed"]);
+    if (error) {
+      console.error("agreement cancel after reissue failed", error.code);
+      tail = " ההסכם הישן לא בוטל. אפשר לבטל אותו בנפרד.";
+    } else {
+      tail = " ההסכם הישן בוטל.";
+    }
+  } else if (plan === "supersede") {
+    // הבלעדיות החתומה נשארת עד שהחדש נחתם. הטריגר מבטל אותה בחתימה.
+    // עמודה חסרה (הפונקציה לפני המיגרציה): לא מבטלים.
+    const { error } = await ctx.supabase.from("agreements")
+      .update({ replaces_agreement_id: agreementId })
+      .eq("id", newId)
+      .eq("agent_id", ctx.agent.id);
+    if (error) {
+      console.error("agreement supersede link failed", error.code);
+      tail = " הבלעדיות החתומה נשארת בתוקף. הקישור להחלפה בחתימה לא נשמר.";
+    } else {
+      tail = " הבלעדיות החתומה נשארת בתוקף עד שהחדש ייחתם.";
+    }
+  } else if (status === "signed") {
+    tail = " ההסכם החתום נשאר. החדש הוא מסמך נפרד.";
+  }
+  const title = String(prepared.title || "").trim();
+  return {
+    text: `יצא הסכם חדש${title ? `: ${title}` : ""}.${tail}`,
+    newAgreementId: newId || undefined,
+  };
+}
+
+async function toolCancelAgreement(ctx: ToolContext, input: Record<string, unknown>) {
+  const agreementId = String(input.agreement_id || "");
+  if (!confirmWritesNow(!!ctx.outbox, input.confirm)) return askAgreementConfirm(ctx, "cancel", agreementId);
+  return { ok: true, note: await cancelOwnedAgreement(ctx.supabase, ctx.agent, agreementId) };
+}
+
+async function askReissueConfirm(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!agreementId) return { ok: false, error: "חסר מזהה הסכם." };
+  if (!ctx.outbox) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "צריך אישור מפורש. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+    };
+  }
+  const saved = await saveReissueRequest(ctx, agreementId, overrides);
+  if ("error" in saved) return saved;
+  const buttons = agreementConfirmButtons("reissue", saved.id);
+  if (!buttons) return { ok: false, error: "חסר מזהה הסכם." };
+  ctx.outbox.push({
+    kind: "buttons",
+    body: "להוציא הסכם חדש עם הפרטים שסיכמנו? בלעדיות חתומה נשארת עד שהחדש ייחתם.",
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהפעולה כבר נעשתה.",
+  };
+}
+
+async function saveReissueRequest(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+): Promise<{ id: string } | { error: string; ok: false }> {
+  const expires = new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString();
+  const open = () => ctx.supabase.from("whatsapp_pending_actions")
+    .select("id, claimed_at")
+    .eq("agent_id", ctx.agent.id)
+    .eq("action", "reissue")
+    .eq("subject_id", agreementId)
+    .is("executed_at", null)
+    .is("new_subject_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data: existing, error: openErr } = await open();
+  if (openErr && !pendingStoreMissing(openErr)) {
+    console.error("pending reissue lookup failed", openErr.code);
+  }
+  if (!openErr && existing?.id) {
+    if (!existing.claimed_at) {
+      const { error: updErr } = await ctx.supabase.from("whatsapp_pending_actions")
+        .update({ payload: overrides, expires_at: expires })
+        .eq("id", existing.id)
+        .eq("agent_id", ctx.agent.id)
+        .is("claimed_at", null)
+        .is("executed_at", null);
+      if (updErr) console.error("pending reissue refresh failed", updErr.code);
+    }
+    return { id: String(existing.id) };
+  }
+  const id = newPendingActionId();
+  const { error } = await ctx.supabase.from("whatsapp_pending_actions").insert({
+    id,
+    agent_id: ctx.agent.id,
+    action: "reissue",
+    subject_id: agreementId,
+    payload: overrides,
+    expires_at: expires,
+  });
+  if (error && String(error.code || "") === "23505") {
+    const { data: again } = await open();
+    if (again?.id) return { id: String(again.id) };
+  }
+  if (error) {
+    console.error("pending reissue save failed", error.code);
+    return {
+      ok: false,
+      error: pendingStoreMissing(error)
+        ? REISSUE_STORE_MISSING
+        : "לא הצלחתי לשמור את הבקשה. ההסכם הישן נשאר. אפשר לנסות שוב.",
+    };
+  }
+  return { id };
+}
+
+async function toolReissueAgreement(ctx: ToolContext, input: Record<string, unknown>) {
+  const agreementId = String(input.agreement_id || "");
+  const overrides = reissueOverridePayload(input);
+  if (!confirmWritesNow(!!ctx.outbox, input.confirm)) return askReissueConfirm(ctx, agreementId, overrides);
+  const before = ctx.outbox?.length || 0;
+  const done = await reissueOwnedAgreement(ctx, agreementId, overrides);
+  return {
+    ok: true,
+    note: done.text,
+    buttons_sent: (ctx.outbox?.length || 0) > before ? true : undefined,
+    guidance: "אמרי את note. אם buttons_sent - אל תכתבי את קישורי החתימה, הם יוצאים בכפתורים.",
+  };
+}
+
+async function loadPendingAction(
+  supabase: SupabaseClient,
+  agentId: string,
+  requestId: string,
+): Promise<{ missing: true } | { error: true } | { row: PendingActionRow | null }> {
+  const { data, error } = await supabase.from("whatsapp_pending_actions")
+    .select("id, agent_id, action, subject_id, payload, expires_at, claimed_at, executed_at, new_subject_id, result")
+    .eq("id", requestId)
+    .eq("agent_id", agentId)
+    .maybeSingle();
+  if (error) {
+    console.error("pending action load failed", error.code);
+    return pendingStoreMissing(error) ? { missing: true } : { error: true };
+  }
+  return { row: (data as PendingActionRow | null) || null };
+}
+
+async function reissueHeldReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  row: PendingActionRow | null,
+  decision: ReissueDecision,
+): Promise<string | null> {
+  if (decision.kind === "run") return null;
+  if (decision.kind === "busy" && row?.subject_id) {
+    const old = await loadOwnedAgreement(supabase, agent, row.subject_id);
+    if (!("error" in old) && old.row.status === "cancelled") return REISSUE_OLD_CANCELLED;
+  }
+  return reissueDecisionText(decision);
+}
+
+async function runPendingReissue(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  requestId: string,
+): Promise<{ text: string; outbox?: OutboxItem[] }> {
+  const loaded = await loadPendingAction(supabase, agent.id, requestId);
+  if ("missing" in loaded) return { text: REISSUE_STORE_MISSING };
+  if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  const first = reissueClickDecision(loaded.row, Date.now());
+  const early = await reissueHeldReply(supabase, agent, loaded.row, first);
+  if (early) return { text: early };
+  if (first.kind !== "run") return { text: reissueDecisionText(first) || REISSUE_STORE_MISSING };
+
+  const nowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: nowIso })
+    .eq("id", requestId)
+    .eq("agent_id", agent.id)
+    .is("claimed_at", null)
+    .is("executed_at", null)
+    .is("new_subject_id", null)
+    .gt("expires_at", nowIso)
+    .select("id")
+    .maybeSingle();
+  if (claimErr) {
+    console.error("pending reissue claim failed", claimErr.code);
+    return {
+      text: pendingStoreMissing(claimErr) ? REISSUE_STORE_MISSING : "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב.",
+    };
+  }
+  if (!claimed) {
+    const again = await loadPendingAction(supabase, agent.id, requestId);
+    if ("missing" in again) return { text: REISSUE_STORE_MISSING };
+    if ("error" in again) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+    const decision = reissueClickDecision(again.row, Date.now());
+    const held = await reissueHeldReply(supabase, agent, again.row, decision);
+    return { text: held || REISSUE_BUSY };
+  }
+
+  const outbox: OutboxItem[] = [];
+  const ctx: ToolContext = {
+    supabase,
+    agent,
+    conv: { history: [], pending_images: [], last_property_id: null, last_client_id: null },
+    outbox,
+  };
+  const done = await reissueOwnedAgreement(ctx, first.agreementId, first.overrides, async (newId) => {
+    const { error } = await supabase.from("whatsapp_pending_actions").update({
+      new_subject_id: newId,
+      result: REISSUE_DONE,
+    }).eq("id", requestId).eq("agent_id", agent.id);
+    if (error) console.error("pending reissue link failed", error.code);
+  });
+  if (done.newAgreementId) {
+    const { error } = await supabase.from("whatsapp_pending_actions").update({
+      executed_at: new Date().toISOString(),
+      new_subject_id: done.newAgreementId,
+      result: done.text,
+    }).eq("id", requestId).eq("agent_id", agent.id);
+    if (error) console.error("pending reissue finish failed", error.code);
+  } else {
+    const { error } = await supabase.from("whatsapp_pending_actions")
+      .update({ claimed_at: null })
+      .eq("id", requestId)
+      .eq("agent_id", agent.id)
+      .is("new_subject_id", null);
+    if (error) console.error("pending reissue release failed", error.code);
+  }
+  return { text: done.text, outbox: outbox.length ? outbox : undefined };
+}
+
+/**
+ * לחיצה על כפתור מחיקת תמונה או ביטול/הנפקה של הסכם. null - זה לא כפתור כזה.
+ * המזהה נושא את הנכס, ההסכם, או בקשת ההנפקה. בלי מודל.
+ */
+export async function listingActionReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  buttonId: string,
+): Promise<{ text: string; outbox?: OutboxItem[] } | null> {
+  const image = parseImageDeleteButton(buttonId);
+  if (image) {
+    if (!image.yes) return { text: "התמונות נשארות." };
+    const { data, error } = await supabase.from("properties")
+      .select("id, title, images, agent_id, agency_id")
+      .eq("id", image.propertyId)
+      .eq("agent_id", agent.id)
+      .maybeSingle();
+    if (error) {
+      console.error("image delete load failed", error.code);
+      return { text: "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." };
+    }
+    if (!data || !ownsRow(agent, data)) return { text: "לא נמצא נכס כזה אצל הסוכן/ת." };
+    const images = Array.isArray(data.images) ? data.images as string[] : [];
+    if (!imageDeleteMatches(images, image.positions, image.hash)) return { text: IMAGE_DELETE_STALE };
+    const planned = imagesAfterRemove(images, image.positions);
+    if (!planned.ok) return { text: planned.error };
+    const { data: total, error: setErr } = await supabase.rpc("property_images_set", {
+      p_property_id: image.propertyId,
+      p_agent_id: agent.id,
+      p_expected: images,
+      p_images: planned.next,
+    });
+    if (setErr) {
+      console.error("image delete failed", setErr.code);
+      return { text: "לא הצלחתי למחוק את התמונות. אפשר לנסות שוב." };
+    }
+    if (total == null) return { text: IMAGE_DELETE_STALE };
+    return { text: `נמחקו ${planned.removed} תמונות. נשארו ${total}.` };
+  }
+
+  const agreement = parseAgreementButton(buttonId);
+  if (!agreement) return null;
+  if (!agreement.yes) {
+    return { text: agreement.action === "cancel" ? "ההסכם נשאר." : "לא הוצא הסכם חדש." };
+  }
+  if (agreement.action === "cancel") {
+    return { text: await cancelOwnedAgreement(supabase, agent, agreement.agreementId) };
+  }
+  return runPendingReissue(supabase, agent, agreement.agreementId);
 }
 
 async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unknown>) {
@@ -6883,6 +7429,8 @@ async function runTool(
       case "agreement_sign_links": return await toolAgreementSignLinks(ctx, input);
       case "agreement_details": return await toolAgreementDetails(ctx, input);
       case "prepare_agreement": return await toolPrepareAgreement(ctx, input);
+      case "cancel_agreement": return await toolCancelAgreement(ctx, input);
+      case "reissue_agreement": return await toolReissueAgreement(ctx, input);
       // המנטור
       case "ask_mentor": return await toolAskMentor(ctx, input);
 
@@ -6960,8 +7508,9 @@ const SYSTEM_STATIC: string = (() => {
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
       "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
-    "- **כשבאמת אין כלי** (ביטול או תיקון נוסח של הסכם שכבר ננעל, חיבור יומן Google, כיבוי התראות): " +
-      "page_link, ואת say מעתיקים כמו שהוא. משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב.",
+    "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
+      "page_link, ואת say מעתיקים כמו שהוא. משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
+      "ביטול הסכם = cancel_agreement. תיקון נוסח = reissue_agreement.",
     "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
@@ -7177,9 +7726,11 @@ const SYSTEM_STATIC: string = (() => {
     "- בהתאמה שאינה שלך (source agency, shared או market) הוסף/י את שם הסוכן/ת המפרסם/ת והטלפון (ובשיתוף או market - גם את המשרד) - בלעדיהם אין מה לעשות עם ההתאמה.",
     "",
     "הסכמים:",
-    "- אפשר **ליצור** הסכם מכאן (prepare_agreement). גוף המסמך ננעל ברגע היצירה, " +
-      "ולכן תיקון נוסח או ביטול של הסכם שכבר נוצר = page_link עם topic agreements " +
-      "(ו-agreement_id). אל תאמרי שאין דרך בלי הקישור.",
+    "- אפשר **ליצור** הסכם מכאן (prepare_agreement). גוף המסמך ננעל ברגע היצירה. " +
+      "ביטול = cancel_agreement. תיקון נוסח = reissue_agreement: קודם נוצר החדש, " +
+      "ורק אז מבוטל הישן. בלעדיות שכבר נחתמה מתבטלת אחרי שהחדשה נוצרה. " +
+      "בלי confirm יוצאים כפתורים (הבקשה נשמרת ופגה אחרי כמה שעות) ואין לבצע. " +
+      "תצוגה מלאה של המסמך = page_link עם topic agreements.",
     "- agreement_sign_links מחזיר קישור אישי לכל חותם/ת שטרם חתם/ה. הצג/י אותו עם השם " +
       "שלידו, ואמור/אמרי במשפט אחד שהקישור אישי ואין להעביר אותו הלאה - הסוכן/ת הוא/היא " +
       "שמעביר/ה אותו לחותם/ת עצמו/ה.",
@@ -7218,7 +7769,7 @@ const SYSTEM_STATIC: string = (() => {
     "- **הבוט אינו שולח ללקוח/ה**, כאן כמו בכל קישור אחר. הסוכן/ת מעביר/ה.",
     "",
     "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
-      "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
+      "מחיקה בלי confirm שולחת כפתורים ולא מוחקת. \"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
     "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**: אחרי רגע קצר הן מצטרפות לנכס " +
       "שעבדתם עליו, ואם עברו 20 דקות מאז שנגעתם בו - נשאלת שאלה בכפתורים (📎 לנכס הקודם / " +
       "🏠 נכס חדש / 🗑 לא לשום נכס). כל צירוף כזה מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
