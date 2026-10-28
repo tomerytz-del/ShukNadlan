@@ -27,7 +27,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 
 const sql = readFileSync(
-  new URL("../supabase/migrations/20271028120000_gabriela_notif_digest.sql", import.meta.url),
+  new URL("../supabase/migrations/20271029133000_gabriela_notif_digest.sql", import.meta.url),
   "utf8",
 );
 
