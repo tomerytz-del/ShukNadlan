@@ -6971,8 +6971,10 @@ const swipeThumbClash = (stack, otherSel) => {
   const next = stack.children[stack.children.length - 2], other = document.querySelector(otherSel);
   return !!(next && other && next.dataset.n === other.dataset.n);
 };
-/* ‏C8 (ד): התגית "חדש באתר" עד 30 יום אחרי העלייה לאוויר - תאריך, לא מונה. לעדכן ביום המיזוג */
-const INVITE_NEW_TAG_UNTIL = '2026-12-01';
+/* ‏C8 (ד), ‏F7: התגית "חדש באתר" עד 30 יום אחרי העלייה לאוויר - תאריך, לא מונה.
+   **ביום המיזוג: INVITE_GO_LIVE = תאריך המיזוג** (שורה ב-"Merge impact" של PR 1010) */
+const INVITE_GO_LIVE = '2026-10-29';
+const INVITE_NEW_TAG_UNTIL = Date.parse(INVITE_GO_LIVE + 'T00:00:00+02:00') + 30 * 864e5;
 const SWIPE_ICON = '<svg class="ppv-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>';
 
 /* ‏A2-7 (תומר 20:21, התווית של גבריאלה 20:31): הכפתור שבסרגל - שלוש תמונות מהסט הקבוע
@@ -8046,7 +8048,7 @@ function v10InviteCard(){
   const a = document.createElement('a');
   a.className = 'pc-swipe-invite';
   a.dataset.swipeVia = 'home_invite_card';
-  const isNew = Date.now() < Date.parse(INVITE_NEW_TAG_UNTIL + 'T00:00:00+02:00');
+  const isNew = Date.now() < INVITE_NEW_TAG_UNTIL;
   const imgs = SWIPE_THUMBS_READY
     ? [3, 2, 1].map(n => '<img src="' + swipeThumb(n, true) + '" alt="" width="240" height="320" loading="lazy" decoding="async" data-n="' + n + '">').join('')
     : '<img alt="" loading="lazy"><img alt="" loading="lazy"><img alt="" loading="lazy">';
