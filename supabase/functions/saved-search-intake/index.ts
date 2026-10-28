@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
     features.length > 0;
   if (!hasCriteria) return json({ error: "no_criteria" }, 400);
 
-  /* ---- ההרשמה ליריד הבתים הפתוחים (‏open_house_only, ‏20271029090000) ------
+  /* ---- ההרשמה ליריד הבתים הפתוחים (‏open_house_only, ‏20271029150000) ------
      התראות רק על נכסים שביריד, ולכן ההסכמה השיווקית חובה (הנוסח והגרסה נשמרים;
      הזמן נכתב כאן ולא מהדפדפן), וגם יישוב אחד לפחות - "כל הארץ" אינה בקשה. */
   const openHouseOnly = body.open_house_only === true;

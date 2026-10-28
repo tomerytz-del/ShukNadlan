@@ -239,6 +239,20 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
   }
   .bento-empty .empty-agency{font-size:1rem;font-weight:800;color:var(--teal-dark)}
   .bento-empty .empty-note{font-size:.85rem;font-weight:600;color:var(--ink-soft)}
+  /* תמונת ה-LCP של מודעה בלי שער. absolute כדי שלא תדחוף את הלוגו
+     ולא תשנה את יחס 16/10 של data-count=1. הצעיף הלבן יושב מעליה,
+     כמו שכבת ה-gradient שברקע של .bento-empty. */
+  .hero-placeholder{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .bento-cell:hover .hero-placeholder{transform:none}
+  .bento-empty:has(.hero-placeholder)::before{
+    content:'';position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.34) 55%,rgba(255,255,255,.56));
+  }
+  .bento-empty .empty-inner{position:relative;z-index:2}
+  /* הווידאו מעל הפלייסהולדר אחרי שיש פריים. בלי z-index ה-img
+     (absolute) נצבע מעליו. לא על סרטון עם פוסטר: שם הווידאו נשאר
+     בלי z-index משלו, ורילס אנכי נשאר על z-index:0. */
+  .bento-video:has(.hero-placeholder) > video{position:relative;z-index:1}
   /* התא שנושא את מונה התמונות מקבל הצללה משלו — התגית יושבת עליו ולא על
      התמונה הראשית, ובלי ההצללה היא נבלעת בתמונות בהירות. */
   .bento-thumb.carries-count::after{

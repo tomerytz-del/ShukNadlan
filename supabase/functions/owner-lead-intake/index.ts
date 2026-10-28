@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
+import { duplicateLeadBody, leadInsertRetryable, ownerPhoneAttach, pageLeadInsertAttempts } from "../_shared/lead-attach-plan.ts";
 import {
   audienceSize,
   logLeadRouting,
@@ -223,28 +225,66 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // ליד מגבריאלה בפייסבוק/אינסטגרם (‏social-lead-intake, קורא פנימי בלבד):
-  // המקור נכתב לליד עצמו ולא רק ליומן, עם תווית לסוכן/ת ו-external_ref.
+  // ליד מגבריאלה (‏social-lead-intake) או מטופס מטא (‏meta-leads), קורא
+  // פנימי בלבד: המקור נכתב לליד עצמו ולא רק ליומן, עם תווית לסוכן/ת
+  // ו-external_ref. ‏meta_ads_owner_form בלי זה נשאר null ונעלם מבקרת הלידים.
   const trusted = isInternalCaller(req);
-  const socialSource = normalizeSource(body.source, "", trusted);
-  const socialLabel = socialSourceLabel(socialSource);
-  const externalRef = socialLabel ? cleanExternalRef(body.external_ref) : null;
+  const inboundSource = normalizeSource(body.source, "", trusted);
+  const socialLabel = socialSourceLabel(inboundSource);
+  const metaLabel = metaAdsSourceLabel(inboundSource);
+  const trackedLabel = socialLabel || metaLabel;
+  const externalRef = trackedLabel ? cleanExternalRef(body.external_ref) : null;
   if (externalRef) {
     const { data: dup } = await supabase.from("leads").select("id")
-      .eq("source", socialSource).eq("external_ref", externalRef).maybeSingle();
+      .eq("source", inboundSource).eq("external_ref", externalRef).maybeSingle();
     if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
   }
 
   try {
+    // הכתובת המדויקת היא PII ולכן היא ב-raw_message (נחשף רק בפתיחה),
+    // ומפרט הנכס ב-property_details (גלוי גם בליד מוסתר).
+    const cleanAddress = cleanText(address, 160);
+    const propertyDetails = buildPropertyDetails(rooms, condition, features, note, property_subtype, size_sqm);
+    const rawMessage = [cleanAddress, propertyDetails].filter(Boolean).join(" · ") || null;
+    // ‏intent מבדיל בין שני הכלים בדף המשרד ובדף הסוכן/ת. אשף הערכת השווי
+    // הוא בעל/ת נכס (‏owner_inbound); מחשבון התשואה הוא פנייה על נכס
+    // (‏property_inquiry). בלי דף משרד/סוכן/ת הליד נשאר owner_inbound.
+    const preferredType = intent === "investment" ? "property_inquiry" : "owner_inbound";
+
     let matchedAgentId: string | null = null;
     let matchType: "neighborhood" | "fallback" | "none" | "agency_page" | "agent_page" = "none";
 
     // שלב 0: ליד מדף סוכן/ת או מדף משרד — שייך לדף שבו נמסרו הפרטים, ולכן
     // עוקף את ההתאמה כולה. דף הסוכן/ת נבדק ראשון: הוא הצר מבין השניים, והוא
     // שולח את ה-slug של המשרד לצדו רק כרשת ביטחון לפרופיל בלי slug משלו.
+    // קריאה בלבד - הרוטציה (כתיבה) מתחילה רק אחרי בדיקת הכפילות לפי טלפון.
     const agentRouting = await resolveAgentRouting(supabase, agent_slug);
     const agencyRouting = agentRouting ?? await resolveAgencyRouting(supabase, agency_slug);
     const pageSource = agentRouting ? "agent_page" : "agency_page";
+    const insertedType = agencyRouting ? preferredType : "owner_inbound";
+
+    /* owner_inbound בלבד, ורק מקורא פנימי (isInternalCaller). מחשבון תשואה
+       הוא property_inquiry בלי נכס. בלי אותה כתובת (עיר + רחוב, ומספר בית
+       אם נכתב) אין הצמדה: נכס שני היה נבלע בראשון. דף משרד או סוכן/ת מצמיד
+       רק לאותו שולחן. פניית פלטפורמה בלי slug אינה נצמדת לליד של דף.
+       מהדפדפן התוכנית היא null: insert רגיל, בלי duplicate ובלי lead_id
+       של ליד אחר. ליד שכבר פתוח מקבל התראת "פנייה נוספת" רק אחרי שהעדכון
+       הצליח, בלי רוטציה. */
+    const plan = ownerPhoneAttach({
+      trusted,
+      insertedType,
+      phone,
+      agencyId: agencyRouting?.agencyId ?? null,
+      agentId: agencyRouting?.agentId ?? null,
+      city: typeof city === "string" ? city : null,
+      address: cleanAddress,
+      source: inboundSource || null,
+      externalRef,
+      message: rawMessage,
+      sourceLabel: trackedLabel,
+    });
+    const merged = plan ? await attachToOpenLead(supabase, plan) : null;
+    if (merged) return json(duplicateLeadBody(merged.lead_id));
 
     // שלב 1: התאמה שכונתית מדויקת (מודול 2 §5, שלב 3a)
     if (!agencyRouting && neighborhood_id) {
@@ -280,18 +320,6 @@ Deno.serve(async (req: Request) => {
 
     const exclusivityHours = await getConfigValue(supabase, "owner_lead_exclusivity_hours", 12);
 
-    // הכתובת המדויקת היא PII של הליד ולכן נכנסת ל-raw_message (נחשף רק בפתיחה),
-    // בעוד מפרט הנכס נשמר בנפרד ומוצג לסוכן כבר בליד המוסתר.
-    const cleanAddress = cleanText(address, 160);
-    const propertyDetails = buildPropertyDetails(rooms, condition, features, note, property_subtype, size_sqm);
-    const rawMessage = [cleanAddress, propertyDetails].filter(Boolean).join(" · ") || null;
-
-    // ‏intent מבדיל בין שני הכלים שיושבים בדף המשרד ובדף הסוכן/ת. אשף הערכת
-    // השווי הוא בעל/ת נכס (‏owner_inbound); מי שמשאיר/ה פרטים ממחשבון התשואה
-    // מחפש/ת דווקא *לקנות*, ולכן זו פנייה על נכס (‏property_inquiry) ולא פנייה
-    // של בעלים. רישום שגוי כאן היה מגיע לתיבה עם התווית ההפוכה.
-    const preferredType = intent === "investment" ? "property_inquiry" : "owner_inbound";
-
     // שלב 4: הליד הוא מוסתר תמיד (גם ל-Premium) — מודול 2 §6.
     // היוצא מן הכלל הוא ליד מדף משרד או מדף סוכן/ת: הוא לא נמכר לאיש, ולכן
     // במסלול בתשלום הוא נכנס פתוח ומי שהדף שייך לו/ה רואה/ה שם וטלפון מיד.
@@ -316,18 +344,13 @@ Deno.serve(async (req: Request) => {
       property_type,
     };
 
-    /* סדר הניסיונות. ליד רגיל של הפלטפורמה נשאר בדיוק כפי שהיה — שורה אחת,
-       בלי source ובלי הפתעות. ליד מדף משרד מנסה קודם את הצורה המלאה, ואם
-       המסד עדיין לא מכיר אותה הוא נסוג בשני צעדים:
-
-         1. ‏source נוספה במיגרציה נפרדת; בסביבה שטרם הריצה אותה ההוספה
-            נופלת על עמודה לא מוכרת.
-         2. ‏property_inquiry אמור להיות ערך חוקי ב-leads_lead_type_check,
-            אבל אם סביבה כלשהי מגבילה אותו — עדיף ליד שנרשם עם התווית
-            הפחות מדויקת מאשר בעל/ת נכס שקיבל/ה שגיאה.
-
-       בכל שלושת המקרים השיוך והפתיחה זהים, וזה מה שבאמת חשוב למשרד. */
-    /* הסכמה עם חותמת זמן (‏20271029090000): כרטיס "חושבים למכור?" בהחלקה שולח
+    /* סדר הניסיונות. ליד רגיל של הפלטפורמה נשאר שורה אחת, בלי source.
+       ליד מדף נושא source בכל ניסיון. ניסיון בלי source שמר ליד של דף
+       עם עמודה ריקה. הניסיון האחרון מוריד רק את סוג הליד ל-owner_inbound,
+       אם property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים.
+       שגיאה חולפת עם SQLSTATE מהרשימה מנסה את אותה שורה פעם נוספת.
+       בלי SQLSTATE, וגם אילוץ, עוברים לשורה הבאה בלי ניסיון שני. */
+    /* הסכמה עם חותמת זמן (‏20271029150000): כרטיס "חושבים למכור?" בהחלקה שולח
        את הנוסח שאושר; הזמן נכתב כאן ולעולם לא מהדפדפן. רק בניסיון הראשון של
        כל מסלול - מסד שטרם הריץ את המיגרציה נסוג לשורה בלעדיה ולא מפיל ליד. */
     const consent: Record<string, unknown> = body.consent_contact === true
@@ -346,13 +369,11 @@ Deno.serve(async (req: Request) => {
     const attempts: Record<string, unknown>[] = agencyRouting
       ? [
         ...(hasConsent ? [{ ...baseRow, lead_type: preferredType, source: ownSource || pageSource, ...consent }] : []),
-        { ...baseRow, lead_type: preferredType, source: pageSource },
-        { ...baseRow, lead_type: preferredType },
-        { ...baseRow, lead_type: "owner_inbound" },
+        ...pageLeadInsertAttempts(baseRow, preferredType, pageSource),
       ]
-      : socialLabel
+      : trackedLabel
       ? [
-        { ...baseRow, lead_type: "owner_inbound", source: socialSource, source_detail: socialLabel, external_ref: externalRef },
+        { ...baseRow, lead_type: "owner_inbound", source: inboundSource, source_detail: trackedLabel, external_ref: externalRef },
         { ...baseRow, lead_type: "owner_inbound" },
       ]
       : ownSource || hasConsent
@@ -366,15 +387,21 @@ Deno.serve(async (req: Request) => {
     let lead: any = null;
     let leadErr: any = null;
     for (const row of attempts) {
-      ({ data: lead, error: leadErr } = await supabase
-        .from("leads").insert(row).select().single());
-      if (!leadErr) break;
-      // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
-      if (externalRef && (leadErr as any).code === "23505") {
-        const { data: dup } = await supabase.from("leads").select("id")
-          .eq("source", socialSource).eq("external_ref", externalRef).maybeSingle();
-        if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+      let retried = false;
+      for (;;) {
+        ({ data: lead, error: leadErr } = await supabase
+          .from("leads").insert(row).select().single());
+        if (!leadErr) break;
+        // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
+        if (externalRef && (leadErr as any).code === "23505") {
+          const { data: dup } = await supabase.from("leads").select("id")
+            .eq("source", inboundSource).eq("external_ref", externalRef).maybeSingle();
+          if (dup) return json({ success: true, duplicate: true, lead_id: dup.id });
+        }
+        if (retried || !leadInsertRetryable((leadErr as { code?: string }).code)) break;
+        retried = true;
       }
+      if (!leadErr) break;
     }
 
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);

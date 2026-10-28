@@ -18,6 +18,7 @@
 // והמשלוח עצמו מרוכז ב-platform-mail, שהיא היחידה שמכירה את פרטי השולח.
 // ============================================================================
 
+import { META_ADS_SOURCES } from "./lead-dedupe.ts";
 import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "./platform-mail-client.ts";
 
 export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor";
@@ -57,6 +58,9 @@ const KIND_LABELS: Record<LeadKind, string> = {
  * ‏meta-leads.ts); מהדפדפן הוא נופל לברירת המחדל של הקורא. אחרת כל אחד
  * היה יכול לייצר לידים "מפייסבוק" ולזהם את הדוח.
  *
+ * ‏meta_ads_* אותו כלל בדיוק: רק ads-leads-webhook / ads-admin (‏service
+ * role) רשאים לסמן טופס מטא. מהדפדפן המקור נופל לברירת המחדל.
+ *
  * התוויות - מה שהסוכן/ת רואה ב-source_detail. אותה מפה כמו
  * ‏lead_source_label() במסד (‏20270806090000).
  * ------------------------------------------------------------------------- */
@@ -75,14 +79,26 @@ export function socialSourceLabel(source: string | null | undefined): string | n
   return source && SOCIAL_SOURCES.has(source) ? SOCIAL_SOURCE_LABELS[source as SocialSource] : null;
 }
 
-/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
-export function isInternalCaller(req: Request): boolean {
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const got = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+/**
+ * ה-Bearer הוא מפתח ה-service role. השוואה באורך קבוע.
+ * כותרת apikey אינה נבדקת: מפתח anon שם אינו קורא פנימי.
+ */
+export function authorizationMatchesServiceRole(
+  authorization: string | null | undefined,
+  serviceRoleKey: string | null | undefined,
+): boolean {
+  const key = serviceRoleKey || "";
+  const got = (authorization || "").replace(/^Bearer\s+/i, "");
   if (!key || got.length !== key.length) return false;
   let diff = 0;
   for (let i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ got.charCodeAt(i);
   return diff === 0;
+}
+
+/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
+export function isInternalCaller(req: Request, serviceRoleKey?: string | null): boolean {
+  const key = serviceRoleKey ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return authorizationMatchesServiceRole(req.headers.get("authorization"), key);
 }
 
 /** מזהה אצל הספק (Zernio) - אותו אוצר תווים כמו leads_external_ref_format. */
@@ -138,7 +154,7 @@ const KNOWN_SOURCES = new Set([
   "meta_ads_property_form",
   // גלישה בהחלקה (‏/swipe, ‏docs/swipe-mode.md): פנייה על נכס מגיליון הפרטים,
   // ופנייה למפרסם מכרטיס ממומן (כבוי כרגע - SPONSORED_ENABLED ב-assets/swipe.js).
-  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏20271029090000).
+  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏20271029150000).
   "swipe",
   "swipe_sponsored",
   // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
@@ -244,10 +260,10 @@ export async function resolveAgentRouting(
   return { agencyId: member.agency_id, agentId: member.id, tier: member.tier ?? null };
 }
 
-/** ‏trusted = הקורא פנימי (‏isInternalCaller). מקור חברתי בלי זה - ברירת המחדל. */
+/** ‏trusted = הקורא פנימי (‏isInternalCaller). מקור חברתי או meta_ads_* בלי זה - ברירת המחדל. */
 export function normalizeSource(value: unknown, fallback: string, trusted = false): string {
   if (typeof value !== "string" || !KNOWN_SOURCES.has(value)) return fallback;
-  if (SOCIAL_SOURCES.has(value) && !trusted) return fallback;
+  if ((SOCIAL_SOURCES.has(value) || META_ADS_SOURCES.has(value)) && !trusted) return fallback;
   return value;
 }
 

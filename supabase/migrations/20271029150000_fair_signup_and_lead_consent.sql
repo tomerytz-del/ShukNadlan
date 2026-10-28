@@ -147,11 +147,11 @@ as $function$
       or p_source = 'agency'                    then 'agency_page'
     when p_source like 'agent\_page%'           then 'agent_page'
     when p_source like 'project%'               then 'project_page'
-    -- 20271029090000: ההרשמה ליריד בדף ‏/open-house ובגיליון שבהחלקה
+    -- 20271029150000: ההרשמה ליריד בדף ‏/open-house ובגיליון שבהחלקה
     when p_source in ('open_house_page', 'nocommission_fair', 'swipe_fair') then 'open_house'
-    -- 20271029090000: גלישה בהחלקה (פנייה, כרטיס סיום, ממומן, חושבים למכור)
+    -- 20271029150000: גלישה בהחלקה (פנייה, כרטיס סיום, ממומן, חושבים למכור)
     when p_source like 'swipe%'                 then 'swipe'
-    -- 20271029090000: דף "חושבים למכור?" (‏/sell)
+    -- 20271029150000: דף "חושבים למכור?" (‏/sell)
     when p_source like 'sell\_page%'            then 'sell_page'
     when p_source like 'meta\_ads%'             then 'meta_ads'
     -- 20270806090000: גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake)
