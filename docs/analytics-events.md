@@ -483,3 +483,4 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `adv_filter_more_open` | נפתח "עוד מאפיינים" בלחיצה (לא כשנפתח מעצמו בגלל בחירה) | `deal`, `surface` |
 | `adv_filter_apply` | "הצגת תוצאות" בחלון. שמות השדות בלבד, בלי ערכים | `deal`, `surface`, `fields` (מפתחות בפסיקים, עד 100 תווים), `field_count`, `result_count`, `missing_shown`: ‏`0` (עד P1-N2) |
 | `adv_filter_clear` | "איפוס" בחלון, בלחיצה של הגולש/ת | `deal`, `surface` |
+| (פרמטר חדש) `swipe_start.filters_n` | ‏R5-5 (v10): כמה מסננים עברו מדף הבית להחלקה (מספר בלבד, בלי ערכים). `via` מקבל גם `results_toolbar` (האייקון בסרגל הנכסים) ו-`results_button` ("גלישה בהחלקה · N" ליד כותרת התוצאות) | `filters_n` |

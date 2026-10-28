@@ -3590,6 +3590,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero #allProps .pp-sort select{appearance:none;-webkit-appearance:none;padding:0 12px 0 32px;background:#fff url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e2a6b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat left 10px center/15px}
   html.beta-hero #allProps .pp-view-btn{width:48px;min-height:48px;border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;display:grid;place-items:center;text-decoration:none}
   html.beta-hero #allProps .pp-view-btn svg{color:#c9a227}
+  html.beta-hero .sr-swipe{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;font:800 14px Heebo,system-ui,sans-serif;text-decoration:none}
+  html.beta-hero .sr-swipe[hidden]{display:none}
+  html.beta-hero .sr-swipe svg{color:#c9a227}
   html.beta-hero #allProps .pp-filter-btn:focus-visible,html.beta-hero #allProps .pp-view-btn:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
   @media(max-width:759px){
     /* השדה הלבן בשורה אחת, והכפתור הזהב לרוחב מלא מתחתיו (‏::before הוא המסגרת הלבנה) */
@@ -4816,6 +4819,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="sr-head">
         <h2 id="searchResultsTitle">תוצאות החיפוש</h2>
         <span class="sr-count" id="searchResultsCount"></span>
+        <a class="sr-swipe v10-only" id="srSwipe" href="/swipe" data-swipe-via="results_button" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>גלישה בהחלקה · <b></b></a>
         <button type="button" class="sr-ai-chip" id="aiFilterChip" hidden>
           <span aria-hidden="true">✦</span> עם הדמיית AI
           <span class="sr-ai-chip-x" aria-hidden="true">✕</span>

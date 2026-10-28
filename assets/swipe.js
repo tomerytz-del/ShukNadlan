@@ -19,7 +19,9 @@
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
   var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, city_id, street, address, house_number, ' +
     'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, listing_number, ' +
-    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_url, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name)';
+    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_url, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name), ' +
+    /* ‏R5-5: הסינון המתקדם שמגיע מדף הבית (‏hf=) */
+    'condition, project_status, move_in_soon, move_in_date, mamad_location, storage_location, restrooms_location';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
 
   /* ‏מתג כיבוי לכרטיסים הממומנים (החלטת A2): כבוי - כל משבצת ממומנת הופכת לנכס,
@@ -422,14 +424,15 @@
     });
   }
   function activeFilters() {
-    return (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
+    return extItems().length + (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
       (filter.viz ? 1 : 0) + (filter.fair ? 1 : 0) + (filter.reel ? 1 : 0) + (filter.photos ? 0 : 1);
   }
   /* המצב בכתובת (‏replaceState): ערכי ברירת המחדל לא נכתבים, ו-reload משחזר */
   function writeUrl() {
     try {
       var q = new URLSearchParams(location.search);
-      ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout'].forEach(function (k) { q.delete(k); });
+      ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf'].forEach(function (k) { q.delete(k); });
+      if (extQs) q.set('hf', extQs);
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
       if (view === 'list' || view === 'map') q.set('view', view);
@@ -492,8 +495,82 @@
     var now = Date.now(), s = Date.parse(p.open_house_start), e = Date.parse(p.open_house_end);
     return !!p.open_house && s <= now && e > now;
   }
+  /* ---------- ‏R5-5: הסינון מדף הבית ----------
+     ‏hf=<הכתובת של דף הבית> - המשפט והסינון המתקדם, בדיוק כמו בדף הבית (אותה ליבה,
+     ‏SentenceSearch.Core). שני הקבצים נטענים רק כשיש hf. כל מסנן מוצג בגיליון כצ'יפ
+     "מדף הבית" עם ✕, כדי שלא יהיה מסנן נסתר. העסקה נשארת של הגיליון (‏deal). */
+  var extQs = params.get('hf') || '';
+  var ext = null;   // { Core, st, areas, ctx, advQs, adv }
+  function loadScript(src) {
+    return new Promise(function (ok) { var el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = ok; document.head.appendChild(el); });
+  }
+  var extReady = extQs
+    ? (window.SearchCore ? Promise.resolve() : loadScript('/assets/search-core.js'))
+      .then(function () { return window.SentenceSearch ? null : loadScript('/assets/sentence-search.js'); })
+    : Promise.resolve();
+  var EXT_SENTENCE_KEYS = ['ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'hoods', 'city', 'ai', 'deal'];
+  function initExt(rows) {
+    if (!extQs || !window.SentenceSearch) return;
+    var Core = window.SentenceSearch.Core;
+    rows.forEach(function (p) { if (!p.neighborhood_name) p.neighborhood_name = (p.neighborhoods && p.neighborhoods.name) || ''; });
+    var areas = Core.deriveAreas(rows);
+    var qp = new URLSearchParams(extQs);
+    var st = Core.resolveArea(Core.fromParams(qp), areas);
+    st.deal = null;
+    if (st.type === 'commercial') st.type = 'any';   // מסחרי הוא העסקה של הגיליון
+    var adv = new URLSearchParams();
+    qp.forEach(function (v, k) { if (EXT_SENTENCE_KEYS.indexOf(k) < 0) adv.append(k, v); });
+    // ‏ai=1: אותה מפת הדמיות של הגיליון (‏vizMap), שנטענת אחרי הנכסים
+    ext = { Core: Core, st: st, areas: areas, ctx: { areaIndex: areas.index, aiIds: { has: function (id) { return vizMap.has(id); } } }, adv: adv };
+    ext.test = Core.advancedFromParams(adv).test;
+  }
+  function extItems() {
+    if (!ext) return [];
+    var C = ext.Core, st = ext.st, out = [];
+    if ((st.types && st.types.length) || (st.type && st.type !== 'any')) out.push({ k: 'type', label: C.typesLabel(st) });
+    if (st.hoods && st.hoods.length) out.push({ k: 'area', label: C.hoodsLabel(st.hoods, ext.areas, ext.ctx) });
+    else if (st.area && st.area !== 'all') out.push({ k: 'area', label: C.areaLabel(st.area, ext.areas, ext.ctx) });
+    if (st.city) out.push({ k: 'city', label: st.city });
+    if (st.roomsIn && st.roomsIn.length) out.push({ k: 'rooms', label: C.roomsInLabel(st.roomsIn) });
+    else if (st.rooms) out.push({ k: 'rooms', label: C.roomsLabel(st.rooms) });
+    if (st.priceMin || st.priceMax) {
+      out.push({ k: 'price', label: (st.priceMin ? 'מ-₪' + Number(st.priceMin).toLocaleString('he-IL') + ' ' : '') +
+        (st.priceMax ? 'עד ₪' + Number(st.priceMax).toLocaleString('he-IL') : '') });
+    }
+    if (st.ai) out.push({ k: 'ai', label: 'עם הדמיה' });
+    C.advancedFromParams(ext.adv).items.forEach(function (it, i) { out.push({ k: 'adv:' + i, label: it.label, params: it.params }); });
+    return out;
+  }
+  function removeExt(k) {
+    if (!ext) return;
+    var st = ext.st;
+    if (k === 'type') { st.type = 'any'; st.types = null; }
+    else if (k === 'area') { st.area = 'all'; st.hoods = null; }
+    else if (k === 'city') st.city = null;
+    else if (k === 'rooms') { st.rooms = null; st.roomsIn = null; }
+    else if (k === 'price') { st.priceMin = null; st.priceMax = null; }
+    else if (k === 'ai') st.ai = false;
+    else if (k.indexOf('adv:') === 0) {
+      var it = extItems().filter(function (x) { return x.k === k; })[0];
+      if (it && it.params) Object.keys(it.params).forEach(function (pk) {
+        var vals = ext.adv.get(pk);
+        if (pk === 'features' || pk === 'listing') {
+          var left = String(vals || '').split(',').filter(function (v) { return v && v !== String(it.params[pk]); });
+          if (left.length) ext.adv.set(pk, left.join(',')); else ext.adv.delete(pk);
+        } else ext.adv.delete(pk);
+      });
+      ext.test = ext.Core.advancedFromParams(ext.adv).test;
+    }
+    var qs = [ext.Core.toParams(st, ext.areas, ext.ctx), ext.adv.toString()].filter(Boolean).join('&');
+    extQs = qs;
+    if (!extItems().length) { ext = null; extQs = ''; }
+  }
+  function extOk(p) {
+    return !ext || (ext.Core.matches(p, ext.st, ext.ctx) && ext.test(p));
+  }
   function matches(p, f) {
     if (!dealOk(p, f.deal)) return false;
+    if (!extOk(p)) return false;
     if (f.fair && !fairLive(p)) return false;
     if (f.viz && !vizMap.has(p.id)) return false;
     if (f.photos && !hasPhoto(p)) return false;
@@ -532,7 +609,18 @@
   function n(v) { return '<span class="sw-chip-n">' + v + '</span>'; }
   var townsOpen = false, otherOpen = false, otherGroup = 'north', otherCounts = null;
 
+  function renderExtChips() {
+    var box = $('swFExt');
+    if (!box) return;
+    var items = extItems();
+    box.hidden = !items.length;
+    box.innerHTML = items.length ? '<span class="sw-fext-h">מדף הבית:</span>' + items.map(function (it) {
+      return '<button type="button" class="sw-chip is-on sw-fext-chip" data-ext="' + esc(it.k) + '" aria-label="הסרת ' + esc(it.label) + '">' +
+        esc(it.label) + ' <span aria-hidden="true">✕</span></button>';
+    }).join('') : '';
+  }
   function renderFilter() {
+    renderExtChips();
     document.querySelectorAll('#swFDeal [data-deal]').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.deal === filter.deal));
     });
@@ -701,7 +789,15 @@
       note.textContent = 'לא התקבלה הרשאה למיקום. הבחירה הקודמת נשארה.';
     }, { timeout: 10000, maximumAge: 300000 });
   }
+  // ‏R5-5: ✕ על צ'יפ "מדף הבית" מוריד את המסנן הזה בלבד
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-ext]');
+    if (!b) return;
+    removeExt(b.getAttribute('data-ext'));
+    renderFilter();
+  });
   $('swFReset').addEventListener('click', function () {
+    ext = null; extQs = '';   // ‏"ניקוי הכול" - גם מה שהגיע מדף הבית
     // "ניקוי הכול": גם היריד, סוג הנכס והמיון; "רק עם תמונות" חוזר לדלוק
     filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
     sortKey = 'rec'; syncSortBtn();
@@ -3050,7 +3146,7 @@
   /* ---------- התחלה ---------- */
   // ‏P1-S: מי שנכנס/ה להחלקה פעם אחת - בלי נענוע לכפתור בדף הבית
   try { localStorage.setItem('sk_swipe_used', '1'); } catch (e) { /* מצב פרטי */ }
-  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view'].some(function (k) { return params.has(k); });
+  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'hf'].some(function (k) { return params.has(k); });
   /* ‏P1-L: חזרה מדף נכס לרשימה - אותו נכס באותו מקום. נשמר ב-pagehide לפי הכתובת, עם עוגן
      (הנכס העליון שנראה) ולא רק פיקסלים, כי תמונות שעוד לא נטענו מזיזות את הגובה */
   var SCROLL_KEY = 'sk_sw_scroll';
@@ -3087,7 +3183,7 @@
   document.body.dataset.view = 'deck';
   $('swDeck').innerHTML = '<div class="sw-loading" role="status">טוענים נכסים…</div>';
   function start() {
-    load().then(function (rows) {
+    load().then(function (rows) { return extReady.then(function () { initExt(rows); return rows; }); }).then(function (rows) {
       all = rows;
       /* ‏"הסינון לפני ההחלקה" רק בכניסה נקייה: כתובת שכבר נושאת סינון (‏reload, קישור
          מדף הבית) או חזרה ב"אחורה" מדף נכס - בלי גיליון שנפתח מעצמו (‏P0-C, ‏P1-L) */
@@ -3097,6 +3193,7 @@
       if (v0 === 'list' || v0 === 'map') setView(v0);
       if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {
+        if (ext && ext.st.ai) buildDeck();   // ‏hf עם ai=1 - החפיסה אחרי שההדמיות ידועות
         renderFilter();
         // הכרטיס שעל המסך מקבל את שקופית ההדמיה שלו כשהזוג נטען, בלי לצייר אותו מחדש
         vizPrime();

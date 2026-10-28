@@ -3480,6 +3480,21 @@
                                         "value": "{{DLV - fair}}"
                                     }
                                 ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "filters_n"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - filters_n}}"
+                                    }
+                                ]
                             }
                         ]
                     },
@@ -14927,6 +14942,32 @@
                         "type": "TEMPLATE",
                         "key": "name",
                         "value": "missing_shown"
+                    }
+                ],
+                "fingerprint": "1793000000001",
+                "formatValue": {}
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "140",
+                "name": "DLV - filters_n",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "filters_n"
                     }
                 ],
                 "fingerprint": "1793000000001",

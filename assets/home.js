@@ -7660,17 +7660,33 @@ function v10Deal(st){
   if (sentence && sentence.Core.TYPES.find(t => t.key === st.type)?.commercial) return 'commercial';
   return st.deal || 'sale';
 }
+/* ‏R5-5: הכניסה להחלקה נושאת את כל הסינון - המשפט (כמה סוגים, שכונות, חדרים, מחיר מדויק,
+   הדמיה) והסינון המתקדם - כפרמטר אחד ‏hf=<הכתובת של דף הבית>. ‏/swipe מחיל אותו באותה ליבה
+   (‏SentenceSearch.Core.fromParams / advancedFromParams) ומציג אותו כצ'יפים "מדף הבית".
+   ‏deal נשאר פרמטר של /swipe עצמו (הגיליון), ולכן הוא לא בתוך hf. */
+function v10FilterParams(){
+  if (!sentence || !sentence.loaded()) return '';
+  const st = Object.assign({}, sentence.state(), { deal: null });
+  const Core = sentence.Core;
+  const base = Core.toParams(st, sentence.areas(), { marketLabel: CityCtx.label ? CityCtx.label() : '' })
+    .split('&').filter(kv => kv && !/^deal=/.test(kv));
+  if (appliedAdvancedQs && sentence.hasExtra()) base.push(appliedAdvancedQs);
+  return base.join('&');
+}
+function v10FilterCount(){
+  const qs = v10FilterParams();
+  if (!qs) return 0;
+  const p = new URLSearchParams(qs);
+  let n = 0;
+  p.forEach((v, k) => { n += k === 'features' || k === 'listing' ? v.split(',').filter(Boolean).length : (k === 'maxPrice' && p.has('minPrice') ? 0 : 1); });
+  return n;
+}
 function v10SwipeHref(src){
   const st = sentence ? sentence.state() : {};
   const deal = v10Deal(st), q = new URLSearchParams();
   if (deal !== 'sale') q.set('deal', deal);
-  if (st.area && st.area.indexOf('city:') === 0) q.set('area', st.area);
-  const lo = st.rooms && st.rooms[0];
-  if ([3, 4, 5].includes(lo) && deal !== 'commercial') q.set('rooms', String(lo));
-  if (st.priceMax){
-    const b = V10_BUDGETS[deal], i = b.findIndex(v => v && v >= st.priceMax);
-    if (i > 0) q.set('budget', String(i));
-  }
+  const hf = v10FilterParams();
+  if (hf) q.set('hf', hf);
   if (src) q.set('src', src);
   const qs = q.toString();
   return '/swipe' + (qs ? '?' + qs : '');
@@ -7681,6 +7697,15 @@ function v10SyncSwipe(results){
   document.querySelectorAll('[data-swipe-via="hero_views"]').forEach(a => { a.href = v10SwipeHref('home_views'); });
   const shelfSwipe = document.querySelector('#allProps .pp-view-btn');
   if (shelfSwipe) shelfSwipe.href = v10SwipeHref('results_toolbar');
+  // ‏R5-5: "גלישה בהחלקה · N" ליד כותרת התוצאות - רק כשיש סינון ולפחות 3 נכסים עם תמונה
+  const srSwipe = document.getElementById('srSwipe');
+  if (srSwipe){
+    const n = v10Swipeable(results).length;
+    srSwipe.hidden = n < 3 || !v10FilterCount();
+    srSwipe.href = v10SwipeHref('results_button');
+    srSwipe.dataset.count = String(n);
+    srSwipe.querySelector('b').textContent = n.toLocaleString('he-IL');
+  }
   const inv = document.querySelector('#allProps .pc-swipe-invite');
   if (inv) v10FillInvite(inv, results);
 }
@@ -7691,7 +7716,8 @@ function v10Swipeable(results){
 }
 function v10FillInvite(el, results){
   const list = v10Swipeable(results), n = list.length;
-  el.hidden = n < 3;
+  // ‏R5-5: עם סינון - הכפתור "גלישה בהחלקה · N" שליד הכותרת, לא הכרטיס (בלי כפילות)
+  el.hidden = n < 3 || v10FilterCount() > 0;
   const title = `החליקו על ${n.toLocaleString('he-IL')} נכסים ב${CityCtx.label()}`;
   el.setAttribute('aria-label', title);
   el.href = v10SwipeHref('home_invite');
@@ -8393,6 +8419,8 @@ document.addEventListener('click', e => {
   const sp = { deal: st.deal || (sentence.Core.TYPES.find(t => t.key === st.type)?.commercial ? 'commercial' : 'all'),
     region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek', via: a.dataset.swipeVia };
   if (a.dataset.count) sp.count = Number(a.dataset.count);
+  // ‏R5-5: כמה מסננים עברו להחלקה (בלי ערכים)
+  sp.filters_n = v10FilterCount();
   window.shukTrack('swipe_start', sp);
 });
 

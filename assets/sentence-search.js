@@ -848,6 +848,73 @@
     });
   }
 
+  /* ---------- הסינון המתקדם מהכתובת, לדף אחר (‏R5-5) ----------
+     ‏/swipe מקבל את הכתובת של דף הבית ומחיל אותה כמו שהיא. אותם פרמטרים של
+     ‏ADV_URL_PARAMS ב-home.js ואותם תנאים של applyAdvancedFilters - שינוי שם חייב
+     להיכנס גם לכאן. ‏items: תווית לכל מסנן (הצ'יפים "מדף הבית"), ‏test: הפרדיקט. */
+  var ADV_LABELS = { has_photo: 'עם תמונה', has_price: 'עם מחיר', price_dropped: 'מחיר ירד', tour_3d: 'סיור 3D', moshav_kibbutz_only: 'מושבים וקיבוצים' };
+  var LOC_LABELS = { building: 'בבניין', unit: 'בנכס' };
+  function advancedFromParams(params) {
+    var get = function (k) { var v = params.get(k); return v === null ? '' : String(v).trim(); };
+    var items = [], tests = [];
+    var numOf = function (k) { var v = get(k); if (!v) return null; var n = Number(v); return isFinite(n) ? n : null; };
+    var feats = get('features').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return SC.knownFeature ? SC.knownFeature(x) : !!x; });
+    feats.forEach(function (code) {
+      var lbl = (SC.FEATURE_LABELS && SC.FEATURE_LABELS[code]) || code;
+      items.push({ params: { features: code }, label: lbl });
+      tests.push(function (p) { return SC.hasFeatures(p, [code]); });
+    });
+    get('listing').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return ADV_LABELS[x]; }).forEach(function (code) {
+      items.push({ params: { listing: code }, label: ADV_LABELS[code] });
+      tests.push(function (p) {
+        if (code === 'has_photo') return Array.isArray(p.images) && p.images.length > 0;
+        if (code === 'has_price') return p.price !== null && p.price !== undefined;
+        if (code === 'tour_3d') return /^http/i.test(p.tour_3d_url || '') || p.has_virtual_tour === true;
+        return Array.isArray(p.features) && p.features.indexOf(code) >= 0;
+      });
+    });
+    function range(lo, hi, field, label, unit, get) {
+      var a = numOf(lo), b = numOf(hi);
+      if (a === null && b === null) return;
+      var o = {}; if (a !== null) o[lo] = a; if (b !== null) o[hi] = b;
+      items.push({ params: o, label: label + ' ' + (a !== null && b !== null ? a.toLocaleString('he-IL') + '-' + b.toLocaleString('he-IL') : a !== null ? 'מ-' + a.toLocaleString('he-IL') : 'עד ' + b.toLocaleString('he-IL')) + unit });
+      tests.push(function (p) {
+        var v = get ? get(p) : (p[field] === null || p[field] === undefined || p[field] === '' ? null : Number(p[field]));
+        return v !== null && isFinite(v) && (a === null || v >= a) && (b === null || v <= b);
+      });
+    }
+    range('floorMin', 'floorMax', 'floor', 'קומה', '');
+    range('sizeMin', 'sizeMax', 'size_sqm', 'שטח', ' מ״ר');
+    range('ppsqmMin', 'ppsqmMax', null, 'מחיר למ״ר', ' ₪', function (p) {
+      var price = Number(p.price), size = Number(p.size_sqm);
+      if (!isFinite(price) || price <= 0) return null;
+      if (p.price_unit === 'sqm') return price;
+      return isFinite(size) && size > 0 ? Math.round(price / size) : null;
+    });
+    var cond = get('condition');
+    if (/^[a-z_]{2,30}$/.test(cond)) { items.push({ params: { condition: cond }, label: 'מצב הנכס' }); tests.push(function (p) { return p.condition === cond; }); }
+    var status = get('status');
+    if (/^[a-z_]{2,30}$/.test(status)) { items.push({ params: { status: status }, label: 'סטטוס פרויקט' }); tests.push(function (p) { return p.project_status === status; }); }
+    if (get('newOnly') === '1') { items.push({ params: { newOnly: '1' }, label: 'פרויקטים חדשים' }); tests.push(function (p) { return !!p.project_status || p.condition === 'new_from_contractor'; }); }
+    if (get('soon') === '1') { items.push({ params: { soon: '1' }, label: 'כניסה מיידית' }); tests.push(function (p) { return p.move_in_soon === true; }); }
+    var mv = get('moveIn');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(mv)) { items.push({ params: { moveIn: mv }, label: 'כניסה מ-' + mv }); tests.push(function (p) { return !!p.move_in_date && p.move_in_date >= mv; }); }
+    [['restrooms', 'restrooms_location', 'שירותים'], ['storageAt', 'storage_location', 'מחסן'], ['mamadAt', 'mamad_location', 'ממ״ד']].forEach(function (x) {
+      var v = get(x[0]);
+      if (!LOC_LABELS[v]) return;
+      var o = {}; o[x[0]] = v;
+      items.push({ params: o, label: x[2] + ' ' + LOC_LABELS[v] });
+      tests.push(function (p) { return p[x[1]] === v; });
+    });
+    var text = get('text').slice(0, 80);
+    if (text) {
+      var q = norm(text);
+      items.push({ params: { text: text }, label: '"' + text + '"' });
+      tests.push(function (p) { return norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).indexOf(q) >= 0; });
+    }
+    return { items: items, test: function (p) { return tests.every(function (t) { return t(p); }); } };
+  }
+
   var Core = {
     TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
@@ -857,6 +924,7 @@
     nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
     parse: parse, compileQuery: compileQuery, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
+    advancedFromParams: advancedFromParams, typesLabel: typesLabel, hoodsLabel: hoodsLabel, roomsInLabel: roomsInLabel,
   };
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = Core; return; }
