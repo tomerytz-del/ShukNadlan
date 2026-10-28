@@ -604,9 +604,15 @@ async function claimOpenDemand(id, btn){
   renderLeads(currentAgent && currentAgent.id);
 }
 
-function openLeadsDemand(){
+/* הכניסה הראשונה מ-?goto=accLeads&tab=demand משאירה את הטעינה שכבר
+   יצאה עם הדשבורד. כל קריאה אחרת, כולל הפעמון, מאפסת ומושכת מחדש:
+   ביקוש נוסף ונמחק כל שעה, ודשבורד פתוח שעות היה מראה רשימה ישנה. */
+let openDemandLinkKept = false;
+function openLeadsDemand(opts){
   leadsTab = 'demand';
-  // לא מאפסים שורות שכבר נטענו לקישור הזה. לחיצה על הלשונית כן מרעננת.
+  const keep = !!(opts && opts.fromLink) && !openDemandLinkKept;
+  if (opts && opts.fromLink) openDemandLinkKept = true;
+  if (!keep) openDemandRows = null;
   renderLeads(currentAgent && currentAgent.id);
 }
 

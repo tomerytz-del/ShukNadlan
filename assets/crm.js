@@ -2546,7 +2546,8 @@ function handleGotoParam(){
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
-  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function')
+    openLeadsDemand({ fromLink: true });
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -19668,9 +19669,15 @@ function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
-  listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
-    ? leadsSkeletonHtml()
-    : '<div class="empty-state">טוען…</div>';
+  /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
+     ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
+  const demandShown = leadsTab === 'demand' && openDemandRows !== null
+    && !!listEl.querySelector('.lp-demand-hint');
+  if (!demandShown){
+    listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
+      ? leadsSkeletonHtml()
+      : '<div class="empty-state">טוען…</div>';
+  }
 
   // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
