@@ -1011,3 +1011,23 @@ body[data-view=list] .sw-layout{display:inline-flex}
   body[data-view=deck] .sw-card.is-np .np-brand{top:calc(104px + var(--sw-safe-t))}
   body[data-view=deck] .sw-card.is-np .np-swipe-in{top:calc(136px + var(--sw-safe-t))}
 }
+/* המסילה בצד שמאל: המועדפים · ליועץ · מפרט. עיגול זכוכית נייבי 46px, תווית קטנה מתחת, ומונה ירוק (הלב) */
+.sw-rail{display:none}
+@media (max-width:759px){
+  body[data-view=deck] .sw-rail{display:flex;position:absolute;left:10px;bottom:calc(268px + var(--sw-safe-b));z-index:30;flex-direction:column;align-items:center;gap:8px}
+  body[data-view=deck] .sw-rail[hidden]{display:none}
+  .sw-rbtn{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:46px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .sw-ric{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:rgba(14,42,107,.5);border:1px solid rgba(255,255,255,.4);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(13,27,61,.3)}
+  .sw-ric svg{width:22px;height:22px}
+  .sw-ric svg[hidden]{display:none}
+  .sw-rlbl{font-size:11px;font-weight:700;line-height:1.2;color:#fff;text-shadow:0 1px 3px rgba(13,27,61,.9);white-space:nowrap}
+  .sw-rbadge{position:absolute;top:-4px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;border:1.5px solid #fff;background:#1f8a4c;color:#fff;
+    font-size:11px;font-weight:800;line-height:17px;text-align:center;box-sizing:border-box}
+  .sw-rbadge[hidden]{display:none}
+  .sw-rbtn:focus-visible{outline:none}
+  .sw-rbtn:focus-visible .sw-ric{outline:3px solid var(--sw-gold);outline-offset:2px}
+}
+/* "איך נוח לכם?" - וואטסאפ (ירוק, כי זה וואטסאפ) או חיוג */
+.sw-bs-row{display:flex;gap:10px;justify-content:center}
+.sw-bs-row .sw-wa-btn,.sw-bs-row .sw-white{min-height:48px;min-width:132px}

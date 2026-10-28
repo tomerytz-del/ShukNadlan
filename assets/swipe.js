@@ -90,6 +90,8 @@
   var params = new URLSearchParams(location.search);
   var DEBUG = params.get('seqdebug') === '1';
   var isDesktop = function () { return window.matchMedia('(min-width:1024px)').matches; };
+  // ‏Variant C: הפריסה החדשה של ההחלקה היא בטלפון בלבד (עד 759px, כמו ב-swipe.css)
+  var phoneC = function () { return window.matchMedia('(max-width:759px)').matches; };
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- 1. נתונים ---------- */
@@ -1062,6 +1064,10 @@
     // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר (גם בכותרת, ‏P1-E)
     var ll = 'הנכסים שאהבתי (' + likes.length + ')';
     $('swLikes').setAttribute('aria-label', ll); $('swLikes').title = ll;
+    // ‏Variant C: אותו מונה במסילה, ומוסתר באפס
+    $('swRailLikesN').textContent = likes.length;
+    $('swRailLikesN').hidden = !likes.length;
+    $('swRailLikes').setAttribute('aria-label', 'המועדפים (' + likes.length + ')');
     if (view === 'likes') renderLikesView();
   }
 
@@ -1816,7 +1822,41 @@
       $('swWa').href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים');
     }
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
+    syncRail(c, adv, phone);
   }
+  /* ‏Variant C: המסילה רק על כרטיס נכס. "ליועץ" לפי סוג המפרסם, כמו ctaLabel: עם טלפון - וואטסאפ
+     או חיוג (‏BS.contact), בלי טלפון - הטופס שבגיליון הפרטים */
+  function syncRail(c, adv, phone) {
+    var rail = $('swRail');
+    rail.hidden = !(c && c.slot === 'property');
+    if (rail.hidden) return;
+    var l = adv.type === 'agent' ? 'ליועץ' : adv.type === 'agency' ? 'למשרד' : 'למפרסם';
+    $('swRailAdvL').textContent = l;
+    $('swRailAdv').setAttribute('aria-label', l);
+    $('swRailAdvIc').querySelector('.sw-ric-wa').hidden = !phone;
+    $('swRailAdvIc').querySelector('.sw-ric-chat').hidden = !!phone;
+    $('swRailAdv').dataset.phone = phone ? '1' : '';
+    measureRail();
+  }
+  function measureRail() {
+    var h = $('swRail').offsetHeight;
+    if (h) document.documentElement.style.setProperty('--sw-rail-h', h + 'px');
+  }
+  window.addEventListener('resize', function () { if (!$('swRail').hidden) measureRail(); });
+  $('swRailLikes').addEventListener('click', function () { setView('likes'); });
+  $('swRailAdv').addEventListener('click', function () {
+    var c = cur();
+    if (!c || c.slot !== 'property') return;
+    if (this.dataset.phone) bsOpen('contact');
+    else openSheetFor(c, { form: true });
+  });
+  $('swRailSpec').addEventListener('click', function () {
+    var c = cur();
+    if (!c || c.slot !== 'property') return;
+    openSheetFor(c);
+    // אחרי האיפוס של openDialog (‏rAF) - גוללים לנתוני הנכס, כדי שזה לא יהיה עוד כפתור "לפרטים"
+    setTimeout(function () { var t = $('swSheetBody').querySelector('.sw-tiles'); if (t) t.scrollIntoView({ block: 'center' }); }, 80);
+  });
 
   var deciding = false;   // הכרטיס עוד עף - לחיצה כפולה לא מדלגת על הנכס הבא
   function decide(dir, via) {
@@ -2923,6 +2963,12 @@
       onOpen: function () { $('swBs').classList.add('is-tall', 'is-form'); FairSignup.bind($('swBsBody'), { where: 'swipe', onBack: function () { bsClose(); } }); } },
     seller: { art: '', title: 'ספרו לנו על הנכס', sub: '', btns: [], body: sellerHtml, onOpen: bindSeller,
       onClose: function () { shukTrack('seller_sheet_close', { sent: sellerSent ? 1 : 0 }); } },
+    // ‏Variant C: "ליועץ" במסילה, כשיש מספר - וואטסאפ או חיוג
+    contact: { art: '', title: 'איך נוח לכם?', sub: '', btns: [], body: function () {
+      return '<div class="sw-bs-row">' +
+        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa">וואטסאפ</a>' +
+        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call">חיוג</a></div>';
+    } },
     viz: { art: VIZ_ART, title: 'ככה זה יכול להיראות', sub: 'גררו את הידית שבאמצע כדי להשוות בין הצילום האמיתי להדמיית AI של הנכס.',
       btns: [['viz_ok', 'sw-navy', 'הבנתי, בואו נשווה'], ['studio', 'sw-white', '✨ צרו הדמיה בסגנון אחר']] }
   };
@@ -2984,6 +3030,12 @@
   $('swBsWrap').addEventListener('click', function (e) {
     var x = e.target.closest('[data-bs-close]');
     if (x) { bsClose(x.dataset.bsClose); return; }
+    var ct = e.target.closest('[data-contact]');
+    if (ct) {
+      // הקישור עצמו ממשיך (וואטסאפ בלשונית חדשה, ‏tel:) - רק סוגרים את הגיליון
+      shukTrack('swipe_contact_click', { via: 'rail', method: ct.dataset.contact, property_id: cur() && cur().p ? cur().p.id : '' });
+      bsClose(); return;
+    }
     var b = e.target.closest('[data-bs-cta]');
     if (b) {
       var kind = bsKind, cta = b.dataset.bsCta, ctx = bsCtx;
