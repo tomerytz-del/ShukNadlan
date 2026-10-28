@@ -18,6 +18,11 @@
 כל שורה, בכל מצב, נמחקת 30 יום אחרי תאריך הפוסט (`scraped_leads_lifecycle`,
 cron כל שעה ב-‎:29).
 
+מחפש/ת מפייסבוק או מאינסטגרם (`kind=buyer` ב-`social-lead-intake`) יכול/ה
+להיכנס לכאן ישירות כ-`open_demand`, בלי הסכמה ובלי שם, כש-
+`social_buyer_open_demand_enabled` הוא 1. הדגל נולד 0. המסלול המלא:
+`docs/social-leads.md`, "מחפש/ת לביקוש הפתוח". הטריגר לא שולח התראה.
+
 ## הקריאות של הסוכן הסורק
 
 ההוראות לסוכן הסורק עצמו, בנוסח שאפשר להעביר לו: `docs/agent-skills/facebook-leads-scanner.md`.

@@ -47,7 +47,7 @@ Content-Type: application/json
 | --- | --- | --- |
 | `property`, נכס פעיל | `property-inquiry-intake` - לסוכן/ת שמפרסם/ת | `leads.source` = הערוץ, `source_detail` = "פייסבוק · הודעה" |
 | `property`, נכס לא פעיל או לא נמצא | `saved-search-intake` עם `lead_only`, והקריטריונים מהנכס (עיר, סוג, חדרים, עסקה) | `saved_searches.source` |
-| `buyer` | `saved-search-intake` - `lead_only` אלא אם `subscribe_alerts` | `saved_searches.source` |
+| `buyer` | `saved-search-intake` - `lead_only` אלא אם `subscribe_alerts`. כש-`social_buyer_open_demand_enabled` הוא 1, הטריגר שאחרי ה-insert מעביר למדף הביקוש הפתוח (למטה). הדגל נולד 0, ואז נשאר במדף | `saved_searches.source` |
 | `owner` | `owner-lead-intake` - הרוטציה הרגילה | `leads.source`, `source_detail` |
 | `mortgage` | `mortgage-lead-intake` - מדף היועצים | `mortgage_leads.source` |
 
@@ -58,6 +58,34 @@ Content-Type: application/json
 **נכס שירד מהאוויר:** הפונה עדיין מחפש/ת נכס כזה, ולכן הוא/היא נכנס/ת למגירת
 "מחפשי דירה" בחנות. פנייה על נכס היא בקשה שמתווך/ת יחזור/תחזור - כמו הטופס
 בדף הנכס - ולכן ההסכמה נלקחת ממנה, אלא אם גבריאלה שלחה `consent_agent_contact: false`.
+זה `kind=property`, והטריגר של הביקוש הפתוח לא נוגע בו.
+
+## מחפש/ת לביקוש הפתוח
+
+`social_buyer_open_demand_enabled` נולד **0** ב-`20271029240000`. ב-0 אין
+שינוי: `kind=buyer` נשאר במדף "מחפשי דירה".
+
+המסלול, בלי שינוי ב-`social-lead-intake`, ב-`notify_agent_on_new_lead`
+וב-`notifications_apply_preferences`:
+
+1. Zernio קורא ל-`social-lead-intake`. השורה ב-`social_leads` נשמרת עם
+   `kind=buyer` ועוברת ל-`routing` לפני הקריאה פנימה.
+2. `saved-search-intake` קורא ל-`create_saved_search` וכותב `saved_searches`.
+3. הטריגר `social_buyer_to_open_demand` (אחרי insert) רץ רק אם הדגל 1,
+   המקור הוא `facebook_*` או `instagram_*`, אין שיוך למשרד, ויש שורת
+   `social_leads` ב-`routing` עם `kind=buyer`, אותו ערוץ, ואותו טלפון או מייל.
+4. יש עיר ש-`city_id_for_name` מזהה: `lead_status` הופך ל-`archived`
+   (יורד מהמדף, לא נמכר לסוכן/ת אחד/ת) ונכתבת שורת `scraped_leads` עם
+   `status=open_demand`, `lead_type=seeker_inbound`, בלי שם, בלי טלפון
+   ובלי הטקסט המקורי. `external_ref` הוא `zernio_id`.
+5. `open_demand_list` מציג את השורה מיד. וואטסאפ לא יוצא מהטריגר.
+   `scraped_leads_lifecycle` (הסבב הקיים, פעם בשעה) מודיע על שורה ש-
+   `demand_notified_at` שלה ריק. המיגרציה לא קוראת ל-`scraped_lead_notify_demand`.
+6. בלי עיר, או עיר שלא זוהתה: החיפוש נשאר במדף.
+7. "אני פונה" (`open_demand_claim`) מחזיר את `post_url` ולא את הטלפון.
+   לפנייה בהודעה אין פוסט, ולכן הכתובת היא
+   `https://shuknadlan.co.il/crm?goto=accLeads&tab=demand`. הפרטים נשארים
+   על שורת `saved_searches` שאורכבה, ולא מועתקים ל-`scraped_leads`.
 
 ## מי רשאי/ת לסמן מקור חברתי
 
