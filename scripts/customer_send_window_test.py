@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MIG = ROOT / "supabase/migrations/20271030000100_customer_send_window.sql"
 FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
+FOLLOW2 = ROOT / "supabase/migrations/20271030230000_customer_clock_lifecycle_lock.sql"
 DB = os.environ.get("CUSTOMER_WINDOW_TEST_DB", "customer_window_test")
 
 
@@ -133,6 +134,19 @@ $$;
 """)
     psql_file(MIG)
     psql_file(FOLLOW)
+    psql_file(FOLLOW2)
+    psql_file(FOLLOW2)
+    clock = FOLLOW2.read_text(encoding="utf-8")
+    life = clock.lower().split("function public.scraped_leads_lifecycle", 1)[1]
+    life = life.split("function public.app_push_on_saved_search_alert", 1)[0]
+    if "order by s.id" not in life or "for update" not in life:
+        fail("עדכון ההסכמה לא נועל לפי id")
+    trig = clock.lower().split("function public.app_push_on_saved_search_alert", 1)[1]
+    decl = trig.split("begin", 1)[0]
+    if "customer_at" in decl or "::timestamptz" in decl:
+        fail("המרת app.customer_at עדיין ב-declare")
+    if "app.test_mode" not in trig or "session_user" not in trig:
+        fail("שעון הבדיקה אינו מוגבל לסשן בדיקה")
 
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 08:00:00')})", "t", "ראשון 08:00")
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 07:59:00')})", "f", "ראשון 07:59")
@@ -431,6 +445,7 @@ $$;
       update public.saved_search_alerts
          set created_at = {open_at} - interval '1 hour'
        where id = 'cccccccc-cccc-cccc-cccc-cccccccccc10';
+      select set_config('app.test_mode', 'on', false);
       select set_config('app.customer_at', ({open_at})::text, false);
       select public.customer_prepare({open_at});
     """)
@@ -444,6 +459,70 @@ $$;
         "1",
         "הדחיפה לא תופסת מקום שני",
     )
+
+    clock_alert = "cccccccc-cccc-cccc-cccc-cccccccccc20"
+    psql(f"""
+      insert into public.properties (id, status, city, title) values
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa20', 'active', 'עפולה', 'דירה');
+      insert into public.saved_searches (id, full_name, phone_e164, status, cities)
+      values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb20', 'בדיקה', '{push_phone}', 'active', array['עפולה']);
+      insert into public.app_push_devices (id, saved_search_id)
+      values ('dddddddd-dddd-dddd-dddd-dddddddddd20', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb20');
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at)
+      values ('{clock_alert}', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb20',
+              'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa20', 'skipped', now());
+    """)
+    psql("grant select, update on public.saved_search_alerts to service_role")
+
+    def clock_fire(mode: str | None, raw: str | None, role: str | None = None) -> str:
+        psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+        psql(f"delete from public.app_push_log where alert_id = '{clock_alert}'")
+        psql(f"""
+          update public.saved_search_alerts
+             set status = 'skipped', last_error = null
+           where id = '{clock_alert}'
+        """)
+        lines = []
+        if role:
+            lines.append(f"set session authorization {role};")
+        if mode is not None:
+            lines.append(f"select set_config('app.test_mode', '{mode}', false);")
+        if raw is not None:
+            lines.append(f"select set_config('app.customer_at', {raw}, false);")
+        lines.append(f"""
+          update public.saved_search_alerts
+             set status = 'pending', last_error = null
+           where id = '{clock_alert}';
+        """)
+        psql("\n".join(lines))
+        return psql(f"""
+          select status || '|' || coalesce(last_error, '') || '|' ||
+                 (select count(*)::text from public.app_push_log where alert_id = '{clock_alert}')
+            from public.saved_search_alerts where id = '{clock_alert}'
+        """)
+
+    now_open = psql("select public.send_window_open('customer_push', now())") == "t"
+    fallback = clock_fire("on", "'not-a-timestamp'")
+    plain = clock_fire("on", None)
+    if fallback != plain:
+        fail(f"שעון שבור לא נפל ל-now(): {fallback} מול {plain}")
+    want_now = "pending||1" if now_open else "deferred|quiet|0"
+    if fallback != want_now:
+        fail(f"נפילה ל-now() לא תואמת את החלון: {fallback}, חלון פתוח={now_open}")
+
+    injected = f"({at('2026-08-02 03:00:00')})::text" if now_open else f"({at('2026-08-02 08:00:00')})::text"
+    want_test = "deferred|quiet|0" if now_open else "pending||1"
+    want_live = "pending||1" if now_open else "deferred|quiet|0"
+    got = clock_fire("on", injected)
+    if got != want_test:
+        fail(f"שעון בדיקה לא חל: {got}, ציפיתי {want_test}")
+    got = clock_fire(None, injected)
+    if got != want_live:
+        fail(f"בלי test_mode השעון חל: {got}, ציפיתי {want_live}")
+    got = clock_fire("on", injected, "service_role")
+    if got != want_live:
+        fail(f"service_role מזיז את השעון: {got}, ציפיתי {want_live}")
+    psql(f"update public.saved_search_alerts set status = 'skipped', last_error = null where id = '{clock_alert}'")
 
     one = phone_with_minute(5)
     one_alert = "cccccccc-cccc-cccc-cccc-cccccccccc13"
