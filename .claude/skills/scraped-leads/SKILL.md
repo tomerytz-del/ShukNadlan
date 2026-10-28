@@ -47,13 +47,18 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 `property_details` (גלוי בליד נעול): הוא מזהה את האדם.
 
 מחפש/ת מפייסבוק או מאינסטגרם (`kind=buyer`) יכול/ה להיכנס לכאן בלי הסורק,
-רק כש-`social_buyer_open_demand_enabled` הוא 1. הדגל נולד 0. הטריגר
-`social_buyer_to_open_demand` רץ אחרי insert ל-`saved_searches` ולא נוגע
-ב-`social-lead-intake`, ב-`notify_agent_on_new_lead` או ב-
-`notifications_apply_preferences`. הוא כותב `open_demand` אנונימי
-(`raw_name` / `raw_phone` / `raw_message` ריקים) ולא קורא ל-
-`scraped_lead_notify_demand`. ההתראה יוצאת אחר כך מ-`scraped_leads_lifecycle`.
-המסלול המלא: `docs/social-leads.md`, "מחפש/ת לביקוש הפתוח".
+רק כש-`social_buyer_open_demand_enabled` הוא 1 **וגם** `social_buyer_caps_ready()`
+(תקרת #1037 דלוקה, `open_demand_notify_log` קיימת, ו-`whatsapp_template_cap_on()`
+מחזיר true). הדגל נולד 0. אין מילוי לאחור. הטריגר `social_buyer_to_open_demand`
+רץ אחרי insert ל-`saved_searches` ולא נוגע ב-`social-lead-intake`,
+ב-`notify_agent_on_new_lead` או ב-`notifications_apply_preferences`. הוא
+כותב `open_demand` אנונימי (`raw_name` / `raw_phone` / `raw_message` ריקים)
+ולא קורא ל-`scraped_lead_notify_demand`. ההתראה יוצאת אחר כך
+מ-`scraped_leads_lifecycle`, לעד התקרה, בנוסח בלי המילה "פוסט".
+`lead_status=archived` מוריד מהמדף ולא עוצר התראות נכס: אלה רצות על
+`status='active'`. "אני פונה" קורא ל-`social_buyer_handover` (pending, בלי
+שם ובלי טלפון) ולא מחזיר קישור. המסלול המלא: `docs/social-leads.md`,
+"מחפש/ת לביקוש הפתוח".
 
 ## 3. "עובד/ת בעיר" ו"מתעסק/ת בסוג" - שתי פונקציות, שלושה צרכנים
 

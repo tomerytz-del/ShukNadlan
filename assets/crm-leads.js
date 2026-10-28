@@ -553,14 +553,20 @@ function renderOpenDemand(listEl){
     return;
   }
   listEl.innerHTML = hint + openDemandRows.map(d => {
-    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
+    const src = d.source === 'instagram_dm' || d.source === 'instagram_comment' ? 'אינסטגרם'
+      : d.source === 'facebook_dm' || d.source === 'facebook_comment' ? 'פייסבוק'
+      : d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
+    const rule = url ? (nb ? nb.rule : OPEN_DEMAND_RULE)
+      : 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.';
     const act = d.mine
-      ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
+      ? (url
+          ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`
+          : '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>')
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">אני פונה - לפוסט ↗</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה - לפוסט ↗' : 'אני פונה'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -570,7 +576,7 @@ function renderOpenDemand(listEl){
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
       + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
-      + `<p class="lp-why"><strong>${esc(nb ? nb.rule : OPEN_DEMAND_RULE)}</strong></p>`
+      + `<p class="lp-why"><strong>${esc(rule)}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');
@@ -583,8 +589,10 @@ const OPEN_DEMAND_CLAIM_ERR = {
 };
 
 async function claimOpenDemand(id, btn){
-  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await
-  const win = window.open('', '_blank');
+  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await.
+  // בלי פוסט (שיחה עם גבריאלה) אין לאן לפתוח, וחלון ריק רק מפריע.
+  const openPost = !!(btn && btn.getAttribute('data-open-post') === '1');
+  const win = openPost ? window.open('', '_blank') : null;
   if (btn) btn.disabled = true;
   const { data, error } = await sb.rpc('open_demand_claim', { p_id: id });
   const err = error ? heErr(error) : (data && data.error ? (OPEN_DEMAND_CLAIM_ERR[data.error] || heErr(data.error)) : '');

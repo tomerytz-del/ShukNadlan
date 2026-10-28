@@ -62,8 +62,12 @@ Content-Type: application/json
 
 ## מחפש/ת לביקוש הפתוח
 
-`social_buyer_open_demand_enabled` נולד **0** ב-`20271029240000`. ב-0 אין
-שינוי: `kind=buyer` נשאר במדף "מחפשי דירה".
+`social_buyer_open_demand_enabled` נולד **0** ב-`20271029240000`
+(מעל `20271029110000` שב-main. `20271028240000` שייך ל-#1021 ולא לקובץ הזה).
+ב-0 אין שינוי: `kind=buyer` נשאר במדף "מחפשי דירה". גם 1 לא מעביר, כל עוד
+`social_buyer_caps_ready()` הוא false: צריך ש-`open_demand_notify_cap_enabled`
+יהיה 1, ש-`open_demand_notify_log` קיימת (#1037), וש-`whatsapp_template_cap_on()`
+קיימת ומחזירה true (#1051). אין מילוי לאחור של חיפושים שכבר נשמרו.
 
 המסלול, בלי שינוי ב-`social-lead-intake`, ב-`notify_agent_on_new_lead`
 וב-`notifications_apply_preferences`:
@@ -71,21 +75,34 @@ Content-Type: application/json
 1. Zernio קורא ל-`social-lead-intake`. השורה ב-`social_leads` נשמרת עם
    `kind=buyer` ועוברת ל-`routing` לפני הקריאה פנימה.
 2. `saved-search-intake` קורא ל-`create_saved_search` וכותב `saved_searches`.
-3. הטריגר `social_buyer_to_open_demand` (אחרי insert) רץ רק אם הדגל 1,
-   המקור הוא `facebook_*` או `instagram_*`, אין שיוך למשרד, ויש שורת
-   `social_leads` ב-`routing` עם `kind=buyer`, אותו ערוץ, ואותו טלפון או מייל.
+3. הטריגר `social_buyer_to_open_demand` (אחרי insert) רץ רק אם הדגל 1
+   ושתי התקרות דלוקות, המקור הוא `facebook_*` או `instagram_*`, אין שיוך
+   למשרד, ויש שורת `social_leads` ב-`routing` עם `kind=buyer`, אותו ערוץ,
+   אותו טלפון או מייל, **ואותם קריטריונים** (עיר, סוג עסקה, סוג נכס, חדרים,
+   מחיר - כל שדה שנמצא בשני הצדדים). שני חיפושים של אותו אדם ב-30 הדקות
+   לא נצמדים זה לזה. מזהה שיחת מטא (`conversation_id` / `thread_id` /
+   `meta_conversation_id` / `gabriela_conversation_id` ב-payload) משווה רק
+   כש-`social_buyer_search_conversation_id` מחזיר ערך. היום היא מחזירה null,
+   כי אין עמודה על החיפוש. כשתהיה, רק הפונקציה הזו משתנה.
 4. יש עיר ש-`city_id_for_name` מזהה: `lead_status` הופך ל-`archived`
-   (יורד מהמדף, לא נמכר לסוכן/ת אחד/ת) ונכתבת שורת `scraped_leads` עם
+   (יורד מהמדף, לא נמכר לסוכן/ת אחד/ת). `status` של מנוי ההתראות לא משתנה.
+   `generate_saved_search_alerts` ו-`saved_search_pending_alerts` מסננים
+   `status = 'active'`, לא את `lead_status`, ולכן `subscribe_alerts` ממשיך
+   לקבל התראות על נכסים. נכתבת שורת `scraped_leads` עם
    `status=open_demand`, `lead_type=seeker_inbound`, בלי שם, בלי טלפון
    ובלי הטקסט המקורי. `external_ref` הוא `zernio_id`.
-5. `open_demand_list` מציג את השורה מיד. וואטסאפ לא יוצא מהטריגר.
+5. `open_demand_list` מציג את השורה מיד, ובלי `post_url` (אין פוסט; הכתובת
+   שנשמרת בטבלה רק ממלאת את האילוץ `https://`). וואטסאפ לא יוצא מהטריגר.
    `scraped_leads_lifecycle` (הסבב הקיים, פעם בשעה) מודיע על שורה ש-
    `demand_notified_at` שלה ריק. המיגרציה לא קוראת ל-`scraped_lead_notify_demand`.
+   ההתראה למחפש/ת כזה יוצאת לעד `open_demand_notify_cap` (8), קודם למי שלא
+   תפס/ה ליד ב-14 הימים, והנוסח לא אומר להגיב בפוסט. בלי יומן התקרה השורה
+   לא מופצת. אם תקרת התבניות כבויה, ההתראה נשארת בפעמון.
 6. בלי עיר, או עיר שלא זוהתה: החיפוש נשאר במדף.
-7. "אני פונה" (`open_demand_claim`) מחזיר את `post_url` ולא את הטלפון.
-   לפנייה בהודעה אין פוסט, ולכן הכתובת היא
-   `https://shuknadlan.co.il/crm?goto=accLeads&tab=demand`. הפרטים נשארים
-   על שורת `saved_searches` שאורכבה, ולא מועתקים ל-`scraped_leads`.
+7. "אני פונה" (`open_demand_claim`) על השורה הזו קורא ל-`social_buyer_handover`
+   ולא מחזיר `post_url`, שם או טלפון. הפונקציה מחזירה `handover: pending`.
+   איך הפרטים יימסרו לסוכן/ת זו החלטה שעדיין לא נפלה, והיא מתחלפת רק שם.
+   הפרטים נשארים על שורת `saved_searches` שאורכבה, ולא מועתקים ל-`scraped_leads`.
 
 ## מי רשאי/ת לסמן מקור חברתי
 
