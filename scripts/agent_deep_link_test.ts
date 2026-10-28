@@ -358,7 +358,7 @@ const bell = openStored("/crm?goto=bell");
 check("פעמון שמור נפתח", bell === true && opened && replaced === "/crm?goto=bell");
 const agentPage = openStored("/agent?slug=dana#reviewsSec");
 check("דף סוכן/ת שמור עובר", agentPage === true && assigned === "/agent?slug=dana#reviewsSec");
-const mig = readFileSync(new URL("../supabase/migrations/20271028210000_notification_action_path.sql", import.meta.url), "utf8");
+const mig = readFileSync(new URL("../supabase/migrations/20271029210000_notification_action_path.sql", import.meta.url), "utf8");
 check("העמודה וה-claim", mig.includes("add column if not exists action_path") && mig.includes("'action_path', n.action_path") && mig.includes("notification_types_add(array['leads_digest'])"));
 
 const agent = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");

@@ -241,7 +241,7 @@ end;
 $$;
 
 comment on function public.notification_push_claim(int) is
-  'כמו 20271028140000, ומוסיף action_path לכל פריט. השדה ריק עד שמי שכותב התראה ממלא אותו.';
+  'כמו 20271029140000, ומוסיף action_path לכל פריט. השדה ריק עד שמי שכותב התראה ממלא אותו.';
 
 revoke all on function public.notification_push_claim(int) from public, anon, authenticated;
 grant execute on function public.notification_push_claim(int) to service_role;

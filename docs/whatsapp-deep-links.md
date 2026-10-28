@@ -140,7 +140,7 @@
 
 `notifications.action_path` הוא נתיב יחסי שמתחיל ב-`/`. אם הוא תקין,
 `itemPath` והפעמון מעדיפים אותו. אחרת נשאר המיפוי לפי סוג. מיגרציה
-`20271028210000`, לא הוחלה.
+`20271029210000`, לא הוחלה.
 
 `leads_digest` (וגם `digest`) נפתחים ל-`/crm?goto=accLeads`, בלי `lead=`.
 `open_demand` נשאר `tab=demand`. `new_lead` בלי `lead_id`, או עם מזהה
