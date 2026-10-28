@@ -3454,6 +3454,12 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   @keyframes v10Shim{from{background-position:180% 0}to{background-position:-60% 0}}
   @media(max-width:759px){html.beta-hero body .hero .v10-view{min-height:44px;font-size:13px;flex-direction:column;gap:2px;padding:6px 4px}}
   @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-shimmer{animation:none}}
+  /* ‏P1-P: ההצעה בשורת החיפוש */
+  .ss-suggest{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 0}
+  .ss-suggest[hidden]{display:none}
+  .ss-suggest a{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;background:#c9a227;color:#0d1b3d;font-weight:800;text-decoration:none}
+  .ss-suggest a:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
+  .ss-suggest p{margin:0;font-size:14px;color:#4a5060}
   /* ‏P1-U1: שורת צ'יפים נגללת לרוחב בלי לשבור שורה, ובורר אזור */
   html.beta-hero .dm-filters{display:flex;flex-direction:column;gap:8px;margin:10px 0 4px}
   html.beta-hero .dm-filters[hidden]{display:none}
@@ -4309,6 +4315,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="ss-empty-btn" id="ssEmptyBtn" hidden></button>
             </div>
             <p class="ss-note" id="ssNote" aria-live="polite"></p>
+            <!-- ‏P1-P: הצעה לבעלי מקצוע או למודעה לפי מספר - מעל הפירוש הרגיל, בלי מעבר אוטומטי -->
+            <div class="ss-suggest" id="ssSuggest" aria-live="polite" hidden></div>
           </div>
 
           <!-- חלק 4 §2: שלושה כפתורי תצוגה שווים - החלקה (ראשי, "חדש"), מפה, רשימה -->

@@ -472,3 +472,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `dm_filter_clear` | "לנקות את הסינון" / "להציג את כל האזורים" במצב הריק | `tab` |
 | `social_prompt_dismiss` | ‏CRM: "לא עכשיו" בכרטיס התיוג בפרסומים (‏P1-R). נדחף ישירות ל-dataLayer (ה-CRM אינו טוען את events.js) | `mode`: ‏`later` \| `never` |
 | `gab_hint_click` | לחיצה על שאלת הדוגמה שמוקלדת בשדה של גבריאלה (‏P1-Q, v10) - השאלה נכנסת לשדה | `hint_index`: ‏0-9 (מיקום ב-`GW_HINTS`) |
+| `gab_pro_pick` | תחום בעלי מקצוע מתוך "התייעצות עם בעלי מקצוע" בגבריאלה (‏P1-P, v10) | `type`: ‏`mortgage_advisor` \| `appraiser` \| `real_estate_lawyer` \| `architect` \| `interior_designer` \| `all` |
+| `search_pro_suggest` | שורת החיפוש זיהתה בקשה לבעלי מקצוע והציגה הצעה (פעם אחת לתחום) | `type`, `surface`: ‏`home` |
+| `search_pro_click` | מעבר לדף בעלי המקצוע מההצעה, או Enter כשההצעה היא היחידה | `type`, `surface` |
+| `search_listing_number` | חיפוש לפי מספר מודעה ב-Enter. בלי המספר עצמו | `found`: ‏`1` \| `0`, `surface`: ‏`home` |

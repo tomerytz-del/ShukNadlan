@@ -1204,6 +1204,10 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
   #planningSection .plan-summary{margin:4px 0 0;font-size:.8rem;color:var(--ink-soft)}
   #planningSection .plan-summary:empty{display:none}
   #planningBody{margin-top:14px}
+  /* ‏P1-P: מספר המודעה, שורה אפורה קטנה */
+  #listingNo{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:13px;color:#6b7280}
+  #listingNo[hidden]{display:none}
+  #listingCopy{min-height:32px;padding:0 10px;border:1px solid #d6dbe6;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1331,6 +1335,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
+        <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן -->
+        <p class="listing-no" id="listingNo" hidden>מודעה #<span id="listingNoN"></span>
+          <button type="button" id="listingCopy" aria-label="העתקת מספר המודעה" title="העתקת מספר המודעה">העתקה</button></p>
 
         <!-- ====== יריד הבתים הפתוחים ======
              הרצועה יושבת מעל התיאור ולא בתחתית העמוד: "בלי עמלת תיווך"

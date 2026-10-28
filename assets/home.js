@@ -8433,3 +8433,83 @@ function initDmFilters(state, data, rerender){
     },
   };
 }
+
+/* ---------- ‏P1-P: בעלי מקצוע ומספר מודעה בשורת החיפוש ----------
+   "עורך דין" / "שמאי" מציעים את דף בעלי המקצוע מעל הפירוש הרגיל, בלי מעבר אוטומטי; Enter
+   כשאין בטקסט שום דבר על נכס - מעבר. "מודעה 1316" / "#1316" עוברים לנכס; מספר לבדו
+   (יכול להיות מחיר) רק מוצע. הבדיקה במסד רק ב-Enter, לא בכל הקלדה. */
+const PRO_INTENTS = [
+  { type:'real_estate_lawyer', re:/עו["״׳']?ד|עורך דין|עורכת דין|עורכי דין/, label:'עורכי הדין למקרקעין', one:'עורך דין מקרקעין' },
+  { type:'appraiser',          re:/שמאי|שמאית|שמאות/,                    label:'שמאי המקרקעין', one:'שמאי מקרקעין' },
+  { type:'architect',          re:/אדריכל/,                               label:'האדריכלים', one:'אדריכל' },
+  { type:'interior_designer',  re:/מעצב(?:ת)? פנים|עיצוב פנים/,          label:'מעצבי הפנים', one:'מעצב פנים' },
+  // משכנתא רק כשאין בטקסט נכס ("דירה עם משכנתא" נשאר חיפוש נכס)
+  { type:'mortgage_advisor',   re:/יועצ(?:ת)? משכנתא|משכנתא/,            label:'יועצי המשכנתאות', one:'יועץ משכנתאות', bare:true },
+];
+const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטהאוז|קוטג|מכירה|למכור|לקנות|השכרה|להשכרה|שכירות|מיליון|אלף|₪|\d/;
+(function searchExtras(){
+  const input = document.getElementById('ssQuery'), box = document.getElementById('ssSuggest');
+  if (!input || !box) return;
+  // בשם shukTrack: check_gtm_container.py מוצא את האירועים לפי השם הזה
+  const shukTrack = (n, p) => { if (window.shukTrack) window.shukTrack(n, p); };
+  let proShown = '';
+  function proOf(t){
+    const hit = PRO_INTENTS.find(x => x.re.test(t));
+    if (!hit) return null;
+    if (hit.bare && PROPERTY_WORDS.test(t.replace(hit.re, ''))) return null;
+    return hit;
+  }
+  function show(html){ box.innerHTML = html; box.hidden = !html; }
+  function renderPro(){
+    const t = input.value.trim(), hit = t ? proOf(t) : null;
+    if (!hit){ if (proShown) show(''); proShown = ''; return; }
+    show('<a href="/professionals?type=' + hit.type + '" data-pro="' + hit.type + '">מחפשים ' + escapeHtml(hit.one) + '? לרשימת ' + escapeHtml(hit.label) + ' ←</a>');
+    if (proShown !== hit.type){ proShown = hit.type; shukTrack('search_pro_suggest', { type: hit.type, surface: 'home' }); }
+  }
+  let t0 = 0;
+  input.addEventListener('input', () => { clearTimeout(t0); t0 = setTimeout(renderPro, 250); });
+  box.addEventListener('click', e => {
+    const a = e.target.closest('a[data-pro]');
+    if (a) shukTrack('search_pro_click', { type: a.dataset.pro, surface: 'home' });
+  });
+  async function lookup(n){
+    if (!sb) return null;
+    try {
+      const { data } = await sb.from('properties').select('id, listing_number, city, property_type, price, deal_type')
+        .eq('listing_number', n).eq('status', 'active').limit(1);
+      return (data && data[0]) || null;
+    } catch(e){ return null; }
+  }
+  const listingHref = p => '/property?id=' + encodeURIComponent(p.id);
+  // ‏capture במסמך: לפני שהמשפט מפרש את הטקסט כמחיר ולפני שהטופס נשלח
+  document.addEventListener('keydown', async e => {
+    if (e.key !== 'Enter' || e.target !== input) return;
+    const t = input.value.trim();
+    const pre = t.match(/^(?:מודעה\s*#?\s*|#)(\d{3,7})$/);
+    if (pre){
+      e.preventDefault(); e.stopPropagation();
+      const p = await lookup(Number(pre[1]));
+      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
+      if (p){ location.href = listingHref(p); return; }
+      show('<p>לא מצאנו מודעה פעילה עם המספר הזה.</p>');
+      return;
+    }
+    const hit = proOf(t);
+    if (hit && !PROPERTY_WORDS.test(t.replace(hit.re, ''))){
+      e.preventDefault(); e.stopPropagation();
+      shukTrack('search_pro_click', { type: hit.type, surface: 'home' });
+      location.href = '/professionals?type=' + hit.type;
+      return;
+    }
+    const bare = t.match(/^(\d{3,7})$/);
+    if (bare){
+      // המספר עדיין עובר לפירוש כמחיר; כאן רק הצעה, אם יש מודעה כזו
+      const p = await lookup(Number(bare[1]));
+      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
+      if (p){
+        const bits = [p.property_type, p.city, p.price ? '₪' + Number(p.price).toLocaleString('he-IL') : ''].filter(Boolean).join(' · ');
+        show('<a href="' + escapeHtml(listingHref(p)) + '">מעבר למודעה #' + escapeHtml(String(p.listing_number)) + (bits ? ' (' + escapeHtml(bits) + ')' : '') + ' ←</a>');
+      }
+    }
+  }, true);
+})();

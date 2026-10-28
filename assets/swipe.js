@@ -18,7 +18,7 @@
   var INQUIRY_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
   var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, city_id, street, address, house_number, ' +
-    'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, ' +
+    'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, listing_number, ' +
     'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_url, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name)';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
 
@@ -1750,7 +1750,9 @@
         '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
       '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) +
         (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p><a href="/open-house">מה זה היריד? ←</a></div>' : '') +
-        (c.p ? propInfoHtml(c.p) : '') + '</div>' +
+        (c.p ? propInfoHtml(c.p) : '') +
+        // ‏P1-P: מספר המודעה בתחתית הפרטים
+        (c.p && c.p.listing_number ? '<p class="sw-listing-no">מודעה #' + esc(String(c.p.listing_number)) + '</p>' : '') + '</div>' +
       (studio ? '<div id="swTabViz" class="sw-studio" role="tabpanel" aria-labelledby="swTabBtnViz" hidden></div>' : '');
     $('swCtaBar').hidden = false;
     st = null;

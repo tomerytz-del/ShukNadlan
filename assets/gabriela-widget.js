@@ -55,6 +55,10 @@
     { key: 'fair',  label: 'יריד הבתים הפתוחים',     text: 'היי גבריאלה, אשמח לשמוע על יריד הבתים הפתוחים ללא עמלת תיווך' }
   ];
   var FREE_DEFAULT = 'היי גבריאלה, אשמח לעזרה';
+  // ‏P1-P: התחומים לפי professionals.html (‏TYPE_PLURAL); "כל בעלי המקצוע" - בלי type
+  var GW_PROS = [['mortgage_advisor', 'יועצי משכנתאות'], ['appraiser', 'שמאי מקרקעין'], ['real_estate_lawyer', 'עורכי דין מקרקעין'],
+    ['architect', 'אדריכלים'], ['interior_designer', 'מעצבי פנים'], ['', 'כל בעלי המקצוע']];
+  var PRO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>';
   /* ‏P1-Q: דוגמאות שאלות שמוקלדות בשדה (v10). ניטרליות, בלי מספרים שמשתנים מיום ליום */
   var GW_HINTS = ['דירת 4 חדרים בעפולה עד 1.5 מיליון?', 'מה יש להשכרה ליד הקניון?', 'כמה שווה הדירה שלי?', 'יש נכסים בלי עמלת תיווך?',
     'אפשר לראות הדמיה של הנכס משופץ?', 'מחפשים בית פרטי בעמק', 'חנות להשכרה עם חזית לרחוב', 'רוצים להתייעץ עם שמאי',
@@ -87,6 +91,8 @@
       owner: { text: 'אחבר אתכם למשרד תיווך מוביל באזור, כולל הערכת שווי חינם והדמיית AI לנכס שלכם.' },
       // ‏?fair=1 - ‏swipe.js מסנן לנכסים שביריד עכשיו
       fair: { text: 'ביריד יש דירות ב' + mkt + ' ללא עמלת תיווך, לזמן מוגבל. רוצים לעבור עליהן בהחלקה?', cta: 'להחליק על דירות היריד', href: '/swipe?deal=sale&fair=1' },
+      // ‏P1-P: בלי בוט - קישורים לדפי בעלי המקצוע לפי תחום
+      pro: { text: 'באיזה תחום צריך עזרה?', pros: true },
       swipe: { text: vizMost() ? 'יאללה! ימינה שומרים, שמאלה מדלגים, ולרוב הנכסים יש ✨ הדמיה.' : 'יאללה! ימינה שומרים, שמאלה מדלגים.', cta: 'התחילו להחליק', href: '/swipe' }
     }[key];
   }
@@ -260,6 +266,10 @@
     '#gabW .gw-choices.is-compact{gap:6px;margin:0;padding:2px 0}',
     '#gabW .gw-choices.is-compact .gw-choice{min-height:44px;padding:6px 10px;font-size:13px;border-width:1.5px}',
     '#gabW .gw-choices.is-compact .gw-choice svg{width:15px;height:15px}',
+    '#gabW .gw-pros{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 0;padding:0;list-style:none}',
+    '#gabW .gw-pro{display:flex;align-items:center;justify-content:center;min-height:44px;padding:6px 10px;border:1.5px solid var(--gw-navy);border-radius:12px;background:#fff;color:var(--gw-navy);font-weight:700;font-size:13.5px;text-align:center;text-decoration:none;line-height:1.3}',
+    '#gabW .gw-pro:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
+    '@media(hover:hover){#gabW .gw-pro:hover{background:var(--gw-navy);color:#fff}}',
     '#gabW .gw-inwrap{position:relative}',
     '#gabW .gw-type{position:absolute;inset-inline-start:13px;max-width:calc(100% - 26px);top:50%;transform:translateY(-50%);color:#6b7280;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;pointer-events:auto}',
     '#gabW .gw-type:not(.is-static)::after{content:"|";margin-inline-start:1px;animation:gwCaret 1s steps(1) infinite}',
@@ -437,6 +447,14 @@
         else li.appendChild(waLink('gw-choice', 'widget_' + c.key, c.text, c.label));
         list.appendChild(li);
       });
+      // ‏P1-P (v10): אחרי "יריד הבתים הפתוחים" - בעלי מקצוע, בלי וואטסאפ
+      if (v10) {
+        var pl = el('li');
+        var pb = el('button', { type: 'button', 'class': 'gw-choice', 'data-pick': 'pro' });
+        pb.innerHTML = PRO_ICON + '<span>התייעצות עם בעלי מקצוע</span>';
+        pl.appendChild(pb);
+        list.appendChild(pl);
+      }
       // בדף ההחלקה עצמו אין טעם להציע החלקה
       if (v10 && GAB_SWIPE_CHIP && !/^\/swipe/.test(location.pathname)) {
         var sl = el('li', { 'class': 'gw-full' });
@@ -484,6 +502,15 @@
           var a = el('a', { 'class': 'gw-cta', href: r.href, 'data-swipe-via': 'gabriela' }, r.cta);
           box.appendChild(a);
         }
+        if (r.pros) {
+          var ul = el('ul', { 'class': 'gw-pros', 'aria-label': 'תחומי בעלי המקצוע' });
+          GW_PROS.forEach(function (x) {
+            var li = el('li');
+            li.appendChild(el('a', { 'class': 'gw-pro', href: '/professionals' + (x[0] ? '?type=' + x[0] : ''), 'data-pro-type': x[0] || 'all' }, x[1]));
+            ul.appendChild(li);
+          });
+          box.appendChild(ul);
+        }
         typing.replaceWith(box);
         scrollToLatest();
       }, reduceMotion ? 0 : TYPING_MS);
@@ -497,6 +524,8 @@
          swipe_start משלו, ושני אירועים היו סופרים את אותה התחלה פעמיים. בדף /swipe
          עצמו הכפתור מחיל את הסינון במקום (‏window.SwipeApp) ולא טוען את הדף מחדש */
       conv.addEventListener('click', function (e) {
+        var pa = e.target.closest && e.target.closest('a.gw-pro');
+        if (pa && window.shukTrack) { window.shukTrack('gab_pro_pick', { type: pa.getAttribute('data-pro-type') }); return; }
         var a = e.target.closest && e.target.closest('a.gw-cta');
         if (!a) return;
         var q = new URLSearchParams((a.getAttribute('href') || '').split('?')[1] || '');

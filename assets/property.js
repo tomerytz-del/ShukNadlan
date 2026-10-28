@@ -2760,11 +2760,22 @@ function renderProperty(p){
   const price = priceParts(p);
   document.getElementById('heroPriceNum').innerHTML =
     escapeHtml(price.num) + (price.suffix ? `<span class="suffix">${escapeHtml(price.suffix)}</span>` : '');
+  // ‏price_per_sqm מתעלמת מ-price_unit (ב-13 מסחריים יצא 0-2 ₪): כשהמחיר כבר למ״ר - הוא עצמו (P1-N, ד-9)
+  const ppsqm = p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
   document.getElementById('heroPriceSub').textContent =
-    p.price_per_sqm ? Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
+    ppsqm ? ppsqm.toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
   document.getElementById('heroPrice').hidden = false;
 
   document.getElementById('propTitle').textContent = publicTitle(p);
+  if (p.listing_number){
+    document.getElementById('listingNoN').textContent = p.listing_number;
+    document.getElementById('listingNo').hidden = false;
+    document.getElementById('listingCopy').onclick = async (e) => {
+      try { await navigator.clipboard.writeText(String(p.listing_number)); e.target.textContent = 'הועתק'; }
+      catch(_){ e.target.textContent = String(p.listing_number); }
+      setTimeout(() => { e.target.textContent = 'העתקה'; }, 2000);
+    };
+  }
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
