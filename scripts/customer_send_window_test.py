@@ -65,6 +65,9 @@ def phone_with_minute(minute: int) -> str:
 def main() -> int:
     if not MIG.is_file():
         fail("חסרה המיגרציה")
+    src = MIG.read_text(encoding="utf-8")
+    if "if tg_op = 'UPDATE' and not public.customer_send_window_on()" not in src:
+        fail("עדכון status שולח פוש גם כשחלון הלקוחות כבוי")
     subprocess.run(["dropdb", "--if-exists", DB], check=False)
     subprocess.run(["createdb", DB], check=True)
     psql("""

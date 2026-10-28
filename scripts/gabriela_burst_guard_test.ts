@@ -54,7 +54,15 @@ check("הספירה רק ממתינים לדחיפה, בלי נקרא ובלי �
   "not public.notification_push_burst_exempt(n.type, ld.source)",
   "notification_push_log_holds",
 ].every((part) => prep.includes(part)));
-const breaker = prep.slice(prep.indexOf("if v_guard = 0 then"));
+const guardOffEnd = prep.indexOf("end if;", prep.indexOf("if v_guard = 0 then"));
+const guardOff = prep.slice(prep.indexOf("if v_guard = 0 then"), guardOffEnd);
+check("מתג כבוי יוצא בלי skipped", guardOff.includes("return") && !guardOff.includes("skipped"));
+const marked = prep.slice(guardOffEnd);
+check("שלושת הסימונים רק אחרי היציאה",
+  marked.indexOf("suppress_push; site only") >= 0
+  && marked.indexOf("stale; site only") > marked.indexOf("suppress_push; site only")
+  && marked.indexOf("photo_request extra") > marked.indexOf("stale; site only"));
+const breaker = prep.slice(prep.indexOf("רק מה שעדיין ממתין לדחיפה"));
 check("המפסק הגלובלי לא כותב skipped", breaker.length > 0 && !breaker.includes("'skipped'") && !breaker.includes("burst breaker; site only"));
 check("מפסק סוכן לא כותב skipped", !sql.includes("burst agent pending"));
 check("301 בחלון מדליק את הדגל, 72 שליחות לא", prep.includes("v_created > v_created_max") && prep.includes("v_sends > v_global_max"));

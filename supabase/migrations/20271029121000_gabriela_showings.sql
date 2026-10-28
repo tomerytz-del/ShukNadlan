@@ -13,7 +13,9 @@
 
 insert into public.pricing_config (key, value, description) values
   ('gabriela_showing_cancel_copy', 0,
-   '0: הודעת ביטול הסיור נשארת בנוסח הישן. 1: הנוסח של גבריאלה.')
+   '0: הודעת ביטול הסיור נשארת בנוסח הישן. 1: הנוסח של גבריאלה.'),
+  ('showcase_close_cancels_meetings_enabled', 0,
+   '0: סגירת מיניסייט אינה מבטלת סיורים. 1: מבטלת סיורים עתידיים ומתריעה לסוכן/ת.')
 on conflict (key) do nothing;
 
 alter table public.whatsapp_messages
@@ -84,6 +86,11 @@ declare
   v_agent    uuid;
   v_who      text;
 begin
+  if coalesce((select value::int from public.pricing_config
+                where key = 'showcase_close_cancels_meetings_enabled'), 0) = 0 then
+    return null;
+  end if;
+
   select s.agent_id, s.client_id, nullif(btrim(c.full_name), '')
     into v_agent, v_client, v_who
     from public.client_showcases s
