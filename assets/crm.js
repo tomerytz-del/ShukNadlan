@@ -2441,6 +2441,12 @@ function handleGotoParam(){
       && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
   if (!navAccVisible(accAliasTarget(raw))) return;
   gotoSection(raw);
+  if (raw === 'accNotifPrefs' && focus === 'lead_wa') {
+    setTimeout(() => {
+      const el = document.getElementById('npLeadCadence');
+      if (el) scrollToTopOf(el);
+    }, 400);
+  }
   /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
      גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
   if (switched) setTimeout(()=>{
@@ -25517,6 +25523,7 @@ let notifMutedTypes = [];
    המאושרים של פעם, נשארה בטבלה בלי קורא. */
 let notifWhatsappOffTypes = [];
 let notifLessRows = [];
+let notifLeadCadence = 'each';
 
 /* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
    ההתראות היוצא — אותו מספר, אותה זהות. הבדיקה כאן היא לתצוגה בלבד;
@@ -25546,6 +25553,7 @@ async function loadNotifPrefs(agentId){
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
   notifMutedTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.muted_types)) ? prefs.data.muted_types : [];
   notifWhatsappOffTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.whatsapp_off_types)) ? prefs.data.whatsapp_off_types : [];
+  notifLeadCadence = (!prefs.error && prefs.data && prefs.data.lead_wa_cadence) ? prefs.data.lead_wa_cadence : 'each';
   notifLessRows = (!less.error && Array.isArray(less.data)) ? less.data : [];
   renderNotifPrefs();
 }

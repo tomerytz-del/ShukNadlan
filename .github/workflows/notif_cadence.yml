@@ -1,0 +1,56 @@
+name: קצב התראות לידים
+
+# הדגל notif_cadence_button_enabled נולד כבוי. הבדיקה רצה את אורכי
+# הכפתורים, את חלון הסיכום, ואת זה שהיצירה של ליד לא נגענו בה.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271029310000_notif_cadence_button.sql"
+      - "supabase/functions/_shared/notif-cadence.ts"
+      - "supabase/functions/notification-push/index.ts"
+      - "supabase/functions/whatsapp-webhook/index.ts"
+      - "scripts/notif_cadence_test.mjs"
+      - ".github/workflows/notif_cadence.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271029310000_notif_cadence_button.sql"
+      - "supabase/functions/_shared/notif-cadence.ts"
+      - "supabase/functions/notification-push/index.ts"
+      - "supabase/functions/whatsapp-webhook/index.ts"
+      - "scripts/notif_cadence_test.mjs"
+      - ".github/workflows/notif_cadence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: קצב התראות
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: לקוח Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: בדיקת קצב ההתראות
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: node --experimental-strip-types scripts/notif_cadence_test.mjs

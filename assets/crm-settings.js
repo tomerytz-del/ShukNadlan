@@ -548,12 +548,18 @@ function notifRowHtml(t){
   const tierOk = assistantTierOk();
   const tag = NOTIF_URGENT.has(t.type) ? '<span class="ui-tag ui-tag--urgent">דחוף</span>'
     : NOTIF_FREQ[t.type] ? `<span class="ui-tag">${escapeHtml(NOTIF_FREQ[t.type])}</span>` : '';
+  const cadence = t.type === 'new_lead' ? `<div class="np2-rem" id="npLeadCadence">`
+    + `<div class="set-field"><span class="set-field-label" id="npLeadCadLabel">קצב לידים בוואטסאפ</span>`
+    + `<div class="ui-chips" data-ui-single id="npLeadCadenceChips" role="group" aria-labelledby="npLeadCadLabel">`
+    + [['each','הודעה על כל ליד'],['daily','ריכוז פעם ביום'],['thrice','ריכוז 3 פעמים'],['off','ללא וואטסאפ']]
+        .map(([v, l]) => uiChip(l, { value:v, on: v === (notifLeadCadence || 'each'), icon:false })).join('')
+    + `</div><p class="ui-hint">אותה בחירה כמו הכפתור בוואטסאפ. בלי וואטסאפ הליד נשאר בפעמון.</p></div></div>` : '';
   return `<div class="np2-row" data-type="${escapeHtml(t.type)}">`
     + `<div class="np2-text"><div class="np2-title">${escapeHtml(t.title)}${tag}</div><div class="np2-sub">${escapeHtml(t.sub)}</div></div>`
     + `<div class="np2-ch">`
     +   `<button type="button" class="np2-ch-btn is-bell" data-np-bell aria-pressed="${!muted}" aria-label="${escapeHtml(t.title)} - בפעמון">${setIcon('bell')}</button>`
     +   `<button type="button" class="np2-ch-btn is-wa" data-np-wa aria-pressed="${!muted && notifWaOn(t)}" aria-label="${escapeHtml(t.title)} - בוואטסאפ"${muted || !tierOk ? ' disabled' : ''}>${setIcon('chat')}</button>`
-    + `</div></div>`;
+    + `</div></div>` + cadence;
 }
 
 function reminderRowHtml(){
@@ -676,6 +682,9 @@ function notifScreenState(){
     bellOff: rows.filter(r => !pressed(r, '[data-np-bell]')).map(r => r.dataset.type).sort(),
     waOff: rows.filter(r => !pressed(r, '[data-np-wa]')).map(r => r.dataset.type).sort(),
     quiet: quietRead('np'),
+    leadCadence: (document.getElementById('npLeadCadenceChips')
+      ? (uiChipValues(document.getElementById('npLeadCadenceChips'))[0] || 'each')
+      : (notifLeadCadence || 'each')),
     rem: capEl ? {
       channels: uiChipValues(document.getElementById('npRemCh')).sort(),
       cadence: uiChipValues(document.getElementById('npRemCadence'))[0] || 'weekly',
@@ -796,6 +805,17 @@ async function saveNotifPrefsRows(s){
   if (error) return { error };
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
+  const cadence = ['each','daily','thrice','off'].includes(s.leadCadence) ? s.leadCadence : 'each';
+  const patch = { lead_wa_cadence: cadence };
+  if (cadence !== (notifLeadCadence || 'each')) patch.lead_wa_since = new Date().toISOString();
+  let saved = await sb.from('agent_notification_preferences').update(patch).eq('agent_id', currentAgent.id);
+  if (saved.error && /lead_wa_since/.test(saved.error.message || '')) {
+    saved = await sb.from('agent_notification_preferences').update({
+      lead_wa_cadence: cadence,
+    }).eq('agent_id', currentAgent.id);
+  }
+  if (!saved.error) notifLeadCadence = cadence;
+  else if (!/lead_wa_cadence|42703|schema cache/i.test(saved.error.message || '')) return { error: saved.error };
   return {};
 }
 

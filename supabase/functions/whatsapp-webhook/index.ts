@@ -45,7 +45,18 @@ import {
   topicLabel,
 } from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { absoluteUrl, ctaLabel, listTextFallback, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
+import { absoluteUrl, ctaLabel, listTextFallback, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
+import {
+  CADENCE_CTA,
+  CADENCE_LIST_BUTTON,
+  CADENCE_MENU_BODY,
+  CADENCE_OPEN_ID,
+  CADENCE_PATH,
+  cadenceChoiceFromId,
+  cadenceIdFromMessage,
+  cadenceRows,
+  confirmLine,
+} from "../_shared/notif-cadence.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -1406,6 +1417,55 @@ async function applyWhatsappStop(agentId: string, from: string): Promise<void> {
   }], agentId);
 }
 
+async function handleCadenceTap(agentId: string, from: string, cadenceId: string): Promise<void> {
+  const choice = cadenceId === CADENCE_OPEN_ID ? null : cadenceChoiceFromId(cadenceId);
+  const { data, error } = await supabase.rpc("notif_cadence_apply", {
+    p_agent: agentId,
+    p_event: choice ? "choose" : "open",
+    p_choice: choice,
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+  const enabled = !!row?.enabled;
+  const path = withClick(CADENCE_PATH, "lead_cadence");
+  const cta = {
+    kind: "cta" as const,
+    body: "אפשר תמיד לשנות את זה גם במערכת.",
+    label: CADENCE_CTA,
+    url: absoluteUrl(SITE_BASE, path),
+  };
+  if (error || !enabled) {
+    await sendOutbox(from, [cta], agentId);
+    return;
+  }
+  if (!choice) {
+    const rows = cadenceRows(Number(row.daily_hour) || 9, Array.isArray(row.hours) ? row.hours.map(Number) : [9, 13, 17]);
+    let waMessageId: string | null = null;
+    try {
+      waMessageId = await sendList(from, CADENCE_MENU_BODY, CADENCE_LIST_BUTTON, "קצב הלידים", rows);
+    } catch (err) {
+      console.error("cadence list failed", err);
+    }
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId,
+      direction: "out",
+      wa_phone: from,
+      agent_id: agentId,
+      msg_type: "interactive",
+      body: CADENCE_MENU_BODY,
+      status: waMessageId ? "sent" : null,
+    });
+    await sendOutbox(from, [cta], agentId);
+    return;
+  }
+  const line = confirmLine(
+    choice,
+    row.changed === true,
+    Number(row.daily_hour) || 9,
+    Array.isArray(row.hours) ? row.hours.map(Number) : [9, 13, 17],
+  );
+  await reply(from, line, agentId);
+}
+
 async function handleMessage(msg: Record<string, any>): Promise<void> {
   const from: string = msg.from;
   if (!from || !msg.id) return;
@@ -1502,6 +1562,11 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (!agent.active) {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
+    return;
+  }
+  const cadenceId = cadenceIdFromMessage(msg);
+  if (cadenceId) {
+    await handleCadenceTap(agent.id, from, cadenceId);
     return;
   }
   // "הפסק" / "הפסקה", או כפתור תשובה מהירה באותו טקסט. לפני המודל ולפני
