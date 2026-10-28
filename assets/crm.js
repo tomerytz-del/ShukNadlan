@@ -23085,7 +23085,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
       savedId = row?.id;
     }
   }
-  // העמודה עולה עם 20271028170000, אחרי ה-HTML. בלי זה השמירה כולה נכשלת.
+  // העמודה עולה עם 20271029170000, אחרי ה-HTML. בלי זה השמירה כולה נכשלת.
   if (clientNeighborhoodColumnMissing(error)){
     neighborhoodDeferred = true;
     delete payload.neighborhood_id;

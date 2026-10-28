@@ -8,13 +8,13 @@ alter table public.agent_clients
   add column if not exists neighborhood_id uuid;
 
 comment on column public.agent_clients.neighborhood_id is
-  'שכונה שהלקוח/ה מחפש/ת. ריק מתאים לכל שכונה. שכונה שלא שייכת לאף עיר של הלקוח/ה לא מסתירה התאמות, והסינון חל רק בעיר של השכונה. 20271028170000.';
+  'שכונה שהלקוח/ה מחפש/ת. ריק מתאים לכל שכונה. שכונה שלא שייכת לאף עיר של הלקוח/ה לא מסתירה התאמות, והסינון חל רק בעיר של השכונה. 20271029170000.';
 
 alter table public.agent_clients
   add column if not exists preferred_features text[];
 
 comment on column public.agent_clients.preferred_features is
-  'מאפיינים מההערות, לדירוג בלבד. לא סינון קשיח. null וריק לא משנים ציון. 20271028170000.';
+  'מאפיינים מההערות, לדירוג בלבד. לא סינון קשיח. null וריק לא משנים ציון. 20271029170000.';
 
 do $$ begin
   if not exists (
@@ -309,7 +309,7 @@ insert into public.data_retention_settings (policy, keep_for, description)
 values ('search_misses', interval '90 days', 'חיפושי סוכן/ת בלי תוצאות. נשאר כבוי עד אישור.')
 on conflict (policy) do nothing;
 
--- אותו גוף כמו 20271028165000: ענף whatsapp_pending_actions נשמר, וענף search_misses נוסף.
+-- אותו גוף כמו 20271029165000: ענף whatsapp_pending_actions נשמר, וענף search_misses נוסף.
 create or replace function public.data_retention_run()
 returns jsonb
 language plpgsql
@@ -439,7 +439,7 @@ begin
 
         -- suppress_push בעמודות: זו התראה חיה (שבוע לפני מחיקה), לא מילוי
         -- היסטוריה. false משאיר אותה לדחיפה. בלי העמודה הבדיקה חוסמת
-        -- את הקובץ, כי הוא אחרי 20271028140000.
+        -- את הקובץ, כי הוא אחרי 20271029140000.
         insert into public.notifications (agent_id, type, title, body, related_client_id, suppress_push)
         select r.agent_id, 'retention_warning',
                'כרטיס לקוח/ה יימחק בעוד שבוע',
@@ -467,7 +467,7 @@ begin
       drop table if exists _ret_clients;
 
     elsif s.policy = 'whatsapp_pending_actions' then
-      -- נשמר מ-20271028165000. בלי הענף הזה ההחלפה של הפונקציה מוחקת את הניקוי.
+      -- נשמר מ-20271029165000. בלי הענף הזה ההחלפה של הפונקציה מוחקת את הניקוי.
       select count(*) into v_n from public.whatsapp_pending_actions a
        where (a.executed_at is not null and a.executed_at < v_cut)
           or (a.executed_at is null and a.expires_at < v_cut);

@@ -15,7 +15,7 @@
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | אותו מנוע עם מזהה סוכן/ת מפורש, לעוזר בוואטסאפ |
 | `crm.html` → "קובץ הלקוחות שלי" | טופס הלקוח/ה, רשימת הלקוחות ופאנל ההתאמות |
 | `supabase/functions/whatsapp-webhook/agent.ts` | אותן פעולות מהצ'אט: הוספת לקוח/ה, עדכון דרישות, והצלבה בשני הכיוונים |
-| `supabase/migrations/20271028170000_gabriela_search.sql` | `neighborhood_id` ו-`preferred_features`. שכונה רק בעיר שלה, נכס בלי שכונה באותה עיר עדיין מתאים, ושכונה שלא שייכת לאף עיר לא מסתירה. מאפיין מההערות הוא דירוג שמתווסף |
+| `supabase/migrations/20271029170000_gabriela_search.sql` | `neighborhood_id` ו-`preferred_features`. שכונה רק בעיר שלה, נכס בלי שכונה באותה עיר עדיין מתאים, ושכונה שלא שייכת לאף עיר לא מסתירה. מאפיין מההערות הוא דירוג שמתווסף |
 
 הכיוון ההפוך — התראה יזומה כשנכס חדש מתאים ללקוח/ה בקובץ — מתועד ב-
 [`smart-alerts.md`](smart-alerts.md).
