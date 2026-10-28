@@ -26,6 +26,7 @@ NEED = {
         "notification_push_burst_prepare()",
         "action_path",
         "related_showcase_id",
+        "'showcase_id'",
     ),
     "public.notification_push_due_agents": (
         "window_on",
@@ -129,6 +130,35 @@ def main() -> int:
     off = demand.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in demand else demand
     if "notif_burst_demand_fanout" not in off or ("s.rn > v_fanout" not in off and "s.rn > v_cap" not in off):
         fail(f"דגל כבוי ב-{where['public.scraped_lead_notify_demand']} בלי תקרת 15")
+    due = final["public.notification_push_due_agents"]
+    claim = final["public.notification_push_claim"]
+    if version_of(Path(where["public.notification_push_due_agents"])) < "20271030000200":
+        fail("due_agents האחרון בסדר הפריסה ישן מתקרת התבניות")
+    if version_of(Path(where["public.notification_push_claim"])) < "20271030000200":
+        fail("claim האחרון בסדר הפריסה ישן מתקרת התבניות")
+    for needle in (
+        "skipped_template_cap",
+        "whatsapp_status in ('sent', 'pending')",
+        "notification_agent_send_quiet",
+        "window_on",
+        "agent_backlog_waiting",
+        "whatsapp_template_cap_on",
+    ):
+        if needle not in due:
+            fail(f"due_agents האחרון בלי {needle}")
+    if "action_path" not in claim or "'showcase_id'" not in claim:
+        fail("claim האחרון בלי action_path או showcase_id")
+    notify = final["public.scraped_lead_notify_demand"]
+    off = notify.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in notify else notify
+    if "s.rn > v_cap" not in off and "s.rn > v_fanout" not in off:
+        fail("תקרת 15 של הביקוש הפתוח נעלמה מהגוף האחרון")
+    backlog = final.get("public.notification_push_has_backlog", "")
+    if "skipped_template_cap" in backlog and "interval '72 hours'" not in backlog:
+        fail("has_backlog לא שומר פריט תקרה 72 שעות")
+    if "a.in_window" in backlog and "a.in_service_window" not in backlog:
+        fail("has_backlog מסנן תקרה בעמודה שאינה ב-due_agents")
+    if version_of(Path(where["public.notification_push_has_backlog"])) < "20271030000300":
+        fail("has_backlog האחרון בסדר הפריסה ישן ממסנן התקרה")
     if where["public.notification_send_window_open"] != WIN.name:
         fail("notification_send_window_open נדרס אחרי חלון הלקוחות")
     if where["public.saved_search_quiet_now"] != WIN.name:
