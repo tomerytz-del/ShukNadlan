@@ -48,11 +48,26 @@ jobs:
       - name: לקוח Postgres
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: החלת מיגרציות שחסרות בפרודקשן
+      # בלי הסוד. כאן רצה גם ההוכחה ש-psql:<stdin>:N: ERROR נספר ושקובץ
+      # שנכשל מתגלגל לאחור.
+      - name: בדיקה עצמית
         env:
           PGHOST: localhost
           PGUSER: postgres
+        run: python3 scripts/apply_pending_migrations.py --self-test
+
+      # רק קריאה מהפרודקשן. ה-SQL של המיגרציות לא רץ בשלב הזה.
+      - name: משיכת סכימה
+        id: fetch
+        env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          # true רק ב-PR שהענף שלו בריפו אחר. שם הסוד לא מועבר.
           FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork && 'true' || 'false' }}
-        run: python3 scripts/apply_pending_migrations.py
+        run: python3 scripts/apply_pending_migrations.py --fetch
+
+      # בלי SUPABASE_DB_URL. גם אם מיגרציה מכילה \!, אין לה את הסוד ב-environ.
+      - name: החלה מקומית
+        if: steps.fetch.outputs.apply == 'true'
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+        run: python3 scripts/apply_pending_migrations.py --apply-local

@@ -31,9 +31,13 @@ DROP_EXTENSIONS = {"pg_cron", "pg_net", "supabase_vault", "pg_stat_statements", 
 READ_ONLY = "-c default_transaction_read_only=on"
 
 
+class MigrationFailed(Exception):
+    pass
+
+
 def fail(msg: str) -> None:
     print(f"✗ {msg}", file=sys.stderr)
-    sys.exit(1)
+    raise SystemExit(1)
 
 
 def clean_url(raw: str) -> str:
@@ -66,6 +70,96 @@ def filter_dump(sql: str) -> str:
     return "".join(out)
 
 
+def psql_error_lines(stderr: str) -> list[str]:
+    """psql -f מקדים כל שגיאה ב-psql:<stdin>:N: ולא בשורה שמתחילה ב-ERROR."""
+    found = []
+    for ln in stderr.splitlines():
+        if ": ERROR:" in ln or ln.startswith("ERROR:"):
+            found.append(ln)
+    return found
+
+
+def meta_command_lines(sql: str) -> list[int]:
+    """שורות ש-psql היה מריץ כפקודת meta, מחוץ למחרוזת ולהערה.
+
+    db push לא מריץ \\! ו-\\c. שורה כזו נחסמת לפני שהקובץ מגיע ל-psql,
+    כדי שלא ייקרא environ של התהליך.
+    """
+    hits: list[int] = []
+    i, n = 0, len(sql)
+    line = 1
+    dollar = None
+    in_squote = False
+    in_line_comment = False
+    in_block = False
+    at_line_start = True
+    while i < n:
+        c = sql[i]
+        if c == "\n":
+            line += 1
+            i += 1
+            in_line_comment = False
+            at_line_start = True
+            continue
+        if in_line_comment:
+            i += 1
+            continue
+        if in_block:
+            if sql.startswith("*/", i):
+                in_block = False
+                i += 2
+            else:
+                i += 1
+            at_line_start = False
+            continue
+        if dollar:
+            if sql.startswith(dollar, i):
+                i += len(dollar)
+                dollar = None
+            else:
+                i += 1
+            at_line_start = False
+            continue
+        if in_squote:
+            if c == "'" and sql.startswith("''", i):
+                i += 2
+                continue
+            if c == "'":
+                in_squote = False
+            i += 1
+            at_line_start = False
+            continue
+        if c in " \t\r":
+            i += 1
+            continue
+        if at_line_start and c == "\\" :
+            hits.append(line)
+            while i < n and sql[i] != "\n":
+                i += 1
+            continue
+        at_line_start = False
+        if sql.startswith("--", i):
+            in_line_comment = True
+            i += 2
+            continue
+        if sql.startswith("/*", i):
+            in_block = True
+            i += 2
+            continue
+        if c == "'":
+            in_squote = True
+            i += 1
+            continue
+        if c == "$":
+            m = re.match(r"\$[A-Za-z0-9_]*\$", sql[i:])
+            if m:
+                dollar = m.group(0)
+                i += len(dollar)
+                continue
+        i += 1
+    return hits
+
+
 def self_test() -> None:
     sample = """\
 CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA public;
@@ -96,24 +190,81 @@ CREATE TABLE public.t (id int);
             os.environ[key] = val
     if any(k in env for k in ("SUPABASE_DB_URL", "PGURL", "PGPASSWORD", "DATABASE_URL")):
         fail("סביבת ההחלה המקומית עדיין רואה את הפרודקשן")
-    if env.get("PGHOST") != "localhost" or env.get("PGOPTIONS"):
-        fail("החיבור המקומי לא נשאר על localhost בלי PGOPTIONS")
+    if env.get("PGHOST") or env.get("PGUSER") or env.get("PGOPTIONS") or env.get("PGPASSWORD"):
+        fail("יעד מרוחק נשאר בסביבת ההחלה המקומית")
     penv = prod_env("postgresql://prod.example/db")
     if READ_ONLY not in penv.get("PGOPTIONS", ""):
         fail("חיבור הפרודקשן אינו לקריאה בלבד")
+    canned = "psql:<stdin>:1: ERROR:  syntax error at or near \"SELEC\"\npsql:<stdin>:3: ERROR:  relation \"t_dup\" already exists\n"
+    parsed = psql_error_lines(canned)
+    if len(parsed) != 2 or not any("syntax error" in ln.lower() for ln in parsed):
+        fail(f"קידומת psql:<stdin> לא נספרה: {parsed}")
+    if meta_command_lines("select 1;\n\\! echo hi\n") != [2]:
+        fail("\\! בתחילת שורה לא נחסם")
+    if meta_command_lines("select 1;\n  \\c other\n") != [2]:
+        fail("\\c מוזח לא נחסם")
+    if meta_command_lines("do $$\nbegin\n  perform 1;\nend\n$$;\n"):
+        fail("גוף פונקציה סומן כפקודת psql")
+    if meta_command_lines("select '\\! echo hi';\n"):
+        fail("backslash בתוך מחרוזת סומן כפקודת psql")
+    if meta_command_lines("do $$\n\\! echo hi\n$$;\n"):
+        fail("backslash בתוך dollar quote סומן כפקודת psql")
+    assert_restore_and_apply_fail()
     print("✓ סינון ה-dump")
     print("✓ ההחלה המקומית בלי כתובת פרודקשן, והקריאה אליו ב-read-only")
+    print("✓ שגיאת psql:<stdin> נספרת, והחלה שנכשלת מתגלגלת לאחור")
+
+
+def assert_restore_and_apply_fail() -> None:
+    """משחזר SQL שבור על Postgres אמיתי ובודק שהשגיאה נספרת ושההחלה נכשלת."""
+    db = "migration_apply_parse_test"
+    env = local_env()
+    run(["dropdb", "--if-exists", db], env=env)
+    proc = run(["createdb", db], env=env)
+    if proc.returncode != 0:
+        fail(f"createdb לבדיקה נכשל:\n{proc.stderr[-400:]}")
+    broken = "SELEC 1;\nCREATE TABLE t_dup (id int);\nCREATE TABLE t_dup (id int);\n"
+    probe = run(
+        ["psql", "-v", "ON_ERROR_STOP=0", "-q", "-d", db, "-f", "-"],
+        input_text=broken,
+        env=env,
+    )
+    errors = psql_error_lines(probe.stderr)
+    if len(errors) < 2 or not any("syntax error" in ln.lower() for ln in errors):
+        fail(f"restore לא ראה את שגיאות psql:\n{probe.stderr}")
+    try:
+        restore(db, "SELEC 1;\n")
+    except MigrationFailed as exc:
+        if "syntax error" not in str(exc).lower():
+            fail(f"restore נכשל בלי שגיאת התחביר: {exc}")
+    else:
+        fail("restore לא נכשל על שגיאת תחביר")
+    bad = Path("/tmp/migration_apply_bad.sql")
+    bad.write_text("CREATE TABLE rolled (id int);\nSELEC 1;\n", encoding="utf-8")
+    try:
+        apply_files(db, [bad])
+    except MigrationFailed as exc:
+        if "syntax error" not in str(exc).lower():
+            fail(f"apply_files נכשל בלי שגיאת התחביר: {exc}")
+    else:
+        fail("apply_files לא נכשל")
+    left = run(
+        ["psql", "-Atq", "-d", db, "-c", "select to_regclass('public.rolled')"],
+        env=env,
+    )
+    if left.stdout.strip() not in ("", "null"):
+        fail(f"הטרנזקציה לא התגלגלה לאחור: {left.stdout!r}")
+    run(["dropdb", "--if-exists", db], env=env)
 
 
 def run(cmd: list[str], *, input_text: str | None = None, env: dict | None = None, timeout: int = 600) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        input=input_text,
-        text=True,
-        capture_output=True,
-        env=env,
-        timeout=timeout,
-    )
+    # stdin סגור כשאין קלט, כדי שבקשת סיסמה לא תחכה בלי סוף.
+    kwargs: dict = {"text": True, "capture_output": True, "env": env, "timeout": timeout}
+    if input_text is None:
+        kwargs["stdin"] = subprocess.DEVNULL
+    else:
+        kwargs["input"] = input_text
+    return subprocess.run(cmd, **kwargs)
 
 
 def prod_env(url: str) -> dict:
@@ -125,19 +276,30 @@ def prod_env(url: str) -> dict:
     return env
 
 
+def _local_target() -> dict[str, str]:
+    """יעד מקומי בלבד. מארח מרוחק נזרק. בלי PGHOST נשאר הסוקט."""
+    host = os.environ.get("PGHOST", "")
+    kept: dict[str, str] = {"PGCONNECT_TIMEOUT": "5"}
+    if host in ("localhost", "127.0.0.1", "::1", "/var/run/postgresql"):
+        kept["PGHOST"] = host
+        if os.environ.get("PGPORT"):
+            kept["PGPORT"] = os.environ["PGPORT"]
+        if os.environ.get("PGUSER"):
+            kept["PGUSER"] = os.environ["PGUSER"]
+    return kept
+
+
 def local_env() -> dict:
     """ההחלה המקומית לא יורשת כתובת פרודקשן.
 
     מיגרציה עם \\! או \\c רצה ב-psql, והסביבה של התהליך זמינה לפקודה.
-    בלי SUPABASE_DB_URL וכל משתני PG* אין לאן להתחבר מלבד ה-Postgres המקומי.
+    בלי SUPABASE_DB_URL וכל משתני PG* אין לאן להתחבר מלבד Postgres מקומי.
     """
     env = os.environ.copy()
     for key in list(env):
         if key in ("SUPABASE_DB_URL", "PGURL", "DATABASE_URL") or key.startswith("PG"):
             del env[key]
-    env["PGHOST"] = "localhost"
-    env["PGPORT"] = "5432"
-    env["PGUSER"] = "postgres"
+    env.update(_local_target())
     return env
 
 
@@ -224,11 +386,11 @@ def restore(db: str, sql: str) -> None:
         env=local_env(),
         timeout=900,
     )
-    errors = [ln for ln in proc.stderr.splitlines() if ln.startswith("ERROR")]
+    errors = psql_error_lines(proc.stderr)
     # שגיאות של הרחבה חסרה או של owner אינן עוצרות. שגיאת תחביר בסכימה כן.
     fatal = [ln for ln in errors if "syntax error" in ln.lower()]
     if fatal:
-        fail("שחזור הסכימה נעצר על תחביר:\n" + "\n".join(fatal[:20]))
+        raise MigrationFailed("שחזור הסכימה נעצר על תחביר:\n" + "\n".join(fatal[:20]))
     print(f"שחזור הסכימה: {len(errors)} שגיאות (הרחבות ואובייקטים שאין בתמונה נספרים, לא עוצרים)")
     shown = errors[:30]
     if shown:
@@ -247,49 +409,131 @@ def pending_files(applied: set[str]) -> list[Path]:
     return files
 
 
+def reject_meta_commands(files: list[Path]) -> None:
+    for path in files:
+        hits = meta_command_lines(path.read_text(encoding="utf-8"))
+        if hits:
+            fail(
+                f"{path.name} שורה {hits[0]} מתחילה בפקודת psql (\\). "
+                "db push לא מריץ אותן, והן נחסמות כדי שלא ייקרא environ."
+            )
+
+
 def apply_files(db: str, files: list[Path]) -> None:
+    reject_meta_commands(files)
     for path in files:
         print(f"מחיל {path.name}", flush=True)
         sql = path.read_text(encoding="utf-8")
+        # אותה יחידה כמו db push: קובץ אחד, טרנזקציה אחת, עצירה בשגיאה הראשונה.
         proc = run(
-            ["psql", "-v", "ON_ERROR_STOP=1", "-q", "-d", db, "-f", "-"],
+            ["psql", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-q", "-d", db, "-f", "-"],
             input_text=sql,
             env=local_env(),
             timeout=900,
         )
         if proc.returncode != 0:
             err = proc.stderr[-2500:]
-            fail(f"{path.name} נכשלה:\n{err}")
+            raise MigrationFailed(f"{path.name} נכשלה:\n{err}")
     print(f"✓ {len(files)} מיגרציות שעוד לא בפרודקשן עברו על Postgres")
 
 
-def main() -> int:
-    if "--self-test" in sys.argv:
-        self_test()
-        return 0
-    self_test()
+def marker_dir() -> Path:
+    path = Path(os.environ.get("MIGRATION_APPLY_DIR", "/tmp/migration-apply-ci"))
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def gh_output(key: str, value: str) -> None:
+    path = os.environ.get("GITHUB_OUTPUT")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"{key}={value}\n")
+
+
+def scrub_process_env() -> None:
+    """מוציא את כתובת הפרודקשן מ-environ של התהליך עצמו, לא רק של הבן.
+
+    \\! cat /proc/<pid>/environ קורא את האב. מחיקה כאן משאירה רק יעד מקומי.
+    """
+    kept = _local_target()
+    for key in list(os.environ):
+        if key in ("SUPABASE_DB_URL", "PGURL", "DATABASE_URL") or key.startswith("PG"):
+            del os.environ[key]
+    os.environ.update(kept)
+
+
+def skip_without_secret() -> None:
+    if os.environ.get("FORK_PR") == "true":
+        why = "PR מ-fork אינו מקבל סודות"
+    else:
+        why = "אין SUPABASE_DB_URL (Dependabot, או שהסוד לא הועבר לריצה)"
+    print(f"{why}. הבדיקה דולגת ולא נכשלת.")
+    print("כדי להריץ אותה צריך את הסוד על ענף בריפו הזה.")
+    gh_output("apply", "false")
+    (marker_dir() / "apply").write_text("false", encoding="utf-8")
+
+
+def fetch() -> int:
     raw = os.environ.get("SUPABASE_DB_URL", "")
     if not raw.strip():
-        # ל-PR מ-fork אין סודות. כישלון כאן היה חוסם כל מיזוג כזה בלי סיבה
-        # שאפשר לתקן מתוך ה-fork.
-        if os.environ.get("FORK_PR") == "true":
-            print("PR מ-fork אינו מקבל את SUPABASE_DB_URL. הבדיקה דולגת ולא נכשלת.")
-            print("כדי להריץ אותה, פותחים את הענף בריפו הזה.")
-            return 0
-        fail("SUPABASE_DB_URL ריק. בלי הסכימה מהפרודקשן אי אפשר להחיל את המיגרציות החסרות.")
+        skip_without_secret()
+        return 0
     url = clean_url(raw)
     applied = versions_from_prod(url)
     print(f"בפרודקשן רשומות {len(applied)} מיגרציות")
     files = pending_files(set(applied))
+    folder = marker_dir()
     if not files:
         print("✓ אין מיגרציה שלא רשומה בפרודקשן")
+        gh_output("apply", "false")
+        (folder / "apply").write_text("false", encoding="utf-8")
         return 0
     print("ממתינות: " + ", ".join(p.name.split("_", 1)[0] for p in files))
-    dump = filter_dump(dump_public(url))
+    reject_meta_commands(files)
+    (folder / "dump.sql").write_text(filter_dump(dump_public(url)), encoding="utf-8")
+    (folder / "pending.txt").write_text(
+        "\n".join(str(p) for p in files) + "\n", encoding="utf-8"
+    )
+    (folder / "apply").write_text("true", encoding="utf-8")
+    gh_output("apply", "true")
+    return 0
+
+
+def apply_local() -> int:
+    scrub_process_env()
+    if "SUPABASE_DB_URL" in os.environ or "PGURL" in os.environ or "DATABASE_URL" in os.environ:
+        fail("ההחלה המקומית עדיין רואה כתובת פרודקשן")
+    folder = marker_dir()
+    flag = folder / "apply"
+    if not flag.is_file() or flag.read_text(encoding="utf-8").strip() != "true":
+        print("אין מה להחיל מקומית")
+        return 0
+    files = [Path(ln) for ln in (folder / "pending.txt").read_text(encoding="utf-8").splitlines() if ln.strip()]
+    reject_meta_commands(files)
     db = scratch_db()
-    restore(db, dump)
+    restore(db, (folder / "dump.sql").read_text(encoding="utf-8"))
     apply_files(db, files)
     return 0
+
+
+def main() -> int:
+    try:
+        if "--self-test" in sys.argv:
+            self_test()
+            return 0
+        if "--fetch" in sys.argv:
+            return fetch()
+        if "--apply-local" in sys.argv:
+            return apply_local()
+        # הרצה מקומית אחת: המשיכה עם הסוד, ואז מחיקתו לפני שה-SQL רץ.
+        code = fetch()
+        if code != 0:
+            return code
+        return apply_local()
+    except MigrationFailed as exc:
+        fail(str(exc))
+        return 1
 
 
 if __name__ == "__main__":
