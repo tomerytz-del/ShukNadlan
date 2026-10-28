@@ -5319,7 +5319,12 @@ function buildSearchRow(p, i){
       <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
       <span class="sr-price">${priceLabel(p)}</span>
     </div>`;
-  const open = ()=> window.location.href = '/property?id=' + p.id;
+  const open = ()=>{
+    // ‏P1-M: ניווט ב-JS - המקור מהמכולה (רשימת התוצאות או הרשימה שליד המפה)
+    const box = row.closest('[data-browse]');
+    if (box && window.shukBrowseMark) shukBrowseMark(box.getAttribute('data-browse'), p.id);
+    window.location.href = '/property?id=' + p.id;
+  };
   row.addEventListener('click', open);
   row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
   return row;
@@ -8513,3 +8518,6 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
     }
   }, true);
 })();
+
+// ‏P1-M: חשיפות ברשימת התוצאות בדף הבית (‏list_impression, v10)
+if (window.shukObserveList) shukObserveList(document.getElementById('searchResults'), 'home_list');

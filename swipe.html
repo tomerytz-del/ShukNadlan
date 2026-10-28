@@ -99,7 +99,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 
-  <section class="sw-deck-view" id="swDeckView" role="tabpanel" aria-label="גלישה בהחלקה">
+  <section class="sw-deck-view" id="swDeckView" role="tabpanel" aria-label="גלישה בהחלקה" data-browse="swipe">
     <div class="sw-keys" aria-hidden="true">
       <span><kbd>→</kbd> אהבתי</span><span><kbd>←</kbd> דילוג</span><span><kbd>↑</kbd> פרטים</span><span><kbd>רווח</kbd> תמונה</span>
     </div>
@@ -127,13 +127,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <section class="sw-list-view" id="swListView" role="tabpanel" aria-label="רשימת הנכסים" hidden>
+  <section class="sw-list-view" id="swListView" role="tabpanel" aria-label="רשימת הנכסים" hidden data-browse="swipe_list">
     <p class="sw-list-count" id="swListCount"></p>
     <div class="sw-list" id="swList"></div>
   </section>
 
   <!-- "אהבתי": כל הנכסים שנשמרו, מכל סינון -->
-  <section class="sw-likes-view" id="swLikesView" aria-labelledby="swLvTitle" hidden>
+  <section class="sw-likes-view" id="swLikesView" aria-labelledby="swLvTitle" hidden data-browse="likes">
     <div class="sw-lv-head">
       <h2 id="swLvTitle">אהבתי (<span id="swLvN">0</span>)</h2>
       <button type="button" class="sw-link" id="swLvBack">← חזרה להחלקה</button>
@@ -149,7 +149,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <section class="sw-map-view" id="swMapView" role="tabpanel" aria-label="מפת הנכסים" hidden>
+  <section class="sw-map-view" id="swMapView" role="tabpanel" aria-label="מפת הנכסים" hidden data-browse="swipe_map">
     <div class="sw-map" id="swMap"></div>
     <div class="sw-map-chip" id="swMapChip" role="status" hidden>
       <span>מפת הרקע לא זמינה כרגע</span>

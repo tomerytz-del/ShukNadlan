@@ -476,3 +476,5 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `search_pro_suggest` | שורת החיפוש זיהתה בקשה לבעלי מקצוע והציגה הצעה (פעם אחת לתחום) | `type`, `surface`: ‏`home` |
 | `search_pro_click` | מעבר לדף בעלי המקצוע מההצעה, או Enter כשההצעה היא היחידה | `type`, `surface` |
 | `search_listing_number` | חיפוש לפי מספר מודעה ב-Enter. בלי המספר עצמו | `found`: ‏`1` \| `0`, `surface`: ‏`home` |
+| `list_impression` | ‏P1-M (v10): כרטיס או שורה ברשימה שנראו ב-50% לפחות במשך שנייה. כל נכס פעם אחת בכל טעינה, במנות של עד 10 | `view`: ‏`home_list` \| `swipe_list`, `layout`: ‏`rows` \| `grid` (רק ב-`/swipe`), `ids` (מזהי נכסים, בפסיקים), `count` |
+| (פרמטר חדש) `browse` | ‏P1-M (v10): בדף נכס, על `view_item`, ‏`contact_agent`, ‏`contact_bot`, ‏`generate_lead`, ‏`share`, ‏`viz_jump_click` ושאר האירועים שבו - מאיזו צורת גלישה הגיעו לנכס **הזה** (נרשם ב-sessionStorage ברגע הלחיצה, לא בכתובת). ‏`src` נשאר "מאיפה הגיעו לאתר" | `browse`: ‏`swipe` \| `swipe_list` \| `swipe_map` \| `home_list` \| `map` \| `home` \| `gabriela` \| `likes` \| `fair` \| `similar` \| `direct` |

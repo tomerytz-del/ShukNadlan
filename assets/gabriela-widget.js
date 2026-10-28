@@ -301,7 +301,7 @@
     style.textContent = CSS;
     document.head.appendChild(style);
 
-    var root = el('div', { id: 'gabW', 'class': 'is-hidden' });
+    var root = el('div', { id: 'gabW', 'class': 'is-hidden', 'data-browse': 'gabriela' });
 
     var panel = el('div', { 'class': 'gw-panel', id: 'gabWPanel', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'gabWTitle' });
     var head = el('div', { 'class': 'gw-head' });

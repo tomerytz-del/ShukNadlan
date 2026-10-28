@@ -1764,6 +1764,8 @@
     if (studio && opts.tab === 'viz') setTab('viz', opts.from);
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
     shukTrack('swipe_up_open', { slot: c.slot, position: c.pos });
+    // ‏P1-M: הנכס נפתח מהתצוגה הזו - "לפרטי הנכס" בגיליון יורש את המקור
+    if (c.p && window.shukBrowseMark) shukBrowseMark(view === 'list' ? 'swipe_list' : view === 'map' ? 'swipe_map' : view === 'likes' ? 'likes' : 'swipe', c.p.id);
     if (c.p && c.p.lat && c.p.lng) setTimeout(function () { miniMap(c.p); }, 60);
   }
   /* ---------- 4א. הסטודיו: לשונית "✨ הדמיה" בגיליון (חלק 2 §4) ----------
@@ -2836,6 +2838,7 @@
     document.querySelectorAll('.sw-layout [data-layout]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.layout === listLayout)); });
   }
   applyLayout();
+  if (window.shukObserveList) shukObserveList($('swList'), 'swipe_list', function () { return listLayout; });
   document.querySelector('.sw-layout').addEventListener('click', function (e) {
     var b = e.target.closest('[data-layout]');
     if (!b || b.dataset.layout === listLayout) return;

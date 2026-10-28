@@ -74,6 +74,7 @@
 
   var wrap = document.createElement('div');
   wrap.className = 'lk-wrap';
+  wrap.setAttribute('data-browse', 'likes');   // ‏P1-M: מקור החשיפה לנכס שנפתח מכאן
   wrap.hidden = true;
   wrap.innerHTML = '<div class="lk-dim" data-lk-close></div><div class="lk-panel" role="dialog" aria-modal="true" aria-labelledby="lkTitle">' +
     '<div class="lk-head"><h2 id="lkTitle">הרשימה שלי</h2><button type="button" class="lk-x" data-lk-close aria-label="סגירה"><span aria-hidden="true">✕</span></button></div>' +

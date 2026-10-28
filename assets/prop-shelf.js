@@ -336,6 +336,9 @@
       el.setAttribute('role', 'link');
       el.tabIndex = 0;
       var open = function () {
+        // ‏P1-M: ניווט ב-JS ולא דרך <a> - מקור החשיפה נרשם כאן (‏events.js)
+        var box = el.closest && el.closest('[data-browse]');
+        if (box && global.shukBrowseMark) global.shukBrowseMark(box.getAttribute('data-browse'), p.id);
         global.location.href = '/property?id=' + encodeURIComponent(p.id);
       };
       el.addEventListener('click', function (e) {
