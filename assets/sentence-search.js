@@ -233,6 +233,20 @@
   /* ---------- ההתאמה ----------
      פונקציה אחת לכל מה שמוצג: המפה, השורות, המונה בכפתור, המונים בבורר
      והמקרא. ‏skip מדלג על slot אחד - לחישוב "כמה יהיו אם אשנה רק אותו". */
+  /* ‏חיפוש קולי: מחברים קטעי תמלול. ‏Chrome באנדרואיד מחזיר כל קטע כמשפט המצטבר עד אליו
+     ("מחפש", "מחפש דירת", "מחפש דירת ארבעה"), ושרשור תמים יצר "מחפשמחפש דירתמחפש..."
+     (דיווח של תומר, 29.10). קטע שמתחיל במה שכבר נצבר מחליף אותו; קטע שכבר כלול בו נזרק */
+  function joinSpeech(parts) {
+    var acc = '';
+    (parts || []).forEach(function (raw) {
+      var seg = String(raw || '').replace(/\s+/g, ' ').trim();
+      if (!seg) return;
+      if (!acc || seg.indexOf(acc) === 0) acc = seg;
+      else if (acc.indexOf(seg) < 0) acc = acc + ' ' + seg;
+    });
+    return acc;
+  }
+
   function matches(p, st, ctx, skip) {
     ctx = ctx || {};
     /* נכס משוק אחר (‏_away, נטען כשהגולש/ת כתב/ה עיר משם) עונה רק לחיפוש
@@ -992,7 +1006,7 @@
     slotsFor: slotsFor, options: options, nextSlot: nextSlot, slotOrder: slotOrder, stepOf: stepOf,
     nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
     parse: parse, compileQuery: compileQuery, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
-    fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
+    fromParams: fromParams, resolveArea: resolveArea, joinSpeech: joinSpeech, toParams: toParams, parseRooms: parseRooms,
     advancedFromParams: advancedFromParams, typesLabel: typesLabel, hoodsLabel: hoodsLabel, roomsInLabel: roomsInLabel,
     spokenNumbers: spokenNumbers,
   };
@@ -1814,14 +1828,16 @@
           };
           rec.onresult = function (ev) {
             if (vs !== v || v.done) return;
-            var fin = '', mid = '';
+            var fin = [], mid = [];
             for (var i = 0; i < ev.results.length; i++) {
               var r_ = ev.results[i];
               if (!r_ || !r_[0]) continue;
-              if (r_.isFinal) { fin += r_[0].transcript; if (typeof r_[0].confidence === 'number' && r_[0].confidence > 0) v.conf = v.conf == null ? r_[0].confidence : Math.min(v.conf, r_[0].confidence); }
-              else mid += r_[0].transcript;
+              if (r_.isFinal) { fin.push(r_[0].transcript); if (typeof r_[0].confidence === 'number' && r_[0].confidence > 0) v.conf = v.conf == null ? r_[0].confidence : Math.min(v.conf, r_[0].confidence); }
+              else mid.push(r_[0].transcript);
             }
-            v.final = fin.trim(); v.interim = mid.trim();
+            // ‏Chrome באנדרואיד: כל תוצאה היא המשפט המצטבר ("מחפש", "מחפש דירת"...) - לא מחברים אותן
+            v.final = joinSpeech(fin); v.interim = joinSpeech(mid);
+            if (v.interim && v.final && v.interim.indexOf(v.final) === 0) v.final = '';
             var shown = (v.final + ' ' + v.interim).trim();
             if (!shown) return;
             if (!v.heardAny) { v.heardAny = true; root.clearTimeout(v.tNoSpeech); setNote(VOICE.hearing); }

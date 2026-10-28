@@ -5477,10 +5477,14 @@ function revealSearchResults(){
   // בתצוגה המפוצלת התוצאות כבר מול העיניים, בפאנל שלצד המפה — גלילה אל
   // העותק שמתחת הייתה דוחפת את שתיהן אל מחוץ למסך בדיוק ברגע החיפוש
   if (splitOn && splitSupported()) return;
+  /* גוללים כשהשורה הראשונה לא כולה במסך. עד 29.10 הבדיקה הייתה על הכותרת בלבד (מתחת ל-90%
+     מהגובה): במחשב הכותרת "תוצאות החיפוש" הציצה בתחתית המסך, ולכן לא חיפוש קולי ולא "הצג N
+     נכסים" גללו - והגולש/ת ראה/תה רק את הכותרת (דיווח של תומר מהפריוויו) */
   requestAnimationFrame(()=>{
-    if (section.getBoundingClientRect().top > window.innerHeight * 0.9){
-      section.scrollIntoView({ behavior:'smooth', block:'start' });
-    }
+    const first = document.querySelector('#searchResultsRows > *');
+    const bottom = (first || section).getBoundingClientRect().bottom;
+    if (section.getBoundingClientRect().top < 0 && bottom > 0) return;   // כבר בתוך התוצאות
+    if (bottom > window.innerHeight || section.getBoundingClientRect().top > window.innerHeight * 0.6) scrollToSearchResults();
   });
 }
 

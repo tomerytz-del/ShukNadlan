@@ -476,4 +476,12 @@ test('R5: type= במקום ptype=, ו-ptype= עדיין נקרא', () => {
   assert.strictEqual(C.fromParams(new URLSearchParams('type=nonsense')).type, 'any');
 });
 
+test('חיפוש קולי: קטעים מצטברים של אנדרואיד אינם משורשרים', () => {
+  assert.strictEqual(C.joinSpeech(['מחפש', 'מחפש דירת', 'מחפש דירת ארבעה חדרים', 'מחפש דירת ארבעה חדרים ברובע']), 'מחפש דירת ארבעה חדרים ברובע');
+  // ‏Chrome במחשב: קטעים נפרדים
+  assert.strictEqual(C.joinSpeech(['דירה ', 'בעפולה']), 'דירה בעפולה');
+  assert.strictEqual(C.joinSpeech(['דירה בעפולה', 'בעפולה']), 'דירה בעפולה');
+  assert.strictEqual(C.joinSpeech([]), '');
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));
