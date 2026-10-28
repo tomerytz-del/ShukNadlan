@@ -107,6 +107,8 @@ create table public.gabriela_llm_fallbacks (
     psql_file(MIG)
 
     seed = r"""
+begin;
+create temp table tclock as select clock_timestamp() as t;
 insert into public.whatsapp_public_conversations (id, wa_phone) values
   ('10000000-0000-4000-8000-000000000001', '972500000001'),
   ('10000000-0000-4000-8000-000000000002', '972500000002'),
@@ -122,90 +124,91 @@ insert into public.whatsapp_public_conversations (id, wa_phone) values
 
 -- 1. מחכה, החלון פתוח. רק שליחת המענה עצמו.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000001', 'public', 'other', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000001', 'public', 'other', true, (select t from tclock) - interval '3 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000001', 'הודעה נכנסת', null, now() - interval '1 hour'),
-  ('out', '972500000001', 'סליחה, מענה חלופי', 'sent', now() - interval '3 hours' + interval '5 seconds');
+  ('in', '972500000001', 'הודעה נכנסת', null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000001', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds');
 
 -- 2. מחכה, החלון סגור (נכנסת אחרונה לפני 30 שעות).
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000002', 'public', 'billing', true, now() - interval '5 hours');
+values ('10000000-0000-4000-8000-000000000002', 'public', 'billing', true, (select t from tclock) - interval '5 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000002', 'ישנה', null, now() - interval '30 hours'),
-  ('out', '972500000002', 'סליחה, מענה חלופי', 'sent', now() - interval '5 hours' + interval '2 seconds');
+  ('in', '972500000002', 'ישנה', null, (select t from tclock) - interval '30 hours'),
+  ('out', '972500000002', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '5 hours' + interval '2 seconds');
 
 -- 3. תשובה אמיתית אחרי 30 דקות.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000003', 'public', 'other', true, now() - interval '4 hours');
+values ('10000000-0000-4000-8000-000000000003', 'public', 'other', true, (select t from tclock) - interval '4 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000003', 'עוד', null, now() - interval '2 hours'),
-  ('out', '972500000003', 'סליחה, מענה חלופי', 'sent', now() - interval '4 hours' + interval '3 seconds'),
-  ('out', '972500000003', 'הנה דירות', 'sent', now() - interval '4 hours' + interval '30 minutes');
+  ('in', '972500000003', 'עוד', null, (select t from tclock) - interval '2 hours'),
+  ('out', '972500000003', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '4 hours' + interval '3 seconds'),
+  ('out', '972500000003', 'הנה דירות', 'sent', (select t from tclock) - interval '4 hours' + interval '30 minutes');
 
 -- 4. מוקדם מדי: השעתיים עוד לא נגמרו.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000004', 'public', 'other', true, now() - interval '90 minutes');
+values ('10000000-0000-4000-8000-000000000004', 'public', 'other', true, (select t from tclock) - interval '90 minutes');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000004', 'עכשיו', null, now() - interval '10 minutes'),
-  ('out', '972500000004', 'סליחה, מענה חלופי', 'sent', now() - interval '90 minutes' + interval '4 seconds');
+  ('in', '972500000004', 'עכשיו', null, (select t from tclock) - interval '10 minutes'),
+  ('out', '972500000004', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '90 minutes' + interval '4 seconds');
 
 -- 5. נרשם אבל לא נשלח.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000005', 'public', 'other', false, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000005', 'public', 'other', false, (select t from tclock) - interval '3 hours');
 
 -- 6. ערוץ סוכן, גם אם יש שיחה ציבורית באותו מזהה.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000001', 'agent', 'other', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000001', 'agent', 'other', true, (select t from tclock) - interval '3 hours');
 
 -- 7. תשובה בדיוק על גבול השעתיים נספרת בתוך החלון.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000007', 'public', 'transient', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000007', 'public', 'transient', true, (select t from tclock) - interval '3 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000007', 'נכנסת', null, now() - interval '20 minutes'),
-  ('out', '972500000007', 'סליחה, מענה חלופי', 'sent', now() - interval '3 hours' + interval '5 seconds'),
-  ('out', '972500000007', 'תשובה על הגבול', 'delivered', now() - interval '3 hours' + interval '2 hours');
+  ('in', '972500000007', 'נכנסת', null, (select t from tclock) - interval '20 minutes'),
+  ('out', '972500000007', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000007', 'תשובה על הגבול', 'delivered', (select t from tclock) - interval '3 hours' + interval '2 hours');
 
 -- 8. תשובה דקה אחרי השעתיים אינה סוגרת.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000008', 'public', 'other', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000008', 'public', 'other', true, (select t from tclock) - interval '3 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000008', 'נכנסת', null, now() - interval '25 hours'),
-  ('out', '972500000008', 'סליחה, מענה חלופי', 'sent', now() - interval '3 hours' + interval '5 seconds'),
-  ('out', '972500000008', 'מאוחר', 'sent', now() - interval '3 hours' + interval '2 hours 1 minute');
+  ('in', '972500000008', 'נכנסת', null, (select t from tclock) - interval '25 hours'),
+  ('out', '972500000008', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000008', 'מאוחר', 'sent', (select t from tclock) - interval '3 hours' + interval '2 hours 1 minute');
 
 -- 9. שני מענים, בלי תשובה אמיתית. השליחה של השני אינה סוגרת את הראשון.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at) values
-  ('10000000-0000-4000-8000-000000000009', 'public', 'other', true, now() - interval '6 hours'),
-  ('10000000-0000-4000-8000-000000000009', 'public', 'billing', true, now() - interval '4 hours');
+  ('10000000-0000-4000-8000-000000000009', 'public', 'other', true, (select t from tclock) - interval '6 hours'),
+  ('10000000-0000-4000-8000-000000000009', 'public', 'billing', true, (select t from tclock) - interval '4 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000009', 'נכנסת', null, now() - interval '20 minutes'),
-  ('out', '972500000009', 'סליחה, מענה חלופי', 'sent', now() - interval '6 hours' + interval '3 seconds'),
-  ('out', '972500000009', 'סליחה, מענה חלופי שני', 'sent', now() - interval '4 hours' + interval '3 seconds');
+  ('in', '972500000009', 'נכנסת', null, (select t from tclock) - interval '20 minutes'),
+  ('out', '972500000009', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '6 hours' + interval '3 seconds'),
+  ('out', '972500000009', 'סליחה, מענה חלופי שני', 'sent', (select t from tclock) - interval '4 hours' + interval '3 seconds');
 
 -- 10. יציאה שנכשלה אינה תשובה.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000010', 'public', 'other', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000010', 'public', 'other', true, (select t from tclock) - interval '3 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, error, status, created_at) values
-  ('in', '972500000010', 'נכנסת', null, null, now() - interval '2 hours'),
-  ('out', '972500000010', 'סליחה, מענה חלופי', null, 'sent', now() - interval '3 hours' + interval '5 seconds'),
-  ('out', '972500000010', 'נכשל בגרף', 'graph', null, now() - interval '3 hours' + interval '10 minutes'),
-  ('out', '972500000010', 'מטא החזירה failed', null, 'failed', now() - interval '3 hours' + interval '20 minutes');
+  ('in', '972500000010', 'נכנסת', null, null, (select t from tclock) - interval '2 hours'),
+  ('out', '972500000010', 'סליחה, מענה חלופי', null, 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000010', 'נכשל בגרף', 'graph', null, (select t from tclock) - interval '3 hours' + interval '10 minutes'),
+  ('out', '972500000010', 'מטא החזירה failed', null, 'failed', (select t from tclock) - interval '3 hours' + interval '20 minutes');
 
 -- 11. הודעה של בוט הסוכנים (agent_id מלא) אינה תשובת הבוט הציבורי.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000011', 'public', 'other', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000011', 'public', 'other', true, (select t from tclock) - interval '3 hours');
 insert into public.whatsapp_messages (direction, wa_phone, agent_id, body, status, created_at) values
-  ('in', '972500000011', null, 'נכנסת', null, now() - interval '1 hour'),
-  ('out', '972500000011', null, 'סליחה, מענה חלופי', 'sent', now() - interval '3 hours' + interval '5 seconds'),
-  ('out', '972500000011', '20000000-0000-4000-8000-000000000011', 'התראת סוכן', 'sent', now() - interval '3 hours' + interval '15 minutes');
+  ('in', '972500000011', null, 'נכנסת', null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000011', null, 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000011', '20000000-0000-4000-8000-000000000011', 'התראת סוכן', 'sent', (select t from tclock) - interval '3 hours' + interval '15 minutes');
 
 -- 12. תשובה אמיתית 90 שניות אחרי המענה, אחרי שליחת המענה עצמו.
 insert into public.gabriela_llm_fallbacks (conversation_id, channel, reason, sent, created_at)
-values ('10000000-0000-4000-8000-000000000012', 'public', 'other', true, now() - interval '3 hours');
+values ('10000000-0000-4000-8000-000000000012', 'public', 'other', true, (select t from tclock) - interval '3 hours');
 insert into public.whatsapp_messages (direction, wa_phone, body, status, created_at) values
-  ('in', '972500000012', 'נכנסת', null, now() - interval '1 hour'),
-  ('out', '972500000012', 'סליחה, מענה חלופי', 'sent', now() - interval '3 hours' + interval '5 seconds'),
-  ('out', '972500000012', 'הנה התשובה', 'read', now() - interval '3 hours' + interval '90 seconds');
+  ('in', '972500000012', 'נכנסת', null, (select t from tclock) - interval '1 hour'),
+  ('out', '972500000012', 'סליחה, מענה חלופי', 'sent', (select t from tclock) - interval '3 hours' + interval '5 seconds'),
+  ('out', '972500000012', 'הנה התשובה', 'read', (select t from tclock) - interval '3 hours' + interval '90 seconds');
+commit;
 """
     proc = subprocess.run(
         ["psql", "-v", "ON_ERROR_STOP=1", "-d", DB],
@@ -215,15 +218,11 @@ insert into public.whatsapp_messages (direction, wa_phone, body, status, created
         fail(f"זריעה נכשלה:\n{proc.stderr[-2000:]}")
 
     cols = psql("""
-select string_agg(a.attname, ',' order by a.attnum)
+select array_to_string(p.proargnames, ',')
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
-  join pg_type t on t.oid = p.prorettype
-  join pg_attribute a on a.attrelid = t.typrelid
  where n.nspname = 'public'
    and p.proname = 'gabriela_waiting_customers'
-   and a.attnum > 0
-   and not a.attisdropped
 """)
     if cols != "conversation_id,fallback_at,window_open":
         fail(f"עמודות לא צפויות: {cols}")
