@@ -1580,6 +1580,7 @@ const propsShelf = PropShelf.create({
   // הנכסים שהן הציגו יחד.
   box:true, rows:2,
   categoryTags:true,
+  saleResidential: v10On(),   // ‏F4 / C4
   // "דירה" מתפצלת לתגיות לפי מספר חדרים. ‏roomsLabel נכתב במפורש ולא
   // נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות". במסחרי אין פיצול כזה
   // ממילא: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס מסחרי.

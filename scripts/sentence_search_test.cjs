@@ -464,6 +464,22 @@ test('C4: למכירה בלי סוג - מגורים בלבד, רק עם saleResi
   assert.ok(!C.filter(props, st, Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
   assert.ok(C.filter(props, Object.assign({}, st, { type: 'commercial' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
 });
+test('F2: מגרשים במכירה - בלי המגרשים המסחריים, עם saleResidential', () => {
+  const props = PROPS.concat([P({ id: 'cland', deal_type: 'sale', category: 'commercial', property_type: 'מגרשים', price: 2000000 })]);
+  const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'land' });
+  assert.ok(C.filter(props, st, CTX).some(p => p.id === 'cland'));
+  const res = C.filter(props, st, Object.assign({ saleResidential: true }, CTX));
+  assert.deepStrictEqual(res.map(p => p.id), ['h']);
+  // תחת מסחרי הוא עדיין שם
+  assert.ok(C.filter(props, Object.assign({}, st, { deal: null, type: 'comm_land' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'cland'));
+});
+test('C3: נחלה נספרת רק תחת משקים ונחלות - לא בתים ולא מגרשים', () => {
+  const props = PROPS.concat([P({ id: 'farm2', deal_type: 'sale', property_type: 'משק חקלאי/נחלה', rooms: 5, price: 3100000 })]);
+  const ctx = Object.assign({ saleResidential: true, farmSplit: true }, CTX);
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  const has = (type) => C.filter(props, Object.assign({}, st, { type }), ctx).some(p => p.id === 'farm2');
+  assert.ok(has('farm')); assert.ok(!has('house')); assert.ok(!has('land')); assert.ok(has('any'));
+});
 test('R5: type= במקום ptype=, ו-ptype= עדיין נקרא', () => {
   const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'garden' });
   assert.ok(/(^|&)type=garden(&|$)/.test(C.toParams(st, AREAS, { typeParam: true })));

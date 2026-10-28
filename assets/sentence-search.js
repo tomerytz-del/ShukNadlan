@@ -328,6 +328,9 @@
   function typeMatches(p, key, ctx) {
     var t = typeDef(key);
     if (key === 'house' && ctx && ctx.farmSplit && FARM_PTYPES.indexOf(p.property_type) >= 0) return false;
+    /* ‏F2: עם saleResidential סוג שאינו מסחרי אינו כולל נכס מסחרי - "מגרשים" במכירה הם המגרשים
+       למגורים בלבד (‏"מגרשים · 4", כמו בחלון ובהחלקה), ושני המגרשים המסחריים רק תחת מסחרי */
+    if (ctx && ctx.saleResidential && !t.commercial && p.category === 'commercial') return false;
     if (t.commercial && p.category !== 'commercial') return false;
     if (t.residential && p.category === 'commercial') return false;
     if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;

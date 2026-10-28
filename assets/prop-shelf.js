@@ -452,8 +452,10 @@
       ]) : [];
 
       var deals = counted([
-        { key: 'sale', group: 'deal', label: 'מכירה', test: function (p) { return p.deal_type !== 'rent'; } },
-        { key: 'rent', group: 'deal', label: 'השכרה', test: function (p) { return p.deal_type === 'rent'; } },
+        /* ‏cfg.saleResidential (‏F4, ‏C4 - דף הבית עם הדגל): "מכירה" ו"השכרה" הם מגורים בלבד, כמו
+           המשפט ("הכול · 120"); המסחרי - בתגית "מסחרי" */
+        { key: 'sale', group: 'deal', label: 'מכירה', test: function (p) { return p.deal_type !== 'rent' && !(cfg.saleResidential && isCommercial(p)); } },
+        { key: 'rent', group: 'deal', label: 'השכרה', test: function (p) { return p.deal_type === 'rent' && !(cfg.saleResidential && isCommercial(p)); } },
       ]);
 
       var rooms = new Map();   // '4' → כמה דירות 4 חדרים
