@@ -115,8 +115,11 @@ def main() -> int:
         for needle in needles:
             if needle.lower() not in low:
                 fail(f"{name} ב-{where[name]} בלי {needle}")
-    if "saved_search_quiet_from_hour" in final["public.saved_search_quiet_now"]:
-        fail("saved_search_quiet_now עדיין שעות 22-08, ושבת נשארת פתוחה")
+    quiet = final["public.saved_search_quiet_now"]
+    if "customer_send_window_on" not in quiet or "send_window_open('saved_search'" not in quiet:
+        fail("saved_search_quiet_now אינו עובר לחלון האחיד כשהדגל דלוק")
+    if "agent_backlog_waiting" not in final["public.notification_push_due_agents"]:
+        fail("פיזור הבוקר של הסוכנים נעלם מ-due_agents")
     if where["public.notification_send_window_open"] != WIN.name:
         fail("notification_send_window_open נדרס אחרי חלון הלקוחות")
     if where["public.saved_search_quiet_now"] != WIN.name:
@@ -136,8 +139,8 @@ def main() -> int:
     house = (ROOT / "supabase/functions/open-house-notify/index.ts").read_text(encoding="utf-8")
     if house.find("send_window_open") > house.find('.from("open_house_subscribers")'):
         fail("היריד נשאל לפני החלון")
-    if "customer_window_hold" not in house:
-        fail("יריד מחוץ לחלון אינו מסומן כדחוי")
+    if "customer_window_hold" not in house or "customer_phone_claim" not in house:
+        fail("היריד אינו נספר בתקרת הטלפון")
 
     print(f"✓ {len(NEED)} פונקציות. הגוף האחרון שומר את החלון, את התקרה ואת מה שכבר נכנס לפניהן.")
     return 0

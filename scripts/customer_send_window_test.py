@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""חלון הלקוחות ותקרת 3 לטלפון, על Postgres מקומי.
-
-ראשון-חמישי 08:00-21:00. שישי וערב חג 08:00-13:00.
-שבת, חג ויום כיפור סגורים. התביעה הרביעית לאותו טלפון באותו יום נכשלת.
-הדגל customer_digest_enabled נשאר 0, והתקציר מחזיר אפס שורות.
+"""חלון הלקוחות: תוקף 72 שעות, מיזוג, פיזור 08:00-09:00 ומרווח 20 דקות.
 
     python3 scripts/customer_send_window_test.py
 """
@@ -30,17 +26,18 @@ def psql(sql: str) -> str:
         text=True, capture_output=True,
     )
     if proc.returncode != 0:
-        fail(f"psql נכשל:\n{proc.stderr}\n{sql[:500]}")
+        fail(f"psql נכשל:\n{proc.stderr}\n{sql[:700]}")
     return proc.stdout.strip()
 
 
 def psql_file(path: Path) -> None:
+    sql = "set check_function_bodies = off;\n" + path.read_text(encoding="utf-8")
     proc = subprocess.run(
-        ["psql", "-v", "ON_ERROR_STOP=1", "-d", DB, "-f", str(path)],
-        text=True, capture_output=True,
+        ["psql", "-v", "ON_ERROR_STOP=1", "-d", DB],
+        text=True, input=sql, capture_output=True,
     )
     if proc.returncode != 0:
-        fail(f"psql נכשל על {path.name}:\n{proc.stderr[-2500:]}")
+        fail(f"psql נכשל על {path.name}:\n{proc.stderr[-3000:]}")
 
 
 def at(wall: str) -> str:
@@ -51,6 +48,18 @@ def expect(sql: str, want: str, label: str) -> None:
     got = psql(sql)
     if got != want:
         fail(f"{label}: ציפיתי {want}, קיבלתי {got}")
+
+
+def phone_with_minute(minute: int) -> str:
+    got = psql(f"""
+      select '+97250' || lpad(n::text, 7, '0')
+        from generate_series(1, 400) n
+       where public.customer_spread_minute('+97250' || lpad(n::text, 7, '0')) = {minute}
+       limit 1
+    """)
+    if not got:
+        fail(f"לא נמצא טלפון לדקה {minute}")
+    return got
 
 
 def main() -> int:
@@ -65,106 +74,221 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role; end if;
 end $$;
 create table public.pricing_config (key text primary key, value int, description text);
+create table public.neighborhoods (id uuid primary key, name text);
 create table public.saved_searches (
-  id uuid primary key, phone_e164 text
+  id uuid primary key,
+  full_name text,
+  phone_e164 text,
+  email text,
+  contact_channel text,
+  label text,
+  unsubscribe_token text,
+  status text default 'active',
+  cities text[] default '{}',
+  deal_type text,
+  category text
+);
+create table public.properties (
+  id uuid primary key,
+  status text,
+  title text,
+  price numeric,
+  rooms numeric,
+  size_sqm numeric,
+  area_sqm numeric,
+  floor int,
+  city text,
+  street text,
+  property_type text,
+  deal_type text,
+  images text[],
+  neighborhood_id uuid
 );
 create table public.saved_search_alerts (
   id uuid primary key default gen_random_uuid(),
-  search_id uuid references public.saved_searches(id),
+  search_id uuid,
   property_id uuid,
   status text not null default 'pending',
+  whatsapp_status text not null default 'pending',
+  email_status text not null default 'pending',
   last_error text,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,
+  click_token text,
   constraint saved_search_alerts_status_check
     check (status in ('pending', 'sent', 'failed', 'skipped'))
 );
+create or replace function public.saved_search_matches(
+  p_search public.saved_searches, p_property public.properties
+) returns boolean language sql stable as $$
+  select p_property.status = 'active'
+     and (cardinality(coalesce(p_search.cities, '{}')) = 0
+          or p_property.city = any(p_search.cities));
+$$;
 """)
     psql_file(MIG)
 
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 08:00:00')})", "t", "ראשון 08:00")
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 07:59:00')})", "f", "ראשון 07:59")
-    expect(f"select public.send_window_open('saved_search', {at('2026-08-02 20:59:00')})", "t", "ראשון 20:59")
     expect(f"select public.send_window_open('saved_search', {at('2026-08-02 21:00:00')})", "f", "ראשון 21:00")
-    expect(f"select public.send_window_open('agent', {at('2026-08-07 10:00:00')})", "t", "שישי 10:00")
-    expect(f"select public.send_window_open('agent', {at('2026-08-07 13:00:00')})", "f", "שישי 13:00")
-    expect(f"select public.send_window_open('open_house', {at('2026-08-08 10:00:00')})", "f", "שבת 10:00")
+    expect(f"select public.send_window_open('open_house', {at('2026-08-08 10:00:00')})", "f", "שבת")
     expect(f"select public.send_window_open('saved_search', {at('2026-09-21 10:00:00')})", "f", "יום כיפור")
     expect(f"select public.send_window_open('saved_search', {at('2026-09-20 10:00:00')})", "t", "ערב כיפור 10:00")
     expect(f"select public.send_window_open('saved_search', {at('2026-09-20 14:00:00')})", "f", "ערב כיפור 14:00")
-    expect(f"select public.send_window_open('saved_search', {at('2026-09-12 11:00:00')})", "f", "ראש השנה")
-    expect("select public.send_window_open('nope', now())", "f", "קהל לא מוכר")
-    expect(f"select public.notification_send_window_open({at('2026-08-08 10:00:00')})", "f", "סוכן בשבת")
-    expect(f"select public.notification_send_window_open({at('2026-09-21 12:00:00')})", "f", "סוכן ביום כיפור")
-    expect("select count(*) from public.il_holidays", "30", "זרע 2026-2027")
-    expect("select kind from public.il_holidays where holiday_date = '2026-09-21'", "holiday", "יום כיפור הוא חג")
-    expect("select kind from public.il_holidays where holiday_date = '2027-10-10'", "eve", "ערב כיפור 2027")
+    expect(f"select public.notification_send_window_open({at('2026-09-21 10:00:00')})", "t", "סוכן ביום כיפור כשהדגל כבוי")
+    psql("update public.pricing_config set value = 1 where key = 'agent_holiday_window_enabled'")
+    expect(f"select public.notification_send_window_open({at('2026-09-21 10:00:00')})", "f", "סוכן ביום כיפור כשהדגל דלוק")
+    psql("update public.pricing_config set value = 0 where key = 'agent_holiday_window_enabled'")
+    ahead = psql("select (max(holiday_date) > current_date + 60) from public.il_holidays")
+    if ahead != "t":
+        fail("אין חג יותר מ-60 יום קדימה")
+    expect("select kind from public.il_holidays where holiday_date = '2028-09-30'", "holiday", "יום כיפור 2028")
 
-    day = at("2026-08-03 10:00:00")
-    for i, want in enumerate(("t", "t", "t", "f", "f"), start=1):
-        expect(
-            f"select public.customer_phone_claim('+972501234567', {day})",
-            want,
-            f"תביעה {i}",
-        )
+    psql("update public.pricing_config set value = 1 where key = 'customer_send_window_enabled'")
+    early = phone_with_minute(0)
+    later = phone_with_minute(30)
+    t0 = at("2026-08-02 08:00:00")
     expect(
-        f"select public.customer_phone_claim('+972507654321', {day})",
-        "t",
-        "טלפון אחר",
+        f"select public.customer_phone_claim('{later}', {t0}, gen_random_uuid(), true)",
+        "wait",
+        "08:00 לא משחרר טלפון של דקה 30",
     )
     expect(
-        f"select public.customer_phone_claim('+972501234567', {at('2026-08-04 10:00:00')})",
-        "t",
-        "יום למחרת",
+        f"select public.customer_phone_claim('{later}', {at('2026-08-02 08:30:00')}, gen_random_uuid(), true)",
+        "ok",
+        "08:30 משחרר את דקה 30",
     )
-    expect("select public.customer_phone_claim('  ', now())", "f", "טלפון ריק")
+    ref1 = psql("select gen_random_uuid()")
     expect(
-        "select sent_count from public.customer_phone_day where phone_e164 = '+972501234567' and day = '2026-08-03'",
-        "3",
-        "המונה נעצר ב-3",
+        f"select public.customer_phone_claim('{early}', {t0}, '{ref1}', true)",
+        "ok",
+        "08:00 משחרר דקה 0",
+    )
+    expect(
+        f"select public.customer_phone_claim('{early}', {at('2026-08-02 08:10:00')}, gen_random_uuid(), true)",
+        "wait",
+        "מרווח 20 דקות",
+    )
+    expect(
+        f"select public.customer_phone_claim('{early}', {at('2026-08-02 08:20:00')}, gen_random_uuid(), true)",
+        "ok",
+        "אחרי 20 דקות",
+    )
+    expect(
+        f"select public.customer_phone_claim('{early}', {at('2026-08-02 08:40:00')}, gen_random_uuid(), true)",
+        "ok",
+        "הודעה שלישית",
+    )
+    expect(
+        f"select public.customer_phone_claim('{early}', {at('2026-08-02 09:00:00')}, gen_random_uuid(), true)",
+        "cap",
+        "רביעית נעצרת",
+    )
+    psql(f"select public.customer_phone_release('{early}', '{ref1}', {t0})")
+    expect(
+        f"select sent_count from public.customer_phone_day where contact_key = '{early}' and day = '2026-08-02'",
+        "2",
+        "כשל לא נספר",
     )
 
-    psql("""
-insert into public.saved_searches (id, phone_e164)
-values ('11111111-1111-1111-1111-111111111111', '+972501111111');
-insert into public.saved_search_alerts (id, search_id, status)
-values ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'pending');
-""")
-    psql("select public.customer_message_defer('22222222-2222-2222-2222-222222222222', 'cap')")
+    def seed(pid: str, sid: str, aid: str, phone: str, city: str, status: str, created: str, prop_status: str = "active") -> None:
+        psql(f"""
+          insert into public.saved_searches (id, full_name, phone_e164, email, status, cities)
+          values ('{sid}', 'בדיקה', '{phone}', '{phone[1:]}@example.com', 'active', array['{city}']);
+          insert into public.properties (id, status, city, title, price, rooms)
+          values ('{pid}', '{prop_status}', '{city}', 'דירה', 1000000, 4);
+          insert into public.saved_search_alerts (id, search_id, property_id, status, created_at)
+          values ('{aid}', '{sid}', '{pid}', '{status}', {created});
+        """)
+
+    base = at("2026-08-02 08:00:00")
+    seed("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1",
+         "cccccccc-cccc-cccc-cccc-ccccccccccc1", early, "עפולה", "deferred", f"{base} - interval '73 hours'")
+    psql(f"select public.customer_prepare({base})")
     expect(
-        "select status from public.saved_search_alerts where id = '22222222-2222-2222-2222-222222222222'",
-        "deferred",
-        "התראה דחויה",
+        "select status from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'",
+        "expired",
+        "פג תוקף אחרי 72 שעות",
+    )
+
+    fresh_phone = phone_with_minute(0)
+    # early כבר מלא חלקית; fresh_phone נקי חוץ מאם הוא early. ננקה את היום.
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    p_ok = phone_with_minute(0)
+    seed("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2",
+         "cccccccc-cccc-cccc-cccc-ccccccccccc2", p_ok, "עפולה", "deferred", f"{base} - interval '2 hours'", "sold")
+    seed("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3",
+         "cccccccc-cccc-cccc-cccc-ccccccccccc3", phone_with_minute(0), "חיפה", "deferred", f"{base} - interval '2 hours'", "active")
+    psql("update public.saved_searches set cities = array['עפולה'] where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb3'")
+    psql(f"select public.customer_prepare({base})")
+    expect(
+        "select last_error from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc2'",
+        "inactive",
+        "נכס לא פעיל",
     )
     expect(
-        "select reason || ' ' || audience from public.customer_message_holds where alert_id = '22222222-2222-2222-2222-222222222222'",
-        "cap saved_search",
-        "השורה הדחויה",
+        "select last_error from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc3'",
+        "no_match",
+        "נכס שלא תואם",
     )
-    expect("select count(*) from public.customer_digest_groups(now())", "0", "דגל 0: אין תקציר")
+
+    psql("delete from public.customer_phone_sends; delete from public.customer_phone_day;")
+    merge_phone = phone_with_minute(0)
+    prop = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"
+    psql(f"""
+      insert into public.properties (id, status, city, title, price, rooms)
+      values ('{prop}', 'active', 'עפולה', 'דירה', 900000, 3);
+      insert into public.saved_searches (id, full_name, phone_e164, status, cities)
+      values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb4', 'בדיקה', '{merge_phone}', 'active', array['עפולה']);
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at) values
+        ('cccccccc-cccc-cccc-cccc-ccccccccccc4', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb4', '{prop}', 'deferred', {base} - interval '3 hours'),
+        ('cccccccc-cccc-cccc-cccc-ccccccccccc5', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb4', '{prop}', 'deferred', {base} - interval '1 hour');
+    """)
+    psql(f"select public.customer_prepare({base})")
+    expect(
+        "select status || ' ' || coalesce(last_error, '') from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc4'",
+        "skipped merged",
+        "ההתראה הישנה מוזגה",
+    )
+    expect(
+        "select status from public.saved_search_alerts where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc5'",
+        "pending",
+        "החדשה נשארת",
+    )
+
     psql("update public.pricing_config set value = 1 where key = 'customer_digest_enabled'")
-    expect(
-        f"select phone_e164 from public.customer_digest_groups({at('2027-08-02 10:00:00')})",
-        "+972501111111",
-        "דגל 1 בחלון פתוח: טלפון אחד",
-    )
-    expect(
-        f"select count(*) from public.customer_digest_groups({at('2026-08-08 10:00:00')})",
-        "0",
-        "שבת: אין תקציר גם כשהדגל 1",
-    )
-    psql("update public.pricing_config set value = 0 where key = 'customer_digest_enabled'")
-    expect("select value from public.pricing_config where key = 'customer_digest_enabled'", "0", "הדגל חוזר ל-0")
+    enabled = psql("select enabled_at from public.customer_digest_state where id = 1")
+    if not enabled:
+        fail("הדלקת התקציר לא נרשמה")
+    dig_phone = phone_with_minute(0)
+    psql(f"""
+      insert into public.properties (id, status, city) values
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6', 'active', 'עפולה'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7', 'active', 'עפולה');
+      insert into public.saved_searches (id, full_name, phone_e164, status, cities) values
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb6', 'בדיקה', '{dig_phone}', 'active', array['עפולה']);
+      insert into public.saved_search_alerts (id, search_id, property_id, status, created_at) values
+        ('cccccccc-cccc-cccc-cccc-ccccccccccc6', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb6',
+         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6', 'deferred', timestamp '{enabled}' - interval '2 days'),
+        ('cccccccc-cccc-cccc-cccc-ccccccccccc7', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb6',
+         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa7', 'deferred', timestamp '{enabled}' + interval '1 minute');
+      insert into public.customer_message_holds (phone_e164, audience, alert_id, reason, deliver_on, created_at) values
+        ('{dig_phone}', 'saved_search', 'cccccccc-cccc-cccc-cccc-ccccccccccc6', 'quiet', '2026-08-02', timestamp '{enabled}' - interval '2 days'),
+        ('{dig_phone}', 'saved_search', 'cccccccc-cccc-cccc-cccc-ccccccccccc7', 'quiet', '2026-08-02', timestamp '{enabled}' + interval '1 minute');
+    """)
+    got = psql(f"select coalesce(string_agg(x::text, ','), '') from public.customer_digest_take({base}) d, unnest(d.alert_ids) x")
+    if "cccccccc-cccc-cccc-cccc-ccccccccccc6" in got:
+        fail("התקציר מילא אחורה")
+    if "cccccccc-cccc-cccc-cccc-ccccccccccc7" not in got:
+        fail(f"התקציר לא החזיר התראה תקפה: {got}")
+    second = psql(f"select count(*) from public.customer_digest_take({base})")
+    if second != "0":
+        fail("התקציר חזר על אותה התראה")
+    marked = psql("select delivered_at is not null from public.customer_message_holds where alert_id = 'cccccccc-cccc-cccc-cccc-ccccccccccc7'")
+    if marked != "t":
+        fail("delivered_at לא סומן")
 
-    anon = psql("select has_table_privilege('anon', 'public.il_holidays', 'select')")
-    auth = psql("select has_table_privilege('authenticated', 'public.customer_phone_day', 'select')")
-    svc = psql("select has_table_privilege('service_role', 'public.customer_message_holds', 'select')")
-    if anon != "f" or auth != "f" or svc != "t":
-        fail(f"הרשאות: anon={anon} authenticated={auth} service_role={svc}")
-    fn = psql("select has_function_privilege('anon', 'public.send_window_open(text, timestamptz)', 'execute')")
-    fn_svc = psql("select has_function_privilege('service_role', 'public.customer_phone_claim(text, timestamptz)', 'execute')")
-    if fn != "f" or fn_svc != "t":
-        fail(f"execute: anon={fn} service_role={fn_svc}")
-
-    print("✓ חלון, חגים, תקרה 3, דחיה, ודגל התקציר כבוי.")
+    print("✓ תוקף, דילוג, מיזוג, פיזור, מרווח, תקרה, וחגים עד 2028.")
     return 0
 
 

@@ -165,16 +165,22 @@ Deno.serve(async (req: Request) => {
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
-  const window = await sb.rpc("send_window_open", {
-    p_audience: "open_house",
-    p_at: new Date().toISOString(),
-  });
+  const flag = await sb.rpc("customer_send_window_on");
+  const flagMissing = flag.error && (flag.error.code === "PGRST202" || flag.error.code === "42883");
+  const flagOn = !flagMissing && !flag.error && flag.data === true;
+  if (flag.error && !flagMissing) {
+    console.error("open house window flag failed", flag.error.code);
+    return json({ ok: false, sent: 0, deferred: false, reason: "window_error" }, 500);
+  }
+  const window = flagOn
+    ? await sb.rpc("send_window_open", { p_audience: "open_house", p_at: new Date().toISOString() })
+    : { data: true, error: null };
   const windowMissing = window.error && (window.error.code === "PGRST202" || window.error.code === "42883");
   if (window.error && !windowMissing) {
     console.error("open house window failed", window.error.code);
     return json({ ok: false, sent: 0, deferred: false, reason: "window_error" }, 500);
   }
-  if (!windowMissing && window.data === false) {
+  if (flagOn && !windowMissing && window.data === false) {
     const held = await sb.rpc("customer_window_hold", { p_audience: "open_house", p_reason: "quiet" });
     if (held.error && held.error.code !== "PGRST202" && held.error.code !== "42883") {
       console.error("open house window hold failed", held.error.code);
@@ -239,6 +245,22 @@ Deno.serve(async (req: Request) => {
       .slice(0, MAX_ITEMS);
     if (items.length === 0) { skipped++; continue; }
 
+    let claimRef: string | null = null;
+    let claimKey: string | null = null;
+    if (flagOn) {
+      const key = await sb.rpc("customer_contact_key", { p_phone: null, p_email: String(sub.email) });
+      claimKey = key.data ? String(key.data) : null;
+      if (!claimKey) { skipped++; continue; }
+      claimRef = crypto.randomUUID();
+      const slot = await sb.rpc("customer_phone_claim", {
+        p_key: claimKey,
+        p_ref: claimRef,
+        p_backlog: true,
+      });
+      const slotMissing = slot.error && (slot.error.code === "PGRST202" || slot.error.code === "42883");
+      if (!slotMissing && slot.data !== "ok") { skipped++; continue; }
+    }
+
     const mail = buildEmail(items, String(sub.unsubscribe_token));
     const result = await sendPlatformEmail({ to: [String(sub.email)], ...mail });
 
@@ -254,6 +276,9 @@ Deno.serve(async (req: Request) => {
       sent++;
     } else {
       failed++;
+      if (claimRef && claimKey) {
+        await sb.rpc("customer_phone_release", { p_key: claimKey, p_ref: claimRef });
+      }
       await sb.from("open_house_subscribers")
         .update({ last_error: String(result.error ?? "send_failed").slice(0, 300) })
         .eq("id", sub.id);
