@@ -441,7 +441,7 @@
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
       // תקציב כאינדקס ב-BUDGETS של העסקה - אותה כתובת שדף הבית בונה (חלק 4 §3.4)
-      var bi = (BUDGETS[filter.deal] || []).indexOf(filter.budget);
+      var bi = budgetsFor().indexOf(filter.budget);
       if (filter.budget && bi > 0) q.set('budget', String(bi));
       if (filter.type) q.set('type', filter.type);
       if (!filter.photos) q.set('photos', '0');
@@ -457,7 +457,8 @@
     var a = params.get('area');
     if (a && (a === 'main' || a === 'around' || a.indexOf('city:') === 0)) filter.area = a;
     var r = Number(params.get('rooms')); if ([3, 4, 5].indexOf(r) >= 0) filter.rooms = r;
-    var b = Number(params.get('budget')), bl = BUDGETS[filter.deal] || [];
+    var cdl0 = params.get('cdeal'); if (filter.deal === 'commercial' && (cdl0 === 'rent' || cdl0 === 'sale')) filter.cdeal = cdl0;
+    var b = Number(params.get('budget')), bl = budgetsFor();
     if (b > 0 && b < bl.length) filter.budget = bl[b];
     var t = params.get('type'); if (TYPES.some(function (x) { return x[0] === t; })) filter.type = t;
     var cdl = params.get('cdeal'); if (cdl === 'rent' || cdl === 'sale') filter.cdeal = cdl;
@@ -470,6 +471,13 @@
     rent: [0, 4000, 6000, 8000],
     commercial: [0, 5000, 15000, 2000000]
   };
+  /* מסחרי: התקציב לפי העסקה שנבחרה - שכירות חודשית או מחיר מכירה (בקשת תומר 28.10).
+     בלי בחירה ("הכול") - הסולם המשותף, כמו קודם */
+  var COMM_BUDGETS = { rent: [0, 5000, 10000, 20000], sale: [0, 1000000, 2000000, 4000000] };
+  function budgetsFor(f) {
+    f = f || filter;
+    return (f.deal === 'commercial' && COMM_BUDGETS[f.cdeal]) || BUDGETS[f.deal] || [];
+  }
   function budgetLabel(v, deal) {
     if (!v) return 'ללא הגבלה';
     if (v >= 1000000) return 'עד ' + (v / 1000000).toLocaleString('he-IL') + ' מיליון ₪';
@@ -581,7 +589,12 @@
     if (f.reel && !hasReel(p)) return false;
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
-    if (f.budget && Number(p.price) > f.budget) return false;
+    // מחיר למ״ר (‏price_unit=sqm) נמדד מול התקציב כפול השטח, כמו בדף הבית (‏docs/price-unit.md)
+    if (f.budget) {
+      var pv = Number(p.price), sz = Number(p.size_sqm);
+      if (p.price_unit === 'sqm' && sz > 0) pv = pv * sz;
+      if (pv > f.budget) return false;
+    }
     if (f.rooms && f.deal !== 'commercial' && !(Number(p.rooms) >= f.rooms)) return false;
     return true;
   }
@@ -631,7 +644,8 @@
     cd.hidden = filter.deal !== 'commercial';
     if (!cd.hidden) {
       cd.innerHTML = [['', 'הכול'], ['rent', 'להשכרה'], ['sale', 'למכירה']].map(function (x) {
-        var n = countFor({ cdeal: x[0] });
+        // בלי התקציב: הוא מתאפס במעבר בין השכרה למכירה, ומונה מולו היה מסתיר את האפשרות השנייה
+        var n = countFor({ cdeal: x[0], budget: 0 });
         return n || x[0] === (filter.cdeal || '') ? chip(esc(x[1]) + ' · ' + n, 'data-cdeal="' + x[0] + '"', x[0] === (filter.cdeal || '')) : '';
       }).join('');
     }
@@ -659,7 +673,7 @@
     $('swFOther').hidden = !otherOpen;
     if (otherOpen) renderOther();
 
-    var budgets = BUDGETS[filter.deal];
+    var budgets = budgetsFor();
     $('swFBudget').innerHTML = budgets.map(function (v) { return chip(esc(budgetLabel(v, filter.deal)), 'data-budget="' + v + '"', filter.budget === v); }).join('');
     var showRooms = filter.deal !== 'commercial';
     $('swFRooms').hidden = $('swFRoomsL').hidden = !showRooms;
