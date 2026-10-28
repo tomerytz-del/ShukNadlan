@@ -6950,6 +6950,57 @@ function renderAdvancedBadge(){
   if (shelfN){ shelfN.hidden = !n; shelfN.textContent = n || ''; }
 }
 
+/* ---------- ‏A2-6: התמונות הקבועות של הכניסות להחלקה (תומר 22:00) ----------
+   ארבע תמונות AI (לא נכסים אמיתיים, ולכן alt ריק ובלי קישור לנכס): ‏ext-1 בית אבן, ‏ext-2
+   בניין בוטיק, ‏ext-3 פרגולה עם נוף, ‏ext-4 מטבח. ‏ext-N.webp ‏(96x128) לכפתור שבסרגל,
+   ‏ext-N-card.webp ‏(240x320) לכרטיס ההזמנה. ‏SWIPE_THUMBS_READY נדלק כשהקבצים נכנסים
+   ל-assets/swipe-thumbs/ - עד אז הכפתור הוא האייקון של שני הכרטיסים, והכרטיס מציג את
+   תמונות הנכסים כמו היום (בלי בקשות שנופלות ב-404) */
+const SWIPE_THUMBS_READY = false;
+const SWIPE_THUMBS = [1, 2, 3, 4];
+const swipeThumb = (n, card) => '/assets/swipe-thumbs/ext-' + n + (card ? '-card' : '') + '.webp';
+// בערימה של שלוש מתוך ארבע: התמונה שנכנסת מלמטה היא זו שאינה מוצגת עכשיו (‏data-n)
+const swipeThumbMissing = stack => SWIPE_THUMBS.find(n => !stack.querySelector('img[data-n="' + n + '"]'));
+/* ‏C8 (ד): התגית "חדש באתר" עד 30 יום אחרי העלייה לאוויר - תאריך, לא מונה. לעדכן ביום המיזוג */
+const INVITE_NEW_TAG_UNTIL = '2026-12-01';
+const SWIPE_ICON = '<svg class="ppv-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>';
+
+/* ‏A2-7 (תומר 20:21, התווית של גבריאלה 20:31): הכפתור שבסרגל - שלוש תמונות מהסט הקבוע
+   שמוחלקות כל 3.6 שניות, פעם ימינה ופעם שמאלה, עד 6 החלקות ורק כש-60% ממנו על המסך.
+   ‏reduced-motion - סטטי. ‏C7 (2): מתחיל מתמונה אחרת מכרטיס ההזמנה, כדי שאותה תמונה לא
+   תופיע פעמיים זו לצד זו. תמונה שלא נטענה - חוזר האייקון. רוחב קבוע לכל רוחב מסך, בלי CLS */
+function v10MiniSwipe(btn){
+  btn.dataset.noTitle = '';
+  btn.setAttribute('aria-label', 'גלישה בהחלקה');
+  const labels = '<span class="ppv-l ppv-long">גלישה בהחלקה</span><span class="ppv-l ppv-short">החלקה</span>';
+  if (!SWIPE_THUMBS_READY){ btn.innerHTML = SWIPE_ICON + labels; return; }
+  // מלמטה למעלה; העליונה ext-3 - בכרטיס ההזמנה העליונה ext-1 (‏C7)
+  btn.innerHTML = '<span class="ppv-stack" aria-hidden="true">' +
+    [2, 4, 3].map(n => '<img src="' + swipeThumb(n) + '" alt="" width="24" height="32" decoding="async" data-n="' + n + '">').join('') +
+    '</span>' + SWIPE_ICON + labels;
+  btn.classList.add('has-thumbs');
+  btn.querySelectorAll('.ppv-stack img').forEach(img => img.addEventListener('error', () => btn.classList.remove('has-thumbs'), { once:true }));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+  let swipes = 0, timer = 0;
+  const stack = btn.querySelector('.ppv-stack');
+  const step = () => {
+    const top = stack.lastElementChild;
+    if (!top || swipes >= 6){ clearInterval(timer); return; }
+    top.classList.add(swipes % 2 ? 'is-out-l' : 'is-out-r');
+    swipes++;
+    setTimeout(() => {
+      top.classList.remove('is-out-l', 'is-out-r');
+      const n = swipeThumbMissing(stack);
+      top.dataset.n = n; top.src = swipeThumb(n);
+      stack.prepend(top);
+    }, 420);
+  };
+  new IntersectionObserver(es => es.forEach(en => {
+    clearInterval(timer); timer = 0;
+    if (en.intersectionRatio >= 0.6 && swipes < 6) timer = setInterval(step, 3600);
+  }), { threshold: [0, 0.6] }).observe(btn);
+}
+
 /* ‏R5-3C (v10): בסרגל "נכסים בעפולה והעמק" - "סינון" (אותו חלון כמו בחיפוש), המיון,
    ואייקון החלקה עם הסינון הנוכחי (‏R5-5). שלושתם בשורה אחת גם בטלפון */
 (function v10ShelfToolbar(){
@@ -6965,9 +7016,7 @@ function renderAdvancedBadge(){
   view.className = 'pp-view-btn';
   view.href = '/swipe';
   view.dataset.swipeVia = 'results_toolbar';
-  view.setAttribute('aria-label', 'גלישה בהחלקה');
-  view.title = 'גלישה בהחלקה';
-  view.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>';
+  v10MiniSwipe(view);
   controls.prepend(filter);
   controls.appendChild(view);
 })();
@@ -7852,6 +7901,22 @@ function v10SwipeHref(src){
   return '/swipe' + (qs ? '?' + qs : '');
 }
 let v10InviteSeen = false;
+/* ‏C7 (1) (תומר 22:32): "גלישה בהחלקה · N" שליד כותרת התוצאות יורד כשהכפתור המונפש שבסרגל
+   על המסך - שתי כניסות להחלקה זו לצד זו. ‏visibility ולא hidden, כדי שהשורה לא תזוז */
+let v10MiniOnScreen = false;
+(function(){
+  if (!v10On() || !('IntersectionObserver' in window)) return;
+  const watch = () => {
+    const mini = document.querySelector('#allProps .pp-view-btn');
+    if (!mini) return false;
+    new IntersectionObserver(es => es.forEach(en => {
+      v10MiniOnScreen = en.isIntersecting;
+      document.getElementById('srSwipe')?.classList.toggle('is-dup', v10MiniOnScreen);
+    })).observe(mini);
+    return true;
+  };
+  if (!watch()){ const t = setInterval(() => { if (watch()) clearInterval(t); }, 800); setTimeout(() => clearInterval(t), 15000); }
+})();
 function v10SyncSwipe(results){
   if (!v10On()) return;
   document.querySelectorAll('[data-swipe-via="hero_views"]').forEach(a => { a.href = v10SwipeHref('home_views'); });
@@ -7889,34 +7954,74 @@ function v10Swipeable(results){
   const list = results || (sentence && sentence.loaded() ? sentence.results() : []);
   return list.filter(p => hasPhoto(p));
 }
+/* ‏A2-8 (תומר 21:10, הנוסח של גבריאלה 21:24, ‏C8): כרטיס ההזמנה בתיבת הנכסים. ‏aria-label אחד,
+   על הקישור; כל מה שבתוכו ‏aria-hidden. מוסתר מתחת ל-3 נכסים או כשיש סינון (‏R5-5: אז
+   "גלישה בהחלקה · N" שליד הכותרת). ימינה = שמירה, כמו ב-swipe.js (‏dx > 100 → like) */
 function v10FillInvite(el, results){
   const list = v10Swipeable(results), n = list.length;
-  // ‏R5-5: עם סינון - הכפתור "גלישה בהחלקה · N" שליד הכותרת, לא הכרטיס (בלי כפילות)
   el.hidden = n < 3 || v10FilterCount() > 0;
-  const title = `החליקו על ${n.toLocaleString('he-IL')} נכסים ב${CityCtx.label()}`;
-  el.setAttribute('aria-label', title);
+  const place = CityCtx.label();
+  el.setAttribute('aria-label', n === 1
+    ? `גלישה בהחלקה על נכס אחד ב${place}. מחליקים ימינה כדי לשמור ושמאלה כדי לדלג.`
+    : `גלישה בהחלקה על ${n.toLocaleString('he-IL')} נכסים ב${place}. מחליקים ימינה כדי לשמור ושמאלה כדי לדלג.`);
   el.href = v10SwipeHref('home_invite');
   el.dataset.count = String(n);
-  el.querySelector('.psi-title').textContent = title;
+  el.querySelector('.psi-sub').textContent = n === 1 ? 'נכס אחד מחכה לכם' : `${n.toLocaleString('he-IL')} נכסים מחכים לכם`;
+  if (SWIPE_THUMBS_READY && !el.classList.contains('psi-ai-off')) return;
   const pics = list.slice(0, 3).map(p => cardImgUrl(p.images[0]));
   el.querySelectorAll('.psi-stack img').forEach((img, i) => {
     if (pics[i]) { if (img.getAttribute('src') !== pics[i]) img.src = pics[i]; img.hidden = false; } else img.hidden = true;
   });
+}
+/* ‏C8 (ג): ארבע התמונות מתחלפות בערימה כל 4 שניות כשהכרטיס על המסך; ‏reduced-motion - סטטי */
+function v10InviteRotate(a){
+  if (!SWIPE_THUMBS_READY || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let timer = 0;
+  const stack = a.querySelector('.psi-stack');
+  a._rotate = on => {
+    clearInterval(timer); timer = 0;
+    if (!on || a.classList.contains('psi-ai-off')) return;
+    timer = setInterval(() => {
+      const top = stack.lastElementChild;
+      top.classList.add('is-out');
+      setTimeout(() => { top.classList.remove('is-out'); const n = swipeThumbMissing(stack); top.dataset.n = n; top.src = swipeThumb(n, true); stack.prepend(top); }, 450);
+    }, 4000);
+  };
 }
 function v10InviteCard(){
   if (!v10On() || !sentence || !sentence.loaded()) return null;
   const a = document.createElement('a');
   a.className = 'pc-swipe-invite';
   a.dataset.swipeVia = 'home_invite_card';
-  a.innerHTML = '<span class="psi-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="11" height="15" rx="2" transform="rotate(8 13.5 10.5)"/><path d="M5 7.5 4.2 17a2 2 0 0 0 1.8 2.2l7 .6"/></svg>חדש</span>' +
-    '<span class="psi-stack" aria-hidden="true"><img alt="" loading="lazy"><img alt="" loading="lazy"><img class="sk-tilt-s" alt="" loading="lazy"></span>' +
-    '<span class="psi-title"></span><span class="psi-sub">ימינה שומרים, שמאלה מדלגים</span>' +
-    '<span class="psi-btn">התחילו להחליק ←</span>';
+  const isNew = Date.now() < Date.parse(INVITE_NEW_TAG_UNTIL + 'T00:00:00+02:00');
+  const imgs = SWIPE_THUMBS_READY
+    ? [3, 2, 1].map(n => '<img src="' + swipeThumb(n, true) + '" alt="" width="240" height="320" loading="lazy" decoding="async" data-n="' + n + '">').join('')
+    : '<img alt="" loading="lazy"><img alt="" loading="lazy"><img alt="" loading="lazy">';
+  a.innerHTML = (isNew ? '<span class="psi-tag" aria-hidden="true">חדש באתר</span>' : '') +
+    '<span class="psi-deck" aria-hidden="true">' +
+      '<span class="psi-side psi-save"><i><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg></i>' +
+        '<small><span class="psi-long">ימינה לשמירה</span><span class="psi-short">שמירה</span></small></span>' +
+      '<span class="psi-stack">' + imgs + '</span>' +
+      '<span class="psi-side psi-skip"><i><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></i>' +
+        '<small><span class="psi-long">שמאלה לדילוג</span><span class="psi-short">דילוג</span></small></span>' +
+    '</span>' +
+    '<span class="psi-title" aria-hidden="true">מצאו את הנכס שלכם <b>בהחלקה</b></span>' +
+    '<span class="psi-sub" aria-hidden="true"></span>' +
+    '<span class="psi-btn" aria-hidden="true">להתחיל להחליק</span>';
+  if (SWIPE_THUMBS_READY) a.querySelectorAll('.psi-stack img').forEach(img => img.addEventListener('error', () => {
+    // תמונה מהסט שלא נטענה - חוזרים לתמונות הנכסים, כמו לפני A2-6
+    if (a.classList.contains('psi-ai-off')) return;
+    a.classList.add('psi-ai-off');
+    a._rotate && a._rotate(false);
+    v10FillInvite(a);
+  }, { once:true }));
+  v10InviteRotate(a);
   v10FillInvite(a);
   // האנימציה רק כשהכרטיס על המסך; ‏swipe_invite_view פעם אחת לצפייה בדף, כשחציו גלוי
   if ('IntersectionObserver' in window){
     new IntersectionObserver(es => es.forEach(en => {
       a.classList.toggle('is-off', !en.isIntersecting);
+      if (a._rotate) a._rotate(en.isIntersecting);
       if (en.intersectionRatio >= 0.5 && !v10InviteSeen && !a.hidden){
         v10InviteSeen = true;
         if (window.shukTrack) shukTrack('swipe_invite_view', { count: Number(a.dataset.count) || 0 });
@@ -8665,6 +8770,8 @@ document.addEventListener('click', e => {
      יופיע הסבר בריחוף. רק כשאין טקסט גלוי בכפתור; מתעדכן כשה-aria-label משתנה */
   function iconTitles(root) {
     (root || document).querySelectorAll('button[aria-label], a[aria-label], [role=button][aria-label]').forEach(function (b) {
+      // ‏A2-7: ‏data-no-title - בלי בועת title (הכפתור המונפש שבסרגל, שהתווית שלו גלויה במחשב)
+      if (b.hasAttribute('data-no-title')) return;
       var l = b.getAttribute('aria-label');
       if (l && !(b.innerText || '').trim() && b.title !== l) b.title = l;
     });
@@ -8723,10 +8830,8 @@ document.addEventListener('click', e => {
     }), { threshold: 0.6 }).observe(el);
     el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeNudge'){ el.classList.remove('is-nudge'); done(); } });
   }
+  // ‏A2-8: כרטיס ההזמנה כבר לא מתנענע - הוא מונפש בעצמו (‏v10InviteRotate)
   arm(document.querySelector('.v10-view.is-swipe'));
-  // כרטיס ההזמנה נבנה אחרי טעינת הנכסים
-  const t = setInterval(() => { const inv = document.querySelector('#allProps .pc-swipe-invite'); if (inv){ clearInterval(t); arm(inv); } }, 800);
-  setTimeout(() => clearInterval(t), 15000);
 })();
 
 /* ---------- ‏P1-T1: ‏info_open - פתיחה ראשונה של כל (i) בטעינה ----------
