@@ -764,13 +764,19 @@ Deno.serve(async (req: Request) => {
   if (error) return json({ error: "db_error", detail: error.message }, 500);
   if (!batch || batch.length === 0) return json({ sent: 0, failed: 0, empty: true });
 
-  let sent = 0, failed = 0;
+  let sent = 0, failed = 0, skipped = 0;
 
   // ‏new_lead: שם הפונה, הערוץ והנכס (lead-alert.ts). כשל - מפה ריקה, נוסח ישן.
   const leadInfo = await loadLeadInfo(sb, batch as Record<string, any>[]);
   const digest = await loadDigestFlags(sb);
 
   await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
+    // תקרת התבניות. הדגל כבוי, או שהפונקציה עוד לא במיגרציה: שולחים כרגיל.
+    // false: השורה כבר skipped_template_cap, ולא מסמנים אותה failed.
+    if (row.channel_mode === "template" && !(await templateCapAllows(sb, row.log_id))) {
+      skipped++;
+      return;
+    }
     let items = collapseForSend(withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
@@ -852,5 +858,20 @@ Deno.serve(async (req: Request) => {
     else failed++;
   });
 
-  return json({ sent, failed, processed: batch.length });
+  return json({ sent, failed, skipped, processed: batch.length });
 });
+
+// true: לשלוח. שגיאה או פונקציה חסרה לא בולעות את ההתראה.
+async function templateCapAllows(
+  sb: { rpc: (fn: string, args?: Record<string, unknown>) => any },
+  logId: string,
+): Promise<boolean> {
+  const { data, error } = await sb.rpc("whatsapp_template_cap_allow", { p_log_id: logId });
+  if (error) {
+    const missing = error.code === "PGRST202" || error.code === "42883"
+      || /whatsapp_template_cap_allow/.test(error.message || "") && /does not exist|schema cache/i.test(error.message || "");
+    if (!missing) console.error("template cap check failed", error.message);
+    return true;
+  }
+  return data !== false;
+}
