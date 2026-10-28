@@ -191,6 +191,20 @@ $$;
         "2",
         "כשל לא נספר",
     )
+    fresh = phone_with_minute(4)
+    pushed = psql("select gen_random_uuid()")
+    expect(
+        f"select public.customer_phone_claim('{fresh}', {at('2026-08-02 10:00:00')}, '{pushed}', false)",
+        "ok",
+        "תפיסה עם דחיפה",
+    )
+    psql(f"update public.customer_phone_sends set push_sent_at = now() where ref_id = '{pushed}'")
+    psql(f"select public.customer_phone_release('{fresh}', '{pushed}', {at('2026-08-02 10:00:00')})")
+    expect(
+        f"select sent_count from public.customer_phone_day where contact_key = '{fresh}' and day = '2026-08-02'",
+        "1",
+        "already עם דחיפה לא משחרר",
+    )
 
     def seed(pid: str, sid: str, aid: str, phone: str, city: str, status: str, created: str, prop_status: str = "active") -> None:
         psql(f"""
@@ -495,6 +509,8 @@ $$;
         fail("התפיסה משוחררת יותר מפעם אחת")
     if 'slot.data === "ok" || slot.data === "already"' not in notify:
         fail("already לא נתפס יחד עם ok")
+    if "push_sent_at" not in notify:
+        fail("already משחרר גם כשיש דחיפה")
     if 'tookClaim && !pushSent && waStatus !== "sent" && emStatus !== "sent"' not in notify:
         fail("שחרור אחרי already בלי שליחה חסר")
 

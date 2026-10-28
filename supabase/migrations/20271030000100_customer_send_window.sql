@@ -368,8 +368,12 @@ create table if not exists public.customer_phone_sends (
   ref_id uuid not null,
   contact_key text not null,
   day date not null,
+  push_sent_at timestamptz,
   primary key (ref_id, day)
 );
+
+alter table public.customer_phone_sends
+  add column if not exists push_sent_at timestamptz;
 
 comment on table public.customer_phone_sends is
   'תפיסה אחת להתראה או למשלוח, לא לערוץ. כשל משחרר את השורה. רק service_role.';
@@ -474,7 +478,8 @@ begin
     return;
   end if;
   delete from public.customer_phone_sends
-   where ref_id = p_ref and day = v_day and contact_key = v_key;
+   where ref_id = p_ref and day = v_day and contact_key = v_key
+     and push_sent_at is null;
   get diagnostics v_hit = row_count;
   if v_hit = 0 then
     return;
@@ -952,6 +957,13 @@ begin
     );
     v_n := v_n + 1;
   end loop;
+  if v_n > 0 then
+    update public.customer_phone_sends
+       set push_sent_at = pg_catalog.now()
+     where ref_id = p_alert_id
+       and day = (pg_catalog.now() at time zone 'Asia/Jerusalem')::date
+       and push_sent_at is null;
+  end if;
   return v_n;
 end;
 $$;

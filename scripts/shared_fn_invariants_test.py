@@ -33,7 +33,6 @@ NEED = {
     ),
     "public.scraped_lead_notify_demand": (
         "notif_burst_demand_fanout",
-        "s.rn > v_cap",
     ),
     "public.send_window_open": (
         "Asia/Jerusalem",
@@ -126,6 +125,10 @@ def main() -> int:
         fail("saved_search_quiet_now אינו עובר לחלון האחיד כשהדגל דלוק")
     if "agent_backlog_waiting" not in final["public.notification_push_due_agents"]:
         fail("פיזור הבוקר של הסוכנים נעלם מ-due_agents")
+    demand = final["public.scraped_lead_notify_demand"]
+    off = demand.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in demand else demand
+    if "notif_burst_demand_fanout" not in off or ("s.rn > v_fanout" not in off and "s.rn > v_cap" not in off):
+        fail(f"דגל כבוי ב-{where['public.scraped_lead_notify_demand']} בלי תקרת 15")
     if where["public.notification_send_window_open"] != WIN.name:
         fail("notification_send_window_open נדרס אחרי חלון הלקוחות")
     if where["public.saved_search_quiet_now"] != WIN.name:

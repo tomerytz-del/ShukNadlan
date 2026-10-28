@@ -312,6 +312,13 @@ Deno.serve(async (req: Request) => {
           if (slot.data === "ok") {
             const push = await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
             pushSent = !push.error && Number(push.data) > 0;
+          } else {
+            const prior = await sb.from("customer_phone_sends")
+              .select("push_sent_at")
+              .eq("ref_id", a.alert_id)
+              .not("push_sent_at", "is", null)
+              .limit(1);
+            pushSent = !prior.error && Array.isArray(prior.data) && prior.data.length > 0;
           }
         }
       }
