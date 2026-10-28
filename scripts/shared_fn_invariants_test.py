@@ -146,8 +146,17 @@ def main() -> int:
     ):
         if needle not in due:
             fail(f"due_agents האחרון בלי {needle}")
-    if "action_path" not in claim:
-        fail("claim האחרון בלי action_path")
+    if "action_path" not in claim or "'showcase_id'" not in claim:
+        fail("claim האחרון בלי action_path או showcase_id")
+    notify = final["public.scraped_lead_notify_demand"]
+    off = notify.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in notify else notify
+    if "s.rn > v_cap" not in off and "s.rn > v_fanout" not in off:
+        fail("תקרת 15 של הביקוש הפתוח נעלמה מהגוף האחרון")
+    backlog = final.get("public.notification_push_has_backlog", "")
+    if "skipped_template_cap" in backlog and "a.in_service_window" not in backlog:
+        fail("has_backlog מסנן תקרה בעמודה שאינה ב-due_agents")
+    if version_of(Path(where["public.notification_push_has_backlog"])) < "20271030000300":
+        fail("has_backlog האחרון בסדר הפריסה ישן ממסנן התקרה")
     if where["public.notification_send_window_open"] != WIN.name:
         fail("notification_send_window_open נדרס אחרי חלון הלקוחות")
     if where["public.saved_search_quiet_now"] != WIN.name:

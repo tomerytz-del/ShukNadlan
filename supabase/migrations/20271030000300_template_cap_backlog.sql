@@ -50,7 +50,7 @@ as $$
                     (select value::int from public.pricing_config
                       where key = 'notif_digest_window_minutes'), 15))
               and (
-                a.in_window
+                a.in_service_window
                 or coalesce((
                   select public.whatsapp_template_cap_decide(
                            u.n,

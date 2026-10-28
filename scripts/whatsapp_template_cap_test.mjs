@@ -58,6 +58,13 @@ test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow 
   const due = extract("notification_push_due_agents");
   assert.match(due, /l\.whatsapp_status = 'failed'/);
   assert.doesNotMatch(due, /not public\.notification_push_log_holds\(l\.whatsapp_status/);
+  const backlog = readFileSync(
+    join(root, "supabase/migrations/20271030000300_template_cap_backlog.sql"),
+    "utf8",
+  );
+  assert.match(backlog, /skipped_template_cap/);
+  assert.match(backlog, /a\.in_service_window/);
+  assert.doesNotMatch(backlog, /a\.in_window\b/);
   assert.match(push, /templateCapAllows\(sb, row\.log_id\)/);
   assert.match(push, /rpc\("whatsapp_template_cap_allow"/);
 });
