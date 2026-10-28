@@ -47,6 +47,8 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 
 check("ליד נפתח על הליד", notificationPath({ type: "new_lead", lead_id: ID }) === `/crm?goto=accLeads&lead=${ID}`);
+check("תזכורת מענה פותחת את הליד", notificationPath({ type: "lead_response_reminder", lead_id: ID }) === `/crm?goto=accLeads&lead=${ID}`);
+check("הסלמה פותחת את הליד", notificationPath({ type: "lead_response_escalation", lead_id: ID }) === `/crm?goto=accLeads&lead=${ID}`);
 check("ליד בלי מזהה הוא הרשימה", notificationPath({ type: "new_lead" }) === "/crm?goto=accLeads");
 check("סיכום לידים הוא הרשימה", notificationPath({ type: "leads_digest" }) === "/crm?goto=accLeads" && notificationPath({ type: "digest" }) === "/crm?goto=accLeads");
 check("ביקוש נשאר בלשונית", notificationPath({ type: "open_demand" }) === "/crm?goto=accLeads&tab=demand");
