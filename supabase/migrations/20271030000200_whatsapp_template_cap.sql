@@ -447,7 +447,7 @@ as $$
                )
            ) as n24,
            count(*) filter (
-             where not public.notification_push_log_holds(l.whatsapp_status, l.created_at)
+             where l.whatsapp_status = 'failed'
                and l.created_at > now() - interval '24 hours'
            ) as fails24,
            bool_or(
@@ -640,6 +640,7 @@ begin
                  'agenda_item_id', n.related_agenda_item_id,
                  'agreement_id',  n.related_agreement_id,
                  'meeting_id',    n.related_meeting_id,
+                 'showcase_id',   n.related_showcase_id,
                  'review_id', (select rv.id from public.reviews rv
                                 where rv.id = n.related_review_id and rv.status = 'pending'
                                   and rv.agent_id is distinct from n.agent_id),
@@ -659,7 +660,17 @@ begin
                     when v_digest_on = 1 and public.notification_push_less_kept(n.type) then least(v_look_p, v_urgent)
                     else least(v_look, v_stale)
                   end)
-                or (v_digest_on = 0 and public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at)))
+                or (v_digest_on = 0 and public.notification_push_quiet_hold(n.type, n.agent_id, n.created_at))
+                or (
+                  public.whatsapp_template_cap_on()
+                  and v_digest_on = 1
+                  and exists (
+                    select 1 from public.notification_push_log lheld
+                     where lheld.agent_id = n.agent_id
+                       and n.id = any(lheld.notification_ids)
+                       and lheld.whatsapp_status = 'skipped_template_cap'
+                  )
+                ))
            and not exists (
              select 1 from public.notification_push_log l
               where l.agent_id = n.agent_id
@@ -672,14 +683,23 @@ begin
                 where lcap.agent_id = n.agent_id
                   and n.id = any(lcap.notification_ids)
                   and lcap.whatsapp_status = 'skipped_template_cap'
-                  and public.whatsapp_template_local_day(lcap.created_at)
-                      = public.whatsapp_template_local_day(pg_catalog.now())
              )
              or (
                v_digest_on = 1
                and public.notif_il_digest_open(coalesce(
                      (select value::int from public.pricing_config
                        where key = 'notif_digest_window_minutes'), 15))
+               and (
+                 a.in_service_window
+                 or coalesce((
+                   select public.whatsapp_template_cap_decide(
+                            u.n,
+                            case when u.last_at is null then null
+                                 else extract(epoch from (pg_catalog.now() - u.last_at)) / 3600.0 end,
+                            false, 1, 2, 8)
+                     from public.whatsapp_template_cap_usage(a.agent_id, null) u
+                 ), false)
+               )
              )
            )
            and not public.notification_push_stale_in_quiet(n.type, n.agent_id, n.created_at)

@@ -26,6 +26,7 @@ NEED = {
         "notification_push_burst_prepare()",
         "action_path",
         "related_showcase_id",
+        "'showcase_id'",
     ),
     "public.notification_push_due_agents": (
         "window_on",

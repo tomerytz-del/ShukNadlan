@@ -54,6 +54,10 @@ test("אחרי המיזוג: burst_prepare פעם אחת ב-claim, ו-cap_allow 
   assert.match(claim, /whatsapp_template_cap_allow\(v_log\)/);
   assert.match(claim, /skipped_template_cap/);
   assert.match(claim, /notif_il_digest_open/);
+  assert.match(claim, /lheld/);
+  const due = extract("notification_push_due_agents");
+  assert.match(due, /l\.whatsapp_status = 'failed'/);
+  assert.doesNotMatch(due, /not public\.notification_push_log_holds\(l\.whatsapp_status/);
   assert.match(push, /templateCapAllows\(sb, row\.log_id\)/);
   assert.match(push, /rpc\("whatsapp_template_cap_allow"/);
 });
@@ -135,4 +139,49 @@ rollback;
     input: sql,
     encoding: "utf8",
   });
+});
+
+test("שלוש שורות skipped_template_cap לא מורידות סוכן/ת עם ליד חדש", () => {
+  const psqlArgs = process.env.PGHOST
+    ? ["-h", process.env.PGHOST, "-U", process.env.PGUSER || "postgres", "-d", process.env.PGDATABASE || "postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"]
+    : ["postgres", "-v", "ON_ERROR_STOP=1", "-q", "-t", "-A"];
+  const due = extract("notification_push_due_agents");
+  const sql = `
+begin;
+create table public.pricing_config (key text primary key, value int, description text);
+insert into public.pricing_config (key, value) values ('notif_push_max_failures_24h', 3);
+create table public.agency_members (
+  id uuid primary key, display_name text, phone_e164 text, active boolean,
+  closed_at timestamptz, closure_requested_at timestamptz, tier text, billing_status text
+);
+create table public.agent_notification_preferences (agent_id uuid, whatsapp_off_types text[]);
+create table public.agent_notif_less (agent_id uuid, notif_type text, expires_at timestamptz);
+create table public.agent_reminder_preferences (agent_id uuid, quiet_from_hour int, quiet_to_hour int, quiet_days smallint[]);
+create table public.whatsapp_conversations (agent_id uuid, last_message_at timestamptz);
+create table public.notification_push_log (
+  id uuid primary key default gen_random_uuid(), agent_id uuid,
+  notification_ids uuid[], channel_mode text,
+  whatsapp_status text, last_error text, created_at timestamptz default now()
+);
+create or replace function public.notification_known_types() returns text[] language sql as $$ select array['new_lead']::text[] $$;
+create or replace function public.notification_push_priority_types() returns text[] language sql as $$ select array['new_lead','agenda_reminder']::text[] $$;
+create or replace function public.notification_push_less_kept(p text) returns boolean language sql as $$ select false $$;
+create or replace function public.notif_il_digest_open(p int) returns boolean language sql as $$ select false $$;
+create or replace function public.notification_agent_send_quiet(a int,b int,c smallint[],d timestamptz,e int) returns boolean language sql as $$ select false $$;
+create or replace function public.agent_backlog_waiting(p uuid, t timestamptz) returns boolean language sql as $$ select false $$;
+create or replace function public.whatsapp_template_cap_on() returns boolean language sql as $$ select true $$;
+create or replace function public.notification_push_log_holds(p_status text, p_created timestamptz) returns boolean language sql as $$
+  select p_status in ('sent','skipped') $$;
+insert into public.agency_members (id, display_name, phone_e164, active, tier, billing_status)
+values ('11111111-1111-1111-1111-111111111111', 't', '+972501111111', true, 'mid', 'active');
+insert into public.notification_push_log (agent_id, whatsapp_status)
+select '11111111-1111-1111-1111-111111111111', 'skipped_template_cap' from generate_series(1,4);
+${due};
+select count(*) from public.notification_push_due_agents()
+ where agent_id = '11111111-1111-1111-1111-111111111111'
+   and 'new_lead' = any(whatsapp_types);
+rollback;
+`;
+  const out = execFileSync("psql", psqlArgs, { input: sql, encoding: "utf8" }).trim();
+  assert.equal(out, "1");
 });
