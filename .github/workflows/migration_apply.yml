@@ -1,0 +1,56 @@
+name: החלת מיגרציות על Postgres
+
+# db push ל-main הוא הריצה הראשונה שרואה את הקובץ על שרת אמיתי
+# (supabase_migrations.yml רץ רק ב-push, והיבש הוא ידני). שגיאת התחביר
+# ב-normalize(..., 'NFKC') עברה כך עד הפרודקשן.
+#
+# כאן, ב-PR, הסכימה הציבורית משוחזרת בלי שורות (pg_dump --schema-only)
+# על Postgres 17, ורצות רק מיגרציות שה-version שלהן אינו רשום בפרודקשן.
+# אין כתיבה לפרודקשן.
+#
+# אין paths על pull_request בכוונה: אם הבדיקה תהפוך ל-required, דילוג
+# משאיר אותה ממתינה וחוסם מיזוג. בלי מיגרציות חדשות מול הפרודקשן היא
+# יוצאת מיד אחרי ספירת הגרסאות. ב-push ל-main הפילטר נשאר.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/apply_pending_migrations.py"
+      - ".github/workflows/migration_apply.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: החלת מיגרציות על Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: לקוח Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: החלת מיגרציות שחסרות בפרודקשן
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python3 scripts/apply_pending_migrations.py

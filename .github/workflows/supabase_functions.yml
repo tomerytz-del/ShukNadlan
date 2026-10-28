@@ -34,13 +34,14 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # ‏20 ולא 15: שלושת סבבי הפריסה (ראו "שלושה סבבים" למטה) לוקחים במקרה
-    # הגרוע כשבע דקות — שלוש פריסות מלאות ועוד דקה וחצי של המתנות.
-    timeout-minutes: 20
+    # ‏35: ההמתנה למיגרציות (עד 12 דקות) ועוד שלושת סבבי הפריסה.
+    # שלושת הסבבים לבדם לוקחים במקרה הגרוע כשבע דקות.
+    timeout-minutes: 35
     env:
       # ה-ref גלוי ממילא בכל דף באתר (SUPABASE_URL ב-HTML), ולכן הוא לא סוד
       # ולא צריך לשבת ב-Secrets. הסוד היחיד הוא טוקן הגישה.
@@ -52,6 +53,52 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
+      # אותו קומיט שנוגע גם בפונקציות וגם במיגרציות לא מפרס לפני ש-db push
+      # הסתיים בהצלחה. בלי זה הפונקציות עלו ב-#1056 והטבלה gabriela_llm_fallbacks
+      # לא נוצרה, כי supabase_migrations.yml רץ במקביל ונכשל.
+      # דחיפה בלי מיגרציה לא ממתינה. הרצה ידנית לא ממתינה.
+      - name: המתנה להצלחת המיגרציות מאותו קומיט
+        if: github.event_name == 'push'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            echo "אין קומיט קודם להשוואה. לא ממתינים (פריסה מלאה, כמו קודם)."
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}" -- supabase/migrations || true)
+          if [ -z "$CHANGED" ]; then
+            echo "הדחיפה לא נוגעת במיגרציות. הפריסה לא ממתינה."
+            exit 0
+          fi
+          echo "הדחיפה נוגעת במיגרציות. לא פורסים לפני שהרצת המיגרציות על הקומיט הזה ירוקה."
+          for i in $(seq 1 72); do
+            ROW=$(gh run list --commit "$GITHUB_SHA" --workflow supabase_migrations.yml \
+              --json status,conclusion,databaseId --jq '.[0] // empty' || true)
+            if [ -z "$ROW" ]; then
+              echo "המיגרציות עוד לא ברשימת ההרצות ($i/72)"
+              sleep 10
+              continue
+            fi
+            STATUS=$(printf '%s' "$ROW" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))')
+            CONCLUSION=$(printf '%s' "$ROW" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("conclusion") or "")')
+            echo "סטטוס מיגרציות: $STATUS $CONCLUSION"
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "המיגרציות עברו. ממשיכים לפריסה."
+                exit 0
+              fi
+              echo "::error::המיגרציות הסתיימו ב-$CONCLUSION. הפונקציות לא נפרסות."
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "::error::המיגרציות לא הסתיימו תוך 12 דקות. הפונקציות לא נפרסות."
+          exit 1
 
       # אותו לקח כמו ב-workflow של המיגרציות, בשתי גרסאותיו: סוד ריק לא נכשל
       # בהודעה ברורה אלא בשגיאה שנראית כמו משהו אחר — וסוד עם תו נסתר גרוע

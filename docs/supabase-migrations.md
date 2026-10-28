@@ -30,6 +30,13 @@
 אפשר גם להריץ ידנית מלשונית **Actions** (‏`workflow_dispatch`), עם אפשרות
 `dry_run` שמציגה מה היה רץ בלי לגעת במסד.
 
+‏`.github/workflows/migration_apply.yml` רץ על כל PR, על Postgres 17 מקומי.
+הוא קורא את רשימת ה-`version` שכבר רשומה בפרודקשן, משחזר את סכימת `public`
+בלי שורות (`pg_dump --schema-only`), ומחיל רק קבצים שעוד לא רשומים.
+אין כאן כתיבה לפרודקשן. זו הריצה שתופסת שגיאת תחביר בגוף פונקציה
+(כמו `normalize(..., 'NFKC')`) לפני ש-`db push` רואה אותה על המסד החי.
+בלי מיגרציה חדשה מול הפרודקשן הבדיקה נעצרת אחרי ספירת הגרסאות.
+
 ## מה צריך להגדיר פעם אחת
 
 סוד יחיד בריפו — **Settings → Secrets and variables → Actions → New repository secret**:
