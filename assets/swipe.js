@@ -3227,13 +3227,13 @@
     if (gh) gab.href = gh;
     fetchMissingLikes();
   }
-  /* "שליחת הרשימה לגבריאלה": עד 10 קישורים, ואם יש יותר - "ועוד X נכסים ברשימה שלי" */
+  /* "שליחת הרשימה לגבריאלה": עד 10 קישורים, ואם יש יותר - "ועוד X נכסים ששמרתי" */
   function gabListHref() {
     if (!window.GabWidget || !window.GabWidget.link || !likes.length) return '';
     var ids = likes.slice().reverse(), shown_ = ids.slice(0, 10);
-    var msg = 'היי גבריאלה, אהבתי את הנכסים האלה ואשמח לתאם ביקורים:\n' +
+    var msg = 'היי גבריאלה, שמרתי את הנכסים האלה ואשמח לתאם ביקורים:\n' +
       shown_.map(function (id) { return location.origin + '/property?id=' + encodeURIComponent(id); }).join('\n') +
-      (ids.length > 10 ? '\nועוד ' + (ids.length - 10) + ' נכסים ברשימה שלי' : '');
+      (ids.length > 10 ? '\nועוד ' + (ids.length - 10) + ' נכסים ששמרתי' : '');
     return window.GabWidget.link(msg);
   }
   $('swLvList').addEventListener('click', function (e) {
