@@ -670,7 +670,7 @@ where open_house and open_house_end <= now();
 עמודות על `leads`, משלוש סיבות: סוכן/ת יכול/ה למחוק ליד והעדות חייבת לשרוד את
 זה, ללחיצה על וואטסאפ (בעתיד) אין ליד, ואין צורך להחליף את `leads_masked` ואת
 `notify_agent_on_new_lead` - החלקים המסוכנים בהצעה הישנה. המיגרציה:
-`supabase/migrations/20271031120000_fair_inquiries.sql`.
+`supabase/migrations/20271031170000_fair_inquiries.sql`.
 
 **איך שורה נכתבת.** טריגר `after insert` על `leads` (‏`leads_log_fair_inquiry`)
 בודק את הנכס של הליד מול `now()` - שעון השרת, לא הדפדפן ולא `created_at` של
