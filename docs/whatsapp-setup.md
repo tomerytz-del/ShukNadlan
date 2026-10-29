@@ -832,9 +832,9 @@ Meta** - הודעת כפתורים מחוצה לו נדחית, ואין תבני
 
 ## שאלה תפעולית לסוכן/ת (`ops-question`)
 
-אופרטור עם מפתח `service_role` יכול לשלוח לסוכן/ת אחד/ת הודעת טקסט חופשי
-עם עד שלושה כפתורי תשובה, ואפשר הודעה שנייה מיד אחריה. זו לא משימת cron:
-סוד `x-alert-cron-secret` נדחה. אין גישה ציבורית.
+אופרטור עם מפתח `service_role` שולח שאלה **מהרשימה הסגורה בקוד**
+(`OPS_QUESTIONS`), לא טקסט שהקורא מנסח. הגוף והכפתורים בבקשה אינם נקראים.
+סוד cron נדחה. אין גישה ציבורית.
 
 ```
 POST /functions/v1/whatsapp-webhook?task=ops-question
@@ -842,39 +842,44 @@ Authorization: Bearer <service_role>
 ```
 
 ```json
-{
-  "agent_id": "<agency_members.id>",
-  "purpose": "winback-q1",
-  "body": "רצינו לשאול אם לחזור אליך השבוע.",
-  "buttons": [{ "title": "כן, תחזרו" }, { "title": "לא עכשיו" }],
-  "followup": { "body": "תודה. נחזור אליך.", "buttons": [{ "title": "בסדר" }] }
-}
+{ "purpose": "shai_dup_warehouse_2026_10", "agent_member_id": "<agency_members.id>" }
 ```
 
-`purpose` הוא אותיות באנגלית, ספרות, מקף או קו תחתון, עד 40. כותרת כפתור
-עד 20 יחידות UTF-16, גוף עד 1024. מזהה הכפתור נבנה אצלנו:
-`ops_q:<purpose>:<n>`.
+`retry: true` מנסה שוב אחרי כשל או אחרי תפיסה שנתקעה (`claimed` בלי `sent`).
+בלי הדגל השורה נשארת, וה-purpose אינו נשרף: הקריאה הבאה אומרת מה לעשות.
+`sent` אינו נשלח שוב. retry שולח את שתי ההודעות מההתחלה.
 
-שלושה סירובים, בלי שליחה:
+השער הוא `whatsappAgentBlock`, אותו אחד של העוזרת: חשבון פעיל, חיוב פעיל,
+ומסלול mid או premium. בנוסף, כיבוי מלא של הערוץ (`notification_push_opt_out`:
+`whatsapp_types` ריק **וגם** `whatsapp_off_types` שמכסה את כל הסוגים). מערך
+`whatsapp_types` ריק לבדו הוא ברירת המחדל הדלוקה מאז 20270303090000, ולכן
+אינו סירוב. כיבוי של סוג התראה אחד אינו סוגר את השאלה.
+
+כל שאלה יכולה להגביל `allowedAgentIds`. הריק הוא "אף אחד/ת". כרגע רק
+`shai_dup_warehouse_2026_10`, ל-`83d91018-29f0-477c-9088-9ecabc3237f8`.
+כותרות הכפתורים עד 20 יחידות UTF-16. "אותו נכס, תקרה 13 מ'" נמדדה 20.
 
 | מצב | תשובה |
 | --- | --- |
-| המסלול אינו mid או premium | `403 free_plan` |
-| אין הודעה נכנסת ב-24 השעות האחרונות | `409 window_closed` ו-`last_inbound` (או `null`) |
-| אותו `purpose` כבר נתפס לסוכן/ת הזה/ו | `409 already_sent` |
+| purpose לא ברשימה | `400 unknown_purpose` |
+| הסוכן/ת לא ב-`allowedAgentIds` | `403 agent_not_allowed` |
+| לא פעיל / לא mid-premium / חיוב לא פעיל | `403 inactive` / `free_plan` / `billing_inactive` |
+| כיבוי מלא של וואטסאפ | `403 whatsapp_off` |
+| אין נכנסת ב-24 שעות | `409 window_closed` ו-`last_inbound` |
+| כבר `sent` | `409 already_sent` |
+| `failed` או `claimed` תקוע, בלי retry | `409 send_failed` / `in_progress` |
+| תקרה: 1 לסוכן/ת או 5 לכולם ביממה | `429 agent_daily_cap` / `global_daily_cap` |
 
-התפיסה נרשמת ב-`whatsapp_ops_questions` לפני השליחה. כישלון שליחה לא
-מנסה שוב את אותו purpose. ההודעה היוצאת נרשמת ב-`whatsapp_messages`
-(`interactive`, עם מזהי הכפתורים) ונוספת להיסטוריית גבריאלה כהודעת מערכת,
-בלי להזיז את `last_message_at`.
+התקרה והתפיסה ב-`whatsapp_ops_question_claim` (נעילה), לא רק בקוד.
+ההודעה נרשמת ב-`whatsapp_messages` ונוספת להיסטוריה ב-`whatsapp_ops_history_append`
+(`history || entries`, בלי להזיז את `last_message_at`).
 
-**הלחיצה** נתפסת ב-`handleMessage` לפני הבוט הציבורי ולפני המודל, גם אם
-המזהה מתחיל ב-`ops_q:` ואינו מתפרש. אין עדכון של נתוני הסוכן/ת. נרשמת
-שורה ב-`whatsapp_ops_answers` (סוכן/ת, purpose, כותרת, זמן), והתשובה
-הקבועה היא "תודה, העברתי לבדיקה".
+**הלחיצה** נתפסת לפני הבוט הציבורי ולפני המודל, גם אם המזהה רק מתחיל
+ב-`ops_q:`. נרשמת ב-`whatsapp_ops_answers` רק כשהשאלה `sent` לאותו/ה
+סוכן/ת והמזהה ב-`button_ids`. אחרת `purpose=unmatched` ו-`agent_id` ריק.
+התשובה הקבועה היא "תודה, העברתי לבדיקה".
 
-שתי הטבלאות עם RLS ובלי policy, ורק `service_role` מחזיק בהן הרשאות.
-מיגרציה `20271031100000`.
+שתי הטבלאות עם RLS ובלי policy, ורק `service_role`. מיגרציה `20271031100000`.
 
 ## המודל והעלות
 

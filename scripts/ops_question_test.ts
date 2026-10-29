@@ -1,20 +1,25 @@
-// שאלה תפעולית בוואטסאפ: אימות, מסלול חינם, חלון סגור, אידמפוטנטיות,
-// ולחיצה שנרשמת ולא מגיעה למודל. בלי מסד, בלי Meta ובלי שליחה.
+// שאלה תפעולית: רשימה סגורה, שער מסלול, כיבוי וואטסאפ, תקרות, retry,
+// ולחיצה שנרשמת רק אם נשלחה. בלי מסד, בלי Meta ובלי שליחה.
 //   node --experimental-strip-types scripts/ops_question_test.ts
 
 import { readFileSync } from "node:fs";
 import {
-  appendOpsHistory,
+  claimDecision,
   customerWindowOpen,
   inboundOpsButton,
+  OPS_AGENT_DAILY_CAP,
+  OPS_GLOBAL_DAILY_CAP,
   OPS_HISTORY_NOTE,
+  OPS_QUESTIONS,
   OPS_TAP_REPLY,
   OPS_WINDOW_MS,
+  appendOpsHistory,
   opsQuestionAuthRefusal,
-  purposeOf,
+  questionMessages,
   recordOpsTap,
   runOpsQuestion,
-  whatsappTierAllowed,
+  whatsappAgentBlock,
+  whatsappFullyOptedOut,
   type OpsAgent,
   type OpsAnswer,
   type OpsClaim,
@@ -29,314 +34,269 @@ function check(name: string, ok: boolean, detail?: unknown) {
   if (!ok) failed++;
 }
 
-const AGENT = "11111111-1111-4111-8111-111111111111";
+const PURPOSE = "shai_dup_warehouse_2026_10";
+const SHAI = "83d91018-29f0-477c-9088-9ecabc3237f8";
+const OTHER = "22222222-2222-4222-8222-222222222222";
 const NOW = Date.parse("2026-10-29T12:00:00.000Z");
 const OPEN_INBOUND = new Date(NOW - 60 * 60 * 1000).toISOString();
 const CLOSED_INBOUND = new Date(NOW - OPS_WINDOW_MS).toISOString();
+const KNOWN = ["new_lead", "agenda_reminder", "security_alert"];
+
+const q = OPS_QUESTIONS[PURPOSE];
+const titles = [...q.buttons, ...q.followup.buttons];
+check("כל כותרת עד 20", titles.every((t) => t.length >= 1 && t.length <= 20));
+check("כותרת התקרה היא 20 יחידות", q.buttons[0].length === 20 && q.buttons[0] === "אותו נכס, תקרה 13 מ'");
+check("הנוסח המאושר כלשונו", q.body.startsWith("היי שי, שמתי לב") && q.body.endsWith("פעמיים?") && q.followup.body.includes("נכס 1306"));
+check("סוכן/ת מאושר אחד", q.allowedAgentIds.length === 1 && q.allowedAgentIds[0] === SHAI);
+check("תקרות", OPS_AGENT_DAILY_CAP === 1 && OPS_GLOBAL_DAILY_CAP === 5);
 
 check("רק service_role", opsQuestionAuthRefusal({ ok: true, via: "service_role" }) === null);
+check("סוד cron אינו מספיק", opsQuestionAuthRefusal({ ok: true, via: "cron_secret" })?.status === 401);
+check("חינם", whatsappAgentBlock({ active: true, tier: "free", billing_status: "active" }) === "free_plan");
+check("לא פעיל", whatsappAgentBlock({ active: false, tier: "premium", billing_status: "active" }) === "inactive");
+check("חיוב לא פעיל", whatsappAgentBlock({ active: true, tier: "mid", billing_status: "past_due" }) === "billing_inactive");
+check("mid פעיל עובר", whatsappAgentBlock({ active: true, tier: "mid", billing_status: "active" }) === null);
+check("premium פעיל עובר", whatsappAgentBlock({ active: true, tier: "premium", billing_status: "active" }) === null);
+check("בלי שורה הערוץ דלוק", whatsappFullyOptedOut(null, KNOWN) === false);
 check(
-  "סוד cron אינו מספיק",
-  opsQuestionAuthRefusal({ ok: true, via: "cron_secret" })?.status === 401 &&
-    opsQuestionAuthRefusal({ ok: true, via: "cron_secret" })?.error === "unauthorized",
+  "whatsapp_types ריק לבד אינו כיבוי",
+  whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: [] }, KNOWN) === false,
 );
 check(
-  "בלי אימות נשמר הסטטוס",
-  opsQuestionAuthRefusal({ ok: false, status: 401, error: "unauthorized", detail: "x" })?.status === 401 &&
-    opsQuestionAuthRefusal({ ok: false, status: 503, error: "cron_secret_not_configured", detail: "y" })?.status === 503,
+  "כיבוי סוג אחד אינו כיבוי הערוץ",
+  whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: ["new_lead"] }, KNOWN) === false,
 );
+check(
+  "opt-out מלא",
+  whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: KNOWN }, KNOWN) === true,
+);
+check("חלון פתוח", customerWindowOpen(OPEN_INBOUND, NOW));
+check("בדיוק 24 שעות סגור", customerWindowOpen(CLOSED_INBOUND, NOW) === false);
 
-check("חינם לא", whatsappTierAllowed("free") === false && whatsappTierAllowed(null) === false);
-check("mid ו-premium כן", whatsappTierAllowed("mid") && whatsappTierAllowed("premium"));
-check("חלון פתוח בתוך 24 שעות", customerWindowOpen(OPEN_INBOUND, NOW));
-check("בדיוק 24 שעות כבר סגור", customerWindowOpen(CLOSED_INBOUND, NOW) === false);
-check("בלי נכנסת החלון סגור", customerWindowOpen(null, NOW) === false);
+type Sent = { to: string; body: string; ids: string[]; titles: string[] };
 
-type Sent = { to: string; body: string; ids: string[] };
-type Mem = {
+function memory(agent: OpsAgent | null, opts?: {
+  lastInbound?: string | null;
+  off?: boolean;
+  claimCode?: string;
+}): {
   db: OpsQuestionDb;
   sends: Sent[];
   claims: OpsClaim[];
   outbound: OpsOutbound[];
   history: unknown[];
   status: () => string | null;
-};
-
-function memory(agent: OpsAgent | null, lastInbound: string | null): Mem {
+} {
   const sends: Sent[] = [];
   const claims: OpsClaim[] = [];
   const outbound: OpsOutbound[] = [];
-  const history: unknown[] = [{ role: "assistant", content: "היי" }];
+  const history: unknown[] = [];
   let marked: string | null = null;
   const db: OpsQuestionDb = {
     async getAgent(id) {
       return agent && agent.id === id ? agent : null;
     },
+    async whatsappOff() {
+      return opts?.off === true;
+    },
     async lastInboundAt() {
-      return lastInbound;
+      return opts?.lastInbound === undefined ? OPEN_INBOUND : opts.lastInbound;
     },
     async claim(row) {
-      if (claims.some((c) => c.agentId === row.agentId && c.purpose === row.purpose)) return "exists";
       claims.push(row);
+      if (opts?.claimCode) return opts.claimCode;
+      const prev = claims.filter((c) => c.agentId === row.agentId && c.purpose === row.purpose);
+      if (prev.length > 1 && !row.retry) return "already_sent";
+      if (prev.length > 1 && row.retry) return "reclaimed";
       return "claimed";
     },
-    async markSent(_agentId, _purpose, _waIds, status) {
+    async markSent(_a, _p, _ids, status) {
       marked = status;
     },
-    async appendHistory(_agentId, _phone, _lastInbound, assistantText) {
-      const next = appendOpsHistory(history, assistantText);
-      history.length = 0;
-      history.push(...next);
+    async appendHistory(_a, _p, _in, text) {
+      history.push(...appendOpsHistory([], text));
     },
     async logOutbound(row) {
       outbound.push(row);
     },
   };
-  return { db, sends, claims, outbound, history, status: () => marked };
+  return {
+    db,
+    sends,
+    claims,
+    outbound,
+    history,
+    status: () => marked,
+  };
 }
 
-function paid(tier = "mid"): OpsAgent {
-  return { id: AGENT, tier, phone: "972501234567" };
+function paid(): OpsAgent {
+  return { id: SHAI, tier: "premium", phone: "972501234567", active: true, billing_status: "active" };
 }
 
-const input = {
-  agent_id: AGENT,
-  purpose: "winback-q1",
-  body: "רצינו לשאול אם לחזור אליך השבוע.",
-  buttons: [{ title: "כן, תחזרו" }, { title: "לא עכשיו" }],
-  followup: {
-    body: "תודה. נחזור אליך.",
-    buttons: [{ title: "בסדר" }],
-  },
-};
+function input(extra: Record<string, unknown> = {}) {
+  return { purpose: PURPOSE, agent_member_id: SHAI, ...extra };
+}
 
-async function sendOf(mem: Mem) {
+async function sender(mem: { sends: Sent[] }) {
   return async (to: string, body: string, buttons: { id: string; title: string }[]) => {
-    mem.sends.push({ to, body, ids: buttons.map((b) => b.id) });
+    mem.sends.push({ to, body, ids: buttons.map((b) => b.id), titles: buttons.map((b) => b.title) });
     return `wamid.${mem.sends.length}`;
   };
 }
 
-const refused = await runOpsQuestion({
-  db: memory(null, OPEN_INBOUND).db,
-  input: {},
+const unknown = await runOpsQuestion({
+  db: memory(paid()).db,
+  input: { purpose: "free-text", agent_member_id: SHAI, body: "טקסט מהקורא", buttons: [{ title: "כן" }] },
   sendButtons: async () => {
     throw new Error("send");
   },
   now: NOW,
 });
-check("בקשה חסרה נעצרת לפני מסד ושליחה", refused.status === 400 && refused.body.error === "bad_request");
+check("purpose לא ברשימה נדחה לפני שליחה", unknown.status === 400 && unknown.body.error === "unknown_purpose");
 
-const freeMem = memory({ ...paid(), tier: "free" }, OPEN_INBOUND);
-const free = await runOpsQuestion({
-  db: freeMem.db,
-  input,
-  sendButtons: await sendOf(freeMem),
-  now: NOW,
-});
-check("מסלול חינם נדחה", free.status === 403 && free.body.error === "free_plan");
-check("מסלול חינם לא שולח ולא תופס", freeMem.sends.length === 0 && freeMem.claims.length === 0);
-
-const closedMem = memory(paid(), CLOSED_INBOUND);
-const closed = await runOpsQuestion({
-  db: closedMem.db,
-  input,
-  sendButtons: await sendOf(closedMem),
-  now: NOW,
-});
-check(
-  "חלון סגור מחזיר את זמן הנכנסת",
-  closed.status === 409 && closed.body.error === "window_closed" && closed.body.last_inbound === CLOSED_INBOUND,
-);
-check("חלון סגור לא שולח ולא תופס", closedMem.sends.length === 0 && closedMem.claims.length === 0);
-
-const noneMem = memory(paid(), null);
-const none = await runOpsQuestion({
-  db: noneMem.db,
-  input,
-  sendButtons: await sendOf(noneMem),
-  now: NOW,
-});
-check("בלי נכנסת last_inbound הוא null", none.status === 409 && none.body.last_inbound === null);
-
-const longTitle = await runOpsQuestion({
-  db: memory(paid(), OPEN_INBOUND).db,
-  input: { ...input, buttons: [{ title: "א".repeat(21) }] },
+const wrongAgent = await runOpsQuestion({
+  db: memory(null).db,
+  input: { purpose: PURPOSE, agent_member_id: OTHER },
   sendButtons: async () => "wamid",
   now: NOW,
 });
-check("כותרת מעל 20 נדחית", longTitle.status === 400 && longTitle.body.error === "bad_request");
+check("סוכן/ת לא ברשימה", wrongAgent.status === 403 && wrongAgent.body.error === "agent_not_allowed");
 
-const okMem = memory(paid("premium"), OPEN_INBOUND);
+const freeMem = memory({ ...paid(), tier: "free" });
+const free = await runOpsQuestion({ db: freeMem.db, input: input(), sendButtons: await sender(freeMem), now: NOW });
+check("מסלול חינם", free.status === 403 && free.body.error === "free_plan" && freeMem.sends.length === 0);
+
+const inactive = await runOpsQuestion({
+  db: memory({ ...paid(), active: false }).db,
+  input: input(),
+  sendButtons: async () => "wamid",
+  now: NOW,
+});
+check("חשבון לא פעיל", inactive.status === 403 && inactive.body.error === "inactive");
+
+const billing = await runOpsQuestion({
+  db: memory({ ...paid(), billing_status: "canceled" }).db,
+  input: input(),
+  sendButtons: async () => "wamid",
+  now: NOW,
+});
+check("חיוב לא פעיל", billing.status === 403 && billing.body.error === "billing_inactive");
+
+const offMem = memory(paid(), { off: true });
+const off = await runOpsQuestion({ db: offMem.db, input: input(), sendButtons: await sender(offMem), now: NOW });
+check("וואטסאפ כבוי", off.status === 403 && off.body.error === "whatsapp_off" && offMem.sends.length === 0 && offMem.claims.length === 0);
+
+const closedMem = memory(paid(), { lastInbound: CLOSED_INBOUND });
+const closed = await runOpsQuestion({ db: closedMem.db, input: input(), sendButtons: await sender(closedMem), now: NOW });
+check(
+  "חלון סגור מחזיר את הזמן",
+  closed.status === 409 && closed.body.error === "window_closed" && closed.body.last_inbound === CLOSED_INBOUND && closedMem.claims.length === 0,
+);
+
+const cap = await runOpsQuestion({
+  db: memory(paid(), { claimCode: "agent_cap" }).db,
+  input: input(),
+  sendButtons: async () => "wamid",
+  now: NOW,
+});
+check("תקרת סוכן/ת", cap.status === 429 && cap.body.error === "agent_daily_cap");
+const globalCap = claimDecision("global_cap");
+check("תקרה גלובלית", globalCap?.status === 429 && globalCap.body.error === "global_daily_cap");
+
+const okMem = memory(paid());
 const ok = await runOpsQuestion({
   db: okMem.db,
-  input,
-  sendButtons: await sendOf(okMem),
+  input: input({ body: "לא לשלוח את זה", buttons: [{ title: "לא" }], followup: { body: "גם לא", buttons: [{ title: "לא" }] } }),
+  sendButtons: await sender(okMem),
   now: NOW,
 });
-check("שליחה ראשונה מצליחה", ok.status === 200 && ok.body.ok === true && okMem.status() === "sent");
+const approved = questionMessages(PURPOSE)!;
+check("נשלח הנוסח המאושר, לא מה שהקורא שלח", ok.status === 200 && okMem.sends.length === 2 && okMem.sends[0].body === approved[0].body && okMem.sends[1].body === approved[1].body);
 check(
-  "שתי הודעות, ומזהים עם הקידומת",
-  okMem.sends.length === 2 &&
-    okMem.sends[0].to === "972501234567" &&
-    okMem.sends[0].ids.join() === "ops_q:winback-q1:0,ops_q:winback-q1:1" &&
-    okMem.sends[1].ids.join() === "ops_q:winback-q1:2" &&
-    (ok.body.button_ids as string[]).join() === okMem.sends[0].ids.join(),
+  "הכפתורים המאושרים והמזהים",
+  okMem.sends[0].titles.join("|") === q.buttons.join("|") &&
+    okMem.sends[0].ids.join() === `ops_q:${PURPOSE}:0,ops_q:${PURPOSE}:1,ops_q:${PURPOSE}:2` &&
+    okMem.sends[1].titles.join("|") === q.followup.buttons.join("|") &&
+    okMem.sends[1].ids[0] === `ops_q:${PURPOSE}:3`,
 );
-check(
-  "המזהים נרשמים בתפיסה וביומן",
-  okMem.claims[0].buttonIds.join() === "ops_q:winback-q1:0,ops_q:winback-q1:1" &&
-    okMem.claims[0].followupButtonIds?.join() === "ops_q:winback-q1:2" &&
-    okMem.outbound[0].body.includes("ops_q:winback-q1:0") &&
-    okMem.outbound[0].body.includes("כן, תחזרו"),
-);
-const userLines = okMem.history.filter((m) => (m as { role?: string }).role === "user") as { content: string }[];
-const assistantLines = okMem.history.filter((m) => (m as { role?: string }).role === "assistant") as { content: string }[];
-check(
-  "ההיסטוריה כמו הודעה יוצאת: הערה ואז גוף, לא לחיצה",
-  userLines.length === 2 &&
-    userLines.every((m) => m.content === OPS_HISTORY_NOTE) &&
-    assistantLines.some((m) => m.content.includes("ops_q:winback-q1:0")) &&
-    !userLines.some((m) => m.content.includes("כן, תחזרו")),
-);
+check("המזהים ביומן", okMem.outbound[0].body.includes(`ops_q:${PURPOSE}:0`) && okMem.outbound[0].body.includes(q.buttons[0]));
+const users = okMem.history.filter((m) => (m as { role?: string }).role === "user") as { content: string }[];
+check("ההיסטוריה היא הערת מערכת", users.length === 2 && users.every((m) => m.content === OPS_HISTORY_NOTE));
 
-const again = await runOpsQuestion({
-  db: okMem.db,
-  input,
-  sendButtons: await sendOf(okMem),
-  now: NOW,
-});
-check(
-  "פעם שנייה לאותו purpose לא שולחת",
-  again.status === 409 && again.body.error === "already_sent" && okMem.sends.length === 2,
-);
+const again = await runOpsQuestion({ db: okMem.db, input: input(), sendButtons: await sender(okMem), now: NOW });
+check("פעם שנייה לא שולחת", again.status === 409 && again.body.error === "already_sent" && okMem.sends.length === 2);
 
-const oneMem = memory(paid(), OPEN_INBOUND);
-const one = await runOpsQuestion({
-  db: oneMem.db,
-  input: { agent_id: AGENT, purpose: "once", body: "שאלה אחת.", buttons: [{ title: "כן" }] },
-  sendButtons: await sendOf(oneMem),
-  now: NOW,
-});
-check(
-  "בלי הודעה שנייה יוצאת אחת",
-  one.status === 200 && oneMem.sends.length === 1 && one.body.followup_button_ids === null &&
-    oneMem.sends[0].ids.join() === "ops_q:once:0",
-);
-
-const failMem = memory(paid(), OPEN_INBOUND);
-let failCalls = 0;
-const logErr = console.error;
-console.error = () => {};
-const failedSend = await runOpsQuestion({
-  db: failMem.db,
-  input: { agent_id: AGENT, purpose: "boom", body: "שאלה.", buttons: [{ title: "כן" }] },
-  sendButtons: async () => {
-    failCalls++;
-    throw new Error("meta down");
-  },
-  now: NOW,
-});
+const retryMem = memory(paid(), { claimCode: "reclaimed" });
 const retry = await runOpsQuestion({
-  db: failMem.db,
-  input: { agent_id: AGENT, purpose: "boom", body: "שאלה.", buttons: [{ title: "כן" }] },
-  sendButtons: async () => {
-    failCalls++;
-    return "wamid.retry";
-  },
+  db: retryMem.db,
+  input: input({ retry: true }),
+  sendButtons: await sender(retryMem),
   now: NOW,
 });
-console.error = logErr;
-check(
-  "כישלון שליחה לא נשלח שוב",
-  failedSend.status === 502 && failedSend.body.error === "send_failed" &&
-    retry.status === 409 && retry.body.error === "already_sent" && failCalls === 1 &&
-    failMem.status() === "failed",
-);
+check("retry מפורש שולח שוב", retry.status === 200 && retryMem.claims[0].retry === true && retryMem.sends.length === 2);
+check("בלי retry כשל קודם לא נשרף", claimDecision("failed")?.body.detail?.toString().includes("retry=true") === true);
+check("claimed תקוע לא נשאר בלי דרך", claimDecision("in_progress")?.body.detail?.toString().includes("retry=true") === true);
 
 const answers: OpsAnswer[] = [];
+let sent = true;
 const tapDb: OpsTapDb = {
   async agentIdByPhone(phone) {
-    check("החיפוש הוא לפי המספר ששלח", phone === "972501234567");
-    return AGENT;
+    check("חיפוש לפי השולח", phone === "972501234567");
+    return SHAI;
+  },
+  async sentButton(agentId, purpose, buttonId) {
+    return sent && agentId === SHAI && purpose === PURPOSE && buttonId === `ops_q:${PURPOSE}:1`;
   },
   async insertAnswer(row) {
     answers.push(row);
   },
 };
 const at = new Date("2026-10-29T12:05:00.000Z");
-const tapMsg = {
+const tap = inboundOpsButton({
   type: "interactive",
-  interactive: { button_reply: { id: "ops_q:winback-q1:1", title: "לא עכשיו" } },
-};
-const tap = inboundOpsButton(tapMsg);
-check("לחיצה מזוהה", !!tap && tap.id === "ops_q:winback-q1:1" && tap.title === "לא עכשיו");
+  interactive: { button_reply: { id: `ops_q:${PURPOSE}:1`, title: q.buttons[1] } },
+});
 const agentId = await recordOpsTap(tapDb, "972501234567", tap!, at);
 check(
-  "הלחיצה נרשמת עם סוכן, purpose, כותרת וזמן",
-  agentId === AGENT &&
-    answers.length === 1 &&
-    answers[0].agent_id === AGENT &&
-    answers[0].purpose === "winback-q1" &&
-    answers[0].button_title === "לא עכשיו" &&
-    answers[0].button_id === "ops_q:winback-q1:1" &&
-    answers[0].answered_at === at.toISOString() &&
-    OPS_TAP_REPLY === "תודה, העברתי לבדיקה",
+  "לחיצה על כפתור שנשלח נרשמת",
+  agentId === SHAI && answers[0].purpose === PURPOSE && answers[0].button_title === q.buttons[1] &&
+    answers[0].answered_at === at.toISOString() && OPS_TAP_REPLY === "תודה, העברתי לבדיקה",
 );
-
+sent = false;
+await recordOpsTap(tapDb, "972501234567", tap!, at);
+check("כפתור שלא נשלח הוא unmatched בלי סוכן/ת", answers[1].purpose === "unmatched" && answers[1].agent_id === null);
 const broken = inboundOpsButton({
   type: "interactive",
-  interactive: { button_reply: { id: "ops_q:not a purpose", title: "משהו" } },
+  interactive: { button_reply: { id: "ops_q:not-a-question:0", title: "משהו" } },
 });
-const listBroken = inboundOpsButton({
-  type: "interactive",
-  interactive: { list_reply: { id: "ops_q:", title: "עוד" } },
-});
-check("קידומת לא מוכרת עדיין נתפסת", !!broken && !!listBroken && purposeOf(broken!.id) === "unparsed");
-const before = answers.length;
 await recordOpsTap(tapDb, "972501234567", broken!, at);
-check("קידומת לא מוכרת נרשמת ולא נזרקת", answers.length === before + 1 && answers[answers.length - 1].purpose === "unparsed");
+check("קידומת לא מוכרת unmatched ולא למודל", answers[2].purpose === "unmatched" && answers[2].agent_id === null && !!broken);
 check(
   "כפתור אחר אינו ops_q",
-  inboundOpsButton({
-    type: "interactive",
-    interactive: { button_reply: { id: "poffer:share:yes:11111111-1111-4111-8111-111111111111", title: "כן" } },
-  }) === null,
-);
-check(
-  "טקסט חופשי עם הקידומת אינו לחיצה",
-  inboundOpsButton({ type: "text", button: { payload: "ops_q:winback-q1:0", text: "כן" } }) === null,
+  inboundOpsButton({ type: "interactive", interactive: { button_reply: { id: "poffer:share:yes:x", title: "כן" } } }) === null,
 );
 
-const src = readFileSync(
-  new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url),
-  "utf8",
-);
+const src = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
 const tapAt = src.indexOf("inboundOpsButton(msg)");
-const turnAt = src.indexOf("runAgentTurn(");
-const publicAt = src.indexOf("await handlePublicMessage(msg)");
-const taskAt = src.indexOf('=== "ops-question"');
-const signatureAt = src.indexOf("verifySignature(");
-const fallbackAt = src.indexOf("כפתור ops_q נענה למעלה, לפני הסוכן/ת והמודל");
-check("המשימה פנימית, לפני חתימת Meta", taskAt > 0 && signatureAt > taskAt);
 check("המשימה דורשת service_role", src.includes("opsQuestionAuthRefusal(auth)"));
-check("הלחיצה לפני המודל ולפני הבוט הציבורי", tapAt > 0 && tapAt < turnAt && tapAt < publicAt);
-check("הנפילה לכותרת כטקסט באה אחרי התפיסה", fallbackAt > tapAt && src.indexOf("userText = msg.interactive?.button_reply?.title", fallbackAt) > fallbackAt);
+check("הלחיצה לפני המודל", tapAt > 0 && tapAt < src.indexOf("runAgentTurn(") && tapAt < src.indexOf("await handlePublicMessage(msg)"));
 check("אחרי התפיסה יש return", src.slice(tapAt, tapAt + 500).includes("return;"));
+check("השער המשותף", src.includes("whatsappAgentBlock(") && !src.includes("TIER_ALLOWED"));
+check("היסטוריה אטומית", src.includes("whatsapp_ops_history_append") && src.includes("appendOpsHistory([], assistantText)"));
 
-const sql = readFileSync(
-  new URL("../supabase/migrations/20271031100000_whatsapp_ops_question.sql", import.meta.url),
-  "utf8",
-);
+const sql = readFileSync(new URL("../supabase/migrations/20271031100000_whatsapp_ops_question.sql", import.meta.url), "utf8");
 for (const table of ["whatsapp_ops_questions", "whatsapp_ops_answers"]) {
   check(
-    `${table} סגור ל-anon ול-authenticated`,
-    sql.includes(`alter table public.${table} enable row level security`) &&
+    `${table} סגור`,
+    sql.includes(`enable row level security`) &&
       sql.includes(`revoke all on table public.${table} from public, anon, authenticated`) &&
       sql.includes(`grant select, insert, update, delete on table public.${table} to service_role`),
   );
 }
-check("ייחוד של purpose לסוכן/ת", sql.includes("unique (agent_id, purpose)"));
+check("תקרות במסד", sql.includes("v_agent_n >= 1") && sql.includes("v_global_n >= 5") && sql.includes("p_retry"));
+check("retry משחרר failed ו-claimed", sql.includes("v_status in ('failed', 'claimed') and p_retry"));
+check("היסטוריה ב-||", sql.includes("coalesce(public.whatsapp_conversations.history, '[]'::jsonb)") && sql.includes("|| coalesce(excluded.history"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

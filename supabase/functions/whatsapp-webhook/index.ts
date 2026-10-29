@@ -52,6 +52,8 @@ import {
   opsQuestionAuthRefusal,
   recordOpsTap,
   runOpsQuestion,
+  whatsappAgentBlock,
+  whatsappFullyOptedOut,
   type OpsQuestionDb,
   type OpsTapDb,
 } from "./ops-question.ts";
@@ -141,8 +143,8 @@ const PUBLIC_IDLE_RESET_HOURS = 12;
 
 /* הסוכן העוזר בוואטסאפ זמין ב-PROFESSIONAL וב-Elite. ‏Pay&GO מקבל/ת תשובה
    שמסבירה מה זה ולאן ללכת, ולא שתיקה: הודעה שלא נענית נראית כמו תקלה, וזה
-   בדיוק הרגע שבו כדאי להסביר מה המסלול נותן. */
-const TIER_ALLOWED = new Set(["mid", "premium"]);
+   בדיוק הרגע שבו כדאי להסביר מה המסלול נותן. השער עצמו הוא whatsappAgentBlock
+   (אותו אחד של השאלה התפעולית): פעיל, חיוב פעיל, mid או premium. */
 // ‏tier לבדו אינו מסלול: מנוי שהתשלום עליו נכשל (`past_due`) או בוטל
 // (`canceled`) נשאר עם `tier = 'mid'` עד ש-`expire_paid_subscriptions` מורידה
 // אותו, וכל שאר היכולות בתשלום כבר בודקות את זה (‏`.claude/skills/new-tier-capability`).
@@ -1554,7 +1556,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await handlePublicMessage(msg);
     return;
   }
-  if (!agent.active) {
+  const waBlock = whatsappAgentBlock({
+    active: agent.active === true,
+    tier: agent.tier == null ? null : String(agent.tier),
+    billing_status: agent.billing_status == null ? null : String(agent.billing_status),
+  });
+  if (waBlock === "inactive") {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
     return;
   }
@@ -1566,11 +1573,11 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   // הגייטינג נעשה כאן, לפני שההודעה מומרת לקלט ל-LLM: הבדיקה חייבת לקדום
   // לכל דבר שעולה כסף (Whisper, Claude, אחסון תמונה) ולכל דבר שכותב למסד.
-  if (!TIER_ALLOWED.has(String(agent.tier))) {
+  if (waBlock === "free_plan") {
     await reply(from, TIER_REQUIRED_MSG, agent.id);
     return;
   }
-  if (agent.billing_status !== "active") {
+  if (waBlock === "billing_inactive") {
     await reply(from, BILLING_INACTIVE_MSG, agent.id);
     return;
   }
@@ -2063,6 +2070,21 @@ function opsTapDb(): OpsTapDb {
       if (error) throw new Error(error.message);
       return data?.id ? String(data.id) : null;
     },
+    async sentButton(agentId, purpose, buttonId) {
+      const { data, error } = await supabase.from("whatsapp_ops_questions")
+        .select("button_ids, followup_button_ids")
+        .eq("agent_id", agentId)
+        .eq("purpose", purpose)
+        .eq("status", "sent")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return false;
+      const ids = [
+        ...((data.button_ids as string[] | null) ?? []),
+        ...((data.followup_button_ids as string[] | null) ?? []),
+      ];
+      return ids.includes(buttonId);
+    },
     async insertAnswer(row) {
       const { error } = await supabase.from("whatsapp_ops_answers").insert({
         agent_id: row.agent_id,
@@ -2080,7 +2102,7 @@ function opsQuestionDb(): OpsQuestionDb {
   return {
     async getAgent(id) {
       const { data, error } = await supabase.from("agency_members")
-        .select("id, tier, phone_e164")
+        .select("id, tier, phone_e164, active, billing_status")
         .eq("id", id)
         .maybeSingle();
       if (error) throw new Error(error.message);
@@ -2089,7 +2111,23 @@ function opsQuestionDb(): OpsQuestionDb {
         id: String(data.id),
         tier: data.tier == null ? null : String(data.tier),
         phone: data.phone_e164 == null ? null : String(data.phone_e164),
+        active: data.active === true,
+        billing_status: data.billing_status == null ? null : String(data.billing_status),
       };
+    },
+    async whatsappOff(agentId) {
+      const prefs = await supabase.from("agent_notification_preferences")
+        .select("whatsapp_types, whatsapp_off_types")
+        .eq("agent_id", agentId)
+        .maybeSingle();
+      if (prefs.error) throw new Error(prefs.error.message);
+      const known = await supabase.rpc("notification_known_types");
+      if (known.error) throw new Error(known.error.message);
+      const types = Array.isArray(known.data) ? known.data.map((t) => String(t)) : [];
+      return whatsappFullyOptedOut({
+        whatsapp_types: (prefs.data?.whatsapp_types as string[] | null) ?? null,
+        whatsapp_off_types: (prefs.data?.whatsapp_off_types as string[] | null) ?? null,
+      }, types);
     },
     async lastInboundAt(phone) {
       const { data, error } = await supabase.from("whatsapp_messages")
@@ -2103,18 +2141,17 @@ function opsQuestionDb(): OpsQuestionDb {
       return data?.created_at ? String(data.created_at) : null;
     },
     async claim(row) {
-      const { error } = await supabase.from("whatsapp_ops_questions").insert({
-        agent_id: row.agentId,
-        purpose: row.purpose,
-        body: row.body,
-        button_ids: row.buttonIds,
-        followup_body: row.followupBody,
-        followup_button_ids: row.followupButtonIds,
-        status: "claimed",
+      const { data, error } = await supabase.rpc("whatsapp_ops_question_claim", {
+        p_agent: row.agentId,
+        p_purpose: row.purpose,
+        p_body: row.body,
+        p_button_ids: row.buttonIds,
+        p_followup_body: row.followupBody,
+        p_followup_button_ids: row.followupButtonIds,
+        p_retry: row.retry,
       });
-      if (error?.code === "23505") return "exists";
       if (error) throw new Error(error.message);
-      return "claimed";
+      return String(data ?? "");
     },
     async markSent(agentId, purpose, waIds, status, errorText) {
       const { error } = await supabase.from("whatsapp_ops_questions").update({
@@ -2125,26 +2162,15 @@ function opsQuestionDb(): OpsQuestionDb {
       if (error) throw new Error(error.message);
     },
     async appendHistory(agentId, phone, lastInbound, assistantText) {
-      const { data, error } = await supabase.from("whatsapp_conversations")
-        .select("history")
-        .eq("agent_id", agentId)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      const history = appendOpsHistory(data?.history, assistantText);
-      if (data) {
-        const { error: up } = await supabase.from("whatsapp_conversations")
-          .update({ history })
-          .eq("agent_id", agentId);
-        if (up) throw new Error(up.message);
-        return;
-      }
-      const { error: ins } = await supabase.from("whatsapp_conversations").insert({
-        agent_id: agentId,
-        wa_phone: phone,
-        history,
-        last_message_at: lastInbound,
+      // הזוג נבנה בלי לקרוא את ההיסטוריה. ההצמדה אטומית במסד (||).
+      const entries = appendOpsHistory([], assistantText);
+      const { error } = await supabase.rpc("whatsapp_ops_history_append", {
+        p_agent: agentId,
+        p_phone: phone,
+        p_last_inbound: lastInbound,
+        p_entries: entries,
       });
-      if (ins) throw new Error(ins.message);
+      if (error) throw new Error(error.message);
     },
     async logOutbound(row) {
       const { error } = await supabase.from("whatsapp_messages").insert({
@@ -2359,7 +2385,6 @@ Deno.serve(async (req: Request) => {
         db: opsQuestionDb(),
         input,
         sendButtons,
-        format: formatForWhatsapp,
       });
       return new Response(JSON.stringify(result.body), {
         status: result.status,
