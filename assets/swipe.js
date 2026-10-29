@@ -2006,6 +2006,11 @@
     reelSync();
   }
 
+  /* ‏Variant C: בטלפון "צרו הדמיה" ירד מהכרטיס אל הגיליון - מהשקופית לפני/אחרי הגיליון נפתח
+     בלשונית "✨ הדמיה" (‏openSheetFor פותח אותה רק כש-studioOk), ומכל שקופית אחרת ב"פרטים" */
+  function sheetOpts(card) {
+    return card && card.classList.contains('is-ba') && phoneC() ? { tab: 'viz', from: 'slide_cta' } : {};
+  }
   /* מחוות: גרירה לצדדים (אהבתי/דילוג), למעלה (פרטים), והקשה על צידי התמונה (תמונה) */
   function bindGestures(top) {
     var card = top.querySelector('.sw-card');
@@ -2044,7 +2049,7 @@
       if (c && c.slot !== 'end' && c.slot !== 'seen_end' && dx > 100) { decide('like'); return; }
       if (c && c.slot !== 'end' && c.slot !== 'seen_end' && dx < -100) { decide('skip'); return; }
       card.style.transform = '';
-      if (dy < -90 && Math.abs(dx) < 80) { if (c && PROMO[c.slot]) promoGo(c, 'up'); else openSheetFor(c); return; }
+      if (dy < -90 && Math.abs(dx) < 80) { if (c && PROMO[c.slot]) promoGo(c, 'up'); else openSheetFor(c, sheetOpts(card)); return; }
       if (!moved && c && PROMO[c.slot]) { tapPromo = true; return; }
       if (!moved && tapOk && c && c.slot === 'property') {
         var r = card.getBoundingClientRect();
@@ -2056,7 +2061,7 @@
     card.addEventListener('pointercancel', end);
     card.addEventListener('click', function (e) {
       var c = cur();
-      if (e.target.closest('[data-up]')) { openSheetFor(c); return; }
+      if (e.target.closest('[data-up]')) { openSheetFor(c, sheetOpts(card)); return; }
       if (c && PROMO[c.slot]) {
         var wasTap = tapPromo; tapPromo = false;
         if (e.target.closest('[data-promo-go]')) { promoGo(c, 'button'); return; }
