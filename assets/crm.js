@@ -255,6 +255,11 @@ function topValue(values){
   return entries.length ? entries[0][0] : '';
 }
 
+function accIsOpen(id){
+  const el = document.getElementById(id);
+  return !!(el && el.open);
+}
+
 function openAcc(accId){
   accId = accResolve(accId);   // קטגוריה שאוחדה לתוך אחרת (crm-properties.js)
   const el = document.getElementById(accId);
@@ -279,6 +284,9 @@ function initAccordions(){
       // Leaflet מחשב את גודל המפה בזמן היצירה — אם היא נוצרה בזמן שהקטגוריה
       // הייתה סגורה (רוחב 0), צריך לרענן את המידות ברגע הפתיחה.
       if (acc.open && acc.id === 'accPlanning' && planningMap) planningMap.invalidateSize();
+      if (acc.open && acc.id === 'accProperties') armPropertyLibsRedraw();
+      if (acc.open && acc.id === 'accAgreements' && window.crmNeed)
+        crmNeed('agreements').then(() => { agrFillKindFilter(); renderAgreements(); }).catch(() => {});
     });
   });
 }
@@ -11017,11 +11025,11 @@ function renderPlanningResult(d){
   // מפת החלקה — נבנית מחדש בכל חיפוש (Leaflet לא תומך ביצירה כפולה על אותו div)
   const mapEl = document.getElementById('planMap');
   if (planningMap){ planningMap.remove(); planningMap = null; }
-  if (!window.L || !d.lat || !d.lng){
+  if (!window.L || !window.MapTiles || !d.lat || !d.lng){
     mapEl.style.display = 'none';
     if (d.lat && d.lng && window.crmNeed && !d._mapLibs){
       d._mapLibs = true;
-      crmNeed('map').then(() => renderPlanningResult(d));
+      crmNeed('map').then(() => renderPlanningResult(d)).catch(() => {});
     }
     return;
   }
@@ -15226,11 +15234,12 @@ function updateFilterFoot(countId, clearId, shown, total, active){
 let propertyLibsRedrawArmed = false;
 function armPropertyLibsRedraw(){
   if (window.OpenHouse || propertyLibsRedrawArmed || !window.crmNeed) return;
+  if (!accIsOpen('accProperties')) return;
   propertyLibsRedrawArmed = true;
   crmNeed('property').then(() => {
     propertyLibsRedrawArmed = false;
     if (window.OpenHouse && document.getElementById('propertiesList')) renderProperties();
-  });
+  }).catch(() => { propertyLibsRedrawArmed = false; });
 }
 
 function renderProperties(){
@@ -15361,7 +15370,11 @@ async function loadPropertyViewCounts(propertyIds){
 }
 
 async function loadProperties(agentId){
-  const libsP = window.crmNeed ? crmNeed('property') : Promise.resolve();
+  // היריד והמיקום המשוער רק כשהרשימה פתוחה. כשל בסקריפט לא מפיל את
+  // הדשבורד: הרשימה עולה בלי תגיות היריד.
+  const libsP = (window.crmNeed && accIsOpen('accProperties'))
+    ? crmNeed('property').catch(() => {})
+    : Promise.resolve();
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
@@ -26828,11 +26841,16 @@ function scrollToTopOf(el){
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
 function prefetchSectionLibs(accId){
   if (!window.crmNeed || !accId) return;
-  if (accId === 'accProperties' || accId === 'accPlanning') crmNeed('property');
-  if (accId === 'accPlanning'){ crmNeed('map'); crmNeed('govmap'); }
-  if (accId === 'accAgreements') crmNeed('agreements');
-  if (accId === 'accProfile') crmNeed('ilid');
-  if (accId === 'accProfile' || accId === 'accBranding') crmNeed('specialties');
+  const done = p => p.catch(() => {});
+  if (accId === 'accProperties' || accId === 'accPlanning')
+    done(crmNeed('property')).then(() => {
+      if (window.OpenHouse && document.getElementById('propertiesList')) renderProperties();
+    });
+  if (accId === 'accPlanning'){ done(crmNeed('map')); done(crmNeed('govmap')); }
+  if (accId === 'accAgreements')
+    done(crmNeed('agreements')).then(() => { agrFillKindFilter(); renderAgreements(); });
+  if (accId === 'accProfile') done(crmNeed('ilid'));
+  if (accId === 'accProfile' || accId === 'accBranding') done(crmNeed('specialties'));
 }
 
 function gotoSection(accId, focusId, opts){
@@ -32718,7 +32736,9 @@ const agrKindLabel = kind => { const t = agrTpl(kind); return t ? t.docTitle : k
 /* ---------- טעינה ורשימה ---------- */
 
 async function loadAgreements(){
-  const libsP = window.crmNeed ? crmNeed('agreements') : Promise.resolve();
+  const libsP = (window.crmNeed && accIsOpen('accAgreements'))
+    ? crmNeed('agreements').catch(() => {})
+    : Promise.resolve();
   const listEl = document.getElementById('agreementsList');
   if (!listEl) return;
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -32765,7 +32785,8 @@ function agrFillKindFilter(){
   const sel = document.getElementById('agrKindFilter');
   if (!sel || sel.dataset.filled) return;
   if (!window.AgreementTemplates){
-    if (window.crmNeed) crmNeed('agreements').then(() => agrFillKindFilter());
+    if (window.crmNeed && accIsOpen('accAgreements'))
+      crmNeed('agreements').then(() => agrFillKindFilter()).catch(() => {});
     return;
   }
   sel.innerHTML = '<option value="">כל סוגי ההסכם</option>' +

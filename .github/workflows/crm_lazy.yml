@@ -7,7 +7,9 @@ on:
   pull_request:
     paths:
       - "crm.html"
+      - "assets/crm.js"
       - "assets/crm-lazy.js"
+      - "docs/analytics-gtm.md"
       - "scripts/crm_lazy_test.mjs"
       - "scripts/check_gtm.py"
       - ".github/workflows/crm_lazy.yml"
@@ -15,7 +17,9 @@ on:
     branches: [main]
     paths:
       - "crm.html"
+      - "assets/crm.js"
       - "assets/crm-lazy.js"
+      - "docs/analytics-gtm.md"
       - "scripts/crm_lazy_test.mjs"
       - "scripts/check_gtm.py"
       - ".github/workflows/crm_lazy.yml"

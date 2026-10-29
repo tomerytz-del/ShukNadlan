@@ -202,3 +202,25 @@ test('כל שימוש בגלובל עצלן שמור או אחרי crmNeed בא�
   const fails = unguardedLazyUses(crm);
   assert.deepEqual(fails, []);
 });
+
+test('כשל בסקריפט לא נתקע ולא מפיל את הדשבורד', () => {
+  assert.match(lazy, /delete pending\[group\]/);
+  assert.match(lazy, /s\.remove\(\)/);
+  assert.match(crm, /crmNeed\('property'\)\.catch\(\(\) => \{\}\)/);
+  assert.match(crm, /crmNeed\('agreements'\)\.catch\(\(\) => \{\}\)/);
+  assert.match(crm, /accIsOpen\('accProperties'\)/);
+  assert.match(crm, /accIsOpen\('accAgreements'\)/);
+});
+
+test('מפת התכנון לא קוראת ל-MapTiles בלי הספרייה', () => {
+  const at = crm.indexOf('MapTiles.addTo');
+  assert.ok(at > 0);
+  assert.match(crm.slice(at - 1600, at), /!window\.MapTiles/);
+});
+
+test('מסך הכניסה נמדד אחרי 3 שניות, כמו בקוד', () => {
+  const doc = readFileSync(join(root, 'docs', 'analytics-gtm.md'), 'utf8');
+  assert.match(doc, /אחרי 3\nשניות/);
+  assert.equal(/אחרי 12\nשניות/.test(doc), false);
+  assert.match(crm, /timeout:\s*3000/);
+});

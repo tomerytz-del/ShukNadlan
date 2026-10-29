@@ -37,21 +37,25 @@
   function loadOne(src, integrity) {
     var found = document.querySelector('script[src="' + src + '"]');
     if (found && found.dataset.ready === '1') return Promise.resolve();
+    if (found && found.dataset.failed === '1') { found.remove(); found = null; }
     return new Promise(function (resolve, reject) {
       var s = found || document.createElement('script');
       var done = function () { s.dataset.ready = '1'; resolve(); };
+      var fail = function () {
+        s.dataset.failed = '1';
+        s.remove();
+        reject(new Error(src));
+      };
       if (!found) {
         s.src = src;
         s.async = false;
         if (integrity) { s.integrity = integrity; s.crossOrigin = 'anonymous'; }
         s.onload = done;
-        s.onerror = function () { reject(new Error(src)); };
+        s.onerror = fail;
         document.head.appendChild(s);
-      } else if (s.dataset.ready === '1') {
-        resolve();
       } else {
         s.addEventListener('load', done);
-        s.addEventListener('error', function () { reject(new Error(src)); });
+        s.addEventListener('error', fail);
       }
     });
   }
@@ -65,7 +69,10 @@
           chain = chain.then(function () { return loadOne(item[0], item[1]); });
         })(list[i]);
       }
-      pending[group] = chain;
+      pending[group] = chain.catch(function (err) {
+        delete pending[group];
+        throw err;
+      });
     }
     return pending[group];
   }
