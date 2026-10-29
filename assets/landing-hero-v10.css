@@ -1,0 +1,51 @@
+/* ‏P1-O (PR 1010, בקשת תומר 28.10): תמונת הנושא בדפי הנחיתה נמוכה יותר, והטקסט גבוה יותר.
+   ‏assets/landing.css שייך ל-PR ‏#955 ואסור לגעת בו (ד-18), ולכן הדריסה כאן, בסלקטור חזק
+   יותר. נטענת ב-projects.html, ומאז אישור החלטה 18 (‏28.10) גם ב-silo.html וב-brokers.html,
+   בשורת <link> אחת בכל אחד מהם - שום דבר אחר בהם לא השתנה. הגובה שמור מראש ב-CSS בלבד (‏CLS = 0); תמונת ה-LCP וה-preload
+   לא משתנים, ולא נוסף טקסט ל-hero (תנאי סוכן ה-SEO). */
+.land-hero .land-hero-media {
+  height: min(44svh, 360px);
+  min-height: 300px;
+  max-height: none;
+}
+@media (min-width: 760px) {
+  .land-hero .land-hero-media {
+    height: min(360px, calc(100svh - 67px - 140px));
+    min-height: 300px;
+  }
+}
+.land-hero .land-hero-bg img { object-position: center 40%; }
+.land-hero .land-hero-overlay {
+  background: linear-gradient(180deg, rgba(6, 12, 32, .25) 0%, rgba(6, 12, 32, .55) 35%, rgba(6, 12, 32, .88) 100%);
+}
+.land-hero .land-hero-copy,
+.land-hero .wrap.land-hero-copy { padding-block: 16px 32px; }
+@media (min-width: 760px) {
+  .land-hero .land-hero-copy,
+  .land-hero .wrap.land-hero-copy { padding-block: 16px 44px; }
+}
+
+/* ‏R5-3 (PR 1010, החלטה 18 אושרה 28.10): כפתורי תמונת הנושא ב-silo וב-brokers. ‏12px עם !important,
+   כי design-system.css כופה 10px על כל [class*=btn] ב-!important.
+   שני כפתורים שווים - זהב ראשי, נייבי שקוף משני - ואף פעם לא לבן מלא ולא "שחור".
+   הסלקטורים עם body.land-page כי landing.css מגדיר צבע לכל a.land-btn בתוך .doc */
+body.land-page .land-hero .land-ctas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 440px; margin-top: 14px; }
+body.land-page .land-hero .land-btn, body.land-page .land-hero a.land-btn { width: 100%; min-height: 48px; padding: 0 12px; border-radius: 12px !important; font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap; box-sizing: border-box; justify-content: center; }
+body.land-page .land-hero a.land-btn-primary, body.land-page .land-hero .land-btn-primary { background: #c9a227; color: #0d1b3d; border: 2px solid #c9a227; }
+body.land-page .land-hero a.land-btn-ghost, body.land-page .land-hero .land-btn-ghost { background: rgba(14, 42, 107, .72); color: #fff; border: 2px solid rgba(255, 255, 255, .9); }
+@media (hover: hover) {
+  body.land-page .land-hero a.land-btn-primary:hover { background: #b8921f; border-color: #b8921f; }
+  body.land-page .land-hero a.land-btn-ghost:hover { background: #0e2a6b; }
+}
+/* הנתונים הם טקסט, לא גלולות שנראות כמו כפתורים */
+/* ‏P2-4: הנקודה אחרי כל נתון ולא לפניו - בשבירת שורה היא נשארת בסוף השורה ולא פותחת את הבאה */
+body.land-page .land-hero .land-chips { flex-wrap: wrap; gap: 0; row-gap: 2px; margin-top: 8px; }
+body.land-page .land-hero .land-chips li { background: none; padding: 0; border-radius: 0; font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
+body.land-page .land-hero .land-chips li + li::before { content: none; }
+body.land-page .land-hero .land-chips li:not(:last-child)::after { content: "·"; margin-inline: 8px; opacity: .8; }
+/* הסינון המהיר מתחת לתמונה: בטלפון רשת 3×3 שווה, בלי גלילה אופקית ובלי צ'יפ חתוך */
+@media (max-width: 759px) {
+  body.land-page .land-filters[aria-label="סינון מהיר"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: visible; scroll-snap-type: none; }
+  body.land-page .land-filters[aria-label="סינון מהיר"] a { justify-content: center; min-width: 0; padding: 0 6px; font-size: 13.5px; text-align: center; }
+}
+body.land-page .land-filters a { font-weight: 600; }

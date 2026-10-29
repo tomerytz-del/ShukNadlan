@@ -19,7 +19,7 @@
    שני מדפים, פרטי ומסחרי, כי שם המלאי קטן ומי ששואל "מה יש למשרד"
    מקבל את שניהם על מסך אחד ממילא.
 
-     PropShelf.create(cfg)  →  { set(list), setVisualized(ids), selectTag(key) }
+     PropShelf.create(cfg)  →  { set(list), setVisualized(ids), selectTag(key, add) }
 
    ‏cfg.afterGrid מקבל אלמנט שיושב בין הגריד לכפתור "עוד" — בדף הבית
    זה באנר ההדמיות.
@@ -98,6 +98,8 @@
      שבכותרת הדף — ולכן הוא נמסר כ-‎cfg.fallback‎ ולא נגזר כאן. */
   function defaultFallback(p) {
     if (hasPhoto(p)) return '';
+    // v10 (סבב 4 חלק 3): אווטאר, הסבר וקישור "בקשו תמונות מהמפרסם" - assets/no-photo.js
+    if (global.NoPhoto && global.NoPhoto.on()) return global.NoPhoto.html(p, {}, 'card');
     var name = (p && p.agency_name) || '';
     var logo = (p && p.agency_logo) || (name ? '' : SITE_LOGO);
     var mark = logo
@@ -220,7 +222,7 @@
   function buildSkeleton(root, cfg) {
     var tag = cfg.headingTag || 'h2';
     var info = cfg.info
-      ? '<button type="button" class="info-dot" aria-label="מידע על התצוגה" data-info="' +
+      ? '<button type="button" class="info-dot" aria-label="מידע על התצוגה"' + (cfg.infoId ? ' data-info-id="' + escAttr(cfg.infoId) + '"' : '') + ' data-info="' +
         escAttr(cfg.info) + '">i</button>'
       : '';
     var head = cfg.title
@@ -308,39 +310,52 @@
     function propCard(p) {
       var el = document.createElement('div');
       el.className = 'prop-card pc-cover';
+      if (cfg.rowViz) el.dataset.pid = p.id;
       el.innerHTML =
         '<div class="thumb' + (hasPhoto(p) ? '' : ' no-photo') + '" style="' + thumbStyle(p) + '">' +
           fallback(p) +
           PropertyCard.coverVideoHtml(p) +
           (isPromoted(p) ? '<span class="ribbon">מקודם</span>' : '') +
-          PropertyCard.badgesHtml(p, { aiViz: visualized.has(p.id), photo: hasPhoto(p) }) +
+          /* ‏cfg.rowViz (דף הבית עם דגל v10, סבב 4 חלק 2): התג "הדמיית AI" יורד מהתמונה
+             לשורת הטקסט - תמונה אמיתית לעולם אינה מסומנת כהדמיה */
+          PropertyCard.badgesHtml(p, { aiViz: !cfg.rowViz && visualized.has(p.id), photo: hasPhoto(p) }) +
           PropertyCard.mediaHtml(p) +
           (cfg.overlay ? cfg.overlay(p) : '') +
         '</div>' +
         '<div class="body">' +
           PropertyCard.priceHtml(p) +
           (cfg.priceExtra ? cfg.priceExtra(p) : '') +
+          (cfg.rowViz && visualized.has(p.id) ? '<span class="pr-ai pc-ai-row" data-viz-jump>✨ הדמיית AI</span>' : '') +
           PropertyCard.titleHtml(p) +
           PropertyCard.whereHtml(p, cfg.whereOpts) +
           PropertyCard.factsHtml(p) +
         '</div>';
-      /* האריח הוא קישור לכל דבר, ולכן הוא גם תחנת מקלדת: ‏role="link"‎
-         עם ‎tabindex‎ ו-Enter/רווח. בשורה הדחוסה (‏propRow) זה מגיע חינם
-         מה-‎<a>‎, וכאן הטקסט יושב מעל התמונה ולא בתוך עוגן. */
-      el.setAttribute('role', 'link');
-      el.tabIndex = 0;
-      var open = function () {
-        global.location.href = '/property?id=' + encodeURIComponent(p.id);
-      };
-      el.addEventListener('click', function (e) {
-        // כפתור שיושב על האריח (מועדפים) אינו ניווט לדף הנכס
-        if (e.target.closest('button')) return;
-        open();
+      /* האריח הוא קישור לכל דבר. ‏A-SEO-2 (סבב SEO 1, 28.10.2026): עד עכשיו ‏role="link"‎
+         עם ניווט ב-JS - ובדף הבית לא היה קישור אחד לנכס ב-HTML שגוגל רואה. עכשיו ‏<a>‎
+         אמיתי שנמתח על כל האריח (‏.pc-link, ‏assets/prop-shelf.css), ולא האריח כולו כעוגן:
+         בתוכו יושבים כפתורים וקישורים (מועדפים, "בקשו תמונות") ועוגן בתוך עוגן אינו HTML
+         תקין. הם עולים מעליו ב-z-index. המקלדת, הלשונית החדשה ותפריט ההקשר - מה-‏<a>‎. */
+      var link = document.createElement('a');
+      link.className = 'pc-link';
+      link.href = '/property?id=' + encodeURIComponent(p.id);
+      link.setAttribute('aria-label', String(p.title || p.property_type || 'נכס').trim());
+      link.addEventListener('click', function (e) {
+        /* שכבות האריח (‏assets/property-card.js) יוצרות הקשר ערימה משלהן, ולכן כפתור או
+           תגית לחיצה בתוכן אינם יכולים לעלות מעל הקישור. לחיצה שנחתה מעל אחד מהם עוברת
+           אליו, כמו לפני A-SEO-2 */
+        var under = global.document.elementsFromPoint ? global.document.elementsFromPoint(e.clientX, e.clientY) : [];
+        for (var i = 0; i < under.length; i++) {
+          var t = under[i];
+          if (t === link || !el.contains(t)) continue;
+          var hit = t.closest('button, a, [data-viz-jump], .pc-badge.is-ai');
+          if (hit && hit !== link && el.contains(hit)) { e.preventDefault(); hit.click(); return; }
+        }
+        // ‏P1-M: מקור החשיפה נרשם לפני הניווט (‏events.js)
+        var box = el.closest && el.closest('[data-browse]');
+        if (box && global.shukBrowseMark) global.shukBrowseMark(box.getAttribute('data-browse'), p.id);
       });
-      el.addEventListener('keydown', function (e) {
-        if (e.target !== el) return;
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-      });
+      // ראשון באריח: כל מה שבא אחריו ומוצב באותה שכבה נצבע מעליו
+      el.insertBefore(link, el.firstChild);
       if (cfg.bindCard) cfg.bindCard(el, p);
       return el;
     }
@@ -391,7 +406,9 @@
         '<span class="pr-main">' +
           '<span class="pr-line pr-what">' + escAttr(what) + '</span>' +
           '<span class="pr-line pr-facts">' + escAttr(facts.join(' · ')) + '</span>' +
-          '<span class="pr-line pr-price"><span class="pr-amt">' + priceText + '</span><span class="pr-deal">' + deal + '</span></span>' +
+          '<span class="pr-line pr-price"><span class="pr-amt">' + priceText + '</span><span class="pr-deal">' + deal + '</span>' +
+            // ‏cfg.rowViz (דף הבית עם דגל v10): אותה תגית של האריח, גם בשורה הדחוסה
+            (cfg.rowViz && visualized.has(p.id) ? '<span class="pr-ai" data-viz-jump>✨ הדמיית AI</span>' : '') + '</span>' +
           (cfg.priceExtra ? cfg.priceExtra(p) : '') +
         '</span>' +
         '<svg class="pr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
@@ -435,8 +452,10 @@
       ]) : [];
 
       var deals = counted([
-        { key: 'sale', group: 'deal', label: 'מכירה', test: function (p) { return p.deal_type !== 'rent'; } },
-        { key: 'rent', group: 'deal', label: 'השכרה', test: function (p) { return p.deal_type === 'rent'; } },
+        /* ‏cfg.saleResidential (‏F4, ‏C4 - דף הבית עם הדגל): "מכירה" ו"השכרה" הם מגורים בלבד, כמו
+           המשפט ("הכול · 120"); המסחרי - בתגית "מסחרי" */
+        { key: 'sale', group: 'deal', label: 'מכירה', test: function (p) { return p.deal_type !== 'rent' && !(cfg.saleResidential && isCommercial(p)); } },
+        { key: 'rent', group: 'deal', label: 'השכרה', test: function (p) { return p.deal_type === 'rent' && !(cfg.saleResidential && isCommercial(p)); } },
       ]);
 
       var rooms = new Map();   // '4' → כמה דירות 4 חדרים
@@ -473,9 +492,17 @@
 
       /* החדרים קודם — הם השאלה הראשונה של מי שמחפש דירה — ושאר הסוגים
          ממלאים את מה שנשאר עד התקרה, לפי כמה מהם יש. */
-      var kinds = roomTags.concat(typeTags).slice(0, cfg.kindTagsMax || PP_KIND_TAGS_MAX);
+      // ‏kindTagsMax: 0 - בלי תגיות חדרים וסוגים (דף הבית ב-v10: הם בחלון הסינון, R5-3C)
+      var kinds = roomTags.concat(typeTags).slice(0, cfg.kindTagsMax == null ? PP_KIND_TAGS_MAX : cfg.kindTagsMax);
+
+      /* ‏cfg.vizTag (דף הבית עם דגל v10): "✨ עם הדמיה" ראשונה בשורה - נכסים שיש להם
+         הדמיית AI מפורסמת (‏setVisualized). בלי הדמיות במלאי - אין תגית */
+      var vizTags = cfg.vizTag && visualized.size ? counted([
+        { key: 'viz', group: 'viz', label: '✨ עם הדמיה', test: function (p) { return visualized.has(p.id); } },
+      ]) : [];
 
       tags = [].concat(
+        vizTags,
         cats.length > 1 ? cats : [],
         deals.length > 1 ? deals : [],
         kinds.length > 1 ? kinds : []
@@ -536,8 +563,10 @@
         // היעדר מחיר.
         return list.slice().sort(function (a, b) {
           var x = value(a), y = value(b);
-          if (x === null || y === null) return (x === null) - (y === null);
-          return (x - y) * dir;
+          // v10 (סבב 4 חלק 3 §8): בשוויון - נכס עם תמונה קודם
+          var ph = global.NoPhoto && global.NoPhoto.on() ? (hasPhoto(b) - hasPhoto(a)) : 0;
+          if (x === null || y === null) return ((x === null) - (y === null)) || ph;
+          return ((x - y) * dir) || ph;
         });
       }
 
@@ -589,9 +618,14 @@
       if (!state.all.length) return;
 
       var items = ordered();
-      var shown = items.slice(0, limit());
+      /* ‏cfg.invite (דף הבית עם דגל v10): כרטיס הזמנה להחלקה כתא הראשון. הוא אינו נכס - לא
+         נספר, ובמחשב תופס תא אחד מהשורה הראשונה במקום הנכס האחרון בה, כדי שלא תיווצר שורה יתומה */
+      var invite = cfg.invite && items.length ? cfg.invite() : null;
+      var compactNow = ppNarrow.matches;
+      var shown = items.slice(0, Math.max(1, limit() - (invite && !compactNow && state.shown === 0 ? 1 : 0)));
 
       grid.innerHTML = '';
+      if (invite) grid.appendChild(invite);
       if (!items.length) {
         var empty = document.createElement('p');
         empty.className = 'pp-empty';
@@ -726,13 +760,16 @@
          ולכן היא נמסרת בנפרד ומציירת מחדש רק את מה שכבר על המסך. */
       setVisualized: function (ids) {
         visualized = ids || new Set();
+        if (cfg.vizTag && state.all.length) { buildTags(); renderTags(); }
         if (state.all.length) renderGrid();
       },
       /* הדלקת תגית מבחוץ (עוגן הפוטר). מחזירה false כשאין תגית כזו במלאי,
          כדי שהעוגן לא יגלול לתצוגה שלא השתנתה. ‏key ריק מכבה את הסינון
          כולו — זה מה ש"כל הנכסים" בפוטר אומר, כשמגיעים אליו מתוך עוגן
          שהדליק תגית. */
-      selectTag: function (key) {
+      /* ‏add (‏A2-5): מוסיף לתגיות שכבר דלוקות במקום להחליף אותן - "מכירה" ו"דירות 4 חד׳"
+         יחד, כשמגיעים לדף היריד מרשימת ההחלקה */
+      selectTag: function (key, add) {
         if (!key) {
           if (!state.tags.size) return true;
           state.tags.clear();
@@ -743,7 +780,7 @@
           return true;
         }
         if (!byKey.has(key)) return false;
-        state.tags = new Set([key]);
+        if (add) state.tags.add(key); else state.tags = new Set([key]);
         reset();
         renderTags();
         renderGrid();

@@ -26,8 +26,96 @@ import {
   serviceMarketLabels,
   serviceMarketSlug,
 } from "../_shared/service-markets.ts";
-import { applyPropertyFilters, AREA_SCAN_LIMIT, filterByArea } from "./property-search.ts";
+import {
+  applyPropertyFilters,
+  AREA_SCAN_LIMIT,
+  canonicalCity,
+  filterByArea,
+  searchMissRow,
+  searchMissStoreMissing,
+  shouldLogSearchMiss,
+} from "./property-search.ts";
+import {
+  capCities,
+  CLIENT_CITY_CAP,
+  clientColumnMissing,
+  featureWritePlan,
+  mergePreferredFeatures,
+  hoodBelongsToCities,
+  shouldClearNeighborhood,
+  type NamedCity,
+} from "./client-requirements.ts";
+import {
+  cachedListingCityName,
+  CRM_EDIT_LABEL,
+  type ListingCitySlot,
+  listingCityColumnMissing,
+  listingCityPromptLine,
+  loadListingCityOnce,
+  profilePatchIfCityColumnMissing,
+  propertyCityWhenOmitted,
+  storeListingCity,
+} from "./listing-defaults.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
+import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
+import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
+import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
+import { pageLink, pageLinkTopics, urlInSay } from "./crm-pages.ts";
+import { ctaLabel, isSafeCrmPath, parseNavId, screenBundle, type ScreenRef } from "../_shared/agent-deep-link.ts";
+import {
+  agreementConfirmButtons,
+  IMAGE_DELETE_STALE,
+  imageDeleteButtons,
+  imageDeleteMatches,
+  imagesAfterRemove,
+  newPendingActionId,
+  ownsRow,
+  parseAgreementButton,
+  parseImageDeleteButton,
+  confirmWritesNow,
+  parsePublishButton,
+  parseUnpublishedNudgeButton,
+  unpublishedNudgeButtonFresh,
+  unpublishedNudgeCanPublish,
+  UNPUB_BUTTON_TTL_MS,
+  listingStatusForCreate,
+  pendingStoreMissing,
+  PUBLISH_ALREADY,
+  PUBLISH_BUSY,
+  PUBLISH_FAILED,
+  PUBLISH_STORE_MISSING,
+  publishAskFirst,
+  publishClickDecision,
+  publishConfirmButtons,
+  publishDecisionText,
+  draftElsewhereMissing,
+  elsewhereDraftWarning,
+  publishErrorText,
+  publishStoreBlocked,
+  publishWritesNow,
+  destinationMenuGuidance,
+  destinationReply,
+  destinationStatusPatch,
+  parsePublishDestination,
+  publishChannelsToStore,
+  publishDestinationList,
+  socialEnqueuePlan,
+  unpublishedAfterUnconfirmedPublish,
+  REISSUE_BUTTON_TTL_MS,
+  reissueOldAgreementPlan,
+  REISSUE_BUSY,
+  REISSUE_DONE,
+  REISSUE_OLD_CANCELLED,
+  REISSUE_STORE_MISSING,
+  reissueBlockedKind,
+  reissueClickDecision,
+  reissueDecisionText,
+  reissueOverridePayload,
+  reissuePrepareInput,
+  type PendingActionRow,
+  type ReissueDecision,
+} from "./listing-actions.ts";
+import { llmFailureKind } from "./llm-fallback.ts";
 import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX, matchCounts } from "./match-cut.ts";
 import {
   accessTokenFor,
@@ -186,6 +274,8 @@ export interface ConversationState {
   profile_touched?: boolean;
   /** בתור הנוכחי בלבד: גבריאלה עוד לא אמרה לסוכן/ת את שמה (‏index.ts בודק ביומן). */
   introduce?: boolean;
+  /** בתור הנוכחי בלבד, לא נשמר: התראות שיצאו בשעתיים האחרונות. */
+  recent_note?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +313,13 @@ const propertyFields = {
   },
   description: { type: "string", description: "תיאור חופשי של הנכס." },
   rooms: { type: "number", description: "מספר חדרים (אפשר 3.5)." },
-  city: { type: "string", description: "עיר. ברירת מחדל: העיר של המשרד של הסוכן/ת." },
+  city: {
+    type: "string",
+    description:
+      "עיר, רק אם הסוכן/ת אמר/ה אותה. אם לא נאמרה עיר - אל תשלח/י את השדה: " +
+      "הקוד שם את עיר ברירת המחדל השמורה של הסוכן/ת, ואם אין - את עיר המשרד. " +
+      "אל תמלא/י את עיר המשרד בעצמך.",
+  },
   street: { type: "string", description: "שם רחוב בלי מספר בית." },
   house_number: { type: "string", description: "מספר בית בלבד." },
   neighborhood: {
@@ -267,7 +363,12 @@ const clientFields = {
   full_name: { type: "string", description: "שם הלקוח/ה או שם המשפחה." },
   phone: { type: "string", description: "טלפון, בכל פורמט." },
   email: { type: "string", description: "אימייל." },
-  notes: { type: "string", description: "הערות חופשיות - מה שנאמר ואין לו שדה." },
+  notes: {
+    type: "string",
+    description:
+      "הערות חופשיות. מאפיין שנאמר כאן נשמר כדירוג, לא כתנאי, " +
+      "אלא אם נשלח גם ב-required_features אחרי שהסוכן/ת אישר/ה שהוא חובה.",
+  },
   client_kind: {
     type: "string",
     enum: ["seeker", "owner"],
@@ -298,7 +399,16 @@ const clientFields = {
   cities: {
     type: "array",
     items: { type: "string" },
-    description: "ערים. מערך ריק = כל עיר.",
+    description:
+      "ערים. מערך ריק = כל עיר. שם או כינוי. נשמר הכתיב שהוקלד, וההתאמה גם לפי מזהה העיר. " +
+      "יותר מ-8 לא נשמרות, והתשובה אומרת כמה ירדו.",
+  },
+  neighborhood: {
+    type: "string",
+    description:
+      "שכונה. לא נשמרת כטקסט: הופכת ל-neighborhood_id. מחפשים אותה בכל הערים, לא רק בראשונה. " +
+      "מחרוזת ריקה מוחקת. שינוי ערים מוחק שכונה שכבר לא שייכת לאף עיר. " +
+      "היא מסננת רק נכסים בעיר שלה, ולא מסתירה עיר אחרת.",
   },
   min_price: { type: "number", description: "תחתית התקציב בשקלים." },
   max_price: { type: "number", description: "תקרת התקציב בשקלים. שכירות = מחיר חודשי." },
@@ -314,8 +424,9 @@ const clientFields = {
     type: "array",
     items: { type: "string" },
     description:
-      `מאפיינים שהם תנאי. למגורים: ${RESIDENTIAL_FEATURES.join(", ")}. ` +
-      `למסחרי: ${COMMERCIAL_FEATURES.join(", ")}. מערך ריק = אין תנאי.`,
+      `מאפיינים שהם תנאי, רק אחרי שהסוכן/ת אישר/ה. למגורים: ${RESIDENTIAL_FEATURES.join(", ")}. ` +
+      `למסחרי: ${COMMERCIAL_FEATURES.join(", ")}. מערך ריק = אין תנאי. ` +
+      "מאפיין מההערות לא נכתב לכאן אוטומטית.",
   },
 } as const;
 
@@ -355,8 +466,13 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "create_property",
     description:
-      "יוצר נכס חדש בשם הסוכן/ת ומפרסם אותו במצב active. תמונות שהגיעו בשיחה " +
-      "וטרם שויכו לנכס מתחברות אליו אוטומטית. כשהעיר עפולה ויש רחוב ומספר בית, " +
+      "יוצר נכס חדש בשם הסוכן/ת. ברירת המחדל מפרסמת מיד. " +
+      "כש-gabriela_ask_before_publish הוא 1 הנכס נשמר unpublished, " +
+      "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
+      "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
+      "בלי לחיצה הנכס נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
+      "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
+      "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
       "אם אותה כתובת כבר קיימת אצל הסוכן/ת (גם אם נמכרה או בארכיון) הכלי לא " +
       "יוצר כפילות אלא מחזיר duplicate - ראו את הכלל בהוראות.",
@@ -384,7 +500,9 @@ const TOOLS: Anthropic.Tool[] = [
       "ניחוש (מכירה/השכרה לפי מחיר, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
       "לשאול קודם (\"78 מסחריים סווגו לפי מחיר - לאשר?\") ולהעביר את הסוגים שאושרו ב-accept_guesses. " +
       "בלי accept_guesses, כשיש ניחושים, לא נקלט כלום וחוזר needs_confirmation. " +
-      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות.",
+      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות. " +
+      "הסטטוס הוא מהקובץ, ובלי עמודה הנכס נקלט active. זה לא מסלול השאלה של create_property: " +
+      "הסוכן/ת כבר אישר/ה את הקובץ, ואותה ליבה רצה באשף. מודעה של משרד אחר עדיין נחסמת בפרסום.",
     input_schema: {
       type: "object",
       properties: {
@@ -416,14 +534,36 @@ const TOOLS: Anthropic.Tool[] = [
     name: "set_property_status",
     description:
       "משנה את סטטוס הנכס. archived = הסרה מהאתר (זו הדרך למחוק נכס - אין מחיקה " +
-      "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר.",
+      "אמיתית, בדיוק כמו בדשבורד). sold/rented = נמכר/הושכר. active = פרסום לאוויר. " +
+      "בוואטסאפ יוצאת רשימת יעד והנכס לא עולה לפני הבחירה, גם אם נשלח confirm. " +
+      "confirm=true מפרסם לאתר רק בנתיב בלי רשימה (מייל), אחרי אישור מפורש. " +
+      "לשינוי יעד של נכס קיים בלי לשנות סטטוס: choose_publish_destination.",
     input_schema: {
       type: "object",
       properties: {
         property_id: { type: "string" },
         status: { type: "string", enum: STATUSES },
+        confirm: {
+          type: "boolean",
+          description:
+            "מתעלמים ממנו כשיש רשימה. true רק בנתיב בלי רשימה (מייל) ואחרי שהסוכן/ת אישר/ה לפרסם באתר.",
+        },
       },
       required: ["property_id", "status"],
+    },
+  },
+  {
+    name: "choose_publish_destination",
+    description:
+      "שולח רשימת יעד לנכס שכבר נשמר: אתר, רשתות, מתווכים, או רק מאגר. " +
+      "לא מפרסם ולא משנה סטטוס בעצמו. בוואטסאפ הרשימה יוצאת והלחיצה היא האישור. " +
+      "בלי רשימה (מייל) אין בחירה מכאן.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string", description: "מזהה הנכס (UUID)." },
+      },
+      required: ["property_id"],
     },
   },
   {
@@ -514,7 +654,8 @@ const TOOLS: Anthropic.Tool[] = [
       "סדר ומחיקה של תמונות בנכס קיים. התמונה הראשונה היא התמונה הראשית בכרטיס " +
       "ובדף הנכס. המספור הוא לפי הסדר בדף הנכס, מ-1. ‏list = כמה תמונות יש ומה " +
       "הסדר · set_main = תמונה position הופכת לראשית · move = העברת position " +
-      "למקום to · remove = מחיקת positions מהנכס.",
+      "למקום to · remove = בקשת מחיקה. בלי confirm יוצאים כפתורי אישור והתמונות " +
+      "נשארות. confirm=true רק אחרי שהסוכן/ת אישר/ה.",
     input_schema: {
       type: "object",
       properties: {
@@ -526,6 +667,10 @@ const TOOLS: Anthropic.Tool[] = [
           type: "array",
           items: { type: "integer" },
           description: "מספרי התמונות למחיקה (מ-1). ל-remove.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "true רק אחרי אישור מפורש למחיקה. בלי זה יוצאים כפתורים ולא נמחק כלום.",
         },
       },
       required: ["property_id", "action"],
@@ -724,7 +869,11 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        city: { type: "string", description: "העיר. ברירת מחדל: העיר של המשרד." },
+        city: {
+          type: "string",
+          description:
+            "העיר, רק אם נאמרה. אם לא - אל תשלח/י: הקוד שם את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד.",
+        },
         street: { type: "string", description: "שם רחוב, בלי מספר בית." },
         house_number: { type: "string", description: "מספר בית." },
         gush: { type: "string", description: "מספר גוש, ספרות בלבד." },
@@ -888,7 +1037,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מחזיר את קובץ הלקוחות של הסוכן/ת עם הדרישות של כל אחד/ת, ולצד כל " +
       "לקוח/ה גם מספר ההתאמות הפתוחות וההתאמה החזקה ביותר. זה הכלי גם לשאלת " +
-      "'כמה לקוחות יש לי' וגם למצוא את מזהה הלקוח/ה לפי שם.",
+      "'כמה לקוחות יש לי' וגם למצוא את מזהה הלקוח/ה לפי שם. החיפוש סלחן " +
+      "לכתיב (כ/ק, ט/ת, ו/וו, י' חסרה) ולטלפון בלי קשר לקידומת.",
     input_schema: {
       type: "object",
       properties: {
@@ -939,6 +1089,8 @@ const TOOLS: Anthropic.Tool[] = [
     name: "update_client",
     description:
       "מעדכן פרטים או דרישות של לקוח/ה קיים/ת. שולחים רק את מה שמשתנה. " +
+      "עדכון בלי הערות לא נוגע במאפיינים ולא שואל שוב על עסקה, עיר או תקציב. " +
+      "הערות שנשלחות באותו עדכון שומרות מאפיינים כדירוג, לא כתנאי. " +
       "לביטול דרישה שולחים מערך ריק (למשל cities: []).",
     input_schema: {
       type: "object",
@@ -1084,7 +1236,10 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "ההסכמים של הסוכן/ת: סוג, סטטוס, מי החותמים ומי מהם כבר חתם/ה. " +
       "להשתמש לשאלות \"מה ממתין לחתימה\", \"האם X חתם/ה\", ולמצוא את מזהה " +
-      "ההסכם. **אין דרך ליצור או לתקן הסכם מכאן** - זה נעשה באשף בדשבורד.",
+      "ההסכם. יצירה = prepare_agreement. ביטול = cancel_agreement. תיקון נוסח " +
+      "= reissue_agreement (הסכם חדש, והישן מבוטל רק אחרי שהחדש נוצר; " +
+      "בלעדיות שכבר נחתמה מוחלפת). " +
+      "תצוגה מלאה של המסמך = page_link עם topic agreements.",
     input_schema: {
       type: "object",
       properties: {
@@ -1192,11 +1347,21 @@ const TOOLS: Anthropic.Tool[] = [
               full_name: { type: "string" },
               phone: { type: "string" },
               email: { type: "string" },
+              client_id: {
+                type: "string",
+                description: "מזהה מהקובץ, אם החותם/ת הנוסף/ת הוא/היא לקוח/ה של הסוכן/ת.",
+              },
             },
             required: ["full_name"],
           },
         },
         notes: { type: "string", description: "הערות שייכנסו למסמך." },
+        force_new: {
+          type: "boolean",
+          description:
+            "true רק אחרי שהסוכן/ת אישר/ה שטיוטה קיימת לא מתאימה וצריך הסכם חדש. " +
+            "בלי זה, טיוטה פתוחה לאותו לקוח/ה ואותו נכס מוחזרת במקום ליצור עוד אחת.",
+        },
       },
       required: ["kind", "client_id", "property_ids"],
     },
@@ -1212,6 +1377,45 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: { agreement_id: { type: "string" } },
+      required: ["agreement_id"],
+    },
+  },
+  {
+    name: "cancel_agreement",
+    description:
+      "מבטל הסכם של הסוכן/ת. בלי confirm יוצאים כפתורי אישור ולא משתנה כלום. " +
+      "confirm=true רק אחרי שהסוכן/ת אישר/ה. ביטול בלעדיות מבטל גם את טופס " +
+      "ההסכמה לשיווק, ולהפך. גוף המסמך לא נערך.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agreement_id: { type: "string" },
+        confirm: { type: "boolean", description: "true רק אחרי אישור מפורש." },
+      },
+      required: ["agreement_id"],
+    },
+  },
+  {
+    name: "reissue_agreement",
+    description:
+      "מוציא הסכם חדש מאותם פרטים. תיקונים (עמלה, תאריכים, הערות, מייל) נשמרים בבקשה " +
+      "והכפתור נושא את המזהה שלה. רק אם היצירה הצליחה מבוטל הישן, כולל בלעדיות שכבר נחתמה. " +
+      "בלי confirm יוצאים כפתורי אישור. טופס הסכמה לשיווק לא מונפק לבד. " +
+      "אם חסר שדה, הישן נשאר וחוזר missing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        agreement_id: { type: "string" },
+        confirm: { type: "boolean", description: "true רק אחרי אישור מפורש." },
+        commission_pct: { type: "number" },
+        commission_amount: { type: "number" },
+        commission_basis: { type: "string", enum: ["price", "monthly", "yearly", "flat"] },
+        exclusive_from: { type: "string" },
+        exclusive_until: { type: "string" },
+        notes: { type: "string" },
+        client_email: { type: "string" },
+        in_person_only: { type: "boolean" },
+      },
       required: ["agreement_id"],
     },
   },
@@ -1355,7 +1559,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "agenda_list",
     description:
       "מה יש ביומן: \"מה יש לי היום/מחר/השבוע\", \"מה באיחור\", \"אילו משימות פתוחות\". " +
-      "מחזיר גם את item_id לעדכון.",
+      "מחזיר גם סיורי מיניסייט בטווח (showings), גם אם אינם פריט יומן, ואת item_id לעדכון.",
     input_schema: {
       type: "object",
       properties: {
@@ -1416,6 +1620,42 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "list_showings",
+    description:
+      "סיורי מיניסייט של הסוכן/ת (בקשות ביקור), כולל סיור שהכרטיס שלו נסגר והסיור עוד רשום. " +
+      "\"תבטל את הסיור עם X\" / \"הפגישה ב-18:00\" - קודם כאן, עם השם (גם באיות לא מדויק) והשעה. " +
+      "זה אינו היומן: סיור מאושר בלבד מופיע גם ב-agenda_list.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "שם הלקוח/ה, גם מתמלול. אפשר לכלול שעה, למשל 18:00." },
+        time: { type: "string", description: "שעה HH:MM בשעון ישראל, אם נאמרה בנפרד." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "cancel_showing",
+    description:
+      "מבטל סיור מיניסייט וסוגר בקשות תיאום פתוחות (pending, sending, sent, postpone, confirmed). " +
+      "confirm=true רק אחרי שהסוכן/ת אישר/ה את הסיור הזה (שם ושעה). בלי confirm, או כשיש יותר " +
+      "מאחד, הכלי לא מבטל. notify_targets=true רק אחרי שהסוכן/ת ביקש/ה להודיע למי שכבר קיבל בקשה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        meeting_id: { type: "string", description: "מ-list_showings או מ-showings שב-agenda_list." },
+        query: { type: "string", description: "שם, אם אין meeting_id." },
+        time: { type: "string", description: "שעה HH:MM בשעון ישראל." },
+        confirm: { type: "boolean", description: "true רק אחרי אישור מפורש על הסיור הזה." },
+        notify_targets: {
+          type: "boolean",
+          description: "לשלוח עכשיו הודעת ביטול למי שכבר קיבל בקשת תיאום. רק אחרי שהסוכן/ת אמר/ה שכן.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: "profile_get",
     description:
       "הפרופיל האישי של הסוכן/ת כפי שהוא מוצג בדף הסוכן/ת באתר: שם, ביו, תמונת " +
@@ -1430,7 +1670,8 @@ const TOOLS: Anthropic.Tool[] = [
       "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile). " +
       "אין תמונת נושא אישית: הרצועה בראש דף הסוכן/ת היא תמונת הנושא של המשרד, ומנהל/ת " +
       "המשרד מחליף/ה אותה ב\"מיתוג ועיצוב דף המשרד\" באיזור הסוכנים. מספר רישיון, טלפון " +
-      "ומסלול אינם נערכים כאן.",
+      "ומסלול אינם נערכים כאן. default_city = עיר קבועה לנכס חדש כשהסוכן/ת לא " +
+      "אמר/ה עיר. זו הגדרה שנשמרת. מחרוזת ריקה מוחקת אותה.",
     input_schema: {
       type: "object",
       properties: {
@@ -1467,8 +1708,37 @@ const TOOLS: Anthropic.Tool[] = [
           description: "האם תמונת הסוכן/ת מופיעה ברילסים, בסטוריז ובמודעות שהאתר מפיק. " +
             "\"בלי תמונה שלי בסרטון\" = false; אז הפרסומים יוצאים עם השם, הטלפון ולוגו המשרד בלבד.",
         },
+        default_city: {
+          type: "string",
+          description:
+            "העיר הקבועה לנכס חדש כשהסוכן/ת לא אמר/ה עיר (\"עפולה\", \"תשמרי שעפולה ברירת המחדל\"). " +
+            "מחרוזת ריקה מוחקת את ההגדרה, ואז נכס בלי עיר נרשם בעיר המשרד. " +
+            "זה לא אזור הפעילות באתר (service_markets) ולא עיר המשרד.",
+        },
       },
       required: [],
+    },
+  },
+  {
+    name: "page_link",
+    description:
+      "קישור ישיר לעמוד הנכון ב-CRM, כשאין כלי שעושה את הפעולה מכאן. " +
+      "להשתמש במקום לומר \"אני לא יכולה\" או \"היכנסו לדשבורד\". " +
+      "topic: agreements (תצוגה מלאה של המסמך; ביטול ותיקון נעשים ב-cancel_agreement " +
+      "וב-reissue_agreement), property, client, showcase, " +
+      "agenda, google_calendar (חיבור יומן Google - אי אפשר מכאן), leads, " +
+      "notifications, marketing (פייסבוק/מודעה), import (יד2/אקסל), home. " +
+      "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא.",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", enum: [...pageLinkTopics()] },
+        agreement_id: { type: "string" },
+        property_id: { type: "string" },
+        client_id: { type: "string" },
+        lead_id: { type: "string" },
+      },
+      required: ["topic"],
     },
   },
 ];
@@ -1482,6 +1752,8 @@ interface ToolContext {
   conv: ConversationState;
   /** הודעות כפתורים שיוצאות אחרי התשובה (‏index.ts). חסר בתור שאינו מוואטסאפ. */
   outbox?: OutboxItem[];
+  /** עיר ברירת המחדל של התור. נטענת פעם אחת, לא בכל כלי. */
+  listingCitySlot?: ListingCitySlot;
 }
 
 // ---------------------------------------------------------------------------
@@ -1518,6 +1790,32 @@ export async function loadProfile(
     .select(PROFILE_SELECT).eq("id", agentId).maybeSingle();
   if (error) console.error("profile load failed", error);
   return (data as unknown as Record<string, unknown>) || null;
+}
+
+/** הפרופיל של התור, ובאותה קריאה גם את העיר - בלי שאילתה נפרדת לפרומפט. */
+async function loadProfileForTurn(ctx: ToolContext): Promise<Record<string, unknown> | null> {
+  const slot = listingCitySlot(ctx);
+  const { data, error } = await ctx.supabase.from("agency_members")
+    .select(`${PROFILE_SELECT}, default_city_id`).eq("id", ctx.agent.id).maybeSingle();
+  if (listingCityColumnMissing(error)) {
+    storeListingCity(slot, null);
+    return loadProfile(ctx.supabase, ctx.agent.id);
+  }
+  if (error) {
+    console.error("profile load failed", error);
+    return null;
+  }
+  const row = (data as unknown as Record<string, unknown>) || null;
+  const cityId = row?.default_city_id;
+  if (!cityId) {
+    storeListingCity(slot, null);
+    return row;
+  }
+  const { data: city, error: cityErr } = await ctx.supabase.from("cities")
+    .select("name").eq("id", cityId).maybeSingle();
+  if (cityErr) console.error("default city name failed", cityErr.code, cityErr.message);
+  storeListingCity(slot, String(city?.name || "").trim() || null);
+  return row;
 }
 
 function agentPageUrl(slug: unknown): string | undefined {
@@ -1770,10 +2068,11 @@ async function resolvePropertyHood(
 async function ownedProperty(ctx: ToolContext, propertyId: string) {
   const { data } = await ctx.supabase
     .from("properties")
-    .select("id, title, images, street, house_number, city")
+    .select("id, title, images, street, house_number, city, agent_id, agency_id")
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
+  if (!data || !ownsRow(ctx.agent, data)) return null;
   return data;
 }
 
@@ -1835,10 +2134,42 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
   return { match: matches[0], total: matches.length };
 }
 
-/* העיר שנכס חדש נוצר בה כשהסוכן/ת לא אמר/ה: העיר של המשרד (agencies.city_id).
-   עד השווקים זו הייתה "עפולה" קבועה, ומשרד בחיפה שהכתיב "דירת 4 חדרים בהרצל"
-   היה מקבל נכס בעפולה. שתי שאילתות ולא embed, וכל כשל נופל לעפולה - בדיוק
-   ההתנהגות שהייתה. docs/regional-pages.md */
+/** אזהרה בלבד. כשל או פונקציה שטרם עלתה לא עוצרים את הטיוטה. */
+async function elsewhereDraftNote(
+  ctx: ToolContext,
+  payload: Record<string, unknown>,
+): Promise<string | null> {
+  const num = (v: unknown): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const floor = num(payload.floor);
+  try {
+    const { data, error } = await ctx.supabase.rpc("gabriela_draft_elsewhere", {
+      p_agent_id: ctx.agent.id,
+      p_agency_id: ctx.agent.agency_id,
+      p_city: payload.city == null ? null : String(payload.city),
+      p_street: payload.street == null ? null : String(payload.street),
+      p_house_number: payload.house_number == null ? null : String(payload.house_number),
+      p_rooms: num(payload.rooms),
+      p_floor: floor != null && Number.isInteger(floor) ? floor : null,
+      p_deal_type: payload.deal_type == null || payload.deal_type === "" ? null : String(payload.deal_type),
+    });
+    if (error) {
+      if (!draftElsewhereMissing(error)) console.error("draft elsewhere check failed", error.code);
+      return null;
+    }
+    return elsewhereDraftWarning(typeof data === "string" ? data : null);
+  } catch (err) {
+    console.error("draft elsewhere check failed", err);
+    return null;
+  }
+}
+
+/* העיר של המשרד (agencies.city_id). עד השווקים זו הייתה "עפולה" קבועה,
+   ומשרד בחיפה שהכתיב "דירת 4 חדרים בהרצל" היה מקבל נכס בעפולה. שתי שאילתות
+   ולא embed, וכל כשל נופל לעפולה. docs/regional-pages.md */
 async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
   try {
     const { data: agency } = await ctx.supabase
@@ -1850,6 +2181,45 @@ async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
   } catch {
     return "עפולה";
   }
+}
+
+function listingCitySlot(ctx: ToolContext): ListingCitySlot {
+  return ctx.listingCitySlot ??= { loaded: false, name: null };
+}
+
+/* העיר שהסוכן/ת שמר/ה. התור טוען אותה פעם אחת לתוך listingCitySlot (יחד עם
+   הפרופיל). כלי שרץ אחר כך קורא מהזיכרון. 42703 ו-PGRST204 = העמודה עוד לא עלתה. */
+async function readSavedListingCity(ctx: ToolContext): Promise<string | null> {
+  try {
+    const { data, error } = await ctx.supabase.from("agency_members")
+      .select("default_city_id").eq("id", ctx.agent.id).maybeSingle();
+    if (error) {
+      if (!listingCityColumnMissing(error)) console.error("default city load failed", error.code, error.message);
+      return null;
+    }
+    if (!data?.default_city_id) return null;
+    const { data: city, error: cityErr } = await ctx.supabase.from("cities")
+      .select("name").eq("id", data.default_city_id).maybeSingle();
+    if (cityErr) {
+      console.error("default city name failed", cityErr.code, cityErr.message);
+      return null;
+    }
+    return String(city?.name || "").trim() || null;
+  } catch (err) {
+    console.error("default city load failed", err);
+    return null;
+  }
+}
+
+async function savedListingCityName(ctx: ToolContext): Promise<string | null> {
+  return loadListingCityOnce(listingCitySlot(ctx), () => readSavedListingCity(ctx));
+}
+
+/** נכס בלי עיר: העיר השמורה, ואם אין - עיר המשרד (ואם אין - עפולה). */
+async function listingCityWhenOmitted(ctx: ToolContext): Promise<string> {
+  const saved = await savedListingCityName(ctx);
+  // עיר שמורה חוסכת את שאילתת המשרד. בלי שמורה - עיר המשרד, ואז עפולה.
+  return propertyCityWhenOmitted(saved, saved ? null : await agencyDefaultCity(ctx));
 }
 
 /* פין לנכס בכל עיר שיש לה ספק גאוקוד פעיל. עפולה נשארת על הקבועים שבקוד
@@ -1868,10 +2238,15 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   const payload = pickWritable(input);
   payload.category ??= "residential";
-  payload.city ??= await agencyDefaultCity(ctx);
+  // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
+  const statedCity = String(payload.city ?? "").trim();
+  payload.city = statedCity || await listingCityWhenOmitted(ctx);
   payload.agent_id = ctx.agent.id;
   payload.agency_id = ctx.agent.agency_id;
-  payload.status = "active";
+  // ברירת המחדל: טיוטה. האתר, החיפוש, ה-sitemap, השיתוף והתראות ההתאמה
+  // רצים רק על status=active, ולכן unpublished לא נראה ולא מצלצל.
+  const askFirst = await gabrielaAsksBeforePublish(ctx);
+  payload.status = listingStatusForCreate(askFirst);
   if (!payload.title) payload.title = autoTitle(payload);
   // address נגזר משני השדות בדיוק כמו בטופס בדשבורד
   const street = payload.street as string | undefined;
@@ -1949,16 +2324,23 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   if (error) {
     await returnPendingImages(ctx, images);
-    return { ok: false, error: error.message };
+    console.error("create property blocked", error.code, error.message);
+    return { ok: false, error: publishErrorText(error.message) };
   }
+  // אזהרה בלבד, ורק בטיוטה. פרסום מיידי נחסם בטריגר והשגיאה כבר בטוחה.
+  const elsewhereWarning = payload.status === "active"
+    ? null
+    : await elsewhereDraftNote(ctx, payload);
 
   ctx.conv.last_property_id = data.id;
   if (!holdImages) ctx.conv.pending_images = [];
 
-  return {
+  const created = {
     ok: true,
     property_id: data.id,
     title: data.title,
+    status: payload.status,
+    published: payload.status === "active",
     images_attached: images.length,
     ...(heldCount
       ? {
@@ -1975,9 +2357,40 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
       : {}),
     ...(hoodWarning || {}),
-    link: propertyLink(data.id),
-    ...crmButton(ctx, crmPropertyLink(data.id)),
+    ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
+    ...(payload.status === "active" ? { link: propertyLink(data.id) } : {}),
+    ...propertyCreatedEdit(ctx, data.id, data.title),
   };
+  if (!askFirst) return created;
+  const gate = await askPublishConfirm(ctx, data.id, String(data.title || ""));
+  return {
+    ...created,
+    published: false,
+    on_public_site: false,
+    matching_alerts: false,
+    needs_confirmation: true,
+    ...(gate.publish_from_site
+      ? { publish_from_site: true, error: gate.error, guidance: gate.guidance }
+      : gate.ok
+        ? { guidance: gate.guidance }
+        : { error: gate.error, guidance: gate.guidance || gate.error }),
+  };
+}
+
+/** 1 ב-gabriela_ask_before_publish שואל. 0, חסר או כשל: פרסום מיידי, כמו קודם. */
+async function gabrielaAsksBeforePublish(ctx: ToolContext): Promise<boolean> {
+  try {
+    const { data, error } = await ctx.supabase.from("pricing_config")
+      .select("value").eq("key", "gabriela_ask_before_publish").maybeSingle();
+    if (error) {
+      console.error("publish confirm flag failed", error.code);
+      return publishAskFirst(null, true);
+    }
+    return publishAskFirst(data?.value);
+  } catch (err) {
+    console.error("publish confirm flag failed", err);
+    return publishAskFirst(null, true);
+  }
 }
 
 /**
@@ -2013,16 +2426,77 @@ async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, 
  * (12.10.2026). בלי outbox (תור מייל) - השדה חוזר למודל כמו קודם, והפרומפט
  * אומר לצרף אותו.
  */
+/** כפתור אחד, או רשימה ועוד "הכול". בלי outbox לא נשלח כלום.
+ *  `listed` הם הנתיבים שבאמת נכנסו לכפתור. שורה שלא נכנסה שומרת קישור. */
+function pushScreens(
+  ctx: ToolContext,
+  screens: ScreenRef[],
+  body: string,
+  category: string,
+): { crm_button_sent?: true; listed: string[] } {
+  if (!ctx.outbox || !SITE_BASE_URL) return { listed: [] };
+  const plan = screenBundle(screens, () => category);
+  const listed = plan.kind === "single"
+    ? [plan.path]
+    : plan.kind === "list"
+    ? plan.rows.flatMap((row) => {
+      const path = parseNavId(row.id);
+      return path ? [path] : [];
+    })
+    : [];
+  if (plan.kind === "single") {
+    ctx.outbox.push({
+      kind: "cta",
+      body,
+      label: plan.label,
+      url: `${SITE_BASE_URL}${plan.path}`,
+    });
+    return { crm_button_sent: true, listed };
+  }
+  if (plan.kind === "list") {
+    ctx.outbox.push({
+      kind: "list",
+      body,
+      button: plan.button,
+      section: plan.section,
+      rows: plan.rows,
+    });
+    return { crm_button_sent: true, listed };
+  }
+  return { listed: [] };
+}
+
 function crmButton(
   ctx: ToolContext,
   url: string | undefined,
-  label = "✏️ עריכה ב-CRM",
+  label = CRM_EDIT_LABEL,
   body = "לעריכה, לתמונות ולשאר הפרטים:",
   field = "crm_link",
 ): Record<string, unknown> {
   if (!url) return {};
   if (!ctx.outbox) return { [field]: url };
   ctx.outbox.push({ kind: "cta", body, label, url });
+  return { crm_button_sent: true };
+}
+
+/** כפתור עריכה של נכס שנוצר עכשיו. כמה כאלה באותו תור מתקפלים להודעה אחת. */
+function propertyCreatedEdit(
+  ctx: ToolContext,
+  id: string,
+  title: unknown,
+): Record<string, unknown> {
+  const url = crmPropertyLink(id);
+  if (!url) return {};
+  if (!ctx.outbox) return { crm_link: url };
+  const listLine = String(title || "").replace(/\s+/g, " ").trim().slice(0, 80) || "נכס";
+  ctx.outbox.push({
+    kind: "cta",
+    body: "לעריכה, לתמונות ולשאר הפרטים:",
+    label: CRM_EDIT_LABEL,
+    url,
+    batch: "property_created",
+    listLine,
+  });
   return { crm_button_sent: true };
 }
 
@@ -2084,6 +2558,10 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
 
   const existing = await ownedProperty(ctx, propertyId);
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
+  // הדגל 0: כתיבה מיידית, כמו ב-main. 1: רשימת יעד בוואטסאפ, ו-confirm במייל.
+  if (status === "active" && await gabrielaAsksBeforePublish(ctx) && !publishWritesNow(!!ctx.outbox, input.confirm)) {
+    return askPublishConfirm(ctx, propertyId, String(existing.title || ""));
+  }
 
   const { error } = await ctx.supabase
     .from("properties")
@@ -2091,10 +2569,110 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("set status failed", error.code, error.message);
+    return { ok: false, error: publishErrorText(error.message) };
+  }
 
   ctx.conv.last_property_id = propertyId;
   return { ok: true, property_id: propertyId, title: existing.title, status };
+}
+
+async function askPublishConfirm(
+  ctx: ToolContext,
+  propertyId: string,
+  title: string,
+): Promise<Record<string, unknown>> {
+  if (!propertyId) return { ok: false, error: "חסר מזהה נכס." };
+  if (!ctx.outbox) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "פרסום לאוויר דורש אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+      guidance: "הנכס לא פורסם. אין רשימה במסלול הזה. אחרי אישור מפורש לפרסם באתר קראי ל-set_property_status עם active ו-confirm=true. בחירת יעד (רשתות, מתווכים, מאגר) היא בוואטסאפ.",
+    };
+  }
+  const live = await ctx.supabase.from("properties")
+    .select("status")
+    .eq("id", propertyId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  const onSite = live.data?.status === "active";
+  const id = newPendingActionId();
+  const nowIso = new Date().toISOString();
+  await ctx.supabase.from("whatsapp_pending_actions").update({
+    executed_at: nowIso,
+    result: "הוחלפה בבקשה חדשה.",
+  }).eq("agent_id", ctx.agent.id).eq("action", "publish").eq("subject_id", propertyId).is("executed_at", null);
+  let error: { code?: string; message?: string } | null = null;
+  try {
+    const saved = await ctx.supabase.from("whatsapp_pending_actions").insert({
+      id,
+      agent_id: ctx.agent.id,
+      action: "publish",
+      subject_id: propertyId,
+      payload: { destination: true },
+      expires_at: new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString(),
+    });
+    error = saved.error;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("pending publish save threw", message);
+    error = { message };
+  }
+  if (error) {
+    console.error("pending publish save failed", error.code, error.message);
+    if (publishStoreBlocked(error) || pendingStoreMissing(error)) {
+      return {
+        ok: false,
+        publish_from_site: true,
+        error: PUBLISH_STORE_MISSING,
+        guidance: "הנכס לא פורסם. אמרי שאפשר לפרסם אותו מאזור האישי. אל תאמרי שהוא באוויר.",
+        ...crmButton(ctx, crmPropertyLink(propertyId), "🏠 לפרסום באתר",
+          "אפשר לפרסם את הנכס מאזור האישי:", "publish_link"),
+      };
+    }
+    return { ok: false, error: PUBLISH_FAILED };
+  }
+  const socialOn = await gabrielaSocialFlagOn(ctx.supabase);
+  const list = publishDestinationList(id, propertyId, socialOn);
+  if (!list) return { ok: false, error: PUBLISH_FAILED };
+  if (!onSite) await touchPublishAsk(ctx.supabase, propertyId, ctx.agent.id);
+  const label = title.trim() ? `"${title.trim().slice(0, 80)}"` : "הנכס";
+  ctx.outbox.push({
+    kind: "list",
+    body: onSite
+      ? `${label} באתר. לאן להשאיר אותו?`
+      : `${label} נשמר ולא עלה לאתר. לאן להוציא אותו? בלי בחירה הוא נשאר במאגר.`,
+    button: list.button,
+    section: list.section,
+    rows: list.rows,
+  });
+  const menu = destinationMenuGuidance(socialOn);
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: onSite
+      ? "יצאה רשימת יעד לנכס שכבר באתר. אל תשני את הסטטוס בעצמך. בלי לחיצה הוא נשאר באתר כמו שהוא."
+      : "יצאה רשימת יעד לנכס הזה. אל תאמרי שהוא פורסם. " +
+        menu +
+        "בלי לחיצה הנכס נשאר unpublished ולא נמחק, ואין פרסום אוטומטי. " +
+        "אחרי 24 שעות, בתוך שעות השליחה, יוצאת תזכורת אחת. התזכורת השבועית נשארת.",
+  };
+}
+
+async function toolChooseDestination(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const existing = await ownedProperty(ctx, propertyId);
+  if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
+  if (!await gabrielaAsksBeforePublish(ctx)) {
+    return {
+      ok: false,
+      error: "בחירת יעד כבויה. פרסום לאתר הוא set_property_status עם active.",
+    };
+  }
+  const gate = await askPublishConfirm(ctx, propertyId, String(existing.title || ""));
+  return { property_id: propertyId, ...gate };
 }
 
 /**
@@ -2204,6 +2782,20 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const exactTotal = typeof count === "number" ? count : data.length;
   const total = exactTotal + variants.length;
   const rows = [...data, ...variants].slice(0, limit);
+  // סטטוס שה-CRM מסנן (propStatusFilter). חיפוש חופשי בעברית אינו נתיב,
+  // ולכן "הכול" אינו מתיימר להיות תוצאת החיפוש.
+  const propertiesCategory = status && (STATUSES as readonly string[]).includes(status)
+    ? `/crm?goto=accProperties&status=${status}`
+    : "/crm?goto=accProperties";
+  const pushed = ctx.outbox && rows.length
+    ? pushScreens(ctx, rows.map((p) => ({
+      type: "listing",
+      path: `/crm?goto=accProperties&property=${String(p.id)}`,
+      title: String(p.title || p.address || "נכס"),
+      body: String(p.address || ""),
+    })), "איזה נכס לפתוח?", propertiesCategory)
+    : null;
+  const listed = new Set(pushed?.listed || []);
   return {
     ok: true,
     returned: rows.length,
@@ -2212,9 +2804,14 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     total,
     truncated: total > rows.length,
     query: q || undefined,
-    // לכל נכס הכרטיס שלו ב-CRM - "תראי לי את הנכסים בלי תמונה" צריך להיגמר
-    // בקישור שפותח אותם, לא ב"היכנס/י ל-CRM".
-    properties: rows.map((p) => ({ ...p, crm_link: crmPropertyLink(String(p.id)) })),
+    // בשיחת וואטסאפ הכפתור נפתח על הכרטיס. נכס שלא נכנס לרשימה (מעל 9)
+    // שומר crm_link. בלי תור (מייל) נשאר הקישור לכל שורה.
+    properties: rows.map((p) => {
+      const path = `/crm?goto=accProperties&property=${String(p.id)}`;
+      if (pushed?.crm_button_sent && listed.has(path)) return p;
+      return { ...p, crm_link: crmPropertyLink(String(p.id)) };
+    }),
+    ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
     note: [
       total > rows.length
         ? `מוצגים ${rows.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
@@ -2244,7 +2841,7 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 const AGENT_SEARCH_FIELDS =
   "id, listing_number, title, property_type, deal_type, category, price, price_unit, rooms, " +
   "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
-  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, neighborhoods(name), " +
+  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, city_id, neighborhoods(name), " +
   "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
 
 const SOURCE_ORDER: Record<string, number> = { own: 0, agency: 1, shared: 2, market: 3 };
@@ -2284,7 +2881,7 @@ async function agentPropertySearch(
   ctx: ToolContext,
   args: Record<string, unknown>,
   limit: number,
-): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown> } | { ok: false; error: string }> {
+): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown>; searched: boolean } | { ok: false; error: string }> {
   const pools = await searchPools(ctx);
   const uuid = /^[0-9a-f-]{36}$/i;
 
@@ -2295,9 +2892,21 @@ async function agentPropertySearch(
   if (shared.length) ors.push(`id.in.(${shared.join(",")})`);
   const cities = pools.marketCityIds.filter((id) => uuid.test(id));
   if (cities.length) ors.push(`city_id.in.(${cities.join(",")})`);
-  if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {} };
+  if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {}, searched: false };
 
   const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
+  let cityId: string | null = null;
+  if (typeof args.city === "string" && args.city.trim()) {
+    const raw = args.city;
+    const canon = await canonicalCity(ctx.supabase, raw);
+    cityId = canon?.id || null;
+    args = {
+      ...args,
+      city: canon?.name || raw.trim(),
+      city_raw: raw.trim(),
+      city_id: cityId,
+    };
+  }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
     args,
@@ -2312,7 +2921,7 @@ async function agentPropertySearch(
   let rows = (data || []) as Array<Record<string, unknown>>;
   let hint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true });
+    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true, cityId });
     rows = res.rows;
     hint = res.hint;
   }
@@ -2362,13 +2971,14 @@ async function agentPropertySearch(
       link: propertyLink(String(p.id)),
     };
   });
-  return { ok: true, total: tagged.length, by_source: bySource, results, hint };
+  return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true };
 }
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
   const res = await agentPropertySearch(ctx, input, limit);
   if (!res.ok) return res;
+  if (shouldLogSearchMiss(res.total, res.searched)) await logAgentSearchMiss(ctx, input);
 
   // המאפיינים שנדרשו הם סינון קשיח (‏contains). כשאין אף נכס עם כולם - סופרים
   // כמה יש בלי הדרישה הזו, ולפי איזה מאפיין חסר, כדי לשאול ולא להציע מעצמנו.
@@ -2413,6 +3023,11 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
       "שמציעים ללקוח/ה. נכס market אינו נכנס למיניסייט עד שהמשרד שלו משתף אותו." +
       (res.total > res.results.length ? ` מוצגים ${res.results.length} מתוך ${res.total}.` : ""),
   };
+}
+
+async function logAgentSearchMiss(ctx: ToolContext, input: Record<string, unknown>): Promise<void> {
+  const { error } = await ctx.supabase.from("agent_search_misses").insert(searchMissRow(ctx.agent.id, input));
+  if (error && !searchMissStoreMissing(error)) console.error("search miss log failed", error.code);
 }
 
 async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>) {
@@ -2505,11 +3120,34 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
       const [moved] = next.splice(from - 1, 1);
       next.splice(to - 1, 0, moved);
     } else if (action === "remove") {
-      const drop = new Set(
-        (Array.isArray(input.positions) ? input.positions : []).map(Number).filter(valid),
-      );
-      if (!drop.size) return { ok: false, error: `צריך את מספרי התמונות למחיקה, בין 1 ל-${n}.` };
-      next = images.filter((_, i) => !drop.has(i + 1));
+      const positions = (Array.isArray(input.positions) ? input.positions : []).map(Number);
+      const planned = imagesAfterRemove(images, positions);
+      if (!planned.ok) return { ok: false, error: planned.error };
+      // עם outbox אין מחיקה מהמודל, גם כש-confirm=true. רק הכפתור מוחק.
+      if (!confirmWritesNow(!!ctx.outbox, input.confirm)) {
+        const buttons = imageDeleteButtons(propertyId, positions, images);
+        if (ctx.outbox && buttons) {
+          const label = existing.title ? ` מ-${existing.title}` : "";
+          ctx.outbox.push({
+            kind: "buttons",
+            body: `למחוק ${planned.removed} תמונות${label}?`,
+            buttons,
+          });
+          return {
+            ok: true,
+            needs_confirmation: true,
+            guidance: "יצאו כפתורי אישור. אל תאמרי שהתמונות נמחקו.",
+          };
+        }
+        return {
+          ok: false,
+          needs_confirmation: true,
+          error: ctx.outbox
+            ? "מחיקת תמונה יוצאת רק בכפתור אישור. לא נמחק כלום."
+            : "מחיקת תמונה דורשת אישור. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה במפורש.",
+        };
+      }
+      next = planned.next;
     } else {
       return { ok: false, error: "פעולה לא מוכרת." };
     }
@@ -3899,7 +4537,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const gate = await planningTierGate(ctx);
   if (gate) return gate;
 
-  const city = clean(input.city) || await agencyDefaultCity(ctx);
+  const city = clean(input.city) || await listingCityWhenOmitted(ctx);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -3918,11 +4556,27 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
 async function ownedClient(ctx: ToolContext, clientId: string) {
   const { data } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features")
+    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features, cities, notes, min_price, max_price")
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
   return data;
+}
+
+/** הדירוג השמור. עמודה חסרה (לפני המיגרציה) נקראת כרשימה ריקה. */
+async function currentPreferredFeatures(ctx: ToolContext, clientId: string): Promise<string[]> {
+  const { data, error } = await ctx.supabase
+    .from("agent_clients")
+    .select("preferred_features")
+    .eq("id", clientId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (error) {
+    if (!clientColumnMissing(error)) console.error("preferred features read failed", error.code);
+    return [];
+  }
+  const rows = (data as { preferred_features?: string[] | null } | null)?.preferred_features;
+  return Array.isArray(rows) ? rows.map(String).filter(Boolean) : [];
 }
 
 /** שורת הדרישות בעברית — מה שהסוכן/ת רואה בכרטיס הלקוח/ה בדשבורד. */
@@ -4009,8 +4663,14 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     // ‏escape על הפסיק והסוגריים: מחרוזת חיפוש עם פסיק הייתה נקראת כשני
     // תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
     const safe = q.replace(/[,()*]/g, " ").trim();
-    if (safe) {
-      const or = `full_name.ilike.%${safe}%,phone.ilike.%${safe}%`;
+    const digits = q.replace(/\D/g, "");
+    const parts: string[] = [];
+    if (safe) parts.push(`full_name.ilike.%${safe}%`);
+    // טלפון: גם הספרות כמו שהוקלדו וגם 9 האחרונות, כדי ש-050 ו-972 ייפגשו
+    if (digits.length >= 7) parts.push(`phone.ilike.%${digits.slice(-9)}%`);
+    else if (safe) parts.push(`phone.ilike.%${safe}%`);
+    if (parts.length) {
+      const or = parts.join(",");
       query = query.or(or);
       counter = counter.or(or);
     }
@@ -4022,6 +4682,31 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
   ]);
   if (error) return { ok: false, error: error.message };
   if (matchCountErr) console.warn("client match count failed", matchCountErr.message);
+
+  // ilike מפספס כ/ק וט/ת. אם החיפוש לא מילא את החלון, עוברים על הקובץ
+  // (עד 500) ומוסיפים התאמה סלחנית. בלי query אין מה לסלוח.
+  let rows = data || [];
+  let fuzzyAdded = 0;
+  if (q && rows.length < limit) {
+    let poolQuery = ctx.supabase
+      .from("agent_clients")
+      .select("id, full_name, phone, email, notes, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features, created_at")
+      .eq("agent_id", ctx.agent.id)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (input.status) poolQuery = poolQuery.eq("status", String(input.status));
+    else if (!input.all_statuses) poolQuery = poolQuery.eq("status", "active");
+    const { data: pool, error: poolErr } = await poolQuery;
+    if (poolErr) console.warn("fuzzy client search failed", poolErr.message);
+    const have = new Set(rows.map((c) => c.id));
+    for (const c of pool || []) {
+      if (have.has(c.id) || !clientMatchesQuery(q, c)) continue;
+      rows.push(c);
+      have.add(c.id);
+      fuzzyAdded++;
+      if (rows.length >= limit) break;
+    }
+  }
 
   // ספירת ההתאמות לכל לקוח/ה בקריאה אחת (ולא שאילתה לכל שורה). כשל כאן אינו
   // מפיל את הרשימה — הדרישות והטלפון הם עיקר התשובה, וההתאמות תוספת.
@@ -4049,8 +4734,8 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .eq("agent_id", ctx.agent.id);
 
   // עיון ברשימה מול שליפה של לקוח/ה. ראו ההסבר מעל הפונקציה.
-  const browsing = data.length > NOTES_FULL_WINDOW;
-  const matching = typeof totalMatching === "number" ? totalMatching : data.length;
+  const browsing = rows.length > NOTES_FULL_WINDOW;
+  const matching = (typeof totalMatching === "number" ? totalMatching : rows.length) + fuzzyAdded;
   let notesTrimmed = 0;
 
   return {
@@ -4060,10 +4745,11 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     // כמה תואמים את הסינון שהוחזר — זה מה שמגדיר אם הרשימה חתוכה, ולא
     // ‏total_all: חיפוש שמצא שלושה מתוך מאה אינו רשימה חתוכה.
     total_matching: matching,
-    truncated: matching > data.length,
-    returned: data.length,
+    truncated: matching > rows.length,
+    returned: rows.length,
     query: q || undefined,
-    clients: data.map((c) => {
+    spelling_tolerant: fuzzyAdded > 0 || undefined,
+    clients: rows.map((c) => {
       const full = String(c.notes ?? "");
       const trim = browsing && full.length > NOTES_BROWSE_CHARS;
       if (trim) notesTrimmed++;
@@ -4081,8 +4767,11 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
       };
     }),
     note: [
-      matching > data.length
-        ? `מוצגים ${data.length} מתוך ${matching}. לצמצום - query.`
+      matching > rows.length
+        ? `מוצגים ${rows.length} מתוך ${matching}. לצמצום - query.`
+        : null,
+      fuzzyAdded
+        ? "נמצא גם לפי כתיב קרוב או טלפון מנורמל. אמתי את השם מול הסוכן/ת לפני עדכון."
         : null,
       notesTrimmed
         ? `ההערות של ${notesTrimmed} לקוחות נגזמו כי הרשימה ארוכה - לקריאה מלאה, query על השם.`
@@ -4171,6 +4860,73 @@ async function toolListCalls(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+type ClientDupHit = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  status: string;
+  kind: "duplicate" | "confirm";
+};
+
+/**
+ * כפילות על כל הלקוחות של הסוכן/ת. ה-RPC משווה במסד; אם הוא עוד לא נפרס
+ * (הפונקציה עלתה לפני המיגרציה) עוברים על כל השורות בעמודים, לא על 500.
+ * null = הבדיקה נכשלה, ואסור ליצור כרטיס.
+ */
+async function findClientDuplicates(
+  ctx: ToolContext,
+  fullName: string,
+  phone: string,
+): Promise<ClientDupHit[] | null> {
+  const { data, error } = await ctx.supabase.rpc("agent_client_duplicate", {
+    p_agent_id: ctx.agent.id,
+    p_full_name: fullName,
+    p_phone: phone,
+  });
+  if (!error) {
+    return ((data || []) as ClientDupHit[]).map((row) => ({
+      id: String(row.id),
+      full_name: String(row.full_name || ""),
+      phone: row.phone ? String(row.phone) : null,
+      status: String(row.status || ""),
+      kind: row.kind === "confirm" ? "confirm" : "duplicate",
+    }));
+  }
+  const missing = /agent_client_duplicate|PGRST202|schema cache/i.test(String(error.message || ""));
+  if (!missing) {
+    console.error("client duplicate lookup failed", error.message);
+    return null;
+  }
+  const page = 1000;
+  const hits: ClientDupHit[] = [];
+  for (let from = 0; from < 20000; from += page) {
+    const { data: rows, error: pageErr } = await ctx.supabase
+      .from("agent_clients")
+      .select("id, full_name, phone, status")
+      .eq("agent_id", ctx.agent.id)
+      .order("id", { ascending: true })
+      .range(from, from + page - 1);
+    if (pageErr) {
+      console.error("client duplicate scan failed", pageErr.message);
+      return null;
+    }
+    for (const c of rows || []) {
+      const same = namesLikelySame(c.full_name, fullName) || phonesMatch(phone, c.phone);
+      const confirm = !same && namesNeedConfirm(c.full_name, fullName);
+      if (!same && !confirm) continue;
+      hits.push({
+        id: String(c.id),
+        full_name: String(c.full_name || ""),
+        phone: c.phone ? String(c.phone) : null,
+        status: String(c.status || ""),
+        kind: same ? "duplicate" : "confirm",
+      });
+    }
+    if (!rows || rows.length < page) break;
+  }
+  return hits;
+}
+
 async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>) {
   const fullName = String(input.full_name || "").trim();
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
@@ -4178,23 +4934,41 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
+  const citiesDropped = await canonicalizeClientCities(ctx, payload);
+  const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
+  const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
+  const planned = featureWritePlan({
+    isCreate: true,
+    notesSent,
+    notes: String(input.notes || ""),
+    requiredSent,
+    category: payload.category as string | undefined,
+    deal_type: payload.deal_type as string | undefined,
+    cities: payload.cities as string[] | undefined,
+    min_price: payload.min_price as number | undefined,
+    max_price: payload.max_price as number | undefined,
+  });
+  const createdPreferred = mergePreferredFeatures([], planned.preferred);
+  if (createdPreferred) payload.preferred_features = createdPreferred;
+  const hoodErr = await attachClientNeighborhood(ctx, input, payload);
+  if (hoodErr) return { ok: false, error: hoodErr };
   // ‏agency_id נשמר כדי שהרשומה תדע מאיזה משרד היא נוצרה, בדיוק כמו בטופס
   // בדשבורד. הוא אינו מרחיב את הראייה — ה-RLS היא לפי agent_id בלבד.
   payload.agency_id = ctx.agent.agency_id;
 
-  // כפילות: אותו שם או אותו טלפון אצל אותו/ה סוכן/ת. בוואטסאפ זה קורה יותר
-  // מבדשבורד — "תוסיף את משפחת כהן" נאמר בלי לראות את הקובץ — ולקוח/ה כפול/ה
-  // פירושו שני כרטיסים עם חצי מהדרישות בכל אחד.
-  const phone = String(input.phone || "").replace(/\D/g, "");
-  const { data: existing } = await ctx.supabase
-    .from("agent_clients")
-    .select("id, full_name, phone, status")
-    .eq("agent_id", ctx.agent.id)
-    .limit(300);
-  const dup = (existing || []).find((c) =>
-    normText(c.full_name) === normText(fullName) ||
-    (!!phone && String(c.phone || "").replace(/\D/g, "").slice(-9) === phone.slice(-9))
-  );
+  // כפילות: אותו שם או אותו טלפון אצל אותו/ה סוכן/ת, על כל הקובץ
+  // ולא על 500 האחרונים. בוואטסאפ זה קורה יותר מבדשבורד - "תוסיף את
+  // משפחת כהן" נאמר בלי לראות את הקובץ - ולקוח/ה כפול/ה פירושו שני
+  // כרטיסים עם חצי מהדרישות בכל אחד.
+  const phone = String(input.phone || "");
+  const existing = await findClientDuplicates(ctx, fullName, phone);
+  if (existing === null) {
+    return {
+      ok: false,
+      error: "לא הצלחתי לבדוק כפילות בקובץ הלקוחות. לא נוצר כרטיס. אפשר לנסות שוב.",
+    };
+  }
+  const dup = existing.find((c) => c.kind === "duplicate");
   if (dup && !input.force_new) {
     return {
       ok: false,
@@ -4208,13 +4982,43 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
         "הסוכן/ת אם לעדכן את הקיימת (update_client) או שזה/זו אדם אחר/ת.",
     };
   }
+  // שם משפחה זהה ושם פרטי אחר ("דני כהן" / "רון כהן") אינו כפילות.
+  // לא יוצרים בשקט ולא חוסמים: שואלים, ו-force_new רק אחרי אישור.
+  const maybe = !input.force_new
+    ? existing.find((c) => c.kind === "confirm")
+    : undefined;
+  if (maybe) {
+    return {
+      ok: false,
+      needs_confirm: true,
+      duplicate: false,
+      client_id: maybe.id,
+      full_name: maybe.full_name,
+      phone: maybe.phone,
+      status: maybe.status,
+      error:
+        "יש בקובץ לקוח/ה עם אותו שם משפחה ושם פרטי אחר. לא נוצר כרטיס. " +
+        "שאלי את הסוכן/ת: אם זה אותו אדם - update_client; אם זה אדם אחר - " +
+        "create_client עם force_new אחרי אישור.",
+    };
+  }
 
-  const { data, error } = await ctx.supabase
+  let neighborhoodDeferred = false;
+  let { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
     .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
-  if (error) return { ok: false, error: error.message };
+  if (error && clientColumnMissing(error) && hasNewClientColumn(payload)) {
+    neighborhoodDeferred = "neighborhood_id" in payload;
+    stripNewClientColumns(payload);
+    ({ data, error } = await ctx.supabase
+      .from("agent_clients")
+      .insert(payload)
+      .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+      .single());
+  }
+  if (error || !data) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = data.id;
   return {
@@ -4222,6 +5026,16 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     client_id: data.id,
     full_name: data.full_name,
     needs: clientNeeds(data),
+    ask: planned.ask,
+    suggested_features: planned.suggested.length ? planned.suggested : undefined,
+    cities_note: citiesDropped
+      ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
+      : undefined,
+    neighborhood_deferred: neighborhoodDeferred || undefined,
+    neighborhood_note: neighborhoodDeferred
+      ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
+      : undefined,
+    guidance: clientWriteGuidance(planned, true),
   };
 }
 
@@ -4231,17 +5045,52 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
+  const citiesDropped = await canonicalizeClientCities(ctx, payload);
+  const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
+  const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
+  const planned = featureWritePlan({
+    isCreate: false,
+    notesSent,
+    notes: String(input.notes || ""),
+    requiredSent,
+    category: (payload.category as string | undefined) ?? (existing as { category?: string }).category,
+    deal_type: (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
+    cities: (payload.cities as string[] | undefined) ?? (existing as { cities?: string[] }).cities,
+    min_price: (payload.min_price as number | undefined) ?? (existing as { min_price?: number }).min_price,
+    max_price: (payload.max_price as number | undefined) ?? (existing as { max_price?: number }).max_price,
+  });
+  if (planned.preferred) {
+    const mergedPreferred = mergePreferredFeatures(
+      await currentPreferredFeatures(ctx, clientId),
+      planned.preferred,
+    );
+    if (mergedPreferred) payload.preferred_features = mergedPreferred;
+  }
+  const hoodErr = await attachClientNeighborhood(ctx, input, payload, existing as { cities?: string[] }, clientId);
+  if (hoodErr) return { ok: false, error: hoodErr };
   if (!Object.keys(payload).length) return { ok: false, error: "לא נשלח אף שדה לעדכון." };
   payload.updated_at = new Date().toISOString();
 
-  const { data, error } = await ctx.supabase
+  let neighborhoodDeferred = false;
+  let { data, error } = await ctx.supabase
     .from("agent_clients")
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
     .single();
-  if (error) return { ok: false, error: error.message };
+  if (error && clientColumnMissing(error) && hasNewClientColumn(payload)) {
+    neighborhoodDeferred = "neighborhood_id" in payload;
+    stripNewClientColumns(payload);
+    ({ data, error } = await ctx.supabase
+      .from("agent_clients")
+      .update(payload)
+      .eq("id", clientId)
+      .eq("agent_id", ctx.agent.id)
+      .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+      .single());
+  }
+  if (error || !data) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = clientId;
   return {
@@ -4250,7 +5099,172 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     full_name: data.full_name,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     needs: clientNeeds(data),
+    suggested_features: notesSent && planned.suggested.length ? planned.suggested : undefined,
+    cities_note: citiesDropped
+      ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
+      : undefined,
+    neighborhood_deferred: neighborhoodDeferred || undefined,
+    neighborhood_note: neighborhoodDeferred
+      ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
+      : undefined,
+    guidance: notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
   };
+}
+
+function clientWriteGuidance(
+  planned: { ask?: string[]; suggested: string[] },
+  isCreate: boolean,
+): string | undefined {
+  const parts: string[] = [];
+  if (isCreate && planned.ask?.length) {
+    parts.push("שאלי בשאלה אחת את מה שב-ask. אל תמציאי עיר, תקציב או סוג עסקה.");
+  }
+  if (planned.suggested.length) {
+    parts.push(
+      "suggested_features הם דירוג מההערות, לא תנאי. אל תכתבי אותם ל-required_features " +
+      "בלי שהסוכן/ת אישר/ה שהם חובה.",
+    );
+  }
+  return parts.length ? parts.join(" ") : undefined;
+}
+
+const NEW_CLIENT_COLUMNS = ["neighborhood_id", "preferred_features"] as const;
+
+function hasNewClientColumn(payload: Record<string, unknown>): boolean {
+  return NEW_CLIENT_COLUMNS.some((key) => key in payload);
+}
+
+function stripNewClientColumns(payload: Record<string, unknown>): void {
+  for (const key of NEW_CLIENT_COLUMNS) delete payload[key];
+}
+
+async function canonicalizeClientCities(ctx: ToolContext, payload: Record<string, unknown>): Promise<number> {
+  if (!Array.isArray(payload.cities)) return 0;
+  const capped = capCities(payload.cities);
+  const names: string[] = [];
+  const seenIds = new Set<string>();
+  for (const raw of capped.kept) {
+    const canon = await canonicalCity(ctx.supabase, String(raw || ""));
+    if (!canon) continue;
+    if (canon.id) {
+      if (seenIds.has(canon.id)) continue;
+      seenIds.add(canon.id);
+    }
+    const stored = canon.raw || canon.name;
+    if (stored && !names.includes(stored)) names.push(stored);
+  }
+  payload.cities = names;
+  return capped.dropped;
+}
+
+async function cityRefs(ctx: ToolContext, cities: readonly string[]): Promise<{ refs: NamedCity[]; resolved: boolean }> {
+  const refs: NamedCity[] = [];
+  let resolved = false;
+  for (const raw of cities) {
+    const canon = await canonicalCity(ctx.supabase, raw);
+    if (!canon) continue;
+    if (canon.id) resolved = true;
+    refs.push({ name: canon.name || canon.raw, id: canon.id });
+    if (canon.raw && canon.raw !== canon.name) refs.push({ name: canon.raw, id: canon.id });
+  }
+  return { refs, resolved };
+}
+
+async function attachClientNeighborhood(
+  ctx: ToolContext,
+  input: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  existing?: { cities?: string[] | null },
+  clientId?: string,
+): Promise<string | null> {
+  const sent = Object.prototype.hasOwnProperty.call(input, "neighborhood");
+  const asked = sent ? String(input.neighborhood ?? "").trim() : "";
+  const fromPayload = Array.isArray(payload.cities) ? payload.cities.map(String).filter(Boolean) : [];
+  const cities = fromPayload.length ? fromPayload : (existing?.cities || []).map(String).filter(Boolean);
+  const citiesChanged = Array.isArray(payload.cities) && !sameStringList(payload.cities, existing?.cities);
+
+  if (sent && !asked) {
+    payload.neighborhood_id = null;
+    return null;
+  }
+  if (asked) {
+    if (!cities.length) return "כדי לשמור שכונה צריך גם עיר.";
+    const hood = await resolveHoodInCities(ctx, cities, asked);
+    if ("error" in hood) return hood.error;
+    payload.neighborhood_id = hood.id;
+    return null;
+  }
+  if (!clientId || !shouldClearNeighborhood({
+    citiesChanged,
+    neighborhoodSent: sent,
+    hasHood: true,
+    belongs: false,
+    resolved: true,
+  })) return null;
+  const current = await loadClientHood(ctx, clientId);
+  if (!current.ok || !current.hood) return null;
+  const { refs, resolved } = await cityRefs(ctx, cities);
+  if (shouldClearNeighborhood({
+    citiesChanged: true,
+    neighborhoodSent: false,
+    hasHood: true,
+    belongs: hoodBelongsToCities(current.hood, refs),
+    resolved,
+  })) payload.neighborhood_id = null;
+  return null;
+}
+
+function sameStringList(next: unknown, prev: readonly string[] | null | undefined): boolean {
+  const a = Array.isArray(next) ? next.map(String) : [];
+  const b = (prev || []).map(String);
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+async function loadClientHood(
+  ctx: ToolContext,
+  clientId: string,
+): Promise<{ ok: true; hood: { city: string | null; city_id: string | null } | null } | { ok: false }> {
+  const { data, error } = await ctx.supabase
+    .from("agent_clients")
+    .select("neighborhood_id, neighborhoods(city, city_id)")
+    .eq("id", clientId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (error) {
+    if (!clientColumnMissing(error)) console.error("client hood load failed", error.code);
+    return { ok: false };
+  }
+  const row = data as { neighborhood_id?: string | null; neighborhoods?: { city?: string | null; city_id?: string | null } | { city?: string | null; city_id?: string | null }[] | null } | null;
+  if (!row?.neighborhood_id) return { ok: true, hood: null };
+  const hood = Array.isArray(row.neighborhoods) ? row.neighborhoods[0] : row.neighborhoods;
+  if (!hood) return { ok: true, hood: null };
+  return { ok: true, hood: { city: hood.city || null, city_id: hood.city_id || null } };
+}
+
+async function resolveHoodInCities(
+  ctx: ToolContext,
+  cities: string[],
+  name: string,
+): Promise<{ id: string; name: string } | { error: string; known: string[] }> {
+  const hits: { id: string; name: string; city: string }[] = [];
+  const seen = new Set<string>();
+  for (const city of cities) {
+    const hood = await resolvePropertyHood(ctx, city, name);
+    if (!("id" in hood)) continue;
+    if (seen.has(hood.id)) continue;
+    seen.add(hood.id);
+    hits.push({ id: hood.id, name: hood.name, city });
+  }
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1) {
+    return {
+      error: `השכונה קיימת בכמה ערים (${hits.map((h) => h.city).join(", ")}). צריך עיר אחת.`,
+      known: hits.map((h) => h.name),
+    };
+  }
+  const first = await resolvePropertyHood(ctx, cities[0], name);
+  if ("error" in first) return first;
+  return first;
 }
 
 async function toolSetClientStatus(ctx: ToolContext, input: Record<string, unknown>) {
@@ -4602,8 +5616,23 @@ function showcaseSendUrl(token: string, first: string, clientWa: string | undefi
 
 /** הודעה שיוצאת אחרי התשובה של המודל (‏index.ts, ‏sendOutbox). */
 export type OutboxItem =
-  | { kind: "cta"; body: string; label: string; url: string }
-  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] };
+  | {
+    kind: "cta";
+    body: string;
+    label: string;
+    url: string;
+    /** נכס שנוצר בתור הזה. שניים או יותר מתקפלים להודעה אחת לפני השליחה. */
+    batch?: "property_created";
+    listLine?: string;
+  }
+  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] }
+  | {
+    kind: "list";
+    body: string;
+    button: string;
+    section: string;
+    rows: { id: string; title: string; description?: string }[];
+  };
 
 // כותרות עד 20 תווים (Meta דוחה את ההודעה כולה). נמדד: 15 ו-14.
 const SC_PREVIEW_TITLE = "👁 תצוגה מקדימה";
@@ -5167,6 +6196,44 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   const requested = (input.property_ids as string[] | undefined) || [];
   if (!requested.length) return { ok: false, error: "לא נבחרו נכסים להסכם." };
 
+  // טיוטה פתוחה לאותו לקוח/ה, אותו טופס ואותו נכס - לא עוד אחת.
+  // "קלפון"/"כלפון" יצר בעבר כרטיס כפול ושמונה טיוטות.
+  if (!input.force_new) {
+    const { data: open, error: openErr } = await ctx.supabase
+      .from("agreements")
+      .select("id, title, status, kind, property_ids, created_at")
+      .eq("agent_id", ctx.agent.id)
+      .eq("kind", kind)
+      .in("status", ["draft", "sent", "viewed"])
+      .contains("client_ids", [client.id])
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (openErr) {
+      console.error("open agreements lookup failed", openErr);
+      return {
+        ok: false,
+        error: "לא הצלחתי לבדוק אם כבר יש הסכם פתוח. לא נוצרה טיוטה. אפשר לנסות שוב.",
+      };
+    }
+    const want = new Set(requested.map(String));
+    const same = (open || []).find((row) => {
+      const ids = ((row.property_ids as string[] | null) || []).map(String);
+      return ids.some((pid) => want.has(pid));
+    });
+    if (same) {
+      return {
+        ok: false,
+        duplicate: true,
+        agreement_id: same.id,
+        title: same.title,
+        status: same.status,
+        error:
+          "כבר יש הסכם פתוח לאותו לקוח/ה ואותו נכס. לא נוצרה טיוטה נוספת. " +
+          "שאלי אם להשתמש בקיימת (agreement_sign_links) או להוציא חדשה (force_new, רק אחרי אישור).",
+      };
+    }
+  }
+
   const { data: rows } = await ctx.supabase
     .from("properties")
     // כל ה-src שמופיעים ב-PROPERTY_FIELDS_* — שדה שלא נשלף פשוט יוצא במסמך
@@ -5223,6 +6290,12 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     client_id: String(client.id),
   }];
   for (const extra of (input.extra_signers as Record<string, unknown>[] | undefined) || []) {
+    const rawId = String(extra.client_id || "").trim();
+    let extraClientId: string | null = null;
+    if (rawId) {
+      const owned = await ownedClient(ctx, rawId);
+      if (owned) extraClientId = String(owned.id);
+    }
     signers.push({
       party: "partner",
       full_name: String(extra.full_name || "").trim(),
@@ -5231,7 +6304,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       phone: String(extra.phone || "").trim() || null,
       email: String(extra.email || "").trim() || null,
       address: null,
-      client_id: null,
+      client_id: extraClientId,
     });
   }
 
@@ -5311,8 +6384,29 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
 
   // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
   // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף (createAgreementRows).
-  const made = await createAgreementRows(ctx, build, signers,
-    consentId ? { marketing_consent_id: consentId } : {});
+  const requestedAlso = Array.isArray(input.also_client_ids)
+    ? [...new Set((input.also_client_ids as unknown[]).map((id) => String(id || "").trim()).filter(Boolean))]
+    : [];
+  let keptAlso = requestedAlso;
+  if (requestedAlso.length) {
+    const { data: ownedAlso, error: alsoErr } = await ctx.supabase
+      .from("agent_clients")
+      .select("id")
+      .eq("agent_id", ctx.agent.id)
+      .in("id", requestedAlso);
+    if (alsoErr) {
+      console.error("agreement extra clients lookup failed", alsoErr.code);
+    } else {
+      const ok = new Set(((ownedAlso || []) as { id: string }[]).map((row) => String(row.id)));
+      keptAlso = requestedAlso.filter((id) => ok.has(id));
+    }
+  }
+  const agreementExtra: Record<string, unknown> = consentId ? { marketing_consent_id: consentId } : {};
+  if (keptAlso.length) {
+    const linkedIds = signers.map((sg) => sg.client_id).filter((id): id is string => !!id);
+    agreementExtra.client_ids = [...new Set([...linkedIds, ...keptAlso])];
+  }
+  const made = await createAgreementRows(ctx, build, signers, agreementExtra);
   if (!made.ok) {
     // ההסכמה בלי הבלעדיות שלה היא מסמך יתום - נמחקת יחד עם הכישלון
     if (consentId) await ctx.supabase.from("agreements").delete().eq("id", consentId).eq("agent_id", ctx.agent.id);
@@ -5379,8 +6473,871 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
           !(sg.email || "").trim())
         .map((sg) => sg.full_name)
       : undefined,
-    frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון - ביטול ההסכם והוצאת חדש, באשף שבדשבורד.",
-    manage_where: `${SITE_BASE_URL}/crm`,
+    frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון - reissue_agreement (הסכם חדש, והישן מבוטל רק אחרי שהחדש נוצר). לביטול - cancel_agreement.",
+    ...(ctx.outbox && created.id
+      ? crmButton(
+        ctx,
+        SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accAgreements&agreement=${created.id}` : undefined,
+        "📝 פתיחת ההסכם",
+        "ההסכם נפתח כאן:",
+        "manage_where",
+      )
+      : { manage_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accAgreements&agreement=${created.id}` : null }),
+  };
+}
+
+const AGREEMENT_MUTABLE =
+  "id, agent_id, agency_id, kind, status, title, commission_pct, commission_amount, " +
+  "commission_note, exclusive_from, exclusive_until, notes, property_ids, client_ids";
+
+async function loadOwnedAgreement(
+  supabase: SupabaseClient,
+  agent: { id: string; agency_id?: string | null },
+  agreementId: string,
+): Promise<{ row: Record<string, unknown> } | { error: string }> {
+  const { data, error } = await supabase.from("agreements")
+    .select(AGREEMENT_MUTABLE)
+    .eq("id", agreementId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (error) {
+    console.error("agreement load failed", error.code);
+    return { error: "לא הצלחתי לקרוא את ההסכם. אפשר לנסות שוב." };
+  }
+  if (!data || !ownsRow(agent, data as unknown as { agent_id: string; agency_id?: string | null })) {
+    return { error: "לא נמצא הסכם כזה אצל הסוכן/ת." };
+  }
+  return { row: data as unknown as Record<string, unknown> };
+}
+
+function askAgreementConfirm(
+  ctx: ToolContext,
+  action: "cancel" | "reissue",
+  agreementId: string,
+): Record<string, unknown> {
+  const buttons = agreementConfirmButtons(action, agreementId);
+  if (!buttons) return { ok: false, error: "חסר מזהה הסכם." };
+  if (!ctx.outbox) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "צריך אישור מפורש. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+    };
+  }
+  ctx.outbox.push({
+    kind: "buttons",
+    body: action === "cancel"
+      ? "לבטל את ההסכם? ביטול של בלעדיות מבטל גם את טופס ההסכמה."
+      : "להוציא הסכם חדש מאותם פרטים? בלעדיות חתומה נשארת עד שהחדש ייחתם.",
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהפעולה כבר נעשתה.",
+  };
+}
+
+async function cancelOwnedAgreement(
+  supabase: SupabaseClient,
+  agent: { id: string; agency_id?: string | null },
+  agreementId: string,
+): Promise<string> {
+  const loaded = await loadOwnedAgreement(supabase, agent, agreementId);
+  if ("error" in loaded) return loaded.error;
+  const row = loaded.row;
+  if (row.status === "cancelled") return "ההסכם כבר מבוטל.";
+  const { error } = await supabase.from("agreements")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("id", agreementId)
+    .eq("agent_id", agent.id);
+  if (error) {
+    console.error("agreement cancel failed", error.code);
+    return "לא הצלחתי לבטל את ההסכם. אפשר לנסות שוב, או לבטל בדשבורד.";
+  }
+  const kind = String(row.kind || "");
+  const pair = kind.startsWith("exclusive_")
+    ? " גם טופס ההסכמה לשיווק שצמוד אליו מתבטל."
+    : kind.startsWith("marketing_")
+      ? " גם הבלעדיות שצמודה אליו מתבטלת."
+      : "";
+  const title = String(row.title || "").trim();
+  return title ? `ההסכם "${title}" בוטל.${pair}` : `ההסכם בוטל.${pair}`;
+}
+
+async function reissueOwnedAgreement(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+  onCreated?: (newAgreementId: string) => Promise<void>,
+): Promise<{ text: string; newAgreementId?: string }> {
+  const loaded = await loadOwnedAgreement(ctx.supabase, ctx.agent, agreementId);
+  if ("error" in loaded) return { text: loaded.error };
+  const row = loaded.row;
+  const blocked = reissueBlockedKind(String(row.kind || ""));
+  if (blocked) return { text: blocked };
+  const { data: signers, error: signerErr } = await ctx.supabase.from("agreement_signers")
+    .select("full_name, phone, email, ord, client_id")
+    .eq("agreement_id", agreementId)
+    .order("ord");
+  if (signerErr) {
+    console.error("agreement signers failed", signerErr.code);
+    return { text: "לא הצלחתי לקרוא את החותמים. ההסכם הישן נשאר." };
+  }
+  const input = reissuePrepareInput(
+    row as unknown as Parameters<typeof reissuePrepareInput>[0],
+    (signers || []) as Parameters<typeof reissuePrepareInput>[1],
+    overrides,
+  );
+  if ("error" in input) return { text: `${input.error} ההסכם הישן נשאר.` };
+  const prepared = await toolPrepareAgreement(ctx, input) as Record<string, unknown>;
+  if (!prepared.ok) {
+    const missing = Array.isArray(prepared.missing) ? prepared.missing.map(String).join("; ") : "";
+    return {
+      text: missing
+        ? `ההסכם הישן נשאר. כדי להוציא חדש חסר: ${missing}`
+        : `${String(prepared.error || "ההסכם החדש לא נוצר.")} ההסכם הישן נשאר.`,
+    };
+  }
+  const newId = String(prepared.agreement_id || "");
+  if (newId && onCreated) {
+    try {
+      await onCreated(newId);
+    } catch (err) {
+      console.error("pending reissue mark failed", err instanceof Error ? err.message : err);
+    }
+  }
+  let tail = "";
+  const status = String(row.status || "");
+  const plan = newId ? reissueOldAgreementPlan(status, String(row.kind || "")) : "keep";
+  if (plan === "cancel") {
+    const { error } = await ctx.supabase.from("agreements")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("id", agreementId)
+      .eq("agent_id", ctx.agent.id)
+      .in("status", ["draft", "sent", "viewed"]);
+    if (error) {
+      console.error("agreement cancel after reissue failed", error.code);
+      tail = " ההסכם הישן לא בוטל. אפשר לבטל אותו בנפרד.";
+    } else {
+      tail = " ההסכם הישן בוטל.";
+    }
+  } else if (plan === "supersede") {
+    // הבלעדיות החתומה נשארת עד שהחדש נחתם. הטריגר מבטל אותה בחתימה.
+    // עמודה חסרה (הפונקציה לפני המיגרציה): לא מבטלים.
+    const { error } = await ctx.supabase.from("agreements")
+      .update({ replaces_agreement_id: agreementId })
+      .eq("id", newId)
+      .eq("agent_id", ctx.agent.id);
+    if (error) {
+      console.error("agreement supersede link failed", error.code);
+      tail = " הבלעדיות החתומה נשארת בתוקף. הקישור להחלפה בחתימה לא נשמר.";
+    } else {
+      tail = " הבלעדיות החתומה נשארת בתוקף עד שהחדש ייחתם.";
+    }
+  } else if (status === "signed") {
+    tail = " ההסכם החתום נשאר. החדש הוא מסמך נפרד.";
+  }
+  const title = String(prepared.title || "").trim();
+  return {
+    text: `יצא הסכם חדש${title ? `: ${title}` : ""}.${tail}`,
+    newAgreementId: newId || undefined,
+  };
+}
+
+async function toolCancelAgreement(ctx: ToolContext, input: Record<string, unknown>) {
+  const agreementId = String(input.agreement_id || "");
+  if (!confirmWritesNow(!!ctx.outbox, input.confirm)) return askAgreementConfirm(ctx, "cancel", agreementId);
+  return { ok: true, note: await cancelOwnedAgreement(ctx.supabase, ctx.agent, agreementId) };
+}
+
+async function askReissueConfirm(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!agreementId) return { ok: false, error: "חסר מזהה הסכם." };
+  if (!ctx.outbox) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "צריך אישור מפורש. קרא/י שוב עם confirm=true רק אחרי שהסוכן/ת אישר/ה.",
+    };
+  }
+  const saved = await saveReissueRequest(ctx, agreementId, overrides);
+  if ("error" in saved) return saved;
+  const buttons = agreementConfirmButtons("reissue", saved.id);
+  if (!buttons) return { ok: false, error: "חסר מזהה הסכם." };
+  ctx.outbox.push({
+    kind: "buttons",
+    body: "להוציא הסכם חדש עם הפרטים שסיכמנו? בלעדיות חתומה נשארת עד שהחדש ייחתם.",
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהפעולה כבר נעשתה.",
+  };
+}
+
+async function saveReissueRequest(
+  ctx: ToolContext,
+  agreementId: string,
+  overrides: Record<string, unknown>,
+): Promise<{ id: string } | { error: string; ok: false }> {
+  const expires = new Date(Date.now() + REISSUE_BUTTON_TTL_MS).toISOString();
+  const open = () => ctx.supabase.from("whatsapp_pending_actions")
+    .select("id, claimed_at")
+    .eq("agent_id", ctx.agent.id)
+    .eq("action", "reissue")
+    .eq("subject_id", agreementId)
+    .is("executed_at", null)
+    .is("new_subject_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data: existing, error: openErr } = await open();
+  if (openErr && !pendingStoreMissing(openErr)) {
+    console.error("pending reissue lookup failed", openErr.code);
+  }
+  if (!openErr && existing?.id) {
+    if (!existing.claimed_at) {
+      const { error: updErr } = await ctx.supabase.from("whatsapp_pending_actions")
+        .update({ payload: overrides, expires_at: expires })
+        .eq("id", existing.id)
+        .eq("agent_id", ctx.agent.id)
+        .is("claimed_at", null)
+        .is("executed_at", null);
+      if (updErr) console.error("pending reissue refresh failed", updErr.code);
+    }
+    return { id: String(existing.id) };
+  }
+  const id = newPendingActionId();
+  const { error } = await ctx.supabase.from("whatsapp_pending_actions").insert({
+    id,
+    agent_id: ctx.agent.id,
+    action: "reissue",
+    subject_id: agreementId,
+    payload: overrides,
+    expires_at: expires,
+  });
+  if (error && String(error.code || "") === "23505") {
+    const { data: again } = await open();
+    if (again?.id) return { id: String(again.id) };
+  }
+  if (error) {
+    console.error("pending reissue save failed", error.code);
+    return {
+      ok: false,
+      error: pendingStoreMissing(error)
+        ? REISSUE_STORE_MISSING
+        : "לא הצלחתי לשמור את הבקשה. ההסכם הישן נשאר. אפשר לנסות שוב.",
+    };
+  }
+  return { id };
+}
+
+async function toolReissueAgreement(ctx: ToolContext, input: Record<string, unknown>) {
+  const agreementId = String(input.agreement_id || "");
+  const overrides = reissueOverridePayload(input);
+  if (!confirmWritesNow(!!ctx.outbox, input.confirm)) return askReissueConfirm(ctx, agreementId, overrides);
+  const before = ctx.outbox?.length || 0;
+  const done = await reissueOwnedAgreement(ctx, agreementId, overrides);
+  return {
+    ok: true,
+    note: done.text,
+    buttons_sent: (ctx.outbox?.length || 0) > before ? true : undefined,
+    guidance: "אמרי את note. אם buttons_sent - אל תכתבי את קישורי החתימה, הם יוצאים בכפתורים.",
+  };
+}
+
+async function loadPendingAction(
+  supabase: SupabaseClient,
+  agentId: string,
+  requestId: string,
+): Promise<{ missing: true } | { error: true } | { row: PendingActionRow | null }> {
+  const { data, error } = await supabase.from("whatsapp_pending_actions")
+    .select("id, agent_id, action, subject_id, payload, expires_at, claimed_at, executed_at, new_subject_id, result")
+    .eq("id", requestId)
+    .eq("agent_id", agentId)
+    .maybeSingle();
+  if (error) {
+    console.error("pending action load failed", error.code);
+    return pendingStoreMissing(error) ? { missing: true } : { error: true };
+  }
+  return { row: (data as PendingActionRow | null) || null };
+}
+
+async function reissueHeldReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  row: PendingActionRow | null,
+  decision: ReissueDecision,
+): Promise<string | null> {
+  if (decision.kind === "run") return null;
+  if (decision.kind === "busy" && row?.subject_id) {
+    const old = await loadOwnedAgreement(supabase, agent, row.subject_id);
+    if (!("error" in old) && old.row.status === "cancelled") return REISSUE_OLD_CANCELLED;
+  }
+  return reissueDecisionText(decision);
+}
+
+async function runPendingReissue(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  requestId: string,
+): Promise<{ text: string; outbox?: OutboxItem[] }> {
+  const loaded = await loadPendingAction(supabase, agent.id, requestId);
+  if ("missing" in loaded) return { text: REISSUE_STORE_MISSING };
+  if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  const first = reissueClickDecision(loaded.row, Date.now());
+  const early = await reissueHeldReply(supabase, agent, loaded.row, first);
+  if (early) return { text: early };
+  if (first.kind !== "run") return { text: reissueDecisionText(first) || REISSUE_STORE_MISSING };
+
+  const nowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: nowIso })
+    .eq("id", requestId)
+    .eq("agent_id", agent.id)
+    .is("claimed_at", null)
+    .is("executed_at", null)
+    .is("new_subject_id", null)
+    .gt("expires_at", nowIso)
+    .select("id")
+    .maybeSingle();
+  if (claimErr) {
+    console.error("pending reissue claim failed", claimErr.code);
+    return {
+      text: pendingStoreMissing(claimErr) ? REISSUE_STORE_MISSING : "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב.",
+    };
+  }
+  if (!claimed) {
+    const again = await loadPendingAction(supabase, agent.id, requestId);
+    if ("missing" in again) return { text: REISSUE_STORE_MISSING };
+    if ("error" in again) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+    const decision = reissueClickDecision(again.row, Date.now());
+    const held = await reissueHeldReply(supabase, agent, again.row, decision);
+    return { text: held || REISSUE_BUSY };
+  }
+
+  const outbox: OutboxItem[] = [];
+  const ctx: ToolContext = {
+    supabase,
+    agent,
+    conv: { history: [], pending_images: [], last_property_id: null, last_client_id: null },
+    outbox,
+  };
+  const done = await reissueOwnedAgreement(ctx, first.agreementId, first.overrides, async (newId) => {
+    const { error } = await supabase.from("whatsapp_pending_actions").update({
+      new_subject_id: newId,
+      result: REISSUE_DONE,
+    }).eq("id", requestId).eq("agent_id", agent.id);
+    if (error) console.error("pending reissue link failed", error.code);
+  });
+  if (done.newAgreementId) {
+    const { error } = await supabase.from("whatsapp_pending_actions").update({
+      executed_at: new Date().toISOString(),
+      new_subject_id: done.newAgreementId,
+      result: done.text,
+    }).eq("id", requestId).eq("agent_id", agent.id);
+    if (error) console.error("pending reissue finish failed", error.code);
+  } else {
+    const { error } = await supabase.from("whatsapp_pending_actions")
+      .update({ claimed_at: null })
+      .eq("id", requestId)
+      .eq("agent_id", agent.id)
+      .is("new_subject_id", null);
+    if (error) console.error("pending reissue release failed", error.code);
+  }
+  return { text: done.text, outbox: outbox.length ? outbox : undefined };
+}
+
+async function touchPublishAsk(
+  supabase: SupabaseClient,
+  propertyId: string,
+  agentId: string,
+): Promise<void> {
+  const flag = await supabase.from("pricing_config")
+    .select("value").eq("key", "gabriela_ask_before_publish").maybeSingle();
+  if (flag.error || !publishAskFirst(flag.data?.value)) return;
+  const { error } = await supabase.rpc("gabriela_publish_ask_touch", {
+    p_property_id: propertyId,
+    p_agent_id: agentId,
+  });
+  if (error) {
+    const code = String(error.code || "");
+    if (code !== "42883" && code !== "PGRST202") console.error("publish ask touch failed", code);
+  }
+}
+
+async function clearPublishAsk(supabase: SupabaseClient, propertyId: string | null | undefined): Promise<void> {
+  if (!propertyId) return;
+  const { error } = await supabase.rpc("gabriela_publish_ask_clear", { p_property_id: propertyId });
+  if (error) {
+    const code = String(error.code || "");
+    if (code !== "42883" && code !== "PGRST202") console.error("publish ask clear failed", code);
+  }
+}
+
+async function releasePublishClaim(
+  supabase: SupabaseClient,
+  agentId: string,
+  requestId: string,
+): Promise<void> {
+  const { error } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: null })
+    .eq("id", requestId)
+    .eq("agent_id", agentId)
+    .is("executed_at", null);
+  if (error) console.error("pending publish release failed", error.code);
+}
+
+async function markPublishDone(
+  supabase: SupabaseClient,
+  agentId: string,
+  requestId: string,
+  text: string,
+): Promise<void> {
+  const { error } = await supabase.from("whatsapp_pending_actions").update({
+    executed_at: new Date().toISOString(),
+    result: text,
+  }).eq("id", requestId).eq("agent_id", agentId);
+  if (error) console.error("pending publish finish failed", error.code);
+}
+
+async function runPendingPublish(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  requestId: string,
+  propertyIdFromButton?: string | null,
+): Promise<{ text: string }> {
+  const loaded = await loadPendingAction(supabase, agent.id, requestId);
+  if ("missing" in loaded) return { text: PUBLISH_STORE_MISSING };
+  if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  const first = publishClickDecision(loaded.row, Date.now());
+  if (first.kind !== "run") {
+    // פקיעה לא נוגעת בנכס. unpublishedAfterUnconfirmedPublish הוא החוזה עם התזכורת.
+    if (first.kind === "expired") void unpublishedAfterUnconfirmedPublish("expired");
+    return { text: publishDecisionText(first) || PUBLISH_BUSY };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: nowIso })
+    .eq("id", requestId)
+    .eq("agent_id", agent.id)
+    .eq("action", "publish")
+    .is("claimed_at", null)
+    .is("executed_at", null)
+    .gt("expires_at", nowIso)
+    .select("id, subject_id")
+    .maybeSingle();
+  if (claimErr) {
+    console.error("pending publish claim failed", claimErr.code);
+    return { text: publishStoreBlocked(claimErr) ? PUBLISH_STORE_MISSING : "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  }
+  if (!claimed) {
+    const again = await loadPendingAction(supabase, agent.id, requestId);
+    if ("missing" in again) return { text: PUBLISH_STORE_MISSING };
+    if ("error" in again) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+    const decision = publishClickDecision(again.row, Date.now());
+    return { text: publishDecisionText(decision) || PUBLISH_BUSY };
+  }
+
+  const propertyId = String(claimed.subject_id || first.propertyId);
+  if (propertyIdFromButton && propertyId.toLowerCase() !== propertyIdFromButton.toLowerCase()) {
+    await releasePublishClaim(supabase, agent.id, requestId);
+    return { text: "הכפתור שייך לנכס אחר. אפשר לבקש פרסום מחדש." };
+  }
+  const { data: prop, error: propErr } = await supabase.from("properties")
+    .select("id, title, status, agent_id, agency_id")
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (propErr || !prop || !ownsRow(agent, prop)) {
+    await releasePublishClaim(supabase, agent.id, requestId);
+    return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
+  }
+  if (prop.status === "active") {
+    await markPublishDone(supabase, agent.id, requestId, PUBLISH_ALREADY);
+    await clearPublishAsk(supabase, propertyId);
+    return { text: PUBLISH_ALREADY };
+  }
+  const { error } = await supabase.from("properties")
+    .update({ status: "active", updated_at: nowIso })
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id);
+  if (error) {
+    console.error("pending publish failed", error.code, error.message);
+    await releasePublishClaim(supabase, agent.id, requestId);
+    return { text: publishErrorText(error.message) };
+  }
+  const title = String(prop.title || "").trim();
+  const text = title ? `הנכס "${title}" פורסם.` : "הנכס פורסם.";
+  await markPublishDone(supabase, agent.id, requestId, text);
+  await clearPublishAsk(supabase, propertyId);
+  return { text };
+}
+
+/**
+ * לחיצה על כפתור מחיקת תמונה, ביטול/הנפקה של הסכם, או פרסום. null - זה לא כפתור כזה.
+ * המזהה נושא את הנכס, ההסכם, או הבקשה. בלי מודל.
+ */
+export async function listingActionReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  buttonId: string,
+): Promise<{ text: string; outbox?: OutboxItem[] } | null> {
+  const image = parseImageDeleteButton(buttonId);
+  if (image) {
+    if (!image.yes) return { text: "התמונות נשארות." };
+    const { data, error } = await supabase.from("properties")
+      .select("id, title, images, agent_id, agency_id")
+      .eq("id", image.propertyId)
+      .eq("agent_id", agent.id)
+      .maybeSingle();
+    if (error) {
+      console.error("image delete load failed", error.code);
+      return { text: "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." };
+    }
+    if (!data || !ownsRow(agent, data)) return { text: "לא נמצא נכס כזה אצל הסוכן/ת." };
+    const images = Array.isArray(data.images) ? data.images as string[] : [];
+    if (!imageDeleteMatches(images, image.positions, image.hash)) return { text: IMAGE_DELETE_STALE };
+    const planned = imagesAfterRemove(images, image.positions);
+    if (!planned.ok) return { text: planned.error };
+    const { data: total, error: setErr } = await supabase.rpc("property_images_set", {
+      p_property_id: image.propertyId,
+      p_agent_id: agent.id,
+      p_expected: images,
+      p_images: planned.next,
+    });
+    if (setErr) {
+      console.error("image delete failed", setErr.code);
+      return { text: "לא הצלחתי למחוק את התמונות. אפשר לנסות שוב." };
+    }
+    if (total == null) return { text: IMAGE_DELETE_STALE };
+    return { text: `נמחקו ${planned.removed} תמונות. נשארו ${total}.` };
+  }
+
+  const agreement = parseAgreementButton(buttonId);
+  if (agreement) {
+    if (!agreement.yes) {
+      return { text: agreement.action === "cancel" ? "ההסכם נשאר." : "לא הוצא הסכם חדש." };
+    }
+    if (agreement.action === "cancel") {
+      return { text: await cancelOwnedAgreement(supabase, agent, agreement.agreementId) };
+    }
+    return runPendingReissue(supabase, agent, agreement.agreementId);
+  }
+
+  const destination = parsePublishDestination(buttonId);
+  if (destination) {
+    if (destination.edit) {
+      return publishEditReply(supabase, agent, {
+        requestId: destination.requestId,
+        propertyId: destination.propertyId,
+      });
+    }
+    return runPendingDestination(supabase, agent, destination);
+  }
+
+  const nudge = parseUnpublishedNudgeButton(buttonId);
+  if (nudge) return unpublishedNudgeReply(supabase, agent, nudge);
+
+  const publish = parsePublishButton(buttonId);
+  if (!publish) return null;
+  if (publish.action === "no") {
+    void unpublishedAfterUnconfirmedPublish("no");
+    let propertyId = publish.propertyId;
+    if (!propertyId) {
+      const loaded = await loadPendingAction(supabase, agent.id, publish.requestId);
+      if ("row" in loaded && loaded.row?.subject_id) propertyId = String(loaded.row.subject_id);
+    }
+    await clearPublishAsk(supabase, propertyId);
+    return { text: "הנכס לא פורסם." };
+  }
+  if (publish.action === "edit") return publishEditReply(supabase, agent, publish);
+  return runPendingPublish(supabase, agent, publish.requestId, publish.propertyId);
+}
+
+function destinationStoreMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  const code = String(error?.code || "");
+  if (code === "42703" || code === "PGRST204") return true;
+  return /publish_channels|share_with_brokers/.test(String(error?.message || ""));
+}
+
+function rpcNotInstalled(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  if (code === "42883" || code === "PGRST202" || code === "42P01" || code === "PGRST205") return true;
+  return /does not exist|schema cache/i.test(String(error.message || ""));
+}
+
+function collabRpcMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return rpcNotInstalled(error);
+}
+
+async function gabrielaSocialFlagOn(supabase: SupabaseClient): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from("pricing_config")
+      .select("value").eq("key", "gabriela_social_publish_enabled").maybeSingle();
+    if (error || data == null) return false;
+    return Number(data.value) === 1;
+  } catch (err) {
+    console.error("social publish flag failed", err);
+    return false;
+  }
+}
+
+/**
+ * לחיצה על שורת היעד. אותה בקשה לא רצה פעמיים. הערוצים באים מהמזהה,
+ * לא מהמודל. רשתות נכנסות לתור רק כשהדגל דלוק. שת״פ נרשם, וההפצה
+ * היא הפונקציה של התזכורת כשהיא כבר קיימת.
+ */
+async function runPendingDestination(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  choice: { requestId: string; propertyId: string; channels: string[] },
+): Promise<{ text: string }> {
+  const loaded = await loadPendingAction(supabase, agent.id, choice.requestId);
+  if ("missing" in loaded) return { text: PUBLISH_STORE_MISSING };
+  if ("error" in loaded) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  const first = publishClickDecision(loaded.row, Date.now());
+  if (first.kind !== "run") {
+    if (first.kind === "expired") void unpublishedAfterUnconfirmedPublish("expired");
+    return { text: publishDecisionText(first) || PUBLISH_BUSY };
+  }
+  if (first.propertyId.toLowerCase() !== choice.propertyId.toLowerCase()) {
+    return { text: "הבחירה שייכת לנכס אחר. אפשר לבקש שוב." };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: claimed, error: claimErr } = await supabase.from("whatsapp_pending_actions")
+    .update({ claimed_at: nowIso })
+    .eq("id", choice.requestId)
+    .eq("agent_id", agent.id)
+    .eq("action", "publish")
+    .is("claimed_at", null)
+    .is("executed_at", null)
+    .gt("expires_at", nowIso)
+    .select("id, subject_id")
+    .maybeSingle();
+  if (claimErr) {
+    console.error("pending destination claim failed", claimErr.code);
+    return { text: publishStoreBlocked(claimErr) ? PUBLISH_STORE_MISSING : "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+  }
+  if (!claimed) {
+    const again = await loadPendingAction(supabase, agent.id, choice.requestId);
+    if ("missing" in again) return { text: PUBLISH_STORE_MISSING };
+    if ("error" in again) return { text: "לא הצלחתי לקרוא את הבקשה. אפשר לנסות שוב." };
+    const decision = publishClickDecision(again.row, Date.now());
+    return { text: publishDecisionText(decision) || PUBLISH_BUSY };
+  }
+
+  const propertyId = String(claimed.subject_id || "");
+  if (propertyId.toLowerCase() !== choice.propertyId.toLowerCase()) {
+    await releasePublishClaim(supabase, agent.id, choice.requestId);
+    return { text: "הבחירה שייכת לנכס אחר. אפשר לבקש שוב." };
+  }
+  const { data: prop, error: propErr } = await supabase.from("properties")
+    .select("id, title, status, agent_id, agency_id")
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (propErr || !prop || !ownsRow(agent, prop)) {
+    await releasePublishClaim(supabase, agent.id, choice.requestId);
+    return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
+  }
+
+  const socialOn = await gabrielaSocialFlagOn(supabase);
+  const channels = publishChannelsToStore(choice.channels, socialOn);
+  const nextStatus = destinationStatusPatch(channels, String(prop.status || ""));
+  const patch: Record<string, unknown> = {
+    publish_channels: channels,
+    share_with_brokers: channels.includes("brokers"),
+    updated_at: nowIso,
+  };
+  if (nextStatus) patch.status = nextStatus;
+  const { data: updated, error } = await supabase.from("properties")
+    .update(patch)
+    .eq("id", propertyId)
+    .eq("agent_id", agent.id)
+    .select("status, license_hold_at, title")
+    .maybeSingle();
+  if (error || !updated) {
+    console.error("destination save failed", error?.code, error?.message);
+    await releasePublishClaim(supabase, agent.id, choice.requestId);
+    if (destinationStoreMissing(error)) {
+      return { text: "אפשר לבחור יעד מאזור האישי אחרי עדכון המערכת." };
+    }
+    return { text: error ? publishErrorText(error.message) : "לא הצלחתי לשמור את היעד. אפשר לנסות שוב." };
+  }
+
+  await clearPublishAsk(supabase, propertyId);
+  const status = String(updated.status || "");
+  const licenseHeld = !!(updated.license_hold_at) || (nextStatus === "active" && status !== "active");
+  const social = socialEnqueuePlan(channels, socialOn, status === "active");
+  let brokersSent = false;
+  if (channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
+    const { data, error: collabErr } = await supabase.rpc("unpublished_collab_request", {
+      p_property_id: propertyId,
+      p_agent_id: agent.id,
+    });
+    if (collabErr) {
+      if (!collabRpcMissing(collabErr)) console.error("destination collab failed", collabErr.code, collabErr.message);
+    } else {
+      const row = data as { shared?: boolean; reason?: string } | null;
+      brokersSent = row?.shared === true || row?.reason === "already_sent";
+    }
+  }
+  const text = destinationReply({
+    channels,
+    status,
+    licenseHeld,
+    social,
+    brokersSent,
+  });
+  await markPublishDone(supabase, agent.id, choice.requestId, text);
+  return { text };
+}
+
+/**
+ * לחיצה על תזכורת של נכס אחד: לפרסם, שת״פ, לא עכשיו, או בלי תזכורת.
+ * השיתוף נרשם תמיד. ההפצה יוצאת רק כשהדגל דלוק והנכס כבר באוויר.
+ */
+async function unpublishedNudgeReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  nudge: { action: "publish" | "share" | "snooze" | "mute"; propertyId: string },
+): Promise<{ text: string }> {
+  const { data: prop, error: propErr } = await supabase.from("properties")
+    .select("id, title, status, agent_id, agency_id, license_hold_at")
+    .eq("id", nudge.propertyId)
+    .eq("agent_id", agent.id)
+    .maybeSingle();
+  if (propErr) {
+    console.error("unpublished nudge load failed", propErr.code);
+    return { text: "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." };
+  }
+  if (!prop || !ownsRow(agent, prop)) return { text: "לא נמצא נכס כזה אצל הסוכן/ת." };
+
+  if (nudge.action === "publish") {
+    if (prop.status === "active") return { text: PUBLISH_ALREADY };
+    if (!unpublishedNudgeCanPublish(prop.status)) {
+      return { text: "אפשר לפרסם מכאן רק נכס שלא באוויר. נכס שנמכר או בארכיון לא חוזר לאוויר מהכפתור." };
+    }
+    const since = new Date(Date.now() - UNPUB_BUTTON_TTL_MS).toISOString();
+    const { data: note, error: noteErr } = await supabase.from("notifications")
+      .select("created_at")
+      .eq("agent_id", agent.id)
+      .eq("type", "unpublished_nudge")
+      .eq("related_property_id", prop.id)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (noteErr) {
+      console.error("unpublished nudge age failed", noteErr.code);
+      return { text: "לא הצלחתי לבדוק את הכפתור. אפשר לפרסם מאזור האישי." };
+    }
+    if (!unpublishedNudgeButtonFresh(note?.created_at, Date.now())) {
+      return { text: "הכפתור פג. אפשר לפרסם את הנכס מאזור האישי." };
+    }
+    const nowIso = new Date().toISOString();
+    const { data: updated, error } = await supabase.from("properties")
+      .update({ status: "active", updated_at: nowIso })
+      .eq("id", prop.id)
+      .eq("agent_id", agent.id)
+      .in("status", ["unpublished", "draft"])
+      .select("status, license_hold_at, title")
+      .maybeSingle();
+    if (error) {
+      console.error("unpublished nudge publish failed", error.code, error.message);
+      return { text: publishErrorText(error.message) };
+    }
+    if (!updated) {
+      return { text: "אפשר לפרסם מכאן רק נכס שלא באוויר. נכס שנמכר או בארכיון לא חוזר לאוויר מהכפתור." };
+    }
+    if (updated?.license_hold_at || updated?.status !== "active") {
+      return { text: "הנכס יעלה לאוויר ברגע שרישיון התיווך יאושר." };
+    }
+    const title = String(updated?.title || prop.title || "").trim();
+    return { text: title ? `הנכס "${title}" פורסם.` : "הנכס פורסם." };
+  }
+
+  if (nudge.action === "share") {
+    if (prop.status !== "unpublished" && prop.status !== "draft" && prop.status !== "active") {
+      return { text: "נכס שנמכר או בארכיון לא נפתח לשת״פ מהכפתור." };
+    }
+    const { data, error } = await supabase.rpc("unpublished_collab_request", {
+      p_property_id: prop.id,
+      p_agent_id: agent.id,
+    });
+    if (error) {
+      console.error("unpublished collab failed", error.code, error.message);
+      return {
+        text: rpcNotInstalled(error)
+          ? "אפשר לרשום שת״פ מאזור האישי."
+          : "לא הצלחתי לרשום שת״פ. אפשר לנסות מאזור האישי.",
+      };
+    }
+    const row = (data || null) as { ok?: boolean; reason?: string; shared?: boolean } | null;
+    if (!row || row.ok === false) return { text: "לא הצלחתי לרשום שת״פ. אפשר לנסות מאזור האישי." };
+    if (row.reason === "flag_off") {
+      return { text: "רשמתי. השיתוף למשרדים אחרים כבוי כרגע, ולא נשלחה הודעה. כשיידלק, ההפצה תצא." };
+    }
+    if (row.reason === "waiting_for_publish") return { text: "רשמתי. ההפצה תצא אחרי שהנכס באוויר, בלי מספר טלפון." };
+    if (row.reason === "already_sent") return { text: "הנכס כבר נפתח לשת״פ." };
+    if (row.shared) return { text: "הנכס נפתח לשת״פ. נשלחה התראה למשרדים מתאימים, בלי מספר טלפון." };
+    return { text: "רשמתי את הבקשה לשת״פ." };
+  }
+
+  const mode = nudge.action === "mute" ? "mute" : "snooze";
+  const { data, error } = await supabase.rpc("unpublished_reminder_snooze", {
+    p_property_id: prop.id,
+    p_mode: mode,
+    p_agent_id: agent.id,
+  });
+  if (error) {
+    console.error("unpublished snooze failed", error.code, error.message);
+    return {
+      text: rpcNotInstalled(error)
+        ? "אפשר לעשות את זה מאזור האישי."
+        : "לא הצלחתי לשמור. אפשר לנסות מאזור האישי.",
+    };
+  }
+  const row = (data || null) as { ok?: boolean } | null;
+  if (!row || row.ok === false) return { text: "לא הצלחתי לשמור. אפשר לנסות מאזור האישי." };
+  return { text: mode === "mute" ? "הנכס לא יוזכר שוב." : "הנכס לא יוזכר 30 יום." };
+}
+
+/** לערוך פותח את הכרטיס ב-CRM. לא מפרסם, ולא סוגר את בקשת הפרסום. */
+async function publishEditReply(
+  supabase: SupabaseClient,
+  agent: AgentRow,
+  publish: { requestId: string; propertyId: string | null },
+): Promise<{ text: string; outbox?: OutboxItem[] }> {
+  let propertyId = publish.propertyId;
+  if (!propertyId) {
+    const loaded = await loadPendingAction(supabase, agent.id, publish.requestId);
+    if (!("row" in loaded) || !loaded.row || !loaded.row.subject_id) {
+      return { text: "אפשר לערוך את הנכס מאזור האישי." };
+    }
+    propertyId = String(loaded.row.subject_id);
+  }
+  void unpublishedAfterUnconfirmedPublish("edit");
+  await clearPublishAsk(supabase, propertyId);
+  const url = crmPropertyLink(propertyId);
+  if (!url) return { text: "אפשר לערוך את הנכס מאזור האישי." };
+  return {
+    text: "הנכס לא פורסם. אפשר לערוך אותו באזור האישי.",
+    outbox: [{
+      kind: "cta",
+      body: "לעריכה, לתמונות ולשאר הפרטים:",
+      label: "לעריכה",
+      url,
+    }],
   };
 }
 
@@ -5587,22 +7544,41 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
     .eq("agent_id", ctx.agent.id)
     .eq("status", "masked");
 
+  const leads = data || [];
+  const pushed = ctx.outbox && leads.length
+    ? pushScreens(ctx, leads.map((l) => ({
+      type: "new_lead",
+      path: `/crm?goto=accLeads&lead=${String(l.id)}`,
+      title: String(l.display_name || "ליד"),
+      body: String(l.city || ""),
+    })), "איזה ליד לפתוח?", "/crm?goto=accLeads")
+    : null;
+  const listed = new Set(pushed?.listed || []);
   return {
     ok: true,
-    returned: (data || []).length,
+    returned: leads.length,
     waiting_to_unlock: masked ?? 0,
-    unlock_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accLeads` : null,
-    leads: (data || []).map((l) => ({
-      lead_id: l.id,
-      lead_type: l.lead_type,
-      status: l.status,
-      name: l.display_name,
-      phone: l.display_phone,
-      message: l.display_message,
-      city: l.city,
-      property_type: l.property_type,
-      created_at: l.created_at,
-    })),
+    ...(pushed?.crm_button_sent
+      ? { crm_button_sent: true }
+      : { unlock_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accLeads` : null }),
+    leads: leads.map((l) => {
+      const path = `/crm?goto=accLeads&lead=${String(l.id)}`;
+      const row = {
+        lead_id: l.id,
+        lead_type: l.lead_type,
+        status: l.status,
+        name: l.display_name,
+        phone: l.display_phone,
+        message: l.display_message,
+        city: l.city,
+        property_type: l.property_type,
+        created_at: l.created_at,
+      };
+      // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
+      if (pushed?.crm_button_sent && listed.has(path)) return row;
+      if (pushed?.crm_button_sent && SITE_BASE_URL) return { ...row, crm_link: `${SITE_BASE_URL}${path}` };
+      return row;
+    }),
   };
 }
 
@@ -5658,6 +7634,7 @@ async function toolProfileGet(ctx: ToolContext) {
     credentials: row.credentials,
     specialties: row.specialties || [],
     specialty_options: PROFILE_SPECIALTIES,
+    default_city: await savedListingCityName(ctx),
     missing: profileGaps(row),
     page_url: agentPageUrl(row.slug),
   };
@@ -5715,6 +7692,18 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     }
   }
 
+  if (input.default_city !== undefined) {
+    const name = noLongDash(String(input.default_city ?? "")).trim().slice(0, 80);
+    if (!name) {
+      patch.default_city_id = null;
+    } else {
+      const { data: cityId, error: cityErr } = await ctx.supabase.rpc("city_id_for_name", { p_name: name });
+      if (cityErr) problems.push("לא הצלחתי לזהות את העיר. בקש/י את שם היישוב שוב.");
+      else if (typeof cityId !== "string" || !cityId) problems.push(`לא מצאתי יישוב בשם "${name}".`);
+      else patch.default_city_id = cityId;
+    }
+  }
+
   if (problems.length) {
     return {
       error: problems.join(" "),
@@ -5758,12 +7747,27 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   }
 
   if (!Object.keys(patch).length) {
-    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות, תמונות, והאם התמונה מופיעה בפרסומים." };
+    return {
+      error: "לא צוין מה לשנות.",
+      hint: "אפשר לשנות שם, ביו, אזורי פעילות, ותק, השכלה, תחומי התמחות, תמונות, עיר ברירת מחדל לנכס חדש, והאם התמונה מופיעה בפרסומים.",
+    };
   }
 
   patch.updated_at = new Date().toISOString();
-  const { data: saved, error } = await ctx.supabase.from("agency_members")
+  let citySettingDropped = false;
+  let { data: saved, error } = await ctx.supabase.from("agency_members")
     .update(patch).eq("id", ctx.agent.id).select(PROFILE_SELECT).single();
+  // העמודה חסרה כשהפונקציה עלתה לפני המיגרציה. 42703 או PGRST204. שאר הפרופיל נשמר בלעדיה.
+  const rest = profilePatchIfCityColumnMissing(patch, error);
+  if (rest) {
+    const onlyStamp = Object.keys(rest).every((k) => k === "updated_at");
+    if (onlyStamp) {
+      return { error: "שמירת עיר ברירת המחדל עדיין לא עלתה. אפשר לנסות שוב בעוד כמה דקות." };
+    }
+    citySettingDropped = true;
+    ({ data: saved, error } = await ctx.supabase.from("agency_members")
+      .update(rest).eq("id", ctx.agent.id).select(PROFILE_SELECT).single());
+  }
 
   if (error || !saved) {
     if (taken.length) await returnPendingImages(ctx, taken);
@@ -5778,15 +7782,42 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   if (taken.length > 1) {
     notes.push(`נבחרה התמונה האחרונה מתוך ${taken.length}; השאר נשארו ממתינות לצירוף לנכס.`);
   }
+  let defaultCity: string | null | undefined;
+  if ("default_city_id" in patch && !citySettingDropped) {
+    if (!patch.default_city_id) defaultCity = null;
+    else {
+      const { data: city, error: cityErr } = await ctx.supabase.from("cities")
+        .select("name").eq("id", patch.default_city_id).maybeSingle();
+      if (cityErr) console.error("default city name failed", cityErr.code, cityErr.message);
+      // מחרוזת ריקה = השם לא חזר, אבל השמירה עצמה הצליחה. null = בוטל.
+      defaultCity = String(city?.name || "").trim();
+    }
+    // שאר הכלים בתור (יצירת נכס, בדיקה תכנונית) קוראים מהזיכרון ולא שוב מהמסד.
+    storeListingCity(listingCitySlot(ctx), defaultCity || null);
+  }
+  if (citySettingDropped) {
+    notes.push("עיר ברירת המחדל עדיין לא נשמרה. אפשר לנסות שוב בעוד כמה דקות.");
+  }
+  const cityGuidance = citySettingDropped
+    ? " אמור/אמרי שעיר ברירת המחדל עדיין לא נשמרה."
+    : defaultCity === undefined
+      ? ""
+      : defaultCity
+        ? ` אמור/אמרי שעיר ברירת המחדל לנכס חדש היא ${defaultCity}.`
+        : patch.default_city_id
+          ? " אמור/אמרי שעיר ברירת המחדל לנכס חדש נשמרה."
+          : " אמור/אמרי שבוטלה עיר ברירת המחדל, ונכס בלי עיר יירשם בעיר המשרד.";
 
   return {
     ok: true,
-    changed: Object.keys(patch).filter((k) => k !== "updated_at" && k !== "photo_position"),
+    changed: Object.keys(patch).filter((k) =>
+      k !== "updated_at" && k !== "photo_position" && !(citySettingDropped && k === "default_city_id")),
+    default_city: defaultCity,
     notes: notes.length ? notes : undefined,
     missing: profileGaps(row),
     page_url: agentPageUrl(row.slug),
     guidance: "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. אם missing אינו ריק - " +
-      "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר.",
+      "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר." + cityGuidance,
   };
 }
 
@@ -5939,7 +7970,7 @@ function agendaDbError(error: { message?: string }): string {
 }
 
 const AGENDA_SELECT =
-  "id, kind, title, notes, location, due_at, priority, status, source, client_id, property_id, remind_before";
+  "id, kind, title, notes, location, due_at, priority, status, source, source_key, client_id, property_id, remind_before";
 
 async function agendaShape(ctx: ToolContext, rows: Array<Record<string, unknown>>) {
   const clientIds = [...new Set(rows.map((r) => r.client_id).filter(Boolean))] as string[];
@@ -6209,6 +8240,80 @@ async function agendaGcalOffer(ctx: ToolContext, kind: string, due: string | nul
     "הסנכרון מתבצע רק עבור פגישות נדל\"ן שנוצרות במערכת.";
 }
 
+function showingWindow(
+  range: string,
+  todayIl: string,
+  date: string,
+): { fromIso: string; toIso: string | null } | null {
+  const dayStart = (d: string) => ilLocalToIso(d, "00:00")!;
+  const addDays = (d: string, n: number) => ilDateOf(Date.parse(dayStart(d)) + n * 864e5 + 6 * 3600e3);
+  if (range === "overdue") return null;
+  if (range === "today") return { fromIso: dayStart(todayIl), toIso: dayStart(addDays(todayIl, 1)) };
+  if (range === "tomorrow") return { fromIso: dayStart(addDays(todayIl, 1)), toIso: dayStart(addDays(todayIl, 2)) };
+  if (range === "week") return { fromIso: new Date().toISOString(), toIso: dayStart(addDays(todayIl, 8)) };
+  if (range === "date") {
+    if (!ilLocalToIso(date, "00:00")) return null;
+    return { fromIso: dayStart(date), toIso: dayStart(addDays(date, 1)) };
+  }
+  return {
+    fromIso: new Date(Date.now() - 6 * 3600e3).toISOString(),
+    toIso: new Date(Date.now() + 60 * 864e5).toISOString(),
+  };
+}
+
+function showingForModel(s: ShowingView) {
+  return {
+    meeting_id: s.meeting_id,
+    client: s.client_name,
+    when: s.when,
+    status: s.status,
+    closed: s.closed || undefined,
+    note: s.note || undefined,
+    properties: s.properties,
+    coord_open: s.coord_open.length ? s.coord_open : undefined,
+  };
+}
+
+async function toolListShowings(ctx: ToolContext, input: Record<string, unknown>) {
+  const res = await listShowingsForAgent(ctx.supabase, ctx.agent.id, {
+    fromIso: new Date(Date.now() - 6 * 3600e3).toISOString(),
+    toIso: new Date(Date.now() + 60 * 864e5).toISOString(),
+    query: String(input.query || ""),
+    clock: input.time ? String(input.time) : null,
+  });
+  if (!res.ok) {
+    return { ok: false, error: res.error, guidance: "נסי שוב. אל תאמרי שאין סיור." };
+  }
+  return {
+    ok: true,
+    count: res.showings.length,
+    showings: res.showings.map(showingForModel),
+    guidance: res.showings.length
+      ? "אלה סיורי המיניסייט. closed=true: הכרטיס נסגר והסיור עוד רשום. ביטול רק ב-cancel_showing אחרי אישור על הסיור הזה."
+      : "אין סיור מיניסייט בטווח. אם יש התראה אחרונה בהקשר - אמרי מה כתוב בה. אל תאמרי שאין פגישה בלי agenda_list.",
+  };
+}
+
+async function toolCancelShowing(ctx: ToolContext, input: Record<string, unknown>) {
+  const res = await cancelShowingForAgent(ctx.supabase, ctx.agent.id, {
+    meeting_id: input.meeting_id ? String(input.meeting_id) : undefined,
+    query: input.query ? String(input.query) : undefined,
+    clock: input.time ? String(input.time) : null,
+    confirm: input.confirm === true,
+    notify_targets: input.notify_targets === true,
+  });
+  if (res.offer_notify && res.canceled && ctx.outbox) {
+    ctx.outbox.push({
+      kind: "buttons",
+      body: "הסיור בוטל. להודיע למי שכבר קיבל בקשת תיאום?",
+      buttons: [{ id: `scn:${res.canceled.meeting_id}`, title: CANCEL_NOTIFY_BUTTON_TITLE }],
+    });
+  }
+  return res.canceled
+    ? { ...res, canceled: showingForModel(res.canceled) }
+    : res;
+}
+
 async function toolAgendaList(ctx: ToolContext, input: Record<string, unknown>) {
   const range = String(input.range || "today");
   const todayIl = ilDateOf(Date.now());
@@ -6235,15 +8340,44 @@ async function toolAgendaList(ctx: ToolContext, input: Record<string, unknown>) 
 
   const { data, error } = await q.order("due_at", { ascending: true, nullsFirst: false }).limit(40);
   if (error) return { ok: false, error: agendaDbError(error) };
-  const items = await agendaShape(ctx, data || []);
+
+  let showings: ShowingView[] = [];
+  let showingsFailed = false;
+  const window = showingWindow(range, todayIl, String(input.date || ""));
+  if (window) {
+    const listed = await listShowingsForAgent(ctx.supabase, ctx.agent.id, {
+      fromIso: window.fromIso,
+      toIso: window.toIso,
+      query,
+      clock: null,
+    });
+    if (listed.ok) showings = listed.showings;
+    else showingsFailed = true;
+  }
+  const meetingIds = new Set(showings.map((s) => s.meeting_id));
+  const linkedAgenda = new Set(
+    showings.map((s) => s.agenda_item_id).filter((id): id is string => !!id),
+  );
+  const raw = (data || []).filter((r) => {
+    const sk = String((r as { source_key?: string }).source_key || "");
+    const mid = sk.startsWith("showcase_meeting:") ? sk.slice("showcase_meeting:".length) : "";
+    if (mid && meetingIds.has(mid)) return false;
+    if (linkedAgenda.has(String(r.id))) return false;
+    return true;
+  });
+  const items = await agendaShape(ctx, raw);
+  const showingOut = showings.map(showingForModel);
+  const failNote = showingsFailed ? " סיורי המיניסייט לא נטענו - אל תאמרי שאין סיור." : "";
   return {
     ok: true,
     range,
-    count: items.length,
+    count: items.length + showingOut.length,
     items,
-    guidance: items.length
-      ? "רשימה קצרה בסגנון וואטסאפ: שעה, מה, עם מי. באיחור - לסמן. בלי item_id."
-      : "אין כלום בטווח הזה - אמור/אמרי זאת במשפט אחד.",
+    showings: showingOut,
+    guidance: (items.length || showingOut.length)
+      ? "רשימה קצרה בסגנון וואטסאפ: שעה, מה, עם מי. באיחור - לסמן. בלי item_id. " +
+        "סיור מיניסייט (showings) אינו פריט יומן עד שהוא מאושר - ביטול שלו הוא cancel_showing." + failNote
+      : "אין פריט יומן ואין סיור מיניסייט בטווח. אם הסוכן/ת מתכוון/ת לפגישה מהתראה - אמרי מה כתוב בהתראה שבהקשר, ואל תאמרי שאין פגישה." + failNote,
   };
 }
 
@@ -6298,6 +8432,40 @@ async function toolAgendaUpdate(ctx: ToolContext, input: Record<string, unknown>
   return { ok: true, action, item: shaped };
 }
 
+function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
+  const base = SITE_BASE_URL || "https://shuknadlan.co.il";
+  const link = pageLink(base, input);
+  if (!link) {
+    return {
+      ok: false,
+      error: "נושא לא מוכר.",
+      topics: pageLinkTopics(),
+    };
+  }
+  const url = `${base.replace(/\/$/, "")}${link.path}`;
+  if (ctx.outbox && isSafeCrmPath(link.path)) {
+    const say = link.say.replace(url, "").trim();
+    ctx.outbox.push({
+      kind: "cta",
+      body: say || "נפתח כאן:",
+      label: ctaLabel(link.path),
+      url,
+    });
+    return {
+      ok: true,
+      say,
+      crm_button_sent: true,
+      guidance: "כתוב/י את say כמו שהוא. אל תכתוב/י כתובת - הכפתור נשלח אחרי התשובה.",
+    };
+  }
+  return {
+    ok: true,
+    url: urlInSay(link.say),
+    say: link.say,
+    guidance: "כתוב/י לסוכן/ת את say כמו שהוא. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
+  };
+}
+
 async function runTool(
   ctx: ToolContext,
   name: string,
@@ -6310,6 +8478,7 @@ async function runTool(
       case "import_properties_file": return await toolImportPropertiesFile(ctx, input);
       case "update_property": return await toolUpdateProperty(ctx, input);
       case "set_property_status": return await toolSetStatus(ctx, input);
+      case "choose_publish_destination": return await toolChooseDestination(ctx, input);
       case "list_properties": return await toolListProperties(ctx, input);
       case "search_properties": return await toolSearchProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
@@ -6349,6 +8518,8 @@ async function runTool(
       case "agreement_sign_links": return await toolAgreementSignLinks(ctx, input);
       case "agreement_details": return await toolAgreementDetails(ctx, input);
       case "prepare_agreement": return await toolPrepareAgreement(ctx, input);
+      case "cancel_agreement": return await toolCancelAgreement(ctx, input);
+      case "reissue_agreement": return await toolReissueAgreement(ctx, input);
       // המנטור
       case "ask_mentor": return await toolAskMentor(ctx, input);
 
@@ -6359,10 +8530,13 @@ async function runTool(
       // יומן
       case "agenda_add": return await toolAgendaAdd(ctx, input);
       case "agenda_list": return await toolAgendaList(ctx, input);
+      case "list_showings": return await toolListShowings(ctx, input);
+      case "cancel_showing": return await toolCancelShowing(ctx, input);
       case "agenda_update": return await toolAgendaUpdate(ctx, input);
       case "agenda_free_slots": return await toolAgendaFreeSlots(ctx, input);
       case "profile_get": return await toolProfileGet(ctx);
       case "update_profile": return await toolUpdateProfile(ctx, input);
+      case "page_link": return toolPageLink(ctx, input);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
     }
   } catch (err) {
@@ -6419,18 +8593,31 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
+    "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
+      "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
+      "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
+      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
+    "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
+      "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
+      "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
+      "ביטול הסכם = cancel_agreement. תיקון נוסח = reissue_agreement.",
     "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
-    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו. " +
-      "אם חזר crm_button_sent או buttons_sent - **אל תכתוב/תכתבי את הקישור ל-CRM**: הוא יוצא ככפתור אחרי התשובה. " +
-      "אחרת, אם התקבל crm_link (או שדה שנגמר ב-crm_link), צרף/י גם אותו (\"לעריכה ב-CRM: …\") - זה הקישור לפעולה הבאה על הנכס.",
+    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link של נכס באתר, חתימה או מיניסייט שהסוכן/ת ביקש/ה להעביר ללקוח/ה - צרף/י אותו. " +
+      "כתובת של האזור האישי אסור להרכיב לבד: לא unlock_where, לא /crm, ולא https. " +
+      "אם חזר crm_button_sent או buttons_sent - הכפתור יוצא אחרי התשובה, ואין לכתוב כתובת במקומו. " +
+      "קישור מותר רק כשהכלי החזיר אותו בשדה (crm_link או שדה שנגמר ב-crm_link), ומעתיקים את הערך כמו שהוא. " +
+      "בלי שדה כזה אין כתובת בתשובה.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",
     "נכסים:",
     "- השדות ההכרחיים ליצירת נכס הם סוג נכס, סוג עסקה ומחיר בלבד - אם יש אותם, צור/צרי את הנכס והשלם/י את השאר ממה שנאמר.",
+    "- **עיר בנכס חדש:** רק אם הסוכן/ת אמר/ה אותה. אם לא - אל תשלח/י city ב-create_property. " +
+      "הקוד ממלא את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. אל תעתיק/י את עיר המשרד לשדה.",
+    "- כמה נכסים נוצרו באותו תור: אשר/י בקצרה, בלי קישור CRM לכל אחד. כפתור עריכה אחד יוצא אחרי התשובה ומפרט אותם.",
     "- אם חסר אחד מהשלושה, בקש/י בשאלה אחת קצרה רק את מה שחסר.",
     "- לפני שינוי או ארכוב של נכס קיים - ודא/י שאת/ה יודע/ת על איזה נכס מדובר. אם לא, קרא/י ל-list_properties.",
     "- **למצוא נכס שלך (לעדכון, לקישור) = list_properties עם query**, ולא משיכת כל הרשימה וסריקה שלה. " +
@@ -6446,12 +8633,21 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
+    "- create_property: אם חזר published=true הנכס באוויר. אם חזר needs_confirmation, " +
+      "בוואטסאפ יוצאת רשימת יעד אחת, רק היעדים שאפשר לבצע עכשיו. אל תמני יעד שלא יצא ברשימה. " +
+      "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
+      "בלי לחיצה הוא נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
+      "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר. " +
+      "אם חזר elsewhere_warning - אמרי אותו כמו שהוא, בלי להוסיף שם.",
+    "- שינוי יעד של נכס קיים = choose_publish_destination. לא לכתוב את הערוצים בעצמך.",
+    "- פרסום (set_property_status עם active) שולח את רשימת היעד והנכס לא עולה לפניה, " +
+      "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הבחירה. sold, rented ו-archived לא מחכים לרשימה. " +
+      "confirm=true מפרסם לאתר רק כשאין רשימה (מייל) ואחרי אישור מפורש.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
       "או לפרסם מודעה נוספת? להחזרה: update_property עם ה-property_id והפרטים החדשים, " +
-      "ואז set_property_status עם active. למודעה נוספת: create_property שוב עם force_new.",
-    "- אחרי שנוצר נכס חדש - קרא/י ל-property_matches עליו. אם יש לקוח/ה מתאים/ה בקובץ, " +
-      "זו השורה החשובה בתשובה: \"מתאים ל<שם> (92%), 052-…\".",
+      "ואז set_property_status עם active (הכפתור יוצא מעצמו). למודעה נוספת: create_property שוב עם force_new.",
+    "- property_matches רק אחרי שהנכס פורסם. לפני כן אין התראות התאמה, ואין לומר שנשלחו.",
     "",
     "קישור לנכס ושליחה:",
     "- \"תשלח לי את הקישור לנכס\" / \"תכין הודעה על הדירה\" = property_link. אם חזר " +
@@ -6549,8 +8745,10 @@ const SYSTEM_STATIC: string = (() => {
       "אם להציג גם נכסים בלי המאפיין (\"אין כרגע עם ממ״ד ומעלית. יש 3 בלי מעלית - להציג?\"), ורק אחרי " +
       "\"כן\" - client_matches עם waive_features של מה שאושר. ליד נכס עם missing_required כתוב/כתבי " +
       "מה חסר בו. ויתור אינו משנה את הכרטיס; אם הסוכן/ת אומר/ת שהדרישה ירדה - update_client.",
-    "- סוכן/ת שמזכיר/ה דרישה של לקוח/ה שאינה בכרטיס (\"דני צריך ממ״ד\") - update_client עם " +
-      "required_features (בתוספת למה שיש), ואז client_matches. אחרת ההתאמות מתעלמות ממנה.",
+    "- סוכן/ת שמאשר/ת שדרישה היא חובה (\"דני צריך ממ״ד\") - update_client עם " +
+      "required_features (בתוספת למה שיש), ואז client_matches. מאפיין שעולה רק מההערות " +
+      "(suggested_features) הוא דירוג, לא תנאי, ואין לכתוב אותו ל-required_features בלי האישור הזה. " +
+      "ask על עסקה, עיר או תקציב חוזר רק ביצירת כרטיס.",
     "- **create_showcase אחרי ויתור - עם property_ids** של הנכסים שהוצגו. בלי property_ids " +
       "נלקחות רק ההתאמות המלאות.",
     "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
@@ -6631,9 +8829,11 @@ const SYSTEM_STATIC: string = (() => {
     "- בהתאמה שאינה שלך (source agency, shared או market) הוסף/י את שם הסוכן/ת המפרסם/ת והטלפון (ובשיתוף או market - גם את המשרד) - בלעדיהם אין מה לעשות עם ההתאמה.",
     "",
     "הסכמים:",
-    "- אפשר **ליצור** הסכם מכאן (prepare_agreement, למטה), אבל **אי אפשר לתקן או " +
-      "לבטל** - גוף המסמך ננעל במסד ברגע היצירה. תיקון = ביטול והוצאת הסכם חדש, " +
-      "באשף \"החתם לקוח\" בדשבורד.",
+    "- אפשר **ליצור** הסכם מכאן (prepare_agreement). גוף המסמך ננעל ברגע היצירה. " +
+      "ביטול = cancel_agreement. תיקון נוסח = reissue_agreement: קודם נוצר החדש, " +
+      "ורק אז מבוטל הישן. בלעדיות שכבר נחתמה מתבטלת אחרי שהחדשה נוצרה. " +
+      "בלי confirm יוצאים כפתורים (הבקשה נשמרת ופגה אחרי כמה שעות) ואין לבצע. " +
+      "תצוגה מלאה של המסמך = page_link עם topic agreements.",
     "- agreement_sign_links מחזיר קישור אישי לכל חותם/ת שטרם חתם/ה. הצג/י אותו עם השם " +
       "שלידו, ואמור/אמרי במשפט אחד שהקישור אישי ואין להעביר אותו הלאה - הסוכן/ת הוא/היא " +
       "שמעביר/ה אותו לחותם/ת עצמו/ה.",
@@ -6672,7 +8872,7 @@ const SYSTEM_STATIC: string = (() => {
     "- **הבוט אינו שולח ללקוח/ה**, כאן כמו בכל קישור אחר. הסוכן/ת מעביר/ה.",
     "",
     "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
-      "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
+      "מחיקה בלי confirm שולחת כפתורים ולא מוחקת. \"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
     "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**: אחרי רגע קצר הן מצטרפות לנכס " +
       "שעבדתם עליו, ואם עברו 20 דקות מאז שנגעתם בו - נשאלת שאלה בכפתורים (📎 לנכס הקודם / " +
       "🏠 נכס חדש / 🗑 לא לשום נכס). כל צירוף כזה מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
@@ -6694,6 +8894,9 @@ const SYSTEM_STATIC: string = (() => {
       "\"קריית ביאליק\") = האזור שמכיל אותם; אם לא ברור לאיזה אזור - שאל/י עם האפשרויות. " +
       "מקום שאינו באף אזור - אמור/י שהוא עוד לא באזורים שלנו, ואל תשמור/י טקסט חופשי. " +
       "בכל אזור שנבחר מופיעים באתר הסוכן/ת והמשרד.",
+    "- **עיר קבועה לנכס חדש** (\"העיר שלי עפולה\", \"תשמרי שעפולה ברירת המחדל\") = " +
+      "update_profile עם default_city. זו הגדרה שנשמרת. אל תאמרי שאין דרך לשמור אותה. " +
+      "\"תבטלי את עיר ברירת המחדל\" = default_city ריק. זה לא אזור הפעילות באתר ולא עיר המשרד.",
     "- מספר רישיון וטלפון אינם נערכים בצ'אט - הפנה/י לדשבורד.",
     "",
     "יומן, פגישות ותזכורות:",
@@ -6707,8 +8910,13 @@ const SYSTEM_STATIC: string = (() => {
       "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
     "- אחרי סיור הלקוח/ה נשאל/ת איך היה, והתשובה פותחת משימה אוטומטית. \"תשלחי לה נכסים דומים\" / " +
       "\"נכסים אחרים\" (גם ממשימה כזו) = client_matches, ואז הצע/י create_showcase - כמו \"שלח חומר ללקוח\".",
-    "- \"מה יש לי היום/מחר/השבוע\" = agenda_list. \"עשיתי\" / \"בוצע\" / \"תדחה בשעה\" / " +
-      "\"תבטל את הפגישה\" = agenda_update (item_id מ-agenda_list עם query).",
+    "- \"מה יש לי היום/מחר/השבוע\" = agenda_list. התשובה כוללת גם סיורי מיניסייט שעוד לא ביומן.",
+    "- \"תבטל את הסיור\" / \"תבטל את הפגישה עם X\" = קודם list_showings (שם, גם באיות סלחני, ושעה). " +
+      "אם אין סיור - agenda_list. ביטול סיור = cancel_showing עם confirm רק אחרי שהסוכן/ת אישר/ה " +
+      "את הסיור הזה (שם ושעה). אם מישהו כבר קיבל בקשת תיאום - שאלי אם להודיע, ואז notify_targets.",
+    "- לעולם אל תאמרי \"לא מצאתי פגישה\" או \"לא ביטלתי\" בלי list_showings ובלי ההתראות האחרונות " +
+      "שבהקשר. סיור מיניסייט אינו פריט יומן עד שהוא מאושר. אם הסוכן/ת משיב/ה על הודעה, ההקשר אומר על מה.",
+    "- \"עשיתי\" / \"בוצע\" / \"תדחה בשעה\" על פריט יומן = agenda_update (item_id מ-agenda_list עם query).",
     "- התזכורת יוצאת לבד בזמן - בוואטסאפ ובפעמון בדשבורד. **אל תבטיח/י שתכתוב/י בעצמך**; " +
       "המערכת היא ששולחת. היומן המלא נמצא בדשבורד בקטגוריה \"יומן ומשימות\".",
     "- אם חזר past - המועד עבר; שאל/י לאיזה מועד התכוון/ה ואל תקבע/י לבד.",
@@ -6724,7 +8932,8 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +
-      "לעקוף. אמור/אמרי שהפתיחה נעשית בדשבורד וצרף/י את unlock_where.",
+      "לעקוף. אמור/אמרי שהפתיחה נעשית באזור האישי. אם יצא כפתור, הוא הפתיחה. " +
+      "אל תרכיב/י כתובת, ואל תצרף/י unlock_where אם הכלי לא החזיר אותו.",
     "- \"מה חדש\" / \"מה פספסתי\" = list_notifications.",
     "- בקשה לקבל התראות בוואטסאפ (\"תעדכן אותי על לידים חדשים כאן\") = whatsapp_alerts " +
       "עם enable והסוגים המתאימים. \"תפסיק\" = disable בלי types. אם חזר muted_conflict - " +
@@ -6745,6 +8954,7 @@ function sessionContext(
   conv: ConversationState,
   gaps: string[] = [],
   pendingSince: number | null = null,
+  listingCity?: string | null,
 ): string {
   const now = Date.now();
   const today = ilDateOf(now);
@@ -6790,6 +9000,7 @@ function sessionContext(
         "(\"אני 12 שנה בתחום\", תמונה עם \"תמונת פרופיל\") - update_profile.",
     );
   }
+  lines.push("", listingCityPromptLine(listingCity));
   if (conv.last_property_id) {
     lines.push(
       "",
@@ -6803,6 +9014,9 @@ function sessionContext(
       `הלקוח/ה האחרון/ה שנגעת בו/בה בשיחה הזו: ${conv.last_client_id}. ` +
         "אם הסוכן/ת אומר/ת \"תעדכן לו את התקציב\" בלי לומר שם - זה/זו מי שמדובר בו/בה.",
     );
+  }
+  if (conv.recent_note) {
+    lines.push("", conv.recent_note);
   }
 
   return lines.join("\n");
@@ -6824,6 +9038,12 @@ const LOOP_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_A
 export async function callClaude(
   params: Anthropic.MessageCreateParamsNonStreaming,
 ): Promise<Anthropic.Message> {
+  // בלי הבטא גם הודעת המאמץ (LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
+  // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
+  const plain = () => anthropic.messages.create({
+    ...params,
+    messages: params.messages.filter((m) => (m.role as string) !== "system"),
+  });
   try {
     // deno-lint-ignore no-explicit-any
     return await (anthropic.beta.messages.create as any)({
@@ -6832,13 +9052,17 @@ export async function callClaude(
       fallbacks: "default",
     });
   } catch (err) {
+    // יתרה שנגמרה לא תיפתר בניסיון שני, והוא רק מעכב את התשובה לסוכן/ת.
+    if (llmFailureKind(err) === "billing") throw err;
     console.warn("beta fallbacks unavailable, retrying without", err);
-    // בלי הבטא גם הודעת המאמץ (‏LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
-    // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
-    return await anthropic.messages.create({
-      ...params,
-      messages: params.messages.filter((m) => (m.role as string) !== "system"),
-    });
+    try {
+      return await plain();
+    } catch (err2) {
+      if (llmFailureKind(err2) !== "transient") throw err2;
+      console.warn("llm transient, retrying once", err2);
+      await new Promise((r) => setTimeout(r, 800));
+      return await plain();
+    }
   }
 }
 
@@ -6901,14 +9125,15 @@ export async function runAgentTurn(opts: {
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
   const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
   const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
-  const gaps = profileGaps(await loadProfile(supabase, agent.id));
+  const gaps = profileGaps(await loadProfileForTurn(ctx));
   const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
+  const listingCity = cachedListingCityName(ctx.listingCitySlot);
 
   // ההיסטוריה עם נקודת שבירה בסופה - התור הבא קורא אותה מהמטמון (prompt-cache.ts)
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince), userContent) },
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity), userContent) },
   ];
 
   let finalText = "";

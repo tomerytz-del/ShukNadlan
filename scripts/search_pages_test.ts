@@ -149,6 +149,8 @@ const SAME: [string, string, string][] = [
   ["‏gclid של גוגל אדס", "/?deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D&gclid=test", "deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D"],
   ["‏gad_source ליד gclid", "/?deal=sale&gclid=abc&gad_source=1&gad_campaignid=9", "deal=sale"],
   ["‏index.html במקום /", "/index.html?deal=sale&rooms=4", "deal=sale&rooms=4"],
+  /* ‏A-SEO-3 (PR 1010): ‏beta=1 מדליק תצוגה בדפדפן ואינו תוכן - עמוד ברשימה שומר את הכותרת וה-canonical */
+  ["דגל v10 על עמוד ברשימה", "/?deal=sale&rooms=4&beta=1", "deal=sale&rooms=4"],
 ];
 for (const [name, url, query] of SAME) {
   const r = await serve(url);
@@ -260,6 +262,9 @@ const UNTOUCHED: [string, string][] = [
   ["מחיר שרירותי", "/?deal=sale&maxPrice=1317000"],
   ["צירוף ברשימה ועוד פרמטר", "/?deal=sale&rooms=4&page=3"],
   ["פרמטר סינון נוסף", "/?deal=sale&rooms=4&ai=1"],
+  /* דגל v10 (‏docs/home-page-sections.md): התצוגה החדשה אינה כתובת חדשה */
+  ["דגל v10 בדף הבית", "/?beta=1"],
+  ["כיבוי דגל v10", "/?beta=0"],
 ];
 for (const [name, url] of UNTOUCHED) {
   const r = await serve(url);

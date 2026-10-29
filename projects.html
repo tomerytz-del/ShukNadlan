@@ -153,6 +153,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .grid.promoted-rail .pj-card .pj-cover-foot b{font-size:1.3rem}
   }
   .state{padding:48px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state-slot{display:grid}
+  .state-slot > .state{grid-area:1/1}
+  .state-slot:not(.is-done) > #emptyState[hidden]{display:block !important;visibility:hidden}
+  .state-slot.is-done{display:none}
   .state h2{font-size:1.2rem;margin-bottom:8px}
 
   /* ====== תיבת הלידים ======
@@ -190,6 +194,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .price-pill{display:inline-flex;align-items:center;gap:6px;background:var(--gold-tint);color:#8a6d10;font-weight:800;font-size:.76rem;padding:4px 10px;margin-inline-start:8px}
   .proj-tools{padding:16px 0 4px}
   .proj-tools .search-card{margin-top:0}
+  /* ‏R5-3B: שלושת הרכיבים באותו גובה ובאותן פינות; בטלפון השדה בשורה מלאה, ומתחתיו הבורר והכפתור שווים */
+  .proj-tools .search-card > *{min-height:48px;box-sizing:border-box;border-radius:10px;font-size:.92rem}
+  .proj-tools .search-go{border-radius:10px;padding:0 22px}
+  @media (max-width:859px){
+    .proj-tools .search-card{grid-template-columns:1fr 1fr}
+    .proj-tools .search-input{grid-column:1/-1;order:-1}
+  }
   .proj-tools .quick-chip{background:#eaf0fb;border-color:#d5def2;color:#0e2a6b}
   .proj-tools .quick-chip[aria-pressed="true"]{background:#0e2a6b;color:#fff;border-color:#0e2a6b}
   .projects-guide a{color:#0e2a6b;text-decoration:underline;text-underline-offset:2px}
@@ -201,6 +212,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/landing.css">
+<link rel="stylesheet" href="assets/landing-hero-v10.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/project-card.js"></script>
 <script src="assets/site-footer.js" defer></script>
@@ -327,12 +339,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
 
+    <!-- ‏N3: "טוען" ו"עוד אין" באותו תא - בזמן הטעינה המקום של המצב הריק כבר שמור, ותיבת
+         הלידים שמתחת לא קופצת (CLS). כשיש פרויקטים התא נסגר (‏is-done) -->
+    <div class="state-slot" id="stateSlot">
     <div class="state" id="loadingState">טוען פרויקטים…</div>
 
     <div class="state" id="emptyState" hidden>
       <h2>עוד אין כאן פרויקטים חדשים</h2>
       <p>כשיעלה פרויקט חדש הוא יופיע כאן. בינתיים כדאי לקרוא מה בודקים לפני שחותמים, ואפשר להשאיר התראה.</p>
       <a href="/#allProps" class="btn btn-teal" style="margin-top:14px">לכל הנכסים</a>
+    </div>
     </div>
 
     <!-- ====== הפרויקטים המקודמים ======
@@ -457,7 +473,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h2>שכונות ונכסים בעפולה</h2>
       <p>שכונות בעפולה: <a href="/n/afula/עפולה-עלית">עפולה עלית</a> (עפולה עילית), <a href="/n/afula/גבעת-המורה">גבעת המורה</a>, <a href="/n/afula/מרכז-העיר">מרכז העיר</a>, <a href="/n/afula/רובע-יזרעאל">רובע יזרעאל</a>.</p>
       <p>נכסים למכירה עכשיו: <a href="/afula/בתים-פרטיים">בית פרטי למכירה בעפולה</a>, <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>, <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>.</p>
-      <p>משרדי תיווך: <a href="/afula/מתווכים">מתווכים בעפולה</a> ו<a href="/agencies">כל המשרדים</a>.</p>
+      <p>משרדי תיווך: <a href="/afula/מתווכים">יועצי נדל״ן בעפולה</a> ו<a href="/agencies">כל המשרדים</a>.</p>
       <h2>שאלות נפוצות</h2>
       <div class="land-faq">
         <details><summary>מה בודקים לפני שקונים דירה מקבלן?</summary><p>לפני חתימה בודקים את הבטוחה לכספי הקונה לפי חוק המכר (דירות), אם יש ליווי בנקאי, את המפרט הטכני ואת לוח הזמנים לאכלוס. המסמכים של העסקה הם שקובעים.</p></details>
@@ -673,7 +689,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
               <label class="buy-check" for="buyConsent">
                 <input type="checkbox" id="buyConsent">
-                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+                <span>אשמח שיועצי נדל״ן מהאזור יפנו אליי עם נכסים מתאימים</span>
               </label>
 
               <p class="wiz-err" id="buyErr3"></p>
@@ -705,7 +721,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -758,6 +774,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="/#calc">מחשבון משכנתא</a>
           <a href="/#yield">מחשבון תשואה</a>
+          <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
           <a href="/#heroSection">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
@@ -766,7 +783,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>בעלי מקצוע</h4></summary>
         <div class="footer-col-links">
           <a href="/agencies">כל משרדי התיווך</a>
-          <a href="/agents">כל המתווכים</a>
+          <a href="/agents">כל יועצי הנדל״ן</a>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
@@ -780,7 +797,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </nav>
@@ -811,7 +828,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
-      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+      <a href="/agents">יועצי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
@@ -1148,6 +1165,7 @@ function applyDeepLink(){
       return;
     }
 
+    el('stateSlot').classList.add('is-done');
     fillSelects();
     applyDeepLink();
     el('fCity').value = state.city;

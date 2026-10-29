@@ -390,7 +390,7 @@ function coachAskHtml(kind, questions){
       ${COACH_TONES.map(t => `<button type="button" data-coach-tone="${t.key}" aria-pressed="${t.key === tone}">${escapeHtml(t.label)}</button>`).join('')}
     </div>
     ${kind === 'agent' ? `<div class="coach-tone" role="group" aria-label="ותק בתיווך" title="לא מוצג לאף אחד - רק כדי שהמנטור יתאים את התשובות">
-      <span>כמה זמן את/ה מתווך/ת פעיל/ה?</span>
+      <span>כמה זמן אתם פעילים כיועצי נדל״ן?</span>
       ${COACH_EXP.map(t => `<button type="button" data-coach-exp="${t.key}" aria-pressed="${t.key === coachExp}">${escapeHtml(t.label)}</button>`).join('')}
     </div>` : ''}
     ${kind === 'agent' && typeof assistantTierOk === 'function' && assistantTierOk()

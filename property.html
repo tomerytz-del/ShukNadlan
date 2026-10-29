@@ -53,6 +53,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      נטען לפני property-card.js — הוא זה שמוסיף את התגית לאריחי
      "נכסים דומים" שבתחתית העמוד. ראו docs/open-house-fair.md -->
 <script src="assets/open-house.js"></script>
+<!-- דגל v10 (‏?beta=1 / ‏?beta=0, נשמר ב-sk_beta_hero כמו בדף הבית): כאן רק לנכס בלי תמונות (assets/no-photo.js) -->
+<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
+if(q==='1')localStorage.setItem('sk_beta_hero','1');
+if(q==='0')localStorage.removeItem('sk_beta_hero');
+if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
+<script src="assets/no-photo.js"></script>
 <script src="assets/property-card.js"></script>
 <!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
      רק בנכס שכבר יש לו לפחות הדמיה אחת, ולכן loadVisualizations() הוא
@@ -233,6 +239,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .bento-empty .empty-agency{font-size:1rem;font-weight:800;color:var(--teal-dark)}
   .bento-empty .empty-note{font-size:.85rem;font-weight:600;color:var(--ink-soft)}
+  /* תמונת ה-LCP של מודעה בלי שער. absolute כדי שלא תדחוף את הלוגו
+     ולא תשנה את יחס 16/10 של data-count=1. הצעיף הלבן יושב מעליה,
+     כמו שכבת ה-gradient שברקע של .bento-empty. */
+  .hero-placeholder{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+  .bento-cell:hover .hero-placeholder{transform:none}
+  .bento-empty:has(.hero-placeholder)::before{
+    content:'';position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.34) 55%,rgba(255,255,255,.56));
+  }
+  .bento-empty .empty-inner{position:relative;z-index:2}
+  /* הווידאו מעל הפלייסהולדר אחרי שיש פריים. בלי z-index ה-img
+     (absolute) נצבע מעליו. לא על סרטון עם פוסטר: שם הווידאו נשאר
+     בלי z-index משלו, ורילס אנכי נשאר על z-index:0. */
+  .bento-video:has(.hero-placeholder) > video{position:relative;z-index:1}
   /* התא שנושא את מונה התמונות מקבל הצללה משלו — התגית יושבת עליו ולא על
      התמונה הראשית, ובלי ההצללה היא נבלעת בתמונות בהירות. */
   .bento-thumb.carries-count::after{
@@ -604,6 +624,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
     box-shadow:var(--shadow-md);overflow:hidden;
   }
+  .agent-agc .agc{border:0;border-radius:0;border-bottom:1px solid var(--hair)}
+  .agent-top[hidden]{display:none}
   .agent-top{
     display:flex;align-items:center;gap:12px;padding:16px;
     background:linear-gradient(140deg,var(--teal-dark),var(--teal) 78%);color:#fff;
@@ -630,7 +652,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .agent-photo img{width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,50% 25%)}
   .agent-name{font-weight:800;font-size:1.02rem;line-height:1.25}
   /* התג נושא שני נתונים — ההסמכה ומספר הרישיון — ולכן שתי שורות ולא אחת:
-     בעמודת צד ברוחב כרטיס, "מתווך/ת מורשה/ית · רישיון 3134355" בשורה אחת
+     בעמודת צד ברוחב כרטיס, ההסמכה ומספר הרישיון בשורה אחת
      נשבר באמצע הצירוף ומשאיר את "ית" או את הספרות תלויות לבד בשורה
      הבאה. ‏nowrap על כל שורה מבטיח שהשבירה תקרה רק במקום שנבחר לה. */
   .agent-cred{
@@ -700,6 +722,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+  /* ‏A-SEO-2: "נכסים דומים" - קישור אמיתי שנמתח על האריח (‏renderSimilarProperties ב-assets/property.js) */
+  .prop-card{position:relative}
+  .prop-card > .pc-link{position:absolute;inset:0;z-index:3}
+  .prop-card > .pc-link:focus-visible{outline:3px solid var(--gold,#c9a227);outline-offset:-3px}
   .prop-card .thumb{height:94px;background-size:cover;background-position:center;position:relative}
   /* אריח נכס בלי תמונות — אותה שפה כמו ב-index.html */
   .thumb-fallback{
@@ -1002,6 +1028,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* המרווח מעל התיבה נקבע ב-‎.content-col > #vizSection‎ ולא כאן: הוא
      המרווח בין *הבלוקים* בעמודה, ושתי הצהרות שמצטברות זו על זו הן בדיוק
      איך נפתח חלל שאיש לא התכוון אליו. */
+  /* ‏#viz: הרצועה לא צמודה לקצה העליון (אם תיווסף כותרת דביקה: calc(var(--header-h) + 12px)) */
+  #aiShowcase{scroll-margin-top:12px}
   #aiShowcase .ai-band{margin-block:0}
   /* ‏gap ו-padding מהודקים: ‎22px‎ בין שורות הגריד ו-‎26px‎ מתחת להצהרה יצרו
      שני חללים ריקים בתחתית התיבה — אחד בין האריחים להצהרה ואחד מתחתיה —
@@ -1184,6 +1212,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #planningSection .plan-summary{margin:4px 0 0;font-size:.8rem;color:var(--ink-soft)}
   #planningSection .plan-summary:empty{display:none}
   #planningBody{margin-top:14px}
+  /* ‏P1-P: מספר המודעה, שורה אפורה קטנה */
+  #listingNo{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:13px;color:#6b7280}
+  #listingNo[hidden]{display:none}
+  #listingCopy{min-height:32px;padding:0 10px;border:1px solid #d6dbe6;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1241,7 +1273,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות</a>
     </nav>
     <div class="pn-actions">
-      <a href="/agency-signup" class="pn-join">הצטרפות למתווכים</a>
+      <a href="/agency-signup" class="pn-join">הצטרפות ליועצי הנדל״ן</a>
       <details class="pn-menu" id="pnMenu">
         <summary aria-label="תפריט"><span class="pn-burger" aria-hidden="true"></span><span class="pn-menu-word">תפריט</span></summary>
         <div class="pn-panel">
@@ -1256,7 +1288,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/articles">כתבות ומבזקים</a>
           <hr>
           <a href="/agency-signup" class="pn-panel-cta">הצטרפות כמשרד תיווך</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </div>
@@ -1311,6 +1343,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
+        <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן -->
+        <p class="listing-no" id="listingNo" hidden>מודעה #<span id="listingNoN"></span>
+          <button type="button" id="listingCopy" aria-label="העתקת מספר המודעה" title="העתקת מספר המודעה">העתקה</button></p>
 
         <!-- ====== יריד הבתים הפתוחים ======
              הרצועה יושבת מעל התיאור ולא בתחתית העמוד: "בלי עמלת תיווך"
@@ -1384,7 +1419,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="plan-list" id="planningPlans" hidden></div>
             <p class="plan-note">
               המידע התכנוני מוצג באופן כללי בלבד ואינו כולל גוש, חלקה או כתובת מדויקת.
-              הוא נאסף ממקורות תכנון פומביים ומהצהרת הסוכן/ת, עשוי להתעדכן,
+              הוא נאסף ממקורות תכנון פומביים ומהצהרת יועץ הנדל״ן, עשוי להתעדכן,
               ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה או לייעוץ מקצועי לפני רכישה.
             </p>
           </div>
@@ -1692,7 +1727,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                      יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
                 <label class="buy-check" for="buyConsent">
                   <input type="checkbox" id="buyConsent">
-                  <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+                  <span>אשמח שיועצי נדל״ן מהאזור יפנו אליי עם נכסים מתאימים</span>
                 </label>
 
                 <p class="wiz-err" id="buyErr3"></p>
@@ -1748,7 +1783,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="agent-cred" id="agentCred" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                 <span class="cred-lines">
-                  <span class="cred-title" id="agentCredText">מתווך/ת מורשה/ית</span>
+                  <span class="cred-title" id="agentCredText">רישיון תיווך מאומת</span>
                   <span class="cred-license" id="agentCredLicense" hidden></span>
                 </span>
               </div>
@@ -1767,7 +1802,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <span class="v" id="agentPriceValue">-</span>
             </div>
             <h2>תיאום ביקור בנכס</h2>
-            <p class="sub">משאירים פרטים והסוכן/ת חוזר/ת אליכם בהקדם</p>
+            <p class="sub">משאירים פרטים, ויועץ הנדל״ן חוזר אליכם בהקדם</p>
             <form id="inquiryForm">
               <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
               <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>
@@ -1905,7 +1940,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- novalidate: הוולידציה ב-JS כדי שההודעות יהיו בעברית ובמקום אחד -->
     <form id="mleadForm" novalidate>
       <div class="mlead-body">
-        <p class="mlead-intro">משאירים פרטים ויועצ/ת משכנתאות מהאזור חוזר/ת אליכם עם בדיקת זכאות ומסלולי מימון לנכס הזה.</p>
+        <p class="mlead-intro">משאירים פרטים, ויועצי משכנתאות מהאזור חוזרים אליכם עם בדיקת זכאות ומסלולי מימון לנכס הזה.</p>
         <div class="mlead-recap" id="mleadRecap"></div>
 
         <div class="mlead-field">
@@ -1925,7 +1960,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span>יש ברשותי דירה</span>
         </label>
         <p class="mlead-error" id="mleadError" role="alert"></p>
-        <p class="mlead-privacy">הפרטים מועברים ליועצ/ת משכנתאות אחד/ת בלבד לצורך חזרה אליכם.</p>
+        <p class="mlead-privacy">הפרטים מועברים לגורם מקצועי אחד בלבד בתחום המשכנתאות, לצורך חזרה אליכם.</p>
       </div>
       <div class="mlead-foot">
         <button type="submit" class="btn btn-gold btn-block" id="mleadSubmitBtn">שליחה</button>
@@ -1935,7 +1970,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="mlead-body mlead-done" id="mleadDone" hidden>
       <div class="mark">✓</div>
       <h4>הפרטים נשלחו</h4>
-      <p>יועצ/ת משכנתאות יחזור/תחזור אליכם בהקדם.</p>
+      <p>נחזור אליכם בהקדם עם ייעוץ משכנתאות.</p>
     </div>
   </div>
 </div>
@@ -1973,6 +2008,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="toast" id="toast"></div>
 
+<script src="assets/viz-eligibility.js"></script>
+<script src="assets/agent-card.js"></script>
 <script src="assets/property.js"></script>
 
 <footer class="site">
@@ -1987,7 +2024,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -2040,6 +2077,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="/#calc">מחשבון משכנתא</a>
           <a href="/#yield">מחשבון תשואה</a>
+          <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
           <a href="/#heroSection">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
@@ -2048,7 +2086,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>בעלי מקצוע</h4></summary>
         <div class="footer-col-links">
           <a href="/agencies">כל משרדי התיווך</a>
-          <a href="/agents">כל המתווכים</a>
+          <a href="/agents">כל יועצי הנדל״ן</a>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
@@ -2062,7 +2100,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </nav>
@@ -2093,7 +2131,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
-      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+      <a href="/agents">יועצי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>

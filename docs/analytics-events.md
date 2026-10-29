@@ -377,3 +377,141 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 זה תופס כי הנתונים *כן* נאספים — הם פשוט בלתי נראים. ‏GA4 לא רושם מימדים
 למפרע: מה שנאסף לפני הרישום לא יופיע גם אחריו. לכן כדאי לרשום את המימדים
 באותו יום שמפרסמים את התגיות, ולא אחרי שמגלים שהדוח ריק.
+
+## v10 מאחורי דגל (‏`?beta=1`, PR 1010)
+
+כל האירועים כאן נשלחים **רק עם הדגל** (‏`html.beta-hero`). הם בטבלה נפרדת בסוף
+הקובץ ולא באמצע הטבלה שלמעלה, כדי לא להתנגש עם PR-ים אחרים שמוסיפים לה שורות.
+
+| אירוע | מתי | פרמטרים |
+| --- | --- | --- |
+| `map_open` | **רק עם דגל v10 (‏`html.beta-hero`)**: המפה נפתחה במסך מלא (‏`openMapView` ב-`assets/home.js`). בלי הדגל הדחיפה לא קורית, כמו קודם | `source`: ‏`hero_cta` (חיפוש במפה ב-hero) \| `hood_section` (מפת השכונות) \| `results_header` \| `fab` \| `menu` |
+| `gab_widget_open` (‏`source`) | **ערך חדש, רק עם דגל v10**: נפתחה מכרטיס גבריאלה ב-hero דרך `GabWidget.open` (‏`trigger` נשאר `click`). פתיחה מהבועה - בלי `source`, כמו קודם | `source`: ‏`hero_cta` (‏"בואו נתחיל") \| `hero_figure` (הדמות) |
+| `region_select` | **v10**: נבחר שוק בבורר שבהדר או במסנן של `/swipe` | `region` (‏slug), `group`: ‏`live` \| `north` \| `center` \| `south`, `via`: ‏`header` \| `swipe_filter` \| `my_location` |
+| `quick_search_tag_click` | **v10**: צ'יפ בחיפוש המהיר (‏`#quickSearchSec`) | `group`: ‏`hood` \| `type` \| `area`, `tag` |
+| `fair_banner_click` | **v10**: לחיצה על באנר היריד | `fair_id` (‏`open_house_<תאריך סיום>`) |
+| `site_stats_view` | **v10**: המונים (‏`#dmStats`) נכנסו למסך, פעם אחת בדף | `source`: ‏`cache` \| `client`, `deals_shown`: ‏0 \| 1 |
+| `swipe_start` | **v10**: "התחילו להחליק" ב-`/swipe`, או הקישור מה-hero / מבאנר ההדמיות | `deal`, `region`, `via`: ‏`swipe_filter` \| `hero_link` \| `ai_banner` |
+| `swipe_tour_skip` | **v10**: דילוג על ההדרכה ב-`/swipe` | `visit`: ‏1 \| 2 |
+| `swipe_like` | **v10**: החלקה ימינה / לב | `slot`, `position` |
+| `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
+| `swipe_up_open` | **v10**: נפתח גיליון הפרטים | `slot`, `position` |
+| `swipe_contact_click` | **Variant C (טלפון)**: וואטסאפ או חיוג בגיליון "איך נוח לכם?" שנפתח מ"ליועץ" במסילה | `via`: ‏`rail`, `method`: ‏`wa` \| `call`, `property_id` |
+| `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
+| `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
+| `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
+| `swipe_end_view` | **v10**: הוצג כרטיס הסיום | `likes` |
+| `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: טופסי `/swipe` | `form_id`: ‏`swipe_up` \| `swipe_sponsored` \| `swipe_end_alert` |
+| `gab_quick_pick` | **v10**: בחירה מהירה בחלונית של גבריאלה - השיחה הקצרה באתר, בלי וואטסאפ ובלי רשת (‏`assets/gabriela-widget.js`) | `choice`: ‏`buy` \| `rent` \| `owner` \| `fair` \| `swipe` |
+| `gab_swipe_cta` | **v10**: הכפתור הכחול בתשובה של גבריאלה (במקום `swipe_start`, כדי שהתחלה אחת לא תיספר פעמיים) | `deal`, `region` |
+| `swipe_start` / `search_submit` (‏`viz`) | **פרמטר חדש, רק עם דגל v10**: הסינון "✨ רק נכסים עם הדמיה" דלוק | `viz`: ‏`1` |
+| `swipe_share` | **v10**: שיתוף רשימת "אהבתי" | `method`: ‏`native` \| `whatsapp`, `count` |
+| `ai_hero_chip_click` | **v10**: השבב "✨ N נכסים עם הדמיית AI" ב-hero | - |
+| `swipe_card_view` | **v10**: כרטיס נעשה פעיל ב-`/swipe` | `slot`: ‏`property` \| `spon_agency` \| `spon_pro` \| `article` \| `end`, `position` |
+| `swipe_nudge_view` | **v10**: עלה הגיליון התחתון של ההכוונה ב-`/swipe` | `kind`: ‏`like1` \| `like3` \| `like6` \| `alert` \| `tour_end` \| `help` \| `viz` |
+| `swipe_nudge_click` | **v10**: כפתור בגיליון | `kind`, `cta`: ‏`list` \| `share` \| `visit` \| `gab_list` \| `later` \| `start` \| `tour` \| `gabriela` \| `viz_ok` \| `studio` |
+| `swipe_nudge_dismiss` | **v10**: הגיליון נסגר בלי כפתור | `kind`, `how`: ‏`x` \| `backdrop` \| `swipe` \| `esc` |
+| `swipe_help_open` | **v10**: כפתור "?" ב-`/swipe` פתח את "איך מחליקים" | - |
+| `swipe_help_click` | **v10**: כפתור בגיליון העזרה | `cta`: ‏`tour` \| `gabriela` |
+| `contact_bot` (‏`entry`) | **ערך חדש, רק עם דגל v10**: "שליחת הרשימה לגבריאלה" ב-"אהבתי (N)" ובגיליון של הלייק השישי | `entry`: ‏`swipe_likes` |
+| `viz_pill_click` | **v10**: "✨ איך זה יכול להיראות?" על כרטיס ב-`/swipe` - קפיצה לשקופית לפני/אחרי | `property_id` |
+| `viz_slide_view` | **v10**: שקופית ההדמיה של כרטיס הוצגה, פעם אחת לכרטיס | `property_id`, `kind`: ‏`ba` (לפני/אחרי) \| `invite` (הזמנה ליצור) |
+| `viz_studio_open` | **v10**: נפתחה לשונית "✨ הדמיה" בגיליון | `property_id`, `from`: ‏`pill` \| `slide_cta` \| `invite` \| `nudge` \| `tab` |
+| `viz_save` | **v10**: "♡ שמירה לרשימה שלי" בסטודיו | `property_id`, `style` (מפתח סגנון, או `biz:<עסק>` עד 40 תווים) |
+| `viz_generate` | **v10, כבוי עד `VIZ_SWIPE_GENERATE`**: סוף בקשת הדמיה מהסטודיו, פעם אחת לבקשה. בלי שם ובלי טלפון | `property_id`, `space` (המטרה), `style`, `result`: ‏`done` \| `cached` \| `error` \| `timeout` \| `rate_limited` \| `visitor_rate_limited` \| `busy` \| `not_available` \| `land`, `source`: ‏`swipe` |
+| `viz_ba_fallback` | **v10**: אף זוג לפני/אחרי של הנכס לא נטען, ובמקומו שקופית הזמנה | `property_id`, `reason`: ‏`load_error` \| `timeout` \| `no_pair` |
+| `photo_request` | **v10**: "בקשו תמונות מהמפרסם" בנכס בלי תמונות - פותח את טופס הפנייה עם ההודעה מוכנה, **לא שולח** (‏`assets/no-photo.js`, ‏`docs/no-photo.md`) | `property_id`, `level`: ‏`a` \| `b` \| `c`, `surface`: ‏`swipe` \| `card` \| `row` \| `hero` |
+| `generate_lead` (‏`form_id`) | **ערך חדש, רק עם דגל v10**: פנייה שנשלחה מבקשת תמונות (מקור הליד `photo_request`) | `form_id`: ‏`photo_request` |
+| `swipe_nophoto_bridge` | **v10**: הוחלק כרטיס הגשר "המשיכו לראות נכסים מתאימים בלי תמונות" ב-`/swipe` (לא אהבתי ולא דילוג) | `count` (כמה נכסים בלי תמונות אחריו) |
+| `swipe_nophoto_list` | **v10**: "הצגה ברשימה" בכרטיס הגשר - הרשימה רק עם הנכסים בלי תמונות | `count` |
+| `swipe_card_view` (‏`slot`) | **ערך חדש, רק עם דגל v10**: כרטיס הגשר | `slot`: ‏`np_bridge` |
+| `swipe_open_property` | **v10**: "לפרטי הנכס ←" בכרטיס ב-`/swipe` (קישור לדף הנכס, לא נבלע בגרירה) | `property_id`, `slide`: ‏`photo` \| `ba` \| `invite` \| `no_photo` |
+| `swipe_sort` | **v10**: נבחר מיון ב-`/swipe` (משותף להחלקה, לרשימה ולמפה) | `sort`: ‏`rec` \| `new` \| `price_asc` \| `price_desc` \| `ppsqm` \| `size`, `view`: ‏`deck` \| `list` \| `map` |
+| `swipe_filter_clear` | **v10**: "ניקוי הכול" בסינון של `/swipe` | `view` |
+| `swipe_nudge_view` (‏`kind`) | **ערכים חדשים, רק עם דגל v10**: גיליון המיון וגיליון האישור להסרה מהרשימה | `kind`: ‏`sort` \| `unlike` |
+| `home_view_mode` | **v10**: אחד משלושת כפתורי התצוגה בדף הבית (‏`.v10-views`) | `mode`: ‏`swipe` \| `map` \| `list`, `deal`, `region` |
+| `swipe_invite_view` | **v10**: כרטיס ההזמנה להחלקה (התא הראשון בתיבת הנכסים) חצי גלוי, פעם אחת בצפייה בדף | `count` |
+| `swipe_start` (‏`via`, ‏`count`) | **ערכים חדשים, רק עם דגל v10**: מכפתור "גלישה בהחלקה" (‏`hero_views`) ומכרטיס ההזמנה (‏`home_invite_card`, עם `count` - כמה נכסים להחלקה) | `via`: ‏`hero_views` \| `home_invite_card`, `count` |
+| `swipe_reel_play` | **v10**: רילס של נכס התחיל להתנגן ב-`/swipe`, פעם אחת לכרטיס | `property_id` |
+| `swipe_reel_unmute` | **v10**: "הפעילו קול לשמוע את הקריינות" ברילס | `property_id` |
+| `swipe_card_view` (‏`slot`, ‏`nofee`) | **ערכים חדשים, רק עם דגל v10 (‏seq-v2)**: כרטיסי ההזמנה, ו-`nofee: 1` על נכס שביריד הבתים הפתוחים עכשיו | `slot`: ‏`nc_promo` \| `seller` \| `article`, `nofee` |
+| `nofee_badge_view` | **v10**: תג הזהב "ללא עמלת תיווך" נצפה על כרטיס ב-`/swipe`, פעם אחת לנכס בביקור | `property_id`, `position` |
+| `swipe_filter_nofee` | **v10**: המתג "רק דירות ללא עמלת תיווך" בסינון של `/swipe` | `on`: ‏`1` \| `0` |
+| `nc_promo_view` | **v10**: כרטיס ההזמנה ליריד הבתים הפתוחים פעיל שנייה, פעם בביקור | `variant`: ‏`live` \| `wait`, `position` |
+| `nc_promo_click` | **v10**: כפתור בכרטיס היריד | `cta`: ‏`deck` (החפיסה עוברת לדירות היריד) \| `signup` \| `page` |
+| `nc_promo_dismiss` | **v10**: המשך מכרטיס היריד בלי פעולה (שתיים - הכרטיס יורד ל-14 יום) | `how`: ‏`swipe` \| `x` \| `key` |
+| `fair_signup_open` | **v10**: נפתח טופס ההרשמה ליריד (‏`assets/fair-signup.js`) | `via`: ‏`swipe_promo` \| `page` \| `empty_fair` |
+| `fair_signup_step` | **v10**: מגע ראשון בכל שאלה בטופס היריד | `q`: ‏`area` \| `deal` \| `budget` \| `rooms` \| `timing` |
+| `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: הרשמה ליריד (מהדף ומהגיליון) ו"חושבים למכור?" בהחלקה - רק אחרי תשובת 2xx | `form_id`: ‏`nocommission_fair` \| `swipe_fair` \| `swipe_seller` |
+| `seller_card_view` | **v10**: כרטיס "חושבים למכור?" פעיל שנייה, פעם בביקור | `position`, `deal` |
+| `seller_card_click` | **v10**: כפתור בכרטיס "חושבים למכור?" | `cta`: ‏`open` \| `later` |
+| `seller_sheet_step` | **v10**: מגע ראשון בכל שאלה בגיליון המוכרים | `q`: ‏`deal` \| `type` \| `area` \| `rooms` \| `timing` |
+| `seller_sheet_close` | **v10**: גיליון המוכרים נסגר | `sent`: ‏`0` \| `1` |
+| `article_card_view` | **v10**: כרטיס הכתבה פעיל שנייה (ואז הוא נחשב "נקרא" ל-7 ימים במכשיר) | `article_id`, `position`, `deal`: ‏`sale` \| `rent` \| `com` \| `seller` \| `*` |
+| `article_card_open` (‏`via`) | **פרמטר חדש, רק עם דגל v10**: הכתבה נפתחת בגיליון בתוך ההחלקה, ולא כקישור | `article_id`, `via`: ‏`button` \| `like` \| `up` \| `tap` |
+| `article_sheet_full_click` | **v10**: "להמשך הכתבה ←" בגיליון הכתבה | `article_id` |
+| `swipe_start` (‏`fair`) | **פרמטר חדש, רק עם דגל v10**: ההחלקה התחילה עם המתג "רק דירות ללא עמלת תיווך" | `fair`: ‏`1` |
+| `fair_view` | **v10**: `/open-house` נטען עם הדגל | `state`: ‏`live` \| `empty`, `n` (כמה דירות ביריד) |
+| `fair_agent_cta` | **v10**: כפתור בבלוק "רוצים להכניס דירה ליריד?" ב-`/open-house` | `cta`: ‏`add` \| `join` |
+| `fair_signup_open` (‏`via`) | **ערך חדש, רק עם דגל v10**: מגע ראשון בטופס היריד v2 בדף | `via`: ‏`page` |
+| `likes_bubble_open` | **v10**: הבועה "הרשימה שלי" (מעל גבריאלה, בדפים הציבוריים) נפתחה | `count` |
+| `sell_view` | דף "חושבים למכור?" (‏`/sell`) נטען | - |
+| `sell_wizard_step` | מעבר לשלב 2 או 3 באשף הערכת השווי ב-`/sell` | `n` |
+| `sell_submit` | האשף ב-`/sell` נשלח (תשובת 2xx). בלי פרטים אישיים | `source`: ‏`sell_page` \| `sell_page_agent`, `routed`: ‏`1` \| `0` |
+| `sell_agent_card_click` | "יצירת קשר עם יועץ הנדל״ן" בכרטיס יועץ ב-`/sell` - האשף ישלח את הליד אליו/ה | `agent_id` |
+| `generate_lead` (‏`form_id`) | **ערך חדש**: האשף ב-`/sell` | `form_id`: ‏`sell_page` |
+| `swipe_list_layout` | מתג "תצוגת שורות" / "תצוגת רשת" ברשימה ב-`/swipe` (‏P1-F) | `layout`: ‏`rows` \| `grid` |
+| `map_legend_toggle` | לחיצה על סוג עסקה במקרא של מפת ההחלקה (‏P1-I). בהחלקה הסינון מחזיק סוג אחד, ולכן הלחיצה מחליפה את הסוג | `kind`: ‏`sale` \| `rent` \| `commercial`, `on`: ‏`1`, `view`: ‏`swipe_map` |
+| `map_cluster_click` | לחיצה על אשכול נכסים במפת ההחלקה - המפה מתקרבת לגבולות האשכול | `count`, `zoom` |
+| `map_marker_open` | נפתח נכס מסמן במפת ההחלקה (‏P1-M) | `property_id`, `deal`: ‏`sale` \| `rent` \| `commercial` |
+| `info_open` | פתיחה ראשונה של כפתור (i) בטעינה, בלחיצה או בריחוף (‏P1-T1, v10) | `info_id`: ‏`dealmakers` \| `new_projects` \| `props_shelf` \| `approx_location` \| `hero_ethics` \| `hero_rating` \| `hero_no_duplicates`, `surface`: ‏`home` |
+| `rating_info_open` | נפתח "איך עובד הדירוג?" (‏P1-T2) | `from`: ‏`dm_top_title` (ה-(i) ליד "משרדים מובילים") \| `dm_link` (הקישור בלי הדגל) |
+| `site_stats_view` (‏פרמטר חדש) | ‏P1-T3: קוביית "רישיון תיווך מאומת" הוצגה (רק אחרי שער הרישיון) | `license_shown`: ‏0 \| 1 |
+| `dm_filter` | בחירת התמחות או אזור בסקציית המשרדים ויועצי הנדל״ן בדף הבית (‏P1-U1, v10) | `tab`: ‏`agencies` \| `agents`, `filter`: ‏`spec` \| `area`, `value` (מפתח ההתמחות, או `hood` \| `city` \| `all` לאזור - בלי מזהה), `results`, `surface`: ‏`home` |
+| `dm_search` | חיפוש בתיבת הסקציה, 800ms אחרי ההקלדה האחרונה. בלי הטקסט | `tab`, `q_len`, `results`, `matched`: ‏`name` \| `spec` \| `area` \| `none` |
+| `dm_filter_empty` | צירוף התמחות ואזור בלי תוצאות (פעם אחת לצירוף) | `tab`, `spec`, `area`: ‏`hood` \| `city` \| `all` |
+| `dm_filter_clear` | "לנקות את הסינון" / "להציג את כל האזורים" במצב הריק | `tab` |
+| `social_prompt_dismiss` | ‏CRM: "לא עכשיו" בכרטיס התיוג בפרסומים (‏P1-R). נדחף ישירות ל-dataLayer (ה-CRM אינו טוען את events.js) | `mode`: ‏`later` \| `never` |
+| `gab_hint_click` | לחיצה על שאלת הדוגמה שמוקלדת בשדה של גבריאלה (‏P1-Q, v10) - השאלה נכנסת לשדה | `hint_index`: ‏0-9 (מיקום ב-`GW_HINTS`) |
+| `gab_pro_pick` | תחום בעלי מקצוע מתוך "התייעצות עם בעלי מקצוע" בגבריאלה (‏P1-P, v10) | `type`: ‏`mortgage_advisor` \| `appraiser` \| `real_estate_lawyer` \| `architect` \| `interior_designer` \| `all` |
+| `search_pro_suggest` | שורת החיפוש זיהתה בקשה לבעלי מקצוע והציגה הצעה (פעם אחת לתחום) | `type`, `surface`: ‏`home` |
+| `search_pro_click` | מעבר לדף בעלי המקצוע מההצעה, או Enter כשההצעה היא היחידה | `type`, `surface` |
+| `search_listing_number` | חיפוש לפי מספר מודעה ב-Enter. בלי המספר עצמו | `found`: ‏`1` \| `0`, `surface`: ‏`home` |
+| `list_impression` | ‏P1-M (v10): כרטיס או שורה ברשימה שנראו ב-50% לפחות במשך שנייה. כל נכס פעם אחת בכל טעינה, במנות של עד 10 | `view`: ‏`home_list` \| `swipe_list`, `layout`: ‏`rows` \| `grid` (רק ב-`/swipe`), `ids` (מזהי נכסים, בפסיקים), `count` |
+| (פרמטר חדש) `browse` | ‏P1-M (v10): בדף נכס, על `view_item`, ‏`contact_agent`, ‏`contact_bot`, ‏`generate_lead`, ‏`share`, ‏`viz_jump_click` ושאר האירועים שבו - מאיזו צורת גלישה הגיעו לנכס **הזה** (נרשם ב-sessionStorage ברגע הלחיצה, לא בכתובת). ‏`src` נשאר "מאיפה הגיעו לאתר" | `browse`: ‏`swipe` \| `swipe_list` \| `swipe_map` \| `home_list` \| `map` \| `home` \| `gabriela` \| `likes` \| `fair` \| `similar` \| `direct` |
+| (הרחבה) `dm_filter`, ‏`dm_filter_empty`, ‏`dm_filter_clear` | ‏P1-U1 (v10): אותם אירועים גם ב-`/agencies` וב-`/agents` (‏`assets/dm-filters.js`), עם אותם פרמטרים. "צפייה בכל…" בדף הבית מעביר את `dm_spec` ו-`dm_area` | `surface`: ‏`home` \| `agencies` \| `agents` |
+| `adv_filter_open` | ‏P1-N1 (v10): נפתח חלון הסינון המתקדם בדף הבית | `deal`: ‏`sale` \| `rent` \| `commercial`, `surface`: ‏`home_modal` |
+| `adv_filter_more_open` | נפתח "עוד מאפיינים" בלחיצה (לא כשנפתח מעצמו בגלל בחירה) | `deal`, `surface` |
+| `adv_filter_apply` | "הצגת תוצאות" בחלון. שמות השדות בלבד, בלי ערכים | `deal`, `surface`, `fields` (מפתחות בפסיקים, עד 100 תווים), `field_count`, `result_count`, `missing_shown`: ‏`0` (עד P1-N2) |
+| `adv_filter_clear` | "איפוס" בחלון, בלחיצה של הגולש/ת | `deal`, `surface` |
+| (פרמטר חדש) `swipe_start.filters_n` | ‏R5-5 (v10): כמה מסננים עברו מדף הבית להחלקה (מספר בלבד, בלי ערכים). `via` מקבל גם `results_toolbar` (האייקון בסרגל הנכסים) ו-`results_button` ("גלישה בהחלקה · N" ליד כותרת התוצאות) | `filters_n` |
+| `gab_free_submit` | ‏P0-4 (v10): טקסט חופשי מהשדה של גבריאלה יוצא לוואטסאפ ("המשך בוואטסאפ" או Enter). נורה לפני שהקישור נפתח, רק כשיש טקסט. בסיס לבדיקת 48 השעות של השאלות לדוגמה (‏`docs/qa/gab-hints-answers.md`). בלי הטקסט עצמו | `hint_seen`: ‏`1` אם שאלה לדוגמה רצה בשדה מאז שהחלונית נפתחה, אחרת `0`; `surface`: שם הדף (`home`, ‏`property`, ‏`swipe`…) |
+| (פרמטר חדש) `search_pro_suggest.fallback` | ‏P0-2: התחום שזוהה (למשל `appraiser`) בלי אף בעל/ת מקצוע פעיל/ה, וההצעה הפנתה ל-`/professionals` (‏`data-pro="all"`) במקום לדף ריק. `type` נשאר התחום שזוהה. באותו מצב Enter שולח `search_pro_click` עם `type: all` | `fallback`: ‏`true` |
+| (הערה) `gab_hint_click.hint_index` | מ-28.10 המיקום ב-`GW_HINTS` המלא, גם כששאלות מותנות מדולגות | |
+| (הערה) `home_view_mode.mode` | מ-28.10 בלי `list`: הכפתור "תצוגת רשימה" הוסר (החלטה 2). הערכים: ‏`swipe` \| `map` | |
+| `viz_style_invite_click` | ‏R8 (v10): לחיצה על הזמנה של סגנון בלי הדמיה בסטודיו של `/swipe` (האריח או התמונה הגדולה), שמובילה ל-`/property?id=…&viz_style=<key>#viz` | `property_id`, `style` (מפתח), `space` (החדר), `source`: ‏`swipe` |
+| `viz_style_select` | ‏R8 (v10): בחירת סגנון שיש לו הדמיה בסטודיו של `/swipe` - התמונה הראשית מתחלפת | `property_id`, `style`, `space`, `source`: ‏`swipe` |
+| `viz_deeplink_land` | ‏R8: דף הנכס נפתח עם `?viz_style=<key>` מוכר (נכס פרטי בלבד), על הסגנון הזה | `style`, `source`: ‏`swipe` |
+| `swipe_resume` | ‏R8: גולש/ת חוזר/ת ל-`/swipe` (ביקור קודם לפני יותר מ-30 דקות, ויש נכסים שכבר נראו) - פעם אחת בביקור, אחרי שהחפיסה מוצגת והסינון סגור | `new_n`, `drop_n`, `unseen_n`, `seen_n` (מספרים בלבד, בתוך הסינון הפעיל) |
+| (פרמטר חדש) `swipe_card_view.seen_state` | ‏R8: רק כשיש היסטוריה במכשיר | `seen_state`: ‏`new` \| `drop` \| `unseen` \| `seen` |
+| `swipe_seen_end_view` | ‏R8: הכרטיס "ראיתם את כל הנכסים בסינון הזה" | `passed_n` (כמה מהנכסים שכבר נראו דולגו), `likes` |
+| `swipe_seen_end_click` | ‏R8: כפתור בכרטיס הזה | `cta`: ‏`passed` \| `likes` \| `alert` \| `filter` |
+| `swipe_fair_end_view` | ‏A2-4: כרטיס סוף היריד בהחלקה ("ראיתם את כל הנכסים ביריד") | `unseen_n` (כמה נכסים מחוץ ליריד עוד לא נראו), `likes` |
+| `swipe_fair_continue` | ‏A2-4: מעבר מהיריד לשאר הנכסים | `cta`: ‏`continue` \| `again` \| `fair_off`, ‏`unseen_n` |
+| `swipe_fair_widen` | ‏A2-4: "להרחיב את החיפוש" בכרטיס סוף היריד | `unseen_n` |
+| `swipe_fair_back` | ‏A2-4: "אחורה"/"קדימה" בדפדפן בין היריד לשאר הנכסים | `to`: ‏`fair` \| `all` |
+| `swipe_fair_list` | ‏A2-5: "רשימה" בהחלקה על היריד - מעבר לדף היריד | `deal`, `rooms` |
+| `swipe_list_open` | ‏A2-5 / C10: נכס נפתח מהרשימה או מ"אהבתי" בדף הנכס | `property_id`, `from`: ‏`list` \| `likes` |
+| `swipe_reset_seen` | ‏R8: "התחלה מחדש" אושרה - סימון הנכסים שכבר נראו התאפס ("אהבתי" לא) | `seen_n` |
+| `voice_start` | ‏R8: לחיצה על המיקרופון בשדה החיפוש - התחלת הקשבה. בלי התמלול עצמו, בכל אירועי הקול | `surface`: ‏`home`, `perm_state`: ‏`granted` \| `prompt` \| `denied` \| `unknown` |
+| `voice_listening` | ‏R8: הדפדפן באמת מקשיב (‏onstart) | - |
+| `voice_result` | ‏R8: ההקשבה הסתיימה ונשמע טקסט | `chars`, `words`, `duration_ms`, `parsed_fields` (שמות השדות שזוהו, `none`, או `routed` כשהלך למספר מודעה / בעלי מקצוע), `end_reason`: ‏`silence` \| `tap` \| `max` \| `browser` |
+| `voice_cancel` | ‏R8: ‏✕, ‏Esc או מעבר לשונית בזמן הקשבה - בלי חיפוש | `at_ms` |
+| `voice_no_speech` | ‏R8: לא נשמע כלום (6 שניות בלי דיבור) | - |
+| `voice_error` | ‏R8: החיפוש הקולי נכשל. לגולש/ת מוצגת הודעה בעברית, והקוד רק כאן | `code` (‏`not-allowed`, ‏`service-not-allowed`, ‏`watchdog`, ‏`audio-capture`, ‏`network`, ‏`denied`, ‏`other`), `ua_class`: ‏`chromium` \| `webkit` \| `ios_safari` \| `ios_other` \| `in_app` |
+| (פרמטר חדש) `search_freetext_submit.source`, `search_submit.source` | ‏R8: מאיפה הגיע החיפוש | `source`: ‏`voice` \| `typed` |
+| (פרמטר חדש) `dm_filter.selected_n` | ‏R8: בחירה מרובה - כמה צ'יפים נבחרו בקבוצה אחרי הלחיצה. `value` נשאר מפתח ההתמחות או סוג האזור (`hood` \| `city`), לעולם לא מזהה | `selected_n` |
+| `dm_filter_sheet_open` | ‏R8 (v10, טלפון): נפתח הגיליון "סינון לפי התמחות ואזור" | `tab`: ‏`agencies` \| `agents`, `surface`: ‏`home` \| `agencies` \| `agents` |
+| `dm_filter_sheet_apply` | ‏R8: "הצגת N" בגיליון | `tab`, `spec_n`, `area_n`, `results`, `surface` |
+| `search_advisor_suggest` | ‏R8 (v10): שורת החיפוש בדף הבית זיהתה בקשה ליועצי נדל״ן או למשרד תיווך והציגה הצעה ל-`/agents` או `/agencies` מסונן (פעם אחת לכל הצעה). בלי הטקסט ובלי מזהים | `tab`, `spec` (מפתח או `all`), `area_kind`: ‏`hood` \| `city` \| `none`, `surface`: ‏`home` |
+| `search_advisor_click` | ‏R8: לחיצה על ההצעה הזו, או Enter / חיפוש קולי שהוביל אליה | `tab`, `spec`, `area_kind`, `surface` |

@@ -236,8 +236,11 @@ type Meta = {
   /* ‏אלמנט ריק שמקבל מבנה ולא רק טקסט (‏גוף הכתבה, "על המשרד"). ה-HTML
      נבנה כאן בבריחה מלאה, וה-JS בונה אחריו את אותו מבנה ב-textContent. */
   inner?: { id: string; html: string }[];
-  /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער. */
-  paint?: { count: number; html: string; lcp: string };
+  /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער.
+     placeholder: אין תמונה ואין פוסטר, והשער הוא קובץ הפלטפורמה. */
+  paint?: { count: number; html: string; lcp: string; placeholder?: boolean };
+  /* ‏דף נכס בלי עיר ומחוץ לתיבת השוק (‏P0-A2): 200 עם כל התגיות, ועוד noindex */
+  noindex?: boolean;
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -582,12 +585,52 @@ function heroImg(original: string, video: boolean): { tag: string; lcp: string }
 }
 
 /* אותה ספירה ש-renderGallery כותב ל-data-count, כדי שהגובה לא יזוז
-   כשה-JS מחליף את התאים. תמונת השער היא data-lcp. */
-function heroPaint(p: Record<string, unknown>): { count: number; html: string; lcp: string } {
+   כשה-JS מחליף את התאים. תמונת השער היא data-lcp.
+   בלי תמונה ובלי פוסטר (גם סרטון בלי פוסטר) השער הוא img אמיתי של
+   קובץ הפלטפורמה, לא רקע CSS שה-JS מוסיף אחרי השאילתה. lcp נשאר ריק
+   כדי ש-heroHead לא יוסיף preload שני בסוף ה-head: ה-preload של
+   הפלייסהולדר נכנס מיד אחרי charset, ורק במקרה הזה. */
+const HERO_PLACEHOLDER = "/assets/property-placeholder.jpg";
+
+function agencyLogoOf(p: Record<string, unknown>): { name: string; logo: string } {
+  const a = p.agencies;
+  const row = Array.isArray(a) ? a[0] : a;
+  const name = row && typeof row === "object" ? String((row as { name?: string }).name || "").trim() : "";
+  const raw = row && typeof row === "object" ? (row as { logo_url?: string }).logo_url : "";
+  /* אותו סדר כמו agencyLogoOf / agencyNameOf ב-assets/property.js:
+     לוגו המשרד, ובלי שם ובלי לוגו הלוגו של האתר. */
+  const logo = absolute(raw) || (name ? "" : "assets/logo-shuknadlan.svg");
+  return { name, logo };
+}
+
+/* 16/10 כמו .bento[data-count="1"] .bento-main. המידות על ה-img שומרות
+   את היחס לפני שה-CSS נקרא. התא עצמו נשאר ביחס הזה, אז שום דבר לא זז
+   כשה-JS מעביר לתוכו את תגית המחיר. */
+function placeholderImg(): string {
+  return `<img class="hero-placeholder" data-lcp="1" src="${HERO_PLACEHOLDER}" alt="" width="1600" height="1000" fetchpriority="high">`;
+}
+
+/* אותו מבנה ש-renderGallery בונה ל-.bento-empty. בלי זה שמירת הצומת
+   הייתה משאירה תמונה בלי הלוגו וההודעה. */
+function emptyHeroInner(p: Record<string, unknown>): string {
+  const { name, logo } = agencyLogoOf(p);
+  const mark = logo
+    ? `<img class="empty-logo" src="${esc(logo)}" alt="${esc(name)}" onerror="this.remove()">`
+    : `<span class="empty-logo empty-initial" aria-hidden="true">${esc((name || "?").trim()[0] || "?")}</span>`;
+  const office = name ? `<div class="empty-agency">${esc(name)}</div>` : "";
+  return `<div class="empty-inner">${mark}${office}<div class="empty-note">תמונות של הנכס יעלו בקרוב</div></div>`;
+}
+
+function heroPaint(p: Record<string, unknown>): { count: number; html: string; lcp: string; placeholder?: boolean } {
   const images = (Array.isArray(p.images) ? p.images : []).map(absolute).filter(Boolean);
   const video = isFileVideo(p.video_url);
   const poster = (video && absolute(p.video_poster_url)) || images[0] || "";
-  if (!poster) return { count: 1, html: "", lcp: "" };
+  if (!poster) {
+    const cell = video
+      ? `<div class="bento-cell bento-main bento-video">${placeholderImg()}</div>`
+      : `<div class="bento-cell bento-main bento-empty">${placeholderImg()}${emptyHeroInner(p)}</div>`;
+    return { count: 1, html: cell, lcp: "", placeholder: true };
+  }
   const thumb = (src: string, last: boolean) =>
     `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="" loading="lazy"></div>`;
   if (video) {
@@ -648,8 +691,8 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
-    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name)," +
-    "video_url,video_poster_url";
+    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name,logo_url)," +
+    "video_url,video_poster_url,city_id,lat,lng";
   const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
@@ -687,6 +730,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     if (agent.kind === "row") agentDisplay = String(agent.row.display_name || "");
   }
   const visible = propertyVisible(p, agentDisplay);
+  const offMarket = !p.city_id && !inMarketBox(p.lat, p.lng);
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
@@ -706,7 +750,19 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
     inner: visible.inner,
     paint: heroPaint(p),
+    noindex: offMarket,
   };
+}
+
+/* ‏תיבת השוק של עפולה והעמק - אותה DEFAULT_BOX של assets/market-scope.js
+   ‏[latMin, lngMin, latMax, lngMax]. נכס בלי city_id נחשב בשוק רק אם הוא
+   בתוכה (‏PR 1010, P0-A2); בלי קואורדינטות - מחוץ לשוק. */
+const MARKET_BOX = [32.45, 35.05, 32.80, 35.60];
+function inMarketBox(lat: unknown, lng: unknown): boolean {
+  if (lat == null || lng == null || lat === "" || lng === "") return false;
+  const a = Number(lat), b = Number(lng);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return a >= MARKET_BOX[0] && a <= MARKET_BOX[2] && b >= MARKET_BOX[1] && b <= MARKET_BOX[3];
 }
 
 /* ‏הסף של agency.html (‏MIN_REVIEWS_SHOWN) - מתחתיו הדף אינו מציג דירוג. */
@@ -856,7 +912,7 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
     "@id": `${canonical}#agent`,
     name: String(m.display_name || ""),
     url: canonical,
-    jobTitle: "מתווך/ת נדל״ן",
+    jobTitle: "יועץ נדל״ן",
     description,
   };
   if (m.photo_url) person.image = absolute(m.photo_url);
@@ -1175,6 +1231,16 @@ function fillHero(html: string, count: number, inner: string): string {
   });
 }
 
+/* הפלייסהולדר בלבד. תמונת שער אמיתית נשארת ב-preload של heroHead,
+   בסוף ה-head, ולא מקבלת את הקובץ הזה. */
+function preloadPlaceholder(html: string): string {
+  const tag = `<link rel="preload" as="image" href="${HERO_PLACEHOLDER}" fetchpriority="high">`;
+  if (html.includes(`href="${HERO_PLACEHOLDER}"`)) return html;
+  const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${tag}`);
+  if (withCharset !== html) return withCharset;
+  return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${tag}`);
+}
+
 function heroHead(lcp: string): string[] {
   const tags = [
     `<link rel="preconnect" href="${SUPABASE_URL}" crossorigin>`,
@@ -1215,7 +1281,9 @@ function inject(html: string, m: Meta): string {
      היא יורדת כאן. **שתי תגיות canonical גורמות לגוגל להתעלם משתיהן**,
      וזה כשל שקט לגמרי: הדף נטען, התגית שהזרקנו בתוכו, והאיחוד לא קורה. */
   out = out.replace(/<link\b[^>]*\brel="canonical"[^>]*>\s*/gi, "");
-  add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
+  /* ‏noindex בלי canonical: שתי ההצהרות יחד סותרות (‏scripts/og_tags_test.ts) */
+  if (m.noindex) add.unshift(`<meta name="robots" content="noindex,follow">`);
+  else add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
   if (!/<meta[^>]+property="og:type"/i.test(out)) {
     add.push(`<meta property="og:type" content="website">`);
   }
@@ -1240,6 +1308,7 @@ function inject(html: string, m: Meta): string {
   for (const id of m.reveal || []) out = unhide(out, id);
   if (m.paint) {
     out = addBodyClass(out, "property-ready has-sticky-bar");
+    if (m.paint.placeholder) out = preloadPlaceholder(out);
     if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
     add.push(...heroHead(m.paint.lcp));
   }

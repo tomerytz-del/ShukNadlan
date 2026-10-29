@@ -195,6 +195,9 @@ function renderLeadsUnified(agentId){
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
   });
+  syncDemandTab();
+  // המונה של "ביקוש פתוח" נטען פעם אחת גם בלי לפתוח את הלשונית, כדי שתודגש כשיש
+  if (openDemandRows === null && !openDemandLoading) loadOpenDemand(true);
   alignScrollTabs(document.getElementById('leadsTabs'));
   document.getElementById('leadsSrc').hidden = leadsTab === 'demand';
   if (leadsTab === 'demand'){ renderOpenDemand(listEl); return; }
@@ -505,20 +508,30 @@ const OPEN_DEMAND_NO_BROKER = {
 };
 
 let openDemandP = null;
-function loadOpenDemand(){
+function loadOpenDemand(silent){
   // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב)
   if (openDemandP) return openDemandP;
   openDemandLoading = true;
   openDemandP = Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]).then(([list, stats]) => {
-    if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
+    if (list.error){ if (!silent) showToast(heErr(list.error)); openDemandRows = []; }
     else openDemandRows = list.data || [];
     openDemandStats = stats.error ? null : stats.data;
     if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+    else syncDemandTab();
   }).finally(() => {
     openDemandLoading = false;
     openDemandP = null;
   });
   return openDemandP;
+}
+
+/* מונה והדגשה של "ביקוש פתוח" - ביקושים שעוד לא תפסתי */
+function syncDemandTab(){
+  const b = document.querySelector('#leadsTabs [data-leads-tab="demand"]');
+  if (!b) return;
+  const n = openDemandRows ? openDemandRows.filter(d => !d.mine).length : null;
+  if (n !== null) b.querySelector('[data-n]').textContent = n;
+  b.classList.toggle('has-open', !!n);
 }
 
 function openDemandWants(d){

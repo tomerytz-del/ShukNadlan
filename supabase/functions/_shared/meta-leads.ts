@@ -8,8 +8,10 @@
 //   2. ‏ads_lead_claim - רק קורא אחד שולח
 //   3. לפי ads_lead_forms.kind: קריאה ל-Edge Function **הקיימת** של אותו
 //      מסלול באתר (property-inquiry-intake / owner-lead-intake /
-//      saved-search-intake), עם source של meta_ads_*. כך רוטציה, ניתוב,
-//      מחירים, התראות למנהל/ת ויומן הניתוב עובדים בלי שורת קוד חדשה.
+//      saved-search-intake), עם source של meta_ads_* ו-external_ref =
+//      meta_lead_id. כך רוטציה, ניתוב, מחירים, התראות למנהל/ת ויומן
+//      הניתוב עובדים בלי שורת קוד חדשה, וניסיון חוזר של אותו ליד נופל
+//      על unique (source, external_ref) ולא נולד שוב.
 //   4. ‏alertLead - וואטסאפ לבעל הפלטפורמה, פעם אחת (alerted_at). כישלון
 //      נרשם ב-alert_error ואינו נזרק: ה-webhook חייב להמשיך לענות 200.
 //
@@ -105,7 +107,10 @@ export function intakeRequest(lead: MetaLead, form: LeadForm):
     if (!form.property_id) return { error: "form_missing_property" };
     return {
       fn: "property-inquiry-intake",
-      body: { property_id: form.property_id, name: c.name, phone: c.phone, message: note, source: "meta_ads_property_form" },
+      body: {
+        property_id: form.property_id, name: c.name, phone: c.phone, message: note,
+        source: "meta_ads_property_form", external_ref: lead.id,
+      },
     };
   }
 
@@ -120,7 +125,7 @@ export function intakeRequest(lead: MetaLead, form: LeadForm):
       fn: "owner-lead-intake",
       body: {
         city, property_type: propertyType, deal_type: deal, name: c.name, phone: c.phone,
-        rooms: rooms ?? undefined, note, source: "meta_ads_owner_form",
+        rooms: rooms ?? undefined, note, source: "meta_ads_owner_form", external_ref: lead.id,
       },
     };
   }
@@ -147,6 +152,8 @@ export function intakeRequest(lead: MetaLead, form: LeadForm):
         free_text: note,
         consent_agent_contact: YES.test(consentAnswer),
         source: "meta_ads_buyer_form",
+        // נשמר ב-leads של נכס ובעלים. חיפוש שמור מתעלם ממנו ונשאר על criteria_hash.
+        external_ref: lead.id,
       },
     };
   }

@@ -61,22 +61,79 @@ Content-Type: application/json
 
 ## מי רשאי/ת לסמן מקור חברתי
 
-פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי ו-`external_ref`
-מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח ה-service role
-(‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר `social-lead-intake`
-אחרי שאימתה את הסוד. מהדפדפן `source: "facebook_dm"` נופל לברירת המחדל של
-הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים "מפייסבוק" ולזהם את הדוח.
-אותו כלל ל-`lead_only` ב-`saved-search-intake`.
+פונקציות הקליטה ציבוריות (‏`verify_jwt = false`). מקור חברתי, `meta_ads_*`
+ו-`external_ref` מתקבלים בהן **רק מקורא פנימי** - מי שמחזיק/ה את מפתח
+ה-service role (‏`isInternalCaller` ב-`_shared/lead-routing.ts`), כלומר
+`social-lead-intake` אחרי שאימתה את הסוד, או `ads-leads-webhook` /
+`ads-admin`. מהדפדפן `source: "facebook_dm"` או `source: "meta_ads_owner_form"`
+נופל לברירת המחדל של הפונקציה, אחרת כל אחד/ת היה/הייתה יכול/ה לייצר לידים
+"מפייסבוק" או "מטא" ולזהם את הדוח. אותו כלל ל-`lead_only` ב-`saved-search-intake`.
 
-## כפילויות - שתי שכבות
+## כפילויות - שלוש שכבות
 
 1. **`social_leads.zernio_id`** (מפתח ראשי) ו-`social_lead_claim` - אותה תבנית
    כמו `ads_leads`: השורה נשמרת קודם, וקורא אחד בלבד שולח למסלול.
 2. **`leads (source, external_ref)` ייחודי** - ‏`property-inquiry-intake`,
    ‏`agent-direct-inquiry-intake` ו-`owner-lead-intake` מקבלים `external_ref`
    ומחזירים `{ duplicate: true, lead_id }` כשהליד כבר קיים (גם במרוץ, דרך
-   ה-unique). **ה-ref אינו ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד
-   (‏`assets/crm-leads.js`), ושם יש תווית קריאה - "פייסבוק · הודעה".
+   ה-unique). טופס מטא שולח `external_ref = meta_lead_id`. **ה-ref אינו
+   ב-`source_detail`**: זה מוצג לסוכן/ת בכרטיס הליד (‏`assets/crm-leads.js`),
+   ושם יש תווית קריאה - "פייסבוק · הודעה" או "טופס לידים במטא · מוכר/ת".
+3. **אותו טלפון בשני מסלולים, רק מקורא פנימי** - ‏`leads.phone_e164`
+   (‏`normalize_msisdn`, כמו `saved_searches`) ואינדקס לא ייחודי. לפני
+   insert, טופס מטא או פייסבוק/אינסטגרם מחפשים ליד מאותו `phone_e164`
+   ואותו `lead_type` מ-30 הימים.
+
+   - **בעל/ת נכס מטופס מטא או מפייסבוק/אינסטגרם אינו מתמזג לפי טלפון.**
+     הבקשה לא כוללת רחוב, ובכוונה לא מוסיפים אותו. מיזוג לפי טלפון בפועל
+     הוא רק **פנייה על נכס** (אותו `property_id`, אותו `agency_id` ואותו
+     `agent_id`). מחשבון תשואה הוא `property_inquiry` בלי נכס, ושם אין מיזוג.
+     אותו `external_ref` עדיין מחזיר את הליד הקיים (שכבה 2).
+   - אם בכל זאת מגיעה כתובת של בעל/ת נכס, ההצמדה דורשת אותה עיר ואותו
+     רחוב, ומספר בית כשאחד הצדדים נושא אותו. בלי כתובת באחד הצדדים אין
+     הצמדה. "4 חדרים" אינו רחוב.
+   - **ליד פלטפורמה** (מטא או פייסבוק/אינסטגרם, הקריאה בלי `agency_id`
+     ובלי `agent_id`) **אינו מתמזג לפי טלפון**. אין יעד אפשרי: ליד גלוי
+     דורש `agent_id`, ויעד בלי משרד ובלי סוכן/ת דורש `agent_id` ריק.
+     הקליטה חוזרת מיד, בלי שאילתה. אותו `external_ref` עדיין מחזיר את
+     הליד הקיים (שכבה 2), וזו הכפילות היחידה של ליד כזה. כשהפנייה עצמה
+     הגיעה מדף (יש משרד וסוכן/ת), שניהם חייבים להתאים.
+   - ליד מוסתר (`masked`), בלי סוכן/ת, או `pending_charge` אינו בולע פנייה.
+   - נמצא ליד `unlocked` אצל סוכן/ת: אין insert ואין רוטציה.
+     `lead_phone_touch` מוסיף את ההודעה ל-`raw_message` ואת המקור
+     ל-`source_touches` (לא בכרטיס) **באותו update**, בלי לכתוב
+     ל-`phone_e164`. חלון ההתראה נבדק לפני העדכון, כדי שכשל ייכתב על
+     אותו מגע. רק אם העדכון הצליח והחלון פנוי נכתבת `new_lead` עם הכותרת
+     "פנייה נוספת על ליד קיים" ו-`related_lead_id`.
+     **לכל היותר התראת `new_lead` אחת לאותו ליד ולאותו/ה סוכן/ת ב-24 שעות.**
+     הבדיקה היא שורה ב-`notifications` עם `type = new_lead`,
+     `related_lead_id` של הליד, `agent_id` של הסוכן/ת שהליד משויך/ת אליו/ה
+     עכשיו, ו-`created_at` מאוחר מ-`now() - 24h`. "ליד חדש" שנכתב ביצירת
+     הליד נספר גם הוא. התראה שיצאה לסוכן/ת הקודם/ת אינה חוסמת את מי שקיבל/ה
+     את הליד בהעברה. פנייה נוספת בתוך החלון עדיין מריצה את `lead_phone_touch`.
+     נמצאה שורה - אין insert להתראה, והמגע נשאר. כשל בשאילתת החלון - אין
+     insert להתראה, והמגע נכתב עם `notify_skipped` = `window_lookup_error`.
+     כשל ב-insert של ההתראה עצמה אינו פותח ליד שני, ומוסיף מגע שני (בלי
+     שורת הודעה נוספת) עם `notify_skipped` = `notify_insert_error`.
+     כישלון `lead_phone_touch` מחזיר את הקליטה ל-insert רגיל.
+
+     שני הדילוגים, מ-`leads.source_touches` (לא בכרטיס):
+
+     ```sql
+     select l.id, elem->>'notify_skipped' as why, elem->>'at' as at, elem->>'source' as source
+     from public.leads l
+     cross join lateral jsonb_array_elements(l.source_touches) elem
+     where elem->>'notify_skipped' in ('window_lookup_error', 'notify_insert_error');
+     ```
+   - **אין משימת יומן שנייה.** הטריגר על `new_lead` קורא ל-
+     `agent_agenda_add_auto` עם `source_key` = `lead:<id>`, ו-
+     `on conflict do nothing` בולע את הפנייה הנוספת (`docs/agent-agenda.md`).
+   - התשובה לקורא הפנימי `{ duplicate: true, lead_id }`.
+     **מהדפדפן אין מיזוג.** `ownerPhoneAttach` / `propertyPhoneAttach`
+     מחזירות null כש-`isInternalCaller` נכשל, `attachToOpenLead` אינו
+     נקרא, והטופס מקבל את צורת התשובה הרגילה (`success`, `lead_id` של
+     השורה החדשה, ובפנייה על נכס גם `auto_unlocked` ו-`note`) בלי
+     `duplicate` ובלי מזהה של ליד אחר.
 
 ## ליד בלי התראות (`lead_only`)
 
