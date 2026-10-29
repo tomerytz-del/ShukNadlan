@@ -1352,7 +1352,7 @@
         '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b></button></div>' +
         // ‏Variant C: בטלפון כפתור זהב אחד במקום שורת sw-acts (מוצג רק שם, ‏swipe.css)
         '<button type="button" class="sw-gold sw-cmain" data-up>לפרטים ויצירת קשר</button></div>' +
-        '<span class="sw-stamp is-like" aria-hidden="true">אהבתי</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
+        '<span class="sw-stamp is-like" aria-hidden="true">' + (phoneC() ? 'שמירה' : 'אהבתי') + '</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
     }
     if (c.slot === 'spon_agency') {
       var s = c.sponsor, sa = { type: 'agency', name: s.name, img: s.logo || '' };
@@ -3005,6 +3005,10 @@
     unlike: { art: '', title: 'להסיר את הנכס מהרשימה?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
     like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר לרשימה שלכם', sub: 'כל הנכסים שתאהבו מחכים ברשימה, לצפייה ולשיתוף',
       btns: [['list', 'sw-navy', 'לרשימה שלי'], ['share', 'sw-white', 'שיתוף']] },
+    // ‏Variant C בטלפון: אותו גיליון במילים "שמירה" ו"המועדפים" (גבריאלה 02:36; הנוסח המדויק ממתין לה). ‏bsOpen
+    // לוקח את <kind>_phone כשיש כזה והמסך טלפון
+    like1_phone: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר ב״המועדפים״', sub: 'כל הנכסים ששמרתם מחכים ב״המועדפים״, לצפייה ולשיתוף',
+      btns: [['list', 'sw-navy', 'ל״המועדפים״'], ['share', 'sw-white', 'שיתוף']] },
     like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את הרשימה?',
       btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף הרשימה']] },
     like6: { art: GAB_ART, title: 'כבר 6 נכסים ברשימה 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
@@ -3040,7 +3044,7 @@
   function bsOpen(kind, ctx) {
     if (bsKind === kind || bsQueue.some(function (q) { return q.kind === kind; })) return;
     if (bsKind || bsBlocked()) { bsQueue.push({ kind: kind, ctx: ctx }); return; }
-    var d = BS[kind], wrap = $('swBsWrap');
+    var d = (phoneC() && BS[kind + '_phone']) || BS[kind], wrap = $('swBsWrap');
     if (!d) return;
     bsKind = kind; bsCtx = ctx || null;
     bsOpener = document.activeElement;
@@ -3209,6 +3213,10 @@
     var list = likedProps();
     // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
     $('swLvN').textContent = list.length;
+    // ‏Variant C בטלפון (גבריאלה 02:36): הפעולה "שמירה", הרשימה "המועדפים". במחשב בלי שינוי
+    $('swLvWord').textContent = phoneC() ? 'המועדפים' : 'אהבתי';
+    $('swLvEmptyT').textContent = phoneC() ? 'עוד לא שמרתם נכסים. החליקו ימינה על נכס שמוצא חן בעיניכם, והוא יחכה כאן.'
+      : 'עוד לא אהבתם נכסים. החליקו ימינה על נכס שמוצא חן בעיניכם, והוא יחכה כאן.';
     $('swLvShare').textContent = 'שיתוף הרשימה (' + list.length + ')';
     $('swLvEmpty').hidden = likes.length > 0;
     $('swLvBar').hidden = !likes.length;
