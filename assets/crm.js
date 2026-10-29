@@ -2292,37 +2292,97 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
        clientRows. השניים האחרונים ממשיכים לרוץ ברקע כמו קודם.
 
      ‏Promise.all ולא allSettled בכוונה: כישלון עוצר את סוף הפונקציה בדיוק
-     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה. */
-  const pricingP = loadPricing().then(()=>{
-    // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
-    const freeQuota = priceOf('free_lead_quota_monthly', 10);
-    renderQuotaMeter(freeQuota);
-  });
+     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה.
+
+     קישור (?goto=) הוא החריג: קודם נפתח המסך ונטען רק מה שהוא קורא, ורק
+     אחר כך שאר השרשראות. בלי קישור אף טעינה לא זזה - start() נקרא מכאן
+     באותו רגע כמו קודם. שאילתה שנשמרת ב-start לא יוצאת פעמיים. */
+  const started = new Map();
+  function start(key, fn){
+    if (!started.has(key)) started.set(key, Promise.resolve().then(fn));
+    return started.get(key);
+  }
   // רשימת השת"פ מזינה את ספירת המשרדים בדיאלוג "פתיחה לשת״פ" - דיאלוג שנפתח
-  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם
-  const propsP = Promise.all([loadSharePartners(agent), loadProperties(agent.id)]);
-  const clientsP = propsP.then(()=> loadClients()).then(()=>{
-    // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
-    loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
-    // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
-    loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
-    return loadClientAlerts();
-  });
+  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם. קישור לנכס מחכה רק
+  // לרשימת הנכסים, לא לרשימת המשרדים.
+  function propertiesP(){ return start('properties', () => loadProperties(agent.id)); }
+  function shareP(){ return start('share', () => loadSharePartners(agent)); }
+  function propsP(){ return start('props', () => Promise.all([shareP(), propertiesP()])); }
+  function pricingP(){
+    return start('pricing', () => loadPricing().then(() => {
+      // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
+      const freeQuota = priceOf('free_lead_quota_monthly', 10);
+      renderQuotaMeter(freeQuota);
+    }));
+  }
+  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients())); }
+  const gotoParams = new URLSearchParams(location.search);
+  const gotoRaw = gotoParams.get('goto') || '';
+  const gotoTab = gotoParams.get('tab') || '';
+  function clientsP(){
+    return start('clients', () => clientsListP().then(() => {
+      // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
+      loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
+      // היומן ברקע, מאותה סיבה של התזכורות שמתחת. אם הקישור כבר פתח אותו,
+      // start מחזיר את אותה טעינה, וציור שני ממלא שמות לקוחות שהגיעו עכשיו.
+      start('agenda', () => loadAgenda()).then(() => {
+        if (gotoRaw === 'accAgenda') renderAgenda();
+      }).catch(err => console.warn('טעינת היומן נכשלה:', err));
+      return loadClientAlerts();
+    }));
+  }
+  async function loadRequestedGoto(keys, waitPrice){
+    for (const key of keys){
+      if (key === 'props') await propertiesP();
+      else if (key === 'leads') {
+        if (waitPrice) await pricingP();
+        await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
+      }
+      else if (key === 'clients') await clientsListP();
+      else if (key === 'demand') await start('demand', () => loadOpenDemand());
+      else if (key === 'shared') await start('shared', () => loadSharedWithMe());
+      else if (key === 'agreements') await start('agreements', () => loadAgreements());
+      else if (key === 'agenda') await start('agenda', () => loadAgenda());
+      else if (key === 'reviews' && agent.role === 'manager' && agent.agency_id){
+        await start('reviews', () => loadPendingReviews(agent.agency_id));
+      } else if (key === 'prefs'){
+        await Promise.all([
+          start('notifPrefs', () => loadNotifPrefs(agent.id)),
+          start('preferences', () => loadPreferences(agent.id)),
+        ]);
+      } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
+    }
+  }
+  let gotoHandled = false;
+  if (gotoRaw && gotoOpensEarly(gotoRaw, gotoTab)){
+    // מחיר הליד, ה-CMA והקידום נקראים מ-priceOf. בלי זה היעד נפתח על
+    // ברירות המחדל הקשיחות, כי pricingP עוד לא התחיל.
+    const waitPrice = gotoRaw === 'cma' || gotoRaw === 'promote'
+      || (gotoRaw === 'accLeads' && gotoTab !== 'demand');
+    if (waitPrice) pricingP();
+    try { revealGotoTarget(gotoRaw); }
+    catch (err){ console.warn('פתיחת יעד הקישור נכשלה:', err); }
+    try { await loadRequestedGoto(gotoLoadKeys(gotoRaw, gotoTab), waitPrice); }
+    catch (err){ console.warn('טעינת יעד הקישור נכשלה:', err); }
+    if (waitPrice) await pricingP();
+    handleGotoParam();
+    gotoHandled = true;
+  }
   // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
-  // רצה בה תיפתח כרגיל, בלי הקטגוריה.
+  // רצה בה תיפתח כרגיל, בלי הקטגוריה. אחרי יעד הקישור, כדי לא לרוץ לפניו.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
   await Promise.all([
-    pricingP,
-    propsP,
-    clientsP,
-    propsP.then(()=> loadLeads(agent.id)),
-    pricingP.then(()=> Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])),
-    loadSharedWithMe(),
-    loadAgreements(),
-    loadNotifications(agent.id),
-    loadNotifPrefs(agent.id),
-    loadPreferences(agent.id),
+    pricingP(),
+    propsP(),
+    clientsP(),
+    propsP().then(() => start('leads', () => loadLeads(agent.id))),
+    pricingP().then(() => start('shelves', () => Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)]))),
+    start('shared', () => loadSharedWithMe()),
+    start('agreements', () => loadAgreements()),
+    start('notifications', () => loadNotifications(agent.id)),
+    start('notifPrefs', () => loadNotifPrefs(agent.id)),
+    start('preferences', () => loadPreferences(agent.id)),
   ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -2353,7 +2413,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     await Promise.all([
       loadBranding(agent.agency_id),
       loadTeam(agent.agency_id, agent.id),
-      loadPendingReviews(agent.agency_id),
+      start('reviews', () => loadPendingReviews(agent.agency_id)),
       loadAgencyEthics(agent.agency_id),
     ]);
   } else {
@@ -2399,9 +2459,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   refreshNavCounts();
   dashPanelsMeasure();
 
-  // אחרון, ובכוונה: הניווט לפי ?goto= נשען על navAccVisible ועל המונים, ולכן
-  // הוא חייב לרוץ אחרי שהניווט וההרשאות כבר במקומם.
-  handleGotoParam();
+  // קישור שכבר נפתח למעלה לא רץ שוב: handleGotoParam מוחק את ה-query.
+  // מה שנשאר לכאן הוא כניסה בלי ?goto=, ויעד של ניהול שהמסך שלו מוסתר
+  // עד שההרשאות נקבעות (אזור המנהל/ת, תצוגת הפלטפורמה).
+  if (!gotoHandled) handleGotoParam();
   handleShareParam();
   // אחרי הכול ובהשהיה - ראו scheduleGovmapAutoComplete
   scheduleGovmapAutoComplete(agent);
@@ -2448,6 +2509,48 @@ function openAdminHome(){
   const el = document.getElementById('ccCoach') || document.getElementById('adminCommand');
   if (el) setTimeout(()=> scrollToTopOf(el), 50);
   return true;
+}
+
+/* אילו טעינות חוסמות את פתיחת היעד. מה שאין כאן רץ אחרי שהמסך כבר פתוח,
+   ובפרט client_match_top (בתוך loadClients) לא חוסם קישור ללידים, לנכס
+   או לביקוש פתוח. demand הוא הלשונית "ביקוש פתוח" - בלי רשימת הלידים. */
+function gotoLoadKeys(raw, tab){
+  if (!raw) return [];
+  if (raw === 'accLeads' && tab === 'demand') return ['demand'];
+  if (raw === 'accLeads') return ['props', 'leads'];
+  if (raw === 'accClients') return ['props', 'clients'];
+  if (raw === 'accProperties' || raw === 'cma' || raw === 'promote' || raw === 'waShare') return ['props'];
+  if (raw === 'accSharedWithMe') return ['shared'];
+  if (raw === 'accAgreements' || raw === 'sign') return ['agreements'];
+  if (raw === 'accAgenda') return ['agenda'];
+  if (raw === 'accReviews') return ['reviews'];
+  if (raw === 'accPrefs' || raw === 'accNotifPrefs') return ['prefs'];
+  if (raw === 'bell') return ['notifications'];
+  return [];
+}
+
+/* יעד שאפשר לפתוח ברגע שהמעטפת על המסך. אזור המנהל/ת עדיין מוסתר כאן,
+   ולכן ביקורת שממתינה נשארת לסוף loadDashboard - אחרת הקישור היה נמחק
+   מהכתובת בלי שהכרטיס נפתח. */
+function gotoTargetReady(raw){
+  if (raw === 'mentor' || raw === 'license' || raw === 'cma' || raw === 'cmaAddress'
+      || raw === 'promote' || raw === 'waShare' || raw === 'sign') return true;
+  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return false;
+  if (NAV_TAB_OF.get(raw) === 'admin') return false;
+  return navAccVisible(accAliasTarget(raw));
+}
+
+function gotoOpensEarly(raw, tab){
+  if (!raw || !gotoTargetReady(raw)) return false;
+  if (gotoLoadKeys(raw, tab).length) return true;
+  return raw === 'mentor' || raw === 'license' || raw === 'cmaAddress' || raw === 'accPlanning';
+}
+
+function revealGotoTarget(raw){
+  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return;
+  if (NAV_TAB_OF.get(raw) === 'admin') return;
+  if (!navAccVisible(accAliasTarget(raw))) return;
+  gotoSection(raw);
 }
 
 function handleGotoParam(){
@@ -2516,7 +2619,8 @@ function handleGotoParam(){
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
-  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function')
+    openLeadsDemand({ fromLink: true });
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -20025,9 +20129,15 @@ function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
-  listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
-    ? leadsSkeletonHtml()
-    : '<div class="empty-state">טוען…</div>';
+  /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
+     ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
+  const demandShown = leadsTab === 'demand' && openDemandRows !== null
+    && !!listEl.querySelector('.lp-demand-hint');
+  if (!demandShown){
+    listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
+      ? leadsSkeletonHtml()
+      : '<div class="empty-state">טוען…</div>';
+  }
 
   // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
