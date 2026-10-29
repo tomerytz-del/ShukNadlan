@@ -2944,18 +2944,27 @@ function renderContactButtons(p){
   watchStickyBar();
   const phone = p.agency_members?.phone_e164;
   const agentName = p.agency_members?.display_name || '';
+  // נכס ביריד עכשיו: רק הטופס, עד שהדגל דלוק (‏OpenHouse.directContactEnabled)
+  const fairGate = !!(phone && window.OpenHouse && OpenHouse.live(p));
 
-  if (!phone){
-    // בלי טלפון נשארת רק דרך אחת ליצור קשר — הטופס
+  if (!phone || fairGate){
+    // בלי טלפון (או ביריד) נשארת רק דרך אחת ליצור קשר — הטופס
     const formBtn = document.getElementById('sbFormBtn');
     formBtn.hidden = false;
     formBtn.addEventListener('click', ()=>{
       document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
       setTimeout(()=> document.getElementById('inqName').focus(), 420);
     });
+    if (fairGate) OpenHouse.directContactEnabled(sbClient()).then(on => {
+      if (on) renderDirectContact(p, phone, agentName);
+    });
     return;
   }
+  renderDirectContact(p, phone, agentName);
+}
 
+function renderDirectContact(p, phone, agentName){
+  document.getElementById('sbFormBtn').hidden = true;
   const text = [
     'היי' + (agentName ? ' ' + agentName : '') + ',',
     `ראיתי בשוק נדל״ן את הנכס "${p.title}" (${priceLabel(p)}) ואשמח לקבל פרטים נוספים.`,

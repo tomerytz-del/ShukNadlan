@@ -663,6 +663,26 @@ where open_house and open_house_end <= now();
 קבלה: ליד דקה לפני `open_house_end` - דלוק; דקה אחרי - כבוי; שינוי `open_house_end`
 אחר כך אינו משנה לידים קיימים.
 
+## וואטסאפ וחיוג בנכס ביריד: רק טופס, עד שיש רישום בשרת
+
+ההבטחה תלויה ב**זמן הפנייה**, והיום רק הטופס (‏`property-inquiry-intake`) נשמר
+בשרת. לחיצה על וואטסאפ או חיוג משאירה רק `contact_agent` / ‏`swipe_contact_click`
+ב-GTM - אנונימי, בלי נכס ובלי זמן שאפשר להציג במחלוקת. לכן:
+
+- נכס ש-`OpenHouse.live(p)` עליו **עכשיו**: בדף הנכס (‏`renderContactButtons` ב-
+  `assets/property.js`) ובמסך ההחלקה (‏`syncActions` ב-`assets/swipe.js`) אין בועת
+  וואטסאפ, אין כפתורי וואטסאפ/חיוג בכרטיס ובסרגל התחתון. נשאר הטופס, והסרגל התחתון
+  מציג את הכפתור שגולל אליו.
+- הדגל `fair_contact_logging_enabled` ב-`pricing_config` (‏0 כברירת מחדל) מחזיר את
+  הכפתורים כשהוא `1`. הקריאה היא `OpenHouse.directContactEnabled(sb)` - פעם אחת לדף,
+  ו**נכשלת סגור** (שגיאה או שורה חסרה = רק טופס).
+- נכס מחוץ ליריד לא מושפע. נכס שהחלון שלו נסגר בזמן שהדף פתוח נשאר כפי שנטען.
+- מדליקים את הדגל רק אחרי שהרישום בשרת (‏`fair_inquiries`) עובד ונבדק, ובאישור תומר:
+
+```sql
+update public.pricing_config set value = 1 where key = 'fair_contact_logging_enabled';
+```
+
 ## ‏`/open-house` בגרסת v10 (‏PR 1010, חלק 7 §A) - רק מאחורי הדגל
 
 הדגל (‏`?beta=1` / ‏`localStorage.sk_beta_hero`) נקרא בראש הדף כמו בדף הבית. בלי הדגל

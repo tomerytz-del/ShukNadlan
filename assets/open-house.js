@@ -335,6 +335,28 @@
      מנוסחת במקום אחד כי היא הבטחה מסחרית: "ללא עמלת תיווך" מופיעה על
      האריח, בבאנר, בדף הנכס ובדף היריד — וניסוח שונה בכל מקום הוא ארבע
      הבטחות שונות. */
+  /* ---------- וואטסאפ וחיוג בנכס ביריד ----------
+     ההבטחה "ללא עמלה" חלה על מי שפנה *לפני סוף החלון*, ולכן צריך הוכחה
+     לזמן הפנייה. היום רק הטופס נשמר בשרת (‏property-inquiry-intake), ולחיצה
+     על וואטסאפ או חיוג משאירה רק אירוע אנונימי ב-GTM. עד שהרישום בשרת
+     עובד, נכס שביריד *עכשיו* מציג רק את הטופס.
+     הדגל ‏fair_contact_logging_enabled ב-pricing_config מחזיר את הכפתורים
+     (‏1), ומדליקים אותו רק באישור תומר. נכשל סגור: שגיאה או שורה חסרה =
+     רק טופס, כי זה הערוץ היחיד שמשאיר הוכחה.
+     הלקוח של Supabase מגיע מהדף, כדי שהקובץ יישאר בלי תלות בו. נקרא פעם
+     אחת לכל טעינת דף. */
+  var directP = null;
+  function directContactEnabled(sb) {
+    if (!directP) {
+      directP = !sb ? Promise.resolve(false) :
+        Promise.resolve(sb.from('pricing_config').select('value')
+          .eq('key', 'fair_contact_logging_enabled').maybeSingle())
+          .then(function (r) { return !!(r && !r.error && r.data && Number(r.data.value) === 1); },
+                function () { return false; });
+    }
+    return directP;
+  }
+
   var NO_FEE = 'ללא עמלת תיווך';
   var FAIR_NAME = 'יריד הבתים הפתוחים';
 
@@ -355,6 +377,7 @@
     icon: icon,
     zeroArt: zeroArt,
     mapPinHtml: mapPinHtml,
+    directContactEnabled: directContactEnabled,
     NO_FEE: NO_FEE,
     FAIR_NAME: FAIR_NAME,
   };

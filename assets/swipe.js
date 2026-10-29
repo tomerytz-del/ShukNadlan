@@ -94,6 +94,7 @@
 
   /* ---------- 1. נתונים ---------- */
   var sb = null;
+  var fairDirect = false;   // ‏fair_contact_logging_enabled - וואטסאפ וחיוג בנכס ביריד
   var all = [];          // כל הנכסים הפעילים בשוק
   var agents = new Map();
   var articles = [];
@@ -369,6 +370,7 @@
   function load() {
     if (!window.supabase) return Promise.resolve([]);
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (window.OpenHouse) OpenHouse.directContactEnabled(sb).then(function (on) { fairDirect = on; if (on) syncActions(); });
     var specP = window.MarketScope ? MarketScope.spec(sb) : Promise.resolve(null), mspec = null;
     /* כתבות לכרטיס הכתבה (§6.1): 12 האחרונות עם הגוף (זמן קריאה ותקציר). יוצאות במקביל
        לנכסים ולא מעכבות את הכרטיס הראשון - מה שלא הגיע תוך שנייה וחצי פשוט לא בחפיסה הזו */
@@ -1810,6 +1812,8 @@
     $('swUndo').disabled = !history_.length;
     // ‏P0-7: ‏phone_e164 שמור בלי '+', ו-tel:9725… מחייג בטלפון מספר מקומי שגוי
     var phone = adv && adv.phone ? adv.phone.replace(/\D/g, '') : '';
+    // נכס ביריד עכשיו: רק הטופס בגיליון, עד שהדגל דלוק (‏OpenHouse.directContactEnabled)
+    if (phone && fairLive(p) && !fairDirect) phone = '';
     $('swCall').hidden = !phone; $('swWa').hidden = !phone;
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
