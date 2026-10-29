@@ -508,12 +508,18 @@ const OPEN_DEMAND_NO_BROKER = {
 };
 
 let openDemandP = null;
+let openDemandQuiet = false;
 function loadOpenDemand(silent){
-  // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב)
-  if (openDemandP) return openDemandP;
+  // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב).
+  // קריאה רגילה באמצע טעינה שקטה עדיין מציגה שגיאה.
+  if (openDemandP) {
+    if (!silent) openDemandQuiet = false;
+    return openDemandP;
+  }
+  openDemandQuiet = !!silent;
   openDemandLoading = true;
   openDemandP = Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]).then(([list, stats]) => {
-    if (list.error){ if (!silent) showToast(heErr(list.error)); openDemandRows = []; }
+    if (list.error){ if (!openDemandQuiet) showToast(heErr(list.error)); openDemandRows = []; }
     else openDemandRows = list.data || [];
     openDemandStats = stats.error ? null : stats.data;
     if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);

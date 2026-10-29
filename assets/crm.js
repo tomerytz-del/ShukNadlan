@@ -2278,10 +2278,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       return loadClientAlerts();
     }));
   }
-  async function loadRequestedGoto(keys){
+  async function loadRequestedGoto(keys, waitPrice){
     for (const key of keys){
       if (key === 'props') await propertiesP();
-      else if (key === 'leads') await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
+      else if (key === 'leads') {
+        if (waitPrice) await pricingP();
+        await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
+      }
       else if (key === 'clients') await clientsListP();
       else if (key === 'demand') await start('demand', () => loadOpenDemand());
       else if (key === 'shared') await start('shared', () => loadSharedWithMe());
@@ -2299,10 +2302,16 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   }
   let gotoHandled = false;
   if (gotoRaw && gotoOpensEarly(gotoRaw, gotoTab)){
+    // מחיר הליד, ה-CMA והקידום נקראים מ-priceOf. בלי זה היעד נפתח על
+    // ברירות המחדל הקשיחות, כי pricingP עוד לא התחיל.
+    const waitPrice = gotoRaw === 'cma' || gotoRaw === 'promote'
+      || (gotoRaw === 'accLeads' && gotoTab !== 'demand');
+    if (waitPrice) pricingP();
     try { revealGotoTarget(gotoRaw); }
     catch (err){ console.warn('פתיחת יעד הקישור נכשלה:', err); }
-    try { await loadRequestedGoto(gotoLoadKeys(gotoRaw, gotoTab)); }
+    try { await loadRequestedGoto(gotoLoadKeys(gotoRaw, gotoTab), waitPrice); }
     catch (err){ console.warn('טעינת יעד הקישור נכשלה:', err); }
+    if (waitPrice) await pricingP();
     handleGotoParam();
     gotoHandled = true;
   }

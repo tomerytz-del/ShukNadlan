@@ -8,12 +8,14 @@ on:
   pull_request:
     paths:
       - "assets/crm.js"
+      - "assets/crm-leads.js"
       - "scripts/crm_goto_load_test.mjs"
       - ".github/workflows/crm_goto_load.yml"
   push:
     branches: [main]
     paths:
       - "assets/crm.js"
+      - "assets/crm-leads.js"
       - "scripts/crm_goto_load_test.mjs"
       - ".github/workflows/crm_goto_load.yml"
   workflow_dispatch:
