@@ -5,6 +5,7 @@
   --sw-body:#4a5060;--sw-title:#1b1f2a;--sw-line:#d5dae6;--sw-cream:#f6f1e7;--sw-bg:#f4f6fb;
   --sec-h:22px;--sub-h:15px;
   --sw-safe-b:env(safe-area-inset-bottom,0px);
+  --sw-safe-t:env(safe-area-inset-top,0px);
 }
 @media (min-width:760px){:root{--sec-h:32px;--sub-h:17px}}
 html body.sw-body{margin:0;background:var(--sw-bg);color:var(--sw-title);font-family:Heebo,system-ui,sans-serif;overflow-x:hidden}
@@ -717,6 +718,7 @@ body[data-view=likes] .sw-sortbar{display:none}
 /* רצועת היריד בגיליון הפרטים */
 .sw-fairband{margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:#0e2a6b;border-top:3px solid #c9a227;color:#fff}
 .sw-fairband p{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.5}
+html body .sw-fairband .sw-fairform{color:#e5c76a;font-weight:800}
 .sw-fairband a{color:#e5c76a;font-size:13.5px;font-weight:700;text-decoration:underline}
 
 /* §3/§5 כרטיסי הזמנה: אותה תבנית של כרטיס הסיום, מסגרת זהב פנימית */
@@ -960,3 +962,144 @@ body[data-view=list] .sw-layout{display:inline-flex}
   #swFilter .sw-fpair{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;align-items:start}
 }
 
+
+/* ---------- Variant C, phase 1 (phones) ----------
+   ‏docs/swipe-mode.md, "Variant C בטלפון". הכול רק עד 759px ורק בתצוגת ההחלקה: טאבלט, מחשב,
+   רשימה, מפה ו"אהבתי" בלי שינוי. תמונה על כל המסך, כותרת שקופה מעליה, מסילה בצד שמאל,
+   מחיר וכפתור זהב אחד למטה, ושלושה כפתורים עגולים. צללים ורקעים בנייבי, אף פעם לא שחור */
+@media (max-width:759px){
+  body[data-view=deck] .sw-ctl,body[data-view=deck] .sw-keys{display:none}
+  body[data-view=deck] .sw{position:relative;height:100svh;min-height:0;max-width:none;padding:0;margin:0;overflow:hidden}
+  body[data-view=deck] .sw-deck-view{position:absolute;inset:0;overflow:hidden}
+  body[data-view=deck] .sw-deck{position:absolute;inset:0;margin:0;max-height:none;min-height:0}
+  /* הכרטיס הבא גלוי מתחת לכרטיס שעף, כמו בטינדר. ‏z-index לשניהם: בלי ה-transform אין לכרטיס
+     התחתון הקשר משלו, והמחיר שלו (‏z-index:2) עלה מעל הכרטיס העליון */
+  body[data-view=deck] .sw-under{transform:none;opacity:1;z-index:0}
+  body[data-view=deck] .sw-top-card{z-index:1}
+  body[data-view=deck] .sw-top-card,body[data-view=deck] .sw-card,body[data-view=deck] .sw-cimg{border-radius:0;box-shadow:none}
+  body[data-view=deck] .sw-card::after{background:linear-gradient(to bottom,rgba(13,27,61,.62) 0%,rgba(13,27,61,0) 17%,rgba(13,27,61,0) 52%,rgba(13,27,61,.55) 68%,rgba(13,27,61,.94) 100%)}
+  /* כותרת שקופה: לוגו · חיפוש · מפה · ? · נגישות */
+  body[data-view=deck] .sw-top{position:absolute;top:0;left:0;right:0;z-index:40;padding:calc(6px + var(--sw-safe-t)) 10px 8px;gap:6px;background:none}
+  body[data-view=deck] .sw-logo img{width:22px;height:26px;filter:drop-shadow(0 0 3px rgba(255,255,255,.7))}
+  body[data-view=deck] #swLikes{display:none}
+  body[data-view=deck] .sw-sum{height:44px;min-height:44px;padding:0 14px;border:1px solid rgba(255,255,255,.38);background:rgba(13,27,61,.28);color:#fff;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-size:14px;font-weight:600}
+  body[data-view=deck] .sw-sum svg{color:#fff}
+  body[data-view=deck] .sw-top-end{gap:6px}
+  body[data-view=deck] .sw-top .sw-ic{width:44px;min-width:44px;height:44px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.38);background:rgba(13,27,61,.28);
+    color:#fff;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-weight:800;font-size:17px}
+  body[data-view=deck] .sw-a11y-slot{display:block;width:44px;height:44px;flex:none}
+  /* ההודעה הקופצת (עם "ביטול") מתחת לכותרת, לא על כפתור הזהב */
+  body[data-view=deck] .sw-toast{top:calc(64px + var(--sw-safe-t));bottom:auto}
+}
+.sw-hmap,.sw-a11y-slot{display:none}
+@media (max-width:759px){body[data-view=deck] .sw-hmap{display:inline-flex}}
+/* כפתור הנגישות (חובה, תמיד בהישג יד): נשאר הצומת של a11y-menu.js, ומוצמד ב-CSS מעל המקום השמור בכותרת.
+   בטלפון בהחלקה הוא אייקון בכותרת, ולכן בלי "הסתרת הכפתור" ובלי לשונית בקצה */
+@media (max-width:759px){
+  html body[data-view=deck] .a11y-fab,html.a11y-min body[data-view=deck] .a11y-fab{position:fixed;top:calc(6px + var(--sw-safe-t));left:10px;right:auto;bottom:auto;
+    width:44px;height:44px;border-radius:50%;background:#0e2a6b;border:1px solid rgba(255,255,255,.55);box-shadow:none;transform:none;z-index:150}
+  html body[data-view=deck] .a11y-fab svg,html.a11y-min body[data-view=deck] .a11y-fab svg{width:22px;height:22px;color:#fff}
+  html body[data-view=deck] .a11y-hide,html body[data-view=deck] .a11y-hide-opt{display:none}
+  html body[data-view=deck] .a11y-panel{top:calc(58px + var(--sw-safe-t));bottom:auto;left:10px;right:auto;max-height:calc(100dvh - 70px - var(--sw-safe-t))}
+}
+/* פסי השקופיות, התגיות ושבב ה-AI מתחת לכותרת הצפה. השבב 30px לעין, ‏44px למגע */
+@media (max-width:759px){
+  body[data-view=deck] .sw-bars{top:calc(58px + var(--sw-safe-t));left:12px;right:12px}
+  body[data-view=deck] .sw-ctop{top:calc(68px + var(--sw-safe-t));left:12px;right:12px}
+  body[data-view=deck] .sw-tag{font-size:12px;padding:3px 9px}
+  body[data-view=deck] .sw-vpill{top:calc(100px + var(--sw-safe-t));left:12px;height:30px;min-height:0;padding:0 11px;font-size:12px;font-weight:700;border-radius:999px;
+    background:rgba(255,255,255,.82);color:#0e2a6b;box-shadow:0 2px 8px rgba(13,27,61,.18);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  body[data-view=deck] .sw-vpill::before{content:"";position:absolute;inset:-7px -2px}
+  body[data-view=deck] .sw-ba-lbl{top:calc(100px + var(--sw-safe-t))}
+  /* מה שישב בראש הכרטיס יורד אל מתחת לכותרת: קול הרילס, חותמות ההחלקה, "ממומן" ונכס בלי תמונות */
+  body[data-view=deck] .sw-reel-mute{top:calc(100px + var(--sw-safe-t));left:12px}
+  body[data-view=deck] .sw-reel-snd{top:calc(152px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-stamp{top:calc(132px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-spon-badge{top:calc(68px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-card.is-np .np-brand{top:calc(104px + var(--sw-safe-t))}
+  body[data-view=deck] .sw-card.is-np .np-swipe-in{top:calc(136px + var(--sw-safe-t))}
+}
+/* המסילה בצד שמאל: המועדפים · ליועץ · מפרט. עיגול זכוכית נייבי 46px, תווית קטנה מתחת, ומונה ירוק (הלב) */
+.sw-rail{display:none}
+@media (max-width:759px){
+  body[data-view=deck] .sw-rail{display:flex;position:absolute;left:10px;bottom:calc(268px + var(--sw-safe-b));z-index:30;flex-direction:column;align-items:center;gap:8px}
+  body[data-view=deck] .sw-rail[hidden]{display:none}
+  .sw-rbtn{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:46px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .sw-ric{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:rgba(14,42,107,.5);border:1px solid rgba(255,255,255,.4);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(13,27,61,.3)}
+  .sw-ric svg{width:22px;height:22px}
+  .sw-ric svg[hidden]{display:none}
+  .sw-rlbl{font-size:11px;font-weight:700;line-height:1.2;color:#fff;text-shadow:0 1px 3px rgba(13,27,61,.9);white-space:nowrap}
+  .sw-rbadge{position:absolute;top:-4px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;border:1.5px solid #fff;background:#1f8a4c;color:#fff;
+    font-size:11px;font-weight:800;line-height:17px;text-align:center;box-sizing:border-box}
+  .sw-rbadge[hidden]{display:none}
+  .sw-rbtn:focus-visible{outline:none}
+  .sw-rbtn:focus-visible .sw-ric{outline:3px solid var(--sw-gold);outline-offset:2px}
+}
+/* "איך נוח לכם?" - וואטסאפ (ירוק, כי זה וואטסאפ) או חיוג */
+.sw-bs-row{display:flex;gap:10px;justify-content:center}
+.sw-bs-row .sw-wa-btn,.sw-bs-row .sw-white{min-height:48px;min-width:132px}
+/* השכבה התחתונה: מחיר, שכונה ועיר, נתונים, כפתור זהב אחד; ומתחתיה שמירה · ביטול · דילוג בעיגולים */
+.sw-area,.sw-cmain{display:none}
+.sw-act-lbl{display:none}
+@media (max-width:759px){
+  body[data-view=deck] .sw-acts,body[data-view=deck] .sw-ctitle,body[data-view=deck] .sw-where,body[data-view=deck] .sw-by{display:none}
+  body[data-view=deck] .sw-top-card .sw-cbody{padding:0 16px calc(96px + var(--sw-safe-b))}
+  /* בלי ה-56px של גבריאלה הפתוחה (למעלה): בפריסה הזו הבועה יורדת לשורת העיגולים (‏§9) */
+  body.sw-body[data-view=deck]:has(#gabW:not(.is-min)) .sw-top-card .sw-cbody{padding-bottom:calc(96px + var(--sw-safe-b))}
+  body[data-view=deck] .sw-price{font-size:30px;font-weight:800;line-height:1.1}
+  body[data-view=deck] .sw-area{display:block;margin:4px 0 0;font-size:15px;font-weight:600;color:#fff;opacity:.95}
+  html body[data-view=deck] .sw-card .sw-area{color:#fff}
+  body[data-view=deck] .sw-facts{font-size:14.5px;margin-top:3px}
+  body[data-view=deck] .sw-cmain{display:flex;align-items:center;justify-content:center;width:100%;height:48px;min-height:48px;margin-top:12px;border:0;border-radius:14px;
+    background:#c9a227;color:#0e2a6b;font:800 16px Heebo,system-ui,sans-serif;box-shadow:0 4px 14px rgba(13,27,61,.3)}
+  /* שורת העיגולים: שמירה (ימין) · ביטול · דילוג (שמאל), כמו כיווני ההחלקה */
+  /* ‏32px ולא 10px: כמו שנמדד במוקאפ (העיגולים ב-550 ב-360x640) - כך התוויות "שמירה"/"דילוג" לא נחתכות בתחתית */
+  body[data-view=deck] #swActions{position:absolute;left:0;right:0;bottom:calc(32px + var(--sw-safe-b));z-index:30;padding:0;gap:28px;align-items:flex-start;pointer-events:none}
+  body[data-view=deck] #swActions>*{pointer-events:auto}
+  body[data-view=deck] #swWa,body[data-view=deck] #swCall{display:none}
+  body[data-view=deck] .sw-act{width:58px;height:58px;border-radius:50%;color:#fff;box-shadow:0 4px 14px rgba(13,27,61,.35);overflow:visible}
+  body[data-view=deck] .sw-act svg{width:27px;height:27px}
+  body[data-view=deck] .sw-act-like{background:#1f8a4c;border:1.5px solid rgba(255,255,255,.7)}
+  body[data-view=deck] .sw-act-like[aria-pressed="true"]{background:#1f8a4c}
+  body[data-view=deck] .sw-act-skip{background:rgba(14,42,107,.7);border:1.5px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  body[data-view=deck] .sw-act-undo{width:44px;height:44px;margin-top:7px;background:rgba(14,42,107,.55);border:1px solid rgba(255,255,255,.45)}
+  body[data-view=deck] .sw-act-undo svg{width:20px;height:20px}
+  body[data-view=deck] .sw-act-undo:disabled{opacity:.45}
+  body[data-view=deck] .sw-act-lbl{display:block;position:absolute;top:100%;margin-top:3px;font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(13,27,61,.9);white-space:nowrap}
+  /* גיליון הפרטים עולה עד למטה (העיגולים מתחתיו), וכפתור הזהב שבו נשאר מעל פס הבית */
+  body[data-view=deck] #swSheet{bottom:0}
+  body[data-view=deck] #swSheet .sw-sheet{max-height:80svh;border-radius:22px 22px 0 0}
+  body[data-view=deck] #swSheet .sw-cta-bar{padding-bottom:calc(12px + var(--sw-safe-b))}
+  /* כפתור קשר זהב אחד בגיליון (‏#swCta). הגלולה שבבאנר נשארת ב-DOM (‏toggleForm כותב לחץ שלה) */
+  .sw-dsheet .sw-bn-pill{display:none}
+}
+/* ראש גיליון הסינון בטלפון בהחלקה: רשימה · מפה (רק שתי התצוגות האחרות) ומיון. בשאר המקרים מוסתר,
+   כי שם שורת התצוגות והמיון גלויה - בלי כפתור כפול */
+.sw-ftop{display:none}
+@media (max-width:759px){
+  body[data-view=deck] .sw-ftop{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 18px;border-bottom:1px solid #eef0f5}
+  .sw-fviews{display:flex;gap:6px}
+  .sw-fviews button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:56px;min-height:48px;padding:4px 10px;
+    border:1.5px solid var(--sw-line);border-radius:12px;background:#fff;color:var(--sw-navy);font:inherit;font-size:11.5px;font-weight:700;line-height:1.1;cursor:pointer}
+  .sw-fviews button:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
+  .sw-ftop .sw-sortchip{min-height:44px;white-space:nowrap}
+  .sw-ftop .sw-sortchip:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
+}
+/* ההדרכה על כל המסך בטלפון: הכיתוב והכפתורים מעל שורת העיגולים, וב"למעלה" - מתחת לכותרת */
+@media (max-width:759px){
+  body[data-view=deck] .sw-tour{border-radius:0}
+  body[data-view=deck] .sw-tour-ctl{bottom:calc(104px + var(--sw-safe-b))}
+  body[data-view=deck] .sw-tour.is-up .sw-tour-ctl{top:calc(66px + var(--sw-safe-t));bottom:auto}
+}
+/* גבריאלה מול המסילה: הלשונית (18px בקצה) בין שבב ה-AI לבין המסילה, ובטלפון נמוך (מתחת ל-700px) המסילה
+   בשני פריטים - "מפרט" כפול לכפתור הזהב. הבועה הפתוחה יורדת לשורת העיגולים, משמאל ל-✕ */
+@media (max-width:759px){
+  html.beta-hero body.sw-body[data-view=deck] #gabW.is-min .gw-bubble{
+    top:clamp(calc(144px + var(--sw-safe-t)), 28dvh, calc(100dvh - 268px - var(--sw-safe-b) - var(--sw-rail-h,202px) - 60px));bottom:auto}
+  html.beta-hero body.sw-body[data-view=deck]:has(.a11y-fab) #gabW{--gw-bottom:calc(32px + 7px + var(--sw-safe-b));--gw-left:12px}
+}
+@media (max-width:759px) and (max-height:699px){
+  body[data-view=deck] #swRailSpec{display:none}
+}
