@@ -657,11 +657,83 @@ where open_house and open_house_end <= now();
 - ב-CRM: תג זהב **"פנייה בתקופת היריד · ללא עמלת תיווך"** בכרטיס הליד
   (‏`leadFairChip` ב-`assets/crm.js`), עם תאריך הסיום בתיאור. נשאר לתמיד.
 - בהתראה לסוכן/ת על ליד חדש (‏`notify_agent_on_new_lead`) אותה שורה בסוף הגוף.
-- **המיגרציה נכתבה ולא הוחלה:** `docs/proposals/open_house_lead_eligibility.sql`.
-  עד שתוחל אין עמודה, והכרטיס פשוט לא מציג תג.
+- **ההצעה הזו הוחלפה (29.10.2026) ולא תוחל:** `docs/proposals/open_house_lead_eligibility.sql`
+  נשארת לתיעוד בלבד. מקור האמת הוא היומן `fair_inquiries` שבסעיף הבא, והתג
+  בכרטיס נדלק ממנו.
 
 קבלה: ליד דקה לפני `open_house_end` - דלוק; דקה אחרי - כבוי; שינוי `open_house_end`
 אחר כך אינו משנה לידים קיימים.
+
+## רישום פניות היריד: `fair_inquiries` (החלטות תומר, 29.10.2026)
+
+היומן שמוכיח *מתי* פנייה על נכס ביריד התקבלה, בשעת השרת. טבלה נפרדת ולא
+עמודות על `leads`, משלוש סיבות: סוכן/ת יכול/ה למחוק ליד והעדות חייבת לשרוד את
+זה, ללחיצה על וואטסאפ (בעתיד) אין ליד, ואין צורך להחליף את `leads_masked` ואת
+`notify_agent_on_new_lead` - החלקים המסוכנים בהצעה הישנה. המיגרציה:
+`supabase/migrations/20271031120000_fair_inquiries.sql`.
+
+**איך שורה נכתבת.** טריגר `after insert` על `leads` (‏`leads_log_fair_inquiry`)
+בודק את הנכס של הליד מול `now()` - שעון השרת, לא הדפדפן ולא `created_at` של
+הליד - באותו תנאי של `OpenHouse.live`: ‏`open_house` דלוק ו-`start <= now <= end`.
+הדגל לבדו אינו מספיק: `expire_open_house` רצה כל רבע שעה, ובינתיים הוא עוד דלוק.
+‏`now() <= end` כולל: פנייה ב-23:59:59.000 נרשמת. הטריגר בולע את השגיאות שלו -
+רישום לעולם אינו מפיל ליד - ומילוי לאחור באותה מיגרציה משלים לידים שכבר נכנסו.
+
+| הליד | `channel` | `status` |
+| --- | --- | --- |
+| טופס בדף הנכס, גיליון ההחלקה, בקשת תמונות (‏`source` ריק, `swipe`, `photo_request`) | `form` | `eligible` |
+| הדמיית AI על הנכס (‏`lead_type = 'visualization'`) | `visualization` | `eligible` |
+| פייסבוק ואינסטגרם (‏`social-lead-intake`) | `social` | `pending_owner_decision` |
+| טופס של מטא (‏`meta_ads_*`) | `meta_ads` | `pending_owner_decision` |
+| כל מקור אחר | `form` | `pending_owner_decision` |
+
+**‏`pending_owner_decision`** - נרשם עם המקור, `external_ref` (מזהה ההודעה)
+ושעת ההודעה ברשת (‏`platform_at`), **בלי** ויתור אוטומטי: תומר מחליט בכל מקרה.
+‏`social-lead-intake` מעביר פנייה על נכס דרך `property-inquiry-intake` עם
+`property_id`, ולכן ההבחנה היא לפי `source` ולא לפי סוג הליד. הרשימה של
+`eligible` סגורה: מקור חדש נופל להחלטה, לא לזכאות.
+
+**שעת הפלטפורמה.** ‏`social-lead-intake` מקבל שדה רשות `message_at` (ISO) ומעביר
+אותו כ-`platform_at`. ‏`property-inquiry-intake` מקבל אותו רק מקורא פנימי, בטווח
+של חודש אחורה, וממלא אותו בשורה אחרי ה-insert. כל עוד Zernio אינו שולח
+`message_at` העמודה ריקה, ו-`created_at` (שעת הקליטה) הוא הזמן היחיד.
+
+**האפליקציה** פותחת את האתר ב-WebView ועוברת באותה פונקציה, ולכן מכוסה מעצמה.
+‏`User-Agent` עם `ShukNadlanApp/` ממלא `source_page = 'app'`.
+
+**השורה אינה משתנה.** הטריגר `fair_inquiries_guard` חוסם מחיקה וכל שינוי, חוץ
+ממפתח זר שמתנקה (מחיקת ליד, נכס, סוכן/ת או משרד - ולכן `property_label` ושם
+וטלפון הפונה נשמרים כצילום), ניקוי השם והטלפון, ומילוי חד-פעמי של `platform_at`
+ו-`source_page`.
+
+**מי רואה מה.** ‏`anon` - כלום. סוכן/ת - השורות שלו/ה, ומנהל/ת - של המשרד, בלי
+השם והטלפון (‏grant לפי עמודה); הפרטים עצמם נשארים ב-`leads` עם המיסוך והפתיחה
+הרגילים. ב-CRM: תג הזהב בכרטיס הליד ל-`eligible`, ותג ניטרלי "ממתין להחלטת
+תומר" ל-`pending_owner_decision` (‏`loadLeadFair`, `leadFairChip`). מנהל/ת
+הפלטפורמה: הכפתור **"ייצוא פניות יריד (CSV)"** בדשבורד הפלטפורמה, דרך
+`admin_fair_inquiries()` - 90 הימים האחרונים, בשעון ישראל, עם השם והטלפון.
+
+**שמירת נתונים.** שם וטלפון נמחקים אחרי שנתיים (‏`data_retention_settings`,
+‏`fair_inquiries_pii`) במשימה החודשית `fair-inquiries-pii-purge`; השורה נשארת.
+‏`data_retention_run` אינה מכירה את הטבלה ותרשום את המדיניות עם 0 - המשימה
+החודשית רושמת את המספר האמיתי ב-`data_retention_runs`.
+
+**מזהה היריד.** אין טבלת `fairs`: ‏`fair_key = 'oh:' || התחלה || '-' || סיום`
+בתאריכי ישראל (היריד הנוכחי: `oh:20261005-20261031`), ועמו צילום של החלון.
+
+**דף הנכס** - בנכס ביריד אין וואטסאפ וחיוג (הבועה, הסרגל התחתון וכרטיס הסוכן/ת),
+רק הטופס, כמו ב-`/swipe`: הלחיצות עוד אינן נרשמות.
+
+**מה לא נכנס (PR נפרד):** רישום לחיצות וואטסאפ וחיוג (‏`fair-contact-log`, מאחורי
+`fair_contact_logging_enabled` שנולד 0 - הדגל קיים, הנקודה עוד לא), ושיחה עם
+גבריאלה (‏`whatsapp-webhook` - ממתין להחלטה). הודעת המועדפים לגבריאלה נשארת
+קישורים בלבד, בלי שורת "ללא עמלת תיווך".
+
+```sql
+-- היומן של היריד הנוכחי
+select ref, created_at at time zone 'Asia/Jerusalem' as at_il, channel, status, source, property_label
+  from public.fair_inquiries where fair_key = 'oh:20261005-20261031' order by created_at;
+```
 
 ## ‏`/open-house` בגרסת v10 (‏PR 1010, חלק 7 §A) - רק מאחורי הדגל
 
