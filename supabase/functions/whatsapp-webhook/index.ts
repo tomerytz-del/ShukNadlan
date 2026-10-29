@@ -810,7 +810,7 @@ async function loadPublicConversation(
   const BASE_COLS = "history, last_property_id, last_message_at, leads_created, leads_window_start";
   let { data, error } = await supabase
     .from("whatsapp_public_conversations")
-    .select(`${BASE_COLS}, last_saved_search_id`)
+    .select(`${BASE_COLS}, last_saved_search_id, last_saved_consent_token`)
     .eq("wa_phone", phone)
     .maybeSingle();
   // הפונקציה והמיגרציה נפרסות בשני workflows בלי סדר מובטח. עד שהעמודה
@@ -836,6 +836,7 @@ async function loadPublicConversation(
     history: (!data || stale ? [] : (data.history as Anthropic.MessageParam[]) || []),
     last_property_id: (!data || stale ? null : data.last_property_id) || null,
     last_saved_search_id: (!data || stale ? null : data.last_saved_search_id) || null,
+    last_saved_consent_token: (!data || stale ? null : data.last_saved_consent_token) || null,
     leads_created: data?.leads_created || 0,
     leads_window_start: data?.leads_window_start || null,
   };
@@ -857,6 +858,7 @@ async function savePublicConversation(
   let { error } = await supabase.from("whatsapp_public_conversations").upsert({
     ...row,
     last_saved_search_id: conv.last_saved_search_id,
+    last_saved_consent_token: conv.last_saved_consent_token,
   }, { onConflict: "wa_phone" });
   // אותה נפילה לאחור כמו ב-load: עמודה שעוד לא קיימת לא מפילה את השמירה
   if (error) {

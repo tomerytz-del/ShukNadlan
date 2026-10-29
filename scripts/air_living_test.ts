@@ -19,6 +19,7 @@ import {
   minAirCountKept,
   parseAirDirections,
   savedSearchAirLivingLine,
+  savedSearchLabelList,
   visitorAskedAirOrLiving,
   writeAirDirections,
 } from "../supabase/functions/_shared/air-living.ts";
@@ -80,6 +81,14 @@ check("סלון מואר ומרווח", mentionsLivingSizeClaim("סלון מוא
 check("סלון גדול ומואר", mentionsLivingSizeClaim("סלון גדול ומואר"));
 check("סלונים מרווחים", mentionsLivingSizeClaim("סלונים מרווחים"));
 check("רווח כפול", mentionsLivingSizeClaim("סלון  מרווח"));
+check("פסיק בין תארים", mentionsLivingSizeClaim("סלון מואר, גדול"));
+check("הוא מרווח", mentionsLivingSizeClaim("הסלון הוא מרווח"));
+check("סלון אירוח", mentionsLivingSizeClaim("סלון אירוח מרווח"));
+check("מקף", mentionsLivingSizeClaim("סלון-מרווח"));
+check("עצום", mentionsLivingSizeClaim("סלון עצום"));
+check("סלון ומטבח", mentionsLivingSizeClaim("סלון ומטבח מרווחים"));
+check("מרפסת גדולה אינה סלון", !mentionsLivingSizeClaim("סלון ומרפסת גדולה"));
+check("חדרים מרווחים אינם סלון", !mentionsLivingSizeClaim("סלון וחדרים מרווחים"));
 check("מרווחת לא נתפסת", !mentionsLivingSizeClaim("דירה מרווחת"));
 check("מרווחים לא נתפס", !mentionsLivingSizeClaim("חדרים מרווחים"));
 check("משרד מרווח לא נתפס", !mentionsLivingSizeClaim("משרד מרווח במרכז"));
@@ -88,6 +97,12 @@ const exactSaved = "שמרתי את החיפוש לפי האזור, החדרים
 check("משפט שמירה מלא", savedSearchAirLivingLine(["האזור", "החדרים", "התקציב"]) === exactSaved);
 check("בלי אזור שלא נשמר", !savedSearchAirLivingLine(["החדרים", "התקציב"]).includes("האזור"));
 check("בקשת כיוון", visitorAskedAirOrLiving("מחפשים כיווני אוויר דרום") && !visitorAskedAirOrLiving("דירה מרווחת"));
+check("דרום מערב בלי המילה אוויר", visitorAskedAirOrLiving("דירה עם דרום מערב"));
+check("צפון מערב העיר אינו כיוון", !visitorAskedAirOrLiving("דירה בצפון מערב העיר"));
+check("לשלושה כיוונים", visitorAskedAirOrLiving("לשלושה כיוונים") && !visitorAskedAirOrLiving("דרום העיר"));
+check("שכונה שלא זוהתה אינה אזור",
+  !savedSearchLabelList({ neighborhoodIds: [], cities: [], minRooms: 4 }).includes("האזור") &&
+  savedSearchLabelList({ cities: ["עפולה"], minRooms: 4 }).includes("האזור"));
 
 check("כיוון חסר עובר במינימום", minAirCountKept(null, 3) && minAirCountKept([], 3));
 check("כיוון ידוע שלא מספיק יורד", !minAirCountKept(["דרום"], 3));
@@ -186,6 +201,14 @@ check("מסחרי מאפס דרישות", crm.includes("clientFormCategory === '
 check("סיבה בלי נקודה אחרי מספר שלם",
   sql.includes("rtrim(trim(to_char(p_client.min_living_room_sqm - p_property.living_room_sqm, 'FM990.9')), '.')") &&
   sql.includes("round(p_client.min_living_room_sqm - p_property.living_room_sqm, 1) > 0"));
+const follow = read("supabase/migrations/20271031160000_photo_air_followups.sql");
+const scoreAt = follow.indexOf("p_property.living_room_sqm < p_client.min_living_room_sqm");
+check("פער שמתעגל ל-0 לא מוריד נקודות",
+  scoreAt > 0 && follow.slice(scoreAt, scoreAt + 220).includes("round(p_client.min_living_room_sqm - p_property.living_room_sqm, 1) > 0"));
+check("חיפוש כפול בלי מזהה",
+  follow.includes("criteria_hash = public.saved_search_payload_hash") &&
+  follow.includes("saved_labels") &&
+  !follow.slice(follow.indexOf("when unique_violation"), follow.indexOf("when check_violation")).includes("search_id"));
 const agent = read("supabase/functions/whatsapp-webhook/agent.ts");
 check("סלון מחוץ לטווח נשמר", agent.includes("הערך הקודם נשמר") && agent.includes("delete payload[sqmKey]") && agent.includes("minAirCountKept"));
 check("defer לסקריפט", read("crm.html").includes('defer src="assets/air-living.js"'));

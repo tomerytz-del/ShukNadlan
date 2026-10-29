@@ -2,7 +2,7 @@
 //   node --experimental-strip-types scripts/photo_target_test.ts
 import { readFileSync } from "node:fs";
 import { canonicalPositions, choosePhotoTarget, clipTitle, parsePhotoMoveButton, photoContextText, photoMoveButtons, photoUrlsHash, planPhotoMove, planPhotoTransfer, storageDeleteAllowed, urlsAt, type PhotoCandidate } from "../supabase/functions/whatsapp-webhook/photo-target.ts";
-import { deletableStoragePath } from "../supabase/functions/_shared/photo-relocate.ts";
+import { deletableStoragePath, imageUrlProbes } from "../supabase/functions/_shared/photo-relocate.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean) {
@@ -136,6 +136,16 @@ check("כתובת זרה לא נמחקת", !deletableStoragePath(`${other}/prop/
 check("לוגו מחוץ לתיקייה לא נמחק", !deletableStoragePath("professionals/logo.jpg", mine));
 check("בלי בעלים אין מחיקה", !deletableStoragePath(`${mine}/a.jpg`, ""));
 check("נתיב שיוצא מהתיקייה", !deletableStoragePath(`${mine}/../${other}/a.jpg`, mine));
+const mixed = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+check("אותיות גדולות אינן אותה תיקייה", !deletableStoragePath(`${mixed.toUpperCase()}/a.jpg`, mixed));
+const probes = imageUrlProbes("https://cdn.example/a%20b.jpg?v=3");
+check("בלי פרמטר גרסה", probes.includes("https://cdn.example/a%20b.jpg"));
+check("פענוח אחוזים", probes.some((p) => p.includes("a b.jpg")));
+const follow = readFileSync(new URL("../supabase/migrations/20271031160000_photo_air_followups.sql", import.meta.url), "utf8");
+check("גלריה jsonb", follow.includes("jsonb_array_elements") && follow.includes("e->>'url'") && follow.includes("m.gallery") && follow.includes("a.gallery"));
+check("אינדקס על הכתובות עצמן", follow.includes("p.images && p_urls") && !follow.includes("image_ref_key"));
+check("קריאה אחת עם כל הגרסאות", relocate.includes("p_urls: urls") && !relocate.includes("for (const probe"));
+check("ניסיונות מחיקה חסומים", relocate.includes("cleanup_attempts") && relocate.includes("cleaned_at") && relocate.includes("removed?.error"));
 check("הטופס לא מוחק קובץ", !crm.includes("action: 'release'") && !crm.includes("releasePropertyImage"));
 check("בריחה בגיליון", crm.includes("esc(from.title") && crm.includes("esc(text)"));
 

@@ -20,7 +20,7 @@ import {
   SearchCore,
   visitorHash,
 } from "./property-search.ts";
-import { airLivingGapNote, airLivingRowKept, savedSearchAirLivingLine, visitorAskedAirOrLiving } from "../_shared/air-living.ts";
+import { airLivingGapNote, airLivingRowKept, savedSearchAirLivingLine, savedSearchLabelList, visitorAskedAirOrLiving } from "../_shared/air-living.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -870,6 +870,8 @@ export interface PublicConversationState {
   last_property_id: string | null;
   /** החיפוש האחרון שנשמר בשיחה - ל"כן, אשמח לעזרה" בתור הבא. */
   last_saved_search_id: string | null;
+  /** אסימון שנמסר רק ביצירה. בלי הוא אין הדלקת הסכמה. */
+  last_saved_consent_token: string | null;
   /** כמה לידים נפתחו מהמספר הזה בחלון הנוכחי, ומתי החלון התחיל */
   leads_created: number;
   leads_window_start: string | null;
@@ -1874,7 +1876,8 @@ async function offerAgentHelp(
  */
 async function requestAgentHelp(ctx: PublicContext): Promise<unknown> {
   const searchId = ctx.conv.last_saved_search_id;
-  if (!searchId) {
+  const consentToken = ctx.conv.last_saved_consent_token;
+  if (!searchId || !consentToken) {
     return {
       error: "no_saved_search",
       note: "אין חיפוש שמור בשיחה הזו. אם רוצים עזרה ממתווך/ת - לשמור חיפוש עם " +
@@ -1884,10 +1887,12 @@ async function requestAgentHelp(ctx: PublicContext): Promise<unknown> {
   const { ok, status, body } = await callIntake("saved-search-intake", {
     action: "grant_consent",
     search_id: searchId,
+    consent_token: consentToken,
   });
   if (!ok) return { done: false, error: body.error || `http_${status}` };
 
   ctx.conv.last_saved_search_id = null;
+  ctx.conv.last_saved_consent_token = null;
   ctx.agentHelp = true;
   return {
     done: true,
@@ -2026,21 +2031,23 @@ function strListArg(value: unknown, max: number): string[] {
   return value.map((v) => text(v)).filter((v): v is string => !!v).slice(0, max);
 }
 
-function filledNumber(value: unknown): boolean {
-  if (value === null || value === undefined || value === "") return false;
-  return Number.isFinite(Number(value));
-}
-
-/** רק מה שנכתב להתראה. בלי כיוון אוויר ובלי גודל סלון, הם לא נשמרים. */
-function savedSearchLabels(args: Record<string, unknown>, cities: string[]): string[] {
-  const labels: string[] = [];
-  if (cities.length || text(args.area)) labels.push("האזור");
-  if (filledNumber(args.min_rooms) || filledNumber(args.max_rooms)) labels.push("החדרים");
-  if (filledNumber(args.min_price) || filledNumber(args.max_price)) labels.push("התקציב");
-  if (strListArg(args.property_types, 6).length) labels.push("סוג הנכס");
-  if (filledNumber(args.min_size_sqm)) labels.push("השטח");
-  if (strListArg(args.required_features, 8).length) labels.push("המאפיינים");
-  return labels;
+/** רק מה שנשמר. שכונה שלא זוהתה לא נספרת כאזור. */
+function savedSearchLabels(
+  args: Record<string, unknown>,
+  cities: string[],
+  neighborhoodId: string | null,
+): string[] {
+  return savedSearchLabelList({
+    cities,
+    neighborhoodIds: neighborhoodId ? [neighborhoodId] : [],
+    minRooms: args.min_rooms,
+    maxRooms: args.max_rooms,
+    minPrice: args.min_price,
+    maxPrice: args.max_price,
+    propertyTypes: args.property_types,
+    minSize: args.min_size_sqm,
+    features: args.required_features,
+  });
 }
 
 function visitorTranscript(ctx: PublicContext): string {
@@ -2129,14 +2136,19 @@ async function saveSearchAlert(
   // כפילות אינה מחזירה מזהה, ולכן גם אינה מקבלת את השאלה על מתווך/ת: אין
   // שורה חדשה לעדכן, וייתכן שההסכמה כבר ניתנה עליה בשיחה קודמת.
   const searchId = typeof body.search_id === "string" ? body.search_id : null;
-  ctx.conv.last_saved_search_id = searchId;
+  if (body.duplicate !== true) {
+    ctx.conv.last_saved_search_id = searchId;
+    ctx.conv.last_saved_consent_token = typeof body.consent_token === "string" ? body.consent_token : null;
+  }
   const askedAir = visitorAskedAirOrLiving(visitorTranscript(ctx));
-  const savedLabels = savedSearchLabels(args, cities);
+  const savedLabels = body.duplicate === true
+    ? (Array.isArray(body.saved_labels) ? body.saved_labels.filter((x): x is string => typeof x === "string") : [])
+    : savedSearchLabels(args, cities, neighborhoodId);
   return {
     saved: true,
     duplicate: body.duplicate === true,
     consent_given: consent,
-    can_offer_agent_help: !consent && !!searchId,
+    can_offer_agent_help: body.duplicate !== true && !consent && !!searchId,
     say_exactly: askedAir ? savedSearchAirLivingLine(savedLabels) : undefined,
     manage_note: "אפשר לבטל את העדכונים בכל רגע דרך הקישור שמופיע בכל התראה.",
     // מה באמת קרה, כדי שהתשובה לא תבטיח יותר: בלי הסכמה אין סוכן/ת בתמונה

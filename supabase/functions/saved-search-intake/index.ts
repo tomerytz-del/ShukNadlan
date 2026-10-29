@@ -8,6 +8,7 @@ import {
   resolveAgencyRouting,
   resolveAgentRouting,
 } from "../_shared/lead-routing.ts";
+import { publicSavedSearchBody } from "../_shared/saved-search-public.ts";
 
 // ============================================================================
 // שמירת חיפוש של מחפש/ת דירה — "הסוכן החכם".
@@ -104,13 +105,16 @@ const CONDITIONS = [
    מתעדכנת במקום, וליד אחד נספר פעם אחת בדוחות. */
 async function grantConsent(body: any): Promise<Response> {
   const id = String(body.search_id ?? "");
-  if (!UUID_RE.test(id)) return json({ error: "invalid_search_id" }, 400);
+  const token = String(body.consent_token ?? "");
+  // המזהה לבדו אינו הרשאה. האסימון חוזר רק למי שיצר/ה את החיפוש.
+  if (!UUID_RE.test(id) || token.length < 32) return json({ error: "invalid_search_id" }, 400);
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
   const { data: updated, error } = await serviceClient
     .from("saved_searches")
     .update({ consent_agent_contact: true })
     .eq("id", id)
+    .eq("consent_token", token)
     .eq("consent_agent_contact", false)
     .neq("status", "unsubscribed")
     .is("agency_id", null)
@@ -120,7 +124,11 @@ async function grantConsent(body: any): Promise<Response> {
 
   if (!updated) {
     const { data: row } = await serviceClient
-      .from("saved_searches").select("consent_agent_contact, status").eq("id", id).maybeSingle();
+      .from("saved_searches")
+      .select("consent_agent_contact, status")
+      .eq("id", id)
+      .eq("consent_token", token)
+      .maybeSingle();
     if (!row || row.status === "unsubscribed") return json({ error: "not_found" }, 404);
     return json({ success: true, already: true });
   }
@@ -343,6 +351,11 @@ Deno.serve(async (req: Request) => {
   };
   if (result?.error) return json(result, statusMap[result.error] ?? 400);
 
+  /* כפילות אינה ליד חדש: בלי יומן, בלי מזהה, ובלי הקריטריונים השמורים. */
+  if (result?.duplicate === true) {
+    return json(publicSavedSearchBody(result, false), 200);
+  }
+
   /* רישום הניתוב.
      ‏חיפוש שמור נכנס למדף לידי מחפשי הדירה רק אם התקיימו *שני* תנאים: אישור
      מפורש ליצירת קשר, וציון התעניינות מעל הרף. הבדיקה כאן היא מול המדף עצמו
@@ -350,7 +363,7 @@ Deno.serve(async (req: Request) => {
      הוא בדיוק המצב שבו הליד נעלם בלי שאיש ידע.
 
      כפילות (‏duplicate) אינה נרשמת: לא נוצר ליד חדש, ואין מה לנתב. */
-  if (result?.search_id) {
+  if (result?.search_id && result?.duplicate !== true) {
     /* ליד של משרד אינו נמדד מול המדף: הוא לא אמור להיות שם, ויש לו נמען
        אחד ידוע. שלושת המצבים שנשארו הם של ליד הפלטפורמה כמו קודם. */
     const assigned = !!assignedAgencyId;
@@ -393,5 +406,5 @@ Deno.serve(async (req: Request) => {
 
   // ‏assigned_to_agency אומר לדף המשרד אם הפרטים באמת הגיעו למשרד, כדי
   // שמסך הסיום לא יבטיח משהו שלא קרה (הסכמה שלא ניתנה, ‏slug לא מוכר).
-  return json({ ...result, assigned_to_agency: !!assignedAgencyId }, 200);
+  return json(publicSavedSearchBody(result, !!assignedAgencyId), 200);
 });

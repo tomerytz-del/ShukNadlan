@@ -8,6 +8,7 @@ on:
       - "supabase/functions/_shared/photo-relocate.ts"
       - "supabase/functions/property-image-move/**"
       - "supabase/migrations/20271031150000_photo_relocate.sql"
+      - "supabase/migrations/20271031160000_photo_air_followups.sql"
       - "scripts/photo_target_test.ts"
       - ".github/workflows/photo_target.yml"
   push:
@@ -18,6 +19,7 @@ on:
       - "supabase/functions/_shared/photo-relocate.ts"
       - "supabase/functions/property-image-move/**"
       - "supabase/migrations/20271031150000_photo_relocate.sql"
+      - "supabase/migrations/20271031160000_photo_air_followups.sql"
       - "scripts/photo_target_test.ts"
       - ".github/workflows/photo_target.yml"
   workflow_dispatch:

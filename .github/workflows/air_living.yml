@@ -10,6 +10,10 @@ on:
       - "assets/property-import-core.js"
       - "crm.html"
       - "scripts/air_living_test.ts"
+      - "scripts/saved_search_public_test.ts"
+      - "supabase/functions/_shared/saved-search-public.ts"
+      - "supabase/functions/saved-search-intake/index.ts"
+      - "supabase/migrations/20271031160000_photo_air_followups.sql"
       - ".github/workflows/air_living.yml"
   push:
     branches: [main]
@@ -21,6 +25,10 @@ on:
       - "assets/property-import-core.js"
       - "crm.html"
       - "scripts/air_living_test.ts"
+      - "scripts/saved_search_public_test.ts"
+      - "supabase/functions/_shared/saved-search-public.ts"
+      - "supabase/functions/saved-search-intake/index.ts"
+      - "supabase/migrations/20271031160000_photo_air_followups.sql"
       - ".github/workflows/air_living.yml"
   workflow_dispatch:
 
@@ -38,4 +46,6 @@ jobs:
         with:
           node-version: "22"
       - name: כיווני אוויר ושטח סלון
-        run: node --experimental-strip-types scripts/air_living_test.ts
+        run: |
+          node --experimental-strip-types scripts/air_living_test.ts
+          node --experimental-strip-types scripts/saved_search_public_test.ts
