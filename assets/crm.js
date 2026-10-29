@@ -5385,6 +5385,45 @@ document.querySelectorAll('#dashPanelAdmin .adm-range button').forEach(btn=>{
 });
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminReport);
 
+/* ---------- ייצוא פניות היריד (CSV) ----------
+   ‏admin_fair_inquiries - 90 הימים האחרונים, בשעון ישראל (‏docs/open-house-fair.md).
+   ‏BOM כדי שאקסל יקרא עברית; תא שמתחיל ב-= + - @ מקבל גרש, כדי שאקסל לא
+   יריץ אותו כנוסחה (שם הפונה מגיע מטופס ציבורי). */
+const FAIR_CSV_CHANNEL = {
+  form:'טופס', visualization:'הדמיה', social:'רשת חברתית', meta_ads:'טופס מטא',
+  whatsapp_click:'לחיצה על וואטסאפ', call_click:'לחיצה על חיוג',
+};
+const FAIR_CSV_STATUS = { eligible:'זכאי', pending_owner_decision:'ממתין להחלטת תומר' };
+function fairCsvCell(v){
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+async function exportFairInquiriesCsv(){
+  const btn = document.getElementById('adminFairCsvBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.rpc('admin_fair_inquiries', {});
+    if (error){ showToast('הייצוא נכשל: ' + heErr(error)); return; }
+    const rows = data || [];
+    if (!rows.length){ showToast('אין פניות יריד בטווח הזה'); return; }
+    const head = ['מספר פנייה', 'תאריך ושעה (שעון ישראל)', 'ערוץ', 'סטטוס', 'מקור', 'נכס', 'עיר',
+      'יועץ הנדל״ן', 'משרד', 'שם הפונה', 'טלפון', 'סיום היריד לנכס', 'מזהה יריד',
+      'מזהה ההודעה ברשת', 'שעת ההודעה ברשת (שעון ישראל)'];
+    const lines = [head.map(fairCsvCell).join(',')].concat(rows.map(r => [
+      r.ref, r.created_at_il, FAIR_CSV_CHANNEL[r.channel] || r.channel, FAIR_CSV_STATUS[r.status] || r.status,
+      r.source, r.property_title, r.property_city, r.agent_name, r.agency_name,
+      r.visitor_name, r.visitor_phone_e164, r.fair_end_il, r.fair_key, r.external_ref, r.platform_at_il,
+    ].map(fairCsvCell).join(',')));
+    const day = new Date().toLocaleDateString('sv-SE', { timeZone:'Asia/Jerusalem' });
+    downloadBlob(new Blob(['\uFEFF' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' }), 'fair-inquiries-' + day + '.csv');
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById('adminFairCsvBtn').addEventListener('click', exportFairInquiriesCsv);
+
 /* ==========================================================================
    בקרת מנוע הלידים — הפאנל השלישי
    --------------------------------------------------------------------------
@@ -20116,6 +20155,25 @@ async function saveLeadWork(lead, patch){
    ‏20270502090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
 let leadVisitorOf = new Map();
 
+/* יומן פניות היריד (‏fair_inquiries): lead_id → { status, fair_end }. ה-RLS
+   מחזיר רק את השורות של הסוכן/ת (ומנהל/ת - של המשרד), ובלי השם והטלפון.
+   שאילתה אחת בלי רשימת מזהים: השורות מעטות, ו-in() על מאות לידים היה
+   מנפח את הכתובת. מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם. */
+let leadFairByLead = new Map();
+async function loadLeadFair(leads){
+  if (!(leads || []).some(l => l.property_id)){ leadFairByLead = new Map(); return; }
+  const { data, error } = await sb.from('fair_inquiries')
+    .select('lead_id, status, fair_end')
+    .not('lead_id', 'is', null)
+    .order('created_at', { ascending:false })
+    .limit(1000);
+  if (error){
+    if (!['42P01', 'PGRST205', '42501'].includes(error.code)) console.warn('יומן פניות היריד:', error.message);
+    return;
+  }
+  leadFairByLead = new Map((data || []).map(r => [r.lead_id, r]));
+}
+
 async function loadLeadVisitors(){
   const { data, error } = await sb.rpc('lead_visitor_groups');
   if (error){
@@ -20167,7 +20225,7 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await loadLeadCalls(allLeads);
+  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
   renderLeads(agentId);
 }
 
@@ -20354,11 +20412,19 @@ function buildLeadTab(lead, agentId){
    השלב וההערה באמצע, ופעולות הניהול (חוות דעת, הפנייה, ארכיון) קטנות
    ושקטות בתחתית. */
 /* כלל היריד (חלק 7 §A.4b): פנייה שהגיעה בזמן שהדירה הייתה ביריד - ללא עמלת תיווך לקונה,
-   גם אחרי שהיריד נגמר. הזכאות נקבעת במסד ברגע ההכנסה (‏leads.open_house_eligible,
-   docs/proposals/open_house_lead_eligibility.sql); בלי העמודה - אין תג */
+   גם אחרי שהיריד נגמר. הזכאות נרשמת במסד ברגע ההכנסה, בשעת השרת, ביומן
+   fair_inquiries (‏docs/open-house-fair.md). ‏status=pending_owner_decision - פנייה
+   מהרשתות או מטופס של מטא: נרשמה, אבל ההנחה ממתינה להחלטה, ולכן תג ניטרלי.
+   ‏leads.open_house_eligible (ההצעה הישנה, לא הוחלה) נשאר נתיב חלופי. */
 function leadFairChip(lead){
-  if (!lead || lead.open_house_eligible !== true) return '';
-  const end = lead.open_house_end_snapshot ? new Date(lead.open_house_end_snapshot) : null;
+  if (!lead) return '';
+  const row = leadFairByLead.get(lead.id);
+  if (row && row.status === 'pending_owner_decision'){
+    return '<span class="lc-fair is-pending" title="' + esc('הפנייה הגיעה מהרשתות בזמן שהדירה ביריד. ההנחה בעמלה ממתינה להחלטה') + '">ממתין להחלטת תומר</span>';
+  }
+  if (!row && lead.open_house_eligible !== true) return '';
+  const endRaw = row ? row.fair_end : lead.open_house_end_snapshot;
+  const end = endRaw ? new Date(endRaw) : null;
   const d = end && !isNaN(end) ? end.toLocaleDateString('he-IL', { day:'numeric', month:'numeric', timeZone:'Asia/Jerusalem' }) : '';
   const tip = !d ? 'הפנייה הגיעה בזמן שהדירה הייתה ביריד הבתים הפתוחים'
     : end < new Date() ? 'היריד לדירה הסתיים ב-' + d + '; הפנייה הגיעה לפני כן'
