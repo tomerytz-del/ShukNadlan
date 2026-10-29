@@ -70,6 +70,8 @@ const IMPORT_FIELDS = [
   { key:'size_sqm', label:'גודל במ"ר', aliases:['גודל','שטח','מ"ר','גודל במ"ר','שטח במ"ר','size','size_sqm'] },
   { key:'built_size_sqm', label:'מ"ר בנוי', aliases:['מ"ר בנוי','שטח בנוי','בנוי','built_size_sqm'] },
   { key:'garden_sqm', label:'מ"ר גינה', aliases:['מ"ר גינה','שטח גינה','גינה','garden_sqm','garden'] },
+  { key:'living_room_sqm', label:'מ"ר סלון', aliases:['מ"ר סלון','שטח סלון','סלון','living_room_sqm'] },
+  { key:'air_directions', label:'כיווני אוויר', hint:'צפון, דרום, מזרח, מערב', aliases:['כיווני אוויר','כיוון אוויר','אוויר','air_directions'] },
   // עלויות שוטפות: הייצוא בונה את עמודותיו מהרשימה הזו, ולכן קובץ שירד
   // עולה בחזרה עם שתיהן. הארנונה בסכום שבשובר - תקופת החיוב נגזרת
   // מהקטגוריה (docs/property-form.md).
@@ -643,13 +645,17 @@ function impBuildRow(S, rawRow, rowNumber){
     }
   });
 
-  [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי'], ['garden_sqm','מ"ר גינה']].forEach(([key, label])=>{
+  [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי'], ['garden_sqm','מ"ר גינה'], ['living_room_sqm','מ"ר סלון']].forEach(([key, label])=>{
     const n = impNumber(cell(key));
     if (n !== null && n !== 0){
       if (n < 0) warnings.push(`${label} לא תקין - לא נקלט`);
       else payload[key] = n;
     }
   });
+  if (payload.living_room_sqm != null && (payload.living_room_sqm < 4 || payload.living_room_sqm > 150)) {
+    warnings.push('שטח הסלון צריך להיות בין 4 ל-150 - לא נקלט');
+    delete payload.living_room_sqm;
+  }
 
   [['description', 5000], ['marketing_description', 5000], ['post_text', 5000],
    ['furniture_details', 300], ['agent2_name', 100], ['agent2_phone', 40]].forEach(([key, max])=>{
@@ -716,6 +722,20 @@ function impBuildRow(S, rawRow, rowNumber){
   // ביד2 תאריך שעבר הוא "כניסה מיידית" - בקובץ הראשון היו כאלה משנת 2024
   else if (moveIn && S.yad2 && moveIn <= impDate(new Date())) payload.move_in_soon = true;
   else if (moveIn) payload.move_in_date = moveIn;
+
+  const airRaw = impText(cell('air_directions'));
+  if (airRaw) {
+    const map = { north:'צפון', south:'דרום', east:'מזרח', west:'מערב', צפון:'צפון', דרום:'דרום', מזרח:'מזרח', מערב:'מערב', n:'צפון', s:'דרום', e:'מזרח', w:'מערב' };
+    const order = ['צפון','דרום','מזרח','מערב'];
+    const found = {};
+    airRaw.split(/[\s,/+|]+/).forEach(part => {
+      const code = map[part] || map[String(part).toLowerCase()];
+      if (code) found[code] = true;
+    });
+    const dirs = order.filter(d => found[d]);
+    if (dirs.length) payload.air_directions = dirs;
+    else warnings.push('כיווני אוויר לא זוהו - לא נקלט');
+  }
 
   const soon = impBool(cell('move_in_soon'));
   if (soon === undefined) warnings.push('"כניסה קרובה" לא זוהה - יש לרשום כן/לא');
@@ -884,6 +904,8 @@ const IMP_CHECK_FIELDS = {
   properties_arnona_chk:             ['הארנונה', 'רשמו סכום חיובי או השאירו ריק'],
   properties_maintenance_fee_chk:    ['ועד הבית', 'רשמו סכום חיובי או השאירו ריק'],
   properties_garden_sqm_check:       ['שטח הגינה', 'רשמו מספר חיובי או השאירו ריק'],
+  properties_living_room_sqm_chk:    ['שטח הסלון', 'רשמו מספר בין 4 ל-150, או השאירו ריק'],
+  properties_air_directions_chk:     ['כיווני האוויר', 'רשמו צפון, דרום, מזרח או מערב, מופרדים בפסיק'],
   properties_tour_3d_url_check:      ['הקישור לסיור הווירטואלי', 'הדביקו כתובת מלאה שמתחילה ב-https://, או השאירו ריק'],
   properties_video_url_check:        ['הקישור לסרטון', 'הדביקו כתובת מלאה שמתחילה ב-https://, או השאירו ריק'],
   properties_condition_check:        ['מצב הנכס', 'רשמו אחד מ: חדש מקבלן, חדש, משופץ, במצב שמור, דרוש שיפוץ'],

@@ -339,7 +339,8 @@ function publicWhere(p: any): string {
 // ---------------------------------------------------------------------------
 const PROPERTY_FIELDS = [
   "id", "title", "property_type", "deal_type", "category", "price", "price_unit", "rooms",
-  "size_sqm", "built_size_sqm", "garden_sqm", "floor", "total_floors", "city",
+  "size_sqm", "built_size_sqm", "garden_sqm", "living_room_sqm",
+  "air_directions", "floor", "total_floors", "city",
   "street", "address", "house_number", "sales_area", "features", "condition",
   "project_status", "images", "listing_number", "is_promoted", "bumped_at",
   "created_at", "has_virtual_tour", "video_url", "open_house",
@@ -435,6 +436,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
+        air_directions: {
+          type: "array",
+          items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+          description: "הנכס צריך לכלול את כל הכיוונים. אל תאמרי לפונה 'סלון גדול'.",
+        },
+        min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי במ\"ר." },
         max_floor: { type: "integer" },
         features: {
           type: "array",
@@ -731,6 +738,12 @@ const TOOLS: Anthropic.Tool[] = [
         min_rooms: { type: "number" },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
+        air_directions: {
+          type: "array",
+          items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+          description: "הנכס צריך לכלול את כל הכיוונים. אל תאמרי לפונה 'סלון גדול'.",
+        },
+        min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי במ\"ר." },
         required_features: { type: "array", items: { type: "string" } },
         free_text: {
           type: "string",

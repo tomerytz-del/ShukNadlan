@@ -13,6 +13,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 // הכללים המשותפים לאתר ולבוטים - מה נחשב "יש בנכס", המילים, עסקה מתוך
 // תקציב. עותק זהה של assets/search-core.js (‏check_search_core.py).
 import "../_shared/search-core.js";
+import { parseAirDirections } from "../_shared/air-living.ts";
 
 // deno-lint-ignore no-explicit-any
 export const SearchCore = (globalThis as any).SearchCore;
@@ -239,6 +240,10 @@ export function applyPropertyFilters(
   if (parsed.maxRooms !== null) query = query.lte("rooms", parsed.maxRooms);
   if (parsed.minSize !== null) query = query.gte("size_sqm", parsed.minSize);
   if (parsed.maxFloor !== null) query = query.lte("floor", parsed.maxFloor);
+  const air = parseAirDirections(args.air_directions);
+  if (air.length) query = query.contains("air_directions", air);
+  const minLiving = num(args.min_living_room_sqm);
+  if (minLiving !== null) query = query.gte("living_room_sqm", minLiving);
 
   return { query, parsed, unknown };
 }

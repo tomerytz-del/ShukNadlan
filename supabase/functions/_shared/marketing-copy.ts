@@ -63,6 +63,9 @@ export function specLine(row: PropertyFacts): string {
     row.rooms ? `${row.rooms} חדרים` : null,
     row.size_sqm ? `${Math.round(row.size_sqm)} מ״ר` : null,
     row.garden_sqm ? `גינה ${Math.round(row.garden_sqm)} מ״ר` : null,
+    row.living_room_sqm ? `גודל הסלון: כ־${Math.round(Number(row.living_room_sqm))} מ״ר` : null,
+    Array.isArray(row.air_directions) && row.air_directions.length
+      ? `כיווני אוויר: ${row.air_directions.join(", ")}` : null,
     floor,
   ].filter(Boolean).join(" · ");
 }
@@ -149,7 +152,8 @@ export const PROPERTY_COPY_RULES = `1. מותר להשתמש אך ורק בעו�
 6. עברית תקנית, גוף שלישי, ללא סימני קריאה כפולים וללא מילים כמו "מדהים",
    "חלומי", "הזדמנות שלא תחזור".
 7. כשהנתונים דלים - לכתוב קצר. טקסט קצר ומדויק עדיף על טקסט ארוך ומנופח.
-8. אין להשתמש במקף ארוך (\u2014 או \u2013). כשצריך מקף, לכתוב מקף רגיל: -`;
+8. אין להשתמש במקף ארוך (\u2014 או \u2013). כשצריך מקף, לכתוב מקף רגיל: -.
+9. סלון: רק אם יש מספר במ"ר. אסור לכתוב "סלון גדול" או "מרווח". בלי מספר - לא מזכירים סלון.`;
 
 export const SYSTEM_PROMPT = `את/ה קופירייטר/ית נדל"ן ישראלי/ת שכותב/ת עבור לוח הנכסים שוק נדל"ן.
 
@@ -207,6 +211,11 @@ export class MarketingCopyAuthError extends Error {
  *  ואין בדיקת CI שתתפוס טקסט שנוצר בזמן ריצה. */
 export function noLongDash(s: string): string {
   return s.replace(/[\u2014\u2013\u2015]/g, "-");
+}
+
+/** טענה שלא נמדדה לא יוצאת ללקוחות, גם אם המודל כתב אותה. */
+export function noLivingClaim(s: string): string {
+  return s.replace(/סלון גדול/g, "").replace(/מרווח/g, "").replace(/[ \t]{2,}/g, " ").trim();
 }
 
 const COPY_SCHEMA = {
@@ -281,8 +290,8 @@ export async function generateMarketingCopy(
     parsed = JSON.parse(m[0]);
   }
 
-  const description = noLongDash(String(parsed?.marketing_description ?? "").trim());
-  const post = noLongDash(String(parsed?.post_text ?? "").trim());
+  const description = noLivingClaim(noLongDash(String(parsed?.marketing_description ?? "").trim()));
+  const post = noLivingClaim(noLongDash(String(parsed?.post_text ?? "").trim()));
   if (!description) throw new Error("Claude החזיר תיאור ריק");
   return { description, post: post || description };
 }
