@@ -29,6 +29,7 @@ on:
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
       - "scripts/lead_source_test.ts"
+      - "scripts/ops_question_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -47,6 +48,7 @@ on:
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
       - "scripts/lead_source_test.ts"
+      - "scripts/ops_question_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -121,6 +123,11 @@ jobs:
       # תקציב עם גוגל, והרצה שנייה לא שולחת. בלי קריאה למטא.
       - name: השקה מושהית במטא
         run: node --experimental-strip-types scripts/paused_launch_test.ts
+
+      # שאלה תפעולית לסוכן/ת: service_role בלבד, מסלול חינם, חלון 24 שעות,
+      # אידמפוטנטיות, ולחיצה על ops_q שלא מגיעה למודל. בלי Meta.
+      - name: שאלה תפעולית בוואטסאפ
+        run: node --experimental-strip-types scripts/ops_question_test.ts
 
       # מקורות הליד שהאתר שולח (‏swipe, ‏photo_request...) מוכרים ב-KNOWN_SOURCES,
       # ומה שאינו מוכר נופל לברירת המחדל של הקורא.

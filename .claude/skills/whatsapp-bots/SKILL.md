@@ -18,6 +18,7 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 | `supabase/functions/whatsapp-webhook/media-intake.ts` | קובץ הקלטה ומסמך → טקסט, ותור שרק מציע (`MEDIA_TOOLS`) |
 | `supabase/functions/whatsapp-webhook/property-import.ts` | קובץ נכסים → עבודת ייבוא וסיכום יבש, והקליטה אחרי אישור (`import_properties_file`) - ליבה משותפת עם האשף ב-CRM (הסקיל `property-import`) |
 | `supabase/functions/whatsapp-webhook/catalog-link.ts` | קישור לפריט בקטלוג וואטסאפ (`wa.me/p/...`) → טיוטת נכס |
+| `supabase/functions/whatsapp-webhook/ops-question.ts` | שאלה תפעולית לסוכן/ת (`?task=ops-question`), כפתור `ops_q` שלא מגיע למודל |
 
 ## השם חי בהרבה מקומות, ומשתנה בכולם יחד
 
@@ -167,6 +168,14 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 נכתב ביד. לכן הכותרת צריכה להיות מובנת למודל גם בלי המסך, וההוראות צריכות
 להכיר אותה (`SAVE_TITLE` = הבקשה המפורשת של `save_search_alert`,
 `SIMILAR_TITLE` = להציג את `close_matches`).
+
+**חריג: שאלה תפעולית (`ops_q`).** `?task=ops-question` (רק מפתח
+`service_role`, לא סוד cron) שולח לסוכן/ת אחד/ת הודעה מוכנה עם עד 3
+כפתורים, רק במסלול mid/premium ורק בתוך 24 שעות מההודעה הנכנסת האחרונה.
+אותו `purpose` לא נשלח פעמיים. מזהה הכפתור `ops_q:<purpose>:<n>` נתפס
+ב-`handleMessage` לפני הבוט הציבורי ולפני המודל, גם כשההמשך לא מוכר:
+אין עדכון של נתונים, רק שורה ב-`whatsapp_ops_answers` והתשובה הקבועה
+"תודה, העברתי לבדיקה". אסור להעביר את הכותרת למודל.
 
 **כפתור שמבטיח משהו נשלח רק כשיש מאחוריו משהו.** "תראי נכסים דומים" יוצא
 רק כש-`has_similar` (חזרו `close_matches`), וההחלטה ב-`offerSaveSearch` ולא
@@ -661,6 +670,7 @@ python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
 python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
 node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב-catalog-link.ts
+node --experimental-strip-types scripts/ops_question_test.ts   # אם נגעת ב-ops-question.ts
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,

@@ -56,6 +56,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | קובץ | תפקיד |
 |---|---|
 | `supabase/functions/whatsapp-webhook/index.ts` | נקודת הכניסה: אימות חתימה, ניתוב הודעות, מדיה, מצב שיחה |
+| `supabase/functions/whatsapp-webhook/ops-question.ts` | שאלה תפעולית לסוכן/ת אחד/ת (`?task=ops-question`). כפתור `ops_q` לא מגיע למודל |
 | `supabase/functions/whatsapp-webhook/agent.ts` | הכלים שה-LLM יכול להפעיל + לולאת השיחה |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | עטיפה מעל Graph API (שליחה, הורדת מדיה, אימות חתימה) |
 | `supabase/functions/whatsapp-webhook/geocode.ts` | גיאוקוד כתובות בעפולה (העתק של `geocode-address`, בלי דרישת JWT) |
@@ -829,6 +830,52 @@ Meta** - הודעת כפתורים מחוצה לו נדחית, ואין תבני
 או `property_video_info` ואמירת המחיר **לפני** `create_property_video` - ההצעה
 אינה מחייבת. "לא" נענה בלי מודל. הנכס נבדק מול הסוכן/ת שלחץ/ה.
 
+## שאלה תפעולית לסוכן/ת (`ops-question`)
+
+אופרטור עם מפתח `service_role` יכול לשלוח לסוכן/ת אחד/ת הודעת טקסט חופשי
+עם עד שלושה כפתורי תשובה, ואפשר הודעה שנייה מיד אחריה. זו לא משימת cron:
+סוד `x-alert-cron-secret` נדחה. אין גישה ציבורית.
+
+```
+POST /functions/v1/whatsapp-webhook?task=ops-question
+Authorization: Bearer <service_role>
+```
+
+```json
+{
+  "agent_id": "<agency_members.id>",
+  "purpose": "winback-q1",
+  "body": "רצינו לשאול אם לחזור אליך השבוע.",
+  "buttons": [{ "title": "כן, תחזרו" }, { "title": "לא עכשיו" }],
+  "followup": { "body": "תודה. נחזור אליך.", "buttons": [{ "title": "בסדר" }] }
+}
+```
+
+`purpose` הוא אותיות באנגלית, ספרות, מקף או קו תחתון, עד 40. כותרת כפתור
+עד 20 יחידות UTF-16, גוף עד 1024. מזהה הכפתור נבנה אצלנו:
+`ops_q:<purpose>:<n>`.
+
+שלושה סירובים, בלי שליחה:
+
+| מצב | תשובה |
+| --- | --- |
+| המסלול אינו mid או premium | `403 free_plan` |
+| אין הודעה נכנסת ב-24 השעות האחרונות | `409 window_closed` ו-`last_inbound` (או `null`) |
+| אותו `purpose` כבר נתפס לסוכן/ת הזה/ו | `409 already_sent` |
+
+התפיסה נרשמת ב-`whatsapp_ops_questions` לפני השליחה. כישלון שליחה לא
+מנסה שוב את אותו purpose. ההודעה היוצאת נרשמת ב-`whatsapp_messages`
+(`interactive`, עם מזהי הכפתורים) ונוספת להיסטוריית גבריאלה כהודעת מערכת,
+בלי להזיז את `last_message_at`.
+
+**הלחיצה** נתפסת ב-`handleMessage` לפני הבוט הציבורי ולפני המודל, גם אם
+המזהה מתחיל ב-`ops_q:` ואינו מתפרש. אין עדכון של נתוני הסוכן/ת. נרשמת
+שורה ב-`whatsapp_ops_answers` (סוכן/ת, purpose, כותרת, זמן), והתשובה
+הקבועה היא "תודה, העברתי לבדיקה".
+
+שתי הטבלאות עם RLS ובלי policy, ורק `service_role` מחזיק בהן הרשאות.
+מיגרציה `20271031100000`.
+
 ## המודל והעלות
 
 ### מה נשלח בכל קריאה — והחלק שחוזר על עצמו
@@ -1478,9 +1525,11 @@ Marketing, שני פרמטרים): `{{1}}` הוא `תומר`, `{{2}}` הוא ח�
 | `whatsapp_conversations` | מצב שיחה פר סוכן/ת: היסטוריה, תמונות ממתינות, הנכס והלקוח/ה האחרונים, ו-`last_message_at` שממנו נגזר חלון 24 השעות |
 | `whatsapp_messages` | יומן נכנס/יוצא. `wa_message_id` הייחודי מונע עיבוד כפול של משלוחים חוזרים מ-Meta, ובהודעה יוצאת הוא גם המפתח למעקב המסירה (`status`) |
 | `notification_push_log` | יומן הודעות ההתראה היוצאות: אילו התראות, באיזה מצב (טקסט/תבנית), ומה קרה |
+| `whatsapp_ops_questions` | שאלה תפעולית: שורה אחת לכל purpose וסוכן/ת, נתפסת לפני השליחה. רק service_role |
+| `whatsapp_ops_answers` | לחיצה על כפתור `ops_q`. יומן בלבד, בלי עדכון נתונים. רק service_role |
 
-שלושתן ב-RLS עם קריאה בלבד לסוכן/ת עצמו/ה; הכתיבה היא רק דרך `service_role` בתוך
-ה-Edge Function — אותה תבנית כמו `notifications`.
+`whatsapp_conversations`, `whatsapp_messages` ו-`notification_push_log` ב-RLS עם קריאה בלבד לסוכן/ת עצמו/ה; הכתיבה היא רק דרך `service_role` בתוך
+ה-Edge Function — אותה תבנית כמו `notifications`. שתי טבלאות השאלה התפעולית סגורות גם לקריאה.
 
 ‏`last_client_id` הוא העוגן שמאפשר "תעדכן לו את התקציב ל-1.9" לעבוד בלי לחזור
 על השם, בדיוק כמו ש-`last_property_id` מאפשר "תוסיף לזה מרפסת".
