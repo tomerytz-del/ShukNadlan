@@ -27,8 +27,8 @@ const fnStart = sql.indexOf("function public.dl_add");
 const fnEnd = sql.indexOf("comment on function public.dl_add");
 const fn = sql.slice(fnStart, fnEnd);
 
-check("הסקריפט קטן", js.length < 1120, js.length);
-check("בלי דגל דולק אין קריאה", js.includes("window.DL_ON") && js.includes("dlFlush"));
+check("הסקריפט מתחת לקילובייט", js.length < 1024, js.length);
+check("crm.js מגדיר DL_ON", crm.includes("window.DL_ON"));
 check("רץ רק כשיש wc", js.includes('q.get("wc")') && js.includes("DEEPLINK_TIMING"));
 check("שליחה עם keepalive על ה-fetch של supabase, וחזרה מיד", js.includes("sb.rest") && js.includes("keepalive:1") && js.includes("finally{c.fetch=f}"));
 check("נטישה ב-pagehide וב-visibilitychange", js.includes('addEventListener("pagehide"') && js.includes('addEventListener("visibilitychange"'));
@@ -106,10 +106,6 @@ check("dlMark קיים בלי לגעת ב-fetch של הדף", typeof sandbox.win
 sandbox.window.dlMark!("auth");
 sandbox.window.dlMark!("route");
 sandbox.window.dlMark!("visible");
-await new Promise((r) => setTimeout(r, 0));
-check("לפני שהדגל נטען אין קריאה", calls.length === 0);
-sandbox.window.DL_ON = 1;
-sandbox.window.dlFlush!();
 await new Promise((r) => setTimeout(r, 0));
 const sent = callsBody();
 check("השורה יוצאת פעם אחת עם reached ו-keepalive", calls.length === 1 && sent[9] === "r" && sent[10] === "c"
