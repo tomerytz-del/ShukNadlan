@@ -3219,7 +3219,7 @@
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : window.NoPhoto ? '<span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></a>' +
         // ‏P0-9: הלב רק מסמן שהנכס שמור; ההסרה - כפתור ✕ אדום, עם אישור וביטול
-        '<span class="sw-lv-heart" role="img" aria-label="שמור ברשימה">♥</span>' +
+        '<span class="sw-lv-heart" role="img" aria-label="שמירה במועדפים">♥</span>' +
         '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
     }).join('');
     var gab = $('swLvGab'), gh = gabListHref();
