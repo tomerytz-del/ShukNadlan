@@ -659,7 +659,7 @@
     var cd = $('swFCDeal');
     cd.hidden = filter.deal !== 'commercial';
     if (!cd.hidden) {
-      cd.innerHTML = [['', 'הכול'], ['rent', 'להשכרה'], ['sale', 'למכירה']].map(function (x) {
+      cd.innerHTML = [['', 'הכול'], ['sale', 'למכירה'], ['rent', 'להשכרה']].map(function (x) {
         // בלי התקציב: הוא מתאפס במעבר בין השכרה למכירה, ומונה מולו היה מסתיר את האפשרות השנייה
         var n = countFor({ cdeal: x[0], budget: 0 });
         return n || x[0] === (filter.cdeal || '') ? chip(esc(x[1]) + ' · ' + n, 'data-cdeal="' + x[0] + '"', x[0] === (filter.cdeal || '')) : '';
@@ -1599,7 +1599,7 @@
   /* פעם במכשיר: הידית זזה 50% → 70% וחוזרת, כשהשקופית גלויה ואין גיליון מעליה */
   function baIntro() {
     // ‏P0-8: פעם במכשיר - איך מדפדפים כשכל התמונה היא וילון
-    if (!store('sk_ba_hint')) { store('sk_ba_hint', '1'); toast('גררו את הווילון כדי להשוות · לדפדוף, החליקו מהטקסט למטה או השתמשו ב-❤/✕', 6000); }
+    if (!store('sk_ba_hint')) { store('sk_ba_hint', '1'); toast('גררו את הידית כדי להשוות. כדי לעבור לנכס הבא, החליקו על הטקסט שלמטה או לחצו על ❤ או ✕.', 6000); }
     if (store('sk_viz_ba_intro') || reduceMotion) return;
     setTimeout(function () {
       var c = cur(), top = $('swTopCard'), el = top && top.querySelector('.sw-card.is-ba .sw-ba');
@@ -3476,8 +3476,9 @@
     /* ‏D1 (תומר 29.10): צעד על כרטיס ההדמיה - לפני/אחרי עם ווילון שגוררים */
     steps.push({
       kind: 'ba',
-      text: 'בנכסים עם ✨ הדמיה: גררו את הווילון כדי להשוות',
-      sub: 'לפני - הצילום האמיתי · אחרי - הדמיית AI',
+      // גבריאלה 29.10 01:42: "ידית" ולא "ווילון", כמו בגיליון ההדמיה
+      text: 'בנכסים עם ✨ הדמיה: גררו את הידית כדי להשוות',
+      sub: 'לפני: הצילום האמיתי. אחרי: הדמיית AI.',
       art: '<span class="sw-co-ba"><span class="sw-co-ba-line"></span><span class="sw-co-ba-knob">‹ ›</span><span class="sw-co-ba-hand">' + HAND + '</span>' +
         '<b class="is-before">לפני</b><b class="is-after">אחרי · ✨ הדמיית AI</b></span>'
     });
