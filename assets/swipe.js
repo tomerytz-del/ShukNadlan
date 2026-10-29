@@ -1861,8 +1861,9 @@
     var rail = $('swRail');
     rail.hidden = !(c && c.slot === 'property');
     if (rail.hidden) return;
-    $('swRailAdvIc').querySelector('.sw-ric-wa').hidden = !phone;
-    $('swRailAdvIc').querySelector('.sw-ric-chat').hidden = !!phone;
+    // ‏<svg> אינו HTMLElement ואין לו המאפיין hidden - רק התכונה עצמה מחליפה את האייקון
+    $('swRailAdvIc').querySelector('.sw-ric-wa').toggleAttribute('hidden', !phone);
+    $('swRailAdvIc').querySelector('.sw-ric-chat').toggleAttribute('hidden', !!phone);
     $('swRailAdv').dataset.phone = phone ? '1' : '';
     measureRail();
   }
