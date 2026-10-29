@@ -462,6 +462,9 @@ html.beta-hero body.sw-body[data-view="likes"]:has(.a11y-fab) #gabW{--gw-bottom:
 .sw-ba-hand{position:absolute;top:calc(var(--ba-y) + 6px);left:var(--pos);z-index:3;width:34px;height:34px;margin-left:-6px;pointer-events:none;
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));animation:swBaHand 1.5s ease-in-out infinite}
 .sw-ba-hand[hidden]{display:none}
+/* ‏4b (תומר 29.10 02:00): לא מתחת לגיליון. בשקופית ההדמיה הראשונה נפתח "ככה זה יכול להיראות" מעל הווילון;
+   ‏display:none עוצר את האנימציה, והיא מתחילה מהתחלה כשהגיליון נסגר (‏sw-locked יורד) */
+body.sw-locked .sw-ba-hand{display:none}
 .sw-ba-hand .sw-hand{width:34px;height:34px}
 @keyframes swBaHand{0%,100%{transform:translateX(-18px)}50%{transform:translateX(18px)}}
 /* היד היא ההסבר - בזמן שהיא זזה, בלי "גררו להשוואה" שמתחתיה; עם reduced-motion היד סטטית והשורה נשארת */
@@ -723,12 +726,17 @@ body[data-view=likes] .sw-sortbar{display:none}
 .sw-promo::after{display:none}
 .sw-promo-in{position:relative;z-index:2;height:100%;max-width:340px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:10px;padding:28px 22px;text-align:center;overflow:auto}
-.sw-promo-gab{width:40px;height:40px;border-radius:50%;overflow:hidden;border:2px solid #c9a227;background:var(--sw-cream);flex:none}
+/* ‏D3 מקום 1 (תומר 29.10 01:23): גבריאלה בגזירה בעיגול של 84px, כמו בכרטיס הסיום */
+.sw-promo-gab{width:84px;height:84px;border-radius:50%;overflow:hidden;border:3px solid var(--sw-gold);background:var(--sw-cream);flex:none}
 .sw-promo-gab img{width:100%;height:100%;object-fit:cover;object-position:top}
-.sw-nc-art{width:72px;height:auto;flex:none}
+/* ‏direction:ltr - ב-RTL ה-"0" של "0%" נחתך */
+.sw-nc-art{width:72px;height:auto;flex:none;direction:ltr}
 .sw-promo-kick{margin:0;font-size:13px;font-weight:800;color:#e5c76a}
 html body .sw-promo-title{margin:0;font-family:Heebo,system-ui,sans-serif;font-size:var(--sec-h);font-weight:800;line-height:1.2;color:#fff;text-wrap:balance}
 .sw-promo-sub{margin:0;font-size:15px;line-height:1.55;color:rgba(255,255,255,.9);text-wrap:pretty}
+/* משפט היריד בשתי שורות קבועות (‏.sw-l), כל שורה מאוזנת */
+.sw-promo-sub{text-wrap:balance}
+.sw-promo-sub .sw-l{display:block}
 .sw-promo-gold{margin:0;font-size:13px;font-weight:700;color:#e5c76a;line-height:1.5}
 .sw-promo .sw-gold{min-height:52px;font-size:16.5px}
 .sw-promo-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 10px;border:0;background:none;

@@ -6967,7 +6967,8 @@ function renderAdvancedBadge(){
    ארבע תמונות AI (לא נכסים אמיתיים, ולכן alt ריק ובלי קישור לנכס): ‏ext-1 בית אבן, ‏ext-2
    בניין בוטיק, ‏ext-3 פרגולה עם נוף, ‏ext-4 מטבח. ‏ext-N.webp ‏(96x128) לכפתור שבסרגל,
    ‏ext-N-card.webp ‏(240x320) לכרטיס ההזמנה, ב-assets/swipe-thumbs/ (‏29.10). ‏SWIPE_THUMBS_READY
-   כבוי - הכפתור הוא האייקון של שני הכרטיסים והכרטיס מציג את תמונות הנכסים */
+   דלוק מאז שהתמונות נכנסו לריפו. כשהוא כבוי, הכפתור הוא האייקון של שני הכרטיסים והכרטיס מציג
+   את תמונות הנכסים */
 const SWIPE_THUMBS_READY = true;
 const SWIPE_THUMBS = [1, 2, 3, 4];
 const swipeThumb = (n, card) => '/assets/swipe-thumbs/ext-' + n + (card ? '-card' : '') + '.webp';
