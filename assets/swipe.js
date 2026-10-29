@@ -1841,7 +1841,9 @@
     $('swSkip').disabled = $('swLike').disabled = end;
     $('swUndo').disabled = !history_.length;
     // ‏P0-7: ‏phone_e164 שמור בלי '+', ו-tel:9725… מחייג בטלפון מספר מקומי שגוי
-    var phone = adv && adv.phone ? adv.phone.replace(/\D/g, '') : '';
+    /* תומר 29.10 02:20: בנכס ביריד פונים דרך הטופס. רק הטופס נשמר כליד עם שעה, ובלי תיעוד כזה
+       אין דרך לדעת שהפנייה הגיעה בזמן היריד - ולכן בלי וואטסאפ וחיוג עד שיהיה יומן פניות ליריד */
+    var phone = adv && adv.phone && !(p && fairLive(p)) ? adv.phone.replace(/\D/g, '') : '';
     $('swCall').hidden = !phone; $('swWa').hidden = !phone;
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
@@ -2017,7 +2019,21 @@
   /* ‏Variant C: בטלפון "צרו הדמיה" ירד מהכרטיס אל הגיליון - מהשקופית לפני/אחרי הגיליון נפתח
      בלשונית "✨ הדמיה" (‏openSheetFor פותח אותה רק כש-studioOk), ומכל שקופית אחרת ב"פרטים" */
   function sheetOpts(card) {
+    var c = cur();
+    // נכס ביריד: הגיליון נפתח עם הטופס (תומר 29.10 02:20), גם מהשקופית לפני/אחרי
+    if (c && c.p && fairLive(c.p)) return { form: true };
     return card && card.classList.contains('is-ba') && phoneC() ? { tab: 'viz', from: 'slide_cta' } : {};
+  }
+  /* "פונים דרך הטופס עד יום שישי 31.10 בשעה 23:59, ולא משלמים עמלת תיווך" - הנוסח של גבריאלה (ממתין לאישור
+     הסופי שלה), ומחושב מסיום היריד של הנכס */
+  function fairFormLine(p) {
+    var to = window.OpenHouse && OpenHouse.endsAt(p);
+    if (!to) return '';
+    // סיום בחצות נאמר כמו שאנשים אומרים אותו: "עד שבת 31.10 בשעה 23:59" ולא "עד ראשון בשעה 00:00"
+    if (!to.getHours() && !to.getMinutes()) to = new Date(to.getTime() - 60000);
+    var day = to.toLocaleDateString('he-IL', { weekday: 'long' }), date = OpenHouse.hebDay(to);
+    var hour = to.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return 'פונים דרך הטופס עד ' + day + ' ' + date + ' בשעה ' + hour + ', ולא משלמים עמלת תיווך';
   }
   /* מחוות: גרירה לצדדים (אהבתי/דילוג), למעלה (פרטים), והקשה על צידי התמונה (תמונה) */
   function bindGestures(top) {
@@ -2252,7 +2268,7 @@
         '<button type="button" role="tab" id="swTabBtnInfo" data-tab="info" aria-controls="swTabInfo" aria-selected="true">פרטים</button>' +
         '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
       '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) +
-        (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p><a href="/open-house">מה זה היריד? ←</a></div>' : '') +
+        (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p>' + (fairFormLine(c.p) ? '<p class="sw-fairform">' + esc(fairFormLine(c.p)) + '</p>' : '') + '<a href="/open-house">מה זה היריד? ←</a></div>' : '') +
         (c.p ? propInfoHtml(c.p) : '') +
         // ‏P1-P: מספר המודעה בתחתית הפרטים
         (c.p && c.p.listing_number ? '<p class="sw-listing-no">מודעה #' + esc(String(c.p.listing_number)) + '</p>' : '') + '</div>' +

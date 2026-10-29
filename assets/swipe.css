@@ -718,6 +718,7 @@ body[data-view=likes] .sw-sortbar{display:none}
 /* רצועת היריד בגיליון הפרטים */
 .sw-fairband{margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:#0e2a6b;border-top:3px solid #c9a227;color:#fff}
 .sw-fairband p{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.5}
+html body .sw-fairband .sw-fairform{color:#e5c76a;font-weight:800}
 .sw-fairband a{color:#e5c76a;font-size:13.5px;font-weight:700;text-decoration:underline}
 
 /* §3/§5 כרטיסי הזמנה: אותה תבנית של כרטיס הסיום, מסגרת זהב פנימית */
