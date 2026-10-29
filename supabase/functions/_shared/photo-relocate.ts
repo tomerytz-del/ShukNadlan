@@ -19,14 +19,41 @@ export function publicImageUrl(base: string, path: string): string {
  * כך עולות תמונות מהטופס ומ-WhatsApp. לוגו, כתבה, או קובץ של סוכן/ת אחר לא.
  */
 export function deletableStoragePath(path: string, ownerAgentId: string): boolean {
-  const id = String(ownerAgentId || "").toLowerCase();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return false;
+  const id = String(ownerAgentId || "");
+  if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)) return false;
   const p = String(path || "");
   const prefix = `${id}/`;
-  if (!p.toLowerCase().startsWith(prefix)) return false;
+  if (!p.startsWith(prefix)) return false;
   const rest = p.slice(prefix.length);
   if (!rest || rest.split("/").some((part) => !part || part === "." || part === "..")) return false;
   return true;
+}
+
+/** הכתובת השמורה, בלי ?v= ובלי אחוזים, וגם הצורות השכנות. */
+export function imageUrlProbes(url: string): string[] {
+  const raw = String(url || "").trim();
+  if (!raw) return [];
+  const out = new Set<string>();
+  const add = (s: string) => {
+    const t = String(s || "").trim();
+    if (t) out.add(t);
+  };
+  add(raw);
+  const noHash = raw.split("#")[0];
+  add(noHash);
+  const noQuery = noHash.split("?")[0];
+  add(noQuery);
+  try { add(decodeURI(noQuery)); } catch { /* כתובת שבורה נשארת כמו שהיא */ }
+  try { add(decodeURIComponent(noQuery)); } catch { /* same */ }
+  try {
+    const u = new URL(noQuery);
+    const parts = u.pathname.split("/").map((seg, i) => {
+      if (!i) return seg;
+      try { return encodeURIComponent(decodeURIComponent(seg)); } catch { return seg; }
+    });
+    add(`${u.origin}${parts.join("/")}`);
+  } catch { /* לא URL מלא */ }
+  return [...out];
 }
 
 type Client = {
@@ -102,7 +129,12 @@ export async function relocatePropertyPhotos(
     p_actor: opts.actorId,
   });
   if (error || !id) {
-    const fresh = await pathsSafeToDelete(supabase, copyPaths, String(to.agent_id || ""), opts.baseUrl);
+    const fresh = await pathsSafeToDelete(
+      supabase,
+      copyPaths.map((path) => ({ path, url: publicImageUrl(opts.baseUrl, path) })),
+      String(to.agent_id || ""),
+      opts.baseUrl,
+    );
     if (fresh.length) await supabase.storage.from(BUCKET).remove(fresh);
     const message = error?.message || "";
     if (/images_changed/.test(message)) return { ok: false, error: "התמונות השתנו בינתיים ולא העברתי." };
@@ -140,7 +172,12 @@ export async function undoRelocation(
     .maybeSingle();
   const paths = Array.isArray(data) ? data as string[] : [];
   const owner = !rowErr && row ? String(row.copy_agent_id || "") : "";
-  const drop = await pathsSafeToDelete(supabase, paths, owner, baseUrl);
+  const drop = await pathsSafeToDelete(
+    supabase,
+    paths.map((path) => ({ path })),
+    owner,
+    baseUrl,
+  );
   if (drop.length) await supabase.storage.from(BUCKET).remove(drop);
   return { ok: true, text: "ההעברה בוטלה." };
 }
@@ -158,49 +195,65 @@ export async function imageUrlStillUsed(
   return data === true;
 }
 
+async function urlStillUsed(supabase: Client, url: string): Promise<boolean> {
+  const probes = imageUrlProbes(url);
+  if (!probes.length) return true;
+  for (const probe of probes) {
+    if (await imageUrlStillUsed(supabase, probe)) return true;
+  }
+  return false;
+}
+
 async function pathsSafeToDelete(
   supabase: Client,
-  paths: string[],
+  items: Array<{ path: string; url?: string }>,
   ownerAgentId: string,
   baseUrl: string,
 ): Promise<string[]> {
-  if (!baseUrl || !ownerAgentId) return [];
+  if (!ownerAgentId) return [];
   const drop: string[] = [];
-  for (const path of paths) {
-    if (!deletableStoragePath(path, ownerAgentId)) continue;
-    if (await imageUrlStillUsed(supabase, publicImageUrl(baseUrl, path))) continue;
-    drop.push(path);
+  for (const item of items) {
+    if (!deletableStoragePath(item.path, ownerAgentId)) continue;
+    const stored = item.url || (baseUrl ? publicImageUrl(baseUrl, item.path) : "");
+    if (!stored || await urlStillUsed(supabase, stored)) continue;
+    drop.push(item.path);
   }
   return drop;
 }
 
 async function cleanupRelocations(supabase: Client): Promise<void> {
   const { data } = await supabase.from("property_image_relocations")
-    .select("id, source_paths, source_urls, source_agent_id")
+    .select("id, source_paths, source_urls, source_agent_id, cleanup_attempts")
+    .lt("cleanup_attempts", 5)
     .eq("mode", "move")
     .is("undone_at", null)
     .is("cleaned_at", null)
     .lt("delete_after", new Date().toISOString())
     .limit(20);
   const rows = (data || []) as {
-    id: string; source_paths: string[]; source_urls: string[]; source_agent_id: string | null;
+    id: string; source_paths: string[]; source_urls: string[];
+    source_agent_id: string | null; cleanup_attempts: number | null;
   }[];
   for (const row of rows) {
-    const owned: string[] = [];
-    let base = "";
+    const owned: Array<{ path: string; url: string }> = [];
     for (let i = 0; i < (row.source_urls || []).length; i++) {
       const url = row.source_urls[i];
       const path = row.source_paths?.[i];
       if (!url || !path || storagePath(url) !== path) continue;
-      if (!base) {
-        const marker = `/storage/v1/object/public/${BUCKET}/`;
-        const at = url.indexOf(marker);
-        if (at > 0) base = url.slice(0, at);
-      }
-      owned.push(path);
+      owned.push({ path, url });
     }
-    const drop = await pathsSafeToDelete(supabase, owned, String(row.source_agent_id || ""), base);
-    if (drop.length) await supabase.storage.from(BUCKET).remove(drop);
-    await supabase.from("property_image_relocations").update({ cleaned_at: new Date().toISOString() }).eq("id", row.id);
+    const drop = await pathsSafeToDelete(supabase, owned, String(row.source_agent_id || ""), "");
+    let failed = false;
+    if (drop.length) {
+      const removed = await supabase.storage.from(BUCKET).remove(drop);
+      failed = !!removed?.error;
+    }
+    if (failed) {
+      const next = Math.min(5, Number(row.cleanup_attempts || 0) + 1);
+      await supabase.from("property_image_relocations").update({ cleanup_attempts: next }).eq("id", row.id);
+      continue;
+    }
+    await supabase.from("property_image_relocations")
+      .update({ cleaned_at: new Date().toISOString() }).eq("id", row.id);
   }
 }
