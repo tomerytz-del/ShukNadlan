@@ -1,6 +1,6 @@
 // העתקה או העברה של תמונות. הקובץ משוכפל. המקור נמחק רק אחרי חלון הביטול,
 // ורק אם אף נכס לא מצביע עליו. לא משנים סטטוס ולא מפרסמים.
-import { planPhotoTransfer, storageDeleteAllowed, urlsAt, photoUrlsHash } from "../whatsapp-webhook/photo-target.ts";
+import { planPhotoTransfer, urlsAt, photoUrlsHash } from "../whatsapp-webhook/photo-target.ts";
 
 const BUCKET = "property-images";
 
@@ -121,6 +121,19 @@ export async function undoRelocation(
   return { ok: true, text: "ההעברה בוטלה." };
 }
 
+export async function imageUrlStillUsed(
+  supabase: Client,
+  url: string,
+  exceptId?: string | null,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("property_image_still_used", {
+    p_url: url,
+    p_except: exceptId || null,
+  });
+  if (error) return true;
+  return data === true;
+}
+
 async function cleanupRelocations(supabase: Client): Promise<void> {
   const { data } = await supabase.from("property_image_relocations")
     .select("id, source_paths, source_urls")
@@ -130,17 +143,14 @@ async function cleanupRelocations(supabase: Client): Promise<void> {
     .lt("delete_after", new Date().toISOString())
     .limit(20);
   const rows = (data || []) as { id: string; source_paths: string[]; source_urls: string[] }[];
-  if (!rows.length) return;
-  const { data: props } = await supabase.from("properties").select("images").limit(1000);
-  const galleries = ((props || []) as { images: string[] | null }[]).map((p) => p.images || []);
   for (const row of rows) {
     const drop: string[] = [];
-    (row.source_urls || []).forEach((url, i) => {
-      if (storageDeleteAllowed(url, galleries)) {
-        const path = row.source_paths?.[i];
-        if (path) drop.push(path);
-      }
-    });
+    for (let i = 0; i < (row.source_urls || []).length; i++) {
+      const url = row.source_urls[i];
+      if (await imageUrlStillUsed(supabase, url)) continue;
+      const path = row.source_paths?.[i];
+      if (path) drop.push(path);
+    }
     if (drop.length) await supabase.storage.from(BUCKET).remove(drop);
     await supabase.from("property_image_relocations").update({ cleaned_at: new Date().toISOString() }).eq("id", row.id);
   }

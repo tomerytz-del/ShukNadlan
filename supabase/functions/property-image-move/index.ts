@@ -3,7 +3,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { mfaGate } from "../_shared/mfa-gate.ts";
-import { relocatePropertyPhotos, undoRelocation } from "../_shared/photo-relocate.ts";
+import { imageUrlStillUsed, relocatePropertyPhotos, storagePath, undoRelocation } from "../_shared/photo-relocate.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -38,6 +38,21 @@ Deno.serve(async (req: Request) => {
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const admin = createClient(supabaseUrl, serviceKey);
+  if (body.action === "release") {
+    const url = String(body.url || "");
+    const exceptId = String(body.except_id || "");
+    const { data: prop } = await admin.from("properties")
+      .select("id, agent_id, agency_id").eq("id", exceptId).maybeSingle();
+    const { data: full } = await admin.from("agency_members")
+      .select("id, agency_id, role").eq("id", member.id).maybeSingle();
+    const allowed = prop && full && prop.agency_id === full.agency_id
+      && (full.role === "manager" || prop.agent_id === full.id);
+    if (!allowed) return json({ ok: false, error: "אין גישה" }, 403);
+    if (await imageUrlStillUsed(admin, url, exceptId)) return json({ ok: true, deleted: false });
+    const path = storagePath(url);
+    if (path) await admin.storage.from("property-images").remove([path]);
+    return json({ ok: true, deleted: true });
+  }
   if (body.action === "undo") {
     const undone = await undoRelocation(admin, String(body.id || ""), member.id);
     return json(undone, undone.ok ? 200 : 409);

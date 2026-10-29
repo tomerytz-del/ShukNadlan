@@ -36,6 +36,42 @@ export function scorePhotoText(text: string, c: PhotoCandidate): number {
   return score;
 }
 
+function touchedAt(c: PhotoCandidate, lastId: string | null, lastUpdatedAt: string | null): number {
+  const stamp = c.updated_at || (c.id === lastId ? lastUpdatedAt : null);
+  const at = Date.parse(String(stamp || ""));
+  return Number.isFinite(at) ? at : NaN;
+}
+
+function propertyIdle(c: PhotoCandidate, opts: { lastId: string | null; lastUpdatedAt: string | null; now: number; idleMs: number }): boolean {
+  const at = touchedAt(c, opts.lastId, opts.lastUpdatedAt);
+  return !Number.isFinite(at) || opts.now - at > opts.idleMs;
+}
+
+/** טקסט רק מחלון השקט. הודעה ישנה לא משייכת צילום מסך לנכס חי. */
+export function photoContextText(
+  messages: Array<{ role?: string; content?: unknown; at?: number | string | null }>,
+  now: number,
+  idleMs: number,
+): string {
+  return messages
+    .filter((m) => m.role === "user" && typeof m.content === "string" && String(m.content).trim())
+    .filter((m) => {
+      const at = typeof m.at === "number" ? m.at : Date.parse(String(m.at || ""));
+      return Number.isFinite(at) && now - at <= idleMs && now - at >= 0;
+    })
+    .slice(-6)
+    .map((m) => String(m.content))
+    .join("\n");
+}
+
+/** כותרת לכפתור (20) או לשורת רשימה (24), לפי נקודות קוד, עם אליפסיס. */
+export function clipTitle(title: string, max: number): string {
+  const chars = Array.from(String(title || "").trim() || "נכס");
+  if (chars.length <= max) return chars.join("");
+  if (max <= 1) return "…";
+  return chars.slice(0, max - 1).join("") + "…";
+}
+
 export function choosePhotoTarget(opts: {
   lastId: string | null;
   candidates: PhotoCandidate[];
@@ -47,17 +83,25 @@ export function choosePhotoTarget(opts: {
 }): PhotoDecision {
   const list = opts.candidates;
   if (!list.length) return { kind: "ask", ids: [], reason: "none" };
-  if (list.length === 1) return { kind: "attach", id: list[0].id, reason: "only" };
+
+  // שקט של השיחה או של הנכס: לא מצרפים, גם אם יש נכס אחד או טקסט שמתאים.
+  if (list.length === 1) {
+    if (opts.conversationIdle || propertyIdle(list[0], opts)) {
+      return { kind: "ask", ids: [list[0].id], reason: "ambiguous" };
+    }
+    return { kind: "attach", id: list[0].id, reason: "only" };
+  }
 
   const scored = list
     .map((c) => ({ c, s: scorePhotoText(opts.recentText, c) }))
     .sort((a, b) => b.s - a.s);
   const top = scored[0];
   const second = scored[1];
-  if (top.s >= 30 && top.s > (second?.s || 0)) {
-    return { kind: "attach", id: top.c.id, reason: "text" };
+  if (!opts.conversationIdle && top.s >= 30 && top.s > (second?.s || 0)) {
+    if (!propertyIdle(top.c, opts)) return { kind: "attach", id: top.c.id, reason: "text" };
+    return { kind: "ask", ids: [top.c.id], reason: "ambiguous" };
   }
-  if (top.s >= 30 && second && top.s === second.s) {
+  if (!opts.conversationIdle && top.s >= 30 && second && top.s === second.s) {
     return {
       kind: "ask",
       ids: scored.filter((x) => x.s === top.s).map((x) => x.c.id).slice(0, 8),
@@ -67,8 +111,8 @@ export function choosePhotoTarget(opts: {
 
   const last = opts.lastId ? list.find((c) => c.id === opts.lastId) : undefined;
   const updated = Date.parse(String(opts.lastUpdatedAt || ""));
-  const propertyIdle = !Number.isFinite(updated) || opts.now - updated > opts.idleMs;
-  if (last && !opts.conversationIdle && !propertyIdle) {
+  const lastIdle = !Number.isFinite(updated) || opts.now - updated > opts.idleMs;
+  if (last && !opts.conversationIdle && !lastIdle) {
     return { kind: "attach", id: last.id, reason: "continue" };
   }
   return { kind: "ask", ids: list.slice(0, 8).map((c) => c.id), reason: "ambiguous" };
@@ -131,14 +175,19 @@ export function planPhotoTransfer(
   return { ok: true, source: nextSource, added: fresh, target: nextTarget, room };
 }
 
+export function canonicalPositions(positions: readonly number[]): number[] {
+  return [...new Set(positions.map(Number))].filter((p) => Number.isInteger(p) && p >= 1).sort((a, b) => a - b);
+}
+
 export function photoMoveButtons(
   fromId: string,
   toId: string,
   positions: readonly number[],
-  urls: readonly string[],
+  images: readonly string[],
 ): { id: string; title: string }[] | null {
-  const pos = [...new Set(positions.map(Number))].filter((p) => Number.isInteger(p) && p >= 1).sort((a, b) => a - b);
-  if (!pos.length || !fromId || !toId || fromId === toId) return null;
+  const pos = canonicalPositions(positions);
+  const urls = urlsAt(images, pos);
+  if (!urls || !pos.length || !fromId || !toId || fromId === toId) return null;
   const hash = photoUrlsHash(urls);
   const tail = `${pos.join(".")}:${hash}`;
   const move = `pmv:m:${fromId}:${toId}:${tail}`;

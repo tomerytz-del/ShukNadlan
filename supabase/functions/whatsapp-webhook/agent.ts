@@ -57,7 +57,7 @@ import {
   storeListingCity,
 } from "./listing-defaults.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
-import { parsePhotoMoveButton, photoMoveButtons, urlsAt } from "./photo-target.ts";
+import { canonicalPositions, parsePhotoMoveButton, photoMoveButtons, urlsAt } from "./photo-target.ts";
 import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
@@ -3118,9 +3118,10 @@ async function toolMovePropertyPhotos(ctx: ToolContext, input: Record<string, un
   const target = await ownedProperty(ctx, toId);
   if (!source || !target) return { ok: false, error: "אפשר להעביר רק בין נכסים שלך." };
   const images: string[] = Array.isArray(source.images) ? source.images : [];
-  const picked = urlsAt(images, positions);
+  const ordered = canonicalPositions(positions);
+  const picked = urlsAt(images, ordered);
   if (!picked) return { ok: false, error: `יש בנכס ${images.length} תמונות. צריך מספר בין 1 ל-${images.length}.` };
-  const buttons = photoMoveButtons(fromId, toId, positions, picked);
+  const buttons = photoMoveButtons(fromId, toId, ordered, images);
   if (!ctx.outbox || !buttons) {
     return {
       ok: false,

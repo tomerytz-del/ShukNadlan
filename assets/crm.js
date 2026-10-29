@@ -12836,20 +12836,21 @@ function removeImage(i){
   const [slot] = imageSlots.splice(i, 1);
   if (!slot) return;
   if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
-  if (slot.url){
-    const url = slot.url;
-    const path = storagePathFromPublicUrl(url);
-    // לא מוחקים קובץ שעוד מופיע בנכס אחר. ההעברה משאירה את הקובץ עד סוף הביטול.
-    if (path) {
-      sb.from('properties').select('id', { count: 'exact', head: true })
-        .contains('images', [url])
-        .then(({ count }) => {
-          if (!count) sb.storage.from(IMAGES_BUCKET).remove([path]).catch(()=>{});
-        }).catch(()=>{});
-    }
-  }
+  if (slot.url && editingPropertyId) releasePropertyImage(slot.url, editingPropertyId);
   imagePicked.delete(i);
   renderImagePreview();
+}
+
+async function releasePropertyImage(url, exceptId){
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    await fetch(SUPABASE_URL + '/functions/v1/property-image-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({ action: 'release', url, except_id: exceptId }),
+    });
+  } catch (e) { /* קובץ שנשאר עדיף על מחיקה של קובץ שעוד בשימוש */ }
 }
 
 let imageSelectOn = false;
@@ -12921,10 +12922,10 @@ function openPhotoMove(indexes, mode){
     .slice().sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
   const sheet = document.createElement('div');
   sheet.className = 'photo-sheet';
-  const thumbs = savedIdx.slice(0, 4).map(i => `<img src="${imageSlots[i].url}" alt="" width="48" height="48">`).join('');
+  const thumbs = savedIdx.slice(0, 4).map(i => `<img src="${esc(imageSlots[i].url)}" alt="" width="48" height="48">`).join('');
   sheet.innerHTML = `<div class="photo-sheet-card" role="dialog">
     <h3>${mode === 'copy' ? 'העתקת' : 'העברת'} ${savedIdx.length} תמונות</h3>
-    <div>${thumbs} מהנכס: ${from.title || ''} (#${from.listing_number || ''})</div>
+    <div>${thumbs} מהנכס: ${esc(from.title || '')} (#${esc(from.listing_number || '')})</div>
     <input type="search" id="photoMoveQ" placeholder="חיפוש לפי כתובת, עיר או מספר נכס" aria-label="חיפוש נכס יעד">
     <div id="photoMoveList"></div>
     <label><input type="radio" name="photoMoveMode" value="move" ${mode === 'move' ? 'checked' : ''}> העברה (התמונות יוסרו מהנכס הנוכחי)</label>
@@ -12943,8 +12944,8 @@ function openPhotoMove(indexes, mode){
     sheet.querySelector('#photoMoveList').innerHTML = rows.slice(0, 8).map(p => {
       const n = (p.images || []).length;
       const full = n >= MAX_IMAGES;
-      return `<label><input type="radio" name="photoMoveTo" value="${p.id}" ${full ? 'disabled' : ''}>
-        ${p.street || p.city || p.title || 'נכס'} · #${p.listing_number || ''} · ${n}/8${full ? ' · מלא' : ''}</label>`;
+      return `<label><input type="radio" name="photoMoveTo" value="${esc(p.id)}" ${full ? 'disabled' : ''}>
+        ${esc(p.street || p.city || p.title || 'נכס')} · #${esc(p.listing_number || '')} · ${n}/8${full ? ' · מלא' : ''}</label>`;
     }).join('') || '<p>לא נמצא נכס. אפשר לחפש לפי מספר נכס.</p>';
   };
   sheet.querySelector('#photoMoveQ').addEventListener('input', draw);
@@ -12963,7 +12964,7 @@ function openPhotoMove(indexes, mode){
     const liveNote = from.status === 'active' ? '<li>הנכס מפורסם. התמונות יורדו גם מהמודעה באתר.</li>' : '';
     const emptyNote = how === 'move' && use.length === imageSlots.length ? '<li>בנכס המקור לא יישארו תמונות.</li>' : '';
     sheet.querySelector('.photo-sheet-card').innerHTML = `<h3>${how === 'copy' ? 'להעתיק' : 'להעביר'} ${use.length} תמונות?</h3>
-      <p>אל ${target.street || target.title || ''} (#${target.listing_number || ''})</p>
+      <p>אל ${esc(target.street || target.title || '')} (#${esc(target.listing_number || '')})</p>
       <ul>${coverNote}${liveNote}${emptyNote}<li>פוסטים שכבר פורסמו לא משתנים.</li></ul>
       <button type="button" class="ui-btn" id="photoMoveGo">${how === 'copy' ? 'העתקה' : 'העברה'}</button>
       <button type="button" class="mkt-btn" id="photoMoveBack">ביטול</button>`;
@@ -12990,7 +12991,7 @@ function showPhotoUndo(text, id, toId){
   const bar = document.createElement('div');
   bar.id = 'photoUndo';
   bar.className = 'photo-undo';
-  bar.innerHTML = `<span>${text}</span><button type="button" id="photoUndoBtn">ביטול</button><button type="button" id="photoGoto">מעבר לנכס</button>`;
+  bar.innerHTML = `<span>${esc(text)}</span><button type="button" id="photoUndoBtn">ביטול</button><button type="button" id="photoGoto">מעבר לנכס</button>`;
   document.body.appendChild(bar);
   clearTimeout(photoUndoTimer);
   photoUndoTimer = setTimeout(() => bar.remove(), 10000);

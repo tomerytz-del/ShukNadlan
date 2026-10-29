@@ -97,7 +97,7 @@ begin
     coalesce(p_from_next, '{}'), coalesce(p_to_next, '{}'),
     coalesce(p_source_paths, '{}'), coalesce(p_source_urls, '{}'),
     coalesce(p_copy_paths, '{}'),
-    case when p_mode = 'move' then now() + interval '10 seconds' else null end
+    case when p_mode = 'move' then now() + interval '20 seconds' else null end
   ) returning id into v_id;
   return v_id;
 end;
@@ -150,4 +150,22 @@ revoke all on function public.relocate_property_images_undo(uuid, uuid) from pub
 grant execute on function public.relocate_property_images_undo(uuid, uuid) to service_role;
 
 comment on function public.relocate_property_images(uuid, uuid, text[], text[], text[], text[], text, text, text[], text[], text[], uuid) is
-  'מעדכנת את שני מערכי התמונות בעסקה אחת. לא מוחקת קבצים ולא משנה סטטוס.';
+  'מעדכנת את שני מערכי התמונות בעסקה אחת. לא מוחקת קבצים ולא משנה סטטוס. חלון הביטול 20 שניות.';
+
+-- האם כתובת תמונה מופיעה בנכס אחר. בלי תקרת שורות.
+create or replace function public.property_image_still_used(p_url text, p_except uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.properties p
+     where p_url = any(coalesce(p.images, '{}'::text[]))
+       and (p_except is null or p.id is distinct from p_except)
+  );
+$$;
+
+revoke all on function public.property_image_still_used(text, uuid) from public, anon, authenticated;
+grant execute on function public.property_image_still_used(text, uuid) to service_role;

@@ -13,7 +13,7 @@ import {
   verifySignature,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
-import { choosePhotoTarget, type PhotoCandidate } from "./photo-target.ts";
+import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } from "./photo-target.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
@@ -1373,11 +1373,23 @@ async function flushImageBatch(
     .limit(40);
   const candidates = ((owned || []) as PhotoCandidate[]);
   const last = candidates.find((c) => c.id === conv.last_property_id);
-  const recentText = (conv.history || [])
-    .filter((m) => m.role === "user" && typeof m.content === "string")
-    .slice(-6)
-    .map((m) => String(m.content))
-    .join("\n");
+  const sinceIso = new Date(Date.now() - PHOTO_ASK_GAP_MS).toISOString();
+  const { data: recentIn } = await supabase.from("whatsapp_messages")
+    .select("body, created_at")
+    .eq("wa_phone", from)
+    .eq("direction", "in")
+    .gte("created_at", sinceIso)
+    .order("created_at", { ascending: true })
+    .limit(6);
+  const recentText = photoContextText(
+    ((recentIn || []) as { body: string | null; created_at: string }[]).map((row) => ({
+      role: "user",
+      content: row.body,
+      at: row.created_at,
+    })),
+    Date.now(),
+    PHOTO_ASK_GAP_MS,
+  );
   const choice = choosePhotoTarget({
     lastId: conv.last_property_id,
     candidates,
@@ -1398,9 +1410,10 @@ async function flushImageBatch(
     const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
     const body = formatForWhatsapp(
       `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
+    const titleMax = choice.ids.length + 2 <= 3 ? 20 : 24;
     const rows = choice.ids.slice(0, 8).map((id) => {
       const c = candidates.find((x) => x.id === id);
-      return { id: `pimg:p:${id}`, title: c?.title || "נכס" };
+      return { id: `pimg:p:${id}`, title: clipTitle(c?.title || "נכס", titleMax) };
     });
     rows.push({ id: "pimg:n", title: "נכס חדש" });
     rows.push({ id: "pimg:d", title: "לא לשום נכס" });

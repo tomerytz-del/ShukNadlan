@@ -1,7 +1,7 @@
 // שיוך תמונות והעברה בין נכסים. בלי וואטסאפ ובלי מסד.
 //   node --experimental-strip-types scripts/photo_target_test.ts
 import { readFileSync } from "node:fs";
-import { choosePhotoTarget, parsePhotoMoveButton, photoMoveButtons, photoUrlsHash, planPhotoMove, planPhotoTransfer, storageDeleteAllowed, type PhotoCandidate } from "../supabase/functions/whatsapp-webhook/photo-target.ts";
+import { canonicalPositions, choosePhotoTarget, clipTitle, parsePhotoMoveButton, photoContextText, photoMoveButtons, photoUrlsHash, planPhotoMove, planPhotoTransfer, storageDeleteAllowed, urlsAt, type PhotoCandidate } from "../supabase/functions/whatsapp-webhook/photo-target.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean) {
@@ -17,10 +17,28 @@ const fresh = new Date(now - 60_000).toISOString();
 const old = new Date(now - 40 * 60_000).toISOString();
 
 const named = choosePhotoTarget({
-  lastId: "shop", candidates: [shop, plot], recentText: "הנה תמונות למגרש",
+  lastId: "shop",
+  candidates: [{ ...shop, updated_at: fresh }, { ...plot, updated_at: fresh }],
+  recentText: "הנה תמונות למגרש",
   lastUpdatedAt: fresh, now, idleMs: 20 * 60_000, conversationIdle: false,
 });
 check("מגרש לא הולך לחנות", named.kind === "attach" && named.id === "plot");
+
+const idleText = choosePhotoTarget({
+  lastId: "shop",
+  candidates: [{ ...shop, updated_at: fresh }, { ...plot, updated_at: fresh }],
+  recentText: "הנה תמונות למגרש",
+  lastUpdatedAt: fresh, now, idleMs: 20 * 60_000, conversationIdle: true,
+});
+check("טקסט אחרי שקט לא מצרף", idleText.kind === "ask");
+
+const idlePlot = choosePhotoTarget({
+  lastId: "shop",
+  candidates: [{ ...shop, updated_at: fresh }, { ...plot, updated_at: old }],
+  recentText: "תמונות למגרש",
+  lastUpdatedAt: fresh, now, idleMs: 20 * 60_000, conversationIdle: false,
+});
+check("טקסט על נכס ישן שואל", idlePlot.kind === "ask" && idlePlot.id === undefined);
 
 const cont = choosePhotoTarget({
   lastId: "shop", candidates: [shop, plot], recentText: "",
@@ -40,11 +58,22 @@ const tie = choosePhotoTarget({
 });
 check("שני מגרשים לא מנחשים", tie.kind === "ask" && tie.ids.includes("plot") && tie.ids.includes("plot2") && !tie.ids.includes("shop"));
 
-const only = choosePhotoTarget({
+const onlyFresh = choosePhotoTarget({
+  lastId: null, candidates: [{ ...plot, updated_at: fresh }], recentText: "",
+  lastUpdatedAt: fresh, now, idleMs: 20 * 60_000, conversationIdle: false,
+});
+check("נכס יחיד טרי", onlyFresh.kind === "attach" && onlyFresh.id === "plot");
+const onlyIdle = choosePhotoTarget({
   lastId: null, candidates: [plot], recentText: "",
   lastUpdatedAt: null, now, idleMs: 20 * 60_000, conversationIdle: true,
 });
-check("נכס יחיד", only.kind === "attach" && only.id === "plot");
+check("נכס יחיד בשקט שואל", onlyIdle.kind === "ask" && onlyIdle.ids.includes("plot"));
+const oldLine = photoContextText(
+  [{ role: "user", content: "תמונות למגרש", at: now - 3 * 60 * 60_000 }, { role: "user", content: "היי", at: now - 60_000 }],
+  now, 20 * 60_000,
+);
+check("טקסט ישן לא נספר", oldLine === "היי");
+check("כותרת ארוכה נחתכת", Array.from(clipTitle("א".repeat(30), 20)).length === 20 && clipTitle("א".repeat(30), 20).endsWith("…"));
 
 const moved = planPhotoMove(
   ["a", "b", "c"],
@@ -61,17 +90,23 @@ const movedCover = planPhotoTransfer(["a", "b", "c"], ["t"], [1], "move", "end")
 check("ראשית שהועברה מפנה את הבאה", movedCover.ok && movedCover.source[0] === "b");
 check("לא מוחקים קובץ שעוד בשימוש", storageDeleteAllowed("a", [["a"], ["b"]]) === false);
 check("מוחקים רק בלי הפניה", storageDeleteAllowed("z", [["a"]]) === true);
-const buttons = photoMoveButtons("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", [2], ["https://x/a"]);
+const gallery = ["https://x/a", "https://x/b", "https://x/c"];
+const buttons = photoMoveButtons("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", [3, 1], gallery);
 const parsed = buttons && parsePhotoMoveButton(buttons[0].id);
-check("כפתור נושא טביעה", !!parsed && parsed.mode === "move" && parsed.positions[0] === 2);
-check("טביעה אחרת לא תתאים", !!parsed && parsed.hash !== photoUrlsHash(["https://x/other"]));
+check("כפתור אחרי מיון", !!parsed && parsed.positions.join() === "1,3" && parsed.hash === photoUrlsHash(urlsAt(gallery, canonicalPositions([3, 1])) || []));
+check("טביעה אחרת לא תתאים", !!parsed && parsed.hash !== photoUrlsHash(["https://x/c", "https://x/a"]));
 
 const index = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
 const agent = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
 const crm = readFileSync(new URL("../assets/crm.js", import.meta.url), "utf8");
 check("השאלה לפי שם", index.includes("choosePhotoTarget") && index.includes("sendList"));
 check("כלי העברה", agent.includes("move_property_photos") && agent.includes("sameAgent: true"));
-check("מחיקה לא מוחקת קובץ משותף", crm.includes(".contains('images'"));
+const relocate = readFileSync(new URL("../supabase/functions/_shared/photo-relocate.ts", import.meta.url), "utf8");
+const mig = readFileSync(new URL("../supabase/migrations/20271031150000_photo_relocate.sql", import.meta.url), "utf8");
+check("בדיקת שימוש בלי תקרה", relocate.includes("property_image_still_used") && !relocate.includes('select("images").limit(1000)'));
+check("חלון ביטול 20 שניות", mig.includes("interval '20 seconds'"));
+check("מחיקה בשרת בלי הנכס הנוכחי", crm.includes("action: 'release'") && crm.includes("except_id"));
+check("בריחה בגיליון", crm.includes("esc(from.title") && crm.includes("esc(text)"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
