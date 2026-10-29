@@ -461,6 +461,9 @@ html.beta-hero body.sw-body[data-view="likes"]:has(.a11y-fab) #gabW{--gw-bottom:
 .sw-ba-hand{position:absolute;top:calc(var(--ba-y) + 6px);left:var(--pos);z-index:3;width:34px;height:34px;margin-left:-6px;pointer-events:none;
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));animation:swBaHand 1.5s ease-in-out infinite}
 .sw-ba-hand[hidden]{display:none}
+/* ‏4b (תומר 29.10 02:00): לא מתחת לגיליון. בשקופית ההדמיה הראשונה נפתח "ככה זה יכול להיראות" מעל הווילון;
+   ‏display:none עוצר את האנימציה, והיא מתחילה מהתחלה כשהגיליון נסגר (‏sw-locked יורד) */
+body.sw-locked .sw-ba-hand{display:none}
 .sw-ba-hand .sw-hand{width:34px;height:34px}
 @keyframes swBaHand{0%,100%{transform:translateX(-18px)}50%{transform:translateX(18px)}}
 /* היד היא ההסבר - בזמן שהיא זזה, בלי "גררו להשוואה" שמתחתיה; עם reduced-motion היד סטטית והשורה נשארת */
