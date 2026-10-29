@@ -12924,11 +12924,17 @@ function renderImagePreview(){
     const el = document.createElement('div');
     el.className = 'img-thumb';
     el.innerHTML = `<img src="${slot.url || slot.previewUrl}" alt="">
+      <button type="button" class="more" title="פעולות" aria-label="פעולות על התמונה">⋮</button>
       <button type="button" class="x" title="הסרה">✕</button>
-      ${i === 0 ? '<div class="main-tag">ראשית</div>' : '<button type="button" class="star" title="הפוך לראשית">★</button>'}`;
+      ${imageSelectOn ? `<label class="img-pick"><input type="checkbox" data-img-pick="${i}" ${imagePicked.has(i) ? 'checked' : ''}></label>` : ''}
+      ${i === 0 ? '<div class="main-tag">ראשית</div>' : ''}`;
     el.querySelector('.x').addEventListener('click', ()=> removeImage(i));
-    const star = el.querySelector('.star');
-    if (star) star.addEventListener('click', ()=> makeImageMain(i));
+    el.querySelector('.more').addEventListener('click', (ev)=> openImageMenu(ev.currentTarget, i));
+    const pick = el.querySelector('[data-img-pick]');
+    if (pick) pick.addEventListener('change', ()=> {
+      if (pick.checked) imagePicked.add(i); else imagePicked.delete(i);
+      renderImageSelectBar();
+    });
     wrap.appendChild(el);
   });
 }
@@ -12937,12 +12943,166 @@ function removeImage(i){
   const [slot] = imageSlots.splice(i, 1);
   if (!slot) return;
   if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
-  if (slot.url){
-    // ניקוי best-effort מה-Storage; גם אם נכשל, הנכס כבר לא מצביע על הקובץ
-    const path = storagePathFromPublicUrl(slot.url);
-    if (path) sb.storage.from(IMAGES_BUCKET).remove([path]).catch(()=>{});
-  }
+  // הכתובת יורדת מהנכס רק בשמירה. הקובץ נשאר. ניקוי יתומים הוא עבודה נפרדת.
+  imagePicked.delete(i);
   renderImagePreview();
+}
+
+let imageSelectOn = false;
+const imagePicked = new Set();
+let photoUndoTimer = null;
+
+function galleryDirty(){
+  if (imageSlots.some(s => !s.url)) return true;
+  const saved = (myPropertyRows.find(p => p.id === editingPropertyId)?.images) || [];
+  const now = imageSlots.map(s => s.url);
+  return saved.join('\n') !== now.join('\n');
+}
+
+function openImageMenu(btn, index){
+  document.querySelectorAll('.img-menu').forEach(el => el.remove());
+  const menu = document.createElement('div');
+  menu.className = 'img-menu';
+  const slot = imageSlots[index];
+  const saved = !!(slot && slot.url);
+  menu.innerHTML = `
+    <button type="button" data-act="main">הפיכה לראשית</button>
+    <button type="button" data-act="move" ${saved ? '' : 'disabled'}>העברה לנכס אחר</button>
+    <button type="button" data-act="copy" ${saved ? '' : 'disabled'}>העתקה לנכס אחר</button>
+    <button type="button" data-act="del" class="danger">מחיקה</button>`;
+  const box = btn.getBoundingClientRect();
+  menu.style.top = (box.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, box.left - 120) + 'px';
+  document.body.appendChild(menu);
+  menu.addEventListener('click', (ev) => {
+    const act = ev.target.dataset && ev.target.dataset.act;
+    menu.remove();
+    if (act === 'main') makeImageMain(index);
+    else if (act === 'del') removeImage(index);
+    else if (act === 'move' || act === 'copy') openPhotoMove([index], act);
+  });
+}
+
+function renderImageSelectBar(){
+  let bar = document.getElementById('npImageSelectBar');
+  if (!imageSelectOn) { if (bar) bar.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'npImageSelectBar';
+    bar.className = 'img-tools';
+    document.getElementById('npImagePreview').before(bar);
+  }
+  bar.innerHTML = `נבחרו ${imagePicked.size}
+    <button type="button" class="mkt-btn" id="npMovePicked">העברה לנכס אחר</button>
+    <button type="button" class="mkt-btn" id="npCopyPicked">העתקה</button>
+    <button type="button" class="mkt-btn" id="npPickCancel">ביטול</button>`;
+  bar.querySelector('#npMovePicked').onclick = () => openPhotoMove([...imagePicked], 'move');
+  bar.querySelector('#npCopyPicked').onclick = () => openPhotoMove([...imagePicked], 'copy');
+  bar.querySelector('#npPickCancel').onclick = () => { imageSelectOn = false; imagePicked.clear(); renderImagePreview(); };
+}
+
+document.getElementById('npImageSelect')?.addEventListener('click', () => {
+  imageSelectOn = !imageSelectOn;
+  if (!imageSelectOn) imagePicked.clear();
+  renderImagePreview();
+});
+
+function openPhotoMove(indexes, mode){
+  const savedIdx = indexes.filter(i => imageSlots[i] && imageSlots[i].url).sort((a, b) => a - b);
+  if (!savedIdx.length) { showToast('קודם שומרים את הנכס'); return; }
+  if (galleryDirty()) { showToast('יש שינויים שלא נשמרו בתמונות. לשמור קודם?'); return; }
+  const from = myPropertyRows.find(p => p.id === editingPropertyId);
+  if (!from) { showToast('קודם שומרים את הנכס'); return; }
+  const others = myPropertyRows.filter(p => p.id !== from.id && p.agency_id === from.agency_id)
+    .slice().sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+  const sheet = document.createElement('div');
+  sheet.className = 'photo-sheet';
+  const thumbs = savedIdx.slice(0, 4).map(i => `<img src="${esc(imageSlots[i].url)}" alt="" width="48" height="48">`).join('');
+  sheet.innerHTML = `<div class="photo-sheet-card" role="dialog">
+    <h3>${mode === 'copy' ? 'העתקת' : 'העברת'} ${savedIdx.length} תמונות</h3>
+    <div>${thumbs} מהנכס: ${esc(from.title || '')} (#${esc(from.listing_number || '')})</div>
+    <input type="search" id="photoMoveQ" placeholder="חיפוש לפי כתובת, עיר או מספר נכס" aria-label="חיפוש נכס יעד">
+    <div id="photoMoveList"></div>
+    <label><input type="radio" name="photoMoveMode" value="move" ${mode === 'move' ? 'checked' : ''}> העברה (התמונות יוסרו מהנכס הנוכחי)</label>
+    <label><input type="radio" name="photoMoveMode" value="copy" ${mode === 'copy' ? 'checked' : ''}> העתקה (התמונות יישארו גם כאן)</label>
+    <label>מיקום בנכס היעד
+      <select id="photoMovePlace"><option value="end">בסוף</option><option value="cover">כתמונה ראשית</option></select>
+    </label>
+    <button type="button" class="ui-btn" id="photoMoveNext">המשך</button>
+    <button type="button" class="mkt-btn" id="photoMoveClose">ביטול</button>
+  </div>`;
+  document.body.appendChild(sheet);
+  let chosen = null;
+  const draw = () => {
+    const q = sheet.querySelector('#photoMoveQ').value.trim();
+    const rows = others.filter(p => !q || propertySearchBlob(p).includes(q.toLowerCase()) || String(p.listing_number || '') === q);
+    sheet.querySelector('#photoMoveList').innerHTML = rows.slice(0, 8).map(p => {
+      const n = (p.images || []).length;
+      const full = n >= MAX_IMAGES;
+      return `<label><input type="radio" name="photoMoveTo" value="${esc(p.id)}" ${full ? 'disabled' : ''}>
+        ${esc(p.street || p.city || p.title || 'נכס')} · #${esc(p.listing_number || '')} · ${n}/8${full ? ' · מלא' : ''}</label>`;
+    }).join('') || '<p>לא נמצא נכס. אפשר לחפש לפי מספר נכס.</p>';
+  };
+  sheet.querySelector('#photoMoveQ').addEventListener('input', draw);
+  draw();
+  sheet.querySelector('#photoMoveClose').onclick = () => sheet.remove();
+  sheet.querySelector('#photoMoveNext').onclick = async () => {
+    const toId = sheet.querySelector('input[name="photoMoveTo"]:checked')?.value;
+    const how = sheet.querySelector('input[name="photoMoveMode"]:checked')?.value || mode;
+    const place = sheet.querySelector('#photoMovePlace').value;
+    if (!toId) { showToast('בחרו נכס יעד'); return; }
+    const target = others.find(p => p.id === toId);
+    const room = MAX_IMAGES - ((target.images || []).length);
+    const use = savedIdx.slice(0, room);
+    if (!use.length) { showToast('בנכס היעד אין מקום'); return; }
+    const coverNote = use.includes(0) ? '<li>התמונה הראשית תוחלף בתמונה הבאה בתור.</li>' : '';
+    const liveNote = from.status === 'active' ? '<li>הנכס מפורסם. התמונות יורדו גם מהמודעה באתר.</li>' : '';
+    const emptyNote = how === 'move' && use.length === imageSlots.length ? '<li>בנכס המקור לא יישארו תמונות.</li>' : '';
+    sheet.querySelector('.photo-sheet-card').innerHTML = `<h3>${how === 'copy' ? 'להעתיק' : 'להעביר'} ${use.length} תמונות?</h3>
+      <p>אל ${esc(target.street || target.title || '')} (#${esc(target.listing_number || '')})</p>
+      <ul>${coverNote}${liveNote}${emptyNote}<li>פוסטים שכבר פורסמו לא משתנים.</li></ul>
+      <button type="button" class="ui-btn" id="photoMoveGo">${how === 'copy' ? 'העתקה' : 'העברה'}</button>
+      <button type="button" class="mkt-btn" id="photoMoveBack">ביטול</button>`;
+    sheet.querySelector('#photoMoveBack').onclick = () => sheet.remove();
+    sheet.querySelector('#photoMoveGo').onclick = async () => {
+      const positions = use.map(i => i + 1);
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(SUPABASE_URL + '/functions/v1/property-image-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (session && session.access_token) },
+        body: JSON.stringify({ from_id: from.id, to_id: toId, positions, mode: how, place }),
+      });
+      const body = await res.json().catch(() => ({}));
+      sheet.remove();
+      if (!res.ok || !body.ok) { showToast(body.error || 'ההעברה נכשלה'); return; }
+      showPhotoUndo(body.text || 'התמונות הועברו', body.id, target.id);
+      await loadProperties();
+    };
+  };
+}
+
+function showPhotoUndo(text, id, toId){
+  document.getElementById('photoUndo')?.remove();
+  const bar = document.createElement('div');
+  bar.id = 'photoUndo';
+  bar.className = 'photo-undo';
+  bar.innerHTML = `<span>${esc(text)}</span><button type="button" id="photoUndoBtn">ביטול</button><button type="button" id="photoGoto">מעבר לנכס</button>`;
+  document.body.appendChild(bar);
+  clearTimeout(photoUndoTimer);
+  photoUndoTimer = setTimeout(() => bar.remove(), 10000);
+  bar.querySelector('#photoGoto').onclick = () => { location.href = '/crm?goto=accProperties&property=' + encodeURIComponent(toId); };
+  bar.querySelector('#photoUndoBtn').onclick = async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/property-image-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (session && session.access_token) },
+      body: JSON.stringify({ action: 'undo', id }),
+    });
+    const body = await res.json().catch(() => ({}));
+    bar.remove();
+    showToast(body.ok ? 'ההעברה בוטלה' : (body.error || 'לא ביטלתי, הנכס השתנה מאז'));
+    await loadProperties();
+  };
 }
 
 function makeImageMain(i){
