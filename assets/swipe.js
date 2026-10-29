@@ -2871,7 +2871,7 @@
     var at = likes.indexOf(id);
     if (at < 0) return;
     likes.splice(at, 1); saveLikes(); syncActions();
-    toast('הנכס הוסר מהרשימה', 5000, 'ביטול', function () {
+    toast('הנכס הוסר מהמועדפים', 5000, 'ביטול', function () {
       if (likes.indexOf(id) < 0) { likes.splice(Math.min(at, likes.length), 0, id); saveLikes(); syncActions(); }
     });
   }
@@ -3002,13 +3002,13 @@
         return '<button type="button" class="sw-chip" role="radio" aria-checked="' + (x[0] === sortKey) + '" aria-pressed="' + (x[0] === sortKey) + '" data-sort="' + x[0] + '">' + esc(x[1]) + '</button>';
       }).join('') + '</div>';
     }, btns: [] },
-    unlike: { art: '', title: 'להסיר את הנכס מהרשימה?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
+    unlike: { art: '', title: 'להסיר את הנכס מהמועדפים?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
     // "שמירה" ו"המועדפים" (גבריאלה 02:36; תומר 29.10: גם במחשב). הנוסח המדויק ממתין לגבריאלה
     like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר ב״המועדפים״', sub: 'כל הנכסים ששמרתם מחכים ב״המועדפים״, לצפייה ולשיתוף',
       btns: [['list', 'sw-navy', 'למועדפים'], ['share', 'sw-white', 'שיתוף']] },
-    like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את הרשימה?',
-      btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף הרשימה']] },
-    like6: { art: GAB_ART, title: 'כבר 6 נכסים ברשימה 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
+    like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את המועדפים?',
+      btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף המועדפים']] },
+    like6: { art: GAB_ART, title: 'כבר 6 נכסים במועדפים 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
       btns: [['gab_list', 'sw-navy', 'שליחת הרשימה לגבריאלה'], ['later', 'sw-link', 'אחר כך']] },
     alert: { art: BELL_ART, title: 'רוצים שנעדכן כשנכס כזה ייכנס?', sub: 'נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.',
       body: function () { return alertBlock('bs'); }, btns: [['later', 'sw-link', 'לא עכשיו']] },
@@ -3210,7 +3210,7 @@
     var list = likedProps();
     // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
     $('swLvN').textContent = list.length;
-    $('swLvShare').textContent = 'שיתוף הרשימה (' + list.length + ')';
+    $('swLvShare').textContent = 'שיתוף המועדפים (' + list.length + ')';
     $('swLvEmpty').hidden = likes.length > 0;
     $('swLvBar').hidden = !likes.length;
     $('swLvList').innerHTML = list.map(function (p) {
@@ -3220,7 +3220,7 @@
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></a>' +
         // ‏P0-9: הלב רק מסמן שהנכס שמור; ההסרה - כפתור ✕ אדום, עם אישור וביטול
         '<span class="sw-lv-heart" role="img" aria-label="שמור ברשימה">♥</span>' +
-        '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהרשימה שלי"><span aria-hidden="true">✕</span></button></div>';
+        '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
     }).join('');
     var gab = $('swLvGab'), gh = gabListHref();
     gab.hidden = !gh;
