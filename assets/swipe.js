@@ -3005,7 +3005,7 @@
     unlike: { art: '', title: 'להסיר את הנכס מהרשימה?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
     // "שמירה" ו"המועדפים" (גבריאלה 02:36; תומר 29.10: גם במחשב). הנוסח המדויק ממתין לגבריאלה
     like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר ב״המועדפים״', sub: 'כל הנכסים ששמרתם מחכים ב״המועדפים״, לצפייה ולשיתוף',
-      btns: [['list', 'sw-navy', 'ל״המועדפים״'], ['share', 'sw-white', 'שיתוף']] },
+      btns: [['list', 'sw-navy', 'למועדפים'], ['share', 'sw-white', 'שיתוף']] },
     like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את הרשימה?',
       btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף הרשימה']] },
     like6: { art: GAB_ART, title: 'כבר 6 נכסים ברשימה 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
