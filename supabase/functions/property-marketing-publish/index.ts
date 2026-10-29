@@ -309,6 +309,8 @@ async function agentLicense(sb: any, agentId: string | null | undefined): Promis
 
 // deno-lint-ignore no-explicit-any
 function contactLine(row: any): string | null {
+  // החתימה היא של הסוכן/ת של הנכס (השם והרישיון מהשורה), לא של משרד אחר
+  // ולא של בעל/ת הפלטפורמה. גבריאלה רק מסמנת יעד ומכניסה לתור הזה.
   if (!row.agent_name) return null;
   const agent = row.agent_license ? `${row.agent_name}, רישיון תיווך ${row.agent_license}` : row.agent_name;
   return `לפרטים: ${[agent, row.agency_name].filter(Boolean).join(" · ")}`;
@@ -881,6 +883,20 @@ Deno.serve(async (req: Request) => {
   // ‏ולכן בבדיקה יבשה לא קוראים לה בכלל — גם בלי force היא **יוצרת** שורה
   // לנכס שאין לו אחת בערוץ (כל נכס ותיק, באינסטגרם), והשורה הזו הייתה
   // יוצאת לפוסט בהרצה הבאה.
+  // בחירות רשתות שנרשמו כשהדגל היה כבוי. עד 10 נכסים בסבב, ואז התור
+  // הרגיל מכבד השהיה ותקרה. בלי הדגל או בלי הפונקציה: לא נוגעים.
+  if (!propertyId && !dryRun) {
+    const drained = await sb.rpc("gabriela_social_drain", { p_limit: 10 });
+    if (drained.error) {
+      const code = String(drained.error.code || "");
+      const msg = String(drained.error.message || "");
+      if (code !== "42883" && code !== "PGRST202" && code !== "42P01" && code !== "PGRST205"
+        && !/gabriela_social_drain|does not exist|schema cache/i.test(msg)) {
+        console.error("gabriela social drain failed", code, msg.slice(0, 300));
+      }
+    }
+  }
+
   if (propertyId && !dryRun) {
     const { error } = await sb.rpc("queue_property_publication", {
       p_property_id: propertyId,

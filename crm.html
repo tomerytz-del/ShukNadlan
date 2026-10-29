@@ -1775,6 +1775,11 @@ window.shukArmTrackers = function () {
   .pc-owner{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
     font-size:.74rem;color:var(--txt-soft,var(--ink-soft))}
   .pc-owner-lbl{font-weight:600}
+  .pc-dest{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+    font-size:.74rem;color:var(--txt-soft,var(--ink-soft));font-weight:600}
+  .pc-dest select{font:inherit;font-weight:700;max-width:100%;
+    color:var(--ink,#0F3435);background:var(--surface,#fff);
+    border:1.5px solid var(--edge,var(--line));border-radius:8px;padding:3px 8px}
   .pc-owner-act{display:inline-flex;align-items:center;gap:5px;
     padding:3px 9px;border-radius:999px;text-decoration:none;
     border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
@@ -6186,6 +6191,7 @@ window.shukArmTrackers = function () {
   .lc-badges{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px}
   .lc-badges .lead-kind{margin-bottom:0}
   .lc-new{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:#DC2626;color:#fff}
+  .lc-fair{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:#c9a227;color:#0d1b3d;cursor:help}
   .lc .lead-name{font-size:1.02rem;font-weight:800;line-height:1.35}
   .lc .lead-phone{font-size:.9rem;margin-top:1px}
   .lc-locked .lead-name,.lc-locked .lead-phone{color:var(--txt-soft,var(--ink-soft));letter-spacing:.06em}
@@ -6439,6 +6445,12 @@ window.shukArmTrackers = function () {
   .ui-banner--warn .ui-link{color:var(--nv-warn);text-decoration:underline}
   .ui-banner--info{background:#F3F6FD;border:1px solid #DCE5FB;color:var(--nv-ink)}
   .social-prompt{margin:0 0 16px}
+  /* ‏P1-R: כפתור ראשי נייבי ומשני במסגרת נייבי; [hidden] גובר על .ui-btn (אחרת שני כפתורים ראשיים) */
+  .social-prompt [hidden]{display:none !important}
+  .social-prompt .ui-btn{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .social-prompt .ui-btn.ui-btn--secondary{background:#fff;color:#0e2a6b;border:1.5px solid #0e2a6b}
+  .social-prompt-never{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:4px;font-size:13px;color:#6b7280;cursor:pointer}
+  .social-prompt-never input{width:18px;height:18px;margin:0}
   .social-prompt-acts{display:flex;flex-wrap:wrap;gap:8px}
   .ui-banner--urgent{background:var(--nv-ink);color:#fff;font-weight:600}
   .ui-banner--urgent::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;background:var(--nv-urgent);
@@ -6489,6 +6501,9 @@ window.shukArmTrackers = function () {
   .ui-tab{min-height:44px;padding:0 16px;border-radius:9px;border:0;background:transparent;font:inherit;font-size:15px;
     font-weight:600;color:var(--nv-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
   .ui-tab[aria-selected="true"]{background:#fff;color:var(--nv-ink);font-weight:700;box-shadow:0 1px 3px rgba(14,26,51,.12)}
+  /* ביקוש פתוח כשיש ביקושים: זהב, כדי שלא יפוספס בין הלשוניות */
+  #leadsTabs .ui-tab.has-open{background:#f7eccb;color:#7a5d0c;font-weight:800;box-shadow:inset 0 0 0 1.5px #c9a227}
+  #leadsTabs .ui-tab.has-open[aria-selected="true"]{background:#fff}
 
   /* שורת קישור עם מצב (ניהול המשרד, "לכל ההתראות") */
   .ui-row-link{display:flex;align-items:center;gap:12px;min-height:64px;border-top:1px solid var(--nv-line-soft);
@@ -7288,7 +7303,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <div class="card login-card" id="loginCardMain" style="display:none">
     <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <div class="auth-eyebrow">אזור המתווכים והמשרדים</div>
+    <div class="auth-eyebrow">אזור יועצי הנדל״ן והמשרדים</div>
     <h1>שוק הנדל״ן לעסקים</h1>
     <p class="sub">המערכת החכמה לניהול, שיווק וסגירת עסקאות</p>
     <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
@@ -7874,13 +7889,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              (agent_onboarding_state מחזירה להם אפס שורות). נבנה ב-loadSocialPrompt,
              ונעלם אחרי אישור או "לא עכשיו" (docs/social-tagging.md). -->
         <div class="ui-banner ui-banner--info social-prompt" id="socialPrompt" hidden role="region" aria-label="תיוג בפרסומים">
-          <span class="ui-banner-text"><b>📣 רוצה שנתייג אותך בפרסומים?</b><br>
+          <span class="ui-banner-text"><b id="socialPromptTitle">📣 רוצה שנתייג אותך בפרסומים?</b><br>
             <span id="socialPromptText">כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.</span></span>
           <span class="social-prompt-acts">
             <button type="button" class="ui-btn" id="socialPromptGo">להוספת הרשתות</button>
             <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptOffice" hidden>גם למשרד</button>
             <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptLater">לא עכשיו</button>
           </span>
+          <!-- ‏P1-R: "לא עכשיו" עם הסימון - לא מציעים שוב (בדפדפן הזה; ד-7) -->
+          <label class="social-prompt-never"><input type="checkbox" id="socialPromptNever"> לא להציע לי שוב</label>
         </div>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
@@ -8469,7 +8486,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div class="cst-grid">
                   <label class="cst-f">מסלול
                     <select id="acAudience">
-                      <option value="platform">שיווק הפלטפורמה למתווכים</option>
+                      <option value="platform">שיווק הפלטפורמה ליועצי נדל״ן</option>
                       <option value="property">קידום נכס לקונים ולשוכרים</option>
                     </select>
                   </label>
@@ -8616,7 +8633,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא, ומראה כמה תמונות כבר בדלי. "העלאת תמונות" ממלאת את הדלי הפרטי, בלי לגעת במטא, ואפשר ללחוץ עליה שוב. היצירה האמיתית נפתחת רק כשכל התמונות בדלי, דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב). רענון הנוסח מחליף רק טקסט של מודעות השקה שעדיין נושאות רישיון אישי. הסטטוס, התקציב והטירגוט לא משתנים.</p>
               <div class="adm-toolbar">
                 <label class="adm-note"><input type="checkbox" id="adsLaunchA5"> כלול את A5 - טופס הערכת שווי חינם</label>
-                <label class="adm-note">קהל 55 המתווכים (מזהה מטא, אופציונלי)
+                <label class="adm-note">קהל 55 יועצי הנדל״ן (מזהה מטא, אופציונלי)
                   <input type="text" id="adsLaunchB2Audience" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="1234567890">
                 </label>
               </div>
@@ -9152,6 +9169,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="expiring">תוקף נגמר בקרוב</option>
           <option value="stale">לא עודכנו מזמן</option>
           <option value="expired">פג תוקף</option>
+          <option value="unpublished">ירדו מפרסום</option>
         </select>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
           <input type="text" id="propPriceMin" inputmode="decimal" autocomplete="off" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
@@ -9272,9 +9290,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="ui-tabs" role="tablist" id="leadsTabs" aria-label="שלב הטיפול">
             <button type="button" class="ui-tab" role="tab" data-leads-tab="new" aria-selected="true">חדשים · <span data-n>0</span></button>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="work" aria-selected="false">בטיפול · <span data-n>0</span></button>
-            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
-            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md) -->
+            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md).
+                 לפני הארכיון, ומודגש כשיש ביקושים פתוחים (‏has-open ב-crm-leads.js) -->
             <button type="button" class="ui-tab" role="tab" data-leads-tab="demand" aria-selected="false">ביקוש פתוח · <span data-n>·</span></button>
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
           </div>
           <div class="ui-chips ui-chips--scroll" data-ui-single id="leadsSrc" role="group" aria-label="מקור הליד"></div>
           <div class="ui-count" id="leadsCountLine"></div>
@@ -9476,6 +9495,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <datalist id="clCityOptions"></datalist>
             </div>
             <p class="pf-note cf-note-under">ריק = כל עיר.</p>
+
+            <div class="field">
+              <label for="clNeighborhood">שכונה</label>
+              <select id="clNeighborhood">
+                <option value="">בלי שכונה</option>
+              </select>
+            </div>
+            <p class="pf-note cf-note-under">בלי שכונה = לא מסננים לפיה. נכס באותה עיר בלי שכונה במודעה עדיין מתאים. אפשר לנקות את הבחירה.</p>
 
             <div class="cf-block-title">סוגי נכס מועדפים</div>
             <div class="pf-chips cf-chips" id="clPropertyTypes"></div>
@@ -9860,7 +9887,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה
              תקציב, אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות. -->
         <div class="shelf-pane" data-shelf-pane="saved" hidden>
-          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" - חיפוש שמור עם תקציב ואזור - ואישרו שמתווך/ת ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
+          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" - חיפוש שמור עם תקציב ואזור - ואישרו שיועץ נדל״ן ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
 
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
@@ -11695,6 +11722,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="ui-hint" id="npWaNote"></p>
           </section>
 
+          <section class="ui-card np2-sec" id="npLessBox" hidden aria-labelledby="npLessTitle">
+            <h3 class="ui-h3" id="npLessTitle">פחות התראות</h3>
+            <p class="ui-hint"><span>סוגים שביקשת פחות מהם בוואטסאפ. הם יוצאים רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, עד שהבקשה פגה.</span><span>ליד, סיור ותזכורת מהיומן לא מושפעים. החזרה כאן, או בוואטסאפ עם "החזר התראות".</span></p>
+            <div id="npLessList"></div>
+          </section>
+
           <section class="np2-types" aria-labelledby="npTypesTitle">
             <div class="set-block-head">
               <h3 class="ui-h3" id="npTypesTitle">לפי סוג התראה</h3>
@@ -11762,7 +11795,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="danger-zone">
             <p class="dz-h">מה קורה כשסוגרים</p>
             <ul class="dz-list">
-              <li><b>דף הסוכן/ת יורד מהאוויר</b> - גם הכרטיס בספריית המתווכים וגם הנוכחות בדף המשרד.</li>
+              <li><b>דף הסוכן/ת יורד מהאוויר</b> - גם הכרטיס בספריית יועצי הנדל״ן וגם הנוכחות בדף המשרד.</li>
               <li><b>כל המודעות הפעילות יורדות</b> מהאתר ומהחיפוש (<span id="closureProps">-</span>).</li>
               <li><b>מפסיקים לפנות אליך</b> - אין עוד לידים, התראות, מיילים או הודעות מהמערכת, והמייל שלך יוצא מרשימת התפוצה.</li>
               <li><b>הכניסה לאיזור הסוכנים נסגרת.</b> הנתונים נשמרים אצלנו לפי מדיניות הפרטיות, אבל אינם נגישים לך מהמסך.</li>
@@ -11940,7 +11973,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <a href="/professional-signup">הרשמת בעל מקצוע</a>
         <a href="/agency">עמוד משרד תיווך</a>
         <a href="/agent">עמוד סוכן/ת</a>
-        <a href="/property">עמוד נכס</a>
         <a href="/review-request">בקשת חוות דעת</a>
       </div>
       <p class="dev-note">עמודי משרד/סוכן/נכס דורשים פרמטר (slug או id) - נוח להגיע אליהם מהאתר הציבורי.</p>
@@ -12575,6 +12607,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- crmNeed: טוען Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap
      רק כשצריך. defer ולפני crm.js, כדי שהפונקציה קיימת כשהדף רץ. -->
 <script defer src="assets/crm-lazy.js"></script>
+<!-- לפני crm.js, לא אחריו. boot() מחכה ל-getSession שכבר נפתר, וההמשך
+     רץ לפני הסקריפט הבא. defer שומר את הסדר: המדידה רצה לפני crm.js.
+     בלי זה סימון הכניסה והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר
+     ירד מהכתובת. -->
+<script defer src="assets/deeplink-timing.js"></script>
 <script defer src="assets/crm.js"></script>
 </body>
 </html>

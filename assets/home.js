@@ -1,3 +1,5 @@
+/* ‏P1-U1: ‏dm_spec / dm_area / dm_tab כפי שהגיעו בכתובת, לפני שמשהו כותב אותה מחדש */
+const DM_URL0 = new URLSearchParams(location.search);
 /* ============================================================
    Live Supabase connection — shuknadlan-marketplace project.
    IMPORTANT STRUCTURE NOTE: all core UI wiring (menu, toggles,
@@ -41,6 +43,8 @@ if (window.ResizeObserver){
 
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+// ‏P2-6: מקור אחד לווידג'ט של גבריאלה (‏assets/gabriela-widget.js, ‏sbConf)
+window.SHUK_SB = { url: SUPABASE_URL, key: SUPABASE_ANON_KEY };
 const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 
 /* הנכסים שיש להם הדמיית AI מפורסמת — נטענים בשאילתה אחת אחרי שהנכסים
@@ -117,6 +121,8 @@ function thumbStyle(p, i){
 
 function thumbFallback(p){
   if (hasPhoto(p)) return '';
+  // v10 (סבב 4 חלק 3): שורת תוצאה בלי תמונות - אווטאר ותג "אין תמונות" (assets/no-photo.js)
+  if (window.NoPhoto && NoPhoto.on()) return NoPhoto.html(p, {}, 'row');
   const name = (p && p.agency_name) || '';
   const logo = (p && p.agency_logo) || (name ? '' : SITE_LOGO);
   const mark = logo
@@ -274,15 +280,18 @@ document.addEventListener('keydown', (e)=>{
   if (e.key === 'Escape' && mobileMenu.classList.contains('open')) closeMobileMenu();
 });
 
-/* ---------- "איך עובד הדירוג?" (מתוך תפריט ההמבורגר) ----------
-   שאר הפריטים בתפריט הם עוגנים שסוגרים אותו מעצמם בניווט; זה פותח מודאל
-   ולכן צריך לסגור את התפריט במפורש. */
+/* ---------- "איך עובד הדירוג?" ----------
+   ‏P1-T2: נפתח מה-(i) שליד "משרדים מובילים" (‏v10), ובלי הדגל - מהקישור "איך נקבע
+   הדירוג?" שליד "צפייה בכל". ה-(i) של "האנשים מאחורי העסקאות" הוא בועה רגילה. */
 const ratingInfoModal = document.getElementById('ratingInfoModal');
 function ratingInfoClose(){ ratingInfoModal.classList.remove('open'); }
-document.getElementById('ratingInfoLink').addEventListener('click', (e)=>{
-  e.preventDefault();
-  closeMobileMenu();
-  ratingInfoModal.classList.add('open');
+[['ratingInfoLink', 'dm_top_title'], ['ratingInfoLink2', 'dm_link']].forEach(([id, from]) => {
+  document.getElementById(id)?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    closeMobileMenu();
+    ratingInfoModal.classList.add('open');
+    if (window.shukTrack) window.shukTrack('rating_info_open', { from });
+  });
 });
 document.getElementById('ratingInfoClose').addEventListener('click', ratingInfoClose);
 document.getElementById('ratingInfoDone').addEventListener('click', ratingInfoClose);
@@ -771,28 +780,11 @@ mleadForm.addEventListener('submit', async (e)=>{
 });
 
 /* ---------- Owner-lead wizard (3 steps) ----------
-   שלב 1 עסקה+כתובת, שלב 2 מאפייני הנכס, שלב 3 פרטי קשר. השליחה בסוף היא
-   fetch() טהור אל owner-lead-intake — בלי תלות ב-SDK, כך שהאשף עובד גם אם
-   סקריפט ה-CDN של supabase-js נכשל בטעינה.                                */
-const CONDITION_LABELS = {
-  renovated: 'משופץ',
-  partly_renovated: 'משופץ חלקית',
-  needs_renovation: 'דרוש שיפוץ',
-};
-
-const ownerHeadline = document.getElementById('ownerHeadline');
-const wizForm = document.getElementById('ownerWizardForm');
-const wizDone = document.getElementById('wizDone');
-
-const wizState = { deal:'sale', kind:'residential', address:'', condition:null, rooms:null, subtype:null, size:null, features:[], name:'', phone:'' };
-
-// כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
-[['wizAddress',1], ['wizName',3], ['wizPhone',3]].forEach(([id, step])=>{
-  document.getElementById(id).addEventListener('input', (e)=>{
-    e.target.classList.remove('invalid');
-    setError(step, '');
-  });
-});
+   הסימון והקוד ב-assets/owner-wizard.js - רכיב אחד לדף הבית ולדף /sell (‏PR 1010,
+   חלק 7 §B). כאן רק החיבור לבאנר: עפולה, ומקור homepage_owner_wizard כמו תמיד. */
+const ownerWizard = window.OwnerWizard
+  ? OwnerWizard.mount(document.getElementById('ownerWizard'), { source:'homepage_owner_wizard', city:'עפולה' })
+  : null;
 
 /* פתיחה וסגירה של באנר ליד — משותף לבאנר בעלי הנכסים ולבאנר מחפשי הנכס.
    שניהם נטענים סגורים: שורת ההזמנה לבדה, בכחצי מגובה הבאנר הפתוח. הלחיצה
@@ -817,193 +809,12 @@ function bindLeadBanner({ banner, teaser, panel, onOpen }){
 bindLeadBanner({
   banner:'ownerBanner', teaser:'ownerStartBtn', panel:'ownerPanel',
   onOpen(){
-    goToStep(1);
+    if (!ownerWizard) return;
+    ownerWizard.goToStep(1);
     // ‏preventScroll: הפוקוס נועד לחסוך הקלקה, לא לקפוץ מעל שורת ההזמנה
     // שהמשתמש/ת בדיוק לחץ/ה עליה
-    document.getElementById('wizAddress').focus({ preventScroll:true });
+    ownerWizard.focus();
   },
-});
-
-function goToStep(n){
-  wizForm.querySelectorAll('.wiz-panel').forEach(p=>{
-    p.classList.toggle('active', Number(p.dataset.panel) === n);
-  });
-  document.querySelectorAll('#wizSteps li').forEach(li=>{
-    const step = Number(li.dataset.step);
-    li.classList.toggle('active', step === n);
-    li.classList.toggle('done', step < n);
-  });
-}
-
-function setError(step, message){
-  document.getElementById('wizErr' + step).textContent = message || '';
-}
-
-/* --- שלב 1: סוג עסקה + כתובת --- */
-document.querySelectorAll('.owner-toggle button[data-owner]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    wizState.deal = btn.dataset.owner;
-    ownerHeadline.textContent = wizState.deal === 'sale' ? 'מוכר?' : 'משכיר?';
-  });
-});
-
-/* מגורים או מסחרי. מסחרי מחליף בשלב 2 את החדרים בסוג הנכס ובשטח, ומחליף
-   את המאפיינים של דירה (ממ״ד, מרפסת) בשל נכס מסחרי (חניה, חזית לרחוב).
-   מה שסומן והוסתר יורד מהבחירה - אחרת חנות הייתה נשלחת עם "מרפסת". */
-function applyOwnerKind(){
-  const commercial = wizState.kind === 'commercial';
-  document.getElementById('wizRoomsBox').hidden = commercial;
-  document.getElementById('wizSubtypeBox').hidden = !commercial;
-  document.getElementById('wizSizeBox').hidden = !commercial;
-  wizForm.querySelectorAll('.wiz-checks label[data-kind]').forEach(l=>{
-    const off = l.dataset.kind !== wizState.kind;
-    l.hidden = off;
-    if (off) l.querySelector('input').checked = false;
-  });
-  wizState.features = Array.from(wizForm.querySelectorAll('.wiz-checks input:checked')).map(i=>i.value);
-  setError(2, '');
-}
-document.querySelectorAll('.owner-toggle button[data-owner-kind]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    wizState.kind = btn.dataset.ownerKind;
-    applyOwnerKind();
-  });
-});
-
-/* --- שלב 2: בחירה יחידה מרשימה (מצב הנכס, חדרים) --- */
-function bindSingleChoice(attr, onPick){
-  document.querySelectorAll(`select[data-pick="${attr}"]`).forEach(sel=>{
-    sel.addEventListener('change', ()=> onPick(sel.value || null));
-  });
-}
-// ניקוי השגיאה מיד עם הבחירה, ולא רק בניסיון המעבר הבא — אחרת ההודעה
-// "נא לבחור מספר חדרים" נשארת על המסך אחרי שהמשתמש כבר בחר.
-bindSingleChoice('condition', v => { wizState.condition = v; setError(2, ''); });
-bindSingleChoice('rooms', v => { wizState.rooms = v; setError(2, ''); });
-bindSingleChoice('subtype', v => { wizState.subtype = v; setError(2, ''); });
-
-document.querySelectorAll('.wiz-checks input').forEach(cb=>{
-  cb.addEventListener('change', ()=>{
-    wizState.features = Array.from(document.querySelectorAll('.wiz-checks input:checked')).map(i=>i.value);
-  });
-});
-
-/* --- ניווט בין השלבים, עם ולידציה לפני מעבר קדימה --- */
-wizForm.querySelectorAll('[data-next]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const from = Number(btn.closest('.wiz-panel').dataset.panel);
-    if (!validateStep(from)) return;
-    goToStep(Number(btn.dataset.next));
-  });
-});
-wizForm.querySelectorAll('[data-back]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    setError(Number(btn.closest('.wiz-panel').dataset.panel), '');
-    goToStep(Number(btn.dataset.back));
-  });
-});
-
-function validateStep(step){
-  if (step === 1){
-    const el = document.getElementById('wizAddress');
-    wizState.address = el.value.trim();
-    if (wizState.address.length < 3){
-      setError(1, 'נא להזין כתובת מדויקת - רחוב ומספר');
-      el.classList.add('invalid'); el.focus();
-      return false;
-    }
-    el.classList.remove('invalid'); setError(1, '');
-    return true;
-  }
-  if (step === 2){
-    const commercial = wizState.kind === 'commercial';
-    const size = Number(document.getElementById('wizSize').value);
-    wizState.size = commercial && size > 0 ? Math.round(size) : null;
-    if (!wizState.condition){ setError(2, 'נא לבחור את מצב הנכס'); return false; }
-    if (commercial && !wizState.subtype){ setError(2, 'נא לבחור את סוג הנכס'); return false; }
-    if (!commercial && !wizState.rooms){ setError(2, 'נא לבחור מספר חדרים'); return false; }
-    setError(2, '');
-    return true;
-  }
-  if (step === 3){
-    const nameEl = document.getElementById('wizName');
-    const phoneEl = document.getElementById('wizPhone');
-    wizState.name = nameEl.value.trim();
-    wizState.phone = phoneEl.value.trim();
-    const digits = wizState.phone.replace(/\D/g, '');
-    nameEl.classList.toggle('invalid', wizState.name.length < 2);
-    phoneEl.classList.toggle('invalid', digits.length < 9);
-    if (wizState.name.length < 2){ setError(3, 'נא להזין שם מלא'); nameEl.focus(); return false; }
-    if (digits.length < 9){ setError(3, 'נא להזין מספר טלפון תקין'); phoneEl.focus(); return false; }
-    setError(3, '');
-    return true;
-  }
-  return true;
-}
-
-/* --- שליחה --- */
-wizForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if (!validateStep(3)) return;
-  const submitBtn = document.getElementById('wizSubmitBtn');
-  const originalLabel = submitBtn.textContent;
-  submitBtn.textContent = 'שולח…';
-  submitBtn.disabled = true;
-  try{
-    const res = await fetch(OWNER_LEAD_FUNCTION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({
-        city: 'עפולה',
-        // ‏'מסחרי' ולא סוג המשנה: זה הערך שסוכנים מסמנים בהעדפות הלידים
-        // (‏agent_lead_preferences), והניתוב משווה אליו. סוג המשנה והשטח
-        // נכנסים לפרטי הנכס שהסוכן/ת רואה/ה בליד.
-        property_type: wizState.kind === 'commercial' ? 'מסחרי' : 'דירה',
-        property_subtype: wizState.kind === 'commercial' ? wizState.subtype : null,
-        size_sqm: wizState.kind === 'commercial' ? wizState.size : null,
-        deal_type: wizState.deal,
-        address: wizState.address,
-        rooms: wizState.kind === 'commercial' ? null : wizState.rooms,
-        condition: CONDITION_LABELS[wizState.condition] || null,
-        features: wizState.features,
-        name: wizState.name,
-        phone: wizState.phone,
-        // מזהה הווידג'ט נשמר ביומן ניתוב הלידים, כדי שמנהל/ת הפלטפורמה
-        // תדע איזה כלי ייצר ליד שאין למי להפנות (ראו docs/lead-routing.md)
-        source: 'homepage_owner_wizard',
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'שגיאה');
-    wizForm.hidden = true;
-    document.getElementById('wizSteps').hidden = true;
-    wizDone.hidden = false;
-    if (window.shukTrack) shukTrack('generate_lead', { form_id:'owner_wizard' });
-  } catch(err){
-    console.error('owner-lead-intake failed:', err);
-    setError(3, 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
-    submitBtn.textContent = originalLabel;
-    submitBtn.disabled = false;
-  }
-});
-
-document.getElementById('wizRestart').addEventListener('click', ()=>{
-  wizForm.reset();
-  wizForm.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-checked','false'));
-  wizForm.querySelectorAll('.wiz-input').forEach(i=> i.classList.remove('invalid'));
-  [1,2,3].forEach(s => setError(s, ''));
-  Object.assign(wizState, { address:'', condition:null, rooms:null, subtype:null, size:null, features:[], name:'', phone:'' });
-  const submitBtn = document.getElementById('wizSubmitBtn');
-  submitBtn.textContent = 'קבלת הערכת שווי חינם';
-  submitBtn.disabled = false;
-  wizDone.hidden = true;
-  wizForm.hidden = false;
-  document.getElementById('wizSteps').hidden = false;
-  goToStep(1);
 });
 
 /* ============================================================
@@ -1019,6 +830,8 @@ let sentence = null;
 try {
   if (window.supabase) {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // v10: נכס בלי תמונות משלים את תמונת הסוכן/ת מ-agency_members_public (assets/no-photo.js)
+    if (window.NoPhoto && NoPhoto.on()) NoPhoto.useClient(sb);
   } else {
     console.warn('supabase-js לא נטען (CDN חסום/נכשל) - עובד במצב fallback בלבד.');
   }
@@ -1180,7 +993,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
+  'id, price, price_unit, price_total, title, rooms, size_sqm, floor, city, city_id, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
@@ -1195,13 +1008,17 @@ const PROPERTY_SELECT =
   /* מיקום משוער (אזור תעשייה, חלקה גדולה): הפין מסומן ככזה במפה, עם הבועית
      של assets/approx-location.js. docs/property-map.md */
   'location_precision, location_radius_m, ' +
-  'agencies(name, logo_url), neighborhoods(name)';
+  /* ‏P1-U1: מי מפרסם את הנכס - לסינון משרדים ויועצי נדל״ן לפי התמחות ואזור */
+  'agent_id, agency_id, ' +
+  'video_poster_url, agencies(name, logo_url, cover_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
   ...p,
   agency_name: p.agencies?.name || '',
   // הלוגו נטען כדי שנכס בלי תמונות יציג את מיתוג המשרד שלו במקום אריח ריק
   agency_logo: p.agencies?.logo_url || '',
+  // v10: תמונת השער של המשרד - רמה A של נכס בלי תמונות (assets/no-photo.js)
+  agency_cover: p.agencies?.cover_url || '',
   neighborhood_name: p.neighborhoods?.name || '',
 });
 
@@ -1238,6 +1055,9 @@ function inMarket(spec, cityId, slugs){ return MS ? MS.inMarket(spec, cityId, sl
 /* אזורי הפעילות של הסוכנים (agency_members.service_markets) - ריק בכשל */
 function marketMembers(){ return MS && MS.memberMarkets ? MS.memberMarkets(sb) : Promise.resolve({ byAgent:new Map(), byAgency:new Map() }); }
 function applyMarketFilter(query, spec){ return MS ? MS.apply(query, spec) : query; }
+/* סבב 5 §1: ‏market_slug במסד מחזיר null לגולש/ת אנונימי/ת, ולכן הסינון בשרת מעביר הכול -
+   כולל נכסים משדה נחום ומנוף הגליל. כל שליפה עם סינון שוק עוברת גם כאן, באתר החי */
+function keepMarketRows(rows, spec){ return MS && MS.keepRows ? MS.keepRows(rows, spec) : rows; }
 
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
@@ -1259,7 +1079,7 @@ async function loadProperties(){
        ה-fallback הם נכסי דמו של עפולה, ודף חיפה שמציג אותם משקר. */
     if (!error && Array.isArray(data) && data.length === 0 && marketText(false, () => true)) return [];
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    return data.map(shapeProperty);
+    return keepMarketRows(data, spec).map(shapeProperty);
   } catch(e){
     if (marketText(false, () => true)) return [];
     console.warn('נכשל טעינת נכסים מה-DB, משתמש בנתוני fallback:', e);
@@ -1560,12 +1380,20 @@ async function loadLeadingAgents(){
           // ‏avg_rating הוא null למי שאין לו/ה ביקורות — סוכן/ת חדש/ה לא
           // מקבל/ת "0 כוכבים" אלא פשוט לא מוצג/ת עם דירוג, כמו במשרדים.
           rating: agg?.avg_rating != null ? Number(agg.avg_rating) : null,
+          composite_score: ranking?.composite_score ?? null,
           reviews_count: Number(agg?.review_count) || 0,
           active_properties_count: cardByAgent[m.id]?.active_count ?? (ranking?.active_properties_count ?? 0),
           specs: cardByAgent[m.id]?.specs || [],
         };
       })
       .sort((x, y)=>{
+        /* ‏P1-T2 (ד-4): כמו המשרדים - לפי composite_score מ-agent_rankings (משוקלל מול ממוצע
+           הפלטפורמה, ולכן יועץ/ת חדש/ה לא נענש/ת), ורק בלעדיו לפי הדירוג הגולמי */
+        const cx = Number(x.composite_score), cy = Number(y.composite_score);
+        const hx = x.composite_score != null && isFinite(cx), hy = y.composite_score != null && isFinite(cy);
+        if (hx && !hy) return -1;
+        if (!hx && hy) return 1;
+        if (hx && hy && cy !== cx) return cy - cx;
         if (x.rating !== null && y.rating === null) return -1;
         if (x.rating === null && y.rating !== null) return 1;
         if (x.rating !== null && y.rating !== null && y.rating !== x.rating) return y.rating - x.rating;
@@ -1575,7 +1403,7 @@ async function loadLeadingAgents(){
         return String(x.display_name || '').localeCompare(String(y.display_name || ''), 'he');
       });
   } catch(e){
-    console.warn('טעינת מתווכים מובילים נכשלה:', e);
+    console.warn('טעינת יועצי נדל״ן מובילים נכשלה:', e);
     return [];
   }
 }
@@ -1622,7 +1450,7 @@ async function loadCommercialProperties(){
     if (error || !data || data.length === 0) throw error || new Error('empty');
     // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
-    return data.map(shapeProperty);
+    return keepMarketRows(data, spec).map(shapeProperty);
   } catch(e){
     if (marketText(false, () => true)) return [];
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
@@ -1665,15 +1493,16 @@ async function loadOpenHouseCount(){
   try{
     const nowIso = new Date().toISOString();
     const spec = await marketFilterSpec();
-    const { count, error } = await applyMarketFilter(sb
+    // שורות ולא head:true - עד שהמיגרציה של market_slug תוחל אי אפשר לסנן ספירה בשרת (סבב 5 §1)
+    const { data, error } = await applyMarketFilter(sb
       .from('properties')
-      .select('id', { count:'exact', head:true })
+      .select('id, city_id, lat, lng')
       .eq('status', 'active'), spec)
       .eq('open_house', true)
       .lte('open_house_start', nowIso)
       .gt('open_house_end', nowIso);
     if (error) throw error;
-    return count || 0;
+    return keepMarketRows(data || [], spec).length;
   } catch(e){
     console.warn('ספירת נכסי יריד הבתים הפתוחים נכשלה:', e);
     return 0;
@@ -1706,12 +1535,13 @@ function renderOpenHouseBanner(count){
     const m = window.CityContext && CityContext.market && CityContext.market();
     if (m && m.label) label = m.label;
   } catch(e){ /* נשאר שוק ברירת המחדל */ }
+  if (v10On()){ v10Fair.count = count; v10Fair.label = label; renderV10Fair(); return; }
   host.innerHTML =
     `<a class="oh-feature" href="/open-house">` +
       `<span class="oh-feature-copy">` +
         `<span class="oh-feature-kicker">יריד הבתים הפתוחים · אל תחמיצו!</span>` +
         `<h2 class="oh-feature-title">דירות ב${escapeHtml(label)} ${OpenHouse.NO_FEE}<br>- לזמן מוגבל!</h2>` +
-        `<span class="oh-feature-text">מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך. המבצע בתוקף לתקופה קצובה בלבד!</span>` +
+        `<span class="oh-feature-text">מגוון דירות אטרקטיביות ישירות מיועצי נדל״ן, ללא דמי תיווך. המבצע בתוקף לתקופה קצובה בלבד!</span>` +
         `<span class="oh-feature-cta">לצפייה בדירות ביריד ←</span>` +
       `</span>` +
       `<span class="oh-feature-img" aria-hidden="true"></span>` +
@@ -1743,19 +1573,26 @@ function renderOpenHouseBanner(count){
    עדיין שני מדפים — המלאי של משרד אחד קטן, ושניהם נכנסים למסך ממילא. */
 const propsShelf = PropShelf.create({
   mount:'allProps', titleId:'allPropsTitle', title:marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label),
-  info:'פרטי ומסחרי, מכירה והשכרה - כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
+  infoId:'props_shelf',
+  info:'פרטי ומסחרי, מכירה והשכרה - כל הנכסים הפעילים של משרדי התיווך באזור, מהחדש לישן. נכסים מקודמים, כשיש, מופיעים ראשונים.',
   // מסגרת אחת סביב הכול, ושתי שורות נכסים בפתיחה: זה מה שנשאר משתי
   // הסקציות שהתמזגו — תצוגה אחת שנקראת כתצוגה אחת, בלי לוותר על כמות
   // הנכסים שהן הציגו יחד.
   box:true, rows:2,
   categoryTags:true,
+  saleResidential: v10On(),   // ‏F4 / C4
   // "דירה" מתפצלת לתגיות לפי מספר חדרים. ‏roomsLabel נכתב במפורש ולא
   // נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות". במסחרי אין פיצול כזה
   // ממילא: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס מסחרי.
   roomsType:'דירה', roomsLabel:'דירות',
+  // v10: תגית "✨ עם הדמיה" בשורת התגיות, והתגית "הדמיית AI" גם בשורה הדחוסה בטלפון (‏F/V2-V3)
+  vizTag: v10On(), rowViz: v10On(),
+  // v10 (חלק 4 §3): כרטיס ההזמנה להחלקה כפריט הראשון - לא נכס, לא נספר ולא נכנס לחישובי "עוד"
+  invite: v10On() ? () => v10InviteCard() : null,
   // שני המלאים חולקים היום שורת תגיות אחת, ובתקרה של שמונה סוגי הנכס
   // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
-  kindTagsMax:14,
+  // ‏R5-3C (v10): בלי תגיות חדרים וסוגים - הן כפולות לחלון הסינון
+  kindTagsMax: v10On() ? 0 : 14,
   sortId:'ppSort',
   // באנר ההדמיות כבר לא בתוך התיבה (‏afterGrid): מאוקטובר 2026 הוא סקציה
   // עצמאית מתחת למבזק, ב-index.html. ‏docs/home-property-shelves.md.
@@ -1807,7 +1644,10 @@ async function ppShelfToMap(items, filtered){
 let ppPrivate = null, ppCommercial = null;
 function ppSync(){
   if (ppPrivate === null && ppCommercial === null) return;
-  propsShelf.set((ppPrivate || []).concat(ppCommercial || []));
+  const all = (ppPrivate || []).concat(ppCommercial || []);
+  propsShelf.set(all);
+  // ‏A-SEO-1: המקום ששמור לתיבה (‏index.html) משתחרר רק כששתי הטעינות חזרו ריקות
+  document.getElementById('allProps')?.classList.toggle('pp-none', !all.length && ppPrivate !== null && ppCommercial !== null);
   /* העוגן מנוסה בכל סנכרון עד שהוא תופס, ולא פעם אחת אחרי הטעינה
      הראשונה: ‏#allProps-commercial שמגיע בזמן שרק המלאי הפרטי נטען מחפש
      תגית שעוד לא נבנתה — ‏selectTag מחזירה אז false, וכשהמסחרי מגיע כבר
@@ -1861,7 +1701,7 @@ window.addEventListener('hashchange', ppApplyHash);
 const FALLBACK_ARTICLES = [
   {title:'מדריך: כמה הון עצמי באמת צריך לדירה ראשונה בעפולה', kicker:'מדריכים', excerpt:'הכללים של בנק ישראל, העלויות הנלוות שאף אחד לא מספר עליהן, ואיך מחשבים נכון.'},
   {title:'שכונת גבעת המורה - לאן הולכים המחירים ב-2026', kicker:'ניתוח שוק', excerpt:'שלוש שנים של עסקאות, פרויקטים בבנייה והשפעת הרכבת על הביקוש.'},
-  {title:'בלעדיות מול פרסום פתוח: מה באמת משתלם למוכרים', kicker:'בלוג המתווכים', excerpt:'מה אומרים הנתונים על זמן מכירה ועל הפער בין מחיר מבוקש למחיר בפועל.'},
+  {title:'בלעדיות מול פרסום פתוח: מה באמת משתלם למוכרים', kicker:'הבלוג של יועצי הנדל״ן', excerpt:'מה אומרים הנתונים על זמן מכירה ועל הפער בין מחיר מבוקש למחיר בפועל.'},
   {title:'חמישה דברים לבדוק לפני שחותמים על חוזה שכירות', kicker:'שוכרים', excerpt:'ערבויות, תיקונים, מדד וצמדות - הסעיפים ששווה לקרוא פעמיים.'},
 ];
 
@@ -1890,7 +1730,8 @@ async function loadArticles(){
     if (data && data.length){
       return data.map(a => ({
         title: a.title || 'כתבה',
-        kicker: a.category || 'מגזין שוק נדל״ן',
+        // הקטגוריה במסד "בלוג המתווכים" מוצגת כ"הבלוג של יועצי הנדל״ן"
+        kicker: (a.category === 'בלוג המתווכים' ? 'הבלוג של יועצי הנדל״ן' : a.category) || 'מגזין שוק נדל״ן',
         excerpt: a.subtitle || '',
         url: '/article?slug=' + encodeURIComponent(a.slug || a.id),
         image: a.cover_url || '',
@@ -2190,13 +2031,13 @@ const DM_TABS = {
             empty:'אין משרד עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   agents: {
-    placeholder:'שם מתווך/ת או משרד…',
+    placeholder:'שם יועץ נדל״ן או משרד…',
     href:'/agents',
-    seeAll: n => `צפייה בכל ${n} המתווכים ←`,
+    seeAll: n => `צפייה בכל ${n} יועצי הנדל״ן ←`,
     cta:'לפרופיל ולנכסים ←',
-    empty:'לא נמצא מתווך/ת שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
+    empty:'לא נמצאו יועצי נדל״ן שמתאימים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
-            empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
+            empty:'אין יועצי נדל״ן עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
 };
 
@@ -2215,7 +2056,7 @@ function dmFromAgency(a, i, team){
   const areas = a.areas || [];
   const specs = AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label);
   return {
-    name, kind:'agency',
+    id: a.id, name, kind:'agency',
     href: a.slug ? '/agency?slug=' + encodeURIComponent(a.slug) : null,
     cover: a.cover_url,
     photo: a.logo_url, contain: true,
@@ -2236,9 +2077,9 @@ function dmFromAgency(a, i, team){
 }
 
 function dmFromAgent(m, i){
-  const name = m.display_name || 'מתווך/ת';
+  const name = m.display_name || 'יועץ נדל״ן';
   return {
-    name, kind:'agent',
+    id: m.id, name, kind:'agent',
     href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
     // תמונת הנושא של המשרד - היא הרצועה בראש דפי כל סוכניו, כמו ב-agent.html
     cover: m.agency_cover,
@@ -2254,6 +2095,7 @@ function dmFromAgent(m, i){
     waText: `היי ${name}, הגעתי אלייך דרך ${marketText('שוק הנדל״ן של עפולה והסביבה', m => 'שוק הנדל״ן של ' + m.label)} ואשמח לקבל פרטים.`,
     specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
+    raw: m,
   };
 }
 
@@ -2349,6 +2191,7 @@ function bindRowScroller(row){
   const quickEl = document.getElementById('dmQuick');
   const specEl = document.getElementById('dmSpec');
   const state = { tab:'agencies', query:'', spec:'all' };
+  const dmF = initDmFilters(state, data, () => render());
 
   // המונה שעל כל לשונית נספר מול כל הרשימה ולא מול החיפוש הפעיל: הוא
   // אומר כמה יש בפלטפורמה, וזה לא משתנה תוך כדי הקלדה
@@ -2375,6 +2218,22 @@ function bindRowScroller(row){
   const WA_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.03c-.25.69-1.44 1.32-2 1.36-.51.04-1 .24-3.37-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9s.72-2.06.98-2.34c.25-.28.55-.35.74-.35l.53.01c.17.01.4-.06.62.48.24.56.8 1.94.87 2.08.07.14.12.3.02.49-.09.19-.14.3-.28.46-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.7-.81.88-1.09.19-.28.37-.23.62-.14.25.09 1.62.76 1.9.9.28.14.46.21.53.33.07.12.07.69-.18 1.38z"/></svg>';
 
   function card(item){
+    /* ‏P1-V (v10): יועץ/ת נדל״ן בכרטיס המשותף (‏assets/agent-card.js), כמו ב-/sell ובדף הנכס.
+       הכפתור מוביל לפרופיל, הוואטסאפ מ-phone_e164; המקום בדירוג נשאר כתגית */
+    if (item.kind === 'agent' && item.raw && v10On() && window.AgentCard){
+      const box = mk('article', 'dm-item is-agc');
+      // ‏N2: מה שהכרטיס הקודם הציג - הנכסים הפעילים (או מה שבסינון) והביקורות
+      const facts = [];
+      const listings = item.countText || (item.countNum > 0 ? dmCount(item.countNum) : '');
+      if (listings) facts.push(['נכסים', listings]);
+      if (item.rating !== undefined) facts.push(['דירוג', item.rating !== null
+        ? '★ ' + item.rating.toFixed(1).replace(/\.0$/, '') + ' ' + (item.reviews === 1 ? '(חוות דעת אחת)' : `(${item.reviews} חוות דעת)`)
+        : 'עדיין אין ביקורות']);
+      box.innerHTML = AgentCard.html(item.raw, { agency: item.raw.agency_name || '',
+        ctaHref: item.href || undefined, actions: item.href ? undefined : false,
+        extraTags: item.rank ? ['★ #' + item.rank + ' בדירוג'] : [], facts });
+      return box;
+    }
     const el = mk('article', 'dm-item');
 
     // תמונת הנושא. היא קישור לפרופיל גם היא (לשם לוחצים), אבל מחוץ לסדר
@@ -2393,8 +2252,14 @@ function bindRowScroller(row){
       img.addEventListener('error', ()=> img.remove());
       cover.appendChild(img);
     }
-    if (item.rank) cover.appendChild(mk('span', 'dm-flag is-rank', `★ #${item.rank} בדירוג`));
-    if (item.countNum > 0) cover.appendChild(mk('span', 'dm-flag is-count', dmCount(item.countNum)));
+    if (item.rank){
+      // תג בלבד (הכרטיס כולו קישור) - ההסבר ב"איך נקבע הדירוג" (‏P1-T2)
+      const flag = mk('span', 'dm-flag is-rank', `★ #${item.rank} בדירוג`);
+      flag.title = "לפי דירוג הלקוחות - הסבר ב'איך נקבע הדירוג'";
+      cover.appendChild(flag);
+    }
+    if (item.countText) cover.appendChild(mk('span', 'dm-flag is-count', item.countText));
+    else if (item.countNum > 0) cover.appendChild(mk('span', 'dm-flag is-count', dmCount(item.countNum)));
     el.appendChild(cover);
 
     // הלוגו (או תמונת הפרופיל) שצף על קו התפר
@@ -2457,7 +2322,10 @@ function bindRowScroller(row){
       });
       team.appendChild(faces);
       const n = item.team.length;
-      team.appendChild(mk('span', '', n === 1 ? 'מתווך/ת אחד/ת בצוות' : `צוות של ${n} מתווכים`));
+      // v10: ניסוח ניטרלי, בלי "/ת" (‏C7)
+      team.appendChild(mk('span', '', v10On()
+        ? (n === 1 ? 'צוות של 1' : `צוות של ${n} יועצי נדל״ן`)
+        : (n === 1 ? 'יועץ נדל״ן אחד בצוות' : `צוות של ${n} יועצי נדל״ן`)));
       info.appendChild(team);
     }
 
@@ -2580,10 +2448,14 @@ function bindRowScroller(row){
 
   function render(){
     const conf = DM_TABS[state.tab];
+    const topT = document.getElementById('dmTopTitleT');
+    if (topT) topT.textContent = dmF.title() || (state.tab === 'agents' ? 'יועצי נדל״ן מובילים' : 'משרדים מובילים');
     const q = state.query.trim().toLowerCase();
-    const list = data[state.tab].filter(it =>
+    let list = data[state.tab].filter(it =>
       (!q || it.search.toLowerCase().includes(q)) &&
       (state.spec === 'all' || it.specs.includes(state.spec)));
+    // ‏P1-U1: התמחות ואזור (v10) - חיתוך על אותו נכס, ומיון לפי מספר הנכסים שבסינון
+    list = dmF.apply(list);
 
     row.innerHTML = '';
     // ריק → ההודעה ברוחב מלא ולא בטור אחד של הגריד
@@ -2593,17 +2465,23 @@ function bindRowScroller(row){
       empty.className = 'dm-empty';
       // כשמסננים לפי התמחות והחיפוש ריק, ההסבר "נסו שם אחר" מפספס את
       // הסיבה האמיתית שהשורה ריקה
-      empty.textContent = (!q && state.spec !== 'all' && conf.quick) ? conf.quick.empty : conf.empty;
+      empty.textContent = dmF.active() ? dmF.emptyText() : (!q && state.spec !== 'all' && conf.quick) ? conf.quick.empty : conf.empty;
       row.appendChild(empty);
+      if (dmF.active()) row.appendChild(dmF.emptyActions());
     } else {
       list.slice(0, dmLimit()).forEach(it => row.appendChild(card(it)));
       dmPlace();
     }
     buildDots(list.length ? Math.min(list.length, dmLimit()) : 0);
+    dmF.after(list);
 
-    searchEl.placeholder = conf.placeholder;
+    // ‏R8 (v10): החיפוש מוצא גם התמחות ושכונה (‏_dmWords)
+    searchEl.placeholder = v10On() ? 'שם, התמחות או שכונה…' : conf.placeholder;
     const seeAll = document.getElementById('dmSeeAll');
-    seeAll.href = conf.href;
+    // ‏P1-U1: הסינון עובר ל-/agencies ול-/agents באותם פרמטרים (‏assets/dm-filters.js)
+    seeAll.href = conf.href + (dmF.active() && /^\/(agencies|agents)$/.test(conf.href)
+      ? '?' + new URLSearchParams(dmF.query()).toString()
+      : '');
     seeAll.textContent = conf.seeAll(data[state.tab].length);
     row.setAttribute('aria-labelledby', 'dmTab' + state.tab.charAt(0).toUpperCase() + state.tab.slice(1));
     // מעבר לשונית מחזיר את השורה לתחילתה, אחרת הלשונית החדשה נפתחת
@@ -2638,6 +2516,7 @@ function bindRowScroller(row){
       state.spec = 'all';
       tabs.forEach(b => b.setAttribute('aria-selected', String(b === btn)));
       fillQuick();
+      dmF.fill();
       render();
     });
   });
@@ -2990,9 +2869,45 @@ function horizontalMapPadding(shellRect){
 // ממרכזת את המפה על הפינים המוצגים כרגע בתוך החלק הנראה שלה. נקראת גם אחרי
 // הגדלה/הקטנה של המפה, כי החלון הנראה משתנה ואיתו הריפוד הנכון.
 const MAP_FIT_MAX_ZOOM = 16;
+/* רשת ביטחון (P0-A): נקודה מחוץ לישראל, או רחוקה יותר מ-25 ק"מ מהחציון,
+   אינה מושכת את ההתאמה למפת הארץ - אותו כלל כמו במפת ההחלקה (swipe.js) */
+function mapFitPoints(points){
+  let pts = points.filter(q => q.lat > 29 && q.lat < 33.6 && q.lng > 34 && q.lng < 36);
+  if (pts.length > 2){
+    const med = k => { const v = pts.map(q => q[k]).sort((a, b)=> a - b); return v[v.length >> 1]; };
+    const mLat = med('lat'), mLng = med('lng');
+    const near = pts.filter(q => heroMap.distance([mLat, mLng], q) <= 25000);
+    if (near.length) pts = near;
+  }
+  return pts;
+}
+
+/* בלי אזור, שכונה, צורה מסומנת או חיפוש חופשי - אין "תוצאות" להתאים אליהן,
+   והמפה נפתחת על העיר ולא על כל הנכסים (‏P0-A, גם בלי הדגל) */
+function mapNoSelection(){
+  if (mapDraw && mapDraw.hasShape && mapDraw.hasShape()) return false;
+  if (hoodState.selected.size) return false;
+  if (searchState.freeText) return false;
+  const st = sentence && sentence.state ? sentence.state() : null;
+  return !st || ((!st.area || st.area === 'all') && !st.city);
+}
+
+/* התצוגה של המפה הפתוחה, לכל מקור (גלולה, תפריט, כפתור צף, כותרת התוצאות,
+   מפת השכונות): מרכז העיר בזום אחד קרוב יותר מזום העיר, או התאמה לתוצאות */
+function mapInitialView(){
+  if (!heroMap) return;
+  // התאמה מונפשת מהטעינה (‏fitMapToMarkers, ‏animate:true) שעוד רצה הייתה נגמרת אחרי ה-setView ודורסת אותו
+  heroMap.stop();
+  if (heroMap._animatingZoom){ heroMap.once('zoomend', mapInitialView); return; }
+  if (!mapNoSelection()){ fitMapToMarkers(); return; }
+  const z = CITY_ZOOM + 1;
+  // בטלפון הריפוד של visibleMapPadding הוא של המפה הסגורה ודוחף את העיר לראש המסך
+  const narrow = window.innerWidth < MAP_COLUMN_MIN_WIDTH;
+  heroMap.setView(narrow ? CityCtx.center() : cityViewCenter(z), z, { animate:false });
+}
 function fitMapToMarkers(){
   if (!heroMap) return;
-  const points = visibleMarkers().map(m => m.getLatLng());
+  const points = mapFitPoints(visibleMarkers().map(m => m.getLatLng()));
   // סימון השכונה הנבחרת נספר כחלק ממה שצריך להיכנס לתצוגה: בלעדיו הוא היה
   // נחתך כשהנכסים מרוכזים בפינה אחת שלו, ובשכונה שהחיפוש לא החזיר בה כלום
   // לא היה למפה בכלל לאן לעוף
@@ -3081,8 +2996,9 @@ function mapPopupHtml(p, kind){
   // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
   const logo = !img && p.agency_logo ? p.agency_logo : '';
   return `<a class="map-pop" href="/property?id=${encodeURIComponent(p.id)}">` +
-    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="this.remove()">` : '') +
-    (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
+    (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
+    (!img && !logo && v10On() ? v10ImgFb('map-pop-thumb is-inline') : '') +
     `<span class="map-pop-body">` +
       `<span class="map-pop-title">${escAttr(p.title)}</span>` +
       `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
@@ -3194,6 +3110,9 @@ function applyDealFilter({ fit = false } = {}){
     relayoutMapPins();
   }
   updateLegendCounts();
+  // המפה הפתוחה: "סינון" שבה מחיל חיפוש חדש, והשורה העליונה משקפת אותו (P0-B)
+  const openSummary = mapViewIsOpen() && document.getElementById('mapOpenSummary');
+  if (openSummary) openSummary.textContent = mapOpenSummaryText();
   // המקרא מסתיר פינים, והפאנל המפוצל מציג רק את מה שמצויר על המפה — ולכן
   // כיבוי "השכרה" חייב להוריד את אותם נכסים גם מהרשימה שלצדה
   updateSplitPanel();
@@ -3288,7 +3207,7 @@ function setMapExpanded(on){
   // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
   // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
   // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
-  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); if (!mapNoSelection()) fitMapToMarkers(); }, 320);
 }
 
 if (mapExpandBtn){
@@ -3360,7 +3279,8 @@ function setSplitView(on, { remember = true } = {}){
   // רוחב הקונטיינר של המפה משתנה במעבר, ו-Leaflet לא מזהה שינוי גודל בעצמו:
   // בלי invalidateSize האריחים נשארים חתוכים ברוחב הישן. ההמתנה היא לאורך
   // מעבר הגובה של ה-hero (‎transition:height .3s‎), כמו בכפתור ההגדלה.
-  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); updateSplitPanel(); }, 320);
+  // בלי בחירה נשאר המרכז: ה-setView של העיר (‏mapInitialView, ‏60ms) רץ לפני הטיימר הזה ונדרס בו
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); if (!mapNoSelection()) fitMapToMarkers(); updateSplitPanel(); }, 320);
   else updateSplitPanel();
 }
 
@@ -3458,8 +3378,9 @@ function updateSplitPanel(){
       const row = buildSearchRow(p, i);
       row.addEventListener('mouseenter', ()=> hotSplitRow(p.id, true));
       row.addEventListener('mouseleave', ()=> hotSplitRow(p.id, false));
-      row.addEventListener('focus', ()=> hotSplitRow(p.id, true));
-      row.addEventListener('blur', ()=> hotSplitRow(p.id, false));
+      // הפוקוס על הקישור שבתוך השורה (‏A-SEO-2), ולכן focusin/focusout
+      row.addEventListener('focusin', ()=> hotSplitRow(p.id, true));
+      row.addEventListener('focusout', ()=> hotSplitRow(p.id, false));
       rows.appendChild(row);
     });
   }
@@ -3871,7 +3792,9 @@ function openMapView(source, opener){
   initMapDraw();
   if (heroMap) setTimeout(()=>{
     heroMap.invalidateSize({ pan:false });
-    fitMapToMarkers();
+    /* כשלא נבחר אזור - מרכז העיר ולא כל הנכסים: כמה מודעות רחוקות (נתניה,
+       ירושלים) הרחיקו את ההתאמה עד מפת הארץ. לכל המקורות, ולא לפי רשימה */
+    mapInitialView();
     updateSplitPanel();
   }, 60);
   document.getElementById('mapCloseBtn')?.focus({ preventScroll:true });
@@ -3882,6 +3805,8 @@ function openMapView(source, opener){
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event:'map_open', source: source || 'results_header' });
   */
+  // v10 מאחורי הדגל בלבד: עכשיו יש טריגר ותגית (‏gtm/container.json); בלי הדגל ה-dataLayer כמו ב-main
+  if (v10On() && window.shukTrack) window.shukTrack('map_open', { source: source || 'results_header' });
 }
 
 function closeMapViewNow(){
@@ -3989,7 +3914,7 @@ function bindMapOpenFab(){
     let listOn = false, headOn = false;
     seen.forEach((on, el)=>{
       if (!on) return;
-      if (el.matches('.map-open-btn')) headOn = true;
+      if (el.matches('.map-open-btn, .hero-map-btn')) headOn = true;
       else listOn = true;
     });
     fab.hidden = !listOn || headOn;
@@ -4002,6 +3927,8 @@ function bindMapOpenFab(){
     const el = document.getElementById(id);
     if (el) io.observe(el);
   });
+  // v10: "חיפוש במפה" שב-hero הוא אותו כפתור - הגלולה לא עולה עליו
+  if (v10On()) document.querySelectorAll('.hero-map-btn').forEach(el => io.observe(el));
   const watchShelfBtn = ()=>{
     mountAllPropsMapBtn();
     const b = document.getElementById('allPropsMapBtn');
@@ -4033,6 +3960,7 @@ function gabrielaBotOn(){ return !!(window.ShukBot && ShukBot.enabled && ShukBot
 
 function openGabrielaAgent(){
   buyState.source = 'homepage_gabriela';
+  buyState.keepCity = false;
   openBuyerPanel(true);
   document.getElementById('buyerBanner')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -4067,7 +3995,10 @@ function drawGabrielaCta(wrap, entry){
 
 /* שורה קטנה עם האווטאר - בתחתית התפריט הנייד ובסוף הרשימה שליד המפה */
 function gabrielaMiniHtml(cls, title, sub){
-  return '<img src="' + GAB_AVATAR + '" width="40" height="40" alt="" loading="lazy" decoding="async">' +
+  // ‏D3 (תומר 29.10, מקומות 5 ו-6, רק עם הדגל): גבריאלה בגזירה ולא בעיגול - בתפריט הנייד וברשימה שליד המפה
+  const cut = v10On() && (cls === 'menu-gab-link' || cls === 'split-gab');
+  return (cut ? '<img src="/assets/gabriela-cutout-400.webp" width="400" height="695" alt="" loading="lazy" decoding="async">'
+    : '<img src="' + GAB_AVATAR + '" width="40" height="40" alt="" loading="lazy" decoding="async">') +
     '<span><b>' + escapeHtml(title) + '</b>' + (sub ? '<span>' + escapeHtml(sub) + '</span>' : '') + '</span>';
 }
 function gabrielaMiniLink(cls, title, sub, entry){
@@ -4141,7 +4072,7 @@ function initGabChat(){
   const city = (document.querySelector('[data-gab-city]')?.textContent || 'עפולה').trim();
   const SCENES = [
     ['היי גבריאלה, אני מחפש 4 חדרים ב' + city + ' עד 1.6 מיליון ₪', 'מצאתי 4 נכסים שמתאימים בדיוק. שולחת לך עכשיו.'],
-    ['תמצאי לי מתווך שמתמחה בנכסים מסחריים ב' + city, 'יש כמה משרדים שמתמחים במסחרי באזור. הנה הפרטים שלהם.'],
+    ['תמצאי לי יועץ נדל״ן שמתמחה בנכסים מסחריים ב' + city, 'יש כמה משרדים שמתמחים במסחרי באזור. הנה הפרטים שלהם.'],
     ['דירה להשכרה עם מרפסת וחניה, עד 5,000 ₪', 'מצאתי כמה דירות. רוצה שאעדכן אותך כשתעלה עוד אחת?'],
     ['יש פרויקטים חדשים מקבלן ב' + city + '?', 'כן, יש פרויקטים בשיווק עכשיו. שולחת לך את הפרטים.'],
     ['כמה יהיה ההחזר החודשי על משכנתא של מיליון ₪?', 'חישבתי לך הערכה. רוצה שיועץ משכנתאות יחזור אליך?'],
@@ -4200,50 +4131,69 @@ function initGabChat(){
 initGabChat();
 
 /* חיפוש קולי בטלפון: הנקודה הזהובה על המיקרופון היא ב-CSS. כאן הבועה
-   "אפשר לחפש בקול" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא בטעינה:
-   בטעינה העין עוד סורקת את הכותרת וגבריאלה, ובועה שקופצת אז נבלעת או
-   מפריעה. **היא נשארת עד שלוחצים על המיקרופון** (החלטת בעל/ת האתר, אוקטובר
-   2026) - לא טיימר ולא כל מגע בדף.
-
-   הסימון ב-localStorage ‏(shuk_mic_hint) הוא **זמן** הלחיצה על המיקרופון:
-   מי שעוד לא לחץ/ה רואה אותה בכל ביקור, ומי שלחץ/ה - שוב אחרי 24 שעות
-   (‏MIC_HINT_AGAIN, החלטת בעל/ת האתר). לא מוצגת אם בינתיים הגולש/ת
-   כבר בשדה, כתב/ה בו, או גלל/ה והשדה יצא מהמסך. ‏aria-hidden: לקורא מסך
-   המיקרופון כבר אומר "חיפוש קולי". ‏sentence-search.js מחליט אם המיקרופון
-   מוצג בכלל (‏Web Speech API). */
+   "אפשר לחפש בקול: לוחצים ומדברים" - **אחרי כמה שניות באתר** (‏MIC_HINT_DELAY), לא
+   בטעינה: בטעינה העין עוד סורקת את הכותרת וגבריאלה.
+   ‏R8 (28.10.2026, במקום "נשארת עד שלוחצים על המיקרופון"): נסגרת בכל לחיצה, פוקוס או
+   גלילה, ומעצמה אחרי 6 שניות; לכל היותר 3 פעמים (‏shuk_mic_hint_n), ולחיצה על
+   המיקרופון מסיימת אותה לתמיד. לחיצה על הבועה רק סוגרת - לא מתחילה הקלטה. ב-v10 היא
+   מעל כרטיס החיפוש ולא על השדה. לא מוצגת אם הגולש/ת כבר בשדה, כתב/ה בו, או שהשדה
+   יצא מהמסך. ‏aria-hidden: לקורא מסך המיקרופון כבר אומר "חיפוש קולי". */
 const MIC_HINT_DELAY = 3500;
-const MIC_HINT_AGAIN = 24 * 60 * 60 * 1000;   // חוזרת פעם ביום גם למי שכבר לחץ/ה
+const MIC_HINT_SHOW = 6000;
+const MIC_HINT_MAX = 3;
 function showMicHint(){
   const mic = document.getElementById('ssMic');
   if (!mic || mic.hidden || !mic.closest('.ss-free-only')) return;
   if (!window.matchMedia('(max-width:759px)').matches) return;
-  // נלחץ ב-24 השעות האחרונות? (ערך ישן "1" אינו זמן - ולכן הבועה חוזרת גם אליו)
-  const clickedRecently = () => Date.now() - Number(localStorage.getItem('shuk_mic_hint')) < MIC_HINT_AGAIN;
-  try { if (clickedRecently()) return; }
+  const shownN = () => Number(localStorage.getItem('shuk_mic_hint_n')) || 0;
+  try { if (shownN() >= MIC_HINT_MAX) return; }
   catch(e){ return; /* אחסון חסום - בלי בועה, כדי שלא תופיע בכל טעינה */ }
-  let tip = null;
-  // הלחיצה על המיקרופון (או על הבועה, שיושבת בתוכו) - מסירה ולא חוזרת
-  mic.addEventListener('click', ()=>{
-    try { localStorage.setItem('shuk_mic_hint', String(Date.now())); } catch(e){}
+  let tip = null, tHide = 0;
+  // לחיצה על הבועה עצמה נסגרת ב-click שלה (אחרת ה-click היה נוחת על המיקרופון)
+  const onAny = e => { if (tip && e.target && tip.contains(e.target)) return; dismiss(); };
+  const dismiss = () => {
     if (!tip) return;
     const t = tip; tip = null;
+    clearTimeout(tHide);
+    ['pointerdown', 'focusin', 'scroll'].forEach(ev => window.removeEventListener(ev, onAny, true));
     document.documentElement.classList.remove('mic-hint-on');
     t.classList.add('is-leaving');
     setTimeout(()=> t.remove(), 250);
+  };
+  mic.addEventListener('click', ()=>{
+    try { localStorage.setItem('shuk_mic_hint_n', String(MIC_HINT_MAX)); } catch(e){}
+    dismiss();
   }, { once:true });
   setTimeout(()=>{
     const input = document.getElementById('ssQuery');
-    if (document.hidden || !input || document.activeElement === input || input.value) return;
+    if (document.hidden || !input || document.activeElement === input || input.value || mic.hidden) return;
     const r = mic.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) return;   // השדה כבר לא במסך
-    if (clickedRecently()) return;                              // כבר לחצו בינתיים
+    try { if (shownN() >= MIC_HINT_MAX) return; localStorage.setItem('shuk_mic_hint_n', String(shownN() + 1)); } catch(e){ return; }
     tip = document.createElement('span');
     tip.className = 'ss-mic-hint';
     tip.setAttribute('aria-hidden', 'true');
-    tip.textContent = 'אפשר לחפש בקול - לחצו ודברו';
+    tip.textContent = 'אפשר לחפש בקול: לוחצים ומדברים';
+    // הבועה בתוך הכפתור (מחוץ ל-v10): לחיצה עליה לא מגיעה למיקרופון
+    tip.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); dismiss(); });
+    const card = v10On() && mic.closest('.ss-card');
+    if (card){
+      /* ‏P2-7 (v10): מעל כרטיס החיפוש ולא על השדה - ה-placeholder נשאר גלוי. החץ למטה, מול
+         המיקרופון; הבועה בתוך רוחב הכרטיס */
+      tip.classList.add('is-above');
+      card.appendChild(tip);
+      const cr = card.getBoundingClientRect(), mr = mic.getBoundingClientRect(), w = tip.offsetWidth;
+      const mx = mr.left + mr.width / 2 - cr.left;
+      const left = Math.max(0, Math.min(cr.width - w, mx - w / 2));
+      tip.style.left = left + 'px';
+      tip.style.setProperty('--mh-arrow', (mx - left) + 'px');
+    } else
     mic.appendChild(tip);
     // הבועה יושבת על התווית "מה אתם מחפשים" - מסתירים אותה בלי להזיז דבר
     document.documentElement.classList.add('mic-hint-on');
+    tHide = setTimeout(dismiss, MIC_HINT_SHOW);
+    // הלחיצה/הגלילה הבאה - אחרי שהבועה כבר על המסך
+    setTimeout(()=> { if (tip) ['pointerdown', 'focusin', 'scroll'].forEach(ev => window.addEventListener(ev, onAny, true)); }, 50);
   }, MIC_HINT_DELAY);
 }
 
@@ -4353,13 +4303,18 @@ function renderHeroStats(){
   setNum('heroStatProps', heroStatsState.props);
   setNum('heroStatAgencies', heroStatsState.agencies);
   if (box && (heroStatsState.props || heroStatsState.agencies)) box.hidden = false;
+  renderDmStats();
 
   const aiBadge = document.getElementById('heroAiBadge');
   const aiCount = document.getElementById('heroAiCount');
   if (aiBadge && aiCount && heroStatsState.ai){
-    aiCount.textContent = heroStatsState.ai === 1
+    /* v10 (בדיקה חוזרת P1-12): בלי מספר שמשתנה מיום ליום בטקסט שיווקי - "הדמיה לנכסים באתר",
+       כמו כותרת הבאנר. בלי הדגל - כמו קודם */
+    aiCount.textContent = v10On() ? 'הדמיה לנכסים באתר' : heroStatsState.ai === 1
       ? 'נכס אחד עם הדמיית AI'
       : `${heroStatsState.ai.toLocaleString('he-IL')} נכסים עם הדמיית AI`;
+    // v10 (‏F/V1): "✨ N נכסים עם הדמיית AI · לפני ואחרי" - נקודה במקום הקו
+    if (v10On()){ const sep = aiBadge.querySelector('.hero-badge-sep'); if (sep) sep.textContent = '·'; }
     aiBadge.hidden = false;
   }
 
@@ -4382,7 +4337,10 @@ function countAddedToday(properties){
 }
 
 // התגית היא הדרך הקצרה ביותר למסנן ההדמיות, שעד היום הגיעו אליו רק דרך ‎?ai=1‎
-document.getElementById('heroAiBadge')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
+document.getElementById('heroAiBadge')?.addEventListener('click', ()=>{
+  if (v10On() && window.shukTrack) shukTrack('ai_hero_chip_click', {});
+  ShukSearch.applyAiFilter();
+});
 
 /* ============================================================
    באנר ההדמיות — בסוף תיבת הנכסים
@@ -4416,6 +4374,10 @@ function showAiPromo(count){
       go.appendChild(span);
     });
   box.hidden = false;
+  // v10: שורת ההעתק המדויקת (המספר מהנתונים)
+  const line = document.getElementById('aiV10Line');
+  // בלי מספר שמשתנה מיום ליום (P1-12)
+  if (line && v10On()) line.textContent = 'חלק מהנכסים כבר כוללים הדמיית AI, ולכל נכס אחר אפשר ליצור הדמיה בלחיצה.';
 }
 
 async function initAiPromoThumb(){
@@ -4443,6 +4405,7 @@ async function initAiPromoThumb(){
     `<div class="ai-promo-after"><img src="${escAttr(row.result_url)}" alt="" loading="lazy" decoding="async"></div>` +
     `<div class="ai-promo-handle"></div>`;
   thumb.hidden = false;
+  if (v10On()) v10AiSlider(thumb, row);
 }
 
 document.getElementById('aiPromoGo')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
@@ -4519,6 +4482,8 @@ async function loadNeighborhoods(){
 /* כל הנכסים הפעילים במאגר, כפי שנטענו לעמוד. מקור המונים והמרכזים של
    השכונות — ולכן נשמר בנפרד מ-mapProperties, שמתחלף עם כל חיפוש. */
 let allActiveProperties = [];
+// ‏P1-U1: מסנני המשרדים ויועצי הנדל״ן נגזרים מהנכסים, ונבנים כשהם מגיעים
+let dmPropsHook = null;
 
 /* מרכז ורדיוס לכל שכונה — רק בשביל עיגול ברירת המחדל, לשכונה שאין לה עדיין
    ‏boundary. סימון ידני ב-DB (lat/lng/radius_m) גובר; בהיעדרו הם נגזרים
@@ -4798,10 +4763,14 @@ try {
     // שברשימת הבחירה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש
     // הוא היה מפסיק לענות על השאלה שבגללה מסתכלים עליו
     allActiveProperties = properties;
+    if (typeof dmPropsHook === 'function') dmPropsHook(properties);
     heroStatsState.props = properties.length;
     heroStatsState.today = countAddedToday(properties);
     renderHeroStats();
     computeHoodGeometry(properties);
+    initHoodMapSec(properties);
+    v10Fair.props = properties;
+    renderV10Fair();
     renderHoodFilter();
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
@@ -4814,11 +4783,18 @@ try {
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
     if (sentence) sentence.setProperties(properties, { aliases: hoodAliases });
     else if (!searchHasRun) renderPropertyGrid(properties);
+    renderQuickSearch(properties);
+    v10DefaultSale();
 
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
        אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
        רק את מה שכבר על המסך. */
-    PropertyCard.visualizedIds(sb, properties.map(p => p.id)).then(ids=>{
+    /* v10 (‏F/V7): כל הנכסים עם הדמיה (שאילתה אחת, בלי חיתוך ל-200 מזהים) מצטלבים
+       עם הנכסים הפעילים שנטענו לשוק - אותו מספר ל-hero, לבאנר, לתגית ולגבריאלה */
+    (v10On()
+      ? PropertyCard.allVisualizedIds(sb).then(all => new Set(properties.map(p => p.id).filter(id => all.has(id))))
+      : PropertyCard.visualizedIds(sb, properties.map(p => p.id))).then(ids=>{
+      if (v10On()) window.ShukViz = { n: ids.size, total: properties.length, coverage: properties.length ? ids.size / properties.length : 0 };
       // גם קבוצה ריקה: ‎?ai=1‎ בלי אף נכס עם הדמיה הוא אפס תוצאות, לא "הכול"
       if (sentence && !ids.size) sentence.setAiIds(ids);
       if (!ids.size) return;
@@ -4880,6 +4856,8 @@ const COMMERCIAL_PROPERTY_FEATURES = [
   ['ev_charger','עמדת טעינה לרכב חשמלי'],
 ];
 const ROOM_OPTIONS = ['1','1.5','2','2.5','3','3.5','4','4.5','5','5.5','+6'];
+/* ‏R5-4 (v10): צ'יפים שלמים, ו-N כולל את N.5. בחירה מרובה נשלחת כ-roomsIn ולא כטווח */
+const ROOM_OPTIONS_V10 = ['2','3','4','5','+6'];
 
 const searchState = {
   activeTab: 'sale', // 'sale' | 'rent' | 'commercial'
@@ -4888,9 +4866,9 @@ const searchState = {
      מסחרי עם הדמיה ודירה עם הדמיה עונים על אותה שאלה — ולכן מעבר בין
      הטאבים לא מאפס אותו. */
   hasAi: false,
-  r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' },
+  r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, newOnly:false },
   // deal:'' = שני סוגי העסקה המסחריים יחד (ראו ההערה ליד הבורר ב-HTML)
-  c: { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' },
+  c: { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null },
 };
 
 function renderPills(container, options, selectedSet, labelFn){
@@ -4927,6 +4905,20 @@ function syncCommercialDealToggle(){
     b.classList.toggle('active', b.dataset.cdeal === searchState.c.deal));
 }
 
+const COMMERCIAL_PTYPE_LABELS = { 'סטודיו': 'סטודיו (מסחרי)', 'מרתף': 'מרתף מסחרי' };
+function commercialPtypeOptions(){
+  const n = new Map();
+  (allActiveProperties || []).forEach(p => {
+    if (p.category !== 'commercial' || !p.property_type || p.property_type === 'כללי') return;
+    if (searchState.c.deal && p.deal_type !== searchState.c.deal) return;
+    n.set(p.property_type, (n.get(p.property_type) || 0) + 1);
+  });
+  const list = COMMERCIAL_PTYPES.filter(t => t !== 'כללי' && (n.get(t) || searchState.c.ptypes.has(t)));
+  // סוג שנמצא במלאי ואינו ברשימה הקבועה - גם הוא מוצג
+  n.forEach((c, t) => { if (!list.includes(t)) list.push(t); });
+  return list.sort((a, b) => (n.get(b) || 0) - (n.get(a) || 0))
+    .map(t => [t, (COMMERCIAL_PTYPE_LABELS[t] || t) + ' · ' + (n.get(t) || 0)]);
+}
 function initFilterModals(){
   renderPills(document.getElementById('rRoomsPills'), ROOM_OPTIONS, searchState.r.rooms);
   Object.entries(RESIDENTIAL_PTYPES).forEach(([cat, list])=>{
@@ -4935,8 +4927,12 @@ function initFilterModals(){
   renderCheckboxes(document.getElementById('rListingFeatures'), LISTING_FEATURES, searchState.r.listingFeatures);
   renderCheckboxes(document.getElementById('rPropertyFeatures'), RESIDENTIAL_PROPERTY_FEATURES, searchState.r.propertyFeatures);
 
-  renderPills(document.getElementById('cPtypePills'), COMMERCIAL_PTYPES, searchState.c.ptypes);
-  renderCheckboxes(document.getElementById('cListingFeatures'), LISTING_FEATURES, searchState.c.listingFeatures);
+  // ‏P1-N1: סוגים מסחריים מהנתונים, עם מונה; "כללי" לעולם לא, ו"רק מושבים וקיבוצים" לא במסחרי
+  renderPills(document.getElementById('cPtypePills'), commercialPtypeOptions(), searchState.c.ptypes);
+  renderCheckboxes(document.getElementById('cListingFeatures'), LISTING_FEATURES.filter(([k]) => k !== 'moshav_kibbutz_only'), searchState.c.listingFeatures);
+  // סטטוס הפרויקט רק במכירה
+  const rps = document.getElementById('rProjectStatusSec');
+  if (rps) rps.hidden = searchState.activeTab === 'rent';
   renderCheckboxes(document.getElementById('cPropertyFeatures'), COMMERCIAL_PROPERTY_FEATURES, searchState.c.propertyFeatures);
 
   document.querySelectorAll('.tri-toggle').forEach(group=>{
@@ -4959,11 +4955,137 @@ function initFilterModals(){
     btn.addEventListener('click', ()=>{
       searchState.c.deal = btn.dataset.cdeal;
       syncCommercialDealToggle();
+      // המונים של סוגי הנכס תלויים בעסקה
+      renderPills(document.getElementById('cPtypePills'), commercialPtypeOptions(), searchState.c.ptypes);
       // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
       // שברשימת השכונות
       renderHoodFilter();
+      advV10Layout();
     });
   });
+  advV10Layout();
+}
+
+/* ---------- ‏P1-N1 (v10): חלון סינון לכל עסקה, מהנתונים ----------
+   מאפיין עם מונה לפי העסקה, ובלי מאפיין שאין לו נכס (חוץ ממה שכבר נבחר).
+   בראש החלון השדות הנפוצים, והשאר תחת "עוד מאפיינים" שנפתח מעצמו כשיש בו
+   בחירה. מכירה: מחיר למ"ר ו"פרויקטים חדשים" (סטטוס הפרויקט רק אחריו).
+   שכירות: בלי סטטוס פרויקט, בלי "בבלעדיות" ובלי התיבה המתה של מ"ר בנוי. */
+const ADV_TOP = {
+  r: ['parking','mamad','balcony','elevator','ac','storage','accessible','sun_balcony'],
+  c: ['parking','ac','high_ceiling','kitchenette','elevator','loading_ramp','meeting_room','comms'],
+};
+function advPool(commercial){
+  const deal = searchState.activeTab;
+  return (allActiveProperties || []).filter(p => commercial
+    ? p.category === 'commercial' && (!searchState.c.deal || p.deal_type === searchState.c.deal)
+    : p.category !== 'commercial' && p.deal_type === deal);
+}
+function advMoreBox(modalId){
+  const body = document.querySelector('#' + modalId + ' .filter-modal-body');
+  let box = body.querySelector('.adv-more');
+  if (box) return box;
+  box = document.createElement('details');
+  box.className = 'adv-more';
+  box.innerHTML = '<summary>עוד מאפיינים</summary><div class="adv-more-body"></div>';
+  box.addEventListener('toggle', () => {
+    if (box.open && !box.dataset.auto && window.shukTrack) window.shukTrack('adv_filter_more_open', { deal: advDeal(), surface: 'home_modal' });
+    delete box.dataset.auto;
+  });
+  body.appendChild(box);
+  return box;
+}
+const advDeal = () => searchState.activeTab === 'commercial' ? 'commercial' : searchState.activeTab;
+function advV10Layout(){
+  if (!v10On()) return;
+  const commercial = searchState.activeTab === 'commercial';
+  const pre = commercial ? 'c' : 'r', s = commercial ? searchState.c : searchState.r;
+  const sale = !commercial && searchState.activeTab === 'sale';
+  const sec = id => document.getElementById(id)?.closest('.filter-section');
+  // מכירה בלבד; מעבר לשכירות מנקה את מה שנבחר שם (‏R5-8)
+  if (!commercial && !sale){
+    s.ppsqmMin = s.ppsqmMax = null; s.newOnly = false;
+    ['rPpsqmMin', 'rPpsqmMax'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('rNewOnly').checked = false;
+  }
+  if (!commercial){
+    document.getElementById('rPpsqmSec').hidden = !sale;
+    document.getElementById('rNewOnlySec').hidden = !sale;
+    const nb = document.getElementById('rNewOnly');
+    if (!nb.dataset.bound){
+      nb.dataset.bound = '1';
+      nb.addEventListener('change', () => { document.getElementById('rProjectStatusSec').hidden = !nb.checked; });
+    }
+    document.getElementById('rProjectStatusSec').hidden = !(sale && (nb.checked || s.projectStatus));
+    sec('rBuiltSizeToggle') && (document.getElementById('rBuiltSizeToggle').closest('label').hidden = true);
+  } else {
+    document.getElementById('cPpsqmSec').hidden = false;
+  }
+  // מאפיינים עם מונה; אפס לא מוצג
+  const pool = advPool(commercial);
+  // ‏R5-4: חדרים שלמים (‏N כולל N.5), בחירה מרובה
+  if (!commercial) renderPills(document.getElementById('rRoomsPills'), ROOM_OPTIONS_V10, s.rooms);
+  // ‏R5-4: שכונות, בחירה מרובה, עם מונה - רק שכונות עם נכסים בעסקה (או שנבחרו)
+  if (!s.hoods) s.hoods = new Set();
+  const modal = document.getElementById(commercial ? 'commercialFilterModal' : 'residentialFilterModal');
+  let hoodSec = modal.querySelector('[data-adv-hoods]');
+  if (!hoodSec){
+    hoodSec = document.createElement('div');
+    hoodSec.className = 'filter-section';
+    hoodSec.dataset.advHoods = '';
+    hoodSec.innerHTML = '<h4>שכונות <span class="filter-hint">(ניתן לבחור כמה)</span></h4><div class="checkbox-grid"></div>';
+    const typeSec = commercial ? document.getElementById('cPtypePills').closest('.filter-section')
+      : modal.querySelector('[data-ptype-cat]').closest('.filter-section');
+    typeSec.after(hoodSec);
+  }
+  const hn = new Map(), hname = new Map();
+  pool.forEach(p => { if (!p.neighborhood_id) return; const k = 'hood:' + p.neighborhood_id;
+    hn.set(k, (hn.get(k) || 0) + 1); if (!hname.has(k)) hname.set(k, p.neighborhood_name || ''); });
+  const hoodItems = [...new Set([...hn.keys(), ...s.hoods])].filter(k => hname.get(k) || hn.get(k))
+    .sort((a, b) => (hn.get(b) || 0) - (hn.get(a) || 0)).map(k => [k, (hname.get(k) || 'שכונה') + ' (' + (hn.get(k) || 0) + ')']);
+  hoodSec.hidden = !hoodItems.length;
+  renderCheckboxes(hoodSec.querySelector('.checkbox-grid'), hoodItems, s.hoods);
+  // סוגי מגורים: רק עם נכס בעסקה, עם מונה; קבוצה ריקה יורדת
+  if (!commercial){
+    const tn = new Map();
+    pool.forEach(p => { if (p.property_type) tn.set(p.property_type, (tn.get(p.property_type) || 0) + 1); });
+    Object.entries(RESIDENTIAL_PTYPES).forEach(([cat, list]) => {
+      const box = document.querySelector(`[data-ptype-cat="${cat}"]`);
+      const opts = list.filter(t => tn.get(t) || s.ptypes.has(t)).map(t => [t, t + ' · ' + (tn.get(t) || 0)]);
+      renderPills(box, opts, s.ptypes);
+      box.closest('.ptype-group').hidden = !opts.length;
+    });
+  }
+  const all = commercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES;
+  const n = code => pool.filter(p => SearchCore.hasFeatures(p, [code])).length;
+  const shown = all.filter(([k]) => (searchState.activeTab !== 'rent' || k !== 'exclusive') && (n(k) > 0 || s.propertyFeatures.has(k)))
+    .map(([k, l]) => [k, l + ' (' + n(k) + ')']);
+  const top = shown.filter(([k]) => ADV_TOP[pre].includes(k)), more = shown.filter(([k]) => !ADV_TOP[pre].includes(k));
+  renderCheckboxes(document.getElementById(pre + 'PropertyFeatures'), top, s.propertyFeatures);
+  const box = advMoreBox(commercial ? 'commercialFilterModal' : 'residentialFilterModal');
+  const inner = box.querySelector('.adv-more-body');
+  let moreGrid = document.getElementById(pre + 'PropertyFeaturesMore');
+  if (!moreGrid){
+    const wrap = document.createElement('div');
+    wrap.className = 'filter-section';
+    wrap.innerHTML = '<h4>מאפיינים נוספים</h4><div class="checkbox-grid" id="' + pre + 'PropertyFeaturesMore"></div>';
+    inner.appendChild(wrap);
+    moreGrid = wrap.querySelector('.checkbox-grid');
+    // השדות המשניים עוברים לתוך "עוד מאפיינים"
+    (commercial ? ['cFloorMin', 'cMoveInSoon', 'cFreeText'] : ['rFloorMin', 'rSizeMin', 'rMoveInDate', 'rFreeText'])
+      .map(sec).filter(Boolean).forEach(el => inner.appendChild(el));
+    if (commercial) document.querySelectorAll('#commercialFilterModal .tri-toggle').forEach(t => inner.appendChild(t.closest('.filter-section')));
+  }
+  moreGrid.closest('.filter-section').hidden = !more.length;
+  renderCheckboxes(moreGrid, more, s.propertyFeatures);
+  // מודעה: "רק מושבים וקיבוצים" רק כשיש נכס כזה
+  const moshav = pool.filter(p => (p.features || []).includes('moshav_kibbutz_only')).length;
+  renderCheckboxes(document.getElementById(pre + 'ListingFeatures'),
+    LISTING_FEATURES.filter(([k]) => k !== 'moshav_kibbutz_only' || (!commercial && (moshav || s.listingFeatures.has(k)))), s.listingFeatures);
+  // נפתח מעצמו כשיש בו בחירה
+  const picked = more.some(([k]) => s.propertyFeatures.has(k)) || s.floorMin || s.floorMax || s.freeText || s.moveInSoon ||
+    (!commercial && (s.sizeMin || s.sizeMax || s.moveInDate)) || (commercial && (s.restrooms || s.storage || s.mamad));
+  if (picked && !box.open){ box.dataset.auto = '1'; box.open = true; }
 }
 
 // סוג העסקה נבחר מקונטיינר נפתח בתוך סרגל החיפוש (במקום שלושה טאבים).
@@ -5015,7 +5137,20 @@ function mainFreeText(){
   return '';
 }
 
-function openModal(id){ document.getElementById(id).classList.add('open'); }
+function openModal(id, trigger){
+  // ‏A3-2: עם הדגל, שני חלונות הסינון הם FilterSheet (‏openHomeFilterSheet)
+  if (/^(residential|commercial)FilterModal$/.test(id) && v10On() && window.FilterSheet && sentence && sentence.loaded()){
+    openHomeFilterSheet(trigger || document.activeElement);
+    return;
+  }
+  const el = document.getElementById(id);
+  if (/FilterModal$/.test(id) && v10On() && window.shukTrack) window.shukTrack('adv_filter_open', { deal: advDeal(), surface: 'home_modal' });
+  // ‏P1-L: חלון סינון שנפתח שוב מתחיל בראש הגולל, לא במקום שבו נסגר
+  const body = el.querySelector('.filter-modal-body');
+  el.classList.add('open');
+  // אחרי ההצגה: בגוף מוסתר (‏display:none) האיפוס לא נקלט
+  if (body) body.scrollTop = 0;
+}
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('[data-close-modal]').forEach(el=>{
   el.addEventListener('click', ()=> closeModal(el.dataset.closeModal));
@@ -5071,16 +5206,20 @@ document.getElementById('hoodApplyBtn').addEventListener('click', ()=>{
   closeModal('hoodFilterModal');
 });
 
+document.querySelectorAll('#rClearFilters, #cClearFilters').forEach(b => b.addEventListener('click', e => {
+  if (e.isTrusted && v10On() && window.shukTrack) window.shukTrack('adv_filter_clear', { deal: advDeal(), surface: 'home_modal' });
+}));
 document.getElementById('rClearFilters').addEventListener('click', ()=>{
-  searchState.r = { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' };
-  ['rPriceMin','rPriceMax','rFloorMin','rFloorMax','rSizeMin','rSizeMax','rMoveInDate','rFreeText'].forEach(id=> document.getElementById(id).value='');
+  searchState.r = { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, newOnly:false };
+  document.getElementById('rNewOnly').checked = false;
+  ['rPriceMin','rPriceMax','rFloorMin','rFloorMax','rSizeMin','rSizeMax','rMoveInDate','rFreeText','rPpsqmMin','rPpsqmMax'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('rCondition').value=''; document.getElementById('rProjectStatus').value='';
   document.getElementById('rMoveInSoon').checked=false; document.getElementById('rBuiltSizeToggle').checked=false;
   initFilterModals();
 });
 document.getElementById('cClearFilters').addEventListener('click', ()=>{
-  searchState.c = { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' };
-  ['cPriceMin','cPriceMax','cFloorMin','cFloorMax','cSizeMin','cSizeMax','cMoveInDate','cFreeText'].forEach(id=> document.getElementById(id).value='');
+  searchState.c = { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null };
+  ['cPriceMin','cPriceMax','cFloorMin','cFloorMax','cSizeMin','cSizeMax','cMoveInDate','cFreeText','cPpsqmMin','cPpsqmMax'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('cProjectStatus').value='';
   document.getElementById('cMoveInSoon').checked=false;
   initFilterModals();
@@ -5098,6 +5237,9 @@ function collectFormValues(){
   searchState.r.moveInDate = document.getElementById('rMoveInDate').value;
   searchState.r.moveInSoon = document.getElementById('rMoveInSoon').checked;
   searchState.r.freeText = document.getElementById('rFreeText').value;
+  searchState.r.ppsqmMin = document.getElementById('rPpsqmMin').value || null;
+  searchState.r.ppsqmMax = document.getElementById('rPpsqmMax').value || null;
+  searchState.r.newOnly = document.getElementById('rNewOnly').checked;
 
   searchState.c.priceMin = document.getElementById('cPriceMin').value || null;
   searchState.c.priceMax = document.getElementById('cPriceMax').value || null;
@@ -5109,6 +5251,8 @@ function collectFormValues(){
   searchState.c.moveInDate = document.getElementById('cMoveInDate').value;
   searchState.c.moveInSoon = document.getElementById('cMoveInSoon').checked;
   searchState.c.freeText = document.getElementById('cFreeText').value;
+  searchState.c.ppsqmMin = document.getElementById('cPpsqmMin').value || null;
+  searchState.c.ppsqmMax = document.getElementById('cPpsqmMax').value || null;
 }
 
 function countActiveFilters(){
@@ -5287,7 +5431,7 @@ async function runSearchInner(){
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
     if (error) throw error;
-    const results = (data || []).map(shapeProperty);
+    const results = keepMarketRows(data || [], marketSpec).map(shapeProperty);
     renderPropertyGrid(results, true);
     /* חיפוש מהסרגל גובר על תגיות המדף ומכבה אותן. מאז שגם הן מסננות את
        המפה יש שני מסננים שמתחרים על אותם פינים, ותגית שנשארה דלוקה הייתה
@@ -5342,10 +5486,14 @@ function revealSearchResults(){
   // בתצוגה המפוצלת התוצאות כבר מול העיניים, בפאנל שלצד המפה — גלילה אל
   // העותק שמתחת הייתה דוחפת את שתיהן אל מחוץ למסך בדיוק ברגע החיפוש
   if (splitOn && splitSupported()) return;
+  /* גוללים כשהשורה הראשונה לא כולה במסך. עד 29.10 הבדיקה הייתה על הכותרת בלבד (מתחת ל-90%
+     מהגובה): במחשב הכותרת "תוצאות החיפוש" הציצה בתחתית המסך, ולכן לא חיפוש קולי ולא "הצג N
+     נכסים" גללו - והגולש/ת ראה/תה רק את הכותרת (דיווח של תומר מהפריוויו) */
   requestAnimationFrame(()=>{
-    if (section.getBoundingClientRect().top > window.innerHeight * 0.9){
-      section.scrollIntoView({ behavior:'smooth', block:'start' });
-    }
+    const first = document.querySelector('#searchResultsRows > *');
+    const bottom = (first || section).getBoundingClientRect().bottom;
+    if (section.getBoundingClientRect().top < 0 && bottom > 0) return;   // כבר בתוך התוצאות
+    if (bottom > window.innerHeight || section.getBoundingClientRect().top > window.innerHeight * 0.6) scrollToSearchResults();
   });
 }
 
@@ -5373,10 +5521,9 @@ function showSearchError(){
 function buildSearchRow(p, i){
   const row = document.createElement('article');
   row.className = 'sr-row';
-  row.tabIndex = 0;
-  row.setAttribute('role', 'link');
   row.dataset.propId = p.id;
   row.innerHTML = `
+    <a class="pc-link" href="/property?id=${encodeURIComponent(p.id)}" aria-label="${escAttr(p.title || p.property_type || 'נכס')}"></a>
     <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
       <div class="sr-title">${escAttr(p.title)}</div>
@@ -5387,9 +5534,12 @@ function buildSearchRow(p, i){
       <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
       <span class="sr-price">${priceLabel(p)}</span>
     </div>`;
-  const open = ()=> window.location.href = '/property?id=' + p.id;
-  row.addEventListener('click', open);
-  row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+  /* ‏A-SEO-2: ‏<a> אמיתי שנמתח על השורה (‏.pc-link), במקום ‏role="link"‎ וניווט ב-JS -
+     גוגל רואה את הקישור, ולשונית חדשה ותפריט הקשר עובדים. ‏P1-M: המקור נרשם לפני הניווט */
+  row.querySelector('.pc-link').addEventListener('click', ()=>{
+    const box = row.closest('[data-browse]');
+    if (box && window.shukBrowseMark) shukBrowseMark(box.getAttribute('data-browse'), p.id);
+  });
   return row;
 }
 
@@ -5448,19 +5598,23 @@ try { const v = sessionStorage.getItem(SR_SORT_KEY); if (SR_SORTS.includes(v)) s
 let srLastRender = null;
 
 function sortSearchRows(list){
+  /* v10 (סבב 4 חלק 3 §8): נכס עם תמונה לפני נכס בלי - רק כשובר שוויון. במיון ברירת
+     המחדל מיד אחרי המקודמים; במיון מפורש (מחיר, חדש) רק כשהמפתח שווה */
+  const ph = v10On() ? (p => hasPhoto(p) || !!p.video_poster_url ? 1 : 0) : (() => 0);
   if (srSort === 'new'){
     const t = p => Date.parse(p.created_at) || 0;
-    return list.slice().sort((a, b) => t(b) - t(a));
+    return list.slice().sort((a, b) => (t(b) - t(a)) || (ph(b) - ph(a)));
   }
   if (srSort === 'price-asc' || srSort === 'price-desc'){
     const dir = srSort === 'price-asc' ? 1 : -1;
     const val = p => { const n = SearchCore.comparablePrice(p); return n !== null && isFinite(n) && n > 0 ? n : null; };
     return list.slice().sort((a, b) => {
       const x = val(a), y = val(b);
-      if (x === null || y === null) return (x === null) - (y === null);
-      return (x - y) * dir;
+      if (x === null || y === null) return ((x === null) - (y === null)) || (ph(b) - ph(a));
+      return ((x - y) * dir) || (ph(b) - ph(a));
     });
   }
+  if (v10On()) return list.slice().sort((a, b) => (!!isPromoted(b) - !!isPromoted(a)) || (ph(b) - ph(a)));
   return list;
 }
 
@@ -5538,6 +5692,7 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
       '<div class="bot-alt" id="botEmptyWrap"></div></div></div>';
     document.getElementById('ssaEmptyBtn').addEventListener('click', ssaOpen);
     renderEmptyBotLink();
+    v10GabAlert(rows, 0);
     return;
   }
 
@@ -5565,13 +5720,16 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     if (left > 0){
       more.textContent = `הצגת עוד ${Math.min(left, SR_PAGE_SIZE)} נכסים (נשארו ${left})`;
       if (!more.parentNode) rows.appendChild(more);
-    } else if (more.parentNode) more.remove();
+    } else {
+      if (more.parentNode) more.remove();
+      if (!mapView) v10GabAlert(rows, shown.length);
+    }
   };
   more.addEventListener('click', ()=>{
     const first = next;
     page();
     // הפוקוס עובר לשורה הראשונה שנוספה, ולא נשאר על כפתור שנעלם
-    const row = rows.querySelectorAll('.sr-row')[first];
+    const row = rows.querySelectorAll('.sr-row > .pc-link')[first];
     if (row) row.focus({ preventScroll: true });
   });
   page();
@@ -5903,6 +6061,7 @@ const buyState = {
   deal:'sale',            // 'sale' | 'rent'  — מה שנשמר ב-deal_type
   category:'residential', // 'residential' | 'commercial'
   city:'',                // העיר שהשכונות שלה מוצגות - ראו renderBuyerHoods
+  keepCity:false,         // סבב 5 §5: יישוב מהמילוי המוקדם נשמר גם בלי שכונות (‏v10BuyPrefill)
   hoods:new Set(),
   rooms:new Set(),
   ptypes:new Set(),
@@ -5924,6 +6083,7 @@ const openBuyerPanel = bindLeadBanner({
    לא נראה קורה בלחיצה. */
 function openBuyerSearch(){
   buyState.source = 'homepage_yield_calc';
+  buyState.keepCity = false;
   openBuyerPanel(true);
   document.getElementById('buyerBanner').scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -6004,12 +6164,22 @@ function renderBuyerHoods(){
   if (fallback) fallback.hidden = true;
   if (sel){ sel.hidden = false; document.getElementById('buyCityLabel').hidden = false; }
 
-  if (!cities.includes(buyState.city)){
+  // ‏סבב 5 §5: מילוי מראש מהחיפוש (‏v10BuyPrefill) שומר את היישוב שחיפשו גם כשאין לו
+  // שכונות, ו"כל השוק" / "יישובי הסביבה" משאירים את הבחירה ריקה - לעולם לא עיר מומצאת
+  const keep = buyState.keepCity;
+  if (!cities.includes(buyState.city) && !keep){
     const want = window.CityContext?.active()?.market?.city || '';
     buyState.city = cities.includes(want) ? want : cities[0];
   }
   if (sel){
     sel.textContent = '';
+    const extra = keep && !cities.includes(buyState.city) ? [buyState.city] : [];
+    extra.forEach(c=>{
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c || 'בחרו יישוב';
+      sel.appendChild(o);
+    });
     cities.forEach(c=>{
       const o = document.createElement('option');
       o.value = c;
@@ -6334,6 +6504,7 @@ document.getElementById('buyRestart').addEventListener('click', ()=>{
   buyState.rooms.clear();
   buyState.ptypes.clear();
   buyState.city = '';
+  buyState.keepCity = false;
   renderBuyerHoods();
   buyerForm.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-pressed','false'));
   buyerForm.querySelectorAll('.wiz-input').forEach(i=> i.classList.remove('invalid'));
@@ -6473,7 +6644,7 @@ async function clearSearch(){
 
   if (sentence && sentence.loaded()){
     // האיפוס מחזיר את המשפט לברירת המחדל, והוא שמצייר את המפה מחדש
-    sentenceRowsOn = false;
+    resultsMode = false;
     mapDraw?.clear();
     sentence.reset();
   } else {
@@ -6566,7 +6737,7 @@ function applyDeepLinkFilters(){
   if (isReload()){
     try {
       const url = new URL(location.href);
-      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
+      ['deal', 'rooms', 'ptype', 'minPrice', 'maxPrice', 'q', 'hoods', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])].forEach(k => url.searchParams.delete(k));
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה */ }
     return;
@@ -6633,9 +6804,14 @@ function applyDeepLinkFilters(){
 /* שורות התוצאות שמתחת למפה נפתחות רק כשמבקשים אותן ("הצג N נכסים", Enter,
    או כתובת שמגיעה עם חיפוש). עד אז כל שינוי במשפט מזיז את המפה בלבד -
    אחרת כל לחיצה בבורר הייתה פותחת רשימה ארוכה ודוחפת את הדף. */
-let sentenceRowsOn = false;
+let resultsMode = false;
 
-function sentenceRoomsSet(r){
+function sentenceRoomsSet(r, roomsIn){
+  if (v10On()){
+    if (roomsIn && roomsIn.length) return new Set(roomsIn.map(n => n >= 6 ? '+6' : String(n)));
+    if (!r) return new Set();
+    return new Set(ROOM_OPTIONS_V10.filter(o => { const n = o === '+6' ? 6 : Number(o); return n >= Math.floor(r[0]) && n <= r[1]; }));
+  }
   if (!r) return new Set();
   return new Set(ROOM_OPTIONS.filter(o => {
     const n = o === '+6' ? 6 : parseFloat(o);
@@ -6650,8 +6826,12 @@ function syncSearchStateFromSentence(st){
   searchState.activeTab = commercial ? 'commercial' : (st.deal || 'sale');
   const s = commercial ? searchState.c : searchState.r;
   if (commercial) searchState.c.deal = st.deal || '';
-  s.ptypes = new Set(t.ptypes || []);
-  s.rooms = sentenceRoomsSet(st.rooms);
+  // ‏R5-4: כמה סוגים / שכונות מהמשפט
+  s.ptypes = st.types && st.types.length
+    ? new Set(st.types.flatMap(k => Core.typeDef(k).ptypes || []))
+    : new Set(t.ptypes || []);
+  s.rooms = sentenceRoomsSet(st.rooms, st.roomsIn);
+  s.hoods = new Set(st.hoods && st.hoods.length ? st.hoods : (/^hood:/.test(st.area || '') ? [st.area] : []));
   searchState.hasAi = !!st.ai;
   /* ‏collectFormValues() קורא את המחיר משדות המודאל, ולכן הוא נכתב גם לשם */
   const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = v ? String(v) : ''; };
@@ -6715,6 +6895,10 @@ const ADV_URL_PARAMS = [
   ['restrooms', 'restrooms', 'loc',  null, 'c'],
   ['storageAt', 'storage',   'loc',  null, 'c'],
   ['mamadAt',   'mamad',     'loc',  null, 'c'],
+  // ‏P1-N1: מחיר למ"ר (מחושב בדפדפן) ופרויקטים חדשים (מכירה)
+  ['ppsqmMin',  'ppsqmMin',  'num',  'PpsqmMin'],
+  ['ppsqmMax',  'ppsqmMax',  'num',  'PpsqmMax'],
+  ['newOnly',   'newOnly',   'bool', 'NewOnly', 'r'],
 ];
 
 function advancedToParams(s, commercial){
@@ -6774,36 +6958,183 @@ function renderAdvancedBadge(){
   const n = sentence && sentence.hasExtra() ? advancedCount : 0;
   el.hidden = !n;
   el.textContent = n || '';
+  // אותו מונה על "סינון" בסרגל הנכסים (‏R5-3C)
+  const shelfN = document.querySelector('#allProps .pp-filter-n');
+  if (shelfN){ shelfN.hidden = !n; shelfN.textContent = n || ''; }
 }
+
+/* ---------- ‏A2-6: התמונות הקבועות של הכניסות להחלקה (תומר 22:00) ----------
+   ארבע תמונות AI (לא נכסים אמיתיים, ולכן alt ריק ובלי קישור לנכס): ‏ext-1 בית אבן, ‏ext-2
+   בניין בוטיק, ‏ext-3 פרגולה עם נוף, ‏ext-4 מטבח. ‏ext-N.webp ‏(96x128) לכפתור שבסרגל,
+   ‏ext-N-card.webp ‏(240x320) לכרטיס ההזמנה, ב-assets/swipe-thumbs/ (‏29.10). ‏SWIPE_THUMBS_READY
+   דלוק מאז שהתמונות נכנסו לריפו. כשהוא כבוי, הכפתור הוא האייקון של שני הכרטיסים והכרטיס מציג
+   את תמונות הנכסים */
+const SWIPE_THUMBS_READY = true;
+const SWIPE_THUMBS = [1, 2, 3, 4];
+const swipeThumb = (n, card) => '/assets/swipe-thumbs/ext-' + n + (card ? '-card' : '') + '.webp';
+// בערימה של שלוש מתוך ארבע: התמונה שנכנסת מלמטה היא זו שאינה מוצגת עכשיו (‏data-n)
+const swipeThumbMissing = stack => SWIPE_THUMBS.find(n => !stack.querySelector('img[data-n="' + n + '"]'));
+/* ‏C7: הכפתור והכרטיס לא מציגים את אותה תמונה למעלה באותו רגע - החלפה שהייתה מביאה למעלה את
+   התמונה העליונה של השני מדלגת על הסבב הזה */
+const swipeThumbClash = (stack, otherSel) => {
+  const next = stack.children[stack.children.length - 2], other = document.querySelector(otherSel);
+  return !!(next && other && next.dataset.n === other.dataset.n);
+};
+/* ‏C8 (ד), ‏F7: התגית "חדש באתר" עד 30 יום אחרי העלייה לאוויר - תאריך, לא מונה.
+   **ביום המיזוג: INVITE_GO_LIVE = תאריך המיזוג** (שורה ב-"Merge impact" של PR 1010) */
+const INVITE_GO_LIVE = '2026-10-29';
+const INVITE_NEW_TAG_UNTIL = Date.parse(INVITE_GO_LIVE + 'T00:00:00+02:00') + 30 * 864e5;
+const SWIPE_ICON = '<svg class="ppv-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>';
+
+/* ‏A2-7 (תומר 20:21, התווית של גבריאלה 20:31): הכפתור שבסרגל - שלוש תמונות מהסט הקבוע
+   שמוחלקות כל 3.6 שניות, פעם ימינה ופעם שמאלה, עד 6 החלקות ורק כש-60% ממנו על המסך.
+   ‏reduced-motion - סטטי. ‏C7 (2): מתחיל מתמונה אחרת מכרטיס ההזמנה, כדי שאותה תמונה לא
+   תופיע פעמיים זו לצד זו. תמונה שלא נטענה - חוזר האייקון. רוחב קבוע לכל רוחב מסך, בלי CLS */
+function v10MiniSwipe(btn){
+  btn.dataset.noTitle = '';
+  btn.setAttribute('aria-label', 'גלישה בהחלקה');
+  const labels = '<span class="ppv-l ppv-long">גלישה בהחלקה</span><span class="ppv-l ppv-short">החלקה</span>';
+  if (!SWIPE_THUMBS_READY){ btn.innerHTML = SWIPE_ICON + labels; return; }
+  // מלמטה למעלה; העליונה ext-3 - בכרטיס ההזמנה העליונה ext-1 (‏C7)
+  btn.innerHTML = '<span class="ppv-stack" aria-hidden="true">' +
+    [2, 4, 3].map(n => '<img src="' + swipeThumb(n) + '" alt="" width="24" height="32" decoding="async" data-n="' + n + '">').join('') +
+    '</span>' + SWIPE_ICON + labels;
+  btn.classList.add('has-thumbs');
+  // תמונה שלא נטענה - חוזר האייקון באותו מקום ובאותו רוחב
+  btn.querySelectorAll('.ppv-stack img').forEach(img => img.addEventListener('error', () => btn.classList.remove('has-thumbs'), { once:true }));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+  let swipes = 0, timer = 0, onScreen = false, busy = false;
+  const stack = btn.querySelector('.ppv-stack');
+  // ההחלפה רק אחרי שהתמונה הבאה נטענה - בלי ריבוע ריק באמצע התנועה
+  const step = () => {
+    const top = stack.lastElementChild;
+    if (busy || !top || swipes >= 6 || !btn.classList.contains('has-thumbs')){ if (swipes >= 6) stop(); return; }
+    if (swipeThumbClash(stack, '#allProps .psi-stack img:last-child')) return;
+    busy = true;
+    const n = swipeThumbMissing(stack);
+    const pre = new Image();
+    pre.onload = () => {
+      top.classList.add(swipes % 2 ? 'is-out-l' : 'is-out-r');
+      swipes++;
+      setTimeout(() => {
+        top.classList.remove('is-out-l', 'is-out-r');
+        top.dataset.n = n; top.src = pre.src;
+        stack.prepend(top);
+        busy = false;
+      }, 420);
+    };
+    pre.onerror = () => { busy = false; };
+    pre.src = swipeThumb(n);
+  };
+  const stop = () => { clearInterval(timer); timer = 0; };
+  // רץ רק כש-60% מהכפתור על המסך והלשונית גלויה; ממשיך מאותה ספירה כשחוזרים
+  const sync = () => { stop(); if (onScreen && !document.hidden && swipes < 6) timer = setInterval(step, 3600); };
+  new IntersectionObserver(es => es.forEach(en => { onScreen = en.intersectionRatio >= 0.6; sync(); }), { threshold: [0, 0.6] }).observe(btn);
+  document.addEventListener('visibilitychange', sync);
+  // ריחוף בעכבר - החלקה אחת
+  btn.addEventListener('mouseenter', () => { if (swipes < 6) step(); });
+}
+
+/* ‏R5-3C (v10): בסרגל "נכסים בעפולה והעמק" - "סינון" (אותו חלון כמו בחיפוש), המיון,
+   ואייקון החלקה עם הסינון הנוכחי (‏R5-5). שלושתם בשורה אחת גם בטלפון */
+(function v10ShelfToolbar(){
+  if (!v10On()) return;
+  const controls = document.querySelector('#allProps .pp-controls');
+  if (!controls || controls.querySelector('.pp-filter-btn')) return;
+  const filter = document.createElement('button');
+  filter.type = 'button';
+  filter.className = 'pp-filter-btn';
+  filter.innerHTML = 'סינון <b class="pp-filter-n" hidden></b>';
+  filter.addEventListener('click', () => document.getElementById('ssAdvancedBtn')?.click());
+  const view = document.createElement('a');
+  view.className = 'pp-view-btn';
+  view.href = '/swipe';
+  view.dataset.swipeVia = 'results_toolbar';
+  v10MiniSwipe(view);
+  controls.prepend(filter);
+  controls.appendChild(view);
+})();
 
 function applyAdvancedFilters(){
   collectFormValues();
   document.querySelectorAll('.filter-modal-overlay').forEach(m => m.classList.remove('open'));
+  const b = buildAdvanced(searchState.activeTab);
+  const { s, commercial, propFeats, pt, rooms } = b;
+  advancedCount = b.checks;
+  appliedAdvancedQs = b.checks ? advancedToParams(s, commercial) : '';
+  sentence.applyAdvanced(b.patch, b.pred, b.label);
+  if (v10On() && window.shukTrack){
+    // שמות השדות בלבד, בלי ערכים
+    const fields = [...propFeats, ...s.listingFeatures];
+    [['price', s.priceMin || s.priceMax], ['ppsqm', s.ppsqmMin || s.ppsqmMax], ['type', pt.length || (s.types && s.types.length)], ['rooms', rooms.length],
+     ['floor', s.floorMin || s.floorMax], ['size', s.sizeMin || s.sizeMax], ['condition', !commercial && s.condition],
+     ['status', s.projectStatus], ['newOnly', s.newOnly], ['soon', s.moveInSoon], ['moveIn', s.moveInDate], ['text', s.freeText],
+     ['restrooms', commercial && s.restrooms], ['storageAt', commercial && s.storage], ['mamadAt', commercial && s.mamad],
+     ['hoods', s.hoods && s.hoods.size]]
+      .forEach(([k, v]) => { if (v) fields.push(k); });
+    let results = null;
+    try { results = sentence.count(); } catch (e) {}
+    window.shukTrack('adv_filter_apply', { deal: advDeal(), surface: 'home_modal', fields: fields.join(',').slice(0, 100),
+      field_count: fields.length, result_count: results, missing_shown: 0 });
+  }
+}
+
+/* המשפט והפרדיקט של הסינון המתקדם, מתוך searchState (‏r או c לפי tab). ‏applyAdvancedFilters
+   מחילה אותם, ו-FilterSheet (‏A3-2) סופרת איתם את הטיוטה - כך המונה בחלון שווה לתוצאה.
+   ‏s.types (מערך מפתחות של FilterConfig) קיים רק כשהבחירה הגיעה מ-FilterSheet: אז הסוג,
+   העסקה וההדמיה הם המצב המלא של החלון, ולא תוספת למשפט. */
+function buildAdvanced(tab){
   const Core = sentence.Core;
-  const commercial = searchState.activeTab === 'commercial';
+  const commercial = tab === 'commercial';
   const s = commercial ? searchState.c : searchState.r;
   const cur = sentence.state();
+  const fromSheet = Array.isArray(s.types);
 
   const patch = {};
   // במסחרי אין חדרים (החלון אינו מציג אותם) - ושארית מחיפוש מגורים לא מסננת
   if (commercial) s.rooms = new Set();
   const rooms = [...s.rooms].map(r => r === '+6' ? 6 : parseFloat(r)).filter(Number.isFinite);
+  if (v10On()){
+    /* ‏R5-2/R5-4: ‏3 ו-5 הם 3 או 5, לא 3-5. אחד → הטווח שלו (‏N עד N.5) */
+    const ints = [...new Set(rooms.map(n => Math.min(6, Math.floor(n))))].sort((a, b) => a - b);
+    patch.rooms = ints.length === 1 ? (ints[0] >= 6 ? [6, 99] : [ints[0], ints[0] + 0.5]) : null;
+    patch.roomsIn = ints.length > 1 ? ints : null;
+  } else
   patch.rooms = rooms.length ? [Math.min(...rooms), s.rooms.has('+6') ? 99 : Math.max(...rooms)] : null;
   patch.priceMax = s.priceMax ? Number(s.priceMax) : null;
   patch.priceMin = s.priceMin ? Number(s.priceMin) : null;
   if (commercial) patch.deal = s.deal || null;
+  else if (fromSheet) patch.deal = tab;
+  if (fromSheet) patch.ai = !!searchState.hasAi;
 
   const checks = [];
+  const pt = [...s.ptypes];
+  if (fromSheet){
+    // ‏FilterConfig.TYPES: אחד ← הסוג במשפט, כמה ← types, אף אחד ← "הכול" של העסקה
+    if (s.types.length > 1) patch.types = s.types.slice();
+    else patch.type = s.types[0] || (commercial ? 'commercial' : 'any');
+  } else {
   /* סוג הנכס: קבוצה שלמה ← הסוג במשפט; ערך אחד ← הסוג "הגולמי"; כמה ערכים
      שאינם קבוצה ← פרדיקט, והמשפט אומר "נכס" / "נכס מסחרי". */
-  const pt = [...s.ptypes];
   const same = (a, b)=> a.length === b.length && a.every(x => b.includes(x));
   const group = Core.TYPES.find(t => t.ptypes && same(t.ptypes, pt) && !!t.commercial === commercial);
   if (!pt.length) patch.type = commercial ? 'commercial' : (Core.typeDef(cur.type).commercial ? 'any' : cur.type);
   else if (group) patch.type = group.key;
   else if (pt.length === 1) patch.type = 'raw:' + pt[0];
+  // ‏R5-4 (v10): כמה סוגים נכנסים למשפט ולכתובת (‏ptype=a,b), לא רק כפרדיקט
+  else if (v10On()){
+    // הקבוצות שנבחרו (‏"דירה" = דירה, דופלקס…) נשארות קבוצות, ולא נפרשות לערכים גולמיים
+    const curPt = (cur.types || []).flatMap(k => Core.typeDef(k).ptypes || []);
+    patch.types = cur.types && cur.types.length && same([...new Set(curPt)], pt) ? cur.types : pt.map(x => 'raw:' + x);
+  }
   else { patch.type = commercial ? 'commercial' : 'any'; checks.push(p => pt.includes(p.property_type)); }
-
+  }
+  if (v10On()){
+    const hs = [...(s.hoods || [])];
+    if (hs.length > 1) patch.hoods = hs;
+    else if (hs.length === 1) patch.area = hs[0];
+    else if (/^hood:/.test(cur.area || '') || (cur.hoods && cur.hoods.length)) patch.area = 'all';
+  }
   const feats = p => Array.isArray(p.features) ? p.features : [];
   [...s.listingFeatures].forEach(code => {
     if (code === 'has_photo') checks.push(p => Array.isArray(p.images) && p.images.length > 0);
@@ -6827,8 +7158,19 @@ function applyAdvancedFilters(){
   };
   range('floor', s.floorMin, s.floorMax);
   range('size_sqm', s.sizeMin, s.sizeMax);
+  /* מחיר למ"ר: price_per_sqm במסד מתעלם מ-price_unit (‏docs/proposals/filters_per_deal.sql),
+     ולכן כאן - מחיר שכבר למ"ר נשאר, ואחרת מחיר חלקי שטח */
+  // ‏R5-8: מחיר למ"ר ו"פרויקטים חדשים" רק במכירה (ומחיר למ"ר גם במסחרי), גם אם נשארו מבחירה קודמת
+  const saleTab = tab === 'sale';
+  const lo = commercial || saleTab ? num(s.ppsqmMin) : null, hi = commercial || saleTab ? num(s.ppsqmMax) : null;
+  if (lo !== null || hi !== null) checks.push(p => {
+    const v = pricePerSqm(p);
+    return v !== null && (lo === null || v >= lo) && (hi === null || v <= hi);
+  });
+  if (!commercial && saleTab && s.newOnly) checks.push(p => !!p.project_status || p.condition === 'new_from_contractor');
   if (!commercial && s.condition) checks.push(p => p.condition === s.condition);
-  if (s.projectStatus) checks.push(p => p.project_status === s.projectStatus);
+  // סטטוס הפרויקט רק במכירה (‏P1-N1); מוסתר בשכירות ובמסחרי ולכן לא חל שם
+  if (s.projectStatus && (!v10On() || (!commercial && tab === 'sale'))) checks.push(p => p.project_status === s.projectStatus);
   if (s.moveInSoon) checks.push(p => p.move_in_soon === true);
   if (s.moveInDate) checks.push(p => !!p.move_in_date && p.move_in_date >= s.moveInDate);
   if (commercial){
@@ -6839,8 +7181,6 @@ function applyAdvancedFilters(){
   const q = Core.norm(s.freeText || '');
   if (q) checks.push(p => Core.norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).includes(q));
 
-  advancedCount = checks.length;
-  appliedAdvancedQs = checks.length ? advancedToParams(s, commercial) : '';
   /* כשהסינון הוא רק מאפיינים, ההודעה על חיפוש ריק אומרת על מה מוותרים
      ("בלי ממ״ד יש 12 נכסים") - ולא "בלי הסינון המתקדם". */
   let label = null;
@@ -6849,7 +7189,176 @@ function applyAdvancedFilters(){
     const list = propFeats.map(f => names.get(f) || f);
     label = list.length > 1 ? list.slice(0, -1).join(', ') + ' ו' + list[list.length - 1] : list[0];
   }
-  sentence.applyAdvanced(patch, checks.length ? (p => checks.every(c => c(p))) : null, label);
+  return { patch, pred: checks.length ? (p => checks.every(c => c(p))) : null, checks: checks.length, label, s, commercial, propFeats, pt, rooms };
+}
+
+/* ---------- ‏A3-2 / A3-3: תיבת הסינון האחידה בדף הבית (‏assets/filter-sheet.js) ----------
+   עם הדגל, כל מקום שפתח את "סינון מתקדם" (המשפט, ראש התוצאות, "סינון" במדף, הפאנל שב-hero
+   והחלון המסחרי) פותח את FilterSheet. הסעיפים בסדר המשותף 1-13 (‏docs/filter-sheet.md), הסוגים
+   מ-FilterConfig.TYPES (‏C3), הטיוטה היא עותק של searchState, והמונה בחלון מחושב ב-buildAdvanced
+   של אותה טיוטה - כמו ההחלה. ההחלה עוברת ב-applyAdvancedFilters, ושורות התוצאות נשארות
+   התצוגה (‏R0/R1) באותה נקודה על המסך. */
+const FS_BLANK = {
+  r: () => ({ priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, newOnly:false, hoods:new Set(), types:[] }),
+  c: () => ({ deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'', ppsqmMin:null, ppsqmMax:null, hoods:new Set(), types:[] }),
+};
+function fsClone(o){
+  const c = {};
+  Object.keys(o).forEach(k => { const v = o[k]; c[k] = v instanceof Set ? new Set(v) : Array.isArray(v) ? v.slice() : v; });
+  return c;
+}
+// הסוגים שבמשפט, כמפתחות של FilterConfig (‏"הכול" של העסקה = אף אחד)
+function fsTypesFromSentence(commercial){
+  const st = sentence.state();
+  const keys = st.types && st.types.length ? st.types : (st.type && st.type !== 'any' && st.type !== 'commercial' ? [st.type] : []);
+  const allowed = new Set((FC_TYPES[commercial ? 'comm' : 'res'] || []).map(t => t.key));
+  return keys.filter(k => allowed.has(k) && k !== 'any' && k !== 'commercial');
+}
+// המונה של הטיוטה: אותו buildAdvanced על עותק של searchState, ואותו filter של התוצאות
+function fsCount(d, patchOver){
+  const keep = { r: searchState.r, c: searchState.c, ai: searchState.hasAi };
+  try {
+    searchState.r = fsClone(d.r); searchState.c = fsClone(d.c); searchState.hasAi = d.ai;
+    const k = d.tab === 'commercial' ? 'c' : 'r';
+    if (patchOver) Object.assign(searchState[k], patchOver);
+    const b = buildAdvanced(d.tab);
+    return sentence.countWith(b.patch, b.pred);
+  } catch (e){ return 0; }
+  finally { searchState.r = keep.r; searchState.c = keep.c; searchState.hasAi = keep.ai; }
+}
+// השדות ש-collectFormValues קוראת מהחלון הישן - כדי שההחלה תקרא בדיוק את הטיוטה
+function fsWriteDom(d){
+  const put = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : String(v); };
+  const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+  ['r', 'c'].forEach(pre => {
+    const x = d[pre];
+    put(pre + 'PriceMin', x.priceMin); put(pre + 'PriceMax', x.priceMax);
+    put(pre + 'FloorMin', x.floorMin); put(pre + 'FloorMax', x.floorMax);
+    put(pre + 'SizeMin', x.sizeMin); put(pre + 'SizeMax', x.sizeMax);
+    put(pre + 'MoveInDate', x.moveInDate); chk(pre + 'MoveInSoon', x.moveInSoon);
+    put(pre + 'FreeText', x.freeText); put(pre + 'PpsqmMin', x.ppsqmMin); put(pre + 'PpsqmMax', x.ppsqmMax);
+    put(pre + 'ProjectStatus', x.projectStatus);
+  });
+  put('rCondition', d.r.condition); chk('rNewOnly', d.r.newOnly);
+}
+function fsSelectOpts(id){
+  const el = document.getElementById(id);
+  return el ? [...el.options].filter(o => o.value).map(o => ({ value: o.value, label: o.textContent.replace(/\s*\(.*\)\s*$/, '').trim() })) : [];
+}
+function openHomeFilterSheet(trigger){
+  const tab0 = searchState.activeTab;
+  const d = { tab: tab0, r: fsClone(searchState.r), c: fsClone(searchState.c), ai: !!searchState.hasAi };
+  d.r.hoods = new Set(searchState.r.hoods || []); d.c.hoods = new Set(searchState.c.hoods || []);
+  d.r.types = tab0 !== 'commercial' ? fsTypesFromSentence(false) : [];
+  d.c.types = tab0 === 'commercial' ? fsTypesFromSentence(true) : [];
+  d.r.ptypes = new Set(); d.c.ptypes = new Set();
+  const X = () => d.tab === 'commercial' ? d.c : d.r;
+  const comm = () => d.tab === 'commercial';
+  // מונה לאפשרות: הטיוטה עם השינוי הזה בלבד
+  const cnt = over => fsCount(d, over);
+  const set = (k, v) => { X()[k] = v; };
+  const setOf = k => [...(X()[k] || [])];
+  const pool = () => (allActiveProperties || []).filter(p => comm()
+    ? p.category === 'commercial' && (!d.c.deal || p.deal_type === d.c.deal)
+    : p.category !== 'commercial' && p.deal_type === d.tab);
+  const sections = [
+    { key: 'deal', title: 'סוג עסקה', kind: 'seg', wide: true,
+      options: () => [{ value: 'sale', label: 'מכירה' }, { value: 'rent', label: 'השכרה' }, { value: 'commercial', label: 'מסחרי' }],
+      get: () => d.tab, set: (_, v) => { d.tab = v; } },
+    { key: 'cdeal', title: 'מסחרי למכירה או להשכרה', kind: 'seg', wide: true, hidden: () => !comm(),
+      options: () => [{ value: '', label: 'הכול' }, { value: 'sale', label: 'מכירה' }, { value: 'rent', label: 'השכרה' }],
+      get: () => d.c.deal || '', set: (_, v) => { d.c.deal = v; } },
+    { key: 'type', title: 'סוג נכס', kind: 'chips', multi: true, wide: true,
+      options: () => (FC_TYPES[comm() ? 'comm' : 'res'] || []).filter(t => t.key !== 'any' && t.key !== 'commercial')
+        .map(t => ({ value: t.key, label: t.label, count: cnt({ types: [t.key] }) })),
+      get: () => X().types, set: (_, v) => set('types', v) },
+    { key: 'hoods', title: 'אזור ושכונות', kind: 'chips', multi: true, wide: true,
+      options: () => {
+        const names = new Map();
+        pool().forEach(p => { if (p.neighborhood_id && !names.has('hood:' + p.neighborhood_id)) names.set('hood:' + p.neighborhood_id, p.neighborhood_name || ''); });
+        return [...names.entries()].filter(([, n]) => n).map(([k, n]) => ({ value: k, label: n, count: cnt({ hoods: new Set([k]) }) }))
+          .sort((a, b) => b.count - a.count);
+      },
+      get: () => setOf('hoods'), set: (_, v) => set('hoods', new Set(v)) },
+    { key: 'rooms', title: 'חדרים', kind: 'chips', multi: true,
+      hidden: () => comm() || (d.r.types.length > 0 && d.r.types.every(k => k === 'land')),
+      options: () => ROOM_OPTIONS_V10.map(r => ({ value: r, label: r === '+6' ? '6+' : r, count: cnt({ rooms: new Set([r]) }) })),
+      get: () => setOf('rooms'), set: (_, v) => set('rooms', new Set(v)) },
+    { key: 'price', title: 'מחיר', kind: 'range', placeholders: ['מ-₪', 'עד ₪'],
+      get: () => [X().priceMin, X().priceMax], set: (_, v) => { X().priceMin = v[0]; X().priceMax = v[1]; } },
+    { key: 'ppsqm', title: 'מחיר למ"ר', kind: 'range', placeholders: ['מ-₪ למ״ר', 'עד ₪ למ״ר'], hidden: () => d.tab === 'rent',
+      get: () => [X().ppsqmMin, X().ppsqmMax], set: (_, v) => { X().ppsqmMin = v[0]; X().ppsqmMax = v[1]; } },
+    { key: 'listing', title: 'מאפייני מודעה', kind: 'chips', multi: true, wide: true,
+      options: () => {
+        const moshav = pool().some(p => (p.features || []).includes('moshav_kibbutz_only'));
+        const list = LISTING_FEATURES.filter(([k]) => k !== 'moshav_kibbutz_only' || (!comm() && (moshav || X().listingFeatures.has(k))))
+          .map(([k, l]) => ({ value: k, label: l, count: cnt({ listingFeatures: new Set([...X().listingFeatures, k]) }) }));
+        // ‏✨ הדמיה - דגל מחוץ ל-r/c (‏searchState.hasAi), באותו סעיף
+        const ai = { value: '__ai', label: '✨ עם הדמיה', count: (() => { const k = d.ai; d.ai = true; const n = cnt(); d.ai = k; return n; })() };
+        return [ai].concat(list);
+      },
+      get: () => (d.ai ? ['__ai'] : []).concat(setOf('listingFeatures')),
+      set: (_, v) => { d.ai = v.includes('__ai'); X().listingFeatures = new Set(v.filter(x => x !== '__ai')); } },
+    { key: 'features', title: 'מאפייני הנכס', kind: 'chips', multi: true, wide: true,
+      options: () => (comm() ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES)
+        .filter(([k]) => d.tab !== 'rent' || k !== 'exclusive')
+        .map(([k, l]) => ({ value: k, label: l, count: cnt({ propertyFeatures: new Set([...X().propertyFeatures, k]) }) })),
+      get: () => setOf('propertyFeatures'), set: (_, v) => set('propertyFeatures', new Set(v)) },
+    { key: 'floor', title: 'קומה', kind: 'range', more: true, placeholders: ['מקומה', 'עד קומה'],
+      get: () => [X().floorMin, X().floorMax], set: (_, v) => { X().floorMin = v[0]; X().floorMax = v[1]; } },
+    { key: 'size', title: () => comm() ? 'גודל (במ"ר)' : 'גודל דירה (במ"ר)', kind: 'range', more: true, placeholders: ['מ-מ״ר', 'עד מ״ר'],
+      get: () => [X().sizeMin, X().sizeMax], set: (_, v) => { X().sizeMin = v[0]; X().sizeMax = v[1]; } },
+    { key: 'condition', title: 'מצב הנכס', kind: 'chips', more: true, hidden: () => comm(),
+      options: () => fsSelectOpts('rCondition').map(o => Object.assign(o, { count: cnt({ condition: o.value }) })),
+      get: () => d.r.condition || null, set: (_, v) => { d.r.condition = v || ''; } },
+    { key: 'newOnly', title: 'פרויקטים חדשים', kind: 'chips', more: true, hidden: () => d.tab !== 'sale',
+      options: () => [{ value: '1', label: 'פרויקטים חדשים ונכסים חדשים מקבלן', count: cnt({ newOnly: true }) }],
+      get: () => d.r.newOnly ? '1' : null, set: (_, v) => { d.r.newOnly = !!v; } },
+    { key: 'status', title: 'סטטוס הפרויקט', kind: 'chips', more: true, hidden: () => d.tab !== 'sale' || !(d.r.newOnly || d.r.projectStatus),
+      options: () => fsSelectOpts('rProjectStatus').map(o => Object.assign(o, { count: cnt({ projectStatus: o.value }) })),
+      get: () => d.r.projectStatus || null, set: (_, v) => { d.r.projectStatus = v || ''; } },
+    { key: 'entry', title: () => comm() ? 'כניסה' : 'תאריך כניסה', kind: 'chips', more: true,
+      options: () => [{ value: '1', label: comm() ? 'פנוי לכניסה מיידית' : 'כניסה קרובה (מיידית עד שנה)', count: cnt({ moveInSoon: true }) }],
+      get: () => X().moveInSoon ? '1' : null, set: (_, v) => { X().moveInSoon = !!v; } },
+  ].concat(['restrooms:שירותים', 'storage:מחסן', 'mamad:ממ"ד'].map(x => {
+    const [k, t] = x.split(':');
+    return { key: k, title: t, kind: 'seg', more: true, hidden: () => !comm(),
+      options: () => [{ value: '', label: 'הכל' }, { value: 'building', label: 'בבניין' }, { value: 'unit', label: 'בנכס' }],
+      get: () => d.c[k] || '', set: (_, v) => { d.c[k] = v; } };
+  })).concat([
+    { key: 'text', title: 'חיפוש חופשי', kind: 'text', more: true, wide: true, placeholder: 'מילות חיפוש נוספות',
+      get: () => X().freeText || '', set: (_, v) => { X().freeText = v; } },
+  ]);
+  if (window.shukTrack) window.shukTrack('adv_filter_open', { deal: d.tab === 'commercial' ? 'commercial' : d.tab, surface: 'home_modal' });
+  FilterSheet.open({
+    // ‏A4 (גבריאלה 20:30): "סינון נכסים" / "סינון נדל״ן מסחרי"
+    title: dd => dd.tab === 'commercial' ? 'סינון נדל״ן מסחרי' : 'סינון נכסים',
+    surface: 'home', trigger: trigger || null, draft: d,
+    sections,
+    count: dd => fsCount(dd),
+    onReset: dd => {
+      dd.r = FS_BLANK.r(); dd.c = FS_BLANK.c(); dd.ai = false;
+      if (window.shukTrack) window.shukTrack('adv_filter_clear', { deal: dd.tab === 'commercial' ? 'commercial' : dd.tab, surface: 'home_modal' });
+    },
+    onApply: dd => {
+      const title = document.getElementById('searchResultsTitle');
+      const anchor = resultsMode && title ? title.getBoundingClientRect().top : null;
+      searchState.activeTab = dd.tab;
+      searchState.r = fsClone(dd.r); searchState.c = fsClone(dd.c); searchState.hasAi = dd.ai;
+      fsWriteDom(dd);
+      applyAdvancedFilters();
+      // ‏R0/R1: השורות הן התצוגה אחרי החלה, מכל מקום שהחלון נפתח ממנו
+      if (!resultsMode) showSentenceResults({ track: false });
+      else if (anchor != null && title){ const dlt = title.getBoundingClientRect().top - anchor; if (Math.abs(dlt) >= 1) window.scrollBy(0, dlt); }
+    },
+  });
+}
+
+function pricePerSqm(p){
+  const price = Number(p.price), size = Number(p.size_sqm);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  if (p.price_unit === 'sqm') return price;
+  return Number.isFinite(size) && size > 0 ? Math.round(price / size) : null;
 }
 
 function clearAdvancedFilters(){
@@ -6862,13 +7371,22 @@ function clearAdvancedFilters(){
 document.getElementById('ssAdvancedBtn')?.addEventListener('click', ()=>{
   // המודאל נבנה מחדש מהמצב הנוכחי של המשפט (חדרים, סוג, מחיר) - הקבוצות
   // שב-searchState מתחלפות עם כל שינוי במשפט, והכפתורים חייבים את החדשות
+  // ‏R5-1: רשת ביטחון - העסקה של החלון היא תמיד זו שבמשפט, מכל מקום שפתח אותו
+  if (sentence && sentence.loaded()) syncSearchStateFromSentence(sentence.state());
   initFilterModals();
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
 });
 
 function renderClearButton(){
   const btn = document.getElementById('ssClearBtn');
-  if (btn && sentence) btn.classList.toggle('is-idle', sentence.isClean());
+  if (!btn || !sentence) return;
+  const st = sentence.state();
+  // ‏R5-3C: הלשונית "למכירה" שנבחרה מעצמה אינה חיפוש - אין מה לנקות
+  const onlyDefaultDeal = v10On() && st.deal === 'sale' && st.type === 'any' && (!st.area || st.area === 'all') &&
+    !st.rooms && !(st.roomsIn && st.roomsIn.length) && !(st.types && st.types.length) && !(st.hoods && st.hoods.length) &&
+    !st.priceMin && st.priceMax == null && !st.ai && !st.city && !sentence.hasExtra() &&
+    !(document.getElementById('ssQuery')?.value || '').trim();
+  btn.classList.toggle('is-idle', sentence.isClean() || onlyDefaultDeal);
 }
 
 /* ‏"ניקוי החיפוש" שבכרטיס: אותו איפוס של הכפתור שבראש התוצאות (clearSearch)
@@ -6878,7 +7396,7 @@ document.getElementById('ssClearBtn')?.addEventListener('click', ()=>{
   document.getElementById('rClearFilters')?.click();
   document.getElementById('cClearFilters')?.click();
   advancedCount = 0;
-  sentenceRowsOn = false;
+  resultsMode = false;
   mapDraw?.clear();
   sentence.reset();
 });
@@ -6890,7 +7408,13 @@ document.getElementById('ssQuery')?.addEventListener('input', renderClearButton)
    הכתובת והשורות זזים יחד. ‏flats - כל הדירות (רגילה, גן, גג), ‏chipOnly
    ב-sentence-search.js. סוג אחר שנבחר במשפט (‏"דירת גן", "משרד") - אף כפתור
    אינו מסומן. */
-const KIND_CHIPS = ['any', 'flats', 'house', 'land', 'commercial'];
+/* ‏A3-1 (תומר 20:12): הסוגים, התוויות והסדר מ-FilterConfig.TYPES (‏assets/filter-config.js) -
+   אותה מפה של גיליון הסינון ושל /swipe, כולל "משקים ונחלות" (‏C3). כל צ'יפ עם מונה; סוג
+   שאין בו נכס יורד, חוץ מ"הכול" ומהסוג שנבחר. ‏R3: לחיצה מסננת במקום - הצ'יפ נשאר באותה
+   נקודה על המסך (‏≤1px), והשורות שומרות את הגובה שלהן בזמן הציור */
+const FC_TYPES = (window.FilterConfig && FilterConfig.TYPES) || { res: [], comm: [] };
+const KIND_CHIPS = [...new Set(FC_TYPES.res.concat(FC_TYPES.comm).map(t => t.key))];
+let kindRowMode = '';
 let kindChipsWired = false;
 function renderKindChips(st){
   const box = document.getElementById('srKinds');
@@ -6902,17 +7426,51 @@ function renderKindChips(st){
       if (!btn || !sentence || !sentence.loaded()) return;
       const kind = btn.dataset.kind;
       if (!KIND_CHIPS.includes(kind)) return;
-      sentence.patch({ type: kind });
+      const before = btn.getBoundingClientRect().top;
+      const rows = document.getElementById('searchResultsRows');
+      if (rows) rows.style.minHeight = rows.offsetHeight + 'px';
+      sentence.patch({ type: kind, types: null });
+      const after = box.querySelector('button[data-kind="' + kind + '"]');
+      if (after){
+        const d = after.getBoundingClientRect().top - before;
+        if (Math.abs(d) >= 1) window.scrollBy(0, d);
+      }
+      // הגובה השמור משתחרר אחרי שהתמונות של השורות קיבלו מקום
+      if (rows) requestAnimationFrame(() => requestAnimationFrame(() => { rows.style.minHeight = ''; }));
       // shukTrack ישירות: check_gtm_container מוצא אירועים לפי השם הזה
       if (window.shukTrack) shukTrack('search_slot_select', { slot: 'type', option: kind });
     });
   }
-  const type = (st && st.type) || 'any';
-  box.querySelectorAll('button[data-kind]').forEach(b =>
-    b.setAttribute('aria-pressed', b.dataset.kind === type ? 'true' : 'false'));
+  const type = (st && st.types && st.types.length > 1) ? '' : ((st && st.type) || 'any');
+  const comm = !!(sentence && sentence.Core && st && sentence.Core.typeDef(st.type).commercial);
+  const mode = comm ? 'comm' : 'res';
+  // בלי הדגל - השורה של היום: בלי "משקים ונחלות" ובלי מונים במגורים
+  const defs = v10On() ? FC_TYPES[mode] : FC_TYPES[mode].filter(t => t.key !== 'farm');
+  if (mode !== kindRowMode){
+    kindRowMode = mode;
+    box.innerHTML = defs.map(t => '<button type="button" data-kind="' + t.key + '" aria-pressed="false">' + escapeHtml(t.label) + '<span class="sr-kind-n"></span></button>').join('');
+  }
+  // המונים: הסוג במשפט מוחלף, כל השאר (עסקה, אזור, חדרים, מחיר, מתקדם) נשאר
+  const loaded = sentence && sentence.loaded();
+  defs.forEach(t => {
+    const b = box.querySelector('button[data-kind="' + t.key + '"]');
+    if (!b) return;
+    const all = t.key === 'any' || (mode === 'comm' && t.key === 'commercial');
+    const n = loaded ? sentence.count({ type: t.key, types: null }) : null;
+    const showN = n != null && !(t.key === 'commercial' && mode === 'res') && (v10On() || mode === 'comm');
+    b.querySelector('.sr-kind-n').textContent = showN ? ' · ' + n.toLocaleString('he-IL') : '';
+    b.hidden = (v10On() || mode === 'comm') && !all && t.key !== type && n === 0 && t.key !== 'commercial';
+    b.setAttribute('aria-pressed', t.key === type ? 'true' : 'false');
+  });
 }
 
+// החיפוש המהיר (‏P0-F, ליד ה-handler שלו): מוצהרים כאן כי initSentenceSearch רצה מיד
+const QUICK_NAV_KEY = 'sk_qs_nav';
+let quickApplying = false;
+let quickNavArrived = false;
 function onSentenceChange(results, st, reason){
+  syncV10Tabs(st);
+  v10SyncSwipe(results);
   renderAdvancedBadge();
   renderClearButton();
   renderKindChips(st);
@@ -6934,8 +7492,10 @@ function onSentenceChange(results, st, reason){
     MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
     showSentenceResults({ track:false });
     renderSentenceMapTag(results, st);
+    if (quickNavArrived){ quickNavArrived = false; requestAnimationFrame(scrollToSearchResults); }
     return;
   }
+  if (!quickApplying) clearQuickPressed();
   if (reason !== 'load') searchHasRun = true;
   syncSearchStateFromSentence(st);
   setAiFilter(!!st.ai);
@@ -6944,7 +7504,7 @@ function onSentenceChange(results, st, reason){
   /* המדף מתחת למפה מסונן בתגיות משלו; שינוי במשפט גובר עליהן, כמו שחיפוש
      מהסרגל עשה (ראו runSearchInner). */
   if (reason !== 'load' && ppShelfFiltered){ ppShelfFiltered = false; propsShelf.selectTag(''); }
-  renderPropertyGrid(results, sentenceRowsOn);
+  renderPropertyGrid(results, resultsMode);
   renderSentenceMapTag(results, st);
   if (reason !== 'load') noteSentenceZero(results, st);
 }
@@ -7001,7 +7561,7 @@ function noteSentenceZero(results, st){
    בחיפוש מהסרגל), והדף גולל אליהן אם הן מתחת לקפל. */
 function showSentenceResults({ track = true } = {}){
   if (!sentence) return;
-  sentenceRowsOn = true;
+  resultsMode = true;
   searchHasRun = true;
   const st = sentence.state();
   const results = sentence.results();
@@ -7099,6 +7659,10 @@ let freeTextFeatures = new Set();
   if (!window.SentenceSearch) return;   // הסקריפט נחסם - נשארים עם applyDeepLinkFilters
   sentence = SentenceSearch.mount({
     marketLabel: CityCtx.label(),
+    // ‏C4: "למכירה"/"להשכרה" בלי סוג הם מגורים בלבד; ‏R5: ‏type= בכתובת במקום ptype= (שניהם עם הדגל)
+    saleResidential: v10On(),
+    typeParam: v10On(),
+    farmSplit: v10On(),   // ‏C3: "בתים" בלי משקים ונחלות
     // ‏"דירה בנוף הגליל" - ערים שהשדה החכם מזהה גם בלי נכסים כאן (‏places ב-markets.js)
     places: (window.ShukMarkets?.list || []).flatMap(m => (m.places || []).map(name => ({
       name, market: { label: m.label, live: m.live, path: m.path }, here: m.label === CityCtx.label(), main: name === m.city,
@@ -7133,6 +7697,9 @@ let freeTextFeatures = new Set();
     },
     onChange: onSentenceChange,
     onSubmit: ()=> showSentenceResults(),
+    // ‏R8: החיפוש הקולי עובר באותו מסלול כמו Enter (מספר מודעה, בעלי מקצוע)
+    onQuery: (t, source)=> window.ShukHomeQuery ? window.ShukHomeQuery(t, source) : false,
+    surface: 'home',
     onAreaMiss: logAreaMiss,
     onWordMiss: logWordMiss,
     urlExtra: ()=> appliedAdvancedQs,
@@ -7147,8 +7714,16 @@ let freeTextFeatures = new Set();
         case 'search_slot_open':       shukTrack('search_slot_open', p); break;
         case 'search_slot_select':     shukTrack('search_slot_select', p); break;
         case 'search_freetext_submit': shukTrack('search_freetext_submit', p); break;
-        case 'search_submit':          shukTrack('search_submit', p); break;
+        // v10 (‏F/V3): ‏viz:1 כשהחיפוש מוגבל לנכסים עם הדמיה
+        case 'search_submit':          shukTrack('search_submit', (v10On() && sentence && sentence.state().ai) ? Object.assign({ viz: 1 }, p) : p); break;
         case 'search_empty_widen':     shukTrack('search_empty_widen', p); break;
+        // ‏R8: החיפוש הקולי - בלי התמלול עצמו
+        case 'voice_start':            shukTrack('voice_start', p); break;
+        case 'voice_listening':        shukTrack('voice_listening', p); break;
+        case 'voice_result':           shukTrack('voice_result', p); break;
+        case 'voice_cancel':           shukTrack('voice_cancel', p); break;
+        case 'voice_no_speech':        shukTrack('voice_no_speech', p); break;
+        case 'voice_error':            shukTrack('voice_error', p); break;
       }
     },
   });
@@ -7159,7 +7734,7 @@ let freeTextFeatures = new Set();
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
   // city= מסנן ליישוב (sentence-search) בלי להיות עמוד חדש ברשימה הסגורה
-  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
+  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'hoods', 'city', 'ai', ...ADV_URL_PARAMS.map(a => a[0])];
   /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
 
      הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה
@@ -7187,6 +7762,20 @@ let freeTextFeatures = new Set();
       viaLink = ref.origin !== location.origin || !/^\/(index(\.html)?)?$/.test(ref.pathname);
     }
   } catch(e){ /* referrer לא תקין - כאילו אין */ }
+  /* צ'יפ של החיפוש המהיר שנפתח בלשונית חדשה (או לפני שהנכסים נטענו): סימון
+     חד-פעמי בן פחות מ-15 שניות לאותה כתובת בדיוק נחשב קישור. רענון ולשונית
+     ששוחזרה אחר כך עדיין נפתחים נקיים (‏P0-F) */
+  try {
+    const mark = JSON.parse(localStorage.getItem(QUICK_NAV_KEY) || 'null');
+    if (mark){
+      localStorage.removeItem(QUICK_NAV_KEY);
+      const dec = x => { try { return decodeURIComponent(x); } catch(e){ return x; } };
+      if (!isReload() && Date.now() - mark.t < 15000 && dec(mark.href) === dec(location.pathname + location.search)){
+        viaLink = true;
+        quickNavArrived = true;
+      }
+    }
+  } catch(e){ /* אחסון חסום - כמו בלי סימון */ }
   const hasSearch = known.some(k => params.has(k));
   if (hasSearch && !landing && !viaLink){
     try {
@@ -7273,6 +7862,99 @@ let freeTextFeatures = new Set();
     $('hsStorage').value = feats.has('storage') ? '1' : '';
     const fl = (commercial ? searchState.c : searchState.r).floorMin;
     $('hsFloor').value = fl != null && fl !== '' ? String(fl) : '';
+    if (v10On()) fillMulti(st, commercial);
+  }
+
+  /* ‏R5-4 (v10): חדרים, סוג ושכונות - בחירה מרובה בצ'יפים במקום select אחד.
+     ‏OR בתוך קבוצה, ‏AND בין קבוצות; אפשרות בלי נכסים לא מוצגת (חוץ ממה שנבחר) */
+  const sel = { rooms: new Set(), types: new Set(), hoods: new Set() };
+  function multiBox(id, label){
+    const field = $(id).closest('.hs-field');
+    let box = field.querySelector('.hs-multi');
+    if (!box){
+      box = document.createElement('div');
+      box.className = 'hs-multi';
+      box.setAttribute('role', 'group');
+      box.setAttribute('aria-label', label);
+      field.appendChild(box);
+      field.classList.add('has-multi');
+      box.addEventListener('click', e => {
+        const b = e.target.closest('[data-v]');
+        if (!b) return;
+        const set = sel[box.dataset.kind];
+        if (set.has(b.dataset.v)) set.delete(b.dataset.v); else set.add(b.dataset.v);
+        b.setAttribute('aria-pressed', String(set.has(b.dataset.v)));
+        if (box.dataset.kind === 'hoods') syncHoodBtn();
+        refreshCounts();
+      });
+    }
+    return box;
+  }
+  const chipHtml = (kind, v, l, n) => `<button type="button" class="hs-mchip" data-v="${escAttr(v)}" aria-pressed="${sel[kind].has(v)}">${escAttr(l)}${n != null ? ` <span class="hs-mn">${n}</span>` : ''}</button>`;
+  /* ‏P2-1/P2-2: המונים בצ'יפים ובכפתור "הצג" לפי מה שנבחר בפאנל (faceted): כל צ'יפ סופר את
+     הקבוצה שלו כאילו רק הוא נבחר בה, עם כל שאר הבחירות. אותו sentence.count של המשפט.
+     מה שהפאנל מעביר דרך הסינון המתקדם (מאפיינים, קומה) אינו בספירה */
+  function panelPatch(){
+    const commercial = mode === 'commercial';
+    const types = [...sel.types], hoods = [...sel.hoods];
+    const num = id => { const v = digits($(id).value); return v ? Number(v) : null; };
+    const p = { deal: commercial ? ($('hsCommDeal').value || null) : mode, priceMax: num('hsPriceMax'), priceMin: num('hsPriceMin') };
+    if (types.length) p.types = types; else { p.type = commercial ? 'commercial' : 'any'; p.types = null; }
+    if (hoods.length) p.hoods = hoods; else { p.area = $('hsCity').value || 'all'; p.hoods = null; }
+    p.rooms = null; p.roomsIn = !commercial && sel.rooms.size ? [...sel.rooms].map(Number) : [];
+    return p;
+  }
+  function refreshCounts(){
+    if (!v10On() || !mode || !sentence || !sentence.loaded()) return;
+    const base = panelPatch();
+    panel.querySelectorAll('.hs-multi[data-kind] .hs-mchip').forEach(b => {
+      const kind = b.closest('.hs-multi').dataset.kind, v = b.dataset.v;
+      const patch = Object.assign({}, base,
+        kind === 'rooms' ? { roomsIn: [Number(v)] }
+        : kind === 'types' ? { types: [v] }
+        : { hoods: [v] });
+      const n = sentence.count(patch);
+      let c = b.querySelector('.hs-mn');
+      if (!c){ c = document.createElement('span'); c.className = 'hs-mn'; b.append(' ', c); }
+      c.textContent = n;
+      b.disabled = n === 0 && b.getAttribute('aria-pressed') !== 'true';
+    });
+    const go = panel.querySelector('.hs-go'), n = sentence.count(base);
+    if (go){
+      go.lastChild.textContent = n ? `הצג ${n.toLocaleString('he-IL')} נכסים` : 'אין נכסים מתאימים';
+      go.disabled = !n;
+    }
+  }
+  function syncHoodBtn(){
+    const b = document.getElementById('hsHoodsBtn');
+    if (b) b.firstChild.textContent = sel.hoods.size ? `שכונות (${sel.hoods.size}) ` : 'כל השכונות ';
+  }
+  function fillMulti(st, commercial){
+    // חדרים
+    sel.rooms = new Set(st.roomsIn && st.roomsIn.length ? st.roomsIn.map(n => n >= 6 ? '6' : String(n))
+      : st.rooms ? [String(Math.min(6, Math.floor(st.rooms[0])))] : []);
+    const rb = multiBox('hsRooms', 'חדרים'); rb.dataset.kind = 'rooms';
+    rb.innerHTML = ['2', '3', '4', '5', '6'].map(n => chipHtml('rooms', n, n === '6' ? '6+' : n)).join('');
+    // סוג נכס, עם מונה
+    const types = commercial ? sentence.Core.TYPES.filter(t => t.commercial && t.key !== 'commercial')
+      : sentence.Core.TYPES.filter(t => !t.commercial && !t.chipOnly && t.key !== 'any');
+    sel.types = new Set(st.types && st.types.length ? st.types : (st.type && st.type !== 'any' && st.type !== 'commercial' ? [st.type] : []));
+    const tb = multiBox('hsType', 'סוג נכס'); tb.dataset.kind = 'types';
+    tb.innerHTML = types.map(t => [t, sentence.count({ type: t.key, types: null })])
+      .filter(([t, n]) => n > 0 || sel.types.has(t.key))
+      .map(([t, n]) => chipHtml('types', t.key, t.label, n)).join('');
+    // שכונות: כפתור שפותח רשימה, ממוינת לפי מספר הנכסים
+    const areas = (sentence.areas() || []).filter(a => a.key.indexOf('hood:') === 0);
+    sel.hoods = new Set(st.hoods && st.hoods.length ? st.hoods : (/^hood:/.test(st.area || '') ? [st.area] : []));
+    const hb = multiBox('hsHood', 'שכונות'); hb.dataset.kind = 'hoods';
+    const list = areas.map(a => [a, sentence.count({ area: a.key, hoods: null })])
+      .filter(([a, n]) => n > 0 || sel.hoods.has(a.key)).sort((x, y) => y[1] - x[1]);
+    hb.innerHTML = `<button type="button" class="hs-hoods-btn" id="hsHoodsBtn" aria-expanded="false">כל השכונות <span aria-hidden="true">▾</span></button>` +
+      `<div class="hs-hoods-list" hidden>${list.map(([a, n]) => chipHtml('hoods', a.key, a.label, n)).join('')}</div>`;
+    const btn = hb.querySelector('.hs-hoods-btn'), lst = hb.querySelector('.hs-hoods-list');
+    btn.addEventListener('click', () => { lst.hidden = !lst.hidden; btn.setAttribute('aria-expanded', String(!lst.hidden)); });
+    syncHoodBtn();
+    refreshCounts();
   }
 
   function setMode(next){
@@ -7298,16 +7980,28 @@ let freeTextFeatures = new Set();
     wrap.classList.toggle('is-collapsed', !open);
     toggle.setAttribute('aria-expanded', String(open));
     if (open){
-      if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
+      // ‏v10: לפי הלשונית שנבחרה (כולל מסחרי), כי שורת העסקה מוסתרת
+      const tab = v10On() && document.querySelector('[data-v10-deal][aria-selected="true"]');
+      if (tab) { if (mode !== tab.dataset.v10Deal) setMode(tab.dataset.v10Deal); }
+      else if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
       pills.find(b => b.dataset.hsDeal === mode)?.focus({ preventScroll:true });
     } else if (mode) setMode(mode);
   });
+
+  // ‏v10: בלי שורת העסקה הכפולה - הפאנל הפתוח עוקב אחרי הלשונית שנבחרה
+  document.querySelectorAll('[data-v10-deal]').forEach(t => t.addEventListener('click', () => {
+    if (v10On() && !wrap.classList.contains('is-collapsed') && mode !== t.dataset.v10Deal) setMode(t.dataset.v10Deal);
+  }));
 
   $('hsCity').addEventListener('change', () => {
     $('hsHood').disabled = $('hsCity').value !== 'all';
     if ($('hsHood').disabled) $('hsHood').value = '';
   });
   ['hsPriceMax', 'hsPriceMin'].forEach(id => $(id).addEventListener('blur', e => { e.target.value = fmt(digits(e.target.value)); }));
+  // מחיר, עיר ו"השכרה או מכירה" משנים גם הם את המונים
+  let rcT = 0;
+  ['hsPriceMax', 'hsPriceMin', 'hsCity', 'hsCommDeal'].forEach(id => ['input', 'change'].forEach(ev =>
+    $(id).addEventListener(ev, () => { clearTimeout(rcT); rcT = setTimeout(refreshCounts, 150); })));
 
   // הצ'קבוקסים והשדות של הפאנל → searchState ושדות המודאל, ואז אותו applyAdvancedFilters
   function applyPanel(){
@@ -7318,6 +8012,13 @@ let freeTextFeatures = new Set();
     const commercial = mode === 'commercial';
     const deal = commercial ? ($('hsCommDeal').value || null) : mode;
     const area = $('hsHood').value || $('hsCity').value || 'all';
+    if (v10On()){
+      const types = [...sel.types], hoods = [...sel.hoods];
+      const patch = { deal };
+      if (types.length > 1) patch.types = types; else { patch.type = types[0] || (commercial ? 'commercial' : 'any'); }
+      if (hoods.length > 1) patch.hoods = hoods; else patch.area = hoods[0] || $('hsCity').value || 'all';
+      sentence.patch(patch);
+    } else
     sentence.patch({ deal, area, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
 
     const st = sentence.state();
@@ -7325,6 +8026,8 @@ let freeTextFeatures = new Set();
     const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
     const pre = searchState.activeTab === 'commercial' ? 'c' : 'r';
     const rooms = commercial ? '' : $('hsRooms').value;
+    if (v10On()) s.rooms = new Set(commercial ? [] : [...sel.rooms].map(n => n === '6' ? '+6' : n));
+    else
     s.rooms = new Set(!rooms ? [] : ROOM_OPTIONS.filter(o => {
       const n = o === '+6' ? 6 : parseFloat(o);
       return rooms === '5' ? n >= 5 : (n >= Number(rooms) && n < Number(rooms) + 1);
@@ -7344,7 +8047,1313 @@ let freeTextFeatures = new Set();
   }
   panel.addEventListener('submit', e => { e.preventDefault(); applyPanel(); });
   // כל שאר האפשרויות (מצב הנכס, מ״ר, תאריך כניסה…) - בחלון הקיים
-  $('hsMore').addEventListener('click', () => document.getElementById('ssAdvancedBtn')?.click());
+  // ‏R5-1: העסקה של הפאנל עוברת למשפט **לפני** שהחלון נפתח - אחרת נפתח חלון של העסקה הקודמת
+  function syncPanelDeal(){
+    if (!sentence || !sentence.loaded() || !mode) return;
+    const commercial = mode === 'commercial';
+    const deal = commercial ? ($('hsCommDeal').value || null) : mode;
+    sentence.patch({ deal, type: $('hsType').value || (commercial ? 'commercial' : 'any') });
+    syncSearchStateFromSentence(sentence.state());
+  }
+  $('hsMore').addEventListener('click', () => { syncPanelDeal(); document.getElementById('ssAdvancedBtn')?.click(); });
 })();
 
 applyDeepLinkFilters();
+
+/* ============================================================
+   v10 מאחורי הדגל (‏html.beta-hero, ‏?beta=1). בלי הדגל אף אחת מהפונקציות
+   כאן אינה עושה דבר, וה-dataLayer זהה ל-main. ‏docs/home-page-sections.md,
+   "v10 מאחורי דגל".
+   ============================================================ */
+function v10On(){ return document.documentElement.classList.contains('beta-hero'); }
+
+/* הלשוניות למכירה · להשכרה · מסחרי: אותו מנגנון של המשפט (‏setDeal / patch),
+   ולכן המונה על הכפתור הזהב (‏renderCount) והיעד שלו מתעדכנים מעצמם */
+function syncV10Tabs(st){
+  if (!v10On() || !sentence) return;
+  const s = st || sentence.state();
+  const commercial = !!sentence.Core.TYPES.find(t => t.key === s.type)?.commercial;
+  // משפט נקי - "למכירה" מסומנת כברירת המחדל של הכרטיס, בלי לסנן (‏v10DefaultSale)
+  const on = commercial ? 'commercial' : (s.deal || (sentence.isClean() ? 'sale' : ''));
+  document.querySelectorAll('.v10-tab').forEach(b => {
+    b.setAttribute('aria-selected', String(b.dataset.v10Deal === on));
+  });
+}
+document.querySelectorAll('.v10-tab').forEach(b => b.addEventListener('click', () => {
+  if (!v10On() || !sentence || !sentence.loaded()) return;
+  const deal = b.dataset.v10Deal;
+  if (deal === 'commercial') sentence.patch({ deal: null, type: 'commercial' });
+  else sentence.setDeal(deal);
+  syncV10Tabs();
+}));
+// חיצים בין הלשוניות (‏role="tablist")
+document.querySelector('.v10-tabs')?.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const tabs = [...document.querySelectorAll('.v10-tab')], i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  e.preventDefault();
+  // RTL: שמאלה = הלשונית הבאה
+  const next = tabs[(i + (e.key === 'ArrowLeft' ? 1 : -1) + tabs.length) % tabs.length];
+  next.focus(); next.click();
+});
+
+/* ---------- v10 (חלק 4 §2-§3): כפתורי התצוגה וכרטיס ההזמנה להחלקה ----------
+   כתובת אחת ל-/swipe מהמשפט: עסקה, יישוב, חדרים ותקציב (אינדקס ב-BUDGETS של swipe.js),
+   בלי ערכי ברירת מחדל. ‏swipe.js קורא אותם (‏readUrl). */
+const V10_BUDGETS = { sale: [0, 1500000, 2500000, 3500000], rent: [0, 4000, 6000, 8000], commercial: [0, 5000, 15000, 2000000] };
+function v10Deal(st){
+  if (sentence && sentence.Core.TYPES.find(t => t.key === st.type)?.commercial) return 'commercial';
+  return st.deal || 'sale';
+}
+/* ‏R5-5: הכניסה להחלקה נושאת את כל הסינון - המשפט (כמה סוגים, שכונות, חדרים, מחיר מדויק,
+   הדמיה) והסינון המתקדם - כפרמטר אחד ‏hf=<הכתובת של דף הבית>. ‏/swipe מחיל אותו באותה ליבה
+   (‏SentenceSearch.Core.fromParams / advancedFromParams) ומציג אותו כצ'יפים "מדף הבית".
+   ‏deal נשאר פרמטר של /swipe עצמו (הגיליון), ולכן הוא לא בתוך hf. */
+function v10FilterParams(){
+  if (!sentence || !sentence.loaded()) return '';
+  const st = Object.assign({}, sentence.state(), { deal: null });
+  const Core = sentence.Core;
+  const base = Core.toParams(st, sentence.areas(), { marketLabel: CityCtx.label ? CityCtx.label() : '' })
+    .split('&').filter(kv => kv && !/^deal=/.test(kv));
+  if (appliedAdvancedQs && sentence.hasExtra()) base.push(appliedAdvancedQs);
+  return base.join('&');
+}
+function v10FilterCount(){
+  const qs = v10FilterParams();
+  if (!qs) return 0;
+  const p = new URLSearchParams(qs);
+  let n = 0;
+  p.forEach((v, k) => { n += k === 'features' || k === 'listing' ? v.split(',').filter(Boolean).length : (k === 'maxPrice' && p.has('minPrice') ? 0 : 1); });
+  return n;
+}
+function v10SwipeHref(src){
+  const st = sentence ? sentence.state() : {};
+  const deal = v10Deal(st), q = new URLSearchParams();
+  if (deal !== 'sale') q.set('deal', deal);
+  // מסחרי להשכרה / למכירה - הבחירה של /swipe עצמו (‏cdeal)
+  if (deal === 'commercial' && (st.deal === 'rent' || st.deal === 'sale')) q.set('cdeal', st.deal);
+  const hf = v10FilterParams();
+  if (hf) q.set('hf', hf);
+  if (src) q.set('src', src);
+  const qs = q.toString();
+  return '/swipe' + (qs ? '?' + qs : '');
+}
+let v10InviteSeen = false;
+/* ‏C7 (1) (תומר 22:32): "גלישה בהחלקה · N" שליד כותרת התוצאות יורד כשהכפתור המונפש שבסרגל
+   על המסך - שתי כניסות להחלקה זו לצד זו. ‏visibility ולא hidden, כדי שהשורה לא תזוז */
+let v10MiniOnScreen = false;
+(function(){
+  if (!v10On() || !('IntersectionObserver' in window)) return;
+  const watch = () => {
+    const mini = document.querySelector('#allProps .pp-view-btn');
+    if (!mini) return false;
+    new IntersectionObserver(es => es.forEach(en => {
+      v10MiniOnScreen = en.isIntersecting;
+      document.getElementById('srSwipe')?.classList.toggle('is-dup', v10MiniOnScreen);
+    })).observe(mini);
+    return true;
+  };
+  if (!watch()){ const t = setInterval(() => { if (watch()) clearInterval(t); }, 800); setTimeout(() => clearInterval(t), 15000); }
+})();
+function v10SyncSwipe(results){
+  if (!v10On()) return;
+  document.querySelectorAll('[data-swipe-via="hero_views"]').forEach(a => { a.href = v10SwipeHref('home_views'); });
+  const shelfSwipe = document.querySelector('#allProps .pp-view-btn');
+  if (shelfSwipe) shelfSwipe.href = v10SwipeHref('results_toolbar');
+  // ‏R5-5: "גלישה בהחלקה · N" ליד כותרת התוצאות - רק כשיש סינון ולפחות 3 נכסים עם תמונה
+  const srSwipe = document.getElementById('srSwipe');
+  if (srSwipe){
+    const n = v10Swipeable(results).length;
+    srSwipe.hidden = n < 3 || !v10FilterCount();
+    srSwipe.href = v10SwipeHref('results_button');
+    srSwipe.dataset.count = String(n);
+    /* ‏R8 (החלטת תומר): למי שכבר החליק/ה - כמה עוד לא ראה/תה בסינון הזה, לכל גולש/ת ובזמן אמת.
+       אפס, ביקור ראשון או אחסון חסום - המספר הכולל כמו קודם */
+    const fresh = v10SwipeUnseen(v10Swipeable(results));
+    srSwipe.querySelector('b').textContent = fresh == null || fresh < 1 ? n.toLocaleString('he-IL')
+      : fresh === 1 ? 'חדש אחד' : `${fresh.toLocaleString('he-IL')} חדשים`;
+  }
+  const inv = document.querySelector('#allProps .pc-swipe-invite');
+  if (inv) v10FillInvite(inv, results);
+}
+/* כמה מהרשימה עוד לא נראו ב-/swipe (‏sk_swipe_seen_v1, ‏assets/swipe.js) ואינם ב"אהבתי".
+   ‏null כשאין היסטוריה - ואז לא מציגים "חדשים" */
+function v10SwipeUnseen(list){
+  try {
+    const st = JSON.parse(localStorage.getItem('sk_swipe_seen_v1') || 'null');
+    const items = st && st.v === 1 && st.items;
+    if (!items || !Object.keys(items).length) return null;
+    const liked = new Set(JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []);
+    return list.filter(p => !items[p.id] && !liked.has(p.id)).length;
+  } catch(e){ return null; }
+}
+/* הנכסים שאפשר להחליק עליהם במשפט הנוכחי: עם תמונה, כמו ברירת המחדל של /swipe */
+function v10Swipeable(results){
+  const list = results || (sentence && sentence.loaded() ? sentence.results() : []);
+  return list.filter(p => hasPhoto(p));
+}
+/* ‏A2-8 (תומר 21:10, הנוסח של גבריאלה 21:24, ‏C8): כרטיס ההזמנה בתיבת הנכסים. ‏aria-label אחד,
+   על הקישור; כל מה שבתוכו ‏aria-hidden. מוסתר מתחת ל-3 נכסים או כשיש סינון (‏R5-5: אז
+   "גלישה בהחלקה · N" שליד הכותרת). ימינה = שמירה, כמו ב-swipe.js (‏dx > 100 → like) */
+function v10FillInvite(el, results){
+  const list = v10Swipeable(results), n = list.length;
+  el.hidden = n < 3 || v10FilterCount() > 0;
+  const place = CityCtx.label();
+  el.setAttribute('aria-label', n === 1
+    ? `גלישה בהחלקה על נכס אחד ב${place}. מחליקים ימינה כדי לשמור ושמאלה כדי לדלג.`
+    : `גלישה בהחלקה על ${n.toLocaleString('he-IL')} נכסים ב${place}. מחליקים ימינה כדי לשמור ושמאלה כדי לדלג.`);
+  el.href = v10SwipeHref('home_invite');
+  el.dataset.count = String(n);
+  el.querySelector('.psi-sub').textContent = n === 1 ? 'נכס אחד מחכה לכם' : `${n.toLocaleString('he-IL')} נכסים מחכים לכם`;
+  if (SWIPE_THUMBS_READY && !el.classList.contains('psi-ai-off')) return;
+  const pics = list.slice(0, 3).map(p => cardImgUrl(p.images[0]));
+  el.querySelectorAll('.psi-stack img').forEach((img, i) => {
+    if (pics[i]) { if (img.getAttribute('src') !== pics[i]) img.src = pics[i]; img.hidden = false; } else img.hidden = true;
+  });
+}
+/* ‏C8 (ג): ארבע התמונות מתחלפות בערימה כל 4 שניות כשהכרטיס על המסך; ‏reduced-motion - סטטי */
+function v10InviteRotate(a){
+  if (!SWIPE_THUMBS_READY || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let timer = 0;
+  const stack = a.querySelector('.psi-stack');
+  a._rotate = on => {
+    clearInterval(timer); timer = 0;
+    if (!on || a.classList.contains('psi-ai-off')) return;
+    timer = setInterval(() => {
+      const top = stack.lastElementChild;
+      if (swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) return;
+      const n = swipeThumbMissing(stack), pre = new Image();
+      // ההחלפה רק אחרי שהתמונה הבאה נטענה
+      pre.onload = () => {
+        top.classList.add('is-out');
+        setTimeout(() => { top.classList.remove('is-out'); top.dataset.n = n; top.src = pre.src; stack.prepend(top); }, 450);
+      };
+      pre.src = swipeThumb(n, true);
+    }, 4000);
+  };
+}
+function v10InviteCard(){
+  if (!v10On() || !sentence || !sentence.loaded()) return null;
+  const a = document.createElement('a');
+  a.className = 'pc-swipe-invite';
+  a.dataset.swipeVia = 'home_invite_card';
+  const isNew = Date.now() < INVITE_NEW_TAG_UNTIL;
+  const imgs = SWIPE_THUMBS_READY
+    ? [3, 2, 1].map(n => '<img src="' + swipeThumb(n, true) + '" alt="" width="240" height="320" loading="lazy" decoding="async" data-n="' + n + '">').join('')
+    : '<img alt="" loading="lazy"><img alt="" loading="lazy"><img alt="" loading="lazy">';
+  a.innerHTML = (isNew ? '<span class="psi-tag" aria-hidden="true">חדש באתר</span>' : '') +
+    '<span class="psi-deck" aria-hidden="true">' +
+      '<span class="psi-side psi-save"><i><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg></i>' +
+        '<small><span class="psi-long">ימינה לשמירה</span><span class="psi-short">שמירה</span></small></span>' +
+      '<span class="psi-stack">' + imgs + '</span>' +
+      '<span class="psi-side psi-skip"><i><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></i>' +
+        '<small><span class="psi-long">שמאלה לדילוג</span><span class="psi-short">דילוג</span></small></span>' +
+    '</span>' +
+    '<span class="psi-title" aria-hidden="true">מצאו את הנכס שלכם <b>בהחלקה</b></span>' +
+    '<span class="psi-sub" aria-hidden="true"></span>' +
+    '<span class="psi-btn" aria-hidden="true">להתחיל להחליק</span>';
+  if (SWIPE_THUMBS_READY) a.querySelectorAll('.psi-stack img').forEach(img => img.addEventListener('error', () => {
+    // תמונה מהסט שלא נטענה - חוזרים לתמונות הנכסים, כמו לפני A2-6
+    if (a.classList.contains('psi-ai-off')) return;
+    a.classList.add('psi-ai-off');
+    a._rotate && a._rotate(false);
+    v10FillInvite(a);
+  }, { once:true }));
+  v10InviteRotate(a);
+  v10FillInvite(a);
+  // האנימציה רק כשהכרטיס על המסך; ‏swipe_invite_view פעם אחת לצפייה בדף, כשחציו גלוי
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(es => es.forEach(en => {
+      a.classList.toggle('is-off', !en.isIntersecting);
+      if (a._rotate) a._rotate(en.isIntersecting);
+      if (en.intersectionRatio >= 0.5 && !v10InviteSeen && !a.hidden){
+        v10InviteSeen = true;
+        if (window.shukTrack) shukTrack('swipe_invite_view', { count: Number(a.dataset.count) || 0 });
+      }
+    }), { threshold: [0, 0.5] }).observe(a);
+  }
+  return a;
+}
+// כפתורי התצוגה (‏.v10-views): מדידה בלבד - כל כפתור הוא קישור או פותח את המפה בעצמו
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-view-mode]');
+  if (!b || !v10On()) return;
+  const mode = b.dataset.viewMode, st = sentence ? sentence.state() : {};
+  if (window.shukTrack) shukTrack('home_view_mode', { mode, deal: v10Deal(st), region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek' });
+});
+// ‏§H1: אם הכותרת בכל זאת רחבה מהמסך (גופן חלופי, שם שוק ארוך) - שתי שורות מאוזנות במקום גלישה
+(function(){
+  const h = document.querySelector('.gabv8-band h1');
+  if (!h || !v10On()) return;
+  const fit = () => { h.classList.remove('h1-wrap'); if (h.scrollWidth > h.clientWidth + 1) h.classList.add('h1-wrap'); };
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(fit);
+  window.addEventListener('resize', fit);
+})();
+// נצנוץ אחד על "גלישה בהחלקה", פעם במכשיר
+(function(){
+  const b = document.querySelector('.v10-view.is-swipe');
+  if (!b || !v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  try { if (localStorage.getItem('sk_swipe_btn_shimmer')) return; localStorage.setItem('sk_swipe_btn_shimmer', '1'); } catch(e){ return; }
+  setTimeout(() => b.classList.add('is-shimmer'), 1200);
+})();
+
+/* כרטיס גבריאלה וה-hero: החלונית הצפה (‏GabWidget), ואם העוזרת כבויה - אותו
+   כפתור שהכרטיס הישן מפעיל (‏renderGabrielaCta: הסוכן החכם). לעולם לא לבד. */
+function v10OpenGabriela(source){
+  if (window.GabWidget && window.GabWidget.open(source)) return;
+  document.querySelector('#gabCtaWrap .gab-cta')?.click();
+}
+document.getElementById('gabV8Go')?.addEventListener('click', () => { if (v10On()) v10OpenGabriela('hero_cta'); });
+document.getElementById('gabV8Fig')?.addEventListener('click', () => { if (v10On()) v10OpenGabriela('hero_figure'); });
+
+/* ---------- מפת השכונות (‏#hoodMapSec) ----------
+   מופע Leaflet שני ולא אינטראקטיבי, שנוצר רק כשהסקשן נכנס למסך. המונים
+   מהנכסים שכבר נטענו (‏allActiveProperties) והמרכזים מ-computeHoodGeometry -
+   בלי שאילתה חדשה. פינים קרובים מ-46px מתאחדים לעיגול ‎+N‎, ושני עיגולים
+   קרובים מ-50px מתאחדים שוב. לחיצה על עיגול מקרבת שתי רמות. */
+const HM_MERGE_PX = 46, HM_MERGE2_PX = 50, HM_NAMES_ZOOM = 15;
+function hoodMapData(properties){
+  const counts = new Map();
+  let located = 0;
+  properties.forEach(p => {
+    if (p.lat && p.lng) located++;
+    if (p.neighborhood_id) counts.set(p.neighborhood_id, (counts.get(p.neighborhood_id) || 0) + 1);
+  });
+  const hoods = hoodState.rows
+    .filter(h => counts.get(h.id) && hoodState.centers.get(h.id))
+    .map(h => ({ id: h.id, name: h.name, n: counts.get(h.id), center: hoodState.centers.get(h.id).center }));
+  return { hoods, located };
+}
+
+function initHoodMapSec(properties){
+  const sec = document.getElementById('hoodMapSec');
+  if (!v10On() || !sec) return;
+  const { hoods, located } = hoodMapData(properties);
+  const sub = document.getElementById('hoodMapSub');
+  if (sub) sub.textContent = `${hoods.length} שכונות · ${located} נכסים פעילים עם מיקום במפה. המספר על כל שכונה הוא מספר הנכסים הפעילים בה.`;
+  if (!hoods.length){ sec.hidden = true; return; }
+  const box = document.getElementById('hoodMap');
+  if (!window.L || !box){ hoodMapChips(hoods); return; }
+  const start = () => { try { buildHoodMap(box, hoods); } catch(e){ console.warn('מפת השכונות:', e); hoodMapChips(hoods); } };
+  if (!('IntersectionObserver' in window)) return start();
+  const io = new IntersectionObserver(en => {
+    if (!en.some(x => x.isIntersecting)) return;
+    io.disconnect();
+    start();
+  }, { rootMargin: '200px' });
+  io.observe(box);
+}
+
+// בלי Leaflet: השכונות כצ'יפים, כל אחד קישור אמיתי לתוצאות (‏?q= נפתר לשכונה במשפט)
+function hoodMapChips(hoods){
+  const wrap = document.getElementById('hoodMapChips');
+  const box = document.querySelector('#hoodMapSec .hood-map-box');
+  if (!wrap) return;
+  if (box) box.hidden = true;
+  wrap.innerHTML = hoods.slice().sort((a, b) => b.n - a.n)
+    .map(h => `<a href="/?q=${encodeURIComponent(h.name)}">${escapeHtml(h.name)} <b>${h.n}</b></a>`).join('');
+  wrap.hidden = false;
+}
+
+function hmPinIcon(h){
+  return L.divIcon({
+    className: '', iconSize: [27, 32], iconAnchor: [13, 32],
+    html: `<span class="hm-pin"><span class="hm-pin-n">${h.n}</span>` +
+      '<img class="hm-pin-logo" src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">' +
+      `<span class="hm-pin-name">${escapeHtml(h.name)}</span></span>`,
+  });
+}
+
+function hmClusters(map, hoods){
+  const merge = (items, px) => {
+    const out = [];
+    items.forEach(it => {
+      const hit = out.find(c => c.pt.distanceTo(it.pt) < px);
+      if (!hit){ out.push({ ...it, members: it.members.slice() }); return; }
+      const w = hit.n + it.n;
+      hit.pt = L.point((hit.pt.x * hit.n + it.pt.x * it.n) / w, (hit.pt.y * hit.n + it.pt.y * it.n) / w);
+      hit.n = w;
+      hit.members = hit.members.concat(it.members);
+    });
+    return out;
+  };
+  const first = hoods.slice().sort((a, b) => b.n - a.n)
+    .map(h => ({ n: h.n, pt: map.latLngToContainerPoint(h.center), members: [h] }));
+  return merge(merge(first, HM_MERGE_PX), HM_MERGE2_PX);
+}
+
+function buildHoodMap(box, hoods){
+  const map = L.map(box, {
+    zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+    boxZoom: false, keyboard: false, touchZoom: false, tap: false,
+  });
+  map.fitBounds(L.latLngBounds(hoods.map(h => h.center)), { animate: false, maxZoom: 14, paddingTopLeft: [36, 64], paddingBottomRight: [36, 28] });
+  map.attributionControl.setPosition('bottomleft');
+  const layer = L.layerGroup().addTo(map);
+  const touch = window.matchMedia('(hover:none)').matches;
+
+  const tilesFailed = () => {
+    if (box.classList.contains('tiles-off')) return;
+    box.classList.add('tiles-off');
+    const chip = document.getElementById('hoodMapChip');
+    if (chip && !chip.dataset.closed) chip.hidden = false;
+  };
+  document.getElementById('hoodMapChipX')?.addEventListener('click', e => {
+    e.stopPropagation();
+    const chip = document.getElementById('hoodMapChip');
+    chip.hidden = true;
+    chip.dataset.closed = '1';
+  });
+  if (window.MapTiles){
+    MapTiles.addTo(map).then(tl => {
+      if (!tl) return;
+      if (tl.on) tl.on('tileerror', tilesFailed);
+      const gl = tl.getMaplibreMap && tl.getMaplibreMap();
+      if (gl && gl.on) gl.on('error', tilesFailed);
+    }, tilesFailed);
+  } else tilesFailed();
+
+  const open = (e) => openMapView('hood_section', e && e.target);
+  map.on('click', () => open());
+
+  function draw(){
+    layer.clearLayers();
+    box.classList.toggle('is-close', map.getZoom() >= HM_NAMES_ZOOM);
+    hmClusters(map, hoods).forEach(c => {
+      const at = map.containerPointToLatLng(c.pt);
+      if (c.members.length === 1){
+        const h = c.members[0];
+        const m = L.marker(h.center, { icon: hmPinIcon(h), keyboard: true, title: '' }).addTo(layer);
+        const el = m.getElement();
+        if (el) el.setAttribute('aria-label', `${h.name}: ${h.n} נכסים`);
+        m.on('click', ev => {
+          L.DomEvent.stopPropagation(ev);
+          const pin = el && el.querySelector('.hm-pin');
+          // במגע: הקשה ראשונה מציגה את השם, השנייה פותחת את המפה
+          if (touch && pin && !pin.classList.contains('is-named')){
+            box.querySelectorAll('.hm-pin.is-named').forEach(p => p.classList.remove('is-named'));
+            pin.classList.add('is-named');
+            return;
+          }
+          open(ev.originalEvent);
+        });
+        return;
+      }
+      const label = `+${c.n}`;
+      const m = L.marker(at, {
+        keyboard: true,
+        icon: L.divIcon({ className: '', iconSize: [46, 46], iconAnchor: [23, 23],
+          html: `<span class="hm-cluster${c.n > 99 ? ' is-wide' : ''}">${label}</span>` }),
+      }).addTo(layer);
+      const el = m.getElement();
+      if (el) el.setAttribute('aria-label', `${c.members.map(h => h.name).join(', ')}: ${c.n} נכסים. לחיצה מקרבת`);
+      m.on('click', ev => {
+        L.DomEvent.stopPropagation(ev);
+        map.setView(at, map.getZoom() + 2);
+      });
+    });
+  }
+  map.on('zoomend', draw);
+  draw();
+}
+
+/* ---------- המונים (‏#dmStats, ‏7b) ----------
+   עד שהטבלאות site_stats / site_stats_platform קיימות (‏docs/proposals/site_stats.sql,
+   TODO-ASK 11) - נפילה לצד הלקוח: נכסים ומשרדים ממה שהדף כבר טען, ואריחי
+   העסקאות ויועצי הנדל״ן מוסתרים. בלי שאילתה חדשה ובלי שגיאה בקונסול: הדגל
+   הזה נדלק רק אחרי שהמיגרציה רצה. אף אריח אינו מציג 0 או מספר קבוע. */
+const SITE_STATS_READY = false;
+// ‏P1-T3: נדלק רק אחרי docs/proposals/license_verified_gate.sql (ד-1)
+const LICENSE_GATE_LIVE = false;
+const dmStatsState = { source: 'client', cache: null, viewed: false, asked: false };
+function dmStatsMarket(){
+  const m = CityCtx.market ? CityCtx.market() : null;
+  return (m && m.slug) || 'afula-emek';
+}
+function loadDmStatsCache(){
+  if (!SITE_STATS_READY || !sb || dmStatsState.asked) return;
+  dmStatsState.asked = true;
+  Promise.all([
+    sb.from('site_stats').select('props_active, agencies_active, deals_12m').eq('market_slug', dmStatsMarket()).maybeSingle(),
+    sb.from('site_stats_platform').select('agents_active').maybeSingle(),
+  ]).then(([a, b]) => {
+    if (a.error || b.error || !a.data) return;
+    dmStatsState.cache = { props: a.data.props_active, agencies: a.data.agencies_active, deals: a.data.deals_12m, agents: b.data && b.data.agents_active };
+    dmStatsState.source = 'cache';
+    renderDmStats();
+  }, () => { /* נשארים בנפילה */ });
+}
+function renderDmStats(){
+  const wrap = document.getElementById('dmStatsWrap');
+  if (!v10On() || !wrap) return;
+  loadDmStatsCache();
+  const c = dmStatsState.cache || {};
+  const vals = {
+    deals: c.deals || null,
+    agencies: c.agencies || heroStatsState.agencies || null,
+    agents: c.agents || null,
+    props: c.props || heroStatsState.props || null,
+    // ‏P1-T3: רק אחרי השער - בלעדיו אין דרך אמיתית לומר "כל", וגם לא מונה של מאומתים
+    license: LICENSE_GATE_LIVE ? true : null,
+  };
+  let any = false, visible = 0;
+  wrap.querySelectorAll('.dm-stat').forEach(tile => {
+    const v = vals[tile.dataset.stat];
+    tile.hidden = !v;
+    if (!v) return;
+    visible++;
+    any = true;
+    // בחותם האייקון הוא התוכן - לא כותבים מספר מעליו
+    if (!tile.classList.contains('is-seal')) tile.querySelector('.dm-stat-n').textContent = Number(v).toLocaleString('he-IL');
+  });
+  const grid = document.getElementById('dmStats');
+  if (grid){ grid.style.setProperty('--dm-n', Math.min(visible, 3)); grid.style.setProperty('--dm-n-d', visible || 1); }
+  wrap.hidden = !any;
+  /* ‏P1-T1: שורת המקור לפי הקוביות שמוצגות בפועל - הנכסים והמשרדים מנתוני האתר, ורשות
+     המיסים או משרד המשפטים רק כשהקובייה שלהם גלויה */
+  const note = document.getElementById('dmStatsNote');
+  if (note){
+    const shown = k => { const t = wrap.querySelector('[data-stat="' + k + '"]'); return !!t && !t.hidden; };
+    note.textContent = ['מנתוני האתר, מתעדכן בכל כניסה', shown('deals') ? 'עסקאות: רשות המיסים' : '', shown('license') ? 'רישיונות: משרד המשפטים' : '']
+      .filter(Boolean).join(' · ');
+  }
+  if (any && !dmStatsState.io && 'IntersectionObserver' in window){
+    dmStatsState.io = new IntersectionObserver(en => {
+      if (!en.some(x => x.isIntersecting) || dmStatsState.viewed) return;
+      dmStatsState.viewed = true;
+      dmStatsState.io.disconnect();
+      if (window.shukTrack) window.shukTrack('site_stats_view', { source: dmStatsState.source, deals_shown: vals.deals && !document.querySelector('#dmStats [data-stat="deals"]').hidden ? 1 : 0, license_shown: vals.license ? 1 : 0 });
+    });
+    dmStatsState.io.observe(wrap);
+  }
+}
+
+/* ---------- באנר ההדמיות: ידית לפני/אחרי שגוררים, והכיתוב <חלל> · <סגנון> ---------- */
+const V10_VIZ_TARGETS = { living_room:'סלון', kitchen:'מטבח', bedroom:'חדר שינה', exterior:'חזית', interior_main:'חלל העסק' };
+const V10_VIZ_STYLES = { modern_clean:'מודרני נקי', mediterranean_white:'ים תיכוני לבן', warm_scandi:'סקנדינבי חמים', modern_luxury:'יוקרה מודרנית' };
+function v10AiSlider(thumb, row){
+  thumb.insertAdjacentHTML('afterbegin',
+    '<span class="ai-v10-tag is-before">לפני</span><span class="ai-v10-tag is-after">אחרי · ✦ הדמיה</span>');
+  const cap = document.getElementById('aiV10Cap');
+  const parts = [V10_VIZ_TARGETS[row.target], V10_VIZ_STYLES[row.kind]].filter(Boolean);
+  if (cap) cap.textContent = parts.concat('גררו את הידית').join(' · ');
+  const setPos = x => {
+    const r = thumb.getBoundingClientRect();
+    if (!r.width) return;
+    const pct = Math.max(4, Math.min(96, (x - r.left) / r.width * 100));
+    thumb.style.setProperty('--ai-pos', pct.toFixed(1) + '%');
+  };
+  let drag = false;
+  thumb.addEventListener('pointerdown', e => { drag = true; thumb.setPointerCapture(e.pointerId); setPos(e.clientX); });
+  thumb.addEventListener('pointermove', e => { if (drag) setPos(e.clientX); });
+  ['pointerup', 'pointercancel'].forEach(t => thumb.addEventListener(t, () => { drag = false; }));
+}
+
+/* ---------- חיפוש מהיר (‏#quickSearchSec) ----------
+   כל צ'יפ הוא קישור אמיתי לעמוד התוצאות (גוגל רואה אותו), והמונה מאותו
+   מסנן של המשפט (‏sentence.count) על הנכסים שכבר נטענו - בלי שאילתה. */
+const V10_ICO = {
+  sale: '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.6 9.8V20h12.8V9.8"/>',
+  rent: '<circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3"/>',
+  comm: '<path d="M3 9.5 4.8 4h14.4L21 9.5"/><path d="M5 12.2V20h14v-7.8"/>',
+  rooms: '<path d="M3 18V6M3 13h18v5M21 13a3 3 0 0 0-3-3h-7v3"/>',
+  office: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M11 21v-4h2v4"/>',
+  house: '<path d="M3 11 12 4l9 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+};
+function v10Chip(href, label, n, group, tag, ico, labelDesktop){
+  const icon = ico ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${V10_ICO[ico]}</svg>` : '';
+  const l = labelDesktop
+    ? `<span class="v10-chip-l"><span class="v10-m-l">${escapeHtml(label)}</span><span class="v10-d-l">${escapeHtml(labelDesktop)}</span></span>`
+    : `<span class="v10-chip-l">${escapeHtml(label)}</span>`;
+  return `<a class="v10-chip" href="${escapeHtml(href)}" data-q-group="${group}" data-q-tag="${escapeHtml(tag)}">${icon}${l}<span class="v10-chip-n">${n}</span></a>`;
+}
+/* v10: "למכירה" מסומנת בטעינה, כמו באבטיפוס - אבל רק כסימון של הלשונית.
+   המשפט נשאר נקי: הלשונית שבברירת המחדל אינה סינון של הגולש/ת, ולכן אין
+   "ניקוי החיפוש", אין ?deal=sale בכתובת, והמונה סופר את כל הנכסים. לחיצה על
+   הלשונית (או כל שינוי אחר) היא שמסננת (‏syncV10Tabs). */
+function v10DefaultSale(){
+  if (!v10On() || !sentence || !sentence.loaded()) return;
+  /* חלק 4 §1: לשונית מסומנת תמיד מסננת - "למכירה" חלה באמת על משפט נקי, אחרת הכפתור
+     הזהב הציג את כל הנכסים כש"למכירה" נראית בחורה. שקט: בלי לפתוח תוצאות ובלי גלילה */
+  if (sentence.isClean() && !sentence.state().deal){
+    sentenceQuiet = true;
+    try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
+  }
+  syncV10Tabs();
+}
+function renderQuickSearch(properties){
+  const sec = document.getElementById('quickSearchSec');
+  if (!v10On() || !sec || !sentence || !sentence.loaded()) return;
+  const base = { area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null };
+  const cnt = patch => sentence.count(Object.assign({}, base, patch));
+  const enc = encodeURIComponent;
+  const sub = document.getElementById('quickSearchSub');
+  if (sub) sub.textContent = `${properties.length.toLocaleString('he-IL')} נכסים פעילים ב${CityCtx.label()}`;
+
+  const hoods = hoodMapData(properties).hoods.sort((a, b) => b.n - a.n);
+  const hoodBox = document.getElementById('quickHoods');
+  hoodBox.innerHTML = hoods.map(h => v10Chip(`/?q=${enc(h.name)}`, h.name, h.n, 'hood', h.name, 'pin')).join('');
+  hoodBox.closest('.quick-group').hidden = !hoods.length;
+  const more = document.getElementById('quickHoodsMore');
+  if (hoods.length > 10){
+    hoodBox.classList.add('is-collapsed');
+    more.hidden = false;
+    more.textContent = `כל ${hoods.length} השכונות ▾`;
+    more.onclick = () => {
+      const open = hoodBox.classList.toggle('is-collapsed') === false;
+      more.setAttribute('aria-expanded', String(open));
+      more.textContent = open ? 'פחות שכונות ▴' : `כל ${hoods.length} השכונות ▾`;
+    };
+  }
+
+  const r = n => [n, n + 0.5];
+  const types = [
+    ['/?deal=sale', 'למכירה', null, cnt({ deal: 'sale', type: 'any' }), 'sale', 'sale'],
+    ['/?deal=rent', 'להשכרה', null, cnt({ deal: 'rent', type: 'any' }), 'rent', 'rent'],
+    ['/?deal=commercial', 'מסחרי', null, cnt({ deal: null, type: 'commercial' }), 'commercial', 'comm'],
+    ['/?deal=sale&rooms=3', '3 חד׳', 'דירות 3 חד׳', cnt({ deal: 'sale', type: 'any', rooms: r(3) }), 'rooms3', 'rooms'],
+    ['/?deal=sale&rooms=4', '4 חד׳', 'דירות 4 חד׳', cnt({ deal: 'sale', type: 'any', rooms: r(4) }), 'rooms4', 'rooms'],
+    ['/?deal=sale&rooms=5', '5 חד׳', 'דירות 5 חד׳', cnt({ deal: 'sale', type: 'any', rooms: [5, 99] }), 'rooms5', 'rooms'],
+  ];
+  const types2 = [
+    [`/?deal=commercial&ptype=${enc('משרדים')}`, 'משרדים', null, cnt({ deal: null, type: 'office' }), 'office', 'office'],
+    [`/?deal=sale&ptype=${enc("בית פרטי/קוטג'")}`, 'בתים פרטיים', null, cnt({ deal: 'sale', type: 'house' }), 'house', 'house'],
+  ];
+  const typeHtml = list => list.filter(t => t[3] > 0).map(t => v10Chip(t[0], t[1], t[3], 'type', t[4], t[5], t[2])).join('');
+  document.getElementById('quickTypes').innerHTML = typeHtml(types);
+  document.getElementById('quickTypes2').innerHTML = typeHtml(types2);
+
+  // לפי אזור: היישוב הראשי ואז שאר היישובים, לפי מספר הנכסים. רק יישובים שיש בהם נכסים
+  const byCity = new Map();
+  // רק שורות שכבר סוננו לשוק (keepMarketRows), ובלי שורות בלי city_id - אין שבב ליישוב שלא שויך (סבב 5 §1)
+  properties.forEach(p => { if (p.city && p.city_id) byCity.set(p.city, (byCity.get(p.city) || 0) + 1); });
+  const main = (sentence.areas() || {}).mainCity || CityCtx.name();
+  const areas = [...byCity.entries()].sort((a, b) => (b[0] === main) - (a[0] === main) || b[1] - a[1]).slice(0, 8);
+  document.getElementById('quickAreas').innerHTML = areas
+    .map(([name, n]) => v10Chip(name === main ? `/?city=${enc(name)}` : `/?q=${enc(name)}`, name, n, 'area', name, 'pin')).join('');
+  document.getElementById('quickAreas').closest('.quick-group').hidden = !areas.length;
+  sec.hidden = false;
+}
+/* ‏P0-F: צ'יפ של החיפוש המהיר הוא קישור לדף הבית עצמו (‏/?q=…), וכלל "דף הבית
+   נפתח נקי" (‏initSentenceSearch) מחק את הפרמטרים שלו - הלחיצה לא עשתה כלום.
+   ה-href נשאר קישור אמיתי (גוגל ממשיך לראות אותו), אבל לחיצה רגילה מוחלת
+   במקום על המשפט הטעון, בלי טעינה. לשונית חדשה, או לחיצה לפני שהנכסים
+   נטענו, מסמנות את הניווט ל-15 שניות (‏sk_qs_nav), והכלל מכבד את הסימון. */
+function quickNavMark(a){
+  try { localStorage.setItem(QUICK_NAV_KEY, JSON.stringify({ href: a.getAttribute('href'), t: Date.now() })); } catch(e){ /* מצב פרטי */ }
+}
+function scrollToSearchResults(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sec = document.getElementById('searchResults');
+  const target = sec && !sec.hidden && sec.offsetParent !== null ? sec : document.getElementById('heroSection');
+  if (!target) return;
+  // מתחת לכותרת הדביקה כפי שהיא נמדדת עכשיו (‏scroll-margin-top נשען על --header-h, שמפגר אחרי שינויי גובה)
+  const header = document.querySelector('header.site');
+  const hb = header && getComputedStyle(header).position !== 'static' ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - hb - 4), behavior: reduce ? 'auto' : 'smooth' });
+}
+function clearQuickPressed(){
+  document.querySelectorAll('#quickSearchSec a[data-q-group][aria-pressed]').forEach(x => x.removeAttribute('aria-pressed'));
+}
+document.getElementById('quickSearchSec')?.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[data-q-group]');
+  if (!a) return;
+  if (v10On() && window.shukTrack) window.shukTrack('quick_search_tag_click', { group: a.dataset.qGroup, tag: a.dataset.qTag });
+  // ‏Ctrl/Cmd/Shift: לשונית חדשה, והקישור עובד כרגיל
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey){ quickNavMark(a); return; }
+  if (!sentence || !sentence.loaded()){ quickNavMark(a); return; }
+  e.preventDefault();
+  const C = sentence.Core;
+  // אותו פירוש כמו קישור עמוק: fromParams מתחיל מ-defaultState, ולכן הצ'יפ מחליף את המשפט ולא מצטרף אליו
+  const next = C.resolveArea(C.fromParams(new URL(a.href, location.href).searchParams), sentence.areas());
+  quickApplying = true;
+  try {
+    if (sentence.hasExtra()) clearAdvancedFilters();   // סינון מתקדם ישן לא נשאר "תקוע" מתחת לצ'יפ
+    sentence.applyAdvanced(next, null);                // touched רק למה שאינו ברירת מחדל, והכתובת נכתבת
+  } finally { quickApplying = false; }
+  showSentenceResults();
+  scrollToSearchResults();
+  clearQuickPressed();
+  a.setAttribute('aria-pressed', 'true');
+});
+// לחצן אמצעי - לשונית חדשה, בלי click
+document.getElementById('quickSearchSec')?.addEventListener('auxclick', e => {
+  const a = e.target.closest && e.target.closest('a[data-q-group]');
+  if (a && e.button === 1) quickNavMark(a);
+});
+document.getElementById('quickNearBtn')?.addEventListener('click', () => {
+  // אותו מנגנון של "הצג נכסים לידי" (‏near-me.js): המיקום נשאל רק עכשיו, בלחיצה
+  document.getElementById('heroNearBtn')?.click();
+});
+
+/* ---------- באנר היריד (v10) ----------
+   כחול עם מסגרת זהב, לוח שנה עם תאריך הסיום **מהנתונים** (החלון הפעיל
+   המאוחר ביותר), חותמת, שני תמונונים מנכסי היריד, וכפתור זהב אחד. כל
+   הכרטיס הוא קישור אחד לדף היריד. נצבע כשגם הספירה וגם הנכסים כבר כאן. */
+const v10Fair = { count: null, label: '', props: null };
+function v10FairNow(p, now){
+  const s = p.open_house_start ? Date.parse(p.open_house_start) : NaN;
+  const e = p.open_house_end ? Date.parse(p.open_house_end) : NaN;
+  return p.open_house && s <= now && e > now;
+}
+function v10ImgFb(extra, alt){
+  return `<span class="img-fb${extra ? ' ' + extra : ''}" role="img" aria-label="${escapeHtml(alt || '')}"><img src="/assets/logo-shuknadlan.svg" alt=""></span>`;
+}
+function renderV10Fair(){
+  const host = document.getElementById('openHouseBanner');
+  if (!v10On() || !host || !v10Fair.count || !v10Fair.props) return;
+  const now = Date.now();
+  const live = v10Fair.props.filter(p => v10FairNow(p, now));
+  const end = live.reduce((m, p) => Math.max(m, Date.parse(p.open_house_end)), 0);
+  if (!end){ host.hidden = true; return; }
+  const d = new Date(end - 1000);   // חלון שנגמר בחצות נקרא כיום שלפניו
+  const day = d.toLocaleDateString('he-IL', { day: 'numeric' });
+  const month = d.toLocaleDateString('he-IL', { month: 'long' });
+  const fairId = 'open_house_' + d.toISOString().slice(0, 10);
+  // ‏C9: תמיד שתי תמונות - קודם נכסים עם תמונה, ונכס בלי תמונה (או שאין שני) מקבל את הרקע עם הסיכה
+  const thumbs = live.filter(p => p.images && p.images[0]).slice(0, 2);
+  while (thumbs.length < 2) thumbs.push({});
+  const thumbHtml = thumbs.map(p => p.images
+    ? `<span class="v10-fair-th"><img src="${escapeHtml(p.images[0])}" alt="" loading="lazy" decoding="async" onerror="v10ImgFail(this)"></span>`
+    : `<span class="v10-fair-th">${v10ImgFb()}</span>`).join('');
+  host.innerHTML =
+    `<a class="v10-fair" href="/open-house" data-fair-id="${escapeHtml(fairId)}">` +
+      `<span class="v10-fair-top">` +
+        `<span class="v10-cal"><span class="v10-cal-k">פתוח עד</span><b>${escapeHtml(day)}</b><span>ב${escapeHtml(month)}</span></span>` +
+        `<span class="v10-fair-k"><b>יריד הבתים הפתוחים</b><span>פתוח עכשיו, לזמן מוגבל</span></span>` +
+      `</span>` +
+      `<h2 class="v10-fair-title">דירות ב${escapeHtml(v10Fair.label)} ${OpenHouse.NO_FEE}</h2>` +
+      `<span class="v10-fair-row"><span class="v10-fair-thumbs">${thumbHtml}</span>` +
+        `<span class="v10-fair-cta">לדירות היריד <span aria-hidden="true">←</span></span></span>` +
+      `<span class="v10-fair-seal" aria-hidden="true"><img src="/assets/logo-shuknadlan.svg" alt=""><span>יריד דירות</span></span>` +
+    `</a>`;
+  host.hidden = false;
+}
+document.getElementById('openHouseBanner')?.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a.v10-fair');
+  if (a && v10On() && window.shukTrack) window.shukTrack('fair_banner_click', { fair_id: a.dataset.fairId });
+});
+// תמונה שנכשלה (רק עם הדגל): הרקע הכחול עם סיכת הלוגו, אף פעם לא מסגרת ריקה
+function v10ImgFail(img, cls){
+  if (!v10On() || !img || !img.parentNode) return false;
+  img.insertAdjacentHTML('afterend', v10ImgFb(cls ? cls + ' is-inline' : '', img.alt));
+  img.remove();
+  return true;
+}
+
+/* ---------- שורת ההתראה בתוצאות (‏#gabAlert, v10) ----------
+   פעם אחת לכל מצב תוצאות, ברשימה בלבד (לא במפה ולא ב-hero): עד 5 תוצאות -
+   מיד אחרי הרשימה הקצרה (או ההודעה הריקה), יותר מ-5 - בסוף הרשימה, אחרי
+   שכל המנות נטענו. הכפתור פותח את אשף החיפוש השמור הקיים. */
+function v10GabAlert(rows, n){
+  if (!v10On() || !rows) return;
+  document.getElementById('gabAlert')?.remove();
+  const box = document.createElement('div');
+  box.className = 'gab-alert';
+  box.id = 'gabAlert';
+  box.setAttribute('role', 'note');
+  box.innerHTML =
+    '<img class="gab-alert-img" src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" loading="lazy" decoding="async">' +
+    '<div class="gab-alert-copy">' +
+      `<p class="gab-alert-title">${n <= 5 ? 'לא מצאתם? גבריאלה תעדכן כשייכנס נכס מתאים' : 'עברתם על הכול? גבריאלה תעדכן כשייכנס נכס מתאים'}</p>` +
+      '<p class="gab-alert-sub">נשמור את החיפוש הזה ונשלח הודעה כשיעלה נכס חדש שמתאים לו.</p>' +
+    '</div>' +
+    '<button type="button" class="gab-alert-go">עדכנו אותי</button>';
+  rows.appendChild(box);
+  box.querySelector('.gab-alert-go').addEventListener('click', () => {
+    buyState.source = 'homepage_buyer_wizard';
+    openBuyerPanel(true);
+    v10BuyPrefill(sentence && sentence.loaded() ? sentence.state() : null);
+    document.getElementById('buyerBanner')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+/* ‏"עדכנו אותי": האשף נפתח ממולא מהחיפוש שעל המסך - סוג עסקה, עיר או שכונה,
+   חדרים ותקציב. **בלי שמירה שקטה:** שום דבר לא נשלח עד הכפתור של האשף עצמו,
+   כי הגולש/ת עוד לא מסר/ה פרטי קשר ולא אישר/ה. רק UI מקומי (לחיצה על
+   הלשוניות של האשף מפעילה את אותו קוד של לחיצה ידנית). */
+function v10BuyPrefill(st){
+  if (!st) return;
+  const commercial = !!sentence.Core.TYPES.find(t => t.key === st.type)?.commercial;
+  const dealBtn = document.querySelector(`#buyDealToggle button[data-buy-deal="${commercial ? 'commercial' : (st.deal === 'rent' ? 'rent' : 'sale')}"]`);
+  dealBtn?.click();
+  if (commercial && st.deal){
+    document.querySelector(`#buyCommercialToggle button[data-buy-cdeal="${st.deal === 'rent' ? 'rent' : 'sale'}"]`)?.click();
+  }
+  // אזור: שכונה (‏hood:<id>) - העיר שלה והשכונה מסומנת; יישוב (‏city:<שם>) - היישוב
+  buyState.hoods.clear();
+  const area = String(st.area || '');
+  buyState.keepCity = true;
+  if (area.indexOf('hood:') === 0){
+    const h = hoodState.byId?.get(area.slice(5)) || hoodState.rows.find(r => String(r.id) === area.slice(5));
+    if (h){ buyState.city = h.city; buyState.hoods.add(h.id); } else buyState.city = '';
+  } else if (area.indexOf('city:') === 0){
+    buyState.city = area.slice(5);
+  } else if (area === 'main'){
+    buyState.city = window.CityContext?.active()?.market?.city || '';
+  } else {
+    // ‏all (כל השוק) או around (יישובי הסביבה): האשף בוחר יישוב אחד, ולכן הבחירה נשארת לגולש/ת
+    buyState.city = '';
+  }
+  renderBuyerHoods();
+  // חדרים: הטווח של המשפט (‏[מינימום, מקסימום]) על הצ'יפים של האשף
+  buyState.rooms.clear();
+  if (st.rooms && !commercial){
+    const [lo, hi] = st.rooms;
+    document.querySelectorAll('#buyRoomsChips .chip[data-buy-rooms]').forEach(chip => {
+      const v = chip.dataset.buyRooms;
+      const on = v === '+6' ? hi >= 6 : (Number(v) >= lo && Number(v) <= hi);
+      chip.setAttribute('aria-pressed', String(on));
+      if (on) buyState.rooms.add(v);
+    });
+  } else {
+    document.querySelectorAll('#buyRoomsChips .chip[data-buy-rooms]').forEach(chip => chip.setAttribute('aria-pressed', 'false'));
+  }
+  const setNum = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ? String(v) : ''; };
+  setNum('buyPriceMin', st.priceMin);
+  setNum('buyPriceMax', st.priceMax);
+}
+
+/* ---------- כפתור הנגישות (v10) ----------
+   חובה בכל דף (תקנות הנגישות) - לעולם לא נמחק. עם הדגל: בצד ימין (מול
+   גבריאלה), אייקון SVG, וחץ קטן/פריט בתפריט שמקפלים אותו ללשונית צרה בקצה
+   המסך (נשמר לסשן, ‏sk_a11y_min). ליד הפוטר הוא מתקפל מעצמו, ואז לחיצה על
+   הלשונית פותחת את התפריט; בקיפול ידני - לחיצה מחזירה את הכפתור. */
+(function initV10A11y(){
+  if (!v10On() || !a11yFab || !a11yPanel) return;
+  const h = document.documentElement;
+  a11yFab.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="4.2" r="2.2"/><path d="M10.2 7.6h3.4l-.4 4.6h4.3l2.6 5.6-1.9.9-2-4.4h-5.1a1.6 1.6 0 0 1-1.6-1.8z"/><path d="M8.1 10.3l.3 2.1a4.6 4.6 0 1 0 6.1 5.3l1.8.9a6.6 6.6 0 1 1-8.2-8.3z"/></svg>';
+  a11yFab.setAttribute('aria-label', 'תפריט נגישות');
+  const hide = document.createElement('button');
+  hide.type = 'button';
+  hide.className = 'a11y-hide';
+  hide.setAttribute('aria-label', 'הסתרת כפתור הנגישות');
+  hide.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+  a11yFab.after(hide);
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'a11y-hide-opt';
+  item.textContent = 'הסתרת הכפתור';
+  a11yPanel.appendChild(item);
+
+  let manual = false, nearFooter = false;
+  try { manual = sessionStorage.getItem('sk_a11y_min') === '1'; } catch(e){}
+  const sync = () => h.classList.toggle('a11y-min', manual || nearFooter);
+  const minimize = () => {
+    manual = true;
+    try { sessionStorage.setItem('sk_a11y_min', '1'); } catch(e){}
+    setA11yPanel(false);
+    sync();
+    a11yFab.focus();
+  };
+  hide.addEventListener('click', e => { e.stopPropagation(); minimize(); });
+  item.addEventListener('click', e => { e.stopPropagation(); minimize(); });
+  // בקיפול ידני הלחיצה על הלשונית מחזירה את הכפתור (לפני המאזין שפותח את התפריט)
+  a11yFab.addEventListener('click', e => {
+    if (!manual) return;
+    e.stopImmediatePropagation();
+    manual = false;
+    try { sessionStorage.removeItem('sk_a11y_min'); } catch(err){}
+    sync();
+  }, true);
+  const foot = document.querySelector('footer.site') || [...document.querySelectorAll('footer')].pop();
+  if (foot && 'IntersectionObserver' in window){
+    new IntersectionObserver(en => { nearFooter = en[0].isIntersecting; sync(); }, { threshold: 0 }).observe(foot);
+  }
+  sync();
+})();
+
+/* ---------- פוטר ה-SEO (v10): 8 ראשונים בכל רשימה, והשאר נשארים <a href> אמיתיים ב-DOM ---------- */
+(function initV10FooterSeo(){
+  if (!v10On()) return;
+  document.querySelectorAll('.footer-seo-links').forEach(list => {
+    const n = list.querySelectorAll(':scope > a').length - 8;
+    if (n <= 0) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'footer-seo-more';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.textContent = `הצג עוד (${n}) ▾`;
+    btn.addEventListener('click', () => {
+      const open = list.classList.toggle('is-all');
+      btn.setAttribute('aria-expanded', String(open));
+      btn.textContent = open ? 'הצג פחות ▴' : `הצג עוד (${n}) ▾`;
+    });
+    list.after(btn);
+  });
+})();
+
+/* תמונת רקע (‏style="background-image") אינה יורה onerror, ולכן עם הדגל
+   בודקים כל כתובת פעם אחת: כשהיא נכשלת האריח מקבל ‎.img-fb-bg‎ - הכחול עם
+   סיכת הלוגו במקום מסגרת ריקה. רק בתיבת הנכסים ובשורות התוצאות. */
+(function initV10BgFallback(){
+  if (!v10On() || !('MutationObserver' in window)) return;
+  const seen = new Map();   // כתובת → true (נטענה) / false (נכשלה) / [אלמנטים ממתינים]
+  const URL_RE = /background-image:\s*url\(['"]?([^'")]+)/;
+  function check(el){
+    const m = URL_RE.exec(el.getAttribute('style') || '');
+    if (!m) return;
+    const url = m[1], st = seen.get(url);
+    if (st === false){ el.classList.add('img-fb-bg'); return; }
+    if (st === true) return;
+    if (Array.isArray(st)){ st.push(el); return; }
+    seen.set(url, [el]);
+    const im = new Image();
+    im.onload = () => seen.set(url, true);
+    im.onerror = () => { const list = seen.get(url); seen.set(url, false); (list || []).forEach(x => x.classList.add('img-fb-bg')); };
+    im.src = url;
+  }
+  const scan = root => root.querySelectorAll && root.querySelectorAll('.thumb[style], .pr-thumb[style], .sr-thumb[style]').forEach(check);
+  ['allProps', 'searchResultsRows'].forEach(id => {
+    const host = document.getElementById(id);
+    if (!host) return;
+    scan(host);
+    new MutationObserver(() => scan(host)).observe(host, { childList: true, subtree: true });
+  });
+})();
+
+/* בורר האזור (v10, ‏assets/city-menu.js): כמה נכסים פעילים בכל יישוב, בכל
+   השווקים - עמודת העיר בלבד, פעם אחת, רק כשהתפריט נפתח. */
+let v10CityCountsP = null;
+window.v10MarketCityCounts = function(){
+  if (!v10On() || !sb) return Promise.reject(new Error('off'));
+  if (!v10CityCountsP){
+    v10CityCountsP = sb.from('properties').select('city').eq('status', 'active').limit(5000).then(({ data, error }) => {
+      if (error) throw error;
+      const m = new Map();
+      (data || []).forEach(r => { if (r.city) m.set(r.city, (m.get(r.city) || 0) + 1); });
+      return m;
+    });
+    v10CityCountsP.catch(() => { v10CityCountsP = null; });
+  }
+  return v10CityCountsP;
+};
+
+// כניסות לגלישה בהחלקה (‏/swipe): הקישור ב-hero ובבאנר ההדמיות - רק עם הדגל
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[data-swipe-via]');
+  if (!a || !v10On() || !window.shukTrack || !sentence) return;
+  const st = sentence.state();
+  const sp = { deal: st.deal || (sentence.Core.TYPES.find(t => t.key === st.type)?.commercial ? 'commercial' : 'all'),
+    region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek', via: a.dataset.swipeVia };
+  if (a.dataset.count) sp.count = Number(a.dataset.count);
+  // ‏R5-5: כמה מסננים עברו להחלקה (בלי ערכים)
+  sp.filters_n = v10FilterCount();
+  window.shukTrack('swipe_start', sp);
+});
+
+/* ---------- v10 (‏F/V2): לחיצה על "הדמיית AI" באריח או בשורה - דף הנכס, ישר להדמיה ----------
+   שאר האריח פותח את דף הנכס כרגיל. ‏#viz נקרא ב-assets/property.js כשההדמיה נחשפת. */
+document.addEventListener('click', e => {
+  if (!v10On()) return;
+  const badge = e.target.closest && e.target.closest('#allProps [data-viz-jump], #allProps .pc-badge.is-ai');
+  if (!badge) return;
+  const host = badge.closest('a.prop-row, [data-pid]');
+  const id = host && (host.dataset.pid || new URL(host.href, location.href).searchParams.get('id'));
+  if (!id) return;
+  e.preventDefault();
+  e.stopPropagation();
+  location.href = '/property?id=' + encodeURIComponent(id) + '#viz';
+}, true);
+
+/* ---------- חזרה מדף נכס לאותו מקום ברשימה (‏P1-L) ----------
+   בלי זה "אחורה" מדף נכס נחת אלפי פיקסלים מתחת (‏1187 ← 5631 בטלפון): הדפדפן משחזר
+   פיקסלים לפני שהנכסים נטענו, והרשימה גדלה מתחתיו. נשמר עוגן - הקישור העליון לדף
+   נכס שנראה מתחת לכותרת - וההיסט שלו, ובחזרה גוללים אליו כשהוא מופיע. */
+(function homeScrollMemory(){
+  const KEY = 'sk_home_scroll';
+  const here = () => location.pathname + location.search;
+  const sameHref = href => [...document.querySelectorAll('a[href]')].filter(a => a.getAttribute('href') === href && a.getBoundingClientRect().height);
+  const headerBottom = () => Math.max(0, document.querySelector('header.site')?.getBoundingClientRect().bottom || 0);
+  window.addEventListener('pagehide', () => {
+    const hb = headerBottom();
+    const links = document.querySelectorAll('main a[href*="/property?id="], #searchResults a[href*="/property?id="], a.prop-card[href*="/property?id="]');
+    let anchor = null;
+    for (const a of links){
+      const r = a.getBoundingClientRect();
+      if (r.height && r.bottom > hb + 10){ anchor = a; break; }
+    }
+    // אותו נכס יכול להופיע בכמה מקומות (מדף, תוצאות, מפה) - נשמר גם המופע
+    const href = anchor ? anchor.getAttribute('href') : null;
+    const nth = anchor ? sameHref(href).indexOf(anchor) : -1;
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ key: here(), y: window.scrollY,
+        href, nth, off: anchor ? Math.round(anchor.getBoundingClientRect().top) : 0 }));
+    } catch(e){ /* אחסון חסום */ }
+  });
+  let back = false;
+  try { const nav = performance.getEntriesByType('navigation')[0]; back = !!nav && nav.type === 'back_forward'; } catch(e){ /* דפדפן ישן */ }
+  if (!back) return;
+  let m = null;
+  try { m = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch(e){ m = null; }
+  if (!m || !m.y) return;
+  try { history.scrollRestoration = 'manual'; } catch(e){ /* דפדפן ישן */ }
+  let tries = 0, stable = 0, lastY = -1;
+  const timer = setInterval(() => {
+    tries++;
+    let el = null;
+    if (m.href){
+      const all = sameHref(m.href);
+      el = all[m.nth] || null;
+    }
+    const y = el ? el.getBoundingClientRect().top + window.scrollY - m.off : (document.documentElement.scrollHeight > m.y + innerHeight / 2 ? m.y : -1);
+    if (y >= 0){
+      window.scrollTo(0, y);
+      stable = Math.abs(y - lastY) < 2 ? stable + 1 : 0;
+      lastY = y;
+    }
+    // נעצרים כשהמיקום התייצב, אחרי 5 שניות, או ברגע שהגולש/ת גולל/ת בעצמו/ה
+    if (stable >= 3 || tries > 33) clearInterval(timer);
+  }, 150);
+  const stop = () => { clearInterval(timer); };
+  ['wheel', 'touchstart', 'keydown'].forEach(t => window.addEventListener(t, stop, { once:true, passive:true }));
+})();
+
+(function(){
+  /* ‏P1-H: לכל כפתור שהוא אייקון בלבד - title זהה ל-aria-label (מקור אחד), כדי שבמחשב
+     יופיע הסבר בריחוף. רק כשאין טקסט גלוי בכפתור; מתעדכן כשה-aria-label משתנה */
+  function iconTitles(root) {
+    (root || document).querySelectorAll('button[aria-label], a[aria-label], [role=button][aria-label]').forEach(function (b) {
+      // ‏A2-7: ‏data-no-title - בלי בועת title (הכפתור המונפש שבסרגל, שהתווית שלו גלויה במחשב)
+      if (b.hasAttribute('data-no-title')) return;
+      var l = b.getAttribute('aria-label');
+      if (l && !(b.innerText || '').trim() && b.title !== l) b.title = l;
+    });
+  }
+  iconTitles();
+  if (window.MutationObserver) {
+    var titleQueued = false;
+    new MutationObserver(function () {
+      if (titleQueued) return;
+      titleQueued = true;
+      requestAnimationFrame(function () { titleQueued = false; iconTitles(); });
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-label'] });
+  }
+})();
+
+/* ---------- ‏P1-E: "הנכסים שאהבתי" בכותרת במחשב ----------
+   מוצג רק כשיש נכס שמור, מתעדכן מ-storage (שמירה בלשונית ההחלקה), ופותח את אותו
+   פאנל של הבועה (‏assets/likes-bubble.js, נטען לפי הצורך) */
+(function headerLikes(){
+  const btn = document.getElementById('hdrLikes');
+  if (!btn) return;
+  const count = () => { try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean).length; } catch(e){ return 0; } };
+  function sync(){
+    const n = count();
+    btn.hidden = !n || !v10On();
+    document.getElementById('hdrLikesN').textContent = n;
+    const l = 'הנכסים שאהבתי (' + n + ')';
+    btn.setAttribute('aria-label', l); btn.title = l;
+  }
+  sync();
+  window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') sync(); });
+  btn.addEventListener('click', () => {
+    if (window.LikesBubble) { LikesBubble.open(); return; }
+    const sc = document.createElement('script');
+    sc.src = '/assets/likes-bubble.js';
+    sc.onload = () => { if (window.LikesBubble) LikesBubble.open(); };
+    document.head.appendChild(sc);
+  });
+})();
+
+/* ---------- ‏P1-S: נענוע לאייקון "גלישה בהחלקה" ----------
+   כל 5 שניות, 6 פעמים, רק כשהכפתור על המסך. יציאה מהמסך עוצרת אותו לסשן; מי שכבר
+   נכנס/ה ל-/swipe (‏sk_swipe_used) לא רואה אותו יותר. רק transform - בלי CLS */
+(function swipeNudge(){
+  if (!v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+  try {
+    if (localStorage.getItem('sk_swipe_used') || sessionStorage.getItem('sk_swipe_nudge_done')) return;
+  } catch(e){ return; }
+  const done = () => { try { sessionStorage.setItem('sk_swipe_nudge_done', '1'); } catch(e){ /* מצב פרטי */ } };
+  function arm(el){
+    if (!el) return;
+    let started = false, left = false;
+    new IntersectionObserver((es, io) => es.forEach(en => {
+      if (en.isIntersecting && !left){ started = true; el.classList.add('is-nudge'); }
+      else if (started && !en.isIntersecting){ left = true; el.classList.remove('is-nudge'); io.disconnect(); done(); }
+    }), { threshold: 0.6 }).observe(el);
+    el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeNudge'){ el.classList.remove('is-nudge'); done(); } });
+  }
+  // ‏A2-8: כרטיס ההזמנה כבר לא מתנענע - הוא מונפש בעצמו (‏v10InviteRotate)
+  arm(document.querySelector('.v10-view.is-swipe'));
+})();
+
+/* ---------- ‏P1-T1: ‏info_open - פתיחה ראשונה של כל (i) בטעינה ----------
+   ‏data-info-id על הכפתור; בועה שנפתחת שוב באותה טעינה אינה נספרת */
+(function infoOpen(){
+  const seen = new Set();
+  const fire = el => {
+    const id = el && el.dataset.infoId;
+    if (!id || seen.has(id) || !v10On()) return;
+    seen.add(id);
+    if (window.shukTrack) window.shukTrack('info_open', { info_id: id, surface: 'home' });
+  };
+  document.addEventListener('click', e => fire(e.target.closest && e.target.closest('[data-info-id]')));
+  document.addEventListener('mouseover', e => fire(e.target.closest && e.target.closest('.info-dot[data-info-id]')));
+})();
+
+/* ---------- ‏P1-U1 / R8: משרדים ויועצי נדל״ן לפי התמחות ואזור (v10) ----------
+   הרכיב המשותף ל-/agents ול-/agencies (‏assets/dm-filters.js) - אותו כלל, אותה כתובת
+   ואותו מראה. כאן רק המתאם לשורה של דף הבית (שתי לשוניות, "צפייה בכל…", החיפוש החופשי). */
+function initDmFilters(state, data, rerender){
+  const noop = { apply: l => l, active: () => false, title: () => '', after(){}, fill(){}, emptyText: () => '', emptyActions: () => document.createTextNode(''), query: () => ({}) };
+  const box = document.getElementById('dmFilters');
+  if (!v10On() || !box) return noop;
+  const mainCity = (() => { try { return CityCtx.name ? CityCtx.name() : 'עפולה'; } catch(e){ return 'עפולה'; } })();
+  // הכתובת מהטעינה: החיפוש במשפט כותב את הכתובת מחדש (‏commitUrl) לפני שהמסננים מוכנים
+  const wantTab = DM_URL0.get('dm_tab');
+  let api = null;
+  function build(props){
+    if (!window.DmFilters) return;
+    if (api){ api.setProps(props); rerender(); return; }
+    box.innerHTML = '';
+    api = window.DmFilters.mount({
+      host: box, tab: state.tab, props, surface: 'home', mainCity, countLine: true, tabParam: true,
+      tabs: {
+        agencies: { items: data.agencies.map(it => ({ id: it.id, declared: it.specs })), idKey: 'agency_id' },
+        agents:   { items: data.agents.map(it => ({ id: it.id, declared: it.specs })), idKey: 'agent_id' },
+      },
+      onChange: () => rerender(),
+    });
+    if (!api) return;
+    box.hidden = false;
+    // חיפוש חופשי: גם מילות ההתמחות ושמות האזורים של הנכסים
+    ['agencies', 'agents'].forEach(t => data[t].forEach(it => {
+      if (it._dmWords) return;
+      it._dmWords = api.words(it.id, t);
+      if (it._dmWords) it.search += ' ' + it._dmWords;
+    }));
+    if (wantTab && wantTab !== state.tab) document.getElementById(wantTab === 'agents' ? 'dmTabAgents' : 'dmTabAgencies')?.click();
+    else rerender();
+  }
+  // ‏dm_search: ‏800ms אחרי ההקלדה האחרונה, בלי הטקסט
+  let searchT = 0;
+  document.getElementById('dmSearch')?.addEventListener('input', e => {
+    clearTimeout(searchT);
+    const q = e.target.value.trim();
+    if (!q) return;
+    searchT = setTimeout(() => {
+      const ql = q.toLowerCase();
+      const list = data[state.tab].filter(it => it.search.toLowerCase().includes(ql));
+      const specs = (window.DmFilters && DmFilters.SPECS) || [];
+      const matched = !list.length ? 'none' : list.some(it => it.name.toLowerCase().includes(ql)) ? 'name'
+        : specs.some(x => x.words.includes(q)) ? 'spec' : 'area';
+      if (window.shukTrack) window.shukTrack('dm_search', { tab: state.tab, q_len: q.length, results: list.length, matched });
+    }, 800);
+  });
+  dmPropsHook = build;
+  // אחרי שהקורא קיבל את האובייקט (‏render נשען עליו); dm-filters.js נטען defer
+  const kick = () => { if (allActiveProperties.length) build(allActiveProperties); };
+  if (window.DmFilters) setTimeout(kick, 0); else document.addEventListener('DOMContentLoaded', kick, { once: true });
+
+  return {
+    active: () => !!api && api.active(),
+    fill: () => { if (api) api.setTab(state.tab); },
+    query: () => api ? api.query() : {},
+    apply(list){
+      if (!api) return list;
+      return api.apply(list).map(it => it.dmText ? { ...it, rank: 0, countText: it.dmText } : it);
+    },
+    title: () => api ? api.title() : '',
+    after: list => { if (api) api.after(list); },
+    emptyText: () => api ? api.emptyHead() : '',
+    emptyActions(){
+      const w = document.createElement('div');
+      w.innerHTML = api ? api.emptyActionsHtml() : '';
+      w.addEventListener('click', e => {
+        const b = e.target.closest('[data-dm-clear]');
+        if (b && api) api.clear(b.dataset.dmClear);
+      });
+      return w;
+    },
+  };
+}
+
+/* ---------- ‏P1-P: בעלי מקצוע ומספר מודעה בשורת החיפוש ----------
+   "עורך דין" / "שמאי" מציעים את דף בעלי המקצוע מעל הפירוש הרגיל, בלי מעבר אוטומטי; Enter
+   כשאין בטקסט שום דבר על נכס - מעבר. "מודעה 1316" / "#1316" עוברים לנכס; מספר לבדו
+   (יכול להיות מחיר) רק מוצע. הבדיקה במסד רק ב-Enter, לא בכל הקלדה. */
+const PRO_INTENTS = [
+  { type:'real_estate_lawyer', re:/עו["״׳']?ד|עורך דין|עורכת דין|עורכי דין/, label:'עורכי הדין למקרקעין', one:'עורך דין מקרקעין' },
+  { type:'appraiser',          re:/שמאי|שמאית|שמאות/,                    label:'שמאי המקרקעין', one:'שמאי מקרקעין' },
+  { type:'architect',          re:/אדריכל/,                               label:'האדריכלים', one:'אדריכל' },
+  { type:'interior_designer',  re:/מעצב(?:ת)? פנים|עיצוב פנים/,          label:'מעצבי הפנים', one:'מעצב פנים' },
+  // משכנתא רק כשאין בטקסט נכס ("דירה עם משכנתא" נשאר חיפוש נכס)
+  { type:'mortgage_advisor',   re:/יועצ(?:ת)? משכנתא|משכנתא/,            label:'יועצי המשכנתאות', one:'יועץ משכנתאות', bare:true },
+];
+const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטהאוז|קוטג|מכירה|למכור|לקנות|השכרה|להשכרה|שכירות|מיליון|אלף|₪|\d/;
+(function searchExtras(){
+  const input = document.getElementById('ssQuery'), box = document.getElementById('ssSuggest');
+  if (!input || !box) return;
+  // בשם shukTrack: check_gtm_container.py מוצא את האירועים לפי השם הזה
+  const shukTrack = (n, p) => { if (window.shukTrack) window.shukTrack(n, p); };
+  let proShown = '';
+  function proOf(t){
+    const hit = PRO_INTENTS.find(x => x.re.test(t));
+    if (!hit) return null;
+    if (hit.bare && PROPERTY_WORDS.test(t.replace(hit.re, ''))) return null;
+    return hit;
+  }
+  function show(html){ box.innerHTML = html; box.hidden = !html; }
+  /* ‏P0-2: תחום בלי אף בעל/ת מקצוע פעיל/ה (היום: שמאים) - לא לדף ריק אלא לכל בעלי המקצוע.
+     אותו מקור כמו professionals.html וכמו prosTypes() בווידג'ט. כשל - הכל ל"כל בעלי המקצוע" */
+  let activeP = null;
+  function activePros(){
+    if (activeP) return activeP;
+    activeP = fetch(SUPABASE_URL + '/rest/v1/professional_cards_public?select=advertiser_type&limit=500',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY } })
+      .then(r => r.ok ? r.json() : []).then(rows => new Set((rows || []).map(x => x && x.advertiser_type).filter(Boolean)))
+      .catch(() => new Set());
+    return activeP;
+  }
+  const proHref = (hit, active) => active.has(hit.type) ? '/professionals?type=' + hit.type : '/professionals';
+  async function renderPro(){
+    const t = input.value.trim(), hit = t ? proOf(t) : null;
+    if (!hit){ if (proShown) show(''); proShown = ''; return; }
+    const active = await activePros();
+    if (input.value.trim() !== t) return;
+    const ok = active.has(hit.type);
+    show(ok
+      ? '<a href="/professionals?type=' + hit.type + '" data-pro="' + hit.type + '">מחפשים ' + escapeHtml(hit.one) + '? לרשימת ' + escapeHtml(hit.label) + ' ←</a>'
+      : '<a href="/professionals" data-pro="all">מחפשים ' + escapeHtml(hit.one) + '? לכל בעלי המקצוע ←</a>');
+    if (proShown !== hit.type){
+      proShown = hit.type;
+      const p = { type: hit.type, surface: 'home' };
+      if (!ok) p.fallback = true;
+      shukTrack('search_pro_suggest', p);
+    }
+  }
+  /* ‏R8: "יועץ נדל״ן למסחרי בעפולה עלית" - הצעה ל-/agents מסונן (‏dm_spec, ‏dm_area), כמו בעלי
+     המקצוע: בלי מעבר אוטומטי, ו-Enter עובר רק כשזו כל הבקשה. המילים "סוכן"/"מתווך" נקלטות
+     מהגולש/ת בלבד - הממשק לא כותב אותן. "יועץ משכנתא" נשאר בעלי מקצוע (נבדק קודם). v10 בלבד */
+  const ADV_AGENTS = /יוע(?:ץ|צת|צי|צות)\s+(?:ה)?נדל["״']?ן|סוכ(?:ן|נת|ני|נות)\s+(?:ה)?נדל["״']?ן|מתוו(?:ך|כת|כים|כות)/;
+  const ADV_AGENCIES = /משרד(?:י)?\s+(?:ה)?תיווך/;
+  const ADV_SPEC_PHRASE = { sale: 'למכירה', rent: 'להשכרה', commercial: 'למסחרי', projects: 'לפרויקטים חדשים', houses: 'לבתים פרטיים', land: 'לקרקעות' };
+  function advisorOf(t){
+    if (!v10On() || !sentence || !sentence.loaded() || proOf(t)) return null;
+    const tab = ADV_AGENCIES.test(t) ? 'agencies' : ADV_AGENTS.test(t) ? 'agents' : null;
+    if (!tab) return null;
+    const C = sentence.Core, rest = t.replace(ADV_AGENCIES, ' ').replace(ADV_AGENTS, ' ');
+    const r = C.parse(rest, C.defaultState(), sentence.areas() || []);
+    let spec = '';
+    if (/פרויקט|מקבלן/.test(rest)) spec = 'projects';
+    else if (r.patch.type && C.typeDef(r.patch.type).commercial) spec = 'commercial';
+    else if (r.patch.type === 'house') spec = 'houses';
+    else if (r.patch.type === 'land') spec = 'land';
+    else if (r.patch.deal === 'rent' || r.patch.deal === 'sale') spec = r.patch.deal;
+    let area = '', areaLabel = '', areaKind = 'none';
+    const a = r.patch.area || '';
+    if (/^hood:/.test(a)){
+      area = a; areaKind = 'hood';
+      areaLabel = ((sentence.areas() || []).find(x => x.key === a) || {}).label || '';
+    } else if (/^city:/.test(a)){
+      // שם העיר → ‏city_id מהנכסים שכבר נטענו (‏dm_area עובד לפי מזהה)
+      const name = a.slice(5), hit = allActiveProperties.find(p => p.city === name && p.city_id);
+      if (hit){ area = 'city:' + hit.city_id; areaLabel = name; areaKind = 'city'; }
+    }
+    const q = new URLSearchParams();
+    if (spec) q.set('dm_spec', spec);
+    if (area) q.set('dm_area', area);
+    const noun = tab === 'agents' ? 'יועצי נדל״ן' : 'משרדי תיווך';
+    const label = [noun, spec ? ADV_SPEC_PHRASE[spec] : '', areaLabel ? 'ב' + areaLabel : ''].filter(Boolean).join(' ');
+    return { tab, spec, areaKind, label, href: '/' + tab + (q.toString() ? '?' + q : '') };
+  }
+  let advShown = '';
+  function renderAdvisor(){
+    const t = input.value.trim(), hit = t ? advisorOf(t) : null;
+    if (!hit){ if (advShown){ show(''); advShown = ''; } return false; }
+    show('<a class="ss-advisor" href="' + escapeHtml(hit.href) + '" data-advisor="' + hit.tab + '" data-spec="' + escapeHtml(hit.spec) + '" data-area-kind="' + hit.areaKind + '">' +
+      '<span>' + (hit.tab === 'agents' ? 'מחפשים יועצי נדל״ן?' : 'מחפשים משרד תיווך?') + '</span> ' + escapeHtml(hit.label) + ' ←</a>');
+    if (advShown !== hit.href){
+      advShown = hit.href;
+      shukTrack('search_advisor_suggest', { tab: hit.tab, spec: hit.spec || 'all', area_kind: hit.areaKind, surface: 'home' });
+    }
+    return true;
+  }
+  box.addEventListener('click', e => {
+    const a = e.target.closest('a[data-advisor]');
+    if (a) shukTrack('search_advisor_click', { tab: a.dataset.advisor, spec: a.dataset.spec || 'all', area_kind: a.dataset.areaKind, surface: 'home' });
+  });
+  let t0 = 0;
+  input.addEventListener('input', () => { clearTimeout(t0); t0 = setTimeout(() => { if (!renderAdvisor()) renderPro(); }, 250); });
+  box.addEventListener('click', e => {
+    const a = e.target.closest('a[data-pro]');
+    if (a) shukTrack('search_pro_click', { type: a.dataset.pro, surface: 'home' });
+  });
+  async function lookup(n){
+    if (!sb) return null;
+    try {
+      const { data } = await sb.from('properties').select('id, listing_number, city, property_type, price, deal_type')
+        .eq('listing_number', n).eq('status', 'active').limit(1);
+      return (data && data[0]) || null;
+    } catch(e){ return null; }
+  }
+  const listingHref = p => '/property?id=' + encodeURIComponent(p.id);
+  // Enter שעצרנו ממשיך לפירוש הרגיל של המשפט
+  let passing = false;
+  function passOn(){
+    passing = true;
+    // כמו Enter אמיתי: הדגל של המשפט, ואז שליחת הטופס (אירוע סינתטי אינו שולח טופס בעצמו)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    passing = false;
+    if (input.form) { if (input.form.requestSubmit) input.form.requestSubmit(); else input.form.dispatchEvent(new Event('submit', { cancelable: true })); }
+  }
+  box.addEventListener('click', e => {
+    if (!e.target.closest('[data-as-price]')) return;
+    show('');
+    passOn();
+  });
+  /* ‏R8: מסלול אחד ל-Enter ולחיפוש הקולי (‏onQuery ב-sentence-search.js): מספר מודעה,
+     בעלי מקצוע ומספר לבדו. ‏true = טופל כאן (מעבר, או הצעה בתיבה); ‏false = לפירוש הרגיל */
+  const LISTING_RE = /^(?:(?:מודעה|נכס)\s*(?:מספר\s*)?#?\s*|מספר\s*|#)(\d{3,7})$/;
+  const routes = t => LISTING_RE.test(t) || /^(\d{3,7})$/.test(t) || (proOf(t) && !PROPERTY_WORDS.test(t.replace(proOf(t).re, ''))) || !!advisorOf(t);
+  async function homeQuery(t, source){
+    t = String(t || '').trim();
+    const pre = t.match(LISTING_RE);
+    if (pre){
+      const p = await lookup(Number(pre[1]));
+      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
+      if (p){ location.href = listingHref(p); return true; }
+      show('<p>לא מצאנו מודעה פעילה עם המספר הזה.</p>');
+      return true;
+    }
+    const hit = proOf(t);
+    if (hit && !PROPERTY_WORDS.test(t.replace(hit.re, ''))){
+      const href = proHref(hit, await activePros());
+      shukTrack('search_pro_click', { type: href === '/professionals' ? 'all' : hit.type, surface: 'home' });
+      location.href = href;
+      return true;
+    }
+    const adv = advisorOf(t);
+    if (adv){
+      shukTrack('search_advisor_click', { tab: adv.tab, spec: adv.spec || 'all', area_kind: adv.areaKind, surface: 'home' });
+      location.href = adv.href;
+      return true;
+    }
+    const bare = t.match(/^(\d{3,7})$/);
+    if (bare){
+      /* ‏R5-7: רק אם אין מודעה כזו - הפירוש כמחיר ממשיך. אם יש: ההצעה, וקישור שני שמפעיל את הפירוש */
+      const p = await lookup(Number(bare[1]));
+      shukTrack('search_listing_number', { found: p ? 1 : 0, surface: 'home' });
+      if (!p) return false;
+      const bits = [p.property_type, p.city, p.price ? '₪' + Number(p.price).toLocaleString('he-IL') : ''].filter(Boolean).join(' · ');
+      show('<a href="' + escapeHtml(listingHref(p)) + '">מעבר למודעה #' + escapeHtml(String(p.listing_number)) + (bits ? ' (' + escapeHtml(bits) + ')' : '') + ' ←</a>' +
+        '<button type="button" class="ss-suggest-alt" data-as-price>או: חיפוש נכסים עד ₪' + escapeHtml(Number(bare[1]).toLocaleString('en-US')) + '</button>');
+      return true;
+    }
+    return false;
+  }
+  window.ShukHomeQuery = homeQuery;
+  // ‏capture במסמך: לפני שהמשפט מפרש את הטקסט כמחיר ולפני שהטופס נשלח
+  document.addEventListener('keydown', async e => {
+    if (e.key !== 'Enter' || e.target !== input || passing) return;
+    const t = input.value.trim();
+    if (!routes(t)) return;
+    // עוצרים לפני ה-await (אחריו כבר מאוחר); מה שלא טופל ממשיך לפירוש הרגיל
+    e.preventDefault(); e.stopPropagation();
+    if (!(await homeQuery(t, 'typed'))) passOn();
+  }, true);
+})();
+
+// ‏P1-M: חשיפות ברשימת התוצאות בדף הבית (‏list_impression, v10)
+if (window.shukObserveList) shukObserveList(document.getElementById('searchResults'), 'home_list');

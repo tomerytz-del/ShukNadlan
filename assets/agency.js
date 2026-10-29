@@ -180,7 +180,7 @@ function statCellsHtml(){
   if (agencyStats.ethics){
     cells.push('<div class="stat-cell is-badge" id="ethicsCell">' +
       '<div class="n" id="ethicsBadgeSlot"></div>' +
-      '<div class="l">חתום על התקן האתי</div></div>');
+      '<div class="l">✦ מחויבות לשירות הוגן</div></div>');   // השם מ-27.10 (חלק 7, החלטה 8)
   }
   /* הדירוג אינו תא בסרגל: הוא כבר מופיע בבאנר עצמו (‏heroRating, עם
      הכוכבים ומספר הביקורות מאחוריו) ושוב בכותרת מקטע הביקורות. תא שלישי
@@ -389,8 +389,8 @@ function waLink(phone, opener){
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
 }
 
-const ROLE_LABELS = { manager:'מנהל/ת משרד', agent:'סוכן/ת' };
-const roleLabel = a => ROLE_LABELS[a && a.role] || (a && a.role) || 'סוכן/ת';
+const ROLE_LABELS = { manager:'ניהול משרד', agent:'יועץ נדל״ן' };
+const roleLabel = a => ROLE_LABELS[a && a.role] || (a && a.role) || 'יועץ נדל״ן';
 
 /* תמונת הסוכן/ת, ובהיעדרה האות הראשונה של השם. ‏--photo-pos = נקודת המיקוד
    שסומנה ב-CRM; בלעדיה חיתוך למרכז היה קוטע פנים בתמונות פורטרט. */
@@ -430,12 +430,9 @@ function renderStickyBar(contact, waHref){
   const name = contact.display_name || 'המשרד';
   const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
 
+  // ‏P1-D: פעולות בלבד - תמונה, שם ותואר של המנהל כבר בצוות ובבאנר
+  void agencyName;
   document.getElementById('stickyInner').innerHTML = `
-    ${agentAvatarHtml(contact, 'sb-avatar')}
-    <div class="sb-text">
-      <div class="who">${escapeHtml(name)}</div>
-      <div class="what">${escapeHtml(roleLabel(contact) + ' · ' + agencyName)}</div>
-    </div>
     <div class="sb-actions">
       <a class="sb-wa" href="${escapeHtml(waHref)}" target="_blank" rel="noopener noreferrer"
          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG}<span>וואטסאפ</span></a>
@@ -491,22 +488,14 @@ function renderManagerContact(members){
   const href = waLink(manager.phone_e164,
     `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
 
-  document.getElementById('contactHeading').textContent =
-    isManager ? 'יצירת קשר עם מנהל המשרד' : 'יצירת קשר עם המשרד';
-
+  /* ‏P1-D: כתובת, הערה וטופס בלבד - המנהל מופיע פעם אחת (בצוות), וכפתורי המשרד בבאנר
+     ובסרגל הדביק. בלי "· <משרד>" בדף של המשרד עצמו */
+  void isManager; void href;
+  document.getElementById('contactHeading').textContent = 'יצירת קשר';
   document.getElementById('contactCard').innerHTML = `
-    ${agentAvatarHtml(manager, 'team-avatar')}
     <div class="contact-who">
-      <div class="name">${escapeHtml(name)}</div>
-      <div class="role">${escapeHtml(roleLabel(manager))} · ${escapeHtml(agencyName)}</div>
       ${agencyAddressHtml()}
       <p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
-    </div>
-    <div class="contact-actions">
-      <a class="cta-primary" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
-         aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ ל${escapeHtml(name.split(' ')[0])}</a>
-      <a class="cta-secondary" href="tel:+${manager.phone_e164}"
-         aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} שיחת טלפון</a>
     </div>`;
   document.getElementById('contactSec').style.display = 'block';
 }
@@ -1076,7 +1065,7 @@ function teamContactHtml(member, officeContact){
   // אין במשרד ולו מספר אחד אמיתי — אין למי לנתב, ולכן אין כפתורים
   if (!target) return '';
 
-  const name = member.display_name || 'הסוכן/ת';
+  const name = member.display_name || 'יועץ הנדל״ן';
   const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
   const href = waLink(target.phone_e164,
     `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
@@ -1135,7 +1124,7 @@ async function loadTeam(sb, agencyId){
 
   agencyStats.teamSize = team.length;
   renderTrustBar();
-  setSectionNote('teamCount', team.length === 1 ? 'סוכן/ת אחד/ת במשרד' : team.length + ' סוכנים במשרד');
+  setSectionNote('teamCount', team.length === 1 ? 'יועץ נדל״ן אחד במשרד' : team.length + ' יועצי נדל״ן במשרד');
 
   rail.textContent = '';
   team.forEach(a=>{
@@ -1147,7 +1136,7 @@ async function loadTeam(sb, agencyId){
     card.tabIndex = 0;
     card.setAttribute('aria-label', name + ' - ' + roleLabel(a));
     card.innerHTML = `
-      ${isManager ? `<span class="team-flag">${ICON.star}מנהל/ת המשרד</span>` : ''}
+      ${isManager ? `<span class="team-flag">${ICON.star}ניהול המשרד</span>` : ''}
       ${agentAvatarHtml(a, 'team-avatar')}
       <div class="team-name">${escapeHtml(name)}</div>
       <div class="team-role">${escapeHtml(roleLabel(a))}</div>
@@ -1175,7 +1164,7 @@ async function loadTeam(sb, agencyId){
 }
 
 /* ---------- קרוסלה ----------
-   חיצים, נקודות וגלילה בקפיצות של כרטיס - לרצועת המתווכים ולשלוש רצועות
+   חיצים, נקודות וגלילה בקפיצות של כרטיס - לרצועת יועצי הנדל״ן ולשלוש רצועות
    הנכסים כאחד. ב-RTL ציר הגלילה הפיזי הפוך - ‏scrollLeft יורד לשלילי ככל
    שמתקדמים - ולכן כיוון הצעד נגזר מכיוון הכתיבה בפועל ולא מקובע. */
 window.addEventListener('resize', ()=>{
@@ -1259,7 +1248,7 @@ function ratingBreakdown(stats, reviewsCount){
   const parts = [];
   const agents = Number(stats?.rated_agent_count) || 0;
   if (agents > 0){
-    parts.push(agents === 1 ? 'מתווך/ת אחד/ת מדורג/ת' : `${agents} מתווכים מדורגים`);
+    parts.push(agents === 1 ? 'יועץ נדל״ן אחד מדורג' : `${agents} יועצי נדל״ן מדורגים`);
   }
   const direct = Number(stats?.direct_review_count) || 0;
   if (direct > 0){
@@ -1274,7 +1263,7 @@ function ratingBreakdown(stats, reviewsCount){
 async function loadReviews(sb, agencyId){
   const el = document.getElementById('reviewsList');
   // הציון מגיע מ-agency_ratings_public ולא מחושב כאן: הוא מערבב דירוג צוות
-  // (ממוצע של ממוצעי המתווכים, ולא ממוצע מאוחד של הביקורות) עם הדירוג הישיר
+  // (ממוצע של ממוצעי יועצי הנדל״ן, ולא ממוצע מאוחד של הביקורות) עם הדירוג הישיר
   // של המשרד, ואת הנוסחה הזו אין טעם לשכפל בדפדפן. הביקורות עצמן עדיין
   // נטענות בנפרד - ה-view לא מחזיר טקסטים.
   const [{ data: reviews }, { data: stats }] = await Promise.all([
@@ -1297,7 +1286,7 @@ async function loadReviews(sb, agencyId){
     ? Number(stats.score)
     : reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const score = avg.toFixed(1).replace(/\.0$/, '');
-  setSectionNote('reviewsSummary', `★ ${score} דירוג המשרד · ${reviewsLabel}`);
+  // ‏P1-D: הדירוג פעם אחת - בבאנר (‏heroRating)
 
   // אותו דירוג בשלושה מקומות: בבאנר כמדד אמון, בסרגל המדדים כמספר,
   // ובכותרת המקטע עצמו
@@ -1489,11 +1478,11 @@ function initOwnerWizard(agency){
   // הבאנר מדבר בשם המשרד ולא בשם הפלטפורמה — זו הסיבה שהגולש/ת ישאיר/תשאיר
   // כאן פרטים ולא בדף הבית
   document.getElementById('ownerTeaserSub').textContent =
-    `הערכת שווי חינם ממתווכי ${agency.name}`;
+    `הערכת שווי חינם מיועצי הנדל״ן של ${agency.name}`;
   document.getElementById('ownerLead').textContent =
-    `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווכי ${agency.name}.`;
+    `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, מיועצי הנדל״ן של ${agency.name}.`;
   document.getElementById('wizDoneNote').textContent =
-    `מתווך/ת מ${agency.name} יחזור/תחזור אליכם בזמן קצר עם הערכת המחיר לנכס.`;
+    `יועצי הנדל״ן של ${agency.name} יחזרו אליכם בזמן קצר עם הערכת המחיר לנכס.`;
 
   // כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
   [['wizAddress',1], ['wizName',3], ['wizPhone',3]].forEach(([id, step])=>{
@@ -1975,7 +1964,7 @@ async function submitBuyerWizard(e){
     document.getElementById('buyDoneText').textContent = data.duplicate
       ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : data.assigned_to_agency
-        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ומתווך/ת מ${office} יחזור/תחזור אליכם עם נכסים מתאימים.`
+        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ויועצי הנדל״ן של ${office} יחזרו אליכם עם נכסים מתאימים.`
         : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
     buyerForm.hidden = true;
     document.getElementById('buySteps').hidden = true;
@@ -2006,7 +1995,7 @@ function initBuyerWizard(agency, sb){
   // ההסכמה נוקבת בשם המשרד ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
   // למשרד שבדף, ולא לרוטציה של הפלטפורמה
   document.getElementById('buyConsentText').textContent =
-    `אשמח שמתווך/ת מ${agency.name} ייצור איתי קשר עם נכסים מתאימים`;
+    `אשמח שיועצי הנדל״ן של ${agency.name} יפנו אליי עם נכסים מתאימים`;
   // תיבת האזור נפתחת עם העיר שבה המשרד פועל — זה האזור שהמחפש/ת בא/ה בשבילו
   document.getElementById('buyArea').value = leadContext.city || '';
 

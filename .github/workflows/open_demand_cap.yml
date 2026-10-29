@@ -1,0 +1,44 @@
+name: תקרת ביקוש פתוח
+
+# 20271029220000 חייבת לעמוד בלי 20271029140000 (#1025, עדיין לא בפרודקשן).
+# הבדיקה מקימה Postgres, מריצה את המיגרציה, ומוודאת שפוסט לא מפיל את
+# scraped_leads_lifecycle כש-notifications_suppress_on חסרה. דגל שנשאר 0
+# לא נראה בדוח, ולכן הריצה הזו היא מה שתופס החלפה שקטה.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271029220000_open_demand_notify_cap.sql"
+      - "scripts/open_demand_cap_test.py"
+      - "scripts/open_demand_cap_setup.sql"
+      - "scripts/open_demand_cap_assert.sql"
+      - ".github/workflows/open_demand_cap.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271029220000_open_demand_notify_cap.sql"
+      - "scripts/open_demand_cap_test.py"
+      - "scripts/open_demand_cap_setup.sql"
+      - "scripts/open_demand_cap_assert.sql"
+      - ".github/workflows/open_demand_cap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת תקרת הביקוש הפתוח
+        run: python3 scripts/open_demand_cap_test.py
