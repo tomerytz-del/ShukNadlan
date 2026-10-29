@@ -1,0 +1,41 @@
+name: מדידת לחיצה עד היעד
+
+# deeplink_timing_test.ts קורא את הסקריפט, את הסימונים ב-crm.js,
+# ואת dl_add. בלי workflow הבדיקה לא רצה על PR.
+
+on:
+  pull_request:
+    paths:
+      - "assets/deeplink-timing.js"
+      - "assets/crm.js"
+      - "crm.html"
+      - "scripts/deeplink_timing_test.ts"
+      - "supabase/migrations/20271029200000_deeplink_timings.sql"
+      - "supabase/functions/notification-push/index.ts"
+      - "supabase/functions/_shared/agent-deep-link.ts"
+      - ".github/workflows/deeplink_timing.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/deeplink-timing.js"
+      - "assets/crm.js"
+      - "crm.html"
+      - "scripts/deeplink_timing_test.ts"
+      - "supabase/migrations/20271029200000_deeplink_timings.sql"
+      - "supabase/functions/notification-push/index.ts"
+      - "supabase/functions/_shared/agent-deep-link.ts"
+      - ".github/workflows/deeplink_timing.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: מדידת לחיצה
+        run: node --experimental-strip-types scripts/deeplink_timing_test.ts

@@ -363,6 +363,10 @@ let pricingConfig = {};
 async function loadPricing(){
   const { data } = await sb.from('pricing_config').select('key, value');
   pricingConfig = Object.fromEntries((data||[]).map(r => [r.key, Number(r.value)]));
+  // הדגל נולד 0. בלי זה deeplink-timing.js קורא ל-dl_add על כל wc,
+  // והשרת זורק את השורה. אין כאן בקשה נוספת.
+  window.DL_ON = pricingConfig.deeplink_timing_enabled == 1;
+  if (window.dlFlush) window.dlFlush();
 }
 function priceOf(key, fallback){
   const v = pricingConfig[key];
