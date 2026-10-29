@@ -87,6 +87,8 @@ check("סלון אירוח", mentionsLivingSizeClaim("סלון אירוח מרו
 check("מקף", mentionsLivingSizeClaim("סלון-מרווח"));
 check("עצום", mentionsLivingSizeClaim("סלון עצום"));
 check("סלון ומטבח", mentionsLivingSizeClaim("סלון ומטבח מרווחים"));
+check("מרפסת גדולה אינה סלון", !mentionsLivingSizeClaim("סלון ומרפסת גדולה"));
+check("חדרים מרווחים אינם סלון", !mentionsLivingSizeClaim("סלון וחדרים מרווחים"));
 check("מרווחת לא נתפסת", !mentionsLivingSizeClaim("דירה מרווחת"));
 check("מרווחים לא נתפס", !mentionsLivingSizeClaim("חדרים מרווחים"));
 check("משרד מרווח לא נתפס", !mentionsLivingSizeClaim("משרד מרווח במרכז"));
@@ -96,6 +98,7 @@ check("משפט שמירה מלא", savedSearchAirLivingLine(["האזור", "ה�
 check("בלי אזור שלא נשמר", !savedSearchAirLivingLine(["החדרים", "התקציב"]).includes("האזור"));
 check("בקשת כיוון", visitorAskedAirOrLiving("מחפשים כיווני אוויר דרום") && !visitorAskedAirOrLiving("דירה מרווחת"));
 check("דרום מערב בלי המילה אוויר", visitorAskedAirOrLiving("דירה עם דרום מערב"));
+check("צפון מערב העיר אינו כיוון", !visitorAskedAirOrLiving("דירה בצפון מערב העיר"));
 check("לשלושה כיוונים", visitorAskedAirOrLiving("לשלושה כיוונים") && !visitorAskedAirOrLiving("דרום העיר"));
 check("שכונה שלא זוהתה אינה אזור",
   !savedSearchLabelList({ neighborhoodIds: [], cities: [], minRooms: 4 }).includes("האזור") &&
@@ -202,7 +205,10 @@ const follow = read("supabase/migrations/20271031160000_photo_air_followups.sql"
 const scoreAt = follow.indexOf("p_property.living_room_sqm < p_client.min_living_room_sqm");
 check("פער שמתעגל ל-0 לא מוריד נקודות",
   scoreAt > 0 && follow.slice(scoreAt, scoreAt + 220).includes("round(p_client.min_living_room_sqm - p_property.living_room_sqm, 1) > 0"));
-check("חיפוש כפול מחזיר את מה שנשמר", follow.includes("'duplicate', true") && follow.includes("'saved'"));
+check("חיפוש כפול בלי מזהה",
+  follow.includes("criteria_hash = public.saved_search_payload_hash") &&
+  follow.includes("saved_labels") &&
+  !follow.slice(follow.indexOf("when unique_violation"), follow.indexOf("when check_violation")).includes("search_id"));
 const agent = read("supabase/functions/whatsapp-webhook/agent.ts");
 check("סלון מחוץ לטווח נשמר", agent.includes("הערך הקודם נשמר") && agent.includes("delete payload[sqmKey]") && agent.includes("minAirCountKept"));
 check("defer לסקריפט", read("crm.html").includes('defer src="assets/air-living.js"'));

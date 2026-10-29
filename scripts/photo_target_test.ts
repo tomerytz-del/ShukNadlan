@@ -143,6 +143,8 @@ check("בלי פרמטר גרסה", probes.includes("https://cdn.example/a%20b.j
 check("פענוח אחוזים", probes.some((p) => p.includes("a b.jpg")));
 const follow = readFileSync(new URL("../supabase/migrations/20271031160000_photo_air_followups.sql", import.meta.url), "utf8");
 check("גלריה jsonb", follow.includes("jsonb_array_elements") && follow.includes("e->>'url'") && follow.includes("m.gallery") && follow.includes("a.gallery"));
+check("אינדקס על הכתובות עצמן", follow.includes("p.images && p_urls") && !follow.includes("image_ref_key"));
+check("קריאה אחת עם כל הגרסאות", relocate.includes("p_urls: urls") && !relocate.includes("for (const probe"));
 check("ניסיונות מחיקה חסומים", relocate.includes("cleanup_attempts") && relocate.includes("cleaned_at") && relocate.includes("removed?.error"));
 check("הטופס לא מוחק קובץ", !crm.includes("action: 'release'") && !crm.includes("releasePropertyImage"));
 check("בריחה בגיליון", crm.includes("esc(from.title") && crm.includes("esc(text)"));

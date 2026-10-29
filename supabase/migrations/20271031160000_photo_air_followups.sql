@@ -4,6 +4,17 @@
 alter table public.property_image_relocations
   add column if not exists cleanup_attempts smallint not null default 0;
 
+-- אסימון שלא ניתן לניחוש. חוזר רק ביצירה, לא בכפילות, ונדרש להדלקת הסכמה.
+alter table public.saved_searches
+  add column if not exists consent_token text;
+
+create unique index if not exists saved_searches_consent_token_key
+  on public.saved_searches (consent_token)
+  where consent_token is not null;
+
+alter table public.whatsapp_public_conversations
+  add column if not exists last_saved_consent_token text;
+
 -- גלריית המשרד היא jsonb של {url, caption}, כמו agency_members.gallery.
 -- בעננים שבהם העמודה כבר קיימת השורה לא משנה כלום.
 alter table public.agencies
@@ -12,145 +23,89 @@ alter table public.agencies
 comment on column public.property_image_relocations.cleanup_attempts is
   'כמה פעמים מחיקת קובץ המקור נכשלה. אחרי 5 לא מנסים שוב. cleaned_at נכתב רק כשהמחיקה הצליחה.';
 
--- כתובת בלי query ובלי אחוזים, כדי ש-?v= וקידוד לא יחביאו הפניה.
-create or replace function public.image_ref_key(p text)
-returns text
-language plpgsql
-immutable
-set search_path = ''
-as $$
-declare
-  s text := split_part(split_part(btrim(coalesce(p, '')), '?', 1), '#', 1);
-  i int := 1;
-  n int;
-  hex text := '';
-  bytes bytea := ''::bytea;
-  ch text;
-begin
-  if s = '' then
-    return null;
-  end if;
-  n := char_length(s);
-  while i <= n loop
-    ch := substring(s from i for 1);
-    if ch = '%' and i + 2 <= n and substring(s from i + 1 for 2) ~ '^[0-9A-Fa-f]{2}$' then
-      hex := hex || substring(s from i + 1 for 2);
-      i := i + 3;
-    else
-      if hex <> '' then
-        bytes := bytes || ('\x' || hex)::bytea;
-        hex := '';
-      end if;
-      bytes := bytes || convert_to(ch, 'UTF8');
-      i := i + 1;
-    end if;
-  end loop;
-  if hex <> '' then
-    bytes := bytes || ('\x' || hex)::bytea;
-  end if;
-  return convert_from(bytes, 'UTF8');
-exception when others then
-  return nullif(s, '');
-end;
-$$;
+-- החתימה הישנה (כתובת אחת) לא נשארת: אחרת PostgREST לא יודע לאיזו לקרוא.
+drop function if exists public.property_image_still_used(text, uuid);
 
-revoke all on function public.image_ref_key(text) from public, anon, authenticated;
-grant execute on function public.image_ref_key(text) to service_role;
-
-create or replace function public.property_image_still_used(p_url text, p_except uuid)
+create or replace function public.property_image_still_used(p_urls text[], p_except uuid)
 returns boolean
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select p_url is not null and btrim(p_url) <> '' and (
+  select case
+    when p_urls is null or cardinality(p_urls) = 0 then true
+    else (
     exists (
       select 1 from public.properties p
        where (
            (p_except is null or p.id is distinct from p_except)
-           and (
-             p.images @> array[p_url]::text[]
-             or exists (
-               select 1 from unnest(p.images) u
-                where public.image_ref_key(u) = public.image_ref_key(p_url)
-             )
-           )
+           and p.images && p_urls
          )
-          or public.image_ref_key(p.marketing_image) = public.image_ref_key(p_url)
-          or public.image_ref_key(p.video_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(p.video_poster_url) = public.image_ref_key(p_url)
+          or p.marketing_image = any(p_urls)
+          or p.video_url = any(p_urls)
+          or p.video_poster_url = any(p_urls)
     )
     or exists (
       select 1 from public.whatsapp_conversations c
-       where c.pending_images @> array[p_url]::text[]
-          or exists (
-            select 1 from unnest(c.pending_images) u
-             where public.image_ref_key(u) = public.image_ref_key(p_url)
-          )
+       where c.pending_images && p_urls
     )
     or exists (
       select 1 from public.property_visualizations v
-       where public.image_ref_key(v.source_image_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(v.result_url) = public.image_ref_key(p_url)
+       where v.source_image_url = any(p_urls) or v.result_url = any(p_urls)
     )
     or exists (
       select 1 from public.property_image_tags t
-       where public.image_ref_key(t.image_url) = public.image_ref_key(p_url)
+       where t.image_url = any(p_urls)
     )
     or exists (
       select 1 from public.property_video_clips c
-       where public.image_ref_key(c.source_image_url) = public.image_ref_key(p_url)
+       where c.source_image_url = any(p_urls)
     )
     or exists (
       select 1 from public.property_video_jobs j
-       where public.image_ref_key(j.cover_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(j.result_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(j.previous_video_url) = public.image_ref_key(p_url)
+       where j.cover_url = any(p_urls) or j.result_url = any(p_urls) or j.previous_video_url = any(p_urls)
     )
     or exists (
       select 1 from public.ad_placements a
-       where public.image_ref_key(a.creative_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(a.cover_url) = public.image_ref_key(p_url)
-          or a.gallery_urls @> array[p_url]::text[]
-          or exists (
-            select 1 from unnest(a.gallery_urls) u
-             where public.image_ref_key(u) = public.image_ref_key(p_url)
-          )
+       where a.creative_url = any(p_urls)
+          or a.cover_url = any(p_urls)
+          or a.gallery_urls && p_urls
     )
     or exists (
       select 1 from public.agency_members m
-       where public.image_ref_key(m.photo_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(m.cover_url) = public.image_ref_key(p_url)
+       where m.photo_url = any(p_urls)
+          or m.cover_url = any(p_urls)
           or exists (
             select 1
               from jsonb_array_elements(
                 case when jsonb_typeof(m.gallery) = 'array' then m.gallery else '[]'::jsonb end
               ) e
-             where public.image_ref_key(e->>'url') = public.image_ref_key(p_url)
+             where e->>'url' = any(p_urls)
           )
     )
     or exists (
       select 1 from public.agencies a
-       where public.image_ref_key(a.logo_url) = public.image_ref_key(p_url)
-          or public.image_ref_key(a.cover_url) = public.image_ref_key(p_url)
+       where a.logo_url = any(p_urls)
+          or a.cover_url = any(p_urls)
           or exists (
             select 1
               from jsonb_array_elements(
                 case when jsonb_typeof(a.gallery) = 'array' then a.gallery else '[]'::jsonb end
               ) e
-             where public.image_ref_key(e->>'url') = public.image_ref_key(p_url)
+             where e->>'url' = any(p_urls)
           )
     )
     or exists (
       select 1 from public.articles a
-       where public.image_ref_key(a.cover_url) = public.image_ref_key(p_url)
+       where a.cover_url = any(p_urls)
     )
-  );
+    )
+  end;
 $$;
 
-revoke all on function public.property_image_still_used(text, uuid) from public, anon, authenticated;
-grant execute on function public.property_image_still_used(text, uuid) to service_role;
+revoke all on function public.property_image_still_used(text[], uuid) from public, anon, authenticated;
+grant execute on function public.property_image_still_used(text[], uuid) to service_role;
 
 
 create or replace function public.client_property_match(
@@ -376,6 +331,49 @@ comment on function public.client_property_match(public.agent_clients, public.pr
   'ציון ההתאמה בין לקוח/ה לנכס יחיד. פער סלון שמתעגל ל-0 לא מוריד נקודות.';
 
 
+create or replace function public.saved_search_payload_hash(p_payload jsonb)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  with c as (
+    select coalesce(array_agg(distinct v order by v), '{}'::text[]) as cities
+      from jsonb_array_elements_text(coalesce(p_payload->'cities', '[]'::jsonb)) v
+  ), n as (
+    select coalesce(array_agg(distinct v order by v), '{}'::uuid[]) as neighborhood_ids
+      from (
+        select jsonb_array_elements_text(coalesce(p_payload->'neighborhood_ids', '[]'::jsonb))::uuid as v
+      ) q
+  ), t as (
+    select coalesce(array_agg(distinct v order by v), '{}'::text[]) as property_types
+      from jsonb_array_elements_text(coalesce(p_payload->'property_types', '[]'::jsonb)) v
+  ), f as (
+    select coalesce(array_agg(distinct v order by v), '{}'::text[]) as required_features
+      from jsonb_array_elements_text(coalesce(p_payload->'required_features', '[]'::jsonb)) v
+  )
+  select md5(
+    coalesce(nullif(p_payload->>'deal_type', ''), 'sale') || '|' ||
+    coalesce(nullif(p_payload->>'category', ''), 'residential') || '|' ||
+    array_to_string((select cities from c), ',') || '|' ||
+    array_to_string((select neighborhood_ids from n), ',') || '|' ||
+    array_to_string((select property_types from t), ',') || '|' ||
+    coalesce(nullif(p_payload->>'min_price', '')::numeric::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'max_price', '')::numeric::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'min_rooms', '')::numeric::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'max_rooms', '')::numeric::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'min_size_sqm', '')::numeric::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'max_size_sqm', '')::numeric::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'min_floor', '')::smallint::text, '') || '|' ||
+    coalesce(nullif(p_payload->>'max_floor', '')::smallint::text, '') || '|' ||
+    array_to_string((select required_features from f), ',') || '|' ||
+    coalesce(p_payload->>'condition', '')
+  );
+$$;
+
+revoke all on function public.saved_search_payload_hash(jsonb) from public, anon, authenticated;
+grant execute on function public.saved_search_payload_hash(jsonb) to service_role;
+
 create or replace function public.create_saved_search(p_payload jsonb)
 returns jsonb
 language plpgsql
@@ -395,6 +393,7 @@ declare
   -- 'unsubscribed', ומנוע ההתראות רק 'active'. כל ערך אחר - 'active' כמו תמיד.
   v_status  text    := case when p_payload->>'status' = 'paused' then 'paused' else 'active' end;
   v_source  text    := nullif(left(btrim(coalesce(p_payload->>'source', '')), 60), '');
+  v_token   text    := gen_random_uuid()::text || gen_random_uuid()::text;
 begin
   -- בלי הסכמה מפורשת אין ליד — יש חיפוש עם התראות. השיוך נמחק כאן ולא
   -- נבדק אצל הקורא בלבד: זו השורה שמפרידה בין השתיים.
@@ -414,7 +413,7 @@ begin
       min_price, max_price, min_rooms, max_rooms,
       min_size_sqm, max_size_sqm, min_floor, max_floor,
       required_features, condition, free_text, consent_agent_contact,
-      agency_id, sold_to_agent_id, lead_status, sold_at, status, source
+      agency_id, sold_to_agent_id, lead_status, sold_at, status, source, consent_token
     ) values (
       p_payload->>'full_name',
       p_payload->>'phone',
@@ -445,63 +444,32 @@ begin
       case when v_agency is not null then 'sold' else 'new' end,
       case when v_agency is not null then now() else null end,
       v_status,
-      v_source
+      v_source,
+      v_token
     )
     returning id, label, phone_e164 into v_id, v_label, v_phone;
   exception
     when unique_violation then
-      -- אותו חיפוש בדיוק כבר שמור. מחזירים את מה ששמור, לא את הבקשה החדשה.
+      -- אין מזהה ואין קריטריונים. רק שמות השדות שנשמרו.
       return coalesce((
         select jsonb_build_object(
             'success', true,
             'duplicate', true,
-            'search_id', s.id,
-            'saved', jsonb_build_object(
-              'cities', to_jsonb(s.cities),
-              'neighborhood_ids', to_jsonb(s.neighborhood_ids),
-              'min_rooms', s.min_rooms,
-              'max_rooms', s.max_rooms,
-              'min_price', s.min_price,
-              'max_price', s.max_price,
-              'property_types', to_jsonb(s.property_types),
-              'min_size_sqm', s.min_size_sqm,
-              'required_features', to_jsonb(s.required_features)
-            )
+            'saved_labels', array_remove(array[
+              case when cardinality(s.cities) > 0 or cardinality(s.neighborhood_ids) > 0 then 'האזור' end,
+              case when s.min_rooms is not null or s.max_rooms is not null then 'החדרים' end,
+              case when s.min_price is not null or s.max_price is not null then 'התקציב' end,
+              case when cardinality(s.property_types) > 0 then 'סוג הנכס' end,
+              case when s.min_size_sqm is not null then 'השטח' end,
+              case when cardinality(s.required_features) > 0 then 'המאפיינים' end
+            ]::text[], null)
           )
           from public.saved_searches s
          where s.phone_e164 = public.normalize_msisdn(nullif(btrim(coalesce(p_payload->>'phone', '')), ''))
            and s.status <> 'unsubscribed'
-           and s.deal_type = coalesce(nullif(p_payload->>'deal_type', ''), 'sale')
-           and s.category = coalesce(nullif(p_payload->>'category', ''), 'residential')
-           and s.cities = coalesce((
-                 select array_agg(distinct v order by v)
-                   from jsonb_array_elements_text(coalesce(p_payload->'cities', '[]'::jsonb)) v
-               ), '{}')
-           and s.neighborhood_ids = coalesce((
-                 select array_agg(distinct v order by v)
-                   from (
-                     select jsonb_array_elements_text(coalesce(p_payload->'neighborhood_ids', '[]'::jsonb))::uuid as v
-                   ) q
-               ), '{}'::uuid[])
-           and s.property_types = coalesce((
-                 select array_agg(distinct v order by v)
-                   from jsonb_array_elements_text(coalesce(p_payload->'property_types', '[]'::jsonb)) v
-               ), '{}')
-           and s.min_price is not distinct from (p_payload->>'min_price')::numeric
-           and s.max_price is not distinct from (p_payload->>'max_price')::numeric
-           and s.min_rooms is not distinct from (p_payload->>'min_rooms')::numeric
-           and s.max_rooms is not distinct from (p_payload->>'max_rooms')::numeric
-           and s.min_size_sqm is not distinct from (p_payload->>'min_size_sqm')::numeric
-           and s.max_size_sqm is not distinct from (p_payload->>'max_size_sqm')::numeric
-           and s.min_floor is not distinct from (p_payload->>'min_floor')::smallint
-           and s.max_floor is not distinct from (p_payload->>'max_floor')::smallint
-           and s.required_features = coalesce((
-                 select array_agg(distinct v order by v)
-                   from jsonb_array_elements_text(coalesce(p_payload->'required_features', '[]'::jsonb)) v
-               ), '{}')
-           and s.condition is not distinct from p_payload->>'condition'
+           and s.criteria_hash = public.saved_search_payload_hash(p_payload)
          limit 1
-      ), jsonb_build_object('success', true, 'duplicate', true));
+      ), jsonb_build_object('success', true, 'duplicate', true, 'saved_labels', '{}'::text[]));
     when check_violation then
       return jsonb_build_object('error', 'invalid_criteria');
   end;
@@ -528,7 +496,8 @@ begin
     -- הקורא צריך לדעת אם השיוך אכן נעשה, כדי לרשום ניתוב נכון ביומן
     -- ולומר לגולש/ת למי הפרטים הגיעו
     'agency_id', v_agency,
-    'assigned_agent_id', v_agent
+    'assigned_agent_id', v_agent,
+    'consent_token', v_token
   );
 end;
 $$;

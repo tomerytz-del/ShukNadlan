@@ -870,6 +870,8 @@ export interface PublicConversationState {
   last_property_id: string | null;
   /** החיפוש האחרון שנשמר בשיחה - ל"כן, אשמח לעזרה" בתור הבא. */
   last_saved_search_id: string | null;
+  /** אסימון שנמסר רק ביצירה. בלי הוא אין הדלקת הסכמה. */
+  last_saved_consent_token: string | null;
   /** כמה לידים נפתחו מהמספר הזה בחלון הנוכחי, ומתי החלון התחיל */
   leads_created: number;
   leads_window_start: string | null;
@@ -1874,7 +1876,8 @@ async function offerAgentHelp(
  */
 async function requestAgentHelp(ctx: PublicContext): Promise<unknown> {
   const searchId = ctx.conv.last_saved_search_id;
-  if (!searchId) {
+  const consentToken = ctx.conv.last_saved_consent_token;
+  if (!searchId || !consentToken) {
     return {
       error: "no_saved_search",
       note: "אין חיפוש שמור בשיחה הזו. אם רוצים עזרה ממתווך/ת - לשמור חיפוש עם " +
@@ -1884,10 +1887,12 @@ async function requestAgentHelp(ctx: PublicContext): Promise<unknown> {
   const { ok, status, body } = await callIntake("saved-search-intake", {
     action: "grant_consent",
     search_id: searchId,
+    consent_token: consentToken,
   });
   if (!ok) return { done: false, error: body.error || `http_${status}` };
 
   ctx.conv.last_saved_search_id = null;
+  ctx.conv.last_saved_consent_token = null;
   ctx.agentHelp = true;
   return {
     done: true,
@@ -2045,20 +2050,6 @@ function savedSearchLabels(
   });
 }
 
-function labelsFromSavedRow(saved: Record<string, unknown>): string[] {
-  return savedSearchLabelList({
-    cities: saved.cities,
-    neighborhoodIds: saved.neighborhood_ids,
-    minRooms: saved.min_rooms,
-    maxRooms: saved.max_rooms,
-    minPrice: saved.min_price,
-    maxPrice: saved.max_price,
-    propertyTypes: saved.property_types,
-    minSize: saved.min_size_sqm,
-    features: saved.required_features,
-  });
-}
-
 function visitorTranscript(ctx: PublicContext): string {
   const bits: string[] = [];
   if (ctx.userText) bits.push(ctx.userText);
@@ -2145,11 +2136,13 @@ async function saveSearchAlert(
   // כפילות אינה מחזירה מזהה, ולכן גם אינה מקבלת את השאלה על מתווך/ת: אין
   // שורה חדשה לעדכן, וייתכן שההסכמה כבר ניתנה עליה בשיחה קודמת.
   const searchId = typeof body.search_id === "string" ? body.search_id : null;
-  ctx.conv.last_saved_search_id = searchId;
+  if (body.duplicate !== true) {
+    ctx.conv.last_saved_search_id = searchId;
+    ctx.conv.last_saved_consent_token = typeof body.consent_token === "string" ? body.consent_token : null;
+  }
   const askedAir = visitorAskedAirOrLiving(visitorTranscript(ctx));
-  const savedRow = body.saved && typeof body.saved === "object" ? body.saved as Record<string, unknown> : null;
-  const savedLabels = body.duplicate === true && savedRow
-    ? labelsFromSavedRow(savedRow)
+  const savedLabels = body.duplicate === true
+    ? (Array.isArray(body.saved_labels) ? body.saved_labels.filter((x): x is string => typeof x === "string") : [])
     : savedSearchLabels(args, cities, neighborhoodId);
   return {
     saved: true,

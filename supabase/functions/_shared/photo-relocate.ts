@@ -187,21 +187,14 @@ export async function imageUrlStillUsed(
   url: string,
   exceptId?: string | null,
 ): Promise<boolean> {
+  const urls = imageUrlProbes(url);
+  if (!urls.length) return true;
   const { data, error } = await supabase.rpc("property_image_still_used", {
-    p_url: url,
+    p_urls: urls,
     p_except: exceptId || null,
   });
   if (error) return true;
   return data === true;
-}
-
-async function urlStillUsed(supabase: Client, url: string): Promise<boolean> {
-  const probes = imageUrlProbes(url);
-  if (!probes.length) return true;
-  for (const probe of probes) {
-    if (await imageUrlStillUsed(supabase, probe)) return true;
-  }
-  return false;
 }
 
 async function pathsSafeToDelete(
@@ -215,7 +208,7 @@ async function pathsSafeToDelete(
   for (const item of items) {
     if (!deletableStoragePath(item.path, ownerAgentId)) continue;
     const stored = item.url || (baseUrl ? publicImageUrl(baseUrl, item.path) : "");
-    if (!stored || await urlStillUsed(supabase, stored)) continue;
+    if (!stored || await imageUrlStillUsed(supabase, stored)) continue;
     drop.push(item.path);
   }
   return drop;
