@@ -3234,7 +3234,9 @@
     var ids = likes.slice().reverse(), shown_ = ids.slice(0, 10);
     var msg = 'היי גבריאלה, שמרתי את הנכסים האלה ואשמח לתאם ביקורים:\n' +
       shown_.map(function (id) { return location.origin + '/property?id=' + encodeURIComponent(id); }).join('\n') +
-      (ids.length > 10 ? '\nועוד ' + (ids.length - 10) + ' נכסים ששמרתי' : '');
+      // גבריאלה 10:07: "ועוד נכס אחד ששמרתי", ומשניים "ועוד X נכסים ששמרתי". בהודעה רק קישורים - בלי שורת
+      // "ללא עמלת תיווך" לנכס ביריד, כי פנייה בוואטסאפ עוד לא נרשמת כפנייה ליריד
+      (ids.length === 11 ? '\nועוד נכס אחד ששמרתי' : ids.length > 11 ? '\nועוד ' + (ids.length - 10) + ' נכסים ששמרתי' : '');
     return window.GabWidget.link(msg);
   }
   $('swLvList').addEventListener('click', function (e) {
