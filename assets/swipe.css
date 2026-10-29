@@ -1078,3 +1078,9 @@ body[data-view=list] .sw-layout{display:inline-flex}
   .sw-ftop .sw-sortchip{min-height:44px;white-space:nowrap}
   .sw-ftop .sw-sortchip:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
 }
+/* ההדרכה על כל המסך בטלפון: הכיתוב והכפתורים מעל שורת העיגולים, וב"למעלה" - מתחת לכותרת */
+@media (max-width:759px){
+  body[data-view=deck] .sw-tour{border-radius:0}
+  body[data-view=deck] .sw-tour-ctl{bottom:calc(104px + var(--sw-safe-b))}
+  body[data-view=deck] .sw-tour.is-up .sw-tour-ctl{top:calc(66px + var(--sw-safe-t));bottom:auto}
+}

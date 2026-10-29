@@ -1630,7 +1630,8 @@
   /* פעם במכשיר: הידית זזה 50% → 70% וחוזרת, כשהשקופית גלויה ואין גיליון מעליה */
   function baIntro() {
     // ‏P0-8: פעם במכשיר - איך מדפדפים כשכל התמונה היא וילון
-    if (!store('sk_ba_hint')) { store('sk_ba_hint', '1'); toast('גררו את הווילון כדי להשוות · לדפדוף, החליקו מהטקסט למטה או השתמשו ב-❤/✕', 6000); }
+    // ‏Variant C: בטלפון היד שעל הידית מסבירה, בלי הודעה כפולה
+    if (!store('sk_ba_hint') && !phoneC()) { store('sk_ba_hint', '1'); toast('גררו את הווילון כדי להשוות · לדפדוף, החליקו מהטקסט למטה או השתמשו ב-❤/✕', 6000); }
     if (store('sk_viz_ba_intro') || reduceMotion) return;
     setTimeout(function () {
       var c = cur(), top = $('swTopCard'), el = top && top.querySelector('.sw-card.is-ba .sw-ba');
@@ -2811,6 +2812,12 @@
     var c = cur(), multi = !!(c && c.p && slides(c.p).length > 1);
     var rows = [['→', 'ימינה', 'אהבתי ושמירה לרשימה'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים, ✨ הדמיה ויצירת קשר']];
     if (multi) rows.push(['👆', 'הקשה בצדי התמונה', 'מעבר בין התמונות']);
+    /* ‏Variant C בטלפון (הנוסח ממתין לגבריאלה). כיוון ההקשה כמו היום - שמאל לתמונה הבאה (תומר 29.10 01:49) */
+    if (phoneC()) {
+      rows = [['→', 'ימינה', 'שמירה ב״המועדפים״'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים ויצירת קשר']];
+      if (multi) rows.push(['👆', 'הקשה בצדי התמונה', 'שמאל: התמונה הבאה, ימין: הקודמת']);
+      rows.push(['↶', 'ביטול', 'חזרה לנכס הקודם'], ['‹ ›', 'ידית ההשוואה', 'בנכסים עם ✨ הדמיה, גוררים כדי להשוות']);
+    }
     return '<ul class="sw-bs-help">' + rows.map(function (r) {
       return '<li><span class="sw-bs-ic" aria-hidden="true">' + r[0] + '</span><span><b>' + esc(r[1]) + '</b> · ' + esc(r[2]) + '</span></li>';
     }).join('') + '</ul>' + (isDesktop() ? '<p class="sw-bs-keys">במקלדת: → אהבתי · ← דילוג · ↑ פרטים · רווח תמונה</p>' : '');
@@ -3544,8 +3551,9 @@
      (יד עולה ופאנל "פרטי הנכס" שמציץ). ‏prefers-reduced-motion - בלי תנועה. */
   var HAND = '<svg class="sw-hand" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/><path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>';
   var UP = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>';
-  function tourSteps() {
+  function tourSteps(base) {
     var d = isDesktop(), c = cur(), multi = !!(c && c.p && slides(c.p).length > 1);
+    if (!base && phoneC()) return tourStepsPhone(multi);
     var steps = [{
       kind: 'swipe',
       text: 'החליקו ימינה אם אהבתם, שמאלה לדילוג',
@@ -3608,6 +3616,19 @@
   }
   var tourPending = false;
   /* השכבה יושבת מחוץ ל-#swDeck (שנבנה מחדש בכל החלקה) ומונחת בדיוק מעל הכרטיס */
+  /* ‏Variant C בטלפון: אותם ציורים, נוסח חדש (ממתין לגבריאלה, חוץ מצעד הידית שאושר). צעד הווילון רק כשבחפיסה יש נכס עם
+     לפני/אחרי - בלי הבטחה שלא מופיעה. כיוון ההקשה כמו היום: שמאל לתמונה הבאה (תומר 29.10 01:49) */
+  function tourStepsPhone(multi) {
+    var byKind = {};
+    tourSteps(true).forEach(function (x) { byKind[x.kind] = x; });
+    var steps = [{ kind: 'swipe', text: 'ימינה שומרים, שמאלה מדלגים', sub: 'אפשר גם בכפתורים ♥ ו-✕ שלמטה. טעיתם? ↶ מחזיר את הנכס הקודם', art: byKind.swipe.art }];
+    if (multi) steps.push({ kind: 'tap', text: 'הקישו בצד שמאל לתמונה הבאה, בצד ימין לקודמת', sub: 'הפסים למעלה מראים כמה תמונות יש בנכס', art: byKind.tap.art });
+    if (deck.some(function (x) { return x.p && vizPair.get(x.p.id); }))
+      // הנוסח שגבריאלה אישרה ב-29.10 01:42 ("ידית", לא "ווילון")
+      steps.push({ kind: 'ba', text: 'בנכסים עם ✨ הדמיה: גררו את הידית כדי להשוות', sub: 'לפני: הצילום האמיתי. אחרי: הדמיית AI.', art: byKind.ba.art });
+    steps.push({ kind: 'up', text: 'החליקו למעלה או הקישו על ״לפרטים ויצירת קשר״', sub: 'שם תמצאו את כל התמונות, המפה, התיאור, יצירת קשר עם יועץ/ת הנדל״ן והדמיה בסגנון אחר', art: byKind.up.art });
+    return steps;
+  }
   function placeTour() {
     var r = $('swDeck').getBoundingClientRect(), t = $('swTour');
     t.style.top = r.top + 'px'; t.style.left = r.left + 'px';
@@ -3654,7 +3675,8 @@
     if (card) card.classList.remove('sw-co-wig', 'sw-co-upc', 'sw-touring', 'sw-touring-up', 'sw-co-still');
     closeDialog($('swTour'), card);
     // סוף ההדרכה (לא דילוג): גיליון "מוכנים? בואו נתחיל"
-    if (!skipped) bsOpen('tour_end');
+    // ‏Variant C: בטלפון שורת סיום אחרת (ממתינה לגבריאלה)
+    if (!skipped) bsOpen('tour_end', phoneC() ? { sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. הנכסים ששמרתם מחכים ב״המועדפים״.' } : null);
   }
   $('swTourOk').addEventListener('click', function () { if (tourStep < tourList.length - 1) { tourStep++; showTip(); } else endTour(false); });
   $('swTourSkip').addEventListener('click', function () { endTour(true); });
