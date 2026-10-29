@@ -3594,7 +3594,7 @@
     if (!base && phoneC()) return tourStepsPhone(multi);
     var steps = [{
       kind: 'swipe',
-      text: 'החליקו ימינה אם אהבתם, שמאלה לדילוג',
+      text: 'החליקו ימינה לשמירה, שמאלה לדילוג',
       sub: d ? 'או במקלדת: → שמירה · ← דילוג · וגם בכפתורים שלמטה' : 'אפשר גם בכפתורים ♥ ו-✕ שבתחתית המסך',
       // החותמות הן של הכרטיס עצמו (‏.sw-stamp) - אותה מילה, צבע ומקום כמו בגרירה
       art: '<span class="sw-co-hline"></span><span class="sw-co-arrows"><span>‹</span><span>›</span></span>' +
