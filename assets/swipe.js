@@ -3528,6 +3528,23 @@
   });
   // ‏Variant C: בטלפון בהחלקה שורת התצוגות מוסתרת, והמפה בכותרת
   $('swMapBtn').addEventListener('click', function () { setView('map'); });
+  /* ‏Variant C: בכותרת כפתור הנגישות נראה כפתור מלא, אבל a11y-menu.js מתחיל ב-/swipe בטלפון "מקופל"
+     (‏a11y-min), ושם הלחיצה הראשונה רק מחזירה אותו. כאן הלחיצה הזו פותחת גם את התפריט - בלי לגעת בקובץ */
+  function bindA11yHeader() {
+    var fab = document.getElementById('a11yFab');
+    if (!fab) return;
+    var wasMin = false;
+    function mark() { wasMin = phoneC() && view === 'deck' && document.documentElement.classList.contains('a11y-min'); }
+    fab.addEventListener('pointerdown', mark);
+    fab.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') mark(); });
+    fab.addEventListener('click', function () {
+      if (!wasMin) return;
+      wasMin = false;
+      setTimeout(function () { fab.click(); }, 0);
+    });
+  }
+  if (document.getElementById('a11yFab')) bindA11yHeader();
+  else document.addEventListener('DOMContentLoaded', bindA11yHeader);
 
   var miniMapObj = null;
   function miniMap(p) {
