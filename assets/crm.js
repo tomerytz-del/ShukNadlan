@@ -1069,7 +1069,10 @@ googleLoginBtn.addEventListener('click', async ()=>{
   // ברשימת ה-Redirect URLs של Supabase. כתובת שלא ברשימה מוחלפת ב-Site URL,
   // ואז החזרה מ-Google נוחתת בדף הבית במקום כאן — ושם היא נצרכת בשקט, בלי
   // מסך ובלי הודעה. הרישום כאן הוא מה שמאפשר לדף הבית להחזיר אותה לכאן;
-  // התיקון עצמו הוא ברשימה, ראו docs/google-login.md ו-assets/auth-return.js
+  // התיקון עצמו הוא ברשימה, ראו docs/google-login.md ו-assets/auth-return.js.
+  // ‏?goto= (וגם tab, lead, property ושאר יעד הקישור) לא נכנס ל-redirectTo —
+  // הוא נשמר ב-sessionStorage וחוזר לכתובת אחרי Google. כניסה בסיסמה לא
+  // עוזבת את הדף, אז אצלה ה-query נשאר כמו שהוא.
   if (window.AuthReturn) AuthReturn.remember();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
