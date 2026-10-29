@@ -1364,11 +1364,11 @@
     if (c.slot === 'nc_promo') {
       var live = c.variant === 'live';
       return '<article class="sw-card sw-promo sw-nc" data-slot="nc_promo" aria-label="יריד הבתים הפתוחים: דירות ללא עמלת תיווך">' + dbg +
-        '<div class="sw-promo-in"><span class="sw-promo-gab"><img src="/assets/gabriela-avatar.webp" alt="" width="40" height="40" onerror="this.parentNode.hidden=true"></span>' +
+        '<div class="sw-promo-in"><span class="sw-promo-gab"><img src="/assets/gabriela-cutout-400.webp" alt="" width="84" height="84" onerror="this.parentNode.hidden=true"></span>' +
         (window.OpenHouse ? OpenHouse.zeroArt('sw-nc-art') : '') +
         '<p class="sw-promo-kick">' + esc(FAIR_NAME) + '</p>' +
         '<h2 class="sw-promo-title">דירות ללא עמלת תיווך, לזמן מוגבל</h2>' +
-        '<p class="sw-promo-sub">' + (live ? 'יועצי נדל״ן מהאזור מכניסים דירות ליריד, ואתם קונים בלי לשלם עמלת תיווך.' : 'דירות נכנסות ליריד לזמן מוגבל. השאירו פרטים ונעדכן אתכם ראשונים.') + '</p>' +
+        '<p class="sw-promo-sub">' + (live ? '<span class="sw-l">יועצי נדל״ן מהאזור מכניסים דירות ליריד,</span> <span class="sw-l">ואתם קונים בלי לשלם עמלת תיווך.</span>' : 'דירות נכנסות ליריד לזמן מוגבל. השאירו פרטים ונעדכן אתכם ראשונים.') + '</p>' +
         '<button type="button" class="sw-gold sw-wide" data-promo-go>' + (live ? 'לדירות ביריד' : 'עדכנו אותי') + '</button>' +
         (live ? '<button type="button" class="sw-promo-link" data-nc-signup>עדכנו אותי כשנכנסת דירה</button>'
           : '<a class="sw-promo-link" href="/open-house" data-nc-page>מה זה היריד? ←</a>') + '</div></article>';
