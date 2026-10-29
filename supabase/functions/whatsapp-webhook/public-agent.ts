@@ -20,7 +20,7 @@ import {
   SearchCore,
   visitorHash,
 } from "./property-search.ts";
-import { airLivingGapNote, airLivingRowKept } from "../_shared/air-living.ts";
+import { airLivingGapNote, airLivingRowKept, savedSearchAirLivingLine, visitorAskedAirOrLiving } from "../_shared/air-living.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -749,12 +749,6 @@ const TOOLS: Anthropic.Tool[] = [
         min_rooms: { type: "number" },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
-        air_directions: {
-          type: "array",
-          items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
-          description: "הנכס צריך לכלול את כל הכיוונים. אל תאמרי לפונה 'סלון גדול'.",
-        },
-        min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי במ\"ר." },
         required_features: { type: "array", items: { type: "string" } },
         free_text: {
           type: "string",
@@ -971,7 +965,7 @@ async function searchProperties(
   }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
-    { ...args, keep_missing_air_living: true },
+    args,
   );
   const query = built.query;
   const { city, minPrice, maxPrice, minRooms, maxRooms, minSize } = built.parsed;
@@ -993,7 +987,7 @@ async function searchProperties(
     const bare = withoutAirLivingColumns(PROPERTY_FIELDS);
     const again = applyPropertyFilters(
       ctx.supabase.from("properties").select(bare).eq("status", "active"),
-      { ...args, keep_missing_air_living: true, air_directions: undefined, min_living_room_sqm: undefined },
+      { ...args, air_directions: undefined, min_living_room_sqm: undefined },
     );
     ({ data, error } = await again.query
       .order("is_promoted", { ascending: false })
@@ -2032,6 +2026,38 @@ function strListArg(value: unknown, max: number): string[] {
   return value.map((v) => text(v)).filter((v): v is string => !!v).slice(0, max);
 }
 
+function filledNumber(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return false;
+  return Number.isFinite(Number(value));
+}
+
+/** רק מה שנכתב להתראה. בלי כיוון אוויר ובלי גודל סלון, הם לא נשמרים. */
+function savedSearchLabels(args: Record<string, unknown>, cities: string[]): string[] {
+  const labels: string[] = [];
+  if (cities.length || text(args.area)) labels.push("האזור");
+  if (filledNumber(args.min_rooms) || filledNumber(args.max_rooms)) labels.push("החדרים");
+  if (filledNumber(args.min_price) || filledNumber(args.max_price)) labels.push("התקציב");
+  if (strListArg(args.property_types, 6).length) labels.push("סוג הנכס");
+  if (filledNumber(args.min_size_sqm)) labels.push("השטח");
+  if (strListArg(args.required_features, 8).length) labels.push("המאפיינים");
+  return labels;
+}
+
+function visitorTranscript(ctx: PublicContext): string {
+  const bits: string[] = [];
+  if (ctx.userText) bits.push(ctx.userText);
+  const hist = ctx.conv.history || [];
+  for (let i = hist.length - 1; i >= 0 && bits.length < 8; i--) {
+    const m = hist[i];
+    if (m.role !== "user") continue;
+    const t = typeof m.content === "string"
+      ? m.content
+      : m.content.map((b) => (b.type === "text" ? b.text : "")).join(" ");
+    if (t.trim()) bits.push(t);
+  }
+  return bits.join("\n");
+}
+
 async function saveSearchAlert(
   ctx: PublicContext,
   args: Record<string, unknown>,
@@ -2104,11 +2130,14 @@ async function saveSearchAlert(
   // שורה חדשה לעדכן, וייתכן שההסכמה כבר ניתנה עליה בשיחה קודמת.
   const searchId = typeof body.search_id === "string" ? body.search_id : null;
   ctx.conv.last_saved_search_id = searchId;
+  const askedAir = visitorAskedAirOrLiving(visitorTranscript(ctx));
+  const savedLabels = savedSearchLabels(args, cities);
   return {
     saved: true,
     duplicate: body.duplicate === true,
     consent_given: consent,
     can_offer_agent_help: !consent && !!searchId,
+    say_exactly: askedAir ? savedSearchAirLivingLine(savedLabels) : undefined,
     manage_note: "אפשר לבטל את העדכונים בכל רגע דרך הקישור שמופיע בכל התראה.",
     // מה באמת קרה, כדי שהתשובה לא תבטיח יותר: בלי הסכמה אין סוכן/ת בתמונה
     what_happens: consent
@@ -2414,6 +2443,9 @@ const SYSTEM_STATIC: string = (() => {
     "- **air_living_note:** אם השדה חזר, לומר את המשפט כמו שהוא, בלי לשנות מילה. " +
       "לא לומר שאין נכסים רק כי כיוון האוויר או גודל הסלון לא מולאים. הנכסים שחזרו " +
       "מתאימים לשאר הבקשה.",
+    "- **say_exactly:** אם השדה חזר משמירת חיפוש, לומר את המשפט כמו שהוא. " +
+      "כיווני אוויר וגודל סלון לא נשמרים בהתראה. לא לומר שהם נשמרו, ולא להוסיף " +
+      "לרשימה העדפה שלא נשמרה.",
     "- **‏office_alternative = לשאול על משרדים לפני הכול.** חנות או שטח מסחרי " +
       "שלא נמצאו, ובמלאי יש משרדים שעונים על אותן דרישות: לשאול אם להציג אותם, " +
       "בלי offer_save_search באותו תור. לא להציע משרדים כשהשדה לא חזר.",

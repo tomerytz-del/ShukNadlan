@@ -247,7 +247,8 @@ as $$
            then 'גודל הסלון לא צוין' end,
       case when p_client.min_living_room_sqm is not null and p_property.living_room_sqm is not null
             and p_property.living_room_sqm < p_client.min_living_room_sqm
-           then 'הסלון קטן מהמבוקש ב-' || rtrim(trim(to_char(p_client.min_living_room_sqm - p_property.living_room_sqm, 'FM999.9')), '.') || ' מ״ר' end,
+            and round(p_client.min_living_room_sqm - p_property.living_room_sqm, 1) > 0
+           then 'הסלון קטן מהמבוקש ב-' || rtrim(trim(to_char(p_client.min_living_room_sqm - p_property.living_room_sqm, 'FM990.9')), '.') || ' מ״ר' end,
       case when p_client.neighborhood_id is not null
             and p_property.neighborhood_id is null
             and exists (

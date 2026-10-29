@@ -196,9 +196,43 @@ export function writeAirDirections(
   payload[key] = null;
 }
 
-/** רק הטענה "סלון גדול" או "סלון מרווח". "משרד מרווח" ו"מרווחת" לא נכללים. */
+const LIVING_SIZE_ADJ =
+  "ה?(?:גדול(?:ה|ים|ות)?|מרווח(?:ה|ת|ים|ות)?|ענק(?:ית|יים|יות|י)?|רחב(?:ה|ות|י)?\\s+ידיים)";
+
+/**
+ * טענה על גודל הסלון: סלון/סלונים, עם ו/ב/ל/מ/ש/כ/ה לפניהם,
+ * תואר מיודע, תואר אחרי תואר אחר, ורחב ידיים. "משרד מרווח" ו"דירה מרווחת" לא.
+ */
 export function mentionsLivingSizeClaim(s: string): boolean {
-  return /(?:^|[^\u0590-\u05FF])ה?סלון (?:גדול|מרווח)(?=$|[^\u0590-\u05FF])/u.test(String(s || ""));
+  const adj = LIVING_SIZE_ADJ;
+  const re = new RegExp(
+    `(?:^|[^\\u0590-\\u05FF])[ובלמשכה]{0,4}סלו(?:ן|נים)\\s+(?:${adj}|[\\u0590-\\u05FF]+\\s+ו\\s*${adj})(?=$|[^\\u0590-\\u05FF])`,
+    "u",
+  );
+  return re.test(String(s || ""));
+}
+
+const AIR_LIVING_UNSAVED =
+  "כיווני אוויר וגודל סלון עדיין לא נשמרים בהתראות, אז כדאי לבדוק אותם בעמוד של כל נכס.";
+
+/** המשפט אחרי שמירת חיפוש, רק על מה שנשמר באמת. */
+export function savedSearchAirLivingLine(labels: string[]): string {
+  const items = labels.map((s) => s.trim()).filter(Boolean);
+  let head = "שמרתי את החיפוש";
+  if (items.length === 1) head = `שמרתי את החיפוש לפי ${items[0]}`;
+  else if (items.length === 2) head = `שמרתי את החיפוש לפי ${items[0]} ו${items[1]}`;
+  else if (items.length > 2) {
+    head = `שמרתי את החיפוש לפי ${items.slice(0, -1).join(", ")} ו${items[items.length - 1]}`;
+  }
+  return `${head}. ${AIR_LIVING_UNSAVED}`;
+}
+
+/** הפונה ביקש/ה כיוון אוויר או גודל סלון, לא "דירה מרווחת". */
+export function visitorAskedAirOrLiving(text: string): boolean {
+  const s = String(text || "");
+  if (/כיוו(?:ן|ני|נות)(?:\s+ה)?\s*אוויר/.test(s)) return true;
+  if (/גודל\s+ה?סלון|שטח\s+ה?סלון|סלון\s+מינימ/.test(s)) return true;
+  return mentionsLivingSizeClaim(s);
 }
 
 /** סינון חיפוש: נכס בלי נתון עובר. נכס עם נתון שלא מתאים לא. */

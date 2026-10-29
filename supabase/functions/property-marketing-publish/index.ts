@@ -4,6 +4,7 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import {
   generateMarketingCopy,
+  LivingSizeClaimError,
   noLongDash,
   placeLine,
   priceLine,
@@ -954,6 +955,18 @@ Deno.serve(async (req: Request) => {
       }
       results.push(await handle(sb, row, { force, dryRun }, written));
     } catch (e) {
+      if (e instanceof LivingSizeClaimError) {
+        console.error("living_size_claim", row.property_id);
+        if (!dryRun) {
+          const { error: closeErr } = await sb.from("property_publications").update({
+            status: "failed",
+            last_error: "living_size_claim",
+          }).eq("id", row.publication_id);
+          if (closeErr) console.error("living_size_claim_mark", row.property_id, closeErr.message);
+        }
+        results.push({ property_id: row.property_id, channel: row.channel, skipped: "living_size_claim" });
+        continue;
+      }
       const message = e instanceof Error ? e.message : String(e);
       console.error("פרסום נכס נכשל", row.channel, row.property_id, message);
       if (!dryRun) {

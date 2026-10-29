@@ -18,6 +18,8 @@ import {
   metaAirLivingClause,
   minAirCountKept,
   parseAirDirections,
+  savedSearchAirLivingLine,
+  visitorAskedAirOrLiving,
   writeAirDirections,
 } from "../supabase/functions/_shared/air-living.ts";
 
@@ -68,10 +70,24 @@ check("כיוון בשם נשמר", Array.isArray(namedDir.air_directions) && na
 const kept = "הסלון מרווח מאוד";
 check("סלון מרווח מזוהה ולא נחתך", mentionsLivingSizeClaim(kept) && kept === "הסלון מרווח מאוד");
 check("סלון גדול", mentionsLivingSizeClaim("יש סלון גדול בבית"));
+for (const prefix of ["ו", "ב", "ל", "מ", "ש", "כ", "ה"]) {
+  check("קידומת " + prefix, mentionsLivingSizeClaim(prefix + "סלון מרווח"));
+}
+check("הסלון המרווח", mentionsLivingSizeClaim("הסלון המרווח נעים"));
+check("סלון ענק", mentionsLivingSizeClaim("סלון ענק במרכז"));
+check("סלון רחב ידיים", mentionsLivingSizeClaim("סלון רחב ידיים"));
+check("סלון מואר ומרווח", mentionsLivingSizeClaim("סלון מואר ומרווח"));
+check("סלון גדול ומואר", mentionsLivingSizeClaim("סלון גדול ומואר"));
+check("סלונים מרווחים", mentionsLivingSizeClaim("סלונים מרווחים"));
+check("רווח כפול", mentionsLivingSizeClaim("סלון  מרווח"));
 check("מרווחת לא נתפסת", !mentionsLivingSizeClaim("דירה מרווחת"));
 check("מרווחים לא נתפס", !mentionsLivingSizeClaim("חדרים מרווחים"));
 check("משרד מרווח לא נתפס", !mentionsLivingSizeClaim("משרד מרווח במרכז"));
 check("לא מרווח בתוך מילה", !mentionsLivingSizeClaim("מרוח"));
+const exactSaved = "שמרתי את החיפוש לפי האזור, החדרים והתקציב. כיווני אוויר וגודל סלון עדיין לא נשמרים בהתראות, אז כדאי לבדוק אותם בעמוד של כל נכס.";
+check("משפט שמירה מלא", savedSearchAirLivingLine(["האזור", "החדרים", "התקציב"]) === exactSaved);
+check("בלי אזור שלא נשמר", !savedSearchAirLivingLine(["החדרים", "התקציב"]).includes("האזור"));
+check("בקשת כיוון", visitorAskedAirOrLiving("מחפשים כיווני אוויר דרום") && !visitorAskedAirOrLiving("דירה מרווחת"));
 
 check("כיוון חסר עובר במינימום", minAirCountKept(null, 3) && minAirCountKept([], 3));
 check("כיוון ידוע שלא מספיק יורד", !minAirCountKept(["דרום"], 3));
@@ -140,12 +156,23 @@ check("בלי חיתוך מרווח",
   copy.includes("mentionsLivingSizeClaim") &&
   !copy.includes("mentionsMaruah") &&
   !copy.includes("replace(/מרווח") &&
+  !copy.includes("בכל נטייה") &&
+  copy.includes("LivingSizeClaimError") &&
   copy.includes("category === \"commercial\"") &&
   copy.includes("customerAirLine"));
+const descJob = read("supabase/functions/property-description/index.ts");
+check("טענת סלון סוגרת את התור",
+  descJob.includes("LivingSizeClaimError") && descJob.includes('status: "failed"') && descJob.includes("living_size_claim"));
 const pub = read("supabase/functions/whatsapp-webhook/public-agent.ts");
 const getAt = pub.indexOf("async function getProperty");
 const cardsAt = pub.indexOf("async function sendPropertyCards");
-check("הבוט הציבורי לא מפיל עמודה חסרה", pub.includes("keep_missing_air_living") && pub.includes("airLivingGapNote"));
+check("הבוט הציבורי לא מפיל עמודה חסרה",
+  !pub.includes("keep_missing_air_living") && pub.includes("airLivingGapNote") && pub.includes("withoutAirLivingColumns"));
+const saveAt = pub.indexOf('name: "save_search_alert"');
+const nextTool = pub.indexOf("name: \"offer_agent_help\"");
+const saveSchema = pub.slice(saveAt, nextTool);
+check("שמירת חיפוש בלי כיוון וסלון",
+  !saveSchema.includes("air_directions") && !saveSchema.includes("min_living_room_sqm") && pub.includes("say_exactly"));
 check("כרטיס ופירוט בלי עמודה חסרה",
   getAt > 0 && cardsAt > getAt &&
   pub.slice(getAt, cardsAt).includes("withoutAirLivingColumns") &&
@@ -156,7 +183,9 @@ const orAt = searchSrc.indexOf("if (groups.length === 1)");
 check("סינון כיוון לפני or", groupsAt > 0 && orAt > groupsAt);
 check("בלי סינון contains על כיוון", !searchSrc.includes(".contains(\"air_directions\"") && !searchSrc.includes(".gte(\"living_room_sqm\""));
 check("מסחרי מאפס דרישות", crm.includes("clientFormCategory === 'commercial'") && crm.includes("min_air_directions: null"));
-check("סיבה בלי נקודה אחרי מספר שלם", sql.includes("rtrim(trim(to_char(p_client.min_living_room_sqm - p_property.living_room_sqm, 'FM999.9')), '.')"));
+check("סיבה בלי נקודה אחרי מספר שלם",
+  sql.includes("rtrim(trim(to_char(p_client.min_living_room_sqm - p_property.living_room_sqm, 'FM990.9')), '.')") &&
+  sql.includes("round(p_client.min_living_room_sqm - p_property.living_room_sqm, 1) > 0"));
 const agent = read("supabase/functions/whatsapp-webhook/agent.ts");
 check("סלון מחוץ לטווח נשמר", agent.includes("הערך הקודם נשמר") && agent.includes("delete payload[sqmKey]") && agent.includes("minAirCountKept"));
 check("defer לסקריפט", read("crm.html").includes('defer src="assets/air-living.js"'));
