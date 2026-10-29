@@ -1084,3 +1084,13 @@ body[data-view=list] .sw-layout{display:inline-flex}
   body[data-view=deck] .sw-tour-ctl{bottom:calc(104px + var(--sw-safe-b))}
   body[data-view=deck] .sw-tour.is-up .sw-tour-ctl{top:calc(66px + var(--sw-safe-t));bottom:auto}
 }
+/* גבריאלה מול המסילה: הלשונית (18px בקצה) בין שבב ה-AI לבין המסילה, ובטלפון נמוך (מתחת ל-700px) המסילה
+   בשני פריטים - "מפרט" כפול לכפתור הזהב. הבועה הפתוחה יורדת לשורת העיגולים, משמאל ל-✕ */
+@media (max-width:759px){
+  html.beta-hero body.sw-body[data-view=deck] #gabW.is-min .gw-bubble{
+    top:clamp(calc(144px + var(--sw-safe-t)), 28dvh, calc(100dvh - 268px - var(--sw-safe-b) - var(--sw-rail-h,202px) - 60px));bottom:auto}
+  html.beta-hero body.sw-body[data-view=deck]:has(.a11y-fab) #gabW{--gw-bottom:calc(32px + 7px + var(--sw-safe-b));--gw-left:12px}
+}
+@media (max-width:759px) and (max-height:699px){
+  body[data-view=deck] #swRailSpec{display:none}
+}
