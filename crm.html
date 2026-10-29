@@ -459,6 +459,33 @@ window.shukArmTrackers = function () {
   .pf-chips .checkbox-item:hover{border-color:var(--teal)}
   .pf-chips .checkbox-item:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
   .pf-chips .checkbox-item:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
+  .img-tools{margin:8px 0}
+  .img-thumb .more{position:absolute;top:4px;left:4px;border:0;background:#fff;border-radius:8px;min-width:28px;min-height:28px;cursor:pointer}
+  .img-menu{position:fixed;z-index:40;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:4px;min-width:160px}
+  .img-menu button{display:block;width:100%;text-align:right;background:none;border:0;padding:8px;font:inherit;cursor:pointer}
+  .img-menu button.danger{color:#9f1239}
+  .photo-sheet{position:fixed;inset:0;z-index:90;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center}
+  .photo-sheet[hidden]{display:none}
+  .photo-sheet-card{background:#fff;width:min(520px,100%);max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
+  @media (min-width:760px){ .photo-sheet{align-items:center} .photo-sheet-card{border-radius:16px} }
+  .photo-undo{position:fixed;z-index:95;left:12px;right:12px;bottom:76px;background:#0e2a6b;color:#fff;border-radius:12px;padding:12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .air-chips .checkbox-item{min-height:40px}
+  .air-chips .checkbox-item:has(input:checked){background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .air-living-row{display:flex;gap:8px;align-items:center}
+  .air-living-row input{flex:1}
+  .air-shortcut{min-height:40px;border-radius:999px;border:1.5px solid var(--pf-edge);background:#fff;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+  .air-shortcut[aria-pressed="true"]{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .air-seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+  .air-seg button{min-height:40px;border-radius:999px;border:1.5px solid var(--pf-edge);background:#fff;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer}
+  .air-seg button[aria-pressed="true"]{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  #npLivingWarn{background:#fef3c7;border-radius:8px;padding:6px 8px}
+  .air-sheet{position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center}
+  .air-sheet[hidden]{display:none}
+  .air-sheet-card{background:#fff;width:min(520px,100%);border-radius:16px 16px 0 0;padding:16px;max-height:86vh;overflow:auto}
+  @media (min-width:760px){
+    .air-sheet{align-items:center}
+    .air-sheet-card{border-radius:16px}
+  }
   .pf-chip-ico{font-size:1rem;line-height:1}
   /* ---------- טופס הלקוח/ה: שני כרטיסים ----------
      יושב על .pf כדי לרשת את השדות, ה-.pf-seg וה-.pf-chips של טופס הנכס;
@@ -8892,6 +8919,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="field"><label for="npFloor">קומה</label><input type="number" id="npFloor" inputmode="numeric" placeholder="לדוגמה: 3"></div>
           <div class="field"><label for="npTotalFloors">מתוך קומות בבניין</label><input type="number" id="npTotalFloors" min="1" inputmode="numeric" placeholder="לדוגמה: 8"></div>
         </div>
+        <div class="pf-grid pf-grid-2" id="npAirLivingRow">
+          <div class="field">
+            <label for="npLivingSqm">גודל הסלון (מ״ר)</label>
+            <input type="number" id="npLivingSqm" step="0.5" min="4" max="150" inputmode="decimal" placeholder="לדוגמה: 28">
+            <p class="field-hint" id="npLivingHint">לא חובה - כולל פינת אוכל אם הם חלל אחד</p>
+            <p class="field-hint" id="npLivingWarn" hidden>סלון של יותר ממחצית הדירה? אם זה נכון, אפשר לשמור</p>
+          </div>
+          <div class="field">
+            <span class="cf-block-title" id="npAirLabel">כיווני אוויר</span>
+            <div class="pf-chips air-chips" id="npAir" role="group" aria-labelledby="npAirLabel">
+              <label class="checkbox-item"><input type="checkbox" value="צפון"> צפון</label>
+              <label class="checkbox-item"><input type="checkbox" value="דרום"> דרום</label>
+              <label class="checkbox-item"><input type="checkbox" value="מזרח"> מזרח</label>
+              <label class="checkbox-item"><input type="checkbox" value="מערב"> מערב</label>
+            </div>
+            <p class="field-hint" id="npAirCount">לא צוין</p>
+          </div>
+        </div>
 
         <!-- עלויות שוטפות: ביחידות שבהן הן נגבות בפועל - ועד בית לחודש,
              וארנונה לפי תקופת החיוב של העירייה: לחודשיים במגורים, לחודש
@@ -9008,6 +9053,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
             <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
           </div>
+          <div class="img-tools"><button type="button" class="mkt-btn" id="npImageSelect">בחירה</button></div>
           <div class="img-preview" id="npImagePreview"></div>
         </div>
 
@@ -9176,6 +9222,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="stale">לא עודכנו מזמן</option>
           <option value="expired">פג תוקף</option>
           <option value="unpublished">ירדו מפרסום</option>
+          <option value="no_air_living">בלי כיווני אוויר או סלון</option>
         </select>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
           <input type="text" id="propPriceMin" inputmode="decimal" autocomplete="off" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
@@ -9186,6 +9233,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <input type="number" id="propSizeMin" inputmode="numeric" min="0" step="any" placeholder="מ״ר מ-" aria-label="שטח מינימלי במ״ר">
           <span class="filter-range-sep" aria-hidden="true">-</span>
           <input type="number" id="propSizeMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="שטח מקסימלי במ״ר">
+        </div>
+        <div class="filter-input" id="propAirFilter">
+          <button type="button" id="propAirOpen" class="ui-btn" aria-haspopup="dialog" aria-expanded="false">כיווני אוויר</button>
+          <input type="hidden" id="propAirDirs" value="">
+          <input type="hidden" id="propAirMin" value="">
+        </div>
+        <div class="filter-input filter-range" role="group" aria-label="סלון מינימום">
+          <input type="number" id="propLivingMin" inputmode="decimal" min="0" step="0.5" placeholder="סלון מ-" aria-label="סלון מינימום במ״ר">
         </div>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר למ״ר בשקלים">
           <input type="text" id="propPsmMin" inputmode="decimal" autocomplete="off" placeholder="₪/מ״ר" aria-label="מחיר מינימלי למ״ר">
@@ -9524,6 +9579,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <input type="number" id="clMinSize" step="any" min="0" inputmode="decimal" placeholder="לא משנה"></div>
               <div class="field"><label for="clMaxSize">מ״ר מקסימום</label>
                 <input type="number" id="clMaxSize" step="any" min="0" inputmode="decimal" placeholder="ללא תקרה"></div>
+              <div class="field" id="clLivingField">
+                <label for="clMinLiving">סלון מינימום (מ״ר)</label>
+                <div class="air-living-row">
+                  <input type="number" id="clMinLiving" step="0.5" min="4" max="150" inputmode="decimal" placeholder="לא משנה">
+                  <button type="button" class="air-shortcut" id="clLargeLiving" aria-pressed="false">סלון גדול</button>
+                </div>
+              </div>
+            </div>
+            <div id="clAirBlock">
+              <span class="cf-block-title" id="clAirLabel">כיווני אוויר</span>
+              <div class="pf-chips air-chips" id="clAir" role="group" aria-labelledby="clAirLabel">
+                <label class="checkbox-item"><input type="checkbox" value="" data-any="1" checked> לא משנה</label>
+                <label class="checkbox-item"><input type="checkbox" value="צפון"> צפון</label>
+                <label class="checkbox-item"><input type="checkbox" value="דרום"> דרום</label>
+                <label class="checkbox-item"><input type="checkbox" value="מזרח"> מזרח</label>
+                <label class="checkbox-item"><input type="checkbox" value="מערב"> מערב</label>
+              </div>
+              <p class="field-hint">בלי בחירה = כל כיוון. כיוון שנבחר הוא דרישה, לא העדפה.</p>
+              <span class="cf-block-title" id="clAirMinLabel">מספר כיווני אוויר</span>
+              <div class="air-seg" id="clAirMin" role="group" aria-labelledby="clAirMinLabel">
+                <button type="button" data-min="" aria-pressed="true">לא משנה</button>
+                <button type="button" data-min="2" aria-pressed="false">2 ומעלה</button>
+                <button type="button" data-min="3" aria-pressed="false">3 ומעלה</button>
+                <button type="button" data-min="4" aria-pressed="false">4</button>
+              </div>
             </div>
 
             <div class="cf-block-title">מאפייני חובה</div>
@@ -12618,6 +12698,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      בלי זה סימון הכניסה והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר
      ירד מהכתובת. -->
 <script defer src="assets/deeplink-timing.js"></script>
+<div class="air-sheet" id="propAirSheet" hidden>
+  <div class="air-sheet-card" role="dialog" aria-labelledby="propAirSheetTitle">
+    <h3 id="propAirSheetTitle">כיווני אוויר</h3>
+    <div class="pf-chips air-chips" id="propAirChips">
+      <label class="checkbox-item"><input type="checkbox" value="צפון"> צפון</label>
+      <label class="checkbox-item"><input type="checkbox" value="דרום"> דרום</label>
+      <label class="checkbox-item"><input type="checkbox" value="מזרח"> מזרח</label>
+      <label class="checkbox-item"><input type="checkbox" value="מערב"> מערב</label>
+    </div>
+    <div class="air-seg" id="propAirMinSeg">
+      <button type="button" data-min="" aria-pressed="true">לא משנה</button>
+      <button type="button" data-min="2" aria-pressed="false">2+</button>
+      <button type="button" data-min="3" aria-pressed="false">3+</button>
+      <button type="button" data-min="4" aria-pressed="false">4</button>
+    </div>
+    <div class="air-living-row">
+      <button type="button" class="ui-btn" id="propAirClear">ניקוי</button>
+      <button type="button" class="ui-btn" id="propAirApply">הצגה</button>
+    </div>
+  </div>
+</div>
+<script defer src="assets/air-living.js"></script>
 <script defer src="assets/crm.js"></script>
 </body>
 </html>

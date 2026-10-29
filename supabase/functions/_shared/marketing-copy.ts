@@ -12,6 +12,15 @@
 // ומזמינה שני נוסחים שלא מדברים זה עם זה.
 // ============================================================================
 import { anthropicRow, logAiUsage } from "./ai-usage.ts";
+import { customerAirLine, mentionsLivingSizeClaim } from "./air-living.ts";
+
+/** אחרי ניסיון שני הטקסט עדיין טוען לגודל סלון. התור נסגר, בלי ניסיון חוזר. */
+export class LivingSizeClaimError extends Error {
+  constructor() {
+    super("living_size_claim");
+    this.name = "LivingSizeClaimError";
+  }
+}
 
 /** שורת העובדות של נכס אחד — התוצאה של property_marketing_facts במסד. */
 // deno-lint-ignore no-explicit-any
@@ -63,6 +72,8 @@ export function specLine(row: PropertyFacts): string {
     row.rooms ? `${row.rooms} חדרים` : null,
     row.size_sqm ? `${Math.round(row.size_sqm)} מ״ר` : null,
     row.garden_sqm ? `גינה ${Math.round(row.garden_sqm)} מ״ר` : null,
+    row.living_room_sqm ? `גודל הסלון: כ־${Math.round(Number(row.living_room_sqm))} מ״ר` : null,
+    customerAirLine(row.air_directions) || null,
     floor,
   ].filter(Boolean).join(" · ");
 }
@@ -149,7 +160,8 @@ export const PROPERTY_COPY_RULES = `1. מותר להשתמש אך ורק בעו�
 6. עברית תקנית, גוף שלישי, ללא סימני קריאה כפולים וללא מילים כמו "מדהים",
    "חלומי", "הזדמנות שלא תחזור".
 7. כשהנתונים דלים - לכתוב קצר. טקסט קצר ומדויק עדיף על טקסט ארוך ומנופח.
-8. אין להשתמש במקף ארוך (\u2014 או \u2013). כשצריך מקף, לכתוב מקף רגיל: -`;
+8. אין להשתמש במקף ארוך (\u2014 או \u2013). כשצריך מקף, לכתוב מקף רגיל: -.
+9. סלון: רק אם יש מספר במ"ר בנתונים. בלי מספר, אסור לטעון לגודל הסלון: לא "סלון גדול", "סלון מרווח", "סלון ענק" ולא "סלון רחב ידיים", גם עם ו/ב/ל/מ/ש/כ/ה ("וסלון מרווח"), גם "הסלון המרווח", גם ברבים ("סלונים מרווחים") וגם אחרי תואר אחר ("סלון מואר ומרווח"). "מרווחת", "מרווחים" ו"משרד מרווח" מותרים. בנכס מסחרי אין איסור על סלון. לא חותכים מילה ממשפט, ואת הטקסט שהסוכן/ת כתב/ה לא משנים.`;
 
 export const SYSTEM_PROMPT = `את/ה קופירייטר/ית נדל"ן ישראלי/ת שכותב/ת עבור לוח הנכסים שוק נדל"ן.
 
@@ -224,7 +236,31 @@ export async function generateMarketingCopy(
   opts: { apiKey: string; model: string },
 ): Promise<MarketingCopy | null> {
   if (!opts.apiKey) return null;
+  // ‏8000 טוקנים: החשיבה של המודל נספרת בתקציב, ובלי זה תיאור עשיר נחתך.
+  let copy = await requestMarketingCopy(row, opts, "");
+  const commercial = row.category === "commercial";
+  const noSqm = row.living_room_sqm === null || row.living_room_sqm === undefined || row.living_room_sqm === "";
+  const claimsSize = (c: MarketingCopy) =>
+    mentionsLivingSizeClaim(c.description) || mentionsLivingSizeClaim(c.post);
+  // רק "סלון גדול" / "סלון מרווח" בטקסט שנוצר, ורק כשאין מספר. נכס מסחרי לא נבדק.
+  if (!commercial && noSqm && claimsSize(copy)) {
+    copy = await requestMarketingCopy(
+      row,
+      opts,
+      "\n\nאין נתון על גודל הסלון. כתוב מחדש בלי טענה על גודל הסלון (סלון גדול, מרווח, ענק, רחב ידיים, גם ברבים וגם אחרי תואר אחר). מילים כמו מרווחת ומרווחים במקום אחר נשארות. לא לחתוך מילה.",
+    );
+    if (claimsSize(copy)) {
+      throw new LivingSizeClaimError();
+    }
+  }
+  return copy;
+}
 
+async function requestMarketingCopy(
+  row: PropertyFacts,
+  opts: { apiKey: string; model: string },
+  extra: string,
+): Promise<MarketingCopy> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -234,30 +270,18 @@ export async function generateMarketingCopy(
     },
     body: JSON.stringify({
       model: opts.model,
-      // ‏8000. ‏max_tokens כולל גם את החשיבה: Claude Sonnet 5 (ברירת המחדל כאן)
-      // מריץ adaptive thinking גם בלי פרמטר `thinking`, והחשיבה מוסתרת
-      // ("omitted"). עם 1000 ואחר כך 2000 נכסים עשירים בנתונים נכשלו ב-
-      // stop_reason=max_tokens - לפעמים עם טקסט ריק לגמרי, כי כל התקציב הלך
-      // לחשיבה (30.9.2026). לא מכבים חשיבה בפרמטר: בחלק מהמודלים זה 400, והמודל
-      // נקבע ב-CLAUDE_MODEL מחוץ לקוד.
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
-      // ‏Structured outputs: ה-API מחזיר JSON תקין לפי הסכמה. בלי זה, אחרי
-      // שהפוסט הוארך (30.9.2026), כ-1 מכל 4 תשובות נשברה - גרשיים של מ"ר בלי
-      // בריחה, או ירידת שורה גולמית לפני שורת ההאשטגים. ‏JSON.parse למטה נשאר
-      // כגיבוי, אבל כבר אינו צריך לנחש.
       output_config: { format: { type: "json_schema", schema: COPY_SCHEMA } },
-      messages: [{ role: "user", content: `נתוני הנכס:\n${factsText(row)}` }],
+      messages: [{ role: "user", content: `נתוני הנכס:\n${factsText(row)}${extra}` }],
     }),
   });
-
   if (res.status === 401 || res.status === 403) {
     throw new MarketingCopyAuthError((await res.text()).slice(0, 200));
   }
   if (!res.ok) {
     throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }
-
   const data = await res.json();
   logAiUsage(anthropicRow("marketing_copy", data?.model || opts.model, data?.usage));
   const text = (data?.content ?? [])
@@ -267,9 +291,6 @@ export async function generateMarketingCopy(
     .map((b: any) => b.text)
     .join("")
     .trim();
-
-  // המודל התבקש ל-JSON נקי, אבל גדר ```json היא הסטייה הנפוצה ולא שווה
-  // להיכשל עליה.
   const raw = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
   // deno-lint-ignore no-explicit-any
   let parsed: any;
@@ -280,7 +301,10 @@ export async function generateMarketingCopy(
     if (!m) throw new Error(`תשובת Claude אינה JSON (stop_reason=${data?.stop_reason}): ${raw.slice(0, 200)}`);
     parsed = JSON.parse(m[0]);
   }
+  return finishCopy(parsed);
+}
 
+function finishCopy(parsed: { marketing_description?: unknown; post_text?: unknown }): MarketingCopy {
   const description = noLongDash(String(parsed?.marketing_description ?? "").trim());
   const post = noLongDash(String(parsed?.post_text ?? "").trim());
   if (!description) throw new Error("Claude החזיר תיאור ריק");

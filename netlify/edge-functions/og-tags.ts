@@ -112,6 +112,7 @@ import "../../assets/agency-about.js";
 import "../../assets/markets.js";
 import "../../assets/agency-place.js";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
+import "../../assets/air-living.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
@@ -185,7 +186,7 @@ function absolute(u: unknown): string {
 type Fetched =
   | { kind: "row"; row: Record<string, unknown> }
   | { kind: "missing" }
-  | { kind: "error" };
+  | { kind: "error"; status?: number };
 
 async function sbFetch(path: string): Promise<Fetched> {
   const ctrl = new AbortController();
@@ -205,7 +206,7 @@ async function sbFetch(path: string): Promise<Fetched> {
        ‏timeout ו-JSON פגום הם "לא יודעים" — ומי שיסווג אותם כאן כחוסר
        רשומה יקבל noindex על כל האתר בבת אחת, בשקט. */
     if (res.status === 404 || res.status === 406) return { kind: "missing" };
-    if (!res.ok) return { kind: "error" };
+    if (!res.ok) return { kind: "error", status: res.status };
     const row = await res.json();
     // ‏גרסה עתידית שתחזיר 200 עם null במקום 406 עדיין תיקרא נכון
     return row && typeof row === "object" ? { kind: "row", row } : { kind: "missing" };
@@ -378,6 +379,11 @@ function listingSubject(p: Record<string, unknown>, title: string, street: strin
     if (p.floor !== null && p.floor !== undefined && String(p.floor).trim() !== "") {
       subject.floorLevel = String(p.floor);
     }
+    const airLiving = (globalThis as { ShukAirLiving?: {
+      jsonLd: (dirs: unknown, sqm: unknown) => Array<Record<string, unknown>>;
+    } }).ShukAirLiving;
+    const extra = airLiving ? airLiving.jsonLd(p.air_directions, p.living_room_sqm) : [];
+    if (extra.length) subject.additionalProperty = extra;
   }
   return subject;
 }
@@ -494,6 +500,16 @@ function specPillsHtml(p: Record<string, unknown>): string {
   if (heNum(p.price_per_sqm)) add(heNum(p.price_per_sqm) + " ₪", isRent ? "למ״ר לחודש" : "מחיר למ״ר");
   if (heNum(p.built_size_sqm)) add(heNum(p.built_size_sqm) + " מ״ר", "שטח בנוי");
   if (heNum(p.garden_sqm)) add(heNum(p.garden_sqm) + " מ״ר", "גינה");
+  const airLiving = (globalThis as { ShukAirLiving?: {
+    customerLivingLine: (v: unknown) => string;
+    customerAirLine: (v: unknown) => string;
+  } }).ShukAirLiving;
+  if (airLiving) {
+    const living = airLiving.customerLivingLine(p.living_room_sqm);
+    const air = airLiving.customerAirLine(p.air_directions);
+    if (living) add(living, "");
+    if (air) add(air, "");
+  }
   add(CONDITION_LABELS[String(p.condition || "")] || "", "מצב הנכס");
   add(moveIn, "תאריך כניסה");
   add(PROJECT_STATUS_LABELS[String(p.project_status || "")] || "", "סטטוס הפרויקט");
@@ -691,11 +707,16 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
+    "air_directions,living_room_sqm," +
     "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name,logo_url)," +
     "video_url,video_poster_url,city_id,lat,lng";
-  const got = await sbFetch(
-    `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
-  );
+  const base = `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=`;
+  let got = await sbFetch(base + encodeURIComponent(cols));
+  // האתר עולה לפני המיגרציה. עמודה חסרה היא 400, לא "אין נכס".
+  if (got.kind === "error" && got.status === 400) {
+    const bare = cols.replace("air_directions,living_room_sqm,", "");
+    got = await sbFetch(base + encodeURIComponent(bare));
+  }
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const p = got.row;
 
@@ -713,6 +734,10 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     num(p.size_sqm) ? `${num(p.size_sqm)} מ״ר` : "",
     where,
   ].filter(Boolean);
+  const airClause = (globalThis as { ShukAirLiving?: {
+    metaClause: (dirs: unknown, sqm: unknown) => string;
+  } }).ShukAirLiving?.metaClause(p.air_directions, p.living_room_sqm) || "";
+  if (airClause) bits.push(airClause);
 
   const images = Array.isArray(p.images) ? p.images : [];
 

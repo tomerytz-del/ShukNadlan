@@ -168,6 +168,9 @@ const CLIENT_IO_FIELDS = [
   { key:'min_price',         label:'תקציב מינימלי',   syn:['מחיר מינימלי','תקציב מ','מתקציב'] },
   { key:'max_price',         label:'תקציב מקסימלי',   syn:['תקציב','מחיר מקסימלי','תקציב עד','עד תקציב','budget'] },
   { key:'min_rooms',         label:'חדרים מינימום',   syn:['חדרים','מספר חדרים','מחדרים','rooms'] },
+  { key:'min_living_room_sqm', label:'סלון מינימום', syn:['סלון','שטח סלון','מ"ר סלון','min_living_room_sqm'] },
+  { key:'required_directions', label:'כיווני אוויר',  syn:['כיוון אוויר','כיווני אוויר','אוויר','air_directions','required_directions'] },
+  { key:'min_air_directions', label:'מספר כיוונים', syn:['מינימום כיוונים','כיוונים מינימום','min_air_directions'] },
   { key:'max_rooms',         label:'חדרים מקסימום',   syn:['עד חדרים'] },
   { key:'min_size_sqm',      label:'מ"ר מינימלי',     syn:['גודל','מר','שטח','גודל מינימלי'] },
   { key:'max_size_sqm',      label:'מ"ר מקסימלי',     syn:['עד מר','שטח מקסימלי','גודל מקסימלי'] },
@@ -177,7 +180,7 @@ const CLIENT_IO_FIELDS = [
   { key:'lead_source',       label:'מקור הגעה',       syn:['מקור','מקור הליד','source'] },
   { key:'notes',             label:'הערות',           syn:['הערה','notes'] },
 ];
-const CLIENT_IO_NUMERIC = new Set(['min_price','max_price','min_rooms','max_rooms','min_size_sqm','max_size_sqm','max_floor']);
+const CLIENT_IO_NUMERIC = new Set(['min_price','max_price','min_rooms','max_rooms','min_size_sqm','max_size_sqm','max_floor','min_living_room_sqm','min_air_directions']);
 const CLIENT_IO_LISTS = new Set(['cities','property_types','required_features']);
 
 // קוד → מילה בקובץ, ומילה בקובץ → קוד. המילה הראשונה לכל קוד היא זו שנכתבת.
@@ -351,6 +354,20 @@ function clientRowToPayload(r, mapping, maps){
     const n = impNumber(get(key));
     if (n != null && n >= 0) p[key] = n;
   });
+  const airRaw = impText(get('required_directions'));
+  if (airRaw) {
+    const map = { north:'צפון', south:'דרום', east:'מזרח', west:'מערב', צפון:'צפון', דרום:'דרום', מזרח:'מזרח', מערב:'מערב' };
+    const order = ['צפון','דרום','מזרח','מערב'];
+    const found = {};
+    airRaw.split(/[\s,/+|]+/).forEach(part => {
+      const code = map[part] || map[String(part).toLowerCase()];
+      if (code) found[code] = true;
+    });
+    const dirs = order.filter(d => found[d]);
+    if (dirs.length) p.required_directions = dirs;
+  }
+  if (p.min_living_room_sqm == null && /סלון גדול/.test(impText(get('min_living_room_sqm')))) p.min_living_room_sqm = 30;
+  if (p.min_air_directions != null && ![2, 3, 4].includes(Number(p.min_air_directions))) delete p.min_air_directions;
   // תקציב במיליונים ("1.8") - מתורגם לשקלים, אחרת כל נכס היה מעליו
   ['min_price', 'max_price'].forEach(key => { if (p[key] && p[key] < 100) p[key] = Math.round(p[key] * 1e6); });
   ['min_rooms', 'max_rooms', 'min_size_sqm', 'max_size_sqm'].forEach(key => { if (p[key] === 0) delete p[key]; });
