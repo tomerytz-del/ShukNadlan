@@ -319,7 +319,8 @@
     t = String(t || ''); hn = String(hn == null ? '' : hn).trim();
     if (!t || !hn) return t;
     var re = new RegExp('(^|[^\\d])' + hn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\d)', 'g');
-    return t.replace(re, '$1').replace(/\s+/g, ' ').replace(/^[\s,·-]+|[\s,·-]+$/g, '').trim();
+    // "עלייה 5, עפולה" בלי המספר הוא "עלייה, עפולה" ולא "עלייה , עפולה"
+    return t.replace(re, '$1').replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/^[\s,·-]+|[\s,·-]+$/g, '').trim();
   }
   function street(p) { return maskHouse(p.street || p.address || '', p.house_number).replace(/^רחוב\s+/, ''); }
   function hood(p) { return (p.neighborhoods && p.neighborhoods.name) || p.sales_area || ''; }
