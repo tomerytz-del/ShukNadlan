@@ -2749,7 +2749,7 @@ const REMINDER_FILTERS = {
 /* כל פקדי הסינון של "הנכסים שלי" (בלי המיון). רשימה אחת, כי שלושה מקומות
    מאפסים אותם - "איפוס סינונים", קישור לנכס בודד, וקישור מהתזכורת - ופקד
    שנוסף לשניים מהם ולא לשלישי השאיר נכס מבוקש מוסתר מאחורי סינון ישן. */
-const PROP_FILTER_IDS = ['propSearch','propStatusFilter','propDealFilter','propTypeFilter',
+const PROP_FILTER_IDS = ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propAirDirs','propAirMin','propLivingMin',
   'propCityFilter','propRoomsFilter','propPriceMin','propPriceMax','propSizeMin','propSizeMax',
   'propPsmMin','propPsmMax','propExtraFilter','propSmartFilter'];
 
@@ -12488,7 +12488,113 @@ function isLandTypeSelected(){
 
 function updateLandPlanningFields(){
   document.getElementById('npLandPlanningFields').style.display = isLandTypeSelected() ? 'block' : 'none';
+  syncPropertyAirLivingVisibility();
 }
+
+function syncPropertyAirLivingVisibility(){
+  const row = document.getElementById('npAirLivingRow');
+  if (!row) return;
+  const show = currentCategory !== 'commercial' && !isLandTypeSelected();
+  row.hidden = !show;
+}
+
+function airCountLabel(n){
+  if (!n) return 'לא צוין';
+  if (window.ShukAirLiving) return ShukAirLiving.countPhrase(n);
+  return n === 1 ? 'כיוון אוויר אחד' : (n + ' כיווני אוויר');
+}
+
+function syncNpAirCount(){
+  const n = getCheckedValues('npAir').length;
+  const el = document.getElementById('npAirCount');
+  if (el) el.textContent = airCountLabel(n);
+}
+
+function livingRoomSaveError(sqm, size, built){
+  if (sqm == null || sqm === '') return '';
+  const n = Number(sqm);
+  if (!Number.isFinite(n) || n < 4 || n > 150) return 'גודל הסלון צריך להיות בין 4 ל-150 מ״ר';
+  if ((size && n > Number(size)) || (built && n > Number(built))) {
+    return 'הסלון גדול משטח הנכס. כדאי לבדוק את שני המספרים';
+  }
+  return '';
+}
+
+function syncLivingWarn(){
+  const warn = document.getElementById('npLivingWarn');
+  if (!warn) return;
+  const n = Number(document.getElementById('npLivingSqm').value);
+  const size = Number(document.getElementById('npSizeSqm').value);
+  warn.hidden = !(Number.isFinite(n) && n > 0 && Number.isFinite(size) && size > 0 && n > size * 0.6);
+}
+
+function checkedAir(containerId){
+  return getCheckedValues(containerId).filter(Boolean);
+}
+
+function syncClientAirAny(){
+  const box = document.querySelector('#clAir input[data-any]');
+  const dirs = checkedAir('clAir');
+  if (box) box.checked = dirs.length === 0;
+}
+
+function setClientAirMin(value){
+  document.querySelectorAll('#clAirMin button').forEach(btn => {
+    const on = String(btn.dataset.min || '') === String(value || '');
+    btn.setAttribute('aria-pressed', String(on));
+  });
+  const lock = String(value) === '4';
+  document.querySelectorAll('#clAir input:not([data-any])').forEach(el => {
+    if (lock) el.checked = true;
+    el.disabled = lock;
+  });
+  syncClientAirAny();
+}
+
+function clientAirMinValue(){
+  const on = document.querySelector('#clAirMin button[aria-pressed="true"]');
+  return on && on.dataset.min ? Number(on.dataset.min) : null;
+}
+
+function syncLargeLivingChip(){
+  const btn = document.getElementById('clLargeLiving');
+  const input = document.getElementById('clMinLiving');
+  if (!btn || !input) return;
+  const n = Number(input.value);
+  btn.setAttribute('aria-pressed', String(Number.isFinite(n) && n >= 30));
+}
+
+function syncClientAirLivingVisibility(){
+  const show = clientFormKind !== 'owner' && clientFormCategory !== 'commercial';
+  const living = document.getElementById('clLivingField');
+  const air = document.getElementById('clAirBlock');
+  if (living) living.hidden = !show;
+  if (air) air.hidden = !show;
+}
+
+document.getElementById('npAir')?.addEventListener('change', syncNpAirCount);
+document.getElementById('npLivingSqm')?.addEventListener('input', syncLivingWarn);
+document.getElementById('npSizeSqm')?.addEventListener('input', syncLivingWarn);
+document.getElementById('clAir')?.addEventListener('change', (ev) => {
+  const input = ev.target;
+  if (input && input.dataset && input.dataset.any) {
+    if (input.checked) document.querySelectorAll('#clAir input:not([data-any])').forEach(el => { el.checked = false; });
+  } else {
+    syncClientAirAny();
+  }
+});
+document.getElementById('clAirMin')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  setClientAirMin(btn.dataset.min || '');
+});
+document.getElementById('clLargeLiving')?.addEventListener('click', () => {
+  const input = document.getElementById('clMinLiving');
+  const on = document.getElementById('clLargeLiving').getAttribute('aria-pressed') === 'true';
+  input.value = on ? '' : '30';
+  syncLargeLivingChip();
+});
+document.getElementById('clMinLiving')?.addEventListener('input', syncLargeLivingChip);
 
 function updateFormForCategory(category, preselectedFeatures){
   preselectedFeatures = preselectedFeatures || [];
@@ -12505,6 +12611,7 @@ function updateFormForCategory(category, preselectedFeatures){
   renderFeatureCheckboxes('npPropertyFeatures', isCommercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES, preselectedFeatures);
   // החלפת קטגוריה מאתחלת את רשימת סוגי הנכס, ולכן גם את השאלה אם זו קרקע
   updateLandPlanningFields();
+  syncPropertyAirLivingVisibility();
 }
 
 document.getElementById('npType').addEventListener('change', updateLandPlanningFields);
@@ -14760,6 +14867,22 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     return;
   }
   const openHouseOn = document.getElementById('npOpenHouse').checked;
+  const livingRaw = document.getElementById('npLivingSqm').value;
+  const livingProblem = (currentCategory === 'commercial' || isLandTypeSelected())
+    ? ''
+    : livingRoomSaveError(
+      livingRaw,
+      document.getElementById('npSizeSqm').value,
+      document.getElementById('npBuiltSizeSqm').value,
+    );
+  if (livingProblem){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = livingProblem;
+    pfRevealField('npLivingSqm');
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
 
   const payload = {
     title: document.getElementById('npTitle').value,
@@ -14786,6 +14909,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     size_sqm: document.getElementById('npSizeSqm').value ? parseFloat(document.getElementById('npSizeSqm').value) : null,
     built_size_sqm: document.getElementById('npBuiltSizeSqm').value ? parseFloat(document.getElementById('npBuiltSizeSqm').value) : null,
     garden_sqm: document.getElementById('npGardenSqm').value ? parseFloat(document.getElementById('npGardenSqm').value) : null,
+    living_room_sqm: (currentCategory === 'commercial' || isLandTypeSelected() || !livingRaw)
+      ? null : parseFloat(livingRaw),
+    air_directions: (currentCategory === 'commercial' || isLandTypeSelected())
+      ? null : (checkedAir('npAir').length ? checkedAir('npAir') : null),
     description: document.getElementById('npDescription').value.trim() || null,
     marketing_description: document.getElementById('npMarketingDescription').value.trim() || null,
     post_text: document.getElementById('npPostText').value.trim() || null,
@@ -14868,6 +14995,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
+    if (airLivingColumnMissing(error)) {
+      stripAirLiving(payload);
+      ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
+    }
   } else {
     btn.textContent = 'בודק כפילות…';
     const duplicate = await findPropertyDuplicate(payload);
@@ -14918,7 +15049,13 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
          "אותה דירה" לבין "הדירה השכנה, אותה קומה ואותו מספר חדרים", והייתה
          חוסמת מודעה תקינה. */
       payload.status = 'unpublished';
-      const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
+      let inserted;
+      let insertErr;
+      ({ data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single());
+      if (airLivingColumnMissing(insertErr)) {
+        stripAirLiving(payload);
+        ({ data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single());
+      }
       error = insertErr;
       newPropertyId = inserted?.id;
     }
@@ -15422,6 +15559,9 @@ function propertyFilterState(){
     psm:   propRange(val('propPsmMin'),   val('propPsmMax')),
     extra: val('propExtraFilter'),
     smart: val('propSmartFilter'),   // "דורש תשומת לב" (PR_SMART, crm-properties.js)
+    air: (val('propAirDirs') || '').split(',').filter(Boolean),
+    airMin: Number(val('propAirMin')) || 0,
+    livingMin: val('propLivingMin') === '' ? null : Number(val('propLivingMin')),
     sort: val('propSort') || 'created_desc',
   };
 }
@@ -15453,7 +15593,8 @@ function inPropRange(value, range){
 // האם משהו מסונן - לשורת הספירה, לכפתור האיפוס, ולתיבת "רק מה שמסונן" בייצוא
 function propertyFilterActive(f){
   return !!(f.q || f.status || f.deal || f.type || f.city || f.rooms
-    || f.price || f.size || f.psm || f.extra || f.smart);
+    || f.price || f.size || f.psm || f.extra || f.smart
+    || (f.air && f.air.length) || f.airMin || (f.livingMin != null && f.livingMin !== ''));
 }
 
 function filterProperties(rows, f){
@@ -15483,6 +15624,16 @@ function filterProperties(rows, f){
     if (f.extra === 'stale'      && !propertyIsStale(p)) return false;
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
     if (f.extra === 'unpublished' && !propertyIsUnpublishedWaiting(p)) return false;
+    if (f.extra === 'no_air_living') {
+      const hasAir = Array.isArray(p.air_directions) && p.air_directions.length;
+      if (hasAir || p.living_room_sqm != null) return false;
+    }
+    if (f.air && f.air.length) {
+      const have = p.air_directions || [];
+      if (!f.air.every(d => have.includes(d))) return false;
+    }
+    if (f.airMin && !(Array.isArray(p.air_directions) && p.air_directions.length >= f.airMin)) return false;
+    if (f.livingMin != null && f.livingMin !== '' && !(Number(p.living_room_sqm) >= Number(f.livingMin))) return false;
     if (f.smart && !prSmartTest(p, f.smart)) return false;
     if (!f.q) return true;
     return query ? query.rows.has(p) : propertySearchBlob(p).includes(f.q);
@@ -15560,7 +15711,8 @@ function renderProperties(){
   // והמיון אינו סינון; כל טווח (מחיר, שטח, מחיר למ״ר) נספר פעם אחת -
   // propRange מחזירה null כששני השדות שלו ריקים.
   const activeFilters = [f.status, f.deal, f.type, f.city, f.rooms,
-    f.price, f.size, f.psm, f.extra, f.smart].filter(Boolean).length;
+    f.price, f.size, f.psm, f.extra, f.smart,
+    (f.air && f.air.length) || f.airMin, f.livingMin].filter(Boolean).length;
   const badge = document.getElementById('propFilterBadge');
   if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
@@ -15573,8 +15725,65 @@ function renderProperties(){
 
 function clearPropertyFilters(){
   PROP_FILTER_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  paintAirFilterButton();
+  const living = document.getElementById('propLivingMin');
+  if (living) living.value = '';
   renderPropertiesFromTop();
 }
+
+function paintAirFilterButton(){
+  const btn = document.getElementById('propAirOpen');
+  if (!btn || !window.ShukAirLiving) return;
+  const dirs = ShukAirLiving.parse((document.getElementById('propAirDirs')?.value || '').split(','));
+  const min = document.getElementById('propAirMin')?.value;
+  if (dirs.length) btn.textContent = dirs.join(' + ');
+  else if (min) btn.textContent = min + '+ כיווני אוויר';
+  else btn.textContent = 'כיווני אוויר';
+}
+
+function openAirFilterSheet(){
+  const sheet = document.getElementById('propAirSheet');
+  if (!sheet) return;
+  const selected = (document.getElementById('propAirDirs')?.value || '').split(',').filter(Boolean);
+  const min = document.getElementById('propAirMin')?.value || '';
+  document.querySelectorAll('#propAirChips input').forEach(el => { el.checked = selected.includes(el.value); });
+  document.querySelectorAll('#propAirMinSeg button').forEach(btn => {
+    btn.setAttribute('aria-pressed', String((btn.dataset.min || '') === min));
+  });
+  sheet.hidden = false;
+  document.getElementById('propAirOpen')?.setAttribute('aria-expanded', 'true');
+}
+
+document.getElementById('propAirOpen')?.addEventListener('click', openAirFilterSheet);
+document.getElementById('propAirSheet')?.addEventListener('click', (ev) => {
+  if (ev.target.id === 'propAirSheet') {
+    ev.currentTarget.hidden = true;
+    document.getElementById('propAirOpen')?.setAttribute('aria-expanded', 'false');
+  }
+});
+document.getElementById('propAirMinSeg')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#propAirMinSeg button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  btn.setAttribute('aria-pressed', 'true');
+});
+document.getElementById('propAirClear')?.addEventListener('click', () => {
+  document.getElementById('propAirDirs').value = '';
+  document.getElementById('propAirMin').value = '';
+  paintAirFilterButton();
+  document.getElementById('propAirSheet').hidden = true;
+  renderPropertiesFromTop();
+});
+document.getElementById('propAirApply')?.addEventListener('click', () => {
+  const dirs = Array.from(document.querySelectorAll('#propAirChips input:checked')).map(el => el.value);
+  const minBtn = document.querySelector('#propAirMinSeg button[aria-pressed="true"]');
+  document.getElementById('propAirDirs').value = dirs.join(',');
+  document.getElementById('propAirMin').value = minBtn ? (minBtn.dataset.min || '') : '';
+  paintAirFilterButton();
+  document.getElementById('propAirSheet').hidden = true;
+  document.getElementById('propAirOpen')?.setAttribute('aria-expanded', 'false');
+  renderPropertiesFromTop();
+});
 
 // כל שינוי בסינון/מיון מחזיר את הרשימה לראשה: מקום הגלילה של רשימה קודמת
 // אינו אומר דבר על הרשימה החדשה
@@ -15583,7 +15792,7 @@ function renderPropertiesFromTop(){
   renderProperties();
 }
 
-['propSearch','propPriceMin','propPriceMax','propSizeMin','propSizeMax','propPsmMin','propPsmMax']
+['propSearch','propPriceMin','propPriceMax','propSizeMin','propSizeMax','propPsmMin','propPsmMax','propLivingMin']
   .forEach(id => document.getElementById(id).addEventListener('input', renderPropertiesFromTop));
 ['propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propRoomsFilter','propExtraFilter','propSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
@@ -15625,6 +15834,16 @@ function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test
    הרמה מ-shared_with_partners. */
 const PROPERTY_SHARE_LEVEL_COLUMN = ', share_level';
 function shareLevelSchemaMissing(error){ return !!error && /share_level/.test(error.message || ''); }
+function airLivingColumnMissing(error){
+  return !!error && /air_directions|living_room_sqm|required_directions|min_air_directions|min_living_room_sqm/.test(error.message || '');
+}
+function stripAirLiving(payload){
+  delete payload.air_directions;
+  delete payload.living_room_sqm;
+  delete payload.required_directions;
+  delete payload.min_air_directions;
+  delete payload.min_living_room_sqm;
+}
 /* מיקום משוער (‏20270430090000) - אותה נפילה: בלי העמודות הכרטיס פשוט בלי
    התגית "מיקום משוער", והטופס מתייחס לפין כמדויק. docs/property-map.md */
 const PROPERTY_LOCATION_COLUMNS = ', location_precision, location_radius_m';
@@ -15663,11 +15882,17 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
+  const propSelect = PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS;
   let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS)
+    .select(propSelect + ', air_directions, living_room_sqm')
     .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  if (airLivingColumnMissing(error)) {
+    ({ data: props, error } = await sb.from('properties').select(propSelect)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
+      .order('created_at', { ascending:false }));
+  }
   let droppedDest = false;
   if (destSchemaMissing(error)){
     droppedDest = true;
@@ -16064,6 +16289,7 @@ function buildPropertyCard(p, agentId){
     p.shared_with_partners && { text:`🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}`,
       cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
+    window.ShukAirLiving && ShukAirLiving.crmSpec(p) && { text: ShukAirLiving.crmSpec(p) },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
     // מחיר שכבר למ״ר: price_per_sqm (‏price / size_sqm) חסר משמעות, ובמקומו הסכום לכל הנכס
     p.price_unit === 'sqm'
@@ -18869,6 +19095,13 @@ function openEditProperty(p){
   document.getElementById('npSizeSqm').value = p.size_sqm ?? '';
   document.getElementById('npBuiltSizeSqm').value = p.built_size_sqm ?? '';
   document.getElementById('npGardenSqm').value = p.garden_sqm ?? '';
+  document.getElementById('npLivingSqm').value = p.living_room_sqm ?? '';
+  document.querySelectorAll('#npAir input').forEach(el => {
+    el.checked = Array.isArray(p.air_directions) && p.air_directions.includes(el.value);
+  });
+  syncNpAirCount();
+  syncLivingWarn();
+  syncPropertyAirLivingVisibility();
   document.getElementById('npDescription').value = p.description || '';
   document.getElementById('npMarketingDescription').value = p.marketing_description || '';
   document.getElementById('npPostText').value = p.post_text || '';
@@ -22979,6 +23212,10 @@ function clientParamTags(c){
   const size = (c.min_size_sqm && c.max_size_sqm) ? c.min_size_sqm + '-' + c.max_size_sqm + ' מ״ר'
     : c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר'
     : c.max_size_sqm ? 'עד ' + c.max_size_sqm + ' מ״ר' : '';
+  const living = c.min_living_room_sqm ? 'סלון ' + c.min_living_room_sqm + '+ מ״ר' : '';
+  const airDirs = (window.ShukAirLiving ? ShukAirLiving.parse(c.required_directions) : (c.required_directions || []));
+  const airTag = airDirs.length ? airDirs.join(' + ') : '';
+  const airMinTag = c.min_air_directions ? (c.min_air_directions + '+ כיווני אוויר') : '';
   const budget = ((c.min_price && c.max_price) ? shekel(c.min_price) + '-' + shekel(c.max_price)
     : c.max_price ? 'עד ' + shekel(c.max_price)
     : c.min_price ? 'מ-' + shekel(c.min_price) : '')
@@ -22991,6 +23228,9 @@ function clientParamTags(c){
     !owner && clientNeighborhoodLabel(c) && { text:'שכונה: ' + clientNeighborhoodLabel(c) },
     !owner && (c.property_types || []).length && { text: c.property_types.join(' / ') },
     !owner && size && { text:'📐 ' + size },
+    !owner && living && { text:'🛋 ' + living },
+    !owner && airTag && { text:'🧭 ' + airTag },
+    !owner && airMinTag && { text:'🧭 ' + airMinTag },
     !owner && (c.min_rooms || c.max_rooms) && { text:'🛏 ' + (c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים' },
     !owner && budget && { text:'💰 ' + budget, cls:'tag-info' },
     !owner && c.max_floor != null && { text:'🏢 עד קומה ' + c.max_floor },
@@ -23486,6 +23726,7 @@ function setClientFormCategory(category, selectedTypes = [], selectedFeatures = 
     b.setAttribute('aria-pressed', String(on));
   });
   renderClientFormLists(selectedTypes, selectedFeatures);
+  syncClientAirLivingVisibility();
 }
 
 /* מחפש/ת מול בעל/ת נכס (client_kind). בעל/ת נכס אינו/ה נכנס/ת להתאמות -
@@ -23512,6 +23753,7 @@ function setClientFormKind(kind){
   document.getElementById('saveClientBtn').textContent = owner
     ? (editingClientId ? 'עדכן לקוח' : 'שמור לקוח')
     : (editingClientId ? 'עדכן לקוח והצלב נכסים' : 'שמור לקוח והצלב נכסים');
+  syncClientAirLivingVisibility();
 }
 
 function setClientFormDeal(deal){
@@ -23597,6 +23839,8 @@ function resetClientForm(){
   setClientFormDeal('sale');
   setClientFormCategory('residential');
   setClientFormKind('seeker');
+  setClientAirMin('');
+  syncLargeLivingChip();
 }
 
 function openClientForm(){
@@ -23624,6 +23868,13 @@ function openEditClient(c){
   document.getElementById('clMaxPrice').value = c.max_price == null ? '' : crmMoneyText(c.max_price);
   document.getElementById('clMinRooms').value = c.min_rooms ?? '';
   document.getElementById('clMinSize').value  = c.min_size_sqm ?? '';
+  document.getElementById('clMinLiving').value = c.min_living_room_sqm ?? '';
+  syncLargeLivingChip();
+  document.querySelectorAll('#clAir input:not([data-any])').forEach(el => {
+    el.checked = Array.isArray(c.required_directions) && c.required_directions.includes(el.value);
+    el.disabled = false;
+  });
+  setClientAirMin(c.min_air_directions || '');
   document.getElementById('clMaxSize').value  = c.max_size_sqm ?? '';
   document.getElementById('clMaxFloor').value = c.max_floor ?? '';
   document.getElementById('clNotes').value    = c.notes || '';
@@ -23785,6 +24036,16 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     required_features: getCheckedValues('clFeatures'),
     neighborhood_id: document.getElementById('clNeighborhood').value || null,
   });
+  if (seeker && clientFormCategory === 'commercial') Object.assign(payload, {
+    min_living_room_sqm: null,
+    required_directions: null,
+    min_air_directions: null,
+  });
+  else if (seeker) Object.assign(payload, {
+    min_living_room_sqm: numOrNull('clMinLiving'),
+    required_directions: checkedAir('clAir').length ? checkedAir('clAir') : null,
+    min_air_directions: clientAirMinValue(),
+  });
   // מקסימום החדרים ירד מהטופס (המפרט הפיזי הוא שלושה שדות), ולכן הוא לא
   // נשלח ונשמר כמו שהוא אצל מי שכבר יש לו. רק כשהמינימום החדש עוקף אותו
   // הוא מתאפס - אחרת ה-check של הטבלה היה דוחה את השמירה בלי שאפשר לתקן.
@@ -23808,6 +24069,16 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     let row;
     ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
     savedId = row?.id;
+  }
+  if (airLivingColumnMissing(error)) {
+    stripAirLiving(payload);
+    if (editingClientId){
+      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
+    } else {
+      let row;
+      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
+      savedId = row?.id;
+    }
   }
   let neighborhoodDeferred = false;
   // הדקה שבין פרסום ה-HTML לריצת 20270426090000 - שומרים בלי רמת השיתוף
