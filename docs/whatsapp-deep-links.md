@@ -249,7 +249,7 @@
 ה-Supabase, ו-`sb.rest.fetch` נתפס פעם אחת ביצירת הלקוח, ולכן הסקריפט
 מחליף את `sb.rest.fetch` רק לרגע הקריאה ב-`keepalive` ומחזיר אותו מיד.
 דגל `window.DEEPLINK_TIMING = false` מכבה את הסקריפט. במסד
-`deeplink_timing_enabled` נולד 1; 0 עוצר כתיבה בלי דיפלוי. כישלון ה-RPC
+`deeplink_timing_enabled` נולד 0. 1 מדליק את הכתיבה, ו-0 עוצר אותה בלי דיפלוי. כישלון ה-RPC
 לא משנה את הדף.
 
 `dl_add` קובע `agent_id` מ-`current_agent_id()` בלבד. בלי סוכן/ת מתקבל
