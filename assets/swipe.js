@@ -1295,10 +1295,17 @@
   }
 
   function syncSortBtn() {
-    $('swSortBtn').textContent = 'מיון: ' + sortLabel() + ' ▾';
+    $('swSortBtn').textContent = $('swFSort').textContent = 'מיון: ' + sortLabel() + ' ▾';
     $('swSortBtn').classList.toggle('is-on', sortKey !== 'rec');
+    $('swFSort').classList.toggle('is-on', sortKey !== 'rec');
   }
   $('swSortBtn').addEventListener('click', function () { bsOpen('sort'); });
+  /* ‏Variant C: בראש גיליון הסינון בטלפון. המיון נפתח אחרי שהסינון נסגר (אחרת bsBlocked מכניס אותו לתור) */
+  $('swFTop').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-fview]');
+    if (b) { closeFilter(); setView(b.dataset.fview); return; }
+    if (e.target.closest('#swFSort')) { closeFilter(); setTimeout(function () { bsOpen('sort'); }, 250); }
+  });
   function npAssert(out) {
     if (filter.photos) return;
     out.forEach(function (c, i) {
@@ -2962,7 +2969,8 @@
     if (e.target.closest('[data-art-full]') && sheetCard && sheetCard.article) shukTrack('article_sheet_full_click', { article_id: String(sheetCard.article.id) });
   });
   var BS = {
-    sort: { art: '', title: 'מיון', sub: '', body: function () {
+    // ‏Variant C: בטלפון המונה עבר מהשורה שמעל ההחלקה לכותרת המיון, ומחושב בפתיחה
+    sort: { art: '', title: function () { return phoneC() ? 'מיון · ' + countLabel(shownCount()) : 'מיון'; }, sub: '', body: function () {
       return '<div class="sw-chips sw-sort-chips" role="radiogroup" aria-label="מיון">' + SORTS.map(function (x) {
         return '<button type="button" class="sw-chip" role="radio" aria-checked="' + (x[0] === sortKey) + '" aria-pressed="' + (x[0] === sortKey) + '" data-sort="' + x[0] + '">' + esc(x[1]) + '</button>';
       }).join('') + '</div>';
@@ -3012,7 +3020,7 @@
     $('swBs').className = 'sw-bs is-' + kind;
     $('swBsArt').innerHTML = d.art || '';
     $('swBsArt').hidden = !d.art;
-    $('swBsTitle').textContent = d.title;
+    $('swBsTitle').textContent = typeof d.title === 'function' ? d.title(ctx) : d.title;
     var sub_ = (ctx && ctx.sub) || d.sub || '';
     $('swBsSub').textContent = sub_;
     $('swBsSub').hidden = !sub_;
