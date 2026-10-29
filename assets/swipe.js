@@ -2022,16 +2022,22 @@
     if (c && c.p && fairLive(c.p)) return { form: true };
     return card && card.classList.contains('is-ba') && phoneC() ? { tab: 'viz', from: 'slide_cta' } : {};
   }
-  /* "פונים דרך הטופס עד יום שישי 31.10 בשעה 23:59, ולא משלמים עמלת תיווך" - הנוסח של גבריאלה (ממתין לאישור
-     הסופי שלה), ומחושב מסיום היריד של הנכס */
+  /* "פונים דרך הטופס עד שבת 31.10 בשעה 23:59 ולא משלמים עמלת תיווך" - הנוסח של גבריאלה (29.10 02:36), מחושב
+     מסיום היריד של הנכס. הכול בשעון ישראל ולא בשעון הדפדפן: בדפדפן ב-UTC אותו סיום יצא "בשעה 21:59" */
+  var IL_DAYS = { Sun: 'ראשון', Mon: 'שני', Tue: 'שלישי', Wed: 'רביעי', Thu: 'חמישי', Fri: 'שישי', Sat: 'שבת' };
+  function ilParts(d) {
+    var out = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(d).forEach(function (x) { out[x.type] = x.value; });
+    return out;
+  }
   function fairFormLine(p) {
     var to = window.OpenHouse && OpenHouse.endsAt(p);
     if (!to) return '';
-    // סיום בחצות נאמר כמו שאנשים אומרים אותו: "עד שבת 31.10 בשעה 23:59" ולא "עד ראשון בשעה 00:00"
-    if (!to.getHours() && !to.getMinutes()) to = new Date(to.getTime() - 60000);
-    var day = to.toLocaleDateString('he-IL', { weekday: 'long' }), date = OpenHouse.hebDay(to);
-    var hour = to.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
-    return 'פונים דרך הטופס עד ' + day + ' ' + date + ' בשעה ' + hour + ', ולא משלמים עמלת תיווך';
+    var t = ilParts(to);
+    // סיום בחצות נאמר כמו שאנשים אומרים אותו: "עד שבת בשעה 23:59" ולא "עד ראשון בשעה 00:00"
+    if (Number(t.hour) === 0 && Number(t.minute) === 0) t = ilParts(new Date(to.getTime() - 60000));
+    return 'פונים דרך הטופס עד ' + (IL_DAYS[t.weekday] || '') + ' ' + Number(t.day) + '.' + Number(t.month) + ' בשעה ' + t.hour + ':' + t.minute + ' ולא משלמים עמלת תיווך';
   }
   /* מחוות: גרירה לצדדים (אהבתי/דילוג), למעלה (פרטים), והקשה על צידי התמונה (תמונה) */
   function bindGestures(top) {
