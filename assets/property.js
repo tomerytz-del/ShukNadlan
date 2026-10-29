@@ -2942,11 +2942,14 @@ function watchStickyBar(){
 function renderContactButtons(p){
   document.body.classList.add('has-sticky-bar');
   watchStickyBar();
-  const phone = p.agency_members?.phone_e164;
+  /* נכס ביריד: רק הטופס, כמו ב-/swipe. ההנחה בעמלה תלויה בפנייה שנרשמת
+     בשעת השרת (‏fair_inquiries, ‏docs/open-house-fair.md), ולחיצה על וואטסאפ
+     או חיוג אינה נרשמת עדיין. */
+  const phone = OpenHouse.live(p) ? null : p.agency_members?.phone_e164;
   const agentName = p.agency_members?.display_name || '';
 
   if (!phone){
-    // בלי טלפון נשארת רק דרך אחת ליצור קשר — הטופס
+    // בלי טלפון (או ביריד) נשארת רק דרך אחת ליצור קשר — הטופס
     const formBtn = document.getElementById('sbFormBtn');
     formBtn.hidden = false;
     formBtn.addEventListener('click', ()=>{
