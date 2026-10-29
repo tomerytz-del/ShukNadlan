@@ -13,6 +13,7 @@ import {
   verifySignature,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
+import { choosePhotoTarget, type PhotoCandidate } from "./photo-target.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
@@ -1364,53 +1365,67 @@ async function flushImageBatch(
   const since = await pendingImagesSince(agentId);
   const olderWaiting = since != null && Date.now() - since > PHOTO_ASK_GAP_MS;
 
-  if (conv.last_property_id) {
-    const { data: property } = await supabase.from("properties")
-      .select("id, title, updated_at").eq("id", conv.last_property_id).eq("agent_id", agentId).maybeSingle();
-
-    if (property) {
-      // ‏**השקט נמדד גם מהנכס, לא רק מהשיחה** (27.10.2026). צילום מסך של
-      // דיון בבית משפט נשלח 33 שניות אחרי הודעה על היומן - "בלי שקט" - וצורף
-      // למשרד בגולד סנטר, שאיש לא נגע בו מאז 25.10. כל צירוף ועדכון מרעננים
-      // את updated_at, ולכן אלבום שני של אותו נכס עדיין מצטרף בלי שאלה.
-      const propertyIdle = Date.now() - Date.parse(String(property.updated_at || "")) > PHOTO_ASK_GAP_MS;
-      if (olderWaiting || propertyIdle || await photoBurstNeedsAsk(from)) {
-        const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
-        const body = formatForWhatsapp(
-          `📸 יש ${what} שממתינות לשיוך${older}. לצרף ל"${property.title}" שעבדנו עליו קודם, ${PHOTO_ASK_MARK}`);
-        const buttons = [
-          { id: `pimg:p:${property.id}`, title: "📎 לנכס הקודם" },
-          { id: "pimg:n", title: "🏠 נכס חדש" },
-          { id: "pimg:d", title: "🗑 לא לשום נכס" },
-        ];
-        let waMessageId: string | null = null;
-        let sendError: string | null = null;
-        try {
-          waMessageId = await sendButtons(from, body, buttons);
-        } catch (err) {
-          sendError = String((err as Error)?.message || err);
-          console.error("photo ask buttons failed", err);
-        }
-        await supabase.from("whatsapp_messages").insert({
-          wa_message_id: waMessageId, direction: "out", wa_phone: from, agent_id: agentId,
-          msg_type: "interactive", body: `${body}\n[${buttons.map((b) => b.title).join(" | ")}]`,
-          status: waMessageId ? "sent" : null, error: sendError,
-        });
-        // הכפתורים לא יצאו - אותה שאלה בטקסט, כדי שהתמונות לא יישארו בלי מילה
-        if (sendError) {
-          await reply(from, `${body} אפשר לכתוב "לקודם", "לא שייכות", או את פרטי הנכס החדש.`, agentId);
-        }
-        rememberPhotoAction(conv,
-          `${body} (נשאל בכפתורים; התמונות לא צורפו לשום נכס עד תשובה. "לא שייכות" = ` +
-            "discard_pending_images.)");
-        await saveConversation(agentId, from, conv);
-        return;
-      }
-      if (await attachPendingImages(agentId, from, property, conv)) {
-        await saveConversation(agentId, from, conv);
-      }
-      return;
+  const { data: owned } = await supabase.from("properties")
+    .select("id, title, property_type, street, listing_number, updated_at")
+    .eq("agent_id", agentId)
+    .in("status", ["active", "unpublished", "sold", "rented"])
+    .order("updated_at", { ascending: false })
+    .limit(40);
+  const candidates = ((owned || []) as PhotoCandidate[]);
+  const last = candidates.find((c) => c.id === conv.last_property_id);
+  const recentText = (conv.history || [])
+    .filter((m) => m.role === "user" && typeof m.content === "string")
+    .slice(-6)
+    .map((m) => String(m.content))
+    .join("\n");
+  const choice = choosePhotoTarget({
+    lastId: conv.last_property_id,
+    candidates,
+    recentText,
+    lastUpdatedAt: last?.updated_at || null,
+    now: Date.now(),
+    idleMs: PHOTO_ASK_GAP_MS,
+    conversationIdle: olderWaiting || await photoBurstNeedsAsk(from),
+  });
+  if (choice.kind === "attach") {
+    const property = candidates.find((c) => c.id === choice.id);
+    if (property && await attachPendingImages(agentId, from, property, conv)) {
+      await saveConversation(agentId, from, conv);
     }
+    return;
+  }
+  if (choice.ids.length) {
+    const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
+    const body = formatForWhatsapp(
+      `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
+    const rows = choice.ids.slice(0, 8).map((id) => {
+      const c = candidates.find((x) => x.id === id);
+      return { id: `pimg:p:${id}`, title: c?.title || "נכס" };
+    });
+    rows.push({ id: "pimg:n", title: "נכס חדש" });
+    rows.push({ id: "pimg:d", title: "לא לשום נכס" });
+    let waMessageId: string | null = null;
+    let sendError: string | null = null;
+    try {
+      waMessageId = rows.length <= 3
+        ? await sendButtons(from, body, rows.slice(0, 3))
+        : await sendList(from, body, "בחירת נכס", "נכסים", rows.slice(0, 10));
+    } catch (err) {
+      sendError = String((err as Error)?.message || err);
+      console.error("photo ask buttons failed", err);
+    }
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId, direction: "out", wa_phone: from, agent_id: agentId,
+      msg_type: "interactive", body: `${body}\n[${rows.map((b) => b.title).join(" | ")}]`,
+      status: waMessageId ? "sent" : null, error: sendError,
+    });
+    if (sendError) {
+      await reply(from, `${body} אפשר לכתוב את שם הנכס, "נכס חדש", או "לא שייכות".`, agentId);
+    }
+    rememberPhotoAction(conv,
+      `${body} (נשאל לפי שם הנכס; התמונות לא צורפו עד תשובה. "לא שייכות" = discard_pending_images.)`);
+    await saveConversation(agentId, from, conv);
+    return;
   }
 
   const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
@@ -1769,7 +1784,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         return;
       }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)
-      if (await photoButtonReply(agent.id, from, conv, String(msg.interactive?.button_reply?.id || ""))) {
+      if (await photoButtonReply(agent.id, from, conv, String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || ""))) {
         return;
       }
       const listingAct = await listingActionReply(supabase, agentRow as unknown as AgentRow, buttonId);

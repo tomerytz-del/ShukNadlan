@@ -57,6 +57,8 @@ import {
   storeListingCity,
 } from "./listing-defaults.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
+import { parsePhotoMoveButton, photoMoveButtons, urlsAt } from "./photo-target.ts";
+import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
@@ -647,6 +649,28 @@ const TOOLS: Anthropic.Tool[] = [
       "ולא לחדש הבא. להשתמש כשהסוכן/ת אומר/ת שהתמונות לא שייכות לנכס (צילום מסך, " +
       "מסמך, תמונה בטעות), או עונה \"לא שייכות\".",
     input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "move_property_photos",
+    description:
+      "מעביר או מעתיק תמונות מנכס אחד לנכס אחר של אותו/ה סוכן/ת. לא מוחק קבצים " +
+      "מיד, לא משנה סטטוס ולא מפרסם. בלי confirm יוצאים כפתורי אישור ולא זז כלום. " +
+      "confirm=true לא מבצע כשיש כפתורים. אם יש כמה נכסים מתאימים - שאלי לפי שם, " +
+      "בלי קישור ארוך.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from_property_id: { type: "string" },
+        to_property_id: { type: "string" },
+        positions: {
+          type: "array",
+          items: { type: "integer" },
+          description: "מספרי התמונות במקור, מ-1, לפי הסדר בדף.",
+        },
+        mode: { type: "string", enum: ["move", "copy"], description: "move מוריד מהמקור אחרי אישור. copy משאיר." },
+      },
+      required: ["from_property_id", "to_property_id", "positions"],
+    },
   },
   {
     name: "manage_images",
@@ -3085,6 +3109,38 @@ const PENDING_IMAGES_STALE_MS = 20 * 60 * 1000;
  * מאז שנקראה: אלבום שנכנס באמצע (‏`property_images_append`) לא יימחק בשקט.
  * כשהרשימה השתנתה - קוראים שוב ומנסים פעם אחת.
  */
+async function toolMovePropertyPhotos(ctx: ToolContext, input: Record<string, unknown>) {
+  const fromId = String(input.from_property_id || "");
+  const toId = String(input.to_property_id || "");
+  const positions = (Array.isArray(input.positions) ? input.positions : []).map(Number);
+  if (!fromId || !toId || fromId === toId) return { ok: false, error: "צריך שני נכסים שונים של אותו/ה סוכן/ת." };
+  const source = await ownedProperty(ctx, fromId);
+  const target = await ownedProperty(ctx, toId);
+  if (!source || !target) return { ok: false, error: "אפשר להעביר רק בין נכסים שלך." };
+  const images: string[] = Array.isArray(source.images) ? source.images : [];
+  const picked = urlsAt(images, positions);
+  if (!picked) return { ok: false, error: `יש בנכס ${images.length} תמונות. צריך מספר בין 1 ל-${images.length}.` };
+  const buttons = photoMoveButtons(fromId, toId, positions, picked);
+  if (!ctx.outbox || !buttons) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "העברת תמונות יוצאת רק בכפתור אישור. לא הועבר כלום.",
+    };
+  }
+  const cover = positions.includes(1) ? " התמונה הראשית תוחלף בתמונה הבאה." : "";
+  ctx.outbox.push({
+    kind: "buttons",
+    body: `להעביר ${picked.length} תמונות מ"${source.title || "המקור"}" אל "${target.title || "היעד"}"?${cover}`,
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהתמונות הועברו או נמחקו.",
+  };
+}
+
 async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const action = String(input.action || "list");
@@ -6989,6 +7045,27 @@ export async function listingActionReply(
   agent: AgentRow,
   buttonId: string,
 ): Promise<{ text: string; outbox?: OutboxItem[] } | null> {
+  const photoMove = parsePhotoMoveButton(buttonId);
+  if (photoMove) {
+    if (photoMove.mode === "no") return { text: "התמונות נשארות במקום." };
+    const base = Deno.env.get("SUPABASE_URL") || "";
+    const moved = await relocatePropertyPhotos(supabase, {
+      actorId: agent.id,
+      fromId: photoMove.fromId,
+      toId: photoMove.toId,
+      positions: photoMove.positions,
+      mode: photoMove.mode,
+      hash: photoMove.hash,
+      baseUrl: base,
+      sameAgent: true,
+    });
+    if (!moved.ok) return { text: moved.error };
+    console.info("photo move", JSON.stringify({
+      id: moved.id, from: photoMove.fromId, to: photoMove.toId, n: moved.moved, mode: photoMove.mode,
+    }));
+    return { text: moved.text };
+  }
+
   const image = parseImageDeleteButton(buttonId);
   if (image) {
     if (!image.yes) return { text: "התמונות נשארות." };
@@ -8484,6 +8561,7 @@ async function runTool(
       case "attach_images": return await toolAttachImages(ctx, input);
       case "discard_pending_images": return await toolDiscardPendingImages(ctx);
       case "manage_images": return await toolManageImages(ctx, input);
+      case "move_property_photos": return await toolMovePropertyPhotos(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
       case "property_link": return await toolPropertyLink(ctx, input);
       case "property_performance": return await toolPropertyPerformance(ctx, input);
@@ -8873,9 +8951,9 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
       "מחיקה בלי confirm שולחת כפתורים ולא מוחקת. \"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
-    "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**: אחרי רגע קצר הן מצטרפות לנכס " +
-      "שעבדתם עליו, ואם עברו 20 דקות מאז שנגעתם בו - נשאלת שאלה בכפתורים (📎 לנכס הקודם / " +
-      "🏠 נכס חדש / 🗑 לא לשום נכס). כל צירוף כזה מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
+    "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**. אם השיחה האחרונה " +
+      "מזכירה נכס אחר מהנכס האחרון, הן לא יצורפו אליו. אם כמה נכסים מתאימים, נשאלת " +
+      "שאלה עם שמות הנכסים, בלי קישור ארוך. כל צירוף מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
       "בתמונות]\" עם הנכס ומספרי התמונות. **לעולם אל תאמרי שתמונה \"לא צורפה\" בלי לבדוק**: " +
       "קראי את ההיסטוריה, ואם יש ספק - manage_images עם list. מספר התמונות בנכס אינו אומר מה הן. " +
       "כשהסוכן/ת מבקש/ת להוריד תמונה שצורפה בטעות - manage_images עם remove, מיד אחרי שזיהית " +

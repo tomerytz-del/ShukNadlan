@@ -459,6 +459,16 @@ window.shukArmTrackers = function () {
   .pf-chips .checkbox-item:hover{border-color:var(--teal)}
   .pf-chips .checkbox-item:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
   .pf-chips .checkbox-item:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
+  .img-tools{margin:8px 0}
+  .img-thumb .more{position:absolute;top:4px;left:4px;border:0;background:#fff;border-radius:8px;min-width:28px;min-height:28px;cursor:pointer}
+  .img-menu{position:fixed;z-index:40;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:4px;min-width:160px}
+  .img-menu button{display:block;width:100%;text-align:right;background:none;border:0;padding:8px;font:inherit;cursor:pointer}
+  .img-menu button.danger{color:#9f1239}
+  .photo-sheet{position:fixed;inset:0;z-index:90;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center}
+  .photo-sheet[hidden]{display:none}
+  .photo-sheet-card{background:#fff;width:min(520px,100%);max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
+  @media (min-width:760px){ .photo-sheet{align-items:center} .photo-sheet-card{border-radius:16px} }
+  .photo-undo{position:fixed;z-index:95;left:12px;right:12px;bottom:76px;background:#0e2a6b;color:#fff;border-radius:12px;padding:12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
   .pf-chip-ico{font-size:1rem;line-height:1}
   /* ---------- טופס הלקוח/ה: שני כרטיסים ----------
      יושב על .pf כדי לרשת את השדות, ה-.pf-seg וה-.pf-chips של טופס הנכס;
@@ -9002,6 +9012,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
             <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
           </div>
+          <div class="img-tools"><button type="button" class="mkt-btn" id="npImageSelect">בחירה</button></div>
           <div class="img-preview" id="npImagePreview"></div>
         </div>
 

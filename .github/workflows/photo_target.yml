@@ -1,0 +1,42 @@
+name: שיוך תמונות והעברה
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/whatsapp-webhook/photo-target.ts"
+      - "supabase/functions/whatsapp-webhook/index.ts"
+      - "supabase/functions/_shared/photo-relocate.ts"
+      - "supabase/functions/property-image-move/**"
+      - "supabase/migrations/20271031150000_photo_relocate.sql"
+      - "scripts/photo_target_test.ts"
+      - ".github/workflows/photo_target.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/whatsapp-webhook/photo-target.ts"
+      - "supabase/functions/whatsapp-webhook/index.ts"
+      - "supabase/functions/_shared/photo-relocate.ts"
+      - "supabase/functions/property-image-move/**"
+      - "supabase/migrations/20271031150000_photo_relocate.sql"
+      - "scripts/photo_target_test.ts"
+      - ".github/workflows/photo_target.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: שיוך והעברה
+        run: |
+          node --experimental-strip-types scripts/photo_target_test.ts
+          python3 scripts/check_tier_gates.py
+          node --check assets/crm.js
