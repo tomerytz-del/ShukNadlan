@@ -218,6 +218,15 @@ test('מפת התכנון לא קוראת ל-MapTiles בלי הספרייה', ()
   assert.match(crm.slice(at - 1600, at), /!window\.MapTiles/);
 });
 
+test('כשל בספרייה לא מפיל מנהל/ת ולא לולאה', () => {
+  const brand = crm.slice(crm.indexOf('async function loadBranding'), crm.indexOf('async function loadBranding') + 1600);
+  assert.match(brand, /try \{ await crmNeed\('specialties'\)/);
+  assert.match(brand, /catch \(e\) \{\}/);
+  assert.match(crm, /לא הצלחנו לטעון את המפה/);
+  assert.match(crm, /function crmNeedOnce/);
+  assert.equal((crm.match(/crmNeedOnce\(/g) || []).length, 6);
+});
+
 test('מסך הכניסה נמדד אחרי 3 שניות, כמו בקוד', () => {
   const doc = readFileSync(join(root, 'docs', 'analytics-gtm.md'), 'utf8');
   assert.match(doc, /אחרי 3\nשניות/);

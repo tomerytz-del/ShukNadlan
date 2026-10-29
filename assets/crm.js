@@ -10888,7 +10888,13 @@ async function govmapPlanningLookup(q, feedback, upgradeNotice){
     upgradeNotice.style.display = 'block';
     return;
   }
-  if (window.crmNeed) await Promise.all([crmNeed('govmap'), crmNeed('map')]);
+  if (window.crmNeed) {
+    try { await Promise.all([crmNeed('govmap'), crmNeed('map')]); }
+    catch (e) {
+      showToast('לא הצלחנו לטעון את המפה - נסו לרענן את הדף');
+      return;
+    }
+  }
   if (!window.GovmapLookup){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'לא הצלחנו לטעון את GovMap - נסו לרענן את הדף';
@@ -11163,7 +11169,10 @@ async function loadBranding(agencyId){
     }
     if (brAreaPicker) brAreaPicker.set({ kind: def.kind, markets: def.markets });
   });
-  if (window.crmNeed && !window.Specialties) await crmNeed('specialties');
+  if (window.crmNeed && !window.Specialties) {
+    try { await crmNeed('specialties'); }
+    catch (e) {}
+  }
   const stored = agency.colors || {};
   // שורה בלי צבע ראשי היא ברירת המחדל - כך נשמרת, וכך נראים כל המשרדים
   // שמעולם לא נגעו במקטע הזה
@@ -11210,11 +11219,20 @@ async function loadBranding(agencyId){
    הבחירה נשמרת בשורת המשרד ומוצגת כתגיות בראש דף המשרד. הרשימה עצמה
    יושבת ב-assets/specialties.js, כדי שהיא תהיה זהה כאן, בטופס פתיחת המשרד
    ובדף הציבורי. */
+/* ניסיון אחד. בלי הדגל, סקריפט שעלה בלי הגלובל קורא שוב ושוב וקופא. */
+function crmNeedOnce(flagObj, key, group, again, toast){
+  if (!window.crmNeed || !flagObj) return;
+  if (flagObj[key]) { showToast(toast); return; }
+  flagObj[key] = true;
+  crmNeed(group).then(again).catch(() => showToast(toast));
+}
+
 function renderSpecialtyPicker(){
   const grid = document.getElementById('brSpecGrid');
   if (!grid || !brandingState) return;
   if (!window.Specialties){
-    if (window.crmNeed) crmNeed('specialties').then(() => renderSpecialtyPicker());
+    crmNeedOnce(renderSpecialtyPicker, '_tried', 'specialties', () => renderSpecialtyPicker(),
+      'לא הצלחנו לטעון את תחומי ההתמחות - נסו לרענן את הדף');
     return;
   }
   const chosen = brandingState.specialties;
@@ -12473,7 +12491,8 @@ function syncOpenHouseFields(){
   endEl.min = startEl.value || openHouseToday();
 
   if (!window.OpenHouse){
-    if (window.crmNeed) crmNeed('property').then(syncOpenHouseFields);
+    crmNeedOnce(syncOpenHouseFields, '_tried', 'property', syncOpenHouseFields,
+      'לא הצלחנו לטעון את היריד - נסו לרענן את הדף');
     return;
   }
   const err = openHouseError();
@@ -12508,7 +12527,8 @@ function openHouseModalSync(){
   document.getElementById('ohModalEnd').min = start || openHouseToday();
   if (err){ note.textContent = err; return false; }
   if (!window.OpenHouse){
-    if (window.crmNeed) crmNeed('property').then(() => openHouseModalSync());
+    crmNeedOnce(openHouseModalSync, '_tried', 'property', () => openHouseModalSync(),
+      'לא הצלחנו לטעון את היריד - נסו לרענן את הדף');
     return false;
   }
   const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
@@ -33243,7 +33263,8 @@ function agrKindIcon(kind){
 function agrRender(){
   if (!agrWizard) return;
   if (!window.AgreementTemplates || !window.AgreementDoc || !window.IlId){
-    if (window.crmNeed) crmNeed('agreements').then(() => { if (agrWizard) agrRender(); });
+    crmNeedOnce(agrRender, '_tried', 'agreements', () => { if (agrWizard) agrRender(); },
+      'לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
     return;
   }
   agrPaintBrand();
@@ -34638,7 +34659,8 @@ async function agrQuickFill(btn){
 
 function agrRenderStepPreview(){
   if (!window.IlId || !window.AgreementDoc || !window.AgreementTemplates){
-    if (window.crmNeed) crmNeed('agreements').then(() => { if (agrWizard && agrWizard.step === 3) agrRender(); });
+    crmNeedOnce(agrRenderStepPreview, '_tried', 'agreements', () => { if (agrWizard && agrWizard.step === 3) agrRender(); },
+      'לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
     return;
   }
   const missing = agrValidate();
