@@ -2,6 +2,7 @@
 //   node --experimental-strip-types scripts/photo_target_test.ts
 import { readFileSync } from "node:fs";
 import { canonicalPositions, choosePhotoTarget, clipTitle, parsePhotoMoveButton, photoContextText, photoMoveButtons, photoUrlsHash, planPhotoMove, planPhotoTransfer, storageDeleteAllowed, urlsAt, type PhotoCandidate } from "../supabase/functions/whatsapp-webhook/photo-target.ts";
+import { deletableStoragePath } from "../supabase/functions/_shared/photo-relocate.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean) {
@@ -107,19 +108,34 @@ check("בדיקת שימוש בלי תקרה", relocate.includes("property_image
 check("חלון ביטול 20 שניות", mig.includes("interval '20 seconds'"));
 check("אינדקס וכל ההפניות",
   mig.includes("properties_images_gin") &&
-  mig.includes("@> array[p_url]::text[]") &&
+  mig.includes("p.images @> array[p_url]::text[]") &&
+  !mig.includes("coalesce(p.images") &&
   mig.includes("p.marketing_image = p_url") &&
   mig.includes("p.video_url = p_url") &&
   mig.includes("p.video_poster_url = p_url") &&
   mig.includes("pending_images") &&
-  mig.includes("source_image_url"));
+  mig.includes("property_video_clips") &&
+  mig.includes("c.source_image_url = p_url") &&
+  mig.includes("a.creative_url = p_url") &&
+  mig.includes("a.gallery_urls @> array[p_url]::text[]") &&
+  mig.includes("m.photo_url = p_url") &&
+  mig.includes("a.logo_url = p_url") &&
+  mig.includes("articles") &&
+  mig.includes("source_agent_id"));
 check("שש ההודעות האחרונות",
   index.includes("שש ההודעות האחרונות") &&
   index.includes('order("created_at", { ascending: false })') &&
   index.includes(".reverse()"));
 const moveFn = readFileSync(new URL("../supabase/functions/property-image-move/index.ts", import.meta.url), "utf8");
 check("הערה של 20 שניות", moveFn.includes("20 שניות") && !moveFn.includes("10 שניות") && !moveFn.includes('action === "release"'));
-check("מוחקים רק את הקובץ שהועבר", relocate.includes("storagePath(url) !== path"));
+check("מוחקים רק את הקובץ שהועבר", relocate.includes("storagePath(url) !== path") && relocate.includes("deletableStoragePath") && relocate.includes("source_agent_id"));
+const mine = "11111111-1111-1111-1111-111111111111";
+const other = "22222222-2222-2222-2222-222222222222";
+check("קובץ בתיקיית הסוכן", deletableStoragePath(`${mine}/prop/a.jpg`, mine));
+check("כתובת זרה לא נמחקת", !deletableStoragePath(`${other}/prop/a.jpg`, mine));
+check("לוגו מחוץ לתיקייה לא נמחק", !deletableStoragePath("professionals/logo.jpg", mine));
+check("בלי בעלים אין מחיקה", !deletableStoragePath(`${mine}/a.jpg`, ""));
+check("נתיב שיוצא מהתיקייה", !deletableStoragePath(`${mine}/../${other}/a.jpg`, mine));
 check("הטופס לא מוחק קובץ", !crm.includes("action: 'release'") && !crm.includes("releasePropertyImage"));
 check("בריחה בגיליון", crm.includes("esc(from.title") && crm.includes("esc(text)"));
 

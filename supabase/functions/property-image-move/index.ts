@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const admin = createClient(supabaseUrl, serviceKey);
   if (body.action === "undo") {
-    const undone = await undoRelocation(admin, String(body.id || ""), member.id);
+    const undone = await undoRelocation(admin, String(body.id || ""), member.id, supabaseUrl);
     return json(undone, undone.ok ? 200 : 409);
   }
   const positions = (Array.isArray(body.positions) ? body.positions : []).map(Number);

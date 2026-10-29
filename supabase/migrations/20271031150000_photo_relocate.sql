@@ -15,6 +15,9 @@ create table if not exists public.property_image_relocations (
   source_paths text[] not null default '{}',
   source_urls text[] not null default '{}',
   copy_paths text[] not null default '{}',
+  -- תיקיית הסוכן/ת ב-property-images היא {agent_id}/. נשמרת כאן ולא נגזרת מחדש.
+  source_agent_id uuid,
+  copy_agent_id uuid,
   delete_after timestamptz,
   undone_at timestamptz,
   cleaned_at timestamptz,
@@ -90,14 +93,16 @@ begin
   insert into public.property_image_relocations (
     from_property_id, to_property_id, actor_agent_id, mode, place,
     from_before, to_before, from_after, to_after,
-    source_paths, source_urls, copy_paths, delete_after
+    source_paths, source_urls, copy_paths, delete_after,
+    source_agent_id, copy_agent_id
   ) values (
     p_from, p_to, p_actor, p_mode, coalesce(p_place, 'end'),
     coalesce(p_from_expected, '{}'), coalesce(p_to_expected, '{}'),
     coalesce(p_from_next, '{}'), coalesce(p_to_next, '{}'),
     coalesce(p_source_paths, '{}'), coalesce(p_source_urls, '{}'),
     coalesce(p_copy_paths, '{}'),
-    case when p_mode = 'move' then now() + interval '20 seconds' else null end
+    case when p_mode = 'move' then now() + interval '20 seconds' else null end,
+    v_from.agent_id, v_to.agent_id
   ) returning id into v_id;
   return v_id;
 end;
@@ -170,7 +175,7 @@ as $$
       select 1 from public.properties p
        where (
            (p_except is null or p.id is distinct from p_except)
-           and coalesce(p.images, '{}'::text[]) @> array[p_url]::text[]
+           and p.images @> array[p_url]::text[]
          )
           or p.marketing_image = p_url
           or p.video_url = p_url
@@ -178,7 +183,7 @@ as $$
     )
     or exists (
       select 1 from public.whatsapp_conversations c
-       where coalesce(c.pending_images, '{}'::text[]) @> array[p_url]::text[]
+       where c.pending_images @> array[p_url]::text[]
     )
     or exists (
       select 1 from public.property_visualizations v
@@ -187,6 +192,32 @@ as $$
     or exists (
       select 1 from public.property_image_tags t
        where t.image_url = p_url
+    )
+    or exists (
+      select 1 from public.property_video_clips c
+       where c.source_image_url = p_url
+    )
+    or exists (
+      select 1 from public.property_video_jobs j
+       where j.cover_url = p_url or j.result_url = p_url or j.previous_video_url = p_url
+    )
+    or exists (
+      select 1 from public.ad_placements a
+       where a.creative_url = p_url
+          or a.cover_url = p_url
+          or a.gallery_urls @> array[p_url]::text[]
+    )
+    or exists (
+      select 1 from public.agency_members m
+       where m.photo_url = p_url or m.cover_url = p_url
+    )
+    or exists (
+      select 1 from public.agencies a
+       where a.logo_url = p_url or a.cover_url = p_url
+    )
+    or exists (
+      select 1 from public.articles a
+       where a.cover_url = p_url
     )
   );
 $$;
