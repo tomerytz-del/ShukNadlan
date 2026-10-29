@@ -13,6 +13,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 // הכללים המשותפים לאתר ולבוטים - מה נחשב "יש בנכס", המילים, עסקה מתוך
 // תקציב. עותק זהה של assets/search-core.js (‏check_search_core.py).
 import "../_shared/search-core.js";
+import { airLivingFilterGroups } from "../_shared/air-living.ts";
 
 // deno-lint-ignore no-explicit-any
 export const SearchCore = (globalThis as any).SearchCore;
@@ -212,6 +213,9 @@ export function applyPropertyFilters(
   const ff = SearchCore.featureFilter(feats) as { strict: string[]; groups: string[][] };
   if (ff.strict.length) query = query.contains("features", ff.strict);
   ff.groups.forEach((g) => groups.push(g));
+  // נכס בלי כיוון או בלי שטח סלון עובר. רק נתון שמולא ולא מתאים יורד.
+  // הקבוצה חייבת להיכנס לפני ה-or: אחריו הדחיפה לא מגיעה לשאילתה.
+  for (const group of airLivingFilterGroups(args)) groups.push(group);
 
   if (groups.length === 1) query = query.or(groups[0].join(","));
   else if (groups.length > 1) {

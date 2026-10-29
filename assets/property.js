@@ -2389,6 +2389,10 @@ function renderSpecPills(p){
                          k:isRent ? 'למ״ר לחודש' : 'מחיר למ״ר', accent:true } : null,
     p.built_size_sqm ? { icon:'area',   v:Number(p.built_size_sqm).toLocaleString('he-IL') + ' מ״ר', k:'שטח בנוי' } : null,
     p.garden_sqm     ? { icon:'balcony',v:Number(p.garden_sqm).toLocaleString('he-IL') + ' מ״ר', k:'גינה' } : null,
+    (window.ShukAirLiving && ShukAirLiving.customerLivingLine(p.living_room_sqm))
+      ? { icon:'balcony', v:ShukAirLiving.customerLivingLine(p.living_room_sqm), k:'' } : null,
+    (window.ShukAirLiving && ShukAirLiving.customerAirLine(p.air_directions))
+      ? { icon:'window', v:ShukAirLiving.customerAirLine(p.air_directions), k:'' } : null,
     CONDITION_LABELS[p.condition] ? { icon:'sparkle', v:CONDITION_LABELS[p.condition], k:'מצב הנכס' } : null,
     moveIn           ? { icon:'key',    v:moveIn, k:'תאריך כניסה', accent:true } : null,
     PROJECT_STATUS_LABELS[p.project_status] ? { icon:'key', v:PROJECT_STATUS_LABELS[p.project_status], k:'סטטוס הפרויקט' } : null,

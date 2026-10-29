@@ -20,6 +20,7 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
+import { airCountOnly, LARGE_LIVING_ROOM_SQM, minAirCountKept, writeAirDirections } from "../_shared/air-living.ts";
 import {
   SERVICE_MARKET_LABELS,
   serviceAreaText,
@@ -242,7 +243,7 @@ const WRITABLE_FIELDS = [
   "rooms", "city", "street", "house_number", "floor", "size_sqm",
   "built_size_sqm", "condition", "project_status", "move_in_date",
   "move_in_soon", "features", "restrooms_location", "storage_location",
-  "mamad_location", "price_unit",
+  "mamad_location", "price_unit", "air_directions", "living_room_sqm",
 ] as const;
 
 // אותו היגיון לקובץ הלקוחות. ‏status אינו כאן אלא בכלי נפרד, כדי ש"תעדכן
@@ -251,6 +252,7 @@ const CLIENT_WRITABLE_FIELDS = [
   "full_name", "phone", "email", "notes", "client_kind", "deal_type", "category",
   "property_types", "cities", "min_price", "max_price", "min_rooms",
   "max_rooms", "min_size_sqm", "max_size_sqm", "max_floor", "required_features",
+  "required_directions", "min_air_directions", "min_living_room_sqm",
 ] as const;
 
 const AGREEMENT_KIND_KEYS = [
@@ -331,6 +333,12 @@ const propertyFields = {
   floor: { type: "integer", description: "קומה." },
   size_sqm: { type: "number", description: 'שטח במ"ר.' },
   built_size_sqm: { type: "number", description: 'שטח בנוי במ"ר.' },
+  air_directions: {
+    type: "array",
+    items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+    description: "כיווני אוויר שנאמרו בשם. אלכסון = שני ערכים. אם נאמר רק מספר ('3 כיווני אוויר') בלי שמות - אל תשלח/י את השדה, ושאלי אילו כיוונים.",
+  },
+  living_room_sqm: { type: "number", description: "שטח הסלון במ\"ר, 4 עד 150. רק אם נאמר מספר. אל תכתבי ללקוחות 'סלון גדול'." },
   condition: {
     type: "string",
     enum: CONDITIONS,
@@ -415,6 +423,13 @@ const clientFields = {
   min_rooms: { type: "number", description: "מינימום חדרים (אפשר 3.5)." },
   max_rooms: { type: "number", description: "מקסימום חדרים." },
   min_size_sqm: { type: "number", description: 'מינימום מ"ר.' },
+  required_directions: {
+    type: "array",
+    items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+    description: "כיוונים שהנכס צריך לכלול. ריק = לא משנה. אלכסון = שני ערכים.",
+  },
+  min_air_directions: { type: "integer", enum: [2, 3, 4], description: "מינימום מספר כיוונים, בלי להתעקש על כיוון. 2, 3 או 4." },
+  min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי. 'סלון גדול' בלי מספר = 30." },
   max_size_sqm: {
     type: "number",
     description: 'מקסימום מ"ר. סינון קשיח: נכס גדול ממנו לא יוצע. "120-170 מ״ר" = min 120, max 170.',
@@ -618,6 +633,13 @@ const TOOLS: Anthropic.Tool[] = [
         min_rooms: { type: "number" },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
+        air_directions: {
+          type: "array",
+          items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+          description: "הנכס צריך לכלול את כל הכיוונים האלה.",
+        },
+        min_air_directions: { type: "integer", description: "לפחות N כיווני אוויר. 2, 3 או 4." },
+        min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי במ\"ר. 'סלון גדול' = 30." },
         max_floor: { type: "integer" },
         features: {
           type: "array",
@@ -2029,6 +2051,28 @@ function pick(
 
 const pickWritable = (input: Record<string, unknown>) => pick(input, WRITABLE_FIELDS);
 
+function applyAirLiving(payload: Record<string, unknown>, input: Record<string, unknown>, client = false): string | null {
+  const rawDirs = client ? (input.required_directions ?? input.air_directions) : input.air_directions;
+  if (rawDirs !== undefined) writeAirDirections(payload, rawDirs, client);
+  if (client && (input.min_air_directions !== undefined || airCountOnly(input.air_directions))) {
+    const n = Number(input.min_air_directions ?? airCountOnly(input.air_directions));
+    payload.min_air_directions = n === 2 || n === 3 || n === 4 ? n : null;
+  }
+  if (client && input.large_living_room === true && input.min_living_room_sqm == null) {
+    payload.min_living_room_sqm = LARGE_LIVING_ROOM_SQM;
+  }
+  const sqmKey = client ? "min_living_room_sqm" : "living_room_sqm";
+  if (sqmKey in input && input[sqmKey] != null && input[sqmKey] !== "") {
+    const n = Number(input[sqmKey]);
+    if (!Number.isFinite(n) || n < 4 || n > 150) {
+      delete payload[sqmKey];
+      return 'שטח הסלון צריך להיות בין 4 ל-150 מ"ר. הערך הקודם נשמר.';
+    }
+    payload[sqmKey] = n;
+  }
+  return null;
+}
+
 /** נרמול שם שכונה להשוואה: גרשיים, רווחים, ה' הידיעה בתחילת מילה ויו"ד כפולה. */
 function hoodKey(s: string): string {
   return s.replace(/["'״׳.,\-]/g, " ").trim().split(/\s+/)
@@ -2237,6 +2281,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   const payload = pickWritable(input);
+  const airErr = applyAirLiving(payload, input);
+  if (airErr) return { ok: false, error: airErr };
   payload.category ??= "residential";
   // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
   const statedCity = String(payload.city ?? "").trim();
@@ -2506,6 +2552,8 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
 
   const payload = pickWritable(input);
+  const airErr = applyAirLiving(payload, input);
+  if (airErr) return { ok: false, error: airErr };
   if (input.neighborhood) {
     const city = String(payload.city ?? existing.city ?? "");
     const hood = city ? await resolvePropertyHood(ctx, city, String(input.neighborhood)) : null;
@@ -2907,18 +2955,38 @@ async function agentPropertySearch(
       city_id: cityId,
     };
   }
-  const built = applyPropertyFilters(
-    ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
+  const searchSelect = AGENT_SEARCH_FIELDS + ", air_directions, living_room_sqm";
+  let built = applyPropertyFilters(
+    ctx.supabase.from("properties").select(searchSelect).eq("status", "active"),
     args,
     [ors],
   );
-  const { data, error } = await built.query
+  let { data, error } = await built.query
     .order("is_promoted", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(AREA_SCAN_LIMIT);
+  if (error && /air_directions|living_room_sqm/.test(error.message || "")) {
+    const bare = { ...args };
+    delete bare.air_directions;
+    delete bare.min_living_room_sqm;
+    delete bare.min_air_directions;
+    built = applyPropertyFilters(
+      ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
+      bare,
+      [ors],
+    );
+    ({ data, error } = await built.query
+      .order("is_promoted", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(AREA_SCAN_LIMIT));
+  }
   if (error) return { ok: false, error: error.message };
 
   let rows = (data || []) as Array<Record<string, unknown>>;
+  const minAir = Number(args.min_air_directions);
+  if (minAir >= 2 && rows.some((p) => "air_directions" in p)) {
+    rows = rows.filter((p) => minAirCountKept(p.air_directions, minAir));
+  }
   let hint: Record<string, unknown> = {};
   if (area) {
     const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true, cityId });
@@ -4607,6 +4675,11 @@ function clientNeeds(c: Record<string, unknown>): string {
     parts.push(lo && hi ? `${lo}-${hi} מ״ר` : lo ? `מ-${lo} מ״ר` : `עד ${hi} מ״ר`);
   }
   if (c.max_floor !== null && c.max_floor !== undefined) parts.push(`עד קומה ${c.max_floor}`);
+  if (Array.isArray(c.required_directions) && c.required_directions.length) {
+    parts.push(`אוויר: ${c.required_directions.join(" + ")}`);
+  }
+  if (c.min_air_directions) parts.push(`${c.min_air_directions}+ כיווני אוויר`);
+  if (c.min_living_room_sqm) parts.push(`סלון ${c.min_living_room_sqm}+ מ"ר`);
   const feats = (c.required_features as string[]) || [];
   if (feats.length) parts.push(`חובה: ${feats.join(", ")}`);
   return parts.join(" · ");
@@ -4932,6 +5005,8 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
+  const airErr = applyAirLiving(payload, input, true);
+  if (airErr) return { ok: false, error: airErr };
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
@@ -5045,6 +5120,8 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
+  const airErr = applyAirLiving(payload, input, true);
+  if (airErr) return { ok: false, error: airErr };
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
