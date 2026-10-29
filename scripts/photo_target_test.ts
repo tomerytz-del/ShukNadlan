@@ -105,7 +105,22 @@ const relocate = readFileSync(new URL("../supabase/functions/_shared/photo-reloc
 const mig = readFileSync(new URL("../supabase/migrations/20271031150000_photo_relocate.sql", import.meta.url), "utf8");
 check("בדיקת שימוש בלי תקרה", relocate.includes("property_image_still_used") && !relocate.includes('select("images").limit(1000)'));
 check("חלון ביטול 20 שניות", mig.includes("interval '20 seconds'"));
-check("מחיקה בשרת בלי הנכס הנוכחי", crm.includes("action: 'release'") && crm.includes("except_id"));
+check("אינדקס וכל ההפניות",
+  mig.includes("properties_images_gin") &&
+  mig.includes("@> array[p_url]::text[]") &&
+  mig.includes("p.marketing_image = p_url") &&
+  mig.includes("p.video_url = p_url") &&
+  mig.includes("p.video_poster_url = p_url") &&
+  mig.includes("pending_images") &&
+  mig.includes("source_image_url"));
+check("שש ההודעות האחרונות",
+  index.includes("שש ההודעות האחרונות") &&
+  index.includes('order("created_at", { ascending: false })') &&
+  index.includes(".reverse()"));
+const moveFn = readFileSync(new URL("../supabase/functions/property-image-move/index.ts", import.meta.url), "utf8");
+check("הערה של 20 שניות", moveFn.includes("20 שניות") && !moveFn.includes("10 שניות") && !moveFn.includes('action === "release"'));
+check("מוחקים רק את הקובץ שהועבר", relocate.includes("storagePath(url) !== path"));
+check("הטופס לא מוחק קובץ", !crm.includes("action: 'release'") && !crm.includes("releasePropertyImage"));
 check("בריחה בגיליון", crm.includes("esc(from.title") && crm.includes("esc(text)"));
 
 if (failed) {

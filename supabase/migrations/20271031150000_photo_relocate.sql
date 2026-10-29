@@ -152,7 +152,12 @@ grant execute on function public.relocate_property_images_undo(uuid, uuid) to se
 comment on function public.relocate_property_images(uuid, uuid, text[], text[], text[], text[], text, text, text[], text[], text[], uuid) is
   'מעדכנת את שני מערכי התמונות בעסקה אחת. לא מוחקת קבצים ולא משנה סטטוס. חלון הביטול 20 שניות.';
 
--- האם כתובת תמונה מופיעה בנכס אחר. בלי תקרת שורות.
+-- חיפוש כתובת בתוך מערך התמונות. בלי האינדקס הסריקה עוברת על כל הטבלה.
+create index if not exists properties_images_gin
+  on public.properties using gin (images);
+
+-- האם הכתובת עוד מוצגת: מערך התמונות, תמונת שיווק, סרטון, פוסטר,
+-- תמונה שממתינה בוואטסאפ, או הדמיה שנבנתה ממנה. בלי תקרת שורות.
 create or replace function public.property_image_still_used(p_url text, p_except uuid)
 returns boolean
 language sql
@@ -160,10 +165,29 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1 from public.properties p
-     where p_url = any(coalesce(p.images, '{}'::text[]))
-       and (p_except is null or p.id is distinct from p_except)
+  select p_url is not null and btrim(p_url) <> '' and (
+    exists (
+      select 1 from public.properties p
+       where (
+           (p_except is null or p.id is distinct from p_except)
+           and coalesce(p.images, '{}'::text[]) @> array[p_url]::text[]
+         )
+          or p.marketing_image = p_url
+          or p.video_url = p_url
+          or p.video_poster_url = p_url
+    )
+    or exists (
+      select 1 from public.whatsapp_conversations c
+       where coalesce(c.pending_images, '{}'::text[]) @> array[p_url]::text[]
+    )
+    or exists (
+      select 1 from public.property_visualizations v
+       where v.source_image_url = p_url or v.result_url = p_url
+    )
+    or exists (
+      select 1 from public.property_image_tags t
+       where t.image_url = p_url
+    )
   );
 $$;
 

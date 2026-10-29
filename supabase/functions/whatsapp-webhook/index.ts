@@ -1374,15 +1374,16 @@ async function flushImageBatch(
   const candidates = ((owned || []) as PhotoCandidate[]);
   const last = candidates.find((c) => c.id === conv.last_property_id);
   const sinceIso = new Date(Date.now() - PHOTO_ASK_GAP_MS).toISOString();
+  // שש ההודעות האחרונות בחלון, לא שש הראשונות. הסדר חוזר לכרונולוגי.
   const { data: recentIn } = await supabase.from("whatsapp_messages")
     .select("body, created_at")
     .eq("wa_phone", from)
     .eq("direction", "in")
     .gte("created_at", sinceIso)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(6);
   const recentText = photoContextText(
-    ((recentIn || []) as { body: string | null; created_at: string }[]).map((row) => ({
+    ((recentIn || []) as { body: string | null; created_at: string }[]).slice().reverse().map((row) => ({
       role: "user",
       content: row.body,
       at: row.created_at,

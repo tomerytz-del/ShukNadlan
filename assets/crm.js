@@ -12836,21 +12836,9 @@ function removeImage(i){
   const [slot] = imageSlots.splice(i, 1);
   if (!slot) return;
   if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
-  if (slot.url && editingPropertyId) releasePropertyImage(slot.url, editingPropertyId);
+  // הכתובת יורדת מהנכס רק בשמירה. הקובץ נשאר. ניקוי יתומים הוא עבודה נפרדת.
   imagePicked.delete(i);
   renderImagePreview();
-}
-
-async function releasePropertyImage(url, exceptId){
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return;
-    await fetch(SUPABASE_URL + '/functions/v1/property-image-move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
-      body: JSON.stringify({ action: 'release', url, except_id: exceptId }),
-    });
-  } catch (e) { /* קובץ שנשאר עדיף על מחיקה של קובץ שעוד בשימוש */ }
 }
 
 let imageSelectOn = false;

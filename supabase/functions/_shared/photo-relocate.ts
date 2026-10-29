@@ -147,9 +147,11 @@ async function cleanupRelocations(supabase: Client): Promise<void> {
     const drop: string[] = [];
     for (let i = 0; i < (row.source_urls || []).length; i++) {
       const url = row.source_urls[i];
-      if (await imageUrlStillUsed(supabase, url)) continue;
       const path = row.source_paths?.[i];
-      if (path) drop.push(path);
+      // רק הקובץ של כתובת שהועברה מהנכס הזה, ורק אם הנתיב הוא שלה.
+      if (!url || !path || storagePath(url) !== path) continue;
+      if (await imageUrlStillUsed(supabase, url)) continue;
+      drop.push(path);
     }
     if (drop.length) await supabase.storage.from(BUCKET).remove(drop);
     await supabase.from("property_image_relocations").update({ cleaned_at: new Date().toISOString() }).eq("id", row.id);
