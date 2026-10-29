@@ -13,7 +13,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 // הכללים המשותפים לאתר ולבוטים - מה נחשב "יש בנכס", המילים, עסקה מתוך
 // תקציב. עותק זהה של assets/search-core.js (‏check_search_core.py).
 import "../_shared/search-core.js";
-import { parseAirDirections } from "../_shared/air-living.ts";
+import { airLivingFilterGroups } from "../_shared/air-living.ts";
 
 // deno-lint-ignore no-explicit-any
 export const SearchCore = (globalThis as any).SearchCore;
@@ -213,6 +213,9 @@ export function applyPropertyFilters(
   const ff = SearchCore.featureFilter(feats) as { strict: string[]; groups: string[][] };
   if (ff.strict.length) query = query.contains("features", ff.strict);
   ff.groups.forEach((g) => groups.push(g));
+  // נכס בלי כיוון או בלי שטח סלון עובר. רק נתון שמולא ולא מתאים יורד.
+  // הקבוצה חייבת להיכנס לפני ה-or: אחריו הדחיפה לא מגיעה לשאילתה.
+  for (const group of airLivingFilterGroups(args)) groups.push(group);
 
   if (groups.length === 1) query = query.or(groups[0].join(","));
   else if (groups.length > 1) {
@@ -240,13 +243,6 @@ export function applyPropertyFilters(
   if (parsed.maxRooms !== null) query = query.lte("rooms", parsed.maxRooms);
   if (parsed.minSize !== null) query = query.gte("size_sqm", parsed.minSize);
   if (parsed.maxFloor !== null) query = query.lte("floor", parsed.maxFloor);
-  // הבוט הציבורי מעביר keep_missing_air_living: נכס בלי הנתון נשאר בתוצאות.
-  if (!args.keep_missing_air_living) {
-    const air = parseAirDirections(args.air_directions);
-    if (air.length) query = query.contains("air_directions", air);
-    const minLiving = num(args.min_living_room_sqm);
-    if (minLiving !== null) query = query.gte("living_room_sqm", minLiving);
-  }
 
   return { query, parsed, unknown };
 }

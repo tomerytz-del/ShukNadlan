@@ -348,6 +348,16 @@ const PROPERTY_FIELDS = [
   "open_house_start", "open_house_end", "neighborhood_id", "neighborhoods(name)",
 ].join(", ");
 
+/** בלי שתי העמודות החדשות. האתר עולה לפני המיגרציה, ו-select עליהן הוא 400. */
+function withoutAirLivingColumns(fields: string): string {
+  return fields.split(",").map((s) => s.trim())
+    .filter((s) => s !== "living_room_sqm" && s !== "air_directions").join(", ");
+}
+
+function airLivingColumnError(error: { message?: string } | null): boolean {
+  return !!error && /air_directions|living_room_sqm/.test(error.message || "");
+}
+
 function propertyUrl(id: string): string {
   return `${SITE_BASE}/property?id=${id}`;
 }
@@ -979,9 +989,8 @@ async function searchProperties(
     .limit(area || askedAirLiving ? AREA_SCAN_LIMIT : limit);
 
   // האתר עולה לפני המיגרציה. עמודה חסרה לא מפילה את החיפוש.
-  if (error && /air_directions|living_room_sqm/.test(error.message || "")) {
-    const bare = PROPERTY_FIELDS.split(",").map((s) => s.trim())
-      .filter((s) => s !== "living_room_sqm" && s !== "air_directions").join(", ");
+  if (airLivingColumnError(error)) {
+    const bare = withoutAirLivingColumns(PROPERTY_FIELDS);
     const again = applyPropertyFilters(
       ctx.supabase.from("properties").select(bare).eq("status", "active"),
       { ...args, keep_missing_air_living: true, air_directions: undefined, min_living_room_sqm: undefined },
@@ -995,7 +1004,8 @@ async function searchProperties(
 
   if (error) return { error: "search_failed", detail: error.message };
 
-  let rows: Array<Record<string, unknown>> = (data || []).filter((row) => airLivingRowKept(row, args));
+  let rows: Array<Record<string, unknown>> = ((data || []) as Array<Record<string, unknown>>)
+    .filter((row) => airLivingRowKept(row, args));
   if (!area) rows = rows.slice(0, limit);
   let areaHint: Record<string, unknown> = {};
   if (area) {
@@ -1179,16 +1189,26 @@ async function getProperty(
     ? NaN
     : Number(listingRaw);
 
+  const detailFields = `${PROPERTY_FIELDS}, description, marketing_description, marketing_description_stale, agency_id, agent_id`;
   let query = ctx.supabase
     .from("properties")
-    .select(`${PROPERTY_FIELDS}, description, marketing_description, marketing_description_stale, agency_id, agent_id`)
+    .select(detailFields)
     .eq("status", "active");
 
   if (id) query = query.eq("id", id);
   else if (Number.isFinite(listing)) query = query.eq("listing_number", Math.round(listing));
   else return { error: "missing_identifier", note: "צריך property_id או listing_number." };
 
-  const { data, error } = await query.maybeSingle();
+  let { data, error } = await query.maybeSingle();
+  if (airLivingColumnError(error)) {
+    let again = ctx.supabase
+      .from("properties")
+      .select(withoutAirLivingColumns(detailFields))
+      .eq("status", "active");
+    if (id) again = again.eq("id", id);
+    else again = again.eq("listing_number", Math.round(listing));
+    ({ data, error } = await again.maybeSingle());
+  }
   if (error) return { error: "lookup_failed", detail: error.message };
   if (!data) return { found: false, note: "הנכס אינו פעיל באתר כרגע." };
 
@@ -1686,14 +1706,22 @@ async function sendPropertyCards(
     const id = text(item.property_id);
     if (!id) continue;
 
-    const { data } = await ctx.supabase
+    let { data, error } = await ctx.supabase
       .from("properties")
       .select(PROPERTY_FIELDS)
       .eq("id", id)
       .eq("status", "active")
       .maybeSingle();
+    if (airLivingColumnError(error)) {
+      ({ data, error } = await ctx.supabase
+        .from("properties")
+        .select(withoutAirLivingColumns(PROPERTY_FIELDS))
+        .eq("id", id)
+        .eq("status", "active")
+        .maybeSingle());
+    }
 
-    if (!data) {
+    if (error || !data) {
       results.push({ property_id: id, sent: false, reason: "not_active" });
       continue;
     }

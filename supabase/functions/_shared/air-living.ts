@@ -196,9 +196,31 @@ export function writeAirDirections(
   payload[key] = null;
 }
 
-/** "מרווח" כמילה שלמה, כולל נטיות. לא משנה את הטקסט. */
-export function mentionsMaruah(s: string): boolean {
-  return /(?:^|[^\u0590-\u05FF])מרווח(?:ה|ים|ות|ת)?(?=$|[^\u0590-\u05FF])/u.test(String(s || ""));
+/** רק הטענה "סלון גדול" או "סלון מרווח". "משרד מרווח" ו"מרווחת" לא נכללים. */
+export function mentionsLivingSizeClaim(s: string): boolean {
+  return /(?:^|[^\u0590-\u05FF])ה?סלון (?:גדול|מרווח)(?=$|[^\u0590-\u05FF])/u.test(String(s || ""));
+}
+
+/** סינון חיפוש: נכס בלי נתון עובר. נכס עם נתון שלא מתאים לא. */
+export function airLivingFilterGroups(args: {
+  air_directions?: unknown;
+  min_living_room_sqm?: unknown;
+}): string[][] {
+  const groups: string[][] = [];
+  const air = parseAirDirections(args.air_directions);
+  if (air.length) {
+    const list = air.map((d) => `"${d}"`).join(",");
+    groups.push(["air_directions.is.null", `air_directions.cs.{${list}}`]);
+  }
+  const min = askedLiving(args);
+  if (min !== null) groups.push(["living_room_sqm.is.null", `living_room_sqm.gte.${min}`]);
+  return groups;
+}
+
+/** מינימום מספר כיוונים. מערך ריק או null עובר. */
+export function minAirCountKept(dirs: unknown, min: number): boolean {
+  if (!Array.isArray(dirs) || dirs.length === 0) return true;
+  return dirs.length >= min;
 }
 
 export function livingInRange(value: unknown): boolean {

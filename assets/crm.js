@@ -23876,7 +23876,12 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     required_features: getCheckedValues('clFeatures'),
     neighborhood_id: document.getElementById('clNeighborhood').value || null,
   });
-  if (seeker && clientFormCategory !== 'commercial') Object.assign(payload, {
+  if (seeker && clientFormCategory === 'commercial') Object.assign(payload, {
+    min_living_room_sqm: null,
+    required_directions: null,
+    min_air_directions: null,
+  });
+  else if (seeker) Object.assign(payload, {
     min_living_room_sqm: numOrNull('clMinLiving'),
     required_directions: checkedAir('clAir').length ? checkedAir('clAir') : null,
     min_air_directions: clientAirMinValue(),

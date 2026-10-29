@@ -20,7 +20,7 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
-import { airCountOnly, LARGE_LIVING_ROOM_SQM, writeAirDirections } from "../_shared/air-living.ts";
+import { airCountOnly, LARGE_LIVING_ROOM_SQM, minAirCountKept, writeAirDirections } from "../_shared/air-living.ts";
 import {
   SERVICE_MARKET_LABELS,
   serviceAreaText,
@@ -2051,7 +2051,7 @@ function pick(
 
 const pickWritable = (input: Record<string, unknown>) => pick(input, WRITABLE_FIELDS);
 
-function applyAirLiving(payload: Record<string, unknown>, input: Record<string, unknown>, client = false) {
+function applyAirLiving(payload: Record<string, unknown>, input: Record<string, unknown>, client = false): string | null {
   const rawDirs = client ? (input.required_directions ?? input.air_directions) : input.air_directions;
   if (rawDirs !== undefined) writeAirDirections(payload, rawDirs, client);
   if (client && (input.min_air_directions !== undefined || airCountOnly(input.air_directions))) {
@@ -2062,10 +2062,15 @@ function applyAirLiving(payload: Record<string, unknown>, input: Record<string, 
     payload.min_living_room_sqm = LARGE_LIVING_ROOM_SQM;
   }
   const sqmKey = client ? "min_living_room_sqm" : "living_room_sqm";
-  if (sqmKey in input && input[sqmKey] != null) {
+  if (sqmKey in input && input[sqmKey] != null && input[sqmKey] !== "") {
     const n = Number(input[sqmKey]);
-    payload[sqmKey] = Number.isFinite(n) && n >= 4 && n <= 150 ? n : null;
+    if (!Number.isFinite(n) || n < 4 || n > 150) {
+      delete payload[sqmKey];
+      return 'שטח הסלון צריך להיות בין 4 ל-150 מ"ר. הערך הקודם נשמר.';
+    }
+    payload[sqmKey] = n;
   }
+  return null;
 }
 
 /** נרמול שם שכונה להשוואה: גרשיים, רווחים, ה' הידיעה בתחילת מילה ויו"ד כפולה. */
@@ -2276,7 +2281,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   const payload = pickWritable(input);
-  applyAirLiving(payload, input);
+  const airErr = applyAirLiving(payload, input);
+  if (airErr) return { ok: false, error: airErr };
   payload.category ??= "residential";
   // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
   const statedCity = String(payload.city ?? "").trim();
@@ -2546,7 +2552,8 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
 
   const payload = pickWritable(input);
-  applyAirLiving(payload, input);
+  const airErr = applyAirLiving(payload, input);
+  if (airErr) return { ok: false, error: airErr };
   if (input.neighborhood) {
     const city = String(payload.city ?? existing.city ?? "");
     const hood = city ? await resolvePropertyHood(ctx, city, String(input.neighborhood)) : null;
@@ -2978,7 +2985,7 @@ async function agentPropertySearch(
   let rows = (data || []) as Array<Record<string, unknown>>;
   const minAir = Number(args.min_air_directions);
   if (minAir >= 2 && rows.some((p) => "air_directions" in p)) {
-    rows = rows.filter((p) => Array.isArray(p.air_directions) && p.air_directions.length >= minAir);
+    rows = rows.filter((p) => minAirCountKept(p.air_directions, minAir));
   }
   let hint: Record<string, unknown> = {};
   if (area) {
@@ -4998,7 +5005,8 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
-  applyAirLiving(payload, input, true);
+  const airErr = applyAirLiving(payload, input, true);
+  if (airErr) return { ok: false, error: airErr };
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
@@ -5112,7 +5120,8 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
-  applyAirLiving(payload, input, true);
+  const airErr = applyAirLiving(payload, input, true);
+  if (airErr) return { ok: false, error: airErr };
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");

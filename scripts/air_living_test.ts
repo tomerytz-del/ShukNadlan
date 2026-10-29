@@ -12,9 +12,11 @@ import {
   AIR_LIVING_GAP_NOTE,
   airLivingGapNote,
   airLivingRowKept,
+  airLivingFilterGroups,
   jsonLdAirLiving,
-  mentionsMaruah,
+  mentionsLivingSizeClaim,
   metaAirLivingClause,
+  minAirCountKept,
   parseAirDirections,
   writeAirDirections,
 } from "../supabase/functions/_shared/air-living.ts";
@@ -64,9 +66,23 @@ writeAirDirections(namedDir, "צפון", false);
 check("כיוון בשם נשמר", Array.isArray(namedDir.air_directions) && namedDir.air_directions[0] === "צפון");
 
 const kept = "הסלון מרווח מאוד";
-check("מרווח מזוהה ולא נחתך", mentionsMaruah(kept) && kept === "הסלון מרווח מאוד");
-check("מרווחה", mentionsMaruah("דירה מרווחה"));
-check("לא מרווח בתוך מילה", !mentionsMaruah("מרוח"));
+check("סלון מרווח מזוהה ולא נחתך", mentionsLivingSizeClaim(kept) && kept === "הסלון מרווח מאוד");
+check("סלון גדול", mentionsLivingSizeClaim("יש סלון גדול בבית"));
+check("מרווחת לא נתפסת", !mentionsLivingSizeClaim("דירה מרווחת"));
+check("מרווחים לא נתפס", !mentionsLivingSizeClaim("חדרים מרווחים"));
+check("משרד מרווח לא נתפס", !mentionsLivingSizeClaim("משרד מרווח במרכז"));
+check("לא מרווח בתוך מילה", !mentionsLivingSizeClaim("מרוח"));
+
+check("כיוון חסר עובר במינימום", minAirCountKept(null, 3) && minAirCountKept([], 3));
+check("כיוון ידוע שלא מספיק יורד", !minAirCountKept(["דרום"], 3));
+check("כיוון ידוע שמספיק נשאר", minAirCountKept(["צפון", "דרום", "מערב"], 3));
+const filterGroups = airLivingFilterGroups({ air_directions: ["דרום"], min_living_room_sqm: 25 });
+check("סינון משאיר NULL",
+  filterGroups.some((g) => g.includes("air_directions.is.null")) &&
+  filterGroups.some((g) => g.includes("living_room_sqm.is.null")));
+check("סינון תופס נתון ידוע",
+  filterGroups.some((g) => g.some((part) => part.includes("air_directions.cs."))) &&
+  filterGroups.some((g) => g.some((part) => part.startsWith("living_room_sqm.gte."))));
 
 const root = new URL("..", import.meta.url);
 const read = (p: string) => readFileSync(new URL(p, root), "utf8");
@@ -120,9 +136,29 @@ check("חסימת סלון גדול מהשטח", crm.includes("הסלון גדו
 check("דף נכס", prop.includes("customerLivingLine") && page.includes("כיוון אוויר: ") && page.includes("סלון של כ־"));
 check("מטא בשרת", read("netlify/edge-functions/og-tags.ts").includes("metaClause"));
 const copy = read("supabase/functions/_shared/marketing-copy.ts");
-check("בלי חיתוך מרווח", copy.includes("mentionsMaruah") && !copy.includes("replace(/מרווח") && copy.includes("customerAirLine"));
+check("בלי חיתוך מרווח",
+  copy.includes("mentionsLivingSizeClaim") &&
+  !copy.includes("mentionsMaruah") &&
+  !copy.includes("replace(/מרווח") &&
+  copy.includes("category === \"commercial\"") &&
+  copy.includes("customerAirLine"));
 const pub = read("supabase/functions/whatsapp-webhook/public-agent.ts");
+const getAt = pub.indexOf("async function getProperty");
+const cardsAt = pub.indexOf("async function sendPropertyCards");
 check("הבוט הציבורי לא מפיל עמודה חסרה", pub.includes("keep_missing_air_living") && pub.includes("airLivingGapNote"));
+check("כרטיס ופירוט בלי עמודה חסרה",
+  getAt > 0 && cardsAt > getAt &&
+  pub.slice(getAt, cardsAt).includes("withoutAirLivingColumns") &&
+  pub.slice(cardsAt).includes("withoutAirLivingColumns"));
+const searchSrc = read("supabase/functions/whatsapp-webhook/property-search.ts");
+const groupsAt = searchSrc.indexOf("airLivingFilterGroups");
+const orAt = searchSrc.indexOf("if (groups.length === 1)");
+check("סינון כיוון לפני or", groupsAt > 0 && orAt > groupsAt);
+check("בלי סינון contains על כיוון", !searchSrc.includes(".contains(\"air_directions\"") && !searchSrc.includes(".gte(\"living_room_sqm\""));
+check("מסחרי מאפס דרישות", crm.includes("clientFormCategory === 'commercial'") && crm.includes("min_air_directions: null"));
+check("סיבה בלי נקודה אחרי מספר שלם", sql.includes("rtrim(trim(to_char(p_client.min_living_room_sqm - p_property.living_room_sqm, 'FM999.9')), '.')"));
+const agent = read("supabase/functions/whatsapp-webhook/agent.ts");
+check("סלון מחוץ לטווח נשמר", agent.includes("הערך הקודם נשמר") && agent.includes("delete payload[sqmKey]") && agent.includes("minAirCountKept"));
 check("defer לסקריפט", read("crm.html").includes('defer src="assets/air-living.js"'));
 const facts = sql.slice(sql.indexOf("function public.property_marketing_facts"));
 check("עובדות כוללות סלון וכיוון", facts.includes("living_room_sqm") && facts.includes("p.air_directions"));

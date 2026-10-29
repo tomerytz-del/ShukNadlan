@@ -12,7 +12,7 @@
 // ומזמינה שני נוסחים שלא מדברים זה עם זה.
 // ============================================================================
 import { anthropicRow, logAiUsage } from "./ai-usage.ts";
-import { customerAirLine, mentionsMaruah } from "./air-living.ts";
+import { customerAirLine, mentionsLivingSizeClaim } from "./air-living.ts";
 
 /** שורת העובדות של נכס אחד — התוצאה של property_marketing_facts במסד. */
 // deno-lint-ignore no-explicit-any
@@ -153,7 +153,7 @@ export const PROPERTY_COPY_RULES = `1. מותר להשתמש אך ורק בעו�
    "חלומי", "הזדמנות שלא תחזור".
 7. כשהנתונים דלים - לכתוב קצר. טקסט קצר ומדויק עדיף על טקסט ארוך ומנופח.
 8. אין להשתמש במקף ארוך (\u2014 או \u2013). כשצריך מקף, לכתוב מקף רגיל: -.
-9. סלון: רק אם יש מספר במ"ר בנתונים. אסור לכתוב "סלון גדול". אם אין מספר על הסלון, אסור להשתמש במילה "מרווח" בכל נטייה (מרווח, מרווחה, מרווחים, מרווחות, מרווחת). לא חותכים מילה ממשפט, ואת הטקסט שהסוכן/ת כתב/ה לא משנים.`;
+9. סלון: רק אם יש מספר במ"ר בנתונים. בלי מספר, אסור לכתוב "סלון גדול" או "סלון מרווח" (גם עם ה' הידיעה). מילים אחרות, כולל "מרווחת", "מרווחים" ו"משרד מרווח", מותרות. בנכס מסחרי אין איסור על סלון. לא חותכים מילה ממשפט, ואת הטקסט שהסוכן/ת כתב/ה לא משנים.`;
 
 export const SYSTEM_PROMPT = `את/ה קופירייטר/ית נדל"ן ישראלי/ת שכותב/ת עבור לוח הנכסים שוק נדל"ן.
 
@@ -230,15 +230,19 @@ export async function generateMarketingCopy(
   if (!opts.apiKey) return null;
   // ‏8000 טוקנים: החשיבה של המודל נספרת בתקציב, ובלי זה תיאור עשיר נחתך.
   let copy = await requestMarketingCopy(row, opts, "");
+  const commercial = row.category === "commercial";
   const noSqm = row.living_room_sqm === null || row.living_room_sqm === undefined || row.living_room_sqm === "";
-  if (noSqm && (mentionsMaruah(copy.description) || mentionsMaruah(copy.post))) {
+  const claimsSize = (c: MarketingCopy) =>
+    mentionsLivingSizeClaim(c.description) || mentionsLivingSizeClaim(c.post);
+  // רק "סלון גדול" / "סלון מרווח" בטקסט שנוצר, ורק כשאין מספר. נכס מסחרי לא נבדק.
+  if (!commercial && noSqm && claimsSize(copy)) {
     copy = await requestMarketingCopy(
       row,
       opts,
-      "\n\nאין נתון על גודל הסלון. כתוב מחדש בלי המילה מרווח ובלי הנטיות שלה. לא לחתוך מילה מתוך משפט.",
+      "\n\nאין נתון על גודל הסלון. כתוב מחדש בלי \"סלון גדול\" ובלי \"סלון מרווח\". לא לחתוך מילה ולא לשנות משפט אחר.",
     );
-    if (mentionsMaruah(copy.description) || mentionsMaruah(copy.post)) {
-      throw new Error("התיאור השתמש במרווח בלי נתון על הסלון");
+    if (claimsSize(copy)) {
+      throw new Error("התיאור כלל טענת גודל סלון בלי נתון על הסלון");
     }
   }
   return copy;
