@@ -1855,15 +1855,12 @@
     $('swUndo').setAttribute('aria-label', phoneC() ? 'ביטול' : 'ביטול Z');
     syncRail(c, adv, phone);
   }
-  /* ‏Variant C: המסילה רק על כרטיס נכס. "ליועץ" לפי סוג המפרסם, כמו ctaLabel: עם טלפון - וואטסאפ
-     או חיוג (‏BS.contact), בלי טלפון - הטופס שבגיליון הפרטים */
+  /* ‏Variant C: המסילה רק על כרטיס נכס. "יצירת קשר" בכל סוג מפרסם (גבריאלה 29.10 02:36): עם טלפון -
+     וואטסאפ או חיוג (‏BS.contact), בלי טלפון או בנכס ביריד - הטופס שבגיליון הפרטים */
   function syncRail(c, adv, phone) {
     var rail = $('swRail');
     rail.hidden = !(c && c.slot === 'property');
     if (rail.hidden) return;
-    var l = adv.type === 'agent' ? 'ליועץ' : adv.type === 'agency' ? 'למשרד' : 'למפרסם';
-    $('swRailAdvL').textContent = l;
-    $('swRailAdv').setAttribute('aria-label', l);
     $('swRailAdvIc').querySelector('.sw-ric-wa').hidden = !phone;
     $('swRailAdvIc').querySelector('.sw-ric-chat').hidden = !!phone;
     $('swRailAdv').dataset.phone = phone ? '1' : '';
@@ -3022,7 +3019,7 @@
       onOpen: function () { $('swBs').classList.add('is-tall', 'is-form'); FairSignup.bind($('swBsBody'), { where: 'swipe', onBack: function () { bsClose(); } }); } },
     seller: { art: '', title: 'ספרו לנו על הנכס', sub: '', btns: [], body: sellerHtml, onOpen: bindSeller,
       onClose: function () { shukTrack('seller_sheet_close', { sent: sellerSent ? 1 : 0 }); } },
-    // ‏Variant C: "ליועץ" במסילה, כשיש מספר - וואטסאפ או חיוג
+    // ‏Variant C: "יצירת קשר" במסילה, כשיש מספר - וואטסאפ או חיוג
     contact: { art: '', title: 'איך נוח לכם?', sub: '', btns: [], body: function () {
       return '<div class="sw-bs-row">' +
         '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa">וואטסאפ</a>' +
