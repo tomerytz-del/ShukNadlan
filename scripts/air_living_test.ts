@@ -9,9 +9,14 @@ import {
   customerMatchLines,
   customerSeekAir,
   customerSeekLiving,
+  AIR_LIVING_GAP_NOTE,
+  airLivingGapNote,
+  airLivingRowKept,
   jsonLdAirLiving,
+  mentionsMaruah,
   metaAirLivingClause,
   parseAirDirections,
+  writeAirDirections,
 } from "../supabase/functions/_shared/air-living.ts";
 
 let failed = 0;
@@ -40,6 +45,28 @@ const matched = customerMatchLines(["דרום"], ["דרום", "צפון"], 20, 2
 check("התאמה מציגה רק מה שמתאים", matched.length === 2 && matched[0] === "כיווני אוויר: צפון, דרום");
 check("התאמה בכיוון אחד", customerMatchLines(["מערב"], ["מערב"], null, null)[0] === "כיוון אוויר: מערב");
 check("פער לא מוצג", customerMatchLines(["מערב"], ["צפון"], 40, 20).length === 0);
+check("בלי רווח אחרי כ", customerLivingLine(30) === "גודל הסלון: כ־30 מ״ר" && !/כ־\s/.test(customerLivingLine(30)));
+check("מטא בלי רווח אחרי כ", !/כ־\s/.test(metaAirLivingClause(["צפון", "דרום", "מערב"], 35)));
+
+const missing = { air_directions: null, living_room_sqm: null };
+const south = { air_directions: ["דרום"], living_room_sqm: 22 };
+check("חסר נשאר בתוצאות", airLivingRowKept(missing, { air_directions: ["דרום"], min_living_room_sqm: 25 }));
+check("נתון שלא מתאים יורד", !airLivingRowKept({ air_directions: ["צפון"], living_room_sqm: 10 }, { air_directions: ["דרום"], min_living_room_sqm: 25 }));
+check("המשפט כשחסר נתון", airLivingGapNote([missing, south], { air_directions: ["דרום"] }) === AIR_LIVING_GAP_NOTE);
+check("בלי בקשה אין משפט", airLivingGapNote([missing], {}) === null);
+check("רשימה ריקה אינה המשפט", airLivingGapNote([], { air_directions: ["דרום"] }) === null);
+
+const counted = { air_directions: "3 כיווני אוויר" } as Record<string, unknown>;
+writeAirDirections(counted, counted.air_directions, false);
+check("ספירה לא נשמרת", !("air_directions" in counted));
+const namedDir = { air_directions: "צפון" } as Record<string, unknown>;
+writeAirDirections(namedDir, "צפון", false);
+check("כיוון בשם נשמר", Array.isArray(namedDir.air_directions) && namedDir.air_directions[0] === "צפון");
+
+const kept = "הסלון מרווח מאוד";
+check("מרווח מזוהה ולא נחתך", mentionsMaruah(kept) && kept === "הסלון מרווח מאוד");
+check("מרווחה", mentionsMaruah("דירה מרווחה"));
+check("לא מרווח בתוך מילה", !mentionsMaruah("מרוח"));
 
 const root = new URL("..", import.meta.url);
 const read = (p: string) => readFileSync(new URL(p, root), "utf8");
@@ -92,7 +119,17 @@ check("שמירה בלי דגל", crm.includes("living_room_sqm:") && !crm.inclu
 check("חסימת סלון גדול מהשטח", crm.includes("הסלון גדול משטח הנכס"));
 check("דף נכס", prop.includes("customerLivingLine") && page.includes("כיוון אוויר: ") && page.includes("סלון של כ־"));
 check("מטא בשרת", read("netlify/edge-functions/og-tags.ts").includes("metaClause"));
-check("בלי סלון גדול בשיווק", read("supabase/functions/_shared/marketing-copy.ts").includes("noLivingClaim") && read("supabase/functions/_shared/marketing-copy.ts").includes("customerAirLine"));
+const copy = read("supabase/functions/_shared/marketing-copy.ts");
+check("בלי חיתוך מרווח", copy.includes("mentionsMaruah") && !copy.includes("replace(/מרווח") && copy.includes("customerAirLine"));
+const pub = read("supabase/functions/whatsapp-webhook/public-agent.ts");
+check("הבוט הציבורי לא מפיל עמודה חסרה", pub.includes("keep_missing_air_living") && pub.includes("airLivingGapNote"));
+check("defer לסקריפט", read("crm.html").includes('defer src="assets/air-living.js"'));
+const facts = sql.slice(sql.indexOf("function public.property_marketing_facts"));
+check("עובדות כוללות סלון וכיוון", facts.includes("living_room_sqm") && facts.includes("p.air_directions"));
+check("הטביעה לא השתנתה", !sql.includes("property_marketing_fingerprint"));
+const finger = read("supabase/migrations/20260925090000_property_marketing_description.sql");
+const fingerBody = finger.slice(finger.indexOf("function public.property_marketing_fingerprint"), finger.indexOf("comment on function public.property_marketing_fingerprint"));
+check("הטביעה בלי השדות החדשים", !fingerBody.includes("living_room_sqm") && !fingerBody.includes("air_directions"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

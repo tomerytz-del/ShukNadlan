@@ -20,7 +20,7 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
-import { airCountOnly, LARGE_LIVING_ROOM_SQM, parseAirDirections } from "../_shared/air-living.ts";
+import { airCountOnly, LARGE_LIVING_ROOM_SQM, writeAirDirections } from "../_shared/air-living.ts";
 import {
   SERVICE_MARKET_LABELS,
   serviceAreaText,
@@ -2053,12 +2053,7 @@ const pickWritable = (input: Record<string, unknown>) => pick(input, WRITABLE_FI
 
 function applyAirLiving(payload: Record<string, unknown>, input: Record<string, unknown>, client = false) {
   const rawDirs = client ? (input.required_directions ?? input.air_directions) : input.air_directions;
-  if (rawDirs !== undefined) {
-    const dirs = parseAirDirections(rawDirs);
-    if (client) payload.required_directions = dirs.length ? dirs : null;
-    else if (dirs.length) payload.air_directions = dirs;
-    else if (!airCountOnly(rawDirs)) payload.air_directions = null;
-  }
+  if (rawDirs !== undefined) writeAirDirections(payload, rawDirs, client);
   if (client && (input.min_air_directions !== undefined || airCountOnly(input.air_directions))) {
     const n = Number(input.min_air_directions ?? airCountOnly(input.air_directions));
     payload.min_air_directions = n === 2 || n === 3 || n === 4 ? n : null;

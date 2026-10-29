@@ -240,10 +240,13 @@ export function applyPropertyFilters(
   if (parsed.maxRooms !== null) query = query.lte("rooms", parsed.maxRooms);
   if (parsed.minSize !== null) query = query.gte("size_sqm", parsed.minSize);
   if (parsed.maxFloor !== null) query = query.lte("floor", parsed.maxFloor);
-  const air = parseAirDirections(args.air_directions);
-  if (air.length) query = query.contains("air_directions", air);
-  const minLiving = num(args.min_living_room_sqm);
-  if (minLiving !== null) query = query.gte("living_room_sqm", minLiving);
+  // הבוט הציבורי מעביר keep_missing_air_living: נכס בלי הנתון נשאר בתוצאות.
+  if (!args.keep_missing_air_living) {
+    const air = parseAirDirections(args.air_directions);
+    if (air.length) query = query.contains("air_directions", air);
+    const minLiving = num(args.min_living_room_sqm);
+    if (minLiving !== null) query = query.gte("living_room_sqm", minLiving);
+  }
 
   return { query, parsed, unknown };
 }

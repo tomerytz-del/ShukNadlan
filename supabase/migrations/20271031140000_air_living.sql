@@ -331,3 +331,76 @@ create trigger agent_clients_prune_stale_alerts
      or old.min_air_directions is distinct from new.min_air_directions
      or old.min_living_room_sqm is distinct from new.min_living_room_sqm))
   execute function public.agent_clients_prune_stale_alerts();
+
+-- עובדות לתיאור השיווקי. העמודות בסוף. הטביעה לא משתנה: מילוי
+-- כיוון או סלון לא מסמן תיאור קיים כמתיישן ולא מפעיל כתיבה מחדש.
+drop function if exists public.property_marketing_facts(uuid);
+
+create or replace function public.property_marketing_facts(p_property_id uuid)
+returns table (
+  property_id       uuid,
+  listing_number    bigint,
+  title             text,
+  description       text,
+  marketing_description text,
+  post_text         text,
+  property_type     text,
+  deal_type         text,
+  category          text,
+  price             numeric,
+  rooms             numeric,
+  size_sqm          numeric,
+  built_size_sqm    numeric,
+  garden_sqm        numeric,
+  floor             int,
+  total_floors      smallint,
+  city              text,
+  neighborhood      text,
+  street            text,
+  features          text[],
+  condition         text,
+  project_status    text,
+  move_in_date      date,
+  furniture_details text,
+  land_zoning       text,
+  land_building_rights_pct numeric,
+  land_max_units    smallint,
+  land_max_floors   smallint,
+  land_planning_notes text,
+  agent_name        text,
+  agency_name       text,
+  marketing_description_source text,
+  marketing_description_stale  boolean,
+  living_room_sqm   numeric,
+  air_directions    text[]
+)
+language sql
+security definer
+set search_path = ''
+as $$
+  select
+    p.id, p.listing_number, p.title, p.description,
+    p.marketing_description, p.post_text,
+    p.property_type, p.deal_type, p.category,
+    p.price, p.rooms::numeric,
+    coalesce(p.size_sqm, p.area_sqm)::numeric, p.built_size_sqm, p.garden_sqm,
+    p.floor::int, p.total_floors,
+    p.city, n.name, p.street,
+    p.features, p.condition, p.project_status, p.move_in_date, p.furniture_details,
+    p.land_zoning, p.land_building_rights_pct, p.land_max_units,
+    p.land_max_floors, p.land_planning_notes,
+    m.display_name, a.name,
+    p.marketing_description_source, p.marketing_description_stale,
+    p.living_room_sqm, p.air_directions
+    from public.properties p
+    left join public.neighborhoods  n on n.id = p.neighborhood_id
+    left join public.agency_members m on m.id = p.agent_id
+    left join public.agencies       a on a.id = p.agency_id
+   where p.id = p_property_id;
+$$;
+
+revoke all on function public.property_marketing_facts(uuid) from public, anon, authenticated;
+grant execute on function public.property_marketing_facts(uuid) to service_role;
+
+comment on function public.property_marketing_facts(uuid) is
+  'כל מה שנכנס לתיאור השיווקי, כולל שטח סלון וכיווני אוויר. הטביעה אינה כוללת אותם.';

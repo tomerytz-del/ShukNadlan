@@ -128,6 +128,79 @@ export function customerMatchLines(
   return lines.filter(Boolean);
 }
 
+/** המשפט לפונה כשביקש/ה כיוון או סלון והנתון חסר בתוצאות. */
+export const AIR_LIVING_GAP_NOTE =
+  "ברוב הנכסים עדיין לא מעודכנים כיווני האוויר וגודל הסלון, אז הנה נכסים שמתאימים לשאר מה שביקשתם. את הפרטים האלה אפשר לברר מול הסוכן המטפל.";
+
+function askedAir(args: { air_directions?: unknown }): AirDir[] {
+  return parseAirDirections(args.air_directions);
+}
+
+function askedLiving(args: { min_living_room_sqm?: unknown }): number | null {
+  if (args.min_living_room_sqm === null || args.min_living_room_sqm === undefined || args.min_living_room_sqm === "") {
+    return null;
+  }
+  const n = Number(args.min_living_room_sqm);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** נכס בלי הנתון נשאר. נכס עם נתון שלא מתאים יורד. */
+export function airLivingRowKept(
+  row: { air_directions?: unknown; living_room_sqm?: unknown },
+  args: { air_directions?: unknown; min_living_room_sqm?: unknown },
+): boolean {
+  const want = askedAir(args);
+  const have = parseAirDirections(row.air_directions);
+  if (want.length && have.length && !want.every((d) => have.includes(d))) return false;
+  const min = askedLiving(args);
+  if (min !== null && row.living_room_sqm !== null && row.living_room_sqm !== undefined && row.living_room_sqm !== "") {
+    const got = Number(row.living_room_sqm);
+    if (Number.isFinite(got) && got < min) return false;
+  }
+  return true;
+}
+
+export function airLivingGapNote(
+  rows: Array<{ air_directions?: unknown; living_room_sqm?: unknown }>,
+  args: { air_directions?: unknown; min_living_room_sqm?: unknown },
+): string | null {
+  if (!askedAir(args).length && askedLiving(args) === null) return null;
+  if (!rows.length) return null;
+  const missing = rows.some((row) => {
+    if (askedAir(args).length && !parseAirDirections(row.air_directions).length) return true;
+    if (askedLiving(args) !== null && (row.living_room_sqm === null || row.living_room_sqm === undefined || row.living_room_sqm === "")) {
+      return true;
+    }
+    return false;
+  });
+  return missing ? AIR_LIVING_GAP_NOTE : null;
+}
+
+/** "3 כיווני אוויר" אינו מערך. אחרי pickWritable המחרוזת נשארת ושוברת את השמירה. */
+export function writeAirDirections(
+  payload: Record<string, unknown>,
+  raw: unknown,
+  client = false,
+): void {
+  if (raw === undefined) return;
+  const dirs = parseAirDirections(raw);
+  const key = client ? "required_directions" : "air_directions";
+  if (dirs.length) {
+    payload[key] = dirs;
+    return;
+  }
+  if (!client && airCountOnly(raw)) {
+    delete payload.air_directions;
+    return;
+  }
+  payload[key] = null;
+}
+
+/** "מרווח" כמילה שלמה, כולל נטיות. לא משנה את הטקסט. */
+export function mentionsMaruah(s: string): boolean {
+  return /(?:^|[^\u0590-\u05FF])מרווח(?:ה|ים|ות|ת)?(?=$|[^\u0590-\u05FF])/u.test(String(s || ""));
+}
+
 export function livingInRange(value: unknown): boolean {
   if (value === null || value === undefined || value === "") return true;
   const n = Number(value);

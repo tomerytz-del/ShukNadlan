@@ -20,6 +20,7 @@ import {
   SearchCore,
   visitorHash,
 } from "./property-search.ts";
+import { airLivingGapNote, airLivingRowKept } from "../_shared/air-living.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -960,7 +961,7 @@ async function searchProperties(
   }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
-    args,
+    { ...args, keep_missing_air_living: true },
   );
   const query = built.query;
   const { city, minPrice, maxPrice, minRooms, maxRooms, minSize } = built.parsed;
@@ -970,15 +971,32 @@ async function searchProperties(
   //
   // סינון האזור נעשה **אחרי** השליפה (‏filterByArea), ולכן שליפה לפי אזור
   // רחבה - AREA_SCAN_LIMIT.
-  const { data, error } = await query
+  const askedAirLiving = airLivingGapNote([{ air_directions: null, living_room_sqm: null }], args) !== null;
+  let { data, error } = await query
     .order("is_promoted", { ascending: false })
     .order("bumped_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(area ? AREA_SCAN_LIMIT : limit);
+    .limit(area || askedAirLiving ? AREA_SCAN_LIMIT : limit);
+
+  // האתר עולה לפני המיגרציה. עמודה חסרה לא מפילה את החיפוש.
+  if (error && /air_directions|living_room_sqm/.test(error.message || "")) {
+    const bare = PROPERTY_FIELDS.split(",").map((s) => s.trim())
+      .filter((s) => s !== "living_room_sqm" && s !== "air_directions").join(", ");
+    const again = applyPropertyFilters(
+      ctx.supabase.from("properties").select(bare).eq("status", "active"),
+      { ...args, keep_missing_air_living: true, air_directions: undefined, min_living_room_sqm: undefined },
+    );
+    ({ data, error } = await again.query
+      .order("is_promoted", { ascending: false })
+      .order("bumped_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(area ? AREA_SCAN_LIMIT : limit));
+  }
 
   if (error) return { error: "search_failed", detail: error.message };
 
-  let rows: Array<Record<string, unknown>> = data || [];
+  let rows: Array<Record<string, unknown>> = (data || []).filter((row) => airLivingRowKept(row, args));
+  if (!area) rows = rows.slice(0, limit);
   let areaHint: Record<string, unknown> = {};
   if (area) {
     const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed, cityId });
@@ -1128,6 +1146,7 @@ async function searchProperties(
     all_listings_url: `${SITE_BASE}/`,
     features_from_message: addedFeatures.length ? addedFeatures : undefined,
     features_not_recognized: unknownWords.features.length ? unknownWords.features : undefined,
+    air_living_note: airLivingGapNote(rows, args) || undefined,
     features_note: unknownWords.features.length
       ? "המאפיינים ב-features_not_recognized אינם נשמרים במאגר, ולכן החיפוש נעשה " +
         "בלעדיהם. לומר זאת בקצרה (\"את X אין לי איך לסנן\"), ולא להציג את התוצאות " +
@@ -2364,6 +2383,9 @@ const SYSTEM_STATIC: string = (() => {
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
       "החזיר ריק גם ב-close_matches - לומר שלא נמצא, ולהציע לשמור את החיפוש.",
+    "- **air_living_note:** אם השדה חזר, לומר את המשפט כמו שהוא, בלי לשנות מילה. " +
+      "לא לומר שאין נכסים רק כי כיוון האוויר או גודל הסלון לא מולאים. הנכסים שחזרו " +
+      "מתאימים לשאר הבקשה.",
     "- **‏office_alternative = לשאול על משרדים לפני הכול.** חנות או שטח מסחרי " +
       "שלא נמצאו, ובמלאי יש משרדים שעונים על אותן דרישות: לשאול אם להציג אותם, " +
       "בלי offer_save_search באותו תור. לא להציע משרדים כשהשדה לא חזר.",
