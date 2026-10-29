@@ -49,6 +49,7 @@ import {
   appendOpsHistory,
   inboundOpsButton,
   OPS_TAP_REPLY,
+  TIER_ALLOWED,
   opsQuestionAuthRefusal,
   recordOpsTap,
   runOpsQuestion,
@@ -1573,7 +1574,8 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   // הגייטינג נעשה כאן, לפני שההודעה מומרת לקלט ל-LLM: הבדיקה חייבת לקדום
   // לכל דבר שעולה כסף (Whisper, Claude, אחסון תמונה) ולכל דבר שכותב למסד.
-  if (waBlock === "free_plan") {
+  // TIER_ALLOWED הוא השם ש-check_tier_gates מחפש, ואותו Set ב-whatsappAgentBlock.
+  if (!TIER_ALLOWED.has(String(agent.tier ?? ""))) {
     await reply(from, TIER_REQUIRED_MSG, agent.id);
     return;
   }
@@ -2139,6 +2141,15 @@ function opsQuestionDb(): OpsQuestionDb {
         .maybeSingle();
       if (error) throw new Error(error.message);
       return data?.created_at ? String(data.created_at) : null;
+    },
+    async priorWaIds(agentId, purpose) {
+      const { data, error } = await supabase.from("whatsapp_ops_questions")
+        .select("wa_message_ids")
+        .eq("agent_id", agentId)
+        .eq("purpose", purpose)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return ((data?.wa_message_ids as string[] | null) ?? []).map((id) => String(id));
     },
     async claim(row) {
       const { data, error } = await supabase.rpc("whatsapp_ops_question_claim", {

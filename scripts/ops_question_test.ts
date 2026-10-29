@@ -45,8 +45,16 @@ const KNOWN = ["new_lead", "agenda_reminder", "security_alert"];
 const q = OPS_QUESTIONS[PURPOSE];
 const titles = [...q.buttons, ...q.followup.buttons];
 check("כל כותרת עד 20", titles.every((t) => t.length >= 1 && t.length <= 20));
-check("כותרת התקרה היא 20 יחידות", q.buttons[0].length === 20 && q.buttons[0] === "אותו נכס, תקרה 13 מ'");
-check("הנוסח המאושר כלשונו", q.body.startsWith("היי שי, שמתי לב") && q.body.endsWith("פעמיים?") && q.followup.body.includes("נכס 1306"));
+check(
+  "כפתורי ההודעה הראשונה",
+  q.buttons.join("|") === "כולם אותו נכס|13 ו-9 מ' שונים|שלושה נכסים שונים" &&
+    q.buttons.every((t) => t.length <= 20),
+);
+check(
+  "הנוסח המאושר כלשונו",
+  q.body === "היי שי, שמתי לב שיש אצלך שלושה מרלו\"גים של 4,800 מ\"ר להשכרה באותה נקודה במפה: שניים עם תקרה של 13 מטר (ב-65 ₪ וב-68 ₪ למ\"ר) ואחד עם תקרה של 9 מטר (ב-65 ₪ למ\"ר). זה אותו נכס שעלה כמה פעמים?" &&
+    q.followup.body.includes("נכס 1306") && q.followup.buttons.join("|") === "נכון|צריך לתקן",
+);
 check("סוכן/ת מאושר אחד", q.allowedAgentIds.length === 1 && q.allowedAgentIds[0] === SHAI);
 check("תקרות", OPS_AGENT_DAILY_CAP === 1 && OPS_GLOBAL_DAILY_CAP === 5);
 
@@ -67,6 +75,15 @@ check(
   whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: ["new_lead"] }, KNOWN) === false,
 );
 check(
+  "רשימת סוגים ריקה עם כיבוי נחסמת",
+  whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: ["new_lead"] }, []) === true &&
+    whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: ["new_lead"] }, null) === true,
+);
+check(
+  "ברירת מחדל דלוקה גם בלי רשימת סוגים",
+  whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: [] }, []) === false,
+);
+check(
   "opt-out מלא",
   whatsappFullyOptedOut({ whatsapp_types: [], whatsapp_off_types: KNOWN }, KNOWN) === true,
 );
@@ -79,6 +96,7 @@ function memory(agent: OpsAgent | null, opts?: {
   lastInbound?: string | null;
   off?: boolean;
   claimCode?: string;
+  prior?: string[];
 }): {
   db: OpsQuestionDb;
   sends: Sent[];
@@ -101,6 +119,9 @@ function memory(agent: OpsAgent | null, opts?: {
     },
     async lastInboundAt() {
       return opts?.lastInbound === undefined ? OPEN_INBOUND : opts.lastInbound;
+    },
+    async priorWaIds() {
+      return opts?.prior ?? [];
     },
     async claim(row) {
       claims.push(row);
@@ -227,14 +248,18 @@ check("ההיסטוריה היא הערת מערכת", users.length === 2 && use
 const again = await runOpsQuestion({ db: okMem.db, input: input(), sendButtons: await sender(okMem), now: NOW });
 check("פעם שנייה לא שולחת", again.status === 409 && again.body.error === "already_sent" && okMem.sends.length === 2);
 
-const retryMem = memory(paid(), { claimCode: "reclaimed" });
+const retryMem = memory(paid(), { claimCode: "reclaimed", prior: ["wamid.1"] });
 const retry = await runOpsQuestion({
   db: retryMem.db,
   input: input({ retry: true }),
   sendButtons: await sender(retryMem),
   now: NOW,
 });
-check("retry מפורש שולח שוב", retry.status === 200 && retryMem.claims[0].retry === true && retryMem.sends.length === 2);
+check(
+  "retry שולח רק את ההודעה שלא יצאה",
+  retry.status === 200 && retryMem.claims[0].retry === true && retryMem.sends.length === 1 &&
+    retryMem.sends[0].body === approved[1].body && !retryMem.sends.some((s) => s.body === approved[0].body),
+);
 check("בלי retry כשל קודם לא נשרף", claimDecision("failed")?.body.detail?.toString().includes("retry=true") === true);
 check("claimed תקוע לא נשאר בלי דרך", claimDecision("in_progress")?.body.detail?.toString().includes("retry=true") === true);
 
@@ -282,7 +307,7 @@ const tapAt = src.indexOf("inboundOpsButton(msg)");
 check("המשימה דורשת service_role", src.includes("opsQuestionAuthRefusal(auth)"));
 check("הלחיצה לפני המודל", tapAt > 0 && tapAt < src.indexOf("runAgentTurn(") && tapAt < src.indexOf("await handlePublicMessage(msg)"));
 check("אחרי התפיסה יש return", src.slice(tapAt, tapAt + 500).includes("return;"));
-check("השער המשותף", src.includes("whatsappAgentBlock(") && !src.includes("TIER_ALLOWED"));
+check("השער המשותף ו-TIER_ALLOWED", src.includes("whatsappAgentBlock(") && src.includes("TIER_ALLOWED.has("));
 check("היסטוריה אטומית", src.includes("whatsapp_ops_history_append") && src.includes("appendOpsHistory([], assistantText)"));
 
 const sql = readFileSync(new URL("../supabase/migrations/20271031100000_whatsapp_ops_question.sql", import.meta.url), "utf8");

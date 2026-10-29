@@ -14,6 +14,9 @@ export const OPS_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const OPS_AGENT_DAILY_CAP = 1;
 export const OPS_GLOBAL_DAILY_CAP = 5;
 
+/** השער של העוזרת, של המייל ושל פעולה מהסיכום. השם נקרא ב-check_tier_gates. */
+export const TIER_ALLOWED = new Set(["mid", "premium"]);
+
 export const OPS_HISTORY_NOTE =
   "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה אליך שאלה עם כפתורים. " +
   "לחיצה על כפתור כבר טופלה, ואין להגיב עליה ואין לבצע פעולה.]";
@@ -37,8 +40,8 @@ export interface OpsQuestion {
 
 export const OPS_QUESTIONS: Record<string, OpsQuestion> = {
   shai_dup_warehouse_2026_10: {
-    body: "היי שי, שמתי לב שיש אצלך שני מרלו\"גים של 4,800 מ\"ר להשכרה, ב-65 ₪ למ\"ר ובאותה נקודה במפה. ההבדל היחיד ביניהם הוא גובה התקרה: 13 מטר באחד ו-9 בשני. זה אותו נכס שעלה פעמיים?",
-    buttons: ["אותו נכס, תקרה 13 מ'", "אותו נכס, תקרה 9 מ'", "שני נכסים שונים"],
+    body: "היי שי, שמתי לב שיש אצלך שלושה מרלו\"גים של 4,800 מ\"ר להשכרה באותה נקודה במפה: שניים עם תקרה של 13 מטר (ב-65 ₪ וב-68 ₪ למ\"ר) ואחד עם תקרה של 9 מטר (ב-65 ₪ למ\"ר). זה אותו נכס שעלה כמה פעמים?",
+    buttons: ["כולם אותו נכס", "13 ו-9 מ' שונים", "שלושה נכסים שונים"],
     followup: {
       body: "ועוד דבר קטן: שייכנו את ששת הנכסים שלך באזור השרון לנתניה, ואת נכס 1306 לגדרה, כדי שיופיעו בחיפוש לפי עיר. זה נכון?",
       buttons: ["נכון", "צריך לתקן"],
@@ -87,6 +90,8 @@ export interface OpsQuestionDb {
   whatsappOff(agentId: string): Promise<boolean>;
   lastInboundAt(phone: string): Promise<string | null>;
   claim(row: OpsClaim): Promise<string>;
+  /** מזהי הודעות שכבר יצאו, לפי סדר (הודעה ראשונה, ואז השנייה). */
+  priorWaIds(agentId: string, purpose: string): Promise<string[]>;
   markSent(
     agentId: string,
     purpose: string,
@@ -132,7 +137,7 @@ export function whatsappAgentBlock(agent: {
   billing_status: string | null;
 }): "inactive" | "free_plan" | "billing_inactive" | null {
   if (!agent.active) return "inactive";
-  if (agent.tier !== "mid" && agent.tier !== "premium") return "free_plan";
+  if (!TIER_ALLOWED.has(String(agent.tier ?? ""))) return "free_plan";
   if (agent.billing_status !== "active") return "billing_inactive";
   return null;
 }
@@ -152,7 +157,8 @@ export function whatsappFullyOptedOut(
   const off = prefs.whatsapp_off_types ?? [];
   if (on.length !== 0 || off.length === 0) return false;
   const known = knownTypes ?? [];
-  if (!known.length) return false;
+  // רשימת הסוגים חסרה: אי אפשר להבדיל כיבוי מלא מכיבוי חלקי. לא שולחים.
+  if (!known.length) return true;
   const set = new Set(off);
   return known.every((t) => set.has(t));
 }
@@ -392,15 +398,21 @@ export async function runOpsQuestion(opts: {
   const decided = claimDecision(code);
   if (decided) return decided;
 
+  const prior = value.retry ? await opts.db.priorWaIds(value.agentId, value.purpose) : [];
   const waIds: string[] = [];
-  for (const message of value.messages) {
+  for (let i = 0; i < value.messages.length; i++) {
+    const message = value.messages[i];
+    if (prior[i]) {
+      waIds.push(prior[i]);
+      continue;
+    }
     let waId: string | null;
     try {
       waId = await opts.sendButtons(phone, message.body, message.buttons);
     } catch (err) {
       console.error("ops question send failed", err);
       const detail = waIds.length
-        ? "ההודעה הראשונה יצאה. ההודעה השנייה נכשלה. retry=true שולח את שתיהן שוב."
+        ? "חלק מההודעות יצא. retry=true שולח רק את מה שלא יצא."
         : "השליחה לוואטסאפ נכשלה. לניסיון חוזר: retry=true.";
       await opts.db.markSent(
         value.agentId,
@@ -411,7 +423,7 @@ export async function runOpsQuestion(opts: {
       ).catch((markErr) => console.error("ops question mark failed", markErr));
       return result(502, { error: "send_failed", detail });
     }
-    if (waId) waIds.push(waId);
+    waIds.push(waId || "sent");
     const logged = opsOutboundBody(message.body, message.buttons);
     await opts.db.logOutbound({
       agentId: value.agentId,
