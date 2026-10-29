@@ -396,7 +396,7 @@ async function renderShowcasePanel(client, panel){
       ${meetings.some(m => m.status === 'requested' && (m.property_ids || []).some(pid => {
           const r = byProp.get(pid);
           return r && r.source === 'shared' && r.coop_status !== 'agreed';
-        })) ? '<div class="sc-warn">🤝 הסיור כולל נכס בשת"פ שטרם תואם עם המתווך/ת המקורי/ת. כדאי לסגור את השת"פ לפני שמאשרים מועד.</div>' : ''}
+        })) ? '<div class="sc-warn">🤝 הסיור כולל נכס בשת"פ שטרם תואם עם יועץ הנדל״ן המקורי. כדאי לסגור את השת"פ לפני שמאשרים מועד.</div>' : ''}
       ${meetings.map(m => `<div class="sc-meet">
         <div><b>${esc(fmt(m.starts_at))}</b> · ${esc((m.property_ids || []).map(pid => byProp.get(pid)).filter(Boolean).map(propText).join(' · '))}
           ${m.note ? `<div class="lead-meta">💬 ${esc(m.note)}</div>` : ''}
@@ -471,14 +471,14 @@ async function renderShowcasePanel(client, panel){
     reload();
   }));
   panel.querySelectorAll('[data-coord]').forEach(b => b.addEventListener('click', async ()=>{
-    if (!confirm('לשלוח בוואטסאפ לכל הבעלים והמתווכים של הנכסים בסיור בקשה לתאם ביקור בסביבות השעה שנקבעה? כל אחד/ת יקבל/תקבל כפתורים לאשר, לדחות או לבקש מועד אחר.')) return;
+    if (!confirm('לשלוח בוואטסאפ לכל הבעלים ויועצי הנדל״ן של הנכסים בסיור בקשה לתאם ביקור בסביבות השעה שנקבעה? כל אחד/ת יקבל/תקבל כפתורים לאשר, לדחות או לבקש מועד אחר.')) return;
     b.disabled = true;
     const { data, error } = await sb.rpc('showing_coord_request', { p_meeting_id: b.dataset.coord });
     b.disabled = false;
     if (error || (data && data.error)) return showToast(coordErrorText((data && data.error) || error));
     const parts = [
       data.queued ? (data.queued === 1 ? 'בקשה אחת יוצאת' : data.queued + ' בקשות יוצאות') + ' בוואטסאפ בדקה הקרובה' : 'לא יצאה בקשה חדשה',
-      data.no_phone ? (data.no_phone === 1 ? 'לנכס אחד' : 'ל-' + data.no_phone + ' נכסים') + ' אין טלפון של הבעלים או המתווך/ת' : '',
+      data.no_phone ? (data.no_phone === 1 ? 'לנכס אחד' : 'ל-' + data.no_phone + ' נכסים') + ' אין טלפון של הבעלים או יועץ הנדל״ן' : '',
     ].filter(Boolean);
     showToast(parts.join(' · '), 5000);
     reload();
@@ -519,8 +519,8 @@ async function renderShowcasePanel(client, panel){
   }));
 }
 
-/* ---------- תיאום ביקור עם הבעלים והמתווכים ----------
-   לכל נכס בבקשת הסיור: נכס שלי → הבעלים, נכס של עמית/ה או בשת"פ → המתווך/ת
+/* ---------- תיאום ביקור עם הבעלים ויועצי הנדל״ן ----------
+   לכל נכס בבקשת הסיור: נכס שלי → הבעלים, נכס של עמית/ה או בשת"פ → יועץ הנדל״ן
    שמחזיק/ה אותו. ההודעות יוצאות מהמספר של שוק נדל״ן עם שלושה כפתורים, והתשובות
    חוזרות כהתראה. מי שלא קיבל/ה (אין טלפון, אין ערוץ, חסם/ה) - מקבל/ת כאן כפתור
    וואטסאפ עם אותו נוסח, לשליחה מהטלפון של הסוכן/ת. docs/showing-coordination.md */
@@ -545,14 +545,14 @@ function coordManualText(c, m, line){
 function coordBlockForMeeting(m, list, byProp, propText){
   const open = ['requested', 'confirmed'].includes(m.status) && new Date(m.starts_at) > new Date(Date.now() + 15 * 60e3);
   if (!list.length){
-    return open ? `<div class="sc-coord"><button type="button" class="btn btn-ghost" data-coord="${esc(m.id)}">📨 תיאום עם הבעלים והמתווכים</button></div>` : '';
+    return open ? `<div class="sc-coord"><button type="button" class="btn btn-ghost" data-coord="${esc(m.id)}">📨 תיאום עם הבעלים ויועצי הנדל״ן</button></div>` : '';
   }
   const lineOf = c => { const r = byProp.get(c.property_id); return r ? propText(r) : ''; };
   const where = c => { const r = byProp.get(c.property_id); const p = (r && r.properties) || {}; return [p.street, p.house_number].filter(Boolean).join(' ') + (p.city ? ', ' + p.city : ''); };
   return `<div class="sc-coord"><div class="lead-meta"><b>📨 תיאום ביקור</b></div>
     ${list.map(c => {
       const wa = COORD_RETRY.includes(c.status) && c.target_phone && waLink(c.target_phone);
-      return `<div class="lead-meta">${esc(c.target === 'owner' ? 'בעלים' : 'מתווך/ת')}: ${esc(c.target_name || 'ללא שם')} · ${esc(lineOf(c))} · <b>${esc(COORD_STATUS[c.status] || c.status)}</b>${c.status === 'sent' && c.nudged_at ? ' · נשלחה תזכורת' : ''}
+      return `<div class="lead-meta">${esc(c.target === 'owner' ? 'בעלים' : 'יועץ נדל״ן')}: ${esc(c.target_name || 'ללא שם')} · ${esc(lineOf(c))} · <b>${esc(COORD_STATUS[c.status] || c.status)}</b>${c.status === 'sent' && c.nudged_at ? ' · נשלחה תזכורת' : ''}
         ${wa ? ` <a class="btn btn-ghost" href="${esc(wa + '?text=' + encodeURIComponent(coordManualText(c, m, where(c))))}" target="_blank" rel="noopener noreferrer">💬 לשלוח ממני</a>` : ''}</div>`;
     }).join('')}
     ${open && list.some(c => COORD_RETRY.includes(c.status) && c.status !== 'opted_out') ? `<button type="button" class="btn btn-ghost" data-coord="${esc(m.id)}">📨 שליחה חוזרת למי שלא קיבל/ה</button>` : ''}

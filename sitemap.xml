@@ -35,6 +35,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/sell</loc>
+    <lastmod>2026-10-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/open-house</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>daily</changefreq>

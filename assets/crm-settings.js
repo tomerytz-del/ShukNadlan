@@ -558,20 +558,24 @@ function notifRowHtml(t){
 
 function reminderRowHtml(){
   const rp = reminderPrefs;
+  const shown = reminderChannelsForScreen(rp.channels);
+  const waOk = reminderWaAllowed();
   const kinds = REMINDER_KINDS.map(k =>
     `<div class="np2-kind"><div class="np2-text"><div class="np2-title" id="npKind-${escapeHtml(k.kind)}">${escapeHtml(k.title)}</div><div class="np2-sub">${escapeHtml(k.sub)}</div></div>`
     + `<button type="button" class="ui-switch" data-ui-switch data-kind="${escapeHtml(k.kind)}" aria-pressed="${!rp.muted_kinds.includes(k.kind)}" aria-labelledby="npKind-${escapeHtml(k.kind)}"></button></div>`).join('');
   const cadence = ['daily', 'weekly', 'off'].includes(rp.cadence) ? rp.cadence : 'weekly';
+  const where = waOk ? 'בוואטסאפ או במייל, לא בפעמון.' : 'במייל, לא בפעמון.';
+  const waChip = waOk ? uiChip('וואטסאפ', { value:'whatsapp', on: shown.includes('whatsapp') }) : '';
   return `<div class="np2-row np2-row--rem">`
     + `<div class="np2-text"><div class="np2-title">סיכום תזכורות<span class="ui-tag" id="npRemFreq"></span></div>`
-    + `<div class="np2-sub">כל מה שכדאי לטפל בו במודעות שלך, בהודעה אחת. בוואטסאפ או במייל, לא בפעמון.</div></div>`
+    + `<div class="np2-sub">כל מה שכדאי לטפל בו במודעות שלך, בהודעה אחת. ${where}</div></div>`
     + `<button type="button" class="ui-link" data-np-rem aria-expanded="false" aria-controls="npRemBody">הגדרות הסיכום</button>`
     + `</div>`
     + `<div class="np2-rem" id="npRemBody" hidden>`
     +   `<div class="set-field"><span class="set-field-label" id="npRemChLabel">לאן לשלוח</span>`
     +     `<div class="ui-chips" id="npRemCh" role="group" aria-labelledby="npRemChLabel">`
-    +       uiChip('וואטסאפ', { value:'whatsapp', on: rp.channels.includes('whatsapp') })
-    +       uiChip('מייל', { value:'email', on: rp.channels.includes('email') })
+    +       waChip
+    +       uiChip('מייל', { value:'email', on: shown.includes('email') })
     +     `</div><p class="ui-hint" id="npRemChNote"></p></div>`
     +   `<div class="set-field"><span class="set-field-label" id="npRemCadLabel">תדירות</span>`
     +     `<div class="ui-chips" data-ui-single id="npRemCadence" role="group" aria-labelledby="npRemCadLabel">`
@@ -583,6 +587,44 @@ function reminderRowHtml(){
     +     `<p class="ui-hint"><span>כיבוי מכבה את ההודעה בלבד.</span><span>הממצא ממשיך להופיע ב"תזכורות וטיפים".</span></p></div>`
     +   `<p class="ui-hint" id="rmLastSent"></p>`
     + `</div>`;
+}
+
+// זהה ל-LESS_KEPT_TYPES ול-notification_push_less_kept_types().
+// lead_followup אינו סוג התראה: המשימה ביומן, וההודעה היא agenda_reminder.
+const NOTIF_LESS_KEPT = new Set([
+  'agenda_reminder',
+  'showcase_meeting',
+  'new_lead',
+  'lead_unrouted',
+  'security_alert',
+  'budget_alert',
+  'ops_alert',
+]);
+
+function notifTypeTitle(type){
+  const t = (typeof NOTIF_TYPES !== 'undefined' ? NOTIF_TYPES : []).find(x => x.type === type);
+  return t ? t.title : 'עדכון';
+}
+
+function renderNotifLess(){
+  const box = document.getElementById('npLessBox');
+  const list = document.getElementById('npLessList');
+  if (!box || !list) return;
+  const now = Date.now();
+  const rows = (notifLessRows || []).filter(r => !r.expires_at || Date.parse(r.expires_at) > now);
+  box.hidden = rows.length === 0;
+  list.innerHTML = rows.map(r => {
+    const until = r.expires_at ? new Date(r.expires_at).toLocaleDateString('he-IL') : '';
+    const kept = NOTIF_LESS_KEPT.has(r.notif_type);
+    const sub = kept
+      ? 'הסוג הזה דחוף והוא ממשיך לצאת כרגיל. אפשר למחוק את הבקשה.'
+      : (until ? `יוצא רק בחלון, עד ${until}.` : 'יוצא רק בחלון.');
+    return `<div class="np2-row">`
+      + `<div class="np2-text"><div class="np2-title">${escapeHtml(notifTypeTitle(r.notif_type))}</div>`
+      + `<div class="np2-sub">${escapeHtml(sub)}</div></div>`
+      + `<button type="button" class="ui-btn ui-btn--secondary" data-np-less-restore="${escapeHtml(r.notif_type)}">החזר</button>`
+      + `</div>`;
+  }).join('');
 }
 
 function renderNotifScreen(){
@@ -624,6 +666,7 @@ function renderNotifScreen(){
   syncNotifScreen();
   const ls = document.getElementById('rmLastSent');
   if (ls) ls.textContent = lastSentText;
+  renderNotifLess();
 }
 
 /* המצב של כל המסך, כאובייקט אחד - לפס השמירה ולשמירה עצמה */
@@ -714,8 +757,11 @@ function syncNotifScreen(){
     const freq = document.getElementById('npRemFreq');
     freq.textContent = st.cadence === 'off' || !st.channels.length || !st.cap ? 'כבוי' : st.cadence === 'daily' ? 'יומי' : 'שבועי';
     const parts = [];
+    if (!reminderWaAllowed()){
+      parts.push('במסלול חינם התזכורות מגיעות במייל. וואטסאפ זמין במסלולים בתשלום.');
+    }
     if (!st.channels.length) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה.');
-    if (st.channels.includes('whatsapp') && !(currentAgent && currentAgent.phone))
+    if (reminderWaAllowed() && st.channels.includes('whatsapp') && !(currentAgent && currentAgent.phone))
       parts.push(st.channels.includes('email')
         ? 'לוואטסאפ צריך מספר שמור ב"גבריאלה בוואטסאפ".'
         : 'לוואטסאפ צריך מספר שמור ב"גבריאלה בוואטסאפ". עד שיישמר, התזכורות יישלחו במייל.');
@@ -766,9 +812,10 @@ async function saveReminderPrefs(s){
   if (!remindersReady || !currentAgent || !s.rem || !s.quiet) return { error: remindersNotReady() };
   const shown = REMINDER_KINDS.map(k => k.kind);
   const muted = reminderPrefs.muted_kinds.filter(k => !shown.includes(k)).concat(s.rem.mutedKinds);
+  const channels = reminderChannelsToStore(s.rem.channels);
   const payload = {
     agent_id: currentAgent.id,
-    channels: s.rem.channels,
+    channels: channels,
     muted_kinds: muted,
     cadence: s.rem.cadence,
     max_per_30_days: s.rem.cap,
@@ -780,7 +827,7 @@ async function saveReminderPrefs(s){
   const { error } = await sb.from('agent_reminder_preferences').upsert(payload, { onConflict:'agent_id' });
   if (error) return { error };
   reminderPrefs = {
-    channels: s.rem.channels, muted_kinds: muted, cadence: s.rem.cadence, max_per_30_days: s.rem.cap,
+    channels: channels, muted_kinds: muted, cadence: s.rem.cadence, max_per_30_days: s.rem.cap,
     quiet_from_hour: s.quiet.from, quiet_to_hour: s.quiet.to, quiet_days: s.quiet.days,
   };
   document.getElementById('npRemCap').value = s.rem.cap;
@@ -804,6 +851,39 @@ function wireNotifScreen(){
   });
 
   screen.addEventListener('click', e => {
+    const restore = e.target.closest('[data-np-less-restore]');
+    if (restore){
+      const type = restore.getAttribute('data-np-less-restore');
+      restore.disabled = true;
+      sb.rpc('notification_push_less_release', { p_agent: currentAgent.id, p_type: type })
+        .then(({ data, error }) => {
+          if (!error){
+            if (data !== true){
+              showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
+              restore.disabled = false;
+              return;
+            }
+            notifLessRows = notifLessRows.filter(r => r.notif_type !== type);
+            renderNotifLess();
+            showToast('ההתראות האלה חזרו לקצב הרגיל.');
+            return;
+          }
+          // עד שהמיגרציה עולה: אותה מחיקה, הצלחה רק אם נמחקה שורה.
+          return sb.from('agent_notif_less').delete().eq('agent_id', currentAgent.id).eq('notif_type', type)
+            .select('notif_type')
+            .then(({ data: rows, error: delErr }) => {
+              if (delErr || !rows || !rows.length){
+                showToast('לא הצלחתי להחזיר את ההתראות. נסו שוב.');
+                restore.disabled = false;
+                return;
+              }
+              notifLessRows = notifLessRows.filter(r => r.notif_type !== type);
+              renderNotifLess();
+              showToast('ההתראות האלה חזרו לקצב הרגיל.');
+            });
+        });
+      return;
+    }
     // פעמון: כיבוי מכבה גם את הוואטסאפ, והדלקה מחזירה אותו לברירת המחדל - דלוק
     const bell = e.target.closest('[data-np-bell]');
     if (bell){

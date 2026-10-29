@@ -11,6 +11,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<!-- מצב ניסיון v10 (‏?beta=1 / localStorage.sk_beta_hero), כמו בדף הבית. בלי הדגל - הדף של היום -->
+<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
+if(q==='1')localStorage.setItem('sk_beta_hero','1');
+if(q==='0')localStorage.removeItem('sk_beta_hero');
+if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יריד הבתים הפתוחים - דירות ללא עמלת תיווך בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -60,7 +65,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {
       "@type": "Question",
       "name": "למה אין עמלת תיווך?",
-      "acceptedAnswer": { "@type": "Answer", "text": "המתווך/ת בחר/ה להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שהוא/היא קבע/ה מראש. אין אותיות קטנות." }
+      "acceptedAnswer": { "@type": "Answer", "text": "יועץ הנדל״ן בחר להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שנקבעה מראש. אין אותיות קטנות." }
     },
     {
       "@type": "Question",
@@ -70,7 +75,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {
       "@type": "Question",
       "name": "איך מתאמים ביקור?",
-      "acceptedAnswer": { "@type": "Answer", "text": "נכנסים לדירה ופונים ישירות למתווך/ת בוואטסאפ או בטלפון." }
+      "acceptedAnswer": { "@type": "Answer", "text": "נכנסים לדירה ופונים ישירות ליועץ הנדל״ן בוואטסאפ או בטלפון." }
     }
   ]
 }
@@ -483,6 +488,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/regional-pages.md) -->
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
+<!-- v10 בלבד (חלק 7 §A): יוצאים מיד בלי הדגל -->
+<script defer src="assets/fair-signup.js"></script>
+<script defer src="assets/open-house-v10.js"></script>
 <script defer src="assets/market-text.js"></script>
 </head>
 <body>
@@ -500,13 +508,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
     <div class="head-links">
-      <a href="/crm" class="btn btn-ghost head-cta" style="padding:9px 16px;font-size:.82rem">כניסת מתווכים</a>
+      <a href="/crm" class="btn btn-ghost head-cta" style="padding:9px 16px;font-size:.82rem">כניסת יועצי נדל״ן</a>
       <a href="/" class="back-link">← לדף הבית</a>
     </div>
   </div>
 </header>
 
-<main id="main">
+<main id="main" data-browse="fair">
 
   <!-- ====== ראש העמוד ======
        באותה שפה בדיוק של באנר היריד בדף הבית (‏.oh-promo): כרטיס נייבי עם
@@ -556,7 +564,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="wrap oh-how" aria-labelledby="fairHowTitle">
     <h2 id="fairHowTitle" class="sr-only">איך זה עובד</h2>
     <ol class="oh-steps">
-      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span><b>מתווכי האזור מכניסים דירה</b></li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span><b>יועצי הנדל״ן באזור מכניסים דירה</b></li>
       <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect><circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path></svg><i>2</i></span><b>אתם קונים ללא עמלת תיווך</b></li>
       <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9.5 2.5h5"></path></svg><i>3</i></span><b>רק עד שהשעון נעצר</b></li>
     </ol>
@@ -587,7 +595,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span>בדירה של <bdi id="fairCalcPriceText">₪1,500,000</bdi><br>נשארים לכם בכיס</span>
         <output id="fairCalcSave" for="fairCalcPrice" aria-live="polite">₪35,400</output>
       </div>
-      <p class="oh-calc-note">לפי עמלת קונה מקובלת של 2% + מע״מ. החיסכון בפועל תלוי בנכס ובמתווך/ת.</p>
+      <p class="oh-calc-note">לפי עמלת קונה מקובלת של 2% + מע״מ. החיסכון בפועל תלוי בנכס וביועץ הנדל״ן.</p>
     </div>
   </section>
 
@@ -625,7 +633,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap" id="fairEmptyWrap" hidden>
     <div class="state" id="fairEmpty">
       <h2>היריד בהפסקה קצרה</h2>
-      <p>כרגע אין דירות ביריד. מתווכי האזור מכניסים דירות חדשות כל הזמן - השאירו מייל ותהיו הראשונים לדעת כשהיריד נפתח.</p>
+      <p>כרגע אין דירות ביריד. יועצי הנדל״ן באזור מכניסים דירות חדשות כל הזמן - השאירו מייל ותהיו הראשונים לדעת כשהיריד נפתח.</p>
       <div class="oh-empty-signup" id="fairEmptySignup"></div>
     </div>
   </section>
@@ -654,7 +662,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="oh-faq-list">
       <details open>
         <summary>למה אין עמלת תיווך?</summary>
-        <p>המתווך/ת בחר/ה להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שהוא/היא קבע/ה מראש. אין אותיות קטנות.</p>
+        <p>יועץ הנדל״ן בחר להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שנקבעה מראש. אין אותיות קטנות.</p>
       </details>
       <details>
         <summary>עד מתי זה בתוקף?</summary>
@@ -662,7 +670,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
       <details>
         <summary>איך מתאמים ביקור?</summary>
-        <p>נכנסים לדירה ופונים ישירות למתווך/ת בוואטסאפ או בטלפון.</p>
+        <p>נכנסים לדירה ופונים ישירות ליועץ הנדל״ן בוואטסאפ או בטלפון.</p>
       </details>
     </div>
   </section>
@@ -898,7 +906,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
               <label class="buy-check" for="buyConsent">
                 <input type="checkbox" id="buyConsent">
-                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+                <span>אשמח שיועצי נדל״ן מהאזור יפנו אליי עם נכסים מתאימים</span>
               </label>
 
               <p class="wiz-err" id="buyErr3"></p>
@@ -930,7 +938,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -983,6 +991,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="/#calc">מחשבון משכנתא</a>
           <a href="/#yield">מחשבון תשואה</a>
+          <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
           <a href="/#heroSection">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
@@ -991,7 +1000,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>בעלי מקצוע</h4></summary>
         <div class="footer-col-links">
           <a href="/agencies">כל משרדי התיווך</a>
-          <a href="/agents">כל המתווכים</a>
+          <a href="/agents">כל יועצי הנדל״ן</a>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
@@ -1005,7 +1014,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </nav>
@@ -1036,7 +1045,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
-      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+      <a href="/agents">יועצי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
@@ -1159,7 +1168,7 @@ const fairShelf = PropShelf.create({
   rowExtra: p => OpenHouse.countdownHtml(p, { className:'oh-row-countdown', label:false }),
   /* כמה שווה ה"ללא עמלת תיווך" על הנכס הזה, מתחת למחיר - באריח ובשורה
      הדחוסה (‏cfg.priceExtra ב-assets/prop-shelf.js) */
-  priceExtra: fairSaveHtml,
+  priceExtra: document.documentElement.classList.contains('beta-hero') ? null : fairSaveHtml,   // v10: בלי מספר שמשתנה
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים ביריד`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
@@ -1436,6 +1445,9 @@ signupForm.addEventListener('submit', async (e) => {
 (async function initFair(){
   try{
     const list = await loadFairProperties();
+    // ‏assets/open-house-v10.js (רק עם הדגל) בונה מעל אותם נתונים
+    window.__fairState = { list };
+    document.dispatchEvent(new CustomEvent('fair:loaded', { detail: { list } }));
     if (!list.length){
       /* יחידה אחת במקום שתיים: הטופס עובר אל תוך ההודעה, והרצועה שממנה
          הגיע יורדת. ‏appendChild מזיז את האלמנט עם המאזינים שכבר עליו —

@@ -199,6 +199,9 @@ const NOT_CONTENT = new Set([
   "src", "fbclid", "gclid", "gbraid", "wbraid", "gad_source", "gad_campaignid", "msclkid", "ref",
   /* אזור מפורש בקישור קמפיין. decide() מטפל בו ומוריד אותו מהכתובת. */
   "region",
+  /* ‏A-SEO-3 (PR 1010): ‏?beta=1 מדליק את העיצוב החדש בדפדפן ואינו תוכן - בלעדיו
+     ‏/?deal=sale&beta=1 איבד את הכותרת וה-canonical של עמוד התוצאות */
+  "beta",
 ]);
 
 /* ‏המפתח שמשווים לפיו: זוגות מפוענחים, ממוינים, בלי פרמטרי מעקב. כך

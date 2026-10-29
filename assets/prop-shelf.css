@@ -194,6 +194,12 @@
 }
 .pp-grid .prop-card:hover{border-color:var(--teal);box-shadow:var(--shadow-sm)}
 .pp-grid .prop-card:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+/* ‏A-SEO-2: הקישור לדף הנכס נמתח על כל האריח (‏propCard ב-prop-shelf.js) */
+.prop-card{position:relative}
+.prop-card > .pc-link{position:absolute;inset:0;z-index:3;border-radius:inherit}
+.prop-card > .pc-link:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+/* ‏z-index 3: מעל שכבות האריח של assets/property-card.js (עד 2). כפתור או תגית לחיצה
+   שמתחתיו מקבלים את הלחיצה מה-click של הקישור (‏propCard), כי השכבות שלהם תחומות */
 /* ====== סרט "מקודם" ======
    הצבע (פליז על ספיר, עם היהלום שלפניו) מגיע מ-assets/design-system.css
    יחד עם שאר צורות התצוגה של אותו קידום; כאן רק המיקום, כי רק כאן הוא

@@ -195,7 +195,8 @@ const SOURCES: Source[] = [
     field: "id",
     lastmod: "updated_at",
     // ‏status=active הוא התנאי היחיד שמעלה מודעה לאתר (ראו CLAUDE.md)
-    query: `properties?status=eq.active&select=id,updated_at&order=updated_at.desc&limit=${LIMIT}`,
+    // ‏בלי city_id - רק בתוך תיבת עפולה והעמק (‏PR 1010, P0-A2; og-tags.ts נותן להם noindex)
+    query: `properties?status=eq.active&or=(city_id.not.is.null,and(lat.gte.32.45,lat.lte.32.8,lng.gte.35.05,lng.lte.35.6))&select=id,updated_at&order=updated_at.desc&limit=${LIMIT}`,
   },
   {
     name: "משרדים",

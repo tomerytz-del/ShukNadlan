@@ -136,6 +136,9 @@ PRIVATE = {
     # דפי הרשמה ותשלום. noindex,follow בלי Disallow (סורק הסליקה מגיע
     # מקישור), ומחוץ ל-sitemap. /pricing הוא טבלת מסלולים ונשאר ציבורי.
     "checkout",
+    # ‏גלישה בהחלקה - מצב ניסיון מאחורי דגל v10, ‏noindex ומחוץ ל-sitemap
+    # (docs/swipe-mode.md). בלי הדגל הדף מפנה לדף הבית.
+    "swipe",
     "agency-signup",
     "developer-signup",
     "professional-signup",

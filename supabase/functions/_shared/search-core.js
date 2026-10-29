@@ -416,8 +416,40 @@
         if (e.key.replace(/ /g, '').indexOf(needle) >= 0 && hits.indexOf(e.target) < 0) hits.push(e.target);
       });
       if (hits.length) return { targets: hits, text: text, exact: false };
+      /* טעות של אות אחת בשם המלא ("גבעתהמונה"), רק כשיש יעד אחד. האתר
+         לא מגיע לכאן: opts.partial הוא שדה area של הבוט, לא משפט בדף. */
+      if (needle.length >= 5) {
+        var fuzzy = [];
+        index.forEach(function (e) {
+          var key = e.key.replace(/ /g, '');
+          if (key.length < 5 || !oneEdit(needle, key)) return;
+          if (fuzzy.indexOf(e.target) < 0) fuzzy.push(e.target);
+        });
+        if (fuzzy.length === 1) {
+          var flbl = index.filter(function (e) { return e.target === fuzzy[0] && e.name; })[0];
+          return { targets: fuzzy, text: flbl ? flbl.text : text, exact: false };
+        }
+      }
     }
     return null;
+  }
+
+  /* מרחק עריכה 1: החלפה, או אות אחת שנוספה או נשמטה. לא 0. */
+  function oneEdit(a, b) {
+    if (a === b) return false;
+    var la = a.length, lb = b.length, d = la - lb;
+    if (d > 1 || d < -1) return false;
+    if (la === lb) {
+      var diff = 0;
+      for (var i = 0; i < la; i++) if (a.charCodeAt(i) !== b.charCodeAt(i) && ++diff > 1) return false;
+      return diff === 1;
+    }
+    var s = la < lb ? a : b, l = la < lb ? b : a, i = 0, j = 0, skipped = 0;
+    while (i < s.length && j < l.length) {
+      if (s.charCodeAt(i) === l.charCodeAt(j)) { i++; j++; }
+      else { skipped++; j++; if (skipped > 1) return false; }
+    }
+    return skipped + (l.length - j) === 1;
   }
 
   /* השכונות של נכס, כ-targets של האינדקס. ‏hoodTarget(id) ממיר מזהה לצורת

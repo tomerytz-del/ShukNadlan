@@ -117,7 +117,7 @@
     '<path d="M4 18h9"/><path d="M17 18h3"/><circle cx="15" cy="18" r="2"/>';
 
   /* אייקון לכל סגנון — הקו העיצובי שלו בסמל אחד: קופסאות נקיות למודרני,
-     קרשי עץ לסקנדינבי, קשת וצמח לים-תיכוני, יהלום מעל ספה ליוקרה. ‏DEFAULT
+     קרשי עץ לסקנדינבי, קשת וצמח לים תיכוני, יהלום מעל ספה ליוקרה. ‏DEFAULT
      קיים כדי שסגנון חדש שיתווסף בעתיד יקבל סמל ולא חור בכפתור. */
   var STYLE_ICONS = {
     modern_clean:        '<path d="M3 21h18"/><path d="M6 21V10h6v11"/><path d="M6 15h6"/><path d="M15 21v-7h4v7"/>',
@@ -449,7 +449,7 @@
        התווית. ‏min-height:0 כדי שהיא תוכל גם לרדת מגובה התוכן שלה כשהטור
        צר, במקום לדחוף את התווית החוצה. */
     'button.ai-thumb,a.ai-thumb{display:flex;flex-direction:column}',
-    /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
+    /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0;text-align:center}',
     '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-radius:8px;',
@@ -505,7 +505,7 @@
     '  display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.25;',
     '  text-align:center;border:1px solid rgba(255,255,255,.28);border-radius:12px;',
     '  transition:border-color .15s ease,box-shadow .15s ease,color .15s ease}',
-    /* השם בשורה אחת: "ים-תיכוני לבן" ו"יוקרה מודרנית" נשברים לשתיים
+    /* השם בשורה אחת: "ים תיכוני לבן" ו"יוקרה מודרנית" נשברים לשתיים
        בשבב צר, וזה מה שמגדיל את גובה כל הלוח. */
     '.ai-style > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}',
     '.ai-style-ico{width:21px;height:21px;flex:none;color:#e5c76a}',

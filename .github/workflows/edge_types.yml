@@ -21,9 +21,14 @@ on:
       - "scripts/catalog_link_test.ts"
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
+      - "scripts/gabriela_showings_test.ts"
+      - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/lead_source_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -34,9 +39,14 @@ on:
       - "scripts/catalog_link_test.ts"
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
+      - "scripts/gabriela_showings_test.ts"
+      - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/lead_source_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -80,6 +90,18 @@ jobs:
       - name: המטמון של גבריאלה
         run: node --experimental-strip-types scripts/prompt_cache_test.ts
 
+      # סיורי מיניסייט: התאמת שם מתמלול, הקשר תשובה, והמיגרציה שסוגרת
+      # כל בקשת תיאום שאינה סופית (בלי עדכון שורות).
+      - name: סיורי מיניסייט של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_showings_test.ts
+
+      # כתיב סלחני, קישור CRM, כשל מודל, ומרווח שליחה (בלי קריאה ל-Meta).
+      - name: ניצחונות מהירים של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_quick_wins_test.ts
+
+      - name: תקציר התראות של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_notif_digest_test.ts
+
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה
       # הסגורה (‏docs/coaches.md).
@@ -91,7 +113,16 @@ jobs:
       - name: התראת ליד ממטא
         run: node --experimental-strip-types scripts/meta_lead_alert_test.ts
 
+      # אידמפוטנטיות של טופס מטא וכפילות לפי טלפון. בלי מסד ובלי רשת.
+      - name: כפילות ליד ממטא ומהרשתות
+        run: node --experimental-strip-types scripts/lead_dedupe_test.ts
+
       # חבילת ההשקה המושהית: אין סטטוס ACTIVE, HOUSING רק על דיור, תקרת
       # תקציב עם גוגל, והרצה שנייה לא שולחת. בלי קריאה למטא.
       - name: השקה מושהית במטא
         run: node --experimental-strip-types scripts/paused_launch_test.ts
+
+      # מקורות הליד שהאתר שולח (‏swipe, ‏photo_request...) מוכרים ב-KNOWN_SOURCES,
+      # ומה שאינו מוכר נופל לברירת המחדל של הקורא.
+      - name: מקורות ליד
+        run: node --experimental-strip-types scripts/lead_source_test.ts

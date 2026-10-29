@@ -973,3 +973,22 @@ https://shuknadlan.co.il/?region=afula-emek&utm_source=facebook&utm_medium=paid&
 [govmap.md](govmap.md) · [search-landing-pages.md](search-landing-pages.md) ·
 [geocoding.md](geocoding.md) · [analytics-events.md](analytics-events.md) ·
 [security-headers.md](security-headers.md)
+
+## נכסים משוק אחר תחת עפולה והעמק (סבב 5 §1, 27.10.2026 - באתר החי)
+
+‏`market_slug(properties)` היא פונקציית sql רגילה שקוראת את `cities`, ול-`cities` יש RLS
+רק לחברי משרדים. לגולש/ת אנונימי/ת היא מחזירה null לכל שורה, ולכן ה-or של
+`MarketScope.apply()` (‏`market_slug.is.null`) העביר את כל הנכסים באתר - שדה נחום, נוף הגליל,
+כפר יונה - תחת "עפולה והעמק".
+
+- **בשרת:** ‏`docs/proposals/market_slug_security_definer.sql` (אושר ע"י תומר, נכתב ולא הוחל).
+- **בדפדפן, בכל מקרה:** ‏`MarketScope.keepRows(rows, spec)` מוריד שורות שה-`city_id` שלהן
+  בעיר של שוק אחר. נקרא אחרי כל שליפת properties עם סינון שוק בדף הבית (הרשימה, המלאי
+  המסחרי, החיפוש וספירת היריד - שורות ולא `head:true`) וב-`/swipe`. שורה בלי `city_id`
+  נשארת בשוק ברירת המחדל **רק אם `lat`/`lng` שלה בתוך התיבה של השוק** (ה-`bbox` של
+  `markets.js` מורחב ל-32.45–32.80 / 35.05–35.60), ובלי קואורדינטות היא יורדת (‏P0-A2,
+  28.10: שבעה נכסים מסחריים ב"אזור השרון" ובצומת כנות הופיעו במפה של עפולה). לכן כל
+  שאילתה שעוברת ב-`keepRows` בוחרת גם `lat, lng`. שיוך שבעת הנכסים לעיר הנכונה: הצעה
+  ב-`docs/proposals/assign_cityless_properties.sql`, לא הורצה.
+- **`spec()` קורא את `market_cities_public` בעמודים של 1,000** (‏1,163 שורות; עד עכשיו
+  רשימת ה-exclude נחתכה בשקט), עם תקרה של 20 עמודים.

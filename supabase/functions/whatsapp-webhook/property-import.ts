@@ -281,6 +281,10 @@ async function insertRows(supabase: SupabaseClient, rows: Row[], failed: Row[]):
 /**
  * הקליטה עצמה, אחרי אישור. ‏geocode: הפין של create_property (agent.ts) - כדי
  * ששכונה מכינוי ("שכון עובדים") תוכרע לפי הכתובת כשיש כתובת מלאה.
+ *
+ * מחוץ לשאלת הפרסום של create_property. הסטטוס מגיע מהקובץ, ובלי עמודה
+ * הליבה כותבת active - אותו דבר באשף. הסוכן/ת כבר אישר/ה את הקובץ.
+ * מודעה של משרד אחר עדיין נחסמת בטריגר במעבר ל-active.
  */
 export async function runImportJob(
   supabase: SupabaseClient,
