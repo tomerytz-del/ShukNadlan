@@ -319,7 +319,8 @@
     t = String(t || ''); hn = String(hn == null ? '' : hn).trim();
     if (!t || !hn) return t;
     var re = new RegExp('(^|[^\\d])' + hn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\d)', 'g');
-    return t.replace(re, '$1').replace(/\s+/g, ' ').replace(/^[\s,·-]+|[\s,·-]+$/g, '').trim();
+    // "עלייה 5, עפולה" בלי המספר הוא "עלייה, עפולה" ולא "עלייה , עפולה"
+    return t.replace(re, '$1').replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/^[\s,·-]+|[\s,·-]+$/g, '').trim();
   }
   function street(p) { return maskHouse(p.street || p.address || '', p.house_number).replace(/^רחוב\s+/, ''); }
   function hood(p) { return (p.neighborhoods && p.neighborhoods.name) || p.sales_area || ''; }
@@ -2830,11 +2831,11 @@
     '<text x="84.5" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#0e2a6b" font-family="Heebo,sans-serif">‹ ›</text></svg>';
   function helpBody() {
     var c = cur(), multi = !!(c && c.p && slides(c.p).length > 1);
-    var rows = [['→', 'ימינה', 'שמירה ב״המועדפים״'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים, ✨ הדמיה ויצירת קשר']];
+    var rows = [['→', 'ימינה', 'שמירה במועדפים'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים, ✨ הדמיה ויצירת קשר']];
     if (multi) rows.push(['👆', 'הקשה בצדי התמונה', 'מעבר בין התמונות']);
     /* ‏Variant C בטלפון (הנוסח ממתין לגבריאלה). כיוון ההקשה כמו היום - שמאל לתמונה הבאה (תומר 29.10 01:49) */
     if (phoneC()) {
-      rows = [['→', 'ימינה', 'שמירה ב״המועדפים״'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים ויצירת קשר']];
+      rows = [['→', 'ימינה', 'שמירה במועדפים'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים ויצירת קשר']];
       if (multi) rows.push(['👆', 'הקשה בצדי התמונה', 'שמאל: התמונה הבאה, ימין: הקודמת']);
       rows.push(['↶', 'ביטול', 'חזרה לנכס הקודם'], ['‹ ›', 'ידית ההשוואה', 'בנכסים עם ✨ הדמיה, גוררים כדי להשוות']);
     }
@@ -2871,7 +2872,7 @@
     var at = likes.indexOf(id);
     if (at < 0) return;
     likes.splice(at, 1); saveLikes(); syncActions();
-    toast('הנכס הוסר מהרשימה', 5000, 'ביטול', function () {
+    toast('הנכס הוסר מהמועדפים', 5000, 'ביטול', function () {
       if (likes.indexOf(id) < 0) { likes.splice(Math.min(at, likes.length), 0, id); saveLikes(); syncActions(); }
     });
   }
@@ -3002,14 +3003,14 @@
         return '<button type="button" class="sw-chip" role="radio" aria-checked="' + (x[0] === sortKey) + '" aria-pressed="' + (x[0] === sortKey) + '" data-sort="' + x[0] + '">' + esc(x[1]) + '</button>';
       }).join('') + '</div>';
     }, btns: [] },
-    unlike: { art: '', title: 'להסיר את הנכס מהרשימה?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
+    unlike: { art: '', title: 'להסיר את הנכס מהמועדפים?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
     // "שמירה" ו"המועדפים" (גבריאלה 02:36; תומר 29.10: גם במחשב). הנוסח המדויק ממתין לגבריאלה
-    like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר ב״המועדפים״', sub: 'כל הנכסים ששמרתם מחכים ב״המועדפים״, לצפייה ולשיתוף',
-      btns: [['list', 'sw-navy', 'ל״המועדפים״'], ['share', 'sw-white', 'שיתוף']] },
-    like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את הרשימה?',
-      btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף הרשימה']] },
-    like6: { art: GAB_ART, title: 'כבר 6 נכסים ברשימה 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
-      btns: [['gab_list', 'sw-navy', 'שליחת הרשימה לגבריאלה'], ['later', 'sw-link', 'אחר כך']] },
+    like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר במועדפים', sub: 'כל הנכסים ששמרתם מחכים במועדפים, לצפייה ולשיתוף',
+      btns: [['list', 'sw-navy', 'למועדפים'], ['share', 'sw-white', 'שיתוף']] },
+    like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את המועדפים?',
+      btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף המועדפים']] },
+    like6: { art: GAB_ART, title: 'כבר 6 נכסים במועדפים 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
+      btns: [['gab_list', 'sw-navy', 'שליחת המועדפים לגבריאלה'], ['later', 'sw-link', 'אחר כך']] },
     alert: { art: BELL_ART, title: 'רוצים שנעדכן כשנכס כזה ייכנס?', sub: 'נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.',
       body: function () { return alertBlock('bs'); }, btns: [['later', 'sw-link', 'לא עכשיו']] },
     tour_end: { art: HAND_ART, title: 'מוכנים? בואו נתחיל', sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. ✨ בנכסים עם הדמיה, התמונה האחרונה מראה איך הנכס יכול להיראות.',
@@ -3210,7 +3211,7 @@
     var list = likedProps();
     // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
     $('swLvN').textContent = list.length;
-    $('swLvShare').textContent = 'שיתוף הרשימה (' + list.length + ')';
+    $('swLvShare').textContent = 'שיתוף המועדפים (' + list.length + ')';
     $('swLvEmpty').hidden = likes.length > 0;
     $('swLvBar').hidden = !likes.length;
     $('swLvList').innerHTML = list.map(function (p) {
@@ -3219,21 +3220,23 @@
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : window.NoPhoto ? '<span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></a>' +
         // ‏P0-9: הלב רק מסמן שהנכס שמור; ההסרה - כפתור ✕ אדום, עם אישור וביטול
-        '<span class="sw-lv-heart" role="img" aria-label="שמור ברשימה">♥</span>' +
-        '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהרשימה שלי"><span aria-hidden="true">✕</span></button></div>';
+        '<span class="sw-lv-heart" role="img" aria-label="שמירה במועדפים">♥</span>' +
+        '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
     }).join('');
     var gab = $('swLvGab'), gh = gabListHref();
     gab.hidden = !gh;
     if (gh) gab.href = gh;
     fetchMissingLikes();
   }
-  /* "שליחת הרשימה לגבריאלה": עד 10 קישורים, ואם יש יותר - "ועוד X נכסים ברשימה שלי" */
+  /* "שליחת המועדפים לגבריאלה": עד 10 קישורים, ואם יש יותר - "ועוד X נכסים ששמרתי" */
   function gabListHref() {
     if (!window.GabWidget || !window.GabWidget.link || !likes.length) return '';
     var ids = likes.slice().reverse(), shown_ = ids.slice(0, 10);
-    var msg = 'היי גבריאלה, אהבתי את הנכסים האלה ואשמח לתאם ביקורים:\n' +
+    var msg = 'היי גבריאלה, שמרתי את הנכסים האלה ואשמח לתאם ביקורים:\n' +
       shown_.map(function (id) { return location.origin + '/property?id=' + encodeURIComponent(id); }).join('\n') +
-      (ids.length > 10 ? '\nועוד ' + (ids.length - 10) + ' נכסים ברשימה שלי' : '');
+      // גבריאלה 10:07: "ועוד נכס אחד ששמרתי", ומשניים "ועוד X נכסים ששמרתי". בהודעה רק קישורים - בלי שורת
+      // "ללא עמלת תיווך" לנכס ביריד, כי פנייה בוואטסאפ עוד לא נרשמת כפנייה ליריד
+      (ids.length === 11 ? '\nועוד נכס אחד ששמרתי' : ids.length > 11 ? '\nועוד ' + (ids.length - 10) + ' נכסים ששמרתי' : '');
     return window.GabWidget.link(msg);
   }
   $('swLvList').addEventListener('click', function (e) {
@@ -3594,7 +3597,7 @@
     if (!base && phoneC()) return tourStepsPhone(multi);
     var steps = [{
       kind: 'swipe',
-      text: 'החליקו ימינה אם אהבתם, שמאלה לדילוג',
+      text: 'החליקו ימינה לשמירה, שמאלה לדילוג',
       sub: d ? 'או במקלדת: → שמירה · ← דילוג · וגם בכפתורים שלמטה' : 'אפשר גם בכפתורים ♥ ו-✕ שבתחתית המסך',
       // החותמות הן של הכרטיס עצמו (‏.sw-stamp) - אותה מילה, צבע ומקום כמו בגרירה
       art: '<span class="sw-co-hline"></span><span class="sw-co-arrows"><span>‹</span><span>›</span></span>' +
@@ -3665,7 +3668,7 @@
     if (deck.some(function (x) { return x.p && vizPair.get(x.p.id); }))
       // הנוסח שגבריאלה אישרה ב-29.10 01:42 ("ידית", לא "ווילון")
       steps.push({ kind: 'ba', text: 'בנכסים עם ✨ הדמיה: גררו את הידית כדי להשוות', sub: 'לפני: הצילום האמיתי. אחרי: הדמיית AI.', art: byKind.ba.art });
-    steps.push({ kind: 'up', text: 'החליקו למעלה או הקישו על ״לפרטים ויצירת קשר״', sub: 'שם תמצאו את כל התמונות, המפה, התיאור, יצירת קשר והדמיה בסגנון אחר', art: byKind.up.art });
+    steps.push({ kind: 'up', text: 'החליקו למעלה או הקישו על ״לפרטים ויצירת קשר״', sub: 'שם תמצאו את כל התמונות, המפה, התיאור, כפתור יצירת קשר והדמיה בסגנון אחר', art: byKind.up.art });
     return steps;
   }
   function placeTour() {
@@ -3715,7 +3718,7 @@
     closeDialog($('swTour'), card);
     // סוף ההדרכה (לא דילוג): גיליון "מוכנים? בואו נתחיל"
     // ‏Variant C: בטלפון שורת סיום אחרת (ממתינה לגבריאלה)
-    if (!skipped) bsOpen('tour_end', phoneC() ? { sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. הנכסים ששמרתם מחכים ב״המועדפים״.' } : null);
+    if (!skipped) bsOpen('tour_end', phoneC() ? { sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. הנכסים ששמרתם מחכים במועדפים.' } : null);
   }
   $('swTourOk').addEventListener('click', function () { if (tourStep < tourList.length - 1) { tourStep++; showTip(); } else endTour(false); });
   $('swTourSkip').addEventListener('click', function () { endTour(true); });
