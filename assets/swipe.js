@@ -3009,7 +3009,7 @@
     like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את המועדפים?',
       btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף המועדפים']] },
     like6: { art: GAB_ART, title: 'כבר 6 נכסים במועדפים 🎯', sub: 'אפשר לשלוח אותם לגבריאלה לתיאום',
-      btns: [['gab_list', 'sw-navy', 'שליחת הרשימה לגבריאלה'], ['later', 'sw-link', 'אחר כך']] },
+      btns: [['gab_list', 'sw-navy', 'שליחת המועדפים לגבריאלה'], ['later', 'sw-link', 'אחר כך']] },
     alert: { art: BELL_ART, title: 'רוצים שנעדכן כשנכס כזה ייכנס?', sub: 'נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.',
       body: function () { return alertBlock('bs'); }, btns: [['later', 'sw-link', 'לא עכשיו']] },
     tour_end: { art: HAND_ART, title: 'מוכנים? בואו נתחיל', sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. ✨ בנכסים עם הדמיה, התמונה האחרונה מראה איך הנכס יכול להיראות.',
@@ -3227,7 +3227,7 @@
     if (gh) gab.href = gh;
     fetchMissingLikes();
   }
-  /* "שליחת הרשימה לגבריאלה": עד 10 קישורים, ואם יש יותר - "ועוד X נכסים ששמרתי" */
+  /* "שליחת המועדפים לגבריאלה": עד 10 קישורים, ואם יש יותר - "ועוד X נכסים ששמרתי" */
   function gabListHref() {
     if (!window.GabWidget || !window.GabWidget.link || !likes.length) return '';
     var ids = likes.slice().reverse(), shown_ = ids.slice(0, 10);
