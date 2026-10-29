@@ -507,16 +507,28 @@ const OPEN_DEMAND_NO_BROKER = {
            rule: 'לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.' },
 };
 
-async function loadOpenDemand(silent){
-  if (openDemandLoading) return;
+let openDemandP = null;
+let openDemandQuiet = false;
+function loadOpenDemand(silent){
+  // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב).
+  // קריאה רגילה באמצע טעינה שקטה עדיין מציגה שגיאה.
+  if (openDemandP) {
+    if (!silent) openDemandQuiet = false;
+    return openDemandP;
+  }
+  openDemandQuiet = !!silent;
   openDemandLoading = true;
-  const [list, stats] = await Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]);
-  openDemandLoading = false;
-  if (list.error){ if (!silent) showToast(heErr(list.error)); openDemandRows = []; }
-  else openDemandRows = list.data || [];
-  openDemandStats = stats.error ? null : stats.data;
-  if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
-  else syncDemandTab();
+  openDemandP = Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]).then(([list, stats]) => {
+    if (list.error){ if (!openDemandQuiet) showToast(heErr(list.error)); openDemandRows = []; }
+    else openDemandRows = list.data || [];
+    openDemandStats = stats.error ? null : stats.data;
+    if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+    else syncDemandTab();
+  }).finally(() => {
+    openDemandLoading = false;
+    openDemandP = null;
+  });
+  return openDemandP;
 }
 
 /* מונה והדגשה של "ביקוש פתוח" - ביקושים שעוד לא תפסתי */
@@ -611,9 +623,15 @@ async function claimOpenDemand(id, btn){
   renderLeads(currentAgent && currentAgent.id);
 }
 
-function openLeadsDemand(){
+/* הכניסה הראשונה מ-?goto=accLeads&tab=demand משאירה את הטעינה שכבר
+   יצאה עם הדשבורד. כל קריאה אחרת, כולל הפעמון, מאפסת ומושכת מחדש:
+   ביקוש נוסף ונמחק כל שעה, ודשבורד פתוח שעות היה מראה רשימה ישנה. */
+let openDemandLinkKept = false;
+function openLeadsDemand(opts){
   leadsTab = 'demand';
-  openDemandRows = null;
+  const keep = !!(opts && opts.fromLink) && !openDemandLinkKept;
+  if (opts && opts.fromLink) openDemandLinkKept = true;
+  if (!keep) openDemandRows = null;
   renderLeads(currentAgent && currentAgent.id);
 }
 

@@ -2,16 +2,36 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- Google Tag Manager. ב-CRM המכולה נטענת אחרי שהמסך היעד מצויר
+     (shukArmTrackers מ-crm.js), כדי ש-gtm.js ומה שהוא מושך (gtag, פיקסל)
+     לא יתחרו בציור הראשון. אותו מזהה, אותו dataLayer, ואותן הגדרות
+     הסכמה שבמכולה. שאר דפי האתר נשארים עם הקטע המיידי. -->
+<script>
+window.dataLayer = window.dataLayer || [];
+window.shukLoadTrackers = function () {
+  if (window.__shukGtm) return;
+  window.__shukGtm = true;
+  (function (w, d, s, l, i) {
+    w[l] = w[l] || [];
+    w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+    var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+    j.async = true;
+    j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+    f.parentNode.insertBefore(j, f);
+  })(window, document, 'script', 'dataLayer', 'GTM-NZHD7ZHT');
+};
+window.shukArmTrackers = function () {
+  if (window.__shukGtmArm) return;
+  window.__shukGtmArm = true;
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { window.shukLoadTrackers(); });
+  });
+};
+</script>
 <!-- End Google Tag Manager -->
-<script src="assets/esc.js"></script>
+<script defer src="assets/esc.js"></script>
 <!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
-<script src="assets/friendly-error.js"></script>
+<script defer src="assets/friendly-error.js"></script>
 <!-- ‏viewport-fit=cover, וזה תנאי ולא קישוט: באפליקציה המותקנת (‏display
      ‏standalone) אנדרואיד פורש את הדף מקצה לקצה גם בלי לבקש, כלומר תחתית
      הדף יושבת **מאחורי** סרגל הניווט של המערכת. בלי ההצהרה הזו
@@ -50,40 +70,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      לשרת זר. הקבצים זהים בייט-בייט לחבילות ב-npm, וה-integrity נשאר כדי
      שיישאר כך. גרסה בנתיב, ולכן ‏_headers שומר אותם שנה. -->
 <link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"></noscript>
 <!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תדע לחזור לכאן
-     ולא ל-developer-crm. ראו assets/auth-return.js -->
-<script src="assets/auth-return.js"></script>
-<script src="/vendor/supabase-js@2.116.0/supabase.js"
+     ולא ל-developer-crm. ראו assets/auth-return.js. defer: לא חוסם את
+     הציור, והסדר מול supabase-js נשמר. -->
+<script defer src="assets/auth-return.js"></script>
+<script defer src="/vendor/supabase-js@2.116.0/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"></script>
 <!-- התחברות עם Apple. לא מצייר כפתור כל עוד SHUK_APPLE_SIGNIN הוא false. -->
-<script src="assets/apple-signin.js"></script>
-<script src="/vendor/leaflet@1.9.4/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"></script>
+<script defer src="assets/apple-signin.js"></script>
 <!-- הרקע הזורם, אותו אחד של דף הבית ושל שאר דפי האתר. בלי data-auto:
      הוא מורכב רק כשהדשבורד עולה (ראו showScreen), כי מסכי הכניסה נשארים
      על פלטת הנייר שלהם. -->
-<script src="assets/page-bg.js"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/specialties.js"></script>
+<script defer src="assets/page-bg.js"></script>
 <!-- קטלוג המסלולים: אותם שמות, מחירים ויתרונות שדף pricing.html מציג. מסך
      בחירת המסלול והתגית בכותרת קוראים מכאן, כדי שמחיר לא יתעדכן בדף אחד. -->
-<script src="assets/tiers.js"></script>
-<script src="assets/map-gestures.js"></script>
-<!-- יריד הבתים הפתוחים: אותו חישוב "האם החלון פתוח עכשיו" שהאתר הציבורי
-     משתמש בו, כדי שהתגית ב-CRM והתגית באתר לא יוכלו לומר דברים שונים על
-     אותו נכס. ראו docs/open-house-fair.md -->
-<script src="assets/open-house.js"></script>
-<script src="assets/approx-location.js"></script>
-<script src="assets/agreement-templates.js"></script>
-<script src="assets/agreement-doc.js"></script>
-<!-- בדיקת ספרת הביקורת של ת.ז. בזמן ההזנה, עם עקיפה. docs/client-agreements.md -->
-<script src="assets/il-id.js"></script>
+<script defer src="assets/tiers.js"></script>
 <!-- מורכב בסוף assets/crm.js, עם בדיקת הטפסים שלא נשמרו. ראו crmUnsavedInput -->
-<script src="assets/exit-guard.js"></script>
-<!-- ‏GovMap: הטוקן והשליפה לערים שאינן עפולה. הסקריפט של GovMap עצמו נטען
-     רק בשמירת נכס כזה, לא בטעינת הדף. docs/govmap.md -->
-<script src="assets/govmap.js"></script>
+<script defer src="assets/exit-guard.js"></script>
+<!-- Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap נטענים עם פתיחת
+     המסך שלהם (assets/crm-lazy.js), לא עם מסך הכניסה. -->
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -12534,72 +12542,76 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
      מנהל/ת הפלטפורמה. docs/regional-pages.md -->
-<script src="assets/markets.js"></script>
-<script src="assets/agency-markets.js"></script>
-<script src="assets/contact-import.js"></script>
-<script src="assets/crm-office.js"></script>
+<script defer src="assets/markets.js"></script>
+<script defer src="assets/agency-markets.js"></script>
+<script defer src="assets/contact-import.js"></script>
+<script defer src="assets/crm-office.js"></script>
 <!-- ערכת הרכיבים (צ'יפ, מתג, מקופל, פס שמירה, "עוד X"; docs/crm-ui-kit.md).
      לפני שאר המודולים, שבונים ממנה את המסכים -->
-<script src="assets/crm-ui.js"></script>
+<script defer src="assets/crm-ui.js"></script>
 <!-- "ההגדרות שלי" ו"התראות והודעות" (docs/crm-settings.md). אחרי crm-ui.js,
      שממנו הם נבנים, ולפני crm.js -->
-<script src="assets/crm-settings.js"></script>
+<script defer src="assets/crm-settings.js"></script>
 <!-- תחום ואזורי פעילות - רכיב אחד לפרופיל ולדף המשרד (docs/area-scope.md) -->
-<script src="assets/crm-areas.js"></script>
+<script defer src="assets/crm-areas.js"></script>
 <!-- הפרופיל שלי ודף המשרד: הבאנרים, "מלא ב-X%" ופס השמירה (docs/crm-profile-pages.md) -->
-<script src="assets/crm-profile-pages.js"></script>
+<script defer src="assets/crm-profile-pages.js"></script>
 <!-- "הלידים שלי" - רשימה אחת לפי סדר עדיפות (docs/leads-unified.md) -->
-<script src="assets/crm-leads.js"></script>
+<script defer src="assets/crm-leads.js"></script>
 <!-- "נכסים" - שתי הלשוניות, "דורש תשומת לב" וכלים לנכס (docs/properties-unified.md) -->
-<script src="assets/crm-properties.js"></script>
+<script defer src="assets/crm-properties.js"></script>
 <!-- "התאמות חדשות" מקובצות לפי לקוח/ה, ושליחה מרוכזת (docs/client-matching.md) -->
-<script src="assets/crm-matches.js"></script>
+<script defer src="assets/crm-matches.js"></script>
 <!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
-<script src="assets/crm-suggestions.js"></script>
+<script defer src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
      שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
-<script src="assets/crm-coach.js"></script>
-<script src="assets/crm-office-dashboard.js"></script>
-<script src="assets/crm-my-dashboard.js"></script>
+<script defer src="assets/crm-coach.js"></script>
+<script defer src="assets/crm-office-dashboard.js"></script>
+<script defer src="assets/crm-my-dashboard.js"></script>
 <!-- הצוות שלי: דאשבורד הצוות, לידים בצוות והסוכנים בצוות (docs/team-dashboard.md).
      אחרי crm-office-dashboard.js, כי הוא משתמש בעזרים שלו -->
-<script src="assets/crm-team-dashboard.js"></script>
+<script defer src="assets/crm-team-dashboard.js"></script>
 <!-- המיניסייט האישי ללקוח/ה: בחירת התאמות, חלון השליחה ופאנל התגובות.
      נטען לפני crm.js ומגדיר פונקציות בלבד. docs/client-showcase.md -->
-<script src="assets/crm-showcase.js"></script>
+<script defer src="assets/crm-showcase.js"></script>
 <!-- צוותים בתוך המשרד ב"צוותים וסוכנים" (docs/teams.md) -->
-<script src="assets/crm-teams.js"></script>
+<script defer src="assets/crm-teams.js"></script>
 <!-- לוח היום בדף הבית (docs/crm-home.md). לפני crm.js כמו שאר המודולים;
      הפונקציות שבו נקראות רק אחרי שהוא רץ. -->
-<script src="assets/crm-home.js"></script>
+<script defer src="assets/crm-home.js"></script>
 <!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
      מ-loadDashboard, אחרי שהוא רץ. -->
-<script src="assets/crm-onboarding.js"></script>
+<script defer src="assets/crm-onboarding.js"></script>
 <!-- גיליון השלמת פרטים במובייל. אחרי המדריך, כי הוא קורא את onbModel. -->
-<script src="assets/crm-profile-nudge.js"></script>
+<script defer src="assets/crm-profile-nudge.js"></script>
 <!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
      וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
-<script src="assets/crm-csm.js"></script>
+<script defer src="assets/crm-csm.js"></script>
 <!-- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md). לפני crm.js;
      מגדירה פונקציות בלבד, ו-loadDashboard קוראת ל-loadAdminInbox. -->
-<script src="assets/crm-admin-inbox.js"></script>
+<script defer src="assets/crm-admin-inbox.js"></script>
 <!-- מרכז הפיקוד והודעה לכל הסוכנים (docs/admin-command-center.md). לפני crm.js -->
-<script src="assets/crm-command-center.js"></script>
-<script src="assets/crm-growth.js"></script>
-<script src="assets/crm-budget.js"></script>
-<script src="assets/crm-ads-spend.js"></script>
-<script src="assets/crm-hood-drafts.js"></script>
+<script defer src="assets/crm-command-center.js"></script>
+<script defer src="assets/crm-growth.js"></script>
+<script defer src="assets/crm-budget.js"></script>
+<script defer src="assets/crm-ads-spend.js"></script>
+<script defer src="assets/crm-hood-drafts.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->
-<script src="assets/property-import-core.js"></script>
+<script defer src="assets/property-import-core.js"></script>
 <!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
      crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
-<script src="assets/cma-render.js"></script>
+<script defer src="assets/cma-render.js"></script>
+<!-- crmNeed: טוען Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap
+     רק כשצריך. defer ולפני crm.js, כדי שהפונקציה קיימת כשהדף רץ. -->
+<script defer src="assets/crm-lazy.js"></script>
 <!-- לפני crm.js, לא אחריו. boot() מחכה ל-getSession שכבר נפתר, וההמשך
-     רץ לפני הסקריפט הבא. אם המדידה נטענת אחרי crm.js, סימון הכניסה
-     והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר ירד מהכתובת. -->
-<script src="assets/deeplink-timing.js"></script>
-<script src="assets/crm.js"></script>
+     רץ לפני הסקריפט הבא. defer שומר את הסדר: המדידה רצה לפני crm.js.
+     בלי זה סימון הכניסה והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר
+     ירד מהכתובת. -->
+<script defer src="assets/deeplink-timing.js"></script>
+<script defer src="assets/crm.js"></script>
 </body>
 </html>
