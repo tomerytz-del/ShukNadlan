@@ -12,6 +12,7 @@
 // ומזמינה שני נוסחים שלא מדברים זה עם זה.
 // ============================================================================
 import { anthropicRow, logAiUsage } from "./ai-usage.ts";
+import { customerAirLine } from "./air-living.ts";
 
 /** שורת העובדות של נכס אחד — התוצאה של property_marketing_facts במסד. */
 // deno-lint-ignore no-explicit-any
@@ -64,8 +65,7 @@ export function specLine(row: PropertyFacts): string {
     row.size_sqm ? `${Math.round(row.size_sqm)} מ״ר` : null,
     row.garden_sqm ? `גינה ${Math.round(row.garden_sqm)} מ״ר` : null,
     row.living_room_sqm ? `גודל הסלון: כ־${Math.round(Number(row.living_room_sqm))} מ״ר` : null,
-    Array.isArray(row.air_directions) && row.air_directions.length
-      ? `כיווני אוויר: ${row.air_directions.join(", ")}` : null,
+    customerAirLine(row.air_directions) || null,
     floor,
   ].filter(Boolean).join(" · ");
 }

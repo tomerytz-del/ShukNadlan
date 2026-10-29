@@ -53,10 +53,11 @@ export function formatSqm(value: unknown): string {
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
-/** 🟡 דף הנכס. ריק = לא מציגים. */
+/** 🟡 דף הנכס. כיוון אחד ביחיד, משניים ברבים. ריק = לא מציגים. */
 export function customerAirLine(value: unknown): string {
   const dirs = parseAirDirections(value);
   if (!dirs.length) return "";
+  if (dirs.length === 1) return `כיוון אוויר: ${dirs[0]}`;
   return `כיווני אוויר: ${dirs.join(", ")}`;
 }
 
@@ -73,7 +74,7 @@ export function metaAirLivingClause(dirs: unknown, sqm: unknown): string {
   const n = formatSqm(sqm);
   const parts = [
     list.length ? airCountPhrase(list.length) : "",
-    n ? `סלון של ${n} מ״ר` : "",
+    n ? `סלון של כ־${n} מ״ר` : "",
   ].filter(Boolean);
   return parts.join(", ");
 }

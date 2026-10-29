@@ -9,6 +9,7 @@ import {
   customerMatchLines,
   customerSeekAir,
   customerSeekLiving,
+  jsonLdAirLiving,
   metaAirLivingClause,
   parseAirDirections,
 } from "../supabase/functions/_shared/air-living.ts";
@@ -25,13 +26,19 @@ check("רק ספירה", airCountOnly("3 כיווני אוויר") === 3);
 check("ספירה עם שם אינה ספירה", airCountOnly("3 כיוונים צפון") === null);
 
 check("שורה ללקוח", customerAirLine(["מערב", "דרום"]) === "כיווני אוויר: דרום, מערב");
+check("כיוון אחד בדף", customerAirLine(["מערב"]) === "כיוון אוויר: מערב");
 check("סלון ללקוח", customerLivingLine(30) === "גודל הסלון: כ־30 מ״ר");
 check("בלי סלון גדול", !customerLivingLine(30).includes("סלון גדול") && !customerLivingLine(null));
-check("מטא", metaAirLivingClause(["צפון", "דרום", "מערב"], 35) === "3 כיווני אוויר, סלון של 35 מ״ר");
+check("מטא", metaAirLivingClause(["צפון", "דרום", "מערב"], 35) === "3 כיווני אוויר, סלון של כ־35 מ״ר");
+check("מטא כיוון אחד", metaAirLivingClause(["מערב"], 35) === "כיוון אוויר אחד, סלון של כ־35 מ״ר");
+check("מטא לא מונה 1", metaAirLivingClause("מערב", null) === "כיוון אוויר אחד");
 check("קונה", customerSeekAir(["מערב", "דרום"]) === "מחפשים כיווני אוויר: דרום, מערב");
+check("קונה נשאר ברבים גם בכיוון אחד", customerSeekAir(["מערב"]) === "מחפשים כיווני אוויר: מערב");
+check("JSON-LD נשאר כיווני אוויר", jsonLdAirLiving(["מערב"], null)[0]?.name === "כיווני אוויר");
 check("מינימום", customerSeekLiving(25) === "גודל סלון מינימלי: 25 מ״ר");
 const matched = customerMatchLines(["דרום"], ["דרום", "צפון"], 20, 28);
-check("התאמה מציגה רק מה שמתאים", matched.length === 2 && matched[0].startsWith("כיווני אוויר"));
+check("התאמה מציגה רק מה שמתאים", matched.length === 2 && matched[0] === "כיווני אוויר: צפון, דרום");
+check("התאמה בכיוון אחד", customerMatchLines(["מערב"], ["מערב"], null, null)[0] === "כיוון אוויר: מערב");
 check("פער לא מוצג", customerMatchLines(["מערב"], ["צפון"], 40, 20).length === 0);
 
 const root = new URL("..", import.meta.url);
@@ -83,9 +90,9 @@ check("צ'יפים", html.includes('value="צפון"') && html.includes('id="npA
 check("סינון", html.includes("בלי כיווני אוויר או סלון") && html.includes('id="propLivingMin"'));
 check("שמירה בלי דגל", crm.includes("living_room_sqm:") && !crm.includes("large_living_room:"));
 check("חסימת סלון גדול מהשטח", crm.includes("הסלון גדול משטח הנכס"));
-check("דף נכס", prop.includes("customerLivingLine") && page.includes("גודל הסלון: כ־"));
+check("דף נכס", prop.includes("customerLivingLine") && page.includes("כיוון אוויר: ") && page.includes("סלון של כ־"));
 check("מטא בשרת", read("netlify/edge-functions/og-tags.ts").includes("metaClause"));
-check("בלי סלון גדול בשיווק", read("supabase/functions/_shared/marketing-copy.ts").includes("noLivingClaim"));
+check("בלי סלון גדול בשיווק", read("supabase/functions/_shared/marketing-copy.ts").includes("noLivingClaim") && read("supabase/functions/_shared/marketing-copy.ts").includes("customerAirLine"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

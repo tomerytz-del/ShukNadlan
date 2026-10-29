@@ -36,7 +36,9 @@
 
   function customerAirLine(value) {
     var dirs = parse(value);
-    return dirs.length ? ("כיווני אוויר: " + dirs.join(", ")) : "";
+    if (!dirs.length) return "";
+    if (dirs.length === 1) return "כיוון אוויר: " + dirs[0];
+    return "כיווני אוויר: " + dirs.join(", ");
   }
 
   function customerLivingLine(value) {
@@ -49,7 +51,7 @@
     var n = sqm(living);
     var parts = [];
     if (list.length) parts.push(countPhrase(list.length));
-    if (n) parts.push("סלון של " + n + " מ״ר");
+    if (n) parts.push("סלון של כ־" + n + " מ״ר");
     return parts.join(", ");
   }
 
