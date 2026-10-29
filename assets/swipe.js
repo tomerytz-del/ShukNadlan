@@ -1064,7 +1064,7 @@
     $('swLikesL').hidden = !likes.length;
     $('swLikes').classList.toggle('is-pill', likes.length > 0);
     // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר (גם בכותרת, ‏P1-E)
-    var ll = 'הנכסים שאהבתי (' + likes.length + ')';
+    var ll = 'המועדפים (' + likes.length + ')';
     $('swLikes').setAttribute('aria-label', ll); $('swLikes').title = ll;
     // ‏Variant C: אותו מונה במסילה, ומוסתר באפס
     $('swRailLikesN').textContent = likes.length;
@@ -1352,7 +1352,7 @@
         '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b></button></div>' +
         // ‏Variant C: בטלפון כפתור זהב אחד במקום שורת sw-acts (מוצג רק שם, ‏swipe.css)
         '<button type="button" class="sw-gold sw-cmain" data-up>לפרטים ויצירת קשר</button></div>' +
-        '<span class="sw-stamp is-like" aria-hidden="true">' + (phoneC() ? 'שמירה' : 'אהבתי') + '</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
+        '<span class="sw-stamp is-like" aria-hidden="true">שמירה</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
     }
     if (c.slot === 'spon_agency') {
       var s = c.sponsor, sa = { type: 'agency', name: s.name, img: s.logo || '' };
@@ -1850,8 +1850,8 @@
       $('swWa').href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים');
     }
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
-    // ‏WCAG 2.5.3: בטלפון השם הנגיש מכיל את המילה הגלויה מתחת לכפתור
-    $('swLike').setAttribute('aria-label', phoneC() ? 'שמירה' : 'אהבתי');
+    // ‏WCAG 2.5.3: השם הנגיש מכיל את המילה הגלויה מתחת לכפתור ("שמירה", גם במחשב - תומר 29.10)
+    $('swLike').setAttribute('aria-label', 'שמירה');
     $('swUndo').setAttribute('aria-label', phoneC() ? 'ביטול' : 'ביטול Z');
     syncRail(c, adv, phone);
   }
@@ -2830,7 +2830,7 @@
     '<text x="84.5" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#0e2a6b" font-family="Heebo,sans-serif">‹ ›</text></svg>';
   function helpBody() {
     var c = cur(), multi = !!(c && c.p && slides(c.p).length > 1);
-    var rows = [['→', 'ימינה', 'אהבתי ושמירה לרשימה'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים, ✨ הדמיה ויצירת קשר']];
+    var rows = [['→', 'ימינה', 'שמירה ב״המועדפים״'], ['←', 'שמאלה', 'דילוג לנכס הבא'], ['↑', 'למעלה', 'פרטים, ✨ הדמיה ויצירת קשר']];
     if (multi) rows.push(['👆', 'הקשה בצדי התמונה', 'מעבר בין התמונות']);
     /* ‏Variant C בטלפון (הנוסח ממתין לגבריאלה). כיוון ההקשה כמו היום - שמאל לתמונה הבאה (תומר 29.10 01:49) */
     if (phoneC()) {
@@ -2840,7 +2840,7 @@
     }
     return '<ul class="sw-bs-help">' + rows.map(function (r) {
       return '<li><span class="sw-bs-ic" aria-hidden="true">' + r[0] + '</span><span><b>' + esc(r[1]) + '</b> · ' + esc(r[2]) + '</span></li>';
-    }).join('') + '</ul>' + (isDesktop() ? '<p class="sw-bs-keys">במקלדת: → אהבתי · ← דילוג · ↑ פרטים · רווח תמונה</p>' : '');
+    }).join('') + '</ul>' + (isDesktop() ? '<p class="sw-bs-keys">במקלדת: → שמירה · ← דילוג · ↑ פרטים · רווח תמונה</p>' : '');
   }
   function resetSeen() {
     var n = seenCount();
@@ -3003,11 +3003,8 @@
       }).join('') + '</div>';
     }, btns: [] },
     unlike: { art: '', title: 'להסיר את הנכס מהרשימה?', sub: '', btns: [['remove', 'sw-red', 'הסרה'], ['cancel', 'sw-white', 'ביטול']] },
-    like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר לרשימה שלכם', sub: 'כל הנכסים שתאהבו מחכים ברשימה, לצפייה ולשיתוף',
-      btns: [['list', 'sw-navy', 'לרשימה שלי'], ['share', 'sw-white', 'שיתוף']] },
-    // ‏Variant C בטלפון: אותו גיליון במילים "שמירה" ו"המועדפים" (גבריאלה 02:36; הנוסח המדויק ממתין לה). ‏bsOpen
-    // לוקח את <kind>_phone כשיש כזה והמסך טלפון
-    like1_phone: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר ב״המועדפים״', sub: 'כל הנכסים ששמרתם מחכים ב״המועדפים״, לצפייה ולשיתוף',
+    // "שמירה" ו"המועדפים" (גבריאלה 02:36; תומר 29.10: גם במחשב). הנוסח המדויק ממתין לגבריאלה
+    like1: { art: GAB_ART + '<span class="sw-bs-heart" aria-hidden="true">♥</span>', title: '♥ נשמר ב״המועדפים״', sub: 'כל הנכסים ששמרתם מחכים ב״המועדפים״, לצפייה ולשיתוף',
       btns: [['list', 'sw-navy', 'ל״המועדפים״'], ['share', 'sw-white', 'שיתוף']] },
     like3: { art: GAB_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים לתאם ביקור או לשתף את הרשימה?',
       btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף הרשימה']] },
@@ -3044,7 +3041,7 @@
   function bsOpen(kind, ctx) {
     if (bsKind === kind || bsQueue.some(function (q) { return q.kind === kind; })) return;
     if (bsKind || bsBlocked()) { bsQueue.push({ kind: kind, ctx: ctx }); return; }
-    var d = (phoneC() && BS[kind + '_phone']) || BS[kind], wrap = $('swBsWrap');
+    var d = BS[kind], wrap = $('swBsWrap');
     if (!d) return;
     bsKind = kind; bsCtx = ctx || null;
     bsOpener = document.activeElement;
@@ -3213,10 +3210,6 @@
     var list = likedProps();
     // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
     $('swLvN').textContent = list.length;
-    // ‏Variant C בטלפון (גבריאלה 02:36): הפעולה "שמירה", הרשימה "המועדפים". במחשב בלי שינוי
-    $('swLvWord').textContent = phoneC() ? 'המועדפים' : 'אהבתי';
-    $('swLvEmptyT').textContent = phoneC() ? 'עוד לא שמרתם נכסים. החליקו ימינה על נכס שמוצא חן בעיניכם, והוא יחכה כאן.'
-      : 'עוד לא אהבתם נכסים. החליקו ימינה על נכס שמוצא חן בעיניכם, והוא יחכה כאן.';
     $('swLvShare').textContent = 'שיתוף הרשימה (' + list.length + ')';
     $('swLvEmpty').hidden = likes.length > 0;
     $('swLvBar').hidden = !likes.length;
@@ -3602,7 +3595,7 @@
     var steps = [{
       kind: 'swipe',
       text: 'החליקו ימינה אם אהבתם, שמאלה לדילוג',
-      sub: d ? 'או במקלדת: → אהבתי · ← דילוג · וגם בכפתורים שלמטה' : 'אפשר גם בכפתורים ♥ ו-✕ שבתחתית המסך',
+      sub: d ? 'או במקלדת: → שמירה · ← דילוג · וגם בכפתורים שלמטה' : 'אפשר גם בכפתורים ♥ ו-✕ שבתחתית המסך',
       // החותמות הן של הכרטיס עצמו (‏.sw-stamp) - אותה מילה, צבע ומקום כמו בגרירה
       art: '<span class="sw-co-hline"></span><span class="sw-co-arrows"><span>‹</span><span>›</span></span>' +
         '<span class="sw-co-hand-x">' + HAND + '</span>'
