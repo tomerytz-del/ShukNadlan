@@ -177,9 +177,16 @@ setPairReserve(async (phone, gapMs) => {
 });
 
 setWaDropLogger(async (row) => {
+  const phone = String(row.wa_phone || "").replace(/\D/g, "");
+  let agent_id: string | null = null;
+  if (phone) {
+    const { data } = await supabase.from("agency_members").select("id").eq("phone_e164", phone).maybeSingle();
+    agent_id = data?.id ?? null;
+  }
   await supabase.from("whatsapp_messages").insert({
     direction: "out",
     wa_phone: row.wa_phone,
+    agent_id,
     msg_type: "text",
     body: row.body,
     error: row.error,

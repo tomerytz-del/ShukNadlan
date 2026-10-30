@@ -9,6 +9,7 @@
 // משלושה רווחים רצופים. אותו כלל כמו templateSummary ב-notification-push.
 // ============================================================================
 
+import { paceRecipient } from "./wa-pair-pace.ts";
 import {
   ctaPayload,
   deliverWaPayloads,
@@ -121,6 +122,10 @@ export function leadAlertTemplateMessage(
 }
 
 async function graphMessages(payload: Record<string, unknown>): Promise<void> {
+  return paceRecipient(String(payload.to || ""), () => graphMessagesNow(payload));
+}
+
+async function graphMessagesNow(payload: Record<string, unknown>): Promise<void> {
   const token = env("WHATSAPP_TOKEN");
   const phoneId = env("WHATSAPP_PHONE_NUMBER_ID");
   const version = env("WHATSAPP_GRAPH_VERSION", "v23.0");

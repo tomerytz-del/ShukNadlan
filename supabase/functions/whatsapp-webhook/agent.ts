@@ -20,7 +20,7 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
-import { propertyForwardMessage, propertyPublicUrl, showcaseForwardMessage, showcasePublicUrl } from "../_shared/wa-forward.ts";
+import { forwardPropertyLink, propertyForwardMessage, propertyPublicUrl, showcaseForwardMessage, showcasePublicUrl } from "../_shared/wa-forward.ts";
 import { airCountOnly, LARGE_LIVING_ROOM_SQM, minAirCountKept, writeAirDirections } from "../_shared/air-living.ts";
 import {
   SERVICE_MARKET_LABELS,
@@ -3809,7 +3809,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   if (!link) {
     return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת - אין דרך לבנות קישור." };
   }
-  const publicLink = propertyPublicUrl(SITE_BASE_URL, p.listing_number) || link;
+  const shareLink = forwardPropertyLink(p.status, propertyPublicUrl(SITE_BASE_URL, p.listing_number), link);
 
   let client: Record<string, unknown> | null = null;
   if (input.client_id) {
@@ -3840,7 +3840,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     address,
     facts,
     note: String(input.note || "").trim(),
-    link: publicLink,
+    link: shareLink,
   });
 
   const clientWa = client ? waNumber(client.phone) : undefined;
@@ -3849,7 +3849,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   if (client) ctx.conv.last_client_id = String(client.id);
 
   const warning = p.status !== "active"
-    ? `הנכס במצב ${p.status} - הקישור לא ייפתח אצל מי שאינו הסוכן/ת שלו. להחזרה לאוויר: set_property_status עם active.`
+    ? `הנכס במצב ${p.status}. הקישור הקצר /p/ נפתח רק למודעה באוויר, ולכן ההודעה נושאת את הכתובת המלאה. היא נפתחת אצל הסוכן/ת ולא אצל גולש/ת. להחזרה לאוויר: set_property_status עם active.`
     : undefined;
 
   // בשיחה בוואטסאפ: כפתור שליחה במקום קישורים (כמו create_showcase). הכפתור
@@ -3885,7 +3885,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     client_name: client ? client.full_name : undefined,
     client_phone_missing: !!client && !clientWa,
     // בוואטסאפ הדף הוא כפתור. במייל הכתובת נשארת בשדה.
-    ...(ctx.outbox ? { button_sent: true } : { link: publicLink }),
+    ...(ctx.outbox ? { button_sent: true } : { link: shareLink }),
     ...(ctx.outbox
       ? {
         buttons_sent: true,

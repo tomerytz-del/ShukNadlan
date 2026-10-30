@@ -2,11 +2,22 @@
 // אז הקישור נשאר גלוי, בשורה משלו, ובצורה הקצרה: /p/<מספר מודעה> לנכס
 // ו-/m/<טוקן> למיניסייט. בלי פרמטרי מעקב ובלי מספר טלפון.
 
+/**
+ * הקישור שמופיע בהודעה שהסוכן/ת מעביר/ה.
+ * ‏/p/ נפתח רק למודעה באוויר. מודעה שאינה active נופלת שם לדף הבית,
+ * אז ההודעה נושאת את הכתובת המלאה.
+ */
+export function forwardPropertyLink(status: unknown, shortUrl: string | undefined, longUrl: string): string {
+  if (String(status || "") === "active" && shortUrl) return shortUrl;
+  return longUrl;
+}
+
 /** מספר המודעה הציבורי של /p/ (listing_number). */
 export function propertyPublicUrl(siteBase: string, listingNumber: unknown): string | undefined {
   const base = String(siteBase || "").replace(/\/$/, "");
   const n = typeof listingNumber === "number" ? listingNumber : Number(String(listingNumber ?? "").trim());
-  if (!base || !Number.isSafeInteger(n) || n <= 0) return undefined;
+  // ‏/p/ ב-short-link.ts מקבל רק \d{1,9}. מספר ארוך יותר נופל לדף הבית.
+  if (!base || !Number.isSafeInteger(n) || n < 1 || n >= 1e9) return undefined;
   return `${base}/p/${n}`;
 }
 

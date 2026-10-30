@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noLongDash } from "./marketing-copy.ts";
+import { paceRecipient } from "./wa-pair-pace.ts";
 import { ctaPayload, deliverWaPayloads, logWaUrlGuard, payloadsForText, planWaText, textPayload } from "./wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
@@ -134,6 +135,10 @@ export function oneLine(s: string, max: number): string {
 }
 
 async function post(payload: Record<string, unknown>): Promise<string | null> {
+  return paceRecipient(String(payload.to || ""), () => postNow(payload));
+}
+
+async function postNow(payload: Record<string, unknown>): Promise<string | null> {
   const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },

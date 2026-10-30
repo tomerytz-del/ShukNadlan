@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { setWaDropLogger } from "../_shared/wa-url-guard.ts";
 import {
   feedbackTemplateConfigured, feedbackToMeeting, firstName, inWindow, kickNotificationPush, type MeetingFeedback,
@@ -51,10 +52,26 @@ type Row = Record<string, any>;
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  setPairReserve(async (phone, gapMs) => {
+    const { data, error } = await supabase.rpc("whatsapp_pair_reserve", {
+      p_phone: phone,
+      p_gap_ms: gapMs,
+    });
+    if (error) return 0;
+    const n = Number(data);
+    return Number.isFinite(n) ? n : 0;
+  });
   setWaDropLogger(async (row) => {
+    const phone = String(row.wa_phone || "").replace(/\D/g, "");
+    let agent_id: string | null = null;
+    if (phone) {
+      const { data } = await supabase.from("agency_members").select("id").eq("phone_e164", phone).maybeSingle();
+      agent_id = data?.id ?? null;
+    }
     await supabase.from("whatsapp_messages").insert({
       direction: "out",
       wa_phone: row.wa_phone,
+      agent_id,
       msg_type: "text",
       body: row.body,
       error: row.error,
