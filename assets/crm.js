@@ -5386,7 +5386,8 @@ document.querySelectorAll('#dashPanelAdmin .adm-range button').forEach(btn=>{
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminReport);
 
 /* ---------- ייצוא פניות היריד (CSV) ----------
-   ‏admin_fair_inquiries - 90 הימים האחרונים, בשעון ישראל (‏docs/open-house-fair.md).
+   ‏admin_fair_inquiries - כל היומן (מ-2026, לפני היריד הראשון), בשעון ישראל, כדי
+   שיריד ארוך לא ייחתך בברירת המחדל של 90 יום (‏docs/open-house-fair.md).
    ‏BOM כדי שאקסל יקרא עברית; תא שמתחיל ב-= + - @ מקבל גרש, כדי שאקסל לא
    יריץ אותו כנוסחה (שם הפונה מגיע מטופס ציבורי). */
 const FAIR_CSV_CHANNEL = {
@@ -5404,7 +5405,7 @@ async function exportFairInquiriesCsv(){
   if (btn.disabled) return;
   btn.disabled = true;
   try {
-    const { data, error } = await sb.rpc('admin_fair_inquiries', {});
+    const { data, error } = await sb.rpc('admin_fair_inquiries', { p_from: '2026-01-01T00:00:00+02:00' });
     if (error){ showToast('הייצוא נכשל: ' + heErr(error)); return; }
     const rows = data || [];
     if (!rows.length){ showToast('אין פניות יריד בטווח הזה'); return; }
@@ -20548,23 +20549,26 @@ async function saveLeadWork(lead, patch){
    ‏20270502090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
 let leadVisitorOf = new Map();
 
-/* יומן פניות היריד (‏fair_inquiries): lead_id → { status, fair_end }. ה-RLS
-   מחזיר רק את השורות של הסוכן/ת (ומנהל/ת - של המשרד), ובלי השם והטלפון.
-   שאילתה אחת בלי רשימת מזהים: השורות מעטות, ו-in() על מאות לידים היה
-   מנפח את הכתובת. מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם. */
+/* יומן פניות היריד (‏fair_inquiries): lead_id → { status, fair_end }. רק
+   ללידים שנטענו ויש להם נכס, במנות של 150 מזהים (‏in() על מאות מזהים מנפח
+   את הכתובת, ושאילתה בלי רשימה הייתה נחתכת ב-1,000 שורות של PostgREST).
+   ה-RLS מחזיר רק מה שהליד שלו אצל הסוכן/ת (ומנהל/ת - של המשרד), ובלי השם
+   והטלפון. מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם. */
 let leadFairByLead = new Map();
 async function loadLeadFair(leads){
-  if (!(leads || []).some(l => l.property_id)){ leadFairByLead = new Map(); return; }
-  const { data, error } = await sb.from('fair_inquiries')
-    .select('lead_id, status, fair_end')
-    .not('lead_id', 'is', null)
-    .order('created_at', { ascending:false })
-    .limit(1000);
-  if (error){
-    if (!['42P01', 'PGRST205', '42501'].includes(error.code)) console.warn('יומן פניות היריד:', error.message);
-    return;
+  const ids = (leads || []).filter(l => l.property_id).map(l => l.id);
+  const map = new Map();
+  for (let i = 0; i < ids.length; i += 150){
+    const { data, error } = await sb.from('fair_inquiries')
+      .select('lead_id, status, fair_end')
+      .in('lead_id', ids.slice(i, i + 150));
+    if (error){
+      if (!['42P01', 'PGRST205', '42501'].includes(error.code)) console.warn('יומן פניות היריד:', error.message);
+      return;
+    }
+    (data || []).forEach(r => map.set(r.lead_id, r));
   }
-  leadFairByLead = new Map((data || []).map(r => [r.lead_id, r]));
+  leadFairByLead = map;
 }
 
 async function loadLeadVisitors(){
@@ -20813,7 +20817,7 @@ function leadFairChip(lead){
   if (!lead) return '';
   const row = leadFairByLead.get(lead.id);
   if (row && row.status === 'pending_owner_decision'){
-    return '<span class="lc-fair is-pending" title="' + esc('הפנייה הגיעה מהרשתות בזמן שהדירה ביריד. ההנחה בעמלה ממתינה להחלטה') + '">ממתין להחלטת תומר</span>';
+    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהדירה ביריד. ההנחה בעמלה ממתינה להחלטה') + '">ממתין להחלטת תומר</span>';
   }
   if (!row && lead.open_house_eligible !== true) return '';
   const endRaw = row ? row.fair_end : lead.open_house_end_snapshot;
