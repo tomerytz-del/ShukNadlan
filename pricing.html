@@ -397,7 +397,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .plan.elite .plan-sub{display:block;color:var(--mist);font-size:15px;font-weight:500;margin-top:6px;line-height:1.5}
   .plan.elite .plan-quota{background:rgba(226,195,90,.14);color:var(--gold-pale);border:1px solid rgba(226,195,90,.35);font-weight:600}
   .cta-gab{display:inline-flex;align-items:center;gap:10px}
-  .cta-gab .av{width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex:none}
+  /* B2 (תומר 29.10): העיגול גדל ל-80/96px, חתוך מהגזרה כך שהפנים ממלאות אותו */
+  .gab-ring{position:relative;display:block;flex:none;width:80px;height:80px;border-radius:50%;overflow:hidden;background:#f6f1e7}
+  .gab-ring img{position:absolute;left:0;top:-8%;width:160%;height:auto;max-width:none;border:0;border-radius:0}
+  @media(min-width:760px){.gab-ring{width:96px;height:96px}}
+  .cta-gab .gab-ring{box-shadow:0 0 0 2px var(--gold)}
   .hero-sub-link{color:var(--mist);font-size:14.5px;text-decoration:underline;text-underline-offset:3px}
   .elite-sub{margin:4px 0 0;color:var(--gold-pale);font-weight:700;font-size:16px}
 
@@ -512,7 +516,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>
         <span id="heroCtaText">לבחירת מסלול</span>
       </a>
-      <a href="#picker" class="cta-line cta-gab"><img class="av" src="/assets/gabriela-avatar.webp" width="36" height="36" alt="">לא בטוחים איזה מסלול? גבריאלה תעזור</a>
+      <a href="#picker" class="cta-line cta-gab"><span class="gab-ring" aria-hidden="true"><img src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" loading="lazy" decoding="async"></span>לא בטוחים איזה מסלול? גבריאלה תעזור</a>
     </div>
     <div class="trust">
       <span id="trustCard" hidden><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2C35A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>בלי כרטיס אשראי</span>
@@ -838,7 +842,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="kicker">שוק הנדל״ן לעסקים</span>
       <h2 id="closerTitle"><span class="ln">חצי שנה של Elite.</span><span class="ln">₪0. בלי כרטיס אשראי.</span></h2>
       <p id="closerLead">שתי דקות הרשמה, והסוכנים שלכם מצטרפים בקישור אחד. בתום חצי השנה בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי לאבד כלום.</p>
-      <div class="hero-ctas"><a class="cta-gold" id="closerCta" href="/agency-signup?tier=premium">מתחילים Elite ב-₪0</a><a href="#picker" class="cta-line cta-gab"><img class="av" src="/assets/gabriela-avatar.webp" width="36" height="36" alt="">לא בטוחים? גבריאלה תעזור לבחור</a></div>
+      <div class="hero-ctas"><a class="cta-gold" id="closerCta" href="/agency-signup?tier=premium">מתחילים Elite ב-₪0</a><a href="#picker" class="cta-line cta-gab"><span class="gab-ring" aria-hidden="true"><img src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" loading="lazy" decoding="async"></span>לא בטוחים? גבריאלה תעזור לבחור</a></div>
       <!-- הקישור לטעינת ארנק יושב בשורה שמתחת לכרטיסים. הטעינה עצמה עדיין
            מזוהה: ‏checkout.html דורש התחברות לפני שהוא פונה לסליקה, ולכן
            קישור ציבורי אליו אינו מזמין תשלום של מי שאין לו/ה ארנק לזכות. -->

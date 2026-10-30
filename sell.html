@@ -202,7 +202,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .sl-deals td:nth-child(3){font-weight:800;color:#0e2a6b}
   .sl-more{margin:10px 0 0}.sl-more a{color:#0e2a6b;font-weight:800}
   .sl-gab{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #e3e8f2;line-height:1.55}
-  .sl-gab img{width:40px;height:40px;border-radius:50%;border:2px solid #c9a227;object-fit:cover;object-position:top;flex:none}
+  /* B2 (תומר 29.10): העיגול גדל ל-80/96px, חתוך מהגזרה כך שהפנים ממלאות אותו */
+  .gab-ring{position:relative;display:block;flex:none;width:80px;height:80px;border-radius:50%;overflow:hidden;background:#f6f1e7}
+  .gab-ring img{position:absolute;left:0;top:-8%;width:160%;height:auto;max-width:none;border:0;border-radius:0}
+  @media(min-width:760px){.gab-ring{width:96px;height:96px}}
+  .sl-gab .gab-ring{box-shadow:0 0 0 2px #c9a227}
   .sl-gab a{color:#0e2a6b;font-weight:800}
   .sl-agents{display:grid;gap:12px}
   @media(min-width:760px){.sl-agents{grid-template-columns:repeat(3,1fr)}}
@@ -307,7 +311,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </table>
     </div>
     <p class="sl-more"><a href="/deals/afula">לכל העסקאות בעפולה ←</a></p>
-    <p class="sl-gab"><img src="/assets/gabriela-avatar.webp" alt="" width="40" height="40" loading="lazy">
+    <p class="sl-gab"><span class="gab-ring" aria-hidden="true"><img src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" loading="lazy" decoding="async"></span>
       <span>גבריאלה: רוצים לדעת מה נמכר ליד הבית? ספרו לי את הכתובת, ואראה לכם עסקאות דומות. <span id="slGabLink"></span></span></p>
   </section>
 
