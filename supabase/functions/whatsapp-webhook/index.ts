@@ -62,7 +62,7 @@ import {
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
-import { planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { outboxRetry, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -481,6 +481,30 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
       ? `${item.body}\n[${item.rows.map((row) => row.title).join(" | ")}]`
       : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
     const parts: WaSent[] = [];
+    let errorLogged = false;
+    const textOut = () => parts.some((part) => part.kind === "text");
+    const crmRow = item.kind === "list"
+      ? (item.rows.filter((row) => parseNavId(row.id)).find((row) => row.title === "הכול")
+        || item.rows.find((row) => parseNavId(row.id)))
+      : undefined;
+    const outboxShortRetry = async () => {
+      const plan = outboxRetry(textOut(), !!crmRow);
+      if (plan === "crm" && crmRow) {
+        try {
+          const path = parseNavId(crmRow.id)!;
+          const retryId = await sendCtaUrl(to, crmRow.title, "פתיחה ב-CRM", absoluteUrl(SITE_BASE, path));
+          await supabase.from("whatsapp_messages").insert({
+            wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
+            msg_type: "interactive", body: crmRow.title, status: retryId ? "sent" : null,
+          });
+        } catch (retryErr) {
+          console.error("outbox crm retry failed", retryErr);
+        }
+        return;
+      }
+      const note = item.kind === "cta" ? `${item.label}.\n${WA_NO_BUTTON}` : WA_NO_BUTTON;
+      await reply(to, plan === "body" ? `${item.body}\n${note}` : note, agentId);
+    };
     try {
       const waMessageId = item.kind === "cta"
         ? await sendCtaUrl(to, item.body, item.label, item.url, parts)
@@ -495,26 +519,14 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
           });
         }
         if (!parts.some((part) => part.kind === "interactive")) {
-          await supabase.from("whatsapp_messages").insert({
-            direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
-            body: logBody, error: "button rejected after text",
-          });
-          if (item.kind === "list" || item.kind === "buttons") {
-            const rows = item.kind === "list" ? item.rows.filter((row) => parseNavId(row.id)) : [];
-            const crmRow = rows.find((row) => row.title === "הכול") || rows[0];
-            if (crmRow) {
-              const path = parseNavId(crmRow.id)!;
-              const retryId = await sendCtaUrl(to, crmRow.title, "פתיחה ב-CRM", absoluteUrl(SITE_BASE, path));
-              await supabase.from("whatsapp_messages").insert({
-                wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-                msg_type: "interactive", body: crmRow.title, status: retryId ? "sent" : null,
-              });
-            } else {
-              await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
-            }
-          } else {
-            await reply(to, `${item.label}.\n${WA_NO_BUTTON}`, agentId);
+          if (!errorLogged) {
+            errorLogged = true;
+            await supabase.from("whatsapp_messages").insert({
+              direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
+              body: logBody, error: "button rejected after text",
+            });
           }
+          await outboxShortRetry();
         }
       } else {
         await supabase.from("whatsapp_messages").insert({
@@ -524,59 +536,14 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
       }
     } catch (err) {
       console.error("outbox send failed", err);
-      await supabase.from("whatsapp_messages").insert({
-        direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
-        body: logBody, error: String((err as Error)?.message || err),
-      });
-      // ניסיון שני: כפתור קצר. אם גם הוא נדחה - טקסט בלי כתובת, עם יעד שאפשר למצוא.
-      if (item.kind === "cta") {
-        const body = item.body.trim();
-        let textId: string | null = null;
-        try {
-          if (body.length > 1024) {
-            textId = await sendText(to, body);
-            await supabase.from("whatsapp_messages").insert({
-              wa_message_id: textId, direction: "out", wa_phone: to, agent_id: agentId,
-              msg_type: "text", body: body.slice(0, 2000), status: textId ? "sent" : null,
-            });
-          }
-          const buttonBody = body.length > 0 && body.length <= 1024 ? body : item.label;
-          const retryId = await sendCtaUrl(to, buttonBody, item.label, item.url);
-          await supabase.from("whatsapp_messages").insert({
-            wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-            msg_type: "interactive", body: `${buttonBody}\n[${item.label}]`, status: retryId ? "sent" : null,
-          });
-          continue;
-        } catch (retryErr) {
-          console.error("outbox cta retry failed", retryErr);
-          if (textId) continue;
-        }
-        await reply(to, `${item.body}\n${item.label}.\n${WA_NO_BUTTON}`, agentId);
-      } else if (item.kind === "list") {
-        const rows = item.rows.filter((row) => parseNavId(row.id));
-        const crmRow = rows.length > 1
-          ? (rows.find((row) => row.title === "הכול") || rows[0])
-          : rows[0];
-        try {
-          if (crmRow) {
-            const path = parseNavId(crmRow.id)!;
-            const buttonBody = item.body.trim().length > 0 && item.body.trim().length <= 1024
-              ? item.body.trim()
-              : crmRow.title;
-            const label = rows.length > 1 ? "פתיחה ב-CRM" : crmRow.title;
-            const retryId = await sendCtaUrl(to, buttonBody, label, absoluteUrl(SITE_BASE, path));
-            await supabase.from("whatsapp_messages").insert({
-              wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-              msg_type: "interactive", body: buttonBody, status: retryId ? "sent" : null,
-            });
-          } else {
-            await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
-          }
-        } catch (retryErr) {
-          console.error("outbox list retry failed", retryErr);
-          await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
-        }
+      if (!errorLogged) {
+        errorLogged = true;
+        await supabase.from("whatsapp_messages").insert({
+          direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
+          body: logBody, error: String((err as Error)?.message || err),
+        });
       }
+      await outboxShortRetry();
     }
   }
 }
@@ -1665,7 +1632,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       const res = await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response);
       const phone = res.agentPhone || "";
       const wa = phone
-        ? `${res.reply}\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${phone}`
+        ? `${res.reply}\nhttps://wa.me/${phone}`
         : res.reply;
       await reply(from, wa, null, { contactName: res.agentName, customer: true });
     } else {
@@ -1687,9 +1654,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   if (coordBtn) {
     const coord = await respondToCoord(supabase, coordBtn.token, coordBtn.answer);
     const coordWa = coord.agentPhone
-      ? `${coord.text}\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${coord.agentPhone}`
+      ? `${coord.text}\nhttps://wa.me/${coord.agentPhone}`
       : coord.text;
-    await reply(from, coordWa, null, { contactName: coord.agentName, customer: true });
+    await reply(from, coordWa, null, { contactName: coord.agentName });
     return;
   }
 
@@ -1713,7 +1680,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     if (m) {
       const { data, error } = await supabase.rpc("wa_login_verify", { p_nonce: m[1], p_from: from });
       if (error) console.error("wa login verify failed", error.message);
-      await reply(from, error ? "לא הצלחנו לאמת כרגע. נסו לשלוח שוב בעוד דקה." : String(data), null, { customer: true });
+      await reply(from, error ? "לא הצלחנו לאמת כרגע. נסו לשלוח שוב בעוד דקה." : String(data), null);
       return;
     }
   }

@@ -232,10 +232,16 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
       ? (base && base !== note ? `${base}\n${note}` : note)
       : (base || "הפרטים בדף הפגישה.");
     return textPayload(to, fallback.slice(0, 4000));
-  });
+  }, planned.visibleText);
 }
 
 /** בלי כפתור אין "בכפתור" בגוף. */
+/** מקף עברי רק לפני שם או מספר. "צוות" ו"יועץ" בלי מקף. */
+function leName(name: string): string {
+  if (/^(צוות|יועץ|יועצת|יועצי)/.test(name)) return `ל${name}`;
+  return `ל־${name}`;
+}
+
 function textWithoutButton(text: string): string {
   return text
     .replace(/בכפתור למטה/g, "מדף הפגישה")
@@ -420,6 +426,7 @@ export async function feedbackToMeeting(
       .from("agency_members").select("display_name").eq("id", item.agent_id).maybeSingle();
     agentName = agent?.display_name || agentName;
   }
-  const reply = `הפרטים הועברו ל־${agentName} להמשך טיפול.`;
+  const moved = `הפרטים הועברו ${leName(agentName)} להמשך טיפול.`;
+  const reply = feedback === "liked" ? `תודה! שמחים שאהבת. ${moved}` : moved;
   return { ok: true, already: !!res.already, reply };
 }

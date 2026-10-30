@@ -94,7 +94,7 @@ function postMessage(to: string, payload: unknown, failLabel: string): Promise<s
  * שולחת הודעת טקסט. זורקת אם Meta החזירה שגיאה, ומחזירה את מזהה ההודעה
  * שלה למעקב מסירה.
  */
-export type WaSent = { id: string | null; kind: "text" | "interactive" | "video"; body: string };
+export type WaSent = { id: string | null; kind: "text" | "interactive" | "video" | "image"; body: string };
 
 function describeSent(payload: Record<string, unknown>, id: string | null): WaSent {
   const type = String(payload.type || "text");
@@ -121,32 +121,29 @@ function plainBody(visible: string): string {
 
 export const WA_CUSTOMER_NOTE = "פרטים נוספים באתר שוק נדל״ן.";
 
-/** לכל היותר הודעת המשך אחת. יעד אחד: הגוף הוא שם היעד. כמה יעדים: כפתור "לאתר". */
+/** עד שלושה כפתורים ליעדים עצמם. אין כפתור גנרי לדף הבית. */
 async function postGuardedFollowups(to: string, links: WaPlannedLink[], skipUrl?: string): Promise<void> {
   const ctas = links.filter((link) => link.kind === "cta" && link.url !== skipUrl);
   const videos = links.filter((link) => link.kind === "video");
-  try {
-    if (ctas.length === 1 && !videos.length) {
+  const take = ctas.slice(0, 3);
+  if (ctas.length > take.length) console.warn("wa-url-guard dropped links", ctas.length - take.length);
+  for (const link of take) {
+    try {
       await postMessage(
         to,
-        ctaPayload(to, ctas[0].label, ctas[0].label, withClickUrl(ctas[0].url, "cta")),
+        ctaPayload(to, link.label, link.label, withClickUrl(link.url, "cta")),
         "whatsapp cta_url send failed",
       );
-      return;
+    } catch (err) {
+      console.error("wa-url-guard follow-up failed", err);
     }
-    if (ctas.length > 1) {
-      await postMessage(
-        to,
-        ctaPayload(to, "לאתר", "לאתר", "https://shuknadlan.co.il/"),
-        "whatsapp cta_url send failed",
-      );
-      return;
-    }
-    if (videos.length) {
+  }
+  if (videos.length) {
+    try {
       await postMessage(to, videoPayload(to, videos[0].url), "whatsapp video send failed");
+    } catch (err) {
+      console.error("wa-url-guard follow-up failed", err);
     }
-  } catch (err) {
-    console.error("wa-url-guard follow-up failed", err);
   }
 }
 
@@ -187,7 +184,7 @@ export async function sendText(
       ? (base && base !== note ? `${base}\n${note}` : note)
       : (base || emptyNote)).slice(0, MAX_TEXT_LEN);
     return textPayload(to, fallback);
-  });
+  }, planned.visibleText);
 }
 
 // כיתוב של הודעת תמונה מוגבל ל-1024 תווים, ולא ל-4096 כמו טקסט. הודעה
@@ -285,7 +282,8 @@ export async function sendImageCta(
     console.error("wa-url-guard image cta failed, image then button", err);
     const caption = leadId ? "" : (plan.text || "");
     try {
-      await sendImage(to, imageUrl, caption);
+      const imageId = await sendImage(to, imageUrl, caption);
+      parts?.push({ id: imageId, kind: "image", body: caption });
     } catch (imgErr) {
       console.error("wa-url-guard image retry failed", imgErr);
     }

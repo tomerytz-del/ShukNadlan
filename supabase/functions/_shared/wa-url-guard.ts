@@ -3,9 +3,9 @@
 // נשלח ל-Meta: מוציאה http(s) ו-wa.me, והשולח הופך אותם לכפתור.
 // כתובת .mp4 של אחסון יוצאת כמדיה, לא כקישור.
 //
-// מקסימום כפתור קישור אחד להודעה (מגבלת Meta). עוד כתובות הן הודעות
-// המשך. אם הכפתור נדחה, השולח שולח את הטקסט בלי הכתובת.
-// גוף ארוך מ-1024 לא נחתך לתוך כפתור: הטקסט יוצא במלואו, והכפתור אחריו.
+// עד שלושה כפתורי קישור, כל אחד ליעד שלו. אין כפתור גנרי לדף הבית.
+// עם וידאו: קודם הטקסט, אחר כך הווידאו, ואז הכפתורים. גוף ארוך מ-1024
+// יוצא כטקסט, לא נחתך לתוך כפתור. נפילה לטקסט פעם אחת, ורק אם הגוף לא יצא.
 
 import { withClickUrl } from "./agent-deep-link.ts";
 
@@ -16,8 +16,15 @@ export const MAX_WA_CTA = 5;
 export const WA_TEXT_MAX = 4096;
 export const WA_CTA_BODY_MAX = 1024;
 /** לכל היותר שתי הודעות לתשובה: הגוף, ואז כפתור אחד. */
-/** טקסט, ואז עד שני כפתורים. עם וידאו: טקסט, וידאו, וכפתור אחד. */
+/** עד שלושה כפתורי קישור. טקסט ווידאו אינם נספרים במכסה הזו. */
 export const MAX_WA_MESSAGES = 3;
+
+/** אחרי דחייה: לא לשלוח שוב גוף שכבר יצא. */
+export function outboxRetry(textWentOut: boolean, hasCrmRow: boolean): "crm" | "note" | "body" {
+  if (hasCrmRow) return "crm";
+  if (textWentOut) return "note";
+  return "body";
+}
 
 const BUTTON_TITLE_MAX = 20;
 
@@ -154,10 +161,20 @@ export async function deliverWaPayloads(
   payloads: Record<string, unknown>[],
   post: (payload: Record<string, unknown>) => Promise<string | null>,
   fallbackPayload: () => Record<string, unknown>,
+  visibleText = "",
 ): Promise<string | null> {
   let first: string | null = null;
   let delivered = 0;
   let plainSent = false;
+  let bodyOut = !visibleText || visibleText === WA_EMPTY_BODY;
+  let fallbackTried = false;
+  const carries = (payload: Record<string, unknown>) => {
+    if (!visibleText || visibleText === WA_EMPTY_BODY) return false;
+    const probe = visibleText.slice(0, 80);
+    if (payload.type === "text") return String((payload.text as { body?: string } | undefined)?.body || "").includes(probe);
+    const interactive = payload.interactive as { body?: { text?: string } } | undefined;
+    return String(interactive?.body?.text || "").includes(probe);
+  };
   for (const payload of payloads) {
     const type = String(payload.type || "");
     try {
@@ -165,14 +182,17 @@ export async function deliverWaPayloads(
       if (first == null) first = id;
       delivered++;
       if (type === "text") plainSent = true;
+      if (carries(payload)) bodyOut = true;
     } catch (err) {
-      if (shouldPlainFallback(plainSent, delivered, type)) {
+      if (!fallbackTried && shouldPlainFallback(plainSent, delivered, type)) {
+        fallbackTried = true;
         console.error("wa-url-guard body failed, text without url", err);
         try {
           const id = await post(fallbackPayload());
           if (first == null) first = id;
           delivered++;
           plainSent = true;
+          bodyOut = true;
           continue;
         } catch (err2) {
           console.error("wa-url-guard text fallback failed", err2);
@@ -184,7 +204,7 @@ export async function deliverWaPayloads(
       }
     }
   }
-  if (delivered === 0) throw new Error("wa-url-guard nothing sent");
+  if (!bodyOut || delivered === 0) throw new Error("wa-url-guard body not sent");
   return first;
 }
 
@@ -237,6 +257,7 @@ export function payloadsForText(to: string, body: string): {
   payloads: Record<string, unknown>[];
   visibleText: string;
   stripped: boolean;
+  dropped: number;
 } {
   const plan = planWaText(body);
   const ctas = plan.links.filter((link) => link.kind === "cta");
@@ -245,16 +266,18 @@ export function payloadsForText(to: string, body: string): {
   const payloads: Record<string, unknown>[] = [];
   const stamped = (url: string) => withClickUrl(url, "cta");
   const prose = visibleText && visibleText !== WA_EMPTY_BODY ? visibleText : "";
+  let dropped = 0;
   const roomFor = (links: WaPlannedLink[], firstBody?: string) => {
-    for (let i = 0; i < links.length && payloads.length < MAX_WA_MESSAGES; i++) {
-      const link = links[i];
+    const take = links.slice(0, MAX_WA_MESSAGES);
+    dropped += links.length - take.length;
+    take.forEach((link, i) => {
       const body = i === 0 && firstBody ? firstBody : link.label;
       payloads.push(ctaPayload(to, body, link.label, stamped(link.url)));
-    }
+    });
   };
   if (videos.length) {
     if (prose) payloads.push(textPayload(to, prose));
-    if (payloads.length < MAX_WA_MESSAGES) payloads.push(videoPayload(to, videos[0].url));
+    payloads.push(videoPayload(to, videos[0].url));
     roomFor(ctas);
   } else if (!ctas.length) {
     if (visibleText) payloads.push(textPayload(to, visibleText));
@@ -264,5 +287,6 @@ export function payloadsForText(to: string, body: string): {
   } else {
     roomFor(ctas, prose || WA_EMPTY_BODY);
   }
-  return { payloads: payloads.slice(0, MAX_WA_MESSAGES), visibleText, stripped: plan.stripped };
+  if (dropped > 0) console.warn("wa-url-guard dropped links", dropped);
+  return { payloads, visibleText, stripped: plan.stripped, dropped };
 }

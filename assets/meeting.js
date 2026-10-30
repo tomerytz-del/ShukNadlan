@@ -65,9 +65,14 @@
     ['not_for_me', '👎 לא בשבילי', ''],
   ];
 
+  function leName(name){
+    if (/^(צוות|יועץ|יועצת|יועצי)/.test(name)) return 'ל' + name;
+    return 'ל־' + name;
+  }
+
   function handedOff(a){
     const who = (a && a.name) || 'צוות התיווך';
-    return 'הפרטים הועברו ל־' + who + ' להמשך טיפול.';
+    return 'הפרטים הועברו ' + leName(who) + ' להמשך טיפול.';
   }
 
   function cancelLine(m, a){

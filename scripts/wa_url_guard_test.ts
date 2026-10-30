@@ -5,6 +5,7 @@
 import {
   buttonLabelForUrl,
   deliverWaPayloads,
+  outboxRetry,
   MAX_WA_MESSAGES,
   payloadsForText,
   planWaText,
@@ -107,7 +108,8 @@ const longVideo = payloadsForText(
 );
 const longTypes = longVideo.payloads.map((p) => (p as { type?: string }).type);
 const longButton = longVideo.payloads[2] as { interactive?: { body?: { text?: string }; action?: { parameters?: { url?: string; display_text?: string } } } };
-check("גוף ארוך עם וידאו יוצא כטקסט קודם", longTypes.join(",") === "text,video,interactive"
+check("גוף ארוך עם וידאו יוצא כטקסט קודם", longTypes[0] === "text" && longTypes[1] === "video"
+  && longTypes.filter((type) => type === "interactive").length === 2
   && (longVideo.payloads[0] as { text: { body: string } }).text.body.length > 1024);
 check("הכפתור הוא היעד הראשון ולא דף הבית", longButton.interactive?.action?.parameters?.display_text === "לדף הנכס"
   && String(longButton.interactive?.action?.parameters?.url || "").includes("/property")
@@ -186,6 +188,47 @@ try {
   nothingSent = true;
 }
 check("אם לא יצא כלום נזרקת שגיאה", nothingSent);
+
+check("כפתורים בלי יעד CRM לא שולחים את הגוף שוב", outboxRetry(true, false) === "note");
+check("רשימה עם יעד CRM שולחת רק כפתור", outboxRetry(true, true) === "crm");
+
+let bodyLost = false;
+try {
+  let interactiveSeen = 0;
+  await deliverWaPayloads(twoLinks.payloads, async (payload) => {
+    if (payload.type === "text") throw new Error("fallback");
+    if (payload.type === "interactive" && interactiveSeen++ === 0) throw new Error("first button");
+    return "wamid.second";
+  }, () => ({ type: "text", text: { body: "FALLBACK" } }), "שלום");
+} catch {
+  bodyLost = true;
+}
+check("כפתור ראשון והנפילה נדחו: הגוף לא יצא", bodyLost);
+
+const longProbe = `${"ב".repeat(1500)} https://shuknadlan.co.il/property?id=z`;
+const longPlan = payloadsForText("972500000000", longProbe);
+let longLost = false;
+try {
+  await deliverWaPayloads(longPlan.payloads, async (payload) => {
+    if (payload.type !== "interactive") throw new Error("text");
+    return "wamid.button";
+  }, () => ({ type: "text", text: { body: "FALLBACK" } }), longPlan.visibleText);
+} catch {
+  longLost = true;
+}
+check("טקסט ארוך והנפילה נדחו: לא מדווחים הצלחה", longLost);
+
+let posts = 0;
+try {
+  await deliverWaPayloads(withVideo.payloads, async () => {
+    posts++;
+    throw new Error("no");
+  }, () => {
+    posts++;
+    throw new Error("fb");
+  }, "שלום");
+} catch { /* expected */ }
+check("נפילה לטקסט פעם אחת", posts === 4);
 
 const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.example.com/a.mp4");
 check("וידאו לא כפתור", videoPayloads.payloads.length === 2

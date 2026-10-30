@@ -155,7 +155,7 @@ export async function waText(to: string, body: string): Promise<void> {
     to,
     type: "text",
     text: { preview_url: false, body: clipWhatsappText(plain || WA_NO_BUTTON) },
-  }));
+  }), planned.visibleText);
 }
 
 export async function waCta(to: string, body: string, label: string, url: string): Promise<void> {
