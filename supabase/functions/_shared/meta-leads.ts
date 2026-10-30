@@ -27,6 +27,8 @@
 
 import { alertKindAllowed, decideLeadAlert, leadAlertExpired, phoneDigits, type LeadField } from "./lead-alert.ts";
 import { MetaClient } from "./meta-graph.ts";
+import { setPairReserve } from "./wa-pair-pace.ts";
+import { setWaDropLogger } from "./wa-url-guard.ts";
 import { waCta, waTemplate, waText } from "./wa-send.ts";
 
 export type LeadForm = {
@@ -341,6 +343,28 @@ export async function alertLead(sb: any, metaLeadId: string): Promise<void> {
     });
     if (decision.action === "skip") return;
     if (decision.action === "text") {
+      setPairReserve(async (phone, gapMs) => {
+        const { data, error } = await sb.rpc("whatsapp_pair_reserve", { p_phone: phone, p_gap_ms: gapMs });
+        if (error) return 0;
+        const n = Number(data);
+        return Number.isFinite(n) ? n : 0;
+      });
+      setWaDropLogger(async (row) => {
+        const phone = String(row.wa_phone || "").replace(/\D/g, "");
+        let agent_id: string | null = null;
+        if (phone) {
+          const { data } = await sb.from("agency_members").select("id").eq("phone_e164", phone).maybeSingle();
+          agent_id = data?.id ?? null;
+        }
+        await sb.from("whatsapp_messages").insert({
+          direction: "out",
+          wa_phone: row.wa_phone,
+          agent_id,
+          msg_type: "text",
+          body: row.body,
+          error: row.error,
+        });
+      });
       if (decision.button) await waCta(settings.phone, decision.text, decision.button.label, decision.button.url);
       else await waText(settings.phone, decision.text);
     }

@@ -286,6 +286,8 @@ export async function sendImageCta(
     return id ?? leadId;
   } catch (err) {
     console.error("wa-url-guard image cta failed, image then button", err);
+    const dropped = plan.links.filter((link) => link.url !== url);
+    if (dropped.length) logDroppedWaLinks(to, dropped);
     const caption = leadId ? "" : (plan.text || "");
     let imageId: string | null = null;
     try {
