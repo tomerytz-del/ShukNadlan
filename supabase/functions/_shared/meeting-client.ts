@@ -352,7 +352,7 @@ export async function respondToMeeting(
     .select("kind, due_at, location, agent_id")
     .eq("client_token", token)
     .maybeSingle();
-  let agentName = "הסוכן/ת";
+  let agentName = "צוות התיווך";
   let agentPhone: string | null = null;
   if (item?.agent_id) {
     const { data: agent } = await supabase
@@ -408,22 +408,18 @@ export async function feedbackToMeeting(
     return { ok: false, error: "not_yet", reply: "נשמח לשמוע איך היה - אחרי הסיור 🙂" };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות למי שקבע את הסיור." };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות למי שקבע אותו." };
   }
   if (!res.already) await kickNotificationPush();
 
   const { data: item } = await supabase
     .from("agent_agenda_items").select("agent_id").eq("client_token", token).maybeSingle();
-  let agentName = "הסוכן/ת";
+  let agentName = "צוות התיווך";
   if (item?.agent_id) {
     const { data: agent } = await supabase
       .from("agency_members").select("display_name").eq("id", item.agent_id).maybeSingle();
     agentName = agent?.display_name || agentName;
   }
-  const reply = feedback === "liked"
-    ? `איזה כיף! 🙌 עדכנתי את ${agentName}, ויחזרו אליך עם ההמשך.`
-    : feedback === "unsure"
-    ? `תודה על הכנות 🙏 עדכנתי את ${agentName}, ויחזרו אליך לשמוע מה מתלבטים ולעזור להחליט.`
-    : `תודה, זה עוזר! עדכנתי את ${agentName}, ויחפשו בשבילך נכסים שמתאימים יותר.`;
+  const reply = `הפרטים הועברו ל־${agentName} להמשך טיפול.`;
   return { ok: true, already: !!res.already, reply };
 }
