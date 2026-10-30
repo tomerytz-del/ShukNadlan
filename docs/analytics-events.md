@@ -397,6 +397,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
 | `swipe_up_open` | **v10**: נפתח גיליון הפרטים | `slot`, `position` |
 | `swipe_contact_click` | **Variant C (טלפון)**: וואטסאפ או חיוג בגיליון "איך נוח לכם?" שנפתח מ"ליועץ" במסילה | `via`: ‏`rail`, `method`: ‏`wa` \| `call`, `property_id` |
+| `property_save_toggle` | דף הנכס (v10): "שמירה" ליד הכותרת או בסרגל התחתון - הוספה ל"המועדפים" או הסרה מהם (‏`sk_swipe_likes`, אותה רשימה כמו בהחלקה) | `property_id`, `saved` (‏true/false) |
 | `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
 | `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
 | `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |

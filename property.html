@@ -853,6 +853,16 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
   .sb-price .v{font-size:1.02rem;font-weight:900;color:var(--teal-dark);letter-spacing:-.3px;white-space:nowrap;line-height:1.25}
   .sticky-bar .btn-wa{flex:0 0 auto;min-width:0;padding:12px 16px;font-size:.88rem;white-space:nowrap}
   .sticky-bar .btn-call{flex:0 0 auto;width:46px;padding:12px 0}
+  /* §6: שמירה - לב ריק / לב ירוק מלא כשנשמר (#1f8a4c, כמו בהחלקה). רק ב-v10 */
+  .prop-save,.sticky-bar .btn-save{display:none}
+  html.beta-hero .prop-save{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin:6px 0 2px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
+    background:#fff;color:#0e2a6b;font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
+  html.beta-hero .sticky-bar .btn-save{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:46px;min-height:46px;padding:0;
+    border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;cursor:pointer}
+  .prop-save svg,.btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+  .prop-save[aria-pressed=true],.sticky-bar .btn-save[aria-pressed=true]{color:#1f8a4c;border-color:#1f8a4c}
+  .prop-save[aria-pressed=true] svg,.btn-save[aria-pressed=true] svg{fill:#1f8a4c}
+  .prop-save:focus-visible,.btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
   .sticky-bar .btn-call span{display:none}
   @media(max-width:520px){.sticky-bar .btn-wa span{display:none}.sticky-bar .btn-wa{width:48px;padding:12px 0;justify-content:center}}
   body.has-sticky-bar{padding-bottom:78px}
@@ -1346,6 +1356,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן -->
         <p class="listing-no" id="listingNo" hidden>מודעה #<span id="listingNoN"></span>
           <button type="button" id="listingCopy" aria-label="העתקת מספר המודעה" title="העתקת מספר המודעה">העתקה</button></p>
+        <!-- §6: שמירה לאותה רשימה של "המועדפים" בהחלקה (‏sk_swipe_likes). רק ב-v10 -->
+        <button type="button" class="prop-save" id="saveBtn" aria-pressed="false" aria-label="שמירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8c0 5.5-7.5 10.1-7.5 10.1Z"/></svg><span>שמירה</span></button>
 
         <!-- ====== יריד הבתים הפתוחים ======
              הרצועה יושבת מעל התיאור ולא בתחתית העמוד: "בלי עמלת תיווך"
@@ -1999,6 +2011,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <button type="button" class="btn-wa" id="sbFormBtn" hidden style="background:linear-gradient(120deg,var(--gold-dark),var(--gold))">
     תיאום ביקור
   </button>
+  <button type="button" class="btn-save" id="sbSaveBtn" aria-pressed="false" aria-label="שמירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8c0 5.5-7.5 10.1-7.5 10.1Z"/></svg></button>
   <a class="btn-call" id="sbCallBtn" href="#" hidden aria-label="חיוג לסוכן">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/></svg>
     <span>חייגו</span>

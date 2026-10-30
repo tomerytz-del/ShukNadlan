@@ -268,6 +268,7 @@ async function loadProperty(){
     }
 
     currentProperty = data;
+    initSave(data.id);
     if (window.NoPhoto && NoPhoto.on()) NoPhoto.useClient(sb);
     renderProperty(data);
     // ‏#contact&ask=photos - "בקשו תמונות" מאריח של נכס בלי תמונות (v10): הטופס, עם ההודעה המלאה
@@ -2994,6 +2995,38 @@ function renderContactButtons(p){
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן">
       ${ICON.call}<span>חייגו</span>
     </a>`;
+}
+
+/* ---------- שמירה (§6, v10 בלבד) ----------
+   אותה רשימה של "המועדפים" בהחלקה ובבועה: ‏sk_swipe_likes, מזהים, החדש בסוף,
+   200 אחרונים. לשונית אחרת מתעדכנת מאירוע storage; הבועה באותה לשונית -
+   דרך LikesBubble.sync(). */
+function loadLikes(){
+  try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean); }
+  catch(e){ return []; }
+}
+function initSave(id){
+  if (!document.documentElement.classList.contains('beta-hero')) return;
+  const btns = [document.getElementById('saveBtn'), document.getElementById('sbSaveBtn')].filter(Boolean);
+  const paint = ()=>{
+    const saved = loadLikes().indexOf(id) >= 0;
+    btns.forEach(b => {
+      b.setAttribute('aria-pressed', String(saved));
+      b.setAttribute('aria-label', saved ? 'שמירה, נשמר במועדפים' : 'שמירה');
+    });
+  };
+  btns.forEach(b => { b.onclick = ()=>{
+    let list = loadLikes().filter(x => x !== id);
+    const saved = list.length === loadLikes().length;
+    if (saved) list.push(id);
+    try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list.slice(-200))); } catch(e){}
+    paint();
+    if (window.LikesBubble) LikesBubble.sync();
+    showToast(saved ? 'נשמר במועדפים' : 'הוסר מהמועדפים');
+    if (window.shukTrack) shukTrack('property_save_toggle', { property_id: id, saved });
+  }; });
+  window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') paint(); });
+  paint();
 }
 
 /* ---------- שיתוף ----------
