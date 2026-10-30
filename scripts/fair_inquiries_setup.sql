@@ -103,3 +103,11 @@ insert into public.agency_members (id, agency_id, display_name, role) values
   ('b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'מנהלת א', 'manager'),
   ('b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'יועץ ב', 'agent')
 on conflict (id) do nothing;
+
+-- כמו בפרודקשן: יועץ/ת רואה ומוסיף/ה את הלידים שלו/ה, מנהל/ת - של המשרד
+alter table public.leads enable row level security;
+create policy "agent select own leads" on public.leads for select to authenticated
+  using (agent_id = public.current_agent_id()
+         or (agency_id = public.current_agency_id() and public.current_member_role() = 'manager'));
+create policy "agent insert own leads" on public.leads for insert to authenticated
+  with check (agent_id = public.current_agent_id());

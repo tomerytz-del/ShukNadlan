@@ -149,8 +149,13 @@ do $$ begin
                     and policyname = 'agent reads own fair inquiries') then
     create policy "agent reads own fair inquiries" on public.fair_inquiries
       for select to authenticated
-      using (agent_id = public.current_agent_id()
-             or (agency_id = public.current_agency_id() and public.current_member_role() = 'manager'));
+      using (
+        -- דרך הליד: מי שהליד אצלו עכשיו (גם אחרי הפנייה בין יועצים או שחרור),
+        -- לפי ה-RLS של leads עצמה. ‏agent_id ו-agency_id כאן הם צילום ולא בעלות
+        exists (select 1 from public.leads l where l.id = fair_inquiries.lead_id)
+        or (lead_id is null
+            and (agent_id = public.current_agent_id()
+                 or (agency_id = public.current_agency_id() and public.current_member_role() = 'manager'))));
   end if;
 end $$;
 
@@ -159,9 +164,11 @@ end $$;
 --
 -- ‏_fair_inquiry_log - הליבה, אחת לטריגר ולמילוי לאחור. ‏p_at הוא הרגע
 -- שנבדק מול החלון ונרשם כ-created_at: ‏now() בטריגר, ‏created_at של הליד
--- במילוי לאחור (הזמן היחיד שיש שם).
+-- במילוי לאחור (הזמן היחיד שיש שם). ‏p_trusted - הליד נכתב בידי service
+-- role (פונקציות הקליטה). ליד שיועץ/ת כתב/ה ישירות דרך PostgREST
+-- (‏"agent insert own leads") נרשם, אבל לעולם אינו eligible.
 -- ---------------------------------------------------------------------------
-create or replace function public._fair_inquiry_log(p_lead public.leads, p_at timestamptz)
+create or replace function public._fair_inquiry_log(p_lead public.leads, p_at timestamptz, p_trusted boolean default true)
 returns void
 language plpgsql
 security definer
@@ -198,7 +205,8 @@ begin
   end;
   -- רשימה סגורה של מה שזכאי. מקור חדש שלא נכנס לכאן נופל להחלטת תומר
   v_status := case
-    when v_channel in ('form', 'visualization')
+    when p_trusted
+         and v_channel in ('form', 'visualization')
          and (p_lead.source is null or p_lead.source in ('swipe', 'photo_request')) then 'eligible'
     else 'pending_owner_decision'
   end;
@@ -220,7 +228,7 @@ begin
   on conflict (lead_id) where lead_id is not null do nothing;
 end $$;
 
-revoke all on function public._fair_inquiry_log(public.leads, timestamptz) from public, anon, authenticated;
+revoke all on function public._fair_inquiry_log(public.leads, timestamptz, boolean) from public, anon, authenticated;
 
 create or replace function public.leads_log_fair_inquiry()
 returns trigger
@@ -229,7 +237,11 @@ security definer
 set search_path = ''
 as $$
 begin
-  perform public._fair_inquiry_log(new, now());
+  -- בלי JWT בכלל (מיגרציה, cron, psql) נחשב service role, כמו auth.role()
+  perform public._fair_inquiry_log(new, now(),
+    coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+             nullif(current_setting('request.jwt.claim.role', true), ''),
+             'service_role') = 'service_role');
   return new;
 exception when others then
   -- רישום לעולם אינו שובר קליטת ליד (אותו כלל כמו lead-routing.ts)

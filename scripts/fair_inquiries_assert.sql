@@ -172,15 +172,26 @@ begin
   if not found or v_after.lead_id is not null or v_after.visitor_name <> 'דנה' then raise exception 'T7 lead delete'; end if;
 end $$;
 
--- 8. הרשאות
+-- 8. הרשאות. הלידים בתרחישים הקודמים נכתבו בלי בעלים - כמו פונקציית
+-- הקליטה, הם של יועצת א ושל משרד א
+update public.leads set agent_id = 'b0000000-0000-0000-0000-000000000001', agency_id = 'a0000000-0000-0000-0000-000000000001'
+ where agent_id is null and property_id is not null;
 insert into public.leads (lead_type, property_id, agent_id, agency_id, raw_name, raw_phone)
 values ('property_inquiry', 'c0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000003',
         'a0000000-0000-0000-0000-000000000002', 'בחיפה', '1');
 
 do $$
-declare v_n int; v_total int; v_ok boolean;
+declare v_n int; v_total int; v_ok boolean; v_exp_a int; v_exp_m int;
 begin
   select count(*) into v_total from public.fair_inquiries;
+  -- מה כל אחד אמור לראות: דרך הליד, ושורה שהליד שלה נמחק - לפי הצילום
+  select count(*) into v_exp_a from public.fair_inquiries f left join public.leads le on le.id = f.lead_id
+   where le.agent_id = 'b0000000-0000-0000-0000-000000000001'
+      or (f.lead_id is null and f.agent_id = 'b0000000-0000-0000-0000-000000000001');
+  select count(*) into v_exp_m from public.fair_inquiries f left join public.leads le on le.id = f.lead_id
+   where le.agency_id = 'a0000000-0000-0000-0000-000000000001'
+      or (f.lead_id is null and f.agency_id = 'a0000000-0000-0000-0000-000000000001');
+  if v_exp_a = 0 or v_exp_m < v_exp_a then raise exception 'T8 fixture % %', v_exp_a, v_exp_m; end if;
 
   -- anon: כלום
   set local role anon;
@@ -201,8 +212,8 @@ begin
   perform set_config('test.agent', 'b0000000-0000-0000-0000-000000000001', true);
   set local role authenticated;
   select count(*) into v_n from public.fair_inquiries;
-  if v_n = 0 or exists (select 1 from public.fair_inquiries where agent_id <> 'b0000000-0000-0000-0000-000000000001') then
-    raise exception 'T8 agent A sees %', v_n; end if;
+  if v_n <> v_exp_a or exists (select 1 from public.fair_inquiries where agent_id <> 'b0000000-0000-0000-0000-000000000001') then
+    raise exception 'T8 agent A sees % of %', v_n, v_exp_a; end if;
   begin
     perform visitor_phone_e164 from public.fair_inquiries limit 1;
     raise exception 'T8 agent sees phone';
@@ -236,7 +247,7 @@ begin
   perform set_config('test.agent', 'b0000000-0000-0000-0000-000000000002', true);
   set local role authenticated;
   select count(*) into v_n from public.fair_inquiries;
-  if v_n <> v_total - 1 then raise exception 'T8 manager sees % of %', v_n, v_total - 1; end if;
+  if v_n <> v_exp_m then raise exception 'T8 manager sees % of %', v_n, v_exp_m; end if;
   reset role;
 
   -- מנהל/ת פלטפורמה: הייצוא, בשעון ישראל
@@ -311,4 +322,53 @@ do $$ begin
     raise exception 'flag default'; end if;
   if (select keep_for from public.data_retention_settings where policy = 'fair_inquiries_pii') <> interval '2 years' then
     raise exception 'retention default'; end if;
+end $$;
+
+-- 11. ליד שעבר יועץ (הפנייה בין יועצים): השורה עוברת איתו, ולא נשארת אצל השולח
+do $$
+declare v_lead uuid; v_n int;
+begin
+  insert into public.leads (lead_type, property_id, agent_id, agency_id, raw_name, raw_phone)
+  values ('property_inquiry', 'c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001',
+          'a0000000-0000-0000-0000-000000000001', 'הועבר', '1') returning id into v_lead;
+  update public.leads set agent_id = 'b0000000-0000-0000-0000-000000000003', agency_id = 'a0000000-0000-0000-0000-000000000002'
+   where id = v_lead;
+
+  perform set_config('test.agent', 'b0000000-0000-0000-0000-000000000003', true);
+  set local role authenticated;
+  select count(*) into v_n from public.fair_inquiries where lead_id = v_lead;
+  reset role;
+  if v_n <> 1 then raise exception 'T11 receiver sees %', v_n; end if;
+
+  perform set_config('test.agent', 'b0000000-0000-0000-0000-000000000001', true);
+  set local role authenticated;
+  select count(*) into v_n from public.fair_inquiries where lead_id = v_lead;
+  reset role;
+  if v_n <> 0 then raise exception 'T11 sender still sees %', v_n; end if;
+  perform set_config('test.agent', '', true);
+end $$;
+
+-- 12. ליד שיועץ/ת הכניס/ה ישירות (לא דרך פונקציית הקליטה) - נרשם, אבל לא eligible
+do $$
+declare v_status text; v_n int;
+begin
+  perform set_config('test.agent', 'b0000000-0000-0000-0000-000000000001', true);
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  set local role authenticated;
+  insert into public.leads (lead_type, property_id, agent_id, agency_id, raw_name, raw_phone)
+  values ('property_inquiry', 'c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001',
+          'a0000000-0000-0000-0000-000000000001', 'ישיר', '1');
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('test.agent', '', true);
+  select f.status into v_status from public.fair_inquiries f join public.leads le on le.id = f.lead_id where le.raw_name = 'ישיר';
+  if v_status is distinct from 'pending_owner_decision' then raise exception 'T12 direct insert status %', v_status; end if;
+
+  -- ‏service_role ב-JWT (פונקציית הקליטה) - eligible כרגיל
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  insert into public.leads (lead_type, property_id, raw_name, raw_phone)
+  values ('property_inquiry', 'c0000000-0000-0000-0000-000000000001', 'דרך הקליטה', '1');
+  perform set_config('request.jwt.claims', '', true);
+  select f.status into v_status from public.fair_inquiries f join public.leads le on le.id = f.lead_id where le.raw_name = 'דרך הקליטה';
+  if v_status is distinct from 'eligible' then raise exception 'T12 service status %', v_status; end if;
 end $$;
