@@ -3503,6 +3503,18 @@
     if (c && c.p) propLinkOpen(c.p, 'list');
   });
   function likesReturnView() { return preLikes === 'map' || preLikes === 'list' ? preLikes : 'deck'; }
+  /* §9 (תומר 30.10): "אחורה" מ"המועדפים" - של הדפדפן או של הטלפון - חוזר לתצוגה שממנה הגיעו, באותו
+     מצב, כמו הכפתורים שבדף. הכניסה דוחפת רשומה אחת; יציאה מכפתור בדף מוציאה אותה (‏history.back),
+     כדי שלא תישאר רשומה ישנה ו"אחורה" אחר כך יתנהג כמו קודם. גיליון שנפתח מעל המועדפים נסגר קודם
+     (הרשומה שלו מעל זו). הגלילה ברשימה נשמרת ומשוחזרת */
+  var likesPushed = false, likesOwnBack = false, likesScroll = 0;
+  window.addEventListener('popstate', function (e) {
+    if (likesOwnBack) { likesOwnBack = false; return; }
+    if (!likesPushed || view !== 'likes') return;
+    if (e.state && e.state.swView === 'likes') return;   // רק הגיליון שמעל נסגר
+    likesPushed = false;
+    setView(likesReturnView(), false, false, true);
+  });
   /* ‏A2-5 (תומר 20:03): בהחלקה על היריד, "רשימה" היא דף היריד עצמו - שם הספירה לאחור, הטופס
      וההסבר. אותו סינון שאפשר להעביר: עסקה, יישוב וחדרים (‏open-house-v10.js מדליק את התגיות) */
   function fairListHref(src) {
@@ -3514,7 +3526,7 @@
     q.set('src', src || 'swipe_list');
     return '/open-house?' + q.toString();
   }
-  function setView(v, likedOnly, npOnly) {
+  function setView(v, likedOnly, npOnly, fromPop) {
     /* ‏F8a: ההדרכה שייכת להחלקה - מעבר לרשימה, למפה או ל"אהבתי" סוגר אותה, בלי לסמן אותה
        כ"נראתה" (בביקור הבא היא תוצג שוב, כמו מי שלא סיים/ה אותה) */
     if (v !== 'deck' && !$('swTour').hidden) {
@@ -3528,7 +3540,15 @@
       location.href = fairListHref('swipe_list');
       return;
     }
-    if (v === 'likes' && view !== 'likes') preLikes = view;
+    if (v === 'likes' && view !== 'likes') {
+      preLikes = view;
+      likesScroll = window.scrollY;
+      try { history.pushState({ swView: 'likes', from: preLikes }, ''); likesPushed = true; } catch (e) { likesPushed = false; }
+    } else if (view === 'likes' && v !== 'likes' && likesPushed && !fromPop) {
+      likesPushed = false; likesOwnBack = true;
+      try { history.back(); } catch (e) { likesOwnBack = false; }
+    }
+    var backToList = view === 'likes' && v === 'list' && preLikes === 'list';
     // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
     if (v !== 'map' && v !== 'likes') lastView = v;
     else if (v === 'map' && view !== 'map' && view !== 'likes') lastView = view;
@@ -3546,6 +3566,7 @@
     if (v === 'likes') $('swLikes').setAttribute('aria-current', 'page'); else $('swLikes').removeAttribute('aria-current');
     setTimeout(reelSync, 0);
     if (v === 'list') renderList();
+    if (backToList) window.scrollTo(0, likesScroll);
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
     writeUrl();
