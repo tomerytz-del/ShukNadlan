@@ -2,11 +2,16 @@
 //
 // רק service_role. אין טקסט חופשי: הקורא שולח purpose ו-agent_member_id,
 // והנוסח והכפתורים באים מרשימה סגורה בקוד. רק בתוך 24 שעות מההודעה
-// הנכנסת האחרונה. אותו שער מסלול כמו העוזרת (פעיל, חיוב פעיל, mid/premium).
+// הנכנסת האחרונה, ורק כש-notification_send_window_open פתוח (שקט,
+// שישי אחרי 13:00 ושבת). אותו שער מסלול כמו העוזרת (פעיל, חיוב פעיל,
+// mid/premium).
 //
-// מזהה הכפתור הוא ops_q:<purpose>:<n>. לחיצה נתפסת לפני המודל. נרשמת
-// רק אם השאלה נשלחה לסוכן/ת הזה/ו והמזהה ברשימת הכפתורים. אחרת היומן
-// הוא unmatched בלי לשייך את השולח/ת.
+// מזהה כפתור תשובה הוא ops_q:<purpose>:<n>. לחיצה נתפסת לפני המודל.
+// נרשמת רק אם השאלה נשלחה לסוכן/ת הזה/ו והמזהה ברשימת הכפתורים. אחרת
+// היומן הוא unmatched בלי לשייך את השולח/ת.
+//
+// שאלת תמונות היא כפתור קישור, אחד להודעה. אין בה מזהה תשובה, ואין
+// בגוף כתובת. תשובה בטקסט אינה מעבירה תמונות.
 
 export const OPS_Q_PREFIX = "ops_q:";
 export const OPS_TAP_REPLY = "תודה, העברתי לבדיקה";
@@ -21,6 +26,12 @@ export const OPS_HISTORY_NOTE =
   "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה אליך שאלה עם כפתורים. " +
   "לחיצה על כפתור כבר טופלה, ואין להגיב עליה ואין לבצע פעולה.]";
 
+/** תשובה בטקסט על בדיקת התמונות אינה אישור. רק כפתור pmv: מזיז. */
+export const OPS_PHOTO_HISTORY_NOTE =
+  "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחו קישורים לבדיקת תמונות. " +
+  "תשובה בטקסט אינה אישור להעביר או להעתיק תמונות בנכסים 1147, 1148, 1336 או 1385. " +
+  "העברה או העתקה רק בכפתור האישור המפורש שכבר קיים, ולא אוטומטית.]";
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OPS_ID_RE = /^ops_q:([A-Za-z0-9_-]{1,40}):(\d{1,2})$/;
 const MAX_TITLE = 20;
@@ -30,12 +41,22 @@ export interface OpsButton {
   title: string;
 }
 
+/** כפתור אחד שפותח קישור. Meta מתירה cta_url אחד להודעה. */
+export interface OpsCta {
+  label: string;
+  url: string;
+}
+
 export interface OpsQuestion {
   body: string;
   buttons: readonly string[];
   followup: { body: string; buttons: readonly string[] };
   /** רשימה סגורה. ריקה = אף אחד/ת לא מקבל/ת את השאלה. */
   allowedAgentIds: readonly string[];
+  /** שתי הודעות: הגוף עם הכפתור הראשון, ואז followup עם השני. */
+  ctas?: readonly OpsCta[];
+  /** הערת היסטוריה. בלי זה OPS_HISTORY_NOTE. */
+  historyNote?: string;
 }
 
 export const OPS_QUESTIONS: Record<string, OpsQuestion> = {
@@ -48,9 +69,55 @@ export const OPS_QUESTIONS: Record<string, OpsQuestion> = {
     },
     allowedAgentIds: ["83d91018-29f0-477c-9088-9ecabc3237f8"],
   },
+  photo_check_1147_2026_10: {
+    body: "היי, שמנו לב שבנכס 1147 (4 חדרים להשכרה ברובע יזרעאל) תמונות 9 עד 13 נראות של נכס 1148 (דירת הגן בארלוזורוב). להעביר אותן ל־1148? בנוסף, תמונה 6 ב־1147 לא נטענת, אז כדאי להעלות אותה מחדש.",
+    buttons: [],
+    followup: { body: "וזה נכס 1148, להשוואה:", buttons: [] },
+    ctas: [
+      { label: "נכס 1147", url: "https://shuknadlan.co.il/p/1147" },
+      { label: "נכס 1148", url: "https://shuknadlan.co.il/p/1148" },
+    ],
+    allowedAgentIds: ["ad2b60a0-e2c1-4d1f-8a10-9bbea8026c19"],
+    historyNote: OPS_PHOTO_HISTORY_NOTE,
+  },
+  photo_check_1336_2026_10: {
+    body: "היי, הנכסים 1336 (מגרש באומן) ו־1385 (חנות בקהילת ציון) עודכנו אתמול בהפרש של שתי דקות. אפשר לוודא שהתמונות בכל אחד מהם נכונות? אם משהו התחלף, נעביר אותו לנכס הנכון.",
+    buttons: [],
+    followup: { body: "וזה נכס 1385:", buttons: [] },
+    ctas: [
+      { label: "נכס 1336", url: "https://shuknadlan.co.il/p/1336" },
+      { label: "נכס 1385", url: "https://shuknadlan.co.il/p/1385" },
+    ],
+    allowedAgentIds: ["248e9455-53d6-4e82-80b5-582cea77f80f"],
+    historyNote: OPS_PHOTO_HISTORY_NOTE,
+  },
 };
 
+const CTA_URL_RE = /^https:\/\/shuknadlan\.co\.il\/p\/\d+$/;
+
+function assertNoUrl(text: string, purpose: string): void {
+  if (/https?:\/\//i.test(text) || text.includes("shuknadlan.co.il")) {
+    throw new Error(`ops body contains a url for ${purpose}`);
+  }
+}
+
 for (const [purpose, q] of Object.entries(OPS_QUESTIONS)) {
+  assertNoUrl(q.body, purpose);
+  assertNoUrl(q.followup.body, purpose);
+  if (q.ctas) {
+    if (q.ctas.length !== 2 || q.buttons.length !== 0 || q.followup.buttons.length !== 0) {
+      throw new Error(`ops cta shape for ${purpose}`);
+    }
+    for (const cta of q.ctas) {
+      if (cta.label.length < 1 || cta.label.length > MAX_TITLE) {
+        throw new Error(`ops cta label length ${cta.label.length} for ${purpose}`);
+      }
+      if (!CTA_URL_RE.test(cta.url) || q.body.includes(cta.url) || q.followup.body.includes(cta.url)) {
+        throw new Error(`ops cta url for ${purpose}`);
+      }
+    }
+    continue;
+  }
   for (const title of [...q.buttons, ...q.followup.buttons]) {
     if (title.length < 1 || title.length > MAX_TITLE) {
       throw new Error(`ops button title length ${title.length} for ${purpose}`);
@@ -99,8 +166,19 @@ export interface OpsQuestionDb {
     status: "sent" | "failed",
     error: string | null,
   ): Promise<void>;
-  appendHistory(agentId: string, phone: string, lastInbound: string, assistantText: string): Promise<void>;
+  appendHistory(
+    agentId: string,
+    phone: string,
+    lastInbound: string,
+    assistantText: string,
+    note?: string,
+  ): Promise<void>;
   logOutbound(row: OpsOutbound): Promise<void>;
+  /**
+   * notification_send_window_open. false בשעות השקט (לפני 08:00 ואחרי
+   * 21:00), בשישי מ-13:00, ובכל השבת עד ראשון 08:00.
+   */
+  sendWindowOpen(atIso: string): Promise<boolean>;
 }
 
 export interface OpsAnswer {
@@ -123,11 +201,18 @@ export interface OpsResult {
   body: Record<string, unknown>;
 }
 
+export interface OpsOutboundMessage {
+  body: string;
+  buttons: OpsButton[];
+  cta: OpsCta | null;
+}
+
 type Normalized = {
   agentId: string;
   purpose: string;
   retry: boolean;
-  messages: { body: string; buttons: OpsButton[] }[];
+  messages: OpsOutboundMessage[];
+  historyNote?: string;
 };
 
 /** אותו שער כמו העוזרת: חשבון פעיל, חיוב פעיל, מסלול mid או premium. */
@@ -202,17 +287,23 @@ export function opsButtonId(purpose: string, index: number): string {
   return `${OPS_Q_PREFIX}${purpose}:${index}`;
 }
 
-export function questionMessages(purpose: string): { body: string; buttons: OpsButton[] }[] | null {
+export function questionMessages(purpose: string): OpsOutboundMessage[] | null {
   const q = OPS_QUESTIONS[purpose];
   if (!q) return null;
+  if (q.ctas) {
+    return [
+      { body: q.body, buttons: [], cta: q.ctas[0] },
+      { body: q.followup.body, buttons: [], cta: q.ctas[1] },
+    ];
+  }
   const first = q.buttons.map((title, i) => ({ id: opsButtonId(purpose, i), title }));
   const second = q.followup.buttons.map((title, i) => ({
     id: opsButtonId(purpose, first.length + i),
     title,
   }));
   return [
-    { body: q.body, buttons: first },
-    { body: q.followup.body, buttons: second },
+    { body: q.body, buttons: first, cta: null },
+    { body: q.followup.body, buttons: second, cta: null },
   ];
 }
 
@@ -237,19 +328,21 @@ export function inboundOpsButton(msg: {
   return { id, title };
 }
 
-export function opsOutboundBody(body: string, buttons: OpsButton[]): string {
+export function opsOutboundBody(body: string, buttons: OpsButton[], cta?: OpsCta | null): string {
+  if (cta) return `${body}\n[${cta.label}]`;
   return `${body}\n[${buttons.map((b) => `${b.id} ${b.title}`).join(" | ")}]`;
 }
 
 /** זוג user/assistant להצמדה אטומית. לא קורא היסטוריה קיימת. */
-export function appendOpsHistory(history: unknown, assistantText: string): unknown[] {
+export function appendOpsHistory(history: unknown, assistantText: string, note?: string): unknown[] {
+  const system = note && note.trim() ? note : OPS_HISTORY_NOTE;
   const list = Array.isArray(history) ? history.slice() : [];
   const last = list[list.length - 1] as { role?: string } | undefined;
   if (last?.role === "user") {
-    list.push({ role: "assistant", content: `${OPS_HISTORY_NOTE}\n${assistantText}` });
+    list.push({ role: "assistant", content: `${system}\n${assistantText}` });
     return list;
   }
-  list.push({ role: "user", content: OPS_HISTORY_NOTE });
+  list.push({ role: "user", content: system });
   list.push({ role: "assistant", content: assistantText });
   return list;
 }
@@ -341,7 +434,16 @@ function normalize(input: unknown):
   if (!allowed.includes(agentId)) {
     return result(403, { error: "agent_not_allowed", detail: "השאלה הזו אינה מאושרת לסוכן/ת הזה/ו." });
   }
-  return { ok: true, value: { agentId, purpose, retry: raw.retry === true, messages } };
+  return {
+    ok: true,
+    value: {
+      agentId,
+      purpose,
+      retry: raw.retry === true,
+      messages,
+      historyNote: OPS_QUESTIONS[purpose].historyNote,
+    },
+  };
 }
 
 const BLOCK_DETAIL: Record<string, string> = {
@@ -358,6 +460,8 @@ export async function runOpsQuestion(opts: {
   db: OpsQuestionDb;
   input: unknown;
   sendButtons: (to: string, body: string, buttons: OpsButton[]) => Promise<string | null>;
+  /** כפתור קישור. חובה כשלשאלה יש ctas. אחד להודעה. */
+  sendCta?: (to: string, body: string, label: string, url: string) => Promise<string | null>;
   now?: number;
 }): Promise<OpsResult> {
   const now = opts.now ?? Date.now();
@@ -385,6 +489,15 @@ export async function runOpsQuestion(opts: {
       last_inbound: lastInbound,
     });
   }
+  if (!await opts.db.sendWindowOpen(new Date(now).toISOString())) {
+    return result(409, {
+      error: "quiet_hours",
+      detail: "שעות שקט או שבת. לא נשלח כלום.",
+    });
+  }
+  if (value.messages.some((m) => m.cta) && !opts.sendCta) {
+    return result(500, { error: "misconfigured", detail: "לשאלה הזו אין שולח כפתור קישור." });
+  }
 
   const code = await opts.db.claim({
     agentId: value.agentId,
@@ -400,6 +513,21 @@ export async function runOpsQuestion(opts: {
 
   const prior = value.retry ? await opts.db.priorWaIds(value.agentId, value.purpose) : [];
   const waIds: string[] = [];
+  const delivered: { waId: string | null; body: string }[] = [];
+  const stamp = lastInbound || new Date(now).toISOString();
+  const logDelivered = async () => {
+    for (const row of delivered) {
+      await opts.db.logOutbound({
+        agentId: value.agentId,
+        phone,
+        waMessageId: row.waId,
+        body: row.body,
+        error: null,
+      }).catch((err) => console.error("ops question log failed", err));
+      await opts.db.appendHistory(value.agentId, phone, stamp, row.body, value.historyNote)
+        .catch((err) => console.error("ops question history failed", err));
+    }
+  };
   for (let i = 0; i < value.messages.length; i++) {
     const message = value.messages[i];
     if (prior[i]) {
@@ -408,12 +536,16 @@ export async function runOpsQuestion(opts: {
     }
     let waId: string | null;
     try {
-      waId = await opts.sendButtons(phone, message.body, message.buttons);
+      // שתי ההודעות יוצאות ברצף, בלי כתיבה למסד ביניהן.
+      waId = message.cta
+        ? await opts.sendCta!(phone, message.body, message.cta.label, message.cta.url)
+        : await opts.sendButtons(phone, message.body, message.buttons);
     } catch (err) {
       console.error("ops question send failed", err);
       const detail = waIds.length
         ? "חלק מההודעות יצא. retry=true שולח רק את מה שלא יצא."
         : "השליחה לוואטסאפ נכשלה. לניסיון חוזר: retry=true.";
+      await logDelivered();
       await opts.db.markSent(
         value.agentId,
         value.purpose,
@@ -424,17 +556,12 @@ export async function runOpsQuestion(opts: {
       return result(502, { error: "send_failed", detail });
     }
     waIds.push(waId || "sent");
-    const logged = opsOutboundBody(message.body, message.buttons);
-    await opts.db.logOutbound({
-      agentId: value.agentId,
-      phone,
-      waMessageId: waId,
-      body: logged,
-      error: null,
-    }).catch((err) => console.error("ops question log failed", err));
-    await opts.db.appendHistory(value.agentId, phone, lastInbound || new Date(now).toISOString(), logged)
-      .catch((err) => console.error("ops question history failed", err));
+    delivered.push({
+      waId,
+      body: opsOutboundBody(message.body, message.buttons, message.cta),
+    });
   }
+  await logDelivered();
   await opts.db.markSent(value.agentId, value.purpose, waIds, "sent", null)
     .catch((err) => console.error("ops question mark failed", err));
   return result(200, {
@@ -442,6 +569,7 @@ export async function runOpsQuestion(opts: {
     purpose: value.purpose,
     button_ids: first.buttons.map((b) => b.id),
     followup_button_ids: follow ? follow.buttons.map((b) => b.id) : null,
+    ctas: value.messages.map((m) => m.cta),
     wa_message_ids: waIds,
   });
 }
