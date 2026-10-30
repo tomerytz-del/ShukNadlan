@@ -620,6 +620,8 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
      16px בין הכרטיסים, ו-18 נוספים מעל הראשון היו מזיזים את כל העמודה
      כלפי מטה ביחס לעמודת התוכן שלצדה. */
   .sidebar > .panel{margin-top:0}
+  /* נכס ביריד: "פונים דרך הטופס עד…" מעל הטופס (‏OpenHouse.formLine) */
+  .fair-form-line{margin:0 0 12px;padding:9px 12px;border-radius:10px;background:#fbf3d9;color:#0e2a6b;font-size:.88rem;font-weight:700;line-height:1.5}
   .agent-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
     box-shadow:var(--shadow-md);overflow:hidden;
@@ -1803,6 +1805,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <h2>תיאום ביקור בנכס</h2>
             <p class="sub">משאירים פרטים, ויועץ הנדל״ן חוזר אליכם בהקדם</p>
+            <p class="fair-form-line" id="fairFormLine" hidden></p>
             <form id="inquiryForm">
               <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
               <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>

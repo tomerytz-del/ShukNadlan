@@ -2943,25 +2943,38 @@ function watchStickyBar(){
   }, { rootMargin: '-60px 0px 0px 0px' }).observe(card);
 }
 
+let stickyWatched = false;
+let fairEndTimer = 0;
 function renderContactButtons(p){
   document.body.classList.add('has-sticky-bar');
-  watchStickyBar();
-  /* נכס ביריד: רק הטופס, כמו ב-/swipe. ההנחה בעמלה תלויה בפנייה שנרשמת
-     בשעת השרת (‏fair_inquiries, ‏docs/open-house-fair.md), ולחיצה על וואטסאפ
-     או חיוג אינה נרשמת עדיין. */
-  const phone = OpenHouse.live(p) ? null : p.agency_members?.phone_e164;
+  if (!stickyWatched){ watchStickyBar(); stickyWatched = true; }
+  /* נכס ביריד: רק הטופס, כמו ב-/swipe, עם השורה "פונים דרך הטופס עד…".
+     ההנחה בעמלה תלויה בפנייה שנרשמת בשעת השרת (‏fair_inquiries,
+     ‏docs/open-house-fair.md), ולחיצה על וואטסאפ או חיוג אינה נרשמת עדיין.
+     דף שנשאר פתוח אחרי סוף היריד מחזיר את הכפתורים בלי טעינה מחדש, ולכן
+     הפונקציה רצה שוב ברגע הסיום ובונה הכול מחדש. */
+  const fair = OpenHouse.live(p);
+  const lineEl = document.getElementById('fairFormLine');
+  const line = fair ? OpenHouse.formLine(p) : '';
+  if (lineEl){ lineEl.textContent = line; lineEl.hidden = !line; }
+  if (fair && !fairEndTimer){
+    const ms = OpenHouse.endsAt(p) - Date.now();
+    if (ms > 0 && ms < 2 ** 31 - 1) fairEndTimer = setTimeout(()=> renderContactButtons(p), ms + 1000);
+  }
+  const phone = fair ? null : p.agency_members?.phone_e164;
   const agentName = p.agency_members?.display_name || '';
+  const formBtn = document.getElementById('sbFormBtn');
+  formBtn.onclick = ()=>{
+    document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
+    setTimeout(()=> document.getElementById('inqName').focus(), 420);
+  };
 
   if (!phone){
     // בלי טלפון (או ביריד) נשארת רק דרך אחת ליצור קשר — הטופס
-    const formBtn = document.getElementById('sbFormBtn');
     formBtn.hidden = false;
-    formBtn.addEventListener('click', ()=>{
-      document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
-      setTimeout(()=> document.getElementById('inqName').focus(), 420);
-    });
     return;
   }
+  formBtn.hidden = true;
 
   const text = [
     'היי' + (agentName ? ' ' + agentName : '') + ',',
