@@ -1,6 +1,6 @@
 name: יומן פניות היריד
 
-# ‏20271031210000_fair_inquiries.sql רצה על Postgres מקומי פעמיים, ואז
+# ‏20271031220000_fair_inquiries.sql רצה על Postgres מקומי פעמיים, ואז
 # התרחישים: החלון בשעון השרת, הגבול 23:59:59 בשני אזורי זמן, הסיווג (טופס
 # והדמיה זכאים, רשתות ומטא ממתינים להחלטה), רישום שנכשל ואינו מפיל ליד,
 # שורה שאינה נמחקת ואינה משתנה, ההרשאות ומחיקת השם והטלפון אחרי שנתיים.
@@ -9,7 +9,7 @@ name: יומן פניות היריד
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271031210000_fair_inquiries.sql"
+      - "supabase/migrations/20271031220000_fair_inquiries.sql"
       - "scripts/fair_inquiries_test.py"
       - "scripts/fair_inquiries_setup.sql"
       - "scripts/fair_inquiries_assert.sql"
@@ -17,7 +17,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271031210000_fair_inquiries.sql"
+      - "supabase/migrations/20271031220000_fair_inquiries.sql"
       - "scripts/fair_inquiries_test.py"
       - "scripts/fair_inquiries_setup.sql"
       - "scripts/fair_inquiries_assert.sql"
