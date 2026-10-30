@@ -5,11 +5,16 @@
 //
 // מקסימום כפתור קישור אחד להודעה (מגבלת Meta). עוד כתובות הן הודעות
 // המשך. אם הכפתור נדחה, השולח שולח את הטקסט בלי הכתובת.
+// גוף ארוך מ-1024 לא נחתך לתוך כפתור: הטקסט יוצא במלואו, והכפתור אחריו.
+
+import { withClickUrl } from "./agent-deep-link.ts";
 
 export const WA_EMPTY_BODY = "הפרטים בכפתור.";
 export const WA_FOLLOWUP_BODY = "עוד קישור:";
 export const WA_NO_BUTTON = "פרטים ב-CRM";
 export const MAX_WA_CTA = 5;
+export const WA_TEXT_MAX = 4096;
+export const WA_CTA_BODY_MAX = 1024;
 
 const BUTTON_TITLE_MAX = 20;
 
@@ -68,7 +73,9 @@ export function buttonLabelForUrl(url: string): string {
   if (path === "/" || path === "") return "לאתר";
   if (path.includes("/pricing") || path.includes("/checkout")) return "למסלולים";
   if (path.includes("/property")) return "לדף הנכס";
-  if (path.includes("/sign")) return "לחתימה";
+  // signup ו-invite מכילים את המחרוזת sign. הם נבדקים לפני /sign וגם לפני /agency.
+  if (path.includes("signup") || path.includes("invite") || /\/join(?:\/|$)/.test(path)) return "להצטרפות";
+  if (path === "/sign" || path.startsWith("/sign/")) return "לחתימה";
   if (path.includes("/agreement")) return "להסכם";
   if (path.includes("/showcase") || path.startsWith("/w/")) return "לעמוד האישי";
   if (path.includes("/plan")) return "מידע תכנוני";
@@ -81,7 +88,6 @@ export function buttonLabelForUrl(url: string): string {
   if (full.includes("unsubscribe")) return "הפסקת עדכונים";
   if (full.includes("action=click") || path.includes("/project")) return "לצפייה בנכס";
   if (path.includes("/calc") || url.includes("#calc")) return "למחשבון";
-  if (path.includes("join") || path.includes("invite") || path.includes("signup")) return "להצטרפות";
   return "לפתיחה";
 }
 
@@ -153,6 +159,7 @@ export function videoPayload(to: string, url: string): Record<string, unknown> {
 }
 
 export function ctaPayload(to: string, body: string, label: string, url: string): Record<string, unknown> {
+  const text = body.length > WA_CTA_BODY_MAX ? body.slice(0, WA_CTA_BODY_MAX - 1) + "…" : body;
   return {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -160,7 +167,7 @@ export function ctaPayload(to: string, body: string, label: string, url: string)
     type: "interactive",
     interactive: {
       type: "cta_url",
-      body: { text: body.slice(0, 1024) },
+      body: { text },
       action: {
         name: "cta_url",
         parameters: {
@@ -184,15 +191,22 @@ export function payloadsForText(to: string, body: string): {
   const plan = planWaText(body);
   const ctas = plan.links.filter((link) => link.kind === "cta").slice(0, MAX_WA_CTA);
   const videos = plan.links.filter((link) => link.kind === "video");
-  const visibleText = (plan.text || (ctas.length || videos.length ? WA_EMPTY_BODY : "")).slice(0, 4096);
+  const visibleText = (plan.text || (ctas.length || videos.length ? WA_EMPTY_BODY : "")).slice(0, WA_TEXT_MAX);
   const payloads: Record<string, unknown>[] = [];
+  const stamped = (url: string) => withClickUrl(url, "cta");
   for (const video of videos) payloads.push(videoPayload(to, video.url));
   if (!ctas.length) {
     if (visibleText) payloads.push(textPayload(to, visibleText));
+  } else if (visibleText.length > WA_CTA_BODY_MAX) {
+    // כפתור נחתך ב-1024 בלי סימן. הטקסט יוצא במלואו, והכפתור בהודעה נפרדת.
+    payloads.push(textPayload(to, visibleText));
+    for (const link of ctas) {
+      payloads.push(ctaPayload(to, WA_EMPTY_BODY, link.label, stamped(link.url)));
+    }
   } else {
-    payloads.push(ctaPayload(to, visibleText.slice(0, 1024) || WA_EMPTY_BODY, ctas[0].label, ctas[0].url));
+    payloads.push(ctaPayload(to, visibleText || WA_EMPTY_BODY, ctas[0].label, stamped(ctas[0].url)));
     for (const extra of ctas.slice(1)) {
-      payloads.push(ctaPayload(to, WA_FOLLOWUP_BODY, extra.label, extra.url));
+      payloads.push(ctaPayload(to, WA_FOLLOWUP_BODY, extra.label, stamped(extra.url)));
     }
   }
   return { payloads, visibleText, stripped: plan.stripped };

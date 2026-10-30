@@ -70,10 +70,22 @@ check("תקרה של כפתורים", capped.payloads.filter((p) => (p as { type
 const empty = planWaText("https://shuknadlan.co.il/agreement?t=1");
 check("גוף ריק מקבל משפט", empty.text === WA_EMPTY_BODY && empty.links[0]?.label === "להסכם");
 
+check("הרשמה אינה חתימה", buttonLabelForUrl("https://shuknadlan.co.il/signup") === "להצטרפות");
+check("agency-signup אינה משרד ואינה חתימה", buttonLabelForUrl("https://shuknadlan.co.il/agency-signup") === "להצטרפות");
+check("חתימה נשארת חתימה", buttonLabelForUrl("https://shuknadlan.co.il/sign?t=abc") === "לחתימה");
 check("תווית פגישה", buttonLabelForUrl("https://shuknadlan.co.il/meeting?t=abc") === "לפגישה");
 check("תווית מיניסייט", buttonLabelForUrl("https://shuknadlan.co.il/showcase?t=abc") === "לעמוד האישי");
 check("תווית הסרה", buttonLabelForUrl("https://example.com/saved-search-manage?action=unsubscribe&token=1") === "הפסקת עדכונים");
 check("משפט בלי כפתור", WA_NO_BUTTON === "פרטים ב-CRM" && !WA_NO_BUTTON.includes("http"));
+
+const long = `${"א".repeat(1100)} https://shuknadlan.co.il/property?id=abc`;
+const split = payloadsForText("972500000000", long);
+check("גוף ארוך יוצא כטקסט ואז כפתור", split.payloads.length === 2
+  && (split.payloads[0] as { type?: string }).type === "text"
+  && (split.payloads[1] as { type?: string }).type === "interactive");
+const longBody = (split.payloads[0] as { text: { body: string } }).text.body;
+check("הטקסט הארוך לא נחתך ל-1024", longBody.length > 1024 && !longBody.includes("http"));
+check("הכפתור שאחריו קצר", (split.payloads[1] as { interactive: { body: { text: string } } }).interactive.body.text === WA_EMPTY_BODY);
 
 const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.example.com/a.mp4");
 check("וידאו לא כפתור", videoPayloads.payloads[0]?.type === "video" && videoPayloads.payloads.length === 2);

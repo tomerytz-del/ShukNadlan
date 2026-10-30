@@ -11,6 +11,7 @@ import {
   sendList,
   sendText,
   verifySignature,
+  type WaSent,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
 import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } from "./photo-target.ts";
@@ -60,7 +61,7 @@ import {
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
-import { planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { MAX_WA_CTA, planWaText, WA_EMPTY_BODY, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -419,17 +420,22 @@ async function reply(
   try {
     // מזהה ההודעה של מטא נשמר כדי שאירועי המסירה שיחזרו יידעו על איזו שורה
     // לשבת. בלעדיו "נשלח" הוא כל מה שנדע לעולם — וזה בדיוק ההבדל בין הודעה
-    // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס. היומן שומר את הגוף בלי כתובת.
-    const waMessageId = await sendText(to, raw);
-    await supabase.from("whatsapp_messages").insert({
-      wa_message_id: waMessageId,
-      direction: "out",
-      wa_phone: to,
-      agent_id: agentId,
-      msg_type: "text",
-      body,
-      status: waMessageId ? "sent" : null,
-    });
+    // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס. היומן שומר כל הודעה שיצאה,
+    // כולל כפתור המשך, בלי כתובת בגוף.
+    const sent: WaSent[] = [];
+    await sendText(to, raw, sent);
+    const parts = sent.length ? sent : [{ id: null, kind: "text" as const, body }];
+    for (const part of parts) {
+      await supabase.from("whatsapp_messages").insert({
+        wa_message_id: part.id,
+        direction: "out",
+        wa_phone: to,
+        agent_id: agentId,
+        msg_type: part.kind,
+        body: part.body || body,
+        status: part.id ? "sent" : null,
+      });
+    }
   } catch (err) {
     console.error("reply failed", err);
     await supabase.from("whatsapp_messages").insert({
@@ -481,11 +487,37 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
         direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
         body: logBody, error: String((err as Error)?.message || err),
       });
-      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח.
-      // רשימה: כל שורת nav עם הכתובת שלה. בלי זה נכס או ליד שלא חזרו
-      // ב-crm_link נשארים בלי דרך פתיחה.
-      if (item.kind === "cta" || item.kind === "list") {
-        await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
+      // ניסיון שני: כפתור קצר. אם גם הוא נדחה - טקסט בלי כתובת, עם יעד שאפשר למצוא.
+      if (item.kind === "cta") {
+        try {
+          const retryId = await sendCtaUrl(to, WA_EMPTY_BODY, item.label, item.url);
+          await supabase.from("whatsapp_messages").insert({
+            wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
+            msg_type: "interactive", body: `${WA_EMPTY_BODY}\n[${item.label}]`, status: retryId ? "sent" : null,
+          });
+          continue;
+        } catch (retryErr) {
+          console.error("outbox cta retry failed", retryErr);
+        }
+        await reply(to, `${item.body}\n${item.label}.\n${WA_NO_BUTTON}`, agentId);
+      } else if (item.kind === "list") {
+        let opened = 0;
+        for (const row of item.rows) {
+          if (opened >= MAX_WA_CTA) break;
+          const path = parseNavId(row.id);
+          if (!path) continue;
+          try {
+            const retryId = await sendCtaUrl(to, WA_EMPTY_BODY, row.title, absoluteUrl(SITE_BASE, path));
+            await supabase.from("whatsapp_messages").insert({
+              wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
+              msg_type: "interactive", body: `${WA_EMPTY_BODY}\n[${row.title}]`, status: retryId ? "sent" : null,
+            });
+            opened++;
+          } catch (retryErr) {
+            console.error("outbox list retry failed", retryErr);
+          }
+        }
+        if (!opened) await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
       }
     }
   }

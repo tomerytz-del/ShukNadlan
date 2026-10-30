@@ -94,6 +94,20 @@ function postMessage(to: string, payload: unknown, failLabel: string): Promise<s
  * שולחת הודעת טקסט. זורקת אם Meta החזירה שגיאה, ומחזירה את מזהה ההודעה
  * שלה למעקב מסירה.
  */
+export type WaSent = { id: string | null; kind: "text" | "interactive" | "video"; body: string };
+
+function describeSent(payload: Record<string, unknown>, id: string | null): WaSent {
+  const type = String(payload.type || "text");
+  let body = "";
+  if (type === "text") body = String((payload.text as { body?: string } | undefined)?.body || "");
+  else if (type === "interactive") {
+    const interactive = payload.interactive as { body?: { text?: string } } | undefined;
+    body = String(interactive?.body?.text || "");
+  }
+  const kind = type === "video" ? "video" : type === "interactive" ? "interactive" : "text";
+  return { id, kind, body };
+}
+
 async function postGuardedFollowups(to: string, links: WaPlannedLink[], skipUrl?: string): Promise<void> {
   for (const link of links) {
     if (link.kind === "video") {
@@ -106,32 +120,43 @@ async function postGuardedFollowups(to: string, links: WaPlannedLink[], skipUrl?
     }
     if (skipUrl && link.url === skipUrl) continue;
     try {
-      await postMessage(to, ctaPayload(to, WA_FOLLOWUP_BODY, link.label, link.url), "whatsapp cta_url send failed");
+      await postMessage(
+        to,
+        ctaPayload(to, WA_FOLLOWUP_BODY, link.label, withClickUrl(link.url, "cta")),
+        "whatsapp cta_url send failed",
+      );
     } catch (err) {
       console.error("wa-url-guard follow-up failed", err);
     }
   }
 }
 
-export async function sendText(to: string, body: string): Promise<string | null> {
+export async function sendText(to: string, body: string, sent?: WaSent[]): Promise<string | null> {
   const clean = formatForWhatsapp(body);
   const plan = planWaText(clean);
   if (plan.stripped) logWaUrlGuard("sendText", plan);
   const planned = payloadsForText(to, clean);
   if (!planned.payloads.length) {
-    return postMessage(to, textPayload(to, clean.slice(0, MAX_TEXT_LEN)), "whatsapp send failed");
+    const payload = textPayload(to, clean.slice(0, MAX_TEXT_LEN));
+    const id = await postMessage(to, payload, "whatsapp send failed");
+    sent?.push(describeSent(payload, id));
+    return id;
   }
   let first: string | null = null;
   for (let i = 0; i < planned.payloads.length; i++) {
     const payload = planned.payloads[i];
     try {
       const id = await postMessage(to, payload, "whatsapp send failed");
+      sent?.push(describeSent(payload, id));
       if (first == null) first = id;
     } catch (err) {
       if (i === 0 && payload.type === "interactive") {
         console.error("wa-url-guard cta failed, text without url", err);
         const fallback = (planned.visibleText || WA_NO_BUTTON).slice(0, MAX_TEXT_LEN);
-        return await postMessage(to, textPayload(to, fallback), "whatsapp send failed");
+        const fallbackPayload = textPayload(to, fallback);
+        const id = await postMessage(to, fallbackPayload, "whatsapp send failed");
+        sent?.push(describeSent(fallbackPayload, id));
+        return id;
       }
       if (i === 0) throw err;
       console.error("wa-url-guard follow-up failed", err);

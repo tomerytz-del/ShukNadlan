@@ -38,6 +38,7 @@ import {
   type NotifTarget,
   utilityTemplateMessage,
   withClick,
+  withClickUrl,
 } from "../_shared/agent-deep-link.ts";
 
 // ============================================================================
@@ -516,18 +517,37 @@ async function sendWhatsapp(
     return plan.text;
   };
   const bare = () => clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
-  const linked = () => ({
-    messaging_product: "whatsapp",
-    recipient_type: "individual" as const,
-    to,
-    type: "text" as const,
-    text: { preview_url: false, body: withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON },
-  });
+  const fullBody = () => (withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON).slice(0, 4000);
+  let splitCta: Record<string, unknown> | null = null;
+  const linked = () => {
+    const full = fullBody();
+    const plan = screenBundle(screensOf(items), categoryFor);
+    // גוף ארוך מ-1024 לא נכנס לכפתור. הטקסט יוצא במלואו, והיעד בכפתור נפרד.
+    if (full.length > 1024 && plan.kind === "single" && !containsHttpUrl(full)) {
+      tokens = clickRecords(plan);
+      splitCta = ctaMessage(
+        to,
+        "הפרטים בכפתור.",
+        richLead(items) ? LEAD_CTA : plan.label,
+        absoluteUrl(SITE_BASE, plan.path),
+      );
+    }
+    return {
+      messaging_product: "whatsapp",
+      recipient_type: "individual" as const,
+      to,
+      type: "text" as const,
+      text: { preview_url: false, body: full },
+    };
+  };
   // הודעה אחת. יעד אחד = cta_url. כמה יעדים = רשימה, והלחיצה (nav:) מחזירה
   // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט בלי הכתובת.
   const inWindow = (): Record<string, unknown> | null => {
     const plan = screenBundle(screensOf(items), categoryFor);
-    const body = bare();
+    const full = fullBody();
+    // יעד אחד וגוף ארוך: linked שולח את הטקסט ואז כפתור. בלי לחתוך בשקט.
+    if (plan.kind === "single" && full.length > 1024) return null;
+    const body = full.length > 1024 ? bare() : full;
     if (!body || containsHttpUrl(body) || body.length > 1024) return null;
     if (plan.kind === "single") {
       tokens = clickRecords(plan);
@@ -706,15 +726,23 @@ async function sendWhatsapp(
   try {
     id = (await res.json())?.messages?.[0]?.id ?? null;
   } catch { /* בלי wamid השורה נשארת sent */ }
-  for (const link of mode === "template" ? [] : embedded) {
-    try {
-      await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(ctaPayload(to, "עוד קישור:", link.label, link.url)),
-      });
-    } catch (err) {
-      console.error("wa-url-guard notification follow-up failed", err);
+  if (mode !== "template") {
+    const follow = splitCta
+      || (embedded[0]
+        ? ctaPayload(to, "עוד קישור:", embedded[0].label, withClickUrl(embedded[0].url, "cta"))
+        : null);
+    const dropped = splitCta ? embedded.length : Math.max(0, embedded.length - 1);
+    if (dropped > 0) console.warn("wa-url-guard notification capped", dropped);
+    if (follow) {
+      try {
+        const followRes = await fetch(url, { method: "POST", headers, body: JSON.stringify(follow) });
+        if (!followRes.ok) {
+          const raw = await followRes.text();
+          console.error("wa-url-guard notification follow-up failed", followRes.status, raw.slice(0, 300));
+        }
+      } catch (err) {
+        console.error("wa-url-guard notification follow-up failed", err);
+      }
     }
   }
   return { id, tokens };
