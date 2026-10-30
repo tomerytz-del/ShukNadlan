@@ -141,6 +141,49 @@ export function logWaUrlGuard(where: string, plan: WaTextPlan): void {
   console.warn("wa-url-guard", where, JSON.stringify({ n: plan.links.length, labels }));
 }
 
+/**
+ * נפילת כפתור הופכת לטקסט רק אם עוד לא יצא כלום, והחלק שנכשל הוא הראשון.
+ * כפתור המשך שנדחה אחרי שהגוף או הכפתור הראשון כבר יצאו לא שולח את הגוף שוב.
+ */
+export function shouldPlainFallback(index: number, delivered: number, type: string): boolean {
+  return index === 0 && delivered === 0 && type === "interactive";
+}
+
+export async function deliverWaPayloads(
+  payloads: Record<string, unknown>[],
+  post: (payload: Record<string, unknown>) => Promise<string | null>,
+  fallbackPayload: () => Record<string, unknown>,
+): Promise<string | null> {
+  let first: string | null = null;
+  let delivered = 0;
+  for (let i = 0; i < payloads.length; i++) {
+    const payload = payloads[i];
+    try {
+      const id = await post(payload);
+      if (first == null) first = id;
+      delivered++;
+    } catch (err) {
+      const type = String(payload.type || "");
+      if (type === "video") {
+        console.error("wa-url-guard video failed", err);
+        continue;
+      }
+      if (shouldPlainFallback(i, delivered, type)) {
+        console.error("wa-url-guard cta failed, text without url", err);
+        try {
+          return await post(fallbackPayload());
+        } catch (err2) {
+          console.error("wa-url-guard text fallback failed", err2);
+          return first;
+        }
+      }
+      if (i === 0 && delivered === 0) throw err;
+      console.error("wa-url-guard follow-up failed", err);
+    }
+  }
+  return first;
+}
+
 export function textPayload(to: string, body: string): Record<string, unknown> {
   return {
     messaging_product: "whatsapp",

@@ -441,7 +441,7 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const [phone, tokens] of stopTokens) {
-    await sendStopNotice(phone, [...new Set(tokens)]);
+    await sendStopNotice(phone, [...new Set(tokens)].slice(0, 20));
   }
 
   return json({ sent, failed, deferred, processed: alerts.length });

@@ -4,6 +4,7 @@
 
 import {
   buttonLabelForUrl,
+  deliverWaPayloads,
   MAX_WA_MESSAGES,
   payloadsForText,
   planWaText,
@@ -110,6 +111,55 @@ check("גוף ארוך עם וידאו יוצא כטקסט קודם", longTypes.
 check("הכפתור הוא היעד הראשון ולא דף הבית", longButton.interactive?.action?.parameters?.display_text === "לדף הנכס"
   && String(longButton.interactive?.action?.parameters?.url || "").includes("/property")
   && longButton.interactive?.body?.text === "לדף הנכס");
+
+function payloadBody(payload: Record<string, unknown>): string {
+  if (payload.type === "text") return String((payload.text as { body?: string } | undefined)?.body || "");
+  const interactive = payload.interactive as { body?: { text?: string } } | undefined;
+  return String(interactive?.body?.text || "");
+}
+
+async function deliverMock(
+  payloads: Record<string, unknown>[],
+  fail: (payload: Record<string, unknown>, posted: { type: string; body: string }[]) => boolean,
+) {
+  const posted: { type: string; body: string; id: string }[] = [];
+  let n = 0;
+  const id = await deliverWaPayloads(payloads, async (payload) => {
+    if (fail(payload, posted)) throw new Error("meta 400");
+    n++;
+    const sent = { type: String(payload.type), body: payloadBody(payload), id: `wamid.${n}` };
+    posted.push(sent);
+    return sent.id;
+  }, () => ({ type: "text", text: { body: "FALLBACK" } }));
+  return { id, posted };
+}
+
+const twoLinks = payloadsForText(
+  "972500000000",
+  "שלום https://shuknadlan.co.il/property?id=a https://shuknadlan.co.il/pricing",
+);
+const continued = await deliverMock(twoLinks.payloads, (payload, posted) =>
+  payload.type === "interactive" && posted.some((part) => part.type === "interactive"));
+check("כפתור המשך שנדחה לא שולח את הגוף שוב",
+  continued.posted.filter((part) => part.body.includes("שלום")).length === 1
+  && !continued.posted.some((part) => part.type === "text")
+  && continued.id === continued.posted[0]?.id);
+
+const longOnly = payloadsForText("972500000000", `${"א".repeat(1500)} https://shuknadlan.co.il/property?id=a`);
+const longRejected = await deliverMock(longOnly.payloads, (payload) => payload.type === "interactive");
+check("טקסט ארוך לא יוצא פעמיים כשהכפתור נדחה",
+  longRejected.posted.filter((part) => part.type === "text" && part.body.length > 1024).length === 1
+  && longRejected.id === longRejected.posted[0]?.id);
+
+const longAndVideo = payloadsForText(
+  "972500000000",
+  `${"א".repeat(1500)} https://cdn.example.com/a.mp4 https://shuknadlan.co.il/property?id=a`,
+);
+const longVideoRejected = await deliverMock(longAndVideo.payloads, (payload) => payload.type === "interactive");
+check("טקסט ארוך עם וידאו לא יוצא פעמיים",
+  longVideoRejected.posted.filter((part) => part.type === "text" && part.body.length > 1024).length === 1
+  && longVideoRejected.posted.some((part) => part.type === "video")
+  && longVideoRejected.id === longVideoRejected.posted[0]?.id);
 
 const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.example.com/a.mp4");
 check("וידאו לא כפתור", videoPayloads.payloads.length === 2

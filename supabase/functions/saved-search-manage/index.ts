@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
   const action = url.searchParams.get("action") || "";
   const tokens = [...new Set(
     url.searchParams.getAll("token").flatMap((part) => part.split(",")).map((t) => t.trim()).filter(Boolean),
-  )];
+  )].slice(0, 20);
   const token = tokens[0] || "";
 
   if (!token) return page("קישור לא תקין", "<h1>קישור לא תקין</h1><p>חסר מזהה בכתובת.</p>", 400);

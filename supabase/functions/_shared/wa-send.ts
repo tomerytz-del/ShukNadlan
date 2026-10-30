@@ -11,6 +11,7 @@
 
 import {
   ctaPayload,
+  deliverWaPayloads,
   logWaUrlGuard,
   payloadsForText,
   planWaText,
@@ -145,9 +146,16 @@ async function graphMessages(payload: Record<string, unknown>): Promise<void> {
 export async function waText(to: string, body: string): Promise<void> {
   const plan = planWaText(body);
   if (plan.stripped) logWaUrlGuard("waText", plan);
-  for (const payload of payloadsForText(to, body).payloads) {
-    await graphMessages(payload);
-  }
+  const planned = payloadsForText(to, body);
+  const raw = (plan.text || planned.visibleText || "").trim();
+  const plain = !raw || raw === WA_EMPTY_BODY ? "" : raw;
+  await deliverWaPayloads(planned.payloads, (payload) => graphMessages(payload).then(() => null), () => ({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: { preview_url: false, body: clipWhatsappText(plain || WA_NO_BUTTON) },
+  }));
 }
 
 export async function waCta(to: string, body: string, label: string, url: string): Promise<void> {

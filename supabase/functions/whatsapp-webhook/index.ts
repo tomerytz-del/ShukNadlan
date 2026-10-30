@@ -11,6 +11,7 @@ import {
   sendList,
   sendText,
   verifySignature,
+  WA_CUSTOMER_NOTE,
   type WaSent,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
@@ -269,7 +270,7 @@ async function replyAfterLlmFailure(
         error: sendError,
       });
     } else {
-      await reply(to, failText, agentId);
+      await reply(to, failText, agentId, { customer: true });
     }
   }
   if (!isModelCallError(err)) return;
@@ -414,23 +415,24 @@ async function reply(
   to: string,
   raw: string,
   agentId: string | null,
-  opts?: { keepUrls?: boolean; contactName?: string },
+  opts?: { keepUrls?: boolean; contactName?: string; customer?: boolean },
 ): Promise<void> {
   // היומן רושם את מה שיצא בפועל, לא את מה שהמודל כתב. אחרת בדיקה ביומן
   // הייתה מראה מקף ארוך שהסוכן/ת מעולם לא קיבל/ה.
   // keepUrls: נוסח שהסוכן/ת מעביר/ה ללקוח/ה מהוואטסאפ האישי, והקישור חייב להישאר.
   const formatted = formatForWhatsapp(raw);
   const planned = opts?.keepUrls ? null : planWaText(formatted);
+  const emptyNote = opts?.customer ? WA_CUSTOMER_NOTE : WA_NO_BUTTON;
   const body = opts?.keepUrls
     ? formatted
-    : (planned!.text || (planned!.stripped ? WA_NO_BUTTON : formatted));
+    : (planned!.text || (planned!.stripped ? emptyNote : formatted));
   try {
     // מזהה ההודעה של מטא נשמר כדי שאירועי המסירה שיחזרו יידעו על איזו שורה
     // לשבת. בלעדיו "נשלח" הוא כל מה שנדע לעולם — וזה בדיוק ההבדל בין הודעה
     // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס. היומן שומר כל הודעה שיצאה,
     // כולל כפתור המשך, בלי כתובת בגוף.
     const sent: WaSent[] = [];
-    await sendText(to, raw, sent, opts?.contactName, !!opts?.keepUrls);
+    await sendText(to, raw, sent, opts?.contactName, !!opts?.keepUrls, !!opts?.customer);
     const parts = sent.length ? sent : [{ id: null, kind: "text" as const, body }];
     for (const part of parts) {
       await supabase.from("whatsapp_messages").insert({
@@ -478,16 +480,29 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
       : item.kind === "list"
       ? `${item.body}\n[${item.rows.map((row) => row.title).join(" | ")}]`
       : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
+    const parts: WaSent[] = [];
     try {
       const waMessageId = item.kind === "cta"
-        ? await sendCtaUrl(to, item.body, item.label, item.url)
+        ? await sendCtaUrl(to, item.body, item.label, item.url, parts)
         : item.kind === "list"
-        ? await sendList(to, item.body, item.button, item.section, item.rows)
-        : await sendButtons(to, item.body, item.buttons);
-      await supabase.from("whatsapp_messages").insert({
-        wa_message_id: waMessageId, direction: "out", wa_phone: to, agent_id: agentId,
-        msg_type: "interactive", body: logBody, status: waMessageId ? "sent" : null,
-      });
+        ? await sendList(to, item.body, item.button, item.section, item.rows, parts)
+        : await sendButtons(to, item.body, item.buttons, parts);
+      if (parts.length) {
+        for (const part of parts) {
+          await supabase.from("whatsapp_messages").insert({
+            wa_message_id: part.id, direction: "out", wa_phone: to, agent_id: agentId,
+            msg_type: part.kind, body: part.body || logBody, status: part.id ? "sent" : null,
+          });
+        }
+        if (item.kind === "cta" && !parts.some((part) => part.kind === "interactive")) {
+          await reply(to, `${item.label}.\n${WA_NO_BUTTON}`, agentId);
+        }
+      } else {
+        await supabase.from("whatsapp_messages").insert({
+          wa_message_id: waMessageId, direction: "out", wa_phone: to, agent_id: agentId,
+          msg_type: "interactive", body: logBody, status: waMessageId ? "sent" : null,
+        });
+      }
     } catch (err) {
       console.error("outbox send failed", err);
       await supabase.from("whatsapp_messages").insert({
@@ -1068,7 +1083,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
       const media = msg.audio || msg.voice;
       const transcript = await transcribeAudio(media.id);
       if (!transcript) {
-        await reply(from, "לא הצלחתי לשמוע את ההקלטה, גם אחרי ניסיון נוסף. אפשר לכתוב לי מה מחפשים?", null);
+        await reply(from, "לא הצלחתי לשמוע את ההקלטה, גם אחרי ניסיון נוסף. אפשר לכתוב לי מה מחפשים?", null, { customer: true });
         return;
       }
       userText = transcript;
@@ -1091,11 +1106,12 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     // תחת תיקייה של סוכן/ת — לאלמוני אין כזו, ופתיחת אחסון לכל מי שיודע את
     // המספר היא בדיוק סוג הדלת שלא צריך לפתוח בשביל נוחות.
     default:
-      await reply(
+        await reply(
         from,
         "אני יודעת לקרוא הודעות טקסט והקלטות קוליות. מה מחפשים? (למשל: " +
           "\"3 חדרים בעפולה עד מיליון ושלוש\")",
         null,
+        { customer: true },
       );
       return;
   }
@@ -1149,7 +1165,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
 
   await savePublicConversation(from, conv);
   // ריק = התור נגמר בהודעת כפתורים שכבר נשלחה (offer_save_search)
-  if (answer) await reply(from, answer, null);
+  if (answer) await reply(from, answer, null, { customer: true });
 
   // ההצעה לשמור את גבריאלה באנשי הקשר - בעיקר אחרי שמירת חיפוש, ולעולם לא
   // באותו תור שבו נשלחו הכפתורים: הכרטיס היה דוחף אותם למעלה, רגע לפני
@@ -1187,7 +1203,7 @@ async function maybeShareContactCard(phone: string): Promise<void> {
     .limit(1);
   if (sent && sent.length) return;
 
-  await reply(phone, CONTACT_CARD_NOTE, null);
+  await reply(phone, CONTACT_CARD_NOTE, null, { customer: true });
   const body = `גבריאלה - שוק נדל"ן (+${ASSISTANT_PHONE})`;
   try {
     const waMessageId = await sendContactCard(phone, {

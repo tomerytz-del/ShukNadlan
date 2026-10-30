@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noLongDash } from "./marketing-copy.ts";
-import { ctaPayload, logWaUrlGuard, payloadsForText, planWaText } from "./wa-url-guard.ts";
+import { ctaPayload, deliverWaPayloads, logWaUrlGuard, payloadsForText, planWaText, textPayload } from "./wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -222,49 +222,17 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
   if (plan.stripped) logWaUrlGuard("meeting-client", plan);
   const planned = payloadsForText(to, clean);
   if (!planned.payloads.length) return null;
-  let first: string | null = null;
-  let sentPlain = false;
-  for (let i = 0; i < planned.payloads.length; i++) {
-    const payload = planned.payloads[i];
-    try {
-      const id = await post(payload);
-      if (payload.type === "text") sentPlain = true;
-      if (first == null) first = id;
-    } catch (err) {
-      if (payload.type === "video") {
-        console.error("wa-url-guard meeting video failed", err);
-        continue;
-      }
-      if (payload.type !== "interactive") {
-        if (i === 0) throw err;
-        console.error("wa-url-guard meeting follow-up failed", err);
-        continue;
-      }
-      console.error("wa-url-guard meeting cta failed", err);
-      if (sentPlain) continue;
-      const interactive = payload.interactive as { action?: { parameters?: { url?: string } } } | undefined;
-      const failedUrl = String(interactive?.action?.parameters?.url || "");
-      const note = `אפשר גם לכתוב ישירות ל${agentName || "צוות התיווך"} בווטסאפ.`;
-      const raw = (planned.visibleText || "").trim();
-      const base = !raw || raw === "הפרטים בכפתור." ? "" : raw;
-      const fallback = failedUrl.includes("wa.me")
-        ? (base && base !== note ? `${base}\n${note}` : note)
-        : (base || "הפרטים בדף הפגישה.");
-      try {
-        return await post({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to,
-          type: "text",
-          text: { preview_url: false, body: fallback.slice(0, 4000) },
-        });
-      } catch (err2) {
-        console.error("wa-url-guard meeting text fallback failed", err2);
-        return first;
-      }
-    }
-  }
-  return first;
+  return deliverWaPayloads(planned.payloads, (payload) => post(payload), () => {
+    const interactive = planned.payloads[0]?.interactive as { action?: { parameters?: { url?: string } } } | undefined;
+    const failedUrl = String(interactive?.action?.parameters?.url || "");
+    const note = `אפשר גם לכתוב ישירות ל${agentName || "צוות התיווך"} בווטסאפ.`;
+    const raw = (planned.visibleText || "").trim();
+    const base = !raw || raw === "הפרטים בכפתור." ? "" : raw;
+    const fallback = failedUrl.includes("wa.me")
+      ? (base && base !== note ? `${base}\n${note}` : note)
+      : (base || "הפרטים בדף הפגישה.");
+    return textPayload(to, fallback.slice(0, 4000));
+  });
 }
 
 /** בלי כפתור אין "בכפתור" בגוף. */
@@ -440,7 +408,7 @@ export async function feedbackToMeeting(
     return { ok: false, error: "not_yet", reply: "נשמח לשמוע איך היה - אחרי הסיור 🙂" };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות למי שקבע את הפגישה." };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות למי שקבע את הסיור." };
   }
   if (!res.already) await kickNotificationPush();
 
