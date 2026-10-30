@@ -62,11 +62,40 @@
     sponsors: []
   };
   /* R2: כששניים בשלים יחד */
-  var SEQ_PRIO = ['spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article'];
+  var SEQ_PRIO = ['spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article', 'advice'];
   /* R8: התוויות של ‎?seqdebug=1‎ */
   var SLOT_LABEL = { property: 'נכס', property_fair: 'נכס · יריד', spon_agency: 'ממומן · משרד', spon_pro: 'ממומן · בעלי מקצוע',
-    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
-  var PROMO = { nc_promo: 1, seller: 1, article: 1 };
+    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', advice: 'עצה מגבריאלה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
+  var PROMO = { nc_promo: 1, seller: 1, article: 1, advice: 1 };
+
+  /* ---------- §5b: "קבלו עצה ממומחה" - כרטיס עצה מגבריאלה בחפיסה (Phase 2) ----------
+     עד שתומר בודק את תנוחות ה-AI ועורך דין עובר על העצות (מס רכישה, תב״ע, שכירות הוגנת):
+     רק עם v10 וגם ‎?advice=1‎ / ‏localStorage sk_advice_cards=1. כרטיס בערך כל 11 נכסים, לעולם
+     לא ראשון, וכל עצה פעם אחת בביקור. הקהל לפי העסקה בסינון. הנוסחים - הגרסה המאושרת של
+     גבריאלה (29.10 02:49, הכותרת לפי תומר 07:34); התנוחה לכל עצה מהטבלה שבקובץ העצות.
+     ‏cut - קצה הגוף בקנבס (שבר מגובה הקנבס), כדי שהחיתוך יישב צמוד לשמאל הכרטיס */
+  var ADVICE = {
+    sale: { aud: 'לקונים', tips: [
+      ['c', 'בקשו נסח טאבו או אישור זכויות עדכני', 'בדקו בעלות, משכנתאות ועיקולים על הנכס, ועברו עליו עם עורך דין.'],
+      ['a', 'היתרי בנייה וחריגות', 'ודאו בוועדה המקומית לתכנון ובנייה שהבנוי תואם להיתר, כי חריגות בנייה עלולות לעבור אליכם.'],
+      ['b', 'אישור עקרוני למשכנתא', 'קבלו אישור עקרוני מהבנק לפני שמציעים מחיר, כדי לדעת מה התקציב שלכם.'],
+      ['a', 'חשבו מס רכישה מראש', 'מס הרכישה תלוי במצב שלכם, למשל אם זו הדירה היחידה. בדקו אותו מראש מול עורך דין או רואה חשבון.'],
+      ['e', 'שמאי ובדק בית', 'שמאי מקרקעין בודק אם המחיר תואם לשוק, ובדק בית חושף ליקויים לפני החתימה.']] },
+    rent: { aud: 'לשוכרים', tips: [
+      ['c', 'קראו את החוזה עד הסוף', 'שימו לב לתקופה, לאופציה ולתנאי היציאה, והתייעצו עם עורך דין כשמשהו לא ברור.'],
+      ['a', 'ערבויות וביטחונות', 'סכמו מראש איזה ביטחון נדרש, אצל מי הוא נשמר ומתי הוא מוחזר.'],
+      ['d', 'צלמו את הדירה בכניסה', 'תעדו כל פגם בתמונות ובסרטון, ושלחו אותם למשכיר עוד ביום הכניסה.'],
+      ['b', 'שכירות הוגנת: הזכויות שלכם', 'לשוכרי דירות למגורים יש זכויות בחוק, כמו דירה ראויה למגורים ותיקון ליקויים בזמן סביר.'],
+      ['e', 'מי משלם על תיקונים?', 'קבעו בחוזה מי אחראי על אילו תיקונים, ותוך כמה זמן מטפלים בהם.']] },
+    commercial: { aud: 'לעסקים ומשרדים', tips: [
+      ['f', 'רישיון עסק לפני חתימה', 'בדקו מול העירייה שאפשר לקבל רישיון עסק לפעילות שלכם בנכס הזה.'],
+      ['a', 'ייעוד הנכס בתב״ע', 'ודאו שהתב״ע מתירה את השימוש שלכם, ואם לא, בררו על היתר לשימוש חורג.'],
+      ['e', 'ארנונה לפי סיווג', 'סיווג הנכס בעירייה קובע את גובה הארנונה, בררו אותו לפני שמשווים מחירים.'],
+      ['c', 'אופציות בחוזה', 'תקופות אופציה ותנאי הארכה שווים כסף, נסחו אותם יחד עם עורך דין.'],
+      ['a', 'נגישות ובטיחות אש', 'בדקו מה נדרש מהעסק בנגישות ובכיבוי אש, ומי מממן את ההתאמות.']] }
+  };
+  var ADVICE_CUT = { d: 80 / 1090 };
+  var ADVICE_EVERY = 11;
 
   var REGION_GROUPS = {
     north: ['afula-emek', 'haifa', 'krayot', 'akko-nahariya', 'karmiel-misgav', 'nof-hagalil-migdal', 'kiryat-shmona', 'safed', 'golan', 'tiberias', 'beit-shean', 'yokneam'],
@@ -1192,6 +1221,7 @@
       var at = firstSession && s.firstSessionAt ? s.firstSessionAt : longDeck && s.longAt ? s.longAt : s.at;
       if (at === pos) out.push(s.kind);
     });
+    if (adviceOn() && pos >= ADVICE_EVERY && pos % ADVICE_EVERY === 0) out.push('advice');
     var last = SEQ_CONFIG.slots[SEQ_CONFIG.slots.length - 1].at;
     if (pos > last && (pos - last) % SEQ_CONFIG.cycleEvery === 0) {
       var k = (pos - last) / SEQ_CONFIG.cycleEvery - 1;
@@ -1220,6 +1250,16 @@
     }
     if (kind === 'nc_promo') return ncPromoOk() ? { slot: 'nc_promo', variant: all.some(fairLive) ? 'live' : 'wait' } : null;
     if (kind === 'seller') return sellerOk() ? { slot: 'seller' } : null;
+    if (kind === 'advice') {
+      if (filter.fair) return null;
+      var aud = ADVICE[filter.deal] ? filter.deal : 'sale';
+      for (var ti = 0; ti < ADVICE[aud].tips.length; ti++) {
+        if (used['adv:' + aud + ti] || shownGet('advice_' + aud + '_' + ti)) continue;
+        used['adv:' + aud + ti] = 1;
+        return { slot: 'advice', aud: aud, tip: ti };
+      }
+      return null;
+    }
     if (kind === 'article') {
       if (shownGet('article')) return null;
       var a = pickArticle();
@@ -1231,6 +1271,16 @@
      פעם בביקור כל אחד (‏sessionStorage, נספר כשהכרטיס נצפה), ודחייה נשמרת במכשיר */
   var DAY = 864e5;
   function shownGet(k) { return sessGet('sk_swipe_shown_' + k); }
+  function adviceOn() {
+    if (!document.documentElement.classList.contains('beta-hero')) return false;
+    if (params.get('advice') === '1') store('sk_advice_cards', '1');
+    if (params.get('advice') === '0') store('sk_advice_cards', null);
+    return store('sk_advice_cards') === '1';
+  }
+  function poseImg(k, cls, cut) {
+    return '<img class="' + cls + '" src="/assets/gabriela-pose-' + k + '-400.webp" srcset="/assets/gabriela-pose-' + k + '-400.webp 400w, /assets/gabriela-pose-' + k + '-800.webp 800w"' +
+      ' sizes="(max-width:760px) 90vw, 420px" width="400" height="379" alt="" decoding="async"' + (cut ? ' style="--cut:' + cut + '"' : '') + ' onerror="this.style.visibility=\'hidden\'">';
+  }
   function ago(k) { var t = Number(store(k)) || 0; return t ? Date.now() - t : Infinity; }
   function ncPromoOk() {
     if (filter.fair || shownGet('nc_promo') || store('sk_fair_signed') === '1') return false;
@@ -1481,6 +1531,17 @@
         '<span class="sw-spon-badge">ממומן · בעלי מקצוע</span><div class="sw-cbody"><p class="sw-facts">' + esc(pro.field) + '</p><h2 class="sw-ctitle">' + esc(pro.name) + '</h2>' +
         (pro.mortgage ? '<button type="button" class="sw-gold" data-spon-cta>השאירו פרטים</button>'
           : '<a class="sw-gold" data-spon-link data-professional href="/professional?slug=' + encodeURIComponent(pro.slug || '') + '">לדף בעל המקצוע ←</a>') + '</div></article>';
+    }
+    if (c.slot === 'advice') {
+      var ad = ADVICE[c.aud], tip = ad.tips[c.tip];
+      return '<article class="sw-card sw-adv" data-slot="advice" aria-label="' + esc('עצה מגבריאלה: ' + tip[1]) + '">' + dbg +
+        '<div class="sw-adv-hero">' + poseImg(tip[0], 'sw-adv-gab', ADVICE_CUT[tip[0]] || 0) +
+        '<div class="sw-adv-copy"><span class="sw-adv-lbl"><i aria-hidden="true"></i>עצה מגבריאלה</span>' +
+        '<h2 class="sw-adv-h">קבלו עצה ממומחה</h2><p class="sw-adv-aud">' + esc(ad.aud) + '</p></div></div>' +
+        '<div class="sw-adv-panel"><p class="sw-adv-n">עצה ' + (c.tip + 1) + ' מתוך ' + ad.tips.length + '</p>' +
+        '<h3 class="sw-adv-t">' + esc(tip[1]) + '</h3><p class="sw-adv-x">' + esc(tip[2]) + '</p>' +
+        '<button type="button" class="sw-navy sw-wide" data-promo-go>לעוד עצות</button>' +
+        '<p class="sw-adv-hint">החליקו להמשך לנכסים</p></div></article>';
     }
     if (c.slot === 'article') {
       var a = c.article;
@@ -2067,6 +2128,7 @@
       } else { shukTrack('nc_promo_click', { cta: 'signup' }); openFairSignup('swipe_promo'); }
     } else if (c.slot === 'seller') { shukTrack('seller_card_click', { cta: 'open' }); openSeller(); }
     else if (c.slot === 'article') openArticle(c, via);
+    else if (c.slot === 'advice') { shukTrack('advice_more_open', { audience: c.aud, tip: c.tip + 1 }); bsOpen('advice', c); }
   }
   function promoSeen(c) {
     sessSet('sk_swipe_shown_' + c.slot);
@@ -2074,7 +2136,10 @@
       if (c.variant === 'wait') store('sk_nc_promo_wait_seen', String(Date.now()));
       shukTrack('nc_promo_view', { variant: c.variant, position: c.pos });
     } else if (c.slot === 'seller') shukTrack('seller_card_view', { position: c.pos, deal: filter.deal });
-    else if (c.slot === 'article') {
+    else if (c.slot === 'advice') {
+      sessSet('sk_swipe_shown_advice_' + c.aud + '_' + c.tip);
+      shukTrack('advice_card_view', { audience: c.aud, tip: c.tip + 1, position: c.pos });
+    } else if (c.slot === 'article') {
       var m = artSeen(); m[c.article.id] = Date.now(); store('sk_swipe_art_seen', JSON.stringify(m));
       shukTrack('article_card_view', { article_id: String(c.article.id), position: c.pos, deal: articleDeal(c.article) });
     }
@@ -3145,6 +3210,14 @@
       return '<div class="sw-bs-row">' +
         '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa">וואטסאפ</a>' +
         '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call">חיוג</a></div>';
+    } },
+    // §5b: חמש העצות של הקהל, ההסתייגות, והפנייה ליועץ הנדל״ן של הנכס
+    advice: { art: '', title: 'קבלו עצה ממומחה', sub: '', btns: [], body: function (c) {
+      var ad = ADVICE[(c && c.aud) || 'sale'];
+      return '<p class="sw-adv-sh-aud">' + esc(ad.aud) + '</p><ol class="sw-adv-list">' + ad.tips.map(function (t, i) {
+        return '<li' + (c && c.tip === i ? ' class="is-cur"' : '') + '><span class="sw-adv-num" aria-hidden="true">' + (i + 1) + '</span><div><h3>' + esc(t[1]) + '</h3><p>' + esc(t[2]) + '</p></div></li>';
+      }).join('') + '</ol><p class="sw-adv-ask">יש שאלה על נכס מסוים? אפשר לפנות ליועץ הנדל״ן שמטפל בו, דרך דף הנכס.</p>' +
+        '<p class="sw-adv-disc">מידע כללי בלבד, ואינו מחליף ייעוץ משפטי, מיסויי או מקצועי.</p>';
     } },
     viz: { art: VIZ_ART, title: 'ככה זה יכול להיראות', sub: 'גררו את הידית שבאמצע כדי להשוות בין הצילום האמיתי להדמיית AI של הנכס.',
       btns: [['viz_ok', 'sw-navy', 'הבנתי, בואו נשווה'], ['studio', 'sw-white', '✨ צרו הדמיה בסגנון אחר']] }

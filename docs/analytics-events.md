@@ -401,6 +401,8 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `exit_guard_view` | דף הבית (v10): "אחורה" שיוצא מהאתר פתח את הגיליון "רגע לפני שיוצאים" (‏`assets/exit-guard.js` + `home.js`, פעם בביקור) | - |
 | `exit_guard_stay` | בגיליון הזה: "להמשיך לגלוש", ‏Escape או הקשה מחוץ לגיליון | - |
 | `exit_guard_leave` | בגיליון הזה: "יציאה מהאתר" | - |
+| `advice_card_view` | ‏/swipe (v10 ו-‎?advice=1‎): כרטיס "קבלו עצה ממומחה" היה פעיל שנייה | `audience` (‏sale/rent/commercial), `tip` (1-5), `position` |
+| `advice_more_open` | בכרטיס הזה: "לעוד עצות" (או החלקה למעלה) פתח את הגיליון עם חמש העצות | `audience`, `tip` |
 | `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
 | `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
 | `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
