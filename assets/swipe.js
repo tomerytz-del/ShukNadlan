@@ -328,6 +328,14 @@
   // ‏Variant C: שכונה ועיר על הכרטיס בטלפון, בלי רחוב ומספר בית (הגיליון נשאר עם where)
   function area(p) { var h = hood(p); return [h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
   function title(p) { return maskHouse(p.title || '', p.house_number) || p.property_type || 'נכס'; }
+  /* ההודעה המוכנה בוואטסאפ ליועץ/ת (§3, 30.10): מזהה את המודעה בלי לשאול - כותרת, איפה, מחיר,
+     מספר מודעה וקישור. אחת לכפתור בשורת העיגולים, לבורר "איך נוח לכם?" ולגיליון */
+  function waHref(p, phone) {
+    var w = area(p), price = fmtPrice(p);
+    var text = 'היי, ראיתי בשוק הנדל״ן את ' + title(p) + (w ? ', ' + w : '') + (price ? ', ' + price : '') +
+      (p.listing_number ? ' (מודעה #' + p.listing_number + ')' : '') + '. אשמח לפרטים: https://shuknadlan.co.il/property?id=' + p.id;
+    return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+  }
   function rooms(p) { var r = Number(p.rooms); return isFinite(r) && r > 0 ? String(Number(r.toFixed(1))) : ''; }
   function initials(name) {
     var w = String(name || '').replace(/["״׳']/g, '').trim().split(/\s+/).filter(Boolean);
@@ -1848,7 +1856,7 @@
     $('swCall').hidden = !phone; $('swWa').hidden = !phone;
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
-      $('swWa').href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים');
+      $('swWa').href = waHref(p, phone);
     }
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
     // ‏WCAG 2.5.3: השם הנגיש מכיל את המילה הגלויה מתחת לכפתור ("שמירה", גם במחשב - תומר 29.10)
