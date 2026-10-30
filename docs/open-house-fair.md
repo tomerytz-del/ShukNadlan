@@ -677,10 +677,72 @@ where open_house and open_house_end <= now();
   הכפתורים כשהוא `1`. הקריאה היא `OpenHouse.directContactEnabled(sb)` - פעם אחת לדף,
   ו**נכשלת סגור** (שגיאה או שורה חסרה = רק טופס).
 - נכס מחוץ ליריד לא מושפע. נכס שהחלון שלו נסגר בזמן שהדף פתוח נשאר כפי שנטען.
-- מדליקים את הדגל רק אחרי שהרישום בשרת (‏`fair_inquiries`) עובד ונבדק, ובאישור תומר:
+- מדליקים את הדגל רק אחרי שהרישום בשרת (‏`fair_inquiries`, הסעיף הבא) עובד ונבדק, ובאישור תומר:
 
 ```sql
 update public.pricing_config set value = 1 where key = 'fair_contact_logging_enabled';
+```
+
+## רישום הפניות ביריד (‏`fair_inquiries`)
+
+כל פנייה על נכס ביריד - טופס, וואטסאפ או חיוג - נשמרת בשרת, כדי שבמחלוקת
+("הלקוח/ה פנה/תה אחרי שהיריד נגמר") יהיה מה להראות. המיגרציה:
+`supabase/migrations/20271031100000_fair_inquiries.sql`.
+
+| עמודה | מה |
+| --- | --- |
+| `created_at` | זמן השרת. הדפדפן אינו שולח זמן |
+| `in_window` | השרת מחשב מהנכס ברגע הרישום: `open_house` דלוק ו-`open_house_start <= now() < open_house_end` |
+| `window_start`, `window_end` | צילום החלון ברגע הפנייה - החלון ניתן לעריכה אחר כך |
+| `channel` / `source` | `form` \| `whatsapp` \| `call` / `property_page` \| `swipe` \| `open_house_page` \| `app` (‏PWA מותקן) |
+| `lead_id` | הליד מהטופס. בוואטסאפ ובחיוג אין ליד |
+| `visitor_id` | מזהה אנונימי מ-`localStorage` (‏`sk_vid`) |
+| `ip_hash` | ‏sha256 של ה-IP עם מלח סודי (‏`fair_inquiry_salt`), להגבלת קצב בלבד. ה-IP עצמו לא נשמר |
+
+**איך נכתבת שורה:**
+
+- וואטסאפ וחיוג: `OpenHouse.logContact()` ב-`assets/open-house.js` קורא ל-
+  `log_fair_inquiry()` ב-`fetch` עם `keepalive`, ברגע הלחיצה, והקישור נפתח מיד בלי
+  לחכות לתשובה - לקוח/ה לא נחסם/ת בגלל רישום. כשל שולח `fair_log_error` ל-GTM.
+  מחובר בדף הנכס (‏`renderDirectContact`) ובמסך ההחלקה (‏`swWa`/`swCall`). ב-`/open-house`
+  אין כפתורי קשר - הכרטיסים מובילים לדף הנכס.
+- טופס: `property-inquiry-intake` קורא ל-`fair_inquiry_record()` אחרי שהליד נשמר, עם
+  `lead_id`, ומסמן בליד `is_fair = true` ו-`fair_in_window`. כשל ברישום אינו מפיל את
+  הפנייה.
+- שתי הדרכים עוברות באותה ליבה, `fair_inquiry_record()`:
+  - נרשם רק נכס שיש לו חלון, עד **30 יום** אחרי סופו (‏`in_window = false` אחרי הסוף).
+    נכס שמעולם לא היה ביריד - `not_fair`, בלי שורה.
+  - **כפילות:** אותו `visitor_id` (או אותו `ip_hash` כשאין מזהה), אותו נכס ואותו ערוץ
+    בתוך 10 דקות - שורה אחת, **הראשונה נשארת** והיא ההוכחה.
+  - **קצב:** 20 שורות לשעה למבקר/ת, 60 ל-`ip_hash`.
+  - **אין שום התראה** - לא וואטסאפ, לא מייל ולא push. התראה חדשה עוברת קודם אישור.
+
+**הרשאות:** ‏`anon` - כלום על הטבלה, רק `log_fair_inquiry()` (וואטסאפ וחיוג בלבד).
+‏`authenticated` - קריאה, ו-RLS מצמצם לאדמין פלטפורמה ולסוכן/ת שהנכס שלו/ה
+(‏`properties.agent_id`). ‏`service_role` - קריאה והוספה. **אין update ואין delete לאף
+אחד**, גם לא ל-`postgres`: הטריגר `fair_inquiries_immutable` חוסם, וחריג אחד בלבד -
+‏`property_id`/`lead_id`/`user_id` שמתאפסים כשהנכס, הליד או המשתמש/ת נמחקים, כדי
+שההוכחה תישאר. ‏`leads.is_fair`/`fair_in_window` נכתבים רק מהליבה (‏`leads_fair_guard`
+מאפס/משחזר אותם כשסוכן/ת כותב/ת).
+
+**ב-CRM:** בכרטיס הליד - "🗓 פנייה ביריד: וואטסאפ, 29.10.2026 14:05 (בתוך חלון היריד)",
+או "(אחרי סוף היריד)" / "(לפני תחילת היריד)". בכרטיס הנכס - התגית "🗓 N פניות ביריד",
+שפותחת את כל הפניות (טופס פותח את הליד). הטקסט נלקח כפי שנרשם (‏`in_window` מהשרת), ולא
+מחושב מחדש מול חלון שאולי נערך.
+
+**לא נעשה כאן:** ההצעה `docs/proposals/open_house_lead_eligibility.sql`
+(‏`leads.open_house_eligible` וטריגר על כל ליד) לא הוחלה ונשארת כפי שהיא. היא חופפת
+חלקית ל-`is_fair` / `fair_in_window`, ומי שמחליט/ה להחיל אותה צריך/ה לבחור אחד מהשניים.
+
+**בדיקה אחרי ההחלה:**
+
+```sql
+-- אין הרשאת כתיבה ל-anon / authenticated, ואין update/delete לאף תפקיד
+select grantee, privilege_type from information_schema.role_table_grants
+ where table_name = 'fair_inquiries' order by 1, 2;
+-- הפניות האחרונות
+select channel, source, created_at, in_window, window_end, lead_id is not null as has_lead
+  from public.fair_inquiries order by created_at desc limit 20;
 ```
 
 ## ‏`/open-house` בגרסת v10 (‏PR 1010, חלק 7 §A) - רק מאחורי הדגל

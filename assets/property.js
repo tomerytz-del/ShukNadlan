@@ -2999,6 +2999,17 @@ function renderDirectContact(p, phone, agentName){
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן">
       ${ICON.call}<span>חייגו</span>
     </a>`;
+
+  // יריד: כל לחיצה נרשמת בשרת לפני שהקישור נפתח (‏OpenHouse.logContact
+  // אינו מחכה לתשובה). נכס בלי חלון יריד - הפונקציה יוצאת מיד.
+  const logFair = channel => ()=> {
+    if (window.OpenHouse) OpenHouse.logContact({ url: SUPABASE_URL, key: SUPABASE_ANON_KEY }, p, channel, 'property_page');
+  };
+  bubble.addEventListener('click', logFair('whatsapp'));
+  sbWa.addEventListener('click', logFair('whatsapp'));
+  sbCall.addEventListener('click', logFair('call'));
+  document.querySelector('#agentActions .btn-wa').addEventListener('click', logFair('whatsapp'));
+  document.querySelector('#agentActions .btn-call').addEventListener('click', logFair('call'));
 }
 
 /* ---------- שיתוף ----------
@@ -3216,6 +3227,8 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
         phone: document.getElementById('inqPhone').value,
         message: document.getElementById('inqMessage').value || null,
         ...(inquirySource ? { source: inquirySource } : {}),
+        // יריד: השרת רושם את הפנייה ב-fair_inquiries (‏property-inquiry-intake)
+        ...(window.OpenHouse ? { fair_source: OpenHouse.contactSource('property_page'), visitor_id: OpenHouse.visitorId() } : {}),
       }),
     });
     const data = await res.json();

@@ -1,0 +1,187 @@
+{
+    "exportFormatVersion": 2,
+    "exportTime": "2026-10-24 10:13:54",
+    "containerVersion": {
+        "path": "accounts/6376638087/containers/264013397/versions/14",
+        "accountId": "6376638087",
+        "containerId": "264013397",
+        "containerVersionId": "14",
+        "container": {
+            "path": "accounts/6376638087/containers/264013397",
+            "accountId": "6376638087",
+            "containerId": "264013397",
+            "name": "shuknadlan.co.il",
+            "publicId": "GTM-NZHD7ZHT",
+            "usageContext": [
+                "WEB"
+            ],
+            "fingerprint": "1789314519482",
+            "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/6376638087/containers/264013397/workspaces?apiLink=container",
+            "features": {
+                "supportUserPermissions": true,
+                "supportEnvironments": true,
+                "supportWorkspaces": true,
+                "supportGtagConfigs": false,
+                "supportBuiltInVariables": true,
+                "supportClients": false,
+                "supportFolders": true,
+                "supportTags": true,
+                "supportTemplates": true,
+                "supportTriggers": true,
+                "supportVariables": true,
+                "supportVersions": true,
+                "supportZones": true,
+                "supportTransformations": false
+            },
+            "tagIds": [
+                "GTM-NZHD7ZHT"
+            ]
+        },
+        "fingerprint": "1792836804628",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/14?apiLink=version",
+        "tag": [
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "199",
+                "name": "GA4 — fair_log_error",
+                "type": "gaawe",
+                "notes": "רישום פנייה ביריד בשרת נכשל (OpenHouse.logContact) - docs/open-house-fair.md",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "channel"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - channel}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "reason"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - reason}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "fair_log_error"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1793100000001",
+                "firingTriggerId": [
+                    "195"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            }
+        ],
+        "trigger": [
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "195",
+                "name": "CE — fair_log_error",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "fair_log_error"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793100000001"
+            }
+        ],
+        "variable": [
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "variableId": "163",
+                "name": "DLV - channel",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "channel"
+                    }
+                ],
+                "fingerprint": "1793100000001",
+                "formatValue": {}
+            }
+        ]
+    }
+}

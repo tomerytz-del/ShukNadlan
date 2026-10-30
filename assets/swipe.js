@@ -1821,6 +1821,14 @@
     }
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
   }
+  /* יריד: לחיצה על וואטסאפ או חיוג נרשמת בשרת לפני שהקישור נפתח (‏OpenHouse.logContact
+     אינו מחכה לתשובה). ‏contact_agent ב-GTM נשאר כמו שהוא (‏events.js). */
+  ['swWa', 'swCall'].forEach(function (id) {
+    $(id).addEventListener('click', function () {
+      var c = cur();
+      if (c && c.p && window.OpenHouse) OpenHouse.logContact({ url: SUPABASE_URL, key: SUPABASE_ANON_KEY }, c.p, id === 'swWa' ? 'whatsapp' : 'call', 'swipe');
+    });
+  });
 
   var deciding = false;   // הכרטיס עוד עף - לחיצה כפולה לא מדלגת על הנכס הבא
   function decide(dir, via) {
@@ -2648,7 +2656,8 @@
       var msg = (($('swLMsg') || {}).value || '').trim();
       // מקור הליד ב-CRM: ‏swipe (‏KNOWN_SOURCES ב-lead-routing.ts). השורה האחרונה בהודעה אומרת לסוכן/ת מאיפה הגיע
       var src = c.source === 'photo_request' ? 'photo_request' : 'swipe';
-      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE + (fairLive(c.p) ? ' · ביריד הבתים הפתוחים' : ''), source: src })
+      req = post(INQUIRY_URL, { property_id: c.p.id, name: name, phone: phone, message: (msg ? msg + '\n' : '') + (line ? line + '\n' : '') + SOURCE_LINE + (fairLive(c.p) ? ' · ביריד הבתים הפתוחים' : ''), source: src,
+        fair_source: window.OpenHouse ? OpenHouse.contactSource('swipe') : 'swipe', visitor_id: window.OpenHouse ? OpenHouse.visitorId() : null })
         .then(function () { shukTrack('generate_lead', { form_id: src === 'photo_request' ? 'photo_request' : 'swipe_up', item_name: c.p.title || '', value: Number(c.p.price) || 0, currency: 'ILS' }); });
     } else if (c.sponsor.kind === 'pro') {
       // משכנתאות - לצינור הקיים (‏mortgage-lead-intake), כמו הטופס בדף הבית

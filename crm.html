@@ -1856,6 +1856,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .prop-card .pc-col-main{grid-column:1;grid-row:1}
     .prop-card .pc-col-side{grid-column:2;grid-row:1}
     .prop-card .pc-matched-list{grid-column:1/-1;grid-row:3}
+    .prop-card .pc-fairinq-list{grid-row:4}
     .prop-card .pc-facts{grid-column:1/-1;grid-row:2;
       flex-direction:row;align-items:center;gap:10px;margin-top:9px}
     /* התגיות לוקחות את מה שנשאר, והבעלים אינם מתכווצים: הטלפון והכפתורים
@@ -1932,6 +1933,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     color:var(--ink);cursor:pointer}
   .pc-matched-item b{color:#2A5B36;font-variant-numeric:tabular-nums}
   .pc-matched-item:hover{border-color:#2A5B36}
+  .pc-fairinq-list{border-color:#E8D9A8;background:#FBF7EA}
+  .pc-fairinq-item{cursor:default;font-weight:600}
+  button.pc-fairinq-item{cursor:pointer}
+  .pc-fairinq-item.is-out{color:#B91C1C}
   /* שורת הכותרת נושאת גם את שבב הסטטוס, בקצה שנשאר פנוי בה. ‏align-items
      ‏flex-start ולא center: כותרת שנשברת לשתי שורות הייתה גוררת את השבב
      למרכזה במקום להשאיר אותו בגובה השורה הראשונה.
@@ -6189,6 +6194,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lc-locked .lead-name,.lc-locked .lead-phone{color:var(--txt-soft,var(--ink-soft));letter-spacing:.06em}
   .lc-when{font-size:.74rem;color:var(--txt-faint,var(--ink-soft));margin-top:5px}
   .lc-when.is-fresh{color:#B91C1C;font-weight:700}
+  /* יריד: מתי ואיך פנו, מרישום השרת (fair_inquiries) */
+  .lc-fairinq{font-size:.74rem;font-weight:700;color:#7a5c00;margin-top:4px}
+  .lc-fairinq.is-out{color:#B91C1C}
   .lc-lock-note{font-size:.72rem;color:var(--txt-faint,var(--ink-soft));margin-top:3px}
 
   .lc-need{background:rgba(255,255,255,.7);border:1px solid var(--edge,var(--line));border-radius:12px;padding:10px 12px;

@@ -357,6 +357,66 @@
     return directP;
   }
 
+  /* ---------- רישום פנייה ביריד בשרת ----------
+     לחיצה על וואטסאפ או חיוג בנכס ביריד נרשמת ב-fair_inquiries דרך
+     log_fair_inquiry(): הזמן הוא זמן השרת, והשרת קובע אם הפנייה בתוך
+     החלון - הדפדפן שולח רק נכס, ערוץ, מקור ומזהה אנונימי. ‏keepalive כדי
+     שהבקשה תצא גם כשהלחיצה מעבירה את הדף לוואטסאפ או לחייגן.
+     הקישור נפתח בכל מקרה ולא מחכה לתשובה: לקוח/ה לא נחסם/ת בגלל רישום.
+     כשל נשלח ל-GTM כ-fair_log_error (ערוץ וסיבה בלבד, בלי פרטים אישיים).
+     נשלח לכל נכס שיש לו חלון יריד, גם אחרי שנסגר: השרת רושם עד 30 יום
+     אחרי הסוף, עם in_window = false. docs/open-house-fair.md */
+  var VID_KEY = 'sk_vid';
+  function visitorId() {
+    try {
+      var v = global.localStorage.getItem(VID_KEY);
+      if (v && /^[A-Za-z0-9_-]{8,64}$/.test(v)) return v;
+      v = global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID()
+        : 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      global.localStorage.setItem(VID_KEY, v);
+      return v;
+    } catch (e) { return null; }
+  }
+  /* מותקן כאפליקציה (PWA) - המקור הוא האפליקציה, מכל דף שבה */
+  function contactSource(src) {
+    try {
+      if ((global.matchMedia && global.matchMedia('(display-mode: standalone)').matches) || global.navigator.standalone) return 'app';
+    } catch (e) {}
+    return src;
+  }
+  /* ה-JWT של משתמש/ת מחובר/ת, מהאחסון של supabase-js, כדי ש-user_id יירשם.
+     בלי סשן בתוקף - המפתח הציבורי, והפנייה נרשמת כאנונימית. */
+  function userToken(url) {
+    try {
+      var ref = /^https:\/\/([a-z0-9]+)\./.exec(url);
+      var raw = ref && global.localStorage.getItem('sb-' + ref[1] + '-auth-token');
+      var s = raw && JSON.parse(raw);
+      if (s && s.access_token && Number(s.expires_at) * 1000 > Date.now() + 30000) return s.access_token;
+    } catch (e) {}
+    return null;
+  }
+  function hasWindow(p) { return !!(p && p.id && p.open_house_start && p.open_house_end); }
+  function logContact(cfg, p, channel, source) {
+    if (!cfg || !cfg.url || !cfg.key || !hasWindow(p)) return;
+    var fail = function (reason) {
+      if (global.shukTrack) global.shukTrack('fair_log_error', { channel: channel, reason: String(reason || 'unknown').slice(0, 40) });
+    };
+    try {
+      global.fetch(cfg.url + '/rest/v1/rpc/log_fair_inquiry', {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + (userToken(cfg.url) || cfg.key) },
+        body: JSON.stringify({ p_property_id: p.id, p_channel: channel, p_source: contactSource(source), p_visitor_id: visitorId() })
+      }).then(function (r) {
+        if (!r.ok) return fail('http_' + r.status);
+        return r.json().then(function (j) {
+          // ‏not_fair: היריד נגמר לפני יותר מ-30 יום - אין מה לרשום, ואין תקלה
+          if (!j || (!j.ok && j.reason !== 'not_fair')) fail(j && j.reason);
+        });
+      })['catch'](function () { fail('network'); });
+    } catch (e) { fail('exception'); }
+  }
+
   var NO_FEE = 'ללא עמלת תיווך';
   var FAIR_NAME = 'יריד הבתים הפתוחים';
 
@@ -378,6 +438,9 @@
     zeroArt: zeroArt,
     mapPinHtml: mapPinHtml,
     directContactEnabled: directContactEnabled,
+    logContact: logContact,
+    visitorId: visitorId,
+    contactSource: contactSource,
     NO_FEE: NO_FEE,
     FAIR_NAME: FAIR_NAME,
   };

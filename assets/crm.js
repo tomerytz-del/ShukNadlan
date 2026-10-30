@@ -14772,6 +14772,8 @@ let propertyPlanningInfo = {};
 // property_id → מועד הסיום (‏ends_on) של הבלעדיות החיה עליו. ‏RLS מחזירה
 // רק בלעדיות של הסוכן/ת או של המשרד - בדיוק מה שהרשימה הזו מציגה.
 let propertyExclusivities = {};
+// יריד: הפניות שנרשמו בשרת לכל נכס (fair_inquiries), מהחדשה לישנה
+let propertyFairInquiries = {};
 // property_id → הלקוחות שלי שהנכס התאים להם (‏client_match_alerts, בלי
 // מה שנדחה ובלי לקוח/ה שסגר/ה עסקה), מהציון הגבוה לנמוך
 let propertyMatchedClients = {};
@@ -15293,7 +15295,7 @@ async function loadProperties(agentId){
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
-    propertyExclusivities = {}; propertyMatchedClients = {};
+    propertyExclusivities = {}; propertyMatchedClients = {}; propertyFairInquiries = {};
     syncPropertyFilterOptions();
     renderProperties();
     return;
@@ -15304,7 +15306,7 @@ async function loadProperties(agentId){
      סבבים לשרת בטור (צפיות, תכנון, שיתופים, בלעדיות+התאמות, שכונות).
      שגיאה באחת (מסד בלי הטבלה, RLS) רק משאירה את התגית שלה בחוץ ולא מפילה
      את הרשימה, כמו קודם. */
-  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }] = await Promise.all([
+  const [viewCounts, { data: planningRows }, { data: shareRows }, { data: exRows }, { data: matchRows }, , { data: fairRows }] = await Promise.all([
     loadPropertyViewCounts(propertyIds),
     sb.from('property_planning_info').select('*').in('property_id', propertyIds),
     // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
@@ -15318,6 +15320,9 @@ async function loadProperties(agentId){
     // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
     // אחרי הפעם הראשונה
     ensureNeighborhoodsLoaded(),
+    // יריד: הפניות שנרשמו בשרת. מסד בלי הטבלה מחזיר שגיאה, והתגית פשוט חסרה
+    sb.from('fair_inquiries').select(FAIR_INQ_COLS).in('property_id', propertyIds)
+      .order('created_at', { ascending:false }).limit(1000),
   ]);
   propertyViewCounts = viewCounts;
 
@@ -15344,6 +15349,12 @@ async function loadProperties(agentId){
     propertyMatchedClients[r.property_id].push({ id: r.client_id, name: c.full_name, score: r.score });
   });
   Object.values(propertyMatchedClients).forEach(list => list.sort((a, b) => (b.score || 0) - (a.score || 0)));
+
+  propertyFairInquiries = {};
+  (fairRows||[]).forEach(r => {
+    if (!propertyFairInquiries[r.property_id]) propertyFairInquiries[r.property_id] = [];
+    propertyFairInquiries[r.property_id].push(r);
+  });
 
   syncPropertyFilterOptions();
   renderProperties();
@@ -15613,6 +15624,7 @@ function buildPropertyCard(p, agentId){
      buildPropertyTab.) */
   const exDays = exclusivityDaysLeft(p);
   const matched = propertyMatchedClients[p.id] || [];
+  const fairInq = propertyFairInquiries[p.id] || [];
   const tags = tagsHtml([
     expired && { text:`⏳ פג תוקף ${tabShortDate(p.listing_expires_at)}`, cls:'tag-warn' },
     (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
@@ -15627,6 +15639,9 @@ function buildPropertyCard(p, agentId){
     matched.length && { html:`👥 <b>${matched.length}</b> ${matched.length === 1 ? 'לקוח/ה מתאים/ה' : 'לקוחות מתאימים'}`,
       cls:'tag-good pc-matched', button:true,
       title:'לקוחות מהקובץ שלך שהנכס התאים להם - לחיצה מציגה אותם' },
+    fairInq.length && { html:`🗓 <b>${fairInq.length}</b> ${fairInq.length === 1 ? 'פנייה ביריד' : 'פניות ביריד'}`,
+      cls:'tag-key pc-fairinq', button:true,
+      title:'כל פנייה על הנכס ביריד, עם זמן השרת והערוץ - לחיצה מציגה אותן' },
     shareLevelOf(p) === 'private' && { text:'🔒 פרטי', cls:'tag-info',
       title:'רמת שיתוף: פרטי - רק הלקוחות שלך מותאמים לנכס' },
     // פין משוער (אזור תעשייה, חלקה גדולה) - הסוכן/ת צריך/ה לדעת למה הפין לא
@@ -15718,6 +15733,7 @@ function buildPropertyCard(p, agentId){
   const destSel = el.querySelector('.pc-dest-select');
   if (destSel) destSel.addEventListener('change', () => setPublishDestination(p, destSel.value, agentId, destSel));
   bindMatchedClients(el, matched);
+  bindFairInquiries(el, fairInq);
 
   const actions = el.querySelector('.pc-grid');
   const hub = el.querySelector('.pc-hub');
@@ -16037,6 +16053,36 @@ function bindMatchedClients(card, matched){
       if (!item) return;
       gotoSection('accClients');
       openClientFromParam(item.dataset.client, 'matches');
+    });
+    card.querySelector('.pc-facts').insertAdjacentElement('afterend', box);
+    btn.setAttribute('aria-expanded', 'true');
+  });
+}
+
+/* יריד: הרשימה המלאה מתחת לכרטיס, באותו דפוס של bindMatchedClients. פנייה
+   מטופס פותחת את הליד; וואטסאפ וחיוג הם רישום בלבד - אין מאחוריהם ליד. */
+function bindFairInquiries(card, rows){
+  const btn = card.querySelector('.pc-fairinq');
+  if (!btn || !rows.length) return;
+  btn.setAttribute('aria-expanded', 'false');
+  btn.addEventListener('click', ()=>{
+    const open = card.querySelector('.pc-fairinq-list');
+    if (open){
+      open.remove();
+      btn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    const box = document.createElement('div');
+    box.className = 'pc-matched-list pc-fairinq-list';
+    box.innerHTML = `<div class="pc-sec-head">פניות ביריד (זמן השרת)</div>` +
+      rows.map(r => r.lead_id
+        ? `<button type="button" class="pc-matched-item pc-fairinq-item${r.in_window ? '' : ' is-out'}" data-lead="${esc(r.lead_id)}">${esc(fairInquiryText(r))}</button>`
+        : `<span class="pc-matched-item pc-fairinq-item${r.in_window ? '' : ' is-out'}">${esc(fairInquiryText(r))}</span>`).join('');
+    box.addEventListener('click', e => {
+      const item = e.target.closest('[data-lead]');
+      if (!item) return;
+      gotoSection('accLeads');
+      if (typeof openLeadFromParam === 'function') openLeadFromParam(item.dataset.lead);
     });
     card.querySelector('.pc-facts').insertAdjacentElement('afterend', box);
     btn.setAttribute('aria-expanded', 'true');
@@ -19859,6 +19905,55 @@ async function loadLeadVisitors(){
 
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
+/* ---------- יריד הבתים הפתוחים: מתי ואיך פנו (fair_inquiries) ----------
+   רשומת השרת של כל פנייה על נכס ביריד - טופס, וואטסאפ או חיוג - עם זמן
+   השרת ו-in_window שהשרת חישב ברגע הפנייה. זו ההוכחה במחלוקת ("הפנייה
+   הגיעה אחרי היריד"), ולכן הטקסט מציג את הזמן ואת המצב בדיוק כפי שנרשמו,
+   בלי חישוב מחדש מול חלון שאולי נערך מאז. ‏RLS מחזיר רק את הנכסים של
+   הסוכן/ת (ולאדמין - הכול). מסד שהמיגרציה 20271031100000 טרם רצה בו פשוט
+   לא מציג שורה. docs/open-house-fair.md, "רישום הפניות ביריד".
+   הנוסח ממתין לאישור גבריאלה (מנהלת קשרי הלקוחות) לפני מיזוג. */
+const FAIR_INQ_CHANNEL = { form:'טופס', whatsapp:'וואטסאפ', call:'חיוג' };
+const FAIR_INQ_COLS = 'id, property_id, lead_id, channel, source, created_at, in_window, window_start, window_end';
+let leadFairInquiry = new Map();
+
+function fairInquiryWhen(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const parts = {};
+  new Intl.DateTimeFormat('en-GB', { timeZone:'Asia/Jerusalem', day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(d).forEach(x => { parts[x.type] = x.value; });
+  return `${parts.day}.${parts.month}.${parts.year} ${parts.hour}:${parts.minute}`;
+}
+function fairInquiryState(r){
+  if (r.in_window) return 'בתוך חלון היריד';
+  if (r.window_start && new Date(r.created_at) < new Date(r.window_start)) return 'לפני תחילת היריד';
+  return 'אחרי סוף היריד';
+}
+/* "וואטסאפ, 29.10.2026 14:05 (בתוך חלון היריד)" */
+function fairInquiryText(r){
+  return `${FAIR_INQ_CHANNEL[r.channel] || r.channel}, ${fairInquiryWhen(r.created_at)} (${fairInquiryState(r)})`;
+}
+
+/* הפנייה מהטופס שיצרה כל ליד - השורה הראשונה לכל ליד היא ההוכחה */
+async function loadLeadFairInquiries(){
+  const { data, error } = await sb.from('fair_inquiries').select(FAIR_INQ_COLS)
+    .not('lead_id', 'is', null).order('created_at', { ascending:true }).limit(1000);
+  if (error){
+    if (!['42P01', 'PGRST205'].includes(error.code)) console.warn('טעינת הפניות ביריד נכשלה:', error.message);
+    return new Map();
+  }
+  const out = new Map();
+  (data || []).forEach(r => { if (!out.has(r.lead_id)) out.set(r.lead_id, r); });
+  return out;
+}
+
+function leadFairInquiryLine(lead){
+  const r = lead && leadFairInquiry.get(lead.id);
+  if (!r) return '';
+  return `<div class="lc-fairinq${r.in_window ? ' is-in' : ' is-out'}">🗓 פנייה ביריד: ${esc(fairInquiryText(r))}</div>`;
+}
+
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
   listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
@@ -19869,7 +19964,7 @@ async function loadLeads(agentId){
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
-  let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
+  let [{ data: leads, error }, archived, work, visitors, fairInq] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
@@ -19877,6 +19972,7 @@ async function loadLeads(agentId){
     loadArchivedLeadIds(agentId),
     loadLeadWork(agentId),
     loadLeadVisitors(),
+    loadLeadFairInquiries(),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -19891,6 +19987,7 @@ async function loadLeads(agentId){
   archivedLeadIds = archived;
   leadWork = work;
   leadVisitorOf = visitors;
+  leadFairInquiry = fairInq;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
   await loadLeadCalls(allLeads);
@@ -20113,6 +20210,7 @@ function buildLeadCard(lead, agentId, isArchived){
         <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
         <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>
         <div class="lc-when${fresh ? ' is-fresh' : ''}">🕒 ${esc(when)}</div>
+        ${leadFairInquiryLine(lead)}
         ${unlocked ? '' : '<div class="lc-lock-note">השם והטלפון ייחשפו בפתיחת הליד</div>'}
       </section>
       <section class="lc-need">

@@ -451,6 +451,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `article_sheet_full_click` | **v10**: "להמשך הכתבה ←" בגיליון הכתבה | `article_id` |
 | `swipe_start` (‏`fair`) | **פרמטר חדש, רק עם דגל v10**: ההחלקה התחילה עם המתג "רק דירות ללא עמלת תיווך" | `fair`: ‏`1` |
 | `fair_view` | **v10**: `/open-house` נטען עם הדגל | `state`: ‏`live` \| `empty`, `n` (כמה דירות ביריד) |
+| `fair_log_error` | רישום פנייה ביריד בשרת נכשל (‏`OpenHouse.logContact`, ‏`log_fair_inquiry`). הקישור לוואטסאפ או לחיוג נפתח בכל זאת. `not_fair` אינו כשל ואינו נשלח. בלי פרטים אישיים | `channel`: ‏`whatsapp` \| `call`, `reason`: ‏`http_<status>` \| `network` \| `rate_limited` \| `bad_source` \| `exception` … |
 | `fair_agent_cta` | **v10**: כפתור בבלוק "רוצים להכניס דירה ליריד?" ב-`/open-house` | `cta`: ‏`add` \| `join` |
 | `fair_signup_open` (‏`via`) | **ערך חדש, רק עם דגל v10**: מגע ראשון בטופס היריד v2 בדף | `via`: ‏`page` |
 | `likes_bubble_open` | **v10**: הבועה "הרשימה שלי" (מעל גבריאלה, בדפים הציבוריים) נפתחה | `count` |

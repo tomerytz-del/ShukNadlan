@@ -32,6 +32,12 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
+// מקור הפנייה ביריד - רשימה סגורה, זהה ל-check במיגרציה של fair_inquiries
+const FAIR_SOURCES = ["property_page", "swipe", "open_house_page", "app"];
+function fairSource(v: unknown): string {
+  return typeof v === "string" && FAIR_SOURCES.includes(v) ? v : "property_page";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -79,7 +85,7 @@ Deno.serve(async (req: Request) => {
       .from("properties")
       // ‏שם המפתח הזר מפורש: ל-properties שני מפתחות ל-agency_members
       // ‏(agent_id ו-referred_by), ו-embed בלי רמז נכשל ב-PGRST201.
-      .select("id, agency_id, agent_id, city, property_type, deal_type, status, agency_members!properties_agent_id_fkey(tier)")
+      .select("id, agency_id, agent_id, city, property_type, deal_type, status, open_house_end, agency_members!properties_agent_id_fkey(tier)")
       .eq("id", property_id)
       .single();
 
@@ -148,6 +154,25 @@ Deno.serve(async (req: Request) => {
         if (again) return json({ success: true, duplicate: true, lead_id: again });
       }
       return json({ error: "db_error", detail: leadErr.message }, 500);
+    }
+
+    /* יריד הבתים הפתוחים: הפנייה נרשמת ב-fair_inquiries עם זמן השרת וצילום
+       החלון, והליד מסומן is_fair / fair_in_window - הכול בתוך
+       fair_inquiry_record(), שגם מחליטה אם הנכס ביריד (עד 30 יום אחרי סוף
+       החלון). נכס שמעולם לא היה ביריד לא עולה כאן סבב נוסף. כשל ברישום אינו
+       מפיל את הפנייה: הליד כבר נשמר. אין כאן שום התראה. docs/open-house-fair.md */
+    if ((property as any).open_house_end) {
+      const { error: fairErr } = await supabase.rpc("fair_inquiry_record", {
+        p_property_id: property.id,
+        p_channel: "form",
+        p_source: fairSource(body?.fair_source),
+        p_visitor_id: typeof body?.visitor_id === "string" ? body.visitor_id : null,
+        p_lead_id: lead.id,
+        p_user_id: null,
+        p_user_agent: req.headers.get("user-agent"),
+        p_ip: (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null,
+      });
+      if (fairErr) console.error("fair_inquiry_record failed", fairErr.message);
     }
 
     /* רישום הניתוב (‏docs/lead-routing.md). פנייה על נכס הולכת תמיד לסוכן/ת
