@@ -7776,6 +7776,13 @@ let freeTextFeatures = new Set();
       }
     }
   } catch(e){ /* אחסון חסום - כמו בלי סימון */ }
+  /* ‏?src=link - a filtered link we distribute ourselves (FB/Messenger/IG/WhatsApp/QR):
+     in-app browsers send no referrer, so the marker counts as "arrived via link".
+     A reload still opens clean. The marker is removed from the address bar so a restored tab opens clean. */
+  if (!isReload() && params.get('src') === 'link'){
+    viaLink = true;
+    try { const u = new URL(location.href); u.searchParams.delete('src'); history.replaceState(history.state, '', u); } catch(e){}
+  }
   const hasSearch = known.some(k => params.has(k));
   if (hasSearch && !landing && !viaLink){
     try {
