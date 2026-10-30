@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271030210000_scraped_lead_matching.sql"
 FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
+PHONE_HASH = ROOT / "supabase/migrations/20271031180300_scraped_leads_phone_hash.sql"
 
 SETUP = r"""
 do $$ begin
@@ -536,6 +537,100 @@ def main():
     rest = psql(db, sql_text="select public.scraped_lead_matching_rest()")
     if rest != "0":
         fail(f"גל שני כשהדגל כבוי: {rest}")
+
+    # phone_hash: פוסט חוזר ביום 8, אחרי ש-raw_phone נמחק ביום 7.
+    # המספר נבנה במסד (עשר אפסים) ולא מודפס.
+    upd = PHONE_HASH.read_text(encoding="utf-8").lower().split("update public.scraped_leads", 1)[1].split(";", 1)[0]
+    if "demand_notified_at" in upd or "notify" in upd or "status" in upd:
+        fail("המילוי נוגע בעמודה שאינה phone_hash")
+    psql(db, sql_text="""
+      do $$ begin
+        if not exists (select 1 from pg_roles where rolname = 'anon') then
+          create role anon nologin;
+        end if;
+        if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+          create role authenticated nologin;
+        end if;
+        if not exists (select 1 from pg_roles where rolname = 'service_role') then
+          create role service_role nologin;
+        end if;
+      end $$;
+      create schema if not exists extensions;
+      create extension if not exists pgcrypto with schema extensions;
+      create or replace function public.phone_tail9(p text)
+      returns text language sql immutable set search_path = '' as $$
+        select case when length(regexp_replace(coalesce(p, ''), '\\D', '', 'g')) >= 9
+                    then right(regexp_replace(p, '\\D', '', 'g'), 9) end;
+      $$;
+      create or replace function public.scraped_lead_ref(p_url text)
+      returns text language sql immutable as $$ select p_url $$;
+      create or replace function public.city_id_for_name(p text)
+      returns uuid language sql stable as $$ select null::uuid $$;
+      create or replace function public.scraped_lead_no_broker(p text)
+      returns boolean language sql immutable as $$ select false $$;
+      create temp table phone_fixture (phone text);
+      insert into phone_fixture values (repeat('0', 10));
+      alter table public.scraped_leads add column if not exists demand_summary text;
+      delete from public.notifications;
+      delete from public.scraped_leads;
+      create unique index if not exists scraped_leads_source_ref_uq
+        on public.scraped_leads (source, external_ref);
+      insert into public.scraped_leads (
+        id, lead_type, status, source, post_url, external_ref, city, city_id,
+        posted_at, created_at, raw_phone, demand_notified_at
+      ) values (
+        'cccccccc-cccc-cccc-cccc-ccccccccccc1', 'seeker_inbound', 'open_demand',
+        'facebook_group', 'https://facebook.com/groups/1/posts/1', 'fb:day8',
+        'עפולה', '11111111-1111-1111-1111-111111111111',
+        now() - interval '8 days', now() - interval '8 days',
+        (select phone from phone_fixture), timestamptz '2026-10-01 00:00:00+00'
+      );
+    """)
+    before_n = psql(db, sql_text="select count(*) from public.notifications")
+    psql(db, PHONE_HASH)
+    psql(db, PHONE_HASH)
+    kept = psql(db, sql_text="""
+      select (
+        phone_hash = encode(extensions.digest(public.phone_tail9(raw_phone) || '|shuk-scraped-v1', 'sha256'), 'hex')
+        and demand_notified_at = timestamptz '2026-10-01 00:00:00+00'
+        and raw_phone is not null
+        and status = 'open_demand'
+      )::text
+      from public.scraped_leads
+      where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'
+    """)
+    if kept != "true":
+        fail(f"המילוי לא השאיר hash בלי לגעת בשאר: {kept}")
+    if psql(db, sql_text="select count(*) from public.notifications") != before_n:
+        fail("המילוי כתב התראה")
+    psql(db, sql_text="""
+      update public.scraped_leads
+         set raw_phone = null
+       where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'
+    """)
+    dup = psql(db, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'seeker_inbound',
+        'source', 'facebook_group',
+        'external_ref', 'https://facebook.com/groups/1/posts/8001',
+        'posted_at', now(),
+        'city', 'עפולה',
+        'raw_phone', repeat('0', 10)
+      )) ->> 'duplicate'
+    """)
+    if dup != "phone":
+        fail(f"פוסט חוזר ביום 8 לא זוהה ככפילות טלפון: {dup}")
+    if psql(db, sql_text="select count(*) from public.scraped_leads") != "1":
+        fail("הכפילות יצרה שורה חדשה")
+    if psql(db, sql_text="select count(*) from public.notifications") != before_n:
+        fail("הכפילות כתבה התראה")
+    if psql(db, sql_text="""
+      select (demand_notified_at = timestamptz '2026-10-01 00:00:00+00'
+              and raw_phone is null and phone_hash is not null)::text
+        from public.scraped_leads
+       where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'
+    """) != "true":
+        fail("הכפילות או המחיקה נגעו ב-demand_notified_at או ב-hash")
     print("scraped lead matching: ok")
 
 
