@@ -160,6 +160,14 @@ grant select, insert, update, delete on table public.unpublished_collab_opt_in t
 
 select public.notification_types_add(array['unpublished_nudge', 'collab_offer']);
 
+-- Any future create or replace of agent_reminder_findings must keep
+-- SECURITY DEFINER and search_path = ''. 20271031180100 switches this
+-- function from invoker to definer: unpublished_reminder_snooze and
+-- unpublished_nudge_log are service_role-only (RLS, no policies), so an
+-- invoker body returns 42501 for every CRM caller. The target CTE below
+-- is the gate (own agent, service_role, or a platform admin). Copying
+-- this invoker declaration forward brings the empty reminders list back.
+
 create or replace function public.agent_reminder_findings(p_agent_id uuid)
 returns table (
   kind          text,

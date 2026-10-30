@@ -433,13 +433,17 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | סוכן/ת (`authenticated`) | קורא/ת וכותב/ת את שורת ההעדפות של עצמו/ה בלבד (‏RLS על `agent_reminder_preferences`), קורא/ת את יומן המשלוח של עצמו/ה, ומריצ/ה `agent_reminder_findings` על המזהה של עצמו/ה |
 | `service_role` | `agent_reminder_due_agents`, `agent_reminders_ready`, `agent_reminders_claim`, `agent_reminders_mark`, `agent_reminders_reconcile`, `agent_reminder_log_holds` — כולן `revoke` מ-`anon`/`authenticated` |
 
-**`agent_reminder_findings` היא `security invoker` ולא `definer`**, וזו שכבת
-הגנה ולא קפריזה: כשסוכן/ת קורא/ת לה, ה-RLS של `properties` חל עליו/ה. בנוסף
-יש בה שער מפורש (‏CTE בשם `target`). המזהה שהתבקש חוזר רק כש-`current_agent_id()`
-תואם, או כש-`current_agent_id()` ריק **וגם** `auth.role()` הוא `service_role`
-(סבב התזכורות), או כש-`current_agent_id()` ריק ומנהל/ת פלטפורמה. משתמש/ת
-מחובר/ת שאינו/ה סוכן/ת מקבל/ת רשימה ריקה. `agent_reminders_claim` היא
-`definer` ורצה כ-`service_role`, ולכן הסבב עדיין רואה את הסוכן/ת של השורה.
+**`agent_reminder_findings` היא `security definer`** מ-`20271031180100`.
+כל `create or replace` עתידי חייב להשאיר `security definer` ו-
+`search_path = ''`. כ-invoker היא קראה ל-`unpublished_reminder_snooze`
+ול-`unpublished_nudge_log` (רק `service_role`, RLS בלי policy) והחזירה
+‏42501 לכל קריאה מה-CRM, והרשימה נשארה ריקה. השער הוא ה-CTE `target`:
+המזהה שהתבקש חוזר רק כש-`current_agent_id()` תואם, או כש-`current_agent_id()`
+ריק **וגם** `auth.role()` הוא `service_role` (סבב התזכורות), או כש-
+`current_agent_id()` ריק ומנהל/ת פלטפורמה. משתמש/ת מחובר/ת שאינו/ה סוכן/ת
+מקבל/ת רשימה ריקה. בלי השער, definer היה חושף ספירות של סוכן/ת אחר/ת.
+`agent_reminders_claim` נשארת `definer` ורצה כ-`service_role`, ולכן הסבב
+עדיין רואה את הסוכן/ת של השורה.
 
 ---
 
