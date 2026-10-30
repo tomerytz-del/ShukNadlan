@@ -1805,8 +1805,8 @@ function applyOwnerLeadAgent(p){
   const sub = document.getElementById('olSub');
   const done = document.getElementById('olDoneNote');
   if (sub) sub.textContent =
-    `השאירו פרטים ו${who} יחזור/תחזור אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.`;
-  if (done) done.textContent = `${who} יחזור/תחזור אליכם בזמן קצר לתיאום פגישה.`;
+    `השאירו פרטים. הם יועברו ל־${who} להמשך טיפול - כולל הדמיות AI לנכס שלכם.`;
+  if (done) done.textContent = `הפרטים הועברו ל־${who} להמשך טיפול.`;
 }
 
 /* הסגירה מחזירה את המיקוד לכפתור שפתח את הפאנל, ולא משאירה אותו על צומת

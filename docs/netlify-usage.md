@@ -71,7 +71,7 @@
 | מדלג (לא אתר) | בונה (אתר) |
 | --- | --- |
 | ‏`docs/`, ‏`.claude/`, ‏`*.md` בשורש | ‏`*.html`, ‏`assets/`, ‏`vendor/` |
-| ‏`supabase/` (מיגרציות ופונקציות - נפרסות ב-Actions) | ‏`netlify/` (פונקציות ה-edge) |
+| ‏`supabase/` (מיגרציות ופונקציות - נפרסות ב-Actions). חריג: `wa-forward.ts`, שייבוא ה-edge מייבא | ‏`netlify/` (פונקציות ה-edge) |
 | ‏`scripts/`, ‏`.github/`, ‏`gtm/` | ‏`_headers`, ‏`_redirects`, ‏`netlify.toml` |
 | המנועים: `ops_agent/`, ‏`news_engine/`, ‏`lead_engine/`, ‏`deals_engine/`, ‏`*.py` בשורש | ‏`robots.txt`, ‏`sitemap.xml`, ‏`sw.js`, מניפסטים, ‏`llms.txt` |
 | ‏`marketing/`, ‏`requirements.txt`, ‏`schema.sql` | **כל תיקייה חדשה שלא ברשימה** |

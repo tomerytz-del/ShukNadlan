@@ -3199,7 +3199,7 @@
     alert: { art: BELL_ART, title: 'רוצים שנעדכן כשנכס כזה ייכנס?', sub: 'נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.',
       body: function () { return alertBlock('bs'); }, btns: [['later', 'sw-link', 'לא עכשיו']] },
     tour_end: { art: HAND_ART, title: 'מוכנים? בואו נתחיל', sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. ✨ בנכסים עם הדמיה, התמונה האחרונה מראה איך הנכס יכול להיראות.',
-      btns: [['start', 'sw-navy', 'התחלת החלקה'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
+      btns: [['start', 'sw-navy', 'התחלת החלקה'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']], onClose: tourEndClose },
     help: { art: '', title: 'איך מחליקים', sub: '', body: helpBody,
       btns: [['tour', 'sw-navy', 'הצגת ההדרכה מחדש'], ['reset', 'sw-white', 'התחלה מחדש'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']] },
     // ‏R8: איפוס סימון הנכסים שכבר נראו - "אהבתי" לא נוגעים בו
@@ -3232,9 +3232,9 @@
   };
   var bsQueue = [], bsKind = '', bsOpener = null, bsT = 0, bsCtx = null;
   function bsBlocked() { return !$('swTour').hidden || !$('swSheet').hidden || !$('swFilter').hidden; }
-  function bsOpen(kind, ctx) {
+  function bsOpen(kind, ctx, force) {
     if (bsKind === kind || bsQueue.some(function (q) { return q.kind === kind; })) return;
-    if (bsKind || bsBlocked()) { bsQueue.push({ kind: kind, ctx: ctx }); return; }
+    if (bsKind || (!force && bsBlocked())) { bsQueue.push({ kind: kind, ctx: ctx }); return; }
     var d = BS[kind], wrap = $('swBsWrap');
     if (!d) return;
     bsKind = kind; bsCtx = ctx || null;
@@ -3297,6 +3297,8 @@
     var b = e.target.closest('[data-bs-cta]');
     if (b) {
       var kind = bsKind, cta = b.dataset.bsCta, ctx = bsCtx;
+      // "שאלו את גבריאלה" בסוף ההדרכה: גיליון הפרטים נשאר פתוח מאחוריה (תומר 30.10 20:54)
+      tourEndGab = kind === 'tour_end' && cta === 'gabriela';
       shukTrack('swipe_nudge_click', { kind: kind, cta: cta });
       if (kind === 'help' && (cta === 'tour' || cta === 'gabriela')) shukTrack('swipe_help_click', { cta: cta });
       bsClose();
@@ -3944,7 +3946,29 @@
     closeDialog($('swTour'), card);
     // סוף ההדרכה (לא דילוג): גיליון "מוכנים? בואו נתחיל"
     // ‏Variant C: בטלפון שורת סיום אחרת (ממתינה לגבריאלה)
-    if (!skipped) bsOpen('tour_end', phoneC() ? { sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. הנכסים ששמרתם מחכים במועדפים.' } : null);
+    /* הטיפ האחרון הוא "החליקו למעלה", ולכן ההדרכה נגמרת לרוב כשגיליון הפרטים נפתח (‏openSheetFor):
+       "מוכנים?" עולה מעליו, וגם אם הגיליון כבר פתוח (נפתח ביד באמצע ההדרכה) - ולא נדחה לתור.
+       סגירת "מוכנים?" סוגרת גם את הגיליון (‏tourEndClose).
+       הדגל נדלק רק אם "מוכנים?" באמת פתוח אחרי הקריאה. גיליון תחתון אחר שכבר פתוח
+       מכניס את tour_end לתור, ו-tour_end שכבר בתור לא נפתח שוב; סגירה מאוחרת שלו
+       לא מנקה את התור ולא גוללת לראש החפיסה. */
+    if (!skipped) bsOpen('tour_end', phoneC() ? { sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. הנכסים ששמרתם מחכים במועדפים.' } : null, true);
+    tourSheet = !skipped && bsKind === 'tour_end';
+  }
+  /* תומר 30.10: בסוף ההדרכה "התחלת החלקה" (או ✕, רקע, Escape, גרירה למטה) מחזירה לחפיסה מוכנה -
+     גיליון הפרטים נסגר בדרך הרגילה (‏closeSheet, כולל רשומת ההיסטוריה שלו), הגלילה למעלה, הפוקוס
+     על הכרטיס, ושום גיליון שחיכה בתור לא קופץ מיד אחרי. "שאלו את גבריאלה" - הגיליון נשאר */
+  var tourSheet = false, tourEndGab = false;
+  function tourEndClose() {
+    var keep = tourEndGab;
+    tourEndGab = false;
+    if (!tourSheet) return;
+    tourSheet = false;
+    if (keep) return;
+    bsQueue.length = 0;
+    if (!$('swSheet').hidden) closeSheet();
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
+    setTimeout(function () { var tc = document.querySelector('#swTopCard .sw-card'); if (tc) tc.focus({ preventScroll: true }); }, 0);
   }
   $('swTourOk').addEventListener('click', function () { if (tourStep < tourList.length - 1) { tourStep++; showTip(); } else endTour(false); });
   $('swTourSkip').addEventListener('click', function () { endTour(true); });

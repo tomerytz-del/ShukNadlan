@@ -19,8 +19,10 @@ function id(v: unknown): string | null {
 export interface PageLink {
   topic: string;
   path: string;
-  /** המשפט שהמודל מעתיק לסוכן/ת, בלי "אני לא יכולה" ובלי "היכנסו לדשבורד". */
+  /** המשפט שהמודל מעתיק לסוכן/ת, בלי כתובת ובלי "היכנסו לדשבורד". */
   say: string;
+  /** נפתח ככפתור. לא נכתב בתוך say. */
+  url: string;
 }
 
 const TOPICS = [
@@ -88,7 +90,7 @@ export function pageLink(siteBase: string, input: PageLinkInput): PageLink | nul
     default:
       return null;
   }
-  return { topic, path, say: `${say} ${site}${path}` };
+  return { topic, path, say, url: `${site}${path}` };
 }
 
 /** הכתובת מתוך המשפט. http ו-https, לא רק https. */
