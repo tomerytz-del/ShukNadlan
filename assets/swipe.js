@@ -361,7 +361,7 @@
      מספר מודעה וקישור. אחת לכפתור בשורת העיגולים, לבורר "איך נוח לכם?" ולגיליון */
   function waHref(p, phone) {
     var w = area(p), price = fmtPrice(p);
-    var text = 'היי, ראיתי בשוק הנדל״ן את ' + title(p) + (w ? ', ' + w : '') + (price ? ', ' + price : '') +
+    var text = 'היי, ראיתי בשוק נדל״ן את ' + title(p) + (w ? ', ' + w : '') + (price ? ', ' + price : '') +
       (p.listing_number ? ' (מודעה #' + p.listing_number + ')' : '') + '. אשמח לפרטים: https://shuknadlan.co.il/property?id=' + p.id;
     return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
   }
@@ -701,14 +701,22 @@
      הקצה העליון - המחיר הגבוה בנכסים של העסקה (מחיר למ״ר - כפול השטח). כשהגיעו ממשפט בדף
      הבית עם "מ-₪… עד ₪…", הידיות מראות אותו וכותבות אליו, כדי שהתג והטווח לא יסתרו.
      ‏RTL: הזול בצד ימין. */
+  /* מסחרי בלי בחירה ("הכול"): הטווח של השכרה, כי שכירות חודשית ומחיר מכירה על אותה מסילה
+     היו דוחסים אחד מהם לפיקסל. מי שמחפש/ת מכירה בוחר/ת "למכירה" ומקבל/ת את הטווח שלה */
+  function priceDeal() { return filter.deal === 'commercial' ? (filter.cdeal || 'rent') : filter.deal; }
   function priceStep() {
-    var d = filter.deal === 'commercial' ? (filter.cdeal || (priceTop() > 200000 ? 'sale' : 'rent')) : filter.deal;
+    var d = priceDeal();
     return d === 'rent' ? (filter.deal === 'commercial' ? 500 : 250) : 50000;
   }
+  /* הקצה העליון - האחוזון ה-95 של המחירים בעסקה, ולא היקר ביותר: נכס אחד במחיר חריג (שכירות
+     מסחרית של 326 אלף) היה דוחס את כל השאר ל-2-5% מהמסילה. מעליו - "ללא הגבלה" */
   function priceTop() {
-    var top = 0;
-    all.forEach(function (p) { if (dealOk(p, filter.deal, filter.cdeal)) { var v = totalPrice(p); if (v > top && isFinite(v)) top = v; } });
-    return top;
+    var cdeal = filter.deal === 'commercial' ? priceDeal() : filter.cdeal;
+    var vals = [];
+    all.forEach(function (p) { if (dealOk(p, filter.deal, cdeal)) { var v = totalPrice(p); if (v > 0 && isFinite(v)) vals.push(v); } });
+    if (!vals.length) return 0;
+    vals.sort(function (a, b) { return a - b; });
+    return vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.95))];
   }
   function extPrice() { return ext && ext.st && (ext.st.priceMin || ext.st.priceMax) ? ext.st : null; }
   function priceGet() {
@@ -3439,7 +3447,11 @@
     if (p) propLinkOpen(p, 'likes');
   });
   $('swLvShare').addEventListener('click', function () { shareLikes(); });
-  $('swLvBack').addEventListener('click', function () { setView('deck'); });
+  /* §9: הכפתור שבמועדפים חוזר לאותו מקום כמו "אחורה" של הדפדפן - התצוגה שממנה הגיעו.
+     הנוסחים למפה ולרשימה - הצעה, ממתינים לגבריאלה */
+  var LV_BACK = { deck: '← חזרה להחלקה', map: '← חזרה למפה', list: '← חזרה לרשימה' };
+  function syncLvBack() { $('swLvBack').textContent = LV_BACK[likesReturnView()] || LV_BACK.deck; }
+  $('swLvBack').addEventListener('click', function () { setView(view === 'likes' ? likesReturnView() : 'deck'); });
   $('swLvStart').addEventListener('click', function () { setView('deck'); });
 
   /* גבריאלה (‏gabriela-widget.js) בדף הזה: הכפתור הכחול מחיל את הסינון במקום ולא טוען מחדש */
@@ -3684,9 +3696,10 @@
      מצב, כמו הכפתורים שבדף. הכניסה דוחפת רשומה אחת; יציאה מכפתור בדף מוציאה אותה (‏history.back),
      כדי שלא תישאר רשומה ישנה ו"אחורה" אחר כך יתנהג כמו קודם. גיליון שנפתח מעל המועדפים נסגר קודם
      (הרשומה שלו מעל זו). הגלילה ברשימה נשמרת ומשוחזרת */
-  var likesPushed = false, likesOwnBack = false, likesScroll = 0;
+  var likesPushed = false, likesOwnBack = false, likesScroll = 0, likesResume = null;
   window.addEventListener('popstate', function (e) {
-    if (likesOwnBack) { likesOwnBack = false; return; }
+    // הכתובת נכתבת רק עכשיו, על הרשומה שאליה חזרנו - ולא על רשומת המועדפים שיצאה (סינון שהשתנה במועדפים)
+    if (likesOwnBack) { likesOwnBack = false; writeUrl(); syncLvBack(); return; }
     if (!likesPushed || view !== 'likes') return;
     if (e.state && e.state.swView === 'likes') return;   // רק הגיליון שמעל נסגר
     likesPushed = false;
@@ -3717,13 +3730,19 @@
       location.href = fairListHref('swipe_list');
       return;
     }
+    var deferUrl = false;
     if (v === 'likes' && view !== 'likes') {
-      preLikes = view;
       likesScroll = window.scrollY;
-      try { history.pushState({ swView: 'likes', from: preLikes }, ''); likesPushed = true; } catch (e) { likesPushed = false; }
+      if (likesResume !== null) {
+        // חזרה ב"אחורה" מדף נכס אל ‎?view=likes‎: הרשומה כבר כאן - לא דוחפים שנייה, והמקור נשמר בה
+        preLikes = likesResume; likesResume = null; likesPushed = true;
+      } else {
+        preLikes = view;
+        try { history.pushState({ swView: 'likes', from: preLikes }, ''); likesPushed = true; } catch (e) { likesPushed = false; }
+      }
     } else if (view === 'likes' && v !== 'likes' && likesPushed && !fromPop) {
       likesPushed = false; likesOwnBack = true;
-      try { history.back(); } catch (e) { likesOwnBack = false; }
+      try { history.back(); deferUrl = true; } catch (e) { likesOwnBack = false; }
     }
     var backToList = view === 'likes' && v === 'list' && preLikes === 'list';
     // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
@@ -3746,7 +3765,8 @@
     if (backToList) window.scrollTo(0, likesScroll);
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
-    writeUrl();
+    if (!deferUrl) writeUrl();
+    if (v === 'likes') syncLvBack();
     /* ‏P1-G: "?" מסביר איך מחליקים - רק בהחלקה. visibility ולא display, כדי שהפס לא יקפוץ */
     var help = $('swHelp'), onDeck = v === 'deck';
     help.style.visibility = onDeck ? '' : 'hidden';
@@ -3999,6 +4019,8 @@
       buildDeck();
       maybeResume();
       var v0 = params.get('view');
+      var hs = history.state;
+      if (v0 === 'likes' && hs && hs.swView === 'likes') likesResume = hs.from === 'map' || hs.from === 'list' ? hs.from : 'deck';
       if (v0 === 'list' || v0 === 'map' || v0 === 'likes') setView(v0);
       if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {
