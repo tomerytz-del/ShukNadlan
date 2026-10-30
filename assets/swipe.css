@@ -1048,6 +1048,14 @@ body[data-view=list] .sw-layout{display:inline-flex}
   body[data-view=deck] .sw-top-card .sw-cbody{padding:0 16px calc(96px + var(--sw-safe-b))}
   /* בלי ה-56px של גבריאלה הפתוחה (למעלה): בפריסה הזו הבועה יורדת לשורת העיגולים (‏§9) */
   body.sw-body[data-view=deck]:has(#gabW:not(.is-min)) .sw-top-card .sw-cbody{padding-bottom:calc(96px + var(--sw-safe-b))}
+  /* כל סוגי הכרטיסים, לא רק הנכס: הטקסט והכפתור מעל שורת העיגולים הצפה, ומתחת לכותרת הצפה */
+  body[data-view=deck] .sw-card .sw-art-in{padding-bottom:calc(96px + var(--sw-safe-b))}
+  body[data-view=deck] .sw-card .sw-promo-in,body[data-view=deck] .sw-card .sw-end-in,body[data-view=deck] .sw-card .sw-spon-in{
+    box-sizing:border-box;justify-content:flex-start;padding-top:calc(64px + var(--sw-safe-t));padding-bottom:calc(96px + var(--sw-safe-b))}
+  /* מרכוז שלא חותך: כשהתוכן ארוך מהמקום (טלפון נמוך, טופס ההתראה פתוח) הוא נגלל מלמעלה, במקום להיחתך בשני הקצוות */
+  body[data-view=deck] .sw-card :is(.sw-promo-in,.sw-end-in,.sw-spon-in)>:first-child{margin-top:auto}
+  body[data-view=deck] .sw-card :is(.sw-promo-in,.sw-end-in,.sw-spon-in)>:last-child{margin-bottom:auto}
+  body[data-view=deck] .sw-card .sw-npb-list{bottom:calc(96px + var(--sw-safe-b))}
   body[data-view=deck] .sw-price{font-size:30px;font-weight:800;line-height:1.1}
   body[data-view=deck] .sw-area{display:block;margin:4px 0 0;font-size:15px;font-weight:600;color:#fff;opacity:.95}
   html body[data-view=deck] .sw-card .sw-area{color:#fff}
