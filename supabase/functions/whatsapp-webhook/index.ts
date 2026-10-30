@@ -61,7 +61,7 @@ import {
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
-import { planWaText, WA_EMPTY_BODY, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -497,10 +497,13 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
       // ניסיון שני: כפתור קצר. אם גם הוא נדחה - טקסט בלי כתובת, עם יעד שאפשר למצוא.
       if (item.kind === "cta") {
         try {
-          const retryId = await sendCtaUrl(to, WA_EMPTY_BODY, item.label, item.url);
+          const body = item.body.trim();
+          if (body.length > 1024) await sendText(to, body);
+          const buttonBody = body.length > 0 && body.length <= 1024 ? body : item.label;
+          const retryId = await sendCtaUrl(to, buttonBody, item.label, item.url);
           await supabase.from("whatsapp_messages").insert({
             wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-            msg_type: "interactive", body: `${WA_EMPTY_BODY}\n[${item.label}]`, status: retryId ? "sent" : null,
+            msg_type: "interactive", body: `${buttonBody}\n[${item.label}]`, status: retryId ? "sent" : null,
           });
           continue;
         } catch (retryErr) {
@@ -509,19 +512,20 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
         await reply(to, `${item.body}\n${item.label}.\n${WA_NO_BUTTON}`, agentId);
       } else if (item.kind === "list") {
         const rows = item.rows.filter((row) => parseNavId(row.id));
+        const crmRow = rows.length > 1
+          ? (rows.find((row) => row.title === "הכול") || rows[0])
+          : rows[0];
         try {
-          if (rows.length === 1) {
-            const path = parseNavId(rows[0].id)!;
-            const retryId = await sendCtaUrl(to, rows[0].title, rows[0].title, absoluteUrl(SITE_BASE, path));
+          if (crmRow) {
+            const path = parseNavId(crmRow.id)!;
+            const buttonBody = item.body.trim().length > 0 && item.body.trim().length <= 1024
+              ? item.body.trim()
+              : crmRow.title;
+            const label = rows.length > 1 ? "פתיחה ב-CRM" : crmRow.title;
+            const retryId = await sendCtaUrl(to, buttonBody, label, absoluteUrl(SITE_BASE, path));
             await supabase.from("whatsapp_messages").insert({
               wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-              msg_type: "interactive", body: rows[0].title, status: retryId ? "sent" : null,
-            });
-          } else if (rows.length > 1) {
-            const retryId = await sendCtaUrl(to, "לאתר", "לאתר", `${SITE_BASE}/`);
-            await supabase.from("whatsapp_messages").insert({
-              wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-              msg_type: "interactive", body: "לאתר", status: retryId ? "sent" : null,
+              msg_type: "interactive", body: buttonBody, status: retryId ? "sent" : null,
             });
           } else {
             await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);

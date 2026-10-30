@@ -237,9 +237,11 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
       console.error("wa-url-guard meeting cta failed", err);
       const interactive = payload.interactive as { action?: { parameters?: { url?: string } } } | undefined;
       const failedUrl = String(interactive?.action?.parameters?.url || "");
+      const note = `אפשר גם לכתוב ישירות ל${agentName || "הסוכן/ת"} בווטסאפ.`;
+      const base = (planned.visibleText || "").trim();
       const fallback = failedUrl.includes("wa.me")
-        ? `אפשר גם לכתוב ישירות ל${agentName || "הסוכן/ת"} בווטסאפ.`
-        : (planned.visibleText || "הפרטים בכפתור.");
+        ? (base && base !== note ? `${base}\n${note}` : note)
+        : (base || "הפרטים בדף הפגישה.");
       try {
         return await post({
           messaging_product: "whatsapp",
@@ -257,7 +259,16 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
   return first;
 }
 
-/** כפתור לדף הפגישה. אם הוא נדחה, הטקסט יוצא בלי כתובת, והשליחה אינה נכשלת. */
+/** בלי כפתור אין "בכפתור" בגוף. */
+function textWithoutButton(text: string): string {
+  return text
+    .replace(/\n?אפשר להוסיף ליומן בכפתור\.?/g, "\nאפשר להוסיף ליומן מדף הפגישה.")
+    .replace(/בכפתור למטה/g, "מדף הפגישה")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** כפתור לדף הפגישה. אם הוא נדחה, הטקסט יוצא בלי כתובת ובלי הבטחת כפתור. */
 export async function sendLinkButton(to: string, body: string, label: string, url: string): Promise<string | null> {
   const text = noLongDash(body).slice(0, 1024);
   try {
@@ -270,7 +281,7 @@ export async function sendLinkButton(to: string, body: string, label: string, ur
         recipient_type: "individual",
         to,
         type: "text",
-        text: { preview_url: false, body: text },
+        text: { preview_url: false, body: textWithoutButton(text).slice(0, 4000) },
       });
     } catch (err2) {
       console.error("wa-url-guard meeting text fallback failed", err2);
@@ -395,7 +406,7 @@ export async function respondToMeeting(
     return { ok: true, already: !!res.already, reply: `תודה! עדכנתי את ${agentName} שמגיעים 🙌 נתראה ${when}${where}.`, agentName };
   }
   const reply = response === "canceled"
-    ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש - ${agentName} ישמח/תשמח לתאם.`
+    ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש, נשמח לתאם.`
     : `עדכנתי את ${agentName} שצריך מועד אחר, הפרטים הועברו ל${agentName} לתיאום.`;
   return { ok: true, already: !!res.already, reply, ...who };
 }
@@ -435,9 +446,9 @@ export async function feedbackToMeeting(
     agentName = agent?.display_name || agentName;
   }
   const reply = feedback === "liked"
-    ? `איזה כיף! 🙌 עדכנתי את ${agentName}, שיחזור/תחזור אליך עם ההמשך.`
+    ? `איזה כיף! 🙌 עדכנתי את ${agentName}, ויחזרו אליך עם ההמשך.`
     : feedback === "unsure"
-    ? `תודה על הכנות 🙏 עדכנתי את ${agentName}, שיחזור/תחזור אליך לשמוע מה מתלבטים ולעזור להחליט.`
-    : `תודה, זה עוזר! עדכנתי את ${agentName}, שיחפש/תחפש בשבילך נכסים שמתאימים יותר.`;
+    ? `תודה על הכנות 🙏 עדכנתי את ${agentName}, ויחזרו אליך לשמוע מה מתלבטים ולעזור להחליט.`
+    : `תודה, זה עוזר! עדכנתי את ${agentName}, ויחפשו בשבילך נכסים שמתאימים יותר.`;
   return { ok: true, already: !!res.already, reply };
 }

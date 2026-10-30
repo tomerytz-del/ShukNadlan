@@ -91,6 +91,14 @@ const longBody = (split.payloads[0] as { text: { body: string } }).text.body;
 check("הטקסט הארוך לא נחתך ל-1024", longBody.length > 1024 && !longBody.includes("http"));
 check("הכפתור שאחריו קצר", (split.payloads[1] as { interactive: { body: { text: string } } }).interactive.body.text === WA_EMPTY_BODY);
 
+const withButton = payloadsForText(
+  "972500000000",
+  "הסרטון https://cdn.example.com/a.mp4 והדף https://shuknadlan.co.il/property?id=abc",
+);
+check("וידאו ואז כפתור", withButton.payloads.length === 2
+  && (withButton.payloads[0] as { type?: string }).type === "video"
+  && (withButton.payloads[1] as { type?: string }).type === "interactive");
+
 const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.example.com/a.mp4");
 check("וידאו לא כפתור", videoPayloads.payloads.length === 2
   && videoPayloads.payloads.some((p) => (p as { type?: string }).type === "video")

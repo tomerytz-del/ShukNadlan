@@ -136,12 +136,16 @@ export async function sendShowcaseText(to: string, body: string, label = "לעמ
     return await post(ctaPayload(to, text, label, buttonUrl));
   } catch (err) {
     console.error("wa-url-guard showcase cta failed", err);
+    const note = "העמוד האישי זמין גם באתר שוק נדל״ן.";
+    // גוף ארוך כבר יצא לפני הכפתור. כאן רק המשפט, בלי לשלוח את הגוף פעמיים.
+    const alreadySent = text.length > WA_CTA_BODY_MAX;
+    const body = alreadySent || !text.trim() ? note : `${text.trim()}\n${note}`;
     return post({
       messaging_product: "whatsapp",
       recipient_type: "individual",
       to,
       type: "text",
-      text: { preview_url: false, body: "העמוד האישי זמין גם באתר שוק נדל״ן." },
+      text: { preview_url: false, body: body.slice(0, 4000) },
     });
   }
 }

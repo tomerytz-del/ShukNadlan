@@ -162,7 +162,7 @@ export function videoPayload(to: string, url: string): Record<string, unknown> {
 }
 
 export function ctaPayload(to: string, body: string, label: string, url: string): Record<string, unknown> {
-  const text = body.length > WA_CTA_BODY_MAX ? body.slice(0, WA_CTA_BODY_MAX - 1) + "…" : body;
+  // בלי חיתוך שקט. גוף ארוך מ-1024 נדחה אצל Meta, והקורא מפצל לטקסט ואז כפתור.
   return {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -170,7 +170,7 @@ export function ctaPayload(to: string, body: string, label: string, url: string)
     type: "interactive",
     interactive: {
       type: "cta_url",
-      body: { text },
+      body: { text: body },
       action: {
         name: "cta_url",
         parameters: {
@@ -205,7 +205,15 @@ export function payloadsForText(to: string, body: string): {
       payloads.push(ctaPayload(to, "לאתר", "לאתר", WA_SITE));
     }
   };
-  if (videos.length && !ctas.length) {
+  if (videos.length && ctas.length) {
+    payloads.push(videoPayload(to, videos[0].url));
+    const link = ctas.length === 1 ? ctas[0] : null;
+    const buttonBody = visibleText.length > 0 && visibleText.length <= WA_CTA_BODY_MAX && visibleText !== WA_EMPTY_BODY
+      ? visibleText
+      : (link ? link.label : "לאתר");
+    if (link) payloads.push(ctaPayload(to, buttonBody, link.label, stamped(link.url)));
+    else payloads.push(ctaPayload(to, buttonBody, "לאתר", WA_SITE));
+  } else if (videos.length) {
     if (visibleText && visibleText !== WA_EMPTY_BODY) payloads.push(textPayload(to, visibleText));
     payloads.push(videoPayload(to, videos[0].url));
   } else if (!ctas.length) {

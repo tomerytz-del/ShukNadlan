@@ -152,7 +152,7 @@
       </section>`;
     }
 
-    if (a.phone){
+    if (a.phone && m.status !== 'canceled'){
       html += `
       <section class="card">
         <h2 class="sec-title">שאלה ל${esc(a.name || 'סוכן/ת')}?</h2>

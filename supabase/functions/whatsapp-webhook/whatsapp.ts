@@ -175,9 +175,11 @@ export async function sendText(
       if (i === 0 && payload.type === "interactive") {
         console.error("wa-url-guard cta failed, text without url", err);
         const failedUrl = ctaUrlOf(payload);
-        const fallback = failedUrl.includes("wa.me")
-          ? `אפשר גם לכתוב ישירות ל${contactName || "הסוכן/ת"} בווטסאפ.`
-          : (planned.visibleText || WA_NO_BUTTON).slice(0, MAX_TEXT_LEN);
+        const note = `אפשר גם לכתוב ישירות ל${contactName || "הסוכן/ת"} בווטסאפ.`;
+        const base = (planned.visibleText || "").trim();
+        const fallback = (failedUrl.includes("wa.me")
+          ? (base && base !== note ? `${base}\n${note}` : note)
+          : (base || WA_NO_BUTTON)).slice(0, MAX_TEXT_LEN);
         const fallbackPayload = textPayload(to, fallback);
         const id = await postMessage(to, fallbackPayload, "whatsapp send failed");
         sent?.push(describeSent(fallbackPayload, id));
@@ -263,16 +265,23 @@ export async function sendImageCta(
     return id;
   } catch (err) {
     console.error("wa-url-guard image cta failed, image then button", err);
+    const caption = plan.text || "";
     try {
-      await sendImage(to, imageUrl, "");
+      await sendImage(to, imageUrl, caption);
     } catch (imgErr) {
       console.error("wa-url-guard image retry failed", imgErr);
     }
     try {
-      return await sendCtaUrl(to, WA_EMPTY_BODY, label, url);
+      return await sendCtaUrl(to, label, label, url);
     } catch (ctaErr) {
       console.error("wa-url-guard image button retry failed", ctaErr);
-      return null;
+      if (!/\/crm(?:\/|\?|$)/.test(url)) return null;
+      try {
+        return await sendText(to, "פרטים ב-CRM.");
+      } catch (textErr) {
+        console.error("wa-url-guard image text fallback failed", textErr);
+        return null;
+      }
     }
   }
 }

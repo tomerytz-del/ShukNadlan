@@ -195,9 +195,9 @@ async function sendWhatsapp(a: any): Promise<void> {
   }
 }
 
-/** הודעה שנייה, אחרי שהראשונה כבר סומנה כנשלחה. כישלון נרשם ולא נזרק. */
-async function sendStopNotice(a: any): Promise<void> {
-  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE) return;
+/** הודעה שנייה. כישלון נרשם ולא נזרק, כדי שההתראה לא תישלח שוב. */
+async function sendStopNotice(a: any): Promise<boolean> {
+  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE) return false;
   try {
     const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
     const payload = ctaPayload(
@@ -214,9 +214,12 @@ async function sendStopNotice(a: any): Promise<void> {
     if (!res.ok) {
       const raw = await res.text();
       console.error("saved-search stop notice failed", a.alert_id, raw.slice(0, 300));
+      return false;
     }
+    return true;
   } catch (err) {
     console.error("saved-search stop notice failed", a.alert_id, err instanceof Error ? err.message : err);
+    return false;
   }
 }
 
@@ -309,6 +312,7 @@ Deno.serve(async (req: Request) => {
   if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true, deferred: flagOn });
 
   let sent = 0, failed = 0, deferred = 0;
+  const stopNoticePhones = new Set<string>();
 
   for (const a of alerts as any[]) {
     const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both")
@@ -394,14 +398,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (waStatus === "sent" && !WA_TEMPLATE) {
-      const { error: earlyErr } = await sb.rpc("mark_saved_search_alert", {
-        p_alert_id: a.alert_id,
-        p_whatsapp_status: "sent",
-        p_email_status: emStatus,
-        p_error: errors.length ? errors.join(" | ").slice(0, 500) : null,
-      });
-      if (earlyErr) console.error("mark after property notice failed", a.alert_id, earlyErr.message);
-      await sendStopNotice(a);
+      const phone = String(a.phone_e164 || "");
+      if (phone && !stopNoticePhones.has(phone)) {
+        const stopped = await sendStopNotice(a);
+        if (stopped) stopNoticePhones.add(phone);
+      }
     }
 
     if (wantEmail) {

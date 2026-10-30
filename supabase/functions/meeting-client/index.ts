@@ -326,8 +326,8 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
 
   const link = `${SITE}/meeting?t=${row.token}`;
   const calendar = row.kind !== "cancel" && !buttons;
-  const text = `שלום ${name || ""}`.trim() + ",\n" + line +
-    (calendar ? "\nאפשר להוסיף ליומן בכפתור." : "");
+  // שורת האישור והעדכון כבר אומרת שאפשר להוסיף ליומן. לא מוסיפים את זה שוב.
+  const text = `שלום ${name || ""}`.trim() + ",\n" + line;
 
   try {
     let wamid: string | null;
