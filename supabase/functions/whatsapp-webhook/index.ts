@@ -494,8 +494,27 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
             msg_type: part.kind, body: part.body || logBody, status: part.id ? "sent" : null,
           });
         }
-        if (item.kind === "cta" && !parts.some((part) => part.kind === "interactive")) {
-          await reply(to, `${item.label}.\n${WA_NO_BUTTON}`, agentId);
+        if (!parts.some((part) => part.kind === "interactive")) {
+          await supabase.from("whatsapp_messages").insert({
+            direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
+            body: logBody, error: "button rejected after text",
+          });
+          if (item.kind === "list" || item.kind === "buttons") {
+            const rows = item.kind === "list" ? item.rows.filter((row) => parseNavId(row.id)) : [];
+            const crmRow = rows.find((row) => row.title === "הכול") || rows[0];
+            if (crmRow) {
+              const path = parseNavId(crmRow.id)!;
+              const retryId = await sendCtaUrl(to, crmRow.title, "פתיחה ב-CRM", absoluteUrl(SITE_BASE, path));
+              await supabase.from("whatsapp_messages").insert({
+                wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
+                msg_type: "interactive", body: crmRow.title, status: retryId ? "sent" : null,
+              });
+            } else {
+              await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
+            }
+          } else {
+            await reply(to, `${item.label}.\n${WA_NO_BUTTON}`, agentId);
+          }
         }
       } else {
         await supabase.from("whatsapp_messages").insert({
@@ -1648,10 +1667,10 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       const wa = phone
         ? `${res.reply}\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${phone}`
         : res.reply;
-      await reply(from, wa, null, { contactName: res.agentName });
+      await reply(from, wa, null, { contactName: res.agentName, customer: true });
     } else {
       const res = await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
-      await reply(from, res.reply, null);
+      await reply(from, res.reply, null, { customer: true });
     }
     return;
   }
@@ -1670,7 +1689,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     const coordWa = coord.agentPhone
       ? `${coord.text}\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${coord.agentPhone}`
       : coord.text;
-    await reply(from, coordWa, null, { contactName: coord.agentName });
+    await reply(from, coordWa, null, { contactName: coord.agentName, customer: true });
     return;
   }
 
@@ -1680,7 +1699,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   if (msg.type === "text") {
     const verifyReply = await handleWaSignVerify(supabase, from, String(msg.text?.body || ""));
     if (verifyReply) {
-      await reply(from, verifyReply, null);
+      await reply(from, verifyReply, null, { customer: true });
       return;
     }
   }
@@ -1694,7 +1713,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     if (m) {
       const { data, error } = await supabase.rpc("wa_login_verify", { p_nonce: m[1], p_from: from });
       if (error) console.error("wa login verify failed", error.message);
-      await reply(from, error ? "לא הצלחנו לאמת כרגע. נסו לשלוח שוב בעוד דקה." : String(data), null);
+      await reply(from, error ? "לא הצלחנו לאמת כרגע. נסו לשלוח שוב בעוד דקה." : String(data), null, { customer: true });
       return;
     }
   }
@@ -1722,7 +1741,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       return;
     }
     if (!publicBotEnabled) {
-      await reply(from, UNKNOWN_SENDER_MSG, null);
+      await reply(from, UNKNOWN_SENDER_MSG, null, { customer: true });
       return;
     }
     await handlePublicMessage(msg);

@@ -26483,7 +26483,7 @@ const AGENDA_CLIENT_BADGES = {
 };
 const AGENDA_FEEDBACK_BADGES = {
   liked: '👍 אהב/ה את הסיור',
-  unsure: '🤔 מתלבט/ת אחרי הסיור',
+  unsure: '🤔 מתלבטים אחרי הסיור',
   not_for_me: '👎 לא בשבילו/ה',
 };
 

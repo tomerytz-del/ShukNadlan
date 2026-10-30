@@ -51,7 +51,7 @@ check("שורש האתר", home.links[0]?.label === "לאתר");
 const payloads = payloadsForText("972500000000", several.text.includes("http") ? "" : 
   "דף https://shuknadlan.co.il/property?id=abc\nhttps://shuknadlan.co.il/pricing\nhttps://shuknadlan.co.il/sign?t=1");
 check("כפתור אחד בהודעה הראשונה", payloads.payloads[0]?.type === "interactive");
-check("לכל היותר שתי הודעות", payloads.payloads.length === MAX_WA_MESSAGES);
+check("שלושה יעדים הם שלוש הודעות", payloads.payloads.length === 3);
 check("גוף בלי כתובת", JSON.stringify(payloads.payloads).includes("https://") 
   ? (payloads.payloads as { type: string; interactive?: { body?: { text?: string } }; text?: { body?: string } }[])
       .every((p) => {
@@ -61,7 +61,9 @@ check("גוף בלי כתובת", JSON.stringify(payloads.payloads).includes("ht
   : false);
 const first = payloads.payloads[0] as { interactive: { body: { text: string }; action: { parameters: { display_text: string; url?: string } } } };
 const second = payloads.payloads[1] as { interactive: { body: { text: string }; action: { parameters: { display_text: string } } } };
-check("מה שנשאר הולך לאתר", second.interactive.body.text === "לאתר" && second.interactive.action.parameters.display_text === "לאתר");
+const third = payloads.payloads[2] as { interactive: { action: { parameters: { display_text: string } } } };
+check("כל יעד בכפתור משלו", second.interactive.action.parameters.display_text === "למסלולים"
+  && third.interactive.action.parameters.display_text === "לחתימה");
 check("כותרת בתוך 20", Array.from(first.interactive.action.parameters.display_text).length <= 20);
 
 const two = payloadsForText("972500000000", "דף https://shuknadlan.co.il/property?id=abc\nhttps://shuknadlan.co.il/pricing");
@@ -70,7 +72,7 @@ check("המשך של יעד אחד הוא שם היעד", two.payloads.length ==
 
 const tooMany = planWaText(Array.from({ length: 8 }, (_, i) => `https://shuknadlan.co.il/property?id=${i}`).join("\n"));
 const capped = payloadsForText("972500000000", tooMany.text + "\n" + Array.from({ length: 8 }, (_, i) => `https://shuknadlan.co.il/crm?goto=accProperties&property=${i}`).join(" "));
-check("תקרה של שתי הודעות", capped.payloads.length === MAX_WA_MESSAGES);
+check("תקרה של שלוש הודעות", capped.payloads.length === MAX_WA_MESSAGES);
 
 const empty = planWaText("https://shuknadlan.co.il/agreement?t=1");
 check("גוף ריק מקבל משפט", empty.text === WA_EMPTY_BODY && empty.links[0]?.label === "להסכם");
@@ -90,15 +92,14 @@ check("גוף ארוך יוצא כטקסט ואז כפתור", split.payloads.le
   && (split.payloads[1] as { type?: string }).type === "interactive");
 const longBody = (split.payloads[0] as { text: { body: string } }).text.body;
 check("הטקסט הארוך לא נחתך ל-1024", longBody.length > 1024 && !longBody.includes("http"));
-check("הכפתור שאחריו קצר", (split.payloads[1] as { interactive: { body: { text: string } } }).interactive.body.text === WA_EMPTY_BODY);
+check("הכפתור שאחריו קצר", (split.payloads[1] as { interactive: { body: { text: string } } }).interactive.body.text === "לדף הנכס");
 
 const withButton = payloadsForText(
   "972500000000",
   "הסרטון https://cdn.example.com/a.mp4 והדף https://shuknadlan.co.il/property?id=abc",
 );
-check("וידאו ואז כפתור", withButton.payloads.length === 2
-  && (withButton.payloads[0] as { type?: string }).type === "video"
-  && (withButton.payloads[1] as { type?: string }).type === "interactive");
+check("טקסט ואז וידאו ואז כפתור", withButton.payloads.map((p) => (p as { type?: string }).type).join(",") === "text,video,interactive"
+  && payloadBody(withButton.payloads[0]).includes("הסרטון"));
 
 const longVideo = payloadsForText(
   "972500000000",
@@ -160,6 +161,31 @@ check("טקסט ארוך עם וידאו לא יוצא פעמיים",
   longVideoRejected.posted.filter((part) => part.type === "text" && part.body.length > 1024).length === 1
   && longVideoRejected.posted.some((part) => part.type === "video")
   && longVideoRejected.id === longVideoRejected.posted[0]?.id);
+
+const withVideo = payloadsForText(
+  "972500000000",
+  "שלום https://cdn.example.com/a.mp4 https://shuknadlan.co.il/property?id=a",
+);
+check("גוף קצר עם וידאו יוצא כטקסט קודם",
+  withVideo.payloads.map((p) => (p as { type?: string }).type).join(",") === "text,video,interactive"
+  && payloadBody(withVideo.payloads[0]) === "שלום");
+const buttonRejected = await deliverMock(withVideo.payloads, (payload) => payload.type === "interactive");
+check("כפתור אחרי וידאו שנדחה משאיר את הטקסט",
+  buttonRejected.posted.filter((part) => part.type === "text" && part.body === "שלום").length === 1
+  && buttonRejected.posted.some((part) => part.type === "video")
+  && buttonRejected.id === buttonRejected.posted[0]?.id);
+const videoFailed = await deliverMock(withVideo.payloads, (payload) => payload.type === "video");
+check("וידאו שנכשל לא מונע טקסט וכפתור",
+  videoFailed.posted.some((part) => part.type === "text" && part.body === "שלום")
+  && videoFailed.posted.some((part) => part.type === "interactive")
+  && videoFailed.id === videoFailed.posted[0]?.id);
+let nothingSent = false;
+try {
+  await deliverMock(withVideo.payloads, () => true);
+} catch {
+  nothingSent = true;
+}
+check("אם לא יצא כלום נזרקת שגיאה", nothingSent);
 
 const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.example.com/a.mp4");
 check("וידאו לא כפתור", videoPayloads.payloads.length === 2

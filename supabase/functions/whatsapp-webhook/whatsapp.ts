@@ -245,6 +245,7 @@ export async function sendImageCta(
   body: string,
   label: string,
   url: string,
+  parts?: WaSent[],
 ): Promise<string | null> {
   const plan = planWaText(formatForWhatsapp(body));
   if (plan.stripped) logWaUrlGuard("sendImageCta", plan);
@@ -252,7 +253,9 @@ export async function sendImageCta(
   let leadId: string | null = null;
   let text = full || label || WA_EMPTY_BODY;
   if (full.length > MAX_BUTTON_BODY) {
-    leadId = await postMessage(to, textPayload(to, full.slice(0, MAX_TEXT_LEN)), "whatsapp send failed");
+    const prelude = textPayload(to, full.slice(0, MAX_TEXT_LEN));
+    leadId = await postMessage(to, prelude, "whatsapp send failed");
+    parts?.push(describeSent(prelude, leadId));
     text = label || "לפתיחה";
   }
   const payload = {
@@ -275,18 +278,20 @@ export async function sendImageCta(
   };
   try {
     const id = await postMessage(to, payload, "whatsapp image cta send failed");
+    parts?.push({ id, kind: "interactive", body: text });
     if (plan.links.length) await postGuardedFollowups(to, plan.links, url);
     return id ?? leadId;
   } catch (err) {
     console.error("wa-url-guard image cta failed, image then button", err);
-    const caption = plan.text || "";
+    const caption = leadId ? "" : (plan.text || "");
     try {
       await sendImage(to, imageUrl, caption);
     } catch (imgErr) {
       console.error("wa-url-guard image retry failed", imgErr);
     }
     try {
-      return await sendCtaUrl(to, label, label, url);
+      const id = await sendCtaUrl(to, label, label, url, parts);
+      return id ?? leadId;
     } catch (ctaErr) {
       console.error("wa-url-guard image button retry failed", ctaErr);
       if (!/\/crm(?:\/|\?|$)/.test(url)) return null;

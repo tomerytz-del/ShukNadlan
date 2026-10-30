@@ -16,8 +16,8 @@ export const MAX_WA_CTA = 5;
 export const WA_TEXT_MAX = 4096;
 export const WA_CTA_BODY_MAX = 1024;
 /** לכל היותר שתי הודעות לתשובה: הגוף, ואז כפתור אחד. */
-export const MAX_WA_MESSAGES = 2;
-const WA_SITE = "https://shuknadlan.co.il/";
+/** טקסט, ואז עד שני כפתורים. עם וידאו: טקסט, וידאו, וכפתור אחד. */
+export const MAX_WA_MESSAGES = 3;
 
 const BUTTON_TITLE_MAX = 20;
 
@@ -142,11 +142,12 @@ export function logWaUrlGuard(where: string, plan: WaTextPlan): void {
 }
 
 /**
- * נפילת כפתור הופכת לטקסט רק אם עוד לא יצא כלום, והחלק שנכשל הוא הראשון.
- * כפתור המשך שנדחה אחרי שהגוף או הכפתור הראשון כבר יצאו לא שולח את הגוף שוב.
+ * נפילה לטקסט רק אם החלק שנשא את הגוף נכשל ועוד לא יצא טקסט.
+ * כפתור המשך שנדחה אחרי שהגוף כבר יצא לא שולח אותו שוב.
+ * אם לא יצא כלום, נזרקת שגיאה כדי שהקורא ירשום כישלון.
  */
-export function shouldPlainFallback(index: number, delivered: number, type: string): boolean {
-  return index === 0 && delivered === 0 && type === "interactive";
+export function shouldPlainFallback(plainSent: boolean, delivered: number, type: string): boolean {
+  return !plainSent && delivered === 0 && (type === "interactive" || type === "text");
 }
 
 export async function deliverWaPayloads(
@@ -156,31 +157,34 @@ export async function deliverWaPayloads(
 ): Promise<string | null> {
   let first: string | null = null;
   let delivered = 0;
-  for (let i = 0; i < payloads.length; i++) {
-    const payload = payloads[i];
+  let plainSent = false;
+  for (const payload of payloads) {
+    const type = String(payload.type || "");
     try {
       const id = await post(payload);
       if (first == null) first = id;
       delivered++;
+      if (type === "text") plainSent = true;
     } catch (err) {
-      const type = String(payload.type || "");
-      if (type === "video") {
-        console.error("wa-url-guard video failed", err);
-        continue;
-      }
-      if (shouldPlainFallback(i, delivered, type)) {
-        console.error("wa-url-guard cta failed, text without url", err);
+      if (shouldPlainFallback(plainSent, delivered, type)) {
+        console.error("wa-url-guard body failed, text without url", err);
         try {
-          return await post(fallbackPayload());
+          const id = await post(fallbackPayload());
+          if (first == null) first = id;
+          delivered++;
+          plainSent = true;
+          continue;
         } catch (err2) {
           console.error("wa-url-guard text fallback failed", err2);
-          return first;
         }
+      } else if (type === "video") {
+        console.error("wa-url-guard video failed", err);
+      } else {
+        console.error("wa-url-guard follow-up failed", err);
       }
-      if (i === 0 && delivered === 0) throw err;
-      console.error("wa-url-guard follow-up failed", err);
     }
   }
+  if (delivered === 0) throw new Error("wa-url-guard nothing sent");
   return first;
 }
 
@@ -226,9 +230,8 @@ export function ctaPayload(to: string, body: string, label: string, url: string)
 }
 
 /**
- * לכל היותר שתי הודעות, חוץ מגוף ארוך עם וידאו: אז הטקסט יוצא קודם,
- * ואחריו הווידאו וכפתור אחד ליעד הראשון. בלי וידאו, גוף ארוך מ-1024
- * יוצא כטקסט ואז כפתור. כמה יעדים בלי וידאו: כפתור "לאתר" אחד.
+ * עד שלוש הודעות. עם וידאו: קודם הטקסט, אחר כך הווידאו, ואז כפתור קצר
+ * לכל יעד שנשאר מקום. בלי וידאו: הגוף עם הכפתור הראשון, ואז כפתור לכל יעד נוסף.
  */
 export function payloadsForText(to: string, body: string): {
   payloads: Record<string, unknown>[];
@@ -241,38 +244,25 @@ export function payloadsForText(to: string, body: string): {
   const visibleText = (plan.text || (ctas.length || videos.length ? WA_EMPTY_BODY : "")).slice(0, WA_TEXT_MAX);
   const payloads: Record<string, unknown>[] = [];
   const stamped = (url: string) => withClickUrl(url, "cta");
-  const oneFollowUp = (links: WaPlannedLink[]) => {
-    if (links.length === 1) {
-      payloads.push(ctaPayload(to, links[0].label, links[0].label, stamped(links[0].url)));
-    } else if (links.length > 1) {
-      payloads.push(ctaPayload(to, "לאתר", "לאתר", WA_SITE));
+  const prose = visibleText && visibleText !== WA_EMPTY_BODY ? visibleText : "";
+  const roomFor = (links: WaPlannedLink[], firstBody?: string) => {
+    for (let i = 0; i < links.length && payloads.length < MAX_WA_MESSAGES; i++) {
+      const link = links[i];
+      const body = i === 0 && firstBody ? firstBody : link.label;
+      payloads.push(ctaPayload(to, body, link.label, stamped(link.url)));
     }
   };
-  if (videos.length && ctas.length) {
-    const link = ctas[0];
-    const long = visibleText.length > WA_CTA_BODY_MAX;
-    if (long) payloads.push(textPayload(to, visibleText));
-    payloads.push(videoPayload(to, videos[0].url));
-    const buttonBody = !long && visibleText && visibleText !== WA_EMPTY_BODY
-      ? visibleText
-      : link.label;
-    payloads.push(ctaPayload(to, buttonBody, link.label, stamped(link.url)));
-  } else if (videos.length) {
-    if (visibleText && visibleText !== WA_EMPTY_BODY) payloads.push(textPayload(to, visibleText));
-    payloads.push(videoPayload(to, videos[0].url));
+  if (videos.length) {
+    if (prose) payloads.push(textPayload(to, prose));
+    if (payloads.length < MAX_WA_MESSAGES) payloads.push(videoPayload(to, videos[0].url));
+    roomFor(ctas);
   } else if (!ctas.length) {
     if (visibleText) payloads.push(textPayload(to, visibleText));
-  } else if (visibleText.length > WA_CTA_BODY_MAX) {
-    payloads.push(textPayload(to, visibleText));
-    if (ctas.length === 1) {
-      payloads.push(ctaPayload(to, WA_EMPTY_BODY, ctas[0].label, stamped(ctas[0].url)));
-    } else {
-      payloads.push(ctaPayload(to, WA_EMPTY_BODY, "לאתר", WA_SITE));
-    }
+  } else if (prose.length > WA_CTA_BODY_MAX) {
+    payloads.push(textPayload(to, prose));
+    roomFor(ctas);
   } else {
-    payloads.push(ctaPayload(to, visibleText || WA_EMPTY_BODY, ctas[0].label, stamped(ctas[0].url)));
-    oneFollowUp(ctas.slice(1));
+    roomFor(ctas, prose || WA_EMPTY_BODY);
   }
-  const cap = videos.length && ctas.length && visibleText.length > WA_CTA_BODY_MAX ? 3 : MAX_WA_MESSAGES;
-  return { payloads: payloads.slice(0, cap), visibleText, stripped: plan.stripped };
+  return { payloads: payloads.slice(0, MAX_WA_MESSAGES), visibleText, stripped: plan.stripped };
 }
