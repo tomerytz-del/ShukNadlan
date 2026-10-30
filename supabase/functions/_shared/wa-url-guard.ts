@@ -3,9 +3,11 @@
 // נשלח ל-Meta: מוציאה http(s) ו-wa.me, והשולח הופך אותם לכפתור.
 // כתובת .mp4 של אחסון יוצאת כמדיה, לא כקישור.
 //
-// עד שלושה כפתורי קישור, כל אחד ליעד שלו. אין כפתור גנרי לדף הבית.
-// עם וידאו: קודם הטקסט, אחר כך הווידאו, ואז הכפתורים. גוף ארוך מ-1024
-// יוצא כטקסט, לא נחתך לתוך כפתור. נפילה לטקסט פעם אחת, ורק אם הגוף לא יצא.
+// עד שלוש הודעות וואטסאפ לתשובה, כולל טקסט, וידאו, כרטיס תמונה וכל כפתור.
+// הסדר: קודם גוף הטקסט, אחר כך וידאו או תמונה, ואז כפתורי קישור לפי הסדר.
+// קישור שאין לו מקום נרשם ביומן ולא נשלח. אין כפתור גנרי לדף הבית.
+// גוף ארוך מ-1024 יוצא כטקסט, לא נחתך לתוך כפתור. נפילה לטקסט פעם אחת,
+// ורק אם הגוף לא יצא.
 
 import { withClickUrl } from "./agent-deep-link.ts";
 
@@ -15,13 +17,17 @@ export const WA_NO_BUTTON = "פרטים ב-CRM";
 export const MAX_WA_CTA = 5;
 export const WA_TEXT_MAX = 4096;
 export const WA_CTA_BODY_MAX = 1024;
-/** לכל היותר שתי הודעות לתשובה: הגוף, ואז כפתור אחד. */
-/** עד שלושה כפתורי קישור. טקסט ווידאו אינם נספרים במכסה הזו. */
+/** עד שלוש הודעות לתשובה בסך הכל: טקסט, מדיה וכל כפתור. */
 export const MAX_WA_MESSAGES = 3;
 
-/** אחרי דחייה: לא לשלוח שוב גוף שכבר יצא. */
-export function outboxRetry(textWentOut: boolean, hasCrmRow: boolean): "crm" | "note" | "body" {
-  if (hasCrmRow) return "crm";
+/**
+ * אחרי דחייה: כפתור CRM בלי הגוף רק אם הטקסט כבר יצא.
+ * אחרת הגוף עולה על כפתור ה-CRM. בלי יעד CRM - הערה, או הגוף אם הוא לא יצא.
+ */
+export type OutboxRetryPlan = "crm-short" | "crm-body" | "note" | "body";
+
+export function outboxRetry(textWentOut: boolean, hasCrmRow: boolean): OutboxRetryPlan {
+  if (hasCrmRow) return textWentOut ? "crm-short" : "crm-body";
   if (textWentOut) return "note";
   return "body";
 }
@@ -157,6 +163,18 @@ export function shouldPlainFallback(plainSent: boolean, delivered: number, type:
   return !plainSent && delivered === 0 && (type === "interactive" || type === "text");
 }
 
+export type WaDelivered = { id: string | null; type: string };
+
+/** הגוף לא יצא. `delivered` הוא מה שכן נמסר, כולל כפתור שאחריו. */
+export class WaBodyNotSentError extends Error {
+  delivered: WaDelivered[];
+  constructor(delivered: WaDelivered[]) {
+    super("wa-url-guard body not sent");
+    this.name = "WaBodyNotSentError";
+    this.delivered = delivered;
+  }
+}
+
 export async function deliverWaPayloads(
   payloads: Record<string, unknown>[],
   post: (payload: Record<string, unknown>) => Promise<string | null>,
@@ -168,6 +186,7 @@ export async function deliverWaPayloads(
   let plainSent = false;
   let bodyOut = !visibleText || visibleText === WA_EMPTY_BODY;
   let fallbackTried = false;
+  const sentParts: WaDelivered[] = [];
   const carries = (payload: Record<string, unknown>) => {
     if (!visibleText || visibleText === WA_EMPTY_BODY) return false;
     const probe = visibleText.slice(0, 80);
@@ -181,6 +200,7 @@ export async function deliverWaPayloads(
       const id = await post(payload);
       if (first == null) first = id;
       delivered++;
+      sentParts.push({ id, type });
       if (type === "text") plainSent = true;
       if (carries(payload)) bodyOut = true;
     } catch (err) {
@@ -191,6 +211,7 @@ export async function deliverWaPayloads(
           const id = await post(fallbackPayload());
           if (first == null) first = id;
           delivered++;
+          sentParts.push({ id, type: "text" });
           plainSent = true;
           bodyOut = true;
           continue;
@@ -204,7 +225,10 @@ export async function deliverWaPayloads(
       }
     }
   }
-  if (!bodyOut || delivered === 0) throw new Error("wa-url-guard body not sent");
+  if (!bodyOut || delivered === 0) {
+    if (sentParts.length) console.error("wa-url-guard body not sent; delivered", JSON.stringify(sentParts));
+    throw new WaBodyNotSentError(sentParts);
+  }
   return first;
 }
 
@@ -250,8 +274,8 @@ export function ctaPayload(to: string, body: string, label: string, url: string)
 }
 
 /**
- * עד שלוש הודעות. עם וידאו: קודם הטקסט, אחר כך הווידאו, ואז כפתור קצר
- * לכל יעד שנשאר מקום. בלי וידאו: הגוף עם הכפתור הראשון, ואז כפתור לכל יעד נוסף.
+ * עד שלוש הודעות בסך הכל. עם וידאו: קודם הטקסט, אחר כך הווידאו, ואז כפתור
+ * כל עוד נשאר מקום. בלי וידאו: הגוף עם הכפתור הראשון, ואז כפתור לכל יעד נוסף.
  */
 export function payloadsForText(to: string, body: string): {
   payloads: Record<string, unknown>[];
@@ -266,27 +290,235 @@ export function payloadsForText(to: string, body: string): {
   const payloads: Record<string, unknown>[] = [];
   const stamped = (url: string) => withClickUrl(url, "cta");
   const prose = visibleText && visibleText !== WA_EMPTY_BODY ? visibleText : "";
-  let dropped = 0;
-  const roomFor = (links: WaPlannedLink[], firstBody?: string) => {
-    const take = links.slice(0, MAX_WA_MESSAGES);
-    dropped += links.length - take.length;
-    take.forEach((link, i) => {
-      const body = i === 0 && firstBody ? firstBody : link.label;
-      payloads.push(ctaPayload(to, body, link.label, stamped(link.url)));
-    });
+  const droppedLinks: WaPlannedLink[] = [];
+  const room = () => payloads.length < MAX_WA_MESSAGES;
+  const pushCtas = (links: WaPlannedLink[], firstBody?: string) => {
+    let first = true;
+    for (const link of links) {
+      if (!room()) {
+        droppedLinks.push(link);
+        continue;
+      }
+      const buttonBody = first && firstBody ? firstBody : link.label;
+      first = false;
+      payloads.push(ctaPayload(to, buttonBody, link.label, stamped(link.url)));
+    }
   };
   if (videos.length) {
-    if (prose) payloads.push(textPayload(to, prose));
-    payloads.push(videoPayload(to, videos[0].url));
-    roomFor(ctas);
+    if (prose && room()) payloads.push(textPayload(to, prose));
+    if (room()) payloads.push(videoPayload(to, videos[0].url));
+    else droppedLinks.push(videos[0]);
+    droppedLinks.push(...videos.slice(1));
+    pushCtas(ctas);
   } else if (!ctas.length) {
-    if (visibleText) payloads.push(textPayload(to, visibleText));
+    if (visibleText && room()) payloads.push(textPayload(to, visibleText));
   } else if (prose.length > WA_CTA_BODY_MAX) {
-    payloads.push(textPayload(to, prose));
-    roomFor(ctas);
+    if (room()) payloads.push(textPayload(to, prose));
+    pushCtas(ctas);
   } else {
-    roomFor(ctas, prose || WA_EMPTY_BODY);
+    pushCtas(ctas, prose || WA_EMPTY_BODY);
   }
-  if (dropped > 0) console.warn("wa-url-guard dropped links", dropped);
-  return { payloads, visibleText, stripped: plan.stripped, dropped };
+  if (droppedLinks.length) logDroppedWaLinks(to, droppedLinks);
+  return { payloads, visibleText, stripped: plan.stripped, dropped: droppedLinks.length };
+}
+
+export type WaDropRow = { wa_phone: string; body: string; error: string };
+
+type DropLogger = (row: WaDropRow) => Promise<void> | void;
+
+let dropLogger: DropLogger | null = null;
+let dropChain: Promise<void> = Promise.resolve();
+
+/** רישום קישור שנזרק ליומן (`whatsapp_messages`). בלי חיבור נשארת האזהרה. */
+export function setWaDropLogger(fn: DropLogger | null): void {
+  dropLogger = fn;
+}
+
+export function flushWaDropLog(): Promise<void> {
+  return dropChain;
+}
+
+export function logDroppedWaLinks(to: string, links: WaPlannedLink[]): void {
+  if (!links.length) return;
+  console.warn("wa-url-guard dropped links", links.length);
+  const logger = dropLogger;
+  if (!logger) return;
+  const row: WaDropRow = {
+    wa_phone: to,
+    body: links.map((link) => link.kind === "video" ? "video" : (link.label || "קישור")).join(" | ").slice(0, 500),
+    error: `dropped links ${links.length}`,
+  };
+  dropChain = dropChain.then(() => Promise.resolve(logger(row))).then(() => undefined, (err) => {
+    console.error("wa-url-guard drop log failed", err);
+  });
+}
+
+/**
+ * כמה הודעות כבר יצאו לפני קישורי ההמשך: טקסט אם הגוף ארוך מ-1024, ועוד
+ * ההודעה האינטראקטיבית עצמה (כפתורי תשובה, רשימה, או כרטיס תמונה עם הכפתור שלו).
+ */
+export function countBeforeFollowups(text: string): number {
+  const clean = text && text !== WA_EMPTY_BODY ? text : "";
+  return (clean.length > WA_CTA_BODY_MAX ? 1 : 0) + 1;
+}
+
+export type BurstFollowups = {
+  video: WaPlannedLink | null;
+  ctas: WaPlannedLink[];
+  dropped: WaPlannedLink[];
+};
+
+/** וידאו קודם לכפתורי קישור. מה שאין לו מקום במכסה נזרק. */
+export function selectBurstFollowups(
+  alreadySent: number,
+  links: WaPlannedLink[],
+  skipUrl?: string,
+): BurstFollowups {
+  let room = Math.max(0, MAX_WA_MESSAGES - alreadySent);
+  const videos = links.filter((link) => link.kind === "video");
+  const ctas = links.filter((link) => link.kind === "cta" && link.url !== skipUrl);
+  const dropped: WaPlannedLink[] = [];
+  let video: WaPlannedLink | null = null;
+  if (videos.length) {
+    if (room > 0) {
+      video = videos[0];
+      room--;
+    } else dropped.push(videos[0]);
+    dropped.push(...videos.slice(1));
+  }
+  const take = ctas.slice(0, room);
+  dropped.push(...ctas.slice(take.length));
+  return { video, ctas: take, dropped };
+}
+
+/** סדר השליחה של ההמשך: וידאו, ואז כפתורי קישור. */
+export function followupKinds(plan: BurstFollowups): string[] {
+  const kinds: string[] = [];
+  if (plan.video) kinds.push("video");
+  for (let i = 0; i < plan.ctas.length; i++) kinds.push("interactive");
+  return kinds;
+}
+
+export type OutboxPart = { id: string | null; kind: "text" | "interactive" | "video" | "image"; body: string };
+
+export type OutboxLogRow = {
+  wa_message_id?: string | null;
+  msg_type: string;
+  body: string;
+  status?: string | null;
+  error?: string | null;
+};
+
+export type OutboxSendItem =
+  | { kind: "cta"; body: string; label: string; url: string }
+  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] }
+  | {
+    kind: "list";
+    body: string;
+    button: string;
+    section: string;
+    rows: { id: string; title: string; description?: string }[];
+  };
+
+/**
+ * שליחת פריט אחד מהתור, כולל הניסיון השני אחרי דחייה.
+ * כפתור CRM בלי הגוף רק אחרי שהטקסט יצא. אם גם הוא נדחה, נרשמת השגיאה
+ * ויוצא טקסט עם הגוף.
+ */
+export async function sendOutboxItem(
+  item: OutboxSendItem,
+  io: {
+    sendCtaUrl: (body: string, label: string, url: string, parts: OutboxPart[]) => Promise<string | null>;
+    sendList: (
+      body: string,
+      button: string,
+      section: string,
+      rows: { id: string; title: string; description?: string }[],
+      parts: OutboxPart[],
+    ) => Promise<string | null>;
+    sendButtons: (body: string, buttons: { id: string; title: string }[], parts: OutboxPart[]) => Promise<string | null>;
+    reply: (text: string) => Promise<void>;
+    log: (row: OutboxLogRow) => Promise<void>;
+    crmUrl: (rowId: string) => string | null;
+  },
+): Promise<void> {
+  const logBody = item.kind === "cta"
+    ? `${item.body}\n[${item.label}] ${item.url}`
+    : item.kind === "list"
+    ? `${item.body}\n[${item.rows.map((row) => row.title).join(" | ")}]`
+    : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
+  const parts: OutboxPart[] = [];
+  let errorLogged = false;
+  const textOut = () => parts.some((part) => part.kind === "text");
+  const crmRow = item.kind === "list"
+    ? (item.rows.filter((row) => io.crmUrl(row.id)).find((row) => row.title === "הכול")
+      || item.rows.find((row) => io.crmUrl(row.id)))
+    : undefined;
+  const logError = async (error: string) => {
+    if (errorLogged) return;
+    errorLogged = true;
+    await io.log({ msg_type: "interactive", body: logBody, error });
+  };
+  const shortRetry = async () => {
+    const plan = outboxRetry(textOut(), !!crmRow);
+    if ((plan === "crm-short" || plan === "crm-body") && crmRow) {
+      const url = io.crmUrl(crmRow.id);
+      if (url) {
+        const buttonBody = plan === "crm-body" ? item.body : crmRow.title;
+        try {
+          const retryId = await io.sendCtaUrl(buttonBody, "פתיחה ב-CRM", url, parts);
+          await io.log({
+            wa_message_id: retryId,
+            msg_type: "interactive",
+            body: buttonBody,
+            status: retryId ? "sent" : null,
+          });
+        } catch (retryErr) {
+          console.error("outbox crm retry failed", retryErr);
+          await io.log({
+            msg_type: "interactive",
+            body: buttonBody,
+            error: String((retryErr as Error)?.message || retryErr),
+          });
+          const note = WA_NO_BUTTON;
+          await io.reply(textOut() ? note : `${item.body}\n${note}`);
+        }
+        return;
+      }
+    }
+    const note = item.kind === "cta" ? `${item.label}.\n${WA_NO_BUTTON}` : WA_NO_BUTTON;
+    await io.reply(plan === "body" ? `${item.body}\n${note}` : note);
+  };
+  try {
+    const waMessageId = item.kind === "cta"
+      ? await io.sendCtaUrl(item.body, item.label, item.url, parts)
+      : item.kind === "list"
+      ? await io.sendList(item.body, item.button, item.section, item.rows, parts)
+      : await io.sendButtons(item.body, item.buttons, parts);
+    if (parts.length) {
+      for (const part of parts) {
+        await io.log({
+          wa_message_id: part.id,
+          msg_type: part.kind,
+          body: part.body || logBody,
+          status: part.id ? "sent" : null,
+        });
+      }
+      if (!parts.some((part) => part.kind === "interactive")) {
+        await logError("button rejected after text");
+        await shortRetry();
+      }
+    } else {
+      await io.log({
+        wa_message_id: waMessageId,
+        msg_type: "interactive",
+        body: logBody,
+        status: waMessageId ? "sent" : null,
+      });
+    }
+  } catch (err) {
+    console.error("outbox send failed", err);
+    await logError(String((err as Error)?.message || err));
+    await shortRetry();
+  }
 }

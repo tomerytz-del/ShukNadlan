@@ -461,11 +461,14 @@ export async function respondToCoord(
   supabase: SupabaseClient,
   token: string,
   answer: CoordAnswer,
-): Promise<{ text: string; agentName: string; agentPhone: string | null }> {
+): Promise<{ text: string; agentName: string; agentPhone: string | null; customer: boolean }> {
+  const { data: reqRow } = await supabase.from("showing_coord_requests")
+    .select("target").eq("token", token).maybeSingle();
+  const customer = reqRow?.target === "owner";
   const { data, error } = await supabase.rpc("showing_coord_respond", { p_token: token, p_answer: answer });
   if (error) {
     console.error("showing coord respond failed", error);
-    return { text: "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", agentName: "המתווך/ת", agentPhone: null };
+    return { text: "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", agentName: "המתווך/ת", agentPhone: null, customer };
   }
   const res = (data || {}) as Record<string, unknown>;
 
@@ -480,12 +483,12 @@ export async function respondToCoord(
   }
 
   if (res.error === "canceled") {
-    return { text: `הביקור הזה כבר בוטל - אין צורך לעשות דבר. תודה! 🙏`, agentName, agentPhone: null };
+    return { text: `הביקור הזה כבר בוטל - אין צורך לעשות דבר. תודה! 🙏`, agentName, agentPhone: null, customer };
   }
   if (res.error === "past") {
-    return { text: `מועד הביקור הזה כבר עבר. לכל שאלה אפשר לפנות ל${agentName}.`, agentName, agentPhone: contact || null };
+    return { text: `מועד הביקור הזה כבר עבר. לכל שאלה אפשר לפנות ל${agentName}.`, agentName, agentPhone: contact || null, customer };
   }
-  if (res.error) return { text: "לא מצאתי את בקשת הביקור הזו.", agentName, agentPhone: null };
+  if (res.error) return { text: "לא מצאתי את בקשת הביקור הזו.", agentName, agentPhone: null, customer };
 
   if (!res.already) await kickNotificationPush();
   const when = res.window_start
@@ -496,10 +499,11 @@ export async function respondToCoord(
       text: `תודה! עדכנתי את ${agentName} שהביקור מאושר 🙌${when ? ` נתראה ${when}.` : ""}`,
       agentName,
       agentPhone: null,
+      customer,
     };
   }
   const text = answer === "postpone"
     ? `תודה, עדכנתי את ${agentName} שעדיף מעט מאוחר יותר, הפרטים הועברו ל${agentName} לתיאום.`
     : `תודה, עדכנתי את ${agentName} שהמועד לא מתאים, הפרטים הועברו ל${agentName} לתיאום.`;
-  return { text, agentName, agentPhone: contact || null };
+  return { text, agentName, agentPhone: contact || null, customer };
 }

@@ -4,13 +4,22 @@
 
 import {
   buttonLabelForUrl,
+  countBeforeFollowups,
   deliverWaPayloads,
+  flushWaDropLog,
+  followupKinds,
   outboxRetry,
   MAX_WA_MESSAGES,
   payloadsForText,
   planWaText,
+  selectBurstFollowups,
+  sendOutboxItem,
+  setWaDropLogger,
   WA_EMPTY_BODY,
   WA_NO_BUTTON,
+  WaBodyNotSentError,
+  type OutboxLogRow,
+  type WaPlannedLink,
 } from "../supabase/functions/_shared/wa-url-guard.ts";
 
 let failed = 0;
@@ -108,8 +117,9 @@ const longVideo = payloadsForText(
 );
 const longTypes = longVideo.payloads.map((p) => (p as { type?: string }).type);
 const longButton = longVideo.payloads[2] as { interactive?: { body?: { text?: string }; action?: { parameters?: { url?: string; display_text?: string } } } };
-check("גוף ארוך עם וידאו יוצא כטקסט קודם", longTypes[0] === "text" && longTypes[1] === "video"
-  && longTypes.filter((type) => type === "interactive").length === 2
+check("גוף ארוך עם וידאו יוצא כטקסט קודם", longTypes.join(",") === "text,video,interactive"
+  && longVideo.dropped === 1
+  && longVideo.payloads.length === MAX_WA_MESSAGES
   && (longVideo.payloads[0] as { text: { body: string } }).text.body.length > 1024);
 check("הכפתור הוא היעד הראשון ולא דף הבית", longButton.interactive?.action?.parameters?.display_text === "לדף הנכס"
   && String(longButton.interactive?.action?.parameters?.url || "").includes("/property")
@@ -190,7 +200,8 @@ try {
 check("אם לא יצא כלום נזרקת שגיאה", nothingSent);
 
 check("כפתורים בלי יעד CRM לא שולחים את הגוף שוב", outboxRetry(true, false) === "note");
-check("רשימה עם יעד CRM שולחת רק כפתור", outboxRetry(true, true) === "crm");
+check("רשימה עם יעד CRM אחרי שהטקסט יצא היא כפתור בלי הגוף", outboxRetry(true, true) === "crm-short");
+check("רשימה עם יעד CRM לפני שהטקסט יצא נושאת את הגוף", outboxRetry(false, true) === "crm-body");
 
 let bodyLost = false;
 try {
@@ -234,6 +245,164 @@ const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.exam
 check("וידאו לא כפתור", videoPayloads.payloads.length === 2
   && videoPayloads.payloads.some((p) => (p as { type?: string }).type === "video")
   && videoPayloads.payloads.every((p) => (p as { type?: string }).type !== "interactive"));
+
+const burstText = "יש נכס https://cdn.example.com/a.mp4 https://shuknadlan.co.il/property?id=a https://shuknadlan.co.il/pricing https://shuknadlan.co.il/sign?t=1";
+const burst = payloadsForText("972500000000", burstText);
+check("טקסט ווידאו ושלושה קישורים הן שלוש הודעות",
+  burst.payloads.map((p) => (p as { type?: string }).type).join(",") === "text,video,interactive"
+  && burst.payloads.length === 3
+  && burst.dropped === 2
+  && payloadBody(burst.payloads[0]).includes("יש נכס"));
+
+const droppedRows: { wa_phone: string; body: string; error: string }[] = [];
+setWaDropLogger(async (row) => { droppedRows.push(row); });
+const burstLogged = payloadsForText("972500000001", burstText);
+await flushWaDropLog();
+setWaDropLogger(null);
+check("קישור שנזרק נרשם ביומן",
+  burstLogged.dropped === 2
+  && droppedRows.length === 1
+  && droppedRows[0].wa_phone === "972500000001"
+  && droppedRows[0].error.includes("dropped")
+  && droppedRows[0].body.includes("למסלולים")
+  && !droppedRows[0].body.includes("http"));
+
+const longButtonsBody = `${"ג".repeat(1500)} https://cdn.example.com/a.mp4 https://shuknadlan.co.il/property?id=a https://shuknadlan.co.il/pricing`;
+const longButtonsPlan = planWaText(longButtonsBody);
+const longButtonsAlready = countBeforeFollowups(longButtonsPlan.text);
+const longButtonsFollow = selectBurstFollowups(longButtonsAlready, longButtonsPlan.links);
+check("sendButtons ארוך: טקסט, כפתור, ואז וידאו בלי קישור מעבר למכסה",
+  longButtonsAlready === 2
+  && followupKinds(longButtonsFollow).join(",") === "video"
+  && longButtonsFollow.ctas.length === 0
+  && longButtonsFollow.dropped.filter((link) => link.kind === "cta").length === 2);
+
+const cardBody = "דירה יפה https://shuknadlan.co.il/pricing https://shuknadlan.co.il/sign?t=1 https://shuknadlan.co.il/crm";
+const cardPlan = planWaText(cardBody);
+const cardAlready = countBeforeFollowups(cardPlan.text);
+const cardFollow = selectBurstFollowups(cardAlready, cardPlan.links, "https://shuknadlan.co.il/property?id=1");
+check("כרטיס תמונה נספר עם הכפתור שלו ונשארים שני קישורים",
+  cardAlready === 1
+  && cardFollow.ctas.length === 2
+  && cardFollow.dropped.length === 1
+  && !cardFollow.video
+  && followupKinds(cardFollow).join(",") === "interactive,interactive");
+
+const shortVideoLinks: WaPlannedLink[] = [
+  { url: "https://cdn.example.com/a.mp4", label: "", kind: "video" },
+  { url: "https://shuknadlan.co.il/property?id=a", label: "לדף הנכס", kind: "cta" },
+  { url: "https://shuknadlan.co.il/pricing", label: "למסלולים", kind: "cta" },
+];
+const shortFollow = selectBurstFollowups(countBeforeFollowups("שלום"), shortVideoLinks);
+check("sendButtons קצר: וידאו לפני קישור אחד",
+  followupKinds(shortFollow).join(",") === "video,interactive"
+  && shortFollow.dropped.length === 1);
+
+type SentCall = { body: string; label?: string; reply?: string };
+async function runOutbox(opts: {
+  kind?: "list" | "buttons";
+  body: string;
+  rows?: { id: string; title: string }[];
+  listThrows?: boolean;
+  crmThrows?: boolean;
+  textFirst?: boolean;
+}) {
+  const logs: OutboxLogRow[] = [];
+  const calls: SentCall[] = [];
+  const rows = opts.rows || [];
+  await sendOutboxItem({
+    kind: opts.kind || "list",
+    body: opts.body,
+    button: "בחירה",
+    section: "לאן",
+    rows,
+    buttons: [{ id: "yes", title: "כן" }],
+    label: "פתיחה",
+    url: "https://shuknadlan.co.il/crm",
+  } as Parameters<typeof sendOutboxItem>[0], {
+    sendCtaUrl: async (body, label) => {
+      calls.push({ body, label });
+      if (opts.crmThrows) throw new Error("crm rejected");
+      return "wamid.crm";
+    },
+    sendList: async (body, _button, _section, _rows, parts) => {
+      if (opts.textFirst) {
+        parts.push({ id: "wamid.text", kind: "text", body });
+        return "wamid.text";
+      }
+      if (opts.listThrows) throw new Error("list rejected");
+      parts.push({ id: "wamid.list", kind: "interactive", body });
+      return "wamid.list";
+    },
+    sendButtons: async (body, _buttons, parts) => {
+      if (opts.textFirst) {
+        parts.push({ id: "wamid.text", kind: "text", body });
+        return "wamid.text";
+      }
+      throw new Error("buttons rejected");
+    },
+    reply: async (text) => { calls.push({ body: text, reply: text }); },
+    log: async (row) => { logs.push(row); },
+    crmUrl: (id) => id.startsWith("nav:") ? `https://shuknadlan.co.il${id.slice(4)}` : null,
+  });
+  return { logs, calls };
+}
+
+const crmRows = [
+  { id: "nav:/crm?goto=accProperties", title: "הכול" },
+  { id: "nav:/crm?goto=accLeads", title: "לידים" },
+];
+const shortList = await runOutbox({ body: "בחרו", rows: crmRows, listThrows: true });
+const crmCall = shortList.calls.find((call) => call.label === "פתיחה ב-CRM");
+check("רשימה קצרה שנדחתה: כפתור ה-CRM נושא את הגוף",
+  crmCall?.body === "בחרו"
+  && !shortList.calls.some((call) => call.reply)
+  && shortList.logs.some((row) => row.error === "list rejected")
+  && shortList.logs.some((row) => row.body === "בחרו" && row.status === "sent"));
+
+const bothRejected = await runOutbox({ body: "בחרו", rows: crmRows, listThrows: true, crmThrows: true });
+check("גם כפתור ה-CRM נדחה: השגיאה נרשמת ויוצא טקסט עם הגוף",
+  bothRejected.logs.some((row) => row.error === "list rejected")
+  && bothRejected.logs.some((row) => String(row.error || "").includes("crm rejected") && String(row.body || "").includes("בחרו"))
+  && bothRejected.calls.some((call) => call.reply && call.reply.includes("בחרו") && call.reply.includes(WA_NO_BUTTON)));
+
+const longButtons = await runOutbox({
+  kind: "buttons",
+  body: "ד".repeat(1500),
+  textFirst: true,
+});
+check("כפתורים ארוכים בלי CRM לא שולחים את הגוף שוב",
+  longButtons.calls.length === 1
+  && longButtons.calls[0].reply === WA_NO_BUTTON
+  && !longButtons.calls[0].reply.includes("דדד")
+  && longButtons.logs.filter((row) => row.msg_type === "text" && String(row.body || "").length > 1024).length === 1);
+
+const longList = await runOutbox({
+  body: "ה".repeat(1500),
+  rows: [],
+  textFirst: true,
+});
+check("רשימה ארוכה בלי CRM לא שולחת את הגוף שוב",
+  longList.calls.length === 1
+  && longList.calls[0].reply === WA_NO_BUTTON
+  && !String(longList.calls[0].reply).includes("ההה"));
+
+let deliveredButton = false;
+try {
+  const carried = payloadsForText(
+    "972500000000",
+    "שלום עולם https://shuknadlan.co.il/property?id=a https://shuknadlan.co.il/pricing",
+  );
+  await deliverWaPayloads(carried.payloads, async (payload) => {
+    const body = payloadBody(payload);
+    if (body.includes("שלום")) throw new Error("body button");
+    return "wamid.kept";
+  }, () => { throw new Error("fallback"); }, "שלום עולם");
+} catch (err) {
+  deliveredButton = err instanceof WaBodyNotSentError
+    && err.delivered.some((part) => part.id === "wamid.kept" && part.type === "interactive");
+}
+check("כפתור שנמסר אחרי שהגוף לא יצא נרשם על השגיאה", deliveredButton);
 
 if (failed) {
   console.log(`\n${failed} בדיקות נכשלו`);

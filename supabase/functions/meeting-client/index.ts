@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { setWaDropLogger } from "../_shared/wa-url-guard.ts";
 import {
   feedbackTemplateConfigured, feedbackToMeeting, firstName, inWindow, kickNotificationPush, type MeetingFeedback,
   meetingNoun, meetingTemplateConfigured, meetingWhenText, type MeetingResponse, phoneE164,
@@ -50,6 +51,15 @@ type Row = Record<string, any>;
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  setWaDropLogger(async (row) => {
+    await supabase.from("whatsapp_messages").insert({
+      direction: "out",
+      wa_phone: row.wa_phone,
+      msg_type: "text",
+      body: row.body,
+      error: row.error,
+    });
+  });
 
   if (req.method === "GET") {
     const url = new URL(req.url);

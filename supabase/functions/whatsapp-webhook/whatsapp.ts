@@ -5,11 +5,14 @@ import { encodeNavId, parseNavId, withClick, withClickUrl } from "../_shared/age
 import { noLongDash } from "../_shared/marketing-copy.ts";
 import { paceRecipient } from "../_shared/wa-pair-pace.ts";
 import {
+  countBeforeFollowups,
   ctaPayload,
+  logDroppedWaLinks,
   logWaUrlGuard,
   deliverWaPayloads,
   payloadsForText,
   planWaText,
+  selectBurstFollowups,
   textPayload,
   videoPayload,
   WA_EMPTY_BODY,
@@ -121,26 +124,29 @@ function plainBody(visible: string): string {
 
 export const WA_CUSTOMER_NOTE = "פרטים נוספים באתר שוק נדל״ן.";
 
-/** עד שלושה כפתורים ליעדים עצמם. אין כפתור גנרי לדף הבית. */
-async function postGuardedFollowups(to: string, links: WaPlannedLink[], skipUrl?: string): Promise<void> {
-  const ctas = links.filter((link) => link.kind === "cta" && link.url !== skipUrl);
-  const videos = links.filter((link) => link.kind === "video");
-  const take = ctas.slice(0, 3);
-  if (ctas.length > take.length) console.warn("wa-url-guard dropped links", ctas.length - take.length);
-  for (const link of take) {
+/** המשך בתוך מכסת שלוש ההודעות. קודם וידאו, אחר כך כפתורי קישור. */
+async function postGuardedFollowups(
+  to: string,
+  links: WaPlannedLink[],
+  skipUrl: string | undefined,
+  alreadySent: number,
+): Promise<void> {
+  const plan = selectBurstFollowups(alreadySent, links, skipUrl);
+  if (plan.dropped.length) logDroppedWaLinks(to, plan.dropped);
+  if (plan.video) {
+    try {
+      await postMessage(to, videoPayload(to, plan.video.url), "whatsapp video send failed");
+    } catch (err) {
+      console.error("wa-url-guard follow-up failed", err);
+    }
+  }
+  for (const link of plan.ctas) {
     try {
       await postMessage(
         to,
         ctaPayload(to, link.label, link.label, withClickUrl(link.url, "cta")),
         "whatsapp cta_url send failed",
       );
-    } catch (err) {
-      console.error("wa-url-guard follow-up failed", err);
-    }
-  }
-  if (videos.length) {
-    try {
-      await postMessage(to, videoPayload(to, videos[0].url), "whatsapp video send failed");
     } catch (err) {
       console.error("wa-url-guard follow-up failed", err);
     }
@@ -218,7 +224,7 @@ export async function sendImage(
       type: "image",
       image: { link: imageUrl, caption: imageCaption },
     }, "whatsapp image send failed");
-    if (plan.links.length) await postGuardedFollowups(to, plan.links);
+    if (plan.links.length) await postGuardedFollowups(to, plan.links, undefined, countBeforeFollowups(full));
     return id;
   } catch (err) {
     if (!textId) throw err;
@@ -276,20 +282,21 @@ export async function sendImageCta(
   try {
     const id = await postMessage(to, payload, "whatsapp image cta send failed");
     parts?.push({ id, kind: "interactive", body: text });
-    if (plan.links.length) await postGuardedFollowups(to, plan.links, url);
+    if (plan.links.length) await postGuardedFollowups(to, plan.links, url, countBeforeFollowups(full));
     return id ?? leadId;
   } catch (err) {
     console.error("wa-url-guard image cta failed, image then button", err);
     const caption = leadId ? "" : (plan.text || "");
+    let imageId: string | null = null;
     try {
-      const imageId = await sendImage(to, imageUrl, caption);
+      imageId = await sendImage(to, imageUrl, caption);
       parts?.push({ id: imageId, kind: "image", body: caption });
     } catch (imgErr) {
       console.error("wa-url-guard image retry failed", imgErr);
     }
     try {
       const id = await sendCtaUrl(to, label, label, url, parts);
-      return id ?? leadId;
+      return imageId ?? id ?? leadId;
     } catch (ctaErr) {
       console.error("wa-url-guard image button retry failed", ctaErr);
       if (!/\/crm(?:\/|\?|$)/.test(url)) return null;
@@ -379,8 +386,8 @@ export async function sendButtons(
     console.error("wa-url-guard buttons failed after text", err);
     return textId;
   }
-  // כפתורי תשובה וכפתור קישור אינם באותה הודעה. הכתובת יוצאת בהמשך.
-  if (plan.links.length) await postGuardedFollowups(to, plan.links);
+  // כפתורי תשובה וכפתור קישור אינם באותה הודעה. קודם וידאו, אחר כך קישור.
+  if (plan.links.length) await postGuardedFollowups(to, plan.links, undefined, countBeforeFollowups(clean));
   return id ?? textId;
 }
 
@@ -450,7 +457,7 @@ export async function sendList(
     console.error("wa-url-guard list failed after text", err);
     return textId;
   }
-  if (plan.links.length) await postGuardedFollowups(to, plan.links);
+  if (plan.links.length) await postGuardedFollowups(to, plan.links, undefined, countBeforeFollowups(clean));
   return sent ?? textId;
 }
 
@@ -504,7 +511,7 @@ export async function sendCtaUrl(
     console.error("wa-url-guard cta failed after text", err);
     return textId;
   }
-  if (plan.links.length) await postGuardedFollowups(to, plan.links, url);
+  if (plan.links.length) await postGuardedFollowups(to, plan.links, url, countBeforeFollowups(clean));
   return id ?? textId;
 }
 
