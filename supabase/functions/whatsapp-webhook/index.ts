@@ -2201,9 +2201,9 @@ function opsQuestionDb(): OpsQuestionDb {
       }).eq("agent_id", agentId).eq("purpose", purpose);
       if (error) throw new Error(error.message);
     },
-    async appendHistory(agentId, phone, lastInbound, assistantText) {
+    async appendHistory(agentId, phone, lastInbound, assistantText, note) {
       // הזוג נבנה בלי לקרוא את ההיסטוריה. ההצמדה אטומית במסד (||).
-      const entries = appendOpsHistory([], assistantText);
+      const entries = appendOpsHistory([], assistantText, note);
       const { error } = await supabase.rpc("whatsapp_ops_history_append", {
         p_agent: agentId,
         p_phone: phone,
@@ -2224,6 +2224,12 @@ function opsQuestionDb(): OpsQuestionDb {
         error: row.error,
       });
       if (error) throw new Error(error.message);
+    },
+    async sendWindowOpen(atIso) {
+      // אותו חלון של הסוכנים: 08:00-21:00, שישי עד 13:00, שבת סגורה.
+      const { data, error } = await supabase.rpc("notification_send_window_open", { p_at: atIso });
+      if (error) throw new Error(error.message);
+      return data === true;
     },
   };
 }
@@ -2425,6 +2431,7 @@ Deno.serve(async (req: Request) => {
         db: opsQuestionDb(),
         input,
         sendButtons,
+        sendCta: sendCtaUrl,
       });
       return new Response(JSON.stringify(result.body), {
         status: result.status,
