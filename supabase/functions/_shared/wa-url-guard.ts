@@ -88,12 +88,12 @@ export function buttonLabelForUrl(url: string): string {
   if (full.includes("wa.me/") || host === "wa.me") return "שליחת הודעה";
   if (path === "/" || path === "") return "לאתר";
   if (path.includes("/pricing") || path.includes("/checkout")) return "למסלולים";
-  if (path.includes("/property")) return "לדף הנכס";
+  if (path.includes("/property") || /^\/p\/\d+/.test(path)) return "לדף הנכס";
   // signup ו-invite מכילים את המחרוזת sign. הם נבדקים לפני /sign וגם לפני /agency.
   if (path.includes("signup") || path.includes("invite") || /\/join(?:\/|$)/.test(path)) return "להצטרפות";
   if (path === "/sign" || path.startsWith("/sign/")) return "לחתימה";
   if (path.includes("/agreement")) return "להסכם";
-  if (path.includes("/showcase") || path.startsWith("/w/")) return "לעמוד האישי";
+  if (path.includes("/showcase") || path.startsWith("/w/") || path.startsWith("/m/")) return "לעמוד האישי";
   if (path.includes("/plan")) return "מידע תכנוני";
   if (path.includes("/professional")) return "לכרטיס";
   if (path.includes("/agent")) return "לדף היועץ";

@@ -20,6 +20,7 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
+import { propertyForwardMessage, propertyPublicUrl, showcaseForwardMessage, showcasePublicUrl } from "../_shared/wa-forward.ts";
 import { airCountOnly, LARGE_LIVING_ROOM_SQM, minAirCountKept, writeAirDirections } from "../_shared/air-living.ts";
 import {
   SERVICE_MARKET_LABELS,
@@ -3808,6 +3809,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   if (!link) {
     return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת - אין דרך לבנות קישור." };
   }
+  const publicLink = propertyPublicUrl(SITE_BASE_URL, p.listing_number) || link;
 
   let client: Record<string, unknown> | null = null;
   if (input.client_id) {
@@ -3831,15 +3833,15 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const greeting = client
     ? `היי ${String(client.full_name || "").trim()},`
     : "";
-  // הודעה שהסוכן/ת מעביר/ה מהוואטסאפ האישי. הקישור בשורה משלו, בלי מספר בית.
-  const message = [
+  // הודעה שהסוכן/ת מעביר/ה מהוואטסאפ האישי. קישור קצר /p/<מספר> בשורה משלו, בלי מספר בית.
+  const message = propertyForwardMessage({
     greeting,
-    String(p.title || autoTitle(p)),
+    title: String(p.title || autoTitle(p)),
     address,
     facts,
-    String(input.note || "").trim(),
-    link,
-  ].filter(Boolean).join("\n");
+    note: String(input.note || "").trim(),
+    link: publicLink,
+  });
 
   const clientWa = client ? waNumber(client.phone) : undefined;
 
@@ -3883,7 +3885,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     client_name: client ? client.full_name : undefined,
     client_phone_missing: !!client && !clientWa,
     // בוואטסאפ הדף הוא כפתור. במייל הכתובת נשארת בשדה.
-    ...(ctx.outbox ? { button_sent: true } : { link }),
+    ...(ctx.outbox ? { button_sent: true } : { link: publicLink }),
     ...(ctx.outbox
       ? {
         buttons_sent: true,
@@ -5686,14 +5688,8 @@ async function activeShowcase(ctx: ToolContext, clientId: string) {
   };
 }
 
-/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js
- *  ושל netlify/edge-functions/showcase-send.ts (הקישור הקצר /w/). */
-function showcaseMessage(firstName: string, link: string): string {
-  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
-    "העמוד הזה שלך וזמין תמיד, אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
-    "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
-    "רוצה להתייעץ? אפשר לשתף את העמוד עם בני הזוג או המשפחה, והם יראו בדיוק את אותו עמוד.";
-}
+/** הודעת הפתיחה. הנוסח ב-_shared/wa-forward.ts, והקישור שבה הוא /m/<טוקן>.
+ *  ‏/w/ נשאר הקישור שפותח את וואטסאפ, לא את העמוד. */
 
 const SHOWCASE_ERRORS: Record<string, string> = {
   agent_not_found: "הסוכן/ת אינו/ה פעיל/ה.",
@@ -5752,11 +5748,12 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  const link = showcaseLink(String(res.token))!;
+  const token = String(res.token);
+  const link = showcasePublicUrl(SITE_BASE_URL, token) || showcaseLink(token)!;
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
-  const message = showcaseMessage(first, link);
+  const message = showcaseForwardMessage(first, link);
   const clientWa = waNumber(client.phone);
-  const sendUrl = showcaseSendUrl(String(res.token), first, clientWa);
+  const sendUrl = showcaseSendUrl(token, first, clientWa);
   ctx.conv.last_client_id = clientId;
 
   // בשיחה בוואטסאפ: כפתורים ולא קישורים (12.10.2026, "פחות קישורים, יותר
@@ -5775,7 +5772,7 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
       ? { buttons_sent: true }
       : {
         link,
-        preview_url: showcaseLink(String(res.token), true),
+        preview_url: showcaseLink(token, true),
         message,
         // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
         wa_client_url: clientWa ? sendUrl : undefined,
@@ -5888,7 +5885,7 @@ export async function showcaseButtonReply(
   const token = String(data.token);
   if (action === "c") {
     // הודעה נפרדת ונקייה, כדי שאפשר יהיה להעביר או להעתיק אותה כמו שהיא
-    return { text: showcaseMessage(first, showcaseLink(token) || "") };
+    return { text: showcaseForwardMessage(first, showcasePublicUrl(SITE_BASE_URL, token) || showcaseLink(token) || "") };
   }
   return {
     outbox: [{

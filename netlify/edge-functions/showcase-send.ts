@@ -10,9 +10,8 @@
    פנייה למסד: הטוקן הוא כל מה שצריך כדי לבנות את הקישור למיניסייט, השם
    הפרטי מגיע בפרמטר, וכך גם הטלפון של הלקוח/ה (בלעדיו — בורר הצ'אטים).
 
-   ‏**הנוסח — אותו נוסח של showcaseMessage ב-whatsapp-webhook/agent.ts ושל
-   renderShowcaseShare ב-assets/crm-showcase.js.** מי שמשנה אחד משנה את
-   שלושתם.
+   ‏**הנוסח — showcaseForwardMessage ב-_shared/wa-forward.ts, ואותו משפט
+   ב-renderShowcaseShare.** הקישור בתוך ההודעה הוא /m/<טוקן>, לא /showcase.
 
    ‏no-store: הקישור נלחץ פעם או פעמיים, ואין סיבה שדפדפן ישמור אותו. מה שחוזר
    ‏(דף שפותח את וואטסאפ ביזנס באנדרואיד, ‏302 במחשב) - lib/wa-open.ts.
@@ -20,15 +19,8 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import { showcaseForwardMessage, showcasePublicUrl } from "../../supabase/functions/_shared/wa-forward.ts";
 import { waOpenResponse } from "./lib/wa-open.ts";
-
-/** אותו נוסח של showcaseMessage ב-whatsapp-webhook/agent.ts. */
-function showcaseMessage(firstName: string, link: string): string {
-  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
-    "העמוד הזה שלך וזמין תמיד, אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
-    "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
-    "רוצה להתייעץ? אפשר לשתף את העמוד עם בני הזוג או המשפחה, והם יראו בדיוק את אותו עמוד.";
-}
 
 /** שם פרטי בלבד: אותיות, רווח, גרש ומקף, עד 30 תווים — כדי שהקישור לא
  *  ישמש לכתיבת טקסט שרירותי בתוך הודעה שנראית כמו שלנו. */
@@ -43,8 +35,8 @@ export default (req: Request, _context: Context) => {
 
   const name = cleanName(url.searchParams.get("n"));
   const to = (url.searchParams.get("to") || "").replace(/\D/g, "");
-  const link = `${url.origin}/showcase?t=${m[1]}`;
-  const message = showcaseMessage(name, link).replace(/^היי , /, "היי, ");
+  const link = showcasePublicUrl(url.origin, m[1]) || `${url.origin}/showcase?t=${m[1]}`;
+  const message = showcaseForwardMessage(name, link).replace(/^היי , /, "היי, ");
   // אנדרואיד - וואטסאפ ביזנס ישירות, אייפון - whatsapp://, מחשב - wa.me (lib/wa-open.ts)
   return waOpenResponse(req, /^\d{9,15}$/.test(to) ? to : "", message);
 };

@@ -31,6 +31,11 @@ function showcaseUrl(token, preview){
   return location.origin + '/showcase?t=' + encodeURIComponent(token) + (preview ? '&preview=1' : '');
 }
 
+/* הקישור שהלקוח/ה רואה בהודעה. /m/ מפנה ל-/showcase?t= בלי פרמטרים נוספים. */
+function showcaseClientUrl(token){
+  return location.origin + '/m/' + encodeURIComponent(token);
+}
+
 /* שורת אזהרה לחלון האישור לפני סגירה או מחיקה של לקוח/ה. הסגירה עצמה נעשית
    במסד (הטריגר agent_clients_close_showcase, ובמחיקה on delete cascade) -
    כאן רק אומרים לסוכן/ת מראש שהקישור שנשלח יפסיק לעבוד. */
@@ -252,10 +257,10 @@ function scanSummaryText(r){
 
 async function renderShowcaseShare(client, sc, scan){
   const modal = showcaseModal();
-  const link = showcaseUrl(sc.token);
+  const link = showcaseClientUrl(sc.token);
   const first = String(client.full_name || '').trim().split(/\s+/)[0] || '';
-  /* ההודעה הראשונה, עם הקישור בשורה משלו. אותו נוסח ב-showcaseMessage
-     של הבוט וב-netlify/edge-functions/showcase-send.ts. */
+  /* ההודעה הראשונה, עם הקישור הקצר בשורה משלו. אותו נוסח ב-showcaseForwardMessage
+     (_shared/wa-forward.ts) וב-netlify/edge-functions/showcase-send.ts. */
   const text = `היי ${first}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n`
     + `העמוד הזה שלך וזמין תמיד, אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. `
     + `נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n`

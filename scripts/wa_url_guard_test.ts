@@ -92,6 +92,8 @@ check("agency-signup אינה משרד ואינה חתימה", buttonLabelForUrl
 check("חתימה נשארת חתימה", buttonLabelForUrl("https://shuknadlan.co.il/sign?t=abc") === "לחתימה");
 check("תווית פגישה", buttonLabelForUrl("https://shuknadlan.co.il/meeting?t=abc") === "לפגישה");
 check("תווית מיניסייט", buttonLabelForUrl("https://shuknadlan.co.il/showcase?t=abc") === "לעמוד האישי");
+check("קישור קצר לנכס", buttonLabelForUrl("https://shuknadlan.co.il/p/1147") === "לדף הנכס");
+check("קישור קצר למיניסייט", buttonLabelForUrl("https://shuknadlan.co.il/m/ab") === "לעמוד האישי");
 check("תווית הסרה", buttonLabelForUrl("https://example.com/saved-search-manage?action=unsubscribe&token=1") === "הפסקת עדכונים");
 check("משפט בלי כפתור", WA_NO_BUTTON === "פרטים ב-CRM" && !WA_NO_BUTTON.includes("http"));
 

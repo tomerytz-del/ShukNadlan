@@ -27,6 +27,7 @@ on:
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/wa_url_guard_test.ts"
+      - "scripts/wa_forward_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
       - "scripts/lead_source_test.ts"
@@ -47,6 +48,7 @@ on:
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
       - "scripts/wa_url_guard_test.ts"
+      - "scripts/wa_forward_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
       - "scripts/lead_source_test.ts"
@@ -119,6 +121,9 @@ jobs:
 
       - name: כתובת בוואטסאפ יוצאת ככפתור
         run: node --experimental-strip-types scripts/wa_url_guard_test.ts
+
+      - name: קישור קצר בהודעה שהסוכן/ת מעביר/ה
+        run: node --experimental-strip-types scripts/wa_forward_test.ts
 
       # אידמפוטנטיות של טופס מטא וכפילות לפי טלפון. בלי מסד ובלי רשת.
       - name: כפילות ליד ממטא ומהרשתות
