@@ -17,7 +17,7 @@
 // ============================================================================
 
 import { noLongDash } from "../_shared/marketing-copy.ts";
-import { ctaPayload, logWaUrlGuard, planWaText, WA_CTA_BODY_MAX, WA_EMPTY_BODY, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { ctaPayload, logWaUrlGuard, planWaText, WA_CTA_BODY_MAX, WA_EMPTY_BODY } from "../_shared/wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -141,7 +141,7 @@ export async function sendShowcaseText(to: string, body: string, label = "לעמ
       recipient_type: "individual",
       to,
       type: "text",
-      text: { preview_url: false, body: `${text}\n${WA_NO_BUTTON}`.slice(0, 4000) },
+      text: { preview_url: false, body: "העמוד האישי זמין גם באתר שוק נדל״ן." },
     });
   }
 }

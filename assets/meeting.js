@@ -65,8 +65,15 @@
     ['not_for_me', '👎 לא בשבילי', '👎 תודה! הסוכן/ת יחפש/תחפש נכסים שמתאימים יותר.'],
   ];
 
-  function statusBox(m){
-    if (m.status === 'canceled') return '<div class="status bad">הפגישה בוטלה.</div>';
+  function cancelLine(m, a){
+    const agent = a.name || 'הסוכן/ת';
+    const withWho = a.agency_name ? agent + ' (' + a.agency_name + ')' : agent;
+    const when = m.when_text ? ' שנקבעה ל' + m.when_text : '';
+    return 'ה' + (m.noun || 'פגישה') + ' עם ' + withWho + when + ' בוטלה. לתיאום מועד חדש אפשר לפנות ל' + agent + '.';
+  }
+
+  function statusBox(m, a){
+    if (m.status === 'canceled') return '<div class="status bad">' + esc(cancelLine(m, a || {})) + '</div>';
     const fb = FEEDBACK.find(f => f[0] === m.client_feedback);
     if (fb) return '<div class="status ok">' + esc(fb[2]) + '</div>';
     if (m.status === 'past') return '<div class="status warn">הפגישה כבר עברה.</div>';
@@ -81,7 +88,8 @@
     const open = m.status === 'open';
     const hello = state.client_first_name ? 'שלום ' + esc(state.client_first_name) + ', ' : '';
     const photo = a.photo_url ? `<img src="${esc(a.photo_url)}" alt="${esc(a.name || '')}">` : '';
-    const sub = [a.agency_name, a.phone ? '0' + String(a.phone).replace(/^972/, '') : ''].filter(Boolean).join(' · ');
+    const phoneText = m.status === 'canceled' || !a.phone ? '' : '0' + String(a.phone).replace(/^972/, '');
+    const sub = [a.agency_name, phoneText].filter(Boolean).join(' · ');
 
     let html = `
       <section class="card">
@@ -95,7 +103,7 @@
         <h1 style="margin-top:14px">${hello}${esc(m.noun)}${a.name ? ' עם ' + esc(a.name) : ''}</h1>
         ${m.when_text ? `<div class="when">🗓 ${esc(m.when_text)}</div>` : ''}
         ${m.location ? `<div class="where">📍 ${esc(m.location)}</div>` : ''}
-        ${statusBox(m)}
+        ${statusBox(m, a)}
       </section>`;
 
     if (open){
@@ -149,7 +157,7 @@
       <section class="card">
         <h2 class="sec-title">שאלה ל${esc(a.name || 'סוכן/ת')}?</h2>
         <div class="grid">
-          <a class="btn btn-soft" href="https://wa.me/${esc(a.phone)}" target="_blank" rel="noopener">וואטסאפ</a>
+          <a class="btn btn-soft" href="https://wa.me/${esc(a.phone)}" target="_blank" rel="noopener">שליחת הודעה</a>
           <a class="btn btn-soft" href="tel:+${esc(a.phone)}">חיוג</a>
           ${a.page_url ? `<a class="btn btn-soft full" href="${esc(a.page_url)}" target="_blank" rel="noopener">הנכסים של ${esc(a.name || 'הסוכן/ת')}</a>` : ''}
         </div>

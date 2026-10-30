@@ -260,9 +260,15 @@ async function notifyAgent(
       await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body } });
     }
     if (audioUrl) await waSend({ recipient_type: "individual", to, type: "audio", audio: { link: audioUrl } });
-    for (const link of spoken.links.filter((item) => item.kind === "cta")) {
+    const extra = spoken.links.filter((item) => item.kind === "cta");
+    const follow = extra.length === 1
+      ? ctaPayload(to, extra[0].label, extra[0].label, extra[0].url)
+      : extra.length > 1
+        ? ctaPayload(to, "לאתר", "לאתר", `${SITE}/`)
+        : null;
+    if (follow) {
       try {
-        await waSend(ctaPayload(to, "עוד קישור:", link.label, link.url));
+        await waSend(follow);
       } catch (err) {
         console.error("wa-url-guard call follow-up failed", err);
       }

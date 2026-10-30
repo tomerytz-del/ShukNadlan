@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
-import { logWaUrlGuard, payloadsForText, planWaText } from "../_shared/wa-url-guard.ts";
+import { ctaPayload } from "../_shared/wa-url-guard.ts";
 
 // ============================================================================
 // שרת ההתראות של הסוכן החכם — מרוקן את תור saved_search_alerts.
@@ -163,22 +163,23 @@ async function sendWhatsapp(a: any): Promise<void> {
       },
     };
   } else {
-    const plan = planWaText(textBody(a));
-    if (plan.stripped) logWaUrlGuard("saved-search", plan);
-    const planned = payloadsForText(a.phone_e164, textBody(a));
-    let last: Response | null = null;
-    for (const item of planned.payloads) {
-      last = await fetch(url, { method: "POST", headers, body: JSON.stringify(item) });
-      if (!last.ok) break;
-    }
-    if (!last) throw new WhatsappError("whatsapp empty", null);
-    if (!last.ok) {
-      const raw = await last.text();
+    const lines = [
+      "🔔 נכס חדש שמתאים לחיפוש שלך",
+      a.label ? `- ${a.label}` : "",
+      a.title || "",
+      placeLine(a),
+      [nis(a.price), specLine(a)].filter(Boolean).join(" · "),
+      "לפרטים המלאים בכפתור.",
+    ].filter((p) => p !== "");
+    const payload = ctaPayload(a.phone_e164, lines.join("\n").slice(0, 1024), "לצפייה בנכס", clickUrl(a.click_token));
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+    if (!res.ok) {
+      const raw = await res.text();
       let code: number | null = null;
       try {
         code = JSON.parse(raw)?.error?.code ?? null;
       } catch { /* גוף שאינו JSON */ }
-      throw new WhatsappError(`whatsapp ${last.status}: ${raw.slice(0, 300)}`, code);
+      throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
     }
     return;
   }
@@ -191,6 +192,31 @@ async function sendWhatsapp(a: any): Promise<void> {
       code = JSON.parse(raw)?.error?.code ?? null;
     } catch { /* גוף שאינו JSON — נשמר כטקסט ב-last_error */ }
     throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
+  }
+}
+
+/** הודעה שנייה, אחרי שהראשונה כבר סומנה כנשלחה. כישלון נרשם ולא נזרק. */
+async function sendStopNotice(a: any): Promise<void> {
+  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE) return;
+  try {
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
+    const payload = ctaPayload(
+      a.phone_e164,
+      "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפוש הזה בכפתור.",
+      "הפסקת עדכונים",
+      unsubUrl(a.unsubscribe_token),
+    );
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const raw = await res.text();
+      console.error("saved-search stop notice failed", a.alert_id, raw.slice(0, 300));
+    }
+  } catch (err) {
+    console.error("saved-search stop notice failed", a.alert_id, err instanceof Error ? err.message : err);
   }
 }
 
@@ -365,6 +391,17 @@ Deno.serve(async (req: Request) => {
           else console.log("unsubscribed after Meta opt-out", a.search_id);
         }
       }
+    }
+
+    if (waStatus === "sent" && !WA_TEMPLATE) {
+      const { error: earlyErr } = await sb.rpc("mark_saved_search_alert", {
+        p_alert_id: a.alert_id,
+        p_whatsapp_status: "sent",
+        p_email_status: emStatus,
+        p_error: errors.length ? errors.join(" | ").slice(0, 500) : null,
+      });
+      if (earlyErr) console.error("mark after property notice failed", a.alert_id, earlyErr.message);
+      await sendStopNotice(a);
     }
 
     if (wantEmail) {

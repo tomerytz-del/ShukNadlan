@@ -61,7 +61,7 @@ import {
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
-import { MAX_WA_CTA, planWaText, WA_EMPTY_BODY, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { planWaText, WA_EMPTY_BODY, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -140,6 +140,8 @@ const PUBLIC_HOURLY_LIMIT = 30;
 const PUBLIC_DAILY_LIMIT = 120;
 const PUBLIC_LIMIT_MSG =
   "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר, ולחזור אליי מאוחר יותר.";
+const PUBLIC_LIMIT_MSG_OLD =
+  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר - https://shuknadlan.co.il - ולחזור אליי מאוחר יותר.";
 /* שיחה שנשכחה אינה ממשיכה מעצמה: מי שכותב שוב אחרי חצי יום מתחיל נקי, כדי
    שהבוט לא יענה על שאלה של אתמול ולא יגרור הקשר שכבר אינו רלוונטי. */
 const PUBLIC_IDLE_RESET_HOURS = 12;
@@ -412,18 +414,23 @@ async function reply(
   to: string,
   raw: string,
   agentId: string | null,
+  opts?: { keepUrls?: boolean; contactName?: string },
 ): Promise<void> {
   // היומן רושם את מה שיצא בפועל, לא את מה שהמודל כתב. אחרת בדיקה ביומן
   // הייתה מראה מקף ארוך שהסוכן/ת מעולם לא קיבל/ה.
-  const planned = planWaText(formatForWhatsapp(raw));
-  const body = planned.text || (planned.stripped ? WA_NO_BUTTON : formatForWhatsapp(raw));
+  // keepUrls: נוסח שהסוכן/ת מעביר/ה ללקוח/ה מהוואטסאפ האישי, והקישור חייב להישאר.
+  const formatted = formatForWhatsapp(raw);
+  const planned = opts?.keepUrls ? null : planWaText(formatted);
+  const body = opts?.keepUrls
+    ? formatted
+    : (planned!.text || (planned!.stripped ? WA_NO_BUTTON : formatted));
   try {
     // מזהה ההודעה של מטא נשמר כדי שאירועי המסירה שיחזרו יידעו על איזו שורה
     // לשבת. בלעדיו "נשלח" הוא כל מה שנדע לעולם — וזה בדיוק ההבדל בין הודעה
     // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס. היומן שומר כל הודעה שיצאה,
     // כולל כפתור המשך, בלי כתובת בגוף.
     const sent: WaSent[] = [];
-    await sendText(to, raw, sent);
+    await sendText(to, raw, sent, opts?.contactName, !!opts?.keepUrls);
     const parts = sent.length ? sent : [{ id: null, kind: "text" as const, body }];
     for (const part of parts) {
       await supabase.from("whatsapp_messages").insert({
@@ -501,23 +508,28 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
         }
         await reply(to, `${item.body}\n${item.label}.\n${WA_NO_BUTTON}`, agentId);
       } else if (item.kind === "list") {
-        let opened = 0;
-        for (const row of item.rows) {
-          if (opened >= MAX_WA_CTA) break;
-          const path = parseNavId(row.id);
-          if (!path) continue;
-          try {
-            const retryId = await sendCtaUrl(to, WA_EMPTY_BODY, row.title, absoluteUrl(SITE_BASE, path));
+        const rows = item.rows.filter((row) => parseNavId(row.id));
+        try {
+          if (rows.length === 1) {
+            const path = parseNavId(rows[0].id)!;
+            const retryId = await sendCtaUrl(to, rows[0].title, rows[0].title, absoluteUrl(SITE_BASE, path));
             await supabase.from("whatsapp_messages").insert({
               wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
-              msg_type: "interactive", body: `${WA_EMPTY_BODY}\n[${row.title}]`, status: retryId ? "sent" : null,
+              msg_type: "interactive", body: rows[0].title, status: retryId ? "sent" : null,
             });
-            opened++;
-          } catch (retryErr) {
-            console.error("outbox list retry failed", retryErr);
+          } else if (rows.length > 1) {
+            const retryId = await sendCtaUrl(to, "לאתר", "לאתר", `${SITE_BASE}/`);
+            await supabase.from("whatsapp_messages").insert({
+              wa_message_id: retryId, direction: "out", wa_phone: to, agent_id: agentId,
+              msg_type: "interactive", body: "לאתר", status: retryId ? "sent" : null,
+            });
+          } else {
+            await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
           }
+        } catch (retryErr) {
+          console.error("outbox list retry failed", retryErr);
+          await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
         }
-        if (!opened) await reply(to, `${item.body}\n${WA_NO_BUTTON}`, agentId);
       }
     }
   }
@@ -889,7 +901,7 @@ async function limitNoticeAlreadySent(phone: string): Promise<boolean> {
     .select("id")
     .eq("wa_phone", phone)
     .eq("direction", "out")
-    .eq("body", PUBLIC_LIMIT_MSG)
+    .in("body", [PUBLIC_LIMIT_MSG, PUBLIC_LIMIT_MSG_OLD])
     .gte("created_at", hourAgo)
     .limit(1);
   return !!(data && data.length);
@@ -1602,10 +1614,17 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       : null,
   );
   if (meetingBtn) {
-    const res = meetingBtn.type === "response"
-      ? await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response)
-      : await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
-    await reply(from, res.reply, null);
+    if (meetingBtn.type === "response") {
+      const res = await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response);
+      const phone = res.agentPhone || "";
+      const wa = phone
+        ? `${res.reply}\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${phone}`
+        : res.reply;
+      await reply(from, wa, null, { contactName: res.agentName });
+    } else {
+      const res = await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
+      await reply(from, res.reply, null);
+    }
     return;
   }
 
@@ -1619,7 +1638,11 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       : null,
   );
   if (coordBtn) {
-    await reply(from, await respondToCoord(supabase, coordBtn.token, coordBtn.answer), null);
+    const coord = await respondToCoord(supabase, coordBtn.token, coordBtn.answer);
+    const coordWa = coord.agentPhone
+      ? `${coord.text}\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${coord.agentPhone}`
+      : coord.text;
+    await reply(from, coordWa, null, { contactName: coord.agentName });
     return;
   }
 
@@ -1905,7 +1928,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       const sc = await showcaseButtonReply(
         supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
       if (sc) {
-        if (sc.text) await reply(from, sc.text, agent.id);
+        if (sc.text) await reply(from, sc.text, agent.id, { keepUrls: true });
         if (sc.outbox?.length) await sendOutbox(from, sc.outbox, agent.id);
         return;
       }

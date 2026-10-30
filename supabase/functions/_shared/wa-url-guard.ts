@@ -15,6 +15,9 @@ export const WA_NO_BUTTON = "פרטים ב-CRM";
 export const MAX_WA_CTA = 5;
 export const WA_TEXT_MAX = 4096;
 export const WA_CTA_BODY_MAX = 1024;
+/** לכל היותר שתי הודעות לתשובה: הגוף, ואז כפתור אחד. */
+export const MAX_WA_MESSAGES = 2;
+const WA_SITE = "https://shuknadlan.co.il/";
 
 const BUTTON_TITLE_MAX = 20;
 
@@ -180,8 +183,9 @@ export function ctaPayload(to: string, body: string, label: string, url: string)
 }
 
 /**
- * הודעות שיוצאות ל-Meta במקום גוף טקסט אחד. הראשונה נושאת את הטקסט
- * וכפתור אחד. השאר כפתורי המשך, או וידאו. בלי כתובת בגוף.
+ * לכל היותר שתי הודעות. גוף ארוך מ-1024 יוצא כטקסט, ואחריו כפתור
+ * שהגוף שלו "הפרטים בכפתור.". המשך של יעד אחד: הגוף הוא שם היעד.
+ * כמה יעדים שנשארו: כפתור "לאתר" אחד.
  */
 export function payloadsForText(to: string, body: string): {
   payloads: Record<string, unknown>[];
@@ -189,25 +193,33 @@ export function payloadsForText(to: string, body: string): {
   stripped: boolean;
 } {
   const plan = planWaText(body);
-  const ctas = plan.links.filter((link) => link.kind === "cta").slice(0, MAX_WA_CTA);
+  const ctas = plan.links.filter((link) => link.kind === "cta");
   const videos = plan.links.filter((link) => link.kind === "video");
   const visibleText = (plan.text || (ctas.length || videos.length ? WA_EMPTY_BODY : "")).slice(0, WA_TEXT_MAX);
   const payloads: Record<string, unknown>[] = [];
   const stamped = (url: string) => withClickUrl(url, "cta");
-  for (const video of videos) payloads.push(videoPayload(to, video.url));
-  if (!ctas.length) {
+  const oneFollowUp = (links: WaPlannedLink[]) => {
+    if (links.length === 1) {
+      payloads.push(ctaPayload(to, links[0].label, links[0].label, stamped(links[0].url)));
+    } else if (links.length > 1) {
+      payloads.push(ctaPayload(to, "לאתר", "לאתר", WA_SITE));
+    }
+  };
+  if (videos.length && !ctas.length) {
+    if (visibleText && visibleText !== WA_EMPTY_BODY) payloads.push(textPayload(to, visibleText));
+    payloads.push(videoPayload(to, videos[0].url));
+  } else if (!ctas.length) {
     if (visibleText) payloads.push(textPayload(to, visibleText));
   } else if (visibleText.length > WA_CTA_BODY_MAX) {
-    // כפתור נחתך ב-1024 בלי סימן. הטקסט יוצא במלואו, והכפתור בהודעה נפרדת.
     payloads.push(textPayload(to, visibleText));
-    for (const link of ctas) {
-      payloads.push(ctaPayload(to, WA_EMPTY_BODY, link.label, stamped(link.url)));
+    if (ctas.length === 1) {
+      payloads.push(ctaPayload(to, WA_EMPTY_BODY, ctas[0].label, stamped(ctas[0].url)));
+    } else {
+      payloads.push(ctaPayload(to, WA_EMPTY_BODY, "לאתר", WA_SITE));
     }
   } else {
     payloads.push(ctaPayload(to, visibleText || WA_EMPTY_BODY, ctas[0].label, stamped(ctas[0].url)));
-    for (const extra of ctas.slice(1)) {
-      payloads.push(ctaPayload(to, WA_FOLLOWUP_BODY, extra.label, stamped(extra.url)));
-    }
+    oneFollowUp(ctas.slice(1));
   }
-  return { payloads, visibleText, stripped: plan.stripped };
+  return { payloads: payloads.slice(0, MAX_WA_MESSAGES), visibleText, stripped: plan.stripped };
 }

@@ -180,13 +180,14 @@ export function leadText(first: string, li: LeadInfo, _link: string | null, optO
 }
 
 /** שורה אחת ל-{{2}} בתבנית - בלי \n/טאב, ובלי 4+ רווחים (templateSummary מנקה שוב). */
-export function leadTemplateLine(li: LeadInfo, _url: string | null, alone: boolean): string {
+export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolean): string {
   const parts = [
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
     alone ? "⏱️ מי שחוזר ראשון - סוגר!" : "",
   ];
-  return parts.filter(Boolean).join(" · ");
+  const line = parts.filter(Boolean).join(" · ");
+  return url ? `${line} ${url}` : `${line} פרטים ב-CRM.`;
 }
 
 /** שורה בתוך הודעה מרוכזת (כמה התראות) - כותרת וגוף במקום הנוסח הגנרי. */

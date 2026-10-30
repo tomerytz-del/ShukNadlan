@@ -227,12 +227,13 @@ const WA_OPTED_OUT = 131050;
 function waSummary(items: Item[], withUrls = true): string {
   // בתבנית המאושרת הקישור בסוף הפריט: הכפתור היחיד הוא ניהול התזכורות.
   // בתבנית UTILITY החדשה (כשהסוד מוגדר) הקישור יורד לכפתור והגוף בלי כתובת.
+  const note = withUrls ? "" : " פרטים ב-CRM.";
   return items
     .map((it) => `• ${it.title}: ${it.body}${withUrls ? ` ${itemUrl(it)}` : ""}`)
     .join(" ")
     .replace(/\s*[\r\n\t]+\s*/g, " ")
     .replace(/ {4,}/g, "   ")
-    .slice(0, 900);
+    .slice(0, 900 - note.length) + note;
 }
 
 async function sendWhatsapp(to: string, name: string | null, items: Item[]): Promise<void> {

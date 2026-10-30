@@ -23,11 +23,11 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import { waOpenResponse } from "./lib/wa-open.ts";
 
 /** אותו נוסח של showcaseMessage ב-whatsapp-webhook/agent.ts. */
-function showcaseMessage(firstName: string): string {
-  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת.\n\n` +
-    "העמוד שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
+function showcaseMessage(firstName: string, link: string): string {
+  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
+    "העמוד הזה שלך וזמין תמיד, אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
     "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
-    "רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.";
+    "רוצה להתייעץ? אפשר לשתף את העמוד עם בני הזוג או המשפחה, והם יראו בדיוק את אותו עמוד.";
 }
 
 /** שם פרטי בלבד: אותיות, רווח, גרש ומקף, עד 30 תווים — כדי שהקישור לא
@@ -43,7 +43,8 @@ export default (req: Request, _context: Context) => {
 
   const name = cleanName(url.searchParams.get("n"));
   const to = (url.searchParams.get("to") || "").replace(/\D/g, "");
-  const message = showcaseMessage(name).replace(/^היי , /, "היי, ");
+  const link = `${url.origin}/showcase?t=${m[1]}`;
+  const message = showcaseMessage(name, link).replace(/^היי , /, "היי, ");
   // אנדרואיד - וואטסאפ ביזנס ישירות, אייפון - whatsapp://, מחשב - wa.me (lib/wa-open.ts)
   return waOpenResponse(req, /^\d{9,15}$/.test(to) ? to : "", message);
 };

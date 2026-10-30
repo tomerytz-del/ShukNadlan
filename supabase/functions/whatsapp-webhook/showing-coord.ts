@@ -457,11 +457,15 @@ export async function coordOfferButtonReply(
  * הבעלים / המתווך/ת לחץ/ה כפתור. מחזירה את הנוסח לתשובה - בלשון נקבה, כי
  * מי שעונה מהמספר הזה היא גבריאלה.
  */
-export async function respondToCoord(supabase: SupabaseClient, token: string, answer: CoordAnswer): Promise<string> {
+export async function respondToCoord(
+  supabase: SupabaseClient,
+  token: string,
+  answer: CoordAnswer,
+): Promise<{ text: string; agentName: string; agentPhone: string | null }> {
   const { data, error } = await supabase.rpc("showing_coord_respond", { p_token: token, p_answer: answer });
   if (error) {
     console.error("showing coord respond failed", error);
-    return "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.";
+    return { text: "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", agentName: "המתווך/ת", agentPhone: null };
   }
   const res = (data || {}) as Record<string, unknown>;
 
@@ -472,20 +476,30 @@ export async function respondToCoord(supabase: SupabaseClient, token: string, an
       .select("display_name, phone").eq("id", String(res.agent_id)).maybeSingle();
     agentName = agent?.display_name || agentName;
     const phone = phoneE164(agent?.phone);
-    if (phone) contact = `\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${phone}`;
+    if (phone) contact = phone;
   }
 
-  if (res.error === "canceled") return `הביקור הזה כבר בוטל - אין צורך לעשות דבר. תודה! 🙏`;
-  if (res.error === "past") return `מועד הביקור הזה כבר עבר. לכל שאלה אפשר לפנות ל${agentName}.${contact}`;
-  if (res.error) return "לא מצאתי את בקשת הביקור הזו.";
+  if (res.error === "canceled") {
+    return { text: `הביקור הזה כבר בוטל - אין צורך לעשות דבר. תודה! 🙏`, agentName, agentPhone: null };
+  }
+  if (res.error === "past") {
+    return { text: `מועד הביקור הזה כבר עבר. לכל שאלה אפשר לפנות ל${agentName}.`, agentName, agentPhone: contact || null };
+  }
+  if (res.error) return { text: "לא מצאתי את בקשת הביקור הזו.", agentName, agentPhone: null };
 
   if (!res.already) await kickNotificationPush();
   const when = res.window_start
     ? `${dayText(String(res.window_start))} בסביבות ${windowText(String(res.window_start))}`
     : "";
-  return answer === "confirmed"
-    ? `תודה! עדכנתי את ${agentName} שהביקור מאושר 🙌${when ? ` נתראה ${when}.` : ""}`
-    : answer === "postpone"
-    ? `תודה, עדכנתי את ${agentName} שעדיף מעט מאוחר יותר, והוא/היא יחזור/תחזור אליך לתאם שעה.${contact}`
-    : `תודה, עדכנתי את ${agentName} שהמועד לא מתאים, והוא/היא יחזור/תחזור אליך לתאם מועד אחר.${contact}`;
+  if (answer === "confirmed") {
+    return {
+      text: `תודה! עדכנתי את ${agentName} שהביקור מאושר 🙌${when ? ` נתראה ${when}.` : ""}`,
+      agentName,
+      agentPhone: null,
+    };
+  }
+  const text = answer === "postpone"
+    ? `תודה, עדכנתי את ${agentName} שעדיף מעט מאוחר יותר, הפרטים הועברו ל${agentName} לתיאום.`
+    : `תודה, עדכנתי את ${agentName} שהמועד לא מתאים, הפרטים הועברו ל${agentName} לתיאום.`;
+  return { text, agentName, agentPhone: contact || null };
 }

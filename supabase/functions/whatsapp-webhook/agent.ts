@@ -3799,7 +3799,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const p = await visibleProperty(
     ctx,
     propertyId,
-    "id, agent_id, title, address, city, street, house_number, price, price_unit, rooms, " +
+    "id, agent_id, title, address, city, street, house_number, sales_area, neighborhoods(name), price, price_unit, rooms, " +
       "size_sqm, built_size_sqm, deal_type, property_type, status, listing_number",
   );
   if (!p) return { ok: false, error: "לא נמצא נכס כזה." };
@@ -3816,8 +3816,12 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     client = found as unknown as Record<string, unknown>;
   }
 
-  const address = [p.street, p.house_number].filter(Boolean).join(" ") ||
-    String(p.address || "");
+  const hoodRaw = p.neighborhoods;
+  const hoodRow = Array.isArray(hoodRaw) ? hoodRaw[0] : hoodRaw;
+  const neighborhood = (hoodRow && typeof hoodRow === "object"
+    ? String((hoodRow as { name?: string }).name || "")
+    : "") || String(p.sales_area || "");
+  const address = [p.street, neighborhood].filter(Boolean).join(", ");
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
     (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
@@ -3827,14 +3831,14 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const greeting = client
     ? `היי ${String(client.full_name || "").trim()},`
     : "";
-  // הודעה ללקוח/ה בלי כתובת. הדף יוצא לסוכן/ת ככפתור נפרד.
+  // הודעה שהסוכן/ת מעביר/ה מהוואטסאפ האישי. הקישור בשורה משלו, בלי מספר בית.
   const message = [
     greeting,
     String(p.title || autoTitle(p)),
-    [address, p.city].filter(Boolean).join(", "),
+    address,
     facts,
     String(input.note || "").trim(),
-    ...(ctx.outbox ? [] : [link]),
+    link,
   ].filter(Boolean).join("\n");
 
   const clientWa = client ? waNumber(client.phone) : undefined;
@@ -5684,11 +5688,11 @@ async function activeShowcase(ctx: ToolContext, clientId: string) {
 
 /** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js
  *  ושל netlify/edge-functions/showcase-send.ts (הקישור הקצר /w/). */
-function showcaseMessage(firstName: string): string {
-  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת.\n\n` +
-    "העמוד שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
+function showcaseMessage(firstName: string, link: string): string {
+  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
+    "העמוד הזה שלך וזמין תמיד, אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
     "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
-    "רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.";
+    "רוצה להתייעץ? אפשר לשתף את העמוד עם בני הזוג או המשפחה, והם יראו בדיוק את אותו עמוד.";
 }
 
 const SHOWCASE_ERRORS: Record<string, string> = {
@@ -5750,7 +5754,7 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
 
   const link = showcaseLink(String(res.token))!;
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
-  const message = showcaseMessage(first);
+  const message = showcaseMessage(first, link);
   const clientWa = waNumber(client.phone);
   const sendUrl = showcaseSendUrl(String(res.token), first, clientWa);
   ctx.conv.last_client_id = clientId;
@@ -5884,7 +5888,7 @@ export async function showcaseButtonReply(
   const token = String(data.token);
   if (action === "c") {
     // הודעה נפרדת ונקייה, כדי שאפשר יהיה להעביר או להעתיק אותה כמו שהיא
-    return { text: showcaseMessage(first) };
+    return { text: showcaseMessage(first, showcaseLink(token) || "") };
   }
   return {
     outbox: [{

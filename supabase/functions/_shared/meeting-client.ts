@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noLongDash } from "./marketing-copy.ts";
-import { logWaUrlGuard, payloadsForText, planWaText } from "./wa-url-guard.ts";
+import { ctaPayload, logWaUrlGuard, payloadsForText, planWaText } from "./wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -216,21 +216,67 @@ export function sendButtonsTemplate(
   });
 }
 
-export async function sendText(to: string, body: string) {
-  const clean = noLongDash(body);
+export async function sendText(to: string, body: string, agentName?: string): Promise<string | null> {
+  const clean = noLongDash(body).slice(0, 4000);
   const plan = planWaText(clean);
   if (plan.stripped) logWaUrlGuard("meeting-client", plan);
-  const planned = payloadsForText(to, clean.slice(0, 4000));
+  const planned = payloadsForText(to, clean);
   if (!planned.payloads.length) return null;
-  const id = await post(planned.payloads[0]);
-  for (const extra of planned.payloads.slice(1)) {
+  let first: string | null = null;
+  for (let i = 0; i < planned.payloads.length; i++) {
+    const payload = planned.payloads[i];
     try {
-      await post(extra);
+      const id = await post(payload);
+      if (first == null) first = id;
     } catch (err) {
-      console.error("wa-url-guard meeting follow-up failed", err);
+      if (i !== 0) {
+        console.error("wa-url-guard meeting follow-up failed", err);
+        continue;
+      }
+      if (payload.type !== "interactive") throw err;
+      console.error("wa-url-guard meeting cta failed", err);
+      const interactive = payload.interactive as { action?: { parameters?: { url?: string } } } | undefined;
+      const failedUrl = String(interactive?.action?.parameters?.url || "");
+      const fallback = failedUrl.includes("wa.me")
+        ? `אפשר גם לכתוב ישירות ל${agentName || "הסוכן/ת"} בווטסאפ.`
+        : (planned.visibleText || "הפרטים בכפתור.");
+      try {
+        return await post({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to,
+          type: "text",
+          text: { preview_url: false, body: fallback.slice(0, 4000) },
+        });
+      } catch (err2) {
+        console.error("wa-url-guard meeting text fallback failed", err2);
+        return null;
+      }
     }
   }
-  return id;
+  return first;
+}
+
+/** כפתור לדף הפגישה. אם הוא נדחה, הטקסט יוצא בלי כתובת, והשליחה אינה נכשלת. */
+export async function sendLinkButton(to: string, body: string, label: string, url: string): Promise<string | null> {
+  const text = noLongDash(body).slice(0, 1024);
+  try {
+    return await post(ctaPayload(to, text, label, url));
+  } catch (err) {
+    console.error("wa-url-guard meeting cta failed", err);
+    try {
+      return await post({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: { preview_url: false, body: text },
+      });
+    } catch (err2) {
+      console.error("wa-url-guard meeting text fallback failed", err2);
+      return null;
+    }
+  }
 }
 
 /** תזכורת או משוב בתוך חלון 24 השעות: אותם שלושה כפתורים, כהודעה אינטראקטיבית. */
@@ -304,7 +350,7 @@ export async function respondToMeeting(
   supabase: SupabaseClient,
   token: string,
   response: MeetingResponse,
-): Promise<{ ok: boolean; error?: string; already?: boolean; reply: string }> {
+): Promise<{ ok: boolean; error?: string; already?: boolean; reply: string; agentName?: string; agentPhone?: string | null }> {
   const { data, error } = await supabase.rpc("agent_agenda_client_respond", {
     p_token: token,
     p_response: response,
@@ -328,29 +374,30 @@ export async function respondToMeeting(
     agentName = agent?.display_name || agentName;
     agentPhone = phoneE164(agent?.phone);
   }
-  const contact = agentPhone ? `\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${agentPhone}` : "";
   const noun = meetingNoun(String(item?.kind || "meeting"));
+  const who = { agentName, agentPhone };
 
   if (res.error === "canceled") {
-    return { ok: false, error: "canceled", reply: `ה${noun} הזו כבר בוטלה. לתיאום מועד חדש אפשר לפנות ל${agentName}.${contact}` };
+    return { ok: false, error: "canceled", reply: `ה${noun} הזו כבר בוטלה. לתיאום מועד חדש אפשר לפנות ל${agentName}.`, ...who };
   }
   if (res.error === "past") {
-    return { ok: false, error: "past", reply: `ה${noun} הזו כבר עברה. לכל שאלה אפשר לפנות ל${agentName}.${contact}` };
+    return { ok: false, error: "past", reply: `ה${noun} הזו כבר עברה. לכל שאלה אפשר לפנות ל${agentName}.`, ...who };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הפגישה הזו. אפשר לפנות ישירות לסוכן/ת שקבע/ה אותה." };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הפגישה הזו. אפשר לפנות ישירות לסוכן/ת שקבע/ה אותה.", agentName };
   }
 
   if (!res.already) await kickNotificationPush();
 
   const when = item?.due_at ? meetingWhenText(String(item.due_at)) : "";
   const where = item?.location ? `, ${item.location}` : "";
-  const reply = response === "confirmed"
-    ? `תודה! עדכנתי את ${agentName} שמגיעים 🙌 נתראה ${when}${where}.`
-    : response === "canceled"
-    ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש - ${agentName} ישמח/תשמח לתאם.${contact}`
-    : `עדכנתי את ${agentName} שצריך מועד אחר, והוא/היא יחזור/תחזור אליך לתיאום.${contact}`;
-  return { ok: true, already: !!res.already, reply };
+  if (response === "confirmed") {
+    return { ok: true, already: !!res.already, reply: `תודה! עדכנתי את ${agentName} שמגיעים 🙌 נתראה ${when}${where}.`, agentName };
+  }
+  const reply = response === "canceled"
+    ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש - ${agentName} ישמח/תשמח לתאם.`
+    : `עדכנתי את ${agentName} שצריך מועד אחר, הפרטים הועברו ל${agentName} לתיאום.`;
+  return { ok: true, already: !!res.already, reply, ...who };
 }
 
 /**

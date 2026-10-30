@@ -254,13 +254,12 @@ async function renderShowcaseShare(client, sc, scan){
   const modal = showcaseModal();
   const link = showcaseUrl(sc.token);
   const first = String(client.full_name || '').trim().split(/\s+/)[0] || '';
-  /* ההודעה הראשונה מסבירה מה הקישור: עמוד אישי שזמין תמיד, שמתעדכן כשנכנסים
-     נכסים חדשים, ושאפשר לשתף עם מי שמחליט/ה יחד (בן/בת זוג, הורים).
-     אותו נוסח ב-showcaseMessage של הבוט וב-netlify/edge-functions/showcase-send.ts. */
-  const text = `היי ${first}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת.\n\n`
-    + `העמוד שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. `
+  /* ההודעה הראשונה, עם הקישור בשורה משלו. אותו נוסח ב-showcaseMessage
+     של הבוט וב-netlify/edge-functions/showcase-send.ts. */
+  const text = `היי ${first}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n`
+    + `העמוד הזה שלך וזמין תמיד, אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. `
     + `נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n`
-    + `רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.`;
+    + `רוצה להתייעץ? אפשר לשתף את העמוד עם בני הזוג או המשפחה, והם יראו בדיוק את אותו עמוד.`;
   const wa = waLink(client.phone);
   modal.querySelector('.pm-card').innerHTML = `
     <div class="pm-title">✅ המיניסייט מוכן</div>
@@ -279,7 +278,7 @@ async function renderShowcaseShare(client, sc, scan){
   modal.style.display = 'flex';
   modal.querySelector('[data-close]').addEventListener('click', closeShowcaseModal);
   modal.querySelector('[data-copy]').addEventListener('click', async ()=>{
-    try { await navigator.clipboard.writeText(text); showToast('ההודעה הועתקה'); }
+    try { await navigator.clipboard.writeText(text); showToast('ההודעה והקישור הועתקו'); }
     catch(_){ modal.querySelector('#scLink').select(); }
   });
   if (scan){

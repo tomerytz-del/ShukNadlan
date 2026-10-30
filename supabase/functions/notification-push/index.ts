@@ -441,13 +441,15 @@ function categoryFor(type: string): string | null {
  * והכפתור הוא הנתיב של היעד.
  */
 function templateSummary(items: Item[], withUrls = true): string {
+  const note = withUrls ? "" : " פרטים ב-CRM.";
+  const cap = 900 - note.length;
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
   if (burst) {
     const count = burst.count ?? items.length;
     const link = withUrls ? ` ${SITE_BASE}/crm` : "";
-    return `יש לך ${count} התראות חדשות באתר.${link}`.slice(0, 900);
+    return `יש לך ${count} התראות חדשות באתר.${link}${note}`.slice(0, 900);
   }
-  return items
+  const raw = items
     .map((it) => {
       const path = itemPath(it);
       const url = withUrls && path ? `${SITE_BASE}${path}` : null;
@@ -460,8 +462,9 @@ function templateSummary(items: Item[], withUrls = true): string {
     // ‏replace לפני החיתוך: גוף התראה נכתב במסד ועשוי להכיל שורה חדשה בעצמו
     // (למשל ציטוט מביקורת), ולכן לא די בהחלפת המפריד.
     .replace(/\s*[\r\n\t]+\s*/g, " ")
-    .replace(/ {4,}/g, "   ")
-    .slice(0, 900);
+    .replace(/ {4,}/g, "   ");
+  if (withUrls) return raw.slice(0, 900);
+  return raw.replace(/ פרטים ב-CRM\./g, "").slice(0, cap) + note;
 }
 
 async function loadDigestFlags(
@@ -728,9 +731,11 @@ async function sendWhatsapp(
   } catch { /* בלי wamid השורה נשארת sent */ }
   if (mode !== "template") {
     const follow = splitCta
-      || (embedded[0]
-        ? ctaPayload(to, "עוד קישור:", embedded[0].label, withClickUrl(embedded[0].url, "cta"))
-        : null);
+      || (embedded.length === 1
+        ? ctaPayload(to, embedded[0].label, embedded[0].label, withClickUrl(embedded[0].url, "cta"))
+        : embedded.length > 1
+          ? ctaPayload(to, "לאתר", "לאתר", `${SITE_BASE}/`)
+          : null);
     const dropped = splitCta ? embedded.length : Math.max(0, embedded.length - 1);
     if (dropped > 0) console.warn("wa-url-guard notification capped", dropped);
     if (follow) {

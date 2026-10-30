@@ -12,7 +12,6 @@ import {
   textPayload,
   videoPayload,
   WA_EMPTY_BODY,
-  WA_FOLLOWUP_BODY,
   WA_NO_BUTTON,
   type WaPlannedLink,
 } from "../_shared/wa-url-guard.ts";
@@ -108,30 +107,53 @@ function describeSent(payload: Record<string, unknown>, id: string | null): WaSe
   return { id, kind, body };
 }
 
+function ctaUrlOf(payload: Record<string, unknown>): string {
+  const interactive = payload.interactive as { action?: { parameters?: { url?: string } } } | undefined;
+  return String(interactive?.action?.parameters?.url || "");
+}
+
+/** לכל היותר הודעת המשך אחת. יעד אחד: הגוף הוא שם היעד. כמה יעדים: כפתור "לאתר". */
 async function postGuardedFollowups(to: string, links: WaPlannedLink[], skipUrl?: string): Promise<void> {
-  for (const link of links) {
-    if (link.kind === "video") {
-      try {
-        await postMessage(to, videoPayload(to, link.url), "whatsapp video send failed");
-      } catch (err) {
-        console.error("wa-url-guard video failed", err);
-      }
-      continue;
-    }
-    if (skipUrl && link.url === skipUrl) continue;
-    try {
+  const ctas = links.filter((link) => link.kind === "cta" && link.url !== skipUrl);
+  const videos = links.filter((link) => link.kind === "video");
+  try {
+    if (ctas.length === 1 && !videos.length) {
       await postMessage(
         to,
-        ctaPayload(to, WA_FOLLOWUP_BODY, link.label, withClickUrl(link.url, "cta")),
+        ctaPayload(to, ctas[0].label, ctas[0].label, withClickUrl(ctas[0].url, "cta")),
         "whatsapp cta_url send failed",
       );
-    } catch (err) {
-      console.error("wa-url-guard follow-up failed", err);
+      return;
     }
+    if (ctas.length > 1) {
+      await postMessage(
+        to,
+        ctaPayload(to, "לאתר", "לאתר", "https://shuknadlan.co.il/"),
+        "whatsapp cta_url send failed",
+      );
+      return;
+    }
+    if (videos.length) {
+      await postMessage(to, videoPayload(to, videos[0].url), "whatsapp video send failed");
+    }
+  } catch (err) {
+    console.error("wa-url-guard follow-up failed", err);
   }
 }
 
-export async function sendText(to: string, body: string, sent?: WaSent[]): Promise<string | null> {
+export async function sendText(
+  to: string,
+  body: string,
+  sent?: WaSent[],
+  contactName?: string,
+  keepUrls = false,
+): Promise<string | null> {
+  if (keepUrls) {
+    const payload = textPayload(to, formatForWhatsapp(body).slice(0, MAX_TEXT_LEN));
+    const id = await postMessage(to, payload, "whatsapp send failed");
+    sent?.push(describeSent(payload, id));
+    return id;
+  }
   const clean = formatForWhatsapp(body);
   const plan = planWaText(clean);
   if (plan.stripped) logWaUrlGuard("sendText", plan);
@@ -152,7 +174,10 @@ export async function sendText(to: string, body: string, sent?: WaSent[]): Promi
     } catch (err) {
       if (i === 0 && payload.type === "interactive") {
         console.error("wa-url-guard cta failed, text without url", err);
-        const fallback = (planned.visibleText || WA_NO_BUTTON).slice(0, MAX_TEXT_LEN);
+        const failedUrl = ctaUrlOf(payload);
+        const fallback = failedUrl.includes("wa.me")
+          ? `אפשר גם לכתוב ישירות ל${contactName || "הסוכן/ת"} בווטסאפ.`
+          : (planned.visibleText || WA_NO_BUTTON).slice(0, MAX_TEXT_LEN);
         const fallbackPayload = textPayload(to, fallback);
         const id = await postMessage(to, fallbackPayload, "whatsapp send failed");
         sent?.push(describeSent(fallbackPayload, id));
@@ -238,8 +263,17 @@ export async function sendImageCta(
     return id;
   } catch (err) {
     console.error("wa-url-guard image cta failed, image then button", err);
-    await sendImage(to, imageUrl, plan.text);
-    return await sendCtaUrl(to, plan.text || WA_EMPTY_BODY, label, url);
+    try {
+      await sendImage(to, imageUrl, "");
+    } catch (imgErr) {
+      console.error("wa-url-guard image retry failed", imgErr);
+    }
+    try {
+      return await sendCtaUrl(to, WA_EMPTY_BODY, label, url);
+    } catch (ctaErr) {
+      console.error("wa-url-guard image button retry failed", ctaErr);
+      return null;
+    }
   }
 }
 
