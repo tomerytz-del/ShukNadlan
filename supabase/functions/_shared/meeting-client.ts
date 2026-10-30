@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noLongDash } from "./marketing-copy.ts";
+import { ctaPayload, deliverWaPayloads, logWaUrlGuard, payloadsForText, planWaText, textPayload } from "./wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -52,7 +53,7 @@ export const REMINDER_BUTTONS: Button[] = [
 ];
 export const FEEDBACK_BUTTONS: Button[] = [
   { code: "l", value: "liked", title: "👍 אהבתי" },
-  { code: "u", value: "unsure", title: "🤔 מתלבט/ת" },
+  { code: "u", value: "unsure", title: "🤔 מתלבטים" },
   { code: "n", value: "not_for_me", title: "👎 לא בשבילי" },
 ];
 
@@ -215,27 +216,74 @@ export function sendButtonsTemplate(
   });
 }
 
-export function sendText(to: string, body: string) {
-  return post({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: { preview_url: true, body: noLongDash(body).slice(0, 4000) },
-  });
+export async function sendText(to: string, body: string, agentName?: string): Promise<string | null> {
+  const clean = noLongDash(body).slice(0, 4000);
+  const plan = planWaText(clean);
+  if (plan.stripped) logWaUrlGuard("meeting-client", plan);
+  const planned = payloadsForText(to, clean);
+  if (!planned.payloads.length) return null;
+  return deliverWaPayloads(planned.payloads, (payload) => post(payload), () => {
+    const interactive = planned.payloads[0]?.interactive as { action?: { parameters?: { url?: string } } } | undefined;
+    const failedUrl = String(interactive?.action?.parameters?.url || "");
+    const note = `אפשר גם לכתוב ישירות ל${agentName || "צוות התיווך"} בווטסאפ.`;
+    const raw = (planned.visibleText || "").trim();
+    const base = !raw || raw === "הפרטים בכפתור." ? "" : raw;
+    const fallback = failedUrl.includes("wa.me")
+      ? (base && base !== note ? `${base}\n${note}` : note)
+      : (base || "הפרטים בדף הפגישה.");
+    return textPayload(to, fallback.slice(0, 4000));
+  }, planned.visibleText);
+}
+
+/** בלי כפתור אין "בכפתור" בגוף. */
+/** מקף עברי רק לפני שם או מספר. "צוות" ו"יועץ" בלי מקף. */
+function leName(name: string): string {
+  if (/^(צוות|יועץ|יועצת|יועצי)/.test(name)) return `ל${name}`;
+  return `ל־${name}`;
+}
+
+function textWithoutButton(text: string): string {
+  return text
+    .replace(/בכפתור למטה/g, "מדף הפגישה")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** כפתור לדף הפגישה. אם הוא נדחה, הטקסט יוצא בלי כתובת ובלי הבטחת כפתור. */
+export async function sendLinkButton(to: string, body: string, label: string, url: string): Promise<string | null> {
+  const text = noLongDash(body).slice(0, 1024);
+  try {
+    return await post(ctaPayload(to, text, label, url));
+  } catch (err) {
+    console.error("wa-url-guard meeting cta failed", err);
+    try {
+      return await post({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: { preview_url: false, body: textWithoutButton(text).slice(0, 4000) },
+      });
+    } catch (err2) {
+      console.error("wa-url-guard meeting text fallback failed", err2);
+      return null;
+    }
+  }
 }
 
 /** תזכורת או משוב בתוך חלון 24 השעות: אותם שלושה כפתורים, כהודעה אינטראקטיבית. */
-export function sendButtonsText(which: "reminder" | "feedback", to: string, body: string, token: string) {
+export async function sendButtonsText(which: "reminder" | "feedback", to: string, body: string, token: string) {
   const buttons = which === "reminder" ? REMINDER_BUTTONS : FEEDBACK_BUTTONS;
-  return post({
+  const plan = planWaText(noLongDash(body));
+  if (plan.stripped) logWaUrlGuard("meeting-buttons", plan);
+  const id = await post({
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: noLongDash(body).slice(0, 1000) },
+      body: { text: (plan.text || "הפרטים בכפתור.").slice(0, 1000) },
       action: {
         buttons: buttons.map((b) => ({
           type: "reply",
@@ -244,6 +292,14 @@ export function sendButtonsText(which: "reminder" | "feedback", to: string, body
       },
     },
   });
+  for (const link of plan.links.filter((item) => item.kind === "cta")) {
+    try {
+      await post(payloadsForText(to, link.url).payloads[0]);
+    } catch (err) {
+      console.error("wa-url-guard meeting button follow-up failed", err);
+    }
+  }
+  return id;
 }
 
 /** האם הלקוח/ה כתב/ה למספר ב-23 השעות האחרונות - כלומר מותר טקסט חופשי. */
@@ -286,7 +342,7 @@ export async function respondToMeeting(
   supabase: SupabaseClient,
   token: string,
   response: MeetingResponse,
-): Promise<{ ok: boolean; error?: string; already?: boolean; reply: string }> {
+): Promise<{ ok: boolean; error?: string; already?: boolean; reply: string; agentName?: string; agentPhone?: string | null }> {
   const { data, error } = await supabase.rpc("agent_agenda_client_respond", {
     p_token: token,
     p_response: response,
@@ -302,7 +358,7 @@ export async function respondToMeeting(
     .select("kind, due_at, location, agent_id")
     .eq("client_token", token)
     .maybeSingle();
-  let agentName = "הסוכן/ת";
+  let agentName = "צוות התיווך";
   let agentPhone: string | null = null;
   if (item?.agent_id) {
     const { data: agent } = await supabase
@@ -310,29 +366,30 @@ export async function respondToMeeting(
     agentName = agent?.display_name || agentName;
     agentPhone = phoneE164(agent?.phone);
   }
-  const contact = agentPhone ? ` אפשר גם לכתוב ישירות: https://wa.me/${agentPhone}` : "";
   const noun = meetingNoun(String(item?.kind || "meeting"));
+  const who = { agentName, agentPhone };
 
   if (res.error === "canceled") {
-    return { ok: false, error: "canceled", reply: `ה${noun} הזו כבר בוטלה. לתיאום מועד חדש אפשר לפנות ל${agentName}.${contact}` };
+    return { ok: false, error: "canceled", reply: `ה${noun} הזו כבר בוטלה. לתיאום מועד חדש אפשר לפנות ל${agentName}.`, ...who };
   }
   if (res.error === "past") {
-    return { ok: false, error: "past", reply: `ה${noun} הזו כבר עברה. לכל שאלה אפשר לפנות ל${agentName}.${contact}` };
+    return { ok: false, error: "past", reply: `ה${noun} הזו כבר עברה. לכל שאלה אפשר לפנות ל${agentName}.`, ...who };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הפגישה הזו. אפשר לפנות ישירות לסוכן/ת שקבע/ה אותה." };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הפגישה הזו. אפשר לפנות למי שקבע את הפגישה.", agentName };
   }
 
   if (!res.already) await kickNotificationPush();
 
   const when = item?.due_at ? meetingWhenText(String(item.due_at)) : "";
   const where = item?.location ? `, ${item.location}` : "";
-  const reply = response === "confirmed"
-    ? `תודה! עדכנתי את ${agentName} שמגיעים 🙌 נתראה ${when}${where}.`
-    : response === "canceled"
-    ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש - ${agentName} ישמח/תשמח לתאם.${contact}`
-    : `עדכנתי את ${agentName} שצריך מועד אחר, והוא/היא יחזור/תחזור אליך לתיאום.${contact}`;
-  return { ok: true, already: !!res.already, reply };
+  if (response === "confirmed") {
+    return { ok: true, already: !!res.already, reply: `תודה! עדכנתי את ${agentName} שמגיעים 🙌 נתראה ${when}${where}.`, agentName };
+  }
+  const reply = response === "canceled"
+    ? `ה${noun} בוטלה, ועדכנתי את ${agentName}. כשתרצו לקבוע מועד חדש, נשמח לתאם.`
+    : `עדכנתי את ${agentName} שצריך מועד אחר, הפרטים הועברו ל${agentName} לתיאום.`;
+  return { ok: true, already: !!res.already, reply, ...who };
 }
 
 /**
@@ -357,22 +414,19 @@ export async function feedbackToMeeting(
     return { ok: false, error: "not_yet", reply: "נשמח לשמוע איך היה - אחרי הסיור 🙂" };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות ישירות לסוכן/ת." };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות למי שקבע אותו." };
   }
   if (!res.already) await kickNotificationPush();
 
   const { data: item } = await supabase
     .from("agent_agenda_items").select("agent_id").eq("client_token", token).maybeSingle();
-  let agentName = "הסוכן/ת";
+  let agentName = "צוות התיווך";
   if (item?.agent_id) {
     const { data: agent } = await supabase
       .from("agency_members").select("display_name").eq("id", item.agent_id).maybeSingle();
     agentName = agent?.display_name || agentName;
   }
-  const reply = feedback === "liked"
-    ? `איזה כיף! 🙌 עדכנתי את ${agentName}, שיחזור/תחזור אליך עם ההמשך.`
-    : feedback === "unsure"
-    ? `תודה על הכנות 🙏 עדכנתי את ${agentName}, שיחזור/תחזור אליך לשמוע מה מתלבטים ולעזור להחליט.`
-    : `תודה, זה עוזר! עדכנתי את ${agentName}, שיחפש/תחפש בשבילך נכסים שמתאימים יותר.`;
+  const moved = `הפרטים הועברו ${leName(agentName)} להמשך טיפול.`;
+  const reply = feedback === "liked" ? `תודה! שמחים שאהבת. ${moved}` : moved;
   return { ok: true, already: !!res.already, reply };
 }

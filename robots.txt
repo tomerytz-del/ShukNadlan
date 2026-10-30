@@ -31,8 +31,10 @@ Disallow: /sign.html
 Disallow: /review-request
 Disallow: /review-request.html
 # המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
+# ‏/m/ הוא הקישור הקצר של אותה כתובת. בלי הלוכסן /m היה תופס גם /meeting.
 Disallow: /showcase
 Disallow: /showcase.html
+Disallow: /m/
 # דף הפגישה ללקוח/ה - קישור עם טוקן (docs/meeting-client-followup.md)
 Disallow: /meeting
 Disallow: /meeting.html

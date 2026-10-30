@@ -9,6 +9,17 @@
 // משלושה רווחים רצופים. אותו כלל כמו templateSummary ב-notification-push.
 // ============================================================================
 
+import {
+  ctaPayload,
+  deliverWaPayloads,
+  logWaUrlGuard,
+  payloadsForText,
+  planWaText,
+  WA_CTA_BODY_MAX,
+  WA_EMPTY_BODY,
+  WA_NO_BUTTON,
+} from "./wa-url-guard.ts";
+
 const MAX_TEXT = 4096;
 
 type DenoEnv = { env: { get(name: string): string | undefined } };
@@ -130,15 +141,49 @@ async function graphMessages(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
-/** הודעת טקסט. מותרת רק בתוך חלון 24 השעות; מחוץ לו Meta דוחה והקורא נופל לתבנית. */
+/** הודעת טקסט. מותרת רק בתוך חלון 24 השעות; מחוץ לו Meta דוחה והקורא נופל לתבנית.
+ *  כתובת בגוף יוצאת ככפתור. */
 export async function waText(to: string, body: string): Promise<void> {
-  await graphMessages({
+  const plan = planWaText(body);
+  if (plan.stripped) logWaUrlGuard("waText", plan);
+  const planned = payloadsForText(to, body);
+  const raw = (plan.text || planned.visibleText || "").trim();
+  const plain = !raw || raw === WA_EMPTY_BODY ? "" : raw;
+  await deliverWaPayloads(planned.payloads, (payload) => graphMessages(payload).then(() => null), () => ({
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
     type: "text",
-    text: { preview_url: false, body: clipWhatsappText(body) },
+    text: { preview_url: false, body: clipWhatsappText(plain || WA_NO_BUTTON) },
+  }), planned.visibleText);
+}
+
+export async function waCta(to: string, body: string, label: string, url: string): Promise<void> {
+  const plan = planWaText(body);
+  if (plan.stripped) logWaUrlGuard("waCta", plan);
+  const raw = (plan.text || "").trim();
+  const plain = !raw || raw === WA_EMPTY_BODY ? "" : raw;
+  const textMessage = (text: string) => ({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: { preview_url: false, body: clipWhatsappText(text) },
   });
+  let sentText = false;
+  try {
+    if (plain.length > WA_CTA_BODY_MAX) {
+      await graphMessages(textMessage(plain));
+      sentText = true;
+      await graphMessages(ctaPayload(to, label || "לפתיחה", label, url));
+      return;
+    }
+    await graphMessages(ctaPayload(to, plain || label || "לפתיחה", label, url));
+  } catch (err) {
+    console.error("wa-url-guard cta failed, text without url", err);
+    if (sentText) return;
+    await graphMessages(textMessage(plain || WA_NO_BUTTON));
+  }
 }
 
 /** תבנית ליד (חמישה פרמטרים) או נפילה לתבנית ההתראות. זורקת על שאינו 2xx. */

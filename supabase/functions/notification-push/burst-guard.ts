@@ -50,17 +50,12 @@ export function collapseForSend<T extends BurstItem>(
   return items;
 }
 
-export function burstText(
-  name: string | null,
-  count: number,
-  siteBase: string,
-  manageUrl: string,
-): string {
+export function burstText(name: string | null, count: number): string {
   const first = String(name || "").trim().split(/\s+/)[0] || "";
   const line = `יש לך ${count} התראות חדשות באתר.`;
   return [
     first ? `${first}, ${line}` : line,
-    `${siteBase}/crm?goto=bell`,
-    `להפסקת ההתראות בוואטסאפ: ${manageUrl}`,
+    "פרטים ב-CRM.",
+    "להפסקת ההתראות: מסך התראות והודעות.",
   ].join("\n");
 }
