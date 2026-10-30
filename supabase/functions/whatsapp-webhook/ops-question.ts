@@ -81,7 +81,7 @@ export const OPS_QUESTIONS: Record<string, OpsQuestion> = {
     historyNote: OPS_PHOTO_HISTORY_NOTE,
   },
   photo_check_1336_2026_10: {
-    body: "היי, הנכסים 1336 (מגרש באומן) ו־1385 (חנות בקהילת ציון) עודכנו אתמול בהפרש של שתי דקות. אפשר לוודא שהתמונות בכל אחד מהם נכונות? אם משהו התחלף, נעביר אותו לנכס הנכון.",
+    body: "היי, הנכסים 1336 (מגרש באומן) ו־1385 (חנות בקהילת ציון) עודכנו ביום חמישי בהפרש של שתי דקות. אפשר לוודא שהתמונות בכל אחד מהם נכונות? אם משהו התחלף, נעביר אותו לנכס הנכון.",
     buttons: [],
     followup: { body: "וזה נכס 1385:", buttons: [] },
     ctas: [
@@ -163,7 +163,7 @@ export interface OpsQuestionDb {
     agentId: string,
     purpose: string,
     waIds: string[],
-    status: "sent" | "failed",
+    status: "sent" | "failed" | "partial_sent",
     error: string | null,
   ): Promise<void>;
   appendHistory(
@@ -353,6 +353,12 @@ export function claimDecision(code: string): OpsResult | null {
   if (code === "already_sent") {
     return result(409, { error: "already_sent", detail: "כבר נשלחה השאלה הזו לסוכן/ת הזה." });
   }
+  if (code === "partial_sent") {
+    return result(409, {
+      error: "partial_sent",
+      detail: "חלק מההודעות כבר יצא. מה שיצא לא נשלח שוב.",
+    });
+  }
   if (code === "failed") {
     return result(409, {
       error: "send_failed",
@@ -513,21 +519,10 @@ export async function runOpsQuestion(opts: {
 
   const prior = value.retry ? await opts.db.priorWaIds(value.agentId, value.purpose) : [];
   const waIds: string[] = [];
-  const delivered: { waId: string | null; body: string }[] = [];
   const stamp = lastInbound || new Date(now).toISOString();
-  const logDelivered = async () => {
-    for (const row of delivered) {
-      await opts.db.logOutbound({
-        agentId: value.agentId,
-        phone,
-        waMessageId: row.waId,
-        body: row.body,
-        error: null,
-      }).catch((err) => console.error("ops question log failed", err));
-      await opts.db.appendHistory(value.agentId, phone, stamp, row.body, value.historyNote)
-        .catch((err) => console.error("ops question history failed", err));
-    }
-  };
+  const remember = (status: "sent" | "failed" | "partial_sent", errorText: string | null) =>
+    opts.db.markSent(value.agentId, value.purpose, waIds, status, errorText)
+      .catch((err) => console.error("ops question mark failed", err));
   for (let i = 0; i < value.messages.length; i++) {
     const message = value.messages[i];
     if (prior[i]) {
@@ -536,34 +531,34 @@ export async function runOpsQuestion(opts: {
     }
     let waId: string | null;
     try {
-      // שתי ההודעות יוצאות ברצף, בלי כתיבה למסד ביניהן.
       waId = message.cta
         ? await opts.sendCta!(phone, message.body, message.cta.label, message.cta.url)
         : await opts.sendButtons(phone, message.body, message.buttons);
     } catch (err) {
       console.error("ops question send failed", err);
-      const detail = waIds.length
-        ? "חלק מההודעות יצא. retry=true שולח רק את מה שלא יצא."
+      const partial = waIds.length > 0;
+      const detail = partial
+        ? "חלק מההודעות יצא. מה שיצא לא נשלח שוב."
         : "השליחה לוואטסאפ נכשלה. לניסיון חוזר: retry=true.";
-      await logDelivered();
-      await opts.db.markSent(
-        value.agentId,
-        value.purpose,
-        waIds,
-        "failed",
-        String((err as Error)?.message || err).slice(0, 300),
-      ).catch((markErr) => console.error("ops question mark failed", markErr));
-      return result(502, { error: "send_failed", detail });
+      await remember(partial ? "partial_sent" : "failed", String((err as Error)?.message || err).slice(0, 300));
+      return result(502, { error: partial ? "partial_sent" : "send_failed", detail });
     }
     waIds.push(waId || "sent");
-    delivered.push({
-      waId,
-      body: opsOutboundBody(message.body, message.buttons, message.cta),
-    });
+    const logged = opsOutboundBody(message.body, message.buttons, message.cta);
+    await opts.db.logOutbound({
+      agentId: value.agentId,
+      phone,
+      waMessageId: waId,
+      body: logged,
+      error: null,
+    }).catch((err) => console.error("ops question log failed", err));
+    await opts.db.appendHistory(value.agentId, phone, stamp, logged, value.historyNote)
+      .catch((err) => console.error("ops question history failed", err));
+    // אחרי הודעה שיצאה, לפני הבאה: לא נשארים claimed. כשל בהמשך הוא partial_sent,
+    // וההודעה שכבר יצאה לא נשלחת שוב.
+    if (i < value.messages.length - 1) await remember("partial_sent", null);
   }
-  await logDelivered();
-  await opts.db.markSent(value.agentId, value.purpose, waIds, "sent", null)
-    .catch((err) => console.error("ops question mark failed", err));
+  await remember("sent", null);
   return result(200, {
     ok: true,
     purpose: value.purpose,

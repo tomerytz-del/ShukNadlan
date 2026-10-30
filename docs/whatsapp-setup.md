@@ -886,11 +886,12 @@ Authorization: Bearer <service_role>
 | אין נכנסת ב-24 שעות | `409 window_closed` ו-`last_inbound` |
 | שעות שקט, שישי מ-13:00 או שבת (`notification_send_window_open`) | `409 quiet_hours`, בלי שליחה |
 | כבר `sent` | `409 already_sent` |
+| ההודעה הראשונה יצאה והשנייה נכשלה | `502 partial_sent`. מה שיצא נרשם מיד ולא נשלח שוב, גם עם `retry` |
 | `failed` או `claimed` תקוע, בלי retry | `409 send_failed` / `in_progress` |
 | תקרה: 1 לסוכן/ת או 5 לכולם ביממה | `429 agent_daily_cap` / `global_daily_cap` |
 
 התקרה והתפיסה ב-`whatsapp_ops_question_claim` (נעילה), לא רק בקוד.
-ההודעה נרשמת ב-`whatsapp_messages` ונוספת להיסטוריה ב-`whatsapp_ops_history_append`
+כל הודעה נרשמת ב-`whatsapp_messages` ונוספת להיסטוריה ב-`whatsapp_ops_history_append` מיד אחרי שהיא יוצאת, לא אחרי שתיהן.
 (`history || entries`, בלי להזיז את `last_message_at`).
 
 **הלחיצה** נתפסת לפני הבוט הציבורי ולפני המודל, גם אם המזהה רק מתחיל
