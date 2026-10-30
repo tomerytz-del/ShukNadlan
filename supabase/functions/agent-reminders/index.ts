@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { mapPool } from "../_shared/pool.ts";
 import {
   absoluteUrl,
@@ -226,12 +227,13 @@ const WA_OPTED_OUT = 131050;
 function waSummary(items: Item[], withUrls = true): string {
   // בתבנית המאושרת הקישור בסוף הפריט: הכפתור היחיד הוא ניהול התזכורות.
   // בתבנית UTILITY החדשה (כשהסוד מוגדר) הקישור יורד לכפתור והגוף בלי כתובת.
+  const note = withUrls ? "" : " פרטים ב-CRM.";
   return items
     .map((it) => `• ${it.title}: ${it.body}${withUrls ? ` ${itemUrl(it)}` : ""}`)
     .join(" ")
     .replace(/\s*[\r\n\t]+\s*/g, " ")
     .replace(/ {4,}/g, "   ")
-    .slice(0, 900);
+    .slice(0, 900 - note.length) + note;
 }
 
 async function sendWhatsapp(to: string, name: string | null, items: Item[]): Promise<void> {
@@ -292,7 +294,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
             type: "body",
             parameters: [
               { type: "text", text: (String(name || "").trim().split(/\s+/)[0] || "שלום").slice(0, 60) },
-              { type: "text", text: waSummary(items, true) },
+              { type: "text", text: waSummary(items, false) },
             ],
           },
           {
@@ -317,7 +319,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
       recipient_type: "individual",
       to,
       type: "text",
-      text: { preview_url: false, body: textBody(name, items, true) },
+      text: { preview_url: false, body: `${textBody(name, items, false)}\n${WA_NO_BUTTON}`.slice(0, 4000) },
     };
   }
 
@@ -325,7 +327,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
   if (!res.ok && payload.type === "interactive") {
     const raw = await res.text();
     if (!raw.includes(String(WA_OPTED_OUT))) {
-      console.error("reminder interactive rejected, sending as text", raw.slice(0, 300));
+      console.error("reminder interactive rejected, sending as text without url", raw.slice(0, 300));
       res = await fetch(url, {
         method: "POST",
         headers,
@@ -334,7 +336,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
           recipient_type: "individual",
           to,
           type: "text",
-          text: { preview_url: false, body: textBody(name, items, true) },
+          text: { preview_url: false, body: `${textBody(name, items, false)}\n${WA_NO_BUTTON}`.slice(0, 4000) },
         }),
       });
     } else {

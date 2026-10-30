@@ -46,15 +46,6 @@ export const FALLBACK_AGENT_PATH = "/crm?goto=bell";
 /** הכתובת היחידה שמותר לשים במענה החלופי לגולש/ת. */
 export const PUBLIC_FALLBACK_SITE = "https://shuknadlan.co.il";
 
-/**
- * קישור לגולש/ת. בסיס חתוך, דומיין קצר או נתיב יחסי אינם נכנסים להודעה:
- * במקומם נשארת הכתובת המלאה.
- */
-export function publicFallbackSite(siteBase: string): string {
-  const bare = String(siteBase || "").trim().replace(/\/+$/, "");
-  return bare === PUBLIC_FALLBACK_SITE ? bare : PUBLIC_FALLBACK_SITE;
-}
-
 export function fallbackReply(kind: LlmFailureKind, audience: FallbackAudience, siteBase: string): string {
   if (audience === "agent") {
     if (kind === "billing") {
@@ -63,8 +54,9 @@ export function fallbackReply(kind: LlmFailureKind, audience: FallbackAudience, 
     return "משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח את ההודעה שוב, או להמשיך מהאזור האישי.";
   }
   if (kind === "billing") {
-    const site = publicFallbackSite(siteBase);
-    return `סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: ${site}`;
+    // הכתובת יוצאת ככפתור "לאתר" אצל הקורא, לא בגוף. siteBase נשאר בחתימה.
+    void siteBase;
+    return "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים.";
   }
   return "סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?";
 }
