@@ -53,7 +53,7 @@ export const REMINDER_BUTTONS: Button[] = [
 ];
 export const FEEDBACK_BUTTONS: Button[] = [
   { code: "l", value: "liked", title: "👍 אהבתי" },
-  { code: "u", value: "unsure", title: "🤔 מתלבט/ת" },
+  { code: "u", value: "unsure", title: "🤔 מתלבטים" },
   { code: "n", value: "not_for_me", title: "👎 לא בשבילי" },
 ];
 
@@ -223,22 +223,30 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
   const planned = payloadsForText(to, clean);
   if (!planned.payloads.length) return null;
   let first: string | null = null;
+  let sentPlain = false;
   for (let i = 0; i < planned.payloads.length; i++) {
     const payload = planned.payloads[i];
     try {
       const id = await post(payload);
+      if (payload.type === "text") sentPlain = true;
       if (first == null) first = id;
     } catch (err) {
-      if (i !== 0) {
+      if (payload.type === "video") {
+        console.error("wa-url-guard meeting video failed", err);
+        continue;
+      }
+      if (payload.type !== "interactive") {
+        if (i === 0) throw err;
         console.error("wa-url-guard meeting follow-up failed", err);
         continue;
       }
-      if (payload.type !== "interactive") throw err;
       console.error("wa-url-guard meeting cta failed", err);
+      if (sentPlain) continue;
       const interactive = payload.interactive as { action?: { parameters?: { url?: string } } } | undefined;
       const failedUrl = String(interactive?.action?.parameters?.url || "");
-      const note = `אפשר גם לכתוב ישירות ל${agentName || "הסוכן/ת"} בווטסאפ.`;
-      const base = (planned.visibleText || "").trim();
+      const note = `אפשר גם לכתוב ישירות ל${agentName || "צוות התיווך"} בווטסאפ.`;
+      const raw = (planned.visibleText || "").trim();
+      const base = !raw || raw === "הפרטים בכפתור." ? "" : raw;
       const fallback = failedUrl.includes("wa.me")
         ? (base && base !== note ? `${base}\n${note}` : note)
         : (base || "הפרטים בדף הפגישה.");
@@ -252,7 +260,7 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
         });
       } catch (err2) {
         console.error("wa-url-guard meeting text fallback failed", err2);
-        return null;
+        return first;
       }
     }
   }
@@ -262,7 +270,6 @@ export async function sendText(to: string, body: string, agentName?: string): Pr
 /** בלי כפתור אין "בכפתור" בגוף. */
 function textWithoutButton(text: string): string {
   return text
-    .replace(/\n?אפשר להוסיף ליומן בכפתור\.?/g, "\nאפשר להוסיף ליומן מדף הפגישה.")
     .replace(/בכפתור למטה/g, "מדף הפגישה")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -395,7 +402,7 @@ export async function respondToMeeting(
     return { ok: false, error: "past", reply: `ה${noun} הזו כבר עברה. לכל שאלה אפשר לפנות ל${agentName}.`, ...who };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הפגישה הזו. אפשר לפנות ישירות לסוכן/ת שקבע/ה אותה.", agentName };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הפגישה הזו. אפשר לפנות למי שקבע את הפגישה.", agentName };
   }
 
   if (!res.already) await kickNotificationPush();
@@ -433,7 +440,7 @@ export async function feedbackToMeeting(
     return { ok: false, error: "not_yet", reply: "נשמח לשמוע איך היה - אחרי הסיור 🙂" };
   }
   if (res.error) {
-    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות ישירות לסוכן/ת." };
+    return { ok: false, error: String(res.error), reply: "לא מצאתי את הסיור הזה. אפשר לפנות למי שקבע את הפגישה." };
   }
   if (!res.already) await kickNotificationPush();
 

@@ -496,9 +496,16 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
       });
       // ניסיון שני: כפתור קצר. אם גם הוא נדחה - טקסט בלי כתובת, עם יעד שאפשר למצוא.
       if (item.kind === "cta") {
+        const body = item.body.trim();
+        let textId: string | null = null;
         try {
-          const body = item.body.trim();
-          if (body.length > 1024) await sendText(to, body);
+          if (body.length > 1024) {
+            textId = await sendText(to, body);
+            await supabase.from("whatsapp_messages").insert({
+              wa_message_id: textId, direction: "out", wa_phone: to, agent_id: agentId,
+              msg_type: "text", body: body.slice(0, 2000), status: textId ? "sent" : null,
+            });
+          }
           const buttonBody = body.length > 0 && body.length <= 1024 ? body : item.label;
           const retryId = await sendCtaUrl(to, buttonBody, item.label, item.url);
           await supabase.from("whatsapp_messages").insert({
@@ -508,6 +515,7 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
           continue;
         } catch (retryErr) {
           console.error("outbox cta retry failed", retryErr);
+          if (textId) continue;
         }
         await reply(to, `${item.body}\n${item.label}.\n${WA_NO_BUTTON}`, agentId);
       } else if (item.kind === "list") {

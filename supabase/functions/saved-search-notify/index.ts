@@ -77,6 +77,11 @@ const clickUrl = (token: string) =>
   `${FUNCTIONS_BASE}/saved-search-manage?action=click&token=${encodeURIComponent(token)}`;
 const unsubUrl = (token: string) =>
   `${FUNCTIONS_BASE}/saved-search-manage?action=unsubscribe&token=${encodeURIComponent(token)}`;
+const unsubManyUrl = (tokens: string[]) => {
+  const q = new URLSearchParams({ action: "unsubscribe" });
+  for (const token of tokens) q.append("token", token);
+  return `${FUNCTIONS_BASE}/saved-search-manage?${q}`;
+};
 
 function textBody(a: any): string {
   const parts = [
@@ -195,16 +200,19 @@ async function sendWhatsapp(a: any): Promise<void> {
   }
 }
 
-/** הודעה שנייה. כישלון נרשם ולא נזרק, כדי שההתראה לא תישלח שוב. */
-async function sendStopNotice(a: any): Promise<boolean> {
-  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE) return false;
+/** הודעה שנייה, אחרי כל ההתראות של אותו מספר בסבב. כישלון נרשם ולא נזרק. */
+async function sendStopNotice(phone: string, tokens: string[]): Promise<boolean> {
+  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE || !tokens.length) return false;
   try {
     const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
+    const many = tokens.length > 1;
     const payload = ctaPayload(
-      a.phone_e164,
-      "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפוש הזה בכפתור.",
+      phone,
+      many
+        ? "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפושים האלה בכפתור."
+        : "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפוש הזה בכפתור.",
       "הפסקת עדכונים",
-      unsubUrl(a.unsubscribe_token),
+      unsubManyUrl(tokens),
     );
     const res = await fetch(url, {
       method: "POST",
@@ -213,12 +221,12 @@ async function sendStopNotice(a: any): Promise<boolean> {
     });
     if (!res.ok) {
       const raw = await res.text();
-      console.error("saved-search stop notice failed", a.alert_id, raw.slice(0, 300));
+      console.error("saved-search stop notice failed", phone, raw.slice(0, 300));
       return false;
     }
     return true;
   } catch (err) {
-    console.error("saved-search stop notice failed", a.alert_id, err instanceof Error ? err.message : err);
+    console.error("saved-search stop notice failed", phone, err instanceof Error ? err.message : err);
     return false;
   }
 }
@@ -312,7 +320,7 @@ Deno.serve(async (req: Request) => {
   if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true, deferred: flagOn });
 
   let sent = 0, failed = 0, deferred = 0;
-  const stopNoticePhones = new Set<string>();
+  const stopTokens = new Map<string, string[]>();
 
   for (const a of alerts as any[]) {
     const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both")
@@ -397,11 +405,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (waStatus === "sent" && !WA_TEMPLATE) {
+    if (waStatus === "sent" && !WA_TEMPLATE && a.unsubscribe_token) {
       const phone = String(a.phone_e164 || "");
-      if (phone && !stopNoticePhones.has(phone)) {
-        const stopped = await sendStopNotice(a);
-        if (stopped) stopNoticePhones.add(phone);
+      if (phone) {
+        const list = stopTokens.get(phone) || [];
+        list.push(String(a.unsubscribe_token));
+        stopTokens.set(phone, list);
       }
     }
 
@@ -429,6 +438,10 @@ Deno.serve(async (req: Request) => {
 
     if (waStatus === "sent" || emStatus === "sent") sent++;
     else failed++;
+  }
+
+  for (const [phone, tokens] of stopTokens) {
+    await sendStopNotice(phone, [...new Set(tokens)]);
   }
 
   return json({ sent, failed, deferred, processed: alerts.length });

@@ -183,9 +183,9 @@ export function ctaPayload(to: string, body: string, label: string, url: string)
 }
 
 /**
- * לכל היותר שתי הודעות. גוף ארוך מ-1024 יוצא כטקסט, ואחריו כפתור
- * שהגוף שלו "הפרטים בכפתור.". המשך של יעד אחד: הגוף הוא שם היעד.
- * כמה יעדים שנשארו: כפתור "לאתר" אחד.
+ * לכל היותר שתי הודעות, חוץ מגוף ארוך עם וידאו: אז הטקסט יוצא קודם,
+ * ואחריו הווידאו וכפתור אחד ליעד הראשון. בלי וידאו, גוף ארוך מ-1024
+ * יוצא כטקסט ואז כפתור. כמה יעדים בלי וידאו: כפתור "לאתר" אחד.
  */
 export function payloadsForText(to: string, body: string): {
   payloads: Record<string, unknown>[];
@@ -206,13 +206,14 @@ export function payloadsForText(to: string, body: string): {
     }
   };
   if (videos.length && ctas.length) {
+    const link = ctas[0];
+    const long = visibleText.length > WA_CTA_BODY_MAX;
+    if (long) payloads.push(textPayload(to, visibleText));
     payloads.push(videoPayload(to, videos[0].url));
-    const link = ctas.length === 1 ? ctas[0] : null;
-    const buttonBody = visibleText.length > 0 && visibleText.length <= WA_CTA_BODY_MAX && visibleText !== WA_EMPTY_BODY
+    const buttonBody = !long && visibleText && visibleText !== WA_EMPTY_BODY
       ? visibleText
-      : (link ? link.label : "לאתר");
-    if (link) payloads.push(ctaPayload(to, buttonBody, link.label, stamped(link.url)));
-    else payloads.push(ctaPayload(to, buttonBody, "לאתר", WA_SITE));
+      : link.label;
+    payloads.push(ctaPayload(to, buttonBody, link.label, stamped(link.url)));
   } else if (videos.length) {
     if (visibleText && visibleText !== WA_EMPTY_BODY) payloads.push(textPayload(to, visibleText));
     payloads.push(videoPayload(to, videos[0].url));
@@ -229,5 +230,6 @@ export function payloadsForText(to: string, body: string): {
     payloads.push(ctaPayload(to, visibleText || WA_EMPTY_BODY, ctas[0].label, stamped(ctas[0].url)));
     oneFollowUp(ctas.slice(1));
   }
-  return { payloads: payloads.slice(0, MAX_WA_MESSAGES), visibleText, stripped: plan.stripped };
+  const cap = videos.length && ctas.length && visibleText.length > WA_CTA_BODY_MAX ? 3 : MAX_WA_MESSAGES;
+  return { payloads: payloads.slice(0, cap), visibleText, stripped: plan.stripped };
 }

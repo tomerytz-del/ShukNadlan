@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MIG = ROOT / "supabase/migrations/20271030000400_gabriela_waiting_customers.sql"
-MIG_NEXT = ROOT / "supabase/migrations/20271031190000_wa_fallback_no_url.sql"
+MIG_NEXT = ROOT / "supabase/migrations/20271031210000_wa_fallback_no_url.sql"
 DB = os.environ.get("GABRIELA_WAITING_TEST_DB", "gabriela_waiting_test")
 
 

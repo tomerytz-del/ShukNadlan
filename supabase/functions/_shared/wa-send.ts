@@ -14,6 +14,7 @@ import {
   logWaUrlGuard,
   payloadsForText,
   planWaText,
+  WA_CTA_BODY_MAX,
   WA_EMPTY_BODY,
   WA_NO_BUTTON,
 } from "./wa-url-guard.ts";
@@ -152,17 +153,28 @@ export async function waText(to: string, body: string): Promise<void> {
 export async function waCta(to: string, body: string, label: string, url: string): Promise<void> {
   const plan = planWaText(body);
   if (plan.stripped) logWaUrlGuard("waCta", plan);
+  const raw = (plan.text || "").trim();
+  const plain = !raw || raw === WA_EMPTY_BODY ? "" : raw;
+  const textMessage = (text: string) => ({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "text",
+    text: { preview_url: false, body: clipWhatsappText(text) },
+  });
+  let sentText = false;
   try {
-    await graphMessages(ctaPayload(to, plan.text || WA_EMPTY_BODY, label, url));
+    if (plain.length > WA_CTA_BODY_MAX) {
+      await graphMessages(textMessage(plain));
+      sentText = true;
+      await graphMessages(ctaPayload(to, label || "לפתיחה", label, url));
+      return;
+    }
+    await graphMessages(ctaPayload(to, plain || label || "לפתיחה", label, url));
   } catch (err) {
     console.error("wa-url-guard cta failed, text without url", err);
-    await graphMessages({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      text: { preview_url: false, body: clipWhatsappText(plan.text || WA_NO_BUTTON) },
-    });
+    if (sentText) return;
+    await graphMessages(textMessage(plain || WA_NO_BUTTON));
   }
 }
 

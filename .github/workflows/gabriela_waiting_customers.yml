@@ -8,7 +8,7 @@ on:
     paths:
       - "supabase/migrations/20271030000400_gabriela_waiting_customers.sql"
       - "supabase/functions/whatsapp-webhook/llm-fallback.ts"
-      - "supabase/migrations/20271031190000_wa_fallback_no_url.sql"
+      - "supabase/migrations/20271031210000_wa_fallback_no_url.sql"
       - "scripts/gabriela_waiting_customers_test.py"
       - ".github/workflows/gabriela_waiting_customers.yml"
   push:
@@ -16,7 +16,7 @@ on:
     paths:
       - "supabase/migrations/20271030000400_gabriela_waiting_customers.sql"
       - "supabase/functions/whatsapp-webhook/llm-fallback.ts"
-      - "supabase/migrations/20271031190000_wa_fallback_no_url.sql"
+      - "supabase/migrations/20271031210000_wa_fallback_no_url.sql"
       - "scripts/gabriela_waiting_customers_test.py"
       - ".github/workflows/gabriela_waiting_customers.yml"
   workflow_dispatch:

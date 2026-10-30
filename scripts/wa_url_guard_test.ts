@@ -99,6 +99,18 @@ check("וידאו ואז כפתור", withButton.payloads.length === 2
   && (withButton.payloads[0] as { type?: string }).type === "video"
   && (withButton.payloads[1] as { type?: string }).type === "interactive");
 
+const longVideo = payloadsForText(
+  "972500000000",
+  `${"א".repeat(1500)} https://cdn.example.com/a.mp4 https://shuknadlan.co.il/property?id=abc https://shuknadlan.co.il/pricing`,
+);
+const longTypes = longVideo.payloads.map((p) => (p as { type?: string }).type);
+const longButton = longVideo.payloads[2] as { interactive?: { body?: { text?: string }; action?: { parameters?: { url?: string; display_text?: string } } } };
+check("גוף ארוך עם וידאו יוצא כטקסט קודם", longTypes.join(",") === "text,video,interactive"
+  && (longVideo.payloads[0] as { text: { body: string } }).text.body.length > 1024);
+check("הכפתור הוא היעד הראשון ולא דף הבית", longButton.interactive?.action?.parameters?.display_text === "לדף הנכס"
+  && String(longButton.interactive?.action?.parameters?.url || "").includes("/property")
+  && longButton.interactive?.body?.text === "לדף הנכס");
+
 const videoPayloads = payloadsForText("972500000000", "מוכן https://cdn.example.com/a.mp4");
 check("וידאו לא כפתור", videoPayloads.payloads.length === 2
   && videoPayloads.payloads.some((p) => (p as { type?: string }).type === "video")

@@ -112,6 +112,12 @@ function ctaUrlOf(payload: Record<string, unknown>): string {
   return String(interactive?.action?.parameters?.url || "");
 }
 
+/** "הפרטים בכפתור." אינו גוף. בלי כפתור אסור להשאיר אותו. */
+function plainBody(visible: string): string {
+  const base = (visible || "").trim();
+  return !base || base === WA_EMPTY_BODY ? "" : base;
+}
+
 /** לכל היותר הודעת המשך אחת. יעד אחד: הגוף הוא שם היעד. כמה יעדים: כפתור "לאתר". */
 async function postGuardedFollowups(to: string, links: WaPlannedLink[], skipUrl?: string): Promise<void> {
   const ctas = links.filter((link) => link.kind === "cta" && link.url !== skipUrl);
@@ -172,18 +178,29 @@ export async function sendText(
       sent?.push(describeSent(payload, id));
       if (first == null) first = id;
     } catch (err) {
-      if (i === 0 && payload.type === "interactive") {
+      if (payload.type === "video") {
+        console.error("wa-url-guard video failed", err);
+        continue;
+      }
+      if (payload.type === "interactive") {
         console.error("wa-url-guard cta failed, text without url", err);
+        const already = sent?.some((part) => part.kind === "text" && plainBody(part.body));
+        if (already) continue;
         const failedUrl = ctaUrlOf(payload);
-        const note = `אפשר גם לכתוב ישירות ל${contactName || "הסוכן/ת"} בווטסאפ.`;
-        const base = (planned.visibleText || "").trim();
+        const note = `אפשר גם לכתוב ישירות ל${contactName || "צוות התיווך"} בווטסאפ.`;
+        const base = plainBody(planned.visibleText);
         const fallback = (failedUrl.includes("wa.me")
           ? (base && base !== note ? `${base}\n${note}` : note)
           : (base || WA_NO_BUTTON)).slice(0, MAX_TEXT_LEN);
-        const fallbackPayload = textPayload(to, fallback);
-        const id = await postMessage(to, fallbackPayload, "whatsapp send failed");
-        sent?.push(describeSent(fallbackPayload, id));
-        return id;
+        try {
+          const fallbackPayload = textPayload(to, fallback);
+          const id = await postMessage(to, fallbackPayload, "whatsapp send failed");
+          sent?.push(describeSent(fallbackPayload, id));
+          return id;
+        } catch (err2) {
+          console.error("wa-url-guard text fallback failed", err2);
+          return first;
+        }
       }
       if (i === 0) throw err;
       console.error("wa-url-guard follow-up failed", err);
@@ -207,19 +224,29 @@ export async function sendImage(
 ): Promise<string | null> {
   const plan = planWaText(formatForWhatsapp(caption));
   if (plan.stripped) logWaUrlGuard("sendImage", plan);
-  const text = (plan.text || "").length > MAX_CAPTION_LEN
-    ? plan.text.slice(0, MAX_CAPTION_LEN - 1) + "…"
-    : plan.text;
+  const full = plan.text || "";
+  let textId: string | null = null;
+  let imageCaption = full;
+  if (full.length > MAX_CAPTION_LEN) {
+    textId = await postMessage(to, textPayload(to, full.slice(0, MAX_TEXT_LEN)), "whatsapp send failed");
+    imageCaption = "";
+  }
 
-  const id = await postMessage(to, {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "image",
-    image: { link: imageUrl, caption: text },
-  }, "whatsapp image send failed");
-  if (plan.links.length) await postGuardedFollowups(to, plan.links);
-  return id;
+  try {
+    const id = await postMessage(to, {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "image",
+      image: { link: imageUrl, caption: imageCaption },
+    }, "whatsapp image send failed");
+    if (plan.links.length) await postGuardedFollowups(to, plan.links);
+    return id;
+  } catch (err) {
+    if (!textId) throw err;
+    console.error("wa-url-guard image failed after text", err);
+    return textId;
+  }
 }
 
 /** סרטון לפי קישור (קובץ אחסון). הכתובת לא נכתבת בגוף. */
@@ -322,12 +349,17 @@ export async function sendButtons(
 ): Promise<string | null> {
   const plan = planWaText(formatForWhatsapp(body));
   if (plan.stripped) logWaUrlGuard("sendButtons", plan);
-  const clean = plan.text || WA_EMPTY_BODY;
-  const text = clean.length > MAX_BUTTON_BODY
-    ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…"
-    : clean;
+  const clean = plan.text || "";
+  let textId: string | null = null;
+  let text = clean || WA_EMPTY_BODY;
+  if (clean.length > MAX_BUTTON_BODY) {
+    textId = await postMessage(to, textPayload(to, clean.slice(0, MAX_TEXT_LEN)), "whatsapp send failed");
+    text = WA_EMPTY_BODY;
+  }
 
-  const id = await postMessage(to, {
+  let id: string | null;
+  try {
+    id = await postMessage(to, {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
@@ -348,9 +380,14 @@ export async function sendButtons(
       },
     },
   }, "whatsapp buttons send failed");
+  } catch (err) {
+    if (!textId) throw err;
+    console.error("wa-url-guard buttons failed after text", err);
+    return textId;
+  }
   // כפתורי תשובה וכפתור קישור אינם באותה הודעה. הכתובת יוצאת בהמשך.
   if (plan.links.length) await postGuardedFollowups(to, plan.links);
-  return id;
+  return id ?? textId;
 }
 
 const MAX_LIST_ROWS = 10;
@@ -372,8 +409,13 @@ export async function sendList(
 ): Promise<string | null> {
   const plan = planWaText(formatForWhatsapp(body));
   if (plan.stripped) logWaUrlGuard("sendList", plan);
-  const clean = plan.text || WA_EMPTY_BODY;
-  const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
+  const clean = plan.text || "";
+  let textId: string | null = null;
+  let text = clean || WA_EMPTY_BODY;
+  if (clean.length > MAX_BUTTON_BODY) {
+    textId = await postMessage(to, textPayload(to, clean.slice(0, MAX_TEXT_LEN)), "whatsapp send failed");
+    text = WA_EMPTY_BODY;
+  }
   const sliced = rows.slice(0, MAX_LIST_ROWS).map((row) => {
     const description = row.description
       ? Array.from(formatForWhatsapp(row.description)).slice(0, MAX_LIST_DESC).join("")
@@ -386,7 +428,9 @@ export async function sendList(
       ...(description ? { description } : {}),
     };
   });
-  const sent = await postMessage(to, {
+  let sent: string | null;
+  try {
+    sent = await postMessage(to, {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
@@ -403,8 +447,13 @@ export async function sendList(
       },
     },
   }, "whatsapp list send failed");
+  } catch (err) {
+    if (!textId) throw err;
+    console.error("wa-url-guard list failed after text", err);
+    return textId;
+  }
   if (plan.links.length) await postGuardedFollowups(to, plan.links);
-  return sent;
+  return sent ?? textId;
 }
 
 /**
@@ -421,10 +470,17 @@ export async function sendCtaUrl(
 ): Promise<string | null> {
   const plan = planWaText(formatForWhatsapp(body));
   if (plan.stripped) logWaUrlGuard("sendCtaUrl", plan);
-  const clean = plan.text || WA_EMPTY_BODY;
-  const text = clean.length > MAX_BUTTON_BODY ? clean.slice(0, MAX_BUTTON_BODY - 1) + "…" : clean;
+  const clean = plan.text || "";
+  let textId: string | null = null;
+  let text = clean || label || WA_EMPTY_BODY;
+  if (clean.length > MAX_BUTTON_BODY) {
+    textId = await postMessage(to, textPayload(to, clean.slice(0, MAX_TEXT_LEN)), "whatsapp send failed");
+    text = label || WA_EMPTY_BODY;
+  }
   const stamped = withClickUrl(url, "cta");
-  const id = await postMessage(to, {
+  let id: string | null;
+  try {
+    id = await postMessage(to, {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
@@ -441,8 +497,13 @@ export async function sendCtaUrl(
       },
     },
   }, "whatsapp cta_url send failed");
+  } catch (err) {
+    if (!textId) throw err;
+    console.error("wa-url-guard cta failed after text", err);
+    return textId;
+  }
   if (plan.links.length) await postGuardedFollowups(to, plan.links, url);
-  return id;
+  return id ?? textId;
 }
 
 /**

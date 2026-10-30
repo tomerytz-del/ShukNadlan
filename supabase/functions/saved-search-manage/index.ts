@@ -60,7 +60,10 @@ const ACTIONS = ["unsubscribe", "pause", "resume"];
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "";
-  const token = url.searchParams.get("token") || "";
+  const tokens = [...new Set(
+    url.searchParams.getAll("token").flatMap((part) => part.split(",")).map((t) => t.trim()).filter(Boolean),
+  )];
+  const token = tokens[0] || "";
 
   if (!token) return page("קישור לא תקין", "<h1>קישור לא תקין</h1><p>חסר מזהה בכתובת.</p>", 400);
 
@@ -104,9 +107,12 @@ Deno.serve(async (req: Request) => {
       resume: ["חידוש ההתראות", "נחזור לשלוח לכם נכסים שמתאימים לחיפוש.", "חידוש"],
     };
     const [title, sub, cta] = labels[action];
+    const lead = action === "unsubscribe" && tokens.length > 1
+      ? "לא תקבלו יותר התראות על החיפושים האלה."
+      : sub;
     return page(title, `
       <h1>${esc(title)}</h1>
-      <p>${esc(sub)}</p>
+      <p>${esc(lead)}</p>
       <form method="POST">
         <div class="row">
           <button class="primary" type="submit">${esc(cta)}</button>
@@ -120,35 +126,54 @@ Deno.serve(async (req: Request) => {
     return page("שיטה לא נתמכת", "<h1>שיטה לא נתמכת</h1>", 405);
   }
 
-  // ---- POST: הביצוע --------------------------------------------------------
-  const { data: result, error } = await sb.rpc("manage_saved_search", {
-    p_token: token,
-    p_action: action,
-  });
-
-  if (error) {
-    return page("שגיאה", "<h1>משהו השתבש</h1><p>נסו שוב בעוד רגע.</p>", 500);
+  // ---- POST: הביצוע. כמה טוקנים = כל החיפושים שההודעה כיסתה. --------
+  let doneStatus = "";
+  let label = "";
+  let ok = 0;
+  let missing = 0;
+  let already = 0;
+  for (const one of tokens) {
+    const { data: result, error } = await sb.rpc("manage_saved_search", {
+      p_token: one,
+      p_action: action,
+    });
+    if (error) {
+      return page("שגיאה", "<h1>משהו השתבש</h1><p>נסו שוב בעוד רגע.</p>", 500);
+    }
+    if (result?.error === "not_found") {
+      missing++;
+      continue;
+    }
+    if (result?.error === "already_unsubscribed") {
+      already++;
+      continue;
+    }
+    if (result?.error) {
+      return page("שגיאה", "<h1>משהו השתבש</h1><p>נסו שוב בעוד רגע.</p>", 400);
+    }
+    ok++;
+    doneStatus = String(result?.status || doneStatus);
+    if (!label && result?.label) label = String(result.label);
   }
-  if (result?.error === "not_found") {
-    return page("קישור לא תקין", "<h1>קישור לא תקין</h1><p>ייתכן שהחיפוש כבר נמחק.</p>", 404);
-  }
-  if (result?.error === "already_unsubscribed") {
+  if (!ok && already && !missing) {
     return page("ההתראות כבר הופסקו",
       "<h1>ההתראות כבר הופסקו</h1><p>לקבלת התראות שוב, שמרו חיפוש חדש באתר.</p>");
   }
-  if (result?.error) {
-    return page("שגיאה", "<h1>משהו השתבש</h1><p>נסו שוב בעוד רגע.</p>", 400);
+  if (!ok) {
+    return page("קישור לא תקין", "<h1>קישור לא תקין</h1><p>ייתכן שהחיפוש כבר נמחק.</p>", 404);
   }
 
   const done: Record<string, [string, string]> = {
-    unsubscribed: ["ההתראות הופסקו", "לא נשלח לכם יותר התראות על החיפוש הזה."],
+    unsubscribed: ["ההתראות הופסקו", tokens.length > 1
+      ? "לא נשלח לכם יותר התראות על החיפושים האלה."
+      : "לא נשלח לכם יותר התראות על החיפוש הזה."],
     paused: ["ההתראות הושהו", "אפשר לחדש אותן בכל עת."],
     active: ["ההתראות חודשו", "נחזור לשלוח לכם נכסים שמתאימים."],
   };
-  const [title, sub] = done[result.status] ?? ["בוצע", ""];
+  const [title, sub] = done[doneStatus] ?? ["בוצע", ""];
   return page(title, `
     <h1>${esc(title)}</h1>
     <p>${esc(sub)}</p>
-    ${result.label ? `<p class="muted">${esc(result.label)}</p>` : ""}
+    ${tokens.length === 1 && label ? `<p class="muted">${esc(label)}</p>` : ""}
     ${SITE_BASE_URL ? `<a class="btn primary" href="${esc(SITE_BASE_URL)}">חזרה לאתר</a>` : ""}`);
 });
