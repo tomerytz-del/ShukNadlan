@@ -411,7 +411,7 @@
   }
 
   /* ---------- 2. הסינון ---------- */
-  var filter = { deal: 'sale', area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
+  var filter = { deal: 'sale', area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
   /* ‏P0-3: סוג נכס - בחירה אחת. ‏sort אחד להחלקה, לרשימה ולמפה; "מומלצים" = סדר החפיסה */
   /* ‏R6 (‏A3-1): המפתחות והתוויות של FilterConfig.TYPES (‏assets/filter-config.js) - אותם סוגים כמו
      בצ'יפים מעל התוצאות ובחלון הסינון בדף הבית: דירות, בתים, משקים ונחלות (‏C3), מגרשים; ובמסחרי
@@ -455,14 +455,14 @@
     });
   }
   function activeFilters() {
-    return extItems().length + (filter.deal === 'commercial' && filter.cdeal ? 1 : 0) + (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
+    return extItems().length + (filter.deal === 'commercial' && filter.cdeal ? 1 : 0) + (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget || filter.priceMin ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
       (filter.viz ? 1 : 0) + (filter.fair ? 1 : 0) + (filter.reel ? 1 : 0) + (filter.photos ? 0 : 1);
   }
   /* המצב בכתובת (‏replaceState): ערכי ברירת המחדל לא נכתבים, ו-reload משחזר */
   function writeUrl() {
     try {
       var q = new URLSearchParams(location.search);
-      ['deal', 'cdeal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf', 'pid'].forEach(function (k) { q.delete(k); });
+      ['deal', 'cdeal', 'area', 'rooms', 'budget', 'pmin', 'pmax', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf', 'pid'].forEach(function (k) { q.delete(k); });
       if (extQs) q.set('hf', extQs);
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
@@ -471,9 +471,9 @@
       if (filter.deal === 'commercial' && filter.cdeal) q.set('cdeal', filter.cdeal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
-      // תקציב כאינדקס ב-BUDGETS של העסקה - אותה כתובת שדף הבית בונה (חלק 4 §3.4)
-      var bi = budgetsFor().indexOf(filter.budget);
-      if (filter.budget && bi > 0) q.set('budget', String(bi));
+      // §1: טווח מחיר במספרים. ‏?budget=<אינדקס> (הכתובת הישנה) עדיין נקרא, ונכתב מחדש כ-pmax
+      if (filter.priceMin) q.set('pmin', String(filter.priceMin));
+      if (filter.budget) q.set('pmax', String(filter.budget));
       if (filter.type) q.set('type', filter.type);
       if (!filter.photos) q.set('photos', '0');
       if (filter.fair) q.set('fair', '1');
@@ -491,6 +491,9 @@
     var cdl0 = params.get('cdeal'); if (filter.deal === 'commercial' && (cdl0 === 'rent' || cdl0 === 'sale')) filter.cdeal = cdl0;
     var b = Number(params.get('budget')), bl = budgetsFor();
     if (b > 0 && b < bl.length) filter.budget = bl[b];
+    var pmn = Number(params.get('pmin')), pmx = Number(params.get('pmax'));
+    if (pmn > 0 && isFinite(pmn)) filter.priceMin = Math.round(pmn);
+    if (pmx > 0 && isFinite(pmx)) filter.budget = Math.round(pmx);
     var t = params.get('type'); t = TYPE_ALIAS[t] || t; if (TYPES.some(function (x) { return x[0] === t; })) filter.type = t;
     var cdl = params.get('cdeal'); if (cdl === 'rent' || cdl === 'sale') filter.cdeal = cdl;
     if (params.get('photos') === '0') filter.photos = false;
@@ -508,11 +511,6 @@
   function budgetsFor(f) {
     f = f || filter;
     return (f.deal === 'commercial' && COMM_BUDGETS[f.cdeal]) || BUDGETS[f.deal] || [];
-  }
-  function budgetLabel(v, deal) {
-    if (!v) return 'ללא הגבלה';
-    if (v >= 1000000) return 'עד ' + (v / 1000000).toLocaleString('he-IL') + ' מיליון ₪';
-    return 'עד ₪' + v.toLocaleString('he-IL') + (deal === 'sale' ? '' : '');
   }
   function dealOk(p, deal, cdeal) {
     // ‏cdeal: במסחרי בלבד - '' (הכול) | 'rent' | 'sale'
@@ -610,6 +608,10 @@
   function extOk(p) {
     return !ext || (ext.Core.matches(p, ext.st, ext.ctx) && ext.test(p));
   }
+  function totalPrice(p) {
+    var pv = Number(p.price), sz = Number(p.size_sqm);
+    return p.price_unit === 'sqm' && sz > 0 ? pv * sz : pv;
+  }
   function matches(p, f) {
     if (!dealOk(p, f.deal, f.cdeal)) return false;
     if (!extOk(p)) return false;
@@ -621,10 +623,10 @@
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
     // מחיר למ״ר (‏price_unit=sqm) נמדד מול התקציב כפול השטח, כמו בדף הבית (‏docs/price-unit.md)
-    if (f.budget) {
-      var pv = Number(p.price), sz = Number(p.size_sqm);
-      if (p.price_unit === 'sqm' && sz > 0) pv = pv * sz;
-      if (pv > f.budget) return false;
+    if (f.budget || f.priceMin) {
+      var pv = totalPrice(p);
+      if (f.budget && pv > f.budget) return false;
+      if (f.priceMin && !(pv >= f.priceMin)) return false;
     }
     if (f.rooms && f.deal !== 'commercial' && !(Number(p.rooms) >= f.rooms)) return false;
     return true;
@@ -664,6 +666,109 @@
         esc(it.label) + ' <span aria-hidden="true">✕</span></button>';
     }).join('') : '';
   }
+  /* ---------- §1: טווח מחיר - שתי ידיות (תומר 29.10) ----------
+     במקום צ'יפים של "עד X". פתוח לגמרי (0 / קצה הטווח) = בלי הגבלה, ולא מסנן כלום.
+     ‏filter.priceMin, ו-filter.budget הוא המקסימום (השם הישן נשאר: ‏?budget= ישן, שמירת חיפוש).
+     הקצה העליון - המחיר הגבוה בנכסים של העסקה (מחיר למ״ר - כפול השטח). כשהגיעו ממשפט בדף
+     הבית עם "מ-₪… עד ₪…", הידיות מראות אותו וכותבות אליו, כדי שהתג והטווח לא יסתרו.
+     ‏RTL: הזול בצד ימין. */
+  function priceStep() {
+    var d = filter.deal === 'commercial' ? (filter.cdeal || (priceTop() > 200000 ? 'sale' : 'rent')) : filter.deal;
+    return d === 'rent' ? (filter.deal === 'commercial' ? 500 : 250) : 50000;
+  }
+  function priceTop() {
+    var top = 0;
+    all.forEach(function (p) { if (dealOk(p, filter.deal, filter.cdeal)) { var v = totalPrice(p); if (v > top && isFinite(v)) top = v; } });
+    return top;
+  }
+  function extPrice() { return ext && ext.st && (ext.st.priceMin || ext.st.priceMax) ? ext.st : null; }
+  function priceGet() {
+    var e = extPrice();
+    return e ? { min: Number(e.priceMin) || 0, max: Number(e.priceMax) || 0 } : { min: filter.priceMin || 0, max: filter.budget || 0 };
+  }
+  function priceSet(min, max) {
+    var e = extPrice();
+    if (e) { e.priceMin = min || null; e.priceMax = max || null; }
+    else { filter.priceMin = min || 0; filter.budget = max || 0; }
+  }
+  function priceRange() {
+    var step = priceStep(), v = priceGet();
+    var top = Math.max(priceTop(), v.max, v.min, step);
+    return { step: step, top: Math.ceil(top / step) * step };
+  }
+  function moneyText(v) {
+    return v >= 1000000 ? (v / 1000000).toLocaleString('he-IL', { maximumFractionDigits: 2 }) + ' מיליון ₪' : '₪' + Math.round(v).toLocaleString('he-IL');
+  }
+  var priceDragT = 0;
+  function renderPrice() {
+    var host = $('swFBudget'), r = priceRange(), v = priceGet();
+    if (!host.querySelector('.sw-range')) {
+      host.innerHTML = '<div class="sw-range-out"><span id="swPMinOut"></span><span id="swPMaxOut"></span></div>' +
+        '<div class="sw-range"><div class="sw-range-track"><div class="sw-range-fill"></div></div>' +
+        '<div class="sw-range-h" role="slider" tabindex="0" data-h="min" aria-label="מחיר מינימלי"></div>' +
+        '<div class="sw-range-h" role="slider" tabindex="0" data-h="max" aria-label="מחיר מקסימלי"></div></div>';
+      bindPrice(host);
+    }
+    var lo = Math.min(v.min, r.top), hi = v.max ? Math.min(v.max, r.top) : r.top;
+    var pl = lo / r.top * 100, ph = hi / r.top * 100;
+    var hs = host.querySelectorAll('.sw-range-h');
+    hs[0].style.right = pl + '%'; hs[1].style.right = ph + '%';
+    var fill = host.querySelector('.sw-range-fill');
+    fill.style.right = pl + '%'; fill.style.width = (ph - pl) + '%';
+    var minT = lo ? 'מ-' + moneyText(lo) : 'ללא הגבלה', maxT = v.max && v.max < r.top ? 'עד ' + moneyText(hi) : 'ללא הגבלה';
+    $('swPMinOut').textContent = minT; $('swPMaxOut').textContent = maxT;
+    [[hs[0], lo, minT], [hs[1], hi, maxT]].forEach(function (x) {
+      x[0].setAttribute('aria-valuemin', '0'); x[0].setAttribute('aria-valuemax', String(r.top));
+      x[0].setAttribute('aria-valuenow', String(x[1])); x[0].setAttribute('aria-valuetext', x[2]);
+    });
+  }
+  function priceMove(which, val) {
+    var r = priceRange(), v = priceGet();
+    val = Math.max(0, Math.min(r.top, Math.round(val / r.step) * r.step));
+    var lo = v.min, hi = v.max || r.top;
+    if (which === 'min') lo = Math.min(val, hi - r.step);
+    else hi = Math.max(val, lo + r.step);
+    lo = Math.max(0, lo);
+    priceSet(lo, hi >= r.top ? 0 : hi);
+    renderPrice();
+    // המונה על "הצגת N נכסים" מתעדכן תוך כדי גרירה, בקצב סביר
+    if (!priceDragT) priceDragT = setTimeout(function () { priceDragT = 0; renderFilter(); }, 120);
+  }
+  function bindPrice(host) {
+    var track = host.querySelector('.sw-range'), drag = null;
+    function valAt(x) {
+      var b = track.getBoundingClientRect();
+      return (b.right - x) / b.width * priceRange().top;   // ‏RTL: הזול מימין
+    }
+    track.addEventListener('pointerdown', function (e) {
+      var h = e.target.closest('.sw-range-h');
+      if (!h) {   // הקשה על המסילה - הידית הקרובה זזה לשם
+        var v = valAt(e.clientX), g = priceGet(), hi = g.max || priceRange().top;
+        h = host.querySelector('[data-h="' + (Math.abs(v - g.min) <= Math.abs(v - hi) ? 'min' : 'max') + '"]');
+        priceMove(h.dataset.h, v);
+      }
+      drag = h.dataset.h; h.focus();
+      track.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    track.addEventListener('pointermove', function (e) { if (drag) priceMove(drag, valAt(e.clientX)); });
+    function end() { if (drag) { drag = null; clearTimeout(priceDragT); priceDragT = 0; renderFilter(); } }
+    track.addEventListener('pointerup', end);
+    track.addEventListener('pointercancel', end);
+    host.addEventListener('keydown', function (e) {
+      var h = e.target.closest('.sw-range-h');
+      if (!h) return;
+      var r = priceRange(), g = priceGet(), cur = h.dataset.h === 'min' ? g.min : (g.max || r.top);
+      // ‏RTL: חץ שמאלה מעלה את הערך (הזול מימין), כמו input range בכיוון rtl
+      var k = { ArrowLeft: r.step, ArrowUp: r.step, ArrowRight: -r.step, ArrowDown: -r.step, PageUp: 10 * r.step, PageDown: -10 * r.step }[e.key];
+      if (e.key === 'Home') k = -cur;
+      if (e.key === 'End') k = r.top - cur;
+      if (k === undefined) return;
+      e.preventDefault();
+      priceMove(h.dataset.h, cur + k);
+      clearTimeout(priceDragT); priceDragT = 0; renderFilter();
+    });
+  }
   function renderFilter() {
     renderExtChips();
     document.querySelectorAll('#swFDeal [data-deal]').forEach(function (b) {
@@ -674,7 +779,7 @@
     if (!cd.hidden) {
       cd.innerHTML = [['', 'הכול'], ['sale', 'למכירה'], ['rent', 'להשכרה']].map(function (x) {
         // בלי התקציב: הוא מתאפס במעבר בין השכרה למכירה, ומונה מולו היה מסתיר את האפשרות השנייה
-        var n = countFor({ cdeal: x[0], budget: 0 });
+        var n = countFor({ cdeal: x[0], budget: 0, priceMin: 0 });
         return n || x[0] === (filter.cdeal || '') ? chip(esc(x[1]) + ' · ' + n, 'data-cdeal="' + x[0] + '"', x[0] === (filter.cdeal || '')) : '';
       }).join('');
     }
@@ -702,8 +807,7 @@
     $('swFOther').hidden = !otherOpen;
     if (otherOpen) renderOther();
 
-    var budgets = budgetsFor();
-    $('swFBudget').innerHTML = budgets.map(function (v) { return chip(esc(budgetLabel(v, filter.deal)), 'data-budget="' + v + '"', filter.budget === v); }).join('');
+    renderPrice();
     var showRooms = filter.deal !== 'commercial';
     $('swFRooms').hidden = $('swFRoomsL').hidden = !showRooms;
     $('swFRooms').innerHTML = [0, 3, 4, 5].map(function (v) { return chip(v ? v + '+' : 'הכול', 'data-rooms="' + v + '"', filter.rooms === v); }).join('');
@@ -723,7 +827,7 @@
     $('swFReel').hidden = $('swFReelL').hidden = !reelN && !filter.reel;
     $('swFReel').innerHTML = chip('▶ רק נכסים עם סרטון ' + n(reelN), 'data-reelchip="1"', !!filter.reel);
     // §2: רק כשבשוק ובעסקה הזו יש לפחות דירה אחת ביריד עכשיו - אחרת לא מוצג בכלל (לא מתג כבוי ולא "0")
-    var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, rooms: 0, type: '', viz: false, reel: false });
+    var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, priceMin: 0, rooms: 0, type: '', viz: false, reel: false });
     $('swFFair').hidden = $('swFFairL').hidden = $('swFFairH').hidden = !fairN && !filter.fair;
     $('swFFair').innerHTML = chip('רק דירות ללא עמלת תיווך', 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
@@ -814,8 +918,8 @@
   $('swFilter').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.deal) { if (b.dataset.deal !== filter.deal) { filter.type = ''; filter.cdeal = ''; } filter.deal = b.dataset.deal; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0; renderFilter(); return; }
-    if (b.hasAttribute('data-cdeal')) { filter.cdeal = b.getAttribute('data-cdeal'); filter.budget = 0; renderFilter(); return; }
+    if (b.dataset.deal) { if (b.dataset.deal !== filter.deal) { filter.type = ''; filter.cdeal = ''; } filter.deal = b.dataset.deal; filter.budget = 0; filter.priceMin = 0; if (filter.deal === 'commercial') filter.rooms = 0; renderFilter(); return; }
+    if (b.hasAttribute('data-cdeal')) { filter.cdeal = b.getAttribute('data-cdeal'); filter.budget = 0; filter.priceMin = 0; renderFilter(); return; }
     if (b.dataset.toggle === 'towns') { townsOpen = !townsOpen; renderFilter(); return; }
     if (b.dataset.toggle === 'other') { otherOpen = !otherOpen; renderFilter(); return; }
     if (b.dataset.group) { otherGroup = b.dataset.group; renderOther(); return; }
@@ -834,7 +938,6 @@
       shukTrack('region_select', { region: market ? market.slug : '', group: 'live', via: 'swipe_filter' });
       renderFilter(); return;
     }
-    if (b.dataset.budget) { filter.budget = Number(b.dataset.budget); renderFilter(); return; }
     if (b.dataset.rooms) { filter.rooms = Number(b.dataset.rooms); renderFilter(); return; }
     if (b.dataset.viz) { filter.viz = !filter.viz; renderFilter(); return; }
     if (b.dataset.type !== undefined) { filter.type = b.dataset.type; renderFilter(); return; }
@@ -866,7 +969,7 @@
   $('swFReset').addEventListener('click', function () {
     ext = null; extQs = '';   // ‏"ניקוי הכול" - גם מה שהגיע מדף הבית
     // "ניקוי הכול": גם היריד, סוג הנכס והמיון; "רק עם תמונות" חוזר לדלוק
-    filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
+    filter = { deal: filter.deal, area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
     sortKey = 'rec'; syncSortBtn();
     store('sk_swipe_photos_only', null);
     shukTrack('swipe_filter_clear', { view: view });
@@ -1428,7 +1531,7 @@
   /* ‏R8: "ראיתם את כל הנכסים בסינון הזה" - לפני הנכסים שכבר נראו. כל כפתור רק כשהוא רלוונטי.
      ההתראה היא אותו טופס בדיוק (‏alertBlock/submitAlert); לא מוצעת שוב לאותו סינון (גבריאלה) */
   function alertSig() {
-    return JSON.stringify([filter.deal, filter.cdeal || '', filter.area, filter.rooms || 0, filter.budget || 0, filter.type || '', extQs || '']);
+    return JSON.stringify([filter.deal, filter.cdeal || '', filter.area, filter.rooms || 0, filter.budget || 0, filter.priceMin || 0, filter.type || '', extQs || '']);
   }
   function alertSentFor(sig) {
     try { return (JSON.parse(store('sk_swipe_alert_sigs') || '[]') || []).indexOf(sig) >= 0; } catch (e) { return false; }
@@ -2789,6 +2892,7 @@
       contact_channel: isMail ? 'email' : 'whatsapp' };
     if (isMail) body.email = contact; else body.phone = contact;
     if (f.budget) body.max_price = f.budget;
+    if (f.priceMin) body.min_price = f.priceMin;
     if (f.rooms) body.min_rooms = f.rooms;
     body.cities = f.area === 'main' ? [mainCity] : f.area.indexOf('city:') === 0 ? [f.area.slice(5)]
       : (market && market.places ? market.places.slice(0, 10) : [mainCity]);
@@ -3322,7 +3426,7 @@
       var b = e.target.closest('[data-kind]');
       if (!b || b.dataset.kind === filter.deal) return;
       shukTrack('map_legend_toggle', { kind: b.dataset.kind, on: 1, view: 'swipe_map' });
-      filter.deal = b.dataset.kind; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0;
+      filter.deal = b.dataset.kind; filter.budget = 0; filter.priceMin = 0; if (filter.deal === 'commercial') filter.rooms = 0;
       filter.type = '';   // סוג של עסקה אחת (דירה) מול אחרת (מסחרי) היה מוביל לאפס
       buildDeck(); renderFilter();
     });
@@ -3775,7 +3879,7 @@
   /* ---------- התחלה ---------- */
   // ‏P1-S: מי שנכנס/ה להחלקה פעם אחת - בלי נענוע לכפתור בדף הבית
   try { localStorage.setItem('sk_swipe_used', '1'); } catch (e) { /* מצב פרטי */ }
-  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'hf'].some(function (k) { return params.has(k); });
+  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'pmin', 'pmax', 'type', 'photos', 'fair', 'sort', 'view', 'hf'].some(function (k) { return params.has(k); });
   /* ‏P1-L: חזרה מדף נכס לרשימה - אותו נכס באותו מקום. נשמר ב-pagehide לפי הכתובת, עם עוגן
      (הנכס העליון שנראה) ולא רק פיקסלים, כי תמונות שעוד לא נטענו מזיזות את הגובה */
   var SCROLL_KEY = 'sk_sw_scroll';
