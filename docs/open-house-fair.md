@@ -670,7 +670,7 @@ where open_house and open_house_end <= now();
 עמודות על `leads`, משלוש סיבות: סוכן/ת יכול/ה למחוק ליד והעדות חייבת לשרוד את
 זה, ללחיצה על וואטסאפ (בעתיד) אין ליד, ואין צורך להחליף את `leads_masked` ואת
 `notify_agent_on_new_lead` - החלקים המסוכנים בהצעה הישנה. המיגרציה:
-`supabase/migrations/20271031190000_fair_inquiries.sql`.
+`supabase/migrations/20271031210000_fair_inquiries.sql`.
 
 **איך שורה נכתבת.** טריגר `after insert` על `leads` (‏`leads_log_fair_inquiry`)
 בודק את הנכס של הליד מול `now()` - שעון השרת, לא הדפדפן ולא `created_at` של
@@ -712,8 +712,8 @@ PostgREST (‏"agent insert own leads"), וליד כזה נרשם אבל ממת�
 לפי ה-RLS של `leads` (ליד שהועבר בהפנייה בין יועצים לוקח את השורה איתו), ושורה
 שהליד שלה נמחק - לפי הצילום `agent_id`/`agency_id`. בלי השם והטלפון (‏grant לפי
 עמודה); הפרטים עצמם נשארים ב-`leads` עם המיסוך והפתיחה
-הרגילים. ב-CRM: תג הזהב בכרטיס הליד ל-`eligible`, ותג ניטרלי "ממתין להחלטת
-תומר" ל-`pending_owner_decision` (‏`loadLeadFair`, `leadFairChip`). מנהל/ת
+הרגילים. ב-CRM: תג הזהב בכרטיס הליד ל-`eligible`, ותג ניטרלי "ממתין
+להחלטה" ל-`pending_owner_decision` (רק התווית; הערך במסד לא משתנה) (‏`loadLeadFair`, `leadFairChip`). מנהל/ת
 הפלטפורמה: הכפתור **"ייצוא פניות יריד (CSV)"** בדשבורד הפלטפורמה, דרך
 `admin_fair_inquiries()` - כל היומן, בשעון ישראל, עם השם והטלפון.
 

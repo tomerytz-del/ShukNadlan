@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20271031190000_fair_inquiries.sql"
+MIGRATION = ROOT / "supabase/migrations/20271031210000_fair_inquiries.sql"
 SETUP = ROOT / "scripts/fair_inquiries_setup.sql"
 ASSERT = ROOT / "scripts/fair_inquiries_assert.sql"
 
