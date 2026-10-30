@@ -5394,7 +5394,7 @@ const FAIR_CSV_CHANNEL = {
   form:'טופס', visualization:'הדמיה', social:'רשת חברתית', meta_ads:'טופס מטא',
   whatsapp_click:'לחיצה על וואטסאפ', call_click:'לחיצה על חיוג',
 };
-const FAIR_CSV_STATUS = { eligible:'זכאי', pending_owner_decision:'ממתין להחלטת תומר' };
+const FAIR_CSV_STATUS = { eligible:'זכאי', pending_owner_decision:'ממתין להחלטה' };
 function fairCsvCell(v){
   let s = v == null ? '' : String(v);
   if (/^[=+\-@]/.test(s)) s = "'" + s;
@@ -20817,7 +20817,7 @@ function leadFairChip(lead){
   if (!lead) return '';
   const row = leadFairByLead.get(lead.id);
   if (row && row.status === 'pending_owner_decision'){
-    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהדירה ביריד. ההנחה בעמלה ממתינה להחלטה') + '">ממתין להחלטת תומר</span>';
+    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהדירה ביריד. ההנחה בעמלה ממתינה להחלטה') + '">ממתין להחלטה</span>';
   }
   if (!row && lead.open_house_eligible !== true) return '';
   const endRaw = row ? row.fair_end : lead.open_house_end_snapshot;
