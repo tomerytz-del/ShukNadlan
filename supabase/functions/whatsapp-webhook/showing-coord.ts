@@ -472,7 +472,7 @@ export async function respondToCoord(supabase: SupabaseClient, token: string, an
       .select("display_name, phone").eq("id", String(res.agent_id)).maybeSingle();
     agentName = agent?.display_name || agentName;
     const phone = phoneE164(agent?.phone);
-    if (phone) contact = ` אפשר גם לכתוב ישירות: https://wa.me/${phone}`;
+    if (phone) contact = `\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${phone}`;
   }
 
   if (res.error === "canceled") return `הביקור הזה כבר בוטל - אין צורך לעשות דבר. תודה! 🙏`;

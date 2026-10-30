@@ -26,6 +26,7 @@ on:
       - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/wa_url_guard_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
       - "scripts/lead_source_test.ts"
@@ -45,6 +46,7 @@ on:
       - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/wa_url_guard_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
       - "scripts/lead_source_test.ts"
@@ -114,6 +116,9 @@ jobs:
       # לתבנית ההתראות, ודילוג על ליד ישן או על סוג שאינו ברשימה.
       - name: התראת ליד ממטא
         run: node --experimental-strip-types scripts/meta_lead_alert_test.ts
+
+      - name: כתובת בוואטסאפ יוצאת ככפתור
+        run: node --experimental-strip-types scripts/wa_url_guard_test.ts
 
       # אידמפוטנטיות של טופס מטא וכפילות לפי טלפון. בלי מסד ובלי רשת.
       - name: כפילות ליד ממטא ומהרשתות

@@ -257,8 +257,8 @@ async function renderShowcaseShare(client, sc, scan){
   /* ההודעה הראשונה מסבירה מה הקישור: עמוד אישי שזמין תמיד, שמתעדכן כשנכנסים
      נכסים חדשים, ושאפשר לשתף עם מי שמחליט/ה יחד (בן/בת זוג, הורים).
      אותו נוסח ב-showcaseMessage של הבוט וב-netlify/edge-functions/showcase-send.ts. */
-  const text = `היי ${first}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n`
-    + `הקישור הזה שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. `
+  const text = `היי ${first}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת.\n\n`
+    + `העמוד שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. `
     + `נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n`
     + `רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.`;
   const wa = waLink(client.phone);
@@ -279,7 +279,7 @@ async function renderShowcaseShare(client, sc, scan){
   modal.style.display = 'flex';
   modal.querySelector('[data-close]').addEventListener('click', closeShowcaseModal);
   modal.querySelector('[data-copy]').addEventListener('click', async ()=>{
-    try { await navigator.clipboard.writeText(text); showToast('ההודעה והקישור הועתקו'); }
+    try { await navigator.clipboard.writeText(text); showToast('ההודעה הועתקה'); }
     catch(_){ modal.querySelector('#scLink').select(); }
   });
   if (scan){

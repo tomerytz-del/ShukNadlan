@@ -63,8 +63,9 @@ export function fallbackReply(kind: LlmFailureKind, audience: FallbackAudience, 
     return "משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח את ההודעה שוב, או להמשיך מהאזור האישי.";
   }
   if (kind === "billing") {
-    const site = publicFallbackSite(siteBase);
-    return `סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: ${site}`;
+    // הכתובת יוצאת ככפתור "לאתר" בשכבת השליחה, לא בגוף.
+    publicFallbackSite(siteBase);
+    return "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים.";
   }
   return "סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?";
 }

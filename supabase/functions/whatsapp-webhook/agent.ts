@@ -63,7 +63,7 @@ import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
-import { pageLink, pageLinkTopics, urlInSay } from "./crm-pages.ts";
+import { pageLink, pageLinkTopics } from "./crm-pages.ts";
 import { ctaLabel, isSafeCrmPath, parseNavId, screenBundle, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
   agreementConfirmButtons,
@@ -2428,7 +2428,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       : {}),
     ...(hoodWarning || {}),
     ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
-    ...(payload.status === "active" ? { link: propertyLink(data.id) } : {}),
+    ...(payload.status === "active" && !ctx.outbox ? { link: propertyLink(data.id) } : {}),
+    ...(payload.status === "active" ? modelLink(ctx, propertyLink(data.id), "לדף הנכס", "הדף באתר:", "link") : {}),
     ...propertyCreatedEdit(ctx, data.id, data.title),
   };
   if (!askFirst) return created;
@@ -2549,6 +2550,20 @@ function crmButton(
   return { crm_button_sent: true };
 }
 
+/** כתובת לכלי: בוואטסאפ כפתור, ובמייל השדה כמו שהוא. */
+function modelLink(
+  ctx: ToolContext,
+  url: string | undefined,
+  label: string,
+  body: string,
+  field: string,
+): Record<string, unknown> {
+  if (!url) return {};
+  if (!ctx.outbox) return { [field]: url };
+  ctx.outbox.push({ kind: "cta", body, label, url });
+  return { button_sent: true, button_label: label };
+}
+
 /** כפתור עריכה של נכס שנוצר עכשיו. כמה כאלה באותו תור מתקפלים להודעה אחת. */
 function propertyCreatedEdit(
   ctx: ToolContext,
@@ -2618,7 +2633,7 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
     ok: true,
     property_id: propertyId,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
-    link: propertyLink(propertyId),
+    ...modelLink(ctx, propertyLink(propertyId), "לדף הנכס", "הדף באתר:", "link"),
     ...crmButton(ctx, crmPropertyLink(propertyId)),
   };
 }
@@ -2881,7 +2896,17 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     properties: rows.map((p) => {
       const path = `/crm?goto=accProperties&property=${String(p.id)}`;
       if (pushed?.crm_button_sent && listed.has(path)) return p;
-      return { ...p, crm_link: crmPropertyLink(String(p.id)) };
+      const url = crmPropertyLink(String(p.id));
+      if (ctx.outbox && url) {
+        ctx.outbox.push({
+          kind: "cta",
+          body: String(p.title || "נכס"),
+          label: "פתיחה ב-CRM",
+          url,
+        });
+        return p;
+      }
+      return { ...p, crm_link: url };
     }),
     ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
     note: [
@@ -3060,9 +3085,22 @@ async function agentPropertySearch(
       listing_agent: source === "own" ? null : member?.display_name || null,
       listing_agent_phone: source === "own" ? null : member?.phone || null,
       listing_office: source === "own" || source === "agency" ? null : one(p.agencies)?.name || null,
-      link: propertyLink(String(p.id)),
+      ...(ctx.outbox ? {} : { link: propertyLink(String(p.id)) }),
     };
   });
+  if (ctx.outbox && results.length) {
+    pushScreens(
+      ctx,
+      results.map((r) => ({
+        type: "listing",
+        path: `/crm?goto=accProperties&property=${String(r.property_id)}`,
+        title: String(r.title || "נכס"),
+        body: String(r.address || ""),
+      })),
+      "איזה נכס לפתוח?",
+      "/crm?goto=accProperties",
+    );
+  }
   return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true };
 }
 
@@ -3538,8 +3576,7 @@ async function toolPropertyShareStatus(ctx: ToolContext, input: Record<string, u
  */
 const VIDEO_BLOCKERS: Record<string, string> = {
   not_eligible:
-    "הפקת סרטון זמינה במסלולים PROFESSIONAL ו-Elite, על נכס פעיל של הסוכן/ת. " +
-    "לפרטים ולשדרוג: " + (SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : "עמוד המחירים"),
+    "הפקת סרטון זמינה במסלולים PROFESSIONAL ו-Elite, על נכס פעיל של הסוכן/ת. לפרטים ולשדרוג:",
   job_in_progress: "כבר רצה הפקה על הנכס הזה. אפשר לשאול מה מצבה.",
   no_images: "אין תמונות לנכס הזה - אי אפשר להפיק ממנו סרטון.",
   not_enough_images: "אין מספיק תמונות לנכס להפקת סרטון.",
@@ -3600,6 +3637,9 @@ async function toolPropertyVideoInfo(ctx: ToolContext, input: Record<string, unk
     ok: true,
     ...quote,
     blocker_text: blocker ? VIDEO_BLOCKERS[blocker] ?? blocker : undefined,
+    ...(blocker === "not_eligible"
+      ? modelLink(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : undefined, "למסלולים", "לפרטים ולשדרוג:", "pricing_url")
+      : {}),
     // ‏price_text מנוסח כאן ולא במודל: "כלול במסלול" מול "₪25 מהארנק" הוא
     // בדיוק המשפט שצריך להיאמר לפני החיוב, ואין טעם להשאיר אותו לניסוח חופשי.
     price_text: quote.eligible
@@ -3663,6 +3703,9 @@ async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, u
       ok: false,
       code,
       error: [base, videoRefundNote(body)].filter(Boolean).join(" "),
+      ...(code === "not_eligible"
+        ? modelLink(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : undefined, "למסלולים", "לפרטים ולשדרוג:", "pricing_url")
+        : {}),
       // ‏video_exists הוא היחיד שיש עליו מה לעשות בשיחה עצמה.
       retry_with: code === "video_exists" ? "replace_existing" : undefined,
     };
@@ -3784,13 +3827,14 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const greeting = client
     ? `היי ${String(client.full_name || "").trim()},`
     : "";
+  // הודעה ללקוח/ה בלי כתובת. הדף יוצא לסוכן/ת ככפתור נפרד.
   const message = [
     greeting,
     String(p.title || autoTitle(p)),
     [address, p.city].filter(Boolean).join(", "),
     facts,
     String(input.note || "").trim(),
-    link,
+    ...(ctx.outbox ? [] : [link]),
   ].filter(Boolean).join("\n");
 
   const clientWa = client ? waNumber(client.phone) : undefined;
@@ -3818,6 +3862,12 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
       label: sendLabel(first, !!clientWa),
       url: target,
     });
+    ctx.outbox.push({
+      kind: "cta",
+      body: "הדף של הנכס:",
+      label: "לדף הנכס",
+      url: link,
+    });
   }
 
   return {
@@ -3828,8 +3878,8 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     status: p.status,
     client_name: client ? client.full_name : undefined,
     client_phone_missing: !!client && !clientWa,
-    // הקישור לדף הנכס נשאר תמיד - למי שביקש/ה "את הקישור" עצמו
-    link,
+    // בוואטסאפ הדף הוא כפתור. במייל הכתובת נשארת בשדה.
+    ...(ctx.outbox ? { button_sent: true } : { link }),
     ...(ctx.outbox
       ? {
         buttons_sent: true,
@@ -5634,9 +5684,9 @@ async function activeShowcase(ctx: ToolContext, clientId: string) {
 
 /** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js
  *  ושל netlify/edge-functions/showcase-send.ts (הקישור הקצר /w/). */
-function showcaseMessage(firstName: string, link: string): string {
-  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
-    "הקישור הזה שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
+function showcaseMessage(firstName: string): string {
+  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת.\n\n` +
+    "העמוד שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
     "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
     "רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.";
 }
@@ -5700,7 +5750,7 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
 
   const link = showcaseLink(String(res.token))!;
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
-  const message = showcaseMessage(first, link);
+  const message = showcaseMessage(first);
   const clientWa = waNumber(client.phone);
   const sendUrl = showcaseSendUrl(String(res.token), first, clientWa);
   ctx.conv.last_client_id = clientId;
@@ -5834,7 +5884,7 @@ export async function showcaseButtonReply(
   const token = String(data.token);
   if (action === "c") {
     // הודעה נפרדת ונקייה, כדי שאפשר יהיה להעביר או להעתיק אותה כמו שהיא
-    return { text: showcaseMessage(first, showcaseLink(token)!) };
+    return { text: showcaseMessage(first) };
   }
   return {
     outbox: [{
@@ -6582,7 +6632,9 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     // נכס שנשר כי הטופס הזה הוא חד-נכסי. עדיף לומר את זה מאשר שיתגלה
     // אחרי שהלקוח/ה חתם/ה.
     dropped_properties: dropped.length ? dropped : undefined,
-    signers: links,
+    signers: ctx.outbox
+      ? links.map(({ sign_url: _sign, wa_send_url: _wa, ...rest }) => rest)
+      : links,
     // בלעדיות: שני מסמכים, קישור אחד לכל חותם/ת
     marketing_consent: consentId
       ? { agreement_id: consentId, title: consentTitle,
@@ -7589,9 +7641,13 @@ async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unkn
     cancelled_at: a.cancelled_at,
     // רק אחרי חתימה מלאה. לפני כן אין "עותק חתום" להראות, והקישור מציג
     // מסמך שאיש עוד לא חתם עליו.
-    signed_copy_url: a.status === "signed" && a.view_token
-      ? agreementLink(String(a.view_token))
-      : undefined,
+    ...modelLink(
+      ctx,
+      a.status === "signed" && a.view_token ? agreementLink(String(a.view_token)) : undefined,
+      "להסכם",
+      "העותק החתום:",
+      "signed_copy_url",
+    ),
     verify_code: a.status === "signed" ? a.verify_code : undefined,
   };
 }
@@ -7640,9 +7696,8 @@ async function toolAgreementSignLinks(ctx: ToolContext, input: Record<string, un
     signers: pending.map((s) => ({
       full_name: s.full_name,
       phone: s.phone,
-      // האסימון אישי לכל חותם/ת (48 תווים), ולא אחד להסכם — בני זוג לא
-      // תמיד יושבים באותו חדר. לכן הקישור נמסר עם שם החותם/ת לידו.
-      sign_url: `${SITE_BASE_URL}/sign?t=${s.sign_token}`,
+      // האסימון אישי לכל חותם/ת. בוואטסאפ הכפתור כבר יצא, ובמייל הכתובת נשארת.
+      ...(ctx.outbox ? {} : { sign_url: `${SITE_BASE_URL}/sign?t=${s.sign_token}` }),
       expires_at: s.token_expires_at,
     })),
   };
@@ -7731,7 +7786,14 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
       };
       // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
       if (pushed?.crm_button_sent && listed.has(path)) return row;
-      if (pushed?.crm_button_sent && SITE_BASE_URL) return { ...row, crm_link: `${SITE_BASE_URL}${path}` };
+      if (pushed?.crm_button_sent && SITE_BASE_URL) {
+        const url = `${SITE_BASE_URL}${path}`;
+        if (ctx.outbox) {
+          ctx.outbox.push({ kind: "cta", body: String(l.display_name || "ליד"), label: "פתיחה ב-CRM", url });
+          return row;
+        }
+        return { ...row, crm_link: url };
+      }
       return row;
     }),
   };
@@ -7791,7 +7853,7 @@ async function toolProfileGet(ctx: ToolContext) {
     specialty_options: PROFILE_SPECIALTIES,
     default_city: await savedListingCityName(ctx),
     missing: profileGaps(row),
-    page_url: agentPageUrl(row.slug),
+    ...modelLink(ctx, agentPageUrl(row.slug), "לדף היועץ", "הדף באתר:", "page_url"),
   };
 }
 
@@ -7970,8 +8032,11 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     default_city: defaultCity,
     notes: notes.length ? notes : undefined,
     missing: profileGaps(row),
-    page_url: agentPageUrl(row.slug),
-    guidance: "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. אם missing אינו ריק - " +
+    ...modelLink(ctx, agentPageUrl(row.slug), "לדף היועץ", "הדף באתר:", "page_url"),
+    guidance: (ctx.outbox
+      ? "אשר/י במשפט אחד מה השתנה. הדף יוצא ככפתור, בלי כתובת. "
+      : "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. ") +
+      "אם missing אינו ריק - " +
       "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר." + cityGuidance,
   };
 }
@@ -8597,7 +8662,7 @@ function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
       topics: pageLinkTopics(),
     };
   }
-  const url = `${base.replace(/\/$/, "")}${link.path}`;
+  const url = link.url || `${base.replace(/\/$/, "")}${link.path}`;
   if (ctx.outbox && isSafeCrmPath(link.path)) {
     const say = link.say.replace(url, "").trim();
     ctx.outbox.push({
@@ -8615,9 +8680,9 @@ function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
   }
   return {
     ok: true,
-    url: urlInSay(link.say),
+    url: link.url,
     say: link.say,
-    guidance: "כתוב/י לסוכן/ת את say כמו שהוא. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
+    guidance: "כתוב/י לסוכן/ת את say כמו שהוא, ובשורה נפרדת את url. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
   };
 }
 
@@ -8761,11 +8826,13 @@ const SYSTEM_STATIC: string = (() => {
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
-    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link של נכס באתר, חתימה או מיניסייט שהסוכן/ת ביקש/ה להעביר ללקוח/ה - צרף/י אותו. " +
+    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. " +
+      "הודעה שמוכנה להעברה ללקוח/ה אינה כוללת כתובת. אם חזר button_sent או buttons_sent - " +
+      "כפתור השליחה ללקוח/ה יוצא אחרי התשובה, ואין לכתוב את הכתובת. " +
       "כתובת של האזור האישי אסור להרכיב לבד: לא unlock_where, לא /crm, ולא https. " +
-      "אם חזר crm_button_sent או buttons_sent - הכפתור יוצא אחרי התשובה, ואין לכתוב כתובת במקומו. " +
-      "קישור מותר רק כשהכלי החזיר אותו בשדה (crm_link או שדה שנגמר ב-crm_link), ומעתיקים את הערך כמו שהוא. " +
-      "בלי שדה כזה אין כתובת בתשובה.",
+      "אם חזר crm_button_sent או buttons_sent או button_sent - הכפתור יוצא אחרי התשובה, ואין לכתוב כתובת. " +
+      "במייל, בלי כפתור, מעתיקים שדה שהכלי החזיר (crm_link או שדה שנגמר ב-link) כמו שהוא. " +
+      "בוואטסאפ אין כתובת בתשובה.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",

@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noLongDash } from "./marketing-copy.ts";
+import { logWaUrlGuard, payloadsForText, planWaText } from "./wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -215,27 +216,36 @@ export function sendButtonsTemplate(
   });
 }
 
-export function sendText(to: string, body: string) {
-  return post({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: { preview_url: true, body: noLongDash(body).slice(0, 4000) },
-  });
+export async function sendText(to: string, body: string) {
+  const clean = noLongDash(body);
+  const plan = planWaText(clean);
+  if (plan.stripped) logWaUrlGuard("meeting-client", plan);
+  const planned = payloadsForText(to, clean.slice(0, 4000));
+  if (!planned.payloads.length) return null;
+  const id = await post(planned.payloads[0]);
+  for (const extra of planned.payloads.slice(1)) {
+    try {
+      await post(extra);
+    } catch (err) {
+      console.error("wa-url-guard meeting follow-up failed", err);
+    }
+  }
+  return id;
 }
 
 /** תזכורת או משוב בתוך חלון 24 השעות: אותם שלושה כפתורים, כהודעה אינטראקטיבית. */
-export function sendButtonsText(which: "reminder" | "feedback", to: string, body: string, token: string) {
+export async function sendButtonsText(which: "reminder" | "feedback", to: string, body: string, token: string) {
   const buttons = which === "reminder" ? REMINDER_BUTTONS : FEEDBACK_BUTTONS;
-  return post({
+  const plan = planWaText(noLongDash(body));
+  if (plan.stripped) logWaUrlGuard("meeting-buttons", plan);
+  const id = await post({
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: noLongDash(body).slice(0, 1000) },
+      body: { text: (plan.text || "הפרטים בכפתור.").slice(0, 1000) },
       action: {
         buttons: buttons.map((b) => ({
           type: "reply",
@@ -244,6 +254,14 @@ export function sendButtonsText(which: "reminder" | "feedback", to: string, body
       },
     },
   });
+  for (const link of plan.links.filter((item) => item.kind === "cta")) {
+    try {
+      await post(payloadsForText(to, link.url).payloads[0]);
+    } catch (err) {
+      console.error("wa-url-guard meeting button follow-up failed", err);
+    }
+  }
+  return id;
 }
 
 /** האם הלקוח/ה כתב/ה למספר ב-23 השעות האחרונות - כלומר מותר טקסט חופשי. */
@@ -310,7 +328,7 @@ export async function respondToMeeting(
     agentName = agent?.display_name || agentName;
     agentPhone = phoneE164(agent?.phone);
   }
-  const contact = agentPhone ? ` אפשר גם לכתוב ישירות: https://wa.me/${agentPhone}` : "";
+  const contact = agentPhone ? `\nאפשר גם לכתוב ישירות.\nhttps://wa.me/${agentPhone}` : "";
   const noun = meetingNoun(String(item?.kind || "meeting"));
 
   if (res.error === "canceled") {

@@ -163,7 +163,7 @@ function intro(li: LeadInfo): string {
 }
 
 /** הודעה מלאה (חלון 24 השעות), כשההודעה כולה היא ליד אחד. */
-export function leadText(first: string, li: LeadInfo, link: string | null, optOutLine: string): string {
+export function leadText(first: string, li: LeadInfo, _link: string | null, optOutLine: string): string {
   const lines = [
     first ? `🔥 ${first}, נכנס לך ליד חם!` : "🔥 נכנס לך ליד חם!",
     "",
@@ -173,7 +173,6 @@ export function leadText(first: string, li: LeadInfo, link: string | null, optOu
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
     "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
-    ...(link ? [`👈 ${link}`] : []),
     "",
     optOutLine,
   ];
@@ -181,12 +180,11 @@ export function leadText(first: string, li: LeadInfo, link: string | null, optOu
 }
 
 /** שורה אחת ל-{{2}} בתבנית - בלי \n/טאב, ובלי 4+ רווחים (templateSummary מנקה שוב). */
-export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolean): string {
+export function leadTemplateLine(li: LeadInfo, _url: string | null, alone: boolean): string {
   const parts = [
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
     alone ? "⏱️ מי שחוזר ראשון - סוגר!" : "",
-    url ? `לפרטי הפונה: ${url}` : "",
   ];
   return parts.filter(Boolean).join(" · ");
 }

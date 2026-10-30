@@ -135,8 +135,8 @@ check("ready מודע למפסק", sql.includes("function public.notification_pu
   && sql.includes("notification_push_has_backlog(true)")
   && sql.includes("notif_burst_checked_at"));
 
-const text = burstText("דנה לוי", 12, "https://shuknadlan.co.il", "https://shuknadlan.co.il/crm?goto=accNotifPrefs");
-check("נוסח התקציר", text.includes("דנה, יש לך 12 התראות חדשות באתר.") && text.includes("https://shuknadlan.co.il/crm?goto=bell"));
+const text = burstText("דנה לוי", 12);
+check("נוסח התקציר", text.includes("דנה, יש לך 12 התראות חדשות באתר.") && text.includes("פרטים ב-CRM.") && !text.includes("http"));
 check("בלי מקף ארוך בנוסח", !text.includes("—") && !text.includes("–"));
 
 check("ה-claim לא מחזיר חלון של שבעה ימים", !claim.includes("24 * 7"));

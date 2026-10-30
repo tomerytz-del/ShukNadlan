@@ -15,6 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MIG = ROOT / "supabase/migrations/20271030000400_gabriela_waiting_customers.sql"
+MIG_NEXT = ROOT / "supabase/migrations/20271031190000_wa_fallback_no_url.sql"
 DB = os.environ.get("GABRIELA_WAITING_TEST_DB", "gabriela_waiting_test")
 
 
@@ -63,9 +64,12 @@ def main() -> int:
     if "interval '2 minutes'" in src:
         fail("המענה החלופי עדיין מזוהה לפי חלון של שתי דקות")
     other = "סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?"
-    bill = "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: https://shuknadlan.co.il"
-    if other not in src or bill not in src:
+    bill_old = "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: https://shuknadlan.co.il"
+    if other not in src or bill_old not in src:
         fail("הנוסח המאושר אינו מסומן כמענה חלופי")
+    src_next = MIG_NEXT.read_text(encoding="utf-8")
+    if "revoke all on function public.gabriela_waiting_customers() from public, anon, authenticated" not in src_next:
+        fail("המיגרציה החדשה בלי revoke")
     texts = subprocess.run(
         ["node", "--experimental-strip-types", "--input-type=module", "-e",
          "import { fallbackReply } from './supabase/functions/whatsapp-webhook/llm-fallback.ts';\n"
@@ -79,8 +83,10 @@ def main() -> int:
     if texts.returncode != 0:
         fail(f"הנוסח מ-llm-fallback.ts לא נקרא:\n{texts.stderr}")
     produced = texts.stdout.split("\n")
-    if len(produced) != 2 or any(line not in src for line in produced):
+    if len(produced) != 2 or any(line not in src_next for line in produced):
         fail("הנוסח במיגרציה אינו זהה תו-תו ל-llm-fallback.ts: " + repr(produced))
+    if "http" in produced[0]:
+        fail("מענה חלופי לגולש/ת עדיין כולל כתובת")
 
     subprocess.run(["dropdb", "--if-exists", DB], check=False)
     subprocess.run(["createdb", DB], check=True)
@@ -128,6 +134,7 @@ create table public.gabriela_llm_fallbacks (
     if proc.returncode != 0:
         fail(f"הקמה נכשלה:\n{proc.stderr[-2000:]}")
     psql_file(MIG)
+    psql_file(MIG_NEXT)
 
     seed = r"""
 begin;

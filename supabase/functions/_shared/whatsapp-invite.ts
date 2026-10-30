@@ -17,6 +17,8 @@
 // שכבר בשיחה איתנו.
 // ============================================================================
 
+import { ctaPayload } from "./wa-url-guard.ts";
+
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
@@ -110,18 +112,13 @@ export async function sendWhatsappInvite(
         ],
       },
     }
-    : {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
+    : ctaPayload(
       to,
-      type: "text",
-      text: {
-        preview_url: false,
-        body: `${greeting}, הוזמנת להצטרף לצוות ${a.agency || "המשרד"} בשוק נדל״ן - ` +
-          `כל הנכסים, הלידים והלקוחות שלך במקום אחד, ודף סוכן/ת אישי מול כל מי שמחפש דירה בעפולה והעמק.\n` +
-          `ההצטרפות כאן: ${a.url}`,
-      },
-    };
+      `${greeting}, הוזמנת להצטרף לצוות ${a.agency || "המשרד"} בשוק נדל״ן - ` +
+        "כל הנכסים, הלידים והלקוחות שלך במקום אחד, ודף יועץ/ת אישי מול כל מי שמחפש דירה בעפולה והעמק.",
+      "להצטרפות",
+      a.url,
+    );
 
   try {
     const res = await fetch(

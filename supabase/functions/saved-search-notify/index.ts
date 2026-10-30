@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { logWaUrlGuard, payloadsForText, planWaText } from "../_shared/wa-url-guard.ts";
 
 // ============================================================================
 // שרת ההתראות של הסוכן החכם — מרוקן את תור saved_search_alerts.
@@ -162,13 +163,24 @@ async function sendWhatsapp(a: any): Promise<void> {
       },
     };
   } else {
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: a.phone_e164,
-      type: "text",
-      text: { preview_url: true, body: textBody(a) },
-    };
+    const plan = planWaText(textBody(a));
+    if (plan.stripped) logWaUrlGuard("saved-search", plan);
+    const planned = payloadsForText(a.phone_e164, textBody(a));
+    let last: Response | null = null;
+    for (const item of planned.payloads) {
+      last = await fetch(url, { method: "POST", headers, body: JSON.stringify(item) });
+      if (!last.ok) break;
+    }
+    if (!last) throw new WhatsappError("whatsapp empty", null);
+    if (!last.ok) {
+      const raw = await last.text();
+      let code: number | null = null;
+      try {
+        code = JSON.parse(raw)?.error?.code ?? null;
+      } catch { /* גוף שאינו JSON */ }
+      throw new WhatsappError(`whatsapp ${last.status}: ${raw.slice(0, 300)}`, code);
+    }
+    return;
   }
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });

@@ -27,7 +27,7 @@
 
 import { alertKindAllowed, decideLeadAlert, leadAlertExpired, phoneDigits, type LeadField } from "./lead-alert.ts";
 import { MetaClient } from "./meta-graph.ts";
-import { waTemplate, waText } from "./wa-send.ts";
+import { waCta, waTemplate, waText } from "./wa-send.ts";
 
 export type LeadForm = {
   form_id: string;
@@ -340,7 +340,10 @@ export async function alertLead(sb: any, metaLeadId: string): Promise<void> {
       lastMessageAt: await latestMessageAt(sb, settings.phone),
     });
     if (decision.action === "skip") return;
-    if (decision.action === "text") await waText(settings.phone, decision.text);
+    if (decision.action === "text") {
+      if (decision.button) await waCta(settings.phone, decision.text, decision.button.label, decision.button.url);
+      else await waText(settings.phone, decision.text);
+    }
     else await waTemplate(settings.phone, decision.params);
   } catch (e) {
     const msg = (e as Error).message || String(e);

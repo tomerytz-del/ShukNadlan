@@ -9,6 +9,15 @@
 // משלושה רווחים רצופים. אותו כלל כמו templateSummary ב-notification-push.
 // ============================================================================
 
+import {
+  ctaPayload,
+  logWaUrlGuard,
+  payloadsForText,
+  planWaText,
+  WA_EMPTY_BODY,
+  WA_NO_BUTTON,
+} from "./wa-url-guard.ts";
+
 const MAX_TEXT = 4096;
 
 type DenoEnv = { env: { get(name: string): string | undefined } };
@@ -130,15 +139,31 @@ async function graphMessages(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
-/** הודעת טקסט. מותרת רק בתוך חלון 24 השעות; מחוץ לו Meta דוחה והקורא נופל לתבנית. */
+/** הודעת טקסט. מותרת רק בתוך חלון 24 השעות; מחוץ לו Meta דוחה והקורא נופל לתבנית.
+ *  כתובת בגוף יוצאת ככפתור. */
 export async function waText(to: string, body: string): Promise<void> {
-  await graphMessages({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: { preview_url: false, body: clipWhatsappText(body) },
-  });
+  const plan = planWaText(body);
+  if (plan.stripped) logWaUrlGuard("waText", plan);
+  for (const payload of payloadsForText(to, body).payloads) {
+    await graphMessages(payload);
+  }
+}
+
+export async function waCta(to: string, body: string, label: string, url: string): Promise<void> {
+  const plan = planWaText(body);
+  if (plan.stripped) logWaUrlGuard("waCta", plan);
+  try {
+    await graphMessages(ctaPayload(to, plan.text || WA_EMPTY_BODY, label, url));
+  } catch (err) {
+    console.error("wa-url-guard cta failed, text without url", err);
+    await graphMessages({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { preview_url: false, body: clipWhatsappText(plan.text || WA_NO_BUTTON) },
+    });
+  }
 }
 
 /** תבנית ליד (חמישה פרמטרים) או נפילה לתבנית ההתראות. זורקת על שאינו 2xx. */

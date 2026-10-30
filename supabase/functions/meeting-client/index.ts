@@ -272,7 +272,7 @@ function lineFor(row: Row): string {
       return `המועד של ה${noun} עם ${withWho} עודכן: ${when}${where}. כדאי לעדכן גם ביומן - בכפתור למטה.`;
     case "cancel":
       return `ה${noun} עם ${withWho} שנקבעה ל${when} בוטלה. לתיאום מועד חדש אפשר לפנות ל${agent}` +
-        (phone ? ` ב-wa.me/${phone}.` : ".");
+        (phone ? `.\nאפשר לכתוב ישירות.\nhttps://wa.me/${phone}` : ".");
     case "reminder_day":
       return `תזכורת: מחר יש לך ${noun} עם ${withWho}, ${when}${where}. נשמח לדעת שזה בתוקף.`;
     case "feedback": {
@@ -328,7 +328,7 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
 
   const link = `${SITE}/meeting?t=${row.token}`;
   const text = `שלום ${name || ""}`.trim() + ",\n" + line +
-    (row.kind === "cancel" || buttons ? "" : `\n\nלפרטים ולהוספה ליומן: ${link}`);
+    (row.kind === "cancel" || buttons ? "" : `\n\nלפרטים ולהוספה ליומן:\n${link}`);
 
   try {
     let wamid: string | null;

@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { ctaPayload, logWaUrlGuard, planWaText, WA_EMPTY_BODY, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -106,12 +107,30 @@ export function sendShowcaseTemplate(to: string, firstName: string, line: string
   });
 }
 
-export function sendShowcaseText(to: string, body: string) {
-  return post({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: { preview_url: true, body: noLongDash(body).slice(0, 4000) },
-  });
+export async function sendShowcaseText(to: string, body: string, label = "לעמוד האישי", url?: string) {
+  const plan = planWaText(noLongDash(body));
+  if (plan.stripped) logWaUrlGuard("showcase", plan);
+  const text = (plan.text || WA_EMPTY_BODY).slice(0, 1024);
+  const buttonUrl = url || plan.links.find((link) => link.kind === "cta")?.url;
+  if (!buttonUrl) {
+    return post({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { preview_url: false, body: text.slice(0, 4000) },
+    });
+  }
+  try {
+    return await post(ctaPayload(to, text, label, buttonUrl));
+  } catch (err) {
+    console.error("wa-url-guard showcase cta failed", err);
+    return post({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { preview_url: false, body: `${text}\n${WA_NO_BUTTON}`.slice(0, 4000) },
+    });
+  }
 }
