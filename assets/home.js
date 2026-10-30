@@ -9357,3 +9357,62 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
 
 // ‏P1-M: חשיפות ברשימת התוצאות בדף הבית (‏list_impression, v10)
 if (window.shukObserveList) shukObserveList(document.getElementById('searchResults'), 'home_list');
+
+/* ---------- §2: "אחורה" שיוצא מהאתר - גיליון במקום confirm() (v10 בלבד, תומר 29.10) ----------
+   ההיסטוריה עצמה ב-assets/exit-guard.js (אותו זקיף כמו היום): כאן רק השאלה.
+   פעם אחת בביקור (‏sk_exit_guard_shown), והזקיף נדחף אחרי המחווה הראשונה
+   (‏data-gesture-when="beta-hero" ב-index.html). המפה הפתוחה דוחפת רשומה מעל
+   הזקיף, ולכן "אחורה" בה סוגר רק את המפה. הנוסחים - טיוטה, ממתינים לגבריאלה. */
+(function exitSheet(){
+  if (!v10On() || !window.ExitGuard) return;
+  // בלי זה הדפדפן מחזיר את הגלילה לנקודה שבה הזקיף נדחף, ו"להמשיך לגלוש" קופץ לראש הדף
+  try { history.scrollRestoration = 'manual'; } catch(e){}
+  const css = document.createElement('style');
+  css.textContent =
+    '.sk-xg{position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-end;justify-content:center;background:rgba(13,27,61,.45)}' +
+    '.sk-xg-box{width:100%;max-width:520px;box-sizing:border-box;padding:22px 20px calc(18px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0;' +
+    '  background:#fff;color:#0d1b3d;font-family:Heebo,system-ui,sans-serif;text-align:center;box-shadow:0 -10px 30px rgba(13,27,61,.18)}' +
+    '.sk-xg-box h2{margin:0 0 8px;font-size:1.2rem;font-weight:800}' +
+    '.sk-xg-box p{margin:0 0 18px;font-size:.98rem;line-height:1.55;color:#3b4560}' +
+    '.sk-xg-box button{display:block;width:100%;min-height:48px;margin-top:10px;border-radius:12px;font:inherit;font-size:1rem;font-weight:800;cursor:pointer}' +
+    '.sk-xg-stay{border:0;background:#c9a227;color:#0d1b3d}' +
+    '.sk-xg-leave{border:1.5px solid #0e2a6b;background:#fff;color:#0e2a6b}' +
+    '.sk-xg-box button:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}' +
+    '@media(min-width:1024px){.sk-xg{align-items:center}.sk-xg-box{max-width:420px;border-radius:20px;padding-bottom:22px}}';
+  document.head.appendChild(css);
+
+  function ask(){
+    return new Promise(resolve => {
+      const opener = document.activeElement;
+      const sheet = document.createElement('div');
+      sheet.className = 'sk-xg';
+      sheet.innerHTML = '<div class="sk-xg-box" role="dialog" aria-modal="true" aria-labelledby="skXgT" aria-describedby="skXgB">' +
+        '<h2 id="skXgT">רגע לפני שיוצאים</h2>' +
+        '<p id="skXgB">יש עוד נכסים באזור שמחכים לכם. אפשר להמשיך לגלוש, לשמור נכסים במועדפים או לבקש התראה על נכס חדש.</p>' +
+        '<button type="button" class="sk-xg-stay">להמשיך לגלוש</button>' +
+        '<button type="button" class="sk-xg-leave">יציאה מהאתר</button></div>';
+      const btns = sheet.querySelectorAll('button');
+      function done(leave){
+        document.removeEventListener('keydown', onKey, true);
+        sheet.remove();
+        if (window.shukTrack){ if (leave) shukTrack('exit_guard_leave', {}); else shukTrack('exit_guard_stay', {}); }
+        if (!leave && opener && opener.focus) try { opener.focus(); } catch(e){}
+        resolve(leave);
+      }
+      function onKey(e){
+        if (e.key === 'Escape'){ e.preventDefault(); done(false); return; }
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey && document.activeElement === btns[0]){ e.preventDefault(); btns[1].focus(); }
+        else if (!e.shiftKey && document.activeElement === btns[1]){ e.preventDefault(); btns[0].focus(); }
+      }
+      btns[0].addEventListener('click', ()=> done(false));
+      btns[1].addEventListener('click', ()=> done(true));
+      sheet.addEventListener('click', e => { if (e.target === sheet) done(false); });
+      document.body.appendChild(sheet);
+      document.addEventListener('keydown', onKey, true);
+      btns[0].focus();
+      if (window.shukTrack) shukTrack('exit_guard_view', {});
+    });
+  }
+  ExitGuard.configure({ ask, once:'sk_exit_guard_shown' });
+})();

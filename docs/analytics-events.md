@@ -398,6 +398,9 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_up_open` | **v10**: נפתח גיליון הפרטים | `slot`, `position` |
 | `swipe_contact_click` | **Variant C (טלפון)**: וואטסאפ או חיוג בגיליון "איך נוח לכם?" שנפתח מ"ליועץ" במסילה | `via`: ‏`rail`, `method`: ‏`wa` \| `call`, `property_id` |
 | `property_save_toggle` | דף הנכס (v10): "שמירה" ליד הכותרת או בסרגל התחתון - הוספה ל"המועדפים" או הסרה מהם (‏`sk_swipe_likes`, אותה רשימה כמו בהחלקה) | `property_id`, `saved` (‏true/false) |
+| `exit_guard_view` | דף הבית (v10): "אחורה" שיוצא מהאתר פתח את הגיליון "רגע לפני שיוצאים" (‏`assets/exit-guard.js` + `home.js`, פעם בביקור) | - |
+| `exit_guard_stay` | בגיליון הזה: "להמשיך לגלוש", ‏Escape או הקשה מחוץ לגיליון | - |
+| `exit_guard_leave` | בגיליון הזה: "יציאה מהאתר" | - |
 | `sponsored_impression` | **v10**: כרטיס ממומן פעיל שנייה לפחות | `slot`, `sponsor_id`, `position` |
 | `sponsored_click` | **v10**: לחיצה על הכפתור של כרטיס ממומן | `slot`, `sponsor_id` |
 | `article_card_open` | **v10**: נפתח כרטיס הכתבה ב-`/swipe` | `article_id` |
