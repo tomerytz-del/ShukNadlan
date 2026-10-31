@@ -61,8 +61,34 @@ import {
   type OpsQuestionDb,
   type OpsTapDb,
 } from "./ops-question.ts";
-import { absoluteUrl, ctaLabel, parseNavId, withClickUrl } from "../_shared/agent-deep-link.ts";
+import { absoluteUrl, ctaLabel, listTextFallback, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { planWaText, sendOutboxItem, setWaDropLogger, WA_NO_BUTTON, WaBodyNotSentError } from "../_shared/wa-url-guard.ts";
+import {
+  CADENCE_BACK_TITLE,
+  CADENCE_DONE_ID,
+  CADENCE_DONE_TITLE,
+  CADENCE_LIST_BUTTON,
+  CADENCE_MORE_ID,
+  CADENCE_MORE_TITLE,
+  CADENCE_OFF_CONFIRM_TITLE,
+  CADENCE_PATH,
+  CADENCE_SAVED_CTA,
+  CADENCE_TYPE_BUTTON,
+  CADENCE_TYPES_BODY,
+  type CadenceChoice,
+  meetingsInfo,
+  cadenceFocus,
+  cadenceGroup,
+  cadenceIdFromMessage,
+  cadenceOptionRows,
+  cadenceTypeBody,
+  offAfterText,
+  offWarn,
+  parseCadenceTap,
+  typeConfirmLine,
+  typeListRows,
+} from "../_shared/notif-cadence.ts";
+import { directPostUrl } from "../_shared/open-demand-brief.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -1587,6 +1613,246 @@ async function applyWhatsappStop(agentId: string, from: string): Promise<void> {
   }], agentId);
 }
 
+type CadenceApplyRow = {
+  enabled?: boolean;
+  changed?: boolean;
+  needs_confirm?: boolean;
+  expired?: boolean;
+  choice?: string | null;
+  notif_type?: string | null;
+  cadences?: Record<string, string> | null;
+  off_types?: string[] | null;
+  daily_hour?: number;
+  hours?: number[];
+};
+
+async function applyCadence(
+  agentId: string,
+  type: string | null,
+  event: string,
+  choice: string | null,
+): Promise<{ row: CadenceApplyRow | null; error: boolean }> {
+  const { data, error } = await supabase.rpc("notif_cadence_apply", {
+    p_agent: agentId,
+    p_type: type,
+    p_event: event,
+    p_choice: choice,
+  });
+  const row = (Array.isArray(data) ? data[0] : data) as CadenceApplyRow | null;
+  return { row, error: !!error };
+}
+
+function cadenceHours(row: CadenceApplyRow | null): number[] {
+  return Array.isArray(row?.hours) ? row.hours.map(Number) : [9, 13, 17];
+}
+
+async function sendCadenceDisabled(agentId: string, from: string): Promise<void> {
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "אפשר תמיד לשנות את זה גם במערכת.",
+    label: CADENCE_SAVED_CTA,
+    url: absoluteUrl(SITE_BASE, withClick(CADENCE_PATH, "lead_cadence")),
+  }], agentId);
+}
+
+async function sendCadenceTypeList(
+  agentId: string,
+  from: string,
+  row: CadenceApplyRow | null,
+  first: string | null,
+): Promise<void> {
+  const rows = typeListRows(first, row?.cadences || {}, row?.off_types || []);
+  let waMessageId: string | null = null;
+  try {
+    waMessageId = await sendList(from, CADENCE_TYPES_BODY, CADENCE_TYPE_BUTTON, "סוגי התראות", rows);
+  } catch (err) {
+    console.error("cadence type list failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: from,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body: CADENCE_TYPES_BODY,
+    status: waMessageId ? "sent" : null,
+  });
+}
+
+async function sendCadenceOptions(
+  agentId: string,
+  from: string,
+  typeId: string,
+  row: CadenceApplyRow | null,
+): Promise<void> {
+  const body = cadenceTypeBody(typeId);
+  const rows = cadenceOptionRows(typeId, Number(row?.daily_hour) || 9, cadenceHours(row));
+  let waMessageId: string | null = null;
+  try {
+    waMessageId = await sendList(from, body, CADENCE_LIST_BUTTON, "קצב", rows);
+  } catch (err) {
+    console.error("cadence options failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: from,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body,
+    status: waMessageId ? "sent" : null,
+  });
+}
+
+async function sendCadenceSaved(
+  agentId: string,
+  from: string,
+  typeId: string,
+  line: string,
+): Promise<void> {
+  await replyButtons(from, line, [
+    { id: CADENCE_MORE_ID, title: CADENCE_MORE_TITLE },
+    { id: CADENCE_DONE_ID, title: CADENCE_DONE_TITLE },
+  ], agentId);
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "אפשר לשנות את זה גם במערכת.",
+    label: CADENCE_SAVED_CTA,
+    url: absoluteUrl(SITE_BASE, withClick(cadenceFocus(typeId), "lead_cadence")),
+  }], agentId);
+}
+
+async function handleCadenceTap(agentId: string, from: string, cadenceId: string): Promise<void> {
+  const tap = parseCadenceTap(cadenceId);
+  if (!tap) return;
+  if (tap.kind === "done") {
+    await reply(from, "נשמר. אפשר לשנות את זה בכל רגע במערכת.", agentId);
+    return;
+  }
+  if (tap.kind === "types" || tap.kind === "open") {
+    const { row, error } = await applyCadence(agentId, tap.kind === "open" ? tap.type : null, "open", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    await sendCadenceTypeList(agentId, from, row, tap.kind === "open" ? tap.type : null);
+    return;
+  }
+  const typeId = tap.type;
+  if (!typeId) {
+    const { row, error } = await applyCadence(agentId, null, "open", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    await sendCadenceTypeList(agentId, from, row, null);
+    return;
+  }
+  if (tap.kind === "back") {
+    const { row, error } = await applyCadence(agentId, typeId, "back", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    if (cadenceGroup(typeId)?.mode === "locked") {
+      await sendCadenceSaved(agentId, from, typeId, meetingsInfo());
+      return;
+    }
+    await sendCadenceOptions(agentId, from, typeId, row);
+    return;
+  }
+  if (tap.kind === "type") {
+    const { row, error } = await applyCadence(agentId, typeId, "open", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    if (cadenceGroup(typeId)?.mode === "locked") {
+      await sendCadenceSaved(agentId, from, typeId, meetingsInfo());
+      return;
+    }
+    await sendCadenceOptions(agentId, from, typeId, row);
+    return;
+  }
+  const choice: CadenceChoice = tap.kind === "confirm" ? "off" : tap.choice;
+  const event = tap.kind === "choice" && choice === "off" && cadenceGroup(typeId)?.confirmOff
+    ? "ask"
+    : "choose";
+  const { row, error } = await applyCadence(agentId, typeId, event, choice);
+  if (error || !row?.enabled) {
+    await sendCadenceDisabled(agentId, from);
+    return;
+  }
+  if (row.needs_confirm) {
+    await replyButtons(from, offWarn(typeId), [
+      { id: `ncad:yes:${typeId}`, title: CADENCE_OFF_CONFIRM_TITLE },
+      { id: `ncad:back:${typeId}`, title: CADENCE_BACK_TITLE },
+    ], agentId);
+    return;
+  }
+  if (row.expired) {
+    await reply(from, "האישור פג, ולא נשמר דבר.", agentId);
+    await sendCadenceOptions(agentId, from, typeId, row);
+    return;
+  }
+  const line = choice === "off"
+    ? offAfterText(typeId)
+    : typeConfirmLine(typeId, choice, row.changed === true, Number(row.daily_hour) || 9, cadenceHours(row));
+  await sendCadenceSaved(agentId, from, typeId, line);
+}
+
+async function handleOpenDemandClaim(agentId: string, from: string, rawId: string): Promise<void> {
+  const id = rawId.slice("odc:".length);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    await reply(from, "הכפתור הזה כבר לא בתוקף.", agentId);
+    return;
+  }
+  const { data, error } = await supabase.rpc("open_demand_claim_for_agent", {
+    p_agent: agentId,
+    p_id: id,
+  });
+  if (error) {
+    await reply(from, "לא הצלחתי לשמור את הפנייה. אפשר לנסות מהלשונית ביקוש פתוח.", agentId);
+    return;
+  }
+  const result = (data || {}) as {
+    success?: boolean;
+    error?: string;
+    post_url?: string;
+    source_post_url?: string;
+    lead_id?: string;
+  };
+  const post = directPostUrl(result.source_post_url) || directPostUrl(result.post_url);
+  if (result.success && post) {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "הביקוש שמור אליך. אפשר להגיב רק בפוסט, לא ב-SMS ולא בוואטסאפ.",
+      label: "לפוסט",
+      url: post,
+    }], agentId);
+    return;
+  }
+  if (result.success && /^[0-9a-f-]{36}$/i.test(result.lead_id || "")) {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "הביקוש שמור אליך. פרטי הקשר בכרטיס הליד.",
+      label: "לליד",
+      url: absoluteUrl(SITE_BASE, withClick(`/crm?goto=accLeads&lead=${result.lead_id}`, "open_demand")),
+    }], agentId);
+    return;
+  }
+  if (result.success) {
+    await reply(from, "הביקוש שמור אליך. אין כאן פרטי קשר.", agentId);
+    return;
+  }
+  const text = result.error === "claimed"
+    ? "סוכן/ת אחר/ת כבר פנה/תה לביקוש הזה."
+    : result.error === "daily_cap"
+    ? "הגעת לתקרה היומית. מחר אפשר שוב."
+    : "הביקוש כבר לא פתוח.";
+  await reply(from, text, agentId);
+}
+
 async function handleMessage(msg: Record<string, any>): Promise<void> {
   const from: string = msg.from;
   if (!from || !msg.id) return;
@@ -1714,6 +1980,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   });
   if (waBlock === "inactive") {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
+    return;
+  }
+  const buttonId = msg.type === "button"
+    ? String(msg.button?.payload || "")
+    : msg.type === "interactive"
+    ? String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "")
+    : "";
+  if (buttonId.startsWith("odc:")) {
+    await handleOpenDemandClaim(agent.id, from, buttonId);
+    return;
+  }
+  const cadenceId = cadenceIdFromMessage(msg);
+  if (cadenceId) {
+    await handleCadenceTap(agent.id, from, cadenceId);
     return;
   }
   // "הפסק" / "הפסקה", או כפתור תשובה מהירה באותו טקסט. לפני המודל ולפני

@@ -510,7 +510,7 @@ function mountHubQuiet(){
    כאן נכנס לקבוצת העסקאות (או לניהול הפלטפורמה, אם הוא view:'admin') - כך
    הוא לא נעלם מהמסך גם אם שכחו להוסיף אותו */
 const NOTIF_GROUPS = [
-  { key:'leads',   title:'לידים ולקוחות', types:['new_lead', 'showcase_meeting', 'showcase_activity', 'match_digest', 'retention_warning', 'client_match'] },
+  { key:'leads',   title:'לידים ולקוחות', types:['new_lead', 'open_demand', 'showcase_meeting', 'showcase_activity', 'match_digest', 'retention_warning', 'client_match'] },
   { key:'agenda',  title:'יומן והמנטור', types:['agenda_reminder', 'coach_daily', '__reminders', 'onboarding_property', 'onboarding_client', 'onboarding_agreement', 'onboarding_lead', 'onboarding_license'] },
   { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'listing_match', 'call_deleted_by_manager'] },
   { key:'reviews', title:'ביקורות', types:['review_new', 'review_request'] },
@@ -520,6 +520,82 @@ const NOTIF_GROUPS = [
 const NOTIF_URGENT = new Set(['new_lead', 'showcase_meeting', 'agenda_reminder', 'agreement_signed', 'lead_unrouted', 'security_alert']);
 const NOTIF_FREQ = { match_digest:'3 פעמים ביום', coach_daily:'כל בוקר' };
 const REMINDER_CADENCES = [['weekly', 'פעם בשבוע'], ['daily', 'עד פעם ביום'], ['off', 'כבוי']];
+
+/* אותן חמש קבוצות כמו CADENCE_GROUPS. סוג לא ממופה הוא system_mentor. */
+const NOTIF_CADENCE_GROUPS = [
+  { id:'new_leads', title:'לידים חדשים', mode:'choices',
+    choices:[['each','על כל ליד'],['daily','פעם ביום'],['thrice','3 פעמים ביום'],['off','ללא']],
+    hint:'בלי התראה המענה איטי יותר, וליד בלי מענה עלול לעבור הלאה. הלידים גם בלשונית הלידים, בפעמון, ואצל גבריאלה.' },
+  { id:'meetings', title:'פגישות וסיורים', mode:'locked', choices:[],
+    hint:'יוצא תמיד, בלי בחירת קצב. גם ביומן במערכת.' },
+  { id:'open_demand', title:'ביקוש פתוח', mode:'choices',
+    choices:[['each','על כל פריט'],['daily','פעם ביום'],['thrice','3 פעמים ביום'],['off','ללא']],
+    hint:'בלי התראה סוכנים מהירים יותר יתפסו את הביקוש. הוא גם בלשונית ביקוש פתוח, בפעמון, ואצל גבריאלה.' },
+  { id:'matches', title:'התאמות', mode:'choices',
+    choices:[['each','על כל התאמה'],['daily','פעם ביום'],['thrice','3 פעמים ביום'],['off','ללא']],
+    hint:'בלי התראה מפסידים עסקאות שת״פ, ולקוחות שאהבו נכס מחכים. ההתאמות גם אצל הלקוחות ובפעמון.' },
+  { id:'system_mentor', title:'מערכת ומנטור', mode:'digest',
+    choices:[['digest','בסיכום היומי'],['off','רק בפעמון']],
+    hint:'לא יוצא כוואטסאפ נפרד. אפשר לכלול בסיכום היומי, והוא תמיד בפעמון.' },
+];
+const NOTIF_CADENCE_GROUP_IDS = NOTIF_CADENCE_GROUPS.map(g => g.id);
+
+function notifGroupCadence(groupId) {
+  const spec = NOTIF_CADENCE_GROUPS.find(g => g.id === groupId);
+  if (!spec || spec.mode === 'locked') return 'each';
+  const raw = notifWhatsappCadence && notifWhatsappCadence[groupId];
+  if (spec.mode === 'digest') return raw === 'off' ? 'off' : 'digest';
+  if (raw === 'each' || raw === 'daily' || raw === 'thrice' || raw === 'off') return raw;
+  return 'each';
+}
+
+let notifCadenceFlag = false;
+const cadenceOffArmed = new Set();
+
+function cadenceChipsVisible() {
+  return notifCadenceFlag === true && typeof assistantTierOk === 'function' && assistantTierOk();
+}
+
+function cadenceGroupsHtml() {
+  if (!cadenceChipsVisible()) return '';
+  return `<section class="np2-cadence" id="npCadenceGroups">`
+    + NOTIF_CADENCE_GROUPS.map(g => {
+      const current = notifGroupCadence(g.id);
+      const chips = g.mode === 'locked' ? '' : `<div class="ui-chips" data-ui-single id="npCadenceChips-${g.id}" role="group" aria-labelledby="npCadLbl-${g.id}">`
+        + g.choices.map(([v, l]) => uiChip(l, { value:v, on: v === current, icon:false })).join('')
+        + `</div>`;
+      const offYes = g.choices.some(([v]) => v === 'off')
+        ? `<p class="ui-hint" data-cadence-off-box="${g.id}" hidden><button type="button" class="ui-btn ui-btn--secondary" data-cadence-off-yes="${g.id}">מאשר/ת, ללא התראות</button></p>`
+        : '';
+      return `<div class="np2-rem" id="npCadence-${g.id}" data-cadence-for="${g.id}">`
+        + `<div class="set-field"><span class="set-field-label" id="npCadLbl-${g.id}">${escapeHtml(g.title)}</span>`
+        + chips
+        + `<p class="ui-hint">${escapeHtml(g.hint)}</p>`
+        + offYes
+        + `</div></div>`;
+    }).join('')
+    + `</section>`;
+}
+
+function syncCadenceOffConfirm() {
+  document.querySelectorAll('[data-cadence-off-box]').forEach(box => {
+    const id = box.getAttribute('data-cadence-off-box');
+    const chips = document.getElementById('npCadenceChips-' + id);
+    const selected = chips ? (uiChipValues(chips)[0] || '') : '';
+    const saved = notifGroupCadence(id);
+    box.hidden = !(selected === 'off' && saved !== 'off' && !cadenceOffArmed.has(id));
+  });
+}
+
+function focusNotifCadence(focus) {
+  let id = focus === 'lead_wa' || focus === 'cadence_new_lead' ? 'new_leads' : String(focus || '').replace(/^cadence_/, '');
+  if (!NOTIF_CADENCE_GROUP_IDS.includes(id)) id = 'new_leads';
+  if (typeof renderNotifScreen === 'function') renderNotifScreen();
+  setTimeout(() => {
+    const el = document.getElementById('npCadence-' + id);
+    if (el && typeof scrollToTopOf === 'function') scrollToTopOf(el);
+  }, 400);
+}
 
 let notifPrefsReady = false;
 let notifBar = null;
@@ -639,7 +715,7 @@ function renderNotifScreen(){
   const lastSentText = lastSent ? lastSent.textContent : '';
   const groups = notifGroupsVisible();
   if (!groups.some(g => g.key === notifOpenGroup)) notifOpenGroup = groups.length ? groups[0].key : null;
-  groupsEl.innerHTML = groups.map(g => {
+  groupsEl.innerHTML = cadenceGroupsHtml() + groups.map(g => {
     const open = g.key === notifOpenGroup;
     return `<section class="ui-fold np2-group${open ? ' is-open' : ''}" id="npG-${g.key}" data-ui-fold-group="np" data-group="${g.key}">`
       + `<div class="ui-fold-head"><div class="ui-fold-title"><div><h4 class="ui-h3">${escapeHtml(g.title)}</h4><div class="ui-fold-summary" data-np-sum></div></div></div>`
@@ -667,6 +743,7 @@ function renderNotifScreen(){
   const ls = document.getElementById('rmLastSent');
   if (ls) ls.textContent = lastSentText;
   renderNotifLess();
+  syncCadenceOffConfirm();
 }
 
 /* המצב של כל המסך, כאובייקט אחד - לפס השמירה ולשמירה עצמה */
@@ -680,6 +757,16 @@ function notifScreenState(){
     bellOff: rows.filter(r => !pressed(r, '[data-np-bell]')).map(r => r.dataset.type).sort(),
     waOff: rows.filter(r => !pressed(r, '[data-np-wa]')).map(r => r.dataset.type).sort(),
     quiet: quietRead('np'),
+    cadences: Object.fromEntries(NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked').map(g => {
+      const el = document.getElementById('npCadenceChips-' + g.id);
+      let raw = el ? (uiChipValues(el)[0] || notifGroupCadence(g.id)) : notifGroupCadence(g.id);
+      const allowed = g.choices.map(c => c[0]);
+      if (!allowed.includes(raw)) raw = notifGroupCadence(g.id);
+      if (raw === 'off' && notifGroupCadence(g.id) !== 'off' && !cadenceOffArmed.has(g.id)) {
+        raw = notifGroupCadence(g.id);
+      }
+      return [g.id, raw];
+    })),
     rem: capEl ? {
       channels: uiChipValues(document.getElementById('npRemCh')).sort(),
       cadence: uiChipValues(document.getElementById('npRemCadence'))[0] || 'weekly',
@@ -700,6 +787,11 @@ function notifScreenApply(s){
     wa.setAttribute('aria-pressed', String(bellOn && !s.waOff.includes(t)));
     wa.disabled = !bellOn || !tierOk;
   });
+  if (s.cadences) {
+    Object.entries(s.cadences).forEach(([type, value]) => {
+      uiSetChips(document.getElementById('npCadenceChips-' + type), [value]);
+    });
+  }
   if (s.quiet) quietApply('np', s.quiet);
   if (s.rem){
     uiSetChips(document.getElementById('npRemCh'), s.rem.channels);
@@ -794,15 +886,39 @@ async function saveNotifPrefsRows(s){
   const muted = notifMutedTypes.filter(t => !shown.includes(t)).concat(s.bellOff);
   const whatsappOff = notifWhatsappOffTypes.filter(t => !shown.includes(t))
     .concat(shown.filter(t => s.waOff.includes(t) || s.bellOff.includes(t)));
-  const { error } = await sb.from('agent_notification_preferences').upsert({
+  const nowIso = new Date().toISOString();
+  const nextMap = {};
+  const nextSince = { ...(notifWhatsappCadenceSince || {}) };
+  let sinceChanged = false;
+  NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked').forEach(g => {
+    const choice = s.cadences && s.cadences[g.id] ? s.cadences[g.id] : notifGroupCadence(g.id);
+    if (choice !== notifGroupCadence(g.id)) {
+      nextSince[g.id] = nowIso;
+      sinceChanged = true;
+    }
+    nextMap[g.id] = choice;
+  });
+  nextMap.meetings = 'each';
+  const base = {
     agent_id: currentAgent.id,
     muted_types: muted,
     whatsapp_off_types: whatsappOff,
-    updated_at: new Date().toISOString(),
-  }, { onConflict:'agent_id' });
-  if (error) return { error };
+    updated_at: nowIso,
+  };
+  const patch = { ...base };
+  if (cadenceChipsVisible()) {
+    patch.whatsapp_cadence = nextMap;
+    if (sinceChanged) patch.whatsapp_cadence_since = nextSince;
+  }
+  let saved = await sb.from('agent_notification_preferences').upsert(patch, { onConflict:'agent_id' });
+  if (saved.error && /whatsapp_cadence|42703|schema cache/i.test(saved.error.message || '')) {
+    saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
+  }
+  if (saved.error) return { error: saved.error };
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
+  notifWhatsappCadence = nextMap;
+  if (sinceChanged) notifWhatsappCadenceSince = nextSince;
   return {};
 }
 
@@ -844,6 +960,7 @@ function wireNotifScreen(){
 
   screen.addEventListener('input', e => {
     if (e.target.closest('#npQuietEditor')) quietPaint('np');
+    syncCadenceOffConfirm();
     syncNotifScreen();
   });
   screen.addEventListener('change', e => {
@@ -851,6 +968,12 @@ function wireNotifScreen(){
   });
 
   screen.addEventListener('click', e => {
+    const offYes = e.target.closest('[data-cadence-off-yes]');
+    if (offYes) {
+      cadenceOffArmed.add(offYes.getAttribute('data-cadence-off-yes'));
+      syncCadenceOffConfirm();
+      screen.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     const restore = e.target.closest('[data-np-less-restore]');
     if (restore){
       const type = restore.getAttribute('data-np-less-restore');

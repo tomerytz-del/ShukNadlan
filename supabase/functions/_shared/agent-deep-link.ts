@@ -31,7 +31,7 @@ const GOTO_RE = /^(acc|dashPanel)[A-Za-z0-9]{1,40}$/;
 const SPECIAL_GOTO = new Set(["adminOps", "license", "adminHome", "bell", "cma", "cmaAddress"]);
 const PARAMS = new Set([
   "goto", "client", "property", "lead", "focus", "agenda", "agreement", "review",
-  "filter", "status", "import", "tab", "plan_city", "plan_street", "plan_num", "plan_gush", "plan_helka",
+  "filter", "status", "import", "tab", "demand", "plan_city", "plan_street", "plan_num", "plan_gush", "plan_helka",
   "wc", "wt",
 ]);
 const WC_RE = /^[a-f][a-f0-9]{11}$/;

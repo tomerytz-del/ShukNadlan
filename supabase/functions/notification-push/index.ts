@@ -37,9 +37,20 @@ import {
   type ClickRecord,
   type NotifTarget,
   utilityTemplateMessage,
+  clipUtf16,
+  encodeNavId,
+  OPEN_LEADS_PATH,
   withClick,
   withClickUrl,
 } from "../_shared/agent-deep-link.ts";
+import {
+  CADENCE_BUTTON_TITLE,
+  cadenceGroupOf,
+  cadenceOpenId,
+  digestChannel,
+  digestIntroFor,
+  parseOutside,
+} from "../_shared/notif-cadence.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -344,9 +355,13 @@ function textBody(
   noLinks = false,
   topics = false,
   withOptOutUrl = true,
+  cadenceOn = false,
   stamp?: (path: string) => string,
 ): string {
-  const opt = withOptOutUrl
+  // כפתור הקצב מחליף את שורת הכיבוי. דגל כבוי: השורה נשארת.
+  const opt = cadenceOn
+    ? ""
+    : withOptOutUrl
     ? `להפסקת ההתראות בוואטסאפ: ${gotoUrl(MANAGE_ACC)}`
     : OPT_OUT_BARE;
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
@@ -497,6 +512,7 @@ async function sendWhatsapp(
   mode: string,
   lessType: string | null,
   topics = false,
+  cadenceOn = false,
 ): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
   let tokens: ClickRecord[] = [];
@@ -519,8 +535,10 @@ async function sendWhatsapp(
     }
     return plan.text;
   };
-  const bare = () => clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
-  const fullBody = () => (withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON).slice(0, 4000);
+  const bare = () => clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false, cadenceOn)) || WA_NO_BUTTON, 1024);
+  const fullBody = () => (withoutUrls(textBody(name, items, true, topics, false, cadenceOn)) || WA_NO_BUTTON).slice(0, 4000);
+  const known = items.find((it) => cadenceGroupOf(it.type)) || items[0];
+  const cadenceButton = { id: cadenceOpenId(known?.type), title: CADENCE_BUTTON_TITLE };
   let splitCta: Record<string, unknown> | null = null;
   const linked = () => {
     const full = fullBody();
@@ -563,11 +581,15 @@ async function sendWhatsapp(
     }
     if (plan.kind === "buttons") {
       tokens = clickRecords(plan);
-      return replyButtonsMessage(to, body, plan.rows);
+      const rows = cadenceOn && plan.rows.length < 3 ? [...plan.rows, cadenceButton] : plan.rows;
+      return replyButtonsMessage(to, body, rows);
     }
     if (plan.kind === "list") {
       tokens = clickRecords(plan);
-      return listMessage(to, body, plan.button, plan.section, plan.rows);
+      const rows = cadenceOn && plan.rows.length < 10
+        ? [...plan.rows, { ...cadenceButton, description: "בחירה לפי סוג התראה" }]
+        : plan.rows;
+      return listMessage(to, body, plan.button, plan.section, rows);
     }
     return null;
   };
@@ -672,10 +694,13 @@ async function sendWhatsapp(
     // ביטול סיור קודם ל"פחות כאלה": שם הסוכן/ת צריך/ה להחליט אם לעדכן
     // את מי שכבר קיבל בקשה, ולא נשלח דבר ללקוח/ה עד הלחיצה.
     // החיתוך נעצר לפני כתובת שנקטעת, לא באמצע הקישור.
-    const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
+    const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false, cadenceOn)) || WA_NO_BUTTON, 1024);
     const button = scn
       ? { type: "reply", reply: { id: scn.id, title: scn.title } }
       : { type: "reply", reply: { id: `nless:${lessType}`, title: LESS_TITLE } };
+    const buttons = cadenceOn
+      ? [button, { type: "reply", reply: cadenceButton }]
+      : [button];
     payload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -684,7 +709,7 @@ async function sendWhatsapp(
       interactive: {
         type: "button",
         body: { text: body },
-        action: { buttons: [button] },
+        action: { buttons },
       },
     };
   } else {
@@ -754,6 +779,165 @@ async function sendWhatsapp(
   });
 }
 
+type CadenceSb = {
+  from: (table: string) => any;
+  rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<{
+    data: any;
+    error: { message?: string } | null;
+  }>;
+};
+
+async function cadenceFlagOn(sb: CadenceSb): Promise<boolean> {
+  try {
+    const { data, error } = await sb.from("app_config")
+      .select("value")
+      .eq("key", "notif_cadence_button_enabled")
+      .maybeSingle();
+    if (error || !data) return false;
+    return ["1", "true", "on", "yes"].includes(String(data.value || "").trim().toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+async function prepareLeadCadence(sb: CadenceSb, logId: string): Promise<string> {
+  const { data, error } = await sb.rpc("notification_push_prepare_lead_cadence", { p_log_id: logId });
+  if (error) return "send";
+  return typeof data === "string" ? data : "send";
+}
+
+function digestLeadRows(leads: { lead_id?: string | null; title?: string | null; id?: string }[]) {
+  const rows = leads.slice(0, 9).map((lead) => {
+    const path = lead.lead_id
+      ? withClick(`/crm?goto=accLeads&lead=${lead.lead_id}`, "lead_digest")
+      : withClick(OPEN_LEADS_PATH, "lead_digest");
+    const id = encodeNavId(path);
+    return id
+      ? { id, title: clipUtf16(String(lead.title || "ליד חדש"), 24), path }
+      : null;
+  }).filter((row): row is { id: string; title: string; path: string } => !!row);
+  if (leads.length > rows.length || leads.length > 1) {
+    const all = encodeNavId(withClick(OPEN_LEADS_PATH, "lead_digest"));
+    if (all && rows.length < 10 && !rows.some((row) => row.title === "כל הלידים")) {
+      rows.push({ id: all, title: "כל הלידים", path: OPEN_LEADS_PATH });
+    }
+  }
+  return rows;
+}
+
+async function postGraph(payload: Record<string, unknown>): Promise<void> {
+  if (!WA_TOKEN || !WA_PHONE_ID) return;
+  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+async function sendLeadDigests(sb: CadenceSb): Promise<void> {
+  const { data, error } = await sb.rpc("lead_wa_digest_claim");
+  if (error || !Array.isArray(data)) return;
+  for (const row of data as Record<string, any>[]) {
+    const leads = Array.isArray(row.leads) ? row.leads : [];
+    const ids = leads
+      .map((lead: { id?: string }) => lead.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+    const ordinalChannel = digestChannel(
+      !!row.in_window,
+      parseOutside(row.outside_mode),
+      row.cap_allows === true,
+      Number(row.digest_ordinal) || 1,
+    );
+    const channel = row.allow_template === false
+      ? (row.in_window ? "text" : "bell")
+      : ordinalChannel;
+    const finish = (outcome: "sent" | "bell", mode: string) => sb.rpc("notif_cadence_digest_finish", {
+      p_agent: row.agent_id,
+      p_slot: row.slot_key,
+      p_outcome: outcome,
+      p_ids: outcome === "sent" ? ids : [],
+      p_mode: mode,
+    });
+    if (channel === "bell" || (channel === "template" && !WA_TEMPLATE && !WA_UTILITY && !WA_ACTION && !WA_TXN)) {
+      await finish("bell", "text");
+      continue;
+    }
+    const intro = digestIntroFor(String(row.notif_type || "new_lead"), Number(row.slot_dow) || 0, Number(row.slot_hour) || 9);
+    const digestHome = row.notif_type === "open_demand"
+      ? "/crm?goto=accLeads&tab=demand"
+      : row.notif_type === "matches"
+      ? "/crm?goto=accAlerts"
+      : row.notif_type === "system_mentor"
+      ? "/crm?goto=bell"
+      : row.notif_type === "new_leads" || row.notif_type === "new_lead" || !row.notif_type
+      ? OPEN_LEADS_PATH
+      : `/crm?goto=${ACC_BY_TYPE[row.notif_type] || "accNotifPrefs"}`;
+    try {
+      if (channel === "text") {
+        const nav = digestLeadRows(leads);
+        const body = clipWhatsappBody(intro, 1024);
+        if (row.notif_type && row.notif_type !== "new_lead" && row.notif_type !== "new_leads") {
+          await postGraph(ctaMessage(
+            row.phone_e164,
+            body,
+            "לרשימה",
+            absoluteUrl(SITE_BASE, withClick(digestHome, "lead_digest")),
+          ));
+        } else if (nav.length <= 1 && nav[0]) {
+          await postGraph(ctaMessage(row.phone_e164, body, "לליד", absoluteUrl(SITE_BASE, nav[0].path)));
+        } else if (nav.length > 1 && nav.length <= 3) {
+          await postGraph(replyButtonsMessage(row.phone_e164, body, nav));
+        } else if (nav.length > 3) {
+          await postGraph(listMessage(row.phone_e164, body, "הלידים", "לידים חדשים", nav));
+        } else {
+          await postGraph({
+            messaging_product: "whatsapp",
+            to: row.phone_e164,
+            type: "text",
+            text: { preview_url: false, body },
+          });
+        }
+      } else {
+        const path = withClick(digestHome, "lead_digest");
+        const summary = leads.map((lead: { title?: string }) => lead.title || "ליד חדש").join(" · ").slice(0, 900);
+        const name = firstName(row.display_name) || "שלום";
+        const payload = WA_TXN
+          ? actionTemplateMessage({ to: row.phone_e164, templateName: WA_TXN, lang: WA_TXN_LANG, name, summary, path })
+          : WA_ACTION
+          ? actionTemplateMessage({ to: row.phone_e164, templateName: WA_ACTION, lang: WA_ACTION_LANG, name, summary, path })
+          : WA_UTILITY
+          ? utilityTemplateMessage({ to: row.phone_e164, templateName: WA_UTILITY, lang: WA_UTILITY_LANG, name, summary, path })
+          : {
+            messaging_product: "whatsapp",
+            to: row.phone_e164,
+            type: "template",
+            template: {
+              name: WA_TEMPLATE,
+              language: { code: WA_TEMPLATE_LANG },
+              components: [
+                { type: "body", parameters: [
+                  { type: "text", text: name.slice(0, 60) },
+                  { type: "text", text: summary.replace(/\s*[\r\n\t]+\s*/g, " ").slice(0, 900) || "-" },
+                ] },
+                { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: path.replace(/^\//, "") }] },
+              ],
+            },
+          };
+        await postGraph(payload);
+      }
+      await finish("sent", channel);
+    } catch (err) {
+      console.error("lead digest failed", err instanceof Error ? err.message : String(err));
+      await sb.from("notif_cadence_digest").delete()
+        .eq("agent_id", row.agent_id)
+        .eq("slot_key", row.slot_key)
+        .eq("outcome", "pending");
+    }
+  }
+}
+
 /** מזהי מיניסייט על ההתראות שכבר נתפסו ביומן. null = לא הצלחנו לקרוא. */
 async function reminderShowcaseIds(
   sb: { from: (table: string) => any },
@@ -789,6 +973,9 @@ Deno.serve(async (req: Request) => {
     const n = Number(data);
     return Number.isFinite(n) ? n : 0;
   });
+
+  const cadenceOn = await cadenceFlagOn(sb);
+  if (cadenceOn) await sendLeadDigests(sb);
 
   // ‏claim רושמת את שורות היומן **לפני** השליחה. נפילה מכאן והלאה משאירה
   // שורה עם status='pending' — "יצא, לא ידוע אם הגיע" — ולא אותן התראות
@@ -840,9 +1027,46 @@ Deno.serve(async (req: Request) => {
     let waId: string | null = null;
     let tokens: ClickRecord[] = [];
 
+    if (cadenceOn) {
+      const prepared = await prepareLeadCadence(sb, row.log_id);
+      if (prepared === "drop") return;
+      if (prepared.startsWith("strip:")) {
+        const dropTypes = new Set(prepared.slice("strip:".length).split(",").filter(Boolean));
+        items = items.filter((it) => !dropTypes.has(it.type));
+      }
+      if (items.length === 0) return;
+      items = items.filter((it) => cadenceGroupOf(it.type) !== "system_mentor");
+      if (items.length === 0) {
+        await sb.from("notification_push_log").update({
+          notification_ids: [],
+          whatsapp_status: "skipped",
+          last_error: "group_digest",
+        }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+        return;
+      }
+    }
+
+    // בחירה של סוכן/ת אינה פוטרת מתקרת התבניות. סוג שפטור במקום אחר
+    // עדיין נספר, כי lead_wa_digest_cap_allows קורא להחלטה עם exempt=false.
+    if (cadenceOn && row.channel_mode === "template") {
+      const { data: allow, error: capErr } = await sb.rpc("lead_wa_digest_cap_allows", {
+        p_agent: row.agent_id,
+        p_except: row.log_id,
+      });
+      if (!capErr && allow === false) {
+        const { error: holdErr } = await sb.from("notification_push_log").update({
+          whatsapp_status: "skipped",
+          last_error: "template_cap",
+        }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+        if (holdErr) console.error("template cap hold failed", row.log_id, holdErr.message);
+        skipped++;
+        return;
+      }
+    }
+
     try {
       const sent = await sendWhatsapp(
-        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics,
+        row.phone_e164, row.display_name, items, row.channel_mode, lessType, digest.topics, cadenceOn,
       );
       waId = sent.id;
       tokens = sent.tokens;
