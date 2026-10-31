@@ -521,6 +521,10 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   html.beta-hero .oh-h1-legacy,
   html:not(.beta-hero) .oh-h1-v10{display:none !important}
   html.beta-hero .oh-steps{display:none !important}
+  /* גובה הראש אחרי Heebo. בלי זה הגופן החלופי קצר יותר, והשלבים
+     נדחפים למטה כשהגופן מגיע (CLS בדסקטופ). */
+  html.beta-hero .oh-head{min-height:520px}
+  @media(min-width:760px){html.beta-hero .oh-head{min-height:470px}}
   html.beta-hero #fairHowTitle{
     position:static;width:auto;height:auto;margin:0 0 10px;overflow:visible;
     clip:auto;white-space:normal;
