@@ -91,7 +91,8 @@
   function onCrmPage() {
     try {
       var path = String((global.location && global.location.pathname) || '');
-      return path === '/crm' || path === '/crm.html' || path.indexOf('/crm/') === 0;
+      if (path.length > 1 && path.charAt(path.length - 1) === '/') path = path.slice(0, -1);
+      return path.replace(/\.html$/, '') === '/crm';
     } catch (e) {
       return false;
     }
