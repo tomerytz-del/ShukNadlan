@@ -3,6 +3,12 @@
 -- ופריטים שלא נקראו מלפני השינוי יוצאים מהסיכום.
 -- השחזור כותב את הבחירה ואת since הקודמים.
 
+-- CI משחזר את הסכימה עם pg_dump --no-acl ולא מריץ מיגרציה שכבר בפרודקשן.
+revoke update on table public.agent_notification_preferences from public, anon, authenticated;
+grant select, insert on table public.agent_notification_preferences to authenticated;
+grant update (agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at)
+  on table public.agent_notification_preferences to authenticated;
+
 create or replace function public.notif_cadence_restore(
   p_agent uuid,
   p_type text,
