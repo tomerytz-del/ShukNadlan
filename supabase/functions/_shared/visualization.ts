@@ -22,6 +22,29 @@ const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.5-flash-li
 
 export const VISUALIZATION_BUCKET = "property-visualizations";
 
+/* ‏viz-speed שינוי 1 (1.11.2026): כל ארבעת הסגנונות נוצרים מראש לנכס פרטי, ולא רק modern_clean -
+   כך שלחיצה על כל סגנון מציגה מיד. **מאחורי הדגל visualization_prerender_all_styles ב-pricing_config,
+   כבוי (0) עד שתומר מדליק:** כל נכס פרטי חדש עולה אז עד 3 × 3 הדמיות נוספות. ‏docs/property-visualizations.md */
+export async function prerenderAllStylesOn(supabase: any): Promise<boolean> {
+  const { data } = await supabase.from("pricing_config").select("value")
+    .eq("key", "visualization_prerender_all_styles").maybeSingle();
+  return Number(data?.value ?? 0) === 1;
+}
+
+/** קריאה פנימית (‏service role) ל-property-visualize-base לכל סגנון שחסר. ‏fire-and-forget - הבסיס בודק
+    בעצמו זכאות, תמונות ומה שכבר קיים, ולכן קריאה כפולה אינה משלמת פעמיים על הדמיה מוכנה */
+export async function queueOtherStyles(propertyId: string, styles: StyleKey[]): Promise<void> {
+  const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key || !styles.length) return;
+  await Promise.all(styles.map((style) =>
+    fetch(`${url}/functions/v1/property-visualize-base`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ property_id: propertyId, style }),
+    }).then((r) => r.body?.cancel(), (e) => console.warn("queueOtherStyles", style, e))
+  ));
+}
+
 // ---------------------------------------------------------------------------
 // סוגי נכס שיש להם "חוץ" משלהם
 //
@@ -576,17 +599,76 @@ export function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
+/* ‏viz-speed (1.11.2026): גודל הפלט ויחס הצדדים במפורש - ‏imageConfig - כדי שהתוצאה תהיה באותה מסגרת
+   כמו צילום ה"לפני" בווילון, ובגודל 1K שהמחיר מבוסס עליו. **כבוי בייצור** עד שתומר מאשר את ניסיון
+   המודלים (‏scripts/viz_model_trial.ts): נדלק עם ‏GEMINI_IMAGE_CONFIG=1, יחד עם ‏GEMINI_IMAGE_MODEL.
+   ‏GEMINI_IMAGE_THINKING (למשל minimal ל-gemini-nano-banana-2.1) - רק כשמוגדר */
+const IMAGE_CONFIG_ON = Deno.env.get("GEMINI_IMAGE_CONFIG") === "1";
+const IMAGE_THINKING = Deno.env.get("GEMINI_IMAGE_THINKING") || "";
+
+/** מידות תמונה מתוך הבתים (‏JPEG / PNG / WebP), בלי לפענח אותה. ‏null כשאינה מזוהה */
+export function imageDims(b: Uint8Array): { w: number; h: number } | null {
+  if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50) {   // PNG: ‏IHDR
+    return { w: (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, h: (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0 };
+  }
+  if (b.length > 30 && b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) {   // WebP
+    const t = String.fromCharCode(b[12], b[13], b[14], b[15]);
+    if (t === "VP8X") return { w: 1 + (b[24] | b[25] << 8 | b[26] << 16), h: 1 + (b[27] | b[28] << 8 | b[29] << 16) };
+    if (t === "VP8 ") return { w: (b[26] | b[27] << 8) & 0x3fff, h: (b[28] | b[29] << 8) & 0x3fff };
+    if (t === "VP8L") { const v = b[21] | b[22] << 8 | b[23] << 16 | b[24] << 24; return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 }; }
+    return null;
+  }
+  if (b[0] === 0xff && b[1] === 0xd8) {   // JPEG: ‏SOF0-SOF15 (בלי DHT/JPG/DAC)
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1], len = b[i + 2] << 8 | b[i + 3];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: b[i + 7] << 8 | b[i + 8], h: b[i + 5] << 8 | b[i + 6] };
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
+/** היחס הקרוב מבין מה ש-Gemini מקבל ב-imageConfig.aspectRatio */
+const ASPECTS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
+export function nearestAspect(w: number, h: number): string {
+  if (!w || !h) return "4:3";
+  const r = Math.log(w / h);
+  let best = "4:3", d = Infinity;
+  for (const a of ASPECTS) {
+    const [x, y] = a.split(":").map(Number);
+    const dd = Math.abs(Math.log(x / y) - r);
+    if (dd < d) { d = dd; best = a; }
+  }
+  return best;
+}
+
+/** גוף הבקשה ל-Gemini. ‏opts משמש גם את ניסיון המודלים, עם מודל והגדרות משלו */
+export function imageRequestBody(
+  mime: string,
+  data: string,
+  prompt: string,
+  opts: { imageConfig?: boolean; thinking?: string } = {},
+): Record<string, unknown> {
+  // temperature נמוכה בכוונה: אנחנו רוצים עריכה צייתנית, לא יצירתיות.
+  const generationConfig: Record<string, unknown> = { responseModalities: ["IMAGE"], temperature: 0.2 };
+  if (opts.imageConfig) {
+    const dims = imageDims(base64ToBytes(data));
+    generationConfig.imageConfig = { imageSize: "1K", ...(dims ? { aspectRatio: nearestAspect(dims.w, dims.h) } : {}) };
+  }
+  if (opts.thinking) generationConfig.thinkingConfig = { thinkingLevel: opts.thinking };
+  return { contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }], generationConfig };
+}
+
 async function generateOnce(apiKey: string, mime: string, data: string, prompt: string): Promise<GenResult> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }],
-        // temperature נמוכה בכוונה: אנחנו רוצים עריכה צייתנית, לא יצירתיות.
-        generationConfig: { responseModalities: ["IMAGE"], temperature: 0.2 },
-      }),
+      body: JSON.stringify(imageRequestBody(mime, data, prompt, { imageConfig: IMAGE_CONFIG_ON, thinking: IMAGE_THINKING })),
     }
   );
 

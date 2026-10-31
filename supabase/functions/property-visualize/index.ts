@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { writeVisitInsert } from "../_shared/visit-attr.ts";
+import { logAiUsage } from "../_shared/ai-usage.ts";
 import {
   buildCommercialPrompt,
   buildPrivatePrompt,
@@ -12,7 +13,10 @@ import {
   json,
   pickCommercialSources,
   pickPrivateSources,
+  prerenderAllStylesOn,
   privateTargetsFor,
+  queueOtherStyles,
+  STYLE_KEYS,
   renderModeFor,
   runVisualizationJob,
   type CommercialTarget,
@@ -250,8 +254,11 @@ Deno.serve(async (req: Request) => {
       .eq("style_key", styleKey)
       .eq("mode", mode)
       .eq("status", "done");
+    /* ‏viz-speed: רק הדמיה שנוצרה מהתמונה שנבחרת היום. עד 1.11 המפתח לא כלל את התמונה, ונכס שהחליף
+       צילום הציג הדמיה של הצילום הישן. שורה כזו נוצרת מחדש למטה (‏todo), והשורה עצמה מתעדכנת */
+    const srcOf = new Map(sources.map((s) => [s.target, s.url]));
     ready = (existing ?? [])
-      .filter((r: any) => r.result_url)
+      .filter((r: any) => r.result_url && srcOf.get(r.target) === r.source_image_url)
       .map((r: any) => ({
         target: r.target,
         style_key: r.style_key,
@@ -306,6 +313,32 @@ Deno.serve(async (req: Request) => {
 
   const readyTargets = new Set(ready.map((r) => r.target));
   const todo = sources.filter((s) => !readyTargets.has(s.target));
+
+  /* ‏viz-speed: פגיעה במטמון לא יוצרת job ולא ליד, ולכן לא נמדדה. שורה ביומן (‏units = כמה תמונות),
+     בלי טוקנים ובלי עלות - כדי לדעת כמה מהבקשות כבר מוגשות מיד */
+  if (ready.length > 0) {
+    logAiUsage({
+      feature: "viz_cache_hit", provider: "google", model: "cache",
+      uncached_input_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cache_write_1h_tokens: 0, output_tokens: 0,
+      units: ready.length, agency_id: property.agency_id ?? null, agent_id: property.agent_id ?? null,
+    });
+  }
+
+  /* ‏viz-speed שינוי 1: מי שביקש/ה סגנון אחד בנכס פרטי - שאר הסגנונות החסרים נוצרים ברקע (רק כשהדגל
+     visualization_prerender_all_styles דלוק), כך שהלחיצה הבאה על סגנון אחר כבר מיידית */
+  if (isPrivate && await prerenderAllStylesOn(supabase)) {
+    const { data: have } = await supabase
+      .from("property_visualizations")
+      .select("style_key")
+      .eq("property_id", property_id)
+      .eq("kind", "private_room")
+      .eq("mode", mode)
+      .eq("status", "done");
+    const done = new Set((have ?? []).map((r: any) => r.style_key));
+    const missing = STYLE_KEYS.filter((k) => k !== styleKey && !done.has(k));
+    // @ts-ignore — EdgeRuntime.waitUntil זמין בסביבת ה-Edge Functions של Supabase
+    if (missing.length) EdgeRuntime.waitUntil(queueOtherStyles(property_id, missing));
+  }
 
   // ---- בלם לגולש/ת (מכשיר ו-IP) -----------------------------------------
   // נבדק רק כשבאמת יש מה לייצר: קאש אינו נספר ואינו נחסם. המזהה מגיע מהדפדפן
