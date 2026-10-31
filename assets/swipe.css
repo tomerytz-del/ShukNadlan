@@ -416,7 +416,7 @@ body.sw-locked #gabW,body.sw-locked .a11y-fab,body.sw-locked .a11y-hide,body.sw-
 .sw-likes.is-pill{border-radius:999px;padding:0 12px}
 .sw-likes-l{font-size:13px;font-weight:700;color:var(--sw-title);white-space:nowrap}
 @media (max-width:420px){.sw-likes.is-pill{padding:0 9px;gap:3px}.sw-likes-l{font-size:12px}}
-/* ‏P1-H: התווית הגלויה "הנכסים שאהבתי" רק במחשב; בטלפון הלב והמונה */
+/* ‏P1-H: התווית הגלויה "המועדפים" רק במחשב; בטלפון הלב והמונה */
 @media (max-width:1023px){.sw-likes-l{display:none}.sw-likes.is-pill{padding:0 10px}}
 .sw-navy{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border:0;border-radius:12px;background:var(--sw-navy);
   color:#fff;font:inherit;font-size:14px;font-weight:800;cursor:pointer}
@@ -649,7 +649,7 @@ html body .sw-bs-sub{margin:0;max-width:420px;font-size:14.5px;line-height:1.5;c
 .sw-bs-keys{margin:10px 0 0;font-size:12.5px;color:var(--sw-body)}
 .sw-bs .sw-alert{margin-top:4px}
 .sw-bs .sw-aform{border:1px solid var(--sw-line)}
-/* "הרשימה שלי" פתוחה: הגלולה בראש המסך מסומנת */
+/* "המועדפים" פתוחים: הגלולה בראש המסך מסומנת */
 .sw-likes[aria-current="page"]{background:var(--fav-green);border-color:var(--fav-green)}
 .sw-likes[aria-current="page"] svg,.sw-likes[aria-current="page"] b,.sw-likes[aria-current="page"] .sw-likes-l{color:#fff}
 .sw-lv-gab{gap:6px;text-decoration:none}

@@ -1221,18 +1221,18 @@
     likes = loadLikes(); renderLikes(); syncActions();
     if (view === 'likes') renderLikesView();
   });
-  /* אחרי הלייק הראשון הלב שבראש המסך הופך לגלולה "♥ N · הרשימה שלי" */
+  /* אחרי הלייק הראשון הלב שבראש המסך הופך לגלולה "♥ N · המועדפים" */
   function renderLikes() {
     $('swLikesN').textContent = likes.length;
     $('swLikesL').hidden = !likes.length;
     $('swLikes').classList.toggle('is-pill', likes.length > 0);
     // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר (גם בכותרת, ‏P1-E)
-    var ll = 'המועדפים (' + likes.length + ')';
+    var ll = likes.length ? 'המועדפים (' + likes.length + ')' : 'המועדפים';
     $('swLikes').setAttribute('aria-label', ll); $('swLikes').title = ll;
     // ‏Variant C: אותו מונה במסילה, ומוסתר באפס
     $('swRailLikesN').textContent = likes.length;
     $('swRailLikesN').hidden = !likes.length;
-    $('swRailLikes').setAttribute('aria-label', 'המועדפים (' + likes.length + ')');
+    $('swRailLikes').setAttribute('aria-label', ll);
     if (view === 'likes') renderLikesView();
   }
 
@@ -2042,9 +2042,10 @@
       $('swCall').href = 'tel:+' + phone;
       $('swWa').href = waHref(p, phone);
     }
-    $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
-    // ‏WCAG 2.5.3: השם הנגיש מכיל את המילה הגלויה מתחת לכפתור ("שמירה", גם במחשב - תומר 29.10)
-    $('swLike').setAttribute('aria-label', 'שמירה');
+    var liked_ = !!(p && likes.indexOf(p.id) >= 0);
+    $('swLike').setAttribute('aria-pressed', String(liked_));
+    // ‏§10 (תומר 31.10): השם הנגיש מתהפך עם aria-pressed
+    $('swLike').setAttribute('aria-label', liked_ ? 'הסרה מהמועדפים' : 'שמירה במועדפים');
     $('swUndo').setAttribute('aria-label', phoneC() ? 'ביטול' : 'ביטול Z');
     syncRail(c, adv, phone);
   }
@@ -2668,7 +2669,7 @@
       : '<p class="sw-st-q is-soft">' + esc(VIZ_LIMIT) + '</p>') : '';
     box.innerHTML = '<p class="sw-st-head"><b>' + esc(head) + '</b>' + (r ? ' <span class="sw-st-real">הדמיה אמיתית</span>' : '') + '</p>' +
       '<div class="sw-st-stage">' + studioStage() + '</div>' + (st.busy ? '' : quota) +
-      (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר ברשימה שלי' : '♡ שמירה לרשימה שלי') + '</button>' : '') +
+      (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר במועדפים' : '♡ שמירה במועדפים') + '</button>' : '') +
       '<h3 class="sw-sub-h"><span class="sw-st-n">1</span> ' + (st.comm ? 'איזה חלל?' : 'איזה חדר?') + '</h3><div class="sw-st-row">' + rooms_ + '</div>' +
       '<h3 class="sw-sub-h"><span class="sw-st-n">2</span> ' + (st.comm ? 'איזה עסק תפתחו כאן?' : 'איזה סגנון?') + '</h3>' + styles_ + contact +
       '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והמשרד המפרסם יחזור אליכם.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
@@ -2750,7 +2751,7 @@
     st.saved = true;
     shukTrack('viz_save', { property_id: p.id, style: st.comm ? ('biz:' + bizKey(st.bizLabel).slice(4)).slice(0, 40) : st.key });
     renderStudio();
-    toast('נשמר ברשימה שלי, יחד עם ההדמיה');
+    toast('נשמר במועדפים');
   }
   function likedViz(id) {
     try { var m = JSON.parse(store('sk_swipe_likes_viz') || '{}') || {}; return m[id] && m[id].result_url; } catch (e) { return ''; }
@@ -3052,12 +3053,12 @@
     toast(n.new_n >= 2 ? 'ממשיכים מאיפה שעצרתם · ' + n.new_n + ' נכסים חדשים מאז הביקור הקודם'
       : n.new_n === 1 ? 'ממשיכים מאיפה שעצרתם · נכס חדש אחד מאז הביקור הקודם' : 'ממשיכים מאיפה שעצרתם', 4000);
   }
-  /* הסרה מ"הרשימה שלי" אחרי אישור, עם "ביטול" בהודעה למשך 5 שניות (P0-9) */
+  /* הסרה מ"המועדפים" אחרי אישור, עם "ביטול" בהודעה למשך 5 שניות (P0-9) */
   function unlike(id) {
     var at = likes.indexOf(id);
     if (at < 0) return;
     likes.splice(at, 1); saveLikes(); syncActions();
-    toast('הנכס הוסר מהמועדפים', 5000, 'ביטול', function () {
+    toast('הוסר מהמועדפים', 5000, 'ביטול', function () {
       if (likes.indexOf(id) < 0) { likes.splice(Math.min(at, likes.length), 0, id); saveLikes(); syncActions(); }
     });
   }
