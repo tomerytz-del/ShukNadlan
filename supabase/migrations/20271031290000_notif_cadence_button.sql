@@ -53,6 +53,29 @@ comment on column public.agent_notification_preferences.whatsapp_cadence is
 comment on column public.agent_notification_preferences.whatsapp_cadence_since is
   'לכל סוג, מרגע השינוי. התראות מלפניו לא נשפכות לוואטסאפ. נכתב רק דרך notif_cadence_apply.';
 
+create or replace function public.notif_cadence_since_ok(p jsonb)
+returns boolean
+language plpgsql
+immutable
+as $$
+declare
+  e record;
+begin
+  if p is null or p = '{}'::jsonb then
+    return true;
+  end if;
+  for e in select key, value from jsonb_each_text(p) loop
+    if e.value !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' then
+      return false;
+    end if;
+  end loop;
+  return true;
+end;
+$$;
+
+revoke all on function public.notif_cadence_since_ok(jsonb) from public, anon, authenticated;
+grant execute on function public.notif_cadence_since_ok(jsonb) to service_role;
+
 do $$ begin
   if not exists (
     select 1 from pg_constraint
@@ -60,13 +83,7 @@ do $$ begin
   ) then
     alter table public.agent_notification_preferences
       add constraint agent_notification_preferences_cadence_since_chk
-      check (
-        not exists (
-          select 1
-            from jsonb_each_text(whatsapp_cadence_since) e
-           where e.value !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}'
-        )
-      );
+      check (public.notif_cadence_since_ok(whatsapp_cadence_since));
   end if;
 end $$;
 
