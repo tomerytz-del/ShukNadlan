@@ -157,6 +157,14 @@ def main() -> int:
         """
         cur.execute(upsert, (me["id"],))
         cur.execute(upsert, (me["id"],))
+        # סוכן/ת A, עדיין authenticated, מנסה לכתוב את הקצב של B.
+        cur.execute(
+            "select enabled from public.notif_cadence_apply(%s, 'new_leads', 'choose', 'each')",
+            (other["id"],),
+        )
+        enabled = cur.fetchone()[0]
+        if enabled:
+            fail("סוכן/ת A כתב/ה קצב של B")
         cur.execute("reset role")
         cur.execute(
             "select muted_types, whatsapp_off_types from public.agent_notification_preferences where agent_id = %s",
@@ -166,15 +174,10 @@ def main() -> int:
         if row is None:
             fail("ה-upsert של הסוכן/ת לא שמר שורה")
 
-        cur.execute(
-            "select enabled from public.notif_cadence_apply(%s, 'new_leads', 'choose', 'each')",
-            (other["id"],),
-        )
-        enabled = cur.fetchone()[0]
         cur.execute("select count(*) from public.notif_cadence_log where agent_id = %s", (other["id"],))
         stolen = cur.fetchone()[0]
-        if enabled or stolen:
-            fail(f"סוכן/ת כתב/ה קצב של אחר/ת (enabled={enabled}, rows={stolen})")
+        if stolen:
+            fail(f"סוכן/ת A השאיר/ה שורת קצב של B (rows={stolen})")
 
         cur.execute(
             "select enabled from public.notif_cadence_apply(%s, 'new_leads', 'open', null)",

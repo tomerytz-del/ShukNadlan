@@ -540,6 +540,101 @@ const NOTIF_CADENCE_GROUPS = [
 ];
 const NOTIF_CADENCE_GROUP_IDS = NOTIF_CADENCE_GROUPS.map(g => g.id);
 
+/* אותו מיפוי כמו notif_cadence_group_map. סוג מוחרג הוא null.
+   סוג אחר שלא ברשימה הוא system_mentor, כמו בפונקציה. */
+const NOTIF_CADENCE_EXCLUDED = new Set([
+  'ops_alert', 'security_alert', 'platform_signup', 'platform_upgrade',
+  'deal_sync_summary', 'deal_data_gap', 'review_alert', 'lead_unrouted',
+  'access_review', 'admin_overdue', 'market_nudge', 'budget_alert',
+  'improvement_suggestion',
+]);
+const NOTIF_CADENCE_TYPE_GROUP = {
+  new_lead: 'new_leads',
+  onboarding_lead: 'new_leads',
+  agenda_reminder: 'meetings',
+  showcase_meeting: 'meetings',
+  open_demand: 'open_demand',
+  listing_match: 'matches',
+  client_match: 'matches',
+  match_digest: 'matches',
+  showcase_activity: 'matches',
+  system: 'system_mentor',
+  coach_daily: 'system_mentor',
+  platform_coach: 'system_mentor',
+  marketing_copy: 'system_mentor',
+  review_request: 'system_mentor',
+  agreement_signed: 'system_mentor',
+  deal_closed: 'system_mentor',
+  lead_prefs_default: 'system_mentor',
+  onboarding_property: 'system_mentor',
+  onboarding_client: 'system_mentor',
+  onboarding_agreement: 'system_mentor',
+  onboarding_license: 'system_mentor',
+  review_new: 'system_mentor',
+  lead_response_reminder: 'new_leads',
+  lead_response_escalation: 'new_leads',
+  leads_digest: 'new_leads',
+  market_alert: 'system_mentor',
+  collab_offer: 'system_mentor',
+  exclusivity_taken: 'system_mentor',
+  retention_warning: 'system_mentor',
+  platform_broadcast: 'system_mentor',
+  unpublished_nudge: 'system_mentor',
+  publish_ask_nudge: 'system_mentor',
+  call_deleted_by_manager: 'system_mentor',
+};
+
+function cadenceGroupForType(type) {
+  if (NOTIF_CADENCE_EXCLUDED.has(type)) return null;
+  return NOTIF_CADENCE_TYPE_GROUP[type] || 'system_mentor';
+}
+
+/* מתג הסוג גובר. מעבר לקבוצה כבויה מכבה את המתגים שלה, ומעבר חזרה מדליק.
+   סוג שמדליקים אחרי כיבוי הקבוצה נשאר דלוק. */
+let cadenceChipSeen = null;
+
+function readCadenceSelection() {
+  const out = {};
+  NOTIF_CADENCE_GROUPS.forEach(g => {
+    if (g.mode === 'locked') return;
+    const chips = document.getElementById('npCadenceChips-' + g.id);
+    out[g.id] = chips ? (uiChipValues(chips)[0] || notifGroupCadence(g.id)) : notifGroupCadence(g.id);
+  });
+  return out;
+}
+
+function seedCadenceChips() {
+  cadenceChipSeen = readCadenceSelection();
+}
+
+function applyCadenceGroupToTypeToggles() {
+  if (!cadenceChipsVisible() || !cadenceChipSeen) return;
+  const now = readCadenceSelection();
+  Object.keys(now).forEach(id => {
+    const prev = cadenceChipSeen[id];
+    const selected = now[id];
+    if (prev === selected) return;
+    const turnOff = selected === 'off' && prev !== 'off';
+    const turnOn = selected !== 'off' && prev === 'off';
+    if (!turnOff && !turnOn) return;
+    document.querySelectorAll('#npGroups .np2-row[data-type]').forEach(row => {
+      if (cadenceGroupForType(row.dataset.type) !== id) return;
+      const wa = row.querySelector('[data-np-wa]');
+      const bell = row.querySelector('[data-np-bell]');
+      if (!wa) return;
+      if (turnOff) {
+        if (!wa.disabled) wa.setAttribute('aria-pressed', 'false');
+        return;
+      }
+      if (bell && bell.getAttribute('aria-pressed') === 'true' && assistantTierOk()) {
+        wa.disabled = false;
+        wa.setAttribute('aria-pressed', 'true');
+      }
+    });
+  });
+  cadenceChipSeen = now;
+}
+
 function notifGroupCadence(groupId) {
   const spec = NOTIF_CADENCE_GROUPS.find(g => g.id === groupId);
   if (!spec || spec.mode === 'locked') return 'each';
@@ -559,6 +654,7 @@ function cadenceChipsVisible() {
 function cadenceGroupsHtml() {
   if (!cadenceChipsVisible()) return '';
   return `<section class="np2-cadence" id="npCadenceGroups">`
+    + `<p class="ui-hint">מתג של סוג אחד גובר על הקבוצה. קבוצה כבויה מכבה את הוואטסאפ של הסוגים שבה, וסוג שהמתג שלו דלוק יישלח בכל זאת.</p>`
     + NOTIF_CADENCE_GROUPS.map(g => {
       const current = notifGroupCadence(g.id);
       const chips = g.mode === 'locked' ? '' : `<div class="ui-chips" data-ui-single id="npCadenceChips-${g.id}" role="group" aria-labelledby="npCadLbl-${g.id}">`
@@ -744,6 +840,7 @@ function renderNotifScreen(){
   if (ls) ls.textContent = lastSentText;
   renderNotifLess();
   syncCadenceOffConfirm();
+  seedCadenceChips();
 }
 
 /* המצב של כל המסך, כאובייקט אחד - לפס השמירה ולשמירה עצמה */
@@ -844,6 +941,29 @@ function syncNotifScreen(){
     if (sum) sum.textContent = `${plural(gr.length, 'סוג אחד', 'סוגים')} · ${b} בפעמון · ${w} בוואטסאפ`;
   });
 
+  const cadenceNow = cadenceChipsVisible() ? readCadenceSelection() : {};
+  rows.forEach(row => {
+    let note = row.querySelector('[data-cadence-note]');
+    const group = cadenceGroupForType(row.dataset.type);
+    const groupOff = !!(group && cadenceNow[group] === 'off');
+    if (!groupOff) {
+      if (note) note.remove();
+      return;
+    }
+    const waOn = on(row, '[data-np-wa]');
+    const text = waOn
+      ? 'הקבוצה כבויה, והסוג הזה יישלח בכל זאת.'
+      : 'הקבוצה כבויה, ולכן הסוג לא נשלח בוואטסאפ.';
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'ui-hint';
+      note.setAttribute('data-cadence-note', '');
+      const host = row.querySelector('.np2-text');
+      if (host) host.appendChild(note);
+    }
+    if (note) note.textContent = text;
+  });
+
   const st = document.getElementById('npRemCh') ? notifScreenState().rem : null;
   if (st){
     const freq = document.getElementById('npRemFreq');
@@ -884,8 +1004,24 @@ async function saveNotifPrefsRows(s){
   if (!notifPrefsReady || !currentAgent) return { error: remindersNotReady() };
   const shown = notifVisibleTypes().map(t => t.type);
   const muted = notifMutedTypes.filter(t => !shown.includes(t)).concat(s.bellOff);
-  const whatsappOff = notifWhatsappOffTypes.filter(t => !shown.includes(t))
-    .concat(shown.filter(t => s.waOff.includes(t) || s.bellOff.includes(t)));
+  const shownOff = shown.filter(t => s.waOff.includes(t) || s.bellOff.includes(t));
+  let carried = notifWhatsappOffTypes.filter(t => !shown.includes(t));
+  // קבוצה כבויה מכבה את סוגי הקבוצה, חוץ מסוג שהמתג שלו דלוק.
+  // קבוצה שאינה כבויה מורידה את הכיבוי הגורף, ומתג סוג כבוי נשאר.
+  if (cadenceChipsVisible() && s.cadences) {
+    Object.entries(s.cadences).forEach(([groupId, choice]) => {
+      const members = Object.keys(NOTIF_CADENCE_TYPE_GROUP).filter(t => NOTIF_CADENCE_TYPE_GROUP[t] === groupId);
+      if (choice === 'off') {
+        members.forEach(type => {
+          if (shown.includes(type) && !shownOff.includes(type)) return;
+          if (!carried.includes(type) && !shownOff.includes(type)) carried.push(type);
+        });
+      } else {
+        carried = carried.filter(t => !members.includes(t));
+      }
+    });
+  }
+  const whatsappOff = carried.concat(shownOff);
   const nowIso = new Date().toISOString();
   const nextMap = {};
   const nextSince = { ...(notifWhatsappCadenceSince || {}) };
@@ -906,8 +1042,7 @@ async function saveNotifPrefsRows(s){
     updated_at: nowIso,
   };
   // whatsapp_cadence ו-whatsapp_cadence_since נכתבים רק ב-notif_cadence_apply.
-  let saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
-  if (saved.error) return { error: saved.error };
+  // הקצב קודם, והמתגים אחריו, כדי שסוג שהודלק לא יידרס ברשימת הכיבוי של הקבוצה.
   if (cadenceChipsVisible()) {
     for (const g of NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked')) {
       const choice = nextMap[g.id];
@@ -925,6 +1060,8 @@ async function saveNotifPrefsRows(s){
       }
     }
   }
+  const saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
+  if (saved.error) return { error: saved.error };
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
   notifWhatsappCadence = nextMap;
@@ -970,6 +1107,7 @@ function wireNotifScreen(){
 
   screen.addEventListener('input', e => {
     if (e.target.closest('#npQuietEditor')) quietPaint('np');
+    applyCadenceGroupToTypeToggles();
     syncCadenceOffConfirm();
     syncNotifScreen();
   });

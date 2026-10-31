@@ -9,6 +9,8 @@ on:
       - "supabase/migrations/20271030210000_scraped_lead_matching.sql"
       - "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
       - "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
+      - "supabase/migrations/20271031310000_phone_hash_pii.sql"
+      - "docs/scraped-leads.md"
       - "scripts/scraped_lead_matching_test.py"
       - ".github/workflows/scraped_lead_matching.yml"
   push:
@@ -17,6 +19,8 @@ on:
       - "supabase/migrations/20271030210000_scraped_lead_matching.sql"
       - "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
       - "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
+      - "supabase/migrations/20271031310000_phone_hash_pii.sql"
+      - "docs/scraped-leads.md"
       - "scripts/scraped_lead_matching_test.py"
       - ".github/workflows/scraped_lead_matching.yml"
   workflow_dispatch:
