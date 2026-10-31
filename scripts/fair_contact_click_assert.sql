@@ -219,7 +219,49 @@ begin
   if r->>'ok' <> 'true' or r->>'channel' <> 'call_click' then raise exception 'C7 other property %', r; end if;
 end $$;
 
--- 8. תקרת האתר: 3,000 לחיצות בשעה על כל הנכסים וכל הכתובות. IP חדש נדחה.
+-- 8. תקרת הנכס מכל הכתובות: 500. נכס אחר עדיין נרשם.
+do $$
+declare
+  i int;
+  r jsonb;
+  v_start timestamptz;
+  v_end timestamptz;
+  v_key text;
+  v_have int;
+begin
+  select open_house_start, open_house_end,
+         'oh:' || to_char(open_house_start at time zone 'Asia/Jerusalem', 'YYYYMMDD') || '-' ||
+                 to_char(open_house_end at time zone 'Asia/Jerusalem', 'YYYYMMDD')
+    into v_start, v_end, v_key
+    from public.properties where id = 'c0000000-0000-0000-0000-000000000001';
+  select count(*) into v_have from public.fair_inquiries
+   where property_id = 'c0000000-0000-0000-0000-000000000001'
+     and channel in ('whatsapp_click', 'call_click')
+     and created_at > now() - interval '1 hour';
+  for i in 1..(500 - v_have) loop
+    insert into public.fair_inquiries (
+      property_id, agent_id, agency_id, channel, status, source, source_page,
+      fair_key, fair_start, fair_end, ip_hash, client_session)
+    values (
+      'c0000000-0000-0000-0000-000000000001',
+      'b0000000-0000-0000-0000-000000000001',
+      'a0000000-0000-0000-0000-000000000001',
+      'whatsapp_click', 'eligible', 'property', 'property',
+      v_key, v_start, v_end,
+      md5(i::text) || md5((i + 100000)::text),
+      lpad(to_hex(200000 + i), 32, '0'));
+  end loop;
+  r := public.fair_contact_click(
+    'c0000000-0000-0000-0000-000000000001', 'call', 'property',
+    repeat('7', 64), repeat('7', 32));
+  if r->>'cap' <> 'property' then raise exception 'C8 property cap %', r; end if;
+  r := public.fair_contact_click(
+    'c0000000-0000-0000-0000-000000000005', 'whatsapp', 'property',
+    repeat('7', 64), repeat('7', 32));
+  if r->>'ok' <> 'true' or r->>'logged' <> 'true' then raise exception 'C8 other property %', r; end if;
+end $$;
+
+-- 9. תקרת האתר: 3,000 לחיצות בשעה. נכס שעוד לא מלא נדחה בגלל התקרה הגלובלית.
 do $$
 declare
   i int;
@@ -248,12 +290,16 @@ begin
       'call_click', 'eligible', 'property', 'property',
       v_key, v_start, v_end, repeat('9', 64), lpad(to_hex(100000 + i), 32, '0'));
   end loop;
+  insert into public.properties (id, agent_id, agency_id, title, city, status, open_house, open_house_start, open_house_end)
+  values ('c0000000-0000-0000-0000-000000000008',
+          'b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001',
+          'דירה 8', 'עפולה', 'active', true, now() - interval '1 day', now() + interval '1 day');
   r := public.fair_contact_click(
-    'c0000000-0000-0000-0000-000000000001', 'call', 'property',
+    'c0000000-0000-0000-0000-000000000008', 'call', 'property',
     repeat('8', 64), repeat('8', 32));
-  if r->>'error' <> 'rate_limited' then raise exception 'C8 global %', r; end if;
+  if r->>'cap' <> 'global' then raise exception 'C9 global %', r; end if;
   select count(*) into v_n from public.fair_inquiries where ip_hash = repeat('8', 64);
-  if v_n <> 0 then raise exception 'C8 wrote past the site cap'; end if;
+  if v_n <> 0 then raise exception 'C9 wrote past the site cap'; end if;
 end $$;
 
 -- 9. הייצוא של מנהל הפלטפורמה כולל את הערוץ, בלי טלפון

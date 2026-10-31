@@ -2,11 +2,13 @@
    node --experimental-strip-types scripts/fair_contact_log_test.ts
 */
 import {
+  SHARED_IP_HASH,
   clientIp,
   handleFairContact,
   hashIp,
   normalizeIp,
   parseClick,
+  resetFairContactLogForTests,
   type FairContactArgs,
 } from "../supabase/functions/_shared/fair-contact.ts";
 
@@ -68,9 +70,13 @@ const h2 = await hashIp("203.0.113.8", "salt-a");
 const h3 = await hashIp("203.0.113.8", "salt-b");
 const shared = await hashIp("", "salt-a");
 ok("גיבוב יציב, 64 תווים, תלוי במלח", h1 === h2 && h1 !== h3 && h1.length === 64 && /^[a-f0-9]+$/.test(h1));
-ok("כתובת לא תקינה היא דלי משותף אחד", shared === await hashIp("not-an-ip", "salt-a")
-  && shared === await hashIp("999.1.2.3", "salt-a")
-  && shared !== h1 && shared.length === 64);
+ok("כתובת לא תקינה היא הדלי המשותף של 64 אפסים", shared === SHARED_IP_HASH
+  && shared === await hashIp("not-an-ip", "salt-b")
+  && shared !== h1);
+ok("IPv6 נספר לפי /64, וכתובת ממופה נספרת כ-IPv4",
+  await hashIp("2001:db8:1:2::1", "salt-a") === await hashIp("2001:db8:1:2:aaaa:bbbb:cccc:dddd", "salt-a")
+  && await hashIp("2001:db8:1:2::1", "salt-a") !== await hashIp("2001:db8:1:3::1", "salt-a")
+  && await hashIp("::ffff:203.0.113.8", "salt-a") === h1);
 ok("מלח ריק עדיין מגובב, אחרת מהמלח האמיתי", (await hashIp("203.0.113.8", "")) !== h1
   && (await hashIp("203.0.113.8", "")).length === 64);
 
@@ -92,6 +98,15 @@ ok("IPv4 עם יציאה ו-IPv6 תקינים", normalizeIp("203.0.113.9:443") =
   && normalizeIp("::ffff:192.0.2.1") === "::ffff:192.0.2.1"
   && normalizeIp("999.1.2.3") === ""
   && normalizeIp("01.2.3.4") === "");
+resetFairContactLogForTests();
+const cfWarnings: string[] = [];
+const previousWarn = console.warn;
+console.warn = (message?: unknown) => { cfWarnings.push(String(message ?? "")); };
+ipOf({ "x-forwarded-for": "198.51.100.14" });
+ipOf({ "x-forwarded-for": "198.51.100.15" });
+console.warn = previousWarn;
+ok("חסר cf-connecting-ip נרשם פעם אחת", cfWarnings.length === 1
+  && cfWarnings[0].includes("cf-connecting-ip missing"));
 
 let seen: FairContactArgs | null = null;
 const call = async (args: FairContactArgs) => {

@@ -4,8 +4,8 @@ import { handleFairContact, type FairContactArgs } from "../_shared/fair-contact
 
 // לחיצה על וואטסאפ או על חיוג בנכס ביריד. ציבורית: הגולש אינו מחובר.
 // verify_jwt = false. ההגנה מהצפה ב-fair_contact_click: כפילות של אותו
-// דפדפן, 200 לשעה לכתובת על נכס, 2,000 לכתובת, ו-3,000 לאתר כולו.
-// אין כאן ליד ואין התראה. המלח של ה-IP בסוד
+// דפדפן, 200 לשעה לגיבוב על נכס, 500 לנכס, 2,000 לגיבוב, ו-3,000 לאתר.
+// אין המתנה על מנעול. אין כאן ליד ואין התראה ליועץ. המלח של ה-IP בסוד
 // FAIR_CONTACT_IP_SALT, לא בקוד שנשלח לדפדפן.
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

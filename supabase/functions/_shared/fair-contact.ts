@@ -45,9 +45,17 @@ function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-// כתובת שלא עברה אימות נופלת לאותו דלי. מי שמזייף את הכותרת או משמיט
-// אותה אינו מקבל דלי חדש לכל בקשה.
-export const SHARED_IP_KEY = "shared";
+// אותו דלי ב-SQL (repeat('0', 64)) ובשרת. כתובת לא תקינה אינה מחושבת
+// עם המלח, כדי שהדלי לא יתפצל בין שני הצדדים.
+export const SHARED_IP_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
+
+let loggedMissingCf = false;
+let loggedGlobalCap = false;
+
+export function resetFairContactLogForTests(): void {
+  loggedMissingCf = false;
+  loggedGlobalCap = false;
+}
 
 function isIpv4(s: string): boolean {
   const parts = s.split(".");
@@ -113,18 +121,69 @@ export function normalizeIp(raw: string): string {
   return (zone >= 0 ? s.slice(0, zone) : s).toLowerCase();
 }
 
+function expandIpv6(s: string): string[] | null {
+  const v = s.toLowerCase();
+  if (v.includes(".")) return null;
+  const halves = v.split("::");
+  if (halves.length > 2) return null;
+  const side = (part: string) => part === "" ? [] : part.split(":");
+  let groups: string[];
+  if (halves.length === 2) {
+    const left = side(halves[0]);
+    const right = side(halves[1]);
+    const missing = 8 - left.length - right.length;
+    if (missing < 1) return null;
+    groups = [...left, ...Array(missing).fill("0"), ...right];
+  } else {
+    groups = side(v);
+    if (groups.length !== 8) return null;
+  }
+  if (groups.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+  return groups.map((g) => g.padStart(4, "0"));
+}
+
+function ipv4Mapped(s: string): string | null {
+  const lower = s.toLowerCase();
+  const idx = lower.lastIndexOf(":");
+  if (idx < 0) return null;
+  const tail = lower.slice(idx + 1);
+  if (!isIpv4(tail)) return null;
+  const head = lower.slice(0, idx);
+  if (head === "::ffff" || head.endsWith(":ffff")) return tail;
+  return null;
+}
+
+// IPv4 נשארת כתובת שלמה. IPv6 נספרת לפי /64, כדי שרשת אחת לא תקבל
+// מכסה חדשה לכל כתובת. IPv4 שמופתה ל-IPv6 נספרת כ-IPv4.
+export function rateLimitKey(ip: string): string {
+  const clean = normalizeIp(ip);
+  if (!clean) return "";
+  if (isIpv4(clean)) return clean;
+  const mapped = ipv4Mapped(clean);
+  if (mapped) return mapped;
+  const groups = expandIpv6(clean);
+  if (!groups) return clean;
+  return groups.slice(0, 4).join(":") + "/64";
+}
+
 // cf-connecting-ip נכתב על ידי הפלטפורמה ודורס ערך שהלקוח שלח.
 // בלי זה, הקפיצה האחרונה ב-x-forwarded-for היא מה שהפרוקסי הוסיף.
 // הקפיצה הראשונה היא מה שהדפדפן כתב, ולכן אינה נספרת.
 export function clientIp(req: Request): string {
-  const cf = normalizeIp(req.headers.get("cf-connecting-ip") || "");
+  const raw = req.headers.get("cf-connecting-ip");
+  const cf = normalizeIp(raw || "");
   if (cf) return cf;
+  if ((raw == null || raw.trim() === "") && !loggedMissingCf) {
+    loggedMissingCf = true;
+    console.warn("fair-contact: cf-connecting-ip missing; using the last x-forwarded-for hop");
+  }
   const hops = (req.headers.get("x-forwarded-for") || "").split(",").map((h) => h.trim()).filter(Boolean);
   return normalizeIp(hops.length ? hops[hops.length - 1] : "");
 }
 
 export async function hashIp(ip: string, salt: string): Promise<string> {
-  const key = normalizeIp(ip) || SHARED_IP_KEY;
+  const key = rateLimitKey(ip);
+  if (!key) return SHARED_IP_HASH;
   const pepper = salt || FALLBACK_SALT;
   const buf = await crypto.subtle.digest(
     "SHA-256",
@@ -224,11 +283,15 @@ export async function handleFairContact(req: Request, deps: {
   if (error || !data) return json({ error: "db_error" }, 500);
   if (data.ok !== true) {
     const code = typeof data.error === "string" ? data.error : "db_error";
+    if (data.cap === "global" && !loggedGlobalCap) {
+      loggedGlobalCap = true;
+      console.warn("fair-contact: global hourly cap full");
+    }
     return json({ error: code }, httpStatus(code));
   }
   return json({
     ok: true,
-    logged: true,
+    logged: data.logged === true,
     duplicate: data.duplicate === true,
     ref: data.ref ?? null,
     created_at: data.created_at ?? null,

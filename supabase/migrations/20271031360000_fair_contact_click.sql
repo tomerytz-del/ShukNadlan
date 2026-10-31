@@ -11,9 +11,12 @@
 -- השעון הוא now() של השרת. נכס שאינו פעיל או שמחוץ לחלון אינו נרשם.
 -- כפילות: אותו דפדפן (client_session) על אותו נכס ואותו ערוץ ב-15 דקות
 -- מחזיר את השורה שכבר נכתבה. בלי סשן - אותו ip_hash. תקרות, כולן לשעה:
--- 200 שורות חדשות לאותו ip על אותו נכס, 2,000 לאותו ip על כל הנכסים,
--- ו-3,000 על האתר כולו (כל הכתובות וכל הנכסים). גיבוב חסר או לא חוקי
--- נופל לדלי המשותף, כדי שהשמטה לא תעקוף את התקרה.
+-- 200 שורות חדשות לאותו גיבוב על אותו נכס, 500 על הנכס מכל הכתובות,
+-- 2,000 לאותו גיבוב על כל הנכסים, ו-3,000 על האתר כולו. גיבוב חסר
+-- הוא 64 אפסים, אותו דלי שבשרת. IPv6 מגובב לפי /64 לפני שהוא מגיע לכאן.
+-- תקרת האתר נבדקת בלי מנעול. המנעול הוא לננכס, ובלי המתנה: אם הוא תפוס
+-- הלחיצה לא נרשמת והחיבור משתחרר. מילוי התקרה הגלובלית נכתב לממצא
+-- תפעולי בדרגה medium, בלי התראה ליועץ ובלי הודעה ללקוח.
 -- אין שם, אין טלפון, ואין כתיבה ל-leads.
 -- אידמפוטנטית. docs/open-house-fair.md, "רישום פניות היריד".
 -- ============================================================================
@@ -42,6 +45,7 @@ declare
   v_at timestamptz;
   v_end timestamptz;
   v_status text;
+  v_wrote integer;
 begin
   v_channel := case p_channel
     when 'whatsapp' then 'whatsapp_click'
@@ -81,8 +85,75 @@ begin
     return jsonb_build_object('ok', false, 'error', 'not_in_fair');
   end if;
 
-  -- מנעול אחד לכל הלחיצות: בלי זה שתי כתובות עוברות יחד את תקרת האתר.
-  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('fair-contact-click')::bigint);
+  -- תקרת האתר לפני כל מנעול. הצפה שכבר מלאה לא מחזיקה חיבור בהמתנה.
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour';
+  if v_n >= 3000 then
+    if pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtext('fair-contact-cap-alert')::bigint)
+       and to_regclass('public.ops_findings') is not null then
+      begin
+        insert into public.ops_findings (key, area, code, severity, subject, title, detail, suggestion, metric, metric_unit)
+        values (
+          'fair_click_global_cap', 'health', 'fair_click_cap', 'medium', 'fair_inquiries',
+          'תקרת לחיצות היריד מלאה',
+          'בשעה האחרונה נרשמו לפחות 3000 לחיצות על וואטסאפ ועל חיוג. לחיצות נוספות לא נשמרות עד שהחלון מתגלגל.',
+          'לבדוק ביומן אם זו הצפה. אין הודעה ליועצים ואין הודעה ללקוחות.',
+          v_n, 'clicks')
+        on conflict (key) do update
+          set last_seen = pg_catalog.now(),
+              prev_metric = public.ops_findings.metric,
+              metric = excluded.metric,
+              detail = excluded.detail,
+              resolved_at = null
+        where public.ops_findings.last_seen < pg_catalog.now() - interval '5 minutes'
+           or public.ops_findings.resolved_at is not null;
+        get diagnostics v_wrote = row_count;
+        if v_wrote > 0 then
+          raise warning 'fair_contact_global_cap count=%', v_n;
+        end if;
+      exception when others then
+        raise warning 'fair_contact_global_cap alert failed: %', sqlerrm;
+      end;
+    elsif to_regclass('public.ops_findings') is null then
+      raise warning 'fair_contact_global_cap count=%', v_n;
+    end if;
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'global');
+  end if;
+
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.property_id = p_property_id
+     and f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour';
+  if v_n >= 500 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'property');
+  end if;
+
+  -- מנעול לננכס, בלי המתנה. תפוס: לא רושמים ומשחררים את החיבור מיד.
+  if not pg_catalog.pg_try_advisory_xact_lock(
+       pg_catalog.hashtext('fair-contact-click'),
+       pg_catalog.hashtext(p_property_id::text)) then
+    return jsonb_build_object('ok', true, 'logged', false, 'skipped', 'busy');
+  end if;
+
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour';
+  if v_n >= 3000 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'global');
+  end if;
+
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.property_id = p_property_id
+     and f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour';
+  if v_n >= 500 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'property');
+  end if;
 
   select f.ref, f.created_at, f.fair_end, f.channel, f.status
     into v_existing
@@ -128,7 +199,7 @@ begin
    where f.channel in ('whatsapp_click', 'call_click')
      and f.created_at > now() - interval '1 hour';
   if v_n >= 3000 then
-    return jsonb_build_object('ok', false, 'error', 'rate_limited');
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'global');
   end if;
 
   begin
