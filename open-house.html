@@ -11,11 +11,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
-<!-- מצב ניסיון v10 (‏?beta=1 / localStorage.sk_beta_hero), כמו בדף הבית. בלי הדגל - הדף של היום -->
-<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
-if(q==='1')localStorage.setItem('sk_beta_hero','1');
-if(q==='0')localStorage.removeItem('sk_beta_hero');
-if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
+<!-- דגל v10, אותו קוד כמו בדף הבית: ברירת המחדל מ-31.10.2026, ‏?beta=0 (‏sk_beta_hero='0') - הדף הישן -->
+<script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
+if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
+try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
+if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יריד הבתים הפתוחים - דירות ללא עמלת תיווך בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">

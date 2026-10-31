@@ -9,11 +9,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
-<!-- דגל v10 (‏?beta=1 / ‏?beta=0): ‏html.beta-hero לפני הציור. בלי הדגל הדף כמו ב-main. docs/home-page-sections.md, "v10 מאחורי דגל" -->
-<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
-if(q==='1')localStorage.setItem('sk_beta_hero','1');
-if(q==='0')localStorage.removeItem('sk_beta_hero');
-if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
+<!-- דגל v10: ‏html.beta-hero לפני הציור. מ-31.10.2026 ברירת המחדל לכל מבקר; ‏?beta=0 חוזר לעיצוב הישן ונשמר (‏sk_beta_hero='0'), ‏?beta=1 מחזיר. docs/home-page-sections.md, "v10 מאחורי דגל" -->
+<script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
+if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
+try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
+if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <!-- תמונת ה-LCP היא רקע CSS. בלי preload הדפדפן מגלה אותה רק אחרי ה-style.
      media תואם את כלל הרוחב: 800 בנייד, הקובץ המלא משם והלאה. -->
 <!-- עם דגל v10 התמונות האלה לא מוצגות (‏hero-valley-m/-d במקומן), ולכן הן נטענות רק בלי הדגל -->
