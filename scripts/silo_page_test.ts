@@ -124,19 +124,25 @@ function ldBlocks(html: string): Record<string, unknown>[] {
     && list.itemListElement[0].url === SITE + "/property?id=p1");
   check("מטמון", (res.headers.get("Cache-Control") || "").includes("must-revalidate"));
   const faq = blocks.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
-  check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 7 && (html.match(/<details><summary>/g) || []).length === 7);
   const houseQa = (faq?.mainEntity || []) as { name: string; acceptedAnswer: { text: string } }[];
   const houseBy = "המודעות מתפרסמות על ידי יועצי נדל״ן ומשרדים.";
-  const houseWho = "המודעות בעמוד הזה מתפרסמות על ידי יועצי נדל״ן ומשרדים.";
   const faqP = (text: string) => "<p>" + text.replace(/'/g, "&#39;") + "</p>";
-  const houseQ = "אפשר לקנות בית בעפולה בלי תיווך?";
+  const faqSum = (text: string) => "<summary>" + text.replace(/'/g, "&#39;") + "</summary>";
+  const houseNames = [
+    "מה נכלל בבית פרטי למכירה בעפולה?",
+    "יש הבדל בין בית פרטי, בית קרקע וקוטג'?",
+    "מאיפה המודעות בעמוד הזה?",
+    "איפה רואים את המחיר ואת כל הפרטים?",
+    "איפה רואים עסקאות ומחירי דירות?",
+    "מה עושים אם אין כרגע מודעות?",
+  ];
+  check("FAQ", types.includes("FAQPage") && houseQa.length === houseNames.length
+    && (html.match(/<details><summary>/g) || []).length === houseNames.length
+    && houseQa.every((q, i) => q.name === houseNames[i] && html.includes(faqSum(q.name))));
   check("בית: יועצי נדל״ן ב-FAQ וב-JSON-LD", !!houseQa[0] && houseQa[0].acceptedAnswer.text.endsWith(houseBy)
     && html.includes(faqP(houseQa[0].acceptedAnswer.text))
-    && houseQa[2]?.name === houseQ
-    && houseQa[2]?.acceptedAnswer.text === houseWho
-    && html.includes("<summary>" + houseQ + "</summary>")
-    && html.includes(faqP(houseWho))
-    && !html.includes("מוכר פרטי לא מפרסם")
+    && !html.includes("בלי תיווך")
+    && !houseQa.some((q) => q.name.includes("בלי תיווך"))
     && html.includes("שיועצי נדל״ן ומשרדים מפרסמים באתר"));
   check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">דף הבית</a>") && html.includes(">עפולה</a>") && html.includes('aria-current="page"'));
   check("התראה", html.includes("קבלו התראה") && html.includes("data-land-alert"));
