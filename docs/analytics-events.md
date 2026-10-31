@@ -443,7 +443,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `swipe_reel_unmute` | **v10**: "הפעילו קול לשמוע את הקריינות" ברילס | `property_id` |
 | `swipe_card_view` (‏`slot`, ‏`nofee`) | **ערכים חדשים, רק עם דגל v10 (‏seq-v2)**: כרטיסי ההזמנה, ו-`nofee: 1` על נכס שביריד הבתים הפתוחים עכשיו | `slot`: ‏`nc_promo` \| `seller` \| `article`, `nofee` |
 | `nofee_badge_view` | **v10**: תג הזהב "ללא עמלת תיווך" נצפה על כרטיס ב-`/swipe`, פעם אחת לנכס בביקור | `property_id`, `position` |
-| `swipe_filter_nofee` | **v10**: המתג "רק דירות ללא עמלת תיווך" בסינון של `/swipe` | `on`: ‏`1` \| `0` |
+| `swipe_filter_nofee` | **v10**: המתג "רק דירות מהיריד" בסינון של `/swipe` | `on`: ‏`1` \| `0` |
 | `nc_promo_view` | **v10**: כרטיס ההזמנה ליריד הבתים הפתוחים פעיל שנייה, פעם בביקור | `variant`: ‏`live` \| `wait`, `position` |
 | `nc_promo_click` | **v10**: כפתור בכרטיס היריד | `cta`: ‏`deck` (החפיסה עוברת לדירות היריד) \| `signup` \| `page` |
 | `nc_promo_dismiss` | **v10**: המשך מכרטיס היריד בלי פעולה (שתיים - הכרטיס יורד ל-14 יום) | `how`: ‏`swipe` \| `x` \| `key` |
@@ -457,7 +457,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `article_card_view` | **v10**: כרטיס הכתבה פעיל שנייה (ואז הוא נחשב "נקרא" ל-7 ימים במכשיר) | `article_id`, `position`, `deal`: ‏`sale` \| `rent` \| `com` \| `seller` \| `*` |
 | `article_card_open` (‏`via`) | **פרמטר חדש, רק עם דגל v10**: הכתבה נפתחת בגיליון בתוך ההחלקה, ולא כקישור | `article_id`, `via`: ‏`button` \| `like` \| `up` \| `tap` |
 | `article_sheet_full_click` | **v10**: "להמשך הכתבה ←" בגיליון הכתבה | `article_id` |
-| `swipe_start` (‏`fair`) | **פרמטר חדש, רק עם דגל v10**: ההחלקה התחילה עם המתג "רק דירות ללא עמלת תיווך" | `fair`: ‏`1` |
+| `swipe_start` (‏`fair`) | **פרמטר חדש, רק עם דגל v10**: ההחלקה התחילה עם המתג "רק דירות מהיריד" | `fair`: ‏`1` |
 | `fair_view` | **v10**: `/open-house` נטען עם הדגל | `state`: ‏`live` \| `empty`, `n` (כמה דירות ביריד) |
 | `fair_agent_cta` | **v10**: כפתור בבלוק "רוצים להכניס דירה ליריד?" ב-`/open-house` | `cta`: ‏`add` \| `join` |
 | `fair_signup_open` (‏`via`) | **ערך חדש, רק עם דגל v10**: מגע ראשון בטופס היריד v2 בדף | `via`: ‏`page` |

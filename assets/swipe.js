@@ -1025,7 +1025,7 @@
     // §2: רק כשבשוק ובעסקה הזו יש לפחות דירה אחת ביריד עכשיו - אחרת לא מוצג בכלל (לא מתג כבוי ולא "0")
     var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, priceMin: 0, rooms: 0, type: '', viz: false, reel: false });
     $('swFFair').hidden = $('swFFairL').hidden = $('swFFairH').hidden = !fairN && !filter.fair;
-    $('swFFair').innerHTML = chip('רק דירות ללא עמלת תיווך', 'data-fairchip="1"', !!filter.fair);
+    $('swFFair').innerHTML = chip('רק דירות מהיריד', 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
     var c = shownCount();
     $('swFCount').textContent = c === 1 ? 'נכס אחד מתאים' : c + ' נכסים מתאימים';
