@@ -2044,8 +2044,8 @@
     }
     var liked_ = !!(p && likes.indexOf(p.id) >= 0);
     $('swLike').setAttribute('aria-pressed', String(liked_));
-    // ‏§10 (תומר 31.10): השם הנגיש מתהפך עם aria-pressed
-    $('swLike').setAttribute('aria-label', liked_ ? 'הסרה מהמועדפים' : 'שמירה במועדפים');
+    // ‏§10 (תומר 31.10): השם הנגיש קבוע ומכיל את המילה הגלויה "שמירה" (WCAG 2.5.3); המצב ב-aria-pressed
+    $('swLike').setAttribute('aria-label', 'שמירה במועדפים');
     $('swUndo').setAttribute('aria-label', phoneC() ? 'ביטול' : 'ביטול Z');
     syncRail(c, adv, phone);
   }
@@ -3408,8 +3408,7 @@
   }
   function renderLikesView() {
     var list = likedProps();
-    // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
-    $('swLvN').textContent = list.length;
+    // ‏§10: הכותרת היא "המועדפים" בלבד; המספר (השורות שעל המסך) בכפתור השיתוף
     $('swLvShare').textContent = 'שיתוף המועדפים (' + list.length + ')';
     $('swLvEmpty').hidden = likes.length > 0;
     $('swLvBar').hidden = !likes.length;
@@ -3419,7 +3418,7 @@
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : window.NoPhoto ? '<span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></a>' +
         // ‏P0-9: הלב רק מסמן שהנכס שמור; ההסרה - כפתור ✕ אדום, עם אישור וביטול
-        '<span class="sw-lv-heart" role="img" aria-label="שמירה במועדפים">♥</span>' +
+        '<span class="sw-lv-heart" role="img" aria-label="נשמר במועדפים">♥</span>' +
         '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
     }).join('');
     var gab = $('swLvGab'), gh = gabListHref();
