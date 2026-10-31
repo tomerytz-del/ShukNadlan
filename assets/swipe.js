@@ -1380,13 +1380,17 @@
     if (sortKey !== 'rec') return list;
     var reels = list.filter(hasReel);
     if (!reels.length) return list;
+    /* ‏list-view ד (31.10): כל נכס שנכנס מסומן ב-used, גם כשהגיע בתורו הרגיל. רילס שכבר נכנס בתורו
+       (למשל המקודם הראשון) נבחר שוב למקום של רילס, ‏indexOf החזיר -1, ו-splice(-1, 1) מחק את הנכס
+       האחרון ברשימה - כלומר נכס כפול בחפיסה וברשימה, ונכס אחר שנעלם. בשלושה כאלה: 3 כפולים, 3 חסרים */
     var used = new Set(), rest = list.slice(), out = [];
     for (var i = 0; rest.length; i++) {
       var slot = i === 1 || (i > 1 && (i - 1) % 4 === 0);
       var r = slot ? reels.filter(function (x) { return !used.has(x); })[0] : null;
-      if (r) { used.add(r); rest.splice(rest.indexOf(r), 1); out.push(r); continue; }
+      if (r) { used.add(r); var at = rest.indexOf(r); if (at >= 0) rest.splice(at, 1); out.push(r); continue; }
       var nxt = rest.shift();
       if (used.has(nxt)) { i--; continue; }
+      used.add(nxt);
       out.push(nxt);
     }
     return out;
@@ -1416,12 +1420,14 @@
     }
     var pinned = null;
     if (pidWant) {
-      pinned = all.filter(function (x) { return String(x.id) === pidWant; })[0] || null;
+      var pidWant0 = String(pidWant);
+      pinned = all.filter(function (x) { return String(x.id) === pidWant0; })[0] || null;
       pidWant = null;
       if (pinned) {
-        props = props.filter(function (x) { return x !== pinned; });
-        npRest = npRest.filter(function (x) { return x !== pinned; });
-        if (part) { part.again = part.again.filter(function (x) { return x !== pinned; }); npAgain = npAgain.filter(function (x) { return x !== pinned; }); }
+        var notPin = function (x) { return String(x.id) !== pidWant0; };
+        props = props.filter(notPin);
+        npRest = npRest.filter(notPin);
+        if (part) { part.again = part.again.filter(notPin); npAgain = npAgain.filter(notPin); }
       }
     }
     writeUrl();
@@ -1477,6 +1483,16 @@
       again.forEach(function (p) { out.push({ slot: 'property', p: p, ss: 'seen', pos: pos++ }); });
     }
     out.push({ slot: 'end', pos: pos });
+    /* הגנה: לעולם לא אותו נכס פעמיים בחפיסה (השוואה לפי מזהה, לא לפי האובייקט) */
+    var seenIds = {}, dupN = 0;
+    out = out.filter(function (c) {
+      if (c.slot !== 'property') return true;
+      var k = String(c.p.id);
+      if (seenIds[k]) { dupN++; return false; }
+      seenIds[k] = 1;
+      return true;
+    });
+    if (dupN) { out.forEach(function (c, i) { c.pos = i + 1; }); if (DEBUG) console.assert(false, 'swipe: ' + dupN + ' נכסים כפולים בחפיסה'); }
     if (DEBUG) { npAssert(out); seqAssert(out); }
     deck = out; idx = 0; history_ = [];
     $('swSortN').textContent = countLabel(shownCount());
