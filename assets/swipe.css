@@ -213,6 +213,9 @@ html body #swCta{background:var(--sw-gold);color:var(--sw-deep)}
 .sw-wide{width:100%}
 .sw-link{min-height:44px;border:0;background:none;color:var(--sw-navy);font:inherit;font-size:14.5px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .sw-link-light{color:var(--sw-gold-l)}
+/* כפתור החזרה מהמועדפים: החץ אייקון נפרד שמצביע ימינה (אחורה ב-RTL), והטקסט בלי חץ */
+.sw-back{display:inline-flex;align-items:center;gap:6px}
+.sw-back-ico{flex:none;display:block}
 /* ‏A2-4: סוף היריד - "להמשיך לשאר הנכסים" עם שורת המונה בתוך הכפתור, וקישור בתוך משפט */
 .sw-fair-go{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.25}
 .sw-fair-go-n{font-size:13px;font-weight:600;opacity:.85}

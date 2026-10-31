@@ -3440,8 +3440,9 @@
   $('swLvShare').addEventListener('click', function () { shareLikes(); });
   /* §9: הכפתור שבמועדפים חוזר לאותו מקום כמו "אחורה" של הדפדפן - התצוגה שממנה הגיעו.
      הנוסחים למפה ולרשימה - הצעה, ממתינים לגבריאלה */
-  var LV_BACK = { deck: '← חזרה להחלקה', map: '← חזרה למפה', list: '← חזרה לרשימה' };
-  function syncLvBack() { $('swLvBack').textContent = LV_BACK[likesReturnView()] || LV_BACK.deck; }
+  // החץ הוא אייקון נפרד בכפתור (‏swipe.html, ‏.sw-back-ico), ולכן הטקסט בלעדיו
+  var LV_BACK = { deck: 'חזרה להחלקה', map: 'חזרה למפה', list: 'חזרה לרשימה' };
+  function syncLvBack() { $('swLvBackT').textContent = LV_BACK[likesReturnView()] || LV_BACK.deck; }
   $('swLvBack').addEventListener('click', function () { setView(view === 'likes' ? likesReturnView() : 'deck'); });
   $('swLvStart').addEventListener('click', function () { setView('deck'); });
 
