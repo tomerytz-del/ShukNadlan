@@ -1954,10 +1954,15 @@ async function loadAgentProfile(){
    הישנה של הדף (‏shuk_favorites) מתמזגת אליה פעם אחת ב-ShukLikes.migrate().
    מקומית בלבד, בלי חשבון; מצב פרטי או אחסון חסום אינם מפילים את הדף.
    שינוי בלשונית אחרת (‏storage) או חזרה בדפדפן (‏pageshow) מעדכנים את הלבבות. */
+// ‏§10 (תומר 31.10): השם הנגיש מתהפך יחד עם aria-pressed
+function favPaint(b, saved){
+  b.setAttribute('aria-pressed', String(saved));
+  b.setAttribute('aria-label', saved ? 'הסרה מהמועדפים' : 'שמירה במועדפים');
+}
 function syncFavButtons(){
   if (!window.ShukLikes) return;
   document.querySelectorAll('.fav-btn[data-id]').forEach(b => {
-    b.setAttribute('aria-pressed', String(ShukLikes.has(b.dataset.id)));
+    favPaint(b, ShukLikes.has(b.dataset.id));
   });
 }
 window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') syncFavButtons(); });
@@ -2026,7 +2031,7 @@ const SHELF_COUNT = (shown, total) => (shown === total)
    מנווטת לדף הנכס — ‏prop-shelf.js מדלג על ניווט כשהיעד הוא כפתור. */
 function favButtonHtml(p){
   const saved = !!(window.ShukLikes && ShukLikes.has(p.id));
-  return `<button type="button" class="fav-btn" data-id="${escapeHtml(String(p.id))}" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
+  return `<button type="button" class="fav-btn" data-id="${escapeHtml(String(p.id))}" aria-pressed="${saved}" aria-label="${saved ? 'הסרה מהמועדפים' : 'שמירה במועדפים'}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-7.5-9.6a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5-7.5 9.6-7.5 9.6Z"/></svg>
       </button>`;
 }
@@ -2035,7 +2040,7 @@ function bindPropCard(card, p){
   const fav = card.querySelector('.fav-btn');
   if (fav) fav.addEventListener('click', e=>{
     e.stopPropagation();
-    if (window.ShukLikes) fav.setAttribute('aria-pressed', String(ShukLikes.toggle(p.id)));
+    if (window.ShukLikes) favPaint(fav, ShukLikes.toggle(p.id));
   });
 }
 

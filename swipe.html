@@ -73,7 +73,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <!-- ‏Variant C (טלפון, החלקה): מפה בכותרת; כפתור הנגישות מוצמד מעל המקום השמור (‏swipe.css) -->
       <button type="button" class="sw-ic sw-hmap" id="swMapBtn" aria-label="מפה" title="מפה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button>
       <button type="button" class="sw-ic sw-help" id="swHelp" aria-label="עזרה בגלישה" title="עזרה בגלישה" aria-haspopup="dialog">?</button>
-      <button type="button" class="sw-ic sw-likes" id="swLikes" aria-label="המועדפים (0)" title="המועדפים (0)">
+      <button type="button" class="sw-ic sw-likes" id="swLikes" aria-label="המועדפים" title="המועדפים">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
         <b id="swLikesN">0</b><span class="sw-likes-l" id="swLikesL" hidden>המועדפים</span>
       </button>
@@ -115,7 +115,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="sw-deck" id="swDeck" aria-live="polite"></div>
     <!-- ‏Variant C (טלפון): המסילה בצד שמאל, מחוץ לכרטיס - הקשה עליה לא מתחילה גרירה -->
     <div class="sw-rail" id="swRail" role="group" aria-label="פעולות לנכס">
-      <button type="button" class="sw-rbtn" id="swRailLikes" aria-label="המועדפים (0)">
+      <button type="button" class="sw-rbtn" id="swRailLikes" aria-label="המועדפים">
         <span class="sw-ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg></span>
         <b class="sw-rbadge" id="swRailLikesN" aria-hidden="true" hidden>0</b>
         <span class="sw-rlbl" aria-hidden="true">המועדפים</span>
@@ -134,7 +134,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a class="sw-act sw-act-wa" id="swWa" href="#" target="_blank" rel="noopener" aria-label="וואטסאפ" hidden>
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.7 15l-1.3 5 5.1-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.4.1-.2 0-.3 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg>
       </a>
-      <button type="button" class="sw-act sw-act-like" id="swLike" aria-label="שמירה">
+      <button type="button" class="sw-act sw-act-like" id="swLike" aria-label="שמירה במועדפים">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
         <span class="sw-act-cap">שמירה →</span>
         <span class="sw-act-lbl" aria-hidden="true">שמירה</span>
@@ -162,12 +162,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- "המועדפים": כל הנכסים שנשמרו, מכל סינון -->
   <section class="sw-likes-view" id="swLikesView" aria-labelledby="swLvTitle" hidden data-browse="likes">
     <div class="sw-lv-head">
-      <h2 id="swLvTitle">המועדפים (<span id="swLvN">0</span>)</h2>
+      <h2 id="swLvTitle">המועדפים</h2>
       <button type="button" class="sw-link sw-back" id="swLvBack"><svg class="sw-back-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="swLvBackT">חזרה להחלקה</span></button>
     </div>
     <div class="sw-list" id="swLvList"></div>
     <div class="sw-lv-empty" id="swLvEmpty" hidden>
-      <p>עוד לא שמרתם נכסים. החליקו ימינה על נכס שמוצא חן בעיניכם, והוא יחכה כאן.</p>
+      <p>עוד לא שמרת נכסים. אפשר ללחוץ על הלב בכל נכס כדי לשמור אותו כאן.</p>
       <button type="button" class="sw-gold" id="swLvStart">חזרה להחלקה</button>
     </div>
     <div class="sw-lv-bar" id="swLvBar" hidden>
@@ -259,7 +259,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <div class="sw-ffoot">
-      <p class="sw-fnote" id="swFLikesNote" hidden>הסינון חל על הנכסים להחלקה. הרשימה שלי נשארת כמו שהיא.</p>
+      <p class="sw-fnote" id="swFLikesNote" hidden>הסינון חל על הנכסים להחלקה. המועדפים נשארים כמו שהם.</p>
       <p class="sw-fcount" id="swFCount"></p>
       <p class="sw-fsr" id="swFSr" aria-live="polite" aria-atomic="true"></p>
       <div class="sw-fbtns">

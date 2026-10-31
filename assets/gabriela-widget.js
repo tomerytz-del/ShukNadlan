@@ -270,9 +270,13 @@
     '    box-shadow:0 2px 6px rgba(13,27,61,.2)}',
     '  #gabW.is-v10 .gw-min::before{content:"";position:absolute;inset:-11px}',
     '  #gabW.is-v10 .gw-min:focus-visible{outline:3px solid #c9a227;outline-offset:2px}',
-    '  #gabW.is-v10.is-min .gw-bubble{left:0;width:18px;height:44px;border:0;border-radius:0 10px 10px 0;overflow:hidden;',
+    /* ‏gabi-tab (31.10): הלשונית הנראית נשארת 18px בקצה, אבל אזור הלחיצה 44×56, ממורכז כ-28px מהקצה - מחוץ
+       לאזור של מחוות "חזרה" באנדרואיד, שבלעה את הנגיעה בקצה. לכן ‏overflow:visible, והתמונה נחתכת ב-clip-path */
+    '  #gabW.is-v10.is-min .gw-bubble{left:0;width:18px;height:44px;border:0;border-radius:0 10px 10px 0;overflow:visible;touch-action:manipulation;',
     '    box-shadow:inset 0 0 0 2px #c9a227,2px 2px 8px rgba(13,27,61,.25)}',
-    '  #gabW.is-v10.is-min .gw-bubble img{width:44px;height:44px;max-width:none;object-fit:cover;object-position:30% 10%;margin-left:-13px}',
+    '  #gabW.is-v10.is-min .gw-bubble::before{content:"";position:absolute;left:6px;top:50%;width:44px;height:56px;transform:translateY(-50%)}',
+    '  #gabW.is-v10.is-min .gw-bubble img{width:44px;height:44px;max-width:none;object-fit:cover;object-position:30% 10%;margin-left:-13px;',
+    '    clip-path:inset(0 13px 0 13px round 0 10px 10px 0)}',
     '  #gabW.is-v10.is-min .gw-dot{display:none}',
     '}',
     '@media(min-width:1024px){#gabW.is-v10.is-min .gw-bubble{width:44px;height:44px;border:0;box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.3)}',
@@ -438,9 +442,13 @@
     /* ‏/swipe בטלפון (סבב 5 §3): מתחילה כלשונית בקצה, כדי לא לשבת על הכרטיס */
     var swipePage = !!document.querySelector('body.sw-body');
     var MIN_KEY = swipePage ? 'sk_gabi_min_sw' : 'sk_gabi_min';   // ב-/swipe ההתחלה אחרת, ולכן מפתח משלו
+    /* ‏gabi-tab (31.10): בטלפון, בתצוגת המועדפים של ‏/swipe - הבועה המלאה מעל הפס התחתון ולא הלשונית.
+       המזעור של ההחלקה (‏sk_gabi_min_sw) לא חל שם; ✕ במועדפים ממזער רק את המועדפים, לביקור הזה */
+    var LIKES_KEY = 'sk_gabi_min_sw_likes', likesMin = storageGet(LIKES_KEY) === '1';
+    function likesView() { return swipePage && !desk.matches && document.body.getAttribute('data-view') === 'likes'; }
     function syncMin() {
       // ליד הפוטר: מזעור גם בטלפון (השורה המשפטית נשארת גלויה), אלא אם הוחזרה בביקור הזה
-      var min = manualMin || (footerMin && (desk.matches || !restored));
+      var min = likesView() ? likesMin : manualMin || (footerMin && (desk.matches || !restored));
       root.classList.toggle('is-min', min);
       bubble.setAttribute('aria-label', min && !desk.matches ? 'פתיחת גבריאלה' : BUBBLE_LABEL);
       if (min) hideTip();
@@ -454,6 +462,7 @@
       var minBtn = el('button', { type: 'button', 'class': 'gw-min', 'aria-label': 'מזעור גבריאלה' }, '×');
       root.appendChild(minBtn);
       minBtn.addEventListener('click', function () {
+        if (likesView()) { likesMin = true; storageSet(LIKES_KEY, '1'); syncMin(); bubble.focus(); return; }
         manualMin = true;
         storageSet(MIN_KEY, '1');
         syncMin();
@@ -470,6 +479,9 @@
         storageSet(MIN_KEY, '0');
         syncMin();
       }, true);
+      if (swipePage && 'MutationObserver' in window) {
+        new MutationObserver(syncMin).observe(document.body, { attributes: true, attributeFilter: ['data-view'] });
+      }
       var feet = document.querySelectorAll('footer');
       var foot = document.querySelector('footer.site') || feet[feet.length - 1];
       if (foot && 'IntersectionObserver' in window) {

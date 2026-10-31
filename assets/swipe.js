@@ -198,22 +198,112 @@
   }
   /* גובה החלון: הקטן מבין 62% מגובה הכרטיס, והגובה שבו נראים לפחות 60% מרוחב התמונה */
   function windowH(nw, nh, cw, ch) { return Math.round(Math.min(ch * 0.62, cw / ((nw / nh) * 0.6))); }
+  /* ‏swipe-smooth P0-1 (31.10): ההתאמה נקבעת **לפני הציור**, ולא באירוע load. ‏WebP מצויר בהדרגה,
+     ותמונה שהתאמתה נקבעה רק ב-load הופיעה קודם בחיתוך cover ואז קפצה לחלון.
+     ‏RATIO: כתובת המקור → רוחב/גובה. מגיע מהטשטוש (‏sized(u, 40), ‏resize=contain - אותו יחס בכ-1KB),
+     מהתמונה עצמה, או מהטעינה מראש. כשהיחס ידוע, ‏cardHtml כותב ‏data-fit ו-‏--win-h כבר ב-HTML.
+     כשאינו ידוע: ‏data-fit="pending" - הטשטוש מוצג, התמונה ‏sw-wait (שקופה) עד שהיא מסווגת ומפוענחת.
+     ‏SRCW: הרוחב שכבר התבקש לכתובת - אותה כתובת בכל מקום, כלומר מטמון */
+  var RATIO = new Map(), SRCW = new Map(), WARM = new Set();
+  function noteRatio(u, w, h, exact) {
+    if (u && w > 0 && h > 0 && (exact || !RATIO.has(u))) RATIO.set(u, w / h);
+  }
+  function deckSize() { var d = $('swDeck'); return { w: d ? d.offsetWidth : 0, h: d ? d.offsetHeight : 0 }; }
+  /* ‏P0-3: הרוחב לפי הכיוון - חלון או מסגרת ברוחב הכרטיס, ‏cover לפי הגובה (התמונה ממלאת אותו) */
+  function wantW(r, cw, ch) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2), m = fitMode(r * 4000, 4000, cw, ch);
+    if (m === 'window') return cw * dpr;
+    if (m === 'frame') return cw * dpr * 1.22;
+    return Math.max(cw, ch * r) * dpr;
+  }
+  function srcW(u) {
+    if (SRCW.has(u)) return SRCW.get(u);
+    var b = deckSize(), r = RATIO.get(u), w = r && b.w ? wantW(r, b.w, b.h) : cardW();
+    SRCW.set(u, w);
+    return w;
+  }
+  function reqW(src) { var m = /[?&]width=(\d+)/.exec(src || ''); return m ? Number(m[1]) : 0; }
+  function setFit(card, mode, nw, nh, cw, ch) {
+    card.setAttribute('data-fit', mode);
+    if (mode === 'window') card.style.setProperty('--win-h', windowH(nw, nh, cw, ch) + 'px');
+    else card.style.removeProperty('--win-h');
+  }
+  /* היחס בלבד, לפני שהתמונה עצמה הגיעה. ‏low נקבע רק מהתמונה (‏fitCard) */
+  function fitByRatio(card, r) {
+    var w = card.offsetWidth, h = card.offsetHeight;
+    if (!w || !h || !r || card.classList.contains('is-ba')) return;
+    setFit(card, fitMode(r * 4000, 4000, w, h), r * 4000, 4000, w, h);
+  }
   function fitCard(img) {
     var card = img && img.closest('.sw-card');
     if (!card || card.classList.contains('is-ba') || !img.naturalWidth) return;
+    noteRatio(img.getAttribute('data-u'), img.naturalWidth, img.naturalHeight, true);
     // גודל הפריסה ולא getBoundingClientRect: הכרטיס עשוי להיות מוטה או מוגדל (גרירה, נענוע)
     var r = { width: card.offsetWidth, height: card.offsetHeight };
-    var mode = fitMode(img.naturalWidth, img.naturalHeight, r.width, r.height);
-    card.setAttribute('data-fit', mode);
-    if (mode === 'window') card.style.setProperty('--win-h', windowH(img.naturalWidth, img.naturalHeight, r.width, r.height) + 'px');
-    else card.style.removeProperty('--win-h');
+    /* תמונה שהגיעה ברוחב שביקשנו הוקטנה - המקור גדול ממנה, ו"רזולוציה נמוכה" אינה חלה עליה.
+       רק תמונה צרה מהבקשה (או המקור עצמו) היא הרזולוציה האמיתית */
+    var nw = img.naturalWidth, nh = img.naturalHeight, req = reqW(img.getAttribute('src'));
+    var big = req && nw >= req - 2;
+    var mode = fitMode(big ? nw * 4 : nw, big ? nh * 4 : nh, r.width, r.height);
+    setFit(card, mode, nw, nh, r.width, r.height);
     // רזולוציה נמוכה: הרוחב המוצג לא יותר מפי 1.5 מהמקור (חלק 6 §3)
     img.style.width = mode === 'low' ? Math.round(Math.min(r.width * 0.92, img.naturalWidth * 1.5 / Math.min(window.devicePixelRatio || 1, 2))) + 'px' : '';
   }
+  /* תמונה שמוסתרת עד שהיא מסווגת: מופיעה רק אחרי decode, ב-fade של 120ms (‏swipe.css) */
+  function reveal(img) {
+    if (!img || !img.classList.contains('sw-wait')) return;
+    var fin = function () { img.classList.remove('sw-wait'); };
+    if (img.decode) img.decode().then(fin, fin); else fin();
+  }
+  /* הסיווג לפי naturalWidth > 0 (ידוע כבר מהכותרת של הקובץ) בבדיקה של rAF, ולא לפי load */
+  function watchFit(img) {
+    if (!img || img.tagName !== 'IMG' || img.getAttribute('data-watch') === '1') return;
+    img.setAttribute('data-watch', '1');
+    var t0 = Date.now();
+    (function tick() {
+      if (!img.isConnected || img.getAttribute('data-watch') !== '1') return;
+      if (img.naturalWidth > 0) { fitCard(img); reveal(img); return; }
+      if (Date.now() - t0 < 15000) requestAnimationFrame(tick);
+    })();
+  }
+  /* תמונה שנבנתה בלי src (היחס עוד לא ידוע): מתחילה כשהטשטוש נותן את היחס, או אחרי 1.2 שניות */
+  function startMain(img) {
+    if (!img || !img.hasAttribute('data-pend')) return;
+    img.removeAttribute('data-pend');
+    var u = img.getAttribute('data-u'), s = sized(u, srcW(u));
+    if (s !== u) img.setAttribute('data-orig', u);
+    img.src = s;
+    watchFit(img);
+  }
   document.addEventListener('load', function (e) {
     var t = e.target;
-    if (t && t.tagName === 'IMG' && t.classList.contains('sw-cimg')) fitCard(t);
+    if (!t || t.tagName !== 'IMG') return;
+    if (t.classList.contains('sw-cimg')) { fitCard(t); reveal(t); return; }
+    if (t.classList.contains('sw-cblur')) {
+      var u = t.getAttribute('data-u'), cd = t.closest('.sw-card'), ci = cd && cd.querySelector('img.sw-cimg');
+      noteRatio(u, t.naturalWidth, t.naturalHeight, false);
+      if (!ci || ci.getAttribute('data-u') !== u) return;
+      if (cd.getAttribute('data-fit') === 'pending' && RATIO.get(u)) fitByRatio(cd, RATIO.get(u));
+      startMain(ci);
+    }
   }, true);
+  /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
+  function warm(u) {
+    if (!u || WARM.has(u)) return;
+    WARM.add(u);
+    var go = function () {
+      var im = new Image();
+      im.decoding = 'async';
+      im.onload = function () { noteRatio(u, im.naturalWidth, im.naturalHeight, true); };
+      im.src = sized(u, srcW(u));
+      if (im.decode) im.decode().then(null, function () {});
+    };
+    if (RATIO.has(u) || SRCW.has(u)) { go(); return; }
+    var th = new Image();
+    th.onload = function () { noteRatio(u, th.naturalWidth, th.naturalHeight, false); go(); };
+    th.onerror = go;
+    th.src = sized(u, 40);
+  }
   /* סיבוב או שינוי גודל: אותה התאמה מחדש לכל כרטיס שתמונתו כבר נטענה (‏--win-h ומצב) */
   var refitT = 0;
   window.addEventListener('resize', function () {
@@ -416,6 +506,8 @@
     // קודם המקור בגודל מלא (פעם אחת), ורק אם גם הוא נכשל - הגרדיאנט
     var orig = t.getAttribute('data-orig');
     if (orig) { t.removeAttribute('data-orig'); t.src = orig; return; }
+    var cd = t.classList.contains('sw-cimg') && t.closest('.sw-card');
+    if (cd && cd.getAttribute('data-fit') === 'pending') cd.removeAttribute('data-fit');
     var box = document.createElement('div');
     box.className = 'sw-img-fb ' + (t.getAttribute('data-fb') || '');
     box.setAttribute('role', 'img');
@@ -1240,18 +1332,18 @@
     likes = loadLikes(); renderLikes(); syncActions();
     if (view === 'likes') renderLikesView();
   });
-  /* אחרי הלייק הראשון הלב שבראש המסך הופך לגלולה "♥ N · הרשימה שלי" */
+  /* אחרי הלייק הראשון הלב שבראש המסך הופך לגלולה "♥ N · המועדפים" */
   function renderLikes() {
     $('swLikesN').textContent = likes.length;
     $('swLikesL').hidden = !likes.length;
     $('swLikes').classList.toggle('is-pill', likes.length > 0);
     // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר (גם בכותרת, ‏P1-E)
-    var ll = 'המועדפים (' + likes.length + ')';
+    var ll = likes.length ? 'המועדפים (' + likes.length + ')' : 'המועדפים';
     $('swLikes').setAttribute('aria-label', ll); $('swLikes').title = ll;
     // ‏Variant C: אותו מונה במסילה, ומוסתר באפס
     $('swRailLikesN').textContent = likes.length;
     $('swRailLikesN').hidden = !likes.length;
-    $('swRailLikes').setAttribute('aria-label', 'המועדפים (' + likes.length + ')');
+    $('swRailLikes').setAttribute('aria-label', ll);
     if (view === 'likes') renderLikesView();
   }
 
@@ -1522,15 +1614,24 @@
       if (at >= ph.length) at = c.photo = 0;
       var sp = top ? slideKind(ph[at]) : '';
       var np = !ph.length && window.NoPhoto ? npHtml(p, 'swipe') : '';
-      var cw = cardW(), base = ph.length ? slideBase(p, ph[at]) : '';
-      var img = ph.length ? '<img class="sw-cblur" aria-hidden="true" alt="" src="' + esc(sized(base, 40)) + '">' +
-        '<img class="sw-cimg" draggable="false" data-fb="sw-cimg" ' + imgSrc(base, cw) + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async">'
+      var base = ph.length ? slideBase(p, ph[at]) : '';
+      /* ‏P0-1: היחס ידוע - ‏data-fit ו-‏--win-h כבר ב-HTML. לא ידוע - ‏pending: הטשטוש, והתמונה
+         מתחילה רק כשהיחס הגיע (‏startMain), כדי לבקש את הרוחב הנכון. שקופית לפני/אחרי - כמו קודם */
+      var dk = deckSize(), rt = sp === 'ba' ? 0 : RATIO.get(base), fit = '', winH = 0, go = true;
+      if (base && sp !== 'ba') {
+        if (rt && dk.w) { fit = fitMode(rt * 4000, 4000, dk.w, dk.h); if (fit === 'window') winH = windowH(rt * 4000, 4000, dk.w, dk.h); }
+        else { fit = 'pending'; go = SRCW.has(base); }
+      }
+      var img = ph.length ? '<img class="sw-cblur" aria-hidden="true" alt="" data-u="' + esc(base) + '" src="' + esc(sized(base, 40)) + '">' +
+        '<img class="sw-cimg' + (fit === 'pending' ? ' sw-wait' : '') + '" draggable="false" data-fb="sw-cimg" data-u="' + esc(base) + '" ' +
+        (go ? imgSrc(base, sp === 'ba' ? cardW() : srcW(base)) : 'data-pend="1"') + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : '') + ' decoding="async">'
         : np || imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
       var bars = '<div class="sw-bars" aria-hidden="true">' + barsHtml(ph, at) + '</div>';
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
       // ‏OpenHouse.live נבדק בכל ציור: חלון שנסגר בזמן שהדף פתוח מוריד את התג בכרטיס הבא
       var nofee = fairLive(p);
       return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
+        (fit ? ' data-fit="' + fit + '"' : '') + (winH ? ' style="--win-h:' + winH + 'px"' : '') +
         ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img +
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
@@ -1992,14 +2093,69 @@
       '<p class="sw-done" hidden>✅ נרשמתם. נשלח רק נכסים חדשים שמתאימים לחיפוש הזה.</p></div>';
   }
 
-  function renderDeck() {
+  /* ‏P0-4: הכרטיסים +2 ו-+3 והתמונה הבאה בקרוסלה - אחרי שהתמונה העליונה הגיעה (לא מתחרים בה) */
+  function firstImg(c) {
+    if (!c || c.slot !== 'property') return '';
+    var ph = slides(c.p);
+    return ph.length && slideKind(ph[0]) !== 'ba' ? slideBase(c.p, ph[0]) : '';
+  }
+  function warmAhead(top, c) {
+    var run = function () {
+      if (c.slot === 'property') {
+        var ph = slides(c.p), nx = ph[((c.photo || 0) + 1) % (ph.length || 1)];
+        if (ph.length > 1 && nx && !slideKind(nx)) warm(nx);
+        // היחס של כל התמונות בכרטיס (כ-1KB כל אחת), כדי שכל הקשה תבקש את הרוחב הנכון
+        ph.forEach(function (x) { if (!slideKind(x) && !RATIO.has(x)) { var th = new Image(); th.onload = function () { noteRatio(x, th.naturalWidth, th.naturalHeight, false); }; th.src = sized(x, 40); } });
+      }
+      warm(firstImg(deck[idx + 2]));
+      warm(firstImg(deck[idx + 3]));
+    };
+    var im = top && top.querySelector('img.sw-cimg');
+    if (!im || (im.complete && im.naturalWidth)) { setTimeout(run, 0); return; }
+    var once = false, t = setTimeout(function () { if (!once) { once = true; run(); } }, 2500);
+    im.addEventListener('load', function () { if (!once) { once = true; clearTimeout(t); run(); } }, { once: true });
+  }
+  /* ‏P0-2: אחרי החלטה הכרטיס התחתון **עולה** למעלה, עם התמונה שכבר הותאמה ונטענה, ורק כרטיס
+     תחתון חדש נבנה. בנייה מחדש של שניהם זרקה את ההתאמה והתחילה את הכרטיס העליון בלי ‏data-fit.
+     ‏promote רק מ-decide; ביטול, סינון וכל השאר בונים מחדש כמו קודם */
+  function renderDeck(promote) {
     var box = $('swDeck');
     var c = cur();
     if (!c) { box.innerHTML = ''; return; }
     var next = deck[idx + 1];
-    box.innerHTML = (next ? '<div class="sw-under">' + cardHtml(next, false) + '</div>' : '') +
-      '<div class="sw-top-card" id="swTopCard">' + cardHtml(c, true) + '</div>';
-    var top = $('swTopCard');
+    var under = box.querySelector('.sw-under'), top;
+    /* ‏התג "ללא עמלת תיווך" ו-data-nofee נקבעו כשהכרטיס נבנה למטה. אם חלון היריד נסגר (או נפתח)
+       בינתיים - בונים מחדש, כדי שהתג לא יישאר (הערת הסקירה ל-1103) */
+    var uc0 = under && under.querySelector('.sw-card');
+    if (promote && under && under._c === c && c.slot === 'property' && uc0 && !!fairLive(c.p) === uc0.hasAttribute('data-nofee')) {
+      var old = $('swTopCard');
+      if (old) old.remove();
+      under.className = 'sw-top-card';
+      under.id = 'swTopCard';
+      under._c = null;
+      var ci = under.querySelector('img.sw-cimg');
+      if (ci) ci.setAttribute('fetchpriority', 'high');
+      if (next) {
+        var nu = document.createElement('div');
+        nu.className = 'sw-under';
+        nu.innerHTML = cardHtml(next, false);
+        nu._c = next;
+        box.insertBefore(nu, under);
+      }
+      top = under;
+      syncSlide(top, c);   // שקופית מיוחדת (רילס, לפני/אחרי, הזמנה), הגלולה, הפסים והמונה
+    } else {
+      box.innerHTML = (next ? '<div class="sw-under">' + cardHtml(next, false) + '</div>' : '') +
+        '<div class="sw-top-card" id="swTopCard">' + cardHtml(c, true) + '</div>';
+      under = box.querySelector('.sw-under');
+      if (under) under._c = next;
+      top = $('swTopCard');
+    }
+    box.querySelectorAll('img.sw-cimg').forEach(function (im) {
+      watchFit(im);
+      if (im.hasAttribute('data-pend')) setTimeout(function () { startMain(im); }, 1200);
+    });
+    warmAhead(top, c);
     top.querySelectorAll('.sw-card').forEach(function (el) { el.setAttribute('tabindex', '0'); });
     bindGestures(top);
     var tc = top.querySelector('.sw-card.is-ba,.sw-card.is-invite');
@@ -2061,9 +2217,13 @@
       $('swCall').href = 'tel:+' + phone;
       $('swWa').href = waHref(p, phone);
     }
-    $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
-    // ‏WCAG 2.5.3: השם הנגיש מכיל את המילה הגלויה מתחת לכפתור ("שמירה", גם במחשב - תומר 29.10)
-    $('swLike').setAttribute('aria-label', 'שמירה');
+    var liked_ = !!(p && likes.indexOf(p.id) >= 0);
+    $('swLike').setAttribute('aria-pressed', String(liked_));
+    // ‏§10 (תומר 31.10): השם הנגיש מכיל את המילה הגלויה (WCAG 2.5.3) - "שמירה" או "נשמר" לפי המצב; המצב גם ב-aria-pressed
+    $('swLike').setAttribute('aria-label', liked_ ? 'נשמר במועדפים' : 'שמירה במועדפים');
+    // ‏pr1095-saved-label (גבריאלה ותומר 31.10): הכיתוב הגלוי מתחת ללב - "נשמר" כשהנכס שמור
+    var likeLbl = $('swLike').querySelector('.sw-act-lbl');
+    if (likeLbl) likeLbl.textContent = liked_ ? 'נשמר' : 'שמירה';
     $('swUndo').setAttribute('aria-label', phoneC() ? 'ביטול' : 'ביטול Z');
     syncRail(c, adv, phone);
   }
@@ -2133,7 +2293,7 @@
     // ‏liked רק כשהלייק נוסף עכשיו - ביטול לא מוחק לייק ותיק
     history_.push({ i: idx, liked: added ? c.p.id : null });
     deciding = true;
-    var go = function () { deciding = false; idx = Math.min(idx + 1, deck.length - 1); renderDeck(); tourAdvance(); if (added) maybeNudge(); };
+    var go = function () { deciding = false; idx = Math.min(idx + 1, deck.length - 1); renderDeck(true); tourAdvance(); if (added) maybeNudge(); };
     if (top && !reduceMotion) {
       top.classList.add(dir === 'like' ? 'fly-like' : 'fly-skip');
       setTimeout(go, 220);
@@ -2193,6 +2353,43 @@
     c.photo = ((c.photo || 0) + step + ph.length) % ph.length;
     syncSlide(top, c);
   }
+  /* היחס לפני הבקשה: בלי יחס הרוחב הוא הגדול (‏cardW), ותמונה לרוחב הייתה יורדת פי 3 */
+  function ratioFirst(u, cb) {
+    if (RATIO.has(u) || SRCW.has(u)) { cb(); return; }
+    var th = new Image(), fired = false, fin = function () { if (!fired) { fired = true; cb(); } };
+    th.onload = function () { noteRatio(u, th.naturalWidth, th.naturalHeight, false); fin(); };
+    th.onerror = fin;
+    setTimeout(fin, 500);
+    th.src = sized(u, 40);
+  }
+  function swapImg(card, img, blur, u, fixedW) {
+    var tok = (img._tok || 0) + 1;
+    img._tok = tok;
+    img.setAttribute('data-u', u);
+    img.removeAttribute('data-pend');
+    ratioFirst(u, function () { if (img._tok === tok) swapNow(card, img, blur, u, fixedW || srcW(u), tok); });
+  }
+  function swapNow(card, img, blur, u, w, tok) {
+    var s = sized(u, w), done = false;
+    var pre = new Image();
+    pre.decoding = 'async';
+    pre.src = s;
+    function apply(ready) {
+      if (done || img._tok !== tok || !img.isConnected) return;
+      done = true;
+      if (pre.naturalWidth) noteRatio(u, pre.naturalWidth, pre.naturalHeight, true);
+      if (RATIO.get(u)) fitByRatio(card, RATIO.get(u));
+      if (!ready) img.classList.add('sw-wait');
+      img.style.width = '';
+      if (s !== u) img.setAttribute('data-orig', u); else img.removeAttribute('data-orig');
+      img.setAttribute('data-watch', '');
+      img.src = s;
+      if (blur) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
+      watchFit(img);
+    }
+    (pre.decode ? pre.decode() : Promise.reject()).then(function () { apply(true); }, function () { apply(false); });
+    setTimeout(function () { apply(false); }, 600);
+  }
   /* השקופית הנוכחית: התמונה, השכבה (לפני/אחרי או הזמנה), הפסים, המונה, הגלולה והכפתור שבתחתית.
      נקרא גם כשהזוג או הזכאות מגיעים אחרי שהכרטיס כבר על המסך */
   function syncSlide(top, c) {
@@ -2204,11 +2401,10 @@
     var img = top.querySelector('.sw-cimg'), blur = top.querySelector('.sw-cblur');
     // בשקופית לפני/אחרי התמונה של הכרטיס מוסתרת, והטשטוש שמאחור הוא של ה"לפני"
     var u = s ? (sp === 'ba' ? vizPair.get(c.p.id).before : slideBase(c.p, s)) : '';
-    if (img && img.tagName === 'IMG' && u && img.getAttribute('data-orig') !== u) {
-      card.removeAttribute('data-fit'); card.style.removeProperty('--win-h'); img.style.width = '';
-      img.setAttribute('data-orig', u); img.src = sized(u, cardW());
-    }
-    if (blur && u) blur.src = sized(u, 40);
+    /* ‏P0-4: ‏data-fit לא נמחק לפני שהתמונה החדשה סווגה. התמונה הקודמת נשארת עד שהחדשה מפוענחת
+       (בדרך כלל מיד - היא נטענה מראש), ואז שתיהן מתחלפות יחד עם ההתאמה */
+    if (img && img.tagName === 'IMG' && u && img.getAttribute('data-u') !== u) swapImg(card, img, blur, u, sp === 'ba' ? cardW() : 0);
+    else if (blur && u && blur.getAttribute('data-u') !== u) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
     var was = card.classList.contains('is-ba') ? 'ba' : card.classList.contains('is-invite') ? 'invite' : card.classList.contains('is-reel') ? 'reel' : '';
     card.classList.toggle('is-ba', sp === 'ba');
     card.classList.toggle('is-invite', sp === 'invite');
@@ -2687,7 +2883,7 @@
       : '<p class="sw-st-q is-soft">' + esc(VIZ_LIMIT) + '</p>') : '';
     box.innerHTML = '<p class="sw-st-head"><b>' + esc(head) + '</b>' + (r ? ' <span class="sw-st-real">הדמיה אמיתית</span>' : '') + '</p>' +
       '<div class="sw-st-stage">' + studioStage() + '</div>' + (st.busy ? '' : quota) +
-      (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר ברשימה שלי' : '♡ שמירה לרשימה שלי') + '</button>' : '') +
+      (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר במועדפים' : '♡ שמירה במועדפים') + '</button>' : '') +
       '<h3 class="sw-sub-h"><span class="sw-st-n">1</span> ' + (st.comm ? 'איזה חלל?' : 'איזה חדר?') + '</h3><div class="sw-st-row">' + rooms_ + '</div>' +
       '<h3 class="sw-sub-h"><span class="sw-st-n">2</span> ' + (st.comm ? 'איזה עסק תפתחו כאן?' : 'איזה סגנון?') + '</h3>' + styles_ + contact +
       '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והמשרד המפרסם יחזור אליכם.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
@@ -2769,7 +2965,7 @@
     st.saved = true;
     shukTrack('viz_save', { property_id: p.id, style: st.comm ? ('biz:' + bizKey(st.bizLabel).slice(4)).slice(0, 40) : st.key });
     renderStudio();
-    toast('נשמר ברשימה שלי, יחד עם ההדמיה');
+    toast('נשמר במועדפים');
   }
   function likedViz(id) {
     try { var m = JSON.parse(store('sk_swipe_likes_viz') || '{}') || {}; return m[id] && m[id].result_url; } catch (e) { return ''; }
@@ -3071,12 +3267,12 @@
     toast(n.new_n >= 2 ? 'ממשיכים מאיפה שעצרתם · ' + n.new_n + ' נכסים חדשים מאז הביקור הקודם'
       : n.new_n === 1 ? 'ממשיכים מאיפה שעצרתם · נכס חדש אחד מאז הביקור הקודם' : 'ממשיכים מאיפה שעצרתם', 4000);
   }
-  /* הסרה מ"הרשימה שלי" אחרי אישור, עם "ביטול" בהודעה למשך 5 שניות (P0-9) */
+  /* הסרה מ"המועדפים" אחרי אישור, עם "ביטול" בהודעה למשך 5 שניות (P0-9) */
   function unlike(id) {
     var at = likes.indexOf(id);
     if (at < 0) return;
     likes.splice(at, 1); saveLikes(); syncActions();
-    toast('הנכס הוסר מהמועדפים', 5000, 'ביטול', function () {
+    toast('הוסר מהמועדפים', 5000, 'ביטול', function () {
       if (likes.indexOf(id) < 0) { likes.splice(Math.min(at, likes.length), 0, id); saveLikes(); syncActions(); }
     });
   }
@@ -3426,8 +3622,7 @@
   }
   function renderLikesView() {
     var list = likedProps();
-    // ‏N = השורות שעל המסך (פעילים בלבד) - מזהים שעוד בבדיקה לא נספרים
-    $('swLvN').textContent = list.length;
+    // ‏§10: הכותרת היא "המועדפים" בלבד; המספר (השורות שעל המסך) בכפתור השיתוף
     $('swLvShare').textContent = 'שיתוף המועדפים (' + list.length + ')';
     $('swLvEmpty').hidden = likes.length > 0;
     $('swLvBar').hidden = !likes.length;
@@ -3437,7 +3632,7 @@
         (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : window.NoPhoto ? '<span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
         '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small></span></a>' +
         // ‏P0-9: הלב רק מסמן שהנכס שמור; ההסרה - כפתור ✕ אדום, עם אישור וביטול
-        '<span class="sw-lv-heart" role="img" aria-label="שמירה במועדפים">♥</span>' +
+        '<span class="sw-lv-heart" role="img" aria-label="נשמר במועדפים">♥</span>' +
         '<button type="button" class="sw-lv-rm" data-like-remove="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
     }).join('');
     var gab = $('swLvGab'), gh = gabListHref();
