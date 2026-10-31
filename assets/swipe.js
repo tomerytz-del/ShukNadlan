@@ -357,12 +357,16 @@
   // ‏Variant C: שכונה ועיר על הכרטיס בטלפון, בלי רחוב ומספר בית (הגיליון נשאר עם where)
   function area(p) { var h = hood(p); return [h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
   function title(p) { return maskHouse(p.title || '', p.house_number) || p.property_type || 'נכס'; }
+  /* הקישור בהודעות וואטסאפ: הקצר (‏/p/{מספר מודעה}, ‏short-link.ts), ובלי מספר מודעה - דף הנכס */
+  function shortUrl(p) {
+    return 'https://shuknadlan.co.il/' + (p.listing_number ? 'p/' + p.listing_number : 'property?id=' + encodeURIComponent(p.id));
+  }
   /* ההודעה המוכנה בוואטסאפ ליועץ/ת (§3, 30.10): מזהה את המודעה בלי לשאול - כותרת, איפה, מחיר,
-     מספר מודעה וקישור. אחת לכפתור בשורת העיגולים, לבורר "איך נוח לכם?" ולגיליון */
+     מספר מודעה, והקישור בשורה נפרדת בסוף. אחת לכפתור בשורת העיגולים, לבורר "איך נוח לכם?" ולגיליון */
   function waHref(p, phone) {
     var w = area(p), price = fmtPrice(p);
     var text = 'היי, ראיתי בשוק נדל״ן את ' + title(p) + (w ? ', ' + w : '') + (price ? ', ' + price : '') +
-      (p.listing_number ? ' (מודעה #' + p.listing_number + ')' : '') + '. אשמח לפרטים: https://shuknadlan.co.il/property?id=' + p.id;
+      (p.listing_number ? ' (מודעה #' + p.listing_number + ')' : '') + '. אשמח לפרטים.\n' + shortUrl(p);
     return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
   }
   function rooms(p) { var r = Number(p.rooms); return isFinite(r) && r > 0 ? String(Number(r.toFixed(1))) : ''; }
@@ -2967,8 +2971,8 @@
     }, function (e) { err.textContent = errText(e, 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.'); btn.disabled = false; });
   }
   function shareLikes() {
-    var urls = likes.map(function (id) { return location.origin + '/property?id=' + encodeURIComponent(id); });
-    var text = 'הנכסים ששמרתי בשוק הנדל״ן:\n' + urls.join('\n');
+    var urls = likedProps().map(shortUrl);
+    var text = 'הנכסים ששמרתי בשוק נדל״ן:\n' + urls.join('\n');
     shukTrack('swipe_share', { method: navigator.share ? 'native' : 'whatsapp', count: likes.length });
     if (navigator.share) { navigator.share({ text: text }).catch(function () {}); return; }
     var a = document.createElement('a');
