@@ -248,6 +248,8 @@ type Item = {
   count?: number | null;
   // מזהה ההתראה, כדי לפצל שורה מעורבת בלי לסמן את כולה כדחויה.
   id?: string | null;
+  // שורה מקופלת (כמה שיתופים או כמה נרשמים) שומרת את כל המזהים.
+  ids?: string[] | null;
   // מקור הליד. photo_request אינו מוגן גם כשהסוג הוא new_lead.
   source?: string | null;
   // notifications.action_path. חסר עד שהמיגרציה עלתה, ואז גובר על המיפוי.
@@ -318,10 +320,29 @@ const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
 const isShare = (it: Item) => it.type === "system" && it.property_id != null && it.property_mine === false;
 const isSignup = (it: Item) => it.type === "platform_signup";
 
+function notifIds(it: Item): string[] {
+  const out: string[] = [];
+  const push = (id: string | null | undefined) => {
+    if (id && !out.includes(id)) out.push(id);
+  };
+  push(it.id);
+  for (const id of it.ids || []) push(id);
+  return out;
+}
+
+function notifIdList(items: Item[]): string[] {
+  const out: string[] = [];
+  for (const it of items) {
+    for (const id of notifIds(it)) if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
 /**
  * הסדר וקיפול הרקע. התראות בעדיפות קודם, אחריהן שאר ההתראות, ובסוף שורה אחת
  * לשיתופים ושורה אחת לנרשמים כשיש יותר מאחד/ת. שורה מקופלת היא בלי פריט ולכן
- * מקבלת את קישור הקטגוריה ("שותפו איתי", "מנויים ובקשות שדרוג").
+ * מקבלת את קישור הקטגוריה ("שותפו איתי", "מנויים ובקשות שדרוג"), ונושאת את
+ * מזהי המקור ב-ids כדי שאפשר לפצל אותה מתקרת התבנית.
  */
 function arrange(items: Item[]): Item[] {
   const shares = items.filter(isShare);
@@ -331,7 +352,12 @@ function arrange(items: Item[]): Item[] {
   const out = [...rest].sort((a, b) => prio(a) - prio(b));
   if (shares.length === 1) out.push(shares[0]);
   else if (shares.length > 1) {
-    out.push({ type: "system", title: `${shares.length} נכסים חדשים שותפו איתך`, body: null });
+    out.push({
+      type: "system",
+      title: `${shares.length} נכסים חדשים שותפו איתך`,
+      body: null,
+      ids: notifIdList(shares),
+    });
   }
   if (signups.length === 1) out.push(signups[0]);
   else if (signups.length > 1) {
@@ -339,6 +365,7 @@ function arrange(items: Item[]): Item[] {
       type: "platform_signup",
       title: `${signups.length} נרשמים חדשים לפלטפורמה`,
       body: signups.map((it) => it.title).join(" · ").slice(0, 300),
+      ids: notifIdList(signups),
     });
   }
   return out;
@@ -1061,12 +1088,9 @@ Deno.serve(async (req: Request) => {
       if (!capErr && allow === false) {
         const keep = items.filter((it) => cadenceCapExempt.has(it.type));
         const defer = items.filter((it) => !cadenceCapExempt.has(it.type));
-        const deferIds = defer.map((it) => it.id).filter((id): id is string => !!id);
-        const keepIds = keep.map((it) => it.id).filter((id): id is string => !!id);
-        // בלי מזהה לכל פריט אי אפשר לפצל. אז כל השורה נדחית, והפטורים לא נעלמים.
-        const canSplit = keep.length > 0
-          && deferIds.length === defer.length
-          && keepIds.length === keep.length;
+        const deferIds = notifIdList(defer);
+        const keepIds = notifIdList(keep);
+        const covered = (list: Item[]) => list.every((it) => notifIds(it).length > 0);
         const holdRow = async () => {
           const { error: holdErr } = await sb.from("notification_push_log").update({
             whatsapp_status: "skipped_template_cap",
@@ -1074,7 +1098,9 @@ Deno.serve(async (req: Request) => {
           }).eq("id", row.log_id).eq("whatsapp_status", "pending");
           if (holdErr) console.error("template cap hold failed", row.log_id, holdErr.message);
         };
-        if (!canSplit) {
+        // פטור בלי מזהה אי אפשר להוציא מהשורה בלי לסמן גם את השאר כנשלח.
+        // פריט דחוי בלי מזהה לא עוצר את הפטורים: הם יוצאים, והוא יחזור בסבב הבא.
+        if (keep.length === 0 || !covered(keep) || keepIds.length === 0) {
           await holdRow();
           skipped++;
           return;
@@ -1084,6 +1110,8 @@ Deno.serve(async (req: Request) => {
           types: [...new Set(keep.map((it) => it.type))],
         }).eq("id", row.log_id).eq("whatsapp_status", "pending");
         if (splitErr) {
+          // עדכון שנכשל משאיר את מזהי הדחויים על השורה. שליחה עכשיו
+          // הייתה מסמנת גם אותם כנשלחים.
           console.error("template cap split failed", row.log_id, splitErr.message);
           await holdRow();
           skipped++;

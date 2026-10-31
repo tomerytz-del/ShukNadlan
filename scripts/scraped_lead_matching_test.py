@@ -242,7 +242,71 @@ def fail(msg):
     sys.exit(msg)
 
 
+def phone_hash_source_check() -> None:
+    """phone_hash הוא PII פסאודונימי. לא חוזר מפונקציה ש-anon או authenticated קוראים."""
+    import re
+
+    mig_dir = ROOT / "supabase/migrations"
+    latest_comment = ""
+    bodies: dict[str, str] = {}
+    access: dict[str, dict[str, bool]] = {}
+    fn_re = re.compile(
+        r"create\s+or\s+replace\s+function\s+public\.(\w+)\s*\(",
+        re.I,
+    )
+    for path in sorted(mig_dir.glob("*.sql")):
+        text = path.read_text(encoding="utf-8")
+        if "comment on column public.scraped_leads.phone_hash" in text:
+            latest_comment = text
+        parts = re.split(r"(?=create\s+or\s+replace\s+function\s+public\.)", text, flags=re.I)
+        for part in parts:
+            hit = fn_re.search(part)
+            if not hit:
+                continue
+            name = hit.group(1)
+            args = part[hit.end():].split(")", 1)[0]
+            key = name + "(" + re.sub(r"\s+", "", args.lower()) + ")"
+            bodies[key] = part
+            state = dict(access.get(key, {"anon": False, "authenticated": False}))
+            stmt_re = re.compile(
+                r"(grant|revoke)\s+[^;]*\bon\s+function\s+public\." + re.escape(name) + r"\s*\([^;]*;",
+                re.I,
+            )
+            for stmt in stmt_re.finditer(part):
+                sql = stmt.group(0)
+                kind = stmt.group(1).lower()
+                for role in ("anon", "authenticated"):
+                    if not re.search(r"\b" + role + r"\b", sql, re.I):
+                        continue
+                    if kind == "revoke":
+                        state[role] = False
+                    elif kind == "grant" and re.search(r"\bto\b", sql, re.I):
+                        state[role] = True
+            access[key] = state
+    if "never cleared" in latest_comment.split("comment on column public.scraped_leads.phone_hash", 1)[-1][:500]:
+        fail("הערת phone_hash עדיין אומרת never cleared")
+    if "30 days after posted_at" not in latest_comment:
+        fail("הערת phone_hash לא אומרת שהשורה נמחקת אחרי 30 יום")
+    if "Pseudonymous PII" not in latest_comment:
+        fail("הערת phone_hash לא מסמנת PII פסאודונימי")
+    if "revoke select (phone_hash)" not in latest_comment:
+        fail("אין revoke על עמודת phone_hash מ-anon ו-authenticated")
+    docs = (ROOT / "docs/scraped-leads.md").read_text(encoding="utf-8")
+    if "מזהה פסאודונימי" not in docs:
+        fail("docs/scraped-leads.md לא מתעד את phone_hash כ-PII פסאודונימי")
+    leaked = []
+    for key, body in bodies.items():
+        who = access.get(key, {})
+        if not (who.get("anon") or who.get("authenticated")):
+            continue
+        if "phone_hash" in body:
+            leaked.append(key)
+    if leaked:
+        fail("phone_hash חוזר מפונקציה פתוחה: " + ", ".join(sorted(leaked)))
+
+
 def main():
+    phone_hash_source_check()
     db = os.environ.get("SCRAPED_MATCH_DB", "scraped_match_test")
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", db])
     subprocess.check_call(["createdb", "--maintenance-db=postgres", db])

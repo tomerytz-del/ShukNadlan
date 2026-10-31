@@ -58,6 +58,10 @@ const migration = readFileSync(
   join(root, "supabase/migrations/20271031290000_notif_cadence_button.sql"),
   "utf8",
 );
+const follow = readFileSync(
+  join(root, "supabase/migrations/20271031300000_notif_cadence_type_wins.sql"),
+  "utf8",
+);
 const push = readFileSync(join(root, "supabase/functions/notification-push/index.ts"), "utf8");
 const hook = readFileSync(join(root, "supabase/functions/whatsapp-webhook/index.ts"), "utf8");
 const setup = readFileSync(join(root, "docs/whatsapp-setup.md"), "utf8");
@@ -278,7 +282,7 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(push, /p_except: row\.log_id/);
   assert.match(push, /skipped_template_cap/);
   assert.match(push, /items = keep/);
-  assert.match(push, /if \(!canSplit\)/);
+  assert.match(push, /keep\.length === 0 \|\| !covered\(keep\)/);
   assert.match(push, /cadenceOpenId/);
   assert.match(hook, /cadenceIdFromMessage/);
   assert.match(hook, /p_type: type/);
@@ -404,4 +408,49 @@ $t$;
 rollback;
 `;
   execFileSync("psql", psqlArgs, { input: sql, encoding: "utf8" });
+});
+
+test("פיצול מזהים, יישור התקרה, ומתג סוג שגובר על הקבוצה", () => {
+  assert.match(push, /ids: notifIdList\(shares\)/);
+  assert.match(push, /ids: notifIdList\(signups\)/);
+  assert.match(push, /keep\.length === 0 \|\| !covered\(keep\)/);
+  const claim = follow.slice(
+    follow.indexOf("function public.notification_push_claim"),
+    follow.indexOf("comment on function public.notification_push_claim"),
+  );
+  assert.match(claim, /notif_cadence_button_on\(\)\s+and not public\.whatsapp_template_cap_on\(\)/);
+  const typeOff = follow.slice(
+    follow.indexOf("function public.notif_cadence_type_off"),
+    follow.indexOf("comment on function public.notif_cadence_type_off"),
+  );
+  assert.match(typeOff, /whatsapp_off_types/);
+  assert.match(typeOff, /p_type is distinct from public\.notif_cadence_group\(p_type\)/);
+  assert.match(typeOff, /not exists \(\s*select 1 from public\.notif_cadence_group_map/);
+  const cadenceFn = follow.slice(
+    follow.indexOf("function public.agent_type_cadence"),
+    follow.indexOf("comment on function public.agent_type_cadence"),
+  );
+  assert.match(cadenceFn, /not exists \(\s*select 1 from public\.notif_cadence_group_map g where g\.notif_type = p_type/);
+  const settings = readFileSync(join(root, "assets/crm-settings.js"), "utf8");
+  assert.match(settings, /else if \(prev === 'off'\)/);
+  assert.doesNotMatch(settings, /else \{\s*carried = carried\.filter/);
+  const saveFn = settings.slice(settings.indexOf("async function saveNotifPrefsRows"), settings.indexOf("async function saveReminderPrefs"));
+  assert.match(saveFn, /upsert\(base[\s\S]*notif_cadence_apply/);
+  assert.match(saveFn, /rollbackNotifCadence/);
+  assert.match(settings, /הסוג הזה יישלח בכל זאת/);
+  assert.match(settings, /הקבוצה כבויה, ולכן הסוג לא נשלח בוואטסאפ/);
+  const block = settings.slice(
+    settings.indexOf("const NOTIF_CADENCE_TYPE_GROUP = {"),
+    settings.indexOf("};", settings.indexOf("const NOTIF_CADENCE_TYPE_GROUP = {")),
+  );
+  const map = {};
+  for (const hit of block.matchAll(/(\w+):\s*'(\w+)'/g)) map[hit[1]] = hit[2];
+  assert.deepEqual(map, CADENCE_GROUP_MAP);
+  const excluded = settings.slice(
+    settings.indexOf("const NOTIF_CADENCE_EXCLUDED = new Set(["),
+    settings.indexOf("]);", settings.indexOf("const NOTIF_CADENCE_EXCLUDED = new Set([")),
+  );
+  for (const type of CADENCE_EXCLUDED) {
+    assert.match(excluded, new RegExp(`'${type}'`));
+  }
 });
