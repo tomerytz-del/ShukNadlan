@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20271030000200_whatsapp_template_cap.sql"
-      - "supabase/migrations/20271030000500_template_cap_digest_reserved.sql"
+      - "supabase/migrations/20271031260000_template_cap_digest_reserved.sql"
       - "supabase/functions/notification-push/index.ts"
       - "scripts/whatsapp_template_cap_test.mjs"
       - "scripts/whatsapp_template_cap_digest_test.py"
@@ -16,7 +16,7 @@ on:
     branches: [main]
     paths:
       - "supabase/migrations/20271030000200_whatsapp_template_cap.sql"
-      - "supabase/migrations/20271030000500_template_cap_digest_reserved.sql"
+      - "supabase/migrations/20271031260000_template_cap_digest_reserved.sql"
       - "supabase/functions/notification-push/index.ts"
       - "scripts/whatsapp_template_cap_test.mjs"
       - "scripts/whatsapp_template_cap_digest_test.py"

@@ -152,7 +152,7 @@ def main() -> int:
     off = notify.split("if not v_on then", 1)[-1].split("else", 1)[0] if "if not v_on then" in notify else notify
     if "s.rn > v_cap" not in off and "s.rn > v_fanout" not in off:
         fail("תקרת 15 של הביקוש הפתוח נעלמה מהגוף האחרון")
-    if version_of(Path(where["public.notification_push_claim"])) < "20271030000500":
+    if version_of(Path(where["public.notification_push_claim"])) < "20271031260000":
         fail("claim האחרון בסדר הפריסה ישן מהחריץ השמור של התקציר")
     if "template_cap_digest_reserved" not in claim or "whatsapp_template_cap_digest_channel" not in claim:
         fail("החריץ השמור של התקציר נעלם מה-claim")
@@ -163,7 +163,7 @@ def main() -> int:
         fail("has_backlog לא שומר פריט תקרה 72 שעות")
     if "a.in_window" in backlog and "a.in_service_window" not in backlog:
         fail("has_backlog מסנן תקרה בעמודה שאינה ב-due_agents")
-    if version_of(Path(where["public.notification_push_has_backlog"])) < "20271030000500":
+    if version_of(Path(where["public.notification_push_has_backlog"])) < "20271031260000":
         fail("has_backlog האחרון בסדר הפריסה ישן מהחריץ השמור")
     if "whatsapp_template_cap_digest_kind" not in backlog:
         fail("has_backlog מעיר את הקרון גם כשהמרווח של 8 השעות לא מתקיים")

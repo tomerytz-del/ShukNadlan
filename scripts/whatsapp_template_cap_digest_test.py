@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MIG = ROOT / "supabase/migrations/20271030000500_template_cap_digest_reserved.sql"
+MIG = ROOT / "supabase/migrations/20271031260000_template_cap_digest_reserved.sql"
 DB = os.environ.get("TEMPLATE_CAP_DIGEST_TEST_DB", "template_cap_digest_test")
 
 
