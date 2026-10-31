@@ -138,7 +138,7 @@ function inject(html: string, rows: Row[]): string | null {
 
 function cacheHeaders(headers: Headers): void {
   if (headers.has("set-cookie")) return;
-  headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400");
   headers.set("Cache-Control", "public, max-age=0, must-revalidate");
 }
 
@@ -176,4 +176,6 @@ export default async function handler(request: Request, context: Context) {
   }
 }
 
-export const config: Config = { path: ["/", "/index.html"] };
+/* cache: "manual" הוא מה שגורם ל-Netlify-CDN-Cache-Control לחול.
+   בלי זה כל בקשה ל-/ מריצה את הפונקציה מחדש. */
+export const config: Config = { cache: "manual", path: ["/", "/index.html"] };

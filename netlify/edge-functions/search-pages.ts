@@ -447,7 +447,11 @@ function withDecisionCookies(res: Response, routing: ReturnType<typeof marketRou
   return copy;
 }
 
-/* שתי הצורות שבהן Netlify מגיש את דף הבית. */
+/* שתי הצורות שבהן Netlify מגיש את דף הבית.
+   cache: "manual" גם כאן: הפונקציה הזו רצה על אותן כתובות כמו
+   home-listings, ולפעמים היא זו שמחזירה את התשובה ל-CDN. בלי ההסכמה
+   הזו הכותרות של הרשימה לא נשמרות. תשובה בלי כותרת מטמון אינה נשמרת. */
 export const config: Config = {
+  cache: "manual",
   path: ["/", "/index.html"],
 };
