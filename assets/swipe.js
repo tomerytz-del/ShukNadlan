@@ -1,5 +1,5 @@
 /* ============================================================
-   גלישה בהחלקה (‏/swipe) - רק עם דגל v10 (‏html.beta-hero).
+   גלישה בהחלקה (‏/swipe) - רק עם דגל v10 (‏html.beta-hero, ברירת המחדל מ-31.10.2026).
    ‏docs/swipe-mode.md. הסדר בקובץ:
      1. נתונים: הנכסים של השוק, הסוכנים, והכתבות
      2. הסינון לפני ההחלקה (אזור ויישוב, תקציב, חדרים)
@@ -188,14 +188,25 @@
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
     /* בכרטיס לאורך רזולוציה נמוכה נמדדת בגובה (שם התמונה נמתחת), בפיקסלים של CSS: תמונה רגילה
        של 1280×720 נמתחת ל-737 בטלפון גבוה - רכה מעט, אבל לא שוב "חלון קטן". ‏low רק מתחת ל-1.5× */
-    if (mobileCover(cw, ch)) return nh * 1.5 < ch ? 'low' : 'cover';
+    /* ‏אפשרות E (תומר 30.10): בטלפון תמונה לרוחב מוצגת במלואה כ"חלון" ברוחב מלא בראש
+       הכרטיס, מעל העתק מטושטש שלה (‏--win-h ב-fitCard). לאורך - cover כמו קודם. ‏low קודם */
+    if (mobileCover(cw, ch)) {
+      if (nh * 1.5 < ch) return 'low';
+      return r < 0.9 ? 'cover' : 'window';
+    }
     return nw * 1.5 / dpr < cw ? 'low' : 'frame';
   }
+  /* גובה החלון: הקטן מבין 62% מגובה הכרטיס, והגובה שבו נראים לפחות 60% מרוחב התמונה */
+  function windowH(nw, nh, cw, ch) { return Math.round(Math.min(ch * 0.62, cw / ((nw / nh) * 0.6))); }
   function fitCard(img) {
     var card = img && img.closest('.sw-card');
     if (!card || card.classList.contains('is-ba') || !img.naturalWidth) return;
-    var r = card.getBoundingClientRect(), mode = fitMode(img.naturalWidth, img.naturalHeight, r.width, r.height);
+    // גודל הפריסה ולא getBoundingClientRect: הכרטיס עשוי להיות מוטה או מוגדל (גרירה, נענוע)
+    var r = { width: card.offsetWidth, height: card.offsetHeight };
+    var mode = fitMode(img.naturalWidth, img.naturalHeight, r.width, r.height);
     card.setAttribute('data-fit', mode);
+    if (mode === 'window') card.style.setProperty('--win-h', windowH(img.naturalWidth, img.naturalHeight, r.width, r.height) + 'px');
+    else card.style.removeProperty('--win-h');
     // רזולוציה נמוכה: הרוחב המוצג לא יותר מפי 1.5 מהמקור (חלק 6 §3)
     img.style.width = mode === 'low' ? Math.round(Math.min(r.width * 0.92, img.naturalWidth * 1.5 / Math.min(window.devicePixelRatio || 1, 2))) + 'px' : '';
   }
@@ -203,6 +214,14 @@
     var t = e.target;
     if (t && t.tagName === 'IMG' && t.classList.contains('sw-cimg')) fitCard(t);
   }, true);
+  /* סיבוב או שינוי גודל: אותה התאמה מחדש לכל כרטיס שתמונתו כבר נטענה (‏--win-h ומצב) */
+  var refitT = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(refitT);
+    refitT = setTimeout(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.sw-card .sw-cimg'), function (im) { if (im.complete) fitCard(im); });
+    }, 120);
+  });
   function imgSrc(u, w) {
     var small = sized(u, w);
     return 'src="' + esc(small) + '"' + (small !== u ? ' data-orig="' + esc(u) + '"' : '');
@@ -2187,7 +2206,7 @@
     // בשקופית לפני/אחרי התמונה של הכרטיס מוסתרת, והטשטוש שמאחור הוא של ה"לפני"
     var u = s ? (sp === 'ba' ? vizPair.get(c.p.id).before : slideBase(c.p, s)) : '';
     if (img && img.tagName === 'IMG' && u && img.getAttribute('data-orig') !== u) {
-      card.removeAttribute('data-fit'); img.style.width = '';
+      card.removeAttribute('data-fit'); card.style.removeProperty('--win-h'); img.style.width = '';
       img.setAttribute('data-orig', u); img.src = sized(u, cardW());
     }
     if (blur && u) blur.src = sized(u, 40);

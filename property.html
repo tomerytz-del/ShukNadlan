@@ -54,11 +54,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      נטען לפני property-card.js — הוא זה שמוסיף את התגית לאריחי
      "נכסים דומים" שבתחתית העמוד. ראו docs/open-house-fair.md -->
 <script src="assets/open-house.js"></script>
-<!-- דגל v10 (‏?beta=1 / ‏?beta=0, נשמר ב-sk_beta_hero כמו בדף הבית): כאן רק לנכס בלי תמונות (assets/no-photo.js) -->
-<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
-if(q==='1')localStorage.setItem('sk_beta_hero','1');
-if(q==='0')localStorage.removeItem('sk_beta_hero');
-if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}})();</script>
+<!-- דגל v10, אותו קוד כמו בדף הבית (ברירת מחדל מ-31.10.2026, ‏?beta=0 מכבה ונשמר): כאן רק לנכס בלי תמונות (assets/no-photo.js) -->
+<script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
+if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
+try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
+if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <script src="assets/no-photo.js"></script>
 <script src="assets/property-card.js"></script>
 <!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
