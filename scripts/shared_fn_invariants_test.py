@@ -161,13 +161,21 @@ def main() -> int:
         and "(s.rn + v_prior) > v_fanout" not in off
     ):
         fail("תקרת 15 של הביקוש הפתוח נעלמה מהגוף האחרון")
+    if version_of(Path(where["public.notification_push_claim"])) < "20271031260000":
+        fail("claim האחרון בסדר הפריסה ישן מהחריץ השמור של התקציר")
+    if "template_cap_digest_reserved" not in claim or "whatsapp_template_cap_digest_channel" not in claim:
+        fail("החריץ השמור של התקציר נעלם מה-claim")
+    if "if v_cap_held and public.whatsapp_template_cap_on()" not in claim:
+        fail("החריץ השמור רץ גם כשתקרת התבניות כבויה")
     backlog = final.get("public.notification_push_has_backlog", "")
     if "skipped_template_cap" in backlog and "interval '72 hours'" not in backlog:
         fail("has_backlog לא שומר פריט תקרה 72 שעות")
     if "a.in_window" in backlog and "a.in_service_window" not in backlog:
         fail("has_backlog מסנן תקרה בעמודה שאינה ב-due_agents")
-    if version_of(Path(where["public.notification_push_has_backlog"])) < "20271030000300":
-        fail("has_backlog האחרון בסדר הפריסה ישן ממסנן התקרה")
+    if version_of(Path(where["public.notification_push_has_backlog"])) < "20271031260000":
+        fail("has_backlog האחרון בסדר הפריסה ישן מהחריץ השמור")
+    if "whatsapp_template_cap_digest_kind" not in backlog:
+        fail("has_backlog מעיר את הקרון גם כשהמרווח של 8 השעות לא מתקיים")
     if where["public.notification_send_window_open"] != WIN.name:
         fail("notification_send_window_open נדרס אחרי חלון הלקוחות")
     if where["public.saved_search_quiet_now"] != WIN.name:
