@@ -2568,12 +2568,13 @@ function handleGotoParam(){
   const status = params.get('status');
   const importJob = params.get('import');
   const tab = params.get('tab');
+  const demandId = params.get('demand');
   // הקישור של גבריאלה לכלי המידע התכנוני (planningToolUrl ב-agent.ts)
   const planQ = ['plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka']
     .reduce((o, k) => { o[k] = (params.get(k) || '').slice(0, 80); return o; }, {});
 
   if (window.history && window.history.replaceState){
-    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'status', 'import', 'tab',
+    ['goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement', 'review', 'filter', 'status', 'import', 'tab', 'demand',
      'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka', 'wc', 'wt']
       .forEach(k => params.delete(k));
     const search = params.toString();
@@ -2600,6 +2601,9 @@ function handleGotoParam(){
       && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
   if (!navAccVisible(accAliasTarget(raw))){ armTrackers(); return; }
   gotoSection(raw);
+  if (raw === 'accNotifPrefs' && (focus === 'lead_wa' || (focus && focus.indexOf('cadence_') === 0))) {
+    if (typeof focusNotifCadence === 'function') focusNotifCadence(focus);
+  }
   /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
      גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
   if (switched) setTimeout(()=>{
@@ -2619,8 +2623,15 @@ function handleGotoParam(){
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
-  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function')
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') {
     openLeadsDemand({ fromLink: true });
+    if (UUID_PARAM_RE.test(demandId || '')) {
+      setTimeout(() => {
+        const el = document.querySelector('[data-demand-id="' + demandId + '"]');
+        if (el) scrollToTopOf(el);
+      }, 800);
+    }
+  }
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -26365,6 +26376,8 @@ let notifMutedTypes = [];
    המאושרים של פעם, נשארה בטבלה בלי קורא. */
 let notifWhatsappOffTypes = [];
 let notifLessRows = [];
+let notifWhatsappCadence = {};
+let notifWhatsappCadenceSince = {};
 
 /* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
    ההתראות היוצא — אותו מספר, אותה זהות. הבדיקה כאן היא לתצוגה בלבד;
@@ -26385,15 +26398,21 @@ function notifVisibleTypes(){
 async function loadNotifPrefs(agentId){
   // ‏'*' מאותה סיבה של הפעמון: ‏whatsapp_off_types חדשה (20270125090000).
   // שורת "פחות כאלה" נטענת בנפרד: לפני המיגרציה הטבלה חסרה, והמסך נשאר בלי הרשימה.
-  const [prefs, less] = await Promise.all([
+  const [prefs, less, cadenceFlag] = await Promise.all([
     sb.from('agent_notification_preferences').select('*').eq('agent_id', agentId).maybeSingle(),
     sb.from('agent_notif_less').select('notif_type, expires_at').eq('agent_id', agentId),
+    sb.rpc('notif_cadence_button_on'),
   ]);
+  notifCadenceFlag = !cadenceFlag.error && cadenceFlag.data === true;
 
   // שגיאה כאן משמעה שהמיגרציה עוד לא רצה על המסד. במצב כזה לא חוסמים כלום:
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
   notifMutedTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.muted_types)) ? prefs.data.muted_types : [];
   notifWhatsappOffTypes = (!prefs.error && prefs.data && Array.isArray(prefs.data.whatsapp_off_types)) ? prefs.data.whatsapp_off_types : [];
+  notifWhatsappCadence = (!prefs.error && prefs.data && prefs.data.whatsapp_cadence && typeof prefs.data.whatsapp_cadence === 'object')
+    ? prefs.data.whatsapp_cadence : {};
+  notifWhatsappCadenceSince = (!prefs.error && prefs.data && prefs.data.whatsapp_cadence_since && typeof prefs.data.whatsapp_cadence_since === 'object')
+    ? prefs.data.whatsapp_cadence_since : {};
   notifLessRows = (!less.error && Array.isArray(less.data)) ? less.data : [];
   renderNotifPrefs();
 }

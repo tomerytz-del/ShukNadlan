@@ -19,6 +19,16 @@ import {
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
+import {
+  CLAIM_TITLE,
+  OPEN_DEMAND_LIMIT,
+  OPEN_DEMAND_MAX,
+  OPEN_DEMAND_SEE_ALL,
+  claimRows,
+  excludeSocialBuyer,
+  openDemandBrief,
+  type DemandRow,
+} from "../_shared/open-demand-brief.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
 import { forwardPropertyLink, propertyForwardMessage, propertyPublicUrl, showcaseForwardMessage, showcasePublicUrl } from "../_shared/wa-forward.ts";
 import { airCountOnly, LARGE_LIVING_ROOM_SQM, minAirCountKept, writeAirDirections } from "../_shared/air-living.ts";
@@ -453,8 +463,8 @@ const clientFields = {
 // ש-`notifications_type_check` מתיר. ‏review_alert ו-lead_unrouted אינם כאן
 // בכוונה: הם של מנהל/ת הפלטפורמה ומגיעים גם במייל.
 const NOTIFY_TYPES = [
-  "new_lead", "match_digest", "agreement_signed", "review_new", "deal_closed",
-  "review_request", "marketing_copy", "system", "agenda_reminder",
+  "new_lead", "open_demand", "match_digest", "system", "agenda_reminder",
+  "agreement_signed", "review_new", "review_request", "marketing_copy", "deal_closed",
 ];
 
 const AGENDA_KINDS = ["task", "call", "meeting", "showing", "signing"];
@@ -1515,6 +1525,21 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "open_demand_leads",
+    description:
+      "ביקוש פתוח שמתאים לסוכן/ת לפי ערי העבודה, אותה רשימה כמו לשונית ביקוש פתוח ב-CRM. " +
+      "אין שם, טלפון, מייל או פרופיל לפני שאני פונה. כל פריט הוא תקציר (סוג, אזור, חדרים או תקציב, ומתי בלי תאריך) " +
+      "ונתיב action_path. כפתור אני פונה תופס את הביקוש. פריט נעול חוזר עם locked והנתיב לפתיחה. " +
+      "מסלול חינם לא מחובר לגבריאלה. עד 8 פריטים, ואז כפתור לכל הרשימה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", description: "5 עד 8. ברירת מחדל 6." },
+      },
+      required: [],
+    },
+  },
+  {
     name: "list_notifications",
     description:
       "ההתראות שממתינות בפעמון של הסוכן/ת - לידים, התאמות, ביקורות, הסכמים " +
@@ -1532,8 +1557,9 @@ const TOOLS: Anthropic.Tool[] = [
     name: "whatsapp_alerts",
     description:
       "מציג או משנה אילו סוגי התראה יישלחו לסוכן/ת **גם כהודעת וואטסאפ**, " +
-      "ולא רק בפעמון שבדשבורד. ברירת המחדל היא שכל הסוגים נשלחים בוואטסאפ, " +
-      "עד שמכבים אותם.",
+      "ולא רק בפעמון שבדשבורד. ברירת המחדל היא שכל הסוגים נשלחים על כל פריט, " +
+      "עד שמכבים אותם. כיבוי הוא קצב ללא, באותה שורת העדפות. הדלקה אחרי ללא " +
+      "חוזרת על כל פריט, בלי למחוק קצב יומי שכבר נבחר.",
     input_schema: {
       type: "object",
       properties: {
@@ -1554,7 +1580,8 @@ const TOOLS: Anthropic.Tool[] = [
             "ביקורת חדשה · deal_closed = עסקה שנסגרה בצוות (מנהל/ת בלבד) · " +
             "review_request = תזכורת לבקש חוות דעת · marketing_copy = תיאור " +
             "שיווקי שנכתב אוטומטית · system = שיתופי נכסים והודעות מערכת · " +
-            "agenda_reminder = תזכורות על פגישות ומשימות מהיומן.",
+            "agenda_reminder = תזכורות על פגישות ומשימות מהיומן · " +
+            "open_demand = ביקוש פתוח.",
         },
       },
       required: ["action"],
@@ -7762,6 +7789,99 @@ async function toolAskMentor(ctx: ToolContext, input: Record<string, unknown>) {
 // ---------------------------------------------------------------------------
 // לידים והתראות
 // ---------------------------------------------------------------------------
+function agentTools(demandOn: boolean, allowed?: ReadonlySet<string>): Anthropic.Tool[] {
+  return TOOLS.filter((t) => (demandOn || t.name !== "open_demand_leads")
+    && (!allowed || allowed.has(t.name)));
+}
+
+async function cadenceButtonOn(sb: { from: (table: string) => any }): Promise<boolean> {
+  const { data, error } = await sb.from("app_config")
+    .select("value")
+    .eq("key", "notif_cadence_button_enabled")
+    .maybeSingle();
+  if (error || !data) return false;
+  return ["1", "true", "on", "yes"].includes(String(data.value || "").trim().toLowerCase());
+}
+
+async function toolOpenDemandLeads(ctx: ToolContext, input: Record<string, unknown>) {
+  if (!(await cadenceButtonOn(ctx.supabase))) {
+    return { ok: false, error: "הכלי כבוי. הדגל notif_cadence_button_enabled כבוי." };
+  }
+  if (ctx.agent.tier === "free") {
+    return { ok: false, error: "מסלול חינם לא מחובר לגבריאלה, ואין גישה לביקוש הפתוח." };
+  }
+  const limit = Math.min(OPEN_DEMAND_MAX, Math.max(5, Number(input.limit) || OPEN_DEMAND_LIMIT));
+  const [{ data, error }, stats, flagRow] = await Promise.all([
+    ctx.supabase.rpc("open_demand_list_for_agent", { p_agent: ctx.agent.id }),
+    ctx.supabase.rpc("open_demand_stats_for_agent", { p_agent: ctx.agent.id }),
+    ctx.supabase.from("pricing_config").select("value").eq("key", "social_buyer_open_demand_enabled").maybeSingle(),
+  ]);
+  if (error) return { ok: false, error: error.message };
+  const socialOn = Number(flagRow.data?.value) === 1;
+  const rows = ((data || []) as Array<DemandRow & { neighborhood_id?: string | null; lead_type?: string | null; source?: string | null }>)
+    .filter((row) => !excludeSocialBuyer(socialOn, row.lead_type, row.source));
+  const hoodIds = [...new Set(rows.map((r) => r.neighborhood_id).filter(Boolean))] as string[];
+  const hoods = new Map<string, string>();
+  if (hoodIds.length) {
+    const { data: names } = await ctx.supabase.from("neighborhoods").select("id,name").in("id", hoodIds);
+    for (const n of names || []) hoods.set(String(n.id), String(n.name || ""));
+  }
+  const statsJson = (stats.data || {}) as { my_today?: number; daily_cap?: number };
+  const capFull = Number(statsJson.my_today || 0) >= Number(statsJson.daily_cap || 0) && Number(statsJson.daily_cap || 0) > 0;
+  const now = new Date();
+  const shown = rows.slice(0, limit);
+  const items = shown.map((row) => {
+    const locked = capFull && !row.mine;
+    const brief = openDemandBrief({
+      id: row.id,
+      lead_type: row.lead_type,
+      city: row.city,
+      neighborhood: row.neighborhood_id ? hoods.get(String(row.neighborhood_id)) || "" : "",
+      deal_type: row.deal_type,
+      property_type: row.property_type,
+      rooms: row.rooms,
+      budget: row.budget,
+      posted_at: row.posted_at,
+      mine: row.mine,
+    }, now, locked);
+    return { id: row.id, ...brief };
+  });
+  if (ctx.outbox && items.some((item) => !item.locked)) {
+    const rowsForClaim = claimRows(items);
+    if (rowsForClaim.length === 1) {
+      ctx.outbox.push({
+        kind: "buttons",
+        body: items.find((item) => !item.locked)?.summary || CLAIM_TITLE,
+        buttons: [{ id: rowsForClaim[0].id, title: CLAIM_TITLE }],
+      });
+    } else if (rowsForClaim.length > 1) {
+      ctx.outbox.push({
+        kind: "list",
+        body: "אפשר לפנות לביקוש אחד. הפרטים נשארים בלי שם ובלי טלפון עד הלחיצה.",
+        button: CLAIM_TITLE,
+        section: "ביקוש פתוח",
+        rows: rowsForClaim,
+      });
+    }
+  }
+  if (ctx.outbox) {
+    ctx.outbox.push({
+      kind: "cta",
+      body: "כל הביקוש הפתוח בעיר שלך:",
+      label: "כל הביקוש",
+      url: `${SITE_BASE_URL}${OPEN_DEMAND_SEE_ALL}`,
+    });
+  }
+  return {
+    ok: true,
+    returned: items.length,
+    total: rows.length,
+    see_all: OPEN_DEMAND_SEE_ALL,
+    ...(ctx.outbox ? { buttons_sent: true } : {}),
+    items,
+  };
+}
+
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
 
@@ -8072,24 +8192,52 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
   };
 }
 
+function alertCadence(
+  stored: Record<string, string> | null | undefined,
+  off: string[],
+  typeId: string,
+): string {
+  const raw = stored?.[typeId];
+  if (raw === "each" || raw === "daily" || raw === "thrice" || raw === "off") {
+    if ((raw === "daily" || raw === "thrice")
+      && (typeId === "agenda_reminder" || typeId === "agreement_signed" || typeId === "deal_closed")) {
+      return "each";
+    }
+    return raw;
+  }
+  return off.includes(typeId) ? "off" : "each";
+}
+
 async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknown>) {
   const action = String(input.action || "get");
   const asked = (Array.isArray(input.types) ? input.types : [])
     .map((t) => String(t))
     .filter((t) => NOTIFY_TYPES.includes(t));
 
-  const { data: prefs } = await ctx.supabase
+  let cadenceOk = true;
+  let prefsRes = await ctx.supabase
     .from("agent_notification_preferences")
-    .select("muted_types, whatsapp_off_types")
+    .select("muted_types, whatsapp_off_types, whatsapp_cadence, whatsapp_cadence_since")
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
+  if (prefsRes.error && /whatsapp_cadence|42703|schema cache/i.test(prefsRes.error.message || "")) {
+    cadenceOk = false;
+    prefsRes = await ctx.supabase
+      .from("agent_notification_preferences")
+      .select("muted_types, whatsapp_off_types")
+      .eq("agent_id", ctx.agent.id)
+      .maybeSingle();
+  }
+  const prefs = prefsRes.data;
   // וואטסאפ דלוק כברירת מחדל לכל סוג (20270303090000), ולכן הרשימה
-  // האפקטיבית היא הכול פחות מה שכובה.
+  // האפקטיבית היא הכול פחות מה שכובה. קצב off ו-whatsapp_off_types הם אותו דבר.
   const off: string[] = prefs?.whatsapp_off_types || [];
-  const current: string[] = NOTIFY_TYPES.filter((t) => !off.includes(t));
+  const stored = (prefs?.whatsapp_cadence || {}) as Record<string, string>;
+  const current: string[] = NOTIFY_TYPES.filter((t) => alertCadence(stored, off, t) !== "off");
+  const cadences = Object.fromEntries(NOTIFY_TYPES.map((t) => [t, alertCadence(stored, off, t)]));
 
   if (action === "get") {
-    return { ok: true, enabled_types: current, all_types: NOTIFY_TYPES };
+    return { ok: true, enabled_types: current, all_types: NOTIFY_TYPES, cadences: cadenceOk ? cadences : undefined };
   }
 
   if ((action === "enable" || action === "set") && !asked.length) {
@@ -8106,22 +8254,52 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
   // ‏disable בלי types הוא "תפסיק לשלוח לי בוואטסאפ" — כיבוי הערוץ כולו.
   else next = asked.length ? current.filter((t) => !asked.includes(t)) : [];
 
+  const now = new Date().toISOString();
+  const cadence = { ...stored };
+  const since = { ...((prefs?.whatsapp_cadence_since || {}) as Record<string, string>) };
+  if (cadenceOk) {
+    for (const typeId of NOTIFY_TYPES) {
+      const cur = alertCadence(stored, off, typeId);
+      if (!next.includes(typeId)) {
+        if (cur !== "off") {
+          cadence[typeId] = "off";
+          since[typeId] = now;
+        }
+      } else if (cur === "off") {
+        cadence[typeId] = "each";
+        since[typeId] = now;
+      }
+    }
+    if (cadence.match_digest) {
+      cadence.client_match = cadence.match_digest;
+      if (since.match_digest) since.client_match = since.match_digest;
+    }
+  }
+
   // ‏upsert ולא update: לרוב הסוכנים אין שורת העדפות בכלל (היעדר שורה =
   // הכול דלוק, בפעמון ובוואטסאפ), והכיבוי הראשון הוא זה שיוצר אותה.
   // ‏muted_types נשמר כפי שהוא — הפעמון בדשבורד אינו מושפע מהערוץ. סוגים
   // שאינם ב-NOTIFY_TYPES (של מנהל/ת הפלטפורמה) נשארים כפי שהיו.
-  const { error } = await ctx.supabase
-    .from("agent_notification_preferences")
-    .upsert({
-      agent_id: ctx.agent.id,
-      whatsapp_off_types: [
-        ...off.filter((t) => !NOTIFY_TYPES.includes(t)),
-        ...NOTIFY_TYPES.filter((t) => !next.includes(t)),
-      ],
-      muted_types: prefs?.muted_types || [],
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "agent_id" });
-  if (error) return { ok: false, error: error.message };
+  const base = {
+    agent_id: ctx.agent.id,
+    whatsapp_off_types: [
+      ...off.filter((t) => !NOTIFY_TYPES.includes(t)),
+      ...NOTIFY_TYPES.filter((t) => !next.includes(t)),
+    ],
+    muted_types: prefs?.muted_types || [],
+    updated_at: now,
+  };
+  let saved = cadenceOk
+    ? await ctx.supabase.from("agent_notification_preferences").upsert({
+      ...base,
+      whatsapp_cadence: cadence,
+      whatsapp_cadence_since: since,
+    }, { onConflict: "agent_id" })
+    : await ctx.supabase.from("agent_notification_preferences").upsert(base, { onConflict: "agent_id" });
+  if (saved.error && cadenceOk && /whatsapp_cadence|42703|schema cache/i.test(saved.error.message || "")) {
+    saved = await ctx.supabase.from("agent_notification_preferences").upsert(base, { onConflict: "agent_id" });
+  }
+  if (saved.error) return { ok: false, error: saved.error.message };
 
   // סוג שהסוכן/ת השתיק/ה בפעמון לא ייווצר מלכתחילה (הטריגר
   // ‏notifications_apply_preferences מחזיר null), ולכן גם לא יישלח בוואטסאפ.
@@ -8131,6 +8309,9 @@ async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknow
   return {
     ok: true,
     enabled_types: next,
+    cadences: cadenceOk
+      ? Object.fromEntries(NOTIFY_TYPES.map((t) => [t, next.includes(t) ? alertCadence(cadence, [], t) : "off"]))
+      : undefined,
     channel_off: next.length === 0,
     muted_conflict: muted.length ? muted : undefined,
     note: muted.length
@@ -8777,6 +8958,7 @@ async function runTool(
 
       // לידים והתראות
       case "list_leads": return await toolListLeads(ctx, input);
+      case "open_demand_leads": return await toolOpenDemandLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
       case "whatsapp_alerts": return await toolWhatsappAlerts(ctx, input);
       // יומן
@@ -9209,6 +9391,7 @@ function sessionContext(
   gaps: string[] = [],
   pendingSince: number | null = null,
   listingCity?: string | null,
+  demandOn = false,
 ): string {
   const now = Date.now();
   const today = ilDateOf(now);
@@ -9252,6 +9435,12 @@ function sessionContext(
       "",
       `בפרופיל האישי חסר: ${gaps.join(", ")}. אם הסוכן/ת שולח/ת עכשיו אחד מהם ` +
         "(\"אני 12 שנה בתחום\", תמונה עם \"תמונת פרופיל\") - update_profile.",
+    );
+  }
+  if (demandOn) {
+    lines.push(
+      "",
+      "ביקוש פתוח (\"אילו לידים יש בביקוש הפתוח\") = open_demand_leads. בלי שם, טלפון או מייל, עד שלוחצים אני פונה.",
     );
   }
   lines.push("", listingCityPromptLine(listingCity));
@@ -9337,13 +9526,13 @@ export function evalPromptParts(): { tools: Anthropic.Tool[]; system: string; mo
   return { tools: TOOLS, system: SYSTEM_STATIC, model: MODEL };
 }
 
-export async function warmPromptCache(): Promise<Anthropic.Message> {
+export async function warmPromptCache(demandOn = false): Promise<Anthropic.Message> {
   const response = await callClaude({
     model: MODEL,
     max_tokens: 0,
     output_config: { effort: "medium" },
     system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
-    tools: TOOLS,
+    tools: agentTools(demandOn),
     messages: [{ role: "user", content: "." }],
   } as unknown as Anthropic.MessageCreateParamsNonStreaming);
   logAiUsage(anthropicRow("gabriela_agent_warm", response.model || MODEL, response.usage));
@@ -9378,7 +9567,8 @@ export async function runAgentTurn(opts: {
   const denied = opts.deniedToolMessage ||
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
   const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
-  const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
+  const demandOn = await cadenceButtonOn(supabase);
+  const tools = agentTools(demandOn, allowedTools);
   const gaps = profileGaps(await loadProfileForTurn(ctx));
   const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
   const listingCity = cachedListingCityName(ctx.listingCitySlot);
@@ -9387,7 +9577,7 @@ export async function runAgentTurn(opts: {
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity), userContent) },
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity, demandOn), userContent) },
   ];
 
   let finalText = "";
