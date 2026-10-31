@@ -1010,27 +1010,12 @@
     restrooms: 1, storageAt: 1, mamadAt: 1, ppsqmMin: 1, ppsqmMax: 1, newOnly: 1,
   };
 
-  /* "למכירה" לבדה היא הלשונית שבברירת המחדל, לא כתובת נפרדת. type=flats
-     מצטרף אליה רק בעמוד "דירות למכירה" (shuk-search-type) ואינו סינון נוסף. */
-  function bareDefaultSale(qs) {
-    var p = new URLSearchParams(qs || '');
-    var keys = [];
-    p.forEach(function (_v, k) { keys.push(k); });
-    if (p.get('deal') !== 'sale') return false;
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (k === 'deal') continue;
-      if (k === 'type' && p.get(k) === 'flats') continue;
-      return false;
-    }
-    return true;
-  }
-
   /* מחרוזת החיפוש נכתבת על הכתובת הקיימת בלי למחוק פרמטרים שאינם של החיפוש.
+     ‏deal=sale שנבחר במפורש נשאר: מחיקה שלו מאבדת את הבחירה בחזרה מדף נכס
+     כש-v10 כבוי. "למכירה" של טעינה אינה נכתבת כאן - זה #1110 (סיבת default).
      qs הוא הפלט של toParams (מקודד). מחזיר pathname + search + hash. */
   function applySearchToUrl(href, qs) {
     var url = new URL(href, 'https://shuknadlan.co.il/');
-    if (bareDefaultSale(qs)) qs = '';
     var keep = [];
     var raw = url.search.charAt(0) === '?' ? url.search.slice(1) : url.search;
     if (raw) {
@@ -1363,8 +1348,7 @@
       var prev = st;
       st = applyPatch(st, patch);
       if (prev.area === 'drawn' && st.area !== 'drawn' && typeof opts.onLeaveDrawn === 'function') opts.onLeaveDrawn();
-      /* ‏default: הלשונית "למכירה" שנבחרת בטעינה. היא מסננת, והכתובת נשארת. */
-      if (reason !== 'init' && reason !== 'default') urlTouched = true;
+      if (reason !== 'init') urlTouched = true;
       commitUrl();
       render();
       if (loaded && typeof opts.onChange === 'function') opts.onChange(results(), st, reason || 'change');
@@ -2060,11 +2044,11 @@
         render();
       },
       setAi: function (on) { change({ ai: !!on }, 'ai'); },
-      setDeal: function (deal, reason) {
+      setDeal: function (deal) {
         touched.deal = true;
         var patch = { deal: deal };
         if (typeDef(st.type).commercial) patch.type = 'any';
-        change(patch, reason || 'legend');
+        change(patch, 'legend');
       },
       setType: function (type) { touched.type = true; change({ type: type }, 'legend'); },
       /* הסינון המתקדם: פרדיקט מהדף (או null לניקוי) */

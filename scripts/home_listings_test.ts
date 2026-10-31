@@ -9,7 +9,6 @@ const FIXTURE = `<!doctype html><html><head><title>t</title>
 <section class="section wrap" id="allProps" hidden data-browse="home"></section>
 </body></html>`;
 
-const CITIES = [{ city_id: "c2a8426f-7bac-4c48-bcb5-53a5ca06f001" }];
 const ROWS = [
   { id: "p1", title: "דירה </script><b>x", price: 1250000, deal_type: "sale" },
   { id: "p2", title: "דירה להשכרה", price: 4000, deal_type: "rent" },
@@ -22,15 +21,11 @@ function check(name: string, ok: boolean, detail = "") {
   console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : "   " + detail}`);
 }
 
+let calls: { url: string; cache?: string }[] = [];
 async function run(path: string, status: number, body: unknown, page = FIXTURE): Promise<Response> {
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = String(input);
-    if (url.includes("market_cities_public")) {
-      return new Response(JSON.stringify(status === 500 ? { err: 1 } : CITIES), {
-        status: status === 500 ? 500 : 200,
-        headers: { "content-type": "application/json" },
-      });
-    }
+  calls = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), cache: init?.cache });
     return new Response(JSON.stringify(body), {
       status,
       headers: { "content-type": "application/json" },
@@ -56,6 +51,9 @@ async function run(path: string, status: number, body: unknown, page = FIXTURE):
   check("בלי סגירת script", !html.includes("</script><b>"));
   check("מטמון להצלחה", res.headers.get("Netlify-CDN-Cache-Control")?.includes("max-age=3600") === true);
   check("data-ssr", html.includes('id="allProps"') && html.includes('data-ssr="1"'));
+  const open = html.match(/<section\b[^>]*\bid="allProps"[^>]*>/);
+  check("בלי hidden", !!open && !/\shidden\b/.test(open[0]), open?.[0] || "");
+  check("שאילתה אחת ו-cache manual", calls.length === 1 && calls[0].url.includes("/properties?") && !calls[0].url.includes("market_cities") && calls[0].cache === "manual", JSON.stringify(calls));
 }
 
 {

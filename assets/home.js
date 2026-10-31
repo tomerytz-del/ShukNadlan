@@ -8637,9 +8637,7 @@ function v10DefaultSale(){
      הזהב הציג את כל הנכסים כש"למכירה" נראית בחורה. שקט: בלי לפתוח תוצאות ובלי גלילה */
   if (sentence.isClean() && !sentence.state().deal){
     sentenceQuiet = true;
-    /* ‏reason 'default': הסינון חל, והכתובת לא מקבלת ?deal=sale.
-       כתובת נפרדת כזו היא עמוד תוצאות עם canonical משלו. */
-    try { sentence.setDeal('sale', 'default'); } finally { sentenceQuiet = false; }
+    try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
   }
   syncV10Tabs();
 }

@@ -3534,12 +3534,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
      מראש - בגובה של שתי שורות המדף - ונעלם רק כשהמלאי הגיע ריק (‏pp-none, ‏ppSync ב-home.js) */
   html.beta-hero #allProps[hidden]:not(.pp-none){display:block !important;visibility:hidden;min-height:1110px}
   @media(min-width:760px){html.beta-hero #allProps[hidden]:not(.pp-none){min-height:920px}}
-  /* רשימת השרת (home-listings.ts) יושבת בתוך אותו מקום שמור, ולא מעבר לו. */
-  #allProps .home-ssr{max-height:1110px;overflow:hidden}
+  /* רשימת השרת גלויה בציור הראשון, בגובה של שתי שורות המדף. המדף מחליף אותה במקום. */
+  #allProps[data-ssr="1"]:not(.pp-none){min-height:1110px}
+  #allProps[data-ssr="1"] .home-ssr{min-height:1110px}
   #allProps .home-ssr a{display:flex;justify-content:space-between;gap:12px;align-items:center;min-height:44px;padding:4px 0;color:inherit;font-weight:700;text-decoration:none}
   #allProps .home-ssr-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #allProps .home-ssr-price{flex:none}
-  @media(min-width:760px){#allProps .home-ssr{max-height:920px}}
+  @media(min-width:760px){
+    #allProps[data-ssr="1"]:not(.pp-none),
+    #allProps[data-ssr="1"] .home-ssr{min-height:920px}
+  }
   /* ‏P1-E: לב בכותרת, מונה נייבי. ‏C6 (החלטת תומר 28.10): גם בטלפון, אותו רכיב ואותה תווית */
   /* ‏.hdr-likes (הלב בכותרת) עבר ל-assets/design-system.css - משותף עם דף הנכס */
   /* ‏P1-J: אייקונים לכפתורי התצוגה, ותנועה קטנה בריחוף (רק עכבר, ובלי reduced-motion). ‏.vi קיים רק בכפתורים האלה */

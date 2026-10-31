@@ -1,15 +1,14 @@
 /* ============================================================================
    דף הבית: כ-12 נכסים פעילים אחרונים ב-HTML הראשון, ו-ItemList
    ----------------------------------------------------------------------------
-   הסורק שקורא את / בלי JS ראה אפס קישורים לנכס. המדף נבנה אחר כך
-   ב-prop-shelf.js, ומחליף את הרשימה הזו (אותו #allProps, אותו מקום שמור).
+   הסורק שקורא את / בלי JS ראה אפס קישורים לנכס. הרשימה גלויה בציור
+   הראשון, בגובה השמור של המדף, ו-prop-shelf.js מחליף אותה במקום.
 
-   רק / בלי פרמטרי חיפוש. ?deal=sale וחבריו הם עמודי תוצאות; הרשימה שלהם
-   אינה הרשימה של דף הבית. utm_*, gclid ו-beta אינם תוכן.
+   שאילתה אחת (עפולה ויישובי העמק), במקביל ל-HTML של הדף, עם timeout
+   קצר. fetch עם cache: "manual" כדי ש-Netlify-CDN-Cache-Control יחול
+   על התשובה. כשל או timeout: הדף כמו שהוא, בלי מטמון ובלי noindex.
 
-   כשל מסד אינו 503 ואינו noindex: דף הבית יוצא כמו שהוא, בלי מטמון,
-   כדי שהבקשה הבאה תנסה שוב. הצלחה נשמרת שעה (הבלוק הוא לסורק; הגולש
-   רואה את המדף מהדפדפן).
+   רק / בלי פרמטרי חיפוש. ?deal=sale וחבריו הם עמודי תוצאות.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
@@ -17,9 +16,15 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
-const FETCH_TIMEOUT_MS = 2500;
+const FETCH_TIMEOUT_MS = 800;
 const LIMIT = 12;
-const MARKET = "afula-emek";
+
+/* עפולה, ואז יישובי afula-emek מ-assets/silo-render.js (עמק יזרעאל).
+   שאילתה אחת, בלי סבב נפרד אל market_cities_public. */
+const CITIES = [
+  "עפולה",
+  "אביטל", "אדירים", "אומן", "אחוזת ברק", "בית השיטה", "בלפוריה", "ברק", "גבע", "גבת", "גדיש", "גדעונה", "גזית", "גיניגר", "גן נר", "דבורה", "דברת", "היוגב", "חבר", "יזרעאל", "יעל", "יפעת", "כפר ברוך", "כפר גדעון", "כפר יחזקאל", "כפר תבור", "מבואות הגלבוע", "מגן שאול", "מולדת", "מזרע", "מיטב", "מיטל", "מלאה", "מרחביה (מושב)", "מרחביה (קיבוץ)", "נהלל", "נורית", "ניר יפה", "עין דור", "עין חרוד (איחוד)", "עין חרוד (מאוחד)", "פרזון", "רם-און", "רמת דוד", "רמת צבי", "שריד", "תל יוסף", "תל עדשים",
+];
 
 const NOT_CONTENT = new Set([
   "src", "fbclid", "gclid", "gbraid", "wbraid", "gad_source", "gad_campaignid", "msclkid", "ref",
@@ -69,21 +74,15 @@ function linkText(row: Row): string {
   return `${title} · ${money(row.price, row.deal_type)}`;
 }
 
+function cityFilter(): string {
+  const parts = CITIES.map((name) => `"${encodeURIComponent(name)}"`);
+  return `city=in.(${parts.join(",")})`;
+}
+
 async function latest(signal: AbortSignal): Promise<Row[] | undefined> {
-  const citiesRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/market_cities_public?select=city_id&market_slug=eq.${MARKET}&limit=200`,
-    { headers: authHeaders(), signal },
-  );
-  if (!citiesRes.ok) return undefined;
-  const cities = await citiesRes.json();
-  if (!Array.isArray(cities) || !cities.length) return undefined;
-  const ids = cities
-    .map((row) => String((row as { city_id?: unknown }).city_id || "").trim())
-    .filter((id) => /^[0-9a-f-]{36}$/i.test(id));
-  if (!ids.length) return undefined;
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/properties?select=id,title,price,deal_type&status=eq.active&city_id=in.(${ids.join(",")})&order=is_promoted.desc,created_at.desc&limit=${LIMIT}`,
-    { headers: authHeaders(), signal },
+    `${SUPABASE_URL}/rest/v1/properties?select=id,title,price,deal_type&status=eq.active&${cityFilter()}&order=is_promoted.desc,created_at.desc&limit=${LIMIT}`,
+    { headers: authHeaders(), signal, cache: "manual" },
   );
   if (!res.ok) return undefined;
   const data = await res.json();
@@ -96,7 +95,6 @@ function linksHtml(rows: Row[]): string {
   if (!items.length) return "";
   const anchors = items.map((row) => {
     const id = encodeURIComponent(String(row.id));
-    const text = linkText(row);
     const price = money(row.price, row.deal_type);
     const title = String(row.title).replace(/\s+/g, " ").trim();
     return `<a href="/property?id=${id}"><span class="home-ssr-title">${esc(title)}</span> <span class="home-ssr-price">${esc(price)}</span></a>`;
@@ -127,46 +125,52 @@ function inject(html: string, rows: Row[]): string | null {
   const box = /(<section\b[^>]*\bid="allProps"[^>]*)(>\s*)(<\/section>)/i;
   if (!box.test(html)) return null;
   let out = html.replace(box, (_m, open, mid, close) => {
-    const tag = /data-ssr=/.test(open) ? open : `${open} data-ssr="1"`;
+    let tag = String(open).replace(/\s+hidden\b/, "");
+    if (!/data-ssr=/.test(tag)) tag += ' data-ssr="1"';
     return `${tag}${mid}${nav}${close}`;
   });
-  if (out.includes('"@type":"ItemList"') || out.includes('"@type": "ItemList"')) {
-    return out;
+  if (!out.includes('"@type":"ItemList"') && !out.includes('"@type": "ItemList"')) {
+    const json = itemList(rows);
+    out = out.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
   }
-  const json = itemList(rows);
-  out = out.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
   return out;
 }
 
+function cacheHeaders(headers: Headers): void {
+  if (headers.has("set-cookie")) return;
+  headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+}
+
 export default async function handler(request: Request, context: Context) {
-  const res = await context.next();
-  if (request.method !== "GET" && request.method !== "HEAD") return res;
+  if (request.method !== "GET" && request.method !== "HEAD") return context.next();
   let url: URL;
-  try { url = new URL(request.url); } catch { return res; }
-  if (!isHome(url) || hasContent(url.searchParams)) return res;
+  try { url = new URL(request.url); } catch { return context.next(); }
+  if (!isHome(url) || hasContent(url.searchParams)) return context.next();
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const rowsP = latest(ctrl.signal).catch(() => undefined);
+  const res = await context.next();
   const type = res.headers.get("content-type") || "";
-  if (!res.ok || !type.includes("text/html")) return res;
-  if (res.status >= 300 && res.status < 400) return res;
+  if (!res.ok || !type.includes("text/html") || (res.status >= 300 && res.status < 400)) {
+    ctrl.abort();
+    clearTimeout(timer);
+    return res;
+  }
 
   const html = await res.text();
   const headers = new Headers(res.headers);
   headers.delete("content-length");
   const passthrough = () => new Response(html, { status: res.status, headers });
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const rows = await latest(ctrl.signal);
+    const rows = await rowsP;
     if (!rows) return passthrough();
     const out = inject(html, rows);
     if (!out) return passthrough();
-    if (!headers.has("set-cookie")) {
-      headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
-    }
+    cacheHeaders(headers);
     return new Response(out, { status: res.status, headers });
-  } catch {
-    return passthrough();
   } finally {
     clearTimeout(timer);
   }
