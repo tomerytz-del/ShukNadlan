@@ -231,13 +231,14 @@
   /* היחס בלבד, לפני שהתמונה עצמה הגיעה. ‏low נקבע רק מהתמונה (‏fitCard) */
   function fitByRatio(card, r) {
     var w = card.offsetWidth, h = card.offsetHeight;
-    if (!w || !h || !r || card.classList.contains('is-ba')) return;
+    if (!w || !h || !r || card.classList.contains('is-ba') || card.hasAttribute('data-vlock')) return;
     setFit(card, fitMode(r * 4000, 4000, w, h), r * 4000, 4000, w, h);
   }
   function fitCard(img) {
     var card = img && img.closest('.sw-card');
     if (!card || card.classList.contains('is-ba') || !img.naturalWidth) return;
     noteRatio(img.getAttribute('data-u'), img.naturalWidth, img.naturalHeight, true);
+    if (card.hasAttribute('data-vlock')) { reveal(img); return; }   // כרטיס תחתון של רילס - בפריסה של הסרטון
     // גודל הפריסה ולא getBoundingClientRect: הכרטיס עשוי להיות מוטה או מוגדל (גרירה, נענוע)
     var r = { width: card.offsetWidth, height: card.offsetHeight };
     /* תמונה שהגיעה ברוחב שביקשנו הוקטנה - המקור גדול ממנה, ו"רזולוציה נמוכה" אינה חלה עליה.
@@ -287,6 +288,66 @@
       startMain(ci);
     }
   }, true);
+  /* ‏swipe-smooth P0-5 (31.10): 32 מתוך 63 הסרטונים צולמו לרוחב, והם מילאו את הכרטיס ב-cover - כלומר
+     נחתכו לרצועה צרה מהאמצע. סרטון לרוחב מוצג עכשיו כחלון באמצע הכרטיס (מרכז ב-42%, כמו תמונה
+     לרוחב), בגובה ‏min(62% מהכרטיס, רוחב/יחס × 1.15) - חיתוך קל מהצדדים במקום רצועה של 30% -
+     והטשטוש של הפוסטר מעליו ומתחתיו. לאורך - על כל הכרטיס כמו קודם.
+     ‏VRATIO: כתובת הסרטון → רוחב/גובה, מ-loadedmetadata (‏videoWidth כבר אחרי הסיבוב שבקובץ).
+     הכרטיס התחתון של נכס עם רילס מוצג באותה פריסה, כדי שלא תהיה קפיצה כשהוא עולה */
+  var VRATIO = new Map(), VWARM = new Set();
+  function reelUrl(p) { return hasReel(p) ? p.video_url.trim() : ''; }
+  function reelFit(r, cw, ch) {
+    if (!r || !cw || !ch) return { vfit: 'pending', h: 0 };
+    if (r < 1.1 || cw / ch >= 1) return { vfit: 'port', h: 0 };
+    return { vfit: 'land', h: Math.round(Math.min(ch * 0.62, cw / r * 1.15)) };
+  }
+  function applyReelFit(wrap, r) {
+    var card = wrap && wrap.closest('.sw-card');
+    if (!card) return;
+    var f = reelFit(r, card.offsetWidth, card.offsetHeight);
+    wrap.setAttribute('data-vfit', f.vfit);
+    if (f.h) wrap.style.setProperty('--vwin-h', f.h + 'px'); else wrap.style.removeProperty('--vwin-h');
+    // מחלקות על הכרטיס במקום :has() - הטשטוש וההצללה של סרטון לרוחב גם בדפדפן בלי :has (הערת הסקירה ל-1104)
+    card.classList.toggle('is-vland', f.vfit === 'land');
+    card.classList.toggle('is-vpend', f.vfit === 'pending');
+  }
+  /* הכרטיס התחתון: ההתאמה של הסרטון ולא של התמונה (הפוסטר או התמונה הראשונה בחלון של הסרטון) */
+  function underReelFit(card, r) {
+    var f = reelFit(r, card.offsetWidth, card.offsetHeight);
+    if (f.vfit === 'land') { card.setAttribute('data-fit', 'window'); card.style.setProperty('--win-h', f.h + 'px'); }
+    else if (f.vfit === 'port') { card.setAttribute('data-fit', 'cover'); card.style.removeProperty('--win-h'); }
+    if (f.vfit !== 'pending') card.setAttribute('data-vlock', '1');
+  }
+  /* ‏P1-5: המטא-דאטה של הסרטון (‏preload=metadata, בלי להוריד את הסרטון) לכרטיסים +1 ו-+2 */
+  /* כשל (שגיאה או 6 שניות בלי מטא-דאטה): ניסיון חוזר אחד, ואחריו הכתובת ב-VBAD - הכרטיס התחתון נשאר
+     עם התמונה או הפוסטר בהתאמה הרגילה שלהם, ולא בחלון של סרטון שלא ייטען (הערת הסקירה ל-1104) */
+  var VBAD = new Set();
+  function warmReel(c, retry) {
+    var u = c && c.slot === 'property' ? reelUrl(c.p) : '';
+    if (!u || VRATIO.has(u) || VBAD.has(u) || (VWARM.has(u) && !retry)) return;
+    VWARM.add(u);
+    var v = document.createElement('video'), over = false, t;
+    v.muted = true; v.preload = 'metadata';
+    function stop() { clearTimeout(t); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
+    function fail() {
+      if (over) return;
+      over = true; stop();
+      if (!retry) { warmReel(c, true); return; }
+      VBAD.add(u);
+    }
+    v.addEventListener('loadedmetadata', function () {
+      if (over) return;
+      over = true;
+      if (v.videoWidth && v.videoHeight) {
+        VRATIO.set(u, v.videoWidth / v.videoHeight);
+        document.querySelectorAll('.sw-under .sw-card[data-reel]').forEach(function (cd) { if (cd.getAttribute('data-reel') === u) underReelFit(cd, VRATIO.get(u)); });
+      }
+      stop();
+    }, { once: true });
+    v.addEventListener('error', fail, { once: true });
+    t = setTimeout(fail, 6000);
+    v.src = u;
+  }
   /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
   function warm(u) {
     if (!u || WARM.has(u)) return;
@@ -981,7 +1042,7 @@
     // §2: רק כשבשוק ובעסקה הזו יש לפחות דירה אחת ביריד עכשיו - אחרת לא מוצג בכלל (לא מתג כבוי ולא "0")
     var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, priceMin: 0, rooms: 0, type: '', viz: false, reel: false });
     $('swFFair').hidden = $('swFFairL').hidden = $('swFFairH').hidden = !fairN && !filter.fair;
-    $('swFFair').innerHTML = chip('רק דירות ללא עמלת תיווך', 'data-fairchip="1"', !!filter.fair);
+    $('swFFair').innerHTML = chip('רק דירות מהיריד', 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
     var c = shownCount();
     $('swFCount').textContent = c === 1 ? 'נכס אחד מתאים' : c + ' נכסים מתאימים';
@@ -1472,13 +1533,17 @@
     if (sortKey !== 'rec') return list;
     var reels = list.filter(hasReel);
     if (!reels.length) return list;
+    /* ‏list-view ד (31.10): כל נכס שנכנס מסומן ב-used, גם כשהגיע בתורו הרגיל. רילס שכבר נכנס בתורו
+       (למשל המקודם הראשון) נבחר שוב למקום של רילס, ‏indexOf החזיר -1, ו-splice(-1, 1) מחק את הנכס
+       האחרון ברשימה - כלומר נכס כפול בחפיסה וברשימה, ונכס אחר שנעלם. בשלושה כאלה: 3 כפולים, 3 חסרים */
     var used = new Set(), rest = list.slice(), out = [];
     for (var i = 0; rest.length; i++) {
       var slot = i === 1 || (i > 1 && (i - 1) % 4 === 0);
       var r = slot ? reels.filter(function (x) { return !used.has(x); })[0] : null;
-      if (r) { used.add(r); rest.splice(rest.indexOf(r), 1); out.push(r); continue; }
+      if (r) { used.add(r); var at = rest.indexOf(r); if (at >= 0) rest.splice(at, 1); out.push(r); continue; }
       var nxt = rest.shift();
       if (used.has(nxt)) { i--; continue; }
+      used.add(nxt);
       out.push(nxt);
     }
     return out;
@@ -1508,12 +1573,14 @@
     }
     var pinned = null;
     if (pidWant) {
-      pinned = all.filter(function (x) { return String(x.id) === pidWant; })[0] || null;
+      var pidWant0 = String(pidWant);
+      pinned = all.filter(function (x) { return String(x.id) === pidWant0; })[0] || null;
       pidWant = null;
       if (pinned) {
-        props = props.filter(function (x) { return x !== pinned; });
-        npRest = npRest.filter(function (x) { return x !== pinned; });
-        if (part) { part.again = part.again.filter(function (x) { return x !== pinned; }); npAgain = npAgain.filter(function (x) { return x !== pinned; }); }
+        var notPin = function (x) { return String(x.id) !== pidWant0; };
+        props = props.filter(notPin);
+        npRest = npRest.filter(notPin);
+        if (part) { part.again = part.again.filter(notPin); npAgain = npAgain.filter(notPin); }
       }
     }
     writeUrl();
@@ -1569,6 +1636,16 @@
       again.forEach(function (p) { out.push({ slot: 'property', p: p, ss: 'seen', pos: pos++ }); });
     }
     out.push({ slot: 'end', pos: pos });
+    /* הגנה: לעולם לא אותו נכס פעמיים בחפיסה (השוואה לפי מזהה, לא לפי האובייקט) */
+    var seenIds = {}, dupN = 0;
+    out = out.filter(function (c) {
+      if (c.slot !== 'property') return true;
+      var k = String(c.p.id);
+      if (seenIds[k]) { dupN++; return false; }
+      seenIds[k] = 1;
+      return true;
+    });
+    if (dupN) { out.forEach(function (c, i) { c.pos = i + 1; }); if (DEBUG) console.assert(false, 'swipe: ' + dupN + ' נכסים כפולים בחפיסה'); }
     if (DEBUG) { npAssert(out); seqAssert(out); }
     deck = out; idx = 0; history_ = [];
     $('swSortN').textContent = countLabel(shownCount());
@@ -1618,7 +1695,11 @@
       /* ‏P0-1: היחס ידוע - ‏data-fit ו-‏--win-h כבר ב-HTML. לא ידוע - ‏pending: הטשטוש, והתמונה
          מתחילה רק כשהיחס הגיע (‏startMain), כדי לבקש את הרוחב הנכון. שקופית לפני/אחרי - כמו קודם */
       var dk = deckSize(), rt = sp === 'ba' ? 0 : RATIO.get(base), fit = '', winH = 0, go = true;
-      if (base && sp !== 'ba') {
+      var ru = !top && slideKind(ph[0]) === 'reel' ? reelUrl(p) : '', vr = ru && VRATIO.get(ru), vlock = false;
+      if (vr && dk.w) {
+        var rf = reelFit(vr, dk.w, dk.h);
+        fit = rf.vfit === 'land' ? 'window' : 'cover'; winH = rf.h; vlock = true;
+      } else if (base && sp !== 'ba') {
         if (rt && dk.w) { fit = fitMode(rt * 4000, 4000, dk.w, dk.h); if (fit === 'window') winH = windowH(rt * 4000, 4000, dk.w, dk.h); }
         else { fit = 'pending'; go = SRCW.has(base); }
       }
@@ -1632,6 +1713,7 @@
       var nofee = fairLive(p);
       return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
         (fit ? ' data-fit="' + fit + '"' : '') + (winH ? ' style="--win-h:' + winH + 'px"' : '') +
+        (ru ? ' data-reel="' + esc(ru) + '"' : '') + (vlock ? ' data-vlock="1"' : '') +
         ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img +
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
@@ -1759,8 +1841,9 @@
   /* השכבה שמעל התמונה בשקופית המיוחדת: לפני/אחרי (התמונה עצמה היא ה"אחרי"), או ההזמנה */
   var reelSound = false;   // אחרי הפעלת קול פעם אחת - הרילסים הבאים בביקור מתחילים עם קול (אם הדפדפן מרשה)
   function reelLayer(p) {
-    var poster = slideBase(p, '#reel');
-    return '<div class="sw-reel-wrap"><video class="sw-reel" muted playsinline loop preload="none" draggable="false"' +
+    var poster = slideBase(p, '#reel'), dk = deckSize(), rf = reelFit(VRATIO.get(reelUrl(p)), dk.w, dk.h);
+    return '<div class="sw-reel-wrap" data-vfit="' + rf.vfit + '"' + (rf.h ? ' style="--vwin-h:' + rf.h + 'px"' : '') + '>' +
+      '<video class="sw-reel" muted playsinline loop preload="metadata" draggable="false"' +
       (poster ? ' poster="' + esc(sized(poster, cardW())) + '"' : '') + ' src="' + esc(p.video_url.trim()) + '"></video>' +
       (reduceMotion ? '<button type="button" class="sw-reel-play" data-reel-play aria-label="הפעלת הסרטון">▶</button>' : '') +
       '<button type="button" class="sw-reel-snd" data-reel-snd' + (reelSound ? ' hidden' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>הפעילו קול לשמוע את הקריינות</button>' +
@@ -1819,8 +1902,25 @@
     var body = top.querySelector('.sw-cbody'), w = top.querySelector('.sw-reel-wrap');
     if (body && w) w.style.setProperty('--cbody-h', body.offsetHeight + 'px');
     if (w) detectAudio(v, w);
-    v.addEventListener('error', function () { v.dataset.err = '1'; v.hidden = true; var cd = v.closest('.sw-card'); if (cd) cd.classList.add('reel-err'); });   // התמונה שמתחת (הפוסטר) נשארת
+    v.addEventListener('error', function () {
+      v.dataset.err = '1'; v.hidden = true;
+      var cd = v.closest('.sw-card');
+      if (!cd) return;
+      cd.classList.add('reel-err');   // התמונה שמתחת (הפוסטר) נשארת
+      // בלי חלון של סרטון ובלי טשטוש של "ממתין": התמונה בהתאמה הרגילה שלה
+      if (w) w.setAttribute('data-vfit', 'err');
+      cd.classList.remove('is-vland', 'is-vpend');
+      VBAD.add(v.getAttribute('src'));
+      if (cd.hasAttribute('data-vlock')) { cd.removeAttribute('data-vlock'); var im = cd.querySelector('img.sw-cimg'); if (im && im.naturalWidth) fitCard(im); }
+    });
+    // המפתח הוא ה-src כמו שנכתב (‏currentSrc מקודד, ו-reelUrl/VRATIO משתמשים בכתובת כמו שהיא)
+    if (w) applyReelFit(w, VRATIO.get(v.getAttribute('src')));
+    if (v.readyState >= 1 && v.videoWidth && w) { VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight); applyReelFit(w, v.videoWidth / v.videoHeight); }
     v.addEventListener('loadedmetadata', function () {
+      if (v.videoWidth && v.videoHeight) {
+        VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight);
+        if (w) applyReelFit(w, v.videoWidth / v.videoHeight);
+      }
       var d = Math.round(v.duration || 0), tag = top.querySelector('.sw-reel-tag b');
       if (tag && d) tag.textContent = ' · ' + Math.floor(d / 60) + ':' + String(d % 60).padStart(2, '0');
     });
@@ -2110,6 +2210,8 @@
       warm(firstImg(deck[idx + 2]));
       warm(firstImg(deck[idx + 3]));
     };
+    warmReel(deck[idx + 1]);
+    warmReel(deck[idx + 2]);
     var im = top && top.querySelector('img.sw-cimg');
     if (!im || (im.complete && im.naturalWidth)) { setTimeout(run, 0); return; }
     var once = false, t = setTimeout(function () { if (!once) { once = true; run(); } }, 2500);
@@ -2135,6 +2237,8 @@
       under._c = null;
       var ci = under.querySelector('img.sw-cimg');
       if (ci) ci.setAttribute('fetchpriority', 'high');
+      var uc = under.querySelector('.sw-card');
+      if (uc) uc.removeAttribute('data-vlock');
       if (next) {
         var nu = document.createElement('div');
         nu.className = 'sw-under';
@@ -2269,6 +2373,43 @@
     if (!c || c.slot !== 'property') return;
     if (this.dataset.phone) bsOpen('contact');
     else openSheetFor(c, { form: true });
+  });
+  /* ‏swipe-share (31.10): שיתוף נכס אחד - הקישור הקנוני של דף הנכס (בלי beta, ‏pid או hf), וטקסט רק
+     מפרטי הנכס: כותרת · אזור, עיר · מחיר - בלי שם או טלפון של יועץ/ת. ‏Web Share בטלפון; בלי -
+     העתקה ו"הקישור הועתק"; ואם גם היא נכשלה - וואטסאפ (‏wa.me/?text=, ‏data-share). סגירת חלון
+     השיתוף (‏AbortError) אינה שיתוף ואינה שגיאה. ‏share נמדד רק אחרי שיתוף שהצליח */
+  var SITE = 'https://shuknadlan.co.il';
+  function shareProp(p, source) {
+    if (!p) return;
+    var url = SITE + propHref(p), text = [title(p), area(p), fmtPrice(p)].filter(Boolean).join(' · ');
+    var done = function (m) { shukTrack('share', { method: m, item_id: String(p.id), source: source }); };
+    var wa = function () {
+      var a = document.createElement('a');
+      a.href = 'https://wa.me/?text=' + encodeURIComponent(text + '\n' + url);
+      a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('data-share', '');
+      document.body.appendChild(a); a.click(); a.remove();
+      done('whatsapp');
+    };
+    var copy = function () {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) { wa(); return; }
+      navigator.clipboard.writeText(url).then(function () { toast('הקישור הועתק'); done('copy'); }, wa);
+    };
+    if (navigator.share) {
+      navigator.share({ title: title(p), text: text, url: url }).then(function () { done('web_share'); },
+        function (e) { if (!(e && e.name === 'AbortError')) copy(); });
+      return;
+    }
+    copy();
+  }
+  $('swRailShare').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var c = cur();
+    if (c && c.slot === 'property') shareProp(c.p, 'swipe_rail');
+  });
+  $('swSheetBody').addEventListener('click', function (e) {
+    if (!e.target.closest('[data-share-prop]')) return;
+    e.stopPropagation();
+    if (sheetCard && sheetCard.p) shareProp(sheetCard.p, 'swipe_sheet');
   });
   $('swRailSpec').addEventListener('click', function () {
     var c = cur();
@@ -2675,6 +2816,7 @@
     openSheetFor(c, { form: true, fullMsg: npMsg(c.p), source: 'photo_request' });
   }
   /* ‏opts.msg - הודעה מוכנה ("אשמח לתאם ביקור בנכס"), ‏opts.form - הטופס פתוח. אף פעם לא שליחה */
+  var SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>';
   function openSheetFor(c, opts) {
     opts = opts || {};
     if (!c || (c.slot !== 'property' && !(c.sponsor && (c.slot === 'spon_agency' || c.sponsor.mortgage)))) return;
@@ -2692,6 +2834,7 @@
         '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
       '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) +
         (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p>' + (fairFormLine(c.p) ? '<p class="sw-fairform">' + esc(fairFormLine(c.p)) + '</p>' : '') + '<a href="/open-house">מה זה היריד? ←</a></div>' : '') +
+        (c.p ? '<div class="sw-sh-share"><button type="button" class="sw-white sw-wide" data-share-prop>' + SHARE_SVG + 'שיתוף הנכס</button></div>' : '') +
         (c.p ? propInfoHtml(c.p) : '') +
         // ‏P1-P: מספר המודעה בתחתית הפרטים
         (c.p && c.p.listing_number ? '<p class="sw-listing-no">מודעה #' + esc(String(c.p.listing_number)) + '</p>' : '') + '</div>' +
@@ -3878,23 +4021,29 @@
     $('swListCount').textContent = view === 'list' && listNpOnly ? (likedFirst.length === 1 ? 'נכס אחד' : likedFirst.length + ' נכסים') : $('swListCount').textContent;
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
+      var heart = likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '';
       if (!ph.length && window.NoPhoto) {
-        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
-          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span></a>' +
+        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '">' +
+          '<span class="sw-li-media"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' + heart + '</span>' + liText(p) + '</a>' +
           '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
       }
       return '<a class="sw-li" href="' + propHref(p) + '" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
-        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
-        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span>' +
-        (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</a>';
+        '<span class="sw-li-media">' + (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 480) + ' alt="" loading="lazy" width="160" height="120" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        heart + '</span>' + liText(p) + '</a>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
   var listLikedOnly = false, listNpOnly = false;
-  /* ‏P1-F: בתצוגת שורות - שורה אחת: כותרת · כתובת · מחיר · חדרים · קומה · מ״ר */
-  function rowLine(p) {
-    var bits = [esc(title(p)), esc(where(p)), '<b>' + esc(fmtPrice(p)) + '</b>',
-      rooms(p) ? esc(rooms(p) + ' חד׳') : '', p.floor != null && p.floor !== '' ? esc('קומה ' + p.floor) : '', p.size_sqm ? esc(p.size_sqm + ' מ״ר') : ''];
-    return '<span class="sw-li-line">' + bits.filter(Boolean).join(' · ') + '</span>';
+  /* ‏list-view (31.10): טקסט אחד לשתי התצוגות, ו-CSS בוחר מה מוצג. **המחיר תמיד ראשון ובשורה משלו** -
+     עד כאן "שורות" חיברו כותרת · כתובת · מחיר לשורה אחת שנחתכה, והמחיר כמעט לא נראה.
+     רשת: מחיר, חדרים · מ״ר, אזור (והכותרת רק ממסך רחב). שורות: מחיר, כותרת, כתובת · חדרים · קומה · מ״ר */
+  function liText(p) {
+    var r = rooms(p) ? rooms(p) + ' חד׳' : '', m = p.size_sqm ? p.size_sqm + ' מ״ר' : '', fl = p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : '';
+    return '<span class="sw-li-txt"><span class="sw-li-top"><b class="sw-li-price">' + esc(fmtPrice(p)) + '</b>' +
+      (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '</span>' +
+      '<span class="sw-li-title">' + esc(title(p)) + '</span>' +
+      '<span class="sw-li-facts">' + esc([r, m].filter(Boolean).join(' · ')) + '</span>' +
+      '<small class="sw-li-area">' + esc(area(p) || where(p)) + '</small>' +
+      '<span class="sw-li-meta">' + esc([where(p), r, fl, m].filter(Boolean).join(' · ')) + '</span></span>';
   }
   var listLayout = (function () {
     if (params.get('layout') === 'rows') return 'rows';

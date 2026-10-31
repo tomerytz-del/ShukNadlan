@@ -1449,6 +1449,11 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     padding:20px 0 22px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
   }
   .search-results:not([hidden]) + .hot-band{margin-top:0;border-radius:0;box-shadow:none}
+  /* ‏home-scroll ב (1.11): "הצג X נכסים" כשהתוצאות כבר בראש המסך - הבהוב קצר של הכותרת (זהב בהיר) */
+  #searchResultsTitle{border-radius:8px;outline:none}
+  #searchResultsTitle.is-flash{animation:resFlash .6s ease-out}
+  @keyframes resFlash{0%{background:rgba(201,162,39,.35)}100%{background:transparent}}
+  @media (prefers-reduced-motion:reduce){#searchResultsTitle.is-flash{animation:none}}
   .sr-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
   .sr-head h2{font-size:var(--h2)}
   /* ‏#searchResults בבורר: design-system.css נטען אחרי ה-style הזה (הסקיל home-page) */
