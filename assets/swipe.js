@@ -3680,23 +3680,29 @@
     $('swListCount').textContent = view === 'list' && listNpOnly ? (likedFirst.length === 1 ? 'נכס אחד' : likedFirst.length + ' נכסים') : $('swListCount').textContent;
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
+      var heart = likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '';
       if (!ph.length && window.NoPhoto) {
-        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
-          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span></a>' +
+        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '">' +
+          '<span class="sw-li-media"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' + heart + '</span>' + liText(p) + '</a>' +
           '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
       }
       return '<a class="sw-li" href="' + propHref(p) + '" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
-        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
-        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span>' +
-        (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</a>';
+        '<span class="sw-li-media">' + (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 480) + ' alt="" loading="lazy" width="160" height="120" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        heart + '</span>' + liText(p) + '</a>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
   var listLikedOnly = false, listNpOnly = false;
-  /* ‏P1-F: בתצוגת שורות - שורה אחת: כותרת · כתובת · מחיר · חדרים · קומה · מ״ר */
-  function rowLine(p) {
-    var bits = [esc(title(p)), esc(where(p)), '<b>' + esc(fmtPrice(p)) + '</b>',
-      rooms(p) ? esc(rooms(p) + ' חד׳') : '', p.floor != null && p.floor !== '' ? esc('קומה ' + p.floor) : '', p.size_sqm ? esc(p.size_sqm + ' מ״ר') : ''];
-    return '<span class="sw-li-line">' + bits.filter(Boolean).join(' · ') + '</span>';
+  /* ‏list-view (31.10): טקסט אחד לשתי התצוגות, ו-CSS בוחר מה מוצג. **המחיר תמיד ראשון ובשורה משלו** -
+     עד כאן "שורות" חיברו כותרת · כתובת · מחיר לשורה אחת שנחתכה, והמחיר כמעט לא נראה.
+     רשת: מחיר, חדרים · מ״ר, אזור (והכותרת רק ממסך רחב). שורות: מחיר, כותרת, כתובת · חדרים · קומה · מ״ר */
+  function liText(p) {
+    var r = rooms(p) ? rooms(p) + ' חד׳' : '', m = p.size_sqm ? p.size_sqm + ' מ״ר' : '', fl = p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : '';
+    return '<span class="sw-li-txt"><span class="sw-li-top"><b class="sw-li-price">' + esc(fmtPrice(p)) + '</b>' +
+      (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '</span>' +
+      '<span class="sw-li-title">' + esc(title(p)) + '</span>' +
+      '<span class="sw-li-facts">' + esc([r, m].filter(Boolean).join(' · ')) + '</span>' +
+      '<small class="sw-li-area">' + esc(area(p) || where(p)) + '</small>' +
+      '<span class="sw-li-meta">' + esc([where(p), r, fl, m].filter(Boolean).join(' · ')) + '</span></span>';
   }
   var listLayout = (function () {
     if (params.get('layout') === 'rows') return 'rows';
