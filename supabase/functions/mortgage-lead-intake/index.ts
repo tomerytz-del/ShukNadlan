@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { audienceSize, isInternalCaller, logLeadRouting, SOCIAL_SOURCES } from "../_shared/lead-routing.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // ============================================================================
 // קליטת ליד ייעוץ משכנתאות מטופס המחשבון בדף הבית.
@@ -105,11 +106,11 @@ Deno.serve(async (req: Request) => {
   };
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-  const { data, error } = await serviceClient
-    .from("mortgage_leads")
-    .insert(row)
-    .select("id")
-    .single();
+  const { data, error } = await writeVisitInsert(
+    (payload) => serviceClient.from("mortgage_leads").insert(payload).select("id").single(),
+    row,
+    body,
+  );
 
   if (error) {
     // 23505 = כבר קיים ליד פתוח מאותו מספר טלפון
