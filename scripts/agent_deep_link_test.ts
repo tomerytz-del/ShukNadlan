@@ -335,10 +335,10 @@ check("כמה לידים נשארים פעולה", txnUtilitySummary([{ type: "n
 
 const push = readFileSync(new URL("../supabase/functions/notification-push/index.ts", import.meta.url), "utf8");
 check("הדחיפה משתמשת ברשימה ובכפתור", push.includes("screenBundle") && push.includes("listMessage") && push.includes("ctaMessage") && push.includes("replyButtonsMessage"));
-check("נפילה לטקסט שומרת את ה-wc שנכנס לגוף", push.includes("stampPaths") && !push.includes("tokens = []"));
+check("נפילה לטקסט אינה מאפסת טוקנים בשורה נפרדת", !push.includes("tokens = []"));
 const fallbackAt = push.indexOf('payload.type === "interactive"');
 const pushFallback = fallbackAt >= 0 ? push.slice(fallbackAt, push.indexOf("if (!res.ok)", fallbackAt + 10)) : "";
-check("דחייה נופלת לטקסט עם הקישור", pushFallback.includes("resendInteractiveAsText") && pushFallback.includes("textBody(name, items, false, topics, true, stampPaths(stampedPlan))") && pushFallback.includes('type: "text"'));
+check("דחייה נופלת לטקסט בלי כתובת", pushFallback.includes("resendInteractiveAsText") && pushFallback.includes("WA_NO_BUTTON") && pushFallback.includes('type: "text"') && !pushFallback.includes("textBody(name, items, false"));
 check("בלי הסוד נשארת התבנית הישנה", push.includes("WHATSAPP_NOTIFY_TEMPLATE") && push.includes("mode === \"template\" && WA_UTILITY"));
 check("תבנית העסקה רק לזכאים ונופלת בלי הסוד", push.includes("WHATSAPP_TXN_UTILITY_TEMPLATE") && push.includes("txnUtilityEligible(items)") && push.includes("txnUtilitySummary(items)") && push.includes("actionTemplateMessage"));
 const txnAt = push.indexOf("WA_TXN && txnUtilityEligible");
@@ -407,7 +407,7 @@ check("המודל לא מרכיב כתובת", agent.includes("אסור להרכ
 check("page_link שולח כפתור", agent.includes("crm_button_sent: true") && agent.includes("ctaLabel(link.path)"));
 
 const hook = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
-check("נפילת רשימה חוזרת עם הקישורים", hook.includes("listTextFallback"));
+check("נפילת רשימה חוזרת בלי כתובת", hook.includes("WA_NO_BUTTON") && !hook.includes("listTextFallback"));
 check("הפסק מכבה את הערוץ", hook.includes("notification_push_opt_out") && hook.includes("הפסקה"));
 
 if (failed) {

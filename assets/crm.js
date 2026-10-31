@@ -5385,6 +5385,46 @@ document.querySelectorAll('#dashPanelAdmin .adm-range button').forEach(btn=>{
 });
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminReport);
 
+/* ---------- ייצוא פניות היריד (CSV) ----------
+   ‏admin_fair_inquiries - כל היומן (מ-2026, לפני היריד הראשון), בשעון ישראל, כדי
+   שיריד ארוך לא ייחתך בברירת המחדל של 90 יום (‏docs/open-house-fair.md).
+   ‏BOM כדי שאקסל יקרא עברית; תא שמתחיל ב-= + - @ מקבל גרש, כדי שאקסל לא
+   יריץ אותו כנוסחה (שם הפונה מגיע מטופס ציבורי). */
+const FAIR_CSV_CHANNEL = {
+  form:'טופס', visualization:'הדמיה', social:'רשת חברתית', meta_ads:'טופס מטא',
+  whatsapp_click:'לחיצה על וואטסאפ', call_click:'לחיצה על חיוג',
+};
+const FAIR_CSV_STATUS = { eligible:'זכאי', pending_owner_decision:'ממתין להחלטה' };
+function fairCsvCell(v){
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+async function exportFairInquiriesCsv(){
+  const btn = document.getElementById('adminFairCsvBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.rpc('admin_fair_inquiries', { p_from: '2026-01-01T00:00:00+02:00' });
+    if (error){ showToast('הייצוא נכשל: ' + heErr(error)); return; }
+    const rows = data || [];
+    if (!rows.length){ showToast('אין פניות יריד בטווח הזה'); return; }
+    const head = ['מספר פנייה', 'תאריך ושעה (שעון ישראל)', 'ערוץ', 'סטטוס', 'מקור', 'נכס', 'עיר',
+      'יועץ הנדל״ן', 'משרד', 'שם הפונה', 'טלפון', 'סיום היריד לנכס', 'מזהה יריד',
+      'מזהה ההודעה ברשת', 'שעת ההודעה ברשת (שעון ישראל)'];
+    const lines = [head.map(fairCsvCell).join(',')].concat(rows.map(r => [
+      r.ref, r.created_at_il, FAIR_CSV_CHANNEL[r.channel] || r.channel, FAIR_CSV_STATUS[r.status] || r.status,
+      r.source, r.property_title, r.property_city, r.agent_name, r.agency_name,
+      r.visitor_name, r.visitor_phone_e164, r.fair_end_il, r.fair_key, r.external_ref, r.platform_at_il,
+    ].map(fairCsvCell).join(',')));
+    const day = new Date().toLocaleDateString('sv-SE', { timeZone:'Asia/Jerusalem' });
+    downloadBlob(new Blob(['\uFEFF' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' }), 'fair-inquiries-' + day + '.csv');
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById('adminFairCsvBtn').addEventListener('click', exportFairInquiriesCsv);
+
 /* ==========================================================================
    בקרת מנוע הלידים — הפאנל השלישי
    --------------------------------------------------------------------------
@@ -13613,11 +13653,11 @@ function cleanupReplacedVideo(finalUrl){
    2. **שליפה שנכשלה אינה רשימה ריקה.** ‏streetRegistryReady נשאר שקרי, ואז
       אין אכיפה בכלל. תקלת רשת רגעית לא תמנע מסוכן/ת לפרסם נכס.
 
-   3. **מפתח, לא השוואת מחרוזות.** ‏streetNameKey כאן הוא העתק של
-      ‏public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה אין מודול
-      משותף בין ה-HTML הסטטי ל-SQL, כמו ביטוי הקרקע ששוכפל בחמישה קבצים
-      (ראו docs/land-planning.md). מי שמוסיף/ה ציר כתיב מעדכן/ת את שניהם,
-      והמסד הוא הקובע: הוא זה שמחזיק את האינדקס הייחודי.
+   3. **מפתח, לא השוואת מחרוזות.** ‏SearchCore.streetNameKey (‏search-core.js)
+      הוא העתק של public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה
+      אין מודול משותף בין ה-HTML הסטטי ל-SQL. מי שמוסיף/ה ציר כתיב מעדכן/ת
+      את שניהם (‏scripts/street_key_test.py משווה), והמסד הוא הקובע: הוא זה
+      שמחזיק את האינדקס הייחודי ואת properties.street_key.
 
    הפרטים: docs/street-registry.md
    ========================================================================== */
@@ -13769,20 +13809,26 @@ let streetsByCity = new Map();        // city -> [שמות, ממוינים]
 let streetKeyIndex = new Map();       // city -> Map(key -> השם הקנוני)
 let streetEnforcedCities = new Set(); // ערים שיש להן רחוב אחד לפחות ממקור רשמי (gis/gov)
 
-/* העתק של public.street_name_key. הסדר אינו שרירותי: ה"א פותחת יורדת לפני
-   כיווץ היו"ד ולפני ה"א סופית, אחרת "העליה" ו-"עלייה" אינם מתכנסים. */
+/* המפתח עצמו בליבת החיפוש (‏SearchCore.streetNameKey, העתק של
+   public.street_name_key) - עותק אחד לטופס, לייבוא ולחיפוש. ‏search-core.js
+   נטען בעצלות (‏ensureSearchCore), ו-ensureStreetsLoaded מחכה לו לפני שהיא
+   בונה את האינדקס; עד אז האינדקס ריק וכל הקוראים כאן מדלגים על המפתח. */
 function streetNameKey(name){
-  const base = String(name ?? '')
-    .replace(/['"`׳״‘’“”]/g, '')
-    .replace(/[־-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const key = base
-    .replace(/^(רחוב|רח|שדרות|שדרת|שד)\s+/, '')
-    .replace(/^ה/, '')
-    .replace(/י{2,}/g, 'י')
-    .replace(/ה$/, '');
-  return key || base;
+  return window.SearchCore.streetNameKey(name);
+}
+let searchCoreLoading = null;
+function ensureSearchCore(){
+  if (window.SearchCore) return Promise.resolve();
+  if (!searchCoreLoading){
+    searchCoreLoading = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = '/assets/search-core.js';
+      el.onload = resolve;
+      el.onerror = reject;
+      document.head.appendChild(el);
+    }).finally(() => { searchCoreLoading = null; });
+  }
+  return searchCoreLoading;
 }
 
 /* כל השורות, בעמודים של 1,000. ‏PostgREST מחזיר לכל היותר 1,000 שורות
@@ -13802,6 +13848,12 @@ async function fetchAllPages(build, pageSize = 1000){
 
 async function ensureStreetsLoaded(){
   if (streetRegistry) return streetRegistry;
+  try { await ensureSearchCore(); } catch (err) {
+    // בלי המפתח אין אינדקס - השדה נשאר חופשי, כמו בכשל בשליפת הרשימה
+    console.warn('ליבת החיפוש לא נטענה - שדה הרחוב נשאר חופשי:', err && err.message);
+    streetRegistryReady = false;
+    return [];
+  }
   const { data, error } = await fetchAllPages(() => sb.from('street_registry')
     .select('city, name, source')
     .eq('active', true)
@@ -15406,7 +15458,7 @@ function ensureCrmQuery(){
     el.onerror = reject;
     document.head.appendChild(el);
   });
-  crmQueryLoading = (window.SearchCore ? Promise.resolve() : load('/assets/search-core.js'))
+  crmQueryLoading = ensureSearchCore()
     .then(() => (window.SentenceSearch ? null : load('/assets/sentence-search.js')))
     // הכינויים ("סי 1", "גבעה") - אותה טבלה של האתר והבוטים; בלעדיהם, רק השמות
     .then(() => sb.from('neighborhood_aliases').select('neighborhood_id, alias').then(r => r, () => ({ data: [] })))
@@ -20509,6 +20561,28 @@ async function saveLeadWork(lead, patch){
    ‏20270502090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
 let leadVisitorOf = new Map();
 
+/* יומן פניות היריד (‏fair_inquiries): lead_id → { status, fair_end }. רק
+   ללידים שנטענו ויש להם נכס, במנות של 150 מזהים (‏in() על מאות מזהים מנפח
+   את הכתובת, ושאילתה בלי רשימה הייתה נחתכת ב-1,000 שורות של PostgREST).
+   ה-RLS מחזיר רק מה שהליד שלו אצל הסוכן/ת (ומנהל/ת - של המשרד), ובלי השם
+   והטלפון. מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם. */
+let leadFairByLead = new Map();
+async function loadLeadFair(leads){
+  const ids = (leads || []).filter(l => l.property_id).map(l => l.id);
+  const map = new Map();
+  for (let i = 0; i < ids.length; i += 150){
+    const { data, error } = await sb.from('fair_inquiries')
+      .select('lead_id, status, fair_end')
+      .in('lead_id', ids.slice(i, i + 150));
+    if (error){
+      if (!['42P01', 'PGRST205', '42501'].includes(error.code)) console.warn('יומן פניות היריד:', error.message);
+      return;
+    }
+    (data || []).forEach(r => map.set(r.lead_id, r));
+  }
+  leadFairByLead = map;
+}
+
 async function loadLeadVisitors(){
   const { data, error } = await sb.rpc('lead_visitor_groups');
   if (error){
@@ -20560,7 +20634,7 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await loadLeadCalls(allLeads);
+  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
   renderLeads(agentId);
 }
 
@@ -20747,11 +20821,19 @@ function buildLeadTab(lead, agentId){
    השלב וההערה באמצע, ופעולות הניהול (חוות דעת, הפנייה, ארכיון) קטנות
    ושקטות בתחתית. */
 /* כלל היריד (חלק 7 §A.4b): פנייה שהגיעה בזמן שהדירה הייתה ביריד - ללא עמלת תיווך לקונה,
-   גם אחרי שהיריד נגמר. הזכאות נקבעת במסד ברגע ההכנסה (‏leads.open_house_eligible,
-   docs/proposals/open_house_lead_eligibility.sql); בלי העמודה - אין תג */
+   גם אחרי שהיריד נגמר. הזכאות נרשמת במסד ברגע ההכנסה, בשעת השרת, ביומן
+   fair_inquiries (‏docs/open-house-fair.md). ‏status=pending_owner_decision - פנייה
+   מהרשתות או מטופס של מטא: נרשמה, אבל ההנחה ממתינה להחלטה, ולכן תג ניטרלי.
+   ‏leads.open_house_eligible (ההצעה הישנה, לא הוחלה) נשאר נתיב חלופי. */
 function leadFairChip(lead){
-  if (!lead || lead.open_house_eligible !== true) return '';
-  const end = lead.open_house_end_snapshot ? new Date(lead.open_house_end_snapshot) : null;
+  if (!lead) return '';
+  const row = leadFairByLead.get(lead.id);
+  if (row && row.status === 'pending_owner_decision'){
+    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהנכס היה ביריד. ההנחה בעמלה ממתינה להחלטה.') + '">ממתין להחלטה</span>';
+  }
+  if (!row && lead.open_house_eligible !== true) return '';
+  const endRaw = row ? row.fair_end : lead.open_house_end_snapshot;
+  const end = endRaw ? new Date(endRaw) : null;
   const d = end && !isNaN(end) ? end.toLocaleDateString('he-IL', { day:'numeric', month:'numeric', timeZone:'Asia/Jerusalem' }) : '';
   const tip = !d ? 'הפנייה הגיעה בזמן שהדירה הייתה ביריד הבתים הפתוחים'
     : end < new Date() ? 'היריד לדירה הסתיים ב-' + d + '; הפנייה הגיעה לפני כן'
@@ -26483,7 +26565,7 @@ const AGENDA_CLIENT_BADGES = {
 };
 const AGENDA_FEEDBACK_BADGES = {
   liked: '👍 אהב/ה את הסיור',
-  unsure: '🤔 מתלבט/ת אחרי הסיור',
+  unsure: '🤔 מתלבטים אחרי הסיור',
   not_for_me: '👎 לא בשבילו/ה',
 };
 

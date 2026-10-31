@@ -32,6 +32,45 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
+/** ‏ISO מהפלטפורמה, לא בעתיד ולא בן יותר מחודש. אחרת - כאילו לא נשלח. */
+function platformTime(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 40) return null;
+  const t = Date.parse(value);
+  if (!Number.isFinite(t)) return null;
+  const now = Date.now();
+  if (t > now + 5 * 60_000 || t < now - 31 * 86_400_000) return null;
+  return new Date(t).toISOString();
+}
+
+/* ---------- יומן פניות היריד ----------
+   הטריגר leads_log_fair_inquiry כותב את השורה בשעת השרת, באותה טרנזקציה של
+   ה-insert. כאן רק קוראים אותה בחזרה לתשובה, ומשלימים מה שהטריגר אינו
+   רואה: שעת הפלטפורמה ו-source_page='app' (‏User-Agent של האפליקציה).
+   לעולם אינו מפיל את הבקשה: כל כשל = תשובה בלי fair. ‏docs/open-house-fair.md */
+async function fairLogged(
+  supabase: any,
+  leadId: string,
+  extra: { platform_at?: string | null; source_page?: string | null },
+): Promise<Record<string, unknown> | null> {
+  try {
+    const { data } = await supabase.from("fair_inquiries")
+      .select("id, ref, created_at, fair_end, status, platform_at, source_page")
+      .eq("lead_id", leadId).maybeSingle();
+    if (!data) return null;
+    const patch: Record<string, string> = {};
+    if (extra.platform_at && !data.platform_at) patch.platform_at = extra.platform_at;
+    if (extra.source_page && !data.source_page) patch.source_page = extra.source_page;
+    if (Object.keys(patch).length) {
+      const { error } = await supabase.from("fair_inquiries").update(patch).eq("id", data.id);
+      if (error) console.warn("fair_inquiries patch:", error.message);
+    }
+    return { logged: true, ref: data.ref, logged_at: data.created_at, fair_end: data.fair_end, status: data.status };
+  } catch (e) {
+    console.warn("fair_inquiries read:", (e as Error)?.message ?? e);
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -55,6 +94,8 @@ Deno.serve(async (req: Request) => {
   const trusted = isInternalCaller(req);
   const source = normalizeSource(body?.source, "", trusted);
   const externalRef = trusted && source ? cleanExternalRef(body?.external_ref) : null;
+  // שעת ההודעה אצל הפלטפורמה (‏social-lead-intake), לנכס ביריד בלבד
+  const platformAt = trusted && source ? platformTime(body?.platform_at) : null;
   if (!property_id || !name || !phone) {
     return json({ error: "missing_fields", required: ["property_id", "name", "phone"] }, 400);
   }
@@ -179,11 +220,17 @@ Deno.serve(async (req: Request) => {
         (Number.isFinite(n) && n > 0 ? ` או ₪${n})` : " או תשלום)");
     }
 
+    const fair = await fairLogged(supabase, lead.id, {
+      platform_at: platformAt,
+      source_page: /ShukNadlanApp\//.test(req.headers.get("user-agent") || "") ? "app" : null,
+    });
+
     return json({
       success: true,
       lead_id: lead.id,
       auto_unlocked: autoUnlock,
       note,
+      ...(fair ? { fair } : {}),
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

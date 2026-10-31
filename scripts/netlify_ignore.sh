@@ -40,6 +40,13 @@ if git log -1 --format=%B "$head" 2>/dev/null | grep -qF "[deploy]"; then
   exit 1
 fi
 
+# ‏minisite-link.ts ו-showcase-send.ts מייבאים את הקובץ הזה. שינוי רק בו
+# היה נבלע ב-supabase/** ומשאיר את האתר על הנוסח הישן.
+if ! git diff --quiet "$base" "$head" -- supabase/functions/_shared/wa-forward.ts; then
+  echo "netlify_ignore: wa-forward.ts השתנה - בונים"
+  exit 1
+fi
+
 # מה שאינו אתר. ‏netlify/ ו-assets/ אינם כאן בכוונה: פונקציות ה-edge מייבאות
 # מ-assets (‏deals-render.js, ‏markets.js), ולכן שינוי בהן הוא שינוי באתר.
 NOT_SITE=(

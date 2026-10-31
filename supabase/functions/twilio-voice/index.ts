@@ -4,6 +4,7 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { withClick } from "../_shared/agent-deep-link.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
 import { processCsmCall } from "../_shared/csm-call.ts";
@@ -214,7 +215,9 @@ async function notifyAgent(
 ): Promise<void> {
   const to = agent.phone_e164;
   if (!to) return;
-  const body = waBody(text).slice(0, 4000);
+  const spoken = planWaText(waBody(text).slice(0, 4000));
+  if (spoken.stripped) logWaUrlGuard("twilio-voice", spoken);
+  const body = spoken.text || WA_NO_BUTTON;
   const action = opts.action && opts.action.body ? opts.action : null;
   const suffix = opts.urlSuffix
     ? withClick(opts.urlSuffix.startsWith("/") ? opts.urlSuffix : `/${opts.urlSuffix}`, "call")
@@ -223,7 +226,7 @@ async function notifyAgent(
   if (await inWindow(agent.id) || !WA_TEMPLATE) {
     // הקישור לכרטיס - כפתור ולא שורה בטקסט (12.10.2026, "פחות קישורים"). ל-
     // ‏cta_url יש גוף עד 1024 תווים: ארוך מזה - הטקסט, ואחריו הכפתור לבד.
-    // נדחה - הקישור חוזר כשורה בטקסט.
+    // נדחה - טקסט בלי הכתובת.
     const ctaUrl = opts.cta && suffix ? `${SITE}${suffix}` : null;
     const ctaMsg = (b: string) => ({
       recipient_type: "individual", to, type: "interactive",
@@ -245,14 +248,31 @@ async function notifyAgent(
           await waSend(ctaMsg("👇"));
         }
       } catch (err) {
-        console.error("cta_url failed, falling back to text", err);
-        const withLink = `${ctaSent ? "" : body + "\n\n"}${opts.cta!.label}: ${ctaUrl}`;
-        await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body: withLink } });
+        console.error("cta_url failed, falling back to text without url", err);
+        await waSend({
+          recipient_type: "individual",
+          to,
+          type: "text",
+          text: { preview_url: false, body: `${ctaSent ? "" : body + "\n"}${WA_NO_BUTTON}`.slice(0, 4000) },
+        });
       }
     } else {
       await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body } });
     }
     if (audioUrl) await waSend({ recipient_type: "individual", to, type: "audio", audio: { link: audioUrl } });
+    const extra = spoken.links.filter((item) => item.kind === "cta");
+    const follow = extra.length === 1
+      ? ctaPayload(to, extra[0].label, extra[0].label, extra[0].url)
+      : extra.length > 1
+        ? ctaPayload(to, "לאתר", "לאתר", `${SITE}/`)
+        : null;
+    if (follow) {
+      try {
+        await waSend(follow);
+      } catch (err) {
+        console.error("wa-url-guard call follow-up failed", err);
+      }
+    }
     if (action) {
       const buttons = action.buttons.slice(0, 3);
       try {
@@ -263,7 +283,7 @@ async function notifyAgent(
           type: "interactive",
           interactive: {
             type: "button",
-            body: { text: waBody(action.body).slice(0, 1000) },
+            body: { text: planWaText(waBody(action.body)).text.slice(0, 1000) || WA_NO_BUTTON },
             action: {
               buttons: buttons.map((t, i) => ({
                 type: "reply",
@@ -275,7 +295,7 @@ async function notifyAgent(
         });
       } catch (err) {
         if (buttons.length) console.error("call action buttons failed", err);
-        await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body: waBody(action.body) } });
+        await waSend({ recipient_type: "individual", to, type: "text", text: { preview_url: false, body: planWaText(waBody(action.body)).text || WA_NO_BUTTON } });
       }
     }
     return;
