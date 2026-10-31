@@ -3020,6 +3020,7 @@ function renderContactButtons(p){
    200 אחרונים. לשונית אחרת מתעדכנת מאירוע storage; הבועה באותה לשונית -
    דרך LikesBubble.sync(). */
 function loadLikes(){
+  if (window.ShukLikes) return ShukLikes.list();
   try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean); }
   catch(e){ return []; }
 }
@@ -3034,16 +3035,22 @@ function initSave(id){
     });
   };
   btns.forEach(b => { b.onclick = ()=>{
-    let list = loadLikes().filter(x => x !== id);
-    const saved = list.length === loadLikes().length;
-    if (saved) list.push(id);
-    try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list.slice(-200))); } catch(e){}
+    let saved;
+    if (window.ShukLikes) saved = ShukLikes.toggle(id);   // קריאה טרייה, תקרת 200, ומשדר shuk-likes
+    else {
+      const list = loadLikes().filter(x => x !== id);
+      saved = list.length === loadLikes().length;
+      if (saved) list.push(id);
+      try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list.slice(-200))); } catch(e){}
+    }
     paint();
     if (window.LikesBubble) LikesBubble.sync();
     showToast(saved ? 'נשמר במועדפים' : 'הוסר מהמועדפים');
     if (window.shukTrack) shukTrack('property_save_toggle', { property_id: id, saved });
   }; });
   window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') paint(); });
+  // אותה לשונית: הסרה בפאנל שבכותרת (‏likes-bubble.js) משנה את הכפתור מיד
+  window.addEventListener('shuk-likes', paint);
   paint();
 }
 

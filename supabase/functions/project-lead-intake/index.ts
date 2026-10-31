@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 import {
   corsHeaders, email, freeList, intentScore, json, LEAD_PURPOSES, LEAD_TIMELINES,
   longText, num, numberList, oneOf, phoneE164, text,
@@ -77,7 +78,9 @@ Deno.serve(async (req: Request) => {
     const message = longText(body.message, 2000);
     const leadEmail = email(body.email);
 
-    const { data, error } = await supabase.from("project_leads").insert({
+    const { data, error } = await writeVisitInsert(
+      (payload) => supabase.from("project_leads").insert(payload).select("id").single(),
+      {
       project_id: projectId,
       developer_id: developerId,
       full_name: fullName,
@@ -94,7 +97,9 @@ Deno.serve(async (req: Request) => {
       intent_score: intentScore({ timeline, max_price: maxPrice, rooms, cities, message, email: leadEmail }),
       consent_contact: true,
       source: text(body.source, 60) ?? (projectId ? "project_page" : "projects_page"),
-    }).select("id").single();
+    },
+      body,
+    );
 
     if (error) return json({ error: "db_error", detail: error.message }, 500);
 

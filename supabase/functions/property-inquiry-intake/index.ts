@@ -9,6 +9,7 @@ import {
   normalizeSource,
   socialSourceLabel,
 } from "../_shared/lead-routing.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // מודול 1 (המנגנון המקורי) — פניית קונה/שוכר על נכס קיים.
 // שונה מ-owner-lead-intake בנקודה אחת חשובה: אין כאן מנגנון התאמה/רוטציה
@@ -176,11 +177,11 @@ Deno.serve(async (req: Request) => {
       insertPayload.status = "masked";
     }
 
-    const { data: lead, error: leadErr } = await supabase
-      .from("leads")
-      .insert(insertPayload)
-      .select()
-      .single();
+    const { data: lead, error: leadErr } = await writeVisitInsert(
+      (payload) => supabase.from("leads").insert(payload).select().single(),
+      insertPayload,
+      body,
+    );
 
     if (leadErr) {
       // מרוץ: שתי שליחות של אותה פנייה ביחד - השנייה נופלת על ה-unique

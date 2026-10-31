@@ -460,7 +460,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `fair_view` | **v10**: `/open-house` נטען עם הדגל | `state`: ‏`live` \| `empty`, `n` (כמה דירות ביריד) |
 | `fair_agent_cta` | **v10**: כפתור בבלוק "רוצים להכניס דירה ליריד?" ב-`/open-house` | `cta`: ‏`add` \| `join` |
 | `fair_signup_open` (‏`via`) | **ערך חדש, רק עם דגל v10**: מגע ראשון בטופס היריד v2 בדף | `via`: ‏`page` |
-| `likes_bubble_open` | **v10**: הבועה "הרשימה שלי" (מעל גבריאלה, בדפים הציבוריים) נפתחה | `count` |
+| `likes_bubble_open` | **v10**: רשימת המועדפים נפתחה מהלב בכותרת (דף הבית, דף הנכס). השם נשאר מימי הכפתור הצף | `count` |
 | `sell_view` | דף "חושבים למכור?" (‏`/sell`) נטען | - |
 | `sell_wizard_step` | מעבר לשלב 2 או 3 באשף הערכת השווי ב-`/sell` | `n` |
 | `sell_submit` | האשף ב-`/sell` נשלח (תשובת 2xx). בלי פרטים אישיים | `source`: ‏`sell_page` \| `sell_page_agent`, `routed`: ‏`1` \| `0` |

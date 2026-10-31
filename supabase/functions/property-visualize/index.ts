@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 import {
   buildCommercialPrompt,
   buildPrivatePrompt,
@@ -386,7 +387,11 @@ Deno.serve(async (req: Request) => {
       leadPayload.unlocked_by = property.agent_id;
     }
 
-    const { data: lead, error: leadErr } = await supabase.from("leads").insert(leadPayload).select("id").single();
+    const { data: lead, error: leadErr } = await writeVisitInsert(
+      (payload) => supabase.from("leads").insert(payload).select("id").single(),
+      leadPayload,
+      body,
+    );
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
     leadId = lead.id;
   }
