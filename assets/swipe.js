@@ -2413,7 +2413,8 @@
   }
   function formHtml(c, preset, fullMsg) {
     var p = c.p;
-    var msg = p ? (fullMsg || (preset ? 'היי, ' + preset + ': ' + title(p) : 'היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים')) : '';
+    // ברירת המחדל: המותג, והקישור הקצר בשורה נפרדת בסוף (כמו בוואטסאפ, ‏shortUrl)
+    var msg = p ? (fullMsg || (preset ? 'היי, ' + preset + ': ' + title(p) : 'היי, ראיתי את ' + title(p) + ' בשוק נדל״ן ואשמח לפרטים\n' + shortUrl(p))) : '';
     return '<form class="sw-lead" id="leadForm" hidden novalidate>' +
       '<label class="sw-field"><span>שם</span><input id="swLName" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון</span><input id="swLPhone" type="tel" inputmode="tel" autocomplete="tel" required></label>' +
