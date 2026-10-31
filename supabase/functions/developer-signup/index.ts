@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 import {
   corsHeaders, developerCore, email, int, json, REQUIRED_DEVELOPER_FIELDS, safeUrl, slugify, text,
 } from "../_shared/projects.ts";
@@ -113,9 +114,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "auth_error", detail: authErr?.message || "יצירת משתמש נכשלה" }, 400);
     }
 
-    const { data: developer, error: devErr } = await supabase
-      .from("developers")
-      .insert({
+    const { data: developer, error: devErr } = await writeVisitInsert(
+      (payload) => supabase.from("developers").insert(payload).select("id, slug").single(),
+      {
         user_id: authUser.user.id,
         slug: finalSlug,
         name: core.value.name,
@@ -133,9 +134,9 @@ Deno.serve(async (req: Request) => {
         founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
         projects_delivered: int(body.projects_delivered, 0, 5000),
         ...(registry ? registryColumns(registry) : {}),
-      })
-      .select("id, slug")
-      .single();
+      },
+      body,
+    );
 
     if (devErr) {
       // rollback ידני — בלי זה נשאר חשבון Auth שאין מאחוריו חברה, ומי

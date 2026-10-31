@@ -37,6 +37,7 @@ on:
       - "assets/silo-render.js"
       - "scripts/projects_page_test.ts"
       - "scripts/index_jsonld_test.ts"
+      - "scripts/go_link_test.ts"
       - "projects.html"
       - ".github/workflows/canonical.yml"
   push:
@@ -63,6 +64,7 @@ on:
       - "assets/silo-render.js"
       - "scripts/projects_page_test.ts"
       - "scripts/index_jsonld_test.ts"
+      - "scripts/go_link_test.ts"
       - "projects.html"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
@@ -128,3 +130,7 @@ jobs:
       # לתשובה שמולאה (slow_ttfb על /agencies, 25.10.2026).
       - name: JSON-LD של הרשימות
         run: node --experimental-strip-types scripts/index_jsonld_test.ts
+
+      # ‏/go/<code>: הפניה לאותו אתר, רישום שלא חוסם את ההפניה, בלי IP.
+      - name: קישור קליק /go
+        run: node --experimental-strip-types scripts/go_link_test.ts
