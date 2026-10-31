@@ -2063,8 +2063,8 @@
     }
     var liked_ = !!(p && likes.indexOf(p.id) >= 0);
     $('swLike').setAttribute('aria-pressed', String(liked_));
-    // ‏§10 (תומר 31.10): השם הנגיש קבוע ומכיל את המילה הגלויה "שמירה" (WCAG 2.5.3); המצב ב-aria-pressed
-    $('swLike').setAttribute('aria-label', 'שמירה במועדפים');
+    // ‏§10 (תומר 31.10): השם הנגיש מכיל את המילה הגלויה (WCAG 2.5.3) - "שמירה" או "נשמר" לפי המצב; המצב גם ב-aria-pressed
+    $('swLike').setAttribute('aria-label', liked_ ? 'נשמר במועדפים' : 'שמירה במועדפים');
     // ‏pr1095-saved-label (גבריאלה ותומר 31.10): הכיתוב הגלוי מתחת ללב - "נשמר" כשהנכס שמור
     var likeLbl = $('swLike').querySelector('.sw-act-lbl');
     if (likeLbl) likeLbl.textContent = liked_ ? 'נשמר' : 'שמירה';
