@@ -125,6 +125,12 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
 <style>
+  /* מטריקות קרובות ל-Heebo, כדי שהחלפת הגופן לא תגביה את "איך זה עובד".
+     בלי זה הציור המוקדם (לפני שהגופן מגיע) זז כשהקובץ נטען. */
+  @font-face{
+    font-family:Heebo-fb;src:local('Arial');
+    size-adjust:107%;ascent-override:95%;descent-override:25%;line-gap-override:0%;
+  }
   /* אותה פלטה ואותם רכיבים כמו שאר עמודי האתר —
      ‏assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
   :root{
@@ -140,7 +146,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   [hidden]{display:none !important}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',Heebo-fb,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
   h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
   a{color:inherit;text-decoration:none}
   img{max-width:100%;display:block}
