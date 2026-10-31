@@ -57,9 +57,9 @@ begin
   end if;
 end $$;
 
--- 3. דפדפן אחר על אותו IP נרשם. בלי מזהה בכלל - נדחה.
+-- 3. דפדפן אחר על אותו IP נרשם. בלי גיבוב חוקי כולם באותו דלי, וטלפון אינו סשן.
 do $$
-declare r jsonb; v_n int;
+declare r jsonb; v_n int; v_ref bigint;
 begin
   r := public.fair_contact_click(
     'c0000000-0000-0000-0000-000000000001', 'whatsapp', 'property',
@@ -68,7 +68,17 @@ begin
   r := public.fair_contact_click(
     'c0000000-0000-0000-0000-000000000001', 'whatsapp', 'nope',
     null, '972501234567');
-  if r->>'error' <> 'rate_limited' then raise exception 'C3 phone session %', r; end if;
+  if r->>'ok' <> 'true' or r->>'duplicate' <> 'false' then raise exception 'C3 shared %', r; end if;
+  v_ref := (r->>'ref')::bigint;
+  if (select client_session from public.fair_inquiries where ref = v_ref) is not null
+     or (select ip_hash from public.fair_inquiries where ref = v_ref) <> repeat('0', 64)
+     or (select visitor_phone_e164 from public.fair_inquiries where ref = v_ref) is not null then
+    raise exception 'C3 stored a phone or skipped the bucket';
+  end if;
+  r := public.fair_contact_click(
+    'c0000000-0000-0000-0000-000000000001', 'whatsapp', 'property',
+    'not-an-ip', '0501234567');
+  if r->>'duplicate' <> 'true' or (r->>'ref')::bigint <> v_ref then raise exception 'C3 bucket dup %', r; end if;
   r := public.fair_contact_click(
     'c0000000-0000-0000-0000-000000000001', 'sms', 'property',
     repeat('a', 64), repeat('3', 32));
@@ -209,7 +219,44 @@ begin
   if r->>'ok' <> 'true' or r->>'channel' <> 'call_click' then raise exception 'C7 other property %', r; end if;
 end $$;
 
--- 8. הייצוא של מנהל הפלטפורמה כולל את הערוץ, בלי טלפון
+-- 8. תקרת האתר: 3,000 לחיצות בשעה על כל הנכסים וכל הכתובות. IP חדש נדחה.
+do $$
+declare
+  i int;
+  r jsonb;
+  v_start timestamptz;
+  v_end timestamptz;
+  v_key text;
+  v_n int;
+begin
+  select open_house_start, open_house_end,
+         'oh:' || to_char(open_house_start at time zone 'Asia/Jerusalem', 'YYYYMMDD') || '-' ||
+                 to_char(open_house_end at time zone 'Asia/Jerusalem', 'YYYYMMDD')
+    into v_start, v_end, v_key
+    from public.properties where id = 'c0000000-0000-0000-0000-000000000005';
+  select count(*) into v_n from public.fair_inquiries
+   where channel in ('whatsapp_click', 'call_click')
+     and created_at > now() - interval '1 hour';
+  for i in 1..(3000 - v_n) loop
+    insert into public.fair_inquiries (
+      property_id, agent_id, agency_id, channel, status, source, source_page,
+      fair_key, fair_start, fair_end, ip_hash, client_session)
+    values (
+      'c0000000-0000-0000-0000-000000000005',
+      'b0000000-0000-0000-0000-000000000003',
+      'a0000000-0000-0000-0000-000000000002',
+      'call_click', 'eligible', 'property', 'property',
+      v_key, v_start, v_end, repeat('9', 64), lpad(to_hex(100000 + i), 32, '0'));
+  end loop;
+  r := public.fair_contact_click(
+    'c0000000-0000-0000-0000-000000000001', 'call', 'property',
+    repeat('8', 64), repeat('8', 32));
+  if r->>'error' <> 'rate_limited' then raise exception 'C8 global %', r; end if;
+  select count(*) into v_n from public.fair_inquiries where ip_hash = repeat('8', 64);
+  if v_n <> 0 then raise exception 'C8 wrote past the site cap'; end if;
+end $$;
+
+-- 9. הייצוא של מנהל הפלטפורמה כולל את הערוץ, בלי טלפון
 do $$
 declare v_n int;
 begin

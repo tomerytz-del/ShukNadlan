@@ -10,8 +10,10 @@
 -- מי קורא: רק service_role, מ-fair-contact-log. הדפדפן אינו קורא לפונקציה.
 -- השעון הוא now() של השרת. נכס שאינו פעיל או שמחוץ לחלון אינו נרשם.
 -- כפילות: אותו דפדפן (client_session) על אותו נכס ואותו ערוץ ב-15 דקות
--- מחזיר את השורה שכבר נכתבה. בלי סשן - אותו ip_hash. תקרת הצפה: 200
--- שורות חדשות לשעה לאותו ip על אותו נכס, ו-2,000 לשעה לאותו ip על הכל.
+-- מחזיר את השורה שכבר נכתבה. בלי סשן - אותו ip_hash. תקרות, כולן לשעה:
+-- 200 שורות חדשות לאותו ip על אותו נכס, 2,000 לאותו ip על כל הנכסים,
+-- ו-3,000 על האתר כולו (כל הכתובות וכל הנכסים). גיבוב חסר או לא חוקי
+-- נופל לדלי המשותף, כדי שהשמטה לא תעקוף את התקרה.
 -- אין שם, אין טלפון, ואין כתיבה ל-leads.
 -- אידמפוטנטית. docs/open-house-fair.md, "רישום פניות היריד".
 -- ============================================================================
@@ -58,12 +60,9 @@ begin
   end;
   v_source := coalesce(v_page, 'click');
 
-  -- גיבוב שכבר חושב בשרת. מחרוזת אחרת (טלפון, כתובת) אינה נשמרת.
-  v_ip := case when p_ip_hash ~ '^[a-f0-9]{64}$' then p_ip_hash else null end;
+  -- גיבוב שכבר חושב בשרת. מחרוזת אחרת (טלפון, כתובת) נופלת לדלי המשותף.
+  v_ip := case when p_ip_hash ~ '^[a-f0-9]{64}$' then p_ip_hash else repeat('0', 64) end;
   v_session := case when p_client_session ~ '^[a-f0-9]{32}$' then p_client_session else null end;
-  if v_ip is null and v_session is null then
-    return jsonb_build_object('ok', false, 'error', 'rate_limited');
-  end if;
 
   select pr.id, pr.agent_id, pr.agency_id, pr.title, pr.city, pr.status,
          pr.open_house, pr.open_house_start, pr.open_house_end
@@ -82,10 +81,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'not_in_fair');
   end if;
 
-  -- אותו IP ואותו נכס ננעלים יחד, כדי ששתי לחיצות במקביל לא יעברו את התקרה.
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtext(coalesce(v_ip, v_session)),
-    pg_catalog.hashtext(p_property_id::text));
+  -- מנעול אחד לכל הלחיצות: בלי זה שתי כתובות עוברות יחד את תקרת האתר.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('fair-contact-click')::bigint);
 
   select f.ref, f.created_at, f.fair_end, f.channel, f.status
     into v_existing
@@ -95,7 +92,7 @@ begin
      and f.created_at > now() - interval '15 minutes'
      and (
        (v_session is not null and f.client_session = v_session)
-       or (v_session is null and v_ip is not null and f.ip_hash = v_ip)
+       or (v_session is null and f.ip_hash = v_ip)
      )
    order by f.created_at desc
    limit 1;
@@ -112,23 +109,26 @@ begin
    where f.property_id = p_property_id
      and f.channel in ('whatsapp_click', 'call_click')
      and f.created_at > now() - interval '1 hour'
-     and (
-       (v_ip is not null and f.ip_hash = v_ip)
-       or (v_ip is null and f.client_session = v_session)
-     );
+     and f.ip_hash = v_ip;
   if v_n >= 200 then
     return jsonb_build_object('ok', false, 'error', 'rate_limited');
   end if;
 
-  if v_ip is not null then
-    select count(*) into v_n
-      from public.fair_inquiries f
-     where f.channel in ('whatsapp_click', 'call_click')
-       and f.created_at > now() - interval '1 hour'
-       and f.ip_hash = v_ip;
-    if v_n >= 2000 then
-      return jsonb_build_object('ok', false, 'error', 'rate_limited');
-    end if;
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour'
+     and f.ip_hash = v_ip;
+  if v_n >= 2000 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited');
+  end if;
+
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour';
+  if v_n >= 3000 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited');
   end if;
 
   begin

@@ -45,20 +45,90 @@ function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-export function clientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for") || "";
-  const hop = fwd.split(",")[0].trim();
-  if (!hop || hop.length > 64 || /\s/.test(hop)) return "";
-  return hop;
+// כתובת שלא עברה אימות נופלת לאותו דלי. מי שמזייף את הכותרת או משמיט
+// אותה אינו מקבל דלי חדש לכל בקשה.
+export const SHARED_IP_KEY = "shared";
+
+function isIpv4(s: string): boolean {
+  const parts = s.split(".");
+  if (parts.length !== 4) return false;
+  for (const part of parts) {
+    if (!/^(0|[1-9]\d{0,2})$/.test(part)) return false;
+    if (Number(part) > 255) return false;
+  }
+  return true;
 }
 
-export async function hashIp(ip: string, salt: string): Promise<string | null> {
-  const clean = ip.trim();
-  if (!clean) return null;
+function isIpv6(s: string): boolean {
+  let v = s;
+  const zone = v.indexOf("%");
+  if (zone >= 0) {
+    if (!/^[A-Za-z0-9]+$/.test(v.slice(zone + 1))) return false;
+    v = v.slice(0, zone);
+  }
+  if (!v || !/^[0-9A-Fa-f:.]+$/.test(v)) return false;
+  const lower = v.toLowerCase();
+  const lastColon = lower.lastIndexOf(":");
+  let head = lower;
+  if (lastColon >= 0 && lower.slice(lastColon + 1).includes(".")) {
+    if (!isIpv4(lower.slice(lastColon + 1))) return false;
+    head = lower.slice(0, lastColon) + ":0";
+  }
+  if (head.includes(":::")) return false;
+  const halves = head.split("::");
+  if (halves.length > 2) return false;
+  const groups = (side: string) => side === "" ? [] : side.split(":");
+  const hex = (g: string) => /^[0-9a-f]{1,4}$/.test(g);
+  if (halves.length === 2) {
+    const left = groups(halves[0]);
+    const right = groups(halves[1]);
+    if (left.length + right.length > 7) return false;
+    return [...left, ...right].every(hex);
+  }
+  const all = groups(head);
+  return all.length === 8 && all.every(hex);
+}
+
+// מקלף סוגריים ויציאה, ומחזיר כתובת קנונית. כל השאר ריק.
+export function normalizeIp(raw: string): string {
+  let s = raw.trim();
+  if (!s || s.length > 80 || /[\s,]/.test(s)) return "";
+  if (s.startsWith("[")) {
+    const end = s.indexOf("]");
+    if (end < 2) return "";
+    const rest = s.slice(end + 1);
+    if (rest !== "" && !/^:\d{1,5}$/.test(rest)) return "";
+    if (rest && Number(rest.slice(1)) > 65535) return "";
+    s = s.slice(1, end);
+  } else {
+    const port = s.match(/^(.*):(\d{1,5})$/);
+    if (port && isIpv4(port[1])) {
+      if (Number(port[2]) > 65535) return "";
+      s = port[1];
+    }
+  }
+  if (isIpv4(s)) return s;
+  if (!isIpv6(s)) return "";
+  const zone = s.indexOf("%");
+  return (zone >= 0 ? s.slice(0, zone) : s).toLowerCase();
+}
+
+// cf-connecting-ip נכתב על ידי הפלטפורמה ודורס ערך שהלקוח שלח.
+// בלי זה, הקפיצה האחרונה ב-x-forwarded-for היא מה שהפרוקסי הוסיף.
+// הקפיצה הראשונה היא מה שהדפדפן כתב, ולכן אינה נספרת.
+export function clientIp(req: Request): string {
+  const cf = normalizeIp(req.headers.get("cf-connecting-ip") || "");
+  if (cf) return cf;
+  const hops = (req.headers.get("x-forwarded-for") || "").split(",").map((h) => h.trim()).filter(Boolean);
+  return normalizeIp(hops.length ? hops[hops.length - 1] : "");
+}
+
+export async function hashIp(ip: string, salt: string): Promise<string> {
+  const key = normalizeIp(ip) || SHARED_IP_KEY;
   const pepper = salt || FALLBACK_SALT;
   const buf = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(clean + "|" + pepper),
+    new TextEncoder().encode(key + "|" + pepper),
   );
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
