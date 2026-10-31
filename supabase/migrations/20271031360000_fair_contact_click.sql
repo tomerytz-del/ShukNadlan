@@ -14,9 +14,11 @@
 -- 200 שורות חדשות לאותו גיבוב על אותו נכס, 500 על הנכס מכל הכתובות,
 -- 2,000 לאותו גיבוב על כל הנכסים, ו-3,000 על האתר כולו. גיבוב חסר
 -- הוא 64 אפסים, אותו דלי שבשרת. IPv6 מגובב לפי /64 לפני שהוא מגיע לכאן.
--- תקרת האתר נבדקת בלי מנעול. המנעול הוא לננכס, ובלי המתנה: אם הוא תפוס
--- הלחיצה לא נרשמת והחיבור משתחרר. מילוי התקרה הגלובלית נכתב לממצא
--- תפעולי בדרגה medium, בלי התראה ליועץ ובלי הודעה ללקוח.
+-- תקרות שנדחות (כפילות, גיבוב, נכס, אתר) נבדקות בלי מנעול, כדי שכתובת
+-- שכבר חסומה לא תתפוס את המנעול. המנעול הוא לננכס, עד שלושה ניסיונות
+-- של 5ms: אם הוא עדיין תפוס הלחיצה לא נרשמת. מתחתיו רק בדיקה חוזרת
+-- וכתיבה. מילוי תקרת האתר או תקרת הנכס נכתב לממצא תפעולי בדרגה
+-- medium, לא יותר מפעם בחמש דקות, בלי התראה ליועץ ובלי הודעה ללקוח.
 -- אין שם, אין טלפון, ואין כתיבה ל-leads.
 -- אידמפוטנטית. docs/open-house-fair.md, "רישום פניות היריד".
 -- ============================================================================
@@ -46,6 +48,8 @@ declare
   v_end timestamptz;
   v_status text;
   v_wrote integer;
+  v_locked boolean;
+  v_try integer;
 begin
   v_channel := case p_channel
     when 'whatsapp' then 'whatsapp_click'
@@ -128,13 +132,92 @@ begin
      and f.channel in ('whatsapp_click', 'call_click')
      and f.created_at > now() - interval '1 hour';
   if v_n >= 500 then
+    if pg_catalog.pg_try_advisory_xact_lock(
+         pg_catalog.hashtext('fair-contact-prop-alert'),
+         pg_catalog.hashtext(p_property_id::text))
+       and to_regclass('public.ops_findings') is not null then
+      begin
+        insert into public.ops_findings (key, area, code, severity, subject, title, detail, suggestion, metric, metric_unit)
+        values (
+          'fair_click_property_cap:' || p_property_id::text,
+          'health', 'fair_click_property_cap', 'medium', p_property_id::text,
+          'תקרת לחיצות על נכס ביריד מלאה',
+          'בשעה האחרונה נרשמו לפחות 500 לחיצות על וואטסאפ ועל חיוג לנכס הזה. לחיצות נוספות עליו לא נשמרות עד שהחלון מתגלגל.',
+          'לבדוק ביומן אם זו הצפה על הנכס. אין הודעה ליועצים ואין הודעה ללקוחות.',
+          v_n, 'clicks')
+        on conflict (key) do update
+          set last_seen = pg_catalog.now(),
+              prev_metric = public.ops_findings.metric,
+              metric = excluded.metric,
+              detail = excluded.detail,
+              resolved_at = null
+        where public.ops_findings.last_seen < pg_catalog.now() - interval '5 minutes'
+           or public.ops_findings.resolved_at is not null;
+        get diagnostics v_wrote = row_count;
+        if v_wrote > 0 then
+          raise warning 'fair_contact_property_cap property=% count=%', p_property_id, v_n;
+        end if;
+      exception when others then
+        raise warning 'fair_contact_property_cap alert failed: %', sqlerrm;
+      end;
+    elsif to_regclass('public.ops_findings') is null then
+      raise warning 'fair_contact_property_cap property=% count=%', p_property_id, v_n;
+    end if;
     return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'property');
   end if;
 
-  -- מנעול לננכס, בלי המתנה. תפוס: לא רושמים ומשחררים את החיבור מיד.
-  if not pg_catalog.pg_try_advisory_xact_lock(
-       pg_catalog.hashtext('fair-contact-click'),
-       pg_catalog.hashtext(p_property_id::text)) then
+  -- כפילות ותקרת הגיבוב בלי מנעול: כתובת שכבר חסומה לא תופסת אותו.
+  select f.ref, f.created_at, f.fair_end, f.channel, f.status
+    into v_existing
+    from public.fair_inquiries f
+   where f.property_id = p_property_id
+     and f.channel = v_channel
+     and f.created_at > now() - interval '15 minutes'
+     and (
+       (v_session is not null and f.client_session = v_session)
+       or (v_session is null and f.ip_hash = v_ip)
+     )
+   order by f.created_at desc
+   limit 1;
+  if found then
+    return jsonb_build_object(
+      'ok', true, 'logged', true, 'duplicate', true,
+      'ref', v_existing.ref, 'created_at', v_existing.created_at,
+      'fair_end', v_existing.fair_end, 'channel', v_existing.channel,
+      'status', v_existing.status);
+  end if;
+
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.property_id = p_property_id
+     and f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour'
+     and f.ip_hash = v_ip;
+  if v_n >= 200 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'address');
+  end if;
+
+  select count(*) into v_n
+    from public.fair_inquiries f
+   where f.channel in ('whatsapp_click', 'call_click')
+     and f.created_at > now() - interval '1 hour'
+     and f.ip_hash = v_ip;
+  if v_n >= 2000 then
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'address');
+  end if;
+
+  -- מנעול לננכס. שלושה ניסיונות קצרים, בלי להחזיק חיבור בהמתנה ארוכה.
+  v_locked := false;
+  for v_try in 1..3 loop
+    v_locked := pg_catalog.pg_try_advisory_xact_lock(
+      pg_catalog.hashtext('fair-contact-click'),
+      pg_catalog.hashtext(p_property_id::text));
+    exit when v_locked;
+    if v_try < 3 then
+      perform pg_catalog.pg_sleep(0.005);
+    end if;
+  end loop;
+  if not v_locked then
     return jsonb_build_object('ok', true, 'logged', false, 'skipped', 'busy');
   end if;
 
@@ -182,7 +265,7 @@ begin
      and f.created_at > now() - interval '1 hour'
      and f.ip_hash = v_ip;
   if v_n >= 200 then
-    return jsonb_build_object('ok', false, 'error', 'rate_limited');
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'address');
   end if;
 
   select count(*) into v_n
@@ -191,15 +274,7 @@ begin
      and f.created_at > now() - interval '1 hour'
      and f.ip_hash = v_ip;
   if v_n >= 2000 then
-    return jsonb_build_object('ok', false, 'error', 'rate_limited');
-  end if;
-
-  select count(*) into v_n
-    from public.fair_inquiries f
-   where f.channel in ('whatsapp_click', 'call_click')
-     and f.created_at > now() - interval '1 hour';
-  if v_n >= 3000 then
-    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'global');
+    return jsonb_build_object('ok', false, 'error', 'rate_limited', 'cap', 'address');
   end if;
 
   begin

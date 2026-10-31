@@ -121,8 +121,27 @@ export function normalizeIp(raw: string): string {
   return (zone >= 0 ? s.slice(0, zone) : s).toLowerCase();
 }
 
+function v4Hextets(v4: string): string {
+  const p = v4.split(".").map((n) => Number(n));
+  const hi = ((p[0] << 8) | p[1]).toString(16);
+  const lo = ((p[2] << 8) | p[3]).toString(16);
+  return hi + ":" + lo;
+}
+
+function hextetsToV4(hi: string, lo: string): string {
+  const a = parseInt(hi, 16);
+  const b = parseInt(lo, 16);
+  return `${(a >> 8) & 255}.${a & 255}.${(b >> 8) & 255}.${b & 255}`;
+}
+
+// זנב IPv4 (‏::ffff:192.0.2.1 או 64:ff9b::192.0.2.1) הופך לשתי הקסדות,
+// כדי שההרחבה תראה את אותה צורה כמו הכתיב ההקסדצימלי.
 function expandIpv6(s: string): string[] | null {
-  const v = s.toLowerCase();
+  let v = s.toLowerCase();
+  const colon = v.lastIndexOf(":");
+  if (colon >= 0 && isIpv4(v.slice(colon + 1))) {
+    v = v.slice(0, colon + 1) + v4Hextets(v.slice(colon + 1));
+  }
   if (v.includes(".")) return null;
   const halves = v.split("::");
   if (halves.length > 2) return null;
@@ -142,27 +161,25 @@ function expandIpv6(s: string): string[] | null {
   return groups.map((g) => g.padStart(4, "0"));
 }
 
-function ipv4Mapped(s: string): string | null {
-  const lower = s.toLowerCase();
-  const idx = lower.lastIndexOf(":");
-  if (idx < 0) return null;
-  const tail = lower.slice(idx + 1);
-  if (!isIpv4(tail)) return null;
-  const head = lower.slice(0, idx);
-  if (head === "::ffff" || head.endsWith(":ffff")) return tail;
+// ‏::ffff:0:0/96 (גם ‏::ffff:c000:201) ו-NAT64 הידוע 64:ff9b::/96.
+// סיומת :ffff באמצע כתובת אחרת אינה מיפוי.
+function embeddedIpv4(groups: string[]): string | null {
+  const zero = (from: number, to: number) => groups.slice(from, to).every((g) => g === "0000");
+  if (zero(0, 5) && groups[5] === "ffff") return hextetsToV4(groups[6], groups[7]);
+  if (groups[0] === "0064" && groups[1] === "ff9b" && zero(2, 6)) return hextetsToV4(groups[6], groups[7]);
   return null;
 }
 
 // IPv4 נשארת כתובת שלמה. IPv6 נספרת לפי /64, כדי שרשת אחת לא תקבל
-// מכסה חדשה לכל כתובת. IPv4 שמופתה ל-IPv6 נספרת כ-IPv4.
+// מכסה חדשה לכל כתובת. מיפוי ו-NAT64 נספרים לפי ה-IPv4 שבתוכם.
 export function rateLimitKey(ip: string): string {
   const clean = normalizeIp(ip);
   if (!clean) return "";
   if (isIpv4(clean)) return clean;
-  const mapped = ipv4Mapped(clean);
-  if (mapped) return mapped;
   const groups = expandIpv6(clean);
-  if (!groups) return clean;
+  if (!groups) return "";
+  const embedded = embeddedIpv4(groups);
+  if (embedded) return embedded;
   return groups.slice(0, 4).join(":") + "/64";
 }
 

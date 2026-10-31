@@ -76,7 +76,12 @@ ok("כתובת לא תקינה היא הדלי המשותף של 64 אפסים",
 ok("IPv6 נספר לפי /64, וכתובת ממופה נספרת כ-IPv4",
   await hashIp("2001:db8:1:2::1", "salt-a") === await hashIp("2001:db8:1:2:aaaa:bbbb:cccc:dddd", "salt-a")
   && await hashIp("2001:db8:1:2::1", "salt-a") !== await hashIp("2001:db8:1:3::1", "salt-a")
-  && await hashIp("::ffff:203.0.113.8", "salt-a") === h1);
+  && await hashIp("::ffff:203.0.113.8", "salt-a") === h1
+  && await hashIp("::ffff:c000:201", "salt-a") === await hashIp("192.0.2.1", "salt-a")
+  && await hashIp("64:ff9b::192.0.2.1", "salt-a") === await hashIp("64:ff9b::c000:201", "salt-a")
+  && await hashIp("64:ff9b::192.0.2.1", "salt-a") === await hashIp("192.0.2.1", "salt-a")
+  && await hashIp("2001:db8::ffff:192.0.2.1", "salt-a") !== await hashIp("192.0.2.1", "salt-a")
+  && await hashIp("2001:db8::ffff:192.0.2.1", "salt-a") === await hashIp("2001:db8::1", "salt-a"));
 ok("מלח ריק עדיין מגובב, אחרת מהמלח האמיתי", (await hashIp("203.0.113.8", "")) !== h1
   && (await hashIp("203.0.113.8", "")).length === 64);
 
