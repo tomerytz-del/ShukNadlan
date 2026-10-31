@@ -1801,7 +1801,28 @@ async function handleCadenceTap(agentId: string, from: string, cadenceId: string
   await sendCadenceSaved(agentId, from, typeId, line);
 }
 
+async function cadenceButtonOn(): Promise<boolean> {
+  const { data, error } = await supabase.from("app_config")
+    .select("value")
+    .eq("key", "notif_cadence_button_enabled")
+    .maybeSingle();
+  if (error || !data) return false;
+  return ["1", "true", "on", "yes"].includes(String(data.value || "").trim().toLowerCase());
+}
+
 async function handleOpenDemandClaim(agentId: string, from: string, rawId: string): Promise<void> {
+  if (!(await cadenceButtonOn())) {
+    await reply(from, "הכפתור הזה לא פעיל.", agentId);
+    return;
+  }
+  const { data: member } = await supabase.from("agency_members")
+    .select("tier")
+    .eq("id", agentId)
+    .maybeSingle();
+  if (!TIER_ALLOWED.has(String(member?.tier ?? ""))) {
+    await reply(from, "מסלול חינם לא מחובר לגבריאלה, ואין גישה לביקוש הפתוח.", agentId);
+    return;
+  }
   const id = rawId.slice("odc:".length);
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
     await reply(from, "הכפתור הזה כבר לא בתוקף.", agentId);
@@ -1987,10 +2008,6 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     : msg.type === "interactive"
     ? String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "")
     : "";
-  if (buttonId.startsWith("odc:")) {
-    await handleOpenDemandClaim(agent.id, from, buttonId);
-    return;
-  }
   const cadenceId = cadenceIdFromMessage(msg);
   if (cadenceId) {
     await handleCadenceTap(agent.id, from, cadenceId);
@@ -2011,6 +2028,10 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (waBlock === "billing_inactive") {
     await replyCta(from, BILLING_INACTIVE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
+    return;
+  }
+  if (buttonId.startsWith("odc:")) {
+    await handleOpenDemandClaim(agent.id, from, buttonId);
     return;
   }
 
@@ -2735,7 +2756,7 @@ Deno.serve(async (req: Request) => {
       }
     };
     const results = await Promise.all([
-      ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", warmPromptCache)] : []),
+      ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", async () => warmPromptCache(await cadenceButtonOn()))] : []),
       ...(due.includes("gabriela_public") ? [warm("gabriela_public", () => warmPublicPromptCache(supabase))] : []),
     ]);
     console.log("cache warm", JSON.stringify(results));

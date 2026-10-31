@@ -3,7 +3,7 @@
  *
  *     node scripts/notif_cadence_test.mjs
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -123,6 +123,13 @@ test("מיפוי קבוצות, וסוג לא מוכר נופל לקבוצה 5", 
   assert.equal(cadenceGroupOf("client_match"), "matches");
   assert.equal(cadenceGroupOf("review_new"), "system_mentor");
   assert.equal(cadenceGroupOf("future_type"), "system_mentor");
+  assert.equal(cadenceGroupOf("lead_response_reminder"), "new_leads");
+  assert.equal(cadenceGroupOf("lead_response_escalation"), "new_leads");
+  assert.equal(cadenceGroupOf("leads_digest"), "new_leads");
+  assert.equal(cadenceGroupOf("platform_broadcast"), "system_mentor");
+  assert.equal(cadenceGroupOf("unpublished_nudge"), "system_mentor");
+  assert.equal(cadenceGroupOf("review_alert"), null);
+  assert.equal(cadenceGroupOf("lead_unrouted"), null);
   assert.equal(cadenceGroupOf("ops_alert"), null);
   assert.equal(cadenceGroupOf("security_alert"), null);
   assert.equal(cadenceGroupOf("platform_signup"), null);
@@ -142,6 +149,45 @@ test("מיפוי קבוצות, וסוג לא מוכר נופל לקבוצה 5", 
   assert.match(migration, /notif_cadence_group\(p_type\) = 'system_mentor' then false/);
   assert.match(migration, /allow_template := r\.notif_type is distinct from 'system_mentor'/);
   assert.match(migration, /split_part\(p_slot, ':', 2\) = 'system_mentor'/);
+  const digestClaim = migration.slice(
+    migration.indexOf("function public.lead_wa_digest_claim"),
+    migration.indexOf("comment on function public.lead_wa_digest_claim"),
+  );
+  assert.match(digestClaim, /'system_mentor', 'digest'/);
+  assert.doesNotMatch(digestClaim, /jsonb_each_text/);
+});
+
+test("כל סוג ב-notifications_type_check ממופה או מוחרג", () => {
+  const migDir = join(root, "supabase/migrations");
+  const baseFile = "20270331090000_deal_sync_summary.sql";
+  const base = readFileSync(join(migDir, baseFile), "utf8");
+  const listed = base.slice(base.indexOf("notifications_type_check"), base.indexOf("deal_sync_close_run"));
+  const types = new Set(listed.match(/'([a-z0-9_]+)'/g).map((s) => s.slice(1, -1)));
+  for (const name of readdirSync(migDir)) {
+    if (!name.endsWith(".sql") || name <= baseFile) continue;
+    const text = readFileSync(join(migDir, name), "utf8");
+    for (const block of text.matchAll(/notification_types_add\(\s*array\[([\s\S]*?)\]/g)) {
+      for (const hit of block[1].matchAll(/'([a-z0-9_]+)'/g)) types.add(hit[1]);
+    }
+  }
+  const mapped = new Set([...Object.keys(CADENCE_GROUP_MAP), ...CADENCE_EXCLUDED]);
+  const missing = [...types].filter((t) => !mapped.has(t));
+  assert.deepEqual(missing, [], missing.join(","));
+  const sqlMap = migration.slice(
+    migration.indexOf("insert into public.notif_cadence_group_map"),
+    migration.indexOf("on conflict (notif_type)"),
+  );
+  const sqlNull = migration.slice(
+    migration.indexOf("when p_type = any(array["),
+    migration.indexOf("]::text[]) then null"),
+  );
+  for (const [type, group] of Object.entries(CADENCE_GROUP_MAP)) {
+    assert.match(sqlMap, new RegExp(`'${type}', '${group}'`), type);
+  }
+  for (const type of CADENCE_EXCLUDED) {
+    assert.match(sqlNull, new RegExp(`'${type}'`), type);
+    assert.equal(sqlMap.includes(`'${type}',`), false, type);
+  }
 });
 
 test("אישור קצר, בלי תאריך, וחלון הסיכום", () => {

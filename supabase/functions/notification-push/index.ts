@@ -1046,16 +1046,20 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // בחירה של סוכן/ת אינה פוטרת מתקרת התבניות. סוג שפטור במקום אחר
-    // עדיין נספר, כי lead_wa_digest_cap_allows קורא להחלטה עם exempt=false.
-    if (cadenceOn && row.channel_mode === "template") {
+    // ליד חדש, תזכורת וסיור לא נכנסים לתקרת הסיכום: יש להם פטור משלהם
+    // ב-whatsapp_template_cap_allow, ו-each חייב להמשיך לצאת. דחייה של סוג
+    // אחר נרשמת skipped_template_cap, לא skipped: skipped נתפס ב-holds לתמיד
+    // וההתראה לא חוזרת לוואטסאפ.
+    const cadenceCapExempt = new Set(["new_lead", "agenda_reminder", "showcase_meeting"]);
+    if (cadenceOn && row.channel_mode === "template"
+        && items.some((it) => !cadenceCapExempt.has(it.type))) {
       const { data: allow, error: capErr } = await sb.rpc("lead_wa_digest_cap_allows", {
         p_agent: row.agent_id,
         p_except: row.log_id,
       });
       if (!capErr && allow === false) {
         const { error: holdErr } = await sb.from("notification_push_log").update({
-          whatsapp_status: "skipped",
+          whatsapp_status: "skipped_template_cap",
           last_error: "template_cap",
         }).eq("id", row.log_id).eq("whatsapp_status", "pending");
         if (holdErr) console.error("template cap hold failed", row.log_id, holdErr.message);

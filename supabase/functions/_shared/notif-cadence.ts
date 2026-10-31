@@ -40,10 +40,13 @@ export const CADENCE_GROUPS: CadenceGroup[] = [
   { id: "system_mentor", title: "מערכת ומנטור", mode: "digest", confirmOff: true },
 ];
 
-/** מיפוי מפורש. onboarding_lead בקבוצה 1. שאר onboarding_* בקבוצה 5. */
+/** מיפוי מפורש. כל סוג ב-notifications_type_check נמצא כאן או ב-CADENCE_EXCLUDED. */
 export const CADENCE_GROUP_MAP: Record<string, CadenceGroupId> = {
   new_lead: "new_leads",
   onboarding_lead: "new_leads",
+  lead_response_reminder: "new_leads",
+  lead_response_escalation: "new_leads",
+  leads_digest: "new_leads",
   agenda_reminder: "meetings",
   showcase_meeting: "meetings",
   open_demand: "open_demand",
@@ -56,6 +59,7 @@ export const CADENCE_GROUP_MAP: Record<string, CadenceGroupId> = {
   platform_coach: "system_mentor",
   marketing_copy: "system_mentor",
   review_request: "system_mentor",
+  review_new: "system_mentor",
   agreement_signed: "system_mentor",
   deal_closed: "system_mentor",
   lead_prefs_default: "system_mentor",
@@ -63,6 +67,14 @@ export const CADENCE_GROUP_MAP: Record<string, CadenceGroupId> = {
   onboarding_client: "system_mentor",
   onboarding_agreement: "system_mentor",
   onboarding_license: "system_mentor",
+  market_alert: "system_mentor",
+  collab_offer: "system_mentor",
+  exclusivity_taken: "system_mentor",
+  retention_warning: "system_mentor",
+  platform_broadcast: "system_mentor",
+  unpublished_nudge: "system_mentor",
+  publish_ask_nudge: "system_mentor",
+  call_deleted_by_manager: "system_mentor",
 };
 
 /** לא בתפריט, והשליחה שלהם לא משתנה. */
@@ -70,8 +82,16 @@ export const CADENCE_EXCLUDED = new Set([
   "ops_alert",
   "security_alert",
   "platform_signup",
+  "platform_upgrade",
   "deal_sync_summary",
   "deal_data_gap",
+  "review_alert",
+  "lead_unrouted",
+  "access_review",
+  "admin_overdue",
+  "market_nudge",
+  "budget_alert",
+  "improvement_suggestion",
 ]);
 
 export const CADENCE_MORE_ID = "ncad:more";

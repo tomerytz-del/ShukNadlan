@@ -144,7 +144,7 @@ create table if not exists public.notif_cadence_group_map (
 );
 
 comment on table public.notif_cadence_group_map is
-  'סוג התראה לקבוצת קצב. סוג שלא כאן ולא ברשימת ההחרגה הוא system_mentor.';
+  'כל סוג מ-notifications_type_check, חוץ מהמוחרגים. סוג חדש חייב שורה כאן או ברשימת ה-null.';
 
 alter table public.notif_cadence_group_map enable row level security;
 revoke all on table public.notif_cadence_group_map from public, anon, authenticated;
@@ -171,7 +171,19 @@ insert into public.notif_cadence_group_map (notif_type, cadence_group) values
   ('onboarding_property', 'system_mentor'),
   ('onboarding_client', 'system_mentor'),
   ('onboarding_agreement', 'system_mentor'),
-  ('onboarding_license', 'system_mentor')
+  ('onboarding_license', 'system_mentor'),
+  ('review_new', 'system_mentor'),
+  ('lead_response_reminder', 'new_leads'),
+  ('lead_response_escalation', 'new_leads'),
+  ('leads_digest', 'new_leads'),
+  ('market_alert', 'system_mentor'),
+  ('collab_offer', 'system_mentor'),
+  ('exclusivity_taken', 'system_mentor'),
+  ('retention_warning', 'system_mentor'),
+  ('platform_broadcast', 'system_mentor'),
+  ('unpublished_nudge', 'system_mentor'),
+  ('publish_ask_nudge', 'system_mentor'),
+  ('call_deleted_by_manager', 'system_mentor')
 on conflict (notif_type) do nothing;
 
 create or replace function public.notif_cadence_group(p_type text)
@@ -183,7 +195,10 @@ set search_path = ''
 as $$
   select case
     when p_type = any(array[
-      'ops_alert', 'security_alert', 'platform_signup', 'deal_sync_summary', 'deal_data_gap'
+      'ops_alert', 'security_alert', 'platform_signup', 'platform_upgrade',
+      'deal_sync_summary', 'deal_data_gap', 'review_alert', 'lead_unrouted',
+      'access_review', 'admin_overdue', 'market_nudge', 'budget_alert',
+      'improvement_suggestion'
     ]::text[]) then null
     else coalesce(
       (select g.cadence_group from public.notif_cadence_group_map g where g.notif_type = p_type),
@@ -589,19 +604,32 @@ begin
   for r in
     select m.id, m.display_name,
            nullif(btrim(coalesce(m.phone_e164, '')), '') as phone,
-           e.key as notif_type,
-           e.value as cadence,
-           nullif(p.whatsapp_cadence_since ->> e.key, '')::timestamptz as since
+           e.notif_type,
+           e.cadence,
+           e.since
       from public.agency_members m
-      join public.agent_notification_preferences p on p.agent_id = m.id
-      cross join lateral jsonb_each_text(p.whatsapp_cadence) e
+      left join public.agent_notification_preferences p on p.agent_id = m.id
+      -- ברירת המחדל חלה גם בלי מפתח ב-whatsapp_cadence. system_mentor הוא digest
+      -- גם למי שלא בחר/ה. new_leads / open_demand / matches הם each, ולכן לא נכנסים
+      -- לסיכום עד בחירה של daily או thrice.
+      cross join lateral (
+        select g.grp as notif_type,
+               coalesce(nullif(p.whatsapp_cadence ->> g.grp, ''), g.fallback) as cadence,
+               nullif(p.whatsapp_cadence_since ->> g.grp, '')::timestamptz as since
+          from (values
+            ('new_leads'::text, 'each'::text),
+            ('open_demand', 'each'),
+            ('matches', 'each'),
+            ('system_mentor', 'digest')
+          ) as g(grp, fallback)
+      ) e
      where m.active
        and m.closed_at is null
        and m.tier in ('mid', 'premium')
        and m.billing_status = 'active'
        and (
-         (e.key in ('new_leads', 'open_demand', 'matches') and e.value in ('daily', 'thrice'))
-         or (e.key = 'system_mentor' and e.value = 'digest')
+         (e.notif_type in ('new_leads', 'open_demand', 'matches') and e.cadence in ('daily', 'thrice'))
+         or (e.notif_type = 'system_mentor' and e.cadence = 'digest')
        )
   loop
     if r.phone is null then

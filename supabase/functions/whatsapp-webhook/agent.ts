@@ -7789,7 +7789,24 @@ async function toolAskMentor(ctx: ToolContext, input: Record<string, unknown>) {
 // ---------------------------------------------------------------------------
 // לידים והתראות
 // ---------------------------------------------------------------------------
+function agentTools(demandOn: boolean, allowed?: ReadonlySet<string>): Anthropic.Tool[] {
+  return TOOLS.filter((t) => (demandOn || t.name !== "open_demand_leads")
+    && (!allowed || allowed.has(t.name)));
+}
+
+async function cadenceButtonOn(sb: { from: (table: string) => any }): Promise<boolean> {
+  const { data, error } = await sb.from("app_config")
+    .select("value")
+    .eq("key", "notif_cadence_button_enabled")
+    .maybeSingle();
+  if (error || !data) return false;
+  return ["1", "true", "on", "yes"].includes(String(data.value || "").trim().toLowerCase());
+}
+
 async function toolOpenDemandLeads(ctx: ToolContext, input: Record<string, unknown>) {
+  if (!(await cadenceButtonOn(ctx.supabase))) {
+    return { ok: false, error: "הכלי כבוי. הדגל notif_cadence_button_enabled כבוי." };
+  }
   if (ctx.agent.tier === "free") {
     return { ok: false, error: "מסלול חינם לא מחובר לגבריאלה, ואין גישה לביקוש הפתוח." };
   }
@@ -9013,8 +9030,7 @@ const SYSTEM_STATIC: string = (() => {
     "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
-      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query. " +
-      "ביקוש פתוח (\"אילו לידים יש בביקוש הפתוח\") = open_demand_leads. בלי שם, טלפון או מייל, עד שלוחצים אני פונה.",
+      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
       "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
       "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
@@ -9375,6 +9391,7 @@ function sessionContext(
   gaps: string[] = [],
   pendingSince: number | null = null,
   listingCity?: string | null,
+  demandOn = false,
 ): string {
   const now = Date.now();
   const today = ilDateOf(now);
@@ -9418,6 +9435,12 @@ function sessionContext(
       "",
       `בפרופיל האישי חסר: ${gaps.join(", ")}. אם הסוכן/ת שולח/ת עכשיו אחד מהם ` +
         "(\"אני 12 שנה בתחום\", תמונה עם \"תמונת פרופיל\") - update_profile.",
+    );
+  }
+  if (demandOn) {
+    lines.push(
+      "",
+      "ביקוש פתוח (\"אילו לידים יש בביקוש הפתוח\") = open_demand_leads. בלי שם, טלפון או מייל, עד שלוחצים אני פונה.",
     );
   }
   lines.push("", listingCityPromptLine(listingCity));
@@ -9503,13 +9526,13 @@ export function evalPromptParts(): { tools: Anthropic.Tool[]; system: string; mo
   return { tools: TOOLS, system: SYSTEM_STATIC, model: MODEL };
 }
 
-export async function warmPromptCache(): Promise<Anthropic.Message> {
+export async function warmPromptCache(demandOn = false): Promise<Anthropic.Message> {
   const response = await callClaude({
     model: MODEL,
     max_tokens: 0,
     output_config: { effort: "medium" },
     system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
-    tools: TOOLS,
+    tools: agentTools(demandOn),
     messages: [{ role: "user", content: "." }],
   } as unknown as Anthropic.MessageCreateParamsNonStreaming);
   logAiUsage(anthropicRow("gabriela_agent_warm", response.model || MODEL, response.usage));
@@ -9544,7 +9567,8 @@ export async function runAgentTurn(opts: {
   const denied = opts.deniedToolMessage ||
     "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ.";
   const ctx: ToolContext = { supabase, agent, conv, outbox: opts.outbox };
-  const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
+  const demandOn = await cadenceButtonOn(supabase);
+  const tools = agentTools(demandOn, allowedTools);
   const gaps = profileGaps(await loadProfileForTurn(ctx));
   const pendingSince = conv.pending_images.length ? await pendingImagesSince(ctx) : null;
   const listingCity = cachedListingCityName(ctx.listingCitySlot);
@@ -9553,7 +9577,7 @@ export async function runAgentTurn(opts: {
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity), userContent) },
+    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity, demandOn), userContent) },
   ];
 
   let finalText = "";
