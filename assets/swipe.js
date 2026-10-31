@@ -2267,6 +2267,43 @@
     if (this.dataset.phone) bsOpen('contact');
     else openSheetFor(c, { form: true });
   });
+  /* ‏swipe-share (31.10): שיתוף נכס אחד - הקישור הקנוני של דף הנכס (בלי beta, ‏pid או hf), וטקסט רק
+     מפרטי הנכס: כותרת · אזור, עיר · מחיר - בלי שם או טלפון של יועץ/ת. ‏Web Share בטלפון; בלי -
+     העתקה ו"הקישור הועתק"; ואם גם היא נכשלה - וואטסאפ (‏wa.me/?text=, ‏data-share). סגירת חלון
+     השיתוף (‏AbortError) אינה שיתוף ואינה שגיאה. ‏share נמדד רק אחרי שיתוף שהצליח */
+  var SITE = 'https://shuknadlan.co.il';
+  function shareProp(p, source) {
+    if (!p) return;
+    var url = SITE + propHref(p), text = [title(p), area(p), fmtPrice(p)].filter(Boolean).join(' · ');
+    var done = function (m) { shukTrack('share', { method: m, item_id: String(p.id), source: source }); };
+    var wa = function () {
+      var a = document.createElement('a');
+      a.href = 'https://wa.me/?text=' + encodeURIComponent(text + '\n' + url);
+      a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('data-share', '');
+      document.body.appendChild(a); a.click(); a.remove();
+      done('whatsapp');
+    };
+    var copy = function () {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) { wa(); return; }
+      navigator.clipboard.writeText(url).then(function () { toast('הקישור הועתק'); done('copy'); }, wa);
+    };
+    if (navigator.share) {
+      navigator.share({ title: title(p), text: text, url: url }).then(function () { done('web_share'); },
+        function (e) { if (!(e && e.name === 'AbortError')) copy(); });
+      return;
+    }
+    copy();
+  }
+  $('swRailShare').addEventListener('click', function (e) {
+    e.stopPropagation();
+    var c = cur();
+    if (c && c.slot === 'property') shareProp(c.p, 'swipe_rail');
+  });
+  $('swSheetBody').addEventListener('click', function (e) {
+    if (!e.target.closest('[data-share-prop]')) return;
+    e.stopPropagation();
+    if (sheetCard && sheetCard.p) shareProp(sheetCard.p, 'swipe_sheet');
+  });
   $('swRailSpec').addEventListener('click', function () {
     var c = cur();
     if (!c || c.slot !== 'property') return;
@@ -2672,6 +2709,7 @@
     openSheetFor(c, { form: true, fullMsg: npMsg(c.p), source: 'photo_request' });
   }
   /* ‏opts.msg - הודעה מוכנה ("אשמח לתאם ביקור בנכס"), ‏opts.form - הטופס פתוח. אף פעם לא שליחה */
+  var SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>';
   function openSheetFor(c, opts) {
     opts = opts || {};
     if (!c || (c.slot !== 'property' && !(c.sponsor && (c.slot === 'spon_agency' || c.sponsor.mortgage)))) return;
@@ -2689,6 +2727,7 @@
         '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
       '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) +
         (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p>' + (fairFormLine(c.p) ? '<p class="sw-fairform">' + esc(fairFormLine(c.p)) + '</p>' : '') + '<a href="/open-house">מה זה היריד? ←</a></div>' : '') +
+        (c.p ? '<div class="sw-sh-share"><button type="button" class="sw-white sw-wide" data-share-prop>' + SHARE_SVG + 'שיתוף הנכס</button></div>' : '') +
         (c.p ? propInfoHtml(c.p) : '') +
         // ‏P1-P: מספר המודעה בתחתית הפרטים
         (c.p && c.p.listing_number ? '<p class="sw-listing-no">מודעה #' + esc(String(c.p.listing_number)) + '</p>' : '') + '</div>' +

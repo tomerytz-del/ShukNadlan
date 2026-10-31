@@ -1239,3 +1239,13 @@ body[data-view=list] .sw-layout{display:inline-flex}
 .sw-adv-list p{margin:3px 0 0;font-size:14.5px;line-height:1.4;color:#2b3350}
 .sw-adv-ask{margin:10px 0 0;font-size:14px;color:#2b3350}
 .sw-adv-disc{margin:10px 0 0;font-size:12px;color:#5a6070;text-align:center}
+
+/* ‏swipe-share (31.10): "שיתוף הנכס" בגיליון - משני (מסגרת נייבי), אחרי הבאנר והטופס, לא במקום הכפתור הזהב */
+.sw-sh-share{margin:12px 0 4px}
+.sw-sh-share .sw-white:focus-visible,.sw-rbtn:focus-visible{outline:3px solid #e5c76a;outline-offset:2px}
+/* במסך נמוך (מתחת ל-700px) עם כפתור השיתוף: המסילה נמוכה יותר - רווח קטן ובלי התוויות שמתחת לעיגולים
+   (השם נשאר ב-aria-label), כדי שלא תעלה עד הלשונית של גבריאלה ולא תכסה את המחיר */
+@media (max-width:759px) and (max-height:699px){
+  body[data-view=deck] .sw-rail{gap:4px}
+  body[data-view=deck] .sw-rlbl{display:none}
+}
