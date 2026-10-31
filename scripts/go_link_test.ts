@@ -134,7 +134,7 @@ function bootAttr(search: string, existing: unknown) {
       setItem: (k: string, v: string) => { data[k] = v; },
       removeItem: (k: string) => { delete data[k]; },
     },
-    location: { search },
+    location: { search, pathname: "" },
     fetch: () => Promise.resolve(),
     URLSearchParams,
   };
@@ -171,8 +171,31 @@ const other = page.api.decorate(
   page.api.payload(stored, Date.now()),
 );
 ok("other endpoints stay untouched", JSON.parse(other?.body || "{}").visit_attr === undefined);
+const crmSandbox: Record<string, unknown> = {
+  localStorage: {
+    getItem: () => null,
+    setItem: () => { throw new Error("crm must not store utm"); },
+    removeItem: () => {},
+  },
+  location: { search: "?utm_source=facebook&utm_content=seeker-e", pathname: "/crm" },
+  fetch: () => Promise.resolve(),
+  URLSearchParams,
+};
+crmSandbox.window = crmSandbox;
+crmSandbox.globalThis = crmSandbox;
+vm.createContext(crmSandbox);
+vm.runInContext(attrSrc, crmSandbox);
+const crmApi = crmSandbox.ShukVisitAttr as {
+  decorate: (input: string, init: { body?: string }, attr: Record<string, string | null> | null) => { body?: string } | undefined;
+};
+const crmBody = crmApi.decorate(
+  "https://obookujgolazrwycsiyn.supabase.co/functions/v1/owner-lead-intake",
+  { body: JSON.stringify({ name: "agent-lead" }) },
+  { attr_source: "facebook", attr_medium: null, attr_campaign: null, attr_content: "seeker-e", attr_code: "seeker-e" },
+);
+ok("crm does not attach the agent utm", JSON.parse(crmBody?.body || "{}").visit_attr === undefined);
 
-const mig = readFileSync(new URL("../supabase/migrations/20271030210000_visit_click_attribution.sql", import.meta.url), "utf8");
+const mig = readFileSync(new URL("../supabase/migrations/20271031280000_visit_click_attribution.sql", import.meta.url), "utf8");
 ok("migration has no ip column", !/ip_address|user_agent|inet/i.test(mig));
 ok("anon cannot read clicks", /revoke all on table public\.link_clicks from anon, authenticated/.test(mig));
 ok("record is anon execute and authenticated revoked", /revoke all on function public\.record_link_click\(text, text, uuid, boolean\) from public, anon, authenticated/.test(mig) && /grant execute on function public\.record_link_click\(text, text, uuid, boolean\) to anon, service_role/.test(mig));

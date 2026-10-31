@@ -54,12 +54,15 @@ true`. מחרוזת ה-UA אינה נשמרת. בדוח הם יוצאים מ-`cl
 הטבלה סגורה ב-RLS בלי policy. `anon` ו-`authenticated` לא קוראים ולא
 כותבים אליה. `anon` רשאי **להריץ** את הפונקציה, כי ל-edge של Netlify
 אין מפתח service role (אותו מפתח anon שכבר יושב ב-`short-link.ts`).
-ניפוח ספירה אפשרי. אין דרך לקרוא ממנה שורות או לכתוב ליד.
+הפונקציה עוצרת הצפה: 60 קליקים לאותו קוד בדקה, ו-300 לכל הקודים.
+מעבר לתקרה לא נרשם. אין דרך לקרוא ממנה שורות או לכתוב ליד.
 
 ## ייחוס על ליד והרשמה
 
-`assets/visit-attr.js` נטען מדפי האתר (דרך `events.js`, ומדפי ההרשמה
-ומה-CRM בנפרד). הוא שומר ב-`localStorage` ל-90 יום את
+`assets/visit-attr.js` נטען מדפי האתר (דרך `events.js`, ומדפי ההרשמה).
+הוא אינו נטען ב-CRM, וגם אם נטען שם הוא לא שומר ולא מדביק `visit_attr`:
+ה-UTM בדפדפן של סוכן/ת הוא של הקמפיין שלו/ה, לא של ליד שנוצר מבפנים.
+הוא שומר ב-`localStorage` ל-90 יום את
 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, ואת הקוד
 (`utm_content`). **ביקור ראשון מנצח.** אין שליחה ל-`dataLayer`.
 
@@ -112,11 +115,8 @@ select day, kind, attr_source, attr_medium, attr_campaign, attr_content, attr_co
 ## שמירה
 
 אין בטבלה מידע אישי, ולכן היא לא נכנסה ל-`data_retention_run`.
-ההצעה היא 400 יום, והפונקציה אינה ב-cron:
-
-```sql
-select public.link_clicks_purge(400);
-```
+`link_clicks_purge(400)` רצה פעם ביום (`link-clicks-purge`, 03:17 UTC).
+רצפה של 30 יום. בלי `pg_cron` הפונקציה נשארת, בלי תזמון.
 
 פחות מ-30 יום נדחה, כדי שקריאה עם 0 לא תרוקן את הטבלה.
 

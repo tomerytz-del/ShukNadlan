@@ -86,6 +86,17 @@
     };
   }
 
+  /* ה-CRM הוא דף של הסוכן/ת. ה-UTM שבדפדפן שלו/ה הוא של הקמפיין שלו/ה,
+     לא של ליד שנוצר מבפנים. לא שומרים ולא מדביקים משם. */
+  function onCrmPage() {
+    try {
+      var path = String((global.location && global.location.pathname) || '');
+      return path === '/crm' || path === '/crm.html' || path.indexOf('/crm/') === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function isIntake(url) {
     var s = String(url || '');
     for (var i = 0; i < INTAKES.length; i++) {
@@ -95,6 +106,7 @@
   }
 
   function decorate(input, init, attr) {
+    if (onCrmPage()) return init;
     if (!attr) return init;
     var url = '';
     if (typeof input === 'string') url = input;
@@ -135,6 +147,7 @@
 
   function boot() {
     if (typeof global.location === 'undefined') return;
+    if (onCrmPage()) return;
     var row = decide(readStored(), global.location.search || '', Date.now());
     if (row) writeStored(row);
     else if (readStored()) writeStored(null);
@@ -158,6 +171,7 @@
     payload: payload,
     decorate: decorate,
     isIntake: isIntake,
+    onCrmPage: onCrmPage,
     fromSearch: fromSearch
   };
 })(typeof window !== 'undefined' ? window : globalThis);

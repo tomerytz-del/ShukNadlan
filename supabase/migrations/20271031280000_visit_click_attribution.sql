@@ -13,7 +13,7 @@
 --                          לכתוב אותן. service_role בפונקציות הקליטה כותב.
 --   link_click_daily       קליקים ליום (בלי בוטים) וספירת בוטים.
 --   visit_attribution_daily  לידים והרשמות לפי מקור וקוד ליום.
---   link_clicks_purge      מחיקה ישנה. לא מתוזמנת. ראו ההערה בתחתית.
+--   link_clicks_purge      מחיקה ישנה, פעם ביום ב-cron. ראו ההערה בתחתית.
 --
 -- לא נוגעים בניתוב לידים, בהתראות, בוואטסאפ, או בטריגר ששולח הודעה.
 -- העמודות החדשות nullable, והקוד סובל את היעדרן עד שהמיגרציה רצה.
@@ -45,6 +45,9 @@ comment on column public.link_clicks.scraped_lead_id is
 create index if not exists link_clicks_code_created_idx
   on public.link_clicks (code, created_at desc);
 
+create index if not exists link_clicks_created_idx
+  on public.link_clicks (created_at);
+
 alter table public.link_clicks enable row level security;
 
 revoke all on table public.link_clicks from anon, authenticated;
@@ -73,13 +76,29 @@ begin
   if v_variant = '' or v_variant !~ '^[a-z0-9][a-z0-9-]{0,31}$' then
     v_variant := null;
   end if;
+  -- תקרה נגד הצפה. המפתח של anon ציבורי, אז בלי התקרה מישהו יכול למלא את הטבלה.
+  -- 60 לאותו קוד בדקה, ו-300 לכל הקודים. מעבר לתקרה יוצא בלי שורה.
+  -- ההפניה ב-edge לא מחכה לתשובה, אז קליק אמיתי לא נעצר.
+  if (
+    select count(*) from public.link_clicks
+     where code = v_code
+       and created_at > pg_catalog.now() - interval '1 minute'
+  ) >= 60 then
+    return;
+  end if;
+  if (
+    select count(*) from public.link_clicks
+     where created_at > pg_catalog.now() - interval '1 minute'
+  ) >= 300 then
+    return;
+  end if;
   insert into public.link_clicks (code, variant, scraped_lead_id, is_bot)
   values (v_code, v_variant, p_scraped_lead_id, coalesce(p_is_bot, false));
 end;
 $$;
 
 comment on function public.record_link_click(text, text, uuid, boolean) is
-  'רושם קליק אחד. כותבת רק code, variant, scraped_lead_id, is_bot. קוד לא תקין יוצא בלי שורה. anon קורא מה-edge של /go. אין קריאה של הטבלה.';
+  'רושם קליק אחד. כותבת רק code, variant, scraped_lead_id, is_bot. קוד לא תקין או תקרה (60 לקוד בדקה, 300 לכולם) יוצאים בלי שורה. anon קורא מה-edge של /go. אין קריאה של הטבלה.';
 
 revoke all on function public.record_link_click(text, text, uuid, boolean) from public, anon, authenticated;
 grant execute on function public.record_link_click(text, text, uuid, boolean) to anon, service_role;
@@ -289,10 +308,9 @@ grant select on public.visit_attribution_daily to service_role;
 -- שמירה
 --
 -- אין בטבלה מידע אישי, ולכן זה לא נכנס ל-data_retention_run (שם נמחקים
--- פרטים אישיים ויוצאת התראה). 400 יום הם הצעה לגודל הטבלה, לא מדיניות
--- פרטיות. הפונקציה אינה ב-cron. להדליק רק בהחלטה נפרדת, למשל:
---   select public.link_clicks_purge(400);
+-- פרטים אישיים ויוצאת התראה). 400 יום הם גודל הטבלה, לא מדיניות פרטיות.
 -- רצפה של 30 יום כדי שקריאה עם 0 לא תרוקן את הטבלה בטעות.
+-- pg_cron מריץ את זה פעם ביום. בלי ההרחבה נשארת הפונקציה, בלי תזמון.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.link_clicks_purge(p_keep_days integer default 400)
@@ -313,7 +331,19 @@ end;
 $$;
 
 comment on function public.link_clicks_purge(integer) is
-  'מוחקת קליקים ישנים מ-link_clicks. לא מתוזמנת. ברירת מחדל 400 יום, לא פחות מ-30. service_role בלבד.';
+  'מוחקת קליקים ישנים מ-link_clicks. ברירת מחדל 400 יום, לא פחות מ-30. רצה פעם ביום מ-pg_cron. service_role בלבד.';
 
 revoke all on function public.link_clicks_purge(integer) from public, anon, authenticated;
 grant execute on function public.link_clicks_purge(integer) to service_role;
+
+do $$ begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise notice 'pg_cron אינו מותקן - המשימה link-clicks-purge לא תוזמנה';
+    return;
+  end if;
+  perform cron.unschedule('link-clicks-purge')
+    where exists (select 1 from cron.job where jobname = 'link-clicks-purge');
+  -- פעם ביום, 03:17 UTC. רחוק מ-data-retention-run (53 3) ומניקויי הלילה האחרים.
+  perform cron.schedule('link-clicks-purge', '17 3 * * *',
+                        $cron$select public.link_clicks_purge(400)$cron$);
+end $$;
