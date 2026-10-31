@@ -678,6 +678,10 @@ html body .sw-np-bridge .sw-end-title{color:#fff}
 .sw-cblur{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;filter:blur(24px) brightness(.55);transform:scale(1.1);display:none;pointer-events:none}
 .sw-card[data-fit=frame] .sw-cblur,.sw-card[data-fit=low] .sw-cblur{display:block}
 .sw-card[data-fit=frame] .sw-cimg{inset:auto;left:50%;top:50%;width:122%;height:auto;transform:translate(-50%,-50%)}
+/* ‏אפשרות E (טלפון, תמונה לרוחב): חלון ברוחב מלא בראש הכרטיס, והטשטוש של אותה תמונה ממלא
+   את כל הכרטיס מאחור ומתחת. ‏--win-h נקבע ב-fitCard אחרי שהתמונה נטענה; גודל הכרטיס לא משתנה */
+.sw-card[data-fit=window] .sw-cblur{display:block}
+.sw-card[data-fit=window] .sw-cimg{inset:0 0 auto 0;height:var(--win-h,62%);object-fit:cover;object-position:50% 50%}
 .sw-card[data-fit=low] .sw-cimg{inset:auto;left:50%;top:50%;height:auto;transform:translate(-50%,-50%);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .sw-card[data-fit=frame]::after,.sw-card[data-fit=low]::after{background:linear-gradient(to bottom,rgba(13,27,61,.30) 0%,rgba(13,27,61,0) 14%,rgba(13,27,61,0) 58%,rgba(13,27,61,.92) 100%)}
 .sw-card.is-ba .sw-cimg{visibility:hidden}
