@@ -201,7 +201,9 @@
   function fitCard(img) {
     var card = img && img.closest('.sw-card');
     if (!card || card.classList.contains('is-ba') || !img.naturalWidth) return;
-    var r = card.getBoundingClientRect(), mode = fitMode(img.naturalWidth, img.naturalHeight, r.width, r.height);
+    // גודל הפריסה ולא getBoundingClientRect: הכרטיס עשוי להיות מוטה או מוגדל (גרירה, נענוע)
+    var r = { width: card.offsetWidth, height: card.offsetHeight };
+    var mode = fitMode(img.naturalWidth, img.naturalHeight, r.width, r.height);
     card.setAttribute('data-fit', mode);
     if (mode === 'window') card.style.setProperty('--win-h', windowH(img.naturalWidth, img.naturalHeight, r.width, r.height) + 'px');
     else card.style.removeProperty('--win-h');
@@ -212,6 +214,14 @@
     var t = e.target;
     if (t && t.tagName === 'IMG' && t.classList.contains('sw-cimg')) fitCard(t);
   }, true);
+  /* סיבוב או שינוי גודל: אותה התאמה מחדש לכל כרטיס שתמונתו כבר נטענה (‏--win-h ומצב) */
+  var refitT = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(refitT);
+    refitT = setTimeout(function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.sw-card .sw-cimg'), function (im) { if (im.complete) fitCard(im); });
+    }, 120);
+  });
   function imgSrc(u, w) {
     var small = sized(u, w);
     return 'src="' + esc(small) + '"' + (small !== u ? ' data-orig="' + esc(u) + '"' : '');

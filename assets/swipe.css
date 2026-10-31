@@ -678,10 +678,12 @@ html body .sw-np-bridge .sw-end-title{color:#fff}
 .sw-cblur{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;filter:blur(24px) brightness(.55);transform:scale(1.1);display:none;pointer-events:none}
 .sw-card[data-fit=frame] .sw-cblur,.sw-card[data-fit=low] .sw-cblur{display:block}
 .sw-card[data-fit=frame] .sw-cimg{inset:auto;left:50%;top:50%;width:122%;height:auto;transform:translate(-50%,-50%)}
-/* ‏אפשרות E (טלפון, תמונה לרוחב): חלון ברוחב מלא בראש הכרטיס, והטשטוש של אותה תמונה ממלא
-   את כל הכרטיס מאחור ומתחת. ‏--win-h נקבע ב-fitCard אחרי שהתמונה נטענה; גודל הכרטיס לא משתנה */
+/* ‏אפשרות E (טלפון, תמונה לרוחב): חלון ברוחב מלא במרכז הכרטיס בגובה (תומר 31.10), והטשטוש
+   של אותה תמונה ממלא את כל הכרטיס מאחור - מעליו ומתחתיו. ‏--win-h נקבע ב-fitCard אחרי שהתמונה נטענה; גודל הכרטיס לא משתנה */
 .sw-card[data-fit=window] .sw-cblur{display:block}
-.sw-card[data-fit=window] .sw-cimg{inset:0 0 auto 0;height:var(--win-h,62%);object-fit:cover;object-position:50% 50%}
+/* המרכז ב-42% ולא ב-50%: האמצע של האזור הפנוי בין הכותרת למחיר ולנתונים שבתחתית, כדי שהם לא
+   ישבו על החלק התחתון של התמונה (‏4:3, ‏488px, בכרטיס 390×844: ‏110-598, המחיר מ-600) */
+.sw-card[data-fit=window] .sw-cimg{inset:42% 0 auto 0;height:var(--win-h,62%);transform:translateY(-50%);object-fit:cover;object-position:50% 50%}
 .sw-card[data-fit=low] .sw-cimg{inset:auto;left:50%;top:50%;height:auto;transform:translate(-50%,-50%);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .sw-card[data-fit=frame]::after,.sw-card[data-fit=low]::after{background:linear-gradient(to bottom,rgba(13,27,61,.30) 0%,rgba(13,27,61,0) 14%,rgba(13,27,61,0) 58%,rgba(13,27,61,.92) 100%)}
 .sw-card.is-ba .sw-cimg{visibility:hidden}
@@ -1004,6 +1006,9 @@ body[data-view=list] .sw-layout{display:inline-flex}
   body[data-view=deck] .sw-top-card{z-index:1}
   body[data-view=deck] .sw-top-card,body[data-view=deck] .sw-card,body[data-view=deck] .sw-cimg{border-radius:0;box-shadow:none}
   body[data-view=deck] .sw-card::after{background:linear-gradient(to bottom,rgba(13,27,61,.62) 0%,rgba(13,27,61,0) 17%,rgba(13,27,61,0) 52%,rgba(13,27,61,.55) 68%,rgba(13,27,61,.94) 100%)}
+  /* במצב חלון ההצללה העליונה יושבת על הטשטוש ולא על התמונה: כהה רק עד 12%, והתחתונה מתחילה
+     מתחת למרכז כדי שהמחיר והנתונים יישארו קריאים בלי להחשיך את רוב החלון */
+  body[data-view=deck] .sw-card[data-fit=window]::after{background:linear-gradient(to bottom,rgba(13,27,61,.55) 0%,rgba(13,27,61,0) 12%,rgba(13,27,61,0) 60%,rgba(13,27,61,.55) 74%,rgba(13,27,61,.94) 100%)}
   /* כותרת שקופה: לוגו · חיפוש · מפה · ? · נגישות */
   body[data-view=deck] .sw-top{position:absolute;top:0;left:0;right:0;z-index:40;padding:calc(6px + var(--sw-safe-t)) 10px 8px;gap:6px;background:none}
   body[data-view=deck] .sw-logo img{width:22px;height:26px;filter:drop-shadow(0 0 3px rgba(255,255,255,.7))}
