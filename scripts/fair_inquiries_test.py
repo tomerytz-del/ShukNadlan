@@ -10,8 +10,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271031220000_fair_inquiries.sql"
+ALWAYS = ROOT / "supabase/migrations/20271031350000_fair_contact_always_on.sql"
 SETUP = ROOT / "scripts/fair_inquiries_setup.sql"
 ASSERT = ROOT / "scripts/fair_inquiries_assert.sql"
+ALWAYS_ASSERT = ROOT / "scripts/fair_contact_always_assert.sql"
 
 sql = MIGRATION.read_text(encoding="utf-8")
 collapsed = re.sub(r"\s+", " ", sql.lower())
@@ -28,6 +30,11 @@ for name in (
         sys.exit(f"המיגרציה נוגעת ב-{name}")
 if "('fair_contact_logging_enabled', 0," not in sql:
     sys.exit("הדגל לא נולד כבוי")
+always = ALWAYS.read_text(encoding="utf-8")
+if "delete from public.pricing_config" not in always or "fair_contact_logging_enabled" not in always:
+    sys.exit("המיגרציה החדשה אינה מוחקת את הדגל")
+if re.search(r"insert\s+into\s+public\.pricing_config[\s\S]*fair_contact_logging_enabled", always, re.I):
+    sys.exit("המיגרציה החדשה מחזירה את הדגל")
 
 
 def psql(db, *files, sql=None):
@@ -65,6 +72,11 @@ def main():
     flags = psql(db, sql="select count(*) from public.pricing_config where key = 'fair_contact_logging_enabled'")
     if flags != "1":
         sys.exit("הדגל הוכפל")
+    # הדגל יורד, השורה הישנה נמחקת, ויועץ/ת לא רואה פרטים. פעמיים.
+    psql(db, ALWAYS)
+    psql(db, ALWAYS_ASSERT)
+    psql(db, ALWAYS)
+    psql(db, ALWAYS_ASSERT)
     print("fair inquiries: ok")
 
 
