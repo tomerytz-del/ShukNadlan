@@ -125,6 +125,15 @@ function ldBlocks(html: string): Record<string, unknown>[] {
   check("מטמון", (res.headers.get("Cache-Control") || "").includes("must-revalidate"));
   const faq = blocks.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
   check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 7 && (html.match(/<details><summary>/g) || []).length === 7);
+  const houseQa = (faq?.mainEntity || []) as { name: string; acceptedAnswer: { text: string } }[];
+  const houseBy = "המודעות מתפרסמות על ידי יועצי נדל״ן ומשרדים.";
+  const houseWho = "המודעות בעמוד הזה מתפרסמות על ידי יועצי נדל״ן ומשרדים. מוכר פרטי לא מפרסם כאן בעצמו.";
+  const faqP = (text: string) => "<p>" + text.replace(/'/g, "&#39;") + "</p>";
+  check("בית: יועצי נדל״ן ב-FAQ וב-JSON-LD", !!houseQa[0] && houseQa[0].acceptedAnswer.text.endsWith(houseBy)
+    && html.includes(faqP(houseQa[0].acceptedAnswer.text))
+    && houseQa[2]?.acceptedAnswer.text === houseWho
+    && html.includes(faqP(houseWho))
+    && html.includes("שיועצי נדל״ן ומשרדים מפרסמים באתר"));
   check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">דף הבית</a>") && html.includes(">עפולה</a>") && html.includes('aria-current="page"'));
   check("התראה", html.includes("קבלו התראה") && html.includes("data-land-alert"));
   check("בלי שמירה", !html.includes("land-save") && !html.includes("שמור נכס"));
@@ -212,10 +221,14 @@ resetLastGood();
 {
   const res = await run(SITE + "/afula/" + encodeURIComponent("דירות-גן"), 200, ROWS);
   const html = await res.text();
+  const gardenFaq = ldBlocks(html).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { acceptedAnswer: { text: string } }[] } | undefined;
+  const gardenA = "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה בעפולה, מיועצי נדל״ן ומשרדים.";
   check("דירות גן", res.status === 200 && html.includes("דירות גן למכירה בעפולה")
     && html.includes("<title>דירות גן למכירה בעפולה | שוק נדל״ן</title>")
     && html.includes("hero-garden-800.webp")
     && html.includes('href="https://shuknadlan.co.il/afula/דירות-גן"'));
+  check("דירות גן: יועצי נדל״ן ב-FAQ וב-JSON-LD", gardenFaq?.mainEntity?.[0]?.acceptedAnswer.text === gardenA
+    && html.includes("<p>" + gardenA + "</p>"));
 }
 
 {
