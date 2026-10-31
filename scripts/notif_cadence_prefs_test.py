@@ -125,46 +125,17 @@ def _strip_dollar(sql: str) -> str:
     return "".join(out)
 
 
-_TYPE_WORDS = {
-    "double", "character", "timestamp", "time", "bit", "interval", "national",
-    "varying", "without", "with", "zone", "precision",
-}
-
-
-def _norm_sig(name: str, args: str) -> str:
-    """בלי שמות פרמטרים: pg_get_function_identity_arguments מחזיר 'p jsonb',
-    והמיגרציה כותבת 'jsonb'."""
-    parts = []
-    for raw in args.split(","):
-        bits = raw.strip().split()
-        while bits and bits[0].lower() in ("in", "out", "inout", "variadic"):
-            bits = bits[1:]
-        if len(bits) >= 2 and bits[0].isidentifier() and bits[0].lower() not in _TYPE_WORDS:
-            bits = bits[1:]
-        if bits:
-            parts.append(re.sub(r"\s+", "", " ".join(bits)))
-    return name.lower() + "(" + ",".join(parts) + ")"
-
-
 def replay_function_acls(cur) -> None:
     """השחזור הוא pg_dump --no-acl. ברירת המחדל של Supabase, ואז
-    ה-grant וה-revoke מהמיגרציות. שגיאת replay מפילה את הבדיקה.
-    חתימה שכבר הוחלפה ואינה בסכימה אינה שגיאה."""
+    ה-grant וה-revoke מהמיגרציות. החתימה נפתרת ב-to_regprocedure
+    (המיגרציה כותבת jsonb, ו-Postgres מחזיר p jsonb). חתימה שלא
+    נפתרת מפילה את הבדיקה. שגיאת SQL מפילה גם היא."""
     cur.execute(
         """
         alter default privileges in schema public
           grant execute on functions to anon, authenticated, service_role
         """
     )
-    cur.execute(
-        """
-        select p.proname, pg_get_function_identity_arguments(p.oid)
-          from pg_proc p
-          join pg_namespace n on n.oid = p.pronamespace
-         where n.nspname = 'public'
-        """
-    )
-    live = {_norm_sig(row[0], row[1] or "") for row in cur.fetchall()}
     sig = re.compile(
         r"\bon\s+function\s+public\.(\w+)\s*\(([^)]*)\)",
         re.I,
@@ -179,19 +150,34 @@ def replay_function_acls(cur) -> None:
                 flags=re.I,
             )
         )
+    resolved = []
+    by_name = {}
     for stmt in stmts:
         hit = sig.search(stmt)
         if hit is None:
             fail("פקודת הרשאה בלי חתימה: " + stmt[:160])
-        key = _norm_sig(hit.group(1), hit.group(2))
-        if key not in live:
+        name = hit.group(1)
+        args = re.sub(r"\s+", " ", hit.group(2).strip())
+        label = f"public.{name}({args})"
+        cur.execute("select to_regprocedure(%s)", (label,))
+        oid = cur.fetchone()[0]
+        by_name.setdefault(name.lower(), []).append(oid)
+        resolved.append((stmt, name.lower(), label, oid))
+    unresolved = sorted(
+        name for name, oids in by_name.items() if oids and oids[-1] is None
+    )
+    if unresolved:
+        fail("חתימה לא נפתרת: " + ", ".join(unresolved[:12]))
+    for stmt, name, label, oid in resolved:
+        if oid is None:
+            # חתימה ישנה של אותה פונקציה. האחרונה נפתרה, אחרת היינו נכשלים.
             continue
         cur.execute("savepoint fn_acl")
         try:
             cur.execute(stmt)
         except Exception as exc:
             cur.execute("rollback to savepoint fn_acl")
-            fail(f"replay של הרשאות נכשל: {stmt[:160]} :: {exc}")
+            fail(f"replay של הרשאות נכשל: {label} :: {exc}")
         else:
             cur.execute("release savepoint fn_acl")
 

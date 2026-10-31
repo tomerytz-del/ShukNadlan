@@ -56,11 +56,11 @@ begin
   if v_err is not null then
     return jsonb_build_object('ok', false, 'error', v_err);
   end if;
-  v_self := public.current_agent_id();
+  -- service_role: current_agent_id() ריק, והיעד המאומת הוא p_agent.
+  v_self := coalesce(public.current_agent_id(), p_agent);
   if p_snapshot is null then
     insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
-    select v_self, null, 'restore', null
-     where v_self is not null;
+    values (v_self, null, 'restore', null);
     return jsonb_build_object('ok', false, 'error', 'אין צילום קצב לשחזור');
   end if;
   select s.cadence, s.since
@@ -71,8 +71,7 @@ begin
      and s.created_at > now() - interval '30 minutes';
   if not found then
     insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
-    select v_self, null, 'restore', null
-     where v_self is not null;
+    values (v_self, null, 'restore', null);
     return jsonb_build_object('ok', false, 'error', 'אין צילום קצב לשחזור, או שפג תוקפו');
   end if;
   insert into public.agent_notification_preferences (

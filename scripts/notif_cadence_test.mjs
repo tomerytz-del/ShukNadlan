@@ -462,8 +462,7 @@ test("פיצול מזהים, יישור התקרה, ומתג סוג שגובר �
     "utf8",
   );
   assert.doesNotMatch(logfix, /v_err is not null then\s+insert into public\.notif_cadence_log/);
-  assert.match(logfix, /select v_self, null, 'restore', null/);
-  assert.match(logfix, /where v_self is not null/);
+  assert.match(logfix, /coalesce\(public\.current_agent_id\(\), p_agent\)/);
   assert.match(settings, /הסוג הזה יישלח בכל זאת/);
   assert.match(settings, /הקבוצה כבויה, ולכן הסוג לא נשלח בוואטסאפ/);
   const block = settings.slice(
