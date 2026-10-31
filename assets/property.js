@@ -2334,6 +2334,14 @@ async function loadSimilarProperties(p){
   }
 }
 
+function similarLinkText(p){
+  const title = String(p.title || p.property_type || 'נכס').replace(/\s+/g, ' ').trim() || 'נכס';
+  const n = Number(p.price);
+  const price = Number.isFinite(n) && n > 0
+    ? '₪' + n.toLocaleString('he-IL') + (p.deal_type === 'rent' ? ' לחודש' : '')
+    : '';
+  return price ? title + ' · ' + price : title;
+}
 function renderSimilarProperties(list){
   const section = document.getElementById('similarSection');
   const scroll = document.getElementById('similarScroll');
@@ -2348,7 +2356,7 @@ function renderSimilarProperties(list){
     card.className = 'prop-card';
     // ‏A-SEO-2: קישור אמיתי שנמתח על האריח (‏.pc-link, ‏assets/prop-shelf.css) - לא ניווט ב-JS
     card.innerHTML = `
-      <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}" aria-label="${escapeHtml(sp.title || sp.property_type || 'נכס')}"></a>
+      <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}"><span class="pc-link-text">${escapeHtml(similarLinkText(sp))}</span></a>
       <div class="thumb" style="${thumbStyle(sp, i)}">
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}

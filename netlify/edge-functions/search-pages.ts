@@ -93,6 +93,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     type: "flats",
     title: "דירות למכירה בעפולה והעמק",
     description: "כל הדירות שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
+    landing: "/afula/דירות-למכירה",
   },
   {
     query: "deal=sale&rooms=3",

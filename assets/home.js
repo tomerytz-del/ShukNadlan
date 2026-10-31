@@ -5556,12 +5556,21 @@ function showSearchError(){
 /* שורת נכס אחת. משותפת לשתי הרשימות שמציגות תוצאות — השורות שמתחת למפה
    והפאנל המפוצל שלצדה — כדי ששתיהן יציגו בדיוק את אותו מידע ויגיבו באותה
    דרך. data-prop-id הוא מה שמקשר שורה לפין שלה (ראו hotSplitRow). */
+/* כותרת ומחיר כטקסט הקישור, לא רק aria-label. מחיר חסר אינו "₪0". */
+function pcLinkText(p){
+  const title = String(p.title || p.property_type || 'נכס').replace(/\s+/g, ' ').trim() || 'נכס';
+  const n = Number(p.price);
+  const price = Number.isFinite(n) && n > 0
+    ? '₪' + n.toLocaleString('he-IL') + (p.deal_type === 'rent' ? ' לחודש' : '')
+    : '';
+  return price ? title + ' · ' + price : title;
+}
 function buildSearchRow(p, i){
   const row = document.createElement('article');
   row.className = 'sr-row';
   row.dataset.propId = p.id;
   row.innerHTML = `
-    <a class="pc-link" href="/property?id=${encodeURIComponent(p.id)}" aria-label="${escAttr(p.title || p.property_type || 'נכס')}"></a>
+    <a class="pc-link" href="/property?id=${encodeURIComponent(p.id)}"><span class="pc-link-text">${escAttr(pcLinkText(p))}</span></a>
     <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
       <div class="sr-title">${escAttr(p.title)}</div>
@@ -8628,7 +8637,9 @@ function v10DefaultSale(){
      הזהב הציג את כל הנכסים כש"למכירה" נראית בחורה. שקט: בלי לפתוח תוצאות ובלי גלילה */
   if (sentence.isClean() && !sentence.state().deal){
     sentenceQuiet = true;
-    try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
+    /* ‏reason 'default': הסינון חל, והכתובת לא מקבלת ?deal=sale.
+       כתובת נפרדת כזו היא עמוד תוצאות עם canonical משלו. */
+    try { sentence.setDeal('sale', 'default'); } finally { sentenceQuiet = false; }
   }
   syncV10Tabs();
 }
