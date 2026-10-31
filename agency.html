@@ -171,6 +171,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   body.agency-ready.has-cover .banner{--banner-ink:#fff}
   body.agency-ready.has-cover .banner-inner{min-height:280px}
   @media(min-width:900px){body.agency-ready.has-cover .banner-inner{min-height:360px}}
+  /* סרגל המדדים נדלק אחרי שהבאנר כבר על המסך ודוחף את "על המשרד".
+     המקום שמור מהציור הראשון (agency-ready), והתוכן מתמלא לתוכו. */
+  body.agency-ready #statBar{
+    display:block !important;
+    min-height:200px;
+  }
+  body.agency-ready #statBar[hidden]{visibility:hidden}
+  /* כפתורי הפנייה בבאנר מוסתרים עד שיש מספר. בטלפון הם מתחת לזהות
+     ומגביהים את הבאנר. הגובה שמור גם כשהם ריקים. */
+  body.agency-ready.has-cover .banner-side,
+  body.agency-ready.has-cover .banner-side:empty,
+  body.agency-ready.has-cover .banner-side:has(.brand-cta:empty){
+    display:flex !important;
+    min-height:72px;
+  }
+  body.agency-ready.has-cover .banner-side:has(.brand-cta:empty){visibility:hidden}
   .banner-media img.banner-lcp{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 
   /* ---------- הבאנר של המשרד ----------
