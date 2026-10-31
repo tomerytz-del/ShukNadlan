@@ -1,0 +1,50 @@
+name: מפתח הרחוב בחיפוש
+
+# ‏public.street_name_key מול SearchCore.streetNameKey (שני העותקים), המיגרציה
+# 20271031230000_street_key_search.sql פעמיים על Postgres מקומי, ו-crm_search /
+# admin_search: חמשת הכתיבים של "עלייה" מוצאים את כל החמישה, התאמה מדויקת
+# קודם, ושום נכס שנמצא קודם אינו נעלם. ‏docs/street-registry.md.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261109090000_street_registry.sql"
+      - "supabase/migrations/20271031230000_street_key_search.sql"
+      - "assets/search-core.js"
+      - "supabase/functions/_shared/search-core.js"
+      - "scripts/street_key_test.py"
+      - "scripts/street_key_setup.sql"
+      - ".github/workflows/street_key.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20261109090000_street_registry.sql"
+      - "supabase/migrations/20271031230000_street_key_search.sql"
+      - "assets/search-core.js"
+      - "supabase/functions/_shared/search-core.js"
+      - "scripts/street_key_test.py"
+      - "scripts/street_key_setup.sql"
+      - ".github/workflows/street_key.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת מפתח הרחוב
+        run: python3 scripts/street_key_test.py

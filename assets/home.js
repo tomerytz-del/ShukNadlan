@@ -5312,9 +5312,43 @@ async function locationOrFilter(rawText){
     `street.ilike.${like}`,
     `address.ilike.${like}`,
   ];
+  /* ‏street_key (‏20271031230000, ‏docs/street-registry.md): "העלייה", "העליה"
+     ו"רחוב העלייה" מוצאים את הרחוב ששמור כ"עלייה". מפתח של הביטוי כולו, ובביטוי
+     של כמה מילים גם של כל מילה ארוכה משלוש אותיות - עד שלושה נוספים, כדי
+     שהכתובת תישאר קצרה. ‏streetKeyTerms מנקה את מה ש-PostgREST קורא כתחביר. */
+  if (!streetKeyMissing) streetKeyTerms(safe).forEach(k => ors.push(`street_key.eq.${k}`));
   const hoodIds = await matchingNeighborhoodIds(safe);
   if (hoodIds.length) ors.push(`neighborhood_id.in.(${hoodIds.join(',')})`);
   return ors.join(',');
+}
+
+/* האתר עולה תוך שניות והמיגרציה דקות אחריו (‏docs/netlify-usage.md): עד
+   שהעמודה קיימת PostgREST מחזיר 42703, ואז מחפשים שוב בלי המפתח - כמו
+   עד היום - ולא נכשלים. */
+let streetKeyMissing = false;
+const isStreetKeyMissing = err => !!err && (err.code === '42703' || /street_key/.test(String(err.message || '')));
+
+function streetKeyTerms(safe){
+  const SC = window.SearchCore;
+  if (!SC || !SC.streetNameKey) return [];
+  const clean = k => String(k || '').replace(/[,()"'\\*%.:]/g, '').trim();
+  const keys = [clean(SC.streetNameKey(safe))];
+  const words = safe.split(' ');
+  if (words.length > 1){
+    words.filter(w => w.length > 3 && !/^(רחוב|שדרות|שדרת)$/.test(w)).slice(0, 3)
+      .forEach(w => keys.push(clean(SC.streetNameKey(w))));
+  }
+  return [...new Set(keys.filter(Boolean))].slice(0, 4);
+}
+
+/* התאמה מדויקת קודם: נכס שהטקסט כמו שהוקלד מופיע בכותרת, ברחוב או בכתובת
+   שלו, לפני נכס שנמצא רק דרך מפתח הרחוב. ‏sort יציב - בתוך כל קבוצה נשאר
+   הסדר של השרת (מקודמים, ואז החדשים). */
+function exactTextFirst(rows, rawText){
+  const q = String(rawText || '').trim().toLowerCase();
+  if (!q) return rows;
+  const exact = p => [p.title, p.street, p.address].some(v => String(v || '').toLowerCase().includes(q));
+  return rows.slice().sort((a, b) => Number(exact(b)) - Number(exact(a)));
 }
 
 /* חיפוש שכבר רץ. שתי לחיצות רצופות (או "הצגת תוצאות" ומיד אנטר בשדה) שלחו
@@ -5430,8 +5464,12 @@ async function runSearchInner(){
       .order('is_promoted', { ascending:false })
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
+    if (error && textOr && !streetKeyMissing && isStreetKeyMissing(error)){
+      streetKeyMissing = true;
+      return runSearchInner();
+    }
     if (error) throw error;
-    const results = keepMarketRows(data || [], marketSpec).map(shapeProperty);
+    const results = exactTextFirst(keepMarketRows(data || [], marketSpec), freeText).map(shapeProperty);
     renderPropertyGrid(results, true);
     /* חיפוש מהסרגל גובר על תגיות המדף ומכבה אותן. מאז שגם הן מסננות את
        המפה יש שני מסננים שמתחרים על אותם פינים, ותגית שנשארה דלוקה הייתה
@@ -7179,7 +7217,9 @@ function buildAdvanced(tab){
     if (s.mamad) checks.push(p => p.mamad_location === s.mamad);
   }
   const q = Core.norm(s.freeText || '');
-  if (q) checks.push(p => Core.norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).includes(q));
+  // ‏SearchCore.textHas: מה שהתאים כתת-מחרוזת עדיין מתאים, ובנוסף כתיב מלא
+  // וחסר - "העליה" מוצא את "עלייה" (‏docs/street-registry.md)
+  if (q) checks.push(p => window.SearchCore.textHas([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' '), s.freeText));
 
   /* כשהסינון הוא רק מאפיינים, ההודעה על חיפוש ריק אומרת על מה מוותרים
      ("בלי ממ״ד יש 12 נכסים") - ולא "בלי הסינון המתקדם". */
@@ -9357,3 +9397,62 @@ const PROPERTY_WORDS = /דיר|בית|חדר|מגרש|חנות|משרד|פנטה
 
 // ‏P1-M: חשיפות ברשימת התוצאות בדף הבית (‏list_impression, v10)
 if (window.shukObserveList) shukObserveList(document.getElementById('searchResults'), 'home_list');
+
+/* ---------- §2: "אחורה" שיוצא מהאתר - גיליון במקום confirm() (v10 בלבד, תומר 29.10) ----------
+   ההיסטוריה עצמה ב-assets/exit-guard.js (אותו זקיף כמו היום): כאן רק השאלה.
+   פעם אחת בביקור (‏sk_exit_guard_shown), והזקיף נדחף אחרי המחווה הראשונה
+   (‏data-gesture-when="beta-hero" ב-index.html). המפה הפתוחה דוחפת רשומה מעל
+   הזקיף, ולכן "אחורה" בה סוגר רק את המפה. */
+(function exitSheet(){
+  if (!v10On() || !window.ExitGuard) return;
+  // בלי זה הדפדפן מחזיר את הגלילה לנקודה שבה הזקיף נדחף, ו"להמשיך לגלוש" קופץ לראש הדף
+  try { history.scrollRestoration = 'manual'; } catch(e){}
+  const css = document.createElement('style');
+  css.textContent =
+    '.sk-xg{position:fixed;inset:0;z-index:2000;display:flex;align-items:flex-end;justify-content:center;background:rgba(13,27,61,.45)}' +
+    '.sk-xg-box{width:100%;max-width:520px;box-sizing:border-box;padding:22px 20px calc(18px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0;' +
+    '  background:#fff;color:#0d1b3d;font-family:Heebo,system-ui,sans-serif;text-align:center;box-shadow:0 -10px 30px rgba(13,27,61,.18)}' +
+    '.sk-xg-box h2{margin:0 0 8px;font-size:1.2rem;font-weight:800}' +
+    '.sk-xg-box p{margin:0 0 18px;font-size:.98rem;line-height:1.55;color:#3b4560}' +
+    '.sk-xg-box button{display:block;width:100%;min-height:48px;margin-top:10px;border-radius:12px;font:inherit;font-size:1rem;font-weight:800;cursor:pointer}' +
+    '.sk-xg-stay{border:0;background:#c9a227;color:#0d1b3d}' +
+    '.sk-xg-leave{border:1.5px solid #0e2a6b;background:#fff;color:#0e2a6b}' +
+    '.sk-xg-box button:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}' +
+    '@media(min-width:1024px){.sk-xg{align-items:center}.sk-xg-box{max-width:420px;border-radius:20px;padding-bottom:22px}}';
+  document.head.appendChild(css);
+
+  function ask(){
+    return new Promise(resolve => {
+      const opener = document.activeElement;
+      const sheet = document.createElement('div');
+      sheet.className = 'sk-xg';
+      sheet.innerHTML = '<div class="sk-xg-box" role="dialog" aria-modal="true" aria-labelledby="skXgT" aria-describedby="skXgB">' +
+        '<h2 id="skXgT">רגע לפני שיוצאים</h2>' +
+        '<p id="skXgB">יש עוד נכסים באזור שמחכים לכם. אפשר להמשיך לגלוש, לשמור נכסים במועדפים או לבקש התראה על נכס חדש.</p>' +
+        '<button type="button" class="sk-xg-stay">להמשיך לגלוש</button>' +
+        '<button type="button" class="sk-xg-leave">יציאה מהאתר</button></div>';
+      const btns = sheet.querySelectorAll('button');
+      function done(leave){
+        document.removeEventListener('keydown', onKey, true);
+        sheet.remove();
+        if (window.shukTrack){ if (leave) shukTrack('exit_guard_leave', {}); else shukTrack('exit_guard_stay', {}); }
+        if (!leave && opener && opener.focus) try { opener.focus(); } catch(e){}
+        resolve(leave);
+      }
+      function onKey(e){
+        if (e.key === 'Escape'){ e.preventDefault(); done(false); return; }
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey && document.activeElement === btns[0]){ e.preventDefault(); btns[1].focus(); }
+        else if (!e.shiftKey && document.activeElement === btns[1]){ e.preventDefault(); btns[0].focus(); }
+      }
+      btns[0].addEventListener('click', ()=> done(false));
+      btns[1].addEventListener('click', ()=> done(true));
+      sheet.addEventListener('click', e => { if (e.target === sheet) done(false); });
+      document.body.appendChild(sheet);
+      document.addEventListener('keydown', onKey, true);
+      btns[0].focus();
+      if (window.shukTrack) shukTrack('exit_guard_view', {});
+    });
+  }
+  ExitGuard.configure({ ask, once:'sk_exit_guard_shown' });
+})();
