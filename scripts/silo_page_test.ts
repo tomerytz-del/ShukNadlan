@@ -417,7 +417,14 @@ resetLastGood();
   check("דירות למכירה: canonical", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/afula/דירות-למכירה">'));
   check("דירות למכירה: פתיח", html.includes("דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."));
   check("דירות למכירה: תיאור", html.includes("דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר: מחיר, גודל ותמונות לכל מודעה פעילה, ופנייה מהירה דרך האתר."));
-  check("דירות למכירה: FAQ", html.includes("אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר."));
+  check("דירות למכירה: FAQ", html.includes("אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר.")
+    && html.includes("איפה רואים את המחיר ואת כל הפרטים?")
+    && html.includes("בדף של כל נכס מופיעים המחיר שפורסם והמפרט המלא. אם אין מחיר במודעה, אפשר לפנות דרך האתר ולשאול.")
+    && html.includes("מה עושים אם אין כרגע מודעות?"));
+  const saleFaq = ldBlocks(html).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { name: string; acceptedAnswer: { text: string } }[] } | undefined;
+  check("דירות למכירה: FAQPage זהה לטקסט", saleFaq?.mainEntity?.[1]?.name === "איפה רואים את המחיר ואת כל הפרטים?"
+    && saleFaq.mainEntity[1].acceptedAnswer.text.startsWith("בדף של כל נכס מופיעים המחיר שפורסם")
+    && saleFaq.mainEntity.length === 4);
   check("דירות למכירה: בלי שם ובלי רישיון", !html.includes("תומר") && !html.includes("3134355"));
   check("דירות למכירה: שאילתת דירות", urls.some((u) => u.includes("/properties?")
     && u.includes("city=eq." + encodeURIComponent("עפולה"))
