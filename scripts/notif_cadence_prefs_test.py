@@ -86,6 +86,29 @@ def insert_min(cur, table: str, forced: dict) -> dict:
     return values
 
 
+def _strip_comments(sql: str) -> str:
+    out = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        if sql.startswith("--", i):
+            j = sql.find("\n", i)
+            if j < 0:
+                break
+            out.append("\n")
+            i = j + 1
+        elif sql.startswith("/*", i):
+            j = sql.find("*/", i + 2)
+            if j < 0:
+                break
+            out.append(" ")
+            i = j + 2
+        else:
+            out.append(sql[i])
+            i += 1
+    return "".join(out)
+
+
 def _strip_dollar(sql: str) -> str:
     out = []
     i = 0
@@ -103,11 +126,23 @@ def _strip_dollar(sql: str) -> str:
 
 
 def replay_function_acls(cur) -> None:
-    """השחזור הוא pg_dump --no-acl. ה-grant וה-revoke מהמיגרציות חוזרים,
-    כדי ש-has_function_privilege יראה את ההרשאה שאחרי כל הקבצים."""
+    """השחזור הוא pg_dump --no-acl. ברירת המחדל של Supabase, ואז
+    ה-grant וה-revoke מהמיגרציות. החתימה נפתרת ב-to_regprocedure
+    (המיגרציה כותבת jsonb, ו-Postgres מחזיר p jsonb). חתימה שלא
+    נפתרת מפילה את הבדיקה. שגיאת SQL מפילה גם היא."""
+    cur.execute(
+        """
+        alter default privileges in schema public
+          grant execute on functions to anon, authenticated, service_role
+        """
+    )
+    sig = re.compile(
+        r"\bon\s+function\s+public\.(\w+)\s*\(([^)]*)\)",
+        re.I,
+    )
     stmts = []
     for path in sorted((ROOT / "supabase/migrations").glob("*.sql")):
-        text = _strip_dollar(path.read_text(encoding="utf-8"))
+        text = _strip_comments(_strip_dollar(path.read_text(encoding="utf-8")))
         stmts.extend(
             re.findall(
                 r"(?:grant|revoke)\s+(?:all|execute)\b[^;]*\bon\s+function\s+public\.\w+\s*\([^;]*;",
@@ -115,12 +150,34 @@ def replay_function_acls(cur) -> None:
                 flags=re.I,
             )
         )
+    resolved = []
+    by_name = {}
     for stmt in stmts:
+        hit = sig.search(stmt)
+        if hit is None:
+            fail("פקודת הרשאה בלי חתימה: " + stmt[:160])
+        name = hit.group(1)
+        args = re.sub(r"\s+", " ", hit.group(2).strip())
+        label = f"public.{name}({args})"
+        cur.execute("select to_regprocedure(%s)", (label,))
+        oid = cur.fetchone()[0]
+        by_name.setdefault(name.lower(), []).append(oid)
+        resolved.append((stmt, name.lower(), label, oid))
+    unresolved = sorted(
+        name for name, oids in by_name.items() if oids and oids[-1] is None
+    )
+    if unresolved:
+        fail("חתימה לא נפתרת: " + ", ".join(unresolved[:12]))
+    for stmt, name, label, oid in resolved:
+        if oid is None:
+            # חתימה ישנה של אותה פונקציה. האחרונה נפתרה, אחרת היינו נכשלים.
+            continue
         cur.execute("savepoint fn_acl")
         try:
             cur.execute(stmt)
-        except Exception:
+        except Exception as exc:
             cur.execute("rollback to savepoint fn_acl")
+            fail(f"replay של הרשאות נכשל: {label} :: {exc}")
         else:
             cur.execute("release savepoint fn_acl")
 

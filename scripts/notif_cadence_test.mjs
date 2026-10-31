@@ -457,6 +457,12 @@ test("פיצול מזהים, יישור התקרה, ומתג סוג שגובר �
   assert.match(restore, /current_agent_id\(\)/);
   assert.doesNotMatch(restore, /p_choice text/);
   assert.doesNotMatch(restore, /jsonb_build_object\(v_type, now\(\)\)/);
+  const logfix = readFileSync(
+    join(root, "supabase/migrations/20271031330000_notif_cadence_log_self.sql"),
+    "utf8",
+  );
+  assert.doesNotMatch(logfix, /v_err is not null then\s+insert into public\.notif_cadence_log/);
+  assert.match(logfix, /coalesce\(public\.current_agent_id\(\), p_agent\)/);
   assert.match(settings, /הסוג הזה יישלח בכל זאת/);
   assert.match(settings, /הקבוצה כבויה, ולכן הסוג לא נשלח בוואטסאפ/);
   const block = settings.slice(
