@@ -415,7 +415,9 @@ resetLastGood();
   check("דירות למכירה: כותרת ו-H1", html.includes("<title>דירות למכירה בעפולה | שוק נדל״ן</title>")
     && html.includes('<h1 id="siloH1">דירות למכירה בעפולה</h1>'));
   check("דירות למכירה: canonical", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/afula/דירות-למכירה">'));
-  check("דירות למכירה: פתיח", html.includes("דירות למכירה בעפולה, מכל משרדי התיווך בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."));
+  check("דירות למכירה: פתיח", html.includes("דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."));
+  check("דירות למכירה: תיאור", html.includes("דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר: מחיר, גודל ותמונות לכל מודעה פעילה, ופנייה מהירה דרך האתר."));
+  check("דירות למכירה: FAQ", html.includes("אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר."));
   check("דירות למכירה: בלי שם ובלי רישיון", !html.includes("תומר") && !html.includes("3134355"));
   check("דירות למכירה: שאילתת דירות", urls.some((u) => u.includes("/properties?")
     && u.includes("city=eq." + encodeURIComponent("עפולה"))
