@@ -103,8 +103,28 @@ def _strip_dollar(sql: str) -> str:
 
 
 def replay_function_acls(cur) -> None:
-    """השחזור הוא pg_dump --no-acl. ה-grant וה-revoke מהמיגרציות חוזרים,
-    כדי ש-has_function_privilege יראה את ההרשאה שאחרי כל הקבצים."""
+    """השחזור הוא pg_dump --no-acl. ברירת המחדל של Supabase, ואז
+    ה-grant וה-revoke מהמיגרציות. שגיאת replay מפילה את הבדיקה.
+    חתימה שכבר הוחלפה ואינה בסכימה אינה שגיאה."""
+    cur.execute(
+        """
+        alter default privileges in schema public
+          grant execute on functions to anon, authenticated, service_role
+        """
+    )
+    cur.execute(
+        """
+        select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+          from pg_proc p
+          join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public'
+        """
+    )
+    live = {re.sub(r"\s+", "", row[0]) for row in cur.fetchall()}
+    sig = re.compile(
+        r"\bon\s+function\s+public\.(\w+)\s*\(([^)]*)\)",
+        re.I,
+    )
     stmts = []
     for path in sorted((ROOT / "supabase/migrations").glob("*.sql")):
         text = _strip_dollar(path.read_text(encoding="utf-8"))
@@ -116,11 +136,18 @@ def replay_function_acls(cur) -> None:
             )
         )
     for stmt in stmts:
+        hit = sig.search(stmt)
+        if hit is None:
+            fail("פקודת הרשאה בלי חתימה: " + stmt[:160])
+        key = hit.group(1) + "(" + re.sub(r"\s+", "", hit.group(2)) + ")"
+        if key not in live:
+            continue
         cur.execute("savepoint fn_acl")
         try:
             cur.execute(stmt)
-        except Exception:
+        except Exception as exc:
             cur.execute("rollback to savepoint fn_acl")
+            fail(f"replay של הרשאות נכשל: {stmt[:160]} :: {exc}")
         else:
             cur.execute("release savepoint fn_acl")
 
