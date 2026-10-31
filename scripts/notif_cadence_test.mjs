@@ -162,6 +162,7 @@ test("מיפוי קבוצות, וסוג לא מוכר נופל לקבוצה 5", 
   assert.match(migration, /notif_cadence_ts/);
   assert.match(migration, /agent_notification_preferences_cadence_since_chk/);
   assert.match(migration, /revoke update on table public\.agent_notification_preferences from public, anon, authenticated/);
+  assert.match(migration, /grant select, insert on table public\.agent_notification_preferences to authenticated/);
   assert.match(migration, /grant update \(agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at\)/);
   assert.match(migration, /grant execute on function public\.notif_cadence_since_ok\(jsonb\) to authenticated, service_role/);
   assert.match(migration, /request\.jwt\.claims/);

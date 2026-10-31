@@ -133,6 +133,15 @@ def main() -> int:
                 cur.execute(f"update public.agency_members set {col} = %s where id = %s", (val, me["id"]))
                 cur.execute(f"update public.agency_members set {col} = %s where id = %s", (val, other["id"]))
 
+        cur.execute(
+            """
+            select has_table_privilege('authenticated', 'public.agent_notification_preferences', 'INSERT'),
+                   has_table_privilege('authenticated', 'public.agent_notification_preferences', 'SELECT'),
+                   has_column_privilege('authenticated', 'public.agent_notification_preferences', 'agent_id', 'UPDATE'),
+                   has_function_privilege('authenticated', 'public.notif_cadence_since_ok(jsonb)', 'EXECUTE')
+            """
+        )
+        print("privileges insert, select, update agent_id, execute check:", cur.fetchone())
         cur.execute("select set_config('test.agent', %s, true)", (me["id"],))
         cur.execute("select set_config('request.jwt.claims', '{\"role\":\"authenticated\"}', true)")
         cur.execute("set local role authenticated")

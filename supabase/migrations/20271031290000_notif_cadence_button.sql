@@ -91,8 +91,9 @@ end $$;
 -- authenticated מעדכן את שאר העמודות מה-CRM. שתי עמודות הקצב רק דרך הפונקציה,
 -- כדי שמחרוזת since פגומה לא תיכנס ותפיל את ה-claim.
 revoke update on table public.agent_notification_preferences from public, anon, authenticated;
--- agent_id נכנס ל-ON CONFLICT DO UPDATE של ה-upsert ב-crm-settings.js.
--- בלי הרשאה עליו השמירה נכשלת גם כשהדגל כבוי.
+-- הקריאה וההכנסה נשארות ל-CRM. agent_id נכנס ל-ON CONFLICT DO UPDATE
+-- של ה-upsert ב-crm-settings.js. בלי הרשאה עליו השמירה נכשלת גם כשהדגל כבוי.
+grant select, insert on table public.agent_notification_preferences to authenticated;
 grant update (agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at)
   on table public.agent_notification_preferences to authenticated;
 
