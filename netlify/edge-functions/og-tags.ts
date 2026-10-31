@@ -115,6 +115,7 @@ import "../../assets/markets.js";
 import "../../assets/agency-place.js";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 import "../../assets/air-living.js";
+import "../../assets/listing-title.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
@@ -370,14 +371,12 @@ function titleSuffix(self: Record<string, unknown>, rows: Record<string, unknown
   return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
 
+/* אותו pageTitle כמו ב-assets/listing-title.js: 90, כיווץ רווחים, trimEnd לפני …. */
 function pageTitle(base: string, suffix: string): string {
-  const site = ` | ${SITE_NAME}`;
-  if (!suffix) return clamp(`${base}${site}`, 90);
-  const full = `${base}${suffix}${site}`;
-  if (full.length <= 90) return full;
-  const room = 90 - suffix.length - site.length;
-  if (room < 8) return clamp(full, 90);
-  return `${base.slice(0, Math.max(0, room - 1)).trimEnd()}…${suffix}${site}`;
+  const shared = (globalThis as unknown as {
+    ShukListingTitle: { pageTitle: (base: string, suffix: string) => string };
+  }).ShukListingTitle;
+  return shared.pageTitle(base, suffix);
 }
 
 /* משפט קבוע לתיאור קצר מ-70 תווים. סוג העסקה וסוג הנכס נכנסים אליו.
@@ -437,32 +436,30 @@ function listingDescription(
   return text.length <= DESC_MAX ? text : clamp(text, DESC_MAX);
 }
 
-/* אותו מפתח כותרת בשאילתה: עיר, סוג, ורחוב (כולל "רחוב X" וכתובת
-   שמכילה את שם הרחוב). אחר כך publicHeadline מסנן בדיוק. בלי חיתוך
-   ל-40 ובלי סדר אקראי: עמודים של 1,000 לפי id. כשל או עמוד חסר מחזירים
-   null, והכותרת נשארת בלי מבדיל. אותו בניין ב-assets/property.js. */
-const SIBLING_PAGE = 1000;
-const SIBLING_COLS = "id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title";
-
+/* אותו siblingFilter כמו ב-assets/listing-title.js. בלי רחוב: עיר, סוג,
+   רחוב וכתובת ריקים, ושכונה אם יש. כשל או עמוד חסר: null, בלי מבדיל. */
 function siblingFilter(p: Record<string, unknown>): string | null {
+  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
   const city = String(p.city || "").trim();
-  const type = String(p.property_type || "").trim();
-  const street = streetNameOf(p);
-  if (!city || !type || !street) return null;
-  const or = [
-    `street.eq.${encodeURIComponent(street)}`,
-    `street.eq.${encodeURIComponent("רחוב " + street)}`,
-    `address.ilike.*${encodeURIComponent(street)}*`,
-  ].join(",");
-  return [
-    "status=eq.active",
-    `city=eq.${encodeURIComponent(city)}`,
-    `property_type=eq.${encodeURIComponent(type)}`,
-    `or=(${or})`,
-    `select=${encodeURIComponent(SIBLING_COLS)}`,
-    "order=id.asc",
-    `limit=${SIBLING_PAGE}`,
-  ].join("&");
+  const shared = (globalThis as unknown as {
+    ShukListingTitle: {
+      siblingFilter: (row: Record<string, unknown>) => string;
+      SIBLING_PAGE: number;
+    };
+  }).ShukListingTitle;
+  const filter = shared.siblingFilter({
+    city: p.city,
+    property_type: p.property_type,
+    streetName: streetNameOf(p),
+    neighborhood: hood && hood !== city ? hood : "",
+  });
+  return filter || null;
+}
+
+function siblingPageSize(): number {
+  return (globalThis as unknown as {
+    ShukListingTitle: { SIBLING_PAGE: number };
+  }).ShukListingTitle.SIBLING_PAGE;
 }
 
 async function siblingRows(p: Record<string, unknown>): Promise<Record<string, unknown>[] | null> {
@@ -472,7 +469,8 @@ async function siblingRows(p: Record<string, unknown>): Promise<Record<string, u
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   const all: Record<string, unknown>[] = [];
   try {
-    for (let offset = 0; offset <= SIBLING_PAGE * 5; offset += SIBLING_PAGE) {
+    const pageSize = siblingPageSize();
+    for (let offset = 0; offset <= pageSize * 5; offset += pageSize) {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/properties?${filter}&offset=${offset}`,
         {
@@ -488,7 +486,7 @@ async function siblingRows(p: Record<string, unknown>): Promise<Record<string, u
       const data = await res.json();
       if (!Array.isArray(data)) return null;
       all.push(...data as Record<string, unknown>[]);
-      if (data.length < SIBLING_PAGE) return all;
+      if (data.length < pageSize) return all;
     }
     return null;
   } catch {

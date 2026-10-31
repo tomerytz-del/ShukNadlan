@@ -2781,43 +2781,27 @@ function distinctTitleSuffix(self, rows){
   }
   return parts.length ? ' · ' + parts.join(' · ') : '';
 }
-function documentTitleWithSuffix(base, suffix){
-  const site = ' | שוק נדל״ן';
-  if (!suffix) return base + site;
-  const full = base + suffix + site;
-  if (full.length <= 90) return full;
-  const room = 90 - suffix.length - site.length;
-  if (room < 8) return full.slice(0, 89) + '…';
-  return base.slice(0, Math.max(0, room - 1)).trimEnd() + '…' + suffix + site;
-}
-/* אותו סינון כמו siblingFilter ב-og-tags.ts: עיר, סוג, ורחוב, בסדר id.
-   עמוד מלא של 1,000 הוא לא הסוף. כשל משאיר את כותרת השרת כמו שהיא. */
-var SIBLING_PAGE = 1000;
-var SIBLING_COLS = 'id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title';
-function siblingFilter(p){
+/* אותו siblingFilter ו-pageTitle כמו ב-og-tags, מ-assets/listing-title.js. */
+function listingHoodName(p){
+  var n = p && p.neighborhoods;
+  var row = Array.isArray(n) ? n[0] : n;
+  var name = row && row.name ? String(row.name).trim() : '';
   var city = String((p && p.city) || '').trim();
-  var type = String((p && p.property_type) || '').trim();
-  var street = streetNameOf(p);
-  if (!city || !type || !street) return '';
-  var or = [
-    'street.eq.' + encodeURIComponent(street),
-    'street.eq.' + encodeURIComponent('רחוב ' + street),
-    'address.ilike.*' + encodeURIComponent(street) + '*',
-  ].join(',');
-  return [
-    'status=eq.active',
-    'city=eq.' + encodeURIComponent(city),
-    'property_type=eq.' + encodeURIComponent(type),
-    'or=(' + or + ')',
-    'select=' + encodeURIComponent(SIBLING_COLS),
-    'order=id.asc',
-    'limit=' + SIBLING_PAGE,
-  ].join('&');
+  return name && name !== city ? name : '';
+}
+function siblingQuery(p){
+  return ShukListingTitle.siblingFilter({
+    city: p && p.city,
+    property_type: p && p.property_type,
+    streetName: streetNameOf(p),
+    neighborhood: listingHoodName(p),
+  });
 }
 function loadSiblings(p){
-  var filter = siblingFilter(p);
+  var filter = siblingQuery(p);
   if (!filter) return Promise.resolve(null);
   var headers = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Accept: 'application/json' };
+  var pageSize = ShukListingTitle.SIBLING_PAGE;
   var all = [];
   function page(offset){
     return fetch(SUPABASE_URL + '/rest/v1/properties?' + filter + '&offset=' + offset, { headers: headers })
@@ -2825,9 +2809,9 @@ function loadSiblings(p){
       .then(function(rows){
         if (!Array.isArray(rows)) return null;
         all = all.concat(rows);
-        if (rows.length < SIBLING_PAGE) return all;
-        if (offset >= SIBLING_PAGE * 5) return null;
-        return page(offset + SIBLING_PAGE);
+        if (rows.length < pageSize) return all;
+        if (offset >= pageSize * 5) return null;
+        return page(offset + pageSize);
       });
   }
   return page(0).catch(function(){ return null; });
@@ -2835,13 +2819,13 @@ function loadSiblings(p){
 /* כשהשאילתה מצליחה, אותה כותרת כמו בשרת. כשל לא דורס את כותרת השרת. */
 function applyDistinctTitle(p){
   var base = publicTitle(p);
-  if (!siblingFilter(p)){
-    document.title = documentTitleWithSuffix(base, '');
+  if (!siblingQuery(p)){
+    document.title = ShukListingTitle.pageTitle(base, '');
     return;
   }
   loadSiblings(p).then(function(rows){
     if (!Array.isArray(rows)) return;
-    document.title = documentTitleWithSuffix(base, distinctTitleSuffix(p, rows));
+    document.title = ShukListingTitle.pageTitle(base, distinctTitleSuffix(p, rows));
   });
 }
 

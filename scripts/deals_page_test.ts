@@ -180,15 +180,39 @@ check("אינדקס: רק יישוב לאינדקס", html.includes('href="/deal
   && !html.includes('href="/deals/abn-shmval"'));
 check("אינדקס: canonical נשאר /deals", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/deals">'));
 check("אינדקס: ‏BreadcrumbList", ldOf(html)?.["@graph"]?.[0]?.["@type"] === "BreadcrumbList");
+check("אינדקס מוצלח: מטמון CDN", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
 
-/* כשל בשאילתת המודעות אינו מוחק את הקישורים */
+/* כשל בסינון: לא מציגים יישוב לא מאומת. יש עותק - הוא יוצא, והכשל לא נשמר. */
 res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
   if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
   if (target.includes("/properties?")) return { status: 500, body: {} };
   return { status: 500, body: {} };
 });
 html = await res.text();
-check("אינדקס בכשל מודעות: הקישורים נשארים", html.includes('href="/deals/afula"') && html.includes('href="/deals/migdal-haemek"'));
+check("אינדקס בכשל מודעות: העותק הקודם, בלי מגדל העמק",
+  html.includes('href="/deals/afula"') && !html.includes('href="/deals/migdal-haemek"') && !html.includes("kfar-katan"));
+
+resetLastGood();
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 500, body: {} };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("בלי עותק: אין קישור לא מאומת", !html.includes('href="/deals/') && res.status === 200);
+check("בלי עותק: no-store", res.headers.get("Cache-Control") === "no-store"
+  && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 200, body: [{ city: "עפולה", city_id: "c1" }] };
+  if (target.includes("market_cities_public")) return { status: 200, body: [{ city_id: "c1", market_slug: "afula-emek" }] };
+  if (target.includes("deal_settlement_page")) return { status: 500, body: {} };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("חלון עסקאות שנכשל: אין קישור, ולא נשמר", !html.includes('href="/deals/afula"')
+  && res.headers.get("Cache-Control") === "no-store");
 
 /* אינדקס, המסד נכשל - לא מפרסמים 200 בלי הרשימה, כשאין עותק */
 resetLastGood();

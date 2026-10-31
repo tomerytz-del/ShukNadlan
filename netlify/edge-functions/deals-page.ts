@@ -236,7 +236,8 @@ async function fetchAll(
   return null;
 }
 
-/* מודעות פעילות לפי שם עיר, והשוק. null = לא ידענו - לא מוחקים קישורים. */
+/* מודעות פעילות לפי שם עיר, והשוק. null = לא ידענו.
+   אז לא מציגים את הרשימה המלאה: יישוב לא מאומת אינו קישור. */
 async function cityListings(): Promise<Map<string, { listings: number; marketSlug: string | null }> | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -277,7 +278,7 @@ async function cityListings(): Promise<Map<string, { listings: number; marketSlu
   }
 }
 
-/* חלון 12 החודשים של הדף. null = לא ידענו, והיישוב נשאר מקושר. */
+/* חלון 12 החודשים של הדף. null = לא ידענו. יישוב כזה אינו מקושר. */
 async function windowDeals(slug: string): Promise<number | null> {
   const data = await rpc("deal_settlement_page", { p_slug: slug });
   if (data === undefined) return null;
@@ -286,21 +287,30 @@ async function windowDeals(slug: string): Promise<number | null> {
   return Number((data as Settlement).deals || 0);
 }
 
-async function indexableRows(list: IndexRow[]): Promise<IndexRow[]> {
+/* ok: הסינון הושלם, ומותר לשמור את הדף. אחרת safe הוא רק מה שאומת,
+   בלי לשמור אותו כעותק. */
+async function indexableRows(list: IndexRow[]): Promise<
+  { ok: true; rows: IndexRow[] } | { ok: false; safe: IndexRow[] }
+> {
   const cities = await cityListings();
-  if (!cities) return list;
+  if (!cities) return { ok: false, safe: [] };
   const live = liveMarketSlugs();
   const coarse = list.filter((row) => {
     const info = cities.get(String(row.name || "").trim()) || { listings: 0, marketSlug: null };
     return settlementIndexable(Number(row.deals || 0), info.listings, info.marketSlug, live);
   });
+  let failed = false;
   const flags = await Promise.all(coarse.map(async (row) => {
     const n = await windowDeals(String(row.slug || ""));
-    if (n === null) return true;
+    if (n === null) {
+      failed = true;
+      return false;
+    }
     const info = cities.get(String(row.name || "").trim()) || { listings: 0, marketSlug: null };
     return settlementIndexable(n, info.listings, info.marketSlug, live);
   }));
-  return coarse.filter((_, i) => flags[i]);
+  const rows = coarse.filter((_, i) => flags[i]);
+  return failed ? { ok: false, safe: rows } : { ok: true, rows };
 }
 
 /* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
@@ -330,8 +340,17 @@ export default async function handler(request: Request, context: Context) {
       if (Array.isArray(list)) {
         if (list.length) {
           const shown = await indexableRows(list as IndexRow[]);
-          if (shown.length) {
-            out = injectIndex(html, shown);
+          if (!shown.ok) {
+            const prev = await recall(lastGoodKey(request.url));
+            if (prev) return prev;
+            if (shown.safe.length) out = injectIndex(html, shown.safe);
+            cache = false;
+            const headers = failureHeaders(res.headers, 200);
+            headers.delete("Retry-After");
+            return new Response(out, { status: 200, headers });
+          }
+          if (shown.rows.length) {
+            out = injectIndex(html, shown.rows);
             cache = out !== html;
           }
         }
@@ -403,4 +422,7 @@ export default async function handler(request: Request, context: Context) {
 
 export const config: Config = {
   path: ["/deals", "/deals.html", "/deals/*"],
+  /* בלי manual כל בקשה מריצה את הסינון מחדש (כמה שניות). הכותרות
+     שלמטה חלות רק כשהמטמון ידני. התשובה אינה תלויה בעוגיית שוק. */
+  cache: "manual",
 };

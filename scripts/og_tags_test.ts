@@ -771,6 +771,40 @@ propHttp.push(
   ["בלי מחיר: אין ₪0 בכותרת",
     freeTitle.includes("80 מ״ר") && !freeTitle.includes("₪0") && !freeTitle.includes("₪")],
 );
+const titles = (globalThis as unknown as {
+  ShukListingTitle: {
+    pageTitle: (base: string, suffix: string) => string;
+    siblingFilter: (row: Record<string, unknown>) => string;
+    pgQuoted: (value: string) => string;
+  };
+}).ShukListingTitle;
+const longBase = "דירה 4 חד׳ ברחוב הארוך מאוד " + "א".repeat(80);
+const clamped = titles.pageTitle(longBase, "");
+const withSuffix = titles.pageTitle(longBase, " · 80 מ״ר");
+const spaced = titles.pageTitle("דירה   4   חד׳", "");
+const street = 'מערב העיר (שיכון, "גאולים")';
+const quoted = titles.siblingFilter({
+  city: "עפולה", property_type: "דירה", streetName: street, neighborhood: "",
+});
+const noStreet = titles.siblingFilter({
+  city: "עפולה", property_type: "דירה", streetName: "", neighborhood: "גבעת המורה",
+});
+const clientSrc = readFileSync(new URL("../assets/property.js", import.meta.url), "utf8");
+propHttp.push(
+  ["כותרת: אותו חיתוך עם מבדיל ובלי",
+    clamped.length === 90 && clamped.endsWith("…") && !/\s…$/.test(clamped)
+    && withSuffix.length === 90 && withSuffix.endsWith("…") && !/\s…$/.test(withSuffix)
+    && spaced === "דירה 4 חד׳ | שוק נדל״ן"],
+  ["רחוב עם פסיק וסוגריים מצוטט ב-or",
+    quoted.includes("street.eq." + titles.pgQuoted(street))
+    && quoted.includes(encodeURIComponent('"' + street.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'))
+    && !quoted.includes("street.eq." + encodeURIComponent(street) + ",")],
+  ["בלי רחוב: עיר, סוג, רחוב ריק, ושכונה",
+    noStreet.includes("street.is.null") && noStreet.includes("neighborhoods.name=eq.")
+    && noStreet.includes("order=id.asc")],
+  ["הלקוח קורא לאותו pageTitle",
+    clientSrc.includes("ShukListingTitle.pageTitle") && !clientSrc.includes("function documentTitleWithSuffix")],
+);
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);
