@@ -138,8 +138,11 @@ function inject(html: string, rows: Row[]): string | null {
 
 function cacheHeaders(headers: Headers): void {
   if (headers.has("set-cookie")) return;
-  headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400");
-  headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+  /* s-maxage הוא מה שה-CDN המשותף שומר. max-age=0 משאיר לדפדפן לאמת מחדש.
+     בלי s-maxage, max-age=0 אומר ל-CDN לא לשמור והפונקציה רצה בכל בקשה. */
+  headers.set("Netlify-CDN-Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  headers.set("CDN-Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  headers.set("Cache-Control", "public, max-age=0, s-maxage=3600, must-revalidate");
 }
 
 export default async function handler(request: Request, context: Context) {
