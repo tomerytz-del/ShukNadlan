@@ -681,6 +681,12 @@ html body .sw-np-bridge .sw-end-title{color:#fff}
 /* ‏אפשרות E (טלפון, תמונה לרוחב): חלון ברוחב מלא במרכז הכרטיס בגובה (תומר 31.10), והטשטוש
    של אותה תמונה ממלא את כל הכרטיס מאחור - מעליו ומתחתיו. ‏--win-h נקבע ב-fitCard אחרי שהתמונה נטענה; גודל הכרטיס לא משתנה */
 .sw-card[data-fit=window] .sw-cblur{display:block}
+/* ‏swipe-smooth P0-1: יחס לא ידוע - הטשטוש בלבד עד שהתמונה סווגה ופוענחה (‏sw-wait), ואז fade של 120ms.
+   גם בהחלפת תמונה בקרוסלה שעוד לא הגיעה: ההתאמה הקודמת נשארת, והטשטוש מתחת */
+.sw-card[data-fit=pending] .sw-cblur,.sw-card:has(.sw-cimg.sw-wait) .sw-cblur{display:block}
+.sw-card[data-fit=pending] .sw-cimg,.sw-cimg.sw-wait{opacity:0}
+.sw-cimg{transition:opacity .12s ease-out}
+@media (prefers-reduced-motion:reduce){.sw-cimg{transition:none}}
 /* המרכז ב-42% ולא ב-50%: האמצע של האזור הפנוי בין הכותרת למחיר ולנתונים שבתחתית, כדי שהם לא
    ישבו על החלק התחתון של התמונה (‏4:3, ‏488px, בכרטיס 390×844: ‏110-598, המחיר מ-600) */
 .sw-card[data-fit=window] .sw-cimg{inset:42% 0 auto 0;height:var(--win-h,62%);transform:translateY(-50%);object-fit:cover;object-position:50% 50%}
