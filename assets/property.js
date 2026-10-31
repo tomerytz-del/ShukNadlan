@@ -2977,10 +2977,12 @@ function renderContactButtons(p){
   }
   formBtn.hidden = true;
 
+  // הקישור בשורה נפרדת בסוף: הקצר (‏/p/{מספר מודעה}, ‏short-link.ts), ובלי מספר - הכתובת
+  const link = p.listing_number ? 'https://shuknadlan.co.il/p/' + p.listing_number : window.location.href;
   const text = [
     'היי' + (agentName ? ' ' + agentName : '') + ',',
     `ראיתי בשוק נדל״ן את הנכס "${p.title}" (${priceLabel(p)}) ואשמח לקבל פרטים נוספים.`,
-    window.location.href,
+    link,
   ].join('\n');
   const waHref = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
   const telHref = 'tel:+' + phone;
