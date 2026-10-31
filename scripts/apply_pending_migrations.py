@@ -664,6 +664,9 @@ do $$ begin
 end $$;
 create schema if not exists auth;
 create schema if not exists extensions;
+-- private קיימת בפרודקשן (20271027140000) ואינה ב-pg_dump --schema=public.
+-- מיגרציה שממתינה ויוצרת שם אובייקט (תמונת /prices) נופלת בלעדיה.
+create schema if not exists private;
 create extension if not exists pgcrypto with schema extensions;
 create extension if not exists "uuid-ossp" with schema extensions;
 create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;

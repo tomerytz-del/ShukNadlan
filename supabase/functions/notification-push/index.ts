@@ -10,6 +10,7 @@ import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts"
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
+import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import {
   absoluteUrl,
   categoryPath,
@@ -26,20 +27,18 @@ import {
   TXN_UTILITY_LANG_ENV,
   notificationPath,
   OPT_OUT_BARE,
-  parseNavId,
   replyButtonsMessage,
   resendInteractiveAsText,
   screenBundle,
-  stripHttpUrls,
   txnUtilityEligible,
   txnUtilityGreeting,
   txnUtilitySummary,
   withShowcaseOnReminders,
   type ClickRecord,
   type NotifTarget,
-  type ScreenPlan,
   utilityTemplateMessage,
   withClick,
+  withClickUrl,
 } from "../_shared/agent-deep-link.ts";
 
 // ============================================================================
@@ -358,7 +357,7 @@ function textBody(
       const who = firstName(name);
       return [who ? `${who}, ${line}` : line, "", opt].join("\n").slice(0, 4000);
     }
-    return burstText(name, burst.count ?? items.length, SITE_BASE, gotoUrl(MANAGE_ACC)).slice(0, 4000);
+    return burstText(name, burst.count ?? items.length).slice(0, 4000);
   }
   const first = firstName(name);
   const li = richLead(items);
@@ -410,21 +409,6 @@ function nudgeReplyButtons(items: Item[]): { id: string; title: string }[] | nul
   return unpublishedNudgeButtons(property);
 }
 
-/** הנתיב החתום מתוך התוכנית, אם wc נכנס. אחרת הנתיב המקורי. */
-function stampPaths(plan: ScreenPlan | null): ((path: string) => string) | undefined {
-  if (!plan || plan.kind === "none") return undefined;
-  const paths: string[] = [];
-  if (plan.kind === "single") paths.push(plan.path);
-  else {
-    for (const row of plan.rows) {
-      const parsed = parseNavId(row.id);
-      if (parsed) paths.push(parsed);
-    }
-    paths.push(plan.allPath);
-  }
-  return (raw) => paths.find((p) => p === raw || p.startsWith(`${raw}&`)) || raw;
-}
-
 function screensOf(items: Item[]) {
   return items.map((it) => ({
     type: it.type,
@@ -457,13 +441,15 @@ function categoryFor(type: string): string | null {
  * והכפתור הוא הנתיב של היעד.
  */
 function templateSummary(items: Item[], withUrls = true): string {
+  const note = withUrls ? "" : " פרטים ב-CRM.";
+  const cap = 900 - note.length;
   const burst = items.find((it) => it.type === BURST_DIGEST_TYPE);
   if (burst) {
     const count = burst.count ?? items.length;
     const link = withUrls ? ` ${SITE_BASE}/crm` : "";
-    return `יש לך ${count} התראות חדשות באתר.${link}`.slice(0, 900);
+    return `יש לך ${count} התראות חדשות באתר.${link}${note}`.slice(0, 900);
   }
-  return items
+  const raw = items
     .map((it) => {
       const path = itemPath(it);
       const url = withUrls && path ? `${SITE_BASE}${path}` : null;
@@ -476,8 +462,9 @@ function templateSummary(items: Item[], withUrls = true): string {
     // ‏replace לפני החיתוך: גוף התראה נכתב במסד ועשוי להכיל שורה חדשה בעצמו
     // (למשל ציטוט מביקורת), ולכן לא די בהחלפת המפריד.
     .replace(/\s*[\r\n\t]+\s*/g, " ")
-    .replace(/ {4,}/g, "   ")
-    .slice(0, 900);
+    .replace(/ {4,}/g, "   ");
+  if (withUrls) return raw.slice(0, 900);
+  return raw.replace(/ פרטים ב-CRM\./g, "").slice(0, cap) + note;
 }
 
 async function loadDigestFlags(
@@ -513,7 +500,6 @@ async function sendWhatsapp(
 ): Promise<{ id: string | null; tokens: ClickRecord[] }> {
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
   let tokens: ClickRecord[] = [];
-  let stampedPlan: ScreenPlan | null = null;
 
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
   const headers = {
@@ -524,20 +510,47 @@ async function sendWhatsapp(
   let payload: Record<string, unknown>;
   const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
-  const bare = () => stripHttpUrls(clipWhatsappBody(textBody(name, items, true, topics, false), 1024));
-  const linked = () => ({
-    messaging_product: "whatsapp",
-    recipient_type: "individual" as const,
-    to,
-    type: "text" as const,
-    text: { preview_url: false, body: textBody(name, items, false, topics) },
-  });
+  const embedded: { label: string; url: string }[] = [];
+  const withoutUrls = (text: string) => {
+    const plan = planWaText(text);
+    if (plan.stripped) {
+      logWaUrlGuard("notification-push", plan);
+      embedded.splice(0, embedded.length, ...plan.links.filter((link) => link.kind === "cta"));
+    }
+    return plan.text;
+  };
+  const bare = () => clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
+  const fullBody = () => (withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON).slice(0, 4000);
+  let splitCta: Record<string, unknown> | null = null;
+  const linked = () => {
+    const full = fullBody();
+    const plan = screenBundle(screensOf(items), categoryFor);
+    // גוף ארוך מ-1024 לא נכנס לכפתור. הטקסט יוצא במלואו, והיעד בכפתור נפרד.
+    if (full.length > 1024 && plan.kind === "single" && !containsHttpUrl(full)) {
+      tokens = clickRecords(plan);
+      splitCta = ctaMessage(
+        to,
+        "הפרטים בכפתור.",
+        richLead(items) ? LEAD_CTA : plan.label,
+        absoluteUrl(SITE_BASE, plan.path),
+      );
+    }
+    return {
+      messaging_product: "whatsapp",
+      recipient_type: "individual" as const,
+      to,
+      type: "text" as const,
+      text: { preview_url: false, body: full },
+    };
+  };
   // הודעה אחת. יעד אחד = cta_url. כמה יעדים = רשימה, והלחיצה (nav:) מחזירה
-  // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט עם הקישור.
+  // cta_url אחד. בלי כתובת בגוף. כשל של האינטראקטיב נופל לטקסט בלי הכתובת.
   const inWindow = (): Record<string, unknown> | null => {
     const plan = screenBundle(screensOf(items), categoryFor);
-    stampedPlan = plan;
-    const body = bare();
+    const full = fullBody();
+    // יעד אחד וגוף ארוך: linked שולח את הטקסט ואז כפתור. בלי לחתוך בשקט.
+    if (plan.kind === "single" && full.length > 1024) return null;
+    const body = full.length > 1024 ? bare() : full;
     if (!body || containsHttpUrl(body) || body.length > 1024) return null;
     if (plan.kind === "single") {
       tokens = clickRecords(plan);
@@ -622,7 +635,7 @@ async function sendWhatsapp(
             type: "body",
             parameters: [
               { type: "text", text: (firstName(name) || "שלום").slice(0, 60) },
-              { type: "text", text: templateSummary(items) },
+              { type: "text", text: withoutUrls(templateSummary(items, false)) || WA_NO_BUTTON },
             ],
           },
           {
@@ -637,7 +650,7 @@ async function sendWhatsapp(
   } else if (nudgeBtns) {
     // שלושה כפתורי תשובה על נכס אחד. אי אפשר לערבב אותם עם cta_url.
     // "בלי תזכורת" נשאר בכרטיס ב-CRM: ל-Meta יש שלושה כפתורים.
-    const body = clipWhatsappBody(textBody(name, items, true, topics, false), 1024);
+    const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
     const buttons = nudgeBtns.map((b) => ({
       type: "reply",
       reply: { id: b.id, title: b.title },
@@ -659,7 +672,7 @@ async function sendWhatsapp(
     // ביטול סיור קודם ל"פחות כאלה": שם הסוכן/ת צריך/ה להחליט אם לעדכן
     // את מי שכבר קיבל בקשה, ולא נשלח דבר ללקוח/ה עד הלחיצה.
     // החיתוך נעצר לפני כתובת שנקטעת, לא באמצע הקישור.
-    const body = clipWhatsappBody(textBody(name, items, false, topics), 1024);
+    const body = clipWhatsappBody(withoutUrls(textBody(name, items, true, topics, false)) || WA_NO_BUTTON, 1024);
     const button = scn
       ? { type: "reply", reply: { id: scn.id, title: scn.title } }
       : { type: "reply", reply: { id: `nless:${lessType}`, title: LESS_TITLE } };
@@ -685,10 +698,9 @@ async function sendWhatsapp(
   if (!res.ok && payload.type === "interactive") {
     const raw = await res.text();
     if (resendInteractiveAsText(String(payload.type), false, raw, WA_OPTED_OUT)) {
-      console.error("cta_url rejected, sending as text", raw.slice(0, 300));
-      // הטקסט נושא את אותם wc. מוחקים טוקן שלא נכנס לגוף (חיתוך אורך),
-      // כדי שלחיצה לא תיספר בלי שליחה תואמת, ושליחה לא תיספר בלי הקישור.
-      const body = textBody(name, items, false, topics, true, stampPaths(stampedPlan));
+      console.error("cta_url rejected, sending as text without url", raw.slice(0, 300));
+      // הכפתור נדחה. הגוף בלי כתובת. טוקן לחיצה שלא נכנס להודעה לא נספר.
+      const body = `${withoutUrls(textBody(name, items, true, topics, false))}\n${WA_NO_BUTTON}`.slice(0, 4000);
       tokens = tokens.filter((t) => body.includes(`wc=${t.wc}`));
       res = await fetch(url, {
         method: "POST",
@@ -717,6 +729,27 @@ async function sendWhatsapp(
   try {
     id = (await res.json())?.messages?.[0]?.id ?? null;
   } catch { /* בלי wamid השורה נשארת sent */ }
+  if (mode !== "template") {
+    const follow = splitCta
+      || (embedded.length === 1
+        ? ctaPayload(to, embedded[0].label, embedded[0].label, withClickUrl(embedded[0].url, "cta"))
+        : embedded.length > 1
+          ? ctaPayload(to, "לאתר", "לאתר", `${SITE_BASE}/`)
+          : null);
+    const dropped = splitCta ? embedded.length : Math.max(0, embedded.length - 1);
+    if (dropped > 0) console.warn("wa-url-guard notification capped", dropped);
+    if (follow) {
+      try {
+        const followRes = await fetch(url, { method: "POST", headers, body: JSON.stringify(follow) });
+        if (!followRes.ok) {
+          const raw = await followRes.text();
+          console.error("wa-url-guard notification follow-up failed", followRes.status, raw.slice(0, 300));
+        }
+      } catch (err) {
+        console.error("wa-url-guard notification follow-up failed", err);
+      }
+    }
+  }
   return { id, tokens };
   });
 }

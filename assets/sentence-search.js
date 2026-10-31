@@ -994,9 +994,9 @@
     });
     var text = get('text').slice(0, 80);
     if (text) {
-      var q = norm(text);
       items.push({ params: { text: text }, label: '"' + text + '"' });
-      tests.push(function (p) { return norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).indexOf(q) >= 0; });
+      // ‏textHas: אותו כלל של שורת החיפוש - כתיב מלא וחסר ("העלייה" = "עלייה")
+      tests.push(function (p) { return SC.textHas([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' '), text); });
     }
     return { items: items, test: function (p) { return tests.every(function (t) { return t(p); }); } };
   }

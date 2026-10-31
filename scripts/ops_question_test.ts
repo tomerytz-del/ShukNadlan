@@ -3,6 +3,7 @@
 //   node --experimental-strip-types scripts/ops_question_test.ts
 
 import { readFileSync } from "node:fs";
+import { parsePhotoMoveButton } from "../supabase/functions/whatsapp-webhook/photo-target.ts";
 import {
   claimDecision,
   customerWindowOpen,
@@ -10,6 +11,7 @@ import {
   OPS_AGENT_DAILY_CAP,
   OPS_GLOBAL_DAILY_CAP,
   OPS_HISTORY_NOTE,
+  OPS_PHOTO_HISTORY_NOTE,
   OPS_QUESTIONS,
   OPS_TAP_REPLY,
   OPS_WINDOW_MS,
@@ -97,12 +99,14 @@ function memory(agent: OpsAgent | null, opts?: {
   off?: boolean;
   claimCode?: string;
   prior?: string[];
+  quiet?: boolean;
 }): {
   db: OpsQuestionDb;
   sends: Sent[];
   claims: OpsClaim[];
   outbound: OpsOutbound[];
   history: unknown[];
+  marks: { status: string; ids: string[] }[];
   status: () => string | null;
 } {
   const sends: Sent[] = [];
@@ -110,6 +114,7 @@ function memory(agent: OpsAgent | null, opts?: {
   const outbound: OpsOutbound[] = [];
   const history: unknown[] = [];
   let marked: string | null = null;
+  const marks: { status: string; ids: string[] }[] = [];
   const db: OpsQuestionDb = {
     async getAgent(id) {
       return agent && agent.id === id ? agent : null;
@@ -131,14 +136,18 @@ function memory(agent: OpsAgent | null, opts?: {
       if (prev.length > 1 && row.retry) return "reclaimed";
       return "claimed";
     },
-    async markSent(_a, _p, _ids, status) {
+    async markSent(_a, _p, ids, status) {
       marked = status;
+      marks.push({ status, ids: ids.slice() });
     },
-    async appendHistory(_a, _p, _in, text) {
-      history.push(...appendOpsHistory([], text));
+    async appendHistory(_a, _p, _in, text, note) {
+      history.push(...appendOpsHistory([], text, note));
     },
     async logOutbound(row) {
       outbound.push(row);
+    },
+    async sendWindowOpen() {
+      return opts?.quiet !== true;
     },
   };
   return {
@@ -147,12 +156,13 @@ function memory(agent: OpsAgent | null, opts?: {
     claims,
     outbound,
     history,
+    marks,
     status: () => marked,
   };
 }
 
-function paid(): OpsAgent {
-  return { id: SHAI, tier: "premium", phone: "972501234567", active: true, billing_status: "active" };
+function paid(id = SHAI): OpsAgent {
+  return { id, tier: "premium", phone: "972501234567", active: true, billing_status: "active" };
 }
 
 function input(extra: Record<string, unknown> = {}) {
@@ -261,6 +271,12 @@ check(
     retryMem.sends[0].body === approved[1].body && !retryMem.sends.some((s) => s.body === approved[0].body),
 );
 check("בלי retry כשל קודם לא נשרף", claimDecision("failed")?.body.detail?.toString().includes("retry=true") === true);
+const partialDecision = claimDecision("partial_sent");
+check(
+  "partial_sent סוגר בלי שליחה חוזרת",
+  partialDecision?.status === 409 && partialDecision.body.error === "partial_sent" &&
+    !String(partialDecision.body.detail).includes("retry=true"),
+);
 check("claimed תקוע לא נשאר בלי דרך", claimDecision("in_progress")?.body.detail?.toString().includes("retry=true") === true);
 
 const answers: OpsAnswer[] = [];
@@ -302,13 +318,194 @@ check(
   inboundOpsButton({ type: "interactive", interactive: { button_reply: { id: "poffer:share:yes:x", title: "כן" } } }) === null,
 );
 
+const P1147 = "photo_check_1147_2026_10";
+const P1336 = "photo_check_1336_2026_10";
+const AGENT_1147 = "ad2b60a0-e2c1-4d1f-8a10-9bbea8026c19";
+const AGENT_1336 = "248e9455-53d6-4e82-80b5-582cea77f80f";
+const BODY_1147 = "היי, שמנו לב שבנכס 1147 (4 חדרים להשכרה ברובע יזרעאל) תמונות 9 עד 13 נראות של נכס 1148 (דירת הגן בארלוזורוב). להעביר אותן ל־1148? בנוסף, תמונה 6 ב־1147 לא נטענת, אז כדאי להעלות אותה מחדש.";
+const BODY_1336 = "היי, הנכסים 1336 (מגרש באומן) ו־1385 (חנות בקהילת ציון) עודכנו ביום חמישי בהפרש של שתי דקות. אפשר לוודא שהתמונות בכל אחד מהם נכונות? אם משהו התחלף, נעביר אותו לנכס הנכון.";
+const q1147 = OPS_QUESTIONS[P1147];
+const q1336 = OPS_QUESTIONS[P1336];
+check("גוף 1147 כלשונו", q1147.body === BODY_1147 && q1147.followup.body === "וזה נכס 1148, להשוואה:");
+check("גוף 1336 כלשונו", q1336.body === BODY_1336 && q1336.followup.body === "וזה נכס 1385:");
+check("מקף עברי ולא מקף ארוך", BODY_1147.includes("\u05be") && BODY_1336.includes("\u05be") && !BODY_1147.includes("\u2014") && !BODY_1336.includes("\u2013"));
+check(
+  "כפתורי 1147",
+  q1147.ctas?.length === 2 && q1147.ctas[0].label === "נכס 1147" && q1147.ctas[0].url === "https://shuknadlan.co.il/p/1147" &&
+    q1147.ctas[1].label === "נכס 1148" && q1147.ctas[1].url === "https://shuknadlan.co.il/p/1148",
+);
+check(
+  "כפתורי 1336",
+  q1336.ctas?.length === 2 && q1336.ctas[0].label === "נכס 1336" && q1336.ctas[0].url === "https://shuknadlan.co.il/p/1336" &&
+    q1336.ctas[1].label === "נכס 1385" && q1336.ctas[1].url === "https://shuknadlan.co.il/p/1385",
+);
+check("סוכן 1147 קשיח", q1147.allowedAgentIds.length === 1 && q1147.allowedAgentIds[0] === AGENT_1147);
+check("סוכן 1336 קשיח", q1336.allowedAgentIds.length === 1 && q1336.allowedAgentIds[0] === AGENT_1336);
+check(
+  "אין כתובת בגוף",
+  ![q1147.body, q1147.followup.body, q1336.body, q1336.followup.body].some((t) => /https?:\/\//.test(t) || t.includes("shuknadlan.co.il")),
+);
+for (const [purpose, item] of Object.entries(OPS_QUESTIONS)) {
+  const labels = item.ctas ? item.ctas.map((c) => c.label) : [...item.buttons, ...item.followup.buttons];
+  check(`${purpose} כותרות עד 20`, labels.length > 0 && labels.every((t) => t.length >= 1 && t.length <= 20));
+}
+
+type CtaSent = { to: string; body: string; label: string; url: string; logsBefore: number };
+
+async function runPhoto(purpose: string, agentId: string, opts?: { quiet?: boolean; lastInbound?: string | null; extra?: Record<string, unknown> }) {
+  const mem = memory(paid(agentId), { quiet: opts?.quiet, lastInbound: opts?.lastInbound });
+  const ctas: CtaSent[] = [];
+  let replySends = 0;
+  const result = await runOpsQuestion({
+    db: mem.db,
+    input: { purpose, agent_member_id: agentId, body: "לא לשלוח", buttons: [{ title: "כן" }], ...(opts?.extra || {}) },
+    sendButtons: async () => {
+      replySends++;
+      return "wamid.reply";
+    },
+    sendCta: async (to, body, label, url) => {
+      ctas.push({ to, body, label, url, logsBefore: mem.outbound.length });
+      return `wamid.cta.${ctas.length}`;
+    },
+    now: NOW,
+  });
+  return { mem, ctas, replySends, result };
+}
+
+const photo = await runPhoto(P1147, AGENT_1147);
+check(
+  "1147 שתי הודעות מיד בלי כפתור תשובה",
+  photo.result.status === 200 && photo.replySends === 0 && photo.ctas.length === 2 &&
+    photo.ctas[0].logsBefore === 0 && photo.ctas[1].logsBefore === 1 &&
+    photo.ctas[0].body === BODY_1147 && photo.ctas[0].label === "נכס 1147" && photo.ctas[0].url.endsWith("/p/1147") &&
+    photo.ctas[1].body === "וזה נכס 1148, להשוואה:" && photo.ctas[1].label === "נכס 1148" && photo.ctas[1].url.endsWith("/p/1148"),
+);
+check(
+  "1147 נרשם ביומן בלי כתובת",
+  photo.mem.outbound.length === 2 &&
+    photo.mem.outbound.every((row) => !row.body.includes("http") && !row.body.includes("shuknadlan.co.il")) &&
+    photo.mem.outbound[0].body.includes("נכס 1147") && photo.mem.outbound[1].body.includes("נכס 1148"),
+);
+const photoUsers = photo.mem.history.filter((m) => (m as { role?: string }).role === "user") as { content: string }[];
+check(
+  "היסטוריית התמונות אוסרת העברה אוטומטית",
+  photoUsers.length === 2 && photoUsers.every((m) => m.content === OPS_PHOTO_HISTORY_NOTE) &&
+    OPS_PHOTO_HISTORY_NOTE.includes("1147") && OPS_PHOTO_HISTORY_NOTE.includes("1385"),
+);
+const photoAgain = await runOpsQuestion({
+  db: photo.mem.db,
+  input: { purpose: P1147, agent_member_id: AGENT_1147 },
+  sendButtons: async () => "wamid",
+  sendCta: async () => {
+    photo.ctas.push({ to: "", body: "", label: "", url: "", logsBefore: 0 });
+    return "wamid.again";
+  },
+  now: NOW,
+});
+check("1147 פעם שנייה כבר נשלח", photoAgain.status === 409 && photoAgain.body.error === "already_sent" && photo.ctas.length === 2);
+check(
+  "אחרי ההודעה הראשונה המצב סגור",
+  photo.mem.marks[0]?.status === "partial_sent" && photo.mem.marks[0].ids.length === 1 &&
+    photo.mem.marks.at(-1)?.status === "sent" && photo.mem.marks.at(-1)?.ids.length === 2,
+);
+
+const partialMem = memory(paid(AGENT_1147));
+let partialSends = 0;
+const partial = await runOpsQuestion({
+  db: partialMem.db,
+  input: { purpose: P1147, agent_member_id: AGENT_1147 },
+  sendButtons: async () => "wamid.reply",
+  sendCta: async () => {
+    partialSends++;
+    if (partialSends === 2) throw new Error("second failed");
+    return "wamid.1";
+  },
+  now: NOW,
+});
+check(
+  "כשל בשנייה משאיר את הראשונה ביומן",
+  partial.status === 502 && partial.body.error === "partial_sent" &&
+    partialMem.outbound.length === 1 && partialMem.outbound[0].waMessageId === "wamid.1" &&
+    partialMem.history.length === 2 &&
+    partialMem.marks.some((m) => m.status === "partial_sent" && m.ids[0] === "wamid.1") &&
+    partialMem.status() === "partial_sent" &&
+    !String(partial.body.detail).includes("retry=true"),
+);
+let resent = 0;
+const partialAgain = await runOpsQuestion({
+  db: memory(paid(AGENT_1147), { claimCode: "partial_sent" }).db,
+  input: { purpose: P1147, agent_member_id: AGENT_1147, retry: true },
+  sendButtons: async () => "wamid",
+  sendCta: async () => {
+    resent++;
+    return "wamid.again";
+  },
+  now: NOW,
+});
+check("partial_sent לא שולח את הראשונה שוב", partialAgain.status === 409 && partialAgain.body.error === "partial_sent" && resent === 0);
+
+const otherId = await runPhoto(P1147, AGENT_1336);
+check("מזהה אחר ל-1147 נדחה", otherId.result.status === 403 && otherId.result.body.error === "agent_not_allowed" && otherId.ctas.length === 0);
+const other1336 = await runPhoto(P1336, AGENT_1147);
+check("מזהה אחר ל-1336 נדחה", other1336.result.status === 403 && other1336.result.body.error === "agent_not_allowed" && other1336.ctas.length === 0);
+
+const photo1336 = await runPhoto(P1336, AGENT_1336);
+check(
+  "1336 שתי הודעות",
+  photo1336.result.status === 200 && photo1336.ctas.length === 2 && photo1336.replySends === 0 &&
+    photo1336.ctas[0].body === BODY_1336 && photo1336.ctas[0].label === "נכס 1336" &&
+    photo1336.ctas[1].body === "וזה נכס 1385:" && photo1336.ctas[1].label === "נכס 1385" &&
+    photo1336.ctas[1].logsBefore === 1,
+);
+const quiet = await runPhoto(P1147, AGENT_1147, { quiet: true });
+check(
+  "שעות שקט בלי שליחה",
+  quiet.result.status === 409 && quiet.result.body.error === "quiet_hours" && quiet.ctas.length === 0 &&
+    quiet.mem.claims.length === 0 && quiet.mem.outbound.length === 0,
+);
+const quietRetry = await runOpsQuestion({
+  db: memory(paid(AGENT_1147), { quiet: true, claimCode: "reclaimed" }).db,
+  input: { purpose: P1147, agent_member_id: AGENT_1147, retry: true },
+  sendButtons: async () => "wamid",
+  sendCta: async () => "wamid",
+  now: NOW,
+});
+check("שקט לא שולח גם ב-retry", quietRetry.status === 409 && quietRetry.body.error === "quiet_hours");
+const closedPhoto = await runPhoto(P1336, AGENT_1336, { lastInbound: CLOSED_INBOUND });
+check(
+  "חלון סגור בבדיקת תמונות",
+  closedPhoto.result.status === 409 && closedPhoto.result.body.error === "window_closed" && closedPhoto.ctas.length === 0 &&
+    closedPhoto.mem.claims.length === 0,
+);
+check(
+  "תשובה בטקסט אינה העברת תמונות",
+  inboundOpsButton({ type: "text" }) === null &&
+    parsePhotoMoveButton("כן, להעביר") === null &&
+    parsePhotoMoveButton("https://shuknadlan.co.il/p/1147") === null &&
+    questionMessages(P1147)!.every((m) => m.buttons.length === 0 && m.cta !== null) &&
+    questionMessages(P1336)!.every((m) => !m.body.includes(m.cta?.url || "https://")),
+);
+
 const src = readFileSync(new URL("../supabase/functions/whatsapp-webhook/index.ts", import.meta.url), "utf8");
 const tapAt = src.indexOf("inboundOpsButton(msg)");
 check("המשימה דורשת service_role", src.includes("opsQuestionAuthRefusal(auth)"));
 check("הלחיצה לפני המודל", tapAt > 0 && tapAt < src.indexOf("runAgentTurn(") && tapAt < src.indexOf("await handlePublicMessage(msg)"));
 check("אחרי התפיסה יש return", src.slice(tapAt, tapAt + 500).includes("return;"));
 check("השער המשותף ו-TIER_ALLOWED", src.includes("whatsappAgentBlock(") && src.includes("TIER_ALLOWED.has("));
-check("היסטוריה אטומית", src.includes("whatsapp_ops_history_append") && src.includes("appendOpsHistory([], assistantText)"));
+check("היסטוריה אטומית", src.includes("whatsapp_ops_history_append") && src.includes("appendOpsHistory([], assistantText"));
+check("חלון השליחה הקיים", src.includes('rpc("notification_send_window_open"') && src.includes("sendCta: sendCtaUrl"));
+const agentSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
+const opsSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/ops-question.ts", import.meta.url), "utf8");
+const toolStart = agentSrc.indexOf("async function toolMovePropertyPhotos");
+const toolEnd = agentSrc.indexOf("async function toolManageImages");
+const moveTool = agentSrc.slice(toolStart, toolEnd);
+const moveCall = agentSrc.indexOf("await relocatePropertyPhotos");
+check(
+  "העברת תמונות רק מכפתור האישור",
+  toolStart > 0 && toolEnd > toolStart && moveTool.includes("needs_confirmation") && !moveTool.includes("relocatePropertyPhotos") &&
+    moveCall > agentSrc.indexOf("parsePhotoMoveButton(buttonId)") &&
+    !opsSrc.includes("relocatePropertyPhotos") && !opsSrc.includes("property-image-move"),
+);
 
 const sql = readFileSync(new URL("../supabase/migrations/20271031100000_whatsapp_ops_question.sql", import.meta.url), "utf8");
 for (const table of ["whatsapp_ops_questions", "whatsapp_ops_answers"]) {
@@ -322,6 +519,17 @@ for (const table of ["whatsapp_ops_questions", "whatsapp_ops_answers"]) {
 check("תקרות במסד", sql.includes("v_agent_n >= 1") && sql.includes("v_global_n >= 5") && sql.includes("p_retry"));
 check("retry משחרר failed ו-claimed", sql.includes("v_status in ('failed', 'claimed') and p_retry"));
 check("היסטוריה ב-||", sql.includes("coalesce(public.whatsapp_conversations.history, '[]'::jsonb)") && sql.includes("|| coalesce(excluded.history"));
+
+const partialSql = readFileSync(new URL("../supabase/migrations/20271031200000_ops_question_partial_sent.sql", import.meta.url), "utf8");
+check(
+  "partial_sent סגור לניסיון חוזר",
+  partialSql.includes("partial_sent") &&
+    partialSql.includes("v_status = 'partial_sent'") &&
+    partialSql.includes("return 'partial_sent'") &&
+    !partialSql.includes("v_status in ('failed', 'claimed', 'partial_sent')") &&
+    partialSql.includes("revoke all on function public.whatsapp_ops_question_claim(uuid, text, text, text[], text, text[], boolean) from public, anon, authenticated") &&
+    partialSql.includes("grant execute on function public.whatsapp_ops_question_claim(uuid, text, text, text[], text, text[], boolean) to service_role"),
+);
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

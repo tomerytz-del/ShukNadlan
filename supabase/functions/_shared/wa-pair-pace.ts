@@ -3,9 +3,9 @@
 // Meta דוחה רצף לאותו מספר (131056, pair rate limit). בתוך תהליך אחד
 // השרשרת הזו מסדרת את השליחות. בין תהליכים (בוט + התראות) השמירה היא
 // whatsapp_pair_reserve במסד, אם חוברה. בלי המסד נשאר המרווח המקומי.
-// ברירת המחדל 0: אין המתנה, כמו לפני המרווח. WHATSAPP_PAIR_GAP_MS=1500 מדליק.
+// ברירת המחדל 700ms בין חלקים של אותה תשובה. WHATSAPP_PAIR_GAP_MS דורס (0 עד 20000).
 
-const DEFAULT_GAP_MS = 0;
+const DEFAULT_GAP_MS = 700;
 
 type Reserve = (phone: string, gapMs: number) => Promise<number>;
 

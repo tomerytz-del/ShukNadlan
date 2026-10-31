@@ -29,6 +29,7 @@ Content-Type: application/json
 | `email` | | |
 | `message` | | מה הפונה כתב/ה. נכנס לליד ומוצג לסוכן/ת אחרי פתיחה |
 | `property_id` / `listing_number` | ב-`property` | הנכס. אחד מהשניים |
+| `message_at` | | שעת ההודעה ברשת (ISO 8601). נכנסת ליומן פניות היריד כשהנכס ביריד (‏`docs/open-house-fair.md`) |
 | `city`, `deal_type`, `property_type`, `rooms`, `min_rooms`, `max_rooms`, `min_price`, `max_price`, `neighborhood_id` | | הקריטריונים (‏`buyer`), או פרטי הנכס (‏`owner`: ‏`city` ו-`property_type` חובה) |
 | `consent_agent_contact` | ב-`buyer`: כן (`true`) | הסכמה שמתווך/ת יפנה/תפנה. בלעדיה אין ליד |
 | `subscribe_alerts` | | `true` = גם התראות על נכסים חדשים בוואטסאפ. ברירת המחדל - בלי |

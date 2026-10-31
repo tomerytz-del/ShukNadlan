@@ -1,0 +1,45 @@
+name: יומן פניות היריד
+
+# ‏20271031220000_fair_inquiries.sql רצה על Postgres מקומי פעמיים, ואז
+# התרחישים: החלון בשעון השרת, הגבול 23:59:59 בשני אזורי זמן, הסיווג (טופס
+# והדמיה זכאים, רשתות ומטא ממתינים להחלטה), רישום שנכשל ואינו מפיל ליד,
+# שורה שאינה נמחקת ואינה משתנה, ההרשאות ומחיקת השם והטלפון אחרי שנתיים.
+# ‏docs/open-house-fair.md, "רישום פניות היריד".
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271031220000_fair_inquiries.sql"
+      - "scripts/fair_inquiries_test.py"
+      - "scripts/fair_inquiries_setup.sql"
+      - "scripts/fair_inquiries_assert.sql"
+      - ".github/workflows/fair_inquiries.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271031220000_fair_inquiries.sql"
+      - "scripts/fair_inquiries_test.py"
+      - "scripts/fair_inquiries_setup.sql"
+      - "scripts/fair_inquiries_assert.sql"
+      - ".github/workflows/fair_inquiries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת יומן פניות היריד
+        run: python3 scripts/fair_inquiries_test.py

@@ -37,8 +37,8 @@ export type LeadField = { name?: string | null; values?: string[] | null };
 
 export type LeadAlertDecision =
   | { action: "skip"; reason: "expired" | "kind" }
-  | { action: "text"; text: string; params: string[] }
-  | { action: "template"; text: string; params: string[] };
+  | { action: "text"; text: string; params: string[]; button?: { label: string; url: string } }
+  | { action: "template"; text: string; params: string[]; button?: { label: string; url: string } };
 
 export function phoneDigits(raw: unknown): string {
   if (typeof raw !== "string" && typeof raw !== "number") return "";
@@ -101,7 +101,7 @@ export function buildLeadAlert(input: {
   formName?: string | null;
   kind: string;
   fields?: LeadField[] | null;
-}): { params: string[]; text: string } {
+}): { params: string[]; text: string; button: { label: string; url: string } } {
   const c = leadContact(input.fields);
   const label = kindLabel(input.kind);
   const formName = String(input.formName ?? "").trim() || "טופס לא משויך";
@@ -116,9 +116,13 @@ export function buildLeadAlert(input: {
     `טלפון: ${c.phone}`,
     ...(c.email ? [`מייל: ${c.email}`] : []),
     ...extras,
-    "לפרטים: https://shuknadlan.co.il/crm",
+    "לפרטים ב-CRM.",
   ];
-  return { params, text: lines.join("\n") };
+  return {
+    params,
+    text: lines.join("\n"),
+    button: { label: "פתיחה ב-CRM", url: "https://shuknadlan.co.il/crm" },
+  };
 }
 
 /**

@@ -4,7 +4,7 @@ import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
 import { PUBLIC_MODEL_FLAG, publicBotModel } from "./public-model.ts";
-import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
+import { formatForWhatsapp, sendButtons, sendImageCta, type WaSent } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
@@ -1673,7 +1673,6 @@ function cardCaption(p: any, note: string | null): string {
     publicWhere(p),
     [p.price ? `${nis(Number(p.price))} ₪` : null, facts].filter(Boolean).join(" · "),
     note ? `\n${note}` : null,
-    `\n${propertyUrl(p.id)}`,
   ].filter(Boolean).join("\n");
 }
 
@@ -1729,18 +1728,24 @@ async function sendPropertyCards(
 
     const caption = cardCaption(p, text(item.note));
     try {
-      const waMessageId = await sendImage(ctx.waPhone, image, caption);
+      const parts: WaSent[] = [];
+      const waMessageId = await sendImageCta(ctx.waPhone, image, caption, "לדף הנכס", propertyUrl(p.id), parts);
       ctx.cardsSent += 1;
       ctx.conv.last_property_id = p.id;
-      await ctx.supabase.from("whatsapp_messages").insert({
-        wa_message_id: waMessageId,
-        direction: "out",
-        wa_phone: ctx.waPhone,
-        msg_type: "image",
-        body: formatForWhatsapp(caption),
-        media_url: image,
-        status: waMessageId ? "sent" : null,
-      });
+      const logged = parts.length
+        ? parts
+        : [{ id: waMessageId, kind: "image" as const, body: formatForWhatsapp(caption) }];
+      for (const part of logged) {
+        await ctx.supabase.from("whatsapp_messages").insert({
+          wa_message_id: part.id,
+          direction: "out",
+          wa_phone: ctx.waPhone,
+          msg_type: part.kind,
+          body: part.body || formatForWhatsapp(caption),
+          media_url: image,
+          status: part.id ? "sent" : null,
+        });
+      }
       results.push({ property_id: id, sent: true });
     } catch (err) {
       // תמונה שלא נשלחה אינה סוף העולם — הקישור עדיין עובד, והמודל יידע
@@ -2201,8 +2206,8 @@ async function ownerLead(
     created: true,
     matched,
     what_happens: matched
-      ? "הפנייה הועברה לסוכן/ת תיווך מהאזור, שייצור/תיצור קשר."
-      : "הפנייה נשמרה. כרגע לא נמצא/ה סוכן/ת פנוי/ה לאזור ולסוג הנכס, ולכן אי אפשר להבטיח מתי יחזרו.",
+      ? "הפרטים הועברו לצוות התיווך להמשך טיפול."
+      : "הפנייה נשמרה. כרגע אין מי שמטפל באזור ובסוג הנכס, ולכן אין מועד למענה.",
     privacy_note:
       "יש לומר שהשם והטלפון נמסרים לסוכן/ת תיווך לצורך יצירת הקשר הזה.",
   };
@@ -2533,7 +2538,7 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "**יריד הדירות ללא עמלת תיווך** (לא ליד, ולכן מחוץ לארבעת המסלולים):",
     "- יריד שבו מתווכים מציעים נכסים לקונים בלי דמי תיווך, לתקופה קצובה. " +
-      `הנכסים שביריד עכשיו: ${SITE_BASE}/open-house . ` +
+      `הנכסים שביריד עכשיו יוצאים ככפתור: ${SITE_BASE}/open-house . ` +
       "ברשימת העדכונים יוצא מייל בכל פעם שנכס נכנס ליריד.",
     `- "${FAIR_TITLE}" (או "כן" להצעה בטקסט) = לבקש כתובת מייל בשאלה אחת קצרה ` +
       "(\"מעולה! לאיזה מייל לשלוח את עדכוני היריד?\"), כי העדכונים יוצאים " +
@@ -2579,12 +2584,12 @@ const SYSTEM_STATIC: string = (() => {
     "- אם חזר lead_cap_reached - לומר שאפשר להמשיך באתר, ולא לנסות שוב.",
     "",
     "גבולות התפקיד:",
-    "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת - להפנות ל-" +
-      `${SITE_BASE}/pricing . אין לך דרך לרשום אותו/ה.`,
+    "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת - להפנות למסלולים. " +
+      `הכתובת יוצאת ככפתור, בשורה משלה: ${SITE_BASE}/pricing . אין לך דרך לרשום אותו/ה.`,
     "- מי שמבקש/ת לדבר עם אדם - להפנות לדף הנכס או המשרד הרלוונטי, ולומר " +
       "בפשטות שאת עוזרת אוטומטית ולא הסוכן/ת עצמו/ה.",
-    "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה - \"הסוכן החכם\" באתר: " +
-      `${SITE_BASE}/ . אותו מנגנון בדיוק.`,
+    "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה - \"הסוכן החכם\" באתר. " +
+      `הכתובת יוצאת ככפתור, בשורה משלה: ${SITE_BASE}/ . אותו מנגנון בדיוק.`,
   ];
   return lines.join("\n");
 })();
@@ -2818,7 +2823,7 @@ export async function runPublicTurn(opts: {
   }
 
   if (!finalText) {
-    finalText = "לא הצלחתי למצוא תשובה לזה כרגע. אפשר לנסח אחרת, או לחפש ישירות באתר: " +
+    finalText = "לא הצלחתי למצוא תשובה לזה כרגע. אפשר לנסח אחרת, או לחפש ישירות באתר:\n" +
       `${SITE_BASE}/`;
   }
 

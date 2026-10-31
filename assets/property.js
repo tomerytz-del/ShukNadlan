@@ -268,6 +268,7 @@ async function loadProperty(){
     }
 
     currentProperty = data;
+    initSave(data.id);
     if (window.NoPhoto && NoPhoto.on()) NoPhoto.useClient(sb);
     renderProperty(data);
     // ‏#contact&ask=photos - "בקשו תמונות" מאריח של נכס בלי תמונות (v10): הטופס, עם ההודעה המלאה
@@ -1804,8 +1805,8 @@ function applyOwnerLeadAgent(p){
   const sub = document.getElementById('olSub');
   const done = document.getElementById('olDoneNote');
   if (sub) sub.textContent =
-    `השאירו פרטים ו${who} יחזור/תחזור אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.`;
-  if (done) done.textContent = `${who} יחזור/תחזור אליכם בזמן קצר לתיאום פגישה.`;
+    `השאירו פרטים. הם יועברו ל־${who} להמשך טיפול - כולל הדמיות AI לנכס שלכם.`;
+  if (done) done.textContent = `הפרטים הועברו ל־${who} להמשך טיפול.`;
 }
 
 /* הסגירה מחזירה את המיקוד לכפתור שפתח את הפאנל, ולא משאירה אותו על צומת
@@ -2943,27 +2944,45 @@ function watchStickyBar(){
   }, { rootMargin: '-60px 0px 0px 0px' }).observe(card);
 }
 
+let stickyWatched = false;
+let fairEndTimer = 0;
 function renderContactButtons(p){
   document.body.classList.add('has-sticky-bar');
-  watchStickyBar();
-  const phone = p.agency_members?.phone_e164;
+  if (!stickyWatched){ watchStickyBar(); stickyWatched = true; }
+  /* נכס ביריד: רק הטופס, כמו ב-/swipe, עם השורה "פונים דרך הטופס עד…".
+     ההנחה בעמלה תלויה בפנייה שנרשמת בשעת השרת (‏fair_inquiries,
+     ‏docs/open-house-fair.md), ולחיצה על וואטסאפ או חיוג אינה נרשמת עדיין.
+     דף שנשאר פתוח אחרי סוף היריד מחזיר את הכפתורים בלי טעינה מחדש, ולכן
+     הפונקציה רצה שוב ברגע הסיום ובונה הכול מחדש. */
+  const fair = OpenHouse.live(p);
+  const lineEl = document.getElementById('fairFormLine');
+  const line = fair ? OpenHouse.formLine(p) : '';
+  if (lineEl){ lineEl.textContent = line; lineEl.hidden = !line; }
+  if (fair && !fairEndTimer){
+    const ms = OpenHouse.endsAt(p) - Date.now();
+    if (ms > 0 && ms < 2 ** 31 - 1) fairEndTimer = setTimeout(()=> renderContactButtons(p), ms + 1000);
+  }
+  const phone = fair ? null : p.agency_members?.phone_e164;
   const agentName = p.agency_members?.display_name || '';
+  const formBtn = document.getElementById('sbFormBtn');
+  formBtn.onclick = ()=>{
+    document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
+    setTimeout(()=> document.getElementById('inqName').focus(), 420);
+  };
 
   if (!phone){
-    // בלי טלפון נשארת רק דרך אחת ליצור קשר — הטופס
-    const formBtn = document.getElementById('sbFormBtn');
+    // בלי טלפון (או ביריד) נשארת רק דרך אחת ליצור קשר — הטופס
     formBtn.hidden = false;
-    formBtn.addEventListener('click', ()=>{
-      document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
-      setTimeout(()=> document.getElementById('inqName').focus(), 420);
-    });
     return;
   }
+  formBtn.hidden = true;
 
+  // הקישור בשורה נפרדת בסוף: הקצר (‏/p/{מספר מודעה}, ‏short-link.ts), ובלי מספר - הכתובת
+  const link = p.listing_number ? 'https://shuknadlan.co.il/p/' + p.listing_number : window.location.href;
   const text = [
     'היי' + (agentName ? ' ' + agentName : '') + ',',
     `ראיתי בשוק נדל״ן את הנכס "${p.title}" (${priceLabel(p)}) ואשמח לקבל פרטים נוספים.`,
-    window.location.href,
+    link,
   ].join('\n');
   const waHref = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
   const telHref = 'tel:+' + phone;
@@ -2994,6 +3013,38 @@ function renderContactButtons(p){
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן">
       ${ICON.call}<span>חייגו</span>
     </a>`;
+}
+
+/* ---------- שמירה (§6, v10 בלבד) ----------
+   אותה רשימה של "המועדפים" בהחלקה ובבועה: ‏sk_swipe_likes, מזהים, החדש בסוף,
+   200 אחרונים. לשונית אחרת מתעדכנת מאירוע storage; הבועה באותה לשונית -
+   דרך LikesBubble.sync(). */
+function loadLikes(){
+  try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean); }
+  catch(e){ return []; }
+}
+function initSave(id){
+  if (!document.documentElement.classList.contains('beta-hero')) return;
+  const btns = [document.getElementById('saveBtn'), document.getElementById('sbSaveBtn')].filter(Boolean);
+  const paint = ()=>{
+    const saved = loadLikes().indexOf(id) >= 0;
+    btns.forEach(b => {
+      b.setAttribute('aria-pressed', String(saved));
+      b.setAttribute('aria-label', saved ? 'שמירה, נשמר במועדפים' : 'שמירה');
+    });
+  };
+  btns.forEach(b => { b.onclick = ()=>{
+    let list = loadLikes().filter(x => x !== id);
+    const saved = list.length === loadLikes().length;
+    if (saved) list.push(id);
+    try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list.slice(-200))); } catch(e){}
+    paint();
+    if (window.LikesBubble) LikesBubble.sync();
+    showToast(saved ? 'נשמר במועדפים' : 'הוסר מהמועדפים');
+    if (window.shukTrack) shukTrack('property_save_toggle', { property_id: id, saved });
+  }; });
+  window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') paint(); });
+  paint();
 }
 
 /* ---------- שיתוף ----------
