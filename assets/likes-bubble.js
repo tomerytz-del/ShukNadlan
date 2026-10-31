@@ -64,11 +64,11 @@
   wrap.setAttribute('data-browse', 'likes');   // ‏P1-M: מקור החשיפה לנכס שנפתח מכאן
   wrap.hidden = true;
   wrap.innerHTML = '<div class="lk-dim" data-lk-close></div><div class="lk-panel" role="dialog" aria-modal="true" aria-labelledby="lkTitle">' +
-    '<div class="lk-head"><h2 id="lkTitle">הרשימה שלי</h2><button type="button" class="lk-x" data-lk-close aria-label="סגירה"><span aria-hidden="true">✕</span></button></div>' +
+    '<div class="lk-head"><h2 id="lkTitle">המועדפים</h2><button type="button" class="lk-x" data-lk-close aria-label="סגירה"><span aria-hidden="true">✕</span></button></div>' +
     '<div class="lk-list" id="lkList"></div><div class="lk-foot"><a class="lk-go" href="/swipe">המשך גלישה בהחלקה</a></div>' +
-    '<div class="lk-confirm" id="lkConfirm" hidden><h3>להסיר את הנכס מהרשימה?</h3><p id="lkConfirmT"></p>' +
+    '<div class="lk-confirm" id="lkConfirm" hidden><h3>להסיר את הנכס מהמועדפים?</h3><p id="lkConfirmT"></p>' +
     '<div><button type="button" class="lk-yes" id="lkYes">הסרה</button><button type="button" class="lk-no" id="lkNo">ביטול</button></div></div>' +
-    '<p class="lk-toast" id="lkToast" role="status" hidden><span>הנכס הוסר מהרשימה</span><button type="button" id="lkUndo">ביטול</button></p></div>';
+    '<p class="lk-toast" id="lkToast" role="status" hidden><span>הוסר מהמועדפים</span><button type="button" id="lkUndo">ביטול</button></p></div>';
   document.body.appendChild(wrap);
 
   var props = {}, opener = null, pending = null, toastT = 0;
@@ -78,8 +78,9 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-likes-open]'), function (btn) {
       btn.hidden = !n || !v10;
       var b = btn.querySelector('b'); if (b) b.textContent = n;
-      // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר
-      btn.setAttribute('aria-label', 'הנכסים שאהבתי (' + n + ')'); btn.title = 'הנכסים שאהבתי (' + n + ')';
+      // ‏§10 (תומר 31.10): הרשימה נקראת "המועדפים" בכל האתר
+      var l = n ? 'המועדפים (' + n + ')' : 'המועדפים';
+      btn.setAttribute('aria-label', l); btn.title = l;
     });
   }
   function price(p) {
@@ -99,8 +100,8 @@
       return '<div class="lk-row"><a href="/property?id=' + encodeURIComponent(p.id) + '">' +
         (ph ? '<img src="' + esc(ph) + '" alt="" loading="lazy" width="84" height="64">' : '<span class="lk-ph" aria-hidden="true"></span>') +
         '<span><b>' + esc(price(p)) + '</b><span>' + esc(p.title || p.property_type || 'נכס') + '</span><span>' + esc([p.street, p.city].filter(Boolean).join(', ')) + '</span></span></a>' +
-        '<button type="button" class="lk-rm" data-lk-rm="' + esc(p.id) + '" aria-label="הסרה מהרשימה שלי"><span aria-hidden="true">✕</span></button></div>';
-    }).join('') : '<p>טוענים את הנכסים…</p>';
+        '<button type="button" class="lk-rm" data-lk-rm="' + esc(p.id) + '" aria-label="הסרה מהמועדפים"><span aria-hidden="true">✕</span></button></div>';
+    }).join('') : (ids.length ? '<p>טוענים את הנכסים…</p>' : '<p>עוד לא שמרת נכסים. אפשר ללחוץ על הלב בכל נכס כדי לשמור אותו כאן.</p>');
   }
   function $(id) { return document.getElementById(id); }
   function load() {
