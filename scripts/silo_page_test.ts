@@ -225,6 +225,16 @@ resetLastGood();
   check("בלי צ'יפ 3 חדרים", !filters.includes("<bdi>3</bdi>"));
   check("גיבור דירות", html.includes("hero-apt-800.webp"));
   check("שכונה במקום הצ'יפ", filters.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
+  const sharedFaq = ldBlocks(html).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { name: string; acceptedAnswer: { text: string } }[] } | undefined;
+  const priceQ = "איפה רואים את המחיר ואת כל הפרטים?";
+  const priceA = "בדף של כל נכס מופיעים המחיר שפורסם והמפרט המלא. אם אין מחיר במודעה, אפשר לפנות דרך האתר ולשאול.";
+  const sourceA = "אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר.";
+  check("FAQ משותף: טקסט ו-JSON-LD", sharedFaq?.mainEntity?.[0]?.acceptedAnswer.text === sourceA
+    && sharedFaq.mainEntity[1]?.name === priceQ
+    && sharedFaq.mainEntity[1].acceptedAnswer.text === priceA
+    && html.includes("<summary>מאיפה המודעות בעמוד הזה?</summary><p>" + sourceA + "</p>")
+    && html.includes("<summary>" + priceQ + "</summary><p>" + priceA + "</p>")
+    && !html.includes("האם המחיר שמופיע הוא המחיר הסופי?"));
 }
 
 {
