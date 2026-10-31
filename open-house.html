@@ -120,7 +120,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   ]
 }
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       media="print" onload="this.media='all'"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
@@ -131,6 +132,12 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   @font-face{
     font-family:Heebo-fb;src:local('Arial');
     size-adjust:107%;ascent-override:95%;descent-override:25%;line-gap-override:0%;
+  }
+  /* העברית זמינה מה-preload, בלי לחכות ל-CSS של גוגל שחסם את הציור. */
+  @font-face{
+    font-family:Heebo;font-style:normal;font-weight:100 900;font-display:swap;
+    src:url(https://fonts.gstatic.com/s/heebo/v28/NGS6v5_NC0k9P9H0TbFhsqMA6aw.woff2) format('woff2');
+    unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;
   }
   /* אותה פלטה ואותם רכיבים כמו שאר עמודי האתר —
      ‏assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
