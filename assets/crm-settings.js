@@ -1003,15 +1003,17 @@ async function rollbackNotifCadence(changed){
   if (!currentAgent) return;
   try {
     for (const row of changed || []) {
-      const prev = row.prev || 'each';
-      if (prev === 'off') {
-        await sb.rpc('notif_cadence_apply', {
-          p_agent: currentAgent.id, p_type: row.id, p_event: 'ask', p_choice: 'off',
-        });
-      }
-      await sb.rpc('notif_cadence_apply', {
-        p_agent: currentAgent.id, p_type: row.id, p_event: 'choose', p_choice: prev,
+      // choose מזיז את since לעכשיו, ופריטים ישנים יוצאים מהסיכום.
+      // משחזרים את הבחירה ואת since שהיו לפני השמירה.
+      const raw = notifWhatsappCadenceSince && notifWhatsappCadenceSince[row.id];
+      const since = typeof raw === 'string' && raw ? raw : null;
+      const restored = await sb.rpc('notif_cadence_restore', {
+        p_agent: currentAgent.id,
+        p_type: row.id,
+        p_choice: row.prev || 'each',
+        p_since: since,
       });
+      if (restored.error) throw restored.error;
     }
     await sb.from('agent_notification_preferences').upsert({
       agent_id: currentAgent.id,

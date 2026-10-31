@@ -437,6 +437,19 @@ test("פיצול מזהים, יישור התקרה, ומתג סוג שגובר �
   const saveFn = settings.slice(settings.indexOf("async function saveNotifPrefsRows"), settings.indexOf("async function saveReminderPrefs"));
   assert.match(saveFn, /upsert\(base[\s\S]*notif_cadence_apply/);
   assert.match(saveFn, /rollbackNotifCadence/);
+  const rollback = settings.slice(
+    settings.indexOf("async function rollbackNotifCadence"),
+    settings.indexOf("async function saveNotifPrefsRows"),
+  );
+  assert.match(rollback, /notif_cadence_restore/);
+  assert.match(rollback, /p_since: since/);
+  assert.doesNotMatch(rollback, /p_event: 'choose'/);
+  const restore = readFileSync(
+    join(root, "supabase/migrations/20271031320000_notif_cadence_restore_since.sql"),
+    "utf8",
+  );
+  assert.match(restore, /whatsapp_cadence_since - v_type/);
+  assert.doesNotMatch(restore, /jsonb_build_object\(v_type, now\(\)\)/);
   assert.match(settings, /הסוג הזה יישלח בכל זאת/);
   assert.match(settings, /הקבוצה כבויה, ולכן הסוג לא נשלח בוואטסאפ/);
   const block = settings.slice(

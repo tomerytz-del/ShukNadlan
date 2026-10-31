@@ -8,6 +8,7 @@ on:
     paths:
       - "supabase/migrations/20271031290000_notif_cadence_button.sql"
       - "supabase/migrations/20271031300000_notif_cadence_type_wins.sql"
+      - "supabase/migrations/20271031320000_notif_cadence_restore_since.sql"
       - "supabase/functions/_shared/notif-cadence.ts"
       - "supabase/functions/notification-push/index.ts"
       - "supabase/functions/whatsapp-webhook/index.ts"
@@ -18,6 +19,7 @@ on:
     paths:
       - "supabase/migrations/20271031290000_notif_cadence_button.sql"
       - "supabase/migrations/20271031300000_notif_cadence_type_wins.sql"
+      - "supabase/migrations/20271031320000_notif_cadence_restore_since.sql"
       - "supabase/functions/_shared/notif-cadence.ts"
       - "supabase/functions/notification-push/index.ts"
       - "supabase/functions/whatsapp-webhook/index.ts"
