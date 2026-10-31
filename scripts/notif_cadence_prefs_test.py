@@ -112,8 +112,8 @@ def main() -> int:
         )
         cur.execute("grant execute on function public.current_agent_id() to authenticated")
         cur.execute("set local session_replication_role = replica")
-        me = insert_min(cur, "agency_members", {})
-        other = insert_min(cur, "agency_members", {})
+        me = insert_min(cur, "agency_members", {"id": str(uuid.uuid4())})
+        other = insert_min(cur, "agency_members", {"id": str(uuid.uuid4())})
         cur.execute("set local session_replication_role = origin")
         for col, val in (
             ("tier", "mid"),
