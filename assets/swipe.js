@@ -69,10 +69,10 @@
   var PROMO = { nc_promo: 1, seller: 1, article: 1, advice: 1 };
 
   /* ---------- §5b: "קבלו עצה ממומחה" - כרטיס עצה מגבריאלה בחפיסה (Phase 2) ----------
-     עד שתומר בודק את תנוחות ה-AI ועורך דין עובר על העצות (מס רכישה, תב״ע, שכירות הוגנת):
-     רק עם v10 וגם ‎?advice=1‎ / ‏localStorage sk_advice_cards=1. כרטיס בערך כל 11 נכסים, לעולם
-     לא ראשון, וכל עצה פעם אחת בביקור. הקהל לפי העסקה בסינון. הנוסחים - הגרסה המאושרת של
-     גבריאלה (29.10 02:49, הכותרת לפי תומר 07:34); התנוחה לכל עצה מהטבלה שבקובץ העצות.
+     **העצות לא אושרו** - הן ממתינות לעורך דין (מס רכישה, תב״ע, שכירות הוגנת) ולתומר (גם
+     תנוחות ה-AI). עד אז הכרטיס מופיע רק עם v10 וגם ‎?advice=1‎ בכתובת, בלי זיכרון בדפדפן.
+     כרטיס בערך כל 11 נכסים, לעולם לא ראשון, וכל עצה פעם אחת בביקור. הקהל לפי העסקה
+     בסינון. התנוחה לכל עצה מהטבלה שבקובץ העצות.
      ‏cut - קצה הגוף בקנבס (שבר מגובה הקנבס), כדי שהחיתוך יישב צמוד לשמאל הכרטיס */
   var ADVICE = {
     sale: { aud: 'לקונים', tips: [
@@ -1285,9 +1285,7 @@
   function shownGet(k) { return sessGet('sk_swipe_shown_' + k); }
   function adviceOn() {
     if (!document.documentElement.classList.contains('beta-hero')) return false;
-    if (params.get('advice') === '1') store('sk_advice_cards', '1');
-    if (params.get('advice') === '0') store('sk_advice_cards', null);
-    return store('sk_advice_cards') === '1';
+    return params.get('advice') === '1';
   }
   function poseImg(k, cls, cut) {
     return '<img class="' + cls + '" src="/assets/gabriela-pose-' + k + '-400.webp" srcset="/assets/gabriela-pose-' + k + '-400.webp 400w, /assets/gabriela-pose-' + k + '-800.webp 800w"' +
