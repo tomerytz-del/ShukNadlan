@@ -1,44 +1,31 @@
 /* ---------------------------------------------------------------------------
- * ‏"הרשימה שלי" מחוץ להחלקה (בקשת תומר 27.10, P1-10 בסבב התיקונים) - v10 בלבד.
+ * ‏רשימת המועדפים מחוץ להחלקה - פאנל שנפתח מהלב בכותרת (v10 בלבד).
  *
- * מי ששמר/ה נכס בהחלקה (‏localStorage.sk_swipe_likes) מקבל/ת בדפים הציבוריים
- * בועה עגולה בסגנון בועת גבריאלה: לב זהב (ד-15), טבעת זהב ומונה כחול. היא נכנסת
- * ל-#gabW ולכן נערמת מעל גבריאלה באותו צד (12px), עולה איתה מעל פס הקשר
- * הדביק בדף הנכס (‏--gw-bottom), ואינה פותחת פינה חדשה. בלי נכסים שמורים -
- * אין בועה, וב-/swipe היא לא נטענת (הגלולה "הרשימה שלי" כבר בראש המסך).
- *
- * נטען מ-assets/gabriela-widget.js. לחיצה פותחת את הרשימה (גיליון מלמטה
- * בטלפון, פאנל צד במחשב): פתיחת נכס, הסרה עם אישור ו"ביטול" ל-5 שניות,
- * ו"המשך גלישה בהחלקה". שום דבר לא נשלח - קריאה בלבד של הנכסים לפי מזהה.
+ * מי ששמר/ה נכס (‏ShukLikes, ‏localStorage.sk_swipe_likes) רואה בכותרת של דף
+ * הבית ודף הנכס לב ירוק עם מונה (‏[data-likes-open]). **אין כפתור צף** (תומר,
+ * 31.10.2026): הלב בכותרת הוא הדרך היחידה לפתוח את הרשימה בדפים הציבוריים.
+ * הקובץ מעדכן את כל הלבבות האלה בדף (מספר, הסתרה כשהרשימה ריקה), ולחיצה
+ * פותחת את הרשימה (גיליון מלמטה בטלפון, פאנל צד במחשב): פתיחת נכס, הסרה עם
+ * אישור ו"ביטול" ל-5 שניות, ו"המשך גלישה בהחלקה". שום דבר לא נשלח - קריאה
+ * בלבד של הנכסים לפי מזהה. ‏docs/swipe-mode.md.
  * ------------------------------------------------------------------------- */
 (function () {
   'use strict';
   if (window.LikesBubble) return;
-  var root = document.getElementById('gabW');
-  if (!root) return;
 
   var URL_ = 'https://obookujgolazrwycsiyn.supabase.co/rest/v1/properties';
   var KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
   var esc = function (s) { return window.escapeHtml ? window.escapeHtml(s == null ? '' : String(s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var shukTrack = function (n, p) { if (window.shukTrack) window.shukTrack(n, p || {}); };
-  function likes() { try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean); } catch (e) { return []; } }
+  // ‏ShukLikes (‏assets/likes-store.js) כשהוא בדף; אחרת אותו מפתח באותו פורמט
+  function likes() {
+    if (window.ShukLikes) return window.ShukLikes.list();
+    try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean); } catch (e) { return []; }
+  }
   function save(list) { try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list)); } catch (e) {} }
 
   var css = document.createElement('style');
   css.textContent =
-    '#gabW .gw-likes{position:fixed;z-index:204;left:var(--gw-left);bottom:calc(var(--gw-bottom) + 68px);display:flex;align-items:center;gap:8px;' +
-    '  height:56px;min-width:56px;padding:0;border:0;border-radius:999px;background:#fff;color:#a8841a;cursor:pointer;' +
-    '  box-shadow:0 0 0 2.5px #c9a227,0 6px 16px rgba(14,42,107,.25);font-family:Heebo,system-ui,sans-serif;justify-content:center;transition:padding .25s ease}' +
-    '#gabW .gw-likes .lk-h{font-size:24px;line-height:1}' +
-    '#gabW .gw-likes .lk-n{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#0e2a6b;color:#fff;' +
-    '  font-size:12px;font-weight:800;line-height:20px;text-align:center;box-sizing:border-box}' +
-    '#gabW .gw-likes .lk-t{display:none;color:#0e2a6b;font-size:14.5px;font-weight:800;white-space:nowrap}' +
-    '#gabW .gw-likes.is-pill{padding:0 16px}#gabW .gw-likes.is-pill .lk-t{display:inline}#gabW .gw-likes.is-pill .lk-n{display:none}' +
-    '#gabW .gw-likes:focus-visible{outline:3px solid #c9a227;outline-offset:3px}' +
-    '#gabW.is-min .gw-likes{bottom:calc(var(--gw-bottom) + 56px)}' +
-    '#gabW .gw-likes.is-aside{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,visibility 0s .2s}' +
-    '@media(min-width:1024px){#gabW.is-v10:not(.is-min) .gw-likes{bottom:calc(var(--gw-bottom) + 76px)}}' +
-    '#gabW.is-open .gw-likes{display:none}' +
     '.lk-wrap{position:fixed;inset:0;z-index:2000;font-family:Heebo,system-ui,sans-serif;direction:rtl}.lk-wrap[hidden]{display:none}' +
     '.lk-dim{position:absolute;inset:0;background:rgba(13,27,61,.3)}' +
     '.lk-panel{position:absolute;left:0;right:0;bottom:0;max-height:min(80dvh,640px);display:flex;flex-direction:column;background:#fff;color:#1b1f2a;' +
@@ -67,30 +54,6 @@
     '.lk-x:focus-visible,.lk-rm:focus-visible,.lk-go:focus-visible,.lk-confirm button:focus-visible,.lk-row a:focus-visible{outline:3px solid #c9a227;outline-offset:2px}';
   document.head.appendChild(css);
 
-  var btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'gw-likes';
-  btn.innerHTML = '<span class="lk-h" aria-hidden="true">♥</span><span class="lk-n" aria-hidden="true"></span><span class="lk-t" aria-hidden="true"></span>';
-  root.appendChild(btn);
-
-  /* ‏F8b (בדיקת 29.10): בטלפון הבועה כיסתה את המחיר של שורת תוצאות. כשהשורות עוברות ב-120px
-     התחתונים של המסך היא נעלמת (הלב בכותרת נשאר), וחוזרת כשהן יוצאות משם */
-  (function () {
-    var rows = document.getElementById('searchResultsRows');
-    if (!rows || !('IntersectionObserver' in window)) return;
-    var io = null;
-    function arm() {
-      if (io) io.disconnect();
-      if (window.innerWidth >= 760) { btn.classList.remove('is-aside'); return; }
-      io = new IntersectionObserver(function (es) {
-        es.forEach(function (en) { btn.classList.toggle('is-aside', en.isIntersecting); });
-      }, { rootMargin: '-' + Math.max(0, window.innerHeight - 120) + 'px 0px 0px 0px' });
-      io.observe(rows);
-    }
-    arm();
-    window.addEventListener('resize', arm);
-  })();
-
   var wrap = document.createElement('div');
   wrap.className = 'lk-wrap';
   wrap.setAttribute('data-browse', 'likes');   // ‏P1-M: מקור החשיפה לנכס שנפתח מכאן
@@ -104,13 +67,15 @@
   document.body.appendChild(wrap);
 
   var props = {}, opener = null, pending = null, toastT = 0;
+  /* כל הלבבות שפותחים את הרשימה בדף (‏[data-likes-open]): המספר, ומוסתר כשהרשימה ריקה או בלי v10 */
   function sync() {
-    var n = likes().length;
-    btn.hidden = !n;
-    btn.querySelector('.lk-n').textContent = n;
-    btn.querySelector('.lk-t').textContent = '♥ ' + n + ' · הרשימה שלי';
-    // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר
-    btn.setAttribute('aria-label', 'הנכסים שאהבתי (' + n + ')'); btn.title = 'הנכסים שאהבתי (' + n + ')';
+    var n = likes().length, v10 = document.documentElement.classList.contains('beta-hero');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-likes-open]'), function (btn) {
+      btn.hidden = !n || !v10;
+      var b = btn.querySelector('b'); if (b) b.textContent = n;
+      // ‏P1-H: נוסח אחד לכל כפתורי הלב באתר
+      btn.setAttribute('aria-label', 'הנכסים שאהבתי (' + n + ')'); btn.title = 'הנכסים שאהבתי (' + n + ')';
+    });
   }
   function price(p) {
     var v = Number(p.price);
@@ -161,7 +126,9 @@
     if (opener && opener.focus) opener.focus();
     if (!likes().length) sync();
   }
-  btn.addEventListener('click', open);
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('[data-likes-open]')) open();
+  });
   wrap.addEventListener('click', function (e) {
     if (e.target.closest('[data-lk-close]')) { close(); return; }
     var rm = e.target.closest('[data-lk-rm]');
@@ -186,14 +153,9 @@
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !wrap.hidden) close(); });
   window.addEventListener('storage', function (e) { if (e.key === 'sk_swipe_likes') sync(); });
+  window.addEventListener('shuk-likes', sync);
+  window.addEventListener('pageshow', sync);
 
   sync();
-  /* בפעם הראשונה בביקור: גלולה "♥ N · הרשימה שלי" לרגע, ואז עיגול */
-  var seen = false;
-  try { seen = sessionStorage.getItem('sk_likes_bubble_seen') === '1'; sessionStorage.setItem('sk_likes_bubble_seen', '1'); } catch (e) { seen = true; }
-  if (!seen && likes().length && !window.matchMedia('(prefers-reduced-motion:reduce)').matches) {
-    btn.classList.add('is-pill');
-    setTimeout(function () { btn.classList.remove('is-pill'); }, 2600);
-  }
   window.LikesBubble = { sync: sync, open: open };
 })();

@@ -9074,27 +9074,8 @@ document.addEventListener('click', e => {
 /* ---------- ‏P1-E: "הנכסים שאהבתי" בכותרת במחשב ----------
    מוצג רק כשיש נכס שמור, מתעדכן מ-storage (שמירה בלשונית ההחלקה), ופותח את אותו
    פאנל של הבועה (‏assets/likes-bubble.js, נטען לפי הצורך) */
-(function headerLikes(){
-  const btn = document.getElementById('hdrLikes');
-  if (!btn) return;
-  const count = () => { try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean).length; } catch(e){ return 0; } };
-  function sync(){
-    const n = count();
-    btn.hidden = !n || !v10On();
-    document.getElementById('hdrLikesN').textContent = n;
-    const l = 'הנכסים שאהבתי (' + n + ')';
-    btn.setAttribute('aria-label', l); btn.title = l;
-  }
-  sync();
-  window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') sync(); });
-  btn.addEventListener('click', () => {
-    if (window.LikesBubble) { LikesBubble.open(); return; }
-    const sc = document.createElement('script');
-    sc.src = '/assets/likes-bubble.js';
-    sc.onload = () => { if (window.LikesBubble) LikesBubble.open(); };
-    document.head.appendChild(sc);
-  });
-})();
+/* הלב בכותרת (‏#hdrLikes, ‏[data-likes-open]): המונה, ההסתרה והפתיחה - ב-assets/likes-bubble.js,
+   אותו קוד של דף הנכס. אין כפתור צף (תומר 31.10). */
 
 /* ---------- ‏P1-S: נענוע לאייקון "גלישה בהחלקה" ----------
    כל 5 שניות, 6 פעמים, רק כשהכפתור על המסך. יציאה מהמסך עוצרת אותו לסשן; מי שכבר

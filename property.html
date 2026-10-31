@@ -11,6 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/likes-store.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>נכס | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -152,6 +153,10 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
     header.site .pn-join{padding:8px 12px;font-size:.8rem}
     header.site .pn-menu summary{padding:0 11px}}
   @media(max-width:340px){header.site .pn-join{display:none}}
+  /* הלב בכותרת: הרווח מגיע מ-gap של .pn-actions (‏.hdr-likes ב-design-system.css) */
+  html.beta-hero header.site .pn-actions .hdr-likes:not([hidden]){margin-inline-end:0}
+  /* עד 430px הלב והקישור "הצטרפות" יחד דוחקים את הלוגו - כשהלב מוצג, הקישור יורד (הוא גם בתפריט) */
+  @media(max-width:430px){html.beta-hero header.site .pn-actions:has(.hdr-likes:not([hidden])) .pn-join{display:none}}
   @media(min-width:1100px){header.site .pn-links{display:flex}}
 
   #loadingState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
@@ -855,15 +860,15 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
   .sb-price .v{font-size:1.02rem;font-weight:900;color:var(--teal-dark);letter-spacing:-.3px;white-space:nowrap;line-height:1.25}
   .sticky-bar .btn-wa{flex:0 0 auto;min-width:0;padding:12px 16px;font-size:.88rem;white-space:nowrap}
   .sticky-bar .btn-call{flex:0 0 auto;width:46px;padding:12px 0}
-  /* §6: שמירה - לב ריק / לב ירוק מלא כשנשמר (#1f8a4c, כמו בהחלקה). רק ב-v10 */
+  /* §6: שמירה - לב ריק / לב ירוק מלא כשנשמר (‏--fav-green, כמו בהחלקה). רק ב-v10 */
   .prop-save,.sticky-bar .btn-save{display:none}
   html.beta-hero .prop-save{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin:6px 0 2px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
     background:#fff;color:#0e2a6b;font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
   html.beta-hero .sticky-bar .btn-save{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:46px;min-height:46px;padding:0;
     border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;cursor:pointer}
   .prop-save svg,.btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
-  .prop-save[aria-pressed=true],.sticky-bar .btn-save[aria-pressed=true]{color:#1f8a4c;border-color:#1f8a4c}
-  .prop-save[aria-pressed=true] svg,.btn-save[aria-pressed=true] svg{fill:#1f8a4c}
+  .prop-save[aria-pressed=true],.sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
+  .prop-save[aria-pressed=true] svg,.btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
   .prop-save:focus-visible,.btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
   .sticky-bar .btn-call span{display:none}
   @media(max-width:520px){.sticky-bar .btn-wa span{display:none}.sticky-bar .btn-wa{width:48px;padding:12px 0;justify-content:center}}
@@ -1235,6 +1240,7 @@ if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList
 <link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/gabriela-widget.js" defer data-page="property"></script>
+<script src="assets/likes-bubble.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
@@ -1285,6 +1291,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות</a>
     </nav>
     <div class="pn-actions">
+      <!-- הלב בכותרת (v10), כמו בדף הבית: פותח את רשימת המועדפים (‏assets/likes-bubble.js). אין כפתור צף -->
+      <button type="button" class="hdr-likes" id="hdrLikes" data-likes-open aria-label="הנכסים שאהבתי (0)" title="הנכסים שאהבתי (0)" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
+        <b aria-hidden="true">0</b>
+      </button>
       <a href="/agency-signup" class="pn-join">הצטרפות ליועצי הנדל״ן</a>
       <details class="pn-menu" id="pnMenu">
         <summary aria-label="תפריט"><span class="pn-burger" aria-hidden="true"></span><span class="pn-menu-word">תפריט</span></summary>

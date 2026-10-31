@@ -32,6 +32,14 @@
   --sapphire-deep:   #0d1b3d;
   --sapphire-hover:  #08194a;
 
+  /* ---- לב המועדפים: הירוק היחיד באתר מלבד וואטסאפ (תומר 28.10 ו-31.10). לא לאחד עם
+     ירוק הוואטסאפ #157a3c. כל לב של המועדפים - בכותרת, בהחלקה ובדף היועץ - מכאן ---- */
+  --fav-green:       #1f8a4c;
+  --fav-green-bg:    #e7f4ec;
+  --fav-green-line:  #bfe3cc;
+  --fav-badge-bg:    #0e2a6b;
+  --fav-badge-fg:    #fff;
+
   /* ---- זהב: אקסנט בלבד. אף פעם לא רקע לטקסט לבן ---- */
   --brass:           #c9a227;
   --brass-light:     #e5c76a;   /* זהב כטקסט על רקע כהה */
@@ -491,3 +499,13 @@ html.a11y-nomotion *,html.a11y-nomotion *::before,html.a11y-nomotion *::after{
 h1,h2,h3,h4{text-wrap:balance}
 p,li,dd,figcaption,blockquote{text-wrap:pretty}
 .nw{white-space:nowrap}
+
+/* ====== הלב בכותרת: פותח את רשימת המועדפים (‏assets/likes-bubble.js) ======
+   משותף לדף הבית ולדף הנכס. רשימה ולא מתג, ולכן תמיד מלא. רק עם v10 וכשיש נכס שמור. */
+.hdr-likes{display:none}
+html.beta-hero .hdr-likes:not([hidden]){position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;
+  margin-inline-end:8px;border:1.5px solid var(--fav-green-line);border-radius:50%;background:var(--fav-green-bg);color:var(--fav-green);cursor:pointer}
+@media(max-width:1023px){html.beta-hero .hdr-likes:not([hidden]){margin-inline-end:4px}}
+.hdr-likes b{position:absolute;top:-5px;left:-5px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--fav-badge-bg);color:var(--fav-badge-fg);
+  font-size:12px;font-weight:800;line-height:20px;text-align:center;box-sizing:border-box}
+.hdr-likes:focus-visible{outline:3px solid var(--brass);outline-offset:2px}

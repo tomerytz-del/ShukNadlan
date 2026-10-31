@@ -1211,6 +1211,13 @@
   })();
   function loadLikes() { try { return JSON.parse(store('sk_swipe_likes') || '[]') || []; } catch (e) { return []; } }
   function saveLikes() { store('sk_swipe_likes', JSON.stringify(likes.slice(-200))); renderLikes(); }
+  /* הרשימה בזיכרון מתעדכנת כשלשונית אחרת שומרת (הלב בדף היועץ, הפאנל בכותרת) - אחרת
+     הלייק הבא כאן היה כותב את העותק הישן ומוחק את מה שנשמר שם */
+  window.addEventListener('storage', function (e) {
+    if (e.key !== 'sk_swipe_likes') return;
+    likes = loadLikes(); renderLikes(); syncActions();
+    if (view === 'likes') renderLikesView();
+  });
   /* אחרי הלייק הראשון הלב שבראש המסך הופך לגלולה "♥ N · הרשימה שלי" */
   function renderLikes() {
     $('swLikesN').textContent = likes.length;
@@ -3232,7 +3239,10 @@
     $('swBs').className = 'sw-bs is-' + kind;
     $('swBsArt').innerHTML = d.art || '';
     $('swBsArt').hidden = !d.art;
-    $('swBsTitle').textContent = typeof d.title === 'function' ? d.title(ctx) : d.title;
+    var title_ = typeof d.title === 'function' ? d.title(ctx) : d.title;
+    $('swBsTitle').textContent = title_;
+    // ‏♥ בכותרת (‏like1) בירוק של המועדפים - אותו טקסט, רק הסימן עטוף (‏.fav-ico)
+    if (/^♥ /.test(title_)) $('swBsTitle').innerHTML = '<span class="fav-ico" aria-hidden="true">♥</span> ' + esc(title_.slice(2));
     var sub_ = (ctx && ctx.sub) || d.sub || '';
     $('swBsSub').textContent = sub_;
     $('swBsSub').hidden = !sub_;
