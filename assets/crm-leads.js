@@ -173,9 +173,18 @@ function leadsPriorityGroups(){
   return groupLeadsByVisitor(leadsPrioritySort(fresh));
 }
 
+function paintFairClicks(){
+  const host = document.getElementById('fairClickHost');
+  if (!host) return;
+  const html = leadsTab === 'demand' || typeof fairClickBlockHtml !== 'function' ? '' : fairClickBlockHtml();
+  host.innerHTML = html;
+  host.hidden = !html;
+}
+
 function renderLeadsUnified(agentId){
   const listEl = document.getElementById('leadsList');
   if (!listEl) return;
+  paintFairClicks();
   const active = allLeads.filter(l => !archivedLeadIds.has(l.id));
   const archived = allLeads.filter(l => archivedLeadIds.has(l.id));
   const fresh = active.filter(l => leadStageOf(l) === 'new');
