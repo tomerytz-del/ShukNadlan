@@ -3,6 +3,13 @@
 -- מתג סוג גובר על כיבוי קבוצה. ה-claim מדלג על skipped_template_cap
 -- רק כשתקרת התבניות כבויה, כמו notification_push_has_backlog.
 
+-- CI משחזר את הסכימה עם pg_dump --no-acl ולא מריץ מיגרציה שכבר בפרודקשן.
+-- ההרשאות מ-20271031290000 נכתבות שוב, כדי שה-upsert של ה-CRM ייבדק.
+revoke update on table public.agent_notification_preferences from public, anon, authenticated;
+grant select, insert on table public.agent_notification_preferences to authenticated;
+grant update (agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at)
+  on table public.agent_notification_preferences to authenticated;
+
 -- כיבוי של סוג אחד. מפתח קבוצה אינו מפתח סוג: open_demand בשדה הקצב
 -- הוא הקבוצה, והסוג נכבה רק דרך whatsapp_off_types. סוג שלא מופה
 -- נכבה כשהקבוצה שלו off.
