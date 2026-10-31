@@ -1,4 +1,4 @@
--- supabase/migrations/20271031180300_scraped_leads_phone_hash.sql
+-- supabase/migrations/20271031250000_scraped_leads_phone_hash.sql
 -- raw_phone is wiped after 7 days and on consent, so a repost on day 8
 -- no longer matched phone_tail9(raw_phone). phone_hash is written at intake
 -- and kept for the 30-day dedupe only.

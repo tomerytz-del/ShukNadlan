@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271030210000_scraped_lead_matching.sql"
 FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
-PHONE_HASH = ROOT / "supabase/migrations/20271031180300_scraped_leads_phone_hash.sql"
+PHONE_HASH = ROOT / "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
 
 SETUP = r"""
 do $$ begin
