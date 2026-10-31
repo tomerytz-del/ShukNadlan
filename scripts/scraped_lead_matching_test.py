@@ -25,6 +25,10 @@ do $$ begin
   end if;
 end $$;
 
+-- כמו Supabase: EXECUTE ישיר ל-anon ול-authenticated על פונקציה חדשה,
+-- בלי קשר ל-PUBLIC. revoke מ-public לבדו לא סוגר אותם.
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+
 create table public.pricing_config (
   key text primary key,
   value int not null,
@@ -242,7 +246,50 @@ def fail(msg):
     sys.exit(msg)
 
 
+def phone_hash_source_check() -> None:
+    """phone_hash הוא PII פסאודונימי. ההרשאה נבדקת ב-has_function_privilege."""
+    mig_dir = ROOT / "supabase/migrations"
+    latest_comment = ""
+    for path in sorted(mig_dir.glob("*.sql")):
+        text = path.read_text(encoding="utf-8")
+        if "comment on column public.scraped_leads.phone_hash" in text:
+            latest_comment = text
+    if "never cleared" in latest_comment.split("comment on column public.scraped_leads.phone_hash", 1)[-1][:500]:
+        fail("הערת phone_hash עדיין אומרת never cleared")
+    if "30 days after posted_at" not in latest_comment:
+        fail("הערת phone_hash לא אומרת שהשורה נמחקת אחרי 30 יום")
+    if "Pseudonymous PII" not in latest_comment:
+        fail("הערת phone_hash לא מסמנת PII פסאודונימי")
+    if "revoke select (phone_hash)" not in latest_comment:
+        fail("אין revoke על עמודת phone_hash מ-anon ו-authenticated")
+    docs = (ROOT / "docs/scraped-leads.md").read_text(encoding="utf-8")
+    if "מזהה פסאודונימי" not in docs:
+        fail("docs/scraped-leads.md לא מתעד את phone_hash כ-PII פסאודונימי")
+
+
+def phone_hash_privilege_check(db: str) -> None:
+    """הרשאה בפועל על כל הפונקציות שבמסד הזה.
+    המסד החלקי של הבדיקה הזו אינו כל הסכימה. הסריקה המלאה רצה
+    ב-notif_cadence_prefs_test אחרי השחזור של הפרודקשן."""
+    leaked = psql(db, sql_text="""
+      select coalesce(string_agg(
+        p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
+        ', ' order by p.proname), '')
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and position('phone_hash' in p.prosrc) > 0
+        and (
+          has_function_privilege('anon', p.oid, 'EXECUTE')
+          or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+        )
+    """)
+    if leaked:
+        fail("phone_hash בפונקציה ש-anon או authenticated יכולים להריץ: " + leaked)
+
+
 def main():
+    phone_hash_source_check()
     db = os.environ.get("SCRAPED_MATCH_DB", "scraped_match_test")
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", db])
     subprocess.check_call(["createdb", "--maintenance-db=postgres", db])
@@ -603,6 +650,7 @@ def main():
         fail(f"המילוי לא השאיר hash בלי לגעת בשאר: {kept}")
     if psql(db, sql_text="select count(*) from public.notifications") != before_n:
         fail("המילוי כתב התראה")
+    phone_hash_privilege_check(db)
     psql(db, sql_text="""
       update public.scraped_leads
          set raw_phone = null

@@ -7821,6 +7821,9 @@ let freeTextFeatures = new Set();
      A reload still opens clean. The marker is removed from the address bar so a restored tab opens clean. */
   if (!isReload() && params.get('src') === 'link'){
     viaLink = true;
+    /* events.js קורא את src מהכתובת רק באירוע, אחרי שהשורה הזו כבר מחקה אותו.
+       שומרים את הייחוס לפני המחיקה, ו-entrySource מוצא אותו ב-sessionStorage. */
+    try { sessionStorage.setItem('shukSrc', 'link'); } catch(e){ /* מצב פרטי */ }
     try { const u = new URL(location.href); u.searchParams.delete('src'); history.replaceState(history.state, '', u); } catch(e){}
   }
   const hasSearch = known.some(k => params.has(k));

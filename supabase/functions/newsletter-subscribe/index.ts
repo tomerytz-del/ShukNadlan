@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // ============================================================================
 // הרשמה לרשימת התפוצה — הטופס שבפוטר, בכל עמוד ציבורי באתר.
@@ -79,9 +80,11 @@ Deno.serve(async (req: Request) => {
   }
   if (existing) return json({ success: true, duplicate: true });
 
-  const { error } = await supabase
-    .from("newsletter_subscribers")
-    .insert({ email, source });
+  const { error } = await writeVisitInsert(
+    (payload) => supabase.from("newsletter_subscribers").insert(payload),
+    { email, source },
+    body,
+  );
 
   if (error) {
     // מרוץ בין שתי לחיצות על אותה כתובת: השנייה מגיעה לכאן עם 23505, וזו
