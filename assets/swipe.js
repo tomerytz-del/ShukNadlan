@@ -307,6 +307,9 @@
     var f = reelFit(r, card.offsetWidth, card.offsetHeight);
     wrap.setAttribute('data-vfit', f.vfit);
     if (f.h) wrap.style.setProperty('--vwin-h', f.h + 'px'); else wrap.style.removeProperty('--vwin-h');
+    // מחלקות על הכרטיס במקום :has() - הטשטוש וההצללה של סרטון לרוחב גם בדפדפן בלי :has (הערת הסקירה ל-1104)
+    card.classList.toggle('is-vland', f.vfit === 'land');
+    card.classList.toggle('is-vpend', f.vfit === 'pending');
   }
   /* הכרטיס התחתון: ההתאמה של הסרטון ולא של התמונה (הפוסטר או התמונה הראשונה בחלון של הסרטון) */
   function underReelFit(card, r) {
@@ -316,19 +319,33 @@
     if (f.vfit !== 'pending') card.setAttribute('data-vlock', '1');
   }
   /* ‏P1-5: המטא-דאטה של הסרטון (‏preload=metadata, בלי להוריד את הסרטון) לכרטיסים +1 ו-+2 */
-  function warmReel(c) {
+  /* כשל (שגיאה או 6 שניות בלי מטא-דאטה): ניסיון חוזר אחד, ואחריו הכתובת ב-VBAD - הכרטיס התחתון נשאר
+     עם התמונה או הפוסטר בהתאמה הרגילה שלהם, ולא בחלון של סרטון שלא ייטען (הערת הסקירה ל-1104) */
+  var VBAD = new Set();
+  function warmReel(c, retry) {
     var u = c && c.slot === 'property' ? reelUrl(c.p) : '';
-    if (!u || VRATIO.has(u) || VWARM.has(u)) return;
+    if (!u || VRATIO.has(u) || VBAD.has(u) || (VWARM.has(u) && !retry)) return;
     VWARM.add(u);
-    var v = document.createElement('video');
+    var v = document.createElement('video'), over = false, t;
     v.muted = true; v.preload = 'metadata';
+    function stop() { clearTimeout(t); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
+    function fail() {
+      if (over) return;
+      over = true; stop();
+      if (!retry) { warmReel(c, true); return; }
+      VBAD.add(u);
+    }
     v.addEventListener('loadedmetadata', function () {
+      if (over) return;
+      over = true;
       if (v.videoWidth && v.videoHeight) {
         VRATIO.set(u, v.videoWidth / v.videoHeight);
         document.querySelectorAll('.sw-under .sw-card[data-reel]').forEach(function (cd) { if (cd.getAttribute('data-reel') === u) underReelFit(cd, VRATIO.get(u)); });
       }
-      v.removeAttribute('src'); v.load();
+      stop();
     }, { once: true });
+    v.addEventListener('error', fail, { once: true });
+    t = setTimeout(fail, 6000);
     v.src = u;
   }
   /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
@@ -1869,8 +1886,20 @@
     var body = top.querySelector('.sw-cbody'), w = top.querySelector('.sw-reel-wrap');
     if (body && w) w.style.setProperty('--cbody-h', body.offsetHeight + 'px');
     if (w) detectAudio(v, w);
-    v.addEventListener('error', function () { v.dataset.err = '1'; v.hidden = true; var cd = v.closest('.sw-card'); if (cd) cd.classList.add('reel-err'); });   // התמונה שמתחת (הפוסטר) נשארת
-    if (v.readyState >= 1 && v.videoWidth && w) { VRATIO.set(v.currentSrc || v.src, v.videoWidth / v.videoHeight); applyReelFit(w, v.videoWidth / v.videoHeight); }
+    v.addEventListener('error', function () {
+      v.dataset.err = '1'; v.hidden = true;
+      var cd = v.closest('.sw-card');
+      if (!cd) return;
+      cd.classList.add('reel-err');   // התמונה שמתחת (הפוסטר) נשארת
+      // בלי חלון של סרטון ובלי טשטוש של "ממתין": התמונה בהתאמה הרגילה שלה
+      if (w) w.setAttribute('data-vfit', 'err');
+      cd.classList.remove('is-vland', 'is-vpend');
+      VBAD.add(v.getAttribute('src'));
+      if (cd.hasAttribute('data-vlock')) { cd.removeAttribute('data-vlock'); var im = cd.querySelector('img.sw-cimg'); if (im && im.naturalWidth) fitCard(im); }
+    });
+    // המפתח הוא ה-src כמו שנכתב (‏currentSrc מקודד, ו-reelUrl/VRATIO משתמשים בכתובת כמו שהיא)
+    if (w) applyReelFit(w, VRATIO.get(v.getAttribute('src')));
+    if (v.readyState >= 1 && v.videoWidth && w) { VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight); applyReelFit(w, v.videoWidth / v.videoHeight); }
     v.addEventListener('loadedmetadata', function () {
       if (v.videoWidth && v.videoHeight) {
         VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight);
