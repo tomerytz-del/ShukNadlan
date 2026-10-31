@@ -424,8 +424,19 @@ test("פיצול מזהים, יישור התקרה, ומתג סוג שגובר �
     follow.indexOf("comment on function public.notif_cadence_type_off"),
   );
   assert.match(typeOff, /whatsapp_off_types/);
-  assert.doesNotMatch(typeOff, /notif_cadence_group\(p_type\)/);
+  assert.match(typeOff, /p_type is distinct from public\.notif_cadence_group\(p_type\)/);
+  assert.match(typeOff, /not exists \(\s*select 1 from public\.notif_cadence_group_map/);
+  const cadenceFn = follow.slice(
+    follow.indexOf("function public.agent_type_cadence"),
+    follow.indexOf("comment on function public.agent_type_cadence"),
+  );
+  assert.match(cadenceFn, /not exists \(\s*select 1 from public\.notif_cadence_group_map g where g\.notif_type = p_type/);
   const settings = readFileSync(join(root, "assets/crm-settings.js"), "utf8");
+  assert.match(settings, /else if \(prev === 'off'\)/);
+  assert.doesNotMatch(settings, /else \{\s*carried = carried\.filter/);
+  const saveFn = settings.slice(settings.indexOf("async function saveNotifPrefsRows"), settings.indexOf("async function saveReminderPrefs"));
+  assert.match(saveFn, /upsert\(base[\s\S]*notif_cadence_apply/);
+  assert.match(saveFn, /rollbackNotifCadence/);
   assert.match(settings, /הסוג הזה יישלח בכל זאת/);
   assert.match(settings, /הקבוצה כבויה, ולכן הסוג לא נשלח בוואטסאפ/);
   const block = settings.slice(

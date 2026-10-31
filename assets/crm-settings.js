@@ -997,6 +997,31 @@ function renderNotifPrefs(){ notifPrefsReady = true; renderNotifScreen(); }
 function renderReminderPrefs(){ remindersReady = true; renderNotifScreen(); renderQuietEditors(); }
 function syncNotifWaNote(){ syncNotifScreen(); }
 
+/* מחזיר קצב שכבר נכתב, ואת רשימת הכיבוי שלפני השמירה. השגיאה המקורית
+   היא מה שהמסך מציג. */
+async function rollbackNotifCadence(changed){
+  if (!currentAgent) return;
+  try {
+    for (const row of changed || []) {
+      const prev = row.prev || 'each';
+      if (prev === 'off') {
+        await sb.rpc('notif_cadence_apply', {
+          p_agent: currentAgent.id, p_type: row.id, p_event: 'ask', p_choice: 'off',
+        });
+      }
+      await sb.rpc('notif_cadence_apply', {
+        p_agent: currentAgent.id, p_type: row.id, p_event: 'choose', p_choice: prev,
+      });
+    }
+    await sb.from('agent_notification_preferences').upsert({
+      agent_id: currentAgent.id,
+      muted_types: notifMutedTypes,
+      whatsapp_off_types: notifWhatsappOffTypes,
+      updated_at: new Date().toISOString(),
+    }, { onConflict:'agent_id' });
+  } catch (e) { /* נשארת השגיאה של השמירה */ }
+}
+
 /* שמירת חצי ההתראות (‏agent_notification_preferences). נשמרות רשימות
    ה**כבויים**: סוג שאינו גלוי לתפקיד הזה שומר על מצבו הקודם, וסוג שכובה
    בפעמון נכבה גם בוואטסאפ - הוא לא ייווצר במסד, ואין ממה לשלוח */
@@ -1007,16 +1032,18 @@ async function saveNotifPrefsRows(s){
   const shownOff = shown.filter(t => s.waOff.includes(t) || s.bellOff.includes(t));
   let carried = notifWhatsappOffTypes.filter(t => !shown.includes(t));
   // קבוצה כבויה מכבה את סוגי הקבוצה, חוץ מסוג שהמתג שלו דלוק.
-  // קבוצה שאינה כבויה מורידה את הכיבוי הגורף, ומתג סוג כבוי נשאר.
+  // יציאה מכיבוי, מול notifWhatsappCadence השמור, מורידה את הכיבוי הגורף.
+  // שמירה כשהקבוצה כבר אינה כבויה לא מדליקה סוג מוסתר שהסוכן/ת כיבה/תה.
   if (cadenceChipsVisible() && s.cadences) {
     Object.entries(s.cadences).forEach(([groupId, choice]) => {
       const members = Object.keys(NOTIF_CADENCE_TYPE_GROUP).filter(t => NOTIF_CADENCE_TYPE_GROUP[t] === groupId);
+      const prev = notifGroupCadence(groupId);
       if (choice === 'off') {
         members.forEach(type => {
           if (shown.includes(type) && !shownOff.includes(type)) return;
           if (!carried.includes(type) && !shownOff.includes(type)) carried.push(type);
         });
-      } else {
+      } else if (prev === 'off') {
         carried = carried.filter(t => !members.includes(t));
       }
     });
@@ -1041,12 +1068,17 @@ async function saveNotifPrefsRows(s){
     whatsapp_off_types: whatsappOff,
     updated_at: nowIso,
   };
+  // קודם רשימת הכיבוי. אם היא נכשלת, הקצב לא זז.
+  const saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
+  if (saved.error) return { error: saved.error };
   // whatsapp_cadence ו-whatsapp_cadence_since נכתבים רק ב-notif_cadence_apply.
-  // הקצב קודם, והמתגים אחריו, כדי שסוג שהודלק לא יידרס ברשימת הכיבוי של הקבוצה.
+  // אחריו נכתבת הרשימה שוב, כדי שסוג שהודלק לא יידרס. כשלון מחזיר את הקצב.
+  const changed = [];
   if (cadenceChipsVisible()) {
     for (const g of NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked')) {
       const choice = nextMap[g.id];
-      if (!choice || choice === notifGroupCadence(g.id)) continue;
+      const prev = notifGroupCadence(g.id);
+      if (!choice || choice === prev) continue;
       if (choice === 'off') {
         await sb.rpc('notif_cadence_apply', {
           p_agent: currentAgent.id, p_type: g.id, p_event: 'ask', p_choice: 'off',
@@ -1056,12 +1088,19 @@ async function saveNotifPrefsRows(s){
         p_agent: currentAgent.id, p_type: g.id, p_event: 'choose', p_choice: choice,
       });
       if (applied.error && !/notif_cadence_apply|42883|schema cache/i.test(applied.error.message || '')) {
+        await rollbackNotifCadence(changed);
         return { error: applied.error };
       }
+      changed.push({ id: g.id, prev });
     }
   }
-  const saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
-  if (saved.error) return { error: saved.error };
+  if (changed.length) {
+    const again = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
+    if (again.error) {
+      await rollbackNotifCadence(changed);
+      return { error: again.error };
+    }
+  }
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
   notifWhatsappCadence = nextMap;

@@ -3,8 +3,9 @@
 -- מתג סוג גובר על כיבוי קבוצה. ה-claim מדלג על skipped_template_cap
 -- רק כשתקרת התבניות כבויה, כמו notification_push_has_backlog.
 
--- כיבוי של סוג אחד. כיבוי הקבוצה לא נספר כאן: סוג שהוצא מ-whatsapp_off_types
--- נשאר דלוק גם כשהקבוצה off.
+-- כיבוי של סוג אחד. מפתח קבוצה אינו מפתח סוג: open_demand בשדה הקצב
+-- הוא הקבוצה, והסוג נכבה רק דרך whatsapp_off_types. סוג שלא מופה
+-- נכבה כשהקבוצה שלו off.
 create or replace function public.notif_cadence_type_off(p_agent uuid, p_type text)
 returns boolean
 language sql
@@ -18,13 +19,27 @@ as $$
      where p.agent_id = p_agent
        and (
          p_type = any(coalesce(p.whatsapp_off_types, '{}'::text[]))
-         or coalesce(p.whatsapp_cadence ->> p_type, '') = 'off'
+         -- מפתח סוג, לא מפתח קבוצה. open_demand הוא גם וגם, והמפתח
+         -- whatsapp_cadence->open_demand הוא הקבוצה.
+         or (
+           coalesce(p.whatsapp_cadence ->> p_type, '') = 'off'
+           and p_type is distinct from public.notif_cadence_group(p_type)
+         )
+         -- סוג שלא מופה נופל לכיבוי הקבוצה. ממופה נשען על whatsapp_off_types,
+         -- כדי שמתג סוג דלוק יגבר.
+         or (
+           coalesce(p.whatsapp_cadence ->> public.notif_cadence_group(p_type), '') = 'off'
+           and not exists (
+             select 1 from public.notif_cadence_group_map g
+              where g.notif_type = p_type
+           )
+         )
        )
   );
 $$;
 
 comment on function public.notif_cadence_type_off(uuid, text) is
-  'כיבוי של סוג אחד: whatsapp_off_types או מפתח הקצב של הסוג. כיבוי קבוצה לא מכבה סוג שהמתג שלו דלוק.';
+  'כיבוי של סוג: whatsapp_off_types, או מפתח סוג שאינו מפתח הקבוצה. סוג לא ממופה נכבה עם הקבוצה. מתג של סוג ממופה גובר על מפתח הקבוצה.';
 
 revoke all on function public.notif_cadence_type_off(uuid, text) from public, anon, authenticated;
 grant execute on function public.notif_cadence_type_off(uuid, text) to service_role;
@@ -37,25 +52,33 @@ security definer
 set search_path = ''
 as $$
   select case
-    when p_type in ('new_leads', 'open_demand', 'matches') then coalesce((
-      select case when mode in ('each', 'daily', 'thrice', 'off') then mode else 'each' end
-        from (
-          select nullif(p.whatsapp_cadence ->> p_type, '') as mode
-            from public.agent_notification_preferences p
-           where p.agent_id = p_agent
-        ) s
-    ), 'each')
-    when p_type = 'meetings' then 'each'
-    when p_type = 'system_mentor' then case
-      when public.notif_cadence_type_off(p_agent, p_type) then 'off'
+    -- מזהה קבוצה שאינו גם סוג התראה. open_demand הוא סוג במפה, ולכן
+    -- נופל למסלול הסוג ולא נקרא ככיבוי הקבוצה רק בגלל השם.
+    when p_type in ('new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor')
+      and not exists (
+        select 1 from public.notif_cadence_group_map g where g.notif_type = p_type
+      )
+    then case
+      when p_type = 'meetings' then 'each'
+      when p_type = 'system_mentor' then case
+        when public.notif_cadence_type_off(p_agent, p_type) then 'off'
+        else coalesce((
+          select case when mode in ('digest', 'off') then mode else 'digest' end
+            from (
+              select nullif(p.whatsapp_cadence ->> 'system_mentor', '') as mode
+                from public.agent_notification_preferences p
+               where p.agent_id = p_agent
+            ) s
+        ), 'digest')
+      end
       else coalesce((
-        select case when mode in ('digest', 'off') then mode else 'digest' end
+        select case when mode in ('each', 'daily', 'thrice', 'off') then mode else 'each' end
           from (
-            select nullif(p.whatsapp_cadence ->> 'system_mentor', '') as mode
+            select nullif(p.whatsapp_cadence ->> p_type, '') as mode
               from public.agent_notification_preferences p
              where p.agent_id = p_agent
           ) s
-      ), 'digest')
+      ), 'each')
     end
     when public.notif_cadence_group(p_type) is null then 'each'
     when public.notif_cadence_group(p_type) = 'meetings' then 'each'
@@ -75,9 +98,11 @@ as $$
     end
     else coalesce((
       select case
-        when p_type = any(coalesce(p.whatsapp_off_types, '{}'::text[]))
-          or coalesce(p.whatsapp_cadence ->> p_type, '') = 'off' then 'off'
-        when coalesce(p.whatsapp_cadence ->> p_type, '') in ('each', 'daily', 'thrice')
+        when p_type = any(coalesce(p.whatsapp_off_types, '{}'::text[])) then 'off'
+        when p_type is distinct from public.notif_cadence_group(p_type)
+          and coalesce(p.whatsapp_cadence ->> p_type, '') = 'off' then 'off'
+        when p_type is distinct from public.notif_cadence_group(p_type)
+          and coalesce(p.whatsapp_cadence ->> p_type, '') in ('each', 'daily', 'thrice')
           then p.whatsapp_cadence ->> p_type
         when coalesce(p.whatsapp_cadence ->> public.notif_cadence_group(p_type), '')
              in ('each', 'daily', 'thrice')
