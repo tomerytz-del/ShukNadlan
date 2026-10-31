@@ -23,6 +23,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
      fonts.googleapis.com ואז לקובץ, ובמובייל המדומה זה מעל 10 שניות.
      אותו קובץ משמש את המשקלים, כי Heebo כאן הוא גופן משתנה. -->
 <link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/heebo/v28/NGS6v5_NC0k9P9H0TbFhsqMA6aw.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/heebo/v28/NGS6v5_NC0k9P9GYTbFhsqMA6aw.woff2">
 <!-- התמונה של הכרטיס הראשון מתחילה לרדת במקביל לסקריפטים שחוסמים את הציור,
      ולא רק אחרי שהשאילתה המלאה חוזרת. אותה נוסחת render/image כמו fairThumb
      בתחתית הדף - כתובת אחרת מורידה את הקובץ פעמיים. -->
@@ -524,7 +525,11 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   /* גובה הראש אחרי Heebo. בלי זה הגופן החלופי קצר יותר, והשלבים
      נדחפים למטה כשהגופן מגיע (CLS בדסקטופ). */
   html.beta-hero .oh-head{min-height:520px}
-  @media(min-width:760px){html.beta-hero .oh-head{min-height:470px}}
+  @media(min-width:760px){
+    html.beta-hero .oh-head{min-height:470px}
+    html.beta-hero .oh-head-box{min-height:260px}
+    .ohv-gab > span{min-height:56px}
+  }
   html.beta-hero #fairHowTitle{
     position:static;width:auto;height:auto;margin:0 0 10px;overflow:visible;
     clip:auto;white-space:normal;
