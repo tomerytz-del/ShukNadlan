@@ -718,6 +718,13 @@ body[data-view=likes] .sw-sortbar{display:none}
 /* ---------- רילס (סבב 5 §2) ---------- */
 .sw-reel-wrap{position:absolute;inset:0}
 .sw-reel{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;background:#0d1b3d}
+/* ‏swipe-smooth P0-5: סרטון לרוחב - חלון באמצע הכרטיס (מרכז ב-42%, כמו תמונה לרוחב), והטשטוש של הפוסטר
+   מעליו ומתחתיו. עד שהכיוון ידוע (‏pending) - הטשטוש בלבד. לאורך - על כל הכרטיס כמו קודם */
+.sw-reel-wrap[data-vfit=land] .sw-reel{inset:42% 0 auto 0;height:var(--vwin-h,40%);transform:translateY(-50%);background:transparent}
+.sw-reel-wrap[data-vfit=pending] .sw-reel{opacity:0}
+.sw-reel{transition:opacity .12s ease-out}
+.sw-card.is-reel:has(.sw-reel-wrap[data-vfit=land]) .sw-cblur,.sw-card.is-reel:has(.sw-reel-wrap[data-vfit=pending]) .sw-cblur{display:block}
+.sw-card.is-reel:has(.sw-reel-wrap[data-vfit=land])::after{background:linear-gradient(to bottom,rgba(13,27,61,.55) 0%,rgba(13,27,61,0) 12%,rgba(13,27,61,0) 60%,rgba(13,27,61,.55) 74%,rgba(13,27,61,.94) 100%)}
 /* ‏P0-D: כפתורי הקול בראש התמונה, מתחת לפסי השקופיות ולתגיות, ולא ליד המחיר; ומוצגים רק לסרטון שיש בו שמע */
 .sw-reel-snd{position:absolute;left:50%;top:104px;z-index:3;transform:translateX(-50%);display:inline-flex;align-items:center;gap:6px;
   min-height:44px;padding:0 16px;border:0;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-size:13.5px;font-weight:800;white-space:nowrap;
