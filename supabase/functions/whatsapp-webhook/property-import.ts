@@ -12,8 +12,9 @@
  * במשרד, מה כבר אצלי) ולא סומכת על הסיכום.
  *
  * מה שהאשף עושה ו**לא** כאן:
- *   • שם רחוב אינו מיושר לרשימת הרחובות (canonicalStreet בדפדפן נשען על
- *     הרשימה שנטענת שם). הגאוקוד בשרת מתמודד עם כתיב בעצמו.
+ *   • רחוב שאינו ברשימת הרחובות נשמר כפי שהוקלד, בלי אזהרה (באשף יש
+ *     אזהרה ותיקון ידני). רחוב שכן ברשימה, בכתיב אחר, נשמר בכתיב הרשמי -
+ *     כמו באשף (‏streetCanonicalizer). הגאוקוד בשרת מתמודד עם כתיב בעצמו.
  *   • אין תיקון ידני. במקומו **ניחוש מחכה לאישור**: מכירה/השכרה לפי המחיר,
  *     מחיר למ"ר וסוג נכס מהכותרת נמסרים בסיכום לפי סוג, עם דוגמאות, וגבריאלה
  *     שואלת לפני הקליטה ("78 מסחריים סווגו לפי מחיר - לאשר?"). הכלי מקבל את
@@ -24,6 +25,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import * as XLSX from "npm:xlsx@0.18.5";
 import "../_shared/property-import-core.js";
+import { SearchCore } from "./property-search.ts";
 import { FEATURE_LABELS } from "../_shared/marketing-copy.ts";
 import { decodeText } from "./media-intake.ts";
 
@@ -83,6 +85,54 @@ function looksLikeProperties(headers: string[]): boolean {
   return ["property_type", "deal_type", "price"].every((k) => (m[k] ?? -1) > -1);
 }
 
+/**
+ * הכתיב הרשמי של הרחוב, כמו canonicalStreet בטופס ובאשף (‏crm.js): התאמה לפי
+ * המפתח (‏SearchCore.streetNameKey, העתק של public.street_name_key) ברשימת
+ * הרחובות או בשמות הנרדפים של אותה עיר - נשמר השם שברשימה. בלי התאמה, כמו
+ * עד היום: כפי שהוקלד ובלי אזהרה (הגאוקוד בשרת מתמודד עם כתיב בעצמו).
+ * ‏docs/street-registry.md.
+ */
+async function streetCanonicalizer(supabase: SupabaseClient, cities: string[]) {
+  const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
+  const byCity = new Map<string, Map<string, string>>();
+  if (cities.length) {
+    // עמודים של 1,000: בחיפה לבדה יש כ-1,400 רחובות, ו-PostgREST חותך בשקט
+    const page = async (table: string, cols: string) => {
+      const out: Row[] = [];
+      for (let from = 0; ; from += 1000) {
+        let q = supabase.from(table).select(cols).in("city", cities).order("id").range(from, from + 999);
+        if (table === "street_registry") q = q.eq("active", true);
+        const { data, error } = await q;
+        if (error) { console.warn(`${table} לא נטען - הרחובות נשמרים כפי שהוקלדו:`, error.message); return out; }
+        out.push(...(data || []));
+        if (!data || data.length < 1000) return out;
+      }
+    };
+    const [streets, aliases] = await Promise.all([
+      page("street_registry", "city, name"),
+      page("street_registry_aliases", "city, alias, name"),
+    ]);
+    const names = new Set<string>();
+    streets.sort((a, b) => String(a.name).localeCompare(String(b.name), "he")).forEach((r) => {
+      if (!byCity.has(r.city)) byCity.set(r.city, new Map());
+      const k = SearchCore.streetNameKey(r.name);
+      if (!byCity.get(r.city)!.has(k)) byCity.get(r.city)!.set(k, r.name);
+      names.add(`${r.city}|${r.name}`);
+    });
+    // רחוב אמיתי גובר על שם נרדף, ושם נרדף מצביע רק על רחוב שברשימה
+    aliases.forEach((a) => {
+      const keys = byCity.get(a.city);
+      const k = SearchCore.streetNameKey(a.alias);
+      if (keys && !keys.has(k) && names.has(`${a.city}|${a.name}`)) keys.set(k, a.name);
+    });
+  }
+  return (v: string, city: string) => {
+    const raw = clean(v);
+    const hit = raw ? byCity.get(clean(city))?.get(SearchCore.streetNameKey(raw)) : null;
+    return { ok: true, name: hit || raw };
+  };
+}
+
 /** המצב שהליבה צריכה (‏S), מהמסד של עכשיו. אותו סדר כמו impRenderStep3. */
 async function buildState(supabase: SupabaseClient, agentId: string, agencyId: string, headers: string[], rows: unknown[][]) {
   ensureConfigured();
@@ -95,7 +145,6 @@ async function buildState(supabase: SupabaseClient, agentId: string, agencyId: s
     if ((S.mapping.yad2_listing_id ?? -1) < 0) S.mapping.yad2_listing_id = at("מספר מודעה");
   }
   S.featureColumns = PIC.detectFeatureColumns(headers, S.mapping);
-  S.canonicalStreet = (v: string) => ({ ok: true, name: String(v ?? "").replace(/\s+/g, " ").trim() });
 
   const { data: me } = await supabase.from("agency_members")
     .select("id, agency_id, phone, phone_e164").eq("id", agentId).maybeSingle();
@@ -126,6 +175,7 @@ async function buildState(supabase: SupabaseClient, agentId: string, agencyId: s
     ? await supabase.from("neighborhood_aliases").select("neighborhood_id, alias").in("neighborhood_id", hoodIds)
     : { data: [] };
   S.hoodAliases = aliases || [];
+  S.canonicalStreet = await streetCanonicalizer(supabase, cities);
 
   // כפילות לפי כותרת ומחיר - אותו מפתח של האשף
   const { data: mine } = await supabase.from("properties").select("title, price").eq("agent_id", agentId);

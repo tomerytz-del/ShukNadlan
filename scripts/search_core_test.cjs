@@ -128,4 +128,24 @@ test('מחיר להשוואה: מחיר למ״ר כפול השטח (docs/price-u
   assert.strictEqual(SC.comparablePrice({ price: null }), null);
 });
 
+test('כתיב מלא וחסר: יו"ד וו"ו כפולות וה"א סופית (docs/street-registry.md)', () => {
+  const street = 'דירה ברחוב עלייה 5, עפולה';
+  ['העלייה', 'עלייה', 'העליה', 'עליה', 'רחוב העלייה'].forEach(q => assert.ok(SC.textHas(street, q), q));
+  assert.ok(SC.textHas('העליה השניה 3', 'העלייה השנייה'));
+  assert.ok(SC.textHas('שכונת נוף הגלבוע', 'נוף הגלבוע'));
+  assert.ok(SC.textHas('רחוב דוד', 'דווד'));
+  assert.deepStrictEqual(SC.textWords('העלייה'), ['עלי']);
+  assert.deepStrictEqual(SC.textWords('עליה'), ['עלי']);
+  assert.deepStrictEqual(SC.textWords('בית'), ['בית']);
+  // ה"א סופית שירדה - מילה שלמה בלבד: "עליה" אינו "עלית"
+  assert.strictEqual(SC.textHas('עפולה עלית', 'עליה'), false);
+  assert.strictEqual(SC.textHas('עפולה עלית', 'העלייה'), false);
+  // מה שהתאים קודם עדיין מתאים: חלק מהשם, בכל סדר, וה' הידיעה
+  assert.ok(SC.textHas('הנשיא ויצמן 4', 'הנשיא'));
+  assert.ok(SC.textHas('יעל רום', 'רום יעל'));
+  assert.ok(SC.textHas('העמק 12', 'עמק'));
+  assert.ok(SC.textHas('הרצל 10', 'הרצל'));
+  assert.strictEqual(SC.textHas('העמק 12', 'הרצל'), false);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

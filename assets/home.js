@@ -5312,9 +5312,43 @@ async function locationOrFilter(rawText){
     `street.ilike.${like}`,
     `address.ilike.${like}`,
   ];
+  /* ‏street_key (‏20271031230000, ‏docs/street-registry.md): "העלייה", "העליה"
+     ו"רחוב העלייה" מוצאים את הרחוב ששמור כ"עלייה". מפתח של הביטוי כולו, ובביטוי
+     של כמה מילים גם של כל מילה ארוכה משלוש אותיות - עד שלושה נוספים, כדי
+     שהכתובת תישאר קצרה. ‏streetKeyTerms מנקה את מה ש-PostgREST קורא כתחביר. */
+  if (!streetKeyMissing) streetKeyTerms(safe).forEach(k => ors.push(`street_key.eq.${k}`));
   const hoodIds = await matchingNeighborhoodIds(safe);
   if (hoodIds.length) ors.push(`neighborhood_id.in.(${hoodIds.join(',')})`);
   return ors.join(',');
+}
+
+/* האתר עולה תוך שניות והמיגרציה דקות אחריו (‏docs/netlify-usage.md): עד
+   שהעמודה קיימת PostgREST מחזיר 42703, ואז מחפשים שוב בלי המפתח - כמו
+   עד היום - ולא נכשלים. */
+let streetKeyMissing = false;
+const isStreetKeyMissing = err => !!err && (err.code === '42703' || /street_key/.test(String(err.message || '')));
+
+function streetKeyTerms(safe){
+  const SC = window.SearchCore;
+  if (!SC || !SC.streetNameKey) return [];
+  const clean = k => String(k || '').replace(/[,()"'\\*%.:]/g, '').trim();
+  const keys = [clean(SC.streetNameKey(safe))];
+  const words = safe.split(' ');
+  if (words.length > 1){
+    words.filter(w => w.length > 3 && !/^(רחוב|שדרות|שדרת)$/.test(w)).slice(0, 3)
+      .forEach(w => keys.push(clean(SC.streetNameKey(w))));
+  }
+  return [...new Set(keys.filter(Boolean))].slice(0, 4);
+}
+
+/* התאמה מדויקת קודם: נכס שהטקסט כמו שהוקלד מופיע בכותרת, ברחוב או בכתובת
+   שלו, לפני נכס שנמצא רק דרך מפתח הרחוב. ‏sort יציב - בתוך כל קבוצה נשאר
+   הסדר של השרת (מקודמים, ואז החדשים). */
+function exactTextFirst(rows, rawText){
+  const q = String(rawText || '').trim().toLowerCase();
+  if (!q) return rows;
+  const exact = p => [p.title, p.street, p.address].some(v => String(v || '').toLowerCase().includes(q));
+  return rows.slice().sort((a, b) => Number(exact(b)) - Number(exact(a)));
 }
 
 /* חיפוש שכבר רץ. שתי לחיצות רצופות (או "הצגת תוצאות" ומיד אנטר בשדה) שלחו
@@ -5430,8 +5464,12 @@ async function runSearchInner(){
       .order('is_promoted', { ascending:false })
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
+    if (error && textOr && !streetKeyMissing && isStreetKeyMissing(error)){
+      streetKeyMissing = true;
+      return runSearchInner();
+    }
     if (error) throw error;
-    const results = keepMarketRows(data || [], marketSpec).map(shapeProperty);
+    const results = exactTextFirst(keepMarketRows(data || [], marketSpec), freeText).map(shapeProperty);
     renderPropertyGrid(results, true);
     /* חיפוש מהסרגל גובר על תגיות המדף ומכבה אותן. מאז שגם הן מסננות את
        המפה יש שני מסננים שמתחרים על אותם פינים, ותגית שנשארה דלוקה הייתה
@@ -7179,7 +7217,9 @@ function buildAdvanced(tab){
     if (s.mamad) checks.push(p => p.mamad_location === s.mamad);
   }
   const q = Core.norm(s.freeText || '');
-  if (q) checks.push(p => Core.norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).includes(q));
+  // ‏SearchCore.textHas: מה שהתאים כתת-מחרוזת עדיין מתאים, ובנוסף כתיב מלא
+  // וחסר - "העליה" מוצא את "עלייה" (‏docs/street-registry.md)
+  if (q) checks.push(p => window.SearchCore.textHas([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' '), s.freeText));
 
   /* כשהסינון הוא רק מאפיינים, ההודעה על חיפוש ריק אומרת על מה מוותרים
      ("בלי ממ״ד יש 12 נכסים") - ולא "בלי הסינון המתקדם". */
