@@ -12,6 +12,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import { setHomeCache } from "./lib/page-cache.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -137,13 +138,9 @@ function inject(html: string, rows: Row[]): string | null {
 }
 
 function cacheHeaders(headers: Headers): void {
-  if (headers.has("set-cookie")) return;
-  /* דוגמת Netlify ל-edge עם cache: "manual": Cache-Control עם s-maxage.
-     max-age=0, must-revalidate גורם ל-CDN להעביר כל בקשה מחדש (fwd=miss).
-     הדפדפן מתעלם מ-s-maxage, אז הוא לא שומר את ה-HTML לשעה. */
-  headers.set("Netlify-CDN-Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-  headers.set("CDN-Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-  headers.set("Cache-Control", "public, s-maxage=3600");
+  /* s-maxage לשעה. stale-while-revalidate קצר, כדי שמודעה שנמכרה
+     לא תישאר ב-CDN עד יממה. Netlify-Vary זהה ל-search-pages. */
+  setHomeCache(headers);
 }
 
 export default async function handler(request: Request, context: Context) {

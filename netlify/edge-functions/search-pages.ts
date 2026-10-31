@@ -65,6 +65,7 @@
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import { decide, registry } from "./lib/markets.ts";
+import { HOME_VARY, setHomeCache } from "./lib/page-cache.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
@@ -393,6 +394,7 @@ export default async function handler(request: Request, context: Context) {
       const headers = new Headers({
         "Location": routing.location,
         "Cache-Control": "private, no-store",
+        "Netlify-Vary": HOME_VARY,
       });
       for (const cookie of decisionCookies(routing)) headers.append("Set-Cookie", cookie);
       return new Response(null, { status: 302, headers });
@@ -419,11 +421,10 @@ export default async function handler(request: Request, context: Context) {
     const out = inject(await res.text(), city ? withCity(match, city) : match);
 
     const headers = new Headers(res.headers);
-    /* עוגייה אישית (אזור, או מחיקת פס ישן) לא נכנסת למטמון המשותף. */
-    if (!headers.has("set-cookie")) {
-      headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
-    }
+    /* אותה מדיניות כמו home-listings: s-maxage, בלי max-age=0,
+       ו-Netlify-Vary על העוגיות ועל פרמטרי התוכן. Set-Cookie נשאר no-store
+       מ-withDecisionCookies, וה-Vary נכתב גם אז. */
+    setHomeCache(headers);
     return new Response(out, { status: res.status, headers });
   } catch {
     return res; // הזרקה שנכשלה לא תשבור את דף הבית
@@ -444,6 +445,7 @@ function withDecisionCookies(res: Response, routing: ReturnType<typeof marketRou
   for (const cookie of cookies) copy.headers.append("Set-Cookie", cookie);
   copy.headers.set("Cache-Control", "private, no-store");
   copy.headers.set("Netlify-CDN-Cache-Control", "private, no-store");
+  copy.headers.set("Netlify-Vary", HOME_VARY);
   return copy;
 }
 

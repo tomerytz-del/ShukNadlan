@@ -49,7 +49,11 @@ async function run(path: string, status: number, body: unknown, page = FIXTURE):
   check("ItemList", html.includes('"@type":"ItemList"') || html.includes('"@type": "ItemList"'));
   check("canonical של /", (html.match(/rel="canonical" href="([^"]+)"/) || [])[1] === "https://shuknadlan.co.il/");
   check("בלי סגירת script", !html.includes("</script><b>"));
-  check("מטמון להצלחה", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("s-maxage=3600"));
+  const vary = res.headers.get("Netlify-Vary") || "";
+  check("מטמון להצלחה", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("s-maxage=3600")
+    && (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("stale-while-revalidate=600"));
+  check("Vary על עוגיית שוק ולא על utm", vary.includes("cookie=shuk_market|shuk_soon")
+    && vary.includes("query=deal|") && !vary.includes("utm") && !vary.includes("gclid"));
   check("data-ssr", html.includes('id="allProps"') && html.includes('data-ssr="1"'));
   const open = html.match(/<section\b[^>]*\bid="allProps"[^>]*>/);
   check("בלי hidden", !!open && !/\shidden\b/.test(open[0]), open?.[0] || "");
