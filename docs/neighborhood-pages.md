@@ -122,3 +122,7 @@
 node --experimental-strip-types scripts/neighborhood_page_test.ts
 python scripts/check_canonical.py
 ```
+
+`/n` ו-`/n/` בלי עיר ושכונה הם 404 עם `noindex,follow`, לא 200 עם H1
+"שכונה". `/n/*` ב-Netlify אינו תופס את הנתיב בלי slug, ולכן שניהם
+רשומים גם ב-`config.path` וגם ב-`_redirects`.

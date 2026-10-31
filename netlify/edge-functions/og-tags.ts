@@ -90,7 +90,9 @@
 
    בדף נכס, "אין רשומה" הוא **404** עם no-store (לא 200 שנשמר לדקה),
    והמשפט "הנכס לא נמצא" הוא פסקה ולא H1. H1 יחיד נשאר ‎#propTitle‎.
-   שאר דפי הפירוט נשארים 200 עם noindex.
+   אותו 404 גם למשרד ולסוכן/ת כשה-slug אינו קיים. ‎/agent‎ ו-‎/agency‎
+   בלי slug מופנים (301) אל ‎/agents‎ ו-‎/agencies‎. שאר דפי הפירוט
+   נשארים 200 עם noindex.
 
    ## מטמון
 
@@ -319,6 +321,145 @@ function publicHeadline(p: Record<string, unknown>): string {
   if (hn) head += ` ${hn}`;
   if (city) head += `, ${city}`;
   return head;
+}
+
+/* מבדיל כותרת רק כשיש עוד מודעה פעילה עם אותו publicHeadline
+   (כמה משרדים באותה כתובת). כותרת יחידה נשארת בדיוק כמו שהייתה.
+   אותו סדר ב-assets/property.js (‏distinctTitleSuffix). */
+function bitSqm(p: Record<string, unknown>): string {
+  const n = num(p.size_sqm);
+  return n ? `${n} מ״ר` : "";
+}
+function bitFloor(p: Record<string, unknown>): string {
+  if (p.floor === null || p.floor === undefined || String(p.floor).trim() === "") return "";
+  const floor = Number(p.floor);
+  if (!Number.isFinite(floor)) return "";
+  return floor === 0 ? "קומת קרקע" : `קומה ${String(floor)}`;
+}
+function bitDeal(p: Record<string, unknown>): string {
+  if (p.deal_type === "rent") return "להשכרה";
+  if (p.deal_type === "sale") return "למכירה";
+  return "";
+}
+function bitPrice(p: Record<string, unknown>): string {
+  return nis(p.price);
+}
+
+function titleSuffix(self: Record<string, unknown>, rows: Record<string, unknown>[]): string {
+  const base = publicHeadline(self);
+  const group = rows.filter((row) => publicHeadline(row) === base);
+  const selfId = String(self.id || "");
+  if (!group.some((row) => String(row.id || "") === selfId)) group.push(self);
+  if (group.length < 2) return "";
+  const picks = [bitSqm, bitFloor, bitDeal, bitPrice];
+  const parts: string[] = [];
+  let left = group;
+  for (const pick of picks) {
+    const mine = pick(self);
+    if (!mine) continue;
+    const same = left.filter((row) => pick(row) === mine);
+    if (same.length < left.length) {
+      parts.push(mine);
+      left = same;
+      if (left.length < 2) break;
+    }
+  }
+  return parts.length ? ` · ${parts.join(" · ")}` : "";
+}
+
+function pageTitle(base: string, suffix: string): string {
+  const site = ` | ${SITE_NAME}`;
+  if (!suffix) return clamp(`${base}${site}`, 90);
+  const full = `${base}${suffix}${site}`;
+  if (full.length <= 90) return full;
+  const room = 90 - suffix.length - site.length;
+  if (room < 8) return clamp(full, 90);
+  return `${base.slice(0, Math.max(0, room - 1)).trimEnd()}…${suffix}${site}`;
+}
+
+/* משפט קבוע לתיאור קצר מ-70 תווים. סוג העסקה וסוג הנכס נכנסים אליו.
+   כיווני אוויר ושטח סלון (‏metaClause) נשארים בנוסח המספרי. */
+const LISTING_NOUN: Record<string, string> = {
+  "דירה": "דירה",
+  "דירת גן": "דירת גן",
+  "דירת גג": "דירת גג",
+  "גג/פנטהאוז": "פנטהאוז",
+  "דופלקס": "דופלקס",
+  "טריפלקס": "טריפלקס",
+  "בית פרטי/קוטג'": "בית פרטי",
+  "דו משפחתי": "דו משפחתי",
+  "משרדים": "משרד",
+  "חנויות/שטח מסחרי": "חנות",
+  "מגרש": "מגרש",
+  "מחסן": "מחסן",
+  "אולם": "אולם",
+  "בניין": "בניין",
+};
+
+function tailSentence(p: Record<string, unknown>, place: string): string {
+  const noun = LISTING_NOUN[String(p.property_type || "").trim()] || "נכס";
+  const deal = p.deal_type === "rent" ? "להשכרה" : "למכירה";
+  const where = place ? ` ב${place}` : "";
+  return `${noun} ${deal}${where}. תמונות, מפה ופרטי קשר ישירים.`;
+}
+
+const DESC_SHORT = 70;
+const DESC_MAX = 155;
+
+function listingDescription(
+  facts: string[],
+  air: string,
+  tail: string,
+): string {
+  const lead = [...facts, air].filter(Boolean).join(" · ");
+  if (lead.length >= DESC_SHORT) return clamp(lead, 200);
+  let kept = facts.slice();
+  const build = () => {
+    const head = [...kept, air].filter(Boolean).join(" · ");
+    return head ? `${head} ${tail}` : tail;
+  };
+  let text = build();
+  while (kept.length && text.length > DESC_MAX) {
+    kept.pop();
+    text = build();
+  }
+  return text.length <= DESC_MAX ? text : clamp(text, DESC_MAX);
+}
+
+/* רשימה, לא אובייקט. כשל או גוף שאינו מערך: אין מבדיל, והכותרת היחידה נשארת. */
+async function siblingRows(p: Record<string, unknown>): Promise<Record<string, unknown>[] | null> {
+  const city = String(p.city || "").trim();
+  const type = String(p.property_type || "").trim();
+  if (!city || !type) return null;
+  const cols = "id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title";
+  const parts = [
+    "status=eq.active",
+    `city=eq.${encodeURIComponent(city)}`,
+    `property_type=eq.${encodeURIComponent(type)}`,
+    `select=${encodeURIComponent(cols)}`,
+    "limit=40",
+  ];
+  const hn = String(p.house_number ?? "").trim();
+  if (hn) parts.push(`house_number=eq.${encodeURIComponent(hn)}`);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/properties?${parts.join("&")}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: "application/json",
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data as Record<string, unknown>[] : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* שכונות עפולה שה-slug שלהן ידוע (אותה רשימה כמו HOODS ב-silo-render.js).
@@ -728,7 +869,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
 
   // יחידת המחיר (‏price_unit, docs/price-unit.md): 'sqm' = למ״ר, ריק = לפי סוג העסקה
   const unit = p.price_unit || (p.deal_type === "rent" ? "month" : "total");
-  const bits = [
+  const facts = [
     nis(p.price) + (unit === "sqm" ? (p.deal_type === "rent" ? " למ״ר לחודש" : " למ״ר") : unit === "month" ? "/חוד׳" : ""),
     num(p.rooms) ? `${num(p.rooms)} חד׳` : "",
     num(p.size_sqm) ? `${num(p.size_sqm)} מ״ר` : "",
@@ -737,7 +878,8 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const airClause = (globalThis as { ShukAirLiving?: {
     metaClause: (dirs: unknown, sqm: unknown) => string;
   } }).ShukAirLiving?.metaClause(p.air_directions, p.living_room_sqm) || "";
-  if (airClause) bits.push(airClause);
+  const place = String((hood && hood !== p.city ? hood : p.city) || "").trim();
+  const description = listingDescription(facts, airClause, tailSentence(p, place));
 
   const images = Array.isArray(p.images) ? p.images : [];
 
@@ -745,21 +887,22 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const marketing = p.marketing_description_stale && p.description ? "" : p.marketing_description;
   const body = String(marketing || p.description || "").trim();
 
-  /* ‏הסוכן/ת בשאילתה נפרדת, כמו ב-property.js: embed חוצה-שם אינו מובטח.
-     כשל כאן אינו מפיל את הדף - נשאר השם של המשרד או הפלייסהולדר. */
-  let agentDisplay = "";
-  if (p.agent_id) {
-    const agent = await sbFetch(
+  /* הסוכן/ת והאחים באותה כתובת רצים יחד. כשל באחד אינו מפיל את הדף:
+     בלי סוכן/ת נשאר שם המשרד, ובלי אחים הכותרת נשארת בלי מבדיל. */
+  const agentP = p.agent_id
+    ? sbFetch(
       `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
-    );
-    if (agent.kind === "row") agentDisplay = String(agent.row.display_name || "");
-  }
+    )
+    : Promise.resolve(null);
+  const [siblings, agent] = await Promise.all([siblingRows(p), agentP]);
+  const suffix = siblings ? titleSuffix({ ...p, id }, siblings) : "";
+  const agentDisplay = agent && agent.kind === "row" ? String(agent.row.display_name || "") : "";
   const visible = propertyVisible(p, agentDisplay);
   const offMarket = !p.city_id && !inMarketBox(p.lat, p.lng);
 
   return {
-    title: clamp(`${title} | ${SITE_NAME}`, 90),
-    description: clamp(bits.join(" · "), 200),
+    title: pageTitle(title, suffix),
+    description,
     image: absolute(images[0]) || DEFAULT_IMAGE,
     canonical,
     jsonLd: listingJsonLd(
@@ -1415,6 +1558,22 @@ export default async function handler(request: Request, context: Context) {
         });
       }
     }
+    /* בלי slug אין דף: לרשימה, לא לשלד "לא נמצא" ב-200. */
+    if ((request.method === "GET" || request.method === "HEAD") && !early.searchParams.get("slug")) {
+      const bare = early.pathname === "/agent" || early.pathname === "/agent.html"
+        ? "/agents"
+        : (early.pathname === "/agency" || early.pathname === "/agency.html" ? "/agencies" : "");
+      if (bare) {
+        return new Response(null, {
+          status: 301,
+          headers: {
+            Location: bare,
+            "Cache-Control": "public, max-age=3600",
+            "Netlify-CDN-Cache-Control": "public, max-age=3600",
+          },
+        });
+      }
+    }
     if (early.pathname === "/agency.html" && (request.method === "GET" || request.method === "HEAD")) {
       return new Response(null, {
         status: 301,
@@ -1473,8 +1632,11 @@ export default async function handler(request: Request, context: Context) {
     }
 
     const html = await res.text();
-    if (meta === "missing" && isProperty) {
-      return new Response(missingProperty(html), { status: 404, headers: failureHeaders(res.headers, 404) });
+    /* נכס, משרד וסוכן/ת בלי רשומה: 404 עם noindex. פרויקט, יזם, בעל מקצוע
+       וכתבה נשארים 200 עם noindex. */
+    if (meta === "missing" && (isProperty || page.endsWith("/agent") || page.endsWith("/agency"))) {
+      const body = isProperty ? missingProperty(html) : noindex(html);
+      return new Response(body, { status: 404, headers: failureHeaders(res.headers, 404) });
     }
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 

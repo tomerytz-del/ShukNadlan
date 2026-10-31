@@ -72,8 +72,7 @@ const CASES: Case[] = [
         משוכפל בלי שנבחר דף קנוני". */
   { name: "‏/property בלי ?id=", url: "/property", expect: "noindex" },
   { name: "‏/property.html בלי ?id=", url: "/property.html", expect: "noindex" },
-  { name: "‏/agency בלי ?slug=", url: "/agency", expect: "noindex" },
-  { name: "‏/agent בלי ?slug=", url: "/agent", expect: "noindex" },
+  /* ‏/agent ו-/agency בלי slug הם 301 לרשימה, לא noindex. נבדק למטה. */
   { name: "‏/project בלי ?slug=", url: "/project", expect: "noindex" },
   { name: "‏/developer בלי ?slug=", url: "/developer", expect: "noindex" },
   { name: "‏/professional בלי מפתח", url: "/professional", expect: "noindex" },
@@ -461,6 +460,27 @@ const propHttp: [string, boolean][] = [
   ["משרד, 403: נשאר 200 בלי שינוי", agencyDown.status === 200 && agencyDownHtml === PAGE],
 ];
 
+async function redirectOf(url: string): Promise<Response> {
+  globalThis.fetch = (async () => {
+    throw new Error("לא הייתה צריכה לצאת קריאה");
+  }) as typeof fetch;
+  return await handler(new Request(`https://shuknadlan.co.il${url}`), context());
+}
+const agentBare = await redirectOf("/agent");
+const agencyBare = await redirectOf("/agency.html");
+const agentMiss = await responseOf("/agent?slug=nobody", 406, { code: "PGRST116" });
+const agentMissHtml = await agentMiss.text();
+const agencyMiss = await responseOf("/agency?slug=nobody", 406, { code: "PGRST116" });
+const agencyMissHtml = await agencyMiss.text();
+propHttp.push(
+  ["‏/agent בלי slug: 301 ל-/agents", agentBare.status === 301 && agentBare.headers.get("Location") === "/agents"],
+  ["‏/agency.html בלי slug: 301 ל-/agencies", agencyBare.status === 301 && agencyBare.headers.get("Location") === "/agencies"],
+  ["סוכן שאינו קיים: 404 ו-noindex", agentMiss.status === 404 && NOINDEX.test(agentMissHtml)
+    && !/<h1[^>]*>הסוכן לא נמצא</.test(agentMissHtml)],
+  ["משרד שאינו קיים: 404 ו-noindex, בלי canonical", agencyMiss.status === 404 && NOINDEX.test(agencyMissHtml)
+    && !CANONICAL.test(agencyMissHtml)],
+);
+
 /* מחיר, מאפיינים, משרד וסוכן/ת ב-HTML הראשון. שאילתת הסוכן/ת נפרדת. */
 const VISIBLE =
   `<!doctype html><html><head><meta charset="UTF-8"><title>x</title></head><body>` +
@@ -680,6 +700,61 @@ propHttp.push(
   ["מזהה בלי UUID: 404 ולא 503, בלי קריאה למסד",
     garbage.status === 404 && !bareFetch && NOINDEX.test(garbageHtml)
     && !garbage.headers.get("Retry-After")],
+);
+const OFFICE = {
+  id: "11111111-1111-4111-8111-111111111111",
+  title: "משרד",
+  house_number: "25",
+  street: "המלאכה",
+  address: "המלאכה 25",
+  city: "עפולה",
+  city_id: "afula",
+  images: ["/a.jpg"],
+  price: 900000,
+  deal_type: "sale",
+  property_type: "משרדים",
+  status: "active",
+  size_sqm: "80",
+  floor: 2,
+  neighborhoods: { name: "אזור התעשייה" },
+};
+async function renderRouted(row: Record<string, unknown>, list: unknown): Promise<string> {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const u = String(input instanceof Request ? input.url : input);
+    const body = u.includes("limit=40") ? list : row;
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  const res = await handler(new Request("https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"), {
+    next: async () => new Response(PROP_PAGE, { headers: { "content-type": "text/html; charset=utf-8" } }),
+  } as never);
+  return res.text();
+}
+const aloneHtml = await renderRouted(OFFICE, [OFFICE]);
+const twinHtml = await renderRouted(OFFICE, [OFFICE, {
+  ...OFFICE, id: "22222222-2222-4222-8222-222222222222", size_sqm: "140",
+}]);
+const airHtml = await renderRouted({ ...OFFICE, air_directions: ["צפון", "דרום"], living_room_sqm: 32, size_sqm: null, price: 1650000, rooms: "5" }, []);
+const tabTitle = (h: string) => (h.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+const descOf = (h: string) => (h.match(/<meta name="description" content="([^"]*)">/) || [])[1] || "";
+const aloneTitle = tabTitle(aloneHtml);
+const twinTitle = tabTitle(twinHtml);
+const airDesc = descOf(airHtml);
+const aloneDesc = descOf(aloneHtml);
+propHttp.push(
+  ["כותרת יחידה בלי מבדיל", aloneTitle === "משרדים בהמלאכה 25, עפולה | שוק נדל״ן"],
+  ["כותרת כפולה מקבלת שטח, וה-H1 נשאר בלי מבדיל",
+    twinTitle.includes("80 מ״ר") && !twinTitle.includes("140")
+    && /<h1 class="prop-title" id="propTitle">משרדים בהמלאכה 25, עפולה<\/h1>/.test(twinHtml)],
+  ["תיאור קצר מקבל משפט ניטרלי עד 155",
+    aloneDesc.includes("משרד למכירה באזור התעשייה. תמונות, מפה ופרטי קשר ישירים.")
+    && aloneDesc.length <= 155],
+  ["כיווני אוויר וסלון נשארים בנוסח מספרי",
+    airDesc.includes("כיווני אוויר") && airDesc.includes("סלון של")
+    && !airDesc.includes("סלון גדול") && !airDesc.includes("מרווח")
+    && airDesc.length <= 155],
 );
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;

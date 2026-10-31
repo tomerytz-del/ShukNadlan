@@ -154,14 +154,41 @@ res = await run("https://shuknadlan.co.il/deals/%3Cx%3E", 200, AFULA);
 html = await res.text();
 check("‏slug פסול: 404, noindex, וה-canonical לא נגע", res.status === 404 && html.includes("noindex") && html.includes('href="https://shuknadlan.co.il/deals"'));
 
-/* אינדקס */
-html = await (await run("https://shuknadlan.co.il/deals", 200, [
+/* אינדקס: רק יישוב שמותר לאנדקס. השאר בלי קישור. */
+const INDEX = [
   { name: "עפולה", slug: "afula", deals: 1568, newest: "2026-08-31" },
-  { name: "מגדל העמק", slug: "migdal-haemek", deals: 0, newest: null },
-])).text();
-check("אינדקס: קישורים", html.includes('href="/deals/afula"') && html.includes('href="/deals/migdal-haemek"'));
+  { name: "מגדל העמק", slug: "migdal-haemek", deals: 400, newest: "2026-08-31" },
+  { name: "כפר קטן", slug: "kfar-katan", deals: 2, newest: "2026-01-01" },
+];
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 200, body: [
+    { city: "עפולה", city_id: "c1" },
+    { city: "מגדל העמק", city_id: "m1" },
+  ] };
+  if (target.includes("market_cities_public")) return { status: 200, body: [
+    { city_id: "c1", market_slug: "afula-emek" },
+    { city_id: "m1", market_slug: "nof-hagalil-migdal" },
+  ] };
+  if (target.includes("deal_settlement_page")) return { status: 200, body: { ...AFULA, deals: 812 } };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("אינדקס: רק יישוב לאינדקס", html.includes('href="/deals/afula"')
+  && !html.includes('href="/deals/migdal-haemek"')
+  && !html.includes("kfar-katan")
+  && !html.includes('href="/deals/abn-shmval"'));
 check("אינדקס: canonical נשאר /deals", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/deals">'));
 check("אינדקס: ‏BreadcrumbList", ldOf(html)?.["@graph"]?.[0]?.["@type"] === "BreadcrumbList");
+
+/* כשל בשאילתת המודעות אינו מוחק את הקישורים */
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 500, body: {} };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("אינדקס בכשל מודעות: הקישורים נשארים", html.includes('href="/deals/afula"') && html.includes('href="/deals/migdal-haemek"'));
 
 /* אינדקס, המסד נכשל - לא מפרסמים 200 בלי הרשימה, כשאין עותק */
 resetLastGood();

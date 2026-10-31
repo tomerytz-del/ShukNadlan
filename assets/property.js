@@ -2736,6 +2736,83 @@ function publicTitle(p){
   return publicHeadline(p) || maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
 
+/* מבדיל את <title> רק כשיש עוד מודעה פעילה עם אותה כותרת. כותרת יחידה
+   נשארת publicTitle כמו שהייתה. אותו סדר כמו titleSuffix ב-og-tags.ts:
+   שטח, קומה, מכירה/השכרה, מחיר. ה-H1 (#propTitle) לא משתנה. */
+function bitSqm(p){
+  const n = roomsShort(p && p.size_sqm);
+  return n ? n + ' מ״ר' : '';
+}
+function bitFloor(p){
+  if (!p || p.floor === null || p.floor === undefined || String(p.floor).trim() === '') return '';
+  const floor = Number(p.floor);
+  if (!isFinite(floor)) return '';
+  return floor === 0 ? 'קומת קרקע' : 'קומה ' + String(floor);
+}
+function bitDeal(p){
+  if (!p) return '';
+  if (p.deal_type === 'rent') return 'להשכרה';
+  if (p.deal_type === 'sale') return 'למכירה';
+  return '';
+}
+function bitPrice(p){
+  const v = Number(p && p.price);
+  return isFinite(v) && v > 0 ? '₪' + v.toLocaleString('he-IL') : '';
+}
+function distinctTitleSuffix(self, rows){
+  const base = publicHeadline(self);
+  const group = (rows || []).filter(function(row){ return publicHeadline(row) === base; });
+  const selfId = String((self && self.id) || '');
+  if (!group.some(function(row){ return String((row && row.id) || '') === selfId; })) group.push(self);
+  if (group.length < 2) return '';
+  const picks = [bitSqm, bitFloor, bitDeal, bitPrice];
+  const parts = [];
+  let left = group;
+  for (let i = 0; i < picks.length; i++){
+    const mine = picks[i](self);
+    if (!mine) continue;
+    const same = left.filter(function(row){ return picks[i](row) === mine; });
+    if (same.length < left.length){
+      parts.push(mine);
+      left = same;
+      if (left.length < 2) break;
+    }
+  }
+  return parts.length ? ' · ' + parts.join(' · ') : '';
+}
+function documentTitleWithSuffix(base, suffix){
+  const site = ' | שוק נדל״ן';
+  if (!suffix) return base + site;
+  const full = base + suffix + site;
+  if (full.length <= 90) return full;
+  const room = 90 - suffix.length - site.length;
+  if (room < 8) return full.slice(0, 89) + '…';
+  return base.slice(0, Math.max(0, room - 1)).trimEnd() + '…' + suffix + site;
+}
+/* לא דורס את כותרת השרת לפני שהתשובה חזרה: כותרת יחידה נשארת, וכפולה
+   מקבלת מבדיל. כשל בשאילתה משאיר את publicTitle. */
+function applyDistinctTitle(p){
+  const base = publicTitle(p);
+  const city = String((p && p.city) || '').trim();
+  const type = String((p && p.property_type) || '').trim();
+  const set = function(suffix){ document.title = documentTitleWithSuffix(base, suffix); };
+  if (!city || !type){ set(''); return; }
+  const parts = [
+    'status=eq.active',
+    'city=eq.' + encodeURIComponent(city),
+    'property_type=eq.' + encodeURIComponent(type),
+    'select=' + encodeURIComponent('id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title'),
+    'limit=40',
+  ];
+  const hn = String((p && p.house_number) ?? '').trim();
+  if (hn) parts.push('house_number=eq.' + encodeURIComponent(hn));
+  fetch(SUPABASE_URL + '/rest/v1/properties?' + parts.join('&'), {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Accept: 'application/json' },
+  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(rows){
+    set(Array.isArray(rows) ? distinctTitleSuffix(p, rows) : '');
+  }).catch(function(){ set(''); });
+}
+
 function maskedListingTitle(p){
   return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
@@ -2768,7 +2845,7 @@ function renderOpenHouseBand(p){
 }
 
 function renderProperty(p){
-  document.title = publicTitle(p) + ' | שוק נדל״ן';
+  applyDistinctTitle(p);
   renderGallery(p);
   renderMediaButtons(p);
   // הקידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted

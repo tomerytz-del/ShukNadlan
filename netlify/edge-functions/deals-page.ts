@@ -5,7 +5,9 @@
    לכל יישוב (‏/deals/afula, דרך שורת ‎200‎ ב-`_redirects`). הפונקציה ממלאת
    אותו בשרת, כדי שסורק יקרא את המספרים בלי להריץ JS:
 
-     ‏· אינדקס - ‏`deal_settlements_public()`: רשימת היישובים.
+     ‏· אינדקס - ‏`deal_settlements_public()`: רק יישובים שמותר לאנדקס
+     (‏`settlementIndexable`, אותו כלל כמו הדף וה-sitemap). השאר אינם
+     קישור. כשל בשאילתת המודעות משאיר את הרשימה המלאה.
      ‏· יישוב  - ‏`deal_settlement_page(slug)`: כותרת, תיאור, כרטיסים, חציון
        לפי חדרים, עסקאות אחרונות, Dataset ו-BreadcrumbList.
 
@@ -203,6 +205,92 @@ export function noindex(html: string): string {
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* מודעות פעילות לפי שם עיר, והשוק. null = לא ידענו - לא מוחקים קישורים. */
+async function cityListings(): Promise<Map<string, { listings: number; marketSlug: string | null }> | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/properties?status=eq.active&select=city,city_id&limit=1000`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data)) return null;
+    const ids = [...new Set(data.map((row) => String((row as { city_id?: unknown }).city_id || "").trim()).filter(Boolean))];
+    const marketById = new Map<string, string>();
+    if (ids.length) {
+      const marketRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/market_cities_public?select=city_id,market_slug&city_id=in.(${ids.join(",")})&limit=1000`,
+        {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Accept: "application/json",
+          },
+          signal: ctrl.signal,
+        },
+      );
+      if (!marketRes.ok) return null;
+      const markets = await marketRes.json();
+      if (!Array.isArray(markets)) return null;
+      for (const row of markets) {
+        const id = String((row as { city_id?: unknown }).city_id || "").trim();
+        const slug = String((row as { market_slug?: unknown }).market_slug || "").trim();
+        if (id && slug) marketById.set(id, slug);
+      }
+    }
+    const byName = new Map<string, { listings: number; marketSlug: string | null }>();
+    for (const row of data) {
+      const name = String((row as { city?: unknown }).city || "").trim();
+      if (!name) continue;
+      const cur = byName.get(name) || { listings: 0, marketSlug: null };
+      cur.listings += 1;
+      const slug = marketById.get(String((row as { city_id?: unknown }).city_id || "").trim());
+      if (slug) cur.marketSlug = slug;
+      byName.set(name, cur);
+    }
+    return byName;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* חלון 12 החודשים של הדף. null = לא ידענו, והיישוב נשאר מקושר. */
+async function windowDeals(slug: string): Promise<number | null> {
+  const data = await rpc("deal_settlement_page", { p_slug: slug });
+  if (data === undefined) return null;
+  if (data === null) return 0;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  return Number((data as Settlement).deals || 0);
+}
+
+async function indexableRows(list: IndexRow[]): Promise<IndexRow[]> {
+  const cities = await cityListings();
+  if (!cities) return list;
+  const live = liveMarketSlugs();
+  const coarse = list.filter((row) => {
+    const info = cities.get(String(row.name || "").trim()) || { listings: 0, marketSlug: null };
+    return settlementIndexable(Number(row.deals || 0), info.listings, info.marketSlug, live);
+  });
+  const flags = await Promise.all(coarse.map(async (row) => {
+    const n = await windowDeals(String(row.slug || ""));
+    if (n === null) return true;
+    const info = cities.get(String(row.name || "").trim()) || { listings: 0, marketSlug: null };
+    return settlementIndexable(n, info.listings, info.marketSlug, live);
+  }));
+  return coarse.filter((_, i) => flags[i]);
+}
+
 /* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
 function failureHeaders(base: Headers, status: number): Headers {
   const headers = new Headers(base);
@@ -229,8 +317,11 @@ export default async function handler(request: Request, context: Context) {
       const list = await rpc("deal_settlements_public", {});
       if (Array.isArray(list)) {
         if (list.length) {
-          out = injectIndex(html, list as IndexRow[]);
-          cache = out !== html;
+          const shown = await indexableRows(list as IndexRow[]);
+          if (shown.length) {
+            out = injectIndex(html, shown);
+            cache = out !== html;
+          }
         }
       } else {
         /* ‏לא מערך: המסד לא ענה. רשימה ריקה היא תשובה תקינה ונשארת 200. */
