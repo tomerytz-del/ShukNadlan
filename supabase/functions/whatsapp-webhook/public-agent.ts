@@ -3,10 +3,12 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
-import { formatForWhatsapp, sendButtons, sendImage } from "./whatsapp.ts";
+import { PUBLIC_MODEL_FLAG, publicBotModel } from "./public-model.ts";
+import { formatForWhatsapp, sendButtons, sendImageCta, type WaSent } from "./whatsapp.ts";
 import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
+  canonicalCity,
   CATEGORIES,
   DEAL_TYPES,
   filterByArea,
@@ -18,6 +20,7 @@ import {
   SearchCore,
   visitorHash,
 } from "./property-search.ts";
+import { airLivingGapNote, airLivingRowKept, savedSearchAirLivingLine, visitorAskedAirOrLiving } from "../_shared/air-living.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -71,12 +74,9 @@ import {
 // פחות. לכן כל תשובה כאן נגמרת בקישור. הפרטים: `docs/analytics-events.md`.
 // ============================================================================
 
-// המודל כסוד, כמו בבוט של הסוכנים. **הבוט הציבורי הוא המועמד החזק יותר
-// למודל זול**: הוא נפח גבוה, חשוף לכל מי שראה את המספר, והמשימה שלו
-// (חיפוש והפניה) צרה מזו של העוזר. ברירת המחדל נשארת Opus עד שתימדד
-// איכות, והמתג נפרד כדי שאפשר יהיה להחליף כאן בלי לגעת בערוץ העבודה
-// של הסוכנים.
-const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5";
+// המודל כסוד, כמו בבוט של הסוכנים. בלי סוד נשאר Opus 5.
+// Opus 5.5 דולק רק כש-gabriela_public_opus_55 = 1, ונקרא בכל תור
+// (לא בקבוע של טעינת המודול). הסוד WHATSAPP_PUBLIC_BOT_MODEL גובר על הדגל.
 const PUBLIC_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT") || "")
   ? Deno.env.get("WHATSAPP_PUBLIC_BOT_EFFORT")
   : "low") as "low" | "medium" | "high";
@@ -340,12 +340,23 @@ function publicWhere(p: any): string {
 // ---------------------------------------------------------------------------
 const PROPERTY_FIELDS = [
   "id", "title", "property_type", "deal_type", "category", "price", "price_unit", "rooms",
-  "size_sqm", "built_size_sqm", "garden_sqm", "floor", "total_floors", "city",
+  "size_sqm", "built_size_sqm", "garden_sqm", "living_room_sqm",
+  "air_directions", "floor", "total_floors", "city",
   "street", "address", "house_number", "sales_area", "features", "condition",
   "project_status", "images", "listing_number", "is_promoted", "bumped_at",
   "created_at", "has_virtual_tour", "video_url", "open_house",
   "open_house_start", "open_house_end", "neighborhood_id", "neighborhoods(name)",
 ].join(", ");
+
+/** בלי שתי העמודות החדשות. האתר עולה לפני המיגרציה, ו-select עליהן הוא 400. */
+function withoutAirLivingColumns(fields: string): string {
+  return fields.split(",").map((s) => s.trim())
+    .filter((s) => s !== "living_room_sqm" && s !== "air_directions").join(", ");
+}
+
+function airLivingColumnError(error: { message?: string } | null): boolean {
+  return !!error && /air_directions|living_room_sqm/.test(error.message || "");
+}
 
 function propertyUrl(id: string): string {
   return `${SITE_BASE}/property?id=${id}`;
@@ -436,6 +447,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
+        air_directions: {
+          type: "array",
+          items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+          description: "הנכס צריך לכלול את כל הכיוונים. אל תאמרי לפונה 'סלון גדול'.",
+        },
+        min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי במ\"ר." },
         max_floor: { type: "integer" },
         features: {
           type: "array",
@@ -939,6 +956,13 @@ async function searchProperties(
     if (addedFeatures.length) args = { ...args, features: [...have, ...addedFeatures] };
   }
 
+  let cityId: string | null = null;
+  const cityRaw = text(args.city);
+  if (cityRaw) {
+    const canon = await canonicalCity(ctx.supabase, cityRaw);
+    cityId = canon?.id || null;
+    args = { ...args, city: canon?.name || cityRaw, city_raw: cityRaw, city_id: cityId };
+  }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
     args,
@@ -951,18 +975,35 @@ async function searchProperties(
   //
   // סינון האזור נעשה **אחרי** השליפה (‏filterByArea), ולכן שליפה לפי אזור
   // רחבה - AREA_SCAN_LIMIT.
-  const { data, error } = await query
+  const askedAirLiving = airLivingGapNote([{ air_directions: null, living_room_sqm: null }], args) !== null;
+  let { data, error } = await query
     .order("is_promoted", { ascending: false })
     .order("bumped_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(area ? AREA_SCAN_LIMIT : limit);
+    .limit(area || askedAirLiving ? AREA_SCAN_LIMIT : limit);
+
+  // האתר עולה לפני המיגרציה. עמודה חסרה לא מפילה את החיפוש.
+  if (airLivingColumnError(error)) {
+    const bare = withoutAirLivingColumns(PROPERTY_FIELDS);
+    const again = applyPropertyFilters(
+      ctx.supabase.from("properties").select(bare).eq("status", "active"),
+      { ...args, air_directions: undefined, min_living_room_sqm: undefined },
+    );
+    ({ data, error } = await again.query
+      .order("is_promoted", { ascending: false })
+      .order("bumped_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(area ? AREA_SCAN_LIMIT : limit));
+  }
 
   if (error) return { error: "search_failed", detail: error.message };
 
-  let rows: Array<Record<string, unknown>> = data || [];
+  let rows: Array<Record<string, unknown>> = ((data || []) as Array<Record<string, unknown>>)
+    .filter((row) => airLivingRowKept(row, args));
+  if (!area) rows = rows.slice(0, limit);
   let areaHint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed });
+    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed, cityId });
     rows = res.rows.slice(0, limit);
     areaHint = res.hint;
   }
@@ -1109,6 +1150,7 @@ async function searchProperties(
     all_listings_url: `${SITE_BASE}/`,
     features_from_message: addedFeatures.length ? addedFeatures : undefined,
     features_not_recognized: unknownWords.features.length ? unknownWords.features : undefined,
+    air_living_note: airLivingGapNote(rows, args) || undefined,
     features_note: unknownWords.features.length
       ? "המאפיינים ב-features_not_recognized אינם נשמרים במאגר, ולכן החיפוש נעשה " +
         "בלעדיהם. לומר זאת בקצרה (\"את X אין לי איך לסנן\"), ולא להציג את התוצאות " +
@@ -1141,16 +1183,26 @@ async function getProperty(
     ? NaN
     : Number(listingRaw);
 
+  const detailFields = `${PROPERTY_FIELDS}, description, marketing_description, marketing_description_stale, agency_id, agent_id`;
   let query = ctx.supabase
     .from("properties")
-    .select(`${PROPERTY_FIELDS}, description, marketing_description, marketing_description_stale, agency_id, agent_id`)
+    .select(detailFields)
     .eq("status", "active");
 
   if (id) query = query.eq("id", id);
   else if (Number.isFinite(listing)) query = query.eq("listing_number", Math.round(listing));
   else return { error: "missing_identifier", note: "צריך property_id או listing_number." };
 
-  const { data, error } = await query.maybeSingle();
+  let { data, error } = await query.maybeSingle();
+  if (airLivingColumnError(error)) {
+    let again = ctx.supabase
+      .from("properties")
+      .select(withoutAirLivingColumns(detailFields))
+      .eq("status", "active");
+    if (id) again = again.eq("id", id);
+    else again = again.eq("listing_number", Math.round(listing));
+    ({ data, error } = await again.maybeSingle());
+  }
   if (error) return { error: "lookup_failed", detail: error.message };
   if (!data) return { found: false, note: "הנכס אינו פעיל באתר כרגע." };
 
@@ -1621,7 +1673,6 @@ function cardCaption(p: any, note: string | null): string {
     publicWhere(p),
     [p.price ? `${nis(Number(p.price))} ₪` : null, facts].filter(Boolean).join(" · "),
     note ? `\n${note}` : null,
-    `\n${propertyUrl(p.id)}`,
   ].filter(Boolean).join("\n");
 }
 
@@ -1648,14 +1699,22 @@ async function sendPropertyCards(
     const id = text(item.property_id);
     if (!id) continue;
 
-    const { data } = await ctx.supabase
+    let { data, error } = await ctx.supabase
       .from("properties")
       .select(PROPERTY_FIELDS)
       .eq("id", id)
       .eq("status", "active")
       .maybeSingle();
+    if (airLivingColumnError(error)) {
+      ({ data, error } = await ctx.supabase
+        .from("properties")
+        .select(withoutAirLivingColumns(PROPERTY_FIELDS))
+        .eq("id", id)
+        .eq("status", "active")
+        .maybeSingle());
+    }
 
-    if (!data) {
+    if (error || !data) {
       results.push({ property_id: id, sent: false, reason: "not_active" });
       continue;
     }
@@ -1669,18 +1728,24 @@ async function sendPropertyCards(
 
     const caption = cardCaption(p, text(item.note));
     try {
-      const waMessageId = await sendImage(ctx.waPhone, image, caption);
+      const parts: WaSent[] = [];
+      const waMessageId = await sendImageCta(ctx.waPhone, image, caption, "לדף הנכס", propertyUrl(p.id), parts);
       ctx.cardsSent += 1;
       ctx.conv.last_property_id = p.id;
-      await ctx.supabase.from("whatsapp_messages").insert({
-        wa_message_id: waMessageId,
-        direction: "out",
-        wa_phone: ctx.waPhone,
-        msg_type: "image",
-        body: formatForWhatsapp(caption),
-        media_url: image,
-        status: waMessageId ? "sent" : null,
-      });
+      const logged = parts.length
+        ? parts
+        : [{ id: waMessageId, kind: "image" as const, body: formatForWhatsapp(caption) }];
+      for (const part of logged) {
+        await ctx.supabase.from("whatsapp_messages").insert({
+          wa_message_id: part.id,
+          direction: "out",
+          wa_phone: ctx.waPhone,
+          msg_type: part.kind,
+          body: part.body || formatForWhatsapp(caption),
+          media_url: image,
+          status: part.id ? "sent" : null,
+        });
+      }
       results.push({ property_id: id, sent: true });
     } catch (err) {
       // תמונה שלא נשלחה אינה סוף העולם — הקישור עדיין עובד, והמודל יידע
@@ -1966,6 +2031,38 @@ function strListArg(value: unknown, max: number): string[] {
   return value.map((v) => text(v)).filter((v): v is string => !!v).slice(0, max);
 }
 
+function filledNumber(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return false;
+  return Number.isFinite(Number(value));
+}
+
+/** רק מה שנכתב להתראה. בלי כיוון אוויר ובלי גודל סלון, הם לא נשמרים. */
+function savedSearchLabels(args: Record<string, unknown>, cities: string[]): string[] {
+  const labels: string[] = [];
+  if (cities.length || text(args.area)) labels.push("האזור");
+  if (filledNumber(args.min_rooms) || filledNumber(args.max_rooms)) labels.push("החדרים");
+  if (filledNumber(args.min_price) || filledNumber(args.max_price)) labels.push("התקציב");
+  if (strListArg(args.property_types, 6).length) labels.push("סוג הנכס");
+  if (filledNumber(args.min_size_sqm)) labels.push("השטח");
+  if (strListArg(args.required_features, 8).length) labels.push("המאפיינים");
+  return labels;
+}
+
+function visitorTranscript(ctx: PublicContext): string {
+  const bits: string[] = [];
+  if (ctx.userText) bits.push(ctx.userText);
+  const hist = ctx.conv.history || [];
+  for (let i = hist.length - 1; i >= 0 && bits.length < 8; i--) {
+    const m = hist[i];
+    if (m.role !== "user") continue;
+    const t = typeof m.content === "string"
+      ? m.content
+      : m.content.map((b) => (b.type === "text" ? b.text : "")).join(" ");
+    if (t.trim()) bits.push(t);
+  }
+  return bits.join("\n");
+}
+
 async function saveSearchAlert(
   ctx: PublicContext,
   args: Record<string, unknown>,
@@ -2038,11 +2135,14 @@ async function saveSearchAlert(
   // שורה חדשה לעדכן, וייתכן שההסכמה כבר ניתנה עליה בשיחה קודמת.
   const searchId = typeof body.search_id === "string" ? body.search_id : null;
   ctx.conv.last_saved_search_id = searchId;
+  const askedAir = visitorAskedAirOrLiving(visitorTranscript(ctx));
+  const savedLabels = savedSearchLabels(args, cities);
   return {
     saved: true,
     duplicate: body.duplicate === true,
     consent_given: consent,
     can_offer_agent_help: !consent && !!searchId,
+    say_exactly: askedAir ? savedSearchAirLivingLine(savedLabels) : undefined,
     manage_note: "אפשר לבטל את העדכונים בכל רגע דרך הקישור שמופיע בכל התראה.",
     // מה באמת קרה, כדי שהתשובה לא תבטיח יותר: בלי הסכמה אין סוכן/ת בתמונה
     what_happens: consent
@@ -2106,8 +2206,8 @@ async function ownerLead(
     created: true,
     matched,
     what_happens: matched
-      ? "הפנייה הועברה לסוכן/ת תיווך מהאזור, שייצור/תיצור קשר."
-      : "הפנייה נשמרה. כרגע לא נמצא/ה סוכן/ת פנוי/ה לאזור ולסוג הנכס, ולכן אי אפשר להבטיח מתי יחזרו.",
+      ? "הפרטים הועברו לצוות התיווך להמשך טיפול."
+      : "הפנייה נשמרה. כרגע אין מי שמטפל באזור ובסוג הנכס, ולכן אין מועד למענה.",
     privacy_note:
       "יש לומר שהשם והטלפון נמסרים לסוכן/ת תיווך לצורך יצירת הקשר הזה.",
   };
@@ -2345,6 +2445,12 @@ const SYSTEM_STATIC: string = (() => {
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
       "החזיר ריק גם ב-close_matches - לומר שלא נמצא, ולהציע לשמור את החיפוש.",
+    "- **air_living_note:** אם השדה חזר, לומר את המשפט כמו שהוא, בלי לשנות מילה. " +
+      "לא לומר שאין נכסים רק כי כיוון האוויר או גודל הסלון לא מולאים. הנכסים שחזרו " +
+      "מתאימים לשאר הבקשה.",
+    "- **say_exactly:** אם השדה חזר משמירת חיפוש, לומר את המשפט כמו שהוא. " +
+      "כיווני אוויר וגודל סלון לא נשמרים בהתראה. לא לומר שהם נשמרו, ולא להוסיף " +
+      "לרשימה העדפה שלא נשמרה.",
     "- **‏office_alternative = לשאול על משרדים לפני הכול.** חנות או שטח מסחרי " +
       "שלא נמצאו, ובמלאי יש משרדים שעונים על אותן דרישות: לשאול אם להציג אותם, " +
       "בלי offer_save_search באותו תור. לא להציע משרדים כשהשדה לא חזר.",
@@ -2432,7 +2538,7 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "**יריד הדירות ללא עמלת תיווך** (לא ליד, ולכן מחוץ לארבעת המסלולים):",
     "- יריד שבו מתווכים מציעים נכסים לקונים בלי דמי תיווך, לתקופה קצובה. " +
-      `הנכסים שביריד עכשיו: ${SITE_BASE}/open-house . ` +
+      `הנכסים שביריד עכשיו יוצאים ככפתור: ${SITE_BASE}/open-house . ` +
       "ברשימת העדכונים יוצא מייל בכל פעם שנכס נכנס ליריד.",
     `- "${FAIR_TITLE}" (או "כן" להצעה בטקסט) = לבקש כתובת מייל בשאלה אחת קצרה ` +
       "(\"מעולה! לאיזה מייל לשלוח את עדכוני היריד?\"), כי העדכונים יוצאים " +
@@ -2478,12 +2584,12 @@ const SYSTEM_STATIC: string = (() => {
     "- אם חזר lead_cap_reached - לומר שאפשר להמשיך באתר, ולא לנסות שוב.",
     "",
     "גבולות התפקיד:",
-    "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת - להפנות ל-" +
-      `${SITE_BASE}/pricing . אין לך דרך לרשום אותו/ה.`,
+    "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת - להפנות למסלולים. " +
+      `הכתובת יוצאת ככפתור, בשורה משלה: ${SITE_BASE}/pricing . אין לך דרך לרשום אותו/ה.`,
     "- מי שמבקש/ת לדבר עם אדם - להפנות לדף הנכס או המשרד הרלוונטי, ולומר " +
       "בפשטות שאת עוזרת אוטומטית ולא הסוכן/ת עצמו/ה.",
-    "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה - \"הסוכן החכם\" באתר: " +
-      `${SITE_BASE}/ . אותו מנגנון בדיוק.`,
+    "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה - \"הסוכן החכם\" באתר. " +
+      `הכתובת יוצאת ככפתור, בשורה משלה: ${SITE_BASE}/ . אותו מנגנון בדיוק.`,
   ];
   return lines.join("\n");
 })();
@@ -2493,16 +2599,34 @@ const SYSTEM_STATIC: string = (() => {
  * אותו כלל: הקידומת זהה לזו של `runPublicTurn` (מודל, `TOOLS`, `SYSTEM_STATIC`
  * עם אותו `cache_control`, ו-`PUBLIC_EFFORT`).
  */
-export async function warmPublicPromptCache(): Promise<Anthropic.Message> {
+async function resolvePublicModel(supabase: SupabaseClient): Promise<string> {
+  const env = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL");
+  if (String(env || "").trim()) return publicBotModel(env, 0);
+  try {
+    const { data, error } = await supabase.from("pricing_config")
+      .select("value").eq("key", PUBLIC_MODEL_FLAG).maybeSingle();
+    if (error) {
+      console.error("public model flag failed", error.code);
+      return publicBotModel(undefined, 0);
+    }
+    return publicBotModel(undefined, data?.value);
+  } catch (err) {
+    console.error("public model flag failed", err);
+    return publicBotModel(undefined, 0);
+  }
+}
+
+export async function warmPublicPromptCache(supabase?: SupabaseClient): Promise<Anthropic.Message> {
+  const model = supabase ? await resolvePublicModel(supabase) : publicBotModel(Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL"), 0);
   const response = await callClaude({
-    model: MODEL,
+    model,
     max_tokens: 0,
     output_config: { effort: PUBLIC_EFFORT },
     system: [{ type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral", ttl: "1h" } }],
     tools: TOOLS,
     messages: [{ role: "user", content: "." }],
   } as unknown as Anthropic.MessageCreateParamsNonStreaming);
-  logAiUsage(anthropicRow("gabriela_public_warm", response.model || MODEL, response.usage));
+  logAiUsage(anthropicRow("gabriela_public_warm", response.model || model, response.usage));
   return response;
 }
 
@@ -2586,6 +2710,7 @@ export async function runPublicTurn(opts: {
   profileName?: string | null;
 }): Promise<{ text: string; shareContact: boolean }> {
   const { supabase, conv, userText, waPhone } = opts;
+  const model = await resolvePublicModel(supabase);
   const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
   const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName, userText };
 
@@ -2610,7 +2735,7 @@ export async function runPublicTurn(opts: {
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const llmStart = Date.now();
     const response = await callClaude({
-      model: MODEL,
+      model,
       max_tokens: 2048,
       // ‏low הספיק כשהיו כאן ארבעה כלי חיפוש וההחלטה ביניהם הייתה חד-משמעית.
       // עם אחד-עשר כלים, שני מאגרים נפרדים (נכסים מול פרויקטים) וארבעה
@@ -2632,12 +2757,12 @@ export async function runPublicTurn(opts: {
 
     const u = response.usage as unknown as Record<string, number | undefined>;
     console.log(
-      `public-llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
+      `public-llm ${model} iter=${i} in=${u.input_tokens ?? 0} ` +
         `cache_read=${u.cache_read_input_tokens ?? 0} ` +
         `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0} ` +
         `ms=${Date.now() - llmStart}`,
     );
-    logAiUsage(anthropicRow("gabriela_public", response.model || MODEL, response.usage));
+    logAiUsage(anthropicRow("gabriela_public", response.model || model, response.usage));
 
     const responseText = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -2698,7 +2823,7 @@ export async function runPublicTurn(opts: {
   }
 
   if (!finalText) {
-    finalText = "לא הצלחתי למצוא תשובה לזה כרגע. אפשר לנסח אחרת, או לחפש ישירות באתר: " +
+    finalText = "לא הצלחתי למצוא תשובה לזה כרגע. אפשר לנסח אחרת, או לחפש ישירות באתר:\n" +
       `${SITE_BASE}/`;
   }
 

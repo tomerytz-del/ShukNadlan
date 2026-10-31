@@ -428,4 +428,76 @@ test('compileQuery - אותו פענוח לשדה החכם ולחיפוש בנכ
   assert.ok(!cq.fields.length && !cq.features.length);
 });
 
+/* ‏R8: מספרים שנאמרו בקול - לספרות לפני הפענוח (‏spokenNumbers) */
+test('חיפוש קולי: מספרים במילים', () => {
+  const cases = [
+    ['דירה עד מיליון ושבע מאות אלף', 1700000], ['דירה עד מיליון ושבע מאות', 1700000], ['עד שני מיליון', 2000000],
+    ['דירה עד מיליון וחצי', 1500000], ['דירה עד מיליון', 1000000], ['שניים וחצי מיליון', 2500000],
+    ['דירה להשכרה עד חמשת אלפים', 5000], ['להשכרה עד שלושת וחצי', 3500], ['דירה עד שבע מאות אלף', 700000],
+    ['עד שבע מאות וחמישים אלף', 750000], ['להשכרה עד ארבעת אלפים וחמש מאות', 4500], ['להשכרה עד אלף וחמש מאות', 1500],
+  ];
+  cases.forEach(([text, want]) => {
+    const r = C.parse(C.spokenNumbers(text), C.defaultState(), AREAS);
+    assert.strictEqual(r.patch.priceMax, want, text + ' → ' + C.spokenNumbers(text));
+  });
+  // מילים שאינן מחיר לא משתנות
+  assert.strictEqual(C.spokenNumbers('דירת ארבעה חדרים בעפולה'), 'דירת ארבעה חדרים בעפולה');
+  assert.strictEqual(C.spokenNumbers('עד 5 אלף'), 'עד 5 אלף');
+  assert.strictEqual(C.spokenNumbers('עד 1.5 מיליון'), 'עד 1.5 מיליון');
+});
+
+/* ‏A3-1 / C3 / C4 / R5 (PR 1010): משקים ונחלות, "למכירה" כמגורים, והכתובת הקנונית */
+test('משק ונחלה - סוג משלו, לא בית', () => {
+  const props = PROPS.concat([P({ id: 'farm1', deal_type: 'sale', property_type: 'משק חקלאי/נחלה', rooms: 5, price: 3000000 })]);
+  assert.strictEqual(C.parse('נחלה בעמק', C.defaultState(), AREAS).patch.type, 'farm');
+  assert.strictEqual(C.parse('משק עזר', C.defaultState(), AREAS).patch.type, 'farm');
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  assert.deepStrictEqual(C.filter(props, Object.assign({}, st, { type: 'farm' }), CTX).map(p => p.id), ['farm1']);
+  assert.ok(!C.filter(props, Object.assign({}, st, { type: 'house' }), Object.assign({ farmSplit: true }, CTX)).some(p => p.id === 'farm1'));
+  // בלי הדגל (‏farmSplit) - כמו היום: הנחלה היא גם "בית"
+  assert.ok(C.filter(props, Object.assign({}, st, { type: 'house' }), CTX).some(p => p.id === 'farm1'));
+});
+test('C4: למכירה בלי סוג - מגורים בלבד, רק עם saleResidential', () => {
+  const props = PROPS.concat([P({ id: 'shop1', deal_type: 'sale', category: 'commercial', property_type: 'חנויות/שטח מסחרי', price: 900000 })]);
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  assert.ok(C.filter(props, st, CTX).some(p => p.id === 'shop1'));
+  assert.ok(!C.filter(props, st, Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
+  assert.ok(C.filter(props, Object.assign({}, st, { type: 'commercial' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
+});
+test('F2: מגרשים במכירה - בלי המגרשים המסחריים, עם saleResidential', () => {
+  const props = PROPS.concat([P({ id: 'cland', deal_type: 'sale', category: 'commercial', property_type: 'מגרשים', price: 2000000 })]);
+  const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'land' });
+  assert.ok(C.filter(props, st, CTX).some(p => p.id === 'cland'));
+  const res = C.filter(props, st, Object.assign({ saleResidential: true }, CTX));
+  assert.deepStrictEqual(res.map(p => p.id), ['h']);
+  // תחת מסחרי הוא עדיין שם
+  assert.ok(C.filter(props, Object.assign({}, st, { deal: null, type: 'comm_land' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'cland'));
+});
+test('C3: נחלה נספרת רק תחת משקים ונחלות - לא בתים ולא מגרשים', () => {
+  const props = PROPS.concat([P({ id: 'farm2', deal_type: 'sale', property_type: 'משק חקלאי/נחלה', rooms: 5, price: 3100000 })]);
+  const ctx = Object.assign({ saleResidential: true, farmSplit: true }, CTX);
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  const has = (type) => C.filter(props, Object.assign({}, st, { type }), ctx).some(p => p.id === 'farm2');
+  assert.ok(has('farm')); assert.ok(!has('house')); assert.ok(!has('land')); assert.ok(has('any'));
+});
+test('R5: type= במקום ptype=, ו-ptype= עדיין נקרא', () => {
+  const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'garden' });
+  assert.ok(/(^|&)type=garden(&|$)/.test(C.toParams(st, AREAS, { typeParam: true })));
+  assert.ok(!/ptype=/.test(C.toParams(st, AREAS, { typeParam: true })));
+  const multi = Object.assign(C.defaultState(), { deal: 'sale', types: ['flats', 'farm'] });
+  const back = C.fromParams(new URLSearchParams(C.toParams(multi, AREAS, { typeParam: true })));
+  assert.deepStrictEqual(back.types, ['flats', 'farm']);
+  assert.strictEqual(C.fromParams(new URLSearchParams('ptype=' + encodeURIComponent('דירת גן'))).type, 'garden');
+  assert.strictEqual(C.fromParams(new URLSearchParams('type=' + encodeURIComponent('raw:דופלקס'))).type, 'raw:דופלקס');
+  assert.strictEqual(C.fromParams(new URLSearchParams('type=nonsense')).type, 'any');
+});
+
+test('חיפוש קולי: קטעים מצטברים של אנדרואיד אינם משורשרים', () => {
+  assert.strictEqual(C.joinSpeech(['מחפש', 'מחפש דירת', 'מחפש דירת ארבעה חדרים', 'מחפש דירת ארבעה חדרים ברובע']), 'מחפש דירת ארבעה חדרים ברובע');
+  // ‏Chrome במחשב: קטעים נפרדים
+  assert.strictEqual(C.joinSpeech(['דירה ', 'בעפולה']), 'דירה בעפולה');
+  assert.strictEqual(C.joinSpeech(['דירה בעפולה', 'בעפולה']), 'דירה בעפולה');
+  assert.strictEqual(C.joinSpeech([]), '');
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

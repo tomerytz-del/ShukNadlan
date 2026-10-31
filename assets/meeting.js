@@ -61,17 +61,34 @@
   /* ---------- תצוגה ---------- */
   const FEEDBACK = [
     ['liked', '👍 אהבתי', '👍 תודה! שמחים שאהבת.'],
-    ['unsure', '🤔 מתלבט/ת', '🤔 תודה! הסוכן/ת יחזור/תחזור אליך לעזור להחליט.'],
-    ['not_for_me', '👎 לא בשבילי', '👎 תודה! הסוכן/ת יחפש/תחפש נכסים שמתאימים יותר.'],
+    ['unsure', '🤔 מתלבטים', ''],
+    ['not_for_me', '👎 לא בשבילי', ''],
   ];
 
-  function statusBox(m){
-    if (m.status === 'canceled') return '<div class="status bad">הפגישה בוטלה.</div>';
+  function leName(name){
+    if (/^(צוות|יועץ|יועצת|יועצי)/.test(name)) return 'ל' + name;
+    return 'ל־' + name;
+  }
+
+  function handedOff(a){
+    const who = (a && a.name) || 'צוות התיווך';
+    return 'הפרטים הועברו ' + leName(who) + ' להמשך טיפול.';
+  }
+
+  function cancelLine(m, a){
+    const agent = a.name || 'צוות התיווך';
+    const withWho = a.agency_name ? agent + ' (' + a.agency_name + ')' : agent;
+    const when = m.when_text ? ' שנקבעה ל' + m.when_text : '';
+    return 'ה' + (m.noun || 'פגישה') + ' עם ' + withWho + when + ' בוטלה. לתיאום מועד חדש אפשר לפנות ל' + agent + '.';
+  }
+
+  function statusBox(m, a){
+    if (m.status === 'canceled') return '<div class="status bad">' + esc(cancelLine(m, a || {})) + '</div>';
     const fb = FEEDBACK.find(f => f[0] === m.client_feedback);
-    if (fb) return '<div class="status ok">' + esc(fb[2]) + '</div>';
+    if (fb) return '<div class="status ok">' + esc(fb[0] === 'liked' ? fb[2] : handedOff(a)) + '</div>';
     if (m.status === 'past') return '<div class="status warn">הפגישה כבר עברה.</div>';
     if (m.client_response === 'confirmed') return '<div class="status ok">✅ אישרת הגעה. נתראה!</div>';
-    if (m.client_response === 'reschedule') return '<div class="status warn">📆 ביקשת מועד אחר - הסוכן/ת יחזור/תחזור אליך.</div>';
+    if (m.client_response === 'reschedule') return '<div class="status warn">📆 ביקשת מועד אחר. ' + esc(handedOff(a)) + '</div>';
     return '';
   }
 
@@ -81,21 +98,22 @@
     const open = m.status === 'open';
     const hello = state.client_first_name ? 'שלום ' + esc(state.client_first_name) + ', ' : '';
     const photo = a.photo_url ? `<img src="${esc(a.photo_url)}" alt="${esc(a.name || '')}">` : '';
-    const sub = [a.agency_name, a.phone ? '0' + String(a.phone).replace(/^972/, '') : ''].filter(Boolean).join(' · ');
+    const phoneText = m.status === 'canceled' || !a.phone ? '' : '0' + String(a.phone).replace(/^972/, '');
+    const sub = [a.agency_name, phoneText].filter(Boolean).join(' · ');
 
     let html = `
       <section class="card">
         <div class="agent">
           ${photo}
           <div>
-            <div class="agent-name">${esc(a.name || 'הסוכן/ת שלך')}</div>
+            <div class="agent-name">${esc(a.name || 'צוות התיווך')}</div>
             ${sub ? `<div class="agent-sub">${esc(sub)}</div>` : ''}
           </div>
         </div>
         <h1 style="margin-top:14px">${hello}${esc(m.noun)}${a.name ? ' עם ' + esc(a.name) : ''}</h1>
         ${m.when_text ? `<div class="when">🗓 ${esc(m.when_text)}</div>` : ''}
         ${m.location ? `<div class="where">📍 ${esc(m.location)}</div>` : ''}
-        ${statusBox(m)}
+        ${statusBox(m, a)}
       </section>`;
 
     if (open){
@@ -144,14 +162,21 @@
       </section>`;
     }
 
-    if (a.phone){
+    if (a.phone && m.status === 'canceled'){
       html += `
       <section class="card">
-        <h2 class="sec-title">שאלה ל${esc(a.name || 'סוכן/ת')}?</h2>
         <div class="grid">
-          <a class="btn btn-soft" href="https://wa.me/${esc(a.phone)}" target="_blank" rel="noopener">וואטסאפ</a>
+          <a class="btn btn-soft" href="https://wa.me/${esc(a.phone)}" target="_blank" rel="noopener">שליחת הודעה</a>
+        </div>
+      </section>`;
+    } else if (a.phone){
+      html += `
+      <section class="card">
+        <h2 class="sec-title">שאלה ל${esc(a.name || 'צוות התיווך')}?</h2>
+        <div class="grid">
+          <a class="btn btn-soft" href="https://wa.me/${esc(a.phone)}" target="_blank" rel="noopener">שליחת הודעה</a>
           <a class="btn btn-soft" href="tel:+${esc(a.phone)}">חיוג</a>
-          ${a.page_url ? `<a class="btn btn-soft full" href="${esc(a.page_url)}" target="_blank" rel="noopener">הנכסים של ${esc(a.name || 'הסוכן/ת')}</a>` : ''}
+          ${a.page_url ? `<a class="btn btn-soft full" href="${esc(a.page_url)}" target="_blank" rel="noopener">הנכסים של ${esc(a.name || 'צוות התיווך')}</a>` : ''}
         </div>
       </section>`;
     }
@@ -177,7 +202,7 @@
   }
 
   async function respond(response){
-    if (response === 'canceled' && !confirm('לבטל את הפגישה? נעדכן את הסוכן/ת.')) return;
+    if (response === 'canceled' && !confirm('לבטל את הפגישה? נעדכן את צוות התיווך.')) return;
     const note = document.getElementById('respNote');
     app.querySelectorAll('[data-resp]').forEach(b => { b.disabled = true; });
     try {

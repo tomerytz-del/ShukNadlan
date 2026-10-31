@@ -1,0 +1,38 @@
+name: ערוץ תזכורת במסך
+
+# שמירה במסלול חינם לא מחליפה וואטסאפ שמור במייל, והשער הוא tier
+# כמו agent_reminder_due_agents, בלי billing_status.
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm.js"
+      - "assets/crm-settings.js"
+      - "scripts/reminder_channels_test.js"
+      - "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
+      - ".github/workflows/reminder_channels.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm.js"
+      - "assets/crm-settings.js"
+      - "scripts/reminder_channels_test.js"
+      - "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
+      - ".github/workflows/reminder_channels.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: בדיקת ערוץ התזכורת במסך
+        run: node scripts/reminder_channels_test.js

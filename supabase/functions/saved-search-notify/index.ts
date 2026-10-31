@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { ctaPayload } from "../_shared/wa-url-guard.ts";
 
 // ============================================================================
 // שרת ההתראות של הסוכן החכם — מרוקן את תור saved_search_alerts.
@@ -76,6 +77,11 @@ const clickUrl = (token: string) =>
   `${FUNCTIONS_BASE}/saved-search-manage?action=click&token=${encodeURIComponent(token)}`;
 const unsubUrl = (token: string) =>
   `${FUNCTIONS_BASE}/saved-search-manage?action=unsubscribe&token=${encodeURIComponent(token)}`;
+const unsubManyUrl = (tokens: string[]) => {
+  const q = new URLSearchParams({ action: "unsubscribe" });
+  for (const token of tokens) q.append("token", token);
+  return `${FUNCTIONS_BASE}/saved-search-manage?${q}`;
+};
 
 function textBody(a: any): string {
   const parts = [
@@ -162,13 +168,25 @@ async function sendWhatsapp(a: any): Promise<void> {
       },
     };
   } else {
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: a.phone_e164,
-      type: "text",
-      text: { preview_url: true, body: textBody(a) },
-    };
+    const lines = [
+      "🔔 נכס חדש שמתאים לחיפוש שלך",
+      a.label ? `- ${a.label}` : "",
+      a.title || "",
+      placeLine(a),
+      [nis(a.price), specLine(a)].filter(Boolean).join(" · "),
+      "לפרטים המלאים בכפתור.",
+    ].filter((p) => p !== "");
+    const payload = ctaPayload(a.phone_e164, lines.join("\n").slice(0, 1024), "לצפייה בנכס", clickUrl(a.click_token));
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+    if (!res.ok) {
+      const raw = await res.text();
+      let code: number | null = null;
+      try {
+        code = JSON.parse(raw)?.error?.code ?? null;
+      } catch { /* גוף שאינו JSON */ }
+      throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
+    }
+    return;
   }
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -179,6 +197,37 @@ async function sendWhatsapp(a: any): Promise<void> {
       code = JSON.parse(raw)?.error?.code ?? null;
     } catch { /* גוף שאינו JSON — נשמר כטקסט ב-last_error */ }
     throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
+  }
+}
+
+/** הודעה שנייה, אחרי כל ההתראות של אותו מספר בסבב. כישלון נרשם ולא נזרק. */
+async function sendStopNotice(phone: string, tokens: string[]): Promise<boolean> {
+  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE || !tokens.length) return false;
+  try {
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
+    const many = tokens.length > 1;
+    const payload = ctaPayload(
+      phone,
+      many
+        ? "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפושים האלה בכפתור."
+        : "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפוש הזה בכפתור.",
+      "הפסקת עדכונים",
+      unsubManyUrl(tokens),
+    );
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const raw = await res.text();
+      console.error("saved-search stop notice failed", phone, raw.slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("saved-search stop notice failed", phone, err instanceof Error ? err.message : err);
+    return false;
   }
 }
 
@@ -249,17 +298,87 @@ Deno.serve(async (req: Request) => {
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data: alerts, error } = await sb.rpc("saved_search_pending_alerts", {
-    p_limit: BATCH,
-  });
-  if (error) return json({ error: "db_error", detail: error.message }, 500);
-  if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true });
+  const flag = await sb.rpc("customer_send_window_on");
+  const flagMissing = flag.error && (flag.error.code === "PGRST202" || flag.error.code === "42883");
+  if (flag.error && !flagMissing) {
+    console.error("customer window flag failed", flag.error.code);
+    return json({ sent: 0, failed: 0, deferred: false, reason: "window_error" }, 500);
+  }
+  const flagOn = !flagMissing && flag.data === true;
+  if (!flagOn && !flagMissing) {
+    const prep = await sb.rpc("customer_prepare");
+    if (prep.error && prep.error.code !== "PGRST202" && prep.error.code !== "42883") {
+      console.error("customer prepare failed", prep.error.code);
+    }
+  }
 
-  let sent = 0, failed = 0;
+  const loaded = flagOn
+    ? await sb.rpc("customer_due_alerts", { p_limit: BATCH })
+    : await sb.rpc("saved_search_pending_alerts", { p_limit: BATCH });
+  if (loaded.error) return json({ error: "db_error", detail: loaded.error.message }, 500);
+  const alerts = loaded.data;
+  if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true, deferred: flagOn });
+
+  let sent = 0, failed = 0, deferred = 0;
+  const stopTokens = new Map<string, string[]>();
 
   for (const a of alerts as any[]) {
-    const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both") && !!a.phone_e164;
-    const wantEmail = (a.contact_channel === "email" || a.contact_channel === "both") && !!a.email;
+    const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both")
+      && !!a.phone_e164 && a.whatsapp_status !== "sent";
+    const wantEmail = (a.contact_channel === "email" || a.contact_channel === "both")
+      && !!a.email && a.email_status !== "sent";
+    let phoneHeld = false;
+    let contactKey: string | null = null;
+    let tookClaim = false;
+    let pushSent = false;
+    if (flagOn && (wantWhatsapp || wantEmail)) {
+      const key = await sb.rpc("customer_contact_key", {
+        p_phone: a.phone_e164 ?? null,
+        p_email: a.email ?? null,
+        p_search_id: a.search_id,
+      });
+      contactKey = key.data ? String(key.data) : null;
+      if (contactKey) {
+        const slot = await sb.rpc("customer_phone_claim", {
+          p_key: contactKey,
+          p_ref: a.alert_id,
+          p_backlog: false,
+        });
+        const slotMissing = slot.error && (slot.error.code === "PGRST202" || slot.error.code === "42883");
+        if (slot.error && !slotMissing) {
+          console.error("customer phone claim failed", slot.error.code);
+          failed++;
+          continue;
+        }
+        if (!slotMissing && slot.data === "wait") {
+          deferred++;
+          continue;
+        }
+        if (!slotMissing && slot.data === "cap") {
+          phoneHeld = true;
+        }
+        if (!slotMissing && (slot.data === "ok" || slot.data === "already")) {
+          tookClaim = true;
+          if (slot.data === "ok") {
+            const push = await sb.rpc("customer_send_saved_search_push", { p_alert_id: a.alert_id });
+            pushSent = !push.error && Number(push.data) > 0;
+          } else {
+            const prior = await sb.from("customer_phone_sends")
+              .select("push_sent_at")
+              .eq("ref_id", a.alert_id)
+              .not("push_sent_at", "is", null)
+              .limit(1);
+            pushSent = !prior.error && Array.isArray(prior.data) && prior.data.length > 0;
+          }
+        }
+      }
+    }
+
+    if (phoneHeld) {
+      await sb.rpc("customer_message_defer", { p_alert_id: a.alert_id, p_reason: "cap" });
+      deferred++;
+      continue;
+    }
 
     let waStatus = wantWhatsapp ? "pending" : "not_requested";
     let emStatus = wantEmail ? "pending" : "not_requested";
@@ -286,6 +405,15 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (waStatus === "sent" && !WA_TEMPLATE && a.unsubscribe_token) {
+      const phone = String(a.phone_e164 || "");
+      if (phone) {
+        const list = stopTokens.get(phone) || [];
+        list.push(String(a.unsubscribe_token));
+        stopTokens.set(phone, list);
+      }
+    }
+
     if (wantEmail) {
       try {
         await sendEmail(a);
@@ -296,8 +424,10 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // הסטטוס הכולל נגזר במסד מהשניים, ולא נשלח מכאן - "נשלחה" הוא החלטה
-    // של המוצר (ערוץ אחד שהצליח מספיק), לא של הקוד ששלח.
+    if (tookClaim && !pushSent && waStatus !== "sent" && emStatus !== "sent") {
+      await sb.rpc("customer_phone_release", { p_key: contactKey, p_ref: a.alert_id });
+    }
+
     const { error: markErr } = await sb.rpc("mark_saved_search_alert", {
       p_alert_id: a.alert_id,
       p_whatsapp_status: waStatus,
@@ -310,5 +440,9 @@ Deno.serve(async (req: Request) => {
     else failed++;
   }
 
-  return json({ sent, failed, processed: alerts.length });
+  for (const [phone, tokens] of stopTokens) {
+    await sendStopNotice(phone, [...new Set(tokens)].slice(0, 20));
+  }
+
+  return json({ sent, failed, deferred, processed: alerts.length });
 });

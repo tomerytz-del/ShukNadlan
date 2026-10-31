@@ -152,6 +152,30 @@ const KNOWN_SOURCES = new Set([
   "meta_ads_owner_form",
   "meta_ads_buyer_form",
   "meta_ads_property_form",
+  // גלישה בהחלקה (‏/swipe, ‏docs/swipe-mode.md): פנייה על נכס מגיליון הפרטים,
+  // ופנייה למפרסם מכרטיס ממומן (כבוי כרגע - SPONSORED_ENABLED ב-assets/swipe.js).
+  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏docs/proposals/fair_signup_and_lead_consent.sql, ממתינה לאישור).
+  "swipe",
+  "swipe_sponsored",
+  // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
+  // של saved-search-intake ונרשם כסוכן החכם של דף הבית
+  "swipe_end",
+  // "בקשו תמונות מהמפרסם" בנכס בלי תמונות (‏assets/no-photo.js, ‏docs/no-photo.md):
+  // פנייה על נכס לכל דבר, מגיליון ההחלקה או מטופס דף הנכס. התווית ב-CRM
+  // "בקשת תמונות" (‏lead_source_label במסד, ‏LX_SOURCES ב-crm.js)
+  "photo_request",
+  // יריד הבתים הפתוחים: ההרשמה בדף היריד (‏/open-house) ובגיליון שבהחלקה
+  // (‏assets/fair-signup.js → saved-search-intake עם open_house_only).
+  // ‏lead_source_channel() ממפה את שניהם לערוץ open_house
+  "nocommission_fair",
+  "swipe_fair",
+  // כרטיס "חושבים למכור?" בהחלקה → owner-lead-intake. נכתב גם ל-leads.source
+  // במסלול הפלטפורמה (ולא רק ליומן), כדי שהערוץ swipe ייראה בדוחות
+  "swipe_seller",
+  // דף "חושבים למכור?" (‏/sell, ‏assets/owner-wizard.js). ‏_agent - מכרטיס יועץ/ת
+  // בדף, עם agent_slug, ולכן הליד הולך במסלול דף הסוכן/ת
+  "sell_page",
+  "sell_page_agent",
   // גבריאלה בפייסבוק ובאינסטגרם (Zernio → social-lead-intake, ‏docs/social-leads.md).
   // **רק מקורא פנימי** - ראו SOCIAL_SOURCES למטה.
   ...SOCIAL_SOURCES_LIST,

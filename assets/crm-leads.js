@@ -195,6 +195,9 @@ function renderLeadsUnified(agentId){
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
   });
+  syncDemandTab();
+  // המונה של "ביקוש פתוח" נטען פעם אחת גם בלי לפתוח את הלשונית, כדי שתודגש כשיש
+  if (openDemandRows === null && !openDemandLoading) loadOpenDemand(true);
   alignScrollTabs(document.getElementById('leadsTabs'));
   document.getElementById('leadsSrc').hidden = leadsTab === 'demand';
   if (leadsTab === 'demand'){ renderOpenDemand(listEl); return; }
@@ -504,15 +507,37 @@ const OPEN_DEMAND_NO_BROKER = {
            rule: 'לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.' },
 };
 
-async function loadOpenDemand(){
-  if (openDemandLoading) return;
+let openDemandP = null;
+let openDemandQuiet = false;
+function loadOpenDemand(silent){
+  // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב).
+  // קריאה רגילה באמצע טעינה שקטה עדיין מציגה שגיאה.
+  if (openDemandP) {
+    if (!silent) openDemandQuiet = false;
+    return openDemandP;
+  }
+  openDemandQuiet = !!silent;
   openDemandLoading = true;
-  const [list, stats] = await Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]);
-  openDemandLoading = false;
-  if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
-  else openDemandRows = list.data || [];
-  openDemandStats = stats.error ? null : stats.data;
-  if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+  openDemandP = Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]).then(([list, stats]) => {
+    if (list.error){ if (!openDemandQuiet) showToast(heErr(list.error)); openDemandRows = []; }
+    else openDemandRows = list.data || [];
+    openDemandStats = stats.error ? null : stats.data;
+    if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+    else syncDemandTab();
+  }).finally(() => {
+    openDemandLoading = false;
+    openDemandP = null;
+  });
+  return openDemandP;
+}
+
+/* מונה והדגשה של "ביקוש פתוח" - ביקושים שעוד לא תפסתי */
+function syncDemandTab(){
+  const b = document.querySelector('#leadsTabs [data-leads-tab="demand"]');
+  if (!b) return;
+  const n = openDemandRows ? openDemandRows.filter(d => !d.mine).length : null;
+  if (n !== null) b.querySelector('[data-n]').textContent = n;
+  b.classList.toggle('has-open', !!n);
 }
 
 function openDemandWants(d){
@@ -598,9 +623,15 @@ async function claimOpenDemand(id, btn){
   renderLeads(currentAgent && currentAgent.id);
 }
 
-function openLeadsDemand(){
+/* הכניסה הראשונה מ-?goto=accLeads&tab=demand משאירה את הטעינה שכבר
+   יצאה עם הדשבורד. כל קריאה אחרת, כולל הפעמון, מאפסת ומושכת מחדש:
+   ביקוש נוסף ונמחק כל שעה, ודשבורד פתוח שעות היה מראה רשימה ישנה. */
+let openDemandLinkKept = false;
+function openLeadsDemand(opts){
   leadsTab = 'demand';
-  openDemandRows = null;
+  const keep = !!(opts && opts.fromLink) && !openDemandLinkKept;
+  if (opts && opts.fromLink) openDemandLinkKept = true;
+  if (!keep) openDemandRows = null;
   renderLeads(currentAgent && currentAgent.id);
 }
 

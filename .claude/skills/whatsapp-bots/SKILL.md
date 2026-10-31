@@ -18,6 +18,7 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 | `supabase/functions/whatsapp-webhook/media-intake.ts` | קובץ הקלטה ומסמך → טקסט, ותור שרק מציע (`MEDIA_TOOLS`) |
 | `supabase/functions/whatsapp-webhook/property-import.ts` | קובץ נכסים → עבודת ייבוא וסיכום יבש, והקליטה אחרי אישור (`import_properties_file`) - ליבה משותפת עם האשף ב-CRM (הסקיל `property-import`) |
 | `supabase/functions/whatsapp-webhook/catalog-link.ts` | קישור לפריט בקטלוג וואטסאפ (`wa.me/p/...`) → טיוטת נכס |
+| `supabase/functions/whatsapp-webhook/ops-question.ts` | שאלה תפעולית לסוכן/ת (`?task=ops-question`), כפתור `ops_q` שלא מגיע למודל |
 
 ## השם חי בהרבה מקומות, ומשתנה בכולם יחד
 
@@ -168,6 +169,21 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 להכיר אותה (`SAVE_TITLE` = הבקשה המפורשת של `save_search_alert`,
 `SIMILAR_TITLE` = להציג את `close_matches`).
 
+**חריג: שאלה תפעולית (`ops_q`).** `?task=ops-question` (רק מפתח
+`service_role`) שולח שאלה מהרשימה הסגורה `OPS_QUESTIONS`, לא טקסט מהקורא.
+אותו שער מסלול כמו העוזרת (`whatsappAgentBlock`), ובלי כיבוי מלא של
+הוואטסאפ. רק בחלון 24 השעות, ורק כש-`notification_send_window_open`
+פתוח: שעות שקט, שישי מ-13:00 ושבת מחזירים `quiet_hours` בלי שליחה.
+מזהה `ops_q:<purpose>:<n>` נתפס לפני המודל גם כשההמשך לא מוכר.
+נרשם רק אם השאלה נשלחה לסוכן/ת שלחץ/ה והמזהה ברשימה. אחרת `unmatched`
+בלי לשייך את השולח/ת. התשובה "תודה, העברתי לבדיקה". אסור להעביר את
+הכותרת למודל.
+
+שאלות `photo_check_*` הן כפתור קישור, אחד להודעה, שתי הודעות ברצף, בלי
+כתובת בגוף, וקשורות לסוכן/ת אחד/ת. כל הודעה נרשמת ביומן מיד אחרי שיצאה.
+כשל בהודעה השנייה הוא `partial_sent`: הראשונה לא נשלחת שוב. תשובה בטקסט
+אינה מעבירה תמונות ב-1147, 1148, 1336 או 1385. רק כפתור האישור הקיים (`pmv:`).
+
 **כפתור שמבטיח משהו נשלח רק כשיש מאחוריו משהו.** "תראי נכסים דומים" יוצא
 רק כש-`has_similar` (חזרו `close_matches`), וההחלטה ב-`offerSaveSearch` ולא
 בניסוח של המודל.
@@ -282,7 +298,7 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 **כפתור תשובה נושא מזהה ונתפס לפני המודל** (‏`scx:<p|c>:<showcase_id>` ב-
 `showcaseButtonReply`, ראשון בענף `interactive`), ומחזיר תשובה קבועה: "תצוגה
 מקדימה" - הודעת `cta` עם הקישור; "נוסח להעתקה" - הודעת הפתיחה כבועה נקייה
-להעברה. רק מיניסייט **פעיל** של הסוכן/ת שלחץ/ה.
+בלי כתובת. השליחה ללקוח/ה היא כפתור נפרד. רק מיניסייט **פעיל** של הסוכן/ת שלחץ/ה.
 
 מה שובר בשקט:
 
@@ -661,6 +677,7 @@ python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
 python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
 node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב-catalog-link.ts
+node --experimental-strip-types scripts/ops_question_test.ts   # אם נגעת ב-ops-question.ts
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,

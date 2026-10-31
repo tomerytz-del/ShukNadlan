@@ -39,12 +39,17 @@
      ‏noRooms: סוגים שאין להם "חדרים" - שם החלק "עם N חדרים" יורד מהמשפט.
      ‏ptypes - מהליבה (‏SC.PROPERTY_TYPES), כדי שהבוטים יחפשו באותן קבוצות. */
   var PT = SC.PROPERTY_TYPES;
+  /* ‏C3 (תומר 22:12): משקים ונחלות - קטגוריה משלה באתר (‏assets/filter-config.js). בליבה ובבוטים
+     הם עדיין "בית"; farm הוא סוג נפרד, ועם ‏ctx.farmSplit (דף הבית עם הדגל) "בית פרטי" בלעדיהם */
+  var FC = root.FilterConfig || (typeof require === 'function' ? require('./filter-config.js') : null);
+  var FARM_PTYPES = FC ? FC.FARM_PTYPES : ['משק חקלאי/נחלה', 'משק עזר'];
   var TYPES = [
     { key: 'any', label: 'נכס' },
     { key: 'apt', label: 'דירה', ptypes: PT.apt, residential: true },
     { key: 'garden', label: 'דירת גן', ptypes: PT.garden, url: 'דירת גן', residential: true },
     { key: 'penthouse', label: 'פנטהאוז', ptypes: PT.penthouse, url: 'גג/פנטהאוז', residential: true },
     { key: 'house', label: 'בית פרטי', ptypes: PT.house, url: "בית פרטי/קוטג'", residential: true },
+    { key: 'farm', label: 'משק/נחלה', optionLabel: 'משקים ונחלות', ptypes: FARM_PTYPES, url: 'משק חקלאי/נחלה', residential: true },
     { key: 'land', label: 'מגרש', ptypes: PT.land, noRooms: true },
     { key: 'shop', label: 'חנות', ptypes: PT.shop, url: 'חנויות/שטח מסחרי', commercial: true, noRooms: true },
     { key: 'office', label: 'משרד', ptypes: PT.office, url: 'משרדים', commercial: true, noRooms: true },
@@ -89,6 +94,14 @@
   var ROOM_BUCKETS = [[2, 2.5], [3, 4.5], [4, 5.5], [5, 99]];
   var ROOMS_OPEN = 99;
 
+  function roomsInLabel(list) {
+    var parts = list.slice().sort(function (a, b) { return a - b; }).map(function (n) { return n >= 6 ? '6+' : String(n); });
+    return (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' או ' + parts[parts.length - 1] : parts[0]) + ' חדרים';
+  }
+  function roomsMatchIn(r, list) {
+    return list.some(function (n) { return n >= 6 ? r >= 6 : (r >= n && r <= n + 0.5); });
+  }
+
   function roomsLabel(r) {
     if (!r) return 'כל גודל';
     var lo = r[0], hi = r[1];
@@ -121,7 +134,10 @@
     /* ‏deal: null - לפני שנבחר משהו, המשפט אינו מסנן כלום: המפה והכפתור
        מציגים את כל הנכסים, כמו לפני החיפוש במשפט. "לקנות" כברירת מחדל
        היה מציג "הצג 36 נכסים" לגולש/ת שעוד לא ביקש/ה דבר. */
-    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null };
+    /* ‏R5-4: בחירה מרובה - roomsIn ‏([3,5,6]; ‏N = ‏N ו-N.5, ‏6 = ‏6+), ‏types (מפתחות סוג),
+       ‏hoods (מפתחות hood:). כשהם קיימים rooms / type / area הם "הכל". OR בתוך שדה, AND בין שדות. */
+    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false, city: null,
+      roomsIn: null, types: null, hoods: null };
   }
 
   /* ---------- נרמול עברית ----------
@@ -217,6 +233,20 @@
   /* ---------- ההתאמה ----------
      פונקציה אחת לכל מה שמוצג: המפה, השורות, המונה בכפתור, המונים בבורר
      והמקרא. ‏skip מדלג על slot אחד - לחישוב "כמה יהיו אם אשנה רק אותו". */
+  /* ‏חיפוש קולי: מחברים קטעי תמלול. ‏Chrome באנדרואיד מחזיר כל קטע כמשפט המצטבר עד אליו
+     ("מחפש", "מחפש דירת", "מחפש דירת ארבעה"), ושרשור תמים יצר "מחפשמחפש דירתמחפש..."
+     (דיווח של תומר, 29.10). קטע שמתחיל במה שכבר נצבר מחליף אותו; קטע שכבר כלול בו נזרק */
+  function joinSpeech(parts) {
+    var acc = '';
+    (parts || []).forEach(function (raw) {
+      var seg = String(raw || '').replace(/\s+/g, ' ').trim();
+      if (!seg) return;
+      if (!acc || seg.indexOf(acc) === 0) acc = seg;
+      else if (acc.indexOf(seg) < 0) acc = acc + ' ' + seg;
+    });
+    return acc;
+  }
+
   function matches(p, st, ctx, skip) {
     ctx = ctx || {};
     /* נכס משוק אחר (‏_away, נטען כשהגולש/ת כתב/ה עיר משם) עונה רק לחיפוש
@@ -225,14 +255,20 @@
         norm(p.city).indexOf(norm(st.area.slice(5))) < 0)) return false;   // גם לא לחיפוש רחוב אחרי
     if (skip !== 'deal' && st.deal && p.deal_type !== st.deal) return false;
 
-    if (skip !== 'type' && st.type && st.type !== 'any') {
-      var t = typeDef(st.type);
-      if (t.commercial && p.category !== 'commercial') return false;
-      if (t.residential && p.category === 'commercial') return false;
-      if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;
+    if (skip !== 'type' && st.types && st.types.length) {
+      if (!st.types.some(function (k) { return typeMatches(p, k, ctx); })) return false;
+    } else if (skip !== 'type' && st.type && st.type !== 'any' && !typeMatches(p, st.type, ctx)) return false;
+    /* ‏C4 (תומר 22:13, ‏ctx.saleResidential - דף הבית עם הדגל): "למכירה" ו"להשכרה" בלי סוג הם
+       מגורים בלבד (כולל משקים ונחלות); המסחרי - רק בלשונית "מסחרי". גם המונים והשכונות */
+    else if (skip !== 'type' && ctx.saleResidential && st.deal && (!st.type || st.type === 'any') &&
+      (p.category === 'commercial' || COMMERCIAL_PTYPES[p.property_type])) return false;
+
+    if (skip !== 'area' && st.hoods && st.hoods.length) {
+      var mineH = p._areas || (p.neighborhood_id ? [hoodKey(p.neighborhood_id)] : []);
+      if (!st.hoods.some(function (h) { return mineH.indexOf(h) >= 0; })) return false;
     }
 
-    if (skip !== 'area' && st.area && st.area !== 'all') {
+    if (skip !== 'area' && !(st.hoods && st.hoods.length) && st.area && st.area !== 'all') {
       var a = st.area;
       // ‏p._areas - מ-deriveAreas (‏SearchCore.propertyAreas); בלעדיו, השכונה עצמה
       var mine = p._areas || (p.neighborhood_id ? [hoodKey(p.neighborhood_id)] : []);
@@ -267,6 +303,12 @@
       if (p.rooms === null || p.rooms === undefined || !isFinite(r)) return false;
       if (r < st.rooms[0] || r > st.rooms[1]) return false;
     }
+    if (skip !== 'rooms' && st.roomsIn && st.roomsIn.length && !typeDef(st.type).noRooms) {
+      var pickedIn = typeDef(st.type);
+      if (!pickedIn.commercial && (p.category === 'commercial' || COMMERCIAL_PTYPES[p.property_type])) return false;
+      var ri = Number(p.rooms);
+      if (p.rooms === null || p.rooms === undefined || !isFinite(ri) || !roomsMatchIn(ri, st.roomsIn)) return false;
+    }
 
     if (skip !== 'price') {
       // מחיר למ״ר - כפול השטח (‏SC.comparablePrice, docs/price-unit.md)
@@ -280,6 +322,18 @@
     /* הסינון המתקדם (קומה, מ״ר, מאפיינים…) מגיע מהדף כפרדיקט: הוא חל על
        כל מונה בדיוק כמו ה-slots, ולכן המספרים נשארים נכונים גם איתו. */
     if (skip !== 'extra' && ctx.extra && !ctx.extra(p)) return false;
+    return true;
+  }
+
+  function typeMatches(p, key, ctx) {
+    var t = typeDef(key);
+    if (key === 'house' && ctx && ctx.farmSplit && FARM_PTYPES.indexOf(p.property_type) >= 0) return false;
+    /* ‏F2: עם saleResidential סוג שאינו מסחרי אינו כולל נכס מסחרי - "מגרשים" במכירה הם המגרשים
+       למגורים בלבד (‏"מגרשים · 4", כמו בחלון ובהחלקה), ושני המגרשים המסחריים רק תחת מסחרי */
+    if (ctx && ctx.saleResidential && !t.commercial && p.category === 'commercial') return false;
+    if (t.commercial && p.category !== 'commercial') return false;
+    if (t.residential && p.category === 'commercial') return false;
+    if (t.ptypes && t.ptypes.indexOf(p.property_type) < 0) return false;
     return true;
   }
 
@@ -301,7 +355,17 @@
   function applyPatch(st, patch) {
     var next = assign(st, patch);
     if ('deal' in patch && patch.deal !== st.deal && !('priceMax' in patch)) next.priceMax = null;
-    if (typeDef(next.type).noRooms) next.rooms = null;
+    // בחירה אחת מחליפה את המרובה, ולהפך
+    if ('rooms' in patch && patch.rooms) next.roomsIn = null;
+    if ('roomsIn' in patch && patch.roomsIn && patch.roomsIn.length) next.rooms = null;
+    if ('roomsIn' in patch && patch.roomsIn && !patch.roomsIn.length) next.roomsIn = null;
+    if ('type' in patch && !('types' in patch)) next.types = null;
+    if ('types' in patch && patch.types && patch.types.length > 1) next.type = typeDef(patch.types[0]).commercial ? 'commercial' : 'any';
+    if ('types' in patch && patch.types && patch.types.length < 2) { next.type = patch.types[0] || next.type; next.types = null; }
+    if ('area' in patch && !('hoods' in patch)) next.hoods = null;
+    if ('hoods' in patch && patch.hoods && patch.hoods.length > 1) next.area = 'all';
+    if ('hoods' in patch && patch.hoods && patch.hoods.length < 2) { next.area = patch.hoods[0] || next.area; next.hoods = null; }
+    if (typeDef(next.type).noRooms) { next.rooms = null; next.roomsIn = null; }
     return next;
   }
 
@@ -322,12 +386,22 @@
     }
     var out = [
       { slot: 'deal', pre: '', value: dealLabel(st.deal) },
-      { slot: 'type', pre: '', value: typeDef(st.type).label },
-      { slot: 'area', pre: areaPrefix(areaKey), value: areaValue },
+      { slot: 'type', pre: '', value: typesLabel(st) },
+      { slot: 'area', pre: areaPrefix(areaKey), value: st.hoods && st.hoods.length ? hoodsLabel(st.hoods, areas, ctx) : areaValue },
     ];
-    if (!typeDef(st.type).noRooms) out.push({ slot: 'rooms', pre: 'עם', value: roomsLabel(st.rooms) });
+    if (!typeDef(st.type).noRooms) out.push({ slot: 'rooms', pre: 'עם', value: st.roomsIn && st.roomsIn.length ? roomsInLabel(st.roomsIn) : roomsLabel(st.rooms) });
     out.push({ slot: 'price', pre: 'ב', value: priceLabel(st.priceMax, st.deal) });
     return out;
+  }
+
+  function typesLabel(st) {
+    if (!st.types || !st.types.length) return typeDef(st.type).label;
+    var names = st.types.map(function (k) { return typeDef(k).label; });
+    return names.length > 2 ? names[0] + ' ועוד ' + (names.length - 1) + ' סוגים' : names.join(' או ');
+  }
+  function hoodsLabel(list, areas, ctx) {
+    var first = areaLabel(list[0], areas, ctx);
+    return list.length > 1 ? first + ' ובעוד ' + (list.length === 2 ? 'שכונה אחת' : (list.length - 1) + ' שכונות') : first;
   }
 
   function sameRooms(a, b) { return (!a && !b) || (a && b && a[0] === b[0] && a[1] === b[1]); }
@@ -340,12 +414,24 @@
         return { value: d, label: d ? dealLabel(d) : 'לקנות או לשכור', count: count({ deal: d }), selected: st.deal === d };
       });
     } else if (slot === 'type') {
-      var keys = TYPES.filter(function (t) { return !t.chipOnly; }).map(function (t) { return t.key; });
-      if (keys.indexOf(st.type) < 0) keys.push(st.type);
+      /* ‏P1-N1: במסחרי - רק סוגים מסחריים שיש בהם נכסים, ובסוף "← חיפוש מגורים"; במגורים
+         (או בלי סוג) - סוגי המגורים ו"נכס מסחרי" אחד, בלי חנות/משרד/מחסן בנפרד. כך דירה
+         ופנטהאוז לא מוצעים למי שמחפש/ת משרד, ולהפך */
+      var comm = !!typeDef(st.type).commercial;
+      var keys = TYPES.filter(function (t) {
+        if (t.chipOnly) return false;
+        if (comm) return t.commercial && t.key !== 'commercial';
+        return !t.commercial || t.key === 'commercial';
+      }).map(function (t) { return t.key; });
+      if (keys.indexOf(st.type) < 0 && !(comm && st.type === 'commercial')) keys.push(st.type);
       list = keys.map(function (k) {
         var t = typeDef(k);
         return { value: k, label: t.optionLabel || t.label, count: count({ type: k }), selected: st.type === k };
-      });
+      }).filter(function (o) { return !comm || o.count > 0 || o.selected; });
+      if (comm) {
+        list.unshift({ value: 'commercial', label: 'כל הנכסים המסחריים', count: count({ type: 'commercial' }), selected: st.type === 'commercial' });
+        list.push({ value: 'any', label: '← חיפוש מגורים', count: count({ type: 'any' }), selected: false });
+      }
     } else if (slot === 'area') {
       list.push({ value: 'all', label: areaLabel('all', areas, ctx), count: count({ area: 'all' }), selected: st.area === 'all' });
       if (ctx && ctx.canNear) list.push({ value: 'near', label: '📍 לידי', count: st.area === 'near' ? count({ area: 'near' }) : null, selected: st.area === 'near' });
@@ -474,6 +560,50 @@
     return n % 1 === 0 ? [n, n + 0.5] : [n, n];
   }
 
+  /* ---------- מספרים שנאמרו בקול (R8) ----------
+     הזיהוי בכרום מחזיר בדרך כלל ספרות, אבל לא תמיד (וספארי משתנה): "מיליון ושבע מאות",
+     "שני מיליון", "מיליון וחצי", "חמשת אלפים", "שלושת וחצי", "שבע מאות אלף". הופכים אותם
+     לספרות לפני הפענוח, שמבין רק ספרות. רק בצירוף למיליון/אלף/מאות - "ארבעה חדרים" לא נוגעים */
+  var SPOKEN_UNITS = { 'אחד': 1, 'אחת': 1, 'שני': 2, 'שתי': 2, 'שניים': 2, 'שתיים': 2, 'שלוש': 3, 'שלושה': 3, 'שלושת': 3,
+    'ארבע': 4, 'ארבעה': 4, 'ארבעת': 4, 'חמש': 5, 'חמישה': 5, 'חמשת': 5, 'שש': 6, 'שישה': 6, 'ששת': 6,
+    'שבע': 7, 'שבעה': 7, 'שבעת': 7, 'שמונה': 8, 'שמונת': 8, 'תשע': 9, 'תשעה': 9, 'תשעת': 9, 'עשר': 10, 'עשרה': 10, 'עשרת': 10 };
+  var SPOKEN_TENS = { 'עשרים': 20, 'שלושים': 30, 'ארבעים': 40, 'חמישים': 50, 'שישים': 60, 'שבעים': 70, 'שמונים': 80, 'תשעים': 90 };
+  var SU = Object.keys(SPOKEN_UNITS).sort(function (a, b) { return b.length - a.length; }).join('|');
+  var ST = Object.keys(SPOKEN_TENS).join('|');
+  var SH = '(?:מאה|מאתיים|(?:' + SU + ') מאות)';
+  function hundreds(w) {
+    if (!w) return 0;
+    if (w === 'מאה') return 1;
+    if (w === 'מאתיים') return 2;
+    return SPOKEN_UNITS[w.split(' ')[0]] || 0;
+  }
+  function spokenNumbers(text) {
+    var t = ' ' + String(text || '').replace(/\s+/g, ' ').trim() + ' ';
+    var B = '(?=[ ,.?!])';
+    // "שבע מאות (ו)חמישים אלף" → 750000
+    t = t.replace(new RegExp(' (' + SH + ')(?: ו(' + ST + '|' + SU + '))? אלף' + B, 'g'), function (m, h, x) {
+      return ' ' + (hundreds(h) * 100 + (SPOKEN_TENS[x] || SPOKEN_UNITS[x] || 0)) * 1000;
+    });
+    // "(שני|2) מיליון (ו)(חצי|רבע|שבע מאות (אלף))" / "שניים וחצי מיליון"
+    t = t.replace(new RegExp(' (' + SU + ') וחצי (?:מיליון|מליון)' + B, 'g'), function (m, u) { return ' ' + (SPOKEN_UNITS[u] + 0.5) + ' מיליון'; });
+    t = t.replace(new RegExp('(?: (' + SU + '|\\d+(?:\\.\\d+)?))? (?:מיליון|מליון)(?: ו?(חצי|רבע|' + SH + ')(?: אלף)?)?' + B, 'g'), function (m, u, f) {
+      var base = u ? (SPOKEN_UNITS[u] || parseFloat(u)) : 1;
+      var add = f === 'חצי' ? 0.5 : f === 'רבע' ? 0.25 : f ? hundreds(f) / 10 : 0;
+      return ' ' + Math.round((base + add) * 100) / 100 + ' מיליון';
+    });
+    // "חמשת אלפים (ו)(חצי|חמש מאות)" → 5500; "אלף וחמש מאות" → 1500
+    t = t.replace(new RegExp(' (?:(' + SU + '|' + ST + ') )?(?:אלפים|אלף)(?: ו(חצי|' + SH + '))?' + B, 'g'), function (m, u, f, at, all) {
+      // ‏"5 אלף" כבר מובן לפענוח - רק מילים
+      if (!u && (!/^ אלף/.test(m) || /\d$/.test(all.slice(0, at)))) return m;
+      var base = u ? (SPOKEN_UNITS[u] || SPOKEN_TENS[u]) : 1;
+      var add = f === 'חצי' ? 500 : f ? hundreds(f) * 100 : 0;
+      return ' ' + (base * 1000 + add);
+    });
+    // "שלושת וחצי" (צורת סמיכות = אלפים) → 3500
+    t = t.replace(/ (שלושת|ארבעת|חמשת|ששת|שבעת|שמונת|תשעת|עשרת) וחצי(?=[ ,.?!])/g, function (m, u) { return ' ' + (SPOKEN_UNITS[u] * 1000 + 500); });
+    return t.trim();
+  }
+
   function parse(text, st, areas, places) {
     var patch = {}, fields = [];
     var t = norm(text);
@@ -484,7 +614,8 @@
     else if (/לקנות|קני|מכיר|לרכוש|רכיש/.test(t)) patch.deal = 'sale';
 
     /* סוג הנכס - מהליבה (‏SC.typeIn), אותן מילים שגבריאלה מתרגמת בהן */
-    var tk = SC.typeIn(t);
+    // ‏C3: משק ונחלה - לפני הליבה, שבה הם "בית"
+    var tk = /(^| )[ובלה]?(משק|משקים|נחלה|נחלות)( |$)/.test(t) ? 'farm' : SC.typeIn(t);
     if (tk) patch.type = tk;
 
     var rest = t;
@@ -603,9 +734,9 @@
   function parsedNote(fields, st, areas, ctx) {
     return fields.map(function (s) {
       if (s === 'deal') return st.deal === 'rent' ? 'שכירות' : 'קנייה';
-      if (s === 'type') return typeDef(st.type).label;
-      if (s === 'area') return areaLabel(st.area, areas, ctx);
-      if (s === 'rooms') return roomsLabel(st.rooms);
+      if (s === 'type') return typesLabel(st);
+      if (s === 'area') return st.hoods && st.hoods.length ? hoodsLabel(st.hoods, areas, ctx) : areaLabel(st.area, areas, ctx);
+      if (s === 'rooms') return st.roomsIn && st.roomsIn.length ? roomsInLabel(st.roomsIn) : roomsLabel(st.rooms);
       if (s === 'price') return st.priceMax === null ? 'כל תקציב' : priceLabel(st.priceMax, st.deal);
       return '';
     }).filter(Boolean).join(' · ');
@@ -663,21 +794,53 @@
 
     var ptype = get('ptype');
     var tkey = get('type');
-    if (ptype) {
+    if (ptype && ptype.indexOf(',') > 0) {
+      var keys = [];
+      ptype.split(',').forEach(function (v) {
+        v = v.trim();
+        var g = TYPES.filter(function (t) { return t.url === v; })[0];
+        // ערך קנוני (‏url), מפתח של קבוצה בלי url (‏apt), או ערך גולמי מהמסד
+        var k = g ? g.key : TYPE_BY_KEY[v] ? v : (/^[֐-׿\w'"/ .-]{1,40}$/.test(v) ? 'raw:' + v : null);
+        if (k && keys.indexOf(k) < 0) keys.push(k);
+      });
+      if (keys.length > 1) { st.types = keys; st.type = typeDef(keys[0]).commercial ? 'commercial' : 'any'; }
+      else if (keys.length) st.type = keys[0];
+    } else if (ptype) {
       var group = TYPES.filter(function (t) { return t.url === ptype; })[0];
       if (group) st.type = group.key;
       else if (/^[֐-׿\w'"/ .-]{1,40}$/.test(ptype)) st.type = 'raw:' + ptype;
-    } else if (TYPE_BY_KEY[tkey]) st.type = tkey;
+    } else if (tkey) {
+      // ‏type=<מפתח>, ‏type=a,b ו-type=raw:<ערך> (‏R5) - מפתח לא מוכר נזרק
+      var tk2 = tkey.split(',').map(function (v) { return v.trim(); }).filter(function (v) {
+        return TYPE_BY_KEY[v] || /^raw:[֐-׿\w'"/ .-]{1,40}$/.test(v);
+      });
+      if (tk2.length > 1) { st.types = tk2; st.type = typeDef(tk2[0]).commercial ? 'commercial' : 'any'; }
+      else if (tk2.length) st.type = tk2[0];
+    }
 
-    st.rooms = parseRooms(get('rooms'));
+    /* ‏R5-4: ‏rooms=3,5,6+ (שלמים בפסיקים) = בחירה מרובה. עם חצי (‏3,3.5) - הטווח הישן */
+    var rawRooms = get('rooms');
+    if (/^\s*\d+\+?\s*(,\s*\+?\d+\+?\s*)+$/.test(rawRooms) && !/\./.test(rawRooms)) {
+      var ins = [];
+      rawRooms.split(',').forEach(function (v) {
+        var n = parseInt(v.replace(/\+/g, ''), 10);
+        if (n >= 1 && n <= 20) { n = Math.min(n, 6); if (ins.indexOf(n) < 0) ins.push(n); }
+      });
+      if (ins.length > 1) st.roomsIn = ins.sort(function (a, b) { return a - b; });
+      else st.rooms = parseRooms(rawRooms);
+    } else st.rooms = parseRooms(rawRooms);
     var num = function (k) { var n = Number(get(k)); return get(k) && isFinite(n) && n > 0 ? Math.round(n) : null; };
     st.priceMax = num('maxPrice');
     st.priceMin = num('minPrice');
     var q = get('q').slice(0, 80);
     if (q) st.area = 'text:' + q;
+    var hoodsRaw = get('hoods').split(',').map(function (v) { return v.trim(); })
+      .filter(function (v) { return /^[\w-]{1,64}$/.test(v); });
+    if (hoodsRaw.length > 1) { st.hoods = hoodsRaw.slice(0, 20).map(hoodKey); st.area = 'all'; }
+    else if (hoodsRaw.length === 1 && !q) st.area = hoodKey(hoodsRaw[0]);
     st.city = parseCity(get('city'));
     st.ai = get('ai') === '1';
-    if (typeDef(st.type).noRooms) st.rooms = null;
+    if (typeDef(st.type).noRooms) { st.rooms = null; st.roomsIn = null; }
     return st;
   }
 
@@ -707,14 +870,23 @@
     var t = typeDef(st.type);
     if (st.deal) p.push(['deal', st.deal]);
     else if (t.commercial) p.push(['deal', 'commercial']);
-    if (t.url) p.push(['ptype', t.url]);
+    /* ‏R5 (‏A3-1, ‏ctx.typeParam - דף הבית עם הדגל): ‏type=<מפתח> בלבד, גם לכמה סוגים
+       (‏type=flats,farm) ולסוג גולמי (‏type=raw:דופלקס). ‏ptype= עדיין נקרא (‏fromParams) */
+    if (ctx && ctx.typeParam) {
+      var keys = st.types && st.types.length ? st.types : (st.type && st.type !== 'any' && !(t.key === 'commercial' && !st.deal) ? [st.type] : []);
+      if (keys.length) p.push(['type', keys.join(',')]);
+    }
+    else if (st.types && st.types.length) p.push(['ptype', st.types.map(function (k) { var d = typeDef(k); return d.url || k.replace(/^raw:/, ''); }).join(',')]);
+    else if (t.url) p.push(['ptype', t.url]);
     else if (st.type && st.type !== 'any' && !(t.key === 'commercial' && !st.deal)) p.push(['type', st.type]);
-    if (st.rooms) p.push(['rooms', roomsParam(st.rooms)]);
+    if (st.roomsIn && st.roomsIn.length) p.push(['rooms', st.roomsIn.map(function (n) { return n >= 6 ? '6+' : String(n); }).join(',')]);
+    else if (st.rooms) p.push(['rooms', roomsParam(st.rooms)]);
     if (st.priceMin) p.push(['minPrice', String(st.priceMin)]);
     if (st.priceMax !== null && st.priceMax !== undefined) p.push(['maxPrice', String(st.priceMax)]);
     /* ‏"לידי" ו"האזור שסימנתי" אינם נכתבים: הם תלויים במיקום ובציור של מי
        שנמצא/ת כאן עכשיו, וקישור ששותף איתם היה נוחת על משהו אחר לגמרי. */
-    if (st.area && st.area !== 'all' && st.area !== 'near' && st.area !== 'drawn') p.push(['q', areaLabel(st.area, areas, ctx)]);
+    if (st.hoods && st.hoods.length) p.push(['hoods', st.hoods.map(function (h) { return h.replace(/^hood:/, ''); }).join(',')]);
+    else if (st.area && st.area !== 'all' && st.area !== 'near' && st.area !== 'drawn') p.push(['q', areaLabel(st.area, areas, ctx)]);
     if (st.city) p.push(['city', st.city]);
     if (st.ai) p.push(['ai', '1']);
     return p.map(function (kv) { return kv[0] + '=' + encodeURIComponent(kv[1]); }).join('&');
@@ -762,6 +934,73 @@
     });
   }
 
+  /* ---------- הסינון המתקדם מהכתובת, לדף אחר (‏R5-5) ----------
+     ‏/swipe מקבל את הכתובת של דף הבית ומחיל אותה כמו שהיא. אותם פרמטרים של
+     ‏ADV_URL_PARAMS ב-home.js ואותם תנאים של applyAdvancedFilters - שינוי שם חייב
+     להיכנס גם לכאן. ‏items: תווית לכל מסנן (הצ'יפים "מדף הבית"), ‏test: הפרדיקט. */
+  var ADV_LABELS = { has_photo: 'עם תמונה', has_price: 'עם מחיר', price_dropped: 'מחיר ירד', tour_3d: 'סיור 3D', moshav_kibbutz_only: 'מושבים וקיבוצים' };
+  var LOC_LABELS = { building: 'בבניין', unit: 'בנכס' };
+  function advancedFromParams(params) {
+    var get = function (k) { var v = params.get(k); return v === null ? '' : String(v).trim(); };
+    var items = [], tests = [];
+    var numOf = function (k) { var v = get(k); if (!v) return null; var n = Number(v); return isFinite(n) ? n : null; };
+    var feats = get('features').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return SC.knownFeature ? SC.knownFeature(x) : !!x; });
+    feats.forEach(function (code) {
+      var lbl = (SC.FEATURE_LABELS && SC.FEATURE_LABELS[code]) || code;
+      items.push({ params: { features: code }, label: lbl });
+      tests.push(function (p) { return SC.hasFeatures(p, [code]); });
+    });
+    get('listing').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return ADV_LABELS[x]; }).forEach(function (code) {
+      items.push({ params: { listing: code }, label: ADV_LABELS[code] });
+      tests.push(function (p) {
+        if (code === 'has_photo') return Array.isArray(p.images) && p.images.length > 0;
+        if (code === 'has_price') return p.price !== null && p.price !== undefined;
+        if (code === 'tour_3d') return /^http/i.test(p.tour_3d_url || '') || p.has_virtual_tour === true;
+        return Array.isArray(p.features) && p.features.indexOf(code) >= 0;
+      });
+    });
+    function range(lo, hi, field, label, unit, get) {
+      var a = numOf(lo), b = numOf(hi);
+      if (a === null && b === null) return;
+      var o = {}; if (a !== null) o[lo] = a; if (b !== null) o[hi] = b;
+      items.push({ params: o, label: label + ' ' + (a !== null && b !== null ? a.toLocaleString('he-IL') + '-' + b.toLocaleString('he-IL') : a !== null ? 'מ-' + a.toLocaleString('he-IL') : 'עד ' + b.toLocaleString('he-IL')) + unit });
+      tests.push(function (p) {
+        var v = get ? get(p) : (p[field] === null || p[field] === undefined || p[field] === '' ? null : Number(p[field]));
+        return v !== null && isFinite(v) && (a === null || v >= a) && (b === null || v <= b);
+      });
+    }
+    range('floorMin', 'floorMax', 'floor', 'קומה', '');
+    range('sizeMin', 'sizeMax', 'size_sqm', 'שטח', ' מ״ר');
+    range('ppsqmMin', 'ppsqmMax', null, 'מחיר למ״ר', ' ₪', function (p) {
+      var price = Number(p.price), size = Number(p.size_sqm);
+      if (!isFinite(price) || price <= 0) return null;
+      if (p.price_unit === 'sqm') return price;
+      return isFinite(size) && size > 0 ? Math.round(price / size) : null;
+    });
+    var cond = get('condition');
+    if (/^[a-z_]{2,30}$/.test(cond)) { items.push({ params: { condition: cond }, label: 'מצב הנכס' }); tests.push(function (p) { return p.condition === cond; }); }
+    var status = get('status');
+    if (/^[a-z_]{2,30}$/.test(status)) { items.push({ params: { status: status }, label: 'סטטוס פרויקט' }); tests.push(function (p) { return p.project_status === status; }); }
+    if (get('newOnly') === '1') { items.push({ params: { newOnly: '1' }, label: 'פרויקטים חדשים' }); tests.push(function (p) { return !!p.project_status || p.condition === 'new_from_contractor'; }); }
+    if (get('soon') === '1') { items.push({ params: { soon: '1' }, label: 'כניסה מיידית' }); tests.push(function (p) { return p.move_in_soon === true; }); }
+    var mv = get('moveIn');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(mv)) { items.push({ params: { moveIn: mv }, label: 'כניסה מ-' + mv }); tests.push(function (p) { return !!p.move_in_date && p.move_in_date >= mv; }); }
+    [['restrooms', 'restrooms_location', 'שירותים'], ['storageAt', 'storage_location', 'מחסן'], ['mamadAt', 'mamad_location', 'ממ״ד']].forEach(function (x) {
+      var v = get(x[0]);
+      if (!LOC_LABELS[v]) return;
+      var o = {}; o[x[0]] = v;
+      items.push({ params: o, label: x[2] + ' ' + LOC_LABELS[v] });
+      tests.push(function (p) { return p[x[1]] === v; });
+    });
+    var text = get('text').slice(0, 80);
+    if (text) {
+      items.push({ params: { text: text }, label: '"' + text + '"' });
+      // ‏textHas: אותו כלל של שורת החיפוש - כתיב מלא וחסר ("העלייה" = "עלייה")
+      tests.push(function (p) { return SC.textHas([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' '), text); });
+    }
+    return { items: items, test: function (p) { return tests.every(function (t) { return t(p); }); } };
+  }
+
   var Core = {
     TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
@@ -770,7 +1009,9 @@
     slotsFor: slotsFor, options: options, nextSlot: nextSlot, slotOrder: slotOrder, stepOf: stepOf,
     nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
     parse: parse, compileQuery: compileQuery, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
-    fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
+    fromParams: fromParams, resolveArea: resolveArea, joinSpeech: joinSpeech, toParams: toParams, parseRooms: parseRooms,
+    advancedFromParams: advancedFromParams, typesLabel: typesLabel, hoodsLabel: hoodsLabel, roomsInLabel: roomsInLabel,
+    spokenNumbers: spokenNumbers,
   };
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = Core; return; }
@@ -826,6 +1067,9 @@
     var loaded = false;
     var ctx = {
       marketLabel: opts.marketLabel || 'האזור',
+      saleResidential: !!opts.saleResidential,   // ‏C4
+      farmSplit: !!opts.farmSplit,               // ‏C3
+      typeParam: !!opts.typeParam,               // ‏R5
       aiIds: null,
       inDrawn: null,
       near: null,
@@ -1210,6 +1454,7 @@
     }
 
     /* ---------- השדה החכם ---------- */
+    var parsedFieldsLast = '';
     function runParse() {
       var text = (input.value || '').trim();
       parsedText = text;
@@ -1283,7 +1528,8 @@
           opts.onWordMiss('feature', wordMiss, areas.mainCity || '');
         }
       }
-      track('search_freetext_submit', { parsed_fields: fields.concat(feats.length ? ['features'] : []).join(',') || 'none', field_count: fields.length });
+      parsedFieldsLast = fields.concat(feats.length ? ['features'] : []).join(',');
+      track('search_freetext_submit', { parsed_fields: parsedFieldsLast || 'none', field_count: fields.length, source: querySource });
       return fields.length > 0 || feats.length > 0;
     }
 
@@ -1301,7 +1547,7 @@
       keyboardOpen = false;
       render();
       var list = results();
-      track('search_submit', { result_count: list.length });
+      track('search_submit', { result_count: list.length, source: querySource });
       if (typeof opts.onSubmit === 'function') opts.onSubmit(list, st);
     }
 
@@ -1385,147 +1631,248 @@
       change(h.patch, 'widen');
     });
 
-    /* מיקרופון: Web Speech API היכן שיש, ואחרת הכפתור לא מוצג בכלל. */
+    /* ---------- חיפוש קולי (R8, אושר בידי תומר 28.10.2026) ----------
+       לחיצה אחת מתחילה; הטיימר שלנו מסיים 1.6 שניות אחרי המילה האחרונה; לחיצה נוספת
+       מסיימת מוקדם; ✕ (או Esc, או מעבר לשונית) מבטל בלי לחפש. אין "החזקה": היא לא
+       קיימת בחיפוש (Google, YouTube, Airbnb), ‏continuous=false סגר את ההקלטה גם
+       כשהאצבע עוד על הכפתור, והתחלה ב-pointerdown אינה מחווה מוכרת ב-iOS. ‏click בלבד -
+       אותו מסלול גם למקלדת ולקורא מסך. התוצאה עוברת באותו מסלול כמו Enter
+       (‏opts.onQuery - מספר מודעה, בעלי מקצוע), והתמלול לא נשלח לשום מקום.
+       הנוסח: גבריאלה (קשר עם לקוחות). ‏docs/sentence-search.md, "חיפוש קולי". */
     var Rec = root.SpeechRecognition || root.webkitSpeechRecognition;
+    var voiceOn = false;            // הטייפר (למטה) לא רץ בזמן הקשבה
+    var typerApi = null;
+    var querySource = 'typed';      // ‏source באירועי החיפוש
+    var VOICE_OFF_KEY = 'ss_voice_off';
+    var UA = root.navigator ? root.navigator.userAgent || '' : '';
+    var IN_APP = /FBAN|FBAV|Instagram|Line\/|TikTok|Snapchat/i.test(UA);
+    var IOS = /iP(hone|ad|od)/.test(UA) || (/Macintosh/.test(UA) && root.navigator && root.navigator.maxTouchPoints > 1);
+    var IOS_SAFARI = IOS && /Safari\//.test(UA) && !/CriOS|FxiOS|EdgiOS|GSA\//.test(UA) && !IN_APP;
+    var WEBKIT = /AppleWebKit/.test(UA) && !/Chrome|Chromium|CriOS|Edg\//.test(UA);
+    var uaClass = IN_APP ? 'in_app' : IOS_SAFARI ? 'ios_safari' : IOS ? 'ios_other' : WEBKIT ? 'webkit' : 'chromium';
+    var VOICE = {
+      wait: 'רגע…',
+      perm: 'הדפדפן יבקש אישור למיקרופון. אנחנו לא שומרים את ההקלטה.',
+      hearing: 'מקשיבים… לחיצה נוספת מסיימת',
+      busy: 'מחפשים…',
+      none: 'לא שמענו כלום. אפשר לנסות שוב או לכתוב בשדה.',
+      cancel: 'החיפוש הקולי בוטל.',
+      denied: 'אין אישור למיקרופון. אפשר לאשר אותו בהגדרות האתר בדפדפן, או לכתוב בשדה.',
+      browser: 'בדפדפן הזה החיפוש הקולי לא זמין. אפשר לפתוח את האתר ב-Chrome או ב-Safari, או לכתוב בשדה.',
+      iphone: 'כדי לחפש בקול באייפון צריך להפעיל את ההכתבה בהגדרות המקלדת. בינתיים אפשר לכתוב בשדה.',
+      nomic: 'לא מצאנו מיקרופון במכשיר. אפשר לכתוב בשדה.',
+      network: 'אין חיבור לשירות הזיהוי כרגע. אפשר לנסות שוב או לכתוב בשדה.',
+      other: 'החיפוש הקולי לא עבד הפעם. אפשר לנסות שוב או לכתוב בשדה.'
+    };
+    var VOICE_SILENCE = 1600, VOICE_NO_SPEECH = 6000, VOICE_MAX = 12000, VOICE_WATCHDOG = 4000;
+    function sessFlag(k, v) { try { if (v === undefined) return root.sessionStorage.getItem(k); root.sessionStorage.setItem(k, v); } catch (e) { return null; } }
     if (micBtn) {
-      if (!Rec) micBtn.hidden = true;
+      if (!Rec || sessFlag(VOICE_OFF_KEY)) micBtn.hidden = true;
       else {
         micBtn.hidden = false;
-        /* הזיהוי הפעיל. לחיצה בזמן הקשבה עוצרת אותו - קודם כל לחיצה יצרה
-           מופע חדש, והשני נפל ב-InvalidStateError או ביטל את הראשון
-           (‏aborted) והציג "לא זמין" על חיפוש שעבד. */
-        var listening = null;
-        /* שתי דרכים לאותו כפתור. לחיצה קצרה: מתחילים, והזיהוי נסגר לבד בסוף
-           המשפט (או בלחיצה נוספת). החזקה: מקליטים כל עוד האצבע על הכפתור,
-           ועזיבה עוצרת ומחפשת - כמו הודעה קולית בוואטסאפ. ההחזקה אינה
-           מחליפה את הלחיצה: מקלדת וקורא מסך אינם יכולים "להחזיק".
-           ‏audioOn: עזיבה עוצרת רק אחרי שההקשבה באמת התחילה (‏onstart).
-           בפעם הראשונה הדפדפן מבקש הרשאה, וכדי לאשר צריך להרים את האצבע -
-           בלי הבדיקה הזו האישור עצמו היה עוצר את ההקלטה. */
-        var HOLD_NOTE = 'מקשיבים... עזבו את הכפתור כדי לחפש';
-        var TAP_NOTE = 'מקשיבים... לחיצה נוספת עוצרת';
-        var pressed = false, holdMode = false, holdTimer = 0;
-        var pressStops = false, skipClick = false, audioOn = false;
-        var stopListening = function () {
-          if (listening) { try { listening.stop(); } catch (e) { /* כבר נעצר */ } }
-        };
-        var startListening = function () {
-          var typed = input.value;
-          var heard = '';
-          var failed = false;
-          audioOn = false;
-          try {
-            var rec = new Rec();
-            rec.lang = 'he-IL';
-            /* תוצאות ביניים נכתבות לשדה תוך כדי דיבור: בלעדיהן הגולש/ת מדבר/ת
-               לתוך שתיקה עד שהזיהוי נסגר, ולא יודע/ת אם שומעים */
-            rec.interimResults = true;
-            rec.continuous = false;
-            rec.maxAlternatives = 1;
-            listening = rec;
-            micBtn.classList.add('is-listening');
-            micBtn.setAttribute('aria-pressed', 'true');
-            rec.onresult = function (ev) {
-              var text = '';
-              for (var i = 0; i < ev.results.length; i++) {
-                if (ev.results[i] && ev.results[i][0]) text += ev.results[i][0].transcript;
-              }
-              heard = text.trim();
-              if (heard) input.value = heard;
-            };
-            /* "מקשיבים" רק כשהזיהוי באמת שומע: הוא מתחיל כשלוש-עשיריות שנייה
-               אחרי הלחיצה, ומי שמדבר/ת לפני כן מאבד/ת את המילה הראשונה */
-            rec.onstart = function () {
-              if (listening !== rec) return;
-              audioOn = true;
-              if (noteEl) noteEl.textContent = pressed ? HOLD_NOTE : TAP_NOTE;
-            };
-            var stop = function () {
-              if (listening === rec) { listening = null; audioOn = false; }
-              micBtn.classList.remove('is-listening');
-              micBtn.setAttribute('aria-pressed', 'false');
-            };
-            /* הפענוח קורה ב-onend ולא ב-onresult: עם תוצאות ביניים onresult
-               נורה כמה פעמים, ובחלק מהדפדפנים (ספארי) התוצאה האחרונה אינה
-               מסומנת isFinal. ‏onend מגיע פעם אחת, אחרי שהכל נשמע. */
-            rec.onend = function () {
-              stop();
-              if (failed) return;
-              /* דיבור שזוהה פותח את התוצאות מיד, בלי "הצג N נכסים". ב-Enter
-                 זה הפוך בכוונה - מי שמקליד/ה עוד מלטש/ת - אבל סוף ההקלטה הוא
-                 כבר "סיימתי", ובטלפון לא היה ברור שיש עוד לחיצה. מה שלא זוהה
-                 נשאר במשפט עם "לא זיהיתי", כדי לא לפתוח רשימה שאינה החיפוש. */
-              if (heard) { input.value = heard; if (runParse()) submit(); }
-              else { input.value = typed; if (noteEl) noteEl.textContent = 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'; }
-            };
-            /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
-               נלחץ ולא קרה דבר. עכשיו כל כשל אומר מה קרה. */
-            rec.onerror = function (ev) {
-              var code = ev && ev.error;
-              /* ‏aborted הוא עצירה שלנו, ו-no-speech מטופל ב-onend. מה שנשמע עד
-                 הכשל (למשל network באמצע משפט) עדיין מפוענח שם. */
-              if (code === 'aborted' || code === 'no-speech' || heard) return;
-              failed = true;
-              stop();
-              input.value = typed;
-              /* קוד השגיאה נכתב בסוגריים: בלעדיו "לא עובד" מהטלפון של גולש/ת
-                 אינו ניתן לאבחון - ‏not-allowed (הרשאה/מדיניות), ‏network (שירות
-                 הזיהוי של הדפדפן), ‏audio-capture (אין מיקרופון) הם שלוש בעיות
-                 שונות לגמרי. */
-              if (noteEl) noteEl.textContent =
-                (code === 'not-allowed' || code === 'service-not-allowed'
-                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות האתר בדפדפן, או לכתוב בשדה.'
-                  : code === 'audio-capture'
-                      ? 'לא נמצא מיקרופון במכשיר - אפשר לכתוב בשדה.'
-                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
-                (code ? ' (' + code + ')' : '');
-            };
-            if (noteEl) noteEl.textContent = 'רגע...';
-            rec.start();
-          } catch (err) {
-            listening = null;
-            micBtn.classList.remove('is-listening');
-            micBtn.setAttribute('aria-pressed', 'false');
-            if (noteEl) noteEl.textContent = 'החיפוש הקולי לא זמין בדפדפן הזה - אפשר לכתוב בשדה. (' + ((err && err.name) || 'error') + ')';
-          }
-        };
+        micBtn.setAttribute('aria-pressed', 'false');
+        // ✕ בזמן הקשבה - במקום כפתור הסינון שלידו (‏.is-voice על הכרטיס)
+        var cancelBtn = doc.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'ss-mic-cancel';
+        cancelBtn.hidden = true;
+        cancelBtn.setAttribute('aria-label', 'ביטול החיפוש הקולי');
+        cancelBtn.textContent = '✕';
+        micBtn.parentNode.insertBefore(cancelBtn, micBtn.nextSibling);
+        // הודעה לקורא מסך על התוצאה (‏noteEl כבר מציג את "שמענו")
+        var srEl = doc.createElement('span');
+        srEl.className = 'ss-sr';
+        srEl.setAttribute('aria-live', 'polite');
+        srEl.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
+        card.appendChild(srEl);
 
-        micBtn.addEventListener('pointerdown', function (e) {
-          if (e.button !== 0) return;
-          skipClick = true;                 // ה-click שאחרי מטופל כאן, לא שם
-          if (listening) { pressStops = true; return; }
-          pressStops = false;
-          pressed = true;
-          holdMode = false;
-          /* ‏capture: העזיבה מגיעה לכפתור גם אם האצבע גלשה ממנו בזמן הדיבור */
-          try { micBtn.setPointerCapture(e.pointerId); } catch (err) { /* לא נתמך */ }
-          startListening();
-          root.clearTimeout(holdTimer);
-          holdTimer = root.setTimeout(function () {
-            if (!pressed) return;
-            holdMode = true;
-            if (audioOn && noteEl) noteEl.textContent = HOLD_NOTE;
-          }, 400);
-        });
-        var release = function () {
-          root.setTimeout(function () { skipClick = false; }, 500);
-          if (pressStops) { pressStops = false; stopListening(); return; }
-          if (!pressed) return;
-          pressed = false;
-          root.clearTimeout(holdTimer);
-          if (holdMode && audioOn) stopListening();
-          else if (audioOn && noteEl) noteEl.textContent = TAP_NOTE;
-          holdMode = false;
+        var permState = 'unknown';
+        try {
+          if (root.navigator.permissions && root.navigator.permissions.query) {
+            root.navigator.permissions.query({ name: 'microphone' }).then(function (r) {
+              permState = r.state;
+              r.onchange = function () { permState = r.state; };
+            }, function () {});
+          }
+        } catch (e) { /* לא נתמך */ }
+
+        var vs = null;   // ההקלטה הפעילה
+        var buzz = function () { try { if (root.navigator.vibrate) root.navigator.vibrate(10); } catch (e) {} };
+        var setNote = function (t) { if (noteEl) noteEl.textContent = t; };
+        var uiOn = function () {
+          voiceOn = true;
+          micBtn.classList.add('is-listening');
+          micBtn.setAttribute('aria-pressed', 'true');
+          card.classList.add('is-voice');
+          cancelBtn.hidden = false;
+          if (typerApi) typerApi.clear();
+          input.setAttribute('placeholder', 'מקשיבים…');
         };
-        micBtn.addEventListener('pointerup', release);
-        micBtn.addEventListener('pointercancel', release);
-        /* לחיצה ארוכה בטלפון פותחת תפריט או מסמנת טקסט */
-        micBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-        /* מקלדת וקורא מסך מגיעים רק לכאן (‏Enter/רווח) - לחיצה מתחילה ועוצרת */
+        var uiOff = function () {
+          voiceOn = false;
+          micBtn.classList.remove('is-listening', 'is-busy');
+          micBtn.setAttribute('aria-pressed', 'false');
+          card.classList.remove('is-voice');
+          input.classList.remove('is-interim');
+          cancelBtn.hidden = true;
+          placeholder();
+          if (typerApi && input.value === '') root.setTimeout(typerApi.start, 600);
+        };
+        var clearTimers = function (v) { ['tWatch', 'tNoSpeech', 'tSilence', 'tMax', 'tEnd'].forEach(function (k) { root.clearTimeout(v[k]); }); };
+        var hideForSession = function () { sessFlag(VOICE_OFF_KEY, '1'); micBtn.hidden = true; cancelBtn.hidden = true; };
+        var fail = function (v, code) {
+          if (v.done) return;
+          v.done = true;
+          clearTimers(v);
+          try { v.rec.abort(); } catch (e) {}
+          if (vs === v) vs = null;
+          input.value = v.typed;
+          uiOff();
+          track('voice_error', { code: code, ua_class: uaClass });
+          var hide = code === 'service-not-allowed' || code === 'watchdog' || (code === 'not-allowed' && permState !== 'prompt');
+          if (IN_APP && hide) { setNote(VOICE.browser); hideForSession(); return; }
+          setNote(code === 'not-allowed' ? VOICE.denied
+            : code === 'service-not-allowed' ? (IOS_SAFARI ? VOICE.iphone : VOICE.browser)
+            : code === 'watchdog' ? VOICE.browser
+            : code === 'audio-capture' ? VOICE.nomic
+            : code === 'network' ? VOICE.network : VOICE.other);
+        };
+        /* סיום: הטיימר שלנו, לחיצה, מקסימום - עוצרים את הזיהוי, והעיבוד ב-onend (התוצאה
+           האחרונה מגיעה אחרי stop). ‏onend שלא מגיע - מעבדים אחרי שנייה וחצי בכל זאת */
+        var finish = function (v, reason) {
+          if (v.done || v.ending) return;
+          v.ending = true;
+          v.reason = reason;
+          clearTimers(v);
+          micBtn.classList.add('is-busy');
+          setNote(VOICE.busy);
+          buzz();
+          if (reason !== 'browser') { try { v.rec.stop(); } catch (e) {} v.tEnd = root.setTimeout(function () { process(v); }, 1500); }
+          else process(v);
+        };
+        var process = function (v) {
+          if (v.done) return;
+          v.done = true;
+          clearTimers(v);
+          if (vs === v) vs = null;
+          var text = (v.final + ' ' + v.interim).replace(/\s+/g, ' ').trim();
+          uiOff();
+          if (!text) {
+            input.value = v.typed;
+            setNote(VOICE.none);
+            track('voice_no_speech', {});
+            if (typerApi && input.value === '') typerApi.start();
+            return;
+          }
+          var spoken = spokenNumbers(text);
+          input.value = spoken;
+          // ‏input: מה שהדף עושה על הקלדה (הצעת בעלי מקצוע) קורה גם לדיבור
+          input.dispatchEvent(new root.Event('input', { bubbles: true }));
+          var base = { chars: text.length, words: text.split(' ').length, duration_ms: Date.now() - v.t0, end_reason: v.reason || 'browser' };
+          var lowConf = v.conf != null && v.conf < 0.5;
+          var go = function (handled) {
+            if (handled) { track('voice_result', Object.assign(base, { parsed_fields: 'routed' })); setNote('שמענו: ' + text); return; }
+            querySource = 'voice';
+            var ok = false;
+            try { ok = lowConf ? false : runParse(); } finally { querySource = 'typed'; }
+            var parsed = noteEl ? noteEl.textContent.replace(/^הבנתי: /, '') : '';
+            track('voice_result', Object.assign(base, { parsed_fields: ok ? (parsedFieldsLast || 'features') : 'none' }));
+            if (!ok) { setNote('שמענו: "' + text + '", אבל לא זיהינו מה לחפש. אפשר לתקן בשדה ולחפש.'); return; }
+            querySource = 'voice';
+            try { submit(); } finally { querySource = 'typed'; }
+            setNote('שמענו: ' + text + ' · הבנו: ' + parsed);
+            var n = results().length;
+            srEl.textContent = n === 0 ? 'לא נמצאו נכסים עבור: ' + text : n === 1 ? 'נמצא נכס אחד עבור: ' + text : 'נמצאו ' + n + ' נכסים עבור: ' + text;
+          };
+          var r = typeof opts.onQuery === 'function' ? opts.onQuery(spoken, 'voice') : false;
+          if (r && typeof r.then === 'function') r.then(go, function () { go(false); }); else go(!!r);
+        };
+        var cancel = function (why) {
+          var v = vs;
+          if (!v || v.done) return;
+          v.done = true;
+          clearTimers(v);
+          try { v.rec.abort(); } catch (e) {}
+          vs = null;
+          input.value = v.typed;
+          uiOff();
+          track('voice_cancel', { at_ms: Date.now() - v.t0 });
+          if (why === 'hidden') return;
+          setNote(VOICE.cancel);
+          root.setTimeout(function () { if (noteEl && noteEl.textContent === VOICE.cancel) noteEl.textContent = ''; }, 3000);
+        };
+        var start = function () {
+          if (permState === 'denied') { setNote(VOICE.denied); track('voice_error', { code: 'denied', ua_class: uaClass }); return; }
+          var v = { typed: input.value, final: '', interim: '', t0: Date.now(), conf: null, done: false, ending: false, heardAny: false };
+          var rec;
+          try { rec = new Rec(); } catch (e) { fail({ typed: input.value, rec: {}, done: false }, 'other'); return; }
+          v.rec = rec;
+          rec.lang = 'he-IL';
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+          // ‏Chromium: ‏continuous כדי שהדפדפן לא יחתוך אחרי חצי שנייה - הטיימר שלנו מסיים.
+          // ‏WebKit: ‏false (היו שם תוצאות כפולות ב-continuous) - צריך בדיקה על מכשיר
+          rec.continuous = !WEBKIT;
+          vs = v;
+          uiOn();
+          buzz();
+          setNote(permState === 'prompt' ? VOICE.wait + ' ' + VOICE.perm : VOICE.wait);
+          track('voice_start', { surface: opts.surface || 'home', perm_state: permState });
+          v.tWatch = root.setTimeout(function () { if (!v.started) fail(v, 'watchdog'); }, VOICE_WATCHDOG);
+          rec.onstart = function () {
+            if (vs !== v || v.done) return;
+            v.started = true;
+            root.clearTimeout(v.tWatch);
+            var ex = examplePhrases(areas, false)[0];
+            setNote('מקשיבים…' + (ex ? ' אפשר לומר למשל: ' + ex : ''));
+            track('voice_listening', {});
+            v.tNoSpeech = root.setTimeout(function () { if (!v.heardAny) finish(v, 'silence'); }, VOICE_NO_SPEECH);
+            v.tMax = root.setTimeout(function () { finish(v, 'max'); }, VOICE_MAX);
+          };
+          rec.onresult = function (ev) {
+            if (vs !== v || v.done) return;
+            var fin = [], mid = [];
+            for (var i = 0; i < ev.results.length; i++) {
+              var r_ = ev.results[i];
+              if (!r_ || !r_[0]) continue;
+              if (r_.isFinal) { fin.push(r_[0].transcript); if (typeof r_[0].confidence === 'number' && r_[0].confidence > 0) v.conf = v.conf == null ? r_[0].confidence : Math.min(v.conf, r_[0].confidence); }
+              else mid.push(r_[0].transcript);
+            }
+            // ‏Chrome באנדרואיד: כל תוצאה היא המשפט המצטבר ("מחפש", "מחפש דירת"...) - לא מחברים אותן
+            v.final = joinSpeech(fin); v.interim = joinSpeech(mid);
+            if (v.interim && v.final && v.interim.indexOf(v.final) === 0) v.final = '';
+            var shown = (v.final + ' ' + v.interim).trim();
+            if (!shown) return;
+            if (!v.heardAny) { v.heardAny = true; root.clearTimeout(v.tNoSpeech); setNote(VOICE.hearing); }
+            input.value = shown;
+            input.classList.toggle('is-interim', !!v.interim);
+            root.clearTimeout(v.tSilence);
+            v.tSilence = root.setTimeout(function () { finish(v, 'silence'); }, VOICE_SILENCE);
+          };
+          rec.onerror = function (ev) {
+            var code = ev && ev.error;
+            if (vs !== v || v.done) return;
+            if (code === 'aborted') return;
+            if (code === 'no-speech') { finish(v, 'browser'); return; }
+            // מה שנשמע עד הכשל (‏network באמצע משפט) עדיין מעובד
+            if (v.heardAny) { finish(v, 'browser'); return; }
+            fail(v, code || 'other');
+          };
+          rec.onend = function () {
+            if (v.done) return;
+            if (!v.ending) { v.ending = true; v.reason = 'browser'; }
+            process(v);
+          };
+          try { rec.start(); } catch (e) { fail(v, 'other'); }
+        };
         micBtn.addEventListener('click', function () {
-          if (skipClick) { skipClick = false; return; }
-          if (listening) stopListening(); else startListening();
+          if (vs && !vs.done) { if (!vs.ending) finish(vs, 'tap'); return; }
+          start();
         });
+        cancelBtn.addEventListener('click', function () { cancel('btn'); micBtn.focus(); });
+        card.addEventListener('keydown', function (e) { if (e.key === 'Escape' && vs && !vs.done) { e.preventDefault(); cancel('esc'); } });
+        doc.addEventListener('visibilitychange', function () { if (doc.hidden && vs) cancel('hidden'); });
+        root.addEventListener('pagehide', function () { if (vs) cancel('hidden'); });
       }
     }
 
@@ -1559,7 +1906,7 @@
         return l.length ? l : [mq.matches ? shortPlaceholder : longPlaceholder].filter(Boolean);
       }
       function blocked() {
-        return doc.hidden || !visible || doc.activeElement === input || input.value !== '' || !list().length;
+        return voiceOn || doc.hidden || !visible || doc.activeElement === input || input.value !== '' || !list().length;
       }
       function sync() {
         field.classList.toggle('has-value', input.value !== '');
@@ -1602,6 +1949,8 @@
           if (visible) start(); else stop();
         }).observe(field);
       }
+      // החיפוש הקולי עוצר ומנקה את הטייפר, ומפעיל אותו שוב כשהשדה נשאר ריק
+      typerApi = { start: start, clear: function () { stop(); out.textContent = ''; } };
       sync();
       start();
     })();
@@ -1715,6 +2064,9 @@
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },
+      /* ‏FilterSheet (‏A3-2): כמה נכסים יוצגו עם טיוטה - שינוי במשפט ופרדיקט מתקדם אחר מזה
+         שמוחל עכשיו (‏null - בלי). אותו filter של התוצאות, ולכן המונה בחלון שווה לתוצאה */
+      countWith: function (patch, extra) { return filter(props, applyPatch(st, patch || {}), assign(ctx, { extra: extra || null })).length; },
       /* יש מה לנקות: משפט שאינו ברירת המחדל, סינון מתקדם, או טקסט בשדה */
       isClean: function () {
         return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();

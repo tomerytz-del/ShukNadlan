@@ -112,6 +112,7 @@ import "../../assets/agency-about.js";
 import "../../assets/markets.js";
 import "../../assets/agency-place.js";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
+import "../../assets/air-living.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
@@ -185,7 +186,7 @@ function absolute(u: unknown): string {
 type Fetched =
   | { kind: "row"; row: Record<string, unknown> }
   | { kind: "missing" }
-  | { kind: "error" };
+  | { kind: "error"; status?: number };
 
 async function sbFetch(path: string): Promise<Fetched> {
   const ctrl = new AbortController();
@@ -205,7 +206,7 @@ async function sbFetch(path: string): Promise<Fetched> {
        ‏timeout ו-JSON פגום הם "לא יודעים" — ומי שיסווג אותם כאן כחוסר
        רשומה יקבל noindex על כל האתר בבת אחת, בשקט. */
     if (res.status === 404 || res.status === 406) return { kind: "missing" };
-    if (!res.ok) return { kind: "error" };
+    if (!res.ok) return { kind: "error", status: res.status };
     const row = await res.json();
     // ‏גרסה עתידית שתחזיר 200 עם null במקום 406 עדיין תיקרא נכון
     return row && typeof row === "object" ? { kind: "row", row } : { kind: "missing" };
@@ -239,6 +240,8 @@ type Meta = {
   /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער.
      placeholder: אין תמונה ואין פוסטר, והשער הוא קובץ הפלטפורמה. */
   paint?: { count: number; html: string; lcp: string; placeholder?: boolean };
+  /* ‏דף נכס בלי עיר ומחוץ לתיבת השוק (‏P0-A2): 200 עם כל התגיות, ועוד noindex */
+  noindex?: boolean;
 };
 
 /* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
@@ -376,6 +379,11 @@ function listingSubject(p: Record<string, unknown>, title: string, street: strin
     if (p.floor !== null && p.floor !== undefined && String(p.floor).trim() !== "") {
       subject.floorLevel = String(p.floor);
     }
+    const airLiving = (globalThis as { ShukAirLiving?: {
+      jsonLd: (dirs: unknown, sqm: unknown) => Array<Record<string, unknown>>;
+    } }).ShukAirLiving;
+    const extra = airLiving ? airLiving.jsonLd(p.air_directions, p.living_room_sqm) : [];
+    if (extra.length) subject.additionalProperty = extra;
   }
   return subject;
 }
@@ -492,6 +500,16 @@ function specPillsHtml(p: Record<string, unknown>): string {
   if (heNum(p.price_per_sqm)) add(heNum(p.price_per_sqm) + " ₪", isRent ? "למ״ר לחודש" : "מחיר למ״ר");
   if (heNum(p.built_size_sqm)) add(heNum(p.built_size_sqm) + " מ״ר", "שטח בנוי");
   if (heNum(p.garden_sqm)) add(heNum(p.garden_sqm) + " מ״ר", "גינה");
+  const airLiving = (globalThis as { ShukAirLiving?: {
+    customerLivingLine: (v: unknown) => string;
+    customerAirLine: (v: unknown) => string;
+  } }).ShukAirLiving;
+  if (airLiving) {
+    const living = airLiving.customerLivingLine(p.living_room_sqm);
+    const air = airLiving.customerAirLine(p.air_directions);
+    if (living) add(living, "");
+    if (air) add(air, "");
+  }
   add(CONDITION_LABELS[String(p.condition || "")] || "", "מצב הנכס");
   add(moveIn, "תאריך כניסה");
   add(PROJECT_STATUS_LABELS[String(p.project_status || "")] || "", "סטטוס הפרויקט");
@@ -689,11 +707,16 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
+    "air_directions,living_room_sqm," +
     "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name,logo_url)," +
-    "video_url,video_poster_url";
-  const got = await sbFetch(
-    `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
-  );
+    "video_url,video_poster_url,city_id,lat,lng";
+  const base = `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=`;
+  let got = await sbFetch(base + encodeURIComponent(cols));
+  // האתר עולה לפני המיגרציה. עמודה חסרה היא 400, לא "אין נכס".
+  if (got.kind === "error" && got.status === 400) {
+    const bare = cols.replace("air_directions,living_room_sqm,", "");
+    got = await sbFetch(base + encodeURIComponent(bare));
+  }
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const p = got.row;
 
@@ -711,6 +734,10 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     num(p.size_sqm) ? `${num(p.size_sqm)} מ״ר` : "",
     where,
   ].filter(Boolean);
+  const airClause = (globalThis as { ShukAirLiving?: {
+    metaClause: (dirs: unknown, sqm: unknown) => string;
+  } }).ShukAirLiving?.metaClause(p.air_directions, p.living_room_sqm) || "";
+  if (airClause) bits.push(airClause);
 
   const images = Array.isArray(p.images) ? p.images : [];
 
@@ -728,6 +755,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     if (agent.kind === "row") agentDisplay = String(agent.row.display_name || "");
   }
   const visible = propertyVisible(p, agentDisplay);
+  const offMarket = !p.city_id && !inMarketBox(p.lat, p.lng);
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),
@@ -747,7 +775,19 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
     inner: visible.inner,
     paint: heroPaint(p),
+    noindex: offMarket,
   };
+}
+
+/* ‏תיבת השוק של עפולה והעמק - אותה DEFAULT_BOX של assets/market-scope.js
+   ‏[latMin, lngMin, latMax, lngMax]. נכס בלי city_id נחשב בשוק רק אם הוא
+   בתוכה (‏PR 1010, P0-A2); בלי קואורדינטות - מחוץ לשוק. */
+const MARKET_BOX = [32.45, 35.05, 32.80, 35.60];
+function inMarketBox(lat: unknown, lng: unknown): boolean {
+  if (lat == null || lng == null || lat === "" || lng === "") return false;
+  const a = Number(lat), b = Number(lng);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return a >= MARKET_BOX[0] && a <= MARKET_BOX[2] && b >= MARKET_BOX[1] && b <= MARKET_BOX[3];
 }
 
 /* ‏הסף של agency.html (‏MIN_REVIEWS_SHOWN) - מתחתיו הדף אינו מציג דירוג. */
@@ -897,7 +937,7 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
     "@id": `${canonical}#agent`,
     name: String(m.display_name || ""),
     url: canonical,
-    jobTitle: "מתווך/ת נדל״ן",
+    jobTitle: "יועץ נדל״ן",
     description,
   };
   if (m.photo_url) person.image = absolute(m.photo_url);
@@ -1266,7 +1306,9 @@ function inject(html: string, m: Meta): string {
      היא יורדת כאן. **שתי תגיות canonical גורמות לגוגל להתעלם משתיהן**,
      וזה כשל שקט לגמרי: הדף נטען, התגית שהזרקנו בתוכו, והאיחוד לא קורה. */
   out = out.replace(/<link\b[^>]*\brel="canonical"[^>]*>\s*/gi, "");
-  add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
+  /* ‏noindex בלי canonical: שתי ההצהרות יחד סותרות (‏scripts/og_tags_test.ts) */
+  if (m.noindex) add.unshift(`<meta name="robots" content="noindex,follow">`);
+  else add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
   if (!/<meta[^>]+property="og:type"/i.test(out)) {
     add.push(`<meta property="og:type" content="website">`);
   }

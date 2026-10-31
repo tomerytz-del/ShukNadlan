@@ -157,7 +157,14 @@ export async function transcribe(
   if (rebranded) attempts.unshift([rebranded, "m4a", "audio/mp4"]);
   try {
     for (const [b, e, m] of attempts) {
-      const res = await whisperOnce(openaiKey, b, m, e, hint);
+      let res = await whisperOnce(openaiKey, b, m, e, hint);
+      // תקלה זמנית (רשת, 429, 5xx) - ניסיון אחד נוסף. דחיית פורמט ממשיכה
+      // לניסיונות השם החלופי; מכסה או מפתח לא.
+      if (!res.ok && (res.status === 429 || res.status >= 500)) {
+        console.error("whisper retry", res.status, `as .${e}`);
+        await new Promise((r) => setTimeout(r, 700));
+        res = await whisperOnce(openaiKey, b, m, e, hint);
+      }
       if (res.ok) {
         const out = await res.json();
         logAiUsage(unitsRow("transcribe", "openai", "whisper-1", (Number(out?.duration) || 0) / 60));
@@ -166,12 +173,24 @@ export async function transcribe(
       const body = (await res.text()).slice(0, 300);
       console.error("whisper failed", res.status, `as .${e} (${m})${b === bytes ? "" : " rebranded"}`,
         `sniff=${kind}`, body);
-      // רק דחיית פורמט שווה ניסיון נוסף; מכסה, מפתח או תקלה - לא
+      // רק דחיית פורמט שווה ניסיון נוסף בשם אחר; מכסה, מפתח או תקלה - לא
       if (res.status !== 400 || !/file format/i.test(body)) return null;
     }
     return null;
   } catch (err) {
+    // נפילה ברשת לפני תשובה - ניסיון אחד, ואז אומרים לסוכן/ת.
     console.error("transcription failed", err);
+    try {
+      await new Promise((r) => setTimeout(r, 700));
+      const res = await whisperOnce(openaiKey, bytes, mime, ext, hint);
+      if (res.ok) {
+        const out = await res.json();
+        logAiUsage(unitsRow("transcribe", "openai", "whisper-1", (Number(out?.duration) || 0) / 60));
+        return ((out?.text as string) || "").trim() || null;
+      }
+    } catch (err2) {
+      console.error("transcription retry failed", err2);
+    }
     return null;
   }
 }

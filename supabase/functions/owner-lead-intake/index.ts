@@ -351,11 +351,36 @@ Deno.serve(async (req: Request) => {
        אם property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים.
        שגיאה חולפת עם SQLSTATE מהרשימה מנסה את אותה שורה פעם נוספת.
        בלי SQLSTATE, וגם אילוץ, עוברים לשורה הבאה בלי ניסיון שני. */
+    /* הסכמה עם חותמת זמן (‏docs/proposals/fair_signup_and_lead_consent.sql, ממתינה לאישור): כרטיס "חושבים למכור?" בהחלקה שולח
+       את הנוסח שאושר; הזמן נכתב כאן ולעולם לא מהדפדפן. רק בניסיון הראשון של
+       כל מסלול - מסד שטרם הריץ את המיגרציה נסוג לשורה בלעדיה ולא מפיל ליד. */
+    const consent: Record<string, unknown> = body.consent_contact === true
+      ? {
+        consent_contact_at: new Date().toISOString(),
+        consent_text: typeof body.consent_text === "string" ? body.consent_text.slice(0, 400) : null,
+        consent_version: typeof body.consent_version === "string" && /^[a-z0-9-]{1,20}$/.test(body.consent_version)
+          ? body.consent_version : null,
+      }
+      : {};
+    const hasConsent = Object.keys(consent).length > 0;
+    // מקור שנכתב ל-leads.source גם במסלול הפלטפורמה (ולא רק ליומן): בלעדיו
+    // ליד מההחלקה נעלם בדוח הערוצים
+    const platformSource = normalizeSource(body.source, "", trusted);
+    const ownSource = ["swipe_seller", "sell_page", "sell_page_agent"].includes(platformSource) ? platformSource : "";
     const attempts: Record<string, unknown>[] = agencyRouting
-      ? pageLeadInsertAttempts(baseRow, preferredType, pageSource)
+      ? [
+        ...(hasConsent ? [{ ...baseRow, lead_type: preferredType, source: ownSource || pageSource, ...consent }] : []),
+        ...pageLeadInsertAttempts(baseRow, preferredType, pageSource),
+      ]
       : trackedLabel
       ? [
         { ...baseRow, lead_type: "owner_inbound", source: inboundSource, source_detail: trackedLabel, external_ref: externalRef },
+        { ...baseRow, lead_type: "owner_inbound" },
+      ]
+      : ownSource || hasConsent
+      ? [
+        ...(hasConsent ? [{ ...baseRow, lead_type: "owner_inbound", ...(ownSource ? { source: ownSource } : {}), ...consent }] : []),
+        ...(ownSource ? [{ ...baseRow, lead_type: "owner_inbound", source: ownSource }] : []),
         { ...baseRow, lead_type: "owner_inbound" },
       ]
       : [{ ...baseRow, lead_type: "owner_inbound" }];

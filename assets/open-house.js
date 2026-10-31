@@ -338,6 +338,25 @@
   var NO_FEE = 'ללא עמלת תיווך';
   var FAIR_NAME = 'יריד הבתים הפתוחים';
 
+  /* השורה "פונים דרך הטופס עד שבת 31.10 בשעה 23:59 ולא משלמים עמלת תיווך"
+     (תומר 29.10 02:21, גבריאלה אישרה). בשעון ישראל ולא בשעון הדפדפן, כי
+     זה השעון של השרת שרושם את הפנייה (‏fair_inquiries). אחת להחלקה ולדף
+     הנכס. סיום בחצות נאמר כמו שאנשים אומרים אותו: 23:59 של היום הקודם. */
+  var IL_DAYS = { Sun: 'ראשון', Mon: 'שני', Tue: 'שלישי', Wed: 'רביעי', Thu: 'חמישי', Fri: 'שישי', Sat: 'שבת' };
+  function ilParts(d) {
+    var out = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(d).forEach(function (x) { out[x.type] = x.value; });
+    return out;
+  }
+  function formLine(p) {
+    var to = endsAt(p);
+    if (!to) return '';
+    var t = ilParts(to);
+    if (Number(t.hour) === 0 && Number(t.minute) === 0) t = ilParts(new Date(to.getTime() - 60000));
+    return 'פונים דרך הטופס עד ' + (IL_DAYS[t.weekday] || '') + ' ' + Number(t.day) + '.' + Number(t.month) + ' בשעה ' + t.hour + ':' + t.minute + ' ולא משלמים עמלת תיווך';
+  }
+
   global.OpenHouse = {
     live: live,
     remaining: remaining,
@@ -348,6 +367,7 @@
     upcoming: upcoming,
     startsAt: startsAt,
     endsAt: endsAt,
+    formLine: formLine,
     daysLeft: daysLeft,
     endLabel: endLabel,
     rangeLabel: rangeLabel,

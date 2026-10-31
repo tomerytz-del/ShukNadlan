@@ -38,7 +38,7 @@ import {
 //      וטלפון לפני שרואים אותם הוא מחסום לפני הערך ולא אחריו. בקשה בלי
 //      פרטים פשוט לא מייצרת ליד.
 //   2. הדמיה פרטית שכבר קיימת לא נוצרת מחדש. שני גולשים שביקשו "סלון בסגנון
-//      ים-תיכוני" מקבלים את אותה תמונה — הליד נרשם פעמיים, ה-API נקרא פעם אחת.
+//      ים תיכוני" מקבלים את אותה תמונה — הליד נרשם פעמיים, ה-API נקרא פעם אחת.
 //      זה מה שהופך את המודל ההיברידי לזול יותר מ-batch מראש.
 //   3. הזכאות נקבעת ב-DB (property_visualizations_enabled) ולא כאן, כדי שלא
 //      יהיו שתי הגדרות שונות ל"מי זכאי".
@@ -53,6 +53,16 @@ function businessKey(s: unknown): string {
     .replace(/["'`׳״.,!?()\-–—]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// בלם לגולש/ת: עד 10 בקשות שמייצרות הדמיה ב-24 שעות, לפי מכשיר **או** IP.
+// ההדמיה מקאש ובקשה שנכשלה אינן נספרות.
+const VISITOR_DAILY_CAP = 10;
+const VISITOR_LIMIT_MESSAGE = "הגעתם למכסה היומית של ההדמיות. נשמח לראותכם מחר ✨";
+
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -297,6 +307,47 @@ Deno.serve(async (req: Request) => {
   const readyTargets = new Set(ready.map((r) => r.target));
   const todo = sources.filter((s) => !readyTargets.has(s.target));
 
+  // ---- בלם לגולש/ת (מכשיר ו-IP) -----------------------------------------
+  // נבדק רק כשבאמת יש מה לייצר: קאש אינו נספר ואינו נחסם. המזהה מגיע מהדפדפן
+  // (‏x-sk-device, ‏sk_device_id ב-localStorage), וה-IP נשמר רק כגיבוב עם
+  // ‏VIZ_IP_SALT - בלי המלח אין גיבוב ונשאר רק המכשיר. ‏device_id ו-
+  // ‏client_ip_hash נוספות במיגרציה שתומר מחיל (docs/proposals/), ועד אז
+  // השאילתה נכשלת על עמודה חסרה והבלם פשוט לא פעיל - כמו לפני השינוי.
+  const deviceId = String(req.headers.get("x-sk-device") ?? "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 64) || null;
+  const ip = String(req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+  const ipSalt = Deno.env.get("VIZ_IP_SALT");
+  const ipHash = ip && ipSalt ? await sha256Hex(ip + ipSalt) : null;
+  let visitorCols: Record<string, string | null> = {};
+  if (todo.length > 0 && (deviceId || ipHash)) {
+    const anyOf = [deviceId ? `device_id.eq.${deviceId}` : "", ipHash ? `client_ip_hash.eq.${ipHash}` : ""]
+      .filter(Boolean).join(",");
+    const { count: visitorCount, error: visitorErr } = await supabase
+      .from("visualization_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("trigger_source", "ondemand")
+      .neq("status", "failed")
+      .gte("created_at", since)
+      .or(anyOf);
+    if (!visitorErr) {
+      if ((visitorCount ?? 0) >= VISITOR_DAILY_CAP) {
+        return json({ error: "visitor_rate_limited", message: VISITOR_LIMIT_MESSAGE }, 429);
+      }
+      if (deviceId) {
+        const { count: busyCount } = await supabase
+          .from("visualization_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("trigger_source", "ondemand")
+          .eq("status", "processing")
+          .eq("device_id", deviceId)
+          .gte("created_at", new Date(Date.now() - 3 * 60 * 1000).toISOString());
+        if ((busyCount ?? 0) > 0) {
+          return json({ error: "busy", message: "ההדמיה הקודמת עדיין בהכנה" }, 429);
+        }
+      }
+      visitorCols = { device_id: deviceId, client_ip_hash: ipHash };
+    }
+  }
+
   // ---- הליד -------------------------------------------------------------
   // נוצר בכל בקשה שיש בה פרטים, גם כשאין מה לייצר: מה שמעניין את הסוכן/ת
   // הוא הפנייה, לא האם התמונה במקרה כבר הייתה בקאש.
@@ -313,7 +364,10 @@ Deno.serve(async (req: Request) => {
       ? `${mode === "staging" ? "הדמיית הלבשת בית" : "הדמיית נכס פרטי"} · סגנון: ${styleKey}`
       : `הדמיית עסק · סוג: ${business_type}${business_description ? ` · ${business_description}` : ""}`;
 
+    // מגלישה בהחלקה (‏/swipe) הליד נושא את המקור, כמו פנייה מגיליון הנכס שם
+    const fromSwipe = body?.source === "swipe";
     const leadPayload: Record<string, unknown> = {
+      ...(fromSwipe ? { source: "swipe" } : {}),
       lead_type: "visualization",
       deal_type: property.deal_type,
       property_id: property.id,
@@ -321,7 +375,7 @@ Deno.serve(async (req: Request) => {
       agent_id: property.agent_id,
       raw_name: name,
       raw_phone: phone,
-      raw_message: details,
+      raw_message: fromSwipe ? `${details}\nמקור: גלישה בהחלקה` : details,
       property_details: details,
       city: property.city,
       property_type: property.property_type,
@@ -368,6 +422,7 @@ Deno.serve(async (req: Request) => {
       business_description: business_description ?? null,
       lead_id: leadId,
       status: "processing",
+      ...visitorCols,
     })
     .select("id")
     .single();

@@ -163,7 +163,7 @@ function teamsMemberTags(m, ctx){
   return [
     team && { text:'👥 ' + team.name + (leads && leads.id === team.id ? ' · מנהל/ת הצוות' : ''), cls:'tag-info' },
     leads && (!team || leads.id !== team.id) && { text:'👥 מנהל/ת ' + leads.name, cls:'tag-info' },
-    m.role === 'manager' && m.is_active_agent === false && { text:'לא עובד/ת כמתווך/ת' },
+    m.role === 'manager' && m.is_active_agent === false && { text:'לא פעיל/ה כיועץ נדל״ן' },
   ];
 }
 
