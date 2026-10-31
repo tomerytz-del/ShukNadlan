@@ -5518,9 +5518,29 @@ async function runSearchInner(){
 
 // גלילה לתוצאות רק כשהן באמת מתחת לקפל — במסך רגיל השורות מציצות מתחת
 // למפה מיד, וגלילה אוטומטית הייתה דוחפת את המפה עצמה אל מחוץ למסך
-function revealSearchResults(){
+function revealSearchResults(explicit){
   const section = document.getElementById('searchResults');
   if (!section || section.hidden) return;
+  /* ‏home-scroll ב (1.11): לחיצה מפורשת על "הצג X נכסים" כשהתוצאות כבר נראות הייתה no-op שקט (בדיקת
+     הגלילה שלמטה החליטה שאין צורך). עכשיו תמיד: הכותרת לראש המסך, ואם היא כבר שם - הבהוב קצר שלה.
+     והפוקוס עובר אליה, בשביל קוראי מסך */
+  if (explicit){
+    requestAnimationFrame(()=>{
+      const title = document.getElementById('searchResultsTitle');
+      const header = document.querySelector('header.site');
+      const hb = header && getComputedStyle(header).position !== 'static' ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+      const top = (title || section).getBoundingClientRect().top;
+      if (splitOn && splitSupported()){ /* התוצאות בפאנל שליד המפה - רק ההבהוב */ }
+      else if (Math.abs(top - hb) > 24) scrollToSearchResults();
+      if (title){
+        title.classList.remove('is-flash'); void title.offsetWidth; title.classList.add('is-flash');
+        setTimeout(()=> title.classList.remove('is-flash'), 700);
+        if (!title.hasAttribute('tabindex')) title.setAttribute('tabindex', '-1');
+        title.focus({ preventScroll:true });
+      }
+    });
+    return;
+  }
   // בתצוגה המפוצלת התוצאות כבר מול העיניים, בפאנל שלצד המפה — גלילה אל
   // העותק שמתחת הייתה דוחפת את שתיהן אל מחוץ למסך בדיוק ברגע החיפוש
   if (splitOn && splitSupported()) return;
@@ -7539,7 +7559,11 @@ function onSentenceChange(results, st, reason){
     deepLinkParams = null;
     setAiFilter(!!st.ai);
     MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
-    showSentenceResults({ track:false });
+    /* ‏home-scroll א2 (1.11): ב"חזרה" (back_forward) לא גוללים לתוצאות - המקום נשמר ב-homeScrollMemory.
+       הגלילה של שניהם יחד הנחיתה את הדף על מקטע אחר, בהחלקה של כ-4000px בלי מגע */
+    let backNav = false;
+    try { backNav = performance.getEntriesByType('navigation')[0]?.type === 'back_forward'; } catch(e){ /* דפדפן ישן */ }
+    showSentenceResults({ track:false, reveal:!backNav });
     renderSentenceMapTag(results, st);
     if (quickNavArrived){ quickNavArrived = false; requestAnimationFrame(scrollToSearchResults); }
     return;
@@ -7608,7 +7632,7 @@ function noteSentenceZero(results, st){
 
 /* ‏"הצג N נכסים": השורות נפתחות, התצוגה המפוצלת נדלקת בפעם הראשונה (כמו
    בחיפוש מהסרגל), והדף גולל אליהן אם הן מתחת לקפל. */
-function showSentenceResults({ track = true } = {}){
+function showSentenceResults({ track = true, reveal = true, explicit = false } = {}){
   if (!sentence) return;
   resultsMode = true;
   searchHasRun = true;
@@ -7640,7 +7664,7 @@ function showSentenceResults({ track = true } = {}){
     });
   }
   if (!splitPrefSet && splitSupported()) setSplitView(true);
-  revealSearchResults();
+  if (reveal) revealSearchResults(explicit);
 }
 
 /* הפאנל התחתון בטלפון מוצג רק כל עוד ה-hero במסך: מתחתיו הוא היה מכסה
@@ -7745,7 +7769,8 @@ let freeTextFeatures = new Set();
       return (data || []).map(shapeProperty);
     },
     onChange: onSentenceChange,
-    onSubmit: ()=> showSentenceResults(),
+    // ‏home-scroll ב: לחיצה על "הצג X נכסים" תמיד מביאה את התוצאות לראש המסך (או מהבהבת את הכותרת)
+    onSubmit: ()=> showSentenceResults({ explicit:true }),
     // ‏R8: החיפוש הקולי עובר באותו מסלול כמו Enter (מספר מודעה, בעלי מקצוע)
     onQuery: (t, source)=> window.ShukHomeQuery ? window.ShukHomeQuery(t, source) : false,
     surface: 'home',
@@ -8637,7 +8662,7 @@ function v10DefaultSale(){
      הזהב הציג את כל הנכסים כש"למכירה" נראית בחורה. שקט: בלי לפתוח תוצאות ובלי גלילה */
   if (sentence.isClean() && !sentence.state().deal){
     sentenceQuiet = true;
-    try { sentence.setDeal('sale'); } finally { sentenceQuiet = false; }
+    try { sentence.setDeal('sale', 'default'); } finally { sentenceQuiet = false; }
   }
   syncV10Tabs();
 }
@@ -9057,7 +9082,8 @@ document.addEventListener('click', e => {
     }
     const y = el ? el.getBoundingClientRect().top + window.scrollY - m.off : (document.documentElement.scrollHeight > m.y + innerHeight / 2 ? m.y : -1);
     if (y >= 0){
-      window.scrollTo(0, y);
+      // ‏home-scroll א3: מיידי - ‏html{scroll-behavior:smooth} הפך כל תיקון כאן להחלקה
+      window.scrollTo({ top: y, behavior: 'instant' });
       stable = Math.abs(y - lastY) < 2 ? stable + 1 : 0;
       lastY = y;
     }
@@ -9065,7 +9091,7 @@ document.addEventListener('click', e => {
     if (stable >= 3 || tries > 33) clearInterval(timer);
   }, 150);
   const stop = () => { clearInterval(timer); };
-  ['wheel', 'touchstart', 'keydown'].forEach(t => window.addEventListener(t, stop, { once:true, passive:true }));
+  ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'].forEach(t => window.addEventListener(t, stop, { once:true, passive:true }));
 })();
 
 (function(){
