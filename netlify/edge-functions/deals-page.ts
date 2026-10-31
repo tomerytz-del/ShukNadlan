@@ -313,20 +313,44 @@ async function indexableRows(list: IndexRow[]): Promise<
   return failed ? { ok: false, safe: rows } : { ok: true, rows };
 }
 
+/* ‏utm ו-gclid אינם חלק מהדף. query ריק: מפתח המטמון הוא הנתיב בלבד. */
+const DEALS_VARY = "query=";
+
+function vary(headers: Headers): Headers {
+  headers.set("Netlify-Vary", DEALS_VARY);
+  return headers;
+}
+
 /* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
 function failureHeaders(base: Headers, status: number): Headers {
   const headers = new Headers(base);
   headers.delete("content-length");
   headers.set("Cache-Control", "no-store");
   headers.set("Netlify-CDN-Cache-Control", "no-store");
+  vary(headers);
   if (status === 503) headers.set("Retry-After", "60");
   return headers;
+}
+
+/* העותק נשמר עם כותרות ההצלחה (שעה ב-CDN). בכשל הוא תשובת חירום,
+   ואין לשמור אותו שוב לשעה. */
+function recallFresh(prev: Response): Response {
+  const headers = new Headers(prev.headers);
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  headers.delete("retry-after");
+  vary(headers);
+  return new Response(prev.body, { status: prev.status, headers });
 }
 
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
   const type = res.headers.get("content-type") || "";
-  if (!res.ok || !type.includes("text/html")) return res;
+  if (!res.ok || !type.includes("text/html")) {
+    const headers = new Headers(res.headers);
+    vary(headers);
+    return new Response(res.body, { status: res.status, headers });
+  }
 
   const slug = slugOf(new URL(request.url).pathname);
   const html = await res.text();
@@ -342,7 +366,7 @@ export default async function handler(request: Request, context: Context) {
           const shown = await indexableRows(list as IndexRow[]);
           if (!shown.ok) {
             const prev = await recall(lastGoodKey(request.url));
-            if (prev) return prev;
+            if (prev) return recallFresh(prev);
             if (shown.safe.length) out = injectIndex(html, shown.safe);
             cache = false;
             const headers = failureHeaders(res.headers, 200);
@@ -400,13 +424,14 @@ export default async function handler(request: Request, context: Context) {
   if (status === 404 || status === 503) {
     if (status === 503) {
       const prev = await recall(lastGoodKey(request.url));
-      if (prev) return prev;
+      if (prev) return recallFresh(prev);
     }
     return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
   const headers = new Headers(res.headers);
   headers.delete("content-length");
+  vary(headers);
   /* ‏הסוכן מעדכן לכל היותר פעם ביום. דף שלא מולא אינו נשמר במטמון, כדי
      שכשל רגעי לא יוגש שעה שלמה - וזה גם מה שהופך "טריגר build אחרי
      עדכון" למיותר: אין build, ואחרי שעה הדף משקף את המסד. */
@@ -423,6 +448,7 @@ export default async function handler(request: Request, context: Context) {
 export const config: Config = {
   path: ["/deals", "/deals.html", "/deals/*"],
   /* בלי manual כל בקשה מריצה את הסינון מחדש (כמה שניות). הכותרות
-     שלמטה חלות רק כשהמטמון ידני. התשובה אינה תלויה בעוגיית שוק. */
+     שלמטה חלות רק כשהמטמון ידני. התשובה אינה תלויה בעוגיית שוק,
+     ו-Netlify-Vary הוא query= (בלי מפתחות שאילתה). */
   cache: "manual",
 };

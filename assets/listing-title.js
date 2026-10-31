@@ -6,9 +6,17 @@
     return t.length <= max ? t : t.slice(0, max - 1).trimEnd() + "…";
   }
 
-  /* עם מבדיל ובלי: אותו חיתוך ל-90, אותו כיווץ רווחים, ו-trimEnd לפני …. */
+  /* חותכים רק את הבסיס. הסיומת (המבדיל) ו"| שוק נדל״ן" נשארים תמיד,
+     והאורך הכולל עד 90. כיווץ רווחים, ו-trimEnd לפני …. */
   function pageTitle(base, suffix) {
-    return clampTitle(String(base || "") + (suffix || "") + " | שוק נדל״ן", 90);
+    var brand = " | שוק נדל״ן";
+    var head = String(base || "").replace(/\s+/g, " ").trim();
+    var extra = String(suffix || "").replace(/\s+/g, " ").trim();
+    var tail = (extra ? " " + extra : "") + brand;
+    if (head.length + tail.length <= 90) return head + tail;
+    var keep = 90 - tail.length - 1;
+    if (keep < 0) keep = 0;
+    return head.slice(0, keep).trimEnd() + "…" + tail;
   }
 
   /* ערך בתוך or= של PostgREST. פסיק או סוגריים בלי מירכאות שוברים את הפיצול.
@@ -21,13 +29,13 @@
   var PAGE = 1000;
   var COLS = "id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title";
 
-  /* streetName הוא השם אחרי streetNameOf. ריק: אין רחוב, ואז עיר+סוג
-     ו-street/address ריקים, ואם יש שכונה גם היא. */
+  /* streetName הוא השם אחרי streetNameOf. ריק: אין רחוב, ואז רק עיר, סוג,
+     ו-street/address ריקים. שכונה לא נכנסת: publicHeadline לא כולל אותה,
+     ו-neighborhoods.name בלי embed מחזיר 400 (PGRST108). */
   function siblingFilter(p) {
     var city = String((p && p.city) || "").trim();
     var type = String((p && p.property_type) || "").trim();
     var street = String((p && p.streetName) || "").trim();
-    var hood = String((p && p.neighborhood) || "").trim();
     if (!city || !type) return "";
     var parts = [
       "status=eq.active",
@@ -43,7 +51,6 @@
     } else {
       var empty = pgQuoted("");
       parts.push("and=(or(street.is.null,street.eq." + empty + "),or(address.is.null,address.eq." + empty + "))");
-      if (hood && hood !== city) parts.push("neighborhoods.name=eq." + pgQuoted(hood));
     }
     parts.push(
       "select=" + encodeURIComponent(COLS),

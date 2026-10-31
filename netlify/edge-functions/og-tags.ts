@@ -371,7 +371,8 @@ function titleSuffix(self: Record<string, unknown>, rows: Record<string, unknown
   return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
 
-/* אותו pageTitle כמו ב-assets/listing-title.js: 90, כיווץ רווחים, trimEnd לפני …. */
+/* אותו pageTitle כמו ב-assets/listing-title.js: חותכים רק את הבסיס,
+   הסיומת והמותג נשארים, והאורך הכולל עד 90. */
 function pageTitle(base: string, suffix: string): string {
   const shared = (globalThis as unknown as {
     ShukListingTitle: { pageTitle: (base: string, suffix: string) => string };
@@ -437,10 +438,8 @@ function listingDescription(
 }
 
 /* אותו siblingFilter כמו ב-assets/listing-title.js. בלי רחוב: עיר, סוג,
-   רחוב וכתובת ריקים, ושכונה אם יש. כשל או עמוד חסר: null, בלי מבדיל. */
+   ורחוב וכתובת ריקים. שכונה לא מסוננת. כשל או עמוד חסר: null, בלי מבדיל. */
 function siblingFilter(p: Record<string, unknown>): string | null {
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
-  const city = String(p.city || "").trim();
   const shared = (globalThis as unknown as {
     ShukListingTitle: {
       siblingFilter: (row: Record<string, unknown>) => string;
@@ -451,7 +450,6 @@ function siblingFilter(p: Record<string, unknown>): string | null {
     city: p.city,
     property_type: p.property_type,
     streetName: streetNameOf(p),
-    neighborhood: hood && hood !== city ? hood : "",
   });
   return filter || null;
 }

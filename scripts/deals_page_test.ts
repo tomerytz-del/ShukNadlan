@@ -87,6 +87,7 @@ check("נתוני המיון מוטמעים", /<script type="application\/json" 
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
 check("נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=");
 
 /* יישוב, המסד נכשל, ואין עותק קודם */
 resetLastGood();
@@ -181,6 +182,7 @@ check("אינדקס: רק יישוב לאינדקס", html.includes('href="/deal
 check("אינדקס: canonical נשאר /deals", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/deals">'));
 check("אינדקס: ‏BreadcrumbList", ldOf(html)?.["@graph"]?.[0]?.["@type"] === "BreadcrumbList");
 check("אינדקס מוצלח: מטמון CDN", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+check("אינדקס: Netlify-Vary בלי מפתחות שאילתה", res.headers.get("Netlify-Vary") === "query=");
 
 /* כשל בסינון: לא מציגים יישוב לא מאומת. יש עותק - הוא יוצא, והכשל לא נשמר. */
 res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
@@ -191,6 +193,9 @@ res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
 html = await res.text();
 check("אינדקס בכשל מודעות: העותק הקודם, בלי מגדל העמק",
   html.includes('href="/deals/afula"') && !html.includes('href="/deals/migdal-haemek"') && !html.includes("kfar-katan"));
+check("עותק אינדקס: no-store, לא שעה", res.headers.get("Cache-Control") === "no-store"
+  && res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+  && !(res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
 
 resetLastGood();
 res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
@@ -234,6 +239,8 @@ const staleDeal = await run("https://shuknadlan.co.il/deals/afula", 500, { messa
 const staleDealHtml = await staleDeal.text();
 check("אחרי הצלחה, כשל מגיש את אותו דף", staleDeal.status === 200 && staleDealHtml === goodDealHtml && staleDealHtml.includes("data-ssr"));
 check("העותק בלי Retry-After", !staleDeal.headers.get("Retry-After") && !staleDealHtml.includes("noindex"));
+check("עותק יישוב: no-store בשתי הכותרות", staleDeal.headers.get("Cache-Control") === "no-store"
+  && staleDeal.headers.get("Netlify-CDN-Cache-Control") === "no-store");
 
 /* פרטיות: אין מספר בית ואין גוש/חלקה בשום מקום ב-render */
 const D = (globalThis as any).ShukDeals;

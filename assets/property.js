@@ -2781,7 +2781,8 @@ function distinctTitleSuffix(self, rows){
   }
   return parts.length ? ' · ' + parts.join(' · ') : '';
 }
-/* אותו siblingFilter ו-pageTitle כמו ב-og-tags, מ-assets/listing-title.js. */
+/* אותו siblingFilter ו-pageTitle כמו ב-og-tags, מ-assets/listing-title.js.
+   neighborhood נשאר באובייקט ולא נכנס לשאילתה: publicHeadline לא כולל שכונה. */
 function listingHoodName(p){
   var n = p && p.neighborhoods;
   var row = Array.isArray(n) ? n[0] : n;
