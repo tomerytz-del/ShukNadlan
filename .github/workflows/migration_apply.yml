@@ -19,6 +19,7 @@ on:
     paths:
       - "supabase/migrations/**"
       - "scripts/apply_pending_migrations.py"
+      - "scripts/notif_cadence_prefs_test.py"
       - ".github/workflows/migration_apply.yml"
   workflow_dispatch:
 
@@ -76,3 +77,10 @@ jobs:
           PGHOST: localhost
           PGUSER: postgres
         run: python3 scripts/apply_pending_migrations.py --apply-local
+
+      - name: שמירת העדפות כ-authenticated
+        if: steps.fetch.outputs.apply == 'true'
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+        run: python3 scripts/notif_cadence_prefs_test.py

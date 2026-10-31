@@ -74,7 +74,8 @@ end;
 $$;
 
 revoke all on function public.notif_cadence_since_ok(jsonb) from public, anon, authenticated;
-grant execute on function public.notif_cadence_since_ok(jsonb) to service_role;
+-- ה-CHECK רץ כ-authenticated בשמירה מה-CRM. בלי EXECUTE כל עדכון של השורה נכשל.
+grant execute on function public.notif_cadence_since_ok(jsonb) to authenticated, service_role;
 
 do $$ begin
   if not exists (
@@ -90,7 +91,9 @@ end $$;
 -- authenticated מעדכן את שאר העמודות מה-CRM. שתי עמודות הקצב רק דרך הפונקציה,
 -- כדי שמחרוזת since פגומה לא תיכנס ותפיל את ה-claim.
 revoke update on table public.agent_notification_preferences from public, anon, authenticated;
-grant update (muted_types, whatsapp_types, whatsapp_off_types, updated_at)
+-- agent_id נכנס ל-ON CONFLICT DO UPDATE של ה-upsert ב-crm-settings.js.
+-- בלי הרשאה עליו השמירה נכשלת גם כשהדגל כבוי.
+grant update (agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at)
   on table public.agent_notification_preferences to authenticated;
 
 -- ברירת מחדל: סוג שכבוי בוואטסאפ נשאר off. כל השאר each, כמו היום.
@@ -878,8 +881,26 @@ declare
   v_map jsonb;
   v_off text[];
   v_role text;
+  v_raw text;
 begin
-  v_role := coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 'service_role');
+  -- PostgREST כותב את התפקיד בתוך request.jwt.claims.
+  -- תפקיד חסר אינו service_role.
+  v_role := '';
+  begin
+    v_raw := nullif(current_setting('request.jwt.claims', true), '');
+    if v_raw is not null then
+      v_role := coalesce(v_raw::jsonb ->> 'role', '');
+    end if;
+  exception when others then
+    v_role := '';
+  end;
+  if v_role = '' then
+    begin
+      v_role := coalesce(auth.role(), '');
+    exception when others then
+      v_role := '';
+    end;
+  end if;
   if v_role is distinct from 'service_role'
      and p_agent is distinct from public.current_agent_id() then
     enabled := false;
@@ -1711,6 +1732,19 @@ as $$
           and not n.read
           and not n.suppress_push
           and n.type = any(a.whatsapp_types)
+          and not (
+            public.notif_cadence_button_on()
+            and not public.whatsapp_template_cap_on()
+            and exists (
+              select 1 from public.notification_push_log lcad
+               where lcad.agent_id = n.agent_id
+                 and n.id = any(lcad.notification_ids)
+                 and lcad.whatsapp_status = 'skipped_template_cap'
+                 and public.whatsapp_template_local_day(lcad.created_at)
+                     = public.whatsapp_template_local_day(pg_catalog.now())
+            )
+            and not public.lead_wa_digest_cap_allows(n.agent_id, null)
+          )
           and (not coalesce(p_exempt_only, false)
                or public.notification_push_burst_exempt(n.type, ld.source))
           and (

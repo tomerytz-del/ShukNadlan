@@ -162,6 +162,11 @@ test("מיפוי קבוצות, וסוג לא מוכר נופל לקבוצה 5", 
   assert.match(migration, /notif_cadence_ts/);
   assert.match(migration, /agent_notification_preferences_cadence_since_chk/);
   assert.match(migration, /revoke update on table public\.agent_notification_preferences from public, anon, authenticated/);
+  assert.match(migration, /grant update \(agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at\)/);
+  assert.match(migration, /grant execute on function public\.notif_cadence_since_ok\(jsonb\) to authenticated, service_role/);
+  assert.match(migration, /request\.jwt\.claims/);
+  assert.doesNotMatch(migration, /jwt\.claim\.role/);
+  assert.match(migration, /notif_cadence_button_on\(\)\s+and not public\.whatsapp_template_cap_on\(\)/);
 });
 
 test("כל סוג ב-notifications_type_check ממופה או מוחרג", () => {
@@ -272,6 +277,7 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(push, /p_except: row\.log_id/);
   assert.match(push, /skipped_template_cap/);
   assert.match(push, /items = keep/);
+  assert.match(push, /if \(!canSplit\)/);
   assert.match(push, /cadenceOpenId/);
   assert.match(hook, /cadenceIdFromMessage/);
   assert.match(hook, /p_type: type/);
