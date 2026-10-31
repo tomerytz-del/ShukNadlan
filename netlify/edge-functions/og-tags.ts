@@ -240,6 +240,10 @@ type Meta = {
   /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער.
      placeholder: אין תמונה ואין פוסטר, והשער הוא קובץ הפלטפורמה. */
   paint?: { count: number; html: string; lcp: string; placeholder?: boolean };
+  /* דף משרד: חושפים את התוכן כבר ב-HTML (agency-ready), ועם תמונת נושא
+     גם has-cover. preloadImage היא תמונת ה-LCP, אותה כתובת כמו ה-img. */
+  bodyClass?: string;
+  preloadImage?: string;
   /* ‏דף נכס בלי עיר ומחוץ לתיבת השוק (‏P0-A2): 200 עם כל התגיות, ועוד noindex */
   noindex?: boolean;
 };
@@ -905,6 +909,19 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     ? shared.ShukAgencyPlace.title(a.name, city)
     : clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90);
 
+  /* תמונת הנושא היא ה-LCP. ה-og:image נשאר על הקובץ המלא; ה-img וה-preload
+     על העותק המוקטן, אותה מחרוזת ש-coverRenderUrl ב-agency.js כותב. */
+  const coverRaw = typeof a.cover_url === "string" ? a.cover_url : "";
+  const coverLcp = coverRaw ? (heroRenderUrl(absolute(coverRaw) || coverRaw, 1400, 800) || absolute(coverRaw)) : "";
+  const inner: { id: string; html: string }[] = [];
+  if (about.length) inner.push({ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") });
+  if (coverLcp) {
+    inner.push({
+      id: "bannerMedia",
+      html: `<img class="banner-lcp" alt="" width="1400" height="800" fetchpriority="high" decoding="async" src="${esc(coverLcp)}">`,
+    });
+  }
+
   return {
     title,
     description: agencyBlurb(a.name, city, listingCount, aboutText),
@@ -912,8 +929,10 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     canonical,
     jsonLd: agency,
     fills: [{ id: "brandName", text: String(a.name || "") }],
-    inner: about.length ? [{ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") }] : [],
+    inner,
     reveal: about.length ? ["aboutSec"] : [],
+    bodyClass: coverLcp ? "agency-ready has-cover" : "agency-ready",
+    preloadImage: coverLcp || undefined,
   };
 }
 
@@ -1331,6 +1350,10 @@ function inject(html: string, m: Meta): string {
   for (const f of m.fills || []) out = fillText(out, f.id, f.text);
   for (const f of m.inner || []) out = fillInner(out, f.id, f.html);
   for (const id of m.reveal || []) out = unhide(out, id);
+  if (m.bodyClass) out = addBodyClass(out, m.bodyClass);
+  if (m.preloadImage) {
+    add.push(`<link rel="preload" as="image" href="${esc(m.preloadImage)}" fetchpriority="high">`);
+  }
   if (m.paint) {
     out = addBodyClass(out, "property-ready has-sticky-bar");
     if (m.paint.placeholder) out = preloadPlaceholder(out);

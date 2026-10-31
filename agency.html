@@ -11,6 +11,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
 <script src="assets/agency-about.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>משרד תיווך | שוק נדל״ן</title>
@@ -159,8 +161,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #notFoundState{display:none}
   /* המקום של התוכן שמור בזמן הטעינה: בלעדיו הפוטר עמד מתחת לשורת "טוען" ונדחף
      למטה כשהמשרד נטען - תזוזה גבוהה (CLS). docs/site-footer.md */
-  #loadingState{min-height:calc(100vh - 80px)}
-  #agencyContent{display:none}
+  /* הפוטר מתחיל מתחת למסך גם בזמן "טוען" וגם אחרי שהמשרד נפתח.
+     calc(100vh - 80px) השאיר אותו בתוך המסך במחשב, והנכסים דחפו אותו החוצה. */
+  #loadingState{min-height:100svh}
+  #agencyContent{display:none;min-height:100svh}
+  body.agency-ready #loadingState{display:none}
+  body.agency-ready #agencyContent{display:block}
+  body.agency-ready.has-cover{--banner-ink:#fff}
+  body.agency-ready.has-cover .banner{--banner-ink:#fff}
+  body.agency-ready.has-cover .banner-inner{min-height:280px}
+  @media(min-width:900px){body.agency-ready.has-cover .banner-inner{min-height:360px}}
+  .banner-media img.banner-lcp{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 
   /* ---------- הבאנר של המשרד ----------
      עד כה ראש הדף היה שני דברים שאמרו את אותו הדבר: רצועת נושא שהלוגו נשען

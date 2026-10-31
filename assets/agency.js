@@ -293,6 +293,17 @@ function safeImageUrl(url){
   return allowed ? trimmed : null;
 }
 
+/* אותה נוסחה כמו heroRenderUrl ב-og-tags (1400x800, cover, איכות 60). */
+function coverRenderUrl(url){
+  const mark = '/storage/v1/object/public/';
+  const at = url.indexOf(mark);
+  if (at < 0) return url;
+  const path = url.slice(at + mark.length).split(/[?#]/)[0];
+  if (!path) return url;
+  return url.slice(0, at) + '/storage/v1/render/image/public/' + path
+    + '?width=1400&height=800&resize=cover&quality=60';
+}
+
 function applyBranding(agency){
   const c = agency.colors || {};
   const root = document.documentElement.style;
@@ -347,12 +358,26 @@ function applyBranding(agency){
     root.setProperty('--hair', c.line.trim());
   }
 
-  // תמונת הנושא היא הרקע של הבאנר כולו, ולא רצועה נפרדת מעליו: כך הזהות
-  // יושבת בתוך התמונה במקום להיערם מתחתיה.
+  // תמונת הנושא היא <img> ולא רקע CSS: רקע מתגלה רק אחרי ה-CSS והנתונים,
+  // והוא היה ה-LCP. אותה כתובת כמו ה-preload ש-og-tags מזריק (1400x800) -
+  // כתובת אחרת מורידה את הקובץ פעמיים.
   const cover = safeImageUrl(agency.cover_url);
   if (cover){
     document.getElementById('banner').classList.add('has-image');
-    document.getElementById('bannerMedia').style.backgroundImage = `url("${encodeURI(cover)}")`;
+    const src = coverRenderUrl(cover);
+    const media = document.getElementById('bannerMedia');
+    let img = media.querySelector('img.banner-lcp');
+    if (!img){
+      img = document.createElement('img');
+      img.className = 'banner-lcp';
+      img.alt = '';
+      img.width = 1400;
+      img.height = 800;
+      img.decoding = 'async';
+      img.setAttribute('fetchpriority', 'high');
+      media.appendChild(img);
+    }
+    if (img.getAttribute('src') !== src) img.src = src;
   }
 
   const logo = safeImageUrl(agency.logo_url);
