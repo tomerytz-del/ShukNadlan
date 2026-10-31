@@ -1165,19 +1165,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- אחרי ה-HTML, לא ב-head: Leaflet ו-supabase חסמו את ציור הראש (הפסקה
      שהיא ה-LCP) עד שהם ירדו ורצו. הסדר כאן זהה, מיד לפני הסקריפט של הדף. -->
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+<script defer src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/map-gestures.js"></script>
-<script src="assets/open-house.js"></script>
-<script src="assets/property-card.js"></script>
-<script src="assets/prop-shelf.js"></script>
-<script src="assets/bot-link.js"></script>
-<script>
+<script defer src="assets/map-tiles.js"></script>
+<script defer src="assets/map-gestures.js"></script>
+<script defer src="assets/open-house.js"></script>
+<script defer src="assets/property-card.js"></script>
+<script defer src="assets/prop-shelf.js"></script>
+<script defer src="assets/bot-link.js"></script>
+<script type="module">
 /* ============================================================================
    דף יריד הבתים הפתוחים
    ----------------------------------------------------------------------------
@@ -1303,6 +1303,7 @@ const fairShelf = PropShelf.create({
     ? `${total.toLocaleString('he-IL')} נכסים ביריד`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
 });
+window.fairShelf = fairShelf;
 
 /* ---------- המונה שבראש ---------- */
 function renderFairStats(list){
