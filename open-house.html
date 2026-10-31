@@ -121,24 +121,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      media="print" onload="this.media='all'"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/map-gestures.js"></script>
-<!-- הסימן, החלון והמילים של היריד — אותם שלושה בדיוק שדף הבית, דף הנכס
-     וה-CRM משתמשים בהם. ראו docs/open-house-fair.md -->
-<script src="assets/open-house.js"></script>
-<script src="assets/property-card.js"></script>
-<script src="assets/prop-shelf.js"></script>
-<!-- הקישור לגבריאלה ברצועת ההרשמה - אותו מקור של דף הבית, כולל המתג
-     ENABLED (‏docs/whatsapp-public-bot.md) -->
-<script src="assets/bot-link.js"></script>
 <style>
   /* אותה פלטה ואותם רכיבים כמו שאר עמודי האתר —
      ‏assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
@@ -568,7 +553,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/prop-shelf.css">
 <link rel="stylesheet" href="assets/open-house.css">
-<script src="assets/page-bg.js" data-auto></script>
+<script src="assets/page-bg.js" data-auto defer></script>
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
@@ -1156,6 +1141,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </footer>
 
+<!-- אחרי ה-HTML, לא ב-head: Leaflet ו-supabase חסמו את ציור הראש (הפסקה
+     שהיא ה-LCP) עד שהם ירדו ורצו. הסדר כאן זהה, מיד לפני הסקריפט של הדף. -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="assets/map-tiles.js"></script>
+<script src="assets/map-gestures.js"></script>
+<script src="assets/open-house.js"></script>
+<script src="assets/property-card.js"></script>
+<script src="assets/prop-shelf.js"></script>
+<script src="assets/bot-link.js"></script>
 <script>
 /* ============================================================================
    דף יריד הבתים הפתוחים
