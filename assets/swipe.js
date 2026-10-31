@@ -1472,13 +1472,17 @@
     if (sortKey !== 'rec') return list;
     var reels = list.filter(hasReel);
     if (!reels.length) return list;
+    /* ‏list-view ד (31.10): כל נכס שנכנס מסומן ב-used, גם כשהגיע בתורו הרגיל. רילס שכבר נכנס בתורו
+       (למשל המקודם הראשון) נבחר שוב למקום של רילס, ‏indexOf החזיר -1, ו-splice(-1, 1) מחק את הנכס
+       האחרון ברשימה - כלומר נכס כפול בחפיסה וברשימה, ונכס אחר שנעלם. בשלושה כאלה: 3 כפולים, 3 חסרים */
     var used = new Set(), rest = list.slice(), out = [];
     for (var i = 0; rest.length; i++) {
       var slot = i === 1 || (i > 1 && (i - 1) % 4 === 0);
       var r = slot ? reels.filter(function (x) { return !used.has(x); })[0] : null;
-      if (r) { used.add(r); rest.splice(rest.indexOf(r), 1); out.push(r); continue; }
+      if (r) { used.add(r); var at = rest.indexOf(r); if (at >= 0) rest.splice(at, 1); out.push(r); continue; }
       var nxt = rest.shift();
       if (used.has(nxt)) { i--; continue; }
+      used.add(nxt);
       out.push(nxt);
     }
     return out;
@@ -1508,12 +1512,14 @@
     }
     var pinned = null;
     if (pidWant) {
-      pinned = all.filter(function (x) { return String(x.id) === pidWant; })[0] || null;
+      var pidWant0 = String(pidWant);
+      pinned = all.filter(function (x) { return String(x.id) === pidWant0; })[0] || null;
       pidWant = null;
       if (pinned) {
-        props = props.filter(function (x) { return x !== pinned; });
-        npRest = npRest.filter(function (x) { return x !== pinned; });
-        if (part) { part.again = part.again.filter(function (x) { return x !== pinned; }); npAgain = npAgain.filter(function (x) { return x !== pinned; }); }
+        var notPin = function (x) { return String(x.id) !== pidWant0; };
+        props = props.filter(notPin);
+        npRest = npRest.filter(notPin);
+        if (part) { part.again = part.again.filter(notPin); npAgain = npAgain.filter(notPin); }
       }
     }
     writeUrl();
@@ -1569,6 +1575,16 @@
       again.forEach(function (p) { out.push({ slot: 'property', p: p, ss: 'seen', pos: pos++ }); });
     }
     out.push({ slot: 'end', pos: pos });
+    /* הגנה: לעולם לא אותו נכס פעמיים בחפיסה (השוואה לפי מזהה, לא לפי האובייקט) */
+    var seenIds = {}, dupN = 0;
+    out = out.filter(function (c) {
+      if (c.slot !== 'property') return true;
+      var k = String(c.p.id);
+      if (seenIds[k]) { dupN++; return false; }
+      seenIds[k] = 1;
+      return true;
+    });
+    if (dupN) { out.forEach(function (c, i) { c.pos = i + 1; }); if (DEBUG) console.assert(false, 'swipe: ' + dupN + ' נכסים כפולים בחפיסה'); }
     if (DEBUG) { npAssert(out); seqAssert(out); }
     deck = out; idx = 0; history_ = [];
     $('swSortN').textContent = countLabel(shownCount());
@@ -3859,23 +3875,29 @@
     $('swListCount').textContent = view === 'list' && listNpOnly ? (likedFirst.length === 1 ? 'נכס אחד' : likedFirst.length + ' נכסים') : $('swListCount').textContent;
     $('swList').innerHTML = likedFirst.map(function (c) {
       var p = c.p, ph = photos(p);
+      var heart = likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '';
       if (!ph.length && window.NoPhoto) {
-        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' +
-          '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b><span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span></a>' +
+        return '<div class="sw-li sw-lv-row sw-li-np" data-pid="' + esc(p.id) + '"><a class="sw-lv-open" href="' + propHref(p) + '" data-pos="' + c.pos + '">' +
+          '<span class="sw-li-media"><span class="sw-liimg sw-np-thumb">' + npHtml(p, 'row') + '</span>' + heart + '</span>' + liText(p) + '</a>' +
           '<button type="button" class="sw-np-req" data-np-req="' + c.pos + '">' + esc(NoPhoto.STR.ctaSm) + '</button></div>';
       }
       return '<a class="sw-li" href="' + propHref(p) + '" data-pos="' + c.pos + '" data-pid="' + esc(p.id) + '">' +
-        (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 240) + ' alt="" loading="lazy" width="112" height="84" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
-        '<span class="sw-li-txt"><b>' + esc(fmtPrice(p)) + '</b>' + (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '<span>' + esc(title(p)) + '</span><small>' + esc(where(p)) + '</small>' + rowLine(p) + '</span>' +
-        (likes.indexOf(p.id) >= 0 ? '<span class="sw-li-heart" aria-label="שמור">♥</span>' : '') + '</a>';
+        '<span class="sw-li-media">' + (ph.length ? '<img ' + imgSrc(likedViz(p.id) || ph[0], 480) + ' alt="" loading="lazy" width="160" height="120" data-fb="sw-liimg">' : imgFallback('').replace('sw-img-fb', 'sw-img-fb sw-liimg')) +
+        heart + '</span>' + liText(p) + '</a>';
     }).join('') || '<p class="sw-fnote">אין נכסים בסינון הזה.</p>';
   }
   var listLikedOnly = false, listNpOnly = false;
-  /* ‏P1-F: בתצוגת שורות - שורה אחת: כותרת · כתובת · מחיר · חדרים · קומה · מ״ר */
-  function rowLine(p) {
-    var bits = [esc(title(p)), esc(where(p)), '<b>' + esc(fmtPrice(p)) + '</b>',
-      rooms(p) ? esc(rooms(p) + ' חד׳') : '', p.floor != null && p.floor !== '' ? esc('קומה ' + p.floor) : '', p.size_sqm ? esc(p.size_sqm + ' מ״ר') : ''];
-    return '<span class="sw-li-line">' + bits.filter(Boolean).join(' · ') + '</span>';
+  /* ‏list-view (31.10): טקסט אחד לשתי התצוגות, ו-CSS בוחר מה מוצג. **המחיר תמיד ראשון ובשורה משלו** -
+     עד כאן "שורות" חיברו כותרת · כתובת · מחיר לשורה אחת שנחתכה, והמחיר כמעט לא נראה.
+     רשת: מחיר, חדרים · מ״ר, אזור (והכותרת רק ממסך רחב). שורות: מחיר, כותרת, כתובת · חדרים · קומה · מ״ר */
+  function liText(p) {
+    var r = rooms(p) ? rooms(p) + ' חד׳' : '', m = p.size_sqm ? p.size_sqm + ' מ״ר' : '', fl = p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : '';
+    return '<span class="sw-li-txt"><span class="sw-li-top"><b class="sw-li-price">' + esc(fmtPrice(p)) + '</b>' +
+      (fairLive(p) ? '<i class="sw-li-nofee">' + esc(NO_FEE) + '</i>' : '') + '</span>' +
+      '<span class="sw-li-title">' + esc(title(p)) + '</span>' +
+      '<span class="sw-li-facts">' + esc([r, m].filter(Boolean).join(' · ')) + '</span>' +
+      '<small class="sw-li-area">' + esc(area(p) || where(p)) + '</small>' +
+      '<span class="sw-li-meta">' + esc([where(p), r, fl, m].filter(Boolean).join(' · ')) + '</span></span>';
   }
   var listLayout = (function () {
     if (params.get('layout') === 'rows') return 'rows';
