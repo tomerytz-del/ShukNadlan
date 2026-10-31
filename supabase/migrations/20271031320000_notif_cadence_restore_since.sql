@@ -1,7 +1,8 @@
 -- supabase/migrations/20271031320000_notif_cadence_restore_since.sql
 -- כשלון שמירה לא קורא שוב ל-choose: choose מזיז את since לעכשיו,
 -- ופריטים שלא נקראו מלפני השינוי יוצאים מהסיכום.
--- השחזור כותב את הבחירה ואת since הקודמים.
+-- השחזור כותב רק צילום שנשמר בשרת בתחילת השמירה, לסוכן/ת עצמו/ה,
+-- ורק כשכפתור הקצב דלוק.
 
 -- CI משחזר את הסכימה עם pg_dump --no-acl ולא מריץ מיגרציה שכבר בפרודקשן.
 revoke update on table public.agent_notification_preferences from public, anon, authenticated;
@@ -9,23 +10,45 @@ grant select, insert on table public.agent_notification_preferences to authentic
 grant update (agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at)
   on table public.agent_notification_preferences to authenticated;
 
-create or replace function public.notif_cadence_restore(
-  p_agent uuid,
-  p_type text,
-  p_choice text,
-  p_since text
-) returns void
+alter table public.notif_cadence_log drop constraint if exists notif_cadence_log_event_chk;
+alter table public.notif_cadence_log add constraint notif_cadence_log_event_chk
+  check (event in ('open', 'choose', 'ask', 'back', 'snapshot', 'restore'));
+
+create table if not exists public.notif_cadence_snapshot (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid not null references public.agency_members(id) on delete cascade,
+  cadence jsonb not null,
+  since jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+comment on table public.notif_cadence_snapshot is
+  'צילום הקצב וה-since בתחילת שמירה. השחזור כותב רק אותו, ולא ערכים מהדפדפן.';
+
+alter table public.notif_cadence_snapshot enable row level security;
+revoke all on table public.notif_cadence_snapshot from public, anon, authenticated;
+grant select, insert, update, delete on table public.notif_cadence_snapshot to service_role;
+
+create index if not exists notif_cadence_snapshot_agent_idx
+  on public.notif_cadence_snapshot (agent_id, created_at desc);
+
+-- חתימה ישנה קיבלה בחירה ו-since מהלקוח. לא בפרודקשן.
+drop function if exists public.notif_cadence_restore(uuid, text, text, text);
+
+create or replace function public.notif_cadence_actor_ok(p_agent uuid)
+returns text
 language plpgsql
+stable
 security definer
 set search_path = ''
 as $$
 declare
   v_role text := '';
   v_raw text;
-  v_type text;
-  v_choice text;
-  v_since text;
 begin
+  if not public.notif_cadence_button_on() then
+    return 'הקצב כבוי';
+  end if;
   begin
     v_raw := nullif(current_setting('request.jwt.claims', true), '');
     if v_raw is not null then
@@ -43,9 +66,9 @@ begin
   end if;
   if v_role is distinct from 'service_role'
      and p_agent is distinct from public.current_agent_id() then
-    return;
+    return 'אין הרשאה לקצב של סוכן אחר';
   end if;
-  if not exists (
+  if p_agent is null or not exists (
     select 1 from public.agency_members m
      where m.id = p_agent
        and m.active
@@ -54,62 +77,113 @@ begin
        and m.tier in ('mid', 'premium')
        and m.billing_status = 'active'
   ) then
-    return;
+    return 'אין הרשאה לקצב';
   end if;
-
-  v_type := nullif(btrim(coalesce(p_type, '')), '');
-  if v_type is null or v_type not in (
-    'new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor'
-  ) then
-    return;
-  end if;
-  v_choice := case
-    when p_choice in ('each', 'daily', 'thrice', 'off', 'digest') then p_choice
-    else null
-  end;
-  if v_type = 'system_mentor' and v_choice in ('each', 'daily', 'thrice') then
-    v_choice := 'digest';
-  end if;
-  if v_type = 'meetings' then
-    v_choice := 'each';
-  end if;
-  if v_type in ('new_leads', 'open_demand', 'matches') and v_choice = 'digest' then
-    v_choice := 'each';
-  end if;
-  if v_choice is null then
-    return;
-  end if;
-
-  v_since := nullif(btrim(coalesce(p_since, '')), '');
-  if v_since is not null and public.notif_cadence_ts(v_since) is null then
-    return;
-  end if;
-
-  insert into public.agent_notification_preferences (
-    agent_id, whatsapp_cadence, whatsapp_cadence_since
-  ) values (
-    p_agent,
-    jsonb_build_object(v_type, v_choice),
-    case when v_since is null then '{}'::jsonb
-         else jsonb_build_object(v_type, v_since) end
-  )
-  on conflict (agent_id) do update
-    set whatsapp_cadence = public.agent_notification_preferences.whatsapp_cadence
-          || jsonb_build_object(v_type, v_choice),
-        whatsapp_cadence_since = case
-          when v_since is null then public.agent_notification_preferences.whatsapp_cadence_since - v_type
-          else public.agent_notification_preferences.whatsapp_cadence_since
-               || jsonb_build_object(v_type, v_since)
-        end,
-        updated_at = now();
+  return null;
 end;
 $$;
 
-comment on function public.notif_cadence_restore(uuid, text, text, text) is
-  'מחזיר קצב ו-since אחרי שמירה שנכשלה. since חוזר לערך הקודם, לא לעכשיו, כדי שפריטים ישנים יישארו בסיכום.';
+revoke all on function public.notif_cadence_actor_ok(uuid) from public, anon, authenticated;
+grant execute on function public.notif_cadence_actor_ok(uuid) to service_role;
 
-revoke all on function public.notif_cadence_restore(uuid, text, text, text) from public, anon, authenticated;
-grant execute on function public.notif_cadence_restore(uuid, text, text, text) to authenticated, service_role;
+create or replace function public.notif_cadence_begin(p_agent uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_err text;
+  v_id uuid;
+  v_cadence jsonb;
+  v_since jsonb;
+begin
+  v_err := public.notif_cadence_actor_ok(p_agent);
+  if v_err is not null then
+    insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
+    values (p_agent, null, 'snapshot', null);
+    return jsonb_build_object('ok', false, 'error', v_err);
+  end if;
+  select coalesce(p.whatsapp_cadence, '{}'::jsonb),
+         coalesce(p.whatsapp_cadence_since, '{}'::jsonb)
+    into v_cadence, v_since
+    from public.agent_notification_preferences p
+   where p.agent_id = p_agent;
+  v_cadence := coalesce(v_cadence, '{}'::jsonb);
+  v_since := coalesce(v_since, '{}'::jsonb);
+  delete from public.notif_cadence_snapshot s
+   where s.agent_id = p_agent
+     and s.created_at < now() - interval '30 minutes';
+  insert into public.notif_cadence_snapshot (agent_id, cadence, since)
+  values (p_agent, v_cadence, v_since)
+  returning id into v_id;
+  insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
+  values (p_agent, null, 'snapshot', null);
+  return jsonb_build_object('ok', true, 'id', v_id);
+end;
+$$;
+
+comment on function public.notif_cadence_begin(uuid) is
+  'צילום הקצב וה-since לפני שמירה. רק לסוכן/ת עצמו/ה, ורק כשהכפתור דלוק. תקף 30 דקות, כמו אישור הכיבוי.';
+
+revoke all on function public.notif_cadence_begin(uuid) from public, anon, authenticated;
+grant execute on function public.notif_cadence_begin(uuid) to authenticated, service_role;
+
+create or replace function public.notif_cadence_restore(p_agent uuid, p_snapshot uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_err text;
+  v_cadence jsonb;
+  v_since jsonb;
+begin
+  v_err := public.notif_cadence_actor_ok(p_agent);
+  if v_err is not null then
+    insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
+    values (p_agent, null, 'restore', null);
+    return jsonb_build_object('ok', false, 'error', v_err);
+  end if;
+  if p_snapshot is null then
+    insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
+    values (p_agent, null, 'restore', null);
+    return jsonb_build_object('ok', false, 'error', 'אין צילום קצב לשחזור');
+  end if;
+  select s.cadence, s.since
+    into v_cadence, v_since
+    from public.notif_cadence_snapshot s
+   where s.id = p_snapshot
+     and s.agent_id = p_agent
+     and s.created_at > now() - interval '30 minutes';
+  if not found then
+    insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
+    values (p_agent, null, 'restore', null);
+    return jsonb_build_object('ok', false, 'error', 'אין צילום קצב לשחזור, או שפג תוקפו');
+  end if;
+  -- הערכים הם הצילום, לא קלט מהדפדפן. כיבוי שחוזר היה כבר שמור,
+  -- ולכן אינו בחירת "ללא" חדשה שצריכה אישור שני.
+  insert into public.agent_notification_preferences (
+    agent_id, whatsapp_cadence, whatsapp_cadence_since
+  ) values (
+    p_agent, v_cadence, v_since
+  )
+  on conflict (agent_id) do update
+    set whatsapp_cadence = excluded.whatsapp_cadence,
+        whatsapp_cadence_since = excluded.whatsapp_cadence_since,
+        updated_at = now();
+  insert into public.notif_cadence_log (agent_id, notif_type, event, choice)
+  values (p_agent, null, 'restore', null);
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+comment on function public.notif_cadence_restore(uuid, uuid) is
+  'מחזיר את צילום הקצב וה-since מתחילת השמירה. לא מקבל בחירה מהלקוח, ולא מזיז את since לעכשיו.';
+
+revoke all on function public.notif_cadence_restore(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.notif_cadence_restore(uuid, uuid) to authenticated, service_role;
 
 comment on column public.agent_notification_preferences.whatsapp_cadence_since is
-  'לכל סוג, מרגע השינוי. התראות מלפניו לא נשפכות לוואטסאפ. נכתב ב-notif_cadence_apply, ומשוחזר ב-notif_cadence_restore בלי להזיז את השעה.';
+  'לכל סוג, מרגע השינוי. התראות מלפניו לא נשפכות לוואטסאפ. נכתב ב-notif_cadence_apply, ומשוחזר מצילום ב-notif_cadence_restore בלי להזיז את השעה.';

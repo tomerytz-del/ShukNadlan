@@ -268,7 +268,9 @@ def phone_hash_source_check() -> None:
 
 
 def phone_hash_privilege_check(db: str) -> None:
-    """הרשאה בפועל, כולל EXECUTE ש-Supabase נותן כברירת מחדל."""
+    """הרשאה בפועל על כל הפונקציות שבמסד הזה.
+    המסד החלקי של הבדיקה הזו אינו כל הסכימה. הסריקה המלאה רצה
+    ב-notif_cadence_prefs_test אחרי השחזור של הפרודקשן."""
     leaked = psql(db, sql_text="""
       select coalesce(string_agg(
         p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
