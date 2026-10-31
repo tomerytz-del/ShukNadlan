@@ -44,6 +44,17 @@
     var l = list(), next = l.filter(function (x) { return x !== id; });
     if (next.length !== l.length) store(next);
   }
+  /* כתיבה של רשימה שלמה (הסרה וביטול בפאנל, ניקוי נכסים שירדו). בלי תקרה - ביטול
+     מחזיר בדיוק את מה שהיה. מסנן ריקים וכפילויות */
+  function set(arr) {
+    var seen = {}, out = [];
+    (arr || []).forEach(function (id) {
+      if (id == null || id === '') return;
+      id = String(id);
+      if (!seen[id]) { seen[id] = 1; out.push(id); }
+    });
+    return store(out);
+  }
   function toggle(id) {
     if (has(id)) { remove(id); return false; }
     add(id); return true;
@@ -69,6 +80,6 @@
     changed();
   }
 
-  g.ShukLikes = { KEY: KEY, list: list, has: has, add: add, remove: remove, toggle: toggle, migrate: migrate };
+  g.ShukLikes = { KEY: KEY, list: list, has: has, add: add, remove: remove, toggle: toggle, set: set, migrate: migrate };
   migrate();
 })(typeof window !== 'undefined' ? window : globalThis);

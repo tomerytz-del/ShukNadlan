@@ -1209,7 +1209,10 @@
     } catch (e) { n = 1; }
     return n <= 1;
   })();
-  function loadLikes() { try { return JSON.parse(store('sk_swipe_likes') || '[]') || []; } catch (e) { return []; } }
+  function loadLikes() {
+    if (window.ShukLikes) return window.ShukLikes.list();
+    try { return JSON.parse(store('sk_swipe_likes') || '[]') || []; } catch (e) { return []; }
+  }
   function saveLikes() { store('sk_swipe_likes', JSON.stringify(likes.slice(-200))); renderLikes(); }
   /* הרשימה בזיכרון מתעדכנת כשלשונית אחרת שומרת (הלב בדף היועץ, הפאנל בכותרת) - אחרת
      הלייק הבא כאן היה כותב את העותק הישן ומוחק את מה שנשמר שם */

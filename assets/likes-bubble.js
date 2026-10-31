@@ -22,7 +22,12 @@
     if (window.ShukLikes) return window.ShukLikes.list();
     try { return (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).filter(Boolean); } catch (e) { return []; }
   }
-  function save(list) { try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list)); } catch (e) {} }
+  // דרך ShukLikes.set כשהוא בדף - הוא גם משדר shuk-likes, כך שכפתור השמירה בדף הנכס מתעדכן באותה לשונית
+  function save(list) {
+    if (window.ShukLikes) { window.ShukLikes.set(list); return; }
+    try { localStorage.setItem('sk_swipe_likes', JSON.stringify(list)); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent('shuk-likes')); } catch (e) {}
+  }
 
   var css = document.createElement('style');
   css.textContent =
@@ -103,12 +108,14 @@
     if (!ids.length) { render(); return; }
     fetch(URL_ + '?select=id,title,price,deal_type,property_type,city,street,images&status=eq.active&id=in.(' + ids.join(',') + ')',
       { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
-      .then(function (r) { return r.ok ? r.json() : []; })
+      // תשובה שנכשלה אינה "אין נכסים": null, ובלי ניקוי (כמו ב-swipe.js)
+      .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (rows) {
-        (rows || []).forEach(function (p) { props[p.id] = p; });
+        if (!Array.isArray(rows)) { render(); return; }
+        rows.forEach(function (p) { props[p.id] = p; });
         // נכס שירד מהאתר יוצא מהרשימה בשקט (כמו בהחלקה)
         var gone = ids.filter(function (id) { return !props[id]; });
-        if (gone.length && rows) { save(likes().filter(function (id) { return gone.indexOf(id) < 0; })); sync(); }
+        if (gone.length) { save(likes().filter(function (id) { return gone.indexOf(id) < 0; })); sync(); }
         render();
       }, function () { render(); });
   }
