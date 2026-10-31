@@ -398,7 +398,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .join-band p{font-size:.9rem;color:var(--ink-soft);margin:10px auto 18px;max-width:46ch}
 
   /* ====== Footer (זהה לדף הבית) ====== */
-  /* ‏P1-U1 (‏assets/dm-filters.js, רק ב-?beta=1) */
+  /* ‏P1-U1 (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0) */
   /* ‏R8: עיצוב הסינון ב-assets/filter-ui.css (נטען מ-dm-filters.js); כאן רק מה ששייך לדף */
   .dmf-on > :not(#dmfEmpty){display:none}
 </style>
@@ -955,7 +955,7 @@ let activeSpec = 'all';
 let sortMode = 'properties';
 let query = '';
 let view = 'grid';          // 'grid' | 'map'
-let dmf = null;             // ‏P1-U1: התמחות ואזור מהנכסים (‏assets/dm-filters.js, רק ב-?beta=1)
+let dmf = null;             // ‏P1-U1: התמחות ואזור מהנכסים (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0)
 let allProps = [];
 
 /* סדר ה"דירוג" זהה לקרוסלה בדף הבית, כדי ש"#1" כאן יהיה "#1" שם:
@@ -1095,7 +1095,7 @@ function renderCounts(list){
   // אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
   const q = query.trim().toLowerCase();
   const pool = agencies.filter(a => matchesQuery(a, q));
-  // ‏ב-?beta=1 השורה הוחלפה ב-dm-filters.js
+  // ‏בעיצוב v10 (ברירת המחדל) השורה הוחלפה ב-dm-filters.js
   if (!el('specPills')) return;
   el('specPills').querySelectorAll('.pill').forEach(btn=>{
     const key = btn.dataset.spec;
