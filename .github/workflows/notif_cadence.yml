@@ -6,7 +6,7 @@ name: קצב התראות לידים
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271031270000_notif_cadence_button.sql"
+      - "supabase/migrations/20271031290000_notif_cadence_button.sql"
       - "supabase/functions/_shared/notif-cadence.ts"
       - "supabase/functions/notification-push/index.ts"
       - "supabase/functions/whatsapp-webhook/index.ts"
@@ -15,7 +15,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271031270000_notif_cadence_button.sql"
+      - "supabase/migrations/20271031290000_notif_cadence_button.sql"
       - "supabase/functions/_shared/notif-cadence.ts"
       - "supabase/functions/notification-push/index.ts"
       - "supabase/functions/whatsapp-webhook/index.ts"

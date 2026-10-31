@@ -1,7 +1,7 @@
 -- ============================================================================
 -- כפתור "התאמת קצב התראות" בוואטסאפ. כבוי.
 --
--- version 20271031270000.
+-- version 20271031290000.
 -- notification_push_claim ו-has_backlog נבנים מ-20271031260000 (#1058), ואז נוסף הסינון של הקצב.
 -- app_config.notif_cadence_button_enabled = false. כל ערך שאינו
 -- 1/true/on/yes משאיר את השליחה כמו היום: אין כפתור, וליד חדש יוצא
@@ -51,7 +51,30 @@ alter table public.agent_notification_preferences
 comment on column public.agent_notification_preferences.whatsapp_cadence is
   'קצב וואטסאפ לפי סוג: each, daily, thrice, off. מפתח חסר הוא each, אלא אם הסוג ב-whatsapp_off_types ואז off. אותו שדה נקרא מהמסך ומ-whatsapp_alerts.';
 comment on column public.agent_notification_preferences.whatsapp_cadence_since is
-  'לכל סוג, מרגע השינוי. התראות מלפניו לא נשפכות לוואטסאפ.';
+  'לכל סוג, מרגע השינוי. התראות מלפניו לא נשפכות לוואטסאפ. נכתב רק דרך notif_cadence_apply.';
+
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname = 'agent_notification_preferences_cadence_since_chk'
+  ) then
+    alter table public.agent_notification_preferences
+      add constraint agent_notification_preferences_cadence_since_chk
+      check (
+        not exists (
+          select 1
+            from jsonb_each_text(whatsapp_cadence_since) e
+           where e.value !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}'
+        )
+      );
+  end if;
+end $$;
+
+-- authenticated מעדכן את שאר העמודות מה-CRM. שתי עמודות הקצב רק דרך הפונקציה,
+-- כדי שמחרוזת since פגומה לא תיכנס ותפיל את ה-claim.
+revoke update on table public.agent_notification_preferences from public, anon, authenticated;
+grant update (muted_types, whatsapp_types, whatsapp_off_types, updated_at)
+  on table public.agent_notification_preferences to authenticated;
 
 -- ברירת מחדל: סוג שכבוי בוואטסאפ נשאר off. כל השאר each, כמו היום.
 update public.agent_notification_preferences p
@@ -212,6 +235,51 @@ comment on function public.notif_cadence_group(text) is
 revoke all on function public.notif_cadence_group(text) from public, anon, authenticated;
 grant execute on function public.notif_cadence_group(text) to service_role;
 
+-- ערך since פגום לא מפיל את ה-claim של כולם. מחרוזת שאינה חותמת זמן חוזרת null.
+create or replace function public.notif_cadence_ts(p_raw text)
+returns timestamptz
+language plpgsql
+immutable
+as $$
+begin
+  if p_raw is null or btrim(p_raw) = '' then
+    return null;
+  end if;
+  if p_raw !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}' then
+    return null;
+  end if;
+  return p_raw::timestamptz;
+exception when others then
+  return null;
+end;
+$$;
+
+revoke all on function public.notif_cadence_ts(text) from public, anon, authenticated;
+grant execute on function public.notif_cadence_ts(text) to service_role;
+
+-- כיבוי שמגיע מ-STOP (whatsapp_off_types) או ממפתח סוג או ממפתח קבוצה.
+create or replace function public.notif_cadence_type_off(p_agent uuid, p_type text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.agent_notification_preferences p
+     where p.agent_id = p_agent
+       and (
+         p_type = any(coalesce(p.whatsapp_off_types, '{}'::text[]))
+         or coalesce(p.whatsapp_cadence ->> p_type, '') = 'off'
+         or coalesce(p.whatsapp_cadence ->> public.notif_cadence_group(p_type), '') = 'off'
+       )
+  );
+$$;
+
+revoke all on function public.notif_cadence_type_off(uuid, text) from public, anon, authenticated;
+grant execute on function public.notif_cadence_type_off(uuid, text) to service_role;
+
 create or replace function public.notif_cadence_digestable(p_type text)
 returns boolean
 language sql
@@ -244,18 +312,22 @@ as $$
         ) s
     ), 'each')
     when p_type = 'meetings' then 'each'
-    when p_type = 'system_mentor' then coalesce((
-      select case when mode in ('digest', 'off') then mode else 'digest' end
-        from (
-          select nullif(p.whatsapp_cadence ->> 'system_mentor', '') as mode
-            from public.agent_notification_preferences p
-           where p.agent_id = p_agent
-        ) s
-    ), 'digest')
+    when p_type = 'system_mentor' then case
+      when public.notif_cadence_type_off(p_agent, p_type) then 'off'
+      else coalesce((
+        select case when mode in ('digest', 'off') then mode else 'digest' end
+          from (
+            select nullif(p.whatsapp_cadence ->> 'system_mentor', '') as mode
+              from public.agent_notification_preferences p
+             where p.agent_id = p_agent
+          ) s
+      ), 'digest')
+    end
     when public.notif_cadence_group(p_type) is null then 'each'
     when public.notif_cadence_group(p_type) = 'meetings' then 'each'
-    when public.notif_cadence_group(p_type) = 'system_mentor' then
-      coalesce((
+    when public.notif_cadence_group(p_type) = 'system_mentor' then case
+      when public.notif_cadence_type_off(p_agent, p_type) then 'off'
+      else coalesce((
         select case
           when mode in ('digest', 'off') then mode
           else 'digest'
@@ -266,6 +338,7 @@ as $$
            where p.agent_id = p_agent
         ) s
       ), 'digest')
+    end
     else coalesce((
       select case
         when mode in ('each', 'daily', 'thrice', 'off') then mode
@@ -295,11 +368,9 @@ set search_path = ''
 as $$
   select case
     when p_type in ('new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor') then
-      case when nullif(p.whatsapp_cadence_since ->> p_type, '') is null then null
-           else (p.whatsapp_cadence_since ->> p_type)::timestamptz end
+      public.notif_cadence_ts(p.whatsapp_cadence_since ->> p_type)
     when public.notif_cadence_group(p_type) is null then null
-    when nullif(p.whatsapp_cadence_since ->> public.notif_cadence_group(p_type), '') is null then null
-    else (p.whatsapp_cadence_since ->> public.notif_cadence_group(p_type))::timestamptz
+    else public.notif_cadence_ts(p.whatsapp_cadence_since ->> public.notif_cadence_group(p_type))
   end
   from public.agent_notification_preferences p
   where p.agent_id = p_agent;
@@ -615,7 +686,7 @@ begin
       cross join lateral (
         select g.grp as notif_type,
                coalesce(nullif(p.whatsapp_cadence ->> g.grp, ''), g.fallback) as cadence,
-               nullif(p.whatsapp_cadence_since ->> g.grp, '')::timestamptz as since
+               public.notif_cadence_ts(p.whatsapp_cadence_since ->> g.grp) as since
           from (values
             ('new_leads'::text, 'each'::text),
             ('open_demand', 'each'),
@@ -627,6 +698,7 @@ begin
        and m.closed_at is null
        and m.tier in ('mid', 'premium')
        and m.billing_status = 'active'
+       and m.closure_requested_at is null
        and (
          (e.notif_type in ('new_leads', 'open_demand', 'matches') and e.cadence in ('daily', 'thrice'))
          or (e.notif_type = 'system_mentor' and e.cadence = 'digest')
@@ -653,6 +725,9 @@ begin
          where n.agent_id = r.id
            and public.notif_cadence_group(n.type) = r.notif_type
            and not n.read
+           and not n.suppress_push
+           and n.created_at > pg_catalog.now() - interval '7 days'
+           and not public.notif_cadence_type_off(r.id, n.type)
            and (r.since is null or n.created_at >= r.since)
            and not exists (
              select 1 from public.notification_push_log l
@@ -785,7 +860,34 @@ declare
   v_event text;
   v_map jsonb;
   v_off text[];
+  v_role text;
 begin
+  v_role := coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 'service_role');
+  if v_role is distinct from 'service_role'
+     and p_agent is distinct from public.current_agent_id() then
+    enabled := false;
+    changed := false;
+    needs_confirm := false;
+    expired := false;
+    return next;
+    return;
+  end if;
+  if not exists (
+    select 1 from public.agency_members m
+     where m.id = p_agent
+       and m.active
+       and m.closed_at is null
+       and m.closure_requested_at is null
+       and m.tier in ('mid', 'premium')
+       and m.billing_status = 'active'
+  ) then
+    enabled := false;
+    changed := false;
+    needs_confirm := false;
+    expired := false;
+    return next;
+    return;
+  end if;
   v_type := nullif(btrim(coalesce(p_type, '')), '');
   if v_type is not null and v_type not in (
     'new_leads', 'meetings', 'open_demand', 'matches', 'system_mentor'
@@ -934,7 +1036,7 @@ comment on function public.notif_cadence_apply(uuid, text, text, text) is
   'קצב לפי סוג. ללא נשמר רק אחרי אישור בתוך 30 דקות. בחירה זהה לא מזיזה את since ולא כותבת התראה. off נכנס גם ל-whatsapp_off_types.';
 
 revoke all on function public.notif_cadence_apply(uuid, text, text, text) from public, anon, authenticated;
-grant execute on function public.notif_cadence_apply(uuid, text, text, text) to service_role;
+grant execute on function public.notif_cadence_apply(uuid, text, text, text) to authenticated, service_role;
 
 
 -- הפונקציות המשותפות: הגוף של 20271031260000 (#1058), וה-claim עם סינון הקצב.
@@ -1340,6 +1442,7 @@ begin
                (not public.notification_push_is_ambient(n.type, n.agent_id, n.related_property_id)
                  or n.created_at <= now() - make_interval(mins => v_digest)) as wake_part,
                jsonb_build_object(
+                 'id',          n.id,
                  'type',        n.type,
                  'title',       n.title,
                  'body',        n.body,
@@ -1370,6 +1473,18 @@ begin
            and not n.suppress_push
            and n.type = any(a.whatsapp_types)
            and public.notification_push_lead_wa_sendable(n.agent_id, n.type, n.created_at)
+           and not (
+             public.notif_cadence_button_on()
+             and exists (
+               select 1 from public.notification_push_log lcap
+                where lcap.agent_id = n.agent_id
+                  and n.id = any(lcap.notification_ids)
+                  and lcap.whatsapp_status = 'skipped_template_cap'
+                  and public.whatsapp_template_local_day(lcap.created_at)
+                      = public.whatsapp_template_local_day(pg_catalog.now())
+             )
+             and not public.lead_wa_digest_cap_allows(n.agent_id, null)
+           )
            and (n.created_at > now() - make_interval(hours =>
                   case
                     when n.type = any(v_prio) then least(v_look_p, v_urgent)

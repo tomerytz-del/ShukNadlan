@@ -55,7 +55,7 @@ import {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migration = readFileSync(
-  join(root, "supabase/migrations/20271031270000_notif_cadence_button.sql"),
+  join(root, "supabase/migrations/20271031290000_notif_cadence_button.sql"),
   "utf8",
 );
 const push = readFileSync(join(root, "supabase/functions/notification-push/index.ts"), "utf8");
@@ -155,6 +155,13 @@ test("מיפוי קבוצות, וסוג לא מוכר נופל לקבוצה 5", 
   );
   assert.match(digestClaim, /'system_mentor', 'digest'/);
   assert.doesNotMatch(digestClaim, /jsonb_each_text/);
+  assert.match(digestClaim, /closure_requested_at is null/);
+  assert.match(digestClaim, /not n\.suppress_push/);
+  assert.match(digestClaim, /interval '7 days'/);
+  assert.match(digestClaim, /notif_cadence_type_off/);
+  assert.match(migration, /notif_cadence_ts/);
+  assert.match(migration, /agent_notification_preferences_cadence_since_chk/);
+  assert.match(migration, /revoke update on table public\.agent_notification_preferences from public, anon, authenticated/);
 });
 
 test("כל סוג ב-notifications_type_check ממופה או מוחרג", () => {
@@ -263,6 +270,8 @@ test("הדגל כבוי, האכיפה ב-claim, ובלי לגעת ביצירת �
   assert.match(push, /lead_wa_digest_cap_allows/);
   assert.match(push, /template_cap/);
   assert.match(push, /p_except: row\.log_id/);
+  assert.match(push, /skipped_template_cap/);
+  assert.match(push, /items = keep/);
   assert.match(push, /cadenceOpenId/);
   assert.match(hook, /cadenceIdFromMessage/);
   assert.match(hook, /p_type: type/);

@@ -246,6 +246,8 @@ type Item = {
   showcase_id?: string | null;
   // ‏תקציר התפרצות (20271029140000). חסר בהודעה רגילה.
   count?: number | null;
+  // מזהה ההתראה, כדי לפצל שורה מעורבת בלי לסמן את כולה כדחויה.
+  id?: string | null;
   // מקור הליד. photo_request אינו מוגן גם כשהסוג הוא new_lead.
   source?: string | null;
   // notifications.action_path. חסר עד שהמיגרציה עלתה, ואז גובר על המיפוי.
@@ -1046,10 +1048,9 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // ליד חדש, תזכורת וסיור לא נכנסים לתקרת הסיכום: יש להם פטור משלהם
-    // ב-whatsapp_template_cap_allow, ו-each חייב להמשיך לצאת. דחייה של סוג
-    // אחר נרשמת skipped_template_cap, לא skipped: skipped נתפס ב-holds לתמיד
-    // וההתראה לא חוזרת לוואטסאפ.
+    // ליד חדש, תזכורת וסיור יוצאים גם כשהתקרה מלאה. שאר הפריטים באותה שורה
+    // נדחים ל-skipped_template_cap של היום, וה-claim לא תופס אותם שוב כל עוד
+    // התקרה עדיין חוסמת. בלי הפיצול השורה כולה חוזרת כל עשר דקות.
     const cadenceCapExempt = new Set(["new_lead", "agenda_reminder", "showcase_meeting"]);
     if (cadenceOn && row.channel_mode === "template"
         && items.some((it) => !cadenceCapExempt.has(it.type))) {
@@ -1058,13 +1059,39 @@ Deno.serve(async (req: Request) => {
         p_except: row.log_id,
       });
       if (!capErr && allow === false) {
-        const { error: holdErr } = await sb.from("notification_push_log").update({
-          whatsapp_status: "skipped_template_cap",
-          last_error: "template_cap",
-        }).eq("id", row.log_id).eq("whatsapp_status", "pending");
-        if (holdErr) console.error("template cap hold failed", row.log_id, holdErr.message);
-        skipped++;
-        return;
+        const keep = items.filter((it) => cadenceCapExempt.has(it.type));
+        const defer = items.filter((it) => !cadenceCapExempt.has(it.type));
+        const deferIds = defer.map((it) => it.id).filter((id): id is string => !!id);
+        const keepIds = keep.map((it) => it.id).filter((id): id is string => !!id);
+        if (!keep.length) {
+          const { error: holdErr } = await sb.from("notification_push_log").update({
+            whatsapp_status: "skipped_template_cap",
+            last_error: "template_cap",
+          }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+          if (holdErr) console.error("template cap hold failed", row.log_id, holdErr.message);
+          skipped++;
+          return;
+        }
+        if (deferIds.length === defer.length && keepIds.length === keep.length) {
+          const { error: splitErr } = await sb.from("notification_push_log").update({
+            notification_ids: keepIds,
+            types: [...new Set(keep.map((it) => it.type))],
+          }).eq("id", row.log_id).eq("whatsapp_status", "pending");
+          if (splitErr) {
+            console.error("template cap split failed", row.log_id, splitErr.message);
+          } else if (deferIds.length) {
+            const { error: parkErr } = await sb.from("notification_push_log").insert({
+              agent_id: row.agent_id,
+              notification_ids: deferIds,
+              types: [...new Set(defer.map((it) => it.type))],
+              channel_mode: "template",
+              whatsapp_status: "skipped_template_cap",
+              last_error: "template_cap",
+            });
+            if (parkErr) console.error("template cap park failed", row.log_id, parkErr.message);
+          }
+        }
+        items = keep;
       }
     }
 

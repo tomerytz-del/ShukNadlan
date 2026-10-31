@@ -2009,10 +2009,6 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     ? String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "")
     : "";
   const cadenceId = cadenceIdFromMessage(msg);
-  if (cadenceId) {
-    await handleCadenceTap(agent.id, from, cadenceId);
-    return;
-  }
   // "הפסק" / "הפסקה", או כפתור תשובה מהירה באותו טקסט. לפני המודל ולפני
   // גייט המסלול: תבנית UTILITY אינה נושאת כפתור כיבוי, והמילה היא הכיבוי.
   if (isWhatsappStop(msg)) {
@@ -2032,6 +2028,10 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (buttonId.startsWith("odc:")) {
     await handleOpenDemandClaim(agent.id, from, buttonId);
+    return;
+  }
+  if (cadenceId) {
+    await handleCadenceTap(agent.id, from, cadenceId);
     return;
   }
 

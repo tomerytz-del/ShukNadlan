@@ -905,16 +905,26 @@ async function saveNotifPrefsRows(s){
     whatsapp_off_types: whatsappOff,
     updated_at: nowIso,
   };
-  const patch = { ...base };
-  if (cadenceChipsVisible()) {
-    patch.whatsapp_cadence = nextMap;
-    if (sinceChanged) patch.whatsapp_cadence_since = nextSince;
-  }
-  let saved = await sb.from('agent_notification_preferences').upsert(patch, { onConflict:'agent_id' });
-  if (saved.error && /whatsapp_cadence|42703|schema cache/i.test(saved.error.message || '')) {
-    saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
-  }
+  // whatsapp_cadence ו-whatsapp_cadence_since נכתבים רק ב-notif_cadence_apply.
+  let saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
   if (saved.error) return { error: saved.error };
+  if (cadenceChipsVisible()) {
+    for (const g of NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked')) {
+      const choice = nextMap[g.id];
+      if (!choice || choice === notifGroupCadence(g.id)) continue;
+      if (choice === 'off') {
+        await sb.rpc('notif_cadence_apply', {
+          p_agent: currentAgent.id, p_type: g.id, p_event: 'ask', p_choice: 'off',
+        });
+      }
+      const applied = await sb.rpc('notif_cadence_apply', {
+        p_agent: currentAgent.id, p_type: g.id, p_event: 'choose', p_choice: choice,
+      });
+      if (applied.error && !/notif_cadence_apply|42883|schema cache/i.test(applied.error.message || '')) {
+        return { error: applied.error };
+      }
+    }
+  }
   notifMutedTypes = muted;
   notifWhatsappOffTypes = whatsappOff;
   notifWhatsappCadence = nextMap;
