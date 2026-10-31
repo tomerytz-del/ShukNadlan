@@ -7,10 +7,14 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import uuid
+from pathlib import Path
 
 import psycopg
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def fail(msg: str) -> None:
@@ -82,6 +86,68 @@ def insert_min(cur, table: str, forced: dict) -> dict:
     return values
 
 
+def _strip_dollar(sql: str) -> str:
+    out = []
+    i = 0
+    while i < len(sql):
+        if sql.startswith("$$", i):
+            j = sql.find("$$", i + 2)
+            if j < 0:
+                break
+            out.append(" ")
+            i = j + 2
+        else:
+            out.append(sql[i])
+            i += 1
+    return "".join(out)
+
+
+def replay_function_acls(cur) -> None:
+    """השחזור הוא pg_dump --no-acl. ה-grant וה-revoke מהמיגרציות חוזרים,
+    כדי ש-has_function_privilege יראה את ההרשאה שאחרי כל הקבצים."""
+    stmts = []
+    for path in sorted((ROOT / "supabase/migrations").glob("*.sql")):
+        text = _strip_dollar(path.read_text(encoding="utf-8"))
+        stmts.extend(
+            re.findall(
+                r"(?:grant|revoke)\s+(?:all|execute)\b[^;]*\bon\s+function\s+public\.\w+\s*\([^;]*;",
+                text,
+                flags=re.I,
+            )
+        )
+    for stmt in stmts:
+        cur.execute("savepoint fn_acl")
+        try:
+            cur.execute(stmt)
+        except Exception:
+            cur.execute("rollback to savepoint fn_acl")
+        else:
+            cur.execute("release savepoint fn_acl")
+
+
+def assert_phone_hash_closed(cur) -> None:
+    replay_function_acls(cur)
+    cur.execute(
+        """
+        select coalesce(string_agg(sig, ', ' order by sig), '')
+          from (
+            select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as sig
+              from pg_proc p
+              join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public'
+               and position('phone_hash' in p.prosrc) > 0
+               and (
+                 has_function_privilege('anon', p.oid, 'EXECUTE')
+                 or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+               )
+          ) s
+        """
+    )
+    leaked = cur.fetchone()[0]
+    if leaked:
+        fail("phone_hash בפונקציה ש-anon או authenticated יכולים להריץ: " + leaked)
+
+
 def main() -> int:
     db = os.environ.get("MIGRATION_APPLY_DB", "migration_apply_ci")
     conn = psycopg.connect(
@@ -142,6 +208,17 @@ def main() -> int:
             """
         )
         print("privileges insert, select, update agent_id, execute check:", cur.fetchone())
+        # ה-dump ב-CI בלי ACL, ורק המיגרציה החדשה רצה. ההרשאות נכתבות כאן שוב.
+        cur.execute(
+            """
+            revoke update on table public.agent_notification_preferences
+              from public, anon, authenticated;
+            grant select, insert on table public.agent_notification_preferences to authenticated;
+            grant update (agent_id, muted_types, whatsapp_types, whatsapp_off_types, updated_at)
+              on table public.agent_notification_preferences to authenticated
+            """
+        )
+        assert_phone_hash_closed(cur)
         cur.execute("select set_config('test.agent', %s, true)", (me["id"],))
         cur.execute("select set_config('request.jwt.claims', '{\"role\":\"authenticated\"}', true)")
         cur.execute("set local role authenticated")

@@ -25,6 +25,10 @@ do $$ begin
   end if;
 end $$;
 
+-- כמו Supabase: EXECUTE ישיר ל-anon ול-authenticated על פונקציה חדשה,
+-- בלי קשר ל-PUBLIC. revoke מ-public לבדו לא סוגר אותם.
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+
 create table public.pricing_config (
   key text primary key,
   value int not null,
@@ -243,46 +247,13 @@ def fail(msg):
 
 
 def phone_hash_source_check() -> None:
-    """phone_hash הוא PII פסאודונימי. לא חוזר מפונקציה ש-anon או authenticated קוראים."""
-    import re
-
+    """phone_hash הוא PII פסאודונימי. ההרשאה נבדקת ב-has_function_privilege."""
     mig_dir = ROOT / "supabase/migrations"
     latest_comment = ""
-    bodies: dict[str, str] = {}
-    access: dict[str, dict[str, bool]] = {}
-    fn_re = re.compile(
-        r"create\s+or\s+replace\s+function\s+public\.(\w+)\s*\(",
-        re.I,
-    )
     for path in sorted(mig_dir.glob("*.sql")):
         text = path.read_text(encoding="utf-8")
         if "comment on column public.scraped_leads.phone_hash" in text:
             latest_comment = text
-        parts = re.split(r"(?=create\s+or\s+replace\s+function\s+public\.)", text, flags=re.I)
-        for part in parts:
-            hit = fn_re.search(part)
-            if not hit:
-                continue
-            name = hit.group(1)
-            args = part[hit.end():].split(")", 1)[0]
-            key = name + "(" + re.sub(r"\s+", "", args.lower()) + ")"
-            bodies[key] = part
-            state = dict(access.get(key, {"anon": False, "authenticated": False}))
-            stmt_re = re.compile(
-                r"(grant|revoke)\s+[^;]*\bon\s+function\s+public\." + re.escape(name) + r"\s*\([^;]*;",
-                re.I,
-            )
-            for stmt in stmt_re.finditer(part):
-                sql = stmt.group(0)
-                kind = stmt.group(1).lower()
-                for role in ("anon", "authenticated"):
-                    if not re.search(r"\b" + role + r"\b", sql, re.I):
-                        continue
-                    if kind == "revoke":
-                        state[role] = False
-                    elif kind == "grant" and re.search(r"\bto\b", sql, re.I):
-                        state[role] = True
-            access[key] = state
     if "never cleared" in latest_comment.split("comment on column public.scraped_leads.phone_hash", 1)[-1][:500]:
         fail("הערת phone_hash עדיין אומרת never cleared")
     if "30 days after posted_at" not in latest_comment:
@@ -294,15 +265,27 @@ def phone_hash_source_check() -> None:
     docs = (ROOT / "docs/scraped-leads.md").read_text(encoding="utf-8")
     if "מזהה פסאודונימי" not in docs:
         fail("docs/scraped-leads.md לא מתעד את phone_hash כ-PII פסאודונימי")
-    leaked = []
-    for key, body in bodies.items():
-        who = access.get(key, {})
-        if not (who.get("anon") or who.get("authenticated")):
-            continue
-        if "phone_hash" in body:
-            leaked.append(key)
+
+
+def phone_hash_privilege_check(db: str) -> None:
+    """הרשאה בפועל על כל הפונקציות שבמסד הזה.
+    המסד החלקי של הבדיקה הזו אינו כל הסכימה. הסריקה המלאה רצה
+    ב-notif_cadence_prefs_test אחרי השחזור של הפרודקשן."""
+    leaked = psql(db, sql_text="""
+      select coalesce(string_agg(
+        p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
+        ', ' order by p.proname), '')
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and position('phone_hash' in p.prosrc) > 0
+        and (
+          has_function_privilege('anon', p.oid, 'EXECUTE')
+          or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+        )
+    """)
     if leaked:
-        fail("phone_hash חוזר מפונקציה פתוחה: " + ", ".join(sorted(leaked)))
+        fail("phone_hash בפונקציה ש-anon או authenticated יכולים להריץ: " + leaked)
 
 
 def main():
@@ -667,6 +650,7 @@ def main():
         fail(f"המילוי לא השאיר hash בלי לגעת בשאר: {kept}")
     if psql(db, sql_text="select count(*) from public.notifications") != before_n:
         fail("המילוי כתב התראה")
+    phone_hash_privilege_check(db)
     psql(db, sql_text="""
       update public.scraped_leads
          set raw_phone = null

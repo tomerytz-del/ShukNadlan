@@ -997,29 +997,36 @@ function renderNotifPrefs(){ notifPrefsReady = true; renderNotifScreen(); }
 function renderReminderPrefs(){ remindersReady = true; renderNotifScreen(); renderQuietEditors(); }
 function syncNotifWaNote(){ syncNotifScreen(); }
 
-/* מחזיר קצב שכבר נכתב, ואת רשימת הכיבוי שלפני השמירה. השגיאה המקורית
-   היא מה שהמסך מציג. */
-async function rollbackNotifCadence(changed){
-  if (!currentAgent) return;
-  try {
-    for (const row of changed || []) {
-      const prev = row.prev || 'each';
-      if (prev === 'off') {
-        await sb.rpc('notif_cadence_apply', {
-          p_agent: currentAgent.id, p_type: row.id, p_event: 'ask', p_choice: 'off',
-        });
-      }
-      await sb.rpc('notif_cadence_apply', {
-        p_agent: currentAgent.id, p_type: row.id, p_event: 'choose', p_choice: prev,
-      });
-    }
-    await sb.from('agent_notification_preferences').upsert({
-      agent_id: currentAgent.id,
-      muted_types: notifMutedTypes,
-      whatsapp_off_types: notifWhatsappOffTypes,
-      updated_at: new Date().toISOString(),
-    }, { onConflict:'agent_id' });
-  } catch (e) { /* נשארת השגיאה של השמירה */ }
+function notifErrText(error){
+  if (!error) return '';
+  return error.message || String(error);
+}
+
+/* מחזיר את צילום הקצב ואת רשימת הכיבוי. אוסף את כל הכשלונות, ואז מדווח. */
+async function rollbackNotifCadence(snapshotId){
+  const errors = [];
+  if (!currentAgent) return errors;
+  if (snapshotId) {
+    const restored = await sb.rpc('notif_cadence_restore', {
+      p_agent: currentAgent.id,
+      p_snapshot: snapshotId,
+    });
+    if (restored.error) errors.push(notifErrText(restored.error));
+    else if (restored.data && restored.data.ok === false) errors.push(restored.data.error || 'שחזור הקצב נכשל');
+  }
+  const prefs = await sb.from('agent_notification_preferences').upsert({
+    agent_id: currentAgent.id,
+    muted_types: notifMutedTypes,
+    whatsapp_off_types: notifWhatsappOffTypes,
+    updated_at: new Date().toISOString(),
+  }, { onConflict:'agent_id' });
+  if (prefs.error) errors.push(notifErrText(prefs.error));
+  return errors;
+}
+
+function notifSaveError(primary, extra){
+  const parts = [notifErrText(primary)].concat(extra || []).filter(Boolean);
+  return { message: parts.join(' ') || 'השמירה נכשלה' };
 }
 
 /* שמירת חצי ההתראות (‏agent_notification_preferences). נשמרות רשימות
@@ -1072,13 +1079,21 @@ async function saveNotifPrefsRows(s){
   const saved = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
   if (saved.error) return { error: saved.error };
   // whatsapp_cadence ו-whatsapp_cadence_since נכתבים רק ב-notif_cadence_apply.
-  // אחריו נכתבת הרשימה שוב, כדי שסוג שהודלק לא יידרס. כשלון מחזיר את הקצב.
-  const changed = [];
-  if (cadenceChipsVisible()) {
-    for (const g of NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked')) {
+  // צילום בשרת לפני השינוי. כשלון מחזיר את הצילום, לא קורא ל-choose.
+  const pendingCadence = NOTIF_CADENCE_GROUPS.filter(g => g.mode !== 'locked').filter(g => {
+    const choice = nextMap[g.id];
+    return choice && choice !== notifGroupCadence(g.id);
+  });
+  let snapshotId = null;
+  if (cadenceChipsVisible() && pendingCadence.length) {
+    const begun = await sb.rpc('notif_cadence_begin', { p_agent: currentAgent.id });
+    if (begun.error || !begun.data || begun.data.ok === false || !begun.data.id) {
+      const back = await rollbackNotifCadence(null);
+      return { error: notifSaveError(begun.error || { message: (begun.data && begun.data.error) || 'לא נשמר צילום הקצב' }, back) };
+    }
+    snapshotId = begun.data.id;
+    for (const g of pendingCadence) {
       const choice = nextMap[g.id];
-      const prev = notifGroupCadence(g.id);
-      if (!choice || choice === prev) continue;
       if (choice === 'off') {
         await sb.rpc('notif_cadence_apply', {
           p_agent: currentAgent.id, p_type: g.id, p_event: 'ask', p_choice: 'off',
@@ -1088,17 +1103,14 @@ async function saveNotifPrefsRows(s){
         p_agent: currentAgent.id, p_type: g.id, p_event: 'choose', p_choice: choice,
       });
       if (applied.error && !/notif_cadence_apply|42883|schema cache/i.test(applied.error.message || '')) {
-        await rollbackNotifCadence(changed);
-        return { error: applied.error };
+        const back = await rollbackNotifCadence(snapshotId);
+        return { error: notifSaveError(applied.error, back) };
       }
-      changed.push({ id: g.id, prev });
     }
-  }
-  if (changed.length) {
     const again = await sb.from('agent_notification_preferences').upsert(base, { onConflict:'agent_id' });
     if (again.error) {
-      await rollbackNotifCadence(changed);
-      return { error: again.error };
+      const back = await rollbackNotifCadence(snapshotId);
+      return { error: notifSaveError(again.error, back) };
     }
   }
   notifMutedTypes = muted;
