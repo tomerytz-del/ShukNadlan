@@ -421,14 +421,26 @@ export default async function handler(request: Request, context: Context) {
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
     if (!match) return withHomeVary(res);
     const city = cityFromParams(params);
-    const out = inject(await res.text(), city ? withCity(match, city) : match);
-
-    const headers = new Headers(res.headers);
-    /* s-maxage רק ב-Netlify-CDN-Cache-Control. Cache-Control הוא
-       max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store
-       מ-withDecisionCookies, וה-Vary נכתב גם אז. */
-    setHomeCache(headers);
-    return new Response(out, { status: res.status, headers });
+    /* clone לפני הקריאה: ב-catch הגוף המקורי כבר נעול, ומחזרים
+       Response חדש עם כותרות חדשות ולא נוגעים בנעולות. */
+    const fallback = res.clone();
+    try {
+      const out = inject(await res.text(), city ? withCity(match, city) : match);
+      const headers = new Headers(fallback.headers);
+      /* s-maxage רק ב-Netlify-CDN-Cache-Control. Cache-Control הוא
+         max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store
+         מ-withDecisionCookies, וה-Vary נכתב גם אז. */
+      setHomeCache(headers);
+      return new Response(out, { status: res.status, headers });
+    } catch {
+      const headers = new Headers(fallback.headers);
+      headers.set("Netlify-Vary", HOME_VARY);
+      return new Response(fallback.body, {
+        status: fallback.status,
+        statusText: fallback.statusText,
+        headers,
+      });
+    }
   } catch {
     return withHomeVary(res); // הזרקה שנכשלה לא תשבור את דף הבית
   }

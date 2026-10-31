@@ -81,7 +81,7 @@ async function run(path: string, status: number, body: unknown, page = FIXTURE):
   const res = await run("/", 500, ROWS);
   const html = await res.text();
   check("כשל מסד: הדף כמו שהוא", res.status === 200 && !html.includes("home-ssr") && !html.includes("ItemList"));
-  check("כשל בלי מטמון", !res.headers.get("Netlify-CDN-Cache-Control")
+  check("כשל בלי מטמון", res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
     && (res.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon"));
 }
 
@@ -89,7 +89,7 @@ async function run(path: string, status: number, body: unknown, page = FIXTURE):
   const res = await run("/", 200, []);
   const html = await res.text();
   check("רשימה ריקה: בלי ItemList ובלי noindex", !html.includes("ItemList") && !/noindex/.test(html));
-  check("רשימה ריקה: Vary בלי מטמון", !res.headers.get("Netlify-CDN-Cache-Control")
+  check("רשימה ריקה: Vary בלי מטמון", res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
     && (res.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon"));
 }
 

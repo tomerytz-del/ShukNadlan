@@ -164,7 +164,12 @@ export default async function handler(request: Request, context: Context) {
   const headers = new Headers(res.headers);
   headers.delete("content-length");
   headers.set("Netlify-Vary", HOME_VARY);
-  const passthrough = () => new Response(html, { status: res.status, headers });
+  /* כשל או רשימה ריקה: לא לרשת מטמון ארוך של הדף הסטטי. */
+  const passthrough = () => {
+    headers.set("Netlify-CDN-Cache-Control", "no-store");
+    headers.set("Netlify-Vary", HOME_VARY);
+    return new Response(html, { status: res.status, headers });
+  };
 
   try {
     const rows = await rowsP;

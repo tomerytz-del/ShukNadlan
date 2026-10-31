@@ -330,6 +330,23 @@ for (const [name, url] of UNTOUCHED) {
     new Request(`${SITE}/`),
     { next: async () => new Response("{}", { headers: { "content-type": "application/json" } }) } as never,
   );
+  const broken = await handler(
+    new Request(`${SITE}/?deal=sale&rooms=4`),
+    {
+      next: async () => {
+        const r = new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+        r.text = async () => { throw new Error("read failed"); };
+        return r;
+      },
+    } as never,
+  );
+  const brokenHtml = await broken.text();
+  check(
+    "כשל קריאה: גוף חדש ו-Vary",
+    broken.status === 200 && brokenHtml === PAGE
+      && (broken.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon"),
+    String(broken.status) + " " + brokenHtml.slice(0, 40),
+  );
   check(
     "יציאה בלי עמוד תוצאות: אותו Vary",
     (plain.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
