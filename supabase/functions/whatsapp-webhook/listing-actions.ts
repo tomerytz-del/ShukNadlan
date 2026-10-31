@@ -649,13 +649,36 @@ export const SOCIAL_QUEUE_ROWS_PER_PROPERTY = 2;
 
 const DEST_RE = /^dst:(asb|as|ab|a|m|e):([0-9a-f]{12}):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
+/** לחיצה ישנה על שורת רשתות, כשהדגל כבוי, נשמרת כמו השורה בלי רשתות. */
+export function publishChannelsToStore(
+  channels: readonly string[],
+  socialOn: boolean,
+): string[] {
+  if (socialOn) return channels.slice();
+  return channels.filter((channel) => channel !== "social");
+}
+
+/** דגל הרשתות כבוי: אין שורה שמבטיחה פייסבוק או אינסטגרם. */
+export function publishDestinations(socialOn: boolean): PublishDestination[] {
+  if (socialOn) return PUBLISH_DESTINATIONS;
+  return PUBLISH_DESTINATIONS.filter((row) => !row.channels.includes("social"));
+}
+
+export function destinationMenuGuidance(socialOn: boolean): string {
+  if (socialOn) {
+    return "הבחירה היא אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. ";
+  }
+  return "הבחירה היא אחת: רק אתר, אתר ומתווכים, רק מאגר, או עריכה. ";
+}
+
 export function publishDestinationList(
   requestId: string,
   propertyId: string,
+  socialOn = true,
 ): { button: string; section: string; rows: { id: string; title: string; description: string }[] } | null {
   if (!/^[0-9a-f]{12}$/i.test(requestId) || !PUBLISH_UUID_RE.test(propertyId)) return null;
   if (utf16len(DEST_LIST_BUTTON) > 20 || utf16len(DEST_LIST_SECTION) > 24) return null;
-  const rows = PUBLISH_DESTINATIONS.map((row) => {
+  const rows = publishDestinations(socialOn).map((row) => {
     const id = `dst:${row.code}:${requestId.toLowerCase()}:${propertyId.toLowerCase()}`;
     return { id, title: row.title, description: row.description, code: row.code };
   });
@@ -714,8 +737,8 @@ export function socialEnqueuePlan(
   flagOn: boolean,
   willBeActive: boolean,
 ): "skip" | "record" | "queue" {
-  if (!channels.includes("social")) return "skip";
-  if (!willBeActive || !flagOn) return "record";
+  if (!channels.includes("social") || !flagOn) return "skip";
+  if (!willBeActive) return "record";
   return "queue";
 }
 

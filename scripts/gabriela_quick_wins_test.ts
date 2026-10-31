@@ -48,7 +48,7 @@ check("400 אינו זמני", other === "other");
 const billText = fallbackReply("billing", "agent", "https://shuknadlan.co.il/");
 const otherText = fallbackReply("other", "agent", "https://shuknadlan.co.il");
 const visitorOther = "סליחה, משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח לי את ההודעה שוב?";
-const visitorBill = "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים: " + PUBLIC_FALLBACK_SITE;
+const visitorBill = "סליחה, אני לא זמינה כרגע בגלל תקלה אצלי. אפשר לנסות שוב מאוחר יותר, או לחפש נכסים באתר בינתיים.";
 check("תשובת יתרה לסוכן/ת בלי קישור ארוך", billText === "אני לא זמינה לרגע בגלל תקלה אצלי. אפשר להמשיך בינתיים מהאזור האישי, ולשלוח לי שוב כשזה יסתדר.");
 check("תשובת כשל לסוכן/ת מציעה לשלוח שוב", otherText === "משהו השתבש אצלי רגע לפני שעניתי. אפשר לשלוח את ההודעה שוב, או להמשיך מהאזור האישי.");
 check("כפתור הכשל פותח את הפעמון", FALLBACK_AGENT_PATH === "/crm?goto=bell");
@@ -56,27 +56,29 @@ check("כשל לגולש/ת בנוסח המאושר", fallbackReply("other", "vi
 check("כשל זמני לגולש/ת אותו נוסח", fallbackReply("transient", "visitor", "/") === visitorOther);
 for (const base of [PUBLIC_FALLBACK_SITE, PUBLIC_FALLBACK_SITE + "/", "shuknadlan.co", "https://shuknadlan.co", "/", PUBLIC_FALLBACK_SITE + "/crm"]) {
   const text = fallbackReply("billing", "visitor", base);
-  check("יתרה לגולש/ת בכתובת המלאה", text === visitorBill, base);
+  check("יתרה לגולש/ת בלי כתובת בגוף", text === visitorBill && !text.includes("http"), base);
 }
 check("שגיאת מסד אינה כשל מודל", !isModelCallError({ message: "permission denied for table agent_clients", code: "42501" }));
 check("שגיאת Anthropic היא כשל מודל", isModelCallError({ name: "APIError", status: 529, message: "overloaded" }));
 check("כותרת נפרדת לכל סוג", adminAlertTitle("billing") !== adminAlertTitle("transient") && adminAlertTitle("transient") !== adminAlertTitle("other"));
 
 const agr = pageLink("https://shuknadlan.co.il", { topic: "agreements", agreement_id: ID });
-check("הסכם נפתח על ההסכם עצמו", agr?.path === `/crm?goto=accAgreements&agreement=${ID}` && (agr?.say.includes(ID) ?? false));
+check("הסכם נפתח על ההסכם עצמו", agr?.path === `/crm?goto=accAgreements&agreement=${ID}` && (agr?.url.includes(ID) ?? false));
 check("מזהה שאינו uuid נזרק", pageLink("https://shuknadlan.co.il", { topic: "property", property_id: "לא" })?.path === "/crm?goto=accProperties");
 check("יומן גוגל הוא היומן", pageLink("https://shuknadlan.co.il", { topic: "google_calendar" })?.path === "/crm?goto=accAgenda");
 check("נושא לא מוכר", pageLink("https://shuknadlan.co.il", { topic: "nope" }) === null);
 check("בלי לומר היכנסו לדשבורד", !(agr?.say.includes("היכנסו לדשבורד")));
 check("http לא נחתך", urlInSay("פתחו כאן: http://127.0.0.1:8888/crm?goto=accAgenda") === "http://127.0.0.1:8888/crm?goto=accAgenda");
-check("https נשאר", urlInSay(agr?.say || "").startsWith("https://shuknadlan.co.il/crm"));
+check("המשפט בלי כתובת", !!agr && !agr.say.includes("http"));
+check("https נשאר", urlInSay("פתחו כאן: https://shuknadlan.co.il/crm?goto=accAgenda").startsWith("https://shuknadlan.co.il/crm"));
 
 const sql = readFileSync(new URL("../supabase/migrations/20271029122000_gabriela_quick_wins.sql", import.meta.url), "utf8");
 check("מרווח ברירת מחדל 1500", sql.includes("default 1500") && sql.includes("coalesce(p_gap_ms, 1500)") && !sql.includes("default 2000"));
 check("ניקוי חריצי שליחה ישנים", sql.includes("interval '7 days'"));
 check("כפילות לקוח ב-SQL על כל הקובץ", sql.includes("function public.agent_client_duplicate") && sql.includes("client_name_skeleton") && sql.includes("from public.agent_clients"));
 const skeletonFn = sql.slice(sql.indexOf("function public.client_name_skeleton"), sql.indexOf("function public.client_name_tokens"));
-check("שלד SQL זהה ל-TS", skeletonFn.includes("normalize(coalesce(p_raw, ''), 'NFKC')")
+check("שלד SQL זהה ל-TS", skeletonFn.includes("normalize(coalesce(p_raw, ''), NFKC)")
+  && !skeletonFn.includes("'NFKC'") && !skeletonFn.includes("'NFC'")
   && skeletonFn.indexOf("[[:space:]]") < skeletonFn.indexOf("regexp_split_to_array")
   && skeletonFn.includes("return lower(array_to_string(words, ' '))"));
 const dupFn = sql.slice(sql.indexOf("function public.agent_client_duplicate"), sql.indexOf("comment on function public.agent_client_duplicate"));

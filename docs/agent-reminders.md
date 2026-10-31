@@ -227,11 +227,25 @@
 (ונשאר/ה עם מה שבחר/ה) וממי שבחר/ה "אף ערוץ" (מערך ריק). מייל הוא ערוץ
 שמוסיפים בטופס. וכדי שהמעבר לא ישתיק בשקט מי שעוד לא הזין/ה מספר,
 ‏`agent_reminder_due_agents` מוסיפה מייל לסוכן/ת שהערוץ שלו/ה וואטסאפ ואין
-לו/ה מספר - וההערה בטופס אומרת את זה.
+לו/ה מספר - וההערה בטופס אומרת את זה. הנפילה הזו היא רק כש-
+‏`tier in ('mid', 'premium')`.
 
-**היעדר שורה = ברירות המחדל.** הן מוגדרות פעמיים, במסד
-(`agent_reminder_due_agents`) ובדפדפן (`REMINDER_PREF_DEFAULTS` ב-crm.html),
-ובאותם ערכים — אחרת הטופס היה "משנה" הגדרה עוד לפני שנגעו בו.
+**מסלול חינם לא מקבל וואטסאפ** (`20271030183000`), וגם `tier` ריק.
+השער הוא `tier in ('mid', 'premium')` בלבד, כמו ב-`agent_reminder_due_agents`.
+`billing_status` לא נבדק. `notification_push_due_agents` כן דורש גם חיוב פעיל, וזה לא חל כאן.
+בלי שורת `agent_reminder_preferences` הערוץ הוא מייל אם יש כתובת,
+ואחרת אין שליחה. מי שבחר/ה וואטסאפ במפורש מקבל/ת מייל במקום, אם יש
+כתובת. מערך ערוצים ריק נשאר בלי שליחה. זה נרשם ביומן לפני ש-
+`agent-reminders` קוראת ל-Meta, וחל על כל סוג בתוך ההודעה, כולל
+`unpublished_listings` כשדיג'סט הנכסים שלא באוויר דלוק. הממצאים
+בדשבורד לא תלויים בערוץ ונשארים.
+
+**היעדר שורה = ברירות המחדל.** במסד הן וואטסאפ, ומסלול חינם נופל למייל
+בשליחה. בדפדפן `REMINDER_PREF_DEFAULTS` נשאר וואטסאפ למסלול בתשלום.
+במסלול חינם, וגם כשאין `tier`, הטופס מציג מייל מסומן ולא מציג את צ'יפ
+הוואטסאפ, עם הערה שהתזכורות מגיעות במייל ושוואטסאפ זמין במסלולים בתשלום.
+השמירה לא מחליפה וואטסאפ שמור במייל: ההחלפה היא לתצוגה, והשליחה נאכפת
+במסד. אחרי שדרוג הוואטסאפ חוזר. כיבוי המייל במסך נשמר כמערך ריק.
 
 ### שלוש בחירות שכדאי להסביר
 
@@ -419,13 +433,17 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | סוכן/ת (`authenticated`) | קורא/ת וכותב/ת את שורת ההעדפות של עצמו/ה בלבד (‏RLS על `agent_reminder_preferences`), קורא/ת את יומן המשלוח של עצמו/ה, ומריצ/ה `agent_reminder_findings` על המזהה של עצמו/ה |
 | `service_role` | `agent_reminder_due_agents`, `agent_reminders_ready`, `agent_reminders_claim`, `agent_reminders_mark`, `agent_reminders_reconcile`, `agent_reminder_log_holds` — כולן `revoke` מ-`anon`/`authenticated` |
 
-**`agent_reminder_findings` היא `security invoker` ולא `definer`**, וזו שכבת
-הגנה ולא קפריזה: כשסוכן/ת קורא/ת לה, ה-RLS של `properties` חל עליו/ה. בנוסף
-יש בה שער מפורש (‏CTE בשם `target`). המזהה שהתבקש חוזר רק כש-`current_agent_id()`
-תואם, או כש-`current_agent_id()` ריק **וגם** `auth.role()` הוא `service_role`
-(סבב התזכורות), או כש-`current_agent_id()` ריק ומנהל/ת פלטפורמה. משתמש/ת
-מחובר/ת שאינו/ה סוכן/ת מקבל/ת רשימה ריקה. `agent_reminders_claim` היא
-`definer` ורצה כ-`service_role`, ולכן הסבב עדיין רואה את הסוכן/ת של השורה.
+**`agent_reminder_findings` היא `security definer`** מ-`20271031180100`.
+כל `create or replace` עתידי חייב להשאיר `security definer` ו-
+`search_path = ''`. כ-invoker היא קראה ל-`unpublished_reminder_snooze`
+ול-`unpublished_nudge_log` (רק `service_role`, RLS בלי policy) והחזירה
+‏42501 לכל קריאה מה-CRM, והרשימה נשארה ריקה. השער הוא ה-CTE `target`:
+המזהה שהתבקש חוזר רק כש-`current_agent_id()` תואם, או כש-`current_agent_id()`
+ריק **וגם** `auth.role()` הוא `service_role` (סבב התזכורות), או כש-
+`current_agent_id()` ריק ומנהל/ת פלטפורמה. משתמש/ת מחובר/ת שאינו/ה סוכן/ת
+מקבל/ת רשימה ריקה. בלי השער, definer היה חושף ספירות של סוכן/ת אחר/ת.
+`agent_reminders_claim` נשארת `definer` ורצה כ-`service_role`, ולכן הסבב
+עדיין רואה את הסוכן/ת של השורה.
 
 ---
 

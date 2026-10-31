@@ -234,7 +234,7 @@ function noticeBell(agentId: string, endsAt: string, prePaid: PrePaid | null): B
     agent_id: agentId, type: "system",
     title: `הטבת ה-Elite מסתיימת ב-${when}`,
     body: `להמשיך בלי הפסקה: ${priceLine("premium")} או ${priceLine("mid")}, ` +
-      `והחודש ששולם מתחיל בסוף ההטבה. בלי בחירה - Pay&GO. ${checkoutUrl("premium")}`,
+      "והחודש ששולם מתחיל בסוף ההטבה. בלי בחירה - Pay&GO.\n" + checkoutUrl("premium"),
   };
 }
 
@@ -263,7 +263,7 @@ function reminderBell(agentId: string, endsAt: string, prePaid: PrePaid | null):
     agent_id: agentId, type: "system",
     title: `הטבת ה-Elite מסתיימת ${words} (${hebDate(endsAt)})`,
     body: `להמשיך בלי הפסקה: ${priceLine("premium")} או ${priceLine("mid")}. ` +
-      `בלי בחירה החשבון עובר ל-Pay&GO. ${checkoutUrl("premium")}`,
+      "בלי בחירה החשבון עובר ל-Pay&GO.\n" + checkoutUrl("premium"),
   };
 }
 
@@ -279,7 +279,7 @@ function endedBell(agentId: string, downgraded: boolean, paidTier: Tier | null):
   return {
     agent_id: agentId, type: "system",
     title: "הטבת ההשקה הסתיימה - החשבון עבר ל-Pay&GO",
-    body: `הנכסים, הלידים והארנק נשארו. לחזור ל-Elite: ${checkoutUrl("premium")}`,
+      body: "הנכסים, הלידים והארנק נשארו. לחזור ל-Elite:\n" + checkoutUrl("premium"),
   };
 }
 

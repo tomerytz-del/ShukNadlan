@@ -1,0 +1,44 @@
+name: התאמת ליד מפוסט
+
+# 20271030210000: דגל כבוי משאיר את ההפצה כמו היום. דלוק: התאמה קודם,
+# והשאר אחרי 30 דקות אם הביקוש לא נתפס.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271030210000_scraped_lead_matching.sql"
+      - "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
+      - "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
+      - "scripts/scraped_lead_matching_test.py"
+      - ".github/workflows/scraped_lead_matching.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271030210000_scraped_lead_matching.sql"
+      - "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
+      - "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
+      - "scripts/scraped_lead_matching_test.py"
+      - ".github/workflows/scraped_lead_matching.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת התאמת ליד מפוסט
+        run: python3 scripts/scraped_lead_matching_test.py

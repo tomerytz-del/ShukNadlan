@@ -2,16 +2,36 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- Google Tag Manager. ב-CRM המכולה נטענת אחרי שהמסך היעד מצויר
+     (shukArmTrackers מ-crm.js), כדי ש-gtm.js ומה שהוא מושך (gtag, פיקסל)
+     לא יתחרו בציור הראשון. אותו מזהה, אותו dataLayer, ואותן הגדרות
+     הסכמה שבמכולה. שאר דפי האתר נשארים עם הקטע המיידי. -->
+<script>
+window.dataLayer = window.dataLayer || [];
+window.shukLoadTrackers = function () {
+  if (window.__shukGtm) return;
+  window.__shukGtm = true;
+  (function (w, d, s, l, i) {
+    w[l] = w[l] || [];
+    w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+    var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+    j.async = true;
+    j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+    f.parentNode.insertBefore(j, f);
+  })(window, document, 'script', 'dataLayer', 'GTM-NZHD7ZHT');
+};
+window.shukArmTrackers = function () {
+  if (window.__shukGtmArm) return;
+  window.__shukGtmArm = true;
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { window.shukLoadTrackers(); });
+  });
+};
+</script>
 <!-- End Google Tag Manager -->
-<script src="assets/esc.js"></script>
+<script defer src="assets/esc.js"></script>
 <!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
-<script src="assets/friendly-error.js"></script>
+<script defer src="assets/friendly-error.js"></script>
 <!-- ‏viewport-fit=cover, וזה תנאי ולא קישוט: באפליקציה המותקנת (‏display
      ‏standalone) אנדרואיד פורש את הדף מקצה לקצה גם בלי לבקש, כלומר תחתית
      הדף יושבת **מאחורי** סרגל הניווט של המערכת. בלי ההצהרה הזו
@@ -50,40 +70,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      לשרת זר. הקבצים זהים בייט-בייט לחבילות ב-npm, וה-integrity נשאר כדי
      שיישאר כך. גרסה בנתיב, ולכן ‏_headers שומר אותם שנה. -->
 <link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H">
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"></noscript>
 <!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תדע לחזור לכאן
-     ולא ל-developer-crm. ראו assets/auth-return.js -->
-<script src="assets/auth-return.js"></script>
-<script src="/vendor/supabase-js@2.116.0/supabase.js"
+     ולא ל-developer-crm. ראו assets/auth-return.js. defer: לא חוסם את
+     הציור, והסדר מול supabase-js נשמר. -->
+<script defer src="assets/auth-return.js"></script>
+<script defer src="/vendor/supabase-js@2.116.0/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"></script>
 <!-- התחברות עם Apple. לא מצייר כפתור כל עוד SHUK_APPLE_SIGNIN הוא false. -->
-<script src="assets/apple-signin.js"></script>
-<script src="/vendor/leaflet@1.9.4/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"></script>
+<script defer src="assets/apple-signin.js"></script>
 <!-- הרקע הזורם, אותו אחד של דף הבית ושל שאר דפי האתר. בלי data-auto:
      הוא מורכב רק כשהדשבורד עולה (ראו showScreen), כי מסכי הכניסה נשארים
      על פלטת הנייר שלהם. -->
-<script src="assets/page-bg.js"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/specialties.js"></script>
+<script defer src="assets/page-bg.js"></script>
 <!-- קטלוג המסלולים: אותם שמות, מחירים ויתרונות שדף pricing.html מציג. מסך
      בחירת המסלול והתגית בכותרת קוראים מכאן, כדי שמחיר לא יתעדכן בדף אחד. -->
-<script src="assets/tiers.js"></script>
-<script src="assets/map-gestures.js"></script>
-<!-- יריד הבתים הפתוחים: אותו חישוב "האם החלון פתוח עכשיו" שהאתר הציבורי
-     משתמש בו, כדי שהתגית ב-CRM והתגית באתר לא יוכלו לומר דברים שונים על
-     אותו נכס. ראו docs/open-house-fair.md -->
-<script src="assets/open-house.js"></script>
-<script src="assets/approx-location.js"></script>
-<script src="assets/agreement-templates.js"></script>
-<script src="assets/agreement-doc.js"></script>
-<!-- בדיקת ספרת הביקורת של ת.ז. בזמן ההזנה, עם עקיפה. docs/client-agreements.md -->
-<script src="assets/il-id.js"></script>
+<script defer src="assets/tiers.js"></script>
 <!-- מורכב בסוף assets/crm.js, עם בדיקת הטפסים שלא נשמרו. ראו crmUnsavedInput -->
-<script src="assets/exit-guard.js"></script>
-<!-- ‏GovMap: הטוקן והשליפה לערים שאינן עפולה. הסקריפט של GovMap עצמו נטען
-     רק בשמירת נכס כזה, לא בטעינת הדף. docs/govmap.md -->
-<script src="assets/govmap.js"></script>
+<script defer src="assets/exit-guard.js"></script>
+<!-- Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap נטענים עם פתיחת
+     המסך שלהם (assets/crm-lazy.js), לא עם מסך הכניסה. -->
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -367,12 +375,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus{border-color:var(--teal);outline:none}
   /* האזורים להצגת המשרד בפתיחתו (assets/agency-markets.js) - כמו ב-agency-signup.html */
-  .market-chips{display:flex;flex-wrap:wrap;gap:6px}
-  .field .market-chip{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;font-weight:600;color:var(--ink-soft);cursor:pointer;margin:0}
-  .field .market-chip input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
-  .market-chip:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
-  .market-chip:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
-  .market-chip-soon{font-size:.68rem;font-weight:400;opacity:.8}
+  .rp{--rp-accent:var(--blue,#0e2a6b);--rp-tint:var(--blue-tint,#eaf0fb);display:flex;flex-direction:column;gap:10px}
+  .rp input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .field .rp label{display:flex;align-items:center;margin:0;cursor:pointer;font-size:inherit;color:inherit}
+  .rp-check{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid #c3cbe0;background:#fff;position:relative;transition:background .15s,border-color .15s}
+  .rp-check::after{content:"";position:absolute;left:50%;top:45%;width:6px;height:12px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-50%) rotate(45deg) scale(0);transition:transform .15s}
+  .rp label:has(input:checked) .rp-check{background:var(--rp-accent);border-color:var(--rp-accent)}
+  .rp label:has(input:checked) .rp-check::after{transform:translate(-50%,-50%) rotate(45deg) scale(1)}
+  .rp label:has(input:focus-visible){outline:2px solid var(--rp-accent);outline-offset:2px}
+  /* השוק הפעיל - כרטיס בולט */
+  .rp-live{display:grid;gap:8px}
+  .field .rp .rp-card{gap:10px;min-height:54px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font-size:1rem;font-weight:700;color:var(--ink)}
+  .field .rp .rp-card:has(input:checked){border-color:var(--rp-accent);background:var(--rp-tint);box-shadow:inset 0 0 0 1px var(--rp-accent)}
+  .rp-card .rp-name{flex:1}
+  /* "עוד N אזורים בקרוב" - מקופל, לפי אזור בארץ */
+  .rp-soon{border:1px solid var(--line);border-radius:12px;background:#f8faff;padding:0 10px}
+  .rp-soon-summary{display:flex;align-items:center;gap:8px;min-height:46px;font-size:.9rem;font-weight:700;color:var(--ink-soft);list-style:none;cursor:pointer}
+  .rp-soon-summary::-webkit-details-marker{display:none}
+  .rp-soon-summary:focus-visible{outline:2px solid var(--rp-accent);outline-offset:2px;border-radius:8px}
+  .rp-soon-title{display:inline-flex;align-items:center;gap:6px;margin-inline-end:auto}
+  .rp-soon-title::before{content:"";width:7px;height:7px;border-radius:50%;background:#c9a227}
+  .rp-count{font-size:.75rem;font-weight:700;color:var(--rp-accent)}
+  .rp-count:empty{display:none}
+  .rp-soon-summary::after{content:"";flex:none;width:8px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg);margin-inline-start:8px;transition:transform .2s}
+  .rp-soon[open] > .rp-soon-summary::after{transform:rotate(-135deg)}
+  .rp-soon-hint{font-size:.78rem;color:var(--ink-soft);margin:-4px 0 6px}
+  .rp-area{padding:8px 0 10px;border-top:1px solid var(--line)}
+  .rp-soon-hint + .rp-area{border-top:0}
+  .rp-area-title{font-size:.78rem;font-weight:700;color:var(--ink-soft);margin:0 0 8px}
+  .rp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .field .rp .rp-chip{justify-content:center;text-align:center;min-height:44px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:.84rem;font-weight:500;line-height:1.25;color:var(--ink-soft)}
+  .rp-chip .rp-name{text-wrap:balance}
+  .rp-chip .rp-check{display:none}
+  .field .rp .rp-chip:has(input:checked){border-color:var(--rp-accent);color:#fff;font-weight:600;background:var(--rp-accent)}
+  #caAgencyMarkets{--rp-accent:var(--teal);--rp-tint:var(--teal-tint)}
   /* textarea קיבל עד היום את ברירת המחדל של הדפדפן ולכן נראה זר לשאר השדות */
   .field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit;font-size:1rem;line-height:1.5;background:#fff;color:inherit;resize:vertical}
   .field textarea:focus{border-color:var(--teal);outline:none}
@@ -451,6 +487,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-chips .checkbox-item:hover{border-color:var(--teal)}
   .pf-chips .checkbox-item:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
   .pf-chips .checkbox-item:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
+  .img-tools{margin:8px 0}
+  .img-thumb .more{position:absolute;top:4px;left:4px;border:0;background:#fff;border-radius:8px;min-width:28px;min-height:28px;cursor:pointer}
+  .img-menu{position:fixed;z-index:40;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:4px;min-width:160px}
+  .img-menu button{display:block;width:100%;text-align:right;background:none;border:0;padding:8px;font:inherit;cursor:pointer}
+  .img-menu button.danger{color:#9f1239}
+  .photo-sheet{position:fixed;inset:0;z-index:90;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center}
+  .photo-sheet[hidden]{display:none}
+  .photo-sheet-card{background:#fff;width:min(520px,100%);max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
+  @media (min-width:760px){ .photo-sheet{align-items:center} .photo-sheet-card{border-radius:16px} }
+  .photo-undo{position:fixed;z-index:95;left:12px;right:12px;bottom:76px;background:#0e2a6b;color:#fff;border-radius:12px;padding:12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .air-chips .checkbox-item{min-height:40px}
+  .air-chips .checkbox-item:has(input:checked){background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .air-living-row{display:flex;gap:8px;align-items:center}
+  .air-living-row input{flex:1}
+  .air-shortcut{min-height:40px;border-radius:999px;border:1.5px solid var(--pf-edge);background:#fff;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+  .air-shortcut[aria-pressed="true"]{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .air-seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+  .air-seg button{min-height:40px;border-radius:999px;border:1.5px solid var(--pf-edge);background:#fff;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer}
+  .air-seg button[aria-pressed="true"]{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  #npLivingWarn{background:#fef3c7;border-radius:8px;padding:6px 8px}
+  .air-sheet{position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center}
+  .air-sheet[hidden]{display:none}
+  .air-sheet-card{background:#fff;width:min(520px,100%);border-radius:16px 16px 0 0;padding:16px;max-height:86vh;overflow:auto}
+  @media (min-width:760px){
+    .air-sheet{align-items:center}
+    .air-sheet-card{border-radius:16px}
+  }
   .pf-chip-ico{font-size:1rem;line-height:1}
   /* ---------- טופס הלקוח/ה: שני כרטיסים ----------
      יושב על .pf כדי לרשת את השדות, ה-.pf-seg וה-.pf-chips של טופס הנכס;
@@ -4383,6 +4446,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .adm-refresh svg{width:14px;height:14px}
   .adm-refresh:hover{background:var(--wine-tint);color:var(--wine);border-color:#f0d5da}
   .adm-refresh[disabled]{opacity:.5}
+  .adm-csv{min-height:44px;background:#0e2a6b;color:#fff;border-color:#0e2a6b}
+  .adm-csv:hover{background:#0a1f50;color:#fff;border-color:#0a1f50}
   .adm-stamp{font-size:.7rem;color:var(--txt-faint);margin-inline-start:auto}
 
   .adm-block{display:flex;flex-direction:column;gap:9px}
@@ -6183,6 +6248,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lc-badges{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px}
   .lc-badges .lead-kind{margin-bottom:0}
   .lc-new{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:#DC2626;color:#fff}
+  .lc-fair{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:999px;background:#c9a227;color:#0d1b3d;cursor:help}
+  .lc-fair.is-pending{background:#eef0f4;color:#3b4560}
   .lc .lead-name{font-size:1.02rem;font-weight:800;line-height:1.35}
   .lc .lead-phone{font-size:.9rem;margin-top:1px}
   .lc-locked .lead-name,.lc-locked .lead-phone{color:var(--txt-soft,var(--ink-soft));letter-spacing:.06em}
@@ -6436,6 +6503,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-banner--warn .ui-link{color:var(--nv-warn);text-decoration:underline}
   .ui-banner--info{background:#F3F6FD;border:1px solid #DCE5FB;color:var(--nv-ink)}
   .social-prompt{margin:0 0 16px}
+  /* ‏P1-R: כפתור ראשי נייבי ומשני במסגרת נייבי; [hidden] גובר על .ui-btn (אחרת שני כפתורים ראשיים) */
+  .social-prompt[hidden],.social-prompt [hidden]{display:none !important}
+  .social-prompt .ui-btn{background:#0e2a6b;border-color:#0e2a6b;color:#fff}
+  .social-prompt .ui-btn.ui-btn--secondary{background:#fff;color:#0e2a6b;border:1.5px solid #0e2a6b}
+  .social-prompt-never{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:4px;font-size:13px;color:#6b7280;cursor:pointer}
+  .social-prompt-never input{width:18px;height:18px;margin:0}
   .social-prompt-acts{display:flex;flex-wrap:wrap;gap:8px}
   .ui-banner--urgent{background:var(--nv-ink);color:#fff;font-weight:600}
   .ui-banner--urgent::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;background:var(--nv-urgent);
@@ -6486,6 +6559,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ui-tab{min-height:44px;padding:0 16px;border-radius:9px;border:0;background:transparent;font:inherit;font-size:15px;
     font-weight:600;color:var(--nv-muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
   .ui-tab[aria-selected="true"]{background:#fff;color:var(--nv-ink);font-weight:700;box-shadow:0 1px 3px rgba(14,26,51,.12)}
+  /* ביקוש פתוח כשיש ביקושים: זהב, כדי שלא יפוספס בין הלשוניות */
+  #leadsTabs .ui-tab.has-open{background:#f7eccb;color:#7a5d0c;font-weight:800;box-shadow:inset 0 0 0 1.5px #c9a227}
+  #leadsTabs .ui-tab.has-open[aria-selected="true"]{background:#fff}
 
   /* שורת קישור עם מצב (ניהול המשרד, "לכל ההתראות") */
   .ui-row-link{display:flex;align-items:center;gap:12px;min-height:64px;border-top:1px solid var(--nv-line-soft);
@@ -7285,7 +7361,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <div class="card login-card" id="loginCardMain" style="display:none">
     <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <div class="auth-eyebrow">אזור המתווכים והמשרדים</div>
+    <div class="auth-eyebrow">אזור יועצי הנדל״ן והמשרדים</div>
     <h1>שוק הנדל״ן לעסקים</h1>
     <p class="sub">המערכת החכמה לניהול, שיווק וסגירת עסקאות</p>
     <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
@@ -7483,7 +7559,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="field">
       <label>באילו אזורים להציג את המשרד?</label>
-      <div class="market-chips" id="caAgencyMarkets"></div>
+      <div id="caAgencyMarkets"></div>
       <div class="micro">אפשר לבחור כמה אזורים, ולשנות אחר כך בפרופיל</div>
     </div>
     <div class="field"><label for="caManagerName">השם המלא שלך</label><input type="text" id="caManagerName" required></div>
@@ -7871,13 +7947,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              (agent_onboarding_state מחזירה להם אפס שורות). נבנה ב-loadSocialPrompt,
              ונעלם אחרי אישור או "לא עכשיו" (docs/social-tagging.md). -->
         <div class="ui-banner ui-banner--info social-prompt" id="socialPrompt" hidden role="region" aria-label="תיוג בפרסומים">
-          <span class="ui-banner-text"><b>📣 רוצה שנתייג אותך בפרסומים?</b><br>
+          <span class="ui-banner-text"><b id="socialPromptTitle">📣 רוצה שנתייג אותך בפרסומים?</b><br>
             <span id="socialPromptText">כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.</span></span>
           <span class="social-prompt-acts">
             <button type="button" class="ui-btn" id="socialPromptGo">להוספת הרשתות</button>
             <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptOffice" hidden>גם למשרד</button>
             <button type="button" class="ui-btn ui-btn--secondary" id="socialPromptLater">לא עכשיו</button>
           </span>
+          <!-- ‏P1-R: "לא עכשיו" עם הסימון - לא מציעים שוב (בדפדפן הזה; ד-7) -->
+          <label class="social-prompt-never"><input type="checkbox" id="socialPromptNever"> לא להציע לי שוב</label>
         </div>
         <!-- שורת "שאל את המנטור" בחזית דף הבית: שאלה בהקלדה אחת, והתשובה כאן.
              "הצעדים של היום" פותח את השכבה #coachSheet. מוצגת רק כשיש מנטור
@@ -8151,6 +8229,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="adm-refresh" id="adminRefreshBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
                 רענון
+              </button>
+              <button type="button" class="adm-refresh adm-csv" id="adminFairCsvBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>
+                ייצוא פניות יריד (CSV)
               </button>
               <span class="adm-stamp" id="adminStamp"></span>
             </div>
@@ -8466,7 +8548,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div class="cst-grid">
                   <label class="cst-f">מסלול
                     <select id="acAudience">
-                      <option value="platform">שיווק הפלטפורמה למתווכים</option>
+                      <option value="platform">שיווק הפלטפורמה ליועצי נדל״ן</option>
                       <option value="property">קידום נכס לקונים ולשוכרים</option>
                     </select>
                   </label>
@@ -8613,7 +8695,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <p class="adm-note">החבילה נוצרת מושהית לגמרי: קמפיין, סט ומודעה. הבדיקה לא כותבת למטא, ומראה כמה תמונות כבר בדלי. "העלאת תמונות" ממלאת את הדלי הפרטי, בלי לגעת במטא, ואפשר ללחוץ עליה שוב. היצירה האמיתית נפתחת רק כשכל התמונות בדלי, דורשת אישור, ונשארת מושהית עד שמפעילים אותה ב-Ads Manager. קמפיין ה-Reach הקיים לא משתנה. A5 ו-OO5 לא נוצרים כאן (A5 בלי טופס owner, OO5 בלי קריאייטיב). רענון הנוסח מחליף רק טקסט של מודעות השקה שעדיין נושאות רישיון אישי. הסטטוס, התקציב והטירגוט לא משתנים.</p>
               <div class="adm-toolbar">
                 <label class="adm-note"><input type="checkbox" id="adsLaunchA5"> כלול את A5 - טופס הערכת שווי חינם</label>
-                <label class="adm-note">קהל 55 המתווכים (מזהה מטא, אופציונלי)
+                <label class="adm-note">קהל 55 יועצי הנדל״ן (מזהה מטא, אופציונלי)
                   <input type="text" id="adsLaunchB2Audience" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="1234567890">
                 </label>
               </div>
@@ -8866,6 +8948,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="field"><label for="npFloor">קומה</label><input type="number" id="npFloor" inputmode="numeric" placeholder="לדוגמה: 3"></div>
           <div class="field"><label for="npTotalFloors">מתוך קומות בבניין</label><input type="number" id="npTotalFloors" min="1" inputmode="numeric" placeholder="לדוגמה: 8"></div>
         </div>
+        <div class="pf-grid pf-grid-2" id="npAirLivingRow">
+          <div class="field">
+            <label for="npLivingSqm">גודל הסלון (מ״ר)</label>
+            <input type="number" id="npLivingSqm" step="0.5" min="4" max="150" inputmode="decimal" placeholder="לדוגמה: 28">
+            <p class="field-hint" id="npLivingHint">לא חובה - כולל פינת אוכל אם הם חלל אחד</p>
+            <p class="field-hint" id="npLivingWarn" hidden>סלון של יותר ממחצית הדירה? אם זה נכון, אפשר לשמור</p>
+          </div>
+          <div class="field">
+            <span class="cf-block-title" id="npAirLabel">כיווני אוויר</span>
+            <div class="pf-chips air-chips" id="npAir" role="group" aria-labelledby="npAirLabel">
+              <label class="checkbox-item"><input type="checkbox" value="צפון"> צפון</label>
+              <label class="checkbox-item"><input type="checkbox" value="דרום"> דרום</label>
+              <label class="checkbox-item"><input type="checkbox" value="מזרח"> מזרח</label>
+              <label class="checkbox-item"><input type="checkbox" value="מערב"> מערב</label>
+            </div>
+            <p class="field-hint" id="npAirCount">לא צוין</p>
+          </div>
+        </div>
 
         <!-- עלויות שוטפות: ביחידות שבהן הן נגבות בפועל - ועד בית לחודש,
              וארנונה לפי תקופת החיוב של העירייה: לחודשיים במגורים, לחודש
@@ -8982,6 +9082,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
             <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
           </div>
+          <div class="img-tools"><button type="button" class="mkt-btn" id="npImageSelect">בחירה</button></div>
           <div class="img-preview" id="npImagePreview"></div>
         </div>
 
@@ -9150,6 +9251,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <option value="stale">לא עודכנו מזמן</option>
           <option value="expired">פג תוקף</option>
           <option value="unpublished">ירדו מפרסום</option>
+          <option value="no_air_living">בלי כיווני אוויר או סלון</option>
         </select>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר בשקלים">
           <input type="text" id="propPriceMin" inputmode="decimal" autocomplete="off" placeholder="מחיר מ-" aria-label="מחיר מינימלי">
@@ -9160,6 +9262,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <input type="number" id="propSizeMin" inputmode="numeric" min="0" step="any" placeholder="מ״ר מ-" aria-label="שטח מינימלי במ״ר">
           <span class="filter-range-sep" aria-hidden="true">-</span>
           <input type="number" id="propSizeMax" inputmode="numeric" min="0" step="any" placeholder="עד" aria-label="שטח מקסימלי במ״ר">
+        </div>
+        <div class="filter-input" id="propAirFilter">
+          <button type="button" id="propAirOpen" class="ui-btn" aria-haspopup="dialog" aria-expanded="false">כיווני אוויר</button>
+          <input type="hidden" id="propAirDirs" value="">
+          <input type="hidden" id="propAirMin" value="">
+        </div>
+        <div class="filter-input filter-range" role="group" aria-label="סלון מינימום">
+          <input type="number" id="propLivingMin" inputmode="decimal" min="0" step="0.5" placeholder="סלון מ-" aria-label="סלון מינימום במ״ר">
         </div>
         <div class="filter-input filter-range" role="group" aria-label="טווח מחיר למ״ר בשקלים">
           <input type="text" id="propPsmMin" inputmode="decimal" autocomplete="off" placeholder="₪/מ״ר" aria-label="מחיר מינימלי למ״ר">
@@ -9270,9 +9380,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="ui-tabs" role="tablist" id="leadsTabs" aria-label="שלב הטיפול">
             <button type="button" class="ui-tab" role="tab" data-leads-tab="new" aria-selected="true">חדשים · <span data-n>0</span></button>
             <button type="button" class="ui-tab" role="tab" data-leads-tab="work" aria-selected="false">בטיפול · <span data-n>0</span></button>
-            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
-            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md) -->
+            <!-- ביקוש פתוח: פוסטים מפייסבוק בלי פרטים, חינם לכל הסוכנים בעיר (docs/scraped-leads.md).
+                 לפני הארכיון, ומודגש כשיש ביקושים פתוחים (‏has-open ב-crm-leads.js) -->
             <button type="button" class="ui-tab" role="tab" data-leads-tab="demand" aria-selected="false">ביקוש פתוח · <span data-n>·</span></button>
+            <button type="button" class="ui-tab" role="tab" data-leads-tab="archive" aria-selected="false">ארכיון · <span data-n>0</span></button>
           </div>
           <div class="ui-chips ui-chips--scroll" data-ui-single id="leadsSrc" role="group" aria-label="מקור הליד"></div>
           <div class="ui-count" id="leadsCountLine"></div>
@@ -9497,6 +9608,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <input type="number" id="clMinSize" step="any" min="0" inputmode="decimal" placeholder="לא משנה"></div>
               <div class="field"><label for="clMaxSize">מ״ר מקסימום</label>
                 <input type="number" id="clMaxSize" step="any" min="0" inputmode="decimal" placeholder="ללא תקרה"></div>
+              <div class="field" id="clLivingField">
+                <label for="clMinLiving">סלון מינימום (מ״ר)</label>
+                <div class="air-living-row">
+                  <input type="number" id="clMinLiving" step="0.5" min="4" max="150" inputmode="decimal" placeholder="לא משנה">
+                  <button type="button" class="air-shortcut" id="clLargeLiving" aria-pressed="false">סלון גדול</button>
+                </div>
+              </div>
+            </div>
+            <div id="clAirBlock">
+              <span class="cf-block-title" id="clAirLabel">כיווני אוויר</span>
+              <div class="pf-chips air-chips" id="clAir" role="group" aria-labelledby="clAirLabel">
+                <label class="checkbox-item"><input type="checkbox" value="" data-any="1" checked> לא משנה</label>
+                <label class="checkbox-item"><input type="checkbox" value="צפון"> צפון</label>
+                <label class="checkbox-item"><input type="checkbox" value="דרום"> דרום</label>
+                <label class="checkbox-item"><input type="checkbox" value="מזרח"> מזרח</label>
+                <label class="checkbox-item"><input type="checkbox" value="מערב"> מערב</label>
+              </div>
+              <p class="field-hint">בלי בחירה = כל כיוון. כיוון שנבחר הוא דרישה, לא העדפה.</p>
+              <span class="cf-block-title" id="clAirMinLabel">מספר כיווני אוויר</span>
+              <div class="air-seg" id="clAirMin" role="group" aria-labelledby="clAirMinLabel">
+                <button type="button" data-min="" aria-pressed="true">לא משנה</button>
+                <button type="button" data-min="2" aria-pressed="false">2 ומעלה</button>
+                <button type="button" data-min="3" aria-pressed="false">3 ומעלה</button>
+                <button type="button" data-min="4" aria-pressed="false">4</button>
+              </div>
             </div>
 
             <div class="cf-block-title">מאפייני חובה</div>
@@ -9866,7 +10002,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה
              תקציב, אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות. -->
         <div class="shelf-pane" data-shelf-pane="saved" hidden>
-          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" - חיפוש שמור עם תקציב ואזור - ואישרו שמתווך/ת ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
+          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" - חיפוש שמור עם תקציב ואזור - ואישרו שיועץ נדל״ן ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
 
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
@@ -11774,7 +11910,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="danger-zone">
             <p class="dz-h">מה קורה כשסוגרים</p>
             <ul class="dz-list">
-              <li><b>דף הסוכן/ת יורד מהאוויר</b> - גם הכרטיס בספריית המתווכים וגם הנוכחות בדף המשרד.</li>
+              <li><b>דף הסוכן/ת יורד מהאוויר</b> - גם הכרטיס בספריית יועצי הנדל״ן וגם הנוכחות בדף המשרד.</li>
               <li><b>כל המודעות הפעילות יורדות</b> מהאתר ומהחיפוש (<span id="closureProps">-</span>).</li>
               <li><b>מפסיקים לפנות אליך</b> - אין עוד לידים, התראות, מיילים או הודעות מהמערכת, והמייל שלך יוצא מרשימת התפוצה.</li>
               <li><b>הכניסה לאיזור הסוכנים נסגרת.</b> הנתונים נשמרים אצלנו לפי מדיניות הפרטיות, אבל אינם נגישים לך מהמסך.</li>
@@ -11952,7 +12088,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <a href="/professional-signup">הרשמת בעל מקצוע</a>
         <a href="/agency">עמוד משרד תיווך</a>
         <a href="/agent">עמוד סוכן/ת</a>
-        <a href="/property">עמוד נכס</a>
         <a href="/review-request">בקשת חוות דעת</a>
       </div>
       <p class="dev-note">עמודי משרד/סוכן/נכס דורשים פרמטר (slug או id) - נוח להגיע אליהם מהאתר הציבורי.</p>
@@ -12522,72 +12657,98 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
      מנהל/ת הפלטפורמה. docs/regional-pages.md -->
-<script src="assets/markets.js"></script>
-<script src="assets/agency-markets.js"></script>
-<script src="assets/contact-import.js"></script>
-<script src="assets/crm-office.js"></script>
+<script defer src="assets/markets.js"></script>
+<script defer src="assets/agency-markets.js"></script>
+<script defer src="assets/contact-import.js"></script>
+<script defer src="assets/crm-office.js"></script>
 <!-- ערכת הרכיבים (צ'יפ, מתג, מקופל, פס שמירה, "עוד X"; docs/crm-ui-kit.md).
      לפני שאר המודולים, שבונים ממנה את המסכים -->
-<script src="assets/crm-ui.js"></script>
+<script defer src="assets/crm-ui.js"></script>
 <!-- "ההגדרות שלי" ו"התראות והודעות" (docs/crm-settings.md). אחרי crm-ui.js,
      שממנו הם נבנים, ולפני crm.js -->
-<script src="assets/crm-settings.js"></script>
+<script defer src="assets/crm-settings.js"></script>
 <!-- תחום ואזורי פעילות - רכיב אחד לפרופיל ולדף המשרד (docs/area-scope.md) -->
-<script src="assets/crm-areas.js"></script>
+<script defer src="assets/crm-areas.js"></script>
 <!-- הפרופיל שלי ודף המשרד: הבאנרים, "מלא ב-X%" ופס השמירה (docs/crm-profile-pages.md) -->
-<script src="assets/crm-profile-pages.js"></script>
+<script defer src="assets/crm-profile-pages.js"></script>
 <!-- "הלידים שלי" - רשימה אחת לפי סדר עדיפות (docs/leads-unified.md) -->
-<script src="assets/crm-leads.js"></script>
+<script defer src="assets/crm-leads.js"></script>
 <!-- "נכסים" - שתי הלשוניות, "דורש תשומת לב" וכלים לנכס (docs/properties-unified.md) -->
-<script src="assets/crm-properties.js"></script>
+<script defer src="assets/crm-properties.js"></script>
 <!-- "התאמות חדשות" מקובצות לפי לקוח/ה, ושליחה מרוכזת (docs/client-matching.md) -->
-<script src="assets/crm-matches.js"></script>
+<script defer src="assets/crm-matches.js"></script>
 <!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
-<script src="assets/crm-suggestions.js"></script>
+<script defer src="assets/crm-suggestions.js"></script>
 <!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
      שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
-<script src="assets/crm-coach.js"></script>
-<script src="assets/crm-office-dashboard.js"></script>
-<script src="assets/crm-my-dashboard.js"></script>
+<script defer src="assets/crm-coach.js"></script>
+<script defer src="assets/crm-office-dashboard.js"></script>
+<script defer src="assets/crm-my-dashboard.js"></script>
 <!-- הצוות שלי: דאשבורד הצוות, לידים בצוות והסוכנים בצוות (docs/team-dashboard.md).
      אחרי crm-office-dashboard.js, כי הוא משתמש בעזרים שלו -->
-<script src="assets/crm-team-dashboard.js"></script>
+<script defer src="assets/crm-team-dashboard.js"></script>
 <!-- המיניסייט האישי ללקוח/ה: בחירת התאמות, חלון השליחה ופאנל התגובות.
      נטען לפני crm.js ומגדיר פונקציות בלבד. docs/client-showcase.md -->
-<script src="assets/crm-showcase.js"></script>
+<script defer src="assets/crm-showcase.js"></script>
 <!-- צוותים בתוך המשרד ב"צוותים וסוכנים" (docs/teams.md) -->
-<script src="assets/crm-teams.js"></script>
+<script defer src="assets/crm-teams.js"></script>
 <!-- לוח היום בדף הבית (docs/crm-home.md). לפני crm.js כמו שאר המודולים;
      הפונקציות שבו נקראות רק אחרי שהוא רץ. -->
-<script src="assets/crm-home.js"></script>
+<script defer src="assets/crm-home.js"></script>
 <!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
      מ-loadDashboard, אחרי שהוא רץ. -->
-<script src="assets/crm-onboarding.js"></script>
+<script defer src="assets/crm-onboarding.js"></script>
 <!-- גיליון השלמת פרטים במובייל. אחרי המדריך, כי הוא קורא את onbModel. -->
-<script src="assets/crm-profile-nudge.js"></script>
+<script defer src="assets/crm-profile-nudge.js"></script>
 <!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
      וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
-<script src="assets/crm-csm.js"></script>
+<script defer src="assets/crm-csm.js"></script>
 <!-- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md). לפני crm.js;
      מגדירה פונקציות בלבד, ו-loadDashboard קוראת ל-loadAdminInbox. -->
-<script src="assets/crm-admin-inbox.js"></script>
+<script defer src="assets/crm-admin-inbox.js"></script>
 <!-- מרכז הפיקוד והודעה לכל הסוכנים (docs/admin-command-center.md). לפני crm.js -->
-<script src="assets/crm-command-center.js"></script>
-<script src="assets/crm-growth.js"></script>
-<script src="assets/crm-budget.js"></script>
-<script src="assets/crm-ads-spend.js"></script>
-<script src="assets/crm-hood-drafts.js"></script>
+<script defer src="assets/crm-command-center.js"></script>
+<script defer src="assets/crm-growth.js"></script>
+<script defer src="assets/crm-budget.js"></script>
+<script defer src="assets/crm-ads-spend.js"></script>
+<script defer src="assets/crm-hood-drafts.js"></script>
 <!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
      (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
      ואת עזרי impNorm/impText בזמן הטעינה. -->
-<script src="assets/property-import-core.js"></script>
+<script defer src="assets/property-import-core.js"></script>
 <!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
      crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
-<script src="assets/cma-render.js"></script>
+<script defer src="assets/cma-render.js"></script>
+<!-- crmNeed: טוען Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap
+     רק כשצריך. defer ולפני crm.js, כדי שהפונקציה קיימת כשהדף רץ. -->
+<script defer src="assets/crm-lazy.js"></script>
 <!-- לפני crm.js, לא אחריו. boot() מחכה ל-getSession שכבר נפתר, וההמשך
-     רץ לפני הסקריפט הבא. אם המדידה נטענת אחרי crm.js, סימון הכניסה
-     והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר ירד מהכתובת. -->
-<script src="assets/deeplink-timing.js"></script>
-<script src="assets/crm.js"></script>
+     רץ לפני הסקריפט הבא. defer שומר את הסדר: המדידה רצה לפני crm.js.
+     בלי זה סימון הכניסה והיעד קורים כש-dlMark עוד לא קיים, ו-wc כבר
+     ירד מהכתובת. -->
+<script defer src="assets/deeplink-timing.js"></script>
+<div class="air-sheet" id="propAirSheet" hidden>
+  <div class="air-sheet-card" role="dialog" aria-labelledby="propAirSheetTitle">
+    <h3 id="propAirSheetTitle">כיווני אוויר</h3>
+    <div class="pf-chips air-chips" id="propAirChips">
+      <label class="checkbox-item"><input type="checkbox" value="צפון"> צפון</label>
+      <label class="checkbox-item"><input type="checkbox" value="דרום"> דרום</label>
+      <label class="checkbox-item"><input type="checkbox" value="מזרח"> מזרח</label>
+      <label class="checkbox-item"><input type="checkbox" value="מערב"> מערב</label>
+    </div>
+    <div class="air-seg" id="propAirMinSeg">
+      <button type="button" data-min="" aria-pressed="true">לא משנה</button>
+      <button type="button" data-min="2" aria-pressed="false">2+</button>
+      <button type="button" data-min="3" aria-pressed="false">3+</button>
+      <button type="button" data-min="4" aria-pressed="false">4</button>
+    </div>
+    <div class="air-living-row">
+      <button type="button" class="ui-btn" id="propAirClear">ניקוי</button>
+      <button type="button" class="ui-btn" id="propAirApply">הצגה</button>
+    </div>
+  </div>
+</div>
+<script defer src="assets/air-living.js"></script>
+<script defer src="assets/crm.js"></script>
 </body>
 </html>

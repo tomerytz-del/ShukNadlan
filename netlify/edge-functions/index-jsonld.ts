@@ -31,7 +31,7 @@ type Page = {
 const PAGES: Page[] = [
   {
     path: "/agents",
-    name: "כל המתווכים",
+    name: "כל יועצי הנדל״ן",
     aboutCity: true,
     query: "agency_members_public?select=slug,display_name&slug=not.is.null&order=display_name.asc&limit=1000",
     href: (row) => `/agent?slug=${encodeURIComponent(String(row.slug))}`,

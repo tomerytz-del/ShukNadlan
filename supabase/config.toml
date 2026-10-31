@@ -160,6 +160,9 @@ verify_jwt = true           # אזור ההטמעה (/csm): מנטור והקל�
 [functions.coach-ask]
 verify_jwt = true           # "שאל את המאמן" מה-CRM: הסוכן/ת נגזר/ת מה-JWT בלבד. docs/coaches.md
 
+[functions.property-image-move]
+verify_jwt = true           # העברת תמונות מה-CRM. הסוכן/ת נגזר/ת מה-JWT. לא מוחקת קובץ שעוד בשימוש.
+
 [functions.property-marketing-publish]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה
 

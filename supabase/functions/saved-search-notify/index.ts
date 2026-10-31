@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { ctaPayload } from "../_shared/wa-url-guard.ts";
 
 // ============================================================================
 // שרת ההתראות של הסוכן החכם — מרוקן את תור saved_search_alerts.
@@ -76,6 +77,11 @@ const clickUrl = (token: string) =>
   `${FUNCTIONS_BASE}/saved-search-manage?action=click&token=${encodeURIComponent(token)}`;
 const unsubUrl = (token: string) =>
   `${FUNCTIONS_BASE}/saved-search-manage?action=unsubscribe&token=${encodeURIComponent(token)}`;
+const unsubManyUrl = (tokens: string[]) => {
+  const q = new URLSearchParams({ action: "unsubscribe" });
+  for (const token of tokens) q.append("token", token);
+  return `${FUNCTIONS_BASE}/saved-search-manage?${q}`;
+};
 
 function textBody(a: any): string {
   const parts = [
@@ -162,13 +168,25 @@ async function sendWhatsapp(a: any): Promise<void> {
       },
     };
   } else {
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: a.phone_e164,
-      type: "text",
-      text: { preview_url: true, body: textBody(a) },
-    };
+    const lines = [
+      "🔔 נכס חדש שמתאים לחיפוש שלך",
+      a.label ? `- ${a.label}` : "",
+      a.title || "",
+      placeLine(a),
+      [nis(a.price), specLine(a)].filter(Boolean).join(" · "),
+      "לפרטים המלאים בכפתור.",
+    ].filter((p) => p !== "");
+    const payload = ctaPayload(a.phone_e164, lines.join("\n").slice(0, 1024), "לצפייה בנכס", clickUrl(a.click_token));
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+    if (!res.ok) {
+      const raw = await res.text();
+      let code: number | null = null;
+      try {
+        code = JSON.parse(raw)?.error?.code ?? null;
+      } catch { /* גוף שאינו JSON */ }
+      throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
+    }
+    return;
   }
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -179,6 +197,37 @@ async function sendWhatsapp(a: any): Promise<void> {
       code = JSON.parse(raw)?.error?.code ?? null;
     } catch { /* גוף שאינו JSON — נשמר כטקסט ב-last_error */ }
     throw new WhatsappError(`whatsapp ${res.status}: ${raw.slice(0, 300)}`, code);
+  }
+}
+
+/** הודעה שנייה, אחרי כל ההתראות של אותו מספר בסבב. כישלון נרשם ולא נזרק. */
+async function sendStopNotice(phone: string, tokens: string[]): Promise<boolean> {
+  if (!WA_TOKEN || !WA_PHONE_ID || WA_TEMPLATE || !tokens.length) return false;
+  try {
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
+    const many = tokens.length > 1;
+    const payload = ctaPayload(
+      phone,
+      many
+        ? "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפושים האלה בכפתור."
+        : "לא רלוונטי יותר? אפשר להפסיק את ההתראות על החיפוש הזה בכפתור.",
+      "הפסקת עדכונים",
+      unsubManyUrl(tokens),
+    );
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const raw = await res.text();
+      console.error("saved-search stop notice failed", phone, raw.slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("saved-search stop notice failed", phone, err instanceof Error ? err.message : err);
+    return false;
   }
 }
 
@@ -271,6 +320,7 @@ Deno.serve(async (req: Request) => {
   if (!alerts || alerts.length === 0) return json({ sent: 0, failed: 0, empty: true, deferred: flagOn });
 
   let sent = 0, failed = 0, deferred = 0;
+  const stopTokens = new Map<string, string[]>();
 
   for (const a of alerts as any[]) {
     const wantWhatsapp = (a.contact_channel === "whatsapp" || a.contact_channel === "both")
@@ -355,6 +405,15 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (waStatus === "sent" && !WA_TEMPLATE && a.unsubscribe_token) {
+      const phone = String(a.phone_e164 || "");
+      if (phone) {
+        const list = stopTokens.get(phone) || [];
+        list.push(String(a.unsubscribe_token));
+        stopTokens.set(phone, list);
+      }
+    }
+
     if (wantEmail) {
       try {
         await sendEmail(a);
@@ -379,6 +438,10 @@ Deno.serve(async (req: Request) => {
 
     if (waStatus === "sent" || emStatus === "sent") sent++;
     else failed++;
+  }
+
+  for (const [phone, tokens] of stopTokens) {
+    await sendStopNotice(phone, [...new Set(tokens)].slice(0, 20));
   }
 
   return json({ sent, failed, deferred, processed: alerts.length });

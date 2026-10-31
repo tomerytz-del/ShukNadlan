@@ -255,6 +255,11 @@ function topValue(values){
   return entries.length ? entries[0][0] : '';
 }
 
+function accIsOpen(id){
+  const el = document.getElementById(id);
+  return !!(el && el.open);
+}
+
 function openAcc(accId){
   accId = accResolve(accId);   // קטגוריה שאוחדה לתוך אחרת (crm-properties.js)
   const el = document.getElementById(accId);
@@ -279,6 +284,9 @@ function initAccordions(){
       // Leaflet מחשב את גודל המפה בזמן היצירה — אם היא נוצרה בזמן שהקטגוריה
       // הייתה סגורה (רוחב 0), צריך לרענן את המידות ברגע הפתיחה.
       if (acc.open && acc.id === 'accPlanning' && planningMap) planningMap.invalidateSize();
+      if (acc.open && acc.id === 'accProperties') armPropertyLibsRedraw();
+      if (acc.open && acc.id === 'accAgreements' && window.crmNeed)
+        crmNeed('agreements').then(() => { agrFillKindFilter(); renderAgreements(); }).catch(() => {});
     });
   });
 }
@@ -828,12 +836,55 @@ function showScreen(name){
   // הפאנלים המכווצים נמדדים רק כשהם באמת על המסך: אלמנט בתוך display:none
   // מחזיר scrollHeight אפס, וחצי מאפס אינו חצי
   if (onDashboard) requestAnimationFrame(dashPanelsMeasure);
+  // בלי ?goto= המסך הוא הבית. דוחים את המדידה כדי שהשאילתות יצאו קודם.
+  if (onDashboard && !new URLSearchParams(location.search).get('goto')){
+    const idle = window.requestIdleCallback || (fn => setTimeout(fn, 2000));
+    idle(() => armTrackers(), { timeout: 4000 });
+  }
 }
 
 /* הודעה שממתינה למסך הכניסה. נחוצה כי כשחוזרים מ-Google עם שגיאה, המסך שמוצג
    בסוף הוא מסך הכניסה — ובלי זה הסוכן/ת פשוט "מוצא/ת את עצמו/ה" מול טופס
    הסיסמה בלי שום הסבר למה ההתחברות לא עבדה. */
 let pendingAuthMessage = '';
+
+/* מדידה אחרי שהמסך כבר מצויר. gtm.js מושך גם את gtag ואת פיקסל Meta,
+   ובקו איטי הם התחרו בציור. ההסכמה נשארת מה שמכולת GTM מגדירה. */
+let trackersFallbackArmed = false;
+function armTrackers(delay){
+  const run = () => {
+    if (window.shukArmTrackers) window.shukArmTrackers();
+  };
+  if (!delay){
+    requestAnimationFrame(() => requestAnimationFrame(run));
+    return;
+  }
+  if (trackersFallbackArmed) return;
+  trackersFallbackArmed = true;
+  setTimeout(run, delay);
+}
+
+/* מסך הכניסה נמדד בלי לחסום את הציור: כשהדפדפן פנוי, או במגע הראשון,
+   ולא יאוחר משלוש שניות. gtm.js עצמו נכנס רק אחרי שני פריימים
+   (shukArmTrackers), אז ההזרקה לא מתחרה בציור הראשון. */
+let loginTrackersArmed = false;
+function armLoginTrackers(){
+  if (loginTrackersArmed) return;
+  loginTrackersArmed = true;
+  let fired = false;
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    window.removeEventListener('pointerdown', fire);
+    window.removeEventListener('keydown', fire);
+    armTrackers();
+  };
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1));
+  idle(fire, { timeout: 3000 });
+  window.addEventListener('pointerdown', fire, { passive: true });
+  window.addEventListener('keydown', fire);
+  setTimeout(fire, 3000);
+}
 
 function showLoginCard(message){
   if (window.dlMark) window.dlMark('login');
@@ -866,6 +917,8 @@ function showLoginCard(message){
   document.getElementById('authJoinWrap').style.display = (invited || openingAgency) ? 'none' : '';
   resetGoogleButton();
   showScreen('login');
+  // ביקור שנשאר על מסך הכניסה עדיין נמדד, אחרי שהטופס כבר על המסך
+  armLoginTrackers();
 }
 
 function showBootCard(message){
@@ -1024,7 +1077,10 @@ googleLoginBtn.addEventListener('click', async ()=>{
   // ברשימת ה-Redirect URLs של Supabase. כתובת שלא ברשימה מוחלפת ב-Site URL,
   // ואז החזרה מ-Google נוחתת בדף הבית במקום כאן — ושם היא נצרכת בשקט, בלי
   // מסך ובלי הודעה. הרישום כאן הוא מה שמאפשר לדף הבית להחזיר אותה לכאן;
-  // התיקון עצמו הוא ברשימה, ראו docs/google-login.md ו-assets/auth-return.js
+  // התיקון עצמו הוא ברשימה, ראו docs/google-login.md ו-assets/auth-return.js.
+  // ‏?goto= (וגם tab, lead, property ושאר יעד הקישור) לא נכנס ל-redirectTo —
+  // הוא נשמר ב-sessionStorage וחוזר לכתובת אחרי Google. כניסה בסיסמה לא
+  // עוזבת את הדף, אז אצלה ה-query נשאר כמו שהוא.
   if (window.AuthReturn) AuthReturn.remember();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
@@ -2032,7 +2088,7 @@ function maybeShowWelcome(){
   wrap.setAttribute('aria-labelledby', 'welcomeTitle');
   wrap.innerHTML = `<div class="welcome-card">
       <div class="welcome-burst" aria-hidden="true">🎉</div>
-      <h2 id="welcomeTitle">ברוכים הבאים לנבחרת המתווכים!</h2>
+      <h2 id="welcomeTitle">ברוכים הבאים לנבחרת יועצי הנדל״ן!</h2>
       <p>המשרד שלך הוקם. בוא נחבר את גבריאלה ונעלה את הנכס הראשון.</p>
       <button type="button" class="btn btn-gold btn-block" id="welcomeGo">כניסה למערכת</button>
     </div>`;
@@ -2236,37 +2292,97 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
        clientRows. השניים האחרונים ממשיכים לרוץ ברקע כמו קודם.
 
      ‏Promise.all ולא allSettled בכוונה: כישלון עוצר את סוף הפונקציה בדיוק
-     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה. */
-  const pricingP = loadPricing().then(()=>{
-    // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
-    const freeQuota = priceOf('free_lead_quota_monthly', 10);
-    renderQuotaMeter(freeQuota);
-  });
+     כמו await בטור, ולכן הטיפול בשגיאה אצל הקורא לא השתנה.
+
+     קישור (?goto=) הוא החריג: קודם נפתח המסך ונטען רק מה שהוא קורא, ורק
+     אחר כך שאר השרשראות. בלי קישור אף טעינה לא זזה - start() נקרא מכאן
+     באותו רגע כמו קודם. שאילתה שנשמרת ב-start לא יוצאת פעמיים. */
+  const started = new Map();
+  function start(key, fn){
+    if (!started.has(key)) started.set(key, Promise.resolve().then(fn));
+    return started.get(key);
+  }
   // רשימת השת"פ מזינה את ספירת המשרדים בדיאלוג "פתיחה לשת״פ" - דיאלוג שנפתח
-  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם
-  const propsP = Promise.all([loadSharePartners(agent), loadProperties(agent.id)]);
-  const clientsP = propsP.then(()=> loadClients()).then(()=>{
-    // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
-    loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
-    // היומן ברקע, מאותה סיבה של התזכורות שמתחת.
-    loadAgenda().catch(err => console.warn('טעינת היומן נכשלה:', err));
-    return loadClientAlerts();
-  });
+  // בלחיצה, ולכן היא נטענת לצד הנכסים ולא לפניהם. קישור לנכס מחכה רק
+  // לרשימת הנכסים, לא לרשימת המשרדים.
+  function propertiesP(){ return start('properties', () => loadProperties(agent.id)); }
+  function shareP(){ return start('share', () => loadSharePartners(agent)); }
+  function propsP(){ return start('props', () => Promise.all([shareP(), propertiesP()])); }
+  function pricingP(){
+    return start('pricing', () => loadPricing().then(() => {
+      // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
+      const freeQuota = priceOf('free_lead_quota_monthly', 10);
+      renderQuotaMeter(freeQuota);
+    }));
+  }
+  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients())); }
+  const gotoParams = new URLSearchParams(location.search);
+  const gotoRaw = gotoParams.get('goto') || '';
+  const gotoTab = gotoParams.get('tab') || '';
+  function clientsP(){
+    return start('clients', () => clientsListP().then(() => {
+      // יומן השיחות ברקע: רק למי שיש מספר, וכשל בו אינו מעכב את הדשבורד
+      loadCalls().catch(err => console.warn('טעינת יומן השיחות נכשלה:', err));
+      // היומן ברקע, מאותה סיבה של התזכורות שמתחת. אם הקישור כבר פתח אותו,
+      // start מחזיר את אותה טעינה, וציור שני ממלא שמות לקוחות שהגיעו עכשיו.
+      start('agenda', () => loadAgenda()).then(() => {
+        if (gotoRaw === 'accAgenda') renderAgenda();
+      }).catch(err => console.warn('טעינת היומן נכשלה:', err));
+      return loadClientAlerts();
+    }));
+  }
+  async function loadRequestedGoto(keys, waitPrice){
+    for (const key of keys){
+      if (key === 'props') await propertiesP();
+      else if (key === 'leads') {
+        if (waitPrice) await pricingP();
+        await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
+      }
+      else if (key === 'clients') await clientsListP();
+      else if (key === 'demand') await start('demand', () => loadOpenDemand());
+      else if (key === 'shared') await start('shared', () => loadSharedWithMe());
+      else if (key === 'agreements') await start('agreements', () => loadAgreements());
+      else if (key === 'agenda') await start('agenda', () => loadAgenda());
+      else if (key === 'reviews' && agent.role === 'manager' && agent.agency_id){
+        await start('reviews', () => loadPendingReviews(agent.agency_id));
+      } else if (key === 'prefs'){
+        await Promise.all([
+          start('notifPrefs', () => loadNotifPrefs(agent.id)),
+          start('preferences', () => loadPreferences(agent.id)),
+        ]);
+      } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
+    }
+  }
+  let gotoHandled = false;
+  if (gotoRaw && gotoOpensEarly(gotoRaw, gotoTab)){
+    // מחיר הליד, ה-CMA והקידום נקראים מ-priceOf. בלי זה היעד נפתח על
+    // ברירות המחדל הקשיחות, כי pricingP עוד לא התחיל.
+    const waitPrice = gotoRaw === 'cma' || gotoRaw === 'promote'
+      || (gotoRaw === 'accLeads' && gotoTab !== 'demand');
+    if (waitPrice) pricingP();
+    try { revealGotoTarget(gotoRaw); }
+    catch (err){ console.warn('פתיחת יעד הקישור נכשלה:', err); }
+    try { await loadRequestedGoto(gotoLoadKeys(gotoRaw, gotoTab), waitPrice); }
+    catch (err){ console.warn('טעינת יעד הקישור נכשלה:', err); }
+    if (waitPrice) await pricingP();
+    handleGotoParam();
+    gotoHandled = true;
+  }
   // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
-  // רצה בה תיפתח כרגיל, בלי הקטגוריה.
+  // רצה בה תיפתח כרגיל, בלי הקטגוריה. אחרי יעד הקישור, כדי לא לרוץ לפניו.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
   await Promise.all([
-    pricingP,
-    propsP,
-    clientsP,
-    propsP.then(()=> loadLeads(agent.id)),
-    pricingP.then(()=> Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])),
-    loadSharedWithMe(),
-    loadAgreements(),
-    loadNotifications(agent.id),
-    loadNotifPrefs(agent.id),
-    loadPreferences(agent.id),
+    pricingP(),
+    propsP(),
+    clientsP(),
+    propsP().then(() => start('leads', () => loadLeads(agent.id))),
+    pricingP().then(() => start('shelves', () => Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)]))),
+    start('shared', () => loadSharedWithMe()),
+    start('agreements', () => loadAgreements()),
+    start('notifications', () => loadNotifications(agent.id)),
+    start('notifPrefs', () => loadNotifPrefs(agent.id)),
+    start('preferences', () => loadPreferences(agent.id)),
   ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -2297,7 +2413,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     await Promise.all([
       loadBranding(agent.agency_id),
       loadTeam(agent.agency_id, agent.id),
-      loadPendingReviews(agent.agency_id),
+      start('reviews', () => loadPendingReviews(agent.agency_id)),
       loadAgencyEthics(agent.agency_id),
     ]);
   } else {
@@ -2343,9 +2459,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   refreshNavCounts();
   dashPanelsMeasure();
 
-  // אחרון, ובכוונה: הניווט לפי ?goto= נשען על navAccVisible ועל המונים, ולכן
-  // הוא חייב לרוץ אחרי שהניווט וההרשאות כבר במקומם.
-  handleGotoParam();
+  // קישור שכבר נפתח למעלה לא רץ שוב: handleGotoParam מוחק את ה-query.
+  // מה שנשאר לכאן הוא כניסה בלי ?goto=, ויעד של ניהול שהמסך שלו מוסתר
+  // עד שההרשאות נקבעות (אזור המנהל/ת, תצוגת הפלטפורמה).
+  if (!gotoHandled) handleGotoParam();
   handleShareParam();
   // אחרי הכול ובהשהיה - ראו scheduleGovmapAutoComplete
   scheduleGovmapAutoComplete(agent);
@@ -2394,6 +2511,48 @@ function openAdminHome(){
   return true;
 }
 
+/* אילו טעינות חוסמות את פתיחת היעד. מה שאין כאן רץ אחרי שהמסך כבר פתוח,
+   ובפרט client_match_top (בתוך loadClients) לא חוסם קישור ללידים, לנכס
+   או לביקוש פתוח. demand הוא הלשונית "ביקוש פתוח" - בלי רשימת הלידים. */
+function gotoLoadKeys(raw, tab){
+  if (!raw) return [];
+  if (raw === 'accLeads' && tab === 'demand') return ['demand'];
+  if (raw === 'accLeads') return ['props', 'leads'];
+  if (raw === 'accClients') return ['props', 'clients'];
+  if (raw === 'accProperties' || raw === 'cma' || raw === 'promote' || raw === 'waShare') return ['props'];
+  if (raw === 'accSharedWithMe') return ['shared'];
+  if (raw === 'accAgreements' || raw === 'sign') return ['agreements'];
+  if (raw === 'accAgenda') return ['agenda'];
+  if (raw === 'accReviews') return ['reviews'];
+  if (raw === 'accPrefs' || raw === 'accNotifPrefs') return ['prefs'];
+  if (raw === 'bell') return ['notifications'];
+  return [];
+}
+
+/* יעד שאפשר לפתוח ברגע שהמעטפת על המסך. אזור המנהל/ת עדיין מוסתר כאן,
+   ולכן ביקורת שממתינה נשארת לסוף loadDashboard - אחרת הקישור היה נמחק
+   מהכתובת בלי שהכרטיס נפתח. */
+function gotoTargetReady(raw){
+  if (raw === 'mentor' || raw === 'license' || raw === 'cma' || raw === 'cmaAddress'
+      || raw === 'promote' || raw === 'waShare' || raw === 'sign') return true;
+  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return false;
+  if (NAV_TAB_OF.get(raw) === 'admin') return false;
+  return navAccVisible(accAliasTarget(raw));
+}
+
+function gotoOpensEarly(raw, tab){
+  if (!raw || !gotoTargetReady(raw)) return false;
+  if (gotoLoadKeys(raw, tab).length) return true;
+  return raw === 'mentor' || raw === 'license' || raw === 'cmaAddress' || raw === 'accPlanning';
+}
+
+function revealGotoTarget(raw){
+  if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return;
+  if (NAV_TAB_OF.get(raw) === 'admin') return;
+  if (!navAccVisible(accAliasTarget(raw))) return;
+  gotoSection(raw);
+}
+
 function handleGotoParam(){
   const params = new URLSearchParams(location.search);
   const raw = params.get('goto');
@@ -2439,7 +2598,7 @@ function handleGotoParam(){
   let switched = false;
   if (NAV_TAB_OF.get(raw) === 'admin' && currentAgent && currentAgent.is_platform_admin
       && dashView !== 'admin'){ setDashView('admin', { initial:true }); switched = true; }
-  if (!navAccVisible(accAliasTarget(raw))) return;
+  if (!navAccVisible(accAliasTarget(raw))){ armTrackers(); return; }
   gotoSection(raw);
   /* המעבר לתצוגת הניהול מתחיל לטעון את שבעת הדוחות, והפאנלים שמעל היעד
      גדלים אחרי הגלילה ודוחפים אותו מטה. גלילה שנייה, אחרי שהם צוירו. */
@@ -2460,7 +2619,8 @@ function handleGotoParam(){
     openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty');
   if (raw === 'accLeads' && leadId) openLeadFromParam(leadId);
   // ‏open_demand (notification-push, itemPath): הלשונית "ביקוש פתוח"
-  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function') openLeadsDemand();
+  if (raw === 'accLeads' && tab === 'demand' && typeof openLeadsDemand === 'function')
+    openLeadsDemand({ fromLink: true });
   if (raw === 'accSharedWithMe' && propertyId) openSharedFromParam(propertyId);
   if (raw === 'accAgreements' && agreementId) openAgreementFromParam(agreementId);
   if (raw === 'accReviews' && reviewId) openReviewFromParam(reviewId);
@@ -2469,6 +2629,7 @@ function handleGotoParam(){
   // ‏lead_prefs_default (notification-push, itemPath): חלק העדפות הלידים מקופל
   if (raw === 'accPrefs' && focus === 'lead_prefs' && typeof openLeadPrefs === 'function') openLeadPrefs();
   } finally {
+    armTrackers();
     if (window.dlMark) {
       window.dlMark('route');
       /* היעד הנמדד הוא האלמנט שנפתח, לא תמיד מזהה הקטגוריה. CMA, מנטור,
@@ -2588,7 +2749,7 @@ const REMINDER_FILTERS = {
 /* כל פקדי הסינון של "הנכסים שלי" (בלי המיון). רשימה אחת, כי שלושה מקומות
    מאפסים אותם - "איפוס סינונים", קישור לנכס בודד, וקישור מהתזכורת - ופקד
    שנוסף לשניים מהם ולא לשלישי השאיר נכס מבוקש מוסתר מאחורי סינון ישן. */
-const PROP_FILTER_IDS = ['propSearch','propStatusFilter','propDealFilter','propTypeFilter',
+const PROP_FILTER_IDS = ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propAirDirs','propAirMin','propLivingMin',
   'propCityFilter','propRoomsFilter','propPriceMin','propPriceMax','propSizeMin','propSizeMax',
   'propPsmMin','propPsmMax','propExtraFilter','propSmartFilter'];
 
@@ -4186,8 +4347,8 @@ function renderMarketReport(market, report){
   const tiles = admEl('div', 'adm-tiles');
   tiles.appendChild(admTile('נכסים פעילים', admInt(props), {
     wine: true, note: admInt(tot.props_new_30d) + ' נוספו ב-30 יום' }));
-  tiles.appendChild(admTile('משרדים ומתווכים', admInt(agencies), {
-    note: admInt(tot.agents) + ' מתווכים פעילים' }));
+  tiles.appendChild(admTile('משרדים ויועצי נדל״ן', admInt(agencies), {
+    note: admInt(tot.agents) + ' יועצי נדל״ן פעילים' }));
   tiles.appendChild(admTile('לידים ב-30 יום', admInt(tot.leads_30d), {
     note: admInt(tot.leads_open) + ' עוד לא נפתחו' }));
   tiles.appendChild(admTile('שכונות', admInt(tot.neighborhoods), {
@@ -4238,7 +4399,7 @@ function renderMarketReport(market, report){
       link.target = '_blank'; link.rel = 'noopener';
       li.appendChild(link);
       li.appendChild(admEl('small', null, (a.city ? a.city + ' · ' : '') +
-        admInt(a.props_active) + ' נכסים · ' + admInt(a.agents) + ' מתווכים'));
+        admInt(a.props_active) + ' נכסים · ' + admInt(a.agents) + ' יועצי נדל״ן'));
       ul.appendChild(li);
     });
     agBlock.appendChild(ul);
@@ -4719,7 +4880,7 @@ async function loadAdminAreaMisses(){
    מלאי אצל גבריאלה, מה קרה אחרי התוצאות (דומים, שמירה, מתווך/ת, ניסיון
    נוסף), ובאתר - חיפושים שהובילו לצפייה בנכס. ‏docs/search-core.md. */
 const LEARN_OUTCOMES = [
-  ['contact', 'ביקשו מתווך/ת'], ['saved', 'שמרו חיפוש'], ['similar', 'ביקשו דומים'],
+  ['contact', 'ביקשו יועץ נדל״ן'], ['saved', 'שמרו חיפוש'], ['similar', 'ביקשו דומים'],
   ['refined', 'ניסו שוב במילים אחרות'], ['none', 'בלי פעולה'],
 ];
 function learnDemandText(d){
@@ -4990,7 +5151,7 @@ async function gabRenderAdsFunnel(block, days){
   const wrap = admEl('div', 'adm-table-wrap');
   const table = admEl('table', 'adm-table');
   const hrow = admEl('tr');
-  ['מודעה', 'פניות', 'אנשים', 'חיפוש שמור', 'הסכמה למתווך/ת', 'נמכר', 'מפנייה לחיפוש'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+  ['מודעה', 'פניות', 'אנשים', 'חיפוש שמור', 'הסכמה ליועץ הנדל״ן', 'נמכר', 'מפנייה לחיפוש'].forEach(h => hrow.appendChild(admEl('th', null, h)));
   table.appendChild(hrow);
   rows.forEach(r => {
     const tr = admEl('tr');
@@ -5224,6 +5385,46 @@ document.querySelectorAll('#dashPanelAdmin .adm-range button').forEach(btn=>{
 });
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminReport);
 
+/* ---------- ייצוא פניות היריד (CSV) ----------
+   ‏admin_fair_inquiries - כל היומן (מ-2026, לפני היריד הראשון), בשעון ישראל, כדי
+   שיריד ארוך לא ייחתך בברירת המחדל של 90 יום (‏docs/open-house-fair.md).
+   ‏BOM כדי שאקסל יקרא עברית; תא שמתחיל ב-= + - @ מקבל גרש, כדי שאקסל לא
+   יריץ אותו כנוסחה (שם הפונה מגיע מטופס ציבורי). */
+const FAIR_CSV_CHANNEL = {
+  form:'טופס', visualization:'הדמיה', social:'רשת חברתית', meta_ads:'טופס מטא',
+  whatsapp_click:'לחיצה על וואטסאפ', call_click:'לחיצה על חיוג',
+};
+const FAIR_CSV_STATUS = { eligible:'זכאי', pending_owner_decision:'ממתין להחלטה' };
+function fairCsvCell(v){
+  let s = v == null ? '' : String(v);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+async function exportFairInquiriesCsv(){
+  const btn = document.getElementById('adminFairCsvBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.rpc('admin_fair_inquiries', { p_from: '2026-01-01T00:00:00+02:00' });
+    if (error){ showToast('הייצוא נכשל: ' + heErr(error)); return; }
+    const rows = data || [];
+    if (!rows.length){ showToast('אין פניות יריד בטווח הזה'); return; }
+    const head = ['מספר פנייה', 'תאריך ושעה (שעון ישראל)', 'ערוץ', 'סטטוס', 'מקור', 'נכס', 'עיר',
+      'יועץ הנדל״ן', 'משרד', 'שם הפונה', 'טלפון', 'סיום היריד לנכס', 'מזהה יריד',
+      'מזהה ההודעה ברשת', 'שעת ההודעה ברשת (שעון ישראל)'];
+    const lines = [head.map(fairCsvCell).join(',')].concat(rows.map(r => [
+      r.ref, r.created_at_il, FAIR_CSV_CHANNEL[r.channel] || r.channel, FAIR_CSV_STATUS[r.status] || r.status,
+      r.source, r.property_title, r.property_city, r.agent_name, r.agency_name,
+      r.visitor_name, r.visitor_phone_e164, r.fair_end_il, r.fair_key, r.external_ref, r.platform_at_il,
+    ].map(fairCsvCell).join(',')));
+    const day = new Date().toLocaleDateString('sv-SE', { timeZone:'Asia/Jerusalem' });
+    downloadBlob(new Blob(['\uFEFF' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' }), 'fair-inquiries-' + day + '.csv');
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById('adminFairCsvBtn').addEventListener('click', exportFairInquiriesCsv);
+
 /* ==========================================================================
    בקרת מנוע הלידים — הפאנל השלישי
    --------------------------------------------------------------------------
@@ -5250,6 +5451,8 @@ const LX_CHANNELS = {
   footer:        'באנר הפוטר',
   project_page:  'דפי הפרויקטים',
   open_house:    'יריד הבתים הפתוחים',
+  swipe:         'גלישה בהחלקה',
+  sell_page:     'דף חושבים למכור',
   rss_engine:    'מנוע ה-RSS',
   meta_ads:      'מודעות ממומנות במטא',
   social:        'גבריאלה בפייסבוק ובאינסטגרם',
@@ -5302,6 +5505,15 @@ const LX_SOURCES = {
   instagram_dm:                'גבריאלה · הודעה באינסטגרם',
   instagram_comment:           'גבריאלה · תגובה באינסטגרם',
   projects_page:               'מדף הפרויקטים החדשים',
+  swipe:                       'גלישה בהחלקה · פנייה על נכס',
+  swipe_sponsored:             'גלישה בהחלקה · כרטיס ממומן',
+  swipe_end:                   'החלקה · כרטיס סיום',
+  swipe_seller:                'החלקה · חושבים למכור',
+  swipe_fair:                  'החלקה · הרשמה ליריד',
+  nocommission_fair:           'יריד הבתים הפתוחים · הרשמה',
+  sell_page:                   'דף חושבים למכור',
+  sell_page_agent:             'דף חושבים למכור · כרטיס יועץ',
+  photo_request:               'בקשת תמונות',
   project_page:                'דף נחיתה של פרויקט',
   open_house_page:             'יריד הבתים הפתוחים',
   rss_engine:                  'מנוע ה-RSS (סריקת פידים)',
@@ -6077,8 +6289,8 @@ const INV_GROUPS = [
       ['exclusivities_active', 'בלעדיות בתוקף'], ['contracts', 'חוזים'],
       ['contracts_signed', 'חוזים חתומים'], ['opted_out_agents', 'סוכנים שחסמו שיתוף'],
     ] },
-  { key: 'clients', title: 'לקוחות המתווכים',
-    note: 'הלקוחות שהמתווכים מנהלים אצלנו, וההתאמות שהמערכת מצאה להם.',
+  { key: 'clients', title: 'לקוחות יועצי הנדל״ן',
+    note: 'הלקוחות שיועצי הנדל״ן מנהלים אצלנו, וההתאמות שהמערכת מצאה להם.',
     fields: [
       ['total', 'לקוחות בסך הכול'], ['active', 'לקוחות פעילים'],
       ['new', 'נוספו בחלון'], ['with_agent', 'סוכנים שמנהלים לקוחות'],
@@ -6212,7 +6424,7 @@ function renderInventoryReport(report){
     { note: 'מתוך ' + admInt(props.total) + ' במערכת', wine: true }));
   tiles.appendChild(admTile('שיתופי פעולה', admInt(collab.shares),
     { note: plural(collab.properties_shared, 'נכס אחד שותף', 'נכסים שותפו', admInt(collab.properties_shared)) }));
-  tiles.appendChild(admTile('לקוחות המתווכים', admInt(clients.total),
+  tiles.appendChild(admTile('לקוחות יועצי הנדל״ן', admInt(clients.total),
     { note: admInt(clients.per_agent) + ' בממוצע לסוכן/ת' }));
   tiles.appendChild(admTile('הדמיות שבוצעו', admInt(media.visualizations),
     { note: admInt(media.videos) + ' סרטונים' }));
@@ -7748,11 +7960,14 @@ async function pfSocialInit(agentId){
    ל-30 יום בדפדפן הזה בלבד: זו תזכורת, לא הסכמה, ולכן אינה נשמרת במסד.
    שגיאה (העמודות עוד לא קיימות) = הכרטיס פשוט לא מוצג. */
 const SOCIAL_PROMPT_KEY = 'shuknadlan.social_prompt_later';
+const SOCIAL_PROMPT_NEVER_KEY = 'shuknadlan.social_prompt_never';
 const SOCIAL_PROMPT_SNOOZE_MS = 30 * 24 * 3600 * 1000;
 async function loadSocialPrompt(){
   const box = document.getElementById('socialPrompt');
   if (!box || !currentAgent) return;
   box.hidden = true;
+  // ‏P1-R: "לא להציע לי שוב" - יציאה לפני השאילתות למסד. הרשתות בפרופיל ובמיתוג נשארות זמינות
+  try { if (localStorage.getItem(SOCIAL_PROMPT_NEVER_KEY)) return; } catch(_){ }
   let laterAt = 0;
   try { laterAt = Number(localStorage.getItem(SOCIAL_PROMPT_KEY)) || 0; } catch(_){ }
   if (Date.now() - laterAt < SOCIAL_PROMPT_SNOOZE_MS) return;
@@ -7769,9 +7984,10 @@ async function loadSocialPrompt(){
   const officeNeeds = isManager && !office.error && !(office.data && office.data.social_tag_consent);
   if (!agentNeeds && !officeNeeds) return;
 
+  document.getElementById('socialPromptTitle').textContent = agentNeeds ? '📣 רוצה שנתייג אותך בפרסומים?' : '📣 תיוג בפרסומים של הנכסים';
   document.getElementById('socialPromptText').textContent = agentNeeds
     ? 'כל נכס שלך שעולה לאינסטגרם ולפייסבוק יכול לתייג אותך ואת המשרד, והעוקבים שלכם יגיעו למודעה. שם משתמש ואישור - דקה אחת.'
-    : 'את/ה כבר מתויג/ת. הוסיפו גם את האינסטגרם ודף הפייסבוק של המשרד, כדי שנתייג אותו בכל פרסום של נכסי המשרד.';
+    : 'התיוג האישי כבר פעיל. כדאי להוסיף גם את האינסטגרם ודף הפייסבוק של המשרד, כדי שנתייג אותו בכל פרסום של נכסי המשרד.';
   const go = document.getElementById('socialPromptGo');
   const officeBtn = document.getElementById('socialPromptOffice');
   go.hidden = !agentNeeds;
@@ -7781,6 +7997,18 @@ async function loadSocialPrompt(){
   go.onclick = () => gotoSection('accProfile', 'pfInstagram', { scrollTo:'.pf-social' });
   officeBtn.onclick = () => gotoSection('accBranding', 'brInstagram', { scrollTo:'.br-social' });
   document.getElementById('socialPromptLater').onclick = () => {
+    const never = document.getElementById('socialPromptNever')?.checked;
+    // ה-CRM אינו טוען את events.js - נדחף ישירות ל-dataLayer של GTM
+    const shukTrack = window.shukTrack || ((n, prm) => { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event: n }, prm)); });
+    shukTrack('social_prompt_dismiss', { mode: never ? 'never' : 'later' });
+    if (never){
+      try { localStorage.setItem(SOCIAL_PROMPT_NEVER_KEY, '1'); } catch(_){ }
+      box.querySelector('.social-prompt-acts').hidden = true;
+      box.querySelector('.social-prompt-never').hidden = true;
+      document.getElementById('socialPromptText').textContent = 'בסדר, לא נציע שוב. אפשר להוסיף רשתות בכל זמן בפרופיל ← רשתות חברתיות.';
+      setTimeout(() => { box.hidden = true; box.querySelector('.social-prompt-acts').hidden = false; box.querySelector('.social-prompt-never').hidden = false; }, 6000);
+      return;
+    }
     try { localStorage.setItem(SOCIAL_PROMPT_KEY, String(Date.now())); } catch(_){ }
     box.hidden = true;
   };
@@ -8176,6 +8404,14 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'שם מלא ומספר רישיון הם שדות חובה.';
     return;
   }
+  if (window.crmNeed && !window.IlId){
+    try { await crmNeed('ilid'); } catch (e) {}
+  }
+  if (!window.IlId){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = 'לא הצלחנו לבדוק את תעודת הזהות - נסו לרענן את הדף.';
+    return;
+  }
   if (!IlId.check(document.getElementById('pfIdNumber'))){
     feedback.style.color = 'var(--wine)';
     feedback.textContent = 'מספר תעודת הזהות אינו תקין - תקנו אותו, או סמנו שהמספר נכון.';
@@ -8282,6 +8518,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       document.getElementById('pfInstagram').value = soc.instagram_handle || '';
       document.getElementById('pfFacebook').value = soc.facebook_url || '';
       document.getElementById('pfSocialConsent').checked = !!soc.social_tag_consent;
+      // אישור תיוג מאוחר יותר מבטל את "לא להציע לי שוב" (‏P1-R)
+      if (soc.social_tag_consent) { try { localStorage.removeItem(SOCIAL_PROMPT_NEVER_KEY); } catch(_){ } }
       loadSocialPrompt(); // הכרטיס בדף הבית נעלם אחרי אישור
     }
 
@@ -9433,7 +9671,7 @@ async function loadPendingReviews(agencyId){
       </div>
       ${tagsHtml([
         { text:'👤 ' + (r.reviewer_display_name || 'לקוח מאומת'), cls:'tag-key' },
-        { text:`⭐ המתווך/ת ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
+        { text:`⭐ יועץ הנדל״ן ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
         // הדירוג הישיר של המשרד הוא שאלה אופציונלית בטופס, ולכן התגית מופיעה
         // רק כשניתנה תשובה. מנהל/ת המשרד מאשר/ת את הביקורת — וצריך/ה לראות
         // את שני הדירוגים שהאישור מפרסם, לא רק את זה של המתווך/ת.
@@ -9979,7 +10217,7 @@ document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
   const list = document.getElementById('caStep1List');
   list.textContent = '';
   [
-    'דף הסוכן/ת שלך יורד מהאוויר, וגם הכרטיס שלך בספריית המתווכים.',
+    'דף הסוכן/ת שלך יורד מהאוויר, וגם הכרטיס שלך בספריית יועצי הנדל״ן.',
     s.active_properties > 0
       ? plural(s.active_properties, 'מודעה פעילה אחת יורדת', 'מודעות פעילות יורדות') + ' מהאתר ומהחיפוש.'
       : 'אין כרגע מודעות פעילות שיירדו.',
@@ -10794,6 +11032,13 @@ async function govmapPlanningLookup(q, feedback, upgradeNotice){
     upgradeNotice.style.display = 'block';
     return;
   }
+  if (window.crmNeed) {
+    try { await Promise.all([crmNeed('govmap'), crmNeed('map')]); }
+    catch (e) {
+      showToast('לא הצלחנו לטעון את המפה - נסו לרענן את הדף');
+      return;
+    }
+  }
   if (!window.GovmapLookup){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'לא הצלחנו לטעון את GovMap - נסו לרענן את הדף';
@@ -10930,7 +11175,14 @@ function renderPlanningResult(d){
   // מפת החלקה — נבנית מחדש בכל חיפוש (Leaflet לא תומך ביצירה כפולה על אותו div)
   const mapEl = document.getElementById('planMap');
   if (planningMap){ planningMap.remove(); planningMap = null; }
-  if (!window.L || !d.lat || !d.lng){ mapEl.style.display = 'none'; return; }
+  if (!window.L || !window.MapTiles || !d.lat || !d.lng){
+    mapEl.style.display = 'none';
+    if (d.lat && d.lng && window.crmNeed && !d._mapLibs){
+      d._mapLibs = true;
+      crmNeed('map').then(() => renderPlanningResult(d)).catch(() => {});
+    }
+    return;
+  }
   mapEl.style.display = 'block';
 
   /* מפה בגובה 280px בתוך פאנל נגלל היא מלכודת גלילה: הגלגלת מעליה הייתה
@@ -11061,6 +11313,10 @@ async function loadBranding(agencyId){
     }
     if (brAreaPicker) brAreaPicker.set({ kind: def.kind, markets: def.markets });
   });
+  if (window.crmNeed && !window.Specialties) {
+    try { await crmNeed('specialties'); }
+    catch (e) {}
+  }
   const stored = agency.colors || {};
   // שורה בלי צבע ראשי היא ברירת המחדל - כך נשמרת, וכך נראים כל המשרדים
   // שמעולם לא נגעו במקטע הזה
@@ -11107,9 +11363,22 @@ async function loadBranding(agencyId){
    הבחירה נשמרת בשורת המשרד ומוצגת כתגיות בראש דף המשרד. הרשימה עצמה
    יושבת ב-assets/specialties.js, כדי שהיא תהיה זהה כאן, בטופס פתיחת המשרד
    ובדף הציבורי. */
+/* ניסיון אחד. בלי הדגל, סקריפט שעלה בלי הגלובל קורא שוב ושוב וקופא. */
+function crmNeedOnce(flagObj, key, group, again, toast){
+  if (!window.crmNeed || !flagObj) return;
+  if (flagObj[key]) { showToast(toast); return; }
+  flagObj[key] = true;
+  crmNeed(group).then(again).catch(() => showToast(toast));
+}
+
 function renderSpecialtyPicker(){
   const grid = document.getElementById('brSpecGrid');
-  if (!grid || !window.Specialties || !brandingState) return;
+  if (!grid || !brandingState) return;
+  if (!window.Specialties){
+    crmNeedOnce(renderSpecialtyPicker, '_tried', 'specialties', () => renderSpecialtyPicker(),
+      'לא הצלחנו לטעון את תחומי ההתמחות - נסו לרענן את הדף');
+    return;
+  }
   const chosen = brandingState.specialties;
   const full = chosen.length >= Specialties.MAX_SELECTED;
 
@@ -11134,6 +11403,7 @@ function renderSpecialtyPicker(){
 }
 
 function toggleSpecialty(id){
+  if (!window.Specialties || !brandingState) return;
   const chosen = brandingState.specialties;
   const at = chosen.indexOf(id);
   if (at >= 0) chosen.splice(at, 1);
@@ -11148,7 +11418,11 @@ function toggleSpecialty(id){
    ההזדמנות להחליף אותה בבחירה מודעת. */
 async function loadSpecialtySuggestion(agencyId){
   const box = document.getElementById('brSpecSuggest');
-  if (!box || !window.Specialties) return;
+  if (!box) return;
+  if (window.crmNeed && !window.Specialties){
+    try { await crmNeed('specialties'); } catch (e) {}
+  }
+  if (!window.Specialties || !brandingState) return;
   const { data: props } = await sb.from('properties')
     .select('property_type, deal_type, category')
     .eq('agency_id', agencyId).eq('status', 'active').limit(200);
@@ -11165,7 +11439,9 @@ async function loadSpecialtySuggestion(agencyId){
   add.type = 'button';
   add.textContent = 'להוסיף לתחומים שלי';
   add.addEventListener('click', ()=>{
+    if (!window.Specialties || !brandingState) return;
     suggested.forEach(id=>{
+      if (!window.Specialties || !brandingState) return;
       if (!brandingState.specialties.includes(id) && brandingState.specialties.length < Specialties.MAX_SELECTED){
         brandingState.specialties.push(id);
       }
@@ -11538,6 +11814,14 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
   if (social && social.error){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = social.error;
+    return;
+  }
+  if (window.crmNeed && !window.Specialties){
+    try { await crmNeed('specialties'); } catch (e) {}
+  }
+  if (!window.Specialties){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'לא הצלחנו לטעון את תחומי ההתמחות - נסו לרענן את הדף.';
     return;
   }
   btn.disabled = true; btn.textContent = 'שומר…';
@@ -12244,7 +12528,113 @@ function isLandTypeSelected(){
 
 function updateLandPlanningFields(){
   document.getElementById('npLandPlanningFields').style.display = isLandTypeSelected() ? 'block' : 'none';
+  syncPropertyAirLivingVisibility();
 }
+
+function syncPropertyAirLivingVisibility(){
+  const row = document.getElementById('npAirLivingRow');
+  if (!row) return;
+  const show = currentCategory !== 'commercial' && !isLandTypeSelected();
+  row.hidden = !show;
+}
+
+function airCountLabel(n){
+  if (!n) return 'לא צוין';
+  if (window.ShukAirLiving) return ShukAirLiving.countPhrase(n);
+  return n === 1 ? 'כיוון אוויר אחד' : (n + ' כיווני אוויר');
+}
+
+function syncNpAirCount(){
+  const n = getCheckedValues('npAir').length;
+  const el = document.getElementById('npAirCount');
+  if (el) el.textContent = airCountLabel(n);
+}
+
+function livingRoomSaveError(sqm, size, built){
+  if (sqm == null || sqm === '') return '';
+  const n = Number(sqm);
+  if (!Number.isFinite(n) || n < 4 || n > 150) return 'גודל הסלון צריך להיות בין 4 ל-150 מ״ר';
+  if ((size && n > Number(size)) || (built && n > Number(built))) {
+    return 'הסלון גדול משטח הנכס. כדאי לבדוק את שני המספרים';
+  }
+  return '';
+}
+
+function syncLivingWarn(){
+  const warn = document.getElementById('npLivingWarn');
+  if (!warn) return;
+  const n = Number(document.getElementById('npLivingSqm').value);
+  const size = Number(document.getElementById('npSizeSqm').value);
+  warn.hidden = !(Number.isFinite(n) && n > 0 && Number.isFinite(size) && size > 0 && n > size * 0.6);
+}
+
+function checkedAir(containerId){
+  return getCheckedValues(containerId).filter(Boolean);
+}
+
+function syncClientAirAny(){
+  const box = document.querySelector('#clAir input[data-any]');
+  const dirs = checkedAir('clAir');
+  if (box) box.checked = dirs.length === 0;
+}
+
+function setClientAirMin(value){
+  document.querySelectorAll('#clAirMin button').forEach(btn => {
+    const on = String(btn.dataset.min || '') === String(value || '');
+    btn.setAttribute('aria-pressed', String(on));
+  });
+  const lock = String(value) === '4';
+  document.querySelectorAll('#clAir input:not([data-any])').forEach(el => {
+    if (lock) el.checked = true;
+    el.disabled = lock;
+  });
+  syncClientAirAny();
+}
+
+function clientAirMinValue(){
+  const on = document.querySelector('#clAirMin button[aria-pressed="true"]');
+  return on && on.dataset.min ? Number(on.dataset.min) : null;
+}
+
+function syncLargeLivingChip(){
+  const btn = document.getElementById('clLargeLiving');
+  const input = document.getElementById('clMinLiving');
+  if (!btn || !input) return;
+  const n = Number(input.value);
+  btn.setAttribute('aria-pressed', String(Number.isFinite(n) && n >= 30));
+}
+
+function syncClientAirLivingVisibility(){
+  const show = clientFormKind !== 'owner' && clientFormCategory !== 'commercial';
+  const living = document.getElementById('clLivingField');
+  const air = document.getElementById('clAirBlock');
+  if (living) living.hidden = !show;
+  if (air) air.hidden = !show;
+}
+
+document.getElementById('npAir')?.addEventListener('change', syncNpAirCount);
+document.getElementById('npLivingSqm')?.addEventListener('input', syncLivingWarn);
+document.getElementById('npSizeSqm')?.addEventListener('input', syncLivingWarn);
+document.getElementById('clAir')?.addEventListener('change', (ev) => {
+  const input = ev.target;
+  if (input && input.dataset && input.dataset.any) {
+    if (input.checked) document.querySelectorAll('#clAir input:not([data-any])').forEach(el => { el.checked = false; });
+  } else {
+    syncClientAirAny();
+  }
+});
+document.getElementById('clAirMin')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  setClientAirMin(btn.dataset.min || '');
+});
+document.getElementById('clLargeLiving')?.addEventListener('click', () => {
+  const input = document.getElementById('clMinLiving');
+  const on = document.getElementById('clLargeLiving').getAttribute('aria-pressed') === 'true';
+  input.value = on ? '' : '30';
+  syncLargeLivingChip();
+});
+document.getElementById('clMinLiving')?.addEventListener('input', syncLargeLivingChip);
 
 function updateFormForCategory(category, preselectedFeatures){
   preselectedFeatures = preselectedFeatures || [];
@@ -12261,6 +12651,7 @@ function updateFormForCategory(category, preselectedFeatures){
   renderFeatureCheckboxes('npPropertyFeatures', isCommercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES, preselectedFeatures);
   // החלפת קטגוריה מאתחלת את רשימת סוגי הנכס, ולכן גם את השאלה אם זו קרקע
   updateLandPlanningFields();
+  syncPropertyAirLivingVisibility();
 }
 
 document.getElementById('npType').addEventListener('change', updateLandPlanningFields);
@@ -12350,6 +12741,11 @@ function syncOpenHouseFields(){
   startEl.min = openHouseToday();
   endEl.min = startEl.value || openHouseToday();
 
+  if (!window.OpenHouse){
+    crmNeedOnce(syncOpenHouseFields, '_tried', 'property', syncOpenHouseFields,
+      'לא הצלחנו לטעון את היריד - נסו לרענן את הדף');
+    return;
+  }
   const err = openHouseError();
   note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
   if (err){ note.textContent = err; return; }
@@ -12381,12 +12777,24 @@ function openHouseModalSync(){
   note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
   document.getElementById('ohModalEnd').min = start || openHouseToday();
   if (err){ note.textContent = err; return false; }
+  if (!window.OpenHouse){
+    crmNeedOnce(openHouseModalSync, '_tried', 'property', () => openHouseModalSync(),
+      'לא הצלחנו לטעון את היריד - נסו לרענן את הדף');
+    return false;
+  }
   const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
   note.textContent = `${plural(openHouseDays(start, end), 'יום אחד', 'ימים')} ביריד - ללא עמלת תיווך לקונה מ-${fmt(start)} ועד ${fmt(end)} (כולל).`;
   return true;
 }
 
-function openOpenHouseModal(p, agentId){
+async function openOpenHouseModal(p, agentId){
+  if (!window.OpenHouse && window.crmNeed){
+    try { await crmNeed('property'); } catch (e) {}
+  }
+  if (!window.OpenHouse){
+    showToast('לא הצלחנו לטעון את היריד - נסו לרענן את הדף');
+    return;
+  }
   const overlay  = document.getElementById('ohModal');
   const startEl  = document.getElementById('ohModalStart');
   const endEl    = document.getElementById('ohModalEnd');
@@ -12556,11 +12964,17 @@ function renderImagePreview(){
     const el = document.createElement('div');
     el.className = 'img-thumb';
     el.innerHTML = `<img src="${slot.url || slot.previewUrl}" alt="">
+      <button type="button" class="more" title="פעולות" aria-label="פעולות על התמונה">⋮</button>
       <button type="button" class="x" title="הסרה">✕</button>
-      ${i === 0 ? '<div class="main-tag">ראשית</div>' : '<button type="button" class="star" title="הפוך לראשית">★</button>'}`;
+      ${imageSelectOn ? `<label class="img-pick"><input type="checkbox" data-img-pick="${i}" ${imagePicked.has(i) ? 'checked' : ''}></label>` : ''}
+      ${i === 0 ? '<div class="main-tag">ראשית</div>' : ''}`;
     el.querySelector('.x').addEventListener('click', ()=> removeImage(i));
-    const star = el.querySelector('.star');
-    if (star) star.addEventListener('click', ()=> makeImageMain(i));
+    el.querySelector('.more').addEventListener('click', (ev)=> openImageMenu(ev.currentTarget, i));
+    const pick = el.querySelector('[data-img-pick]');
+    if (pick) pick.addEventListener('change', ()=> {
+      if (pick.checked) imagePicked.add(i); else imagePicked.delete(i);
+      renderImageSelectBar();
+    });
     wrap.appendChild(el);
   });
 }
@@ -12569,12 +12983,166 @@ function removeImage(i){
   const [slot] = imageSlots.splice(i, 1);
   if (!slot) return;
   if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
-  if (slot.url){
-    // ניקוי best-effort מה-Storage; גם אם נכשל, הנכס כבר לא מצביע על הקובץ
-    const path = storagePathFromPublicUrl(slot.url);
-    if (path) sb.storage.from(IMAGES_BUCKET).remove([path]).catch(()=>{});
-  }
+  // הכתובת יורדת מהנכס רק בשמירה. הקובץ נשאר. ניקוי יתומים הוא עבודה נפרדת.
+  imagePicked.delete(i);
   renderImagePreview();
+}
+
+let imageSelectOn = false;
+const imagePicked = new Set();
+let photoUndoTimer = null;
+
+function galleryDirty(){
+  if (imageSlots.some(s => !s.url)) return true;
+  const saved = (myPropertyRows.find(p => p.id === editingPropertyId)?.images) || [];
+  const now = imageSlots.map(s => s.url);
+  return saved.join('\n') !== now.join('\n');
+}
+
+function openImageMenu(btn, index){
+  document.querySelectorAll('.img-menu').forEach(el => el.remove());
+  const menu = document.createElement('div');
+  menu.className = 'img-menu';
+  const slot = imageSlots[index];
+  const saved = !!(slot && slot.url);
+  menu.innerHTML = `
+    <button type="button" data-act="main">הפיכה לראשית</button>
+    <button type="button" data-act="move" ${saved ? '' : 'disabled'}>העברה לנכס אחר</button>
+    <button type="button" data-act="copy" ${saved ? '' : 'disabled'}>העתקה לנכס אחר</button>
+    <button type="button" data-act="del" class="danger">מחיקה</button>`;
+  const box = btn.getBoundingClientRect();
+  menu.style.top = (box.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, box.left - 120) + 'px';
+  document.body.appendChild(menu);
+  menu.addEventListener('click', (ev) => {
+    const act = ev.target.dataset && ev.target.dataset.act;
+    menu.remove();
+    if (act === 'main') makeImageMain(index);
+    else if (act === 'del') removeImage(index);
+    else if (act === 'move' || act === 'copy') openPhotoMove([index], act);
+  });
+}
+
+function renderImageSelectBar(){
+  let bar = document.getElementById('npImageSelectBar');
+  if (!imageSelectOn) { if (bar) bar.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'npImageSelectBar';
+    bar.className = 'img-tools';
+    document.getElementById('npImagePreview').before(bar);
+  }
+  bar.innerHTML = `נבחרו ${imagePicked.size}
+    <button type="button" class="mkt-btn" id="npMovePicked">העברה לנכס אחר</button>
+    <button type="button" class="mkt-btn" id="npCopyPicked">העתקה</button>
+    <button type="button" class="mkt-btn" id="npPickCancel">ביטול</button>`;
+  bar.querySelector('#npMovePicked').onclick = () => openPhotoMove([...imagePicked], 'move');
+  bar.querySelector('#npCopyPicked').onclick = () => openPhotoMove([...imagePicked], 'copy');
+  bar.querySelector('#npPickCancel').onclick = () => { imageSelectOn = false; imagePicked.clear(); renderImagePreview(); };
+}
+
+document.getElementById('npImageSelect')?.addEventListener('click', () => {
+  imageSelectOn = !imageSelectOn;
+  if (!imageSelectOn) imagePicked.clear();
+  renderImagePreview();
+});
+
+function openPhotoMove(indexes, mode){
+  const savedIdx = indexes.filter(i => imageSlots[i] && imageSlots[i].url).sort((a, b) => a - b);
+  if (!savedIdx.length) { showToast('קודם שומרים את הנכס'); return; }
+  if (galleryDirty()) { showToast('יש שינויים שלא נשמרו בתמונות. לשמור קודם?'); return; }
+  const from = myPropertyRows.find(p => p.id === editingPropertyId);
+  if (!from) { showToast('קודם שומרים את הנכס'); return; }
+  const others = myPropertyRows.filter(p => p.id !== from.id && p.agency_id === from.agency_id)
+    .slice().sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+  const sheet = document.createElement('div');
+  sheet.className = 'photo-sheet';
+  const thumbs = savedIdx.slice(0, 4).map(i => `<img src="${esc(imageSlots[i].url)}" alt="" width="48" height="48">`).join('');
+  sheet.innerHTML = `<div class="photo-sheet-card" role="dialog">
+    <h3>${mode === 'copy' ? 'העתקת' : 'העברת'} ${savedIdx.length} תמונות</h3>
+    <div>${thumbs} מהנכס: ${esc(from.title || '')} (#${esc(from.listing_number || '')})</div>
+    <input type="search" id="photoMoveQ" placeholder="חיפוש לפי כתובת, עיר או מספר נכס" aria-label="חיפוש נכס יעד">
+    <div id="photoMoveList"></div>
+    <label><input type="radio" name="photoMoveMode" value="move" ${mode === 'move' ? 'checked' : ''}> העברה (התמונות יוסרו מהנכס הנוכחי)</label>
+    <label><input type="radio" name="photoMoveMode" value="copy" ${mode === 'copy' ? 'checked' : ''}> העתקה (התמונות יישארו גם כאן)</label>
+    <label>מיקום בנכס היעד
+      <select id="photoMovePlace"><option value="end">בסוף</option><option value="cover">כתמונה ראשית</option></select>
+    </label>
+    <button type="button" class="ui-btn" id="photoMoveNext">המשך</button>
+    <button type="button" class="mkt-btn" id="photoMoveClose">ביטול</button>
+  </div>`;
+  document.body.appendChild(sheet);
+  let chosen = null;
+  const draw = () => {
+    const q = sheet.querySelector('#photoMoveQ').value.trim();
+    const rows = others.filter(p => !q || propertySearchBlob(p).includes(q.toLowerCase()) || String(p.listing_number || '') === q);
+    sheet.querySelector('#photoMoveList').innerHTML = rows.slice(0, 8).map(p => {
+      const n = (p.images || []).length;
+      const full = n >= MAX_IMAGES;
+      return `<label><input type="radio" name="photoMoveTo" value="${esc(p.id)}" ${full ? 'disabled' : ''}>
+        ${esc(p.street || p.city || p.title || 'נכס')} · #${esc(p.listing_number || '')} · ${n}/8${full ? ' · מלא' : ''}</label>`;
+    }).join('') || '<p>לא נמצא נכס. אפשר לחפש לפי מספר נכס.</p>';
+  };
+  sheet.querySelector('#photoMoveQ').addEventListener('input', draw);
+  draw();
+  sheet.querySelector('#photoMoveClose').onclick = () => sheet.remove();
+  sheet.querySelector('#photoMoveNext').onclick = async () => {
+    const toId = sheet.querySelector('input[name="photoMoveTo"]:checked')?.value;
+    const how = sheet.querySelector('input[name="photoMoveMode"]:checked')?.value || mode;
+    const place = sheet.querySelector('#photoMovePlace').value;
+    if (!toId) { showToast('בחרו נכס יעד'); return; }
+    const target = others.find(p => p.id === toId);
+    const room = MAX_IMAGES - ((target.images || []).length);
+    const use = savedIdx.slice(0, room);
+    if (!use.length) { showToast('בנכס היעד אין מקום'); return; }
+    const coverNote = use.includes(0) ? '<li>התמונה הראשית תוחלף בתמונה הבאה בתור.</li>' : '';
+    const liveNote = from.status === 'active' ? '<li>הנכס מפורסם. התמונות יורדו גם מהמודעה באתר.</li>' : '';
+    const emptyNote = how === 'move' && use.length === imageSlots.length ? '<li>בנכס המקור לא יישארו תמונות.</li>' : '';
+    sheet.querySelector('.photo-sheet-card').innerHTML = `<h3>${how === 'copy' ? 'להעתיק' : 'להעביר'} ${use.length} תמונות?</h3>
+      <p>אל ${esc(target.street || target.title || '')} (#${esc(target.listing_number || '')})</p>
+      <ul>${coverNote}${liveNote}${emptyNote}<li>פוסטים שכבר פורסמו לא משתנים.</li></ul>
+      <button type="button" class="ui-btn" id="photoMoveGo">${how === 'copy' ? 'העתקה' : 'העברה'}</button>
+      <button type="button" class="mkt-btn" id="photoMoveBack">ביטול</button>`;
+    sheet.querySelector('#photoMoveBack').onclick = () => sheet.remove();
+    sheet.querySelector('#photoMoveGo').onclick = async () => {
+      const positions = use.map(i => i + 1);
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(SUPABASE_URL + '/functions/v1/property-image-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (session && session.access_token) },
+        body: JSON.stringify({ from_id: from.id, to_id: toId, positions, mode: how, place }),
+      });
+      const body = await res.json().catch(() => ({}));
+      sheet.remove();
+      if (!res.ok || !body.ok) { showToast(body.error || 'ההעברה נכשלה'); return; }
+      showPhotoUndo(body.text || 'התמונות הועברו', body.id, target.id);
+      await loadProperties();
+    };
+  };
+}
+
+function showPhotoUndo(text, id, toId){
+  document.getElementById('photoUndo')?.remove();
+  const bar = document.createElement('div');
+  bar.id = 'photoUndo';
+  bar.className = 'photo-undo';
+  bar.innerHTML = `<span>${esc(text)}</span><button type="button" id="photoUndoBtn">ביטול</button><button type="button" id="photoGoto">מעבר לנכס</button>`;
+  document.body.appendChild(bar);
+  clearTimeout(photoUndoTimer);
+  photoUndoTimer = setTimeout(() => bar.remove(), 10000);
+  bar.querySelector('#photoGoto').onclick = () => { location.href = '/crm?goto=accProperties&property=' + encodeURIComponent(toId); };
+  bar.querySelector('#photoUndoBtn').onclick = async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/property-image-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (session && session.access_token) },
+      body: JSON.stringify({ action: 'undo', id }),
+    });
+    const body = await res.json().catch(() => ({}));
+    bar.remove();
+    showToast(body.ok ? 'ההעברה בוטלה' : (body.error || 'לא ביטלתי, הנכס השתנה מאז'));
+    await loadProperties();
+  };
 }
 
 function makeImageMain(i){
@@ -13085,11 +13653,11 @@ function cleanupReplacedVideo(finalUrl){
    2. **שליפה שנכשלה אינה רשימה ריקה.** ‏streetRegistryReady נשאר שקרי, ואז
       אין אכיפה בכלל. תקלת רשת רגעית לא תמנע מסוכן/ת לפרסם נכס.
 
-   3. **מפתח, לא השוואת מחרוזות.** ‏streetNameKey כאן הוא העתק של
-      ‏public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה אין מודול
-      משותף בין ה-HTML הסטטי ל-SQL, כמו ביטוי הקרקע ששוכפל בחמישה קבצים
-      (ראו docs/land-planning.md). מי שמוסיף/ה ציר כתיב מעדכן/ת את שניהם,
-      והמסד הוא הקובע: הוא זה שמחזיק את האינדקס הייחודי.
+   3. **מפתח, לא השוואת מחרוזות.** ‏SearchCore.streetNameKey (‏search-core.js)
+      הוא העתק של public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה
+      אין מודול משותף בין ה-HTML הסטטי ל-SQL. מי שמוסיף/ה ציר כתיב מעדכן/ת
+      את שניהם (‏scripts/street_key_test.py משווה), והמסד הוא הקובע: הוא זה
+      שמחזיק את האינדקס הייחודי ואת properties.street_key.
 
    הפרטים: docs/street-registry.md
    ========================================================================== */
@@ -13104,7 +13672,11 @@ function cleanupReplacedVideo(finalUrl){
    כאן רק חוסכת קריאות GovMap למי שהשמירה שלו/ה ממילא תידחה.
    ========================================================================== */
 async function fetchGovmapPlanning(propertyId, q, statusEl){
-  if (!window.GovmapLookup || !propertyId) return;
+  if (!propertyId) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   if (!currentAgent || (currentAgent.tier !== 'mid' && currentAgent.tier !== 'premium')){
     statusEl.textContent = 'מידע תכנוני לא נקלט - זמין ב-PROFESSIONAL וב-Elite';
     return;
@@ -13174,7 +13746,7 @@ const GOVMAP_AUTO_EVERY_MS = 12 * 3600 * 1000;
 let govmapAutoRunning = false;
 
 function scheduleGovmapAutoComplete(agent){
-  if (!agent || (agent.tier !== 'mid' && agent.tier !== 'premium') || !window.GovmapLookup) return;
+  if (!agent || (agent.tier !== 'mid' && agent.tier !== 'premium')) return;
   const key = 'govmapAutoAt:' + agent.id;
   try{ if (Date.now() - Number(localStorage.getItem(key) || 0) < GOVMAP_AUTO_EVERY_MS) return; } catch(e){}
   setTimeout(() => runGovmapAutoComplete(key), 20000);
@@ -13182,6 +13754,10 @@ function scheduleGovmapAutoComplete(agent){
 
 async function runGovmapAutoComplete(key){
   if (govmapAutoRunning) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   govmapAutoRunning = true;
   try{
     const { data: rows, error } = await sb.rpc('govmap_my_candidates', { p_limit: GOVMAP_AUTO_LIMIT });
@@ -13233,20 +13809,26 @@ let streetsByCity = new Map();        // city -> [שמות, ממוינים]
 let streetKeyIndex = new Map();       // city -> Map(key -> השם הקנוני)
 let streetEnforcedCities = new Set(); // ערים שיש להן רחוב אחד לפחות ממקור רשמי (gis/gov)
 
-/* העתק של public.street_name_key. הסדר אינו שרירותי: ה"א פותחת יורדת לפני
-   כיווץ היו"ד ולפני ה"א סופית, אחרת "העליה" ו-"עלייה" אינם מתכנסים. */
+/* המפתח עצמו בליבת החיפוש (‏SearchCore.streetNameKey, העתק של
+   public.street_name_key) - עותק אחד לטופס, לייבוא ולחיפוש. ‏search-core.js
+   נטען בעצלות (‏ensureSearchCore), ו-ensureStreetsLoaded מחכה לו לפני שהיא
+   בונה את האינדקס; עד אז האינדקס ריק וכל הקוראים כאן מדלגים על המפתח. */
 function streetNameKey(name){
-  const base = String(name ?? '')
-    .replace(/['"`׳״‘’“”]/g, '')
-    .replace(/[־-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const key = base
-    .replace(/^(רחוב|רח|שדרות|שדרת|שד)\s+/, '')
-    .replace(/^ה/, '')
-    .replace(/י{2,}/g, 'י')
-    .replace(/ה$/, '');
-  return key || base;
+  return window.SearchCore.streetNameKey(name);
+}
+let searchCoreLoading = null;
+function ensureSearchCore(){
+  if (window.SearchCore) return Promise.resolve();
+  if (!searchCoreLoading){
+    searchCoreLoading = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = '/assets/search-core.js';
+      el.onload = resolve;
+      el.onerror = reject;
+      document.head.appendChild(el);
+    }).finally(() => { searchCoreLoading = null; });
+  }
+  return searchCoreLoading;
 }
 
 /* כל השורות, בעמודים של 1,000. ‏PostgREST מחזיר לכל היותר 1,000 שורות
@@ -13266,6 +13848,12 @@ async function fetchAllPages(build, pageSize = 1000){
 
 async function ensureStreetsLoaded(){
   if (streetRegistry) return streetRegistry;
+  try { await ensureSearchCore(); } catch (err) {
+    // בלי המפתח אין אינדקס - השדה נשאר חופשי, כמו בכשל בשליפת הרשימה
+    console.warn('ליבת החיפוש לא נטענה - שדה הרחוב נשאר חופשי:', err && err.message);
+    streetRegistryReady = false;
+    return [];
+  }
   const { data, error } = await fetchAllPages(() => sb.from('street_registry')
     .select('city, name, source')
     .eq('active', true)
@@ -14079,7 +14667,7 @@ function confirmBlockedProperty(verdict){
   const sameAgency = verdict.state === 'duplicate_same_agency';
 
   document.getElementById('blockTitle').textContent = exclusive
-    ? 'הנכס נמצא בבלעדיות של מתווך/ת אחר/ת'
+    ? 'הנכס נמצא בבלעדיות של יועץ נדל״ן אחר'
     : sameAgency ? 'הנכס כבר מפורסם במשרד שלכם' : 'הנכס כבר מפורסם במערכת';
   document.getElementById('blockHolder').textContent =
     `${verdict.agent_name} · ${verdict.agency_name}`;
@@ -14092,7 +14680,7 @@ function confirmBlockedProperty(verdict){
     : exclusive
       ? 'כל עוד הבלעדיות בתוקף אי אפשר לפרסם את הנכס. אם החתמתם בלעדיות חדשה מול בעל/ת הנכס - '
         + 'שמרו אותו כאן בלי לפרסם, החתימו את ההסכם במערכת, ואז אפשר יהיה לפרסם על פיו. '
-        + 'המתווך/ת הקודם/ת יקבל/תקבל התראה והמודעה שלו/ה תרד מפרסום.'
+        + 'יועץ הנדל״ן הקודם יקבל התראה, והמודעה הקודמת תרד מפרסום.'
       : 'הדרך היחידה לפרסם נכס שכבר קיים במערכת היא הסכם בלעדיות חתום מול בעל/ת הנכס. '
         + 'שמרו את הנכס כאן בלי לפרסם, החתימו בלעדיות במערכת, ואז אפשר יהיה לפרסם על פיה - '
         + 'המודעה הקיימת תרד מפרסום והסוכן/ת שלה יקבל/תקבל התראה.';
@@ -14246,7 +14834,13 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     } catch(err){
       console.warn('גיאוקוד אוטומטי נכשל, הנכס יישמר בלי מיקום על המפה:', err);
     }
-  } else if (!resolvedLat && !resolvedLng && street && houseNumber && city && window.GovmapLookup){
+  }
+  if (!resolvedLat && !resolvedLng && window.crmNeed && !window.GovmapLookup
+      && ((street && houseNumber && city && city !== 'עפולה') || (gush && helka))){
+    try { await crmNeed('govmap'); }
+    catch (err) { console.warn('GovMap לא נטען, הנכס יישמר בלי מיקום על המפה:', err); }
+  }
+  if (!resolvedLat && !resolvedLng && street && houseNumber && city && city !== 'עפולה' && window.GovmapLookup){
     /* כל עיר שאינה עפולה: GovMap, מהדפדפן (הטוקן נעול לדומיין). ‏
        addressLatLng מאמתת רחוב, מספר ויישוב בעצמה - בלי זה "חורש 8" קיבל
        פין ברחוב כורש (docs/govmap.md). ‏null = לא נמצא, ואז בלי פין, כמו
@@ -14325,6 +14919,22 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     return;
   }
   const openHouseOn = document.getElementById('npOpenHouse').checked;
+  const livingRaw = document.getElementById('npLivingSqm').value;
+  const livingProblem = (currentCategory === 'commercial' || isLandTypeSelected())
+    ? ''
+    : livingRoomSaveError(
+      livingRaw,
+      document.getElementById('npSizeSqm').value,
+      document.getElementById('npBuiltSizeSqm').value,
+    );
+  if (livingProblem){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = livingProblem;
+    pfRevealField('npLivingSqm');
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
 
   const payload = {
     title: document.getElementById('npTitle').value,
@@ -14351,6 +14961,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     size_sqm: document.getElementById('npSizeSqm').value ? parseFloat(document.getElementById('npSizeSqm').value) : null,
     built_size_sqm: document.getElementById('npBuiltSizeSqm').value ? parseFloat(document.getElementById('npBuiltSizeSqm').value) : null,
     garden_sqm: document.getElementById('npGardenSqm').value ? parseFloat(document.getElementById('npGardenSqm').value) : null,
+    living_room_sqm: (currentCategory === 'commercial' || isLandTypeSelected() || !livingRaw)
+      ? null : parseFloat(livingRaw),
+    air_directions: (currentCategory === 'commercial' || isLandTypeSelected())
+      ? null : (checkedAir('npAir').length ? checkedAir('npAir') : null),
     description: document.getElementById('npDescription').value.trim() || null,
     marketing_description: document.getElementById('npMarketingDescription').value.trim() || null,
     post_text: document.getElementById('npPostText').value.trim() || null,
@@ -14433,6 +15047,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
+    if (airLivingColumnMissing(error)) {
+      stripAirLiving(payload);
+      ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
+    }
   } else {
     btn.textContent = 'בודק כפילות…';
     const duplicate = await findPropertyDuplicate(payload);
@@ -14483,7 +15101,13 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
          "אותה דירה" לבין "הדירה השכנה, אותה קומה ואותו מספר חדרים", והייתה
          חוסמת מודעה תקינה. */
       payload.status = 'unpublished';
-      const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
+      let inserted;
+      let insertErr;
+      ({ data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single());
+      if (airLivingColumnMissing(insertErr)) {
+        stripAirLiving(payload);
+        ({ data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single());
+      }
       error = insertErr;
       newPropertyId = inserted?.id;
     }
@@ -14600,6 +15224,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       Object.assign({}, propertyPlanningInfo[newPropertyId] || {}, { gush, helka });
   }
 
+  if (shouldFetchPlanning && window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); }
+    catch (err) { console.warn('GovMap לא נטען, המידע התכנוני יישמר בסבב ההשלמה:', err); }
+  }
   if (shouldFetchPlanning && city !== STREET_PLANNING_CITY){
     await fetchGovmapPlanning(newPropertyId, { street, houseNumber, city, gush, helka }, planningStatus);
   } else if (shouldFetchPlanning){
@@ -14830,7 +15458,7 @@ function ensureCrmQuery(){
     el.onerror = reject;
     document.head.appendChild(el);
   });
-  crmQueryLoading = (window.SearchCore ? Promise.resolve() : load('/assets/search-core.js'))
+  crmQueryLoading = ensureSearchCore()
     .then(() => (window.SentenceSearch ? null : load('/assets/sentence-search.js')))
     // הכינויים ("סי 1", "גבעה") - אותה טבלה של האתר והבוטים; בלעדיהם, רק השמות
     .then(() => sb.from('neighborhood_aliases').select('neighborhood_id, alias').then(r => r, () => ({ data: [] })))
@@ -14983,6 +15611,9 @@ function propertyFilterState(){
     psm:   propRange(val('propPsmMin'),   val('propPsmMax')),
     extra: val('propExtraFilter'),
     smart: val('propSmartFilter'),   // "דורש תשומת לב" (PR_SMART, crm-properties.js)
+    air: (val('propAirDirs') || '').split(',').filter(Boolean),
+    airMin: Number(val('propAirMin')) || 0,
+    livingMin: val('propLivingMin') === '' ? null : Number(val('propLivingMin')),
     sort: val('propSort') || 'created_desc',
   };
 }
@@ -15014,7 +15645,8 @@ function inPropRange(value, range){
 // האם משהו מסונן - לשורת הספירה, לכפתור האיפוס, ולתיבת "רק מה שמסונן" בייצוא
 function propertyFilterActive(f){
   return !!(f.q || f.status || f.deal || f.type || f.city || f.rooms
-    || f.price || f.size || f.psm || f.extra || f.smart);
+    || f.price || f.size || f.psm || f.extra || f.smart
+    || (f.air && f.air.length) || f.airMin || (f.livingMin != null && f.livingMin !== ''));
 }
 
 function filterProperties(rows, f){
@@ -15044,6 +15676,16 @@ function filterProperties(rows, f){
     if (f.extra === 'stale'      && !propertyIsStale(p)) return false;
     if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
     if (f.extra === 'unpublished' && !propertyIsUnpublishedWaiting(p)) return false;
+    if (f.extra === 'no_air_living') {
+      const hasAir = Array.isArray(p.air_directions) && p.air_directions.length;
+      if (hasAir || p.living_room_sqm != null) return false;
+    }
+    if (f.air && f.air.length) {
+      const have = p.air_directions || [];
+      if (!f.air.every(d => have.includes(d))) return false;
+    }
+    if (f.airMin && !(Array.isArray(p.air_directions) && p.air_directions.length >= f.airMin)) return false;
+    if (f.livingMin != null && f.livingMin !== '' && !(Number(p.living_room_sqm) >= Number(f.livingMin))) return false;
     if (f.smart && !prSmartTest(p, f.smart)) return false;
     if (!f.q) return true;
     return query ? query.rows.has(p) : propertySearchBlob(p).includes(f.q);
@@ -15076,7 +15718,19 @@ function updateFilterFoot(countId, clearId, shown, total, active){
   if (clearEl) clearEl.hidden = !active;
 }
 
+let propertyLibsRedrawArmed = false;
+function armPropertyLibsRedraw(){
+  if (window.OpenHouse || propertyLibsRedrawArmed || !window.crmNeed) return;
+  if (!accIsOpen('accProperties')) return;
+  propertyLibsRedrawArmed = true;
+  crmNeed('property').then(() => {
+    propertyLibsRedrawArmed = false;
+    if (window.OpenHouse && document.getElementById('propertiesList')) renderProperties();
+  }).catch(() => { propertyLibsRedrawArmed = false; });
+}
+
 function renderProperties(){
+  armPropertyLibsRedraw();
   const listEl = document.getElementById('propertiesList');
   const toolbar = document.getElementById('propToolbar');
   if (!listEl) return;
@@ -15109,7 +15763,8 @@ function renderProperties(){
   // והמיון אינו סינון; כל טווח (מחיר, שטח, מחיר למ״ר) נספר פעם אחת -
   // propRange מחזירה null כששני השדות שלו ריקים.
   const activeFilters = [f.status, f.deal, f.type, f.city, f.rooms,
-    f.price, f.size, f.psm, f.extra, f.smart].filter(Boolean).length;
+    f.price, f.size, f.psm, f.extra, f.smart,
+    (f.air && f.air.length) || f.airMin, f.livingMin].filter(Boolean).length;
   const badge = document.getElementById('propFilterBadge');
   if (badge){ badge.hidden = !activeFilters; badge.textContent = activeFilters || ''; }
 
@@ -15122,8 +15777,65 @@ function renderProperties(){
 
 function clearPropertyFilters(){
   PROP_FILTER_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  paintAirFilterButton();
+  const living = document.getElementById('propLivingMin');
+  if (living) living.value = '';
   renderPropertiesFromTop();
 }
+
+function paintAirFilterButton(){
+  const btn = document.getElementById('propAirOpen');
+  if (!btn || !window.ShukAirLiving) return;
+  const dirs = ShukAirLiving.parse((document.getElementById('propAirDirs')?.value || '').split(','));
+  const min = document.getElementById('propAirMin')?.value;
+  if (dirs.length) btn.textContent = dirs.join(' + ');
+  else if (min) btn.textContent = min + '+ כיווני אוויר';
+  else btn.textContent = 'כיווני אוויר';
+}
+
+function openAirFilterSheet(){
+  const sheet = document.getElementById('propAirSheet');
+  if (!sheet) return;
+  const selected = (document.getElementById('propAirDirs')?.value || '').split(',').filter(Boolean);
+  const min = document.getElementById('propAirMin')?.value || '';
+  document.querySelectorAll('#propAirChips input').forEach(el => { el.checked = selected.includes(el.value); });
+  document.querySelectorAll('#propAirMinSeg button').forEach(btn => {
+    btn.setAttribute('aria-pressed', String((btn.dataset.min || '') === min));
+  });
+  sheet.hidden = false;
+  document.getElementById('propAirOpen')?.setAttribute('aria-expanded', 'true');
+}
+
+document.getElementById('propAirOpen')?.addEventListener('click', openAirFilterSheet);
+document.getElementById('propAirSheet')?.addEventListener('click', (ev) => {
+  if (ev.target.id === 'propAirSheet') {
+    ev.currentTarget.hidden = true;
+    document.getElementById('propAirOpen')?.setAttribute('aria-expanded', 'false');
+  }
+});
+document.getElementById('propAirMinSeg')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#propAirMinSeg button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  btn.setAttribute('aria-pressed', 'true');
+});
+document.getElementById('propAirClear')?.addEventListener('click', () => {
+  document.getElementById('propAirDirs').value = '';
+  document.getElementById('propAirMin').value = '';
+  paintAirFilterButton();
+  document.getElementById('propAirSheet').hidden = true;
+  renderPropertiesFromTop();
+});
+document.getElementById('propAirApply')?.addEventListener('click', () => {
+  const dirs = Array.from(document.querySelectorAll('#propAirChips input:checked')).map(el => el.value);
+  const minBtn = document.querySelector('#propAirMinSeg button[aria-pressed="true"]');
+  document.getElementById('propAirDirs').value = dirs.join(',');
+  document.getElementById('propAirMin').value = minBtn ? (minBtn.dataset.min || '') : '';
+  paintAirFilterButton();
+  document.getElementById('propAirSheet').hidden = true;
+  document.getElementById('propAirOpen')?.setAttribute('aria-expanded', 'false');
+  renderPropertiesFromTop();
+});
 
 // כל שינוי בסינון/מיון מחזיר את הרשימה לראשה: מקום הגלילה של רשימה קודמת
 // אינו אומר דבר על הרשימה החדשה
@@ -15132,7 +15844,7 @@ function renderPropertiesFromTop(){
   renderProperties();
 }
 
-['propSearch','propPriceMin','propPriceMax','propSizeMin','propSizeMax','propPsmMin','propPsmMax']
+['propSearch','propPriceMin','propPriceMax','propSizeMin','propSizeMax','propPsmMin','propPsmMax','propLivingMin']
   .forEach(id => document.getElementById(id).addEventListener('input', renderPropertiesFromTop));
 ['propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propRoomsFilter','propExtraFilter','propSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
@@ -15174,6 +15886,16 @@ function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test
    הרמה מ-shared_with_partners. */
 const PROPERTY_SHARE_LEVEL_COLUMN = ', share_level';
 function shareLevelSchemaMissing(error){ return !!error && /share_level/.test(error.message || ''); }
+function airLivingColumnMissing(error){
+  return !!error && /air_directions|living_room_sqm|required_directions|min_air_directions|min_living_room_sqm/.test(error.message || '');
+}
+function stripAirLiving(payload){
+  delete payload.air_directions;
+  delete payload.living_room_sqm;
+  delete payload.required_directions;
+  delete payload.min_air_directions;
+  delete payload.min_living_room_sqm;
+}
 /* מיקום משוער (‏20270430090000) - אותה נפילה: בלי העמודות הכרטיס פשוט בלי
    התגית "מיקום משוער", והטופס מתייחס לפין כמדויק. docs/property-map.md */
 const PROPERTY_LOCATION_COLUMNS = ', location_precision, location_radius_m';
@@ -15203,15 +15925,26 @@ async function loadPropertyViewCounts(propertyIds){
 }
 
 async function loadProperties(agentId){
+  // היריד והמיקום המשוער רק כשהרשימה פתוחה. כשל בסקריפט לא מפיל את
+  // הדשבורד: הרשימה עולה בלי תגיות היריד.
+  const libsP = (window.crmNeed && accIsOpen('accProperties'))
+    ? crmNeed('property').catch(() => {})
+    : Promise.resolve();
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
+  const propSelect = PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS;
   let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS)
+    .select(propSelect + ', air_directions, living_room_sqm')
     .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  if (airLivingColumnMissing(error)) {
+    ({ data: props, error } = await sb.from('properties').select(propSelect)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
+      .order('created_at', { ascending:false }));
+  }
   let droppedDest = false;
   if (destSchemaMissing(error)){
     droppedDest = true;
@@ -15261,6 +15994,7 @@ async function loadProperties(agentId){
   dashProperties = props || [];
   myPropertyRows = props || [];
   myPropertyAgentId = agentId;
+  await libsP;
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
@@ -15455,7 +16189,7 @@ function buildPropertyTab(p, agentId){
     `<span>#${esc(String(p.listing_number ?? '-'))}</span>`,
     prStatusPill(p),
     propertyIsPromoted(p) ? '<span>🌟 מקודם</span>' : '',
-    OpenHouse.live(p) ? '<span>🏷 ביריד</span>' : '',
+    (window.OpenHouse && OpenHouse.live(p)) ? '<span>🏷 ביריד</span>' : '',
     p.referred_by ? '<span>🤝 הפנייה</span>' : '',
   ].filter(Boolean).join('');
 
@@ -15607,6 +16341,7 @@ function buildPropertyCard(p, agentId){
     p.shared_with_partners && { text:`🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}`,
       cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
     p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
+    window.ShukAirLiving && ShukAirLiving.crmSpec(p) && { text: ShukAirLiving.crmSpec(p) },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
     // מחיר שכבר למ״ר: price_per_sqm (‏price / size_sqm) חסר משמעות, ובמקומו הסכום לכל הנכס
     p.price_unit === 'sqm'
@@ -15820,8 +16555,8 @@ function buildPropertyCard(p, agentId){
        התווית אומרת שלושה דברים שונים לפי מצב הנכס - מחוץ ליריד, בתוכו,
        או מחכה לתאריך - כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין
        כאן מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
-    const ohLive = OpenHouse.live(p);
-    const ohSoon = OpenHouse.upcoming(p);
+    const ohLive = window.OpenHouse && OpenHouse.live(p);
+    const ohSoon = window.OpenHouse && OpenHouse.upcoming(p);
     addQuickAction(actions, {
       label: ohLive ? `ביריד · ${OpenHouse.endLabel(p)}`
            : ohSoon ? `ביריד מ-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
@@ -16582,10 +17317,10 @@ function askClosingDetails(property){
 }
 
 const PUBLISH_DEST_OPTIONS = [
-  ['site,social,brokers', 'אתר + רשתות + מתווכים'],
+  ['site,social,brokers', 'אתר + רשתות + יועצי נדל״ן'],
   ['site,social', 'אתר + רשתות'],
   ['site', 'רק אתר'],
-  ['site,brokers', 'אתר + מתווכים'],
+  ['site,brokers', 'אתר + יועצי נדל״ן'],
   ['save', 'רק לשמור במאגר'],
 ];
 
@@ -16595,7 +17330,7 @@ function publishDestinationHtml(p, agentId){
   const current = Array.isArray(p.publish_channels) ? p.publish_channels.join(',') : '';
   const opts = [['', 'לא נבחר']].concat(PUBLISH_DEST_OPTIONS).map(([value, label]) =>
     `<option value="${esc(value)}"${value === current ? ' selected' : ''}${value === '' ? ' disabled' : ''}>${esc(label)}</option>`).join('');
-  return `<label class="pc-dest">יעד פרסום <select class="pc-dest-select" title="אתר, רשתות, מתווכים, או רק מאגר. רשתות נכנסות לתור עם תקרה יומית. שת״פ עד תקרה של משרדים לנכס, בלי טלפון.">${opts}</select></label>`;
+  return `<label class="pc-dest">יעד פרסום <select class="pc-dest-select" title="אתר, רשתות, יועצי נדל״ן, או רק מאגר. רשתות נכנסות לתור עם תקרה יומית. שת״פ עד תקרה של משרדים לנכס, בלי טלפון.">${opts}</select></label>`;
 }
 
 async function setPublishDestination(property, value, agentId, selectEl){
@@ -16771,7 +17506,7 @@ async function deletePropertyForever(property, btn, agentId){
    רק האישור וההודעה. */
 async function claimPropertyExclusivity(property, btn, agentId){
   if (!confirm('לפרסם את הנכס על סמך הסכם הבלעדיות החתום?\n\n'
-    + 'מודעות קיימות לאותו נכס אצל מתווכים אחרים ירדו מפרסום, והם יקבלו התראה '
+    + 'מודעות קיימות לאותו נכס אצל יועצי נדל״ן אחרים ירדו מפרסום, והם יקבלו התראה '
     + 'עם שמך, שם המשרד ומועד סיום הבלעדיות.')) return;
 
   const original = actionLabel(btn);
@@ -18412,6 +19147,13 @@ function openEditProperty(p){
   document.getElementById('npSizeSqm').value = p.size_sqm ?? '';
   document.getElementById('npBuiltSizeSqm').value = p.built_size_sqm ?? '';
   document.getElementById('npGardenSqm').value = p.garden_sqm ?? '';
+  document.getElementById('npLivingSqm').value = p.living_room_sqm ?? '';
+  document.querySelectorAll('#npAir input').forEach(el => {
+    el.checked = Array.isArray(p.air_directions) && p.air_directions.includes(el.value);
+  });
+  syncNpAirCount();
+  syncLivingWarn();
+  syncPropertyAirLivingVisibility();
   document.getElementById('npDescription').value = p.description || '';
   document.getElementById('npMarketingDescription').value = p.marketing_description || '';
   document.getElementById('npPostText').value = p.post_text || '';
@@ -19819,6 +20561,28 @@ async function saveLeadWork(lead, patch){
    ‏20270502090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
 let leadVisitorOf = new Map();
 
+/* יומן פניות היריד (‏fair_inquiries): lead_id → { status, fair_end }. רק
+   ללידים שנטענו ויש להם נכס, במנות של 150 מזהים (‏in() על מאות מזהים מנפח
+   את הכתובת, ושאילתה בלי רשימה הייתה נחתכת ב-1,000 שורות של PostgREST).
+   ה-RLS מחזיר רק מה שהליד שלו אצל הסוכן/ת (ומנהל/ת - של המשרד), ובלי השם
+   והטלפון. מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם. */
+let leadFairByLead = new Map();
+async function loadLeadFair(leads){
+  const ids = (leads || []).filter(l => l.property_id).map(l => l.id);
+  const map = new Map();
+  for (let i = 0; i < ids.length; i += 150){
+    const { data, error } = await sb.from('fair_inquiries')
+      .select('lead_id, status, fair_end')
+      .in('lead_id', ids.slice(i, i + 150));
+    if (error){
+      if (!['42P01', 'PGRST205', '42501'].includes(error.code)) console.warn('יומן פניות היריד:', error.message);
+      return;
+    }
+    (data || []).forEach(r => map.set(r.lead_id, r));
+  }
+  leadFairByLead = map;
+}
+
 async function loadLeadVisitors(){
   const { data, error } = await sb.rpc('lead_visitor_groups');
   if (error){
@@ -19832,9 +20596,15 @@ function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
-  listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
-    ? leadsSkeletonHtml()
-    : '<div class="empty-state">טוען…</div>';
+  /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
+     ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
+  const demandShown = leadsTab === 'demand' && openDemandRows !== null
+    && !!listEl.querySelector('.lp-demand-hint');
+  if (!demandShown){
+    listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
+      ? leadsSkeletonHtml()
+      : '<div class="empty-state">טוען…</div>';
+  }
 
   // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
@@ -19864,7 +20634,7 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await loadLeadCalls(allLeads);
+  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
   renderLeads(agentId);
 }
 
@@ -20050,6 +20820,27 @@ function buildLeadTab(lead, agentId){
    את הצורך גלוי — זה מה שמשכנע לפתוח. ליד פתוח: חיוג ווואטסאפ בראש,
    השלב וההערה באמצע, ופעולות הניהול (חוות דעת, הפנייה, ארכיון) קטנות
    ושקטות בתחתית. */
+/* כלל היריד (חלק 7 §A.4b): פנייה שהגיעה בזמן שהדירה הייתה ביריד - ללא עמלת תיווך לקונה,
+   גם אחרי שהיריד נגמר. הזכאות נרשמת במסד ברגע ההכנסה, בשעת השרת, ביומן
+   fair_inquiries (‏docs/open-house-fair.md). ‏status=pending_owner_decision - פנייה
+   מהרשתות או מטופס של מטא: נרשמה, אבל ההנחה ממתינה להחלטה, ולכן תג ניטרלי.
+   ‏leads.open_house_eligible (ההצעה הישנה, לא הוחלה) נשאר נתיב חלופי. */
+function leadFairChip(lead){
+  if (!lead) return '';
+  const row = leadFairByLead.get(lead.id);
+  if (row && row.status === 'pending_owner_decision'){
+    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהנכס היה ביריד. ההנחה בעמלה ממתינה להחלטה.') + '">ממתין להחלטה</span>';
+  }
+  if (!row && lead.open_house_eligible !== true) return '';
+  const endRaw = row ? row.fair_end : lead.open_house_end_snapshot;
+  const end = endRaw ? new Date(endRaw) : null;
+  const d = end && !isNaN(end) ? end.toLocaleDateString('he-IL', { day:'numeric', month:'numeric', timeZone:'Asia/Jerusalem' }) : '';
+  const tip = !d ? 'הפנייה הגיעה בזמן שהדירה הייתה ביריד הבתים הפתוחים'
+    : end < new Date() ? 'היריד לדירה הסתיים ב-' + d + '; הפנייה הגיעה לפני כן'
+    : 'הפנייה הגיעה בזמן שהדירה ביריד, עד ' + d;
+  return '<span class="lc-fair" title="' + esc(tip) + '">פנייה בתקופת היריד · ללא עמלת תיווך</span>';
+}
+
 function buildLeadCard(lead, agentId, isArchived){
   const kind = leadKind(lead);
   const unlocked = lead.status === 'unlocked';
@@ -20066,6 +20857,7 @@ function buildLeadCard(lead, agentId, isArchived){
         <div class="lc-badges">
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
+          ${leadFairChip(lead)}
         </div>
         <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
         <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>
@@ -22502,6 +23294,10 @@ function clientParamTags(c){
   const size = (c.min_size_sqm && c.max_size_sqm) ? c.min_size_sqm + '-' + c.max_size_sqm + ' מ״ר'
     : c.min_size_sqm ? 'מ-' + c.min_size_sqm + ' מ״ר'
     : c.max_size_sqm ? 'עד ' + c.max_size_sqm + ' מ״ר' : '';
+  const living = c.min_living_room_sqm ? 'סלון ' + c.min_living_room_sqm + '+ מ״ר' : '';
+  const airDirs = (window.ShukAirLiving ? ShukAirLiving.parse(c.required_directions) : (c.required_directions || []));
+  const airTag = airDirs.length ? airDirs.join(' + ') : '';
+  const airMinTag = c.min_air_directions ? (c.min_air_directions + '+ כיווני אוויר') : '';
   const budget = ((c.min_price && c.max_price) ? shekel(c.min_price) + '-' + shekel(c.max_price)
     : c.max_price ? 'עד ' + shekel(c.max_price)
     : c.min_price ? 'מ-' + shekel(c.min_price) : '')
@@ -22514,6 +23310,9 @@ function clientParamTags(c){
     !owner && clientNeighborhoodLabel(c) && { text:'שכונה: ' + clientNeighborhoodLabel(c) },
     !owner && (c.property_types || []).length && { text: c.property_types.join(' / ') },
     !owner && size && { text:'📐 ' + size },
+    !owner && living && { text:'🛋 ' + living },
+    !owner && airTag && { text:'🧭 ' + airTag },
+    !owner && airMinTag && { text:'🧭 ' + airMinTag },
     !owner && (c.min_rooms || c.max_rooms) && { text:'🛏 ' + (c.min_rooms || '') + '-' + (c.max_rooms || '') + ' חדרים' },
     !owner && budget && { text:'💰 ' + budget, cls:'tag-info' },
     !owner && c.max_floor != null && { text:'🏢 עד קומה ' + c.max_floor },
@@ -23009,6 +23808,7 @@ function setClientFormCategory(category, selectedTypes = [], selectedFeatures = 
     b.setAttribute('aria-pressed', String(on));
   });
   renderClientFormLists(selectedTypes, selectedFeatures);
+  syncClientAirLivingVisibility();
 }
 
 /* מחפש/ת מול בעל/ת נכס (client_kind). בעל/ת נכס אינו/ה נכנס/ת להתאמות -
@@ -23035,6 +23835,7 @@ function setClientFormKind(kind){
   document.getElementById('saveClientBtn').textContent = owner
     ? (editingClientId ? 'עדכן לקוח' : 'שמור לקוח')
     : (editingClientId ? 'עדכן לקוח והצלב נכסים' : 'שמור לקוח והצלב נכסים');
+  syncClientAirLivingVisibility();
 }
 
 function setClientFormDeal(deal){
@@ -23120,6 +23921,8 @@ function resetClientForm(){
   setClientFormDeal('sale');
   setClientFormCategory('residential');
   setClientFormKind('seeker');
+  setClientAirMin('');
+  syncLargeLivingChip();
 }
 
 function openClientForm(){
@@ -23147,6 +23950,13 @@ function openEditClient(c){
   document.getElementById('clMaxPrice').value = c.max_price == null ? '' : crmMoneyText(c.max_price);
   document.getElementById('clMinRooms').value = c.min_rooms ?? '';
   document.getElementById('clMinSize').value  = c.min_size_sqm ?? '';
+  document.getElementById('clMinLiving').value = c.min_living_room_sqm ?? '';
+  syncLargeLivingChip();
+  document.querySelectorAll('#clAir input:not([data-any])').forEach(el => {
+    el.checked = Array.isArray(c.required_directions) && c.required_directions.includes(el.value);
+    el.disabled = false;
+  });
+  setClientAirMin(c.min_air_directions || '');
   document.getElementById('clMaxSize').value  = c.max_size_sqm ?? '';
   document.getElementById('clMaxFloor').value = c.max_floor ?? '';
   document.getElementById('clNotes').value    = c.notes || '';
@@ -23308,6 +24118,16 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     required_features: getCheckedValues('clFeatures'),
     neighborhood_id: document.getElementById('clNeighborhood').value || null,
   });
+  if (seeker && clientFormCategory === 'commercial') Object.assign(payload, {
+    min_living_room_sqm: null,
+    required_directions: null,
+    min_air_directions: null,
+  });
+  else if (seeker) Object.assign(payload, {
+    min_living_room_sqm: numOrNull('clMinLiving'),
+    required_directions: checkedAir('clAir').length ? checkedAir('clAir') : null,
+    min_air_directions: clientAirMinValue(),
+  });
   // מקסימום החדרים ירד מהטופס (המפרט הפיזי הוא שלושה שדות), ולכן הוא לא
   // נשלח ונשמר כמו שהוא אצל מי שכבר יש לו. רק כשהמינימום החדש עוקף אותו
   // הוא מתאפס - אחרת ה-check של הטבלה היה דוחה את השמירה בלי שאפשר לתקן.
@@ -23331,6 +24151,16 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     let row;
     ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
     savedId = row?.id;
+  }
+  if (airLivingColumnMissing(error)) {
+    stripAirLiving(payload);
+    if (editingClientId){
+      ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
+    } else {
+      let row;
+      ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
+      savedId = row?.id;
+    }
   }
   let neighborhoodDeferred = false;
   // הדקה שבין פרסום ה-HTML לריצת 20270426090000 - שומרים בלי רמת השיתוף
@@ -25038,7 +25868,7 @@ function cmaShareShow(url, report){
   const what = [s.title, [s.address, s.city].filter(Boolean).join(', ')].filter(Boolean)[0] || 'הנכס';
   const text = 'דוח השוואת שוק (CMA) ל' + what + ':\n' + url;
   const panel = document.getElementById('cmaSharePanel');
-  // ‏data-share: שיתוף ולא פנייה למתווך/ת (CLAUDE.md, "מדידת אירועים")
+  // ‏data-share: שיתוף ולא פנייה ליועץ הנדל״ן (CLAUDE.md, "מדידת אירועים")
   panel.innerHTML = `
     <p>הקישור לדוח, בתוקף 30 יום. הלקוח/ה רואה את אותו דוח ממותג, ויכול/ה להדפיס אותו.</p>
     <input type="text" readonly value="${esc(url)}" aria-label="הקישור לדוח">
@@ -25237,7 +26067,7 @@ const NOTIF_TYPES = [
   { type:'platform_signup', tone:'deal', goto:'accSubscriptions', focus:'#subsLog',
     view:'admin',
     title:'הצטרפות חדשה לפלטפורמה',
-    sub:'משרד תיווך שנפתח, מתווך/ת שנכנס/ת לראשונה, בעל/ת מקצוע שנרשם/ה או חברה יזמית - עם השם והמסלול.',
+    sub:'משרד תיווך שנפתח, יועץ נדל״ן שנכנס לראשונה, בעל/ת מקצוע שנרשם/ה או חברה יזמית - עם השם והמסלול.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
   /* הודעה שמנהל/ת הפלטפורמה שלח/ה לכל הסוכנים (admin_broadcast). אין פריט -
@@ -25735,7 +26565,7 @@ const AGENDA_CLIENT_BADGES = {
 };
 const AGENDA_FEEDBACK_BADGES = {
   liked: '👍 אהב/ה את הסיור',
-  unsure: '🤔 מתלבט/ת אחרי הסיור',
+  unsure: '🤔 מתלבטים אחרי הסיור',
   not_for_me: '👎 לא בשבילו/ה',
 };
 
@@ -26373,10 +27203,12 @@ const REMINDER_KINDS = [
 
 const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));
 
-/* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents): סוכן/ת בלי
-   שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום ושקט 21→8 ובשישי-שבת. אילו הצד
-   הזה היה מציג ברירת מחדל אחרת, הטופס היה "משנה" הגדרה עוד לפני שנגעו בו.
-   וואטסאפ מאז 20270303090000 - מייל הוא ערוץ שמוסיפים. */
+/* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents) במסלול
+   בתשלום: סוכן/ת בלי שורת העדפות מקבל/ת וואטסאפ, שבועי, שש הודעות ב-30 יום
+   ושקט 21→8 ובשישי-שבת. אילו הצד הזה היה מציג ברירת מחדל אחרת, הטופס היה
+   "משנה" הגדרה עוד לפני שנגעו בו. וואטסאפ מאז 20270303090000 - מייל הוא
+   ערוץ שמוסיפים. במסלול חינם (וגם כשאין tier) הוואטסאפ לא יוצא, ולכן
+   הטופס מציג מייל. ההמרה ב-reminderChannelsForScreen. */
 const REMINDER_PREF_DEFAULTS = {
   channels: ['whatsapp'],
   muted_kinds: [],
@@ -26393,6 +27225,44 @@ const REMINDER_WEEKDAY_SHORT = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'
 
 let reminderFindings = [];
 let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
+
+/* וואטסאפ לתזכורות רק כש-tier הוא mid או premium, כמו
+   agent_reminder_due_agents. billing_status לא נבדק שם, ולכן גם לא כאן.
+   tier ריק נחשב כמו חינם: הטופס לא מציג את הערוץ. */
+function reminderWaAllowed(){
+  const tier = currentAgent && currentAgent.tier;
+  return tier === 'mid' || tier === 'premium';
+}
+
+/* לתצוגה בלבד. מה שנשמר ב-reminderPrefs.channels נשאר הבחירה של הסוכן/ת,
+   כדי ששדרוג יחזיר וואטסאפ בלי לכתוב מייל במקומו. מערך ריק הוא כיבוי
+   מפורש ונשאר ריק. */
+function reminderChannelsForScreen(channels){
+  const list = Array.isArray(channels) ? channels.slice() : REMINDER_PREF_DEFAULTS.channels.slice();
+  if (reminderWaAllowed()) return list;
+  const rest = list.filter(c => c !== 'whatsapp');
+  if (list.includes('whatsapp') && !rest.includes('email')) rest.push('email');
+  return rest;
+}
+
+function reminderChannelsEqual(a, b){
+  const x = (a || []).slice().sort();
+  const y = (b || []).slice().sort();
+  return x.length === y.length && x.every((c, i) => c === y[i]);
+}
+
+/* מה שנכתב ל-agent_reminder_preferences. אם הצ'יפים הם רק ההחלפה
+   של מסלול חינם, נשמרת הבחירה הקודמת. שינוי אמיתי (כיבוי המייל) נשמר
+   כמו שהוא, בלי וואטסאפ. */
+function reminderChannelsToStore(displayed){
+  const shown = Array.isArray(displayed) ? displayed.slice() : [];
+  if (reminderWaAllowed()) return shown;
+  const stored = Array.isArray(reminderPrefs.channels)
+    ? reminderPrefs.channels.slice()
+    : REMINDER_PREF_DEFAULTS.channels.slice();
+  if (reminderChannelsEqual(shown, reminderChannelsForScreen(stored))) return stored;
+  return shown.filter(c => c !== 'whatsapp');
+}
 
 async function loadReminders(agentId){
   /* שתי הקריאות במקביל — הן אינן תלויות זו בזו, והקטגוריה הזו יושבת בהגדרות
@@ -26414,7 +27284,9 @@ async function loadReminders(agentId){
 
   const row = (!prefs.error && prefs.data) ? prefs.data : null;
   reminderPrefs = {
-    channels:        Array.isArray(row?.channels)    ? row.channels    : REMINDER_PREF_DEFAULTS.channels.slice(),
+    channels:        Array.isArray(row?.channels)
+                       ? row.channels.slice()
+                       : REMINDER_PREF_DEFAULTS.channels.slice(),
     muted_kinds:     Array.isArray(row?.muted_kinds) ? row.muted_kinds : [],
     cadence:         row?.cadence ?? REMINDER_PREF_DEFAULTS.cadence,
     max_per_30_days: Number.isFinite(Number(row?.max_per_30_days))
@@ -26610,7 +27482,22 @@ function scrollToTopOf(el){
 /* ---------- ניווט מהדשבורד אל הקטגוריה המלאה ----------
    ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
    הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
+function prefetchSectionLibs(accId){
+  if (!window.crmNeed || !accId) return;
+  const done = p => p.catch(() => {});
+  if (accId === 'accProperties' || accId === 'accPlanning')
+    done(crmNeed('property')).then(() => {
+      if (window.OpenHouse && document.getElementById('propertiesList')) renderProperties();
+    });
+  if (accId === 'accPlanning'){ done(crmNeed('map')); done(crmNeed('govmap')); }
+  if (accId === 'accAgreements')
+    done(crmNeed('agreements')).then(() => { agrFillKindFilter(); renderAgreements(); });
+  if (accId === 'accProfile') done(crmNeed('ilid'));
+  if (accId === 'accProfile' || accId === 'accBranding') done(crmNeed('specialties'));
+}
+
 function gotoSection(accId, focusId, opts){
+  prefetchSectionLibs(accId);
   const scrollSel = opts && opts.scrollTo;
   if ((scrollSel === '#setLeadPrefs' || scrollSel === '#setOwnerSwitch')
       && typeof openLeadPrefsSheet === 'function'
@@ -28946,7 +29833,7 @@ function renderAdsDraft(){
   if (!d) { dashPanelsMeasure(); return; }
   const max = d.audience === 'property' ? 2 : 5;
   host.appendChild(admEl('h3', 'adm-h',
-    (d.audience === 'property' ? 'קידום נכס' : 'שיווק למתווכים') + ' · רמה ' + d.intensity + ' מתוך ' + max +
+    (d.audience === 'property' ? 'קידום נכס' : 'שיווק ליועצי נדל״ן') + ' · רמה ' + d.intensity + ' מתוך ' + max +
     ' · ' + ({ draft: 'טיוטה', approved: 'מאושר', archived: 'בארכיון' }[d.status] || d.status)));
 
   const res = admEl('div', 'ads-results');
@@ -29043,7 +29930,7 @@ Object.assign(ADS_ERRORS, {
   bad_variants: 'בחרו בין נוסח אחד לשלושה',
   disclosure_missing: 'שורת הגילוי (ads_settings.disclosure_line) ריקה - בלעדיה לא נוצרת מודעה',
   owner_consent_required: 'צריך לאשר שיש הסכמת בעלים לפרסום ממומן',
-  agent_license_missing: 'למתווך/ת של הנכס אין רישיון מאומת',
+  agent_license_missing: 'ליועץ הנדל״ן של הנכס אין רישיון מאומת',
   property_no_location: 'לנכס אין מיקום על המפה',
   lead_form_required: 'בחרו טופס לידים',
   lead_form_not_mapped: 'הטופס לא שויך',
@@ -29226,7 +30113,7 @@ function adsCampaignForm(d){
 // ---------------------------------------------------------------------------
 const ADS_VID_BUCKET = 'marketing-videos';
 const ADS_VID_MAX_BYTES = 50 * 1024 * 1024;
-const ADS_VID_AUDIENCES = { agents: 'מתווכים', buyers: 'קונים', sellers: 'מוכרים', renters: 'שוכרים', developers: 'יזמים', professionals: 'בעלי מקצוע', general: 'כללי' };
+const ADS_VID_AUDIENCES = { agents: 'יועצי נדל״ן', buyers: 'קונים', sellers: 'מוכרים', renters: 'שוכרים', developers: 'יזמים', professionals: 'בעלי מקצוע', general: 'כללי' };
 const ADS_VID_PURPOSES = { marketing: 'שיווק', tutorial: 'הדרכה' };
 const ADS_VID_ASPECTS = { '9:16': '9:16 (רילס וסטורי)', '4:5': '4:5 (פיד)', '1:1': '1:1 (פיד)', '16:9': '16:9 (רוחבי)' };
 // קהל הקמפיין ← הקהלים שסרטון שלהם מתאים לו בטופס היצירה
@@ -29665,7 +30552,7 @@ async function loadAdsDrafts(){
     const tr = admEl('tr');
     const first = (d.variants && d.variants[0]) || {};
     tr.appendChild(admEl('td', null, first.headline || (d.brief && d.brief.angle) || '-'));
-    tr.appendChild(admEl('td', null, d.audience === 'property' ? 'נכס' : 'מתווכים'));
+    tr.appendChild(admEl('td', null, d.audience === 'property' ? 'נכס' : 'יועצי נדל״ן'));
     tr.appendChild(admEl('td', 'num', String(d.intensity)));
     tr.appendChild(admEl('td', null, { draft: 'טיוטה', approved: 'מאושר' }[d.status] || d.status));
     tr.appendChild(admEl('td', null, new Date(d.updated_at).toLocaleDateString('he-IL')));
@@ -29709,8 +30596,8 @@ async function adsLoadDefaults(){
    (קמפיין הפלטפורמה - נשאר כאן), או התעלמות. ליד מטופס שעוד לא שויך ממתין
    ונשלח ברגע השיוך. השליחה עוברת באותן פונקציות קליטה של האתר, ולכן הליד
    מקבל אותה רוטציה ואותם מחירים. ‏_shared/meta-leads.ts. */
-const LEAD_KINDS = { '': 'לא שויך', property: 'פנייה על נכס', owner: 'מוכר/ת או משכיר/ה', buyer: 'מחפש/ת דירה', broker: 'מתווכים (קמפיין הפלטפורמה)', ignore: 'התעלמות' };
-const LEAD_STATUS = { new: ['ממתין', ''], routing: ['בשליחה', 'is-warn'], routed: ['נכנס לפלטפורמה', 'is-on'], failed: ['נכשל', 'is-bad'], broker: ['ליד מתווך', 'is-warn'], skipped: ['לא נשלח', ''] };
+const LEAD_KINDS = { '': 'לא שויך', property: 'פנייה על נכס', owner: 'מוכר/ת או משכיר/ה', buyer: 'מחפש/ת דירה', broker: 'יועצי נדל״ן (קמפיין הפלטפורמה)', ignore: 'התעלמות' };
+const LEAD_STATUS = { new: ['ממתין', ''], routing: ['בשליחה', 'is-warn'], routed: ['נכנס לפלטפורמה', 'is-on'], failed: ['נכשל', 'is-bad'], broker: ['ליד יועץ נדל״ן', 'is-warn'], skipped: ['לא נשלח', ''] };
 const LEAD_ERRORS = {
   missing_phone: 'אין טלפון בטופס', missing_city: 'חסרה עיר - הוסיפו עיר ברירת מחדל או שאלת עיר',
   missing_property_type: 'חסר סוג נכס - הוסיפו ברירת מחדל', missing_contact: 'אין טלפון ואין אימייל',
@@ -29945,17 +30832,17 @@ async function loadIntelReport(){
   const sum = k => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
   const tiles = admEl('div', 'adm-tiles');
   const reg = sum('registry_brokers'), agents = sum('platform_agents');
-  tiles.appendChild(admTile('מתווכים ברשם', admInt(reg), { wine: true, note: 'לפי עיר מגורים' }));
+  tiles.appendChild(admTile('יועצי נדל״ן ברשם', admInt(reg), { wine: true, note: 'לפי עיר מגורים' }));
   tiles.appendChild(admTile('משרדים בגוגל', admInt(sum('google_offices')) + (rows.some(r => r.google_capped) ? ' ומעלה' : ''),
     { note: rows.filter(r => r.scanned_at).length + ' מתוך ' + rows.length + ' ערים נסרקו' }));
-  tiles.appendChild(admTile('בפלטפורמה', admInt(agents) + ' מתווכים', { note: admInt(sum('platform_agencies')) + ' משרדים' }));
-  tiles.appendChild(admTile('חדירה', reg ? Math.round(agents / reg * 1000) / 10 + '%' : '-', { note: 'מתווכים בפלטפורמה מתוך הרשם' }));
+  tiles.appendChild(admTile('בפלטפורמה', admInt(agents) + ' יועצי נדל״ן', { note: admInt(sum('platform_agencies')) + ' משרדים' }));
+  tiles.appendChild(admTile('חדירה', reg ? Math.round(agents / reg * 1000) / 10 + '%' : '-', { note: 'יועצי נדל״ן בפלטפורמה מתוך הרשם' }));
   host.appendChild(tiles);
 
   const wrap = admEl('div', 'adm-table-wrap');
   const tbl = admEl('table', 'adm-table');
   const head = admEl('tr');
-  ['עיר', 'ברשם', 'בגוגל', 'משרדים אצלנו', 'מתווכים אצלנו', 'חדירה', ''].forEach(h => head.appendChild(admEl('th', null, h)));
+  ['עיר', 'ברשם', 'בגוגל', 'משרדים אצלנו', 'יועצי נדל״ן אצלנו', 'חדירה', ''].forEach(h => head.appendChild(admEl('th', null, h)));
   tbl.appendChild(head);
   rows.forEach(r => {
     const tr = admEl('tr');
@@ -29991,7 +30878,7 @@ async function loadIntelReport(){
   wrap.appendChild(tbl);
   host.appendChild(wrap);
   host.appendChild(admEl('p', 'adm-note',
-    'הרשם סופר לפי עיר המגורים של המתווך/ת, ולכן לאזור זה קירוב ולא רשימה. גוגל מחזירה עד 60 משרדים לחיפוש - "ומעלה" אומר שיש יותר.'));
+    'הרשם סופר לפי עיר המגורים של יועץ הנדל״ן, ולכן לאזור זה קירוב ולא רשימה. גוגל מחזירה עד 60 משרדים לחיפוש - "ומעלה" אומר שיש יותר.'));
   dashPanelsMeasure();
 }
 
@@ -30054,7 +30941,7 @@ document.getElementById('intelRegistryBtn')?.addEventListener('click', async (e)
   btn.disabled = true;
   try{
     const r = await adsCall('intel_registry_refresh');
-    showToast('נספרו ' + admInt(r.brokers) + ' מתווכים ב-' + admInt(r.cities) + ' ערים');
+    showToast('נספרו ' + admInt(r.brokers) + ' יועצי נדל״ן ב-' + admInt(r.cities) + ' ערים');
     loadIntelReport();
   }catch(err){ showToast(heErr(err), 6000); }
   finally{ btn.disabled = false; }
@@ -31274,7 +32161,7 @@ function renderKpiInsights(){
     const excl = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
     const noPhotos = active.filter(p => !(p.images || []).length);
     if (excl / active.length < KPI_EXCL_WARN){
-      prop = { tone:'warn', title:'רק ' + excl + ' מ-' + active.length + ' בבלעדיות', sub:'בלעדיות = נכס שלא בורח למתווך אחר',
+      prop = { tone:'warn', title:'רק ' + excl + ' מ-' + active.length + ' בבלעדיות', sub:'בלעדיות = נכס שלא בורח ליועץ הנדל״ן אחר',
         cta: navAccVisible('accAgreements') ? 'להחתים בלעדיות' : '', run:()=> openAgreementWizard() };
     } else if (noPhotos.length){
       prop = { tone:'info', title: plural(noPhotos.length, 'נכס אחד בלי תמונות', 'נכסים בלי תמונות'),
@@ -32492,6 +33379,9 @@ const agrKindLabel = kind => { const t = agrTpl(kind); return t ? t.docTitle : k
 /* ---------- טעינה ורשימה ---------- */
 
 async function loadAgreements(){
+  const libsP = (window.crmNeed && accIsOpen('accAgreements'))
+    ? crmNeed('agreements').catch(() => {})
+    : Promise.resolve();
   const listEl = document.getElementById('agreementsList');
   if (!listEl) return;
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -32509,6 +33399,7 @@ async function loadAgreements(){
             'signers:agreement_signers(id, agreement_id, ord, party, full_name, phone, email, ' +
             'signed_at, method, viewed_at, mail_sent_at, mail_error, self_fill, details_filled_at, client_id)')
     .order('created_at', { ascending:false });
+  await libsP;
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">' + (missingSchema(error)
@@ -32536,6 +33427,11 @@ async function loadAgreements(){
 function agrFillKindFilter(){
   const sel = document.getElementById('agrKindFilter');
   if (!sel || sel.dataset.filled) return;
+  if (!window.AgreementTemplates){
+    if (window.crmNeed && accIsOpen('accAgreements'))
+      crmNeed('agreements').then(() => agrFillKindFilter()).catch(() => {});
+    return;
+  }
   sel.innerHTML = '<option value="">כל סוגי ההסכם</option>' +
     window.AgreementTemplates.keys()
       .map(k => `<option value="${esc(k)}">${esc(agrTpl(k).docTitle)}</option>`).join('');
@@ -32875,7 +33771,11 @@ function askAgentIdNumber(){
       const v = input.value.trim();
       const fb = wrap.querySelector('#idAskFb');
       if (!v){ fb.textContent = 'יש להזין מספר זהות או ח.פ.'; input.focus(); return; }
-      if (window.IlId && !IlId.check(input)) return;   // חיווי + "המספר נכון - לאשר בכל זאת"
+      if (window.crmNeed && !window.IlId){
+        try { await crmNeed('ilid'); } catch (e) {}
+      }
+      if (!window.IlId){ fb.textContent = 'לא הצלחנו לבדוק את תעודת הזהות - נסו לרענן את הדף.'; return; }
+      if (!IlId.check(input)) return;   // חיווי + "המספר נכון - לאשר בכל זאת"
       const btn = e.currentTarget;
       btn.disabled = true;
       // ‏currentAgent מתעדכן גם כשהשמירה נכשלת: ההסכם נבנה ממנו, וכשל בפרופיל
@@ -32953,6 +33853,7 @@ async function openAgreementSigning(agreementId){
 const AGR_STEP_LABELS = ['1 · סוג ההסכם', '2 · פרטי ההסכם', '3 · תצוגה מקדימה', '4 · חתימה'];
 
 function agrOfficeBrand(verifyCode){
+  if (!window.AgreementDoc) return {};
   const agency = window.currentAgency || {};
   const agent = (typeof currentAgent !== 'undefined' && currentAgent) || {};
   return window.AgreementDoc.brandFrom({
@@ -32984,6 +33885,11 @@ function agrKindIcon(kind){
 
 function agrRender(){
   if (!agrWizard) return;
+  if (!window.AgreementTemplates || !window.AgreementDoc || !window.IlId){
+    crmNeedOnce(agrRender, '_tried', 'agreements', () => { if (agrWizard) agrRender(); },
+      'לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
+    return;
+  }
   agrPaintBrand();
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
@@ -33006,6 +33912,7 @@ function agrRender(){
 /* ---------- שלב 1: סוג ההסכם ---------- */
 
 function agrRenderStepKind(){
+  if (!window.AgreementTemplates) return;
   const html = window.AgreementTemplates.menu.map(group => {
     const items = group.keys.map(k => {
       const t = agrTpl(k);
@@ -33028,6 +33935,7 @@ function agrRenderStepKind(){
 }
 
 function agrSetKind(kind, opts){
+  if (!window.AgreementTemplates) return;
   const tpl = agrTpl(kind);
   if (!tpl) return;
   agrWizard.kind = kind;
@@ -33052,6 +33960,7 @@ function agrSetKind(kind, opts){
 /* ---------- שלב 2: פרטי ההסכם ---------- */
 
 function agrRenderStepDetails(){
+  if (!window.AgreementTemplates) return;
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
@@ -33421,6 +34330,10 @@ function agrRenderPropChips(){
    לסוכן/ת שהנכס שלו/ה. זה לא כשל — הסוכן/ת ימלא/תמלא את מה שחסר, וזה
    ממילא מידע שהוא/היא צריך/ה לאמת מול הבעלים לפני שהוא נכנס להסכם. */
 async function agrAddProperty(propertyId, opts){
+  if (window.crmNeed && !window.AgreementTemplates){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementTemplates) return;
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
   const cand = agrCandidateById(propertyId);
@@ -34245,6 +35158,7 @@ function agrValidate(){
 /* ‏kind - טופס אחר מזה שנבחר, עם אותם נתונים: טופס ההסכמה לפעולות שיווק
    שנחתם לפני בלעדיות (marketingConsent בתבנית). */
 function agrBuildDoc(kind){
+  if (!window.AgreementTemplates) return null;
   const w = agrWizard;
   const tpl = agrTpl(kind || w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
@@ -34304,6 +35218,13 @@ function agrQuickFillField(f){
 /* ‏מילוי מהיר: כותב את מה שהוזן חזרה לאשף, מנציח את מה ששייך למסד,
    ומצייר את השלב מחדש. מה שנשאר חסר יוצג שוב — עם מה שכבר הוקלד. */
 async function agrQuickFill(btn){
+  if (window.crmNeed && !window.IlId){
+    try { await crmNeed('ilid'); } catch (e) {}
+  }
+  if (!window.IlId){
+    showToast('לא הצלחנו לבדוק את תעודת הזהות - נסו לרענן את הדף');
+    return;
+  }
   const w = agrWizard;
   let agentIdNumber = null;
 
@@ -34360,6 +35281,11 @@ async function agrQuickFill(btn){
 }
 
 function agrRenderStepPreview(){
+  if (!window.IlId || !window.AgreementDoc || !window.AgreementTemplates){
+    crmNeedOnce(agrRenderStepPreview, '_tried', 'agreements', () => { if (agrWizard && agrWizard.step === 3) agrRender(); },
+      'לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
+    return;
+  }
   const missing = agrValidate();
   const body = agrEl('agrBody');
 
@@ -34435,6 +35361,12 @@ function agrRenderStepPreview(){
 /* הסכם אחד במסד: השורה, גוף המסמך (אחרי ה-insert, כי verify_code נוצר
    במסד ומודפס בתחתיתו) והחותמים. ‏existingId - טיוטה שנשמרת מחדש. */
 async function agrPersistAgreement(kind, existingId, extra){
+  if (window.crmNeed && (!window.AgreementTemplates || !window.AgreementDoc)){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementTemplates || !window.AgreementDoc){
+    throw new Error('לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
+  }
   const w = agrWizard;
   const tpl = agrTpl(kind);
   const doc = agrBuildDoc(kind);
@@ -34517,6 +35449,13 @@ async function agrPersistAgreement(kind, existingId, extra){
 }
 
 async function agrSaveAndGoSign(btn){
+  if (window.crmNeed && !window.AgreementTemplates){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementTemplates){
+    showToast('לא הצלחנו לטעון את ההסכמים - נסו לרענן את הדף');
+    return;
+  }
   const w = agrWizard;
   const original = btn.textContent;
   btn.disabled = true;
@@ -34583,6 +35522,7 @@ async function agrRefreshWizardRecord(){
 /* ---------- שלב 4: חתימה ---------- */
 
 function agrRenderStepSign(){
+  if (!window.AgreementDoc) return;
   const w = agrWizard;
   const rec = w.record;
   if (!rec){
@@ -34709,7 +35649,7 @@ function agrRenderStepSign(){
   w.pads = {};
   rec.signers.filter(s => !s.signed_at).forEach(s => {
     const canvas = agrEl('agrBody').querySelector(`[data-agr-canvas="${s.id}"]`);
-    if (!canvas) return;
+    if (!canvas || !window.AgreementDoc) return;
     w.pads[s.id] = window.AgreementDoc.signaturePad(canvas, {
       onChange: drawn => {
         const hint = agrEl('agrBody').querySelector(`[data-agr-hint="${s.id}"]`);
@@ -34794,6 +35734,13 @@ function agrWhatsappSign(signerId){
 }
 
 async function agrDownloadPdf(btn){
+  if (window.crmNeed && !window.AgreementDoc){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  if (!window.AgreementDoc){
+    showToast('לא הצלחנו לטעון את ההסכם - נסו לרענן את הדף');
+    return;
+  }
   const rec = agrWizard.record;
   const host = document.createElement('div');
   // ‏left ולא inset-inline-start: בדף RTL הלוגי מתמפה ל-right, וההסתרה
@@ -35343,7 +36290,11 @@ function govmapSetBusy(on){
 }
 
 async function runGovmapBackfill(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35411,7 +36362,11 @@ async function runGovmapBackfill(){
 }
 
 async function runGovmapParity(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35484,7 +36439,11 @@ async function runGovmapParity(){
    והשמירה מעדכנת את כולן. כתובת קודם; אחריה מרכז החלקה, רק לחלקה של עד
    250 מ' - חלקת פרויקט או משק היא שכונה שלמה, ופין אחד לכולה אינו מיקום. */
 async function runGovmapDeals(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35556,7 +36515,11 @@ async function runGovmapDeals(){
    תכונות של כל לולאת השלמה (SKILL.md סעיף 7): כל תשובה, גם [], נרשמת
    ומוציאה את הנכס מהתור; סבב שכולו כשלים עוצר. */
 async function runGovmapPlansBackfill(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35616,11 +36579,19 @@ const GOVMAP_ADDR_ROUNDS = 8;
 
 async function govmapAddressRecord(r){
   // משותפת לדף הבדיקה (‏/plan, ‏assets/plan.js) - ב-assets/govmap.js
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) throw new Error('GovMap לא נטען');
   return GovmapLookup.addressRecord(r);
 }
 
 async function runGovmapAddressBackfill(){
-  if (govmapBusy || !window.GovmapLookup) return;
+  if (govmapBusy) return;
+  if (window.crmNeed && !window.GovmapLookup){
+    try { await crmNeed('govmap'); } catch (e) {}
+  }
+  if (!window.GovmapLookup) return;
   const status = document.getElementById('govmapBackfillStatus');
   const out = document.getElementById('govmapBackfillResult');
   govmapSetBusy(true);
@@ -35696,7 +36667,7 @@ function dealsPrioStatus(r){
 const DEALS_PRIO_STATUS = { missing: ['אין עסקאות', 'var(--danger,#c0392b)'], stale: ['ישן', '#b7791f'], ok: ['מעודכן', 'var(--muted)'] };
 const DEALS_PRIO_COLS = [
   ['city', 'עיר'], ['market', 'שוק'], ['status', 'מצב'], ['score', 'עדיפות'], ['population', 'תושבים'],
-  ['deals', 'עסקאות'], ['newest', 'אחרונה'], ['registry', 'מתווכים ברשם'], ['active_props', 'נכסים אצלנו'],
+  ['deals', 'עסקאות'], ['newest', 'אחרונה'], ['registry', 'יועצי נדל״ן ברשם'], ['active_props', 'נכסים אצלנו'],
   ['agencies', 'משרדים אצלנו'], ['gap_hits', 'חיפושים ריקים'],
 ];
 
@@ -35769,7 +36740,7 @@ function renderDealsPriorities(){
         <td class="num">${escapeHtml(admInt(r.agencies))}</td>
         <td class="num">${escapeHtml(admInt(r.gap_hits))}</td></tr>`;
     }).join('')}</table></div>
-    <p class="acc-sub" style="margin-top:8px">העדיפות: תושבים לאלף, ועוד מתווכים ברשם חלקי 5, נכסים אצלנו פי 2 וחיפושי עסקאות שחזרו ריקים פי 3 - כפול 1 לעיר בלי עסקאות, 0.6 לעסקה אחרונה מלפני חצי שנה ויותר, ו-0.3 מלפני 3 חודשים ויותר.</p>`;
+    <p class="acc-sub" style="margin-top:8px">העדיפות: תושבים לאלף, ועוד יועצי נדל״ן ברשם חלקי 5, נכסים אצלנו פי 2 וחיפושי עסקאות שחזרו ריקים פי 3 - כפול 1 לעיר בלי עסקאות, 0.6 לעסקה אחרונה מלפני חצי שנה ויותר, ו-0.3 מלפני 3 חודשים ויותר.</p>`;
 }
 
 document.getElementById('dealsPriorities')?.addEventListener('change', (e)=>{
@@ -36069,7 +37040,11 @@ async function dealsLookupCoords(city, street, houseNumber){
   if (!street || !houseNumber) return null;
   if (city !== DEALS_GEOCODE_CITY){
     // כל עיר אחרת: GovMap מהדפדפן, עם אימות רחוב, מספר ויישוב (docs/govmap.md)
-    if (!window.GovmapLookup || !city) return null;
+    if (!city) return null;
+    if (window.crmNeed && !window.GovmapLookup){
+      try { await crmNeed('govmap'); } catch (e) {}
+    }
+    if (!window.GovmapLookup) return null;
     try{
       const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
       return hit ? { lat: hit.lat, lng: hit.lng } : null;

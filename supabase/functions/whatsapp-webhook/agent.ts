@@ -20,6 +20,8 @@ import {
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { ilIdStatus } from "../_shared/il-id.ts";
 import { FEATURE_LABELS, featureNames, noLongDash } from "../_shared/marketing-copy.ts";
+import { forwardPropertyLink, propertyForwardMessage, propertyPublicUrl, showcaseForwardMessage, showcasePublicUrl } from "../_shared/wa-forward.ts";
+import { airCountOnly, LARGE_LIVING_ROOM_SQM, minAirCountKept, writeAirDirections } from "../_shared/air-living.ts";
 import {
   SERVICE_MARKET_LABELS,
   serviceAreaText,
@@ -31,6 +33,7 @@ import {
   AREA_SCAN_LIMIT,
   canonicalCity,
   filterByArea,
+  SearchCore,
   searchMissRow,
   searchMissStoreMissing,
   shouldLogSearchMiss,
@@ -57,10 +60,12 @@ import {
   storeListingCity,
 } from "./listing-defaults.ts";
 import { fuzzyMatches } from "./fuzzy-text.ts";
+import { canonicalPositions, parsePhotoMoveButton, photoMoveButtons, urlsAt } from "./photo-target.ts";
+import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
-import { pageLink, pageLinkTopics, urlInSay } from "./crm-pages.ts";
+import { pageLink, pageLinkTopics } from "./crm-pages.ts";
 import { ctaLabel, isSafeCrmPath, parseNavId, screenBundle, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
   agreementConfirmButtons,
@@ -93,9 +98,11 @@ import {
   publishErrorText,
   publishStoreBlocked,
   publishWritesNow,
+  destinationMenuGuidance,
   destinationReply,
   destinationStatusPatch,
   parsePublishDestination,
+  publishChannelsToStore,
   publishDestinationList,
   socialEnqueuePlan,
   unpublishedAfterUnconfirmedPublish,
@@ -240,7 +247,7 @@ const WRITABLE_FIELDS = [
   "rooms", "city", "street", "house_number", "floor", "size_sqm",
   "built_size_sqm", "condition", "project_status", "move_in_date",
   "move_in_soon", "features", "restrooms_location", "storage_location",
-  "mamad_location", "price_unit",
+  "mamad_location", "price_unit", "air_directions", "living_room_sqm",
 ] as const;
 
 // אותו היגיון לקובץ הלקוחות. ‏status אינו כאן אלא בכלי נפרד, כדי ש"תעדכן
@@ -249,6 +256,7 @@ const CLIENT_WRITABLE_FIELDS = [
   "full_name", "phone", "email", "notes", "client_kind", "deal_type", "category",
   "property_types", "cities", "min_price", "max_price", "min_rooms",
   "max_rooms", "min_size_sqm", "max_size_sqm", "max_floor", "required_features",
+  "required_directions", "min_air_directions", "min_living_room_sqm",
 ] as const;
 
 const AGREEMENT_KIND_KEYS = [
@@ -329,6 +337,12 @@ const propertyFields = {
   floor: { type: "integer", description: "קומה." },
   size_sqm: { type: "number", description: 'שטח במ"ר.' },
   built_size_sqm: { type: "number", description: 'שטח בנוי במ"ר.' },
+  air_directions: {
+    type: "array",
+    items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+    description: "כיווני אוויר שנאמרו בשם. אלכסון = שני ערכים. אם נאמר רק מספר ('3 כיווני אוויר') בלי שמות - אל תשלח/י את השדה, ושאלי אילו כיוונים.",
+  },
+  living_room_sqm: { type: "number", description: "שטח הסלון במ\"ר, 4 עד 150. רק אם נאמר מספר. אל תכתבי ללקוחות 'סלון גדול'." },
   condition: {
     type: "string",
     enum: CONDITIONS,
@@ -413,6 +427,13 @@ const clientFields = {
   min_rooms: { type: "number", description: "מינימום חדרים (אפשר 3.5)." },
   max_rooms: { type: "number", description: "מקסימום חדרים." },
   min_size_sqm: { type: "number", description: 'מינימום מ"ר.' },
+  required_directions: {
+    type: "array",
+    items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+    description: "כיוונים שהנכס צריך לכלול. ריק = לא משנה. אלכסון = שני ערכים.",
+  },
+  min_air_directions: { type: "integer", enum: [2, 3, 4], description: "מינימום מספר כיוונים, בלי להתעקש על כיוון. 2, 3 או 4." },
+  min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי. 'סלון גדול' בלי מספר = 30." },
   max_size_sqm: {
     type: "number",
     description: 'מקסימום מ"ר. סינון קשיח: נכס גדול ממנו לא יוצע. "120-170 מ״ר" = min 120, max 170.',
@@ -616,6 +637,13 @@ const TOOLS: Anthropic.Tool[] = [
         min_rooms: { type: "number" },
         max_rooms: { type: "number" },
         min_size_sqm: { type: "number" },
+        air_directions: {
+          type: "array",
+          items: { type: "string", enum: ["צפון", "דרום", "מזרח", "מערב"] },
+          description: "הנכס צריך לכלול את כל הכיוונים האלה.",
+        },
+        min_air_directions: { type: "integer", description: "לפחות N כיווני אוויר. 2, 3 או 4." },
+        min_living_room_sqm: { type: "number", description: "שטח סלון מינימלי במ\"ר. 'סלון גדול' = 30." },
         max_floor: { type: "integer" },
         features: {
           type: "array",
@@ -645,6 +673,28 @@ const TOOLS: Anthropic.Tool[] = [
       "ולא לחדש הבא. להשתמש כשהסוכן/ת אומר/ת שהתמונות לא שייכות לנכס (צילום מסך, " +
       "מסמך, תמונה בטעות), או עונה \"לא שייכות\".",
     input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "move_property_photos",
+    description:
+      "מעביר או מעתיק תמונות מנכס אחד לנכס אחר של אותו/ה סוכן/ת. לא מוחק קבצים " +
+      "מיד, לא משנה סטטוס ולא מפרסם. בלי confirm יוצאים כפתורי אישור ולא זז כלום. " +
+      "confirm=true לא מבצע כשיש כפתורים. אם יש כמה נכסים מתאימים - שאלי לפי שם, " +
+      "בלי קישור ארוך.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from_property_id: { type: "string" },
+        to_property_id: { type: "string" },
+        positions: {
+          type: "array",
+          items: { type: "integer" },
+          description: "מספרי התמונות במקור, מ-1, לפי הסדר בדף.",
+        },
+        mode: { type: "string", enum: ["move", "copy"], description: "move מוריד מהמקור אחרי אישור. copy משאיר." },
+      },
+      required: ["from_property_id", "to_property_id", "positions"],
+    },
   },
   {
     name: "manage_images",
@@ -2027,6 +2077,28 @@ function pick(
 
 const pickWritable = (input: Record<string, unknown>) => pick(input, WRITABLE_FIELDS);
 
+function applyAirLiving(payload: Record<string, unknown>, input: Record<string, unknown>, client = false): string | null {
+  const rawDirs = client ? (input.required_directions ?? input.air_directions) : input.air_directions;
+  if (rawDirs !== undefined) writeAirDirections(payload, rawDirs, client);
+  if (client && (input.min_air_directions !== undefined || airCountOnly(input.air_directions))) {
+    const n = Number(input.min_air_directions ?? airCountOnly(input.air_directions));
+    payload.min_air_directions = n === 2 || n === 3 || n === 4 ? n : null;
+  }
+  if (client && input.large_living_room === true && input.min_living_room_sqm == null) {
+    payload.min_living_room_sqm = LARGE_LIVING_ROOM_SQM;
+  }
+  const sqmKey = client ? "min_living_room_sqm" : "living_room_sqm";
+  if (sqmKey in input && input[sqmKey] != null && input[sqmKey] !== "") {
+    const n = Number(input[sqmKey]);
+    if (!Number.isFinite(n) || n < 4 || n > 150) {
+      delete payload[sqmKey];
+      return 'שטח הסלון צריך להיות בין 4 ל-150 מ"ר. הערך הקודם נשמר.';
+    }
+    payload[sqmKey] = n;
+  }
+  return null;
+}
+
 /** נרמול שם שכונה להשוואה: גרשיים, רווחים, ה' הידיעה בתחילת מילה ויו"ד כפולה. */
 function hoodKey(s: string): string {
   return s.replace(/["'״׳.,\-]/g, " ").trim().split(/\s+/)
@@ -2235,6 +2307,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   const payload = pickWritable(input);
+  const airErr = applyAirLiving(payload, input);
+  if (airErr) return { ok: false, error: airErr };
   payload.category ??= "residential";
   // עיר שנאמרה נשמרת. שדה ריק או חסר = העיר השמורה, ואז עיר המשרד.
   const statedCity = String(payload.city ?? "").trim();
@@ -2356,7 +2430,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       : {}),
     ...(hoodWarning || {}),
     ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
-    ...(payload.status === "active" ? { link: propertyLink(data.id) } : {}),
+    ...(payload.status === "active" && !ctx.outbox ? { link: propertyLink(data.id) } : {}),
+    ...(payload.status === "active" ? modelLink(ctx, propertyLink(data.id), "לדף הנכס", "הדף באתר:", "link") : {}),
     ...propertyCreatedEdit(ctx, data.id, data.title),
   };
   if (!askFirst) return created;
@@ -2477,6 +2552,20 @@ function crmButton(
   return { crm_button_sent: true };
 }
 
+/** כתובת לכלי: בוואטסאפ כפתור, ובמייל השדה כמו שהוא. */
+function modelLink(
+  ctx: ToolContext,
+  url: string | undefined,
+  label: string,
+  body: string,
+  field: string,
+): Record<string, unknown> {
+  if (!url) return {};
+  if (!ctx.outbox) return { [field]: url };
+  ctx.outbox.push({ kind: "cta", body, label, url });
+  return { button_sent: true, button_label: label };
+}
+
 /** כפתור עריכה של נכס שנוצר עכשיו. כמה כאלה באותו תור מתקפלים להודעה אחת. */
 function propertyCreatedEdit(
   ctx: ToolContext,
@@ -2504,6 +2593,8 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
 
   const payload = pickWritable(input);
+  const airErr = applyAirLiving(payload, input);
+  if (airErr) return { ok: false, error: airErr };
   if (input.neighborhood) {
     const city = String(payload.city ?? existing.city ?? "");
     const hood = city ? await resolvePropertyHood(ctx, city, String(input.neighborhood)) : null;
@@ -2544,7 +2635,7 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
     ok: true,
     property_id: propertyId,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
-    link: propertyLink(propertyId),
+    ...modelLink(ctx, propertyLink(propertyId), "לדף הנכס", "הדף באתר:", "link"),
     ...crmButton(ctx, crmPropertyLink(propertyId)),
   };
 }
@@ -2632,7 +2723,8 @@ async function askPublishConfirm(
     }
     return { ok: false, error: PUBLISH_FAILED };
   }
-  const list = publishDestinationList(id, propertyId);
+  const socialOn = await gabrielaSocialFlagOn(ctx.supabase);
+  const list = publishDestinationList(id, propertyId, socialOn);
   if (!list) return { ok: false, error: PUBLISH_FAILED };
   if (!onSite) await touchPublishAsk(ctx.supabase, propertyId, ctx.agent.id);
   const label = title.trim() ? `"${title.trim().slice(0, 80)}"` : "הנכס";
@@ -2645,13 +2737,14 @@ async function askPublishConfirm(
     section: list.section,
     rows: list.rows,
   });
+  const menu = destinationMenuGuidance(socialOn);
   return {
     ok: true,
     needs_confirmation: true,
     guidance: onSite
       ? "יצאה רשימת יעד לנכס שכבר באתר. אל תשני את הסטטוס בעצמך. בלי לחיצה הוא נשאר באתר כמו שהוא."
       : "יצאה רשימת יעד לנכס הזה. אל תאמרי שהוא פורסם. " +
-        "הבחירה היא אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
+        menu +
         "בלי לחיצה הנכס נשאר unpublished ולא נמחק, ואין פרסום אוטומטי. " +
         "אחרי 24 שעות, בתוך שעות השליחה, יוצאת תזכורת אחת. התזכורת השבועית נשארת.",
   };
@@ -2709,25 +2802,11 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_PROPERTIES_MAX);
   const status = input.status ? String(input.status) : null;
 
-  let query = ctx.supabase
-    .from("properties")
-    .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
-    .eq("agent_id", ctx.agent.id)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
-  let counter = ctx.supabase
-    .from("properties")
-    .select("id", { count: "exact", head: true })
-    .eq("agent_id", ctx.agent.id);
-
-  if (status) {
-    query = query.eq("status", status);
-    counter = counter.eq("status", status);
-  }
-
   const q = String(input.query || "").trim();
+  // ‏or אחד עם מפתח הרחוב, ואחד בלעדיו - למקרה שהעמודה עוד לא קיימת (‏42703):
+  // הפונקציה עולה לפני המיגרציה, ואז החיפוש רץ כמו עד היום ולא נכשל.
+  let orWithKey: string | null = null;
+  let orPlain: string | null = null;
   if (q) {
     // ‏escape על הפסיק והסוגריים, כמו ב-list_clients: מחרוזת חיפוש עם פסיק
     // הייתה נקראת כשני תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
@@ -2743,11 +2822,38 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
       // "אפס תוצאות". הוא נכנס לתנאי רק כשהחיפוש הוא מספר שלם — וזה גם
       // המקרה היחיד שבו הוא מעניין ("תמצא לי את 10423").
       if (/^\d+$/.test(safe)) terms.push(`listing_number.eq.${safe}`);
-      const or = terms.join(",");
+      orPlain = terms.join(",");
+      // ‏street_key (‏20271031230000): "העלייה", "העליה" ו"רחוב העלייה" מוצאים
+      // את הרחוב ששמור כ"עלייה". המפתח מ-SearchCore.streetNameKey, העתק של
+      // public.street_name_key שמחשב את העמודה (‏docs/street-registry.md).
+      const key = String(SearchCore.streetNameKey(safe)).replace(/[,()*"\\]/g, "");
+      orWithKey = key ? `${orPlain},street_key.eq."${key}"` : orPlain;
+    }
+  }
+
+  const build = (or: string | null) => {
+    let query = ctx.supabase
+      .from("properties")
+      .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
+      .eq("agent_id", ctx.agent.id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+    let counter = ctx.supabase
+      .from("properties")
+      .select("id", { count: "exact", head: true })
+      .eq("agent_id", ctx.agent.id);
+    if (status) {
+      query = query.eq("status", status);
+      counter = counter.eq("status", status);
+    }
+    if (or) {
       query = query.or(or);
       counter = counter.or(or);
     }
-  }
+    return [query, counter] as const;
+  };
+  const [query, counter] = build(orWithKey);
 
   // ‏ilike מוצא רק את הכתיב המדויק. "מנחם אושיסקין 18" נעלם ב-12.10.2026 גם
   // כשהסוכן כתב "אושיסקין", כי המודל מתקן את הכתיב לפני הקריאה. לכן גם סריקה
@@ -2762,13 +2868,29 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     .limit(FUZZY_SCAN_LIMIT);
   if (status) scan = scan.eq("status", status);
 
-  const [{ data, error }, { count, error: countErr }, scanRes] = await Promise.all([
+  const [first, firstCount, scanRes] = await Promise.all([
     query, counter, wantFuzzy ? scan : Promise.resolve(null),
   ]);
-  if (error) return { ok: false, error: error.message };
+  let { data, error } = first;
+  let { count, error: countErr } = firstCount;
+  if (error && orWithKey !== orPlain && (error.code === "42703" || /street_key/.test(error.message))) {
+    const [q2, c2] = build(orPlain);
+    const [again, againCount] = await Promise.all([q2, c2]);
+    ({ data, error } = again);
+    ({ count, error: countErr } = againCount);
+  }
+  if (error || !data) return { ok: false, error: error?.message || "no data" };
   if (countErr) console.warn("property count failed", countErr.message);
   if (scanRes?.error) console.warn("fuzzy property scan failed", scanRes.error.message);
 
+  // התאמה מדויקת קודם, ואחריה מה שנמצא רק דרך מפתח הרחוב (‏sort יציב -
+  // בתוך כל קבוצה נשאר הסדר לפי created_at)
+  if (q) {
+    const ql = q.toLowerCase();
+    const exact = (p: Record<string, unknown>) =>
+      [p.title, p.address, p.city].some((v) => String(v ?? "").toLowerCase().includes(ql));
+    data.sort((a, b) => Number(exact(b)) - Number(exact(a)));
+  }
   const seen = new Set(data.map((p) => String(p.id)));
   const variants = (scanRes?.data || [])
     .filter((p) => !seen.has(String(p.id)) &&
@@ -2805,7 +2927,17 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     properties: rows.map((p) => {
       const path = `/crm?goto=accProperties&property=${String(p.id)}`;
       if (pushed?.crm_button_sent && listed.has(path)) return p;
-      return { ...p, crm_link: crmPropertyLink(String(p.id)) };
+      const url = crmPropertyLink(String(p.id));
+      if (ctx.outbox && url) {
+        ctx.outbox.push({
+          kind: "cta",
+          body: String(p.title || "נכס"),
+          label: "פתיחה ב-CRM",
+          url,
+        });
+        return p;
+      }
+      return { ...p, crm_link: url };
     }),
     ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
     note: [
@@ -2903,18 +3035,38 @@ async function agentPropertySearch(
       city_id: cityId,
     };
   }
-  const built = applyPropertyFilters(
-    ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
+  const searchSelect = AGENT_SEARCH_FIELDS + ", air_directions, living_room_sqm";
+  let built = applyPropertyFilters(
+    ctx.supabase.from("properties").select(searchSelect).eq("status", "active"),
     args,
     [ors],
   );
-  const { data, error } = await built.query
+  let { data, error } = await built.query
     .order("is_promoted", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(AREA_SCAN_LIMIT);
+  if (error && /air_directions|living_room_sqm/.test(error.message || "")) {
+    const bare = { ...args };
+    delete bare.air_directions;
+    delete bare.min_living_room_sqm;
+    delete bare.min_air_directions;
+    built = applyPropertyFilters(
+      ctx.supabase.from("properties").select(AGENT_SEARCH_FIELDS).eq("status", "active"),
+      bare,
+      [ors],
+    );
+    ({ data, error } = await built.query
+      .order("is_promoted", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(AREA_SCAN_LIMIT));
+  }
   if (error) return { ok: false, error: error.message };
 
   let rows = (data || []) as Array<Record<string, unknown>>;
+  const minAir = Number(args.min_air_directions);
+  if (minAir >= 2 && rows.some((p) => "air_directions" in p)) {
+    rows = rows.filter((p) => minAirCountKept(p.air_directions, minAir));
+  }
   let hint: Record<string, unknown> = {};
   if (area) {
     const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true, cityId });
@@ -2964,9 +3116,22 @@ async function agentPropertySearch(
       listing_agent: source === "own" ? null : member?.display_name || null,
       listing_agent_phone: source === "own" ? null : member?.phone || null,
       listing_office: source === "own" || source === "agency" ? null : one(p.agencies)?.name || null,
-      link: propertyLink(String(p.id)),
+      ...(ctx.outbox ? {} : { link: propertyLink(String(p.id)) }),
     };
   });
+  if (ctx.outbox && results.length) {
+    pushScreens(
+      ctx,
+      results.map((r) => ({
+        type: "listing",
+        path: `/crm?goto=accProperties&property=${String(r.property_id)}`,
+        title: String(r.title || "נכס"),
+        body: String(r.address || ""),
+      })),
+      "איזה נכס לפתוח?",
+      "/crm?goto=accProperties",
+    );
+  }
   return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true };
 }
 
@@ -3081,6 +3246,39 @@ const PENDING_IMAGES_STALE_MS = 20 * 60 * 1000;
  * מאז שנקראה: אלבום שנכנס באמצע (‏`property_images_append`) לא יימחק בשקט.
  * כשהרשימה השתנתה - קוראים שוב ומנסים פעם אחת.
  */
+async function toolMovePropertyPhotos(ctx: ToolContext, input: Record<string, unknown>) {
+  const fromId = String(input.from_property_id || "");
+  const toId = String(input.to_property_id || "");
+  const positions = (Array.isArray(input.positions) ? input.positions : []).map(Number);
+  if (!fromId || !toId || fromId === toId) return { ok: false, error: "צריך שני נכסים שונים של אותו/ה סוכן/ת." };
+  const source = await ownedProperty(ctx, fromId);
+  const target = await ownedProperty(ctx, toId);
+  if (!source || !target) return { ok: false, error: "אפשר להעביר רק בין נכסים שלך." };
+  const images: string[] = Array.isArray(source.images) ? source.images : [];
+  const ordered = canonicalPositions(positions);
+  const picked = urlsAt(images, ordered);
+  if (!picked) return { ok: false, error: `יש בנכס ${images.length} תמונות. צריך מספר בין 1 ל-${images.length}.` };
+  const buttons = photoMoveButtons(fromId, toId, ordered, images);
+  if (!ctx.outbox || !buttons) {
+    return {
+      ok: false,
+      needs_confirmation: true,
+      error: "העברת תמונות יוצאת רק בכפתור אישור. לא הועבר כלום.",
+    };
+  }
+  const cover = positions.includes(1) ? " התמונה הראשית תוחלף בתמונה הבאה." : "";
+  ctx.outbox.push({
+    kind: "buttons",
+    body: `להעביר ${picked.length} תמונות מ"${source.title || "המקור"}" אל "${target.title || "היעד"}"?${cover}`,
+    buttons,
+  });
+  return {
+    ok: true,
+    needs_confirmation: true,
+    guidance: "יצאו כפתורי אישור. אל תאמרי שהתמונות הועברו או נמחקו.",
+  };
+}
+
 async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const action = String(input.action || "list");
@@ -3409,8 +3607,7 @@ async function toolPropertyShareStatus(ctx: ToolContext, input: Record<string, u
  */
 const VIDEO_BLOCKERS: Record<string, string> = {
   not_eligible:
-    "הפקת סרטון זמינה במסלולים PROFESSIONAL ו-Elite, על נכס פעיל של הסוכן/ת. " +
-    "לפרטים ולשדרוג: " + (SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : "עמוד המחירים"),
+    "הפקת סרטון זמינה במסלולים PROFESSIONAL ו-Elite, על נכס פעיל של הסוכן/ת. לפרטים ולשדרוג:",
   job_in_progress: "כבר רצה הפקה על הנכס הזה. אפשר לשאול מה מצבה.",
   no_images: "אין תמונות לנכס הזה - אי אפשר להפיק ממנו סרטון.",
   not_enough_images: "אין מספיק תמונות לנכס להפקת סרטון.",
@@ -3471,6 +3668,9 @@ async function toolPropertyVideoInfo(ctx: ToolContext, input: Record<string, unk
     ok: true,
     ...quote,
     blocker_text: blocker ? VIDEO_BLOCKERS[blocker] ?? blocker : undefined,
+    ...(blocker === "not_eligible"
+      ? modelLink(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : undefined, "למסלולים", "לפרטים ולשדרוג:", "pricing_url")
+      : {}),
     // ‏price_text מנוסח כאן ולא במודל: "כלול במסלול" מול "₪25 מהארנק" הוא
     // בדיוק המשפט שצריך להיאמר לפני החיוב, ואין טעם להשאיר אותו לניסוח חופשי.
     price_text: quote.eligible
@@ -3534,6 +3734,9 @@ async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, u
       ok: false,
       code,
       error: [base, videoRefundNote(body)].filter(Boolean).join(" "),
+      ...(code === "not_eligible"
+        ? modelLink(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : undefined, "למסלולים", "לפרטים ולשדרוג:", "pricing_url")
+        : {}),
       // ‏video_exists הוא היחיד שיש עליו מה לעשות בשיחה עצמה.
       retry_with: code === "video_exists" ? "replace_existing" : undefined,
     };
@@ -3627,7 +3830,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const p = await visibleProperty(
     ctx,
     propertyId,
-    "id, agent_id, title, address, city, street, house_number, price, price_unit, rooms, " +
+    "id, agent_id, title, address, city, street, house_number, sales_area, neighborhoods(name), price, price_unit, rooms, " +
       "size_sqm, built_size_sqm, deal_type, property_type, status, listing_number",
   );
   if (!p) return { ok: false, error: "לא נמצא נכס כזה." };
@@ -3636,6 +3839,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   if (!link) {
     return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת - אין דרך לבנות קישור." };
   }
+  const shareLink = forwardPropertyLink(p.status, propertyPublicUrl(SITE_BASE_URL, p.listing_number), link);
 
   let client: Record<string, unknown> | null = null;
   if (input.client_id) {
@@ -3644,8 +3848,12 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     client = found as unknown as Record<string, unknown>;
   }
 
-  const address = [p.street, p.house_number].filter(Boolean).join(" ") ||
-    String(p.address || "");
+  const hoodRaw = p.neighborhoods;
+  const hoodRow = Array.isArray(hoodRaw) ? hoodRaw[0] : hoodRaw;
+  const neighborhood = (hoodRow && typeof hoodRow === "object"
+    ? String((hoodRow as { name?: string }).name || "")
+    : "") || String(p.sales_area || "");
+  const address = [p.street, neighborhood].filter(Boolean).join(", ");
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
     (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
@@ -3655,14 +3863,15 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const greeting = client
     ? `היי ${String(client.full_name || "").trim()},`
     : "";
-  const message = [
+  // הודעה שהסוכן/ת מעביר/ה מהוואטסאפ האישי. קישור קצר /p/<מספר> בשורה משלו, בלי מספר בית.
+  const message = propertyForwardMessage({
     greeting,
-    String(p.title || autoTitle(p)),
-    [address, p.city].filter(Boolean).join(", "),
+    title: String(p.title || autoTitle(p)),
+    address,
     facts,
-    String(input.note || "").trim(),
-    link,
-  ].filter(Boolean).join("\n");
+    note: String(input.note || "").trim(),
+    link: shareLink,
+  });
 
   const clientWa = client ? waNumber(client.phone) : undefined;
 
@@ -3670,7 +3879,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   if (client) ctx.conv.last_client_id = String(client.id);
 
   const warning = p.status !== "active"
-    ? `הנכס במצב ${p.status} - הקישור לא ייפתח אצל מי שאינו הסוכן/ת שלו. להחזרה לאוויר: set_property_status עם active.`
+    ? `הנכס במצב ${p.status}. הקישור הקצר /p/ נפתח רק למודעה באוויר, ולכן ההודעה נושאת את הכתובת המלאה. היא נפתחת אצל הסוכן/ת ולא אצל גולש/ת. להחזרה לאוויר: set_property_status עם active.`
     : undefined;
 
   // בשיחה בוואטסאפ: כפתור שליחה במקום קישורים (כמו create_showcase). הכפתור
@@ -3689,6 +3898,12 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
       label: sendLabel(first, !!clientWa),
       url: target,
     });
+    ctx.outbox.push({
+      kind: "cta",
+      body: "הדף של הנכס:",
+      label: "לדף הנכס",
+      url: link,
+    });
   }
 
   return {
@@ -3699,8 +3914,8 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
     status: p.status,
     client_name: client ? client.full_name : undefined,
     client_phone_missing: !!client && !clientWa,
-    // הקישור לדף הנכס נשאר תמיד - למי שביקש/ה "את הקישור" עצמו
-    link,
+    // בוואטסאפ הדף הוא כפתור. במייל הכתובת נשארת בשדה.
+    ...(ctx.outbox ? { button_sent: true } : { link: shareLink }),
     ...(ctx.outbox
       ? {
         buttons_sent: true,
@@ -4603,6 +4818,11 @@ function clientNeeds(c: Record<string, unknown>): string {
     parts.push(lo && hi ? `${lo}-${hi} מ״ר` : lo ? `מ-${lo} מ״ר` : `עד ${hi} מ״ר`);
   }
   if (c.max_floor !== null && c.max_floor !== undefined) parts.push(`עד קומה ${c.max_floor}`);
+  if (Array.isArray(c.required_directions) && c.required_directions.length) {
+    parts.push(`אוויר: ${c.required_directions.join(" + ")}`);
+  }
+  if (c.min_air_directions) parts.push(`${c.min_air_directions}+ כיווני אוויר`);
+  if (c.min_living_room_sqm) parts.push(`סלון ${c.min_living_room_sqm}+ מ"ר`);
   const feats = (c.required_features as string[]) || [];
   if (feats.length) parts.push(`חובה: ${feats.join(", ")}`);
   return parts.join(" · ");
@@ -4928,6 +5148,8 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!fullName) return { ok: false, error: "חסר שם הלקוח/ה." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
+  const airErr = applyAirLiving(payload, input, true);
+  if (airErr) return { ok: false, error: airErr };
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
@@ -5041,6 +5263,8 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
+  const airErr = applyAirLiving(payload, input, true);
+  if (airErr) return { ok: false, error: airErr };
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
@@ -5494,14 +5718,8 @@ async function activeShowcase(ctx: ToolContext, clientId: string) {
   };
 }
 
-/** הודעת הפתיחה - אותו נוסח של renderShowcaseShare ב-assets/crm-showcase.js
- *  ושל netlify/edge-functions/showcase-send.ts (הקישור הקצר /w/). */
-function showcaseMessage(firstName: string, link: string): string {
-  return `היי ${firstName}, ריכזתי בשבילך עמוד אישי עם הנכסים שמתאימים למה שחיפשת:\n${link}\n\n` +
-    "הקישור הזה שלך וזמין תמיד - אפשר לחזור אליו מתי שנוח, לראות את הנכסים שמעניינים אותך, " +
-    "לסמן מה אהבת ומה לא, לשאול על כל נכס ולבקש סיור. נכסים חדשים שאמצא יתווספו לאותו עמוד.\n\n" +
-    "רוצה להתייעץ? אפשר לשתף את העמוד עם בן/בת הזוג או המשפחה, והם יראו בדיוק את מה שאת/ה רואה.";
-}
+/** הודעת הפתיחה. הנוסח ב-_shared/wa-forward.ts, והקישור שבה הוא /m/<טוקן>.
+ *  ‏/w/ נשאר הקישור שפותח את וואטסאפ, לא את העמוד. */
 
 const SHOWCASE_ERRORS: Record<string, string> = {
   agent_not_found: "הסוכן/ת אינו/ה פעיל/ה.",
@@ -5560,11 +5778,12 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  const link = showcaseLink(String(res.token))!;
+  const token = String(res.token);
+  const link = showcasePublicUrl(SITE_BASE_URL, token) || showcaseLink(token)!;
   const first = String(client.full_name || "").trim().split(/\s+/)[0] || "";
-  const message = showcaseMessage(first, link);
+  const message = showcaseForwardMessage(first, link);
   const clientWa = waNumber(client.phone);
-  const sendUrl = showcaseSendUrl(String(res.token), first, clientWa);
+  const sendUrl = showcaseSendUrl(token, first, clientWa);
   ctx.conv.last_client_id = clientId;
 
   // בשיחה בוואטסאפ: כפתורים ולא קישורים (12.10.2026, "פחות קישורים, יותר
@@ -5583,7 +5802,7 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
       ? { buttons_sent: true }
       : {
         link,
-        preview_url: showcaseLink(String(res.token), true),
+        preview_url: showcaseLink(token, true),
         message,
         // לצ'אט של הלקוח/ה, מהוואטסאפ של הסוכן/ת - לחיצה אחת
         wa_client_url: clientWa ? sendUrl : undefined,
@@ -5696,7 +5915,7 @@ export async function showcaseButtonReply(
   const token = String(data.token);
   if (action === "c") {
     // הודעה נפרדת ונקייה, כדי שאפשר יהיה להעביר או להעתיק אותה כמו שהיא
-    return { text: showcaseMessage(first, showcaseLink(token)!) };
+    return { text: showcaseForwardMessage(first, showcasePublicUrl(SITE_BASE_URL, token) || showcaseLink(token) || "") };
   }
   return {
     outbox: [{
@@ -6444,7 +6663,9 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     // נכס שנשר כי הטופס הזה הוא חד-נכסי. עדיף לומר את זה מאשר שיתגלה
     // אחרי שהלקוח/ה חתם/ה.
     dropped_properties: dropped.length ? dropped : undefined,
-    signers: links,
+    signers: ctx.outbox
+      ? links.map(({ sign_url: _sign, wa_send_url: _wa, ...rest }) => rest)
+      : links,
     // בלעדיות: שני מסמכים, קישור אחד לכל חותם/ת
     marketing_consent: consentId
       ? { agreement_id: consentId, title: consentTitle,
@@ -6985,6 +7206,27 @@ export async function listingActionReply(
   agent: AgentRow,
   buttonId: string,
 ): Promise<{ text: string; outbox?: OutboxItem[] } | null> {
+  const photoMove = parsePhotoMoveButton(buttonId);
+  if (photoMove) {
+    if (photoMove.mode === "no") return { text: "התמונות נשארות במקום." };
+    const base = Deno.env.get("SUPABASE_URL") || "";
+    const moved = await relocatePropertyPhotos(supabase, {
+      actorId: agent.id,
+      fromId: photoMove.fromId,
+      toId: photoMove.toId,
+      positions: photoMove.positions,
+      mode: photoMove.mode,
+      hash: photoMove.hash,
+      baseUrl: base,
+      sameAgent: true,
+    });
+    if (!moved.ok) return { text: moved.error };
+    console.info("photo move", JSON.stringify({
+      id: moved.id, from: photoMove.fromId, to: photoMove.toId, n: moved.moved, mode: photoMove.mode,
+    }));
+    return { text: moved.text };
+  }
+
   const image = parseImageDeleteButton(buttonId);
   if (image) {
     if (!image.yes) return { text: "התמונות נשארות." };
@@ -7146,10 +7388,12 @@ async function runPendingDestination(
     return { text: propErr ? "לא הצלחתי לקרוא את הנכס. אפשר לנסות שוב." : "לא נמצא נכס כזה אצל הסוכן/ת." };
   }
 
-  const nextStatus = destinationStatusPatch(choice.channels, String(prop.status || ""));
+  const socialOn = await gabrielaSocialFlagOn(supabase);
+  const channels = publishChannelsToStore(choice.channels, socialOn);
+  const nextStatus = destinationStatusPatch(channels, String(prop.status || ""));
   const patch: Record<string, unknown> = {
-    publish_channels: choice.channels,
-    share_with_brokers: choice.channels.includes("brokers"),
+    publish_channels: channels,
+    share_with_brokers: channels.includes("brokers"),
     updated_at: nowIso,
   };
   if (nextStatus) patch.status = nextStatus;
@@ -7171,9 +7415,9 @@ async function runPendingDestination(
   await clearPublishAsk(supabase, propertyId);
   const status = String(updated.status || "");
   const licenseHeld = !!(updated.license_hold_at) || (nextStatus === "active" && status !== "active");
-  const social = socialEnqueuePlan(choice.channels, await gabrielaSocialFlagOn(supabase), status === "active");
+  const social = socialEnqueuePlan(channels, socialOn, status === "active");
   let brokersSent = false;
-  if (choice.channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
+  if (channels.includes("brokers") && (status === "active" || status === "unpublished" || status === "draft")) {
     const { data, error: collabErr } = await supabase.rpc("unpublished_collab_request", {
       p_property_id: propertyId,
       p_agent_id: agent.id,
@@ -7186,7 +7430,7 @@ async function runPendingDestination(
     }
   }
   const text = destinationReply({
-    channels: choice.channels,
+    channels,
     status,
     licenseHeld,
     social,
@@ -7428,9 +7672,13 @@ async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unkn
     cancelled_at: a.cancelled_at,
     // רק אחרי חתימה מלאה. לפני כן אין "עותק חתום" להראות, והקישור מציג
     // מסמך שאיש עוד לא חתם עליו.
-    signed_copy_url: a.status === "signed" && a.view_token
-      ? agreementLink(String(a.view_token))
-      : undefined,
+    ...modelLink(
+      ctx,
+      a.status === "signed" && a.view_token ? agreementLink(String(a.view_token)) : undefined,
+      "להסכם",
+      "העותק החתום:",
+      "signed_copy_url",
+    ),
     verify_code: a.status === "signed" ? a.verify_code : undefined,
   };
 }
@@ -7479,9 +7727,8 @@ async function toolAgreementSignLinks(ctx: ToolContext, input: Record<string, un
     signers: pending.map((s) => ({
       full_name: s.full_name,
       phone: s.phone,
-      // האסימון אישי לכל חותם/ת (48 תווים), ולא אחד להסכם — בני זוג לא
-      // תמיד יושבים באותו חדר. לכן הקישור נמסר עם שם החותם/ת לידו.
-      sign_url: `${SITE_BASE_URL}/sign?t=${s.sign_token}`,
+      // האסימון אישי לכל חותם/ת. בוואטסאפ הכפתור כבר יצא, ובמייל הכתובת נשארת.
+      ...(ctx.outbox ? {} : { sign_url: `${SITE_BASE_URL}/sign?t=${s.sign_token}` }),
       expires_at: s.token_expires_at,
     })),
   };
@@ -7570,7 +7817,14 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
       };
       // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
       if (pushed?.crm_button_sent && listed.has(path)) return row;
-      if (pushed?.crm_button_sent && SITE_BASE_URL) return { ...row, crm_link: `${SITE_BASE_URL}${path}` };
+      if (pushed?.crm_button_sent && SITE_BASE_URL) {
+        const url = `${SITE_BASE_URL}${path}`;
+        if (ctx.outbox) {
+          ctx.outbox.push({ kind: "cta", body: String(l.display_name || "ליד"), label: "פתיחה ב-CRM", url });
+          return row;
+        }
+        return { ...row, crm_link: url };
+      }
       return row;
     }),
   };
@@ -7630,7 +7884,7 @@ async function toolProfileGet(ctx: ToolContext) {
     specialty_options: PROFILE_SPECIALTIES,
     default_city: await savedListingCityName(ctx),
     missing: profileGaps(row),
-    page_url: agentPageUrl(row.slug),
+    ...modelLink(ctx, agentPageUrl(row.slug), "לדף היועץ", "הדף באתר:", "page_url"),
   };
 }
 
@@ -7809,8 +8063,11 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
     default_city: defaultCity,
     notes: notes.length ? notes : undefined,
     missing: profileGaps(row),
-    page_url: agentPageUrl(row.slug),
-    guidance: "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. אם missing אינו ריק - " +
+    ...modelLink(ctx, agentPageUrl(row.slug), "לדף היועץ", "הדף באתר:", "page_url"),
+    guidance: (ctx.outbox
+      ? "אשר/י במשפט אחד מה השתנה. הדף יוצא ככפתור, בלי כתובת. "
+      : "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. ") +
+      "אם missing אינו ריק - " +
       "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר." + cityGuidance,
   };
 }
@@ -8436,7 +8693,7 @@ function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
       topics: pageLinkTopics(),
     };
   }
-  const url = `${base.replace(/\/$/, "")}${link.path}`;
+  const url = link.url || `${base.replace(/\/$/, "")}${link.path}`;
   if (ctx.outbox && isSafeCrmPath(link.path)) {
     const say = link.say.replace(url, "").trim();
     ctx.outbox.push({
@@ -8454,9 +8711,9 @@ function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
   }
   return {
     ok: true,
-    url: urlInSay(link.say),
+    url: link.url,
     say: link.say,
-    guidance: "כתוב/י לסוכן/ת את say כמו שהוא. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
+    guidance: "כתוב/י לסוכן/ת את say כמו שהוא, ובשורה נפרדת את url. בלי \"אני לא יכולה\" ובלי \"היכנסו לדשבורד\".",
   };
 }
 
@@ -8478,6 +8735,7 @@ async function runTool(
       case "attach_images": return await toolAttachImages(ctx, input);
       case "discard_pending_images": return await toolDiscardPendingImages(ctx);
       case "manage_images": return await toolManageImages(ctx, input);
+      case "move_property_photos": return await toolMovePropertyPhotos(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
       case "property_link": return await toolPropertyLink(ctx, input);
       case "property_performance": return await toolPropertyPerformance(ctx, input);
@@ -8599,11 +8857,13 @@ const SYSTEM_STATIC: string = (() => {
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
-    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link של נכס באתר, חתימה או מיניסייט שהסוכן/ת ביקש/ה להעביר ללקוח/ה - צרף/י אותו. " +
+    "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. " +
+      "הודעה שמוכנה להעברה ללקוח/ה אינה כוללת כתובת. אם חזר button_sent או buttons_sent - " +
+      "כפתור השליחה ללקוח/ה יוצא אחרי התשובה, ואין לכתוב את הכתובת. " +
       "כתובת של האזור האישי אסור להרכיב לבד: לא unlock_where, לא /crm, ולא https. " +
-      "אם חזר crm_button_sent או buttons_sent - הכפתור יוצא אחרי התשובה, ואין לכתוב כתובת במקומו. " +
-      "קישור מותר רק כשהכלי החזיר אותו בשדה (crm_link או שדה שנגמר ב-crm_link), ומעתיקים את הערך כמו שהוא. " +
-      "בלי שדה כזה אין כתובת בתשובה.",
+      "אם חזר crm_button_sent או buttons_sent או button_sent - הכפתור יוצא אחרי התשובה, ואין לכתוב כתובת. " +
+      "במייל, בלי כפתור, מעתיקים שדה שהכלי החזיר (crm_link או שדה שנגמר ב-link) כמו שהוא. " +
+      "בוואטסאפ אין כתובת בתשובה.",
     "- **לשאלת \"כמה\" תמיד קרא/י לכלי שמחזיר ספירה** (property_stats, list_clients) ואל " +
       "תספור/תספרי מתוך רשימה שהוחזרה - רשימה היא חלון, לא הקובץ.",
     "",
@@ -8628,7 +8888,7 @@ const SYSTEM_STATIC: string = (() => {
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
     "- create_property: אם חזר published=true הנכס באוויר. אם חזר needs_confirmation, " +
-      "בוואטסאפ יוצאת רשימת יעד אחת: אתר ורשתות ומתווכים, אתר ורשתות, רק אתר, אתר ומתווכים, רק מאגר, או עריכה. " +
+      "בוואטסאפ יוצאת רשימת יעד אחת, רק היעדים שאפשר לבצע עכשיו. אל תמני יעד שלא יצא ברשימה. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
       "בלי לחיצה הוא נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
       "אם חזר publish_from_site - אמרי לפרסם מאזור האישי, בלי לומר שהנכס באוויר. " +
@@ -8867,9 +9127,9 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
       "מחיקה בלי confirm שולחת כפתורים ולא מוחקת. \"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
-    "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**: אחרי רגע קצר הן מצטרפות לנכס " +
-      "שעבדתם עליו, ואם עברו 20 דקות מאז שנגעתם בו - נשאלת שאלה בכפתורים (📎 לנכס הקודם / " +
-      "🏠 נכס חדש / 🗑 לא לשום נכס). כל צירוף כזה מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
+    "- **תמונות שנשלחות בלי טקסט מטופלות לפני שאת רואה אותן**. אם השיחה האחרונה " +
+      "מזכירה נכס אחר מהנכס האחרון, הן לא יצורפו אליו. אם כמה נכסים מתאימים, נשאלת " +
+      "שאלה עם שמות הנכסים, בלי קישור ארוך. כל צירוף מופיע בהיסטוריה אחרי \"[הודעת מערכת...טיפול " +
       "בתמונות]\" עם הנכס ומספרי התמונות. **לעולם אל תאמרי שתמונה \"לא צורפה\" בלי לבדוק**: " +
       "קראי את ההיסטוריה, ואם יש ספק - manage_images עם list. מספר התמונות בנכס אינו אומר מה הן. " +
       "כשהסוכן/ת מבקש/ת להוריד תמונה שצורפה בטעות - manage_images עם remove, מיד אחרי שזיהית " +

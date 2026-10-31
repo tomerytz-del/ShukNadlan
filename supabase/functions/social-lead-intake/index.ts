@@ -127,7 +127,11 @@ async function buildIntake(sb: any, p: any, kind: Kind, source: string, ref: str
     if (prop && prop.status === "active") {
       return {
         fn: "property-inquiry-intake",
-        body: { property_id: prop.id, name: base.name, phone: base.phone, message: base.message || null, source, external_ref: ref },
+        body: {
+          property_id: prop.id, name: base.name, phone: base.phone, message: base.message || null, source, external_ref: ref,
+          // שעת ההודעה ברשת, ליומן פניות היריד (‏docs/open-house-fair.md). נבדקת שם
+          platform_at: typeof p.message_at === "string" ? p.message_at.slice(0, 40) : undefined,
+        },
       };
     }
     // הנכס ירד מהאוויר או לא זוהה: הפונה עדיין מחפש/ת נכס כזה. פנייה על נכס
