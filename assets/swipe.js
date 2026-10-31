@@ -62,11 +62,40 @@
     sponsors: []
   };
   /* R2: כששניים בשלים יחד */
-  var SEQ_PRIO = ['spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article'];
+  var SEQ_PRIO = ['spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article', 'advice'];
   /* R8: התוויות של ‎?seqdebug=1‎ */
   var SLOT_LABEL = { property: 'נכס', property_fair: 'נכס · יריד', spon_agency: 'ממומן · משרד', spon_pro: 'ממומן · בעלי מקצוע',
-    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
-  var PROMO = { nc_promo: 1, seller: 1, article: 1 };
+    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', advice: 'עצה מגבריאלה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
+  var PROMO = { nc_promo: 1, seller: 1, article: 1, advice: 1 };
+
+  /* ---------- §5b: "קבלו עצה ממומחה" - כרטיס עצה מגבריאלה בחפיסה (Phase 2) ----------
+     **העצות לא אושרו** - הן ממתינות לעורך דין (מס רכישה, תב״ע, שכירות הוגנת) ולתומר (גם
+     תנוחות ה-AI). עד אז הכרטיס מופיע רק עם v10 וגם ‎?advice=1‎ בכתובת, בלי זיכרון בדפדפן.
+     כרטיס בערך כל 11 נכסים, לעולם לא ראשון, וכל עצה פעם אחת בביקור. הקהל לפי העסקה
+     בסינון. התנוחה לכל עצה מהטבלה שבקובץ העצות.
+     ‏cut - קצה הגוף בקנבס (שבר מגובה הקנבס), כדי שהחיתוך יישב צמוד לשמאל הכרטיס */
+  var ADVICE = {
+    sale: { aud: 'לקונים', tips: [
+      ['c', 'בקשו נסח טאבו או אישור זכויות עדכני', 'בדקו בעלות, משכנתאות ועיקולים על הנכס, ועברו עליו עם עורך דין.'],
+      ['a', 'היתרי בנייה וחריגות', 'ודאו בוועדה המקומית לתכנון ובנייה שהבנוי תואם להיתר, כי חריגות בנייה עלולות לעבור אליכם.'],
+      ['b', 'אישור עקרוני למשכנתא', 'קבלו אישור עקרוני מהבנק לפני שמציעים מחיר, כדי לדעת מה התקציב שלכם.'],
+      ['a', 'חשבו מס רכישה מראש', 'מס הרכישה תלוי במצב שלכם, למשל אם זו הדירה היחידה. בדקו אותו מראש מול עורך דין או רואה חשבון.'],
+      ['e', 'שמאי ובדק בית', 'שמאי מקרקעין בודק אם המחיר תואם לשוק, ובדק בית חושף ליקויים לפני החתימה.']] },
+    rent: { aud: 'לשוכרים', tips: [
+      ['c', 'קראו את החוזה עד הסוף', 'שימו לב לתקופה, לאופציה ולתנאי היציאה, והתייעצו עם עורך דין כשמשהו לא ברור.'],
+      ['a', 'ערבויות וביטחונות', 'סכמו מראש איזה ביטחון נדרש, אצל מי הוא נשמר ומתי הוא מוחזר.'],
+      ['d', 'צלמו את הדירה בכניסה', 'תעדו כל פגם בתמונות ובסרטון, ושלחו אותם למשכיר עוד ביום הכניסה.'],
+      ['b', 'שכירות הוגנת: הזכויות שלכם', 'לשוכרי דירות למגורים יש זכויות בחוק, כמו דירה ראויה למגורים ותיקון ליקויים בזמן סביר.'],
+      ['e', 'מי משלם על תיקונים?', 'קבעו בחוזה מי אחראי על אילו תיקונים, ותוך כמה זמן מטפלים בהם.']] },
+    commercial: { aud: 'לעסקים ומשרדים', tips: [
+      ['f', 'רישיון עסק לפני חתימה', 'בדקו מול העירייה שאפשר לקבל רישיון עסק לפעילות שלכם בנכס הזה.'],
+      ['a', 'ייעוד הנכס בתב״ע', 'ודאו שהתב״ע מתירה את השימוש שלכם, ואם לא, בררו על היתר לשימוש חורג.'],
+      ['e', 'ארנונה לפי סיווג', 'סיווג הנכס בעירייה קובע את גובה הארנונה, בררו אותו לפני שמשווים מחירים.'],
+      ['c', 'אופציות בחוזה', 'תקופות אופציה ותנאי הארכה שווים כסף, נסחו אותם יחד עם עורך דין.'],
+      ['a', 'נגישות ובטיחות אש', 'בדקו מה נדרש מהעסק בנגישות ובכיבוי אש, ומי מממן את ההתאמות.']] }
+  };
+  var ADVICE_CUT = { d: 80 / 1090 };
+  var ADVICE_EVERY = 11;
 
   var REGION_GROUPS = {
     north: ['afula-emek', 'haifa', 'krayot', 'akko-nahariya', 'karmiel-misgav', 'nof-hagalil-migdal', 'kiryat-shmona', 'safed', 'golan', 'tiberias', 'beit-shean', 'yokneam'],
@@ -328,6 +357,18 @@
   // ‏Variant C: שכונה ועיר על הכרטיס בטלפון, בלי רחוב ומספר בית (הגיליון נשאר עם where)
   function area(p) { var h = hood(p); return [h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
   function title(p) { return maskHouse(p.title || '', p.house_number) || p.property_type || 'נכס'; }
+  /* הקישור בהודעות וואטסאפ: הקצר (‏/p/{מספר מודעה}, ‏short-link.ts), ובלי מספר מודעה - דף הנכס */
+  function shortUrl(p) {
+    return 'https://shuknadlan.co.il/' + (p.listing_number ? 'p/' + p.listing_number : 'property?id=' + encodeURIComponent(p.id));
+  }
+  /* ההודעה המוכנה בוואטסאפ ליועץ/ת (§3, 30.10): מזהה את המודעה בלי לשאול - כותרת, איפה, מחיר,
+     מספר מודעה, והקישור בשורה נפרדת בסוף. אחת לכפתור בשורת העיגולים, לבורר "איך נוח לכם?" ולגיליון */
+  function waHref(p, phone) {
+    var w = area(p), price = fmtPrice(p);
+    var text = 'היי, ראיתי בשוק נדל״ן את ' + title(p) + (w ? ', ' + w : '') + (price ? ', ' + price : '') +
+      (p.listing_number ? ' (מודעה #' + p.listing_number + ')' : '') + '. אשמח לפרטים.\n' + shortUrl(p);
+    return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+  }
   function rooms(p) { var r = Number(p.rooms); return isFinite(r) && r > 0 ? String(Number(r.toFixed(1))) : ''; }
   function initials(name) {
     var w = String(name || '').replace(/["״׳']/g, '').trim().split(/\s+/).filter(Boolean);
@@ -403,7 +444,7 @@
   }
 
   /* ---------- 2. הסינון ---------- */
-  var filter = { deal: 'sale', area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
+  var filter = { deal: 'sale', area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
   /* ‏P0-3: סוג נכס - בחירה אחת. ‏sort אחד להחלקה, לרשימה ולמפה; "מומלצים" = סדר החפיסה */
   /* ‏R6 (‏A3-1): המפתחות והתוויות של FilterConfig.TYPES (‏assets/filter-config.js) - אותם סוגים כמו
      בצ'יפים מעל התוצאות ובחלון הסינון בדף הבית: דירות, בתים, משקים ונחלות (‏C3), מגרשים; ובמסחרי
@@ -447,14 +488,14 @@
     });
   }
   function activeFilters() {
-    return extItems().length + (filter.deal === 'commercial' && filter.cdeal ? 1 : 0) + (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
+    return extItems().length + (filter.deal === 'commercial' && filter.cdeal ? 1 : 0) + (filter.near || filter.area !== 'all' ? 1 : 0) + (filter.budget || filter.priceMin ? 1 : 0) + (filter.rooms ? 1 : 0) + (filter.type ? 1 : 0) +
       (filter.viz ? 1 : 0) + (filter.fair ? 1 : 0) + (filter.reel ? 1 : 0) + (filter.photos ? 0 : 1);
   }
   /* המצב בכתובת (‏replaceState): ערכי ברירת המחדל לא נכתבים, ו-reload משחזר */
   function writeUrl() {
     try {
       var q = new URLSearchParams(location.search);
-      ['deal', 'cdeal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf', 'pid'].forEach(function (k) { q.delete(k); });
+      ['deal', 'cdeal', 'area', 'rooms', 'budget', 'pmin', 'pmax', 'type', 'photos', 'fair', 'sort', 'view', 'layout', 'hf', 'pid'].forEach(function (k) { q.delete(k); });
       if (extQs) q.set('hf', extQs);
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
@@ -463,9 +504,9 @@
       if (filter.deal === 'commercial' && filter.cdeal) q.set('cdeal', filter.cdeal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
-      // תקציב כאינדקס ב-BUDGETS של העסקה - אותה כתובת שדף הבית בונה (חלק 4 §3.4)
-      var bi = budgetsFor().indexOf(filter.budget);
-      if (filter.budget && bi > 0) q.set('budget', String(bi));
+      // §1: טווח מחיר במספרים. ‏?budget=<אינדקס> (הכתובת הישנה) עדיין נקרא, ונכתב מחדש כ-pmax
+      if (filter.priceMin) q.set('pmin', String(filter.priceMin));
+      if (filter.budget) q.set('pmax', String(filter.budget));
       if (filter.type) q.set('type', filter.type);
       if (!filter.photos) q.set('photos', '0');
       if (filter.fair) q.set('fair', '1');
@@ -483,6 +524,9 @@
     var cdl0 = params.get('cdeal'); if (filter.deal === 'commercial' && (cdl0 === 'rent' || cdl0 === 'sale')) filter.cdeal = cdl0;
     var b = Number(params.get('budget')), bl = budgetsFor();
     if (b > 0 && b < bl.length) filter.budget = bl[b];
+    var pmn = Number(params.get('pmin')), pmx = Number(params.get('pmax'));
+    if (pmn > 0 && isFinite(pmn)) filter.priceMin = Math.round(pmn);
+    if (pmx > 0 && isFinite(pmx)) filter.budget = Math.round(pmx);
     var t = params.get('type'); t = TYPE_ALIAS[t] || t; if (TYPES.some(function (x) { return x[0] === t; })) filter.type = t;
     var cdl = params.get('cdeal'); if (cdl === 'rent' || cdl === 'sale') filter.cdeal = cdl;
     if (params.get('photos') === '0') filter.photos = false;
@@ -500,11 +544,6 @@
   function budgetsFor(f) {
     f = f || filter;
     return (f.deal === 'commercial' && COMM_BUDGETS[f.cdeal]) || BUDGETS[f.deal] || [];
-  }
-  function budgetLabel(v, deal) {
-    if (!v) return 'ללא הגבלה';
-    if (v >= 1000000) return 'עד ' + (v / 1000000).toLocaleString('he-IL') + ' מיליון ₪';
-    return 'עד ₪' + v.toLocaleString('he-IL') + (deal === 'sale' ? '' : '');
   }
   function dealOk(p, deal, cdeal) {
     // ‏cdeal: במסחרי בלבד - '' (הכול) | 'rent' | 'sale'
@@ -602,6 +641,10 @@
   function extOk(p) {
     return !ext || (ext.Core.matches(p, ext.st, ext.ctx) && ext.test(p));
   }
+  function totalPrice(p) {
+    var pv = Number(p.price), sz = Number(p.size_sqm);
+    return p.price_unit === 'sqm' && sz > 0 ? pv * sz : pv;
+  }
   function matches(p, f) {
     if (!dealOk(p, f.deal, f.cdeal)) return false;
     if (!extOk(p)) return false;
@@ -613,10 +656,10 @@
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
     // מחיר למ״ר (‏price_unit=sqm) נמדד מול התקציב כפול השטח, כמו בדף הבית (‏docs/price-unit.md)
-    if (f.budget) {
-      var pv = Number(p.price), sz = Number(p.size_sqm);
-      if (p.price_unit === 'sqm' && sz > 0) pv = pv * sz;
-      if (pv > f.budget) return false;
+    if (f.budget || f.priceMin) {
+      var pv = totalPrice(p);
+      if (f.budget && pv > f.budget) return false;
+      if (f.priceMin && !(pv >= f.priceMin)) return false;
     }
     if (f.rooms && f.deal !== 'commercial' && !(Number(p.rooms) >= f.rooms)) return false;
     return true;
@@ -656,6 +699,117 @@
         esc(it.label) + ' <span aria-hidden="true">✕</span></button>';
     }).join('') : '';
   }
+  /* ---------- §1: טווח מחיר - שתי ידיות (תומר 29.10) ----------
+     במקום צ'יפים של "עד X". פתוח לגמרי (0 / קצה הטווח) = בלי הגבלה, ולא מסנן כלום.
+     ‏filter.priceMin, ו-filter.budget הוא המקסימום (השם הישן נשאר: ‏?budget= ישן, שמירת חיפוש).
+     הקצה העליון - המחיר הגבוה בנכסים של העסקה (מחיר למ״ר - כפול השטח). כשהגיעו ממשפט בדף
+     הבית עם "מ-₪… עד ₪…", הידיות מראות אותו וכותבות אליו, כדי שהתג והטווח לא יסתרו.
+     ‏RTL: הזול בצד ימין. */
+  /* מסחרי בלי בחירה ("הכול"): הטווח של השכרה, כי שכירות חודשית ומחיר מכירה על אותה מסילה
+     היו דוחסים אחד מהם לפיקסל. מי שמחפש/ת מכירה בוחר/ת "למכירה" ומקבל/ת את הטווח שלה */
+  function priceDeal() { return filter.deal === 'commercial' ? (filter.cdeal || 'rent') : filter.deal; }
+  function priceStep() {
+    var d = priceDeal();
+    return d === 'rent' ? (filter.deal === 'commercial' ? 500 : 250) : 50000;
+  }
+  /* הקצה העליון - האחוזון ה-95 של המחירים בעסקה, ולא היקר ביותר: נכס אחד במחיר חריג (שכירות
+     מסחרית של 326 אלף) היה דוחס את כל השאר ל-2-5% מהמסילה. מעליו - "ללא הגבלה" */
+  function priceTop() {
+    var cdeal = filter.deal === 'commercial' ? priceDeal() : filter.cdeal;
+    var vals = [];
+    all.forEach(function (p) { if (dealOk(p, filter.deal, cdeal)) { var v = totalPrice(p); if (v > 0 && isFinite(v)) vals.push(v); } });
+    if (!vals.length) return 0;
+    vals.sort(function (a, b) { return a - b; });
+    return vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.95))];
+  }
+  function extPrice() { return ext && ext.st && (ext.st.priceMin || ext.st.priceMax) ? ext.st : null; }
+  function priceGet() {
+    var e = extPrice();
+    return e ? { min: Number(e.priceMin) || 0, max: Number(e.priceMax) || 0 } : { min: filter.priceMin || 0, max: filter.budget || 0 };
+  }
+  function priceSet(min, max) {
+    var e = extPrice();
+    if (e) { e.priceMin = min || null; e.priceMax = max || null; }
+    else { filter.priceMin = min || 0; filter.budget = max || 0; }
+  }
+  function priceRange() {
+    var step = priceStep(), v = priceGet();
+    var top = Math.max(priceTop(), v.max, v.min, step);
+    return { step: step, top: Math.ceil(top / step) * step };
+  }
+  function moneyText(v) {
+    return v >= 1000000 ? (v / 1000000).toLocaleString('he-IL', { maximumFractionDigits: 2 }) + ' מיליון ₪' : '₪' + Math.round(v).toLocaleString('he-IL');
+  }
+  var priceDragT = 0;
+  function renderPrice() {
+    var host = $('swFBudget'), r = priceRange(), v = priceGet();
+    if (!host.querySelector('.sw-range')) {
+      host.innerHTML = '<div class="sw-range-out"><span id="swPMinOut"></span><span id="swPMaxOut"></span></div>' +
+        '<div class="sw-range"><div class="sw-range-track"><div class="sw-range-fill"></div></div>' +
+        '<div class="sw-range-h" role="slider" tabindex="0" data-h="min" aria-label="מחיר מינימלי"></div>' +
+        '<div class="sw-range-h" role="slider" tabindex="0" data-h="max" aria-label="מחיר מקסימלי"></div></div>';
+      bindPrice(host);
+    }
+    var lo = Math.min(v.min, r.top), hi = v.max ? Math.min(v.max, r.top) : r.top;
+    var pl = lo / r.top * 100, ph = hi / r.top * 100;
+    var hs = host.querySelectorAll('.sw-range-h');
+    hs[0].style.right = pl + '%'; hs[1].style.right = ph + '%';
+    var fill = host.querySelector('.sw-range-fill');
+    fill.style.right = pl + '%'; fill.style.width = (ph - pl) + '%';
+    var minT = lo ? 'מ-' + moneyText(lo) : 'ללא הגבלה', maxT = v.max && v.max < r.top ? 'עד ' + moneyText(hi) : 'ללא הגבלה';
+    $('swPMinOut').textContent = minT; $('swPMaxOut').textContent = maxT;
+    [[hs[0], lo, minT], [hs[1], hi, maxT]].forEach(function (x) {
+      x[0].setAttribute('aria-valuemin', '0'); x[0].setAttribute('aria-valuemax', String(r.top));
+      x[0].setAttribute('aria-valuenow', String(x[1])); x[0].setAttribute('aria-valuetext', x[2]);
+    });
+  }
+  function priceMove(which, val) {
+    var r = priceRange(), v = priceGet();
+    val = Math.max(0, Math.min(r.top, Math.round(val / r.step) * r.step));
+    var lo = v.min, hi = v.max || r.top;
+    if (which === 'min') lo = Math.min(val, hi - r.step);
+    else hi = Math.max(val, lo + r.step);
+    lo = Math.max(0, lo);
+    priceSet(lo, hi >= r.top ? 0 : hi);
+    renderPrice();
+    // המונה על "הצגת N נכסים" מתעדכן תוך כדי גרירה, בקצב סביר
+    if (!priceDragT) priceDragT = setTimeout(function () { priceDragT = 0; renderFilter(); }, 120);
+  }
+  function bindPrice(host) {
+    var track = host.querySelector('.sw-range'), drag = null;
+    function valAt(x) {
+      var b = track.getBoundingClientRect();
+      return (b.right - x) / b.width * priceRange().top;   // ‏RTL: הזול מימין
+    }
+    track.addEventListener('pointerdown', function (e) {
+      var h = e.target.closest('.sw-range-h');
+      if (!h) {   // הקשה על המסילה - הידית הקרובה זזה לשם
+        var v = valAt(e.clientX), g = priceGet(), hi = g.max || priceRange().top;
+        h = host.querySelector('[data-h="' + (Math.abs(v - g.min) <= Math.abs(v - hi) ? 'min' : 'max') + '"]');
+        priceMove(h.dataset.h, v);
+      }
+      drag = h.dataset.h; h.focus();
+      track.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    track.addEventListener('pointermove', function (e) { if (drag) priceMove(drag, valAt(e.clientX)); });
+    function end() { if (drag) { drag = null; clearTimeout(priceDragT); priceDragT = 0; renderFilter(); } }
+    track.addEventListener('pointerup', end);
+    track.addEventListener('pointercancel', end);
+    host.addEventListener('keydown', function (e) {
+      var h = e.target.closest('.sw-range-h');
+      if (!h) return;
+      var r = priceRange(), g = priceGet(), cur = h.dataset.h === 'min' ? g.min : (g.max || r.top);
+      // ‏RTL: חץ שמאלה מעלה את הערך (הזול מימין), כמו input range בכיוון rtl
+      var k = { ArrowLeft: r.step, ArrowUp: r.step, ArrowRight: -r.step, ArrowDown: -r.step, PageUp: 10 * r.step, PageDown: -10 * r.step }[e.key];
+      if (e.key === 'Home') k = -cur;
+      if (e.key === 'End') k = r.top - cur;
+      if (k === undefined) return;
+      e.preventDefault();
+      priceMove(h.dataset.h, cur + k);
+      clearTimeout(priceDragT); priceDragT = 0; renderFilter();
+    });
+  }
   function renderFilter() {
     renderExtChips();
     document.querySelectorAll('#swFDeal [data-deal]').forEach(function (b) {
@@ -666,7 +820,7 @@
     if (!cd.hidden) {
       cd.innerHTML = [['', 'הכול'], ['sale', 'למכירה'], ['rent', 'להשכרה']].map(function (x) {
         // בלי התקציב: הוא מתאפס במעבר בין השכרה למכירה, ומונה מולו היה מסתיר את האפשרות השנייה
-        var n = countFor({ cdeal: x[0], budget: 0 });
+        var n = countFor({ cdeal: x[0], budget: 0, priceMin: 0 });
         return n || x[0] === (filter.cdeal || '') ? chip(esc(x[1]) + ' · ' + n, 'data-cdeal="' + x[0] + '"', x[0] === (filter.cdeal || '')) : '';
       }).join('');
     }
@@ -694,8 +848,7 @@
     $('swFOther').hidden = !otherOpen;
     if (otherOpen) renderOther();
 
-    var budgets = budgetsFor();
-    $('swFBudget').innerHTML = budgets.map(function (v) { return chip(esc(budgetLabel(v, filter.deal)), 'data-budget="' + v + '"', filter.budget === v); }).join('');
+    renderPrice();
     var showRooms = filter.deal !== 'commercial';
     $('swFRooms').hidden = $('swFRoomsL').hidden = !showRooms;
     $('swFRooms').innerHTML = [0, 3, 4, 5].map(function (v) { return chip(v ? v + '+' : 'הכול', 'data-rooms="' + v + '"', filter.rooms === v); }).join('');
@@ -715,7 +868,7 @@
     $('swFReel').hidden = $('swFReelL').hidden = !reelN && !filter.reel;
     $('swFReel').innerHTML = chip('▶ רק נכסים עם סרטון ' + n(reelN), 'data-reelchip="1"', !!filter.reel);
     // §2: רק כשבשוק ובעסקה הזו יש לפחות דירה אחת ביריד עכשיו - אחרת לא מוצג בכלל (לא מתג כבוי ולא "0")
-    var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, rooms: 0, type: '', viz: false, reel: false });
+    var fairN = countFor({ fair: true, area: 'all', near: null, budget: 0, priceMin: 0, rooms: 0, type: '', viz: false, reel: false });
     $('swFFair').hidden = $('swFFairL').hidden = $('swFFairH').hidden = !fairN && !filter.fair;
     $('swFFair').innerHTML = chip('רק דירות ללא עמלת תיווך', 'data-fairchip="1"', !!filter.fair);
     $('swFPhotos').innerHTML = chip(esc(window.NoPhoto ? NoPhoto.STR.toggle : 'רק נכסים עם תמונות'), 'data-photos="1"', !!filter.photos);
@@ -806,8 +959,8 @@
   $('swFilter').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.deal) { if (b.dataset.deal !== filter.deal) { filter.type = ''; filter.cdeal = ''; } filter.deal = b.dataset.deal; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0; renderFilter(); return; }
-    if (b.hasAttribute('data-cdeal')) { filter.cdeal = b.getAttribute('data-cdeal'); filter.budget = 0; renderFilter(); return; }
+    if (b.dataset.deal) { if (b.dataset.deal !== filter.deal) { filter.type = ''; filter.cdeal = ''; } filter.deal = b.dataset.deal; filter.budget = 0; filter.priceMin = 0; if (filter.deal === 'commercial') filter.rooms = 0; renderFilter(); return; }
+    if (b.hasAttribute('data-cdeal')) { filter.cdeal = b.getAttribute('data-cdeal'); filter.budget = 0; filter.priceMin = 0; renderFilter(); return; }
     if (b.dataset.toggle === 'towns') { townsOpen = !townsOpen; renderFilter(); return; }
     if (b.dataset.toggle === 'other') { otherOpen = !otherOpen; renderFilter(); return; }
     if (b.dataset.group) { otherGroup = b.dataset.group; renderOther(); return; }
@@ -826,7 +979,6 @@
       shukTrack('region_select', { region: market ? market.slug : '', group: 'live', via: 'swipe_filter' });
       renderFilter(); return;
     }
-    if (b.dataset.budget) { filter.budget = Number(b.dataset.budget); renderFilter(); return; }
     if (b.dataset.rooms) { filter.rooms = Number(b.dataset.rooms); renderFilter(); return; }
     if (b.dataset.viz) { filter.viz = !filter.viz; renderFilter(); return; }
     if (b.dataset.type !== undefined) { filter.type = b.dataset.type; renderFilter(); return; }
@@ -858,7 +1010,7 @@
   $('swFReset').addEventListener('click', function () {
     ext = null; extQs = '';   // ‏"ניקוי הכול" - גם מה שהגיע מדף הבית
     // "ניקוי הכול": גם היריד, סוג הנכס והמיון; "רק עם תמונות" חוזר לדלוק
-    filter = { deal: filter.deal, area: 'all', budget: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
+    filter = { deal: filter.deal, area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
     sortKey = 'rec'; syncSortBtn();
     store('sk_swipe_photos_only', null);
     shukTrack('swipe_filter_clear', { view: view });
@@ -1081,6 +1233,7 @@
       var at = firstSession && s.firstSessionAt ? s.firstSessionAt : longDeck && s.longAt ? s.longAt : s.at;
       if (at === pos) out.push(s.kind);
     });
+    if (adviceOn() && pos >= ADVICE_EVERY && pos % ADVICE_EVERY === 0) out.push('advice');
     var last = SEQ_CONFIG.slots[SEQ_CONFIG.slots.length - 1].at;
     if (pos > last && (pos - last) % SEQ_CONFIG.cycleEvery === 0) {
       var k = (pos - last) / SEQ_CONFIG.cycleEvery - 1;
@@ -1109,6 +1262,16 @@
     }
     if (kind === 'nc_promo') return ncPromoOk() ? { slot: 'nc_promo', variant: all.some(fairLive) ? 'live' : 'wait' } : null;
     if (kind === 'seller') return sellerOk() ? { slot: 'seller' } : null;
+    if (kind === 'advice') {
+      if (filter.fair) return null;
+      var aud = ADVICE[filter.deal] ? filter.deal : 'sale';
+      for (var ti = 0; ti < ADVICE[aud].tips.length; ti++) {
+        if (used['adv:' + aud + ti] || shownGet('advice_' + aud + '_' + ti)) continue;
+        used['adv:' + aud + ti] = 1;
+        return { slot: 'advice', aud: aud, tip: ti };
+      }
+      return null;
+    }
     if (kind === 'article') {
       if (shownGet('article')) return null;
       var a = pickArticle();
@@ -1120,6 +1283,14 @@
      פעם בביקור כל אחד (‏sessionStorage, נספר כשהכרטיס נצפה), ודחייה נשמרת במכשיר */
   var DAY = 864e5;
   function shownGet(k) { return sessGet('sk_swipe_shown_' + k); }
+  function adviceOn() {
+    if (!document.documentElement.classList.contains('beta-hero')) return false;
+    return params.get('advice') === '1';
+  }
+  function poseImg(k, cls, cut) {
+    return '<img class="' + cls + '" src="/assets/gabriela-pose-' + k + '-400.webp" srcset="/assets/gabriela-pose-' + k + '-400.webp 400w, /assets/gabriela-pose-' + k + '-800.webp 800w"' +
+      ' sizes="(max-width:760px) 90vw, 420px" width="400" height="379" alt="" decoding="async"' + (cut ? ' style="--cut:' + cut + '"' : '') + ' onerror="this.style.visibility=\'hidden\'">';
+  }
   function ago(k) { var t = Number(store(k)) || 0; return t ? Date.now() - t : Infinity; }
   function ncPromoOk() {
     if (filter.fair || shownGet('nc_promo') || store('sk_fair_signed') === '1') return false;
@@ -1371,6 +1542,17 @@
         (pro.mortgage ? '<button type="button" class="sw-gold" data-spon-cta>השאירו פרטים</button>'
           : '<a class="sw-gold" data-spon-link data-professional href="/professional?slug=' + encodeURIComponent(pro.slug || '') + '">לדף בעל המקצוע ←</a>') + '</div></article>';
     }
+    if (c.slot === 'advice') {
+      var ad = ADVICE[c.aud], tip = ad.tips[c.tip];
+      return '<article class="sw-card sw-adv" data-slot="advice" aria-label="' + esc('עצה מגבריאלה: ' + tip[1]) + '">' + dbg +
+        '<div class="sw-adv-hero">' + poseImg(tip[0], 'sw-adv-gab', ADVICE_CUT[tip[0]] || 0) +
+        '<div class="sw-adv-copy"><span class="sw-adv-lbl"><i aria-hidden="true"></i>עצה מגבריאלה</span>' +
+        '<h2 class="sw-adv-h">קבלו עצה ממומחה</h2><p class="sw-adv-aud">' + esc(ad.aud) + '</p></div></div>' +
+        '<div class="sw-adv-panel"><p class="sw-adv-n">עצה ' + (c.tip + 1) + ' מתוך ' + ad.tips.length + '</p>' +
+        '<h3 class="sw-adv-t">' + esc(tip[1]) + '</h3><p class="sw-adv-x">' + esc(tip[2]) + '</p>' +
+        '<button type="button" class="sw-navy sw-wide" data-promo-go>לעוד עצות</button>' +
+        '<p class="sw-adv-hint">החליקו להמשך לנכסים</p></div></article>';
+    }
     if (c.slot === 'article') {
       var a = c.article;
       return '<article class="sw-card sw-art" data-slot="article" aria-label="' + esc('כתבה: ' + a.title) + '">' + dbg +
@@ -1420,7 +1602,7 @@
   /* ‏R8: "ראיתם את כל הנכסים בסינון הזה" - לפני הנכסים שכבר נראו. כל כפתור רק כשהוא רלוונטי.
      ההתראה היא אותו טופס בדיוק (‏alertBlock/submitAlert); לא מוצעת שוב לאותו סינון (גבריאלה) */
   function alertSig() {
-    return JSON.stringify([filter.deal, filter.cdeal || '', filter.area, filter.rooms || 0, filter.budget || 0, filter.type || '', extQs || '']);
+    return JSON.stringify([filter.deal, filter.cdeal || '', filter.area, filter.rooms || 0, filter.budget || 0, filter.priceMin || 0, filter.type || '', extQs || '']);
   }
   function alertSentFor(sig) {
     try { return (JSON.parse(store('sk_swipe_alert_sigs') || '[]') || []).indexOf(sig) >= 0; } catch (e) { return false; }
@@ -1848,7 +2030,7 @@
     $('swCall').hidden = !phone; $('swWa').hidden = !phone;
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
-      $('swWa').href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים');
+      $('swWa').href = waHref(p, phone);
     }
     $('swLike').setAttribute('aria-pressed', String(!!(p && likes.indexOf(p.id) >= 0)));
     // ‏WCAG 2.5.3: השם הנגיש מכיל את המילה הגלויה מתחת לכפתור ("שמירה", גם במחשב - תומר 29.10)
@@ -1956,6 +2138,7 @@
       } else { shukTrack('nc_promo_click', { cta: 'signup' }); openFairSignup('swipe_promo'); }
     } else if (c.slot === 'seller') { shukTrack('seller_card_click', { cta: 'open' }); openSeller(); }
     else if (c.slot === 'article') openArticle(c, via);
+    else if (c.slot === 'advice') { shukTrack('advice_more_open', { audience: c.aud, tip: c.tip + 1 }); bsOpen('advice', c); }
   }
   function promoSeen(c) {
     sessSet('sk_swipe_shown_' + c.slot);
@@ -1963,7 +2146,10 @@
       if (c.variant === 'wait') store('sk_nc_promo_wait_seen', String(Date.now()));
       shukTrack('nc_promo_view', { variant: c.variant, position: c.pos });
     } else if (c.slot === 'seller') shukTrack('seller_card_view', { position: c.pos, deal: filter.deal });
-    else if (c.slot === 'article') {
+    else if (c.slot === 'advice') {
+      sessSet('sk_swipe_shown_advice_' + c.aud + '_' + c.tip);
+      shukTrack('advice_card_view', { audience: c.aud, tip: c.tip + 1, position: c.pos });
+    } else if (c.slot === 'article') {
       var m = artSeen(); m[c.article.id] = Date.now(); store('sk_swipe_art_seen', JSON.stringify(m));
       shukTrack('article_card_view', { article_id: String(c.article.id), position: c.pos, deal: articleDeal(c.article) });
     }
@@ -2227,7 +2413,8 @@
   }
   function formHtml(c, preset, fullMsg) {
     var p = c.p;
-    var msg = p ? (fullMsg || (preset ? 'היי, ' + preset + ': ' + title(p) : 'היי, ראיתי את ' + title(p) + ' בשוק הנדל״ן ואשמח לפרטים')) : '';
+    // ברירת המחדל: המותג, והקישור הקצר בשורה נפרדת בסוף (כמו בוואטסאפ, ‏shortUrl)
+    var msg = p ? (fullMsg || (preset ? 'היי, ' + preset + ': ' + title(p) : 'היי, ראיתי את ' + title(p) + ' בשוק נדל״ן ואשמח לפרטים\n' + shortUrl(p))) : '';
     return '<form class="sw-lead" id="leadForm" hidden novalidate>' +
       '<label class="sw-field"><span>שם</span><input id="swLName" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון</span><input id="swLPhone" type="tel" inputmode="tel" autocomplete="tel" required></label>' +
@@ -2768,6 +2955,7 @@
       contact_channel: isMail ? 'email' : 'whatsapp' };
     if (isMail) body.email = contact; else body.phone = contact;
     if (f.budget) body.max_price = f.budget;
+    if (f.priceMin) body.min_price = f.priceMin;
     if (f.rooms) body.min_rooms = f.rooms;
     body.cities = f.area === 'main' ? [mainCity] : f.area.indexOf('city:') === 0 ? [f.area.slice(5)]
       : (market && market.places ? market.places.slice(0, 10) : [mainCity]);
@@ -2782,8 +2970,8 @@
     }, function (e) { err.textContent = errText(e, 'השליחה לא הצליחה. בדקו את החיבור ונסו שוב.'); btn.disabled = false; });
   }
   function shareLikes() {
-    var urls = likes.map(function (id) { return location.origin + '/property?id=' + encodeURIComponent(id); });
-    var text = 'הנכסים ששמרתי בשוק הנדל״ן:\n' + urls.join('\n');
+    var urls = likedProps().map(shortUrl);
+    var text = 'הנכסים ששמרתי בשוק נדל״ן:\n' + urls.join('\n');
     shukTrack('swipe_share', { method: navigator.share ? 'native' : 'whatsapp', count: likes.length });
     if (navigator.share) { navigator.share({ text: text }).catch(function () {}); return; }
     var a = document.createElement('a');
@@ -3021,6 +3209,14 @@
         '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa">וואטסאפ</a>' +
         '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call">חיוג</a></div>';
     } },
+    // §5b: חמש העצות של הקהל, ההסתייגות, והפנייה ליועץ הנדל״ן של הנכס
+    advice: { art: '', title: 'קבלו עצה ממומחה', sub: '', btns: [], body: function (c) {
+      var ad = ADVICE[(c && c.aud) || 'sale'];
+      return '<p class="sw-adv-sh-aud">' + esc(ad.aud) + '</p><ol class="sw-adv-list">' + ad.tips.map(function (t, i) {
+        return '<li' + (c && c.tip === i ? ' class="is-cur"' : '') + '><span class="sw-adv-num" aria-hidden="true">' + (i + 1) + '</span><div><h3>' + esc(t[1]) + '</h3><p>' + esc(t[2]) + '</p></div></li>';
+      }).join('') + '</ol><p class="sw-adv-ask">יש שאלה על נכס מסוים? אפשר לפנות ליועץ הנדל״ן שמטפל בו, דרך דף הנכס.</p>' +
+        '<p class="sw-adv-disc">מידע כללי בלבד, ואינו מחליף ייעוץ משפטי, מיסויי או מקצועי.</p>';
+    } },
     viz: { art: VIZ_ART, title: 'ככה זה יכול להיראות', sub: 'גררו את הידית שבאמצע כדי להשוות בין הצילום האמיתי להדמיית AI של הנכס.',
       btns: [['viz_ok', 'sw-navy', 'הבנתי, בואו נשווה'], ['studio', 'sw-white', '✨ צרו הדמיה בסגנון אחר']] }
   };
@@ -3243,7 +3439,12 @@
     if (p) propLinkOpen(p, 'likes');
   });
   $('swLvShare').addEventListener('click', function () { shareLikes(); });
-  $('swLvBack').addEventListener('click', function () { setView('deck'); });
+  /* §9: הכפתור שבמועדפים חוזר לאותו מקום כמו "אחורה" של הדפדפן - התצוגה שממנה הגיעו.
+     הנוסחים למפה ולרשימה - הצעה, ממתינים לגבריאלה */
+  // החץ הוא אייקון נפרד בכפתור (‏swipe.html, ‏.sw-back-ico), ולכן הטקסט בלעדיו
+  var LV_BACK = { deck: 'חזרה להחלקה', map: 'חזרה למפה', list: 'חזרה לרשימה' };
+  function syncLvBack() { $('swLvBackT').textContent = LV_BACK[likesReturnView()] || LV_BACK.deck; }
+  $('swLvBack').addEventListener('click', function () { setView(view === 'likes' ? likesReturnView() : 'deck'); });
   $('swLvStart').addEventListener('click', function () { setView('deck'); });
 
   /* גבריאלה (‏gabriela-widget.js) בדף הזה: הכפתור הכחול מחיל את הסינון במקום ולא טוען מחדש */
@@ -3303,7 +3504,7 @@
       var b = e.target.closest('[data-kind]');
       if (!b || b.dataset.kind === filter.deal) return;
       shukTrack('map_legend_toggle', { kind: b.dataset.kind, on: 1, view: 'swipe_map' });
-      filter.deal = b.dataset.kind; filter.budget = 0; if (filter.deal === 'commercial') filter.rooms = 0;
+      filter.deal = b.dataset.kind; filter.budget = 0; filter.priceMin = 0; if (filter.deal === 'commercial') filter.rooms = 0;
       filter.type = '';   // סוג של עסקה אחת (דירה) מול אחרת (מסחרי) היה מוביל לאפס
       buildDeck(); renderFilter();
     });
@@ -3484,6 +3685,19 @@
     if (c && c.p) propLinkOpen(c.p, 'list');
   });
   function likesReturnView() { return preLikes === 'map' || preLikes === 'list' ? preLikes : 'deck'; }
+  /* §9 (תומר 30.10): "אחורה" מ"המועדפים" - של הדפדפן או של הטלפון - חוזר לתצוגה שממנה הגיעו, באותו
+     מצב, כמו הכפתורים שבדף. הכניסה דוחפת רשומה אחת; יציאה מכפתור בדף מוציאה אותה (‏history.back),
+     כדי שלא תישאר רשומה ישנה ו"אחורה" אחר כך יתנהג כמו קודם. גיליון שנפתח מעל המועדפים נסגר קודם
+     (הרשומה שלו מעל זו). הגלילה ברשימה נשמרת ומשוחזרת */
+  var likesPushed = false, likesOwnBack = false, likesScroll = 0, likesResume = null;
+  window.addEventListener('popstate', function (e) {
+    // הכתובת נכתבת רק עכשיו, על הרשומה שאליה חזרנו - ולא על רשומת המועדפים שיצאה (סינון שהשתנה במועדפים)
+    if (likesOwnBack) { likesOwnBack = false; writeUrl(); syncLvBack(); return; }
+    if (!likesPushed || view !== 'likes') return;
+    if (e.state && e.state.swView === 'likes') return;   // רק הגיליון שמעל נסגר
+    likesPushed = false;
+    setView(likesReturnView(), false, false, true);
+  });
   /* ‏A2-5 (תומר 20:03): בהחלקה על היריד, "רשימה" היא דף היריד עצמו - שם הספירה לאחור, הטופס
      וההסבר. אותו סינון שאפשר להעביר: עסקה, יישוב וחדרים (‏open-house-v10.js מדליק את התגיות) */
   function fairListHref(src) {
@@ -3495,7 +3709,7 @@
     q.set('src', src || 'swipe_list');
     return '/open-house?' + q.toString();
   }
-  function setView(v, likedOnly, npOnly) {
+  function setView(v, likedOnly, npOnly, fromPop) {
     /* ‏F8a: ההדרכה שייכת להחלקה - מעבר לרשימה, למפה או ל"אהבתי" סוגר אותה, בלי לסמן אותה
        כ"נראתה" (בביקור הבא היא תוצג שוב, כמו מי שלא סיים/ה אותה) */
     if (v !== 'deck' && !$('swTour').hidden) {
@@ -3509,7 +3723,21 @@
       location.href = fairListHref('swipe_list');
       return;
     }
-    if (v === 'likes' && view !== 'likes') preLikes = view;
+    var deferUrl = false;
+    if (v === 'likes' && view !== 'likes') {
+      likesScroll = window.scrollY;
+      if (likesResume !== null) {
+        // חזרה ב"אחורה" מדף נכס אל ‎?view=likes‎: הרשומה כבר כאן - לא דוחפים שנייה, והמקור נשמר בה
+        preLikes = likesResume; likesResume = null; likesPushed = true;
+      } else {
+        preLikes = view;
+        try { history.pushState({ swView: 'likes', from: preLikes }, ''); likesPushed = true; } catch (e) { likesPushed = false; }
+      }
+    } else if (view === 'likes' && v !== 'likes' && likesPushed && !fromPop) {
+      likesPushed = false; likesOwnBack = true;
+      try { history.back(); deferUrl = true; } catch (e) { likesOwnBack = false; }
+    }
+    var backToList = view === 'likes' && v === 'list' && preLikes === 'list';
     // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
     if (v !== 'map' && v !== 'likes') lastView = v;
     else if (v === 'map' && view !== 'map' && view !== 'likes') lastView = view;
@@ -3527,9 +3755,11 @@
     if (v === 'likes') $('swLikes').setAttribute('aria-current', 'page'); else $('swLikes').removeAttribute('aria-current');
     setTimeout(reelSync, 0);
     if (v === 'list') renderList();
+    if (backToList) window.scrollTo(0, likesScroll);
     if (v === 'likes') { renderLikesView(); window.scrollTo(0, 0); }
     if (v === 'map') { initMap(); if (map) setTimeout(function () { map.invalidateSize(); drawMapMarkers(); }, 30); }
-    writeUrl();
+    if (!deferUrl) writeUrl();
+    if (v === 'likes') syncLvBack();
     /* ‏P1-G: "?" מסביר איך מחליקים - רק בהחלקה. visibility ולא display, כדי שהפס לא יקפוץ */
     var help = $('swHelp'), onDeck = v === 'deck';
     help.style.visibility = onDeck ? '' : 'hidden';
@@ -3757,7 +3987,7 @@
   /* ---------- התחלה ---------- */
   // ‏P1-S: מי שנכנס/ה להחלקה פעם אחת - בלי נענוע לכפתור בדף הבית
   try { localStorage.setItem('sk_swipe_used', '1'); } catch (e) { /* מצב פרטי */ }
-  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'type', 'photos', 'fair', 'sort', 'view', 'hf'].some(function (k) { return params.has(k); });
+  var urlHasFilter = ['deal', 'area', 'rooms', 'budget', 'pmin', 'pmax', 'type', 'photos', 'fair', 'sort', 'view', 'hf'].some(function (k) { return params.has(k); });
   /* ‏P1-L: חזרה מדף נכס לרשימה - אותו נכס באותו מקום. נשמר ב-pagehide לפי הכתובת, עם עוגן
      (הנכס העליון שנראה) ולא רק פיקסלים, כי תמונות שעוד לא נטענו מזיזות את הגובה */
   var SCROLL_KEY = 'sk_sw_scroll';
@@ -3804,6 +4034,8 @@
       buildDeck();
       maybeResume();
       var v0 = params.get('view');
+      var hs = history.state;
+      if (v0 === 'likes' && hs && hs.swView === 'likes') likesResume = hs.from === 'map' || hs.from === 'list' ? hs.from : 'deck';
       if (v0 === 'list' || v0 === 'map' || v0 === 'likes') setView(v0);
       if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {

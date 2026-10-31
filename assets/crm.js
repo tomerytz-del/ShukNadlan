@@ -20829,7 +20829,7 @@ function leadFairChip(lead){
   if (!lead) return '';
   const row = leadFairByLead.get(lead.id);
   if (row && row.status === 'pending_owner_decision'){
-    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהדירה ביריד. ההנחה בעמלה ממתינה להחלטה') + '">ממתין להחלטה</span>';
+    return '<span class="lc-fair is-pending" title="' + esc('הפנייה נרשמה בזמן שהנכס היה ביריד. ההנחה בעמלה ממתינה להחלטה.') + '">ממתין להחלטה</span>';
   }
   if (!row && lead.open_house_eligible !== true) return '';
   const endRaw = row ? row.fair_end : lead.open_house_end_snapshot;
