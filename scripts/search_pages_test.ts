@@ -344,7 +344,8 @@ for (const [name, url] of UNTOUCHED) {
   check(
     "כשל קריאה: גוף חדש ו-Vary",
     broken.status === 200 && brokenHtml === PAGE
-      && (broken.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon"),
+      && (broken.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && broken.headers.get("Netlify-CDN-Cache-Control") === "no-store",
     String(broken.status) + " " + brokenHtml.slice(0, 40),
   );
   check(

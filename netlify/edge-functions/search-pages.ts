@@ -431,10 +431,12 @@ export default async function handler(request: Request, context: Context) {
          max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store
          מ-withDecisionCookies, וה-Vary נכתב גם אז. */
       setHomeCache(headers);
+      fallback.body?.cancel();
       return new Response(out, { status: res.status, headers });
     } catch {
       const headers = new Headers(fallback.headers);
       headers.set("Netlify-Vary", HOME_VARY);
+      headers.set("Netlify-CDN-Cache-Control", "no-store");
       return new Response(fallback.body, {
         status: fallback.status,
         statusText: fallback.statusText,
