@@ -14,7 +14,7 @@
    מחשב (760 ומעלה): שורות בתוך הסרגל. טלפון: כפתור "סינון לפי התמחות ואזור" עם מונה,
    הבחירות כצ'יפים עם ✕, וגיליון תחתון עם טיוטה שמוחלת ב"הצגת N".
    הכתובת: ‏?dm_spec=commercial,rent&dm_area=hood:<id>,city:<id> (ערך יחיד ישן עדיין נקרא).
-   רק ב-?beta=1 (‏החלטה ד-21). בלי הדגל mount מחזיר null והדף כמו שהיה.
+   בעיצוב v10 (‏החלטה ד-21), שהוא ברירת המחדל מ-31.10.2026. ב-?beta=0 mount מחזיר null והדף כמו שהיה.
    ============================================================================ */
 (function (global) {
   'use strict';
@@ -47,11 +47,11 @@
 
   function on() {
     try {
+      // ‏v10 ברירת מחדל מ-31.10.2026: כבוי רק ב-?beta=0 או sk_beta_hero='0' (כמו בראש index.html)
       var q = new URLSearchParams(location.search).get('beta');
-      if (q === '1') { try { localStorage.setItem('sk_beta_hero', '1'); } catch (e) {} return true; }
-      if (q === '0') { try { localStorage.removeItem('sk_beta_hero'); } catch (e) {} return false; }
-      return localStorage.getItem('sk_beta_hero') === '1';
-    } catch (e) { return false; }
+      if (q === '1' || q === '0') { try { localStorage.setItem('sk_beta_hero', q); } catch (e) {} return q === '1'; }
+      return localStorage.getItem('sk_beta_hero') !== '0';
+    } catch (e) { return true; }
   }
 
   /* העיצוב (‏assets/filter-ui.css) נטען מכאן ולא ב-<link> בדף: הרכיב רק ב-beta, ורחוק

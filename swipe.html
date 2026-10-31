@@ -9,12 +9,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
-<!-- דגל v10 (‏?beta=1 / ‏?beta=0), אותו קוד כמו ב-index.html. בלי הדגל הדף הזה אינו קיים: חזרה לדף הבית. docs/swipe-mode.md -->
-<script>(function(){try{var q=new URLSearchParams(location.search).get('beta');
-if(q==='1')localStorage.setItem('sk_beta_hero','1');
-if(q==='0')localStorage.removeItem('sk_beta_hero');
-if(localStorage.getItem('sk_beta_hero')==='1')document.documentElement.classList.add('beta-hero');}catch(e){}
-if(!document.documentElement.classList.contains('beta-hero'))location.replace('/');})();</script>
+<!-- דגל v10, אותו קוד כמו ב-index.html (פתוח כברירת מחדל מ-31.10.2026). ב-?beta=0 הדף הזה אינו קיים: חזרה לדף הבית הישן. docs/swipe-mode.md -->
+<script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
+if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
+try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
+if(on)document.documentElement.classList.add('beta-hero');
+else location.replace(q==='0'?'/?beta=0':'/');})();</script>
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/likes-store.js"></script>

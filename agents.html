@@ -336,7 +336,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .join-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 
   /* ====== Footer (זהה לשאר הדפים) ====== */
-  /* ‏P1-U1 (‏assets/dm-filters.js, רק ב-?beta=1) */
+  /* ‏P1-U1 (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0) */
   /* ‏R8: עיצוב הסינון ב-assets/filter-ui.css (נטען מ-dm-filters.js); כאן רק מה ששייך לדף */
   .dmf-on > :not(#dmfEmpty){display:none}
   .adv-sel{min-height:44px;max-width:100%;padding:0 12px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif;cursor:pointer}
@@ -830,7 +830,7 @@ let agencyOptions = [];   // [{key, label}] — נבנה מהמתווכים שנ
 let specOptions = [];     // [{key, label}] — תחומי ההתמחות שהוקלדו ב-CRM
 let filters = { query:'', agency:'all', spec:'all', rate:'all' };
 let sortMode = 'rating';
-let dmf = null;             // ‏P1-U1: התמחות ואזור מהנכסים (‏assets/dm-filters.js, רק ב-?beta=1)
+let dmf = null;             // ‏P1-U1: התמחות ואזור מהנכסים (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0)
 let allProps = [];
 
 /* מדרגות הדירוג. "עם ביקורות" הוא לא סף אלא שאלה אחרת לגמרי — "הראו לי רק
@@ -1008,7 +1008,7 @@ function renderCounts(list){
   // עצמה שייכת לו — אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
   countPills('agencyPills', 'agency', (a, key)=> matchesAgency(a, key));
   syncOfficeSelect();
-  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));   // ‏null ב-?beta=1 - ראו mountDm
+  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));   // ‏null בעיצוב v10 - ראו mountDm
   countPills('ratePills',   'rate',   (a, key)=> matchesRate(a, key));
 }
 
