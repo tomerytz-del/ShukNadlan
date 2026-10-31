@@ -12,7 +12,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
-import { setHomeCache } from "./lib/page-cache.ts";
+import { HOME_VARY, setHomeCache, withHomeVary } from "./lib/page-cache.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
@@ -144,10 +144,10 @@ function cacheHeaders(headers: Headers): void {
 }
 
 export default async function handler(request: Request, context: Context) {
-  if (request.method !== "GET" && request.method !== "HEAD") return context.next();
+  if (request.method !== "GET" && request.method !== "HEAD") return withHomeVary(await context.next());
   let url: URL;
-  try { url = new URL(request.url); } catch { return context.next(); }
-  if (!isHome(url) || hasContent(url.searchParams)) return context.next();
+  try { url = new URL(request.url); } catch { return withHomeVary(await context.next()); }
+  if (!isHome(url) || hasContent(url.searchParams)) return withHomeVary(await context.next());
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -157,12 +157,13 @@ export default async function handler(request: Request, context: Context) {
   if (!res.ok || !type.includes("text/html") || (res.status >= 300 && res.status < 400)) {
     ctrl.abort();
     clearTimeout(timer);
-    return res;
+    return withHomeVary(res);
   }
 
   const html = await res.text();
   const headers = new Headers(res.headers);
   headers.delete("content-length");
+  headers.set("Netlify-Vary", HOME_VARY);
   const passthrough = () => new Response(html, { status: res.status, headers });
 
   try {

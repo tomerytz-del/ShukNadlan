@@ -318,8 +318,24 @@ for (const [name, url] of UNTOUCHED) {
     "עמוד תוצאות: אותו Vary ו-s-maxage",
     vary.includes("cookie=shuk_market|shuk_soon") && vary.includes("query=deal|") && !vary.includes("utm")
       && cdn.includes("s-maxage=3600") && cdn.includes("stale-while-revalidate=600")
-      && res.headers.get("Cache-Control") === "public, s-maxage=3600",
+      && res.headers.get("Cache-Control") === "public, max-age=0, must-revalidate"
+      && !(res.headers.get("CDN-Cache-Control") || "").includes("s-maxage"),
     vary + " | " + cdn + " | " + res.headers.get("Cache-Control"),
+  );
+  const plain = await handler(new Request(`${SITE}/`), contextFor(PAGE));
+  await plain.text();
+  const missed = await handler(new Request(`${SITE}/?q=לא-ברשימה`), contextFor(PAGE));
+  await missed.text();
+  const other = await handler(
+    new Request(`${SITE}/`),
+    { next: async () => new Response("{}", { headers: { "content-type": "application/json" } }) } as never,
+  );
+  check(
+    "יציאה בלי עמוד תוצאות: אותו Vary",
+    (plain.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && (missed.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && (other.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && !plain.headers.get("Netlify-CDN-Cache-Control"),
   );
 }
 

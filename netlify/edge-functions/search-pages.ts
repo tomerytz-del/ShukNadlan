@@ -56,9 +56,11 @@
 
    ## מטמון
 
-   אותה מדיניות כמו רשימת דף הבית (`lib/page-cache.ts`): שעה ב-CDN,
-   ‏stale-while-revalidate לעשר דקות, ו-Netlify-Vary על עוגיות השוק
-   ועל פרמטרי התוכן. ‏utm, ‏gclid ו-fbclid אינם חלק מהמפתח.
+   אותה מדיניות כמו רשימת דף הבית (`lib/page-cache.ts`): שעה ב-CDN
+   דרך Netlify-CDN-Cache-Control בלבד, ‏stale-while-revalidate לעשר
+   דקות, ו-Cache-Control של ‏max-age=0 לדפדפן ולפרוקסי משותף.
+   ‏Netlify-Vary על עוגיות השוק ועל פרמטרי התוכן, גם ביציאה בלי מטמון.
+   ‏utm, ‏gclid ו-fbclid אינם חלק מהמפתח.
    תשובה עם Set-Cookie נשארת private, no-store.
 
    התיעוד: ‎docs/search-landing-pages.md‎.
@@ -66,7 +68,7 @@
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import { decide, registry } from "./lib/markets.ts";
-import { HOME_VARY, setHomeCache } from "./lib/page-cache.ts";
+import { HOME_VARY, setHomeCache, withHomeVary } from "./lib/page-cache.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
@@ -406,29 +408,29 @@ export default async function handler(request: Request, context: Context) {
 
   // רק HTML
   const type = res.headers.get("content-type") || "";
-  if (!type.includes("text/html")) return res;
+  if (!type.includes("text/html")) return withHomeVary(res);
 
   try {
     const url = new URL(request.url);
     const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
-    if (page !== "/" && page !== "/index") return res;
+    if (page !== "/" && page !== "/index") return withHomeVary(res);
 
     // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף.
     // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
     const params = url.searchParams;
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
-    if (!match) return res;
+    if (!match) return withHomeVary(res);
     const city = cityFromParams(params);
     const out = inject(await res.text(), city ? withCity(match, city) : match);
 
     const headers = new Headers(res.headers);
-    /* אותה מדיניות כמו home-listings: s-maxage, בלי max-age=0,
-       ו-Netlify-Vary על העוגיות ועל פרמטרי התוכן. Set-Cookie נשאר no-store
+    /* s-maxage רק ב-Netlify-CDN-Cache-Control. Cache-Control הוא
+       max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store
        מ-withDecisionCookies, וה-Vary נכתב גם אז. */
     setHomeCache(headers);
     return new Response(out, { status: res.status, headers });
   } catch {
-    return res; // הזרקה שנכשלה לא תשבור את דף הבית
+    return withHomeVary(res); // הזרקה שנכשלה לא תשבור את דף הבית
   }
 }
 
