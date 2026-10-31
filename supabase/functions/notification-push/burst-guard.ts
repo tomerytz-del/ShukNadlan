@@ -61,6 +61,6 @@ export function burstText(
   return [
     first ? `${first}, ${line}` : line,
     `${siteBase}/crm?goto=bell`,
-    `להפסקת ההתראות בוואטסאפ: ${manageUrl}`,
+    ...(manageUrl ? [`להפסקת ההתראות בוואטסאפ: ${manageUrl}`] : []),
   ].join("\n");
 }
