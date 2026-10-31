@@ -721,7 +721,7 @@ const OFFICE = {
 async function renderRouted(row: Record<string, unknown>, list: unknown): Promise<string> {
   globalThis.fetch = (async (input: string | URL | Request) => {
     const u = String(input instanceof Request ? input.url : input);
-    const body = u.includes("limit=40") ? list : row;
+    const body = u.includes("order=id.asc") ? list : row;
     return new Response(JSON.stringify(body), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -743,18 +743,33 @@ const aloneTitle = tabTitle(aloneHtml);
 const twinTitle = tabTitle(twinHtml);
 const airDesc = descOf(airHtml);
 const aloneDesc = descOf(aloneHtml);
+const rentHtml = await renderRouted({ ...OFFICE, deal_type: "rent", price: 3500 }, [OFFICE]);
+const rentDesc = descOf(rentHtml);
+const freeHtml = await renderRouted(
+  { ...OFFICE, price: null },
+  [OFFICE, { ...OFFICE, id: "22222222-2222-4222-8222-222222222222", price: null, size_sqm: "140" }],
+);
+const freeTitle = tabTitle(freeHtml);
 propHttp.push(
   ["כותרת יחידה בלי מבדיל", aloneTitle === "משרדים בהמלאכה 25, עפולה | שוק נדל״ן"],
   ["כותרת כפולה מקבלת שטח, וה-H1 נשאר בלי מבדיל",
     twinTitle.includes("80 מ״ר") && !twinTitle.includes("140")
     && /<h1 class="prop-title" id="propTitle">משרדים בהמלאכה 25, עפולה<\/h1>/.test(twinHtml)],
-  ["תיאור קצר מקבל משפט ניטרלי עד 155",
-    aloneDesc.includes("משרד למכירה באזור התעשייה. תמונות, מפה ופרטי קשר ישירים.")
+  ["תיאור קצר: משפט מכירה, שכונה, בלי רחוב ובלי פרטי קשר",
+    aloneDesc.includes("משרד למכירה באזור התעשייה. תמונות, מפה ופנייה מהירה דרך האתר.")
+    && !aloneDesc.includes("משרד למכירה בהמלאכה")
+    && !aloneDesc.includes("פרטי קשר")
+    && !aloneDesc.includes("למכירה/להשכרה")
     && aloneDesc.length <= 155],
   ["כיווני אוויר וסלון נשארים בנוסח מספרי",
     airDesc.includes("כיווני אוויר") && airDesc.includes("סלון של")
     && !airDesc.includes("סלון גדול") && !airDesc.includes("מרווח")
     && airDesc.length <= 155],
+  ["השכרה: מילה אחת, לא למכירה",
+    rentDesc.includes("משרד להשכרה באזור התעשייה. תמונות, מפה ופנייה מהירה דרך האתר.")
+    && !rentDesc.includes("למכירה")],
+  ["בלי מחיר: אין ₪0 בכותרת",
+    freeTitle.includes("80 מ״ר") && !freeTitle.includes("₪0") && !freeTitle.includes("₪")],
 );
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;

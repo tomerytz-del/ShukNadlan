@@ -205,55 +205,67 @@ export function noindex(html: string): string {
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
-/* מודעות פעילות לפי שם עיר, והשוק. null = לא ידענו - לא מוחקים קישורים. */
-async function cityListings(): Promise<Map<string, { listings: number; marketSlug: string | null }> | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-  try {
+/* עמודים של 1,000 לפי סדר יציב. עמוד מלא אינו הסוף. כשל או עמוד
+   שנחתך מחזירים null, כדי לא להחליט על ספירה חלקית. */
+async function fetchAll(
+  path: string,
+  order: string,
+  signal: AbortSignal,
+): Promise<Record<string, unknown>[] | null> {
+  const all: Record<string, unknown>[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; offset <= pageSize * 20; offset += pageSize) {
+    const join = path.includes("?") ? "&" : "?";
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/properties?status=eq.active&select=city,city_id&limit=1000`,
+      `${SUPABASE_URL}/rest/v1/${path}${join}order=${order}&limit=${pageSize}&offset=${offset}`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           Accept: "application/json",
         },
-        signal: ctrl.signal,
+        signal,
       },
     );
     if (!res.ok) return null;
     const data = await res.json();
     if (!Array.isArray(data)) return null;
-    const ids = [...new Set(data.map((row) => String((row as { city_id?: unknown }).city_id || "").trim()).filter(Boolean))];
+    all.push(...data as Record<string, unknown>[]);
+    if (data.length < pageSize) return all;
+  }
+  return null;
+}
+
+/* מודעות פעילות לפי שם עיר, והשוק. null = לא ידענו - לא מוחקים קישורים. */
+async function cityListings(): Promise<Map<string, { listings: number; marketSlug: string | null }> | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const props = await fetchAll(
+      "properties?status=eq.active&select=city,city_id",
+      "id.asc",
+      ctrl.signal,
+    );
+    if (!props) return null;
+    const markets = await fetchAll(
+      "market_cities_public?select=city_id,market_slug",
+      "city_id.asc",
+      ctrl.signal,
+    );
+    if (!markets) return null;
     const marketById = new Map<string, string>();
-    if (ids.length) {
-      const marketRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/market_cities_public?select=city_id,market_slug&city_id=in.(${ids.join(",")})&limit=1000`,
-        {
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            Accept: "application/json",
-          },
-          signal: ctrl.signal,
-        },
-      );
-      if (!marketRes.ok) return null;
-      const markets = await marketRes.json();
-      if (!Array.isArray(markets)) return null;
-      for (const row of markets) {
-        const id = String((row as { city_id?: unknown }).city_id || "").trim();
-        const slug = String((row as { market_slug?: unknown }).market_slug || "").trim();
-        if (id && slug) marketById.set(id, slug);
-      }
+    for (const row of markets) {
+      const id = String(row.city_id || "").trim();
+      const slug = String(row.market_slug || "").trim();
+      if (id && slug) marketById.set(id, slug);
     }
     const byName = new Map<string, { listings: number; marketSlug: string | null }>();
-    for (const row of data) {
-      const name = String((row as { city?: unknown }).city || "").trim();
+    for (const row of props) {
+      const name = String(row.city || "").trim();
       if (!name) continue;
       const cur = byName.get(name) || { listings: 0, marketSlug: null };
       cur.listings += 1;
-      const slug = marketById.get(String((row as { city_id?: unknown }).city_id || "").trim());
+      const slug = marketById.get(String(row.city_id || "").trim());
       if (slug) cur.marketSlug = slug;
       byName.set(name, cur);
     }

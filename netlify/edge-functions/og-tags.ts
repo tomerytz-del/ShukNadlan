@@ -341,8 +341,11 @@ function bitDeal(p: Record<string, unknown>): string {
   if (p.deal_type === "sale") return "למכירה";
   return "";
 }
+/* מחיר חסר או 0 אינו מבדיל. nis(null) הוא "₪0", וזה אסור בכותרת. */
 function bitPrice(p: Record<string, unknown>): string {
-  return nis(p.price);
+  const v = Number(p.price);
+  if (!Number.isFinite(v) || v <= 0) return "";
+  return "₪" + v.toLocaleString("he-IL");
 }
 
 function titleSuffix(self: Record<string, unknown>, rows: Record<string, unknown>[]): string {
@@ -396,11 +399,19 @@ const LISTING_NOUN: Record<string, string> = {
   "בניין": "בניין",
 };
 
+/* מקום הוא שם שכונה או שם עיר בלבד. רחוב ומספר בית לא נכנסים.
+   מילה אחת לסוג העסקה: למכירה, או להשכרה. */
 function tailSentence(p: Record<string, unknown>, place: string): string {
   const noun = LISTING_NOUN[String(p.property_type || "").trim()] || "נכס";
   const deal = p.deal_type === "rent" ? "להשכרה" : "למכירה";
-  const where = place ? ` ב${place}` : "";
-  return `${noun} ${deal}${where}. תמונות, מפה ופרטי קשר ישירים.`;
+  return `${noun} ${deal} ב${place}. תמונות, מפה ופנייה מהירה דרך האתר.`;
+}
+
+function listingPlace(p: Record<string, unknown>): string {
+  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const city = String(p.city || "").trim();
+  if (hood && hood !== city) return hood;
+  return city;
 }
 
 const DESC_SHORT = 70;
@@ -426,35 +437,60 @@ function listingDescription(
   return text.length <= DESC_MAX ? text : clamp(text, DESC_MAX);
 }
 
-/* רשימה, לא אובייקט. כשל או גוף שאינו מערך: אין מבדיל, והכותרת היחידה נשארת. */
-async function siblingRows(p: Record<string, unknown>): Promise<Record<string, unknown>[] | null> {
+/* אותו מפתח כותרת בשאילתה: עיר, סוג, ורחוב (כולל "רחוב X" וכתובת
+   שמכילה את שם הרחוב). אחר כך publicHeadline מסנן בדיוק. בלי חיתוך
+   ל-40 ובלי סדר אקראי: עמודים של 1,000 לפי id. כשל או עמוד חסר מחזירים
+   null, והכותרת נשארת בלי מבדיל. אותו בניין ב-assets/property.js. */
+const SIBLING_PAGE = 1000;
+const SIBLING_COLS = "id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title";
+
+function siblingFilter(p: Record<string, unknown>): string | null {
   const city = String(p.city || "").trim();
   const type = String(p.property_type || "").trim();
-  if (!city || !type) return null;
-  const cols = "id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title";
-  const parts = [
+  const street = streetNameOf(p);
+  if (!city || !type || !street) return null;
+  const or = [
+    `street.eq.${encodeURIComponent(street)}`,
+    `street.eq.${encodeURIComponent("רחוב " + street)}`,
+    `address.ilike.*${encodeURIComponent(street)}*`,
+  ].join(",");
+  return [
     "status=eq.active",
     `city=eq.${encodeURIComponent(city)}`,
     `property_type=eq.${encodeURIComponent(type)}`,
-    `select=${encodeURIComponent(cols)}`,
-    "limit=40",
-  ];
-  const hn = String(p.house_number ?? "").trim();
-  if (hn) parts.push(`house_number=eq.${encodeURIComponent(hn)}`);
+    `or=(${or})`,
+    `select=${encodeURIComponent(SIBLING_COLS)}`,
+    "order=id.asc",
+    `limit=${SIBLING_PAGE}`,
+  ].join("&");
+}
+
+async function siblingRows(p: Record<string, unknown>): Promise<Record<string, unknown>[] | null> {
+  const filter = siblingFilter(p);
+  if (!filter) return null;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  const all: Record<string, unknown>[] = [];
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/properties?${parts.join("&")}`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        Accept: "application/json",
-      },
-      signal: ctrl.signal,
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return Array.isArray(data) ? data as Record<string, unknown>[] : null;
+    for (let offset = 0; offset <= SIBLING_PAGE * 5; offset += SIBLING_PAGE) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/properties?${filter}&offset=${offset}`,
+        {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Accept: "application/json",
+          },
+          signal: ctrl.signal,
+        },
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!Array.isArray(data)) return null;
+      all.push(...data as Record<string, unknown>[]);
+      if (data.length < SIBLING_PAGE) return all;
+    }
+    return null;
   } catch {
     return null;
   } finally {
@@ -878,8 +914,10 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const airClause = (globalThis as { ShukAirLiving?: {
     metaClause: (dirs: unknown, sqm: unknown) => string;
   } }).ShukAirLiving?.metaClause(p.air_directions, p.living_room_sqm) || "";
-  const place = String((hood && hood !== p.city ? hood : p.city) || "").trim();
-  const description = listingDescription(facts, airClause, tailSentence(p, place));
+  const place = listingPlace(p);
+  const description = place
+    ? listingDescription(facts, airClause, tailSentence(p, place))
+    : clamp([...facts, airClause].filter(Boolean).join(" · "), 200);
 
   const images = Array.isArray(p.images) ? p.images : [];
 

@@ -2755,6 +2755,7 @@ function bitDeal(p){
   if (p.deal_type === 'sale') return 'למכירה';
   return '';
 }
+/* מחיר חסר או 0 אינו מבדיל. אותו תנאי כמו bitPrice ב-og-tags.ts. */
 function bitPrice(p){
   const v = Number(p && p.price);
   return isFinite(v) && v > 0 ? '₪' + v.toLocaleString('he-IL') : '';
@@ -2789,28 +2790,59 @@ function documentTitleWithSuffix(base, suffix){
   if (room < 8) return full.slice(0, 89) + '…';
   return base.slice(0, Math.max(0, room - 1)).trimEnd() + '…' + suffix + site;
 }
-/* לא דורס את כותרת השרת לפני שהתשובה חזרה: כותרת יחידה נשארת, וכפולה
-   מקבלת מבדיל. כשל בשאילתה משאיר את publicTitle. */
-function applyDistinctTitle(p){
-  const base = publicTitle(p);
-  const city = String((p && p.city) || '').trim();
-  const type = String((p && p.property_type) || '').trim();
-  const set = function(suffix){ document.title = documentTitleWithSuffix(base, suffix); };
-  if (!city || !type){ set(''); return; }
-  const parts = [
+/* אותו סינון כמו siblingFilter ב-og-tags.ts: עיר, סוג, ורחוב, בסדר id.
+   עמוד מלא של 1,000 הוא לא הסוף. כשל משאיר את כותרת השרת כמו שהיא. */
+var SIBLING_PAGE = 1000;
+var SIBLING_COLS = 'id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title';
+function siblingFilter(p){
+  var city = String((p && p.city) || '').trim();
+  var type = String((p && p.property_type) || '').trim();
+  var street = streetNameOf(p);
+  if (!city || !type || !street) return '';
+  var or = [
+    'street.eq.' + encodeURIComponent(street),
+    'street.eq.' + encodeURIComponent('רחוב ' + street),
+    'address.ilike.*' + encodeURIComponent(street) + '*',
+  ].join(',');
+  return [
     'status=eq.active',
     'city=eq.' + encodeURIComponent(city),
     'property_type=eq.' + encodeURIComponent(type),
-    'select=' + encodeURIComponent('id,street,address,house_number,city,rooms,size_sqm,floor,deal_type,price,property_type,title'),
-    'limit=40',
-  ];
-  const hn = String((p && p.house_number) ?? '').trim();
-  if (hn) parts.push('house_number=eq.' + encodeURIComponent(hn));
-  fetch(SUPABASE_URL + '/rest/v1/properties?' + parts.join('&'), {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Accept: 'application/json' },
-  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(rows){
-    set(Array.isArray(rows) ? distinctTitleSuffix(p, rows) : '');
-  }).catch(function(){ set(''); });
+    'or=(' + or + ')',
+    'select=' + encodeURIComponent(SIBLING_COLS),
+    'order=id.asc',
+    'limit=' + SIBLING_PAGE,
+  ].join('&');
+}
+function loadSiblings(p){
+  var filter = siblingFilter(p);
+  if (!filter) return Promise.resolve(null);
+  var headers = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Accept: 'application/json' };
+  var all = [];
+  function page(offset){
+    return fetch(SUPABASE_URL + '/rest/v1/properties?' + filter + '&offset=' + offset, { headers: headers })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(rows){
+        if (!Array.isArray(rows)) return null;
+        all = all.concat(rows);
+        if (rows.length < SIBLING_PAGE) return all;
+        if (offset >= SIBLING_PAGE * 5) return null;
+        return page(offset + SIBLING_PAGE);
+      });
+  }
+  return page(0).catch(function(){ return null; });
+}
+/* כשהשאילתה מצליחה, אותה כותרת כמו בשרת. כשל לא דורס את כותרת השרת. */
+function applyDistinctTitle(p){
+  var base = publicTitle(p);
+  if (!siblingFilter(p)){
+    document.title = documentTitleWithSuffix(base, '');
+    return;
+  }
+  loadSiblings(p).then(function(rows){
+    if (!Array.isArray(rows)) return;
+    document.title = documentTitleWithSuffix(base, distinctTitleSuffix(p, rows));
+  });
 }
 
 function maskedListingTitle(p){
