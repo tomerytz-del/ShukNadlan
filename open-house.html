@@ -569,6 +569,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
      המסך ונדחף למטה כשהדירות נכנסות. */
   html.beta-hero #fairProps{display:block !important;min-height:420px}
   @media(min-width:760px){html.beta-hero #fairProps{min-height:360px}}
+  /* כשל טעינה: המקום השמור יורד, כדי שההודעה לא תשב מתחת לחלל ריק. */
+  html.beta-hero.ohv-failed #fairProps{display:none !important;min-height:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1604,6 +1606,7 @@ signupForm.addEventListener('submit', async (e) => {
     renderFairMap(list);
   } catch(e){
     console.warn('טעינת יריד הבתים הפתוחים נכשלה:', e);
+    document.documentElement.classList.add('ohv-failed');
     el('fairErrorWrap').hidden = false;
   }
 })();

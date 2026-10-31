@@ -17,44 +17,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/dm-filters.js" defer></script>
 <link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
 <link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
-<!-- תמונת הכרטיס הראשון (המשרד עם הכי הרבה נכסים) מתחילה לרדת לפני
-     supabase-js ושאילתת 5,000 הנכסים. אותה נוסחת render/image כמו shotSrc. -->
-<script>
-(function(){
-  var KEY='sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
-  var H={apikey:KEY,Authorization:'Bearer '+KEY};
-  var BASE='https://obookujgolazrwycsiyn.supabase.co/rest/v1/';
-  var MARK='/storage/v1/object/public/';
-  function shot(url){
-    var s=String(url||''), at=s.indexOf(MARK);
-    if(at<0)return s;
-    var path=s.slice(at+MARK.length).split(/[?#]/)[0];
-    if(!path)return s;
-    return s.slice(0,at)+'/storage/v1/render/image/public/'+path+'?width=800&quality=60';
-  }
-  fetch(BASE+'agency_rankings?select=agency_id,active_properties_count&order=active_properties_count.desc&limit=1',{headers:H})
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(rows){
-      var id=rows&&rows[0]&&rows[0].agency_id;
-      if(!id)return [];
-      return fetch(BASE+'properties?select=images&status=eq.active&agency_id=eq.'+encodeURIComponent(id)+'&limit=12',{headers:H})
-        .then(function(r){return r.ok?r.json():[];});
-    })
-    .then(function(rows){
-      var img='';
-      (rows||[]).some(function(p){
-        var u=p&&p.images&&p.images[0];
-        if(typeof u==='string'&&u){img=u;return true;}
-        return false;
-      });
-      if(!img)return;
-      var l=document.createElement('link');
-      l.rel='preload';l.as='image';l.href=shot(img);
-      l.setAttribute('fetchpriority','high');
-      document.head.appendChild(l);
-    }).catch(function(){});
-})();
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יועצי נדל״ן ומתווכים בעפולה והעמק - משרדי התיווך | שוק הנדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">

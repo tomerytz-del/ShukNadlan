@@ -178,6 +178,25 @@ function absolute(u: unknown): string {
   return SITE + (s.startsWith("/") ? s : "/" + s);
 }
 
+/* כתובת תמונה שנכנסת ל-src. רק http(s) על הדומיינים שלנו, או נתיב יחסי
+   באתר. javascript: ומארח זר לא נכתבים לדף. אותו רעיון כמו safeImageUrl
+   ב-agency.js, עם הגבלת דומיין כי כאן הכתובת מגיעה מהמסד אל ה-HTML. */
+function safeImageUrl(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const s = raw.trim();
+  if (!s || s.startsWith("//")) return "";
+  if (s.startsWith("/") || s.startsWith("assets/")) return s;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+    const host = u.hostname.toLowerCase();
+    if (host === "obookujgolazrwycsiyn.supabase.co" || host === "shuknadlan.co.il" || host === "www.shuknadlan.co.il") {
+      return s;
+    }
+  } catch { /* לא כתובת */ }
+  return "";
+}
+
 /* ‏שלוש תשובות ולא שתיים, וההפרדה בין השתיים האחרונות היא כל העניין:
    ‏"אין רשומה כזו" ו-"לא הצלחנו לשאול" נראים אותו דבר מכאן — שניהם חוסר
    מידע — אבל ההשלכה שלהם הפוכה. על הראשון מותר להסיק שאין דף לאנדקס
@@ -910,9 +929,11 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     : clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90);
 
   /* תמונת הנושא היא ה-LCP. ה-og:image נשאר על הקובץ המלא; ה-img וה-preload
-     על העותק המוקטן, אותה מחרוזת ש-coverRenderUrl ב-agency.js כותב. */
-  const coverRaw = typeof a.cover_url === "string" ? a.cover_url : "";
-  const coverLcp = coverRaw ? (heroRenderUrl(absolute(coverRaw) || coverRaw, 1400, 800) || absolute(coverRaw)) : "";
+     על העותק המוקטן, אותה מחרוזת ש-coverRenderUrl ב-agency.js כותב.
+     רק אחרי safeImageUrl: מארח זר לא נכנס ל-src. */
+  const coverSafe = safeImageUrl(a.cover_url);
+  const coverAbs = coverSafe ? absolute(coverSafe) : "";
+  const coverLcp = coverAbs ? (heroRenderUrl(coverAbs, 1400, 800) || coverAbs) : "";
   const inner: { id: string; html: string }[] = [];
   if (about.length) inner.push({ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") });
   if (coverLcp) {
