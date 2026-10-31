@@ -4,23 +4,28 @@ name: יומן פניות היריד
 # התרחישים: החלון בשעון השרת, הגבול 23:59:59 בשני אזורי זמן, הסיווג (טופס
 # והדמיה זכאים, רשתות ומטא ממתינים להחלטה), רישום שנכשל ואינו מפיל ליד,
 # שורה שאינה נמחקת ואינה משתנה, ההרשאות ומחיקת השם והטלפון אחרי שנתיים.
-# ‏docs/open-house-fair.md, "רישום פניות היריד".
+# ואז 20271031350000: הדגל יורד, השורה נמחקת אחרי שנתיים, ויועץ/ת רואה
+# רק ערוץ, שעה וסטטוס. ‏docs/open-house-fair.md, "רישום פניות היריד".
 
 on:
   pull_request:
     paths:
       - "supabase/migrations/20271031220000_fair_inquiries.sql"
+      - "supabase/migrations/20271031350000_fair_contact_always_on.sql"
       - "scripts/fair_inquiries_test.py"
       - "scripts/fair_inquiries_setup.sql"
       - "scripts/fair_inquiries_assert.sql"
+      - "scripts/fair_contact_always_assert.sql"
       - ".github/workflows/fair_inquiries.yml"
   push:
     branches: [main]
     paths:
       - "supabase/migrations/20271031220000_fair_inquiries.sql"
+      - "supabase/migrations/20271031350000_fair_contact_always_on.sql"
       - "scripts/fair_inquiries_test.py"
       - "scripts/fair_inquiries_setup.sql"
       - "scripts/fair_inquiries_assert.sql"
+      - "scripts/fair_contact_always_assert.sql"
       - ".github/workflows/fair_inquiries.yml"
   workflow_dispatch:
 
