@@ -11,9 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271031220000_fair_inquiries.sql"
 ALWAYS = ROOT / "supabase/migrations/20271031350000_fair_contact_always_on.sql"
+CLICK = ROOT / "supabase/migrations/20271031360000_fair_contact_click.sql"
 SETUP = ROOT / "scripts/fair_inquiries_setup.sql"
 ASSERT = ROOT / "scripts/fair_inquiries_assert.sql"
 ALWAYS_ASSERT = ROOT / "scripts/fair_contact_always_assert.sql"
+CLICK_ASSERT = ROOT / "scripts/fair_contact_click_assert.sql"
 
 sql = MIGRATION.read_text(encoding="utf-8")
 collapsed = re.sub(r"\s+", " ", sql.lower())
@@ -35,6 +37,16 @@ if "delete from public.pricing_config" not in always or "fair_contact_logging_en
     sys.exit("המיגרציה החדשה אינה מוחקת את הדגל")
 if re.search(r"insert\s+into\s+public\.pricing_config[\s\S]*fair_contact_logging_enabled", always, re.I):
     sys.exit("המיגרציה החדשה מחזירה את הדגל")
+click = CLICK.read_text(encoding="utf-8")
+click_flat = re.sub(r"\s+", " ", click.lower())
+if "fair_contact_logging_enabled" in click_flat:
+    sys.exit("רישום הלחיצות מחזיר דגל")
+if "cron.schedule" in click_flat or "insert into public.leads" in click_flat or "notifications" in click_flat:
+    sys.exit("רישום הלחיצות נוגע ב-cron, בלידים או בהתראות")
+if "revoke all on function public.fair_contact_click(uuid, text, text, text, text) from public, anon, authenticated" not in click_flat:
+    sys.exit("הפונקציה אינה נסגרת ל-anon ול-authenticated")
+if "grant execute on function public.fair_contact_click(uuid, text, text, text, text) to service_role" not in click_flat:
+    sys.exit("הפונקציה אינה מוענקת ל-service_role")
 
 
 def psql(db, *files, sql=None):
@@ -77,6 +89,18 @@ def main():
     psql(db, ALWAYS_ASSERT)
     psql(db, ALWAYS)
     psql(db, ALWAYS_ASSERT)
+    psql(db, CLICK)
+    psql(db, CLICK_ASSERT)
+    clicks = psql(db, sql="select count(*) from public.fair_inquiries where channel in ('whatsapp_click', 'call_click')")
+    psql(db, CLICK)
+    again = psql(db, sql="select count(*) from public.fair_inquiries where channel in ('whatsapp_click', 'call_click')")
+    if clicks != again:
+        sys.exit(f"הרצה שנייה של רישום הלחיצות שינתה שורות: {clicks} → {again}")
+    leads = psql(db, sql="""select count(*) from public.leads le
+        where not exists (select 1 from public.fair_inquiries f where f.lead_id = le.id)
+          and le.raw_name is null""")
+    if leads != "0":
+        sys.exit(f"לחיצה יצרה ליד בלי שם: {leads}")
     print("fair inquiries: ok")
 
 
