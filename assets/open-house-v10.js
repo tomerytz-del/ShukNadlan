@@ -48,8 +48,11 @@
     '.ohv-gold{background:#c9a227;color:#0d1b3d;border:0}.ohv-out{background:transparent;color:#fff;border:1.5px solid #fff}' +
     '.ohv-navy{background:#0e2a6b;color:#fff;border:0}' +
     '.ohv-gold:focus-visible,.ohv-out:focus-visible,.ohv-navy:focus-visible,.ohv-gab a:focus-visible{outline:3px solid #c9a227;outline-offset:2px}' +
-    '.ohv-gab{display:flex;align-items:center;gap:10px;margin:14px auto 0;max-width:1100px;padding:10px 14px;border-radius:14px;background:#f6f1e7;color:#0e2a6b;font-size:15px;line-height:1.5}' +
-    '.ohv-gab img{width:40px;height:40px;border-radius:50%;border:2px solid #c9a227;object-fit:cover;object-position:top;flex:none}' +
+    /* B2 (תומר 29.10): גבריאלה עומדת בקצה השמאלי של הכרטיס, רגליה על התחתית - במקום עיגול 40px */
+    '.ohv-gab{position:relative;display:block;margin:34px auto 0;max-width:1100px;min-height:104px;padding:14px 16px 14px 92px;border-radius:14px;background:#f6f1e7;color:#0e2a6b;font-size:15px;line-height:1.55}' +
+    '.ohv-gab .ohv-gab-fig{position:absolute;left:0;bottom:0;width:69px;height:120px;max-width:none;border:0;border-radius:0;box-shadow:none;background:none;object-fit:contain;object-position:bottom;clip-path:inset(-200px 0 0 0 round 0 0 0 14px);pointer-events:none}' +
+    '.ohv-gab > span{display:block}' +
+    '@media(min-width:760px){.ohv-gab{margin-top:50px;min-height:128px;padding:22px 28px 22px 124px;font-size:17px;display:flex;align-items:center}.ohv-gab .ohv-gab-fig{width:92px;height:160px}}' +
     '.ohv-gab a{color:#0e2a6b;font-weight:800;white-space:nowrap}' +
     '.ohv-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}@media(min-width:760px){.ohv-steps{grid-template-columns:repeat(3,1fr)}}' +
     '.ohv-steps li{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid #e3e8f2;border-radius:14px;background:#fff}' +
@@ -95,7 +98,7 @@
     if (go) { go.textContent = live ? 'לדירות שביריד' : 'מה זה היריד?'; go.setAttribute('href', live ? '#fairProps' : '#ohvSteps'); }
     var box = document.querySelector('.oh-head');
     if (box && !$('ohvGab')) {
-      box.insertAdjacentHTML('beforeend', '<div class="wrap"><p class="ohv-gab" id="ohvGab"><img src="/assets/gabriela-avatar.webp" alt="" width="40" height="40" onerror="this.style.visibility=\'hidden\'">' +
+      box.insertAdjacentHTML('beforeend', '<div class="wrap"><p class="ohv-gab" id="ohvGab"><img class="ohv-gab-fig" src="/assets/gabriela-cutout-400.webp" width="400" height="695" alt="" decoding="async" onerror="this.style.visibility=\'hidden\'">' +
         '<span>גבריאלה: כאן מרוכזות הדירות שיועצי הנדל״ן באזור הכניסו ליריד. אפשר לעבור עליהן, או להשאיר פרטים ואעדכן אתכם כשנכנסת דירה חדשה. ' +
         (live ? '<a href="' + esc(swipeHref()) + '" data-ohv-swipe>להחליק על דירות היריד ←</a>' : '') + '</span></p></div>');
     }
