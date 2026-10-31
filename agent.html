@@ -39,6 +39,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="assets/quality-badge.js"></script>
 <script src="assets/property-card.js"></script>
+<script src="assets/likes-store.js"></script>
 <script src="assets/prop-shelf.js"></script>
 <!-- הרקע הזורם של האתר. נטען בלי data-auto: דף הסוכן/ת מרכיב אותו אחרי
      שנקראה ההעדפה שלו/ה ושל המשרד מה-CRM (ראו applyPageBackground). -->
@@ -443,8 +444,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     transition:transform .14s ease;
   }
   .fav-btn:hover{transform:scale(1.08)}
-  .fav-btn svg{width:17px;height:17px;fill:none;stroke:var(--teal-dark);stroke-width:2}
-  .fav-btn[aria-pressed="true"] svg{fill:var(--accent);stroke:var(--accent)}
+  /* לב המועדפים: ירוק בכל האתר (‏--fav-green ב-design-system.css) - קו כשלא שמור, מלא כששמור */
+  .fav-btn svg{width:17px;height:17px;fill:none;stroke:var(--fav-green,#1f8a4c);stroke-width:2}
+  .fav-btn[aria-pressed="true"] svg{fill:var(--fav-green,#1f8a4c);stroke:var(--fav-green,#1f8a4c)}
   .prop-card .body{padding:12px 13px 13px}
 
   .deal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--hair);font-size:.85rem}
@@ -1947,23 +1949,19 @@ async function loadAgentProfile(){
 }
 
 /* ====== נכסים שמורים ======
-   שמירה מקומית בלבד (localStorage): אין כאן חשבון משתמש, והלב נועד לסמן
-   נכסים בזמן שעוברים על הרשימה. מצב פרטי או אחסון חסום לא אמורים להפיל את
-   הדף, ולכן כל גישה עטופה. */
-const FAV_KEY = 'shuk_favorites';
-function readFavorites(){
-  try{
-    const raw = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
-    return Array.isArray(raw) ? raw : [];
-  }catch(e){ return []; }
+   הלב שומר לרשימת המועדפים האחת של האתר (‏ShukLikes, ‏sk_swipe_likes,
+   ‏assets/likes-store.js) - אותה רשימה של ההחלקה ושל הלב בכותרת. הרשימה הנפרדת
+   הישנה של הדף (‏shuk_favorites) מתמזגת אליה פעם אחת ב-ShukLikes.migrate().
+   מקומית בלבד, בלי חשבון; מצב פרטי או אחסון חסום אינם מפילים את הדף.
+   שינוי בלשונית אחרת (‏storage) או חזרה בדפדפן (‏pageshow) מעדכנים את הלבבות. */
+function syncFavButtons(){
+  if (!window.ShukLikes) return;
+  document.querySelectorAll('.fav-btn[data-id]').forEach(b => {
+    b.setAttribute('aria-pressed', String(ShukLikes.has(b.dataset.id)));
+  });
 }
-function toggleFavorite(id){
-  const favs = readFavorites();
-  const i = favs.indexOf(id);
-  if (i === -1) favs.push(id); else favs.splice(i, 1);
-  try{ localStorage.setItem(FAV_KEY, JSON.stringify(favs)); }catch(e){ /* מצב פרטי/חסום */ }
-  return i === -1;
-}
+window.addEventListener('storage', e => { if (e.key === 'sk_swipe_likes') syncFavButtons(); });
+window.addEventListener('pageshow', syncFavButtons);
 
 let agentProperties = [];
 
@@ -2027,8 +2025,8 @@ const SHELF_COUNT = (shown, total) => (shown === total)
    ‏overlay מצייר אותו, ו-bindCard מחבר לו את המאזין. הלחיצה עליו לא
    מנווטת לדף הנכס — ‏prop-shelf.js מדלג על ניווט כשהיעד הוא כפתור. */
 function favButtonHtml(p){
-  const saved = readFavorites().includes(p.id);
-  return `<button type="button" class="fav-btn" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
+  const saved = !!(window.ShukLikes && ShukLikes.has(p.id));
+  return `<button type="button" class="fav-btn" data-id="${escapeHtml(String(p.id))}" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-7.5-9.6a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5-7.5 9.6-7.5 9.6Z"/></svg>
       </button>`;
 }
@@ -2037,7 +2035,7 @@ function bindPropCard(card, p){
   const fav = card.querySelector('.fav-btn');
   if (fav) fav.addEventListener('click', e=>{
     e.stopPropagation();
-    fav.setAttribute('aria-pressed', String(toggleFavorite(p.id)));
+    if (window.ShukLikes) fav.setAttribute('aria-pressed', String(ShukLikes.toggle(p.id)));
   });
 }
 

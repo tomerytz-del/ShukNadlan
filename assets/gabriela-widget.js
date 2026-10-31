@@ -484,14 +484,7 @@
         });
       });
       syncMin();
-      /* "הרשימה שלי" מעל גבריאלה (‏assets/likes-bubble.js) - רק כשיש נכס שמור, ולא ב-/swipe */
-      var hasLikes = false;
-      try { hasLikes = (JSON.parse(localStorage.getItem('sk_swipe_likes') || '[]') || []).length > 0; } catch (e) {}
-      if (hasLikes && !swipePage) {
-        var ls = document.createElement('script');
-        ls.src = '/assets/likes-bubble.js'; ls.defer = true;
-        document.head.appendChild(ls);
-      }
+      // רשימת המועדפים נפתחת מהלב בכותרת (‏assets/likes-bubble.js), לא מכפתור צף מעל גבריאלה
     }
 
     function fillChoices() {
