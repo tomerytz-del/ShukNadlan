@@ -449,6 +449,19 @@ html body .sw-lv-head h2{margin:0;font-size:var(--sec-h);font-weight:800;color:v
 /* הפס התחתון: נגישות וגבריאלה עולים מעליו */
 body[data-view="likes"]{--a11y-bottom:calc(78px + var(--sw-safe-b))}
 html.beta-hero body.sw-body[data-view="likes"]:has(.a11y-fab) #gabW{--gw-bottom:calc(78px + var(--sw-safe-b))}
+/* ‏gabi-tab (31.10): בטלפון, במועדפים - הבועה המלאה (התמונה, "גבריאלה", "עוזרת הנדל״ן החכמה") מעל הפס התחתון,
+   כמו במחשב, וה-✕ בפינה העליונה שלה. השורה האחרונה ברשימה לא נכנסת מתחתיה */
+@media (max-width:1023px){
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10:not(.is-min) .gw-bubble{width:auto;height:64px;padding:0 18px 0 6px;border-radius:999px;
+    border:2.5px solid #1a8a4a;background:#fff;display:flex;align-items:center;gap:10px;flex-direction:row-reverse}
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10:not(.is-min) .gw-bubble img{width:52px;height:52px;flex:none;background:#fff1c9}
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10:not(.is-min) .gw-dot{right:auto;left:42px;bottom:6px}
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10:not(.is-min) .gw-pill{display:flex;flex-direction:column;align-items:flex-start;text-align:right;line-height:1.25}
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10 .gw-pill b{font-size:16px;color:#0d1b3d}
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10 .gw-pill small{font-size:12.5px;color:#4a5060}
+  html.beta-hero body.sw-body[data-view="likes"] #gabW.is-v10:not(.is-min):not(.is-hidden):not(.is-away):not(.is-open) .gw-min{left:calc(var(--gw-left) - 6px);bottom:calc(var(--gw-bottom) + 50px)}
+  body.sw-body[data-view="likes"]:has(#gabW:not(.is-min)) .sw-likes-view{padding-bottom:calc(154px + var(--sw-safe-b))}
+}
 
 /* ‏✨ הדמיה על הכרטיס, וזהב בשקופית "אחרי" */
 /* ---------- הדמיות AI בהחלקה (סבב 4, חלק 2): בלי תג על תמונה אמיתית ---------- */
