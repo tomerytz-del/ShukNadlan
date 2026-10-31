@@ -13653,11 +13653,11 @@ function cleanupReplacedVideo(finalUrl){
    2. **שליפה שנכשלה אינה רשימה ריקה.** ‏streetRegistryReady נשאר שקרי, ואז
       אין אכיפה בכלל. תקלת רשת רגעית לא תמנע מסוכן/ת לפרסם נכס.
 
-   3. **מפתח, לא השוואת מחרוזות.** ‏streetNameKey כאן הוא העתק של
-      ‏public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה אין מודול
-      משותף בין ה-HTML הסטטי ל-SQL, כמו ביטוי הקרקע ששוכפל בחמישה קבצים
-      (ראו docs/land-planning.md). מי שמוסיף/ה ציר כתיב מעדכן/ת את שניהם,
-      והמסד הוא הקובע: הוא זה שמחזיק את האינדקס הייחודי.
+   3. **מפתח, לא השוואת מחרוזות.** ‏SearchCore.streetNameKey (‏search-core.js)
+      הוא העתק של public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה
+      אין מודול משותף בין ה-HTML הסטטי ל-SQL. מי שמוסיף/ה ציר כתיב מעדכן/ת
+      את שניהם (‏scripts/street_key_test.py משווה), והמסד הוא הקובע: הוא זה
+      שמחזיק את האינדקס הייחודי ואת properties.street_key.
 
    הפרטים: docs/street-registry.md
    ========================================================================== */
@@ -13809,20 +13809,26 @@ let streetsByCity = new Map();        // city -> [שמות, ממוינים]
 let streetKeyIndex = new Map();       // city -> Map(key -> השם הקנוני)
 let streetEnforcedCities = new Set(); // ערים שיש להן רחוב אחד לפחות ממקור רשמי (gis/gov)
 
-/* העתק של public.street_name_key. הסדר אינו שרירותי: ה"א פותחת יורדת לפני
-   כיווץ היו"ד ולפני ה"א סופית, אחרת "העליה" ו-"עלייה" אינם מתכנסים. */
+/* המפתח עצמו בליבת החיפוש (‏SearchCore.streetNameKey, העתק של
+   public.street_name_key) - עותק אחד לטופס, לייבוא ולחיפוש. ‏search-core.js
+   נטען בעצלות (‏ensureSearchCore), ו-ensureStreetsLoaded מחכה לו לפני שהיא
+   בונה את האינדקס; עד אז האינדקס ריק וכל הקוראים כאן מדלגים על המפתח. */
 function streetNameKey(name){
-  const base = String(name ?? '')
-    .replace(/['"`׳״‘’“”]/g, '')
-    .replace(/[־-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const key = base
-    .replace(/^(רחוב|רח|שדרות|שדרת|שד)\s+/, '')
-    .replace(/^ה/, '')
-    .replace(/י{2,}/g, 'י')
-    .replace(/ה$/, '');
-  return key || base;
+  return window.SearchCore.streetNameKey(name);
+}
+let searchCoreLoading = null;
+function ensureSearchCore(){
+  if (window.SearchCore) return Promise.resolve();
+  if (!searchCoreLoading){
+    searchCoreLoading = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = '/assets/search-core.js';
+      el.onload = resolve;
+      el.onerror = reject;
+      document.head.appendChild(el);
+    }).finally(() => { searchCoreLoading = null; });
+  }
+  return searchCoreLoading;
 }
 
 /* כל השורות, בעמודים של 1,000. ‏PostgREST מחזיר לכל היותר 1,000 שורות
@@ -13842,6 +13848,12 @@ async function fetchAllPages(build, pageSize = 1000){
 
 async function ensureStreetsLoaded(){
   if (streetRegistry) return streetRegistry;
+  try { await ensureSearchCore(); } catch (err) {
+    // בלי המפתח אין אינדקס - השדה נשאר חופשי, כמו בכשל בשליפת הרשימה
+    console.warn('ליבת החיפוש לא נטענה - שדה הרחוב נשאר חופשי:', err && err.message);
+    streetRegistryReady = false;
+    return [];
+  }
   const { data, error } = await fetchAllPages(() => sb.from('street_registry')
     .select('city, name, source')
     .eq('active', true)
@@ -15446,7 +15458,7 @@ function ensureCrmQuery(){
     el.onerror = reject;
     document.head.appendChild(el);
   });
-  crmQueryLoading = (window.SearchCore ? Promise.resolve() : load('/assets/search-core.js'))
+  crmQueryLoading = ensureSearchCore()
     .then(() => (window.SentenceSearch ? null : load('/assets/sentence-search.js')))
     // הכינויים ("סי 1", "גבעה") - אותה טבלה של האתר והבוטים; בלעדיהם, רק השמות
     .then(() => sb.from('neighborhood_aliases').select('neighborhood_id, alias').then(r => r, () => ({ data: [] })))

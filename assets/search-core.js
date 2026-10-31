@@ -475,10 +475,47 @@
   /* ‏**בכל סדר, וחלק מהשם מספיק** (21.10.2026): "רום יעל" הוא "יעל רום",
      ו"הנשיא" הוא "הנשיא ויצמן". כל מילה של החיפוש צריכה להופיע כמילה (או
      כתחילת מילה) בטקסט של הנכס; ה' הידיעה ו"רחוב"/"שדרות" אינם חלק מההשוואה. */
+  /* ‏**כתיב מלא וחסר** (31.10.2026): "העלייה", "העליה" ו"עלייה" הם מילה אחת -
+     יו"ד ווי"ו כפולות מתכווצות, וה"א סופית יורדת (במילה של יותר משלוש
+     אותיות, כמו ה' הידיעה). אותה פונקציה על החיפוש ועל הטקסט של הנכס, כך
+     שההשוואה סימטרית והנתונים עצמם אינם משתנים. */
   var STREET_WORDS = ['רחוב', 'רח', 'שדרות', 'שד', 'דרך', 'סמטת', 'כיכר'];
-  function textWords(s) {
+  /* ‏cut מסמן מילה שאיבדה ה"א סופית. היא מתאימה רק כמילה שלמה ולא כתחילת
+     מילה: "עליה" ← "עלי", ו"עלי" כתחילת מילה היה תופס את "עלית" (עפולה
+     עלית) - מילה אחרת ולא כתיב אחר של אותה מילה. */
+  function wordForms(s) {
     return areaKey(s).split(' ').filter(function (w) { return w && STREET_WORDS.indexOf(w) < 0; })
-      .map(function (w) { return w.length > 3 ? w.replace(/^ה/, '') : w; });
+      .map(function (w) {
+        if (w.length > 3) w = w.replace(/^ה/, '');
+        w = w.replace(/יי+/g, 'י').replace(/וו+/g, 'ו');
+        var cut = w.length > 3 && /ה$/.test(w);
+        return { w: cut ? w.slice(0, -1) : w, cut: cut };
+      });
+  }
+  function textWords(s) {
+    return wordForms(s).map(function (f) { return f.w; });
+  }
+
+  /* ---------- מפתח שם הרחוב ----------
+     העתק מדויק של public.street_name_key במסד (‏20261109090000_street_registry.sql),
+     שהוא הקובע: הוא מחשב את properties.street_key ואת האינדקס הייחודי של
+     רשימת הרחובות. הסדר אינו שרירותי - ה"א פותחת יורדת לפני כיווץ היו"ד
+     ולפני ה"א סופית, אחרת "העליה" ו"עלייה" אינם מתכנסים. כלל כתיב חדש
+     משנה את שלושתם יחד (‏SQL, כאן, והעותק ב-_shared שהבוט טוען), ו-
+     scripts/street_key_test.py משווה ביניהם. ‏docs/street-registry.md. */
+  function streetNameKey(name) {
+    var base = String(name == null ? '' : name)
+      .replace(/['"`׳״‘’“”]/g, '')
+      .replace(/[־-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    var key = base
+      .replace(/^(רחוב|רח|שדרות|שדרת|שד)\s+/, '')
+      .replace(/^ה/, '')
+      .replace(/י{2,}/g, 'י')
+      .replace(/ה$/, '');
+    // כמו ב-SQL: מפתח ריק חוזר לשם המקורי בלי רווחים בקצוות (‏btrim), לא לשם המנוקה
+    return key || String(name == null ? '' : name).replace(/^ +| +$/g, '');
   }
   function textMatches(p, q) {
     var hood = p.neighborhood_name || (p.neighborhoods && p.neighborhoods.name) || '';
@@ -490,11 +527,11 @@
     var needle = norm(q);
     if (!needle) return true;
     if (norm(hay).indexOf(needle) >= 0) return true;
-    var qw = textWords(q);
+    var qw = wordForms(q);
     if (!qw.length) return false;
     var hw = textWords(hay);
-    return qw.every(function (w) {
-      return hw.some(function (h) { return h === w || (w.length >= 3 && h.indexOf(w) === 0); });
+    return qw.every(function (f) {
+      return hw.some(function (h) { return h === f.w || (!f.cut && f.w.length >= 3 && h.indexOf(f.w) === 0); });
     });
   }
 
@@ -564,7 +601,8 @@
   }
 
   var SearchCore = {
-    norm: norm, textMatches: textMatches, textHas: textHas, areaCandidate: areaCandidate,
+    norm: norm, textMatches: textMatches, textHas: textHas, textWords: textWords, streetNameKey: streetNameKey,
+    areaCandidate: areaCandidate,
     areaKey: areaKey, compactKey: compactKey, areaNames: areaNames, areaIndex: areaIndex,
     findAreas: findAreas, propertyAreas: propertyAreas, inAreas: inAreas, hasWord: hasWord,
     FEATURES: FEATURES, hasFeature: hasFeature, hasFeatures: hasFeatures, featureFilter: featureFilter,
