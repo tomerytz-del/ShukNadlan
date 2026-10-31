@@ -86,6 +86,29 @@ def insert_min(cur, table: str, forced: dict) -> dict:
     return values
 
 
+def _strip_comments(sql: str) -> str:
+    out = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        if sql.startswith("--", i):
+            j = sql.find("\n", i)
+            if j < 0:
+                break
+            out.append("\n")
+            i = j + 1
+        elif sql.startswith("/*", i):
+            j = sql.find("*/", i + 2)
+            if j < 0:
+                break
+            out.append(" ")
+            i = j + 2
+        else:
+            out.append(sql[i])
+            i += 1
+    return "".join(out)
+
+
 def _strip_dollar(sql: str) -> str:
     out = []
     i = 0
@@ -148,7 +171,7 @@ def replay_function_acls(cur) -> None:
     )
     stmts = []
     for path in sorted((ROOT / "supabase/migrations").glob("*.sql")):
-        text = _strip_dollar(path.read_text(encoding="utf-8"))
+        text = _strip_comments(_strip_dollar(path.read_text(encoding="utf-8")))
         stmts.extend(
             re.findall(
                 r"(?:grant|revoke)\s+(?:all|execute)\b[^;]*\bon\s+function\s+public\.\w+\s*\([^;]*;",
