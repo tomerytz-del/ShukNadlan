@@ -2124,7 +2124,10 @@
     if (!c) { box.innerHTML = ''; return; }
     var next = deck[idx + 1];
     var under = box.querySelector('.sw-under'), top;
-    if (promote && under && under._c === c && c.slot === 'property') {
+    /* ‏התג "ללא עמלת תיווך" ו-data-nofee נקבעו כשהכרטיס נבנה למטה. אם חלון היריד נסגר (או נפתח)
+       בינתיים - בונים מחדש, כדי שהתג לא יישאר (הערת הסקירה ל-1103) */
+    var uc0 = under && under.querySelector('.sw-card');
+    if (promote && under && under._c === c && c.slot === 'property' && uc0 && !!fairLive(c.p) === uc0.hasAttribute('data-nofee')) {
       var old = $('swTopCard');
       if (old) old.remove();
       under.className = 'sw-top-card';
