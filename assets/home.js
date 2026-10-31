@@ -9402,7 +9402,7 @@ if (window.shukObserveList) shukObserveList(document.getElementById('searchResul
    ההיסטוריה עצמה ב-assets/exit-guard.js (אותו זקיף כמו היום): כאן רק השאלה.
    פעם אחת בביקור (‏sk_exit_guard_shown), והזקיף נדחף אחרי המחווה הראשונה
    (‏data-gesture-when="beta-hero" ב-index.html). המפה הפתוחה דוחפת רשומה מעל
-   הזקיף, ולכן "אחורה" בה סוגר רק את המפה. הנוסחים - טיוטה, ממתינים לגבריאלה. */
+   הזקיף, ולכן "אחורה" בה סוגר רק את המפה. */
 (function exitSheet(){
   if (!v10On() || !window.ExitGuard) return;
   // בלי זה הדפדפן מחזיר את הגלילה לנקודה שבה הזקיף נדחף, ו"להמשיך לגלוש" קופץ לראש הדף
