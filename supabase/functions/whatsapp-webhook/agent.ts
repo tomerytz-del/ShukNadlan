@@ -33,6 +33,7 @@ import {
   AREA_SCAN_LIMIT,
   canonicalCity,
   filterByArea,
+  SearchCore,
   searchMissRow,
   searchMissStoreMissing,
   shouldLogSearchMiss,
@@ -2801,25 +2802,11 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_PROPERTIES_MAX);
   const status = input.status ? String(input.status) : null;
 
-  let query = ctx.supabase
-    .from("properties")
-    .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
-    .eq("agent_id", ctx.agent.id)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
-  let counter = ctx.supabase
-    .from("properties")
-    .select("id", { count: "exact", head: true })
-    .eq("agent_id", ctx.agent.id);
-
-  if (status) {
-    query = query.eq("status", status);
-    counter = counter.eq("status", status);
-  }
-
   const q = String(input.query || "").trim();
+  // ‏or אחד עם מפתח הרחוב, ואחד בלעדיו - למקרה שהעמודה עוד לא קיימת (‏42703):
+  // הפונקציה עולה לפני המיגרציה, ואז החיפוש רץ כמו עד היום ולא נכשל.
+  let orWithKey: string | null = null;
+  let orPlain: string | null = null;
   if (q) {
     // ‏escape על הפסיק והסוגריים, כמו ב-list_clients: מחרוזת חיפוש עם פסיק
     // הייתה נקראת כשני תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
@@ -2835,11 +2822,38 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
       // "אפס תוצאות". הוא נכנס לתנאי רק כשהחיפוש הוא מספר שלם — וזה גם
       // המקרה היחיד שבו הוא מעניין ("תמצא לי את 10423").
       if (/^\d+$/.test(safe)) terms.push(`listing_number.eq.${safe}`);
-      const or = terms.join(",");
+      orPlain = terms.join(",");
+      // ‏street_key (‏20271031230000): "העלייה", "העליה" ו"רחוב העלייה" מוצאים
+      // את הרחוב ששמור כ"עלייה". המפתח מ-SearchCore.streetNameKey, העתק של
+      // public.street_name_key שמחשב את העמודה (‏docs/street-registry.md).
+      const key = String(SearchCore.streetNameKey(safe)).replace(/[,()*"\\]/g, "");
+      orWithKey = key ? `${orPlain},street_key.eq."${key}"` : orPlain;
+    }
+  }
+
+  const build = (or: string | null) => {
+    let query = ctx.supabase
+      .from("properties")
+      .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
+      .eq("agent_id", ctx.agent.id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+    let counter = ctx.supabase
+      .from("properties")
+      .select("id", { count: "exact", head: true })
+      .eq("agent_id", ctx.agent.id);
+    if (status) {
+      query = query.eq("status", status);
+      counter = counter.eq("status", status);
+    }
+    if (or) {
       query = query.or(or);
       counter = counter.or(or);
     }
-  }
+    return [query, counter] as const;
+  };
+  const [query, counter] = build(orWithKey);
 
   // ‏ilike מוצא רק את הכתיב המדויק. "מנחם אושיסקין 18" נעלם ב-12.10.2026 גם
   // כשהסוכן כתב "אושיסקין", כי המודל מתקן את הכתיב לפני הקריאה. לכן גם סריקה
@@ -2854,13 +2868,29 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     .limit(FUZZY_SCAN_LIMIT);
   if (status) scan = scan.eq("status", status);
 
-  const [{ data, error }, { count, error: countErr }, scanRes] = await Promise.all([
+  const [first, firstCount, scanRes] = await Promise.all([
     query, counter, wantFuzzy ? scan : Promise.resolve(null),
   ]);
-  if (error) return { ok: false, error: error.message };
+  let { data, error } = first;
+  let { count, error: countErr } = firstCount;
+  if (error && orWithKey !== orPlain && (error.code === "42703" || /street_key/.test(error.message))) {
+    const [q2, c2] = build(orPlain);
+    const [again, againCount] = await Promise.all([q2, c2]);
+    ({ data, error } = again);
+    ({ count, error: countErr } = againCount);
+  }
+  if (error || !data) return { ok: false, error: error?.message || "no data" };
   if (countErr) console.warn("property count failed", countErr.message);
   if (scanRes?.error) console.warn("fuzzy property scan failed", scanRes.error.message);
 
+  // התאמה מדויקת קודם, ואחריה מה שנמצא רק דרך מפתח הרחוב (‏sort יציב -
+  // בתוך כל קבוצה נשאר הסדר לפי created_at)
+  if (q) {
+    const ql = q.toLowerCase();
+    const exact = (p: Record<string, unknown>) =>
+      [p.title, p.address, p.city].some((v) => String(v ?? "").toLowerCase().includes(ql));
+    data.sort((a, b) => Number(exact(b)) - Number(exact(a)));
+  }
   const seen = new Set(data.map((p) => String(p.id)));
   const variants = (scanRes?.data || [])
     .filter((p) => !seen.has(String(p.id)) &&
