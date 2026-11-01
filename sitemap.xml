@@ -123,11 +123,6 @@
        ואין כאן lastmod בכוונה: התוכן משתנה עם כל מודעה חדשה, ותאריך מומצא
        גרוע מתאריך חסר (ראו netlify/edge-functions/sitemap.ts). -->
   <url>
-    <loc>https://shuknadlan.co.il/?deal=sale</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=4</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -192,6 +187,11 @@
   </url>
   <url>
     <loc>https://shuknadlan.co.il/afula/דירות-גן</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/דירות-למכירה</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>

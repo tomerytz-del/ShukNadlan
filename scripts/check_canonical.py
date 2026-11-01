@@ -437,9 +437,21 @@ def city_specs(js: str) -> list[dict]:
             "slug": m.group(1),
             "market": m.group(2),
             "types": type_slugs,
+            "extra": extra_type_slugs(block),
             "no_brokers": "noBrokers: true" in block,
         })
     return specs
+
+
+def extra_type_slugs(block: str) -> list[str]:
+    """‏סוגים ב-extra של עיר, בנוסף ל-TYPES. נסגר ב-`],` של המערך."""
+    m = re.search(r"\n\s*extra:\s*\[", block)
+    if not m:
+        return []
+    rest = block[m.end():]
+    end = re.search(r"\n\s{6}\],", rest)
+    body = rest[: end.start()] if end else ""
+    return re.findall(r'slug: "([^"]+)"', body)
 
 
 def silo_types() -> list[str]:
@@ -465,7 +477,7 @@ def silo_pages() -> dict[str, str]:
     kinds = silo_types()
     out = {}
     for spec in city_specs("silo-render.js"):
-        for kind in (spec["types"] or kinds):
+        for kind in (spec["types"] or kinds) + spec.get("extra", []):
             out["%s/%s/%s" % (SITE, spec["slug"], kind)] = spec["market"]
     return out
 

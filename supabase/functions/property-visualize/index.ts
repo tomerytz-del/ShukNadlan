@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { writeVisitInsert } from "../_shared/visit-attr.ts";
+import { logAiUsage } from "../_shared/ai-usage.ts";
 import {
   buildCommercialPrompt,
   buildPrivatePrompt,
@@ -12,9 +13,13 @@ import {
   json,
   pickCommercialSources,
   pickPrivateSources,
+  prerenderAllStylesOn,
   privateTargetsFor,
+  queueOtherStyles,
+  STYLE_KEYS,
   renderModeFor,
   runVisualizationJob,
+  sourceStillFits,
   type CommercialTarget,
   type PrivateTarget,
   type StyleKey,
@@ -250,8 +255,11 @@ Deno.serve(async (req: Request) => {
       .eq("style_key", styleKey)
       .eq("mode", mode)
       .eq("status", "done");
+    /* ‏viz-speed + viz-1115-fix: הדמיה תקפה כל עוד הצילום שלה עדיין בנכס ועדיין מתויג לאותו חדר
+       (‏sourceStillFits) - לא רק כשהוא בדיוק הצילום שנבחר היום. עד 1.11 המפתח לא כלל את הצילום כלל,
+       ונכס שהחליף צילום הציג הדמיה של צילום שכבר אינו שם. רק שורה כזו נוצרת מחדש למטה (‏todo) */
     ready = (existing ?? [])
-      .filter((r: any) => r.result_url)
+      .filter((r: any) => r.result_url && sourceStillFits(tags, r.source_image_url, r.target as PrivateTarget, mode))
       .map((r: any) => ({
         target: r.target,
         style_key: r.style_key,
@@ -306,6 +314,32 @@ Deno.serve(async (req: Request) => {
 
   const readyTargets = new Set(ready.map((r) => r.target));
   const todo = sources.filter((s) => !readyTargets.has(s.target));
+
+  /* ‏viz-speed: פגיעה במטמון לא יוצרת job ולא ליד, ולכן לא נמדדה. שורה ביומן (‏units = כמה תמונות),
+     בלי טוקנים ובלי עלות - כדי לדעת כמה מהבקשות כבר מוגשות מיד */
+  if (ready.length > 0) {
+    logAiUsage({
+      feature: "viz_cache_hit", provider: "google", model: "cache",
+      uncached_input_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cache_write_1h_tokens: 0, output_tokens: 0,
+      units: ready.length, agency_id: property.agency_id ?? null, agent_id: property.agent_id ?? null,
+    });
+  }
+
+  /* ‏viz-speed שינוי 1: מי שביקש/ה סגנון אחד בנכס פרטי - שאר הסגנונות החסרים נוצרים ברקע (רק כשהדגל
+     visualization_prerender_all_styles דלוק), כך שהלחיצה הבאה על סגנון אחר כבר מיידית */
+  if (isPrivate && await prerenderAllStylesOn(supabase)) {
+    const { data: have } = await supabase
+      .from("property_visualizations")
+      .select("style_key")
+      .eq("property_id", property_id)
+      .eq("kind", "private_room")
+      .eq("mode", mode)
+      .eq("status", "done");
+    const done = new Set((have ?? []).map((r: any) => r.style_key));
+    const missing = STYLE_KEYS.filter((k) => k !== styleKey && !done.has(k));
+    // @ts-ignore — EdgeRuntime.waitUntil זמין בסביבת ה-Edge Functions של Supabase
+    if (missing.length) EdgeRuntime.waitUntil(queueOtherStyles(property_id, missing));
+  }
 
   // ---- בלם לגולש/ת (מכשיר ו-IP) -----------------------------------------
   // נבדק רק כשבאמת יש מה לייצר: קאש אינו נספר ואינו נחסם. המזהה מגיע מהדפדפן
@@ -433,10 +467,11 @@ Deno.serve(async (req: Request) => {
     // בהדמיה פרטית המפתח (נכס, מטרה, סגנון) ייחודי — מעדכנים שורה קיימת
     // שנכשלה במקום להתנגש באינדקס.
     let rowId: string | null = null;
+    let previous: WorkItem["previous"] = undefined;
     if (isPrivate) {
       const { data: prior } = await supabase
         .from("property_visualizations")
-        .select("id")
+        .select("id, status, result_url, source_image_url")
         .eq("property_id", property_id)
         .eq("kind", "private_room")
         .eq("target", s.target)
@@ -444,10 +479,17 @@ Deno.serve(async (req: Request) => {
         .eq("mode", mode)
         .maybeSingle();
       if (prior) {
-        await supabase
-          .from("property_visualizations")
-          .update({ job_id: job.id, source_image_url: s.url, status: "pending", error_detail: null })
-          .eq("id", prior.id);
+        /* ‏viz-1115-fix: שורה שמוצגת (‏done עם תמונה) נשארת כמו שהיא עד שהחדשה מוכנה, וחוזרת אליה
+           אם היצירה נכשלת (‏WorkItem.previous ב-runVisualizationJob). רק שורה שאינה מוצגת עוברת ל-pending */
+        if (prior.status === "done" && prior.result_url) {
+          previous = { result_url: prior.result_url, source_image_url: prior.source_image_url ?? null };
+          await supabase.from("property_visualizations").update({ job_id: job.id }).eq("id", prior.id);
+        } else {
+          await supabase
+            .from("property_visualizations")
+            .update({ job_id: job.id, source_image_url: s.url, status: "pending", error_detail: null })
+            .eq("id", prior.id);
+        }
         rowId = prior.id;
       }
     }
@@ -472,7 +514,7 @@ Deno.serve(async (req: Request) => {
       rowId = inserted.id;
     }
 
-    items.push({ rowId, target: s.target, sourceUrl: s.url, prompt: s.prompt });
+    items.push({ rowId, target: s.target, sourceUrl: s.url, prompt: s.prompt, previous });
   }
 
   if (items.length === 0) {

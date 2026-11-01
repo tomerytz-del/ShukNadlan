@@ -307,6 +307,9 @@ const artBare = await serve("article.html", "/article?slug=a", { slug: "a", titl
 const ag = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד הדר", description: "פסקה א\n\nפסקה <ב>", address: "הנשיא 5, עפולה" });
 const agFallback = await serve("agency.html", "/agency?slug=a", { id: "x", name: "אביה גולדברג - תיווך", description: null, address: "עפולה", specialty_areas: ["עפולה", "גבעת המורה", "בית שאן"] });
 const agEmpty = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: null, address: null, specialty_areas: [] });
+const COVER = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a/cover.jpg";
+const agCover = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: "ד", cover_url: COVER });
+const agEvil = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: "ד", cover_url: "https://evil.example/storage/v1/object/public/x.jpg" });
 
 const bodies: [string, boolean][] = [
   ["כתבה: H1 בשרת", /<h1 class="title" id="articleTitle">כותרת<\/h1>/.test(art)],
@@ -319,6 +322,9 @@ const bodies: [string, boolean][] = [
   ["משרד: H1 בשרת", /id="brandName">משרד הדר<\/h1>/.test(ag)],
   ["משרד בלי תיאור: משפט עובדתי עם הכתובת והאזורים", agFallback.includes("<p>משרד התיווך אביה גולדברג - תיווך, עפולה. אזורי פעילות: עפולה, גבעת המורה ובית שאן.</p>")],
   ["משרד בלי תיאור, כתובת ואזורים: המקטע מוסתר", /id="aboutSec" aria-labelledby="aboutHeading" hidden>/.test(agEmpty) && /id="aboutText"><\/div>/.test(agEmpty)],
+  ["משרד בלי תמונת נושא: אין img של השער", !ag.includes('<img class="banner-lcp"')],
+  ["משרד עם כיסוי מהאחסון: img ו-preload של העותק המוקטן", agCover.includes('<img class="banner-lcp"') && agCover.includes("width=1400&amp;height=800") && agCover.includes('rel="preload"')],
+  ["משרד עם כיסוי מארח זר: אין img", !agEvil.includes('<img class="banner-lcp"')],
 ];
 
 /* ‏סוכן/ת, פרויקט, יזם ובעל/ת מקצוע: H1 ותוכן מהשרת, ונתונים מובנים */
