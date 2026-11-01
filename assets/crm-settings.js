@@ -152,6 +152,7 @@ function renderSettingsHub(){
 document.getElementById('accPrefs').addEventListener('toggle', e => {
   if (e.target.open) renderSettingsHub();
 });
+if (document.getElementById('accPrefs') && document.getElementById('accPrefs').open) renderSettingsHub();
 
 /* ==========================================================================
    העדפות לידים מבעלי נכסים (agent_lead_preferences)
@@ -175,6 +176,7 @@ function leadHoodGroup(n){ return n.is_industrial ? 'ind' : n.is_planned ? 'plan
 let leadPrefsRow = null;        // השורה במסד, או null כשעוד לא הוגדרו העדפות
 let leadPrefsBar = null;
 let leadPrefsAutoOpened = false;
+let leadPrefsLoaded = false;   // השאילתה הסתיימה. לפני כן שמירה הייתה דורסת שורה אמיתית בטופס ריק
 
 async function loadPreferences(agentId){
   await loadAllNeighborhoods();
@@ -183,6 +185,7 @@ async function loadPreferences(agentId){
     .select('preferred_neighborhoods, preferred_property_types, preferred_deal_types, active')
     .eq('agent_id', agentId)
     .maybeSingle();
+  leadPrefsLoaded = !error;
   leadPrefsRow = error ? null : (data || null);
   renderLeadPrefs();
 }
@@ -197,6 +200,11 @@ function leadPrefsState(){
 
 function renderLeadPrefs(){
   ensureSettingsMounted();
+  const prefsBody = document.getElementById('setLeadPrefsBody');
+  if (prefsBody) {
+    if (leadPrefsLoaded) prefsBody.removeAttribute('data-ui-lock');
+    else prefsBody.setAttribute('data-ui-lock', '');
+  }
   const groupsEl = document.getElementById('setHoodGroups');
   if (!groupsEl) return;
   const row = leadPrefsRow;
@@ -247,6 +255,7 @@ function renderLeadPrefs(){
     });
   }
   leadPrefsBar.setBaseline();
+  if (leadPrefsBar.refresh) leadPrefsBar.refresh();
   syncLeadPrefsUi();
 
   // מי שעוד לא הגדיר/ה העדפות - החלק נפתח מעצמו, פעם אחת
@@ -291,6 +300,7 @@ function leadPrefsSummary(s){
 }
 
 async function saveLeadPrefs(s){
+  if (!leadPrefsLoaded) throw new Error('ההעדפות עדיין נטענות. נסו שוב בעוד רגע.');
   if (!currentAgent) throw new Error('not_ready');
   const active = document.getElementById('setOwnerSwitch').getAttribute('aria-pressed') === 'true';
   const { error } = await sb.from('agent_lead_preferences').upsert({
@@ -305,7 +315,8 @@ async function saveLeadPrefs(s){
   leadPrefsRow = { preferred_neighborhoods: s.hoods, preferred_property_types: s.types, preferred_deal_types: s.deals, active };
   syncLeadPrefsUi();
   // צעד "העדפות לידים" במדריך ההתחלה נסגר בשמירה הזו
-  refreshOnboarding();
+  if (window.crmNeed) { try { await crmNeed('onboarding'); } catch (e) {} }
+  if (typeof refreshOnboarding === 'function') refreshOnboarding();
 }
 
 /* המתג בכותרת נשמר מיד ועובד גם כשהחלק סגור. מי שעוד אין לו/ה שורה -
@@ -475,7 +486,8 @@ function ensureSettingsMounted(){
   mountHubQuiet();
   wireNotifScreen();
 }
-document.addEventListener('DOMContentLoaded', ensureSettingsMounted);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureSettingsMounted);
+else ensureSettingsMounted();
 
 function mountHubQuiet(){
   const host = document.getElementById('setQuietEditor');

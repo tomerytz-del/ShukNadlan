@@ -315,6 +315,12 @@ function renderTeamLeads(){
   on('accTeamDashboard', () => loadTeamDashboard());
   on('accTeamAgents', () => { renderTeamAgents(); loadTeamDashboard(); });
   on('accTeamLeads', () => loadTeamLeads());
+  const dash = document.getElementById('accTeamDashboard');
+  const agents = document.getElementById('accTeamAgents');
+  const leads = document.getElementById('accTeamLeads');
+  if (dash && dash.open) loadTeamDashboard();
+  if (agents && agents.open) { renderTeamAgents(); loadTeamDashboard(); }
+  if (leads && leads.open) loadTeamLeads();
 
   section.addEventListener('click', e => {
     const per = e.target.closest('[data-td-period]');

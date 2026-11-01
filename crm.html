@@ -11162,7 +11162,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <span class="ui-savebar-text" role="status"></span>
                 <div class="ui-savebar-acts">
                   <button type="button" class="ui-btn ui-btn--secondary" data-ui-reset>ביטול שינויים</button>
-                  <button type="button" class="ui-btn" data-ui-save>שמירת העדפות</button>
+                  <button type="button" class="ui-btn" data-ui-save disabled>שמירת העדפות</button>
                 </div>
               </div>
             </div>
@@ -12661,72 +12661,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </dialog>
 
-<!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
-     מנהל/ת הפלטפורמה. docs/regional-pages.md -->
-<script defer src="assets/markets.js"></script>
-<script defer src="assets/agency-markets.js"></script>
-<script defer src="assets/contact-import.js"></script>
-<script defer src="assets/crm-office.js"></script>
-<!-- ערכת הרכיבים (צ'יפ, מתג, מקופל, פס שמירה, "עוד X"; docs/crm-ui-kit.md).
-     לפני שאר המודולים, שבונים ממנה את המסכים -->
-<script defer src="assets/crm-ui.js"></script>
-<!-- "ההגדרות שלי" ו"התראות והודעות" (docs/crm-settings.md). אחרי crm-ui.js,
-     שממנו הם נבנים, ולפני crm.js -->
-<script defer src="assets/crm-settings.js"></script>
-<!-- תחום ואזורי פעילות - רכיב אחד לפרופיל ולדף המשרד (docs/area-scope.md) -->
-<script defer src="assets/crm-areas.js"></script>
-<!-- הפרופיל שלי ודף המשרד: הבאנרים, "מלא ב-X%" ופס השמירה (docs/crm-profile-pages.md) -->
-<script defer src="assets/crm-profile-pages.js"></script>
-<!-- "הלידים שלי" - רשימה אחת לפי סדר עדיפות (docs/leads-unified.md) -->
-<script defer src="assets/crm-leads.js"></script>
-<!-- "נכסים" - שתי הלשוניות, "דורש תשומת לב" וכלים לנכס (docs/properties-unified.md) -->
-<script defer src="assets/crm-properties.js"></script>
-<!-- "התאמות חדשות" מקובצות לפי לקוח/ה, ושליחה מרוכזת (docs/client-matching.md) -->
-<script defer src="assets/crm-matches.js"></script>
-<!-- הצעות לשיפור: הכפתור עם הזבוב והרשימה למנהלי הפלטפורמה (docs/improvement-suggestions.md) -->
-<script defer src="assets/crm-suggestions.js"></script>
-<!-- שלושת מאמני ה-AI: הכרטיס, הכפתורים ו"בוצע" (docs/coaches.md). לפני
-     שלושת הדאשבורדים, שרושמים ב-coachRerender את הציור שלהם -->
-<script defer src="assets/crm-coach.js"></script>
-<script defer src="assets/crm-office-dashboard.js"></script>
-<script defer src="assets/crm-my-dashboard.js"></script>
-<!-- הצוות שלי: דאשבורד הצוות, לידים בצוות והסוכנים בצוות (docs/team-dashboard.md).
-     אחרי crm-office-dashboard.js, כי הוא משתמש בעזרים שלו -->
-<script defer src="assets/crm-team-dashboard.js"></script>
-<!-- המיניסייט האישי ללקוח/ה: בחירת התאמות, חלון השליחה ופאנל התגובות.
-     נטען לפני crm.js ומגדיר פונקציות בלבד. docs/client-showcase.md -->
-<script defer src="assets/crm-showcase.js"></script>
-<!-- צוותים בתוך המשרד ב"צוותים וסוכנים" (docs/teams.md) -->
-<script defer src="assets/crm-teams.js"></script>
-<!-- לוח היום בדף הבית (docs/crm-home.md). לפני crm.js כמו שאר המודולים;
-     הפונקציות שבו נקראות רק אחרי שהוא רץ. -->
-<script defer src="assets/crm-home.js"></script>
-<!-- מדריך ההתחלה (docs/agent-onboarding.md). לפני crm.js; הפונקציות נקראות
-     מ-loadDashboard, אחרי שהוא רץ. -->
-<script defer src="assets/crm-onboarding.js"></script>
-<!-- גיליון השלמת פרטים במובייל. אחרי המדריך, כי הוא קורא את onbModel. -->
-<script defer src="assets/crm-profile-nudge.js"></script>
-<!-- הטמעת סוכנים (docs/csm-adoption.md). לפני crm.js; מגדיר פונקציות
-     וחיבורים בלבד, והטעינה בפתיחת הקטגוריה. -->
-<script defer src="assets/crm-csm.js"></script>
-<!-- תיבת המשימות של מנהל/ת הפלטפורמה (docs/admin-inbox.md). לפני crm.js;
-     מגדירה פונקציות בלבד, ו-loadDashboard קוראת ל-loadAdminInbox. -->
-<script defer src="assets/crm-admin-inbox.js"></script>
-<!-- מרכז הפיקוד והודעה לכל הסוכנים (docs/admin-command-center.md). לפני crm.js -->
-<script defer src="assets/crm-command-center.js"></script>
-<script defer src="assets/crm-growth.js"></script>
-<script defer src="assets/crm-budget.js"></script>
-<script defer src="assets/crm-ads-spend.js"></script>
-<script defer src="assets/crm-hood-drafts.js"></script>
-<!-- ליבת ייבוא הנכסים מקובץ - אותו קוד שגבריאלה מריצה בשרת
-     (docs/property-import.md). לפני crm.js, שמגדיר ממנה את IMPORT_FIELDS
-     ואת עזרי impNorm/impText בזמן הטעינה. -->
-<script defer src="assets/property-import-core.js"></script>
-<!-- תצוגת דוח ה-CMA ו-plansListHtml - משותף לדף /cma?k= (docs/cma.md). לפני
-     crm.js, כדי שכל מי שקורא להן כבר ימצא אותן. -->
-<script defer src="assets/cma-render.js"></script>
-<!-- crmNeed: טוען Leaflet, מפות, יריד, הסכמים, ת.ז., התמחויות ו-GovMap
-     רק כשצריך. defer ולפני crm.js, כדי שהפונקציה קיימת כשהדף רץ. -->
+<!-- מסכי הקטגוריות (שווקים, ייבוא, דאשבורדים, CMA, לידים, וכל השאר)
+     אינם בשרשרת ה-defer. סקריפט defer אחד שנתקע עיכב את crm.js, את מסך
+     הכניסה ואת ניתוב ה-goto. crm-lazy.js טוען כל קבוצה כשהמסך שלה או
+     יעד הקישור נפתחים, ואת השאר אחרי שהמסך הראשון מצויר. -->
+<!-- crmNeed: לפני crm.js, כדי שהפונקציה קיימת כשהדף רץ. -->
 <script defer src="assets/crm-lazy.js"></script>
 <!-- לפני crm.js, לא אחריו. boot() מחכה ל-getSession שכבר נפתר, וההמשך
      רץ לפני הסקריפט הבא. defer שומר את הסדר: המדידה רצה לפני crm.js.
@@ -12754,7 +12693,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 </div>
-<script defer src="assets/air-living.js"></script>
 <script defer src="assets/crm.js"></script>
 </body>
 </html>

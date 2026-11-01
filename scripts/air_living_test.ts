@@ -188,7 +188,11 @@ check("סיבה בלי נקודה אחרי מספר שלם",
   sql.includes("round(p_client.min_living_room_sqm - p_property.living_room_sqm, 1) > 0"));
 const agent = read("supabase/functions/whatsapp-webhook/agent.ts");
 check("סלון מחוץ לטווח נשמר", agent.includes("הערך הקודם נשמר") && agent.includes("delete payload[sqmKey]") && agent.includes("minAirCountKept"));
-check("defer לסקריפט", read("crm.html").includes('defer src="assets/air-living.js"'));
+const lazyJs = read("assets/crm-lazy.js");
+check("הסקריפט נטען עם מסך הנכס ולא בשרשרת ה-defer",
+  !read("crm.html").includes("air-living.js") &&
+  lazyJs.includes("assets/air-living.js") &&
+  /accProperties:\s*\[[^\]]*['"]air['"]/.test(lazyJs));
 const facts = sql.slice(sql.indexOf("function public.property_marketing_facts"));
 check("עובדות כוללות סלון וכיוון", facts.includes("living_room_sqm") && facts.includes("p.air_directions"));
 check("הטביעה לא השתנתה", !sql.includes("property_marketing_fingerprint"));

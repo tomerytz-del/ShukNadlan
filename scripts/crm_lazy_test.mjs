@@ -8,18 +8,58 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { fixtureFailures, scan } from './crm_lazy_scan.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'crm.html'), 'utf8');
 const lazy = readFileSync(join(root, 'assets', 'crm-lazy.js'), 'utf8');
 const crm = readFileSync(join(root, 'assets', 'crm.js'), 'utf8');
 
-test('אין סקריפט src שחוסם את הציור', () => {
+/* מסכי הקטגוריה אינם ב-HTML. סקריפט defer אחד שנתקע היה עוצר את
+   crm.js, את מסך הכניסה ואת ניתוב ה-goto. הרשימה כאן היא שרשרת
+   האתחול בלבד, כולה defer. */
+const BOOT_SRC = [
+  'assets/esc.js',
+  'assets/friendly-error.js',
+  'assets/pwa-install.js',
+  'assets/auth-return.js',
+  'supabase.js',
+  'assets/apple-signin.js',
+  'assets/page-bg.js',
+  'assets/tiers.js',
+  'assets/exit-guard.js',
+  'assets/crm-lazy.js',
+  'assets/deeplink-timing.js',
+  'assets/crm.js',
+];
+const SECTION_SRC = [
+  'markets.js', 'agency-markets.js', 'contact-import.js', 'crm-office.js',
+  'crm-ui.js', 'crm-settings.js', 'crm-areas.js', 'crm-profile-pages.js',
+  'crm-leads.js', 'crm-properties.js', 'crm-matches.js', 'crm-suggestions.js',
+  'crm-coach.js', 'crm-office-dashboard.js', 'crm-my-dashboard.js',
+  'crm-team-dashboard.js', 'crm-showcase.js', 'crm-teams.js', 'crm-home.js',
+  'crm-onboarding.js', 'crm-profile-nudge.js', 'crm-csm.js',
+  'crm-admin-inbox.js', 'crm-command-center.js', 'crm-growth.js',
+  'crm-budget.js', 'crm-ads-spend.js', 'crm-hood-drafts.js',
+  'property-import-core.js', 'cma-render.js', 'air-living.js',
+  'leaflet.js', 'map-tiles.js', 'govmap.js', 'agreement-doc.js', 'open-house.js',
+];
+
+test('אין סקריפט src שחוסם את הציור, ומסכי הקטגוריה אינם בשרשרת', () => {
   const tags = htmlWithoutComments(html).match(/<script\b[^>]*>/g) || [];
   const src = tags.filter(t => /\ssrc=/.test(t));
   const blocking = src.filter(t => !/\sdefer\b/.test(t) && !/\sasync\b/.test(t));
   assert.equal(blocking.length, 0, blocking.join('\n'));
-  assert.ok(src.length >= 30);
+  const hrefs = src.map(t => (t.match(/src=["']([^"']+)["']/) || [])[1] || '');
+  assert.equal(hrefs.length, BOOT_SRC.length, hrefs.join('\n'));
+  for (let i = 0; i < BOOT_SRC.length; i++) {
+    assert.ok(hrefs[i].endsWith(BOOT_SRC[i]), hrefs[i] + ' != ' + BOOT_SRC[i]);
+  }
+  const srcNames = hrefs.map(h => h.split('/').pop());
+  for (const name of SECTION_SRC) {
+    assert.equal(srcNames.includes(name), false, name);
+    assert.match(lazy, new RegExp('(?:^|[^a-z-])' + name.replace('.', '\\.')));
+  }
 });
 
 test('המכולה נדחית אבל נשארת, וה-noscript במקום', () => {
@@ -232,4 +272,121 @@ test('מסך הכניסה נמדד אחרי 3 שניות, כמו בקוד', () =
   assert.match(doc, /אחרי 3\nשניות/);
   assert.equal(/אחרי 12\nשניות/.test(doc), false);
   assert.match(crm, /timeout:\s*3000/);
+});
+
+/* פונקציה שמוגדרת רק בקובץ עצלן ו-crm.js קורא לה בלי typeof ובלי
+   crmNeed של הקבוצה שלה, באותה פונקציה ולפני הקריאה. השאילתה חוזרת
+   לפני שהקובץ נטען, ו-ReferenceError עוצר את Promise.all כולל ה-goto. */
+function lazyCallSites(src){
+  const lazySrc = readFileSync(join(root, 'assets', 'crm-lazy.js'), 'utf8');
+  const groupOfFile = new Map();
+  const block = lazySrc.slice(lazySrc.indexOf('var GROUPS'), lazySrc.indexOf('var PRE'));
+  let cur = null;
+  for (const line of block.split('\n')) {
+    const g = line.match(/^\s{4}([A-Za-z0-9]+):\s*\[/);
+    if (g) cur = g[1];
+    const f = line.match(/assets\/([A-Za-z0-9._-]+\.js)/);
+    if (f && cur) {
+      if (!groupOfFile.has(f[1])) groupOfFile.set(f[1], []);
+      groupOfFile.get(f[1]).push(cur);
+    }
+  }
+  const declIn = text => {
+    const names = new Set();
+    for (const m of text.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+    for (const m of text.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+    return names;
+  };
+  const own = declIn(src);
+  const symbols = new Map();
+  for (const [file, groups] of groupOfFile) {
+    const path = join(root, 'assets', file);
+    let text = '';
+    try { text = readFileSync(path, 'utf8'); } catch (e) { continue; }
+    for (const name of declIn(text)) {
+      if (!own.has(name) && !symbols.has(name)) symbols.set(name, groups);
+    }
+  }
+  const code = maskCode(src);
+  const ranges = functionRanges(code);
+  const lineOf = idx => src.slice(0, idx).split('\n').length;
+  const fails = [];
+  for (const [name, groups] of symbols) {
+    const re = new RegExp('(?<![.\\w$])' + name + '\\s*\\(', 'g');
+    let m;
+    while ((m = re.exec(code))) {
+      const at = m.index;
+      let best = null;
+      for (const r of ranges) {
+        if (at >= r.body && at <= r.end && (!best || (r.end - r.start) < (best.end - best.start))) best = r;
+      }
+      let from = best ? best.body : 0;
+      const arrow = src.lastIndexOf('=>', at);
+      if (arrow >= from && at - arrow < 160) {
+        let j = arrow + 2;
+        while (src[j] === ' ' || src[j] === '\n') j++;
+        if (src[j] !== '{') from = arrow;
+      }
+      const before = src.slice(from, at);
+      const parent = src.slice(best ? best.body : 0, from);
+      const typed = new RegExp('typeof\\s+' + name + '\\b');
+      const need = g => new RegExp("crmNeed\\(\\s*['\"]" + g + "['\"]");
+      const ok = (chunk) => typed.test(chunk) || groups.some(g => need(g).test(chunk));
+      if (ok(before) || ok(parent)) continue;
+      fails.push(lineOf(at) + ' ' + name);
+    }
+  }
+  return fails;
+}
+
+test('קריאה לקובץ עצלן שמורה ב-typeof או ב-crmNeed של הקבוצה', () => {
+  const fails = lazyCallSites(crm);
+  assert.deepEqual(fails, []);
+  for (const [fn, groups] of [
+    ['async function loadProperties', ["crmNeed('properties'", "crmOptional('office')"]],
+    ['async function loadLeads', ["crmNeed('leads'", "crmOptional('office')"]],
+    ['async function loadClients', ["crmNeed('leads')", "crmOptional('office')"]],
+    ['async function loadSharedWithMe', ["crmNeed('properties')"]],
+    ['async function loadTeam', ["crmNeed('teams'"]],
+  ]) {
+    const body = crm.slice(crm.indexOf(fn), crm.indexOf(fn) + 2200);
+    for (const needle of groups) assert.ok(body.includes(needle), fn + ' ' + needle);
+  }
+});
+
+test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפיל את הדשבורד', () => {
+  const at = crm.indexOf('function closeNavLayers()');
+  assert.ok(at > 0);
+  const body = crm.slice(at, at + 500);
+  assert.equal(body.startsWith('function closeNavLayers'), true);
+  assert.equal(body.includes('await'), false);
+  assert.match(lazy, /var inflight = \{\}/);
+  assert.match(lazy, /return existing\.promise/);
+  assert.match(lazy, /CALL_MS = 8000/);
+  assert.match(lazy, /function boundCaller/);
+  assert.match(lazy, /function markStalled/);
+  assert.match(lazy, /function isStalled/);
+  assert.match(lazy, /var stalled = \{\}/);
+  assert.match(lazy, /function clearFailed/);
+  assert.match(lazy, /function crmAfter/);
+  assert.match(lazy, /needShared\(g, 0\)/);
+  assert.doesNotMatch(lazy, /setInterval/);
+  assert.doesNotMatch(lazy, /deadlines/);
+  assert.match(crm, /function crmNeedThen/);
+  const settings = readFileSync(join(root, 'assets', 'crm-settings.js'), 'utf8');
+  assert.match(settings, /let leadPrefsLoaded = false/);
+  assert.match(settings, /data-ui-lock/);
+  assert.match(crm, /const crmQuiet = /);
+  assert.match(crm, /crmNeed\('contacts'\)\.then\(initContactPick\)/);
+  const form = crm.slice(crm.indexOf('function openClientForm()'), crm.indexOf('function openClientForm()') + 400);
+  assert.match(form, /initContactPick/);
+  assert.match(lazy, /home: \['ui', 'leads'\]/);
+  assert.match(lazy, /command: \['ui', 'coach', 'adminInbox'\]/);
+  assert.match(lazy, /leads: \['ui'\],/);
+  assert.match(crm, /fresh: true/);
+});
+
+test('סריקת AST תופסת את מה שהסריקה הישנה פספסה, והקוד נקי', () => {
+  assert.deepEqual(fixtureFailures(), []);
+  assert.deepEqual(scan(root), []);
 });

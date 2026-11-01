@@ -1562,6 +1562,7 @@ function csmSetTab(tab){
   const acc = document.getElementById('accCsm');
   if (!acc) return;
   acc.addEventListener('toggle', e => { if (e.target.open) loadCsm(); });
+  if (acc.open) loadCsm();
 
   acc.addEventListener('click', e => {
     const tab = e.target.closest('[data-csm-tab]');

@@ -99,4 +99,5 @@ async function hoodDraftsRunNow(){
 (function wireHoodDrafts(){
   const acc = document.getElementById('accNeighborhoods');
   if (acc) acc.addEventListener('toggle', () => { if (acc.open) loadHoodDrafts(); });
+  if (acc && acc.open) loadHoodDrafts();
 })();

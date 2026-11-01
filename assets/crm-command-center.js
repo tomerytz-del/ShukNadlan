@@ -135,8 +135,8 @@ function renderCcInbox(rows){
     el.innerHTML = '<div class="inbx-main"><div class="inbx-kind">' + esc(def.label) + '</div>'
       + '<div class="inbx-title">' + esc(t.title) + '</div>'
       + (t.sub ? '<div class="inbx-sub">' + esc(t.sub) + '</div>' : '') + '</div>'
-      + '<span class="inbx-wait ' + inboxWaitClass(row) + '">'
-      + esc((row.overdue ? 'חרג · ' : '') + inboxWaitText(row.waiting_minutes)) + '</span>';
+      + '<span class="inbx-wait ' + (typeof inboxWaitClass === 'function' ? inboxWaitClass(row) : '') + '">'
+      + esc((row.overdue ? 'חרג · ' : '') + (typeof inboxWaitText === 'function' ? inboxWaitText(row.waiting_minutes) : '')) + '</span>';
     const open = document.createElement('button');
     open.type = 'button';
     open.className = 'inbx-open';
@@ -385,4 +385,5 @@ async function loadPlatformNews(){
 (function wirePlatformNews(){
   const acc = document.getElementById('accPlatformNews');
   if (acc) acc.addEventListener('toggle', () => { if (acc.open) loadPlatformNews(); });
+  if (acc && acc.open) loadPlatformNews();
 })();
