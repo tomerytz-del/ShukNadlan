@@ -4107,23 +4107,27 @@
      כדי שלא תישאר רשומה ישנה ו"אחורה" אחר כך יתנהג כמו קודם. גיליון שנפתח מעל המועדפים נסגר קודם
      (הרשומה שלו מעל זו). הגלילה ברשימה נשמרת ומשוחזרת */
   var likesPushed = false, likesOwnBack = false, likesScroll = 0, likesResume = null;
-  /* רשומת המפה/הרשימה (ראו setView). ‏viewRestore: הכניסה ל-?view=map בטעינה אינה מעבר ואינה דוחפת */
-  var viewPushed = false, viewOwnBack = false, viewRestore = false;
+  /* רשומות התצוגה (ראו setView): התצוגה של הרשומה שאליה חזרנו. רשומה בלי swView היא ההחלקה
+     (הכניסה לדף, מעבר היריד), חוץ מרשומת גיליון (‏swSheet), שהקוד שלה מטפל בה.
+     ‏viewRestore: הכניסה ל-?view=map בטעינה אינה מעבר ואינה דוחפת */
+  var viewRestore = false;
+  function stateView(st) {
+    if (st && (st.swView === 'deck' || st.swView === 'map' || st.swView === 'list')) return st.swView;
+    if (st && (st.swView || st.swSheet)) return null;
+    return 'deck';
+  }
   window.addEventListener('popstate', function (e) {
-    if (viewOwnBack) { viewOwnBack = false; if (!likesOwnBack) { writeUrl(); } return; }
-    var sv = e.state && e.state.swView;
-    if (viewPushed && sv !== 'map' && sv !== 'list' && sv !== 'likes' && view !== 'likes') {
-      viewPushed = false;
-      setView('deck', false, false, true);
-    }
+    if (view === 'likes' || likesOwnBack) return;   // המועדפים מטפלים ברשומה שלהם
+    var tv = stateView(e.state);
+    if (tv && tv !== view) setView(tv, false, false, true);
   });
   window.addEventListener('popstate', function (e) {
     // הכתובת נכתבת רק עכשיו, על הרשומה שאליה חזרנו - ולא על רשומת המועדפים שיצאה (סינון שהשתנה במועדפים)
     if (likesOwnBack) {
       likesOwnBack = false;
-      /* מהמועדפים (שנפתחו מעל ההחלקה) ישר למפה/לרשימה: הרשומה שלהן נדחפת רק עכשיו, אחרי שהמועדפים יצאו */
-      if ((view === 'map' || view === 'list') && !viewPushed) {
-        try { history.pushState(Object.assign({}, history.state, { swView: view }), ''); viewPushed = true; } catch (e2) { /* בזיכרון בלבד */ }
+      /* מהמועדפים לתצוגה אחרת מזו שממנה נפתחו: הרשומה שלה נדחפת רק עכשיו, אחרי שהמועדפים יצאו */
+      if (view !== 'likes' && stateView(history.state) !== view) {
+        try { history.pushState(Object.assign({}, history.state, { swView: view }), ''); } catch (e2) { /* בזיכרון בלבד */ }
       }
       writeUrl(); syncLvBack(); return;
     }
@@ -4169,23 +4173,13 @@
       }
     } else if (view === 'likes' && v !== 'likes' && likesPushed && !fromPop) {
       likesPushed = false; likesOwnBack = true;
-      /* חזרה להחלקה מהמועדפים שנפתחו מעל מפה/רשימה: שתי הרשומות יוצאות יחד */
-      var both = v === 'deck' && viewPushed;
-      if (both) { viewPushed = false; viewOwnBack = true; }
-      try { if (both) history.go(-2); else history.back(); deferUrl = true; } catch (e) { likesOwnBack = false; viewOwnBack = false; }
+      try { history.back(); deferUrl = true; } catch (e) { likesOwnBack = false; }
     }
-    /* ‏1.11.2026 (תומר): מפה ורשימה דוחפות רשומה אחת בהיסטוריה, כמו המועדפים, ולכן "אחורה" מהן
-       חוזר להחלקה ולא יוצא מ-/swipe לדף הקודם. מעבר בין מפה לרשימה מחליף את אותה רשומה; חזרה
-       להחלקה בכפתור שבדף מוציאה אותה (‏history.back), כדי ש"אחורה" אחר כך יצא מהדף כרגיל */
-    if ((v === 'map' || v === 'list') && !fromPop && !viewRestore) {
-      try {
-        var vs = Object.assign({}, history.state, { swView: v });
-        if (!viewPushed && view === 'deck') { history.pushState(vs, ''); viewPushed = true; }
-        else if (viewPushed && view !== 'likes') history.replaceState(vs, '');
-      } catch (e) { /* בלי History API - רק המצב בזיכרון */ }
-    } else if (v === 'deck' && view !== 'likes' && viewPushed && !fromPop) {
-      viewPushed = false; viewOwnBack = true;
-      try { history.back(); deferUrl = true; } catch (e) { viewOwnBack = false; }
+    /* ‏1.11.2026 (תומר): כל מעבר בין החלקה, מפה ורשימה דוחף רשומה בהיסטוריה (‏swView), ולכן
+       "אחורה" חוזר לתצוגה הקודמת, בסדר שבו נפתחו (רשימה ← מפה ← החלקה), ולא יוצא מ-/swipe.
+       המועדפים מנהלים רשומה משלהם (למטה) */
+    if ((v === 'deck' || v === 'map' || v === 'list') && v !== view && view !== 'likes' && !fromPop && !viewRestore) {
+      try { history.pushState(Object.assign({}, history.state, { swView: v }), ''); } catch (e) { /* בזיכרון בלבד */ }
     }
     var backToList = view === 'likes' && v === 'list' && preLikes === 'list';
     // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
@@ -4488,11 +4482,13 @@
       var v0 = params.get('view');
       var hs = history.state;
       if (v0 === 'likes' && hs && hs.swView === 'likes') likesResume = hs.from === 'map' || hs.from === 'list' ? hs.from : 'deck';
-      // רשומה של מפה/רשימה שנדחפה בביקור הזה (חזרה מדף נכס): "אחורה" ממנה עדיין חוזר להחלקה
-      if (hs && (hs.swView === 'map' || hs.swView === 'list')) viewPushed = true;
       viewRestore = true;
       if (v0 === 'list' || v0 === 'map' || v0 === 'likes') setView(v0);
       viewRestore = false;
+      // כניסה ישירה ל-?view=map: הרשומה הנוכחית מסומנת כמפה, כדי ש"אחורה" מרשימה שתיפתח אחריה יחזור אליה
+      if ((view === 'map' || view === 'list') && stateView(hs) !== view) {
+        try { history.replaceState(Object.assign({}, hs, { swView: view }), ''); } catch (e) { /* בזיכרון בלבד */ }
+      }
       if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {
         if (ext && ext.st.ai) buildDeck();   // ‏hf עם ai=1 - החפיסה אחרי שההדמיות ידועות
