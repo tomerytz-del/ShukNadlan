@@ -2963,6 +2963,7 @@ function renderProperty(p){
   agentLineEl.hidden = !agentLine;
   renderAgentCard(p);
   renderContactButtons(p);
+  renderWaShare(p);
   prefillInquiryMessage(p);
   setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
@@ -3081,6 +3082,34 @@ function watchStickyBar(){
 
 let stickyWatched = false;
 let fairEndTimer = 0;
+/* ---------- שיתוף בוואטסאפ ----------
+   ‏wa.me/?text= בלי מספר: וואטסאפ נפתח והגולש/ת בוחר/ת למי לשלוח. גם
+   במובייל עם navigator.share - הכפתור אומר "וואטסאפ", ולכן הוא פותח
+   וואטסאפ ולא את תפריט השיתוף הכללי (‏#shareBtn בתמונה עושה את זה).
+   בטקסט רק מה שמתאר את המודעה: שורת פתיחה, כותרת ציבורית (בלי מספר בית),
+   מחיר, שכונה ועיר, וקישור. לא טלפון של המפרסם ולא שם או רישיון. הקישור
+   הוא הקצר (‏/p/{מספר מודעה}, ‏short-link.ts מפנה ב-302 לכתובת הקנונית
+   ושומר את ה-utm), ובלי מספר מודעה - ‎/property?id=‎. בשני המקרים התצוגה
+   המקדימה בוואטסאפ מקבלת מהשרת (‏og-tags.ts) את התמונה והכותרת. */
+function waShareText(p){
+  const title = publicTitle(p) || 'נכס בשוק נדל״ן';
+  const head = Number(p.price) > 0 ? title + ' · ' + priceFlat(p) : title;
+  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const where = [hood && hood !== p.city ? hood : '', p.city || ''].filter(Boolean).join(', ');
+  const utm = 'utm_source=whatsapp&utm_medium=share&utm_campaign=property_share';
+  const url = p.listing_number
+    ? 'https://shuknadlan.co.il/p/' + encodeURIComponent(p.listing_number) + '?' + utm
+    : 'https://shuknadlan.co.il/property?id=' + encodeURIComponent(p.id) + '&' + utm;
+  return ['ראיתי בשוק נדל״ן נכס שאולי יעניין אותך:', head, where, url].filter(Boolean).join('\n');
+}
+function renderWaShare(p){
+  const a = document.getElementById('waShareBtn');
+  if (!a || !p || !p.id) return;
+  a.href = 'https://wa.me/?text=' + encodeURIComponent(waShareText(p));
+  a.setAttribute('data-share-id', p.id);
+  a.hidden = false;
+}
+
 function renderContactButtons(p){
   document.body.classList.add('has-sticky-bar');
   if (!stickyWatched){ watchStickyBar(); stickyWatched = true; }
