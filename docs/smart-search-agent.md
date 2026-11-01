@@ -158,7 +158,9 @@ saved_searches   status='active'  lead_status='new'
 - **`saved_searches`** — החיפוש עצמו, וגם הליד. שם, טלפון ואימייל רגישים,
   ולכן `anon` נשלל מהטבלה לגמרי ולא נשענים על RLS בלבד.
 - **`saved_search_alerts`** — תור ההתראות. `unique(search_id, property_id)`.
-- **`saved_search_leads_public`** — המדף: קריטריונים וציון בלבד.
+- **`saved_search_leads_public`** — המדף: קריטריונים וציון בלבד. הטקסט החופשי
+  והתקציר עוברים `redact_contact_text` (בלי שם משתמש ברשת, קישור, טלפון או שם -
+  `docs/social-leads.md`, "בחנות").
 - **`saved_search_lead_purchases`** — יומן החיובים.
 - שש מפתחות ב-`pricing_config` (ראו "כוונון" בהמשך).
 
