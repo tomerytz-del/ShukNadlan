@@ -455,13 +455,18 @@ const countMeta = (sale: number, rent: number) => describe({
 const bothCounts = countMeta(3, 2);
 const oneSale = countMeta(1, 0);
 const oneRent = countMeta(0, 1);
-const saleAndOneRent = countMeta(4, 1);
+const saleAndOneRent = countMeta(3, 1);
+const oneSaleAndRent = countMeta(1, 3);
+const oneAndOne = countMeta(1, 1);
 agencyHead.push(
-  ["שני הצדדים: למכירה ו-להשכרה, בלי לוכסן",
+  ["שני מספרים: ו- לפני הספרה",
     bothCounts.includes("3 למכירה ו-2 להשכרה") && !bothCounts.includes("/") && !bothCounts.includes("–")],
   ["רק מכירה: בלי השכרה", oneSale.includes("נכס אחד למכירה") && !oneSale.includes("להשכרה")],
   ["רק השכרה: נכס אחד להשכרה", oneRent.includes("נכס אחד להשכרה") && !oneRent.includes("למכירה")],
-  ["השכרה של נכס אחד ליד כמה למכירה", saleAndOneRent.includes("4 למכירה ו-נכס אחד להשכרה")],
+  ["מספר למכירה ונכס אחד להשכרה, בלי מקף אחרי הוו",
+    saleAndOneRent.includes("3 למכירה ונכס אחד להשכרה") && !saleAndOneRent.includes("ו-נכס")],
+  ["נכס אחד למכירה ו-מספר להשכרה", oneSaleAndRent.includes("נכס אחד למכירה ו-3 להשכרה")],
+  ["נכס אחד למכירה ונכס אחד להשכרה", oneAndOne.includes("נכס אחד למכירה ונכס אחד להשכרה")],
   ["הכותרת נשארת עם מקף רגיל", (() => {
     const titled = (globalThis as { ShukAgencyPlace?: { title: (n: string, c: string) => string } }).ShukAgencyPlace!.title("משרד הדר", "עפולה");
     return titled.includes(" - ") && !titled.includes("–") && !titled.includes("—");

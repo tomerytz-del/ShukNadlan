@@ -79,8 +79,8 @@
      total/sale/rent הם null כשהספירה לא הצליחה - לא ממציאים מספר.
      tagline גובר על המשפט הראשון של התיאור. */
   /* נכס בודד נכתב "נכס אחד למכירה" או "נכס אחד להשכרה", בלי לוכסן.
-     שניים ויותר הם המספר. כשיש את שניהם: "2 למכירה ו-3 להשכרה".
-     כשיש רק צד אחד, רק הוא. */
+     שניים ויותר הם המספר. "ו-" רק לפני ספרה ("2 למכירה ו-3 להשכרה").
+     לפני מילה הוו נדבקת ("3 למכירה ונכס אחד להשכרה"). כשיש רק צד אחד, רק הוא. */
   function dealCount(n, one, many) {
     return n === 1 ? one : (n + many);
   }
@@ -93,7 +93,8 @@
     var rentN = Number(rent) || 0;
     var saleText = saleN > 0 ? dealCount(saleN, 'נכס אחד למכירה', ' למכירה') : '';
     var rentText = rentN > 0 ? dealCount(rentN, 'נכס אחד להשכרה', ' להשכרה') : '';
-    var split = saleText && rentText ? (saleText + ' ו-' + rentText) : (saleText || rentText);
+    var join = rentText && /^[0-9]/.test(rentText) ? ' ו-' : ' ו';
+    var split = saleText && rentText ? (saleText + join + rentText) : (saleText || rentText);
     return split ? (head + ': ' + split) : head;
   }
 
