@@ -400,7 +400,10 @@ const mig = readFileSync(new URL("../supabase/migrations/20271029210000_notifica
 check("העמודה וה-claim", mig.includes("add column if not exists action_path") && mig.includes("'action_path', n.action_path") && mig.includes("notification_types_add(array['leads_digest'])"));
 
 const agent = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
-check("רשימת נכסים לא מדביקה crm_link למי שנכנס לכפתור", agent.includes("listed.has(path)"));
+check(
+  "רשימת נכסים לא מדביקה crm_link למי שנכנס לכפתור",
+  agent.includes("pathListed(listed, path)") && agent.includes("if (lookup) return p"),
+);
 check("סטטוס עובר ל-הכול", agent.includes("/crm?goto=accProperties&status="));
 check("המודל לא מתבקש לצרף unlock_where", !agent.includes("צרף/י את unlock_where"));
 check("המודל לא מרכיב כתובת", agent.includes("אסור להרכיב לבד"));
