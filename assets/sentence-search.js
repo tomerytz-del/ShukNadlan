@@ -157,7 +157,29 @@
      ‎[{ neighborhood_id, alias }]‎ מהדף; עד 21.10.2026 היו כאן כינויים משלו
      בקוד, והבוט הכיר אחרים), ו-`sales_area` רק לנכס בלי שכונה. השכונות של
      כל נכס נשמרות ב-`p._areas`, כי המונים מריצים את matches אלפי פעמים. */
-  function deriveAreas(props, aliases) {
+  function groupAliasesByCity(groups) {
+    var byCity = {};
+    (groups || []).forEach(function (g) {
+      if (!g) return;
+      var als = [];
+      (g.aliases || []).concat(g.name ? [g.name] : []).forEach(function (al) {
+        if (al && als.indexOf(al) < 0) als.push(al);
+      });
+      (g.member_names || []).forEach(function (name) {
+        if (!name) return;
+        var cur = byCity[name] || (byCity[name] = []);
+        als.forEach(function (al) { if (cur.indexOf(al) < 0) cur.push(al); });
+      });
+    });
+    return byCity;
+  }
+  function pushAlias(index, target, al) {
+    var k = SC.areaKey(al);
+    if (k.length < 2) return;
+    index.push({ key: k, target: target, name: false, text: al, words: k.split(' ') });
+  }
+
+  function deriveAreas(props, aliases, groups) {
     var hoods = {}, cities = {};
     (props || []).forEach(function (p) {
       if (p._away) return;   // נכס משוק אחר אינו אזור של השוק הזה (findPlace)
@@ -173,11 +195,20 @@
     (aliases || []).forEach(function (a) {
       if (a && a.alias && a.neighborhood_id) (byHood[a.neighborhood_id] = byHood[a.neighborhood_id] || []).push(a.alias);
     });
+    var aliasByCity = groupAliasesByCity(groups);
     var list = Object.keys(hoods).map(function (k) { return hoods[k]; });
     list.forEach(function (a) { a.aliases = byHood[a.key.slice(5)] || []; });
-    cityNames.slice(1).forEach(function (c) { list.push({ key: 'city:' + c, label: c, count: cities[c], aliases: [] }); });
+    cityNames.slice(1).forEach(function (c) {
+      list.push({ key: 'city:' + c, label: c, count: cities[c], aliases: aliasByCity[c] || [] });
+    });
     // stop: "בעפולה" הוא כל השוק ולא עפולה עלית (מילה מזהה, SearchCore.areaIndex)
     var index = SC.areaIndex(list.map(function (a) { return { target: a.key, label: a.label, aliases: a.aliases }; }), { stop: [mainCity] });
+    // היישוב העיקרי אינו city: (השם שלו הוא "כל השוק"). אם הוא חבר בקבוצה,
+    // הכינויים של הקבוצה עדיין מגיעים אליו, בלי שהשם עצמו יגנוב את "כל השוק".
+    if (mainCity && aliasByCity[mainCity] && aliasByCity[mainCity].length &&
+        !list.some(function (a) { return a.key === 'city:' + mainCity; })) {
+      aliasByCity[mainCity].forEach(function (al) { pushAlias(index, 'city:' + mainCity, al); });
+    }
     // נכס בלי שכונה: ‏sales_area דרך אותו מפענח - ונספר באזור שזוהה
     (props || []).forEach(function (p) {
       p._areas = SC.propertyAreas(p, index, hoodKey);
@@ -278,7 +309,13 @@
         var q = norm(a.slice(5));
         // כינוי של כמה שכונות ("הדר") - השכונות שלו; אחרת רחוב, כותרת או עיר
         var named = ctx.areaIndex ? SC.findAreas(q, ctx.areaIndex) : null;
-        if (named) { if (!named.targets.some(function (x) { return mine.indexOf(x) >= 0; })) return false; }
+        if (named) {
+          var areaHit = named.targets.some(function (x) {
+            if (String(x).indexOf('city:') === 0) return p.city === String(x).slice(5);
+            return mine.indexOf(x) >= 0;
+          });
+          if (!areaHit) return false;
+        }
         else if (!SC.textMatches(p, q)) return false;
       }
       else if (a === 'near') {
@@ -1096,6 +1133,7 @@
 
     var props = [];
     var aliasList = [];           // ‏neighborhood_aliases מהדף (‏setProperties)
+    var groupList = [];           // ‏city_groups_public, כינויי קבוצה על city:
     var lastMiss = '';            // שם שלא זוהה נרשם פעם אחת ברצף (‏onAreaMiss)
     var lastWordMiss = '';        // וכך גם מילה של מאפיין (‏onWordMiss)
     var areas = [];
@@ -2030,7 +2068,8 @@
         props = (list || []).slice();
         awayFor = null;
         if (extra && extra.aliases) aliasList = extra.aliases;
-        areas = deriveAreas(props, aliasList);
+        if (extra && extra.groups) groupList = extra.groups;
+        areas = deriveAreas(props, aliasList, groupList);
         ctx.areaIndex = areas.index;
         loaded = true;
         if (extra && extra.aiIds) ctx.aiIds = extra.aiIds;
