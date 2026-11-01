@@ -44,8 +44,8 @@ import {
   canonicalCity,
   citySearchArgs,
   collapseCityNames,
+  applyGroupAreaHint,
   filterByArea,
-  groupAreaNote,
   SearchCore,
   searchMissRow,
   searchMissStoreMissing,
@@ -3103,10 +3103,7 @@ async function agentPropertySearch(
     rows = res.rows;
     hint = res.hint;
   }
-  if (typeof args.city_group === "string" && args.city_group) {
-    const note = groupAreaNote(args.city_group);
-    hint = { ...hint, area_name: args.city_group, ...(note ? { area_note: note } : {}) };
-  }
+  hint = applyGroupAreaHint(hint, args.city_group, area);
 
   const sharedSet = new Set(shared);
   const sourceOf = (p: Record<string, unknown>): string =>

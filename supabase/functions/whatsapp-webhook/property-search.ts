@@ -180,6 +180,23 @@ export function groupAreaNote(name: string | null | undefined): string | null {
   return `החיפוש הוא באזור ${area}. לנקוב בשם האזור, לא ברשימת היישובים.`;
 }
 
+/**
+ * שם הקבוצה הוא רמז רק כשאין כבר שכונה או אזור. רמז קיים (גם "השכונה
+ * לא מוכרת") נשאר כמו שהוא.
+ */
+export function applyGroupAreaHint(
+  hint: Record<string, unknown>,
+  groupName: unknown,
+  areaAsked?: string | null,
+): Record<string, unknown> {
+  if (typeof groupName !== "string" || !groupName.trim()) return hint;
+  if ((areaAsked && areaAsked.trim()) || hint.area_name || hint.area_note || hint.area_not_recognized) {
+    return hint;
+  }
+  const note = groupAreaNote(groupName);
+  return { ...hint, area_name: groupName, ...(note ? { area_note: note } : {}) };
+}
+
 export async function canonicalCityName(
   supabase: SupabaseClient,
   name: string | null | undefined,

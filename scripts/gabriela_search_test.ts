@@ -2,6 +2,7 @@
 //   node --experimental-strip-types scripts/gabriela_search_test.ts
 
 import {
+  applyGroupAreaHint,
   cityMatchGroup,
   searchMissRow,
   searchMissStoreMissing,
@@ -173,6 +174,18 @@ check("קבוצה מוסיפה תבנית שם של יישוב ולא של הכ�
   taanach.some((p) => p.includes("אביטל")) &&
   taanach.some((p) => p.includes("אומן")) &&
   !taanach.some((p) => p.includes("תענכים")));
+
+const hoodHint = {
+  area_not_recognized: true,
+  known_neighborhoods: ["גבעת המורה"],
+  area_note: "השכונה שהתבקשה אינה מוכרת",
+};
+const keptHint = applyGroupAreaHint(hoodHint, "חבל תענך", "גבעת המורה");
+check("רמז שכונה נשאר כשיש גם קבוצה",
+  keptHint === hoodHint && keptHint.area_note === hoodHint.area_note && !("area_name" in keptHint));
+const alone = applyGroupAreaHint({}, "חבל תענך", "");
+check("בלי שכונה שם הקבוצה הוא הרמז",
+  alone.area_name === "חבל תענך" && String(alone.area_note).includes("חבל תענך"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
