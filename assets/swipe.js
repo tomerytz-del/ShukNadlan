@@ -1202,10 +1202,13 @@
     townsOpen = otherOpen = false; renderFilter();
   });
   $('swFGo').addEventListener('click', function () {
-    var sp = { deal: filter.deal, region: market ? market.slug : '', via: 'swipe_filter' };
+    /* ‏1.11.2026: ‏swipe_start נספר בלחיצה שמובילה להחלקה (דף הבית, גבריאלה, המועדפים,
+       היריד). כאן זה החלת סינון בתוך ההחלקה, ולכן אירוע משלו - אחרת כניסה מדף הבית
+       ואחריה סינון נספרו כשתי התחלות. */
+    var sp = { deal: filter.deal, region: market ? market.slug : '' };
     if (filter.viz) sp.viz = 1;
     if (filter.fair) sp.fair = 1;
-    shukTrack('swipe_start', sp);
+    shukTrack('swipe_filter_apply', sp);
     closeFilter();
     buildDeck();
     /* ‏P0-E: מ"אהבתי" הסינון לא משנה את הרשימה השמורה - עוברים לתצוגה שממנה הגיעו */
