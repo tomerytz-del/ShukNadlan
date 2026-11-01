@@ -6716,6 +6716,11 @@ window.shukArmTrackers = function () {
 
   /* "הלידים שלי" (assets/crm-leads.js, docs/leads-unified.md) */
   .leads-top{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
+  .fair-clicks{margin:0 0 12px;padding:12px 14px;border:1px solid var(--nv-line);border-radius:14px;background:#fff}
+  .fair-clicks-h{margin:0 0 8px;font-size:14px;font-weight:800;color:var(--nv-ink)}
+  .fair-clicks ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .fair-clicks li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:var(--nv-ink)}
+  .fair-clicks-note{margin:8px 0 0;font-size:12px;color:var(--nv-muted)}
   /* רצועת הגדרות: רק מתחת ל-1024, מעל לשוניות הסינון. בדסקטופ נשאר הכרטיס
      שבתחתית המסך. הלשוניות עצמן גוללות לצדדים עם פס גלילה גלוי, כדי שהראשונה
      לא תיחתך ב-RTL. */
@@ -9388,6 +9393,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="ui-chips ui-chips--scroll" data-ui-single id="leadsSrc" role="group" aria-label="מקור הליד"></div>
           <div class="ui-count" id="leadsCountLine"></div>
         </div>
+        <div id="fairClickHost" hidden></div>
         <div id="leadsList" class="lp-list"></div>
         <div class="ui-more-row ui-scope" id="leadsMore"></div>
 

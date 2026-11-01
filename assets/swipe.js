@@ -231,13 +231,14 @@
   /* היחס בלבד, לפני שהתמונה עצמה הגיעה. ‏low נקבע רק מהתמונה (‏fitCard) */
   function fitByRatio(card, r) {
     var w = card.offsetWidth, h = card.offsetHeight;
-    if (!w || !h || !r || card.classList.contains('is-ba')) return;
+    if (!w || !h || !r || card.classList.contains('is-ba') || card.hasAttribute('data-vlock')) return;
     setFit(card, fitMode(r * 4000, 4000, w, h), r * 4000, 4000, w, h);
   }
   function fitCard(img) {
     var card = img && img.closest('.sw-card');
     if (!card || card.classList.contains('is-ba') || !img.naturalWidth) return;
     noteRatio(img.getAttribute('data-u'), img.naturalWidth, img.naturalHeight, true);
+    if (card.hasAttribute('data-vlock')) { reveal(img); return; }   // כרטיס תחתון של רילס - בפריסה של הסרטון
     // גודל הפריסה ולא getBoundingClientRect: הכרטיס עשוי להיות מוטה או מוגדל (גרירה, נענוע)
     var r = { width: card.offsetWidth, height: card.offsetHeight };
     /* תמונה שהגיעה ברוחב שביקשנו הוקטנה - המקור גדול ממנה, ו"רזולוציה נמוכה" אינה חלה עליה.
@@ -287,6 +288,66 @@
       startMain(ci);
     }
   }, true);
+  /* ‏swipe-smooth P0-5 (31.10): 32 מתוך 63 הסרטונים צולמו לרוחב, והם מילאו את הכרטיס ב-cover - כלומר
+     נחתכו לרצועה צרה מהאמצע. סרטון לרוחב מוצג עכשיו כחלון באמצע הכרטיס (מרכז ב-42%, כמו תמונה
+     לרוחב), בגובה ‏min(62% מהכרטיס, רוחב/יחס × 1.15) - חיתוך קל מהצדדים במקום רצועה של 30% -
+     והטשטוש של הפוסטר מעליו ומתחתיו. לאורך - על כל הכרטיס כמו קודם.
+     ‏VRATIO: כתובת הסרטון → רוחב/גובה, מ-loadedmetadata (‏videoWidth כבר אחרי הסיבוב שבקובץ).
+     הכרטיס התחתון של נכס עם רילס מוצג באותה פריסה, כדי שלא תהיה קפיצה כשהוא עולה */
+  var VRATIO = new Map(), VWARM = new Set();
+  function reelUrl(p) { return hasReel(p) ? p.video_url.trim() : ''; }
+  function reelFit(r, cw, ch) {
+    if (!r || !cw || !ch) return { vfit: 'pending', h: 0 };
+    if (r < 1.1 || cw / ch >= 1) return { vfit: 'port', h: 0 };
+    return { vfit: 'land', h: Math.round(Math.min(ch * 0.62, cw / r * 1.15)) };
+  }
+  function applyReelFit(wrap, r) {
+    var card = wrap && wrap.closest('.sw-card');
+    if (!card) return;
+    var f = reelFit(r, card.offsetWidth, card.offsetHeight);
+    wrap.setAttribute('data-vfit', f.vfit);
+    if (f.h) wrap.style.setProperty('--vwin-h', f.h + 'px'); else wrap.style.removeProperty('--vwin-h');
+    // מחלקות על הכרטיס במקום :has() - הטשטוש וההצללה של סרטון לרוחב גם בדפדפן בלי :has (הערת הסקירה ל-1104)
+    card.classList.toggle('is-vland', f.vfit === 'land');
+    card.classList.toggle('is-vpend', f.vfit === 'pending');
+  }
+  /* הכרטיס התחתון: ההתאמה של הסרטון ולא של התמונה (הפוסטר או התמונה הראשונה בחלון של הסרטון) */
+  function underReelFit(card, r) {
+    var f = reelFit(r, card.offsetWidth, card.offsetHeight);
+    if (f.vfit === 'land') { card.setAttribute('data-fit', 'window'); card.style.setProperty('--win-h', f.h + 'px'); }
+    else if (f.vfit === 'port') { card.setAttribute('data-fit', 'cover'); card.style.removeProperty('--win-h'); }
+    if (f.vfit !== 'pending') card.setAttribute('data-vlock', '1');
+  }
+  /* ‏P1-5: המטא-דאטה של הסרטון (‏preload=metadata, בלי להוריד את הסרטון) לכרטיסים +1 ו-+2 */
+  /* כשל (שגיאה או 6 שניות בלי מטא-דאטה): ניסיון חוזר אחד, ואחריו הכתובת ב-VBAD - הכרטיס התחתון נשאר
+     עם התמונה או הפוסטר בהתאמה הרגילה שלהם, ולא בחלון של סרטון שלא ייטען (הערת הסקירה ל-1104) */
+  var VBAD = new Set();
+  function warmReel(c, retry) {
+    var u = c && c.slot === 'property' ? reelUrl(c.p) : '';
+    if (!u || VRATIO.has(u) || VBAD.has(u) || (VWARM.has(u) && !retry)) return;
+    VWARM.add(u);
+    var v = document.createElement('video'), over = false, t;
+    v.muted = true; v.preload = 'metadata';
+    function stop() { clearTimeout(t); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
+    function fail() {
+      if (over) return;
+      over = true; stop();
+      if (!retry) { warmReel(c, true); return; }
+      VBAD.add(u);
+    }
+    v.addEventListener('loadedmetadata', function () {
+      if (over) return;
+      over = true;
+      if (v.videoWidth && v.videoHeight) {
+        VRATIO.set(u, v.videoWidth / v.videoHeight);
+        document.querySelectorAll('.sw-under .sw-card[data-reel]').forEach(function (cd) { if (cd.getAttribute('data-reel') === u) underReelFit(cd, VRATIO.get(u)); });
+      }
+      stop();
+    }, { once: true });
+    v.addEventListener('error', fail, { once: true });
+    t = setTimeout(fail, 6000);
+    v.src = u;
+  }
   /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
   function warm(u) {
     if (!u || WARM.has(u)) return;
@@ -1634,7 +1695,11 @@
       /* ‏P0-1: היחס ידוע - ‏data-fit ו-‏--win-h כבר ב-HTML. לא ידוע - ‏pending: הטשטוש, והתמונה
          מתחילה רק כשהיחס הגיע (‏startMain), כדי לבקש את הרוחב הנכון. שקופית לפני/אחרי - כמו קודם */
       var dk = deckSize(), rt = sp === 'ba' ? 0 : RATIO.get(base), fit = '', winH = 0, go = true;
-      if (base && sp !== 'ba') {
+      var ru = !top && slideKind(ph[0]) === 'reel' ? reelUrl(p) : '', vr = ru && VRATIO.get(ru), vlock = false;
+      if (vr && dk.w) {
+        var rf = reelFit(vr, dk.w, dk.h);
+        fit = rf.vfit === 'land' ? 'window' : 'cover'; winH = rf.h; vlock = true;
+      } else if (base && sp !== 'ba') {
         if (rt && dk.w) { fit = fitMode(rt * 4000, 4000, dk.w, dk.h); if (fit === 'window') winH = windowH(rt * 4000, 4000, dk.w, dk.h); }
         else { fit = 'pending'; go = SRCW.has(base); }
       }
@@ -1648,6 +1713,7 @@
       var nofee = fairLive(p);
       return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
         (fit ? ' data-fit="' + fit + '"' : '') + (winH ? ' style="--win-h:' + winH + 'px"' : '') +
+        (ru ? ' data-reel="' + esc(ru) + '"' : '') + (vlock ? ' data-vlock="1"' : '') +
         ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img +
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
@@ -1775,8 +1841,9 @@
   /* השכבה שמעל התמונה בשקופית המיוחדת: לפני/אחרי (התמונה עצמה היא ה"אחרי"), או ההזמנה */
   var reelSound = false;   // אחרי הפעלת קול פעם אחת - הרילסים הבאים בביקור מתחילים עם קול (אם הדפדפן מרשה)
   function reelLayer(p) {
-    var poster = slideBase(p, '#reel');
-    return '<div class="sw-reel-wrap"><video class="sw-reel" muted playsinline loop preload="none" draggable="false"' +
+    var poster = slideBase(p, '#reel'), dk = deckSize(), rf = reelFit(VRATIO.get(reelUrl(p)), dk.w, dk.h);
+    return '<div class="sw-reel-wrap" data-vfit="' + rf.vfit + '"' + (rf.h ? ' style="--vwin-h:' + rf.h + 'px"' : '') + '>' +
+      '<video class="sw-reel" muted playsinline loop preload="metadata" draggable="false"' +
       (poster ? ' poster="' + esc(sized(poster, cardW())) + '"' : '') + ' src="' + esc(p.video_url.trim()) + '"></video>' +
       (reduceMotion ? '<button type="button" class="sw-reel-play" data-reel-play aria-label="הפעלת הסרטון">▶</button>' : '') +
       '<button type="button" class="sw-reel-snd" data-reel-snd' + (reelSound ? ' hidden' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>הפעילו קול לשמוע את הקריינות</button>' +
@@ -1835,8 +1902,25 @@
     var body = top.querySelector('.sw-cbody'), w = top.querySelector('.sw-reel-wrap');
     if (body && w) w.style.setProperty('--cbody-h', body.offsetHeight + 'px');
     if (w) detectAudio(v, w);
-    v.addEventListener('error', function () { v.dataset.err = '1'; v.hidden = true; var cd = v.closest('.sw-card'); if (cd) cd.classList.add('reel-err'); });   // התמונה שמתחת (הפוסטר) נשארת
+    v.addEventListener('error', function () {
+      v.dataset.err = '1'; v.hidden = true;
+      var cd = v.closest('.sw-card');
+      if (!cd) return;
+      cd.classList.add('reel-err');   // התמונה שמתחת (הפוסטר) נשארת
+      // בלי חלון של סרטון ובלי טשטוש של "ממתין": התמונה בהתאמה הרגילה שלה
+      if (w) w.setAttribute('data-vfit', 'err');
+      cd.classList.remove('is-vland', 'is-vpend');
+      VBAD.add(v.getAttribute('src'));
+      if (cd.hasAttribute('data-vlock')) { cd.removeAttribute('data-vlock'); var im = cd.querySelector('img.sw-cimg'); if (im && im.naturalWidth) fitCard(im); }
+    });
+    // המפתח הוא ה-src כמו שנכתב (‏currentSrc מקודד, ו-reelUrl/VRATIO משתמשים בכתובת כמו שהיא)
+    if (w) applyReelFit(w, VRATIO.get(v.getAttribute('src')));
+    if (v.readyState >= 1 && v.videoWidth && w) { VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight); applyReelFit(w, v.videoWidth / v.videoHeight); }
     v.addEventListener('loadedmetadata', function () {
+      if (v.videoWidth && v.videoHeight) {
+        VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight);
+        if (w) applyReelFit(w, v.videoWidth / v.videoHeight);
+      }
       var d = Math.round(v.duration || 0), tag = top.querySelector('.sw-reel-tag b');
       if (tag && d) tag.textContent = ' · ' + Math.floor(d / 60) + ':' + String(d % 60).padStart(2, '0');
     });
@@ -2126,6 +2210,8 @@
       warm(firstImg(deck[idx + 2]));
       warm(firstImg(deck[idx + 3]));
     };
+    warmReel(deck[idx + 1]);
+    warmReel(deck[idx + 2]);
     var im = top && top.querySelector('img.sw-cimg');
     if (!im || (im.complete && im.naturalWidth)) { setTimeout(run, 0); return; }
     var once = false, t = setTimeout(function () { if (!once) { once = true; run(); } }, 2500);
@@ -2151,6 +2237,8 @@
       under._c = null;
       var ci = under.querySelector('img.sw-cimg');
       if (ci) ci.setAttribute('fetchpriority', 'high');
+      var uc = under.querySelector('.sw-card');
+      if (uc) uc.removeAttribute('data-vlock');
       if (next) {
         var nu = document.createElement('div');
         nu.className = 'sw-under';
@@ -2225,14 +2313,15 @@
     $('swSkip').disabled = $('swLike').disabled = end;
     $('swUndo').disabled = !history_.length;
     // ‏P0-7: ‏phone_e164 שמור בלי '+', ו-tel:9725… מחייג בטלפון מספר מקומי שגוי
-    /* תומר 29.10 02:20: בנכס ביריד פונים דרך הטופס. רק הטופס נשמר כליד עם שעה, ובלי תיעוד כזה
-       אין דרך לדעת שהפנייה הגיעה בזמן היריד - ולכן בלי וואטסאפ וחיוג עד שיהיה יומן פניות ליריד */
-    var phone = adv && adv.phone && !(p && fairLive(p)) ? adv.phone.replace(/\D/g, '') : '';
+    // נכס ביריד: אותם כפתורים, והלחיצה נרשמת ב-data-fair-contact (fair-contact.js)
+    var phone = adv && adv.phone ? adv.phone.replace(/\D/g, '') : '';
     $('swCall').hidden = !phone; $('swWa').hidden = !phone;
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
       $('swWa').href = waHref(p, phone);
     }
+    markFairContact($('swCall'), 'call', phone ? p : null);
+    markFairContact($('swWa'), 'whatsapp', phone ? p : null);
     var liked_ = !!(p && likes.indexOf(p.id) >= 0);
     $('swLike').setAttribute('aria-pressed', String(liked_));
     // ‏§10 (תומר 31.10): השם הנגיש מכיל את המילה הגלויה (WCAG 2.5.3) - "שמירה" או "נשמר" לפי המצב; המצב גם ב-aria-pressed
@@ -2244,7 +2333,25 @@
     syncRail(c, adv, phone);
   }
   /* ‏Variant C: המסילה רק על כרטיס נכס. "יצירת קשר" בכל סוג מפרסם (גבריאלה 29.10 02:36): עם טלפון -
-     וואטסאפ או חיוג (‏BS.contact), בלי טלפון או בנכס ביריד - הטופס שבגיליון הפרטים */
+     וואטסאפ או חיוג (‏BS.contact), בלי טלפון - הטופס שבגיליון הפרטים.
+     בנכס ביריד הכפתורים נושאים data-fair-contact כדי שהלחיצה תירשם. */
+  function markFairContact(el, channel, p) {
+    if (!el) return;
+    if (p && fairLive(p) && p.id) {
+      el.setAttribute('data-fair-contact', channel);
+      el.setAttribute('data-fair-property', String(p.id));
+      el.setAttribute('data-fair-page', 'swipe');
+    } else {
+      el.removeAttribute('data-fair-contact');
+      el.removeAttribute('data-fair-property');
+      el.removeAttribute('data-fair-page');
+    }
+  }
+  function fairSheetAttr(channel) {
+    var c = cur(), p = c && c.p;
+    if (!p || !fairLive(p) || !p.id) return '';
+    return ' data-fair-contact="' + channel + '" data-fair-property="' + esc(p.id) + '" data-fair-page="swipe"';
+  }
   function syncRail(c, adv, phone) {
     var rail = $('swRail');
     rail.hidden = !(c && c.slot === 'property');
@@ -2487,7 +2594,7 @@
     if (c && c.p && fairLive(c.p)) return { form: true };
     return card && card.classList.contains('is-ba') && phoneC() ? { tab: 'viz', from: 'slide_cta' } : {};
   }
-  /* "פונים דרך הטופס עד שבת 31.10 בשעה 23:59 ולא משלמים עמלת תיווך" - הנוסח של גבריאלה (29.10 02:36), מחושב
+  /* "פונים דרך הטופס, בוואטסאפ או בחיוג עד שבת 31.10 בשעה 23:59 ולא משלמים עמלת תיווך", מחושב
      מסיום היריד של הנכס. הכול בשעון ישראל ולא בשעון הדפדפן: בדפדפן ב-UTC אותו סיום יצא "בשעה 21:59".
      השורה עצמה ב-assets/open-house.js (‏OpenHouse.formLine), אחת עם דף הנכס */
   function fairFormLine(p) { return window.OpenHouse && OpenHouse.formLine ? OpenHouse.formLine(p) : ''; }
@@ -3486,8 +3593,8 @@
     // ‏Variant C: "יצירת קשר" במסילה, כשיש מספר - וואטסאפ או חיוג
     contact: { art: '', title: 'איך נוח לכם?', sub: '', btns: [], body: function () {
       return '<div class="sw-bs-row">' +
-        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa">וואטסאפ</a>' +
-        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call">חיוג</a></div>';
+        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa"' + fairSheetAttr('whatsapp') + '>וואטסאפ</a>' +
+        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call"' + fairSheetAttr('call') + '>חיוג</a></div>';
     } },
     // §5b: חמש העצות של הקהל, ההסתייגות, והפנייה ליועץ הנדל״ן של הנכס
     advice: { art: '', title: 'קבלו עצה ממומחה', sub: '', btns: [], body: function (c) {
