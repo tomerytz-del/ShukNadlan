@@ -93,6 +93,18 @@ for (const r of picked) {
     mode: renderModeFor(p.deal_type),
   });
   const row: any = { id: r.id, target: r.target, before: r.source_image_url, current: r.result_url, out: {} };
+  // הצילום וההדמיה של היום נשמרים גם הם בתיקייה - דף ההשוואה עומד בפני עצמו
+  for (const [k, u] of [["before", r.source_image_url], ["current", r.result_url]] as const) {
+    try {
+      const res = await fetch(u);
+      if (res.ok) {
+        const ext = (res.headers.get("content-type") || "image/jpeg").split("/")[1].split(";")[0].replace("jpeg", "jpg");
+        const f = `${r.id}-${k}.${ext}`;
+        await Deno.writeFile(`${OUT}/${f}`, new Uint8Array(await res.arrayBuffer()));
+        row[k] = f;
+      }
+    } catch (_) { /* נשארת הכתובת המקורית */ }
+  }
   for (const c of CANDIDATES) {
     const t0 = performance.now();
     const res = await fetch(
@@ -119,6 +131,35 @@ for (const r of picked) {
 }
 await Deno.writeTextFile(`${OUT}/results.json`, JSON.stringify(results, null, 2));
 
+// ---- הסיכום: זמנים, כשלים, טוקנים ועלות - לכל מודל ------------------------
+// העלות "בפועל" מחושבת מ-usageMetadata של כל תשובה (טוקנים שגוגל מדווחת שחויבו) כפול המחירון
+// הרשמי (‏PRICE למטה). הניסיון בכוונה **אינו** כותב ל-ai_usage_log - הוא לא נוגע בטבלאות הייצור.
+const PRICE: Record<string, { inUsdMtok: number; outImageUsdMtok: number; outTextUsdMtok: number }> = {
+  // ai.google.dev/gemini-api/docs/pricing (1.11.2026). תמונה ב-1K = 1,120 טוקני פלט ≈ $0.0336
+  "gemini-3.1-flash-lite-image": { inUsdMtok: 0.25, outImageUsdMtok: 30, outTextUsdMtok: 1.5 },
+  "gemini-nano-banana-2.1": { inUsdMtok: 0.25, outImageUsdMtok: 30, outTextUsdMtok: 1.5 },
+};
+const pct = (a: number[], q: number) => { if (!a.length) return 0; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * (s.length - 1) + 0.5))]; };
+const summary = CANDIDATES.map((c) => {
+  const outs = results.map((r) => r.out[c.model]).filter(Boolean);
+  const ok = outs.filter((o: any) => o.file);
+  const ms = ok.map((o: any) => o.ms);
+  let usd = 0, inTok = 0, outTok = 0, thinkTok = 0;
+  for (const o of outs as any[]) {
+    const u = o.usage || {};
+    const pin = u.promptTokenCount || 0, pout = u.candidatesTokenCount || 0, pth = u.thoughtsTokenCount || 0;
+    inTok += pin; outTok += pout; thinkTok += pth;
+    const pr = PRICE[c.model];
+    if (pr) usd += pin / 1e6 * pr.inUsdMtok + pout / 1e6 * pr.outImageUsdMtok + pth / 1e6 * pr.outTextUsdMtok;
+  }
+  return { model: c.model, calls: outs.length, ok: ok.length, failed: outs.length - ok.length,
+    p50_ms: pct(ms, 0.5), p90_ms: pct(ms, 0.9), in_tokens: inTok, out_tokens: outTok, thinking_tokens: thinkTok,
+    usd_from_tokens: Math.round(usd * 10000) / 10000,
+    errors: (outs as any[]).filter((o) => o.err).map((o) => o.err) };
+});
+await Deno.writeTextFile(`${OUT}/summary.json`, JSON.stringify(summary, null, 2));
+console.log(JSON.stringify(summary, null, 2));
+
 // ---- דף ההשוואה ---------------------------------------------------------------
 const esc = (s: string) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const cell = (src: string, cap: string) => `<td><img src="${esc(src)}" loading="lazy"><div>${esc(cap)}</div></td>`;
@@ -126,6 +167,9 @@ const html = `<!doctype html><meta charset="utf-8"><title>ניסיון מודל�
 <style>body{font-family:system-ui;direction:rtl;margin:16px}table{border-collapse:collapse}td{padding:6px;vertical-align:top;font-size:13px}
 img{width:300px;border-radius:8px;display:block}th{text-align:start;padding:6px}</style>
 <h1>ניסיון מודלים: ${results.length} תמונות</h1>
+<table><tr><th>מודל</th><th>הצליחו</th><th>נכשלו</th><th>p50</th><th>p90</th><th>עלות לפי הטוקנים</th></tr>
+${summary.map((x) => `<tr><td>${esc(x.model)}</td><td>${x.ok}</td><td>${x.failed}</td><td>${(x.p50_ms / 1000).toFixed(1)} שנ'</td><td>${(x.p90_ms / 1000).toFixed(1)} שנ'</td><td>$${x.usd_from_tokens}</td></tr>`).join("")}
+</table><br>
 <table><tr><th>מטרה</th><th>לפני</th><th>נוכחי (מהמסד)</th>${CANDIDATES.map((c) => `<th>${esc(c.label)}</th>`).join("")}</tr>
 ${results.map((r) => `<tr><td>${esc(r.target)}</td>${cell(r.before, "הצילום")}${cell(r.current, "gemini-3.1-flash-image-preview")}${
   CANDIDATES.map((c) => { const o = r.out[c.model]; return o.file ? cell(o.file, `${o.ms}ms · $${o.usd}`) : `<td>${esc(o.err)}</td>`; }).join("")}</tr>`).join("\n")}

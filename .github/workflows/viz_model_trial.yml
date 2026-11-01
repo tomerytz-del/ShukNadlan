@@ -1,0 +1,62 @@
+name: הדמיות - ניסיון מודלים (20 תמונות)
+
+# ‏**עולה כסף (כ-$1.35), ואושר על ידי תומר ב-1.11.2026 לניסיון הזה בלבד**
+# (‏viz-trial-approval-2026-11-01.md). רץ רק בענף claude/viz-trial, שאינו מתמזג.
+# שלושה מעצורים: ‏GEMINI_API_KEY חייב להיות בסודות של GitHub, התוצאות עוד לא קיימות
+# בענף (ריצה אחת בלבד), והסקריפט עצמו לא כותב לטבלאות, לאחסון או למטמון של הייצור.
+# התוצאה - דף השוואה, תמונות מוקטנות וסיכום - נשמרת בענף, ב-viz-trial-results/.
+
+on:
+  push:
+    branches: [claude/viz-trial]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: viz-model-trial
+  cancel-in-progress: false
+
+jobs:
+  trial:
+    name: ניסיון מודלים
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: האם להריץ
+        id: gate
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then echo "אין GEMINI_API_KEY בסודות - לא רץ"; echo "go=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f viz-trial-results/summary.json ]; then echo "הניסיון כבר רץ - לא רץ שוב"; echo "go=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "go=yes" >> "$GITHUB_OUTPUT"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        if: steps.gate.outputs.go == 'yes'
+        with:
+          deno-version: v2.9.7
+      - name: הניסיון
+        if: steps.gate.outputs.go == 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: deno run --allow-net --allow-env --allow-read --allow-write scripts/viz_model_trial.ts --run --out viz-trial-results
+      - name: הקטנה ושמירה בענף
+        if: steps.gate.outputs.go == 'yes'
+        run: |
+          command -v mogrify >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick)
+          cd viz-trial-results
+          for f in *.png *.webp *.jpg; do
+            [ -f "$f" ] || continue
+            b="${f%.*}"
+            convert "$f" -resize '900x900>' -quality 80 "$b.small.jpg" && rm -f "$f" && mv "$b.small.jpg" "$b.jpg"
+            sed -i "s#\"$f\"#\"$b.jpg\"#g" index.html results.json
+          done
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add viz-trial-results
+          git commit -m "תוצאות ניסיון המודלים להדמיות (20 תמונות)"
+          git push
