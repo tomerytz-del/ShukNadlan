@@ -16,6 +16,46 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
 try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
 if(on)document.documentElement.classList.add('beta-hero');})();</script>
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- העברית של Heebo. בלי preload ה-LCP (הפסקה בראש) מחכה לשרשרת
+     fonts.googleapis.com ואז לקובץ, ובמובייל המדומה זה מעל 10 שניות.
+     אותו קובץ משמש את המשקלים, כי Heebo כאן הוא גופן משתנה. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/heebo/v28/NGS6v5_NC0k9P9H0TbFhsqMA6aw.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/heebo/v28/NGS6v5_NC0k9P9GYTbFhsqMA6aw.woff2">
+<!-- התמונה של הכרטיס הראשון מתחילה לרדת במקביל לסקריפטים שחוסמים את הציור,
+     ולא רק אחרי שהשאילתה המלאה חוזרת. אותה נוסחת render/image כמו fairThumb
+     בתחתית הדף - כתובת אחרת מורידה את הקובץ פעמיים. -->
+<script>
+(function(){
+  var KEY='sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+  var MARK='/storage/v1/object/public/';
+  function thumb(url){
+    var s=String(url||''), at=s.indexOf(MARK);
+    if(at<0)return s;
+    var path=s.slice(at+MARK.length).split(/[?#]/)[0];
+    if(!path)return s;
+    return s.slice(0,at)+'/storage/v1/render/image/public/'+path+'?width=800&quality=60';
+  }
+  var now=new Date().toISOString();
+  var q='https://obookujgolazrwycsiyn.supabase.co/rest/v1/properties?select=images,created_at'
+    +'&status=eq.active&open_house=eq.true'
+    +'&open_house_start=lte.'+encodeURIComponent(now)
+    +'&open_house_end=gt.'+encodeURIComponent(now)
+    +'&order=created_at.desc&limit=1';
+  fetch(q,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      var img=rows&&rows[0]&&rows[0].images&&rows[0].images[0];
+      if(typeof img!=='string'||!img)return;
+      var l=document.createElement('link');
+      l.rel='preload';l.as='image';l.href=thumb(img);
+      l.setAttribute('fetchpriority','high');
+      document.head.appendChild(l);
+    }).catch(function(){});
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יריד הבתים הפתוחים - דירות ללא עמלת תיווך בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -80,27 +120,25 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   ]
 }
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      media="print" onload="this.media='all'"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
       crossorigin="anonymous" referrerpolicy="no-referrer">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/map-gestures.js"></script>
-<!-- הסימן, החלון והמילים של היריד — אותם שלושה בדיוק שדף הבית, דף הנכס
-     וה-CRM משתמשים בהם. ראו docs/open-house-fair.md -->
-<script src="assets/open-house.js"></script>
-<script src="assets/property-card.js"></script>
-<script src="assets/prop-shelf.js"></script>
-<!-- הקישור לגבריאלה ברצועת ההרשמה - אותו מקור של דף הבית, כולל המתג
-     ENABLED (‏docs/whatsapp-public-bot.md) -->
-<script src="assets/bot-link.js"></script>
 <style>
+  /* מטריקות קרובות ל-Heebo, כדי שהחלפת הגופן לא תגביה את "איך זה עובד".
+     בלי זה הציור המוקדם (לפני שהגופן מגיע) זז כשהקובץ נטען. */
+  @font-face{
+    font-family:Heebo-fb;src:local('Arial');
+    size-adjust:107%;ascent-override:95%;descent-override:25%;line-gap-override:0%;
+  }
+  /* העברית זמינה מה-preload, בלי לחכות ל-CSS של גוגל שחסם את הציור. */
+  @font-face{
+    font-family:Heebo;font-style:normal;font-weight:100 900;font-display:optional;
+    src:url(https://fonts.gstatic.com/s/heebo/v28/NGS6v5_NC0k9P9H0TbFhsqMA6aw.woff2) format('woff2');
+    unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;
+  }
   /* אותה פלטה ואותם רכיבים כמו שאר עמודי האתר —
      ‏assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
   :root{
@@ -116,7 +154,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   [hidden]{display:none !important}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',Heebo-fb,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
   h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
   a{color:inherit;text-decoration:none}
   img{max-width:100%;display:block}
@@ -188,7 +226,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   }
   /* ‏‎> span‎ ולא ‎span‎: בתוך השורה הראשונה יושב ‎data-market-label‎ (שם
      השוק), ו-‎display:block‎ עליו היה שובר את "דירות ב|עפולה והעמק" לשתיים */
-  .oh-head h1 > span{display:block}
+  .oh-head h1 > span:not(.oh-h1-v10),
+  .oh-h1-legacy > span{display:block}
   .oh-head-body{grid-area:body;min-width:0;display:flex;flex-direction:column;gap:10px}
 
   /* שורת הנתונים: שורה אחת קטנה ולא צ׳יפים — "2 דירות ביריד · הראשונה
@@ -227,7 +266,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     .oh-head h1{font-size:clamp(1.5rem,2.6vw,2.1rem)}
     /* כל חלק ‎nowrap‎: בין 760 ל-1000px הכותרת הארוכה לא נכנסת בשורה אחת,
        ואז היא נשברת **בין** החלקים ולא באמצע "ללא עמלת תיווך" */
-    .oh-head h1 > span{display:inline;white-space:nowrap}
+    .oh-head h1 > span:not(.oh-h1-v10),
+    .oh-h1-legacy > span{display:inline;white-space:nowrap}
     .oh-head-body{flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px 22px}
     .oh-head-stats{font-size:.9rem}
     .oh-head-cta{align-self:center}
@@ -475,13 +515,81 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .oh-signup-bot:hover{color:#fff}
   .oh-empty-signup .oh-signup-bot{color:var(--sapphire,#0e2a6b)}
   .oh-empty-signup .oh-signup-bot:hover{color:var(--gold-dark)}
+
+  /* v10 כבר בציור הראשון. open-house-v10.js נטען ב-defer ומוסיף את אותם
+     כללים שוב - הם זהים, ולכן ההזרקה המאוחרת אינה מזיזה כלום. ?beta=0
+     בלי המחלקה נשאר הדף הישן, כולל המדף המוסתר עד שהנתונים מגיעים. */
+  html.beta-hero #fairStats,
+  html.beta-hero #fairCalc,
+  html.beta-hero #fairNotify,
+  html.beta-hero #fairMapSection:not(.ohv-on){display:none !important}
+  html:not(.beta-hero) .ohv-only{display:none !important}
+  html.beta-hero .oh-kicker-legacy,
+  html:not(.beta-hero) .oh-kicker-v10,
+  html.beta-hero .oh-h1-legacy,
+  html:not(.beta-hero) .oh-h1-v10{display:none !important}
+  html.beta-hero .oh-steps{display:none !important}
+  /* גובה הראש אחרי Heebo. בלי זה הגופן החלופי קצר יותר, והשלבים
+     נדחפים למטה כשהגופן מגיע (CLS בדסקטופ). */
+  html.beta-hero .oh-head{min-height:520px}
+  @media(min-width:760px){
+    html.beta-hero .oh-head{min-height:470px}
+    html.beta-hero .oh-head-box{min-height:260px}
+    .ohv-gab > span{min-height:56px}
+  }
+  html.beta-hero #fairHowTitle{
+    position:static;width:auto;height:auto;margin:0 0 10px;overflow:visible;
+    clip:auto;white-space:normal;
+  }
+  html.beta-hero .oh-head h1{font-family:Heebo,system-ui,sans-serif;font-size:22px;font-weight:800;line-height:1.25}
+  @media(min-width:760px){html.beta-hero .oh-head h1{font-size:32px}}
+  html.beta-hero .oh-h1-v10,
+  html.beta-hero .oh-h1-v10>span{display:inline}
+  /* ?beta=0: ה-h1 (נוסח v10) לא תופס מקום, והשורה הישנה נראית כמו הכותרת.
+     hidden דורש !important, אחרת המאפיין גובר על display רגיל. */
+  html:not(.beta-hero) .oh-head h1{display:none !important}
+  html:not(.beta-hero) .oh-h1-legacy{
+    display:block !important;margin:0;color:#fff;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;line-height:1.1;
+    letter-spacing:-.01em;font-size:clamp(1.2rem,5vw,1.5rem);
+    text-shadow:0 2px 10px rgba(0,0,0,.35);
+  }
+  @media(min-width:760px){
+    html:not(.beta-hero) .oh-h1-legacy{font-size:clamp(1.5rem,2.6vw,2.1rem)}
+  }
+  .ohv-lead{margin:0;font-size:15px;line-height:1.6;color:rgba(255,255,255,.92);max-width:62ch}
+  .ohv-pill{display:inline-block;align-self:flex-start;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:700}
+  .ohv-ctas{display:flex;flex-wrap:wrap;gap:10px}
+  .ohv-gold,.ohv-out,.ohv-navy{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border-radius:12px;font:800 15.5px Heebo,system-ui,sans-serif;text-decoration:none;cursor:pointer}
+  .ohv-gold{background:#c9a227;color:#0d1b3d;border:0}
+  .ohv-out{background:transparent;color:#fff;border:1.5px solid #fff}
+  .ohv-navy{background:#0e2a6b;color:#fff;border:0}
+  .ohv-gold:focus-visible,.ohv-out:focus-visible,.ohv-navy:focus-visible,.ohv-gab a:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  .ohv-gab{position:relative;display:block;margin:34px auto 0;max-width:1100px;min-height:104px;padding:14px 16px 14px 92px;border-radius:14px;background:#f6f1e7;color:#0e2a6b;font-size:15px;line-height:1.55}
+  .ohv-gab .ohv-gab-fig{position:absolute;left:0;bottom:0;width:69px;height:120px;max-width:none;border:0;border-radius:0;box-shadow:none;background:none;object-fit:contain;object-position:bottom;clip-path:inset(-200px 0 0 0 round 0 0 0 14px);pointer-events:none}
+  .ohv-gab > span{display:block}
+  @media(min-width:760px){.ohv-gab{margin-top:50px;min-height:128px;padding:22px 28px 22px 124px;font-size:17px;display:flex;align-items:center}.ohv-gab .ohv-gab-fig{width:92px;height:160px}}
+  .ohv-gab a{color:#0e2a6b;font-weight:800;white-space:nowrap}
+  .ohv-steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+  @media(min-width:760px){.ohv-steps{grid-template-columns:repeat(3,1fr)}}
+  .ohv-steps li{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid #e3e8f2;border-radius:14px;background:#fff}
+  .ohv-steps i{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#0e2a6b;color:#fff;font-style:normal;font-weight:800;flex:none}
+  .ohv-steps b{display:block;font-size:16px;color:#0e2a6b}
+  .ohv-steps span{display:block;font-size:14px;line-height:1.55;color:#4a5060;margin-top:2px}
+  /* המדף תופס את גובה השורה הראשונה עוד לפני שהדירות מגיעות. בטלפון הראש
+     והשלבים כבר ממלאים את המסך; במחשב בלי הגובה הזה הטופס מתחיל בתוך
+     המסך ונדחף למטה כשהדירות נכנסות. */
+  html.beta-hero #fairProps{display:block !important;min-height:420px}
+  @media(min-width:760px){html.beta-hero #fairProps{min-height:360px}}
+  /* כשל טעינה: המקום השמור יורד, כדי שההודעה לא תשב מתחת לחלל ריק. */
+  html.beta-hero.ohv-failed #fairProps{display:none !important;min-height:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/prop-shelf.css">
 <link rel="stylesheet" href="assets/open-house.css">
-<script src="assets/page-bg.js" data-auto></script>
+<script src="assets/page-bg.js" data-auto defer></script>
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
@@ -537,13 +645,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- שם היריד כאן ולא רק בכותרת הטאב, והעיר בכותרת (‏SEO) - שם
                השוק הפעיל מ-data-market-label. אותו נוסח בבאנר בדף הבית
                (‏renderOpenHouseBanner ב-assets/home.js). -->
-          <p class="oh-head-kicker">יריד הבתים הפתוחים · אל תחמיצו!</p>
-          <h1><span>דירות ב<span data-market-label>עפולה והעמק</span></span> <span>ללא עמלת תיווך</span> <span>- לזמן מוגבל!</span></h1>
+          <p class="oh-head-kicker"><span class="oh-kicker-legacy">יריד הבתים הפתוחים · אל תחמיצו!</span><span class="oh-kicker-v10">יריד הבתים הפתוחים</span></p>
+          <h1><span class="oh-h1-v10">דירות ב<span data-market-label>עפולה והעמק</span>, בלי עמלת תיווך</span></h1>
+          <!-- אותו משפט, לא כותרת: סורק בלי CSS רואה h1 אחד. מוצג רק ב-?beta=0. -->
+          <span class="oh-h1-legacy" hidden aria-hidden="true"><span>דירות ב<span data-market-label>עפולה והעמק</span>, בלי עמלת תיווך</span></span>
+          <script>
+          (function(){
+            if(document.documentElement.classList.contains('beta-hero'))return;
+            var leg=document.querySelector('.oh-h1-legacy');
+            if(!leg)return;
+            leg.hidden=false;
+            leg.removeAttribute('aria-hidden');
+          })();
+          </script>
         </div>
         <!-- שורה אחת של נתונים ולא צ׳יפים: "2 דירות ביריד · הראשונה יוצאת
              27.9". פסקת ההסבר שישבה כאן ירדה — "איך זה עובד" שמתחת אומר
              אותו דבר בשלוש מילים לכל שלב. -->
         <div class="oh-head-body">
+          <p class="ohv-lead ohv-only">יועצי נדל״ן מהאזור מכניסים דירות ליריד לתקופה מוגבלת. פונים על דירה בזמן שהיא ביריד, ולא משלמים עמלת תיווך, גם אם ההסכם נחתם אחר כך. השירות המלא של יועץ הנדל״ן נשאר.</p>
+          <span class="ohv-pill ohv-only">לכל דירה ביריד יש תאריך סיום משלה</span>
+          <div class="ohv-ctas ohv-only"><a class="ohv-gold" id="ohvGo" href="#fairProps">לדירות שביריד</a><a class="ohv-out" href="#fairSignup" id="ohvNotify">עדכנו אותי</a></div>
           <p class="oh-head-stats" id="fairStats" hidden>
             <span class="oh-stat is-primary" id="fairStatCount"></span>
             <span class="oh-stat" id="fairStatSoon" hidden></span>
@@ -555,6 +677,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
     </div>
+    <div class="wrap ohv-only"><p class="ohv-gab" id="ohvGab"><img class="ohv-gab-fig" src="/assets/gabriela-cutout-400.webp" width="400" height="695" alt="" decoding="async"><span>גבריאלה: כאן מרוכזות הדירות שיועצי הנדל״ן באזור הכניסו ליריד. אפשר לעבור עליהן, או להשאיר פרטים ואעדכן אתכם כשנכנסת דירה חדשה. <a href="/swipe?deal=sale&amp;fair=1" data-ohv-swipe>להחליק על דירות היריד ←</a></span></p></div>
   </section>
 
   <!-- ====== איך זה עובד ======
@@ -567,6 +690,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span><b>יועצי הנדל״ן באזור מכניסים דירה</b></li>
       <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect><circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path></svg><i>2</i></span><b>אתם קונים ללא עמלת תיווך</b></li>
       <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9.5 2.5h5"></path></svg><i>3</i></span><b>רק עד שהשעון נעצר</b></li>
+    </ol>
+    <ol class="ohv-steps ohv-only" id="ohvSteps">
+      <li><i aria-hidden="true">1</i><div><b>יועצי נדל״ן מכניסים דירה</b><span>כל דירה ביריד מגיעה מיועץ נדל״ן מאומת באזור, עם תאריך סיום ברור.</span></div></li>
+      <li><i aria-hidden="true">2</i><div><b>אתם מתאמים ביקור</b><span>יוצרים קשר ישירות מהדף, ומתאמים ביקור כמו בכל דירה אחרת.</span></div></li>
+      <li><i aria-hidden="true">3</i><div><b>קונים בלי עמלת תיווך</b><span>פונים על הדירה לפני שהשעון נעצר, ולא משלמים עמלת תיווך, גם אם ההסכם נחתם מאוחר יותר.</span></div></li>
     </ol>
   </section>
 
@@ -1060,7 +1188,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </footer>
 
-<script>
+<!-- אחרי ה-HTML, לא ב-head: Leaflet ו-supabase חסמו את ציור הראש (הפסקה
+     שהיא ה-LCP) עד שהם ירדו ורצו. הסדר כאן זהה, מיד לפני הסקריפט של הדף. -->
+<script defer src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script defer src="assets/map-tiles.js"></script>
+<script defer src="assets/map-gestures.js"></script>
+<script defer src="assets/open-house.js"></script>
+<script defer src="assets/property-card.js"></script>
+<script defer src="assets/prop-shelf.js"></script>
+<script defer src="assets/bot-link.js"></script>
+<script type="module">
 /* ============================================================================
    דף יריד הבתים הפתוחים
    ----------------------------------------------------------------------------
@@ -1099,6 +1241,18 @@ const FAIR_SELECT =
 
 const FAIR_LIMIT = 200;
 
+/* אותה נוסחה כמו thumb() שבראש הדף (preload). כתובת אחרת מורידה את
+   קובץ התמונה פעמיים, והכרטיס הראשון הוא ה-LCP במחשב. */
+function fairThumb(url){
+  const s = String(url || '');
+  const mark = '/storage/v1/object/public/';
+  const at = s.indexOf(mark);
+  if (at < 0) return s;
+  const path = s.slice(at + mark.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=800&quality=60';
+}
+
 async function loadFairProperties(){
   if (!sb) throw new Error('Supabase לא נטען');
   const nowIso = new Date().toISOString();
@@ -1118,6 +1272,7 @@ async function loadFairProperties(){
     .filter(p => OpenHouse.live(p))
     .map(p => ({
       ...p,
+      images: Array.isArray(p.images) ? p.images.map((u, i) => (i === 0 ? fairThumb(u) : u)) : p.images,
       agency_name: p.agencies?.name || '',
       agency_logo: p.agencies?.logo_url || '',
       neighborhood_name: p.neighborhoods?.name || '',
@@ -1173,6 +1328,7 @@ const fairShelf = PropShelf.create({
     ? `${total.toLocaleString('he-IL')} נכסים ביריד`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
 });
+window.fairShelf = fairShelf;
 
 /* ---------- המונה שבראש ---------- */
 function renderFairStats(list){
@@ -1451,10 +1607,15 @@ signupForm.addEventListener('submit', async (e) => {
     if (!list.length){
       /* יחידה אחת במקום שתיים: הטופס עובר אל תוך ההודעה, והרצועה שממנה
          הגיע יורדת. ‏appendChild מזיז את האלמנט עם המאזינים שכבר עליו —
-         אין כאן שכפול של markup ואין טופס שני שצריך לחווט. */
+         אין כאן שכפול של markup ואין טופס שני שצריך לחווט.
+         ב-v10 המדף כבר תופס גובה מהציור הראשון. ההודעה נכנסת לתוכו
+         במקום לכווץ אותו - כיווץ היה מושך את מה שמתחתיו אל תוך המסך. */
       el('fairEmptySignup').appendChild(el('fairSignupBox'));
       el('fairSignup').hidden = true;
       el('fairEmptyWrap').hidden = false;
+      if (document.documentElement.classList.contains('beta-hero')) {
+        el('fairProps').replaceChildren(el('fairEmptyWrap'));
+      }
       return;
     }
     renderFairStats(list);
@@ -1468,6 +1629,7 @@ signupForm.addEventListener('submit', async (e) => {
     renderFairMap(list);
   } catch(e){
     console.warn('טעינת יריד הבתים הפתוחים נכשלה:', e);
+    document.documentElement.classList.add('ohv-failed');
     el('fairErrorWrap').hidden = false;
   }
 })();
