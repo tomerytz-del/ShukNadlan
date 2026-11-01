@@ -152,6 +152,7 @@ function renderSettingsHub(){
 document.getElementById('accPrefs').addEventListener('toggle', e => {
   if (e.target.open) renderSettingsHub();
 });
+if (document.getElementById('accPrefs') && document.getElementById('accPrefs').open) renderSettingsHub();
 
 /* ==========================================================================
    העדפות לידים מבעלי נכסים (agent_lead_preferences)
@@ -475,7 +476,8 @@ function ensureSettingsMounted(){
   mountHubQuiet();
   wireNotifScreen();
 }
-document.addEventListener('DOMContentLoaded', ensureSettingsMounted);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureSettingsMounted);
+else ensureSettingsMounted();
 
 function mountHubQuiet(){
   const host = document.getElementById('setQuietEditor');

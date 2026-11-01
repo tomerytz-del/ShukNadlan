@@ -511,7 +511,7 @@ document.getElementById('wlAmounts')?.addEventListener('input', e => {
   walletAfterSync();
 });
 document.getElementById('topupAmount')?.addEventListener('change', e => {
-  uiSetChips(document.getElementById('wlAmounts'), [e.target.value]);
+  if (typeof uiSetChips === 'function') uiSetChips(document.getElementById('wlAmounts'), [e.target.value]);
   walletAfterSync();
 });
 
@@ -841,6 +841,9 @@ function showScreen(name){
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 2000));
     idle(() => armTrackers(), { timeout: 4000 });
   }
+  // קבצי הקטגוריות יוצאים רק אחרי שהמסך הזה מצויר. מסך ההמתנה
+  // (boot) אינו מפעיל אותם, כדי שלא יתחרו בציור מסך הכניסה.
+  if ((onDashboard || name === 'login') && window.crmArmSections) window.crmArmSections();
 }
 
 /* הודעה שממתינה למסך הכניסה. נחוצה כי כשחוזרים מ-Google עם שגיאה, המסך שמוצג
@@ -1718,6 +1721,9 @@ function showCreateAgencyScreen(){
     fill('caLicense', createAgencyPrefill.license);
   }
   showScreen('createAgency');
+  if (window.crmNeed) crmNeed('markets').then(() => {
+    if (window.AgencyMarkets) AgencyMarkets.mount(document.getElementById('caAgencyMarkets'));
+  }).catch(() => {});
 }
 
 function showReleasedScreen(agent, agencyName){
@@ -2264,7 +2270,12 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   maybeShowWelcome();
   // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
   // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
-  loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  // המדריך אינו על מסך הכניסה. בלי הקובץ הקריאה זורקת ועוצרת את ה-goto.
+  if (typeof loadOnboarding === 'function') {
+    loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  } else if (window.crmNeed) {
+    crmNeed('onboarding').then(() => loadOnboarding()).catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+  }
   loadSocialPrompt().catch(err => console.warn('כרטיס התיוג אינו זמין:', err));
   licenseHoldP = refreshLicenseHold();
   setAgentBalance(agent.credit_balance);
@@ -2339,7 +2350,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
         await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
       }
       else if (key === 'clients') await clientsListP();
-      else if (key === 'demand') await start('demand', () => loadOpenDemand());
+      else if (key === 'demand') await start('demand', () =>
+        (typeof loadOpenDemand === 'function'
+          ? loadOpenDemand()
+          : crmNeed('leads').then(() => loadOpenDemand())));
       else if (key === 'shared') await start('shared', () => loadSharedWithMe());
       else if (key === 'agreements') await start('agreements', () => loadAgreements());
       else if (key === 'agenda') await start('agenda', () => loadAgenda());
@@ -2348,13 +2362,18 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       } else if (key === 'prefs'){
         await Promise.all([
           start('notifPrefs', () => loadNotifPrefs(agent.id)),
-          start('preferences', () => loadPreferences(agent.id)),
+          start('preferences', () => (typeof loadPreferences === 'function'
+            ? loadPreferences(agent.id)
+            : crmNeed('settings').then(() => loadPreferences(agent.id)))),
         ]);
       } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
     }
   }
   let gotoHandled = false;
   if (gotoRaw && gotoOpensEarly(gotoRaw, gotoTab)){
+    // רק קבצי היעד הזה. קובץ של מסך אחר, גם אם הוא תקוע, לא מעכב את הניתוב.
+    try { await crmPrepareGoto(gotoRaw); }
+    catch (err){ console.warn('טעינת קבצי היעד נכשלה:', err); }
     // מחיר הליד, ה-CMA והקידום נקראים מ-priceOf. בלי זה היעד נפתח על
     // ברירות המחדל הקשיחות, כי pricingP עוד לא התחיל.
     const waitPrice = gotoRaw === 'cma' || gotoRaw === 'promote'
@@ -2382,7 +2401,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     start('agreements', () => loadAgreements()),
     start('notifications', () => loadNotifications(agent.id)),
     start('notifPrefs', () => loadNotifPrefs(agent.id)),
-    start('preferences', () => loadPreferences(agent.id)),
+    start('preferences', () => (typeof loadPreferences === 'function'
+      ? loadPreferences(agent.id)
+      : crmNeed('settings').then(() => loadPreferences(agent.id)))),
   ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -2396,18 +2417,27 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   document.getElementById('managerSection').style.display = managerDisplay;
   document.getElementById('managerBrandingSection').style.display = managerDisplay;
   // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
-  syncOfficeExportButtons();
+  if (typeof syncOfficeExportButtons === 'function') syncOfficeExportButtons();
+  else if (window.crmNeed) crmNeed('office').then(() => { if (typeof syncOfficeExportButtons === 'function') syncOfficeExportButtons(); }).catch(() => {});
   // מנהל/ת צוות? (my_roles, docs/team-dashboard.md). בלי לחכות: האזור נפתח
   // כשהתשובה מגיעה, ושום טעינה אחרת לא תלויה בו
-  loadMyRoles().catch(err => console.warn('טעינת התפקידים נכשלה:', err));
+  const rolesP = typeof loadMyRoles === 'function'
+    ? loadMyRoles()
+    : (window.crmNeed ? crmNeed('teamDash').then(() => loadMyRoles()) : Promise.resolve());
+  rolesP.catch(err => console.warn('טעינת התפקידים נכשלה:', err));
   // הסיכום האחרון של המנטור האישי - בשביל כפתור "המנטור" בדף הבית, שמוצג
   // רק כשיש סיכום (homeCoachSync, assets/crm-coach.js). שורה אחת, ואחרי
   // שהדשבורד סיים לעלות: שום דבר בעלייה לא מחכה לה.
-  if (coachState.agent === undefined){
-    (window.requestIdleCallback || (fn => setTimeout(fn, 1500)))(() => {
-      if (coachState.agent === undefined) coachLoad('agent').catch(err => console.warn('טעינת המנטור נכשלה:', err));
-    });
-  }
+  const armCoach = () => {
+    if (typeof coachState === 'undefined' || typeof coachLoad !== 'function') return;
+    if (coachState.agent === undefined){
+      (window.requestIdleCallback || (fn => setTimeout(fn, 1500)))(() => {
+        if (coachState.agent === undefined) coachLoad('agent').catch(err => console.warn('טעינת המנטור נכשלה:', err));
+      });
+    }
+  };
+  if (typeof coachLoad === 'function') armCoach();
+  else if (window.crmNeed) crmNeed('coach').then(armCoach).catch(() => {});
   if (agent.role === 'manager'){
     // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
     await Promise.all([
@@ -2426,7 +2456,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   if (agent.is_platform_admin){
     await Promise.all([
       loadLicenseAppeals(),
-      loadCoachGaps(),
+      typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeed('coach').then(() => loadCoachGaps()),
       loadRefundQueue(),
       loadSubscriptionsAdmin(),
       loadNeighborhoodsAdmin(),
@@ -2434,9 +2464,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       loadArticlesAdmin(),
       loadProfessionalCardsAdmin(),
       loadUnroutedLeads(),
-      loadSuggestionsAdmin(),
+      typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeed('suggestions').then(() => loadSuggestionsAdmin()),
       // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-      loadAdminInbox(),
+      typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeed('adminInbox').then(() => loadAdminInbox()),
     ]);
   }
 
@@ -2462,7 +2492,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // קישור שכבר נפתח למעלה לא רץ שוב: handleGotoParam מוחק את ה-query.
   // מה שנשאר לכאן הוא כניסה בלי ?goto=, ויעד של ניהול שהמסך שלו מוסתר
   // עד שההרשאות נקבעות (אזור המנהל/ת, תצוגת הפלטפורמה).
-  if (!gotoHandled) handleGotoParam();
+  if (!gotoHandled) {
+    const lateGoto = new URLSearchParams(location.search).get('goto') || '';
+    if (lateGoto) {
+      try { await crmPrepareGoto(lateGoto); }
+      catch (err){ console.warn('טעינת קבצי היעד נכשלה:', err); }
+    }
+    handleGotoParam();
+  }
   handleShareParam();
   // אחרי הכול ובהשהיה - ראו scheduleGovmapAutoComplete
   scheduleGovmapAutoComplete(agent);
@@ -2514,6 +2551,15 @@ function openAdminHome(){
 /* אילו טעינות חוסמות את פתיחת היעד. מה שאין כאן רץ אחרי שהמסך כבר פתוח,
    ובפרט client_match_top (בתוך loadClients) לא חוסם קישור ללידים, לנכס
    או לביקוש פתוח. demand הוא הלשונית "ביקוש פתוח" - בלי רשימת הלידים. */
+/* רק הקבצים של היעד. crmGroupsFor מחזיר רשימה ריקה ליעד שלא צריך
+   מסך משלו (פעמון, רישיון), והניתוב ממשיך בלי להמתין. */
+async function crmPrepareGoto(raw){
+  if (!raw || !window.crmNeed || !window.crmGroupsFor) return;
+  const groups = crmGroupsFor(raw);
+  if (!groups.length) return;
+  await Promise.all(groups.map(g => crmNeed(g).catch(() => {})));
+}
+
 function gotoLoadKeys(raw, tab){
   if (!raw) return [];
   if (raw === 'accLeads' && tab === 'demand') return ['demand'];
@@ -2532,6 +2578,11 @@ function gotoLoadKeys(raw, tab){
 /* יעד שאפשר לפתוח ברגע שהמעטפת על המסך. אזור המנהל/ת עדיין מוסתר כאן,
    ולכן ביקורת שממתינה נשארת לסוף loadDashboard - אחרת הקישור היה נמחק
    מהכתובת בלי שהכרטיס נפתח. */
+/* כינוי קטגוריה. העותק המלא (שמחליף לשונית) יושב ב-crm-properties.js
+   ונרשם מחדש כשהקובץ נטען. הניתוב לא מחכה לקובץ הזה. */
+function accAliasTarget(id){ return id === 'accSharedWithMe' ? 'accProperties' : id; }
+function accResolve(id){ return accAliasTarget(id); }
+
 function gotoTargetReady(raw){
   if (raw === 'mentor' || raw === 'license' || raw === 'cma' || raw === 'cmaAddress'
       || raw === 'promote' || raw === 'waShare' || raw === 'sign') return true;
@@ -11165,6 +11216,13 @@ function renderPlanningResult(d){
     </div>`).join('');
 
   const renderPlans = () => {
+    if (typeof mergedPlanningPlans !== 'function' || typeof plansListHtml !== 'function') {
+      if (window.crmNeed && !renderPlans.waiting) {
+        renderPlans.waiting = true;
+        crmNeed('cma').then(() => { renderPlans.waiting = false; renderPlans(); }).catch(() => {});
+      }
+      return;
+    }
     const plans = mergedPlanningPlans(d);
     plansEl.innerHTML = plans.length
       ? plansListHtml(plans, 'תוכניות תכנון החלות על החלקה')
@@ -14770,6 +14828,15 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   e.preventDefault();
   if (!currentAgent) return;
   const btn = document.getElementById('addPropertyBtn');
+  const feedbackEarly = document.getElementById('addPropertyFeedback');
+  try { await ensureImportCore(); }
+  catch (err) {
+    if (feedbackEarly){
+      feedbackEarly.style.color = 'var(--brick)';
+      feedbackEarly.textContent = 'שמירת הנכס לא נטענה. נסו שוב.';
+    }
+    return;
+  }
   const feedback = document.getElementById('addPropertyFeedback');
   const planningStatus = document.getElementById('addPropertyPlanningStatus');
   btn.disabled = true; btn.textContent = editingPropertyId ? 'שומר…' : 'מפרסם…'; feedback.textContent = ''; planningStatus.textContent = '';
@@ -19274,15 +19341,36 @@ function loadImportLib(){
    להם - ייבוא הלקוחות (crm-office.js), הייצוא לאקסל וטופס הנכס.
    ‏function ולא const בכינויים: crm-office.js קורא להם, וסדר הטעינה בין קבצים
    אינו מה שקובע כאן - הקריאה היא בזמן ריצה. */
-const PIC = window.PropertyImportCore;
-PIC.configure({
-  residentialTypes: RESIDENTIAL_PTYPE_OPTIONS,
-  commercialTypes: COMMERCIAL_PTYPE_OPTIONS,
-  features: [...LISTING_FEATURES, ...RESIDENTIAL_PROPERTY_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES],
-});
-const IMPORT_FIELDS = PIC.IMPORT_FIELDS;
-const IMP_CATEGORY = PIC.CATEGORY, IMP_DEAL = PIC.DEAL, IMP_CONDITION = PIC.CONDITION;
-const IMP_PROJECT_STATUS = PIC.PROJECT_STATUS, IMP_LOCATION = PIC.LOCATION, IMP_PROPERTY_STATUS = PIC.PROPERTY_STATUS;
+/* הליבה נטענת עם פתיחת האשף או הייצוא, לא עם מסך הכניסה. קובץ שנתקע
+   ב-502 היה עוצר את כל שרשרת ה-defer לפני crm.js. */
+let PIC = null;
+let IMPORT_FIELDS = [];
+let IMP_CATEGORY = {}, IMP_DEAL = {}, IMP_CONDITION = {};
+let IMP_PROJECT_STATUS = {}, IMP_LOCATION = {}, IMP_PROPERTY_STATUS = {};
+let importCoreReady = null;
+function ensureImportCore(){
+  if (PIC) return Promise.resolve();
+  if (!importCoreReady){
+    const load = window.crmNeed ? crmNeed('import') : Promise.reject(new Error('import'));
+    importCoreReady = load.then(() => {
+      PIC = window.PropertyImportCore;
+      if (!PIC) throw new Error('import');
+      PIC.configure({
+        residentialTypes: RESIDENTIAL_PTYPE_OPTIONS,
+        commercialTypes: COMMERCIAL_PTYPE_OPTIONS,
+        features: [...LISTING_FEATURES, ...RESIDENTIAL_PROPERTY_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES],
+      });
+      IMPORT_FIELDS = PIC.IMPORT_FIELDS;
+      IMP_CATEGORY = PIC.CATEGORY;
+      IMP_DEAL = PIC.DEAL;
+      IMP_CONDITION = PIC.CONDITION;
+      IMP_PROJECT_STATUS = PIC.PROJECT_STATUS;
+      IMP_LOCATION = PIC.LOCATION;
+      IMP_PROPERTY_STATUS = PIC.PROPERTY_STATUS;
+    }).catch(err => { importCoreReady = null; throw err; });
+  }
+  return importCoreReady;
+}
 function impNorm(v){ return PIC.norm(v); }
 function impText(v){ return PIC.text(v); }
 function impNumber(v){ return PIC.number(v); }
@@ -19314,8 +19402,10 @@ function impInitState(){
   };
 }
 
-function impOpen(){
+async function impOpen(){
   if (!currentAgent) return;
+  try { await ensureImportCore(); }
+  catch (e){ showToast('ייבוא הנכסים לא נטען. נסו שוב.'); return; }
   impInitState();
   importModal.style.display = 'flex';
   impSetStep(1);
@@ -19403,10 +19493,10 @@ async function openImportJobFromParam(jobId){
     .select('headers, rows, file_name').eq('id', jobId).maybeSingle();
   if (error || !job){
     showToast('הקובץ כבר לא שמור (נשמר 14 יום). אפשר לשלוח אותו שוב לגבריאלה או לבחור אותו כאן.');
-    impOpen();
+    await impOpen();
     return;
   }
-  impOpen();
+  await impOpen();
   const status = document.getElementById('impStatus');
   impLoadMatrix([job.headers || [], ...(job.rows || [])], job.file_name || 'קובץ מוואטסאפ',
     (msg)=>{ if (status){ status.style.color = 'var(--brick)'; status.textContent = msg; } });
@@ -20331,6 +20421,8 @@ function expFileName(label){
 }
 
 async function expDownload(){
+  try { await ensureImportCore(); }
+  catch (e){ showToast('ייבוא הנכסים לא נטען. נסו שוב.'); return; }
   const button = document.getElementById('expRun');
   const label = button.textContent;
   button.disabled = true;
@@ -20651,6 +20743,9 @@ async function loadLeadVisitors(){
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
+  if (typeof renderLeadsUnified !== 'function' && window.crmNeed) {
+    try { await crmNeed('leads'); } catch (e) {}
+  }
   const listEl = document.getElementById('leadsList');
   /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
      ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
@@ -20700,6 +20795,10 @@ async function loadLeads(agentId){
    (assets/crm-leads.js, docs/leads-unified.md). הפונקציה נשארת כאן כי כל
    המקומות שמשנים ליד (ארכוב, שלב, פתיחה) קוראים לה. */
 function renderLeads(agentId){
+  if (typeof renderLeadsUnified !== 'function') {
+    if (window.crmNeed) crmNeed('leads').then(() => renderLeadsUnified(agentId)).catch(() => {});
+    return;
+  }
   renderLeadsUnified(agentId);
 }
 
@@ -25698,6 +25797,10 @@ async function loadClientAlerts(){
 
 /* מקובץ לפי לקוח/ה או לפי נכס - assets/crm-matches.js (3.12) */
 function renderClientAlerts(){
+  if (typeof renderMatchesGrouped !== 'function') {
+    if (window.crmNeed) crmNeed('matches').then(() => renderMatchesGrouped()).catch(() => {});
+    return;
+  }
   renderMatchesGrouped();
 }
 
@@ -25857,6 +25960,10 @@ async function openCmaReport(propertyId, btn){
     return;
   }
   cmaShareReset({ p_property_id: propertyId }, data);
+  if (typeof renderCmaReport !== 'function' && window.crmNeed) {
+    try { await crmNeed('cma'); } catch (e) {}
+  }
+  if (typeof renderCmaReport !== 'function') { showToast('הדוח לא נטען. נסו שוב.'); return; }
   renderCmaReport(data, brand);
 }
 
@@ -26441,6 +26548,10 @@ function notifVisibleTypes(){
 }
 
 async function loadNotifPrefs(agentId){
+  if (typeof renderNotifPrefs !== 'function' && window.crmNeed) {
+    try { await crmNeed('settings'); } catch (e) { return; }
+  }
+  if (typeof renderNotifPrefs !== 'function') return;
   // ‏'*' מאותה סיבה של הפעמון: ‏whatsapp_off_types חדשה (20270125090000).
   // שורת "פחות כאלה" נטענת בנפרד: לפני המיגרציה הטבלה חסרה, והמסך נשאר בלי הרשימה.
   const [prefs, less, cadenceFlag] = await Promise.all([
@@ -27329,6 +27440,9 @@ function reminderChannelsToStore(displayed){
 }
 
 async function loadReminders(agentId){
+  if (typeof renderReminderPrefs !== 'function' && window.crmNeed) {
+    try { await crmNeed('settings'); } catch (e) { return; }
+  }
   /* שתי הקריאות במקביל — הן אינן תלויות זו בזו, והקטגוריה הזו יושבת בהגדרות
      החשבון ולא במסך הראשון. שגיאה בשתיהן משמעה שהמיגרציה עוד לא רצה על המסד,
      ואז הקטגוריה מציגה מצב ריק ולא שוברת את הדשבורד. */
@@ -27549,6 +27663,8 @@ function scrollToTopOf(el){
 function prefetchSectionLibs(accId){
   if (!window.crmNeed || !accId) return;
   const done = p => p.catch(() => {});
+  const groups = window.crmGroupsFor ? crmGroupsFor(accId) : [];
+  groups.forEach(g => done(crmNeed(g)));
   if (accId === 'accProperties' || accId === 'accPlanning')
     done(crmNeed('property')).then(() => {
       if (window.OpenHouse && document.getElementById('propertiesList')) renderProperties();
@@ -31182,7 +31298,8 @@ function setDashView(view, opts){
   // לתשובה הוא לרוב רק הכותרת שלו. טעינה בטור הייתה מעכבת את הרביעי
   // בגלל הראשון בלי סיבה.
   if (dashView === 'admin'){
-    loadCommandCenter();
+    if (typeof loadCommandCenter === 'function') loadCommandCenter();
+    else if (window.crmNeed) crmNeed('command').then(() => { if (typeof loadCommandCenter === 'function') loadCommandCenter(); }).catch(() => {});
     loadMarketReport();
     loadAdminReport();
     loadLeadReport();
@@ -31650,6 +31767,14 @@ function renderCmaAddressForm(body, title){
         features: [...form.querySelectorAll('input[name=feat]:checked')].map(x => x.value),
         lat: coords?.lat ?? null, lng: coords?.lng ?? null,
       } }, data);
+      if (typeof renderCmaReport !== 'function' && window.crmNeed) {
+        try { await crmNeed('cma'); } catch (e) {}
+      }
+      if (typeof renderCmaReport !== 'function') {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'הדוח לא נטען. נסו שוב.';
+        return;
+      }
       renderCmaReport(data, brand);
     } catch(err){
       console.error(err);

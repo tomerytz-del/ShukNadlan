@@ -1112,6 +1112,7 @@ function odOpenProperty(id){
   const host = document.getElementById('officeDash');
   if (!acc || !host) return;
   acc.addEventListener('toggle', () => { if (acc.open) loadOfficeDashboard(); });
+  if (acc.open) loadOfficeDashboard();
 
   host.addEventListener('click', e => {
     const per = e.target.closest('[data-od-period]');

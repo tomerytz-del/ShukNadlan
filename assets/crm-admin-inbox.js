@@ -201,4 +201,5 @@ function renderAdminSla(sla){
 (function wireAdminInbox(){
   const acc = document.getElementById('accAdminInbox');
   if (acc) acc.addEventListener('toggle', () => { if (acc.open) loadAdminInbox(); });
+  if (acc && acc.open) loadAdminInbox();
 })();

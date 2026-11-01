@@ -817,7 +817,8 @@ window.addEventListener('resize', () => {
   const sheet = document.getElementById('leadPrefsSheet');
   if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
 });
-document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+else leadPrefsFromHash();
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){

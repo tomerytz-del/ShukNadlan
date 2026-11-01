@@ -482,6 +482,7 @@ async function loadCoachGaps(){
 (function wireCoachGaps(){
   const acc = document.getElementById('accCoachGaps');
   if (acc) acc.addEventListener('toggle', e => { if (e.target.open) loadCoachGaps(); });
+  if (acc && acc.open) loadCoachGaps();
 })();
 
 (function wireCoach(){

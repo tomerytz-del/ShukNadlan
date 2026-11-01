@@ -385,4 +385,5 @@ async function loadPlatformNews(){
 (function wirePlatformNews(){
   const acc = document.getElementById('accPlatformNews');
   if (acc) acc.addEventListener('toggle', () => { if (acc.open) loadPlatformNews(); });
+  if (acc && acc.open) loadPlatformNews();
 })();

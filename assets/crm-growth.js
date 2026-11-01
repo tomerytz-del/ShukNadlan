@@ -244,4 +244,5 @@ function growthCampaignsHtml(g){
 (function wireGrowth(){
   const acc = document.getElementById('accGrowth');
   if (acc) acc.addEventListener('toggle', () => { if (acc.open) loadGrowth(); });
+  if (acc && acc.open) loadGrowth();
 })();
