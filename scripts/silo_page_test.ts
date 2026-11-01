@@ -124,7 +124,26 @@ function ldBlocks(html: string): Record<string, unknown>[] {
     && list.itemListElement[0].url === SITE + "/property?id=p1");
   check("מטמון", (res.headers.get("Cache-Control") || "").includes("must-revalidate"));
   const faq = blocks.find((b) => b["@type"] === "FAQPage") as { mainEntity?: unknown[] } | undefined;
-  check("FAQ", types.includes("FAQPage") && faq?.mainEntity?.length === 7 && (html.match(/<details><summary>/g) || []).length === 7);
+  const houseQa = (faq?.mainEntity || []) as { name: string; acceptedAnswer: { text: string } }[];
+  const houseBy = "המודעות מתפרסמות על ידי יועצי נדל״ן ומשרדים.";
+  const faqP = (text: string) => "<p>" + text.replace(/'/g, "&#39;") + "</p>";
+  const faqSum = (text: string) => "<summary>" + text.replace(/'/g, "&#39;") + "</summary>";
+  const houseNames = [
+    "מה נכלל בבית פרטי למכירה בעפולה?",
+    "יש הבדל בין בית פרטי, בית קרקע וקוטג'?",
+    "מאיפה המודעות בעמוד הזה?",
+    "איפה רואים את המחיר ואת כל הפרטים?",
+    "איפה רואים עסקאות ומחירי דירות?",
+    "מה עושים אם אין כרגע מודעות?",
+  ];
+  check("FAQ", types.includes("FAQPage") && houseQa.length === houseNames.length
+    && (html.match(/<details><summary>/g) || []).length === houseNames.length
+    && houseQa.every((q, i) => q.name === houseNames[i] && html.includes(faqSum(q.name))));
+  check("בית: יועצי נדל״ן ב-FAQ וב-JSON-LD", !!houseQa[0] && houseQa[0].acceptedAnswer.text.endsWith(houseBy)
+    && html.includes(faqP(houseQa[0].acceptedAnswer.text))
+    && !html.includes("בלי תיווך")
+    && !houseQa.some((q) => q.name.includes("בלי תיווך"))
+    && html.includes("שיועצי נדל״ן ומשרדים מפרסמים באתר"));
   check("פירור גלוי", html.includes('aria-label="נתיב ניווט"') && html.includes(">דף הבית</a>") && html.includes(">עפולה</a>") && html.includes('aria-current="page"'));
   check("התראה", html.includes("קבלו התראה") && html.includes("data-land-alert"));
   check("בלי שמירה", !html.includes("land-save") && !html.includes("שמור נכס"));
@@ -212,10 +231,14 @@ resetLastGood();
 {
   const res = await run(SITE + "/afula/" + encodeURIComponent("דירות-גן"), 200, ROWS);
   const html = await res.text();
+  const gardenFaq = ldBlocks(html).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { acceptedAnswer: { text: string } }[] } | undefined;
+  const gardenA = "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה בעפולה, מיועצי נדל״ן ומשרדים.";
   check("דירות גן", res.status === 200 && html.includes("דירות גן למכירה בעפולה")
     && html.includes("<title>דירות גן למכירה בעפולה | שוק נדל״ן</title>")
     && html.includes("hero-garden-800.webp")
     && html.includes('href="https://shuknadlan.co.il/afula/דירות-גן"'));
+  check("דירות גן: יועצי נדל״ן ב-FAQ וב-JSON-LD", gardenFaq?.mainEntity?.[0]?.acceptedAnswer.text === gardenA
+    && html.includes("<p>" + gardenA + "</p>"));
 }
 
 {
@@ -225,6 +248,16 @@ resetLastGood();
   check("בלי צ'יפ 3 חדרים", !filters.includes("<bdi>3</bdi>"));
   check("גיבור דירות", html.includes("hero-apt-800.webp"));
   check("שכונה במקום הצ'יפ", filters.includes("/n/afula/" + encodeURIComponent("מרכז-העיר")));
+  const sharedFaq = ldBlocks(html).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { name: string; acceptedAnswer: { text: string } }[] } | undefined;
+  const priceQ = "איפה רואים את המחיר ואת כל הפרטים?";
+  const priceA = "בדף של כל נכס מופיעים המחיר שפורסם והמפרט המלא. אם אין מחיר במודעה, אפשר לפנות דרך האתר ולשאול.";
+  const sourceA = "אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר.";
+  check("FAQ משותף: טקסט ו-JSON-LD", sharedFaq?.mainEntity?.[0]?.acceptedAnswer.text === sourceA
+    && sharedFaq.mainEntity[1]?.name === priceQ
+    && sharedFaq.mainEntity[1].acceptedAnswer.text === priceA
+    && html.includes("<summary>מאיפה המודעות בעמוד הזה?</summary><p>" + sourceA + "</p>")
+    && html.includes("<summary>" + priceQ + "</summary><p>" + priceA + "</p>")
+    && !html.includes("האם המחיר שמופיע הוא המחיר הסופי?"));
 }
 
 {
