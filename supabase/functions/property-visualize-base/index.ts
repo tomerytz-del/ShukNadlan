@@ -13,9 +13,13 @@ import {
   json,
   pickCommercialSources,
   pickPrivateSources,
+  prerenderAllStylesOn,
   privateTargetsFor,
+  queueOtherStyles,
   renderModeFor,
   runVisualizationJob,
+  sourceStillFits,
+  STYLE_KEYS,
   STYLES,
   type PrivateTarget,
   type StyleKey,
@@ -136,6 +140,14 @@ Deno.serve(async (req: Request) => {
     return await commercialBase(supabase, apiKey, property, tags, images, agent?.id ?? null, Boolean(force));
   }
 
+  /* ‏viz-speed שינוי 1: קריאה בלי style (הטריגר של הפרסום ותור ה-backfill) מייצרת את ברירת המחדל כאן,
+     ואת שלושת הסגנונות האחרים בקריאות פנימיות נפרדות - כל אחת עם job משלה ועם אותן בדיקות. רק כשהדגל
+     visualization_prerender_all_styles דלוק. קריאה עם style (כולל הקריאות האלה) אינה מתפצלת שוב */
+  if (isInternalCall && !isStyleKey(style) && await prerenderAllStylesOn(supabase)) {
+    // @ts-ignore — EdgeRuntime.waitUntil זמין בסביבת ה-Edge Functions של Supabase
+    EdgeRuntime.waitUntil(queueOtherStyles(property_id, STYLE_KEYS.filter((k) => k !== styleKey)));
+  }
+
   // נכס להשכרה מקבל הלבשת בית ולא שיפוץ, ומטרה אחת יותר (חדר שינה) —
   // ראו RenderMode ו-privateTargetsFor ב-_shared.
   const mode = renderModeFor(property.deal_type);
@@ -166,14 +178,18 @@ Deno.serve(async (req: Request) => {
   // מקבל "סט הבסיס כבר קיים" על סט שנוצר בדוקטרינה שכבר אינה נכונה לו.
   const { data: existing } = await supabase
     .from("property_visualizations")
-    .select("id, target, status, result_url, is_base")
+    .select("id, target, status, result_url, is_base, source_image_url")
     .eq("property_id", property_id)
     .eq("kind", "private_room")
     .eq("style_key", styleKey)
     .eq("mode", mode);
 
   const existingByTarget = new Map((existing ?? []).map((r: any) => [r.target, r]));
-  const isReady = (row: any) => Boolean(row && row.status === "done" && row.result_url);
+  /* ‏viz-speed + viz-1115-fix: הדמיה "מוכנה" כל עוד הצילום שלה עדיין בנכס ועדיין מתויג לאותו חדר
+     (‏sourceStillFits) - אותו כלל של property-visualize, כדי ששתי הפונקציות לא ייצרו זו על זו. נכס
+     שהחליף צילום מקבל הדמיה חדשה (השורה מתעדכנת במקום - המפתח הוא נכס, מטרה, סגנון ומצב) */
+  const isReady = (row: any, t?: PrivateTarget) =>
+    Boolean(row && row.status === "done" && row.result_url && (!t || sourceStillFits(tags, row.source_image_url, t, mode)));
 
   /* הדמיה מוכנה שאינה מסומנת כבסיס מקודמת במקום להיווצר מחדש.
      קודם הבדיקה למטה ספרה כל הדמיה מוכנה כאילו היא סט הבסיס, בלי להסתכל
@@ -186,8 +202,9 @@ Deno.serve(async (req: Request) => {
   const promote = force
     ? []
     : found
+        .filter((t) => isReady(existingByTarget.get(t), t))
         .map((t) => existingByTarget.get(t))
-        .filter((row: any) => isReady(row) && !row.is_base)
+        .filter((row: any) => !row.is_base)
         .map((row: any) => row.id);
 
   if (promote.length > 0) {
@@ -197,7 +214,7 @@ Deno.serve(async (req: Request) => {
       .in("id", promote);
   }
 
-  const todo = force ? found : found.filter((t) => !isReady(existingByTarget.get(t)));
+  const todo = force ? found : found.filter((t) => !isReady(existingByTarget.get(t), t));
 
   if (todo.length === 0) {
     return json({
@@ -248,7 +265,14 @@ Deno.serve(async (req: Request) => {
 
     const prior = existingByTarget.get(target);
     let rowId: string;
-    if (prior) {
+    /* ‏viz-1115-fix: שורה שמוצגת (‏done עם תמונה, למשל ב-force) נשארת כמו שהיא עד שהחדשה מוכנה,
+       וחוזרת אליה אם היצירה נכשלת (‏WorkItem.previous) */
+    let previous: WorkItem["previous"] = undefined;
+    if (prior && prior.status === "done" && prior.result_url) {
+      previous = { result_url: prior.result_url, source_image_url: prior.source_image_url ?? null };
+      await supabase.from("property_visualizations").update({ job_id: job.id, is_base: true }).eq("id", prior.id);
+      rowId = prior.id;
+    } else if (prior) {
       await supabase.from("property_visualizations").update(payload).eq("id", prior.id);
       rowId = prior.id;
     } else {
@@ -265,6 +289,7 @@ Deno.serve(async (req: Request) => {
       rowId,
       target,
       sourceUrl,
+      previous,
       prompt: buildPrivatePrompt(target, styleKey, {
         propertyType: property.property_type,
         sizeSqm: sizeSqm ? Number(sizeSqm) : null,

@@ -437,6 +437,38 @@ resetLastGood();
     && urls.some((u) => u.includes("city=eq." + encodeURIComponent("מגדל העמק"))));
 }
 
+{
+  const SALE = SITE + "/afula/" + encodeURIComponent("דירות-למכירה");
+  const row = { ...ROWS[1], id: "apt-1", title: "דירת 4 חדרים", property_type: "דירה", price: 1250000, rooms: 4 };
+  const res = await run(SALE, 200, [row]);
+  const html = await res.text();
+  const blocks = ldBlocks(html);
+  const types = blocks.map((b) => b["@type"]);
+  check("דירות למכירה: 200", res.status === 200 && html.includes('data-ssr="1"'));
+  check("דירות למכירה: כותרת ו-H1", html.includes("<title>דירות למכירה בעפולה | שוק נדל״ן</title>")
+    && html.includes('<h1 id="siloH1">דירות למכירה בעפולה</h1>'));
+  check("דירות למכירה: canonical", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/afula/דירות-למכירה">'));
+  check("דירות למכירה: פתיח", html.includes("דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות."));
+  check("דירות למכירה: תיאור", html.includes("דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר: מחיר, גודל ותמונות לכל מודעה פעילה, ופנייה מהירה דרך האתר."));
+  check("דירות למכירה: FAQ", html.includes("אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר.")
+    && html.includes("איפה רואים את המחיר ואת כל הפרטים?")
+    && html.includes("בדף של כל נכס מופיעים המחיר שפורסם והמפרט המלא. אם אין מחיר במודעה, אפשר לפנות דרך האתר ולשאול.")
+    && html.includes("מה עושים אם אין כרגע מודעות?"));
+  const saleFaq = ldBlocks(html).find((b) => b["@type"] === "FAQPage") as { mainEntity?: { name: string; acceptedAnswer: { text: string } }[] } | undefined;
+  check("דירות למכירה: FAQPage זהה לטקסט", saleFaq?.mainEntity?.[1]?.name === "איפה רואים את המחיר ואת כל הפרטים?"
+    && saleFaq.mainEntity[1].acceptedAnswer.text.startsWith("בדף של כל נכס מופיעים המחיר שפורסם")
+    && saleFaq.mainEntity.length === 4);
+  check("דירות למכירה: בלי שם ובלי רישיון", !html.includes("תומר") && !html.includes("3134355"));
+  check("דירות למכירה: שאילתת דירות", urls.some((u) => u.includes("/properties?")
+    && u.includes("city=eq." + encodeURIComponent("עפולה"))
+    && u.includes("property_type=in.")
+    && u.includes(encodeURIComponent("דירה"))
+    && u.includes(encodeURIComponent("גג/פנטהאוז"))
+    && !u.includes("rooms=eq.")));
+  check("דירות למכירה: JSON-LD", types.includes("WebPage") && types.includes("BreadcrumbList") && types.includes("ItemList") && types.includes("FAQPage"));
+  check("דירות למכירה: קישור לנכס", html.includes('href="/property?id=apt-1"'));
+}
+
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
   process.exit(1);

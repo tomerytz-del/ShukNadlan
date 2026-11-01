@@ -279,6 +279,16 @@
     if (cfg.title && cfg.titleId) root.setAttribute('aria-labelledby', cfg.titleId);
   }
 
+  /* כותרת ומחיר כטקסט של קישור האריח. מחיר חסר אינו "₪0". */
+  function tileLinkText(p) {
+    var title = String(p.title || p.property_type || 'נכס').replace(/\s+/g, ' ').trim() || 'נכס';
+    var price = Number(p.price);
+    var priceText = isFinite(price) && price > 0
+      ? '₪' + price.toLocaleString('he-IL') + (p.deal_type === 'rent' ? ' לחודש' : '')
+      : '';
+    return priceText ? title + ' · ' + priceText : title;
+  }
+
   function createShelf(cfg) {
     var root = typeof cfg.mount === 'string' ? document.getElementById(cfg.mount) : cfg.mount;
     if (!root) return { set: function () {}, setVisualized: function () {}, selectTag: function () { return false; } };
@@ -338,7 +348,12 @@
       var link = document.createElement('a');
       link.className = 'pc-link';
       link.href = '/property?id=' + encodeURIComponent(p.id);
-      link.setAttribute('aria-label', String(p.title || p.property_type || 'נכס').trim());
+      /* הטקסט של הקישור, לא רק aria-label: הכותרת והמחיר כבר מצוירים באריח,
+         והעותק כאן הוא שם הקישור בלי להגדיל אותו (‏.pc-link-text). */
+      var linkText = document.createElement('span');
+      linkText.className = 'pc-link-text';
+      linkText.textContent = tileLinkText(p);
+      link.appendChild(linkText);
       link.addEventListener('click', function (e) {
         /* שכבות האריח (‏assets/property-card.js) יוצרות הקשר ערימה משלהן, ולכן כפתור או
            תגית לחיצה בתוכן אינם יכולים לעלות מעל הקישור. לחיצה שנחתה מעל אחד מהם עוברת
