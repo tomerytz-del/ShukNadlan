@@ -38,7 +38,9 @@ export type AiFeature =
   // טיוטות תיאור לדפי השכונות (docs/neighborhood-pages.md)
   | "neighborhood_describe"
   // המנטור של מנהל/ת הפלטפורמה (office-coach?kind=platform, docs/coaches.md)
-  | "platform_coach";
+  | "platform_coach"
+  // הדמיה שהוגשה מהמטמון בלי קריאה למודל (‏units = מספר התמונות) - כדי למדוד את שיעור הפגיעה
+  | "viz_cache_hit";
 
 export type AiUsageRow = {
   feature: AiFeature;

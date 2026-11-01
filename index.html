@@ -3406,6 +3406,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     -webkit-mask-image:linear-gradient(to bottom,#000 72%,transparent 100%);mask-image:linear-gradient(to bottom,#000 72%,transparent 100%)}
   html.beta-hero .gabv8-img{display:block;height:100%;width:auto;margin-inline:auto;filter:drop-shadow(0 8px 16px rgba(13,27,61,.3));pointer-events:none}
   html.beta-hero .gabv8.no-fig .gabv8-fig{display:none}
+  html.beta-hero .gabv8-fig picture{display:contents}
   html.beta-hero .gabv8-band{position:relative;z-index:2;margin-top:-34px;padding:30px 16px 16px;
     background:linear-gradient(to bottom,rgba(13,27,61,0) 0%,rgba(13,27,61,.78) 42%,rgba(13,27,61,.92) 100%)}
   html.beta-hero body .hero.map-closed .gabv8-band .hero-inner h1,
@@ -3457,7 +3458,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     html.beta-hero .gabv8-text{font-size:17px;margin-top:6px}
     html.beta-hero .gabv8-go{min-height:44px;padding:0 22px;font-size:16px;margin-top:14px}
     html.beta-hero .gabv8-go::before{inset:0}
-    html.beta-hero .gabv8-fig{width:208px;height:330px}
+    /* gab-tablet: התמונה עם הטאבלט רחבה יותר (317:400) - 262px, באותו גובה */
+    html.beta-hero .gabv8-fig{width:262px;height:330px}
     html.beta-hero .gabv8-band{margin-top:-64px;padding:56px 24px 26px;
       background:linear-gradient(to bottom,rgba(13,27,61,0) 0%,rgba(13,27,61,.76) 40%,rgba(13,27,61,.92) 100%)}
     html.beta-hero body .hero.map-closed .gabv8-band .hero-sub{font-size:18px;margin-top:6px}
@@ -3539,6 +3541,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
      מראש - בגובה של שתי שורות המדף - ונעלם רק כשהמלאי הגיע ריק (‏pp-none, ‏ppSync ב-home.js) */
   html.beta-hero #allProps[hidden]:not(.pp-none){display:block !important;visibility:hidden;min-height:1110px}
   @media(min-width:760px){html.beta-hero #allProps[hidden]:not(.pp-none){min-height:920px}}
+  /* רשימת השרת גלויה בציור הראשון, בגובה של שתי שורות המדף. המדף מחליף אותה במקום. */
+  #allProps[data-ssr="1"]:not(.pp-none){min-height:1110px}
+  #allProps[data-ssr="1"] .home-ssr{min-height:1110px}
+  #allProps .home-ssr a{display:flex;justify-content:space-between;gap:12px;align-items:center;min-height:44px;padding:4px 0;color:inherit;font-weight:700;text-decoration:none}
+  #allProps .home-ssr-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #allProps .home-ssr-price{flex:none}
+  @media(min-width:760px){
+    #allProps[data-ssr="1"]:not(.pp-none),
+    #allProps[data-ssr="1"] .home-ssr{min-height:920px}
+  }
   /* ‏P1-E: לב בכותרת, מונה נייבי. ‏C6 (החלטת תומר 28.10): גם בטלפון, אותו רכיב ואותה תווית */
   /* ‏.hdr-likes (הלב בכותרת) עבר ל-assets/design-system.css - משותף עם דף הנכס */
   /* ‏P1-J: אייקונים לכפתורי התצוגה, ותנועה קטנה בריחוף (רק עכבר, ובלי reduced-motion). ‏.vi קיים רק בכפתורים האלה */
@@ -4356,14 +4368,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             if (band && lead) band.appendChild(lead);
             var fig = document.getElementById('gabV8Fig');
             if (!fig) return;
+            /* gab-tablet (1.11.2026): במחשב - גבריאלה עם טאבלט, ששתי הכתפיים שלה שלמות (בתמונה הישנה הכתף
+               נחתכת בקו ישר בקצה הקובץ, ובמחשב הדמות עומדת באמצע הרקע ורואים את הקו). בטלפון בלי שינוי.
+               ‏<picture> - כל מסך מוריד רק את הסט שלו. ‏width/height לפי היחס של כל סט, בלי CLS */
+            var pic = document.createElement('picture');
+            var src = document.createElement('source');
+            src.media = '(min-width:760px)';
+            src.sizes = '262px';
+            src.srcset = '/assets/gabriela-hero-tablet-400.webp 317w, /assets/gabriela-hero-tablet-600.webp 475w, /assets/gabriela-hero-tablet-800.webp 634w';
+            src.width = 317; src.height = 400;
             var img = document.createElement('img');
             img.className = 'gabv8-img'; img.alt = ''; img.width = 118; img.height = 186;
             img.decoding = 'async'; img.setAttribute('fetchpriority', 'high');
-            img.sizes = '(min-width:760px) 208px, 118px';
+            img.sizes = '118px';
             img.srcset = '/assets/gabriela-hero-400.webp 252w, /assets/gabriela-hero-600.webp 377w, /assets/gabriela-hero-800.webp 503w';
             img.src = '/assets/gabriela-hero-400.webp';
             img.onerror = function(){ document.getElementById('gabV8').classList.add('no-fig'); };
-            fig.appendChild(img);
+            pic.appendChild(src); pic.appendChild(img);
+            fig.appendChild(pic);
           })();
         </script>
 

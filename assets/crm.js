@@ -6957,6 +6957,8 @@ const AI_FEATURES = {
   gabriela_csm:      { label: 'גבריאלה לצוות ההטמעה', sub: 'קריאה בתור (כמה בכל הודעה)', unit: 'לקריאה' },
   neighborhood_describe: { label: 'תיאורי שכונות', sub: 'טיוטה שבועית לדפי השכונות', unit: 'לשכונה' },
   platform_coach:    { label: 'המנטור של מנהל/ת הפלטפורמה', sub: 'סיכום שבועי, ועדכון על חריגה חדשה', unit: 'לסיכום' },
+  // ‏viz-speed: הדמיה שהוגשה מהמטמון, בלי קריאה למודל ובלי עלות - כדי לראות את שיעור הפגיעה מול image_visualize
+  viz_cache_hit:     { label: 'הדמיות מהמטמון', sub: 'הוגשו בלי קריאה למודל (ללא עלות)', unit: 'לתמונה' },
 };
 // הספק של כל שורה, מול החשבונית שלו ב-COST_SERVICES
 const AI_PROVIDER_INVOICE = { anthropic: 'anthropic_api', openai: 'openai', google: 'gemini' };

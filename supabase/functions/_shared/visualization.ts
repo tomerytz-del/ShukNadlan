@@ -22,6 +22,29 @@ const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.5-flash-li
 
 export const VISUALIZATION_BUCKET = "property-visualizations";
 
+/* ‏viz-speed שינוי 1 (1.11.2026): כל ארבעת הסגנונות נוצרים מראש לנכס פרטי, ולא רק modern_clean -
+   כך שלחיצה על כל סגנון מציגה מיד. **מאחורי הדגל visualization_prerender_all_styles ב-pricing_config,
+   כבוי (0) עד שתומר מדליק:** כל נכס פרטי חדש עולה אז עד 3 × 3 הדמיות נוספות. ‏docs/property-visualizations.md */
+export async function prerenderAllStylesOn(supabase: any): Promise<boolean> {
+  const { data } = await supabase.from("pricing_config").select("value")
+    .eq("key", "visualization_prerender_all_styles").maybeSingle();
+  return Number(data?.value ?? 0) === 1;
+}
+
+/** קריאה פנימית (‏service role) ל-property-visualize-base לכל סגנון שחסר. ‏fire-and-forget - הבסיס בודק
+    בעצמו זכאות, תמונות ומה שכבר קיים, ולכן קריאה כפולה אינה משלמת פעמיים על הדמיה מוכנה */
+export async function queueOtherStyles(propertyId: string, styles: StyleKey[]): Promise<void> {
+  const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key || !styles.length) return;
+  await Promise.all(styles.map((style) =>
+    fetch(`${url}/functions/v1/property-visualize-base`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ property_id: propertyId, style }),
+    }).then((r) => r.body?.cancel(), (e) => console.warn("queueOtherStyles", style, e))
+  ));
+}
+
 // ---------------------------------------------------------------------------
 // סוגי נכס שיש להם "חוץ" משלהם
 //
@@ -111,6 +134,29 @@ export const PRIVATE_TARGET_ROOMS: Record<PrivateTarget, string[]> = {
 const STAGING_TARGET_ROOMS: Partial<Record<PrivateTarget, string[]>> = {
   exterior: ["yard"],
 };
+
+/** החדרים שמזינים מטרה במצב נתון - אותה רשימה ש-pickPrivateSources עובר עליה. */
+export function targetRooms(target: PrivateTarget, mode: RenderMode = "renovation"): string[] {
+  return (mode === "staging" ? STAGING_TARGET_ROOMS[target] : undefined) ?? PRIVATE_TARGET_ROOMS[target];
+}
+
+/**
+ * ‏viz-1115-fix (1.11.2026): הדמיה פרטית שמורה תקפה כל עוד הצילום שהיא נוצרה ממנו **עדיין בנכס
+ * ועדיין מתויג לאותו חדר** - ולא רק כשהוא בדיוק הצילום שהבוחר בוחר היום. בדיקת השוויון המדויק
+ * (‏PR 1115 עד f3766531) הייתה הופכת כ-66-73 מתוך 410 ההדמיות המוכנות להחטאות: 11 שהצילום שלהן
+ * באמת ירד מהנכס, ו-55-62 שהצילום עוד שם ורק אינו הראשון בתור. כל החטאה כזו היא תמונה בתשלום.
+ * ‏tags הם התיוגים של התמונות הנוכחיות בלבד (‏ensureTagged מסנן לפי images), ולכן "מתויג" כולל "בנכס".
+ */
+export function sourceStillFits(
+  tags: Array<{ image_url: string } & PhotoTags>,
+  sourceUrl: string | null | undefined,
+  target: PrivateTarget,
+  mode: RenderMode = "renovation"
+): boolean {
+  if (!sourceUrl) return false;
+  const rooms = targetRooms(target, mode);
+  return tags.some((t) => t.image_url === sourceUrl && rooms.includes(t.room_type as string));
+}
 
 // ---------------------------------------------------------------------------
 // קטלוג הסגנונות — מכוון לשוק הישראלי
@@ -576,17 +622,76 @@ export function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
+/* ‏viz-speed (1.11.2026): גודל הפלט ויחס הצדדים במפורש - ‏imageConfig - כדי שהתוצאה תהיה באותה מסגרת
+   כמו צילום ה"לפני" בווילון, ובגודל 1K שהמחיר מבוסס עליו. **כבוי בייצור** עד שתומר מאשר את ניסיון
+   המודלים (‏scripts/viz_model_trial.ts): נדלק עם ‏GEMINI_IMAGE_CONFIG=1, יחד עם ‏GEMINI_IMAGE_MODEL.
+   ‏GEMINI_IMAGE_THINKING (למשל minimal ל-gemini-nano-banana-2.1) - רק כשמוגדר */
+const IMAGE_CONFIG_ON = Deno.env.get("GEMINI_IMAGE_CONFIG") === "1";
+const IMAGE_THINKING = Deno.env.get("GEMINI_IMAGE_THINKING") || "";
+
+/** מידות תמונה מתוך הבתים (‏JPEG / PNG / WebP), בלי לפענח אותה. ‏null כשאינה מזוהה */
+export function imageDims(b: Uint8Array): { w: number; h: number } | null {
+  if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50) {   // PNG: ‏IHDR
+    return { w: (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) >>> 0, h: (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) >>> 0 };
+  }
+  if (b.length > 30 && b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) {   // WebP
+    const t = String.fromCharCode(b[12], b[13], b[14], b[15]);
+    if (t === "VP8X") return { w: 1 + (b[24] | b[25] << 8 | b[26] << 16), h: 1 + (b[27] | b[28] << 8 | b[29] << 16) };
+    if (t === "VP8 ") return { w: (b[26] | b[27] << 8) & 0x3fff, h: (b[28] | b[29] << 8) & 0x3fff };
+    if (t === "VP8L") { const v = b[21] | b[22] << 8 | b[23] << 16 | b[24] << 24; return { w: (v & 0x3fff) + 1, h: ((v >> 14) & 0x3fff) + 1 }; }
+    return null;
+  }
+  if (b[0] === 0xff && b[1] === 0xd8) {   // JPEG: ‏SOF0-SOF15 (בלי DHT/JPG/DAC)
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1], len = b[i + 2] << 8 | b[i + 3];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: b[i + 7] << 8 | b[i + 8], h: b[i + 5] << 8 | b[i + 6] };
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
+/** היחס הקרוב מבין מה ש-Gemini מקבל ב-imageConfig.aspectRatio */
+const ASPECTS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
+export function nearestAspect(w: number, h: number): string {
+  if (!w || !h) return "4:3";
+  const r = Math.log(w / h);
+  let best = "4:3", d = Infinity;
+  for (const a of ASPECTS) {
+    const [x, y] = a.split(":").map(Number);
+    const dd = Math.abs(Math.log(x / y) - r);
+    if (dd < d) { d = dd; best = a; }
+  }
+  return best;
+}
+
+/** גוף הבקשה ל-Gemini. ‏opts משמש גם את ניסיון המודלים, עם מודל והגדרות משלו */
+export function imageRequestBody(
+  mime: string,
+  data: string,
+  prompt: string,
+  opts: { imageConfig?: boolean; thinking?: string } = {},
+): Record<string, unknown> {
+  // temperature נמוכה בכוונה: אנחנו רוצים עריכה צייתנית, לא יצירתיות.
+  const generationConfig: Record<string, unknown> = { responseModalities: ["IMAGE"], temperature: 0.2 };
+  if (opts.imageConfig) {
+    const dims = imageDims(base64ToBytes(data));
+    generationConfig.imageConfig = { imageSize: "1K", ...(dims ? { aspectRatio: nearestAspect(dims.w, dims.h) } : {}) };
+  }
+  if (opts.thinking) generationConfig.thinkingConfig = { thinkingLevel: opts.thinking };
+  return { contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }], generationConfig };
+}
+
 async function generateOnce(apiKey: string, mime: string, data: string, prompt: string): Promise<GenResult> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }],
-        // temperature נמוכה בכוונה: אנחנו רוצים עריכה צייתנית, לא יצירתיות.
-        generationConfig: { responseModalities: ["IMAGE"], temperature: 0.2 },
-      }),
+      body: JSON.stringify(imageRequestBody(mime, data, prompt, { imageConfig: IMAGE_CONFIG_ON, thinking: IMAGE_THINKING })),
     }
   );
 
@@ -802,7 +907,14 @@ export async function ensureTagged(
     );
   }
 
-  return (rows ?? []) as Array<{ image_url: string } & PhotoTags>;
+  /* ‏viz-1115-fix: סדר קבוע - לפי המקום של התמונה בנכס, ואז לפי הכתובת. השאילתה הייתה בלי ORDER BY,
+     והבוחר לוקח את ההתאמה הראשונה: ב-150 מתוך 410 ההדמיות יש לחדר יותר מצילום מתאים אחד, ולכן אותו
+     נכס יכול היה לקבל צילום אחר בכל בקשה - ושתי הפונקציות לייצר זו על זו */
+  const pos = new Map(images.map((u, i) => [u, i]));
+  const sorted = ((rows ?? []) as Array<{ image_url: string } & PhotoTags>).slice().sort((a, b) =>
+    ((pos.get(a.image_url) ?? 1e9) - (pos.get(b.image_url) ?? 1e9)) ||
+    (a.image_url < b.image_url ? -1 : a.image_url > b.image_url ? 1 : 0));
+  return sorted;
 }
 
 /**
@@ -849,8 +961,7 @@ export function pickPrivateSources(
 ): Partial<Record<PrivateTarget, string>> {
   const out: Partial<Record<PrivateTarget, string>> = {};
   for (const target of targets) {
-    const rooms =
-      (mode === "staging" ? STAGING_TARGET_ROOMS[target] : undefined) ?? PRIVATE_TARGET_ROOMS[target];
+    const rooms = targetRooms(target, mode);
     for (const room of rooms) {
       const hit = tags.find((t) => t.room_type === room);
       if (hit) {
@@ -954,6 +1065,12 @@ export interface WorkItem {
   target: string;
   sourceUrl: string;
   prompt: string;
+  /**
+   * ‏viz-1115-fix: יצירה מחדש של שורה שכבר מוצגת. השורה נשארת done עם התמונה הישנה (והצילום שלה)
+   * עד שהחדשה מוכנה, ואם היצירה נכשלת (למשל 402 - נגמר הקרדיט) היא חוזרת בדיוק למה שהיה, ולא
+   * מתחלפת בשורה שנכשלה. הצילום החדש נכתב רק עם התוצאה החדשה.
+   */
+  previous?: { result_url: string; source_image_url: string | null };
 }
 
 /**
@@ -975,12 +1092,16 @@ export async function runVisualizationJob(
   let done = 0;
   let failed = 0;
 
-  async function fail(rowId: string, detail: string) {
+  async function fail(item: WorkItem, detail: string) {
     failed++;
+    // שורה שכבר הוצגה - חוזרת למה שהיה (תמונה וצילום), עם סיבת הכישלון ביומן השורה
+    const prev = item.previous;
     await supabase
       .from("property_visualizations")
-      .update({ status: "failed", error_detail: detail.slice(0, 500) })
-      .eq("id", rowId);
+      .update(prev
+        ? { status: "done", result_url: prev.result_url, source_image_url: prev.source_image_url, error_detail: ("יצירה מחדש נכשלה: " + detail).slice(0, 500) }
+        : { status: "failed", error_detail: detail.slice(0, 500) })
+      .eq("id", item.rowId);
   }
 
   // שלוש בבת אחת: מספיק מהר למי שמחכה, ולא מספיק כדי לחטוף 429 מ-Gemini.
@@ -988,21 +1109,25 @@ export async function runVisualizationJob(
   for (let i = 0; i < items.length; i += BATCH) {
     await Promise.all(
       items.slice(i, i + BATCH).map(async (item) => {
-        await supabase.from("property_visualizations").update({ status: "processing" }).eq("id", item.rowId);
+        // שורה שכבר מוצגת נשארת done עד שהתמונה החדשה מוכנה (‏WorkItem.previous)
+        if (!item.previous) {
+          await supabase.from("property_visualizations").update({ status: "processing" }).eq("id", item.rowId);
+        }
 
         const src = await fetchAsBase64(item.sourceUrl);
-        if (!src) return fail(item.rowId, "לא ניתן היה לטעון את התמונה המקורית");
+        if (!src) return fail(item, "לא ניתן היה לטעון את התמונה המקורית");
 
         const result = await generateImage(apiKey, src.mime, src.data, item.prompt);
-        if (!result.ok) return fail(item.rowId, result.reason);
+        if (!result.ok) return fail(item, result.reason);
 
         const ext = result.mime.includes("png") ? "png" : "jpg";
         const url = await uploadResult(supabase, `${jobId}/${item.rowId}.${ext}`, result.mime, result.data);
-        if (!url) return fail(item.rowId, "שגיאה בשמירת התוצאה");
+        if (!url) return fail(item, "שגיאה בשמירת התוצאה");
 
+        // הצילום נכתב יחד עם התוצאה: התמונה והצילום שהיא נוצרה ממנו מתחלפים ברגע אחד
         await supabase
           .from("property_visualizations")
-          .update({ status: "done", result_url: url, error_detail: null })
+          .update({ status: "done", result_url: url, source_image_url: item.sourceUrl, error_detail: null })
           .eq("id", item.rowId);
         done++;
       })
