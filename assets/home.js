@@ -8348,7 +8348,13 @@ function v10InviteRotate(a){
     if (!top || top.hidden){ schedule(3500); return; }
     schedule(3500);
     const ai = SWIPE_THUMBS_READY && !a.classList.contains('psi-ai-off');
-    if (ai && swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) return;
+    /* ‏C7: אותה תמונה לא עולה למעלה גם כאן וגם בכפתור שבסרגל. קודם המחזור פשוט דילג - אבל הכפתור נעצר
+       אחרי 6 החלקות, ואז הדילוג חזר בכל מחזור עד סוף הביקור (‏swipe-1117-fix). עכשיו שתי התמונות שמתחת
+       מחליפות מקום, והבאה בתור היא אחרת */
+    if (ai && swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) {
+      stack.insertBefore(stack.children[stack.children.length - 2], stack.firstElementChild);
+      if (swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) return;
+    }
     busy = true;
     if (!ai){ run(top, '', ''); return; }
     const n = swipeThumbMissing(stack), pre = new Image();
