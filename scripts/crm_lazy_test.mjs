@@ -14,12 +14,51 @@ const html = readFileSync(join(root, 'crm.html'), 'utf8');
 const lazy = readFileSync(join(root, 'assets', 'crm-lazy.js'), 'utf8');
 const crm = readFileSync(join(root, 'assets', 'crm.js'), 'utf8');
 
-test('אין סקריפט src שחוסם את הציור', () => {
+/* מסכי הקטגוריה אינם ב-HTML. סקריפט defer אחד שנתקע היה עוצר את
+   crm.js, את מסך הכניסה ואת ניתוב ה-goto. הרשימה כאן היא שרשרת
+   האתחול בלבד, כולה defer. */
+const BOOT_SRC = [
+  'assets/esc.js',
+  'assets/friendly-error.js',
+  'assets/pwa-install.js',
+  'assets/auth-return.js',
+  'supabase.js',
+  'assets/apple-signin.js',
+  'assets/page-bg.js',
+  'assets/tiers.js',
+  'assets/exit-guard.js',
+  'assets/crm-lazy.js',
+  'assets/deeplink-timing.js',
+  'assets/crm.js',
+];
+const SECTION_SRC = [
+  'markets.js', 'agency-markets.js', 'contact-import.js', 'crm-office.js',
+  'crm-ui.js', 'crm-settings.js', 'crm-areas.js', 'crm-profile-pages.js',
+  'crm-leads.js', 'crm-properties.js', 'crm-matches.js', 'crm-suggestions.js',
+  'crm-coach.js', 'crm-office-dashboard.js', 'crm-my-dashboard.js',
+  'crm-team-dashboard.js', 'crm-showcase.js', 'crm-teams.js', 'crm-home.js',
+  'crm-onboarding.js', 'crm-profile-nudge.js', 'crm-csm.js',
+  'crm-admin-inbox.js', 'crm-command-center.js', 'crm-growth.js',
+  'crm-budget.js', 'crm-ads-spend.js', 'crm-hood-drafts.js',
+  'property-import-core.js', 'cma-render.js', 'air-living.js',
+  'leaflet.js', 'map-tiles.js', 'govmap.js', 'agreement-doc.js', 'open-house.js',
+];
+
+test('אין סקריפט src שחוסם את הציור, ומסכי הקטגוריה אינם בשרשרת', () => {
   const tags = htmlWithoutComments(html).match(/<script\b[^>]*>/g) || [];
   const src = tags.filter(t => /\ssrc=/.test(t));
   const blocking = src.filter(t => !/\sdefer\b/.test(t) && !/\sasync\b/.test(t));
   assert.equal(blocking.length, 0, blocking.join('\n'));
-  assert.ok(src.length >= 30);
+  const hrefs = src.map(t => (t.match(/src=["']([^"']+)["']/) || [])[1] || '');
+  assert.equal(hrefs.length, BOOT_SRC.length, hrefs.join('\n'));
+  for (let i = 0; i < BOOT_SRC.length; i++) {
+    assert.ok(hrefs[i].endsWith(BOOT_SRC[i]), hrefs[i] + ' != ' + BOOT_SRC[i]);
+  }
+  const srcNames = hrefs.map(h => h.split('/').pop());
+  for (const name of SECTION_SRC) {
+    assert.equal(srcNames.includes(name), false, name);
+    assert.match(lazy, new RegExp('(?:^|[^a-z-])' + name.replace('.', '\\.')));
+  }
 });
 
 test('המכולה נדחית אבל נשארת, וה-noscript במקום', () => {
