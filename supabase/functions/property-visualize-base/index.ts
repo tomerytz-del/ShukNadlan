@@ -18,6 +18,7 @@ import {
   queueOtherStyles,
   renderModeFor,
   runVisualizationJob,
+  sourceStillFits,
   STYLE_KEYS,
   STYLES,
   type PrivateTarget,
@@ -184,10 +185,11 @@ Deno.serve(async (req: Request) => {
     .eq("mode", mode);
 
   const existingByTarget = new Map((existing ?? []).map((r: any) => [r.target, r]));
-  /* ‏viz-speed: הדמיה "מוכנה" רק אם נוצרה מאותה תמונה שנבחרת היום. נכס שהחליף צילום מקבל הדמיה
-     חדשה מהצילום החדש, ולא את הישנה (השורה מתעדכנת במקום - המפתח הוא נכס, מטרה, סגנון ומצב) */
+  /* ‏viz-speed + viz-1115-fix: הדמיה "מוכנה" כל עוד הצילום שלה עדיין בנכס ועדיין מתויג לאותו חדר
+     (‏sourceStillFits) - אותו כלל של property-visualize, כדי ששתי הפונקציות לא ייצרו זו על זו. נכס
+     שהחליף צילום מקבל הדמיה חדשה (השורה מתעדכנת במקום - המפתח הוא נכס, מטרה, סגנון ומצב) */
   const isReady = (row: any, t?: PrivateTarget) =>
-    Boolean(row && row.status === "done" && row.result_url && (!t || row.source_image_url === picked[t]));
+    Boolean(row && row.status === "done" && row.result_url && (!t || sourceStillFits(tags, row.source_image_url, t, mode)));
 
   /* הדמיה מוכנה שאינה מסומנת כבסיס מקודמת במקום להיווצר מחדש.
      קודם הבדיקה למטה ספרה כל הדמיה מוכנה כאילו היא סט הבסיס, בלי להסתכל

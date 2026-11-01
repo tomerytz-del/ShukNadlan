@@ -19,6 +19,7 @@ import {
   STYLE_KEYS,
   renderModeFor,
   runVisualizationJob,
+  sourceStillFits,
   type CommercialTarget,
   type PrivateTarget,
   type StyleKey,
@@ -254,11 +255,11 @@ Deno.serve(async (req: Request) => {
       .eq("style_key", styleKey)
       .eq("mode", mode)
       .eq("status", "done");
-    /* ‏viz-speed: רק הדמיה שנוצרה מהתמונה שנבחרת היום. עד 1.11 המפתח לא כלל את התמונה, ונכס שהחליף
-       צילום הציג הדמיה של הצילום הישן. שורה כזו נוצרת מחדש למטה (‏todo), והשורה עצמה מתעדכנת */
-    const srcOf = new Map(sources.map((s) => [s.target, s.url]));
+    /* ‏viz-speed + viz-1115-fix: הדמיה תקפה כל עוד הצילום שלה עדיין בנכס ועדיין מתויג לאותו חדר
+       (‏sourceStillFits) - לא רק כשהוא בדיוק הצילום שנבחר היום. עד 1.11 המפתח לא כלל את הצילום כלל,
+       ונכס שהחליף צילום הציג הדמיה של צילום שכבר אינו שם. רק שורה כזו נוצרת מחדש למטה (‏todo) */
     ready = (existing ?? [])
-      .filter((r: any) => r.result_url && srcOf.get(r.target) === r.source_image_url)
+      .filter((r: any) => r.result_url && sourceStillFits(tags, r.source_image_url, r.target as PrivateTarget, mode))
       .map((r: any) => ({
         target: r.target,
         style_key: r.style_key,

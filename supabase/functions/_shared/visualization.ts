@@ -135,6 +135,29 @@ const STAGING_TARGET_ROOMS: Partial<Record<PrivateTarget, string[]>> = {
   exterior: ["yard"],
 };
 
+/** החדרים שמזינים מטרה במצב נתון - אותה רשימה ש-pickPrivateSources עובר עליה. */
+export function targetRooms(target: PrivateTarget, mode: RenderMode = "renovation"): string[] {
+  return (mode === "staging" ? STAGING_TARGET_ROOMS[target] : undefined) ?? PRIVATE_TARGET_ROOMS[target];
+}
+
+/**
+ * ‏viz-1115-fix (1.11.2026): הדמיה פרטית שמורה תקפה כל עוד הצילום שהיא נוצרה ממנו **עדיין בנכס
+ * ועדיין מתויג לאותו חדר** - ולא רק כשהוא בדיוק הצילום שהבוחר בוחר היום. בדיקת השוויון המדויק
+ * (‏PR 1115 עד f3766531) הייתה הופכת כ-66-73 מתוך 410 ההדמיות המוכנות להחטאות: 11 שהצילום שלהן
+ * באמת ירד מהנכס, ו-55-62 שהצילום עוד שם ורק אינו הראשון בתור. כל החטאה כזו היא תמונה בתשלום.
+ * ‏tags הם התיוגים של התמונות הנוכחיות בלבד (‏ensureTagged מסנן לפי images), ולכן "מתויג" כולל "בנכס".
+ */
+export function sourceStillFits(
+  tags: Array<{ image_url: string } & PhotoTags>,
+  sourceUrl: string | null | undefined,
+  target: PrivateTarget,
+  mode: RenderMode = "renovation"
+): boolean {
+  if (!sourceUrl) return false;
+  const rooms = targetRooms(target, mode);
+  return tags.some((t) => t.image_url === sourceUrl && rooms.includes(t.room_type as string));
+}
+
 // ---------------------------------------------------------------------------
 // קטלוג הסגנונות — מכוון לשוק הישראלי
 //
@@ -931,8 +954,7 @@ export function pickPrivateSources(
 ): Partial<Record<PrivateTarget, string>> {
   const out: Partial<Record<PrivateTarget, string>> = {};
   for (const target of targets) {
-    const rooms =
-      (mode === "staging" ? STAGING_TARGET_ROOMS[target] : undefined) ?? PRIVATE_TARGET_ROOMS[target];
+    const rooms = targetRooms(target, mode);
     for (const room of rooms) {
       const hit = tags.find((t) => t.room_type === room);
       if (hit) {
