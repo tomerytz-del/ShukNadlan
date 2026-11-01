@@ -55,6 +55,9 @@ verify_jwt = false          # הרשמת בעל מקצוע — אין עדיין
 [functions.property-inquiry-intake]
 verify_jwt = false          # טופס יצירת הקשר בדף הנכס — הנתיב החם באתר
 
+[functions.fair-contact-log]
+verify_jwt = false          # לחיצת וואטסאפ או חיוג בנכס ביריד, מגולש שאינו מחובר. התקרה ב-fair_contact_click
+
 [functions.agent-direct-inquiry-intake]
 verify_jwt = false          # פנייה ישירה מדף הסוכן/ת
 
