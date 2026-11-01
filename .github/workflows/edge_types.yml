@@ -80,7 +80,7 @@ jobs:
       # בורר נכס של גבריאלה: בלי כרטיס כפול, בלי רשימה בתור מיניסייט,
       # ו-property_refs רק מול ההתאמות של הלקוח/ה. בלי מסד ובלי וואטסאפ.
       - name: בורר נכס ומיניסייט של גבריאלה
-        run: deno test supabase/functions/whatsapp-webhook/lookup_turn_test.ts
+        run: deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
 
       # ‏קישור לפריט בקטלוג וואטסאפ (‏whatsapp-webhook/catalog-link.ts). הדף
       # מדומה - wa.me אינו זמין מ-CI - בצורה של הדף האמיתי.

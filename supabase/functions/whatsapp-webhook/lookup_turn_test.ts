@@ -9,9 +9,11 @@ import {
   agentToolMutates,
   pathListed,
   propertyLookupOutbox,
+  clientMatchesLimit,
   resolveShowcaseRefs,
   screenOutbox,
   showcaseRefsCall,
+  showcaseShownLimit,
   turnOutbound,
   type OutboxItem,
   type ShowcaseMatch,
@@ -261,7 +263,7 @@ Deno.test("רפרנס נפתר רק מול מה שהוצג, עד 15, גם בשא
     city: "עפולה",
     score: 100 - i,
   }));
-  const asked = resolveShowcaseRefs(rows, ["פרץ ציוני"]);
+  const asked = resolveShowcaseRefs(rows, ["פרץ ציוני"], 15);
   if (asked.ok || !asked.ambiguous) fail("צריך שאלה על החלון שהוצג");
   if (!asked.ask.includes("מוצג 0") || !asked.ask.includes("מוצג 14")) fail(asked.ask);
   if (asked.ask.includes("מוסתר")) fail("שורה מעבר ל-15 נכנסה לשאלה");
@@ -282,4 +284,34 @@ Deno.test("רפרנס נפתר רק מול מה שהוצג, עד 15, גם בשא
   const narrow = resolveShowcaseRefs(rows, ["פרץ ציוני"], 2);
   if (narrow.ok || !narrow.ask.includes("מוצג 0") || !narrow.ask.includes("מוצג 1")) fail(narrow.ok ? "נוסף" : narrow.ask);
   if (!narrow.ok && narrow.ask.includes("מוצג 2")) fail("מעבר לחלון שהוצג");
+});
+
+Deno.test("כשהוצגו 5, שורה 7 לא נבחרת והשאלה רק על המוצגות", () => {
+  if (clientMatchesLimit(undefined) !== 5 || clientMatchesLimit(40) !== 15) fail("חלון client_matches");
+  if (showcaseShownLimit({ clientId: "c" }) !== 5) fail("בלי זיכרון ברירת המחדל היא 5");
+  if (showcaseShownLimit({ clientId: "c", rememberedClientId: "c", rememberedLimit: 8 }) !== 8) {
+    fail("החלון שנשמר בתור לא עבר");
+  }
+  if (showcaseShownLimit({ clientId: "other", rememberedClientId: "c", rememberedLimit: 8 }) !== 5) {
+    fail("חלון של לקוח/ה אחר/ת");
+  }
+
+  const rows: ShowcaseMatch[] = Array.from({ length: 10 }, (_, i) => ({
+    property_id: `p${i}`,
+    title: `שורה ${i + 1}`,
+    street: i === 6 ? "הדקל" : "פרץ ציוני",
+    score: 100 - i,
+  }));
+  const onlySeventh = resolveShowcaseRefs(rows, ["הדקל"], 5);
+  if (onlySeventh.ok) fail("שורה 7 נוספה אף שהוצגו 5");
+  if (onlySeventh.ask.includes("שורה 7")) fail("השאלה מזכירה את שורה 7");
+
+  const asked = resolveShowcaseRefs(rows, ["פרץ ציוני"], 5);
+  if (asked.ok || !asked.ambiguous) fail("צריך שאלה על החמש שהוצגו");
+  for (const n of [1, 2, 3, 4, 5]) {
+    if (!asked.ask.includes(`שורה ${n}`)) fail(`חסרה שורה ${n}`);
+  }
+  if (asked.ask.includes("שורה 6") || asked.ask.includes("שורה 7") || asked.ask.includes("שורה 8")) {
+    fail(asked.ask);
+  }
 });

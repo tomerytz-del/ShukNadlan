@@ -251,7 +251,7 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 `client_matches` שוב ואז `property_ids`. **לא** `list_properties`: הוא מחזיר
 כל נכס בכתובת, בלי סוג העסקה וסוג הנכס של הלקוח/ה. `property_refs` נפתרים מול
 `agent_client_matches`, עם אותו `waive_features` אם ההתאמות הוצגו אחרי ויתור,
-ורק מול מה שהוצג (`cutMatches`, עד 15). יותר מהתאמה אחת - שאלה בטקסט, בלי רשימת CRM. בורר
+ורק מול מה שהוצג (`cutMatches`: ה-limit של התור, ברירת מחדל 5, עד 15). יותר מהתאמה אחת - שאלה בטקסט, בלי רשימת CRM. בורר
 ש-`list_properties` או `search_properties` דחפו (`origin: lookup`) יורד בתור
 שבו רץ כלי כתיבה, כדי שלא ייכנס בין "פתחתי מיניסייט" לכפתורי השליחה. שורה
 שכבר ברשימה אינה מקבלת גם כרטיס: ההשוואה על הנתיב בלי `wc` ו-`wt`.
@@ -681,7 +681,7 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
-deno test supabase/functions/whatsapp-webhook/lookup_turn_test.ts  # בורר נכס ומיניסייט
+deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט

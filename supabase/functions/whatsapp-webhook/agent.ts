@@ -85,9 +85,11 @@ import {
   dropLookupOnMutation,
   pathListed,
   propertyLookupOutbox,
+  clientMatchesLimit,
   resolveShowcaseRefs,
   screenOutbox,
   showcaseRefsCall,
+  showcaseShownLimit,
   type OutboxItem,
 } from "./lookup_turn.ts";
 export type { OutboxItem };
@@ -1864,8 +1866,8 @@ interface ToolContext {
   outbox?: OutboxItem[];
   /** עיר ברירת המחדל של התור. נטענת פעם אחת, לא בכל כלי. */
   listingCitySlot?: ListingCitySlot;
-  /** הוויתור של client_matches בתור הזה, כדי ש-property_refs יראה את אותן התאמות. */
-  matchWaive?: { clientId: string; features: string[] };
+  /** הוויתור והחלון של client_matches בתור הזה, כדי ש-property_refs יראה את מה שהוצג. */
+  matchWaive?: { clientId: string; features: string[]; limit: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -5587,7 +5589,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     };
   }
 
-  const limit = Math.min(Number(input.limit) || 5, MATCH_SHOW_MAX);
+  const limit = clientMatchesLimit(input.limit);
   // מאפייני החובה הם סינון קשיח ב-client_property_match (‏20270417090000).
   // ויתור הוא פרמטר של הקריאה, ורק על מה שבאמת בכרטיס - קוד אחר אינו מרחיב.
   const required = ((client.required_features as string[] | null) || []).filter(Boolean);
@@ -5602,7 +5604,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     p_waive_features: waive,
   });
   if (error) return { ok: false, error: error.message };
-  ctx.matchWaive = { clientId, features: waive };
+  ctx.matchWaive = { clientId, features: waive, limit };
   const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
   const data = cut.shown;
 
@@ -5796,7 +5798,16 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
     });
     const { data, error } = await ctx.supabase.rpc("agent_client_matches", call);
     if (error) return { ok: false, error: error.message };
-    const resolved = resolveShowcaseRefs((data || []) as Array<Record<string, unknown>>, refs);
+    const shownLimit = showcaseShownLimit({
+      clientId,
+      rememberedClientId: ctx.matchWaive?.clientId,
+      rememberedLimit: ctx.matchWaive?.limit,
+    });
+    const resolved = resolveShowcaseRefs(
+      (data || []) as Array<Record<string, unknown>>,
+      refs,
+      shownLimit,
+    );
     if (!resolved.ok) {
       return {
         ok: false,

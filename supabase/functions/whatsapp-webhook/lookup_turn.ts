@@ -21,6 +21,33 @@ import {
 } from "../_shared/agent-deep-link.ts";
 import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX } from "./match-cut.ts";
 
+/** ברירת המחדל של client_matches כשלא נשלח limit. */
+export const CLIENT_MATCHES_DEFAULT_LIMIT = 5;
+
+/** אותו חלון ש-client_matches מציג: ברירת מחדל 5, ולא יותר מ-15. */
+export function clientMatchesLimit(raw: unknown): number {
+  return Math.min(Number(raw) || CLIENT_MATCHES_DEFAULT_LIMIT, MATCH_SHOW_MAX);
+}
+
+/**
+ * החלון של property_refs. בתור שבו client_matches רץ על הלקוח/ה - ה-limit
+ * שהוצג. בתור אחר - ברירת המחדל (5), לא 15.
+ */
+export function showcaseShownLimit(opts: {
+  clientId: string;
+  rememberedClientId?: string;
+  rememberedLimit?: number;
+}): number {
+  if (
+    opts.rememberedClientId === opts.clientId &&
+    typeof opts.rememberedLimit === "number" &&
+    opts.rememberedLimit > 0
+  ) {
+    return Math.min(opts.rememberedLimit, MATCH_SHOW_MAX);
+  }
+  return CLIENT_MATCHES_DEFAULT_LIMIT;
+}
+
 export type OutboxItem =
   | {
     kind: "cta";
@@ -309,13 +336,14 @@ export function showcaseRefsCall(opts: {
 
 /**
  * קטעי כתובת או כותרת מול ההתאמות שהוצגו לסוכן/ת, לא מול כל 30 השורות
- * שהמסד החזיר. החיתוך הוא cutMatches, עד 15, כמו client_matches.
- * יותר מהתאמה אחת בחלון הזה - שאלה בטקסט, ורק עליהן, בלי מזהים ובלי בורר CRM.
+ * שהמסד החזיר. החיתוך הוא cutMatches. בלי limit - 5, כמו client_matches,
+ * ולעולם לא יותר מ-15. יותר מהתאמה אחת בחלון הזה - שאלה בטקסט, ורק עליהן,
+ * בלי מזהים ובלי בורר CRM.
  */
 export function resolveShowcaseRefs(
   matches: readonly ShowcaseMatch[],
   refs: readonly string[],
-  limit = MATCH_SHOW_MAX,
+  limit = CLIENT_MATCHES_DEFAULT_LIMIT,
 ): ShowcaseRefs {
   const cap = Math.min(Math.max(Number(limit) || MATCH_SHOW_MAX, 1), MATCH_SHOW_MAX);
   const raw = matches
