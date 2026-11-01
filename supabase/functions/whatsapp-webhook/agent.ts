@@ -79,7 +79,17 @@ import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
 import { pageLink, pageLinkTopics } from "./crm-pages.ts";
-import { ctaLabel, isSafeCrmPath, parseNavId, screenBundle, type ScreenRef } from "../_shared/agent-deep-link.ts";
+import { ctaLabel, isSafeCrmPath, type ScreenRef } from "../_shared/agent-deep-link.ts";
+import {
+  agentToolMutates,
+  dropLookupOnMutation,
+  pathListed,
+  propertyLookupOutbox,
+  resolveShowcaseRefs,
+  screenOutbox,
+  type OutboxItem,
+} from "./lookup_turn.ts";
+export type { OutboxItem };
 import {
   agreementConfirmButtons,
   IMAGE_DELETE_STALE,
@@ -602,8 +612,12 @@ const TOOLS: Anthropic.Tool[] = [
     name: "list_properties",
     description:
       "מחזיר את הנכסים של הסוכן/ת, החדשים קודם. זה הכלי למצוא את מזהה הנכס " +
-      "שהסוכן/ת מתאר/ת במילים ('הדירה באבן גבירול'). **כשיודעים מה מחפשים - " +
-      "להעביר query במקום למשוך את כל הרשימה**: החיפוש רץ על כל הנכסים של " +
+      "שהסוכן/ת מתאר/ת במילים ('הדירה באבן גבירול') כשהפעולה היא על נכס " +
+      "שלו/ה: עדכון, סטטוס, הסכם, קישור. **לא לבחירה מתוך ההתאמות של לקוח/ה.** " +
+      "אחרי client_matches, אם הסוכן/ת בוחר/ת חלק ('רק עם פרץ ציוני') - " +
+      "create_showcase עם property_refs, או client_matches שוב ואז property_ids. " +
+      "list_properties מחזיר כל נכס בכתובת, בלי סינון של סוג העסקה וסוג הנכס. " +
+      "**כשיודעים מה מחפשים - להעביר query במקום למשוך את כל הרשימה**: החיפוש רץ על כל הנכסים של " +
       "הסוכן/ת ולא רק על מה שנכנס לחלון. מחזיר תמיד גם `total` (כמה יש " +
       "באמת) ו-`truncated`.",
     input_schema: {
@@ -1228,7 +1242,10 @@ const TOOLS: Anthropic.Tool[] = [
       "פותח ללקוח/ה מיניסייט אישי - עמוד אחד, ממותג במשרד ובסוכן/ת, עם הנכסים " +
       "שמתאימים לו/ה. הלקוח/ה מסמן/ת שם מה אהב/ה ומה לא, שואל/ת על כל נכס ומבקש/ת " +
       "סיור. ללקוח/ה יש עמוד פעיל אחד: קריאה נוספת מוסיפה לאותו קישור. בלי " +
-      "property_ids נלקחות ההתאמות של client_matches. **אינו שולח ללקוח/ה** - אחרי " +
+      "property_ids ובלי property_refs נלקחות ההתאמות של client_matches. " +
+      "בחירה חלקית לפי כתובת או כותרת ('רק עם פרץ ציוני') היא property_refs, " +
+      "שנפתרים מול ההתאמות של הלקוח/ה (כבר מסוננות לפי סוג עסקה וסוג נכס), " +
+      "לא מול list_properties. **אינו שולח ללקוח/ה** - אחרי " +
       "התשובה יוצאים לסוכן/ת כפתורים (שליחה ללקוח/ה, תצוגה מקדימה, נוסח להעתקה), " +
       "והסוכן/ת שולח/ת מהוואטסאפ שלו/ה.",
     input_schema: {
@@ -1238,7 +1255,14 @@ const TOOLS: Anthropic.Tool[] = [
         property_ids: {
           type: "array",
           items: { type: "string" },
-          description: "הנכסים לשליחה. ריק = ההתאמות של הלקוח/ה (עד 10).",
+          description: "מזהי נכסים מ-client_matches. ריק = ההתאמות של הלקוח/ה (עד 10), אלא אם נשלחו property_refs.",
+        },
+        property_refs: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "קטעי כתובת או כותרת מתוך ההתאמות, כשהסוכן/ת בחר/ה חלק מהן " +
+            "('פרץ ציוני'). לא list_properties: הוא מחזיר גם נכס מסוג או עסקה אחרים באותה כתובת.",
         },
         intro: { type: "string", description: "הודעה אישית בראש העמוד, אם הסוכן/ת ביקש/ה." },
       },
@@ -2530,43 +2554,22 @@ async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, 
  * אומר לצרף אותו.
  */
 /** כפתור אחד, או רשימה ועוד "הכול". בלי outbox לא נשלח כלום.
- *  `listed` הם הנתיבים שבאמת נכנסו לכפתור. שורה שלא נכנסה שומרת קישור. */
+ *  `listed` הם הנתיבים שבאמת נכנסו לכפתור, בלי wc ו-wt. שורה שלא נכנסה שומרת קישור.
+ *  `origin` מסמן בורר חיפוש שיורד בתור שבו רץ כלי כתיבה. */
 function pushScreens(
   ctx: ToolContext,
   screens: ScreenRef[],
   body: string,
   category: string,
+  origin?: "lookup",
 ): { crm_button_sent?: true; listed: string[] } {
   if (!ctx.outbox || !SITE_BASE_URL) return { listed: [] };
-  const plan = screenBundle(screens, () => category);
-  const listed = plan.kind === "single"
-    ? [plan.path]
-    : plan.kind === "list"
-    ? plan.rows.flatMap((row) => {
-      const path = parseNavId(row.id);
-      return path ? [path] : [];
-    })
-    : [];
-  if (plan.kind === "single") {
-    ctx.outbox.push({
-      kind: "cta",
-      body,
-      label: plan.label,
-      url: `${SITE_BASE_URL}${plan.path}`,
-    });
-    return { crm_button_sent: true, listed };
-  }
-  if (plan.kind === "list") {
-    ctx.outbox.push({
-      kind: "list",
-      body,
-      button: plan.button,
-      section: plan.section,
-      rows: plan.rows,
-    });
-    return { crm_button_sent: true, listed };
-  }
-  return { listed: [] };
+  const built = screenOutbox(screens, body, category, SITE_BASE_URL, origin);
+  ctx.outbox.push(...built.items);
+  return {
+    ...(built.sent ? { crm_button_sent: true as const } : {}),
+    listed: built.listed,
+  };
 }
 
 function crmButton(
@@ -2935,15 +2938,20 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
   const propertiesCategory = status && (STATUSES as readonly string[]).includes(status)
     ? `/crm?goto=accProperties&status=${status}`
     : "/crm?goto=accProperties";
-  const pushed = ctx.outbox && rows.length
-    ? pushScreens(ctx, rows.map((p) => ({
-      type: "listing",
-      path: `/crm?goto=accProperties&property=${String(p.id)}`,
-      title: String(p.title || p.address || "נכס"),
-      body: String(p.address || ""),
-    })), "איזה נכס לפתוח?", propertiesCategory)
+  // בורר חיפוש (origin lookup). הנתיב להשוואה בלי wc ו-wt, אחרת כל שורה
+  // ברשימה מקבלת גם כרטיס "פתיחה ב-CRM".
+  const lookup = ctx.outbox && SITE_BASE_URL && rows.length
+    ? propertyLookupOutbox(
+      rows.map((p) => ({
+        id: String(p.id),
+        title: String(p.title || p.address || "נכס"),
+        address: String(p.address || ""),
+      })),
+      propertiesCategory,
+      SITE_BASE_URL,
+    )
     : null;
-  const listed = new Set(pushed?.listed || []);
+  if (lookup) ctx.outbox?.push(...lookup.items);
   return {
     ok: true,
     returned: rows.length,
@@ -2953,23 +2961,12 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
     truncated: total > rows.length,
     query: q || undefined,
     // בשיחת וואטסאפ הכפתור נפתח על הכרטיס. נכס שלא נכנס לרשימה (מעל 9)
-    // שומר crm_link. בלי תור (מייל) נשאר הקישור לכל שורה.
+    // מקבל כרטיס משלו, כבר בתוך lookup. בלי תור (מייל) נשאר הקישור לכל שורה.
     properties: rows.map((p) => {
-      const path = `/crm?goto=accProperties&property=${String(p.id)}`;
-      if (pushed?.crm_button_sent && listed.has(path)) return p;
-      const url = crmPropertyLink(String(p.id));
-      if (ctx.outbox && url) {
-        ctx.outbox.push({
-          kind: "cta",
-          body: String(p.title || "נכס"),
-          label: "פתיחה ב-CRM",
-          url,
-        });
-        return p;
-      }
-      return { ...p, crm_link: url };
+      if (lookup) return p;
+      return { ...p, crm_link: crmPropertyLink(String(p.id)) };
     }),
-    ...(pushed?.crm_button_sent ? { crm_button_sent: true } : {}),
+    ...(lookup?.sent ? { crm_button_sent: true } : {}),
     note: [
       total > rows.length
         ? `מוצגים ${rows.length} מתוך ${total}. לצמצום - query, ולספירות - property_stats.`
@@ -3161,6 +3158,7 @@ async function agentPropertySearch(
       })),
       "איזה נכס לפתוח?",
       "/crm?goto=accProperties",
+      "lookup",
     );
   }
   return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true };
@@ -5768,7 +5766,31 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
   let ids = Array.isArray(input.property_ids)
     ? (input.property_ids as unknown[]).map(String).filter(Boolean)
     : [];
-  if (!ids.length) {
+  const refs = Array.isArray(input.property_refs)
+    ? (input.property_refs as unknown[]).map((ref) => String(ref ?? "").trim()).filter(Boolean)
+    : [];
+  // מזהים מפורשים (אחרי client_matches, כולל ויתור) גוברים. בלי מזהים, קטע
+  // כתובת או כותרת נפתר רק מול ההתאמות של הלקוח/ה - agent_client_matches
+  // קורא ל-client_property_match, שכבר סינן לפי סוג העסקה וסוג הנכס.
+  // לא מול כל הנכסים בכתובת: שם יושבות גם דירה וגם חנות בעסקה אחרת.
+  if (!ids.length && refs.length) {
+    const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
+      p_agent_id: ctx.agent.id,
+      p_client_id: clientId,
+      p_limit: MATCH_FETCH_CAP,
+    });
+    if (error) return { ok: false, error: error.message };
+    const resolved = resolveShowcaseRefs((data || []) as Array<Record<string, unknown>>, refs);
+    if (!resolved.ok) {
+      return {
+        ok: false,
+        ask: resolved.ask,
+        ...(resolved.ambiguous ? { ambiguous: true } : {}),
+        note: "לא נפתח מיניסייט. לשאול בטקסט את ask כמו שהוא. בלי רשימת CRM, בלי כרטיס, ובלי list_properties.",
+      };
+    }
+    ids = resolved.ids;
+  } else if (!ids.length) {
     const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
       p_agent_id: ctx.agent.id,
       p_client_id: clientId,
@@ -5858,26 +5880,6 @@ function showcaseSendUrl(token: string, first: string, clientWa: string | undefi
   const qs = params.toString();
   return `${SITE_BASE_URL}/w/${token}${qs ? "?" + qs : ""}`;
 }
-
-/** הודעה שיוצאת אחרי התשובה של המודל (‏index.ts, ‏sendOutbox). */
-export type OutboxItem =
-  | {
-    kind: "cta";
-    body: string;
-    label: string;
-    url: string;
-    /** נכס שנוצר בתור הזה. שניים או יותר מתקפלים להודעה אחת לפני השליחה. */
-    batch?: "property_created";
-    listLine?: string;
-  }
-  | { kind: "buttons"; body: string; buttons: { id: string; title: string }[] }
-  | {
-    kind: "list";
-    body: string;
-    button: string;
-    section: string;
-    rows: { id: string; title: string; description?: string }[];
-  };
 
 // כותרות עד 20 תווים (Meta דוחה את ההודעה כולה). נמדד: 15 ו-14.
 const SC_PREVIEW_TITLE = "👁 תצוגה מקדימה";
@@ -7917,7 +7919,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
       body: String(l.city || ""),
     })), "איזה ליד לפתוח?", "/crm?goto=accLeads")
     : null;
-  const listed = new Set(pushed?.listed || []);
+  const listed = pushed?.listed || [];
   return {
     ok: true,
     returned: leads.length,
@@ -7939,7 +7941,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
         created_at: l.created_at,
       };
       // ליד שלא נכנס לכפתור שומר את הקישור. מי שנכנס נפתח מהרשימה.
-      if (pushed?.crm_button_sent && listed.has(path)) return row;
+      if (pushed?.crm_button_sent && pathListed(listed, path)) return row;
       if (pushed?.crm_button_sent && SITE_BASE_URL) {
         const url = `${SITE_BASE_URL}${path}`;
         if (ctx.outbox) {
@@ -9193,8 +9195,13 @@ const SYSTEM_STATIC: string = (() => {
     "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
       "\"רוצה שאפתח ל<שם> מיניסייט עם ההתאמות האלה?\". אם יש showcase ו-new_matches > 0: " +
       "\"להוסיף את <new_matches> החדשות לעמוד של <שם>?\". אל תפתחי בלי אישור.",
-    "- אחרי אישור = create_showcase (בלי property_ids אם הכוונה להתאמות שהצגת; עם property_ids " +
-      "אם הסוכן/ת בחר/ה חלק מהן). אם חזר buttons_sent - **משפט אחד בלי שום קישור** " +
+    "- אחרי אישור = create_showcase. בלי property_ids ובלי property_refs כשהכוונה " +
+      "לכל ההתאמות שהצגת. אם הסוכן/ת בחר/ה חלק מהן לפי כתובת או כותרת - property_refs " +
+      "(קטע כתובת או כותרת), או client_matches שוב ואז property_ids של מה שהוצג. " +
+      "**לעולם לא list_properties** כדי לבחור מתוך ההתאמות: הוא אינו מסונן לפי סוג העסקה " +
+      "וסוג הנכס, ורשימת 'איזה נכס לפתוח?' לא יוצאת בתור שבו נפתח המיניסייט. " +
+      "אם חזר ask - שאלי אותו בטקסט, בלי רשימה ובלי כרטיס. " +
+      "אם חזר buttons_sent - **משפט אחד בלי שום קישור** " +
       "(נפתח/עודכן ל<שם>, כמה נכסים נוספו): הכפתורים לשליחה, לתצוגה מקדימה ולנוסח יוצאים " +
       "אחריו מעצמם. בלי buttons_sent - wa_client_url (או wa_share_url) ו-preview_url כקישורים. " +
       "**אל תאמרי שנשלח ללקוח/ה** - הסוכן/ת שולח/ת.",
@@ -9586,6 +9593,9 @@ export async function runAgentTurn(opts: {
   let finalText = "";
   // שתי נקודות השבירה האחרונות בלולאה - ראו ההסבר בלולאה וב-prompt-cache.ts
   const rolling = new RollingMarks();
+  // כלי כתיבה בתור הזה מוריד בוררי חיפוש (list_properties / search_properties)
+  // לפני שהתור נשלח. הסימון הוא על הקריאה, גם אם הכלי החזיר שאלה ולא כתב.
+  let mutated = false;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const llmStart = Date.now();
@@ -9665,7 +9675,9 @@ export async function runAgentTurn(opts: {
       // המודל רואה רק את `tools`, אבל שם של כלי הוא טקסט שהוא כותב — הגבול
       // נאכף כאן ולא רק ברשימה שנשלחה אליו.
       const toolStart = Date.now();
-      const result = allowedTools && !allowedTools.has(use.name)
+      const blocked = !!allowedTools && !allowedTools.has(use.name);
+      if (!blocked && agentToolMutates(use.name)) mutated = true;
+      const result = blocked
         ? { error: denied }
         : await runTool(
           ctx,
@@ -9719,6 +9731,11 @@ export async function runAgentTurn(opts: {
     { role: "user", content: userSummary },
     { role: "assistant", content: finalText },
   ], HISTORY_LIMIT);
+
+  if (opts.outbox && mutated) {
+    const kept = dropLookupOnMutation(opts.outbox, true);
+    opts.outbox.splice(0, opts.outbox.length, ...kept);
+  }
 
   return finalText;
 }

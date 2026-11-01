@@ -247,6 +247,14 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 ללקוח/ה**. מי שמשנה את ההוראות ב-`SYSTEM_STATIC` שומר על שני אלה: ההצעה אחרי ההתאמות,
 והאיסור לומר "שלחתי". פרטי המתווך/ת המקורי/ת ב-`showcase_status` הם לסוכן/ת בלבד.
 
+בחירה חלקית מתוך ההתאמות ("רק עם פרץ ציוני") היא `property_refs` או
+`client_matches` שוב ואז `property_ids`. **לא** `list_properties`: הוא מחזיר
+כל נכס בכתובת, בלי סוג העסקה וסוג הנכס של הלקוח/ה. `property_refs` נפתרים מול
+`agent_client_matches`. יותר מהתאמה אחת - שאלה בטקסט, בלי רשימת CRM. בורר
+ש-`list_properties` או `search_properties` דחפו (`origin: lookup`) יורד בתור
+שבו רץ כלי כתיבה, כדי שלא ייכנס בין "פתחתי מיניסייט" לכפתורי השליחה. שורה
+שכבר ברשימה אינה מקבלת גם כרטיס: ההשוואה על הנתיב בלי `wc` ו-`wt`.
+
 ‏`remove_from_showcase` מסמן `removed_at` (כמו 🗑 ב-CRM) ורץ ב-service_role, ולכן
 **הסינון לפי סוכן/ת הוא בקוד**: ‏`activeShowcase` (‏`agent_id`) ו-`.eq("showcase_id")`
 בעדכון - מי שמוריד אחד מהם מאפשר להסיר מעמוד של סוכן/ת אחר/ת. נכס לפי תיאור מזוהה
@@ -672,6 +680,7 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
+deno test supabase/functions/whatsapp-webhook/lookup_turn_test.ts  # בורר נכס ומיניסייט
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
