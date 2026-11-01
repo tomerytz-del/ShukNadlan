@@ -8325,11 +8325,15 @@ function v10InviteRotate(a){
       { opacity: 0, transform: 'translate(-50%,-125%) scale(1)' },
     ], { duration: 650, easing: 'ease-out' }).finished.then(() => b.remove(), () => b.remove());
   }
+  /* ‏swipe-1117-fix: שרשרת טיימרים אחת בלבד - כל קביעה עוברת ב-schedule, שמנקה את הקודמת. ומחזור שמגיע
+     באמצע החלקה (לשונית שחזרה, גלילה חזרה, תמונה שנטענת יותר מ-3.5 שניות) לא נוטש את השרשרת - הוא
+     מנסה שוב קצת אחרי. קודם הוא חזר בלי לקבוע את הבא, וההחלקה נעצרה עד סוף הביקור */
   function cycle(){
     timer = 0;
-    if (!on || busy || document.hidden || a.hidden) return;
+    if (!on || document.hidden || a.hidden) return;   // ‏_rotate וה-visibilitychange מתחילים שוב
+    if (busy){ schedule(400); return; }
     const top = stack.lastElementChild;
-    if (!top || top.hidden) return;
+    if (!top || top.hidden){ schedule(3500); return; }
     schedule(3500);
     const ai = SWIPE_THUMBS_READY && !a.classList.contains('psi-ai-off');
     if (ai && swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) return;
@@ -8373,7 +8377,8 @@ function v10InviteRotate(a){
       // בתחתית, מוסתרת, עם התמונה הבאה - ואז fade במקום החדש
       top.style.transition = 'none';
       top.style.opacity = '0';
-      if (src){ top.dataset.n = n; top.src = src; }
+      // ‏swipe-1117-fix: אחרי מעבר לתמונות הנכסים (‏psi-ai-off) תמונה מהסט שכבר הייתה בדרך לא חוזרת
+      if (src && !a.classList.contains('psi-ai-off')){ top.dataset.n = n; top.src = src; }
       drag.cancel(); fling.cancel();
       void top.offsetWidth;
       top.style.transition = ''; top.style.zIndex = ''; top.style.opacity = '';
