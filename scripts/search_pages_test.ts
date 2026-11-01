@@ -70,6 +70,7 @@ type Result = {
   marketButtonInH1: boolean;
   ogTitles: string[];
   ogUrls: string[];
+  cdn: string | null;
 };
 
 /* ‏מה שדפדפן קורא מהמאפיין. ‏‎&‎ בתוך ‎href="…"‎ **חייב** להיכתב ‎&amp;‎
@@ -108,6 +109,7 @@ async function serve(url: string, html = PAGE): Promise<Result> {
     marketButtonInH1: !!h1 && /data-market-menu/.test(h1[0]),
     ogTitles: [...body.matchAll(/property="og:title" content="([^"]*)"/g)].map((m) => decode(m[1])!),
     ogUrls: [...body.matchAll(/property="og:url" content="([^"]*)"/g)].map((m) => decode(m[1])!),
+    cdn: res.headers.get("Netlify-CDN-Cache-Control"),
   };
 }
 
@@ -234,13 +236,13 @@ for (const [name, url, query] of SAME) {
   const base = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=3")!;
   const plain = await serve("/?deal=sale&rooms=3");
   const bad = await serve("/?deal=sale&rooms=3&city=" + encodeURIComponent("<script>"));
-  const upper = await serve("/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("נוף הגליל"));
+  const upper = await serve("/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("עפולה"));
   const upperPage = SEARCH_PAGES.find((p) => p.title === "נכסים למכירה בעפולה עילית")!;
   check("בלי עיר נשאר העמק", plain.h1 === base.title, plain.h1 || "");
   check("עיר לא תקינה אינה משנה כותרת", bad.h1 === base.title && bad.canonical === canonOf(base), bad.h1 || "");
   check(
     "עפולה עילית אינה מתקצרת לעיר",
-    upper.h1 === upperPage.title,
+    upper.h1 === upperPage.title && upper.canonical === canonOf(upperPage),
     upper.h1 || "",
   );
   const hood = await serve("/?deal=sale&q=" + encodeURIComponent("גבעת המורה"));
@@ -289,14 +291,27 @@ for (const [name, url, query] of SAME) {
       && !String(otherCity.canonical).includes("/n/afula/"),
     JSON.stringify({ sameName: sameName.canonical, defaultCenter: defaultCenter.canonical, otherCity: otherCity.canonical }),
   );
-  const listedElsewhere = await serve(
-    "/?deal=sale&q=" + encodeURIComponent("גבעת המורה") + "&city=" + encodeURIComponent("חיפה"),
+  const nof = await serve(
+    "/?deal=sale&q=" + encodeURIComponent("גבעת המורה") + "&city=" + encodeURIComponent("נוף הגליל"),
   );
-  const listedPage = SEARCH_PAGES.find((p) => p.landing === "/n/afula/גבעת-המורה")!;
+  const selfNof = `${SITE}/?city=${encodeURIComponent("נוף הגליל")}&deal=sale&q=${encodeURIComponent("גבעת המורה")}`;
   check(
-    "שורה סגורה עם עיר אחרת אינה הולכת ל-/n/ של עפולה",
-    listedElsewhere.canonical === `${SITE}/?${listedPage.query}`,
-    listedElsewhere.canonical || "",
+    "עיר בלי דף /n/ נשארת על עצמה, בלי כותרת של עפולה",
+    nof.canonical === selfNof
+      && nof.title === "שוק נדל״ן | עפולה והעמק"
+      && !String(nof.title).includes("גבעת המורה"),
+    JSON.stringify({ canonical: nof.canonical, title: nof.title }),
+  );
+  const upperOther = await serve(
+    "/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("נוף הגליל"),
+  );
+  const selfUpper = `${SITE}/?city=${encodeURIComponent("נוף הגליל")}&deal=sale&q=${encodeURIComponent("עפולה עילית")}`;
+  check(
+    "עפולה עילית בעיר בלי דף /n/ נשארת על עצמה",
+    upperOther.canonical === selfUpper
+      && upperOther.title === "שוק נדל״ן | עפולה והעמק"
+      && !String(upperOther.h1).includes("עילית"),
+    JSON.stringify({ canonical: upperOther.canonical, title: upperOther.title, h1: upperOther.h1 }),
   );
   globalThis.fetch = (async (input: string | URL | Request) => {
     const target = String(input instanceof Request ? input.url : input);
@@ -328,6 +343,21 @@ for (const [name, url, query] of SAME) {
     "מסחרי בלי מלאי או בכשל נשאר על הצירוף",
     emptyCommercial.canonical === `${SITE}/?deal=commercial` && downCommercial.canonical === `${SITE}/?deal=commercial`,
     JSON.stringify({ empty: emptyCommercial.canonical, down: downCommercial.canonical }),
+  );
+  check(
+    "כשל מלאי אינו נשמר, ואין מלאי כן",
+    downCommercial.cdn === "no-store" && (emptyCommercial.cdn || "").includes("s-maxage=3600"),
+    JSON.stringify({ down: downCommercial.cdn, empty: emptyCommercial.cdn }),
+  );
+  resetHoodCache();
+  globalThis.fetch = (async () => {
+    throw new Error("hood down");
+  }) as typeof fetch;
+  const staticHood = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר"));
+  check(
+    "כשל מפת שכונות: הרשימה הסטטית בלי מטמון שעה",
+    staticHood.canonical === `${SITE}/n/afula/מרכז-העיר` && staticHood.cdn === "no-store",
+    JSON.stringify({ canonical: staticHood.canonical, cdn: staticHood.cdn }),
   );
   globalThis.fetch = (async () =>
     new Response("[]", { status: 200, headers: { "content-type": "application/json" } })

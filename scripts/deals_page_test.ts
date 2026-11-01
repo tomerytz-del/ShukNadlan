@@ -90,7 +90,7 @@ check("canonical של היישוב", html.includes('<link rel="canonical" href="
 check("‏og:url של היישוב", html.includes('<meta property="og:url" content="https://shuknadlan.co.il/deals/afula">'));
 check("שורת המקור", html.includes("מקור: רשות המסים, דרך GovMap."));
 check("‏Dataset + BreadcrumbList", Array.isArray(ld?.["@graph"])
-  && ld!["@graph"].some((x: any) => x["@type"] === "Dataset" && x.temporalCoverage === "2025-09-01/2026-08-31")
+  && ld!["@graph"].some((x: any) => x["@type"] === "Dataset" && x.temporalCoverage === "2025-09-01/2026-08-31" && x.name === afulaTitle && x.headline === afulaTitle)
   && ld!["@graph"].some((x: any) => x["@type"] === "BreadcrumbList" && x.itemListElement.length === 3));
 check("נתוני המיון מוטמעים", /<script type="application\/json" id="dealsData">/.test(html));
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));

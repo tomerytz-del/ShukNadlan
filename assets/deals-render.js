@@ -226,9 +226,10 @@
   function jsonLd(d, site) {
     var graph = [crumbs(site, d)];
     if (d) {
+      var datasetName = d.slug === 'afula' ? title(d) : ('עסקאות נדל״ן ב' + d.name);
       var data = {
         '@type': 'Dataset',
-        name: 'עסקאות נדל״ן ב' + d.name,
+        name: datasetName,
         description: description(d),
         url: site + '/deals/' + d.slug,
         inLanguage: 'he',
@@ -238,6 +239,8 @@
         spatialCoverage: { '@type': 'Place', name: d.name },
         variableMeasured: ['מחיר עסקה (₪)', 'מחיר למ״ר (₪)', 'מספר חדרים', 'שטח (מ״ר)']
       };
+      /* בעפולה הכותרת כוללת את החודש. name ו-headline נשארים אותה מחרוזת. */
+      if (d.slug === 'afula') data.headline = datasetName;
       if (d.period_start && d.period_end) data.temporalCoverage = d.period_start + '/' + d.period_end;
       if (d.updated_at) data.dateModified = String(d.updated_at).slice(0, 10);
       graph.push(data);

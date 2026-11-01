@@ -321,19 +321,41 @@ function hoodLandingCity(landing: string | undefined): string | null {
   return city ? city.name : null;
 }
 
-let hoodCache: { at: number; map: Map<string, string> } | null = null;
+/* הצלחה נשמרת עשר דקות. כשל נשמר רגע, כדי לא להפציץ את המסד,
+   ולא כדי להגיש שעה את הרשימה הסטטית בלי השכונות שרק במסד. */
+const HOOD_OK_MS = 10 * 60 * 1000;
+const HOOD_FAIL_MS = 15 * 1000;
+
+type HoodMapResult = { map: Map<string, string>; ok: boolean };
+
+let hoodCache: { at: number; map: Map<string, string>; ok: boolean } | null = null;
+
+function liveCitySlugs(): string[] {
+  const live = liveMarketSlugs();
+  return siloCities()
+    .filter((city) => /^[a-z0-9-]+$/.test(city.slug) && (!live || live.has(city.market)))
+    .map((city) => city.slug);
+}
 
 /* שכונה עם מודעה פעילה שאינה ברשימה הסגורה (למשל אזור התעשייה ע. עלית).
-   כישלון משאיר את המפה הסטטית. */
-async function hoodMap(): Promise<Map<string, string>> {
+   ok:false = המסד לא ענה. המפה אז היא רק הרשימה הסטטית, והתשובה לא נשמרת. */
+async function hoodMap(): Promise<HoodMapResult> {
   const now = Date.now();
-  if (hoodCache && now - hoodCache.at < 10 * 60 * 1000) return hoodCache.map;
+  if (hoodCache) {
+    const ttl = hoodCache.ok ? HOOD_OK_MS : HOOD_FAIL_MS;
+    if (now - hoodCache.at < ttl) return { map: hoodCache.map, ok: hoodCache.ok };
+  }
   const map = staticHoods();
+  let ok = false;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 1200);
   try {
+    const slugs = liveCitySlugs();
+    const filter = slugs.length
+      ? `&city_slug=in.(${slugs.join(",")})&props=gt.0`
+      : "&props=gt.0";
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=1000`,
+      `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key${filter}`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -345,31 +367,27 @@ async function hoodMap(): Promise<Map<string, string>> {
     );
     if (res.ok) {
       const data = await res.json();
-      const live = liveMarketSlugs();
-      const liveNames = new Set(
-        siloCities()
-          .filter((city) => !live || live.has(city.market))
-          .map((city) => city.name),
-      );
+      const liveNames = new Set(siloCities().map((city) => city.name));
       if (Array.isArray(data)) {
         for (const row of data as { name?: string; city?: string; path_key?: string; props?: number }[]) {
-          if (!(Number(row.props) > 0)) continue;
+          if (row.props != null && !(Number(row.props) > 0)) continue;
           const cityName = String(row.city || "");
-          if (!liveNames.has(cityName)) continue;
+          if (cityName && !liveNames.has(cityName)) continue;
           const parts = String(row.path_key || "").split("/");
           if (parts.length !== 2 || !/^[a-z0-9-]+$/.test(parts[0]) || !parts[1]) continue;
           map.set(hoodKey(cityName, String(row.name || "")), `/n/${parts[0]}/${parts[1]}`);
         }
         rememberAlias(map);
+        ok = true;
       }
     }
   } catch {
-    /* המפה הסטטית מספיקה לשכונות שברשימה */
+    ok = false;
   } finally {
     clearTimeout(timer);
   }
-  hoodCache = { at: now, map };
-  return map;
+  hoodCache = { at: now, map, ok };
+  return { map, ok };
 }
 
 export function resetHoodCache(): void {
@@ -389,9 +407,9 @@ function hoodCityOf(params: URLSearchParams): string {
   return cityFromParams(params) || DEFAULT_HOOD_CITY;
 }
 
-/* יש מלאי מסחרי פעיל בעפולה. כשל מסד אינו "יש מלאי": ה-canonical נשאר
-   של צירוף הסינון, כמו לפני דף הנחיתה. */
-async function afulaCommercialHasInventory(): Promise<boolean> {
+/* true / false כשהמסד ענה. null = לא ידענו (timeout, סטטוס, גוף לא מערך).
+   null אינו "אין מלאי", ולא נשמר במטמון. */
+async function afulaCommercialHasInventory(): Promise<boolean | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 1200);
   try {
@@ -406,14 +424,40 @@ async function afulaCommercialHasInventory(): Promise<boolean> {
         signal: ctrl.signal,
       },
     );
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const data = await res.json();
-    return Array.isArray(data) && data.length > 0;
+    if (!Array.isArray(data)) return null;
+    return data.length > 0;
   } catch {
-    return false;
+    return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/* הכתובת עצמה, כולל city, בלי פרמטרי מעקב. כך אין שרשרת canonical. */
+function selfSearchUrl(params: URLSearchParams): string {
+  const pairs: string[] = [];
+  for (const [key, raw] of params) {
+    if (NOT_CONTENT.has(key) || key.startsWith("utm_")) continue;
+    const value = raw.trim().replace(/[\u2018\u2019\u05f3']/g, "'");
+    if (!value) continue;
+    pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  }
+  pairs.sort();
+  return `${SITE}/?${pairs.join("&")}`;
+}
+
+function markNoStore(headers: Headers): void {
+  headers.set("Netlify-Vary", HOME_VARY);
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+}
+
+function noStore(res: Response): Response {
+  const headers = new Headers(res.headers);
+  markNoStore(headers);
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
 /* רק ה-canonical ו-og:url. הכותרת של דף הבית נשארת: זו הפניה, לא דף חדש. */
@@ -578,15 +622,19 @@ export default async function handler(request: Request, context: Context) {
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
     const hoodName = saleHoodName(params);
     const hoodCity = hoodCityOf(params);
+    let store = true;
     if (!match) {
       if (!hoodName) return withHomeVary(res);
-      const path = (await hoodMap()).get(hoodKey(hoodCity, hoodName));
-      if (!path) return withHomeVary(res);
+      const hoods = await hoodMap();
+      if (!hoods.ok) store = false;
+      const path = hoods.map.get(hoodKey(hoodCity, hoodName));
+      if (!path) return store ? withHomeVary(res) : noStore(res);
       const fallback = res.clone();
       try {
         const out = pointCanonical(await res.text(), `${SITE}${path}`);
         const headers = new Headers(fallback.headers);
-        setHomeCache(headers);
+        if (store) setHomeCache(headers);
+        else markNoStore(headers);
         fallback.body?.cancel();
         return new Response(out, { status: res.status, headers });
       } catch {
@@ -605,19 +653,49 @@ export default async function handler(request: Request, context: Context) {
     const landingCity = hoodLandingCity(pageForInject.landing);
     if (landingCity && normHood(landingCity) !== normHood(hoodCity)) {
       pageForInject = { ...pageForInject, landing: undefined };
-      if (hoodName) {
-        const alt = (await hoodMap()).get(hoodKey(hoodCity, hoodName));
-        if (alt) pageForInject = { ...pageForInject, landing: alt };
+      const hoods = hoodName ? await hoodMap() : { map: new Map<string, string>(), ok: true };
+      if (!hoods.ok) store = false;
+      const alt = hoodName ? hoods.map.get(hoodKey(hoodCity, hoodName)) : undefined;
+      if (alt) {
+        pageForInject = { ...pageForInject, landing: alt };
+      } else if (city) {
+        /* בלי דף /n/ לעיר הזו לא מצביעים לכתובת בלי city: היא עצמה
+           מצביעה ל-/n/ של עפולה, וזו שרשרת. הכתובת נשארת של עצמה,
+           בלי כותרת שממקמת את השכונה בעפולה. */
+        const fallback = res.clone();
+        try {
+          const out = pointCanonical(await res.text(), selfSearchUrl(params));
+          const headers = new Headers(fallback.headers);
+          if (store) setHomeCache(headers);
+          else markNoStore(headers);
+          fallback.body?.cancel();
+          return new Response(out, { status: res.status, headers });
+        } catch {
+          const headers = new Headers(fallback.headers);
+          markNoStore(headers);
+          return new Response(fallback.body, {
+            status: fallback.status,
+            statusText: fallback.statusText,
+            headers,
+          });
+        }
       }
     }
-    /* מסחרי: דף עפולה רק כשהעיר היא עפולה ויש מלאי. עמק, ובלי עיר, נשארים
-       על הכתובת של הצירוף. */
-    if (match.query === "deal=commercial") {
-      const afula = city === DEFAULT_HOOD_CITY && await afulaCommercialHasInventory();
-      pageForInject = {
-        ...pageForInject,
-        landing: afula ? "/afula/נדלן-מסחרי" : undefined,
-      };
+    /* מסחרי: דף עפולה רק כשהעיר היא עפולה והמסד אמר שיש מלאי.
+       null אינו "אין מלאי", והתשובה לא נשמרת. */
+    if (match.query === "deal=commercial" && city === DEFAULT_HOOD_CITY) {
+      const has = await afulaCommercialHasInventory();
+      if (has === null) {
+        store = false;
+        pageForInject = { ...pageForInject, landing: undefined };
+      } else {
+        pageForInject = {
+          ...pageForInject,
+          landing: has ? "/afula/נדלן-מסחרי" : undefined,
+        };
+      }
+    } else if (match.query === "deal=commercial") {
+      pageForInject = { ...pageForInject, landing: undefined };
     }
     /* clone לפני הקריאה: ב-catch הגוף המקורי כבר נעול, ומחזרים
        Response חדש עם כותרות חדשות ולא נוגעים בנעולות. */
@@ -628,7 +706,8 @@ export default async function handler(request: Request, context: Context) {
       /* s-maxage רק ב-Netlify-CDN-Cache-Control. Cache-Control הוא
          max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store
          מ-withDecisionCookies, וה-Vary נכתב גם אז. */
-      setHomeCache(headers);
+      if (store) setHomeCache(headers);
+      else markNoStore(headers);
       fallback.body?.cancel();
       return new Response(out, { status: res.status, headers });
     } catch {
