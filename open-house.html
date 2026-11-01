@@ -545,6 +545,18 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   @media(min-width:760px){html.beta-hero .oh-head h1{font-size:32px}}
   html.beta-hero .oh-h1-v10,
   html.beta-hero .oh-h1-v10>span{display:inline}
+  /* ?beta=0: ה-h1 (נוסח v10) לא תופס מקום, והשורה הישנה נראית כמו הכותרת.
+     hidden דורש !important, אחרת המאפיין גובר על display רגיל. */
+  html:not(.beta-hero) .oh-head h1{display:none !important}
+  html:not(.beta-hero) .oh-h1-legacy{
+    display:block !important;margin:0;color:#fff;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;line-height:1.1;
+    letter-spacing:-.01em;font-size:clamp(1.2rem,5vw,1.5rem);
+    text-shadow:0 2px 10px rgba(0,0,0,.35);
+  }
+  @media(min-width:760px){
+    html:not(.beta-hero) .oh-h1-legacy{font-size:clamp(1.5rem,2.6vw,2.1rem)}
+  }
   .ohv-lead{margin:0;font-size:15px;line-height:1.6;color:rgba(255,255,255,.92);max-width:62ch}
   .ohv-pill{display:inline-block;align-self:flex-start;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:700}
   .ohv-ctas{display:flex;flex-wrap:wrap;gap:10px}
@@ -634,7 +646,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                השוק הפעיל מ-data-market-label. אותו נוסח בבאנר בדף הבית
                (‏renderOpenHouseBanner ב-assets/home.js). -->
           <p class="oh-head-kicker"><span class="oh-kicker-legacy">יריד הבתים הפתוחים · אל תחמיצו!</span><span class="oh-kicker-v10">יריד הבתים הפתוחים</span></p>
-          <h1><span class="oh-h1-legacy"><span>דירות ב<span data-market-label>עפולה והעמק</span></span> <span>ללא עמלת תיווך</span> <span>- לזמן מוגבל!</span></span><span class="oh-h1-v10">דירות ב<span data-market-label>עפולה והעמק</span>, בלי עמלת תיווך</span></h1>
+          <h1><span class="oh-h1-v10">דירות ב<span data-market-label>עפולה והעמק</span>, בלי עמלת תיווך</span></h1>
+          <!-- אותו משפט, לא כותרת: סורק בלי CSS רואה h1 אחד. מוצג רק ב-?beta=0. -->
+          <span class="oh-h1-legacy" hidden aria-hidden="true"><span>דירות ב<span data-market-label>עפולה והעמק</span>, בלי עמלת תיווך</span></span>
+          <script>
+          (function(){
+            if(document.documentElement.classList.contains('beta-hero'))return;
+            var leg=document.querySelector('.oh-h1-legacy');
+            if(!leg)return;
+            leg.hidden=false;
+            leg.removeAttribute('aria-hidden');
+          })();
+          </script>
         </div>
         <!-- שורה אחת של נתונים ולא צ׳יפים: "2 דירות ביריד · הראשונה יוצאת
              27.9". פסקת ההסבר שישבה כאן ירדה — "איך זה עובד" שמתחת אומר
