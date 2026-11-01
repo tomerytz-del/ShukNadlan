@@ -3112,7 +3112,8 @@
         if (!d.job_id) { done('cached'); return; }
         store('sk_viz_gen_' + vizDay(), String(vizUsed() + 1));   // רק בקשה שיצרה עבודה נספרת
         st.pending = (d.pending_targets || []).slice(); st.total = st.pending.length;
-        var deadline = Date.now() + 180000;
+        /* ‏viz-speed (1.11.2026): כל שנייה ב-20 השניות הראשונות, ואז כל 3 (קודם 4 קבוע) */
+        var deadline = Date.now() + 180000, pollT0 = Date.now();
         (function poll() {
           setTimeout(function () {
             if (token !== vizToken) { clearInterval(tick); return; }   // הגיליון נסגר: העבודה ממשיכה בשרת
@@ -3126,7 +3127,7 @@
               else if (Date.now() > deadline) done('timeout', VIZ_FAIL);
               else poll();
             }, function () { if (Date.now() > deadline) done('timeout', VIZ_FAIL); else poll(); });
-          }, 4000);
+          }, Date.now() - pollT0 < 20000 ? 1000 : 3000);
         })();
       }, function () { done('error', VIZ_FAIL); });
   }

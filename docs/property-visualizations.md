@@ -367,7 +367,11 @@ POST { property_id, style?, business_type?, business_description?, name, phone }
   לאותו מסלול tier של `property-inquiry-intake` (Mid/Premium נפתח מידית).
 - `lead_type = 'visualization'`.
 - העיבוד ממשיך ברקע ב-`EdgeRuntime.waitUntil`; הפרונט עושה polling דרך
-  `rpc('visualization_job_status', { p_job_id })`.
+  `rpc('visualization_job_status', { p_job_id })` - **כל שנייה ב-20 השניות
+  הראשונות ואז כל 3** (‏viz-speed, 1.11.2026; קודם 4 שניות קבוע, כלומר עד 4
+  שניות של המתנה אחרי שהתמונה כבר הייתה מוכנה). בדף הנכס ובהחלקה. בדף הנכס
+  ‏`mergeVizResults` מרנדר רק כשנכנסה תמונה חדשה - הבדיקה מחזירה שוב ושוב גם
+  חדרים שכבר נגמרו, ורינדור בכל שנייה היה מאפס את הווילון באמצע גרירה.
 - בלם קצב: `visualization_ondemand_daily_cap` בקשות ל-24 שעות **פר נכס**
   (לא פר גולש/ת — אין לנו זהות אמינה בצד הזה).
 - **בלם לגולש/ת** (‏PR 1010, מחכה למיגרציה): עד 10 בקשות שמייצרות הדמיה ב-24
@@ -718,6 +722,31 @@ scripts/visualizations_setup.sql   — חלק 1: מה מוגדר, מה חסר, �
 תחת `prefers-reduced-motion` הלוגו נשאר והטבעות יורדות: הלוגו הוא *מה* מחכה
 והטקסט אומר *למה*, והטבעות היו רק התנועה.
 
+**מתחת ללוגו (‏viz-speed, 1.11.2026), בלי טקסט חדש:**
+
+* **הצילום שממנו ההדמיה נוצרת**, מעומעם (‏28%) ועם ברק שעובר עליו - המקור של
+  החדר המוביל מהדמיה קיימת בסגנון אחר (‏`vizBusyBefore()`), כי הצינור בוחר
+  אותו צילום לכל סגנון. נכס בלי אף הדמיה - בלי צילום, כמו קודם.
+* **פס התקדמות זהב לפי הזמן הצפוי** (‏`PROGRESS_S = 16`): מהיר בהתחלה, מאט,
+  ונעצר ב-92% עד שהתוצאה מגיעה. הוא **אינו** מדד אמיתי - השרת לא מדווח
+  התקדמות - ולכן הוא `aria-hidden` ו-`role="status"` נשאר על הטקסט הקיים.
+  ‏`animation-delay` שלילי לפי `cta.since`, אחרת כל רינדור מחדש היה מחזיר
+  אותו להתחלה.
+* כל חדר מוצג ברגע שהוא מוכן: הראשון שנגמר תופס את הווילון, והשאר נכנסים
+  לרצועה (‏`#vizPending` אומר מה עוד רץ).
+
+ב-reduced motion הברק יורד; הפס נשאר, כי הוא מידע ולא קישוט.
+
+### התמונות מוגשות מוקטנות
+
+הווילון, ה"לפני" והתמונונות עוברים ב-`render/image` של Supabase (‏`imgAttrs()`
+ב-`ai-showcase.js`): רוחב 1,200 לווילון ול"לפני", 480 לתמונונות, ‏`quality=70`
+- ‏WebP של כ-100-150KB במקום ה-JPEG המלא (כ-640KB). ‏`result_url` המקורי נשאר
+המזהה (‏`leadPick`, ‏`onSelectStyle`) ונשמר ב-`data-full`, ו-`onerror` חוזר
+אליו אם ההקטנה נכשלה. ההחלקה כבר הקטינה (‏`imgSrc()` ב-`swipe.js`).
+וכך גם שתי התמונונות של השלט שעל התמונה הראשית (‏`renderVizJumpButton`,
+רוחב 240): קודם ירדו שם שני קובצי ה-JPEG המלאים בכל טעינה של נכס עם הדמיה.
+
 ### תווית "גרו כדי לראות את ההבדל"
 
 היא נצמדת לידית ונעה איתה, וקיימת **רק עד המגע הראשון** (‏`[data-idle]`,
@@ -876,3 +905,46 @@ Premium בלבד, ולכן "כל נכס מוצג בהדמיה" היה הבטחה
 הדמיות חדש, וזו העלות של לא להטעות. בנכס מסחרי הקאש הוא לפי סוג העסק המנורמל: אותו עסק
 שנתבקש שוב עולה אפס קריאות, ועסק חדש עולה 1–2. סוג העסק חופשי, ולכן בלם הקצב היומי נשאר
 ההגנה העיקרית שם.
+
+## מהירות ועלות (‏viz-speed, 1.11.2026)
+
+**המצב שנמדד:** ‏`gemini-3.1-flash-image-preview` - ‏p50 ‏10.8 שניות בשרת, ועם בדיקה כל 4 שניות בדף הגולש/ת מחכה כ-13-16 שניות. נוצר מראש רק `modern_clean`, ולכן **486 מתוך 860** ההדמיות האפשריות לנכסים פרטיים פעילים חסרות (‏SELECT, ‏1.11: ‏124 נכסים זכאים, 112 עם מטרות, ועוד 12 שעוד לא קיבלו אף הדמיה). הדוח המלא: ‏`viz-speed-audit-2026-11-01.md` בתיקייה המשותפת.
+
+- **כל ארבעת הסגנונות מראש - מאחורי דגל, כבוי:** ‏`visualization_prerender_all_styles` ב-`pricing_config` (מיגרציה `20271101090000`, נולד 0). כשהוא 1: קריאה ל-`property-visualize-base` **בלי style** (הטריגר של הפרסום ותור ה-backfill) מייצרת את ברירת המחדל וקוראת לעצמה עם כל אחד משלושת הסגנונות האחרים (‏`queueOtherStyles`, ‏service role); ובקשה של גולש/ת לסגנון אחד (‏`property-visualize`) מייצרת ברקע את הסגנונות החסרים של הנכס. קריאה עם style אינה מתפצלת שוב, והבסיס בודק בעצמו זכאות ומה שכבר קיים - קריאה כפולה אינה משלמת פעמיים. **עלות:** כ-7.7 תמונות לנכס פרטי חדש.
+- **השלמת ה-486 - סקריפט, לא הורץ:** ‏`scripts/viz_backfill_styles.py` - ריצה יבשה כברירת מחדל (סופר נכסים, קריאות ותמונות ומדפיס עלות); ‏`--run --yes` רק אחרי אישור של תומר. במודל של היום (‏$0.069-0.089 לתמונה): כ-$34-43; במודל החדש (‏$0.0336): כ-$16. ‏Batch API (חצי מחיר, כ-$8) עוד לא מחובר - הסקריפט עובר דרך הפונקציה הרגילה.
+- **ניסיון מודלים - סקריפט, לא הורץ:** ‏`scripts/viz_model_trial.ts` - 20 הדמיות קיימות (5 לכל מטרה, מנכסים שונים), אותו צילום ואותו פרומפט, בשני המועמדים (‏`gemini-3.1-flash-lite-image`, ‏`gemini-nano-banana-2.1` עם thinking ‏`minimal`), עם imageConfig. התוצאה של המודל הנוכחי כבר במסד, ולכן 40 קריאות (כ-$1.35) ולא 60. לא כותב לטבלאות, לאחסון או למטמון - תיקייה מקומית עם `index.html` להשוואה (לפני / נוכחי / Lite / 2.1) וזמן ועלות לכל תמונה.
+- **המעבר בייצור (אחרי הניסיון ואישור):** ‏`GEMINI_IMAGE_MODEL` בסודות הפונקציות, ויחד איתו `GEMINI_IMAGE_CONFIG=1` (‏`imageConfig`: ‏`imageSize: "1K"` ו-`aspectRatio` הקרוב ליחס הצילום - ‏`imageDims`/`nearestAspect`, ‏JPEG/PNG/WebP בלי לפענח) ולמודל 2.1 גם `GEMINI_IMAGE_THINKING=minimal`. חזרה מיידית: מחיקת שלושתם.
+- **המטמון בודק את הצילום (תוקן ב-viz-1115-fix):** הדמיה פרטית "מוכנה" כל עוד `source_image_url` שלה **עדיין בנכס ועדיין מתויג לאותו חדר** (‏`sourceStillFits` ב-`_shared`, אותו כלל ב-`property-visualize` וב-`property-visualize-base`). הגרסה הראשונה דרשה שזה יהיה בדיוק הצילום שהבוחר בוחר היום, וזה היה הופך כ-66-73 מתוך 410 ההדמיות המוכנות להחטאות בתשלום - 11 שהצילום שלהן באמת ירד מהנכס, ו-55-62 שהצילום עוד שם ורק אינו הראשון בתור. עכשיו רק ה-11 מחטיאות (הסימולציה למטה).
+- **הבוחר יציב:** ‏`ensureTagged` מחזיר את התיוגים בסדר קבוע - לפי המקום של התמונה בנכס, ואז לפי הכתובת. השאילתה הייתה בלי סדר, וב-150 מתוך 410 ההדמיות יש לחדר יותר מצילום מתאים אחד: אותו נכס יכול היה לקבל צילום אחר בכל בקשה, ושתי הפונקציות לייצר זו על זו.
+- **הדמיה שמוצגת לא מתחלפת בשגיאה:** יצירה מחדש של שורה שכבר `done` עם תמונה (צילום שירד, או `force` בבסיס) משאירה אותה `done` עם התמונה והצילום הישנים עד שהחדשה מוכנה (‏`WorkItem.previous`), ואם היצירה נכשלת - למשל 402 כשנגמר הקרדיט - השורה חוזרת בדיוק למה שהיה, והסיבה נשמרת ב-`error_detail`. הצילום החדש נכתב רק יחד עם התוצאה החדשה, כך שהווילון לעולם לא מציג תמונה של צילום אחד מול צילום אחר.
+- **פגיעות במטמון נמדדות:** שורה ב-`ai_usage_log` עם `feature='viz_cache_hit'`, ‏`model='cache'`, בלי טוקנים, ו-`units` = מספר התמונות שהוגשו בלי קריאה למודל. ל-`cache` יש שורה ב-`ai_model_prices` במחיר 0, כך שהפאנל "עלויות AI" מציג ₪0 ולא "בלי מחיר".
+
+**הסימולציה (‏SELECT בלבד, 1.11.2026):** מתוך 410 ההדמיות הפרטיות המוכנות - 399 פגיעות, 11 החטאות שהצילום שלהן כבר אינו בנכס, ו-0 שהצילום בנכס אבל אינו מתויג לחדר:
+
+```sql
+with v as (
+  select v.id, v.property_id, v.target, v.mode, v.source_image_url, p.images
+  from property_visualizations v join properties p on p.id = v.property_id
+  where v.kind = 'private_room' and v.status = 'done' and v.result_url is not null
+), r as (
+  select v.*, (v.source_image_url = any(v.images)) as in_listing,
+    exists (select 1 from property_image_tags t
+             where t.property_id = v.property_id and t.image_url = v.source_image_url
+               and t.room_type = any(case
+                 when v.target = 'exterior' and v.mode = 'staging' then array['yard']
+                 when v.target = 'exterior' then array['facade','yard']
+                 when v.target = 'living_room' then array['living_room']
+                 when v.target = 'kitchen' then array['kitchen']
+                 when v.target = 'bedroom' then array['master_bedroom','bedroom']
+                 else array[]::text[] end)) as tagged_for_room
+  from v
+)
+select count(*) total,
+  count(*) filter (where in_listing and tagged_for_room) hit,
+  count(*) filter (where not in_listing) miss_photo_gone,
+  count(*) filter (where in_listing and not tagged_for_room) miss_untagged
+from r;
+-- 410 | 399 | 11 | 0
+```
+- **‏HTTP 402 (11.10, 12 כשלים - "prepayment credits depleted"):** אין לזה תיקון בקוד. בחשבון Google: ‏AI Studio → Billing → להפעיל טעינה אוטומטית (auto-reload) של הקרדיט, ובנוסף ב-Google Cloud Billing → Budgets & alerts - התראה על יתרה נמוכה למייל של תומר.
+- **‏`ensureTagged` בנתיב הבקשה - עוד לא הוצא:** ‏`property-visualize-base` כבר מסווג את הצילומים בפרסום, ולכן בבקשה של גולש/ת הסיווג רץ רק אחרי החלפת צילומים. הוצאה מלאה (סיווג בהעלאה או ב-cron) - בהמשך, אם המדידה תראה שזה עדיין קורה.

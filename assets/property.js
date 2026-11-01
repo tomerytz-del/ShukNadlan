@@ -1063,10 +1063,12 @@ function renderVizJumpButton(){
   /* וילון ולא שתי תמונונות זו לצד זו: אותה מסגרת, הצילום מתחת וההדמיה
      מעליו, וידית זהב שעוברת ביניהם הלוך ושוב. זו אותה מחווה כמו הווילון
      שבתיבה עצמה, ולכן הכרטיס מראה בקטן בדיוק את מה שהלחיצה פותחת. */
+  /* ‏viz-speed: התמונונות מוקטנות (‏render/image, רוחב 240) - קודם ירדו כאן שני
+     קובצי ה-JPEG המלאים (כ-640KB כל אחד) בכל טעינה של נכס עם הדמיה. */
   const thumbs = pair
     ? `<span class="vj-thumbs vj-curtain" aria-hidden="true">
-         <img class="vj-before" src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
-         <img class="vj-after" src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+         <img class="vj-before" src="${escapeAttr(cardImgUrl(pair.source_image_url, 240))}" data-full="${escapeAttr(pair.source_image_url)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')" alt="" loading="lazy" decoding="async">
+         <img class="vj-after" src="${escapeAttr(cardImgUrl(pair.result_url, 240))}" data-full="${escapeAttr(pair.result_url)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')" alt="" loading="lazy" decoding="async">
          <span class="vj-handle"><span class="vj-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></span>
        </span>`
     : '';
@@ -1664,14 +1666,32 @@ function vizItemsFlat(){
 function vizBandCta(){
   const has = (vizState.byStyle.get(vizState.current) || []).length;
   if (!vizState.isPrivate){
-    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy };
+    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy,
+             since:vizState.busySince, before: vizState.busy ? vizBusyBefore() : '' };
   }
   if (has && !vizState.busy) return { label:null };
   const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
   return {
     label: styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס',
     busy: vizState.busy,
+    since: vizState.busySince,
+    before: vizState.busy ? vizBusyBefore() : '',
   };
+}
+
+/* ‏viz-speed: הצילום שמתחת למסך ההמתנה - המקור של חדר מוביל (סלון, ואם אין
+   אז חזית, מטבח...) מהדמיה קיימת בסגנון אחר, כי הצינור בוחר אותו צילום לכל
+   סגנון. נכס בלי אף הדמיה - בלי צילום, כמו קודם. */
+const VIZ_BEFORE_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen', 'bedroom'];
+function vizBusyBefore(){
+  let best = '', rank = 99;
+  vizState.byStyle.forEach(list=>{
+    (list || []).forEach(it=>{
+      const r = VIZ_BEFORE_ORDER.indexOf(it && it.target);
+      if (it && it.source_image_url && r >= 0 && r < rank){ rank = r; best = it.source_image_url; }
+    });
+  });
+  return best;
 }
 
 function onVizBandCta(){
@@ -2110,6 +2130,7 @@ async function requestVisualization(){
   }
 
   vizState.busy = true;
+  vizState.busySince = Date.now();
   // הכפתור היחיד נמצא ברצועה, בתוך innerHTML שמורכב מחדש, ולכן מצב
   // ה"יוצרים…" שלו עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
   renderPropertyShowcase();
@@ -2197,19 +2218,27 @@ function initVisualizationForm(){
    מקום לפני ואחרי. הדמיה שנטענה מהשרת לא סבלה מזה, וזו הסיבה שהתקלה נראתה
    רק אחרי לחיצה על הכפתור. */
 function mergeVizResults(rows){
+  /* מרנדרים רק כשמשהו השתנה. עם בדיקה כל שנייה, רינדור מחדש בכל אחת מהן
+     היה מחליף את מסך ההמתנה פעם בשנייה, ומאפס את הווילון באמצע גרירה
+     (הבדיקה מחזירה שוב ושוב גם את החדרים שכבר נגמרו). */
   const key = vizState.current || '_';
   const list = vizState.byStyle.get(key) || [];
-  rows.forEach(r=>{
-    if (!r.result_url) return;
+  let changed = false;
+  (rows || []).forEach(r=>{
+    if (!r || !r.result_url) return;
     const source = r.source_image_url || null;
     const existing = list.find(x=>x.target === r.target);
     if (existing){
+      if (existing.result_url === r.result_url && (!source || existing.source_image_url === source)) return;
+      changed = true;
       existing.result_url = r.result_url;
       if (source) existing.source_image_url = source;
     } else {
+      changed = true;
       list.push({ target:r.target, result_url:r.result_url, source_image_url:source });
     }
   });
+  if (!changed) return;
   vizState.byStyle.set(key, list);
   // הדמיה שהרגע נוצרה נכנסת לרצועה בלי לרענן את הדף
   renderPropertyShowcase();
@@ -2224,8 +2253,12 @@ async function pollVisualizationJob(jobId, pendingTargets){
 
   renderVizPending(remaining);
 
+  /* ‏viz-speed (1.11.2026): כל שנייה ב-20 השניות הראשונות - שם נגמרות כמעט כל
+     ההדמיות (p50 בשרת כ-11 שניות) - ואז כל 3 שניות. קודם 4 שניות קבוע, כלומר
+     עד 4 שניות של המתנה אחרי שהתמונה כבר הייתה מוכנה. */
+  const started = Date.now();
   while (Date.now() < DEADLINE){
-    await new Promise(r=>setTimeout(r, 4000));
+    await new Promise(r=>setTimeout(r, Date.now() - started < 20000 ? 1000 : 3000));
     const { data } = await sb.rpc('visualization_job_status', { p_job_id: jobId });
     const rows = data || [];
 
