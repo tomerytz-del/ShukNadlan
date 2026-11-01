@@ -734,7 +734,12 @@ body[data-view=likes] .sw-sortbar{display:none}
 /* ‏swipe-smooth P0-5: סרטון לרוחב - חלון באמצע הכרטיס (מרכז ב-42%, כמו תמונה לרוחב), והטשטוש של הפוסטר
    מעליו ומתחתיו. עד שהכיוון ידוע (‏pending) - הפוסטר גלוי, והטשטוש מאחוריו; סרטון שנכשל (‏err) - התמונה בהתאמה הרגילה. לאורך - על כל הכרטיס כמו קודם */
 .sw-reel-wrap[data-vfit=land] .sw-reel{inset:42% 0 auto 0;height:var(--vwin-h,40%);transform:translateY(-50%);background:transparent}
-.sw-reel{transition:opacity .12s ease-out}
+.sw-reel{transition:opacity .12s ease-out,top .15s ease-out,height .15s ease-out,transform .15s ease-out}
+/* ‏swipe-all §3.1: כל עוד שום יחס לא ידוע (גם לא של הפוסטר) - הפוסטר בשלמותו על הטשטוש, ולא על כל הכרטיס */
+.sw-reel-wrap[data-vfit=pending] .sw-reel{object-fit:contain;background:transparent}
+/* ‏§3.2: סרטון שנכשל - כרטיס תמונה רגיל: בלי התווית, בלי פס ההתקדמות של הסרטון ובלי כפתורי הקול */
+.sw-card.reel-err .sw-reel-tag,.sw-card.reel-err .sw-reel-snd,.sw-card.reel-err .sw-reel-mute,.sw-card.reel-err .sw-reel-play{display:none}
+.sw-card.reel-err .sw-bars span.is-reel.on{background:#fff}
 .sw-card.is-reel.is-vland .sw-cblur,.sw-card.is-reel.is-vpend .sw-cblur{display:block}
 .sw-card.is-reel.reel-err:is([data-fit=window],[data-fit=frame],[data-fit=low]) .sw-cblur{display:block}
 .sw-card.is-reel.is-vland::after{background:linear-gradient(to bottom,rgba(13,27,61,.55) 0%,rgba(13,27,61,0) 12%,rgba(13,27,61,0) 60%,rgba(13,27,61,.55) 74%,rgba(13,27,61,.94) 100%)}
