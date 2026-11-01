@@ -227,7 +227,7 @@ function clientIoCell(c, key, maps){
 async function exportClientsFile(scope){
   if (!officeIsManager()){ showToast('ייצוא קובץ הלקוחות זמין למנהל/ת המשרד בלבד'); return; }
   try { await ensureImportCore(); }
-  catch (e){ showToast('ייבוא הנכסים לא נטען. נסו שוב.'); return; }
+  catch (e){ showToast('ייצוא הלקוחות לא נטען. נסו שוב.'); return; }
   let rows = clientRows.slice();
   if (scope === 'own')      rows = rows.filter(c => c.agent_id === currentAgent.id && !c.referred_by);
   if (scope === 'referred') rows = rows.filter(c => c.referred_by === currentAgent.id);
@@ -419,7 +419,7 @@ function clientFindExisting(p, seen){
 
 async function openClientImport(){
   try { await ensureImportCore(); }
-  catch (e){ showToast('ייבוא הנכסים לא נטען. נסו שוב.'); return; }
+  catch (e){ showToast('ייבוא הלקוחות לא נטען. נסו שוב.'); return; }
   const modal = document.getElementById('ciModal');
   modal.style.display = 'flex';
   document.getElementById('ciTitle').textContent = 'ייבוא לקוחות מאקסל';

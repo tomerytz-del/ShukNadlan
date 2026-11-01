@@ -272,3 +272,83 @@ test('מסך הכניסה נמדד אחרי 3 שניות, כמו בקוד', () =
   assert.equal(/אחרי 12\nשניות/.test(doc), false);
   assert.match(crm, /timeout:\s*3000/);
 });
+
+/* פונקציה שמוגדרת רק בקובץ עצלן ו-crm.js קורא לה בלי typeof ובלי
+   crmNeed של הקבוצה שלה, באותה פונקציה ולפני הקריאה. השאילתה חוזרת
+   לפני שהקובץ נטען, ו-ReferenceError עוצר את Promise.all כולל ה-goto. */
+function lazyCallSites(src){
+  const lazySrc = readFileSync(join(root, 'assets', 'crm-lazy.js'), 'utf8');
+  const groupOfFile = new Map();
+  const block = lazySrc.slice(lazySrc.indexOf('var GROUPS'), lazySrc.indexOf('var PRE'));
+  let cur = null;
+  for (const line of block.split('\n')) {
+    const g = line.match(/^\s{4}([A-Za-z0-9]+):\s*\[/);
+    if (g) cur = g[1];
+    const f = line.match(/assets\/([A-Za-z0-9._-]+\.js)/);
+    if (f && cur) {
+      if (!groupOfFile.has(f[1])) groupOfFile.set(f[1], []);
+      groupOfFile.get(f[1]).push(cur);
+    }
+  }
+  const declIn = text => {
+    const names = new Set();
+    for (const m of text.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+    for (const m of text.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+    return names;
+  };
+  const own = declIn(src);
+  const symbols = new Map();
+  for (const [file, groups] of groupOfFile) {
+    const path = join(root, 'assets', file);
+    let text = '';
+    try { text = readFileSync(path, 'utf8'); } catch (e) { continue; }
+    for (const name of declIn(text)) {
+      if (!own.has(name) && !symbols.has(name)) symbols.set(name, groups);
+    }
+  }
+  const code = maskCode(src);
+  const ranges = functionRanges(code);
+  const lineOf = idx => src.slice(0, idx).split('\n').length;
+  const fails = [];
+  for (const [name, groups] of symbols) {
+    const re = new RegExp('(?<![.\\w$])' + name + '\\s*\\(', 'g');
+    let m;
+    while ((m = re.exec(code))) {
+      const at = m.index;
+      let best = null;
+      for (const r of ranges) {
+        if (at >= r.body && at <= r.end && (!best || (r.end - r.start) < (best.end - best.start))) best = r;
+      }
+      let from = best ? best.body : 0;
+      const arrow = src.lastIndexOf('=>', at);
+      if (arrow >= from && at - arrow < 160) {
+        let j = arrow + 2;
+        while (src[j] === ' ' || src[j] === '\n') j++;
+        if (src[j] !== '{') from = arrow;
+      }
+      const before = src.slice(from, at);
+      const parent = src.slice(best ? best.body : 0, from);
+      const typed = new RegExp('typeof\\s+' + name + '\\b');
+      const need = g => new RegExp("crmNeed\\(\\s*['\"]" + g + "['\"]");
+      const ok = (chunk) => typed.test(chunk) || groups.some(g => need(g).test(chunk));
+      if (ok(before) || ok(parent)) continue;
+      fails.push(lineOf(at) + ' ' + name);
+    }
+  }
+  return fails;
+}
+
+test('קריאה לקובץ עצלן שמורה ב-typeof או ב-crmNeed של הקבוצה', () => {
+  const fails = lazyCallSites(crm);
+  assert.deepEqual(fails, []);
+  for (const [fn, groups] of [
+    ['async function loadProperties', ["crmNeed('properties')", "crmNeed('office')"]],
+    ['async function loadLeads', ["crmNeed('leads')", "crmNeed('office')"]],
+    ['async function loadClients', ["crmNeed('office')", "crmNeed('leads')"]],
+    ['async function loadSharedWithMe', ["crmNeed('properties')"]],
+    ['async function loadTeam', ["crmNeed('teams')"]],
+  ]) {
+    const body = crm.slice(crm.indexOf(fn), crm.indexOf(fn) + 700);
+    for (const needle of groups) assert.ok(body.includes(needle), fn + ' ' + needle);
+  }
+});
