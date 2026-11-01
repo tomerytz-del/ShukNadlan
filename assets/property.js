@@ -2982,11 +2982,9 @@ let fairEndTimer = 0;
 function renderContactButtons(p){
   document.body.classList.add('has-sticky-bar');
   if (!stickyWatched){ watchStickyBar(); stickyWatched = true; }
-  /* נכס ביריד: רק הטופס, כמו ב-/swipe, עם השורה "פונים דרך הטופס עד…".
-     ההנחה בעמלה תלויה בפנייה שנרשמת בשעת השרת (‏fair_inquiries,
-     ‏docs/open-house-fair.md), ולחיצה על וואטסאפ או חיוג אינה נרשמת עדיין.
-     דף שנשאר פתוח אחרי סוף היריד מחזיר את הכפתורים בלי טעינה מחדש, ולכן
-     הפונקציה רצה שוב ברגע הסיום ובונה הכול מחדש. */
+  /* נכס ביריד: הטופס, וגם וואטסאפ וחיוג. הלחיצה נרשמת ברקע
+     (assets/fair-contact.js) בלי לעכב את הפתיחה. דף שנשאר פתוח אחרי
+     סוף היריד מוריד את הסימון, ולכן הפונקציה רצה שוב ברגע הסיום. */
   const fair = OpenHouse.live(p);
   const lineEl = document.getElementById('fairFormLine');
   const line = fair ? OpenHouse.formLine(p) : '';
@@ -2995,7 +2993,22 @@ function renderContactButtons(p){
     const ms = OpenHouse.endsAt(p) - Date.now();
     if (ms > 0 && ms < 2 ** 31 - 1) fairEndTimer = setTimeout(()=> renderContactButtons(p), ms + 1000);
   }
-  const phone = fair ? null : p.agency_members?.phone_e164;
+  const phone = p.agency_members?.phone_e164;
+  const fairAttr = (channel) => fair && p.id
+    ? ` data-fair-contact="${channel}" data-fair-property="${escapeAttr(p.id)}" data-fair-page="property"`
+    : '';
+  const markFair = (el, channel) => {
+    if (!el) return;
+    if (fair && p.id){
+      el.setAttribute('data-fair-contact', channel);
+      el.setAttribute('data-fair-property', p.id);
+      el.setAttribute('data-fair-page', 'property');
+    } else {
+      el.removeAttribute('data-fair-contact');
+      el.removeAttribute('data-fair-property');
+      el.removeAttribute('data-fair-page');
+    }
+  };
   const agentName = p.agency_members?.display_name || '';
   const formBtn = document.getElementById('sbFormBtn');
   formBtn.onclick = ()=>{
@@ -3004,7 +3017,7 @@ function renderContactButtons(p){
   };
 
   if (!phone){
-    // בלי טלפון (או ביריד) נשארת רק דרך אחת ליצור קשר — הטופס
+    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס
     formBtn.hidden = false;
     return;
   }
@@ -3027,23 +3040,26 @@ function renderContactButtons(p){
   bubble.setAttribute('aria-label', waAria);
   document.getElementById('waBubbleLabel').textContent = agentName ? 'וואטסאפ · ' + agentName : 'וואטסאפ לסוכן';
   bubble.hidden = false;
+  markFair(bubble, 'whatsapp');
 
   // סרגל תחתון (מובייל)
   const sbWa = document.getElementById('sbWaBtn');
   sbWa.href = waHref;
   sbWa.setAttribute('aria-label', waAria);
   sbWa.hidden = false;
+  markFair(sbWa, 'whatsapp');
   const sbCall = document.getElementById('sbCallBtn');
   sbCall.href = telHref;
   sbCall.hidden = false;
+  markFair(sbCall, 'call');
 
   // כפתורים בכרטיס ההמרה
   document.getElementById('agentActions').innerHTML = `
-    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}">
+    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${fairAttr('whatsapp')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
       וואטסאפ מהיר
     </a>
-    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן">
+    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
     </a>`;
 }

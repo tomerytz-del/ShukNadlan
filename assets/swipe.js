@@ -2313,14 +2313,15 @@
     $('swSkip').disabled = $('swLike').disabled = end;
     $('swUndo').disabled = !history_.length;
     // ‏P0-7: ‏phone_e164 שמור בלי '+', ו-tel:9725… מחייג בטלפון מספר מקומי שגוי
-    /* תומר 29.10 02:20: בנכס ביריד פונים דרך הטופס. רק הטופס נשמר כליד עם שעה, ובלי תיעוד כזה
-       אין דרך לדעת שהפנייה הגיעה בזמן היריד - ולכן בלי וואטסאפ וחיוג עד שיהיה יומן פניות ליריד */
-    var phone = adv && adv.phone && !(p && fairLive(p)) ? adv.phone.replace(/\D/g, '') : '';
+    // נכס ביריד: אותם כפתורים, והלחיצה נרשמת ב-data-fair-contact (fair-contact.js)
+    var phone = adv && adv.phone ? adv.phone.replace(/\D/g, '') : '';
     $('swCall').hidden = !phone; $('swWa').hidden = !phone;
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
       $('swWa').href = waHref(p, phone);
     }
+    markFairContact($('swCall'), 'call', phone ? p : null);
+    markFairContact($('swWa'), 'whatsapp', phone ? p : null);
     var liked_ = !!(p && likes.indexOf(p.id) >= 0);
     $('swLike').setAttribute('aria-pressed', String(liked_));
     // ‏§10 (תומר 31.10): השם הנגיש מכיל את המילה הגלויה (WCAG 2.5.3) - "שמירה" או "נשמר" לפי המצב; המצב גם ב-aria-pressed
@@ -2332,7 +2333,25 @@
     syncRail(c, adv, phone);
   }
   /* ‏Variant C: המסילה רק על כרטיס נכס. "יצירת קשר" בכל סוג מפרסם (גבריאלה 29.10 02:36): עם טלפון -
-     וואטסאפ או חיוג (‏BS.contact), בלי טלפון או בנכס ביריד - הטופס שבגיליון הפרטים */
+     וואטסאפ או חיוג (‏BS.contact), בלי טלפון - הטופס שבגיליון הפרטים.
+     בנכס ביריד הכפתורים נושאים data-fair-contact כדי שהלחיצה תירשם. */
+  function markFairContact(el, channel, p) {
+    if (!el) return;
+    if (p && fairLive(p) && p.id) {
+      el.setAttribute('data-fair-contact', channel);
+      el.setAttribute('data-fair-property', String(p.id));
+      el.setAttribute('data-fair-page', 'swipe');
+    } else {
+      el.removeAttribute('data-fair-contact');
+      el.removeAttribute('data-fair-property');
+      el.removeAttribute('data-fair-page');
+    }
+  }
+  function fairSheetAttr(channel) {
+    var c = cur(), p = c && c.p;
+    if (!p || !fairLive(p) || !p.id) return '';
+    return ' data-fair-contact="' + channel + '" data-fair-property="' + esc(p.id) + '" data-fair-page="swipe"';
+  }
   function syncRail(c, adv, phone) {
     var rail = $('swRail');
     rail.hidden = !(c && c.slot === 'property');
@@ -2575,7 +2594,7 @@
     if (c && c.p && fairLive(c.p)) return { form: true };
     return card && card.classList.contains('is-ba') && phoneC() ? { tab: 'viz', from: 'slide_cta' } : {};
   }
-  /* "פונים דרך הטופס עד שבת 31.10 בשעה 23:59 ולא משלמים עמלת תיווך" - הנוסח של גבריאלה (29.10 02:36), מחושב
+  /* "פונים דרך הטופס, בוואטסאפ או בחיוג עד שבת 31.10 בשעה 23:59 ולא משלמים עמלת תיווך", מחושב
      מסיום היריד של הנכס. הכול בשעון ישראל ולא בשעון הדפדפן: בדפדפן ב-UTC אותו סיום יצא "בשעה 21:59".
      השורה עצמה ב-assets/open-house.js (‏OpenHouse.formLine), אחת עם דף הנכס */
   function fairFormLine(p) { return window.OpenHouse && OpenHouse.formLine ? OpenHouse.formLine(p) : ''; }
@@ -3575,8 +3594,8 @@
     // ‏Variant C: "יצירת קשר" במסילה, כשיש מספר - וואטסאפ או חיוג
     contact: { art: '', title: 'איך נוח לכם?', sub: '', btns: [], body: function () {
       return '<div class="sw-bs-row">' +
-        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa">וואטסאפ</a>' +
-        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call">חיוג</a></div>';
+        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa"' + fairSheetAttr('whatsapp') + '>וואטסאפ</a>' +
+        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call"' + fairSheetAttr('call') + '>חיוג</a></div>';
     } },
     // §5b: חמש העצות של הקהל, ההסתייגות, והפנייה ליועץ הנדל״ן של הנכס
     advice: { art: '', title: 'קבלו עצה ממומחה', sub: '', btns: [], body: function (c) {
