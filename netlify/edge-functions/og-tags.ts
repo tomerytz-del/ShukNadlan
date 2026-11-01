@@ -1166,7 +1166,7 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
       sbFetch(`agency_ratings_public?agency_id=eq.${id}&select=score,review_count`),
       activeListingCount(String(a.id)),
       sbList(
-        `agency_members_public?agency_id=eq.${id}&select=${encodeURIComponent("id,slug,display_name,role,photo_url,photo_position,license_number,phone_e164")}`,
+        `agency_members_public?agency_id=eq.${id}&select=${encodeURIComponent("id,slug,display_name,role,photo_url,photo_position,license_number,has_ethics_badge,phone_e164")}`,
       ),
       sbList(
         `properties?agency_id=eq.${id}&status=eq.active&select=${encodeURIComponent("id,title,price,deal_type,property_type,rooms,size_sqm,floor,city,street,images")}&order=created_at.desc&limit=12`,

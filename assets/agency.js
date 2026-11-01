@@ -1237,11 +1237,19 @@ async function loadTeam(sb, agencyId){
     teamSec.style.display = 'block';
   }
   if (rail) {
-    rail.querySelectorAll('a.team-card .team-badge').forEach(slot => {
-      if (slot.querySelector('button') || !window.QualityBadge) return;
-      const name = (slot.parentElement.querySelector('.team-name') || {}).textContent || '';
+    team.forEach(a => {
+      if (!a.has_ethics_badge || !window.QualityBadge || !pub) return;
+      const card = [...rail.querySelectorAll('a.team-card')].find(el => el.getAttribute('href') === pub.agentHref(a));
+      if (!card) return;
+      let slot = card.querySelector('.team-badge');
+      if (!slot) {
+        slot = document.createElement('span');
+        slot.className = 'team-badge';
+        card.appendChild(slot);
+      }
+      if (slot.querySelector('button')) return;
       slot.textContent = '';
-      QualityBadge.mount(slot, { size:'sm', subject: name.trim() });
+      QualityBadge.mount(slot, { size:'sm', subject: (a.display_name || '').trim() });
     });
     initCarousel(rail, document.getElementById('teamPrev'),
                  document.getElementById('teamNext'), document.getElementById('teamDots'));
