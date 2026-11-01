@@ -9,10 +9,14 @@ import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
   canonicalCity,
+  citySearchArgs,
+  collapseCityNames,
   CATEGORIES,
   DEAL_TYPES,
+  applyGroupAreaHint,
   filterByArea,
   likeSafe,
+  neighborhoodCityScope,
   logBotSearch,
   logWordMisses,
   markSearchOutcome,
@@ -961,7 +965,7 @@ async function searchProperties(
   if (cityRaw) {
     const canon = await canonicalCity(ctx.supabase, cityRaw);
     cityId = canon?.id || null;
-    args = { ...args, city: canon?.name || cityRaw, city_raw: cityRaw, city_id: cityId };
+    args = { ...args, ...citySearchArgs(canon, cityRaw) };
   }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
@@ -1003,7 +1007,12 @@ async function searchProperties(
   if (!area) rows = rows.slice(0, limit);
   let areaHint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed, cityId });
+    const res = await filterByArea(ctx.supabase, rows, area, city, {
+      withHint: !args._relaxed,
+      cityId,
+      cityIds: Array.isArray(args.city_ids) ? args.city_ids.map((id) => String(id || "")) : [],
+      memberNames: Array.isArray(args.member_names) ? args.member_names.map((n) => String(n || "")) : [],
+    });
     rows = res.rows.slice(0, limit);
     areaHint = res.hint;
   }
@@ -1156,7 +1165,7 @@ async function searchProperties(
         "בלעדיהם. לומר זאת בקצרה (\"את X אין לי איך לסנן\"), ולא להציג את התוצאות " +
         "כאילו יש בהן אותו."
       : undefined,
-    ...areaHint,
+    ...applyGroupAreaHint(areaHint, args.city_group, area),
   };
 }
 
@@ -2013,15 +2022,19 @@ function consumeLeadSlot(conv: PublicConversationState): void {
   conv.leads_created += 1;
 }
 
-/** מזהה שכונה לפי שם ועיר. משפר את ההתאמה לסוכן/ת; null אינו שגיאה. */
+/** מזהה שכונה לפי שם ועיר. משפר את ההתאמה לסוכן/ת; null אינו שגיאה.
+ *  קבוצת יישובים: השכונה נשמרת אם היא באחד היישובים, לא רק בשם הקבוצה. */
 async function lookupNeighborhoodId(
   ctx: PublicContext,
   city: string | null,
   area: string | null,
 ): Promise<string | null> {
   if (!area) return null;
+  const canon = city ? await canonicalCity(ctx.supabase, city) : null;
+  const scope = neighborhoodCityScope(canon, city);
   let query = ctx.supabase.from("neighborhoods").select("id").ilike("name", likeSafe(area));
-  if (city) query = query.ilike("city", likeSafe(city));
+  if (scope && "cities" in scope) query = query.in("city", scope.cities);
+  else if (scope) query = query.ilike("city", likeSafe(scope.like));
   const { data } = await query.limit(1).maybeSingle();
   return data?.id ?? null;
 }
@@ -2087,7 +2100,7 @@ async function saveSearchAlert(
   // בחר/ה לכתוב ממנו, וההוראות מחייבות לומר בשיחה שבו נשתמש.
   const phone = text(args.phone) || ctx.waPhone;
 
-  const cities = strListArg(args.cities, 5);
+  const cities = await collapseCityNames(ctx.supabase, strListArg(args.cities, 5));
   const neighborhoodId = await lookupNeighborhoodId(
     ctx,
     cities[0] ?? null,
@@ -2232,12 +2245,13 @@ async function projectLead(
     ? args.rooms.map((r) => Number(r)).filter((r) => Number.isFinite(r) && r > 0).slice(0, 8)
     : [];
 
+  const projectCities = await collapseCityNames(ctx.supabase, strListArg(args.cities, 8));
   const { ok, status, body } = await callIntake("project-lead-intake", {
     full_name: fullName,
     phone: text(args.phone) || ctx.waPhone,
     email: text(args.email),
     project_slug: text(args.project_slug),
-    cities: strListArg(args.cities, 8),
+    cities: projectCities,
     rooms,
     max_price: args.max_price,
     timeline: text(args.timeline),

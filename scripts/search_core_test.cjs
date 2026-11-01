@@ -148,4 +148,47 @@ test('כתיב מלא וחסר: יו"ד וו"ו כפולות וה"א סופית 
   assert.strictEqual(SC.textHas('העמק 12', 'הרצל'), false);
 });
 
+const Sentence = require(path.join(__dirname, '..', 'assets', 'sentence-search.js'));
+const TAANACH = ['אביטל', 'אדירים', 'ברק', 'גדיש', 'דבורה', 'מלאה', 'מיטב', 'אומן', 'חבר', 'יעל', 'ניר יפה', 'פרזון'];
+const TAANACH_GROUPS = [{
+  name: 'חבל תענך',
+  aliases: ['תענכים', 'התענכים', 'חבל תענך', 'תענך', 'יישובי תענך', 'ישובי תענך', 'גוש תענך', 'אזור תענך'],
+  member_names: TAANACH,
+}];
+function taanachCities(q, ptype) {
+  const props = TAANACH.map((city, i) => ({
+    id: 't' + i, category: 'residential', city, deal_type: 'sale', property_type: ptype,
+    rooms: 4, price: 1500000, lat: 32.6, lng: 35.29,
+  }));
+  [1, 2, 3].forEach(n => props.push({
+    id: 'af' + n, category: 'residential', city: 'עפולה', deal_type: 'sale', property_type: ptype,
+    rooms: 4, price: 1500000, lat: 32.6, lng: 35.29,
+  }));
+  const areas = Sentence.deriveAreas(props, [], TAANACH_GROUPS);
+  const ctx = { areaIndex: areas.index };
+  const hit = SC.findAreas(q, areas.index);
+  assert.strictEqual(hit.targets.length, q === 'אומן' ? 1 : 12, q);
+  const parsed = Sentence.compileQuery(q, Sentence.defaultState(), areas, props, ctx, []);
+  const st = Sentence.applyPatch(Sentence.defaultState(), parsed.patch);
+  const rows = Sentence.filter(props, st, ctx);
+  return { cities: [...new Set(rows.map(p => p.city))].sort(), n: rows.length };
+}
+test('חבל תענך בליבה: תענכים, התענכים, דירה בחבל תענך ובית בתענך הם 12 היישובים בלי עפולה', () => {
+  const want = TAANACH.slice().sort();
+  [['תענכים', 'דירה'], ['התענכים', 'דירה'], ['דירה בחבל תענך', 'דירה']].forEach(([q, ptype]) => {
+    const got = taanachCities(q, ptype);
+    assert.deepStrictEqual(got.cities, want, q);
+    assert.strictEqual(got.n, 12, q);
+    assert.ok(!got.cities.includes('עפולה'), q);
+  });
+  const house = taanachCities('בית בתענך', "בית פרטי/קוטג'");
+  assert.deepStrictEqual(house.cities, want);
+  assert.strictEqual(house.n, 12);
+});
+test('אומן לבד בליבה הוא רק אומן', () => {
+  const got = taanachCities('אומן', 'דירה');
+  assert.deepStrictEqual(got.cities, ['אומן']);
+  assert.strictEqual(got.n, 1);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

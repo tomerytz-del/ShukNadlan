@@ -200,5 +200,6 @@ export default async function handler(request: Request, context: Context) {
 }
 
 export const config: Config = {
-  path: ["/n/*", "/neighborhood", "/neighborhood.html"],
+  /* ‏/n בלי עיר ושכונה אינו /n/* ב-Netlify, והיה יוצא 200 עם H1 "שכונה". */
+  path: ["/n", "/n/", "/n/*", "/neighborhood", "/neighborhood.html"],
 };

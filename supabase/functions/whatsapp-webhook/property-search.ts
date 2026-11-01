@@ -46,14 +46,60 @@ export function likeSafe(value: string): string {
 export interface ResolvedCity {
   /** מה שהוקלד. לא מוחלף בשם קנוני, כדי לא לנתק השוואת טקסט. */
   raw: string;
-  /** השם ברישום, אם יש. */
+  /** השם ברישום, או שם הקבוצה (חבל תענך) כשיש יותר מעיר אחת. */
   name: string;
+  /** מזהה יחיד. ריק לקבוצת יישובים, כדי שלא יישמר כעיר אחת. */
   id: string | null;
+  /** מזהה אחד לעיר, או כל חברי הקבוצה. */
+  ids: string[];
+  /** שמות היישובים כשהתוצאה היא קבוצה. */
+  memberNames: string[];
+  /** true כש-city_ids_for_name החזיר יותר ממזהה אחד. */
+  group: boolean;
+}
+
+const CITY_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function asUuidList(data: unknown): string[] {
+  if (Array.isArray(data)) {
+    return data.map((x) => String(x || "")).filter((s) => CITY_ID_RE.test(s));
+  }
+  if (typeof data === "string" && CITY_ID_RE.test(data)) return [data];
+  if (typeof data === "string" && data.startsWith("{")) {
+    const inner = data.slice(1, -1).trim();
+    if (!inner) return [];
+    return inner.split(",").map((s) => s.replace(/"/g, "").trim()).filter((s) => CITY_ID_RE.test(s));
+  }
+  return [];
+}
+
+function asTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((x) => String(x || "").trim()).filter(Boolean);
+}
+
+function looseName(value: string): string {
+  return value.replace(/[־–—-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** city_id_for_name, כש-city_ids_for_name עוד לא עלתה. */
+async function canonicalCityLegacy(
+  supabase: SupabaseClient,
+  raw: string,
+): Promise<ResolvedCity> {
+  const { data, error } = await supabase.rpc("city_id_for_name", { p_name: raw });
+  if (error || !data) return { raw, name: raw, id: null, ids: [], memberNames: [], group: false };
+  const id = String(data);
+  const { data: city, error: cityErr } = await supabase.from("cities").select("name").eq("id", id).maybeSingle();
+  const cityName = !cityErr && city?.name ? String(city.name) : raw;
+  return { raw, name: cityName, id, ids: [id], memberNames: [cityName], group: false };
 }
 
 /**
- * עיר דרך city_id_for_name (שם, ואז city_aliases). בלי התאמה נשאר מה
- * שהוקלד, והמזהה ריק, כדי שהסינון לא ייעלם. כשל של ה-RPC משאיר את המקור.
+ * עיר או קבוצת יישובים דרך city_ids_for_name. עיר אחת נשארת כמו
+ * city_id_for_name. יותר ממזהה אחד הוא קבוצה: השם שנשמר הוא שם האזור
+ * (חבל תענך), לא רשימת היישובים. בלי התאמה נשאר מה שהוקלד והמזהה ריק,
+ * כדי שהסינון לא ייעלם.
  */
 export async function canonicalCity(
   supabase: SupabaseClient,
@@ -61,12 +107,102 @@ export async function canonicalCity(
 ): Promise<ResolvedCity | null> {
   const raw = text(name);
   if (!raw) return null;
-  const { data, error } = await supabase.rpc("city_id_for_name", { p_name: raw });
-  if (error || !data) return { raw, name: raw, id: null };
-  const id = String(data);
-  const { data: city, error: cityErr } = await supabase.from("cities").select("name").eq("id", id).maybeSingle();
-  if (cityErr || !city?.name) return { raw, name: raw, id };
-  return { raw, name: String(city.name), id };
+  const { data, error } = await supabase.rpc("city_ids_for_name", { p_name: raw });
+  // הפונקציה עולה דקות אחרי הקוד. עד אז city_id_for_name, שכבר בפרודקשן.
+  if (error) return canonicalCityLegacy(supabase, raw);
+  const ids = asUuidList(data);
+  if (ids.length === 0) {
+    return { raw, name: raw, id: null, ids: [], memberNames: [], group: false };
+  }
+  if (ids.length === 1) {
+    const id = ids[0];
+    const { data: city, error: cityErr } = await supabase.from("cities").select("name").eq("id", id).maybeSingle();
+    const cityName = !cityErr && city?.name ? String(city.name) : raw;
+    return { raw, name: cityName, id, ids, memberNames: [cityName], group: false };
+  }
+  const { data: groups, error: groupErr } = await supabase.rpc("city_groups_public");
+  const needle = looseName(raw);
+  let groupName = raw;
+  let memberNames: string[] = [];
+  if (!groupErr && Array.isArray(groups)) {
+    for (const row of groups) {
+      const g = row as { name?: string; aliases?: unknown; member_names?: unknown };
+      const aliases = asTextList(g.aliases);
+      const names = [String(g.name || ""), ...aliases].map(looseName).filter(Boolean);
+      if (!names.includes(needle)) continue;
+      groupName = String(g.name || raw);
+      memberNames = asTextList(g.member_names);
+      break;
+    }
+  }
+  if (memberNames.length !== ids.length) {
+    const { data: cities, error: citiesErr } = await supabase.from("cities").select("name").in("id", ids);
+    if (!citiesErr && cities?.length) memberNames = cities.map((c) => String(c.name || "")).filter(Boolean);
+  }
+  return { raw, name: groupName, id: null, ids, memberNames, group: true };
+}
+
+/** שם אחד לכרטיס. קבוצה נשמרת כשם האזור, בלי להתרחב ליישובים. */
+export async function collapseCityNames(
+  supabase: SupabaseClient,
+  names: readonly string[],
+): Promise<string[]> {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of names) {
+    const canon = await canonicalCity(supabase, raw);
+    if (!canon) continue;
+    const key = canon.group ? `g:${canon.name}` : (canon.id || canon.raw);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const stored = canon.group ? canon.name : (canon.raw || canon.name);
+    if (stored && !out.includes(stored)) out.push(stored);
+  }
+  return out;
+}
+
+/** שדות החיפוש אחרי הפענוח. קבוצה נקראת בשם האזור. */
+export function citySearchArgs(canon: ResolvedCity | null, raw: string): Record<string, unknown> {
+  if (!canon) return { city: raw, city_raw: raw, city_id: null, city_ids: [], member_names: [], city_group: null };
+  return {
+    city: canon.name,
+    city_raw: canon.raw,
+    city_id: canon.id,
+    city_ids: canon.ids,
+    member_names: canon.memberNames,
+    city_group: canon.group ? canon.name : null,
+  };
+}
+
+export function groupAreaNote(name: string | null | undefined): string | null {
+  const area = text(name);
+  if (!area) return null;
+  return `החיפוש הוא באזור ${area}. לנקוב בשם האזור, לא ברשימת היישובים.`;
+}
+
+/** שכונה בתוך קבוצה נשמרת לפי שמות היישובים, לא לפי שם הקבוצה. */
+export function neighborhoodCityScope(
+  canon: { group?: boolean; memberNames?: readonly string[]; name?: string } | null,
+  raw: string | null,
+): { cities: string[] } | { like: string } | null {
+  if (canon?.group && canon.memberNames && canon.memberNames.length) {
+    return { cities: canon.memberNames.filter(Boolean) };
+  }
+  const name = (canon?.name || raw || "").trim();
+  return name ? { like: name } : null;
+}
+
+export function applyGroupAreaHint(
+  hint: Record<string, unknown>,
+  groupName: unknown,
+  areaAsked?: string | null,
+): Record<string, unknown> {
+  if (typeof groupName !== "string" || !groupName.trim()) return hint;
+  if ((areaAsked && areaAsked.trim()) || hint.area_name || hint.area_note || hint.area_not_recognized) {
+    return hint;
+  }
+  const note = groupAreaNote(groupName);
+  return { ...hint, area_name: groupName, ...(note ? { area_note: note } : {}) };
 }
 
 export async function canonicalCityName(
@@ -77,17 +213,27 @@ export async function canonicalCityName(
   return city ? city.name : null;
 }
 
-const CITY_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
- * התאמת עיר ב-PostgREST: city_id, ואז כתיב שהוקלד, ואז השם הקנוני.
- * "קריית מלאכי" ו-"קרית מלאכי" נפגשים ב-city_id ולא בהשוואת מחרוזת.
+ * התאמת עיר ב-PostgREST. עיר אחת: city_id, ואז כתיב שהוקלד, ואז השם
+ * הקנוני. קבוצה (יותר ממזהה אחד): city_id.in עם כל החברים, וגם תבנית
+ * שם לכל יישוב. "קריית מלאכי" ו-"קרית מלאכי" נפגשים ב-city_id.
  */
 export function cityMatchGroup(
   raw: string | null | undefined,
   canonicalName: string | null | undefined,
   cityId: string | null | undefined,
+  ids?: readonly string[] | null,
+  memberNames?: readonly string[] | null,
 ): string[] {
+  const many = (ids || []).filter((id) => CITY_ID_RE.test(id));
+  if (many.length > 1) {
+    const parts = [`city_id.in.(${many.join(",")})`];
+    for (const name of memberNames || []) {
+      const pat = cityPattern(name);
+      if (pat && !parts.includes(pat)) parts.push(pat);
+    }
+    return parts;
+  }
   const parts: string[] = [];
   if (cityId && CITY_ID_RE.test(cityId)) parts.push(`city_id.eq.${cityId}`);
   for (const name of [raw, canonicalName]) {
@@ -180,7 +326,15 @@ export function applyPropertyFilters(
   if (category && CATEGORIES.includes(category)) query = query.eq("category", category);
 
   const city = text(args.city);
-  const cityGroup = cityMatchGroup(text(args.city_raw) || city, city, text(args.city_id));
+  const cityIds = Array.isArray(args.city_ids) ? args.city_ids.map((id) => String(id || "")) : [];
+  const memberNames = Array.isArray(args.member_names) ? args.member_names.map((n) => String(n || "")) : [];
+  const cityGroup = cityMatchGroup(
+    text(args.city_raw) || city,
+    city,
+    text(args.city_id),
+    cityIds,
+    memberNames,
+  );
   if (cityGroup.length) groups.push(cityGroup);
   if (Array.isArray(args.cities)) {
     const pats = args.cities.map((c) => text(c)).filter((c): c is string => !!c)
@@ -359,14 +513,14 @@ export async function filterByArea<T>(
   rows: T[],
   area: string,
   city: string | null,
-  opts: { withHint: boolean; cityId?: string | null },
+  opts: { withHint: boolean; cityId?: string | null; cityIds?: readonly string[] | null; memberNames?: readonly string[] | null },
 ): Promise<{ rows: T[]; hint: Record<string, unknown> }> {
   if (!SearchCore.areaKey(area)) return { rows: [], hint: {} };
 
   // deno-lint-ignore no-explicit-any
   const cities = [...new Set(rows.map((p) => String((p as any).city || "")).filter(Boolean))].slice(0, 30);
   let hq = supabase.from("neighborhoods").select("id, name, city");
-  const hoodCity = cityMatchGroup(city, city, opts.cityId);
+  const hoodCity = cityMatchGroup(city, city, opts.cityId, opts.cityIds, opts.memberNames);
   if (hoodCity.length) hq = hq.or(hoodCity.join(","));
   else if (cities.length) hq = hq.in("city", cities);
   const [{ data: hoods }, { data: aliases }] = await Promise.all([

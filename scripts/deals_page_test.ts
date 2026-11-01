@@ -87,6 +87,7 @@ check("נתוני המיון מוטמעים", /<script type="application\/json" 
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
 check("נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=_");
 
 /* יישוב, המסד נכשל, ואין עותק קודם */
 resetLastGood();
@@ -154,14 +155,69 @@ res = await run("https://shuknadlan.co.il/deals/%3Cx%3E", 200, AFULA);
 html = await res.text();
 check("‏slug פסול: 404, noindex, וה-canonical לא נגע", res.status === 404 && html.includes("noindex") && html.includes('href="https://shuknadlan.co.il/deals"'));
 
-/* אינדקס */
-html = await (await run("https://shuknadlan.co.il/deals", 200, [
+/* אינדקס: רק יישוב שמותר לאנדקס. השאר בלי קישור. */
+const INDEX = [
   { name: "עפולה", slug: "afula", deals: 1568, newest: "2026-08-31" },
-  { name: "מגדל העמק", slug: "migdal-haemek", deals: 0, newest: null },
-])).text();
-check("אינדקס: קישורים", html.includes('href="/deals/afula"') && html.includes('href="/deals/migdal-haemek"'));
+  { name: "מגדל העמק", slug: "migdal-haemek", deals: 400, newest: "2026-08-31" },
+  { name: "כפר קטן", slug: "kfar-katan", deals: 2, newest: "2026-01-01" },
+];
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 200, body: [
+    { city: "עפולה", city_id: "c1" },
+    { city: "מגדל העמק", city_id: "m1" },
+  ] };
+  if (target.includes("market_cities_public")) return { status: 200, body: [
+    { city_id: "c1", market_slug: "afula-emek" },
+    { city_id: "m1", market_slug: "nof-hagalil-migdal" },
+  ] };
+  if (target.includes("deal_settlement_page")) return { status: 200, body: { ...AFULA, deals: 812 } };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("אינדקס: רק יישוב לאינדקס", html.includes('href="/deals/afula"')
+  && !html.includes('href="/deals/migdal-haemek"')
+  && !html.includes("kfar-katan")
+  && !html.includes('href="/deals/abn-shmval"'));
 check("אינדקס: canonical נשאר /deals", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/deals">'));
 check("אינדקס: ‏BreadcrumbList", ldOf(html)?.["@graph"]?.[0]?.["@type"] === "BreadcrumbList");
+check("אינדקס מוצלח: מטמון CDN", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+check("אינדקס: Netlify-Vary במפתח דמה", res.headers.get("Netlify-Vary") === "query=_");
+
+/* כשל בסינון: לא מציגים יישוב לא מאומת. יש עותק - הוא יוצא, והכשל לא נשמר. */
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 500, body: {} };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("אינדקס בכשל מודעות: העותק הקודם, בלי מגדל העמק",
+  html.includes('href="/deals/afula"') && !html.includes('href="/deals/migdal-haemek"') && !html.includes("kfar-katan"));
+check("עותק אינדקס: no-store, לא שעה", res.headers.get("Cache-Control") === "no-store"
+  && res.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+  && !(res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+
+resetLastGood();
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 500, body: {} };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("בלי עותק: אין קישור לא מאומת", !html.includes('href="/deals/') && res.status === 200);
+check("בלי עותק: no-store", res.headers.get("Cache-Control") === "no-store"
+  && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+
+res = await runRouted("https://shuknadlan.co.il/deals", (target) => {
+  if (target.includes("deal_settlements_public")) return { status: 200, body: INDEX };
+  if (target.includes("/properties?")) return { status: 200, body: [{ city: "עפולה", city_id: "c1" }] };
+  if (target.includes("market_cities_public")) return { status: 200, body: [{ city_id: "c1", market_slug: "afula-emek" }] };
+  if (target.includes("deal_settlement_page")) return { status: 500, body: {} };
+  return { status: 500, body: {} };
+});
+html = await res.text();
+check("חלון עסקאות שנכשל: אין קישור, ולא נשמר", !html.includes('href="/deals/afula"')
+  && res.headers.get("Cache-Control") === "no-store");
 
 /* אינדקס, המסד נכשל - לא מפרסמים 200 בלי הרשימה, כשאין עותק */
 resetLastGood();
@@ -183,6 +239,8 @@ const staleDeal = await run("https://shuknadlan.co.il/deals/afula", 500, { messa
 const staleDealHtml = await staleDeal.text();
 check("אחרי הצלחה, כשל מגיש את אותו דף", staleDeal.status === 200 && staleDealHtml === goodDealHtml && staleDealHtml.includes("data-ssr"));
 check("העותק בלי Retry-After", !staleDeal.headers.get("Retry-After") && !staleDealHtml.includes("noindex"));
+check("עותק יישוב: no-store בשתי הכותרות", staleDeal.headers.get("Cache-Control") === "no-store"
+  && staleDeal.headers.get("Netlify-CDN-Cache-Control") === "no-store");
 
 /* פרטיות: אין מספר בית ואין גוש/חלקה בשום מקום ב-render */
 const D = (globalThis as any).ShukDeals;

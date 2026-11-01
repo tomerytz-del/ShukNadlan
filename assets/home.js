@@ -4454,10 +4454,11 @@ let hoodShapes = [];
    הוא נטען רק לשכונה שנבחרה, ב-drawHoodShapes. */
 // ‏neighborhood_aliases של השוק - נטענים עם השכונות ועוברים לחיפוש במשפט
 let hoodAliases = [];
+let cityGroups = [];
 async function loadNeighborhoods(){
   if (!sb) return [];
   try{
-    const [{ data, error }, spec, aliasRes] = await Promise.all([
+  const [{ data, error }, spec, aliasRes, groupRes] = await Promise.all([
       sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned'),
       marketFilterSpec(),
       /* הכינויים ("סי 1", "גבעה", "מרכז") - אותה טבלה שהבוטים קוראים, כדי
@@ -4465,6 +4466,9 @@ async function loadNeighborhoods(){
          כשל כאן אינו מפיל את השכונות: בלי כינויים, רק השמות עצמם. */
       sb.from('neighborhood_aliases').select('neighborhood_id, alias')
         .then(r => r, () => ({ data: [] })),
+      /* קבוצות יישובים (חבל תענך). בלי הפונקציה, לפני המיגרציה, החיפוש
+         נשאר על שמות הערים עצמן. */
+      sb.rpc('city_groups_public').then(r => r, () => ({ data: [] })),
     ]);
     if (error) throw error;
     // ‏השכונות של השוק בלבד - אותו כלל של הנכסים (MARKET_FILTER), על city_id
@@ -4472,6 +4476,7 @@ async function loadNeighborhoods(){
     const rows = (data || []).filter(n => inMarket(spec, n.city_id));
     const ids = new Set(rows.map(n => n.id));
     hoodAliases = ((aliasRes && aliasRes.data) || []).filter(a => ids.has(a.neighborhood_id));
+    cityGroups = (groupRes && !groupRes.error && groupRes.data) || [];
     return rows;
   } catch(e){
     console.warn('טעינת השכונות נכשלה, ממשיכים בלי גלולות השכונה:', e);
@@ -4781,7 +4786,7 @@ try {
     renderHomeProps(properties);
 
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
-    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases });
+    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases, groups: cityGroups });
     else if (!searchHasRun) renderPropertyGrid(properties);
     renderQuickSearch(properties);
     v10DefaultSale();
@@ -8295,25 +8300,138 @@ function v10FillInvite(el, results){
     if (pics[i]) { if (img.getAttribute('src') !== pics[i]) img.src = pics[i]; img.hidden = false; } else img.hidden = true;
   });
 }
-/* ‏C8 (ג): ארבע התמונות מתחלפות בערימה כל 4 שניות כשהכרטיס על המסך; ‏reduced-motion - סטטי */
+/* ‏swipe-all §2 (1.11.2026, תומר 02:08): החלקה אמיתית בכרטיס ההזמנה, במקום ההחלפה כל 4 שניות.
+   רצף אחד של כ-1.2 שניות, כל 3.5 שניות, רק כשהכרטיס על המסך (ה-IntersectionObserver שב-v10InviteCard):
+     1. גרירה (12px, ‏250ms) ואז עפיפה לאותו כיוון (‏±140%, ‏450ms) - כאילו אצבע.
+     2. ימינה ושמאלה לסירוגין, ימינה קודם. ימינה = שמירה, כמו ב-swipe.js: הלב (‏.psi-save, הראשון בשורה
+        ולכן בצד ימין ב-RTL) מתנפח, ולב קטן קופץ מעל התמונה; שמאלה - ה-X באדום.
+     3. הערימה מתקדמת בקפיצה רכה (המעבר של ‎.psi-stack img‎), והתמונה שעפה חוזרת לתחתית ב-fade -
+        בלי רגע ריק. ההחלפה (סט התמונות) רק אחרי שהתמונה הבאה נטענה, ו-swipeThumbClash נשמר.
+     4. בהחלקה הראשונה בכל ביקור - אצבע שזזה עם הגרירה (‏sk_invite_hand בסשן).
+     5. פעם בביקור, כשהכרטיס נכנס למסך - פס אור על "להתחיל להחליק", ורק אחריו ההחלקה הראשונה.
+   ‏setTimeout ו-Web Animations עם finished, לא setInterval - לשונית שחוזרת מרקע לא צוברת אנימציות.
+   רק transform ו-opacity. ‏reduced-motion - ערימה סטטית, בלי אצבע ובלי פס אור. גם ב-psi-ai-off
+   (תמונות הנכסים): אותה תנועה, בלי החלפת תמונה */
+const INVITE_HAND_SVG = '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="#fff" stroke="#0d1b3d" stroke-width="1.1" stroke-linejoin="round" d="M9 11.5V5a1.6 1.6 0 0 1 3.2 0v5h.3V8.6a1.6 1.6 0 0 1 3.2 0V10h.3v-.4a1.6 1.6 0 0 1 3.2 0v5.2A6.2 6.2 0 0 1 13 21h-.8a6.2 6.2 0 0 1-4.8-2.3l-3-3.7a1.6 1.6 0 0 1 2.4-2.1L9 15z"/></svg>';
+const INVITE_BURST = {
+  save: '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>',
+  skip: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+};
 function v10InviteRotate(a){
-  if (!SWIPE_THUMBS_READY || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  let timer = 0;
-  const stack = a.querySelector('.psi-stack');
-  a._rotate = on => {
-    clearInterval(timer); timer = 0;
-    if (!on || a.classList.contains('psi-ai-off')) return;
-    timer = setInterval(() => {
-      const top = stack.lastElementChild;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const stack = a.querySelector('.psi-stack'), deck = a.querySelector('.psi-deck');
+  if (!stack || !deck || !stack.animate) return;
+  const ssGet = k => { try { return sessionStorage.getItem(k); } catch(e){ return '1'; } };
+  const ssSet = k => { try { sessionStorage.setItem(k, '1'); } catch(e){ /* מצב פרטי */ } };
+  let timer = 0, on = false, busy = false, dir = 1, sheening = false, retry = false;
+  const schedule = ms => { clearTimeout(timer); timer = on && !document.hidden ? setTimeout(cycle, ms) : 0; };
+  // הלב או ה-X בצד מתנפחים (‏.is-pop, ‏CSS), ולב קטן או X קופצים מעל התמונה
+  function pop(d){
+    const side = a.querySelector(d > 0 ? '.psi-save i' : '.psi-skip i');
+    if (side){ side.classList.remove('is-pop'); void side.offsetWidth; side.classList.add('is-pop'); setTimeout(() => side.classList.remove('is-pop'), 800); }
+    const b = document.createElement('span');
+    b.className = 'psi-burst ' + (d > 0 ? 'is-save' : 'is-skip');
+    b.innerHTML = INVITE_BURST[d > 0 ? 'save' : 'skip'];
+    deck.appendChild(b);
+    b.animate([
+      { opacity: 0, transform: 'translate(-50%,-50%) scale(.4)' },
+      { opacity: 1, transform: 'translate(-50%,-85%) scale(1.15)', offset: .35 },
+      { opacity: 0, transform: 'translate(-50%,-125%) scale(1)' },
+    ], { duration: 650, easing: 'ease-out' }).finished.then(() => b.remove(), () => b.remove());
+  }
+  /* ‏swipe-1117-fix: שרשרת טיימרים אחת בלבד - כל קביעה עוברת ב-schedule, שמנקה את הקודמת. ומחזור שמגיע
+     באמצע החלקה (לשונית שחזרה, גלילה חזרה, תמונה שנטענת יותר מ-3.5 שניות) לא נוטש את השרשרת - הבא
+     נקבע כשההחלקה נגמרת, 1.8 שניות אחריה (בלי שתי החלקות צמודות). קודם הוא חזר בלי לקבוע את הבא,
+     וההחלקה נעצרה עד סוף הביקור */
+  function cycle(){
+    timer = 0;
+    if (!on || document.hidden || a.hidden) return;   // ‏_rotate וה-visibilitychange מתחילים שוב
+    // באמצע החלקה (או בטעינת התמונה הבאה) - המחזור הבא נקבע כשהיא נגמרת (‏finally), עם רווח
+    // ‏10 שניות - רשת ביטחון אם התמונה הבאה לא נטענת ולא נכשלת; ‏finally מחליף אותה
+    if (busy){ retry = true; schedule(10000); return; }
+    const top = stack.lastElementChild;
+    if (!top || top.hidden){ schedule(3500); return; }
+    schedule(3500);
+    const ai = SWIPE_THUMBS_READY && !a.classList.contains('psi-ai-off');
+    /* ‏C7: אותה תמונה לא עולה למעלה גם כאן וגם בכפתור שבסרגל. קודם המחזור פשוט דילג - אבל הכפתור נעצר
+       אחרי 6 החלקות, ואז הדילוג חזר בכל מחזור עד סוף הביקור (‏swipe-1117-fix). עכשיו שתי התמונות שמתחת
+       מחליפות מקום, והבאה בתור היא אחרת */
+    if (ai && swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) {
+      stack.insertBefore(stack.children[stack.children.length - 2], stack.firstElementChild);
       if (swipeThumbClash(stack, '#allProps .ppv-stack img:last-child')) return;
-      const n = swipeThumbMissing(stack), pre = new Image();
-      // ההחלפה רק אחרי שהתמונה הבאה נטענה
-      pre.onload = () => {
-        top.classList.add('is-out');
-        setTimeout(() => { top.classList.remove('is-out'); top.dataset.n = n; top.src = pre.src; stack.prepend(top); }, 450);
-      };
-      pre.src = swipeThumb(n, true);
-    }, 4000);
+    }
+    busy = true;
+    if (!ai){ run(top, '', ''); return; }
+    const n = swipeThumbMissing(stack), pre = new Image();
+    pre.onload = () => run(top, pre.src, n);
+    pre.onerror = () => { busy = false; if (retry){ retry = false; schedule(1800); } };
+    pre.src = swipeThumb(n, true);
+  }
+  function run(top, src, n){
+    const d = dir; dir = -dir;
+    const grab = 'translateX(' + 12 * d + 'px) rotate(' + 5 * d + 'deg)';
+    let hand = null;
+    if (!ssGet('sk_invite_hand')){
+      ssSet('sk_invite_hand');
+      hand = document.createElement('span');
+      hand.className = 'psi-hand';
+      hand.innerHTML = INVITE_HAND_SVG;
+      deck.appendChild(hand);
+      hand.animate([{ opacity: 0, transform: 'translate(-50%,0)' }, { opacity: 1, transform: 'translate(-50%,0)' }], { duration: 200, fill: 'forwards' });
+    }
+    // האצבע מופיעה קודם (‏200ms), ורק אז הגרירה - שתיהן באותו מסלול
+    const wait = hand ? 250 : 0;
+    const handTo = (px, op, ms, ease, delay) => hand && hand.animate([{ transform: 'translate(calc(-50% + ' + px + 'px),0)', opacity: op }], { duration: ms, easing: ease, fill: 'forwards', delay: delay || 0 });
+    const drag = top.animate([{ transform: 'none' }, { transform: grab }], { duration: 250, easing: 'ease-out', fill: 'forwards', delay: wait });
+    handTo(12 * d, 1, 250, 'ease-out', wait);
+    let fling = null;
+    drag.finished.then(() => {
+      // לתחתית הערימה עוד לפני העפיפה: השתיים האחרות קופצות קדימה (המעבר של ה-CSS) בזמן שהיא עפה
+      top.style.zIndex = '3';
+      stack.prepend(top);
+      pop(d);
+      handTo(60 * d, 0, 450, 'ease-in');
+      fling = top.animate([
+        { transform: grab, opacity: 1 },
+        { transform: 'translateX(' + 140 * d + '%) rotate(' + 18 * d + 'deg)', opacity: 0 },
+      ], { duration: 450, easing: 'ease-in', fill: 'forwards' });
+      return fling.finished;
+    }).then(() => {
+      // בתחתית, מוסתרת, עם התמונה הבאה - ואז fade במקום החדש
+      top.style.transition = 'none';
+      top.style.opacity = '0';
+      // ‏swipe-1117-fix: אחרי מעבר לתמונות הנכסים (‏psi-ai-off) תמונה מהסט שכבר הייתה בדרך לא חוזרת
+      if (src && !a.classList.contains('psi-ai-off')){ top.dataset.n = n; top.src = src; }
+      drag.cancel(); fling.cancel();
+      void top.offsetWidth;
+      top.style.transition = ''; top.style.zIndex = ''; top.style.opacity = '';
+      top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'ease-out' });
+    }).catch(() => {
+      top.style.zIndex = ''; top.style.opacity = ''; top.style.transition = '';
+      drag.cancel(); if (fling) fling.cancel();
+    }).finally(() => {
+      busy = false;
+      if (hand) hand.remove();
+      if (retry){ retry = false; schedule(1800); }
+    });
+  }
+  // ‏§2.5: פס האור על "להתחיל להחליק" - פעם בביקור, כשהכרטיס נכנס למסך, ורק אחריו ההחלקה הראשונה
+  function sheen(then){
+    const btn = a.querySelector('.psi-btn');
+    if (!btn || ssGet('sk_invite_sheen')){ then(); return; }
+    ssSet('sk_invite_sheen');
+    sheening = true;
+    btn.classList.add('is-sheen');
+    const end = () => { if (!sheening) return; sheening = false; btn.classList.remove('is-sheen'); then(); };
+    btn.addEventListener('animationend', end, { once: true });
+    setTimeout(end, 1400);
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(timer); timer = 0; } else if (on && !timer && !sheening) schedule(800); });
+  a._rotate = vis => {
+    if (vis === on) return;
+    on = vis;
+    if (!on){ clearTimeout(timer); timer = 0; return; }
+    if (!sheening) sheen(() => schedule(600));
   };
 }
 function v10InviteCard(){
@@ -8339,8 +8457,7 @@ function v10InviteCard(){
   if (SWIPE_THUMBS_READY) a.querySelectorAll('.psi-stack img').forEach(img => img.addEventListener('error', () => {
     // תמונה מהסט שלא נטענה - חוזרים לתמונות הנכסים, כמו לפני A2-6
     if (a.classList.contains('psi-ai-off')) return;
-    a.classList.add('psi-ai-off');
-    a._rotate && a._rotate(false);
+    a.classList.add('psi-ai-off');   // ההחלקה ממשיכה, עם תמונות הנכסים (‏swipe-all §2)
     v10FillInvite(a);
   }, { once:true }));
   v10InviteRotate(a);
@@ -8378,7 +8495,12 @@ document.addEventListener('click', e => {
   const b = document.querySelector('.v10-view.is-swipe');
   if (!b || !v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   try { if (localStorage.getItem('sk_swipe_btn_shimmer')) return; localStorage.setItem('sk_swipe_btn_shimmer', '1'); } catch(e){ return; }
+  /* ‏swipe-all §1: אנימציה אחת בכל רגע - ההחלקה באייקון (‏swipeNudge) מחכה ל-is-shimmering */
+  b.classList.add('is-shimmering');
+  const end = () => { b.classList.remove('is-shimmering'); b.dispatchEvent(new Event('shimmerdone')); };
+  b.addEventListener('animationend', e => { if (e.animationName === 'v10Shim') end(); });
   setTimeout(() => b.classList.add('is-shimmer'), 1200);
+  setTimeout(() => { if (b.classList.contains('is-shimmering')) end(); }, 3000);   // בלי animationend (לשונית ברקע)
 })();
 
 /* כרטיס גבריאלה וה-hero: החלונית הצפה (‏GabWidget), ואם העוזרת כבויה - אותו
@@ -9122,23 +9244,26 @@ document.addEventListener('click', e => {
 /* הלב בכותרת (‏#hdrLikes, ‏[data-likes-open]): המונה, ההסתרה והפתיחה - ב-assets/likes-bubble.js,
    אותו קוד של דף הנכס. אין כפתור צף (תומר 31.10). */
 
-/* ---------- ‏P1-S: נענוע לאייקון "גלישה בהחלקה" ----------
-   כל 5 שניות, 6 פעמים, רק כשהכפתור על המסך. יציאה מהמסך עוצרת אותו לסשן; מי שכבר
-   נכנס/ה ל-/swipe (‏sk_swipe_used) לא רואה אותו יותר. רק transform - בלי CLS */
+/* ---------- ‏P1-S, ‏swipe-all §1 (1.11.2026): החלקה באייקון "גלישה בהחלקה" ----------
+   שלוש פעמים, שנייה אחרי שהכפתור על המסך (ה-CSS), פעם בכל ביקור (‏sk_swipe_nudge_done בסשן).
+   כבר לא נעלם לצמיתות למי שנכנס/ה ל-/swipe (‏sk_swipe_used) - זה הסתיר אותו בדיוק ממי שחוזר/ת.
+   יציאה מהמסך עוצרת אותו לסשן; הנצנוץ של הכפתור (פעם במכשיר) רץ קודם. רק transform - בלי CLS */
 (function swipeNudge(){
   if (!v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
   try {
-    if (localStorage.getItem('sk_swipe_used') || sessionStorage.getItem('sk_swipe_nudge_done')) return;
+    if (sessionStorage.getItem('sk_swipe_nudge_done')) return;
   } catch(e){ return; }
   const done = () => { try { sessionStorage.setItem('sk_swipe_nudge_done', '1'); } catch(e){ /* מצב פרטי */ } };
   function arm(el){
     if (!el) return;
-    let started = false, left = false;
+    let started = false, left = false, seen = false;
+    const go = () => { if (!left && seen && !el.classList.contains('is-shimmering')){ started = true; el.classList.add('is-nudge'); } };
+    el.addEventListener('shimmerdone', go);
     new IntersectionObserver((es, io) => es.forEach(en => {
-      if (en.isIntersecting && !left){ started = true; el.classList.add('is-nudge'); }
+      if (en.isIntersecting && !left){ seen = true; go(); }
       else if (started && !en.isIntersecting){ left = true; el.classList.remove('is-nudge'); io.disconnect(); done(); }
     }), { threshold: 0.6 }).observe(el);
-    el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeNudge'){ el.classList.remove('is-nudge'); done(); } });
+    el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeTop'){ el.classList.remove('is-nudge'); done(); } });
   }
   // ‏A2-8: כרטיס ההזמנה כבר לא מתנענע - הוא מונפש בעצמו (‏v10InviteRotate)
   arm(document.querySelector('.v10-view.is-swipe'));

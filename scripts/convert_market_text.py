@@ -53,6 +53,8 @@ RULES = [
     # בלוק "חיפושים פופולריים": עמודי התוצאות הם של עפולה
     (re.compile(r'<details class="footer-wrap footer-seo" id="footerSeo"(?! data-market-default-only)'),
      '<details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only'),
+    (re.compile(r'<nav class="footer-wrap footer-seo" id="landingLinks"(?! data-market-default-only)'),
+     '<nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only'),
     # ‏placeholder "לדוגמה: עפולה" בטופס המחפשים
     (re.compile(r'placeholder="לדוגמה: עפולה"(?! data-market-placeholder)'),
      'placeholder="לדוגמה: עפולה" data-market-placeholder'),
@@ -95,6 +97,7 @@ UNMARKED = [
     re.compile(r'aria-label="שוק הנדל״ן(?: של|,) עפולה (?:והסביבה|והעמק) - לדף הבית"(?! data-market-aria)'),
     re.compile(r'<span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע בעפולה והעמק'),
     re.compile(r'<details class="footer-wrap footer-seo" id="footerSeo"(?! data-market-default-only)'),
+    re.compile(r'<nav class="footer-wrap footer-seo" id="landingLinks"(?! data-market-default-only)'),
 ]
 
 
