@@ -11,6 +11,7 @@ import {
   propertyLookupOutbox,
   resolveShowcaseRefs,
   screenOutbox,
+  showcaseRefsCall,
   turnOutbound,
   type OutboxItem,
   type ShowcaseMatch,
@@ -202,3 +203,83 @@ Deno.test("פרץ ציוני ללקוח שקונה חנות מוסיף רק את
 function bareOf(path: string): string {
   return path.replace(/&wc=[^&]*&wt=[^&]*/, "");
 }
+
+Deno.test("property_refs מעביר את אותו ויתור של client_matches", () => {
+  const required = ["elevator", "mamad"];
+  const sameTurn = showcaseRefsCall({
+    agentId: "agent",
+    clientId: "client",
+    required,
+    inputWaive: ["mamad"],
+    rememberedClientId: "client",
+    rememberedWaive: ["elevator"],
+  });
+  if (sameTurn.p_waive_features.join() !== "elevator") fail(sameTurn.p_waive_features.join());
+  if (sameTurn.p_limit !== 30 || sameTurn.p_client_id !== "client") fail("הקריאה לא זהה");
+
+  const otherClient = showcaseRefsCall({
+    agentId: "agent",
+    clientId: "other",
+    required,
+    inputWaive: ["mamad", "pool"],
+    rememberedClientId: "client",
+    rememberedWaive: ["elevator"],
+  });
+  if (otherClient.p_waive_features.join() !== "mamad") fail(otherClient.p_waive_features.join());
+
+  const none = showcaseRefsCall({
+    agentId: "agent",
+    clientId: "client",
+    required,
+    inputWaive: undefined,
+  });
+  if (none.p_waive_features.length !== 0) fail("בלי ויתור נפתח ויתור");
+
+  const withoutWaive: ShowcaseMatch[] = [];
+  const withWaive: ShowcaseMatch[] = [{
+    property_id: SHOP_SALE,
+    title: "חנות למכירה",
+    street: "פרץ ציוני",
+    house_number: "5",
+    city: "עפולה",
+    deal_type: "sale",
+    property_type: "חנויות/שטח מסחרי",
+    score: 80,
+  }];
+  const missed = resolveShowcaseRefs(withoutWaive, ["פרץ ציוני"]);
+  if (missed.ok) fail("בלי הוויתור החנות לא אמורה להימצא");
+  const found = resolveShowcaseRefs(withWaive, ["פרץ ציוני"]);
+  if (!found.ok || found.ids.join() !== SHOP_SALE) fail(JSON.stringify(found));
+});
+
+Deno.test("רפרנס נפתר רק מול מה שהוצג, עד 15, גם בשאלה", () => {
+  const rows: ShowcaseMatch[] = Array.from({ length: 20 }, (_, i) => ({
+    property_id: `p${i}`,
+    title: i < 15 ? `מוצג ${i}` : `מוסתר ${i}`,
+    street: "פרץ ציוני",
+    house_number: "5",
+    city: "עפולה",
+    score: 100 - i,
+  }));
+  const asked = resolveShowcaseRefs(rows, ["פרץ ציוני"]);
+  if (asked.ok || !asked.ambiguous) fail("צריך שאלה על החלון שהוצג");
+  if (!asked.ask.includes("מוצג 0") || !asked.ask.includes("מוצג 14")) fail(asked.ask);
+  if (asked.ask.includes("מוסתר")) fail("שורה מעבר ל-15 נכנסה לשאלה");
+
+  const mixed = rows.map((row, i) => i === 0 || i === 16
+    ? { ...row, street: "הנרקיס", title: i === 0 ? "חנות למכירה" : "מוסתר הנרקיס" }
+    : row);
+  const added = resolveShowcaseRefs(mixed, ["הנרקיס"]);
+  if (!added.ok || added.ids.join() !== "p0") fail(JSON.stringify(added));
+
+  const late = rows.map((row, i) => i === 16
+    ? { ...row, street: "הדקל", title: "מוסתר הדקל" }
+    : row);
+  const missed = resolveShowcaseRefs(late, ["הדקל"]);
+  if (missed.ok) fail("שורה שלא הוצגה נוספה");
+  if (missed.ask.includes("מוסתר הדקל")) fail("השאלה מזכירה שורה שלא הוצגה");
+
+  const narrow = resolveShowcaseRefs(rows, ["פרץ ציוני"], 2);
+  if (narrow.ok || !narrow.ask.includes("מוצג 0") || !narrow.ask.includes("מוצג 1")) fail(narrow.ok ? "נוסף" : narrow.ask);
+  if (!narrow.ok && narrow.ask.includes("מוצג 2")) fail("מעבר לחלון שהוצג");
+});

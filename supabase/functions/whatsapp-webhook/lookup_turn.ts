@@ -19,6 +19,7 @@ import {
   screenBundle,
   type ScreenRef,
 } from "../_shared/agent-deep-link.ts";
+import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX } from "./match-cut.ts";
 
 export type OutboxItem =
   | {
@@ -62,6 +63,7 @@ export type ShowcaseMatch = {
   city?: unknown;
   deal_type?: unknown;
   property_type?: unknown;
+  score?: unknown;
 };
 
 export type ShowcaseRefs =
@@ -255,19 +257,76 @@ function clipRef(raw: string): string {
 }
 
 /**
- * קטעי כתובת או כותרת מול ההתאמות של הלקוח/ה בלבד.
- * יותר מהתאמה אחת לאותו קטע - שאלה בטקסט, בלי מזהים ובלי בורר CRM.
+ * אותו סינון כמו ב-client_matches: רק קוד שנמצא ב-required_features של
+ * הלקוח/ה. קוד אחר אינו מרחיב את ההתאמות.
+ * בתור שבו client_matches כבר רץ על הלקוח/ה הזה, הוויתור שלו גובר על מה
+ * שנשלח שוב ל-create_showcase. בתור אחר נשמר מה שהמודל מעביר.
+ */
+export function waiveForShowcaseRefs(opts: {
+  required: readonly string[];
+  inputWaive: unknown;
+  clientId: string;
+  rememberedClientId?: string;
+  rememberedWaive?: readonly string[];
+}): string[] {
+  const requested = opts.rememberedClientId === opts.clientId
+    ? opts.rememberedWaive
+    : opts.inputWaive;
+  const allow = new Set(opts.required.map(String).filter(Boolean));
+  if (!Array.isArray(requested)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of requested) {
+    const code = String(item ?? "").trim();
+    if (!code || !allow.has(code) || seen.has(code)) continue;
+    seen.add(code);
+    out.push(code);
+  }
+  return out;
+}
+
+/** הארגומנטים של agent_client_matches כשפותרים property_refs. */
+export function showcaseRefsCall(opts: {
+  agentId: string;
+  clientId: string;
+  required: readonly string[];
+  inputWaive: unknown;
+  rememberedClientId?: string;
+  rememberedWaive?: readonly string[];
+}): {
+  p_agent_id: string;
+  p_client_id: string;
+  p_limit: number;
+  p_waive_features: string[];
+} {
+  return {
+    p_agent_id: opts.agentId,
+    p_client_id: opts.clientId,
+    p_limit: MATCH_FETCH_CAP,
+    p_waive_features: waiveForShowcaseRefs(opts),
+  };
+}
+
+/**
+ * קטעי כתובת או כותרת מול ההתאמות שהוצגו לסוכן/ת, לא מול כל 30 השורות
+ * שהמסד החזיר. החיתוך הוא cutMatches, עד 15, כמו client_matches.
+ * יותר מהתאמה אחת בחלון הזה - שאלה בטקסט, ורק עליהן, בלי מזהים ובלי בורר CRM.
  */
 export function resolveShowcaseRefs(
   matches: readonly ShowcaseMatch[],
   refs: readonly string[],
+  limit = MATCH_SHOW_MAX,
 ): ShowcaseRefs {
-  const rows = matches.filter((row) => String(row.property_id || "").trim());
+  const cap = Math.min(Math.max(Number(limit) || MATCH_SHOW_MAX, 1), MATCH_SHOW_MAX);
+  const raw = matches
+    .filter((row) => String(row.property_id || "").trim())
+    .map((row) => ({ ...row })) as Array<Record<string, unknown>>;
+  const rows = cutMatches(raw, cap).shown as ShowcaseMatch[];
   const ids: string[] = [];
   const seen = new Set<string>();
-  for (const raw of refs) {
-    const key = refKey(raw);
-    const label = clipRef(raw);
+  for (const ref of refs) {
+    const key = refKey(ref);
+    const label = clipRef(ref);
     if (key.length < 2) {
       return {
         ok: false,

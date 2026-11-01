@@ -87,6 +87,7 @@ import {
   propertyLookupOutbox,
   resolveShowcaseRefs,
   screenOutbox,
+  showcaseRefsCall,
   type OutboxItem,
 } from "./lookup_turn.ts";
 export type { OutboxItem };
@@ -1264,6 +1265,13 @@ const TOOLS: Anthropic.Tool[] = [
             "קטעי כתובת או כותרת מתוך ההתאמות, כשהסוכן/ת בחר/ה חלק מהן " +
             "('פרץ ציוני'). לא list_properties: הוא מחזיר גם נכס מסוג או עסקה אחרים באותה כתובת.",
         },
+        waive_features: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "אותו waive_features שנשלח ל-client_matches על הלקוח/ה הזה, אם ההתאמות " +
+            "הוצגו רק אחרי ויתור. בלי זה נכס שהוצג בגלל הוויתור לא יימצא.",
+        },
         intro: { type: "string", description: "הודעה אישית בראש העמוד, אם הסוכן/ת ביקש/ה." },
       },
       required: ["client_id"],
@@ -1856,6 +1864,8 @@ interface ToolContext {
   outbox?: OutboxItem[];
   /** עיר ברירת המחדל של התור. נטענת פעם אחת, לא בכל כלי. */
   listingCitySlot?: ListingCitySlot;
+  /** הוויתור של client_matches בתור הזה, כדי ש-property_refs יראה את אותן התאמות. */
+  matchWaive?: { clientId: string; features: string[] };
 }
 
 // ---------------------------------------------------------------------------
@@ -5592,6 +5602,7 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     p_waive_features: waive,
   });
   if (error) return { ok: false, error: error.message };
+  ctx.matchWaive = { clientId, features: waive };
   const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
   const data = cut.shown;
 
@@ -5774,11 +5785,16 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
   // קורא ל-client_property_match, שכבר סינן לפי סוג העסקה וסוג הנכס.
   // לא מול כל הנכסים בכתובת: שם יושבות גם דירה וגם חנות בעסקה אחרת.
   if (!ids.length && refs.length) {
-    const { data, error } = await ctx.supabase.rpc("agent_client_matches", {
-      p_agent_id: ctx.agent.id,
-      p_client_id: clientId,
-      p_limit: MATCH_FETCH_CAP,
+    const required = ((client.required_features as string[] | null) || []).filter(Boolean);
+    const call = showcaseRefsCall({
+      agentId: ctx.agent.id,
+      clientId,
+      required,
+      inputWaive: input.waive_features,
+      rememberedClientId: ctx.matchWaive?.clientId,
+      rememberedWaive: ctx.matchWaive?.features,
     });
+    const { data, error } = await ctx.supabase.rpc("agent_client_matches", call);
     if (error) return { ok: false, error: error.message };
     const resolved = resolveShowcaseRefs((data || []) as Array<Record<string, unknown>>, refs);
     if (!resolved.ok) {
@@ -9190,8 +9206,9 @@ const SYSTEM_STATIC: string = (() => {
       "required_features (בתוספת למה שיש), ואז client_matches. מאפיין שעולה רק מההערות " +
       "(suggested_features) הוא דירוג, לא תנאי, ואין לכתוב אותו ל-required_features בלי האישור הזה. " +
       "ask על עסקה, עיר או תקציב חוזר רק ביצירת כרטיס.",
-    "- **create_showcase אחרי ויתור - עם property_ids** של הנכסים שהוצגו. בלי property_ids " +
-      "נלקחות רק ההתאמות המלאות.",
+    "- **create_showcase אחרי ויתור - עם property_ids** של הנכסים שהוצגו, או עם " +
+      "property_refs ואותו waive_features של client_matches. בלי זה נכס שהוצג רק " +
+      "בגלל הוויתור לא יימצא. בלי property_ids ובלי property_refs נלקחות רק ההתאמות המלאות.",
     "- **אחרי client_matches עם התאמות - הציעי בשורה אחת מיניסייט.** אם showcase ריק: " +
       "\"רוצה שאפתח ל<שם> מיניסייט עם ההתאמות האלה?\". אם יש showcase ו-new_matches > 0: " +
       "\"להוסיף את <new_matches> החדשות לעמוד של <שם>?\". אל תפתחי בלי אישור.",
