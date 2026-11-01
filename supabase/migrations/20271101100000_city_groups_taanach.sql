@@ -164,16 +164,35 @@ select distinct g.id, c.id
  where g.slug = 'taanach'
 on conflict (group_id, city_id) do nothing;
 
+-- בסכימה בלי נתוני ערים (החלת המיגרציות ב-CI) אין מה לספור.
+-- כשהיישובים טעונים, הקבוצה חייבת להיות בדיוק 12, לא פחות ולא יותר.
 do $$
 declare
   n int;
+  known int;
 begin
+  select count(distinct c.id) into known
+    from public.cities c
+   where c.active
+     and (
+       c.muni_code in (
+         '2052', '113', '141', '145', '146', '164',
+         '2054', '1108', '1110', '1117', '165', '2053'
+       )
+       or c.name in (
+         'אביטל', 'אדירים', 'ברק', 'גדיש', 'דבורה', 'מלאה',
+         'מיטב', 'אומן', 'חבר', 'יעל', 'ניר יפה', 'פרזון'
+       )
+     );
+  if known = 0 then
+    return;
+  end if;
   select count(*) into n
     from public.city_group_members m
     join public.city_groups g on g.id = m.group_id
    where g.slug = 'taanach';
-  if n <> 12 then
-    raise exception 'taanach group has % members, expected 12', n;
+  if known <> 12 or n <> 12 then
+    raise exception 'taanach group has % members (% cities matched), expected 12', n, known;
   end if;
 end $$;
 
