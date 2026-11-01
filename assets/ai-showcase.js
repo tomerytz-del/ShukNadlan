@@ -160,8 +160,20 @@
      מתכווץ מתחתיו כשהוא באוויר, ובכל נחיתה יוצא ממנו פינג זהוב — סימון
      מפה ש"נועץ" את המקום — ולא ספינר גנרי. ההמתנה הזאת היא שלנו, ומי
      שמחכה לה מסתכל/ת על הלוגו ולא על גלגל. */
-  function loaderHtml() {
+  /* ‏viz-speed (1.11.2026): מתחת ללוגו - הצילום שממנו ההדמיה נוצרת, מעומעם
+     ועם ברק שעובר עליו, ופס התקדמות לפי הזמן הצפוי. הפס אינו מדד אמיתי
+     (השרת לא מדווח התקדמות): הוא נע מהר בהתחלה ומאט, נעצר ב-92% ומחכה
+     לתוצאה. ‏animation-delay שלילי לפי ‎cta.since‎ - הרכיב מרונדר מחדש בכל
+     בדיקה, ובלי זה הפס היה חוזר להתחלה בכל שנייה. בלי טקסט חדש. */
+  var PROGRESS_S = 16;   // p50 בשרת כ-11 שניות + הבדיקה; ‏docs/property-visualizations.md
+  function loaderHtml(cta) {
+    cta = cta || {};
+    var elapsed = cta.since ? Math.max(0, (Date.now() - cta.since) / 1000) : 0;
     return '' +
+      (cta.before
+        ? '<img class="ai-loader-bg" ' + imgAttrs(cta.before, 800) + ' alt="" aria-hidden="true">' +
+          '<span class="ai-loader-shim" aria-hidden="true"></span>'
+        : '') +
       '<div class="ai-loader" role="status">' +
         '<div class="ai-loader-stage">' +
           '<span class="ai-loader-ping" aria-hidden="true"></span>' +
@@ -171,6 +183,8 @@
         '</div>' +
         '<p class="ai-loader-title">יוצרים לך את ההדמיה…</p>' +
         '<p class="ai-loader-sub">קצת סבלנות, זה לוקח כמה שניות</p>' +
+        '<span class="ai-loader-bar" aria-hidden="true"><i style="animation-delay:-' +
+          elapsed.toFixed(1) + 's"></i></span>' +
       '</div>';
   }
 
@@ -195,6 +209,29 @@
         return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
       });
   }
+
+  /* ‏viz-speed (1.11.2026): התמונה מוגשת מוקטנת דרך ‎render/image‎ של Supabase -
+     ‏WebP של כ-100-150KB במקום ה-JPEG המלא (כ-640KB) שנשמר באחסון. אותה נקודה
+     שתמונות הכרטיס כבר עוברות בה (‏cardImgUrl ב-property.js). ‏result_url עצמו
+     נשאר המזהה (‏leadPick, ‏onSelectStyle) - רק ה-src משתנה. כתובת שאינה
+     מהאחסון שלנו - כמו שהיא, ו-onerror חוזר למקור אם ההקטנה נכשלה. */
+  var RENDER_MARK = '/storage/v1/object/public/';
+  function renderUrl(u, w) {
+    var s = String(u || '');
+    var at = s.indexOf(RENDER_MARK);
+    if (at < 0) return s;
+    var path = s.slice(at + RENDER_MARK.length).split(/[?#]/)[0];
+    if (!path) return s;
+    return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&quality=70';
+  }
+  /* ‏src + ‎data-full‎ + חזרה למקור בכשל, כמחרוזת מאפיינים מוכנה ל-‎<img>‎. */
+  function imgAttrs(u, w) {
+    var small = renderUrl(u, w);
+    if (small === String(u || '')) return 'src="' + esc(u) + '"';
+    return 'src="' + esc(small) + '" data-full="' + esc(u) + '" ' +
+      'onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')"';
+  }
+  var LEAD_W = 1200, THUMB_W = 480;
 
   var CSS = [
     /* ---- הרצועה ---- */
@@ -389,6 +426,20 @@
     '.ai-empty[data-busy]{border-style:solid;border-color:rgba(201,162,39,.4);',
     '  background:rgba(201,162,39,.06)}',
     '.ai-loader{display:grid;justify-items:center}',
+    /* הצילום מתחת למסך ההמתנה: מעומעם מספיק כדי שהטקסט הלבן יישאר קריא. */
+    '.ai-empty[data-busy]{position:relative;overflow:hidden}',
+    '.ai-empty[data-busy] .ai-loader{position:relative;z-index:1}',
+    '.ai-loader-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;',
+    '  opacity:.28;filter:saturate(.6)}',
+    '.ai-loader-shim{position:absolute;inset:0;',
+    '  background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%) 0 0/300% 100% no-repeat;',
+    '  animation:aiShine 2.4s ease-in-out infinite}',
+    '.ai-loader-bar{display:block;width:min(220px,70%);height:6px;margin-top:12px;border-radius:3px;',
+    '  background:rgba(255,255,255,.16);overflow:hidden}',
+    '.ai-loader-bar i{display:block;height:100%;width:92%;border-radius:3px;background:#c9a227;',
+    '  transform-origin:right;transform:scaleX(.04);',
+    '  animation:aiProg ' + PROGRESS_S + 's cubic-bezier(.15,.6,.35,1) forwards}',
+    '@keyframes aiProg{to{transform:scaleX(1)}}',
     '.ai-loader-stage{position:relative;width:96px;height:84px;margin-bottom:12px}',
     /* מחזור אחד (‏1.6s) לשלושת החלקים: הפין עולה ויורד, הצל מתכווץ כשהוא
        למעלה, והפינג יוצא ברגע הנחיתה (‏0%‎). מחזור משותף הוא מה שקורא כקפיצה
@@ -632,7 +683,7 @@
     /* הלוגו נשאר, הפינג יורד. הלוגו הוא *מה* מחכה והטקסט אומר *למה*;
        הטבעות היו רק התנועה, ובלעדיהן המסך עדיין אומר את כל מה שצריך. */
     '  .ai-loader-logo,.ai-loader-shadow{animation:none}',
-    '  .ai-loader-logo::after,.ai-loader-ping{display:none}}',
+    '  .ai-loader-logo::after,.ai-loader-ping,.ai-loader-shim{display:none}}',
   ].join('');
 
   function injectCss() {
@@ -770,7 +821,7 @@
       return '' +
         '<div class="ai-frame">' +
           '<div class="ai-compare" data-single>' +
-            '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
+            '<img ' + imgAttrs(it.result_url, LEAD_W) + ' alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
             '<span class="ai-label ai-label-after ai-label-ai">' + SPARKLE_SVG + 'הדמיית AI</span>' +
           '</div>' +
           '<p class="ai-compare-caption">' + esc(caption) + '</p>' +
@@ -780,8 +831,8 @@
     return '' +
       '<div class="ai-frame">' +
         '<div class="ai-compare" data-idle data-rtl>' +
-          '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
-          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) +
+          '<img class="ai-before" ' + imgAttrs(before, LEAD_W) + ' alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
+          '<img class="ai-after" ' + imgAttrs(it.result_url, LEAD_W) + ' alt="הדמיה של ' + esc(where) +
             (opts && opts.staging ? ' אחרי ריהוט ועיצוב' : ' אחרי שיפוץ') + '" loading="lazy">' +
           '<span class="ai-label ai-label-before">Before</span>' +
           '<span class="ai-label ai-label-after">' + SPARKLE_SVG + 'After</span>' +
@@ -799,7 +850,7 @@
   function propertyThumbHtml(opts, it, index, active) {
     return '<button class="ai-thumb" type="button" data-index="' + index + '" ' +
              'aria-pressed="' + (active ? 'true' : 'false') + '">' +
-             '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(pairCaption(opts, it)) + '" loading="lazy">' +
+             '<img ' + imgAttrs(it.result_url, THUMB_W) + ' alt="הדמיה של ' + esc(pairCaption(opts, it)) + '" loading="lazy">' +
              '<span>' + esc(pairCaption(opts, it)) + '</span>' +
            '</button>';
   }
@@ -936,7 +987,7 @@
                  עכשיו — במקום שבו היא עצמה תופיע בעוד כמה שניות. */
               : '<div class="ai-empty"' + (cta.busy ? ' data-busy' : '') + '>' +
                   (cta.busy
-                    ? loaderHtml()
+                    ? loaderHtml(cta)
                     : esc(activeStyleLabel
                         ? (opts.commercial ? 'עדיין אין הדמיה ל' : 'עדיין אין הדמיה בסגנון ') + activeStyleLabel
                         : 'עדיין אין הדמיה לנכס הזה')) +
