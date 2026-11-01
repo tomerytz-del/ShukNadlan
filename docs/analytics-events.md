@@ -130,9 +130,9 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 **‏`data-share-type` ו-`data-share-id` (אופציונליים, 1.11.2026):** קישור שיתוף שמצהיר
 עליהם מוסיף ל-`share` את `content_type` ואת `item_id` - הפרמטרים של אירוע `share`
 המומלץ ב-GA4. כך "שיתוף בוואטסאפ" בדף הנכס (`#waShareBtn`, ‏`data-share-type="property"`
-ומזהה הנכס). מזהה מודעה, לא פרט אישי. **כדי שהם יגיעו ל-GA4** צריך להוסיף אותם לתגית
-`GA4 — share` ב-GTM, לפרסם גרסה ולייצא מחדש את `gtm/container.json`; עד אז האירוע
-נספר עם `method` בלבד.
+ומזהה הנכס). מזהה מודעה, לא פרט אישי. התגית `GA4 — share` כבר מעבירה את `item_id`;
+את `content_type` (ומשתנה `DLV - content_type`) הוסיף ה-PR של הכפתור **לקובץ הייצוא** -
+הוא נכנס ל-GA4 רק אחרי ייבוא הקובץ ל-GTM ופרסום גרסה (החלטה של תומר).
 
 שניים מהם נמצאו אחרי `data-bot`, ושניהם היו חיים:
 
