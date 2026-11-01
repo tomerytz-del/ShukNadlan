@@ -87,7 +87,7 @@ check("נתוני המיון מוטמעים", /<script type="application\/json" 
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
 check("נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
-check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=");
+check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=_");
 
 /* יישוב, המסד נכשל, ואין עותק קודם */
 resetLastGood();
@@ -182,7 +182,7 @@ check("אינדקס: רק יישוב לאינדקס", html.includes('href="/deal
 check("אינדקס: canonical נשאר /deals", html.includes('<link rel="canonical" href="https://shuknadlan.co.il/deals">'));
 check("אינדקס: ‏BreadcrumbList", ldOf(html)?.["@graph"]?.[0]?.["@type"] === "BreadcrumbList");
 check("אינדקס מוצלח: מטמון CDN", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
-check("אינדקס: Netlify-Vary בלי מפתחות שאילתה", res.headers.get("Netlify-Vary") === "query=");
+check("אינדקס: Netlify-Vary במפתח דמה", res.headers.get("Netlify-Vary") === "query=_");
 
 /* כשל בסינון: לא מציגים יישוב לא מאומת. יש עותק - הוא יוצא, והכשל לא נשמר. */
 res = await runRouted("https://shuknadlan.co.il/deals", (target) => {

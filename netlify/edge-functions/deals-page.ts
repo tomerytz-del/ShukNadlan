@@ -313,8 +313,10 @@ async function indexableRows(list: IndexRow[]): Promise<
   return failed ? { ok: false, safe: rows } : { ok: true, rows };
 }
 
-/* ‏utm ו-gclid אינם חלק מהדף. query ריק: מפתח המטמון הוא הנתיב בלבד. */
-const DEALS_VARY = "query=";
+/* ‏utm ו-gclid אינם חלק מהדף. ב-edge עם cache ידני כל פרמטר נכנס
+   למפתח כברירת מחדל, ו-query= ריק לא מאחד אותם. query=_ הוא מפתח
+   דמה שאינו בכתובת: כל בקשה בלי "_" היא "אי-התאמה" וחולקת רשומה אחת. */
+const DEALS_VARY = "query=_";
 
 function vary(headers: Headers): Headers {
   headers.set("Netlify-Vary", DEALS_VARY);
@@ -449,6 +451,6 @@ export const config: Config = {
   path: ["/deals", "/deals.html", "/deals/*"],
   /* בלי manual כל בקשה מריצה את הסינון מחדש (כמה שניות). הכותרות
      שלמטה חלות רק כשהמטמון ידני. התשובה אינה תלויה בעוגיית שוק,
-     ו-Netlify-Vary הוא query= (בלי מפתחות שאילתה). */
+     ו-Netlify-Vary הוא query=_ (מפתח דמה, כדי ש-utm ו-gclid לא יפצלו). */
   cache: "manual",
 };
