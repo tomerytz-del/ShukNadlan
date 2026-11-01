@@ -146,76 +146,114 @@
   var inflight = {};
   var settled = {};
   var failedAt = {};
-  var deadlines = {};
+  var groupPri = {};
   var CALL_MS = 8000;
-  var clockJobs = [];
-  /* השעון נדלק כאן, לפני כל סקריפט עצלן, ונשאר. טיימר שנקבע
-     באותו תור של תגית תקועה לא נורה, והדשבורד היה נשאר על "טוען". */
-  setInterval(function () {
-    var now = Date.now();
-    for (var i = clockJobs.length - 1; i >= 0; i--) {
-      if (now >= clockJobs[i].due) {
-        var job = clockJobs.splice(i, 1)[0];
-        job.fn();
-      }
-    }
-  }, 250);
+  /* תור הורדה. קריאה מהמסך (עדיפות 1) קופצת לפני הטעינה ברקע.
+     ברקע רצות לכל היותר שתי הורדות, כדי ש-ui / לידים / נכסים
+     לא ייתקעו מאחורי כל שאר הקבצים על קו איטי. */
+  var q = [];
+  var active = 0;
+  var MAX_TOTAL = 4;
+  var MAX_LOW = 2;
 
-  function loadOne(src, integrity) {
+  function loadOne(src, integrity, priority) {
     var found = document.querySelector('script[src="' + src + '"]');
     if (found && found.dataset.ready === '1') return Promise.resolve();
-    if (inflight[src]) return inflight[src];
-    if (found && found.dataset.failed === '1') { found.remove(); found = null; }
-    var promise = new Promise(function (resolve, reject) {
-      var s = found || document.createElement('script');
-      var settled = false;
-      var finish = function (ok) {
-        if (settled) return;
-        settled = true;
-        if (inflight[src] === promise) delete inflight[src];
-        if (ok) { s.dataset.ready = '1'; resolve(); }
-        else {
-          s.dataset.failed = '1';
-          s.remove();
-          reject(new Error(src));
-        }
-      };
-      if (!found) {
-        s.async = true;
-        if (integrity) { s.integrity = integrity; s.crossOrigin = 'anonymous'; }
-        s.onload = function () { finish(true); };
-        s.onerror = function () { finish(false); };
-        s.src = src;
-        document.head.appendChild(s);
-      } else {
-        s.addEventListener('load', function () { finish(true); });
-        s.addEventListener('error', function () { finish(false); });
+    var existing = inflight[src];
+    if (existing) {
+      if ((priority || 0) > existing.priority && !existing.started) {
+        existing.priority = priority;
+        pump();
       }
+      return existing.promise;
+    }
+    if (found && found.dataset.failed === '1') { found.remove(); found = null; }
+    var entry = { src: src, integrity: integrity || '', priority: priority || 0, started: false };
+    entry.promise = new Promise(function (resolve, reject) {
+      entry.resolve = resolve;
+      entry.reject = reject;
     });
-    inflight[src] = promise;
-    return promise;
+    inflight[src] = entry;
+    q.push(entry);
+    pump();
+    return entry.promise;
   }
 
-  function needShared(group) {
+  function pump() {
+    q.sort(function (a, b) { return b.priority - a.priority; });
+    while (active < MAX_TOTAL && q.length) {
+      var high = -1;
+      for (var i = 0; i < q.length; i++) if (q[i].priority > 0) { high = i; break; }
+      /* ברקע לא מתחיל כל עוד קובץ שהמסך ביקש עוד יורד. */
+      if (high < 0 && (activeHigh > 0 || active >= MAX_LOW)) break;
+      var idx = high >= 0 ? high : 0;
+      begin(q.splice(idx, 1)[0]);
+    }
+  }
+
+  var activeHigh = 0;
+
+  function begin(entry) {
+    entry.started = true;
+    active++;
+    if (entry.priority > 0) activeHigh++;
+    /* התגית נכנסת בתור הבא, לא באותו תור שבו נקבע הטיימר של הקורא.
+       טיימר שנקבע באותו תור של appendChild על סקריפט תקוע לא נורה. */
+    setTimeout(function () { attach(entry); }, 0);
+  }
+
+  function attach(entry) {
+    var s = document.createElement('script');
+    var settledOne = false;
+    function finish(ok) {
+      if (settledOne) return;
+      settledOne = true;
+      active--;
+      if (entry.priority > 0) activeHigh--;
+      if (inflight[entry.src] === entry) delete inflight[entry.src];
+      if (ok) { s.dataset.ready = '1'; entry.resolve(); }
+      else {
+        s.dataset.failed = '1';
+        s.remove();
+        entry.reject(new Error(entry.src));
+      }
+      pump();
+    }
+    s.async = true;
+    if (entry.integrity) { s.integrity = entry.integrity; s.crossOrigin = 'anonymous'; }
+    s.onload = function () { finish(true); };
+    s.onerror = function () { finish(false); };
+    s.src = entry.src;
+    document.head.appendChild(s);
+  }
+
+  function needShared(group, priority) {
     if (!GROUPS[group]) return Promise.resolve();
-    if (failedAt[group] && Date.now() - failedAt[group] < 4000) {
-      return Promise.reject(new Error(group));
+    var pri = priority || 0;
+    if (pri > (groupPri[group] || 0)) groupPri[group] = pri;
+    if (settled[group] === 'ok') return Promise.resolve();
+    /* חלון קצר אחרי כישלון אמיתי (502), כדי שסדרה של קריאות לא
+       תפתח הורדה חדשה לכל אחת. אחרי החלון הקריאה הבאה ממתינה
+       להורדה שהתחילה מחדש, ולא נדחית מיד. */
+    if (failedAt[group] && Date.now() - failedAt[group] < 4000 && !pending[group]) {
+      return Promise.reject(settled[group] || new Error(group));
     }
     if (!pending[group]) {
-      pending[group] = loadGroup(group).then(function (v) {
+      if (failedAt[group]) clearFailed(group);
+      var run = function () { return loadGroup(group); };
+      pending[group] = run().then(function (v) {
         settled[group] = 'ok';
-        delete deadlines[group];
+        delete failedAt[group];
         return v;
       }).catch(function () {
         clearFailed(group);
-        return loadGroup(group).then(function (v) {
+        return run().then(function (v) {
           settled[group] = 'ok';
-          delete deadlines[group];
+          delete failedAt[group];
           return v;
         });
       }).catch(function (err) {
         delete pending[group];
-        delete deadlines[group];
         failedAt[group] = Date.now();
         settled[group] = err || new Error(group);
         throw settled[group];
@@ -236,7 +274,6 @@
     var seen = closureOf(group, {});
     for (var g in seen) {
       delete failedAt[g];
-      delete deadlines[g];
       if (settled[g] && settled[g] !== 'ok') delete settled[g];
     }
   }
@@ -246,60 +283,80 @@
     var chain = Promise.resolve();
     for (var d = 0; d < deps.length; d++) {
       (function (dep) {
-        chain = chain.then(function () { return needShared(dep); });
+        chain = chain.then(function () { return needShared(dep, groupPri[group] || 0); });
       })(deps[d]);
     }
     var list = GROUPS[group];
     for (var i = 0; i < list.length; i++) {
       (function (item) {
-        chain = chain.then(function () { return loadOne(item[0], item[1]); });
+        chain = chain.then(function () { return loadOne(item[0], item[1], groupPri[group] || 0); });
       })(list[i]);
     }
     return chain;
   }
 
-  function dueOf(group, seen) {
-    if (seen[group]) return deadlines[group] || (Date.now() + CALL_MS);
+  function boost(group, seen) {
+    if (!group || seen[group] || !GROUPS[group]) return;
     seen[group] = true;
-    if (!deadlines[group]) deadlines[group] = Date.now() + CALL_MS;
-    var due = deadlines[group];
-    var deps = PRE[group] || [];
-    for (var i = 0; i < deps.length; i++) {
-      var dep = deps[i];
-      if (settled[dep] === 'ok' || !pending[dep]) continue;
-      var d = dueOf(dep, seen);
-      if (d < due) due = d;
+    groupPri[group] = 1;
+    var list = GROUPS[group];
+    for (var i = 0; i < list.length; i++) {
+      var entry = inflight[list[i][0]];
+      if (entry && !entry.started && entry.priority < 1) entry.priority = 1;
     }
-    return due;
+    var deps = PRE[group] || [];
+    for (var d = 0; d < deps.length; d++) boost(deps[d], seen);
   }
 
+  /* המתנה של הקורא הזה בלבד. מתחילה כשהוא מבקש, ולא כשהקבוצה
+     נגעה לראשונה. פקיעה דוחה רק אותו: ההבטחה המשותפת נשארת,
+     וכשהקובץ מגיע crmAfter מריץ את מה שנכשל. */
   function boundCaller(group, p) {
     if (settled[group] === 'ok') return Promise.resolve();
-    if (settled[group] && settled[group] !== 'ok') return Promise.reject(settled[group]);
-    var left = dueOf(group, {}) - Date.now();
-    if (left <= 0) return Promise.reject(new Error(group));
     return new Promise(function (resolve, reject) {
       var done = false;
-      function ok(v) {
+      var timer = 0;
+      function finish(err, value) {
         if (done) return;
         done = true;
-        delete deadlines[group];
-        resolve(v);
+        if (timer) clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(value);
       }
-      function bad(e) {
-        if (done) return;
-        done = true;
-        reject(e);
-      }
-      p.then(ok, bad);
-      clockJobs.push({ due: Date.now() + left, fn: function () { bad(new Error(group)); } });
+      p.then(function (v) { finish(null, v); }, function (e) { finish(e || new Error(group)); });
+      timer = setTimeout(function () { finish(new Error(group)); }, CALL_MS);
     });
   }
 
   function crmNeed(group, opts) {
     if (!GROUPS[group]) return Promise.resolve();
     if (opts && opts.fresh) clearFailed(group);
-    return boundCaller(group, needShared(group));
+    groupPri[group] = 1;
+    var p = needShared(group, 1);
+    boost(group, {});
+    pump();
+    return boundCaller(group, p);
+  }
+
+  /* אחרי שהקובץ באמת רץ, גם אם הקורא הקודם כבר פקע. כישלון אמיתי
+     לא מריץ: שם נשאר הכפתור. ריצה אחת לכל רישום, כדי שציור שנכשל
+     שוב לא ייכנס ללולאה. */
+  function crmAfter(group, fn) {
+    if (!GROUPS[group] || typeof fn !== 'function') return;
+    var ran = false;
+    function once() {
+      if (ran) return;
+      ran = true;
+      try {
+        var ret = fn();
+        if (ret && typeof ret.then === 'function') ret.catch(function () {});
+      } catch (e) {}
+    }
+    if (settled[group] === 'ok') {
+      Promise.resolve().then(once);
+      return;
+    }
+    needShared(group, 1).then(once).catch(function () {});
   }
 
   function crmGroupsFor(raw) {
@@ -307,14 +364,24 @@
     return list ? list.slice() : [];
   }
 
-  /* אחרי שהמסך הראשון מצויר. לא לפני: הורדה ופענוח של עשרות קבצים על
-     קו איטי היו דוחים את מסך הכניסה. קבוצה שנכשלת לא עוצרת את השאר. */
+  /* אחרי שהמסך הראשון מצויר. לא crmNeed: טעינת הרקע לא פותחת
+     שעון המתנה לאף קורא. עדיפות 0, ו-ui / לידים / נכסים קודמים
+     בתור כדי שלא ייתקעו מאחורי שאר הקבצים. */
+  var PREFETCH_FIRST = ['ui', 'leads', 'properties', 'settings', 'office'];
   function crmArmSections() {
     if (crmArmSections.armed) return;
     crmArmSections.armed = true;
     var start = function () {
-      Object.keys(GROUPS).forEach(function (g) {
-        crmNeed(g).catch(function () {});
+      var names = Object.keys(GROUPS);
+      var ordered = [];
+      for (var i = 0; i < PREFETCH_FIRST.length; i++) {
+        if (GROUPS[PREFETCH_FIRST[i]]) ordered.push(PREFETCH_FIRST[i]);
+      }
+      for (var n = 0; n < names.length; n++) {
+        if (ordered.indexOf(names[n]) < 0) ordered.push(names[n]);
+      }
+      ordered.forEach(function (g) {
+        needShared(g, 0).catch(function () {});
       });
     };
     var idle = global.requestIdleCallback || function (fn) { global.setTimeout(fn, 400); };
@@ -324,6 +391,7 @@
   }
 
   global.crmNeed = crmNeed;
+  global.crmAfter = crmAfter;
   global.crmGroupsFor = crmGroupsFor;
   global.crmArmSections = crmArmSections;
 })(window);

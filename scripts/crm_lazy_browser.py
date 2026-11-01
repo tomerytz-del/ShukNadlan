@@ -226,7 +226,7 @@ async def main():
             print('slow leads resolved once', flush=True)
         await ctx.close()
 
-        async def bounded_hang(browser, path, script, marker, expect_leads_error, expect_notif):
+        async def bounded_hang(browser, path, script, marker, expect_leads_error, expect_notif, limit_ms=11000):
             ctx, page, errs = await boot(browser, 1280, 800)
             gate = {'go': False}
             hits = {'n': 0}
@@ -243,12 +243,12 @@ async def main():
             await page.route('**/assets/' + script, hold)
             t0 = asyncio.get_event_loop().time()
             await page.goto(BASE + path, wait_until='commit', timeout=60000)
-            await manager_ready(page, 12000)
+            await manager_ready(page, limit_ms + 4000)
             ms = int((asyncio.get_event_loop().time() - t0) * 1000)
             leads = await page.locator('#leadsList').inner_text()
             notif = await page.locator('#notifList').inner_text()
             print(script, 'dashboard', ms, 'ms', flush=True)
-            if ms > 11000:
+            if ms > limit_ms:
                 fail(script + ' עיכב את הדשבורד %dms' % ms)
             if expect_leads_error and 'לא נטענה' not in leads:
                 fail(script + ' לא הציג נסו שוב: ' + leads[:80])
@@ -268,9 +268,80 @@ async def main():
                 print(script, 'late once', flush=True)
             await ctx.close()
 
-        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', True, False)
-        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', True, False)
-        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', False, True)
+        # יעד הלידים מחכה לקובץ, ואז הרשימה מחכה שוב. שתי המתנות של אותו קורא
+        # חדש, לא שעון אחד שנשאר בעבר.
+        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', True, False, 28000)
+        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', True, False, 20000)
+        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', False, True, 12000)
+
+        ctx, page, errs = await boot(browser, 1280, 800)
+        cdp = await page.context.new_cdp_session(page)
+        await cdp.send('Network.enable')
+        await cdp.send('Network.emulateNetworkConditions', {
+            'offline': False,
+            'latency': 2000,
+            'downloadThroughput': 50 * 1024,
+            'uploadThroughput': 50 * 1024,
+        })
+        await page.goto(BASE + '/crm', wait_until='commit', timeout=150000)
+        try:
+            await page.wait_for_function(
+                """() => {
+                  const leads = document.getElementById('leadsList');
+                  const props = document.getElementById('propertiesList');
+                  if (!leads || !props) return false;
+                  const lt = leads.textContent || '';
+                  const pt = props.textContent || '';
+                  if (lt.includes('לא נטענה') || pt.includes('לא נטענה')) return false;
+                  const leadsOk = lt.includes('אין לידים חדשים') || lt.includes('אין לידים עדיין');
+                  const propsOk = pt.includes('עדיין לא פרסמת נכסים');
+                  return leadsOk && propsOk;
+                }""",
+                timeout=150000)
+            print('slow 3g lists rendered', flush=True)
+        except Exception as exc:
+            leads = await page.locator('#leadsList').inner_text()
+            props = await page.locator('#propertiesList').inner_text()
+            fail('Slow 3G בלי תקלה: לידים=%s נכסים=%s (%s)' % (leads[:80], props[:80], exc))
+        bad = hard_errors(errs)
+        if bad:
+            fail('שגיאות ב-Slow 3G: ' + ' | '.join(bad[:4]))
+        await ctx.close()
+
+        async def late_script(browser, script, delay_s, ready_js, label):
+            ctx, page, errs = await boot(browser, 1280, 800)
+
+            async def delay(route):
+                await asyncio.sleep(delay_s)
+                await route.continue_()
+
+            await page.route('**/assets/' + script, delay)
+            await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
+            try:
+                await page.wait_for_function(ready_js, timeout=int((delay_s + 25) * 1000))
+                print(label, 'recovered', flush=True)
+            except Exception as exc:
+                fail(label + ' לא התאושש: ' + str(exc)[:160])
+            dup = [e for e in errs if 'already been declared' in e or 'LEAD_SRC' in e]
+            if dup:
+                fail(label + ' רץ פעמיים: ' + ' | '.join(dup[:2]))
+            await ctx.close()
+
+        leads_ready = """() => {
+          const t = (document.getElementById('leadsList') || {}).textContent || '';
+          if (t.includes('לא נטענה')) return false;
+          return t.includes('אין לידים חדשים') || t.includes('אין לידים עדיין');
+        }"""
+        props_ready = """() => {
+          const t = (document.getElementById('propertiesList') || {}).textContent || '';
+          if (t.includes('לא נטענה')) return false;
+          return t.includes('עדיין לא פרסמת נכסים');
+        }"""
+        settings_ready = """() => document.querySelectorAll('#setTypes [data-ui-chip]').length === 5"""
+        for delay_s in (10.5, 14):
+            await late_script(browser, 'crm-leads.js', delay_s, leads_ready, 'leads %.1fs' % delay_s)
+            await late_script(browser, 'crm-properties.js', delay_s, props_ready, 'properties %.1fs' % delay_s)
+            await late_script(browser, 'crm-settings.js', delay_s, settings_ready, 'settings %.1fs' % delay_s)
 
         ctx, page, errs = await boot(browser, 390, 844)
         await page.route(

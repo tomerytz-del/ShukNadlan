@@ -2366,7 +2366,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
           start('notifPrefs', () => loadNotifPrefs(agent.id)),
           start('preferences', () => (typeof loadPreferences === 'function'
             ? loadPreferences(agent.id)
-            : crmNeed('settings').then(() => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null)))),
+            : crmNeedThen('settings', () => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null)))),
         ]);
       } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
     }
@@ -2408,7 +2408,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     crmQuiet(start('notifPrefs', () => loadNotifPrefs(agent.id))),
     crmQuiet(start('preferences', () => (typeof loadPreferences === 'function'
       ? loadPreferences(agent.id)
-      : crmNeed('settings').then(() => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null)).catch(() => {})))),
+      : crmNeedThen('settings', () => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null))))),
   ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -2423,12 +2423,12 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   document.getElementById('managerBrandingSection').style.display = managerDisplay;
   // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
   if (typeof syncOfficeExportButtons === 'function') syncOfficeExportButtons();
-  else if (window.crmNeed) crmNeed('office').then(() => { if (typeof syncOfficeExportButtons === 'function') syncOfficeExportButtons(); }).catch(() => {});
+  else crmNeedThen('office', () => { if (typeof syncOfficeExportButtons === 'function') syncOfficeExportButtons(); });
   // מנהל/ת צוות? (my_roles, docs/team-dashboard.md). בלי לחכות: האזור נפתח
   // כשהתשובה מגיעה, ושום טעינה אחרת לא תלויה בו
   const rolesP = typeof loadMyRoles === 'function'
     ? loadMyRoles()
-    : (window.crmNeed ? crmNeed('teamDash').then(() => (typeof loadMyRoles === 'function' ? loadMyRoles() : null)) : Promise.resolve());
+    : crmNeedThen('teamDash', () => (typeof loadMyRoles === 'function' ? loadMyRoles() : null));
   rolesP.catch(err => console.warn('טעינת התפקידים נכשלה:', err));
   // הסיכום האחרון של המנטור האישי - בשביל כפתור "המנטור" בדף הבית, שמוצג
   // רק כשיש סיכום (homeCoachSync, assets/crm-coach.js). שורה אחת, ואחרי
@@ -2442,7 +2442,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     }
   };
   if (typeof coachLoad === 'function') armCoach();
-  else if (window.crmNeed) crmNeed('coach').then(armCoach).catch(() => {});
+  else crmNeedThen('coach', armCoach);
   if (agent.role === 'manager'){
     // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
     await Promise.all([
@@ -2461,7 +2461,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   if (agent.is_platform_admin){
     await Promise.all([
       crmQuiet(loadLicenseAppeals()),
-      crmQuiet(typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeed('coach').then(() => (typeof loadCoachGaps === 'function' ? loadCoachGaps() : null)).catch(() => {})),
+      crmQuiet(typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeedThen('coach', () => (typeof loadCoachGaps === 'function' ? loadCoachGaps() : null))),
       crmQuiet(loadRefundQueue()),
       crmQuiet(loadSubscriptionsAdmin()),
       crmQuiet(loadNeighborhoodsAdmin()),
@@ -2469,9 +2469,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       crmQuiet(loadArticlesAdmin()),
       crmQuiet(loadProfessionalCardsAdmin()),
       crmQuiet(loadUnroutedLeads()),
-      crmQuiet(typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeed('suggestions').then(() => (typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : null)).catch(() => {})),
+      crmQuiet(typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeedThen('suggestions', () => (typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : null))),
       // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-      crmQuiet(typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeed('adminInbox').then(() => (typeof loadAdminInbox === 'function' ? loadAdminInbox() : null)).catch(() => {})),
+      crmQuiet(typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeedThen('adminInbox', () => (typeof loadAdminInbox === 'function' ? loadAdminInbox() : null))),
     ]);
   }
 
@@ -12142,6 +12142,9 @@ async function loadTeam(agencyId, callerId, opts){
     el.innerHTML = '<div class="empty-state"><p>רשימת הצוות לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = el.querySelector('button');
     if (again) again.addEventListener('click', () => loadTeam(agencyId, callerId, { fresh: true }));
+    if (window.crmAfter && !(opts && opts.recover === false)) {
+      window.crmAfter('teams', () => loadTeam(agencyId, callerId, { recover: false }));
+    }
     return;
   }
   el.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -16051,6 +16054,16 @@ async function crmOptional(group){
   try { await crmNeed(group); } catch (e) {}
 }
 
+/* קובץ שמגיע אחרי שההמתנה פקעה מריץ את הטעינה בעצמו.
+   כישלון אמיתי (502) לא מריץ: crmAfter מחכה להבטחה המשותפת. */
+function crmNeedThen(group, fn){
+  if (!window.crmNeed) return Promise.resolve();
+  const run = () => (typeof fn === 'function' ? fn() : null);
+  return crmNeed(group).then(run).catch(() => {
+    if (window.crmAfter) window.crmAfter(group, run);
+  });
+}
+
 async function loadProperties(agentId, opts){
   // הכרטיס וההפנייה נטענים לפני הציור. בלי זה השאילתה חוזרת והקריאה
   // ל-prRenderSmart נופלת, ו-Promise.all של הדשבורד נעצר כולל ה-goto.
@@ -16062,12 +16075,23 @@ async function loadProperties(agentId, opts){
     const propsP = crmNeed('properties', fresh ? { fresh: true } : undefined);
     const officeP = crmOptional('office');
     try { await propsP; } catch (e) {}
-    await officeP;
+    /* רשימת הלידים רצה רק אחרי הפונקציה הזו. המתנה מלאה לקובץ המשרד
+       הייתה מוסיפה 8 שניות שניות לפניה, בלי שהרשימה צריכה אותו. */
+    if (typeof officePreloadNames === 'function') await officeP;
+    else {
+      officeP.catch(() => {});
+      if (window.crmAfter && !(opts && opts.recover === false)) {
+        window.crmAfter('office', () => loadProperties(agentId, { recover: false }));
+      }
+    }
   }
   if (window.crmNeed && typeof prRenderSmart !== 'function') {
     listEl.innerHTML = '<div class="empty-state"><p>רשימת הנכסים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = listEl.querySelector('button');
     if (again) again.addEventListener('click', () => loadProperties(agentId, { fresh: true }));
+    if (window.crmAfter && !(opts && opts.recover === false)) {
+      window.crmAfter('properties', () => loadProperties(agentId, { recover: false }));
+    }
     return;
   }
   // היריד והמיקום המשוער רק כשהרשימה פתוחה. כשל בסקריפט לא מפיל את
@@ -20833,6 +20857,9 @@ async function loadLeads(agentId, opts){
     listEl.innerHTML = '<div class="empty-state"><p>רשימת הלידים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = listEl.querySelector('button');
     if (again) again.addEventListener('click', () => loadLeads(agentId, { fresh: true }));
+    if (window.crmAfter && !(opts && opts.recover === false)) {
+      window.crmAfter('leads', () => loadLeads(agentId, { recover: false }));
+    }
     return;
   }
   /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב

@@ -243,25 +243,27 @@ export function unguarded(src, symbols, pre, provided, label) {
     return guards.get(fn);
   }
 
-  function rec(node, fnStack, tryStack, parent) {
+  function rec(node, fnStack, tryStack, parent, blockEnd) {
     if (!node || !node.type) return;
     if (isFn(node)) {
+      const end = node.body ? node.body.end : Infinity;
       for (const k of Object.keys(node)) {
         if (k === 'start' || k === 'end' || k === 'loc' || k === 'id') continue;
         const v = node[k];
-        if (Array.isArray(v)) v.forEach(x => rec(x, fnStack.concat(node), [], node));
-        else if (v && v.type) rec(v, fnStack.concat(node), [], node);
+        if (Array.isArray(v)) v.forEach(x => rec(x, fnStack.concat(node), [], node, end));
+        else if (v && v.type) rec(v, fnStack.concat(node), [], node, end);
       }
       return;
     }
     const fn = fnStack.length ? fnStack[fnStack.length - 1] : null;
     const tries = node.type === 'TryStatement' ? tryStack.concat(node) : tryStack;
+    const here = node.type === 'BlockStatement' ? node.end : blockEnd;
 
+    if (node.type === 'IfStatement' && isFalseTest(node.test)) markTree(node.consequent, dead);
     if (node.type === 'UnaryExpression' && node.operator === 'typeof' && node.argument.type === 'Identifier' && !dead.has(node)) {
       const name = positiveTypeof(node, parent);
-      if (name && relevant(name)) bucket(fn).push({ name, pos: node.start, end: Infinity });
+      if (name && relevant(name)) bucket(fn).push({ name, pos: node.start, end: here });
     }
-    if (node.type === 'IfStatement' && isFalseTest(node.test)) markTree(node.consequent, dead);
     if (node.type === 'IfStatement' && noFallthrough(node.consequent) && !node.alternate) {
       for (const name of negativeTypeofNames(node.test)) {
         if (relevant(name) && !dead.has(node)) bucket(fn).push({ name, pos: node.end, end: Infinity });
@@ -307,11 +309,11 @@ export function unguarded(src, symbols, pre, provided, label) {
     for (const k of Object.keys(node)) {
       if (k === 'start' || k === 'end' || k === 'loc') continue;
       const v = node[k];
-      if (Array.isArray(v)) v.forEach(x => rec(x, fnStack, tries, node));
-      else if (v && v.type) rec(v, fnStack, tries, node);
+      if (Array.isArray(v)) v.forEach(x => rec(x, fnStack, tries, node, here));
+      else if (v && v.type) rec(v, fnStack, tries, node, here);
     }
   }
-  rec(ast, [], [], null);
+  rec(ast, [], [], null, Infinity);
 
   function covered(fnStack, name, at) {
     const info = symbols.get(name);
@@ -365,7 +367,7 @@ export function unguarded(src, symbols, pre, provided, label) {
         const name = !node.computed && node.property.type === 'Identifier' ? node.property.name
           : (node.computed && node.property.type === 'Literal' ? node.property.value : '');
         if (typeof name === 'string' && relevant(name) && parent) {
-          const call = parent.type === 'CallExpression' && parent.callee === node && !parent.optional;
+          const call = parent.type === 'CallExpression' && parent.callee === node;
           const deeper = parent.type === 'MemberExpression' && parent.object === node && !parent.optional;
           const viaCall = parent.type === 'MemberExpression' && !parent.computed
             && (parent.property.name === 'call' || parent.property.name === 'apply') && parent.object === node;
@@ -556,6 +558,9 @@ export function fixtureFailures() {
     ['ContactImport שמור', 'function f(){ if (ContactImport) ContactImport.pick(); }', true],
     ['typeof שלילי', 'function f(){ if (typeof lazyFn !== "function") x(); lazyFn(); }', true],
     ['typeof בענף מת', 'function f(){ if (false) { typeof lazyFn === "function"; } lazyFn(); }', true],
+    ['typeof בענף אח', 'function f(flag){ if (flag) { if (typeof lazyFn === "function") lazyFn(); } lazyFn(); }', true],
+    ['קריאה אופציונלית', 'function f(){ lazyFn?.(); }', true],
+    ['חלון אופציונלי', 'function f(){ window.lazyFn?.(); }', true],
     ['כינוי ל-window', 'function f(){ const w = window; w.lazyFn(); }', true],
     ['new Function', 'function f(){ new Function("lazyFn()"); }', true],
     ['setAttribute', 'function f(){ el.setAttribute("onclick", "lazyFn()"); }', true],
