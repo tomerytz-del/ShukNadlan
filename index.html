@@ -3468,7 +3468,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   /* ---------- בלוק החיפוש: לשוניות, שדה, כפתור זהב אחד, וחיפוש במפה ---------- */
   html.beta-hero body .hero.map-closed .search-shell{margin-top:14px;max-width:900px}
   /* חלק 4 §1: הלשוניות הן כותרת הכרטיס של החיפוש - צמודות אליו, באותו רוחב, בלי רווח */
-  html.beta-hero .v10-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0;border-radius:14px 14px 0 0;overflow:hidden;
+  html.beta-hero .v10-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0;border-radius:14px 14px 0 0;overflow:hidden;
     background:#fff;box-shadow:0 10px 30px rgba(14,42,107,.12)}
   html.beta-hero body .hero .ss-card.ss-free-only .v10-tabs + .ss-sentence + * .ss-smart,
   html.beta-hero body .hero .ss-card.ss-free-only .ss-smart{border-top-left-radius:0;border-top-right-radius:0}
@@ -3502,6 +3502,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   @media(max-width:759px){html.beta-hero body .hero .v10-view{min-height:48px;font-size:13px;flex-direction:column;gap:2px;padding:6px 4px}}
   /* ‏R5-3C: גובה אחד בערימה - לשוניות, כפתור הזהב וכפתורי התצוגה */
   html.beta-hero body .hero .v10-tab{min-height:48px}
+  /* ארבע לשוניות: "כל הנכסים" בשורה אחת גם ב-320 */
+  html.beta-hero body .hero .v10-tab{white-space:nowrap;padding:0 4px}
+  @media (max-width:374px){html.beta-hero body .hero .v10-tab{font-size:14px}}
   html.beta-hero .ss-clear.is-idle{display:none}
   html.beta-hero .ss-clear{min-height:44px}
   @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-shimmer{animation:none}}
@@ -4423,6 +4426,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="search-shell ss-shell">
           <div class="ss-card ss-free-only" id="ssCard">
             <div class="v10-tabs v10-only" role="tablist" aria-label="סוג עסקה">
+              <button type="button" class="v10-tab" role="tab" aria-selected="true" aria-controls="ssSmart" data-v10-deal="all">כל הנכסים</button>
               <button type="button" class="v10-tab" role="tab" aria-selected="false" aria-controls="ssSmart" data-v10-deal="sale">למכירה</button>
               <button type="button" class="v10-tab" role="tab" aria-selected="false" aria-controls="ssSmart" data-v10-deal="rent">להשכרה</button>
               <button type="button" class="v10-tab" role="tab" aria-selected="false" aria-controls="ssSmart" data-v10-deal="commercial">מסחרי</button>

@@ -4789,7 +4789,7 @@ try {
     if (sentence) sentence.setProperties(properties, { aliases: hoodAliases, groups: cityGroups });
     else if (!searchHasRun) renderPropertyGrid(properties);
     renderQuickSearch(properties);
-    v10DefaultSale();
+    v10DefaultAll();
 
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
        אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
@@ -7454,13 +7454,7 @@ document.getElementById('ssAdvancedBtn')?.addEventListener('click', ()=>{
 function renderClearButton(){
   const btn = document.getElementById('ssClearBtn');
   if (!btn || !sentence) return;
-  const st = sentence.state();
-  // ‏R5-3C: הלשונית "למכירה" שנבחרה מעצמה אינה חיפוש - אין מה לנקות
-  const onlyDefaultDeal = v10On() && st.deal === 'sale' && st.type === 'any' && (!st.area || st.area === 'all') &&
-    !st.rooms && !(st.roomsIn && st.roomsIn.length) && !(st.types && st.types.length) && !(st.hoods && st.hoods.length) &&
-    !st.priceMin && st.priceMax == null && !st.ai && !st.city && !sentence.hasExtra() &&
-    !(document.getElementById('ssQuery')?.value || '').trim();
-  btn.classList.toggle('is-idle', sentence.isClean() || onlyDefaultDeal);
+  btn.classList.toggle('is-idle', sentence.isClean());
 }
 
 /* ‏"ניקוי החיפוש" שבכרטיס: אותו איפוס של הכפתור שבראש התוצאות (clearSearch)
@@ -8070,7 +8064,8 @@ let freeTextFeatures = new Set();
     toggle.setAttribute('aria-expanded', String(open));
     if (open){
       // ‏v10: לפי הלשונית שנבחרה (כולל מסחרי), כי שורת העסקה מוסתרת
-      const tab = v10On() && document.querySelector('[data-v10-deal][aria-selected="true"]');
+      // "כל הנכסים" אינה מצב של הפאנל - נפתח על "למכירה"
+      const tab = v10On() && document.querySelector('[data-v10-deal][aria-selected="true"]:not([data-v10-deal="all"])');
       if (tab) { if (mode !== tab.dataset.v10Deal) setMode(tab.dataset.v10Deal); }
       else if (!mode) setMode(sentence.state?.().deal === 'rent' ? 'rent' : 'sale');
       pills.find(b => b.dataset.hsDeal === mode)?.focus({ preventScroll:true });
@@ -8078,7 +8073,7 @@ let freeTextFeatures = new Set();
   });
 
   // ‏v10: בלי שורת העסקה הכפולה - הפאנל הפתוח עוקב אחרי הלשונית שנבחרה
-  document.querySelectorAll('[data-v10-deal]').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('[data-v10-deal]:not([data-v10-deal="all"])').forEach(t => t.addEventListener('click', () => {
     if (v10On() && !wrap.classList.contains('is-collapsed') && mode !== t.dataset.v10Deal) setMode(t.dataset.v10Deal);
   }));
 
@@ -8162,16 +8157,18 @@ function syncV10Tabs(st){
   if (!v10On() || !sentence) return;
   const s = st || sentence.state();
   const commercial = !!sentence.Core.TYPES.find(t => t.key === s.type)?.commercial;
-  // משפט נקי - "למכירה" מסומנת כברירת המחדל של הכרטיס, בלי לסנן (‏v10DefaultSale)
-  const on = commercial ? 'commercial' : (s.deal || (sentence.isClean() ? 'sale' : ''));
+  // בלי עסקה - "כל הנכסים" (ברירת המחדל בטעינה, ‏v10DefaultAll)
+  const on = commercial ? 'commercial' : (s.deal || 'all');
   document.querySelectorAll('.v10-tab').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.v10Deal === on));
   });
 }
 document.querySelectorAll('.v10-tab').forEach(b => b.addEventListener('click', () => {
   if (!v10On() || !sentence || !sentence.loaded()) return;
-  const deal = b.dataset.v10Deal;
+  const deal = b.dataset.v10Deal, st = sentence.state();
+  const wasCommercial = !!sentence.Core.TYPES.find(t => t.key === st.type)?.commercial;
   if (deal === 'commercial') sentence.patch({ deal: null, type: 'commercial' });
+  else if (deal === 'all') sentence.patch(wasCommercial ? { deal: null, type: 'any', types: null } : { deal: null });
   else sentence.setDeal(deal);
   syncV10Tabs();
 }));
@@ -8774,18 +8771,11 @@ function v10Chip(href, label, n, group, tag, ico, labelDesktop){
     : `<span class="v10-chip-l">${escapeHtml(label)}</span>`;
   return `<a class="v10-chip" href="${escapeHtml(href)}" data-q-group="${group}" data-q-tag="${escapeHtml(tag)}">${icon}${l}<span class="v10-chip-n">${n}</span></a>`;
 }
-/* v10: "למכירה" מסומנת בטעינה, כמו באבטיפוס - אבל רק כסימון של הלשונית.
-   המשפט נשאר נקי: הלשונית שבברירת המחדל אינה סינון של הגולש/ת, ולכן אין
-   "ניקוי החיפוש", אין ?deal=sale בכתובת, והמונה סופר את כל הנכסים. לחיצה על
-   הלשונית (או כל שינוי אחר) היא שמסננת (‏syncV10Tabs). */
-function v10DefaultSale(){
+/* v10: בטעינה מסומנת "כל הנכסים" והמשפט נשאר נקי - הכפתור הזהב סופר את כל הנכסים
+   בכל הקטגוריות עד שהגולש/ת בוחר/ת עסקה (תומר 1.11.2026: "הצג 123 נכסים" נקרא כמספר
+   הכולל ולא כמספר למכירה). לשונית מסומנת עדיין תמיד תואמת את מה שנספר. */
+function v10DefaultAll(){
   if (!v10On() || !sentence || !sentence.loaded()) return;
-  /* חלק 4 §1: לשונית מסומנת תמיד מסננת - "למכירה" חלה באמת על משפט נקי, אחרת הכפתור
-     הזהב הציג את כל הנכסים כש"למכירה" נראית בחורה. שקט: בלי לפתוח תוצאות ובלי גלילה */
-  if (sentence.isClean() && !sentence.state().deal){
-    sentenceQuiet = true;
-    try { sentence.setDeal('sale', 'default'); } finally { sentenceQuiet = false; }
-  }
   syncV10Tabs();
 }
 function renderQuickSearch(properties){
