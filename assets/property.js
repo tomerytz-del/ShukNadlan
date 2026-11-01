@@ -1666,14 +1666,32 @@ function vizItemsFlat(){
 function vizBandCta(){
   const has = (vizState.byStyle.get(vizState.current) || []).length;
   if (!vizState.isPrivate){
-    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy };
+    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy,
+             since:vizState.busySince, before: vizState.busy ? vizBusyBefore() : '' };
   }
   if (has && !vizState.busy) return { label:null };
   const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
   return {
     label: styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס',
     busy: vizState.busy,
+    since: vizState.busySince,
+    before: vizState.busy ? vizBusyBefore() : '',
   };
+}
+
+/* ‏viz-speed: הצילום שמתחת למסך ההמתנה - המקור של חדר מוביל (סלון, ואם אין
+   אז חזית, מטבח...) מהדמיה קיימת בסגנון אחר, כי הצינור בוחר אותו צילום לכל
+   סגנון. נכס בלי אף הדמיה - בלי צילום, כמו קודם. */
+const VIZ_BEFORE_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen', 'bedroom'];
+function vizBusyBefore(){
+  let best = '', rank = 99;
+  vizState.byStyle.forEach(list=>{
+    (list || []).forEach(it=>{
+      const r = VIZ_BEFORE_ORDER.indexOf(it && it.target);
+      if (it && it.source_image_url && r >= 0 && r < rank){ rank = r; best = it.source_image_url; }
+    });
+  });
+  return best;
 }
 
 function onVizBandCta(){
@@ -2112,6 +2130,7 @@ async function requestVisualization(){
   }
 
   vizState.busy = true;
+  vizState.busySince = Date.now();
   // הכפתור היחיד נמצא ברצועה, בתוך innerHTML שמורכב מחדש, ולכן מצב
   // ה"יוצרים…" שלו עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
   renderPropertyShowcase();
