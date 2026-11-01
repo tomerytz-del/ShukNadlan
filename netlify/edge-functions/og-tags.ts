@@ -133,13 +133,15 @@ const shared = globalThis as unknown as {
     phoneOk: (phone: unknown) => boolean;
     sortTeam: (members: Record<string, unknown>[]) => Record<string, unknown>[];
     pickContact: (members: Record<string, unknown>[]) => Record<string, unknown> | null;
-    teamHtml: (members: Record<string, unknown>[]) => string;
+    teamHtml: (members: Record<string, unknown>[], opts?: { agencyName?: string; pageUrl?: string }) => string;
     listingsHtml: (props: Record<string, unknown>[]) => string;
     listingLinksHtml: (props: Record<string, unknown>[]) => string;
     contactHtml: (address: unknown, phone: unknown) => string;
     bannerCtaHtml: (phone: unknown, waHref: unknown, name: unknown) => string;
     expertiseLabels: (ids: string[], declared: boolean) => string[];
     expertiseChips: (ids: string[], declared: boolean) => string;
+    statGridHtml: (count: number | null, ethics: boolean) => string;
+    trendChipHtml: () => string;
   };
   Specialties?: {
     forAgency: (agency: Record<string, unknown>, properties: unknown) => { source: string; ids: string[] };
@@ -1060,23 +1062,22 @@ const MIN_REVIEWS_RATED = 2;
 /* ‏ספירת נכסים פעילים. כשל, timeout, או תשובה בלי Content-Range (הבדיקות
    שמחזירות את שורת המשרד לכל קריאה) מחזירים null - והדף יוצא בלי מספר,
    לא עם מספר מומצא. */
-async function activeListingCount(agencyId: string): Promise<number | null> {
+/* ספירה בלי להוריד את השורות. null הוא כשל או תשובה בלי Content-Range. */
+async function headCount(path: string): Promise<number | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/properties?agency_id=eq.${encodeURIComponent(agencyId)}&status=eq.active&select=id`,
-      {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Accept: "application/json",
-          Prefer: "count=exact",
-          Range: "0-0",
-        },
-        signal: ctrl.signal,
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: "application/json",
+        Prefer: "count=exact",
+        Range: "0-0",
       },
-    );
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
     const range = res.headers.get("content-range") || "";
     const m = /\/(\d+)\s*$/.exec(range);
     if (!m) return null;
@@ -1087,6 +1088,12 @@ async function activeListingCount(agencyId: string): Promise<number | null> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function activeListingCount(agencyId: string): Promise<number | null> {
+  return headCount(
+    `properties?agency_id=eq.${encodeURIComponent(agencyId)}&status=eq.active&select=id`,
+  );
 }
 
 function countPhrase(n: number): string {
@@ -1106,7 +1113,7 @@ function agencyBlurb(name: unknown, city: string, count: number | null, aboutTex
 
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
-    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address,specialty_areas,specialties`,
+    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address,specialty_areas,specialties,ethics_code_accepted_at,ethics_badge_revoked_at`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
@@ -1159,10 +1166,14 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   let rentCount: number | null = null;
   let members: Record<string, unknown>[] | null = null;
   let listings: Record<string, unknown>[] | null = null;
+  let typeRows: Record<string, unknown>[] | null = null;
+  let closedDeals: number | null = null;
   let ratingsFailed = false;
+  let typesFailed = false;
+  let dealsFailed = false;
   if (a.id) {
     const id = encodeURIComponent(String(a.id));
-    const [r, counted, team, props] = await Promise.all([
+    const [r, counted, team, props, types, closed] = await Promise.all([
       sbFetch(`agency_ratings_public?agency_id=eq.${id}&select=score,review_count`),
       activeListingCount(String(a.id)),
       sbList(
@@ -1171,10 +1182,18 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
       sbList(
         `properties?agency_id=eq.${id}&status=eq.active&select=${encodeURIComponent("id,title,price,deal_type,property_type,rooms,size_sqm,floor,city,street,images")}&order=created_at.desc&limit=12`,
       ),
+      sbList(
+        `properties?agency_id=eq.${id}&status=eq.active&select=${encodeURIComponent("deal_type,property_type,category")}&limit=1000`,
+      ),
+      headCount(`market_deals?agency_id=eq.${id}&select=id`),
     ]);
     listingCount = counted;
     members = team;
     listings = props;
+    typeRows = types;
+    closedDeals = closed;
+    typesFailed = typeRows === null;
+    dealsFailed = closedDeals === null;
     ratingsFailed = r.kind === "error";
     const score = r.kind === "row" ? Number(r.row.score) : NaN;
     const count = r.kind === "row" ? Number(r.row.review_count) : 0;
@@ -1187,10 +1206,19 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
         worstRating: 1,
       };
     }
-    if (listings && (listingCount == null || listings.length === listingCount || listings.length < 12)) {
+    const typed = typeRows;
+    const typedComplete = !!(typed && listingCount != null && typed.length === listingCount);
+    const cardsComplete = !!(listings && listingCount != null && listings.length === listingCount);
+    if (typedComplete && typed) {
+      saleCount = typed.filter((p) => p.deal_type !== "rent").length;
+      rentCount = typed.filter((p) => p.deal_type === "rent").length;
+    } else if (cardsComplete && listings) {
       saleCount = listings.filter((p) => p.deal_type !== "rent").length;
       rentCount = listings.filter((p) => p.deal_type === "rent").length;
-      if (listingCount == null && listings.length < 12) listingCount = listings.length;
+    } else if (listings && listingCount == null && listings.length < 12) {
+      saleCount = listings.filter((p) => p.deal_type !== "rent").length;
+      rentCount = listings.filter((p) => p.deal_type === "rent").length;
+      listingCount = listings.length;
     }
   }
 
@@ -1211,7 +1239,8 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     }).filter((p) => p.url);
   }
 
-  const picked = shared.Specialties?.forAgency(a, listings || null);
+  const specRows = (typeRows && listingCount != null && typeRows.length === listingCount) ? typeRows : listings;
+  const picked = shared.Specialties?.forAgency(a, specRows || null);
   const know = picked && pub ? pub.expertiseLabels(picked.ids, picked.source === "declared") : [];
   if (know.length) agency.knowsAbout = know;
 
@@ -1305,17 +1334,19 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     fills.push({ id: "brandEyebrow", text: eyebrow });
     reveal.push("brandEyebrow");
   }
-  if (picked && pub && know.length) {
-    const chips = pub.expertiseChips(picked.ids, picked.source === "declared");
-    if (chips) {
-      inner.push({ id: "trustStrip", html: chips });
-      reveal.push("statBar");
-    }
+  const ethics = !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at);
+  if (pub) {
+    const grid = pub.statGridHtml(listingCount, ethics);
+    let chips = picked ? pub.expertiseChips(picked.ids, picked.source === "declared") : "";
+    if (closedDeals != null && closedDeals >= 10) chips += pub.trendChipHtml();
+    if (grid) inner.push({ id: "statGrid", html: grid });
+    if (chips) inner.push({ id: "trustStrip", html: chips });
+    if (grid || chips) reveal.push("statBar");
   }
   /* מקטע ריק נשאר ב-HTML ומוסתר. מחיקה שלו נתקעת במטמון, וליסטינג
      או יועץ חדש לא יופיעו עד שהעותק יפוג. */
   if (members && pub && members.length) {
-    const cards = pub.teamHtml(members);
+    const cards = pub.teamHtml(members, { agencyName: String(a.name || ""), pageUrl: canonical });
     if (cards) {
       inner.push({ id: "teamRail", html: cards });
       addClass.push({ id: "teamSec", className: "is-on" });
@@ -1346,9 +1377,9 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     }
   }
 
-  const secondaryFailed = !!a.id && (ratingsFailed || listingCount === null || members === null || listings === null);
+  const secondaryFailed = !!a.id && (ratingsFailed || typesFailed || dealsFailed || listingCount === null || members === null || listings === null);
   const attrs: { id: string; name: string; value: string }[] = [];
-  for (const id of ["teamRail", "activeProps", "contactCard", "trustStrip"]) {
+  for (const id of ["teamRail", "activeProps", "contactCard", "trustStrip", "statGrid"]) {
     if (inner.some((part) => part.id === id)) attrs.push({ id, name: "data-ssr", value: "1" });
   }
 

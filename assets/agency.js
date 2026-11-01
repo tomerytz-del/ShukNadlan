@@ -135,64 +135,28 @@ const agencyStats = {
 };
 
 function trustChipsHtml(){
-  const chips = [];
-  const add = (icon, text, cls) =>
-    chips.push(`<span class="trust-chip${cls ? ' ' + cls : ''}">` +
-      `<span class="ic" aria-hidden="true">${icon}</span>` +
-      `<span class="tx">${escapeHtml(text)}</span></span>`);
-
+  const pub = window.ShukAgencyPublic;
   const specs = agencyStats.specialtyDeclared
     ? agencyStats.specialtyIds
     : agencyStats.specialtyIds.slice(0, DERIVED_EXPERTISE_SHOWN);
-  specs.forEach(id=>{
-    const label = EXPERTISE_LABELS[id];
-    if (label) add(window.Specialties ? Specialties.iconFor(id) : ICON.check, label, 'is-spec');
-  });
-
-  if (specs.some(id => COMPLEX_SPECIALTIES.includes(id))){
-    add(ICON.handles, 'ליווי עסקאות מורכבות', 'is-spec');
-  }
-  /* מספרים — כמה עסקאות, כמה סוכנים, איזה דירוג — לא נכנסים לכאן: הם
-     יושבים בתאים שמעל, וחזרה עליהם בקפסולה היא בדיוק אותה כפילות שהדף
-     הזה בא לנקות. הרצועה נשארת אמירות בלבד. */
-  if (agencyStats.deals >= 10){
-    add(ICON.trend, 'ניסיון מוכח בסגירת עסקאות');
-  }
-  /* "חתום על הקוד האתי" ירד מכאן: התו עצמו עלה לסרגל המדדים, והכיתוב
-     שמתחתיו אומר בדיוק את זה. תגית שחוזרת על התו שלצדה היא כפילות. */
-  return chips.join('');
+  let html = pub ? pub.expertiseChips(specs, true) : '';
+  if (agencyStats.deals >= 10 && pub) html += pub.trendChipHtml();
+  return html;
 }
 
 function statCellsHtml(){
-  const cells = [];
-  const add = (value, label) => cells.push(`<div class="stat-cell"><div class="n">${value}</div><div class="l">${escapeHtml(label)}</div></div>`);
-
-  if (agencyStats.activeProperties > 0){
-    add(String(agencyStats.activeProperties), agencyStats.activeProperties === 1 ? 'נכס פעיל' : 'נכסים פעילים');
-  }
-  /* מספר העסקאות שנסגרו אינו תא: הסרגל מחזיק שני תאים קבועים — הנכסים
-     הפעילים ותו האיכות — ותא שלישי שמופיע רק לחלק מהמשרדים היה שובר את
-     הרשת לשורה שנייה עם חצי תא ריק. מה שיש למספר הזה לומר נאמר ברצועה
-     שמתחת ("ניסיון מוכח בסגירת עסקאות"), ובמקטע סיפורי ההצלחה עצמו. */
-  /* מספר המתווכים אינו תא בסרגל: הוא כתוב ממילא בכותרת "נבחרת המתווכים"
-     שמיד מתחת, ובמקומו יושב כאן תו האיכות — מדד אמון ולא מספר. התו עצמו
-     נשתל אחרי ה-innerHTML (‏mountBadgeCell), כי הוא כפתור עם מאזין. */
-  if (agencyStats.ethics){
-    cells.push('<div class="stat-cell is-badge" id="ethicsCell">' +
-      '<div class="n" id="ethicsBadgeSlot"></div>' +
-      '<div class="l">✦ מחויבות לשירות הוגן</div></div>');   // השם מ-27.10 (חלק 7, החלטה 8)
-  }
-  /* הדירוג אינו תא בסרגל: הוא כבר מופיע בבאנר עצמו (‏heroRating, עם
-     הכוכבים ומספר הביקורות מאחוריו) ושוב בכותרת מקטע הביקורות. תא שלישי
-     שחוזר על אותו מספר הוא בדיוק הכפילות שהסרגל הזה בא לנקות. */
-  return cells.join('');
+  const pub = window.ShukAgencyPublic;
+  if (!pub) return '';
+  const n = agencyStats.activeProperties;
+  return pub.statGridHtml(n == null ? null : n, agencyStats.ethics);
 }
 
 /* התו נשתל בכל ציור מחדש של הסרגל — ‏innerHTML מוחק את הכפתור הקודם יחד
    עם המאזין שלו, ולכן אין כאן דליפה אלא החלפה. */
 function mountBadgeCell(){
   const slot = document.getElementById('ethicsBadgeSlot');
-  if (!slot || !window.QualityBadge) return;
+  if (!slot || !window.QualityBadge || slot.querySelector('button')) return;
+  slot.textContent = '';
   QualityBadge.mount(slot, {
     size:'md',
     subject: (currentAgency && currentAgency.name) || 'המשרד',
@@ -203,13 +167,15 @@ function renderTrustBar(){
   const bar = document.getElementById('statBar');
   const cells = statCellsHtml();
   const chips = trustChipsHtml();
-  if (!cells && !chips){ bar.hidden = true; return; }
   const grid = document.getElementById('statGrid');
   const strip = document.getElementById('trustStrip');
-  if (grid && grid.innerHTML !== cells) grid.innerHTML = cells;
-  if (strip && strip.innerHTML !== chips) strip.innerHTML = chips;
+  const keepGrid = grid && grid.getAttribute('data-ssr') === '1' && agencyStats.activeProperties == null && grid.innerHTML.trim();
+  const keepStrip = strip && strip.getAttribute('data-ssr') === '1' && agencyStats.deals == null && strip.innerHTML.trim();
+  if (!cells && !chips && !keepGrid && !keepStrip){ if (bar) bar.hidden = true; return; }
+  if (grid && !keepGrid && grid.innerHTML !== cells) grid.innerHTML = cells;
+  if (strip && !keepStrip && strip.innerHTML !== chips) strip.innerHTML = chips;
   mountBadgeCell();
-  bar.hidden = false;
+  if (bar) bar.hidden = false;
 }
 
 function renderSpecialties(agency, properties){
@@ -890,7 +856,7 @@ function syncAgencyDescription(){
     tagline: tagline,
     aboutFirst: tagline ? '' : about,
     hasPhone: !!document.querySelector('#brandCta a[href^="tel:"], #contactCard a[href^="tel:"]'),
-    hasAgents: !!(document.getElementById('teamRail') && document.getElementById('teamRail').querySelector('a.team-card')),
+    hasAgents: !!(document.getElementById('teamRail') && document.getElementById('teamRail').querySelector('.team-card')),
   });
   ['meta[name="description"]', 'meta[property="og:description"]', 'meta[name="twitter:description"]'].forEach(sel => {
     const el = document.querySelector(sel);
@@ -1162,29 +1128,12 @@ function initPropertySearch(){
    כבר נושאת את שם הסוכן/ת, ושורת ההערה מתחת לכפתורים אומרת במפורש לאן
    הפנייה מגיעה — כפתור שמחייג למספר אחר ממה שהובטח גרוע מכפתור שאיננו. */
 function teamContactHtml(member, officeContact){
-  const direct = hasPhone(member);
-  const target = direct ? member : officeContact;
-  // אין במשרד ולו מספר אחד אמיתי — אין למי לנתב, ולכן אין כפתורים
-  if (!target) return '';
-
-  const name = member.display_name || 'יועץ הנדל״ן';
-  const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
-  const href = waLink(target.phone_e164,
-    `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
-  const waLabel = direct ? 'שליחת הודעת וואטסאפ ל' + name
-                         : 'שליחת הודעת וואטסאפ למשרד בנוגע ל' + name;
-  const telLabel = direct ? 'חיוג ל' + name
-                          : 'חיוג למשרד בנוגע ל' + name;
-
-  return `<div class="team-contact">
-      <div class="team-actions">
-        <a class="ta-wa" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
-           aria-label="${escapeHtml(waLabel)}" title="${escapeHtml(waLabel)}">${WA_SVG} וואטסאפ</a>
-        <a class="ta-tel" href="tel:+${target.phone_e164}"
-           aria-label="${escapeHtml(telLabel)}" title="${escapeHtml(telLabel)}">${ICON.phone} חיוג</a>
-      </div>
-      ${direct ? '' : '<p class="team-via">הפנייה מגיעה למשרד</p>'}
-    </div>`;
+  const pub = window.ShukAgencyPublic;
+  if (!pub) return '';
+  return pub.teamContactHtml(member, officeContact, {
+    agencyName: (currentAgency && currentAgency.name) || 'המשרד',
+    pageUrl: window.location.href,
+  });
 }
 
 /* ---------- נבחרת המתווכים ----------
@@ -1224,10 +1173,23 @@ async function loadTeam(sb, agencyId){
   setSectionNote('teamCount', team.length === 1 ? 'יועץ נדל״ן אחד במשרד' : team.length + ' יועצי נדל״ן במשרד');
 
   if (rail && pub) {
-    const html = pub.teamHtml(team);
+    const opts = { agencyName: (currentAgency && currentAgency.name) || '', pageUrl: window.location.href };
+    const html = pub.teamHtml(team, opts);
     const have = pub.teamHrefs(rail.innerHTML).join('\n');
     const want = pub.teamHrefs(html).join('\n');
     if (have !== want) rail.innerHTML = html;
+    else {
+      team.forEach(a => {
+        const card = [...rail.querySelectorAll('.team-card')].find(el => {
+          const link = el.querySelector('a.team-profile');
+          return link && link.getAttribute('href') === pub.agentHref(a);
+        });
+        const wa = card && card.querySelector('a.ta-wa');
+        const fresh = pub.teamContactHtml(a, pub.pickContact(team), opts);
+        const href = (fresh.match(/class="ta-wa" href="([^"]*)"/) || [])[1];
+        if (wa && href) wa.setAttribute('href', href.replace(/&amp;/g, '&'));
+      });
+    }
     rail.setAttribute('data-ssr', '1');
   }
 
@@ -1239,7 +1201,10 @@ async function loadTeam(sb, agencyId){
   if (rail) {
     team.forEach(a => {
       if (!a.has_ethics_badge || !window.QualityBadge || !pub) return;
-      const card = [...rail.querySelectorAll('a.team-card')].find(el => el.getAttribute('href') === pub.agentHref(a));
+      const card = [...rail.querySelectorAll('.team-card')].find(el => {
+        const link = el.querySelector('a.team-profile');
+        return link && link.getAttribute('href') === pub.agentHref(a);
+      });
       if (!card) return;
       let slot = card.querySelector('.team-badge');
       if (!slot) {

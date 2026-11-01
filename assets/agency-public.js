@@ -5,8 +5,9 @@
    הפלט הוא HTML מוברח. הדפדפן לא מחליף צומת שכבר נושא את אותם קישורים
    (‏data-ssr): הוא רק משלים מה שחסר. בלי זה הציור הראשון זז.
 
-   כרטיס יועץ וכרטיס נכס הם קישור אחד. אין בתוכם קישור או כפתור.
-   טלפון המשרד הוא כפתור "להתקשר למשרד", לא מספר חשוף. הכתובת היא טקסט.
+   כרטיס היועץ הוא מכל. התמונה והשם הם קישור אחד לדף היועץ, וכפתורי
+   הוואטסאפ והחיוג אחים שלו - לא בתוכו. טלפון המשרד הוא כפתור
+   "להתקשר למשרד". הכתובת נפתחת במפות.
    ========================================================================== */
 (function (root) {
   'use strict';
@@ -86,32 +87,71 @@
 
   function roleLabel(member) {
     if (member && member.role === 'manager') return 'ניהול משרד';
-    return 'יועץ נדל״ן';
+    if (member && member.role === 'agent') return 'יועץ נדל״ן';
+    return clean(member && member.role) || 'יועץ נדל״ן';
   }
 
-  function teamHtml(members) {
-    return sortTeam(members).map(function (member) {
+  var WA_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>';
+  var PHONE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/></svg>';
+  var STAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/></svg>';
+  var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  var HANDLES_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5 5 9.6a2 2 0 0 1 0-2.9l2.4-2.3a2 2 0 0 1 2.6-.1L12 5.7l2-1.4a2 2 0 0 1 2.6.1L19 6.7a2 2 0 0 1 0 2.9l-3 2.9"/><path d="m9.5 14 2 2M12 11.5l2.5 2.5M14.5 9.5 17 12"/><path d="M4.5 13.5 8 17l3 3a2 2 0 0 0 2.8 0l5.7-5.6"/></svg>';
+  var TREND_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5 9.5 11l4 4L21 7"/><path d="M15.5 7H21v5.5"/></svg>';
+
+  function waTeamHref(phone, agencyName, agentName, pageUrl) {
+    var text = [
+      'היי,',
+      'הגעתי לדף של ' + (agencyName || 'המשרד') + ' בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ' + agentName + '.',
+      pageUrl || '',
+    ].join('\n');
+    return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+  }
+
+  function teamContactHtml(member, officeContact, opts) {
+    var o = opts || {};
+    var direct = phoneOk(member && member.phone_e164);
+    var target = direct ? member : officeContact;
+    if (!target || !phoneOk(target.phone_e164)) return '';
+    var name = (member && member.display_name) || 'יועץ הנדל״ן';
+    var href = waTeamHref(target.phone_e164, o.agencyName, name, o.pageUrl);
+    var waLabel = direct ? ('שליחת הודעת וואטסאפ ל' + name) : ('שליחת הודעת וואטסאפ למשרד בנוגע ל' + name);
+    var telLabel = direct ? ('חיוג ל' + name) : ('חיוג למשרד בנוגע ל' + name);
+    return '<div class="team-contact">' +
+      '<div class="team-actions">' +
+        '<a class="ta-wa" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" aria-label="' + esc(waLabel) + '" title="' + esc(waLabel) + '">' + WA_SVG + ' וואטסאפ</a>' +
+        '<a class="ta-tel" href="tel:+' + target.phone_e164 + '" aria-label="' + esc(telLabel) + '" title="' + esc(telLabel) + '">' + PHONE_SVG + ' חיוג</a>' +
+      '</div>' +
+      (direct ? '' : '<p class="team-via">הפנייה מגיעה למשרד</p>') +
+      '</div>';
+  }
+
+  function teamHtml(members, opts) {
+    var o = opts || {};
+    var sorted = sortTeam(members);
+    var office = pickContact(sorted);
+    return sorted.map(function (member) {
       var href = agentHref(member);
       if (!href) return '';
-      var name = clean(member.display_name) || 'יועץ נדל״ן';
+      var name = member.display_name || '?';
       var manager = member.role === 'manager';
       var photo = safeImg(member.photo_url);
       var focus = /^\d{1,3}% \d{1,3}%$/.test(member.photo_position || '') ? member.photo_position : '';
       var avatar = photo
-        ? '<img src="' + esc(photo) + '" alt="" width="88" height="88"' +
-          (focus ? ' style="--photo-pos:' + esc(focus) + '"' : '') + '>'
-        : esc(name.charAt(0) || '?');
-      var license = clean(member.license_number);
-      return '<a class="team-card' + (manager ? ' is-manager' : '') + '" href="' + esc(href) + '">' +
-        (manager ? '<span class="team-flag">ניהול המשרד</span>' : '') +
-        '<span class="team-avatar">' + avatar + '</span>' +
-        '<span class="team-name">' + esc(name) + '</span>' +
-        '<span class="team-role">' + esc(roleLabel(member)) + '</span>' +
-        (license ? '<span class="team-lic">רישיון ' + esc(license) + '</span>' : '') +
-        (member.has_ethics_badge
-          ? '<span class="team-badge"><img src="assets/badge-ethics.png" alt="" width="28" height="28"></span>'
-          : '') +
-        '</a>';
+        ? '<img src="' + esc(encodeURI(photo)) + '" alt="' + esc(name) + '" width="88" height="88" loading="lazy"' +
+          (focus ? ' style="--photo-pos:' + focus + '"' : '') + '>'
+        : esc((String(name).trim()[0]) || '?');
+      var license = member.license_number;
+      return '<div class="team-card' + (manager ? ' is-manager' : '') + '">' +
+        '<a class="team-profile" href="' + esc(href) + '">' +
+          (manager ? '<span class="team-flag">' + STAR_SVG + 'ניהול המשרד</span>' : '') +
+          '<div class="team-avatar">' + avatar + '</div>' +
+          '<div class="team-name">' + esc(name) + '</div>' +
+          '<div class="team-role">' + esc(roleLabel(member)) + '</div>' +
+          (license ? '<span class="team-lic">' + CHECK_SVG + 'רישיון ' + esc(license) + '</span>' : '') +
+        '</a>' +
+        (member.has_ethics_badge ? '<div class="team-badge"></div>' : '') +
+        teamContactHtml(member, office, o) +
+        '</div>';
     }).join('');
   }
 
@@ -154,9 +194,6 @@
         '</a>';
     }).join('');
   }
-
-  var WA_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>';
-  var PHONE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/></svg>';
 
   function bannerCtaHtml(phone, waHref, name) {
     if (!phoneOk(phone)) return '';
@@ -208,9 +245,29 @@
         '</span><span class="tx">' + esc(EXPERTISE_LABELS[id]) + '</span></span>';
     }).join('');
     if (list.some(function (id) { return COMPLEX[id]; })) {
-      html += '<span class="trust-chip is-spec"><span class="ic" aria-hidden="true"></span><span class="tx">ליווי עסקאות מורכבות</span></span>';
+      html += '<span class="trust-chip is-spec"><span class="ic" aria-hidden="true">' + HANDLES_SVG +
+        '</span><span class="tx">ליווי עסקאות מורכבות</span></span>';
     }
     return html;
+  }
+
+  function statGridHtml(count, ethics) {
+    var cells = '';
+    var n = Number(count);
+    if (count != null && isFinite(n) && n > 0) {
+      cells += '<div class="stat-cell"><div class="n">' + n + '</div><div class="l">' +
+        (n === 1 ? 'נכס פעיל' : 'נכסים פעילים') + '</div></div>';
+    }
+    if (ethics) {
+      cells += '<div class="stat-cell is-badge" id="ethicsCell"><div class="n" id="ethicsBadgeSlot"></div>' +
+        '<div class="l">✦ מחויבות לשירות הוגן</div></div>';
+    }
+    return cells;
+  }
+
+  function trendChipHtml() {
+    return '<span class="trust-chip"><span class="ic" aria-hidden="true">' + TREND_SVG +
+      '</span><span class="tx">ניסיון מוכח בסגירת עסקאות</span></span>';
   }
 
   function listingIds(html) {
@@ -223,7 +280,7 @@
 
   function teamHrefs(html) {
     var out = [];
-    var re = /href="(\/agent\?slug=[^"]+)"/g;
+    var re = /class="team-profile" href="([^"]+)"/g;
     var m;
     while ((m = re.exec(html))) out.push(m[1]);
     return out;
@@ -237,6 +294,9 @@
     pickContact: pickContact,
     agentHref: agentHref,
     teamHtml: teamHtml,
+    teamContactHtml: teamContactHtml,
+    statGridHtml: statGridHtml,
+    trendChipHtml: trendChipHtml,
     listingsHtml: listingsHtml,
     listingLinksHtml: listingLinksHtml,
     contactHtml: contactHtml,

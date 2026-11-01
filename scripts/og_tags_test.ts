@@ -461,8 +461,12 @@ const oneAndOne = countMeta(1, 1);
 agencyHead.push(
   ["שני מספרים: ו- לפני הספרה",
     bothCounts.includes("3 למכירה ו-2 להשכרה") && !bothCounts.includes("/") && !bothCounts.includes("–")],
-  ["רק מכירה: בלי השכרה", oneSale.includes("נכס אחד למכירה") && !oneSale.includes("להשכרה")],
-  ["רק השכרה: נכס אחד להשכרה", oneRent.includes("נכס אחד להשכרה") && !oneRent.includes("למכירה")],
+  ["רק מכירה: נכס פעיל אחד למכירה, בלי כפילות",
+    oneSale.includes("נכס פעיל אחד למכירה") && !oneSale.includes("להשכרה") && !oneSale.includes(":")],
+  ["רק השכרה: נכס פעיל אחד להשכרה",
+    oneRent.includes("נכס פעיל אחד להשכרה") && !oneRent.includes("למכירה") && !oneRent.includes(":")],
+  ["ארבעה למכירה: 4 נכסים פעילים למכירה",
+    countMeta(4, 0).includes("4 נכסים פעילים למכירה") && !countMeta(4, 0).includes(":")],
   ["מספר למכירה ונכס אחד להשכרה, בלי מקף אחרי הוו",
     saleAndOneRent.includes("3 למכירה ונכס אחד להשכרה") && !saleAndOneRent.includes("ו-נכס")],
   ["נכס אחד למכירה ו-מספר להשכרה", oneSaleAndRent.includes("נכס אחד למכירה ו-3 להשכרה")],
@@ -919,6 +923,9 @@ globalThis.fetch = (async (input: string | URL | Request) => {
   if (u.includes("agency_ratings_public")) {
     return new Response(JSON.stringify({ score: null, review_count: 0 }), { status: 200, headers: { "content-type": "application/json" } });
   }
+  if (u.includes("market_deals")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-0/12" } });
+  }
   if (u.includes("agency_members_public")) {
     return new Response(JSON.stringify([
       { id: "m1", slug: "dana", display_name: "דנה לוי", role: "manager", phone_e164: "972501234567", license_number: "9" },
@@ -955,6 +962,18 @@ const richSeo: [string, boolean][] = [
   ["רשימת נכסים עם קישור למודעה", richList?.itemListElement?.[0]?.url === "https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"],
   ["יועץ ונכס ב-HTML, בלי משפטי החסר", officeHtml.includes('href="/agent?slug=dana"') && officeHtml.includes('href="/property?id=11111111-1111-4111-8111-111111111111"')
     && !officeHtml.includes("המשרד לא נמצא") && !officeHtml.includes("לא נמצאו נכסים") && officeHtml.includes("להתקשר למשרד")],
+  ["כרטיס יועץ: קישור לפרופיל, וכפתורי וואטסאפ וחיוג אחים שלו", (() => {
+    const profile = officeHtml.match(/<a class="team-profile"[\s\S]*?<\/a>/);
+    const inner = profile ? profile[0].replace(/^<a[^>]*>/, "").replace(/<\/a>$/, "") : "";
+    return !!profile && officeHtml.includes('class="team-profile" href="/agent?slug=dana"')
+      && officeHtml.includes('class="ta-wa"') && officeHtml.includes('class="ta-tel"')
+      && officeHtml.includes("> חיוג<")
+      && !/<a[^>]*class="team-card"/.test(officeHtml)
+      && !/<(a|button)\b/.test(inner);
+  })()],
+  ["סרגל המדדים ותגית העסקאות בשרת",
+    /id="statGrid"[^>]*data-ssr="1"/.test(officeHtml) && officeHtml.includes("נכס פעיל")
+    && officeHtml.includes("ניסיון מוכח בסגירת עסקאות")],
   ["שליפות משניות שהצליחו: 200 והדף נשמר", officeRes.status === 200 && officeRes.headers.get("Cache-Control") !== "no-store"],
 ];
 globalThis.fetch = (async (input: string | URL | Request) => {
@@ -972,6 +991,37 @@ richSeo.push(
     && downMembers.headers.get("Cache-Control") === "no-store"
     && downMembers.headers.get("Netlify-CDN-Cache-Control") === "no-store"
     && (await downMembers.text()).includes("משרד | משרד תיווך בעפולה - נכסים למכירה ולהשכרה | שוק נדל״ן")],
+);
+const manySale = Array.from({ length: 10 }, () => ({ deal_type: "sale", property_type: "דירה", category: "residential" }));
+const manyRent = Array.from({ length: 4 }, () => ({ deal_type: "rent", property_type: "דירה", category: "residential" }));
+globalThis.fetch = (async (input: string | URL | Request) => {
+  const u = String(input instanceof Request ? input.url : input);
+  if (u.includes("select=deal_type")) {
+    return new Response(JSON.stringify([...manySale, ...manyRent]), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("market_deals")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-0/0" } });
+  }
+  if (u.includes("agency_members_public")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("agency_ratings_public")) {
+    return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("/properties?")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-11/14" } });
+  }
+  return new Response(JSON.stringify({
+    id: "ag", name: "משרד הדר", description: "משרד מקומי.", address: "הנשיא 5 עפולה",
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+const manyRes = await handler(new Request("https://shuknadlan.co.il/agency?slug=adel"), {
+  next: async () => new Response(richPage, { headers: { "content-type": "text/html; charset=utf-8" } }),
+} as never);
+const manyMeta = metaOf(await manyRes.text());
+richSeo.push(
+  ["מעל 12 נכסים: הפיצול מהרשימה המלאה, לא מ-12 הכרטיסים",
+    manyMeta.includes("14 נכסים פעילים: 10 למכירה ו-4 להשכרה")],
 );
 for (const [name, pass] of richSeo) {
   if (!pass) failed++;

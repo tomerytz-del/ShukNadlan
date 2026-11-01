@@ -439,12 +439,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     padding:18px 14px 14px;box-shadow:var(--shadow-xs);
     display:flex;flex-direction:column;align-items:center;
     min-height:44px;max-width:100%;min-width:0;box-sizing:border-box;
-    color:inherit;text-decoration:none;
+    color:inherit;text-decoration:none;cursor:default;
     transition:transform .18s ease,box-shadow .18s ease;
   }
-  a.team-card:link,a.team-card:visited,a.team-card:hover,a.team-card:active{color:inherit;text-decoration:none}
+  a.team-profile{
+    display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;min-height:44px;
+    color:inherit;text-decoration:none;cursor:pointer;
+  }
+  a.team-profile:link,a.team-profile:visited,a.team-profile:hover,a.team-profile:active{color:inherit;text-decoration:none}
+  a.team-profile:focus-visible,.team-actions a:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
   .team-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
-  .team-card:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
   /* כרטיס מנהל/ת המשרד: רחב יותר, נושא את גוון האקסנט מלמעלה ומקבל תגית
      תפקיד שיושבת על שפת הכרטיס — הבולטוּת נעשית בשלושה סימנים ולא באחד,
      כדי שתישמר גם כשהמשרד בחר אקסנט חיוור. */
@@ -474,19 +478,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .team-card.is-manager .team-name{font-size:1.06rem}
   .team-role{font-size:.76rem;color:var(--ink-soft);margin-top:1px;
     max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  /* בטלפון הכרטיסים נערמים. רצועה אופקית ב-320px מוציאה את הדף לגלילה רוחבית. */
-  @media(max-width:400px){
-    #agencyContent{overflow-x:clip}
-    .team-rail{flex-direction:column;overflow-x:hidden;align-items:stretch}
-    .team-card,.team-card.is-manager{flex:1 1 auto;width:100%;flex-basis:auto}
-    .team-sec .rail-nav{display:none}
-  }
+  .team-sec,.rail-wrap,.team-rail{max-width:100%;min-width:0}
+  #agencyContent{overflow-x:clip}
   .team-lic{
     display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:.68rem;font-weight:700;
     background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:0;
   }
   .team-lic svg{width:11px;height:11px}
-  .team-badge{margin-top:8px;display:flex;justify-content:center}
+  .team-badge{margin-top:8px;display:flex;justify-content:center;min-height:28px;min-width:28px}
   /* הפעולות נדחפות לתחתית הכרטיס כדי שכל הכרטיסים ברצועה יסתיימו באותו קו,
      גם כשלאחד/ת יש רישיון ולאחר/ת אין. המכל — ולא שורת הכפתורים — הוא זה
      שנדחף, כדי שגם הערת הניתוב שמתחתיה תישאר צמודה אליהם. */
@@ -495,6 +494,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .team-actions{display:flex;gap:6px;width:100%}
   .team-actions a{
     flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+    min-height:44px;box-sizing:border-box;
     padding:8px 6px;border-radius:0;font-size:.78rem;font-weight:800;line-height:1;
     transition:background .15s ease,color .15s ease;
   }
