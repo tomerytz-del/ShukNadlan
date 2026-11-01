@@ -8479,11 +8479,18 @@ document.addEventListener('click', e => {
   const mode = b.dataset.viewMode, st = sentence ? sentence.state() : {};
   if (window.shukTrack) shukTrack('home_view_mode', { mode, deal: v10Deal(st), region: (CityCtx.market && CityCtx.market()?.slug) || 'afula-emek' });
 });
-// ‏§H1: אם הכותרת בכל זאת רחבה מהמסך (גופן חלופי, שם שוק ארוך) - שתי שורות מאוזנות במקום גלישה
+// ‏§H1: בטלפון הכותרת בשורה אחת - אם היא רחבה מהמסך, מקטינים את הגופן עד 13px; רק אם גם אז היא
+// גולשת (שם שוק ארוך) - שתי שורות מאוזנות. במחשב (‏white-space:normal) אין מה להקטין
 (function(){
   const h = document.querySelector('.gabv8-band h1');
   if (!h || !v10On()) return;
-  const fit = () => { h.classList.remove('h1-wrap'); if (h.scrollWidth > h.clientWidth + 1) h.classList.add('h1-wrap'); };
+  const fit = () => {
+    h.classList.remove('h1-wrap'); h.style.fontSize = '';
+    if (getComputedStyle(h).whiteSpace !== 'nowrap') return;
+    let fs = parseFloat(getComputedStyle(h).fontSize);
+    while (h.scrollWidth > h.clientWidth + 1 && fs > 13){ fs -= 0.5; h.style.fontSize = fs + 'px'; }
+    if (h.scrollWidth > h.clientWidth + 1){ h.style.fontSize = ''; h.classList.add('h1-wrap'); }
+  };
   (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(fit);
   window.addEventListener('resize', fit);
 })();
