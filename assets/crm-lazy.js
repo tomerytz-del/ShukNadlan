@@ -143,14 +143,23 @@
   };
 
   var pending = {};
-  /* כתובת אחת, הבטחה אחת. ניסיון שני לא מכניס תגית נוספת כל עוד
-     הראשונה עוד יכולה להגיע: שתי הרצות של אותו קובץ זורקות
-     "already been declared" (const בראש crm-leads.js). כשהראשונה
-     מגיעה באיחור, מי שמחכה לאותה הבטחה נפתר. */
   var inflight = {};
-  /* כישלון אמיתי (הרשת דחתה). טעינות רצופות לא פותחות ניסיון חדש
-     כל אחת. "נסו שוב" קורא עם fresh ומדלג על החלון הזה. */
+  var settled = {};
   var failedAt = {};
+  var deadlines = {};
+  var CALL_MS = 8000;
+  var clockJobs = [];
+  /* השעון נדלק כאן, לפני כל סקריפט עצלן, ונשאר. טיימר שנקבע
+     באותו תור של תגית תקועה לא נורה, והדשבורד היה נשאר על "טוען". */
+  setInterval(function () {
+    var now = Date.now();
+    for (var i = clockJobs.length - 1; i >= 0; i--) {
+      if (now >= clockJobs[i].due) {
+        var job = clockJobs.splice(i, 1)[0];
+        job.fn();
+      }
+    }
+  }, 250);
 
   function loadOne(src, integrity) {
     var found = document.querySelector('script[src="' + src + '"]');
@@ -187,12 +196,57 @@
     return promise;
   }
 
+  function needShared(group) {
+    if (!GROUPS[group]) return Promise.resolve();
+    if (failedAt[group] && Date.now() - failedAt[group] < 4000) {
+      return Promise.reject(new Error(group));
+    }
+    if (!pending[group]) {
+      pending[group] = loadGroup(group).then(function (v) {
+        settled[group] = 'ok';
+        delete deadlines[group];
+        return v;
+      }).catch(function () {
+        clearFailed(group);
+        return loadGroup(group).then(function (v) {
+          settled[group] = 'ok';
+          delete deadlines[group];
+          return v;
+        });
+      }).catch(function (err) {
+        delete pending[group];
+        delete deadlines[group];
+        failedAt[group] = Date.now();
+        settled[group] = err || new Error(group);
+        throw settled[group];
+      });
+    }
+    return pending[group];
+  }
+
+  function closureOf(group, seen) {
+    if (seen[group]) return seen;
+    seen[group] = true;
+    var deps = PRE[group] || [];
+    for (var i = 0; i < deps.length; i++) closureOf(deps[i], seen);
+    return seen;
+  }
+
+  function clearFailed(group) {
+    var seen = closureOf(group, {});
+    for (var g in seen) {
+      delete failedAt[g];
+      delete deadlines[g];
+      if (settled[g] && settled[g] !== 'ok') delete settled[g];
+    }
+  }
+
   function loadGroup(group) {
     var deps = PRE[group] || [];
     var chain = Promise.resolve();
     for (var d = 0; d < deps.length; d++) {
       (function (dep) {
-        chain = chain.then(function () { return crmNeed(dep); });
+        chain = chain.then(function () { return needShared(dep); });
       })(deps[d]);
     }
     var list = GROUPS[group];
@@ -204,23 +258,48 @@
     return chain;
   }
 
+  function dueOf(group, seen) {
+    if (seen[group]) return deadlines[group] || (Date.now() + CALL_MS);
+    seen[group] = true;
+    if (!deadlines[group]) deadlines[group] = Date.now() + CALL_MS;
+    var due = deadlines[group];
+    var deps = PRE[group] || [];
+    for (var i = 0; i < deps.length; i++) {
+      var dep = deps[i];
+      if (settled[dep] === 'ok' || !pending[dep]) continue;
+      var d = dueOf(dep, seen);
+      if (d < due) due = d;
+    }
+    return due;
+  }
+
+  function boundCaller(group, p) {
+    if (settled[group] === 'ok') return Promise.resolve();
+    if (settled[group] && settled[group] !== 'ok') return Promise.reject(settled[group]);
+    var left = dueOf(group, {}) - Date.now();
+    if (left <= 0) return Promise.reject(new Error(group));
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      function ok(v) {
+        if (done) return;
+        done = true;
+        delete deadlines[group];
+        resolve(v);
+      }
+      function bad(e) {
+        if (done) return;
+        done = true;
+        reject(e);
+      }
+      p.then(ok, bad);
+      clockJobs.push({ due: Date.now() + left, fn: function () { bad(new Error(group)); } });
+    });
+  }
+
   function crmNeed(group, opts) {
     if (!GROUPS[group]) return Promise.resolve();
-    var fresh = opts && opts.fresh;
-    if (fresh) delete failedAt[group];
-    else if (failedAt[group] && Date.now() - failedAt[group] < 4000) {
-      return Promise.reject(new Error(group));
-    }
-    if (!pending[group]) {
-      pending[group] = loadGroup(group).catch(function () {
-        return loadGroup(group);
-      }).catch(function (err) {
-        delete pending[group];
-        failedAt[group] = Date.now();
-        throw err;
-      });
-    }
-    return pending[group];
+    if (opts && opts.fresh) clearFailed(group);
+    return boundCaller(group, needShared(group));
   }
 
   function crmGroupsFor(raw) {

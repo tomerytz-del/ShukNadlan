@@ -217,11 +217,60 @@ async def main():
         print('slow leads scripts', leads_hits['n'], flush=True)
         if leads_hits['n'] != 1 or dup:
             fail('קובץ איטי רץ פעמיים: ' + ' | '.join(dup[:2]))
-        elif 'לא נטענה' in leads:
-            fail('קובץ שהגיע באיחור לא פתר את הרשימה: ' + leads[:80])
         else:
+            if 'לא נטענה' in leads:
+                await page.evaluate("() => { const b = document.querySelector('#leadsList button'); if (b) b.click(); }")
+                await page.wait_for_function(
+                    """() => !(document.getElementById('leadsList').textContent || '').includes('לא נטענה')""",
+                    timeout=8000)
             print('slow leads resolved once', flush=True)
         await ctx.close()
+
+        async def bounded_hang(browser, path, script, marker, expect_leads_error, expect_notif):
+            ctx, page, errs = await boot(browser, 1280, 800)
+            gate = {'go': False}
+            hits = {'n': 0}
+
+            async def hold(route):
+                hits['n'] += 1
+                while not gate['go']:
+                    await asyncio.sleep(0.05)
+                body = 'window.%s=(window.%s||0)+1; const __ONCE_%s=1;' % (marker, marker, marker)
+                if script == 'crm-leads.js':
+                    body += 'var leadsTab="new"; var openDemandRows=null;'
+                await route.fulfill(status=200, content_type='application/javascript', body=body)
+
+            await page.route('**/assets/' + script, hold)
+            t0 = asyncio.get_event_loop().time()
+            await page.goto(BASE + path, wait_until='commit', timeout=60000)
+            await manager_ready(page, 12000)
+            ms = int((asyncio.get_event_loop().time() - t0) * 1000)
+            leads = await page.locator('#leadsList').inner_text()
+            notif = await page.locator('#notifList').inner_text()
+            print(script, 'dashboard', ms, 'ms', flush=True)
+            if ms > 11000:
+                fail(script + ' עיכב את הדשבורד %dms' % ms)
+            if expect_leads_error and 'לא נטענה' not in leads:
+                fail(script + ' לא הציג נסו שוב: ' + leads[:80])
+            if expect_notif and notif.strip() == 'טוען…':
+                fail(script + ' השאיר את ההתראות על טוען')
+            gate['go'] = True
+            await page.wait_for_function('() => window.%s === 1' % marker, timeout=5000)
+            await page.wait_for_timeout(400)
+            runs = await page.evaluate('() => window.%s' % marker)
+            tags = await page.evaluate(
+                """(name) => document.querySelectorAll('script[src="assets/' + name + '"]').length""",
+                script)
+            dup = [e for e in errs if 'already been declared' in e]
+            if runs != 1 or hits['n'] != 1 or tags != 1 or dup:
+                fail(script + ' רץ יותר מפעם אחת runs=%s reqs=%s tags=%s %s' % (runs, hits['n'], tags, dup[:1]))
+            else:
+                print(script, 'late once', flush=True)
+            await ctx.close()
+
+        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', True, False)
+        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', True, False)
+        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', False, True)
 
         ctx, page, errs = await boot(browser, 390, 844)
         await page.route(

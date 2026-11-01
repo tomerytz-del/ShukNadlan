@@ -149,6 +149,54 @@ function catchSwallows(handler) {
   return true;
 }
 
+function negativeTypeofNames(node, out) {
+  out = out || [];
+  if (!node || !node.type) return out;
+  if (node.type === 'LogicalExpression') {
+    negativeTypeofNames(node.left, out);
+    negativeTypeofNames(node.right, out);
+    return out;
+  }
+  if (node.type !== 'BinaryExpression') return out;
+  const op = node.operator;
+  const typeofNode = node.left.type === 'UnaryExpression' && node.left.operator === 'typeof' ? node.left
+    : (node.right.type === 'UnaryExpression' && node.right.operator === 'typeof' ? node.right : null);
+  const other = typeofNode && (typeofNode === node.left ? node.right : node.left);
+  if (!typeofNode || typeofNode.argument.type !== 'Identifier' || !other || other.type !== 'Literal') return out;
+  if (((op === '!==' || op === '!=') && other.value === 'function')
+      || ((op === '===' || op === '==') && other.value === 'undefined')) {
+    out.push(typeofNode.argument.name);
+  }
+  return out;
+}
+
+function positiveTypeof(node, parent) {
+  if (!parent || parent.type !== 'BinaryExpression') return null;
+  const op = parent.operator;
+  const other = parent.left === node ? parent.right : (parent.right === node ? parent.left : null);
+  if (!other || other.type !== 'Literal' || typeof other.value !== 'string') return null;
+  if ((op === '!==' || op === '!=') && other.value === 'function') return null;
+  if (op === '===' || op === '==' || ((op === '!==' || op === '!=') && other.value === 'undefined')) {
+    return node.argument.name;
+  }
+  return null;
+}
+
+function isFalseTest(test) {
+  return !!(test && test.type === 'Literal' && (test.value === false || test.value === 0));
+}
+
+function markTree(node, set) {
+  if (!node || !node.type || set.has(node)) return;
+  set.add(node);
+  for (const k of Object.keys(node)) {
+    if (k === 'start' || k === 'end' || k === 'loc') continue;
+    const v = node[k];
+    if (Array.isArray(v)) v.forEach(x => markTree(x, set));
+    else if (v && v.type) markTree(v, set);
+  }
+}
+
 function onclickHits(text, symbols, at) {
   const hits = [];
   const re = /on[a-z]+\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))/gi;
@@ -188,6 +236,8 @@ export function unguarded(src, symbols, pre, provided, label) {
   };
 
   const guards = new Map();
+  const dead = new Set();
+  const aliases = new Map();
   function bucket(fn) {
     if (!guards.has(fn)) guards.set(fn, []);
     return guards.get(fn);
@@ -207,9 +257,25 @@ export function unguarded(src, symbols, pre, provided, label) {
     const fn = fnStack.length ? fnStack[fnStack.length - 1] : null;
     const tries = node.type === 'TryStatement' ? tryStack.concat(node) : tryStack;
 
-    if (node.type === 'UnaryExpression' && node.operator === 'typeof'
-        && node.argument.type === 'Identifier' && relevant(node.argument.name)) {
-      bucket(fn).push({ name: node.argument.name, pos: node.start, end: Infinity });
+    if (node.type === 'UnaryExpression' && node.operator === 'typeof' && node.argument.type === 'Identifier' && !dead.has(node)) {
+      const name = positiveTypeof(node, parent);
+      if (name && relevant(name)) bucket(fn).push({ name, pos: node.start, end: Infinity });
+    }
+    if (node.type === 'IfStatement' && isFalseTest(node.test)) markTree(node.consequent, dead);
+    if (node.type === 'IfStatement' && noFallthrough(node.consequent) && !node.alternate) {
+      for (const name of negativeTypeofNames(node.test)) {
+        if (relevant(name) && !dead.has(node)) bucket(fn).push({ name, pos: node.end, end: Infinity });
+      }
+    }
+    if (node.type === 'LogicalExpression' && node.operator === '||') {
+      for (const name of negativeTypeofNames(node.left)) {
+        if (relevant(name) && !dead.has(node)) bucket(fn).push({ name, pos: node.left.end, end: node.right.end });
+      }
+    }
+    if (node.type === 'LogicalExpression' && node.operator === '&&' && node.left.type === 'BinaryExpression') {
+      const un = node.left.left.type === 'UnaryExpression' && node.left.left.operator === 'typeof' ? node.left.left : null;
+      const name = un && positiveTypeof(un, node.left);
+      if (name && relevant(name) && !dead.has(node)) bucket(fn).push({ name, pos: node.left.end, end: node.right.end });
     }
     if (node.type === 'AwaitExpression') {
       const c = node.argument;
@@ -222,9 +288,10 @@ export function unguarded(src, symbols, pre, provided, label) {
         bucket(fn).push({ groups, pos: node.start, end });
       }
     }
-    if (node.type === 'Identifier' && relevant(node.name) && symbols.get(node.name).win && parent) {
-      const isObj = parent.type === 'MemberExpression' && parent.object === node;
-      if (!isObj) bucket(fn).push({ name: node.name, pos: node.start, end: Infinity });
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && node.init
+        && node.init.type === 'Identifier' && ROOTS.has(node.init.name)) {
+      if (!aliases.has(fn)) aliases.set(fn, new Set());
+      aliases.get(fn).add(node.id.name);
     }
     if (node.type === 'MemberExpression') {
       const obj = node.object;
@@ -291,7 +358,10 @@ export function unguarded(src, symbols, pre, provided, label) {
     }
     if (node.type === 'MemberExpression') {
       const obj = node.object;
-      if (obj.type === 'Identifier' && ROOTS.has(obj.name)) {
+      const fnHere = fnStack.length ? fnStack[fnStack.length - 1] : null;
+      const alias = aliases.get(fnHere);
+      const rootLike = obj.type === 'Identifier' && (ROOTS.has(obj.name) || (alias && alias.has(obj.name)));
+      if (rootLike) {
         const name = !node.computed && node.property.type === 'Identifier' ? node.property.name
           : (node.computed && node.property.type === 'Literal' ? node.property.value : '');
         if (typeof name === 'string' && relevant(name) && parent) {
@@ -324,6 +394,23 @@ export function unguarded(src, symbols, pre, provided, label) {
         for (const h of callsInText(text, symbols, arg.start)) {
           if (relevant(h.name) && !covered(fnStack, h.name, h.at)) note(h.at, h.name, 'timer-string');
         }
+      }
+    }
+    if (node.type === 'NewExpression' && node.callee.type === 'Identifier' && node.callee.name === 'Function') {
+      for (const arg of node.arguments) {
+        if (arg.type === 'Literal' && typeof arg.value === 'string') {
+          for (const h of callsInText(arg.value, symbols, arg.start)) {
+            if (relevant(h.name) && !covered(fnStack, h.name, h.at)) note(h.at, h.name, 'new-function');
+          }
+        }
+      }
+    }
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' && !node.callee.computed
+        && node.callee.property.name === 'setAttribute' && node.arguments[0]
+        && node.arguments[0].type === 'Literal' && node.arguments[0].value === 'onclick' && node.arguments[1]
+        && node.arguments[1].type === 'Literal' && typeof node.arguments[1].value === 'string') {
+      for (const h of callsInText(node.arguments[1].value, symbols, node.arguments[1].start)) {
+        if (relevant(h.name) && !covered(fnStack, h.name, h.at)) note(h.at, h.name, 'setAttribute');
       }
     }
     if (node.type === 'Literal' && typeof node.value === 'string') {
@@ -466,7 +553,12 @@ export function fixtureFailures() {
     ['onclick אחרי ביטוי', 'function f(x){ return `<button ${x} onclick="lazyFn()">`; }', true],
     ['setTimeout מחרוזת', 'function f(){ setTimeout("lazyFn()", 0); }', true],
     ['ContactImport.pick', 'function f(){ ContactImport.pick(); }', true],
-    ['ContactImport שמור', 'function f(){ if (ContactImport) ContactImport.pick(); }', false],
+    ['ContactImport שמור', 'function f(){ if (ContactImport) ContactImport.pick(); }', true],
+    ['typeof שלילי', 'function f(){ if (typeof lazyFn !== "function") x(); lazyFn(); }', true],
+    ['typeof בענף מת', 'function f(){ if (false) { typeof lazyFn === "function"; } lazyFn(); }', true],
+    ['כינוי ל-window', 'function f(){ const w = window; w.lazyFn(); }', true],
+    ['new Function', 'function f(){ new Function("lazyFn()"); }', true],
+    ['setAttribute', 'function f(){ el.setAttribute("onclick", "lazyFn()"); }', true],
     ['הצהרה מוזחת', 'function f(){ if (typeof lazyFn === "function") lazyFn(); }', false],
   ];
   const out = [];

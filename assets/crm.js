@@ -16034,40 +16034,39 @@ async function loadPropertyViewCounts(propertyIds){
   return counts;
 }
 
-/* קובץ שאינו חובה לרשימה. כישלון לא מפיל אותה, וקובץ שעוד בדרך
-   לא מחזיק אותה יותר מ-8 שניות. הבקשה עצמה נשארת אצל crmNeed:
-   אם היא מגיעה אחר כך, מי שמחכה לה נפתר בלי סקריפט שני. */
-const crmOptionalWait = new Map();
+/* קובץ שאינו חובה לרשימה. כל קריאה מקבלת המתנה משלה (כ-8 שניות
+   בתוך crmNeed). כישלון לא נשמר לכל הסשן: הקריאה הבאה מנסה שוב
+   אחרי חלון הכישלון, או נפתרת מיד אם הקובץ כבר הגיע. */
 async function crmOptional(group){
   if (!window.crmNeed) return;
-  /* המתנה אחת לקבוצה. בלי זה כל רשימה משלמת עוד 8 שניות על אותו קובץ. */
-  if (crmOptionalWait.has(group)) return crmOptionalWait.get(group);
-  const job = (async () => {
-    const p = crmNeed(group).catch(() => {});
-    /* אחרי שהתגית נכנסה. טיימר מאותו תור של ההכנסה לא נורה
-       כל עוד הבקשה תלויה. */
-    await new Promise(resolve => queueMicrotask(resolve));
-    await Promise.race([p, new Promise(resolve => setTimeout(resolve, 8000))]);
-  })();
-  crmOptionalWait.set(group, job);
-  return job;
+  try { await crmNeed(group); } catch (e) {}
 }
 
-async function loadProperties(agentId){
+async function loadProperties(agentId, opts){
   // הכרטיס וההפנייה נטענים לפני הציור. בלי זה השאילתה חוזרת והקריאה
   // ל-prRenderSmart נופלת, ו-Promise.all של הדשבורד נעצר כולל ה-goto.
   // קובץ המשרד מוסיף שמות. בלי הוא הרשימה עדיין עולה.
+  const fresh = !!(opts && opts.fresh);
+  const listEl = document.getElementById('propertiesList');
+  if (fresh && listEl) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   if (window.crmNeed) {
-    try { await crmNeed('properties'); } catch (e) {}
-    await crmOptional('office');
+    const propsP = crmNeed('properties', fresh ? { fresh: true } : undefined);
+    const officeP = crmOptional('office');
+    try { await propsP; } catch (e) {}
+    await officeP;
+  }
+  if (window.crmNeed && typeof prRenderSmart !== 'function') {
+    listEl.innerHTML = '<div class="empty-state"><p>רשימת הנכסים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
+    const again = listEl.querySelector('button');
+    if (again) again.addEventListener('click', () => loadProperties(agentId, { fresh: true }));
+    return;
   }
   // היריד והמיקום המשוער רק כשהרשימה פתוחה. כשל בסקריפט לא מפיל את
   // הדשבורד: הרשימה עולה בלי תגיות היריד.
   const libsP = (window.crmNeed && accIsOpen('accProperties'))
     ? crmNeed('property').catch(() => {})
     : Promise.resolve();
-  const listEl = document.getElementById('propertiesList');
-  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  if (!fresh) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   const propSelect = PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS;
@@ -20813,10 +20812,13 @@ async function loadLeads(agentId, opts){
   if (fresh) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   let leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
   if (window.crmNeed) {
+    const leadsP = crmNeed('leads', fresh ? { fresh: true } : undefined);
+    const officeP = crmOptional('office');
     try {
-      await crmNeed('leads', fresh ? { fresh: true } : undefined);
+      await leadsP;
       leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
     } catch (e) { leadsReady = false; }
+    await officeP;
   }
   if (!leadsReady) {
     listEl.innerHTML = '<div class="empty-state"><p>רשימת הלידים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
@@ -20824,7 +20826,6 @@ async function loadLeads(agentId, opts){
     if (again) again.addEventListener('click', () => loadLeads(agentId, { fresh: true }));
     return;
   }
-  await crmOptional('office');
   /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
      ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
   const demandShown = leadsTab === 'demand' && openDemandRows !== null
@@ -23224,9 +23225,11 @@ function featureLabel(key){ return FEATURE_LABELS[key] || key; }
 
 async function loadClients(){
   if (window.crmNeed) {
-    try { await Promise.all([crmNeed('leads'), crmNeed('showcase')]); }
-    catch (e) {}
-    await crmOptional('office');
+    const leadsP = crmNeed('leads');
+    const showP = crmNeed('showcase');
+    const officeP = crmOptional('office');
+    try { await Promise.all([leadsP, showP]); } catch (e) {}
+    await officeP;
   }
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';

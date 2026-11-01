@@ -343,7 +343,7 @@ test('קריאה לקובץ עצלן שמורה ב-typeof או ב-crmNeed של �
   const fails = lazyCallSites(crm);
   assert.deepEqual(fails, []);
   for (const [fn, groups] of [
-    ['async function loadProperties', ["crmNeed('properties')", "crmOptional('office')"]],
+    ['async function loadProperties', ["crmNeed('properties'", "crmOptional('office')"]],
     ['async function loadLeads', ["crmNeed('leads'", "crmOptional('office')"]],
     ['async function loadClients', ["crmNeed('leads')", "crmOptional('office')"]],
     ['async function loadSharedWithMe', ["crmNeed('properties')"]],
@@ -362,8 +362,9 @@ test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפי�
   assert.equal(body.includes('await'), false);
   assert.match(lazy, /var inflight = \{\}/);
   assert.match(lazy, /if \(inflight\[src\]\) return inflight\[src\]/);
-  assert.equal(/setInterval\(/.test(lazy), false);
-  assert.match(lazy, /return loadGroup\(group\)/);
+  assert.match(lazy, /CALL_MS = 8000/);
+  assert.match(lazy, /function boundCaller/);
+  assert.match(lazy, /function clearFailed/);
   assert.match(crm, /const crmQuiet = /);
   assert.match(crm, /crmNeed\('contacts'\)\.then\(initContactPick\)/);
   const form = crm.slice(crm.indexOf('function openClientForm()'), crm.indexOf('function openClientForm()') + 400);
