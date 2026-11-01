@@ -67,6 +67,8 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import "../../assets/silo-render.js";
+import { liveMarketSlugs } from "./lib/indexability.ts";
 import { decide, registry } from "./lib/markets.ts";
 import { HOME_VARY, setHomeCache, withHomeVary } from "./lib/page-cache.ts";
 
@@ -175,6 +177,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=commercial",
     title: "נכסים מסחריים בעפולה והעמק",
     description: "כל הנכסים המסחריים שמוצעים היום בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל ופרטי קשר ישירים.",
+    landing: "/afula/נדלן-מסחרי",
   },
   {
     query: "deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D",
@@ -269,6 +272,104 @@ function withCity(page: SearchPage, city: string): SearchPage {
 const BY_KEY = new Map(
   SEARCH_PAGES.map((page) => [matchKey(new URLSearchParams(page.query)), page]),
 );
+
+const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
+
+type HoodCity = { slug: string; name: string; market: string; hoods?: [string, string][] };
+
+function normHood(name: string): string {
+  return name.replace(/\s+/g, " ").trim().replace(/[\u2018\u2019\u05f3']/g, "'");
+}
+
+/* שכונות של שוק חי, מהרשימה שב-silo-render. בלי רשת. */
+function staticHoods(): Map<string, string> {
+  const cities = (globalThis as unknown as { ShukSilo?: { cities?: HoodCity[] } }).ShukSilo?.cities;
+  const live = liveMarketSlugs();
+  const map = new Map<string, string>();
+  if (!cities) return map;
+  for (const city of cities) {
+    if (live && !live.has(city.market)) continue;
+    for (const pair of city.hoods || []) {
+      map.set(normHood(pair[0]), `/n/${city.slug}/${pair[1]}`);
+    }
+  }
+  const alit = map.get(normHood("עפולה עלית"));
+  if (alit) map.set(normHood("עפולה עילית"), alit);
+  return map;
+}
+
+let hoodCache: { at: number; map: Map<string, string> } | null = null;
+
+/* שכונה עם מודעה פעילה שאינה ברשימה הסגורה (למשל אזור התעשייה ע. עלית).
+   כישלון משאיר את המפה הסטטית. */
+async function hoodMap(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (hoodCache && now - hoodCache.at < 10 * 60 * 1000) return hoodCache.map;
+  const map = staticHoods();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1200);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=1000`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const liveNames = new Set(
+        ((globalThis as unknown as { ShukSilo?: { cities?: HoodCity[] } }).ShukSilo?.cities || [])
+          .filter((city) => {
+            const live = liveMarketSlugs();
+            return !live || live.has(city.market);
+          })
+          .map((city) => city.name),
+      );
+      if (Array.isArray(data)) {
+        for (const row of data as { name?: string; city?: string; path_key?: string; props?: number }[]) {
+          if (!(Number(row.props) > 0)) continue;
+          if (!liveNames.has(String(row.city || ""))) continue;
+          const parts = String(row.path_key || "").split("/");
+          if (parts.length !== 2 || !/^[a-z0-9-]+$/.test(parts[0]) || !parts[1]) continue;
+          map.set(normHood(String(row.name || "")), `/n/${parts[0]}/${parts[1]}`);
+        }
+        const alit = map.get(normHood("עפולה עלית"));
+        if (alit) map.set(normHood("עפולה עילית"), alit);
+      }
+    }
+  } catch {
+    /* המפה הסטטית מספיקה לשכונות שברשימה */
+  } finally {
+    clearTimeout(timer);
+  }
+  hoodCache = { at: now, map };
+  return map;
+}
+
+export function resetHoodCache(): void {
+  hoodCache = null;
+}
+
+/* deal=sale&q=שם, בלי פרמטר תוכן נוסף. null אם זה לא חיפוש שכונה. */
+function saleHoodName(params: URLSearchParams): string | null {
+  const key = contentKey(params, CITY_PARAM);
+  const m = /^deal=sale&q=(.+)$/.exec(key);
+  return m ? normHood(m[1]) : null;
+}
+
+/* רק ה-canonical ו-og:url. הכותרת של דף הבית נשארת: זו הפניה, לא דף חדש. */
+function pointCanonical(html: string, url: string): string {
+  let out = html.replace(/<link\b[^>]*\brel="canonical"[^>]*>\s*/gi, "");
+  const filled = fillMeta(out, 'property="og:url"', url);
+  if (filled) out = filled;
+  return out.replace(/<\/head>/i, `<link rel="canonical" href="${esc(url)}">\n</head>`);
+}
 
 /* ‏מילוי ‎content‎ של תגית קיימת. מחזירה null כשאין תגית כזו, וכך הקורא
    יודע אם להוסיף אותה — בדיוק כמו ‎fillById‎ ב-og-tags.ts. */
@@ -422,7 +523,29 @@ export default async function handler(request: Request, context: Context) {
     // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
     const params = url.searchParams;
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
-    if (!match) return withHomeVary(res);
+    if (!match) {
+      const hoodName = saleHoodName(params);
+      if (!hoodName) return withHomeVary(res);
+      const path = (await hoodMap()).get(hoodName);
+      if (!path) return withHomeVary(res);
+      const fallback = res.clone();
+      try {
+        const out = pointCanonical(await res.text(), `${SITE}${path}`);
+        const headers = new Headers(fallback.headers);
+        setHomeCache(headers);
+        fallback.body?.cancel();
+        return new Response(out, { status: res.status, headers });
+      } catch {
+        const headers = new Headers(fallback.headers);
+        headers.set("Netlify-Vary", HOME_VARY);
+        headers.set("Netlify-CDN-Cache-Control", "no-store");
+        return new Response(fallback.body, {
+          status: fallback.status,
+          statusText: fallback.statusText,
+          headers,
+        });
+      }
+    }
     const city = cityFromParams(params);
     /* clone לפני הקריאה: ב-catch הגוף המקורי כבר נעול, ומחזרים
        Response חדש עם כותרות חדשות ולא נוגעים בנעולות. */

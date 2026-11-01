@@ -790,7 +790,13 @@
     var get = function (k) { var v = params.get(k); return v === null ? '' : String(v).trim(); };
     var deal = get('deal');
     if (deal === 'sale' || deal === 'rent') st.deal = deal;
-    else if (deal === 'commercial') { st.deal = null; st.type = 'commercial'; }
+    else if (deal === 'commercial') {
+      st.deal = null;
+      st.type = 'commercial';
+      /* cdeal מסנן מכירה או השכרה בתוך המסחרי. בלי הפרמטר נשארים שניהם. */
+      var cdeal = get('cdeal');
+      if (cdeal === 'sale' || cdeal === 'rent') st.deal = cdeal;
+    }
 
     var ptype = get('ptype');
     var tkey = get('type');

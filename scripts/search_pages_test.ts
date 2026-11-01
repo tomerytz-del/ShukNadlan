@@ -21,7 +21,7 @@
    ========================================================================== */
 
 import { readFileSync } from "node:fs";
-import handler, { SEARCH_PAGES } from "../netlify/edge-functions/search-pages.ts";
+import handler, { resetHoodCache, SEARCH_PAGES } from "../netlify/edge-functions/search-pages.ts";
 
 /* ‏אותו מבנה H1 כמו ב-index.html: שם עיר שהסקריפט מחליף, וכפתור בורר השוק.
    עמוד תוצאות חייב להחליף את הטקסט, להוריד את ‎#heroCityName‎ (אחרת
@@ -250,6 +250,32 @@ for (const [name, url, query] of SAME) {
     hood.canonical === canonOf(hoodPage) && hood.canonical.endsWith("/n/afula/גבעת-המורה"),
     hood.canonical,
   );
+  resetHoodCache();
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify([
+      { name: "רובע יזרעאל", city: "עפולה", path_key: "afula/רובע-יזרעאל", props: 20 },
+      { name: "אזור התעשייה ע. עלית", city: "עפולה", path_key: "afula/אזור-התעשייה-ע-עלית", props: 1 },
+      { name: "בלי מודעות", city: "עפולה", path_key: "afula/ריקה", props: 0 },
+    ]), { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const rova = await serve("/?deal=sale&q=" + encodeURIComponent("רובע יזרעאל"));
+  const extra = await serve("/?deal=sale&q=" + encodeURIComponent("אזור התעשייה ע. עלית"));
+  const thin = await serve("/?deal=sale&q=" + encodeURIComponent("בלי מודעות"));
+  const unknown = await serve("/?deal=sale&q=" + encodeURIComponent("משהו אחר"));
+  globalThis.fetch = (async () =>
+    new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  resetHoodCache();
+  void prevFetch;
+  check(
+    "שכונה חיה שאינה בשורה הסגורה מצביעה ל-/n/",
+    rova.canonical === `${SITE}/n/afula/רובע-יזרעאל`
+      && extra.canonical === `${SITE}/n/afula/אזור-התעשייה-ע-עלית`,
+    JSON.stringify({ rova: rova.canonical, extra: extra.canonical }),
+  );
+  check("שכונה בלי מודעות נשארת מאוחדת לדף הבית", thin.untouched, thin.canonical || "");
+  check("טקסט חופשי שאינו שכונה נשאר מאוחד", unknown.untouched, unknown.canonical || "");
 }
 {
   const only = await serve("/?city=" + encodeURIComponent("עפולה"));

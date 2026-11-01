@@ -158,11 +158,6 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://shuknadlan.co.il/?deal=commercial</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://shuknadlan.co.il/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -197,6 +192,11 @@
   </url>
   <url>
     <loc>https://shuknadlan.co.il/afula/דירות-3-חדרים</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/נדלן-מסחרי</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>

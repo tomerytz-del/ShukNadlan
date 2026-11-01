@@ -313,6 +313,52 @@ async function indexableRows(list: IndexRow[]): Promise<
   return failed ? { ok: false, safe: rows } : { ok: true, rows };
 }
 
+function hoodHref(pathKey: string): string {
+  const parts = pathKey.split("/");
+  if (parts.length !== 2) return "";
+  if (!/^[a-z0-9-]+$/.test(parts[0])) return "";
+  if (!parts[1] || /[/?#\\]/.test(parts[1])) return "";
+  return `/n/${parts[0]}/${encodeURIComponent(parts[1])}`;
+}
+
+/* שכונות עם מודעה פעילה באותה עיר. כישלון משאיר את השם בלי קישור. */
+async function hoodLinks(city: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!city) return map;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,city,path_key,props&limit=500`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return map;
+    const data = await res.json();
+    if (!Array.isArray(data)) return map;
+    for (const row of data as { name?: string; city?: string; path_key?: string; props?: number }[]) {
+      if (String(row.city || "") !== city) continue;
+      if (!(Number(row.props) > 0)) continue;
+      const href = hoodHref(String(row.path_key || ""));
+      const name = String(row.name || "").trim();
+      if (href && name) map.set(name, href);
+    }
+    const alit = map.get("עפולה עלית");
+    if (alit) map.set("עפולה עילית", alit);
+  } catch {
+    /* בלי קישורים */
+  } finally {
+    clearTimeout(timer);
+  }
+  return map;
+}
+
 /* ‏utm ו-gclid אינם חלק מהדף. ב-edge עם cache ידני כל פרמטר נכנס
    למפתח כברירת מחדל, ו-query= ריק לא מאחד אותם. query=_ הוא מפתח
    דמה שאינו בכתובת: כל בקשה בלי "_" היא "אי-התאמה" וחולקת רשומה אחת. */
@@ -394,7 +440,16 @@ export default async function handler(request: Request, context: Context) {
         out = noindex(out);
         status = 404;
       } else if (data && typeof data === "object" && !Array.isArray(data)) {
-        const filled = injectSettlement(out, data as Settlement);
+        const settlement = data as Settlement;
+        const links = await hoodLinks(String(settlement.name || ""));
+        const recent = Array.isArray(settlement.recent)
+          ? settlement.recent.map((row) => {
+            const name = String(row.neighborhood || "").trim();
+            const href = links.get(name);
+            return href ? { ...row, neighborhood_path: href } : row;
+          })
+          : settlement.recent;
+        const filled = injectSettlement(out, { ...settlement, recent });
         cache = filled !== out;
         out = filled;
         /* ‏פחות מ-5 עסקאות בחלון של הדף - ידוע בלי שאילתה נוספת.

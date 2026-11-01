@@ -72,8 +72,13 @@ let res = await run("https://shuknadlan.co.il/deals/afula", 200, AFULA);
 let html = await res.text();
 const ld = ldOf(html);
 check("‏data-ssr", /<div id="dealsBody" data-ssr="1">/.test(html));
-check("כותרת עם חודש ושנה", html.includes("<title>עסקאות נדל״ן בעפולה - אוקטובר 2026 | שוק נדל״ן</title>"));
-check("‏h1", /<h1 id="dealsH1">עסקאות נדל״ן בעפולה - אוקטובר 2026<\/h1>/.test(html));
+const jeru = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", year: "numeric", month: "numeric" }).formatToParts(new Date());
+const jeruMonth = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"][Number(jeru.find((p) => p.type === "month")!.value) - 1];
+const jeruYear = jeru.find((p) => p.type === "year")!.value;
+const afulaTitle = `עסקאות נדל״ן בעפולה לפי שכונה - ${jeruMonth} ${jeruYear}`;
+check("כותרת עם חודש ושנה", html.includes(`<title>${afulaTitle} | שוק נדל״ן</title>`));
+check("‏og:title כמו הכותרת", html.includes(`<meta property="og:title" content="${afulaTitle} | שוק נדל״ן">`));
+check("‏h1", new RegExp(`<h1 id="dealsH1">${afulaTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</h1>`).test(html));
 check("‏meta description עם המספרים", /<meta name="description" content="812 עסקאות[^"]*₪1,430,000/.test(html));
 check("כרטיסי הסיכום", html.includes("₪1,430,000") && html.includes("₪13,600") && html.includes(">812<"));
 check("חציון מושתק מתחת ל-5", html.includes("מעט מדי עסקאות"));
@@ -241,6 +246,19 @@ check("אחרי הצלחה, כשל מגיש את אותו דף", staleDeal.statu
 check("העותק בלי Retry-After", !staleDeal.headers.get("Retry-After") && !staleDealHtml.includes("noindex"));
 check("עותק יישוב: no-store בשתי הכותרות", staleDeal.headers.get("Cache-Control") === "no-store"
   && staleDeal.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+
+res = await runRouted("https://shuknadlan.co.il/deals/afula", (target) => {
+  if (target.includes("neighborhood_pages_public")) {
+    return { status: 200, body: [
+      { name: "גבעת המורה", city: "עפולה", path_key: "afula/גבעת-המורה", props: 6 },
+      { name: "בלי מודעות", city: "עפולה", path_key: "afula/בלי", props: 0 },
+    ] };
+  }
+  return { status: 200, body: AFULA };
+});
+html = await res.text();
+check("שכונה בעסקאות מקושרת ל-/n/", html.includes('href="/n/afula/' + encodeURIComponent("גבעת-המורה") + '">גבעת המורה</a>'));
+check("שכונה בלי מודעות אינה קישור", !html.includes("/n/afula/" + encodeURIComponent("בלי")));
 
 /* פרטיות: אין מספר בית ואין גוש/חלקה בשום מקום ב-render */
 const D = (globalThis as any).ShukDeals;

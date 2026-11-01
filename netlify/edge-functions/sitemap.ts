@@ -435,13 +435,39 @@ function queryKey(params: URLSearchParams): string {
 }
 
 /* ‏כתובת סינון שה-canonical שלה הוא דף נחיתה. אותה רשימה כמו search-pages. */
-function locPointsElsewhere(loc: string): boolean {
+function normHood(name: string): string {
+  return name.replace(/\s+/g, " ").trim().replace(/[\u2018\u2019\u05f3']/g, "'");
+}
+
+/* שם שכונה שממנו יש דף /n/. "עפולה עילית" היא אותו דף כמו "עפולה עלית". */
+function hoodNamesOf(rows: Record<string, unknown>[]): Set<string> {
+  const names = new Set<string>();
+  for (const row of rows) {
+    const name = normHood(String(row.name || ""));
+    if (name && Number(row.props || 0) > 0) names.add(name);
+  }
+  if (names.has(normHood("עפולה עלית"))) names.add(normHood("עפולה עילית"));
+  return names;
+}
+
+function saleHoodQuery(loc: string): string | null {
+  let url: URL;
+  try { url = new URL(loc); } catch { return null; }
+  if (url.pathname !== "/") return null;
+  const key = queryKey(url.searchParams);
+  const m = /^deal=sale&q=(.+)$/.exec(key);
+  return m ? normHood(m[1]) : null;
+}
+
+function locPointsElsewhere(loc: string, hoods?: Set<string>): boolean {
   let url: URL;
   try { url = new URL(loc); } catch { return false; }
   if (url.pathname !== "/") return false;
   const key = queryKey(url.searchParams);
   const page = SEARCH_PAGES.find((item) => queryKey(new URLSearchParams(item.query)) === key);
-  return !!page?.landing;
+  if (page?.landing) return true;
+  const hood = saleHoodQuery(loc);
+  return !!hood && !!hoods && hoods.has(hood);
 }
 
 function unescapeXml(s: string): string {
@@ -462,13 +488,17 @@ function encodeLocs(body: string): string {
 }
 
 function removeLoc(body: string, loc: string): string {
-  const needle = `<loc>${xml(loc)}</loc>`;
-  const at = body.indexOf(needle);
-  if (at < 0) return body;
-  const start = body.lastIndexOf("<url>", at);
-  const end = body.indexOf("</url>", at);
-  if (start < 0 || end < 0) return body;
-  return body.slice(0, start) + body.slice(end + "</url>".length);
+  const needles = new Set([`<loc>${xml(loc)}</loc>`, `<loc>${encodeLoc(loc)}</loc>`]);
+  let out = body;
+  for (const needle of needles) {
+    const at = out.indexOf(needle);
+    if (at < 0) continue;
+    const start = out.lastIndexOf("<url>", at);
+    const end = out.indexOf("</url>", at);
+    if (start < 0 || end < 0) continue;
+    out = out.slice(0, start) + out.slice(end + "</url>".length);
+  }
+  return out;
 }
 
 function upsertLastmod(body: string, loc: string, mod: string): string {
@@ -491,6 +521,8 @@ type SiloPage = {
   cityName: string;
   names?: string[] | null;
   market: string;
+  category?: string | null;
+  anyDeal?: boolean;
 };
 type BrokersPage = { path: string; cityId: string; market: string };
 
@@ -510,8 +542,10 @@ function landingMatches(page: SiloPage, row: Record<string, unknown>): boolean {
   const city = String(row.city || "");
   const names = Array.isArray(page.names) && page.names.length ? page.names : [page.cityName];
   if (!names.includes(city)) return false;
-  if (String(row.deal_type || "") !== "sale") return false;
-  if (String(row.category || "") !== "residential") return false;
+  const category = page.category || "residential";
+  if (String(row.category || "") !== category) return false;
+  /* דף מסחרי לא נועל מכירה. שאר הדפים נשארים מכירה, כמו queryOf. */
+  if (!page.anyDeal && String(row.deal_type || "") !== "sale") return false;
   const types = Array.isArray(page.property_types) && page.property_types.length
     ? page.property_types
     : null;
@@ -554,11 +588,28 @@ function keepLanding(body: string, loc: string, mod: string): string {
   return appendUrl(body, loc, mod);
 }
 
-async function polish(body: string, cities: CityMap, live: Set<string> | null): Promise<string> {
+function dedupeLocs(body: string): string {
+  const seen = new Set<string>();
+  return body.replace(/\s*<url>[\s\S]*?<\/url>/g, (block) => {
+    const m = block.match(/<loc>([^<]*)<\/loc>/);
+    if (!m) return block;
+    const key = unescapeXml(m[1]);
+    if (seen.has(key)) return "";
+    seen.add(key);
+    return block;
+  });
+}
+
+async function polish(
+  body: string,
+  cities: CityMap,
+  live: Set<string> | null,
+  hoods: Set<string>,
+): Promise<string> {
   let out = body;
   const locs = [...out.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => unescapeXml(m[1]));
   for (const loc of locs) {
-    if (locPointsElsewhere(loc)) out = removeLoc(out, loc);
+    if (locPointsElsewhere(loc, hoods)) out = removeLoc(out, loc);
   }
 
   /* /projects נשאר גם כשאין פרויקט: יש בו מדריך קנייה, והוא ניתן לאינדוקס.
@@ -602,7 +653,7 @@ async function polish(body: string, cities: CityMap, live: Set<string> | null): 
     }
   }
 
-  return encodeLocs(out);
+  return dedupeLocs(encodeLocs(out));
 }
 
 /* ---------- ההרכבה ---------- */
@@ -644,6 +695,7 @@ export default async function handler(_request: Request, context: Context) {
     const cities = await loadCityMarkets();
     const live = liveMarketSlugs();
     const blocks: string[] = [];
+    let hoodRows: Record<string, unknown>[] = [];
     const counts: string[] = [];
     let guardedFailed = false;
     let otherUrls = 0;
@@ -656,6 +708,7 @@ export default async function handler(_request: Request, context: Context) {
         continue;
       }
       const rows = await rowsForSitemap(source, got.rows, cities, live);
+      if (source.page === "neighborhood") hoodRows = rows;
       const urls = entries(source, rows);
       counts.push(`${source.name}: ${urls.length}`);
       blocks.push(...urls);
@@ -692,7 +745,7 @@ export default async function handler(_request: Request, context: Context) {
       decl === -1 ? note + "\n" + body
                   : body.slice(0, decl + 2) + "\n" + note + body.slice(decl + 2);
 
-    const out = await polish(noted, cities, live);
+    const out = await polish(noted, cities, live, hoodNamesOf(hoodRows));
     const response = new Response(out, { status: 200, headers: XML_HEADERS });
     await remember(lastGoodKey(_request.url), response, waitUntilOf(context));
     return response;
