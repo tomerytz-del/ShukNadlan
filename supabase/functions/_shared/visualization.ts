@@ -907,7 +907,14 @@ export async function ensureTagged(
     );
   }
 
-  return (rows ?? []) as Array<{ image_url: string } & PhotoTags>;
+  /* ‏viz-1115-fix: סדר קבוע - לפי המקום של התמונה בנכס, ואז לפי הכתובת. השאילתה הייתה בלי ORDER BY,
+     והבוחר לוקח את ההתאמה הראשונה: ב-150 מתוך 410 ההדמיות יש לחדר יותר מצילום מתאים אחד, ולכן אותו
+     נכס יכול היה לקבל צילום אחר בכל בקשה - ושתי הפונקציות לייצר זו על זו */
+  const pos = new Map(images.map((u, i) => [u, i]));
+  const sorted = ((rows ?? []) as Array<{ image_url: string } & PhotoTags>).slice().sort((a, b) =>
+    ((pos.get(a.image_url) ?? 1e9) - (pos.get(b.image_url) ?? 1e9)) ||
+    (a.image_url < b.image_url ? -1 : a.image_url > b.image_url ? 1 : 0));
+  return sorted;
 }
 
 /**
