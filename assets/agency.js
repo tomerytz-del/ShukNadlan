@@ -504,7 +504,11 @@ function renderStickyBar(contact, waHref){
 function agencyAddressHtml(){
   const address = ((currentAgency && currentAgency.address) || '').trim();
   if (!address) return '';
-  return `<p class="contact-address">${escapeHtml(address)}</p>`;
+  const maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
+  return `<a class="contact-address" href="${escapeHtml(maps)}" target="_blank" rel="noopener noreferrer"
+             aria-label="${escapeHtml('כתובת המשרד: ' + address + ' - פתיחה במפות')}">
+      ${ICON.pin}<span>${escapeHtml(address)}</span>
+    </a>`;
 }
 
 /* ---------- חותם הדף: פנייה למנהל/ת המשרד ----------
@@ -516,15 +520,20 @@ function renderManagerContact(members){
   const contact = pub ? pub.pickContact(members) : null;
   const phone = contact ? contact.phone_e164 : '';
   const address = ((currentAgency && currentAgency.address) || '').trim();
-  const html = pub ? pub.contactHtml(address, phone) : '';
+  const addressHtml = agencyAddressHtml();
+  const call = phone ? `<a class="ag-call" href="tel:+${phone}">להתקשר למשרד</a>` : '';
+  const html = (addressHtml || call)
+    ? `<div class="contact-who">${addressHtml}${call}<p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p></div>`
+    : (pub ? pub.contactHtml(address, phone) : '');
   const card = document.getElementById('contactCard');
   const sec = document.getElementById('contactSec');
   if (!card || !sec || !html) return;
   if (card.getAttribute('data-ssr') === '1') {
     const tel = card.querySelector('a.ag-call');
-    const addr = card.querySelector('.contact-address');
+    const addr = card.querySelector('a.contact-address');
+    const maps = address ? ('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address)) : '';
     const telOk = phone ? (tel && tel.getAttribute('href') === 'tel:+' + phone) : !tel;
-    const addrOk = address ? (addr && addr.textContent.trim() === address) : !addr;
+    const addrOk = address ? (addr && addr.getAttribute('href') === maps) : !addr;
     if (telOk && addrOk) {
       sec.classList.add('is-on');
       sec.style.display = 'block';
@@ -1092,24 +1101,20 @@ function showLeftoverWidgets(){
    למסחרי בכל המרקטפלייס — עמודה ‎NOT NULL‎ עם ברירת מחדל 'residential' —
    ולכן ההפרדה יושבת ב-PropShelf וכל הדפים קוראים לה. */
 function renderPropertyCards(list){
-  const el = document.getElementById('activeProps');
-  const pub = window.ShukAgencyPublic;
-  if (!el || !pub) return;
-  const have = pub.listingIds(el.innerHTML);
-  const want = list.map(p => String(p.id));
-  const samePrefix = have.length > 0 && have.every((id, i) => want[i] === id);
-  if (el.getAttribute('data-ssr') === '1' && samePrefix) {
-    if (want.length > have.length) el.insertAdjacentHTML('beforeend', pub.listingsHtml(list.slice(have.length), want.length));
-  } else if (have.join('\n') !== want.join('\n')) {
-    el.innerHTML = pub.listingsHtml(list, list.length || 1);
+  /* קישורים שטוחים מהשרת יושבים במקטע מוסתר. מפנים אותם פעם אחת,
+     ואז המדפים נבנים כמו ב-main: פרטי/מסחרי, מיון, תגיות חדרים. */
+  if (!privateShelf) {
+    const el = document.getElementById('activeProps');
+    if (el) el.replaceChildren();
+    buildShelves();
   }
-  el.setAttribute('data-ssr', '1');
+  privateShelf.set(PropShelf.private(list));
+  commercialShelf.set(PropShelf.commercial(list));
   const empty = document.getElementById('propsEmpty');
   if (empty) {
     empty.hidden = list.length > 0;
     if (!empty.hidden && !empty.textContent.trim()) empty.textContent = 'לא נמצאו נכסים שתואמים לחיפוש.';
   }
-  showLeftoverWidgets();
 }
 
 /* ---------- חיפוש בנכסי המשרד ----------
@@ -1127,24 +1132,20 @@ function initPropertySearch(){
   const apply = ()=>{
     const q = input.value.trim().toLowerCase();
     clear.hidden = !q;
-    const terms = q ? q.split(/\s+/) : [];
-    const rows = document.querySelectorAll('#activeProps a.prop-row');
-    let shown = 0;
-    rows.forEach(row => {
-      const hay = ((row.getAttribute('data-q') || '') + ' ' + row.textContent).toLowerCase();
-      const ok = !terms.length || terms.every(t => hay.includes(t));
-      row.hidden = !ok;
-      if (ok) shown++;
-    });
-    const empty = document.getElementById('propsEmpty');
-    if (empty) {
-      empty.hidden = shown > 0;
-      if (!empty.hidden && !empty.textContent.trim()) empty.textContent = 'לא נמצאו נכסים שתואמים לחיפוש.';
+    if (!q){
+      renderPropertyCards(agencyProperties);
+      count.hidden = true;
+      return;
     }
-    if (!q) { count.hidden = true; return; }
-    count.textContent = shown === 1
+    const terms = q.split(/\s+/);
+    const matches = agencyProperties.filter(p=>{
+      const haystack = [p.title, p.street, p.city, p.property_type].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => haystack.includes(t));
+    });
+    renderPropertyCards(matches);
+    count.textContent = matches.length === 1
       ? 'נכס אחד תואם'
-      : `${shown} נכסים תואמים מתוך ${agencyProperties.length}`;
+      : `${matches.length} נכסים תואמים מתוך ${agencyProperties.length}`;
     count.hidden = false;
   };
 
@@ -1236,6 +1237,12 @@ async function loadTeam(sb, agencyId){
     teamSec.style.display = 'block';
   }
   if (rail) {
+    rail.querySelectorAll('a.team-card .team-badge').forEach(slot => {
+      if (slot.querySelector('button') || !window.QualityBadge) return;
+      const name = (slot.parentElement.querySelector('.team-name') || {}).textContent || '';
+      slot.textContent = '';
+      QualityBadge.mount(slot, { size:'sm', subject: name.trim() });
+    });
     initCarousel(rail, document.getElementById('teamPrev'),
                  document.getElementById('teamNext'), document.getElementById('teamDots'));
   }

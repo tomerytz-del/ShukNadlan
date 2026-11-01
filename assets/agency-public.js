@@ -108,6 +108,9 @@
         '<span class="team-name">' + esc(name) + '</span>' +
         '<span class="team-role">' + esc(roleLabel(member)) + '</span>' +
         (license ? '<span class="team-lic">רישיון ' + esc(license) + '</span>' : '') +
+        (member.has_ethics_badge
+          ? '<span class="team-badge"><img src="assets/badge-ethics.png" alt="" width="28" height="28"></span>'
+          : '') +
         '</a>';
     }).join('');
   }
@@ -167,13 +170,26 @@
   function contactHtml(address, phone) {
     var addr = clean(address);
     var bits = [];
-    if (addr) bits.push('<p class="contact-address">' + esc(addr) + '</p>');
+    if (addr) {
+      var maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr);
+      bits.push('<a class="contact-address" href="' + esc(maps) + '" target="_blank" rel="noopener noreferrer" aria-label="' +
+        esc('כתובת המשרד: ' + addr + ' - פתיחה במפות') + '"><span>' + esc(addr) + '</span></a>');
+    }
     if (phoneOk(phone)) {
       bits.push('<a class="ag-call" href="tel:+' + phone + '">להתקשר למשרד</a>');
     }
     if (!bits.length) return '';
     bits.push('<p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>');
     return '<div class="contact-who">' + bits.join('') + '</div>';
+  }
+
+  /* קישורים לסורק בלבד. המקטע נשאר מוסתר עד שהמדפים בדפדפן מחליפים אותם. */
+  function listingLinksHtml(props) {
+    return (props || []).map(function (p) {
+      if (!p || !p.id) return '';
+      var name = clean(p.title) || clean(p.property_type) || 'נכס';
+      return '<a href="/property?id=' + encodeURIComponent(p.id) + '">' + esc(name) + '</a>';
+    }).join('');
   }
 
   function expertiseLabels(ids, declared) {
@@ -222,6 +238,7 @@
     agentHref: agentHref,
     teamHtml: teamHtml,
     listingsHtml: listingsHtml,
+    listingLinksHtml: listingLinksHtml,
     contactHtml: contactHtml,
     bannerCtaHtml: bannerCtaHtml,
     expertiseLabels: expertiseLabels,

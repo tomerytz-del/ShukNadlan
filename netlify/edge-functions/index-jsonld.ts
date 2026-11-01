@@ -178,7 +178,7 @@ export default async function handler(request: Request, context: Context) {
     if (links) {
       out = out.replace(
         /(<div\b[^>]*\bid="agenciesGrid"[^>]*>)\s*(<\/div>)/i,
-        `$1${links}$2`,
+        (_match, open: string, close: string) => open + links + close,
       );
     }
   }

@@ -135,6 +135,7 @@ const shared = globalThis as unknown as {
     pickContact: (members: Record<string, unknown>[]) => Record<string, unknown> | null;
     teamHtml: (members: Record<string, unknown>[]) => string;
     listingsHtml: (props: Record<string, unknown>[]) => string;
+    listingLinksHtml: (props: Record<string, unknown>[]) => string;
     contactHtml: (address: unknown, phone: unknown) => string;
     bannerCtaHtml: (phone: unknown, waHref: unknown, name: unknown) => string;
     expertiseLabels: (ids: string[], declared: boolean) => string[];
@@ -1311,7 +1312,8 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
       reveal.push("statBar");
     }
   }
-  if (members && members.length === 0) omitIds.push("teamSec");
+  /* מקטע ריק נשאר ב-HTML ומוסתר. מחיקה שלו נתקעת במטמון, וליסטינג
+     או יועץ חדש לא יופיעו עד שהעותק יפוג. */
   if (members && pub && members.length) {
     const cards = pub.teamHtml(members);
     if (cards) {
@@ -1322,15 +1324,14 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     }
   }
   if (listings && pub && listings.length) {
-    const rows = pub.listingsHtml(listings);
+    const rows = pub.listingLinksHtml(listings);
     if (rows) {
+      /* בלי is-on: המקטע נשאר display:none כמו ב-main, והמדפים מחליפים
+         את הקישורים לפני שהוא נפתח, בלי קפיצה. */
       inner.push({ id: "activeProps", html: rows });
-      addClass.push({ id: "propsSec", className: "is-on" });
       const n = listingCount != null ? listingCount : listings.length;
       fills.push({ id: "propsCount", text: n === 1 ? "נכס פעיל אחד" : `${n} נכסים פעילים` });
     }
-  } else if (listings && listings.length === 0) {
-    omitIds.push("propsSec");
   }
   if (phone && pub) {
     const wa = `https://wa.me/${phone}`;
