@@ -364,6 +364,9 @@ test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפי�
   assert.match(lazy, /return existing\.promise/);
   assert.match(lazy, /CALL_MS = 8000/);
   assert.match(lazy, /function boundCaller/);
+  assert.match(lazy, /function markStalled/);
+  assert.match(lazy, /function isStalled/);
+  assert.match(lazy, /var stalled = \{\}/);
   assert.match(lazy, /function clearFailed/);
   assert.match(lazy, /function crmAfter/);
   assert.match(lazy, /needShared\(g, 0\)/);

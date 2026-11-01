@@ -146,6 +146,9 @@
   var inflight = {};
   var settled = {};
   var failedAt = {};
+  /* קבוצה שקורא אחד כבר פקע עליה, וההורדה עוד רצה. קורא הבא באותה
+     עלייה לא משלם עוד 8 שניות: crmAfter יצייר כשהקובץ יגיע. */
+  var stalled = {};
   var groupPri = {};
   var CALL_MS = 8000;
   /* תור הורדה. קריאה מהמסך (עדיפות 1) קופצת לפני הטעינה ברקע.
@@ -244,12 +247,14 @@
       pending[group] = run().then(function (v) {
         settled[group] = 'ok';
         delete failedAt[group];
+        delete stalled[group];
         return v;
       }).catch(function () {
         clearFailed(group);
         return run().then(function (v) {
           settled[group] = 'ok';
           delete failedAt[group];
+          delete stalled[group];
           return v;
         });
       }).catch(function (err) {
@@ -274,6 +279,7 @@
     var seen = closureOf(group, {});
     for (var g in seen) {
       delete failedAt[g];
+      delete stalled[g];
       if (settled[g] && settled[g] !== 'ok') delete settled[g];
     }
   }
@@ -308,11 +314,36 @@
     for (var d = 0; d < deps.length; d++) boost(deps[d], seen);
   }
 
+  /* קבוצה שכבר פקעה ועדיין יורדת, או תלות שלה במצב הזה.
+     הקורא הבא נדחה מיד. השעון המלא נשאר לקבוצה שעוד לא פקעה. */
+  function markStalled(group, seen) {
+    if (!group || seen[group] || !GROUPS[group]) return;
+    seen[group] = true;
+    if (pending[group] && settled[group] !== 'ok') stalled[group] = true;
+    var deps = PRE[group] || [];
+    for (var i = 0; i < deps.length; i++) markStalled(deps[i], seen);
+  }
+
+  function isStalled(group, seen) {
+    if (!group || seen[group] || !GROUPS[group]) return false;
+    seen[group] = true;
+    if (stalled[group] && pending[group] && settled[group] !== 'ok') return true;
+    var deps = PRE[group] || [];
+    for (var i = 0; i < deps.length; i++) {
+      if (isStalled(deps[i], seen)) return true;
+    }
+    return false;
+  }
+
   /* המתנה של הקורא הזה בלבד. מתחילה כשהוא מבקש, ולא כשהקבוצה
      נגעה לראשונה. פקיעה דוחה רק אותו: ההבטחה המשותפת נשארת,
      וכשהקובץ מגיע crmAfter מריץ את מה שנכשל. */
   function boundCaller(group, p) {
     if (settled[group] === 'ok') return Promise.resolve();
+    if (isStalled(group, {})) {
+      markStalled(group, {});
+      return Promise.reject(new Error(group));
+    }
     return new Promise(function (resolve, reject) {
       var done = false;
       var timer = 0;
@@ -324,7 +355,10 @@
         else resolve(value);
       }
       p.then(function (v) { finish(null, v); }, function (e) { finish(e || new Error(group)); });
-      timer = setTimeout(function () { finish(new Error(group)); }, CALL_MS);
+      timer = setTimeout(function () {
+        markStalled(group, {});
+        finish(new Error(group));
+      }, CALL_MS);
     });
   }
 

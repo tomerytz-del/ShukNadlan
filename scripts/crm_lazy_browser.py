@@ -189,7 +189,7 @@ async def main():
         print('hang dashboard', ms, 'ms, scripts', tags, 'reqs', office_hits['n'], flush=True)
         if tags != 1 or office_hits['n'] != 1:
             fail('קובץ תקוע נטען יותר מפעם אחת')
-        if ms > 14000:
+        if ms > 9000:
             fail('קובץ משרד תקוע עיכב את הדשבורד %dms' % ms)
         bad = hard_errors(errs)
         if bad:
@@ -226,7 +226,7 @@ async def main():
             print('slow leads resolved once', flush=True)
         await ctx.close()
 
-        async def bounded_hang(browser, path, script, marker, expect_leads_error, expect_notif, limit_ms=11000):
+        async def bounded_hang(browser, path, script, marker, expect_leads_error, expect_notif, limit_ms=9000):
             ctx, page, errs = await boot(browser, 1280, 800)
             gate = {'go': False}
             hits = {'n': 0}
@@ -268,11 +268,9 @@ async def main():
                 print(script, 'late once', flush=True)
             await ctx.close()
 
-        # יעד הלידים מחכה לקובץ, ואז הרשימה מחכה שוב. שתי המתנות של אותו קורא
-        # חדש, לא שעון אחד שנשאר בעבר.
-        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', True, False, 28000)
-        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', True, False, 20000)
-        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', False, True, 12000)
+        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', True, False)
+        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', True, False)
+        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', False, True)
 
         ctx, page, errs = await boot(browser, 1280, 800)
         cdp = await page.context.new_cdp_session(page)
