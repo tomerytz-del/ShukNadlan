@@ -151,16 +151,17 @@ node --experimental-strip-types scripts/search_pages_test.ts   # ההתנהגו�
 
 ## דף נחיתה עם המודעות עצמן
 
-שלושה צירופים שגוגל כבר דירגה ככתובת סינון קיבלו דף משלהם, עם המודעות
+צירופים שגוגל כבר דירגה ככתובת סינון קיבלו דף משלהם, עם המודעות
 ב-HTML הראשון ולא רק כותרת על `index.html`:
 
 | כתובת | במקום |
 | --- | --- |
 | `/afula/בתים-פרטיים` | `/?deal=sale&ptype=בית פרטי/קוטג'` |
 | `/afula/דירות-גן` | `/?deal=sale&ptype=דירת גן` |
+| `/afula/דירות-למכירה` | `/?deal=sale` |
 | `/afula/דירות-3-חדרים` | `/?deal=sale&rooms=3` |
 
-`silo.html` מגיש את שלושתן (`_redirects`, ‏200), ו-
+`silo.html` מגיש אותן (`_redirects`, ‏200), ו-
 `netlify/edge-functions/silo-page.ts` ממלאה מודעות פעילות בעפולה.
 כלל בעברית ב-`_redirects` וב-`config.path` לא נתפס ב-Netlify (404 של
 הפלטפורמה). לכן יש גם שורה מקודדת (`%D7...`) ו-`/afula/*` בפונקציה.

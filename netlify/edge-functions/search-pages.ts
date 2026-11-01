@@ -56,15 +56,19 @@
 
    ## מטמון
 
-   שעה ב-CDN עם ‎stale-while-revalidate‎ ליממה: התוכן כאן נגזר מהכתובת
-   בלבד ואינו תלוי במסד, ולכן הוא מתיישן רק כשמשנים את הקובץ הזה.
-   ‏Netlify מפתח את המטמון לפי הכתובת המלאה, כולל הפרמטרים.
+   אותה מדיניות כמו רשימת דף הבית (`lib/page-cache.ts`): שעה ב-CDN
+   דרך Netlify-CDN-Cache-Control בלבד, ‏stale-while-revalidate לעשר
+   דקות, ו-Cache-Control של ‏max-age=0 לדפדפן ולפרוקסי משותף.
+   ‏Netlify-Vary על עוגיות השוק ועל פרמטרי התוכן, גם ביציאה בלי מטמון.
+   ‏utm, ‏gclid ו-fbclid אינם חלק מהמפתח.
+   תשובה עם Set-Cookie נשארת private, no-store.
 
    התיעוד: ‎docs/search-landing-pages.md‎.
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 import { decide, registry } from "./lib/markets.ts";
+import { HOME_VARY, setHomeCache, withHomeVary } from "./lib/page-cache.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
@@ -93,6 +97,7 @@ export const SEARCH_PAGES: SearchPage[] = [
     type: "flats",
     title: "דירות למכירה בעפולה והעמק",
     description: "כל הדירות שמוצעות היום למכירה בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, תמונות ופרטי קשר ישירים.",
+    landing: "/afula/דירות-למכירה",
   },
   {
     query: "deal=sale&rooms=3",
@@ -392,6 +397,7 @@ export default async function handler(request: Request, context: Context) {
       const headers = new Headers({
         "Location": routing.location,
         "Cache-Control": "private, no-store",
+        "Netlify-Vary": HOME_VARY,
       });
       for (const cookie of decisionCookies(routing)) headers.append("Set-Cookie", cookie);
       return new Response(null, { status: 302, headers });
@@ -402,30 +408,43 @@ export default async function handler(request: Request, context: Context) {
 
   // רק HTML
   const type = res.headers.get("content-type") || "";
-  if (!type.includes("text/html")) return res;
+  if (!type.includes("text/html")) return withHomeVary(res);
 
   try {
     const url = new URL(request.url);
     const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
-    if (page !== "/" && page !== "/index") return res;
+    if (page !== "/" && page !== "/index") return withHomeVary(res);
 
     // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף.
     // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
     const params = url.searchParams;
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
-    if (!match) return res;
+    if (!match) return withHomeVary(res);
     const city = cityFromParams(params);
-    const out = inject(await res.text(), city ? withCity(match, city) : match);
-
-    const headers = new Headers(res.headers);
-    /* עוגייה אישית (אזור, או מחיקת פס ישן) לא נכנסת למטמון המשותף. */
-    if (!headers.has("set-cookie")) {
-      headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    /* clone לפני הקריאה: ב-catch הגוף המקורי כבר נעול, ומחזרים
+       Response חדש עם כותרות חדשות ולא נוגעים בנעולות. */
+    const fallback = res.clone();
+    try {
+      const out = inject(await res.text(), city ? withCity(match, city) : match);
+      const headers = new Headers(fallback.headers);
+      /* s-maxage רק ב-Netlify-CDN-Cache-Control. Cache-Control הוא
+         max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store
+         מ-withDecisionCookies, וה-Vary נכתב גם אז. */
+      setHomeCache(headers);
+      fallback.body?.cancel();
+      return new Response(out, { status: res.status, headers });
+    } catch {
+      const headers = new Headers(fallback.headers);
+      headers.set("Netlify-Vary", HOME_VARY);
+      headers.set("Netlify-CDN-Cache-Control", "no-store");
+      return new Response(fallback.body, {
+        status: fallback.status,
+        statusText: fallback.statusText,
+        headers,
+      });
     }
-    return new Response(out, { status: res.status, headers });
   } catch {
-    return res; // הזרקה שנכשלה לא תשבור את דף הבית
+    return withHomeVary(res); // הזרקה שנכשלה לא תשבור את דף הבית
   }
 }
 
@@ -443,10 +462,15 @@ function withDecisionCookies(res: Response, routing: ReturnType<typeof marketRou
   for (const cookie of cookies) copy.headers.append("Set-Cookie", cookie);
   copy.headers.set("Cache-Control", "private, no-store");
   copy.headers.set("Netlify-CDN-Cache-Control", "private, no-store");
+  copy.headers.set("Netlify-Vary", HOME_VARY);
   return copy;
 }
 
-/* שתי הצורות שבהן Netlify מגיש את דף הבית. */
+/* שתי הצורות שבהן Netlify מגיש את דף הבית.
+   cache: "manual" גם כאן: הפונקציה הזו רצה על אותן כתובות כמו
+   home-listings, ולפעמים היא זו שמחזירה את התשובה ל-CDN. בלי ההסכמה
+   הזו הכותרות של הרשימה לא נשמרות. תשובה בלי כותרת מטמון אינה נשמרת. */
 export const config: Config = {
+  cache: "manual",
   path: ["/", "/index.html"],
 };

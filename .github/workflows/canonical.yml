@@ -37,6 +37,7 @@ on:
       - "assets/silo-render.js"
       - "scripts/projects_page_test.ts"
       - "scripts/index_jsonld_test.ts"
+      - "scripts/home_listings_test.ts"
       - "scripts/go_link_test.ts"
       - "projects.html"
       - ".github/workflows/canonical.yml"
@@ -64,6 +65,7 @@ on:
       - "assets/silo-render.js"
       - "scripts/projects_page_test.ts"
       - "scripts/index_jsonld_test.ts"
+      - "scripts/home_listings_test.ts"
       - "scripts/go_link_test.ts"
       - "projects.html"
       - ".github/workflows/canonical.yml"
@@ -130,6 +132,11 @@ jobs:
       # לתשובה שמולאה (slow_ttfb על /agencies, 25.10.2026).
       - name: JSON-LD של הרשימות
         run: node --experimental-strip-types scripts/index_jsonld_test.ts
+
+      # ‏דף הבית: כ-12 קישורים לנכס ו-ItemList ב-HTML הראשון. כשל מסד
+      # משאיר את הדף כמו שהוא, בלי noindex.
+      - name: קישורים בדף הבית
+        run: node --experimental-strip-types scripts/home_listings_test.ts
 
       # ‏/go/<code>: הפניה לאותו אתר, רישום שלא חוסם את ההפניה, בלי IP.
       - name: קישור קליק /go
