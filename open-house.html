@@ -95,8 +95,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <meta property="og:type" content="website">
 <meta property="og:title" content="יריד הבתים הפתוחים - דירות ללא עמלת תיווך | שוק נדל״ן">
 <meta property="og:description" content="דירות בעפולה והעמק ללא עמלת תיווך, לזמן מוגבל. כל הדירות ביריד, עם שעון שמראה כמה זמן נשאר - על המפה ובמדף אחד.">
-<!-- ‏"רגע, איפה הקאץ׳?" כ-FAQPage. סטטי בכוונה, וזהה מילה במילה לשלושת
-     ה-<details> שבגוף הדף (‏#fairFaq) - מי שמשנה נוסח שם משנה גם כאן. -->
+<!-- ‏FAQPage זהה מילה במילה לחמשת ה-<details> שב-#fairFaq, וגם למערך FAQ
+     ב-assets/open-house-v10.js. מי שמשנה נוסח משנה בשלושתם. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -105,17 +105,27 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     {
       "@type": "Question",
       "name": "למה אין עמלת תיווך?",
-      "acceptedAnswer": { "@type": "Answer", "text": "יועץ הנדל״ן בחר להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שנקבעה מראש. אין אותיות קטנות." }
+      "acceptedAnswer": { "@type": "Answer", "text": "יועץ הנדל״ן שמכניס דירה ליריד מוותר על עמלת התיווך מהקונים, בתמורה לחשיפה מוגברת. את השירות המלא, מהביקור ועד החתימה, ממשיכים לקבל." }
     },
     {
       "@type": "Question",
       "name": "עד מתי זה בתוקף?",
-      "acceptedAnswer": { "@type": "Answer", "text": "על כל דירה רץ שעון שמראה בדיוק כמה זמן נשאר. כשהוא נעצר, הדירה יוצאת מהיריד." }
+      "acceptedAnswer": { "@type": "Answer", "text": "לכל דירה ביריד יש תאריך סיום משלה, שמופיע על הכרטיס. מה שקובע הוא מועד הפנייה: פונים על הדירה לפני שהשעון נעצר, ולא משלמים עמלת תיווך, גם אם ההסכם ייחתם מאוחר יותר." }
     },
     {
       "@type": "Question",
       "name": "איך מתאמים ביקור?",
-      "acceptedAnswer": { "@type": "Answer", "text": "נכנסים לדירה ופונים ישירות ליועץ הנדל״ן בוואטסאפ או בטלפון." }
+      "acceptedAnswer": { "@type": "Answer", "text": "לוחצים על \"יצירת קשר עם יועץ הנדל״ן\" בכרטיס הדירה, ומתאמים ישירות." }
+    },
+    {
+      "@type": "Question",
+      "name": "יש התחייבות כשנרשמים לעדכונים?",
+      "acceptedAnswer": { "@type": "Answer", "text": "לא. ההרשמה רק שולחת לכם הודעה כשדירה מתאימה נכנסת ליריד. אפשר להסיר בלחיצה." }
+    },
+    {
+      "@type": "Question",
+      "name": "עובדים כיועצי נדל״ן? איך מצטרפים?",
+      "acceptedAnswer": { "@type": "Answer", "text": "בלוח הבקרה, בכרטיס הנכס, בוחרים \"הכנסה ליריד\" ותאריך סיום. הדירה מופיעה כאן מיד." }
     }
   ]
 }
@@ -782,23 +792,31 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        השליחה היא אל open-house-subscribe — רשימה נפרדת מרשימת התפוצה
        הכללית, כי היא מבטיחה דבר אחר לגמרי: התראה על אירוע מסוים ולא
        סיכום תקופתי. ראו docs/open-house-fair.md. -->
-  <!-- ====== רגע, איפה הקאץ׳? ======
-       שלוש השאלות שקונה שואל/ת לפני שמרים טלפון על הבטחה של "ללא עמלת
-       תיווך". רק כשיש משתתפים (‏initFair). הנוסח זהה ל-FAQPage שב-<head>. -->
-  <section class="section wrap oh-faq" id="fairFaq" aria-labelledby="fairFaqTitle" hidden>
-    <h2 id="fairFaqTitle">רגע, איפה הקאץ׳?</h2>
+  <!-- ====== שאלות על היריד ======
+       חמש השאלות של v10. גלויות ב-HTML הראשון, וזהות ל-FAQPage שב-<head>
+       ולמערך FAQ ב-assets/open-house-v10.js. -->
+  <section class="section wrap oh-faq" id="fairFaq" aria-labelledby="fairFaqTitle">
+    <h2 id="fairFaqTitle">שאלות על היריד</h2>
     <div class="oh-faq-list">
       <details open>
         <summary>למה אין עמלת תיווך?</summary>
-        <p>יועץ הנדל״ן בחר להציע את הנכס הזה לקונים ללא עמלת תיווך, לתקופה שנקבעה מראש. אין אותיות קטנות.</p>
+        <p>יועץ הנדל״ן שמכניס דירה ליריד מוותר על עמלת התיווך מהקונים, בתמורה לחשיפה מוגברת. את השירות המלא, מהביקור ועד החתימה, ממשיכים לקבל.</p>
       </details>
       <details>
         <summary>עד מתי זה בתוקף?</summary>
-        <p>על כל דירה רץ שעון שמראה בדיוק כמה זמן נשאר. כשהוא נעצר, הדירה יוצאת מהיריד.</p>
+        <p>לכל דירה ביריד יש תאריך סיום משלה, שמופיע על הכרטיס. מה שקובע הוא מועד הפנייה: פונים על הדירה לפני שהשעון נעצר, ולא משלמים עמלת תיווך, גם אם ההסכם ייחתם מאוחר יותר.</p>
       </details>
       <details>
         <summary>איך מתאמים ביקור?</summary>
-        <p>נכנסים לדירה ופונים ישירות ליועץ הנדל״ן בוואטסאפ או בטלפון.</p>
+        <p>לוחצים על "יצירת קשר עם יועץ הנדל״ן" בכרטיס הדירה, ומתאמים ישירות.</p>
+      </details>
+      <details>
+        <summary>יש התחייבות כשנרשמים לעדכונים?</summary>
+        <p>לא. ההרשמה רק שולחת לכם הודעה כשדירה מתאימה נכנסת ליריד. אפשר להסיר בלחיצה.</p>
+      </details>
+      <details>
+        <summary>עובדים כיועצי נדל״ן? איך מצטרפים?</summary>
+        <p>בלוח הבקרה, בכרטיס הנכס, בוחרים "הכנסה ליריד" ותאריך סיום. הדירה מופיעה כאן מיד.</p>
       </details>
     </div>
   </section>
@@ -1177,6 +1195,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+  <nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only aria-label="חיפושים פופולריים">
+    <h4>חיפושים פופולריים</h4>
+    <div class="footer-seo-links">
+      <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
+      <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
+      <a href="/emek-yizrael/בתים-ומגרשים">בתים ומגרשים ביישובי עמק יזרעאל</a>
+    </div>
+  </nav>
+
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>

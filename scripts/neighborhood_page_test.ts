@@ -145,6 +145,12 @@ resetLastGood();
   check("כתובת לא תקינה: 404 ו-noindex בלי מסד", res.status === 404 && html.includes("noindex") && calls === 0);
   check("כתובת לא תקינה: no-store", res.headers.get("Cache-Control") === "no-store");
 }
+{
+  const res = await run("https://shuknadlan.co.il/n", 200, HOOD);
+  const html = await res.text();
+  check("‏/n בלי slug: 404 ו-noindex בלי מסד", res.status === 404 && html.includes("noindex,follow") && calls === 0);
+  check("‏/n בלי slug: בלי canonical", !html.includes('rel="canonical"'));
+}
 
 resetLastGood();
 {

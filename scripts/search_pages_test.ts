@@ -243,6 +243,13 @@ for (const [name, url, query] of SAME) {
     upper.h1 === upperPage.title,
     upper.h1 || "",
   );
+  const hood = await serve("/?deal=sale&q=" + encodeURIComponent("גבעת המורה"));
+  const hoodPage = SEARCH_PAGES.find((p) => p.landing === "/n/afula/גבעת-המורה")!;
+  check(
+    "שכונה ב-canonical של דף /n/",
+    hood.canonical === canonOf(hoodPage) && hood.canonical.endsWith("/n/afula/גבעת-המורה"),
+    hood.canonical,
+  );
 }
 {
   const only = await serve("/?city=" + encodeURIComponent("עפולה"));

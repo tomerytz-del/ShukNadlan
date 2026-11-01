@@ -5,7 +5,9 @@
    לכל יישוב (‏/deals/afula, דרך שורת ‎200‎ ב-`_redirects`). הפונקציה ממלאת
    אותו בשרת, כדי שסורק יקרא את המספרים בלי להריץ JS:
 
-     ‏· אינדקס - ‏`deal_settlements_public()`: רשימת היישובים.
+     ‏· אינדקס - ‏`deal_settlements_public()`: רק יישובים שמותר לאנדקס
+     (‏`settlementIndexable`, אותו כלל כמו הדף וה-sitemap). השאר אינם
+     קישור. כשל בשאילתת המודעות משאיר את הרשימה המלאה.
      ‏· יישוב  - ‏`deal_settlement_page(slug)`: כותרת, תיאור, כרטיסים, חציון
        לפי חדרים, עסקאות אחרונות, Dataset ו-BreadcrumbList.
 
@@ -203,20 +205,154 @@ export function noindex(html: string): string {
   return html.replace(/<\/head>/i, () => `<meta name="robots" content="noindex,follow">\n</head>`);
 }
 
+/* עמודים של 1,000 לפי סדר יציב. עמוד מלא אינו הסוף. כשל או עמוד
+   שנחתך מחזירים null, כדי לא להחליט על ספירה חלקית. */
+async function fetchAll(
+  path: string,
+  order: string,
+  signal: AbortSignal,
+): Promise<Record<string, unknown>[] | null> {
+  const all: Record<string, unknown>[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; offset <= pageSize * 20; offset += pageSize) {
+    const join = path.includes("?") ? "&" : "?";
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${path}${join}order=${order}&limit=${pageSize}&offset=${offset}`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal,
+      },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data)) return null;
+    all.push(...data as Record<string, unknown>[]);
+    if (data.length < pageSize) return all;
+  }
+  return null;
+}
+
+/* מודעות פעילות לפי שם עיר, והשוק. null = לא ידענו.
+   אז לא מציגים את הרשימה המלאה: יישוב לא מאומת אינו קישור. */
+async function cityListings(): Promise<Map<string, { listings: number; marketSlug: string | null }> | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const props = await fetchAll(
+      "properties?status=eq.active&select=city,city_id",
+      "id.asc",
+      ctrl.signal,
+    );
+    if (!props) return null;
+    const markets = await fetchAll(
+      "market_cities_public?select=city_id,market_slug",
+      "city_id.asc",
+      ctrl.signal,
+    );
+    if (!markets) return null;
+    const marketById = new Map<string, string>();
+    for (const row of markets) {
+      const id = String(row.city_id || "").trim();
+      const slug = String(row.market_slug || "").trim();
+      if (id && slug) marketById.set(id, slug);
+    }
+    const byName = new Map<string, { listings: number; marketSlug: string | null }>();
+    for (const row of props) {
+      const name = String(row.city || "").trim();
+      if (!name) continue;
+      const cur = byName.get(name) || { listings: 0, marketSlug: null };
+      cur.listings += 1;
+      const slug = marketById.get(String(row.city_id || "").trim());
+      if (slug) cur.marketSlug = slug;
+      byName.set(name, cur);
+    }
+    return byName;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* חלון 12 החודשים של הדף. null = לא ידענו. יישוב כזה אינו מקושר. */
+async function windowDeals(slug: string): Promise<number | null> {
+  const data = await rpc("deal_settlement_page", { p_slug: slug });
+  if (data === undefined) return null;
+  if (data === null) return 0;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  return Number((data as Settlement).deals || 0);
+}
+
+/* ok: הסינון הושלם, ומותר לשמור את הדף. אחרת safe הוא רק מה שאומת,
+   בלי לשמור אותו כעותק. */
+async function indexableRows(list: IndexRow[]): Promise<
+  { ok: true; rows: IndexRow[] } | { ok: false; safe: IndexRow[] }
+> {
+  const cities = await cityListings();
+  if (!cities) return { ok: false, safe: [] };
+  const live = liveMarketSlugs();
+  const coarse = list.filter((row) => {
+    const info = cities.get(String(row.name || "").trim()) || { listings: 0, marketSlug: null };
+    return settlementIndexable(Number(row.deals || 0), info.listings, info.marketSlug, live);
+  });
+  let failed = false;
+  const flags = await Promise.all(coarse.map(async (row) => {
+    const n = await windowDeals(String(row.slug || ""));
+    if (n === null) {
+      failed = true;
+      return false;
+    }
+    const info = cities.get(String(row.name || "").trim()) || { listings: 0, marketSlug: null };
+    return settlementIndexable(n, info.listings, info.marketSlug, live);
+  }));
+  const rows = coarse.filter((_, i) => flags[i]);
+  return failed ? { ok: false, safe: rows } : { ok: true, rows };
+}
+
+/* ‏utm ו-gclid אינם חלק מהדף. ב-edge עם cache ידני כל פרמטר נכנס
+   למפתח כברירת מחדל, ו-query= ריק לא מאחד אותם. query=_ הוא מפתח
+   דמה שאינו בכתובת: כל בקשה בלי "_" היא "אי-התאמה" וחולקת רשומה אחת. */
+const DEALS_VARY = "query=_";
+
+function vary(headers: Headers): Headers {
+  headers.set("Netlify-Vary", DEALS_VARY);
+  return headers;
+}
+
 /* ‏404 או 503 בלבד. דף שהתמלא - גם דל - אינו עובר כאן. */
 function failureHeaders(base: Headers, status: number): Headers {
   const headers = new Headers(base);
   headers.delete("content-length");
   headers.set("Cache-Control", "no-store");
   headers.set("Netlify-CDN-Cache-Control", "no-store");
+  vary(headers);
   if (status === 503) headers.set("Retry-After", "60");
   return headers;
+}
+
+/* העותק נשמר עם כותרות ההצלחה (שעה ב-CDN). בכשל הוא תשובת חירום,
+   ואין לשמור אותו שוב לשעה. */
+function recallFresh(prev: Response): Response {
+  const headers = new Headers(prev.headers);
+  headers.set("Cache-Control", "no-store");
+  headers.set("Netlify-CDN-Cache-Control", "no-store");
+  headers.delete("retry-after");
+  vary(headers);
+  return new Response(prev.body, { status: prev.status, headers });
 }
 
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
   const type = res.headers.get("content-type") || "";
-  if (!res.ok || !type.includes("text/html")) return res;
+  if (!res.ok || !type.includes("text/html")) {
+    const headers = new Headers(res.headers);
+    vary(headers);
+    return new Response(res.body, { status: res.status, headers });
+  }
 
   const slug = slugOf(new URL(request.url).pathname);
   const html = await res.text();
@@ -229,8 +365,20 @@ export default async function handler(request: Request, context: Context) {
       const list = await rpc("deal_settlements_public", {});
       if (Array.isArray(list)) {
         if (list.length) {
-          out = injectIndex(html, list as IndexRow[]);
-          cache = out !== html;
+          const shown = await indexableRows(list as IndexRow[]);
+          if (!shown.ok) {
+            const prev = await recall(lastGoodKey(request.url));
+            if (prev) return recallFresh(prev);
+            if (shown.safe.length) out = injectIndex(html, shown.safe);
+            cache = false;
+            const headers = failureHeaders(res.headers, 200);
+            headers.delete("Retry-After");
+            return new Response(out, { status: 200, headers });
+          }
+          if (shown.rows.length) {
+            out = injectIndex(html, shown.rows);
+            cache = out !== html;
+          }
         }
       } else {
         /* ‏לא מערך: המסד לא ענה. רשימה ריקה היא תשובה תקינה ונשארת 200. */
@@ -278,13 +426,14 @@ export default async function handler(request: Request, context: Context) {
   if (status === 404 || status === 503) {
     if (status === 503) {
       const prev = await recall(lastGoodKey(request.url));
-      if (prev) return prev;
+      if (prev) return recallFresh(prev);
     }
     return new Response(out, { status, headers: failureHeaders(res.headers, status) });
   }
 
   const headers = new Headers(res.headers);
   headers.delete("content-length");
+  vary(headers);
   /* ‏הסוכן מעדכן לכל היותר פעם ביום. דף שלא מולא אינו נשמר במטמון, כדי
      שכשל רגעי לא יוגש שעה שלמה - וזה גם מה שהופך "טריגר build אחרי
      עדכון" למיותר: אין build, ואחרי שעה הדף משקף את המסד. */
@@ -300,4 +449,8 @@ export default async function handler(request: Request, context: Context) {
 
 export const config: Config = {
   path: ["/deals", "/deals.html", "/deals/*"],
+  /* בלי manual כל בקשה מריצה את הסינון מחדש (כמה שניות). הכותרות
+     שלמטה חלות רק כשהמטמון ידני. התשובה אינה תלויה בעוגיית שוק,
+     ו-Netlify-Vary הוא query=_ (מפתח דמה, כדי ש-utm ו-gclid לא יפצלו). */
+  cache: "manual",
 };
