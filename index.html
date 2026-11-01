@@ -3487,8 +3487,11 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     border:1.5px solid var(--v10-navy) !important;border-radius:12px !important;background:#fff;color:var(--v10-navy);
     font-family:Heebo,system-ui,sans-serif;font-size:15px;font-weight:800;line-height:1.2;text-align:center;text-decoration:none;cursor:pointer;overflow:visible}
   html.beta-hero body .hero .v10-view svg{width:18px;height:18px;flex:none}
-  html.beta-hero body .hero .v10-view.is-swipe{background:#fff;color:var(--v10-navy)}
-  html.beta-hero body .hero .v10-view.is-swipe svg{color:var(--v10-gold,#c9a227)}
+  /* ‏swipe-all §1 (1.11.2026): "גלישה בהחלקה" כחול מלא - קודם לבן עם מסגרת, בדיוק כמו "חיפוש במפה", ושני הכפתורים
+     נראו אותו דבר. הזהב ("הצג X נכסים") נשאר הבולט. לבן על #0e2a6b - ניגודיות 13.8:1 */
+  html.beta-hero body .hero .v10-view.is-swipe{background-color:#0e2a6b;color:#fff}
+  html.beta-hero body .hero .v10-view.is-swipe svg{color:#fff}
+  html.beta-hero body .hero .v10-view.is-swipe:hover{background-color:#0a1f52}
   html.beta-hero .v10-view:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
   html.beta-hero .v10-new{position:absolute;top:-8px;inset-inline-end:8px;padding:1px 7px;border-radius:999px;background:#c9a227;color:#0d1b3d;font-size:10.5px;font-weight:800;line-height:1.5}
   html.beta-hero .v10-view.is-shimmer{background-image:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);background-size:220% 100%;
@@ -3529,11 +3532,17 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .dm-rating-link{margin-inline-start:14px;padding:0;border:0;background:none;color:#0e2a6b;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;min-height:44px}
   /* ‏P1-S: נענוע קטן לאייקון של "גלישה בהחלקה" (והתג בכרטיס ההזמנה) - רק האייקון זז, 6 פעמים ועוצר.
      על הכפתור הזה הריחוף של P1-S גובר על זה של P1-J - אנימציה אחת בכל רגע */
-  html.beta-hero .v10-view.is-swipe.is-nudge svg{transform-origin:50% 85%;animation:v10SwipeNudge 5s ease-in-out 2.4s 6}
-  @keyframes v10SwipeNudge{0%,76%,100%{transform:none}80%{transform:translateX(-3px) rotate(-12deg)}86%{transform:translateX(3px) rotate(10deg)}91%{transform:translateX(-1px) rotate(-5deg)}95%{transform:none}}
-  html.beta-hero .v10-view.is-swipe .vi .vi-top{transform:none !important}
+  /* ‏swipe-all §1: במקום הנענוע - החלקה אמיתית בתוך האייקון: הכרטיס העליון מחליק כ-5px ומסתובב וחוזר, והאחורי
+     זז מעט קדימה. 0.8s תנועה במחזור של 4s, שלוש פעמים, שנייה אחרי שהכפתור על המסך (‏swipeNudge ב-home.js) */
+  html.beta-hero .v10-view.is-swipe.is-nudge .vi .vi-top{animation:v10SwipeTop 4s ease-in-out 1s 3}
+  html.beta-hero .v10-view.is-swipe.is-nudge .vi .vi-back{transform-box:fill-box;transform-origin:50% 100%;animation:v10SwipeBack 4s ease-in-out 1s 3}
+  @keyframes v10SwipeTop{0%,20%,100%{transform:none}9%{transform:translateX(5px) rotate(14deg)}15%{transform:translateX(-1px) rotate(-3deg)}}
+  @keyframes v10SwipeBack{0%,20%,100%{transform:none}9%{transform:translate(1px,-1.5px)}}
+  /* הריחוף של P1-J (הכרטיס העליון) לא על הכפתור הזה - כאן ההטיה היא של כל האייקון, למטה. בלי !important,
+     כדי שהאנימציה תגבר */
+  html.beta-hero .v10-view.is-swipe .vi .vi-top{transform:none}
   @media (hover:hover) and (pointer:fine){html.beta-hero .v10-view.is-swipe:hover svg,html.beta-hero .v10-view.is-swipe:focus-visible svg{animation:none;transform:translateX(-2px) rotate(-8deg);transition:transform .2s ease-out}}
-  @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-swipe svg{animation:none !important;transform:none !important}}
+  @media(prefers-reduced-motion:reduce){html.beta-hero .v10-view.is-swipe svg,html.beta-hero .v10-view.is-swipe svg *{animation:none !important;transform:none !important}}
   /* ‏A-SEO-1 (סבב SEO 1): תיבת הנכסים נשארת [hidden] עד שהמלאי מגיע, ובינתיים מפת השכונות
      שמתחתיה עולה לתוך המסך ונדחפת כשהתיבה נפתחת (‏CLS 0.30-0.40 בטלפון). עם הדגל המקום שמור
      מראש - בגובה של שתי שורות המדף - ונעלם רק כשהמלאי הגיע ריק (‏pp-none, ‏ppSync ב-home.js) */

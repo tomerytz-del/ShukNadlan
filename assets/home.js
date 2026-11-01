@@ -8369,7 +8369,12 @@ document.addEventListener('click', e => {
   const b = document.querySelector('.v10-view.is-swipe');
   if (!b || !v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   try { if (localStorage.getItem('sk_swipe_btn_shimmer')) return; localStorage.setItem('sk_swipe_btn_shimmer', '1'); } catch(e){ return; }
+  /* ‏swipe-all §1: אנימציה אחת בכל רגע - ההחלקה באייקון (‏swipeNudge) מחכה ל-is-shimmering */
+  b.classList.add('is-shimmering');
+  const end = () => { b.classList.remove('is-shimmering'); b.dispatchEvent(new Event('shimmerdone')); };
+  b.addEventListener('animationend', e => { if (e.animationName === 'v10Shim') end(); });
   setTimeout(() => b.classList.add('is-shimmer'), 1200);
+  setTimeout(() => { if (b.classList.contains('is-shimmering')) end(); }, 3000);   // בלי animationend (לשונית ברקע)
 })();
 
 /* כרטיס גבריאלה וה-hero: החלונית הצפה (‏GabWidget), ואם העוזרת כבויה - אותו
@@ -9113,23 +9118,26 @@ document.addEventListener('click', e => {
 /* הלב בכותרת (‏#hdrLikes, ‏[data-likes-open]): המונה, ההסתרה והפתיחה - ב-assets/likes-bubble.js,
    אותו קוד של דף הנכס. אין כפתור צף (תומר 31.10). */
 
-/* ---------- ‏P1-S: נענוע לאייקון "גלישה בהחלקה" ----------
-   כל 5 שניות, 6 פעמים, רק כשהכפתור על המסך. יציאה מהמסך עוצרת אותו לסשן; מי שכבר
-   נכנס/ה ל-/swipe (‏sk_swipe_used) לא רואה אותו יותר. רק transform - בלי CLS */
+/* ---------- ‏P1-S, ‏swipe-all §1 (1.11.2026): החלקה באייקון "גלישה בהחלקה" ----------
+   שלוש פעמים, שנייה אחרי שהכפתור על המסך (ה-CSS), פעם בכל ביקור (‏sk_swipe_nudge_done בסשן).
+   כבר לא נעלם לצמיתות למי שנכנס/ה ל-/swipe (‏sk_swipe_used) - זה הסתיר אותו בדיוק ממי שחוזר/ת.
+   יציאה מהמסך עוצרת אותו לסשן; הנצנוץ של הכפתור (פעם במכשיר) רץ קודם. רק transform - בלי CLS */
 (function swipeNudge(){
   if (!v10On() || matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
   try {
-    if (localStorage.getItem('sk_swipe_used') || sessionStorage.getItem('sk_swipe_nudge_done')) return;
+    if (sessionStorage.getItem('sk_swipe_nudge_done')) return;
   } catch(e){ return; }
   const done = () => { try { sessionStorage.setItem('sk_swipe_nudge_done', '1'); } catch(e){ /* מצב פרטי */ } };
   function arm(el){
     if (!el) return;
-    let started = false, left = false;
+    let started = false, left = false, seen = false;
+    const go = () => { if (!left && seen && !el.classList.contains('is-shimmering')){ started = true; el.classList.add('is-nudge'); } };
+    el.addEventListener('shimmerdone', go);
     new IntersectionObserver((es, io) => es.forEach(en => {
-      if (en.isIntersecting && !left){ started = true; el.classList.add('is-nudge'); }
+      if (en.isIntersecting && !left){ seen = true; go(); }
       else if (started && !en.isIntersecting){ left = true; el.classList.remove('is-nudge'); io.disconnect(); done(); }
     }), { threshold: 0.6 }).observe(el);
-    el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeNudge'){ el.classList.remove('is-nudge'); done(); } });
+    el.addEventListener('animationend', e => { if (e.animationName === 'v10SwipeTop'){ el.classList.remove('is-nudge'); done(); } });
   }
   // ‏A2-8: כרטיס ההזמנה כבר לא מתנענע - הוא מונפש בעצמו (‏v10InviteRotate)
   arm(document.querySelector('.v10-view.is-swipe'));
