@@ -879,8 +879,9 @@ function safeUrl(u){
     return /^https?:$/.test(url.protocol) ? url.href : '';
   } catch(e){ return ''; }
 }
-/* תמונת הכרטיס הראשון היא ה-LCP בטלפון. אותה כתובת כמו ה-preload שבראש
-   הדף (width=800). שאר התמונות קטנות יותר ועצלות. */
+/* תמונת הכרטיס הראשון עשויה להיות ה-LCP בטלפון. אין preload נפרד בראש
+   הדף: סדר התמונות מהשאילתה אינו יציב, וכתובת אחרת הייתה יורדת פעמיים.
+   הכרטיס הראשון מבקש width=800 בעצמו. השאר קטנות יותר ועצלות. */
 function shotSrc(u, w){
   const s = safeUrl(u);
   const mark = '/storage/v1/object/public/';
