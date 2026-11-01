@@ -5,9 +5,9 @@
    הפלט הוא HTML מוברח. הדפדפן לא מחליף צומת שכבר נושא את אותם קישורים
    (‏data-ssr): הוא רק משלים מה שחסר. בלי זה הציור הראשון זז.
 
-   כרטיס היועץ הוא מכל. התמונה והשם הם קישור אחד לדף היועץ, וכפתורי
-   הוואטסאפ והחיוג אחים שלו - לא בתוכו. טלפון המשרד הוא כפתור
-   "להתקשר למשרד". הכתובת נפתחת במפות.
+   כרטיס היועץ הוא div. הקישור היחיד לדף היועץ הוא השם. תו האיכות
+   וכפתורי הוואטסאפ והחיוג אחים שלו, לא בתוך קישור. טלפון המשרד הוא
+   כפתור "להתקשר למשרד". הכתובת נפתחת במפות.
    ========================================================================== */
 (function (root) {
   'use strict';
@@ -125,6 +125,16 @@
       '</div>';
   }
 
+  /* אותו כפתור ש-QualityBadge.create בונה בגודל sm, כדי שה-HTML של השרת
+     והדפדפן יהיה אחד. המאזין נתלה אחר כך בלי להחליף את הצומת. */
+  function ethicsBadgeHtml(px) {
+    return '<button type="button" class="qb-badge" data-tone="light" aria-label="' +
+      esc('תו האמון והאיכות - לחצו לפרטים') + '" title="' +
+      esc('עומד בתקן האתי · לחצו לפרטים') + '"><img src="assets/badge-ethics.png" alt="' +
+      esc('תו האמון והאיכות - עומד בתקן האתי של שוק נדל״ן של עפולה') +
+      '" width="' + px + '" height="' + px + '" style="width:' + px + 'px;height:' + px + 'px" loading="lazy"></button>';
+  }
+
   function teamHtml(members, opts) {
     var o = opts || {};
     var sorted = sortTeam(members);
@@ -141,15 +151,14 @@
           (focus ? ' style="--photo-pos:' + focus + '"' : '') + '>'
         : esc((String(name).trim()[0]) || '?');
       var license = member.license_number;
+      var role = roleLabel(member);
       return '<div class="team-card' + (manager ? ' is-manager' : '') + '">' +
-        '<a class="team-profile" href="' + esc(href) + '">' +
-          (manager ? '<span class="team-flag">' + STAR_SVG + 'ניהול המשרד</span>' : '') +
-          '<div class="team-avatar">' + avatar + '</div>' +
-          '<div class="team-name">' + esc(name) + '</div>' +
-          '<div class="team-role">' + esc(roleLabel(member)) + '</div>' +
-          (license ? '<span class="team-lic">' + CHECK_SVG + 'רישיון ' + esc(license) + '</span>' : '') +
-        '</a>' +
-        (member.has_ethics_badge ? '<div class="team-badge"></div>' : '') +
+        (manager ? '<span class="team-flag">' + STAR_SVG + 'ניהול המשרד</span>' : '') +
+        '<div class="team-avatar">' + avatar + '</div>' +
+        '<a class="team-name" href="' + esc(href) + '">' + esc(name) + '</a>' +
+        '<div class="team-role">' + esc(role) + '</div>' +
+        (license ? '<span class="team-lic">' + CHECK_SVG + 'רישיון ' + esc(license) + '</span>' : '') +
+        (member.has_ethics_badge ? '<div class="team-badge">' + ethicsBadgeHtml(28) + '</div>' : '') +
         teamContactHtml(member, office, o) +
         '</div>';
     }).join('');
@@ -225,7 +234,7 @@
     return (props || []).map(function (p) {
       if (!p || !p.id) return '';
       var name = clean(p.title) || clean(p.property_type) || 'נכס';
-      return '<a href="/property?id=' + encodeURIComponent(p.id) + '">' + esc(name) + '</a>';
+      return '<a tabindex="-1" href="/property?id=' + encodeURIComponent(p.id) + '">' + esc(name) + '</a>';
     }).join('');
   }
 
@@ -280,7 +289,7 @@
 
   function teamHrefs(html) {
     var out = [];
-    var re = /class="team-profile" href="([^"]+)"/g;
+    var re = /class="team-name" href="([^"]+)"/g;
     var m;
     while ((m = re.exec(html))) out.push(m[1]);
     return out;

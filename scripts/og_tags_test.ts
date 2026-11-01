@@ -928,7 +928,7 @@ globalThis.fetch = (async (input: string | URL | Request) => {
   }
   if (u.includes("agency_members_public")) {
     return new Response(JSON.stringify([
-      { id: "m1", slug: "dana", display_name: "דנה לוי", role: "manager", phone_e164: "972501234567", license_number: "9" },
+      { id: "m1", slug: "dana", display_name: "דנה לוי", role: "manager", phone_e164: "972501234567", license_number: "9", has_ethics_badge: true },
     ]), { status: 200, headers: { "content-type": "application/json" } });
   }
   if (u.includes("/properties?") && u.includes("select=id&")) {
@@ -962,14 +962,17 @@ const richSeo: [string, boolean][] = [
   ["רשימת נכסים עם קישור למודעה", richList?.itemListElement?.[0]?.url === "https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"],
   ["יועץ ונכס ב-HTML, בלי משפטי החסר", officeHtml.includes('href="/agent?slug=dana"') && officeHtml.includes('href="/property?id=11111111-1111-4111-8111-111111111111"')
     && !officeHtml.includes("המשרד לא נמצא") && !officeHtml.includes("לא נמצאו נכסים") && officeHtml.includes("להתקשר למשרד")],
-  ["כרטיס יועץ: קישור לפרופיל, וכפתורי וואטסאפ וחיוג אחים שלו", (() => {
-    const profile = officeHtml.match(/<a class="team-profile"[\s\S]*?<\/a>/);
-    const inner = profile ? profile[0].replace(/^<a[^>]*>/, "").replace(/<\/a>$/, "") : "";
-    return !!profile && officeHtml.includes('class="team-profile" href="/agent?slug=dana"')
-      && officeHtml.includes('class="ta-wa"') && officeHtml.includes('class="ta-tel"')
-      && officeHtml.includes("> חיוג<")
+  ["כרטיס יועץ: השם הוא הקישור, והכפתורים אחים שלו", (() => {
+    const nameAt = officeHtml.indexOf('class="team-name" href="/agent?slug=dana"');
+    const nameEnd = nameAt < 0 ? -1 : officeHtml.indexOf("</a>", nameAt);
+    const badgeAt = officeHtml.indexOf('class="qb-badge"');
+    const waAt = officeHtml.indexOf('class="ta-wa"');
+    const between = nameAt < 0 || nameEnd < 0 ? "" : officeHtml.slice(nameAt, nameEnd);
+    return nameAt > 0 && nameEnd > nameAt && badgeAt > nameEnd && waAt > nameEnd
+      && officeHtml.includes('class="ta-tel"') && officeHtml.includes("> חיוג<")
+      && officeHtml.includes("ניהול המשרד") && officeHtml.includes("רישיון")
       && !/<a[^>]*class="team-card"/.test(officeHtml)
-      && !/<(a|button)\b/.test(inner);
+      && !/<(a|button)\b/.test(between);
   })()],
   ["סרגל המדדים ותגית העסקאות בשרת",
     /id="statGrid"[^>]*data-ssr="1"/.test(officeHtml) && officeHtml.includes("נכס פעיל")

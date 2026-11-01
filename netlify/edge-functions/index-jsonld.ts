@@ -173,12 +173,14 @@ export default async function handler(request: Request, context: Context) {
       const name = String(row.name || "").trim();
       if (!slug || !name) return "";
       const href = `/agency?slug=${encodeURIComponent(slug)}`;
-      return `<a class="ag-card" href="${href.replace(/"/g, "&quot;")}">${name.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c))}</a>`;
+      return `<a tabindex="-1" href="${href.replace(/"/g, "&quot;")}">${name.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c))}</a>`;
     }).filter(Boolean).join("");
     if (links) {
+      /* מחוץ לגריד, ומוסתר. הכרטיסים החיים נבנים ב-JS; הקישורים האלה
+         לסורק בלבד, ולא נכנסים לסדר ה-Tab. */
       out = out.replace(
         /(<div\b[^>]*\bid="agenciesGrid"[^>]*>)\s*(<\/div>)/i,
-        (_match, open: string, close: string) => open + links + close,
+        (_match, open: string, close: string) => `${open}${close}<div id="agenciesCrawl" hidden>${links}</div>`,
       );
     }
   }

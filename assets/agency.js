@@ -155,12 +155,13 @@ function statCellsHtml(){
    עם המאזין שלו, ולכן אין כאן דליפה אלא החלפה. */
 function mountBadgeCell(){
   const slot = document.getElementById('ethicsBadgeSlot');
-  if (!slot || !window.QualityBadge || slot.querySelector('button')) return;
+  if (!slot || !window.QualityBadge) return;
+  const subject = (currentAgency && currentAgency.name) || 'המשרד';
+  const existing = slot.querySelector('button');
+  if (existing && QualityBadge.wire) { QualityBadge.wire(existing, { subject }); return; }
+  if (existing) return;
   slot.textContent = '';
-  QualityBadge.mount(slot, {
-    size:'md',
-    subject: (currentAgency && currentAgency.name) || 'המשרד',
-  });
+  QualityBadge.mount(slot, { size:'md', subject });
 }
 
 function renderTrustBar(){
@@ -169,11 +170,13 @@ function renderTrustBar(){
   const chips = trustChipsHtml();
   const grid = document.getElementById('statGrid');
   const strip = document.getElementById('trustStrip');
-  const keepGrid = grid && grid.getAttribute('data-ssr') === '1' && agencyStats.activeProperties == null && grid.innerHTML.trim();
-  const keepStrip = strip && strip.getAttribute('data-ssr') === '1' && agencyStats.deals == null && strip.innerHTML.trim();
-  if (!cells && !chips && !keepGrid && !keepStrip){ if (bar) bar.hidden = true; return; }
-  if (grid && !keepGrid && grid.innerHTML !== cells) grid.innerHTML = cells;
-  if (strip && !keepStrip && strip.innerHTML !== chips) strip.innerHTML = chips;
+  /* מה שנכתב בשרת נשאר. החלפה אחרי הציור הראשון היא הקפיצה של הרצועה
+     ושל מקטע הצוות שמתחתיה. */
+  const gridLocked = grid && grid.getAttribute('data-ssr') === '1' && grid.innerHTML.trim();
+  const stripLocked = strip && strip.getAttribute('data-ssr') === '1' && strip.innerHTML.trim();
+  if (!cells && !chips && !gridLocked && !stripLocked){ if (bar) bar.hidden = true; return; }
+  if (grid && !gridLocked && grid.innerHTML !== cells) grid.innerHTML = cells;
+  if (strip && !stripLocked && strip.innerHTML !== chips) strip.innerHTML = chips;
   mountBadgeCell();
   if (bar) bar.hidden = false;
 }
@@ -1181,7 +1184,7 @@ async function loadTeam(sb, agencyId){
     else {
       team.forEach(a => {
         const card = [...rail.querySelectorAll('.team-card')].find(el => {
-          const link = el.querySelector('a.team-profile');
+          const link = el.querySelector('a.team-name');
           return link && link.getAttribute('href') === pub.agentHref(a);
         });
         const wa = card && card.querySelector('a.ta-wa');
@@ -1200,21 +1203,33 @@ async function loadTeam(sb, agencyId){
   }
   if (rail) {
     team.forEach(a => {
-      if (!a.has_ethics_badge || !window.QualityBadge || !pub) return;
       const card = [...rail.querySelectorAll('.team-card')].find(el => {
-        const link = el.querySelector('a.team-profile');
-        return link && link.getAttribute('href') === pub.agentHref(a);
+        const link = el.querySelector('a.team-name');
+        return link && link.getAttribute('href') === (pub ? pub.agentHref(a) : '');
       });
-      if (!card) return;
-      let slot = card.querySelector('.team-badge');
-      if (!slot) {
-        slot = document.createElement('span');
-        slot.className = 'team-badge';
-        card.appendChild(slot);
+      if (!card || card.dataset.teamWired === '1') return;
+      card.dataset.teamWired = '1';
+      const href = pub ? pub.agentHref(a) : '';
+      if (href) {
+        const open = () => { window.location.href = href; };
+        card.addEventListener('click', (e) => { if (!e.target.closest('a, button')) open(); });
+        card.addEventListener('keydown', (e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === card) { e.preventDefault(); open(); }
+        });
       }
-      if (slot.querySelector('button')) return;
-      slot.textContent = '';
-      QualityBadge.mount(slot, { size:'sm', subject: (a.display_name || '').trim() });
+      if (!a.has_ethics_badge || !window.QualityBadge) return;
+      let slot = card.querySelector('.team-badge');
+      const subject = (a.display_name || '').trim();
+      if (!slot) {
+        slot = document.createElement('div');
+        slot.className = 'team-badge';
+        const contact = card.querySelector('.team-contact');
+        if (contact) card.insertBefore(slot, contact);
+        else card.appendChild(slot);
+      }
+      const btn = slot.querySelector('button');
+      if (btn && QualityBadge.wire) QualityBadge.wire(btn, { subject });
+      else if (!btn) QualityBadge.mount(slot, { size:'sm', subject });
     });
     initCarousel(rail, document.getElementById('teamPrev'),
                  document.getElementById('teamNext'), document.getElementById('teamDots'));

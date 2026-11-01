@@ -229,9 +229,19 @@
       btn.appendChild(label);
     }
 
+    wire(btn, opts);
+    return btn;
+  }
+
+  /* כפתור שכבר נכתב ב-HTML (דף המשרד) מקבל את אותו מאזין בלי להחליף את הצומת. */
+  function wire(btn, opts) {
+    if (!btn || btn.getAttribute('data-qb-wired') === '1') return btn;
+    opts = opts || {};
+    injectStyles();
+    btn.setAttribute('data-qb-wired', '1');
     btn.addEventListener('click', function (e) {
       e.preventDefault();
-      e.stopPropagation();   // כרטיסי סוכן/נכס עוטפים לינק — הלחיצה על התו לא מנווטת
+      e.stopPropagation();
       open(opts.subject);
     });
     return btn;
@@ -250,6 +260,7 @@
     CODE_URL: CODE_URL,
     HIGHLIGHTS: HIGHLIGHTS,
     create: create,
+    wire: wire,
     mount: mount,
     open: open,
     close: close,
