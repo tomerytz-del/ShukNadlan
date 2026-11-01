@@ -257,12 +257,17 @@ for (const [name, url, query] of SAME) {
       { name: "רובע יזרעאל", city: "עפולה", path_key: "afula/רובע-יזרעאל", props: 20 },
       { name: "אזור התעשייה ע. עלית", city: "עפולה", path_key: "afula/אזור-התעשייה-ע-עלית", props: 1 },
       { name: "בלי מודעות", city: "עפולה", path_key: "afula/ריקה", props: 0 },
+      { name: "מרכז העיר", city: "עפולה", path_key: "afula/מרכז-העיר", props: 33 },
+      { name: "מרכז העיר", city: "עמק יזרעאל", path_key: "emek-yizrael/מרכז-העיר", props: 4 },
     ]), { status: 200, headers: { "content-type": "application/json" } })
   ) as typeof fetch;
   const rova = await serve("/?deal=sale&q=" + encodeURIComponent("רובע יזרעאל"));
   const extra = await serve("/?deal=sale&q=" + encodeURIComponent("אזור התעשייה ע. עלית"));
   const thin = await serve("/?deal=sale&q=" + encodeURIComponent("בלי מודעות"));
   const unknown = await serve("/?deal=sale&q=" + encodeURIComponent("משהו אחר"));
+  const sameName = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר") + "&city=" + encodeURIComponent("עמק יזרעאל"));
+  const otherCity = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר") + "&city=" + encodeURIComponent("חיפה"));
+  const defaultCenter = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר"));
   globalThis.fetch = (async () =>
     new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
   ) as typeof fetch;
@@ -276,6 +281,57 @@ for (const [name, url, query] of SAME) {
   );
   check("שכונה בלי מודעות נשארת מאוחדת לדף הבית", thin.untouched, thin.canonical || "");
   check("טקסט חופשי שאינו שכונה נשאר מאוחד", unknown.untouched, unknown.canonical || "");
+  check(
+    "אותו שם בעיר אחרת אינו מצביע לעפולה",
+    sameName.canonical === `${SITE}/n/emek-yizrael/מרכז-העיר`
+      && defaultCenter.canonical === `${SITE}/n/afula/מרכז-העיר`
+      && otherCity.canonical === `${SITE}/`
+      && !String(otherCity.canonical).includes("/n/afula/"),
+    JSON.stringify({ sameName: sameName.canonical, defaultCenter: defaultCenter.canonical, otherCity: otherCity.canonical }),
+  );
+  const listedElsewhere = await serve(
+    "/?deal=sale&q=" + encodeURIComponent("גבעת המורה") + "&city=" + encodeURIComponent("חיפה"),
+  );
+  const listedPage = SEARCH_PAGES.find((p) => p.landing === "/n/afula/גבעת-המורה")!;
+  check(
+    "שורה סגורה עם עיר אחרת אינה הולכת ל-/n/ של עפולה",
+    listedElsewhere.canonical === `${SITE}/?${listedPage.query}`,
+    listedElsewhere.canonical || "",
+  );
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const target = String(input instanceof Request ? input.url : input);
+    const rows = target.includes("category=eq.commercial") ? [{ id: "c1" }] : [];
+    return new Response(JSON.stringify(rows), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  const afulaCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  const emekCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("נהלל"));
+  const broadCommercial = await serve("/?deal=commercial");
+  check(
+    "מסחרי בעפולה עם מלאי מצביע לדף",
+    afulaCommercial.canonical === `${SITE}/afula/נדלן-מסחרי`,
+    afulaCommercial.canonical || "",
+  );
+  check(
+    "מסחרי בעמק אינו מצביע לדף עפולה",
+    emekCommercial.canonical === `${SITE}/?deal=commercial` && broadCommercial.canonical === `${SITE}/?deal=commercial`,
+    JSON.stringify({ emek: emekCommercial.canonical, broad: broadCommercial.canonical }),
+  );
+  globalThis.fetch = (async () =>
+    new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const emptyCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  globalThis.fetch = (async () =>
+    new Response("down", { status: 500, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const downCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  check(
+    "מסחרי בלי מלאי או בכשל נשאר על הצירוף",
+    emptyCommercial.canonical === `${SITE}/?deal=commercial` && downCommercial.canonical === `${SITE}/?deal=commercial`,
+    JSON.stringify({ empty: emptyCommercial.canonical, down: downCommercial.canonical }),
+  );
+  globalThis.fetch = (async () =>
+    new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
 }
 {
   const only = await serve("/?city=" + encodeURIComponent("עפולה"));

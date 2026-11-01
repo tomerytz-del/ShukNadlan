@@ -177,7 +177,8 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=commercial",
     title: "נכסים מסחריים בעפולה והעמק",
     description: "כל הנכסים המסחריים שמוצעים היום בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל ופרטי קשר ישירים.",
-    landing: "/afula/נדלן-מסחרי",
+    /* ה-canonical לדף עפולה נקבע בבקשה: רק city=עפולה, ורק כשיש מלאי.
+       בלי השדה, /?deal=commercial נשאר הכתובת של עפולה והעמק. */
   },
   {
     query: "deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D",
@@ -282,21 +283,42 @@ function normHood(name: string): string {
   return name.replace(/\s+/g, " ").trim().replace(/[\u2018\u2019\u05f3']/g, "'");
 }
 
+/* בלי city בכתובת החיפוש הוא של עפולה, שוק ברירת המחדל. */
+const DEFAULT_HOOD_CITY = "עפולה";
+
+function siloCities(): HoodCity[] {
+  return (globalThis as unknown as { ShukSilo?: { cities?: HoodCity[] } }).ShukSilo?.cities || [];
+}
+
+/* עיר + שם. "מרכז העיר" קיימת בכמה יישובים, ושם לבדו היה מצביע לעיר הלא נכונה. */
+function hoodKey(city: string, name: string): string {
+  return `${normHood(city)}\n${normHood(name)}`;
+}
+
+function rememberAlias(map: Map<string, string>): void {
+  const alit = map.get(hoodKey("עפולה", "עפולה עלית"));
+  if (alit) map.set(hoodKey("עפולה", "עפולה עילית"), alit);
+}
+
 /* שכונות של שוק חי, מהרשימה שב-silo-render. בלי רשת. */
 function staticHoods(): Map<string, string> {
-  const cities = (globalThis as unknown as { ShukSilo?: { cities?: HoodCity[] } }).ShukSilo?.cities;
   const live = liveMarketSlugs();
   const map = new Map<string, string>();
-  if (!cities) return map;
-  for (const city of cities) {
+  for (const city of siloCities()) {
     if (live && !live.has(city.market)) continue;
     for (const pair of city.hoods || []) {
-      map.set(normHood(pair[0]), `/n/${city.slug}/${pair[1]}`);
+      map.set(hoodKey(city.name, pair[0]), `/n/${city.slug}/${pair[1]}`);
     }
   }
-  const alit = map.get(normHood("עפולה עלית"));
-  if (alit) map.set(normHood("עפולה עילית"), alit);
+  rememberAlias(map);
   return map;
+}
+
+function hoodLandingCity(landing: string | undefined): string | null {
+  if (!landing || !landing.startsWith("/n/")) return null;
+  const slug = landing.split("/")[2] || "";
+  const city = siloCities().find((item) => item.slug === slug);
+  return city ? city.name : null;
 }
 
 let hoodCache: { at: number; map: Map<string, string> } | null = null;
@@ -323,24 +345,22 @@ async function hoodMap(): Promise<Map<string, string>> {
     );
     if (res.ok) {
       const data = await res.json();
+      const live = liveMarketSlugs();
       const liveNames = new Set(
-        ((globalThis as unknown as { ShukSilo?: { cities?: HoodCity[] } }).ShukSilo?.cities || [])
-          .filter((city) => {
-            const live = liveMarketSlugs();
-            return !live || live.has(city.market);
-          })
+        siloCities()
+          .filter((city) => !live || live.has(city.market))
           .map((city) => city.name),
       );
       if (Array.isArray(data)) {
         for (const row of data as { name?: string; city?: string; path_key?: string; props?: number }[]) {
           if (!(Number(row.props) > 0)) continue;
-          if (!liveNames.has(String(row.city || ""))) continue;
+          const cityName = String(row.city || "");
+          if (!liveNames.has(cityName)) continue;
           const parts = String(row.path_key || "").split("/");
           if (parts.length !== 2 || !/^[a-z0-9-]+$/.test(parts[0]) || !parts[1]) continue;
-          map.set(normHood(String(row.name || "")), `/n/${parts[0]}/${parts[1]}`);
+          map.set(hoodKey(cityName, String(row.name || "")), `/n/${parts[0]}/${parts[1]}`);
         }
-        const alit = map.get(normHood("עפולה עלית"));
-        if (alit) map.set(normHood("עפולה עילית"), alit);
+        rememberAlias(map);
       }
     }
   } catch {
@@ -356,11 +376,44 @@ export function resetHoodCache(): void {
   hoodCache = null;
 }
 
-/* deal=sale&q=שם, בלי פרמטר תוכן נוסף. null אם זה לא חיפוש שכונה. */
+/* deal=sale&q=שם, בלי פרמטר תוכן נוסף. null אם זה לא חיפוש שכונה.
+   city נשאר מחוץ למפתח של הרשימה הסגורה (הוא רק משכתב כותרת), ולכן
+   שם השכונה נקרא מכאן והעיר נקראת בנפרד. */
 function saleHoodName(params: URLSearchParams): string | null {
   const key = contentKey(params, CITY_PARAM);
   const m = /^deal=sale&q=(.+)$/.exec(key);
   return m ? normHood(m[1]) : null;
+}
+
+function hoodCityOf(params: URLSearchParams): string {
+  return cityFromParams(params) || DEFAULT_HOOD_CITY;
+}
+
+/* יש מלאי מסחרי פעיל בעפולה. כשל מסד אינו "יש מלאי": ה-canonical נשאר
+   של צירוף הסינון, כמו לפני דף הנחיתה. */
+async function afulaCommercialHasInventory(): Promise<boolean> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1200);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/properties?select=id&status=eq.active&category=eq.commercial&city=eq.${encodeURIComponent(DEFAULT_HOOD_CITY)}&limit=1`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Array.isArray(data) && data.length > 0;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* רק ה-canonical ו-og:url. הכותרת של דף הבית נשארת: זו הפניה, לא דף חדש. */
@@ -523,10 +576,11 @@ export default async function handler(request: Request, context: Context) {
     // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
     const params = url.searchParams;
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
+    const hoodName = saleHoodName(params);
+    const hoodCity = hoodCityOf(params);
     if (!match) {
-      const hoodName = saleHoodName(params);
       if (!hoodName) return withHomeVary(res);
-      const path = (await hoodMap()).get(hoodName);
+      const path = (await hoodMap()).get(hoodKey(hoodCity, hoodName));
       if (!path) return withHomeVary(res);
       const fallback = res.clone();
       try {
@@ -547,11 +601,29 @@ export default async function handler(request: Request, context: Context) {
       }
     }
     const city = cityFromParams(params);
+    let pageForInject = city ? withCity(match, city) : match;
+    const landingCity = hoodLandingCity(pageForInject.landing);
+    if (landingCity && normHood(landingCity) !== normHood(hoodCity)) {
+      pageForInject = { ...pageForInject, landing: undefined };
+      if (hoodName) {
+        const alt = (await hoodMap()).get(hoodKey(hoodCity, hoodName));
+        if (alt) pageForInject = { ...pageForInject, landing: alt };
+      }
+    }
+    /* מסחרי: דף עפולה רק כשהעיר היא עפולה ויש מלאי. עמק, ובלי עיר, נשארים
+       על הכתובת של הצירוף. */
+    if (match.query === "deal=commercial") {
+      const afula = city === DEFAULT_HOOD_CITY && await afulaCommercialHasInventory();
+      pageForInject = {
+        ...pageForInject,
+        landing: afula ? "/afula/נדלן-מסחרי" : undefined,
+      };
+    }
     /* clone לפני הקריאה: ב-catch הגוף המקורי כבר נעול, ומחזרים
        Response חדש עם כותרות חדשות ולא נוגעים בנעולות. */
     const fallback = res.clone();
     try {
-      const out = inject(await res.text(), city ? withCity(match, city) : match);
+      const out = inject(await res.text(), pageForInject);
       const headers = new Headers(fallback.headers);
       /* s-maxage רק ב-Netlify-CDN-Cache-Control. Cache-Control הוא
          max-age=0 לפרוקסי שאינו Netlify. Set-Cookie נשאר no-store

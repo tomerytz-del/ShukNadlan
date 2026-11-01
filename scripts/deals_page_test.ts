@@ -19,7 +19,7 @@
    ========================================================================== */
 
 import { readFileSync } from "node:fs";
-import handler from "../netlify/edge-functions/deals-page.ts";
+import handler, { secondsUntilNextJerusalemMonth } from "../netlify/edge-functions/deals-page.ts";
 import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../deals.html", import.meta.url), "utf8");
@@ -50,9 +50,13 @@ const AFULA = {
 };
 
 async function run(url: string, status: number, body: unknown): Promise<Response> {
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
-  ) as typeof fetch;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const target = String(input instanceof Request ? input.url : input);
+    if (target.includes("neighborhood_pages_public")) {
+      return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
   return await handler(new Request(url), context());
 }
 
@@ -91,7 +95,13 @@ check("‏Dataset + BreadcrumbList", Array.isArray(ld?.["@graph"])
 check("נתוני המיון מוטמעים", /<script type="application\/json" id="dealsData">/.test(html));
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
-check("נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+{
+  const cap = secondsUntilNextJerusalemMonth();
+  const maxAge = Math.max(1, Math.min(3600, cap));
+  const swr = Math.max(0, Math.min(86400, cap - maxAge));
+  const cdn = res.headers.get("Netlify-CDN-Cache-Control") || "";
+  check("נשמר במטמון עד החודש הבא", cdn.includes(`max-age=${maxAge}`) && cdn.includes(`stale-while-revalidate=${swr}`));
+}
 check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=_");
 
 /* יישוב, המסד נכשל, ואין עותק קודם */
@@ -247,18 +257,30 @@ check("העותק בלי Retry-After", !staleDeal.headers.get("Retry-After") && 
 check("עותק יישוב: no-store בשתי הכותרות", staleDeal.headers.get("Cache-Control") === "no-store"
   && staleDeal.headers.get("Netlify-CDN-Cache-Control") === "no-store");
 
+{
+  let hoodUrl = "";
+  res = await runRouted("https://shuknadlan.co.il/deals/afula", (target) => {
+    if (target.includes("neighborhood_pages_public")) {
+      hoodUrl = target;
+      return { status: 200, body: [
+        { name: "גבעת המורה", path_key: "afula/גבעת-המורה" },
+      ] };
+    }
+    return { status: 200, body: AFULA };
+  });
+  html = await res.text();
+  check("שכונה בעסקאות מקושרת ל-/n/", html.includes('href="/n/afula/' + encodeURIComponent("גבעת-המורה") + '">גבעת המורה</a>'));
+  check("שכונות מסוננות בבקשה", hoodUrl.includes("city_slug=eq.afula") && hoodUrl.includes("props=gt.0") && !hoodUrl.includes("limit=500"));
+}
 res = await runRouted("https://shuknadlan.co.il/deals/afula", (target) => {
-  if (target.includes("neighborhood_pages_public")) {
-    return { status: 200, body: [
-      { name: "גבעת המורה", city: "עפולה", path_key: "afula/גבעת-המורה", props: 6 },
-      { name: "בלי מודעות", city: "עפולה", path_key: "afula/בלי", props: 0 },
-    ] };
-  }
+  if (target.includes("neighborhood_pages_public")) return { status: 500, body: {} };
   return { status: 200, body: AFULA };
 });
 html = await res.text();
-check("שכונה בעסקאות מקושרת ל-/n/", html.includes('href="/n/afula/' + encodeURIComponent("גבעת-המורה") + '">גבעת המורה</a>'));
-check("שכונה בלי מודעות אינה קישור", !html.includes("/n/afula/" + encodeURIComponent("בלי")));
+check("כשל שכונות: הדף עדיין מולא", res.status === 200 && html.includes("data-ssr") && html.includes("גבעת המורה"));
+check("כשל שכונות: בלי קישור ובלי מטמון שעה", !html.includes('href="/n/afula/')
+  && res.headers.get("Cache-Control") === "no-store"
+  && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
 
 /* פרטיות: אין מספר בית ואין גוש/חלקה בשום מקום ב-render */
 const D = (globalThis as any).ShukDeals;
