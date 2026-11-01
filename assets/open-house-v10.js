@@ -208,6 +208,8 @@
   document.addEventListener('click', function (e) {
     var a = e.target.closest('[data-ohv-agent]');
     if (a) shukTrack('fair_agent_cta', { cta: a.dataset.ohvAgent });
+    // ‏"להחליק על דירות היריד" - כניסה להחלקה (‏swipe_start נספר בלחיצה, docs/analytics-events.md)
+    if (e.target.closest('[data-ohv-swipe]')) shukTrack('swipe_start', { deal: 'sale', fair: 1, via: 'open_house' });
   });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
