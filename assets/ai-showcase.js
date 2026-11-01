@@ -196,6 +196,29 @@
       });
   }
 
+  /* ‏viz-speed (1.11.2026): התמונה מוגשת מוקטנת דרך ‎render/image‎ של Supabase -
+     ‏WebP של כ-100-150KB במקום ה-JPEG המלא (כ-640KB) שנשמר באחסון. אותה נקודה
+     שתמונות הכרטיס כבר עוברות בה (‏cardImgUrl ב-property.js). ‏result_url עצמו
+     נשאר המזהה (‏leadPick, ‏onSelectStyle) - רק ה-src משתנה. כתובת שאינה
+     מהאחסון שלנו - כמו שהיא, ו-onerror חוזר למקור אם ההקטנה נכשלה. */
+  var RENDER_MARK = '/storage/v1/object/public/';
+  function renderUrl(u, w) {
+    var s = String(u || '');
+    var at = s.indexOf(RENDER_MARK);
+    if (at < 0) return s;
+    var path = s.slice(at + RENDER_MARK.length).split(/[?#]/)[0];
+    if (!path) return s;
+    return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&quality=70';
+  }
+  /* ‏src + ‎data-full‎ + חזרה למקור בכשל, כמחרוזת מאפיינים מוכנה ל-‎<img>‎. */
+  function imgAttrs(u, w) {
+    var small = renderUrl(u, w);
+    if (small === String(u || '')) return 'src="' + esc(u) + '"';
+    return 'src="' + esc(small) + '" data-full="' + esc(u) + '" ' +
+      'onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')"';
+  }
+  var LEAD_W = 1200, THUMB_W = 480;
+
   var CSS = [
     /* ---- הרצועה ---- */
     /* ‏--ai-thumb-label — הגובה המדויק של שורת התווית שמתחת לכל תמונון
@@ -770,7 +793,7 @@
       return '' +
         '<div class="ai-frame">' +
           '<div class="ai-compare" data-single>' +
-            '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
+            '<img ' + imgAttrs(it.result_url, LEAD_W) + ' alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
             '<span class="ai-label ai-label-after ai-label-ai">' + SPARKLE_SVG + 'הדמיית AI</span>' +
           '</div>' +
           '<p class="ai-compare-caption">' + esc(caption) + '</p>' +
@@ -780,8 +803,8 @@
     return '' +
       '<div class="ai-frame">' +
         '<div class="ai-compare" data-idle data-rtl>' +
-          '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
-          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) +
+          '<img class="ai-before" ' + imgAttrs(before, LEAD_W) + ' alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
+          '<img class="ai-after" ' + imgAttrs(it.result_url, LEAD_W) + ' alt="הדמיה של ' + esc(where) +
             (opts && opts.staging ? ' אחרי ריהוט ועיצוב' : ' אחרי שיפוץ') + '" loading="lazy">' +
           '<span class="ai-label ai-label-before">Before</span>' +
           '<span class="ai-label ai-label-after">' + SPARKLE_SVG + 'After</span>' +
@@ -799,7 +822,7 @@
   function propertyThumbHtml(opts, it, index, active) {
     return '<button class="ai-thumb" type="button" data-index="' + index + '" ' +
              'aria-pressed="' + (active ? 'true' : 'false') + '">' +
-             '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(pairCaption(opts, it)) + '" loading="lazy">' +
+             '<img ' + imgAttrs(it.result_url, THUMB_W) + ' alt="הדמיה של ' + esc(pairCaption(opts, it)) + '" loading="lazy">' +
              '<span>' + esc(pairCaption(opts, it)) + '</span>' +
            '</button>';
   }

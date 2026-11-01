@@ -1063,10 +1063,12 @@ function renderVizJumpButton(){
   /* וילון ולא שתי תמונונות זו לצד זו: אותה מסגרת, הצילום מתחת וההדמיה
      מעליו, וידית זהב שעוברת ביניהם הלוך ושוב. זו אותה מחווה כמו הווילון
      שבתיבה עצמה, ולכן הכרטיס מראה בקטן בדיוק את מה שהלחיצה פותחת. */
+  /* ‏viz-speed: התמונונות מוקטנות (‏render/image, רוחב 240) - קודם ירדו כאן שני
+     קובצי ה-JPEG המלאים (כ-640KB כל אחד) בכל טעינה של נכס עם הדמיה. */
   const thumbs = pair
     ? `<span class="vj-thumbs vj-curtain" aria-hidden="true">
-         <img class="vj-before" src="${escapeAttr(pair.source_image_url)}" alt="" loading="lazy" decoding="async">
-         <img class="vj-after" src="${escapeAttr(pair.result_url)}" alt="" loading="lazy" decoding="async">
+         <img class="vj-before" src="${escapeAttr(cardImgUrl(pair.source_image_url, 240))}" data-full="${escapeAttr(pair.source_image_url)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')" alt="" loading="lazy" decoding="async">
+         <img class="vj-after" src="${escapeAttr(cardImgUrl(pair.result_url, 240))}" data-full="${escapeAttr(pair.result_url)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')" alt="" loading="lazy" decoding="async">
          <span class="vj-handle"><span class="vj-knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></span>
        </span>`
     : '';
