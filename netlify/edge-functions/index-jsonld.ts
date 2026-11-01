@@ -166,7 +166,22 @@ export default async function handler(request: Request, context: Context) {
   if (!got.ok) return passthrough();
 
   const json = JSON.stringify(graph(page, got.rows, got.total)).replace(/</g, "\\u003c");
-  const out = html.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
+  let out = html.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
+  if (page.path === "/agencies") {
+    const links = got.rows.map((row) => {
+      const slug = String(row.slug || "").trim();
+      const name = String(row.name || "").trim();
+      if (!slug || !name) return "";
+      const href = `/agency?slug=${encodeURIComponent(slug)}`;
+      return `<a class="ag-card" href="${href.replace(/"/g, "&quot;")}">${name.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c))}</a>`;
+    }).filter(Boolean).join("");
+    if (links) {
+      out = out.replace(
+        /(<div\b[^>]*\bid="agenciesGrid"[^>]*>)\s*(<\/div>)/i,
+        `$1${links}$2`,
+      );
+    }
+  }
   /* בלי מטמון כל בקשה חיכתה לשאילתה ל-Supabase (‏count=exact, עד 1,000 שורות):
      ‏/agencies הגיע ל-1.1-1.5 שניות עד הבייט הראשון (‏slow_ttfb, 25.10.2026).
      הרשימה שהגולש/ת רואה נבנית בדפדפן, והבלוק הזה הוא לסורק בלבד - שעה של

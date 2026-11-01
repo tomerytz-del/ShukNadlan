@@ -2967,9 +2967,10 @@ function renderProperty(p){
   setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
   prefillInquiryContact();
-  document.getElementById('agencyStrip').addEventListener('click', ()=>{
-    if (p.agencies?.slug) window.location.href = '/agency?slug=' + p.agencies.slug;
-  });
+  const strip = document.getElementById('agencyStrip');
+  if (strip && p.agencies?.slug) {
+    strip.href = '/agency?slug=' + encodeURIComponent(p.agencies.slug);
+  }
 
   // המפה נטענת ברקע: היא דורשת בדיקת זכאות נוספת מול ה-DB, ואין סיבה שהיא
   // תעכב את רינדור הנכס עצמו.

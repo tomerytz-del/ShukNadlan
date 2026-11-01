@@ -170,4 +170,4 @@
     chipsHtml: chipsHtml,
     iconFor: function (id) { var item = byId(id); return item ? (ICONS[item.icon] || '') : ''; },
   };
-})(window);
+})(typeof globalThis !== 'undefined' ? globalThis : this);
