@@ -2176,7 +2176,7 @@ async function requestVisualization(){
 
     showToast(vizState.isPrivate
       ? 'ההדמיה מוכנה'
-      : 'ההדמיה מוכנה. יועץ הנדל״ן יחזור אליכם בקרוב');
+      : 'ההדמיה מוכנה. הפרטים יועברו למפרסם המודעה');
   } catch(e){
     // המצב בלבד — ‎finally‎ שמתחת מרנדר, ושם הפסקה נשתלת מעל הכפתור ונכתבת.
     vizState.error = e.message || 'שגיאה ביצירת ההדמיה';
@@ -3425,7 +3425,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
     feedback.style.color = 'var(--teal)';
-    feedback.textContent = 'הפנייה נשלחה! יועץ הנדל״ן יחזור אליכם בקרוב';
+    feedback.textContent = 'הפנייה נשלחה. הפרטים יועברו למפרסם המודעה';
     /* רק אחרי שהשרת אישר. ליד שנכשל בשליחה אינו ליד. */
     if (window.shukTrack) shukTrack('generate_lead', {
       form_id: inquirySource === 'photo_request' ? 'photo_request' : 'property_inquiry',
