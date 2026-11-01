@@ -2963,6 +2963,7 @@ function renderProperty(p){
   agentLineEl.hidden = !agentLine;
   renderAgentCard(p);
   renderContactButtons(p);
+  renderWaShare(p);
   prefillInquiryMessage(p);
   setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
@@ -3081,6 +3082,31 @@ function watchStickyBar(){
 
 let stickyWatched = false;
 let fairEndTimer = 0;
+/* ---------- שיתוף בוואטסאפ ----------
+   ‏wa.me/?text= בלי מספר: וואטסאפ נפתח והגולש/ת בוחר/ת למי לשלוח. גם
+   במובייל עם navigator.share - הכפתור אומר "וואטסאפ", ולכן הוא פותח
+   וואטסאפ ולא את תפריט השיתוף הכללי (‏#shareBtn בתמונה עושה את זה).
+   בטקסט רק מה שמתאר את המודעה: כותרת ציבורית (בלי מספר בית), מחיר,
+   שכונה ועיר, וקישור. לא טלפון של המפרסם ולא שם או רישיון. הקישור הוא
+   הכתובת הקנונית (‏og-tags.ts: ‎/property?id=‎), ולכן התצוגה המקדימה
+   בוואטסאפ מקבלת מהשרת את התמונה והכותרת של הנכס. */
+function waShareText(p){
+  const title = publicTitle(p) || 'נכס בשוק נדל״ן';
+  const head = Number(p.price) > 0 ? title + ' · ' + priceFlat(p) : title;
+  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const where = [hood && hood !== p.city ? hood : '', p.city || ''].filter(Boolean).join(', ');
+  const url = 'https://shuknadlan.co.il/property?id=' + encodeURIComponent(p.id) +
+    '&utm_source=whatsapp&utm_medium=share&utm_campaign=property_share';
+  return [head, where, url].filter(Boolean).join('\n');
+}
+function renderWaShare(p){
+  const a = document.getElementById('waShareBtn');
+  if (!a || !p || !p.id) return;
+  a.href = 'https://wa.me/?text=' + encodeURIComponent(waShareText(p));
+  a.setAttribute('data-share-id', p.id);
+  a.hidden = false;
+}
+
 function renderContactButtons(p){
   document.body.classList.add('has-sticky-bar');
   if (!stickyWatched){ watchStickyBar(); stickyWatched = true; }

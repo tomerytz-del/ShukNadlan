@@ -127,6 +127,13 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `data-professional` | בעל/ת מקצוע — בעמוד הפרופיל (`professional.html`) וברשימה (`professionals.html`) | `contact_professional` |
 | (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
+**‏`data-share-type` ו-`data-share-id` (אופציונליים, 1.11.2026):** קישור שיתוף שמצהיר
+עליהם מוסיף ל-`share` את `content_type` ואת `item_id` - הפרמטרים של אירוע `share`
+המומלץ ב-GA4. כך "שיתוף בוואטסאפ" בדף הנכס (`#waShareBtn`, ‏`data-share-type="property"`
+ומזהה הנכס). מזהה מודעה, לא פרט אישי. **כדי שהם יגיעו ל-GA4** צריך להוסיף אותם לתגית
+`GA4 — share` ב-GTM, לפרסם גרסה ולייצא מחדש את `gtm/container.json`; עד אז האירוע
+נספר עם `method` בלבד.
+
 שניים מהם נמצאו אחרי `data-bot`, ושניהם היו חיים:
 
 1. **כפתור השיתוף ב-`project.html`.** ‏`wa.me/?text=` בלי מספר פותח את
