@@ -500,4 +500,30 @@ test('חיפוש קולי: קטעים מצטברים של אנדרואיד אי�
   assert.strictEqual(C.joinSpeech([]), '');
 });
 
+test('עדכון כתובת שומר utm, gclid ו-fbclid, ו-deal=sale מפורש נשאר', () => {
+  const base = 'https://shuknadlan.co.il/?utm_source=google&utm_medium=cpc&gclid=abc&fbclid=z&beta=1';
+  const withRooms = C.applySearchToUrl(base, 'deal=sale&rooms=4');
+  assert.ok(withRooms.includes('utm_source=google'), withRooms);
+  assert.ok(withRooms.includes('utm_medium=cpc'), withRooms);
+  assert.ok(withRooms.includes('gclid=abc'), withRooms);
+  assert.ok(withRooms.includes('fbclid=z'), withRooms);
+  assert.ok(withRooms.includes('beta=1'), withRooms);
+  assert.ok(withRooms.includes('deal=sale'), withRooms);
+  assert.ok(withRooms.includes('rooms=4'), withRooms);
+  const bare = C.applySearchToUrl(base + '&deal=rent', 'deal=sale');
+  assert.ok(/(^|[?&])deal=sale(&|$)/.test(bare), bare);
+  assert.ok(!/deal=rent/.test(bare), bare);
+  assert.ok(bare.includes('utm_source=google') && bare.includes('gclid=abc') && bare.includes('fbclid=z'), bare);
+  const flats = C.applySearchToUrl(base, 'deal=sale&type=flats');
+  assert.ok(/deal=sale/.test(flats) && /type=flats/.test(flats), flats);
+  const kept = C.applySearchToUrl('https://shuknadlan.co.il/?utm_source=a&q=' + encodeURIComponent('גבעת המורה'), 'deal=rent&q=' + encodeURIComponent('מרכז העיר'));
+  assert.ok(kept.includes('utm_source=a'), kept);
+  assert.ok(kept.includes('deal=rent'), kept);
+  assert.ok(!kept.includes(encodeURIComponent('גבעת המורה')), kept);
+  assert.ok(kept.includes(encodeURIComponent('מרכז העיר')), kept);
+  const hash = C.applySearchToUrl('https://shuknadlan.co.il/?gclid=1#allProps', 'rooms=3&deal=sale');
+  assert.ok(hash.endsWith('#allProps'), hash);
+  assert.ok(hash.includes('gclid=1') && hash.includes('rooms=3'), hash);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

@@ -100,7 +100,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
   #notFoundState{display:none}
-  #notFoundState h1{font-size:1.4rem;color:var(--ink)}
+  #notFoundState .nf-title{font-size:1.4rem;font-weight:700;color:var(--ink);margin:0}
   #notFoundState p{font-size:15px;max-width:46ch;margin:10px auto 0}
   .nf-go{display:inline-flex;align-items:center;margin-top:18px;background:var(--teal);color:#fff;font-weight:700;padding:0 22px;min-height:48px;border-radius:12px}
   .nf-go:hover{background:#08194a;color:#fff}
@@ -345,7 +345,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div id="loadingState">טוען פרופיל…</div>
 
 <div id="notFoundState" class="wrap">
-  <h1>הפרופיל לא נמצא</h1>
+  <p class="nf-title">הפרופיל לא נמצא</p>
   <p>ייתכן שתקופת הפרסום הסתיימה או שהקישור שגוי.</p>
   <a href="/professionals" class="nf-go">לכל בעלי המקצוע</a>
 </div>
@@ -1223,6 +1223,16 @@ function renderMeta(p){
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+  <nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only aria-label="חיפושים פופולריים">
+    <h4>חיפושים פופולריים</h4>
+    <div class="footer-seo-links">
+      <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
+      <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
+      <a href="/emek-yizrael/בתים-ומגרשים">בתים ומגרשים ביישובי עמק יזרעאל</a>
+    </div>
+  </nav>
+
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>

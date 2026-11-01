@@ -283,6 +283,9 @@
     if (t.classList.contains('sw-cblur')) {
       var u = t.getAttribute('data-u'), cd = t.closest('.sw-card'), ci = cd && cd.querySelector('img.sw-cimg');
       noteRatio(u, t.naturalWidth, t.naturalHeight, false);
+      // ‏§3.1: רילס שעוד אין לו מטא-דאטה - הניחוש מהפוסטר ברגע שהיחס שלו ידוע
+      var rw = cd && cd.querySelector('.sw-reel-wrap[data-vfit=pending]');
+      if (rw && RATIO.get(u)) applyReelFit(rw, reelGuess(u), true);
       if (!ci || ci.getAttribute('data-u') !== u) return;
       if (cd.getAttribute('data-fit') === 'pending' && RATIO.get(u)) fitByRatio(cd, RATIO.get(u));
       startMain(ci);
@@ -301,11 +304,21 @@
     if (r < 1.1 || cw / ch >= 1) return { vfit: 'port', h: 0 };
     return { vfit: 'land', h: Math.round(Math.min(ch * 0.62, cw / r * 1.15)) };
   }
-  function applyReelFit(wrap, r) {
+  /* ‏swipe-all §3.1 (1.11.2026): עד שהמטא-דאטה מגיעה - ניחוש מהפוסטר, כדי שהכרטיס לא יקפוץ מכל
+     הכרטיס לחלון. הפוסטר הוא לרוב התמונה הראשונה של הנכס (ל-9 מתוך 63 בלבד יש פוסטר משלו), ולכן
+     רק הכיוון נלקח ממנו, והיחס הוא של הסרטונים שלנו: 31 מתוך 32 הסרטונים לרוחב הם 16:9 (‏SELECT
+     על property_video_jobs). ניחוש שגוי מתוקן כשהמטא-דאטה מגיעה, במעבר של 150ms. היחס המדויק
+     שמור במסד רק ב-property_video_jobs, ולכן ההצעה ל-properties.video_aspect: docs/proposals/video_aspect.sql */
+  function reelGuess(posterU) {
+    var r = posterU && RATIO.get(posterU);
+    return r ? (r >= 1.1 ? 16 / 9 : 9 / 16) : 0;
+  }
+  function applyReelFit(wrap, r, guess) {
     var card = wrap && wrap.closest('.sw-card');
     if (!card) return;
     var f = reelFit(r, card.offsetWidth, card.offsetHeight);
     wrap.setAttribute('data-vfit', f.vfit);
+    if (guess) wrap.setAttribute('data-vguess', '1'); else wrap.removeAttribute('data-vguess');
     if (f.h) wrap.style.setProperty('--vwin-h', f.h + 'px'); else wrap.style.removeProperty('--vwin-h');
     // מחלקות על הכרטיס במקום :has() - הטשטוש וההצללה של סרטון לרוחב גם בדפדפן בלי :has (הערת הסקירה ל-1104)
     card.classList.toggle('is-vland', f.vfit === 'land');
@@ -341,7 +354,7 @@
       if (v.videoWidth && v.videoHeight) {
         VRATIO.set(u, v.videoWidth / v.videoHeight);
         document.querySelectorAll('.sw-under .sw-card[data-reel]').forEach(function (cd) { if (cd.getAttribute('data-reel') === u) underReelFit(cd, VRATIO.get(u)); });
-      }
+      } else VBAD.add(u);   // ‏swipe-all §3: סרטון 0×0 (‏d7fa600c) - כמו סרטון שנכשל
       stop();
     }, { once: true });
     v.addEventListener('error', fail, { once: true });
@@ -1695,7 +1708,7 @@
       /* ‏P0-1: היחס ידוע - ‏data-fit ו-‏--win-h כבר ב-HTML. לא ידוע - ‏pending: הטשטוש, והתמונה
          מתחילה רק כשהיחס הגיע (‏startMain), כדי לבקש את הרוחב הנכון. שקופית לפני/אחרי - כמו קודם */
       var dk = deckSize(), rt = sp === 'ba' ? 0 : RATIO.get(base), fit = '', winH = 0, go = true;
-      var ru = !top && slideKind(ph[0]) === 'reel' ? reelUrl(p) : '', vr = ru && VRATIO.get(ru), vlock = false;
+      var ru = !top && slideKind(ph[0]) === 'reel' && !VBAD.has(reelUrl(p)) ? reelUrl(p) : '', vr = ru && (VRATIO.get(ru) || reelGuess(base)), vlock = false;
       if (vr && dk.w) {
         var rf = reelFit(vr, dk.w, dk.h);
         fit = rf.vfit === 'land' ? 'window' : 'cover'; winH = rf.h; vlock = true;
@@ -1711,7 +1724,7 @@
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
       // ‏OpenHouse.live נבדק בכל ציור: חלון שנסגר בזמן שהדף פתוח מוריד את התג בכרטיס הבא
       var nofee = fairLive(p);
-      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
+      return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + (hasReel(p) && VBAD.has(reelUrl(p)) ? ' reel-err' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
         (fit ? ' data-fit="' + fit + '"' : '') + (winH ? ' style="--win-h:' + winH + 'px"' : '') +
         (ru ? ' data-reel="' + esc(ru) + '"' : '') + (vlock ? ' data-vlock="1"' : '') +
         ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img +
@@ -1841,8 +1854,8 @@
   /* השכבה שמעל התמונה בשקופית המיוחדת: לפני/אחרי (התמונה עצמה היא ה"אחרי"), או ההזמנה */
   var reelSound = false;   // אחרי הפעלת קול פעם אחת - הרילסים הבאים בביקור מתחילים עם קול (אם הדפדפן מרשה)
   function reelLayer(p) {
-    var poster = slideBase(p, '#reel'), dk = deckSize(), rf = reelFit(VRATIO.get(reelUrl(p)), dk.w, dk.h);
-    return '<div class="sw-reel-wrap" data-vfit="' + rf.vfit + '"' + (rf.h ? ' style="--vwin-h:' + rf.h + 'px"' : '') + '>' +
+    var poster = slideBase(p, '#reel'), dk = deckSize(), known = VRATIO.get(reelUrl(p)), rf = reelFit(known || reelGuess(poster), dk.w, dk.h);
+    return '<div class="sw-reel-wrap" data-vfit="' + rf.vfit + '"' + (rf.h ? ' style="--vwin-h:' + rf.h + 'px"' : '') + (!known && rf.vfit !== 'pending' ? ' data-vguess="1"' : '') + '>' +
       '<video class="sw-reel" muted playsinline loop preload="metadata" draggable="false"' +
       (poster ? ' poster="' + esc(sized(poster, cardW())) + '"' : '') + ' src="' + esc(p.video_url.trim()) + '"></video>' +
       (reduceMotion ? '<button type="button" class="sw-reel-play" data-reel-play aria-label="הפעלת הסרטון">▶</button>' : '') +
@@ -1902,25 +1915,30 @@
     var body = top.querySelector('.sw-cbody'), w = top.querySelector('.sw-reel-wrap');
     if (body && w) w.style.setProperty('--cbody-h', body.offsetHeight + 'px');
     if (w) detectAudio(v, w);
-    v.addEventListener('error', function () {
+    function failReel() {
+      if (v.dataset.err) return;
       v.dataset.err = '1'; v.hidden = true;
       var cd = v.closest('.sw-card');
       if (!cd) return;
       cd.classList.add('reel-err');   // התמונה שמתחת (הפוסטר) נשארת
       // בלי חלון של סרטון ובלי טשטוש של "ממתין": התמונה בהתאמה הרגילה שלה
-      if (w) w.setAttribute('data-vfit', 'err');
+      if (w) { w.setAttribute('data-vfit', 'err'); w.removeAttribute('data-vguess'); }
       cd.classList.remove('is-vland', 'is-vpend');
       VBAD.add(v.getAttribute('src'));
       if (cd.hasAttribute('data-vlock')) { cd.removeAttribute('data-vlock'); var im = cd.querySelector('img.sw-cimg'); if (im && im.naturalWidth) fitCard(im); }
-    });
+      reelSync();
+    }
+    v.addEventListener('error', failReel);
     // המפתח הוא ה-src כמו שנכתב (‏currentSrc מקודד, ו-reelUrl/VRATIO משתמשים בכתובת כמו שהיא)
-    if (w) applyReelFit(w, VRATIO.get(v.getAttribute('src')));
+    var pim = top.querySelector('img.sw-cimg'), pu = pim && pim.getAttribute('data-u');
+    if (w && VRATIO.get(v.getAttribute('src'))) applyReelFit(w, VRATIO.get(v.getAttribute('src')));
+    else if (w && reelGuess(pu)) applyReelFit(w, reelGuess(pu), true);
     if (v.readyState >= 1 && v.videoWidth && w) { VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight); applyReelFit(w, v.videoWidth / v.videoHeight); }
     v.addEventListener('loadedmetadata', function () {
       if (v.videoWidth && v.videoHeight) {
         VRATIO.set(v.getAttribute('src'), v.videoWidth / v.videoHeight);
         if (w) applyReelFit(w, v.videoWidth / v.videoHeight);
-      }
+      } else { failReel(); return; }   // ‏§3: סרטון 0×0 - תמונה, ולא "ממתין" לנצח
       var d = Math.round(v.duration || 0), tag = top.querySelector('.sw-reel-tag b');
       if (tag && d) tag.textContent = ' · ' + Math.floor(d / 60) + ':' + String(d % 60).padStart(2, '0');
     });

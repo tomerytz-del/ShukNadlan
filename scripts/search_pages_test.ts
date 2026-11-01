@@ -243,6 +243,13 @@ for (const [name, url, query] of SAME) {
     upper.h1 === upperPage.title,
     upper.h1 || "",
   );
+  const hood = await serve("/?deal=sale&q=" + encodeURIComponent("גבעת המורה"));
+  const hoodPage = SEARCH_PAGES.find((p) => p.landing === "/n/afula/גבעת-המורה")!;
+  check(
+    "שכונה ב-canonical של דף /n/",
+    hood.canonical === canonOf(hoodPage) && hood.canonical.endsWith("/n/afula/גבעת-המורה"),
+    hood.canonical,
+  );
 }
 {
   const only = await serve("/?city=" + encodeURIComponent("עפולה"));
@@ -307,6 +314,54 @@ for (const [name, url] of UNTOUCHED) {
     JSON.stringify({ h1: live.h1, h1Count: live.h1Count, citySlot: live.citySlot, title: live.title }),
   );
   check("דף הבית האמיתי יוצא כמו שהוא", home.untouched && home.h1 !== offices.title, `h1=${home.h1}`);
+}
+
+{
+  const res = await handler(new Request(`${SITE}/?deal=sale&rooms=4&utm_source=google&gclid=abc`), contextFor(PAGE));
+  await res.text();
+  const vary = res.headers.get("Netlify-Vary") || "";
+  const cdn = res.headers.get("Netlify-CDN-Cache-Control") || "";
+  check(
+    "עמוד תוצאות: אותו Vary ו-s-maxage",
+    vary.includes("cookie=shuk_market|shuk_soon") && vary.includes("query=deal|") && !vary.includes("utm")
+      && cdn.includes("s-maxage=3600") && cdn.includes("stale-while-revalidate=600")
+      && res.headers.get("Cache-Control") === "public, max-age=0, must-revalidate"
+      && !(res.headers.get("CDN-Cache-Control") || "").includes("s-maxage"),
+    vary + " | " + cdn + " | " + res.headers.get("Cache-Control"),
+  );
+  const plain = await handler(new Request(`${SITE}/`), contextFor(PAGE));
+  await plain.text();
+  const missed = await handler(new Request(`${SITE}/?q=לא-ברשימה`), contextFor(PAGE));
+  await missed.text();
+  const other = await handler(
+    new Request(`${SITE}/`),
+    { next: async () => new Response("{}", { headers: { "content-type": "application/json" } }) } as never,
+  );
+  const broken = await handler(
+    new Request(`${SITE}/?deal=sale&rooms=4`),
+    {
+      next: async () => {
+        const r = new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+        r.text = async () => { throw new Error("read failed"); };
+        return r;
+      },
+    } as never,
+  );
+  const brokenHtml = await broken.text();
+  check(
+    "כשל קריאה: גוף חדש ו-Vary",
+    broken.status === 200 && brokenHtml === PAGE
+      && (broken.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && broken.headers.get("Netlify-CDN-Cache-Control") === "no-store",
+    String(broken.status) + " " + brokenHtml.slice(0, 40),
+  );
+  check(
+    "יציאה בלי עמוד תוצאות: אותו Vary",
+    (plain.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && (missed.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && (other.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && !plain.headers.get("Netlify-CDN-Cache-Control"),
+  );
 }
 
 if (failed) {

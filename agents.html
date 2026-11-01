@@ -17,6 +17,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/dm-filters.js" defer></script>
+<!-- אותו דגל כמו בדף הבית: ברירת המחדל דלוקה, ?beta=0 מכבה. שורות הסינון
+     בטלפון מוסתרות מהציור הראשון, כמו ש-dm-filters עושה אחרי הטעינה. -->
+<script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
+if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
+try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
+if(on)document.documentElement.classList.add('beta-hero');})();</script>
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יועצי נדל״ן ומתווכים בעפולה והסביבה | שוק הנדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -343,6 +351,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .adv-sel:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
   .dmf-sbody-x .adv-sel{width:100%;border-radius:12px}
   @media (max-width:759px){ .toolbar.has-dmf .rate-row,.toolbar.has-dmf #agencyRow{display:none} .dmf-sbody-x .rate-row,.dmf-sbody-x #agencyRow{display:flex !important} }
+  /* אותן שורות, כבר בציור הראשון: אחרת הן נעלמות אחרי שהרשימה מגיעה
+     והסרגל מתקצר. בגיליון הן חוזרות, כמו הכלל שלמעלה. */
+  @media (max-width:759px){
+    html.beta-hero .toolbar .rate-row,
+    html.beta-hero .toolbar #agencyRow{display:none}
+    html.beta-hero .dmf-sbody-x .rate-row,
+    html.beta-hero .dmf-sbody-x #agencyRow{display:flex !important}
+  }
+  /* הבאנר שבפוטר עמד במסך ונדחף למטה כשהרשימה נכנסה. הסרגל בגובהו
+     הסופי כבר מההתחלה, והרשימה יושבת במקום שמור מתחתיו. */
+  #listStage{min-height:100svh}
+  #toolbar{min-height:288px}
+  @media(min-width:900px){#toolbar{min-height:512px}}
+  #gridHost{position:relative}
+  #gridHost > #loadingState{position:absolute;inset-inline:0;top:0;width:100%;margin:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -382,7 +405,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <!-- ====== סרגל חיפוש, סינון ומיון ====== -->
-    <div class="toolbar" id="toolbar" hidden>
+    <div id="listStage">
+    <div class="toolbar" id="toolbar">
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
@@ -416,6 +440,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="result-count" id="resultCount" aria-live="polite"></p>
     </div>
 
+    <div id="gridHost">
     <div class="state" id="loadingState">טוען את רשימת יועצי הנדל״ן…</div>
 
     <div class="state" id="emptyState" hidden>
@@ -432,6 +457,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <div class="grid" id="agentsGrid"></div>
+    </div>
 
     <section class="join-band" id="joinBand" hidden>
       <h2>יועצי נדל״ן - רוצים עמוד משלכם?</h2>
@@ -444,6 +470,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <a href="/crm" class="btn btn-ghost">כניסת יועצי נדל״ן</a>
       </div>
     </section>
+    </div>
   </div>
 </main>
 
@@ -763,6 +790,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+  <nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only aria-label="חיפושים פופולריים">
+    <h4>חיפושים פופולריים</h4>
+    <div class="footer-seo-links">
+      <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
+      <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
+      <a href="/emek-yizrael/בתים-ומגרשים">בתים ומגרשים ביישובי עמק יזרעאל</a>
+    </div>
+  </nav>
+
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
@@ -792,6 +829,17 @@ function safeUrl(u){
     const url = new URL(String(u), location.href);
     return /^https?:$/.test(url.protocol) ? url.href : '';
   } catch(e){ return ''; }
+}
+/* תמונת הפרופיל של הכרטיס הראשון היא ה-LCP בטלפון. קובץ מלא מהאחסון
+   (מאות KB) מתחלף ב-render/image; כתובת אחרת נשארת כמו שהיא. */
+function photoSrc(u){
+  const s = safeUrl(u);
+  const mark = '/storage/v1/object/public/';
+  const at = s.indexOf(mark);
+  if (at < 0) return s;
+  const path = s.slice(at + mark.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=640&quality=60';
 }
 /* ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
    מצפים לו. הבדיקה היא גם שער אבטחה: המספר נכנס ל-href. */
@@ -917,7 +965,7 @@ function starsHtml(rating){
                 ><i style="width:${pct.toFixed(1)}%"></i></span>`;
 }
 
-function agentCardHtml(a){
+function agentCardHtml(a, eager){
   const name = a.display_name || 'יועץ נדל״ן';
   // agent.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן לקשר,
   // ולכן הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
@@ -927,9 +975,11 @@ function agentCardHtml(a){
   // נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM. הערך נכנס ל-CSS ולכן נבדק כאן
   // בדיוק כפי שהוא נבדק ב-DB: שני אחוזים ותו לא.
   const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
-  const photo = safeUrl(a.photo_url);
+  const photo = photoSrc(a.photo_url);
   const media = photo
-    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(name)}" loading="lazy"
+    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(name)}"
+            ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}
+            width="640" height="800"
             ${focus ? `style="--photo-pos:${escapeHtml(focus)}"` : ''} onerror="this.remove()">`
     : '';
 
@@ -1037,7 +1087,7 @@ function render(){
     el('dmfEmpty').innerHTML = dmf.active() ? dmf.emptyHtml() : '';
   }
   el('agentsGrid').hidden = !list.length;
-  el('agentsGrid').innerHTML = list.map(agentCardHtml).join('');
+  el('agentsGrid').innerHTML = list.map((a, i) => agentCardHtml(a, i === 0)).join('');
 }
 
 /* ============================================================================
@@ -1317,7 +1367,7 @@ function mountDm(){
 (async function init(){
   const finish = (list)=>{
     el('loadingState').hidden = true;
-    if (!list.length){ el('emptyState').hidden = false; return; }
+    if (!list.length){ el('toolbar').hidden = true; el('emptyState').hidden = false; return; }
 
     agents = list;
     assignRankBadges(agents);

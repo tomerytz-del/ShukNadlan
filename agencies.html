@@ -15,6 +15,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/dm-filters.js" defer></script>
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>יועצי נדל״ן ומתווכים בעפולה והעמק - משרדי התיווך | שוק הנדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -235,7 +237,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ag-card:focus-within{border-color:var(--teal)}
 
   /* ---- ראש הכרטיס: גלריית נכסים ---- */
-  .ag-media{position:relative;height:170px;background:var(--teal-tint)}
+  .ag-media{position:relative;height:170px;background:var(--teal-tint);overflow:hidden}
   /* עד שלוש תמונות: הראשונה גדולה ושתיים לצדה בטור. עם שתיים — חצי־חצי,
      עם אחת — מלוא הרוחב. הפריסה נקבעת ממחלקה כדי שלא יישאר תא ריק. */
   .ag-shots{display:grid;gap:2px;height:100%}
@@ -243,7 +245,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ag-shots[data-n="2"]{grid-template-columns:1fr 1fr}
   .ag-shots[data-n="3"]{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}
   .ag-shots[data-n="3"] .shot:first-child{grid-row:1 / span 2}
-  .shot{background-size:cover;background-position:center;background-color:var(--teal-tint)}
+  .shot{background-size:cover;background-position:center;background-color:var(--teal-tint);min-height:0}
+  .ag-shots img.shot{width:100%;height:100%;object-fit:cover;display:block}
   /* אין לנכסי המשרד תמונות — אותו איור ממלא־מקום של אריחי הנכסים באתר,
      בלי הכיתוב הקטן שלא נקרא בגובה הזה */
   .ag-shots.is-empty{
@@ -401,6 +404,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏P1-U1 (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0) */
   /* ‏R8: עיצוב הסינון ב-assets/filter-ui.css (נטען מ-dm-filters.js); כאן רק מה ששייך לדף */
   .dmf-on > :not(#dmfEmpty){display:none}
+  /* הבאנר שבפוטר עמד במסך ונדחף למטה כשהרשימה נכנסה. הסרגל בגובהו
+     הסופי כבר מההתחלה, והרשימה יושבת מתחתיו בלי להזיז אותו. */
+  #listStage{min-height:100svh}
+  #toolbar{min-height:288px}
+  @media(min-width:900px){#toolbar{min-height:400px}}
+  #gridHost{position:relative}
+  #gridHost > #loadingState{position:absolute;inset-inline:0;top:0;width:100%;margin:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -445,7 +455,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <!-- ====== סרגל חיפוש, סינון, מיון ותצוגה ====== -->
-    <div class="toolbar" id="toolbar" hidden>
+    <div id="listStage">
+    <div class="toolbar" id="toolbar">
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
@@ -482,6 +493,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="result-count" id="resultCount" aria-live="polite"></p>
     </div>
 
+    <div id="gridHost">
     <div class="state" id="loadingState">טוען את רשימת המשרדים…</div>
 
     <div class="state" id="emptyState" hidden>
@@ -497,6 +509,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <div class="grid" id="agenciesGrid"></div>
+    </div>
 
     <div class="map-panel" id="mapPanel" hidden>
       <p class="map-note" id="mapNote"></p>
@@ -508,6 +521,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p>הצטרפו לפלטפורמה, קבלו עמוד משרד משלכם, פרסמו את הנכסים שלכם ואספו ביקורות מלקוחות.</p>
       <a href="/agency-signup" class="btn btn-teal">הצטרפות כמשרד תיווך</a>
     </section>
+    </div>
   </div>
 </main>
 
@@ -827,6 +841,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+  <nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only aria-label="חיפושים פופולריים">
+    <h4>חיפושים פופולריים</h4>
+    <div class="footer-seo-links">
+      <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
+      <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
+      <a href="/emek-yizrael/בתים-ומגרשים">בתים ומגרשים ביישובי עמק יזרעאל</a>
+    </div>
+  </nav>
+
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
@@ -864,6 +888,18 @@ function safeUrl(u){
     const url = new URL(String(u), location.href);
     return /^https?:$/.test(url.protocol) ? url.href : '';
   } catch(e){ return ''; }
+}
+/* תמונת הכרטיס הראשון עשויה להיות ה-LCP בטלפון. אין preload נפרד בראש
+   הדף: סדר התמונות מהשאילתה אינו יציב, וכתובת אחרת הייתה יורדת פעמיים.
+   הכרטיס הראשון מבקש width=800 בעצמו. השאר קטנות יותר ועצלות. */
+function shotSrc(u, w){
+  const s = safeUrl(u);
+  const mark = '/storage/v1/object/public/';
+  const at = s.indexOf(mark);
+  if (at < 0) return s;
+  const path = s.slice(at + mark.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 480) + '&quality=60';
 }
 /* ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
    מצפים לו. הבדיקה היא גם שער אבטחה: המספר נכנס ל-href. */
@@ -1002,7 +1038,7 @@ function visibleAgencies(){
 /* ============================================================================
    רכיב הכרטיס
    ============================================================================ */
-function agencyCardHtml(a){
+function agencyCardHtml(a, eager){
   const name = a.name || 'משרד תיווך';
   // agency.html מאתר משרד לפי slug בלבד; בלי slug אין לאן לקשר, ולכן
   // הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
@@ -1011,7 +1047,12 @@ function agencyCardHtml(a){
   const shots = a.photos.slice(0, 3);
   const media = shots.length
     ? `<div class="ag-shots" data-n="${shots.length}">${
-        shots.map(u => `<span class="shot" style="background-image:url('${escapeHtml(u)}')"></span>`).join('')
+        shots.map((u, i) => {
+          const eagerShot = eager && i === 0;
+          return `<img class="shot" src="${escapeHtml(shotSrc(u, eagerShot ? 800 : 480))}" alt="" width="${eagerShot ? 800 : 480}" height="300"${
+            eagerShot ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"'
+          }>`;
+        }).join('')
       }</div>`
     : '<div class="ag-shots is-empty" data-n="1"></div>';
 
@@ -1081,7 +1122,7 @@ function agencyCardHtml(a){
    רינדור
    ============================================================================ */
 function renderGrid(list){
-  el('agenciesGrid').innerHTML = list.map(agencyCardHtml).join('');
+  el('agenciesGrid').innerHTML = list.map((a, i) => agencyCardHtml(a, i === 0)).join('');
 }
 
 function renderCounts(list){
@@ -1323,7 +1364,7 @@ function mountDm(){
 (async function init(){
   const finish = (list)=>{
     el('loadingState').hidden = true;
-    if (!list.length){ el('emptyState').hidden = false; return; }
+    if (!list.length){ el('toolbar').hidden = true; el('emptyState').hidden = false; return; }
     agencies = list;
     assignRankBadges(agencies);
     buildPills(el('specPills'), SPECS, k => k === activeSpec, k => { activeSpec = k; }, true);

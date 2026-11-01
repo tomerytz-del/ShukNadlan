@@ -2367,6 +2367,14 @@ async function loadSimilarProperties(p){
   }
 }
 
+function similarLinkText(p){
+  const title = String(p.title || p.property_type || 'נכס').replace(/\s+/g, ' ').trim() || 'נכס';
+  const n = Number(p.price);
+  const price = Number.isFinite(n) && n > 0
+    ? '₪' + n.toLocaleString('he-IL') + (p.deal_type === 'rent' ? ' לחודש' : '')
+    : '';
+  return price ? title + ' · ' + price : title;
+}
 function renderSimilarProperties(list){
   const section = document.getElementById('similarSection');
   const scroll = document.getElementById('similarScroll');
@@ -2381,7 +2389,7 @@ function renderSimilarProperties(list){
     card.className = 'prop-card';
     // ‏A-SEO-2: קישור אמיתי שנמתח על האריח (‏.pc-link, ‏assets/prop-shelf.css) - לא ניווט ב-JS
     card.innerHTML = `
-      <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}" aria-label="${escapeHtml(sp.title || sp.property_type || 'נכס')}"></a>
+      <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}"><span class="pc-link-text">${escapeHtml(similarLinkText(sp))}</span></a>
       <div class="thumb" style="${thumbStyle(sp, i)}">
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}
@@ -2769,6 +2777,100 @@ function publicTitle(p){
   return publicHeadline(p) || maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
 
+/* מבדיל את <title> רק כשיש עוד מודעה פעילה עם אותה כותרת. כותרת יחידה
+   נשארת publicTitle כמו שהייתה. אותו סדר כמו titleSuffix ב-og-tags.ts:
+   שטח, קומה, מכירה/השכרה, מחיר. ה-H1 (#propTitle) לא משתנה. */
+function bitSqm(p){
+  const n = roomsShort(p && p.size_sqm);
+  return n ? n + ' מ״ר' : '';
+}
+function bitFloor(p){
+  if (!p || p.floor === null || p.floor === undefined || String(p.floor).trim() === '') return '';
+  const floor = Number(p.floor);
+  if (!isFinite(floor)) return '';
+  return floor === 0 ? 'קומת קרקע' : 'קומה ' + String(floor);
+}
+function bitDeal(p){
+  if (!p) return '';
+  if (p.deal_type === 'rent') return 'להשכרה';
+  if (p.deal_type === 'sale') return 'למכירה';
+  return '';
+}
+/* מחיר חסר או 0 אינו מבדיל. אותו תנאי כמו bitPrice ב-og-tags.ts. */
+function bitPrice(p){
+  const v = Number(p && p.price);
+  return isFinite(v) && v > 0 ? '₪' + v.toLocaleString('he-IL') : '';
+}
+function distinctTitleSuffix(self, rows){
+  const base = publicHeadline(self);
+  const group = (rows || []).filter(function(row){ return publicHeadline(row) === base; });
+  const selfId = String((self && self.id) || '');
+  if (!group.some(function(row){ return String((row && row.id) || '') === selfId; })) group.push(self);
+  if (group.length < 2) return '';
+  const picks = [bitSqm, bitFloor, bitDeal, bitPrice];
+  const parts = [];
+  let left = group;
+  for (let i = 0; i < picks.length; i++){
+    const mine = picks[i](self);
+    if (!mine) continue;
+    const same = left.filter(function(row){ return picks[i](row) === mine; });
+    if (same.length < left.length){
+      parts.push(mine);
+      left = same;
+      if (left.length < 2) break;
+    }
+  }
+  return parts.length ? ' · ' + parts.join(' · ') : '';
+}
+/* אותו siblingFilter ו-pageTitle כמו ב-og-tags, מ-assets/listing-title.js.
+   neighborhood נשאר באובייקט ולא נכנס לשאילתה: publicHeadline לא כולל שכונה. */
+function listingHoodName(p){
+  var n = p && p.neighborhoods;
+  var row = Array.isArray(n) ? n[0] : n;
+  var name = row && row.name ? String(row.name).trim() : '';
+  var city = String((p && p.city) || '').trim();
+  return name && name !== city ? name : '';
+}
+function siblingQuery(p){
+  return ShukListingTitle.siblingFilter({
+    city: p && p.city,
+    property_type: p && p.property_type,
+    streetName: streetNameOf(p),
+    neighborhood: listingHoodName(p),
+  });
+}
+function loadSiblings(p){
+  var filter = siblingQuery(p);
+  if (!filter) return Promise.resolve(null);
+  var headers = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, Accept: 'application/json' };
+  var pageSize = ShukListingTitle.SIBLING_PAGE;
+  var all = [];
+  function page(offset){
+    return fetch(SUPABASE_URL + '/rest/v1/properties?' + filter + '&offset=' + offset, { headers: headers })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(rows){
+        if (!Array.isArray(rows)) return null;
+        all = all.concat(rows);
+        if (rows.length < pageSize) return all;
+        if (offset >= pageSize * 5) return null;
+        return page(offset + pageSize);
+      });
+  }
+  return page(0).catch(function(){ return null; });
+}
+/* כשהשאילתה מצליחה, אותה כותרת כמו בשרת. כשל לא דורס את כותרת השרת. */
+function applyDistinctTitle(p){
+  var base = publicTitle(p);
+  if (!siblingQuery(p)){
+    document.title = ShukListingTitle.pageTitle(base, '');
+    return;
+  }
+  loadSiblings(p).then(function(rows){
+    if (!Array.isArray(rows)) return;
+    document.title = ShukListingTitle.pageTitle(base, distinctTitleSuffix(p, rows));
+  });
+}
+
 function maskedListingTitle(p){
   return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
@@ -2801,7 +2903,7 @@ function renderOpenHouseBand(p){
 }
 
 function renderProperty(p){
-  document.title = publicTitle(p) + ' | שוק נדל״ן';
+  applyDistinctTitle(p);
   renderGallery(p);
   renderMediaButtons(p);
   // הקידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted

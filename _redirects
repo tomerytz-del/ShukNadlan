@@ -116,7 +116,10 @@
 
 # ‏דף לכל שכונה (docs/neighborhood-pages.md). ‏neighborhood.html מגיש את
 # /n/afula/גבעת-המורה וחבריו; ‏netlify/edge-functions/neighborhood-page.ts
-# קורא את העיר והשכונה מהכתובת וממלא את הדף.
+# קורא את העיר והשכונה מהכתובת וממלא את הדף. ‏/n ו-/n/ בלי slug נתפסים
+# כאן כדי שהפונקציה תחזיר 404, לא 200 של המעטפת.
+/n    /neighborhood    200
+/n/    /neighborhood    200
 /n/*    /neighborhood    200
 
 # ‏דפי נחיתה עיר → סוג נכס (docs/search-landing-pages.md). silo.html מגיש
@@ -128,9 +131,11 @@
 /afula/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
 /afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F    /silo    200
 /afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D    /silo    200
+/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94    /silo    200
 /afula/בתים-פרטיים    /silo    200
 /afula/דירות-גן    /silo    200
 /afula/דירות-3-חדרים    /silo    200
+/afula/דירות-למכירה    /silo    200
 # ‏חיפה - אותה תבנית. השוק עוד לא חי, ולכן silo-page.ts מוסיף noindex
 # (‏landingIndexable) עד ההדלקה. אין /haifa/* כאן מאותה סיבה.
 /haifa/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D    /silo    200
