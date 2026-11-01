@@ -4442,10 +4442,12 @@
   function start() {
     load().then(function (rows) { return extReady.then(function () { initExt(rows); return rows; }); }).then(function (rows) {
       all = rows;
-      /* ‏"הסינון לפני ההחלקה" רק בכניסה נקייה: כתובת שכבר נושאת סינון (‏reload, קישור
-         מדף הבית) או חזרה ב"אחורה" מדף נכס - בלי גיליון שנפתח מעצמו (‏P0-C, ‏P1-L) */
-      if (!urlHasFilter && !cameBack()) openFilter($('swSum'));
+      /* ‏1.11.2026 (תומר): הסינון כבר לא נפתח מעצמו בכניסה - הגולש/ת רואה נכסים
+         מיד, ומי שרוצה מסנן/ת דרך כפתור הסינון. ההדרכה, שעד עכשיו התחילה אחרי
+         "התחילו להחליק" בגיליון, מתחילה כאן בכניסה נקייה (בלי סינון בכתובת ובלי
+         "אחורה" מדף נכס). */
       buildDeck();
+      if (!urlHasFilter && !cameBack() && view === 'deck') maybeTour();
       maybeResume();
       var v0 = params.get('view');
       var hs = history.state;
