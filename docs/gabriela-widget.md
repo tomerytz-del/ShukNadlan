@@ -158,7 +158,7 @@
 | `gab_widget_open` | החלונית נפתחה - `trigger`: ‏`click` (הבועה) \| `tip` (הבועית). ‏`auto` היה עד שהחלונית הפסיקה להיפתח לבד |
 | `contact_bot` | מעבר לוואטסאפ - `entry`: ‏`widget_buy` ... `widget_free` (המאזין הקיים ב-`events.js`) |
 | `gab_quick_pick` | **v10 בלבד** - בחירה מהירה בשיחה שבאתר, `choice`: ‏`buy` \| `rent` \| `owner` \| `fair` \| `swipe` |
-| `gab_swipe_cta` | **v10 בלבד** - הכפתור הכחול בתשובה, `deal`, `region` (ולא `swipe_start`, שהיה נספר פעמיים) |
+| `gab_swipe_cta` | **v10 בלבד** - הכפתור הכחול בתשובה, `deal`, `region`. מ-1.11.2026, מחוץ ל-`/swipe`, נשלח לצדו גם `swipe_start` עם `via: gabriela` (הסינון בתוך ההחלקה כבר אינו `swipe_start`, ולכן אין ספירה כפולה) |
 
 **`gab_widget_open` צריך טריגר ותגית ב-GTM**, ו-`check_gtm_container.py` חוסם עד
 שהם בייצוא. הסדר: ‏GTM ← ‏Admin ← ‏Import Container ← ‏`docs/gtm-gabriela-import.json`

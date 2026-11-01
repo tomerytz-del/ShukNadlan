@@ -392,7 +392,8 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `quick_search_tag_click` | **v10**: צ'יפ בחיפוש המהיר (‏`#quickSearchSec`) | `group`: ‏`hood` \| `type` \| `area`, `tag` |
 | `fair_banner_click` | **v10**: לחיצה על באנר היריד | `fair_id` (‏`open_house_<תאריך סיום>`) |
 | `site_stats_view` | **v10**: המונים (‏`#dmStats`) נכנסו למסך, פעם אחת בדף | `source`: ‏`cache` \| `client`, `deals_shown`: ‏0 \| 1 |
-| `swipe_start` | **v10**: "התחילו להחליק" ב-`/swipe`, או הקישור מה-hero / מבאנר ההדמיות | `deal`, `region`, `via`: ‏`swipe_filter` \| `hero_link` \| `ai_banner` |
+| `swipe_start` | **v10, מ-1.11.2026 רק בלחיצה שמובילה להחלקה**: הקישורים בדף הבית, הכפתור של גבריאלה (מחוץ ל-`/swipe`), "המשך גלישה בהחלקה" בחלון המועדפים, ו"להחליק על דירות היריד" בדף היריד. עד 1.11.2026 נשלח גם מ"התחילו להחליק" בסינון שבתוך `/swipe` (‏`via: swipe_filter`), וכניסה מדף הבית שאחריה סינון נספרה פעמיים. כל הכניסות, כולל ישירות ושיתופים: צפיות הדף `/swipe` ב-GA4 | `deal`, `region`, `via`: ‏`hero_link` \| `ai_banner` \| `hero_views` \| `home_invite_card` \| `results_*` \| `gabriela` \| `likes_panel` \| `open_house` (ו-`swipe_filter` בנתונים שלפני 1.11.2026) |
+| `swipe_filter_apply` | **v10, 1.11.2026**: "הצגת N נכסים" בסינון שבתוך `/swipe` - החלת סינון, לא התחלה | `deal`, `region`, `viz`, `fair` |
 | `swipe_tour_skip` | **v10**: דילוג על ההדרכה ב-`/swipe` | `visit`: ‏1 \| 2 |
 | `swipe_like` | **v10**: החלקה ימינה / לב | `slot`, `position` |
 | `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
