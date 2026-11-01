@@ -12127,17 +12127,21 @@ const TEAM_DEAL_KINDS = [
   { key:'commercial', label:'מסחריים' },
 ];
 
-async function loadTeam(agencyId, callerId){
+async function loadTeam(agencyId, callerId, opts){
+  const fresh = !!(opts && opts.fresh);
+  const el = document.getElementById('teamList');
+  if (fresh && el) el.innerHTML = '<div class="empty-state">טוען…</div>';
   let teamsReady = false;
   if (window.crmNeed) {
-    try { await crmNeed('teams'); teamsReady = typeof teamsLoad === 'function' && typeof TEAM_COLUMNS === 'string'; }
-    catch (e) { teamsReady = false; }
+    try {
+      await crmNeed('teams', fresh ? { fresh: true } : undefined);
+      teamsReady = typeof teamsLoad === 'function' && typeof TEAM_COLUMNS === 'string';
+    } catch (e) { teamsReady = false; }
   } else teamsReady = typeof teamsLoad === 'function' && typeof TEAM_COLUMNS === 'string';
-  const el = document.getElementById('teamList');
   if (!teamsReady) {
     el.innerHTML = '<div class="empty-state"><p>רשימת הצוות לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = el.querySelector('button');
-    if (again) again.addEventListener('click', () => loadTeam(agencyId, callerId));
+    if (again) again.addEventListener('click', () => loadTeam(agencyId, callerId, { fresh: true }));
     return;
   }
   el.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -16030,12 +16034,32 @@ async function loadPropertyViewCounts(propertyIds){
   return counts;
 }
 
+/* קובץ שאינו חובה לרשימה. כישלון לא מפיל אותה, וקובץ שעוד בדרך
+   לא מחזיק אותה יותר מ-8 שניות. הבקשה עצמה נשארת אצל crmNeed:
+   אם היא מגיעה אחר כך, מי שמחכה לה נפתר בלי סקריפט שני. */
+const crmOptionalWait = new Map();
+async function crmOptional(group){
+  if (!window.crmNeed) return;
+  /* המתנה אחת לקבוצה. בלי זה כל רשימה משלמת עוד 8 שניות על אותו קובץ. */
+  if (crmOptionalWait.has(group)) return crmOptionalWait.get(group);
+  const job = (async () => {
+    const p = crmNeed(group).catch(() => {});
+    /* אחרי שהתגית נכנסה. טיימר מאותו תור של ההכנסה לא נורה
+       כל עוד הבקשה תלויה. */
+    await new Promise(resolve => queueMicrotask(resolve));
+    await Promise.race([p, new Promise(resolve => setTimeout(resolve, 8000))]);
+  })();
+  crmOptionalWait.set(group, job);
+  return job;
+}
+
 async function loadProperties(agentId){
   // הכרטיס וההפנייה נטענים לפני הציור. בלי זה השאילתה חוזרת והקריאה
   // ל-prRenderSmart נופלת, ו-Promise.all של הדשבורד נעצר כולל ה-goto.
+  // קובץ המשרד מוסיף שמות. בלי הוא הרשימה עדיין עולה.
   if (window.crmNeed) {
-    try { await Promise.all([crmNeed('properties'), crmNeed('office')]); }
-    catch (e) {}
+    try { await crmNeed('properties'); } catch (e) {}
+    await crmOptional('office');
   }
   // היריד והמיקום המשוער רק כשהרשימה פתוחה. כשל בסקריפט לא מפיל את
   // הדשבורד: הרשימה עולה בלי תגיות היריד.
@@ -20781,22 +20805,26 @@ async function loadLeadVisitors(){
 
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
-async function loadLeads(agentId){
-  // לידים והפנייה לפני הציור. קובץ המשרד נדרש גם כשהלידים כבר נטענו.
+async function loadLeads(agentId, opts){
+  // הרשימה עצמה היא crm-leads.js. קובץ המשרד רק מוסיף שמות לכרטיס,
+  // וההגדרות והמדריך נפתחים מהכפתור. כישלון שלהם לא מחביא את הרשימה.
+  const fresh = !!(opts && opts.fresh);
+  const listEl = document.getElementById('leadsList');
+  if (fresh) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   let leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
   if (window.crmNeed) {
     try {
-      await Promise.all([crmNeed('leads'), crmNeed('office')]);
+      await crmNeed('leads', fresh ? { fresh: true } : undefined);
       leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
     } catch (e) { leadsReady = false; }
   }
-  const listEl = document.getElementById('leadsList');
   if (!leadsReady) {
     listEl.innerHTML = '<div class="empty-state"><p>רשימת הלידים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = listEl.querySelector('button');
-    if (again) again.addEventListener('click', () => loadLeads(agentId));
+    if (again) again.addEventListener('click', () => loadLeads(agentId, { fresh: true }));
     return;
   }
+  await crmOptional('office');
   /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
      ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
   const demandShown = leadsTab === 'demand' && openDemandRows !== null
@@ -23196,8 +23224,9 @@ function featureLabel(key){ return FEATURE_LABELS[key] || key; }
 
 async function loadClients(){
   if (window.crmNeed) {
-    try { await Promise.all([crmNeed('office'), crmNeed('leads'), crmNeed('showcase')]); }
+    try { await Promise.all([crmNeed('leads'), crmNeed('showcase')]); }
     catch (e) {}
+    await crmOptional('office');
   }
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';

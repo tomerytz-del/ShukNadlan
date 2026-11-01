@@ -692,10 +692,14 @@ function openLeadsDemand(opts){
     syncLeadsSettings();
   });
   // המתג של לידי הבעלים - אותו מתג של "ההגדרות שלי", מסונכרן
-  document.getElementById('leadsOwnerSwitch').addEventListener('input', e => {
+  document.getElementById('leadsOwnerSwitch').addEventListener('input', async e => {
     const main = document.getElementById('setOwnerSwitch');
+    if (!main) return;
     main.setAttribute('aria-pressed', e.currentTarget.getAttribute('aria-pressed'));
-    setOwnerLeadsActive(main);
+    if (typeof setOwnerLeadsActive !== 'function' && window.crmNeed) {
+      try { await crmNeed('settings'); } catch (err) {}
+    }
+    if (typeof setOwnerLeadsActive === 'function') setOwnerLeadsActive(main);
   });
   const openLeadPrefsGuarded = () => {
     const run = () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); };

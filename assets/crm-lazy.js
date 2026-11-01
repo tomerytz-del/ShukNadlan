@@ -76,7 +76,9 @@
      או עזרי הדאשבורד חסרים ברגע שהקובץ רץ. */
   var PRE = {
     settings: ['ui', 'onboarding'],
-    leads: ['ui', 'settings'],
+    /* ההגדרות והמדריך נפתחים מהכפתור, לא בשביל לצייר את הרשימה.
+       כישלון שלהם לא אמור להחביא את הלידים. */
+    leads: ['ui'],
     properties: ['ui'],
     matches: ['ui'],
     suggestions: ['ui'],
@@ -141,36 +143,27 @@
   };
 
   var pending = {};
-  /* כישלון טרי. טעינות שנפתחות בזו אחר זו (נכסים, ואז לידים) לא
-     פותחות המתנה חדשה של 8 שניות כל אחת. לחיצה על "נסו שוב" אחרי
-     זה כן מנסה שוב. */
+  /* כתובת אחת, הבטחה אחת. ניסיון שני לא מכניס תגית נוספת כל עוד
+     הראשונה עוד יכולה להגיע: שתי הרצות של אותו קובץ זורקות
+     "already been declared" (const בראש crm-leads.js). כשהראשונה
+     מגיעה באיחור, מי שמחכה לאותה הבטחה נפתר. */
+  var inflight = {};
+  /* כישלון אמיתי (הרשת דחתה). טעינות רצופות לא פותחות ניסיון חדש
+     כל אחת. "נסו שוב" קורא עם fresh ומדלג על החלון הזה. */
   var failedAt = {};
-  /* קובץ שנתקע (502 אחרי 40 שניות) לא מקפיא רשימה. ניסיון שני, ואז
-     דחייה כדי שהקורא יציג שגיאה במסך ולא יחכה.
-     השעון רץ מכאן ולא מתוך טעינת הקובץ: טיימר שנקבע באותו תור שבו
-     מוכנס סקריפט שלא חוזר לא נורה בכלל, והרשימה נשארת על "טוען". */
-  var SCRIPT_TIMEOUT_MS = 8000;
-  var loading = [];
-  setInterval(function () {
-    var now = Date.now();
-    for (var i = 0; i < loading.length; i++) {
-      if (now - loading[i].t >= SCRIPT_TIMEOUT_MS) loading[i].finish(false);
-    }
-  }, 1000);
 
   function loadOne(src, integrity) {
     var found = document.querySelector('script[src="' + src + '"]');
     if (found && found.dataset.ready === '1') return Promise.resolve();
+    if (inflight[src]) return inflight[src];
     if (found && found.dataset.failed === '1') { found.remove(); found = null; }
-    return new Promise(function (resolve, reject) {
+    var promise = new Promise(function (resolve, reject) {
       var s = found || document.createElement('script');
       var settled = false;
-      var slot = { t: Date.now(), finish: null };
       var finish = function (ok) {
         if (settled) return;
         settled = true;
-        var at = loading.indexOf(slot);
-        if (at >= 0) loading.splice(at, 1);
+        if (inflight[src] === promise) delete inflight[src];
         if (ok) { s.dataset.ready = '1'; resolve(); }
         else {
           s.dataset.failed = '1';
@@ -178,20 +171,20 @@
           reject(new Error(src));
         }
       };
-      slot.finish = finish;
-      loading.push(slot);
       if (!found) {
-        s.src = src;
         s.async = true;
         if (integrity) { s.integrity = integrity; s.crossOrigin = 'anonymous'; }
         s.onload = function () { finish(true); };
         s.onerror = function () { finish(false); };
+        s.src = src;
         document.head.appendChild(s);
       } else {
         s.addEventListener('load', function () { finish(true); });
         s.addEventListener('error', function () { finish(false); });
       }
     });
+    inflight[src] = promise;
+    return promise;
   }
 
   function loadGroup(group) {
@@ -211,9 +204,11 @@
     return chain;
   }
 
-  function crmNeed(group) {
+  function crmNeed(group, opts) {
     if (!GROUPS[group]) return Promise.resolve();
-    if (failedAt[group] && Date.now() - failedAt[group] < 4000) {
+    var fresh = opts && opts.fresh;
+    if (fresh) delete failedAt[group];
+    else if (failedAt[group] && Date.now() - failedAt[group] < 4000) {
       return Promise.reject(new Error(group));
     }
     if (!pending[group]) {

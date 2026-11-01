@@ -128,27 +128,52 @@ async def main():
 
         ctx, page, errs = await boot(browser, 1280, 800)
         await page.route('**/assets/crm-office.js', lambda route: route.fulfill(status=502, body='no'))
-        await page.route('**/assets/crm-leads.js', lambda route: route.fulfill(status=502, body='no'))
+        await page.route('**/assets/crm-onboarding.js', lambda route: route.fulfill(status=502, body='no'))
         t0 = asyncio.get_event_loop().time()
         await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
         await manager_ready(page, 20000)
         ms = int((asyncio.get_event_loop().time() - t0) * 1000)
         leads = await page.locator('#leadsList').inner_text()
-        if 'לא נטענה' not in leads:
-            fail('רשימת הלידים לא הציגה שגיאה: ' + leads[:120])
+        if 'לא נטענה' in leads:
+            fail('כישלון של משרד או מדריך החביא את הלידים: ' + leads[:120])
         else:
-            print('502 dashboard', ms, 'ms, leads error shown', flush=True)
+            print('office/onboarding 502, leads stayed', ms, 'ms', flush=True)
         bad = hard_errors(errs)
         if bad:
-            fail('שגיאות אחרי 502: ' + ' | '.join(bad[:4]))
-        if ms > 15000:
-            fail('502 עיכב את הדשבורד %dms' % ms)
+            fail('שגיאות אחרי 502 של משרד: ' + ' | '.join(bad[:4]))
         await ctx.close()
 
         ctx, page, errs = await boot(browser, 1280, 800)
+        await page.route('**/assets/crm-leads.js', lambda route: route.fulfill(status=502, body='no'))
+        await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
+        await manager_ready(page, 20000)
+        leads = await page.locator('#leadsList').inner_text()
+        if 'לא נטענה' not in leads:
+            fail('רשימת הלידים לא הציגה שגיאה: ' + leads[:120])
+        else:
+            print('leads 502 shows retry', flush=True)
+        await page.evaluate("""() => {
+          window.__sawLoading = false;
+          const el = document.getElementById('leadsList');
+          new MutationObserver(() => {
+            if ((el.textContent || '').includes('טוען')) window.__sawLoading = true;
+          }).observe(el, { childList: true, subtree: true, characterData: true });
+        }""")
+        await page.evaluate("() => document.querySelector('#leadsList button').click()")
+        await page.wait_for_timeout(400)
+        saw = await page.evaluate('() => window.__sawLoading')
+        if not saw:
+            fail('נסו שוב לא הראה טעינה')
+        else:
+            print('retry shows loading', flush=True)
+        await ctx.close()
+
+        ctx, page, errs = await boot(browser, 1280, 800)
+        office_hits = {'n': 0}
 
         async def hang(route):
-            await asyncio.sleep(45)
+            office_hits['n'] += 1
+            await asyncio.sleep(30)
             try:
                 await route.abort()
             except Exception:
@@ -157,16 +182,45 @@ async def main():
         await page.route('**/assets/crm-office.js', hang)
         t0 = asyncio.get_event_loop().time()
         await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
-        await manager_ready(page, 24000)
+        await manager_ready(page, 16000)
         ms = int((asyncio.get_event_loop().time() - t0) * 1000)
-        print('hang dashboard', ms, 'ms', flush=True)
-        if ms < 12000:
-            fail('קובץ תקוע לא חיכה ל-timeout: %dms' % ms)
-        if ms > 22000:
-            fail('timeout ארוך מדי: %dms' % ms)
+        tags = await page.evaluate(
+            """() => document.querySelectorAll('script[src="assets/crm-office.js"]').length""")
+        print('hang dashboard', ms, 'ms, scripts', tags, 'reqs', office_hits['n'], flush=True)
+        if tags != 1 or office_hits['n'] != 1:
+            fail('קובץ תקוע נטען יותר מפעם אחת')
+        if ms > 14000:
+            fail('קובץ משרד תקוע עיכב את הדשבורד %dms' % ms)
         bad = hard_errors(errs)
         if bad:
             fail('שגיאות אחרי תקיעה: ' + ' | '.join(bad[:4]))
+        await ctx.close()
+
+        ctx, page, errs = await boot(browser, 1280, 800)
+        leads_hits = {'n': 0}
+
+        async def slow_leads(route):
+            leads_hits['n'] += 1
+            await asyncio.sleep(9)
+            await route.continue_()
+
+        await page.route('**/assets/crm-leads.js', slow_leads)
+        await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
+        await page.wait_for_function(
+            """() => {
+              const tags = [...document.scripts].filter(s => (s.getAttribute('src') || '') === 'assets/crm-leads.js');
+              return tags.length === 1 && tags[0].dataset.ready === '1';
+            }""",
+            timeout=20000)
+        leads = await page.locator('#leadsList').inner_text()
+        dup = [e for e in errs if 'already been declared' in e or 'LEAD_SRC' in e]
+        print('slow leads scripts', leads_hits['n'], flush=True)
+        if leads_hits['n'] != 1 or dup:
+            fail('קובץ איטי רץ פעמיים: ' + ' | '.join(dup[:2]))
+        elif 'לא נטענה' in leads:
+            fail('קובץ שהגיע באיחור לא פתר את הרשימה: ' + leads[:80])
+        else:
+            print('slow leads resolved once', flush=True)
         await ctx.close()
 
         ctx, page, errs = await boot(browser, 390, 844)

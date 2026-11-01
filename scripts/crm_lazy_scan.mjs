@@ -151,15 +151,25 @@ function catchSwallows(handler) {
 
 function onclickHits(text, symbols, at) {
   const hits = [];
-  const re = /on[a-z]+\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+  const re = /on[a-z]+\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))/gi;
   let m;
   while ((m = re.exec(text))) {
-    const body = m[1] != null ? m[1] : m[2];
+    const body = m[1] != null ? m[1] : (m[2] != null ? m[2] : m[3]);
     const call = /([A-Za-z_$][\w$]*)\s*\(/g;
     let c;
     while ((c = call.exec(body))) {
       if (symbols.has(c[1])) hits.push({ name: c[1], at: at + m.index });
     }
+  }
+  return hits;
+}
+
+function callsInText(text, symbols, at) {
+  const hits = [];
+  const call = /([A-Za-z_$][\w$]*)\s*\(/g;
+  let c;
+  while ((c = call.exec(text))) {
+    if (symbols.has(c[1])) hits.push({ name: c[1], at: at + c.index });
   }
   return hits;
 }
@@ -183,14 +193,14 @@ export function unguarded(src, symbols, pre, provided, label) {
     return guards.get(fn);
   }
 
-  function rec(node, fnStack, tryStack) {
+  function rec(node, fnStack, tryStack, parent) {
     if (!node || !node.type) return;
     if (isFn(node)) {
       for (const k of Object.keys(node)) {
         if (k === 'start' || k === 'end' || k === 'loc' || k === 'id') continue;
         const v = node[k];
-        if (Array.isArray(v)) v.forEach(x => rec(x, fnStack.concat(node), []));
-        else if (v && v.type) rec(v, fnStack.concat(node), []);
+        if (Array.isArray(v)) v.forEach(x => rec(x, fnStack.concat(node), [], node));
+        else if (v && v.type) rec(v, fnStack.concat(node), [], node);
       }
       return;
     }
@@ -212,6 +222,10 @@ export function unguarded(src, symbols, pre, provided, label) {
         bucket(fn).push({ groups, pos: node.start, end });
       }
     }
+    if (node.type === 'Identifier' && relevant(node.name) && symbols.get(node.name).win && parent) {
+      const isObj = parent.type === 'MemberExpression' && parent.object === node;
+      if (!isObj) bucket(fn).push({ name: node.name, pos: node.start, end: Infinity });
+    }
     if (node.type === 'MemberExpression') {
       const obj = node.object;
       if (obj.type === 'Identifier' && ROOTS.has(obj.name)) {
@@ -226,11 +240,11 @@ export function unguarded(src, symbols, pre, provided, label) {
     for (const k of Object.keys(node)) {
       if (k === 'start' || k === 'end' || k === 'loc') continue;
       const v = node[k];
-      if (Array.isArray(v)) v.forEach(x => rec(x, fnStack, tries));
-      else if (v && v.type) rec(v, fnStack, tries);
+      if (Array.isArray(v)) v.forEach(x => rec(x, fnStack, tries, node));
+      else if (v && v.type) rec(v, fnStack, tries, node);
     }
   }
-  rec(ast, [], []);
+  rec(ast, [], [], null);
 
   function covered(fnStack, name, at) {
     const info = symbols.get(name);
@@ -294,6 +308,23 @@ export function unguarded(src, symbols, pre, provided, label) {
           && !covered(fnStack, node.object.name, node.object.start)) {
         note(node.object.start, node.object.name, 'call/apply');
       }
+      if (obj.type === 'Identifier' && !ROOTS.has(obj.name) && relevant(obj.name) && symbols.get(obj.name).win && parent) {
+        const use = (parent.type === 'CallExpression' && parent.callee === node)
+          || (parent.type === 'MemberExpression' && parent.object === node && !parent.optional);
+        if (use && !covered(fnStack, obj.name, obj.start)) note(obj.start, obj.name, 'global');
+      }
+    }
+    if (node.type === 'CallExpression' && node.callee.type === 'Identifier'
+        && (node.callee.name === 'setTimeout' || node.callee.name === 'setInterval')
+        && node.arguments[0]) {
+      const arg = node.arguments[0];
+      const text = arg.type === 'Literal' ? String(arg.value == null ? '' : arg.value)
+        : (arg.type === 'TemplateLiteral' ? arg.quasis.map(q => q.value.cooked || '').join('0') : '');
+      if (text) {
+        for (const h of callsInText(text, symbols, arg.start)) {
+          if (relevant(h.name) && !covered(fnStack, h.name, h.at)) note(h.at, h.name, 'timer-string');
+        }
+      }
     }
     if (node.type === 'Literal' && typeof node.value === 'string') {
       for (const h of onclickHits(node.value, symbols, node.start)) {
@@ -301,11 +332,13 @@ export function unguarded(src, symbols, pre, provided, label) {
       }
     }
     if (node.type === 'TemplateLiteral') {
-      for (const el of node.quasis) {
-        const text = el.value.cooked || '';
-        for (const h of onclickHits(text, symbols, el.start)) {
-          if (relevant(h.name) && !covered(fnStack, h.name, h.at)) note(h.at, h.name, 'onclick-template');
-        }
+      let text = '';
+      node.quasis.forEach((q, i) => {
+        text += q.value.cooked || '';
+        if (i < node.expressions.length) text += '0';
+      });
+      for (const h of onclickHits(text, symbols, node.start)) {
+        if (relevant(h.name) && !covered(fnStack, h.name, h.at)) note(h.at, h.name, 'onclick-template');
       }
     }
     for (const k of Object.keys(node)) {
@@ -368,9 +401,17 @@ export function scan(repo) {
     try { fails.push(...unguarded(src, symbols, pre, new Set(), rel)); }
     catch (e) { fails.push(rel + ' לא מתפרסר: ' + e.message); }
   }
-  const attr = /on[a-z]+\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+  const inlineRe = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+  let im;
+  while ((im = inlineRe.exec(html))) {
+    const code = im[1];
+    if (!code.trim()) continue;
+    try { fails.push(...unguarded(code, symbols, pre, new Set(), 'crm.html')); }
+    catch (e) { fails.push('crm.html לא מתפרסר: ' + e.message); }
+  }
+  const attr = /on[a-z]+\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))/gi;
   while ((m = attr.exec(html))) {
-    const body = m[1] != null ? m[1] : m[2];
+    const body = m[1] != null ? m[1] : (m[2] != null ? m[2] : m[3]);
     const call = /([A-Za-z_$][\w$]*)\s*\(/g;
     let c;
     while ((c = call.exec(body))) {
@@ -421,6 +462,11 @@ export function fixtureFailures() {
     ['typeof אמיתי', 'function f(){ if (typeof lazyFn === "function") lazyFn(); }', false],
     ['חלון בלי שמירה', 'function f(){ window.ContactImport.pick(); }', true],
     ['חלון עם שמירה', 'function f(){ if (window.ContactImport) window.ContactImport.pick(); }', false],
+    ['onclick בלי מרכאות', 'function f(){ el.innerHTML = "<button onclick=lazyFn()>x</button>"; }', true],
+    ['onclick אחרי ביטוי', 'function f(x){ return `<button ${x} onclick="lazyFn()">`; }', true],
+    ['setTimeout מחרוזת', 'function f(){ setTimeout("lazyFn()", 0); }', true],
+    ['ContactImport.pick', 'function f(){ ContactImport.pick(); }', true],
+    ['ContactImport שמור', 'function f(){ if (ContactImport) ContactImport.pick(); }', false],
     ['הצהרה מוזחת', 'function f(){ if (typeof lazyFn === "function") lazyFn(); }', false],
   ];
   const out = [];

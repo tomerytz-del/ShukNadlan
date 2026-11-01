@@ -343,13 +343,13 @@ test('קריאה לקובץ עצלן שמורה ב-typeof או ב-crmNeed של �
   const fails = lazyCallSites(crm);
   assert.deepEqual(fails, []);
   for (const [fn, groups] of [
-    ['async function loadProperties', ["crmNeed('properties')", "crmNeed('office')"]],
-    ['async function loadLeads', ["crmNeed('leads')", "crmNeed('office')"]],
-    ['async function loadClients', ["crmNeed('office')", "crmNeed('leads')"]],
+    ['async function loadProperties', ["crmNeed('properties')", "crmOptional('office')"]],
+    ['async function loadLeads', ["crmNeed('leads'", "crmOptional('office')"]],
+    ['async function loadClients', ["crmNeed('leads')", "crmOptional('office')"]],
     ['async function loadSharedWithMe', ["crmNeed('properties')"]],
-    ['async function loadTeam', ["crmNeed('teams')"]],
+    ['async function loadTeam', ["crmNeed('teams'"]],
   ]) {
-    const body = crm.slice(crm.indexOf(fn), crm.indexOf(fn) + 700);
+    const body = crm.slice(crm.indexOf(fn), crm.indexOf(fn) + 2200);
     for (const needle of groups) assert.ok(body.includes(needle), fn + ' ' + needle);
   }
 });
@@ -360,8 +360,9 @@ test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפי�
   const body = crm.slice(at, at + 500);
   assert.equal(body.startsWith('function closeNavLayers'), true);
   assert.equal(body.includes('await'), false);
-  assert.match(lazy, /SCRIPT_TIMEOUT_MS = 8000/);
-  assert.match(lazy, /setInterval\(function \(\) \{/);
+  assert.match(lazy, /var inflight = \{\}/);
+  assert.match(lazy, /if \(inflight\[src\]\) return inflight\[src\]/);
+  assert.equal(/setInterval\(/.test(lazy), false);
   assert.match(lazy, /return loadGroup\(group\)/);
   assert.match(crm, /const crmQuiet = /);
   assert.match(crm, /crmNeed\('contacts'\)\.then\(initContactPick\)/);
@@ -369,7 +370,8 @@ test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפי�
   assert.match(form, /initContactPick/);
   assert.match(lazy, /home: \['ui', 'leads'\]/);
   assert.match(lazy, /command: \['ui', 'coach', 'adminInbox'\]/);
-  assert.match(lazy, /leads: \['ui', 'settings'\]/);
+  assert.match(lazy, /leads: \['ui'\],/);
+  assert.match(crm, /fresh: true/);
 });
 
 test('סריקת AST תופסת את מה שהסריקה הישנה פספסה, והקוד נקי', () => {
