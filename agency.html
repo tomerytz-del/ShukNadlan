@@ -432,7 +432,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* רצועה שאין בה מה לגלול לא תיראה כרצועה קטועה בקצה — הכרטיסים מתמרכזים */
   .rail.no-scroll{justify-content:center;flex-wrap:wrap}
   /* תגית "מנהל/ת המשרד" חורגת מעל שפת הכרטיס וזקוקה למקום מעליה */
-  .team-rail{padding-top:18px}
+  /* safe center: כשהכרטיסים נכנסים בלי גלילה הם ממורכזים כבר בציור
+     הראשון. הוספת המחלקה אחרי הטעינה הזיזה אותם (CLS במסך רחב). */
+  .team-rail{padding-top:18px;justify-content:safe center}
   .team-card{
     flex:0 0 196px;scroll-snap-align:center;position:relative;text-align:center;cursor:pointer;
     background:var(--surface);border:1px solid var(--hair);border-radius:0;
