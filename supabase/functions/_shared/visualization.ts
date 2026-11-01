@@ -1065,6 +1065,12 @@ export interface WorkItem {
   target: string;
   sourceUrl: string;
   prompt: string;
+  /**
+   * ‏viz-1115-fix: יצירה מחדש של שורה שכבר מוצגת. השורה נשארת done עם התמונה הישנה (והצילום שלה)
+   * עד שהחדשה מוכנה, ואם היצירה נכשלת (למשל 402 - נגמר הקרדיט) היא חוזרת בדיוק למה שהיה, ולא
+   * מתחלפת בשורה שנכשלה. הצילום החדש נכתב רק עם התוצאה החדשה.
+   */
+  previous?: { result_url: string; source_image_url: string | null };
 }
 
 /**
@@ -1086,12 +1092,16 @@ export async function runVisualizationJob(
   let done = 0;
   let failed = 0;
 
-  async function fail(rowId: string, detail: string) {
+  async function fail(item: WorkItem, detail: string) {
     failed++;
+    // שורה שכבר הוצגה - חוזרת למה שהיה (תמונה וצילום), עם סיבת הכישלון ביומן השורה
+    const prev = item.previous;
     await supabase
       .from("property_visualizations")
-      .update({ status: "failed", error_detail: detail.slice(0, 500) })
-      .eq("id", rowId);
+      .update(prev
+        ? { status: "done", result_url: prev.result_url, source_image_url: prev.source_image_url, error_detail: ("יצירה מחדש נכשלה: " + detail).slice(0, 500) }
+        : { status: "failed", error_detail: detail.slice(0, 500) })
+      .eq("id", item.rowId);
   }
 
   // שלוש בבת אחת: מספיק מהר למי שמחכה, ולא מספיק כדי לחטוף 429 מ-Gemini.
@@ -1099,21 +1109,25 @@ export async function runVisualizationJob(
   for (let i = 0; i < items.length; i += BATCH) {
     await Promise.all(
       items.slice(i, i + BATCH).map(async (item) => {
-        await supabase.from("property_visualizations").update({ status: "processing" }).eq("id", item.rowId);
+        // שורה שכבר מוצגת נשארת done עד שהתמונה החדשה מוכנה (‏WorkItem.previous)
+        if (!item.previous) {
+          await supabase.from("property_visualizations").update({ status: "processing" }).eq("id", item.rowId);
+        }
 
         const src = await fetchAsBase64(item.sourceUrl);
-        if (!src) return fail(item.rowId, "לא ניתן היה לטעון את התמונה המקורית");
+        if (!src) return fail(item, "לא ניתן היה לטעון את התמונה המקורית");
 
         const result = await generateImage(apiKey, src.mime, src.data, item.prompt);
-        if (!result.ok) return fail(item.rowId, result.reason);
+        if (!result.ok) return fail(item, result.reason);
 
         const ext = result.mime.includes("png") ? "png" : "jpg";
         const url = await uploadResult(supabase, `${jobId}/${item.rowId}.${ext}`, result.mime, result.data);
-        if (!url) return fail(item.rowId, "שגיאה בשמירת התוצאה");
+        if (!url) return fail(item, "שגיאה בשמירת התוצאה");
 
+        // הצילום נכתב יחד עם התוצאה: התמונה והצילום שהיא נוצרה ממנו מתחלפים ברגע אחד
         await supabase
           .from("property_visualizations")
-          .update({ status: "done", result_url: url, error_detail: null })
+          .update({ status: "done", result_url: url, source_image_url: item.sourceUrl, error_detail: null })
           .eq("id", item.rowId);
         done++;
       })

@@ -265,7 +265,14 @@ Deno.serve(async (req: Request) => {
 
     const prior = existingByTarget.get(target);
     let rowId: string;
-    if (prior) {
+    /* ‏viz-1115-fix: שורה שמוצגת (‏done עם תמונה, למשל ב-force) נשארת כמו שהיא עד שהחדשה מוכנה,
+       וחוזרת אליה אם היצירה נכשלת (‏WorkItem.previous) */
+    let previous: WorkItem["previous"] = undefined;
+    if (prior && prior.status === "done" && prior.result_url) {
+      previous = { result_url: prior.result_url, source_image_url: prior.source_image_url ?? null };
+      await supabase.from("property_visualizations").update({ job_id: job.id, is_base: true }).eq("id", prior.id);
+      rowId = prior.id;
+    } else if (prior) {
       await supabase.from("property_visualizations").update(payload).eq("id", prior.id);
       rowId = prior.id;
     } else {
@@ -282,6 +289,7 @@ Deno.serve(async (req: Request) => {
       rowId,
       target,
       sourceUrl,
+      previous,
       prompt: buildPrivatePrompt(target, styleKey, {
         propertyType: property.property_type,
         sizeSqm: sizeSqm ? Number(sizeSqm) : null,

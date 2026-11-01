@@ -467,10 +467,11 @@ Deno.serve(async (req: Request) => {
     // בהדמיה פרטית המפתח (נכס, מטרה, סגנון) ייחודי — מעדכנים שורה קיימת
     // שנכשלה במקום להתנגש באינדקס.
     let rowId: string | null = null;
+    let previous: WorkItem["previous"] = undefined;
     if (isPrivate) {
       const { data: prior } = await supabase
         .from("property_visualizations")
-        .select("id")
+        .select("id, status, result_url, source_image_url")
         .eq("property_id", property_id)
         .eq("kind", "private_room")
         .eq("target", s.target)
@@ -478,10 +479,17 @@ Deno.serve(async (req: Request) => {
         .eq("mode", mode)
         .maybeSingle();
       if (prior) {
-        await supabase
-          .from("property_visualizations")
-          .update({ job_id: job.id, source_image_url: s.url, status: "pending", error_detail: null })
-          .eq("id", prior.id);
+        /* ‏viz-1115-fix: שורה שמוצגת (‏done עם תמונה) נשארת כמו שהיא עד שהחדשה מוכנה, וחוזרת אליה
+           אם היצירה נכשלת (‏WorkItem.previous ב-runVisualizationJob). רק שורה שאינה מוצגת עוברת ל-pending */
+        if (prior.status === "done" && prior.result_url) {
+          previous = { result_url: prior.result_url, source_image_url: prior.source_image_url ?? null };
+          await supabase.from("property_visualizations").update({ job_id: job.id }).eq("id", prior.id);
+        } else {
+          await supabase
+            .from("property_visualizations")
+            .update({ job_id: job.id, source_image_url: s.url, status: "pending", error_detail: null })
+            .eq("id", prior.id);
+        }
         rowId = prior.id;
       }
     }
@@ -506,7 +514,7 @@ Deno.serve(async (req: Request) => {
       rowId = inserted.id;
     }
 
-    items.push({ rowId, target: s.target, sourceUrl: s.url, prompt: s.prompt });
+    items.push({ rowId, target: s.target, sourceUrl: s.url, prompt: s.prompt, previous });
   }
 
   if (items.length === 0) {
