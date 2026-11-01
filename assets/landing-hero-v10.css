@@ -43,20 +43,15 @@ body.land-page .land-hero .land-chips { flex-wrap: wrap; gap: 0; row-gap: 2px; m
 body.land-page .land-hero .land-chips li { background: none; padding: 0; border-radius: 0; font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
 body.land-page .land-hero .land-chips li + li::before { content: none; }
 body.land-page .land-hero .land-chips li:not(:last-child)::after { content: "·"; margin-inline: 8px; opacity: .8; }
-/* CLS של בלוק הטקסט בגיבור. ברוחב 412 (Lighthouse לנייד) שלושת הנתונים
-   בדף הבתים והמגרשים בעמק יושבים על גבול השורה. עד ש-Heebo במשקל 600
-   מגיע, העברית מצוירת ב-Arimo Bold, והוא רחב יותר, אז הנתונים יורדים
-   לשתי שורות. כשהגופן נטען הם נכנסים לשורה אחת, והבלוק שיושב בתחתית
-   התמונה זז למטה (נמדד 0.156). ה-H1 נשאר שתי שורות גם לפני וגם אחרי,
-   אז הוא אינו המקור. Heebo-fb ב-96% הוא רוחב Heebo עצמו, ומספר השורות
-   זהה מהציור הראשון. 95% כבר צר מדי: נתוני הבתים בעפולה, שתי שורות גם
-   ב-Heebo, נכנסים לשורה אחת בגיבוי וקופצים חזרה. */
-@font-face { font-family: "Heebo-fb"; font-weight: 400; src: local("Arimo"), local("Arial"); size-adjust: 96%; unicode-range: U+0590-05FF, U+20AA, U+FB1D-FB4F, U+0000-00FF; }
-@font-face { font-family: "Heebo-fb"; font-weight: 600; src: local("Arimo Bold"), local("Arial Bold"); size-adjust: 96%; unicode-range: U+0590-05FF, U+20AA, U+FB1D-FB4F, U+0000-00FF; }
-@font-face { font-family: "Heebo-fb"; font-weight: 700; src: local("Arimo Bold"), local("Arial Bold"); size-adjust: 96%; unicode-range: U+0590-05FF, U+20AA, U+FB1D-FB4F, U+0000-00FF; }
-@font-face { font-family: "Heebo-fb"; font-weight: 800; src: local("Arimo Bold"), local("Arial Bold"); size-adjust: 96%; unicode-range: U+0590-05FF, U+20AA, U+FB1D-FB4F, U+0000-00FF; }
-.land-hero,
-.land-hero h1 { font-family: "Heebo", "Heebo-fb", Arial, sans-serif; }
+/* שורת הנתונים בגיבור יושבת על גבול השורה: ברוחב 412 היא שתיים בגופן
+   הגיבוי ואחת ב-Heebo (העמק, 0.156), ובדפים אחרים להפך. המספרים חיים,
+   אז אין size-adjust אחד שמתאים לכולם, וגופן מקומי (Arimo) ממילא אינו
+   באנדרואיד. גובה שמור של שתי שורות, רק עד 759px שם השבירה אפשרית.
+   בדסקטופ השורה אחת תמיד, וגובה שמור היה חור ריק. 1.3 ו-14px הם
+   ה-line-height וה-font-size של ה-li למעלה, ו-2px הוא ה-row-gap. */
+@media (max-width: 759px) {
+  body.land-page .land-hero .land-chips { min-height: calc(2 * 1.3 * 14px + 2px); }
+}
 /* הסינון המהיר מתחת לתמונה: בטלפון רשת 3×3 שווה, בלי גלילה אופקית ובלי צ'יפ חתוך */
 @media (max-width: 759px) {
   body.land-page .land-filters[aria-label="סינון מהיר"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: visible; scroll-snap-type: none; }
