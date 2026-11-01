@@ -1805,7 +1805,7 @@
         '<div class="sw-promo-in">' + SELLER_ART +
         '<p class="sw-promo-kick">לבעלי נכסים</p>' +
         '<h2 class="sw-promo-title">' + (rent ? 'חושבים להשכיר?' : 'חושבים למכור?') + '</h2>' +
-        '<p class="sw-promo-sub">משאירים פרטים, והם יועברו ליועצי נדל״ן מהאזור.</p>' +
+        '<p class="sw-promo-sub">משאירים פרטים, והם יועברו ליועץ נדל״ן מהאזור.</p>' +
         '<p class="sw-promo-gold">הערכת שווי ללא עלות · הנכס יכול להתפרסם כאן עם הדמיות AI</p>' +
         '<button type="button" class="sw-gold sw-wide" data-promo-go>השאירו פרטים</button>' +
         '<button type="button" class="sw-promo-link" data-seller-later>לא עכשיו</button></div></article>';
@@ -3491,7 +3491,7 @@
       '<p class="sw-snote">הפרטים עוברים ליועץ נדל״ן אחד מהאזור, ולא מתפרסמים באתר.</p>' +
       '<p class="sw-ferr" data-serr="send" role="alert"></p>' +
       '<div class="sw-sbar"><button type="submit" class="sw-gold sw-wide" id="swSGo">שליחה ליועץ נדל״ן</button></div></form>' +
-      '<div class="sw-sdone" hidden role="status"><p>תודה! הפרטים יועברו ליועצי נדל״ן מהאזור.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
+      '<div class="sw-sdone" hidden role="status"><p>תודה! הפרטים יועברו ליועץ נדל״ן מהאזור.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
   }
   function bindSeller() {
     var box = $('swBsBody'), form = $('swSellerForm'), stepped = {};
@@ -3533,7 +3533,7 @@
       if (!city) { err('city', 'נא לבחור יישוב'); first = first || $('swSCity'); }
       if (name.length < 2) { err('name', 'נא להזין שם מלא'); first = first || $('swSName'); }
       if (!/^0?5\d{8}$/.test(phone)) { err('phone', 'נא להזין מספר טלפון תקין'); first = first || $('swSPhone'); }
-      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיועצי נדל״ן מהאזור יוכלו לפנות אליכם'); first = first || $('swSConsent'); }
+      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיועץ נדל״ן מהאזור יוכל לפנות אליכם'); first = first || $('swSConsent'); }
       if (first) { first.focus(); return; }
       var pick = function (q) { var x = box.querySelector('[data-sq="' + q + '"][aria-pressed="true"]'); return x ? x.dataset.v : ''; };
       var type = pick('type') || 'דירה', when = pick('timing'), rooms = $('swSRooms').hidden ? '' : pick('rooms');

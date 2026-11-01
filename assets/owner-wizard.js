@@ -28,7 +28,7 @@
   /* הנוסח לפי העסקה (אושר בידי גבריאלה, 28.10.2026). התשובות זהות בשני המסלולים */
   var WHEN_Q = { sale: 'מתי מתכננים למכור?', rent: 'מתי הנכס מתפנה?' };
   var SUBMIT = { sale: 'קבלת הערכת שווי חינם', rent: 'קבלת הערכת שכר דירה חינם' };
-  var DONE = { sale: 'הפרטים יועברו ליועצי נדל״ן מהאזור, שיוכלו לפנות אליכם עם הערכת שווי לנכס.', rent: 'הפרטים יועברו ליועצי נדל״ן מהאזור, שיוכלו לפנות אליכם עם הערכה למחיר השכירות.' };
+  var DONE = { sale: 'הפרטים יועברו ליועץ נדל״ן מהאזור, שיוכל לפנות אליכם עם הערכת שווי לנכס.', rent: 'הפרטים יועברו ליועץ נדל״ן מהאזור, שיוכל לפנות אליכם עם הערכה למחיר השכירות.' };
   var esc = function (s) { return global.escapeHtml ? global.escapeHtml(s == null ? '' : String(s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
   function html(cfg) {
@@ -228,7 +228,7 @@
         phoneEl.classList.toggle('invalid', digits.length < 9);
         if (st.name.length < 2) { setError(3, 'נא להזין שם מלא'); nameEl.focus(); return false; }
         if (digits.length < 9) { setError(3, 'נא להזין מספר טלפון תקין'); phoneEl.focus(); return false; }
-        if (cfg.extras && !$('wizConsent').checked) { setError(3, 'כדי לשלוח צריך לאשר שיועצי נדל״ן מהאזור יוכלו לפנות אליכם'); $('wizConsent').focus(); return false; }
+        if (cfg.extras && !$('wizConsent').checked) { setError(3, 'כדי לשלוח צריך לאשר שיועץ נדל״ן מהאזור יוכל לפנות אליכם'); $('wizConsent').focus(); return false; }
         setError(3, '');
         return true;
       }
