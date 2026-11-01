@@ -55,6 +55,7 @@ type Extras = {
   hoods?: Row[] | null;
   related?: Row[];
   agencies?: Row[];
+  stock?: Row[];
 };
 
 type ListingResult = { rows: Row[]; total: number; counted: boolean };
@@ -65,6 +66,8 @@ type Silo = {
   cityOf: (page: Page) => City;
   pageOf: (pathname: string) => Page | null;
   queryOf: (page: Page) => string;
+  stockQuery?: (page: Page) => string;
+  withStock?: (page: Page, rows: Row[], extras?: Extras) => Page;
   hoodCountQuery: (page: Page) => string;
   hoodRowsFromListings: (rows: Row[], page: Page) => Row[];
   render: (page: Page, rows: Row[], extras?: Extras) => string;
@@ -133,9 +136,29 @@ async function optionalJson(url: string): Promise<unknown> {
 
 /* משני לרשימה: כישלון כאן לא הופך את הדף ל-503. */
 async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
-  const extras: Extras = { total: got.total, counted: got.counted, hoods: null, related: [], agencies: [] };
+  const extras: Extras = { total: got.total, counted: got.counted, hoods: null, related: [], agencies: [], stock: [] };
   const S = silo();
   const tasks: Promise<void>[] = [];
+  const dynamic = (page as Page & { dynamicStock?: boolean }).dynamicStock;
+  if (dynamic && S.stockQuery) {
+    tasks.push((async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), EXTRA_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/properties?${S.stockQuery!(page)}`, {
+          headers: authHeaders(),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) extras.stock = data as Row[];
+      } catch {
+        /* בלי המלאי המלא התיאור נשען על הכרטיסים שכן נטענו, לא על רשימה קבועה */
+      } finally {
+        clearTimeout(timer);
+      }
+    })());
+  }
   tasks.push((async () => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), EXTRA_TIMEOUT_MS);
@@ -165,7 +188,7 @@ async function extrasFor(page: Page, got: ListingResult): Promise<Extras> {
       if (Array.isArray(data)) extras.agencies = data as Row[];
     }));
   }
-  if (got.rows.length < 3) {
+  if (!dynamic && got.rows.length < 3) {
     const others = S.pages.filter((p) => p.city === page.city && p.path !== page.path);
     tasks.push(Promise.all(others.map((p) => listings(p))).then((lists) => {
       const rel: Row[] = [];
@@ -232,16 +255,17 @@ function failureHeaders(base: Headers, status: number): Headers {
 
 export function inject(html: string, page: Page, rows: Row[], extras: Extras = {}): string {
   const S = silo();
+  const view = S.withStock ? S.withStock(page, rows, extras) : page;
   const box = /<div id="siloBody"[^>]*>[\s\S]*?<!--\/silo-->/;
   if (!box.test(html)) return html;
-  const full = S.fullTitle(page);
+  const full = S.fullTitle(view);
   const city = S.cityOf(page);
-  const body = S.render(page, rows, extras);
-  const hero = S.heroHtml(page);
-  const og = S.heroOg(page);
+  const body = S.render(view, rows, extras);
+  const hero = S.heroHtml(view);
+  const og = S.heroOg(view);
   /* מחליפים את ה-preload של העמק שבמעטפת, כדי שהדפדפן לא ימשוך גם אותו. */
-  const preload = S.heroPreload(page);
-  const benefit = page.benefit || page.description;
+  const preload = S.heroPreload(view);
+  const benefit = view.benefit || view.description;
   const count = extras.counted && Number(extras.total) > 0
     ? String(extras.total)
     : (rows.length > 0 && rows.length < 24 ? String(rows.length) : "0");
@@ -250,17 +274,17 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
     .replace("<!--/hero-->", () => hero)
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
     .replace(/(<meta property="og:title" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(full)}${b}`)
-    .replace(/(<meta property="og:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
-    .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(page.description)}${b}`)
-    .replace(/(<h1 id="siloH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
+    .replace(/(<meta property="og:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(view.description)}${b}`)
+    .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(view.description)}${b}`)
+    .replace(/(<h1 id="siloH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(view.h1)}${b}`)
     .replace(/(<p class="land-benefit" id="siloBenefit">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(benefit)}${b}`)
     .replace(/(<a\b[^>]*\bid="landCityCrumb"[^>]*)(>)[\s\S]*?(<\/a>)/, (_m, open, gt, close) =>
       `${String(open).replace(/\bhref="[^"]*"/, `href="${attr(city.home)}"`)}${gt}${text(city.name)}${close}`)
-    .replace(/(<span id="siloCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(page.h1)}${b}`)
-    .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${S.chipsHtml(page, rows, extras)}</div>`)
+    .replace(/(<span id="siloCrumb">)[\s\S]*?(<\/span>)/, (_m, a, b) => `${a}${text(view.h1)}${b}`)
+    .replace(/<div id="landChips">[\s\S]*?<\/div>/, () => `<div id="landChips">${S.chipsHtml(view, rows, extras)}</div>`)
     .replace(/<p class="land-updated" id="landUpdated">[\s\S]*?<\/p>/, () => `<p class="land-updated" id="landUpdated">${S.updatedHtml(rows)}</p>`)
     .replace(/(<a\b[^>]*\bid="landAll"[^>]*)(>)/, (_m, open, end) => {
-      let next = String(open).replace(/\bhref="[^"]*"/, `href="${attr(S.allHref(page))}"`);
+      let next = String(open).replace(/\bhref="[^"]*"/, `href="${attr(S.allHref(view))}"`);
       next = next.replace(/\bdata-count="[^"]*"/, `data-count="${count}"`);
       return next + end;
     })
@@ -268,7 +292,7 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
     .replace(/(<meta property="og:image" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(SITE + "/" + og.src)}${b}`)
     .replace(/(<meta property="og:image:width" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.width}${b}`)
     .replace(/(<meta property="og:image:height" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.height}${b}`)
-    .replace(/<\/head>/i, () => `${preload}\n${marketHint(city.home, page.market)}${S.scripts(page, rows, SITE)}\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}\n${marketHint(city.home, view.market)}${S.scripts(view, rows, SITE)}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
@@ -355,10 +379,12 @@ export const config: Config = {
     "/afula/דירות-גן",
     "/afula/דירות-3-חדרים",
     "/afula/דירות-למכירה",
+    "/afula/נדלן-מסחרי",
     "/afula/%D7%91%D7%AA%D7%99%D7%9D-%D7%A4%D7%A8%D7%98%D7%99%D7%99%D7%9D",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%92%D7%9F",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-3-%D7%97%D7%93%D7%A8%D7%99%D7%9D",
     "/afula/%D7%93%D7%99%D7%A8%D7%95%D7%AA-%D7%9C%D7%9E%D7%9B%D7%99%D7%A8%D7%94",
+    "/afula/%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99",
     "/haifa/*",
     "/haifa/בתים-פרטיים",
     "/haifa/דירות-גן",

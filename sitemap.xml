@@ -201,6 +201,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/afula/נדלן-מסחרי</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/emek-yizrael/בתים-ומגרשים</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>

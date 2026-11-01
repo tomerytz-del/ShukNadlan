@@ -469,6 +469,68 @@ resetLastGood();
   check("דירות למכירה: קישור לנכס", html.includes('href="/property?id=apt-1"'));
 }
 
+const COMM = SITE + "/afula/" + encodeURIComponent("נדלן-מסחרי");
+
+function commFetch(listings: unknown, stock: unknown) {
+  urls = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    urls.push(url);
+    const body = url.includes("select=property_type%2Cdeal_type") || url.includes("select=property_type,deal_type")
+      ? stock
+      : listings;
+    return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+}
+
+{
+  commFetch([], []);
+  const res = await handler(new Request(COMM), context());
+  const html = await res.text();
+  const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+  const blocks = ldBlocks(html);
+  const graph = blocks.flatMap((b) => Array.isArray(b["@graph"]) ? b["@graph"] as Record<string, unknown>[] : [b]);
+  const collection = graph.find((x) => x["@type"] === "CollectionPage") as { description?: string; name?: string } | undefined;
+  const copy = `${desc} ${collection?.description || ""} ${collection?.name || ""}`;
+  check("מסחרי ריק: 200 ו-noindex", res.status === 200 && html.includes("noindex"));
+  check("מסחרי ריק: התראה", html.includes("אין כרגע מודעות פעילות") && html.includes("קבלו התראה") && html.includes("data-land-alert"));
+  check("מסחרי ריק: בלי סוגים בתיאור וב-JSON-LD",
+    !copy.includes("משרדים") && !copy.includes("חנויות") && !copy.includes("למכירה") && !copy.includes("להשכרה"));
+}
+
+{
+  const office = { id: "o1", title: "משרד", property_type: "משרדים", deal_type: "rent", price: 4000, size_sqm: 80, city: "עפולה", created_at: RECENT, updated_at: RECENT, images: [] };
+  commFetch([office], [{ property_type: "משרדים", deal_type: "rent" }, { property_type: "משרדים", deal_type: "rent" }]);
+  const res = await handler(new Request(COMM), context());
+  const html = await res.text();
+  const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+  const blocks = ldBlocks(html);
+  const pageLd = blocks.find((b) => (b["@type"] === "CollectionPage") || (Array.isArray(b["@graph"]) && (b["@graph"] as { "@type": string }[]).some((x) => x["@type"] === "CollectionPage")));
+  const graph = pageLd && Array.isArray(pageLd["@graph"]) ? (pageLd["@graph"] as { "@type": string; description?: string; name?: string }[]) : [];
+  const collection = graph.find((x) => x["@type"] === "CollectionPage");
+  const text = `${desc} ${collection?.description || ""} ${collection?.name || ""}`;
+  check("מסחרי עם מלאי: בלי noindex", res.status === 200 && !html.includes("noindex"));
+  check("מסחרי: רק סוג ועסקה שקיימים", text.includes("משרדים") && text.includes("להשכרה")
+    && !text.includes("חנויות") && !text.includes("מבני תעשייה") && !text.includes("למכירה"));
+  check("מסחרי: השאילתה אינה נועלת מכירה", urls.some((u) => u.includes("category=eq.commercial") && !u.includes("deal_type=eq.sale")));
+  check("מסחרי: בלי שם ובלי רישיון", !html.includes("תומר") && !html.includes("3134355"));
+}
+
+{
+  const rows = [
+    { property_type: "משרדים", deal_type: "sale" },
+    { property_type: "חנויות/שטח מסחרי", deal_type: "rent" },
+    { property_type: "מבני תעשייה", deal_type: "rent" },
+  ];
+  const cards = rows.map((r, i) => ({ id: "c" + i, title: "נכס", price: 1000, city: "עפולה", created_at: RECENT, updated_at: RECENT, images: [], ...r }));
+  commFetch(cards, rows);
+  const res = await handler(new Request(COMM), context());
+  const html = await res.text();
+  const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+  check("מסחרי: מכירה והשכרה כששתיהן קיימות", desc.includes("למכירה ולהשכרה") && desc.includes("משרדים") && desc.includes("חנויות ושטחי מסחר") && desc.includes("מבני תעשייה"));
+  check("מסחרי: בלי סוג שלא במלאי", !desc.includes("אולמות") && !desc.includes("מחסנים"));
+}
+
 if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
   process.exit(1);

@@ -313,6 +313,98 @@ async function indexableRows(list: IndexRow[]): Promise<
   return failed ? { ok: false, safe: rows } : { ok: true, rows };
 }
 
+function hoodHref(pathKey: string): string {
+  const parts = pathKey.split("/");
+  if (parts.length !== 2) return "";
+  if (!/^[a-z0-9-]+$/.test(parts[0])) return "";
+  if (!parts[1] || /[/?#\\]/.test(parts[1])) return "";
+  return `/n/${parts[0]}/${encodeURIComponent(parts[1])}`;
+}
+
+/* שכונות עם מודעה פעילה ביישוב. הסינון בבקשה: בלי city_slug ו-props
+   הרשימה הארצית נחתכת ב-limit לפני שהעיר מגיעה. ok:false = לא ידענו,
+   ואז אין לשמור את הדף בלי הקישורים לשעה. מערך ריק הוא "אין שכונות". */
+async function hoodLinks(slug: string): Promise<{ ok: boolean; map: Map<string, string> }> {
+  const map = new Map<string, string>();
+  if (!slug) return { ok: true, map };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/neighborhood_pages_public?select=name,path_key&city_slug=eq.${encodeURIComponent(slug)}&props=gt.0`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Accept: "application/json",
+        },
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) return { ok: false, map };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { ok: false, map };
+    for (const row of data as { name?: string; path_key?: string }[]) {
+      const href = hoodHref(String(row.path_key || ""));
+      const name = String(row.name || "").trim();
+      if (href && name) map.set(name, href);
+    }
+    if (slug === "afula") {
+      const alit = map.get("עפולה עלית");
+      if (alit) map.set("עפולה עילית", alit);
+    }
+    return { ok: true, map };
+  } catch {
+    return { ok: false, map };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* שניות עד תחילת החודש הבא בירושלים. הכותרת של עפולה תלויה בחודש,
+   ומטמון של שעה היה משאיר את החודש הקודם אחרי ה-1. */
+export function secondsUntilNextJerusalemMonth(now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jerusalem",
+    year: "numeric",
+    month: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const num = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const year = num("year");
+  const month = num("month");
+  let lo = now.getTime();
+  let hi = now.getTime() + 32 * 24 * 3600 * 1000;
+  while (hi - lo > 1000) {
+    const mid = Math.floor((lo + hi) / 2);
+    const midParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Jerusalem",
+      year: "numeric",
+      month: "numeric",
+      hourCycle: "h23",
+    }).formatToParts(new Date(mid));
+    const midYear = Number(midParts.find((part) => part.type === "year")?.value || 0);
+    const midMonth = Number(midParts.find((part) => part.type === "month")?.value || 0);
+    if (midYear === year && midMonth === month) lo = mid;
+    else hi = mid;
+  }
+  return Math.max(1, Math.ceil((hi - now.getTime()) / 1000));
+}
+
+function dealsCacheWindow(slug: string): { maxAge: number; swr: number } {
+  let maxAge = 3600;
+  let swr = 86400;
+  if (slug === "afula") {
+    const cap = secondsUntilNextJerusalemMonth();
+    maxAge = Math.max(1, Math.min(3600, cap));
+    swr = Math.max(0, Math.min(86400, cap - maxAge));
+  }
+  return { maxAge, swr };
+}
+
 /* ‏utm ו-gclid אינם חלק מהדף. ב-edge עם cache ידני כל פרמטר נכנס
    למפתח כברירת מחדל, ו-query= ריק לא מאחד אותם. query=_ הוא מפתח
    דמה שאינו בכתובת: כל בקשה בלי "_" היא "אי-התאמה" וחולקת רשומה אחת. */
@@ -358,6 +450,7 @@ export default async function handler(request: Request, context: Context) {
   const html = await res.text();
   let out = html;
   let cache = false;
+  let hoodFailed = false;
   let status = res.status;
 
   try {
@@ -389,12 +482,24 @@ export default async function handler(request: Request, context: Context) {
       status = 404;
     } else {
       out = withUrl(html, slug);
-      const data = await rpc("deal_settlement_page", { p_slug: slug });
+      const hoodP = hoodLinks(slug);
+      const dataP = rpc("deal_settlement_page", { p_slug: slug });
+      const [hood, data] = await Promise.all([hoodP, dataP]);
+      if (!hood.ok) hoodFailed = true;
       if (data === null) {
         out = noindex(out);
         status = 404;
       } else if (data && typeof data === "object" && !Array.isArray(data)) {
-        const filled = injectSettlement(out, data as Settlement);
+        const settlement = data as Settlement;
+        const links = hood.map;
+        const recent = Array.isArray(settlement.recent)
+          ? settlement.recent.map((row) => {
+            const name = String(row.neighborhood || "").trim();
+            const href = links.get(name);
+            return href ? { ...row, neighborhood_path: href } : row;
+          })
+          : settlement.recent;
+        const filled = injectSettlement(out, { ...settlement, recent });
         cache = filled !== out;
         out = filled;
         /* ‏פחות מ-5 עסקאות בחלון של הדף - ידוע בלי שאילתה נוספת.
@@ -437,9 +542,18 @@ export default async function handler(request: Request, context: Context) {
   /* ‏הסוכן מעדכן לכל היותר פעם ביום. דף שלא מולא אינו נשמר במטמון, כדי
      שכשל רגעי לא יוגש שעה שלמה - וזה גם מה שהופך "טריגר build אחרי
      עדכון" למיותר: אין build, ואחרי שעה הדף משקף את המסד. */
-  if (cache) {
-    headers.set("Netlify-CDN-Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  if (cache && !hoodFailed) {
+    const window = dealsCacheWindow(slug);
+    headers.set(
+      "Netlify-CDN-Cache-Control",
+      `public, max-age=${window.maxAge}, stale-while-revalidate=${window.swr}`,
+    );
     headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+  } else if (hoodFailed) {
+    /* דף בלי קישורי שכונה אינו נשמר לשעה. */
+    headers.set("Cache-Control", "no-store");
+    headers.set("Netlify-CDN-Cache-Control", "no-store");
+    cache = false;
   }
   if (/noindex/i.test(out)) headers.set("X-Robots-Tag", "noindex, follow");
   const response = new Response(out, { status: res.status, headers });
