@@ -1,0 +1,1218 @@
+[
+  {
+    "id": "a72bf7aa-677c-4d5c-89e1-662026efa488",
+    "target": "living_room",
+    "before": "a72bf7aa-677c-4d5c-89e1-662026efa488-before.jpg",
+    "current": "a72bf7aa-677c-4d5c-89e1-662026efa488-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "a72bf7aa-677c-4d5c-89e1-662026efa488-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 5835,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1798,
+          "candidatesTokenCount": 1632,
+          "totalTokenCount": 3430,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 678
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "a72bf7aa-677c-4d5c-89e1-662026efa488-gemini-nano-banana-2.1.jpeg",
+        "ms": 9763,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1798,
+          "candidatesTokenCount": 2080,
+          "totalTokenCount": 3878,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 678
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "d3df9d28-4ed3-463e-8b07-805b2943ed80",
+    "target": "living_room",
+    "before": "d3df9d28-4ed3-463e-8b07-805b2943ed80-before.jpg",
+    "current": "d3df9d28-4ed3-463e-8b07-805b2943ed80-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "d3df9d28-4ed3-463e-8b07-805b2943ed80-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 4273,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1809,
+          "candidatesTokenCount": 1563,
+          "totalTokenCount": 3372,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 689
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "d3df9d28-4ed3-463e-8b07-805b2943ed80-gemini-nano-banana-2.1.jpeg",
+        "ms": 10237,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1809,
+          "candidatesTokenCount": 2098,
+          "totalTokenCount": 3907,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 689
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "0da0a099-0a53-4496-9d34-ddf8dda974ab",
+    "target": "living_room",
+    "before": "0da0a099-0a53-4496-9d34-ddf8dda974ab-before.jpg",
+    "current": "0da0a099-0a53-4496-9d34-ddf8dda974ab-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "0da0a099-0a53-4496-9d34-ddf8dda974ab-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3647,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1815,
+          "candidatesTokenCount": 1637,
+          "totalTokenCount": 3452,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 695
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "0da0a099-0a53-4496-9d34-ddf8dda974ab-gemini-nano-banana-2.1.jpeg",
+        "ms": 10125,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1815,
+          "candidatesTokenCount": 2186,
+          "totalTokenCount": 4001,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 695
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "71978cca-1c76-4039-a1ce-2ba8994e5f74",
+    "target": "living_room",
+    "before": "71978cca-1c76-4039-a1ce-2ba8994e5f74-before.jpg",
+    "current": "71978cca-1c76-4039-a1ce-2ba8994e5f74-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "71978cca-1c76-4039-a1ce-2ba8994e5f74-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3481,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2155,
+          "candidatesTokenCount": 1491,
+          "totalTokenCount": 3646,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 1035
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "71978cca-1c76-4039-a1ce-2ba8994e5f74-gemini-nano-banana-2.1.jpeg",
+        "ms": 9705,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2155,
+          "candidatesTokenCount": 1761,
+          "totalTokenCount": 3916,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 1035
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "5d20db20-b69c-4cac-9fb2-d50f859ba84f",
+    "target": "living_room",
+    "before": "5d20db20-b69c-4cac-9fb2-d50f859ba84f-before.jpg",
+    "current": "5d20db20-b69c-4cac-9fb2-d50f859ba84f-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "5d20db20-b69c-4cac-9fb2-d50f859ba84f-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3824,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1809,
+          "candidatesTokenCount": 1563,
+          "totalTokenCount": 3372,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 689
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "5d20db20-b69c-4cac-9fb2-d50f859ba84f-gemini-nano-banana-2.1.jpeg",
+        "ms": 10677,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1809,
+          "candidatesTokenCount": 2008,
+          "totalTokenCount": 3817,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 689
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "12252978-a64f-48f6-847f-9388064bdf02",
+    "target": "kitchen",
+    "before": "12252978-a64f-48f6-847f-9388064bdf02-before.jpg",
+    "current": "12252978-a64f-48f6-847f-9388064bdf02-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "12252978-a64f-48f6-847f-9388064bdf02-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3499,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1792,
+          "candidatesTokenCount": 1690,
+          "totalTokenCount": 3482,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 672
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "12252978-a64f-48f6-847f-9388064bdf02-gemini-nano-banana-2.1.jpeg",
+        "ms": 10631,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1792,
+          "candidatesTokenCount": 2046,
+          "totalTokenCount": 3838,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 672
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "dad00ca6-1c6c-4304-b20e-00fe004a36f7",
+    "target": "kitchen",
+    "before": "dad00ca6-1c6c-4304-b20e-00fe004a36f7-before.jpg",
+    "current": "dad00ca6-1c6c-4304-b20e-00fe004a36f7-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "dad00ca6-1c6c-4304-b20e-00fe004a36f7-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3927,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1789,
+          "candidatesTokenCount": 1541,
+          "totalTokenCount": 3330,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 669
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "dad00ca6-1c6c-4304-b20e-00fe004a36f7-gemini-nano-banana-2.1.jpeg",
+        "ms": 10225,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1789,
+          "candidatesTokenCount": 2080,
+          "totalTokenCount": 3869,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 669
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "715ec15b-67d3-4b34-a92c-13fda8aafd07",
+    "target": "kitchen",
+    "before": "715ec15b-67d3-4b34-a92c-13fda8aafd07-before.jpg",
+    "current": "715ec15b-67d3-4b34-a92c-13fda8aafd07-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "715ec15b-67d3-4b34-a92c-13fda8aafd07-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3878,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1792,
+          "candidatesTokenCount": 1541,
+          "totalTokenCount": 3333,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 672
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "715ec15b-67d3-4b34-a92c-13fda8aafd07-gemini-nano-banana-2.1.jpeg",
+        "ms": 11460,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1792,
+          "candidatesTokenCount": 2063,
+          "totalTokenCount": 3855,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 672
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "cbf1704b-261e-41bf-a8c6-4457e485d7b3",
+    "target": "kitchen",
+    "before": "cbf1704b-261e-41bf-a8c6-4457e485d7b3-before.jpg",
+    "current": "cbf1704b-261e-41bf-a8c6-4457e485d7b3-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "cbf1704b-261e-41bf-a8c6-4457e485d7b3-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3620,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1778,
+          "candidatesTokenCount": 1525,
+          "totalTokenCount": 3303,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 658
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "cbf1704b-261e-41bf-a8c6-4457e485d7b3-gemini-nano-banana-2.1.jpeg",
+        "ms": 10079,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1778,
+          "candidatesTokenCount": 2027,
+          "totalTokenCount": 3805,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 658
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "9fe697cc-59b8-4873-98e2-3cf5a04b0f56",
+    "target": "kitchen",
+    "before": "9fe697cc-59b8-4873-98e2-3cf5a04b0f56-before.jpg",
+    "current": "9fe697cc-59b8-4873-98e2-3cf5a04b0f56-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "9fe697cc-59b8-4873-98e2-3cf5a04b0f56-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3582,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1772,
+          "candidatesTokenCount": 1512,
+          "totalTokenCount": 3284,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 652
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "9fe697cc-59b8-4873-98e2-3cf5a04b0f56-gemini-nano-banana-2.1.jpeg",
+        "ms": 11019,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1772,
+          "candidatesTokenCount": 2013,
+          "totalTokenCount": 3785,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 652
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "1fbc94fc-4c13-4d3c-b5e3-da63ed84df91",
+    "target": "bedroom",
+    "before": "1fbc94fc-4c13-4d3c-b5e3-da63ed84df91-before.jpg",
+    "current": "1fbc94fc-4c13-4d3c-b5e3-da63ed84df91-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "1fbc94fc-4c13-4d3c-b5e3-da63ed84df91-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3412,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2144,
+          "candidatesTokenCount": 1469,
+          "totalTokenCount": 3613,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 1024
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "1fbc94fc-4c13-4d3c-b5e3-da63ed84df91-gemini-nano-banana-2.1.jpeg",
+        "ms": 7713,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2144,
+          "candidatesTokenCount": 1764,
+          "totalTokenCount": 3908,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 1024
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "2028b817-f83b-459d-bd21-b75b3e0a4c47",
+    "target": "bedroom",
+    "before": "2028b817-f83b-459d-bd21-b75b3e0a4c47-before.jpg",
+    "current": "2028b817-f83b-459d-bd21-b75b3e0a4c47-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "2028b817-f83b-459d-bd21-b75b3e0a4c47-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3276,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2131,
+          "candidatesTokenCount": 1471,
+          "totalTokenCount": 3602,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 1011
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "2028b817-f83b-459d-bd21-b75b3e0a4c47-gemini-nano-banana-2.1.jpeg",
+        "ms": 9591,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2131,
+          "candidatesTokenCount": 1888,
+          "totalTokenCount": 4019,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 1011
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "4023a96b-eea8-4e2c-8a05-06c8deae4985",
+    "target": "bedroom",
+    "before": "4023a96b-eea8-4e2c-8a05-06c8deae4985-before.jpg",
+    "current": "4023a96b-eea8-4e2c-8a05-06c8deae4985-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "4023a96b-eea8-4e2c-8a05-06c8deae4985-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 4140,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2151,
+          "candidatesTokenCount": 1537,
+          "totalTokenCount": 3688,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 1031
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "4023a96b-eea8-4e2c-8a05-06c8deae4985-gemini-nano-banana-2.1.jpeg",
+        "ms": 10108,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2151,
+          "candidatesTokenCount": 1912,
+          "totalTokenCount": 4063,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 1031
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "e7ad1ff8-2fdf-4c35-9d26-47ed2fccb5c1",
+    "target": "bedroom",
+    "before": "e7ad1ff8-2fdf-4c35-9d26-47ed2fccb5c1-before.jpg",
+    "current": "e7ad1ff8-2fdf-4c35-9d26-47ed2fccb5c1-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "e7ad1ff8-2fdf-4c35-9d26-47ed2fccb5c1-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3181,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2145,
+          "candidatesTokenCount": 1427,
+          "totalTokenCount": 3572,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 1025
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "e7ad1ff8-2fdf-4c35-9d26-47ed2fccb5c1-gemini-nano-banana-2.1.jpeg",
+        "ms": 9332,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 2145,
+          "candidatesTokenCount": 1880,
+          "totalTokenCount": 4025,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 1025
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "887efb7b-b8fd-4e0c-a9c2-8dcd0e28dded",
+    "target": "exterior",
+    "before": "887efb7b-b8fd-4e0c-a9c2-8dcd0e28dded-before.jpg",
+    "current": "887efb7b-b8fd-4e0c-a9c2-8dcd0e28dded-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "887efb7b-b8fd-4e0c-a9c2-8dcd0e28dded-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 4639,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1847,
+          "candidatesTokenCount": 1490,
+          "totalTokenCount": 3337,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 727
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "887efb7b-b8fd-4e0c-a9c2-8dcd0e28dded-gemini-nano-banana-2.1.jpeg",
+        "ms": 17903,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1847,
+          "candidatesTokenCount": 2808,
+          "totalTokenCount": 4655,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 727
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "b1e1e358-f962-42ba-8b38-d60bd055c276",
+    "target": "exterior",
+    "before": "b1e1e358-f962-42ba-8b38-d60bd055c276-before.jpg",
+    "current": "b1e1e358-f962-42ba-8b38-d60bd055c276-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "b1e1e358-f962-42ba-8b38-d60bd055c276-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3826,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1836,
+          "candidatesTokenCount": 1543,
+          "totalTokenCount": 3379,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 716
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "b1e1e358-f962-42ba-8b38-d60bd055c276-gemini-nano-banana-2.1.jpeg",
+        "ms": 9379,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1836,
+          "candidatesTokenCount": 1877,
+          "totalTokenCount": 3713,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 716
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "96e58b64-816e-4f78-8977-aa2a9fcd0c80",
+    "target": "exterior",
+    "before": "96e58b64-816e-4f78-8977-aa2a9fcd0c80-before.jpg",
+    "current": "96e58b64-816e-4f78-8977-aa2a9fcd0c80-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "96e58b64-816e-4f78-8977-aa2a9fcd0c80-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3599,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1850,
+          "candidatesTokenCount": 1549,
+          "totalTokenCount": 3399,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 730
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "96e58b64-816e-4f78-8977-aa2a9fcd0c80-gemini-nano-banana-2.1.jpeg",
+        "ms": 10722,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1850,
+          "candidatesTokenCount": 2063,
+          "totalTokenCount": 3913,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 730
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "a47ce595-a16a-4b01-8b48-6ac61925de3b",
+    "target": "exterior",
+    "before": "a47ce595-a16a-4b01-8b48-6ac61925de3b-before.jpg",
+    "current": "a47ce595-a16a-4b01-8b48-6ac61925de3b-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "a47ce595-a16a-4b01-8b48-6ac61925de3b-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3407,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1850,
+          "candidatesTokenCount": 1493,
+          "totalTokenCount": 3343,
+          "promptTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            },
+            {
+              "modality": "TEXT",
+              "tokenCount": 730
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "a47ce595-a16a-4b01-8b48-6ac61925de3b-gemini-nano-banana-2.1.jpeg",
+        "ms": 12066,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1850,
+          "candidatesTokenCount": 2189,
+          "totalTokenCount": 4039,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 730
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  },
+  {
+    "id": "a2464a28-feba-4620-bfd2-26123b47d16c",
+    "target": "exterior",
+    "before": "a2464a28-feba-4620-bfd2-26123b47d16c-before.jpg",
+    "current": "a2464a28-feba-4620-bfd2-26123b47d16c-current.jpg",
+    "out": {
+      "gemini-3.1-flash-lite-image": {
+        "file": "a2464a28-feba-4620-bfd2-26123b47d16c-gemini-3.1-flash-lite-image.jpeg",
+        "ms": 3962,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1847,
+          "candidatesTokenCount": 1521,
+          "totalTokenCount": 3368,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 727
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      },
+      "gemini-nano-banana-2.1": {
+        "file": "a2464a28-feba-4620-bfd2-26123b47d16c-gemini-nano-banana-2.1.jpeg",
+        "ms": 9963,
+        "err": "",
+        "usd": 0.0336,
+        "usage": {
+          "promptTokenCount": 1847,
+          "candidatesTokenCount": 2106,
+          "totalTokenCount": 3953,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 727
+            },
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "IMAGE",
+              "tokenCount": 1120
+            }
+          ],
+          "serviceTier": "standard"
+        }
+      }
+    }
+  }
+]

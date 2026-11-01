@@ -1,0 +1,28 @@
+[
+  {
+    "model": "gemini-3.1-flash-lite-image",
+    "calls": 19,
+    "ok": 19,
+    "failed": 0,
+    "p50_ms": 3647,
+    "p90_ms": 4273,
+    "in_tokens": 36110,
+    "out_tokens": 29195,
+    "thinking_tokens": 0,
+    "usd_from_tokens": 0.8849,
+    "errors": []
+  },
+  {
+    "model": "gemini-nano-banana-2.1",
+    "calls": 19,
+    "ok": 19,
+    "failed": 0,
+    "p50_ms": 10125,
+    "p90_ms": 11460,
+    "in_tokens": 36110,
+    "out_tokens": 38849,
+    "thinking_tokens": 0,
+    "usd_from_tokens": 1.1745,
+    "errors": []
+  }
+]
