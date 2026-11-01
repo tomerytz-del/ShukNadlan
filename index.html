@@ -3575,17 +3575,39 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .psi-short{display:none}
   html.beta-hero .psi-stack{position:relative;width:96px;height:124px;flex:none}
   html.beta-hero .psi-stack img{position:absolute;inset:0;width:96px;height:124px;border:2px solid #fff;border-radius:12px;object-fit:cover;background:#2a4a96;box-shadow:0 6px 18px rgba(0,0,0,.3);
-    transition:transform .45s ease,opacity .45s ease}
+    transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s ease}
   html.beta-hero .psi-stack img:nth-child(1){transform:translateX(-14px) rotate(-8deg) scale(.92)}
   html.beta-hero .psi-stack img:nth-child(2){transform:translateX(14px) rotate(7deg) scale(.96)}
   html.beta-hero .psi-stack img:nth-child(3){transform:none}
-  html.beta-hero .psi-stack img.is-out{transform:translateX(70%) rotate(14deg);opacity:0}
+  /* ‏swipe-all §2: ההחלקה עצמה ב-v10InviteRotate (‏Web Animations). כאן - הלב או ה-X שמתנפחים עם הילה,
+     הלב או ה-X הקטנים שקופצים מעל התמונה, האצבע, ופס האור על הכפתור. רק transform ו-opacity */
+  html.beta-hero .psi-deck{position:relative}
+  html.beta-hero .psi-side i{position:relative}
+  html.beta-hero .psi-side i::after{content:"";position:absolute;inset:-5px;border-radius:50%;opacity:0;pointer-events:none}
+  html.beta-hero .psi-save i::after{box-shadow:0 0 0 4px rgba(46,160,90,.45),0 0 18px 4px rgba(46,160,90,.6)}
+  html.beta-hero .psi-skip i::after{box-shadow:0 0 0 4px rgba(198,40,40,.4),0 0 18px 4px rgba(198,40,40,.55)}
+  html.beta-hero .psi-side i.is-pop{animation:psiPop .55s cubic-bezier(.34,1.56,.64,1)}
+  html.beta-hero .psi-side i.is-pop::after{animation:psiGlow .7s ease-out}
+  @keyframes psiPop{40%{transform:scale(1.18)}100%{transform:none}}
+  @keyframes psiGlow{30%{opacity:1}100%{opacity:0}}
+  html.beta-hero .psi-burst{position:absolute;left:50%;top:44%;z-index:4;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;
+    background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none;opacity:0}
+  html.beta-hero .psi-burst.is-save{color:var(--fav-green)}
+  html.beta-hero .psi-burst.is-skip{color:#c62828}
+  html.beta-hero .psi-hand{position:absolute;left:50%;bottom:-6px;z-index:5;width:30px;height:30px;pointer-events:none;opacity:0;
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
+  html.beta-hero .psi-hand svg{display:block}
+  html.beta-hero .psi-btn{position:relative;overflow:hidden}
+  html.beta-hero .psi-btn::after{content:"";position:absolute;top:0;bottom:0;left:0;width:45%;opacity:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent);transform:translateX(-120%)}
+  html.beta-hero .psi-btn.is-sheen::after{animation:psiSheen .9s ease-in-out}
+  @keyframes psiSheen{0%{opacity:1;transform:translateX(-120%)}100%{opacity:1;transform:translateX(330%)}}
   html.beta-hero .psi-title{margin-top:6px;font-family:Heebo,system-ui,sans-serif;font-size:18px;font-weight:800;line-height:1.3;text-wrap:balance}
   html.beta-hero .psi-title b{color:#c9a227;font-weight:800}
   html.beta-hero .psi-sub{font-size:13.5px;color:rgba(255,255,255,.88)}
   html.beta-hero .psi-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-top:2px;padding:0 22px;border-radius:12px;background:#c9a227;color:#0e2a6b;font-weight:800;font-size:15px}
   html.beta-hero .pc-swipe-invite:focus-visible{outline:3px solid var(--v10-gold);outline-offset:3px}
-  @media(prefers-reduced-motion:reduce){html.beta-hero .psi-stack img{transition:none}}
+  @media(prefers-reduced-motion:reduce){html.beta-hero .psi-stack img{transition:none}html.beta-hero .psi-side i.is-pop,html.beta-hero .psi-side i.is-pop::after,html.beta-hero .psi-btn.is-sheen::after{animation:none}}
   /* במחשב התא צר (כ-270px): ערימה קטנה יותר, ומקום לתגית מעל */
   @media(min-width:760px){
     html.beta-hero .pc-swipe-invite{gap:4px;padding:12px 10px}
