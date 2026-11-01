@@ -180,10 +180,18 @@ export function groupAreaNote(name: string | null | undefined): string | null {
   return `החיפוש הוא באזור ${area}. לנקוב בשם האזור, לא ברשימת היישובים.`;
 }
 
-/**
- * שם הקבוצה הוא רמז רק כשאין כבר שכונה או אזור. רמז קיים (גם "השכונה
- * לא מוכרת") נשאר כמו שהוא.
- */
+/** שכונה בתוך קבוצה נשמרת לפי שמות היישובים, לא לפי שם הקבוצה. */
+export function neighborhoodCityScope(
+  canon: { group?: boolean; memberNames?: readonly string[]; name?: string } | null,
+  raw: string | null,
+): { cities: string[] } | { like: string } | null {
+  if (canon?.group && canon.memberNames && canon.memberNames.length) {
+    return { cities: canon.memberNames.filter(Boolean) };
+  }
+  const name = (canon?.name || raw || "").trim();
+  return name ? { like: name } : null;
+}
+
 export function applyGroupAreaHint(
   hint: Record<string, unknown>,
   groupName: unknown,

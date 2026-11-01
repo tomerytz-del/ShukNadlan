@@ -6,6 +6,7 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -330,7 +331,121 @@ def main():
     """)
     if only != "עפולה":
         fail(f"לקוח/ה בעפולה התאים ליותר מעפולה: {only}")
+
+    # קריית מלאכי ו-רם און: ההרחבה לפי city_id חלה על כל עיר, לא רק על קבוצה.
+    kiryat = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+    ram = "ffffffff-ffff-4fff-8fff-fffffffffffe"
+    psql(db, sql_text=f"""
+      insert into public.cities (id, name, muni_code) values
+        ('{kiryat}', 'קרית מלאכי', '1034'),
+        ('{ram}', 'רם-און', '3561');
+    """)
+    got_k = psql(db, sql_text="select (public.city_ids_for_name('קריית מלאכי'))[1]")
+    got_r = psql(db, sql_text="select (public.city_ids_for_name('רם און'))[1]")
+    if got_k != kiryat or got_r != ram:
+        fail(f"כתיב לא נפתר למזהה: קריית={got_k} רם={got_r}")
+
+    bench_calls(db)
     print("city groups: ok")
+
+
+def bench_calls(db: str) -> None:
+    """הודעת NOTICE לכל קריאה ל-city_id_for_name. קבוצה לא קוראת לה,
+    עיר בודדת קוראת פעם אחת, ופוסט מול מאות נכסים לא קורא לכל נכס."""
+    psql(db, sql_text="""
+      create or replace function public.city_id_for_name(p_name text)
+      returns uuid
+      language plpgsql
+      stable
+      security definer
+      set search_path = ''
+      as $fn$
+      begin
+        raise notice 'city_id_for_name';
+        return (
+          select c.id from public.cities c
+           where c.active and c.name_key = public.city_name_key(p_name)
+           limit 1
+        );
+      end
+      $fn$;
+    """)
+
+    def calls(sql: str) -> int:
+        cmd = ["psql", "-v", "ON_ERROR_STOP=1", "-q", "-tA", db, "-c", sql]
+        proc = subprocess.run(
+            cmd,
+            env={**os.environ, "PGOPTIONS": "-c client_min_messages=notice"},
+            text=True,
+            capture_output=True,
+        )
+        if proc.returncode:
+            fail(proc.stderr or proc.stdout)
+        return proc.stderr.count("city_id_for_name")
+
+    group_calls = calls("select public.city_ids_for_name('תענכים') from generate_series(1, 20)")
+    if group_calls != 0:
+        fail(f"קבוצה קראה ל-city_id_for_name {group_calls} פעמים, צפוי 0")
+    # שם שיושב על המפתח לא יורד ל-city_id_for_name. קידומת כן, ופעם אחת.
+    exact_calls = calls("select public.city_ids_for_name('עפולה') from generate_series(1, 20)")
+    if exact_calls != 0:
+        fail(f"שם מדויק קרא ל-city_id_for_name {exact_calls} פעמים, צפוי 0")
+    prefix_calls = calls("select public.city_ids_for_name('קיבוץ עפולה') from generate_series(1, 20)")
+    if prefix_calls != 20:
+        fail(f"קידומת קראה {prefix_calls} פעמים ל-20 קריאות, צפוי 20")
+
+    # 200 נכסים, 10 לקוחות, פוסט אחד. הישן היה קורא לכל נכס.
+    psql(db, sql_text=f"""
+      insert into public.properties (id, agent_id, city, city_id, status, share_level, deal_type, category)
+      select gen_random_uuid(), '{AGENT}', 'עפולה', '{AFULA}', 'active', 'office', 'sale', 'residential'
+        from generate_series(1, 200);
+      insert into public.agent_clients (id, agent_id, client_kind, status, deal_type, category, cities)
+      select gen_random_uuid(), '{AGENT}', 'seeker', 'active', 'sale', 'residential', array['עפולה']
+        from generate_series(1, 10);
+      insert into public.scraped_leads (id, lead_type, city, city_id, deal_type)
+      values ('99999999-9999-4999-8999-999999999999', 'seeker_inbound', 'תענכים', null, 'sale');
+    """)
+    post_calls = calls("select count(*) from public.scraped_lead_matches('99999999-9999-4999-8999-999999999999')")
+    # פוסט של קבוצה מול 200 נכסים: בלי city_id_for_name לכל נכס.
+    if post_calls > 20:
+        fail(f"התאמת פוסט של קבוצה קראה ל-city_id_for_name {post_calls} פעמים, מעל 20")
+    psql(db, sql_text=f"""
+      insert into public.scraped_leads (id, lead_type, city, city_id, deal_type)
+      values ('99999999-9999-4999-8999-999999999998', 'seeker_inbound', 'עפולה', '{AFULA}', 'sale');
+    """)
+    plain_calls = calls("select count(*) from public.scraped_lead_matches('99999999-9999-4999-8999-999999999998')")
+    # עיר אחת: פעם אחת לפוסט, לא פעם לכל אחד מ-200 הנכסים.
+    if plain_calls > 20:
+        fail(f"התאמת פוסט בעפולה קראה ל-city_id_for_name {plain_calls} פעמים, מעל 20")
+
+    def seconds(sql: str) -> float:
+        best = None
+        for _ in range(3):
+            t0 = time.perf_counter()
+            psql(db, sql_text=sql)
+            dt = time.perf_counter() - t0
+            best = dt if best is None else min(best, dt)
+        return best or 0.0
+
+    # אותה עבודה כמו main: city_id_for_name פעם אחת לשם. הפונקציה החדשה
+    # מוסיפה בדיקת קבוצה אחת, לא קריאה שנייה.
+    base = seconds("select public.city_id_for_name('עפולה') from generate_series(1, 2000)")
+    now = seconds("select public.city_ids_for_name('עפולה') from generate_series(1, 2000)")
+    ratio = now / base if base else 1.0
+    n_props = int(psql(db, sql_text=f"select count(*) from public.properties where agent_id = '{AGENT}'"))
+    match_calls = calls(f"""
+      select count(*)
+        from public.agent_clients c
+        join public.properties p on p.agent_id = '{AGENT}'
+        cross join lateral public.client_property_match(c, p, '{{}}'::text[]) m
+       where c.id = '{CLIENT}'
+    """)
+    # פעם לעיר הנכס ופעם לעיר הלקוח/ה. לא פעמיים בתוך city_ids_for_name.
+    if match_calls > n_props * 2:
+        fail(f"client_property_match קרא ל-city_id_for_name {match_calls} פעמים על {n_props} נכסים")
+    print(f"bench city_ids_for_name {now:.3f}s city_id_for_name {base:.3f}s ratio {ratio:.2f} (2000 calls, small fixture)")
+    print(f"bench client_property_match calls {match_calls} properties {n_props}")
+    print(f"bench scraped group-post calls {post_calls}; single-city post calls {plain_calls}; properties 200")
 
 
 if __name__ == "__main__":

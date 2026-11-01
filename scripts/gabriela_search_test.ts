@@ -4,6 +4,7 @@
 import {
   applyGroupAreaHint,
   cityMatchGroup,
+  neighborhoodCityScope,
   searchMissRow,
   searchMissStoreMissing,
   shouldLogSearchMiss,
@@ -186,6 +187,13 @@ check("רמז שכונה נשאר כשיש גם קבוצה",
 const alone = applyGroupAreaHint({}, "חבל תענך", "");
 check("בלי שכונה שם הקבוצה הוא הרמז",
   alone.area_name === "חבל תענך" && String(alone.area_note).includes("חבל תענך"));
+
+const scope = neighborhoodCityScope(
+  { group: true, name: "חבל תענך", memberNames: ["אומן", "יעל"] },
+  "חבל תענך",
+);
+check("שכונה בקבוצה נשמרת לפי היישובים",
+  scope !== null && "cities" in scope && scope.cities.includes("אומן") && !scope.cities.includes("חבל תענך"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

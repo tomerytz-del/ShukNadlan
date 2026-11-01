@@ -13,9 +13,10 @@ import {
   collapseCityNames,
   CATEGORIES,
   DEAL_TYPES,
+  applyGroupAreaHint,
   filterByArea,
-  groupAreaNote,
   likeSafe,
+  neighborhoodCityScope,
   logBotSearch,
   logWordMisses,
   markSearchOutcome,
@@ -1164,10 +1165,7 @@ async function searchProperties(
         "בלעדיהם. לומר זאת בקצרה (\"את X אין לי איך לסנן\"), ולא להציג את התוצאות " +
         "כאילו יש בהן אותו."
       : undefined,
-    ...areaHint,
-    ...(typeof args.city_group === "string" && args.city_group
-      ? { area_name: args.city_group, area_note: groupAreaNote(args.city_group) }
-      : {}),
+    ...applyGroupAreaHint(areaHint, args.city_group, area),
   };
 }
 
@@ -2024,15 +2022,19 @@ function consumeLeadSlot(conv: PublicConversationState): void {
   conv.leads_created += 1;
 }
 
-/** מזהה שכונה לפי שם ועיר. משפר את ההתאמה לסוכן/ת; null אינו שגיאה. */
+/** מזהה שכונה לפי שם ועיר. משפר את ההתאמה לסוכן/ת; null אינו שגיאה.
+ *  קבוצת יישובים: השכונה נשמרת אם היא באחד היישובים, לא רק בשם הקבוצה. */
 async function lookupNeighborhoodId(
   ctx: PublicContext,
   city: string | null,
   area: string | null,
 ): Promise<string | null> {
   if (!area) return null;
+  const canon = city ? await canonicalCity(ctx.supabase, city) : null;
+  const scope = neighborhoodCityScope(canon, city);
   let query = ctx.supabase.from("neighborhoods").select("id").ilike("name", likeSafe(area));
-  if (city) query = query.ilike("city", likeSafe(city));
+  if (scope && "cities" in scope) query = query.in("city", scope.cities);
+  else if (scope) query = query.ilike("city", likeSafe(scope.like));
   const { data } = await query.limit(1).maybeSingle();
   return data?.id ?? null;
 }

@@ -197,41 +197,50 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- שם -> מזהי ערים. קבוצה קודמת לעיר אחת. בלי התאמה: מערך ריק.
+-- שם -> מזהי ערים. ביטוי coalesce אחד, וכל ענף רץ רק אם הקודם ריק:
+--   1. כינוי קבוצה -> חבריה
+--   2. שם או כינוי עיר לפי המפתח (אינדקס; קריית מלאכי, רם און)
+--   3. city_id_for_name פעם אחת, לצורות עם קידומת ("קיבוץ X")
+-- parallel restricted: security definer, ו-city_id_for_name אינה parallel safe.
 -- ---------------------------------------------------------------------------
 create or replace function public.city_ids_for_name(p_name text)
 returns uuid[]
 language sql
 stable
+parallel restricted
 security definer
 set search_path = ''
 as $$
-  with hit as (
-    select m.city_id
-      from public.city_group_aliases a
-      join public.city_groups g on g.id = a.group_id and g.active
-      join public.city_group_members m on m.group_id = g.id
-      join public.cities c on c.id = m.city_id and c.active
-     where a.alias_key = public.city_name_key(p_name)
-  )
-  select ids
-    from (
-      select array_agg(h.city_id order by h.city_id) as ids, 1 as pri
-        from hit h
-      union all
-      select case
-               when public.city_id_for_name(p_name) is null then '{}'::uuid[]
-               else array[public.city_id_for_name(p_name)]
-             end,
-             2
-    ) m
-   where ids is not null
-   order by pri
-   limit 1;
+  select coalesce(
+    (
+      select array_agg(m.city_id order by m.city_id)
+        from public.city_group_aliases a
+        join public.city_groups g on g.id = a.group_id and g.active
+        join public.city_group_members m on m.group_id = g.id
+        join public.cities c on c.id = m.city_id and c.active
+       where a.alias_key = public.city_name_key(p_name)
+    ),
+    (
+      select array[s.id]
+        from (
+          select c.id, 1 as pri
+            from public.cities c
+           where c.active and c.name_key = public.city_name_key(p_name)
+          union all
+          select a.city_id, 2
+            from public.city_aliases a
+            join public.cities c on c.id = a.city_id and c.active
+           where a.alias_key = public.city_name_key(p_name)
+          order by pri
+          limit 1
+        ) s
+    ),
+    array_remove(array[public.city_id_for_name(p_name)], null)
+  );
 $$;
 
 comment on function public.city_ids_for_name(text) is
-  'שם -> מזהי ערים. כינוי של קבוצה פעילה מחזיר את חבריה (יציב לפי id). אחרת מערך של city_id_for_name, או מערך ריק.';
+  'שם -> מזהי ערים. קבוצה, אחרת שם או כינוי לפי המפתח, ורק אז city_id_for_name פעם אחת. קריית מלאכי ו-רם און נפתרים במפתח, בלי הקריאה הכבדה.';
 
 revoke all on function public.city_ids_for_name(text) from public, anon, authenticated;
 grant execute on function public.city_ids_for_name(text) to anon, authenticated, service_role;
@@ -298,16 +307,13 @@ as $$
                  select unnest(feats.have)) as feats
       from feats
   ),
-  -- city_id_for_name פעם אחת לנכס ופעם אחת לכל עיר של הלקוח/ה, לא בכל תנאי.
+  -- פעם אחת ללקוח/ה, לא לכל תנאי. city_ids_for_name כוללת גם עיר בודדת.
   prop_city as materialized (
     select public.city_id_for_name(p_property.city) as id
   ),
   client_cities as materialized (
-    -- כינוי של קבוצה (תענכים) מתרחב ליישובים. שם בלי התאמה נשאר שורה עם id ריק,
-    -- כדי שהשוואת הטקסט הישנה לא תיעלם.
-    select c.name, u.id
+    select c.name, public.city_ids_for_name(c.name) as ids
       from unnest(coalesce(p_client.cities, '{}'::text[])) c(name)
-      left join lateral unnest(public.city_ids_for_name(c.name)) as u(id) on true
   ),
   hood as materialized (
     select hn.city, hn.city_id, public.city_id_for_name(hn.city) as city_name_id
@@ -326,9 +332,9 @@ as $$
              or exists (
                select 1 from client_cities c
                 where c.name = p_property.city
-                   or (p_property.city_id is not null and p_property.city_id = c.id)
-                   or (c.id is not null and (select id from prop_city) is not null
-                       and c.id = (select id from prop_city))
+                   or (p_property.city_id is not null and p_property.city_id = any(c.ids))
+                   or ((select id from prop_city) is not null
+                       and (select id from prop_city) = any(c.ids))
              ))
         and (cardinality(p_client.property_types) = 0 or p_property.property_type = any(p_client.property_types))
         -- שכונה: ריקה, חסרה, או שלא שייכת לאף עיר - לא מסתירה. שייכת - רק בעיר שלה.
@@ -341,8 +347,8 @@ as $$
             and not exists (
               select 1 from hood hn, client_cities c
                where c.name = hn.city
-                  or (hn.city_id is not null and hn.city_id = c.id)
-                  or (c.id is not null and hn.city_name_id is not null and c.id = hn.city_name_id)
+                  or (hn.city_id is not null and hn.city_id = any(c.ids))
+                  or (hn.city_name_id is not null and hn.city_name_id = any(c.ids))
             )
           )
           or exists (
@@ -507,6 +513,16 @@ create or replace function public.saved_search_matches(p_search public.saved_sea
  stable
  set search_path to ''
 as $function$
+  with search_ids as materialized (
+    select coalesce((
+      select array_agg(u.id)
+        from unnest(coalesce(p_search.cities, '{}'::text[])) cn(name)
+        cross join lateral unnest(public.city_ids_for_name(cn.name)) as u(id)
+    ), '{}'::uuid[]) as ids
+  ),
+  prop_id as materialized (
+    select public.city_id_for_name(p_property.city) as id
+  )
   select
         p_property.status    = 'active'
     and p_property.deal_type = p_search.deal_type
@@ -515,14 +531,9 @@ as $function$
       (cardinality(p_search.cities) = 0 and cardinality(p_search.neighborhood_ids) = 0)
       or p_property.city = any(p_search.cities)
       or exists (
-        select 1
-          from unnest(coalesce(p_search.cities, '{}'::text[])) cn(name)
-          cross join lateral (
-            select public.city_ids_for_name(cn.name) as ids,
-                   public.city_id_for_name(p_property.city) as prop_id
-          ) g
-         where (p_property.city_id is not null and p_property.city_id = any(g.ids))
-            or (g.prop_id is not null and g.prop_id = any(g.ids))
+        select 1 from search_ids s
+         where (p_property.city_id is not null and p_property.city_id = any(s.ids))
+            or ((select id from prop_id) is not null and (select id from prop_id) = any(s.ids))
       )
       or (p_property.neighborhood_id is not null
           and p_property.neighborhood_id = any(p_search.neighborhood_ids))
@@ -582,9 +593,34 @@ security definer
 set search_path = ''
 as $$
   with lead as (
-    select s.*
+    -- מזהי העיר של הפוסט פעם אחת, לא לכל לקוח/ה ולא לכל נכס.
+    select s.*,
+           public.city_ids_for_name(s.city) as city_ids
       from public.scraped_leads s
      where s.id = p_id
+  ),
+  client_pool as (
+    select c.*,
+           coalesce((
+             select array_agg(u.id)
+               from unnest(c.cities) cn(name)
+               cross join lateral unnest(public.city_ids_for_name(cn.name)) as u(id)
+           ), '{}'::uuid[]) as city_ids
+      from public.agent_clients c
+     where c.client_kind = 'seeker'
+       and c.status = 'active'
+  ),
+  search_pool as (
+    select ss.*,
+           coalesce((
+             select array_agg(u.id)
+               from unnest(ss.cities) cn(name)
+               cross join lateral unnest(public.city_ids_for_name(cn.name)) as u(id)
+           ), '{}'::uuid[]) as city_ids
+      from public.saved_searches ss
+     where ss.sold_to_agent_id is not null
+       and ss.status = 'active'
+       and ss.lead_status = 'sold'
   ),
   seeker_rows as (
     select c.agent_id,
@@ -611,20 +647,15 @@ as $$
              and (c.min_price is null or l.budget >= c.min_price)
            ) as exact
       from lead l
-      join public.agent_clients c
-        on c.client_kind = 'seeker'
-       and c.status = 'active'
+      join client_pool c on true
      where l.lead_type = 'owner_inbound'
-       and exists (
-         select 1
-           from unnest(c.cities) cn(name)
-           cross join lateral (
-             select public.city_ids_for_name(cn.name) as ids,
-                    public.city_id_for_name(l.city) as lead_id
-           ) g
-          where btrim(cn.name) = btrim(l.city)
-             or (l.city_id is not null and l.city_id = any(g.ids))
-             or (g.lead_id is not null and g.lead_id = any(g.ids))
+       and (
+         exists (
+           select 1 from unnest(c.cities) cn(name)
+            where btrim(cn.name) = btrim(l.city)
+         )
+         or l.city_ids && c.city_ids
+         or (l.city_id is not null and l.city_id = any(c.city_ids))
        )
        and (l.deal_type is null or c.deal_type = l.deal_type)
        and (
@@ -670,23 +701,15 @@ as $$
              and (ss.min_price is null or l.budget >= ss.min_price)
            )
       from lead l
-      join public.saved_searches ss
-        on ss.sold_to_agent_id is not null
-       and ss.status = 'active'
-       and ss.lead_status = 'sold'
+      join search_pool ss on true
      where l.lead_type = 'owner_inbound'
        and (
          exists (
-           select 1
-             from unnest(ss.cities) cn(name)
-             cross join lateral (
-               select public.city_ids_for_name(cn.name) as ids,
-                      public.city_id_for_name(l.city) as lead_id
-             ) g
+           select 1 from unnest(ss.cities) cn(name)
             where btrim(cn.name) = btrim(l.city)
-               or (l.city_id is not null and l.city_id = any(g.ids))
-               or (g.lead_id is not null and g.lead_id = any(g.ids))
          )
+         or l.city_ids && ss.city_ids
+         or (l.city_id is not null and l.city_id = any(ss.city_ids))
          or (l.neighborhood_id is not null and l.neighborhood_id = any (ss.neighborhood_ids))
        )
        and (l.deal_type is null or ss.deal_type = l.deal_type)
@@ -737,11 +760,7 @@ as $$
        and (
          (l.city_id is not null and p.city_id = l.city_id)
          or btrim(coalesce(p.city, '')) = btrim(l.city)
-         or p.city_id = any(public.city_ids_for_name(l.city))
-         or (
-           public.city_id_for_name(p.city) is not null
-           and public.city_id_for_name(p.city) = any(public.city_ids_for_name(l.city))
-         )
+         or (p.city_id is not null and p.city_id = any(l.city_ids))
        )
        and (l.deal_type is null or p.deal_type = l.deal_type)
        and (

@@ -1,0 +1,56 @@
+name: קבוצות יישובים
+
+# city_ids_for_name, חבל תענך, והרמז של גבריאלה. המיגרציה ב-CI היא סכימה
+# בלי שורות ערים, ולכן הבדיקה כאן זורעת את 12 היישובים בעצמה.
+# docs/search-core.md
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271101100000_city_groups_taanach.sql"
+      - "scripts/city_groups_test.py"
+      - "scripts/gabriela_search_test.ts"
+      - "supabase/functions/whatsapp-webhook/property-search.ts"
+      - "supabase/functions/whatsapp-webhook/public-agent.ts"
+      - "supabase/functions/whatsapp-webhook/agent.ts"
+      - ".github/workflows/city_groups.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271101100000_city_groups_taanach.sql"
+      - "scripts/city_groups_test.py"
+      - "scripts/gabriela_search_test.ts"
+      - "supabase/functions/whatsapp-webhook/property-search.ts"
+      - "supabase/functions/whatsapp-webhook/public-agent.ts"
+      - "supabase/functions/whatsapp-webhook/agent.ts"
+      - ".github/workflows/city_groups.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: חיפוש גבריאלה בלי מסד
+        run: node --experimental-strip-types scripts/gabriela_search_test.ts
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: קבוצת חבל תענך
+        run: python3 scripts/city_groups_test.py
