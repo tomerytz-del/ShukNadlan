@@ -38,6 +38,7 @@ create table if not exists public.properties (
   agency_id uuid references public.agencies(id),
   title text,
   city text,
+  status text not null default 'active',
   open_house boolean not null default false,
   open_house_start timestamptz,
   open_house_end timestamptz

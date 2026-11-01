@@ -20579,8 +20579,52 @@ let leadVisitorOf = new Map();
    את הכתובת, ושאילתה בלי רשימה הייתה נחתכת ב-1,000 שורות של PostgREST).
    ה-RLS מחזיר רק מה שהליד שלו אצל הסוכן/ת (ומנהל/ת - של המשרד). מהשורה
    מותרים הערוץ, השעה, הסטטוס, ו-lead_id עם fair_end. בלי שם וטלפון.
-   מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם. */
+   מסד שהמיגרציה עוד לא רצה בו - אין תג, כמו קודם.
+   לחיצות (whatsapp_click / call_click) אין להן ליד. הן נטענות בנפרד
+   ומוצגות מעל הרשימה, באותם שדות. */
 let leadFairByLead = new Map();
+let fairClickRows = [];
+const FAIR_CLICK_CHANNEL = {
+  whatsapp_click: 'לחיצה על וואטסאפ',
+  call_click: 'לחיצה על חיוג',
+};
+async function loadFairClicks(){
+  fairClickRows = [];
+  const { data, error } = await sb.from('fair_inquiries')
+    .select('channel, created_at, status, fair_end, lead_id')
+    .in('channel', ['whatsapp_click', 'call_click'])
+    .order('created_at', { ascending: false })
+    .limit(40);
+  if (error){
+    if (!['42P01', 'PGRST205', '42501', '42703'].includes(error.code)) console.warn('לחיצות יריד:', error.message);
+    return;
+  }
+  fairClickRows = data || [];
+}
+function fairClickBlockHtml(){
+  if (!fairClickRows.length) return '';
+  const whenOf = (iso) => {
+    const d = iso ? new Date(iso) : null;
+    return d && !isNaN(d) ? d.toLocaleString('he-IL', {
+      timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit',
+    }) : '';
+  };
+  const rows = fairClickRows.map(r => {
+    const end = r.fair_end ? new Date(r.fair_end) : null;
+    const endLabel = end && !isNaN(end) ? end.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'numeric' }) : '';
+    const chip = r.status === 'eligible'
+      ? '<span class="lc-fair">ללא עמלת תיווך</span>'
+      : '<span class="lc-fair is-pending">ממתין להחלטה</span>';
+    return '<li><b>' + esc(FAIR_CLICK_CHANNEL[r.channel] || r.channel) + '</b>'
+      + (whenOf(r.created_at) ? '<span>' + esc(whenOf(r.created_at)) + '</span>' : '')
+      + chip
+      + (endLabel ? '<span>היריד עד ' + esc(endLabel) + '</span>' : '')
+      + '</li>';
+  }).join('');
+  return '<section class="fair-clicks" aria-label="לחיצות על וואטסאפ ועל חיוג ביריד">'
+    + '<p class="fair-clicks-h">לחיצות על וואטסאפ ועל חיוג ביריד</p><ul>' + rows + '</ul>'
+    + '<p class="fair-clicks-note">נרשם בלי שם ובלי מספר טלפון. הערוץ והשעה מוכיחים שהפנייה הייתה לפני סוף היריד.</p></section>';
+}
 async function loadLeadFair(leads){
   const ids = (leads || []).filter(l => l.property_id).map(l => l.id);
   const map = new Map();
@@ -20648,7 +20692,7 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
+  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads), loadFairClicks()]);
   renderLeads(agentId);
 }
 
