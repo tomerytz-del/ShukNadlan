@@ -1805,7 +1805,7 @@
         '<div class="sw-promo-in">' + SELLER_ART +
         '<p class="sw-promo-kick">לבעלי נכסים</p>' +
         '<h2 class="sw-promo-title">' + (rent ? 'חושבים להשכיר?' : 'חושבים למכור?') + '</h2>' +
-        '<p class="sw-promo-sub">השאירו פרטים, ויועץ נדל״ן מהאזור יחזור אליכם.</p>' +
+        '<p class="sw-promo-sub">משאירים פרטים, והם יועברו ליועצי נדל״ן מהאזור.</p>' +
         '<p class="sw-promo-gold">הערכת שווי ללא עלות · הנכס יכול להתפרסם כאן עם הדמיות AI</p>' +
         '<button type="button" class="sw-gold sw-wide" data-promo-go>השאירו פרטים</button>' +
         '<button type="button" class="sw-promo-link" data-seller-later>לא עכשיו</button></div></article>';
@@ -2825,7 +2825,7 @@
       (p ? qHtml(questionsFor(c)) : sponQHtml()) +
       '<label class="sw-consent"><input type="checkbox" id="swLConsent"> <span>מאשרים פנייה חוזרת מהמפרסם בנוגע לפנייה הזו, בהתאם ל<a href="/terms" target="_blank">תנאי השימוש</a> ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a>.</span></label>' +
       '<p class="sw-ferr" id="swLErr" role="alert"></p></form>' +
-      '<p class="sw-done" id="swLDone" hidden>✅ הפנייה נשלחה. יחזרו אליכם בקרוב.</p>';
+      '<p class="sw-done" id="swLDone" hidden>✅ הפנייה נשלחה. הפרטים יועברו למפרסם המודעה.</p>';
   }
   /* "בקשו תמונות מהמפרסם": הגיליון נפתח עם הטופס וההודעה המלאה. שום דבר לא נשלח בלחיצה */
   function npRequest(c, level, surface) {
@@ -3066,7 +3066,7 @@
       (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר במועדפים' : '♡ שמירה במועדפים') + '</button>' : '') +
       '<h3 class="sw-sub-h"><span class="sw-st-n">1</span> ' + (st.comm ? 'איזה חלל?' : 'איזה חדר?') + '</h3><div class="sw-st-row">' + rooms_ + '</div>' +
       '<h3 class="sw-sub-h"><span class="sw-st-n">2</span> ' + (st.comm ? 'איזה עסק תפתחו כאן?' : 'איזה סגנון?') + '</h3>' + styles_ + contact +
-      '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והמשרד המפרסם יחזור אליכם.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
+      '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והפרטים יועברו למפרסם המודעה.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
     bindBa(box.querySelector('.sw-ba'));
   }
   function vizGenerate(contact) {
@@ -3491,7 +3491,7 @@
       '<p class="sw-snote">הפרטים עוברים ליועץ נדל״ן אחד מהאזור, ולא מתפרסמים באתר.</p>' +
       '<p class="sw-ferr" data-serr="send" role="alert"></p>' +
       '<div class="sw-sbar"><button type="submit" class="sw-gold sw-wide" id="swSGo">שליחה ליועץ נדל״ן</button></div></form>' +
-      '<div class="sw-sdone" hidden role="status"><p>תודה! יועץ נדל״ן מהאזור יחזור אליכם בהקדם.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
+      '<div class="sw-sdone" hidden role="status"><p>תודה! הפרטים יועברו ליועצי נדל״ן מהאזור.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
   }
   function bindSeller() {
     var box = $('swBsBody'), form = $('swSellerForm'), stepped = {};
@@ -3533,7 +3533,7 @@
       if (!city) { err('city', 'נא לבחור יישוב'); first = first || $('swSCity'); }
       if (name.length < 2) { err('name', 'נא להזין שם מלא'); first = first || $('swSName'); }
       if (!/^0?5\d{8}$/.test(phone)) { err('phone', 'נא להזין מספר טלפון תקין'); first = first || $('swSPhone'); }
-      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיחזרו אליכם'); first = first || $('swSConsent'); }
+      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיועצי נדל״ן מהאזור יוכלו לפנות אליכם'); first = first || $('swSConsent'); }
       if (first) { first.focus(); return; }
       var pick = function (q) { var x = box.querySelector('[data-sq="' + q + '"][aria-pressed="true"]'); return x ? x.dataset.v : ''; };
       var type = pick('type') || 'דירה', when = pick('timing'), rooms = $('swSRooms').hidden ? '' : pick('rooms');

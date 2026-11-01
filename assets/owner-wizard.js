@@ -28,7 +28,7 @@
   /* הנוסח לפי העסקה (אושר בידי גבריאלה, 28.10.2026). התשובות זהות בשני המסלולים */
   var WHEN_Q = { sale: 'מתי מתכננים למכור?', rent: 'מתי הנכס מתפנה?' };
   var SUBMIT = { sale: 'קבלת הערכת שווי חינם', rent: 'קבלת הערכת שכר דירה חינם' };
-  var DONE = { sale: 'יועץ נדל״ן מהאזור יחזור אליכם עם הערכת שווי לנכס.', rent: 'יועץ נדל״ן מהאזור יחזור אליכם עם הערכה של שכר הדירה לנכס.' };
+  var DONE = { sale: 'הפרטים יועברו ליועצי נדל״ן מהאזור, שיוכלו לפנות אליכם עם הערכת שווי לנכס.', rent: 'הפרטים יועברו ליועצי נדל״ן מהאזור, שיוכלו לפנות אליכם עם הערכה למחיר השכירות.' };
   var esc = function (s) { return global.escapeHtml ? global.escapeHtml(s == null ? '' : String(s)) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
   function html(cfg) {
@@ -69,7 +69,7 @@
       '<label><input type="checkbox" value="מעלית"> מעלית</label><label><input type="checkbox" value="עמדת טעינה לרכב חשמלי"> עמדת טעינה לרכב חשמלי</label>' +
       '<label data-kind="commercial" hidden><input type="checkbox" value="חניה"> חניה</label><label data-kind="commercial" hidden><input type="checkbox" value="חזית לרחוב"> חזית לרחוב</label></div>' +
       '<p class="wiz-err" id="wizErr2"></p><div class="wiz-nav"><button type="button" class="btn btn-ghost-light" data-back="1">→ חזרה</button><button type="button" class="btn btn-gold" data-next="3">להמשך ←</button></div>' + D + '</section>' +
-      '<section class="wiz-panel" data-panel="3"><p class="wiz-q">איך נחזור אליכם?</p>' +
+      '<section class="wiz-panel" data-panel="3"><p class="wiz-q">איך נוח ליצור איתכם קשר?</p>' +
       '<label class="wiz-label" for="wizName">שם מלא</label><input type="text" id="wizName" class="wiz-input" autocomplete="name">' +
       '<label class="wiz-label" for="wizPhone">טלפון</label><input type="tel" id="wizPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel">' +
       extras +
@@ -228,7 +228,7 @@
         phoneEl.classList.toggle('invalid', digits.length < 9);
         if (st.name.length < 2) { setError(3, 'נא להזין שם מלא'); nameEl.focus(); return false; }
         if (digits.length < 9) { setError(3, 'נא להזין מספר טלפון תקין'); phoneEl.focus(); return false; }
-        if (cfg.extras && !$('wizConsent').checked) { setError(3, 'כדי לשלוח צריך לאשר שיועץ נדל״ן יחזור אליכם'); $('wizConsent').focus(); return false; }
+        if (cfg.extras && !$('wizConsent').checked) { setError(3, 'כדי לשלוח צריך לאשר שיועצי נדל״ן מהאזור יוכלו לפנות אליכם'); $('wizConsent').focus(); return false; }
         setError(3, '');
         return true;
       }

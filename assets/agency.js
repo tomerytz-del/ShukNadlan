@@ -1507,7 +1507,7 @@ function initOwnerWizard(agency){
   document.getElementById('ownerLead').textContent =
     `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, מיועצי הנדל״ן של ${agency.name}.`;
   document.getElementById('wizDoneNote').textContent =
-    `יועצי הנדל״ן של ${agency.name} יחזרו אליכם בזמן קצר עם הערכת המחיר לנכס.`;
+    `הפרטים יועברו ליועצי הנדל״ן של ${agency.name} לצורך הערכת מחיר לנכס.`;
 
   // כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
   [['wizAddress',1], ['wizName',3], ['wizPhone',3]].forEach(([id, step])=>{
@@ -1989,7 +1989,7 @@ async function submitBuyerWizard(e){
     document.getElementById('buyDoneText').textContent = data.duplicate
       ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : data.assigned_to_agency
-        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ויועצי הנדל״ן של ${office} יחזרו אליכם עם נכסים מתאימים.`
+        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, והפרטים יועברו ליועצי הנדל״ן של ${office}, שיוכלו להציע לכם נכסים מתאימים.`
         : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
     buyerForm.hidden = true;
     document.getElementById('buySteps').hidden = true;

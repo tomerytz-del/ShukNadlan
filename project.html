@@ -1119,7 +1119,7 @@ el('inquiryForm').addEventListener('submit', async (e)=>{
     if (!res.ok || data.error){
       const messages = {
         bad_phone:'מספר הטלפון אינו תקין',
-        rate_limited:'כבר קיבלנו ממך כמה פניות היום. נחזור אליך בקרוב.',
+        rate_limited:'כבר קיבלנו מכם כמה פניות היום, והפרטים כבר הועברו. אפשר לנסות שוב מחר.',
         project_not_found:'דף הפרויקט אינו פעיל כרגע',
       };
       msg.style.color = '#b3261e';
