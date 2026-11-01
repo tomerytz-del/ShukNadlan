@@ -33918,12 +33918,17 @@ const SIGN_CHOICES = {
     { kind:'exclusive_landlord', label:'בלעדיות · השכרה' },
   ],
 };
+let signChooserClose = null, signChooserLoading = false;
 async function openSignChooser(p){
+  // לחיצה כפולה בזמן שהתבניות נטענות - חלון אחד בלבד, ובלי listener שנשאר אחרי חלון שהוסר
+  if (signChooserLoading) return;
   const opener = document.activeElement;
   if (window.crmNeed && !window.AgreementTemplates){
+    signChooserLoading = true;
     try { await crmNeed('agreements'); } catch (e) {}
+    signChooserLoading = false;
   }
-  document.getElementById('signChooser')?.remove();
+  if (signChooserClose) signChooserClose(false);
   const list = SIGN_CHOICES[p.deal_type === 'rent' ? 'rent' : 'sale'];
   const wrap = document.createElement('div');
   wrap.id = 'signChooser';
@@ -33943,11 +33948,14 @@ async function openSignChooser(p){
       '<button type="button" class="sign-chooser-all" data-sc="all">כל ההסכמים</button>' +
     '</div>';
   document.body.appendChild(wrap);
-  const close = () => {
+  // כל נתיבי הסגירה עוברים כאן: בחירה, "כל ההסכמים", X, רקע ו-Esc
+  const close = (refocus = true) => {
     wrap.remove();
     document.removeEventListener('keydown', onKey, true);
-    if (opener && opener.focus) opener.focus();
+    if (signChooserClose === close) signChooserClose = null;
+    if (refocus && opener && opener.focus) opener.focus();
   };
+  signChooserClose = close;
   const onKey = e => {
     if (e.key === 'Escape'){ e.preventDefault(); close(); return; }
     if (e.key === 'Tab'){   // הפוקוס נשאר בתוך החלון
@@ -33961,8 +33969,8 @@ async function openSignChooser(p){
   wrap.addEventListener('click', e => {
     if (e.target === wrap || e.target.closest('[data-sc="close"]')){ close(); return; }
     const opt = e.target.closest('[data-sc-kind]');
-    if (opt){ wrap.remove(); document.removeEventListener('keydown', onKey, true); openAgreementWizard({ kind: opt.dataset.scKind, propertyId: p.id }); return; }
-    if (e.target.closest('[data-sc="all"]')){ wrap.remove(); document.removeEventListener('keydown', onKey, true); openAgreementWizard({ propertyId: p.id }); }
+    if (opt){ close(false); openAgreementWizard({ kind: opt.dataset.scKind, propertyId: p.id }); return; }
+    if (e.target.closest('[data-sc="all"]')){ close(false); openAgreementWizard({ propertyId: p.id }); }
   });
   wrap.querySelector('[data-sc-kind]').focus();
 }
@@ -34085,16 +34093,16 @@ function agrSetKind(kind, opts){
   // החלפת סוג הטופס מחליפה גם את רשימת שדות הנכס (מלאה מול מקוצרת). מה
   // שכבר מולא נשמר, ומה שהטופס החדש דורש ואינו קיים נפתח ריק.
   agrWizard.properties.forEach(entry => {
+    // רק שדה שעוד לא קיים בנכס - שדה שקיים וריק אולי רוקן בכוונה (מחיר שנמחק לא חוזר להסכם)
     const src = agrWizard.propSrc && agrWizard.propSrc[entry.uid];
     tpl.propertyFields.forEach(f => {
-      if (!(f.key in entry.fields) || (src && !entry.fields[f.key])) {
-        entry.fields[f.key] = src ? (agrFieldFromProperty(f, src.p, src.planning) || entry.fields[f.key] || '') : (entry.fields[f.key] || '');
-      }
+      if (!(f.key in entry.fields)) entry.fields[f.key] = src ? (agrFieldFromProperty(f, src.p, src.planning) || '') : '';
     });
   });
   // ‏sign-chooser: נכס שצורף לפני שנבחר סוג - הבעלים נכנסים כחותמים אם הטופס הוא של צד הנכס
-  const own = agrWizard.pendingOwner;
+  const pend = agrWizard.pendingOwner, own = pend && pend.owner;
   if (own && own.owner_name && tpl.side === 'owner' && !agrWizard.signers.length){
+    agrWizard.pendingOwner = null;   // פעם אחת: החלפת סוג או הסרה ידנית של החותם לא מחזירות אותו
     agrWizard.signers.push({
       uid: agrNextUid(), party:'client', full_name: own.owner_name,
       id_number: '', self_fill: true, phone: own.owner_phone || '',
@@ -34515,7 +34523,7 @@ async function agrAddProperty(propertyId, opts){
      לא נשמר במסמך: ההסכם נבנה מ-fields ו-notes בלבד */
   w.propSrc = w.propSrc || {};
   w.propSrc[entry.uid] = { p, planning };
-  if (!tpl && owner) w.pendingOwner = owner;
+  if (!tpl && owner) w.pendingOwner = { owner, uid: entry.uid };
 
   if (tpl && tpl.propertyMode === 'single') w.properties = [entry];
   else w.properties.push(entry);
@@ -35971,6 +35979,9 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   }
   if (act === 'rm-prop'){
     agrWizard.properties = agrWizard.properties.filter(p => p.uid !== btn.dataset.uid);
+    // ‏sign-chooser: הנכס שהוסר לא משאיר אחריו מקור למילוי ולא בעלים שממתינים להיכנס כחותמים
+    if (agrWizard.propSrc) delete agrWizard.propSrc[btn.dataset.uid];
+    if (agrWizard.pendingOwner && agrWizard.pendingOwner.uid === btn.dataset.uid) agrWizard.pendingOwner = null;
     agrRenderPropChips();
     agrRenderPropFields();
     return agrRenderPropResults();
