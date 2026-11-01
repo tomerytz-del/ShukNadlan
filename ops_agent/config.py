@@ -299,6 +299,11 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     "owner-lead-intake",
     "mortgage-lead-intake",
     "property-inquiry-intake",
+    # לחיצה על וואטסאפ או חיוג בנכס ביריד. הגולש אינו מחובר. אין שם ואין
+    # טלפון. ההצפה נעצרת ב-fair_contact_click: כפילות של אותו דפדפן ל-15
+    # דקות. 200 לשעה לגיבוב על נכס, 500 לנכס מכל הכתובות, 2,000 לגיבוב,
+    # 3,000 לאתר. IPv6 לפי /64. מנעול לננכס בלי המתנה. תקרה מלאה היא ממצא.
+    "fair-contact-log",
     "agent-direct-inquiry-intake",
     "saved-search-intake",
     "project-lead-intake",
