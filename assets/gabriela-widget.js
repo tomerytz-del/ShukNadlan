@@ -603,7 +603,8 @@
         var q = new URLSearchParams((a.getAttribute('href') || '').split('?')[1] || '');
         var region = (window.CityContext && window.CityContext.market && (window.CityContext.market() || {}).slug) || '';
         if (window.shukTrack) window.shukTrack('gab_swipe_cta', { deal: q.get('deal') || '', region: region });
-        if (window.shukTrack && !/^\/swipe/.test(location.pathname)) {
+        // בדף הבית home.js סופר כל a[data-swipe-via] (כולל הכפתור הזה) - שם לא סופרים פעמיים
+        if (window.shukTrack && !window.__homeSwipeStart && !/^\/swipe/.test(location.pathname)) {
           var gs = { deal: q.get('deal') || '', region: region, via: 'gabriela' };
           if (q.get('fair') === '1') gs.fair = 1;
           window.shukTrack('swipe_start', gs);
