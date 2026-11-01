@@ -235,6 +235,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .ag-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-color:#B9C6D4}
   .ag-card:focus-within{border-color:var(--teal)}
+  .ag-name a{color:inherit;text-decoration:none}
+  .ag-name a:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 
   /* ---- ראש הכרטיס: גלריית נכסים ---- */
   .ag-media{position:relative;height:170px;background:var(--teal-tint);overflow:hidden}
@@ -1044,6 +1046,9 @@ function agencyCardHtml(a, eager){
   // agency.html מאתר משרד לפי slug בלבד; בלי slug אין לאן לקשר, ולכן
   // הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
   const href = a.slug ? '/agency?slug=' + encodeURIComponent(a.slug) : null;
+  const nameHtml = href
+    ? `<a href="${escapeHtml(href)}">${escapeHtml(name)}</a>`
+    : escapeHtml(name);
 
   const shots = a.photos.slice(0, 3);
   const media = shots.length
@@ -1102,7 +1107,7 @@ function agencyCardHtml(a, eager){
         <span class="ag-overlay ag-count">${a.dmText != null && !a.dmN ? '' : `<b>${a.dmText != null ? a.dmN : a.active_properties_count}</b> `}${propsLabel}</span>
       </div>
       <div class="ag-body">
-        <h2 class="ag-name">${escapeHtml(name)}</h2>
+        <h2 class="ag-name">${nameHtml}</h2>
         <!-- נכתב תמיד, גם בלי מוטו: ה-min-height שלו הוא מה שמיישר את
              הדירוג, האזורים והצ׳יפים לאותו גובה בכל הכרטיסים ברשת -->
         <p class="ag-tagline">${a.tagline ? escapeHtml(a.tagline) : ''}</p>

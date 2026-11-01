@@ -596,8 +596,11 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     display:flex;align-items:center;gap:14px;cursor:pointer;padding:20px;
     transition:box-shadow .15s ease,transform .15s ease;
     border-inline-start:4px solid var(--ag-accent,transparent);
+    color:inherit;text-decoration:none;
   }
-  .agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+  a.agency-strip:link,a.agency-strip:visited,a.agency-strip:hover,a.agency-strip:active{color:inherit;text-decoration:none}
+  a.agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+  a.agency-strip:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
   .agency-avatar{
     width:62px;height:62px;border-radius:0;
     background:var(--ag-brand,var(--teal));color:var(--ag-on-brand,#fff);
@@ -1789,7 +1792,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              היא הייתה האיבר האחרון בעמודת התוכן, ועמודת הצד באה מיד
              אחריה — ולכן בעמודה אחת הרצף (מפה ← משרד ← כרטיס הסוכן/ת)
              נשאר בדיוק כפי שהיה. -->
-        <div class="panel agency-strip" id="agencyStrip">
+        <a class="panel agency-strip" id="agencyStrip">
           <div class="agency-avatar" id="agencyAvatar">·</div>
           <div>
             <div class="agency-name" id="agencyName">-</div>
@@ -1798,7 +1801,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="chev" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </span>
-        </div>
+        </a>
 
         <!-- ====== כרטיס ההמרה ====== -->
         <div class="agent-card">

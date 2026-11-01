@@ -243,7 +243,18 @@ async function ldAt(url: string, row: unknown): Promise<Record<string, any> | nu
   try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
 }
 
-const agencyLd = await ldAt("/agency?slug=a", { name: "משרד הדר", description: "ד", logo_url: "/l.png", address: "הנשיא 5, עפולה", tagline: "ס" });
+function agencyNode(ld: Record<string, any> | null): Record<string, any> | null {
+  if (!ld) return null;
+  const graph = ld["@graph"];
+  if (Array.isArray(graph)) {
+    return graph.find((n) => {
+      const t = n["@type"];
+      return t === "RealEstateAgent" || (Array.isArray(t) && t.includes("RealEstateAgent"));
+    }) || null;
+  }
+  return ld;
+}
+const agencyLd = agencyNode(await ldAt("/agency?slug=a", { name: "משרד הדר", description: "ד", logo_url: "/l.png", address: "הנשיא 5, עפולה", tagline: "ס" }));
 const agentLd = await ldAt("/agent?slug=a", { display_name: "דנה", bio: "ב", photo_url: "/p.jpg", license_number: "123456" });
 const agentNoLicense = await ldAt("/agent?slug=a", { display_name: "דנה", bio: "ב", license_number: null });
 const articleLd = await ldAt("/article?slug=a", { slug: "a", title: "כותרת", subtitle: "תת", published_at: "2026-10-01T00:00:00Z", author_name: null });
@@ -260,20 +271,22 @@ async function agencyWithRating(rating: unknown, status = 200): Promise<Record<s
   const m = (await res.text()).match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
 }
-const rated = await agencyWithRating({ score: "4.67", review_count: 3 });
-const ratedOne = await agencyWithRating({ score: "5", review_count: 1 });
-const ratedNull = await agencyWithRating({ score: null, review_count: 0 });
-const ratedErr = await agencyWithRating({}, 500);
+const rated = agencyNode(await agencyWithRating({ score: "4.67", review_count: 3 }));
+const ratedOne = agencyNode(await agencyWithRating({ score: "5", review_count: 1 }));
+const ratedNull = agencyNode(await agencyWithRating({ score: null, review_count: 0 }));
+const ratedErr = agencyNode(await agencyWithRating({}, 500));
 
 const more: [string, boolean][] = [
   ["משרד עם 3 ביקורות: AggregateRating 4.7 מתוך 3", rated?.aggregateRating?.ratingValue === 4.7 &&
     rated?.aggregateRating?.reviewCount === 3],
-  ["משרד עם ביקורת אחת: בלי דירוג (הדף אינו מציג מתחת ל-2)", ratedOne?.["@type"] === "RealEstateAgent" &&
+  ["משרד עם ביקורת אחת: בלי דירוג (הדף אינו מציג מתחת ל-2)", Array.isArray(ratedOne?.["@type"]) && ratedOne["@type"].includes("LocalBusiness") &&
     ratedOne?.aggregateRating === undefined],
-  ["משרד בלי ביקורות: בלי דירוג", ratedNull?.["@type"] === "RealEstateAgent" && ratedNull?.aggregateRating === undefined],
-  ["כשל בשאילתת הדירוג: הדף יוצא בלי דירוג", ratedErr?.["@type"] === "RealEstateAgent" && ratedErr?.aggregateRating === undefined],
-  ["משרד: RealEstateAgent עם כתובת ולוגו", agencyLd?.["@type"] === "RealEstateAgent" &&
-    agencyLd?.address?.streetAddress === "הנשיא 5, עפולה" && agencyLd?.logo === "https://shuknadlan.co.il/l.png"],
+  ["משרד בלי ביקורות: בלי דירוג", Array.isArray(ratedNull?.["@type"]) && ratedNull?.aggregateRating === undefined],
+  ["כשל בשאילתת הדירוג: הדף יוצא בלי דירוג", Array.isArray(ratedErr?.["@type"]) && ratedErr?.aggregateRating === undefined],
+  ["משרד: RealEstateAgent ו-LocalBusiness עם כתובת ולוגו", Array.isArray(agencyLd?.["@type"]) &&
+    agencyLd["@type"].includes("RealEstateAgent") && agencyLd["@type"].includes("LocalBusiness") &&
+    agencyLd?.address?.streetAddress === "הנשיא 5, עפולה" && agencyLd?.address?.addressLocality === "עפולה" &&
+    agencyLd?.logo === "https://shuknadlan.co.il/l.png"],
   ["סוכן/ת: Person עם רישיון התיווך", agentLd?.["@type"] === "Person" &&
     agentLd?.hasCredential?.identifier === "123456"],
   ["סוכן/ת בלי רישיון: בלי hasCredential", agentNoLicense?.["@type"] === "Person" && agentNoLicense?.hasCredential === undefined],
@@ -362,7 +375,7 @@ for (const [name, pass] of bodies) {
    כשיש Content-Range; מוק בלי הכותרת הזו משאיר את הדף בלי מספר. */
 const agTitle = (ag.match(/<title>([^<]*)<\/title>/) || [])[1];
 const agMeta = (ag.match(/<meta name="description" content="([^"]*)">/) || [])[1];
-const agLd = ldOf(ag);
+const agLd = agencyNode(ldOf(ag));
 async function agencyCounted(row: Record<string, unknown>, range: string | null): Promise<string> {
   const page = readFileSync(new URL("../agency.html", import.meta.url), "utf8");
   globalThis.fetch = (async (input: string | URL | Request) => {
@@ -415,24 +428,54 @@ const headRedir = await handler(new Request("https://shuknadlan.co.il/agency.htm
   next: async () => new Response(PAGE, { headers: { "content-type": "text/html" } }),
 } as never);
 const agencyHead: [string, boolean][] = [
-  ["משרד הדר: כותרת עם העיר מהכתובת", agTitle === "משרד הדר - משרד תיווך בעפולה | שוק נדל״ן"],
+  ["משרד הדר: כותרת עם העיר מהכתובת", agTitle === "משרד הדר | משרד תיווך בעפולה - נכסים למכירה ולהשכרה | שוק נדל״ן"],
   ["בלי Content-Range: התיאור בלי מספר מומצא", !!agMeta && !agMeta.includes("נכסים פעילים") && agMeta.includes("פסקה א")],
   ["JSON-LD נשאר RealEstateAgent והתיאור שבו הוא על המשרד, לא שורת הספירה",
-    agLd?.["@type"] === "RealEstateAgent" && agLd?.description === "פסקה א פסקה <ב>" && agLd?.name === "משרד הדר"],
+    Array.isArray(agLd?.["@type"]) && agLd["@type"].includes("RealEstateAgent") &&
+    agLd?.description === "פסקה א פסקה <ב>" && agLd?.name === "משרד הדר"],
   ["אדל נכסים: כותרת ו-2 נכסים פעילים",
-    titleOf(adelHtml) === "אדל נכסים - פתרונות נדל״ן - משרד תיווך בעפולה | שוק נדל״ן"
-    && metaOf(adelHtml).includes("2 נכסים פעילים")],
+    titleOf(adelHtml) === "אדל נכסים - פתרונות נדל״ן | משרד תיווך בעפולה - נכסים למכירה ולהשכרה | שוק נדל״ן"
+    && metaOf(adelHtml).includes("2 נכסים פעילים") && !metaOf(adelHtml).includes("בדף הזה")],
   ["s.p: כותרת עם העיר",
-    titleOf(spHtml) === "s.p שיווק ניהול ומכירת נכסים - משרד תיווך בעפולה | שוק נדל״ן"],
+    titleOf(spHtml) === "s.p שיווק ניהול ומכירת נכסים | משרד תיווך בעפולה - נכסים למכירה ולהשכרה | שוק נדל״ן"],
   ["נכס אחד: נכס פעיל אחד", metaOf(oneHtml).includes("נכס פעיל אחד")],
   ["בלי Content-Range גם כשיש id: בלי מספר", !metaOf(noRange).includes("נכסים פעילים")],
   ["הכתובת גוברת על עיר ארוכה יותר באזורי הפעילות",
-    titleOf(areasFirst) === "אביה גולדברג - תיווך - משרד תיווך בעפולה | שוק נדל״ן"],
+    titleOf(areasFirst) === "אביה גולדברג - תיווך | משרד תיווך בעפולה - נכסים למכירה ולהשכרה | שוק נדל״ן"],
   ["/agency.html?slug= מופנה ל-/agency עם אותה שאילתה, בלי לקרוא למסד",
     redir.status === 301 && redir.headers.get("Location") === "/agency?slug=%D7%90%D7%93%D7%9C&utm=1" && !redirected],
   ["HEAD ל-/agency.html מופנה גם הוא",
     headRedir.status === 301 && headRedir.headers.get("Location") === "/agency?slug=a"],
 ];
+const describe = (globalThis as { ShukAgencyPlace?: { description: (o: Record<string, unknown>) => string } }).ShukAgencyPlace!.description;
+const countMeta = (sale: number, rent: number) => describe({
+  name: "משרד הדר", city: "עפולה", address: "הנשיא 5", total: sale + rent, sale, rent,
+  tagline: "", aboutFirst: "", hasPhone: true, hasAgents: true,
+});
+const bothCounts = countMeta(3, 2);
+const oneSale = countMeta(1, 0);
+const oneRent = countMeta(0, 1);
+const saleAndOneRent = countMeta(3, 1);
+const oneSaleAndRent = countMeta(1, 3);
+const oneAndOne = countMeta(1, 1);
+agencyHead.push(
+  ["שני מספרים: ו- לפני הספרה",
+    bothCounts.includes("3 למכירה ו-2 להשכרה") && !bothCounts.includes("/") && !bothCounts.includes("–")],
+  ["רק מכירה: נכס פעיל אחד למכירה, בלי כפילות",
+    oneSale.includes("נכס פעיל אחד למכירה") && !oneSale.includes("להשכרה") && !oneSale.includes(":")],
+  ["רק השכרה: נכס פעיל אחד להשכרה",
+    oneRent.includes("נכס פעיל אחד להשכרה") && !oneRent.includes("למכירה") && !oneRent.includes(":")],
+  ["ארבעה למכירה: 4 נכסים פעילים למכירה",
+    countMeta(4, 0).includes("4 נכסים פעילים למכירה") && !countMeta(4, 0).includes(":")],
+  ["מספר למכירה ונכס אחד להשכרה, בלי מקף אחרי הוו",
+    saleAndOneRent.includes("3 למכירה ונכס אחד להשכרה") && !saleAndOneRent.includes("ו-נכס")],
+  ["נכס אחד למכירה ו-מספר להשכרה", oneSaleAndRent.includes("נכס אחד למכירה ו-3 להשכרה")],
+  ["נכס אחד למכירה ונכס אחד להשכרה", oneAndOne.includes("נכס אחד למכירה ונכס אחד להשכרה")],
+  ["הכותרת נשארת עם מקף רגיל", (() => {
+    const titled = (globalThis as { ShukAgencyPlace?: { title: (n: string, c: string) => string } }).ShukAgencyPlace!.title("משרד הדר", "עפולה");
+    return titled.includes(" - ") && !titled.includes("–") && !titled.includes("—");
+  })()],
+);
 for (const [name, pass] of agencyHead) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);
@@ -874,7 +917,151 @@ if (process.env.RUN_NETWORK_TESTS !== "1") {
   console.log("· דילוג על PostgREST (הגדר RUN_NETWORK_TESTS=1)");
 }
 
-const total = CASES.length + checks.length + 3 + more.length + bodies.length + propHttp.length;
+const richPage = readFileSync(new URL("../agency.html", import.meta.url), "utf8");
+globalThis.fetch = (async (input: string | URL | Request) => {
+  const u = String(input instanceof Request ? input.url : input);
+  if (u.includes("agency_ratings_public")) {
+    return new Response(JSON.stringify({ score: null, review_count: 0 }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("market_deals")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-0/12" } });
+  }
+  if (u.includes("agency_members_public")) {
+    return new Response(JSON.stringify([
+      { id: "m1", slug: "dana", display_name: "דנה לוי", role: "manager", phone_e164: "972501234567", license_number: "9", has_ethics_badge: true },
+    ]), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("/properties?") && u.includes("select=id&")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-0/1" } });
+  }
+  if (u.includes("/properties?")) {
+    return new Response(JSON.stringify([{
+      id: "11111111-1111-4111-8111-111111111111",
+      title: "דירה בהולנד", price: 1000000, deal_type: "sale",
+      property_type: "דירה", city: "עפולה", street: "הולנד", rooms: 4, images: [],
+    }]), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  return new Response(JSON.stringify({
+    id: "ag", name: "אדל נכסים", description: null, address: "הולנד 12 עפולה",
+    tagline: "פתרונות נדלן", specialty_areas: ["עפולה"], specialties: ["residential_sale"],
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+const officeRes = await handler(new Request("https://shuknadlan.co.il/agency?slug=adel"), {
+  next: async () => new Response(richPage, { headers: { "content-type": "text/html; charset=utf-8" } }),
+} as never);
+const officeHtml = await officeRes.text();
+let richLd: Record<string, any> | null = null;
+try { richLd = JSON.parse(officeHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]); } catch { richLd = null; }
+const richBiz = agencyNode(richLd);
+const richCrumbs = richLd?.["@graph"]?.find((n: { "@type": string }) => n["@type"] === "BreadcrumbList");
+const richList = richLd?.["@graph"]?.find((n: { "@type": string }) => n["@type"] === "ItemList");
+const richSeo: [string, boolean][] = [
+  ["JSON-LD של משרד נפרס", !!richBiz && Array.isArray(richCrumbs?.itemListElement) && richCrumbs.itemListElement.length >= 3],
+  ["טלפון ויישוב בנתונים, בלי sameAs", richBiz?.telephone === "+972501234567" && richBiz?.address?.addressLocality === "עפולה" && richBiz?.sameAs === undefined],
+  ["יועץ עם קישור לדף שלו", richBiz?.employee?.[0]?.url === "https://shuknadlan.co.il/agent?slug=dana"],
+  ["רשימת נכסים עם קישור למודעה", richList?.itemListElement?.[0]?.url === "https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"],
+  ["יועץ ונכס ב-HTML, בלי משפטי החסר", officeHtml.includes('href="/agent?slug=dana"') && officeHtml.includes('href="/property?id=11111111-1111-4111-8111-111111111111"')
+    && !officeHtml.includes("המשרד לא נמצא") && !officeHtml.includes("לא נמצאו נכסים") && officeHtml.includes("להתקשר למשרד")],
+  ["כרטיס יועץ: השם הוא הקישור, והכפתורים אחים שלו", (() => {
+    const nameAt = officeHtml.indexOf('class="team-name" href="/agent?slug=dana"');
+    const nameEnd = nameAt < 0 ? -1 : officeHtml.indexOf("</a>", nameAt);
+    const badgeAt = officeHtml.indexOf('class="qb-badge"');
+    const waAt = officeHtml.indexOf('class="ta-wa"');
+    const between = nameAt < 0 || nameEnd < 0 ? "" : officeHtml.slice(nameAt, nameEnd);
+    return nameAt > 0 && nameEnd > nameAt && badgeAt > nameEnd && waAt > nameEnd
+      && officeHtml.includes('class="ta-tel"') && officeHtml.includes("> חיוג<")
+      && officeHtml.includes("ניהול המשרד") && officeHtml.includes("רישיון")
+      && !/<a[^>]*class="team-card"/.test(officeHtml)
+      && !/<(a|button)\b/.test(between);
+  })()],
+  ["סרגל המדדים ותגית העסקאות בשרת",
+    /id="statGrid"[^>]*data-ssr="1"/.test(officeHtml) && officeHtml.includes("נכס פעיל")
+    && officeHtml.includes("ניסיון מוכח בסגירת עסקאות")],
+  ["שליפות משניות שהצליחו: 200 והדף נשמר", officeRes.status === 200 && officeRes.headers.get("Cache-Control") !== "no-store"],
+];
+globalThis.fetch = (async (input: string | URL | Request) => {
+  const u = String(input instanceof Request ? input.url : input);
+  if (u.includes("agency_members_public")) return new Response("no", { status: 500 });
+  if (u.includes("/properties?")) return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-0/1" } });
+  if (u.includes("agency_ratings_public")) return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify({ id: "ag", name: "משרד", address: "עפולה" }), { status: 200, headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+const downMembers = await handler(new Request("https://shuknadlan.co.il/agency?slug=adel"), {
+  next: async () => new Response(richPage, { headers: { "content-type": "text/html; charset=utf-8" } }),
+} as never);
+richSeo.push(
+  ["כשל בשליפת הצוות: 200 ו-no-store, עם כותרת", downMembers.status === 200
+    && downMembers.headers.get("Cache-Control") === "no-store"
+    && downMembers.headers.get("Netlify-CDN-Cache-Control") === "no-store"
+    && (await downMembers.text()).includes("משרד | משרד תיווך בעפולה - נכסים למכירה ולהשכרה | שוק נדל״ן")],
+);
+const manySale = Array.from({ length: 10 }, () => ({ deal_type: "sale", property_type: "דירה", category: "residential" }));
+const manyRent = Array.from({ length: 4 }, () => ({ deal_type: "rent", property_type: "דירה", category: "residential" }));
+globalThis.fetch = (async (input: string | URL | Request) => {
+  const u = String(input instanceof Request ? input.url : input);
+  if (u.includes("select=deal_type")) {
+    return new Response(JSON.stringify([...manySale, ...manyRent]), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("market_deals")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-0/0" } });
+  }
+  if (u.includes("agency_members_public")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("agency_ratings_public")) {
+    return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("/properties?")) {
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json", "content-range": "0-11/14" } });
+  }
+  return new Response(JSON.stringify({
+    id: "ag", name: "משרד הדר", description: "משרד מקומי.", address: "הנשיא 5 עפולה",
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+const manyRes = await handler(new Request("https://shuknadlan.co.il/agency?slug=adel"), {
+  next: async () => new Response(richPage, { headers: { "content-type": "text/html; charset=utf-8" } }),
+} as never);
+const manyMeta = metaOf(await manyRes.text());
+richSeo.push(
+  ["מעל 12 נכסים: הפיצול מהרשימה המלאה, לא מ-12 הכרטיסים",
+    manyMeta.includes("14 נכסים פעילים: 10 למכירה ו-4 להשכרה")],
+);
+for (const [name, pass] of richSeo) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+const stripPage = `<!doctype html><html><head><title>x</title></head><body>
+<a class="panel agency-strip" id="agencyStrip"><div id="agencyName">-</div><div id="agentName" hidden></div></a>
+<h1 id="propTitle">-</h1><div id="propAddress"></div><div id="propDescription"></div><div id="bentoGrid"></div>
+<div id="heroPriceNum"></div><div id="heroPriceSub"></div><div id="agentPriceLabel"></div><div id="agentPriceValue"></div>
+<div id="sbPriceLabel"></div><div id="sbPriceValue"></div><div id="agentCardName"></div>
+</body></html>`;
+globalThis.fetch = (async (input: string | URL | Request) => {
+  const u = String(input instanceof Request ? input.url : input);
+  if (u.includes("agency_members_public")) {
+    return new Response(JSON.stringify({ display_name: "דנה" }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (u.includes("offset=")) return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify({
+    id: "11111111-1111-4111-8111-111111111111", title: "דירה", city: "עפולה", street: "הרצל",
+    price: 1000000, deal_type: "sale", status: "active", images: [], agencies: { name: "אדל נכסים", slug: "adel", logo_url: null },
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+const stripRes = await handler(new Request("https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"), {
+  next: async () => new Response(stripPage, { headers: { "content-type": "text/html" } }),
+} as never);
+const stripOut = await stripRes.text();
+richSeo.push(
+  ["רצועת המשרד בדף נכס היא קישור אל דף המשרד",
+    /<a\b[^>]*\bid="agencyStrip"[^>]*\bhref="\/agency\?slug=adel"/.test(stripOut)],
+);
+for (const [name, pass] of richSeo.slice(-1)) {
+  if (!pass) failed++;
+  console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+
+const total = CASES.length + checks.length + 3 + more.length + bodies.length + propHttp.length + richSeo.length;
 if (failed) {
   console.error(`\n✗ ${failed} מתוך ${total} מקרים התנהגו אחרת.`);
   process.exit(1);

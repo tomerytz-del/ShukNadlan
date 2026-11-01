@@ -304,6 +304,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:900px){.brand-cta{grid-template-columns:1fr;width:100%;max-width:none}}
   .brand-cta a{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    min-height:44px;box-sizing:border-box;
     padding:14px 24px;border-radius:0;font-weight:800;font-size:1rem;line-height:1;
     transition:transform .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;
   }
@@ -415,6 +416,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .about-text p{margin:0 0 10px;line-height:1.7;max-width:70ch;color:var(--ink)}
   .about-text p:last-child{margin-bottom:0}
   .team-sec{margin-top:26px;display:none}
+  .team-sec.is-on{display:block}
   /* ---------- רצועה נגללת ----------
      ‏overflow-x גולל, scroll-snap ממרכז כרטיס — כך שגלילה במגע נעצרת על
      כרטיס שלם ולא באמצע אחד. הפדינג האנכי משאיר מקום להרמה ב-hover ולצל.
@@ -430,16 +432,24 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* רצועה שאין בה מה לגלול לא תיראה כרצועה קטועה בקצה — הכרטיסים מתמרכזים */
   .rail.no-scroll{justify-content:center;flex-wrap:wrap}
   /* תגית "מנהל/ת המשרד" חורגת מעל שפת הכרטיס וזקוקה למקום מעליה */
-  .team-rail{padding-top:18px}
+  /* safe center: כשהכרטיסים נכנסים בלי גלילה הם ממורכזים כבר בציור
+     הראשון. הוספת המחלקה אחרי הטעינה הזיזה אותם (CLS במסך רחב). */
+  .team-rail{padding-top:18px;justify-content:safe center}
   .team-card{
     flex:0 0 196px;scroll-snap-align:center;position:relative;text-align:center;cursor:pointer;
     background:var(--surface);border:1px solid var(--hair);border-radius:0;
     padding:18px 14px 14px;box-shadow:var(--shadow-xs);
     display:flex;flex-direction:column;align-items:center;
+    min-height:44px;max-width:100%;min-width:0;box-sizing:border-box;
+    color:inherit;text-decoration:none;
     transition:transform .18s ease,box-shadow .18s ease;
   }
+  a.team-name{display:block;text-decoration:none;cursor:pointer}
+  a.team-name:link,a.team-name:visited,a.team-name:hover,a.team-name:active{color:var(--teal-dark);text-decoration:none}
+  .team-card:focus-visible,a.team-name:focus-visible,.team-actions a:focus-visible,.qb-badge:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
+  .qb-badge{display:inline-flex;align-items:center;padding:0;margin:0;border:0;background:none;line-height:1;cursor:pointer;font:inherit;color:inherit}
+  .qb-badge img{display:block}
   .team-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
-  .team-card:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
   /* כרטיס מנהל/ת המשרד: רחב יותר, נושא את גוון האקסנט מלמעלה ומקבל תגית
      תפקיד שיושבת על שפת הכרטיס — הבולטוּת נעשית בשלושה סימנים ולא באחד,
      כדי שתישמר גם כשהמשרד בחר אקסנט חיוור. */
@@ -464,15 +474,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .team-avatar img{width:100%;height:100%;object-fit:cover;display:block;object-position:var(--photo-pos,50% 25%)}
   .team-card.is-manager .team-avatar{width:104px;height:104px;font-size:2.2rem;box-shadow:0 0 0 3px var(--accent)}
-  .team-name{font-weight:800;font-size:.97rem;color:var(--teal-dark);margin-top:11px;line-height:1.25}
+  .team-name{font-weight:800;font-size:.97rem;color:var(--teal-dark);margin-top:11px;line-height:1.25;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .team-card.is-manager .team-name{font-size:1.06rem}
-  .team-role{font-size:.76rem;color:var(--ink-soft);margin-top:1px}
+  .team-role{font-size:.76rem;color:var(--ink-soft);margin-top:1px;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .team-sec,.rail-wrap,.team-rail{max-width:100%;min-width:0}
+  #agencyContent{overflow-x:clip}
   .team-lic{
     display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:.68rem;font-weight:700;
     background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:0;
   }
   .team-lic svg{width:11px;height:11px}
-  .team-badge{margin-top:8px;display:flex;justify-content:center}
+  .team-badge{margin-top:8px;display:flex;justify-content:center;min-height:28px;min-width:28px}
   /* הפעולות נדחפות לתחתית הכרטיס כדי שכל הכרטיסים ברצועה יסתיימו באותו קו,
      גם כשלאחד/ת יש רישיון ולאחר/ת אין. המכל — ולא שורת הכפתורים — הוא זה
      שנדחף, כדי שגם הערת הניתוב שמתחתיה תישאר צמודה אליהם. */
@@ -481,6 +495,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .team-actions{display:flex;gap:6px;width:100%}
   .team-actions a{
     flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+    min-height:44px;box-sizing:border-box;
     padding:8px 6px;border-radius:0;font-size:.78rem;font-weight:800;line-height:1;
     transition:background .15s ease,color .15s ease;
   }
@@ -590,6 +605,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שם הן מספרות סיפור ולא רק שורה בטבלה. משרד בלי נכסים פעילים לא מקבל
      כאן מקטע ריק: המקטע כולו לא נוצר. */
   .props-sec{margin-top:30px;display:none}
+  .props-sec.is-on{display:block}
 
   .prop-search{
     display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--hair);
@@ -1047,6 +1063,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      חותם הדף: אחרי שראו את הצוות, את הנכסים, את הגלריה ואת מה שכתבו על
      המשרד — הפנייה היא לאדם עם שם ופנים, ולא לטופס אנונימי. */
   .contact-sec{margin:30px 0 46px;display:none}
+  .contact-sec.is-on{display:block}
+  a.ag-call{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-height:44px;box-sizing:border-box;margin-top:10px;
+    padding:0 18px;background:#0e2a6b;color:#fff;text-decoration:none;
+    font-weight:800;font-size:.92rem;
+  }
+  a.ag-call:link,a.ag-call:visited,a.ag-call:hover,a.ag-call:active{color:#fff;text-decoration:none}
+  a.ag-call:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  p.contact-address{cursor:default}
+  p.contact-address:hover{background:var(--surface);border-color:var(--hair)}
   .contact-card{
     display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:20px 18px;
     background:linear-gradient(160deg,var(--teal-tint) 0%,var(--surface) 55%);
@@ -1230,7 +1257,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="wrap banner-inner">
       <div class="banner-main">
         <div class="banner-id">
-          <div class="brand-logo" id="brandLogo">·</div>
+          <div class="brand-logo" id="brandLogo"></div>
           <div class="banner-text">
             <p class="banner-eyebrow" id="brandEyebrow"></p>
             <h1 class="brand-name" id="brandName">-</h1>
@@ -1679,7 +1706,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- ---------- יצירת קשר עם מנהל/ת המשרד ---------- -->
     <section class="contact-sec" id="contactSec" aria-labelledby="contactHeading">
       <div class="sec-head">
-        <h2 id="contactHeading">יצירת קשר עם מנהל המשרד</h2>
+        <h2 id="contactHeading">יצירת קשר</h2>
       </div>
       <div class="panel contact-card" id="contactCard"></div>
     </section>
@@ -1704,6 +1731,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 
 <script src="assets/agency-place.js"></script>
+<script src="assets/agency-public.js"></script>
 <script src="assets/agency.js"></script>
 
 <footer class="site">
