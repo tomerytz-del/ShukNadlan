@@ -4454,10 +4454,11 @@ let hoodShapes = [];
    הוא נטען רק לשכונה שנבחרה, ב-drawHoodShapes. */
 // ‏neighborhood_aliases של השוק - נטענים עם השכונות ועוברים לחיפוש במשפט
 let hoodAliases = [];
+let cityGroups = [];
 async function loadNeighborhoods(){
   if (!sb) return [];
   try{
-    const [{ data, error }, spec, aliasRes] = await Promise.all([
+  const [{ data, error }, spec, aliasRes, groupRes] = await Promise.all([
       sb.from('neighborhoods').select('id,name,city,city_id,lat,lng,radius_m,is_planned'),
       marketFilterSpec(),
       /* הכינויים ("סי 1", "גבעה", "מרכז") - אותה טבלה שהבוטים קוראים, כדי
@@ -4465,6 +4466,9 @@ async function loadNeighborhoods(){
          כשל כאן אינו מפיל את השכונות: בלי כינויים, רק השמות עצמם. */
       sb.from('neighborhood_aliases').select('neighborhood_id, alias')
         .then(r => r, () => ({ data: [] })),
+      /* קבוצות יישובים (חבל תענך). בלי הפונקציה, לפני המיגרציה, החיפוש
+         נשאר על שמות הערים עצמן. */
+      sb.rpc('city_groups_public').then(r => r, () => ({ data: [] })),
     ]);
     if (error) throw error;
     // ‏השכונות של השוק בלבד - אותו כלל של הנכסים (MARKET_FILTER), על city_id
@@ -4472,6 +4476,7 @@ async function loadNeighborhoods(){
     const rows = (data || []).filter(n => inMarket(spec, n.city_id));
     const ids = new Set(rows.map(n => n.id));
     hoodAliases = ((aliasRes && aliasRes.data) || []).filter(a => ids.has(a.neighborhood_id));
+    cityGroups = (groupRes && !groupRes.error && groupRes.data) || [];
     return rows;
   } catch(e){
     console.warn('טעינת השכונות נכשלה, ממשיכים בלי גלולות השכונה:', e);
@@ -4781,7 +4786,7 @@ try {
     renderHomeProps(properties);
 
     // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
-    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases });
+    if (sentence) sentence.setProperties(properties, { aliases: hoodAliases, groups: cityGroups });
     else if (!searchHasRun) renderPropertyGrid(properties);
     renderQuickSearch(properties);
     v10DefaultSale();

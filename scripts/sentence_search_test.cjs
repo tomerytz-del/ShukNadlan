@@ -526,4 +526,46 @@ test('עדכון כתובת שומר utm, gclid ו-fbclid, ו-deal=sale מפור
   assert.ok(hash.includes('gclid=1') && hash.includes('rooms=3'), hash);
 });
 
+const TAANACH = ['אביטל', 'אדירים', 'ברק', 'גדיש', 'דבורה', 'מלאה', 'מיטב', 'אומן', 'חבר', 'יעל', 'ניר יפה', 'פרזון'];
+const TAANACH_GROUPS = [{
+  name: 'חבל תענך',
+  aliases: ['תענכים', 'התענכים', 'חבל תענך', 'תענך', 'יישובי תענך', 'ישובי תענך', 'גוש תענך', 'אזור תענך'],
+  member_names: TAANACH,
+}];
+function taanachPack(ptype) {
+  const props = TAANACH.map((city, i) => P({
+    id: 't' + i, city, deal_type: 'sale', property_type: ptype, rooms: 4, price: 1500000,
+  }));
+  [1, 2, 3].forEach(n => props.push(P({
+    id: 'af' + n, city: 'עפולה', deal_type: 'sale', property_type: ptype, rooms: 4, price: 1500000,
+  })));
+  const areas = C.deriveAreas(props, [], TAANACH_GROUPS);
+  return { props, areas, ctx: { areaIndex: areas.index, marketLabel: 'עפולה והעמק' } };
+}
+function taanachCities(q, ptype) {
+  const pack = taanachPack(ptype);
+  const parsed = C.compileQuery(q, C.defaultState(), pack.areas, pack.props, pack.ctx, []);
+  const st = C.applyPatch(C.defaultState(), parsed.patch);
+  const hits = C.filter(pack.props, st, pack.ctx);
+  return { cities: [...new Set(hits.map(p => p.city))].sort(), n: hits.length };
+}
+test('חבל תענך: תענכים, התענכים, דירה בחבל תענך ובית בתענך הם 12 היישובים בלי עפולה', () => {
+  const want = TAANACH.slice().sort();
+  [['תענכים', 'דירה'], ['התענכים', 'דירה'], ['דירה בחבל תענך', 'דירה']].forEach(([q, ptype]) => {
+    const got = taanachCities(q, ptype);
+    assert.deepStrictEqual(got.cities, want, q);
+    assert.strictEqual(got.n, 12, q);
+    assert.ok(!got.cities.includes('עפולה'), q);
+  });
+  const house = taanachCities('בית בתענך', "בית פרטי/קוטג'");
+  assert.deepStrictEqual(house.cities, want, 'בית בתענך');
+  assert.strictEqual(house.n, 12);
+  assert.ok(!house.cities.includes('עפולה'));
+});
+test('אומן לבד הוא רק אומן, לא כל חבל תענך', () => {
+  const got = taanachCities('אומן', 'דירה');
+  assert.deepStrictEqual(got.cities, ['אומן']);
+  assert.strictEqual(got.n, 1);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

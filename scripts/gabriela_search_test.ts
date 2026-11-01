@@ -2,7 +2,9 @@
 //   node --experimental-strip-types scripts/gabriela_search_test.ts
 
 import {
+  applyGroupAreaHint,
   cityMatchGroup,
+  neighborhoodCityScope,
   searchMissRow,
   searchMissStoreMissing,
   shouldLogSearchMiss,
@@ -148,6 +150,50 @@ check("התאמת עיר כוללת מזהה ואת שני הכתיבים",
   group.some((p) => p.startsWith("city_id.eq.")) &&
   group.some((p) => p.includes("קריית")) &&
   group.some((p) => p.includes("קרית")));
+
+const taanachIds = [
+  "11111111-1111-4111-8111-111111111101",
+  "11111111-1111-4111-8111-111111111102",
+  "11111111-1111-4111-8111-111111111103",
+  "11111111-1111-4111-8111-111111111104",
+  "11111111-1111-4111-8111-111111111105",
+  "11111111-1111-4111-8111-111111111106",
+  "11111111-1111-4111-8111-111111111107",
+  "11111111-1111-4111-8111-111111111108",
+  "11111111-1111-4111-8111-111111111109",
+  "11111111-1111-4111-8111-11111111110a",
+  "11111111-1111-4111-8111-11111111110b",
+  "11111111-1111-4111-8111-11111111110c",
+];
+const taanach = cityMatchGroup("תענכים", "חבל תענך", null, taanachIds, ["אביטל", "אומן"]);
+const inClause = taanach.find((p) => p.startsWith("city_id.in.(")) || "";
+check("תענכים מייצר city_id.in. עם 12 מזהים",
+  inClause.startsWith("city_id.in.(") &&
+  taanachIds.every((id) => inClause.includes(id)) &&
+  inClause.slice("city_id.in.(".length, -1).split(",").length === 12);
+check("קבוצה מוסיפה תבנית שם של יישוב ולא של הכינוי",
+  taanach.some((p) => p.includes("אביטל")) &&
+  taanach.some((p) => p.includes("אומן")) &&
+  !taanach.some((p) => p.includes("תענכים")));
+
+const hoodHint = {
+  area_not_recognized: true,
+  known_neighborhoods: ["גבעת המורה"],
+  area_note: "השכונה שהתבקשה אינה מוכרת",
+};
+const keptHint = applyGroupAreaHint(hoodHint, "חבל תענך", "גבעת המורה");
+check("רמז שכונה נשאר כשיש גם קבוצה",
+  keptHint === hoodHint && keptHint.area_note === hoodHint.area_note && !("area_name" in keptHint));
+const alone = applyGroupAreaHint({}, "חבל תענך", "");
+check("בלי שכונה שם הקבוצה הוא הרמז",
+  alone.area_name === "חבל תענך" && String(alone.area_note).includes("חבל תענך"));
+
+const scope = neighborhoodCityScope(
+  { group: true, name: "חבל תענך", memberNames: ["אומן", "יעל"] },
+  "חבל תענך",
+);
+check("שכונה בקבוצה נשמרת לפי היישובים",
+  scope !== null && "cities" in scope && scope.cities.includes("אומן") && !scope.cities.includes("חבל תענך"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
