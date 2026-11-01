@@ -2218,19 +2218,27 @@ function initVisualizationForm(){
    מקום לפני ואחרי. הדמיה שנטענה מהשרת לא סבלה מזה, וזו הסיבה שהתקלה נראתה
    רק אחרי לחיצה על הכפתור. */
 function mergeVizResults(rows){
+  /* מרנדרים רק כשמשהו השתנה. עם בדיקה כל שנייה, רינדור מחדש בכל אחת מהן
+     היה מחליף את מסך ההמתנה פעם בשנייה, ומאפס את הווילון באמצע גרירה
+     (הבדיקה מחזירה שוב ושוב גם את החדרים שכבר נגמרו). */
   const key = vizState.current || '_';
   const list = vizState.byStyle.get(key) || [];
-  rows.forEach(r=>{
-    if (!r.result_url) return;
+  let changed = false;
+  (rows || []).forEach(r=>{
+    if (!r || !r.result_url) return;
     const source = r.source_image_url || null;
     const existing = list.find(x=>x.target === r.target);
     if (existing){
+      if (existing.result_url === r.result_url && (!source || existing.source_image_url === source)) return;
+      changed = true;
       existing.result_url = r.result_url;
       if (source) existing.source_image_url = source;
     } else {
+      changed = true;
       list.push({ target:r.target, result_url:r.result_url, source_image_url:source });
     }
   });
+  if (!changed) return;
   vizState.byStyle.set(key, list);
   // הדמיה שהרגע נוצרה נכנסת לרצועה בלי לרענן את הדף
   renderPropertyShowcase();
@@ -2245,8 +2253,12 @@ async function pollVisualizationJob(jobId, pendingTargets){
 
   renderVizPending(remaining);
 
+  /* ‏viz-speed (1.11.2026): כל שנייה ב-20 השניות הראשונות - שם נגמרות כמעט כל
+     ההדמיות (p50 בשרת כ-11 שניות) - ואז כל 3 שניות. קודם 4 שניות קבוע, כלומר
+     עד 4 שניות של המתנה אחרי שהתמונה כבר הייתה מוכנה. */
+  const started = Date.now();
   while (Date.now() < DEADLINE){
-    await new Promise(r=>setTimeout(r, 4000));
+    await new Promise(r=>setTimeout(r, Date.now() - started < 20000 ? 1000 : 3000));
     const { data } = await sb.rpc('visualization_job_status', { p_job_id: jobId });
     const rows = data || [];
 
