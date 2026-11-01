@@ -9135,7 +9135,9 @@ window.v10MarketCityCounts = function(){
   return v10CityCountsP;
 };
 
-// כניסות לגלישה בהחלקה (‏/swipe): הקישור ב-hero ובבאנר ההדמיות - רק עם הדגל
+// כניסות לגלישה בהחלקה (‏/swipe): הקישור ב-hero ובבאנר ההדמיות - רק עם הדגל.
+// כל a[data-swipe-via] בדף, כולל הכפתור של גבריאלה - ולכן הווידג'ט אינו סופר בעצמו כשהדגל הזה דלוק
+window.__homeSwipeStart = true;
 document.addEventListener('click', e => {
   const a = e.target.closest && e.target.closest('a[data-swipe-via]');
   if (!a || !v10On() || !window.shukTrack || !sentence) return;
