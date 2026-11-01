@@ -8318,7 +8318,7 @@ function v10InviteRotate(a){
   if (!stack || !deck || !stack.animate) return;
   const ssGet = k => { try { return sessionStorage.getItem(k); } catch(e){ return '1'; } };
   const ssSet = k => { try { sessionStorage.setItem(k, '1'); } catch(e){ /* מצב פרטי */ } };
-  let timer = 0, on = false, busy = false, dir = 1, sheening = false;
+  let timer = 0, on = false, busy = false, dir = 1, sheening = false, retry = false;
   const schedule = ms => { clearTimeout(timer); timer = on && !document.hidden ? setTimeout(cycle, ms) : 0; };
   // הלב או ה-X בצד מתנפחים (‏.is-pop, ‏CSS), ולב קטן או X קופצים מעל התמונה
   function pop(d){
@@ -8335,12 +8335,15 @@ function v10InviteRotate(a){
     ], { duration: 650, easing: 'ease-out' }).finished.then(() => b.remove(), () => b.remove());
   }
   /* ‏swipe-1117-fix: שרשרת טיימרים אחת בלבד - כל קביעה עוברת ב-schedule, שמנקה את הקודמת. ומחזור שמגיע
-     באמצע החלקה (לשונית שחזרה, גלילה חזרה, תמונה שנטענת יותר מ-3.5 שניות) לא נוטש את השרשרת - הוא
-     מנסה שוב קצת אחרי. קודם הוא חזר בלי לקבוע את הבא, וההחלקה נעצרה עד סוף הביקור */
+     באמצע החלקה (לשונית שחזרה, גלילה חזרה, תמונה שנטענת יותר מ-3.5 שניות) לא נוטש את השרשרת - הבא
+     נקבע כשההחלקה נגמרת, 1.8 שניות אחריה (בלי שתי החלקות צמודות). קודם הוא חזר בלי לקבוע את הבא,
+     וההחלקה נעצרה עד סוף הביקור */
   function cycle(){
     timer = 0;
     if (!on || document.hidden || a.hidden) return;   // ‏_rotate וה-visibilitychange מתחילים שוב
-    if (busy){ schedule(400); return; }
+    // באמצע החלקה (או בטעינת התמונה הבאה) - המחזור הבא נקבע כשהיא נגמרת (‏finally), עם רווח
+    // ‏10 שניות - רשת ביטחון אם התמונה הבאה לא נטענת ולא נכשלת; ‏finally מחליף אותה
+    if (busy){ retry = true; schedule(10000); return; }
     const top = stack.lastElementChild;
     if (!top || top.hidden){ schedule(3500); return; }
     schedule(3500);
@@ -8350,7 +8353,7 @@ function v10InviteRotate(a){
     if (!ai){ run(top, '', ''); return; }
     const n = swipeThumbMissing(stack), pre = new Image();
     pre.onload = () => run(top, pre.src, n);
-    pre.onerror = () => { busy = false; };
+    pre.onerror = () => { busy = false; if (retry){ retry = false; schedule(1800); } };
     pre.src = swipeThumb(n, true);
   }
   function run(top, src, n){
@@ -8398,6 +8401,7 @@ function v10InviteRotate(a){
     }).finally(() => {
       busy = false;
       if (hand) hand.remove();
+      if (retry){ retry = false; schedule(1800); }
     });
   }
   // ‏§2.5: פס האור על "להתחיל להחליק" - פעם בביקור, כשהכרטיס נכנס למסך, ורק אחריו ההחלקה הראשונה
