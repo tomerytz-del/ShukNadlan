@@ -43,6 +43,15 @@ body.land-page .land-hero .land-chips { flex-wrap: wrap; gap: 0; row-gap: 2px; m
 body.land-page .land-hero .land-chips li { background: none; padding: 0; border-radius: 0; font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; }
 body.land-page .land-hero .land-chips li + li::before { content: none; }
 body.land-page .land-hero .land-chips li:not(:last-child)::after { content: "·"; margin-inline: 8px; opacity: .8; }
+/* שורת הנתונים בגיבור יושבת על גבול השורה: ברוחב 412 היא שתיים בגופן
+   הגיבוי ואחת ב-Heebo (העמק, 0.156), ובדפים אחרים להפך. המספרים חיים,
+   אז אין size-adjust אחד שמתאים לכולם, וגופן מקומי (Arimo) ממילא אינו
+   באנדרואיד. גובה שמור של שתי שורות, רק עד 759px שם השבירה אפשרית.
+   בדסקטופ השורה אחת תמיד, וגובה שמור היה חור ריק. 1.3 ו-14px הם
+   ה-line-height וה-font-size של ה-li למעלה, ו-2px הוא ה-row-gap. */
+@media (max-width: 759px) {
+  body.land-page .land-hero .land-chips { min-height: calc(2 * 1.3 * 14px + 2px); }
+}
 /* הסינון המהיר מתחת לתמונה: בטלפון רשת 3×3 שווה, בלי גלילה אופקית ובלי צ'יפ חתוך */
 @media (max-width: 759px) {
   body.land-page .land-filters[aria-label="סינון מהיר"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: visible; scroll-snap-type: none; }
