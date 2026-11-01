@@ -18,7 +18,7 @@ import { processCsmCall } from "../_shared/csm-call.ts";
 //
 //   ?event=incoming   — שיחה נכנסת. יוצרת שורה ב-agent_calls ומחזירה TwiML.
 //   ?event=dial       — ה-action של <Dial>: נענתה או לא. שיחה שלא נענתה
-//                       מקבלת הודעה ללקוח/ה ("נחזור אליכם") והתראה לסוכן/ת.
+//                       מקבלת הודעה ללקוח/ה ("אפשר לנסות שוב מאוחר יותר") והתראה לסוכן/ת.
 //   ?event=recording  — ההקלטה מוכנה. עוברת אלינו (דלי call-recordings),
 //                       נמחקת מ-Twilio, מתומללת ב-Whisper ומסוכמת ב-Claude,
 //                       והסוכן/ת מקבל/ת בוואטסאפ את הסיכום ואת ההקלטה.
@@ -70,8 +70,8 @@ const WA_AUDIO_MAX_BYTES = 16 * 1024 * 1024;
 
 const VOICE = 'voice="Google.he-IL-Standard-A" language="he-IL"';
 const MSG_RECORDED = "שלום, הגעתם לשוק נדל״ן. השיחה מוקלטת לשיפור השירות.";
-const MSG_MISSED = "לא הצלחנו לענות כרגע. נחזור אליכם בהקדם. תודה.";
-const MSG_VOICEMAIL = "לא הצלחנו לענות כרגע. השאירו הודעה אחרי הצליל, ונחזור אליכם בהקדם.";
+const MSG_MISSED = "לא הצלחנו לענות כרגע. אפשר לנסות שוב מאוחר יותר. תודה.";
+const MSG_VOICEMAIL = "לא הצלחנו לענות כרגע. אפשר להשאיר הודעה אחרי הצליל. תודה.";
 const MSG_VOICEMAIL_DONE = "תודה, ההודעה נשמרה.";
 // ‏הודעה קולית: עד שתי דקות, וחמש שניות של שקט מסיימות אותה. הודעה קצרה
 // מ-VOICEMAIL_MIN_SEC היא ניתוק אחרי הצליל ולא הודעה - נמחקת בלי תמלול.
@@ -513,7 +513,7 @@ async function onDial(p: URLSearchParams): Promise<Response> {
   return xml(await voicemailXml(call?.line_id ?? null));
 }
 
-/** ‏**תא קולי** במקום "נחזור אליכם" וניתוק. ההודעה עוברת את צינור ההקלטה
+/** ‏**תא קולי** במקום ניתוק מיד. ההודעה עוברת את צינור ההקלטה
  *  (‏event=voicemail): אחסון, תמלול, סיכום ווואטסאפ לסוכן/ת.
  *
  *  ‏**אותו תנאי של הקלטת שיחה** (‏phone_line_recording_allowed): מספר שעבר את
