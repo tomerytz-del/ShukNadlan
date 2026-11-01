@@ -42,7 +42,10 @@ import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
   canonicalCity,
+  citySearchArgs,
+  collapseCityNames,
   filterByArea,
+  groupAreaNote,
   SearchCore,
   searchMissRow,
   searchMissStoreMissing,
@@ -3052,15 +3055,10 @@ async function agentPropertySearch(
   const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
   let cityId: string | null = null;
   if (typeof args.city === "string" && args.city.trim()) {
-    const raw = args.city;
+    const raw = args.city.trim();
     const canon = await canonicalCity(ctx.supabase, raw);
     cityId = canon?.id || null;
-    args = {
-      ...args,
-      city: canon?.name || raw.trim(),
-      city_raw: raw.trim(),
-      city_id: cityId,
-    };
+    args = { ...args, ...citySearchArgs(canon, raw) };
   }
   const searchSelect = AGENT_SEARCH_FIELDS + ", air_directions, living_room_sqm";
   let built = applyPropertyFilters(
@@ -3096,9 +3094,18 @@ async function agentPropertySearch(
   }
   let hint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, { withHint: true, cityId });
+    const res = await filterByArea(ctx.supabase, rows, area, built.parsed.city, {
+      withHint: true,
+      cityId,
+      cityIds: Array.isArray(args.city_ids) ? args.city_ids.map((id) => String(id || "")) : [],
+      memberNames: Array.isArray(args.member_names) ? args.member_names.map((n) => String(n || "")) : [],
+    });
     rows = res.rows;
     hint = res.hint;
+  }
+  if (typeof args.city_group === "string" && args.city_group) {
+    const note = groupAreaNote(args.city_group);
+    hint = { ...hint, area_name: args.city_group, ...(note ? { area_note: note } : {}) };
   }
 
   const sharedSet = new Set(shared);
@@ -5388,19 +5395,8 @@ function stripNewClientColumns(payload: Record<string, unknown>): void {
 async function canonicalizeClientCities(ctx: ToolContext, payload: Record<string, unknown>): Promise<number> {
   if (!Array.isArray(payload.cities)) return 0;
   const capped = capCities(payload.cities);
-  const names: string[] = [];
-  const seenIds = new Set<string>();
-  for (const raw of capped.kept) {
-    const canon = await canonicalCity(ctx.supabase, String(raw || ""));
-    if (!canon) continue;
-    if (canon.id) {
-      if (seenIds.has(canon.id)) continue;
-      seenIds.add(canon.id);
-    }
-    const stored = canon.raw || canon.name;
-    if (stored && !names.includes(stored)) names.push(stored);
-  }
-  payload.cities = names;
+  // קבוצה נשמרת כשם אחד (חבל תענך). ההרחבה ליישובים היא ב-client_property_match.
+  payload.cities = await collapseCityNames(ctx.supabase, capped.kept.map((raw) => String(raw || "")));
   return capped.dropped;
 }
 
@@ -5410,6 +5406,16 @@ async function cityRefs(ctx: ToolContext, cities: readonly string[]): Promise<{ 
   for (const raw of cities) {
     const canon = await canonicalCity(ctx.supabase, raw);
     if (!canon) continue;
+    if (canon.group) {
+      // השם שנשמר הוא שם הקבוצה. מזהי החברים כאן רק כדי ששכונה בתוך הקבוצה
+      // לא תימחק. הם לא נכתבים ל-agent_clients.cities.
+      resolved = true;
+      refs.push({ name: canon.name, id: null });
+      canon.ids.forEach((id, i) => {
+        refs.push({ name: canon.memberNames[i] || canon.name, id });
+      });
+      continue;
+    }
     if (canon.id) resolved = true;
     refs.push({ name: canon.name || canon.raw, id: canon.id });
     if (canon.raw && canon.raw !== canon.name) refs.push({ name: canon.raw, id: canon.id });

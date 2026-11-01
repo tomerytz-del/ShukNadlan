@@ -9,9 +9,12 @@ import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
   canonicalCity,
+  citySearchArgs,
+  collapseCityNames,
   CATEGORIES,
   DEAL_TYPES,
   filterByArea,
+  groupAreaNote,
   likeSafe,
   logBotSearch,
   logWordMisses,
@@ -961,7 +964,7 @@ async function searchProperties(
   if (cityRaw) {
     const canon = await canonicalCity(ctx.supabase, cityRaw);
     cityId = canon?.id || null;
-    args = { ...args, city: canon?.name || cityRaw, city_raw: cityRaw, city_id: cityId };
+    args = { ...args, ...citySearchArgs(canon, cityRaw) };
   }
   const built = applyPropertyFilters(
     ctx.supabase.from("properties").select(PROPERTY_FIELDS).eq("status", "active"),
@@ -1003,7 +1006,12 @@ async function searchProperties(
   if (!area) rows = rows.slice(0, limit);
   let areaHint: Record<string, unknown> = {};
   if (area) {
-    const res = await filterByArea(ctx.supabase, rows, area, city, { withHint: !args._relaxed, cityId });
+    const res = await filterByArea(ctx.supabase, rows, area, city, {
+      withHint: !args._relaxed,
+      cityId,
+      cityIds: Array.isArray(args.city_ids) ? args.city_ids.map((id) => String(id || "")) : [],
+      memberNames: Array.isArray(args.member_names) ? args.member_names.map((n) => String(n || "")) : [],
+    });
     rows = res.rows.slice(0, limit);
     areaHint = res.hint;
   }
@@ -1157,6 +1165,9 @@ async function searchProperties(
         "כאילו יש בהן אותו."
       : undefined,
     ...areaHint,
+    ...(typeof args.city_group === "string" && args.city_group
+      ? { area_name: args.city_group, area_note: groupAreaNote(args.city_group) }
+      : {}),
   };
 }
 
@@ -2087,7 +2098,7 @@ async function saveSearchAlert(
   // בחר/ה לכתוב ממנו, וההוראות מחייבות לומר בשיחה שבו נשתמש.
   const phone = text(args.phone) || ctx.waPhone;
 
-  const cities = strListArg(args.cities, 5);
+  const cities = await collapseCityNames(ctx.supabase, strListArg(args.cities, 5));
   const neighborhoodId = await lookupNeighborhoodId(
     ctx,
     cities[0] ?? null,
@@ -2232,12 +2243,13 @@ async function projectLead(
     ? args.rooms.map((r) => Number(r)).filter((r) => Number.isFinite(r) && r > 0).slice(0, 8)
     : [];
 
+  const projectCities = await collapseCityNames(ctx.supabase, strListArg(args.cities, 8));
   const { ok, status, body } = await callIntake("project-lead-intake", {
     full_name: fullName,
     phone: text(args.phone) || ctx.waPhone,
     email: text(args.email),
     project_slug: text(args.project_slug),
-    cities: strListArg(args.cities, 8),
+    cities: projectCities,
     rooms,
     max_price: args.max_price,
     timeline: text(args.timeline),

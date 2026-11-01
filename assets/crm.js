@@ -15455,10 +15455,11 @@ function propertySearchBlob(p){
    שני הקבצים (‏~25KB דחוסים) נטענים רק בהקלדה הראשונה בשדה - לא בפתיחת
    ה-CRM. עד שהם מגיעים החיפוש עובד כמו קודם, ואז מצויר מחדש. */
 let crmQueryAliases = null;
+let crmQueryGroups = null;
 let crmQueryLoading = null;
 
 function crmQueryReady(){
-  return !!(window.SentenceSearch && window.SentenceSearch.Core && window.SearchCore && crmQueryAliases);
+  return !!(window.SentenceSearch && window.SentenceSearch.Core && window.SearchCore && crmQueryAliases && crmQueryGroups);
 }
 
 function ensureCrmQuery(){
@@ -15474,8 +15475,16 @@ function ensureCrmQuery(){
   crmQueryLoading = ensureSearchCore()
     .then(() => (window.SentenceSearch ? null : load('/assets/sentence-search.js')))
     // הכינויים ("סי 1", "גבעה") - אותה טבלה של האתר והבוטים; בלעדיהם, רק השמות
-    .then(() => sb.from('neighborhood_aliases').select('neighborhood_id, alias').then(r => r, () => ({ data: [] })))
-    .then(r => { crmQueryAliases = (r && r.data) || []; return true; })
+    .then(() => Promise.all([
+      sb.from('neighborhood_aliases').select('neighborhood_id, alias').then(r => r, () => ({ data: [] })),
+      sb.rpc('city_groups_public').then(r => r, () => ({ data: [] })),
+    ]))
+    .then(pair => {
+      const aliases = pair[0], groups = pair[1];
+      crmQueryAliases = (aliases && aliases.data) || [];
+      crmQueryGroups = (groups && !groups.error && groups.data) || [];
+      return true;
+    })
     .catch(() => false)
     .finally(() => {
       crmQueryLoading = null;
@@ -15497,7 +15506,7 @@ function crmQueryMatches(rows, q, blobOf, asSearchRow, namesOf){
   if (/^[#\d\s\-+()]+$/.test(q)) return plain();
   if (namesOf && rows.some(r => SC.textHas(namesOf(r), q))) return plain();
   const mapped = rows.map(r => Object.assign(asSearchRow(r), { __row: r }));
-  const areas = Core.deriveAreas(mapped, crmQueryAliases);
+  const areas = Core.deriveAreas(mapped, crmQueryAliases, crmQueryGroups);
   const ctx = { areaIndex: areas.index };
   const cq = Core.compileQuery(q, Core.defaultState(), areas, mapped, ctx, []);
   if (!cq.fields.length && !cq.features.length) return plain();
