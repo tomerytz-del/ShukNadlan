@@ -16539,11 +16539,11 @@ function buildPropertyCard(p, agentId){
     });
   }
 
-  // החתמת בעל/ת הנכס - הטופס נפתח כשפרטי הנכס והבעלים כבר בתוכו
+  // החתמת בעל/ת הנכס - קודם "איזה הסכם?" (רגיל או בלעדיות), והטופס נפתח עם פרטי הנכס והבעלים
   addQuickAction(actions, {
     label:'החתמה', icon:'signature',
-    title:'הזמנת שירותי תיווך מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
-    onClick:()=> openAgreementWizard({ kind: p.deal_type === 'rent' ? 'landlord' : 'sell', propertyId: p.id }),
+    title:'הזמנת שירותי תיווך או בלעדיות מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
+    onClick:()=> openSignChooser(p),
   });
 
   if (p.status === 'active'){
@@ -33904,6 +33904,69 @@ async function openAgreementWizard(opts){
   agrRender();
 }
 
+/* ‏sign-chooser (1.11.2026): "החתמה" בכרטיס הנכס - חלון קטן "איזה הסכם להחתים?". עד כאן האריח פתח ישר את
+   הזמנת שירותי התיווך, ולא הייתה ממנו דרך לבלעדיות או לתפריט המלא. התוויות כאן ולא מהתבנית: ל-sell
+   ול-exclusive_sell (וכך גם למשכיר) יש בתבניות אותו label, "החתם טופס מכירה". ‏"כל ההסכמים" - שלב 1
+   של האשף, עם הנכס כבר מצורף (‏agrAddProperty בלי kind, והשלמה ב-agrSetKind) */
+const SIGN_CHOICES = {
+  sale: [
+    { kind:'sell',           label:'הזמנת שירותי תיווך · מכירה' },
+    { kind:'exclusive_sell', label:'בלעדיות · מכירה' },
+  ],
+  rent: [
+    { kind:'landlord',           label:'הזמנת שירותי תיווך · השכרה' },
+    { kind:'exclusive_landlord', label:'בלעדיות · השכרה' },
+  ],
+};
+async function openSignChooser(p){
+  const opener = document.activeElement;
+  if (window.crmNeed && !window.AgreementTemplates){
+    try { await crmNeed('agreements'); } catch (e) {}
+  }
+  document.getElementById('signChooser')?.remove();
+  const list = SIGN_CHOICES[p.deal_type === 'rent' ? 'rent' : 'sale'];
+  const wrap = document.createElement('div');
+  wrap.id = 'signChooser';
+  wrap.className = 'sign-chooser';
+  wrap.innerHTML =
+    '<div class="sign-chooser-card" role="dialog" aria-modal="true" aria-labelledby="signChooserTitle">' +
+      '<div class="sign-chooser-head"><h3 id="signChooserTitle">איזה הסכם להחתים?</h3>' +
+        '<button type="button" class="sign-chooser-x" data-sc="close" aria-label="סגירה">×</button></div>' +
+      list.map((c, i) => {
+        const t = agrTpl(c.kind);
+        const hint = t ? (t.menuHint || '') + (t.verified ? '' : ' · נוסח לאישור') : '';
+        return `<button type="button" class="sign-chooser-opt${i === 0 ? ' is-primary' : ''}" data-sc-kind="${esc(c.kind)}">` +
+          `<span class="sign-chooser-ico" aria-hidden="true">${agrKindIcon(c.kind)}</span>` +
+          `<span class="sign-chooser-copy"><span class="sign-chooser-name">${esc(c.label)}</span>` +
+          (hint ? `<span class="sign-chooser-hint">${esc(hint)}</span>` : '') + '</span></button>';
+      }).join('') +
+      '<button type="button" class="sign-chooser-all" data-sc="all">כל ההסכמים</button>' +
+    '</div>';
+  document.body.appendChild(wrap);
+  const close = () => {
+    wrap.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (opener && opener.focus) opener.focus();
+  };
+  const onKey = e => {
+    if (e.key === 'Escape'){ e.preventDefault(); close(); return; }
+    if (e.key === 'Tab'){   // הפוקוס נשאר בתוך החלון
+      const els = [...wrap.querySelectorAll('button')];
+      const i = els.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0){ e.preventDefault(); els[els.length - 1].focus(); }
+      else if (!e.shiftKey && i === els.length - 1){ e.preventDefault(); els[0].focus(); }
+    }
+  };
+  document.addEventListener('keydown', onKey, true);
+  wrap.addEventListener('click', e => {
+    if (e.target === wrap || e.target.closest('[data-sc="close"]')){ close(); return; }
+    const opt = e.target.closest('[data-sc-kind]');
+    if (opt){ wrap.remove(); document.removeEventListener('keydown', onKey, true); openAgreementWizard({ kind: opt.dataset.scKind, propertyId: p.id }); return; }
+    if (e.target.closest('[data-sc="all"]')){ wrap.remove(); document.removeEventListener('keydown', onKey, true); openAgreementWizard({ propertyId: p.id }); }
+  });
+  wrap.querySelector('[data-sc-kind]').focus();
+}
+
 function agrCloseWizard(){
   agrEl('agrModal').style.display = 'none';
   agrWizard = null;
@@ -34022,10 +34085,22 @@ function agrSetKind(kind, opts){
   // החלפת סוג הטופס מחליפה גם את רשימת שדות הנכס (מלאה מול מקוצרת). מה
   // שכבר מולא נשמר, ומה שהטופס החדש דורש ואינו קיים נפתח ריק.
   agrWizard.properties.forEach(entry => {
+    const src = agrWizard.propSrc && agrWizard.propSrc[entry.uid];
     tpl.propertyFields.forEach(f => {
-      if (!(f.key in entry.fields)) entry.fields[f.key] = '';
+      if (!(f.key in entry.fields) || (src && !entry.fields[f.key])) {
+        entry.fields[f.key] = src ? (agrFieldFromProperty(f, src.p, src.planning) || entry.fields[f.key] || '') : (entry.fields[f.key] || '');
+      }
     });
   });
+  // ‏sign-chooser: נכס שצורף לפני שנבחר סוג - הבעלים נכנסים כחותמים אם הטופס הוא של צד הנכס
+  const own = agrWizard.pendingOwner;
+  if (own && own.owner_name && tpl.side === 'owner' && !agrWizard.signers.length){
+    agrWizard.signers.push({
+      uid: agrNextUid(), party:'client', full_name: own.owner_name,
+      id_number: '', self_fill: true, phone: own.owner_phone || '',
+      email: own.owner_email || '', address: own.owner_address || '', client_id: null,
+    });
+  }
   if (!(opts && opts.silent)){
     agrWizard.step = 2;
     agrRender();
@@ -34435,6 +34510,12 @@ async function agrAddProperty(propertyId, opts){
     uid: agrNextUid(), property_id: propertyId, source: cand.source,
     label: agrPropertyLabel(p), fields, notes: p.description || '',
   };
+  /* ‏sign-chooser: "כל ההסכמים" מצרף את הנכס לפני שנבחר סוג. מה שהטופס שייבחר צריך ועוד לא מולא,
+     ‏agrSetKind ממלא מאותו נכס (ולא ריק), והבעלים נכנסים כחותמים כשהטופס הוא של צד הנכס.
+     לא נשמר במסמך: ההסכם נבנה מ-fields ו-notes בלבד */
+  w.propSrc = w.propSrc || {};
+  w.propSrc[entry.uid] = { p, planning };
+  if (!tpl && owner) w.pendingOwner = owner;
 
   if (tpl && tpl.propertyMode === 'single') w.properties = [entry];
   else w.properties.push(entry);
