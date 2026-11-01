@@ -1001,6 +1001,35 @@
     return { items: items, test: function (p) { return tests.every(function (t) { return t(p); }); } };
   }
 
+  /* פרמטרים שהמשפט והסינון המתקדם כותבים. כל השאר (utm_*, gclid, fbclid,
+     beta, src, dm_tab) נשאר בכתובת כשהיא מתעדכנת. */
+  var URL_OWNED = {
+    deal: 1, type: 1, ptype: 1, rooms: 1, minPrice: 1, maxPrice: 1, q: 1, hoods: 1, city: 1, ai: 1,
+    features: 1, listing: 1, floorMin: 1, floorMax: 1, sizeMin: 1, sizeMax: 1,
+    condition: 1, status: 1, moveIn: 1, soon: 1, text: 1,
+    restrooms: 1, storageAt: 1, mamadAt: 1, ppsqmMin: 1, ppsqmMax: 1, newOnly: 1,
+  };
+
+  /* מחרוזת החיפוש נכתבת על הכתובת הקיימת בלי למחוק פרמטרים שאינם של החיפוש.
+     ‏deal=sale שנבחר במפורש נשאר: מחיקה שלו מאבדת את הבחירה בחזרה מדף נכס
+     כש-v10 כבוי. "למכירה" של טעינה אינה נכתבת כאן - זה #1110 (סיבת default).
+     qs הוא הפלט של toParams (מקודד). מחזיר pathname + search + hash. */
+  function applySearchToUrl(href, qs) {
+    var url = new URL(href, 'https://shuknadlan.co.il/');
+    var keep = [];
+    var raw = url.search.charAt(0) === '?' ? url.search.slice(1) : url.search;
+    if (raw) {
+      raw.split('&').forEach(function (pair) {
+        if (!pair) return;
+        var key = pair.split('=')[0].replace(/\+/g, ' ');
+        try { key = decodeURIComponent(key); } catch (e) { /* מפתח שבור נשאר */ }
+        if (!URL_OWNED[key]) keep.push(pair);
+      });
+    }
+    var parts = qs ? keep.concat(qs.split('&').filter(Boolean)) : keep;
+    return url.pathname + (parts.length ? '?' + parts.join('&') : '') + url.hash;
+  }
+
   var Core = {
     TYPES: TYPES, SHORT_MAX: SHORT_MAX, examplePhrases: examplePhrases, ROOM_BUCKETS: ROOM_BUCKETS, SLOT_ORDER: SLOT_ORDER, NEAR_KM: NEAR_KM,
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
@@ -1011,7 +1040,7 @@
     parse: parse, compileQuery: compileQuery, parsedNote: parsedNote, placeNote: placeNote, featuresNote: featuresNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, joinSpeech: joinSpeech, toParams: toParams, parseRooms: parseRooms,
     advancedFromParams: advancedFromParams, typesLabel: typesLabel, hoodsLabel: hoodsLabel, roomsInLabel: roomsInLabel,
-    spokenNumbers: spokenNumbers,
+    spokenNumbers: spokenNumbers, applySearchToUrl: applySearchToUrl,
   };
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = Core; return; }
@@ -1303,14 +1332,15 @@
     function commitUrl() {
       if (!urlTouched || !root.history || !root.history.replaceState) return;
       try {
-        var url = new URL(root.location.href);
         var qs = toParams(st, areas, ctx);
         /* המאפיינים (‏"עם ממ״ד") אינם חלק מהמשפט, והדף כותב אותם (‏opts.urlExtra).
            בלעדיהם חזרה מדף נכס פתחה את אותו חיפוש בלי ממ״ד, והוצגו דירות בלעדיו. */
         var extraQs = ctx.extra && typeof opts.urlExtra === 'function' ? opts.urlExtra() : '';
         if (extraQs) qs = qs ? qs + '&' + extraQs : extraQs;
-        url.search = qs ? '?' + qs : '';
-        root.history.replaceState(root.history.state, '', url);
+        var next = applySearchToUrl(root.location.href, qs);
+        var here = root.location.pathname + root.location.search + root.location.hash;
+        if (next === here) return;
+        root.history.replaceState(root.history.state, '', next);
       } catch (e) { /* דפדפן שחוסם היסטוריה - החיפוש עדיין עובד */ }
     }
 
