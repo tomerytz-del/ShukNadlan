@@ -447,6 +447,26 @@ const agencyHead: [string, boolean][] = [
   ["HEAD ל-/agency.html מופנה גם הוא",
     headRedir.status === 301 && headRedir.headers.get("Location") === "/agency?slug=a"],
 ];
+const describe = (globalThis as { ShukAgencyPlace?: { description: (o: Record<string, unknown>) => string } }).ShukAgencyPlace!.description;
+const countMeta = (sale: number, rent: number) => describe({
+  name: "משרד הדר", city: "עפולה", address: "הנשיא 5", total: sale + rent, sale, rent,
+  tagline: "", aboutFirst: "", hasPhone: true, hasAgents: true,
+});
+const bothCounts = countMeta(3, 2);
+const oneSale = countMeta(1, 0);
+const oneRent = countMeta(0, 1);
+const saleAndOneRent = countMeta(4, 1);
+agencyHead.push(
+  ["שני הצדדים: למכירה ו-להשכרה, בלי לוכסן",
+    bothCounts.includes("3 למכירה ו-2 להשכרה") && !bothCounts.includes("/") && !bothCounts.includes("–")],
+  ["רק מכירה: בלי השכרה", oneSale.includes("נכס אחד למכירה") && !oneSale.includes("להשכרה")],
+  ["רק השכרה: נכס אחד להשכרה", oneRent.includes("נכס אחד להשכרה") && !oneRent.includes("למכירה")],
+  ["השכרה של נכס אחד ליד כמה למכירה", saleAndOneRent.includes("4 למכירה ו-נכס אחד להשכרה")],
+  ["הכותרת נשארת עם מקף רגיל", (() => {
+    const titled = (globalThis as { ShukAgencyPlace?: { title: (n: string, c: string) => string } }).ShukAgencyPlace!.title("משרד הדר", "עפולה");
+    return titled.includes(" - ") && !titled.includes("–") && !titled.includes("—");
+  })()],
+);
 for (const [name, pass] of agencyHead) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);

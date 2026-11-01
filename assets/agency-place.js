@@ -78,14 +78,23 @@
   /* תגית ה-meta. חלקים חסרים נופלים, בלי משפט "בדף הזה".
      total/sale/rent הם null כשהספירה לא הצליחה - לא ממציאים מספר.
      tagline גובר על המשפט הראשון של התיאור. */
+  /* נכס בודד נכתב "נכס אחד למכירה" או "נכס אחד להשכרה", בלי לוכסן.
+     שניים ויותר הם המספר. כשיש את שניהם: "2 למכירה ו-3 להשכרה".
+     כשיש רק צד אחד, רק הוא. */
+  function dealCount(n, one, many) {
+    return n === 1 ? one : (n + many);
+  }
+
   function countSentence(total, sale, rent) {
     if (total == null || !isFinite(total) || total <= 0) return '';
     var head = total === 1 ? 'נכס פעיל אחד' : (total + ' נכסים פעילים');
     if (sale == null || rent == null) return head;
-    var parts = [];
-    if (sale > 0) parts.push(sale + ' למכירה');
-    if (rent > 0) parts.push(rent + ' להשכרה');
-    return parts.length ? (head + ': ' + parts.join(', ')) : head;
+    var saleN = Number(sale) || 0;
+    var rentN = Number(rent) || 0;
+    var saleText = saleN > 0 ? dealCount(saleN, 'נכס אחד למכירה', ' למכירה') : '';
+    var rentText = rentN > 0 ? dealCount(rentN, 'נכס אחד להשכרה', ' להשכרה') : '';
+    var split = saleText && rentText ? (saleText + ' ו-' + rentText) : (saleText || rentText);
+    return split ? (head + ': ' + split) : head;
   }
 
   function firstSentence(text) {
