@@ -17,3 +17,10 @@ insert into public.pricing_config (key, value, description) values
   ('visualization_prerender_all_styles', 0,
    'הדמיות: 1 = כל ארבעת הסגנונות נוצרים מראש לנכס פרטי (בפרסום וברקע אחרי בקשה). עולה כסף - רק באישור תומר')
 on conflict (key) do nothing;
+
+-- ‏viz-1115-fix: פגיעה במטמון ההדמיות נרשמת ביומן ‏ai_usage_log עם model = 'cache' (‏viz_cache_hit),
+-- בלי קריאה למודל. בלי שורה במחירון הפאנל "עלויות AI" ב-CRM מציג "בלי מחיר" - כאן היא 0 לתמונה.
+insert into public.ai_model_prices
+  (model, input_usd_mtok, output_usd_mtok, cache_read_usd_mtok, cache_write_usd_mtok, cache_write_1h_usd_mtok, unit_usd, unit_label) values
+  ('cache', 0, 0, 0, 0, 0, 0, 'תמונה')
+on conflict (model) do nothing;
