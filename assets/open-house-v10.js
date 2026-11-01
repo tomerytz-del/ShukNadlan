@@ -83,10 +83,12 @@
 
   /* ---------- הראש, השלבים והבלוקים הקבועים ---------- */
   function head(live) {
+    /* הראש, השלבים ושורת גבריאלה יושבים ב-HTML (ציור ראשון). דריסה של
+       ה-h1 כאן הייתה מחליפה נוסח שכבר על המסך ומזיזה את מה שמתחתיו. */
     var kick = document.querySelector('.oh-head-kicker');
-    if (kick) kick.textContent = 'יריד הבתים הפתוחים';
+    if (kick && !kick.querySelector('.oh-kicker-v10')) kick.textContent = 'יריד הבתים הפתוחים';
     var h1 = document.querySelector('.oh-head h1');
-    if (h1) h1.innerHTML = 'דירות ב<span data-market-label>' + esc(market()) + '</span>, בלי עמלת תיווך';
+    if (h1 && !h1.querySelector('.oh-h1-v10')) h1.innerHTML = 'דירות ב<span data-market-label>' + esc(market()) + '</span>, בלי עמלת תיווך';
     var body = document.querySelector('.oh-head-body');
     if (body && !body.querySelector('.ohv-lead')) {
       body.insertAdjacentHTML('afterbegin',
@@ -96,6 +98,8 @@
     }
     var go = $('ohvGo');
     if (go) { go.textContent = live ? 'לדירות שביריד' : 'מה זה היריד?'; go.setAttribute('href', live ? '#fairProps' : '#ohvSteps'); }
+    var swipe = document.querySelector('[data-ohv-swipe]');
+    if (swipe) { swipe.hidden = !live; swipe.setAttribute('href', swipeHref()); }
     var box = document.querySelector('.oh-head');
     if (box && !$('ohvGab')) {
       box.insertAdjacentHTML('beforeend', '<div class="wrap"><p class="ohv-gab" id="ohvGab"><img class="ohv-gab-fig" src="/assets/gabriela-cutout-400.webp" width="400" height="695" alt="" decoding="async" onerror="this.style.visibility=\'hidden\'">' +
@@ -105,12 +109,12 @@
   }
   function steps() {
     var ol = document.querySelector('.oh-steps');
+    var t = $('fairHowTitle'); if (t) t.classList.remove('sr-only');
     if (!ol || $('ohvSteps')) return;
     ol.insertAdjacentHTML('afterend', '<ol class="ohv-steps" id="ohvSteps">' + STEPS.map(function (s, i) {
       return '<li><i aria-hidden="true">' + (i + 1) + '</i><div><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></div></li>';
     }).join('') + '</ol>');
     ol.hidden = true;
-    var t = $('fairHowTitle'); if (t) t.classList.remove('sr-only');
   }
   function faq() {
     var sec = $('fairFaq');

@@ -178,6 +178,25 @@ function absolute(u: unknown): string {
   return SITE + (s.startsWith("/") ? s : "/" + s);
 }
 
+/* כתובת תמונה שנכנסת ל-src. רק http(s) על הדומיינים שלנו, או נתיב יחסי
+   באתר. javascript: ומארח זר לא נכתבים לדף. אותו רעיון כמו safeImageUrl
+   ב-agency.js, עם הגבלת דומיין כי כאן הכתובת מגיעה מהמסד אל ה-HTML. */
+function safeImageUrl(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const s = raw.trim();
+  if (!s || s.startsWith("//")) return "";
+  if (s.startsWith("/") || s.startsWith("assets/")) return s;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return "";
+    const host = u.hostname.toLowerCase();
+    if (host === "obookujgolazrwycsiyn.supabase.co" || host === "shuknadlan.co.il" || host === "www.shuknadlan.co.il") {
+      return s;
+    }
+  } catch { /* לא כתובת */ }
+  return "";
+}
+
 /* ‏שלוש תשובות ולא שתיים, וההפרדה בין השתיים האחרונות היא כל העניין:
    ‏"אין רשומה כזו" ו-"לא הצלחנו לשאול" נראים אותו דבר מכאן — שניהם חוסר
    מידע — אבל ההשלכה שלהם הפוכה. על הראשון מותר להסיק שאין דף לאנדקס
@@ -240,6 +259,10 @@ type Meta = {
   /* דף נכס: חושפים את המודעה, שומרים מקום לסרגל, ומכניסים את תמונת השער.
      placeholder: אין תמונה ואין פוסטר, והשער הוא קובץ הפלטפורמה. */
   paint?: { count: number; html: string; lcp: string; placeholder?: boolean };
+  /* דף משרד: חושפים את התוכן כבר ב-HTML (agency-ready), ועם תמונת נושא
+     גם has-cover. preloadImage היא תמונת ה-LCP, אותה כתובת כמו ה-img. */
+  bodyClass?: string;
+  preloadImage?: string;
   /* ‏דף נכס בלי עיר ומחוץ לתיבת השוק (‏P0-A2): 200 עם כל התגיות, ועוד noindex */
   noindex?: boolean;
 };
@@ -905,6 +928,21 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     ? shared.ShukAgencyPlace.title(a.name, city)
     : clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90);
 
+  /* תמונת הנושא היא ה-LCP. ה-og:image נשאר על הקובץ המלא; ה-img וה-preload
+     על העותק המוקטן, אותה מחרוזת ש-coverRenderUrl ב-agency.js כותב.
+     רק אחרי safeImageUrl: מארח זר לא נכנס ל-src. */
+  const coverSafe = safeImageUrl(a.cover_url);
+  const coverAbs = coverSafe ? absolute(coverSafe) : "";
+  const coverLcp = coverAbs ? (heroRenderUrl(coverAbs, 1400, 800) || coverAbs) : "";
+  const inner: { id: string; html: string }[] = [];
+  if (about.length) inner.push({ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") });
+  if (coverLcp) {
+    inner.push({
+      id: "bannerMedia",
+      html: `<img class="banner-lcp" alt="" width="1400" height="800" fetchpriority="high" decoding="async" src="${esc(coverLcp)}">`,
+    });
+  }
+
   return {
     title,
     description: agencyBlurb(a.name, city, listingCount, aboutText),
@@ -912,8 +950,10 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
     canonical,
     jsonLd: agency,
     fills: [{ id: "brandName", text: String(a.name || "") }],
-    inner: about.length ? [{ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") }] : [],
+    inner,
     reveal: about.length ? ["aboutSec"] : [],
+    bodyClass: coverLcp ? "agency-ready has-cover" : "agency-ready",
+    preloadImage: coverLcp || undefined,
   };
 }
 
@@ -1331,6 +1371,10 @@ function inject(html: string, m: Meta): string {
   for (const f of m.fills || []) out = fillText(out, f.id, f.text);
   for (const f of m.inner || []) out = fillInner(out, f.id, f.html);
   for (const id of m.reveal || []) out = unhide(out, id);
+  if (m.bodyClass) out = addBodyClass(out, m.bodyClass);
+  if (m.preloadImage) {
+    add.push(`<link rel="preload" as="image" href="${esc(m.preloadImage)}" fetchpriority="high">`);
+  }
   if (m.paint) {
     out = addBodyClass(out, "property-ready has-sticky-bar");
     if (m.paint.placeholder) out = preloadPlaceholder(out);
