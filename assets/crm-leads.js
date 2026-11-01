@@ -697,9 +697,14 @@ function openLeadsDemand(opts){
     main.setAttribute('aria-pressed', e.currentTarget.getAttribute('aria-pressed'));
     setOwnerLeadsActive(main);
   });
-  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const openLeadPrefsGuarded = () => {
+    const run = () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); };
+    if (typeof openLeadPrefs === 'function' || !window.crmNeed) { run(); return; }
+    crmNeed('settings').then(run).catch(() => {});
+  };
+  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefsGuarded());
   const prefEdit = document.getElementById('leadsPrefEdit');
-  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefsGuarded());
   const sheetClose = document.getElementById('leadPrefsSheetClose');
   const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
   if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);

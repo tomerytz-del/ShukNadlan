@@ -8,9 +8,12 @@ on:
     paths:
       - "crm.html"
       - "assets/crm.js"
+      - "assets/crm-*.js"
       - "assets/crm-lazy.js"
       - "docs/analytics-gtm.md"
       - "scripts/crm_lazy_test.mjs"
+      - "scripts/crm_lazy_scan.mjs"
+      - "scripts/crm_lazy_browser.py"
       - "scripts/check_gtm.py"
       - ".github/workflows/crm_lazy.yml"
   push:
@@ -18,9 +21,12 @@ on:
     paths:
       - "crm.html"
       - "assets/crm.js"
+      - "assets/crm-*.js"
       - "assets/crm-lazy.js"
       - "docs/analytics-gtm.md"
       - "scripts/crm_lazy_test.mjs"
+      - "scripts/crm_lazy_scan.mjs"
+      - "scripts/crm_lazy_browser.py"
       - "scripts/check_gtm.py"
       - ".github/workflows/crm_lazy.yml"
   workflow_dispatch:
@@ -33,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: acorn
+        run: npm install --prefix /tmp/acorn-ci acorn@8.14.0
       - name: בדיקת הדחייה
         run: node scripts/crm_lazy_test.mjs
       - name: תגיות GTM

@@ -75,14 +75,14 @@
   /* קבוצה שנשענת על אחרת מחכה לה, ולא נטענת לפניה. בלי זה ערכת הרכיבים
      או עזרי הדאשבורד חסרים ברגע שהקובץ רץ. */
   var PRE = {
-    settings: ['ui'],
-    leads: ['ui'],
+    settings: ['ui', 'onboarding'],
+    leads: ['ui', 'settings'],
     properties: ['ui'],
     matches: ['ui'],
     suggestions: ['ui'],
-    home: ['ui'],
+    home: ['ui', 'leads'],
     onboarding: ['ui'],
-    profilePages: ['ui'],
+    profilePages: ['ui', 'settings'],
     areas: ['markets', 'ui'],
     office: ['ui'],
     /* המאמן נטען לפני הדאשבורדים: הם רושמים ציור ב-coachRerender
@@ -95,7 +95,7 @@
     teams: ['ui'],
     csm: ['ui'],
     adminInbox: ['ui'],
-    command: ['ui', 'coach'],
+    command: ['ui', 'coach', 'adminInbox'],
     growth: ['ui'],
     budget: ['ui'],
     hoodDrafts: ['ui'],
@@ -141,6 +141,22 @@
   };
 
   var pending = {};
+  /* כישלון טרי. טעינות שנפתחות בזו אחר זו (נכסים, ואז לידים) לא
+     פותחות המתנה חדשה של 8 שניות כל אחת. לחיצה על "נסו שוב" אחרי
+     זה כן מנסה שוב. */
+  var failedAt = {};
+  /* קובץ שנתקע (502 אחרי 40 שניות) לא מקפיא רשימה. ניסיון שני, ואז
+     דחייה כדי שהקורא יציג שגיאה במסך ולא יחכה.
+     השעון רץ מכאן ולא מתוך טעינת הקובץ: טיימר שנקבע באותו תור שבו
+     מוכנס סקריפט שלא חוזר לא נורה בכלל, והרשימה נשארת על "טוען". */
+  var SCRIPT_TIMEOUT_MS = 8000;
+  var loading = [];
+  setInterval(function () {
+    var now = Date.now();
+    for (var i = 0; i < loading.length; i++) {
+      if (now - loading[i].t >= SCRIPT_TIMEOUT_MS) loading[i].finish(false);
+    }
+  }, 1000);
 
   function loadOne(src, integrity) {
     var found = document.querySelector('script[src="' + src + '"]');
@@ -148,44 +164,64 @@
     if (found && found.dataset.failed === '1') { found.remove(); found = null; }
     return new Promise(function (resolve, reject) {
       var s = found || document.createElement('script');
-      var done = function () { s.dataset.ready = '1'; resolve(); };
-      var fail = function () {
-        s.dataset.failed = '1';
-        s.remove();
-        reject(new Error(src));
+      var settled = false;
+      var slot = { t: Date.now(), finish: null };
+      var finish = function (ok) {
+        if (settled) return;
+        settled = true;
+        var at = loading.indexOf(slot);
+        if (at >= 0) loading.splice(at, 1);
+        if (ok) { s.dataset.ready = '1'; resolve(); }
+        else {
+          s.dataset.failed = '1';
+          s.remove();
+          reject(new Error(src));
+        }
       };
+      slot.finish = finish;
+      loading.push(slot);
       if (!found) {
         s.src = src;
         s.async = true;
         if (integrity) { s.integrity = integrity; s.crossOrigin = 'anonymous'; }
-        s.onload = done;
-        s.onerror = fail;
+        s.onload = function () { finish(true); };
+        s.onerror = function () { finish(false); };
         document.head.appendChild(s);
       } else {
-        s.addEventListener('load', done);
-        s.addEventListener('error', fail);
+        s.addEventListener('load', function () { finish(true); });
+        s.addEventListener('error', function () { finish(false); });
       }
     });
   }
 
+  function loadGroup(group) {
+    var deps = PRE[group] || [];
+    var chain = Promise.resolve();
+    for (var d = 0; d < deps.length; d++) {
+      (function (dep) {
+        chain = chain.then(function () { return crmNeed(dep); });
+      })(deps[d]);
+    }
+    var list = GROUPS[group];
+    for (var i = 0; i < list.length; i++) {
+      (function (item) {
+        chain = chain.then(function () { return loadOne(item[0], item[1]); });
+      })(list[i]);
+    }
+    return chain;
+  }
+
   function crmNeed(group) {
     if (!GROUPS[group]) return Promise.resolve();
+    if (failedAt[group] && Date.now() - failedAt[group] < 4000) {
+      return Promise.reject(new Error(group));
+    }
     if (!pending[group]) {
-      var deps = PRE[group] || [];
-      var chain = Promise.resolve();
-      for (var d = 0; d < deps.length; d++) {
-        (function (dep) {
-          chain = chain.then(function () { return crmNeed(dep); });
-        })(deps[d]);
-      }
-      var list = GROUPS[group];
-      for (var i = 0; i < list.length; i++) {
-        (function (item) {
-          chain = chain.then(function () { return loadOne(item[0], item[1]); });
-        })(list[i]);
-      }
-      pending[group] = chain.catch(function (err) {
+      pending[group] = loadGroup(group).catch(function () {
+        return loadGroup(group);
+      }).catch(function (err) {
         delete pending[group];
+        failedAt[group] = Date.now();
         throw err;
       });
     }

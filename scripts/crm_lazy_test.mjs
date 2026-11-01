@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { fixtureFailures, scan } from './crm_lazy_scan.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'crm.html'), 'utf8');
@@ -351,4 +352,27 @@ test('קריאה לקובץ עצלן שמורה ב-typeof או ב-crmNeed של �
     const body = crm.slice(crm.indexOf(fn), crm.indexOf(fn) + 700);
     for (const needle of groups) assert.ok(body.includes(needle), fn + ' ' + needle);
   }
+});
+
+test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפיל את הדשבורד', () => {
+  const at = crm.indexOf('function closeNavLayers()');
+  assert.ok(at > 0);
+  const body = crm.slice(at, at + 500);
+  assert.equal(body.startsWith('function closeNavLayers'), true);
+  assert.equal(body.includes('await'), false);
+  assert.match(lazy, /SCRIPT_TIMEOUT_MS = 8000/);
+  assert.match(lazy, /setInterval\(function \(\) \{/);
+  assert.match(lazy, /return loadGroup\(group\)/);
+  assert.match(crm, /const crmQuiet = /);
+  assert.match(crm, /crmNeed\('contacts'\)\.then\(initContactPick\)/);
+  const form = crm.slice(crm.indexOf('function openClientForm()'), crm.indexOf('function openClientForm()') + 400);
+  assert.match(form, /initContactPick/);
+  assert.match(lazy, /home: \['ui', 'leads'\]/);
+  assert.match(lazy, /command: \['ui', 'coach', 'adminInbox'\]/);
+  assert.match(lazy, /leads: \['ui', 'settings'\]/);
+});
+
+test('סריקת AST תופסת את מה שהסריקה הישנה פספסה, והקוד נקי', () => {
+  assert.deepEqual(fixtureFailures(), []);
+  assert.deepEqual(scan(root), []);
 });

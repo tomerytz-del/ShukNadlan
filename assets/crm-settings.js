@@ -306,7 +306,8 @@ async function saveLeadPrefs(s){
   leadPrefsRow = { preferred_neighborhoods: s.hoods, preferred_property_types: s.types, preferred_deal_types: s.deals, active };
   syncLeadPrefsUi();
   // צעד "העדפות לידים" במדריך ההתחלה נסגר בשמירה הזו
-  refreshOnboarding();
+  if (window.crmNeed) { try { await crmNeed('onboarding'); } catch (e) {} }
+  if (typeof refreshOnboarding === 'function') refreshOnboarding();
 }
 
 /* המתג בכותרת נשמר מיד ועובד גם כשהחלק סגור. מי שעוד אין לו/ה שורה -

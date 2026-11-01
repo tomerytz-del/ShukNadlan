@@ -1130,6 +1130,9 @@ buildTabRow({ key, list, expanded, cls, icon, title, sub, pill, price, priceNote
 ‏`deeplink-timing`, ‏`crm.js`. שאר המסכים נטענים מ-`crmNeed` כשהקטגוריה
 או יעד הקישור נפתחים, ואחרי הציור גם כשהדפדפן פנוי (`crmArmSections`).
 סקריפט `defer` אחד שנתקע היה עוצר את כולם, כולל מסך הכניסה.
+`crmNeed` ממתין 8 שניות לקובץ, מנסה פעם נוספת, ואז דוחה. קובץ שחזר 502
+או נתקע לא מפיל את הדשבורד: כל טעינה ב-`loadDashboard` נתפסת לבד, והרשימה
+מציגה "נסו שוב" במקום לזרוק.
 
 **‏`<script src>` רגיל ולא `defer`.** ‏`defer` היה מזיז את הריצה לאחרי
 `assets/pwa-install.js` (שהוא `defer`), בעוד היום הסקריפט הראשי רץ

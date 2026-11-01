@@ -2274,7 +2274,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   if (typeof loadOnboarding === 'function') {
     loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
   } else if (window.crmNeed) {
-    crmNeed('onboarding').then(() => loadOnboarding()).catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
+    crmNeed('onboarding').then(() => {
+      if (typeof loadOnboarding === 'function') return loadOnboarding();
+    }).catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
   }
   loadSocialPrompt().catch(err => console.warn('כרטיס התיוג אינו זמין:', err));
   licenseHoldP = refreshLicenseHold();
@@ -2353,7 +2355,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       else if (key === 'demand') await start('demand', () =>
         (typeof loadOpenDemand === 'function'
           ? loadOpenDemand()
-          : crmNeed('leads').then(() => loadOpenDemand())));
+          : crmNeed('leads').then(() => (typeof loadOpenDemand === 'function' ? loadOpenDemand() : null))));
       else if (key === 'shared') await start('shared', () => loadSharedWithMe());
       else if (key === 'agreements') await start('agreements', () => loadAgreements());
       else if (key === 'agenda') await start('agenda', () => loadAgenda());
@@ -2364,7 +2366,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
           start('notifPrefs', () => loadNotifPrefs(agent.id)),
           start('preferences', () => (typeof loadPreferences === 'function'
             ? loadPreferences(agent.id)
-            : crmNeed('settings').then(() => loadPreferences(agent.id)))),
+            : crmNeed('settings').then(() => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null)))),
         ]);
       } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
     }
@@ -2391,19 +2393,22 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה. אחרי יעד הקישור, כדי לא לרוץ לפניו.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
+  /* כשל של מסך אחד (קובץ שחזר 502) לא מפיל את שאר הדשבורד: בלי זה
+     setDashView, המונים וה-goto המאוחר לא רצים. */
+  const crmQuiet = (p) => Promise.resolve(p).catch(err => console.warn('טעינה נעצרה בלי להפיל את הדשבורד:', err));
   await Promise.all([
-    pricingP(),
-    propsP(),
-    clientsP(),
-    propsP().then(() => start('leads', () => loadLeads(agent.id))),
-    pricingP().then(() => start('shelves', () => Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)]))),
-    start('shared', () => loadSharedWithMe()),
-    start('agreements', () => loadAgreements()),
-    start('notifications', () => loadNotifications(agent.id)),
-    start('notifPrefs', () => loadNotifPrefs(agent.id)),
-    start('preferences', () => (typeof loadPreferences === 'function'
+    crmQuiet(pricingP()),
+    crmQuiet(propsP()),
+    crmQuiet(clientsP()),
+    crmQuiet(propsP().then(() => start('leads', () => loadLeads(agent.id)))),
+    crmQuiet(pricingP().then(() => start('shelves', () => Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])))),
+    crmQuiet(start('shared', () => loadSharedWithMe())),
+    crmQuiet(start('agreements', () => loadAgreements())),
+    crmQuiet(start('notifications', () => loadNotifications(agent.id))),
+    crmQuiet(start('notifPrefs', () => loadNotifPrefs(agent.id))),
+    crmQuiet(start('preferences', () => (typeof loadPreferences === 'function'
       ? loadPreferences(agent.id)
-      : crmNeed('settings').then(() => loadPreferences(agent.id)))),
+      : crmNeed('settings').then(() => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null)).catch(() => {})))),
   ]);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -2423,7 +2428,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // כשהתשובה מגיעה, ושום טעינה אחרת לא תלויה בו
   const rolesP = typeof loadMyRoles === 'function'
     ? loadMyRoles()
-    : (window.crmNeed ? crmNeed('teamDash').then(() => loadMyRoles()) : Promise.resolve());
+    : (window.crmNeed ? crmNeed('teamDash').then(() => (typeof loadMyRoles === 'function' ? loadMyRoles() : null)) : Promise.resolve());
   rolesP.catch(err => console.warn('טעינת התפקידים נכשלה:', err));
   // הסיכום האחרון של המנטור האישי - בשביל כפתור "המנטור" בדף הבית, שמוצג
   // רק כשיש סיכום (homeCoachSync, assets/crm-coach.js). שורה אחת, ואחרי
@@ -2441,10 +2446,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   if (agent.role === 'manager'){
     // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
     await Promise.all([
-      loadBranding(agent.agency_id),
-      loadTeam(agent.agency_id, agent.id),
-      start('reviews', () => loadPendingReviews(agent.agency_id)),
-      loadAgencyEthics(agent.agency_id),
+      crmQuiet(loadBranding(agent.agency_id)),
+      crmQuiet(loadTeam(agent.agency_id, agent.id)),
+      crmQuiet(start('reviews', () => loadPendingReviews(agent.agency_id))),
+      crmQuiet(loadAgencyEthics(agent.agency_id)),
     ]);
   } else {
     document.getElementById('ethicsAgencyBlock').hidden = true;
@@ -2455,18 +2460,18 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
     await Promise.all([
-      loadLicenseAppeals(),
-      typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeed('coach').then(() => loadCoachGaps()),
-      loadRefundQueue(),
-      loadSubscriptionsAdmin(),
-      loadNeighborhoodsAdmin(),
-      loadRssSourcesAdmin(),
-      loadArticlesAdmin(),
-      loadProfessionalCardsAdmin(),
-      loadUnroutedLeads(),
-      typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeed('suggestions').then(() => loadSuggestionsAdmin()),
+      crmQuiet(loadLicenseAppeals()),
+      crmQuiet(typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeed('coach').then(() => (typeof loadCoachGaps === 'function' ? loadCoachGaps() : null)).catch(() => {})),
+      crmQuiet(loadRefundQueue()),
+      crmQuiet(loadSubscriptionsAdmin()),
+      crmQuiet(loadNeighborhoodsAdmin()),
+      crmQuiet(loadRssSourcesAdmin()),
+      crmQuiet(loadArticlesAdmin()),
+      crmQuiet(loadProfessionalCardsAdmin()),
+      crmQuiet(loadUnroutedLeads()),
+      crmQuiet(typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeed('suggestions').then(() => (typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : null)).catch(() => {})),
       // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-      typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeed('adminInbox').then(() => loadAdminInbox()),
+      crmQuiet(typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeed('adminInbox').then(() => (typeof loadAdminInbox === 'function' ? loadAdminInbox() : null)).catch(() => {})),
     ]);
   }
 
@@ -2475,7 +2480,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // בלי לרענן את העמוד.
   setShelfMortgageVisible(agent.is_mortgage_advisor);
   if (agent.is_mortgage_advisor){
-    await loadMortgageShelf(agent.id);
+    await crmQuiet(loadMortgageShelf(agent.id));
   }
 
   renderDevMenu(agent);
@@ -2885,10 +2890,12 @@ async function openLeadFromParam(id){
     const { data, error } = await sb.from('leads_masked').select('*').eq('id', id).maybeSingle();
     if (error || !data || String(data.id).toLowerCase() !== id.toLowerCase()) return;
     if (!allLeads.some(l => l.id === data.id)) allLeads.push(data);
-    try { await loadLeadCalls([data]); }
-    catch (e) { /* הכרטיס נפתח גם בלי ההקלטה */ }
+    if (typeof loadLeadCalls === 'function') {
+      try { await loadLeadCalls([data]); }
+      catch (e) { /* הכרטיס נפתח גם בלי ההקלטה */ }
+    }
   }
-  openLeadUnified(id);
+  if (typeof openLeadUnified === 'function') openLeadUnified(id);
   expandedLeadIds.add(id);
   // ליד בתוך קבוצה של אותו/ה פונה נמצא מתחת לשורת הקבוצה - פותחים גם אותה
   const visitor = leadVisitorOf.get(id);
@@ -8617,7 +8624,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     showToast('פרטי הסוכן/ת עודכנו');
     if (window.crmNeed) { try { await crmNeed('onboarding'); } catch (e) {} }
     // צעד התמונות במדריך ההתחלה עשוי להיסגר בשמירה הזו
-    refreshOnboarding();
+    if (typeof refreshOnboarding === 'function') refreshOnboarding();
   } catch(err){
     console.error('profile save failed', err);
     feedback.style.color = 'var(--wine)';
@@ -11267,7 +11274,7 @@ function renderPlanningResult(d){
      המחוות — אצבע אחת וגלגלת לבדה גוללות, שתי אצבעות ו-Ctrl/⌘ + גלגלת
      מזיזות ומקרבות. */
   planningMap = L.map('planMap', { scrollWheelZoom:false }).setView([d.lat, d.lng], 18);
-  if (window.MapGestures) MapGestures.apply(planningMap);
+  if (typeof MapGestures !== 'undefined' && MapGestures) MapGestures.apply(planningMap);
   /* זום 20 גבוה מהזום הטבעי של חלק מהספקים; MapTiles מגדיר maxNativeZoom
      בהתאם, ולכן מפת התכנון ממשיכה להתקרב במקום להציג ריבועים ריקים. */
   MapTiles.addTo(planningMap, { maxZoom:20 });
@@ -11971,7 +11978,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     if (typeof pgMarkClean === 'function') pgMarkClean('br', true);
     if (window.crmNeed) { try { await crmNeed('onboarding'); } catch (e) {} }
     showToast('המיתוג של המשרד עודכן');
-    refreshOnboarding();
+    if (typeof refreshOnboarding === 'function') refreshOnboarding();
   } catch(err){
     console.error('branding save failed', err);
     feedback.style.color = 'var(--brick)';
@@ -12119,8 +12126,18 @@ const TEAM_DEAL_KINDS = [
 ];
 
 async function loadTeam(agencyId, callerId){
-  if (window.crmNeed) { try { await crmNeed('teams'); } catch (e) {} }
+  let teamsReady = false;
+  if (window.crmNeed) {
+    try { await crmNeed('teams'); teamsReady = typeof teamsLoad === 'function' && typeof TEAM_COLUMNS === 'string'; }
+    catch (e) { teamsReady = false; }
+  } else teamsReady = typeof teamsLoad === 'function' && typeof TEAM_COLUMNS === 'string';
   const el = document.getElementById('teamList');
+  if (!teamsReady) {
+    el.innerHTML = '<div class="empty-state"><p>רשימת הצוות לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
+    const again = el.querySelector('button');
+    if (again) again.addEventListener('click', () => loadTeam(agencyId, callerId));
+    return;
+  }
   el.innerHTML = '<div class="empty-state">טוען…</div>';
   // רשימת הצוות בבורר "סוכן 2" נטענת פעם אחת ונשמרת במטמון. כל כניסה לרשימת
   // הצוות (שרצה גם אחרי הוספה, ניתוק או שינוי סוכן/ת) מבטלת אותו, כדי שהבורר
@@ -12140,7 +12157,7 @@ async function loadTeam(agencyId, callerId){
       .eq('agency_id', agencyId).order('role', { ascending:false }),
     teamsLoad(agencyId),
   ]);
-  if (teamsSchemaMissing(error)){
+  if (typeof teamsSchemaMissing === 'function' && teamsSchemaMissing(error)){
     ({ data: members, error } = await sb.from('agency_members').select(MEMBER_COLS)
       .eq('agency_id', agencyId).order('role', { ascending:false }));
     teamsRes = { ok:false, teams:[] };
@@ -12180,7 +12197,7 @@ async function loadTeam(agencyId, callerId){
   const teamsCtx = { ...teamsRes, members: members || [], agencyId, callerId };
 
   el.innerHTML = '';
-  if (teamsCtx.ok) el.appendChild(teamsPanel(teamsCtx));
+  if (teamsCtx.ok && typeof teamsPanel === 'function') el.appendChild(teamsPanel(teamsCtx));
   members.forEach(m=>{
     const counts = dealCounts && dealCounts[m.id];
     // סוג שאין בו נכסים לא מקבל מספר — שורת שם עם "0" משולש היא רעש.
@@ -12230,7 +12247,7 @@ async function loadTeam(agencyId, callerId){
         // כשפותחים שדה עריכה. כרטיס בלי מספר אינו מציג תגית ריקה — ‏tagsHtml
         // מסנן, וכפתור הפעולה שמתחת ממילא אומר "הוספת נייד".
         m.phone && { text:'📱 ' + localPhone(m.phone) },
-        ...teamsMemberTags(m, teamsCtx),
+        ...(typeof teamsMemberTags === 'function' ? teamsMemberTags(m, teamsCtx) : []),
       ])}
       ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
         ההזמנה נשלחה ועדיין לא נענתה. אם הכתובת שגויה - כאן מתקנים ושולחים שוב.
@@ -16068,7 +16085,7 @@ async function loadProperties(agentId){
     ({ data: props, error } = await sb.from('properties')
       .select(PROPERTY_SELECT_COLUMNS).eq('agent_id', agentId).order('created_at', { ascending:false }));
   }
-  await officePreloadNames(props);
+  if (typeof officePreloadNames === 'function') await officePreloadNames(props);
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + esc(heErr(error)) + '</div>';
@@ -16596,7 +16613,11 @@ function buildPropertyCard(p, agentId){
       title: p.referred_by
         ? 'העברת הנכס לסוכן/ת אחר/ת, או החזרה אליך'
         : 'מסירת הנכס לסוכן/ת מהצוות בהפנייה - הנכס יישאר משותף לך ולסוכן/ת',
-      onClick: async ()=>{ if (window.crmNeed) { try { await crmNeed('office'); } catch (e) {} } openReferModal('property', p, p.title, ()=> loadProperties(agentId)); },
+      onClick: async ()=>{
+        if (window.crmNeed) { try { await crmNeed('office'); } catch (e) {} }
+        if (typeof openReferModal !== 'function') { showToast('מסירת הנכס לא נטענה. נסו שוב.'); return; }
+        openReferModal('property', p, p.title, ()=> loadProperties(agentId));
+      },
     });
   }
 
@@ -20760,11 +20781,20 @@ function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId){
   // לידים והפנייה לפני הציור. קובץ המשרד נדרש גם כשהלידים כבר נטענו.
+  let leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
   if (window.crmNeed) {
-    try { await Promise.all([crmNeed('leads'), crmNeed('office')]); }
-    catch (e) {}
+    try {
+      await Promise.all([crmNeed('leads'), crmNeed('office')]);
+      leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
+    } catch (e) { leadsReady = false; }
   }
   const listEl = document.getElementById('leadsList');
+  if (!leadsReady) {
+    listEl.innerHTML = '<div class="empty-state"><p>רשימת הלידים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
+    const again = listEl.querySelector('button');
+    if (again) again.addEventListener('click', () => loadLeads(agentId));
+    return;
+  }
   /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
      ואז נעלם, כי הלשונית הזו לא מציגה את הלידים. */
   const demandShown = leadsTab === 'demand' && openDemandRows !== null
@@ -20792,7 +20822,7 @@ async function loadLeads(agentId){
     ({ data: leads, error } = await sb.from('leads_masked')
       .select('*').eq('agent_id', agentId).order('created_at', { ascending:false }));
   }
-  await officePreloadNames(leads);
+  if (typeof officePreloadNames === 'function') await officePreloadNames(leads);
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + esc(heErr(error)) + '</div>';
@@ -20803,7 +20833,11 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads), loadFairClicks()]);
+  await Promise.all([
+    typeof loadLeadCalls === 'function' ? loadLeadCalls(allLeads) : null,
+    loadLeadFair(allLeads),
+    loadFairClicks(),
+  ]);
   renderLeads(agentId);
 }
 
@@ -20814,7 +20848,9 @@ async function loadLeads(agentId){
    המקומות שמשנים ליד (ארכוב, שלב, פתיחה) קוראים לה. */
 function renderLeads(agentId){
   if (typeof renderLeadsUnified !== 'function') {
-    if (window.crmNeed) crmNeed('leads').then(() => renderLeadsUnified(agentId)).catch(() => {});
+    if (window.crmNeed) crmNeed('leads').then(() => {
+      if (typeof renderLeadsUnified === 'function') renderLeadsUnified(agentId);
+    }).catch(() => {});
     return;
   }
   renderLeadsUnified(agentId);
@@ -21111,7 +21147,11 @@ function buildLeadCard(lead, agentId, isArchived){
   if (!isArchived && typeof coachLayerKinds === 'function' && coachLayerKinds().includes('agent')){
     addCardAction(secondary, {
       label:'🧭 שאל את המנטור', title:'פותח את המנטור עם שאלה מוכנה על הליד - בלי שם וטלפון. אפשר לערוך לפני השליחה',
-      onClick: async () => { if (window.crmNeed) { try { await crmNeed('coach'); } catch (e) {} } coachAskAboutLead(lead); },
+      onClick: async () => {
+        if (window.crmNeed) { try { await crmNeed('coach'); } catch (e) {} }
+        if (typeof coachAskAboutLead !== 'function') { showToast('המנטור לא נטען. נסו שוב.'); return; }
+        coachAskAboutLead(lead);
+      },
     });
   }
   // מסירה בהפנייה - מנהל/ת משרד, על ליד שכבר נפתח (assets/crm-office.js)
@@ -21119,7 +21159,11 @@ function buildLeadCard(lead, agentId, isArchived){
     addCardAction(secondary, {
       label: lead.referred_by ? '🤝 העברה לסוכן/ת אחר/ת' : '🤝 מסירה לסוכן/ת',
       title:'הליד יעבור לטיפול הסוכן/ת ויישאר גלוי גם לך',
-      onClick: async ()=>{ if (window.crmNeed) { try { await crmNeed('office'); } catch (e) {} } openReferModal('lead', lead, lead.display_name, ()=> loadLeads(agentId)); },
+      onClick: async ()=>{
+        if (window.crmNeed) { try { await crmNeed('office'); } catch (e) {} }
+        if (typeof openReferModal !== 'function') { showToast('מסירת הליד לא נטענה. נסו שוב.'); return; }
+        openReferModal('lead', lead, lead.display_name, ()=> loadLeads(agentId));
+      },
     });
   }
   /* הארכוב אחרון ושקט: הוא לא מתחרה על העין עם "פתיחת ליד" או חיוג - הוא
@@ -22808,7 +22852,7 @@ async function loadSharedWithMe(){
   renderSharedWithMe();
   /* ההתאמות והסימניות תלויות ברשימה: אם הלשונית כבר נפתחה (קישור מהתראה,
      "רענון"), טוענים אותן מחדש מול הרשימה החדשה */
-  if (prSharedExtrasP && typeof prEnsureSharedExtras === 'function') prEnsureSharedExtras(true);
+  if (typeof prSharedExtrasP !== 'undefined' && prSharedExtrasP && typeof prEnsureSharedExtras === 'function') prEnsureSharedExtras(true);
 }
 
 // רשימות הסינון נבנות ממה ששותף בפועל, לא מרשימה קבועה
@@ -22882,16 +22926,19 @@ function renderSharedWithMe(){
      ההתאמות והסימניות נטענות בפתיחת הלשונית (prEnsureSharedExtras) */
   const inScope = sharedWithMeRows.filter(r => !(mineOnly && r.fits_me === false));
   const weekAgo = Date.now() - 7 * 86400000;
-  const isMatch = r => (sharedMatchCounts[r.property_id] || 0) > 0;
+  const matchCounts = typeof sharedMatchCounts === 'undefined' ? {} : sharedMatchCounts;
+  const bookmarks = typeof prBookmarks === 'undefined' ? null : prBookmarks;
+  const bookmarksReady = typeof prBookmarksReady !== 'undefined' && prBookmarksReady;
+  const isMatch = r => (matchCounts[r.property_id] || 0) > 0;
   const isNew = r => r.shared_at && new Date(r.shared_at).getTime() >= weekAgo;
-  const isSaved = r => prBookmarks.has(r.property_id);
+  const isSaved = r => !!(bookmarks && bookmarks.has(r.property_id));
   document.getElementById('sharedMatchN').textContent = inScope.filter(isMatch).length;
   document.getElementById('sharedNewN').textContent = inScope.filter(isNew).length;
   document.getElementById('sharedSavedN').textContent = inScope.filter(isSaved).length;
-  document.getElementById('sharedSavedChip').hidden = !prBookmarksReady;
+  document.getElementById('sharedSavedChip').hidden = !bookmarksReady;
   const onlyMatch = pressed('sharedMatchChip');
   const onlyNew = pressed('sharedNewChip');
-  const onlySaved = prBookmarksReady && pressed('sharedSavedChip');
+  const onlySaved = bookmarksReady && pressed('sharedSavedChip');
   if (typeof prSyncOwnerSubs === 'function') prSyncOwnerSubs();
 
   // אותו מפענח של "הנכסים שלי" ושל האתר (crmQueryMatches)
@@ -23008,7 +23055,7 @@ function sharedTabSub(r){
 function buildSharedTab(r){
   /* "מתאים ל-N מהלקוחות שלך" (3.14) במקום גלולת העסקה, כשיש התאמה - זה מה
      שגורם לפתוח את הנכס. העסקה עוברת לשורת המשנה. */
-  const fit = sharedMatchCounts[r.property_id] || 0;
+  const fit = (typeof sharedMatchCounts === 'undefined' ? {} : sharedMatchCounts)[r.property_id] || 0;
   const el = buildTabRow({
     key: r.share_id || r.property_id, list:'shared', expanded: expandedSharedIds,
     cls:'lead-tab kind-shared', icon:'🤝',
@@ -23176,7 +23223,7 @@ async function loadClients(){
 
   clientRows = data || [];
   // לקוחות שנמסרו בהפנייה - שמות המוסר/ת והמטפל/ת לשורת ההפנייה בכרטיס
-  await officePreloadNames(clientRows);
+  if (typeof officePreloadNames === 'function') await officePreloadNames(clientRows);
 
   // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה.
   // ‏client_match_top מחזירה את אותה ספירה ובנוסף את ההתאמה החזקה ביותר,
@@ -23317,8 +23364,9 @@ function renderClients(){
   if (typeof renderClientsTop === 'function') renderClientsTop();
 
   const unsorted = clientRows.filter(c => {
-    if (clientsKind === 'seekers' && isOwnerClient(c)) return false;
-    if (clientsKind === 'owners' && !isOwnerClient(c)) return false;
+    const kind = typeof clientsKind === 'undefined' ? '' : clientsKind;
+    if (kind === 'seekers' && isOwnerClient(c)) return false;
+    if (kind === 'owners' && !isOwnerClient(c)) return false;
     if (status && c.status !== status) return false;
     // ‏"owner" בסינון הוא בעלי הנכסים; קנייה ושכירות הם מחפשים בלבד
     if (deal === 'owner' ? !isOwnerClient(c) : (deal && (isOwnerClient(c) || c.deal_type !== deal))) return false;
@@ -23621,7 +23669,11 @@ function buildClientCard(c){
   if (typeof canReferRow === 'function' && canReferRow('client', c)){
     menu.push({
       label: c.referred_by ? '🤝 העברה לסוכן/ת אחר/ת' : '🤝 מסירה לסוכן/ת בהפנייה',
-      onClick: async ()=>{ if (window.crmNeed) { try { await crmNeed('office'); } catch (e) {} } openReferModal('client', c, c.full_name, loadClients); },
+      onClick: async ()=>{
+        if (window.crmNeed) { try { await crmNeed('office'); } catch (e) {} }
+        if (typeof openReferModal !== 'function') { showToast('מסירת הלקוח/ה לא נטענה. נסו שוב.'); return; }
+        openReferModal('client', c, c.full_name, loadClients);
+      },
     });
   }
   if (c.agent_id === currentAgent.id){
@@ -23892,7 +23944,7 @@ function renderMatchCards(panel, rows){
           : 'הוספת הנכס למיניסייט של ' + who + ', ואז שליחת הקישור בוואטסאפ';
       };
       const refresh = ()=>{
-        sc.already = (showcaseSummaries[client.id] || {}).property_ids || new Set();
+        sc.already = ((typeof showcaseSummaries === 'undefined' ? {} : showcaseSummaries)[client.id] || {}).property_ids || new Set();
         card.querySelector('.match-head .sc-in')?.remove();
         card.querySelector('.match-head .sc-pick')?.remove();
         if (typeof showcaseDecorateMatch === 'function') showcaseDecorateMatch(card, m, sc);
@@ -23903,7 +23955,8 @@ function renderMatchCards(panel, rows){
         if (window.crmNeed) { try { await crmNeed('showcase'); } catch (e) {} }
         if (sc.already.has(m.property_id)){
           scBtn.disabled = true;
-          const removed = await showcaseRemoveProperty(client, m.property_id);
+          const removed = typeof showcaseRemoveProperty === 'function'
+            ? await showcaseRemoveProperty(client, m.property_id) : false;
           scBtn.disabled = false;
           if (removed) refresh();
         } else {
@@ -24107,6 +24160,8 @@ function resetClientForm(){
 function openClientForm(){
   const form = document.getElementById('addClientForm');
   form.style.display = 'block';
+  if (window.crmNeed) crmNeed('contacts').then(initContactPick).catch(() => {});
+  else initContactPick();
   syncClientCityOptions();
   // רשימת הרחובות כנראה כבר נטענה לטופס הנכס; אם לא - היא נטענת ברקע
   // ומעשירה את ההצעות, בלי לעכב את פתיחת הטופס
@@ -24459,15 +24514,19 @@ function openClientFormWithContact(c){
   form.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
-(function initContactPick(){
+function initContactPick(){
   const btn = document.getElementById('clPickContact');
-  if (!btn || !window.ContactImport || !window.ContactImport.pickerSupported()) return;
+  if (!btn || btn.dataset.bound === '1') return;
+  if (!window.ContactImport || !window.ContactImport.pickerSupported()) return;
+  btn.dataset.bound = '1';
   btn.style.display = '';
   btn.addEventListener('click', async ()=>{
     const picked = await window.ContactImport.pick(false);
     if (picked[0]) fillClientFormFromContact(picked[0]);
   });
-})();
+}
+initContactPick();
+if (window.crmNeed) crmNeed('contacts').then(initContactPick).catch(() => {});
 
 function ciEl(id){ return document.getElementById(id); }
 
@@ -24621,6 +24680,7 @@ async function ciSave(){
 }
 
 async function ciFromGoogle(){
+  if (!window.ContactImport) { showToast('ייבוא אנשי הקשר אינו זמין כרגע'); return; }
   const body = ciEl('ciBody');
   body.innerHTML = '<div class="empty-state">מתחבר ל-Google…</div>';
   try {
@@ -24643,6 +24703,7 @@ document.getElementById('ciFile').addEventListener('change', async e => {
   e.target.value = '';
   if (!file) return;
   if (file.size > 10 * 1024 * 1024){ showToast('הקובץ גדול מדי (עד 10MB)'); return; }
+  if (!window.ContactImport) { showToast('ייבוא אנשי הקשר אינו זמין כרגע'); return; }
   ciShowList(await window.ContactImport.parseFile(file), 'file');
 });
 document.getElementById('ciModal').addEventListener('change', e => {
@@ -24665,6 +24726,7 @@ document.getElementById('ciModal').addEventListener('click', async e => {
     return ciRenderList();
   }
   if (act === 'picker'){
+    if (!window.ContactImport) { showToast('ייבוא אנשי הקשר אינו זמין כרגע'); return; }
     const list = await window.ContactImport.pick(true);
     if (list.length) ciShowList(list, 'picker');
   }
@@ -25332,7 +25394,9 @@ function officeCallRowHtml(c, agentName, lineName){
   const when = new Date(c.created_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' });
   const mins = c.duration_sec ? Math.max(1, Math.round(c.duration_sec / 60)) + ' דק׳' : '';
   const badge = c.status === 'answered' ? 'answered' : (c.status === 'ringing' ? '' : 'missed');
-  return `<div class="call-row${callCutOff(c) ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
+  const cutoff = typeof callCutOff === 'function' && callCutOff(c);
+  const insights = typeof callInsightsHtml === 'function' ? callInsightsHtml(c) : '';
+  return `<div class="call-row${cutoff ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span><span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -25342,7 +25406,7 @@ function officeCallRowHtml(c, agentName, lineName){
     <div class="call-meta">${esc(agentName || '')}${lineName ? ' · דרך ' + esc(lineName) : ''}
       ${badge === 'missed' ? (c.handled_at ? ' · <span class="call-badge answered">חזרו אליו/ה</span>' : ' · <span class="call-badge missed">לא סומן שחזרו</span>') : ''}</div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : ''}
-    ${callInsightsHtml(c)}
+    ${insights}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
@@ -25465,7 +25529,9 @@ function callRowHtml(c, inCard){
   const needsObj = (c.extracted && c.extracted.needs) || {};
   const canUpdate = client && Object.keys(needsObj).length > 0;
   const pending = c.status === 'answered' && !c.summary && !c.error && !c.transcript;
-  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}${callCutOff(c) ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
+  const cutoff = typeof callCutOff === 'function' && callCutOff(c);
+  const insights = typeof callInsightsHtml === 'function' ? callInsightsHtml(c) : '';
+  return `<div class="call-row${c.archived_at ? ' is-archived' : ''}${cutoff ? ' is-cutoff' : ''}" data-call="${esc(c.id)}">
     <div class="call-top">
       <span>${inCard ? '' : `<span class="call-who">${esc(name || phone || 'מספר חסוי')}</span>${name && phone ? ` <span class="call-meta">${esc(phone)}</span>` : ''}`}
         ${badge ? `<span class="call-badge ${badge}">${esc(CALL_STATUS[c.status] || c.status)}</span>` : ''}</span>
@@ -25474,7 +25540,7 @@ function callRowHtml(c, inCard){
     </div>
     ${c.summary ? `<p class="call-sum">${esc(c.summary)}</p>` : (pending ? '<p class="call-sum imp-note">מעבד את ההקלטה...</p>' : '')}
     ${needs ? `<p class="call-sum"><b>מחפש/ת:</b> ${esc(needs)}</p>` : ''}
-    ${callInsightsHtml(c)}
+    ${insights}
     <div class="call-actions">
       ${c.recording_path ? '<button type="button" class="btn btn-ghost" data-call-act="play">▶ השמעה</button>' : ''}
       ${c.transcript ? '<button type="button" class="btn btn-ghost" data-call-act="transcript">📝 תמלול</button>' : ''}
@@ -25758,6 +25824,9 @@ async function handleShareParam(){
     history.replaceState(history.state, '',
       location.pathname + (search ? '?' + search : '') + location.hash);
   }
+  if (kind === 'contacts' && window.crmNeed) {
+    try { await crmNeed('contacts'); } catch (e) {}
+  }
   if (kind !== 'contacts' || !window.ContactImport){
     showToast('השיתוף לא הגיע. אפשר לנסות שוב, או לשתף לגבריאלה בוואטסאפ.', 6000);
     return;
@@ -25825,7 +25894,9 @@ async function loadClientAlerts(){
 /* מקובץ לפי לקוח/ה או לפי נכס - assets/crm-matches.js (3.12) */
 function renderClientAlerts(){
   if (typeof renderMatchesGrouped !== 'function') {
-    if (window.crmNeed) crmNeed('matches').then(() => renderMatchesGrouped()).catch(() => {});
+    if (window.crmNeed) crmNeed('matches').then(() => {
+      if (typeof renderMatchesGrouped === 'function') renderMatchesGrouped();
+    }).catch(() => {});
     return;
   }
   renderMatchesGrouped();
@@ -26277,7 +26348,10 @@ const NOTIF_TYPES = [
   { type:'platform_broadcast', tone:'', goto:'accPlatformNews', focus:'#platformNewsList',
     title:'הודעה מהפלטפורמה',
     sub:'הודעה שצוות שוק נדל״ן שלח לכל הסוכנים - עדכון, שינוי או בקשה.',
-    refresh: async () => { if (window.crmNeed) { try { await crmNeed('command'); } catch (e) {} } return loadPlatformNews(); } },
+    refresh: async () => {
+      if (window.crmNeed) { try { await crmNeed('command'); } catch (e) {} }
+      if (typeof loadPlatformNews === 'function') return loadPlatformNews();
+    } },
   /* פריט בתיבת המשימות שחרג מזמן היעד שלו - פעם אחת לפריט, וכמה שחרגו באותו
      סבב בהתראה אחת (admin_inbox_notify_overdue, docs/admin-inbox.md) */
   { type:'admin_overdue', tone:'alert', goto:'accAdminInbox', focus:'#adminInboxList',
@@ -28527,17 +28601,21 @@ async function openNavLayer(layer){
   else if (layer === 'me') openProfilePanel();
   else if (layer === 'bell') openBellPanel();
   else if (layer === 'coach') {
-    if (window.crmNeed) { try { await crmNeed('coach'); } catch (e) {} }
+    /* officeDash טוען קודם את המאמן, ואז את עזרי השבוע (odRangeLabel). */
+    if (window.crmNeed) { try { await crmNeed('officeDash'); } catch (e) {} }
     if (typeof openCoachLayer === 'function') openCoachLayer();
   }
 }
 
-async function closeNavLayers(){
+/* סינכרוני בכוונה. קוראים (openLeadPrefsSheet, navGo, navSetMode,
+   data-crm-go) סוגרים ואז פותחים בלי await. אם הפונקציה ממתינה לרשת,
+   הסגירה רצה אחרי הפתיחה והגיליון נסגר מיד. אין כאן מה להוריד: שכבה
+   שעוד לא נטענה גם לא פתוחה. */
+function closeNavLayers(){
   closeCreateSheet();
   closeSearch();
   closeProfilePanel();
   closeBellPanel();
-  if (window.crmNeed) { try { await crmNeed('coach'); } catch (e) {} }
   if (typeof closeCoachLayer === 'function') closeCoachLayer();
   // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
   // מעל המסך ולכן נסגר עם השאר כדי שלא יישבו שניים זה על זה.
@@ -35181,6 +35259,7 @@ function agrAddClientSigner(clientId, opts){
    (עם הכתובת שכבר שמורה), וכל השאר כחותם/ת ידני/ת עם שם, טלפון ומייל.
    ת.ז. אין כאן בכלל - החותם/ת מקליד/ה אותה בדף החתימה (docs/id-numbers.md). */
 async function agrPickContactSigner(){
+  if (!window.ContactImport) { showToast('ייבוא אנשי הקשר אינו זמין כרגע'); return; }
   const picked = await window.ContactImport.pick(false);
   const c = picked[0];
   if (!c || !agrWizard) return;
