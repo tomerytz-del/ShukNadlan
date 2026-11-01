@@ -498,8 +498,12 @@ function allScreensPath(
   return best || "/crm?goto=bell";
 }
 
-/** בלי wc ו-wt. המדידה אינה חלק מהיעד, ושני כפתורים לאותו מסך הם כפילות. */
-function bareScreen(path: string): string {
+/**
+ * בלי wc ו-wt. המדידה אינה חלק מהיעד, ושני כפתורים לאותו מסך הם כפילות.
+ * אותו נתיב חוזר גם מהרשימה אל הכלי: השורה נחתמת ב-wc, וההשוואה
+ * "השורה כבר ברשימה" חייבת להיות על הנתיב בלי החותמת (1.11.2026).
+ */
+export function bareCrmPath(path: string): string {
   const qAt = path.indexOf("?");
   if (qAt < 0) return path;
   const params = new URLSearchParams(path.slice(qAt + 1));
@@ -570,8 +574,8 @@ export function screenBundle(
         path: chosen.path,
       });
     }
-    const allBareKey = bareScreen(allBare);
-    const already = prepared.some((row) => row.id === allChosen.id || bareScreen(row.path) === allBareKey);
+    const allBareKey = bareCrmPath(allBare);
+    const already = prepared.some((row) => row.id === allChosen.id || bareCrmPath(row.path) === allBareKey);
     if (allChosen.id && prepared.length === 2 && !already) {
       prepared.push({ id: allChosen.id, title: ALL_LABEL, hint: null, path: allPath });
     }
@@ -600,11 +604,11 @@ export function screenBundle(
       ...(description ? { description } : {}),
     });
   }
-  const allBareKey = bareScreen(allBare);
+  const allBareKey = bareCrmPath(allBare);
   // מזהה כפול נדחה על ידי מטא, והרשימה כולה לא יוצאת. wc שונה אינו יעד שונה.
   if (
     allChosen.id &&
-    !prepared.some((row) => row.id === allChosen.id || bareScreen(parseNavId(row.id) || "") === allBareKey)
+    !prepared.some((row) => row.id === allChosen.id || bareCrmPath(parseNavId(row.id) || "") === allBareKey)
   ) {
     prepared.push({
       id: allChosen.id,
