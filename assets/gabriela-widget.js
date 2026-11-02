@@ -591,9 +591,10 @@
         var b = e.target.closest && e.target.closest('button[data-pick]');
         if (b) pick(b.getAttribute('data-pick'), b.textContent.trim());
       });
-      /* הכפתור הכחול: ‏gab_swipe_cta ולא swipe_start - ב-/swipe "התחילו להחליק" שולח
-         swipe_start משלו, ושני אירועים היו סופרים את אותה התחלה פעמיים. בדף /swipe
-         עצמו הכפתור מחיל את הסינון במקום (‏window.SwipeApp) ולא טוען את הדף מחדש */
+      /* הכפתור הכחול: ‏gab_swipe_cta (הסדרה הקיימת), ומחוץ ל-/swipe גם swipe_start עם
+         ‏via: gabriela - מ-1.11.2026 ‏swipe_start נספר בלחיצה שמובילה להחלקה, והסינון
+         בתוך ההחלקה שולח swipe_filter_apply. בדף /swipe עצמו הכפתור מחיל את הסינון
+         במקום (‏window.SwipeApp) ולא טוען את הדף מחדש, ולכן אינו התחלה */
       conv.addEventListener('click', function (e) {
         var pa = e.target.closest && e.target.closest('a.gw-pro');
         if (pa && window.shukTrack) { window.shukTrack('gab_pro_pick', { type: pa.getAttribute('data-pro-type') }); return; }
@@ -602,6 +603,12 @@
         var q = new URLSearchParams((a.getAttribute('href') || '').split('?')[1] || '');
         var region = (window.CityContext && window.CityContext.market && (window.CityContext.market() || {}).slug) || '';
         if (window.shukTrack) window.shukTrack('gab_swipe_cta', { deal: q.get('deal') || '', region: region });
+        // בדף הבית home.js סופר כל a[data-swipe-via] (כולל הכפתור הזה) - שם לא סופרים פעמיים
+        if (window.shukTrack && !window.__homeSwipeStart && !/^\/swipe/.test(location.pathname)) {
+          var gs = { deal: q.get('deal') || '', region: region, via: 'gabriela' };
+          if (q.get('fair') === '1') gs.fair = 1;
+          window.shukTrack('swipe_start', gs);
+        }
         if (/^\/swipe/.test(location.pathname) && window.SwipeApp && window.SwipeApp.apply) {
           e.preventDefault();
           setOpen(false);

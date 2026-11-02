@@ -802,6 +802,30 @@ html body .sw-promo-title{margin:0;font-family:Heebo,system-ui,sans-serif;font-s
 .sw-promo-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 10px;border:0;background:none;
   color:rgba(255,255,255,.85);font:inherit;font-size:14.5px;font-weight:600;text-decoration:underline;cursor:pointer}
 .sw-promo-link:focus-visible,.sw-outline:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
+/* ‏deal-pick: "מה תרצו לראות מעכשיו?" - שלושה כפתורי זהב עם מונה, דילוג, "לא להציע לי שוב" ו-✕ */
+.sw-dpick-x{position:absolute;top:18px;inset-inline-start:18px;z-index:3;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:17px;cursor:pointer}
+.sw-dpick-x:focus-visible,.sw-dpick-opt:focus-visible{outline:3px solid var(--sw-gold);outline-offset:2px}
+.sw-dpick-opts{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:4px}
+.sw-dpick-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;padding:0 18px;border:0;border-radius:12px;
+  background:var(--sw-gold);color:var(--sw-deep);font:inherit;font-size:16.5px;font-weight:800;cursor:pointer}
+.sw-dpick-opt b{min-width:34px;padding:3px 9px;border-radius:999px;background:rgba(13,27,61,.12);font-size:14px;font-weight:800}
+.sw-dpick-never{display:inline-flex;align-items:center;gap:8px;min-height:40px;color:rgba(255,255,255,.85);font-size:14px;cursor:pointer}
+.sw-dpick-never input{width:20px;height:20px;margin:0;accent-color:var(--sw-gold)}
+/* מסך נמוך (‏360×640): הכרטיס נכנס בלי גלילה ובלי שהתיבה תשב מאחורי כפתורי הפעולה */
+@media (max-height:760px){
+  .sw-dpick .sw-promo-in{gap:7px}
+  .sw-dpick .sw-promo-gab{width:60px;height:60px}
+  .sw-dpick .sw-promo-sub{font-size:14px;line-height:1.45}
+  .sw-dpick-opts{gap:8px}
+  .sw-dpick-opt{min-height:46px;font-size:16px}
+  .sw-dpick .sw-promo-link,.sw-dpick-never{min-height:38px}
+}
+/* החיפוש השמור ב"כל הנכסים" - לקנות או לשכור */
+.sw-adeal{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 10px;padding:0;border:0}
+.sw-adeal legend{width:100%;margin-bottom:6px;font-size:14px;font-weight:700;color:var(--sw-body)}
+.sw-adeal label{display:inline-flex;align-items:center;gap:6px;min-height:40px;font-size:15px;cursor:pointer}
+.sw-adeal input{width:20px;height:20px;margin:0;accent-color:var(--sw-navy)}
 .sw-seller-art{display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;border-radius:50%;background:#0e2a6b;border:2px solid #c9a227;flex:none}
 
 /* §6 כרטיס הכתבה */
@@ -1142,6 +1166,8 @@ body[data-view=list] .sw-layout{display:inline-flex}
   body[data-view=deck] .sw-card .sw-art-in{padding-bottom:calc(96px + var(--sw-safe-b))}
   body[data-view=deck] .sw-card .sw-promo-in,body[data-view=deck] .sw-card .sw-end-in,body[data-view=deck] .sw-card .sw-spon-in{
     box-sizing:border-box;justify-content:flex-start;padding-top:calc(64px + var(--sw-safe-t));padding-bottom:calc(96px + var(--sw-safe-b))}
+  /* ה-✕ של בחירת העסקה - מתחת לסרגל העליון שעל הכרטיס */
+  body[data-view=deck] .sw-card .sw-dpick-x{top:calc(70px + var(--sw-safe-t))}
   /* מרכוז שלא חותך: כשהתוכן ארוך מהמקום (טלפון נמוך, טופס ההתראה פתוח) הוא נגלל מלמעלה, במקום להיחתך בשני הקצוות */
   body[data-view=deck] .sw-card :is(.sw-promo-in,.sw-end-in,.sw-spon-in)>:first-child{margin-top:auto}
   body[data-view=deck] .sw-card :is(.sw-promo-in,.sw-end-in,.sw-spon-in)>:last-child{margin-bottom:auto}
