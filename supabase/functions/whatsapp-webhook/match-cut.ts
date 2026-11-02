@@ -23,7 +23,9 @@ export interface MatchCut<T> {
 }
 
 export function cutMatches<T extends Record<string, unknown>>(rows: T[], limit: number): MatchCut<T> {
-  const base = Math.min(limit, rows.length);
+  const n = Number(limit);
+  const cap = Math.min(MATCH_SHOW_MAX, Math.max(1, Math.floor(Number.isFinite(n) ? n : 1)));
+  const base = Math.min(cap, rows.length);
   let end = base;
   if (end > 0) {
     const s = Number(rows[end - 1].score);

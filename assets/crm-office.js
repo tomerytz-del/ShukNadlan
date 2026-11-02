@@ -392,6 +392,10 @@ function clientRowToPayload(r, mapping, maps){
     else warn.push(`המאפיין "${label}" לא זוהה`);
   });
 
+  if (!p.deal_type && p.client_kind !== 'owner') {
+    p.deal_type = 'sale';
+    warn.push('לא צוין סוג עסקה - נשמר כקנייה. אם זו שכירות, עדכנו את הכרטיס.');
+  }
   if (!p.status){
     const hasNeeds = p.cities.length || p.property_types.length || p.min_price != null || p.max_price != null
       || p.min_rooms != null || p.min_size_sqm != null || p.max_size_sqm != null;

@@ -127,6 +127,13 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `data-professional` | בעל/ת מקצוע — בעמוד הפרופיל (`professional.html`) וברשימה (`professionals.html`) | `contact_professional` |
 | (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
+**‏`data-share-type` ו-`data-share-id` (אופציונליים, 1.11.2026):** קישור שיתוף שמצהיר
+עליהם מוסיף ל-`share` את `content_type` ואת `item_id` - הפרמטרים של אירוע `share`
+המומלץ ב-GA4. כך "שיתוף בוואטסאפ" בדף הנכס (`#waShareBtn`, ‏`data-share-type="property"`
+ומזהה הנכס). מזהה מודעה, לא פרט אישי. התגית `GA4 — share` כבר מעבירה את `item_id`;
+את `content_type` (ומשתנה `DLV - content_type`) הוסיף ה-PR של הכפתור **לקובץ הייצוא** -
+הוא נכנס ל-GA4 רק אחרי ייבוא הקובץ ל-GTM ופרסום גרסה (החלטה של תומר).
+
 שניים מהם נמצאו אחרי `data-bot`, ושניהם היו חיים:
 
 1. **כפתור השיתוף ב-`project.html`.** ‏`wa.me/?text=` בלי מספר פותח את
@@ -453,6 +460,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: הרשמה ליריד (מהדף ומהגיליון) ו"חושבים למכור?" בהחלקה - רק אחרי תשובת 2xx | `form_id`: ‏`nocommission_fair` \| `swipe_fair` \| `swipe_seller` |
 | `seller_card_view` | **v10**: כרטיס "חושבים למכור?" פעיל שנייה, פעם בביקור | `position`, `deal` |
 | `seller_card_click` | **v10**: כפתור בכרטיס "חושבים למכור?" | `cta`: ‏`open` \| `later` |
+| `swipe_deal_pick` | כרטיס "מה תרצו לראות מעכשיו?" בהחלקה על "כל הנכסים" (אחרי 4 נכסים, פעם בביקור): הצגה (שנייה על המסך), בחירה, דילוג, סגירה ו"לא להציע לי שוב" | `choice`: ‏`view` \| `sale` \| `rent` \| `commercial` \| `skip` \| `close` \| `never`, ‏`position` |
 | `seller_sheet_step` | **v10**: מגע ראשון בכל שאלה בגיליון המוכרים | `q`: ‏`deal` \| `type` \| `area` \| `rooms` \| `timing` |
 | `seller_sheet_close` | **v10**: גיליון המוכרים נסגר | `sent`: ‏`0` \| `1` |
 | `article_card_view` | **v10**: כרטיס הכתבה פעיל שנייה (ואז הוא נחשב "נקרא" ל-7 ימים במכשיר) | `article_id`, `position`, `deal`: ‏`sale` \| `rent` \| `com` \| `seller` \| `*` |

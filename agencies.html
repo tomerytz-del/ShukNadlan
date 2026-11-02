@@ -10,6 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<script src="assets/text-match.js" defer></script>
 <script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
@@ -1024,6 +1025,8 @@ function assignRankBadges(list){
    לפנות לשרת בכל הקלדה. */
 function matchesQuery(a, q){
   if (!q) return true;
+  // גרשיים ומקף לא קובעים, וכל מילה בכל סדר ובכל שדה (assets/text-match.js)
+  if (window.TextMatch) return TextMatch.matches([a.name, a.tagline, ...a.areas, a._dmWords], q);
   return [a.name, a.tagline, ...a.areas, a._dmWords].some(v => String(v || '').toLowerCase().includes(q));
 }
 const matchesSpec = (a, spec) => spec === 'all' || a.specs.includes(spec);

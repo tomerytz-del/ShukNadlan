@@ -314,7 +314,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <fieldset>
       <p class="group-title">יצירת קשר</p>
       <p class="group-note">הטלפון הוא מה שמפעיל את כפתור הוואטסאפ בעמוד</p>
-      <div class="field"><label for="advPhone">טלפון <span class="hint">- לוואטסאפ ולשיחה</span></label><input type="tel" id="advPhone" placeholder="050-1234567"></div>
+      <div class="field"><label for="advPhone">טלפון <span class="hint">- לוואטסאפ ולשיחה (חובה)</span></label><input type="tel" id="advPhone" placeholder="050-1234567" required></div>
       <div class="field"><label for="advEmail">אימייל להצגה <span class="hint">(לא חובה)</span></label><input type="email" id="advEmail" placeholder="office@example.com"></div>
       <div class="field"><label for="advUrl">קישור לאתר / פרופיל</label><input type="url" id="advUrl" placeholder="https://"></div>
     </fieldset>
@@ -723,6 +723,14 @@ el('saveBtn').addEventListener('click', async ()=>{
     el('advName').focus();
     return;
   }
+  // בלי טלפון אין בעמוד כפתור וואטסאפ ואין חיוג - השרת דוחה שמירה בלעדיו
+  const phoneDigits = el('advPhone').value.replace(/\D/g, '');
+  if (phoneDigits.length < 9 || phoneDigits.length > 15){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = phoneDigits ? 'מספר הטלפון לא נראה תקין' : 'נא למלא טלפון - הוא מה שמפעיל את כפתורי הוואטסאפ והחיוג בעמוד';
+    el('advPhone').focus();
+    return;
+  }
   btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
 
   const { ok, data } = await callManage({
@@ -749,7 +757,9 @@ el('saveBtn').addEventListener('click', async ()=>{
   btn.disabled = false; btn.textContent = 'שמירת השינויים';
   if (!ok){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'השמירה נכשלה - נסו שוב';
+    feedback.textContent = (data.error === 'invalid_phone' || data.error === 'phone_required')
+      ? 'מספר הטלפון לא נראה תקין'
+      : 'השמירה נכשלה - נסו שוב';
     return;
   }
   // הטופס מתמלא מחדש מהתשובה ולא מהקלט: ערך שנפסל בשרת (כתובת בפרוטוקול

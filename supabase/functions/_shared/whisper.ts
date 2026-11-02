@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { logAiUsage, unitsRow } from "./ai-usage.ts";
+import { detailAfterRetry, readWhisperBody, shouldRetryBare } from "./whisper-read.ts";
 
 /** ‏Whisper מקבל עד 25MB לקובץ. */
 export const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
@@ -139,14 +140,53 @@ async function whisperOnce(
   });
 }
 
-export async function transcribe(
+export interface TranscribeDetail {
+  text: string | null;
+  /** ‏200 בלי דיבור שמיש. false כשהקריאה נכשלה (מפתח, רשת, פורמט). */
+  silent: boolean;
+}
+
+function logWhisper(out: { duration?: unknown }): void {
+  logAiUsage(unitsRow("transcribe", "openai", "whisper-1", (Number(out?.duration) || 0) / 60));
+}
+
+/** ‏200 עם גוף. פרומפט שהשאיר את הטקסט ריק על קליפ עם דיבור - ניסיון בלי פרומפט. */
+async function readOk(
+  openaiKey: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  mime: string,
+  ext: string,
+  hint: string,
+  res: Response,
+): Promise<TranscribeDetail> {
+  const out = await res.json();
+  logWhisper(out);
+  const read = readWhisperBody(out, hint);
+  if (!shouldRetryBare(read, !!hint)) return { text: read.text, silent: !read.text };
+  try {
+    const again = await whisperOnce(openaiKey, bytes, mime, ext, "");
+    if (!again.ok) return detailAfterRetry({ ok: false });
+    const out2 = await again.json();
+    logWhisper(out2);
+    return detailAfterRetry({ ok: true, read: readWhisperBody(out2, "") });
+  } catch (err) {
+    console.error("whisper bare retry failed", err);
+    return detailAfterRetry(null);
+  }
+}
+
+/**
+ * תמלול. ‏null ב-text הוא כישלון או שתיקה; ‏silent מפריד ביניהם.
+ * ‏`transcribe` נשאר מחרוזת או null, כמו ב-twilio-voice.
+ */
+export async function transcribeDetail(
   openaiKey: string,
   bytes: Uint8Array<ArrayBuffer>,
   mime = "audio/mpeg",
   ext = "mp3",
   hint = WHISPER_DOMAIN,
-): Promise<string | null> {
-  if (!openaiKey) return null;
+): Promise<TranscribeDetail> {
+  if (!openaiKey) return { text: null, silent: false };
   // לפי הבתים ולא לפי מה שהדפדפן אמר: ‏ftyp הוא mp4/m4a גם אם הקובץ נקרא אחרת
   const kind = sniff(bytes);
   if (kind.startsWith("mp4(") && ext !== "m4a" && ext !== "mp4") ext = "m4a";
@@ -165,32 +205,34 @@ export async function transcribe(
         await new Promise((r) => setTimeout(r, 700));
         res = await whisperOnce(openaiKey, b, m, e, hint);
       }
-      if (res.ok) {
-        const out = await res.json();
-        logAiUsage(unitsRow("transcribe", "openai", "whisper-1", (Number(out?.duration) || 0) / 60));
-        return ((out?.text as string) || "").trim() || null;
-      }
+      if (res.ok) return await readOk(openaiKey, b, m, e, hint, res);
       const body = (await res.text()).slice(0, 300);
       console.error("whisper failed", res.status, `as .${e} (${m})${b === bytes ? "" : " rebranded"}`,
         `sniff=${kind}`, body);
       // רק דחיית פורמט שווה ניסיון נוסף בשם אחר; מכסה, מפתח או תקלה - לא
-      if (res.status !== 400 || !/file format/i.test(body)) return null;
+      if (res.status !== 400 || !/file format/i.test(body)) return { text: null, silent: false };
     }
-    return null;
+    return { text: null, silent: false };
   } catch (err) {
     // נפילה ברשת לפני תשובה - ניסיון אחד, ואז אומרים לסוכן/ת.
     console.error("transcription failed", err);
     try {
       await new Promise((r) => setTimeout(r, 700));
       const res = await whisperOnce(openaiKey, bytes, mime, ext, hint);
-      if (res.ok) {
-        const out = await res.json();
-        logAiUsage(unitsRow("transcribe", "openai", "whisper-1", (Number(out?.duration) || 0) / 60));
-        return ((out?.text as string) || "").trim() || null;
-      }
+      if (res.ok) return await readOk(openaiKey, bytes, mime, ext, hint, res);
     } catch (err2) {
       console.error("transcription retry failed", err2);
     }
-    return null;
+    return { text: null, silent: false };
   }
+}
+
+export async function transcribe(
+  openaiKey: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  mime = "audio/mpeg",
+  ext = "mp3",
+  hint = WHISPER_DOMAIN,
+): Promise<string | null> {
+  return (await transcribeDetail(openaiKey, bytes, mime, ext, hint)).text;
 }
