@@ -63,6 +63,7 @@ import {
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { isReactionMessage } from "./inbound-kind.ts";
+import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
 import { planWaText, sendOutboxItem, setWaDropLogger, WA_NO_BUTTON, WaBodyNotSentError } from "../_shared/wa-url-guard.ts";
 import {
   CADENCE_BACK_TITLE,
@@ -857,8 +858,10 @@ async function loadConversation(
     .eq("agent_id", agentId)
     .maybeSingle();
 
+  const peeled = peelShownMatches((data?.history as Anthropic.MessageParam[]) || []);
   return {
-    history: (data?.history as Anthropic.MessageParam[]) || [],
+    history: peeled.history,
+    shownMatches: peeled.shown,
     pending_images: data?.pending_images || [],
     last_property_id: data?.last_property_id || null,
     last_client_id: data?.last_client_id || null,
@@ -877,7 +880,7 @@ async function saveConversation(
   const { error } = await supabase.from("whatsapp_conversations").upsert({
     agent_id: agentId,
     wa_phone: phone,
-    history: conv.history,
+    history: stampShownMatches(conv.history, conv.shownMatches),
     last_property_id: conv.last_property_id,
     last_client_id: conv.last_client_id,
     last_message_at: new Date().toISOString(),
@@ -901,6 +904,7 @@ async function publicRateExceeded(phone: string): Promise<boolean> {
     .select("created_at")
     .eq("wa_phone", phone)
     .eq("direction", "in")
+    .neq("msg_type", "reaction")
     .gte("created_at", new Date(dayAgo).toISOString())
     .limit(PUBLIC_DAILY_LIMIT + 1);
 
@@ -2591,6 +2595,7 @@ function opsQuestionDb(): OpsQuestionDb {
         .select("created_at")
         .eq("wa_phone", phone)
         .eq("direction", "in")
+        .neq("msg_type", "reaction")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

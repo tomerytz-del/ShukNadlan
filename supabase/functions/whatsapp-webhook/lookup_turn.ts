@@ -24,9 +24,14 @@ import { cutMatches, MATCH_FETCH_CAP, MATCH_SHOW_MAX } from "./match-cut.ts";
 /** ברירת המחדל של client_matches כשלא נשלח limit. */
 export const CLIENT_MATCHES_DEFAULT_LIMIT = 5;
 
-/** אותו חלון ש-client_matches מציג: ברירת מחדל 5, ולא יותר מ-15. */
+/**
+ * אותו חלון ש-client_matches מציג. חסר או לא-מספר = 5.
+ * מספר אמיתי נחתך כלפי מטה, ולפחות 1, ולא יותר מ-15.
+ */
 export function clientMatchesLimit(raw: unknown): number {
-  return Math.min(Number(raw) || CLIENT_MATCHES_DEFAULT_LIMIT, MATCH_SHOW_MAX);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return CLIENT_MATCHES_DEFAULT_LIMIT;
+  return Math.min(MATCH_SHOW_MAX, Math.max(1, Math.floor(n)));
 }
 
 /**
@@ -46,6 +51,161 @@ export function showcaseShownLimit(opts: {
     return Math.min(opts.rememberedLimit, MATCH_SHOW_MAX);
   }
   return CLIENT_MATCHES_DEFAULT_LIMIT;
+}
+
+/** מה ש-client_matches באמת הציג ללקוח/ה אחד/ת. נשמר בין תורים. */
+export type ShownMatchSet = {
+  ids: string[];
+  limit: number;
+  waive: string[];
+};
+
+const SHOWN_MARK = "[[shown-matches-v1]]";
+const SHOWN_CLIENTS_MAX = 8;
+
+function messageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.map((block) => {
+    if (!block || typeof block !== "object" || !("text" in block)) return "";
+    return String((block as { text?: unknown }).text || "");
+  }).join("");
+}
+
+function cleanIdList(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    const value = String(id ?? "").trim().slice(0, 80);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+    if (out.length >= MATCH_SHOW_MAX) break;
+  }
+  return out;
+}
+
+function cleanWaive(waive: unknown): string[] {
+  if (!Array.isArray(waive)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of waive) {
+    const code = String(item ?? "").trim().slice(0, 40);
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    out.push(code);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+export function normalizeShownMatchSet(set: Partial<ShownMatchSet> | null | undefined): ShownMatchSet | null {
+  const ids = cleanIdList(set?.ids);
+  if (!ids.length) return null;
+  return {
+    ids,
+    limit: clientMatchesLimit(set?.limit),
+    waive: cleanWaive(set?.waive),
+  };
+}
+
+/** שומר את הקבוצה האחרונה ללקוח/ה, ומגביל לכמה לקוחות אחרונים. */
+export function rememberShownMatches(
+  current: Readonly<Record<string, ShownMatchSet>> | undefined,
+  clientId: string,
+  set: Partial<ShownMatchSet> | null,
+): Record<string, ShownMatchSet> {
+  const id = String(clientId || "").trim();
+  const normalized = normalizeShownMatchSet(set);
+  const next: Record<string, ShownMatchSet> = {};
+  for (const [key, value] of Object.entries(current || {})) {
+    if (key === id) continue;
+    const kept = normalizeShownMatchSet(value);
+    if (kept) next[key] = kept;
+  }
+  if (id && normalized) next[id] = normalized;
+  const entries = Object.entries(next);
+  return Object.fromEntries(entries.slice(-SHOWN_CLIENTS_MAX));
+}
+
+function parseShownPayload(text: string): Record<string, ShownMatchSet> {
+  if (!text.startsWith(SHOWN_MARK)) return {};
+  try {
+    const raw = JSON.parse(text.slice(SHOWN_MARK.length)) as Record<string, Partial<ShownMatchSet>>;
+    const out: Record<string, ShownMatchSet> = {};
+    for (const [key, value] of Object.entries(raw || {})) {
+      const set = normalizeShownMatchSet(value);
+      if (set) out[String(key)] = set;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+type HistoryMessage = { role?: string; content?: unknown };
+
+/** מוציא את מצב ההתאמות מההיסטוריה, כדי שהמודל לא יראה אותו. */
+export function peelShownMatches<T extends HistoryMessage>(history: readonly T[]): {
+  history: T[];
+  shown: Record<string, ShownMatchSet>;
+} {
+  const kept: T[] = [];
+  let shown: Record<string, ShownMatchSet> = {};
+  for (const message of history) {
+    const text = messageText(message?.content);
+    if (text.startsWith(SHOWN_MARK)) {
+      shown = { ...shown, ...parseShownPayload(text) };
+      continue;
+    }
+    kept.push(message);
+  }
+  return { history: kept, shown };
+}
+
+/** מחזיר את המצב לסוף ההיסטוריה שנשמרת. בלי קבוצות - בלי שורה. */
+export function stampShownMatches<T extends HistoryMessage>(
+  history: readonly T[],
+  shown: Readonly<Record<string, ShownMatchSet>> | undefined,
+): T[] {
+  const peeled = peelShownMatches(history);
+  const clean = rememberShownMatches(shown, "", null);
+  if (!Object.keys(clean).length) return peeled.history;
+  const marker = { role: "user", content: SHOWN_MARK + JSON.stringify(clean) } as T;
+  return [...peeled.history, marker];
+}
+
+/**
+ * כותב היסטוריה מחדש (שיחה, הטמעה) בלי לאבד את מצב ההתאמות.
+ * `next` הוא הרשימה החדשה, כולל או בלי הסמן.
+ */
+export function historyKeepingShownMatches(previous: unknown, next: readonly HistoryMessage[]): HistoryMessage[] {
+  const prev = peelShownMatches(Array.isArray(previous) ? previous as HistoryMessage[] : []);
+  const built = peelShownMatches(next);
+  const shown = Object.keys(built.shown).length ? built.shown : prev.shown;
+  return stampShownMatches(built.history, shown);
+}
+
+/**
+ * רק השורות שהוצגו. בלי קבוצה שמורה - כל השורות, והחלון חוזר לברירת המחדל.
+ * עם קבוצה - הסדר של המזהים שנשמרו, גם אם המסד החזיר עוד.
+ */
+export function applyShownMatchSet<T extends { property_id?: unknown }>(
+  rows: readonly T[],
+  shown: ShownMatchSet | null | undefined,
+): { rows: T[]; limit: number; restricted: boolean } {
+  if (!shown?.ids.length) {
+    return { rows: [...rows], limit: CLIENT_MATCHES_DEFAULT_LIMIT, restricted: false };
+  }
+  const order = new Map(shown.ids.map((id, index) => [id, index]));
+  const kept = rows.filter((row) => order.has(String(row.property_id || "")));
+  kept.sort((a, b) => (order.get(String(a.property_id)) ?? 0) - (order.get(String(b.property_id)) ?? 0));
+  return {
+    rows: kept,
+    limit: Math.max(1, Math.min(MATCH_SHOW_MAX, kept.length || 1)),
+    restricted: true,
+  };
 }
 
 export type OutboxItem =
@@ -345,7 +505,7 @@ export function resolveShowcaseRefs(
   refs: readonly string[],
   limit = CLIENT_MATCHES_DEFAULT_LIMIT,
 ): ShowcaseRefs {
-  const cap = Math.min(Math.max(Number(limit) || MATCH_SHOW_MAX, 1), MATCH_SHOW_MAX);
+  const cap = clientMatchesLimit(limit);
   const raw = matches
     .filter((row) => String(row.property_id || "").trim())
     .map((row) => ({ ...row })) as Array<Record<string, unknown>>;
