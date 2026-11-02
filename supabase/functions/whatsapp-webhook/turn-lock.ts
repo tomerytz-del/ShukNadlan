@@ -61,8 +61,93 @@ export function stripRequeueMark(text: string): string {
   return text.replace(/^\[\[rq:\d+\]\]/, "");
 }
 
-/** יום בשבוע ושעה, בלי תאריך מספרי. */
-export function photoWaitLabel(at: number, now = Date.now()): string {
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** תמונה ישנה מזה לא מצטרפת לבד לנכס חדש. */
+export const AUTO_ATTACH_IMAGE_MS = DAY_MS;
+/** יום בשבוע רק בחלון הזה. מעבר לו אין אזכור זמן, כדי ש"חמישי" לא יתבלבל עם השבוע. */
+export const PHOTO_LABEL_DAYS = 6;
+
+export function imageUrlKey(url: string): string {
+  const i = url.indexOf("?");
+  return i < 0 ? url : url.slice(0, i);
+}
+
+/**
+ * שאלה על תמונות רק אם הרצף מבקש אותה, ורק על תמונות שאף תור שהסתיים לא הראה.
+ * מלצר שהתמונה שלו כבר נענתה כתור טקסט לא שולח שאלה.
+ */
+export function unsolicitedPhotoAsk(opts: {
+  flushImages: boolean;
+  hasText: boolean;
+  pending: readonly string[];
+  handled: readonly string[];
+}): string[] {
+  if (!opts.flushImages || opts.hasText || opts.pending.length === 0) return [];
+  const done = new Set(opts.handled.map(imageUrlKey));
+  return opts.pending.filter((u) => !done.has(imageUrlKey(u)));
+}
+
+/** הכתובות שהתור הזה הראה למודל. לא כל הרשימה הממתינה. */
+export function urlsHandledByTurn(shown: string | null, pending: readonly string[]): string[] {
+  if (!shown) return [];
+  const key = imageUrlKey(shown);
+  const matched = pending.filter((u) => imageUrlKey(u) === key);
+  return matched.length ? matched : [shown];
+}
+
+export function rememberAskedImages(
+  seen: Map<string, number>,
+  agentId: string,
+  urls: readonly string[],
+  now = Date.now(),
+): void {
+  for (const url of urls) seen.set(`${agentId}\n${imageUrlKey(url)}`, now);
+}
+
+/** אותה תמונה לא נשאלת שוב בתוך היממה, גם אם סימון המסד נכשל. */
+export function urlsNotAskedRecently(
+  seen: ReadonlyMap<string, number>,
+  agentId: string,
+  urls: readonly string[],
+  now = Date.now(),
+  windowMs = AUTO_ATTACH_IMAGE_MS,
+): string[] {
+  return urls.filter((url) => {
+    const at = seen.get(`${agentId}\n${imageUrlKey(url)}`);
+    return at == null || now - at >= windowMs;
+  });
+}
+
+/**
+ * לנכס חדש: רק תמונות מהיממה האחרונה. ישנות נשארות, אלא אם הסוכן/ת
+ * הפנה/תה אליהן במפורש.
+ */
+export function splitPendingForCreate(opts: {
+  urls: readonly string[];
+  at: readonly (number | null)[];
+  explicit: boolean;
+  now?: number;
+  maxAgeMs?: number;
+}): { attach: string[]; hold: string[] } {
+  if (opts.explicit) return { attach: [...opts.urls], hold: [] };
+  const now = opts.now ?? Date.now();
+  const max = opts.maxAgeMs ?? AUTO_ATTACH_IMAGE_MS;
+  const attach: string[] = [];
+  const hold: string[] = [];
+  opts.urls.forEach((url, i) => {
+    const t = i < opts.at.length ? opts.at[i] : null;
+    if (t != null && now - t < max) attach.push(url);
+    else hold.push(url);
+  });
+  return { attach, hold };
+}
+
+/**
+ * יום בשבוע ושעה, בלי תאריך מספרי. null כשהתמונה ישנה משישה ימים:
+ * "יום חמישי" בלי תאריך מטעה.
+ */
+export function photoWaitLabel(at: number, now = Date.now()): string | null {
+  if (now - at > PHOTO_LABEL_DAYS * DAY_MS) return null;
   const tz = "Asia/Jerusalem";
   const time = new Date(at).toLocaleTimeString("he-IL", {
     timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false,
@@ -71,10 +156,29 @@ export function photoWaitLabel(at: number, now = Date.now()): string {
     timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
   }).format(t);
   if (dayKey(at) === dayKey(now)) return `מהשעה ${time}`;
-  if (dayKey(at) === dayKey(now - 24 * 60 * 60 * 1000)) return `מאתמול בשעה ${time}`;
+  if (dayKey(at) === dayKey(now - DAY_MS)) return `מאתמול בשעה ${time}`;
   const weekday = new Date(at).toLocaleDateString("he-IL", { timeZone: tz, weekday: "long" })
     .replace(/^יום\s+/, "");
   return `מיום ${weekday} בשעה ${time}`;
+}
+
+/** גוף השאלה. תמונה ישנה משישה ימים בלי שעה ובלי יום. */
+export function photoAskLead(
+  count: number,
+  since: number | null,
+  now = Date.now(),
+  askAfterMs = 20 * 60 * 1000,
+): string {
+  const veryOld = since != null && now - since > PHOTO_LABEL_DAYS * DAY_MS;
+  if (veryOld) {
+    return count === 1
+      ? "יש תמונה ישנה שממתינה לשיוך"
+      : `יש ${count} תמונות ישנות שממתינות לשיוך`;
+  }
+  const label = since != null && now - since > askAfterMs ? photoWaitLabel(since, now) : null;
+  const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
+  const older = label ? ` (הראשונה ${label})` : "";
+  return `יש ${what} שממתינות לשיוך${older}`;
 }
 
 /** הערת הקטלוג פעם אחת, גם אם התור חזר לתור. */

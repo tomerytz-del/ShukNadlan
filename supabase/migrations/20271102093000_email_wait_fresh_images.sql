@@ -327,3 +327,135 @@ comment on function public.whatsapp_pending_images_claim_ask(uuid) is
 
 revoke all on function public.whatsapp_pending_images_claim_ask(uuid) from public, anon, authenticated;
 grant execute on function public.whatsapp_pending_images_claim_ask(uuid) to service_role;
+
+-- תמונה שהוצגה בתור שהסתיים. לא מוחקת אותה מהרשימה.
+create or replace function public.whatsapp_pending_images_mark_asked(
+  p_agent_id uuid,
+  p_urls text[]
+) returns void
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  v_pending text[];
+  v_asked text[];
+begin
+  if p_agent_id is null or p_urls is null or cardinality(p_urls) = 0 then
+    return;
+  end if;
+  select c.pending_images, c.pending_images_asked
+    into v_pending, v_asked
+    from public.whatsapp_conversations c
+   where c.agent_id = p_agent_id
+   for update;
+  if v_pending is null or cardinality(v_pending) = 0 then
+    return;
+  end if;
+  update public.whatsapp_conversations
+     set pending_images_asked = (
+           select coalesce(array_agg(distinct x), '{}'::text[])
+             from unnest(
+               coalesce(v_asked, '{}'::text[]) || (
+                 select coalesce(array_agg(p), '{}'::text[])
+                   from unnest(v_pending) p
+                  where exists (
+                    select 1 from unnest(p_urls) q
+                     where split_part(p, '?', 1) = split_part(q, '?', 1)
+                  )
+               )
+             ) x
+         )
+   where agent_id = p_agent_id;
+end;
+$$;
+
+revoke all on function public.whatsapp_pending_images_mark_asked(uuid, text[]) from public, anon, authenticated;
+grant execute on function public.whatsapp_pending_images_mark_asked(uuid, text[]) to service_role;
+
+-- לנכס חדש: רק תמונות צעירות. p_all כשהסוכן/ת הפנה/תה אליהן במפורש.
+-- הישנות נשארות ממתינות. אין כאן מחיקה.
+create or replace function public.whatsapp_pending_images_take_recent(
+  p_agent_id uuid,
+  p_max_age_seconds integer,
+  p_all boolean
+) returns text[]
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  v_images text[];
+  v_at timestamptz[];
+  v_asked text[];
+  v_since timestamptz;
+  v_take text[] := '{}'::text[];
+  v_keep text[] := '{}'::text[];
+  v_keep_at timestamptz[] := '{}'::timestamptz[];
+  i integer;
+  v_fresh boolean;
+begin
+  select c.pending_images, c.pending_image_at, c.pending_images_asked, c.pending_images_since
+    into v_images, v_at, v_asked, v_since
+    from public.whatsapp_conversations c
+   where c.agent_id = p_agent_id
+   for update;
+  if v_images is null or cardinality(v_images) = 0 then
+    return '{}'::text[];
+  end if;
+  if p_all then
+    update public.whatsapp_conversations
+       set pending_images = '{}',
+           pending_image_at = '{}',
+           pending_images_asked = '{}',
+           pending_images_since = null,
+           updated_at = pg_catalog.now()
+     where agent_id = p_agent_id;
+    return v_images;
+  end if;
+  for i in 1 .. cardinality(v_images) loop
+    if cardinality(v_at) = cardinality(v_images) then
+      v_fresh := v_at[i] > pg_catalog.now() - make_interval(secs => greatest(coalesce(p_max_age_seconds, 0), 0));
+    else
+      v_fresh := v_since is not null
+        and v_since > pg_catalog.now() - make_interval(secs => greatest(coalesce(p_max_age_seconds, 0), 0));
+    end if;
+    if v_fresh then
+      v_take := v_take || v_images[i];
+    else
+      v_keep := v_keep || v_images[i];
+      if cardinality(v_at) = cardinality(v_images) then
+        v_keep_at := v_keep_at || v_at[i];
+      end if;
+    end if;
+  end loop;
+  if cardinality(v_take) = 0 then
+    return '{}'::text[];
+  end if;
+  update public.whatsapp_conversations
+     set pending_images = v_keep,
+         pending_image_at = case
+           when cardinality(v_keep_at) = cardinality(v_keep) then v_keep_at
+           else '{}'::timestamptz[]
+         end,
+         pending_images_asked = (
+           select coalesce(array_agg(u), '{}'::text[])
+             from unnest(v_keep) u
+            where u = any(coalesce(v_asked, '{}'::text[]))
+         ),
+         pending_images_since = case
+           when cardinality(v_keep) = 0 then null
+           when cardinality(v_keep_at) = cardinality(v_keep) then (select min(x) from unnest(v_keep_at) x)
+           else v_since
+         end,
+         updated_at = pg_catalog.now()
+   where agent_id = p_agent_id;
+  return v_take;
+end;
+$$;
+
+comment on function public.whatsapp_pending_images_take_recent(uuid, integer, boolean) is
+  'מצרף לנכס חדש רק תמונות מהיממה. ישנות נשארות עד שהסוכן/ת מפנה אליהן.';
+
+revoke all on function public.whatsapp_pending_images_take_recent(uuid, integer, boolean) from public, anon, authenticated;
+grant execute on function public.whatsapp_pending_images_take_recent(uuid, integer, boolean) to service_role;

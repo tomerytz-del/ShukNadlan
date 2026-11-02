@@ -74,8 +74,12 @@ import {
   rpcMissing,
   runTurnUntilQuiet,
   shouldFlushPendingImages,
-  photoWaitLabel,
+  photoAskLead,
+  rememberAskedImages,
   stripRequeueMark,
+  unsolicitedPhotoAsk,
+  urlsHandledByTurn,
+  urlsNotAskedRecently,
   withCatalogNote,
   type LockAcquire,
   type RenewBeat,
@@ -1504,10 +1508,6 @@ async function pendingImagesSince(agentId: string): Promise<number | null> {
   return Number.isFinite(at) ? at : null;
 }
 
-function sentAtLabel(at: number): string {
-  return photoWaitLabel(at);
-}
-
 /**
  * ‏**מה שהוובהוק עשה בלי המודל נכנס להיסטוריה** (27.10.2026). הצירוף, השאלה
  * וההסרה יוצאים מכאן ולא מגבריאלה, ולכן היא לא ראתה אותם: צילום מסך צורף
@@ -1690,8 +1690,6 @@ async function flushImageBatch(
   conv: ConversationState,
   count: number,
 ): Promise<void> {
-  const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
-
   // תמונות שממתינות מלפני הרצף הזה נשארות ברשימה. הגיל רק קובע אם
   // מצרפים אוטומטית או שואלים. לא מוחקים אותן.
   const since = await pendingImagesSince(agentId);
@@ -1739,10 +1737,10 @@ async function flushImageBatch(
     }
     return;
   }
+  const lead = photoAskLead(count, since, Date.now(), PHOTO_ASK_GAP_MS);
   if (choice.ids.length) {
-    const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
     const body = formatForWhatsapp(
-      `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
+      `📸 ${lead}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
     const titleMax = choice.ids.length + 2 <= 3 ? 20 : 24;
     const rows = choice.ids.slice(0, 8).map((id) => {
       const c = candidates.find((x) => x.id === id);
@@ -1774,8 +1772,7 @@ async function flushImageBatch(
     return;
   }
 
-  const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
-  const text = `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
+  const text = `📸 ${lead}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
     "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
     "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\". לא לשום נכס? כתוב/כתבי \"לא שייכות\".";
   await reply(from, text, agentId);
@@ -2639,6 +2636,11 @@ async function playTextTurn(opts: {
   }
   await saveConversation(agent.id, from, conv);
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
+  // התמונה הוצגה בתור שהסתיים. מלצר שמחכה לא ישאל עליה שוב.
+  if (turnImage) {
+    const pending = await freshPendingImages(agent.id);
+    await markImagesHandled(agent.id, urlsHandledByTurn(turnImage, pending));
+  }
   if (outbox.length) await sendOutbox(from, outbox, agent.id);
   return "work";
 }
@@ -2660,14 +2662,22 @@ async function playQueuedTurn(opts: {
   const queued = rawTexts.map(stripRequeueMark).filter((t) => t.trim()).join("\n");
   opts.conv.pending_images = await freshPendingImages(opts.agent.id);
   if (!queued.trim()) {
+    // בלי claim לפני ההחלטה: ריקון היה מסמן "נשאל" בלי לשאול, והמלצר היה שותק.
     if (shouldFlushPendingImages({
       flushImages: opts.flushImages === true,
       hasText: false,
       pendingImages: opts.conv.pending_images.length,
     })) {
-      const unasked = await claimImageAsk(opts.agent.id);
-      if (unasked.length) {
-        await flushImageBatch(opts.agent.id, opts.from, opts.conv, unasked.length);
+      const unasked = await claimImageAsk(opts.agent.id, opts.from);
+      const ask = unsolicitedPhotoAsk({
+        flushImages: true,
+        hasText: false,
+        pending: unasked,
+        handled: [],
+      });
+      if (ask.length) {
+        rememberAskedImages(imageAskSeen, opts.agent.id, ask);
+        await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
         return "work";
       }
     }
@@ -2705,17 +2715,47 @@ async function imageRecentEnoughForModel(agentId: string, images: string[]): Pro
   return images[images.length - 1];
 }
 
+/** תמונה שכבר נשאלה ב-isolate הזה, ליממה. מגבה כשסימון המסד לא נשמר. */
+const imageAskSeen = new Map<string, number>();
+
 /**
  * מסמן את התמונות שעוד לא נשאלו. מערך ריק = כבר נשאלו, לא שואלים שוב.
- * כשל בסימון לא שותק: עדיף שאלה כפולה על אלבום בלי תשובה.
+ * כשל בסימון לא שותק, אבל לא חוזרים על אותה תמונה בתוך יממה.
  */
-async function claimImageAsk(agentId: string): Promise<string[]> {
+async function claimImageAsk(agentId: string, phone: string): Promise<string[]> {
   const { data, error } = await supabase.rpc("whatsapp_pending_images_claim_ask", {
     p_agent_id: agentId,
   });
   if (!error) return (data as string[]) || [];
   if (!rpcMissing(error)) console.error("image ask claim failed", error);
-  return await freshPendingImages(agentId);
+  const fresh = urlsNotAskedRecently(imageAskSeen, agentId, await freshPendingImages(agentId));
+  if (!fresh.length || await photoQuestionInLastDay(phone)) return [];
+  return fresh;
+}
+
+async function markImagesHandled(agentId: string, urls: string[]): Promise<void> {
+  if (!urls.length) return;
+  rememberAskedImages(imageAskSeen, agentId, urls);
+  const { error } = await supabase.rpc("whatsapp_pending_images_mark_asked", {
+    p_agent_id: agentId,
+    p_urls: urls,
+  });
+  if (error && !rpcMissing(error)) console.error("image handled mark failed", error);
+}
+
+async function photoQuestionInLastDay(phone: string): Promise<boolean> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase.from("whatsapp_messages")
+    .select("body")
+    .eq("wa_phone", phone)
+    .eq("direction", "out")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  return ((data || []) as { body: string | null }[]).some((row) => {
+    const body = String(row.body || "");
+    return body.includes(PHOTO_ASK_MARK) || body.includes("ממתינות לשיוך") || body.includes("ממתינה לשיוך");
+  });
 }
 
 async function requeueOrFail(agentId: string, phone: string, texts: string[]): Promise<void> {

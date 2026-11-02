@@ -2,7 +2,13 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
-import { abortedTurnNote, abortedTurnPlan } from "./turn-lock.ts";
+import {
+  abortedTurnNote,
+  abortedTurnPlan,
+  AUTO_ATTACH_IMAGE_MS,
+  rpcMissing,
+  splitPendingForCreate,
+} from "./turn-lock.ts";
 import {
   clientNeeds,
   dealNullRejected,
@@ -544,7 +550,9 @@ const TOOLS: Anthropic.Tool[] = [
       "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
       "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
       "בלי לחיצה הנכס נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
-      "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
+      "תמונות מהיממה האחרונה מתחברות אליו אוטומטית. תמונות ישנות יותר לא, " +
+      "אלא אם include_waiting_images כי הסוכן/ת אמר/ה במפורש שהן שייכות לנכס. " +
+      "עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
       "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
       "אם אותה כתובת כבר קיימת אצל הסוכן/ת (גם אם נמכרה או בארכיון) הכלי לא " +
@@ -558,6 +566,12 @@ const TOOLS: Anthropic.Tool[] = [
           description:
             "רק אחרי שהסוכן/ת אישר/ה במפורש שמדובר בנכס אחר ולא בכפילות. " +
             "מדלג על בדיקת הכפילות ויוצר מודעה נוספת.",
+        },
+        include_waiting_images: {
+          type: "boolean",
+          description:
+            "רק אם הסוכן/ת אמר/ה במפורש שהתמונות שממתינות בשיחה, גם ישנות, שייכות לנכס הזה. " +
+            "בלי זה מצורפות רק תמונות מ-24 השעות האחרונות.",
         },
       },
       required: ["property_type", "deal_type", "price"],
@@ -2467,21 +2481,14 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  // התמונות שהצטברו בשיחה מתחברות מיד לנכס החדש — זו כל הפואנטה של
-  // "לצלם את הדירה ולשלוח בוואטסאפ יחד עם הטקסט". ‏**לקיחה אטומית** ולא
-  // ‏`ctx.conv.pending_images`: ברשימה שבזיכרון חסרות תמונות מאותו אלבום
-  // שהגיעו בבקשות מקבילות (מיגרציה 20270115095000).
-  //
-  // ‏**אבל לא תמונות ותיקות** (27.10.2026): רשימה שהוותיקה בה מלפני יותר
-  // מ-20 דקות - שאלה שלא נענתה, צילום מסך מהבוקר - נשארת בצד, והנכס נוצר
-  // בלעדיה. גבריאלה שואלת, ו-attach_images מצרף אחרי "כן".
-  const since = await pendingImagesSince(ctx);
-  const holdImages = since != null && Date.now() - since > PENDING_IMAGES_STALE_MS;
-  const images = holdImages ? [] : await takePendingImages(ctx);
+  // התמונות שהצטברו בשיחה מתחברות מיד לנכס החדש. לקיחה אטומית, לא
+  // הרשימה שבזיכרון: באלבום חסרות תמונות שהגיעו במקביל.
+  // ישנות מ-24 שעות לא מצטרפות, אלא אם הסוכן/ת הפנה/תה אליהן במפורש.
+  const explicitImages = input.include_waiting_images === true;
+  const picked = await takeImagesForNewProperty(ctx, explicitImages);
+  const images = picked.attach;
   if (images.length) payload.images = images;
-  const heldCount = holdImages
-    ? (await ctx.supabase.rpc("whatsapp_pending_image_count", { p_agent_id: ctx.agent.id })).data ?? 0
-    : 0;
+  const heldCount = picked.hold;
 
   const { data, error } = await ctx.supabase
     .from("properties")
@@ -2500,7 +2507,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     : await elsewhereDraftNote(ctx, payload);
 
   ctx.conv.last_property_id = data.id;
-  if (!holdImages) ctx.conv.pending_images = [];
+  if (heldCount === 0) ctx.conv.pending_images = [];
+  else ctx.conv.pending_images = ctx.conv.pending_images.filter((u) => !images.includes(u));
 
   const created = {
     ok: true,
@@ -2513,9 +2521,9 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       ? {
         images_held: heldCount,
         images_held_note:
-          `${heldCount} תמונות שממתינות בשיחה מ-${new Date(since!).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })} ` +
-          "**לא** צורפו לנכס, כי הן ותיקות. שאלי את הסוכן/ת אם הן שייכות לנכס הזה: כן = " +
-          "attach_images עם property_id, לא = discard_pending_images. אל תאמרי שצורפו.",
+          `${heldCount} תמונות ישנות שממתינות בשיחה **לא** צורפו לנכס. ` +
+          "שאלי את הסוכן/ת אם הן שייכות לנכס הזה: כן = attach_images עם property_id, " +
+          "לא = discard_pending_images. אל תאמרי שצורפו.",
       }
       : {}),
     // ‏lat מהשורה שנשמרה ולא מה-payload: פין משוער באזור תעשייה נקבע בטריגר
@@ -3302,9 +3310,6 @@ async function pendingImagesSince(ctx: ToolContext): Promise<number | null> {
   return Number.isFinite(at) ? at : null;
 }
 
-// אותו סף של השאלה בוובהוק (‏`PHOTO_ASK_GAP_MS` ב-index.ts)
-const PENDING_IMAGES_STALE_MS = 20 * 60 * 1000;
-
 /**
  * סדר ומחיקה של תמונות בנכס.
  *
@@ -3433,6 +3438,47 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
     };
   }
   return { ok: false, error: "התמונות של הנכס השתנו בדיוק עכשיו. אפשר לנסות שוב." };
+}
+
+/**
+ * לנכס חדש: תמונות מהיממה האחרונה, והישנות נשארות.
+ * explicit לוקח את כולן, רק כשהסוכן/ת הפנה/תה אליהן.
+ */
+async function takeImagesForNewProperty(
+  ctx: ToolContext,
+  explicit: boolean,
+): Promise<{ attach: string[]; hold: number }> {
+  const { data, error } = await ctx.supabase.rpc("whatsapp_pending_images_take_recent", {
+    p_agent_id: ctx.agent.id,
+    p_max_age_seconds: Math.round(AUTO_ATTACH_IMAGE_MS / 1000),
+    p_all: explicit,
+  });
+  if (!error) {
+    const attach = (data as string[]) || [];
+    const left = explicit ? 0 : await pendingImageCount(ctx);
+    return { attach, hold: left };
+  }
+  if (!rpcMissing(error)) {
+    console.error("pending images take recent failed", error);
+    return { attach: [], hold: await pendingImageCount(ctx) };
+  }
+  const since = await pendingImagesSince(ctx);
+  const urls = ctx.conv.pending_images;
+  const plan = splitPendingForCreate({
+    urls,
+    at: urls.map(() => since),
+    explicit,
+  });
+  if (plan.hold.length === 0 && plan.attach.length) {
+    return { attach: await takePendingImages(ctx), hold: 0 };
+  }
+  if (explicit) return { attach: await takePendingImages(ctx), hold: 0 };
+  return { attach: [], hold: plan.hold.length };
+}
+
+async function pendingImageCount(ctx: ToolContext): Promise<number> {
+  const { data } = await ctx.supabase.rpc("whatsapp_pending_image_count", { p_agent_id: ctx.agent.id });
+  return Number(data ?? 0);
 }
 
 /** כל התמונות הממתינות, ורשימה ריקה אחריהן - בפקודה אחת במסד. */
@@ -9519,17 +9565,14 @@ function sessionContext(
   if (conv.pending_images.length) {
     // הכלל כפי שהקוד עושה אותו, ולא "יצירת נכס תצרף אותן" - זה מה שגבריאלה
     // תיארה לסוכן (27.10.2026), והוא כבר לא נכון לתמונות ותיקות.
-    const stale = pendingSince != null && Date.now() - pendingSince > PENDING_IMAGES_STALE_MS;
-    const when = pendingSince != null
-      ? ` (הוותיקה מ-${new Date(pendingSince).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })})`
-      : "";
+    const stale = pendingSince != null && Date.now() - pendingSince >= AUTO_ATTACH_IMAGE_MS;
     lines.push(
       "",
-      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס${when}. ` +
+      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס. ` +
         (stale
-          ? "הן מלפני יותר מ-20 דקות: create_property **לא** יצרף אותן, ואין לצרף אותן לשום נכס " +
-            "בלי שהסוכן/ת אמר/ה לאיזה. "
-          : "create_property יצרף אותן לנכס החדש. ") +
+          ? "הן מלפני יותר מיממה: create_property לא יצרף אותן, אלא אם הסוכן/ת אמר/ה במפורש שהן שייכות " +
+            "לנכס (include_waiting_images). "
+          : "create_property יצרף תמונות מהיממה האחרונה. ישנות יותר נשארות בצד. ") +
         "לנכס קיים - attach_images. לא שייכות לשום נכס - discard_pending_images.",
     );
   }

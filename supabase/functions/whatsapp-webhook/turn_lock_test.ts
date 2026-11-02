@@ -21,8 +21,13 @@ import {
   nextSavedHistory,
   raceTurnWithLease,
   releaseDrainsTextsOnly,
+  photoAskLead,
   photoWaitLabel,
   releaseWithRetry,
+  rememberAskedImages,
+  splitPendingForCreate,
+  unsolicitedPhotoAsk,
+  urlsNotAskedRecently,
   runTurnUntilQuiet,
   runWithTurnLock,
   shouldFlushPendingImages,
@@ -453,6 +458,11 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   const play = index.slice(index.indexOf("async function playQueuedTurn"), index.indexOf("async function resumePendingTurns"));
   if (!play.includes("shouldFlushPendingImages")) fail("התור לא שואל אם מותר לשטוף");
   if (!play.includes("whatsapp_pending_images_claim_ask")) fail("אין סימון שנשאל לאלבום");
+  if (!play.includes("flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length)")) {
+    fail("השאלה סופרת רק את החדשות");
+  }
+  if (!index.includes("whatsapp_pending_images_mark_asked")) fail("תור שהראה תמונה לא מסמן אותה");
+  if (!index.includes("urlsNotAskedRecently")) fail("כשל סימון חוזר על השאלה");
   if (!play.includes("imageRecentEnoughForModel")) fail("תור טקסט מראה תמונה ישנה");
   if (play.includes("imageAskAlreadyOpen")) fail("השאלה תלויה בהודעה האחרונה");
   if (index.includes("אינו שוטף תמונות")) fail("ההערה הישנה נשארה");
@@ -554,17 +564,130 @@ Deno.test("אלבום שחיכה לנעילה נשאל פעם אחת, וריקו
   if (flushes !== 0) fail("ריקון שאל שוב");
 });
 
+Deno.test("S4: מלצר לא שואל על תמונה שתור שהסתיים כבר הראה", async () => {
+  const shown = unsolicitedPhotoAsk({
+    flushImages: true,
+    hasText: false,
+    pending: ["cap.jpg?sig=2"],
+    handled: ["cap.jpg?sig=1"],
+  });
+  if (shown.length) fail("נשאלה תמונה שכבר הוצגה");
+  if (unsolicitedPhotoAsk({
+    flushImages: true, hasText: false, pending: ["new.jpg"], handled: [],
+  }).length !== 1) fail("אלבום שלא הוצג לא נשאל");
+
+  let clock = 0;
+  const store = memoryTurnStore({ now: () => clock, staleMs: 120_000 });
+  store.images.push("cap.jpg");
+  store.pending.push("כיתוב לתמונה", "טקסט שהגיע באמצע");
+  const handled: string[] = [];
+  let releaseHold: () => void = () => {};
+  const hold = new Promise<void>((resolve) => {
+    releaseHold = resolve;
+  });
+  let waited = false;
+  const sleep = (ms: number) => {
+    clock += ms;
+    if (!waited) {
+      waited = true;
+      releaseHold();
+    }
+    return Promise.resolve();
+  };
+  const holder = runTurnUntilQuiet({
+    agentId: "a",
+    store,
+    maxTurns: 3,
+    now: () => clock,
+    sleep,
+    kicksLeft: 0,
+    runTurn: async () => {
+      if (!handled.length) await hold;
+      const text = store.pending.shift();
+      if (!text) return "idle";
+      handled.splice(0, handled.length, ...store.images);
+      return "work";
+    },
+  });
+  const started = Date.now();
+  while (store.holdToken() == null && Date.now() - started < 1000) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  if (store.holdToken() == null) fail("המחזיק לא תפס");
+
+  let questions = 0;
+  const waiter = runTurnUntilQuiet({
+    agentId: "a",
+    store,
+    now: () => clock,
+    sleep,
+    kicksLeft: 0,
+    runTurn: async (ctx) => {
+      const followed = ctx.followUp === true;
+      const text = store.pending.shift();
+      const ask = unsolicitedPhotoAsk({
+        flushImages: ctx.pass === 0 && !followed,
+        hasText: !!text,
+        pending: store.images,
+        handled,
+      });
+      if (ask.length) questions++;
+      return text || ask.length ? "work" : "idle";
+    },
+  });
+  await waiter;
+  await holder;
+  if (!waited) fail("המלצר לא חיכה");
+  if (store.images.length !== 1) fail("התמונה לא נשארה ממתינה");
+  if (store.pending.length !== 0) fail("הטקסט לא נענה");
+  if (questions !== 0) fail("נשאלה שאלה על תמונה שכבר הוצגה");
+});
+
 Deno.test("תווית תמונה היא יום ושעה, בלי תאריך מספרי", () => {
   const now = Date.parse("2026-11-02T10:00:00Z");
+  const day = 24 * 60 * 60 * 1000;
   const today = photoWaitLabel(now - 60 * 60 * 1000, now);
   const yesterday = photoWaitLabel(now - 26 * 60 * 60 * 1000, now);
-  const older = photoWaitLabel(now - 3 * 24 * 60 * 60 * 1000, now);
+  const older = photoWaitLabel(now - 3 * day, now);
+  const ancient = photoWaitLabel(now - 11 * day, now);
   for (const label of [today, yesterday, older]) {
-    if (/\d{1,2}[./]\d{1,2}|\d{4}/.test(label)) fail(label);
+    if (!label || /\d{1,2}[./]\d{1,2}|\d{4}/.test(label)) fail(String(label));
   }
-  if (!today.startsWith("מהשעה ")) fail(today);
-  if (!yesterday.startsWith("מאתמול בשעה ")) fail(yesterday);
-  if (!older.startsWith("מיום ") || !older.includes(" בשעה ")) fail(older);
+  if (!today || !today.startsWith("מהשעה ")) fail(String(today));
+  if (!yesterday || !yesterday.startsWith("מאתמול בשעה ")) fail(String(yesterday));
+  if (!older || !older.startsWith("מיום ") || !older.includes(" בשעה ")) fail(String(older));
+  if (ancient !== null) fail(String(ancient));
+  const lead = photoAskLead(3, now - 11 * day, now);
+  if (lead !== "יש 3 תמונות ישנות שממתינות לשיוך") fail(lead);
+  if (/שעה|יום |[./]\d|\d{4}/.test(lead)) fail(lead);
+  const recent = photoAskLead(1, now - 3 * day, now);
+  if (!recent.includes("מיום ") || /\d{4}/.test(recent)) fail(recent);
+
+  const seen = new Map<string, number>();
+  rememberAskedImages(seen, "a", ["pic.jpg?x=1"], now);
+  const again = urlsNotAskedRecently(seen, "a", ["pic.jpg?x=2", "other.jpg"], now + 1000);
+  if (again.join() !== "other.jpg") fail(again.join());
+  const later = urlsNotAskedRecently(seen, "a", ["pic.jpg"], now + 25 * 60 * 60 * 1000);
+  if (later.join() !== "pic.jpg") fail("אחרי יממה לא נשאלה");
+
+  const now2 = Date.now();
+  const oldAt = now2 - 10 * day;
+  const freshAt = now2 - 60 * 60 * 1000;
+  const split = splitPendingForCreate({
+    urls: ["old-a", "old-b", "new"],
+    at: [oldAt, oldAt, freshAt],
+    explicit: false,
+    now: now2,
+  });
+  if (split.attach.join() !== "new" || split.hold.join() !== "old-a,old-b") fail(JSON.stringify(split));
+  const unknown = splitPendingForCreate({
+    urls: ["mystery"], at: [null], explicit: false, now: now2,
+  });
+  if (unknown.attach.length || unknown.hold.join() !== "mystery") fail("גיל לא ידוע צורף");
+  const named = splitPendingForCreate({
+    urls: ["old-a", "old-b"], at: [oldAt, oldAt], explicit: true, now: now2,
+  });
+  if (named.hold.length || named.attach.length !== 2) fail("הפניה מפורשת לא צירפה");
 });
 
 Deno.test("אחרי תקרת התורים הטקסט שנשאר נאסף בהמשך", async () => {
