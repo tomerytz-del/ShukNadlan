@@ -78,7 +78,7 @@ as $$
         and miss.feats <@ coalesce(p_waive_features, '{}'::text[])
         -- העיר והשכונה בסוף השרשרת: הן היקרות (city_ids_for_name לכל עיר של הלקוח/ה,
         -- city_id_for_name לנכס), ו-AND נעצר בתנאי הראשון שנכשל. הסדר אינו משנה תוצאה
-        -- (AND חילופי, גם עם NULL), רק כמה זוגות מגיעים לחיפוש העיר (20271102120000).
+        -- (AND חילופי, גם עם NULL), רק כמה זוגות מגיעים לחיפוש העיר (20271102140000).
         and (cardinality(p_client.cities) = 0
              or exists (
                select 1 from client_cities c
