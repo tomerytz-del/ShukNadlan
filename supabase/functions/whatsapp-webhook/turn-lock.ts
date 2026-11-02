@@ -15,6 +15,12 @@ export const MAX_DRAIN_TURNS = 4;
 export const DRAIN_BUDGET_MS = 80_000;
 /** אותו חלון כמו runAgentTurn, כדי שגזימה חוזרת לא תזיז את תחילת ההיסטוריה אחרת. */
 export const HISTORY_KEEP = 12;
+export const LOCK_BACKOFF_MS = 400;
+
+/** ריקון רק בגלל טקסט ממתין. תמונות, גם ישנות, לא פותחות תור ולא שולחות. */
+export function releaseDrainsTextsOnly(pendingTexts: number, pendingImages: number): boolean {
+  return pendingTexts > 0 && pendingImages >= 0;
+}
 
 export type LockAcquire = true | false | "unavailable";
 
@@ -97,10 +103,26 @@ export function nextSavedHistory<T extends HistMsg>(opts: {
   });
 }
 
+/**
+ * אותו חוזה כמו whatsapp_history_merge_append: מוסיפים, גוזרים ל-12
+ * הודעות בלי הסמן, וסמן assistant אחד נשאר בסוף.
+ */
+export function mergeHistoryAppend<T extends HistMsg>(
+  history: readonly T[],
+  entries: readonly T[],
+  cap = HISTORY_KEEP,
+): T[] {
+  const prev = peelShownMatches(history);
+  const added = peelShownMatches(entries);
+  const limit = Math.max(1, cap);
+  const body = [...prev.history, ...added.history].slice(-limit);
+  return stampShownMatches(body, { ...prev.shown, ...added.shown });
+}
+
 export async function runWithTurnLock(opts: {
   agentId: string;
   store: TurnLockStore;
-  runTurn: () => Promise<"work" | "idle">;
+  runTurn: (ctx: { pass: number }) => Promise<"work" | "idle">;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   maxTurns?: number;
@@ -125,13 +147,16 @@ export async function runWithTurnLock(opts: {
     const token = newToken();
     let got = await opts.store.acquire(opts.agentId, token);
     const waitStart = now();
-    while (got === false && now() - waitStart < waitFor && now() - start < budgetMs) {
-      await sleep(400);
+    // ההמתנה הראשונה (מי שלא תפס) יכולה להימשך עד חלון ההתיישנות.
+    // תורי הריקון שאחריה נעצרים בתקציב, כדי לא לעבור את קיר הפונקציה.
+    while (got === false && now() - waitStart < waitFor) {
+      if (i > 0 && now() - start >= budgetMs) break;
+      await sleep(LOCK_BACKOFF_MS);
       got = await opts.store.acquire(opts.agentId, token);
     }
     if (got === "unavailable") {
       if (i === 0) {
-        const outcome = await opts.runTurn();
+        const outcome = await opts.runTurn({ pass: 0 });
         return {
           ran: outcome === "work" ? 1 : 0,
           leftPending: false,
@@ -146,7 +171,7 @@ export async function runWithTurnLock(opts: {
     }
     let pending = false;
     try {
-      const outcome = await opts.runTurn();
+      const outcome = await opts.runTurn({ pass: i });
       if (outcome === "work") ran++;
     } finally {
       pending = await opts.store.release(opts.agentId, token);
@@ -159,9 +184,59 @@ export async function runWithTurnLock(opts: {
   return { ran, leftPending: pendingAfter, skippedBusy: false, unlocked: false };
 }
 
+export type TurnLockResult = {
+  ran: number;
+  leftPending: boolean;
+  skippedBusy: boolean;
+  unlocked: boolean;
+};
+
+/**
+ * תפיסה, ואם מישהו מחזיק - המתנה קצרה עד חלון ההתיישנות ואז תפיסה שוב.
+ * אם נשאר טקסט (או שעדיין תפוס אחרי ההמתנה) קוראים ל-kick פעם אחת,
+ * כדי ש-waitUntil ימשיך בלי כפילות: הלקיחה של pending_texts אטומית.
+ */
+export async function runTurnUntilQuiet(opts: {
+  agentId: string;
+  store: TurnLockStore;
+  runTurn: (ctx: { pass: number }) => Promise<"work" | "idle">;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  maxTurns?: number;
+  budgetMs?: number;
+  waitForLockMs?: number;
+  retryBusy?: boolean;
+  kicksLeft?: number;
+  kick?: () => void;
+  newToken?: () => string;
+}): Promise<TurnLockResult> {
+  const retryBusy = opts.retryBusy !== false;
+  const firstWait = retryBusy ? 0 : (opts.waitForLockMs ?? 0);
+  let result = await runWithTurnLock({
+    ...opts,
+    waitForLockMs: firstWait,
+  });
+  if (result.unlocked) return result;
+  if (result.skippedBusy && retryBusy) {
+    result = await runWithTurnLock({
+      ...opts,
+      waitForLockMs: opts.waitForLockMs && opts.waitForLockMs > 0
+        ? opts.waitForLockMs
+        : TURN_STALE_MS,
+      budgetMs: TURN_STALE_MS + (opts.budgetMs ?? DRAIN_BUDGET_MS),
+    });
+  }
+  const kicksLeft = opts.kicksLeft ?? 1;
+  if ((result.leftPending || result.skippedBusy) && opts.kick && kicksLeft > 0) {
+    opts.kick();
+  }
+  return result;
+}
+
 /** אותו חוזה כמו ה-RPC, לבדיקות. לא נקרא מהוובהוק. */
 export function memoryTurnStore(opts?: { now?: () => number; staleMs?: number }): TurnLockStore & {
   pending: string[];
+  images: string[];
   holdToken: () => string | null;
 } {
   let chain: Promise<unknown> = Promise.resolve();
@@ -170,6 +245,7 @@ export function memoryTurnStore(opts?: { now?: () => number; staleMs?: number })
   let token: string | null = null;
   let started = 0;
   const pending: string[] = [];
+  const images: string[] = [];
   const run = <T>(fn: () => T): Promise<T> => {
     const next = chain.then(fn, fn);
     chain = next.then(() => undefined, () => undefined);
@@ -177,6 +253,7 @@ export function memoryTurnStore(opts?: { now?: () => number; staleMs?: number })
   };
   return {
     pending,
+    images,
     holdToken: () => token,
     acquire(_agentId, nextToken) {
       return run(() => {
@@ -192,7 +269,7 @@ export function memoryTurnStore(opts?: { now?: () => number; staleMs?: number })
       return run(() => {
         if (token !== held) return false;
         token = null;
-        return pending.length > 0;
+        return releaseDrainsTextsOnly(pending.length, images.length);
       });
     },
   };

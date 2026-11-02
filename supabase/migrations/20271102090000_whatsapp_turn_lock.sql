@@ -35,6 +35,7 @@ comment on column public.whatsapp_conversations.history_version is
 
 -- סמן ההתאמות ([[shown-matches-v1]]) יוצא מהאמצע וחוזר כהודעה אחרונה.
 -- הודעות חדשות לא נדרסות. סמן אחרון מנצח אם היו כמה.
+-- הגוף (בלי הסמן) נגזם ל-12 ההודעות האחרונות, כמו חלון ההיסטוריה של התור.
 create or replace function public.whatsapp_history_merge_append(
   p_history jsonb,
   p_entries jsonb
@@ -60,19 +61,37 @@ as $$
      order by elems.ordinality desc
      limit 1
   ),
-  body as (
-    select coalesce(jsonb_agg(elems.value order by elems.ordinality), '[]'::jsonb) as hist
-      from elems
-     where not elems.is_mark
+  combined as (
+    select row_number() over (order by src.ord) as ordinality, src.value
+      from (
+        select elems.ordinality as ord, elems.value
+          from elems
+         where not elems.is_mark
+        union all
+        select 1000000 + n.ordinality as ord, n.value
+          from jsonb_array_elements(coalesce(p_entries, '[]'::jsonb))
+               with ordinality as n(value, ordinality)
+         where not (
+           n.value->>'role' = 'assistant'
+           and coalesce(n.value->>'content', '') like '[[shown-matches-v1]]%'
+         )
+      ) src
+  ),
+  capped as (
+    select combined.value, combined.ordinality
+      from combined
+     order by combined.ordinality desc
+     limit 12
   )
-  select body.hist
-         || coalesce(p_entries, '[]'::jsonb)
-         || coalesce((select jsonb_build_array(marker.value) from marker), '[]'::jsonb)
-    from body;
+  select coalesce(
+           (select jsonb_agg(capped.value order by capped.ordinality) from capped),
+           '[]'::jsonb
+         )
+         || coalesce((select jsonb_build_array(marker.value) from marker), '[]'::jsonb);
 $$;
 
 comment on function public.whatsapp_history_merge_append(jsonb, jsonb) is
-  'מוסיף הודעות להיסטוריה ומשאיר סמן התאמות אחד, assistant, בסוף.';
+  'מוסיף הודעות, גוזר ל-12 האחרונות בלי הסמן, ומשאיר סמן התאמות אחד בסוף.';
 
 revoke all on function public.whatsapp_history_merge_append(jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.whatsapp_history_merge_append(jsonb, jsonb) to service_role;
@@ -139,11 +158,8 @@ begin
          turn_started_at = null
    where c.agent_id = p_agent_id
      and c.turn_token = p_token
-  -- גם תמונות ממתינות: אלבום שהפסיד את הנעילה לא נשטף אם בודקים רק טקסט.
-  returning (
-    cardinality(coalesce(c.pending_texts, '{}'::text[])) > 0
-    or cardinality(coalesce(c.pending_images, '{}'::text[])) > 0
-  )
+  -- רק טקסט. תמונות ממתינות (גם ישנות) נשארות לזרימה הקיימת, לא לריקון.
+  returning (cardinality(coalesce(c.pending_texts, '{}'::text[])) > 0)
   into v_pending;
 
   get diagnostics v_n = row_count;
@@ -155,7 +171,7 @@ end;
 $$;
 
 comment on function public.whatsapp_turn_release(uuid, uuid) is
-  'משחרר/ת את הנעילה רק אם הטוקן תואם. true = נשאר טקסט או תמונה ממתינים, והמחזיק/ה צריך/ה לרוקן.';
+  'משחרר/ת את הנעילה רק אם הטוקן תואם. true = נשאר טקסט ב-pending_texts. תמונות לא מפעילות ריקון.';
 
 revoke all on function public.whatsapp_turn_release(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.whatsapp_turn_release(uuid, uuid) to service_role;
@@ -244,7 +260,7 @@ end;
 $$;
 
 comment on function public.whatsapp_history_append(uuid, jsonb) is
-  'מוסיף/ה הודעות להיסטוריית הסוכן/ת בלי לקרוא-ולכתוב, ומקדם/ת history_version.';
+  'מוסיף/ה הודעות להיסטוריית הסוכן/ת בלי לקרוא-ולכתוב, גוזר/ת ל-12, ומקדם/ת history_version.';
 
 revoke all on function public.whatsapp_history_append(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.whatsapp_history_append(uuid, jsonb) to service_role;

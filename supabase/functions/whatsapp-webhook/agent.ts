@@ -7,6 +7,8 @@ import {
   dealNullRejected,
   OWNER_DEAL_ASK,
   ownerDealWrite,
+  SEEKER_DEAL_ASK,
+  seekerDealAsk,
 } from "./client-deal.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
@@ -5208,6 +5210,18 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   // ולא על 500 האחרונים. בוואטסאפ זה קורה יותר מבדשבורד - "תוסיף את
   // משפחת כהן" נאמר בלי לראות את הקובץ - ולקוח/ה כפול/ה פירושו שני
   // כרטיסים עם חצי מהדרישות בכל אחד.
+  if (!ownerWrite) {
+    const seekAsk = seekerDealAsk(input, null);
+    if (seekAsk) {
+      return {
+        ok: false,
+        saved: false,
+        ask: [seekAsk],
+        error: "לא נוצר כרטיס בלי סוג עסקה. " + seekAsk,
+      };
+    }
+  }
+
   const phone = String(input.phone || "");
   const existing = await findClientDuplicates(ctx, fullName, phone);
   if (existing === null) {
@@ -5266,12 +5280,13 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
       .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
       .single());
   }
-  if (error && ownerWrite && dealNullRejected(error)) {
+  if (error && dealNullRejected(error)) {
+    const ask = ownerWrite ? OWNER_DEAL_ASK : SEEKER_DEAL_ASK;
     return {
       ok: false,
       saved: false,
-      ask: [OWNER_DEAL_ASK],
-      error: "לא שמרתי את הכרטיס כמוכר/ת או כמשכיר/ה. " + OWNER_DEAL_ASK,
+      ask: [ask],
+      error: "לא שמרתי את הכרטיס בלי סוג עסקה. " + ask,
     };
   }
   if (error || !data) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
@@ -5302,6 +5317,16 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   const clientId = String(input.client_id || "");
   const existing = await ownedClient(ctx, clientId);
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
+
+  const seekAsk = seekerDealAsk(input, existing);
+  if (seekAsk) {
+    return {
+      ok: false,
+      saved: false,
+      ask: [seekAsk],
+      error: "לא עדכנתי לקונה או לשוכר/ת בלי סוג עסקה. " + seekAsk,
+    };
+  }
 
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
   const airErr = applyAirLiving(payload, input, true);
@@ -5356,12 +5381,13 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
       .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
       .single());
   }
-  if (error && ownerWrite && dealNullRejected(error)) {
+  if (error && dealNullRejected(error)) {
+    const ask = ownerWrite ? OWNER_DEAL_ASK : SEEKER_DEAL_ASK;
     return {
       ok: false,
       saved: false,
-      ask: [OWNER_DEAL_ASK],
-      error: "לא עדכנתי את הכרטיס למוכר/ת או למשכיר/ה. " + OWNER_DEAL_ASK,
+      ask: [ask],
+      error: "לא עדכנתי את הכרטיס בלי סוג עסקה. " + ask,
     };
   }
   if (error || !data) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
@@ -9229,10 +9255,12 @@ const SYSTEM_STATIC: string = (() => {
     "- **גם כאן: total_matching הוא כמה יש, returned הוא כמה הוחזרו.** אם חזר " +
       "notes_truncated על לקוח/ה שנשאלת עליו/ה - קרא/י שוב עם query על השם, " +
       "ואל תצטט/י הערה חתוכה כאילו היא מלאה.",
-    "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" - אל תבקש/י תקציב או ערים שלא נאמרו. " +
-      "סוג עסקה הוא היוצא מן הכלל: אל תשלחי deal_type ולא תאמרי קונה, שוכר/ת, מוכר/ת או משכיר/ה " +
-      "אם הסוכן/ת לא אמר/ה. בעל/ת נכס בלי צד: client_kind owner בלי deal_type. הכרטיס נשמר, " +
-      "needs אינו מוכר/ת ואינו משכיר/ה, ואם חזר ask שאלי אותו כמו שהוא (\"מוכר או משכיר?\").",
+    "- ליצירת לקוח/ה די בשם, חוץ מסוג עסקה. אל תבקש/י תקציב או ערים שלא נאמרו, " +
+      "ואל תשלחי deal_type ולא תאמרי קונה, שוכר/ת, מוכר/ת או משכיר/ה אם הסוכן/ת לא אמר/ה. " +
+      "בעל/ת נכס בלי צד: client_kind owner בלי deal_type. הכרטיס נשמר, needs אינו מוכר/ת " +
+      "ואינו משכיר/ה, ואם חזר ask שאלי אותו כמו שהוא (\"מוכר או משכיר?\"). " +
+      "מחפש/ת בלי sale/rent: הכלי לא שומר ומחזיר ask \"קנייה או שכירות?\" - שאלי וקראי שוב. " +
+      "מעבר מבעל/ת נכס בלי צד למחפש/ת בלי עסקה נעצר באותה שאלה, בלי שגיאת מסד.",
     "- \"תמחק את הלקוח/ה\" = set_client_status עם closed. הרשומה נשארת בקובץ.",
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
     "- \"מה יש ל<שם>\" = client_matches. הוא מחזיר גם market_matches - נכסים של מתווכים אחרים " +

@@ -24498,6 +24498,8 @@ async function ciSave(){
     phone: c.phone || null,
     email: c.email || null,
     status: 'paused',
+    client_kind: 'seeker',
+    deal_type: 'sale',
     notes: `יובא מ${source}. להשלים מה מחפש/ת ולהעביר ל"פעיל".`,
     agent_id: currentAgent.id,
     agency_id: currentAgent.agency_id,

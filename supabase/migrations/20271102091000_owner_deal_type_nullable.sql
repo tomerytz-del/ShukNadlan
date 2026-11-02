@@ -3,8 +3,8 @@
 --
 -- deal_type היה not null default 'sale'. create_client עם client_kind=owner
 -- ובלי deal_type שמר sale, ו-clientNeeds אמר "מוכר/ת" גם כשהסוכן/ת לא אמר/ה
--- מכירה או השכרה. ברירת המחדל של העמודה נשארת sale: ייבוא אנשי קשר ומחפש/ת
--- בלי שדה ממשיכים לקבל sale, וההתאמה (שוויון deal_type) לא משתנה.
+-- מכירה או השכרה. ברירת המחדל יורדת: שורה חדשה חייבת deal_type מפורש, או
+-- null רק אצל owner. מחפש/ת בלי ערך נדחה ב-check ולא הופך בשקט לקונה.
 --
 -- לבעל/ת נכס מותר null. מחפש/ת עדיין חייב/ת ערך (ה-check החדש). בעל/ת נכס
 -- ממילא לא נכנס/ת ל-client_property_match (השער client_kind = 'seeker'),
@@ -14,6 +14,19 @@
 
 alter table public.agent_clients
   alter column deal_type drop not null;
+
+do $$
+begin
+  if exists (
+    select 1
+      from pg_catalog.pg_attrdef d
+      join pg_catalog.pg_attribute a on a.attrelid = d.adrelid and a.attnum = d.adnum
+     where d.adrelid = 'public.agent_clients'::regclass
+       and a.attname = 'deal_type'
+  ) then
+    alter table public.agent_clients alter column deal_type drop default;
+  end if;
+end $$;
 
 do $$
 begin
@@ -29,4 +42,4 @@ begin
 end $$;
 
 comment on column public.agent_clients.deal_type is
-  'sale או rent. אצל מחפש/ת חובה (קונה או שוכר/ת). אצל בעל/ת נכס מותר null כל עוד לא נאמר אם מוכר/ת או משכיר/ה. ברירת המחדל sale חלה רק כשהעמודה לא נשלחה.';
+  'sale או rent. אצל מחפש/ת חובה (קונה או שוכר/ת). אצל בעל/ת נכס מותר null כל עוד לא נאמר אם מוכר/ת או משכיר/ה. אין ברירת מחדל: מי שיוצר שורה שולח את הערך.';

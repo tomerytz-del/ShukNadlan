@@ -2,6 +2,7 @@
 // בעל/ת נכס בלי sale/rent נשמר/ת בלי צד. לא אומרים מוכר/ת ולא משכיר/ה.
 
 export const OWNER_DEAL_ASK = "מוכר או משכיר?";
+export const SEEKER_DEAL_ASK = "קנייה או שכירות?";
 
 export function statedDeal(value: unknown): "sale" | "rent" | null {
   return value === "sale" || value === "rent" ? value : null;
@@ -33,6 +34,24 @@ export function ownerDealWrite(
     return { deal_type: null, ask: OWNER_DEAL_ASK };
   }
   return null;
+}
+
+/**
+ * מחפש/ת בלי sale/rent אי אפשר לשמור (ה-check). גם מעבר מבעל/ת נכס בלי צד
+ * ל-seeker בלי עסקה. null = יש צד, או שזו אינה שמירה של מחפש/ת.
+ */
+export function seekerDealAsk(
+  input: Record<string, unknown>,
+  existing?: { client_kind?: string | null; deal_type?: string | null } | null,
+): string | null {
+  if (input.client_kind === "owner") return null;
+  const creatingSeeker = !existing && input.client_kind !== "owner";
+  const stayingSeeker = !!existing && existing.client_kind !== "owner" && input.client_kind !== "owner";
+  const switchingToSeeker = input.client_kind === "seeker" && existing?.client_kind === "owner";
+  if (!creatingSeeker && !stayingSeeker && !switchingToSeeker) return null;
+  if (statedDeal(input.deal_type)) return null;
+  if (statedDeal(existing?.deal_type)) return null;
+  return SEEKER_DEAL_ASK;
 }
 
 /** שורת הדרישות בעברית. צד שלא נאמר לא מוצג כמוכר/ת, משכיר/ה, קונה או שוכר/ת. */
@@ -80,5 +99,6 @@ export function clientNeeds(c: Record<string, unknown>): string {
 export function dealNullRejected(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const blob = `${error.code || ""} ${error.message || ""}`;
-  return /23502/.test(blob) && /deal_type/.test(blob);
+  return (/23502/.test(blob) || /23514/.test(blob)) &&
+    /deal_type|deal_present_unless_owner/.test(blob);
 }

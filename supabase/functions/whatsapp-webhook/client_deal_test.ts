@@ -1,7 +1,7 @@
 // בעל/ת נכס בלי סוג עסקה אינו מוכר/ת.
 //   deno test supabase/functions/whatsapp-webhook/client_deal_test.ts
 
-import { clientNeeds, OWNER_DEAL_ASK, ownerDealWrite } from "./client-deal.ts";
+import { clientNeeds, OWNER_DEAL_ASK, ownerDealWrite, SEEKER_DEAL_ASK, seekerDealAsk } from "./client-deal.ts";
 
 function fail(message: string): never {
   throw new Error(message);
@@ -38,4 +38,25 @@ Deno.test("בעל/ת נכס בלי deal_type נשמר בלי צד ונשאל מ�
   if (stated !== null) fail("sale שנאמר נמחק");
   const seller = clientNeeds({ client_kind: "owner", deal_type: "sale" });
   if (!seller.includes("מוכר/ת") || seller.includes("משכיר")) fail(seller);
+});
+
+Deno.test("מעבר מבעל/ת נכס בלי צד למחפש/ת בלי עסקה שואל ולא נשמר", () => {
+  const ask = seekerDealAsk(
+    { client_kind: "seeker" },
+    { client_kind: "owner", deal_type: null },
+  );
+  if (ask !== SEEKER_DEAL_ASK) fail(String(ask));
+  if (ask !== "קנייה או שכירות?") fail(String(ask));
+  const kept = seekerDealAsk(
+    { client_kind: "seeker" },
+    { client_kind: "owner", deal_type: "rent" },
+  );
+  if (kept !== null) fail("צד שמור נשאל מחדש");
+  const create = seekerDealAsk({ full_name: "דנה" }, null);
+  if (create !== SEEKER_DEAL_ASK) fail("יצירת מחפש/ת בלי עסקה נשמרה");
+  const phoneOnly = seekerDealAsk(
+    { phone: "050" },
+    { client_kind: "seeker", deal_type: "sale" },
+  );
+  if (phoneOnly !== null) fail("עדכון טלפון ביקש עסקה");
 });

@@ -68,7 +68,7 @@ import {
   entriesAddedSince,
   historyWithAppendedTurn,
   rpcMissing,
-  runWithTurnLock,
+  runTurnUntilQuiet,
   type LockAcquire,
   type TurnLockStore,
 } from "./turn-lock.ts";
@@ -2434,7 +2434,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   };
   const answerWithText = (textIn: string, imageIn: string | null) =>
     playTextTurn({ ...played, text: textIn, image: imageIn });
-  const runQueued = () => playQueuedTurn(played);
+  const runQueued = (ctx?: { pass: number }) =>
+    playQueuedTurn({ ...played, flushImages: (ctx?.pass ?? 0) === 0 });
+  const kick = () => kickPendingDrain(agent.id, 1);
 
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
     p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
@@ -2446,26 +2448,17 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       return;
     }
     // הטקסט לא נכנס ל-pending. עונים עליו תחת הנעילה, ואז מרוקנים מה שכן נכנס.
-    const seeded = await runWithTurnLock({
+    await runTurnUntilQuiet({
       agentId: agent.id,
       store: turnStore(),
       maxTurns: 1,
-      waitForLockMs: 20_000,
+      kicksLeft: 1,
+      kick,
       runTurn: async () => {
         Object.assign(conv, await loadConversation(agent.id, from));
         if (!userText.trim() && !newImageUrl) return "idle";
         return answerWithText(userText, newImageUrl);
       },
-    });
-    if (seeded.skippedBusy) {
-      console.error("turn lock busy; answering unqueued text without it");
-      Object.assign(conv, await loadConversation(agent.id, from));
-      await answerWithText(userText, newImageUrl);
-    }
-    await runWithTurnLock({
-      agentId: agent.id,
-      store: turnStore(),
-      runTurn: runQueued,
     });
     return;
   }
@@ -2477,13 +2470,15 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   const { data: nowSeq } = await supabase.rpc("whatsapp_burst_seq", { p_agent_id: agent.id });
   if (Number(nowSeq) !== Number(mySeq)) return; // הודעה מאוחרת יותר עונה על כל הרצף
 
-  const held = await runWithTurnLock({
+  // תפוס: ממתינים עד שהנעילה מתיישנת (120 שניות) ותופסים שוב.
+  // אם נשאר טקסט אחרי התקציב, waitUntil ממשיך. הלקיחה אטומית, אז תשובה אחת.
+  await runTurnUntilQuiet({
     agentId: agent.id,
     store: turnStore(),
+    kicksLeft: 1,
+    kick,
     runTurn: runQueued,
   });
-  // תפוס: הטקסט נשאר ב-pending_texts. המחזיק/ה ירוקן/תרוקן אותו, או ההודעה הבאה.
-  if (held.skippedBusy) return;
 }
 
 /** תור אחד על טקסט שכבר נאסף. נקרא רק כשהנעילה בידינו, או כשה-RPC עוד לא קיים. */
@@ -2544,6 +2539,7 @@ async function playQueuedTurn(opts: {
   from: string;
   conv: ConversationState;
   msgId: string | null;
+  flushImages?: boolean;
 }): Promise<"work" | "idle"> {
   Object.assign(opts.conv, await loadConversation(opts.agent.id, opts.from));
   const { data: texts, error: takeErr } = await supabase.rpc("whatsapp_pending_texts_take", {
@@ -2553,7 +2549,9 @@ async function playQueuedTurn(opts: {
   const queued = ((texts as string[]) || []).join("\n");
   opts.conv.pending_images = await freshPendingImages(opts.agent.id);
   if (!queued.trim()) {
-    if (opts.conv.pending_images.length) {
+    // רק התור הראשון של אלבום בלי טקסט שוטף תמונות. ריקון המשך ותמונות
+    // ישנות לא שולחים שאלה ולא מצרפים לנכס.
+    if (opts.flushImages && opts.conv.pending_images.length) {
       await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
       return "work";
     }
@@ -2567,7 +2565,7 @@ async function playQueuedTurn(opts: {
 }
 
 /** אחרי תור שלא בא מוואטסאפ (מייל): לרוקן טקסטים שנכנסו בזמן שהנעילה הייתה תפוסה. */
-async function resumePendingTurns(agentId: string): Promise<void> {
+async function resumePendingTurns(agentId: string, kicksLeft = 1): Promise<void> {
   const { data: row } = await supabase.from("whatsapp_conversations")
     .select("wa_phone").eq("agent_id", agentId).maybeSingle();
   const phone = String(row?.wa_phone || "");
@@ -2583,29 +2581,41 @@ async function resumePendingTurns(agentId: string): Promise<void> {
     agencies: (await loadAgency(supabase, agent.agency_id, "name")) as { name?: string } | null,
   } as unknown as AgentRow;
   const conv = await loadConversation(agentId, phone);
-  await runWithTurnLock({
+  await runTurnUntilQuiet({
     agentId,
     store: turnStore(),
-    runTurn: () => playQueuedTurn({ agent: agentRow, from: phone, conv, msgId: null }),
+    retryBusy: false,
+    waitForLockMs: 1500,
+    kicksLeft,
+    kick: kicksLeft > 0 ? () => kickPendingDrain(agentId, kicksLeft - 1) : undefined,
+    runTurn: () => playQueuedTurn({
+      agent: agentRow, from: phone, conv, msgId: null, flushImages: false,
+    }),
   });
 }
 
+function kickPendingDrain(agentId: string, kicksLeft: number): void {
+  if (kicksLeft <= 0) return;
+  const work = resumePendingTurns(agentId, kicksLeft);
+  try {
+    EdgeRuntime.waitUntil(work);
+  } catch (err) {
+    console.error("pending drain kick failed", err);
+  }
+}
+
 async function holdAgentTurn(agentId: string, run: () => Promise<void>): Promise<void> {
-  const first = await runWithTurnLock({
+  await runTurnUntilQuiet({
     agentId,
     store: turnStore(),
     maxTurns: 1,
-    waitForLockMs: 45_000,
+    kicksLeft: 1,
+    kick: () => kickPendingDrain(agentId, 1),
     runTurn: async () => {
       await run();
       return "work";
     },
   });
-  if (first.skippedBusy) {
-    console.error("turn lock busy; running side turn without it");
-    await run();
-  }
-  if (!first.unlocked) await resumePendingTurns(agentId);
 }
 
 
