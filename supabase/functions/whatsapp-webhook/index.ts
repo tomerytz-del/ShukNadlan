@@ -70,9 +70,12 @@ import {
   entriesAddedSince,
   historyPersistPlan,
   historyWithAppendedTurn,
+  nextRequeue,
   rpcMissing,
   runTurnUntilQuiet,
   shouldFlushPendingImages,
+  stripRequeueMark,
+  withCatalogNote,
   type LockAcquire,
   type RenewBeat,
   type TurnLockResult,
@@ -1695,9 +1698,6 @@ async function flushImageBatch(
   const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
 
   // תמונות שממתינות מלפני הרצף הזה (שאלה שלא נענתה, צילום מסך מהבוקר)
-  const since = await pendingImagesSince(agentId);
-  const olderWaiting = since != null && Date.now() - since > PHOTO_ASK_GAP_MS;
-
   const { data: owned } = await supabase.from("properties")
     .select("id, title, property_type, street, listing_number, updated_at")
     .eq("agent_id", agentId)
@@ -1731,7 +1731,7 @@ async function flushImageBatch(
     lastUpdatedAt: last?.updated_at || null,
     now: Date.now(),
     idleMs: PHOTO_ASK_GAP_MS,
-    conversationIdle: olderWaiting || await photoBurstNeedsAsk(from),
+    conversationIdle: await photoBurstNeedsAsk(from),
   });
   if (choice.kind === "attach") {
     const property = candidates.find((c) => c.id === choice.id);
@@ -1741,9 +1741,8 @@ async function flushImageBatch(
     return;
   }
   if (choice.ids.length) {
-    const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
     const body = formatForWhatsapp(
-      `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
+      `📸 יש ${what} שממתינות לשיוך. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
     const titleMax = choice.ids.length + 2 <= 3 ? 20 : 24;
     const rows = choice.ids.slice(0, 8).map((id) => {
       const c = candidates.find((x) => x.id === id);
@@ -1775,8 +1774,7 @@ async function flushImageBatch(
     return;
   }
 
-  const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
-  const text = `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
+  const text = `📸 יש ${what} שממתינות לשיוך. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
     "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
     "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\". לא לשום נכס? כתוב/כתבי \"לא שייכות\".";
   await reply(from, text, agentId);
@@ -2589,7 +2587,7 @@ async function playTextTurn(opts: {
   let turnImage = opts.image;
   const catalog = await attachCatalogImage(agent.id, from, conv, turnText);
   if (catalog.image) turnImage = catalog.image;
-  turnText += catalog.note;
+  turnText = withCatalogNote(turnText, catalog.note);
   if (!turnText.trim()) {
     await saveConversation(agent.id, from, conv);
     return "work";
@@ -2624,10 +2622,7 @@ async function playTextTurn(opts: {
         );
         return "work";
       }
-      const back = await requeueAgentTexts(agent.id, from, [turnText]);
-      if (!back) {
-        await reply(from, "לא הספקתי לענות. אפשר לשלוח את ההודעה שוב?", agent.id);
-      }
+      await requeueOrFail(agent.id, from, [turnText]);
       return "work";
     }
     console.error("agent turn failed", err);
@@ -2658,29 +2653,77 @@ async function playQueuedTurn(opts: {
     p_agent_id: opts.agent.id,
   });
   if (takeErr) console.error("pending texts take failed", takeErr);
-  const queued = ((texts as string[]) || []).join("\n");
-  opts.conv.pending_images = await freshPendingImages(opts.agent.id);
+  const rawTexts = ((texts as string[]) || []);
+  const queued = rawTexts.map(stripRequeueMark).filter((t) => t.trim()).join("\n");
+  const freshImages = await dropStalePendingImages(opts.agent.id);
+  opts.conv.pending_images = freshImages;
+  const since = await pendingImagesSince(opts.agent.id);
+  const imageAgeMs = since == null ? null : Date.now() - since;
   if (!queued.trim()) {
-    // רק התור הראשון של אלבום בלי טקסט שוטף תמונות. מייל, ריקון המשך
-    // ותמונות ישנות ליד טקסט לא שולחים שאלה ולא מצרפים לנכס.
-    const since = await pendingImagesSince(opts.agent.id);
     if (shouldFlushPendingImages({
       flushImages: opts.flushImages === true,
+      followUp: opts.flushImages !== true,
       hasText: false,
-      pendingImages: opts.conv.pending_images.length,
-      imageAgeMs: since == null ? null : Date.now() - since,
-    })) {
-      await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
+      pendingImages: freshImages.length,
+      imageAgeMs,
+    }) && !(await imageAskAlreadyOpen(opts.from))) {
+      await flushImageBatch(opts.agent.id, opts.from, opts.conv, freshImages.length);
       return "work";
     }
     return "idle";
   }
-  if (opts.signal?.aborted) return "idle";
+  if (opts.signal?.aborted) {
+    await requeueOrFail(opts.agent.id, opts.from, rawTexts);
+    return "idle";
+  }
   return playTextTurn({
     ...opts,
     text: queued,
     image: opts.conv.pending_images[opts.conv.pending_images.length - 1] || null,
   });
+}
+
+async function dropStalePendingImages(agentId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc("whatsapp_pending_images_drop_stale", {
+    p_agent_id: agentId,
+    p_max_age: "10 minutes",
+  });
+  if (error) {
+    if (!rpcMissing(error)) console.error("drop stale images failed", error);
+    return await freshPendingImages(agentId);
+  }
+  return (data as string[]) || [];
+}
+
+async function imageAskAlreadyOpen(phone: string): Promise<boolean> {
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data } = await supabase.from("whatsapp_messages")
+    .select("body")
+    .eq("wa_phone", phone)
+    .eq("direction", "out")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const body = String(data?.body || "");
+  return body.includes("ממתינות לשיוך") || body.includes(PHOTO_ASK_MARK);
+}
+
+async function requeueOrFail(agentId: string, phone: string, texts: string[]): Promise<void> {
+  const keep: string[] = [];
+  let gaveUp = false;
+  for (const text of texts) {
+    const next = nextRequeue(text);
+    if (next.giveUp) gaveUp = true;
+    else if (next.text.trim()) keep.push(next.text);
+  }
+  if (keep.length) {
+    const ok = await requeueAgentTexts(agentId, phone, keep);
+    if (!ok) gaveUp = true;
+  }
+  if (gaveUp) {
+    await reply(phone, "לא הספקתי לענות על ההודעה. אפשר לשלוח אותה שוב?", agentId);
+  }
 }
 
 async function requeueAgentTexts(agentId: string, phone: string, texts: string[]): Promise<boolean> {
@@ -2728,7 +2771,7 @@ async function resumePendingTurns(agentId: string): Promise<boolean> {
   return result.leftPending || result.skippedBusy;
 }
 
-/** שרשרת ריקון אחת לסוכן/ת. הודעות נוספות לא פותחות שרשרת מקבילה. */
+/** שרשרת אחת בתוך אותו worker. בין workers הלקיחה האטומית של pending_texts מונעת תשובה כפולה. */
 const activeDrains = new Set<string>();
 
 function kickPendingDrain(agentId: string, kicksLeft: number): void {
@@ -2756,12 +2799,13 @@ async function holdAgentTurn(
   agentId: string,
   run: (ctx: { signal: AbortSignal }) => Promise<void>,
 ): Promise<TurnLockResult> {
-  // מחכים עד שהמחזיק/ה החי/ה משחרר/ת, לא רק 45 שניות של תור שקרס.
+  // כמה שניות, לא דקות: הסבב של המייל לא מחכה לנעילה ארוכה.
   return await runTurnUntilQuiet({
     agentId,
     store: turnStore(),
     maxTurns: 1,
-    waitForLockMs: 120_000,
+    retryBusy: false,
+    waitForLockMs: 3_000,
     kicksLeft: 8,
     kick: () => kickPendingDrain(agentId, 8),
     runTurn: async (ctx) => {

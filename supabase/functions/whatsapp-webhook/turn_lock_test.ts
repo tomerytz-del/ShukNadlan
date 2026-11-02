@@ -13,6 +13,7 @@ import {
   historyPersistPlan,
   HISTORY_KEEP,
   memoryTurnStore,
+  nextRequeue,
   prependPending,
   RENEW_TIMEOUT_MS,
   renewOrTimeout,
@@ -24,6 +25,7 @@ import {
   runTurnUntilQuiet,
   runWithTurnLock,
   shouldFlushPendingImages,
+  withCatalogNote,
   TURN_DEADLINE_MS,
   TURN_STALE_MS,
   type HistMsg,
@@ -399,8 +401,11 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: null })) {
     fail("תמונה בלי גיל נשאלה");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: 0, followUp: true })) {
-    fail("מי שחיכה לנעילה שטף תמונות");
+  if (!shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 1, imageAgeMs: 1_000, followUp: true })) {
+    fail("אלבום טרי שהמתין לנעילה לא נשאל");
+  }
+  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 1, imageAgeMs: 11 * 60 * 1000, followUp: true })) {
+    fail("מעקב שטף תמונה ישנה");
   }
   if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 0, imageAgeMs: 0 })) {
     fail("אין תמונות ובכל זאת שטיפה");
@@ -731,9 +736,19 @@ Deno.test("היסטוריה וגרסה נשמרות יחד, והוספה אחר�
   if (!email.includes("notifyEmailFailed") || !email.includes('type: "email_intake"')) {
     fail("כישלון מייל לא מודיע");
   }
-  if (!email.includes("lock_wait:")) fail("מייל תפוס לא חוזר לניסיון");
-  const note = emailFailureNotice("חוזה https://example.com/x");
-  if (/https?:\/\//.test(note.body) || /https?:\/\//.test(note.title)) fail("ההתראה מכילה כתובת");
+  if (!email.includes("email_intake_claim_lock_wait")) fail("מייל תפוס לא נתפס אטומית");
+  const note = emailFailureNotice(false);
+  const doneNote = emailFailureNotice(true);
+  if (/https?:\/\/|www\.|\d{1,2}[./]\d{1,2}|\d{4}/.test(note.body + note.title + doneNote.body)) {
+    fail("ההתראה מכילה כתובת או תאריך");
+  }
+  if (doneNote.body.includes("להעביר")) fail("אחרי כלי מבקשים להעביר שוב");
+  const again = nextRequeue(nextRequeue("שלום").text);
+  if (again.giveUp || !again.text.includes("rq:2")) fail("החזרה שנייה");
+  if (!nextRequeue(again.text).giveUp) fail("החזרה שלישית לא נעצרת");
+  if (withCatalogNote("כבר [בתור הזה 2 פריטים]", "\n\n[בתור הזה 2") !== "כבר [בתור הזה 2 פריטים]") {
+    fail("הערת קטלוג הוכפלה");
+  }
   if (emailLockPlan(1) !== "retry" || emailLockPlan(3) !== "fail") fail("מכסת ניסיונות המייל");
   if (abortedTurnPlan([]) !== "requeue" || abortedTurnPlan(["create_property"]) !== "save") {
     fail("תור שנקטע לא מחזיר טקסט או לא שומר כלי");

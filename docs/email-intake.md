@@ -250,11 +250,11 @@ select created_at, agent_id, from_addr, subject, status, detail
 select * from email_intake_cursor;
 ```
 
-שורה `processing` עם `detail` של `lock_wait` היא מייל שחיכה לנעילת התור.
-הסבב הבא, אחרי ארבע דקות, מנסה אותו שוב (עד שלושה ניסיונות). אחר כך
-הסטטוס `failed` והסוכן/ת מקבל/ת התראה `email_intake` בפעמון, בלי כתובת
-בהודעה. שורה `processing` בלי `lock_wait` היא סבב שנקטע באמצע, וה-claim
-עדיין מונע טיפול כפול.
+מייל שלא תפס את הנעילה בתוך כמה שניות עובר ל-`lock_wait` עם
+`next_attempt_at`. הסבב הבא תופס את השורה ב-`email_intake_claim_lock_wait`
+(רק הרצה אחת), עד שלושה ניסיונות. אחר כך התראה `email_intake` בפעמון,
+בלי כתובת ובלי נושא. שורה `processing` בת יותר מ-10 דקות נכשלת בלי
+להריץ את התור שוב.
 
 הפעלה ידנית (למשל אחרי שינוי סוד):
 

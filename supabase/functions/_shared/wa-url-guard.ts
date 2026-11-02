@@ -48,7 +48,7 @@ export type WaTextPlan = {
   stripped: boolean;
 };
 
-const URL_RE = /(?:https?:\/\/|wa\.me\/)[^\s<>"'`)\]}]+/gi;
+const URL_RE = /(?:https?:\/\/|wa\.me\/|www\.)[^\s<>"'`)\]}]+|(?:[a-z0-9-]+\.)+(?:co\.il|com|net|org|io)\b(?:\/[^\s<>"'`)\]}]*)?/gi;
 
 function clipLabel(label: string): string {
   return Array.from(label).slice(0, BUTTON_TITLE_MAX).join("");

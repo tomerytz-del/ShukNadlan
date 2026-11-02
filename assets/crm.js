@@ -24319,6 +24319,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
    docs/crm-contacts-import.md
    ============================================================================ */
 const CI_LIST_MAX = 300;       // שורות שמצוירות בבת אחת; החיפוש מצמצם
+let ciBatchDeal = '';
 let ciContacts = [];
 let ciSource = '';
 let ciQuery = '';
@@ -24474,18 +24475,24 @@ function ciRenderFoot(){
     '<button type="button" class="btn btn-ghost" data-ci="back">חזרה</button>' +
     `<button type="button" class="btn btn-gold" data-ci="save"${n ? '' : ' disabled'}>` +
       (n === 1 ? 'המשך להוספת הלקוח/ה' : `הוספת ${n} לקוחות`) + '</button>';
-  const note = n > 1
-    ? 'ייכנסו בסטטוס "בהמתנה" עד שיתווסף מה הם מחפשים - אחרת כל נכס היה מותאם להם.'
-    : '';
   let p = ciEl('ciSaveNote');
   if (!p){
-    p = document.createElement('p');
+    p = document.createElement('div');
     p.id = 'ciSaveNote';
     p.className = 'imp-note';
     p.style.margin = '10px 0 0';
     ciEl('ciBody').appendChild(p);
   }
-  p.textContent = note;
+  if (n > 1){
+    p.innerHTML = 'בחרו קנייה או שכירות. הייבוא נשמר בסטטוס "בהמתנה".' +
+      '<select id="ciDeal" style="display:block;margin-top:8px">' +
+      '<option value="">קנייה או שכירות</option>' +
+      `<option value="sale"${ciBatchDeal === 'sale' ? ' selected' : ''}>קנייה</option>` +
+      `<option value="rent"${ciBatchDeal === 'rent' ? ' selected' : ''}>שכירות</option>` +
+      '</select>';
+  } else {
+    p.textContent = '';
+  }
 }
 
 async function ciSave(){
@@ -24498,6 +24505,12 @@ async function ciSave(){
     openClientFormWithContact(c);
     return;
   }
+  const deal = (document.getElementById('ciDeal') || {}).value || ciBatchDeal;
+  if (deal !== 'sale' && deal !== 'rent'){
+    showToast('בחרו קנייה או שכירות לפני ההוספה');
+    return;
+  }
+  ciBatchDeal = deal;
   const btn = ciEl('ciFoot').querySelector('[data-ci="save"]');
   if (btn){ btn.disabled = true; btn.textContent = 'מוסיף…'; }
   const source = { picker:'חלון אנשי הקשר', google:'Google Contacts', file:'קובץ אנשי קשר', share:'שיתוף מהטלפון' }[ciSource] || 'אנשי הקשר';
@@ -24507,7 +24520,7 @@ async function ciSave(){
     email: c.email || null,
     status: 'paused',
     client_kind: 'seeker',
-    deal_type: 'sale',
+    deal_type: deal,
     notes: `יובא מ${source}. להשלים מה מחפש/ת ולהעביר ל"פעיל".`,
     agent_id: currentAgent.id,
     agency_id: currentAgent.agency_id,
@@ -24552,6 +24565,7 @@ document.getElementById('ciFile').addEventListener('change', async e => {
   ciShowList(await window.ContactImport.parseFile(file), 'file');
 });
 document.getElementById('ciModal').addEventListener('change', e => {
+  if (e.target.id === 'ciDeal'){ ciBatchDeal = e.target.value; return; }
   const i = e.target.dataset && e.target.dataset.ciI;
   if (i == null) return;
   ciContacts[Number(i)].checked = e.target.checked;

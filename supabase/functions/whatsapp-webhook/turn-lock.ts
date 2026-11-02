@@ -46,10 +46,31 @@ export function shouldFlushPendingImages(opts: {
   /** גיל התמונה. בלי גיל, או מעל 10 דקות, לא שולחים. */
   imageAgeMs?: number | null;
 }): boolean {
-  if (opts.followUp) return false;
-  if (opts.flushImages !== true || opts.hasText || opts.pendingImages <= 0) return false;
+  if (opts.hasText || opts.pendingImages <= 0) return false;
   if (opts.imageAgeMs == null || opts.imageAgeMs > STALE_IMAGE_MS) return false;
-  return true;
+  // אלבום טרי: גם מי שחיכה לנעילה שואל פעם אחת. ישן לא נשאל.
+  return opts.flushImages === true || opts.followUp === true;
+}
+
+export const REQUEUE_MAX = 2;
+
+/** אחרי שני החזרות לתור שולחים כישלון קצר ולא מחזירים שוב. */
+export function nextRequeue(text: string): { text: string; giveUp: boolean } {
+  const mark = /^\[\[rq:(\d+)\]\]/.exec(text);
+  const n = mark ? Number(mark[1]) : 0;
+  const body = mark ? text.slice(mark[0].length) : text;
+  if (n >= REQUEUE_MAX) return { text: body, giveUp: true };
+  return { text: `[[rq:${n + 1}]]${body}`, giveUp: false };
+}
+
+export function stripRequeueMark(text: string): string {
+  return text.replace(/^\[\[rq:\d+\]\]/, "");
+}
+
+/** הערת הקטלוג פעם אחת, גם אם התור חזר לתור. */
+export function withCatalogNote(text: string, note: string): string {
+  if (!note || text.includes("[בתור הזה")) return text;
+  return text + note;
 }
 
 /** טקסט שנלקח והתור נקטע בלי כלי מוחזר לראש התור, לא לסוף. */
@@ -76,12 +97,17 @@ export function emailLockPlan(attempt: number, max = EMAIL_LOCK_TRIES): "retry" 
   return attempt >= max ? "fail" : "retry";
 }
 
-/** בלי כתובת. השליחה עצמה עוברת בפעמון, עם שעות שקט וערוץ לפי המסלול. */
-export function emailFailureNotice(subject: string): { title: string; body: string } {
-  const clean = (subject || "ללא נושא").replace(/https?:\/\/\S+/g, "").trim().slice(0, 80);
+/** בלי נושא: נושא יכול לשאת כתובת או תאריך. השליחה בפעמון. */
+export function emailFailureNotice(toolsRan: boolean): { title: string; body: string } {
+  if (toolsRan) {
+    return {
+      title: "מייל שלא הושלם",
+      body: "הטיפול במייל נקטע אחרי שנשמר חלק מהעבודה. מה שכבר נשמר נשאר.",
+    };
+  }
   return {
     title: "מייל שלא טופל",
-    body: `לא הצלחתי לטפל במייל "${clean || "ללא נושא"}". אפשר להעביר אותו שוב.`,
+    body: "לא הצלחתי לטפל במייל שהועבר. אפשר לכתוב לי כאן מה להכניס.",
   };
 }
 
@@ -446,17 +472,22 @@ export async function runWithTurnLock(opts: {
           wake = resolve;
         });
         const keep = (async () => {
-          if (!opts.store.renew) return;
-          while (!settled) {
+          const started = now();
+          while (!settled && now() - started < 25_000) {
+            if (!opts.store.renew) {
+              await Promise.race([sleep(25_000), untilWake()]);
+              return;
+            }
             const beat = await renewOrTimeout(
               () => opts.store.renew!(opts.agentId, token),
               sleep,
             );
-            if (settled || beat === false || beat === "unavailable") return;
+            // בלי דופק מוצלח לא מחכים: החכירה התיישן והכלי לא יחסום אותה.
+            if (beat !== true) return;
             await Promise.race([sleep(HEARTBEAT_MS), untilWake()]);
           }
         })();
-        await running.catch(() => undefined);
+        await Promise.race([running.catch(() => undefined), keep.catch(() => undefined)]);
         settled = true;
         wake();
         await keep.catch(() => undefined);

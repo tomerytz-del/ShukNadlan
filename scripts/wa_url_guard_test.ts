@@ -55,6 +55,9 @@ check("המספר לא בגוף", !wa.text.includes("972") && !wa.text.includes(
 const video = planWaText("הסרטון: https://abc.supabase.co/storage/v1/object/public/v/clip.mp4");
 check("mp4 הוא מדיה", video.links[0]?.kind === "video" && !video.text.includes("http"));
 
+const bare = planWaText("ראו www.shuknadlan.co.il/crm וגם example.com/a");
+check("www ודומיין בלי סכמה יוצאים מהגוף", bare.stripped && !bare.text.includes("www.") && !bare.text.includes("example.com") && bare.links.length === 2);
+
 const home = planWaText("האתר: https://shuknadlan.co.il/");
 check("שורש האתר", home.links[0]?.label === "לאתר");
 

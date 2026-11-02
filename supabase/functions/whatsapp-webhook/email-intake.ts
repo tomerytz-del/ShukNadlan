@@ -125,18 +125,13 @@ export interface IntakeDeps {
   ) => Promise<TurnLockResult>;
 }
 
-function lockWaitAttempt(detail: string | null | undefined): number {
-  const m = String(detail || "").match(/lock_wait:(\d+)/);
-  return m ? Number(m[1]) : 0;
-}
-
 /** בלי וואטסאפ ישיר: הפעמון שולח לפי שעות שקט, כפתור בלי כתובת, ומסלול חינם לא בוואטסאפ. */
 async function notifyEmailFailed(
   sb: SupabaseClient,
   agentId: string,
-  subject: string,
+  toolsRan: boolean,
 ): Promise<void> {
-  const note = emailFailureNotice(subject);
+  const note = emailFailureNotice(toolsRan);
   const { error } = await sb.from("notifications").insert({
     agent_id: agentId,
     type: "email_intake",
@@ -613,14 +608,14 @@ async function handleOne(
   uidvalidity: number,
   uid: number,
   who: { token: string } | { agentId: string },
-  resume?: { id: number; detail?: string | null },
+  resume?: { id: number; attemptCount?: number },
 ): Promise<void> {
   const sb = deps.supabase;
 
   // ‏claim לפני כל דבר שעולה כסף או כותב. שתי הרצות חופפות רואות את אותו
   // מייל; השנייה נתקלת ב-23505 ועוזבת. שורה lock_wait חוזרת בלי claim חדש.
   let row: ClaimRow;
-  let waitDetail = resume?.detail ?? null;
+  const attemptCount = resume?.attemptCount ?? 0;
   if (resume) {
     row = { id: resume.id };
   } else {
@@ -636,18 +631,18 @@ async function handleOne(
     row = claimed as ClaimRow;
   }
 
-  const giveUpOrWait = async (subject: string, agentId: string) => {
-    const next = lockWaitAttempt(waitDetail) + 1;
-    if (emailLockPlan(next) === "fail") {
+  const parkForLock = async (agentForNotice: string) => {
+    const used = Math.max(attemptCount, 1);
+    if (emailLockPlan(used) === "fail") {
       await finish(sb, row, "failed", "lock_busy");
-      await notifyEmailFailed(sb, agentId, subject);
+      await notifyEmailFailed(sb, agentForNotice, false);
       return;
     }
-    waitDetail = `lock_wait:${next}`;
     await sb.from("email_intake_messages").update({
-      status: "processing",
-      detail: waitDetail,
-      processed_at: null,
+      status: "lock_wait",
+      detail: "lock_wait",
+      attempt_count: used,
+      next_attempt_at: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
     }).eq("id", row.id);
   };
 
@@ -750,12 +745,12 @@ async function handleOne(
         await deps.saveConversation(agent.id, phone, conv);
       }
       await finish(sb, row, "failed", "lease_aborted");
-      await notifyEmailFailed(sb, agent.id, mail.subject);
+      await notifyEmailFailed(sb, agent.id, !!(conv.abortedToolNames && conv.abortedToolNames.length));
       return;
     }
     console.error("email intake turn failed", err);
     await finish(sb, row, "failed", `turn: ${String((err as Error)?.message || err)}`);
-    await notifyEmailFailed(sb, agent.id, mail.subject);
+    await notifyEmailFailed(sb, agent.id, false);
     return;
   }
 
@@ -765,15 +760,8 @@ async function handleOne(
   };
 
   if (deps.holdTurn) {
-    if (!String(waitDetail || "").startsWith("lock_wait:")) {
-      waitDetail = "lock_wait:0";
-      await sb.from("email_intake_messages").update({
-        detail: waitDetail,
-        processed_at: new Date().toISOString(),
-      }).eq("id", row.id);
-    }
     const held = await deps.holdTurn(agent.id, turn);
-    if (held.skippedBusy) await giveUpOrWait(mail.subject, agent.id);
+    if (held.skippedBusy) await parkForLock(agent.id);
   } else {
     await turn();
   }
@@ -785,27 +773,34 @@ async function retryLockWaitMails(
   mailbox: string,
   uidvalidity: number,
 ): Promise<void> {
-  const staleBefore = new Date(Date.now() - 4 * 60 * 1000).toISOString();
-  const { data, error } = await deps.supabase.from("email_intake_messages")
-    .select("id, uid, agent_id, detail")
-    .eq("mailbox", mailbox)
-    .eq("uidvalidity", uidvalidity)
-    .eq("status", "processing")
-    .like("detail", "lock_wait:%")
-    .lt("processed_at", staleBefore)
-    .order("id")
-    .limit(5);
+  const sb = deps.supabase;
+  const { data: stuck, error: stuckErr } = await sb.rpc("email_intake_fail_stuck", { p_mailbox: mailbox });
+  if (stuckErr) {
+    if (!String(stuckErr.message || "").includes("email_intake_fail_stuck")) {
+      console.error("email stuck sweep failed", stuckErr);
+    }
+  } else {
+    for (const row of (stuck as { id: number; agent_id: string | null }[]) || []) {
+      if (row.agent_id) await notifyEmailFailed(sb, row.agent_id, true);
+    }
+  }
+  const { data: ready, error } = await sb.rpc("email_intake_claim_lock_wait", {
+    p_mailbox: mailbox,
+    p_limit: 3,
+  });
   if (error) {
-    console.error("email lock retry lookup failed", error);
+    if (!String(error.message || "").includes("email_intake_claim_lock_wait")) {
+      console.error("email lock claim failed", error);
+    }
     return;
   }
-  for (const row of data || []) {
+  for (const row of (ready as { id: number; uid: number; agent_id: string | null; attempt_count: number }[]) || []) {
     if (!row.agent_id) continue;
     try {
       await handleOne(
         deps, imap, mailbox, uidvalidity, Number(row.uid),
         { agentId: String(row.agent_id) },
-        { id: Number(row.id), detail: row.detail == null ? null : String(row.detail) },
+        { id: Number(row.id), attemptCount: Number(row.attempt_count) || 1 },
       );
     } catch (err) {
       console.error("email lock retry failed", row.uid, err);

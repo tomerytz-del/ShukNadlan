@@ -546,7 +546,7 @@ const NOTIF_CADENCE_EXCLUDED = new Set([
   'ops_alert', 'security_alert', 'platform_signup', 'platform_upgrade',
   'deal_sync_summary', 'deal_data_gap', 'review_alert', 'lead_unrouted',
   'access_review', 'admin_overdue', 'market_nudge', 'budget_alert',
-  'improvement_suggestion',
+  'improvement_suggestion', 'email_intake',
 ]);
 const NOTIF_CADENCE_TYPE_GROUP = {
   new_lead: 'new_leads',
