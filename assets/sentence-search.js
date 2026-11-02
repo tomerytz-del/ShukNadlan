@@ -1392,8 +1392,8 @@
       var prev = st;
       st = applyPatch(st, patch);
       if (prev.area === 'drawn' && st.area !== 'drawn' && typeof opts.onLeaveDrawn === 'function') opts.onLeaveDrawn();
-      /* ‏'default' (‏v10DefaultSale - "למכירה" שמסומנת בטעינה) אינו שינוי של הגולש/ת: בלי ?deal=sale
-         בכתובת. עד 1.11 היא נכתבה, ו"חזרה" לדף הבית נטענה כדף הנחיתה /?deal=sale וגללה לתוצאות */
+      /* ‏'default' - שינוי שהקוד עושה בטעינה ולא הגולש/ת - אינו נכתב לכתובת. עד 1.11 "למכירה" שסומנה
+         בטעינה נכתבה, ו"חזרה" לדף הבית נטענה כדף הנחיתה /?deal=sale וגללה לתוצאות */
       if (reason !== 'init' && reason !== 'default') urlTouched = true;
       commitUrl();
       render();
