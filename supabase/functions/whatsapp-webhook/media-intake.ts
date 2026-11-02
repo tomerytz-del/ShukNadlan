@@ -138,9 +138,10 @@ export async function transcribeMedia(opts: {
   // הודעה קולית (call=false) אינה שיחה עם לקוח. פרומפט ארוך של "שיחת מתווך
   // ולקוח" מחזיר על קליפ של כמה שניות טקסט ריק, והמודל היה עונה "ההודעה
   // הגיעה בלי טקסט" וחוזר על שאלות פתוחות. קליפ קצר נשלח בלי פרומפט.
+  // קובץ קטוע אינו שתיקה: אין מה לשמוע כי ההורדה לא הגיעה שלמה.
   if (!opts.call && bytes.byteLength < VOICE_NOTE_MIN_BYTES) {
-    const empty = voiceFailureReply(true);
-    return fail(empty.reply, empty.error);
+    const err = voiceFailureReply(false);
+    return fail(err.reply, err.error);
   }
   const places = opts.call ? await agentPlaces(opts.supabase, opts.agentId) : "";
   const hint = whisperHintFor({ call: opts.call, bytes: bytes.byteLength, domain: WHISPER_DOMAIN, places });

@@ -105,8 +105,18 @@ export function readWhisperBody(out: unknown, hint: string): WhisperRead {
  * ו-Whisper אינו בטוח שזו שתיקה. שתיקה קצרה (no_speech גבוה) אינה ניסיון נוסף.
  */
 export function shouldRetryBare(read: WhisperRead, hadHint: boolean): boolean {
-  if (!hadHint || read.text) return false;
+  // קריאה שנייה רק כשהפרומפט עצמו חזר. טקסט ריק בלי הד אינו שווה עוד קריאה.
+  if (!hadHint || read.text || !read.echoed) return false;
   if (read.duration < 1.2) return false;
   if (read.noSpeech >= 0.9) return false;
   return true;
+}
+
+/** ניסיון שני שנכשל ברשת אינו שתיקה. גוף ריק אחרי 200 הוא שתיקה. */
+export function detailAfterRetry(
+  retry: { ok: false } | { ok: true; read: WhisperRead } | null,
+): { text: string | null; silent: boolean } {
+  if (!retry || !retry.ok) return { text: null, silent: false };
+  if (retry.read.text) return { text: retry.read.text, silent: false };
+  return { text: null, silent: true };
 }

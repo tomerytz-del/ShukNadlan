@@ -95,9 +95,6 @@ import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
 import {
-  clientOfferLine,
-  offerAlready,
-  personNameFromTitle,
   sameTimeConflictLine,
   collectToolAsks,
   shapeAgentReply,
@@ -8749,8 +8746,6 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
   const [shaped] = await agendaShape(ctx, [data]);
   const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
   const sameTime = await exactSameTimeNote(ctx, kind, due ?? null, String(data.id));
-  const person = !row.client_id ? personNameFromTitle(title) : null;
-  const clientOffer = person && !offerAlready(ctx.conv.history, person) ? clientOfferLine(person) : undefined;
   return {
     ok: true,
     item: shaped,
@@ -8758,14 +8753,12 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
     client_followup: followup.note,
     same_time: sameTime || undefined,
-    client_offer: clientOffer,
     guidance: "אשר/י בשורה אחת או שתיים: מה, מתי (יום ושעה מ-when) ושם פרטי. " +
-      "בלי לסכם מה שנאמר קודם, ובלי פגישות אחרות. אל תציג/י item_id." +
+      "בלי לסכם מה שנאמר קודם, ובלי פגישות אחרות. אל תציג/י item_id. " +
+      "אין להציע להוסיף לקובץ הלקוחות מתוך כותרת הפגישה, ואין לנחש שם. " +
+      "הצעה רק אם הסוכן/ת אמר/ה שם של אדם ו-list_clients לא מצא אותו, בניסוח שלך, פעם אחת." +
       (followup.note ? " אם יש client_followup - אמור/אמרי אותו במשפט אחד נוסף." : "") +
-      (sameTime ? " same_time היא שורה אחת אחרי האישור, בלי לשאול אם להזיז." : "") +
-      (clientOffer
-        ? " client_offer היא שורה אחת בסוף, כמו שהיא, בלי שאלה ובלי לבקש טלפון או סוג עסקה."
-        : " אין להציע להוסיף לקובץ הלקוחות.") +
+      (sameTime ? " same_time היא שורה אחת אחרי האישור, בלי לשאול אם להזיז." : " אין להזכיר פגישה אחרת.") +
       (gcalOffer ? " ואחרי האישור, בשורה נפרדת, הצע/י את gcal_offer כמו שהוא - הצעה, לא לחץ." : ""),
     gcal_offer: gcalOffer || undefined,
   };
@@ -9527,7 +9520,7 @@ const SYSTEM_STATIC: string = (() => {
     "- **שאלה רק כשהפעולה נחסמת בלעדיה** (סוג עסקה, עיר, מחיר, איות שם, או על איזה פריט). " +
       "כמה דברים שכולם חוסמים נשאלים יחד בשורה קצרה אחת, ואין לוותר על אף אחד. " +
       "העשרה לפגישה עם מי שלא נשמר/ת כלקוח/ה (הוספה לקובץ, טלפון) אינה נשאלת. " +
-      "לכל היותר client_offer, פעם אחת לאדם, בלי לנסח אותה לשאלון. " +
+      "לכל היותר הצעה אחת בניסוח שלך, רק אם הסוכן/ת אמר/ה שם ואין התאמה בקובץ. לא מתוך כותרת. " +
       "קנייה או שכירות, ומוכר או משכיר, נשאלים כש-create_client או update_client מחזירים ask: " +
       "בלי זה הכרטיס לא נשמר. שאלי את ask כמו שהוא, פעם אחת. אם כבר נענה, אל תשאלי שוב.",
     "- **אין לשאול שוב** מה שכבר נענה בשיחה הזו, כולל \"כן\" ו\"הכוונה ל...\". " +
@@ -9543,8 +9536,7 @@ const SYSTEM_STATIC: string = (() => {
       "אם לא נאמרה שעה לפגישה - שאל/י בשאלה אחת; למשימה אפשר בלי שעה (09:00).",
     "- פגישה עם לקוח/ה מהקובץ: קודם list_clients עם query, והעבר/י client_id - אז השם " +
       "והטלפון יופיעו בתזכורת. מי שאינו/ה בקובץ: agenda_add בלי client_id. " +
-      "אין לשאול אם להוסיף ואין לשאול טלפון. אם חזר client_offer - " +
-      "השורה כמו שהיא, פעם אחת, בלי לנסח אותה לשאלה. " +
+      "אין לשאול אם להוסיף ואין לשאול טלפון, ואין להמציא שם מהכותרת. " +
       "סוג עסקה נשאל רק אם יוצרים או מעדכנים כרטיס והכלי החזיר ask.",
     "- אין להזכיר פגישה אחרת, תזכורת או התנגשות בתשובה על משהו אחר. " +
       "אם חזר same_time - שורה אחת אחרי האישור, בלי לשאול אם להזיז. " +
@@ -9818,10 +9810,11 @@ export async function runAgentTurn(opts: {
   const stopForAbort = (): never => {
     if (abortedTurnPlan(toolsDone) === "save") {
       conv.abortedToolNames = toolsDone.slice();
+      const stampedAt = new Date().toISOString();
       conv.history = trimHistory([
         ...conv.history,
-        { role: "user", content: userSummary },
-        { role: "assistant", content: abortedTurnNote(toolsDone) },
+        { role: "user", content: userSummary, at: stampedAt },
+        { role: "assistant", content: abortedTurnNote(toolsDone), at: stampedAt },
       ], HISTORY_LIMIT);
     }
     throw new DOMException("turn aborted", "AbortError");
@@ -9966,10 +9959,11 @@ export async function runAgentTurn(opts: {
   // ומצבים לא חוקיים של tool_result יתום אחרי גזימה.
   // גזימה במדרגות ולא slice(-HISTORY_LIMIT): חלון מחליק מזיז את תחילת
   // ההיסטוריה בכל תור, ואז היא לא נקראת מהמטמון לעולם (prompt-cache.ts)
+  const stampedAt = new Date().toISOString();
   conv.history = trimHistory([
     ...conv.history,
-    { role: "user", content: userSummary },
-    { role: "assistant", content: finalText },
+    { role: "user", content: userSummary, at: stampedAt },
+    { role: "assistant", content: finalText, at: stampedAt },
   ], HISTORY_LIMIT);
 
   if (opts.outbox && mutated) {

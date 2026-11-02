@@ -12,7 +12,7 @@ import {
   isClearAnswer,
   likelyReading,
   offerAlready,
-  personNameFromTitle,
+  historyInIdWindow,
   repeatsSettled,
   sameClockMinute,
   sameTimeConflictLine,
@@ -24,6 +24,7 @@ import {
   type HistoryMsg,
 } from "../supabase/functions/whatsapp-webhook/reply-style.ts";
 import {
+  detailAfterRetry,
   extFromAudioMime,
   readWhisperBody,
   shouldRetryBare,
@@ -100,7 +101,7 @@ const balcony = shapeAgentReply("עדכנתי את הנכס, יש מרפסת.", 
   userText: "תוסיפי מרפסת",
   history: [],
 });
-check("מרפסת אינה שם", !balcony.includes(clientOfferLine("מרפסת")) && personNameFromTitle("דירה עם מרפסת") === null, balcony);
+check("מרפסת אינה שם", !balcony.includes(clientOfferLine("מרפסת")), balcony);
 
 const again = shapeAgentReply(meetingReply, {
   userText: "תקבעי עוד פגישה עם עליזה מחר ב-9",
@@ -137,9 +138,8 @@ check("אישור תזכורת שהתבקשה נשאר", reminderOk.includes("ר
 
 const pushes = recentPushesNote([{ at: "2.11, 12:00", text: "תזכורת: פגישה עם חגי ב-13:00" }]);
 check("התראות אינן להזכיר שוב", pushes.includes("אין להזכיר") && pushes.includes("שעתיים האחרונות"));
-check("שם מהכותרת", personNameFromTitle("פגישה עם עליזה") === "עליזה");
-check("לרונית בלי רווח", personNameFromTitle("להתקשר לרונית") === "רונית");
-check("היום אינו שם", personNameFromTitle("פגישה להיום") === null);
+check("אין שם מנוחש מכותרת", !agentSrc.includes("personNameFromTitle") && !agentSrc.includes("client_offer"));
+check("לחזור אינו שם לקוח", !agentSrc.includes("אפשר להוסיף את חזור"));
 
 // --- 3. עליזה בקפה קפה, לא תפריט על חגי ---
 
@@ -198,6 +198,14 @@ const echoed = readWhisperBody({
 }, domain);
 check("פרומפט שהוחזר אינו תמלול", echoed.text === null && echoed.echoed && shouldRetryBare(echoed, true), echoed);
 check("שתיקה גבוהה אינה ניסיון שני", !shouldRetryBare(silent, true));
+const emptyHinted = readWhisperBody({
+  duration: 4,
+  text: "",
+  segments: [{ text: "", no_speech_prob: 0.2 }],
+}, domain);
+check("ריק בלי הד של הפרומפט אינו קריאה שנייה", !emptyHinted.echoed && !shouldRetryBare(emptyHinted, true));
+check("כשל בניסיון השני אינו שתיקה", detailAfterRetry({ ok: false }).silent === false && detailAfterRetry(null).silent === false);
+check("שתיקה אחרי ניסיון שני נשארת שתיקה", detailAfterRetry({ ok: true, read: emptyHinted }).silent === true);
 
 check("ogg עם codecs", extFromAudioMime("audio/ogg; codecs=opus") === "ogg");
 check("תשובה קצרה בלי שאלות פתוחות",
@@ -205,7 +213,9 @@ check("תשובה קצרה בלי שאלות פתוחות",
   !VOICE_NOTE_EMPTY_REPLY.includes("ועוד") &&
   (VOICE_NOTE_EMPTY_REPLY.match(/\?/g) || []).length === 1,
   VOICE_NOTE_EMPTY_REPLY);
-check("הודעה קולית מקבלת את השורה הקצרה", intakeSrc.includes("voiceFailureReply(true)"));
+const shortAt = intakeSrc.indexOf("קובץ קטוע אינו שתיקה");
+const shortFile = intakeSrc.slice(shortAt, shortAt + 220);
+check("קובץ קצר הוא כשל עיבוד", shortAt > 0 && shortFile.includes("voiceFailureReply(false)") && !shortFile.includes("voiceFailureReply(true)"), shortFile);
 const failAt = indexSrc.indexOf("if (!result.ok)");
 const afterFail = indexSrc.slice(failAt, failAt + 400);
 check("כישלון תמלול יוצא בלי המודל", failAt > 0 && afterFail.includes("result.reply") && afterFail.includes("return"), afterFail);
@@ -253,6 +263,25 @@ const draft = [
 const drafted = shapeAgentReply(draft, { userText: "תכיני הודעה לדני", history: [] });
 check("טיוטה ללקוח נשארת", drafted.includes("יש מרפסת?"), drafted);
 check("הערה מחוץ לטיוטה יורדת", !drafted.includes("שרון"), drafted);
+const bareDraft = shapeAgentReply("היי דנה,\nהפגישה מחר ב-10:00.\nשים לב: יש לך גם פגישה עם שרון ב-11:00.", {
+  userText: "תכיני לה הודעה",
+  history: [],
+});
+check("טיוטה בלי קישור שומרת מועד", bareDraft.includes("הפגישה מחר ב-10:00") && bareDraft.includes("שרון"), bareDraft);
+
+const oldAt = new Date(Date.now() - 48 * 3600_000).toISOString();
+const newAt = new Date().toISOString();
+const stale = closedNameLinks([
+  { role: "assistant", content: "אבירם זה אבירם כהן מקובץ הלקוחות?", at: oldAt },
+  { role: "user", content: "הכוונה לאבירם כהן מקובץ הלקוחות", at: oldAt },
+  { role: "assistant", content: "שייכתי.", at: newAt },
+]);
+check("זיהוי מלפני יומיים בטל", stale.length === 0, stale);
+const windowed = historyInIdWindow([
+  { role: "user", content: "ישן", at: oldAt },
+  { role: "user", content: "חדש", at: newAt },
+]);
+check("חלון 24 שעות", windowed.length === 1 && windowed[0].content === "חדש", windowed);
 
 check("בלי מקף ארוך בתשובה הריקה", !VOICE_NOTE_EMPTY_REPLY.includes("\u2014") && !VOICE_NOTE_ERROR_REPLY.includes("\u2014"));
 check("הפרומפט אוסר תזכורת על נושא אחר", agentSrc.includes("אין לצרף לתשובה תזכורת"));

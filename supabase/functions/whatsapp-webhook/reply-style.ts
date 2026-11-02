@@ -5,7 +5,11 @@
 export interface HistoryMsg {
   role?: string;
   content?: unknown;
+  /** מתי נשמרה ההודעה. בלי חותמת אין זיהוי שנסגר (חלון של 24 שעות). */
+  at?: string;
 }
+
+export const ID_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export interface SettledAnswer {
   q: string;
@@ -48,8 +52,19 @@ function clip(s: string, n: number): string {
   return t.length <= n ? t : t.slice(0, n - 1) + "...";
 }
 
+/** הודעות עם חותמת מ-24 השעות האחרונות. בלי אף חותמת נשאר החלון הישן. */
+export function historyInIdWindow(history: readonly HistoryMsg[], now = Date.now()): HistoryMsg[] {
+  if (!history.some((m) => m.at)) return history.slice();
+  const min = now - ID_WINDOW_MS;
+  return history.filter((m) => {
+    const t = Date.parse(String(m.at || ""));
+    return Number.isFinite(t) && t >= min && t <= now + 60_000;
+  });
+}
+
 /** שאלות שכבר נענו. "כן" נחשב תשובה. ההודעה הנוכחית עוד אינה בהיסטוריה. */
-export function settledFromHistory(history: readonly HistoryMsg[], currentUserText = ""): SettledAnswer[] {
+export function settledFromHistory(history: readonly HistoryMsg[], currentUserText = "", now = Date.now()): SettledAnswer[] {
+  const recent = historyInIdWindow(history, now);
   const out: SettledAnswer[] = [];
   const seen = new Set<string>();
   const push = (q: string, a: string) => {
@@ -58,18 +73,18 @@ export function settledFromHistory(history: readonly HistoryMsg[], currentUserTe
     seen.add(key);
     out.push({ q: clip(key, 140), a: clip(a, 140) });
   };
-  for (let i = 0; i < history.length; i++) {
-    if (history[i].role !== "assistant") continue;
-    const qs = questionsIn(messageText(history[i].content));
+  for (let i = 0; i < recent.length; i++) {
+    if (recent[i].role !== "assistant") continue;
+    const qs = questionsIn(messageText(recent[i].content));
     if (!qs.length) continue;
     let answer = "";
-    for (let j = i + 1; j < history.length; j++) {
-      if (history[j].role === "user") {
-        answer = messageText(history[j].content);
+    for (let j = i + 1; j < recent.length; j++) {
+      if (recent[j].role === "user") {
+        answer = messageText(recent[j].content);
         break;
       }
     }
-    if (!answer && i === lastAssistant(history)) answer = currentUserText;
+    if (!answer && i === lastAssistant(recent)) answer = currentUserText;
     for (const q of qs) push(q, answer);
   }
   return out.slice(-6);
@@ -124,28 +139,13 @@ const NOT_A_PERSON = new Set([
   "מרפסת", "חניה", "דירה", "נכס", "פגישה", "סיור", "תזכורת", "הודעה",
   "משרד", "לקוח", "לקוחה", "קפה",
 ]);
-/** אינפיניטיב אחרי ל, לא שם: "להתקשר לרונית". */
-const INFINITIVE = /^(התקשר|קבע|הוסיף|זכיר|שלח|בטל|עדכן|תקן|פתח|מצא|בדוק|רשם|זיז)/;
-
 /** גבול מילה בעברית. \b אינו תופס אותיות עבריות. */
 export function hebrewBounded(word: string): RegExp {
   return new RegExp(`(?<![\\u0590-\\u05FF])${word}(?![\\u0590-\\u05FF])`);
 }
 
 function isPersonToken(name: string): boolean {
-  return name.length >= 2 && !NOT_A_PERSON.has(name) && !INFINITIVE.test(name);
-}
-
-/** "פגישה עם עליזה" / "להתקשר לרונית". לא "מרפסת" ולא "להיום". */
-export function personNameFromTitle(title: string): string | null {
-  const t = String(title || "").replace(/\s+/g, " ").trim();
-  const withWhom = /(?<![א-ת])עם\s+([א-ת]{2,12})(?![א-ת])/.exec(t);
-  if (withWhom && isPersonToken(withWhom[1])) return withWhom[1];
-  const prefixed = /(?<![א-ת])ל([א-ת]{2,12})(?![א-ת])/g;
-  for (const m of t.matchAll(prefixed)) {
-    if (isPersonToken(m[1])) return m[1];
-  }
-  return null;
+  return name.length >= 2 && !NOT_A_PERSON.has(name);
 }
 
 export interface NameLink {
@@ -166,7 +166,9 @@ function wholeTokens(text: string): string[] {
 function walkNameLinks(
   history: readonly HistoryMsg[],
   currentUserText: string,
+  now = Date.now(),
 ): { live: NameLink[]; voided: Set<string> } {
+  history = historyInIdWindow(history, now);
   const found: NameLink[] = [];
   const voided = new Set<string>();
   const consider = (text: string) => {
@@ -194,8 +196,8 @@ function walkNameLinks(
   return { live: found.filter((link) => !voided.has(link.spoken)), voided };
 }
 
-export function closedNameLinks(history: readonly HistoryMsg[], currentUserText = ""): NameLink[] {
-  return walkNameLinks(history, currentUserText).live;
+export function closedNameLinks(history: readonly HistoryMsg[], currentUserText = "", now = Date.now()): NameLink[] {
+  return walkNameLinks(history, currentUserText, now).live;
 }
 
 function answerAfter(history: readonly HistoryMsg[], i: number, currentUserText: string): string {
@@ -357,9 +359,8 @@ function isChoiceMenu(line: string, userText: string): boolean {
 function isCustomerDraft(block: string): boolean {
   const t = block.trim();
   if (/^(הודעה ללקוח|נוסח ללקוח|נוסח להעברה)/.test(t)) return true;
-  if (/^(היי|הי|שלום)\s+[א-ת]/.test(t) && (/https?:\/\//.test(t) || /\/p\/\d/.test(t) || /\/m\//.test(t))) {
-    return true;
-  }
+  // גם בלי קישור. "היי דנה," ואחריו מועד הם נוסח ללקוח/ה.
+  if (/^(היי|הי|שלום)\s+[א-ת]/.test(t)) return true;
   return false;
 }
 
@@ -399,7 +400,14 @@ export function shapeAgentReply(
   const asks = opts.toolAsks || [];
   const blocks = text.split(/\n{2,}/);
   const shaped = blocks.map((block) => {
-    if (isCustomerDraft(block)) return block.trim();
+    if (isCustomerDraft(block)) {
+      const keptDraft = splitLines(block).filter((line) =>
+        !line.includes("?") ||
+        lineCarriesToolAsk(line, asks) ||
+        (!repeatsSettled(line, settled) && !isChoiceMenu(line, opts.userText))
+      );
+      return keptDraft.join("\n");
+    }
     const kept = splitLines(block).filter((line) =>
       lineCarriesToolAsk(line, asks) ||
       (!isUnsolicitedAside(line, opts.userText) &&

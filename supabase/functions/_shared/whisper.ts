@@ -9,7 +9,7 @@
  */
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { logAiUsage, unitsRow } from "./ai-usage.ts";
-import { readWhisperBody, shouldRetryBare } from "./whisper-read.ts";
+import { detailAfterRetry, readWhisperBody, shouldRetryBare } from "./whisper-read.ts";
 
 /** ‏Whisper מקבל עד 25MB לקובץ. */
 export const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
@@ -161,16 +161,18 @@ async function readOk(
 ): Promise<TranscribeDetail> {
   const out = await res.json();
   logWhisper(out);
-  let read = readWhisperBody(out, hint);
-  if (shouldRetryBare(read, !!hint)) {
+  const read = readWhisperBody(out, hint);
+  if (!shouldRetryBare(read, !!hint)) return { text: read.text, silent: !read.text };
+  try {
     const again = await whisperOnce(openaiKey, bytes, mime, ext, "");
-    if (again.ok) {
-      const out2 = await again.json();
-      logWhisper(out2);
-      read = readWhisperBody(out2, "");
-    }
+    if (!again.ok) return detailAfterRetry({ ok: false });
+    const out2 = await again.json();
+    logWhisper(out2);
+    return detailAfterRetry({ ok: true, read: readWhisperBody(out2, "") });
+  } catch (err) {
+    console.error("whisper bare retry failed", err);
+    return detailAfterRetry(null);
   }
-  return { text: read.text, silent: !read.text };
 }
 
 /**
