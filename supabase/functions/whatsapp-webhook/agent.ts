@@ -2,6 +2,12 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
+import {
+  clientNeeds,
+  dealNullRejected,
+  OWNER_DEAL_ASK,
+  ownerDealWrite,
+} from "./client-deal.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
@@ -314,6 +320,13 @@ export interface ConversationState {
    * ונטען מחדש בכל תור. בלי עמודה חדשה.
    */
   shownMatches?: Record<string, { ids: string[]; limit: number; waive: string[] }>;
+  /**
+   * גרסת history בזמן הטעינה. null = העמודה עוד לא קיימת, והשמירה היא upsert
+   * כמו קודם. 0 = אין שורה, או שורה בגרסה 0.
+   */
+  historyVersion?: number | null;
+  /** ההיסטוריה כפי שנטענה (בלי סמן), כדי ששמירה מתנגשת תוסיף רק את התור הזה. */
+  loadedHistory?: Anthropic.MessageParam[];
 }
 
 // ---------------------------------------------------------------------------
@@ -417,16 +430,18 @@ const clientFields = {
     type: "string",
     enum: ["seeker", "owner"],
     description:
-      "‏seeker = מחפש/ת נכס (קונה או שוכר/ת). ‏owner = בעל/ת נכס שמוכר/ת או משכיר/ה - " +
-      "אינו/ה מקבל/ת התאמות, ושדות החיפוש לא רלוונטיים אליו/ה. ברירת מחדל seeker. " +
-      "\"מוכר את הדירה\" / \"רוצה להשכיר\" = owner. מי שמוכר/ת וגם קונה - seeker, והמכירה בהערות.",
+      "‏seeker = מחפש/ת נכס (קונה או שוכר/ת). ‏owner = בעל/ת נכס. אינו/ה מקבל/ת " +
+      "התאמות, ושדות החיפוש לא רלוונטיים אליו/ה. ברירת מחדל seeker. " +
+      "\"מוכר את הדירה\" / \"רוצה להשכיר\" = owner, ורק אז deal_type לפי מה שנאמר. " +
+      "מי שמוכר/ת וגם קונה - seeker, והמכירה בהערות. אל תסמני owner בלי שהסוכן/ת אמר/ה שזה בעל/ת נכס.",
   },
   deal_type: {
     type: "string",
     enum: ["sale", "rent"],
     description:
-      "‏seeker: sale = מחפש/ת לקנות, rent = מחפש/ת לשכור. ‏owner: sale = מוכר/ת, " +
-      "rent = משכיר/ה. ברירת מחדל sale.",
+      "רק אם הסוכן/ת אמר/ה. seeker: sale = מחפש/ת לקנות, rent = מחפש/ת לשכור. " +
+      "owner: sale = מוכר/ת, rent = משכיר/ה. אין ברירת מחדל. בלי הערך, בעל/ת נכס " +
+      "נשמר/ת בלי צד ואת שואלת \"מוכר או משכיר?\". אל תשלחי sale כדי למלא.",
   },
   category: {
     type: "string",
@@ -1152,9 +1167,10 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מוסיף לקוח/ה לקובץ הלקוחות של הסוכן/ת. **שדה ריק פירושו 'לא משנה'** " +
       "ואינו מסנן כלום - לקוח/ה עם שם וטלפון בלבד הוא רשומה תקפה שמקבלת " +
-      "התאמות. אל תשאל/י על שדות שלא נאמרו. בעל/ת נכס (מוכר/ת או משכיר/ה) " +
-      "נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת הוא/היא נשמר/ת כקונה " +
-      "ומקבל/ת התאמות לכל נכס במאגר.",
+      "התאמות. אל תשאל/י על שדות שלא נאמרו, ואל תמלאי עסקה, עיר, מחיר או איות שם " +
+      "שלא נאמרו. בעל/ת נכס נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת " +
+      "הוא/היא נשמר/ת כקונה ומקבל/ת התאמות לכל נכס במאגר. בלי שנאמר מכירה או " +
+      "השכרה אל תשלחי deal_type: הכרטיס נשמר, ו-ask הוא \"מוכר או משכיר?\".",
     input_schema: {
       type: "object",
       properties: {
@@ -4837,44 +4853,6 @@ async function currentPreferredFeatures(ctx: ToolContext, clientId: string): Pro
   return Array.isArray(rows) ? rows.map(String).filter(Boolean) : [];
 }
 
-/** שורת הדרישות בעברית — מה שהסוכן/ת רואה בכרטיס הלקוח/ה בדשבורד. */
-function clientNeeds(c: Record<string, unknown>): string {
-  const parts: string[] = [];
-  // ‏"למכירה" על מחפש/ת היה דו-משמעי - מודל קרא בו מוכר/ת. הצד נאמר במפורש.
-  if (c.client_kind === "owner") {
-    parts.push(c.deal_type === "rent" ? "בעל/ת נכס - משכיר/ה" : "בעל/ת נכס - מוכר/ת");
-    if (c.category === "commercial") parts.push("מסחרי");
-    return parts.join(" · ");
-  }
-  parts.push(c.deal_type === "rent" ? "מחפש/ת לשכור" : "מחפש/ת לקנות");
-  if (c.category === "commercial") parts.push("מסחרי");
-  const types = (c.property_types as string[]) || [];
-  if (types.length) parts.push(types.join("/"));
-  const cities = (c.cities as string[]) || [];
-  if (cities.length) parts.push(cities.join("/"));
-  if (c.min_rooms || c.max_rooms) {
-    parts.push(`${c.min_rooms ?? ""}${c.min_rooms && c.max_rooms ? "-" : ""}${c.max_rooms ?? ""} חד׳`);
-  }
-  if (c.min_price || c.max_price) {
-    const from = c.min_price ? Number(c.min_price).toLocaleString("he-IL") : "";
-    const to = c.max_price ? Number(c.max_price).toLocaleString("he-IL") : "";
-    parts.push(from && to ? `₪${from}-${to}` : from ? `מ-₪${from}` : `עד ₪${to}`);
-  }
-  if (c.min_size_sqm || c.max_size_sqm) {
-    const lo = c.min_size_sqm, hi = c.max_size_sqm;
-    parts.push(lo && hi ? `${lo}-${hi} מ״ר` : lo ? `מ-${lo} מ״ר` : `עד ${hi} מ״ר`);
-  }
-  if (c.max_floor !== null && c.max_floor !== undefined) parts.push(`עד קומה ${c.max_floor}`);
-  if (Array.isArray(c.required_directions) && c.required_directions.length) {
-    parts.push(`אוויר: ${c.required_directions.join(" + ")}`);
-  }
-  if (c.min_air_directions) parts.push(`${c.min_air_directions}+ כיווני אוויר`);
-  if (c.min_living_room_sqm) parts.push(`סלון ${c.min_living_room_sqm}+ מ"ר`);
-  const feats = (c.required_features as string[]) || [];
-  if (feats.length) parts.push(`חובה: ${feats.join(", ")}`);
-  return parts.join(" · ");
-}
-
 /**
  * קובץ הלקוחות — אותה תקרה ואותו היגיון של `list_properties`, עם הבדל אחד
  * שמשנה את המספרים.
@@ -5199,6 +5177,11 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   if (airErr) return { ok: false, error: airErr };
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
+  const ownerWrite = ownerDealWrite(input, null);
+  if (ownerWrite) {
+    payload.client_kind = "owner";
+    payload.deal_type = null;
+  }
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
@@ -5208,7 +5191,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     notes: String(input.notes || ""),
     requiredSent,
     category: payload.category as string | undefined,
-    deal_type: payload.deal_type as string | undefined,
+    deal_type: ownerWrite ? null : payload.deal_type as string | undefined,
     cities: payload.cities as string[] | undefined,
     min_price: payload.min_price as number | undefined,
     max_price: payload.max_price as number | undefined,
@@ -5283,6 +5266,14 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
       .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
       .single());
   }
+  if (error && ownerWrite && dealNullRejected(error)) {
+    return {
+      ok: false,
+      saved: false,
+      ask: [OWNER_DEAL_ASK],
+      error: "לא שמרתי את הכרטיס כמוכר/ת או כמשכיר/ה. " + OWNER_DEAL_ASK,
+    };
+  }
   if (error || !data) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = data.id;
@@ -5291,7 +5282,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     client_id: data.id,
     full_name: data.full_name,
     needs: clientNeeds(data),
-    ask: planned.ask,
+    ask: ownerWrite ? [ownerWrite.ask] : planned.ask,
     suggested_features: planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
       ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
@@ -5300,7 +5291,10 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: clientWriteGuidance(planned, true),
+    guidance: ownerSavedGuidance(
+      ownerWrite?.ask,
+      clientWriteGuidance(ownerWrite ? { ...planned, ask: undefined } : planned, true),
+    ),
   };
 }
 
@@ -5312,6 +5306,11 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
   const airErr = applyAirLiving(payload, input, true);
   if (airErr) return { ok: false, error: airErr };
+  const ownerWrite = ownerDealWrite(input, existing);
+  if (ownerWrite) {
+    payload.client_kind = "owner";
+    payload.deal_type = null;
+  }
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
@@ -5321,7 +5320,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     notes: String(input.notes || ""),
     requiredSent,
     category: (payload.category as string | undefined) ?? (existing as { category?: string }).category,
-    deal_type: (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
+    deal_type: ownerWrite ? null : (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
     cities: (payload.cities as string[] | undefined) ?? (existing as { cities?: string[] }).cities,
     min_price: (payload.min_price as number | undefined) ?? (existing as { min_price?: number }).min_price,
     max_price: (payload.max_price as number | undefined) ?? (existing as { max_price?: number }).max_price,
@@ -5357,6 +5356,14 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
       .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
       .single());
   }
+  if (error && ownerWrite && dealNullRejected(error)) {
+    return {
+      ok: false,
+      saved: false,
+      ask: [OWNER_DEAL_ASK],
+      error: "לא עדכנתי את הכרטיס למוכר/ת או למשכיר/ה. " + OWNER_DEAL_ASK,
+    };
+  }
   if (error || !data) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = clientId;
@@ -5364,8 +5371,9 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     ok: true,
     client_id: clientId,
     full_name: data.full_name,
-    updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
+    updated_fields: Object.keys(payload).filter((k) => k !== "updated_at" && !(k === "deal_type" && payload.deal_type == null)),
     needs: clientNeeds(data),
+    ask: ownerWrite ? [ownerWrite.ask] : undefined,
     suggested_features: notesSent && planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
       ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
@@ -5374,8 +5382,17 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
+    guidance: ownerSavedGuidance(
+      ownerWrite?.ask,
+      notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
+    ),
   };
+}
+
+function ownerSavedGuidance(ask: string | undefined, base: string | undefined): string | undefined {
+  if (!ask) return base;
+  const line = `הכרטיס נשמר בלי צד של מכירה או השכרה. שאלי בדיוק: ${ask} אל תאמרי מוכר/ת או משכיר/ה.`;
+  return base ? `${line} ${base}` : line;
 }
 
 function clientWriteGuidance(
@@ -9075,6 +9092,12 @@ const SYSTEM_STATIC: string = (() => {
     "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
+    "- **שדה שחשוב לכרטיס, למודעה או להתאמה לא מקבל ברירת מחדל ולא ניחוש.** " +
+      "סוג עסקה, עיר, מחיר, ואיות שם מתמלול - רק אם הסוכן/ת אמר/ה אותם. " +
+      "אל תציגי כעובדה ערך שלא נמסר. אם חסר, סיימי בשאלה קצרה אחת על בדיוק מה שחסר, " +
+      "לא ברשימה, אלא אם באמת חסרים כמה דברים שכולם נדרשים עכשיו.",
+    "- **המשך קצר (מילה או שתיים) אינו אישור לשם שאת ביקשת לאמת.** " +
+      "אם בהיסטוריה הקרובה יש תיקון של השם, השתמשי בשם המתוקן ולא בשם ששאלת עליו.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
     "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. " +
       "הודעה שמוכנה להעברה ללקוח/ה אינה כוללת כתובת. אם חזר button_sent או buttons_sent - " +
@@ -9206,7 +9229,10 @@ const SYSTEM_STATIC: string = (() => {
     "- **גם כאן: total_matching הוא כמה יש, returned הוא כמה הוחזרו.** אם חזר " +
       "notes_truncated על לקוח/ה שנשאלת עליו/ה - קרא/י שוב עם query על השם, " +
       "ואל תצטט/י הערה חתוכה כאילו היא מלאה.",
-    "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" - אל תבקש/י תקציב או ערים שלא נאמרו.",
+    "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" - אל תבקש/י תקציב או ערים שלא נאמרו. " +
+      "סוג עסקה הוא היוצא מן הכלל: אל תשלחי deal_type ולא תאמרי קונה, שוכר/ת, מוכר/ת או משכיר/ה " +
+      "אם הסוכן/ת לא אמר/ה. בעל/ת נכס בלי צד: client_kind owner בלי deal_type. הכרטיס נשמר, " +
+      "needs אינו מוכר/ת ואינו משכיר/ה, ואם חזר ask שאלי אותו כמו שהוא (\"מוכר או משכיר?\").",
     "- \"תמחק את הלקוח/ה\" = set_client_status עם closed. הרשומה נשארת בקובץ.",
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
     "- \"מה יש ל<שם>\" = client_matches. הוא מחזיר גם market_matches - נכסים של מתווכים אחרים " +

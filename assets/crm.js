@@ -23157,8 +23157,14 @@ function clientNeighborhoodColumnMissing(error){
    מחפש/ת, ולכן "קנייה" אצלו/ה הייתה בדיוק הטעות שהעמודה נולדה לתקן. */
 function isOwnerClient(c){ return c.client_kind === 'owner'; }
 function clientSideLabel(c){
-  if (isOwnerClient(c)) return c.deal_type === 'rent' ? 'משכיר/ה' : 'מוכר/ת';
-  return c.deal_type === 'rent' ? 'שכירות' : 'קנייה';
+  if (isOwnerClient(c)) {
+    if (c.deal_type === 'rent') return 'משכיר/ה';
+    if (c.deal_type === 'sale') return 'מוכר/ת';
+    return 'בעל/ת נכס';
+  }
+  if (c.deal_type === 'rent') return 'שכירות';
+  if (c.deal_type === 'sale') return 'קנייה';
+  return 'מחפש/ת';
 }
 // ‏active אצל מחפש/ת הוא "מחפש/ת"; אצל בעל/ת נכס זו פשוט רשומה פעילה
 function clientStatusLabel(c){
@@ -23482,8 +23488,11 @@ function buildClientCard(c){
   /* "עוד": הסכם, יומן ושיחות. הם בתפריט ולא בשורה כי הם פעולות של פעם
      בכמה ימים, ושש פעולות באותו משקל הן בדיוק מה שהסתיר את "הצגת
      ההתאמות" - הסיבה שהקובץ הזה קיים. */
-  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
-                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
+  const agrKind = c.deal_type === 'rent'
+    ? (owner ? 'landlord' : 'tenant')
+    : c.deal_type === 'sale'
+    ? (owner ? 'sell' : 'buy')
+    : null;
   const more = document.createElement('div');
   more.className = 'card-menu cc-more';
   more.innerHTML = `<button type="button" class="btn btn-ghost card-menu-btn" aria-haspopup="true" aria-expanded="false">עוד ▾</button>
@@ -23905,10 +23914,12 @@ function setClientFormKind(kind){
   syncClientAirLivingVisibility();
 }
 
-function setClientFormDeal(deal){
-  clientFormDeal = deal === 'rent' ? 'rent' : 'sale';
+function setClientFormDeal(deal, opts){
+  const owner = (opts && opts.owner) || clientFormKind === 'owner';
+  if (deal === 'rent' || deal === 'sale') clientFormDeal = deal;
+  else clientFormDeal = owner ? '' : 'sale';
   document.querySelectorAll('[data-client-deal]').forEach(b => {
-    const on = b.dataset.clientDeal === clientFormDeal;
+    const on = !!clientFormDeal && b.dataset.clientDeal === clientFormDeal;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', String(on));
   });
@@ -24031,7 +24042,7 @@ function openEditClient(c){
   clientFormCities = (c.cities || []).slice();
   renderClientCityChips();
   populateClientNeighborhoodSelect(c.neighborhood_id || '');
-  setClientFormDeal(c.deal_type);
+  setClientFormDeal(c.deal_type, { owner: c.client_kind === 'owner' });
   setClientFormCategory(c.category || 'residential', c.property_types || [], c.required_features || []);
   // אחרי editingClientId - הוא שקובע אם כפתור השמירה אומר "שמור" או "עדכן"
   setClientFormKind(c.client_kind);
@@ -24170,7 +24181,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     share_level:      document.getElementById('clShareLevel').value || 'network',
     notes:  document.getElementById('clNotes').value.trim() || null,
     client_kind: clientFormKind,
-    deal_type: clientFormDeal,
+    deal_type: clientFormKind === 'owner' && !clientFormDeal ? null : (clientFormDeal || 'sale'),
     category:  clientFormCategory,
     status: document.getElementById('clStatus').value,
   };

@@ -349,14 +349,20 @@ async function loadAgent(agentId: string) {
  */
 async function rememberForBot(agentId: string, text: string): Promise<void> {
   try {
+    const entries = [
+      { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה לסוכן/ת הודעה על שיחת טלפון]" },
+      { role: "assistant", content: noLongDash(text).slice(0, 3000) },
+    ];
+    const { error } = await supabase.rpc("whatsapp_history_append", {
+      p_agent_id: agentId,
+      p_entries: entries,
+    });
+    if (!error) return;
     const { data } = await supabase.from("whatsapp_conversations")
       .select("history").eq("agent_id", agentId).maybeSingle();
     if (!data) return;
     const history = Array.isArray(data.history) ? data.history : [];
-    const next = appendHistoryKeepingShown(history, [
-      { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה לסוכן/ת הודעה על שיחת טלפון]" },
-      { role: "assistant", content: noLongDash(text).slice(0, 3000) },
-    ], 12);
+    const next = appendHistoryKeepingShown(history, entries, 12);
     await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", agentId);
   } catch (err) {
     console.error("remember for bot failed", err);
@@ -658,7 +664,11 @@ const NOT_IN_LIST = "הלקוח לא ברשימת הלקוחות שלך, תרצ�
 function needsLine(c: Record<string, any>): string {
   const parts: string[] = [];
   // בעל/ת נכס (client_kind owner) אינו/ה מחפש/ת - שדות החיפוש לא אומרים עליו/ה דבר
-  if (c.client_kind === "owner") return `: ${c.deal_type === "rent" ? "משכיר/ה" : "מוכר/ת"}`;
+  if (c.client_kind === "owner") {
+    if (c.deal_type === "rent") return ": משכיר/ה";
+    if (c.deal_type === "sale") return ": מוכר/ת";
+    return ": בעל/ת נכס";
+  }
   if (c.deal_type) parts.push(c.deal_type === "rent" ? "שכירות" : "קנייה");
   if (Array.isArray(c.cities) && c.cities.length) parts.push(c.cities.join(", "));
   if (c.min_rooms) parts.push(`${c.min_rooms}+ חדרים`);

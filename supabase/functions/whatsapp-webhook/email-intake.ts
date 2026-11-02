@@ -117,6 +117,8 @@ export interface IntakeDeps {
   reply: (to: string, text: string, agentId: string | null) => Promise<void>;
   loadConversation: (agentId: string, phone: string) => Promise<ConversationState>;
   saveConversation: (agentId: string, phone: string, conv: ConversationState) => Promise<void>;
+  /** נעילת התור של הסוכן/ת, כדי שמייל ווואטסאפ לא ירוצו יחד על אותה היסטוריה. */
+  holdTurn?: (agentId: string, run: () => Promise<void>) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -664,6 +666,7 @@ async function handleOne(
     agencies: (await loadAgency(sb, agent.agency_id, "name")) as { name?: string } | null,
   } as unknown as AgentRow;
 
+  const turn = async () => {
   const conv = await deps.loadConversation(agent.id, phone);
 
   // אחרי הגייטים: קריאת PDF והקלטה עולות כסף. כשל כללי כאן (לא של קובץ
@@ -707,6 +710,10 @@ async function handleOne(
   await deps.saveConversation(agent.id, phone, conv);
   await deliver(deps, phone, agent, mail.subject, answer);
   await finish(sb, row, "done", answer);
+  };
+
+  if (deps.holdTurn) await deps.holdTurn(agent.id, turn);
+  else await turn();
 }
 
 // ---------------------------------------------------------------------------

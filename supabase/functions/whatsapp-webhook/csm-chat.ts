@@ -125,14 +125,23 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
       status: waId ? "sent" : null, error: error ?? null,
     });
     if (!error) {
-      const { data } = await supabase.from("whatsapp_conversations").select("history").eq("agent_id", a.agentId).maybeSingle();
-      if (data) {
-        const history = Array.isArray(data.history) ? data.history : [];
-        const next = appendHistoryKeepingShown(history, [
-          { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: מנהלת ההטמעה שלחה לסוכן/ת הודעה דרך גבריאלה]" },
-          { role: "assistant", content: formatForWhatsapp(a.text).slice(0, 3000) },
-        ], 12);
-        await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", a.agentId);
+      // הוספה אטומית. קריאה-ואז-כתיבה של המערך כולו דרסה תור של הסוכן/ת
+      // שרץ באותו זמן, והסמן של ההתאמות זז מהסוף.
+      const entries = [
+        { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: מנהלת ההטמעה שלחה לסוכן/ת הודעה דרך גבריאלה]" },
+        { role: "assistant", content: formatForWhatsapp(a.text).slice(0, 3000) },
+      ];
+      const { error: histErr } = await supabase.rpc("whatsapp_history_append", {
+        p_agent_id: a.agentId,
+        p_entries: entries,
+      });
+      if (histErr) {
+        const { data } = await supabase.from("whatsapp_conversations").select("history").eq("agent_id", a.agentId).maybeSingle();
+        if (data) {
+          const history = Array.isArray(data.history) ? data.history : [];
+          const next = appendHistoryKeepingShown(history, entries, 12);
+          await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", a.agentId);
+        }
       }
     }
     return { ok: !error, waMessageId: waId, error };
