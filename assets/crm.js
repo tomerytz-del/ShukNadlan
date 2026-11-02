@@ -2297,6 +2297,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      קישור (?goto=) הוא החריג: קודם נפתח המסך ונטען רק מה שהוא קורא, ורק
      אחר כך שאר השרשראות. בלי קישור אף טעינה לא זזה - start() נקרא מכאן
      באותו רגע כמו קודם. שאילתה שנשמרת ב-start לא יוצאת פעמיים. */
+  /* ‏client_match_top היא השאילתה האיטית של הכניסה (ממוצע 0.94 שניות, ו-3.3
+     אצל סוכן/ת עם 79 לקוחות, pg_stat_statements 2.11.2026), והיא אינה תלויה
+     בנכסים. עד כאן היא יצאה רק בתחילת loadClients - שני סבבים אחרי הנכסים. */
+  const clientTopEarly = sb.rpc('client_match_top').then(r => r);
+  clientTopEarly.catch(() => {});
   const started = new Map();
   function start(key, fn){
     if (!started.has(key)) started.set(key, Promise.resolve().then(fn));
@@ -2315,7 +2320,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       renderQuotaMeter(freeQuota);
     }));
   }
-  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients())); }
+  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients({ topsP: clientTopEarly }))); }
   const gotoParams = new URLSearchParams(location.search);
   const gotoRaw = gotoParams.get('goto') || '';
   const gotoTab = gotoParams.get('tab') || '';
@@ -2372,6 +2377,33 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה. אחרי יעד הקישור, כדי לא לרוץ לפניו.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
+  /* אזור המנהל/ת וכלי הפלטפורמה יוצאים עכשיו, לצד הטעינה הראשית ולא אחריה:
+     אף אחד מהם אינו קורא נכסים, לקוחות, לידים או מחירים (נבדק 2.11.2026),
+     ועד כאן הם הוסיפו כארבעה סבבים בטור לכניסת מנהל/ת. ה-await נשאר במקומו
+     למטה, ולכן הסדר שבו המסך נגמר והטיפול בשגיאה לא השתנו. ‏catch ריק רק
+     מסמן שהדחייה תטופל שם - בלעדיו כישלון שקודם ל-await היה נרשם כלא מטופל. */
+  const managerLoadsP = agent.role === 'manager' ? Promise.all([
+    loadBranding(agent.agency_id),
+    loadTeam(agent.agency_id, agent.id),
+    start('reviews', () => loadPendingReviews(agent.agency_id)),
+    loadAgencyEthics(agent.agency_id),
+  ]) : null;
+  const adminLoadsP = agent.is_platform_admin ? Promise.all([
+    loadLicenseAppeals(),
+    loadCoachGaps(),
+    loadRefundQueue(),
+    loadSubscriptionsAdmin(),
+    loadNeighborhoodsAdmin(),
+    loadRssSourcesAdmin(),
+    loadArticlesAdmin(),
+    loadProfessionalCardsAdmin(),
+    loadUnroutedLeads(),
+    loadSuggestionsAdmin(),
+    // מאחדת את התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
+    loadAdminInbox(),
+  ]) : null;
+  if (managerLoadsP) managerLoadsP.catch(() => {});
+  if (adminLoadsP) adminLoadsP.catch(() => {});
   await Promise.all([
     pricingP(),
     propsP(),
@@ -2408,37 +2440,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       if (coachState.agent === undefined) coachLoad('agent').catch(err => console.warn('טעינת המנטור נכשלה:', err));
     });
   }
-  if (agent.role === 'manager'){
-    // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
-    await Promise.all([
-      loadBranding(agent.agency_id),
-      loadTeam(agent.agency_id, agent.id),
-      start('reviews', () => loadPendingReviews(agent.agency_id)),
-      loadAgencyEthics(agent.agency_id),
-    ]);
-  } else {
-    document.getElementById('ethicsAgencyBlock').hidden = true;
-  }
+  // ארבע הטעינות של אזור המנהל/ת יצאו למעלה, לצד הטעינה הראשית
+  if (managerLoadsP) await managerLoadsP;
+  else document.getElementById('ethicsAgencyBlock').hidden = true;
 
   // כלי הפלטפורמה נטענים למנהל/ת פלטפורמה, אבל *מוצגים* רק בתצוגת מנהל/ת —
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
-  // בין התצוגות יהיה מיידי ולא ימתין לרשת.
-  if (agent.is_platform_admin){
-    await Promise.all([
-      loadLicenseAppeals(),
-      loadCoachGaps(),
-      loadRefundQueue(),
-      loadSubscriptionsAdmin(),
-      loadNeighborhoodsAdmin(),
-      loadRssSourcesAdmin(),
-      loadArticlesAdmin(),
-      loadProfessionalCardsAdmin(),
-      loadUnroutedLeads(),
-      loadSuggestionsAdmin(),
-      // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-      loadAdminInbox(),
-    ]);
-  }
+  // בין התצוגות יהיה מיידי ולא ימתין לרשת. גם היא יצאה למעלה.
+  if (adminLoadsP) await adminLoadsP;
 
   // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
   // managerSection, המצב נקבע בשני הכיוונים כדי שהסרת הדגל תסגור את המגירה
@@ -15962,6 +15971,10 @@ async function loadProperties(agentId){
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   const propSelect = PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS;
+  /* המזהים שהוסתרו מתזכורת "לא פורסם" אינם תלויים ברשימה, ולכן יוצאים
+     עכשיו (.then - כדי שתצא ולא תחכה ל-await) ולא סבב שלם אחרי הנכסים:
+     הלידים, הלקוחות והתראות ההתאמה ממתינים כולם לסוף הפונקציה הזו. */
+  const hiddenIdsP = sb.rpc('unpublished_reminder_hidden_ids').then(r => r, err => ({ data: null, error: err }));
   let { data: props, error } = await sb
     .from('properties')
     .select(propSelect + ', air_directions, living_room_sqm')
@@ -16009,7 +16022,7 @@ async function loadProperties(agentId){
     return;
   }
   unpublishedReminderHidden = new Set();
-  const { data: hiddenIds, error: hiddenErr } = await sb.rpc('unpublished_reminder_hidden_ids');
+  const { data: hiddenIds, error: hiddenErr } = await hiddenIdsP;
   if (!hiddenErr && Array.isArray(hiddenIds)) hiddenIds.forEach(id => unpublishedReminderHidden.add(id));
   accSetCount('accProperties', (props||[]).length);
   renderShareLevelNotice('property', (props||[]).filter(p => p.agent_id === agentId || p.agent_id === undefined));
@@ -20682,6 +20695,7 @@ async function loadLeads(agentId){
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
+  // לחיצות היריד אינן תלויות ברשימת הלידים, ולכן יוצאות כאן ולא בסבב שאחריה
   let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
@@ -20690,6 +20704,7 @@ async function loadLeads(agentId){
     loadArchivedLeadIds(agentId),
     loadLeadWork(agentId),
     loadLeadVisitors(),
+    loadFairClicks(),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -20706,7 +20721,7 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads), loadFairClicks()]);
+  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
   renderLeads(agentId);
 }
 
@@ -23043,7 +23058,7 @@ let clientFormCategory = 'residential';
 
 function featureLabel(key){ return FEATURE_LABELS[key] || key; }
 
-async function loadClients(){
+async function loadClients(opts){
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
@@ -23051,7 +23066,9 @@ async function loadClients(){
      יחד, ולא שלושה סבבים בטור כמו עד אוקטובר 2026 */
   // ‏.then() ולא הבונה עצמו: שאילתת supabase-js יוצאת לשרת רק כשמישהו
   // קורא ל-then, ובלעדיו היא הייתה ממתינה עד ה-await שלמטה
-  const topsP = sb.rpc('client_match_top').then(r => r);
+  // בכניסה היא כבר יצאה מ-loadDashboard ומגיעה כאן כ-opts.topsP. ‏opts נבדק
+  // ולא מפורק: ‏loadClients נמסרת גם ככולבק, עם ארגומנטים שאינם שלה.
+  const topsP = (opts && opts.topsP) || sb.rpc('client_match_top').then(r => r);
   const showcasesP = typeof loadShowcaseSummaries === 'function' ? loadShowcaseSummaries() : null;
   const { data, error } = await sb
     .from('agent_clients')
