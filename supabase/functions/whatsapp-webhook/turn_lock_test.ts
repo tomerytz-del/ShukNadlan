@@ -27,6 +27,7 @@ import {
   rememberAskedImages,
   splitPendingForCreate,
   unsolicitedPhotoAsk,
+  urlsHandledByTurn,
   urlsNotAskedRecently,
   runTurnUntilQuiet,
   runWithTurnLock,
@@ -463,6 +464,7 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   }
   if (!index.includes("whatsapp_pending_images_mark_asked")) fail("תור שהראה תמונה לא מסמן אותה");
   if (!index.includes("urlsNotAskedRecently")) fail("כשל סימון חוזר על השאלה");
+  if (index.includes("photoQuestionInLastDay")) fail("שאלה ישנה חוסמת אלבום אחר");
   if (!play.includes("imageRecentEnoughForModel")) fail("תור טקסט מראה תמונה ישנה");
   if (play.includes("imageAskAlreadyOpen")) fail("השאלה תלויה בהודעה האחרונה");
   if (index.includes("אינו שוטף תמונות")) fail("ההערה הישנה נשארה");
@@ -654,7 +656,9 @@ Deno.test("תווית תמונה היא יום ושעה, בלי תאריך מס�
     if (!label || /\d{1,2}[./]\d{1,2}|\d{4}/.test(label)) fail(String(label));
   }
   if (!today || !today.startsWith("מהשעה ")) fail(String(today));
-  if (!yesterday || !yesterday.startsWith("מאתמול בשעה ")) fail(String(yesterday));
+  if (!yesterday || !yesterday.startsWith("מיום ") || yesterday.includes("אתמול") || !yesterday.includes("ראשון")) {
+    fail(String(yesterday));
+  }
   if (!older || !older.startsWith("מיום ") || !older.includes(" בשעה ")) fail(String(older));
   if (ancient !== null) fail(String(ancient));
   const lead = photoAskLead(3, now - 11 * day, now);
@@ -671,23 +675,66 @@ Deno.test("תווית תמונה היא יום ושעה, בלי תאריך מס�
   if (later.join() !== "pic.jpg") fail("אחרי יממה לא נשאלה");
 
   const now2 = Date.now();
-  const oldAt = now2 - 10 * day;
-  const freshAt = now2 - 60 * 60 * 1000;
-  const split = splitPendingForCreate({
-    urls: ["old-a", "old-b", "new"],
-    at: [oldAt, oldAt, freshAt],
+  const min = 60 * 1000;
+  // תמונה בת 15 דקות לא מצטרפת בשקט כשהוותיקה עברה 20 דקות. כמו ב-main.
+  const held = splitPendingForCreate({
+    urls: ["fifteen", "older"],
+    at: [now2 - 15 * min, now2 - 25 * min],
+    since: now2 - 25 * min,
     explicit: false,
     now: now2,
   });
-  if (split.attach.join() !== "new" || split.hold.join() !== "old-a,old-b") fail(JSON.stringify(split));
-  const unknown = splitPendingForCreate({
-    urls: ["mystery"], at: [null], explicit: false, now: now2,
+  if (held.attach.length || held.hold.join() !== "fifteen,older") fail(JSON.stringify(held));
+  const quiet = splitPendingForCreate({
+    urls: ["fifteen"],
+    at: [now2 - 15 * min],
+    since: now2 - 21 * min,
+    explicit: false,
+    now: now2,
   });
-  if (unknown.attach.length || unknown.hold.join() !== "mystery") fail("גיל לא ידוע צורף");
+  if (quiet.attach.length) fail("תמונה בת 15 דקות צורפה למרות וותיקה");
+  const fresh = splitPendingForCreate({
+    urls: ["just"],
+    at: [now2 - 10 * min],
+    since: now2 - 10 * min,
+    explicit: false,
+    now: now2,
+  });
+  if (fresh.attach.join() !== "just" || fresh.hold.length) fail(JSON.stringify(fresh));
+  const edge = splitPendingForCreate({
+    urls: ["exact"],
+    at: [now2 - 20 * min],
+    since: now2 - 20 * min,
+    explicit: false,
+    now: now2,
+  });
+  if (edge.attach.join() !== "exact") fail("בדיוק 20 דקות נעצר, שלא כמו ב-main");
+  const flagged = splitPendingForCreate({
+    urls: ["morning", "last-week"],
+    at: [now2 - 30 * min, now2 - 10 * day],
+    since: now2 - 10 * day,
+    explicit: true,
+    now: now2,
+  });
+  if (flagged.attach.join() !== "morning" || flagged.hold.join() !== "last-week") {
+    fail(JSON.stringify(flagged));
+  }
   const named = splitPendingForCreate({
-    urls: ["old-a", "old-b"], at: [oldAt, oldAt], explicit: true, now: now2,
+    urls: ["last-week"],
+    at: [now2 - 10 * day],
+    since: now2 - 10 * day,
+    explicit: true,
+    referenced: true,
+    now: now2,
   });
-  if (named.hold.length || named.attach.length !== 2) fail("הפניה מפורשת לא צירפה");
+  if (named.hold.length || named.attach.join() !== "last-week") fail("הפניה מפורשת לא צירפה");
+  const album = urlsHandledByTurn(
+    "c.jpg",
+    ["a.jpg", "b.jpg", "c.jpg", "old.jpg"],
+    [now2 - min, now2 - 2 * min, now2 - 3 * min, now2 - 10 * day],
+    now2,
+  );
+  if (album.join() !== "a.jpg,b.jpg,c.jpg") fail(album.join());
 });
 
 Deno.test("אחרי תקרת התורים הטקסט שנשאר נאסף בהמשך", async () => {

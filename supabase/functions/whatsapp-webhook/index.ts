@@ -2636,10 +2636,10 @@ async function playTextTurn(opts: {
   }
   await saveConversation(agent.id, from, conv);
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
-  // התמונה הוצגה בתור שהסתיים. מלצר שמחכה לא ישאל עליה שוב.
+  // האלבום עם הכיתוב הוצג. מסמנים את כולן, לא רק את הכתובת שנשלחה למודל.
   if (turnImage) {
-    const pending = await freshPendingImages(agent.id);
-    await markImagesHandled(agent.id, urlsHandledByTurn(turnImage, pending));
+    const shown = await pendingImagesForAsk(agent.id);
+    await markImagesHandled(agent.id, urlsHandledByTurn(turnImage, shown.urls, shown.at));
   }
   if (outbox.length) await sendOutbox(from, outbox, agent.id);
   return "work";
@@ -2668,7 +2668,7 @@ async function playQueuedTurn(opts: {
       hasText: false,
       pendingImages: opts.conv.pending_images.length,
     })) {
-      const unasked = await claimImageAsk(opts.agent.id, opts.from);
+      const unasked = await claimImageAsk(opts.agent.id);
       const ask = unsolicitedPhotoAsk({
         flushImages: true,
         hasText: false,
@@ -2722,15 +2722,35 @@ const imageAskSeen = new Map<string, number>();
  * מסמן את התמונות שעוד לא נשאלו. מערך ריק = כבר נשאלו, לא שואלים שוב.
  * כשל בסימון לא שותק, אבל לא חוזרים על אותה תמונה בתוך יממה.
  */
-async function claimImageAsk(agentId: string, phone: string): Promise<string[]> {
+async function claimImageAsk(agentId: string): Promise<string[]> {
   const { data, error } = await supabase.rpc("whatsapp_pending_images_claim_ask", {
     p_agent_id: agentId,
   });
   if (!error) return (data as string[]) || [];
   if (!rpcMissing(error)) console.error("image ask claim failed", error);
-  const fresh = urlsNotAskedRecently(imageAskSeen, agentId, await freshPendingImages(agentId));
-  if (!fresh.length || await photoQuestionInLastDay(phone)) return [];
-  return fresh;
+  // לפי כתובת, לא לפי "הייתה שאלה". אלבום אחר עדיין נשאל.
+  return urlsNotAskedRecently(imageAskSeen, agentId, await freshPendingImages(agentId));
+}
+
+async function pendingImagesForAsk(agentId: string): Promise<{ urls: string[]; at: (number | null)[] }> {
+  const { data, error } = await supabase.from("whatsapp_conversations")
+    .select("pending_images, pending_image_at")
+    .eq("agent_id", agentId)
+    .maybeSingle();
+  if (error) {
+    const urls = await freshPendingImages(agentId);
+    return { urls, at: [] };
+  }
+  const urls = (data?.pending_images as string[]) || [];
+  const raw = (data?.pending_image_at as string[] | null) || [];
+  if (raw.length !== urls.length) return { urls, at: [] };
+  return {
+    urls,
+    at: raw.map((stamp) => {
+      const n = Date.parse(String(stamp || ""));
+      return Number.isFinite(n) ? n : null;
+    }),
+  };
 }
 
 async function markImagesHandled(agentId: string, urls: string[]): Promise<void> {
@@ -2741,21 +2761,6 @@ async function markImagesHandled(agentId: string, urls: string[]): Promise<void>
     p_urls: urls,
   });
   if (error && !rpcMissing(error)) console.error("image handled mark failed", error);
-}
-
-async function photoQuestionInLastDay(phone: string): Promise<boolean> {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data } = await supabase.from("whatsapp_messages")
-    .select("body")
-    .eq("wa_phone", phone)
-    .eq("direction", "out")
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(30);
-  return ((data || []) as { body: string | null }[]).some((row) => {
-    const body = String(row.body || "");
-    return body.includes(PHOTO_ASK_MARK) || body.includes("ממתינות לשיוך") || body.includes("ממתינה לשיוך");
-  });
 }
 
 async function requeueOrFail(agentId: string, phone: string, texts: string[]): Promise<void> {

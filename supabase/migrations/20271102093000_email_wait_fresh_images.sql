@@ -373,11 +373,13 @@ $$;
 revoke all on function public.whatsapp_pending_images_mark_asked(uuid, text[]) from public, anon, authenticated;
 grant execute on function public.whatsapp_pending_images_mark_asked(uuid, text[]) to service_role;
 
--- לנכס חדש: רק תמונות צעירות. p_all כשהסוכן/ת הפנה/תה אליהן במפורש.
--- הישנות נשארות ממתינות. אין כאן מחיקה.
+-- לנכס חדש. בלי p_all: אם הוותיקה ממתינה יותר מ-p_hold_seconds, לא נלקחת אף תמונה.
+-- p_all עוקף את זה, אבל תמונה ישנה מ-p_max_age_seconds לא נלקחת.
+-- אין כאן מחיקה.
 create or replace function public.whatsapp_pending_images_take_recent(
   p_agent_id uuid,
   p_max_age_seconds integer,
+  p_hold_seconds integer,
   p_all boolean
 ) returns text[]
 language plpgsql
@@ -389,11 +391,13 @@ declare
   v_at timestamptz[];
   v_asked text[];
   v_since timestamptz;
+  v_oldest timestamptz;
   v_take text[] := '{}'::text[];
   v_keep text[] := '{}'::text[];
   v_keep_at timestamptz[] := '{}'::timestamptz[];
   i integer;
-  v_fresh boolean;
+  v_age interval;
+  v_take_this boolean;
 begin
   select c.pending_images, c.pending_image_at, c.pending_images_asked, c.pending_images_since
     into v_images, v_at, v_asked, v_since
@@ -403,24 +407,32 @@ begin
   if v_images is null or cardinality(v_images) = 0 then
     return '{}'::text[];
   end if;
-  if p_all then
-    update public.whatsapp_conversations
-       set pending_images = '{}',
-           pending_image_at = '{}',
-           pending_images_asked = '{}',
-           pending_images_since = null,
-           updated_at = pg_catalog.now()
-     where agent_id = p_agent_id;
-    return v_images;
+  v_oldest := v_since;
+  if v_oldest is null and cardinality(v_at) = cardinality(v_images) then
+    select min(x) into v_oldest from unnest(v_at) x;
+  end if;
+  if not coalesce(p_all, false)
+     and v_oldest is not null
+     and v_oldest < pg_catalog.now() - make_interval(secs => greatest(coalesce(p_hold_seconds, 0), 0))
+  then
+    return '{}'::text[];
   end if;
   for i in 1 .. cardinality(v_images) loop
-    if cardinality(v_at) = cardinality(v_images) then
-      v_fresh := v_at[i] > pg_catalog.now() - make_interval(secs => greatest(coalesce(p_max_age_seconds, 0), 0));
+    if cardinality(v_at) = cardinality(v_images) and v_at[i] is not null then
+      v_age := pg_catalog.now() - v_at[i];
+    elsif v_since is not null then
+      v_age := pg_catalog.now() - v_since;
     else
-      v_fresh := v_since is not null
-        and v_since > pg_catalog.now() - make_interval(secs => greatest(coalesce(p_max_age_seconds, 0), 0));
+      v_age := null;
     end if;
-    if v_fresh then
+    if coalesce(p_all, false) then
+      v_take_this := v_age is not null
+        and v_age < make_interval(secs => greatest(coalesce(p_max_age_seconds, 0), 0));
+    else
+      v_take_this := v_age is null
+        or v_age < make_interval(secs => greatest(coalesce(p_max_age_seconds, 0), 0));
+    end if;
+    if v_take_this then
       v_take := v_take || v_images[i];
     else
       v_keep := v_keep || v_images[i];
@@ -454,8 +466,8 @@ begin
 end;
 $$;
 
-comment on function public.whatsapp_pending_images_take_recent(uuid, integer, boolean) is
-  'מצרף לנכס חדש רק תמונות מהיממה. ישנות נשארות עד שהסוכן/ת מפנה אליהן.';
+comment on function public.whatsapp_pending_images_take_recent(uuid, integer, integer, boolean) is
+  'אם הוותיקה ממתינה יותר מ-20 דקות לא נלקחת אף תמונה. מעבר ליממה לא נלקחת גם עם p_all.';
 
-revoke all on function public.whatsapp_pending_images_take_recent(uuid, integer, boolean) from public, anon, authenticated;
-grant execute on function public.whatsapp_pending_images_take_recent(uuid, integer, boolean) to service_role;
+revoke all on function public.whatsapp_pending_images_take_recent(uuid, integer, integer, boolean) from public, anon, authenticated;
+grant execute on function public.whatsapp_pending_images_take_recent(uuid, integer, integer, boolean) to service_role;

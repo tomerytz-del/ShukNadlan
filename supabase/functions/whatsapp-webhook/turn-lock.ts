@@ -62,7 +62,9 @@ export function stripRequeueMark(text: string): string {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** תמונה ישנה מזה לא מצטרפת לבד לנכס חדש. */
+/** כמו ב-27.10: אם הוותיקה ממתינה יותר מזה, לא מצרפים אף תמונה אוטומטית. */
+export const HOLD_ALL_IMAGE_MS = 20 * 60 * 1000;
+/** תקרה מעל הכלל של 20 הדקות. מעבר לזה אין צירוף אוטומטי. */
 export const AUTO_ATTACH_IMAGE_MS = DAY_MS;
 /** יום בשבוע רק בחלון הזה. מעבר לו אין אזכור זמן, כדי ש"חמישי" לא יתבלבל עם השבוע. */
 export const PHOTO_LABEL_DAYS = 6;
@@ -87,12 +89,29 @@ export function unsolicitedPhotoAsk(opts: {
   return opts.pending.filter((u) => !done.has(imageUrlKey(u)));
 }
 
-/** הכתובות שהתור הזה הראה למודל. לא כל הרשימה הממתינה. */
-export function urlsHandledByTurn(shown: string | null, pending: readonly string[]): string[] {
+/**
+ * כל תמונות האלבום שהתור הראה, לא רק הכתובת האחרונה שנשלחה למודל.
+ * תמונה ישנה מיום לא סומנה: המודל לא ראה אותה.
+ */
+export function urlsHandledByTurn(
+  shown: string | null,
+  pending: readonly string[],
+  at: readonly (number | null)[] = [],
+  now = Date.now(),
+): string[] {
   if (!shown) return [];
+  if (!pending.length) return [shown];
+  const dated = at.length === pending.length && at.some((t) => t != null);
+  const recent = dated
+    ? pending.filter((_, i) => {
+      const t = at[i];
+      return t != null && now - t < AUTO_ATTACH_IMAGE_MS;
+    })
+    : [...pending];
   const key = imageUrlKey(shown);
-  const matched = pending.filter((u) => imageUrlKey(u) === key);
-  return matched.length ? matched : [shown];
+  if (recent.some((u) => imageUrlKey(u) === key)) return recent;
+  const same = pending.filter((u) => imageUrlKey(u) === key);
+  return same.length ? same : [shown];
 }
 
 export function rememberAskedImages(
@@ -119,25 +138,43 @@ export function urlsNotAskedRecently(
 }
 
 /**
- * לנכס חדש: רק תמונות מהיממה האחרונה. ישנות נשארות, אלא אם הסוכן/ת
- * הפנה/תה אליהן במפורש.
+ * צירוף אוטומטי לנכס חדש.
+ * אם הוותיקה ממתינה יותר מ-20 דקות, לא מצטרפת אף תמונה (27.10).
+ * תמונה ישנה מיממה לא מצטרפת גם כש-include_waiting_images דלוק,
+ * אלא אם הסוכן/ת הפנה/תה אליה במפורש.
  */
 export function splitPendingForCreate(opts: {
   urls: readonly string[];
   at: readonly (number | null)[];
-  explicit: boolean;
+  /** pending_images_since. null כמו ב-main: אין הוותיקה, לא עוצרים את כולן. */
+  since?: number | null;
+  /** include_waiting_images. עוקף את 20 הדקות, לא את היממה. */
+  explicit?: boolean;
+  /** הסוכן/ת הפנה/תה אל התמונות הישנות עצמן. */
+  referenced?: boolean;
   now?: number;
-  maxAgeMs?: number;
 }): { attach: string[]; hold: string[] } {
-  if (opts.explicit) return { attach: [...opts.urls], hold: [] };
+  if (opts.referenced) return { attach: [...opts.urls], hold: [] };
   const now = opts.now ?? Date.now();
-  const max = opts.maxAgeMs ?? AUTO_ATTACH_IMAGE_MS;
+  const ageAt = (t: number | null | undefined) => (t == null ? null : now - t);
+  const per = opts.urls.map((_, i) => ageAt(i < opts.at.length ? opts.at[i] : null));
+  const sinceAge = ageAt(opts.since === undefined ? null : opts.since);
+  let oldest = sinceAge;
+  if (oldest == null) {
+    for (const age of per) {
+      if (age != null) oldest = oldest == null ? age : Math.max(oldest, age);
+    }
+  }
+  const overDay = (age: number | null) => age != null && age >= AUTO_ATTACH_IMAGE_MS;
+  if (!opts.explicit && oldest != null && oldest > HOLD_ALL_IMAGE_MS) {
+    return { attach: [], hold: [...opts.urls] };
+  }
   const attach: string[] = [];
   const hold: string[] = [];
   opts.urls.forEach((url, i) => {
-    const t = i < opts.at.length ? opts.at[i] : null;
-    if (t != null && now - t < max) attach.push(url);
-    else hold.push(url);
+    const age = per[i] ?? sinceAge;
+    if (opts.explicit ? overDay(age) || age == null : overDay(per[i])) hold.push(url);
+    else attach.push(url);
   });
   return { attach, hold };
 }
@@ -156,7 +193,6 @@ export function photoWaitLabel(at: number, now = Date.now()): string | null {
     timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
   }).format(t);
   if (dayKey(at) === dayKey(now)) return `מהשעה ${time}`;
-  if (dayKey(at) === dayKey(now - DAY_MS)) return `מאתמול בשעה ${time}`;
   const weekday = new Date(at).toLocaleDateString("he-IL", { timeZone: tz, weekday: "long" })
     .replace(/^יום\s+/, "");
   return `מיום ${weekday} בשעה ${time}`;

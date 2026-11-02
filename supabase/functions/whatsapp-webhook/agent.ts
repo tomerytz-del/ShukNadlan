@@ -6,6 +6,7 @@ import {
   abortedTurnNote,
   abortedTurnPlan,
   AUTO_ATTACH_IMAGE_MS,
+  HOLD_ALL_IMAGE_MS,
   rpcMissing,
   splitPendingForCreate,
 } from "./turn-lock.ts";
@@ -550,8 +551,9 @@ const TOOLS: Anthropic.Tool[] = [
       "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
       "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
       "בלי לחיצה הנכס נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
-      "תמונות מהיממה האחרונה מתחברות אליו אוטומטית. תמונות ישנות יותר לא, " +
-      "אלא אם include_waiting_images כי הסוכן/ת אמר/ה במפורש שהן שייכות לנכס. " +
+      "אם התמונה הממתינה הוותיקה מלפני יותר מ-20 דקות, לא מצורפת אף תמונה. " +
+      "include_waiting_images מצרף רק תמונות מהיממה האחרונה, ורק אחרי שהסוכן/ת אמר/ה שהן שייכות לנכס. " +
+      "תמונה ישנה מיממה לא מצטרפת כאן; אותה מצרפים ב-attach_images אחרי שהסוכן/ת הפנה/תה אליה. " +
       "עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
       "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
@@ -570,8 +572,8 @@ const TOOLS: Anthropic.Tool[] = [
         include_waiting_images: {
           type: "boolean",
           description:
-            "רק אם הסוכן/ת אמר/ה במפורש שהתמונות שממתינות בשיחה, גם ישנות, שייכות לנכס הזה. " +
-            "בלי זה מצורפות רק תמונות מ-24 השעות האחרונות.",
+            "רק אם הסוכן/ת אמר/ה שהתמונות שממתינות, והן מהיממה האחרונה, שייכות לנכס הזה. " +
+            "לא מצרף תמונה ישנה מיממה.",
         },
       },
       required: ["property_type", "deal_type", "price"],
@@ -2483,7 +2485,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   // התמונות שהצטברו בשיחה מתחברות מיד לנכס החדש. לקיחה אטומית, לא
   // הרשימה שבזיכרון: באלבום חסרות תמונות שהגיעו במקביל.
-  // ישנות מ-24 שעות לא מצטרפות, אלא אם הסוכן/ת הפנה/תה אליהן במפורש.
+  // הוותיקה מעל 20 דקות עוצרת את כולן. מעל יממה לא מצטרפת גם עם הדגל.
   const explicitImages = input.include_waiting_images === true;
   const picked = await takeImagesForNewProperty(ctx, explicitImages);
   const images = picked.attach;
@@ -3441,8 +3443,7 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
 }
 
 /**
- * לנכס חדש: תמונות מהיממה האחרונה, והישנות נשארות.
- * explicit לוקח את כולן, רק כשהסוכן/ת הפנה/תה אליהן.
+ * לנכס חדש. מעל 20 דקות לוותיקה: אף תמונה. הדגל לא מושך תמונה ישנה מיממה.
  */
 async function takeImagesForNewProperty(
   ctx: ToolContext,
@@ -3451,12 +3452,11 @@ async function takeImagesForNewProperty(
   const { data, error } = await ctx.supabase.rpc("whatsapp_pending_images_take_recent", {
     p_agent_id: ctx.agent.id,
     p_max_age_seconds: Math.round(AUTO_ATTACH_IMAGE_MS / 1000),
+    p_hold_seconds: Math.round(HOLD_ALL_IMAGE_MS / 1000),
     p_all: explicit,
   });
   if (!error) {
-    const attach = (data as string[]) || [];
-    const left = explicit ? 0 : await pendingImageCount(ctx);
-    return { attach, hold: left };
+    return { attach: (data as string[]) || [], hold: await pendingImageCount(ctx) };
   }
   if (!rpcMissing(error)) {
     console.error("pending images take recent failed", error);
@@ -3467,13 +3467,13 @@ async function takeImagesForNewProperty(
   const plan = splitPendingForCreate({
     urls,
     at: urls.map(() => since),
+    since,
     explicit,
   });
   if (plan.hold.length === 0 && plan.attach.length) {
     return { attach: await takePendingImages(ctx), hold: 0 };
   }
-  if (explicit) return { attach: await takePendingImages(ctx), hold: 0 };
-  return { attach: [], hold: plan.hold.length };
+  return { attach: [], hold: plan.hold.length || urls.length };
 }
 
 async function pendingImageCount(ctx: ToolContext): Promise<number> {
@@ -9565,14 +9565,17 @@ function sessionContext(
   if (conv.pending_images.length) {
     // הכלל כפי שהקוד עושה אותו, ולא "יצירת נכס תצרף אותן" - זה מה שגבריאלה
     // תיארה לסוכן (27.10.2026), והוא כבר לא נכון לתמונות ותיקות.
-    const stale = pendingSince != null && Date.now() - pendingSince >= AUTO_ATTACH_IMAGE_MS;
+    const held = pendingSince != null && Date.now() - pendingSince > HOLD_ALL_IMAGE_MS;
+    const dayOld = pendingSince != null && Date.now() - pendingSince >= AUTO_ATTACH_IMAGE_MS;
     lines.push(
       "",
       `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס. ` +
-        (stale
-          ? "הן מלפני יותר מיממה: create_property לא יצרף אותן, אלא אם הסוכן/ת אמר/ה במפורש שהן שייכות " +
-            "לנכס (include_waiting_images). "
-          : "create_property יצרף תמונות מהיממה האחרונה. ישנות יותר נשארות בצד. ") +
+        (dayOld
+          ? "הן מלפני יותר מיממה: create_property לא יצרף אותן. אם הסוכן/ת הפנה/תה אליהן - attach_images. "
+          : held
+            ? "הוותיקה מלפני יותר מ-20 דקות: create_property לא יצרף אף אחת. " +
+              "include_waiting_images רק אם הסוכן/ת אמר/ה שתמונות מהיממה האחרונה שייכות לנכס. "
+            : "create_property יצרף אותן לנכס החדש. ") +
         "לנכס קיים - attach_images. לא שייכות לשום נכס - discard_pending_images.",
     );
   }
