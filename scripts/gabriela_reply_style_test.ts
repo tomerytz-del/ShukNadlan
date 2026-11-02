@@ -8,13 +8,16 @@ import { readFileSync } from "node:fs";
 import { recentPushesNote } from "../supabase/functions/whatsapp-webhook/wa-reply-context.ts";
 import {
   clientOfferLine,
+  closedNameLinks,
   isClearAnswer,
   likelyReading,
   offerAlready,
   personNameFromTitle,
+  repeatsSettled,
   sameClockMinute,
   sameTimeConflictLine,
   settledFromHistory,
+  lineCarriesToolAsk,
   shapeAgentReply,
   styleContext,
   type HistoryMsg,
@@ -24,8 +27,10 @@ import {
   readWhisperBody,
   shouldRetryBare,
   VOICE_NOTE_EMPTY_REPLY,
+  VOICE_NOTE_ERROR_REPLY,
   VOICE_NOTE_HINT,
   VOICE_NOTE_HINT_MAX_BYTES,
+  voiceFailureReply,
   whisperHintFor,
 } from "../supabase/functions/_shared/whisper-read.ts";
 
@@ -79,15 +84,28 @@ const shaped = shapeAgentReply(meetingReply, {
 });
 check("נשאר האישור", shaped.includes("עליזה") && shaped.includes("16:00"), shaped);
 check("בלי שרון", !shaped.includes("שרון"), shaped);
-check("בלי תזכורת על חגי", !shaped.includes("תזכורת") && !shaped.includes("13:00"), shaped);
-check("בלי שאלון", !shaped.includes("קנייה") && !shaped.includes("טלפון") && !shaped.includes("?"), shaped);
-check("הצעה אחת בלי שאלה", shaped.includes(clientOfferLine("עליזה")), shaped);
+check("שורת תזכורת שהיא אישור נשארת", shaped.includes("תזכורת: היום ב-13:00 פגישה עם חגי"), shaped);
+check("שאלה על קנייה או טלפון אינה נמחקת", shaped.includes("קנייה") && shaped.includes("טלפון"), shaped);
+check("המסנן אינו ממציא הצעה", !shaped.includes(clientOfferLine("עליזה")), shaped);
+
+const phoneQ = shapeAgentReply("מה הטלפון של דני? בלי טלפון אי אפשר לשלוח לו.", {
+  userText: "תשלחי לדני את הקישור",
+  history: [],
+});
+check("טלפון חוסם נשאר", phoneQ.includes("טלפון"), phoneQ);
+const ownerQ = shapeAgentReply("דני בעל נכס או קונה?", { userText: "תוסיפי את דני", history: [] });
+check("בעל או קונה נשאר", ownerQ.includes("בעל נכס"), ownerQ);
+const balcony = shapeAgentReply("עדכנתי את הנכס, יש מרפסת.", {
+  userText: "תוסיפי מרפסת",
+  history: [],
+});
+check("מרפסת אינה שם", !balcony.includes(clientOfferLine("מרפסת")) && personNameFromTitle("דירה עם מרפסת") === null, balcony);
 
 const again = shapeAgentReply(meetingReply, {
   userText: "תקבעי עוד פגישה עם עליזה מחר ב-9",
   history: [{ role: "assistant", content: clientOfferLine("עליזה") }],
 });
-check("אין הצעה שנייה", !again.includes("קובץ"), again);
+check("אין שורת הצעה חדשה", !again.includes(clientOfferLine("עליזה")), again);
 check("כבר הוצע", offerAlready([{ role: "assistant", content: clientOfferLine("עליזה") }], "עליזה"));
 
 const ten = "2026-11-02T08:00:00.000Z";
@@ -119,6 +137,7 @@ check("אישור תזכורת שהתבקשה נשאר", reminderOk.includes("ר
 const pushes = recentPushesNote([{ at: "2.11, 12:00", text: "תזכורת: פגישה עם חגי ב-13:00" }]);
 check("התראות אינן להזכיר שוב", pushes.includes("אין להזכיר") && pushes.includes("שעתיים האחרונות"));
 check("שם מהכותרת", personNameFromTitle("פגישה עם עליזה") === "עליזה");
+check("לרונית בלי רווח", personNameFromTitle("להתקשר לרונית") === "רונית");
 check("היום אינו שם", personNameFromTitle("פגישה להיום") === null);
 
 // --- 3. עליזה בקפה קפה, לא תפריט על חגי ---
@@ -185,16 +204,74 @@ check("תשובה קצרה בלי שאלות פתוחות",
   !VOICE_NOTE_EMPTY_REPLY.includes("ועוד") &&
   (VOICE_NOTE_EMPTY_REPLY.match(/\?/g) || []).length === 1,
   VOICE_NOTE_EMPTY_REPLY);
-check("הודעה קולית מקבלת את השורה הקצרה", intakeSrc.includes("VOICE_NOTE_EMPTY_REPLY") && intakeSrc.includes("transcription_silent"));
+check("הודעה קולית מקבלת את השורה הקצרה", intakeSrc.includes("voiceFailureReply(true)"));
 const failAt = indexSrc.indexOf("if (!result.ok)");
 const afterFail = indexSrc.slice(failAt, failAt + 400);
 check("כישלון תמלול יוצא בלי המודל", failAt > 0 && afterFail.includes("result.reply") && afterFail.includes("return"), afterFail);
 
-// שאלה אחת נשארת כשיש שתיים אמיתיות
-const oneQ = shapeAgentReply("חסר מחיר?\nואיזו קומה?", { userText: "דירה למכירה", history: [] });
-check("שאלה אחת בסוף", oneQ === "ואיזו קומה?", oneQ);
-check("בלי מקף ארוך בתשובה הריקה", !VOICE_NOTE_EMPTY_REPLY.includes("\u2014") && !VOICE_NOTE_EMPTY_REPLY.includes("\u2013"));
+const blocking = shapeAgentReply("חסר מחיר?\nואיזו קומה?", { userText: "דירה למכירה", history: [] });
+check("שתי שאלות חוסמות נשארות", blocking.includes("חסר מחיר") && blocking.includes("קומה"), blocking);
+const confirmReminder = shapeAgentReply("תזכורת: להתקשר לרונית מחר ב-9:00.", {
+  userText: "דירה למכירה",
+  history: [],
+});
+check("אישור שמתחיל בתזכורת נשאר", confirmReminder.startsWith("תזכורת"), confirmReminder);
+check("מחר אינו מחרתיים", !repeatsSettled("להזיז את הפגישה למחרתיים?", [
+  { q: "הפגישה מחר בבוקר?", a: "כן" },
+]));
+check("כשל תמלול אינו שתיקה",
+  voiceFailureReply(false).reply === VOICE_NOTE_ERROR_REPLY &&
+  voiceFailureReply(false).error === "transcription_failed" &&
+  voiceFailureReply(true).reply === VOICE_NOTE_EMPTY_REPLY &&
+  !VOICE_NOTE_ERROR_REPLY.includes("לא שמעתי מילים"));
+check("הקוד מפריד שתיקה מכשל", intakeSrc.includes("voiceFailureReply(false)") && intakeSrc.includes("voiceFailureReply(true)"));
+
+const links = closedNameLinks(aviramHistory);
+check("זיהוי רק לאבירם", links.length === 1 && links[0].spoken === "אבירם" && links[0].full === "אבירם כהן", links);
+check("אדם אחר מבטל את הזיהוי", closedNameLinks([
+  ...aviramHistory,
+  { role: "user", content: "הכוונה לאבירם לוי" },
+]).length === 0);
+const otherTurn = styleContext(aviramHistory, "הכוונה לאבירם לוי");
+check("ההקשר אינו מקשר את השם הלא נכון", !otherTurn.includes("אבירם כהן"), otherTurn);
+check("כן אינו מחיל את אבירם על דני", styleContext(aviramHistory, "תקבעי עם דני").includes("אין להחיל אותו על אדם אחר"));
+const phoneAfterId = shapeAgentReply("מה הטלפון של אבירם כהן?", {
+  userText: "תשלחי לו",
+  history: aviramHistory,
+});
+check("טלפון אחרי זיהוי נשאר", phoneAfterId.includes("טלפון"), phoneAfterId);
+
+const draft = [
+  "הכנתי את ההודעה.",
+  "",
+  "היי דני, הדירה ברחוב הרצל פנויה. יש מרפסת?",
+  "https://shuknadlan.co.il/p/12",
+  "",
+  "שים לב: יש לך גם פגישה עם שרון ב-10:00, להזיז אחת?",
+].join("\n");
+const drafted = shapeAgentReply(draft, { userText: "תכיני הודעה לדני", history: [] });
+check("טיוטה ללקוח נשארת", drafted.includes("יש מרפסת?"), drafted);
+check("הערה מחוץ לטיוטה יורדת", !drafted.includes("שרון"), drafted);
+
+check("בלי מקף ארוך בתשובה הריקה", !VOICE_NOTE_EMPTY_REPLY.includes("\u2014") && !VOICE_NOTE_ERROR_REPLY.includes("\u2014"));
 check("הפרומפט אוסר תזכורת על נושא אחר", agentSrc.includes("אין לצרף לתשובה תזכורת"));
+check("הפרומפט שומר שאלה חוסמת", agentSrc.includes("אין לוותר על אף אחד"));
+check("קנייה או שכירות נשאלת כשהכרטיס נחסם",
+  agentSrc.includes("קנייה או שכירות") && agentSrc.includes("מחזירים ask") &&
+  !/אין לשאול קנייה/.test(agentSrc));
+
+const menuAsk = "1. קנייה או שכירות?";
+check("בלי ask מהכלי התפריט יורד", !shapeAgentReply("עדכנתי את עליזה.\n" + menuAsk, {
+  userText: correction, history: [],
+}).includes("קנייה"));
+const keptAsk = shapeAgentReply("לא נוצר כרטיס.\n" + menuAsk, {
+  userText: correction,
+  history: [],
+  toolAsks: ["קנייה או שכירות?"],
+});
+check("שאלת כלי שורדת את המסנן", keptAsk.includes("קנייה או שכירות?"), keptAsk);
+check("המסנן אינו מחליף אותה בהצעת כרטיס", !keptAsk.includes("אפשר להוסיף את הכרטיס"), keptAsk);
+check("התאמת ask בלי סימן שאלה", lineCarriesToolAsk("קנייה או שכירות", ["קנייה או שכירות?"]));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);

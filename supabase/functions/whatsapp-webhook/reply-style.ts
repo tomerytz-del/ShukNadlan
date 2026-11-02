@@ -119,14 +119,122 @@ export function clientOfferLine(name: string): string {
   return `אפשר להוסיף את ${name} לקובץ הלקוחות.`;
 }
 
-const NOT_A_PERSON = new Set(["היום", "מחר", "השבוע", "הבוקר", "הערב", "צהריים", "אחר"]);
+const NOT_A_PERSON = new Set([
+  "היום", "מחר", "מחרתיים", "השבוע", "הבוקר", "הערב", "צהריים", "אחר",
+  "מרפסת", "חניה", "דירה", "נכס", "פגישה", "סיור", "תזכורת", "הודעה",
+  "משרד", "לקוח", "לקוחה", "קפה",
+]);
+/** אינפיניטיב אחרי ל, לא שם: "להתקשר לרונית". */
+const INFINITIVE = /^(התקשר|קבע|הוסיף|זכיר|שלח|בטל|עדכן|תקן|פתח|מצא|בדוק|רשם|זיז)/;
 
-/** "פגישה עם עליזה" / "להתקשר לרונית" - השם הפרטי, בלי מקום. */
+/** גבול מילה בעברית. \b אינו תופס אותיות עבריות. */
+export function hebrewBounded(word: string): RegExp {
+  return new RegExp(`(?<![\\u0590-\\u05FF])${word}(?![\\u0590-\\u05FF])`);
+}
+
+function isPersonToken(name: string): boolean {
+  return name.length >= 2 && !NOT_A_PERSON.has(name) && !INFINITIVE.test(name);
+}
+
+/** "פגישה עם עליזה" / "להתקשר לרונית". לא "מרפסת" ולא "להיום". */
 export function personNameFromTitle(title: string): string | null {
   const t = String(title || "").replace(/\s+/g, " ").trim();
-  const m = /(?:^|\s)(?:עם|ל)\s+([א-ת]{2,12})/.exec(t);
-  if (!m || NOT_A_PERSON.has(m[1])) return null;
-  return m[1];
+  const withWhom = /(?<![א-ת])עם\s+([א-ת]{2,12})(?![א-ת])/.exec(t);
+  if (withWhom && isPersonToken(withWhom[1])) return withWhom[1];
+  const prefixed = /(?<![א-ת])ל([א-ת]{2,12})(?![א-ת])/g;
+  for (const m of t.matchAll(prefixed)) {
+    if (isPersonToken(m[1])) return m[1];
+  }
+  return null;
+}
+
+export interface NameLink {
+  /** השם המדויק שנשאל, מילה שלמה. */
+  spoken: string;
+  /** השם המלא שאושר, רק לאותו spoken. */
+  full: string;
+}
+
+function wholeTokens(text: string): string[] {
+  return normQ(text).split(" ").filter((w) => w.length >= 2);
+}
+
+/**
+ * זיהוי שנסגר: "אבירם" = "אבירם כהן", רק כשהתשובה מאשרת את אותו שם.
+ * אדם אחר לאותו שם פרטי מבטל את הזיהוי. אין כאן קישור לכרטיס.
+ */
+function walkNameLinks(
+  history: readonly HistoryMsg[],
+  currentUserText: string,
+): { live: NameLink[]; voided: Set<string> } {
+  const found: NameLink[] = [];
+  const voided = new Set<string>();
+  const consider = (text: string) => {
+    for (const link of found) {
+      if (contradictsLink(link, text)) voided.add(link.spoken);
+    }
+  };
+  for (let i = 0; i < history.length; i++) {
+    if (history[i].role === "user") consider(messageText(history[i].content));
+    if (history[i].role !== "assistant") continue;
+    const answer = answerAfter(history, i, currentUserText);
+    for (const q of questionsIn(messageText(history[i].content))) {
+      const link = linkFromQa(q, answer);
+      if (!link) continue;
+      if (contradictsLink(link, answer)) {
+        voided.add(link.spoken);
+        continue;
+      }
+      const prev = found.findIndex((x) => x.spoken === link.spoken);
+      if (prev >= 0) found[prev] = link;
+      else found.push(link);
+    }
+  }
+  consider(currentUserText);
+  return { live: found.filter((link) => !voided.has(link.spoken)), voided };
+}
+
+export function closedNameLinks(history: readonly HistoryMsg[], currentUserText = ""): NameLink[] {
+  return walkNameLinks(history, currentUserText).live;
+}
+
+function answerAfter(history: readonly HistoryMsg[], i: number, currentUserText: string): string {
+  for (let j = i + 1; j < history.length; j++) {
+    if (history[j].role === "user") return messageText(history[j].content);
+  }
+  if (i === lastAssistant(history)) return currentUserText;
+  return "";
+}
+
+function linkFromQa(q: string, a: string): NameLink | null {
+  if (!isClearAnswer(a)) return null;
+  const m = q.match(/(?<![א-ת])([א-ת]{2,12}) זה ([א-ת]{2,12}(?: [א-ת]{2,12})?)(?![א-ת])/);
+  if (!m) return null;
+  const spoken = m[1];
+  let full = m[2];
+  const intent = a.match(/הכוונה ל([א-ת]{2,12}(?: [א-ת]{2,12})?)/);
+  if (intent) full = intent[1];
+  else if (!/^(כן|נכון|בדיוק)(?![\u0590-\u05FF])/.test(a.trim())) return null;
+  if (full !== spoken && !full.startsWith(spoken + " ")) return null;
+  if (full === spoken) return null;
+  if (!isPersonToken(spoken)) return null;
+  return { spoken, full };
+}
+
+function contradictsLink(link: NameLink, text: string): boolean {
+  if (!text) return false;
+  // "הכוונה ל" מדביקה ל לפני השם, אז גבול מילה רגיל מפספס אותו.
+  const intent = text.match(/הכוונה ל([א-ת]{2,12}(?: [א-ת]{2,12})?)/);
+  if (intent && intent[1] !== link.full && intent[1].startsWith(link.spoken)) return true;
+  if (!hebrewBounded(link.spoken).test(text)) return false;
+  if (new RegExp(`לא ${link.full}(?![א-ת])`).test(text)) return true;
+  if (new RegExp(`(?<![א-ת])${link.spoken} אחר(?![א-ת])`).test(text)) return true;
+  const next = new RegExp(`(?<![א-ת])${link.spoken} ([א-ת]{2,12})(?![א-ת])`, "g");
+  for (const hit of text.matchAll(next)) {
+    if (NOT_A_PERSON.has(hit[1]) || hit[1] === "זה" || hit[1] === "מקובץ") continue;
+    if (`${link.spoken} ${hit[1]}` !== link.full) return true;
+  }
+  return false;
 }
 
 export function sameClockMinute(aIso: string, bIso: string): boolean {
@@ -156,10 +264,16 @@ export function sameTimeConflictLine(
 
 export function styleContext(history: readonly HistoryMsg[], userText: string): string {
   const lines: string[] = [];
-  const settled = settledFromHistory(history, userText);
+  const settled = activeSettled(history, userText);
   if (settled.length) {
     lines.push("כבר נענה בשיחה הזו, ואין לשאול שוב (גם לא \"ועוד דבר אחד\". \"כן\" הוא תשובה):");
     for (const s of settled) lines.push(`- ${s.q} = ${s.a}`);
+  }
+  for (const link of closedNameLinks(history, userText)) {
+    lines.push(
+      `זיהוי שנסגר בשיחה הזו רק לשם המדויק "${link.spoken}": ${link.full}. ` +
+        "אין להחיל אותו על אדם אחר ואין לקשר איתו לקוח/ה אחר/ת. אם נאמר שם אחר, הזיהוי בטל.",
+    );
   }
   const reading = likelyReading(userText);
   if (reading) lines.push(reading);
@@ -168,100 +282,132 @@ export function styleContext(history: readonly HistoryMsg[], userText: string): 
   return lines.join("\n");
 }
 
-const SAME_TIME_OK = /באותה שעה כבר קבוע/;
-const ENRICH_Q = /קנייה|שכירות|בעל|טלפון|לקובץ הלקוחות|כלקוח/;
-const MENU = /לבטל|להזיז|להשאיר|אפשרות/;
-
-function isUnsolicitedAside(line: string, userText: string): boolean {
-  if (SAME_TIME_OK.test(line)) return false;
-  // סיכום הקלטה או מסמך הוא רשימת פעולות, לא תוספת על נושא אחר.
-  if (/\[הקלטת שיחה|\[מסמך|\[ייבוא נכסים/.test(userText)) return false;
-  if (/מה יש לי|היומן|תזכיר|תזכורת/.test(userText)) return false;
-  // "שים לב שיש גם פגישה" ו"תזכורת: היום ב-13:00 פגישה עם חגי" הן תוספת.
-  // "קבעתי תזכורת למחר" היא האישור עצמו, והיא לא מתחילה במילה תזכורת.
-  if (/שים לב|שימי לב|יש לך גם|להזיז אחת|התנגשות/.test(line)) {
-    return /פגישה|סיור|שעה|\d{1,2}:\d{2}/.test(line);
-  }
-  return /^תזכורת[:\s]/.test(line);
+function activeSettled(history: readonly HistoryMsg[], currentUserText: string): SettledAnswer[] {
+  const voided = voidedSpokenNames(history, currentUserText);
+  return settledFromHistory(history, currentUserText).filter((s) => {
+    const spoken = spokenInQuestion(s.q);
+    return !spoken || !voided.has(spoken);
+  });
 }
+
+function spokenInQuestion(q: string): string | null {
+  const m = q.match(/(?<![א-ת])([א-ת]{2,12}) זה /);
+  return m ? m[1] : null;
+}
+
+function voidedSpokenNames(history: readonly HistoryMsg[], currentUserText: string): Set<string> {
+  return walkNameLinks(history, currentUserText).voided;
+}
+
+const SAME_TIME_OK = /באותה שעה כבר קבוע/;
+const MENU = /לבטל|להזיז|להשאיר|אפשרות/;
+const STOP = new Set([
+  "זה", "זאת", "הוא", "היא", "האם", "של", "את", "על", "עם", "מקובץ", "הלקוחות",
+  "לא", "ועוד", "דבר", "אחד", "אחת", "מה", "מי", "יש", "אין", "גם", "רק", "איך",
+]);
 
 function normQ(s: string): string {
   return s.replace(/[^\u0590-\u05FFA-Za-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function repeatsSettled(line: string, settled: readonly SettledAnswer[]): boolean {
-  if (!line.includes("?")) return false;
-  const n = normQ(line);
-  return settled.some((s) => {
-    const tokens = normQ(s.q).split(" ").filter((w) => w.length >= 3);
-    const hit = tokens.filter((w) => n.includes(w));
-    return hit.length >= 2;
-  });
+function contentTokens(text: string): string[] {
+  const seen: string[] = [];
+  for (const w of wholeTokens(text)) {
+    if (w.length < 3 || STOP.has(w) || seen.includes(w)) continue;
+    seen.push(w);
+  }
+  return seen;
 }
 
-function isEnrichmentQuestion(line: string): boolean {
-  if (!ENRICH_Q.test(line)) return false;
-  if (line.includes("?")) return true;
-  // "תגידי קנייה או שכירות ותשלחי טלפון" בלי סימן שאלה, אחרי שבירת השורה.
-  return /תגיד|תשלח|כתבי|כתוב|קנייה או|שכירות או/.test(line);
+function isUnsolicitedAside(line: string, userText: string): boolean {
+  if (SAME_TIME_OK.test(line)) return false;
+  if (/\[הקלטת שיחה|\[מסמך|\[ייבוא נכסים/.test(userText)) return false;
+  if (/מה יש לי|היומן|תזכיר|תזכורת/.test(userText)) return false;
+  // שורת אישור שמתחילה ב"תזכורת" נשארת. יורדות רק הערות צד על פגישה אחרת.
+  if (/שים לב|שימי לב|יש לך גם|להזיז אחת/.test(line)) {
+    return /פגישה|סיור|\d{1,2}:\d{2}/.test(line);
+  }
+  return false;
+}
+
+/** אותה שאלה על אותו אדם, מילה שלמה מול מילה שלמה. "מחר" אינו "מחרתיים". */
+export function repeatsSettled(line: string, settled: readonly SettledAnswer[]): boolean {
+  if (!line.includes("?")) return false;
+  const q = new Set(contentTokens(line));
+  return settled.some((s) => {
+    const st = contentTokens(s.q);
+    if (st.length < 2 || !st.every((w) => q.has(w))) return false;
+    const spoken = spokenInQuestion(s.q);
+    if (spoken && !q.has(spoken)) return false;
+    const extra = [...q].filter((w) => !st.includes(w));
+    return !extra.some((w) => /מחיר|טלפון|קומה|עיר|חדר|עסקה|קנייה|שכירות|בעל|בעלת/.test(w));
+  });
 }
 
 function isChoiceMenu(line: string, userText: string): boolean {
   if (!likelyReading(userText)) return false;
   if (/^\s*\d+[.)]/.test(line)) return true;
-  if (/^(לבטל|להזיז|להשאיר)\b/.test(line.trim())) return true;
+  if (/^(לבטל|להזיז|להשאיר)(?![\u0590-\u05FF])/.test(line.trim())) return true;
   if (!line.includes("?")) return false;
   const not = /(?:ולא|לא)\s+עם\s+([א-ת]{2,12})/.exec(userText);
-  if (not && line.includes(not[1])) return true;
+  if (not && hebrewBounded(not[1]).test(line)) return true;
   return MENU.test(line);
 }
 
-function splitLines(text: string): string[] {
-  const lines: string[] = [];
-  for (const raw of text.split(/\n+/)) {
-    for (const part of raw.split(/(?<=\?)\s+/)) {
-      const s = part.trim();
-      if (s) lines.push(s);
-    }
+function isCustomerDraft(block: string): boolean {
+  const t = block.trim();
+  if (/^(הודעה ללקוח|נוסח ללקוח|נוסח להעברה)/.test(t)) return true;
+  if (/^(היי|הי|שלום)\s+[א-ת]/.test(t) && (/https?:\/\//.test(t) || /\/p\/\d/.test(t) || /\/m\//.test(t))) {
+    return true;
   }
-  return lines;
+  return false;
 }
 
-function nameIn(text: string): string | null {
-  const m = /(?:את|עם|ל)\s+([א-ת]{2,12})/.exec(text);
-  return m && !NOT_A_PERSON.has(m[1]) ? m[1] : null;
+function splitLines(text: string): string[] {
+  return text.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+}
+
+/** שאלות שהכלי החזיר ב-ask בתור הזה. הן נשארות גם אם מסנן אחר היה מוריד אותן. */
+export function collectToolAsks(into: string[], result: unknown): void {
+  if (!result || typeof result !== "object") return;
+  const ask = (result as { ask?: unknown }).ask;
+  const list = Array.isArray(ask) ? ask : ask == null ? [] : [ask];
+  for (const item of list) {
+    const s = String(item || "").trim();
+    if (s && !into.includes(s)) into.push(s);
+  }
+}
+
+export function lineCarriesToolAsk(line: string, asks: readonly string[]): boolean {
+  const n = normQ(line);
+  return asks.some((ask) => {
+    const a = normQ(ask).replace(/\?+$/, "").trim();
+    return a.length >= 4 && n.includes(a);
+  });
 }
 
 /**
- * מוריד מהתשובה מה שהכלל אוסר: שאלה שנייה, תזכורת על נושא אחר, תפריט,
- * ושאלה על העשרה. שורת "באותה שעה כבר קבוע" נשארת. תשובה שהתרוקנה נשארת
- * כמו שהמודל כתב - עדיף משתיקה.
+ * מוריד רק שאלה שכבר נענתה על אותו אדם, תפריט כשיש קריאה אחת, והערת צד
+ * על פגישה אחרת. שאלה חוסמת נשארת, וכך גם ask שהכלי החזיר בתור הזה.
+ * טיוטת הודעה ללקוח/ה אינה נגע בה. תשובה שהתרוקנה נשארת כמו שהמודל כתב.
  */
 export function shapeAgentReply(
   text: string,
-  opts: { userText: string; history: readonly HistoryMsg[] },
+  opts: { userText: string; history: readonly HistoryMsg[]; toolAsks?: readonly string[] },
 ): string {
-  const settled = settledFromHistory(opts.history, opts.userText);
-  const kept: string[] = [];
-  let strippedOfferName: string | null = null;
-  for (const line of splitLines(text)) {
-    if (isUnsolicitedAside(line, opts.userText)) continue;
-    if (repeatsSettled(line, settled)) continue;
-    if (isChoiceMenu(line, opts.userText)) continue;
-    if (isEnrichmentQuestion(line)) {
-      strippedOfferName = strippedOfferName || nameIn(line) || nameIn(opts.userText);
-      continue;
-    }
-    kept.push(line);
-  }
-  const qAt = kept.map((line, i) => line.includes("?") ? i : -1).filter((i) => i >= 0);
-  if (qAt.length > 1) {
-    for (let i = qAt.length - 2; i >= 0; i--) kept.splice(qAt[i], 1);
-  }
-  const offerName = strippedOfferName;
-  if (offerName && !offerAlready(opts.history, offerName) && !kept.some((line) => line.includes(offerName) && line.includes("קובץ"))) {
-    kept.push(clientOfferLine(offerName));
-  }
-  const out = kept.join("\n").trim();
+  const settled = activeSettled(opts.history, opts.userText);
+  const asks = opts.toolAsks || [];
+  const blocks = text.split(/\n{2,}/);
+  const shaped = blocks.map((block) => {
+    if (isCustomerDraft(block)) return block.trim();
+    const kept = splitLines(block).filter((line) =>
+      lineCarriesToolAsk(line, asks) ||
+      (!isUnsolicitedAside(line, opts.userText) &&
+        !repeatsSettled(line, settled) &&
+        !isChoiceMenu(line, opts.userText))
+    );
+    return kept.join("\n");
+  }).filter(Boolean);
+  const out = shaped.join("\n\n").trim();
   return out || text.trim();
 }

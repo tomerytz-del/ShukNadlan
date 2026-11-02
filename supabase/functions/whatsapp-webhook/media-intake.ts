@@ -25,8 +25,8 @@ import { strFromU8, unzipSync } from "npm:fflate@0.8.2";
 import { agentPlaces, sniff, transcribeDetail, WHISPER_DOMAIN, WHISPER_MAX_BYTES } from "../_shared/whisper.ts";
 import {
   extFromAudioMime,
-  VOICE_NOTE_EMPTY_REPLY,
   VOICE_NOTE_MIN_BYTES,
+  voiceFailureReply,
   whisperHintFor,
 } from "../_shared/whisper-read.ts";
 
@@ -139,7 +139,8 @@ export async function transcribeMedia(opts: {
   // ולקוח" מחזיר על קליפ של כמה שניות טקסט ריק, והמודל היה עונה "ההודעה
   // הגיעה בלי טקסט" וחוזר על שאלות פתוחות. קליפ קצר נשלח בלי פרומפט.
   if (!opts.call && bytes.byteLength < VOICE_NOTE_MIN_BYTES) {
-    return fail(VOICE_NOTE_EMPTY_REPLY, "transcription_silent");
+    const empty = voiceFailureReply(true);
+    return fail(empty.reply, empty.error);
   }
   const places = opts.call ? await agentPlaces(opts.supabase, opts.agentId) : "";
   const hint = whisperHintFor({ call: opts.call, bytes: bytes.byteLength, domain: WHISPER_DOMAIN, places });
@@ -149,8 +150,13 @@ export async function transcribeMedia(opts: {
   if (!detail.text) {
     console.error("media transcription failed", mime, ext, opts.fileName || "", sniff(bytes),
       detail.silent ? "silent" : "failed");
-    if (!opts.call || detail.silent) {
-      return fail(VOICE_NOTE_EMPTY_REPLY, detail.silent ? "transcription_silent" : "transcription_failed");
+    if (detail.silent) {
+      const empty = voiceFailureReply(true);
+      return fail(empty.reply, empty.error);
+    }
+    if (!opts.call) {
+      const err = voiceFailureReply(false);
+      return fail(err.reply, err.error);
     }
     return fail(
       "לא הצלחתי לתמלל את ההקלטה, גם אחרי ניסיון נוסף. אפשר לשלוח אותה שוב כקובץ MP3 או M4A, או לכתוב את הפרטים?",

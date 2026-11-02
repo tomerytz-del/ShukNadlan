@@ -11,6 +11,14 @@ export const VOICE_NOTE_HINT_MAX_BYTES = 48_000;
 export const VOICE_NOTE_MIN_BYTES = 400;
 export const VOICE_NOTE_HINT = "הודעה קולית: פגישה, לקוח, נכס, היום, מחר.";
 export const VOICE_NOTE_EMPTY_REPLY = "לא שמעתי מילים בהקלטה. אפשר לשלוח שוב, או לכתוב?";
+/** כשל מפתח, מכסה או רשת. לא מציגים את זה כאילו ההקלטה הייתה ריקה. */
+export const VOICE_NOTE_ERROR_REPLY = "לא הצלחתי לעבד את ההקלטה עכשיו. אפשר לשלוח שוב, או לכתוב?";
+
+/** שתיקה אמיתית מול כשל תמלול. הקורא רושם את הכשל בלוג. */
+export function voiceFailureReply(silent: boolean): { reply: string; error: string } {
+  if (silent) return { reply: VOICE_NOTE_EMPTY_REPLY, error: "transcription_silent" };
+  return { reply: VOICE_NOTE_ERROR_REPLY, error: "transcription_failed" };
+}
 
 /** ‏`audio/ogg; codecs=opus` של וואטסאפ אינו המפתח `audio/ogg` במפה. */
 export function normalizeAudioMime(mime: string): string {
