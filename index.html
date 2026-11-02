@@ -69,9 +69,12 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+<!-- המפה סגורה בטעינה, ולכן ה-CSS שלה אינו חוסם ציור; supabase-js ו-Leaflet מ-/vendor/ ולא משרת זר (docs/vendor.md) -->
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
+<link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
-      crossorigin="anonymous" referrerpolicy="no-referrer">
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/vendor/leaflet@1.9.4/leaflet.css"></noscript>
 <style>
   /* ההסברים לעיצוב הזה: docs/home-page-notes.md. כל מה שנכתב כאן נשלח לכל גולש/ת. */
   :root{
@@ -3071,8 +3074,10 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     #ownerBannerWrap #ownerBanner::before{display:none}
     #ownerBannerWrap .owner-hero{
       position:relative;isolation:isolate;overflow:hidden;border-radius:20px 20px 0 0;padding:26px 20px 64px;gap:10px;
-      background:linear-gradient(180deg,rgba(14,42,107,.78),rgba(14,42,107,.96)),url("/assets/hero-valley-800.webp") center/cover no-repeat;
+      background:linear-gradient(180deg,rgba(14,42,107,.78),rgba(14,42,107,.96)) center/cover no-repeat #0e2a6b;
     }
+    /* התמונה רק כשהבאנר מתקרב למסך (bg-in, home.js): 56KB מתחת לקיפול שהתחרו ב-home.js */
+    #ownerBannerWrap.bg-in .owner-hero{background-image:linear-gradient(180deg,rgba(14,42,107,.78),rgba(14,42,107,.96)),url("/assets/hero-valley-800.webp")}
     #ownerBannerWrap .owner-hero h2{font-size:28px}
     #ownerBannerWrap .owner-hero p{font-size:15.5px}
     .owner-steps li{font-size:15px}
@@ -4629,7 +4634,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            <div class="hero-marks-row">
             <a class="hero-mark" href="/ethics-code"
                data-info-id="hero_ethics" data-info="מוענק רק למי שאישר את הקוד האתי, ומוסר מיד עם הפרה. לחצו לקוד המלא.">
-              <img class="hero-mark-seal" src="assets/badge-ethics.png" width="384" height="384"
+              <img class="hero-mark-seal" src="assets/badge-ethics-96.webp" width="96" height="96"
                    alt="" decoding="async">
               <span class="hero-mark-cap">תו האמון והאיכות</span>
             </a>
@@ -5970,13 +5975,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- הספריות האלה רצות רק אחרי שה-hero כבר נסרק. ב-head הן חסמו את הציור
      הראשון (מפה, supabase, כרטיסים). Leaflet.css נשאר למעלה. -->
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/vendor/leaflet@1.9.4/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"></script>
 <script src="assets/map-tiles.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
-        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/vendor/supabase-js@2.116.0/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/map-draw.js"></script>
 <script src="assets/open-house.js"></script>

@@ -2291,7 +2291,7 @@ function bindRowScroller(row){
     name.appendChild(nameLink);
     if (item.verified){
       const v = mk('img', 'dm-verified');
-      v.src = 'assets/badge-ethics.png'; v.width = 40; v.height = 40; v.loading = 'lazy';
+      v.src = 'assets/badge-ethics-96.webp'; v.width = 40; v.height = 40; v.loading = 'lazy';
       v.alt = 'עומד בתקן האתי';
       v.title = marketText('עומד בתקן האתי של שוק הנדל״ן של עפולה', () => 'עומד בתקן האתי של שוק הנדל״ן');
       name.appendChild(v);
@@ -9613,4 +9613,18 @@ if (window.shukObserveList) shukObserveList(document.getElementById('searchResul
     });
   }
   ExitGuard.configure({ ask, once:'sk_exit_guard_shown' });
+})();
+
+/* ‏תמונת הרקע של באנר בעלי הנכסים בטלפון יושבת כ-1,900px מתחת לקיפול, ורקע
+   CSS אינו יודע לחכות (loading="lazy" קיים רק ל-img). בלי המחלקה bg-in היא ירדה
+   בטעינה - 56KB שהתחרו ב-home.js על רוחב הפס. ‏rootMargin רחב כדי שתגיע לפני
+   שהבאנר על המסך; בלי IntersectionObserver - מיד, כמו קודם. */
+(function(){
+  const wrap = document.getElementById('ownerBannerWrap');
+  if (!wrap) return;
+  if (!('IntersectionObserver' in window)){ wrap.classList.add('bg-in'); return; }
+  const io = new IntersectionObserver(entries => {
+    if (entries.some(e => e.isIntersecting)){ wrap.classList.add('bg-in'); io.disconnect(); }
+  }, { rootMargin: '900px 0px' });
+  io.observe(wrap);
 })();
