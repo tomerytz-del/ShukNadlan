@@ -92,6 +92,8 @@ export const CADENCE_EXCLUDED = new Set([
   "market_nudge",
   "budget_alert",
   "improvement_suggestion",
+  // כשל טיפול במייל של הסוכן/ת: לא סיכום, לא עדיפות, והשליחה לא משתנה.
+  "email_intake",
 ]);
 
 export const CADENCE_MORE_ID = "ncad:more";
