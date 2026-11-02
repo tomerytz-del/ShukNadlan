@@ -116,7 +116,7 @@ function uiSaveBar(root, { read, apply, save, labels = {} }){
     bar.classList.toggle('is-dirty', dirty);
     bar.classList.toggle('is-saved', !dirty && saved);
     if (text) text.textContent = busy ? L.saving : dirty ? L.dirty : saved ? L.saved : L.clean;
-    if (saveBtn) saveBtn.disabled = busy || !dirty;
+    if (saveBtn) saveBtn.disabled = busy || !dirty || root.hasAttribute('data-ui-lock');
   }
   const api = {
     isDirty,

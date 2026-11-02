@@ -137,6 +137,7 @@ function pgProfileSync(){
   const n = profileState ? profileState.gallery.length : 0;
   document.getElementById('pfGalleryCount').textContent = n ? `${n} מתוך ${PG_GALLERY_MAX}` : '';
 
+  if (typeof profileChecks !== 'function') return;
   const checks = profileChecks(pgProfileDraft());
   const done = checks.filter(c => c.done).length;
   const pct = Math.round(done / checks.length * 100);

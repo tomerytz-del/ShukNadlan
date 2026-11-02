@@ -549,3 +549,4 @@ function renderHomeBoard(){
   homeMentorSteps();
   homeBrief();
 }
+if (typeof currentAgent !== 'undefined' && currentAgent && document.getElementById('homeBoard')) renderHomeBoard();

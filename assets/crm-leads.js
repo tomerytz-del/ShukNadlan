@@ -692,14 +692,23 @@ function openLeadsDemand(opts){
     syncLeadsSettings();
   });
   // המתג של לידי הבעלים - אותו מתג של "ההגדרות שלי", מסונכרן
-  document.getElementById('leadsOwnerSwitch').addEventListener('input', e => {
+  document.getElementById('leadsOwnerSwitch').addEventListener('input', async e => {
     const main = document.getElementById('setOwnerSwitch');
+    if (!main) return;
     main.setAttribute('aria-pressed', e.currentTarget.getAttribute('aria-pressed'));
-    setOwnerLeadsActive(main);
+    if (typeof setOwnerLeadsActive !== 'function' && window.crmNeed) {
+      try { await crmNeed('settings'); } catch (err) {}
+    }
+    if (typeof setOwnerLeadsActive === 'function') setOwnerLeadsActive(main);
   });
-  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const openLeadPrefsGuarded = () => {
+    const run = () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); };
+    if (typeof openLeadPrefs === 'function' || !window.crmNeed) { run(); return; }
+    crmNeed('settings').then(run).catch(() => {});
+  };
+  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefsGuarded());
   const prefEdit = document.getElementById('leadsPrefEdit');
-  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefsGuarded());
   const sheetClose = document.getElementById('leadPrefsSheetClose');
   const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
   if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);
@@ -817,7 +826,8 @@ window.addEventListener('resize', () => {
   const sheet = document.getElementById('leadPrefsSheet');
   if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
 });
-document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+else leadPrefsFromHash();
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){
