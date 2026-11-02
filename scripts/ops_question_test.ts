@@ -19,7 +19,12 @@ import {
   opsQuestionAuthRefusal,
   questionMessages,
   recordOpsTap,
+  OPS_QUEUE_PENDING_REASONS,
+  OPS_QUEUE_RETRY_REASONS,
+  opsQueueDecision,
+  opsQueueNeedsRetry,
   runOpsQuestion,
+  runOpsQuestionDrain,
   whatsappAgentBlock,
   whatsappFullyOptedOut,
   type OpsAgent,
@@ -27,6 +32,8 @@ import {
   type OpsClaim,
   type OpsOutbound,
   type OpsQuestionDb,
+  type OpsQueueDb,
+  type OpsQueueRow,
   type OpsTapDb,
 } from "../supabase/functions/whatsapp-webhook/ops-question.ts";
 
@@ -346,8 +353,12 @@ check(
   ![q1147.body, q1147.followup.body, q1336.body, q1336.followup.body].some((t) => /https?:\/\//.test(t) || t.includes("shuknadlan.co.il")),
 );
 for (const [purpose, item] of Object.entries(OPS_QUESTIONS)) {
-  const labels = item.ctas ? item.ctas.map((c) => c.label) : [...item.buttons, ...item.followup.buttons];
-  check(`${purpose} כותרות עד 20`, labels.length > 0 && labels.every((t) => t.length >= 1 && t.length <= 20));
+  const labels = item.ctas ? item.ctas.map((c) => c.label) : [...item.buttons, ...(item.followup?.buttons ?? [])];
+  const textOnly = !item.ctas && item.buttons.length === 0 && !item.followup;
+  check(
+    `${purpose} כותרות עד 20`,
+    textOnly || (labels.length > 0 && labels.every((t) => t.length >= 1 && t.length <= 20)),
+  );
 }
 
 type CtaSent = { to: string; body: string; label: string; url: string; logsBefore: number };
@@ -492,6 +503,16 @@ check("המשימה דורשת service_role", src.includes("opsQuestionAuthRefus
 check("הלחיצה לפני המודל", tapAt > 0 && tapAt < src.indexOf("runAgentTurn(") && tapAt < src.indexOf("await handlePublicMessage(msg)"));
 check("אחרי התפיסה יש return", src.slice(tapAt, tapAt + 500).includes("return;"));
 check("השער המשותף ו-TIER_ALLOWED", src.includes("whatsappAgentBlock(") && src.includes("TIER_ALLOWED.has("));
+const drainAt = src.indexOf('=== "ops-question-drain"');
+const drainSlice = src.slice(drainAt, src.indexOf("ops question drain failed", drainAt));
+check(
+  "ריקון התור בסוד ה-cron הקיים",
+  drainAt > 0 &&
+    drainSlice.includes("authorizeInternalCaller(req)") &&
+    !drainSlice.includes("opsQuestionAuthRefusal") &&
+    src.slice(src.indexOf("function askOpsQuestion"), src.indexOf("function askOpsQuestion") + 250).includes("sendText"),
+);
+check("סימון התור לא דורס שורה שכבר זזה", src.includes('.eq("status", fromStatus)'));
 check("היסטוריה אטומית", src.includes("whatsapp_ops_history_append") && src.includes("appendOpsHistory([], assistantText"));
 check("חלון השליחה הקיים", src.includes('rpc("notification_send_window_open"') && src.includes("sendCta: sendCtaUrl"));
 const agentSrc = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent.ts", import.meta.url), "utf8");
@@ -529,6 +550,206 @@ check(
     !partialSql.includes("v_status in ('failed', 'claimed', 'partial_sent')") &&
     partialSql.includes("revoke all on function public.whatsapp_ops_question_claim(uuid, text, text, text[], text, text[], boolean) from public, anon, authenticated") &&
     partialSql.includes("grant execute on function public.whatsapp_ops_question_claim(uuid, text, text, text[], text, text[], boolean) to service_role"),
+);
+
+const YAAKOV = "4dd1148b-bddd-405a-ae5b-9c836325f3bb";
+const YPURPOSE = "yaakov_lead_email_2026_11";
+const YBODY = "היי יעקב, המייל עם הליד מפייסבוק הגיע. השדות בו הם נתוני הבדיקה של מטא, אז לא הכנסתי אותו. בנוסף, אני מקבלת לידים במייל רק מהכתובת הרשומה שלך, ycschutz@gmail.com, והמייל הזה נשלח מ-schutz-digital. בינתיים אפשר להעביר לי ליד אמיתי מהכתובת הרשומה או כאן בוואטסאפ, ואז אכניס אותו כמוכר. על ההתאמות אעדכן אותך בנפרד.";
+const YNOTE = "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה הודעת מידע על המייל עם הליד שלו. אין פעולה נדרשת.]";
+const yq = OPS_QUESTIONS[YPURPOSE];
+const yMsgs = questionMessages(YPURPOSE);
+check("גוף יעקב כלשונו", yq.body === YBODY && yq.body.length <= 1024 && !/https?:\/\/|wa\.me\//i.test(yq.body));
+check("בלי כפתורים, קישור או המשך", yq.buttons.length === 0 && yq.followup === undefined && !yq.ctas);
+check("סוכן יעקב הוא agency_members.id", yq.allowedAgentIds.length === 1 && yq.allowedAgentIds[0] === YAAKOV);
+check("הערת מידע בלי פעולה", yq.historyNote === YNOTE);
+check(
+  "הודעת טקסט אחת",
+  !!yMsgs && yMsgs.length === 1 && yMsgs[0].body === YBODY && yMsgs[0].buttons.length === 0 && yMsgs[0].cta === null,
+);
+
+async function runYaakov(mem: ReturnType<typeof memory>, opts?: { throwText?: boolean }) {
+  const texts: string[] = [];
+  let buttons = 0;
+  const result = await runOpsQuestion({
+    db: mem.db,
+    input: { purpose: YPURPOSE, agent_member_id: YAAKOV, body: "לא לשלוח", buttons: [{ title: "כן" }] },
+    sendButtons: async () => {
+      buttons++;
+      return "wamid.buttons";
+    },
+    sendText: async (_to, body) => {
+      if (opts?.throwText) throw new Error("meta down");
+      texts.push(body);
+      return "wamid.text";
+    },
+    now: NOW,
+  });
+  return { result, texts, buttons };
+}
+
+const yMem = memory(paid(YAAKOV));
+const ySend = await runYaakov(yMem);
+const yUsers = yMem.history.filter((m) => (m as { role?: string }).role === "user") as { content: string }[];
+check(
+  "יעקב: טקסט אחד בלי כפתור",
+  ySend.result.status === 200 && ySend.texts.length === 1 && ySend.texts[0] === YBODY && ySend.buttons === 0 &&
+    yMem.claims[0].followupBody === null && yMem.claims[0].buttonIds.length === 0 &&
+    yMem.outbound[0].body === YBODY && yMem.outbound[0].kind === "text" &&
+    yUsers.length === 1 && yUsers[0].content === YNOTE,
+);
+const yOther = memory(paid(OTHER));
+const yDenied = await runOpsQuestion({
+  db: yOther.db,
+  input: { purpose: YPURPOSE, agent_member_id: OTHER },
+  sendButtons: async () => "wamid",
+  sendText: async () => "wamid",
+  now: NOW,
+});
+check("יעקב: מזהה אחר נדחה", yDenied.status === 403 && yDenied.body.error === "agent_not_allowed");
+const yQuietMem = memory(paid(YAAKOV), { quiet: true });
+const yQuiet = await runYaakov(yQuietMem);
+check("יעקב: שעות שקט בלי שליחה", yQuiet.result.status === 409 && yQuiet.result.body.error === "quiet_hours" && yQuiet.texts.length === 0 && yQuietMem.claims.length === 0);
+const yClosedMem = memory(paid(YAAKOV), { lastInbound: CLOSED_INBOUND });
+const yClosed = await runYaakov(yClosedMem);
+check("יעקב: חלון סגור בלי שליחה", yClosed.result.status === 409 && yClosed.result.body.error === "window_closed" && yClosed.texts.length === 0);
+const yFree = await runYaakov(memory({ ...paid(YAAKOV), tier: "free" }));
+check("יעקב: מסלול חינם בלי שליחה", yFree.result.status === 403 && yFree.result.body.error === "free_plan" && yFree.texts.length === 0);
+const yNoText = await runOpsQuestion({
+  db: memory(paid(YAAKOV)).db,
+  input: { purpose: YPURPOSE, agent_member_id: YAAKOV },
+  sendButtons: async () => "wamid",
+  now: NOW,
+});
+check("יעקב: בלי שולח טקסט אין תפיסה", yNoText.status === 500 && yNoText.body.error === "misconfigured");
+
+check("חלון נשאר pending", opsQueueDecision({ status: 409, body: { error: "window_closed" } }).status === "pending");
+check("שקט נשאר pending", opsQueueDecision({ status: 409, body: { error: "quiet_hours" } }).reason === "quiet_hours");
+check("תקרה נשארת pending", OPS_QUEUE_PENDING_REASONS.has("agent_daily_cap") && OPS_QUEUE_PENDING_REASONS.has("global_daily_cap"));
+check("סירוב קבוע הוא skipped", opsQueueDecision({ status: 403, body: { error: "agent_not_allowed" } }).status === "skipped");
+check("כבר נשלח הוא sent", opsQueueDecision({ status: 409, body: { error: "already_sent" } }).status === "sent");
+check("partial_sent לא חוזר אוטומטית", opsQueueDecision({ status: 502, body: { error: "partial_sent" } }).status === "failed" && !opsQueueNeedsRetry({ status: "failed", reason: "partial_sent" }));
+check("כשל שליחה חוזר בסבב הבא", opsQueueNeedsRetry({ status: "failed", reason: "send_failed" }) && !opsQueueNeedsRetry({ status: "pending", reason: "send_failed" }));
+
+function queueOf(initial: OpsQueueRow[]): { db: OpsQueueDb; rows: OpsQueueRow[] } {
+  const rows = initial.map((row) => ({ ...row }));
+  const db: OpsQueueDb = {
+    async due(limit) {
+      return rows.filter((row) => row.status === "pending" || opsQueueNeedsRetry(row)).slice(0, limit);
+    },
+    async mark(id, fromStatus, status, reason) {
+      const row = rows.find((item) => item.id === id && item.status === fromStatus);
+      if (!row) return;
+      row.status = status;
+      row.reason = reason;
+    },
+  };
+  return { db, rows };
+}
+
+const quietQueue = queueOf([{ id: "q1", purpose: YPURPOSE, agentMemberId: YAAKOV, status: "pending", reason: null }]);
+let quietTexts = 0;
+const quietDrain = await runOpsQuestionDrain({
+  queue: quietQueue.db,
+  ask: (input) => runOpsQuestion({
+    db: memory(paid(YAAKOV), { quiet: true }).db,
+    input,
+    sendButtons: async () => "wamid",
+    sendText: async () => {
+      quietTexts++;
+      return "wamid";
+    },
+    now: NOW,
+  }),
+});
+check(
+  "ריקון בשקט נשאר pending",
+  quietDrain.processed === 1 && quietQueue.rows[0].status === "pending" && quietQueue.rows[0].reason === "quiet_hours" && quietTexts === 0,
+);
+
+const skipQueue = queueOf([{ id: "q2", purpose: YPURPOSE, agentMemberId: OTHER, status: "pending", reason: null }]);
+const skipDrain = await runOpsQuestionDrain({
+  queue: skipQueue.db,
+  ask: (input) => runOpsQuestion({
+    db: memory(paid(OTHER)).db,
+    input,
+    sendButtons: async () => "wamid",
+    sendText: async () => "wamid",
+    now: NOW,
+  }),
+});
+check("ריקון לסוכן לא מאושר הוא skipped", skipDrain.outcomes[0].status === "skipped" && skipDrain.outcomes[0].reason === "agent_not_allowed" && skipQueue.rows[0].status === "skipped");
+
+const failQueue = queueOf([{ id: "q3", purpose: YPURPOSE, agentMemberId: YAAKOV, status: "pending", reason: null }]);
+const failMem = memory(paid(YAAKOV));
+let failTexts = 0;
+await runOpsQuestionDrain({
+  queue: failQueue.db,
+  ask: (input) => runOpsQuestion({
+    db: failMem.db,
+    input,
+    sendButtons: async () => "wamid",
+    sendText: async () => {
+      throw new Error("meta down");
+    },
+    now: NOW,
+  }),
+});
+check("כשל ראשון נרשם failed בלי retry", failQueue.rows[0].status === "failed" && failQueue.rows[0].reason === "send_failed" && failMem.claims[0].retry === false);
+const retryDrain = await runOpsQuestionDrain({
+  queue: failQueue.db,
+  ask: (input) => runOpsQuestion({
+    db: failMem.db,
+    input,
+    sendButtons: async () => "wamid",
+    sendText: async () => {
+      failTexts++;
+      return "wamid.retry";
+    },
+    now: NOW,
+  }),
+});
+check(
+  "הסבב הבא שולח עם retry פעם אחת",
+  retryDrain.outcomes[0].status === "sent" && failTexts === 1 && failMem.claims[1].retry === true && failQueue.rows[0].status === "sent",
+);
+
+const sentRow: OpsQueueRow = { id: "q4", purpose: YPURPOSE, agentMemberId: YAAKOV, status: "sent", reason: null };
+const sentQueue = queueOf([sentRow, { id: "q5", purpose: YPURPOSE, agentMemberId: YAAKOV, status: "pending", reason: null }]);
+await sentQueue.db.mark("q4", "pending", "failed", "late");
+check("סימון מסטטוס ישן אינו דורס sent", sentQueue.rows[0].status === "sent" && sentQueue.rows[0].reason === null);
+
+const queueSql = readFileSync(new URL("../supabase/migrations/20271102140000_ops_question_queue.sql", import.meta.url), "utf8");
+check(
+  "טבלת התור סגורה",
+  queueSql.includes("enable row level security") &&
+    queueSql.includes("revoke all on table public.ops_question_queue from public, anon, authenticated") &&
+    queueSql.includes("grant select, insert, update on table public.ops_question_queue to service_role") &&
+    !queueSql.includes("create policy"),
+);
+check(
+  "ייחוד purpose וסוכן",
+  queueSql.includes("unique (purpose, agent_member_id)") &&
+    queueSql.includes("references public.agency_members (id)") &&
+    queueSql.includes("'pending', 'sent', 'skipped', 'failed'"),
+);
+const readyStart = queueSql.indexOf("function public.ops_question_queue_ready()");
+const readySql = queueSql.slice(readyStart, queueSql.indexOf("comment on function public.ops_question_queue_ready()"));
+check(
+  "ready מנסה שוב רק כשלים זמניים",
+  readyStart > 0 &&
+    [...OPS_QUEUE_RETRY_REASONS].every((reason) => readySql.includes(`'${reason}'`)) &&
+    readySql.includes("q.status = 'pending'") &&
+    !readySql.includes("partial_sent"),
+);
+check(
+  "התזמון בסוד הקיים ורק כשיש עבודה",
+  queueSql.includes("jobname = 'ops-question-drain'") &&
+    queueSql.includes("whatsapp-webhook?task=ops-question-drain") &&
+    queueSql.includes("x-alert-cron-secret") &&
+    queueSql.includes("name = 'alert_cron_secret'") &&
+    queueSql.includes("where public.ops_question_queue_ready()") &&
+    queueSql.includes("revoke all on function public.ops_question_queue_ready() from public, anon, authenticated") &&
+    !/insert\s+into\s+public\.ops_question_queue/i.test(queueSql),
 );
 
 if (failed) {

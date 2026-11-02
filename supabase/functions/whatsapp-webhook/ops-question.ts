@@ -1,4 +1,6 @@
 // שאלה תפעולית לסוכן/ת אחד/ת, מתוך whatsapp-webhook?task=ops-question.
+// התור ops_question_queue מתרוקן מ-?task=ops-question-drain בסוד ה-cron
+// הקיים, בלי שמפתח service_role יוצא מהשרת.
 //
 // רק service_role. אין טקסט חופשי: הקורא שולח purpose ו-agent_member_id,
 // והנוסח והכפתורים באים מרשימה סגורה בקוד. רק בתוך 24 שעות מההודעה
@@ -50,8 +52,12 @@ export interface OpsCta {
 export interface OpsQuestion {
   body: string;
   buttons: readonly string[];
-  followup: { body: string; buttons: readonly string[] };
-  /** רשימה סגורה. ריקה = אף אחד/ת לא מקבל/ת את השאלה. */
+  /**
+   * הודעה שנייה. בלי followup, או עם גוף ריק ובלי כפתורים, יוצאת הודעה
+   * אחת. הודעה בלי כפתורים ובלי cta יוצאת כטקסט, לא כהודעת כפתורים ריקה.
+   */
+  followup?: { body: string; buttons: readonly string[] };
+  /** רשימה סגורה. ריקה = אף אחד/ת לא מקבל/ת את השאלה. agency_members.id. */
   allowedAgentIds: readonly string[];
   /** שתי הודעות: הגוף עם הכפתור הראשון, ואז followup עם השני. */
   ctas?: readonly OpsCta[];
@@ -91,6 +97,14 @@ export const OPS_QUESTIONS: Record<string, OpsQuestion> = {
     allowedAgentIds: ["248e9455-53d6-4e82-80b5-582cea77f80f"],
     historyNote: OPS_PHOTO_HISTORY_NOTE,
   },
+  // הודעת מידע אחת, בלי כפתור ובלי המשך. המזהה הוא agency_members.id.
+  yaakov_lead_email_2026_11: {
+    body: "היי יעקב, המייל עם הליד מפייסבוק הגיע. השדות בו הם נתוני הבדיקה של מטא, אז לא הכנסתי אותו. בנוסף, אני מקבלת לידים במייל רק מהכתובת הרשומה שלך, ycschutz@gmail.com, והמייל הזה נשלח מ-schutz-digital. בינתיים אפשר להעביר לי ליד אמיתי מהכתובת הרשומה או כאן בוואטסאפ, ואז אכניס אותו כמוכר. על ההתאמות אעדכן אותך בנפרד.",
+    buttons: [],
+    allowedAgentIds: ["4dd1148b-bddd-405a-ae5b-9c836325f3bb"],
+    historyNote:
+      "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה הודעת מידע על המייל עם הליד שלו. אין פעולה נדרשת.]",
+  },
 };
 
 const CTA_URL_RE = /^https:\/\/shuknadlan\.co\.il\/p\/\d+$/;
@@ -101,11 +115,15 @@ function assertNoUrl(text: string, purpose: string): void {
   }
 }
 
+function followupSends(q: OpsQuestion): boolean {
+  return !!q.followup && (q.followup.body.trim().length > 0 || q.followup.buttons.length > 0);
+}
+
 for (const [purpose, q] of Object.entries(OPS_QUESTIONS)) {
   assertNoUrl(q.body, purpose);
-  assertNoUrl(q.followup.body, purpose);
+  if (q.followup) assertNoUrl(q.followup.body, purpose);
   if (q.ctas) {
-    if (q.ctas.length !== 2 || q.buttons.length !== 0 || q.followup.buttons.length !== 0) {
+    if (!q.followup || q.ctas.length !== 2 || q.buttons.length !== 0 || q.followup.buttons.length !== 0) {
       throw new Error(`ops cta shape for ${purpose}`);
     }
     for (const cta of q.ctas) {
@@ -118,7 +136,7 @@ for (const [purpose, q] of Object.entries(OPS_QUESTIONS)) {
     }
     continue;
   }
-  for (const title of [...q.buttons, ...q.followup.buttons]) {
+  for (const title of [...q.buttons, ...(q.followup?.buttons ?? [])]) {
     if (title.length < 1 || title.length > MAX_TITLE) {
       throw new Error(`ops button title length ${title.length} for ${purpose}`);
     }
@@ -149,6 +167,7 @@ export interface OpsOutbound {
   waMessageId: string | null;
   body: string;
   error: string | null;
+  kind: "text" | "interactive";
 }
 
 export interface OpsQuestionDb {
@@ -291,20 +310,22 @@ export function questionMessages(purpose: string): OpsOutboundMessage[] | null {
   const q = OPS_QUESTIONS[purpose];
   if (!q) return null;
   if (q.ctas) {
+    if (!q.followup) return null;
     return [
       { body: q.body, buttons: [], cta: q.ctas[0] },
       { body: q.followup.body, buttons: [], cta: q.ctas[1] },
     ];
   }
   const first = q.buttons.map((title, i) => ({ id: opsButtonId(purpose, i), title }));
-  const second = q.followup.buttons.map((title, i) => ({
-    id: opsButtonId(purpose, first.length + i),
-    title,
-  }));
-  return [
-    { body: q.body, buttons: first, cta: null },
-    { body: q.followup.body, buttons: second, cta: null },
-  ];
+  const messages: OpsOutboundMessage[] = [{ body: q.body, buttons: first, cta: null }];
+  if (followupSends(q) && q.followup) {
+    const second = q.followup.buttons.map((title, i) => ({
+      id: opsButtonId(purpose, first.length + i),
+      title,
+    }));
+    messages.push({ body: q.followup.body, buttons: second, cta: null });
+  }
+  return messages;
 }
 
 /** null כשזו אינה לחיצה על כפתור ops_q. כל מזהה עם הקידומת נתפס, גם שבור. */
@@ -330,6 +351,7 @@ export function inboundOpsButton(msg: {
 
 export function opsOutboundBody(body: string, buttons: OpsButton[], cta?: OpsCta | null): string {
   if (cta) return `${body}\n[${cta.label}]`;
+  if (buttons.length === 0) return body;
   return `${body}\n[${buttons.map((b) => `${b.id} ${b.title}`).join(" | ")}]`;
 }
 
@@ -468,6 +490,8 @@ export async function runOpsQuestion(opts: {
   sendButtons: (to: string, body: string, buttons: OpsButton[]) => Promise<string | null>;
   /** כפתור קישור. חובה כשלשאלה יש ctas. אחד להודעה. */
   sendCta?: (to: string, body: string, label: string, url: string) => Promise<string | null>;
+  /** הודעת טקסט. חובה כשאין כפתורים ואין cta. מטא דוחה כפתורים ריקים. */
+  sendText?: (to: string, body: string) => Promise<string | null>;
   now?: number;
 }): Promise<OpsResult> {
   const now = opts.now ?? Date.now();
@@ -504,6 +528,9 @@ export async function runOpsQuestion(opts: {
   if (value.messages.some((m) => m.cta) && !opts.sendCta) {
     return result(500, { error: "misconfigured", detail: "לשאלה הזו אין שולח כפתור קישור." });
   }
+  if (value.messages.some((m) => !m.cta && m.buttons.length === 0) && !opts.sendText) {
+    return result(500, { error: "misconfigured", detail: "לשאלה הזו אין שולח הודעת טקסט." });
+  }
 
   const code = await opts.db.claim({
     agentId: value.agentId,
@@ -533,6 +560,8 @@ export async function runOpsQuestion(opts: {
     try {
       waId = message.cta
         ? await opts.sendCta!(phone, message.body, message.cta.label, message.cta.url)
+        : message.buttons.length === 0
+        ? await opts.sendText!(phone, message.body)
         : await opts.sendButtons(phone, message.body, message.buttons);
     } catch (err) {
       console.error("ops question send failed", err);
@@ -545,12 +574,14 @@ export async function runOpsQuestion(opts: {
     }
     waIds.push(waId || "sent");
     const logged = opsOutboundBody(message.body, message.buttons, message.cta);
+    const kind = message.cta || message.buttons.length > 0 ? "interactive" : "text";
     await opts.db.logOutbound({
       agentId: value.agentId,
       phone,
       waMessageId: waId,
       body: logged,
       error: null,
+      kind,
     }).catch((err) => console.error("ops question log failed", err));
     await opts.db.appendHistory(value.agentId, phone, stamp, logged, value.historyNote)
       .catch((err) => console.error("ops question history failed", err));
@@ -567,4 +598,93 @@ export async function runOpsQuestion(opts: {
     ctas: value.messages.map((m) => m.cta),
     wa_message_ids: waIds,
   });
+}
+
+/** שער זמני: השורה נשארת pending והסבב הבא מנסה שוב. */
+export const OPS_QUEUE_PENDING_REASONS = new Set([
+  "window_closed",
+  "quiet_hours",
+  "agent_daily_cap",
+  "global_daily_cap",
+]);
+
+/**
+ * כשל שהתפיסה כבר רשמה כ-failed או claimed תקוע. הסבב הבא קורא עם
+ * retry=true. partial_sent אינו כאן: מה שיצא לא נשלח שוב.
+ */
+export const OPS_QUEUE_RETRY_REASONS = new Set([
+  "send_failed",
+  "in_progress",
+  "db_error",
+]);
+
+const OPS_QUEUE_SKIP_REASONS = new Set([
+  "unknown_purpose",
+  "agent_not_allowed",
+  "inactive",
+  "free_plan",
+  "billing_inactive",
+  "whatsapp_off",
+  "no_phone",
+  "not_found",
+  "bad_request",
+]);
+
+export type OpsQueueStatus = "pending" | "sent" | "skipped" | "failed";
+
+export interface OpsQueueRow {
+  id: string;
+  purpose: string;
+  agentMemberId: string;
+  status: string;
+  reason: string | null;
+}
+
+export interface OpsQueueDb {
+  /** pending, ואז failed שסיבתם ניתנת לניסיון חוזר. לפי created_at. */
+  due(limit: number): Promise<OpsQueueRow[]>;
+  /**
+   * מעדכן רק אם הסטטוס עדיין fromStatus. שורה שכבר זזה (sent מקביל)
+   * אינה נדרסת.
+   */
+  mark(id: string, fromStatus: string, status: OpsQueueStatus, reason: string | null): Promise<void>;
+}
+
+export function opsQueueNeedsRetry(row: { status: string; reason: string | null }): boolean {
+  return row.status === "failed" && !!row.reason && OPS_QUEUE_RETRY_REASONS.has(row.reason);
+}
+
+/** מיפוי תוצאת runOpsQuestion לשורת התור. אינו שולח בעצמו. */
+export function opsQueueDecision(result: OpsResult): { status: OpsQueueStatus; reason: string | null } {
+  if (result.status === 200) return { status: "sent", reason: null };
+  const code = typeof result.body.error === "string" ? result.body.error : "unknown";
+  if (OPS_QUEUE_PENDING_REASONS.has(code)) return { status: "pending", reason: code };
+  if (code === "already_sent") return { status: "sent", reason: "already_sent" };
+  if (OPS_QUEUE_SKIP_REASONS.has(code)) return { status: "skipped", reason: code };
+  return { status: "failed", reason: code };
+}
+
+/**
+ * מרוקן את ops_question_queue. כל שורה עוברת ב-runOpsQuestion (הרשימה
+ * הסגורה וכל השערים). אין כאן ניסיון חוזר מיידי על in_progress: סבב
+ * מקביל עלול עדיין לשלוח, והניסיון הבא מגיע רק אחרי שהשורה סומנה failed.
+ */
+export async function runOpsQuestionDrain(opts: {
+  queue: OpsQueueDb;
+  ask: (input: { purpose: string; agent_member_id: string; retry: boolean }) => Promise<OpsResult>;
+  limit?: number;
+}): Promise<{ processed: number; outcomes: { id: string; status: OpsQueueStatus; reason: string | null }[] }> {
+  const due = await opts.queue.due(opts.limit ?? 5);
+  const outcomes: { id: string; status: OpsQueueStatus; reason: string | null }[] = [];
+  for (const row of due) {
+    const result = await opts.ask({
+      purpose: row.purpose,
+      agent_member_id: row.agentMemberId,
+      retry: opsQueueNeedsRetry(row),
+    });
+    const decision = opsQueueDecision(result);
+    await opts.queue.mark(row.id, row.status, decision.status, decision.reason);
+    outcomes.push({ id: row.id, status: decision.status, reason: decision.reason });
+  }
+  return { processed: outcomes.length, outcomes };
 }

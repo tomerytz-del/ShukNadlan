@@ -56,9 +56,12 @@ import {
   opsQuestionAuthRefusal,
   recordOpsTap,
   runOpsQuestion,
+  runOpsQuestionDrain,
+  OPS_QUEUE_RETRY_REASONS,
   whatsappAgentBlock,
   whatsappFullyOptedOut,
   type OpsQuestionDb,
+  type OpsQueueDb,
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
@@ -3119,7 +3122,7 @@ function opsQuestionDb(): OpsQuestionDb {
         direction: "out",
         wa_phone: row.phone,
         agent_id: row.agentId,
-        msg_type: "interactive",
+        msg_type: row.kind === "text" ? "text" : "interactive",
         body: row.body,
         status: row.waMessageId ? "sent" : null,
         error: row.error,
@@ -3133,6 +3136,59 @@ function opsQuestionDb(): OpsQuestionDb {
       return data === true;
     },
   };
+}
+
+function opsQueueDb(): OpsQueueDb {
+  const retryReasons = [...OPS_QUEUE_RETRY_REASONS];
+  return {
+    async due(limit) {
+      // שתי שאילתות: failed סופי (partial_sent) אינו דוחק שורת pending
+      // חדשה מחוץ ל-limit. המחרוזת ליטרלית, לא משתנה: supabase-js מפענח
+      // את העמודות מהטיפוס שלה.
+      const [pending, failed] = await Promise.all([
+        supabase.from("ops_question_queue")
+          .select("id, purpose, agent_member_id, status, reason, created_at")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true }).limit(limit),
+        supabase.from("ops_question_queue")
+          .select("id, purpose, agent_member_id, status, reason, created_at")
+          .eq("status", "failed")
+          .in("reason", retryReasons)
+          .order("created_at", { ascending: true }).limit(limit),
+      ]);
+      if (pending.error) throw new Error(pending.error.message);
+      if (failed.error) throw new Error(failed.error.message);
+      return [...(pending.data ?? []), ...(failed.data ?? [])]
+        .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")))
+        .slice(0, limit)
+        .map((row) => ({
+          id: String(row.id),
+          purpose: String(row.purpose ?? ""),
+          agentMemberId: String(row.agent_member_id ?? ""),
+          status: String(row.status ?? ""),
+          reason: row.reason == null ? null : String(row.reason),
+        }));
+    },
+    async mark(id, fromStatus, status, reason) {
+      // eq על הסטטוס שנקרא: סימון מאוחר אינו דורס sent שכבר נרשם.
+      const { error } = await supabase.from("ops_question_queue").update({
+        status,
+        reason,
+        processed_at: status === "pending" ? null : new Date().toISOString(),
+      }).eq("id", id).eq("status", fromStatus);
+      if (error) throw new Error(error.message);
+    },
+  };
+}
+
+function askOpsQuestion(input: unknown) {
+  return runOpsQuestion({
+    db: opsQuestionDb(),
+    input,
+    sendButtons,
+    sendCta: sendCtaUrl,
+    sendText,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -3306,6 +3362,36 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // ריקון תור השאלות (ops_question_queue). pg_cron עם סוד ה-cron הקיים,
+  // לא מפתח service_role אצל מי שביקש את השליחה. אותה שליחה כמו
+  // ops-question, כולל כל השערים. התשובה סינכרונית כדי שהשורה תתעדכן
+  // לפני שהקריאה חוזרת.
+  if (url.searchParams.get("task") === "ops-question-drain") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    try {
+      const drained = await runOpsQuestionDrain({
+        queue: opsQueueDb(),
+        ask: askOpsQuestion,
+      });
+      return new Response(JSON.stringify(drained), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("ops question drain failed", err);
+      return new Response(JSON.stringify({ error: "db_error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
   // שאלה תפעולית לסוכן/ת אחד/ת (ops-question.ts). הקורא הוא אופרטור עם
   // מפתח service_role, לא Meta ולא pg_cron: סוד ה-cron אינו מספיק.
   // התשובה סינכרונית, כי סירוב (חלון, מסלול, כפילות) חייב לחזור לקורא.
@@ -3328,12 +3414,7 @@ Deno.serve(async (req: Request) => {
       });
     }
     try {
-      const result = await runOpsQuestion({
-        db: opsQuestionDb(),
-        input,
-        sendButtons,
-        sendCta: sendCtaUrl,
-      });
+      const result = await askOpsQuestion(input);
       return new Response(JSON.stringify(result.body), {
         status: result.status,
         headers: { "Content-Type": "application/json" },
