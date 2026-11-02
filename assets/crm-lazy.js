@@ -162,6 +162,7 @@
   function loadOne(src, integrity, priority) {
     var found = document.querySelector('script[src="' + src + '"]');
     if (found && found.dataset.ready === '1') return Promise.resolve();
+    if (found && found.dataset.evalfail === '1') return Promise.reject(new Error(src));
     var existing = inflight[src];
     if (existing) {
       if ((priority || 0) > existing.priority && !existing.started) {
@@ -208,13 +209,22 @@
   function attach(entry) {
     var s = document.createElement('script');
     var settledOne = false;
-    function finish(ok) {
+    function settle(ok) {
       if (settledOne) return;
       settledOne = true;
+      global.removeEventListener('error', onWinError);
       active--;
       if (entry.priority > 0) activeHigh--;
       if (inflight[entry.src] === entry) delete inflight[entry.src];
-      if (ok) { s.dataset.ready = '1'; entry.resolve(); }
+      if (ok && !evalFailed) { s.dataset.ready = '1'; entry.resolve(); }
+      else if (evalFailed) {
+        /* הריצה כבר יצרה const/let גלובליים. תגית שנייה מזריקה
+           "already been declared". משאירים את התגית ומסרבים,
+           ורק ניסיון מפורש (fresh) מוריד אותה. */
+        s.dataset.evalfail = '1';
+        s.dataset.failed = '1';
+        entry.reject(new Error(entry.src));
+      }
       else {
         s.dataset.failed = '1';
         s.remove();
@@ -222,10 +232,20 @@
       }
       pump();
     }
+    var evalFailed = false;
+    function onWinError(ev) {
+      var file = String((ev && ev.filename) || '');
+      if (!file || file.indexOf(entry.src) === -1) return;
+      evalFailed = true;
+      /* onload נורה גם כשהקובץ זרק באמצע. בלי זה הוא נספר כנטען
+         והקריאה הבאה לא מנסה שוב. */
+      settle(false);
+    }
+    global.addEventListener('error', onWinError);
     s.async = true;
     if (entry.integrity) { s.integrity = entry.integrity; s.crossOrigin = 'anonymous'; }
-    s.onload = function () { finish(true); };
-    s.onerror = function () { finish(false); };
+    s.onload = function () { settle(true); };
+    s.onerror = function () { settle(false); };
     s.src = entry.src;
     document.head.appendChild(s);
   }
@@ -362,9 +382,40 @@
     });
   }
 
+  /* ההורדה עוד רצה. פקיעת השעון אינה כישלון: לא מציגים "לא נטענה"
+     כל עוד אין 502 או זריקה מהקובץ. */
+  function crmInflight(group, seen) {
+    if (!group || !GROUPS[group]) return false;
+    seen = seen || {};
+    if (seen[group]) return false;
+    seen[group] = true;
+    if (settled[group] === 'ok') return false;
+    if (failedAt[group] && !pending[group]) return false;
+    if (pending[group]) return true;
+    var deps = PRE[group] || [];
+    for (var i = 0; i < deps.length; i++) {
+      if (crmInflight(deps[i], seen)) return true;
+    }
+    return false;
+  }
+
+  function removeEvalFail(group) {
+    var seen = closureOf(group, {});
+    for (var g in seen) {
+      var list = GROUPS[g] || [];
+      for (var i = 0; i < list.length; i++) {
+        var el = document.querySelector('script[src="' + list[i][0] + '"]');
+        if (el && el.dataset.evalfail === '1') el.remove();
+      }
+    }
+  }
+
   function crmNeed(group, opts) {
     if (!GROUPS[group]) return Promise.resolve();
-    if (opts && opts.fresh) clearFailed(group);
+    if (opts && opts.fresh) {
+      clearFailed(group);
+      removeEvalFail(group);
+    }
     groupPri[group] = 1;
     var p = needShared(group, 1);
     boost(group, {});
@@ -426,6 +477,7 @@
 
   global.crmNeed = crmNeed;
   global.crmAfter = crmAfter;
+  global.crmInflight = crmInflight;
   global.crmGroupsFor = crmGroupsFor;
   global.crmArmSections = crmArmSections;
 })(window);

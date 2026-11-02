@@ -584,6 +584,102 @@ export function fixtureFailures() {
   return out;
 }
 
+function isFnNode(node) {
+  return node && (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression' || node.type === 'ArrowFunctionExpression');
+}
+
+/* קריאות סינכרוניות מגוף הפונקציה, בלי להיכנס לפונקציות פנימיות
+   (מאזין, setTimeout). שם שנקרא שם לפני ה-let שלו הוא TDZ. */
+function syncReach(node, ids, calls) {
+  if (!node || !node.type || isFnNode(node)) return;
+  if (node.type === 'Identifier') ids.add(node.name);
+  if (node.type === 'CallExpression' && node.callee && node.callee.type === 'Identifier') calls.add(node.callee.name);
+  for (const k of Object.keys(node)) {
+    if (k === 'start' || k === 'end' || k === 'loc' || k === 'range') continue;
+    const v = node[k];
+    if (Array.isArray(v)) v.forEach(x => syncReach(x, ids, calls));
+    else if (v && v.type) syncReach(v, ids, calls);
+  }
+}
+
+function localFunctions(ast) {
+  const map = new Map();
+  for (const stmt of ast.body) {
+    if (stmt.type === 'FunctionDeclaration' && stmt.id) map.set(stmt.id.name, stmt);
+    if (stmt.type !== 'VariableDeclaration') continue;
+    for (const d of stmt.declarations) {
+      if (d.id.type === 'Identifier' && d.init && isFnNode(d.init)) map.set(d.id.name, d.init);
+    }
+  }
+  return map;
+}
+
+function laterLexical(ast, at) {
+  const names = new Set();
+  for (const stmt of ast.body) {
+    if (stmt.type === 'ClassDeclaration' && stmt.id && stmt.start > at) names.add(stmt.id.name);
+    if (stmt.type !== 'VariableDeclaration' || stmt.kind === 'var' || stmt.start <= at) continue;
+    for (const d of stmt.declarations) {
+      if (d.id.type === 'Identifier') names.add(d.id.name);
+    }
+  }
+  return names;
+}
+
+function reachableReads(fn, funcs) {
+  const ids = new Set();
+  const seen = new Set();
+  const queue = [fn];
+  while (queue.length) {
+    const name = queue.pop();
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const node = funcs.get(name);
+    if (!node) continue;
+    const calls = new Set();
+    syncReach(node.body || node, ids, calls);
+    for (const c of calls) if (funcs.has(c)) queue.push(c);
+  }
+  return ids;
+}
+
+/* קריאה בגוף הקובץ, לא בתוך פונקציה, שנוגעת ב-let/const שמוצהר אחר כך. */
+export function topLevelTdz(src) {
+  let ast;
+  try { ast = parse(src); }
+  catch (e) { return ['לא מתפרסר: ' + e.message]; }
+  const funcs = localFunctions(ast);
+  const fails = [];
+  for (const stmt of ast.body) {
+    if (stmt.type === 'FunctionDeclaration') continue;
+    const calls = new Set();
+    const ids = new Set();
+    syncReach(stmt, ids, calls);
+    const later = laterLexical(ast, stmt.start);
+    if (!later.size) continue;
+    const reads = new Set(ids);
+    for (const c of calls) {
+      for (const name of reachableReads(c, funcs)) reads.add(name);
+    }
+    for (const name of reads) {
+      if (later.has(name)) fails.push(name);
+    }
+  }
+  return [...new Set(fails)];
+}
+
+export function scanTopLevelTdz(repo) {
+  const base = repo || root;
+  const lazySrc = readFileSync(join(base, 'assets/crm-lazy.js'), 'utf8');
+  const { files } = groupTable(lazySrc);
+  const fails = [];
+  for (const file of files.keys()) {
+    const src = readFileSync(join(base, 'assets', file), 'utf8');
+    for (const name of topLevelTdz(src)) fails.push(file + ' ' + name);
+  }
+  return fails;
+}
+
 if (process.argv[1] && process.argv[1].endsWith('crm_lazy_scan.mjs')) {
   const fix = fixtureFailures();
   if (fix.length) {

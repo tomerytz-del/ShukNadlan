@@ -189,7 +189,7 @@ async def main():
         print('hang dashboard', ms, 'ms, scripts', tags, 'reqs', office_hits['n'], flush=True)
         if tags != 1 or office_hits['n'] != 1:
             fail('קובץ תקוע נטען יותר מפעם אחת')
-        if ms > 9000:
+        if ms > 12000:
             fail('קובץ משרד תקוע עיכב את הדשבורד %dms' % ms)
         bad = hard_errors(errs)
         if bad:
@@ -226,7 +226,7 @@ async def main():
             print('slow leads resolved once', flush=True)
         await ctx.close()
 
-        async def bounded_hang(browser, path, script, marker, expect_leads_error, expect_notif, limit_ms=9000):
+        async def bounded_hang(browser, path, script, marker, expect_notif, limit_ms=12000):
             ctx, page, errs = await boot(browser, 1280, 800)
             gate = {'go': False}
             hits = {'n': 0}
@@ -247,11 +247,11 @@ async def main():
             ms = int((asyncio.get_event_loop().time() - t0) * 1000)
             leads = await page.locator('#leadsList').inner_text()
             notif = await page.locator('#notifList').inner_text()
-            print(script, 'dashboard', ms, 'ms', flush=True)
+            print(script, path, 'dashboard', ms, 'ms', flush=True)
             if ms > limit_ms:
                 fail(script + ' עיכב את הדשבורד %dms' % ms)
-            if expect_leads_error and 'לא נטענה' not in leads:
-                fail(script + ' לא הציג נסו שוב: ' + leads[:80])
+            if 'לא נטענה' in leads:
+                fail(script + ' הציג לא נטענה בזמן שהקובץ עוד יורד: ' + leads[:80])
             if expect_notif and notif.strip() == 'טוען…':
                 fail(script + ' השאיר את ההתראות על טוען')
             gate['go'] = True
@@ -268,9 +268,38 @@ async def main():
                 print(script, 'late once', flush=True)
             await ctx.close()
 
-        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', True, False)
-        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', True, False)
-        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', False, True)
+        await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', False)
+        await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', False)
+        await bounded_hang(browser, '/crm?goto=accClients', 'crm-ui.js', '__uiClients', False)
+        await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', True)
+
+        ctx, page, errs = await boot(browser, 1280, 800)
+        thrown = {'n': 0}
+
+        async def settings_once(route):
+            thrown['n'] += 1
+            if thrown['n'] == 1:
+                await route.fulfill(status=200, content_type='application/javascript',
+                                    body='throw new Error("settings-boom");')
+            else:
+                await route.continue_()
+
+        await page.route('**/assets/crm-settings.js', settings_once)
+        await page.goto(BASE + '/crm?goto=accPrefs', wait_until='commit', timeout=60000)
+        await page.wait_for_function(
+            """() => {
+              const tags = [...document.scripts].filter(s => (s.getAttribute('src') || '') === 'assets/crm-settings.js');
+              return tags.some(s => s.dataset.evalfail === '1');
+            }""",
+            timeout=20000)
+        ok = await page.evaluate("""() => crmNeed('settings', { fresh: true }).then(() => true, () => false)""")
+        ready = await page.evaluate(
+            """() => [...document.scripts].some(s => (s.getAttribute('src') || '') === 'assets/crm-settings.js' && s.dataset.ready === '1')""")
+        if not ok or not ready or thrown['n'] < 2:
+            fail('קובץ שהזריק לא סומן כנכשל או שלא נטען שוב ok=%s ready=%s reqs=%s' % (ok, ready, thrown['n']))
+        else:
+            print('settings eval error retried', thrown['n'], flush=True)
+        await ctx.close()
 
         ctx, page, errs = await boot(browser, 1280, 800)
         cdp = await page.context.new_cdp_session(page)

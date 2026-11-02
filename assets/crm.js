@@ -16075,17 +16075,20 @@ async function loadProperties(agentId, opts){
     const propsP = crmNeed('properties', fresh ? { fresh: true } : undefined);
     const officeP = crmOptional('office');
     try { await propsP; } catch (e) {}
-    /* רשימת הלידים רצה רק אחרי הפונקציה הזו. המתנה מלאה לקובץ המשרד
-       הייתה מוסיפה 8 שניות שניות לפניה, בלי שהרשימה צריכה אותו. */
-    if (typeof officePreloadNames === 'function') await officeP;
-    else {
-      officeP.catch(() => {});
-      if (window.crmAfter && !(opts && opts.recover === false)) {
-        window.crmAfter('office', () => loadProperties(agentId, { recover: false }));
-      }
+    /* קובץ המשרד מוסיף שמות. הוא לא חוסם את הרשימה ולא את הלידים שאחריה. */
+    officeP.catch(() => {});
+    if (typeof officePreloadNames !== 'function' && window.crmAfter && !(opts && opts.recover === false)) {
+      window.crmAfter('office', () => loadProperties(agentId, { recover: false }));
     }
   }
   if (window.crmNeed && typeof prRenderSmart !== 'function') {
+    if (window.crmInflight && window.crmInflight('properties')) {
+      if (listEl && !fresh) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+      if (window.crmAfter && !(opts && opts.recover === false)) {
+        window.crmAfter('properties', () => loadProperties(agentId, { recover: false }));
+      }
+      return;
+    }
     listEl.innerHTML = '<div class="empty-state"><p>רשימת הנכסים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = listEl.querySelector('button');
     if (again) again.addEventListener('click', () => loadProperties(agentId, { fresh: true }));
@@ -16094,11 +16097,14 @@ async function loadProperties(agentId, opts){
     }
     return;
   }
-  // היריד והמיקום המשוער רק כשהרשימה פתוחה. כשל בסקריפט לא מפיל את
-  // הדשבורד: הרשימה עולה בלי תגיות היריד.
-  const libsP = (window.crmNeed && accIsOpen('accProperties'))
-    ? crmNeed('property').catch(() => {})
-    : Promise.resolve();
+  /* היריד והמיקום המשוער לא חוסמים את הרשימה. accProperties פתוח
+     כברירת מחדל, והמתנה כאן הייתה עוצרת גם את הלידים שבאים אחריה.
+     כשל בסקריפט: הרשימה עולה בלי תגיות היריד, והן מצטרפות כשהקובץ מגיע. */
+  if (window.crmNeed && accIsOpen('accProperties')) {
+    crmNeed('property').then(() => {
+      if (typeof renderProperties === 'function' && document.getElementById('propertiesList')) renderProperties();
+    }).catch(() => {});
+  }
   if (!fresh) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
@@ -16162,7 +16168,6 @@ async function loadProperties(agentId, opts){
   dashProperties = props || [];
   myPropertyRows = props || [];
   myPropertyAgentId = agentId;
-  await libsP;
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
@@ -20269,12 +20274,24 @@ function expReverse(map){
   }
   return out;
 }
-const EXP_CATEGORY       = expReverse(IMP_CATEGORY);
-const EXP_DEAL           = expReverse(IMP_DEAL);
-const EXP_CONDITION      = expReverse(IMP_CONDITION);
-const EXP_PROJECT_STATUS = expReverse(IMP_PROJECT_STATUS);
-const EXP_LOCATION       = expReverse(IMP_LOCATION);
-const EXP_STATUS         = expReverse(IMP_PROPERTY_STATUS);
+/* לא בטעינת crm.js: IMP_* עדיין ריקות עד ensureImportCore.
+   חישוב מוקדם כותב sale/residential/active במקום מכירה/מגורים/פעיל. */
+let expMapsReady = null;
+function expMaps(){
+  if (expMapsReady) return expMapsReady;
+  if (!Object.keys(IMP_DEAL).length) {
+    return { category:{}, deal:{}, condition:{}, project:{}, location:{}, status:{} };
+  }
+  expMapsReady = {
+    category: expReverse(IMP_CATEGORY),
+    deal: expReverse(IMP_DEAL),
+    condition: expReverse(IMP_CONDITION),
+    project: expReverse(IMP_PROJECT_STATUS),
+    location: expReverse(IMP_LOCATION),
+    status: expReverse(IMP_PROPERTY_STATUS),
+  };
+  return expMapsReady;
+}
 
 // ‏null ("לא נשאל") ו-false ("לא") אינם אותו דבר, ולכן ריק ולא "לא"
 function expYesNo(value){
@@ -20310,16 +20327,17 @@ const EXPORT_NUMERIC_KEYS = new Set([
 
 // ערך תא אחד, לפי אותו מפתח שדה שבו משתמש הייבוא
 function expFieldValue(p, key){
+  const exp = expMaps();
   if (EXPORT_NUMERIC_KEYS.has(key)) return expNumber(p[key]);
   switch (key){
-    case 'status':          return EXP_STATUS[p.status] || p.status || '';
-    case 'category':        return EXP_CATEGORY[p.category] || p.category || '';
-    case 'deal_type':       return EXP_DEAL[p.deal_type] || p.deal_type || '';
-    case 'condition':       return EXP_CONDITION[p.condition] || p.condition || '';
-    case 'project_status':  return EXP_PROJECT_STATUS[p.project_status] || p.project_status || '';
+    case 'status':          return exp.status[p.status] || p.status || '';
+    case 'category':        return exp.category[p.category] || p.category || '';
+    case 'deal_type':       return exp.deal[p.deal_type] || p.deal_type || '';
+    case 'condition':       return exp.condition[p.condition] || p.condition || '';
+    case 'project_status':  return exp.project[p.project_status] || p.project_status || '';
     case 'restrooms_location':
     case 'storage_location':
-    case 'mamad_location':  return EXP_LOCATION[p[key]] || p[key] || '';
+    case 'mamad_location':  return exp.location[p[key]] || p[key] || '';
     // בקובץ נכתב שם השכונה ולא המזהה — הוא גם מה שהייבוא מחפש בחזרה
     case 'neighborhood':    return allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '';
     case 'move_in_soon':    return expYesNo(p.move_in_soon);
@@ -20851,9 +20869,23 @@ async function loadLeads(agentId, opts){
       await leadsP;
       leadsReady = typeof leadsTab !== 'undefined' && typeof openDemandRows !== 'undefined';
     } catch (e) { leadsReady = false; }
-    await officeP;
+    officeP.catch(() => {});
+    if (typeof officePreloadNames !== 'function' && window.crmAfter && !(opts && opts.recover === false)) {
+      window.crmAfter('office', () => loadLeads(agentId, { recover: false }));
+    }
   }
   if (!leadsReady) {
+    if (window.crmInflight && window.crmInflight('leads')) {
+      if (!fresh) {
+        listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
+          ? leadsSkeletonHtml()
+          : '<div class="empty-state">טוען…</div>';
+      }
+      if (window.crmAfter && !(opts && opts.recover === false)) {
+        window.crmAfter('leads', () => loadLeads(agentId, { recover: false }));
+      }
+      return;
+    }
     listEl.innerHTML = '<div class="empty-state"><p>רשימת הלידים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
     const again = listEl.querySelector('button');
     if (again) again.addEventListener('click', () => loadLeads(agentId, { fresh: true }));
@@ -23265,7 +23297,10 @@ async function loadClients(){
     const showP = crmNeed('showcase');
     const officeP = crmOptional('office');
     try { await Promise.all([leadsP, showP]); } catch (e) {}
-    await officeP;
+    officeP.catch(() => {});
+    if (typeof officePreloadNames !== 'function' && window.crmAfter) {
+      window.crmAfter('office', () => { if (typeof officePreloadNames === 'function') loadClients(); });
+    }
   }
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -26719,9 +26754,15 @@ function notifVisibleTypes(){
   return NOTIF_TYPES.filter(t => !t.when || t.when());
 }
 
-async function loadNotifPrefs(agentId){
+async function loadNotifPrefs(agentId, opts){
   if (typeof renderNotifPrefs !== 'function' && window.crmNeed) {
-    try { await crmNeed('settings'); } catch (e) { return; }
+    try { await crmNeed('settings'); }
+    catch (e) {
+      if (window.crmAfter && !(opts && opts.recover === false)) {
+        window.crmAfter('settings', () => loadNotifPrefs(agentId, { recover: false }));
+      }
+      return;
+    }
   }
   if (typeof renderNotifPrefs !== 'function') return;
   // ‏'*' מאותה סיבה של הפעמון: ‏whatsapp_off_types חדשה (20270125090000).
@@ -27614,9 +27655,15 @@ function reminderChannelsToStore(displayed){
   return shown.filter(c => c !== 'whatsapp');
 }
 
-async function loadReminders(agentId){
+async function loadReminders(agentId, opts){
   if (typeof renderReminderPrefs !== 'function' && window.crmNeed) {
-    try { await crmNeed('settings'); } catch (e) { return; }
+    try { await crmNeed('settings'); }
+    catch (e) {
+      if (window.crmAfter && !(opts && opts.recover === false)) {
+        window.crmAfter('settings', () => loadReminders(agentId, { recover: false }));
+      }
+      return;
+    }
   }
   /* שתי הקריאות במקביל — הן אינן תלויות זו בזו, והקטגוריה הזו יושבת בהגדרות
      החשבון ולא במסך הראשון. שגיאה בשתיהן משמעה שהמיגרציה עוד לא רצה על המסד,

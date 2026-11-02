@@ -152,7 +152,8 @@ function renderSettingsHub(){
 document.getElementById('accPrefs').addEventListener('toggle', e => {
   if (e.target.open) renderSettingsHub();
 });
-if (document.getElementById('accPrefs') && document.getElementById('accPrefs').open) renderSettingsHub();
+/* הקריאה כשהקטגוריה כבר פתוחה יושבת בסוף הקובץ: כאן let settingsMounted
+   עוד לא רץ, וקריאה עכשיו זורקת ReferenceError וקוטעת את שאר הקובץ. */
 
 /* ==========================================================================
    העדפות לידים מבעלי נכסים (agent_lead_preferences)
@@ -1272,3 +1273,6 @@ function wireNotifScreen(){
     if (g && e.detail.open) notifOpenGroup = g.dataset.group;
   });
 }
+
+/* אחרי כל ה-let. אם "ההגדרות שלי" כבר פתוחות כשהקובץ מגיע, מציירים עכשיו. */
+if (document.getElementById('accPrefs') && document.getElementById('accPrefs').open) renderSettingsHub();

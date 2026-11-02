@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fixtureFailures, scan } from './crm_lazy_scan.mjs';
+import { fixtureFailures, scan, scanTopLevelTdz, topLevelTdz } from './crm_lazy_scan.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'crm.html'), 'utf8');
@@ -246,7 +246,9 @@ test('כל שימוש בגלובל עצלן שמור או אחרי crmNeed בא�
 test('כשל בסקריפט לא נתקע ולא מפיל את הדשבורד', () => {
   assert.match(lazy, /delete pending\[group\]/);
   assert.match(lazy, /s\.remove\(\)/);
-  assert.match(crm, /crmNeed\('property'\)\.catch\(\(\) => \{\}\)/);
+  assert.match(crm, /crmNeed\('property'\)\.then\(/);
+  const propsFn = crm.slice(crm.indexOf('async function loadProperties'), crm.indexOf('async function loadProperties') + 3500);
+  assert.doesNotMatch(propsFn, /await libsP/);
   assert.match(crm, /crmNeed\('agreements'\)\.catch\(\(\) => \{\}\)/);
   assert.match(crm, /accIsOpen\('accProperties'\)/);
   assert.match(crm, /accIsOpen\('accAgreements'\)/);
@@ -389,4 +391,38 @@ test('סגירת שכבה סינכרונית, וקובץ שנכשל לא מפי�
 test('סריקת AST תופסת את מה שהסריקה הישנה פספסה, והקוד נקי', () => {
   assert.deepEqual(fixtureFailures(), []);
   assert.deepEqual(scan(root), []);
+});
+
+test('קריאה בראש קובץ עצלן לפני let מאוחר נתפסת', () => {
+  const bad = topLevelTdz('function use(){ return later; }\nif (true) use();\nlet later = 1;\n');
+  assert.deepEqual(bad, ['later']);
+  const ok = topLevelTdz('let later = 1;\nfunction use(){ return later; }\nif (true) use();\n');
+  assert.deepEqual(ok, []);
+  const listener = topLevelTdz('function use(){ return later; }\naddEventListener("toggle", () => use());\nlet later = 1;\n');
+  assert.deepEqual(listener, []);
+  assert.deepEqual(scanTopLevelTdz(root), []);
+});
+
+test('ייצוא לאקסל הופך מפות אחרי טעינת הליבה, ולא מקפיא מפה ריקה', () => {
+  assert.doesNotMatch(crm, /const EXP_DEAL\s*=/);
+  const dl = crm.slice(crm.indexOf('async function expDownload'), crm.indexOf('async function expDownload') + 2200);
+  assert.ok(dl.includes('ensureImportCore'));
+  assert.ok(dl.indexOf('ensureImportCore') < dl.indexOf('expBuildPropertiesSheet'));
+  const start = crm.indexOf('function expReverse');
+  const end = crm.indexOf('function expYesNo');
+  const run = new Function(`
+    let IMP_CATEGORY = {}, IMP_DEAL = {}, IMP_CONDITION = {};
+    let IMP_PROJECT_STATUS = {}, IMP_LOCATION = {}, IMP_PROPERTY_STATUS = {};
+    ${crm.slice(start, end)}
+    const early = expMaps();
+    if (early.deal.sale) throw new Error('מפה ריקה נשמרה');
+    IMP_DEAL = { 'מכירה': 'sale', sale: 'sale' };
+    IMP_CATEGORY = { 'מגורים': 'residential' };
+    IMP_PROPERTY_STATUS = { 'פעיל': 'active' };
+    const maps = expMaps();
+    if (maps.deal.sale !== 'מכירה') throw new Error('deal ' + maps.deal.sale);
+    if (maps.category.residential !== 'מגורים') throw new Error('category');
+    if (maps.status.active !== 'פעיל') throw new Error('status ' + maps.status.active);
+  `);
+  run();
 });
