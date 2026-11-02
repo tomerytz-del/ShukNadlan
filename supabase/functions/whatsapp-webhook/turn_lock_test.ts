@@ -392,20 +392,14 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   if (shouldFlushPendingImages({ flushImages: true, hasText: true, pendingImages: 2, imageAgeMs: 0 })) {
     fail("טקסט עם תמונה ממתינה שטף");
   }
-  if (!shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: 0 })) {
+  if (!shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1 })) {
     fail("אלבום בלי טקסט לא נשטף פעם אחת");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: 11 * 60 * 1000 })) {
-    fail("תמונה ישנה מ-10 דקות נשאלה");
+  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 1, followUp: true })) {
+    fail("ריקון שאל על תמונות");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: null })) {
-    fail("תמונה בלי גיל נשאלה");
-  }
-  if (!shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 1, imageAgeMs: 1_000, followUp: true })) {
-    fail("אלבום טרי שהמתין לנעילה לא נשאל");
-  }
-  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 1, imageAgeMs: 11 * 60 * 1000, followUp: true })) {
-    fail("מעקב שטף תמונה ישנה");
+  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, followUp: true })) {
+    fail("מעקב שאל למרות שהוא לא רצף התמונות");
   }
   if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 0, imageAgeMs: 0 })) {
     fail("אין תמונות ובכל זאת שטיפה");

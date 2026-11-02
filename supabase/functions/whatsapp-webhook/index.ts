@@ -1697,7 +1697,11 @@ async function flushImageBatch(
 ): Promise<void> {
   const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
 
-  // תמונות שממתינות מלפני הרצף הזה (שאלה שלא נענתה, צילום מסך מהבוקר)
+  // תמונות שממתינות מלפני הרצף הזה נשארות ברשימה. הגיל רק קובע אם
+  // מצרפים אוטומטית או שואלים. לא מוחקים אותן.
+  const since = await pendingImagesSince(agentId);
+  const olderWaiting = since != null && Date.now() - since > PHOTO_ASK_GAP_MS;
+
   const { data: owned } = await supabase.from("properties")
     .select("id, title, property_type, street, listing_number, updated_at")
     .eq("agent_id", agentId)
@@ -1731,7 +1735,7 @@ async function flushImageBatch(
     lastUpdatedAt: last?.updated_at || null,
     now: Date.now(),
     idleMs: PHOTO_ASK_GAP_MS,
-    conversationIdle: await photoBurstNeedsAsk(from),
+    conversationIdle: olderWaiting || await photoBurstNeedsAsk(from),
   });
   if (choice.kind === "attach") {
     const property = candidates.find((c) => c.id === choice.id);
@@ -1741,8 +1745,9 @@ async function flushImageBatch(
     return;
   }
   if (choice.ids.length) {
+    const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
     const body = formatForWhatsapp(
-      `📸 יש ${what} שממתינות לשיוך. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
+      `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
     const titleMax = choice.ids.length + 2 <= 3 ? 20 : 24;
     const rows = choice.ids.slice(0, 8).map((id) => {
       const c = candidates.find((x) => x.id === id);
@@ -1774,7 +1779,8 @@ async function flushImageBatch(
     return;
   }
 
-  const text = `📸 יש ${what} שממתינות לשיוך. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
+  const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
+  const text = `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
     "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
     "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\". לא לשום נכס? כתוב/כתבי \"לא שייכות\".";
   await reply(from, text, agentId);
@@ -2581,6 +2587,8 @@ async function playTextTurn(opts: {
   text: string;
   image: string | null;
   signal?: AbortSignal;
+  /** הטקסטים כפי שנלקחו, כולל סימון [[rq:n]], כדי שתקרת ההחזרה תישמר. */
+  requeueTexts?: string[];
 }): Promise<"work" | "idle"> {
   const { agent, from, conv } = opts;
   let turnText = opts.text;
@@ -2622,7 +2630,7 @@ async function playTextTurn(opts: {
         );
         return "work";
       }
-      await requeueOrFail(agent.id, from, [turnText]);
+      await requeueOrFail(agent.id, from, opts.requeueTexts?.length ? opts.requeueTexts : [turnText]);
       return "work";
     }
     console.error("agent turn failed", err);
@@ -2655,19 +2663,15 @@ async function playQueuedTurn(opts: {
   if (takeErr) console.error("pending texts take failed", takeErr);
   const rawTexts = ((texts as string[]) || []);
   const queued = rawTexts.map(stripRequeueMark).filter((t) => t.trim()).join("\n");
-  const freshImages = await dropStalePendingImages(opts.agent.id);
-  opts.conv.pending_images = freshImages;
-  const since = await pendingImagesSince(opts.agent.id);
-  const imageAgeMs = since == null ? null : Date.now() - since;
+  opts.conv.pending_images = await freshPendingImages(opts.agent.id);
   if (!queued.trim()) {
     if (shouldFlushPendingImages({
       flushImages: opts.flushImages === true,
-      followUp: opts.flushImages !== true,
+      followUp: false,
       hasText: false,
-      pendingImages: freshImages.length,
-      imageAgeMs,
+      pendingImages: opts.conv.pending_images.length,
     }) && !(await imageAskAlreadyOpen(opts.from))) {
-      await flushImageBatch(opts.agent.id, opts.from, opts.conv, freshImages.length);
+      await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
       return "work";
     }
     return "idle";
@@ -2679,20 +2683,9 @@ async function playQueuedTurn(opts: {
   return playTextTurn({
     ...opts,
     text: queued,
+    requeueTexts: rawTexts,
     image: opts.conv.pending_images[opts.conv.pending_images.length - 1] || null,
   });
-}
-
-async function dropStalePendingImages(agentId: string): Promise<string[]> {
-  const { data, error } = await supabase.rpc("whatsapp_pending_images_drop_stale", {
-    p_agent_id: agentId,
-    p_max_age: "10 minutes",
-  });
-  if (error) {
-    if (!rpcMissing(error)) console.error("drop stale images failed", error);
-    return await freshPendingImages(agentId);
-  }
-  return (data as string[]) || [];
 }
 
 async function imageAskAlreadyOpen(phone: string): Promise<boolean> {

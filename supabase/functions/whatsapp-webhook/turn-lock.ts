@@ -46,10 +46,9 @@ export function shouldFlushPendingImages(opts: {
   /** גיל התמונה. בלי גיל, או מעל 10 דקות, לא שולחים. */
   imageAgeMs?: number | null;
 }): boolean {
-  if (opts.hasText || opts.pendingImages <= 0) return false;
-  if (opts.imageAgeMs == null || opts.imageAgeMs > STALE_IMAGE_MS) return false;
-  // אלבום טרי: גם מי שחיכה לנעילה שואל פעם אחת. ישן לא נשאל.
-  return opts.flushImages === true || opts.followUp === true;
+  if (opts.followUp || opts.hasText || opts.pendingImages <= 0) return false;
+  // רק רצף התמונות המקורי שואל. ריקון ותור טקסט לא שואלים, והתמונות נשארות.
+  return opts.flushImages === true;
 }
 
 export const REQUEUE_MAX = 2;

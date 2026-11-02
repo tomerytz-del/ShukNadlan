@@ -781,11 +781,12 @@ async function retryLockWaitMails(
     }
   } else {
     for (const row of (stuck as { id: number; agent_id: string | null }[]) || []) {
-      if (row.agent_id) await notifyEmailFailed(sb, row.agent_id, true);
+      if (row.agent_id) await notifyEmailFailed(sb, row.agent_id, false);
     }
   }
   const { data: ready, error } = await sb.rpc("email_intake_claim_lock_wait", {
     p_mailbox: mailbox,
+    p_uidvalidity: uidvalidity,
     p_limit: 3,
   });
   if (error) {
