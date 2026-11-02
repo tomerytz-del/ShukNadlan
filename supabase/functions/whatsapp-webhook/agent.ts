@@ -329,6 +329,8 @@ export interface ConversationState {
   historyVersion?: number | null;
   /** ההיסטוריה כפי שנטענה (בלי סמן), כדי ששמירה מתנגשת תוסיף רק את התור הזה. */
   loadedHistory?: Anthropic.MessageParam[];
+  /** last_client_id כפי שנטען. אם התור לא שינה אותו, שמירה מתנגשת שומרת ערך טרי. */
+  loadedLastClientId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -5633,7 +5635,8 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       owner: true,
       error:
         `${client.full_name} רשום/ה כבעל/ת נכס ולא כמחפש/ת, ולכן אין לו/ה התאמות. ` +
-        "אם הוא/היא גם מחפש/ת - update_client עם client_kind seeker והדרישות. " +
+        "אם הוא/היא גם מחפש/ת - update_client עם client_kind seeker, deal_type sale או rent, " +
+        "והדרישות. בלי deal_type הכלי לא שומר ושואל קנייה או שכירות. " +
         "לנכס שלו/ה - create_property, ואחר כך property_matches למי שמתאים לו.",
     };
   }
@@ -9577,20 +9580,22 @@ const LOOP_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_A
 
 export async function callClaude(
   params: Anthropic.MessageCreateParamsNonStreaming,
+  signal?: AbortSignal,
 ): Promise<Anthropic.Message> {
+  const request = signal ? { signal } : undefined;
   // בלי הבטא גם הודעת המאמץ (LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
   // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
   const plain = () => anthropic.messages.create({
     ...params,
     messages: params.messages.filter((m) => (m.role as string) !== "system"),
-  });
+  }, request);
   try {
     // deno-lint-ignore no-explicit-any
     return await (anthropic.beta.messages.create as any)({
       ...params,
       betas: ["server-side-fallback-2026-07-01", "mid-conversation-output-config-2026-07-01"],
       fallbacks: "default",
-    });
+    }, request);
   } catch (err) {
     // יתרה שנגמרה לא תיפתר בניסיון שני, והוא רק מעכב את התשובה לסוכן/ת.
     if (llmFailureKind(err) === "billing") throw err;
@@ -9659,6 +9664,8 @@ export async function runAgentTurn(opts: {
   /** כלי שמוסיף לכאן הודעת כפתורים - היא יוצאת אחרי התשובה. בלעדיו הכלי
    *  מחזיר קישורים בטקסט (תור מייל). */
   outbox?: OutboxItem[];
+  /** החכירה נגמרה: עוצרים לפני שתור אחר תופס, כדי שלא ירוצו שניים יחד. */
+  signal?: AbortSignal;
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const denied = opts.deniedToolMessage ||
@@ -9685,6 +9692,7 @@ export async function runAgentTurn(opts: {
   let mutated = false;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    if (opts.signal?.aborted) throw new DOMException("turn aborted", "AbortError");
     const llmStart = Date.now();
     const response = await callClaude({
       model: MODEL,
@@ -9709,7 +9717,8 @@ export async function runAgentTurn(opts: {
       ],
       tools,
       messages,
-    } as Anthropic.MessageCreateParamsNonStreaming);
+    } as Anthropic.MessageCreateParamsNonStreaming, opts.signal);
+    if (opts.signal?.aborted) throw new DOMException("turn aborted", "AbortError");
 
     // מה באמת נחסך. בלי השורה הזו אין דרך לדעת שהמטמון הפסיק לתפוס: הכול
     // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה

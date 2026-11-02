@@ -9,7 +9,12 @@
 import { peelShownMatches, stampShownMatches, type ShownMatchSet } from "./lookup_turn.ts";
 import { trimHistory } from "./prompt-cache.ts";
 
-export const TURN_STALE_MS = 120_000;
+export const TURN_STALE_MS = 45_000;
+export const HEARTBEAT_MS = 15_000;
+/** עוצרים תור חי בלי דופק מוצלח לפני שמישהו אחר רשאי לתפוס. */
+export const TURN_DEADLINE_MS = 40_000;
+/** כמה פעמים compare-and-set מנסה לפני הוספה אטומית. */
+export const CAS_ATTEMPTS = 4;
 /** ארבעה תורים. חציון תור אצל סוכן/ת הוא כ-16 שניות; ארבעה נשארים מתחת לקיר. */
 export const MAX_DRAIN_TURNS = 4;
 export const DRAIN_BUDGET_MS = 80_000;
@@ -22,13 +27,150 @@ export function releaseDrainsTextsOnly(pendingTexts: number, pendingImages: numb
   return pendingTexts > 0 && pendingImages >= 0;
 }
 
+/**
+ * שטיפת תמונות רק באלבום בלי טקסט, ורק בתור הראשון.
+ * מייל, ריקון המשך, ותמונות ישנות ליד טקסט - לא שולחים שאלה.
+ */
+export function shouldFlushPendingImages(opts: {
+  flushImages: boolean;
+  hasText: boolean;
+  pendingImages: number;
+}): boolean {
+  return opts.flushImages === true && !opts.hasText && opts.pendingImages > 0;
+}
+
+export class LeaseLost extends Error {
+  constructor() {
+    super("lease lost");
+    this.name = "LeaseLost";
+  }
+}
+
+export class LeaseDeadline extends Error {
+  constructor() {
+    super("lease deadline");
+    this.name = "LeaseDeadline";
+  }
+}
+
+/** true = החכירה הוארכה. false = הטוקן נלקח. error = כשל רשת. unavailable = אין RPC. */
+export type RenewBeat = true | false | "error" | "unavailable";
+
+/**
+ * בזמן שהתור רץ: דופק כל 15 שניות. טוקן שנלקח עוצר מיד. כשל רשת לא עוצר
+ * עד 40 שניות בלי דופק מוצלח - לפני חלון ה-45, כדי ששני תורים לא ירוצו יחד.
+ * אין RPC (הפונקציה עלתה לפני המיגרציה): לא מפילים תור חי. השעון במסד
+ * נשאר 120 שניות עד שהמיגרציה עולה.
+ */
+export async function raceTurnWithLease<T>(opts: {
+  run: () => Promise<T>;
+  renew: () => Promise<RenewBeat>;
+  onAbort?: () => void;
+  heartbeatMs?: number;
+  deadlineMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+}): Promise<T> {
+  const heartbeatMs = opts.heartbeatMs ?? HEARTBEAT_MS;
+  const deadlineMs = opts.deadlineMs ?? TURN_DEADLINE_MS;
+  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const now = opts.now ?? (() => Date.now());
+  let lastOk = now();
+  let lastBeat = lastOk;
+  let stop = false;
+  let rejectAbort: (err: Error) => void = () => {};
+  const abort = new Promise<never>((_, reject) => {
+    rejectAbort = reject;
+  });
+  abort.catch(() => {});
+  const fail = (err: Error) => {
+    if (stop) return;
+    stop = true;
+    // הדחייה קודם, כדי ש-Promise.race יבחר בה ולא בסיום שה-abort עצמו גורם.
+    rejectAbort(err);
+    opts.onAbort?.();
+  };
+  const watch = (async () => {
+    try {
+      while (!stop) {
+        const remain = deadlineMs - (now() - lastOk);
+        if (remain <= 0) {
+          fail(new LeaseDeadline());
+          return;
+        }
+        const untilBeat = heartbeatMs - (now() - lastBeat);
+        const slice = Math.min(remain, Math.max(0, untilBeat));
+        if (slice > 0) await sleep(slice);
+        if (stop) return;
+        if (now() - lastOk >= deadlineMs) {
+          fail(new LeaseDeadline());
+          return;
+        }
+        if (now() - lastBeat < heartbeatMs) continue;
+        lastBeat = now();
+        let beat: RenewBeat;
+        try {
+          beat = await opts.renew();
+        } catch {
+          beat = "error";
+        }
+        if (stop) return;
+        if (beat === "unavailable") return;
+        if (beat === "error") {
+          if (now() - lastOk >= deadlineMs) fail(new LeaseDeadline());
+          continue;
+        }
+        if (beat !== true) {
+          fail(new LeaseLost());
+          return;
+        }
+        if (now() - lastOk >= deadlineMs) {
+          fail(new LeaseDeadline());
+          return;
+        }
+        lastOk = now();
+      }
+    } catch {
+      // דחייה מאוחרת אחרי שהתור נגמר לא בורחת.
+    }
+  })();
+  watch.catch(() => {});
+  try {
+    return await Promise.race([opts.run(), abort]);
+  } finally {
+    stop = true;
+  }
+}
+
+/** ניסיון חוזר לשחרור. false יציב (הטוקן כבר לא שלנו) לא חוזרים עליו. זריקה = כשל רשת. */
+export async function releaseWithRetry(
+  release: () => Promise<boolean>,
+  attempts = 3,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<boolean> {
+  let last = false;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await release();
+    } catch {
+      last = false;
+      if (i < attempts - 1) await sleep(200 * (i + 1));
+    }
+  }
+  return last;
+}
+
 export type LockAcquire = true | false | "unavailable";
 
 export interface TurnLockStore {
   acquire(agentId: string, token: string): Promise<LockAcquire>;
   /** true רק אם הטוקן שוחרר ועדיין יש pending_texts. */
   release(agentId: string, token: string): Promise<boolean>;
+  /** מאריך חכירה. false = הטוקן כבר לא שלנו. */
+  renew?(agentId: string, token: string): Promise<RenewBeat>;
 }
+
+export type TurnCtx = { pass: number; signal: AbortSignal };
 
 export type HistMsg = { role?: string; content?: unknown };
 
@@ -107,6 +249,29 @@ export function nextSavedHistory<T extends HistMsg>(opts: {
  * אותו חוזה כמו whatsapp_history_merge_append: מוסיפים, גוזרים ל-12
  * הודעות בלי הסמן, וסמן assistant אחד נשאר בסוף.
  */
+/**
+ * איך שומרים היסטוריה.
+ * גרסה לא ידועה: הוספה אטומית, ו-upsert מלא רק אם ה-RPC עוד לא קיים.
+ * אחרי 4 התנגשויות: הוספה אטומית, לא מערך מלא שמוחק תור אחר.
+ */
+export function historyPersistPlan(opts: {
+  versionKnown: boolean;
+  append: "ok" | "missing" | "failed" | "pending";
+  casConflicts: number;
+  casMissing: boolean;
+}): "cas" | "append" | "legacy" | "stop" {
+  if (!opts.versionKnown) {
+    if (opts.append === "ok" || opts.append === "pending") return "append";
+    if (opts.append === "missing") return "legacy";
+    return "stop";
+  }
+  if (opts.casMissing) return "legacy";
+  if (opts.casConflicts >= CAS_ATTEMPTS) {
+    return opts.append === "pending" ? "append" : "stop";
+  }
+  return "cas";
+}
+
 export function mergeHistoryAppend<T extends HistMsg>(
   history: readonly T[],
   entries: readonly T[],
@@ -122,7 +287,7 @@ export function mergeHistoryAppend<T extends HistMsg>(
 export async function runWithTurnLock(opts: {
   agentId: string;
   store: TurnLockStore;
-  runTurn: (ctx: { pass: number }) => Promise<"work" | "idle">;
+  runTurn: (ctx: TurnCtx) => Promise<"work" | "idle">;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   maxTurns?: number;
@@ -142,7 +307,7 @@ export async function runWithTurnLock(opts: {
 
   for (let i = 0; i < maxTurns; i++) {
     if (i > 0 && now() - start >= budgetMs) {
-      return { ran, leftPending: true, skippedBusy: false, unlocked: false };
+      return { ran, leftPending: pendingAfter, skippedBusy: false, unlocked: false };
     }
     const token = newToken();
     let got = await opts.store.acquire(opts.agentId, token);
@@ -156,7 +321,7 @@ export async function runWithTurnLock(opts: {
     }
     if (got === "unavailable") {
       if (i === 0) {
-        const outcome = await opts.runTurn({ pass: 0 });
+        const outcome = await opts.runTurn({ pass: 0, signal: new AbortController().signal });
         return {
           ran: outcome === "work" ? 1 : 0,
           leftPending: false,
@@ -170,11 +335,32 @@ export async function runWithTurnLock(opts: {
       return { ran, leftPending: ran > 0, skippedBusy: ran === 0, unlocked: false };
     }
     let pending = false;
+    const ac = new AbortController();
+    let running: Promise<"work" | "idle"> = Promise.resolve("idle");
+    const run = () => {
+      running = opts.runTurn({ pass: i, signal: ac.signal });
+      return running;
+    };
     try {
-      const outcome = await opts.runTurn({ pass: i });
+      const outcome = opts.store.renew
+        ? await raceTurnWithLease({
+          run,
+          renew: () => opts.store.renew!(opts.agentId, token),
+          onAbort: () => ac.abort(),
+          sleep,
+          now,
+        })
+        : await run();
       if (outcome === "work") ran++;
+    } catch (err) {
+      if (!(err instanceof LeaseLost) && !(err instanceof LeaseDeadline)) throw err;
     } finally {
-      pending = await opts.store.release(opts.agentId, token);
+      // אחרי גזירת החכירה מחכים רגע שהתור יראה את ה-abort וייעצר, ורק אז
+      // משחררים. בלי זה התור החי ממשיך אחרי שמישהו אחר תפס.
+      if (ac.signal.aborted) {
+        await Promise.race([running.catch(() => undefined), sleep(2_000)]);
+      }
+      pending = await releaseWithRetry(() => opts.store.release(opts.agentId, token), 3, sleep);
     }
     pendingAfter = pending;
     if (!pending) {
@@ -199,7 +385,7 @@ export type TurnLockResult = {
 export async function runTurnUntilQuiet(opts: {
   agentId: string;
   store: TurnLockStore;
-  runTurn: (ctx: { pass: number }) => Promise<"work" | "idle">;
+  runTurn: (ctx: TurnCtx) => Promise<"work" | "idle">;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   maxTurns?: number;

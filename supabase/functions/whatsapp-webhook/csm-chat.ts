@@ -19,7 +19,6 @@ import { type BusyCheck, type SendToAgent, CSM_TOOLS, csmCapabilities, CSM_GREET
 import { accessTokenForStaff, freeBusy, GCAL_FREEBUSY_SCOPE } from "../_shared/google-calendar.ts";
 import { flattenTemplateParam } from "../_shared/wa-send.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText } from "./whatsapp.ts";
-import { appendHistoryKeepingShown } from "./lookup_turn.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -136,12 +135,7 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
         p_entries: entries,
       });
       if (histErr) {
-        const { data } = await supabase.from("whatsapp_conversations").select("history").eq("agent_id", a.agentId).maybeSingle();
-        if (data) {
-          const history = Array.isArray(data.history) ? data.history : [];
-          const next = appendHistoryKeepingShown(history, entries, 12);
-          await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", a.agentId);
-        }
+        console.error("agent history append failed", histErr.message);
       }
     }
     return { ok: !error, waMessageId: waId, error };

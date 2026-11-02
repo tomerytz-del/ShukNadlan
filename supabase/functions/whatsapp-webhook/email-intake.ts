@@ -118,7 +118,7 @@ export interface IntakeDeps {
   loadConversation: (agentId: string, phone: string) => Promise<ConversationState>;
   saveConversation: (agentId: string, phone: string, conv: ConversationState) => Promise<void>;
   /** נעילת התור של הסוכן/ת, כדי שמייל ווואטסאפ לא ירוצו יחד על אותה היסטוריה. */
-  holdTurn?: (agentId: string, run: () => Promise<void>) => Promise<void>;
+  holdTurn?: (agentId: string, run: (ctx: { signal: AbortSignal }) => Promise<void>) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -666,7 +666,7 @@ async function handleOne(
     agencies: (await loadAgency(sb, agent.agency_id, "name")) as { name?: string } | null,
   } as unknown as AgentRow;
 
-  const turn = async () => {
+  const turn = async (ctx?: { signal?: AbortSignal }) => {
   const conv = await deps.loadConversation(agent.id, phone);
 
   // אחרי הגייטים: קריאת PDF והקלטה עולות כסף. כשל כללי כאן (לא של קובץ
@@ -695,8 +695,13 @@ async function handleOne(
       userContent: content,
       userSummary: historySummary(mail, att.history),
       allowedTools: EMAIL_TOOLS,
+      signal: ctx?.signal,
     });
   } catch (err) {
+    if (ctx?.signal?.aborted) {
+      await finish(sb, row, "failed", "lease_aborted");
+      return;
+    }
     console.error("email intake turn failed", err);
     await finish(sb, row, "failed", `turn: ${String((err as Error)?.message || err)}`);
     await deliver(

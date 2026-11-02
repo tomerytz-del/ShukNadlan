@@ -1,7 +1,7 @@
 // בעל/ת נכס בלי סוג עסקה אינו מוכר/ת.
 //   deno test supabase/functions/whatsapp-webhook/client_deal_test.ts
 
-import { clientNeeds, OWNER_DEAL_ASK, ownerDealWrite, SEEKER_DEAL_ASK, seekerDealAsk } from "./client-deal.ts";
+import { clientNeeds, dealNullRejected, OWNER_DEAL_ASK, ownerDealWrite, SEEKER_DEAL_ASK, seekerDealAsk } from "./client-deal.ts";
 
 function fail(message: string): never {
   throw new Error(message);
@@ -59,4 +59,24 @@ Deno.test("מעבר מבעל/ת נכס בלי צד למחפש/ת בלי עסקה
     { client_kind: "seeker", deal_type: "sale" },
   );
   if (phoneOnly !== null) fail("עדכון טלפון ביקש עסקה");
+});
+
+Deno.test("23514 ו-23502 על deal_type נתפסים לפני שגיאה כללית", () => {
+  if (!dealNullRejected({ code: "23514", message: "agent_clients_deal_present_unless_owner" })) {
+    fail("23514 לא נתפס");
+  }
+  if (!dealNullRejected({ code: "23502", message: "null value in column \"deal_type\"" })) {
+    fail("23502 לא נתפס");
+  }
+  if (dealNullRejected({ code: "23514", message: "agent_clients_status_check" })) fail("check אחר נתפס");
+  if (dealNullRejected({ code: "23505", message: "deal_type" })) fail("הפרה אחרת נתפסה");
+  const agent = Deno.readTextFileSync(new URL("./agent.ts", import.meta.url));
+  const update = agent.slice(agent.indexOf("async function toolUpdateClient"), agent.indexOf("function ownerSavedGuidance"));
+  const askAt = update.indexOf("seekerDealAsk");
+  const writeAt = update.indexOf(".update(payload)");
+  if (askAt < 0 || writeAt < 0 || askAt > writeAt) fail("השאלה אינה לפני הכתיבה למסד");
+  const matches = agent.slice(agent.indexOf("async function toolClientMatches"), agent.indexOf("const limit = clientMatchesLimit"));
+  if (!matches.includes("בלי deal_type הכלי לא שומר ושואל קנייה או שכירות")) {
+    fail("הפרומפט עדיין שולח עדכון מחפש/ת בלי עסקה");
+  }
 });

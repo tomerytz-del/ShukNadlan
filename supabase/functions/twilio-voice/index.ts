@@ -4,7 +4,6 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { withClick } from "../_shared/agent-deep-link.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
-import { appendHistoryKeepingShown } from "../whatsapp-webhook/lookup_turn.ts";
 import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
@@ -357,13 +356,7 @@ async function rememberForBot(agentId: string, text: string): Promise<void> {
       p_agent_id: agentId,
       p_entries: entries,
     });
-    if (!error) return;
-    const { data } = await supabase.from("whatsapp_conversations")
-      .select("history").eq("agent_id", agentId).maybeSingle();
-    if (!data) return;
-    const history = Array.isArray(data.history) ? data.history : [];
-    const next = appendHistoryKeepingShown(history, entries, 12);
-    await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", agentId);
+    if (error) console.error("remember for bot append failed", error.message);
   } catch (err) {
     console.error("remember for bot failed", err);
   }

@@ -23539,7 +23539,10 @@ function openPropertyForOwner(c){
     document.getElementById('npOwnerName').value = c.full_name || '';
     document.getElementById('npOwnerPhone').value = c.phone || '';
     const deal = document.getElementById('npDeal');
-    if (deal){ deal.value = c.deal_type === 'rent' ? 'rent' : 'sale'; deal.dispatchEvent(new Event('change')); }
+    if (deal){
+      deal.value = c.deal_type === 'rent' || c.deal_type === 'sale' ? c.deal_type : '';
+      deal.dispatchEvent(new Event('change'));
+    }
   });
 }
 
