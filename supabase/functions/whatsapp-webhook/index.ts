@@ -74,6 +74,7 @@ import {
   rpcMissing,
   runTurnUntilQuiet,
   shouldFlushPendingImages,
+  photoWaitLabel,
   stripRequeueMark,
   withCatalogNote,
   type LockAcquire,
@@ -1503,14 +1504,8 @@ async function pendingImagesSince(agentId: string): Promise<number | null> {
   return Number.isFinite(at) ? at : null;
 }
 
-/** "מ-24.10 בשעה 23:11" - מתי נשלחה תמונה ממתינה, בשעון ישראל. */
 function sentAtLabel(at: number): string {
-  const d = new Date(at);
-  const tz = { timeZone: "Asia/Jerusalem" } as const;
-  const day = d.toLocaleDateString("he-IL", { ...tz, day: "numeric", month: "numeric" });
-  const today = new Date().toLocaleDateString("he-IL", { ...tz, day: "numeric", month: "numeric" });
-  const time = d.toLocaleTimeString("he-IL", { ...tz, hour: "2-digit", minute: "2-digit", hour12: false });
-  return day === today ? `מהשעה ${time}` : `מ-${day} בשעה ${time}`;
+  return photoWaitLabel(at);
 }
 
 /**
@@ -2527,7 +2522,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   const runQueued = (ctx?: { pass: number; signal?: AbortSignal; followUp?: boolean }) =>
     playQueuedTurn({
       ...played,
-      // מי שחיכה לנעילה אינו שוטף תמונות ישנות. רק רצף התמונות עצמו.
+      // followUp הוא רק ריקון מ-waitUntil. רצף שחיכה לנעילה עדיין שואל.
       flushImages: (ctx?.pass ?? 0) === 0 && ctx?.followUp !== true,
       signal: ctx?.signal,
     });
@@ -2667,12 +2662,14 @@ async function playQueuedTurn(opts: {
   if (!queued.trim()) {
     if (shouldFlushPendingImages({
       flushImages: opts.flushImages === true,
-      followUp: false,
       hasText: false,
       pendingImages: opts.conv.pending_images.length,
-    }) && !(await imageAskAlreadyOpen(opts.from))) {
-      await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
-      return "work";
+    })) {
+      const unasked = await claimImageAsk(opts.agent.id);
+      if (unasked.length) {
+        await flushImageBatch(opts.agent.id, opts.from, opts.conv, unasked.length);
+        return "work";
+      }
     }
     return "idle";
   }
@@ -2684,22 +2681,41 @@ async function playQueuedTurn(opts: {
     ...opts,
     text: queued,
     requeueTexts: rawTexts,
-    image: opts.conv.pending_images[opts.conv.pending_images.length - 1] || null,
+    image: await imageRecentEnoughForModel(opts.agent.id, opts.conv.pending_images),
   });
 }
 
-async function imageAskAlreadyOpen(phone: string): Promise<boolean> {
-  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const { data } = await supabase.from("whatsapp_messages")
-    .select("body")
-    .eq("wa_phone", phone)
-    .eq("direction", "out")
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(1)
+const MODEL_IMAGE_MAX_MS = 24 * 60 * 60 * 1000;
+
+/** תור טקסט לא מראה למודל תמונה ישנה מ-24 שעות. הרשימה עצמה נשארת. */
+async function imageRecentEnoughForModel(agentId: string, images: string[]): Promise<string | null> {
+  if (!images.length) return null;
+  const { data, error } = await supabase.from("whatsapp_conversations")
+    .select("pending_image_at")
+    .eq("agent_id", agentId)
     .maybeSingle();
-  const body = String(data?.body || "");
-  return body.includes("ממתינות לשיוך") || body.includes(PHOTO_ASK_MARK);
+  const ats = !error ? ((data?.pending_image_at as string[] | null) || []) : [];
+  const stamp = ats.length === images.length ? ats[ats.length - 1] : "";
+  const last = Date.parse(String(stamp || ""));
+  if (Number.isFinite(last)) {
+    return Date.now() - last > MODEL_IMAGE_MAX_MS ? null : images[images.length - 1];
+  }
+  const since = await pendingImagesSince(agentId);
+  if (since != null && Date.now() - since > MODEL_IMAGE_MAX_MS) return null;
+  return images[images.length - 1];
+}
+
+/**
+ * מסמן את התמונות שעוד לא נשאלו. מערך ריק = כבר נשאלו, לא שואלים שוב.
+ * כשל בסימון לא שותק: עדיף שאלה כפולה על אלבום בלי תשובה.
+ */
+async function claimImageAsk(agentId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc("whatsapp_pending_images_claim_ask", {
+    p_agent_id: agentId,
+  });
+  if (!error) return (data as string[]) || [];
+  if (!rpcMissing(error)) console.error("image ask claim failed", error);
+  return await freshPendingImages(agentId);
 }
 
 async function requeueOrFail(agentId: string, phone: string, texts: string[]): Promise<void> {

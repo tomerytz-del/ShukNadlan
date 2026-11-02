@@ -129,7 +129,7 @@ export interface IntakeDeps {
 async function notifyEmailFailed(
   sb: SupabaseClient,
   agentId: string,
-  toolsRan: boolean,
+  toolsRan: boolean | "unknown",
 ): Promise<void> {
   const note = emailFailureNotice(toolsRan);
   const { error } = await sb.from("notifications").insert({
@@ -781,7 +781,7 @@ async function retryLockWaitMails(
     }
   } else {
     for (const row of (stuck as { id: number; agent_id: string | null }[]) || []) {
-      if (row.agent_id) await notifyEmailFailed(sb, row.agent_id, false);
+      if (row.agent_id) await notifyEmailFailed(sb, row.agent_id, "unknown");
     }
   }
   const { data: ready, error } = await sb.rpc("email_intake_claim_lock_wait", {

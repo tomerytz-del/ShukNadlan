@@ -15,8 +15,6 @@ export const HEARTBEAT_MS = 15_000;
 export const RENEW_TIMEOUT_MS = 5_000;
 /** עוצרים תור חי בלי דופק מוצלח לפני שמישהו אחר רשאי לתפוס. */
 export const TURN_DEADLINE_MS = 40_000;
-/** תמונות ישנות מזה לא נשאלות ולא נשלחות משטיפה. */
-export const STALE_IMAGE_MS = 10 * 60 * 1000;
 /** כמה פעמים מייל ממתין לנעילה לפני שמודיעים לסוכן/ת ומוותרים. */
 export const EMAIL_LOCK_TRIES = 3;
 /** כמה פעמים compare-and-set מנסה לפני הוספה אטומית. */
@@ -41,13 +39,10 @@ export function shouldFlushPendingImages(opts: {
   flushImages: boolean;
   hasText: boolean;
   pendingImages: number;
-  /** מי שחיכה לנעילה או ממשיך ריקון לא שוטף. */
+  /** ריקון שהתחיל מ-waitUntil. רצף שחיכה לנעילה אינו כזה. */
   followUp?: boolean;
-  /** גיל התמונה. בלי גיל, או מעל 10 דקות, לא שולחים. */
-  imageAgeMs?: number | null;
 }): boolean {
   if (opts.followUp || opts.hasText || opts.pendingImages <= 0) return false;
-  // רק רצף התמונות המקורי שואל. ריקון ותור טקסט לא שואלים, והתמונות נשארות.
   return opts.flushImages === true;
 }
 
@@ -64,6 +59,22 @@ export function nextRequeue(text: string): { text: string; giveUp: boolean } {
 
 export function stripRequeueMark(text: string): string {
   return text.replace(/^\[\[rq:\d+\]\]/, "");
+}
+
+/** יום בשבוע ושעה, בלי תאריך מספרי. */
+export function photoWaitLabel(at: number, now = Date.now()): string {
+  const tz = "Asia/Jerusalem";
+  const time = new Date(at).toLocaleTimeString("he-IL", {
+    timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+  const dayKey = (t: number) => new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(t);
+  if (dayKey(at) === dayKey(now)) return `מהשעה ${time}`;
+  if (dayKey(at) === dayKey(now - 24 * 60 * 60 * 1000)) return `מאתמול בשעה ${time}`;
+  const weekday = new Date(at).toLocaleDateString("he-IL", { timeZone: tz, weekday: "long" })
+    .replace(/^יום\s+/, "");
+  return `מיום ${weekday} בשעה ${time}`;
 }
 
 /** הערת הקטלוג פעם אחת, גם אם התור חזר לתור. */
@@ -96,12 +107,18 @@ export function emailLockPlan(attempt: number, max = EMAIL_LOCK_TRIES): "retry" 
   return attempt >= max ? "fail" : "retry";
 }
 
-/** בלי נושא: נושא יכול לשאת כתובת או תאריך. השליחה בפעמון. */
-export function emailFailureNotice(toolsRan: boolean): { title: string; body: string } {
-  if (toolsRan) {
+/** בלי נושא. "נשמר חלק" רק כשידוע שכלי רץ. unknown לא מזמין להעביר שוב. */
+export function emailFailureNotice(toolsRan: boolean | "unknown"): { title: string; body: string } {
+  if (toolsRan === true) {
     return {
       title: "מייל שלא הושלם",
       body: "הטיפול במייל נקטע אחרי שנשמר חלק מהעבודה. מה שכבר נשמר נשאר.",
+    };
+  }
+  if (toolsRan === "unknown") {
+    return {
+      title: "מייל שלא הושלם",
+      body: "הטיפול במייל נקטע לפני שהסתיים.",
     };
   }
   return {
@@ -538,7 +555,6 @@ export async function runTurnUntilQuiet(opts: {
   if (result.skippedBusy && retryBusy) {
     result = await runWithTurnLock({
       ...opts,
-      followUp: true,
       waitForLockMs: opts.waitForLockMs && opts.waitForLockMs > 0
         ? opts.waitForLockMs
         : TURN_STALE_MS,

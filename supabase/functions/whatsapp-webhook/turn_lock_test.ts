@@ -21,6 +21,7 @@ import {
   nextSavedHistory,
   raceTurnWithLease,
   releaseDrainsTextsOnly,
+  photoWaitLabel,
   releaseWithRetry,
   runTurnUntilQuiet,
   runWithTurnLock,
@@ -386,10 +387,10 @@ function scriptedClock() {
 }
 
 Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אחרי מייל ולא ליד טקסט", async () => {
-  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 3, imageAgeMs: 0 })) {
+  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 3 })) {
     fail("מייל או ריקון המשך שטפו תמונות");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: true, pendingImages: 2, imageAgeMs: 0 })) {
+  if (shouldFlushPendingImages({ flushImages: true, hasText: true, pendingImages: 2 })) {
     fail("טקסט עם תמונה ממתינה שטף");
   }
   if (!shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1 })) {
@@ -401,7 +402,7 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, followUp: true })) {
     fail("מעקב שאל למרות שהוא לא רצף התמונות");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 0, imageAgeMs: 0 })) {
+  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 0 })) {
     fail("אין תמונות ובכל זאת שטיפה");
   }
 
@@ -417,7 +418,6 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
         flushImages: ctx.pass === 0 && !queued,
         hasText: !!queued,
         pendingImages: store.images.length,
-        imageAgeMs: 0,
         followUp: ctx.followUp === true,
       });
       if (flush) flushes++;
@@ -439,7 +439,6 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
         flushImages: ctx.pass === 0,
         hasText: !!queued,
         pendingImages: store.images.length,
-        imageAgeMs: 0,
         followUp: ctx.followUp === true,
       })) flushes++;
       return queued ? "work" : "idle";
@@ -453,6 +452,119 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   if (!index.includes("activeDrains")) fail("כל הודעה פותחת שרשרת ריקון");
   const play = index.slice(index.indexOf("async function playQueuedTurn"), index.indexOf("async function resumePendingTurns"));
   if (!play.includes("shouldFlushPendingImages")) fail("התור לא שואל אם מותר לשטוף");
+  if (!play.includes("whatsapp_pending_images_claim_ask")) fail("אין סימון שנשאל לאלבום");
+  if (!play.includes("imageRecentEnoughForModel")) fail("תור טקסט מראה תמונה ישנה");
+  if (play.includes("imageAskAlreadyOpen")) fail("השאלה תלויה בהודעה האחרונה");
+  if (index.includes("אינו שוטף תמונות")) fail("ההערה הישנה נשארה");
+  const lockSrc = Deno.readTextFileSync(new URL("./turn-lock.ts", import.meta.url));
+  const retryAt = lockSrc.indexOf("if (result.skippedBusy && retryBusy)");
+  const retry = lockSrc.slice(retryAt, retryAt + 350);
+  if (retry.includes("followUp: true")) fail("המתנה לנעילה מסומנת כריקון");
+  if (lockSrc.includes("STALE_IMAGE_MS") || lockSrc.includes("imageAgeMs")) fail("קוד מת של גיל תמונה");
+  const imgSql = Deno.readTextFileSync(
+    new URL("../../migrations/20271102093000_email_wait_fresh_images.sql", import.meta.url),
+  );
+  if (imgSql.includes("drop_stale") || imgSql.includes("30 days")) fail("המיגרציה מוחקת תמונות");
+  if (!imgSql.includes("split_part(p_url, '?', 1)")) fail("אין סינון כתובת כפולה");
+  if (!imgSql.includes("whatsapp_pending_images_claim_ask")) fail("אין סימון שנשאל במסד");
+  if (imgSql.includes("pending_images = '{}' where") || /delete\s+from\s+public\.whatsapp_conversations/i.test(imgSql)) {
+    fail("המיגרציה מוחקת שיחות");
+  }
+});
+
+Deno.test("אלבום שחיכה לנעילה נשאל פעם אחת, וריקון לא שואל", async () => {
+  let clock = 0;
+  const store = memoryTurnStore({ now: () => clock, staleMs: 120_000 });
+  store.images.push("a.jpg", "b.jpg");
+  let releaseHold: () => void = () => {};
+  const hold = new Promise<void>((resolve) => {
+    releaseHold = resolve;
+  });
+  let waited = false;
+  const sleep = (ms: number) => {
+    clock += ms;
+    if (!waited) {
+      waited = true;
+      releaseHold();
+    }
+    return Promise.resolve();
+  };
+  const holder = runTurnUntilQuiet({
+    agentId: "a",
+    store,
+    maxTurns: 1,
+    now: () => clock,
+    sleep,
+    kicksLeft: 0,
+    runTurn: async () => {
+      await hold;
+      return "work";
+    },
+  });
+  const started = Date.now();
+  while (store.holdToken() == null && Date.now() - started < 1000) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  if (store.holdToken() == null) fail("המחזיק לא תפס");
+
+  let flushes = 0;
+  const waiter = runTurnUntilQuiet({
+    agentId: "a",
+    store,
+    now: () => clock,
+    sleep,
+    kicksLeft: 0,
+    runTurn: async (ctx) => {
+      const followed = ctx.followUp === true;
+      if (followed) fail("רצף שחיכה סומן כריקון");
+      const flush = shouldFlushPendingImages({
+        flushImages: ctx.pass === 0 && !followed,
+        hasText: false,
+        pendingImages: store.images.length,
+        followUp: followed,
+      });
+      if (flush) flushes++;
+      return flush ? "work" : "idle";
+    },
+  });
+  await waiter;
+  await holder;
+  if (!waited) fail("האלבום לא חיכה לנעילה");
+  if (flushes !== 1) fail(`אלבום שחיכה נשאל ${flushes}`);
+
+  flushes = 0;
+  await runTurnUntilQuiet({
+    agentId: "a",
+    store,
+    now: () => clock,
+    sleep,
+    followUp: true,
+    kicksLeft: 0,
+    runTurn: async (ctx) => {
+      const flush = shouldFlushPendingImages({
+        flushImages: ctx.pass === 0 && ctx.followUp !== true,
+        hasText: false,
+        pendingImages: store.images.length,
+        followUp: ctx.followUp === true,
+      });
+      if (flush) flushes++;
+      return "idle";
+    },
+  });
+  if (flushes !== 0) fail("ריקון שאל שוב");
+});
+
+Deno.test("תווית תמונה היא יום ושעה, בלי תאריך מספרי", () => {
+  const now = Date.parse("2026-11-02T10:00:00Z");
+  const today = photoWaitLabel(now - 60 * 60 * 1000, now);
+  const yesterday = photoWaitLabel(now - 26 * 60 * 60 * 1000, now);
+  const older = photoWaitLabel(now - 3 * 24 * 60 * 60 * 1000, now);
+  for (const label of [today, yesterday, older]) {
+    if (/\d{1,2}[./]\d{1,2}|\d{4}/.test(label)) fail(label);
+  }
+  if (!today.startsWith("מהשעה ")) fail(today);
+  if (!yesterday.startsWith("מאתמול בשעה ")) fail(yesterday);
+  if (!older.startsWith("מיום ") || !older.includes(" בשעה ")) fail(older);
 });
 
 Deno.test("אחרי תקרת התורים הטקסט שנשאר נאסף בהמשך", async () => {
@@ -733,10 +845,18 @@ Deno.test("היסטוריה וגרסה נשמרות יחד, והוספה אחר�
   if (!email.includes("email_intake_claim_lock_wait")) fail("מייל תפוס לא נתפס אטומית");
   const note = emailFailureNotice(false);
   const doneNote = emailFailureNotice(true);
-  if (/https?:\/\/|www\.|\d{1,2}[./]\d{1,2}|\d{4}/.test(note.body + note.title + doneNote.body)) {
+  const unkNote = emailFailureNotice("unknown");
+  if (/https?:\/\/|www\.|\d{1,2}[./]\d{1,2}|\d{4}/.test(
+    note.body + note.title + doneNote.body + unkNote.body + unkNote.title,
+  )) {
     fail("ההתראה מכילה כתובת או תאריך");
   }
   if (doneNote.body.includes("להעביר")) fail("אחרי כלי מבקשים להעביר שוב");
+  if (unkNote.body.includes("נשמר") || unkNote.body.includes("להעביר")) {
+    fail("סריקה אומרת שנשמר חלק או מבקשת להעביר שוב");
+  }
+  const sweep = email.slice(email.indexOf("async function retryLockWaitMails"), email.indexOf("async function handleCostMail"));
+  if (!sweep.includes('"unknown"')) fail("סריקת מייל תקוע ממציאה שכלי רץ");
   const again = nextRequeue(nextRequeue("שלום").text);
   if (again.giveUp || !again.text.includes("rq:2")) fail("החזרה שנייה");
   if (!nextRequeue(again.text).giveUp) fail("החזרה שלישית לא נעצרת");
