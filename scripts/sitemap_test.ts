@@ -348,6 +348,61 @@ check("העמק נוסף בלי להזיז את עפולה", keptAfulaHtml.index
 const src = readFileSync(new URL("../netlify/edge-functions/sitemap.ts", import.meta.url), "utf8");
 check("timeout העסקאות הוא 8 שניות", /const DEALS_FETCH_TIMEOUT_MS = 8000;/.test(src));
 
+const HOOD = "https://shuknadlan.co.il/n/afula/" + encodeURIComponent("גבעת-המורה");
+const COMMERCIAL = "https://shuknadlan.co.il/afula/" + encodeURIComponent("נדלן-מסחרי");
+const hoodStatic =
+  `<?xml version="1.0" encoding="UTF-8"?>\n` +
+  `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+  `  <url><loc>${HOOD}</loc></url>\n` +
+  `  <url><loc>${HOOD}</loc></url>\n` +
+  `  <url><loc>https://shuknadlan.co.il/?deal=sale&amp;q=${encodeURIComponent("גבעת המורה")}</loc></url>\n` +
+  `  <url><loc>${COMMERCIAL}</loc></url>\n` +
+  `</urlset>\n`;
+
+function installRouted(properties: unknown, hoods: unknown) {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input);
+    const method = String(init?.method || "GET").toUpperCase();
+    if (url.includes("rpc/deal_settlements_public")) {
+      return new Response(JSON.stringify(DEALS_ROW.body), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.includes("neighborhood_pages_public")) {
+      return new Response(JSON.stringify(hoods), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.includes("market_cities_public")) {
+      return new Response(JSON.stringify([{ city_id: "c1", market_slug: "afula-emek" }]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.includes("/properties?")) {
+      return new Response(JSON.stringify(properties), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (method === "POST") {
+      return new Response(JSON.stringify({ deals: 10 }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+}
+
+const hoodRows = [{ name: "גבעת המורה", city: "עפולה", path_key: "afula/גבעת-המורה", props: 6 }];
+installRouted([
+  { id: "p1", updated_at: "2026-10-09T08:00:00Z", city: "עפולה", city_id: "c1", deal_type: "sale", category: "residential", property_type: "דירה", rooms: 4 },
+  { id: "c1", updated_at: "2026-11-01T08:00:00Z", city: "עפולה", city_id: "c1", deal_type: "rent", category: "commercial", property_type: "משרדים", rooms: null },
+], hoodRows);
+const hoodXml = await (await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+  next: async () => new Response(hoodStatic, { headers: { "content-type": "application/xml" } }),
+} as never)).text();
+const hoodCount = hoodXml.split(HOOD).length - 1;
+check("דף /n/ חי פעם אחת", hoodCount === 1, String(hoodCount));
+check("צירוף שכונה עם דף /n/ יורד מה-sitemap", !hoodXml.includes("q="));
+check("מסחרי עם מלאי נשאר ב-sitemap", hoodXml.includes(COMMERCIAL));
+
+installRouted([
+  { id: "p1", updated_at: "2026-10-09T08:00:00Z", city: "עפולה", city_id: "c1", deal_type: "sale", category: "residential", property_type: "דירה", rooms: 4 },
+], hoodRows);
+const noComm = await (await handler(new Request("https://shuknadlan.co.il/sitemap.xml"), {
+  next: async () => new Response(hoodStatic, { headers: { "content-type": "application/xml" } }),
+} as never)).text();
+check("מסחרי בלי מלאי יורד מה-sitemap", !noComm.includes("נדלן-מסחרי") && !noComm.includes("%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99"));
+
 if (failed) {
   console.error(`\n✗ ${failed} בדיקות נכשלו.`);
   process.exit(1);

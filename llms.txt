@@ -11,6 +11,35 @@
 - [יריד הבתים הפתוחים](https://shuknadlan.co.il/open-house): נכסים שמוצעים לקונים ללא עמלת תיווך לתקופה מוגבלת
 - [פרויקטים חדשים](https://shuknadlan.co.il/projects): דירות מקבלן ויזמים באזור
 
+## דפי נחיתה
+
+דפים שמחזירים 200 ואפשר לאנדקס (שוק חי). דף של שוק שטרם נפתח מחזיר 200 עם noindex ואינו כאן.
+
+- [דירות למכירה בעפולה](https://shuknadlan.co.il/afula/דירות-למכירה)
+- [בתים פרטיים למכירה בעפולה](https://shuknadlan.co.il/afula/בתים-פרטיים)
+- [דירות גן למכירה בעפולה](https://shuknadlan.co.il/afula/דירות-גן)
+- [דירות 3 חדרים למכירה בעפולה](https://shuknadlan.co.il/afula/דירות-3-חדרים)
+- [נדל״ן מסחרי בעפולה](https://shuknadlan.co.il/afula/נדלן-מסחרי): הסוגים שמוצעים עכשיו למכירה או להשכרה, לפי המלאי הפעיל
+- [יועצי נדל״ן בעפולה](https://shuknadlan.co.il/afula/מתווכים)
+- [בתים ומגרשים ביישובי עמק יזרעאל](https://shuknadlan.co.il/emek-yizrael/בתים-ומגרשים)
+
+## שכונות
+
+דף לכל שכונה בעפולה שיש בה מודעה פעילה. הכתובת היא `/n/{עיר}/{שכונה}`.
+
+- [אזור התעשייה](https://shuknadlan.co.il/n/afula/אזור-התעשייה)
+- [אזור התעשייה ע. עלית](https://shuknadlan.co.il/n/afula/אזור-התעשייה-ע-עלית)
+- [גבעת המורה](https://shuknadlan.co.il/n/afula/גבעת-המורה)
+- [דרום העיר](https://shuknadlan.co.il/n/afula/דרום-העיר)
+- [השכונה הצפון מערבית](https://shuknadlan.co.il/n/afula/השכונה-הצפון-מערבית)
+- [לב העמק C1](https://shuknadlan.co.il/n/afula/לב-העמק-c1)
+- [מזרח העיר](https://shuknadlan.co.il/n/afula/מזרח-העיר)
+- [מערב העיר (שיכון גאולים)](https://shuknadlan.co.il/n/afula/מערב-העיר-שיכון-גאולים)
+- [מרכז העיר](https://shuknadlan.co.il/n/afula/מרכז-העיר)
+- [עפולה הירוקה](https://shuknadlan.co.il/n/afula/עפולה-הירוקה)
+- [עפולה עלית](https://shuknadlan.co.il/n/afula/עפולה-עלית)
+- [רובע יזרעאל](https://shuknadlan.co.il/n/afula/רובע-יזרעאל)
+
 ## חיפושים נפוצים
 
 - [דירות 4 חדרים למכירה](https://shuknadlan.co.il/?deal=sale&rooms=4)
@@ -22,6 +51,7 @@
 ## נתוני שוק
 
 - [מחירי דירות לפי עיר וחדרים](https://shuknadlan.co.il/prices): מחיר חציוני לדירה ולמ״ר לפי עיר ומספר חדרים, מתוך עסקאות שדווחו לרשות המסים ב-12 החודשים האחרונים במאגר. מחירי עסקה ולא מחירי מודעות
+- [עסקאות נדל״ן בעפולה](https://shuknadlan.co.il/deals/afula): עסקאות לפי שכונה, מתוך דיווחי רשות המסים
 
 ## אנשי מקצוע
 

@@ -44,6 +44,20 @@
     return m ? MONTHS[+m[2] - 1] + ' ' + m[1] : '';
   }
 
+  /* החודש לפי שעון ירושלים, לא לפי updated_at שנשאר על חודש קודם. */
+  function jerusalemMonthYear(date) {
+    var fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Jerusalem', year: 'numeric', month: 'numeric'
+    });
+    var parts = fmt.formatToParts(date || new Date());
+    var month = 1, year = '';
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].type === 'month') month = +parts[i].value;
+      if (parts[i].type === 'year') year = parts[i].value;
+    }
+    return MONTHS[month - 1] ? MONTHS[month - 1] + ' ' + year : '';
+  }
+
   function roomsLabel(r) {
     if (r <= 3) return 'עד 3 חדרים';
     if (r >= 6) return '5.5 חדרים ומעלה';
@@ -51,6 +65,9 @@
   }
 
   function title(d) {
+    if (d && d.slug === 'afula') {
+      return 'עסקאות נדל״ן בעפולה לפי שכונה - ' + jerusalemMonthYear(new Date());
+    }
     var when = monthYear(d && d.updated_at);
     return 'עסקאות נדל״ן ב' + d.name + (when ? ' - ' + when : '');
   }
@@ -89,11 +106,22 @@
     return (rows || []).slice().sort(SORTS[key] || SORTS.date_desc);
   }
 
+  /* קישור לדף /n/ רק כשהשרת כבר אימת את הנתיב. */
+  function neighborhoodHtml(r) {
+    var name = r && r.neighborhood;
+    if (!name) return '';
+    var path = r.neighborhood_path;
+    if (typeof path === 'string' && /^\/n\/[a-z0-9-]+\/[^/?#\s]+$/.test(path)) {
+      return '<a href="' + escapeHtml(path) + '">' + escapeHtml(name) + '</a>';
+    }
+    return escapeHtml(name);
+  }
+
   /* ‏רחוב ושכונה בלבד - בלי מספר בית (‏docs/property-address-privacy.md). */
-  function place(r) {
+  function placeHtml(r) {
     var parts = [];
-    if (r.street) parts.push(r.street);
-    if (r.neighborhood) parts.push(r.neighborhood);
+    if (r.street) parts.push(escapeHtml(r.street));
+    if (r.neighborhood) parts.push(neighborhoodHtml(r));
     return parts.length ? parts.join(', ') : 'לא צוין';
   }
 
@@ -101,7 +129,7 @@
     return rows.map(function (r) {
       return '<tr>'
         + '<td data-label="תאריך">' + escapeHtml(heDate(r.sold_at)) + '</td>'
-        + '<td data-label="רחוב">' + escapeHtml(place(r)) + '</td>'
+        + '<td data-label="רחוב">' + placeHtml(r) + '</td>'
         + '<td data-label="סוג">' + escapeHtml(r.property_type || 'דירה') + '</td>'
         + '<td data-label="חדרים">' + escapeHtml(r.rooms != null ? r.rooms : '-') + '</td>'
         + '<td data-label="קומה">' + escapeHtml(r.floor || '-') + '</td>'
@@ -198,9 +226,10 @@
   function jsonLd(d, site) {
     var graph = [crumbs(site, d)];
     if (d) {
+      var datasetName = d.slug === 'afula' ? title(d) : ('עסקאות נדל״ן ב' + d.name);
       var data = {
         '@type': 'Dataset',
-        name: 'עסקאות נדל״ן ב' + d.name,
+        name: datasetName,
         description: description(d),
         url: site + '/deals/' + d.slug,
         inLanguage: 'he',
@@ -210,6 +239,8 @@
         spatialCoverage: { '@type': 'Place', name: d.name },
         variableMeasured: ['מחיר עסקה (₪)', 'מחיר למ״ר (₪)', 'מספר חדרים', 'שטח (מ״ר)']
       };
+      /* בעפולה הכותרת כוללת את החודש. name ו-headline נשארים אותה מחרוזת. */
+      if (d.slug === 'afula') data.headline = datasetName;
       if (d.period_start && d.period_end) data.temporalCoverage = d.period_start + '/' + d.period_end;
       if (d.updated_at) data.dateModified = String(d.updated_at).slice(0, 10);
       graph.push(data);

@@ -61,7 +61,7 @@ import {
   type OpsQuestionDb,
   type OpsTapDb,
 } from "./ops-question.ts";
-import { absoluteUrl, ctaLabel, listTextFallback, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
+import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import { planWaText, sendOutboxItem, setWaDropLogger, WA_NO_BUTTON, WaBodyNotSentError } from "../_shared/wa-url-guard.ts";
 import {
   CADENCE_BACK_TITLE,

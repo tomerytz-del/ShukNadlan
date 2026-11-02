@@ -19,7 +19,7 @@
    ========================================================================== */
 
 import { readFileSync } from "node:fs";
-import handler from "../netlify/edge-functions/deals-page.ts";
+import handler, { secondsUntilNextJerusalemMonth } from "../netlify/edge-functions/deals-page.ts";
 import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
 const PAGE = readFileSync(new URL("../deals.html", import.meta.url), "utf8");
@@ -50,9 +50,13 @@ const AFULA = {
 };
 
 async function run(url: string, status: number, body: unknown): Promise<Response> {
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
-  ) as typeof fetch;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const target = String(input instanceof Request ? input.url : input);
+    if (target.includes("neighborhood_pages_public")) {
+      return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
   return await handler(new Request(url), context());
 }
 
@@ -72,8 +76,13 @@ let res = await run("https://shuknadlan.co.il/deals/afula", 200, AFULA);
 let html = await res.text();
 const ld = ldOf(html);
 check("‏data-ssr", /<div id="dealsBody" data-ssr="1">/.test(html));
-check("כותרת עם חודש ושנה", html.includes("<title>עסקאות נדל״ן בעפולה - אוקטובר 2026 | שוק נדל״ן</title>"));
-check("‏h1", /<h1 id="dealsH1">עסקאות נדל״ן בעפולה - אוקטובר 2026<\/h1>/.test(html));
+const jeru = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", year: "numeric", month: "numeric" }).formatToParts(new Date());
+const jeruMonth = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"][Number(jeru.find((p) => p.type === "month")!.value) - 1];
+const jeruYear = jeru.find((p) => p.type === "year")!.value;
+const afulaTitle = `עסקאות נדל״ן בעפולה לפי שכונה - ${jeruMonth} ${jeruYear}`;
+check("כותרת עם חודש ושנה", html.includes(`<title>${afulaTitle} | שוק נדל״ן</title>`));
+check("‏og:title כמו הכותרת", html.includes(`<meta property="og:title" content="${afulaTitle} | שוק נדל״ן">`));
+check("‏h1", new RegExp(`<h1 id="dealsH1">${afulaTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</h1>`).test(html));
 check("‏meta description עם המספרים", /<meta name="description" content="812 עסקאות[^"]*₪1,430,000/.test(html));
 check("כרטיסי הסיכום", html.includes("₪1,430,000") && html.includes("₪13,600") && html.includes(">812<"));
 check("חציון מושתק מתחת ל-5", html.includes("מעט מדי עסקאות"));
@@ -81,12 +90,18 @@ check("canonical של היישוב", html.includes('<link rel="canonical" href="
 check("‏og:url של היישוב", html.includes('<meta property="og:url" content="https://shuknadlan.co.il/deals/afula">'));
 check("שורת המקור", html.includes("מקור: רשות המסים, דרך GovMap."));
 check("‏Dataset + BreadcrumbList", Array.isArray(ld?.["@graph"])
-  && ld!["@graph"].some((x: any) => x["@type"] === "Dataset" && x.temporalCoverage === "2025-09-01/2026-08-31")
+  && ld!["@graph"].some((x: any) => x["@type"] === "Dataset" && x.temporalCoverage === "2025-09-01/2026-08-31" && x.name === afulaTitle && x.headline === afulaTitle)
   && ld!["@graph"].some((x: any) => x["@type"] === "BreadcrumbList" && x.itemListElement.length === 3));
 check("נתוני המיון מוטמעים", /<script type="application\/json" id="dealsData">/.test(html));
 check("‏</script> בשם רחוב מוברח", !html.includes("</script><b>x") && html.includes("&lt;/script&gt;&lt;b&gt;x"));
 check("החדשה ראשונה", html.indexOf("31.8.2026") < html.indexOf("30.8.2026"));
-check("נשמר במטמון", (res.headers.get("Netlify-CDN-Cache-Control") || "").includes("max-age=3600"));
+{
+  const cap = secondsUntilNextJerusalemMonth();
+  const maxAge = Math.max(1, Math.min(3600, cap));
+  const swr = Math.max(0, Math.min(86400, cap - maxAge));
+  const cdn = res.headers.get("Netlify-CDN-Cache-Control") || "";
+  check("נשמר במטמון עד החודש הבא", cdn.includes(`max-age=${maxAge}`) && cdn.includes(`stale-while-revalidate=${swr}`));
+}
 check("מטמון בלי פיצול utm", res.headers.get("Netlify-Vary") === "query=_");
 
 /* יישוב, המסד נכשל, ואין עותק קודם */
@@ -241,6 +256,31 @@ check("אחרי הצלחה, כשל מגיש את אותו דף", staleDeal.statu
 check("העותק בלי Retry-After", !staleDeal.headers.get("Retry-After") && !staleDealHtml.includes("noindex"));
 check("עותק יישוב: no-store בשתי הכותרות", staleDeal.headers.get("Cache-Control") === "no-store"
   && staleDeal.headers.get("Netlify-CDN-Cache-Control") === "no-store");
+
+{
+  let hoodUrl = "";
+  res = await runRouted("https://shuknadlan.co.il/deals/afula", (target) => {
+    if (target.includes("neighborhood_pages_public")) {
+      hoodUrl = target;
+      return { status: 200, body: [
+        { name: "גבעת המורה", path_key: "afula/גבעת-המורה" },
+      ] };
+    }
+    return { status: 200, body: AFULA };
+  });
+  html = await res.text();
+  check("שכונה בעסקאות מקושרת ל-/n/", html.includes('href="/n/afula/' + encodeURIComponent("גבעת-המורה") + '">גבעת המורה</a>'));
+  check("שכונות מסוננות בבקשה", hoodUrl.includes("city_slug=eq.afula") && hoodUrl.includes("props=gt.0") && !hoodUrl.includes("limit=500"));
+}
+res = await runRouted("https://shuknadlan.co.il/deals/afula", (target) => {
+  if (target.includes("neighborhood_pages_public")) return { status: 500, body: {} };
+  return { status: 200, body: AFULA };
+});
+html = await res.text();
+check("כשל שכונות: הדף עדיין מולא", res.status === 200 && html.includes("data-ssr") && html.includes("גבעת המורה"));
+check("כשל שכונות: בלי קישור ובלי מטמון שעה", !html.includes('href="/n/afula/')
+  && res.headers.get("Cache-Control") === "no-store"
+  && res.headers.get("Netlify-CDN-Cache-Control") === "no-store");
 
 /* פרטיות: אין מספר בית ואין גוש/חלקה בשום מקום ב-render */
 const D = (globalThis as any).ShukDeals;
