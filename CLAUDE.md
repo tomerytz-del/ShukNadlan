@@ -67,7 +67,9 @@
   ועוזרים ב-`assets/`. ‏Netlify מפרסם אותם תוך שניות מהמיזוג ל-`main` - רק
   כשהמיזוג נוגע בקובצי האתר: `scripts/netlify_ignore.sh` מדלג על דיפלוי של
   תיעוד, סקילים, מיגרציות ופונקציות Supabase, כי כל דיפלוי עולה קרדיטים
-  (`docs/netlify-usage.md`, הסקיל `deploy-path`).
+  (`docs/netlify-usage.md`, הסקיל `deploy-path`). העותק שנפרס מוקטן
+  (‏`scripts/build_minify.mjs`: הערות ורווחים ב-JS, הערות ב-HTML) - **חוץ מהערת
+  סמן של מילה אחת בלי רווח**, כמו `<!--/deals-->`, שלפיה Edge Function מזריקה.
   שמונה פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
   אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
   (`docs/social-preview.md`), `sitemap.ts` מוסיפה ל-`sitemap.xml` את
