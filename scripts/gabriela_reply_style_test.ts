@@ -17,6 +17,7 @@ import {
   sameClockMinute,
   sameTimeConflictLine,
   settledFromHistory,
+  collectToolAsks,
   lineCarriesToolAsk,
   shapeAgentReply,
   styleContext,
@@ -260,6 +261,22 @@ check("קנייה או שכירות נשאלת כשהכרטיס נחסם",
   agentSrc.includes("קנייה או שכירות") && agentSrc.includes("מחזירים ask") &&
   !/אין לשאול קנייה/.test(agentSrc));
 
+const seekerResult = {
+  ok: false,
+  saved: false,
+  ask: ["קנייה או שכירות?"],
+  error: "לא נוצר כרטיס בלי סוג עסקה. קנייה או שכירות?",
+};
+const ownerResult = {
+  ok: true,
+  saved: true,
+  ask: ["מוכר או משכיר?"],
+};
+const fromTools: string[] = [];
+collectToolAsks(fromTools, seekerResult);
+collectToolAsks(fromTools, ownerResult);
+check("ask של הכלי הוא מערך", fromTools.join("|") === "קנייה או שכירות?|מוכר או משכיר?", fromTools);
+
 const menuAsk = "1. קנייה או שכירות?";
 check("בלי ask מהכלי התפריט יורד", !shapeAgentReply("עדכנתי את עליזה.\n" + menuAsk, {
   userText: correction, history: [],
@@ -267,10 +284,16 @@ check("בלי ask מהכלי התפריט יורד", !shapeAgentReply("עדכנ�
 const keptAsk = shapeAgentReply("לא נוצר כרטיס.\n" + menuAsk, {
   userText: correction,
   history: [],
-  toolAsks: ["קנייה או שכירות?"],
+  toolAsks: fromTools,
 });
-check("שאלת כלי שורדת את המסנן", keptAsk.includes("קנייה או שכירות?"), keptAsk);
+check("שאלת קנייה או שכירות שורדת", keptAsk.includes("קנייה או שכירות?"), keptAsk);
 check("המסנן אינו מחליף אותה בהצעת כרטיס", !keptAsk.includes("אפשר להוסיף את הכרטיס"), keptAsk);
+const keptOwner = shapeAgentReply("הכרטיס נשמר.\n1. מוכר או משכיר?", {
+  userText: correction,
+  history: [],
+  toolAsks: fromTools,
+});
+check("שאלת מוכר או משכיר שורדת", keptOwner.includes("מוכר או משכיר?"), keptOwner);
 check("התאמת ask בלי סימן שאלה", lineCarriesToolAsk("קנייה או שכירות", ["קנייה או שכירות?"]));
 
 if (failed) {

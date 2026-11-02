@@ -2,6 +2,22 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
+import {
+  abortedTurnNote,
+  abortedTurnPlan,
+  AUTO_ATTACH_IMAGE_MS,
+  HOLD_ALL_IMAGE_MS,
+  rpcMissing,
+  splitPendingForCreate,
+} from "./turn-lock.ts";
+import {
+  clientNeeds,
+  dealNullRejected,
+  OWNER_DEAL_ASK,
+  ownerDealWrite,
+  SEEKER_DEAL_ASK,
+  seekerDealAsk,
+} from "./client-deal.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
@@ -323,6 +339,17 @@ export interface ConversationState {
    * ונטען מחדש בכל תור. בלי עמודה חדשה.
    */
   shownMatches?: Record<string, { ids: string[]; limit: number; waive: string[] }>;
+  /**
+   * גרסת history בזמן הטעינה. null = העמודה עוד לא קיימת, והשמירה היא upsert
+   * כמו קודם. 0 = אין שורה, או שורה בגרסה 0.
+   */
+  historyVersion?: number | null;
+  /** ההיסטוריה כפי שנטענה (בלי סמן), כדי ששמירה מתנגשת תוסיף רק את התור הזה. */
+  loadedHistory?: Anthropic.MessageParam[];
+  /** last_client_id כפי שנטען. אם התור לא שינה אותו, שמירה מתנגשת שומרת ערך טרי. */
+  loadedLastClientId?: string | null;
+  /** כלים שהספיקו לרוץ לפני שהחכירה נקטעה. ריק = הטקסט חוזר לתור. */
+  abortedToolNames?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -426,16 +453,18 @@ const clientFields = {
     type: "string",
     enum: ["seeker", "owner"],
     description:
-      "‏seeker = מחפש/ת נכס (קונה או שוכר/ת). ‏owner = בעל/ת נכס שמוכר/ת או משכיר/ה - " +
-      "אינו/ה מקבל/ת התאמות, ושדות החיפוש לא רלוונטיים אליו/ה. ברירת מחדל seeker. " +
-      "\"מוכר את הדירה\" / \"רוצה להשכיר\" = owner. מי שמוכר/ת וגם קונה - seeker, והמכירה בהערות.",
+      "‏seeker = מחפש/ת נכס (קונה או שוכר/ת). ‏owner = בעל/ת נכס. אינו/ה מקבל/ת " +
+      "התאמות, ושדות החיפוש לא רלוונטיים אליו/ה. ברירת מחדל seeker. " +
+      "\"מוכר את הדירה\" / \"רוצה להשכיר\" = owner, ורק אז deal_type לפי מה שנאמר. " +
+      "מי שמוכר/ת וגם קונה - seeker, והמכירה בהערות. אל תסמני owner בלי שהסוכן/ת אמר/ה שזה בעל/ת נכס.",
   },
   deal_type: {
     type: "string",
     enum: ["sale", "rent"],
     description:
-      "‏seeker: sale = מחפש/ת לקנות, rent = מחפש/ת לשכור. ‏owner: sale = מוכר/ת, " +
-      "rent = משכיר/ה. ברירת מחדל sale.",
+      "רק אם הסוכן/ת אמר/ה. seeker: sale = מחפש/ת לקנות, rent = מחפש/ת לשכור. " +
+      "owner: sale = מוכר/ת, rent = משכיר/ה. אין ברירת מחדל. בלי הערך, בעל/ת נכס " +
+      "נשמר/ת בלי צד ואת שואלת \"מוכר או משכיר?\". אל תשלחי sale כדי למלא.",
   },
   category: {
     type: "string",
@@ -531,7 +560,10 @@ const TOOLS: Anthropic.Tool[] = [
       "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
       "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
       "בלי לחיצה הנכס נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
-      "תמונות שהגיעו בשיחה וטרם שויכו לנכס מתחברות אליו אוטומטית. עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
+      "אם התמונה הממתינה הוותיקה מלפני יותר מ-20 דקות, לא מצורפת אף תמונה. " +
+      "include_waiting_images מצרף רק תמונות מהיממה האחרונה, ורק אחרי שהסוכן/ת אמר/ה שהן שייכות לנכס. " +
+      "תמונה ישנה מיממה לא מצטרפת כאן; אותה מצרפים ב-attach_images אחרי שהסוכן/ת הפנה/תה אליה. " +
+      "עיר שלא נאמרה לא נשלחת: הקוד ממלא " +
       "את עיר ברירת המחדל השמורה, ואם אין - את עיר המשרד. כשהעיר עפולה ויש רחוב ומספר בית, " +
       "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
       "אם אותה כתובת כבר קיימת אצל הסוכן/ת (גם אם נמכרה או בארכיון) הכלי לא " +
@@ -545,6 +577,12 @@ const TOOLS: Anthropic.Tool[] = [
           description:
             "רק אחרי שהסוכן/ת אישר/ה במפורש שמדובר בנכס אחר ולא בכפילות. " +
             "מדלג על בדיקת הכפילות ויוצר מודעה נוספת.",
+        },
+        include_waiting_images: {
+          type: "boolean",
+          description:
+            "רק אם הסוכן/ת אמר/ה שהתמונות שממתינות, והן מהיממה האחרונה, שייכות לנכס הזה. " +
+            "לא מצרף תמונה ישנה מיממה.",
         },
       },
       required: ["property_type", "deal_type", "price"],
@@ -1161,9 +1199,10 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מוסיף לקוח/ה לקובץ הלקוחות של הסוכן/ת. **שדה ריק פירושו 'לא משנה'** " +
       "ואינו מסנן כלום - לקוח/ה עם שם וטלפון בלבד הוא רשומה תקפה שמקבלת " +
-      "התאמות. אל תשאל/י על שדות שלא נאמרו. בעל/ת נכס (מוכר/ת או משכיר/ה) " +
-      "נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת הוא/היא נשמר/ת כקונה " +
-      "ומקבל/ת התאמות לכל נכס במאגר.",
+      "התאמות. אל תשאל/י על שדות שלא נאמרו, ואל תמלאי עסקה, עיר, מחיר או איות שם " +
+      "שלא נאמרו. בעל/ת נכס נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת " +
+      "הוא/היא נשמר/ת כקונה ומקבל/ת התאמות לכל נכס במאגר. בלי שנאמר מכירה או " +
+      "השכרה אל תשלחי deal_type: הכרטיס נשמר, ו-ask הוא \"מוכר או משכיר?\".",
     input_schema: {
       type: "object",
       properties: {
@@ -2454,21 +2493,14 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  // התמונות שהצטברו בשיחה מתחברות מיד לנכס החדש — זו כל הפואנטה של
-  // "לצלם את הדירה ולשלוח בוואטסאפ יחד עם הטקסט". ‏**לקיחה אטומית** ולא
-  // ‏`ctx.conv.pending_images`: ברשימה שבזיכרון חסרות תמונות מאותו אלבום
-  // שהגיעו בבקשות מקבילות (מיגרציה 20270115095000).
-  //
-  // ‏**אבל לא תמונות ותיקות** (27.10.2026): רשימה שהוותיקה בה מלפני יותר
-  // מ-20 דקות - שאלה שלא נענתה, צילום מסך מהבוקר - נשארת בצד, והנכס נוצר
-  // בלעדיה. גבריאלה שואלת, ו-attach_images מצרף אחרי "כן".
-  const since = await pendingImagesSince(ctx);
-  const holdImages = since != null && Date.now() - since > PENDING_IMAGES_STALE_MS;
-  const images = holdImages ? [] : await takePendingImages(ctx);
+  // התמונות שהצטברו בשיחה מתחברות מיד לנכס החדש. לקיחה אטומית, לא
+  // הרשימה שבזיכרון: באלבום חסרות תמונות שהגיעו במקביל.
+  // הוותיקה מעל 20 דקות עוצרת את כולן. מעל יממה לא מצטרפת גם עם הדגל.
+  const explicitImages = input.include_waiting_images === true;
+  const picked = await takeImagesForNewProperty(ctx, explicitImages);
+  const images = picked.attach;
   if (images.length) payload.images = images;
-  const heldCount = holdImages
-    ? (await ctx.supabase.rpc("whatsapp_pending_image_count", { p_agent_id: ctx.agent.id })).data ?? 0
-    : 0;
+  const heldCount = picked.hold;
 
   const { data, error } = await ctx.supabase
     .from("properties")
@@ -2487,7 +2519,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     : await elsewhereDraftNote(ctx, payload);
 
   ctx.conv.last_property_id = data.id;
-  if (!holdImages) ctx.conv.pending_images = [];
+  if (heldCount === 0) ctx.conv.pending_images = [];
+  else ctx.conv.pending_images = ctx.conv.pending_images.filter((u) => !images.includes(u));
 
   const created = {
     ok: true,
@@ -2500,9 +2533,9 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       ? {
         images_held: heldCount,
         images_held_note:
-          `${heldCount} תמונות שממתינות בשיחה מ-${new Date(since!).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })} ` +
-          "**לא** צורפו לנכס, כי הן ותיקות. שאלי את הסוכן/ת אם הן שייכות לנכס הזה: כן = " +
-          "attach_images עם property_id, לא = discard_pending_images. אל תאמרי שצורפו.",
+          `${heldCount} תמונות ישנות שממתינות בשיחה **לא** צורפו לנכס. ` +
+          "שאלי את הסוכן/ת אם הן שייכות לנכס הזה: כן = attach_images עם property_id, " +
+          "לא = discard_pending_images. אל תאמרי שצורפו.",
       }
       : {}),
     // ‏lat מהשורה שנשמרה ולא מה-payload: פין משוער באזור תעשייה נקבע בטריגר
@@ -3289,9 +3322,6 @@ async function pendingImagesSince(ctx: ToolContext): Promise<number | null> {
   return Number.isFinite(at) ? at : null;
 }
 
-// אותו סף של השאלה בוובהוק (‏`PHOTO_ASK_GAP_MS` ב-index.ts)
-const PENDING_IMAGES_STALE_MS = 20 * 60 * 1000;
-
 /**
  * סדר ומחיקה של תמונות בנכס.
  *
@@ -3420,6 +3450,45 @@ async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>
     };
   }
   return { ok: false, error: "התמונות של הנכס השתנו בדיוק עכשיו. אפשר לנסות שוב." };
+}
+
+/**
+ * לנכס חדש. מעל 20 דקות לוותיקה: אף תמונה. הדגל לא מושך תמונה ישנה מיממה.
+ */
+async function takeImagesForNewProperty(
+  ctx: ToolContext,
+  explicit: boolean,
+): Promise<{ attach: string[]; hold: number }> {
+  const { data, error } = await ctx.supabase.rpc("whatsapp_pending_images_take_recent", {
+    p_agent_id: ctx.agent.id,
+    p_max_age_seconds: Math.round(AUTO_ATTACH_IMAGE_MS / 1000),
+    p_hold_seconds: Math.round(HOLD_ALL_IMAGE_MS / 1000),
+    p_all: explicit,
+  });
+  if (!error) {
+    return { attach: (data as string[]) || [], hold: await pendingImageCount(ctx) };
+  }
+  if (!rpcMissing(error)) {
+    console.error("pending images take recent failed", error);
+    return { attach: [], hold: await pendingImageCount(ctx) };
+  }
+  const since = await pendingImagesSince(ctx);
+  const urls = ctx.conv.pending_images;
+  const plan = splitPendingForCreate({
+    urls,
+    at: urls.map(() => since),
+    since,
+    explicit,
+  });
+  if (plan.hold.length === 0 && plan.attach.length) {
+    return { attach: await takePendingImages(ctx), hold: 0 };
+  }
+  return { attach: [], hold: plan.hold.length || urls.length };
+}
+
+async function pendingImageCount(ctx: ToolContext): Promise<number> {
+  const { data } = await ctx.supabase.rpc("whatsapp_pending_image_count", { p_agent_id: ctx.agent.id });
+  return Number(data ?? 0);
 }
 
 /** כל התמונות הממתינות, ורשימה ריקה אחריהן - בפקודה אחת במסד. */
@@ -4847,44 +4916,6 @@ async function currentPreferredFeatures(ctx: ToolContext, clientId: string): Pro
   return Array.isArray(rows) ? rows.map(String).filter(Boolean) : [];
 }
 
-/** שורת הדרישות בעברית — מה שהסוכן/ת רואה בכרטיס הלקוח/ה בדשבורד. */
-function clientNeeds(c: Record<string, unknown>): string {
-  const parts: string[] = [];
-  // ‏"למכירה" על מחפש/ת היה דו-משמעי - מודל קרא בו מוכר/ת. הצד נאמר במפורש.
-  if (c.client_kind === "owner") {
-    parts.push(c.deal_type === "rent" ? "בעל/ת נכס - משכיר/ה" : "בעל/ת נכס - מוכר/ת");
-    if (c.category === "commercial") parts.push("מסחרי");
-    return parts.join(" · ");
-  }
-  parts.push(c.deal_type === "rent" ? "מחפש/ת לשכור" : "מחפש/ת לקנות");
-  if (c.category === "commercial") parts.push("מסחרי");
-  const types = (c.property_types as string[]) || [];
-  if (types.length) parts.push(types.join("/"));
-  const cities = (c.cities as string[]) || [];
-  if (cities.length) parts.push(cities.join("/"));
-  if (c.min_rooms || c.max_rooms) {
-    parts.push(`${c.min_rooms ?? ""}${c.min_rooms && c.max_rooms ? "-" : ""}${c.max_rooms ?? ""} חד׳`);
-  }
-  if (c.min_price || c.max_price) {
-    const from = c.min_price ? Number(c.min_price).toLocaleString("he-IL") : "";
-    const to = c.max_price ? Number(c.max_price).toLocaleString("he-IL") : "";
-    parts.push(from && to ? `₪${from}-${to}` : from ? `מ-₪${from}` : `עד ₪${to}`);
-  }
-  if (c.min_size_sqm || c.max_size_sqm) {
-    const lo = c.min_size_sqm, hi = c.max_size_sqm;
-    parts.push(lo && hi ? `${lo}-${hi} מ״ר` : lo ? `מ-${lo} מ״ר` : `עד ${hi} מ״ר`);
-  }
-  if (c.max_floor !== null && c.max_floor !== undefined) parts.push(`עד קומה ${c.max_floor}`);
-  if (Array.isArray(c.required_directions) && c.required_directions.length) {
-    parts.push(`אוויר: ${c.required_directions.join(" + ")}`);
-  }
-  if (c.min_air_directions) parts.push(`${c.min_air_directions}+ כיווני אוויר`);
-  if (c.min_living_room_sqm) parts.push(`סלון ${c.min_living_room_sqm}+ מ"ר`);
-  const feats = (c.required_features as string[]) || [];
-  if (feats.length) parts.push(`חובה: ${feats.join(", ")}`);
-  return parts.join(" · ");
-}
-
 /**
  * קובץ הלקוחות — אותה תקרה ואותו היגיון של `list_properties`, עם הבדל אחד
  * שמשנה את המספרים.
@@ -5209,6 +5240,11 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   if (airErr) return { ok: false, error: airErr };
   payload.full_name = fullName;
   payload.agent_id = ctx.agent.id;
+  const ownerWrite = ownerDealWrite(input, null);
+  if (ownerWrite) {
+    payload.client_kind = "owner";
+    payload.deal_type = null;
+  }
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
@@ -5218,7 +5254,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     notes: String(input.notes || ""),
     requiredSent,
     category: payload.category as string | undefined,
-    deal_type: payload.deal_type as string | undefined,
+    deal_type: ownerWrite ? null : payload.deal_type as string | undefined,
     cities: payload.cities as string[] | undefined,
     min_price: payload.min_price as number | undefined,
     max_price: payload.max_price as number | undefined,
@@ -5235,6 +5271,18 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   // ולא על 500 האחרונים. בוואטסאפ זה קורה יותר מבדשבורד - "תוסיף את
   // משפחת כהן" נאמר בלי לראות את הקובץ - ולקוח/ה כפול/ה פירושו שני
   // כרטיסים עם חצי מהדרישות בכל אחד.
+  if (!ownerWrite) {
+    const seekAsk = seekerDealAsk(input, null);
+    if (seekAsk) {
+      return {
+        ok: false,
+        saved: false,
+        ask: [seekAsk],
+        error: "לא נוצר כרטיס בלי סוג עסקה. " + seekAsk,
+      };
+    }
+  }
+
   const phone = String(input.phone || "");
   const existing = await findClientDuplicates(ctx, fullName, phone);
   if (existing === null) {
@@ -5293,6 +5341,15 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
       .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
       .single());
   }
+  if (error && dealNullRejected(error)) {
+    const ask = ownerWrite ? OWNER_DEAL_ASK : SEEKER_DEAL_ASK;
+    return {
+      ok: false,
+      saved: false,
+      ask: [ask],
+      error: "לא שמרתי את הכרטיס בלי סוג עסקה. " + ask,
+    };
+  }
   if (error || !data) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = data.id;
@@ -5301,7 +5358,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     client_id: data.id,
     full_name: data.full_name,
     needs: clientNeeds(data),
-    ask: planned.ask,
+    ask: ownerWrite ? [ownerWrite.ask] : planned.ask,
     suggested_features: planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
       ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
@@ -5310,7 +5367,10 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: clientWriteGuidance(planned, true),
+    guidance: ownerSavedGuidance(
+      ownerWrite?.ask,
+      clientWriteGuidance(ownerWrite ? { ...planned, ask: undefined } : planned, true),
+    ),
   };
 }
 
@@ -5319,9 +5379,24 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   const existing = await ownedClient(ctx, clientId);
   if (!existing) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו אצל הסוכן/ת." };
 
+  const seekAsk = seekerDealAsk(input, existing);
+  if (seekAsk) {
+    return {
+      ok: false,
+      saved: false,
+      ask: [seekAsk],
+      error: "לא עדכנתי לקונה או לשוכר/ת בלי סוג עסקה. " + seekAsk,
+    };
+  }
+
   const payload = pick(input, CLIENT_WRITABLE_FIELDS);
   const airErr = applyAirLiving(payload, input, true);
   if (airErr) return { ok: false, error: airErr };
+  const ownerWrite = ownerDealWrite(input, existing);
+  if (ownerWrite) {
+    payload.client_kind = "owner";
+    payload.deal_type = null;
+  }
   const citiesDropped = await canonicalizeClientCities(ctx, payload);
   const notesSent = Object.prototype.hasOwnProperty.call(input, "notes");
   const requiredSent = Object.prototype.hasOwnProperty.call(input, "required_features");
@@ -5331,7 +5406,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     notes: String(input.notes || ""),
     requiredSent,
     category: (payload.category as string | undefined) ?? (existing as { category?: string }).category,
-    deal_type: (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
+    deal_type: ownerWrite ? null : (payload.deal_type as string | undefined) ?? (existing as { deal_type?: string }).deal_type,
     cities: (payload.cities as string[] | undefined) ?? (existing as { cities?: string[] }).cities,
     min_price: (payload.min_price as number | undefined) ?? (existing as { min_price?: number }).min_price,
     max_price: (payload.max_price as number | undefined) ?? (existing as { max_price?: number }).max_price,
@@ -5367,6 +5442,15 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
       .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
       .single());
   }
+  if (error && dealNullRejected(error)) {
+    const ask = ownerWrite ? OWNER_DEAL_ASK : SEEKER_DEAL_ASK;
+    return {
+      ok: false,
+      saved: false,
+      ask: [ask],
+      error: "לא עדכנתי את הכרטיס בלי סוג עסקה. " + ask,
+    };
+  }
   if (error || !data) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = clientId;
@@ -5374,8 +5458,9 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     ok: true,
     client_id: clientId,
     full_name: data.full_name,
-    updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
+    updated_fields: Object.keys(payload).filter((k) => k !== "updated_at" && !(k === "deal_type" && payload.deal_type == null)),
     needs: clientNeeds(data),
+    ask: ownerWrite ? [ownerWrite.ask] : undefined,
     suggested_features: notesSent && planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
       ? `לא נשמרו ${citiesDropped} ערים מעבר ל-${CLIENT_CITY_CAP}. אמור/אמרי זאת לסוכן/ת.`
@@ -5384,8 +5469,17 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
+    guidance: ownerSavedGuidance(
+      ownerWrite?.ask,
+      notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
+    ),
   };
+}
+
+function ownerSavedGuidance(ask: string | undefined, base: string | undefined): string | undefined {
+  if (!ask) return base;
+  const line = `הכרטיס נשמר בלי צד של מכירה או השכרה. שאלי בדיוק: ${ask} אל תאמרי מוכר/ת או משכיר/ה.`;
+  return base ? `${line} ${base}` : line;
 }
 
 function clientWriteGuidance(
@@ -5600,7 +5694,8 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       owner: true,
       error:
         `${client.full_name} רשום/ה כבעל/ת נכס ולא כמחפש/ת, ולכן אין לו/ה התאמות. ` +
-        "אם הוא/היא גם מחפש/ת - update_client עם client_kind seeker והדרישות. " +
+        "אם הוא/היא גם מחפש/ת - update_client עם client_kind seeker, deal_type sale או rent, " +
+        "והדרישות. בלי deal_type הכלי לא שומר ושואל קנייה או שכירות. " +
         "לנכס שלו/ה - create_property, ואחר כך property_matches למי שמתאים לו.",
     };
   }
@@ -9115,6 +9210,12 @@ const SYSTEM_STATIC: string = (() => {
     "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
+    "- **שדה שחשוב לכרטיס, למודעה או להתאמה לא מקבל ברירת מחדל ולא ניחוש.** " +
+      "סוג עסקה, עיר, מחיר, ואיות שם מתמלול - רק אם הסוכן/ת אמר/ה אותם. " +
+      "אל תציגי כעובדה ערך שלא נמסר. אם חסר, סיימי בשאלה קצרה אחת על בדיוק מה שחסר, " +
+      "לא ברשימה, אלא אם באמת חסרים כמה דברים שכולם נדרשים עכשיו.",
+    "- **המשך קצר (מילה או שתיים) אינו אישור לשם שאת ביקשת לאמת.** " +
+      "אם בהיסטוריה הקרובה יש תיקון של השם, השתמשי בשם המתוקן ולא בשם ששאלת עליו.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
     "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. " +
       "הודעה שמוכנה להעברה ללקוח/ה אינה כוללת כתובת. אם חזר button_sent או buttons_sent - " +
@@ -9246,7 +9347,12 @@ const SYSTEM_STATIC: string = (() => {
     "- **גם כאן: total_matching הוא כמה יש, returned הוא כמה הוחזרו.** אם חזר " +
       "notes_truncated על לקוח/ה שנשאלת עליו/ה - קרא/י שוב עם query על השם, " +
       "ואל תצטט/י הערה חתוכה כאילו היא מלאה.",
-    "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" - אל תבקש/י תקציב או ערים שלא נאמרו.",
+    "- ליצירת לקוח/ה די בשם, חוץ מסוג עסקה. אל תבקש/י תקציב או ערים שלא נאמרו, " +
+      "ואל תשלחי deal_type ולא תאמרי קונה, שוכר/ת, מוכר/ת או משכיר/ה אם הסוכן/ת לא אמר/ה. " +
+      "בעל/ת נכס בלי צד: client_kind owner בלי deal_type. הכרטיס נשמר, needs אינו מוכר/ת " +
+      "ואינו משכיר/ה, ואם חזר ask שאלי אותו כמו שהוא (\"מוכר או משכיר?\"). " +
+      "מחפש/ת בלי sale/rent: הכלי לא שומר ומחזיר ask \"קנייה או שכירות?\" - שאלי וקראי שוב. " +
+      "מעבר מבעל/ת נכס בלי צד למחפש/ת בלי עסקה נעצר באותה שאלה, בלי שגיאת מסד.",
     "- \"תמחק את הלקוח/ה\" = set_client_status עם closed. הרשומה נשארת בקובץ.",
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
     "- \"מה יש ל<שם>\" = client_matches. הוא מחזיר גם market_matches - נכסים של מתווכים אחרים " +
@@ -9518,17 +9624,17 @@ function sessionContext(
   if (conv.pending_images.length) {
     // הכלל כפי שהקוד עושה אותו, ולא "יצירת נכס תצרף אותן" - זה מה שגבריאלה
     // תיארה לסוכן (27.10.2026), והוא כבר לא נכון לתמונות ותיקות.
-    const stale = pendingSince != null && Date.now() - pendingSince > PENDING_IMAGES_STALE_MS;
-    const when = pendingSince != null
-      ? ` (הוותיקה מ-${new Date(pendingSince).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })})`
-      : "";
+    const held = pendingSince != null && Date.now() - pendingSince > HOLD_ALL_IMAGE_MS;
+    const dayOld = pendingSince != null && Date.now() - pendingSince >= AUTO_ATTACH_IMAGE_MS;
     lines.push(
       "",
-      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס${when}. ` +
-        (stale
-          ? "הן מלפני יותר מ-20 דקות: create_property **לא** יצרף אותן, ואין לצרף אותן לשום נכס " +
-            "בלי שהסוכן/ת אמר/ה לאיזה. "
-          : "create_property יצרף אותן לנכס החדש. ") +
+      `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס. ` +
+        (dayOld
+          ? "הן מלפני יותר מיממה: create_property לא יצרף אותן. אם הסוכן/ת הפנה/תה אליהן - attach_images. "
+          : held
+            ? "הוותיקה מלפני יותר מ-20 דקות: create_property לא יצרף אף אחת. " +
+              "include_waiting_images רק אם הסוכן/ת אמר/ה שתמונות מהיממה האחרונה שייכות לנכס. "
+            : "create_property יצרף אותן לנכס החדש. ") +
         "לנכס קיים - attach_images. לא שייכות לשום נכס - discard_pending_images.",
     );
   }
@@ -9597,20 +9703,22 @@ const LOOP_EFFORT = (["low", "medium", "high"].includes(Deno.env.get("WHATSAPP_A
 
 export async function callClaude(
   params: Anthropic.MessageCreateParamsNonStreaming,
+  signal?: AbortSignal,
 ): Promise<Anthropic.Message> {
+  const request = signal ? { signal } : undefined;
   // בלי הבטא גם הודעת המאמץ (LOOP_EFFORT) נדחית - היא יוצאת, והקריאה רצה
   // במאמץ של הבקשה. תור איטי יותר, לא תור שבור.
   const plain = () => anthropic.messages.create({
     ...params,
     messages: params.messages.filter((m) => (m.role as string) !== "system"),
-  });
+  }, request);
   try {
     // deno-lint-ignore no-explicit-any
     return await (anthropic.beta.messages.create as any)({
       ...params,
       betas: ["server-side-fallback-2026-07-01", "mid-conversation-output-config-2026-07-01"],
       fallbacks: "default",
-    });
+    }, request);
   } catch (err) {
     // יתרה שנגמרה לא תיפתר בניסיון שני, והוא רק מעכב את התשובה לסוכן/ת.
     if (llmFailureKind(err) === "billing") throw err;
@@ -9679,6 +9787,8 @@ export async function runAgentTurn(opts: {
   /** כלי שמוסיף לכאן הודעת כפתורים - היא יוצאת אחרי התשובה. בלעדיו הכלי
    *  מחזיר קישורים בטקסט (תור מייל). */
   outbox?: OutboxItem[];
+  /** החכירה נגמרה: עוצרים לפני שתור אחר תופס, כדי שלא ירוצו שניים יחד. */
+  signal?: AbortSignal;
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const denied = opts.deniedToolMessage ||
@@ -9704,8 +9814,21 @@ export async function runAgentTurn(opts: {
   // לפני שהתור נשלח. הסימון הוא על הקריאה, גם אם הכלי החזיר שאלה ולא כתב.
   let mutated = false;
   const toolAsks: string[] = [];
+  const toolsDone: string[] = [];
+  const stopForAbort = (): never => {
+    if (abortedTurnPlan(toolsDone) === "save") {
+      conv.abortedToolNames = toolsDone.slice();
+      conv.history = trimHistory([
+        ...conv.history,
+        { role: "user", content: userSummary },
+        { role: "assistant", content: abortedTurnNote(toolsDone) },
+      ], HISTORY_LIMIT);
+    }
+    throw new DOMException("turn aborted", "AbortError");
+  };
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    if (opts.signal?.aborted) stopForAbort();
     const llmStart = Date.now();
     const response = await callClaude({
       model: MODEL,
@@ -9730,7 +9853,8 @@ export async function runAgentTurn(opts: {
       ],
       tools,
       messages,
-    } as Anthropic.MessageCreateParamsNonStreaming);
+    } as Anthropic.MessageCreateParamsNonStreaming, opts.signal);
+    if (opts.signal?.aborted) stopForAbort();
 
     // מה באמת נחסך. בלי השורה הזו אין דרך לדעת שהמטמון הפסיק לתפוס: הכול
     // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה
@@ -9780,6 +9904,7 @@ export async function runAgentTurn(opts: {
 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
+      if (opts.signal?.aborted) break;
       // המודל רואה רק את `tools`, אבל שם של כלי הוא טקסט שהוא כותב — הגבול
       // נאכף כאן ולא רק ברשימה שנשלחה אליו.
       const toolStart = Date.now();
@@ -9792,6 +9917,9 @@ export async function runAgentTurn(opts: {
           use.name,
           (use.input || {}) as Record<string, unknown>,
         );
+      const failed = !!result && typeof result === "object" &&
+        ((result as { ok?: boolean }).ok === false || typeof (result as { error?: unknown }).error === "string");
+      if (!blocked && !failed) toolsDone.push(use.name);
       // ‏`ms=` כאן וב-`llm` (24.10.2026): בשבוע שאחרי 17.10 טקסט של סוכן/ת
       // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
       // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
@@ -9803,6 +9931,7 @@ export async function runAgentTurn(opts: {
         content: JSON.stringify(result),
       });
     }
+    if (opts.signal?.aborted) stopForAbort();
 
     // נקודת שבירה שנייה, **מתגלגלת**: היא מסמנת את סוף מה שכבר נשלח, כך
     // שהסבב הבא יקרא אותו מהמטמון במקום לשלם עליו מחדש.

@@ -190,14 +190,17 @@ test("כל סוג ב-notifications_type_check ממופה או מוחרג", () =>
   const mapped = new Set([...Object.keys(CADENCE_GROUP_MAP), ...CADENCE_EXCLUDED]);
   const missing = [...types].filter((t) => !mapped.has(t));
   assert.deepEqual(missing, [], missing.join(","));
-  const sqlMap = migration.slice(
-    migration.indexOf("insert into public.notif_cadence_group_map"),
-    migration.indexOf("on conflict (notif_type)"),
-  );
-  const sqlNull = migration.slice(
-    migration.indexOf("when p_type = any(array["),
-    migration.indexOf("]::text[]) then null"),
-  );
+  const later = readdirSync(migDir)
+    .filter((name) => name.endsWith(".sql") && name > "20271031290000_notif_cadence_button.sql")
+    .sort()
+    .map((name) => readFileSync(join(migDir, name), "utf8"))
+    .join("\n");
+  const cadenceSql = `${migration}\n${later}`;
+  const sqlMap = [...cadenceSql.matchAll(
+    /insert into public\.notif_cadence_group_map[\s\S]*?on conflict \(notif_type\)[^;]*;/g,
+  )].map((m) => m[0]).join("\n");
+  const fns = [...cadenceSql.matchAll(/function public\.notif_cadence_group\(p_type text\)[\s\S]*?\$\$;/g)];
+  const sqlNull = fns.length ? fns[fns.length - 1][0] : "";
   for (const [type, group] of Object.entries(CADENCE_GROUP_MAP)) {
     assert.match(sqlMap, new RegExp(`'${type}', '${group}'`), type);
   }
