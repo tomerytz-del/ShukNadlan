@@ -2051,6 +2051,14 @@ const DM_TABS = {
    שורת צוות רק כשיש מתווכים פעילים, וכפתור וואטסאפ רק כשיש מספר. */
 const dmCount = n => n === 1 ? 'נכס פעיל אחד' : `${n} נכסים פעילים`;
 
+/* חיפוש חופשי במשרדים וביועצים: גרשיים, גרש, מקף ורווחים לא קובעים, וכל
+   מילה בכל סדר - "נדלן עפולה" מוצא את "נדל"ן עפולה" (assets/text-match.js,
+   משותף עם agencies.html ו-agents.html). בלי הקובץ - includes כמו קודם. */
+function dmTextMatch(text, q){
+  if (window.TextMatch) return TextMatch.matches(text, q);
+  return !q || String(text || '').toLowerCase().includes(String(q).trim().toLowerCase());
+}
+
 function dmFromAgency(a, i, team){
   const name = a.name || 'משרד תיווך';
   const areas = a.areas || [];
@@ -2452,7 +2460,7 @@ function bindRowScroller(row){
     if (topT) topT.textContent = dmF.title() || (state.tab === 'agents' ? 'יועצי נדל״ן מובילים' : 'משרדים מובילים');
     const q = state.query.trim().toLowerCase();
     let list = data[state.tab].filter(it =>
-      (!q || it.search.toLowerCase().includes(q)) &&
+      dmTextMatch(it.search, q) &&
       (state.spec === 'all' || it.specs.includes(state.spec)));
     // ‏P1-U1: התמחות ואזור (v10) - חיתוך על אותו נכס, ומיון לפי מספר הנכסים שבסינון
     list = dmF.apply(list);
@@ -9324,10 +9332,9 @@ function initDmFilters(state, data, rerender){
     const q = e.target.value.trim();
     if (!q) return;
     searchT = setTimeout(() => {
-      const ql = q.toLowerCase();
-      const list = data[state.tab].filter(it => it.search.toLowerCase().includes(ql));
+      const list = data[state.tab].filter(it => dmTextMatch(it.search, q));
       const specs = (window.DmFilters && DmFilters.SPECS) || [];
-      const matched = !list.length ? 'none' : list.some(it => it.name.toLowerCase().includes(ql)) ? 'name'
+      const matched = !list.length ? 'none' : list.some(it => dmTextMatch(it.name, q)) ? 'name'
         : specs.some(x => x.words.includes(q)) ? 'spec' : 'area';
       if (window.shukTrack) window.shukTrack('dm_search', { tab: state.tab, q_len: q.length, results: list.length, matched });
     }, 800);

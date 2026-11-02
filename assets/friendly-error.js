@@ -87,6 +87,8 @@
       'חסרים פרטים בטופס. כדאי להשלים את השדות ולנסות שוב.'],
     [['invalid_email'], 'כתובת האימייל לא נראית תקינה.'],
     [['invalid_phone'], 'מספר הטלפון לא נראה תקין.'],
+    // בעלי מקצוע (‏admin_set_professional_card_status, docs/professional-cards.md)
+    [['phone_required'], 'חסר מספר טלפון. בלי טלפון אין בעמוד כפתור וואטסאפ ואין חיוג.'],
     [['tier_required', 'upgrade_required'], 'היכולת הזו זמינה במסלול גבוה יותר. אפשר לשדרג בעמוד המסלולים.'],
     [['insufficient_balance', 'insufficient_credit', 'insufficient_funds'], 'אין מספיק יתרה בארנק. אפשר לטעון אותו ולנסות שוב.'],
     [['already_member'], 'הסוכן/ת כבר בצוות המשרד.'],

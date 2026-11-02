@@ -539,3 +539,11 @@ PropertyCard.visualizedIds(sb, ids) // למי יש הדמיית AI
 מתיר `update` רק כש-`current_member_role() = 'manager'` ובמשרד של המשתמש/ת.
 המקטע ב-CRM (`#managerBrandingSection`) מוצג למנהל/ת בלבד, אבל גם סוכן/ת
 שיפתח/תפתח אותו בכוח יקבל/תקבל אפס שורות מעודכנות.
+
+## שיתוף הדף
+
+כפתור עגול בפינת הבאנר: ‏`<button data-share data-share-type="agency" data-page-share hidden>`
+ב-HTML, ו-`assets/page-share.js` (משותף לדף המשרד ולדף הסוכן/ת) מוסיף לו סגנון,
+חושף אותו ומחבר את הלחיצה. ‏Web Share בטלפון, והעתקת קישור במחשב. הכתובת היא
+ה-`canonical` ש-`og-tags.ts` מזריקה (בלי utm), ו-`share` נדחף רק אחרי שהשיתוף
+קרה (`docs/analytics-events.md`).

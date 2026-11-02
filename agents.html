@@ -10,6 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<script src="assets/text-match.js" defer></script>
 <!-- השוק הפעיל, והכלל "מה שייך אליו": הרשימה מציגה את מתווכי השוק בלבד.
      docs/regional-pages.md -->
 <script src="assets/markets.js"></script>
@@ -934,8 +935,10 @@ function assignRankBadges(list){
    ============================================================================ */
 function matchesQuery(a, q){
   if (!q) return true;
-  return [a.display_name, a.agency_name, a.service_area, ...a.specialties, a._dmWords]
-    .some(v => String(v || '').toLowerCase().includes(q));
+  const fields = [a.display_name, a.agency_name, a.service_area, ...a.specialties, a._dmWords];
+  // גרשיים ומקף לא קובעים, וכל מילה בכל סדר ובכל שדה (assets/text-match.js)
+  if (window.TextMatch) return TextMatch.matches(fields, q);
+  return fields.some(v => String(v || '').toLowerCase().includes(q));
 }
 const matchesAgency = (a, key) => key === 'all' || a.agency_id === key;
 const matchesSpec = (a, key) => key === 'all' || a.specialties.some(s => s === key);

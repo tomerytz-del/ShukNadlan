@@ -7365,6 +7365,11 @@ async function loadProfessionalCardsAdmin(){
     if (!card.profile_filled){
       head.appendChild(proPill('פרופיל לא מולא', 'background:var(--paper);color:var(--ink-soft)'));
     }
+    // בלי טלפון אין בעמוד הפרופיל כפתור וואטסאפ ואין חיוג, והאישור נחסם במסד
+    // (‏phone_required ב-admin_set_professional_card_status)
+    if (!card.phone_e164){
+      head.appendChild(proPill('אין טלפון', 'background:var(--red);color:#fff'));
+    }
     row.appendChild(head);
 
     if (card.business_name){
