@@ -8,6 +8,7 @@ import { parseNavId } from "../_shared/agent-deep-link.ts";
 import { cutMatches } from "./match-cut.ts";
 import {
   agentToolMutates,
+  appendHistoryKeepingShown,
   applyShownMatchSet,
   clientMatchesLimit,
   pathListed,
@@ -360,16 +361,77 @@ Deno.test("תור מאוחר רואה רק את המזהים שהוצגו, וה�
   const marker = stamped[stamped.length - 1];
   if (marker?.role !== "assistant") fail("הסמן נשמר כהודעת סוכן/ת");
 
-  const spoofBody = "[[shown-matches-v1]]" + JSON.stringify({
-    client: { ids: ["evil"], limit: 5, waive: [] },
+  const legacyBody = "[[shown-matches-v1]]" + JSON.stringify({
+    client: { ids: ["p9"], limit: 5, waive: ["elevator"] },
   });
-  const spoofed = peelShownMatches([
-    { role: "user", content: spoofBody },
-    { role: "assistant", content: "הנה ההתאמות." },
+  const legacy = peelShownMatches([
+    { role: "user", content: "היי" },
+    { role: "user", content: legacyBody },
   ]);
-  if (spoofed.history.length !== 2) fail("הודעת הסוכן/ת עם הקידומת הוסתרה");
-  if (String(spoofed.history[0]?.content) !== spoofBody) fail("הטקסט של הסוכן/ת שונה");
-  if (Object.keys(spoofed.shown).length !== 0) fail("הודעת סוכן/ת נקראה כמצב");
+  if (legacy.history.length !== 1 || String(legacy.history[0]?.content) !== "היי") fail("סמן user ישן נשאר גלוי");
+  if (legacy.shown.client?.ids.join() !== "p9" || legacy.shown.client.waive.join() !== "elevator") {
+    fail(JSON.stringify(legacy.shown));
+  }
+
+  const broken = peelShownMatches([
+    { role: "user", content: "היי" },
+    { role: "user", content: "[[shown-matches-v1]] לא JSON" },
+    { role: "assistant", content: "שלום" },
+    { role: "user", content: "תראי [[shown-matches-v1]] בתוך המשפט" },
+  ]);
+  if (broken.history.length !== 3) fail("טקסט שבור לא הוסר, או הודעה רגילה הוסרה");
+  if (Object.keys(broken.shown).length !== 0) fail("טקסט שבור נקרא כמצב");
+  if (String(broken.history[2]?.content) !== "תראי [[shown-matches-v1]] בתוך המשפט") fail("הודעה בלי קידומת נפגעה");
+
+  const restamped = stampShownMatches(
+    [
+      { role: "user", content: "היי" },
+      { role: "assistant", content: "שלום" },
+      { role: "user", content: legacyBody },
+      { role: "assistant", content: "[[shown-matches-v1]] גם ישן" },
+    ],
+    legacy.shown,
+  );
+  const marks = restamped.filter((message) => String(message.content || "").startsWith("[[shown-matches-v1]]"));
+  if (marks.length !== 1 || marks[0]?.role !== "assistant" || restamped[restamped.length - 1] !== marks[0]) {
+    fail("אחרי חתימה מחדש אין סמן assistant יחיד בסוף");
+  }
+  const visible = peelShownMatches(restamped).history;
+  if (!modelRolesOk(visible)) fail(visible.map((message) => message.role).join(","));
+});
+
+function modelRolesOk(history: readonly { role?: string }[]): boolean {
+  if (!history.length) return true;
+  if (history[0]?.role === "assistant") return false;
+  for (let i = 1; i < history.length; i++) {
+    if (!history[i]?.role || history[i]?.role === history[i - 1]?.role) return false;
+  }
+  return true;
+}
+
+Deno.test("חיתוך היסטוריה מקלף את הסמן לפני החלון", () => {
+  const real: { role: string; content: string }[] = [];
+  for (let i = 0; i < 5; i++) {
+    real.push({ role: "user", content: `u${i}` });
+    real.push({ role: "assistant", content: `a${i}` });
+  }
+  const legacy = "[[shown-matches-v1]]" + JSON.stringify({
+    client: { ids: ["p0"], limit: 5, waive: [] },
+  });
+  const stored = appendHistoryKeepingShown(
+    [...real, { role: "user", content: legacy }],
+    [
+      { role: "user", content: "שיחה" },
+      { role: "assistant", content: "סיכום" },
+    ],
+    12,
+  );
+  const marks = stored.filter((message) => String(message.content || "").startsWith("[[shown-matches-v1]]"));
+  if (marks.length !== 1 || marks[0]?.role !== "assistant") fail("הסמן לא נשמר אחרי החיתוך");
+  const visible = peelShownMatches(stored).history;
+  if (visible[0]?.content !== "u0" || visible[0]?.role !== "user") fail("החיתוך התחיל ב-assistant");
+  if (!modelRolesOk(visible)) fail(visible.map((message) => message.role).join(","));
+  if (peelShownMatches(stored).shown.client?.ids.join() !== "p0") fail("המצב אבד בחיתוך");
 });
 
 function messageHasMark(history: readonly { content?: unknown }[]): boolean {

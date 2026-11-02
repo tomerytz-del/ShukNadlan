@@ -19,7 +19,7 @@ import { type BusyCheck, type SendToAgent, CSM_TOOLS, csmCapabilities, CSM_GREET
 import { accessTokenForStaff, freeBusy, GCAL_FREEBUSY_SCOPE } from "../_shared/google-calendar.ts";
 import { flattenTemplateParam } from "../_shared/wa-send.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText } from "./whatsapp.ts";
-import { historyKeepingShownMatches } from "./lookup_turn.ts";
+import { appendHistoryKeepingShown } from "./lookup_turn.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -128,9 +128,10 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
       const { data } = await supabase.from("whatsapp_conversations").select("history").eq("agent_id", a.agentId).maybeSingle();
       if (data) {
         const history = Array.isArray(data.history) ? data.history : [];
-        const next = historyKeepingShownMatches(history, [...history,
+        const next = appendHistoryKeepingShown(history, [
           { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: מנהלת ההטמעה שלחה לסוכן/ת הודעה דרך גבריאלה]" },
-          { role: "assistant", content: formatForWhatsapp(a.text).slice(0, 3000) }].slice(-12));
+          { role: "assistant", content: formatForWhatsapp(a.text).slice(0, 3000) },
+        ], 12);
         await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", a.agentId);
       }
     }
