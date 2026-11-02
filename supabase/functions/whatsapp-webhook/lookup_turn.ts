@@ -129,24 +129,30 @@ export function rememberShownMatches(
   return Object.fromEntries(entries.slice(-SHOWN_CLIENTS_MAX));
 }
 
-function parseShownPayload(text: string): Record<string, ShownMatchSet> {
-  if (!text.startsWith(SHOWN_MARK)) return {};
+/** null = ה-JSON לא תקין. אובייקט (גם ריק) = נטען נקי. */
+function parseShownPayload(text: string): Record<string, ShownMatchSet> | null {
+  if (!text.startsWith(SHOWN_MARK)) return null;
   try {
     const raw = JSON.parse(text.slice(SHOWN_MARK.length)) as Record<string, Partial<ShownMatchSet>>;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     const out: Record<string, ShownMatchSet> = {};
-    for (const [key, value] of Object.entries(raw || {})) {
+    for (const [key, value] of Object.entries(raw)) {
       const set = normalizeShownMatchSet(value);
       if (set) out[String(key)] = set;
     }
     return out;
   } catch {
-    return {};
+    return null;
   }
 }
 
 type HistoryMessage = { role?: string; content?: unknown };
 
-/** מוציא את מצב ההתאמות מההיסטוריה, כדי שהמודל לא יראה אותו. */
+/**
+ * מוציא כל שורה שמתחילה בסמן מההיסטוריה שהמודל רואה, מכל תפקיד.
+ * מצב נשמר משורת assistant, וגם משורת user ישנה (#1138) רק כשכל
+ * התוכן הוא הסמן ואחריו JSON תקין. טקסט שבור נזרק ולא נקרא.
+ */
 export function peelShownMatches<T extends HistoryMessage>(history: readonly T[]): {
   history: T[];
   shown: Record<string, ShownMatchSet>;
@@ -155,11 +161,14 @@ export function peelShownMatches<T extends HistoryMessage>(history: readonly T[]
   let shown: Record<string, ShownMatchSet> = {};
   for (const message of history) {
     const text = messageText(message?.content);
-    if (text.startsWith(SHOWN_MARK)) {
-      shown = { ...shown, ...parseShownPayload(text) };
+    if (!text.startsWith(SHOWN_MARK)) {
+      kept.push(message);
       continue;
     }
-    kept.push(message);
+    const role = message?.role;
+    const parsed = role === "assistant" || role === "user" ? parseShownPayload(text) : null;
+    if (parsed && Object.keys(parsed).length) shown = { ...shown, ...parsed };
+    // גם payload ריק או שבור יוצא מההיסטוריה הגלויה
   }
   return { history: kept, shown };
 }
@@ -172,8 +181,24 @@ export function stampShownMatches<T extends HistoryMessage>(
   const peeled = peelShownMatches(history);
   const clean = rememberShownMatches(shown, "", null);
   if (!Object.keys(clean).length) return peeled.history;
-  const marker = { role: "user", content: SHOWN_MARK + JSON.stringify(clean) } as T;
+  const marker = { role: "assistant", content: SHOWN_MARK + JSON.stringify(clean) } as T;
   return [...peeled.history, marker];
+}
+
+/**
+ * מוסיף הודעות בלי שהסמן ייספר בחלון. קודם מקלפים, אחר כך חותכים,
+ * ובסוף סמן assistant אחד. חיתוך לפני הקילוף היה משאיר את הבקשה
+ * למודל מתחילה ב-assistant.
+ */
+export function appendHistoryKeepingShown(
+  previous: unknown,
+  additions: readonly HistoryMessage[],
+  limit = 12,
+): HistoryMessage[] {
+  const prev = peelShownMatches(Array.isArray(previous) ? previous as HistoryMessage[] : []);
+  const cap = Math.max(1, limit);
+  const body = [...prev.history, ...additions].slice(-cap);
+  return stampShownMatches(body, prev.shown);
 }
 
 /**
