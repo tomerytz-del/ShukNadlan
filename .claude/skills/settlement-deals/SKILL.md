@@ -72,7 +72,11 @@ govmap:<גוש>-<חלקה>-<תת>:<YYYY-MM-DD>:<מחיר>:<מ"ר>
 - **האכיפה היא ממצא, לא workflow** - הסוכן בדפדפן ואין לו תזמון בשרת.
   ‏`_deal_sync_cycle` (‏`ops_agent/probes/behavior.py`, ‏`scripts/ops_deal_sync_test.py`):
   ‏`deal_sync_stopped` כשאף יישוב לא עודכן 14 יום, `deal_sync_overdue` כשיישובים
-  חורגים ב-14 יום. שני הקודים תחת `deal_sync_` ב-`PROBE_CODES` (‏`store.py`).
+  חורגים ב-14 יום, ו-`deal_sync_no_data` (מידע) ליישוב שלא נמשך מעולם ונכשל -
+  **הוא אינו פיגור**, ול-GovMap פשוט אין לו נתונים או שהשם שגוי.
+- **‏`fail_streak`** (‏`20271102120000`, הוחל קודם מחוץ לצינור): כישלונות רצופים,
+  ומ-2 ומעלה `deal_sync_plan` משהה 14 ימים ואז כפול עד 90. שינוי ב-`deal_sync_plan`
+  נכתב מהגרסה הזו, אחרת ההשהיה נמחקת. שני הקודים תחת `deal_sync_` ב-`PROBE_CODES` (‏`store.py`).
 - **דף דל לא לגוגל:** ‏`deal_settlements_public()` רק עם עסקאות (אינדקס ו-sitemap),
   ופחות מ-5 עסקאות - `noindex` מ-`deals-page.ts`.
 

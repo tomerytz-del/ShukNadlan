@@ -44,8 +44,11 @@ class _Ctx:
         self.checks += 1
 
 
-def row(overdue, last_ok_days, failing=0):
+def row(overdue, last_ok_days, failing=0, no_data=0, paused=0):
     return {"overdue": overdue, "failing": failing, "active": 243,
+            "no_data": no_data, "no_data_paused": paused,
+            "no_data_top": [{"status": "שגיאה: אין חלקות עם עסקאות", "n": no_data}]
+                           if no_data else [],
             "last_ok": None if last_ok_days is None else "2026-10-01",
             "last_ok_days": last_ok_days, "oldest": ["חדרה", "חריש"]}
 
@@ -58,6 +61,12 @@ def check(name, ok):
     print(("✓ " if ok else "✗ ") + name)
     if not ok:
         failed += 1
+
+
+def _Ctx_sql(r):
+    c = _Ctx(r)
+    list(_deal_sync_cycle(c))
+    return c.db.sql
 
 
 def run(r, has=True):
@@ -77,6 +86,23 @@ fs = run(row(6, 3, failing=4))
 check("רץ לפני 3 ימים, 6 בפיגור (4 נכשלים) - deal_sync_overdue נמוך",
       len(fs) == 1 and fs[0].code == "deal_sync_overdue" and fs[0].severity == "low"
       and "4 מהם נכשלים" in fs[0].title)
+
+# ‏2.11.2026: ‏249 יישובים שלא נמשכו מעולם ונכשלו (אין להם נתונים ב-GovMap)
+# נספרו כ"חורגים ממחזור העדכון". השאילתה מוציאה אותם מ-overdue, וכאן נבדק
+# שהם מקבלים ממצא מידע משלהם ולא מדליקים את הפיגור.
+fs = run(row(0, 7, no_data=249, paused=42))
+check("249 בלי נתונים ב-GovMap, אין פיגור - רק deal_sync_no_data במידע",
+      len(fs) == 1 and fs[0].code == "deal_sync_no_data" and fs[0].severity == "info"
+      and fs[0].subject == "deals:no_data" and fs[0].metric == 249
+      and "42" in fs[0].detail)
+
+fs = run(row(6, 3, failing=6, no_data=249))
+check("גם בלי נתונים וגם יישובים שנמשכו בעבר ונכשלים - שני ממצאים נפרדים",
+      {f.code for f in fs} == {"deal_sync_no_data", "deal_sync_overdue"})
+
+check("השאילתה מוציאה מ-overdue יישוב שלא נמשך מעולם ונכשל",
+      "not (\n                   s.last_synced_at is null" in
+      _Ctx_sql(row(0, 2)))
 
 check("אין פיגור - אין ממצא", not run(row(0, 2)))
 check("אין פיגור גם כשלא רץ מעולם (הכול חדש) - אין ממצא", not run(row(0, None)))
