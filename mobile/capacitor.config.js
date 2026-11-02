@@ -17,6 +17,10 @@ const config = {
   android: {
     appendUserAgent: 'ShukNadlanApp/1.0',
     allowMixedContent: false,
+    // ‏targetSdk 36 מבטל את האפשרות לצאת מ-edge-to-edge. 'auto' מרחיק את
+    // ה-WebView מפסי המערכת ב-Android 15 ומעלה, ושטח הפסים צבוע בכחול של
+    // החלון (styles.xml). בלי זה הכותרת של האתר נבלעת מתחת לשעון.
+    adjustMarginsForEdgeToEdge: 'auto',
   },
   ios: {
     appendUserAgent: 'ShukNadlanApp/1.0',

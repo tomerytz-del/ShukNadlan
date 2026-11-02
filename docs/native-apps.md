@@ -146,9 +146,15 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
 ‏`GoogleService-Info.plist` לא נדרש: ב-iOS האסימון הוא APNs והשליחה
 ישירה. אם בעתיד עוברים ל-FCM גם ב-iOS, מוסיפים את הקובץ לפרויקט ב-Xcode.
 
-יכולת Push Notifications בפורטל של אפל (`aps-environment`) לא נשמרה
-בקובץ ה-entitlements שבריפו, כדי שבנייה בלי פרופיל לא תיכשל. מפעילים
-אותה בפורטל יחד עם Associated Domains לפני שליחה ל-TestFlight.
+‏`aps-environment` ו-Associated Domains יושבים ב-`App.entitlements`. בנייה
+בלי חתימה (ה-CI בלי סודות) מתעלמת מהם. בבנייה חתומה ה-App ID חייב להחזיק את
+שתי היכולות (Push Notifications, Associated Domains), אחרת הפרופיל נדחה.
+הערך `development` הופך ל-`production` בייצוא ל-App Store.
+
+‏`AppDelegate.swift` מעביר את האסימון של APNs ל-Capacitor
+(`didRegisterForRemoteNotificationsWithDeviceToken` ו-`didFailToRegister…`).
+בלי שתי הפונקציות האלה ההרשאה להתראות מתקבלת, אבל האסימון לא מגיע לגשר
+ו-`register_app_push_device` לא נקרא לעולם.
 
 ## טיוטה לחנויות
 
@@ -183,8 +189,15 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
 | כרטיס אשראי | תשלום באתר | לא. הפרטים לא עוברים דרך האפליקציה |
 | תמונות וקבצים | העלאה ב-CRM, אם המשתמש בוחר | כמו באתר |
 
-לא מסומן מעקב בין אפליקציות מעבר למה שהאתר כבר עושה עם GTM. אין מכירת
-מידע. ההתראות אינן חובה כדי לדפדף.
+**מעקב: כן.** הפיקסל של Meta הוא מעקב במובן של אפל, ולכן בתווית של אפל
+"Used to Track You" מסומן על Product Interaction, ו-`PrivacyInfo.xcprivacy`
+מצהיר `NSPrivacyTracking = true` עם הדומיינים של מטא. ב-Play: האפליקציה
+משתמשת בהרשאת `AD_ID` רק לקריאת דגל ה-opt-out, ולכן בשאלה על Advertising
+ID עונים "כן", למטרה Analytics/Advertising. אין מכירת מידע. ההתראות אינן
+חובה כדי לדפדף.
+
+הטבלה הזו, `PrivacyInfo.xcprivacy` והתווית בחנויות הם אותה הצהרה. שינוי
+באחד מהם - בשלושתם.
 
 ## תשלומים בתוך האפליקציה
 
@@ -243,10 +256,23 @@ window.SHUK_APPLE_SIGNIN = false;
 7. רק אחרי כניסה מוצלחת בדפדפן: `window.SHUK_APPLE_SIGNIN = true`
    ב-`assets/apple-signin.js`.
 
-## מעקב ומדידה (הפיקסל נשאר)
+## מעקב ומדידה (הפיקסל רק אחרי הסכמה)
 
-הפיקסל של Meta ו-GTM **לא** משתנים כאן. מי שסוגר את הפיקסל לפי האישור
-עושה את זה ב-GTM, על האות שהאפליקציה דוחפת.
+באפליקציה הפיקסל של Meta נטען **רק אחרי הסכמה** (Apple 5.1.2 ו-ATT). זה
+נעשה בגשר ולא ב-GTM: קטע הפיקסל ב-GTM מתחיל ב-`if(f.fbq)return;`, והגשר,
+שרץ בתחילת המסמך, מגדיר `fbq` מדומה באותו מבנה של Meta (תור). הקריאות
+`init` ו-`PageView` נאספות בתור ו-`fbevents.js` לא נטען.
+
+| תשובה | מה קורה |
+| --- | --- |
+| עוד אין | התור נאסף, שום בקשה לא יוצאת למטא |
+| מותר | `fbevents.js` נטען פעם אחת ומעבד את התור. ההחלטה נשמרת (`localStorage`, `shuk_app_tracking = 1`), ובדף הבא הפיקסל נטען כרגיל מ-GTM |
+| אסור | התור נזרק, והחסימה נשארת גם בדפים הבאים (`shuk_app_tracking = 0`) |
+
+בדפדפן אין גשר, והאתר לא משתנה. GA4 אינו חסום (אינו "מעקב" בין אפליקציות).
+**מי שמשנה את קטע הפיקסל ב-GTM חייב לשמור את `if(f.fbq)return;`** -
+`mobile/test/pixel-gate.test.mjs` מריץ את הקטע מ-`gtm/container.json`
+מול הגשר ונכשל אם השורה נעלמה.
 
 ב-iOS מוצגת בקשת App Tracking Transparency
 (`NSUserTrackingUsageDescription` בעברית). ב-Android הקריאה היא רק לדגל
@@ -296,6 +322,17 @@ window.ShukNadlanApp.setTrackingAllowed(true);
 השכבה הנייטיב קוראת לזה בעצמה. אין לקרוא לזה מדף כדי לזייף אישור.
 
 ## תיקוני חנות נוספים
+
+- ‏Android: ‏`compileSdk` ו-`targetSdk` 36 (‏Android 16), חובה לאפליקציה חדשה
+  ב-Play מ-31.8.2026. ‏AGP 8.10.1, ‏Gradle 8.11.1. מ-36 אי אפשר לצאת
+  מ-edge-to-edge, ולכן `adjustMarginsForEdgeToEdge: 'auto'` ב-`capacitor.config.js`
+  מרחיק את ה-WebView מפסי המערכת, ושטח הפסים בכחול של המותג (`styles.xml`).
+  **בדיקה במכשיר Android 15/16:** הכותרת של האתר לא מתחת לשעון, והסרגל התחתון
+  של ה-CRM לא מתחת לפס הניווט.
+- ‏Android: `allowBackup="false"` ו-`data_extraction_rules.xml` - העוגיות
+  וה-session לא מגובים לענן ולא עוברים למכשיר חדש.
+- ‏iOS: `UIRequiredDeviceCapabilities` הוא `arm64` (‏`armv7` הוא 32 ביט, ואפל
+  דוחה בנייה שמצהירה עליו).
 
 - רצועת "הוספה למסך הבית" לא עולה בתוך האפליקציה (`assets/pwa-install.js`).
 - ב-iOS יש הסברי שימוש בעברית למיקרופון ולזיהוי דיבור (חיפוש קולי),
