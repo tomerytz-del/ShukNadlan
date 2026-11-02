@@ -158,9 +158,22 @@
   var active = 0;
   var MAX_TOTAL = 4;
   var MAX_LOW = 2;
+  var generation = {};
+  var bustFor = {};
+  var gaveUp = {};
+  var giveUpFns = {};
+  var attemptSeq = 0;
+
+  function findTag(src) {
+    var all = document.querySelectorAll('script[data-crm-src]');
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].getAttribute('data-crm-src') === src) return all[i];
+    }
+    return document.querySelector('script[src="' + src + '"]');
+  }
 
   function loadOne(src, integrity, priority) {
-    var found = document.querySelector('script[src="' + src + '"]');
+    var found = findTag(src);
     if (found && found.dataset.ready === '1') return Promise.resolve();
     if (found && found.dataset.evalfail === '1') return Promise.reject(new Error(src));
     var existing = inflight[src];
@@ -171,8 +184,20 @@
       }
       return existing.promise;
     }
-    if (found && found.dataset.failed === '1') { found.remove(); found = null; }
-    var entry = { src: src, integrity: integrity || '', priority: priority || 0, started: false };
+    if (found && found.dataset.failed === '1' && found.dataset.evalfail !== '1') {
+      found.remove();
+    }
+    var entry = {
+      src: src,
+      integrity: integrity || '',
+      priority: priority || 0,
+      started: false,
+      abandoned: false,
+      slotDone: false,
+      bust: bustFor[src] || 0,
+      token: ++attemptSeq,
+    };
+    if (bustFor[src]) delete bustFor[src];
     entry.promise = new Promise(function (resolve, reject) {
       entry.resolve = resolve;
       entry.reject = reject;
@@ -181,6 +206,47 @@
     q.push(entry);
     pump();
     return entry.promise;
+  }
+
+  /* ניסיון חוזר נוטש הורדה תקועה. הגוף הישן לא רץ: ה-fetch מבוטל
+     לפני הזרקת הסקריפט, וטוקן מונע מגוף שמגיע באיחור לרוץ. */
+  function abandonEntry(entry) {
+    if (!entry || entry.abandoned) return;
+    entry.abandoned = true;
+    if (entry.abort) { try { entry.abort(); } catch (e) {} }
+    if (inflight[entry.src] === entry) delete inflight[entry.src];
+    for (var i = q.length - 1; i >= 0; i--) if (q[i] === entry) q.splice(i, 1);
+    if (entry.el && entry.el.dataset.ready !== '1' && entry.el.dataset.evalfail !== '1') {
+      entry.el.remove();
+    }
+    if (entry.started && !entry.slotDone) {
+      entry.slotDone = true;
+      active--;
+      if (entry.priority > 0) activeHigh--;
+    }
+    try { entry.reject(new Error('abandoned')); } catch (e2) {}
+  }
+
+  function abandonGroup(group) {
+    var seen = closureOf(group, {});
+    for (var g in seen) {
+      if (settled[g] === 'ok') continue;
+      generation[g] = (generation[g] || 0) + 1;
+      delete pending[g];
+      delete stalled[g];
+      delete failedAt[g];
+      delete gaveUp[g];
+      if (settled[g] && settled[g] !== 'ok') delete settled[g];
+      var list = GROUPS[g] || [];
+      for (var i = 0; i < list.length; i++) {
+        var src = list[i][0];
+        var tag = findTag(src);
+        if (tag && tag.dataset.ready === '1') continue;
+        abandonEntry(inflight[src]);
+        bustFor[src] = (bustFor[src] || 0) + 1;
+      }
+    }
+    pump();
   }
 
   function pump() {
@@ -201,53 +267,72 @@
     entry.started = true;
     active++;
     if (entry.priority > 0) activeHigh++;
-    /* התגית נכנסת בתור הבא, לא באותו תור שבו נקבע הטיימר של הקורא.
-       טיימר שנקבע באותו תור של appendChild על סקריפט תקוע לא נורה. */
-    setTimeout(function () { attach(entry); }, 0);
+    /* ה-fetch מתחיל בתור הבא, לא באותו תור שבו נקבע הטיימר של הקורא. */
+    setTimeout(function () { fetchScript(entry); }, 0);
   }
 
-  function attach(entry) {
-    var s = document.createElement('script');
-    var settledOne = false;
-    function settle(ok) {
-      if (settledOne) return;
-      settledOne = true;
-      global.removeEventListener('error', onWinError);
-      active--;
-      if (entry.priority > 0) activeHigh--;
-      if (inflight[entry.src] === entry) delete inflight[entry.src];
-      if (ok && !evalFailed) { s.dataset.ready = '1'; entry.resolve(); }
-      else if (evalFailed) {
-        /* הריצה כבר יצרה const/let גלובליים. תגית שנייה מזריקה
-           "already been declared". משאירים את התגית ומסרבים,
-           ורק ניסיון מפורש (fresh) מוריד אותה. */
+  function releaseSlot(entry) {
+    if (entry.slotDone) return;
+    entry.slotDone = true;
+    active--;
+    if (entry.priority > 0) activeHigh--;
+    if (inflight[entry.src] === entry) delete inflight[entry.src];
+    pump();
+  }
+
+  function fetchScript(entry) {
+    if (entry.abandoned) { releaseSlot(entry); return; }
+    /* תגית ריקה בזמן ההורדה, כדי שאפשר לספור אותה. היא לא רצה.
+       הגוף נכנס לתגית אחרת רק אם הניסיון הזה עדיין בתוקף. */
+    var placeholder = document.createElement('script');
+    placeholder.type = 'text/plain';
+    placeholder.setAttribute('data-crm-src', entry.src);
+    document.head.appendChild(placeholder);
+    entry.el = placeholder;
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    entry.abort = function () { if (ctrl) { try { ctrl.abort(); } catch (e) {} } };
+    var url = entry.src;
+    if (entry.bust) url += (url.indexOf('?') < 0 ? '?' : '&') + 'retry=' + entry.token;
+    var opt = { credentials: 'same-origin' };
+    if (ctrl) opt.signal = ctrl.signal;
+    if (entry.integrity) opt.integrity = entry.integrity;
+    fetch(url, opt).then(function (res) {
+      if (!res.ok) throw new Error(entry.src);
+      return res.text();
+    }).then(function (code) {
+      if (entry.abandoned) return;
+      if (entry.el && entry.el.parentNode) entry.el.remove();
+      var s = document.createElement('script');
+      s.setAttribute('data-crm-src', entry.src);
+      entry.el = s;
+      s.text = code;
+      var evalFailed = false;
+      function onErr() { evalFailed = true; }
+      global.addEventListener('error', onErr);
+      document.head.appendChild(s);
+      global.removeEventListener('error', onErr);
+      releaseSlot(entry);
+      if (entry.abandoned) return;
+      if (evalFailed) {
+        /* הריצה כבר יצרה const/let. לא מזריקים עותק שני. */
         s.dataset.evalfail = '1';
         s.dataset.failed = '1';
         entry.reject(new Error(entry.src));
+      } else {
+        s.dataset.ready = '1';
+        entry.resolve();
       }
-      else {
-        s.dataset.failed = '1';
-        s.remove();
-        entry.reject(new Error(entry.src));
+    }).catch(function (err) {
+      if (entry.abandoned || (err && err.name === 'AbortError')) {
+        releaseSlot(entry);
+        return;
       }
-      pump();
-    }
-    var evalFailed = false;
-    function onWinError(ev) {
-      var file = String((ev && ev.filename) || '');
-      if (!file || file.indexOf(entry.src) === -1) return;
-      evalFailed = true;
-      /* onload נורה גם כשהקובץ זרק באמצע. בלי זה הוא נספר כנטען
-         והקריאה הבאה לא מנסה שוב. */
-      settle(false);
-    }
-    global.addEventListener('error', onWinError);
-    s.async = true;
-    if (entry.integrity) { s.integrity = entry.integrity; s.crossOrigin = 'anonymous'; }
-    s.onload = function () { settle(true); };
-    s.onerror = function () { settle(false); };
-    s.src = entry.src;
-    document.head.appendChild(s);
+      if (entry.el && entry.el.dataset.ready !== '1' && entry.el.dataset.evalfail !== '1' && entry.el.parentNode) {
+        entry.el.remove();
+      }
+      releaseSlot(entry);
+      entry.reject(err || new Error(entry.src));
+    });
   }
 
   function needShared(group, priority) {
@@ -263,21 +348,29 @@
     }
     if (!pending[group]) {
       if (failedAt[group]) clearFailed(group);
+      var gen = generation[group] || 0;
       var run = function () { return loadGroup(group); };
+      var mine = function () { return (generation[group] || 0) === gen; };
       pending[group] = run().then(function (v) {
+        if (!mine()) return Promise.reject(new Error('abandoned'));
         settled[group] = 'ok';
         delete failedAt[group];
         delete stalled[group];
+        delete gaveUp[group];
         return v;
       }).catch(function () {
+        if (!mine()) return Promise.reject(new Error('abandoned'));
         clearFailed(group);
         return run().then(function (v) {
+          if (!mine()) return Promise.reject(new Error('abandoned'));
           settled[group] = 'ok';
           delete failedAt[group];
           delete stalled[group];
+          delete gaveUp[group];
           return v;
         });
       }).catch(function (err) {
+        if (!mine()) return Promise.reject(err || new Error('abandoned'));
         delete pending[group];
         failedAt[group] = Date.now();
         settled[group] = err || new Error(group);
@@ -406,7 +499,7 @@
     seen[group] = true;
     var list = GROUPS[group];
     for (var i = 0; i < list.length; i++) {
-      var el = document.querySelector('script[src="' + list[i][0] + '"]');
+      var el = findTag(list[i][0]);
       if (el && el.dataset.evalfail === '1') return true;
     }
     var deps = PRE[group] || [];
@@ -421,7 +514,7 @@
     for (var g in seen) {
       var list = GROUPS[g] || [];
       for (var i = 0; i < list.length; i++) {
-        var el = document.querySelector('script[src="' + list[i][0] + '"]');
+        var el = findTag(list[i][0]);
         if (el && el.dataset.evalfail === '1') el.remove();
       }
     }
@@ -431,6 +524,7 @@
     if (!GROUPS[group]) return Promise.resolve();
     if (opts && opts.fresh) {
       clearFailed(group);
+      abandonGroup(group);
       removeEvalFail(group);
     }
     groupPri[group] = 1;
@@ -460,7 +554,16 @@
     needShared(group, 1).then(function () {
       flushAfter(group);
     }).catch(function () {
-      if (again) { afterWatch[group] = false; return; }
+      if (again) {
+        afterWatch[group] = false;
+        gaveUp[group] = true;
+        var hooks = giveUpFns[group] || [];
+        giveUpFns[group] = [];
+        for (var i = 0; i < hooks.length; i++) {
+          try { hooks[i](); } catch (e) {}
+        }
+        return;
+      }
       setTimeout(function () {
         if (settled[group] === 'ok') { flushAfter(group); return; }
         watchAfter(group, true);
@@ -520,6 +623,13 @@
   global.crmAfter = crmAfter;
   global.crmInflight = crmInflight;
   global.crmEvalFailed = crmEvalFailed;
+  global.crmGaveUp = function (group) { return !!gaveUp[group]; };
+  global.crmOnGiveUp = function (group, fn) {
+    if (!GROUPS[group] || typeof fn !== 'function') return;
+    if (gaveUp[group]) { try { fn(); } catch (e) {} return; }
+    if (!giveUpFns[group]) giveUpFns[group] = [];
+    giveUpFns[group].push(fn);
+  };
   global.crmGroupsFor = crmGroupsFor;
   global.crmArmSections = crmArmSections;
 })(window);

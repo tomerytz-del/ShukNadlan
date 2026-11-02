@@ -16056,6 +16056,24 @@ async function crmOptional(group){
 
 /* קובץ שמגיע אחרי שההמתנה פקעה מריץ את הטעינה בעצמו.
    כישלון אמיתי (502) לא מריץ: crmAfter מחכה להבטחה המשותפת. */
+function noteSettingsGaveUp(){
+  if (typeof leadPrefsLoaded !== 'undefined' && leadPrefsLoaded) return;
+  var body = document.getElementById('setLeadPrefsBody');
+  if (!body || body.querySelector('[data-prefs-gave-up]')) return;
+  var note = document.createElement('p');
+  note.className = 'ui-hint';
+  note.setAttribute('data-prefs-gave-up', '1');
+  note.appendChild(document.createTextNode('ההעדפות לא נטענו. '));
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ui-btn';
+  btn.textContent = 'רענון הדף';
+  btn.addEventListener('click', function () { location.reload(); });
+  note.appendChild(btn);
+  body.insertBefore(note, body.firstChild);
+}
+if (window.crmOnGiveUp) window.crmOnGiveUp('settings', noteSettingsGaveUp);
+
 function crmNeedThen(group, fn){
   if (!window.crmNeed) return Promise.resolve();
   const run = () => (typeof fn === 'function' ? fn() : null);

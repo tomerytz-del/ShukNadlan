@@ -185,7 +185,7 @@ async def main():
         await manager_ready(page, 16000)
         ms = int((asyncio.get_event_loop().time() - t0) * 1000)
         tags = await page.evaluate(
-            """() => document.querySelectorAll('script[src="assets/crm-office.js"]').length""")
+            """() => document.querySelectorAll('script[data-crm-src="assets/crm-office.js"]').length""")
         print('hang dashboard', ms, 'ms, scripts', tags, 'reqs', office_hits['n'], flush=True)
         if tags != 1 or office_hits['n'] != 1:
             fail('קובץ תקוע נטען יותר מפעם אחת')
@@ -208,7 +208,7 @@ async def main():
         await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
         await page.wait_for_function(
             """() => {
-              const tags = [...document.scripts].filter(s => (s.getAttribute('src') || '') === 'assets/crm-leads.js');
+              const tags = [...document.scripts].filter(s => (s.getAttribute('data-crm-src') || '') === 'assets/crm-leads.js');
               return tags.length === 1 && tags[0].dataset.ready === '1';
             }""",
             timeout=20000)
@@ -270,7 +270,7 @@ async def main():
             await page.wait_for_timeout(400)
             runs = await page.evaluate('() => window.%s' % marker)
             tags = await page.evaluate(
-                """(name) => document.querySelectorAll('script[src="assets/' + name + '"]').length""",
+                """(name) => document.querySelectorAll('script[data-crm-src="assets/' + name + '"]').length""",
                 script)
             dup = [e for e in errs if 'already been declared' in e]
             if runs != 1 or hits['n'] != 1 or tags != 1 or dup:
@@ -296,21 +296,66 @@ async def main():
             else:
                 await route.continue_()
 
-        await page.route('**/assets/crm-settings.js', settings_once)
+        await page.route('**/assets/crm-settings.js*', settings_once)
         await page.goto(BASE + '/crm?goto=accPrefs', wait_until='commit', timeout=60000)
         await page.wait_for_function(
             """() => {
-              const tags = [...document.scripts].filter(s => (s.getAttribute('src') || '') === 'assets/crm-settings.js');
+              const tags = [...document.scripts].filter(s => (s.getAttribute('data-crm-src') || '') === 'assets/crm-settings.js');
               return tags.some(s => s.dataset.evalfail === '1');
             }""",
             timeout=20000)
         ok = await page.evaluate("""() => crmNeed('settings', { fresh: true }).then(() => true, () => false)""")
         ready = await page.evaluate(
-            """() => [...document.scripts].some(s => (s.getAttribute('src') || '') === 'assets/crm-settings.js' && s.dataset.ready === '1')""")
+            """() => [...document.scripts].some(s => (s.getAttribute('data-crm-src') || '') === 'assets/crm-settings.js' && s.dataset.ready === '1')""")
         if not ok or not ready or thrown['n'] < 2:
             fail('קובץ שהזריק לא סומן כנכשל או שלא נטען שוב ok=%s ready=%s reqs=%s' % (ok, ready, thrown['n']))
         else:
             print('settings eval error retried', thrown['n'], flush=True)
+        await ctx.close()
+
+        ctx, page, errs = await boot(browser, 1280, 800)
+        retry_hits = {'n': 0}
+
+        async def hang_then_ok(route):
+            retry_hits['n'] += 1
+            if retry_hits['n'] == 1:
+                await asyncio.sleep(30)
+                try:
+                    await route.abort()
+                except Exception:
+                    pass
+            else:
+                await route.continue_()
+
+        await page.route('**/assets/crm-leads.js*', hang_then_ok)
+        await page.goto(BASE + '/crm', wait_until='commit', timeout=60000)
+        await page.wait_for_function(
+            """() => ((document.getElementById('leadsList') || {}).textContent || '').includes('לא נטענה')""",
+            timeout=25000)
+        await page.evaluate("() => { const b = document.querySelector('#leadsList button'); if (b) b.click(); }")
+        try:
+            await page.wait_for_function(
+                """() => {
+                  const t = (document.getElementById('leadsList') || {}).textContent || '';
+                  return !t.includes('לא נטענה') && (t.includes('אין לידים') || t.includes('טוען'));
+                }""",
+                timeout=20000)
+            if retry_hits['n'] < 2:
+                fail('נסו שוב לא פתח בקשה חדשה hits=%s' % retry_hits['n'])
+            else:
+                await page.wait_for_function(
+                    """() => {
+                      const t = (document.getElementById('leadsList') || {}).textContent || '';
+                      return t.includes('אין לידים חדשים') || t.includes('אין לידים עדיין');
+                    }""",
+                    timeout=20000)
+                print('hang retry rendered', retry_hits['n'], flush=True)
+        except Exception as exc:
+            text = await page.locator('#leadsList').inner_text()
+            fail('נסו שוב אחרי תקיעה לא צייר את הרשימה hits=%s %s %s' % (retry_hits['n'], text[:80], exc))
+        dup = [e for e in errs if 'already been declared' in e]
+        if dup:
+            fail('ניסיון חוזר הריץ את הקובץ פעמיים: ' + dup[0][:120])
         await ctx.close()
 
         ctx, page, errs = await boot(browser, 1280, 800)

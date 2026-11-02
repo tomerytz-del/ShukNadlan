@@ -245,7 +245,8 @@ test('כל שימוש בגלובל עצלן שמור או אחרי crmNeed בא�
 
 test('כשל בסקריפט לא נתקע ולא מפיל את הדשבורד', () => {
   assert.match(lazy, /delete pending\[group\]/);
-  assert.match(lazy, /s\.remove\(\)/);
+  assert.match(lazy, /function abandonGroup/);
+  assert.match(lazy, /el\.remove\(\)/);
   assert.match(crm, /crmNeed\('property'\)\.then\(/);
   const propsFn = crm.slice(crm.indexOf('async function loadProperties'), crm.indexOf('async function loadProperties') + 3500);
   assert.doesNotMatch(propsFn, /await libsP/);
@@ -410,6 +411,10 @@ test('קריאה בראש קובץ עצלן לפני let מאוחר נתפסת',
   assert.deepEqual(viaCall, ['later']);
   const alias = topLevelTdz('const w = window;\nw.use();\nfunction use(){ return later; }\nlet later = 1;\n');
   assert.deepEqual(alias, ['later']);
+  const bracket = topLevelTdz("window['renderSettingsHub']();\nfunction renderSettingsHub(){ return later; }\nlet later = 1;\n");
+  assert.deepEqual(bracket, ['later']);
+  const fnAlias = topLevelTdz('const r = renderSettingsHub;\nr();\nfunction renderSettingsHub(){ return later; }\nlet later = 1;\n');
+  assert.deepEqual(fnAlias, ['later']);
   assert.deepEqual(scanTopLevelTdz(root), []);
 });
 

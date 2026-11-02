@@ -202,6 +202,10 @@ function leadPrefsState(){
 function renderLeadPrefs(){
   ensureSettingsMounted();
   const prefsBody = document.getElementById('setLeadPrefsBody');
+  if (prefsBody && leadPrefsLoaded) {
+    var gave = prefsBody.querySelector('[data-prefs-gave-up]');
+    if (gave) gave.remove();
+  }
   if (prefsBody) {
     if (leadPrefsLoaded) prefsBody.removeAttribute('data-ui-lock');
     else prefsBody.setAttribute('data-ui-lock', '');
@@ -301,7 +305,12 @@ function leadPrefsSummary(s){
 }
 
 async function saveLeadPrefs(s){
-  if (!leadPrefsLoaded) throw new Error('ההעדפות עדיין נטענות. נסו שוב בעוד רגע.');
+  if (!leadPrefsLoaded) {
+    if (window.crmGaveUp && window.crmGaveUp('settings')) {
+      throw new Error('ההעדפות לא נטענו. רעננו את הדף ונסו שוב.');
+    }
+    throw new Error('ההעדפות עדיין נטענות. נסו שוב בעוד רגע.');
+  }
   if (!currentAgent) throw new Error('not_ready');
   const active = document.getElementById('setOwnerSwitch').getAttribute('aria-pressed') === 'true';
   const { error } = await sb.from('agent_lead_preferences').upsert({

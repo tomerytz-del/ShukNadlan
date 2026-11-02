@@ -589,7 +589,8 @@ function isFnNode(node) {
 }
 
 /* קריאות סינכרוניות, בלי להיכנס לפונקציה שלא נקראת מיד.
-   IIFE, window.fn() ו-fn.call נכנסים. מאזין ו-setTimeout לא. */
+   IIFE, window.fn(), window['fn'], fn.call וכינוי לפונקציה נכנסים.
+   מאזין ו-setTimeout לא. */
 function syncReach(node, ids, calls, iifes, aliases) {
   if (!node || !node.type || isFnNode(node)) return;
   if (node.type === 'Identifier') ids.add(node.name);
@@ -604,6 +605,11 @@ function syncReach(node, ids, calls, iifes, aliases) {
         calls.add(prop);
         ids.add(prop);
       }
+    } else if (c.type === 'MemberExpression' && c.computed && c.property.type === 'Literal'
+        && typeof c.property.value === 'string' && c.object.type === 'Identifier'
+        && (ROOTS.has(c.object.name) || (aliases && aliases.has(c.object.name)))) {
+      calls.add(c.property.value);
+      ids.add(c.property.value);
     }
   }
   for (const k of Object.keys(node)) {
@@ -667,6 +673,18 @@ function reachableReads(fn, funcs, aliases) {
   return ids;
 }
 
+function fnAliasBefore(ast, at) {
+  const map = new Map();
+  for (const stmt of ast.body) {
+    if (stmt.start >= at) break;
+    if (stmt.type !== 'VariableDeclaration') continue;
+    for (const d of stmt.declarations) {
+      if (d.id.type === 'Identifier' && d.init && d.init.type === 'Identifier') map.set(d.id.name, d.init.name);
+    }
+  }
+  return map;
+}
+
 function aliasesBefore(ast, at) {
   const set = new Set();
   for (const stmt of ast.body) {
@@ -699,7 +717,18 @@ export function topLevelTdz(src) {
     if (!later.size) continue;
     const reads = new Set(ids);
     const seenFns = new Set();
-    for (const c of [...calls]) {
+    const fnAlias = fnAliasBefore(ast, stmt.start);
+    const expanded = new Set(calls);
+    for (const c of calls) {
+      let name = c;
+      const seenA = new Set();
+      while (fnAlias.has(name) && !seenA.has(name)) {
+        seenA.add(name);
+        name = fnAlias.get(name);
+        expanded.add(name);
+      }
+    }
+    for (const c of expanded) {
       for (const name of reachableReads(c, funcs, aliases)) reads.add(name);
     }
     for (const fn of iifes) absorbBody(fn.body || fn, reads, calls, aliases, funcs, seenFns);
