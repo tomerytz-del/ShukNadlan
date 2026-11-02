@@ -11,8 +11,14 @@ import { trimHistory } from "./prompt-cache.ts";
 
 export const TURN_STALE_MS = 45_000;
 export const HEARTBEAT_MS = 15_000;
+/** דופק שנתקע לא חוסם את בדיקת הדדליין. */
+export const RENEW_TIMEOUT_MS = 5_000;
 /** עוצרים תור חי בלי דופק מוצלח לפני שמישהו אחר רשאי לתפוס. */
 export const TURN_DEADLINE_MS = 40_000;
+/** תמונות ישנות מזה לא נשאלות ולא נשלחות משטיפה. */
+export const STALE_IMAGE_MS = 10 * 60 * 1000;
+/** כמה פעמים מייל ממתין לנעילה לפני שמודיעים לסוכן/ת ומוותרים. */
+export const EMAIL_LOCK_TRIES = 3;
 /** כמה פעמים compare-and-set מנסה לפני הוספה אטומית. */
 export const CAS_ATTEMPTS = 4;
 /** ארבעה תורים. חציון תור אצל סוכן/ת הוא כ-16 שניות; ארבעה נשארים מתחת לקיר. */
@@ -35,8 +41,65 @@ export function shouldFlushPendingImages(opts: {
   flushImages: boolean;
   hasText: boolean;
   pendingImages: number;
+  /** מי שחיכה לנעילה או ממשיך ריקון לא שוטף. */
+  followUp?: boolean;
+  /** גיל התמונה. בלי גיל, או מעל 10 דקות, לא שולחים. */
+  imageAgeMs?: number | null;
 }): boolean {
-  return opts.flushImages === true && !opts.hasText && opts.pendingImages > 0;
+  if (opts.followUp) return false;
+  if (opts.flushImages !== true || opts.hasText || opts.pendingImages <= 0) return false;
+  if (opts.imageAgeMs == null || opts.imageAgeMs > STALE_IMAGE_MS) return false;
+  return true;
+}
+
+/** טקסט שנלקח והתור נקטע בלי כלי מוחזר לראש התור, לא לסוף. */
+export function prependPending(existing: readonly string[], added: readonly string[]): string[] {
+  const fresh = added.map((t) => t.trim()).filter(Boolean);
+  return [...fresh, ...existing];
+}
+
+/**
+ * תור שנקטע אחרי כלי שכבר הצליח: שומרים מה נעשה, כדי שלא ייפתח נכס כפול.
+ * בלי כלי: אין מה לשמור, והטקסט חוזר לתור.
+ */
+export function abortedTurnPlan(toolNames: readonly string[]): "save" | "requeue" {
+  return toolNames.length ? "save" : "requeue";
+}
+
+export function abortedTurnNote(toolNames: readonly string[]): string {
+  return `בוצעו כלים לפני שהתור נקטע: ${toolNames.join(", ")}. ` +
+    "אם נוצר נכס או כרטיס, הוא כבר קיים ואין ליצור שוב.";
+}
+
+/** מייל שלא תפס נעילה: עוד ניסיון, ואחרי שלושה מודיעים ומוותרים. */
+export function emailLockPlan(attempt: number, max = EMAIL_LOCK_TRIES): "retry" | "fail" {
+  return attempt >= max ? "fail" : "retry";
+}
+
+/** בלי כתובת. השליחה עצמה עוברת בפעמון, עם שעות שקט וערוץ לפי המסלול. */
+export function emailFailureNotice(subject: string): { title: string; body: string } {
+  const clean = (subject || "ללא נושא").replace(/https?:\/\/\S+/g, "").trim().slice(0, 80);
+  return {
+    title: "מייל שלא טופל",
+    body: `לא הצלחתי לטפל במייל "${clean || "ללא נושא"}". אפשר להעביר אותו שוב.`,
+  };
+}
+
+/** דופק עם תקרה. תקיעה חוזרת כשגיאה כדי שהדדליין ימשיך להיבדק. */
+export async function renewOrTimeout(
+  renew: () => Promise<RenewBeat>,
+  sleep: (ms: number) => Promise<void>,
+  timeoutMs = RENEW_TIMEOUT_MS,
+): Promise<RenewBeat> {
+  let finished = false;
+  const renewP = renew().then((v) => {
+    finished = true;
+    return v;
+  }).catch(() => "error" as const);
+  const timeoutP = sleep(timeoutMs).then(() => "error" as const);
+  const first = await Promise.race([renewP, timeoutP]);
+  if (!finished) return "error";
+  return first;
 }
 
 export class LeaseLost extends Error {
@@ -109,8 +172,22 @@ export async function raceTurnWithLease<T>(opts: {
         if (now() - lastBeat < heartbeatMs) continue;
         lastBeat = now();
         let beat: RenewBeat;
+        let renewHung = false;
         try {
-          beat = await opts.renew();
+          let finished = false;
+          const renewP = opts.renew().then((v) => {
+            finished = true;
+            return v;
+          }).catch(() => "error" as const);
+          const timeoutP = sleep(RENEW_TIMEOUT_MS).then(() => "error" as const);
+          beat = await Promise.race([renewP, timeoutP]);
+          renewHung = !finished;
+          if (renewHung) {
+            renewP.then((v) => {
+              if (!stop && v === false) fail(new LeaseLost());
+            });
+            beat = "error";
+          }
         } catch {
           beat = "error";
         }
@@ -170,7 +247,7 @@ export interface TurnLockStore {
   renew?(agentId: string, token: string): Promise<RenewBeat>;
 }
 
-export type TurnCtx = { pass: number; signal: AbortSignal };
+export type TurnCtx = { pass: number; signal: AbortSignal; followUp?: boolean };
 
 export type HistMsg = { role?: string; content?: unknown };
 
@@ -293,6 +370,7 @@ export async function runWithTurnLock(opts: {
   maxTurns?: number;
   budgetMs?: number;
   waitForLockMs?: number;
+  followUp?: boolean;
   newToken?: () => string;
 }): Promise<{ ran: number; leftPending: boolean; skippedBusy: boolean; unlocked: boolean }> {
   const now = opts.now ?? (() => Date.now());
@@ -321,7 +399,11 @@ export async function runWithTurnLock(opts: {
     }
     if (got === "unavailable") {
       if (i === 0) {
-        const outcome = await opts.runTurn({ pass: 0, signal: new AbortController().signal });
+        const outcome = await opts.runTurn({
+          pass: 0,
+          signal: new AbortController().signal,
+          followUp: opts.followUp === true,
+        });
         return {
           ran: outcome === "work" ? 1 : 0,
           leftPending: false,
@@ -338,7 +420,7 @@ export async function runWithTurnLock(opts: {
     const ac = new AbortController();
     let running: Promise<"work" | "idle"> = Promise.resolve("idle");
     const run = () => {
-      running = opts.runTurn({ pass: i, signal: ac.signal });
+      running = opts.runTurn({ pass: i, signal: ac.signal, followUp: opts.followUp === true });
       return running;
     };
     try {
@@ -355,10 +437,29 @@ export async function runWithTurnLock(opts: {
     } catch (err) {
       if (!(err instanceof LeaseLost) && !(err instanceof LeaseDeadline)) throw err;
     } finally {
-      // אחרי גזירת החכירה מחכים רגע שהתור יראה את ה-abort וייעצר, ורק אז
-      // משחררים. בלי זה התור החי ממשיך אחרי שמישהו אחר תפס.
+      // הכלי שכבר רץ נגמר לפני השחרור, והדופק נשאר עד אז. בלי זה
+      // משחררים אחרי שתי שניות והתור הבא רץ על נכס שעוד נוצר.
       if (ac.signal.aborted) {
-        await Promise.race([running.catch(() => undefined), sleep(2_000)]);
+        let settled = false;
+        let wake: () => void = () => {};
+        const untilWake = () => new Promise<void>((resolve) => {
+          wake = resolve;
+        });
+        const keep = (async () => {
+          if (!opts.store.renew) return;
+          while (!settled) {
+            const beat = await renewOrTimeout(
+              () => opts.store.renew!(opts.agentId, token),
+              sleep,
+            );
+            if (settled || beat === false || beat === "unavailable") return;
+            await Promise.race([sleep(HEARTBEAT_MS), untilWake()]);
+          }
+        })();
+        await running.catch(() => undefined);
+        settled = true;
+        wake();
+        await keep.catch(() => undefined);
       }
       pending = await releaseWithRetry(() => opts.store.release(opts.agentId, token), 3, sleep);
     }
@@ -391,6 +492,7 @@ export async function runTurnUntilQuiet(opts: {
   maxTurns?: number;
   budgetMs?: number;
   waitForLockMs?: number;
+  followUp?: boolean;
   retryBusy?: boolean;
   kicksLeft?: number;
   kick?: () => void;
@@ -406,6 +508,7 @@ export async function runTurnUntilQuiet(opts: {
   if (result.skippedBusy && retryBusy) {
     result = await runWithTurnLock({
       ...opts,
+      followUp: true,
       waitForLockMs: opts.waitForLockMs && opts.waitForLockMs > 0
         ? opts.waitForLockMs
         : TURN_STALE_MS,

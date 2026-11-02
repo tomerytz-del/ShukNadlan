@@ -65,6 +65,7 @@ import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_
 import { isReactionMessage } from "./inbound-kind.ts";
 import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
 import {
+  abortedTurnPlan,
   CAS_ATTEMPTS,
   entriesAddedSince,
   historyPersistPlan,
@@ -74,6 +75,7 @@ import {
   shouldFlushPendingImages,
   type LockAcquire,
   type RenewBeat,
+  type TurnLockResult,
   type TurnLockStore,
 } from "./turn-lock.ts";
 import { planWaText, sendOutboxItem, setWaDropLogger, WA_NO_BUTTON, WaBodyNotSentError } from "../_shared/wa-url-guard.ts";
@@ -2518,10 +2520,13 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     conv,
     msgId: msg.id ? String(msg.id) : null,
   };
-  const answerWithText = (textIn: string, imageIn: string | null, signal?: AbortSignal) =>
-    playTextTurn({ ...played, text: textIn, image: imageIn, signal });
-  const runQueued = (ctx?: { pass: number; signal?: AbortSignal }) =>
-    playQueuedTurn({ ...played, flushImages: (ctx?.pass ?? 0) === 0, signal: ctx?.signal });
+  const runQueued = (ctx?: { pass: number; signal?: AbortSignal; followUp?: boolean }) =>
+    playQueuedTurn({
+      ...played,
+      // מי שחיכה לנעילה אינו שוטף תמונות ישנות. רק רצף התמונות עצמו.
+      flushImages: (ctx?.pass ?? 0) === 0 && ctx?.followUp !== true,
+      signal: ctx?.signal,
+    });
   const kick = () => kickPendingDrain(agent.id, 8);
 
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
@@ -2533,19 +2538,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
       return;
     }
-    // הטקסט לא נכנס ל-pending. עונים עליו תחת הנעילה, ואז מרוקנים מה שכן נכנס.
+    // הטקסט לא נכנס לרצף. מחזירים אותו לתור ועונים תחת הנעילה, כמו הודעה רגילה.
+    if (userText.trim()) {
+      const queued = await requeueAgentTexts(agent.id, from, [userText]);
+      if (!queued) {
+        await reply(from, "לא הצלחתי לקלוט את ההודעה. אפשר לשלוח אותה שוב?", agent.id);
+        return;
+      }
+    }
     await runTurnUntilQuiet({
       agentId: agent.id,
       store: turnStore(),
-      maxTurns: 1,
       kicksLeft: 8,
       kick,
-      runTurn: async (ctx) => {
-        Object.assign(conv, await loadConversation(agent.id, from));
-        if (ctx.signal.aborted) return "idle";
-        if (!userText.trim() && !newImageUrl) return "idle";
-        return answerWithText(userText, newImageUrl, ctx.signal);
-      },
+      runTurn: runQueued,
     });
     return;
   }
@@ -2608,7 +2614,22 @@ async function playTextTurn(opts: {
       ...(mediaTurn ? { allowedTools: MEDIA_TOOLS, deniedToolMessage: MEDIA_TOOLS_DENIED } : {}),
     });
   } catch (err) {
-    if (opts.signal?.aborted) return "work";
+    if (opts.signal?.aborted || (err as { name?: string })?.name === "AbortError") {
+      if (abortedTurnPlan(conv.abortedToolNames || []) === "save") {
+        await saveConversation(agent.id, from, conv);
+        await reply(
+          from,
+          "התחלתי לטפל, אבל התשובה נקטעה. מה שכבר נשמר נשאר. אפשר לשאול אותי מה נעשה.",
+          agent.id,
+        );
+        return "work";
+      }
+      const back = await requeueAgentTexts(agent.id, from, [turnText]);
+      if (!back) {
+        await reply(from, "לא הספקתי לענות. אפשר לשלוח את ההודעה שוב?", agent.id);
+      }
+      return "work";
+    }
     console.error("agent turn failed", err);
     if (opts.msgId) {
       await supabase.from("whatsapp_messages")
@@ -2642,10 +2663,12 @@ async function playQueuedTurn(opts: {
   if (!queued.trim()) {
     // רק התור הראשון של אלבום בלי טקסט שוטף תמונות. מייל, ריקון המשך
     // ותמונות ישנות ליד טקסט לא שולחים שאלה ולא מצרפים לנכס.
+    const since = await pendingImagesSince(opts.agent.id);
     if (shouldFlushPendingImages({
       flushImages: opts.flushImages === true,
       hasText: false,
       pendingImages: opts.conv.pending_images.length,
+      imageAgeMs: since == null ? null : Date.now() - since,
     })) {
       await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
       return "work";
@@ -2660,42 +2683,71 @@ async function playQueuedTurn(opts: {
   });
 }
 
+async function requeueAgentTexts(agentId: string, phone: string, texts: string[]): Promise<boolean> {
+  const clean = texts.map((t) => t.trim()).filter(Boolean);
+  if (!clean.length) return false;
+  const { error } = await supabase.rpc("whatsapp_pending_texts_prepend", {
+    p_agent_id: agentId,
+    p_phone: phone,
+    p_texts: clean,
+  });
+  if (error) {
+    console.error("pending texts prepend failed", error);
+    return false;
+  }
+  return true;
+}
+
 /** אחרי תור שלא בא מוואטסאפ (מייל): לרוקן טקסטים שנכנסו בזמן שהנעילה הייתה תפוסה. */
-async function resumePendingTurns(agentId: string, kicksLeft = 1): Promise<void> {
+async function resumePendingTurns(agentId: string): Promise<boolean> {
   const { data: row } = await supabase.from("whatsapp_conversations")
     .select("wa_phone").eq("agent_id", agentId).maybeSingle();
   const phone = String(row?.wa_phone || "");
-  if (!phone || phone === "unknown") return;
+  if (!phone || phone === "unknown") return false;
   const { data: agent } = await supabase.from("agency_members")
     .select("id, agency_id, display_name, tier")
     .eq("id", agentId)
     .maybeSingle();
-  if (!agent) return;
+  if (!agent) return false;
   const agentRow = {
     ...agent,
     tier: String(agent.tier ?? ""),
     agencies: (await loadAgency(supabase, agent.agency_id, "name")) as { name?: string } | null,
   } as unknown as AgentRow;
   const conv = await loadConversation(agentId, phone);
-  await runTurnUntilQuiet({
+  const result = await runTurnUntilQuiet({
     agentId,
     store: turnStore(),
     retryBusy: false,
     waitForLockMs: 1500,
-    kicksLeft,
-    kick: kicksLeft > 0 ? () => kickPendingDrain(agentId, kicksLeft - 1) : undefined,
+    kicksLeft: 0,
     runTurn: () => playQueuedTurn({
       agent: agentRow, from: phone, conv, msgId: null, flushImages: false,
     }),
   });
+  return result.leftPending || result.skippedBusy;
 }
 
+/** שרשרת ריקון אחת לסוכן/ת. הודעות נוספות לא פותחות שרשרת מקבילה. */
+const activeDrains = new Set<string>();
+
 function kickPendingDrain(agentId: string, kicksLeft: number): void {
-  if (kicksLeft <= 0) return;
-  const work = resumePendingTurns(agentId, kicksLeft);
+  if (kicksLeft <= 0 || activeDrains.has(agentId)) return;
+  activeDrains.add(agentId);
+  const work = (async () => {
+    let left = kicksLeft;
+    while (left > 0) {
+      const more = await resumePendingTurns(agentId);
+      if (!more) break;
+      left -= 1;
+    }
+  })().finally(() => {
+    activeDrains.delete(agentId);
+  });
   try {
     EdgeRuntime.waitUntil(work);
   } catch (err) {
+    activeDrains.delete(agentId);
     console.error("pending drain kick failed", err);
   }
 }
@@ -2703,11 +2755,13 @@ function kickPendingDrain(agentId: string, kicksLeft: number): void {
 async function holdAgentTurn(
   agentId: string,
   run: (ctx: { signal: AbortSignal }) => Promise<void>,
-): Promise<void> {
-  await runTurnUntilQuiet({
+): Promise<TurnLockResult> {
+  // מחכים עד שהמחזיק/ה החי/ה משחרר/ת, לא רק 45 שניות של תור שקרס.
+  return await runTurnUntilQuiet({
     agentId,
     store: turnStore(),
     maxTurns: 1,
+    waitForLockMs: 120_000,
     kicksLeft: 8,
     kick: () => kickPendingDrain(agentId, 8),
     runTurn: async (ctx) => {

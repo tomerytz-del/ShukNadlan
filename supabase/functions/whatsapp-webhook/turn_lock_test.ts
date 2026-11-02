@@ -3,12 +3,19 @@
 
 import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
 import {
+  abortedTurnNote,
+  abortedTurnPlan,
   CAS_ATTEMPTS,
+  emailFailureNotice,
+  emailLockPlan,
   entriesAddedSince,
   HEARTBEAT_MS,
   historyPersistPlan,
   HISTORY_KEEP,
   memoryTurnStore,
+  prependPending,
+  RENEW_TIMEOUT_MS,
+  renewOrTimeout,
   mergeHistoryAppend,
   nextSavedHistory,
   raceTurnWithLease,
@@ -377,16 +384,25 @@ function scriptedClock() {
 }
 
 Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אחרי מייל ולא ליד טקסט", async () => {
-  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 3 })) {
+  if (shouldFlushPendingImages({ flushImages: false, hasText: false, pendingImages: 3, imageAgeMs: 0 })) {
     fail("מייל או ריקון המשך שטפו תמונות");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: true, pendingImages: 2 })) {
+  if (shouldFlushPendingImages({ flushImages: true, hasText: true, pendingImages: 2, imageAgeMs: 0 })) {
     fail("טקסט עם תמונה ממתינה שטף");
   }
-  if (!shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1 })) {
+  if (!shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: 0 })) {
     fail("אלבום בלי טקסט לא נשטף פעם אחת");
   }
-  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 0 })) {
+  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: 11 * 60 * 1000 })) {
+    fail("תמונה ישנה מ-10 דקות נשאלה");
+  }
+  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: null })) {
+    fail("תמונה בלי גיל נשאלה");
+  }
+  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 1, imageAgeMs: 0, followUp: true })) {
+    fail("מי שחיכה לנעילה שטף תמונות");
+  }
+  if (shouldFlushPendingImages({ flushImages: true, hasText: false, pendingImages: 0, imageAgeMs: 0 })) {
     fail("אין תמונות ובכל זאת שטיפה");
   }
 
@@ -402,6 +418,8 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
         flushImages: ctx.pass === 0 && !queued,
         hasText: !!queued,
         pendingImages: store.images.length,
+        imageAgeMs: 0,
+        followUp: ctx.followUp === true,
       });
       if (flush) flushes++;
       return queued || flush ? "work" : "idle";
@@ -422,6 +440,8 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
         flushImages: ctx.pass === 0,
         hasText: !!queued,
         pendingImages: store.images.length,
+        imageAgeMs: 0,
+        followUp: ctx.followUp === true,
       })) flushes++;
       return queued ? "work" : "idle";
     },
@@ -431,7 +451,7 @@ Deno.test("שטיפת תמונות רק באלבום בלי טקסט, לא אח�
   const index = Deno.readTextFileSync(new URL("./index.ts", import.meta.url));
   const resume = index.slice(index.indexOf("async function resumePendingTurns"), index.indexOf("function kickPendingDrain"));
   if (!resume.includes("flushImages: false")) fail("ריקון אחרי מייל עדיין שוטף תמונות");
-  if (!resume.includes("kicksLeft - 1")) fail("המשך אחרי מייל לא ממשיך את השרשרת");
+  if (!index.includes("activeDrains")) fail("כל הודעה פותחת שרשרת ריקון");
   const play = index.slice(index.indexOf("async function playQueuedTurn"), index.indexOf("async function resumePendingTurns"));
   if (!play.includes("shouldFlushPendingImages")) fail("התור לא שואל אם מותר לשטוף");
 });
@@ -700,4 +720,96 @@ Deno.test("היסטוריה וגרסה נשמרות יחד, והוספה אחר�
   if (!sign.includes("client.deal_type === 'sale'")) fail("הסכם לא שואל לפי הצד שנשמר");
   const html = Deno.readTextFileSync(new URL("../../../crm.html", import.meta.url));
   if (!html.includes('<option value="">בחרו מכירה או השכרה</option>')) fail("סוג העסקה בטופס מתחיל במכירה");
+  if (crm.includes("let clientFormDeal = 'sale'") || crm.includes("clientFormDeal || 'sale'")) {
+    fail("טופס הלקוח/ה ממלא קנייה");
+  }
+  if (!crm.includes("בחרו קנייה או שכירות")) fail("טופס מחפש/ת לא דורש צד");
+  const saleBtn = html.slice(html.indexOf('data-client-deal="sale"') - 40, html.indexOf('data-client-deal="sale"') + 40);
+  if (saleBtn.includes('class="active"')) fail("כפתור הקנייה מסומן מראש");
+  if (!index.includes("whatsapp_pending_texts_prepend")) fail("טקסט שנקטע לא חוזר לתור");
+  const email = Deno.readTextFileSync(new URL("./email-intake.ts", import.meta.url));
+  if (!email.includes("notifyEmailFailed") || !email.includes('type: "email_intake"')) {
+    fail("כישלון מייל לא מודיע");
+  }
+  if (!email.includes("lock_wait:")) fail("מייל תפוס לא חוזר לניסיון");
+  const note = emailFailureNotice("חוזה https://example.com/x");
+  if (/https?:\/\//.test(note.body) || /https?:\/\//.test(note.title)) fail("ההתראה מכילה כתובת");
+  if (emailLockPlan(1) !== "retry" || emailLockPlan(3) !== "fail") fail("מכסת ניסיונות המייל");
+  if (abortedTurnPlan([]) !== "requeue" || abortedTurnPlan(["create_property"]) !== "save") {
+    fail("תור שנקטע לא מחזיר טקסט או לא שומר כלי");
+  }
+  if (!abortedTurnNote(["create_property"]).includes("create_property")) fail("ההיסטוריה לא מזכירה את הכלי");
+  const queued = prependPending(["אחר כך"], ["  ראשון  ", ""]);
+  if (queued.join("|") !== "ראשון|אחר כך") fail(queued.join("|"));
+  const prepend = sql.slice(
+    sql.indexOf("function public.whatsapp_pending_texts_prepend"),
+    sql.indexOf("comment on function public.whatsapp_pending_texts_prepend"),
+  );
+  if (!prepend.includes("excluded.pending_texts || coalesce(c.pending_texts")) {
+    fail("ההחזרה אינה לראש התור");
+  }
+  if (!sql.includes("notification_types_add(array['email_intake'])")) fail("אין סוג התראה למייל");
+});
+
+Deno.test("דופק שנתקע לא חוסם את הדדליין, והכלי נגמר לפני השחרור", async () => {
+  const hungClock = scriptedClock();
+  const flush = async () => {
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  };
+  const hung = renewOrTimeout(() => new Promise(() => "error"), hungClock.sleep, RENEW_TIMEOUT_MS);
+  await flush();
+  await hungClock.advance(RENEW_TIMEOUT_MS);
+  if (await hung !== "error") fail("דופק תקוע נחשב הצלחה");
+  if (hungClock.clock > RENEW_TIMEOUT_MS) fail(`התקרה ${hungClock.clock}`);
+
+  const clock = scriptedClock();
+  const released = { n: 0 };
+  let keepRenews = 0;
+  let phase: "watch" | "keep" = "watch";
+  let openTool: () => void = () => {};
+  const tool = new Promise<void>((resolve) => {
+    openTool = resolve;
+  });
+  const store: TurnLockStore = {
+    acquire: async () => true,
+    renew: async () => {
+      if (phase === "keep") {
+        keepRenews++;
+        return true;
+      }
+      return "error";
+    },
+    release: async () => {
+      released.n++;
+      return false;
+    },
+  };
+  const runP = runWithTurnLock({
+    agentId: "a",
+    store,
+    now: clock.now,
+    sleep: clock.sleep,
+    runTurn: (ctx) => new Promise((resolve) => {
+      ctx.signal.addEventListener("abort", () => {
+        phase = "keep";
+        tool.then(() => resolve("idle"));
+      }, { once: true });
+    }),
+  });
+  await flush();
+  await clock.advance(HEARTBEAT_MS);
+  await flush();
+  await clock.advance(HEARTBEAT_MS);
+  await flush();
+  await clock.advance(10_000);
+  await flush();
+  const releases = () => released.n;
+  if (releases() !== 0) fail("הנעילה שוחררה לפני שהכלי נגמר");
+  openTool();
+  await flush();
+  await clock.advance(1_000);
+  await runP;
+  if (releases() !== 1) fail(`שחרורים ${releases()}`);
+  if (keepRenews < 1) fail("אין דופק בזמן שהכלי רץ");
+  if (clock.clock >= 45_000 && keepRenews < 1) fail("הכלי רץ אחרי שהחכירה פגה");
 });

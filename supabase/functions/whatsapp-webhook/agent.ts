@@ -2,6 +2,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { askCoach } from "../_shared/coach/ask.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
+import { abortedTurnNote, abortedTurnPlan } from "./turn-lock.ts";
 import {
   clientNeeds,
   dealNullRejected,
@@ -331,6 +332,8 @@ export interface ConversationState {
   loadedHistory?: Anthropic.MessageParam[];
   /** last_client_id כפי שנטען. אם התור לא שינה אותו, שמירה מתנגשת שומרת ערך טרי. */
   loadedLastClientId?: string | null;
+  /** כלים שהספיקו לרוץ לפני שהחכירה נקטעה. ריק = הטקסט חוזר לתור. */
+  abortedToolNames?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -9690,9 +9693,21 @@ export async function runAgentTurn(opts: {
   // כלי כתיבה בתור הזה מוריד בוררי חיפוש (list_properties / search_properties)
   // לפני שהתור נשלח. הסימון הוא על הקריאה, גם אם הכלי החזיר שאלה ולא כתב.
   let mutated = false;
+  const toolsDone: string[] = [];
+  const stopForAbort = (): never => {
+    if (abortedTurnPlan(toolsDone) === "save") {
+      conv.abortedToolNames = toolsDone.slice();
+      conv.history = trimHistory([
+        ...conv.history,
+        { role: "user", content: userSummary },
+        { role: "assistant", content: abortedTurnNote(toolsDone) },
+      ], HISTORY_LIMIT);
+    }
+    throw new DOMException("turn aborted", "AbortError");
+  };
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    if (opts.signal?.aborted) throw new DOMException("turn aborted", "AbortError");
+    if (opts.signal?.aborted) stopForAbort();
     const llmStart = Date.now();
     const response = await callClaude({
       model: MODEL,
@@ -9718,7 +9733,7 @@ export async function runAgentTurn(opts: {
       tools,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming, opts.signal);
-    if (opts.signal?.aborted) throw new DOMException("turn aborted", "AbortError");
+    if (opts.signal?.aborted) stopForAbort();
 
     // מה באמת נחסך. בלי השורה הזו אין דרך לדעת שהמטמון הפסיק לתפוס: הכול
     // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה
@@ -9768,6 +9783,7 @@ export async function runAgentTurn(opts: {
 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
+      if (opts.signal?.aborted) break;
       // המודל רואה רק את `tools`, אבל שם של כלי הוא טקסט שהוא כותב — הגבול
       // נאכף כאן ולא רק ברשימה שנשלחה אליו.
       const toolStart = Date.now();
@@ -9780,6 +9796,9 @@ export async function runAgentTurn(opts: {
           use.name,
           (use.input || {}) as Record<string, unknown>,
         );
+      const failed = !!result && typeof result === "object" &&
+        ((result as { ok?: boolean }).ok === false || typeof (result as { error?: unknown }).error === "string");
+      if (!blocked && !failed) toolsDone.push(use.name);
       // ‏`ms=` כאן וב-`llm` (24.10.2026): בשבוע שאחרי 17.10 טקסט של סוכן/ת
       // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
       // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
@@ -9790,6 +9809,7 @@ export async function runAgentTurn(opts: {
         content: JSON.stringify(result),
       });
     }
+    if (opts.signal?.aborted) stopForAbort();
 
     // נקודת שבירה שנייה, **מתגלגלת**: היא מסמנת את סוף מה שכבר נשלח, כך
     // שהסבב הבא יקרא אותו מהמטמון במקום לשלם עליו מחדש.

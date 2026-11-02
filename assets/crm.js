@@ -23836,7 +23836,7 @@ function renderMatchCards(panel, rows){
    ב-crm.html). שלושה ערכים חיים כאן כ-state ולא בשדה: סוג העסקה והקטגוריה
    (מתגים), והערים - מערך של תגיות שנשלח כמו שהוא ל-cities. עד היום הערים
    היו שדה טקסט שנחתך בפסיקים, וכל טעות הקלדה הפכה לעיר שאין לה נכסים. */
-let clientFormDeal = 'sale';
+let clientFormDeal = '';
 let clientFormKind = 'seeker';
 let clientFormCities = [];
 let editingClientRow = null;
@@ -23920,7 +23920,7 @@ function setClientFormKind(kind){
 function setClientFormDeal(deal, opts){
   const owner = (opts && opts.owner) || clientFormKind === 'owner';
   if (deal === 'rent' || deal === 'sale') clientFormDeal = deal;
-  else clientFormDeal = owner ? '' : 'sale';
+  else clientFormDeal = '';
   document.querySelectorAll('[data-client-deal]').forEach(b => {
     const on = !!clientFormDeal && b.dataset.clientDeal === clientFormDeal;
     b.classList.toggle('active', on);
@@ -23999,7 +23999,7 @@ function resetClientForm(){
   clientFormCities = [];
   renderClientCityChips();
   populateClientNeighborhoodSelect('');
-  setClientFormDeal('sale');
+  setClientFormDeal('');
   setClientFormCategory('residential');
   setClientFormKind('seeker');
   setClientAirMin('');
@@ -24163,6 +24163,11 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   // אותה בדיקה קיימת כ-check constraint ב-DB; כאן היא חוסכת הלוך-חזור לשרת.
   // אצל בעל/ת נכס השדות מוסתרים ולא נשלחים, ולכן גם לא נבדקים.
   const seeker = clientFormKind === 'seeker';
+  if (seeker && clientFormDeal !== 'sale' && clientFormDeal !== 'rent'){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'בחרו קנייה או שכירות';
+    return;
+  }
   if (seeker && minPrice != null && maxPrice != null && minPrice > maxPrice){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'התקציב המינימלי גבוה מהמקסימלי';
@@ -24184,7 +24189,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     share_level:      document.getElementById('clShareLevel').value || 'network',
     notes:  document.getElementById('clNotes').value.trim() || null,
     client_kind: clientFormKind,
-    deal_type: clientFormKind === 'owner' && !clientFormDeal ? null : (clientFormDeal || 'sale'),
+    deal_type: clientFormDeal === 'sale' || clientFormDeal === 'rent' ? clientFormDeal : null,
     category:  clientFormCategory,
     status: document.getElementById('clStatus').value,
   };
@@ -26132,6 +26137,9 @@ const NOTIF_TYPES = [
   { type:'call_deleted_by_manager', tone:'', goto:'accLines', focus:'#callsBlock',
     title:'שיחה נמחקה על ידי מנהל/ת המשרד',
     sub:'כשמנהל/ת המשרד מוחק/ת שיחה מהמספר שלך, עם ההקלטה והתמלול.' },
+  { type:'email_intake',   tone:'',       goto:'accClients', focus:'#clientsList',
+    title:'מייל שלא טופל',
+    sub:'מייל שהועבר לגבריאלה ולא טופל אחרי כמה ניסיונות. אפשר להעביר אותו שוב.' },
   { type:'system',         tone:'',       goto:'accProperties', focus:'#sharedWithMeList',
     refresh: ()=> propOwnerTab('shared'),
     title:'שיתופי נכסים ועדכוני מערכת',

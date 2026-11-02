@@ -177,6 +177,45 @@ comment on function public.whatsapp_turn_release(uuid, uuid) is
 revoke all on function public.whatsapp_turn_release(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.whatsapp_turn_release(uuid, uuid) to service_role;
 
+-- טקסט שנלקח והתור נקטע חוזר לראש התור, לא לסוף.
+create or replace function public.whatsapp_pending_texts_prepend(
+  p_agent_id uuid,
+  p_phone text,
+  p_texts text[]
+) returns void
+language plpgsql
+set search_path to ''
+as $$
+declare
+  v_texts text[];
+  v_phone text;
+begin
+  if p_agent_id is null or p_texts is null then
+    return;
+  end if;
+  select coalesce(array_agg(t), '{}'::text[]) into v_texts
+    from unnest(p_texts) as t
+   where btrim(coalesce(t, '')) <> '';
+  if v_texts is null or cardinality(v_texts) = 0 then
+    return;
+  end if;
+  v_phone := coalesce(nullif(btrim(p_phone), ''), 'unknown');
+  insert into public.whatsapp_conversations as c (agent_id, wa_phone, pending_texts)
+  values (p_agent_id, v_phone, v_texts)
+  on conflict (agent_id) do update
+     set pending_texts = excluded.pending_texts || coalesce(c.pending_texts, '{}'::text[]),
+         updated_at = pg_catalog.now();
+end;
+$$;
+
+comment on function public.whatsapp_pending_texts_prepend(uuid, text, text[]) is
+  'מחזיר/ה טקסט לראש pending_texts. תור שנקטע בלי תשובה לא נעלם.';
+
+revoke all on function public.whatsapp_pending_texts_prepend(uuid, text, text[]) from public, anon, authenticated;
+grant execute on function public.whatsapp_pending_texts_prepend(uuid, text, text[]) to service_role;
+
+select public.notification_types_add(array['email_intake']);
+
 -- דופק: תור חי מאריך את החכירה. תור שנתקע לא מחדש, ומשתחרר אחרי 45 שניות.
 create or replace function public.whatsapp_turn_renew(
   p_agent_id uuid,
