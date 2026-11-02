@@ -421,6 +421,28 @@ PUBLIC_RPC = {
     "wa_share_link_get": "הקישור הקצר /wa/<code> (netlify/edge-functions/wa-share.ts) - "
                          "הודעה אחת לפי קוד אקראי של 62^10, בלי רשימה וחיפוש, וקישור "
                          "בן 90 יום אינו נפתח; docs/client-showcase.md",
+    "city_ids_for_name": "מזהי עיר או קבוצת יישובים לפי שם - נתון פומבי, אחות של "
+                         "city_id_for_name; property-search.ts "
+                         "(20271101100000_city_groups_taanach.sql)",
+    "city_groups_public": "החיפוש בדף הבית (home.js) וב-CRM - שמות קבוצות היישובים "
+                          "והערים שבהן; docs/search-core.md",
+}
+
+# פונקציות SECURITY DEFINER שפתוחות ל-anon **וכותבות** בכוונה. הרף כאן גבוה
+# מזה של `PUBLIC_RPC`: לכל אחת רשומות הטבלאות היחידות שמותר לה לכתוב אליהן,
+# והבדיקה מחלצת מהגוף את יעדי ה-insert/update/delete. יעד שאינו ברשימה,
+# או ‏grant/revoke/truncate/set_config בגוף, מחזירים את הממצא בדרגה גבוהה -
+# כך שהרחבה של הפונקציה אינה עוברת בשקט בחסות ההצהרה.
+#
+# מה שמצדיק שורה כאן: הקורא/ת הוא קוד שרת שמחזיק רק את המפתח הציבורי, הקלט
+# מאומת בגוף, ויש תקרה נגד הצפה. בלי שלושתם - ‏revoke ולא הצהרה.
+PUBLIC_RPC_WRITES = {
+    "record_link_click": (
+        "הקישור /go/<code> (netlify/edge-functions/go-link.ts, מפתח ציבורי) - "
+        "קוד ו-variant מאומתים ב-regex, תקרה של 60 לקוד ו-300 לכולם בדקה; "
+        "docs/click-tracking.md",
+        ("link_clicks",),
+    ),
 }
 
 PAUSED_WORKFLOWS = {

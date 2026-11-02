@@ -1119,7 +1119,7 @@ el('inquiryForm').addEventListener('submit', async (e)=>{
     if (!res.ok || data.error){
       const messages = {
         bad_phone:'מספר הטלפון אינו תקין',
-        rate_limited:'כבר קיבלנו ממך כמה פניות היום. נחזור אליך בקרוב.',
+        rate_limited:'כבר קיבלנו מכם כמה פניות ב-24 השעות האחרונות, והפנייה הזו לא נשלחה. אפשר לנסות שוב מאוחר יותר.',
         project_not_found:'דף הפרויקט אינו פעיל כרגע',
       };
       msg.style.color = '#b3261e';
@@ -1130,7 +1130,7 @@ el('inquiryForm').addEventListener('submit', async (e)=>{
     el('inquiryForm').innerHTML =
       '<h3 style="font-family:\'Frank Ruhl Libre\',serif;font-size:1.05rem;margin:0;color:var(--teal-dark)">הפנייה נשלחה</h3>' +
       '<p style="font-size:.83rem;color:var(--ink-soft);margin:8px 0 0">' +
-      'משרד המכירות של הפרויקט קיבל את הפרטים וייצור איתך קשר.</p>';
+      'הפרטים הועברו ליזם של הפרויקט.</p>';
   } catch(err){
     console.warn(err);
     msg.style.color = '#b3261e';
