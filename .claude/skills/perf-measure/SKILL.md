@@ -136,6 +136,10 @@ Content-Encoding: gzip (רמה 6)
 
 ו-‏Chromium בסשן הענן עובר דרך הפרוקסי: שם מארח מדומה צריך `--no-proxy-server`.
 
+**ו-`measure.py` מוצא את Chromium לפי `chrome-linux*`** - התיקייה בסביבת הענן היא
+‏`chrome-linux64`, והחיפוש הישן (‏`chrome-linux/chrome`) לא מצא כלום ונפל לדפדפן של
+Playwright שאינו מותקן ("Executable doesn't exist"). תוקן ב-2.11.2026.
+
 ## מה שכבר נמדד, ואין צורך למדוד שוב
 
 * **הוצאת JS לקובץ ב-`assets/`** — משתלמת בביקור החוזר, בשלושה דפים
