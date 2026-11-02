@@ -5,15 +5,20 @@
 //   deno test supabase/functions/whatsapp-webhook/lookup_turn_test.ts
 
 import { parseNavId } from "../_shared/agent-deep-link.ts";
+import { cutMatches } from "./match-cut.ts";
 import {
   agentToolMutates,
-  pathListed,
-  propertyLookupOutbox,
+  applyShownMatchSet,
   clientMatchesLimit,
+  pathListed,
+  peelShownMatches,
+  propertyLookupOutbox,
+  rememberShownMatches,
   resolveShowcaseRefs,
   screenOutbox,
   showcaseRefsCall,
   showcaseShownLimit,
+  stampShownMatches,
   turnOutbound,
   type OutboxItem,
   type ShowcaseMatch,
@@ -315,3 +320,45 @@ Deno.test("כשהוצגו 5, שורה 7 לא נבחרת והשאלה רק על �
     fail(asked.ask);
   }
 });
+
+Deno.test("תור מאוחר רואה רק את המזהים שהוצגו, והמצב נשמר בשיחה", () => {
+  if (clientMatchesLimit(5.9) !== 5 || clientMatchesLimit(1.2) !== 1) fail("floor");
+  if (clientMatchesLimit(0) !== 1 || clientMatchesLimit(-4) !== 1 || clientMatchesLimit(0.2) !== 1) fail("מינימום 1");
+  const scored = Array.from({ length: 8 }, (_, i) => ({ property_id: `s${i}`, score: 80 - i }));
+  if (cutMatches(scored, 5.9).shown.length !== 5) fail("חיתוך 5.9");
+  if (cutMatches(scored, 0.4).shown.length !== 1) fail("חיתוך מתחת ל-1");
+
+  const rows: ShowcaseMatch[] = Array.from({ length: 10 }, (_, i) => ({
+    property_id: `p${i}`,
+    title: `שורה ${i + 1}`,
+    street: i === 6 ? "הדקל" : "פרץ ציוני",
+    score: 100 - i,
+  }));
+  const saved = rememberShownMatches(undefined, "client", {
+    ids: rows.slice(0, 5).map((row) => String(row.property_id)),
+    limit: 5,
+    waive: ["elevator"],
+  });
+  const window = applyShownMatchSet(rows, saved.client);
+  const onlySeventh = resolveShowcaseRefs(window.rows, ["הדקל"], window.limit);
+  if (onlySeventh.ok) fail("שורה 7 שנשמרה מחוץ לחלון נוספה");
+  if (onlySeventh.ask.includes("שורה 7")) fail("השאלה כוללת שורה שלא הוצגה");
+  const asked = resolveShowcaseRefs(window.rows, ["פרץ ציוני"], window.limit);
+  if (asked.ok || asked.ask.includes("שורה 6") || asked.ask.includes("שורה 7")) fail(asked.ok ? "נוסף" : asked.ask);
+  if (!asked.ask.includes("שורה 1") || !asked.ask.includes("שורה 5")) fail("חסרה שורה שהוצגה");
+
+  const stamped = stampShownMatches(
+    [{ role: "user", content: "רק עם פרץ ציוני" }],
+    saved,
+  );
+  const peeled = peelShownMatches(stamped);
+  if (peeled.history.length !== 1 || messageHasMark(peeled.history)) fail("הסמן נשאר בהיסטוריה של המודל");
+  if (peeled.shown.client?.ids.join() !== "p0,p1,p2,p3,p4" || peeled.shown.client.waive.join() !== "elevator") {
+    fail(JSON.stringify(peeled.shown));
+  }
+  if (peeled.shown.client.limit !== 5) fail("ה-limit לא נשמר");
+});
+
+function messageHasMark(history: readonly { content?: unknown }[]): boolean {
+  return history.some((message) => String(message.content || "").includes("shown-matches"));
+}

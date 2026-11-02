@@ -85,11 +85,12 @@ import {
   dropLookupOnMutation,
   pathListed,
   propertyLookupOutbox,
+  applyShownMatchSet,
   clientMatchesLimit,
+  rememberShownMatches,
   resolveShowcaseRefs,
   screenOutbox,
   showcaseRefsCall,
-  showcaseShownLimit,
   type OutboxItem,
 } from "./lookup_turn.ts";
 export type { OutboxItem };
@@ -308,6 +309,11 @@ export interface ConversationState {
   introduce?: boolean;
   /** בתור הנוכחי בלבד, לא נשמר: התראות שיצאו בשעתיים האחרונות. */
   recent_note?: string;
+  /**
+   * ההתאמות שהוצגו, לפי לקוח/ה. נשמר בסוף history (סמן שהמודל לא רואה)
+   * ונטען מחדש בכל תור. בלי עמודה חדשה.
+   */
+  shownMatches?: Record<string, { ids: string[]; limit: number; waive: string[] }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -5606,6 +5612,11 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
   if (error) return { ok: false, error: error.message };
   ctx.matchWaive = { clientId, features: waive, limit };
   const cut = cutMatches((allRows || []) as Array<Record<string, unknown>>, limit);
+  ctx.conv.shownMatches = rememberShownMatches(ctx.conv.shownMatches, clientId, {
+    ids: (cut.shown || []).map((row) => String(row.property_id || "")),
+    limit,
+    waive,
+  });
   const data = cut.shown;
 
   // האם יש כבר מיניסייט פעיל, ומה מההתאמות כבר בו - כדי שההצעה תהיה "לפתוח"
@@ -5788,26 +5799,20 @@ async function toolCreateShowcase(ctx: ToolContext, input: Record<string, unknow
   // לא מול כל הנכסים בכתובת: שם יושבות גם דירה וגם חנות בעסקה אחרת.
   if (!ids.length && refs.length) {
     const required = ((client.required_features as string[] | null) || []).filter(Boolean);
+    const saved = ctx.conv.shownMatches?.[clientId];
     const call = showcaseRefsCall({
       agentId: ctx.agent.id,
       clientId,
       required,
       inputWaive: input.waive_features,
-      rememberedClientId: ctx.matchWaive?.clientId,
-      rememberedWaive: ctx.matchWaive?.features,
+      rememberedClientId: saved ? clientId : ctx.matchWaive?.clientId,
+      rememberedWaive: saved ? saved.waive : ctx.matchWaive?.features,
     });
     const { data, error } = await ctx.supabase.rpc("agent_client_matches", call);
     if (error) return { ok: false, error: error.message };
-    const shownLimit = showcaseShownLimit({
-      clientId,
-      rememberedClientId: ctx.matchWaive?.clientId,
-      rememberedLimit: ctx.matchWaive?.limit,
-    });
-    const resolved = resolveShowcaseRefs(
-      (data || []) as Array<Record<string, unknown>>,
-      refs,
-      shownLimit,
-    );
+    // תור מאוחר יותר רואה רק את המזהים שהוצגו, לא את 30 השורות החדשות.
+    const window = applyShownMatchSet((data || []) as Array<{ property_id?: unknown }>, saved);
+    const resolved = resolveShowcaseRefs(window.rows, refs, window.limit);
     if (!resolved.ok) {
       return {
         ok: false,
