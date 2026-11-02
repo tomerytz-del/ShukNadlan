@@ -62,6 +62,7 @@ import {
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
+import { isReactionMessage } from "./inbound-kind.ts";
 import { planWaText, sendOutboxItem, setWaDropLogger, WA_NO_BUTTON, WaBodyNotSentError } from "../_shared/wa-url-guard.ts";
 import {
   CADENCE_BACK_TITLE,
@@ -1879,6 +1880,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   if (!from || !msg.id) return;
 
   if (!(await logInbound(msg))) return; // משלוח חוזר של Meta — כבר טופל
+  // אימוג'י על הודעה. בלי תשובה, בלי "מקלידה", ובלי מודל - אחרת גבריאלה
+  // עונה "אני יודעת לקבל טקסט, תמונות..." על תגובה.
+  if (isReactionMessage(msg)) return;
   markReadAndTyping(msg.id);
 
   // שאלה תפעולית (ops_q). לפני זיהוי הסוכן/ת, הבוט הציבורי והמודל.
