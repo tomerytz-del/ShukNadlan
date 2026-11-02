@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import re
 
 from typing import Iterator
 
@@ -894,11 +895,12 @@ def _deal_sync_cycle(ctx) -> Iterator[Finding]:
                                   and s.last_status like 'שגיאה:%%'
                                   and s.fail_streak >= 2)                as no_data_paused,
                (select coalesce(jsonb_agg(e order by e.n desc), '[]'::jsonb) from (
-                  select left(x.last_status, 120) as status, count(*) as n
+                  select x.last_status as status, count(*) as n,
+                         array_agg(x.name order by x.name) as names
                     from public.deal_settlements x
                    where x.active and x.last_synced_at is null
                      and x.last_status like 'שגיאה:%%'
-                   group by 1 order by 2 desc limit 5) e)                as no_data_top,
+                   group by 1) e)                                       as no_data_top,
                count(*) filter (where s.active)                          as active,
                max(s.last_synced_at)                                     as last_ok,
                extract(day from now() - max(s.last_synced_at))::int      as last_ok_days,
@@ -955,45 +957,101 @@ def _deal_sync_cycle(ctx) -> Iterator[Finding]:
     )
 
 
+# ‏הסוכן מדווח כישלון בטקסט חופשי (‏`deal_sync_fail(name, error)`), ולכן
+# הסיווג לפי מילים. סדר הבדיקה הוא חלק מהכלל: "בחיפוש ... מופיע רק X -
+# יישוב אחר" הוא שם, לא עיר אחרת. הקידומות `שם:` / `עיר אחרת:` / `אין נתונים:`
+# הן מה שהסקיל של הסוכן מבקש מעכשיו (‏docs/agent-skills/govmap-deals-sync),
+# והמילים הן לדיווחים שנכתבו לפני כן. נבדק על 33 הנוסחים האמיתיים של
+# ‏2.11.2026 ב-scripts/ops_deal_sync_test.py.
+_FAIL_NAME = re.compile(r"שגיאה:\s*שם:|לא נמצא בחיפוש|בחיפוש של|מופיע כ")
+_FAIL_OTHER_CITY = re.compile(
+    r"שגיאה:\s*עיר אחרת:|עסקאות של|עיר אחרת|שייכת לרשימה של|מציגה עסקאות|"
+    r"מציגות רחובות של|לא ניתן לשייך|מכל הארץ|הרשימה הכללית|דלי כללי")
+
+
+def _deal_fail_kind(status: str) -> str:
+    """‏'name' (השם שגוי), ‏'other_city' (הגיעו עסקאות של מקום אחר), או 'no_data'."""
+    status = status or ""
+    if _FAIL_NAME.search(status):
+        return "name"
+    if _FAIL_OTHER_CITY.search(status):
+        return "other_city"
+    return "no_data"
+
+
+_DEAL_FAIL_KINDS = (
+    # (סוג, code, severity, subject, כותרת, מה לעשות)
+    ("name", "deal_sync_name_mismatch", "low", "deals:name_mismatch",
+     "‏%d יישובים שהשם שלהם לא נמצא בחיפוש של GovMap",
+     "השם ברשימה שונה מהשם ב-GovMap (כתיב, \"כפר\" בראש השם, שם ישן). ב-CRM, "
+     "יישובים לעסקאות: לתקן את השם לשם שמופיע בחיפוש של GovMap - הוא נכתב גם "
+     "ל-market_deals_official.city. יישוב שאינו קיים שם - לכבות. אחרי התיקון "
+     "הוא חוזר לתור ב\"עדכן עסקאות\" הבא."),
+    ("other_city", "deal_sync_other_city", "info", "deals:other_city",
+     "‏%d יישובים ש-GovMap החזיר להם עסקאות של מקום אחר",
+     "הסוכן צדק שלא כתב: החלקה שבתחום היישוב שייכת ברשימה של GovMap ליישוב "
+     "אחר, או שחזרה הרשימה הכללית של 1,500 עסקאות מכל הארץ. אין מה לתקן כאן - "
+     "העסקאות שלהם, אם יש, נספרות ביישוב השכן. אפשר לכבות אותם."),
+    ("no_data", "deal_sync_no_data", "info", "deals:no_data",
+     "‏%d יישובים שאין להם עסקאות ביישוב ב-GovMap",
+     "ל-GovMap אין להם פוליגון, חלקות עם עסקאות או לשונית \"עסקאות ביישוב\" - "
+     "בדרך כלל כפרים, קיבוצים ויישובים קטנים. ניסיון חוזר מחזיר אותה תשובה, "
+     "ו-deal_sync_plan כבר משהה אותם. אפשר לכבות אותם ב-CRM, יישובים לעסקאות, "
+     "או להשאיר להשהיה."),
+)
+
+
 def _deal_sync_no_data(r) -> Iterator[Finding]:
-    """יישובים שלא נמשכו מעולם, והסוכן דיווח עליהם כישלון.
+    """יישובים שלא נמשכו מעולם, והסוכן דיווח עליהם כישלון - לפי סוג השגיאה.
 
     ‏**זה אינו "המחזור לא מגיע אליהם".** ‏2.11.2026: ‏249 יישובים נספרו
     ב-`deal_sync_overdue` כ"חורגים ממחזור העדכון - 249 מהם נכשלים", וכולם
-    היו יישובים שהסוכן **הגיע** אליהם ומצא שאין ל-GovMap עבורם רשימת
-    "עסקאות ביישוב" - כפרים, קיבוצים ויישובים קטנים בלי פוליגון ובלי
-    חלקות עסקאות. ניסיון חוזר מחזיר את אותה תשובה, ו-`deal_sync_plan`
-    כבר משהה אותם לבד (‏`fail_streak`, ‏14 ימים ואז כפול, עד 90).
-    הממצא הישן לא היה יכול להיסגר בשום פעולה של הסוכן - בדיוק "המדד
-    שמודד משהו אחר ממה שהכותרת טוענת" (CLAUDE.md, *מדידה*).
+    היו יישובים שהסוכן **הגיע** אליהם. הממצא הישן לא היה יכול להיסגר בשום
+    פעולה של הסוכן - בדיוק "המדד שמודד משהו אחר ממה שהכותרת טוענת"
+    (CLAUDE.md, *מדידה*). ‏`deal_sync_plan` כבר משהה אותם לבד (‏`fail_streak`).
 
-    לכן הם בממצא נפרד, בדרגת מידע: רשימה להחלטה (שם שגוי - לתקן; יישוב
-    שאין לו נתונים - לכבות או להשאיר להשהיה). יישוב שכבר עודכן בעבר
-    והתחיל להיכשל נשאר ב-`deal_sync_overdue`, כי שם משהו **השתנה** - וזה
-    גם מה שייראה כש-GovMap ישנה ממשק וכל היישובים ייפלו בבת אחת.
+    ‏**ושלוש שגיאות, שלוש פעולות שונות - ולכן שלושה ממצאים:**
+      ‏· deal_sync_name_mismatch (נמוך) - השם לא נמצא בחיפוש. היחיד שיש בו
+        תיקון: לשנות את השם ברשימה. ממצא שמתערבב עם 230 כפרים בלי נתונים
+        הוא ממצא שאיש לא יקרא עד השורה החמש-עשרה.
+      ‏· deal_sync_other_city (מידע) - GovMap החזיר עסקאות של מקום אחר, והסוכן
+        צדק שלא כתב.
+      ‏· deal_sync_no_data (מידע) - ל-GovMap אין נתונים ליישוב.
+    יישוב שכבר עודכן בעבר והתחיל להיכשל נשאר ב-`deal_sync_overdue`, כי שם
+    משהו **השתנה** - וזה גם מה שייראה כש-GovMap ישנה ממשק.
     """
-    n = int(r.get("no_data") or 0)
-    if not n:
+    if not int(r.get("no_data") or 0):
         return
     paused = int(r.get("no_data_paused") or 0)
-    top = list(r.get("no_data_top") or [])
-    yield Finding(
-        area="health", code="deal_sync_no_data", severity="info",
-        subject="deals:no_data",
-        title="‏%d יישובים שהסוכן לא הצליח למשוך להם עסקאות מ-GovMap" % n,
-        detail=("הסוכן הגיע אליהם ודיווח כישלון, ואף אחד מהם לא נמשך מעולם. "
-                "‏%d מהם נכשלו פעמיים ומעלה ומושהים לבד ב-deal_sync_plan "
-                "(‏14 ימים, ואז כפול עד 90). הסיבות הנפוצות: %s."
-                % (paused, "; ".join("%s (%s)" % (t.get("status"), t.get("n"))
-                                     for t in top[:3]) or "-")),
-        suggestion="ב-CRM, יישובים לעסקאות, לפי עמודת המצב: \"לא נמצא בחיפוש\" - "
-                   "השם ברשימה שונה מהשם ב-GovMap, לתקן אותו. \"אין חלקות / אין "
-                   "עסקאות ביישוב\" - ל-GovMap אין נתונים ליישוב, אפשר לכבות אותו "
-                   "או להשאיר להשהיה. \"החזיר עסקאות של עיר אחרת\" - נכון שלא "
-                   "נכתב. ‏docs/settlement-deals.md.",
-        metric=float(n), metric_unit="יישובים",
-        evidence={"no_data": n, "paused": paused, "top": top},
-    )
+    groups: dict[str, dict] = {}
+    for t in r.get("no_data_top") or []:
+        g = groups.setdefault(_deal_fail_kind(t.get("status")),
+                              {"n": 0, "names": [], "statuses": []})
+        n = int(t.get("n") or 0)
+        g["n"] += n
+        g["names"] += list(t.get("names") or [])
+        g["statuses"].append({"status": (t.get("status") or "")[:120], "n": n})
+    for kind, code, severity, subject, title, suggestion in _DEAL_FAIL_KINDS:
+        g = groups.get(kind)
+        if not g or not g["n"]:
+            continue
+        names = sorted(g["names"])
+        detail = "הסוכן הגיע אליהם ודיווח כישלון, ואף אחד מהם לא נמשך מעולם. "
+        if kind == "name":
+            detail += "היישובים: %s." % ", ".join(names[:30])
+        else:
+            detail += "הסיבה הנפוצה: %s (%d)." % (
+                g["statuses"][0]["status"], g["statuses"][0]["n"])
+        yield Finding(
+            area="health", code=code, severity=severity, subject=subject,
+            title=title % g["n"],
+            detail=detail,
+            suggestion=suggestion + " ‏docs/settlement-deals.md.",
+            metric=float(g["n"]), metric_unit="יישובים",
+            evidence={"count": g["n"], "names": names[:60],
+                      "statuses": g["statuses"][:8],
+                      "paused_all_kinds": paused},
+        )
 
 
 def _market_data(ctx) -> Iterator[Finding]:
