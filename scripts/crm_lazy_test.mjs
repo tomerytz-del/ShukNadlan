@@ -400,6 +400,16 @@ test('קריאה בראש קובץ עצלן לפני let מאוחר נתפסת',
   assert.deepEqual(ok, []);
   const listener = topLevelTdz('function use(){ return later; }\naddEventListener("toggle", () => use());\nlet later = 1;\n');
   assert.deepEqual(listener, []);
+  const iife = topLevelTdz('(function wire(){ return later; })();\nlet later = 1;\n');
+  assert.deepEqual(iife, ['later']);
+  const arrow = topLevelTdz('(() => later)();\nlet later = 1;\n');
+  assert.deepEqual(arrow, ['later']);
+  const win = topLevelTdz('window.use();\nfunction use(){ return later; }\nlet later = 1;\n');
+  assert.deepEqual(win, ['later']);
+  const viaCall = topLevelTdz('use.call(null);\nfunction use(){ return later; }\nlet later = 1;\n');
+  assert.deepEqual(viaCall, ['later']);
+  const alias = topLevelTdz('const w = window;\nw.use();\nfunction use(){ return later; }\nlet later = 1;\n');
+  assert.deepEqual(alias, ['later']);
   assert.deepEqual(scanTopLevelTdz(root), []);
 });
 

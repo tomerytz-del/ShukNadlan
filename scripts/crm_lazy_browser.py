@@ -251,9 +251,20 @@ async def main():
             if ms > limit_ms:
                 fail(script + ' עיכב את הדשבורד %dms' % ms)
             if 'לא נטענה' in leads:
-                fail(script + ' הציג לא נטענה בזמן שהקובץ עוד יורד: ' + leads[:80])
+                fail(script + ' הציג לא נטענה מוקדם מדי: ' + leads[:80])
             if expect_notif and notif.strip() == 'טוען…':
                 fail(script + ' השאיר את ההתראות על טוען')
+            if script in ('crm-leads.js', 'crm-ui.js', 'crm-properties.js'):
+                try:
+                    await page.wait_for_function(
+                        """() => {
+                          const ids = ['leadsList', 'propertiesList'];
+                          return ids.some(id => ((document.getElementById(id) || {}).textContent || '').includes('לא נטענה'));
+                        }""",
+                        timeout=12000)
+                    print(script, 'retry shown while hung', flush=True)
+                except Exception:
+                    fail(script + ' לא הציג נסו שוב אחרי שהקובץ נשאר תקוע')
             gate['go'] = True
             await page.wait_for_function('() => window.%s === 1' % marker, timeout=5000)
             await page.wait_for_timeout(400)
@@ -269,6 +280,7 @@ async def main():
             await ctx.close()
 
         await bounded_hang(browser, '/crm?goto=accLeads', 'crm-leads.js', '__leadRuns', False)
+        await bounded_hang(browser, '/crm?goto=accPrefs', 'crm-leads.js', '__leadPrefs', False)
         await bounded_hang(browser, '/crm', 'crm-ui.js', '__uiRuns', False)
         await bounded_hang(browser, '/crm?goto=accClients', 'crm-ui.js', '__uiClients', False)
         await bounded_hang(browser, '/crm', 'crm-onboarding.js', '__onbRuns', True)
@@ -302,6 +314,22 @@ async def main():
         await ctx.close()
 
         ctx, page, errs = await boot(browser, 1280, 800)
+        await page.add_init_script(
+            """
+            window.__sawNotLoaded = false;
+            const arm = () => {
+              ['leadsList', 'propertiesList'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el || el.dataset.watchNot) return;
+                el.dataset.watchNot = '1';
+                new MutationObserver(() => {
+                  if ((el.textContent || '').includes('לא נטענה')) window.__sawNotLoaded = true;
+                }).observe(el, { childList: true, subtree: true, characterData: true });
+              });
+            };
+            document.addEventListener('DOMContentLoaded', arm);
+            setInterval(arm, 200);
+            """)
         cdp = await page.context.new_cdp_session(page)
         await cdp.send('Network.enable')
         await cdp.send('Network.emulateNetworkConditions', {
@@ -325,7 +353,11 @@ async def main():
                   return leadsOk && propsOk;
                 }""",
                 timeout=150000)
-            print('slow 3g lists rendered', flush=True)
+            flashed = await page.evaluate('() => window.__sawNotLoaded')
+            if flashed:
+                fail('Slow 3G הציג לא נטענה למרות שהקבצים הגיעו')
+            else:
+                print('slow 3g lists rendered', flush=True)
         except Exception as exc:
             leads = await page.locator('#leadsList').inner_text()
             props = await page.locator('#propertiesList').inner_text()

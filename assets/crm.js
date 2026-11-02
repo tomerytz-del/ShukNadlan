@@ -12139,12 +12139,12 @@ async function loadTeam(agencyId, callerId, opts){
     } catch (e) { teamsReady = false; }
   } else teamsReady = typeof teamsLoad === 'function' && typeof TEAM_COLUMNS === 'string';
   if (!teamsReady) {
-    el.innerHTML = '<div class="empty-state"><p>רשימת הצוות לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
-    const again = el.querySelector('button');
-    if (again) again.addEventListener('click', () => loadTeam(agencyId, callerId, { fresh: true }));
-    if (window.crmAfter && !(opts && opts.recover === false)) {
-      window.crmAfter('teams', () => loadTeam(agencyId, callerId, { recover: false }));
-    }
+    showLazyMiss(el, 'teams', {
+      message: 'רשימת הצוות לא נטענה.',
+      loadingHtml: '<div class="empty-state">טוען…</div>',
+      retry: () => loadTeam(agencyId, callerId, { fresh: true }),
+      recover: !(opts && opts.recover === false) ? () => loadTeam(agencyId, callerId, { recover: false }) : null,
+    });
     return;
   }
   el.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -16064,6 +16064,41 @@ function crmNeedThen(group, fn){
   });
 }
 
+/* אחרי פקיעת 8 השניות ההורדה עוד יכולה להסתיים (קו איטי).
+   "לא נטענה" מופיע רק אם היא עדיין תקועה אחרי זה, או שנכשלה.
+   קובץ שזרק לא נטען שוב: הכפתור מרענן את הדף. */
+const LAZY_HUNG_MS = 7000;
+function showLazyMiss(listEl, group, opts){
+  if (!listEl) return;
+  const paintError = (reload) => {
+    listEl._lazyTok = 0;
+    const label = reload ? 'רענון הדף' : 'נסו שוב';
+    listEl.innerHTML = '<div class="empty-state"><p>' + opts.message + '</p><button type="button" class="ui-btn">' + label + '</button></div>';
+    const again = listEl.querySelector('button');
+    if (again) again.addEventListener('click', () => {
+      if (reload) location.reload();
+      else if (opts.retry) opts.retry();
+    });
+    if (!reload && window.crmAfter && opts.recover) window.crmAfter(group, opts.recover);
+  };
+  if (window.crmEvalFailed && window.crmEvalFailed(group)) {
+    paintError(true);
+    return;
+  }
+  if (window.crmInflight && window.crmInflight(group)) {
+    listEl.innerHTML = opts.loadingHtml;
+    const token = {};
+    listEl._lazyTok = token;
+    if (window.crmAfter && opts.recover) window.crmAfter(group, opts.recover);
+    setTimeout(() => {
+      if (listEl._lazyTok !== token) return;
+      if (window.crmInflight && window.crmInflight(group)) paintError(false);
+    }, LAZY_HUNG_MS);
+    return;
+  }
+  paintError(false);
+}
+
 async function loadProperties(agentId, opts){
   // הכרטיס וההפנייה נטענים לפני הציור. בלי זה השאילתה חוזרת והקריאה
   // ל-prRenderSmart נופלת, ו-Promise.all של הדשבורד נעצר כולל ה-goto.
@@ -16082,19 +16117,12 @@ async function loadProperties(agentId, opts){
     }
   }
   if (window.crmNeed && typeof prRenderSmart !== 'function') {
-    if (window.crmInflight && window.crmInflight('properties')) {
-      if (listEl && !fresh) listEl.innerHTML = '<div class="empty-state">טוען…</div>';
-      if (window.crmAfter && !(opts && opts.recover === false)) {
-        window.crmAfter('properties', () => loadProperties(agentId, { recover: false }));
-      }
-      return;
-    }
-    listEl.innerHTML = '<div class="empty-state"><p>רשימת הנכסים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
-    const again = listEl.querySelector('button');
-    if (again) again.addEventListener('click', () => loadProperties(agentId, { fresh: true }));
-    if (window.crmAfter && !(opts && opts.recover === false)) {
-      window.crmAfter('properties', () => loadProperties(agentId, { recover: false }));
-    }
+    showLazyMiss(listEl, 'properties', {
+      message: 'רשימת הנכסים לא נטענה.',
+      loadingHtml: '<div class="empty-state">טוען…</div>',
+      retry: () => loadProperties(agentId, { fresh: true }),
+      recover: !(opts && opts.recover === false) ? () => loadProperties(agentId, { recover: false }) : null,
+    });
     return;
   }
   /* היריד והמיקום המשוער לא חוסמים את הרשימה. accProperties פתוח
@@ -20875,23 +20903,12 @@ async function loadLeads(agentId, opts){
     }
   }
   if (!leadsReady) {
-    if (window.crmInflight && window.crmInflight('leads')) {
-      if (!fresh) {
-        listEl.innerHTML = typeof leadsSkeletonHtml === 'function'
-          ? leadsSkeletonHtml()
-          : '<div class="empty-state">טוען…</div>';
-      }
-      if (window.crmAfter && !(opts && opts.recover === false)) {
-        window.crmAfter('leads', () => loadLeads(agentId, { recover: false }));
-      }
-      return;
-    }
-    listEl.innerHTML = '<div class="empty-state"><p>רשימת הלידים לא נטענה.</p><button type="button" class="ui-btn">נסו שוב</button></div>';
-    const again = listEl.querySelector('button');
-    if (again) again.addEventListener('click', () => loadLeads(agentId, { fresh: true }));
-    if (window.crmAfter && !(opts && opts.recover === false)) {
-      window.crmAfter('leads', () => loadLeads(agentId, { recover: false }));
-    }
+    showLazyMiss(listEl, 'leads', {
+      message: 'רשימת הלידים לא נטענה.',
+      loadingHtml: '<div class="empty-state">טוען…</div>',
+      retry: () => loadLeads(agentId, { fresh: true }),
+      recover: !(opts && opts.recover === false) ? () => loadLeads(agentId, { recover: false }) : null,
+    });
     return;
   }
   /* קישור לביקוש הפתוח כבר צייר את הרשימה. שלד הלידים מעליה מהבהב
@@ -26555,7 +26572,12 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 let notifUnread = 0;
 
 async function loadNotifications(agentId){
-  if (window.crmNeed) { try { await crmNeed('onboarding'); } catch (e) {} }
+  /* המדריך לא חוסם את הפעמון. סוג שתלוי בו מצטרף כשהקובץ מגיע. */
+  if (window.crmNeed && typeof onboardingLive !== 'function') {
+    crmNeed('onboarding').then(() => {
+      if (typeof onboardingLive === 'function') loadNotifications(agentId);
+    }).catch(() => {});
+  }
   const listEl = document.getElementById('notifList');
   const badge = document.getElementById('bellBadge');
   // ‏'*' ולא רשימת עמודות: ‏related_agenda_item_id נולדה במיגרציה
@@ -28711,16 +28733,16 @@ function renderMenuBadge(){
 /* ---------- השכבות: יצירה, חיפוש, התראות, ופרופיל ----------
    אחת בכל פעם. פתיחה של אחת סוגרת את האחרות (ואת תפריט הבורגר והפעמון),
    וכל אחת מעדכנת את הסרגל התחתון כדי שהכפתור שלה יסומן. */
-async function openNavLayer(layer){
+function openNavLayer(layer){
   closeNavLayers();
   if (layer === 'create') openCreateSheet();
   else if (layer === 'search') openSearch();
   else if (layer === 'me') openProfilePanel();
   else if (layer === 'bell') openBellPanel();
   else if (layer === 'coach') {
-    /* officeDash טוען קודם את המאמן, ואז את עזרי השבוע (odRangeLabel). */
-    if (window.crmNeed) { try { await crmNeed('officeDash'); } catch (e) {} }
-    if (typeof openCoachLayer === 'function') openCoachLayer();
+    const open = () => { if (typeof openCoachLayer === 'function') openCoachLayer(); };
+    if (typeof openCoachLayer === 'function') open();
+    else if (window.crmNeed) crmNeed('officeDash').then(open).catch(() => {});
   }
 }
 

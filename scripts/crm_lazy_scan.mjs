@@ -588,17 +588,29 @@ function isFnNode(node) {
   return node && (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression' || node.type === 'ArrowFunctionExpression');
 }
 
-/* קריאות סינכרוניות מגוף הפונקציה, בלי להיכנס לפונקציות פנימיות
-   (מאזין, setTimeout). שם שנקרא שם לפני ה-let שלו הוא TDZ. */
-function syncReach(node, ids, calls) {
+/* קריאות סינכרוניות, בלי להיכנס לפונקציה שלא נקראת מיד.
+   IIFE, window.fn() ו-fn.call נכנסים. מאזין ו-setTimeout לא. */
+function syncReach(node, ids, calls, iifes, aliases) {
   if (!node || !node.type || isFnNode(node)) return;
   if (node.type === 'Identifier') ids.add(node.name);
-  if (node.type === 'CallExpression' && node.callee && node.callee.type === 'Identifier') calls.add(node.callee.name);
+  if (node.type === 'CallExpression' && node.callee) {
+    const c = node.callee;
+    if (c.type === 'Identifier') calls.add(c.name);
+    else if (isFnNode(c)) iifes.push(c);
+    else if (c.type === 'MemberExpression' && !c.computed && c.property.type === 'Identifier') {
+      const prop = c.property.name;
+      if ((prop === 'call' || prop === 'apply') && c.object.type === 'Identifier') calls.add(c.object.name);
+      else if (c.object.type === 'Identifier' && (ROOTS.has(c.object.name) || (aliases && aliases.has(c.object.name)))) {
+        calls.add(prop);
+        ids.add(prop);
+      }
+    }
+  }
   for (const k of Object.keys(node)) {
     if (k === 'start' || k === 'end' || k === 'loc' || k === 'range') continue;
     const v = node[k];
-    if (Array.isArray(v)) v.forEach(x => syncReach(x, ids, calls));
-    else if (v && v.type) syncReach(v, ids, calls);
+    if (Array.isArray(v)) v.forEach(x => syncReach(x, ids, calls, iifes, aliases));
+    else if (v && v.type) syncReach(v, ids, calls, iifes, aliases);
   }
 }
 
@@ -626,21 +638,47 @@ function laterLexical(ast, at) {
   return names;
 }
 
-function reachableReads(fn, funcs) {
-  const ids = new Set();
-  const seen = new Set();
-  const queue = [fn];
-  while (queue.length) {
-    const name = queue.pop();
-    if (seen.has(name)) continue;
-    seen.add(name);
-    const node = funcs.get(name);
-    if (!node) continue;
-    const calls = new Set();
-    syncReach(node.body || node, ids, calls);
-    for (const c of calls) if (funcs.has(c)) queue.push(c);
+function absorbBody(body, ids, calls, aliases, funcs, seenFns) {
+  if (!body) return;
+  const iifes = [];
+  syncReach(body, ids, calls, iifes, aliases);
+  for (const c of calls) {
+    if (!funcs.has(c) || seenFns.has(c)) continue;
+    seenFns.add(c);
+    const node = funcs.get(c);
+    const nested = new Set();
+    absorbBody(node.body || node, ids, nested, aliases, funcs, seenFns);
+    for (const n of nested) calls.add(n);
   }
+  for (const fn of iifes) {
+    if (seenFns.has(fn)) continue;
+    seenFns.add(fn);
+    absorbBody(fn.body || fn, ids, calls, aliases, funcs, seenFns);
+  }
+}
+
+function reachableReads(fn, funcs, aliases) {
+  const ids = new Set();
+  const calls = new Set();
+  const seen = new Set();
+  if (!funcs.has(fn)) return ids;
+  seen.add(fn);
+  absorbBody((funcs.get(fn).body || funcs.get(fn)), ids, calls, aliases, funcs, seen);
   return ids;
+}
+
+function aliasesBefore(ast, at) {
+  const set = new Set();
+  for (const stmt of ast.body) {
+    if (stmt.start >= at) break;
+    if (stmt.type !== 'VariableDeclaration') continue;
+    for (const d of stmt.declarations) {
+      if (d.id.type === 'Identifier' && d.init && d.init.type === 'Identifier' && ROOTS.has(d.init.name)) {
+        set.add(d.id.name);
+      }
+    }
+  }
+  return set;
 }
 
 /* קריאה בגוף הקובץ, לא בתוך פונקציה, שנוגעת ב-let/const שמוצהר אחר כך. */
@@ -654,13 +692,17 @@ export function topLevelTdz(src) {
     if (stmt.type === 'FunctionDeclaration') continue;
     const calls = new Set();
     const ids = new Set();
-    syncReach(stmt, ids, calls);
+    const iifes = [];
+    const aliases = aliasesBefore(ast, stmt.start);
+    syncReach(stmt, ids, calls, iifes, aliases);
     const later = laterLexical(ast, stmt.start);
     if (!later.size) continue;
     const reads = new Set(ids);
-    for (const c of calls) {
-      for (const name of reachableReads(c, funcs)) reads.add(name);
+    const seenFns = new Set();
+    for (const c of [...calls]) {
+      for (const name of reachableReads(c, funcs, aliases)) reads.add(name);
     }
+    for (const fn of iifes) absorbBody(fn.body || fn, reads, calls, aliases, funcs, seenFns);
     for (const name of reads) {
       if (later.has(name)) fails.push(name);
     }
@@ -690,6 +732,12 @@ if (process.argv[1] && process.argv[1].endsWith('crm_lazy_scan.mjs')) {
   if (fails.length) {
     console.error(fails.slice(0, 120).join('\n'));
     console.error('סה"כ', fails.length);
+    process.exit(1);
+  }
+  const tdz = scanTopLevelTdz();
+  if (tdz.length) {
+    console.error(tdz.slice(0, 80).join('\n'));
+    console.error('TDZ', tdz.length);
     process.exit(1);
   }
   console.log('סריקת AST נקייה');

@@ -382,8 +382,8 @@
     });
   }
 
-  /* ההורדה עוד רצה. פקיעת השעון אינה כישלון: לא מציגים "לא נטענה"
-     כל עוד אין 502 או זריקה מהקובץ. */
+  /* ההורדה עוד רצה. כמה שניות אחרי הפקיעה הרשימה עדיין על "טוען…".
+     רק אחר כך, אם הבקשה באמת תקועה, מופיע "לא נטענה". */
   function crmInflight(group, seen) {
     if (!group || !GROUPS[group]) return false;
     seen = seen || {};
@@ -395,6 +395,23 @@
     var deps = PRE[group] || [];
     for (var i = 0; i < deps.length; i++) {
       if (crmInflight(deps[i], seen)) return true;
+    }
+    return false;
+  }
+
+  function crmEvalFailed(group, seen) {
+    if (!group || !GROUPS[group]) return false;
+    seen = seen || {};
+    if (seen[group]) return false;
+    seen[group] = true;
+    var list = GROUPS[group];
+    for (var i = 0; i < list.length; i++) {
+      var el = document.querySelector('script[src="' + list[i][0] + '"]');
+      if (el && el.dataset.evalfail === '1') return true;
+    }
+    var deps = PRE[group] || [];
+    for (var d = 0; d < deps.length; d++) {
+      if (crmEvalFailed(deps[d], seen)) return true;
     }
     return false;
   }
@@ -423,25 +440,49 @@
     return boundCaller(group, p);
   }
 
-  /* אחרי שהקובץ באמת רץ, גם אם הקורא הקודם כבר פקע. כישלון אמיתי
-     לא מריץ: שם נשאר הכפתור. ריצה אחת לכל רישום, כדי שציור שנכשל
-     שוב לא ייכנס ללולאה. */
-  function crmAfter(group, fn) {
-    if (!GROUPS[group] || typeof fn !== 'function') return;
-    var ran = false;
-    function once() {
-      if (ran) return;
-      ran = true;
+  /* אחרי שהקובץ באמת רץ. גם כישלון אמיתי (502) נרשם: אחרי חלון
+     הארבע שניות יש עוד ניסיון, כדי שהעדפות והתראות לא יישארו
+     ריקות לכל הסשן. */
+  var afterFns = {};
+  var afterWatch = {};
+  function flushAfter(group) {
+    var list = afterFns[group] || [];
+    afterFns[group] = [];
+    afterWatch[group] = false;
+    for (var i = 0; i < list.length; i++) {
       try {
-        var ret = fn();
+        var ret = list[i]();
         if (ret && typeof ret.then === 'function') ret.catch(function () {});
       } catch (e) {}
     }
+  }
+  function watchAfter(group, again) {
+    needShared(group, 1).then(function () {
+      flushAfter(group);
+    }).catch(function () {
+      if (again) { afterWatch[group] = false; return; }
+      setTimeout(function () {
+        if (settled[group] === 'ok') { flushAfter(group); return; }
+        watchAfter(group, true);
+      }, 4500);
+    });
+  }
+  function crmAfter(group, fn) {
+    if (!GROUPS[group] || typeof fn !== 'function') return;
     if (settled[group] === 'ok') {
-      Promise.resolve().then(once);
+      Promise.resolve().then(function () {
+        try {
+          var ret = fn();
+          if (ret && typeof ret.then === 'function') ret.catch(function () {});
+        } catch (e) {}
+      });
       return;
     }
-    needShared(group, 1).then(once).catch(function () {});
+    if (!afterFns[group]) afterFns[group] = [];
+    afterFns[group].push(fn);
+    if (afterWatch[group]) return;
+    afterWatch[group] = true;
+    watchAfter(group, false);
   }
 
   function crmGroupsFor(raw) {
@@ -478,6 +519,7 @@
   global.crmNeed = crmNeed;
   global.crmAfter = crmAfter;
   global.crmInflight = crmInflight;
+  global.crmEvalFailed = crmEvalFailed;
   global.crmGroupsFor = crmGroupsFor;
   global.crmArmSections = crmArmSections;
 })(window);
