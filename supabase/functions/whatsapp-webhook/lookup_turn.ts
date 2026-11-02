@@ -146,7 +146,11 @@ function parseShownPayload(text: string): Record<string, ShownMatchSet> {
 
 type HistoryMessage = { role?: string; content?: unknown };
 
-/** מוציא את מצב ההתאמות מההיסטוריה, כדי שהמודל לא יראה אותו. */
+/**
+ * מוציא את מצב ההתאמות מההיסטוריה, כדי שהמודל לא יראה אותו.
+ * רק שורה ש-stampShownMatches כתב (role assistant). הודעת סוכן/ת
+ * שמתחילה באותו קידומת נשארת גלויה ואינה נקראת כמצב.
+ */
 export function peelShownMatches<T extends HistoryMessage>(history: readonly T[]): {
   history: T[];
   shown: Record<string, ShownMatchSet>;
@@ -155,7 +159,7 @@ export function peelShownMatches<T extends HistoryMessage>(history: readonly T[]
   let shown: Record<string, ShownMatchSet> = {};
   for (const message of history) {
     const text = messageText(message?.content);
-    if (text.startsWith(SHOWN_MARK)) {
+    if (message?.role === "assistant" && text.startsWith(SHOWN_MARK)) {
       shown = { ...shown, ...parseShownPayload(text) };
       continue;
     }
@@ -172,7 +176,7 @@ export function stampShownMatches<T extends HistoryMessage>(
   const peeled = peelShownMatches(history);
   const clean = rememberShownMatches(shown, "", null);
   if (!Object.keys(clean).length) return peeled.history;
-  const marker = { role: "user", content: SHOWN_MARK + JSON.stringify(clean) } as T;
+  const marker = { role: "assistant", content: SHOWN_MARK + JSON.stringify(clean) } as T;
   return [...peeled.history, marker];
 }
 

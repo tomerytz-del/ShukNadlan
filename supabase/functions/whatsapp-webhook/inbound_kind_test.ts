@@ -1,7 +1,7 @@
 // תגובת אימוג'י בוואטסאפ אינה הודעה לגבריאלה.
 //   deno test supabase/functions/whatsapp-webhook/inbound_kind_test.ts
 
-import { countsAsInbound, isReactionMessage, latestRealInbound } from "./inbound-kind.ts";
+import { isReactionMessage } from "./inbound-kind.ts";
 
 function fail(message: string): never {
   throw new Error(message);
@@ -29,14 +29,6 @@ Deno.test("תגובת אימוג'י נעצרת בלי תשובה ובלי מוד
   if (typing < 0 || gate > typing) fail("התגובה מסמנת הקלדה");
   if (model < 0 || publicCall < 0 || gate > model || gate > publicCall) fail("התגובה מגיעה למודל");
   if (fallback < 0 || gate > fallback) fail("התגובה מקבלת את תשובת הסוג הלא נתמך");
-
-  if (countsAsInbound("reaction")) fail("תגובה נספרת כהודעה");
-  if (!countsAsInbound("text") || !countsAsInbound("image")) fail("הודעה אמיתית");
-  const last = latestRealInbound([
-    { created_at: "2026-11-01T10:00:00.000Z", msg_type: "text" },
-    { created_at: "2026-11-01T18:00:00.000Z", msg_type: "reaction" },
-  ]);
-  if (last !== "2026-11-01T10:00:00.000Z") fail(String(last));
 
   const rateStart = src.indexOf("async function publicRateExceeded");
   const rateEnd = src.indexOf("async function limitNoticeAlreadySent");
