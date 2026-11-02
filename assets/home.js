@@ -8189,7 +8189,8 @@ document.querySelector('.v10-tabs')?.addEventListener('keydown', e => {
 const V10_BUDGETS = { sale: [0, 1500000, 2500000, 3500000], rent: [0, 4000, 6000, 8000], commercial: [0, 5000, 15000, 2000000] };
 function v10Deal(st){
   if (sentence && sentence.Core.TYPES.find(t => t.key === st.type)?.commercial) return 'commercial';
-  return st.deal || 'sale';
+  // בלי עסקה ("כל הנכסים") - ‏/swipe במצב המעורבב (‏deal=all, ברירת המחדל שלו)
+  return st.deal || 'all';
 }
 /* ‏R5-5: הכניסה להחלקה נושאת את כל הסינון - המשפט (כמה סוגים, שכונות, חדרים, מחיר מדויק,
    הדמיה) והסינון המתקדם - כפרמטר אחד ‏hf=<הכתובת של דף הבית>. ‏/swipe מחיל אותו באותה ליבה
@@ -8215,7 +8216,7 @@ function v10FilterCount(){
 function v10SwipeHref(src){
   const st = sentence ? sentence.state() : {};
   const deal = v10Deal(st), q = new URLSearchParams();
-  if (deal !== 'sale') q.set('deal', deal);
+  if (deal !== 'all') q.set('deal', deal);
   // מסחרי להשכרה / למכירה - הבחירה של /swipe עצמו (‏cdeal)
   if (deal === 'commercial' && (st.deal === 'rent' || st.deal === 'sale')) q.set('cdeal', st.deal);
   const hf = v10FilterParams();
