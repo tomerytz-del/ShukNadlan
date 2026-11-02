@@ -462,7 +462,13 @@ async function renderShowcasePanel(client, panel){
   });
   const sign = panel.querySelector('[data-sign]');
   if (sign && typeof openAgreementWizard === 'function'){
-    sign.addEventListener('click', ()=> openAgreementWizard({ kind: client.deal_type === 'rent' ? 'tenant' : 'buy', clientId: client.id }));
+    sign.addEventListener('click', () => {
+      const owner = typeof isOwnerClient === 'function' && isOwnerClient(client);
+      const opts = { clientId: client.id };
+      if (client.deal_type === 'rent') opts.kind = owner ? 'landlord' : 'tenant';
+      else if (client.deal_type === 'sale') opts.kind = owner ? 'sell' : 'buy';
+      openAgreementWizard(opts);
+    });
   }
   panel.querySelectorAll('[data-meet]').forEach(b => b.addEventListener('click', async ()=>{
     const ok = b.dataset.ok === '1';

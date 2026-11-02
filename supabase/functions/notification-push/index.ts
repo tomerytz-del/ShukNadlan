@@ -157,6 +157,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
   // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
   system: "accProperties",
+  // מייל שהועבר ולא טופל. הרשימה, לא לקוח/ה אחד/ת.
+  email_intake: "accClients",
   platform_signup: "accSubscriptions",
   // ‏פריט בתיבת המשימות של מנהל/ת הפלטפורמה שחרג מזמן היעד (docs/admin-inbox.md)
   admin_overdue: "accAdminInbox",

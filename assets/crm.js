@@ -23455,8 +23455,14 @@ function clientNeighborhoodColumnMissing(error){
    מחפש/ת, ולכן "קנייה" אצלו/ה הייתה בדיוק הטעות שהעמודה נולדה לתקן. */
 function isOwnerClient(c){ return c.client_kind === 'owner'; }
 function clientSideLabel(c){
-  if (isOwnerClient(c)) return c.deal_type === 'rent' ? 'משכיר/ה' : 'מוכר/ת';
-  return c.deal_type === 'rent' ? 'שכירות' : 'קנייה';
+  if (isOwnerClient(c)) {
+    if (c.deal_type === 'rent') return 'משכיר/ה';
+    if (c.deal_type === 'sale') return 'מוכר/ת';
+    return 'בעל/ת נכס';
+  }
+  if (c.deal_type === 'rent') return 'שכירות';
+  if (c.deal_type === 'sale') return 'קנייה';
+  return 'מחפש/ת';
 }
 // ‏active אצל מחפש/ת הוא "מחפש/ת"; אצל בעל/ת נכס זו פשוט רשומה פעילה
 function clientStatusLabel(c){
@@ -23781,8 +23787,11 @@ function buildClientCard(c){
   /* "עוד": הסכם, יומן ושיחות. הם בתפריט ולא בשורה כי הם פעולות של פעם
      בכמה ימים, ושש פעולות באותו משקל הן בדיוק מה שהסתיר את "הצגת
      ההתאמות" - הסיבה שהקובץ הזה קיים. */
-  const agrKind = owner ? (c.deal_type === 'rent' ? 'landlord' : 'sell')
-                        : (c.deal_type === 'rent' ? 'tenant' : 'buy');
+  const agrKind = c.deal_type === 'rent'
+    ? (owner ? 'landlord' : 'tenant')
+    : c.deal_type === 'sale'
+    ? (owner ? 'sell' : 'buy')
+    : null;
   const more = document.createElement('div');
   more.className = 'card-menu cc-more';
   more.innerHTML = `<button type="button" class="btn btn-ghost card-menu-btn" aria-haspopup="true" aria-expanded="false">עוד ▾</button>
@@ -23833,7 +23842,10 @@ function openPropertyForOwner(c){
     document.getElementById('npOwnerName').value = c.full_name || '';
     document.getElementById('npOwnerPhone').value = c.phone || '';
     const deal = document.getElementById('npDeal');
-    if (deal){ deal.value = c.deal_type === 'rent' ? 'rent' : 'sale'; deal.dispatchEvent(new Event('change')); }
+    if (deal){
+      deal.value = c.deal_type === 'rent' || c.deal_type === 'sale' ? c.deal_type : '';
+      deal.dispatchEvent(new Event('change'));
+    }
   });
 }
 
@@ -24129,7 +24141,7 @@ function renderMatchCards(panel, rows){
    ב-crm.html). שלושה ערכים חיים כאן כ-state ולא בשדה: סוג העסקה והקטגוריה
    (מתגים), והערים - מערך של תגיות שנשלח כמו שהוא ל-cities. עד היום הערים
    היו שדה טקסט שנחתך בפסיקים, וכל טעות הקלדה הפכה לעיר שאין לה נכסים. */
-let clientFormDeal = 'sale';
+let clientFormDeal = '';
 let clientFormKind = 'seeker';
 let clientFormCities = [];
 let editingClientRow = null;
@@ -24210,10 +24222,12 @@ function setClientFormKind(kind){
   syncClientAirLivingVisibility();
 }
 
-function setClientFormDeal(deal){
-  clientFormDeal = deal === 'rent' ? 'rent' : 'sale';
+function setClientFormDeal(deal, opts){
+  const owner = (opts && opts.owner) || clientFormKind === 'owner';
+  if (deal === 'rent' || deal === 'sale') clientFormDeal = deal;
+  else clientFormDeal = '';
   document.querySelectorAll('[data-client-deal]').forEach(b => {
-    const on = b.dataset.clientDeal === clientFormDeal;
+    const on = !!clientFormDeal && b.dataset.clientDeal === clientFormDeal;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', String(on));
   });
@@ -24290,7 +24304,7 @@ function resetClientForm(){
   clientFormCities = [];
   renderClientCityChips();
   populateClientNeighborhoodSelect('');
-  setClientFormDeal('sale');
+  setClientFormDeal('');
   setClientFormCategory('residential');
   setClientFormKind('seeker');
   setClientAirMin('');
@@ -24338,7 +24352,7 @@ function openEditClient(c){
   clientFormCities = (c.cities || []).slice();
   renderClientCityChips();
   populateClientNeighborhoodSelect(c.neighborhood_id || '');
-  setClientFormDeal(c.deal_type);
+  setClientFormDeal(c.deal_type, { owner: c.client_kind === 'owner' });
   setClientFormCategory(c.category || 'residential', c.property_types || [], c.required_features || []);
   // אחרי editingClientId - הוא שקובע אם כפתור השמירה אומר "שמור" או "עדכן"
   setClientFormKind(c.client_kind);
@@ -24456,6 +24470,11 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   // אותה בדיקה קיימת כ-check constraint ב-DB; כאן היא חוסכת הלוך-חזור לשרת.
   // אצל בעל/ת נכס השדות מוסתרים ולא נשלחים, ולכן גם לא נבדקים.
   const seeker = clientFormKind === 'seeker';
+  if (seeker && clientFormDeal !== 'sale' && clientFormDeal !== 'rent'){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'בחרו קנייה או שכירות';
+    return;
+  }
   if (seeker && minPrice != null && maxPrice != null && minPrice > maxPrice){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'התקציב המינימלי גבוה מהמקסימלי';
@@ -24477,7 +24496,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     share_level:      document.getElementById('clShareLevel').value || 'network',
     notes:  document.getElementById('clNotes').value.trim() || null,
     client_kind: clientFormKind,
-    deal_type: clientFormDeal,
+    deal_type: clientFormDeal === 'sale' || clientFormDeal === 'rent' ? clientFormDeal : null,
     category:  clientFormCategory,
     status: document.getElementById('clStatus').value,
   };
@@ -24610,6 +24629,7 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
    docs/crm-contacts-import.md
    ============================================================================ */
 const CI_LIST_MAX = 300;       // שורות שמצוירות בבת אחת; החיפוש מצמצם
+let ciBatchDeal = '';
 let ciContacts = [];
 let ciSource = '';
 let ciQuery = '';
@@ -24769,18 +24789,24 @@ function ciRenderFoot(){
     '<button type="button" class="btn btn-ghost" data-ci="back">חזרה</button>' +
     `<button type="button" class="btn btn-gold" data-ci="save"${n ? '' : ' disabled'}>` +
       (n === 1 ? 'המשך להוספת הלקוח/ה' : `הוספת ${n} לקוחות`) + '</button>';
-  const note = n > 1
-    ? 'ייכנסו בסטטוס "בהמתנה" עד שיתווסף מה הם מחפשים - אחרת כל נכס היה מותאם להם.'
-    : '';
   let p = ciEl('ciSaveNote');
   if (!p){
-    p = document.createElement('p');
+    p = document.createElement('div');
     p.id = 'ciSaveNote';
     p.className = 'imp-note';
     p.style.margin = '10px 0 0';
     ciEl('ciBody').appendChild(p);
   }
-  p.textContent = note;
+  if (n > 1){
+    p.innerHTML = 'בחרו קנייה או שכירות. הייבוא נשמר בסטטוס "בהמתנה".' +
+      '<select id="ciDeal" style="display:block;margin-top:8px">' +
+      '<option value="">קנייה או שכירות</option>' +
+      `<option value="sale"${ciBatchDeal === 'sale' ? ' selected' : ''}>קנייה</option>` +
+      `<option value="rent"${ciBatchDeal === 'rent' ? ' selected' : ''}>שכירות</option>` +
+      '</select>';
+  } else {
+    p.textContent = '';
+  }
 }
 
 async function ciSave(){
@@ -24793,6 +24819,12 @@ async function ciSave(){
     openClientFormWithContact(c);
     return;
   }
+  const deal = (document.getElementById('ciDeal') || {}).value || ciBatchDeal;
+  if (deal !== 'sale' && deal !== 'rent'){
+    showToast('בחרו קנייה או שכירות לפני ההוספה');
+    return;
+  }
+  ciBatchDeal = deal;
   const btn = ciEl('ciFoot').querySelector('[data-ci="save"]');
   if (btn){ btn.disabled = true; btn.textContent = 'מוסיף…'; }
   const source = { picker:'חלון אנשי הקשר', google:'Google Contacts', file:'קובץ אנשי קשר', share:'שיתוף מהטלפון' }[ciSource] || 'אנשי הקשר';
@@ -24801,6 +24833,8 @@ async function ciSave(){
     phone: c.phone || null,
     email: c.email || null,
     status: 'paused',
+    client_kind: 'seeker',
+    deal_type: deal,
     notes: `יובא מ${source}. להשלים מה מחפש/ת ולהעביר ל"פעיל".`,
     agent_id: currentAgent.id,
     agency_id: currentAgent.agency_id,
@@ -24847,6 +24881,7 @@ document.getElementById('ciFile').addEventListener('change', async e => {
   ciShowList(await window.ContactImport.parseFile(file), 'file');
 });
 document.getElementById('ciModal').addEventListener('change', e => {
+  if (e.target.id === 'ciDeal'){ ciBatchDeal = e.target.value; return; }
   const i = e.target.dataset && e.target.dataset.ciI;
   if (i == null) return;
   ciContacts[Number(i)].checked = e.target.checked;
@@ -26450,6 +26485,9 @@ const NOTIF_TYPES = [
   { type:'call_deleted_by_manager', tone:'', goto:'accLines', focus:'#callsBlock',
     title:'שיחה נמחקה על ידי מנהל/ת המשרד',
     sub:'כשמנהל/ת המשרד מוחק/ת שיחה מהמספר שלך, עם ההקלטה והתמלול.' },
+  { type:'email_intake',   tone:'',       goto:'accClients', focus:'#clientsList',
+    title:'מייל שלא טופל',
+    sub:'מייל שהועבר לגבריאלה ולא טופל אחרי כמה ניסיונות. אפשר להעביר אותו שוב.' },
   { type:'system',         tone:'',       goto:'accProperties', focus:'#sharedWithMeList',
     refresh: async () => { if (window.crmNeed) { try { await crmNeed('properties'); } catch (e) {} } if (typeof propOwnerTab === 'function') propOwnerTab('shared'); },
     title:'שיתופי נכסים ועדכוני מערכת',
