@@ -677,11 +677,27 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 גבריאלה, ולכן נכנסת להיסטוריה של העוזרת **של הסוכן/ת** (`[הודעת מערכת…]` ואחריה
 הטקסט), כמו `rememberForBot` ב-`twilio-voice`. החלון שם - `last_message_at` של הסוכן/ת.
 
+## תשובה לסוכן/ת: בלי שאלה חוזרת ובלי תזכורת על נושא אחר (2.11.2026)
+
+המודל מוסיף עבודה גם כשההוראה אומרת "אל תשאל". מה שסגור בקוד
+(`reply-style.ts`, לא רק ב-`SYSTEM_STATIC`):
+
+* `styleContext` מזכיר תשובות שכבר ניתנו, כולל "כן". `shapeAgentReply`
+  מוריד שאלה חוזרת, תפריט כשיש קריאה אחת ("ולא עם חגי" אחרי תיקון של
+  עליזה), ותזכורת על פגישה אחרת.
+* `agenda_add` מחזיר `client_offer` פעם אחת לאדם ("אפשר להוסיף את <שם>
+  לקובץ הלקוחות.") בלי שאלון, ו-`same_time` רק על פגישה באותה דקה.
+* הודעה קולית קצרה אינה נשלחת ל-Whisper עם פרומפט "שיחת מתווך ולקוח":
+  זה החזיר טקסט ריק על קליפ של כמה שניות. בלי דיבור יוצאת שורה אחת
+  (`VOICE_NOTE_EMPTY_REPLY`) בלי להיכנס למודל, כדי לא לחזור על שאלות.
+  ‏`docs/whatsapp-setup.md`, "תשובה לסוכן/ת".
+
 ## לפני הדחיפה
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
 deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
+node --experimental-strip-types scripts/gabriela_reply_style_test.ts
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט
