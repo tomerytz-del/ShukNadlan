@@ -4,6 +4,7 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { withClick } from "../_shared/agent-deep-link.ts";
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { appendHistoryKeepingShown } from "../whatsapp-webhook/lookup_turn.ts";
 import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 import { agentPlaces, transcribe, WHISPER_DOMAIN } from "../_shared/whisper.ts";
@@ -352,11 +353,10 @@ async function rememberForBot(agentId: string, text: string): Promise<void> {
       .select("history").eq("agent_id", agentId).maybeSingle();
     if (!data) return;
     const history = Array.isArray(data.history) ? data.history : [];
-    const next = [
-      ...history,
+    const next = appendHistoryKeepingShown(history, [
       { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה לסוכן/ת הודעה על שיחת טלפון]" },
       { role: "assistant", content: noLongDash(text).slice(0, 3000) },
-    ].slice(-12);
+    ], 12);
     await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", agentId);
   } catch (err) {
     console.error("remember for bot failed", err);

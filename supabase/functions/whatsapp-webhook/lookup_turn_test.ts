@@ -5,15 +5,21 @@
 //   deno test supabase/functions/whatsapp-webhook/lookup_turn_test.ts
 
 import { parseNavId } from "../_shared/agent-deep-link.ts";
+import { cutMatches } from "./match-cut.ts";
 import {
   agentToolMutates,
-  pathListed,
-  propertyLookupOutbox,
+  appendHistoryKeepingShown,
+  applyShownMatchSet,
   clientMatchesLimit,
+  pathListed,
+  peelShownMatches,
+  propertyLookupOutbox,
+  rememberShownMatches,
   resolveShowcaseRefs,
   screenOutbox,
   showcaseRefsCall,
   showcaseShownLimit,
+  stampShownMatches,
   turnOutbound,
   type OutboxItem,
   type ShowcaseMatch,
@@ -315,3 +321,119 @@ Deno.test("כשהוצגו 5, שורה 7 לא נבחרת והשאלה רק על �
     fail(asked.ask);
   }
 });
+
+Deno.test("תור מאוחר רואה רק את המזהים שהוצגו, והמצב נשמר בשיחה", () => {
+  if (clientMatchesLimit(5.9) !== 5 || clientMatchesLimit(1.2) !== 1) fail("floor");
+  if (clientMatchesLimit(0) !== 1 || clientMatchesLimit(-4) !== 1 || clientMatchesLimit(0.2) !== 1) fail("מינימום 1");
+  const scored = Array.from({ length: 8 }, (_, i) => ({ property_id: `s${i}`, score: 80 - i }));
+  if (cutMatches(scored, 5.9).shown.length !== 5) fail("חיתוך 5.9");
+  if (cutMatches(scored, 0.4).shown.length !== 1) fail("חיתוך מתחת ל-1");
+
+  const rows: ShowcaseMatch[] = Array.from({ length: 10 }, (_, i) => ({
+    property_id: `p${i}`,
+    title: `שורה ${i + 1}`,
+    street: i === 6 ? "הדקל" : "פרץ ציוני",
+    score: 100 - i,
+  }));
+  const saved = rememberShownMatches(undefined, "client", {
+    ids: rows.slice(0, 5).map((row) => String(row.property_id)),
+    limit: 5,
+    waive: ["elevator"],
+  });
+  const window = applyShownMatchSet(rows, saved.client);
+  const onlySeventh = resolveShowcaseRefs(window.rows, ["הדקל"], window.limit);
+  if (onlySeventh.ok) fail("שורה 7 שנשמרה מחוץ לחלון נוספה");
+  if (onlySeventh.ask.includes("שורה 7")) fail("השאלה כוללת שורה שלא הוצגה");
+  const asked = resolveShowcaseRefs(window.rows, ["פרץ ציוני"], window.limit);
+  if (asked.ok || asked.ask.includes("שורה 6") || asked.ask.includes("שורה 7")) fail(asked.ok ? "נוסף" : asked.ask);
+  if (!asked.ask.includes("שורה 1") || !asked.ask.includes("שורה 5")) fail("חסרה שורה שהוצגה");
+
+  const stamped = stampShownMatches(
+    [{ role: "user", content: "רק עם פרץ ציוני" }],
+    saved,
+  );
+  const peeled = peelShownMatches(stamped);
+  if (peeled.history.length !== 1 || messageHasMark(peeled.history)) fail("הסמן נשאר בהיסטוריה של המודל");
+  if (peeled.shown.client?.ids.join() !== "p0,p1,p2,p3,p4" || peeled.shown.client.waive.join() !== "elevator") {
+    fail(JSON.stringify(peeled.shown));
+  }
+  if (peeled.shown.client.limit !== 5) fail("ה-limit לא נשמר");
+  const marker = stamped[stamped.length - 1];
+  if (marker?.role !== "assistant") fail("הסמן נשמר כהודעת סוכן/ת");
+
+  const legacyBody = "[[shown-matches-v1]]" + JSON.stringify({
+    client: { ids: ["p9"], limit: 5, waive: ["elevator"] },
+  });
+  const legacy = peelShownMatches([
+    { role: "user", content: "היי" },
+    { role: "user", content: legacyBody },
+  ]);
+  if (legacy.history.length !== 1 || String(legacy.history[0]?.content) !== "היי") fail("סמן user ישן נשאר גלוי");
+  if (legacy.shown.client?.ids.join() !== "p9" || legacy.shown.client.waive.join() !== "elevator") {
+    fail(JSON.stringify(legacy.shown));
+  }
+
+  const broken = peelShownMatches([
+    { role: "user", content: "היי" },
+    { role: "user", content: "[[shown-matches-v1]] לא JSON" },
+    { role: "assistant", content: "שלום" },
+    { role: "user", content: "תראי [[shown-matches-v1]] בתוך המשפט" },
+  ]);
+  if (broken.history.length !== 3) fail("טקסט שבור לא הוסר, או הודעה רגילה הוסרה");
+  if (Object.keys(broken.shown).length !== 0) fail("טקסט שבור נקרא כמצב");
+  if (String(broken.history[2]?.content) !== "תראי [[shown-matches-v1]] בתוך המשפט") fail("הודעה בלי קידומת נפגעה");
+
+  const restamped = stampShownMatches(
+    [
+      { role: "user", content: "היי" },
+      { role: "assistant", content: "שלום" },
+      { role: "user", content: legacyBody },
+      { role: "assistant", content: "[[shown-matches-v1]] גם ישן" },
+    ],
+    legacy.shown,
+  );
+  const marks = restamped.filter((message) => String(message.content || "").startsWith("[[shown-matches-v1]]"));
+  if (marks.length !== 1 || marks[0]?.role !== "assistant" || restamped[restamped.length - 1] !== marks[0]) {
+    fail("אחרי חתימה מחדש אין סמן assistant יחיד בסוף");
+  }
+  const visible = peelShownMatches(restamped).history;
+  if (!modelRolesOk(visible)) fail(visible.map((message) => message.role).join(","));
+});
+
+function modelRolesOk(history: readonly { role?: string }[]): boolean {
+  if (!history.length) return true;
+  if (history[0]?.role === "assistant") return false;
+  for (let i = 1; i < history.length; i++) {
+    if (!history[i]?.role || history[i]?.role === history[i - 1]?.role) return false;
+  }
+  return true;
+}
+
+Deno.test("חיתוך היסטוריה מקלף את הסמן לפני החלון", () => {
+  const real: { role: string; content: string }[] = [];
+  for (let i = 0; i < 5; i++) {
+    real.push({ role: "user", content: `u${i}` });
+    real.push({ role: "assistant", content: `a${i}` });
+  }
+  const legacy = "[[shown-matches-v1]]" + JSON.stringify({
+    client: { ids: ["p0"], limit: 5, waive: [] },
+  });
+  const stored = appendHistoryKeepingShown(
+    [...real, { role: "user", content: legacy }],
+    [
+      { role: "user", content: "שיחה" },
+      { role: "assistant", content: "סיכום" },
+    ],
+    12,
+  );
+  const marks = stored.filter((message) => String(message.content || "").startsWith("[[shown-matches-v1]]"));
+  if (marks.length !== 1 || marks[0]?.role !== "assistant") fail("הסמן לא נשמר אחרי החיתוך");
+  const visible = peelShownMatches(stored).history;
+  if (visible[0]?.content !== "u0" || visible[0]?.role !== "user") fail("החיתוך התחיל ב-assistant");
+  if (!modelRolesOk(visible)) fail(visible.map((message) => message.role).join(","));
+  if (peelShownMatches(stored).shown.client?.ids.join() !== "p0") fail("המצב אבד בחיתוך");
+});
+
+function messageHasMark(history: readonly { content?: unknown }[]): boolean {
+  return history.some((message) => String(message.content || "").includes("shown-matches"));
+}
