@@ -677,11 +677,30 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 גבריאלה, ולכן נכנסת להיסטוריה של העוזרת **של הסוכן/ת** (`[הודעת מערכת…]` ואחריה
 הטקסט), כמו `rememberForBot` ב-`twilio-voice`. החלון שם - `last_message_at` של הסוכן/ת.
 
+## תשובה לסוכן/ת: בלי שאלה חוזרת ובלי תזכורת על נושא אחר (2.11.2026)
+
+המודל מוסיף עבודה גם כשההוראה אומרת "אל תשאל". מה שסגור בקוד
+(`reply-style.ts`, לא רק ב-`SYSTEM_STATIC`):
+
+* `styleContext` מזכיר תשובות שכבר ניתנו ב-24 השעות האחרונות, כולל "כן",
+  וזיהוי שם רק לשם המדויק. אדם אחר מבטל אותו. `shapeAgentReply` מוריד רק
+  שאלה חוזרת על אותו אדם, תפריט כשיש קריאה אחת, והערת צד. שאלה חוסמת
+  נשארת. בטיוטה ללקוח/ה (גם "היי דנה," בלי קישור) אין מוחקים שורה שאינה שאלה.
+* `agenda_add` אינו בונה "אפשר להוסיף את <שם>" מכותרת. אין לנחש שם
+  ("לחזור" מתוך "לחזור לליד"). הצעה רק אם הסוכן/ת אמר/ה שם ואין התאמה,
+  בניסוח של המודל, פעם אחת. `same_time` רק על פגישה באותה דקה.
+* הודעה קולית קצרה אינה נשלחת ל-Whisper עם פרומפט "שיחת מתווך ולקוח".
+  בלי דיבור: `VOICE_NOTE_EMPTY_REPLY`. קובץ קטוע או כשל רשת: "לא הצלחתי
+  לעבד את ההקלטה עכשיו", לא כאילו לא היה דיבור. ניסיון Whisper שני רק
+  כשהפרומפט עצמו חזר.
+  ‏`docs/whatsapp-setup.md`, "תשובה לסוכן/ת".
+
 ## לפני הדחיפה
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
 deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
+node --experimental-strip-types scripts/gabriela_reply_style_test.ts
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
 python scripts/check_events.py       # אם נגעת בקישור לבוט

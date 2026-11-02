@@ -94,6 +94,12 @@ import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
+import {
+  sameTimeConflictLine,
+  collectToolAsks,
+  shapeAgentReply,
+  styleContext,
+} from "./reply-style.ts";
 import { pageLink, pageLinkTopics } from "./crm-pages.ts";
 import { ctaLabel, isSafeCrmPath, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
@@ -1677,7 +1683,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "קובע ביומן של הסוכן/ת פגישה, סיור, חתימה, שיחה או משימה, עם תזכורת " +
       "בוואטסאפ ובפעמון. \"תזכיר לי מחר ב-10 להתקשר לרונית\", \"יש לי פגישה " +
-      "ביום ג' ב-17:00 עם דני בהרצל 12\". השעה היא שעון ישראל.",
+      "ביום ג' ב-17:00 עם דני בהרצל 12\". השעה היא שעון ישראל. " +
+      "מי שאינו/ה בקובץ הלקוחות נקבע/ת בלי client_id, בלי לשאול אם להוסיף.",
     input_schema: {
       type: "object",
       properties: {
@@ -8738,17 +8745,43 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
 
   const [shaped] = await agendaShape(ctx, [data]);
   const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
+  const sameTime = await exactSameTimeNote(ctx, kind, due ?? null, String(data.id));
   return {
     ok: true,
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
     client_followup: followup.note,
-    guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id." +
+    same_time: sameTime || undefined,
+    guidance: "אשר/י בשורה אחת או שתיים: מה, מתי (יום ושעה מ-when) ושם פרטי. " +
+      "בלי לסכם מה שנאמר קודם, ובלי פגישות אחרות. אל תציג/י item_id. " +
+      "אין להציע להוסיף לקובץ הלקוחות מתוך כותרת הפגישה, ואין לנחש שם. " +
+      "הצעה רק אם הסוכן/ת אמר/ה שם של אדם ו-list_clients לא מצא אותו, בניסוח שלך, פעם אחת." +
       (followup.note ? " אם יש client_followup - אמור/אמרי אותו במשפט אחד נוסף." : "") +
+      (sameTime ? " same_time היא שורה אחת אחרי האישור, בלי לשאול אם להזיז." : " אין להזכיר פגישה אחרת.") +
       (gcalOffer ? " ואחרי האישור, בשורה נפרדת, הצע/י את gcal_offer כמו שהוא - הצעה, לא לחץ." : ""),
     gcal_offer: gcalOffer || undefined,
   };
+}
+
+/** פגישה אחרת באותה דקה בדיוק. כשל בקריאה אינו חוסם את מה שכבר נשמר. */
+async function exactSameTimeNote(
+  ctx: ToolContext,
+  kind: string,
+  due: string | null,
+  selfId: string,
+): Promise<string | null> {
+  if (!due || !["meeting", "showing", "signing"].includes(kind)) return null;
+  const t = Date.parse(due);
+  if (!Number.isFinite(t)) return null;
+  const { data, error } = await ctx.supabase.from("agent_agenda_items")
+    .select("id, title, kind, status, due_at")
+    .eq("agent_id", ctx.agent.id)
+    .eq("status", "open")
+    .gte("due_at", new Date(t - 90_000).toISOString())
+    .lt("due_at", new Date(t + 90_000).toISOString());
+  if (error || !data) return null;
+  return sameTimeConflictLine(kind, due, data, selfId);
 }
 
 /**
@@ -9376,11 +9409,10 @@ const SYSTEM_STATIC: string = (() => {
       "האחרונות בטלפון. ליד כל אחד כתוב אם הוא כבר בקובץ הלקוחות - זה נבדק בקוד, סמוך/י עליו.",
     "- אם באותה הודעה (או באותו רצף) יש הוראה של הסוכן/ת - בצע/י אותה על איש הקשר " +
       "(\"תוסיף כקונה בחיפה עד 2 מליון\" = create_client עם השם, הטלפון והדרישות).",
-    "- בלי הוראה: למי שאינו בקובץ שאל/י בשאלה אחת \"להוסיף את <שם> כלקוח/ה? מה הוא/היא " +
-      "מחפש/ת - קנייה או שכירות, איפה, כמה חדרים ותקציב? או שזה בעל/ת נכס שמוכר/ת או " +
-      "משכיר/ה? אפשר לענות בהקלטה\". " +
-      "\"כן\" לבד = create_client עם שם וטלפון בלבד. למי שכבר בקובץ - אל תיצור/י; " +
-      "אמור/אמרי שהוא כבר לקוח/ה (בשם שבקובץ) ושאל/י מה לעדכן.",
+    "- בלי הוראה: למי שאינו בקובץ, שורה אחת לכל היותר \"אפשר להוסיף את <שם> לקובץ הלקוחות.\" " +
+      "בלי לשאול קנייה, שכירות, בעלות או טלפון, ופעם אחת לאדם בשיחה. " +
+      "\"כן\" לבד = create_client עם שם וטלפון מהכרטיס, בלי שאלות נוספות. למי שכבר בקובץ - אל תיצור/י; " +
+      "אמור/אמרי שהוא כבר לקוח/ה (בשם שבקובץ) ואל תשאל/י מה לעדכן אלא אם ביקשו.",
     "- כמה אנשי קשר בבת אחת: שאלה אחת על כולם (\"להוסיף את שלושתם?\"), ואז create_client לכל אחד.",
     "- איש קשר עם חברה (org) עשוי להיות בעל/ת מקצוע או בעל/ת נכס ולא לקוח/ה מחפש/ת - " +
       "אם זה לא ברור, שאל/י לפני שיוצרים.",
@@ -9485,11 +9517,30 @@ const SYSTEM_STATIC: string = (() => {
     "- מספר רישיון וטלפון אינם נערכים בצ'אט - הפנה/י לדשבורד.",
     "",
     "יומן, פגישות ותזכורות:",
+    "- **שאלה רק כשהפעולה נחסמת בלעדיה** (סוג עסקה, עיר, מחיר, איות שם, או על איזה פריט). " +
+      "כמה דברים שכולם חוסמים נשאלים יחד בשורה קצרה אחת, ואין לוותר על אף אחד. " +
+      "העשרה לפגישה עם מי שלא נשמר/ת כלקוח/ה (הוספה לקובץ, טלפון) אינה נשאלת. " +
+      "לכל היותר הצעה אחת בניסוח שלך, רק אם הסוכן/ת אמר/ה שם ואין התאמה בקובץ. לא מתוך כותרת. " +
+      "קנייה או שכירות, ומוכר או משכיר, נשאלים כש-create_client או update_client מחזירים ask: " +
+      "בלי זה הכרטיס לא נשמר. שאלי את ask כמו שהוא, פעם אחת. אם כבר נענה, אל תשאלי שוב.",
+    "- **אין לשאול שוב** מה שכבר נענה בשיחה הזו, כולל \"כן\" ו\"הכוונה ל...\". " +
+      "זיהוי שם חל רק על השם המדויק שנרשם בהקשר. אין להחיל אותו על אדם אחר, " +
+      "ואם נאמר שם אחר הזיהוי בטל. לא \"ועוד דבר אחד\" על אותו שם.",
+    "- בלי תפריט כשיש קריאה אחת סבירה: מבצעים ואומרים בשורה מה נעשה. " +
+      "\"ולא עם X\" אחרי תיקון של פגישה אחרת הוא חלק מהתיקון, לא בקשה לבטל את X.",
+    "- **אין לצרף לתשובה תזכורת, התנגשות או פגישה אחרת** שלא קשורה לבקשה. " +
+      "הסיכום והתזכורות כבר יוצאים לבד. חריג יחיד: same_time (אותה שעה בדיוק " +
+      "של פגישה שנוצרת עכשיו), שורה אחת, בלי לשאול אם להזיז.",
     "- \"תזכיר לי...\" / \"יש לי פגישה...\" / \"תקבע סיור...\" = agenda_add. תאריך ושעה " +
       "בשעון ישראל, מחושבים מ\"עכשיו\" שבהקשר (\"מחר\", \"ביום ג'\", \"בעוד שעה\" = in_minutes). " +
       "אם לא נאמרה שעה לפגישה - שאל/י בשאלה אחת; למשימה אפשר בלי שעה (09:00).",
     "- פגישה עם לקוח/ה מהקובץ: קודם list_clients עם query, והעבר/י client_id - אז השם " +
-      "והטלפון יופיעו בתזכורת.",
+      "והטלפון יופיעו בתזכורת. מי שאינו/ה בקובץ: agenda_add בלי client_id. " +
+      "אין לשאול אם להוסיף ואין לשאול טלפון, ואין להמציא שם מהכותרת. " +
+      "סוג עסקה נשאל רק אם יוצרים או מעדכנים כרטיס והכלי החזיר ask.",
+    "- אין להזכיר פגישה אחרת, תזכורת או התנגשות בתשובה על משהו אחר. " +
+      "אם חזר same_time - שורה אחת אחרי האישור, בלי לשאול אם להזיז. " +
+      "פגישה בשעה אחרת אינה התנגשות.",
     "- פגישה, סיור או חתימה עם לקוח/ה מהקובץ: הלקוח/ה מקבל/ת לבד אישור בוואטסאפ (עם הוספה ליומן) " +
       "ותזכורת שעה לפני עם כפתורי אישור הגעה, ביטול ומועד אחר. התשובה מגיעה לסוכן/ת כהתראה. " +
       "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
@@ -9614,6 +9665,21 @@ function sessionContext(
   return lines.join("\n");
 }
 
+/** הקשר התור: השעה והמצב, ואחריהם מה שכבר נענה וקריאה אחת אם יש. לא ב-SYSTEM_STATIC. */
+function turnContext(
+  agent: AgentRow,
+  conv: ConversationState,
+  gaps: string[],
+  pendingSince: number | null,
+  listingCity: string | null | undefined,
+  demandOn: boolean,
+  userText: string,
+): string {
+  const base = sessionContext(agent, conv, gaps, pendingSince, listingCity, demandOn);
+  const extra = styleContext(conv.history, userText);
+  return extra ? `${base}\n\n${extra}` : base;
+}
+
 /**
  * קריאה ל-Claude. ‏fallbacks מפעיל ניתוב אוטומטי למודל חלופי אם בקשה נדחית
  * על ידי מסנני הבטיחות, כדי שסוכן/ת לא תיתקע בלי תשובה. אם ה-beta לא זמין
@@ -9730,7 +9796,7 @@ export async function runAgentTurn(opts: {
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity, demandOn), userContent) },
+    { role: "user", content: withTurnContext(turnContext(agent, conv, gaps, pendingSince, listingCity, demandOn, userSummary), userContent) },
   ];
 
   let finalText = "";
@@ -9739,14 +9805,16 @@ export async function runAgentTurn(opts: {
   // כלי כתיבה בתור הזה מוריד בוררי חיפוש (list_properties / search_properties)
   // לפני שהתור נשלח. הסימון הוא על הקריאה, גם אם הכלי החזיר שאלה ולא כתב.
   let mutated = false;
+  const toolAsks: string[] = [];
   const toolsDone: string[] = [];
   const stopForAbort = (): never => {
     if (abortedTurnPlan(toolsDone) === "save") {
       conv.abortedToolNames = toolsDone.slice();
+      const stampedAt = new Date().toISOString();
       conv.history = trimHistory([
         ...conv.history,
-        { role: "user", content: userSummary },
-        { role: "assistant", content: abortedTurnNote(toolsDone) },
+        { role: "user", content: userSummary, at: stampedAt },
+        { role: "assistant", content: abortedTurnNote(toolsDone), at: stampedAt },
       ], HISTORY_LIMIT);
     }
     throw new DOMException("turn aborted", "AbortError");
@@ -9849,6 +9917,7 @@ export async function runAgentTurn(opts: {
       // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
       // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
       console.log(`tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
+      if (!blocked) collectToolAsks(toolAsks, result);
       results.push({
         type: "tool_result",
         tool_use_id: use.id,
@@ -9881,6 +9950,8 @@ export async function runAgentTurn(opts: {
 
   if (!finalText) {
     finalText = "לא הצלחתי להשלים את הפעולה. אפשר לנסות שוב או לפנות לדשבורד.";
+  } else if (!finalText.startsWith("לא הצלחתי") && !finalText.startsWith("מצטערת")) {
+    finalText = shapeAgentReply(finalText, { userText: userSummary, history: conv.history, toolAsks });
   }
 
   // ההיסטוריה נשמרת כטקסט בלבד — בלי בלוקי הכלים ובלי התמונות. זה מספיק
@@ -9888,10 +9959,11 @@ export async function runAgentTurn(opts: {
   // ומצבים לא חוקיים של tool_result יתום אחרי גזימה.
   // גזימה במדרגות ולא slice(-HISTORY_LIMIT): חלון מחליק מזיז את תחילת
   // ההיסטוריה בכל תור, ואז היא לא נקראת מהמטמון לעולם (prompt-cache.ts)
+  const stampedAt = new Date().toISOString();
   conv.history = trimHistory([
     ...conv.history,
-    { role: "user", content: userSummary },
-    { role: "assistant", content: finalText },
+    { role: "user", content: userSummary, at: stampedAt },
+    { role: "assistant", content: finalText, at: stampedAt },
   ], HISTORY_LIMIT);
 
   if (opts.outbox && mutated) {
