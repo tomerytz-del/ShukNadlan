@@ -50,10 +50,15 @@ export default async (req: Request, _context: Context) => {
   const m = url.pathname.match(/^\/p\/(\d{1,9})\/?$/);
   const id = m ? await propertyId(m[1]) : null;
   if (!id) return Response.redirect(new URL("/", url), 302);
+  /* ‏שאר השאילתה (‏utm של "שיתוף בוואטסאפ" בדף הנכס, ‏fbclid) עוברת הלאה,
+     אחרת השיתוף נספר ב-GA4 כתנועה ישירה. ‏id תמיד מהמסד. */
+  const dest = new URL("/property", url);
+  dest.searchParams.set("id", id);
+  url.searchParams.forEach((v, k) => { if (k !== "id") dest.searchParams.append(k, v); });
   return new Response(null, {
     status: 302,
     headers: {
-      Location: new URL(`/property?id=${encodeURIComponent(id)}`, url).toString(),
+      Location: dest.toString(),
       "Cache-Control": "public, max-age=300",
     },
   });
