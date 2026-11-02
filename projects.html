@@ -1082,7 +1082,7 @@ el('leadForm').addEventListener('submit', async (e)=>{
     if (!res.ok || data.error){
       const messages = {
         bad_phone: 'מספר הטלפון אינו תקין',
-        rate_limited: 'כבר קיבלנו ממך כמה פניות היום. נחזור אליך בקרוב.',
+        rate_limited: 'כבר קיבלנו מכם כמה פניות ב-24 השעות האחרונות, והפנייה הזו לא נשלחה. אפשר לנסות שוב מאוחר יותר.',
         consent_required: 'צריך לאשר יצירת קשר',
       };
       msg.style.color = '#b3261e';
@@ -1093,7 +1093,7 @@ el('leadForm').addEventListener('submit', async (e)=>{
     el('leadForm').innerHTML =
       '<h3 style="font-family:\'Frank Ruhl Libre\',serif;font-size:1.15rem;margin:0;color:var(--teal-dark)">קיבלנו, תודה!</h3>' +
       '<p style="font-size:.87rem;color:var(--ink-soft);margin:8px 0 0">' +
-      'העברנו את הבקשה ליזמים ולקבלנים הרלוונטיים באזור. מי שיש לו מה להציע ייצור איתך קשר ישירות.</p>';
+      'הבקשה נשמרה ותוצע ליזמים באזור. מי שיש לו פרויקט מתאים יוכל ליצור איתכם קשר.</p>';
   } catch(err){
     console.warn(err);
     msg.style.color = '#b3261e';
