@@ -5845,6 +5845,9 @@ window.shukArmTrackers = function () {
   .agr-fold[open]>summary{margin-bottom:10px}
   .agr-fold[open]>summary::after{transform:rotate(180deg)}
   .agr-fold-sub{font-family:inherit;font-size:.76rem;font-weight:500;color:var(--muted)}
+  /* ‏.btn הוא inline-flex, וזה גובר על hidden של הדפדפן - בלי זה כפתורי
+     "+ הוספה" המקופלים (agrSyncAddBoxes) היו מוצגים תמיד */
+  .agr-sec [hidden]{display:none !important}
   .agr-grid,.agr-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   @media(max-width:560px){.agr-grid,.agr-fields{grid-template-columns:1fr}}
   /* פרטי הנכס בהסכם: שני שדות בשורה גם בטלפון. רובם ערך קצר ("4", "יש",

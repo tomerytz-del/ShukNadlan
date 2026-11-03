@@ -34338,7 +34338,7 @@ function agrRenderStepDetails(){
   if (tpl.questionnaire){
     const answered = tpl.questionnaire.items.filter((q, i) => String(w.questionnaire[i] || '').trim()).length;
     html += '<details class="agr-sec agr-fold"><summary>' + esc(tpl.questionnaire.title) +
-        ' <span class="agr-fold-sub">' + answered + ' מתוך ' + tpl.questionnaire.items.length + ' נענו</span></summary>' +
+        ' <span class="agr-fold-sub" id="agrQSum">' + answered + ' מתוך ' + tpl.questionnaire.items.length + ' נענו</span></summary>' +
       '<p class="imp-note" style="margin:0 0 10px">תשובות בעל/ת הנכס. שאלה שנשארת ריקה מודפסת במסמך עם שורה ריקה למילוי ידני.</p>' +
       tpl.questionnaire.items.map((q, i) =>
         `<div class="agr-field" style="margin-bottom:9px"><label>${i + 1}. ${esc(q)}</label>
@@ -35089,7 +35089,19 @@ function agrFillCountHtml(entry, fields){
     `מולאו <b>${filled}</b> מתוך ${fields.length} שדות · שדה שיישאר ריק יודפס כקו למילוי בכתב יד</p>`;
 }
 
+/* המונה בכותרת המקופלת של "פרטי הנכס במסמך" - כל הנכסים יחד */
+function agrUpdatePropFieldsSum(){
+  const sum = agrEl('agrPropFieldsSum');
+  const tpl = agrTpl(agrWizard.kind);
+  if (!sum || !tpl) return;
+  const all = agrWizard.properties.length * tpl.propertyFields.length;
+  const filled = agrWizard.properties.reduce((n, e) =>
+    n + tpl.propertyFields.filter(f => String(e.fields[f.key] || '').trim()).length, 0);
+  sum.textContent = all ? 'מולאו ' + filled + ' מתוך ' + all : '';
+}
+
 function agrUpdateFillCount(uid){
+  agrUpdatePropFieldsSum();
   const tpl = agrTpl(agrWizard.kind);
   const entry = agrWizard.properties.find(p => p.uid === uid);
   const el = document.querySelector('[data-agr-fillcount="' + CSS.escape(uid) + '"]');
@@ -35106,13 +35118,8 @@ function agrRenderPropFields(){
     return;
   }
   const overrides = tpl.propertyLabelOverrides || {};
-  const box = agrEl('agrPropFieldsBox'), sum = agrEl('agrPropFieldsSum');
-  if (sum){
-    const all = agrWizard.properties.length * tpl.propertyFields.length;
-    const filled = agrWizard.properties.reduce((n, e) =>
-      n + tpl.propertyFields.filter(f => String(e.fields[f.key] || '').trim()).length, 0);
-    sum.textContent = 'מולאו ' + filled + ' מתוך ' + all;
-  }
+  const box = agrEl('agrPropFieldsBox');
+  agrUpdatePropFieldsSum();
   // נכס בהזנה ידנית - רוב השדות ריקים, ולכן הם נפתחים להשלמה
   if (box && agrWizard.properties.some(e => !e.property_id)) box.open = true;
 
@@ -35754,6 +35761,12 @@ async function agrSaveAndGoSign(btn){
   const w = agrWizard;
   /* הסכם שהקישור שלו כבר יצא (וואטסאפ, העתקה, מייל) נעול במסד
      (agreements_freeze_body). שמירה מחדש הייתה נופלת על agreement_locked */
+  /* הסטטוס שבזיכרון עלול להיות ישן - הלקוח/ה אולי פתח/ה את הקישור בינתיים
+     (agreement-sign/open מוציא מ-draft) - ולכן נשאל שוב */
+  if (w.agreementId && w.record){
+    const { data: cur } = await sb.from('agreements').select('status').eq('id', w.agreementId).maybeSingle();
+    if (cur && cur.status) w.record.status = cur.status;
+  }
   if (w.agreementId && w.record && w.record.status && w.record.status !== 'draft'){
     showToast('ההסכם כבר נשלח לחתימה ולכן אינו נשמר מחדש. לתיקון - בטלו אותו והוציאו הסכם חדש.');
     w.step = 4;
@@ -36190,6 +36203,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
 agrEl('agrBody').addEventListener('input', async (e)=>{
   if (!agrWizard) return;
   const t = e.target;
+
+  // המונה בכותרת המקופלת של המשאלון
+  if (t.dataset.agrQ !== undefined){
+    const all = [...document.querySelectorAll('[data-agr-q]')];
+    const el = agrEl('agrQSum');
+    if (el) el.textContent = all.filter(x => x.value.trim()).length + ' מתוך ' + all.length + ' נענו';
+    return;
+  }
 
   /* שני דגלי החתימה מרחוק נשמרים מיד ולא ב"שמירה" נפרדת: הם משנים את
      ההתנהגות של הקישור הבא שנשלח, והמרחק בין הסימון לשליחה הוא לחיצה אחת. */
