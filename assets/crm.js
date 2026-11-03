@@ -2542,6 +2542,11 @@ function gotoLoadKeys(raw, tab){
    ולכן ביקורת שממתינה נשארת לסוף loadDashboard - אחרת הקישור היה נמחק
    מהכתובת בלי שהכרטיס נפתח. */
 function gotoTargetReady(raw){
+  /* ‏bell (תקציר הלידים ותקציר ההתפרצות בוואטסאפ) - שכבה בכותרת ולא קטגוריה,
+     והיא גלויה לכל תפקיד. עד 3.11.2026 היא לא הייתה כאן, ולכן חיכתה לכל
+     loadDashboard: אצל מנהל/ת שהוא/היא גם מנהל/ת פלטפורמה ויועצ/ת משכנתאות
+     הפעמון נפתח 27 שניות אחרי הכניסה (deeplink_timings, lead_digest). */
+  if (raw === 'bell') return true;
   if (raw === 'mentor' || raw === 'license' || raw === 'cma' || raw === 'cmaAddress'
       || raw === 'promote' || raw === 'waShare' || raw === 'sign') return true;
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return false;
