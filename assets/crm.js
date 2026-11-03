@@ -34196,6 +34196,16 @@ function agrRenderStepDetails(){
      ו-<select> של הנכסים שלי הכריח להקליד אותם ידנית. --- */
   html += '<div class="agr-sec"><h4>' +
     (tpl.propertyMode === 'multi' ? 'הנכסים בהסכם' : 'הנכס בהסכם') + '</h4>' +
+    /* מה שכבר בטופס - בראש, לפני החיפוש. כשהנכס הגיע מכרטיס הנכס (והבעלים
+       איתו), חיפוש בראש המקטע נראה כאילו עוד צריך לבחור. */
+    '<div id="agrPropChips"></div>' +
+    (tpl.propertyMode === 'single'
+      ? '<p class="imp-note" style="margin:6px 0 12px">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
+      : '<p class="imp-note" style="margin:6px 0 12px">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
+    /* החיפוש וההזנה הידנית מקופלים מאחורי כפתור כשכבר יש נכס בטופס - כדי
+       שהטופס יישאר קצר, ושלא ייראה כאילו עוד צריך לבחור (agrSyncAddBoxes) */
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-prop-add" id="agrPropAddBtn" hidden></button>' +
+    '<div id="agrPropAdd">' +
     '<div class="agr-search">' +
       '<input type="search" id="agrPropSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש נכס - כתובת, עיר, סוג נכס או מספר מודעה" autocomplete="off">' +
@@ -34234,17 +34244,19 @@ function agrRenderStepDetails(){
       '<p class="imp-note" style="margin:8px 0 0">אלה השדות שנדרשים כדי לזהות את הנכס. ' +
         'כל היתר נפתח לעריכה מיד למטה, ומה שיישאר ריק מודפס במסמך כקו.</p>' +
     '</div>' +
+    '</div>' +
 
-    '<div id="agrPropChips" style="margin-top:12px"></div>' +
-    (tpl.propertyMode === 'single'
-      ? '<p class="imp-note">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
-      : '<p class="imp-note">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
   '</div>';
 
   /* --- צדדים ---
      אותו מחפש כמו בנכסים, ומאותה סיבה: קובץ לקוחות של מאות שורות ברשימה
      נפתחת אחת אינו ניתן לשימוש בטלפון. --- */
   html += '<div class="agr-sec"><h4>הצדדים החותמים</h4>' +
+    // החותמים שכבר בטופס (גם בעל/ת הנכס שנכנס/ה עם הנכס) - לפני החיפוש
+    '<div id="agrSignerForms" style="margin-bottom:12px"></div>' +
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-signer-add" id="agrSignerAddBtn" hidden>' +
+      '+ הוספת חותם/ת</button>' +
+    '<div id="agrSignerAdd">' +
     '<div class="agr-search">' +
       '<input type="search" id="agrClientSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש בקובץ הלקוחות - שם, טלפון, אימייל או עיר" autocomplete="off">' +
@@ -34261,15 +34273,18 @@ function agrRenderStepDetails(){
       ? '<button type="button" class="btn btn-ghost btn-block" data-agr="pick-contact-signer"' +
         ' style="margin-top:8px">📇 חותם/ת מאנשי הקשר בטלפון</button>'
       : '') +
-    '<div id="agrSignerForms" style="margin-top:12px"></div>' +
+    '</div>' +
     '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" - בן/בת זוג או שותף/ה. ' +
     'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
   '</div>';
 
   /* --- שדות הנכס --- */
-  html += '<div class="agr-sec"><h4>פרטי הנכס במסמך</h4>' +
+  /* מקופל: מה שידוע במערכת כבר מולא, ופתיחה היא רק למי שרוצה להשלים.
+     נפתח מעצמו כשנכנס נכס בהזנה ידנית (agrRenderPropFields) */
+  html += '<details class="agr-sec agr-fold" id="agrPropFieldsBox"><summary>פרטי הנכס במסמך' +
+      ' <span class="agr-fold-sub" id="agrPropFieldsSum"></span></summary>' +
     '<p class="imp-note" style="margin:0 0 10px">מה שידוע במערכת מולא לבד. שדה שנשאר ריק מודפס במסמך כקו לחתימה ידנית.</p>' +
-    '<div id="agrPropFields"></div></div>';
+    '<div id="agrPropFields"></div></details>';
 
   /* --- עמלה --- */
   html += '<div class="agr-sec"><h4>עמלה</h4><div class="agr-grid">' +
@@ -34321,12 +34336,14 @@ function agrRenderStepDetails(){
 
   /* --- משאלון --- */
   if (tpl.questionnaire){
-    html += '<div class="agr-sec"><h4>' + esc(tpl.questionnaire.title) + '</h4>' +
+    const answered = tpl.questionnaire.items.filter((q, i) => String(w.questionnaire[i] || '').trim()).length;
+    html += '<details class="agr-sec agr-fold"><summary>' + esc(tpl.questionnaire.title) +
+        ' <span class="agr-fold-sub" id="agrQSum">' + answered + ' מתוך ' + tpl.questionnaire.items.length + ' נענו</span></summary>' +
       '<p class="imp-note" style="margin:0 0 10px">תשובות בעל/ת הנכס. שאלה שנשארת ריקה מודפסת במסמך עם שורה ריקה למילוי ידני.</p>' +
       tpl.questionnaire.items.map((q, i) =>
         `<div class="agr-field" style="margin-bottom:9px"><label>${i + 1}. ${esc(q)}</label>
          <textarea rows="2" data-agr-q="${i}">${esc(w.questionnaire[i] || '')}</textarea></div>`).join('') +
-    '</div>';
+    '</details>';
   }
 
   /* --- שונות --- */
@@ -34525,9 +34542,31 @@ function agrRenderPropResults(){
     ? `<div class="agr-res-empty">מוצגים 8 מתוך ${total} - הקלידו כדי לחפש</div>` : '');
 }
 
+/* החיפוש (והכפתורים שלידו) פתוח רק כשאין עדיין נכס/חותם בטופס, או
+   כשלחצו "הוספה". אחרי בחירה הוא נסגר, וכך הטופס נשאר קצר. */
+function agrSyncAddBoxes(){
+  const w = agrWizard;
+  if (!w) return;
+  const tpl = agrTpl(w.kind);
+  const pairs = [
+    ['agrPropAdd', 'agrPropAddBtn', w.properties.length, 'propAddOpen',
+     tpl && tpl.propertyMode === 'single' ? '🔄 החלפת הנכס' : '+ הוספת נכס'],
+    ['agrSignerAdd', 'agrSignerAddBtn', w.signers.length, 'signerAddOpen', '+ הוספת חותם/ת'],
+  ];
+  pairs.forEach(([boxId, btnId, n, flag, label]) => {
+    const box = agrEl(boxId), btn = agrEl(btnId);
+    if (!box || !btn) return;
+    const open = !n || !!w[flag];
+    box.hidden = !open;
+    btn.hidden = !n || open;
+    btn.textContent = label;
+  });
+}
+
 function agrRenderPropChips(){
   const host = agrEl('agrPropChips');
   if (!host) return;
+  agrSyncAddBoxes();
   if (!agrWizard.properties.length){
     host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחר נכס.</p>';
     return;
@@ -34598,6 +34637,7 @@ async function agrAddProperty(propertyId, opts){
   }
 
   if (!(opts && opts.silent)){
+    w.propAddOpen = false;
     agrRenderPropChips();
     agrRenderPropFields();
     agrRenderSignerForms();
@@ -34644,6 +34684,7 @@ function agrAddManualProperty(){
   ['agrMpType','agrMpStreet','agrMpHouse','agrMpApt','agrMpPrice']
     .forEach(id => { if (agrEl(id)) agrEl(id).value = ''; });
   agrEl('agrManualProp').hidden = true;
+  agrWizard.propAddOpen = false;
 
   agrRenderPropChips();
   agrRenderPropFields();
@@ -35048,7 +35089,19 @@ function agrFillCountHtml(entry, fields){
     `מולאו <b>${filled}</b> מתוך ${fields.length} שדות · שדה שיישאר ריק יודפס כקו למילוי בכתב יד</p>`;
 }
 
+/* המונה בכותרת המקופלת של "פרטי הנכס במסמך" - כל הנכסים יחד */
+function agrUpdatePropFieldsSum(){
+  const sum = agrEl('agrPropFieldsSum');
+  const tpl = agrTpl(agrWizard.kind);
+  if (!sum || !tpl) return;
+  const all = agrWizard.properties.length * tpl.propertyFields.length;
+  const filled = agrWizard.properties.reduce((n, e) =>
+    n + tpl.propertyFields.filter(f => String(e.fields[f.key] || '').trim()).length, 0);
+  sum.textContent = all ? 'מולאו ' + filled + ' מתוך ' + all : '';
+}
+
 function agrUpdateFillCount(uid){
+  agrUpdatePropFieldsSum();
   const tpl = agrTpl(agrWizard.kind);
   const entry = agrWizard.properties.find(p => p.uid === uid);
   const el = document.querySelector('[data-agr-fillcount="' + CSS.escape(uid) + '"]');
@@ -35065,6 +35118,10 @@ function agrRenderPropFields(){
     return;
   }
   const overrides = tpl.propertyLabelOverrides || {};
+  const box = agrEl('agrPropFieldsBox');
+  agrUpdatePropFieldsSum();
+  // נכס בהזנה ידנית - רוב השדות ריקים, ולכן הם נפתחים להשלמה
+  if (box && agrWizard.properties.some(e => !e.property_id)) box.open = true;
 
   host.innerHTML = agrWizard.properties.map((entry, idx) => {
     const inputs = tpl.propertyFields.map(f =>
@@ -35159,8 +35216,24 @@ function agrAddClientSigner(clientId, opts){
     email: c.email || '', address: c.address || '', client_id: c.id,
   });
   if (!(opts && opts.silent)){
+    agrWizard.signerAddOpen = false;
     agrRenderSignerForms();
     agrRenderClientResults();
+    agrRevealLastSigner(false);
+  }
+}
+
+/* הטפסים של החותמים יושבים מעל החיפוש והכפתורים, ולכן מי שהוסיף/ה חותם/ת
+   מלמטה לא היה/תה רואה דבר משתנה ליד האצבע. מגלגלים אל הטופס החדש, ובחותם/ת
+   ריק/ה גם מתמקדים בשם. */
+function agrRevealLastSigner(focusName){
+  const host = agrEl('agrSignerForms');
+  const last = host && host.lastElementChild;
+  if (!last) return;
+  try { last.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (e) { last.scrollIntoView(); }
+  if (focusName){
+    const inp = last.querySelector('[data-key="full_name"]');
+    if (inp) inp.focus({ preventScroll:true });
   }
 }
 
@@ -35178,8 +35251,10 @@ async function agrPickContactSigner(){
     full_name: c.name || '', id_number:'', self_fill: true, phone: c.phone || '', email: c.email || '',
     address:'', client_id:null,
   });
+  agrWizard.signerAddOpen = false;
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(false);
 }
 
 function agrAddBlankSigner(){
@@ -35187,13 +35262,16 @@ function agrAddBlankSigner(){
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
     full_name:'', id_number:'', self_fill: true, phone:'', email:'', address:'', client_id:null,
   });
+  agrWizard.signerAddOpen = false;
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(true);
 }
 
 function agrRenderSignerForms(){
   const host = agrEl('agrSignerForms');
   if (!host) return;
+  agrSyncAddBoxes();
   if (!agrWizard.signers.length){
     host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחרו חותמים.</p>';
     return;
@@ -35681,6 +35759,20 @@ async function agrSaveAndGoSign(btn){
     return;
   }
   const w = agrWizard;
+  /* הסכם שהקישור שלו כבר יצא (וואטסאפ, העתקה, מייל) נעול במסד
+     (agreements_freeze_body). שמירה מחדש הייתה נופלת על agreement_locked */
+  /* הסטטוס שבזיכרון עלול להיות ישן - הלקוח/ה אולי פתח/ה את הקישור בינתיים
+     (agreement-sign/open מוציא מ-draft) - ולכן נשאל שוב */
+  if (w.agreementId && w.record){
+    const { data: cur } = await sb.from('agreements').select('status').eq('id', w.agreementId).maybeSingle();
+    if (cur && cur.status) w.record.status = cur.status;
+  }
+  if (w.agreementId && w.record && w.record.status && w.record.status !== 'draft'){
+    showToast('ההסכם כבר נשלח לחתימה ולכן אינו נשמר מחדש. לתיקון - בטלו אותו והוציאו הסכם חדש.');
+    w.step = 4;
+    agrRender();
+    return;
+  }
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'שומר…';
@@ -35934,9 +36026,26 @@ function agrSignerById(id){
   return (agrWizard.record.signers || []).find(s => s.id === id);
 }
 
+/* קישור שיצא בוואטסאפ או בהעתקה הוא הסכם שנשלח. עד היום רק המייל (בשרת)
+   העביר ל-sent, והסכם ששותף בוואטסאפ נשאר "טיוטה" ברשימה - לא נעול, בלי
+   "נצפה", ונראה כאילו לא יצא (וכך נוצר אותו הסכם פעמיים). בבלעדיות
+   הטריגר agreements_bundle_status מעביר גם את ההסכמה לפעולות שיווק. */
+async function agrMarkSent(){
+  const rec = agrWizard && agrWizard.record;
+  if (!rec || rec.status !== 'draft') return;
+  const now = new Date().toISOString();
+  const { error } = await sb.from('agreements')
+    .update({ status:'sent', sent_at: now }).eq('id', rec.id).eq('status', 'draft');
+  if (error){ console.warn('סימון ההסכם כנשלח נכשל:', error); return; }
+  rec.status = 'sent';
+  rec.sent_at = rec.sent_at || now;
+  loadAgreements();
+}
+
 async function agrCopySignLink(signerId){
   const s = agrSignerById(signerId);
   if (!s) return;
+  agrMarkSent();
   const url = agrSignUrl(s);
   try {
     await navigator.clipboard.writeText(url);
@@ -35955,6 +36064,7 @@ function agrWhatsappSign(signerId){
   const text = `שלום ${s.full_name}, מצורף קישור אישי לקריאה ולחתימה על ` +
     `${agrWizard.record.title}:\n${agrSignUrl(s)}\n\nהקישור אישי - אין להעביר אותו הלאה.`;
   window.open(wa + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+  agrMarkSent();
 }
 
 async function agrDownloadPdf(btn){
@@ -36015,6 +36125,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
     const box = agrEl('agrManualProp');
     box.hidden = !box.hidden;
     if (!box.hidden) agrEl('agrMpType').focus();
+    return;
+  }
+  if (act === 'toggle-prop-add' || act === 'toggle-signer-add'){
+    const prop = act === 'toggle-prop-add';
+    agrWizard[prop ? 'propAddOpen' : 'signerAddOpen'] = true;
+    agrSyncAddBoxes();
+    const inp = agrEl(prop ? 'agrPropSearch' : 'agrClientSearch');
+    if (inp) inp.focus();
     return;
   }
   if (act === 'add-manual-prop') return agrAddManualProperty();
@@ -36085,6 +36203,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
 agrEl('agrBody').addEventListener('input', async (e)=>{
   if (!agrWizard) return;
   const t = e.target;
+
+  // המונה בכותרת המקופלת של המשאלון
+  if (t.dataset.agrQ !== undefined){
+    const all = [...document.querySelectorAll('[data-agr-q]')];
+    const el = agrEl('agrQSum');
+    if (el) el.textContent = all.filter(x => x.value.trim()).length + ' מתוך ' + all.length + ' נענו';
+    return;
+  }
 
   /* שני דגלי החתימה מרחוק נשמרים מיד ולא ב"שמירה" נפרדת: הם משנים את
      ההתנהגות של הקישור הבא שנשלח, והמרחק בין הסימון לשליחה הוא לחיצה אחת. */
