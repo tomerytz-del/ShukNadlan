@@ -34196,6 +34196,12 @@ function agrRenderStepDetails(){
      ו-<select> של הנכסים שלי הכריח להקליד אותם ידנית. --- */
   html += '<div class="agr-sec"><h4>' +
     (tpl.propertyMode === 'multi' ? 'הנכסים בהסכם' : 'הנכס בהסכם') + '</h4>' +
+    /* מה שכבר בטופס - בראש, לפני החיפוש. כשהנכס הגיע מכרטיס הנכס (והבעלים
+       איתו), חיפוש בראש המקטע נראה כאילו עוד צריך לבחור. */
+    '<div id="agrPropChips"></div>' +
+    (tpl.propertyMode === 'single'
+      ? '<p class="imp-note" style="margin:6px 0 12px">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
+      : '<p class="imp-note" style="margin:6px 0 12px">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
     '<div class="agr-search">' +
       '<input type="search" id="agrPropSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש נכס - כתובת, עיר, סוג נכס או מספר מודעה" autocomplete="off">' +
@@ -34235,16 +34241,14 @@ function agrRenderStepDetails(){
         'כל היתר נפתח לעריכה מיד למטה, ומה שיישאר ריק מודפס במסמך כקו.</p>' +
     '</div>' +
 
-    '<div id="agrPropChips" style="margin-top:12px"></div>' +
-    (tpl.propertyMode === 'single'
-      ? '<p class="imp-note">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
-      : '<p class="imp-note">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
   '</div>';
 
   /* --- צדדים ---
      אותו מחפש כמו בנכסים, ומאותה סיבה: קובץ לקוחות של מאות שורות ברשימה
      נפתחת אחת אינו ניתן לשימוש בטלפון. --- */
   html += '<div class="agr-sec"><h4>הצדדים החותמים</h4>' +
+    // החותמים שכבר בטופס (גם בעל/ת הנכס שנכנס/ה עם הנכס) - לפני החיפוש
+    '<div id="agrSignerForms" style="margin-bottom:12px"></div>' +
     '<div class="agr-search">' +
       '<input type="search" id="agrClientSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש בקובץ הלקוחות - שם, טלפון, אימייל או עיר" autocomplete="off">' +
@@ -34261,7 +34265,6 @@ function agrRenderStepDetails(){
       ? '<button type="button" class="btn btn-ghost btn-block" data-agr="pick-contact-signer"' +
         ' style="margin-top:8px">📇 חותם/ת מאנשי הקשר בטלפון</button>'
       : '') +
-    '<div id="agrSignerForms" style="margin-top:12px"></div>' +
     '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" - בן/בת זוג או שותף/ה. ' +
     'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
   '</div>';
@@ -35161,6 +35164,21 @@ function agrAddClientSigner(clientId, opts){
   if (!(opts && opts.silent)){
     agrRenderSignerForms();
     agrRenderClientResults();
+    agrRevealLastSigner(false);
+  }
+}
+
+/* הטפסים של החותמים יושבים מעל החיפוש והכפתורים, ולכן מי שהוסיף/ה חותם/ת
+   מלמטה לא היה/תה רואה דבר משתנה ליד האצבע. מגלגלים אל הטופס החדש, ובחותם/ת
+   ריק/ה גם מתמקדים בשם. */
+function agrRevealLastSigner(focusName){
+  const host = agrEl('agrSignerForms');
+  const last = host && host.lastElementChild;
+  if (!last) return;
+  try { last.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (e) { last.scrollIntoView(); }
+  if (focusName){
+    const inp = last.querySelector('[data-key="full_name"]');
+    if (inp) inp.focus({ preventScroll:true });
   }
 }
 
@@ -35180,6 +35198,7 @@ async function agrPickContactSigner(){
   });
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(false);
 }
 
 function agrAddBlankSigner(){
@@ -35189,6 +35208,7 @@ function agrAddBlankSigner(){
   });
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(true);
 }
 
 function agrRenderSignerForms(){
