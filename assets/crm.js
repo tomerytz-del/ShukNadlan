@@ -2534,27 +2534,27 @@ function gotoLoadKeys(raw, tab){
   if (raw === 'accReviews') return ['reviews'];
   if (raw === 'accPrefs' || raw === 'accNotifPrefs') return ['prefs'];
   if (raw === 'bell') return ['notifications'];
+  /* ‏ADMIN_GOTO_LOADS: טעינות אזור הניהול שיעד מקישור צריך לפני שהוא נפתח.
+     המפתח הוא מפתח ה-start של adminLoadsP (ADMIN_LOAD_FNS), ולכן הטעינה לא
+     יוצאת פעמיים. מה שאין כאן (מצב העסקאות, יישובים, GovMap, יומן הביקורת,
+     ה-dashPanel*) נטען בעצמו כשהקטגוריה נפתחת או ב-setDashView('admin').
+     בתוך הפונקציה ולא לצדה: crm_goto_load_test.mjs מריץ אותה לבדה. */
+  const ADMIN_GOTO_LOADS = {
+    accLicenseAppeals: 'adm:licenseAppeals',
+    accCoachGaps: 'adm:coachGaps',
+    accRefundQueue: 'adm:refundQueue',
+    accSubscriptions: 'adm:subscriptions',
+    accNeighborhoods: 'adm:neighborhoods',
+    accRssSources: 'adm:rssSources',
+    accArticles: 'adm:articles',
+    accProfessionals: 'adm:professionals',
+    accUnroutedLeads: 'adm:unroutedLeads',
+    accSuggestions: 'adm:suggestions',
+    accAdminInbox: 'adm:adminInbox',
+  };
   if (Object.prototype.hasOwnProperty.call(ADMIN_GOTO_LOADS, raw)) return [ADMIN_GOTO_LOADS[raw]];
   return [];
 }
-
-/* טעינות אזור הניהול שיעד מקישור צריך לפני שהוא נפתח. מפתח ה-start שלהן
-   (loadDashboard) זהה כאן ושם, ולכן הטעינה לא יוצאת פעמיים. מה שאין כאן
-   (מצב העסקאות, יישובים, GovMap, יומן הביקורת, ה-dashPanel*) נטען בעצמו
-   כשהקטגוריה נפתחת או ב-setDashView('admin'). */
-const ADMIN_GOTO_LOADS = {
-  accLicenseAppeals: 'adm:licenseAppeals',
-  accCoachGaps: 'adm:coachGaps',
-  accRefundQueue: 'adm:refundQueue',
-  accSubscriptions: 'adm:subscriptions',
-  accNeighborhoods: 'adm:neighborhoods',
-  accRssSources: 'adm:rssSources',
-  accArticles: 'adm:articles',
-  accProfessionals: 'adm:professionals',
-  accUnroutedLeads: 'adm:unroutedLeads',
-  accSuggestions: 'adm:suggestions',
-  accAdminInbox: 'adm:adminInbox',
-};
 /* פונקציות ולא הפניות ישירות: חלקן ב-crm-coach.js וב-crm-admin-inbox.js,
    שנטענים אחרי הקובץ הזה. */
 const ADMIN_LOAD_FNS = {
