@@ -263,7 +263,7 @@ PROFESSIONAL וב-Elite (`navItemVisible`), כמו הגייט במסד; `check_c
 | לקוחות | `agent_clients` | ה-RLS: שלי, ושהופנו אליי (`referred_by`) |
 | נכסים | `properties` | `agent_id = current_agent_id()`. ה-RLS פותח גם כל נכס פעיל באתר ולמנהל/ת את כל המשרד, וזה לא "חיפוש בתיק שלי" |
 | לידים | `leads_masked` | `agent_id = current_agent_id()`, **באותו מיסוך**: ליד נעול חוזר בשם ממוסך |
-| הסכמים | `agreements` | שלי. מחפש בכותרת ובשמות הלקוחות שב-`client_ids` |
+| הסכמים | `agreements` | שלי. מחפש בכותרת, בשמות הלקוחות שב-`client_ids`, **בשם ובטלפון של כל חותם/ת** (`agreement_signers` - גם בהזנה ידנית וגם בעל/ת הנכס שנכנס/ה מ-`property_owners`), ב-`snapshot->>'property_line'` ובנכסים שב-`property_ids` (כותרת, כתובת, רחוב, `street_key`) |
 
 - **אף טלפון אינו חוזר בפלט**, גם כשמחפשים לפי טלפון. חוזר הפריט.
 - **‏`raw_phone` ו-`raw_message` אינם נקראים כלל.** הלידים נקראים מ-`leads_masked`
@@ -274,6 +274,8 @@ PROFESSIONAL וב-Elite (`navItemVisible`), כמו הגייט במסד; `check_c
 - **בליד, התאמת טלפון רק מול ליד פתוח.** `display_phone` של ליד נעול ממוסך,
   והתאמה מולו הייתה מאשרת למי שאינו/ה בעל/ת הליד שהמספר הזה שייך לפונה.
 - מספר מודעה (`listing_number`) מוצא את הנכס.
+- **שם או טלפון של בעל/ת הנכס** (`property_owners`) מוצא את הנכס. בעל/ת נכס אינו/ה
+  בקובץ הלקוחות, ולכן בלי זה חיפוש של מוכר/ת לא החזיר כלום (‏20271103090000).
 - מינימום 2 תווים, ותווי `%` ו-`_` מהקלט נחשבים טקסט ולא תבנית.
 - הרשאות: `revoke … from public, anon, authenticated` ו-`grant execute … to
   authenticated`, לשתי הפונקציות.
