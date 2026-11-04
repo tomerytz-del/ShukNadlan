@@ -2356,6 +2356,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
           start('preferences', () => loadPreferences(agent.id)),
         ]);
       } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
+      else if (ADMIN_LOAD_FNS[key] && agent.is_platform_admin) await start(key, ADMIN_LOAD_FNS[key]);
     }
   }
   let gotoHandled = false;
@@ -2388,20 +2389,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     start('reviews', () => loadPendingReviews(agent.agency_id)),
     loadAgencyEthics(agent.agency_id),
   ]) : null;
-  const adminLoadsP = agent.is_platform_admin ? Promise.all([
-    loadLicenseAppeals(),
-    loadCoachGaps(),
-    loadRefundQueue(),
-    loadSubscriptionsAdmin(),
-    loadNeighborhoodsAdmin(),
-    loadRssSourcesAdmin(),
-    loadArticlesAdmin(),
-    loadProfessionalCardsAdmin(),
-    loadUnroutedLeads(),
-    loadSuggestionsAdmin(),
-    // מאחדת את התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-    loadAdminInbox(),
-  ]) : null;
+  // דרך start, כדי שיעד מקישור שכבר טען אחת מהן (ADMIN_GOTO_LOADS) לא יטען שוב.
+  // ‏adminInbox מאחדת את התורים, אבל קוראת מהמסד ישירות ולא מהם.
+  const adminLoadsP = agent.is_platform_admin
+    ? Promise.all(Object.keys(ADMIN_LOAD_FNS).map(k => start(k, ADMIN_LOAD_FNS[k])))
+    : null;
   if (managerLoadsP) managerLoadsP.catch(() => {});
   if (adminLoadsP) adminLoadsP.catch(() => {});
   await Promise.all([
@@ -2463,7 +2455,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // (navAccVisible), ובנייה מוקדמת מדי הייתה מייצרת מפה של דשבורד חצי-טעון
   renderGreeting(agent);
   renderViewSwitch();
-  setDashView('agent', { initial:true });
+  // קישור שפתח יעד של ניהול כבר עבר לתצוגה הזו (handleGotoParam). מעבר חוזר
+  // לסוכן/ת היה מסתיר את היעד, ו-setDashView('admin') שני היה טוען שוב את
+  // שמונת הדוחות - ולכן רק הבנייה מחדש של הניווט.
+  if (gotoHandled && dashView === 'admin'){
+    applyNavFilter();
+    renderSideNav();
+    renderBottomNav();
+  } else setDashView('agent', { initial:true });
   renderQuickActions();
   refreshNavCounts();
   dashPanelsMeasure();
@@ -2535,7 +2534,51 @@ function gotoLoadKeys(raw, tab){
   if (raw === 'accReviews') return ['reviews'];
   if (raw === 'accPrefs' || raw === 'accNotifPrefs') return ['prefs'];
   if (raw === 'bell') return ['notifications'];
+  if (Object.prototype.hasOwnProperty.call(ADMIN_GOTO_LOADS, raw)) return [ADMIN_GOTO_LOADS[raw]];
   return [];
+}
+
+/* טעינות אזור הניהול שיעד מקישור צריך לפני שהוא נפתח. מפתח ה-start שלהן
+   (loadDashboard) זהה כאן ושם, ולכן הטעינה לא יוצאת פעמיים. מה שאין כאן
+   (מצב העסקאות, יישובים, GovMap, יומן הביקורת, ה-dashPanel*) נטען בעצמו
+   כשהקטגוריה נפתחת או ב-setDashView('admin'). */
+const ADMIN_GOTO_LOADS = {
+  accLicenseAppeals: 'adm:licenseAppeals',
+  accCoachGaps: 'adm:coachGaps',
+  accRefundQueue: 'adm:refundQueue',
+  accSubscriptions: 'adm:subscriptions',
+  accNeighborhoods: 'adm:neighborhoods',
+  accRssSources: 'adm:rssSources',
+  accArticles: 'adm:articles',
+  accProfessionals: 'adm:professionals',
+  accUnroutedLeads: 'adm:unroutedLeads',
+  accSuggestions: 'adm:suggestions',
+  accAdminInbox: 'adm:adminInbox',
+};
+/* פונקציות ולא הפניות ישירות: חלקן ב-crm-coach.js וב-crm-admin-inbox.js,
+   שנטענים אחרי הקובץ הזה. */
+const ADMIN_LOAD_FNS = {
+  'adm:licenseAppeals': () => loadLicenseAppeals(),
+  'adm:coachGaps': () => loadCoachGaps(),
+  'adm:refundQueue': () => loadRefundQueue(),
+  'adm:subscriptions': () => loadSubscriptionsAdmin(),
+  'adm:neighborhoods': () => loadNeighborhoodsAdmin(),
+  'adm:rssSources': () => loadRssSourcesAdmin(),
+  'adm:articles': () => loadArticlesAdmin(),
+  'adm:professionals': () => loadProfessionalCardsAdmin(),
+  'adm:unroutedLeads': () => loadUnroutedLeads(),
+  'adm:suggestions': () => loadSuggestionsAdmin(),
+  'adm:adminInbox': () => loadAdminInbox(),
+};
+
+/* יעד של תצוגת הניהול. עד 4.11.2026 הוא חיכה לכל loadDashboard (מצב העסקאות
+   נפתח 7.5 שניות אחרי הכניסה, deeplink_timings), כי בסופה setDashView('agent')
+   היה מחזיר את המסך לתצוגת הסוכן/ת. עכשיו הוא נפתח אחרי הטעינה שלו בלבד,
+   וסוף loadDashboard משאיר את תצוגת הניהול כשהיא נפתחה מהקישור. */
+function gotoIsAdmin(raw){
+  if (!(currentAgent && currentAgent.is_platform_admin)) return false;
+  if (raw === 'adminOps' || raw === 'adminHome') return true;
+  return /^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '') && NAV_TAB_OF.get(raw) === 'admin';
 }
 
 /* יעד שאפשר לפתוח ברגע שהמעטפת על המסך. אזור המנהל/ת עדיין מוסתר כאן,
@@ -2555,6 +2598,8 @@ function gotoTargetReady(raw){
 }
 
 function gotoOpensEarly(raw, tab){
+  // תצוגת הניהול מוסתרת עד ש-handleGotoParam עובר אליה, ולכן לא navAccVisible
+  if (gotoIsAdmin(raw)) return true;
   if (!raw || !gotoTargetReady(raw)) return false;
   if (gotoLoadKeys(raw, tab).length) return true;
   return raw === 'mentor' || raw === 'license' || raw === 'cmaAddress' || raw === 'accPlanning';
