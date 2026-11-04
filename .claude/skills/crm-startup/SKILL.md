@@ -94,6 +94,18 @@ const topsP = sb.rpc('client_match_top').then(r => r); // יצאה עכשיו
 דורסת - בקשה יתומה ועוד אחת מיותרת. ו-`loadClients` נמסרת גם ככולבק עם ארגומנטים
 זרים, ולכן `opts && opts.topsP` ולא פירוק.
 
+**8. קישור (‏`?goto=`) נפתח לפני סוף הטעינה - רק אם `gotoOpensEarly` מכיר אותו.**
+יעד שאינו שם מחכה לכל `loadDashboard`, וזה שקט: הוא נפתח, רק מאוחר. כך הפעמון
+(‏`goto=bell`, תקציר הלידים) נפתח 27 שניות אחרי הכניסה אצל מנהל/ת פלטפורמה,
+ומסכי הניהול 7.5 (‏`deeplink_timings`, 3.11.2026). יעד חדש: מפתח ב-`gotoLoadKeys`
+למה שהוא קורא, ושכבה שאינה `acc*` - שורה ב-`gotoTargetReady`. יעד של תצוגת
+הניהול עובר ב-`gotoIsAdmin`, והטעינה שלו ב-`ADMIN_GOTO_LOADS` (אותם מפתחות
+‏`start` של `adminLoadsP`); וסוף `loadDashboard` אינו קורא ל-`setDashView('agent')`
+כשהקישור כבר עבר לניהול. **המדידה:** ‏`dashboard_load.mjs` קורא ל-`loadDashboard`
+ידנית ולכן אינו רואה קישור - לכניסה עם `?goto=` צריך `pg.goto('/crm.html?goto=…')`
+ולמדוד מתי היעד גלוי ושהוא **עדיין** גלוי אחרי שהכול נרגע. והזמן האמיתי:
+‏`select target, visible_ms - auth_ms from deeplink_timings`.
+
 **6. שם המשרד יוצא במקביל לשורת הסוכן/ת** לפי `agency_id` שנשמר בכניסה
 הקודמת (`crmAgencyId:<user_id>`), ונלקח רק אם המזהה תואם. שאילתה חדשה שתלויה
 רק ב-`agency_id` יכולה להצטרף לאותו `agencyEarly` באותה צורה - לא לטור.
