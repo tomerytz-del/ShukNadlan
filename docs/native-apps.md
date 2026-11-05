@@ -77,9 +77,9 @@ https://shuknadlan.co.il. השם: שוק נדל״ן. כיוון: RTL.
 השלד מחליף אותה ב-PKCE לפני שה-Intent נוצר. קישור אימות שנפתח בדפדפן
 ממשיך לעבוד כרגיל.
 
-בעלי חשבון שאינם מתווכים (יזם/ית, בעל/ת מקצוע) מבקשים מחיקה במייל
-`shuknadlan@gmail.com`, ככתוב במדיניות. אין להם את אותה סגירה עצמית
-שב-CRM של המתווכים.
+מחיקת חשבון מתוך האפליקציה (Apple 5.1.1(v)): סוכן/ת מה-CRM וחברה יזמית
+מ-`developer-crm`, עם אישור כפול, החזר ארנק, מחיקת הפרטים והכניסה. בעלי
+מקצוע (אין להם כניסה) מבקשים במייל. ‏`docs/account-closure.md`, ‏`/delete-account`.
 
 ## הרצה מקומית
 
@@ -166,7 +166,7 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
 - **קטגוריה:** אפל Lifestyle. גוגל House & Home.
 - **מילות מפתח:** נדלן,דירות,עפולה,תיווך,מכירה,השכרה,מפה,חיפוש,משרד
 - **מדיניות פרטיות:** https://shuknadlan.co.il/privacy
-- **מחיקת חשבון:** https://shuknadlan.co.il/privacy#delete-account
+- **מחיקת חשבון:** https://shuknadlan.co.il/delete-account
 
 **תיאור מלא:**
 
@@ -174,7 +174,7 @@ xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug \
 
 באפליקציה: דפדוף בנכסים ובמפה, שיתוף מודעה, פתיחת וואטסאפ ושיחה באפליקציות של הטלפון, והתראות על פנייה חדשה למתווכים ועל נכס חדש לחיפוש שמור.
 
-החשבון של מתווך או מתווכת נסגר מתוך האפליקציה (תמונת הפרופיל, ואז סגירת החשבון). בקשת מחיקה אחרת נשלחת אל shuknadlan@gmail.com. מדיניות הפרטיות: https://shuknadlan.co.il/privacy
+את החשבון מוחקים מתוך האפליקציה: יועץ/ת נדל״ן מתמונת הפרופיל, חברה יזמית מדף החברה. בעלי מקצוע ובקשות אחרות: shuknadlan@gmail.com. הפירוט: https://shuknadlan.co.il/delete-account מדיניות הפרטיות: https://shuknadlan.co.il/privacy
 
 ### Data safety / תווית הפרטיות
 

@@ -2,9 +2,19 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/morning.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
+import { deleteAuthUser, eraseAgent } from "../_shared/account-erasure.ts";
 
 // ============================================================================
-// סגירת חשבון ביוזמת הסוכן/ת
+// מחיקת חשבון ביוזמת המשתמש/ת (וקודם לכן "סגירת חשבון")
+//
+// שלושה סוגי חשבון, לפי מי שמחזיק/ה ב-JWT (ו-body.account כשיש שניים):
+//   agent      סוכן/ת. סגירה (close_agent_account) ואחריה מחיקה
+//              (erase_agent_account): הפרטים, הכניסה ב-Auth והמספרים ב-Twilio.
+//              במנוי בתשלום - בסוף התקופה (account-erasure משלימה), או מיד
+//              אם בחרו when='now' ומוותרים על יתרת החודש.
+//   developer  חברה יזמית. close_developer_account סוגרת ומוחקת בקריאה אחת.
+//   none       משתמש/ת שנכנס/ה (למשל עם Google) ולא השלים/ה הרשמה. נמחק/ת
+//              המשתמש ב-Auth בלבד - אין מה עוד למחוק.
 //
 // שלוש פעולות, כולן על החשבון של הקורא/ת בלבד:
 //
@@ -34,10 +44,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const MEMBER_FIELDS =
-  "id, user_id, agency_id, role, active, display_name, email, credit_balance, " +
-  "tier, tier_source, paid_tier, paid_tier_until, released_at, " +
-  "closure_requested_at, closure_effective_at, closed_at";
 
 /** מנוי חודשי בתשלום שעדיין בתוך התקופה ששולמה. */
 function paidUntil(member: any): string | null {
@@ -47,6 +53,9 @@ function paidUntil(member: any): string | null {
   if (isNaN(until.getTime()) || until.getTime() <= Date.now()) return null;
   return until.toISOString();
 }
+
+/** המילים שמאשרות. "סגירת חשבון" נשאר כדי שמסך שנטען לפני הפריסה לא ייכשל. */
+const CONFIRM_PHRASES = new Set(["מחיקת חשבון", "סגירת חשבון"]);
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
@@ -67,17 +76,34 @@ Deno.serve(async (req: Request) => {
   if (mfa) return json({ error: mfa.error }, mfa.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-  const { data: member, error: memberErr } = await supabase
-    .from("agency_members")
-    .select(MEMBER_FIELDS)
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-
-  if (memberErr) return json({ error: "db_error", detail: memberErr.message }, 500);
-  if (!member) return json({ error: "no_matching_agent_profile" }, 403);
-
+  const userId = userData.user.id;
   const action = String(body?.action ?? "preview");
+
+  const [{ data: member, error: memberErr }, { data: developer, error: devErr }] = await Promise.all([
+    supabase.from("agency_members").select("id, user_id, agency_id, role, active, display_name, email, credit_balance, tier, tier_source, paid_tier, paid_tier_until, released_at, closure_requested_at, closure_effective_at, closed_at").eq("user_id", userId).maybeSingle(),
+    supabase.from("developers").select("id, user_id, name, credit_balance, closed_at, erased_at, status").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (memberErr) return json({ error: "db_error", detail: memberErr.message }, 500);
+  if (devErr) return json({ error: "db_error", detail: devErr.message }, 500);
+
+  // איזה חשבון. משתמש/ת שהוא/היא גם סוכן/ת וגם חברה יזמית מוחק/ת כל אחד
+  // מהמסך שלו, ולכן הדף אומר במפורש (account). בלי - הסוכן/ת קודם.
+  const wanted = String(body?.account ?? "");
+  const kind = wanted === "developer" && developer ? "developer"
+    : wanted === "agent" && member ? "agent"
+    : member ? "agent" : developer ? "developer" : "none";
+
+  if (kind === "developer") return developerFlow(supabase, developer, action, body);
+  if (kind === "none") {
+    if (action === "preview") return json({ success: true, summary: { kind: "none", email: userData.user.email ?? null } });
+    if (action !== "request") return json({ error: "unknown_action" }, 400);
+    if (!CONFIRM_PHRASES.has(String(body?.confirm ?? ""))) return json({ error: "confirmation_mismatch" }, 400);
+    await supabase.from("app_push_devices").delete().eq("user_id", userId);
+    const auth = await deleteAuthUser(supabase, userId);
+    if (auth === "failed") return json({ error: "auth_delete_failed" }, 500);
+    return json({ success: true, closed: true, deleted: true });
+  }
+  if (!member) return json({ error: "no_matching_agent_profile" }, 403);
 
   // ---- מה יקרה אם אאשר -----------------------------------------------
   if (action === "preview" || action === "request") {
@@ -102,6 +128,7 @@ Deno.serve(async (req: Request) => {
 
     const until = paidUntil(member);
     const summary = {
+      kind: "agent",
       agent_id: member.id,
       display_name: member.display_name,
       blocker: blocker ?? null,
@@ -126,25 +153,30 @@ Deno.serve(async (req: Request) => {
     if (member.closure_requested_at) return json({ error: "closure_already_requested", summary }, 409);
     if (summary.blocker) return json({ error: summary.blocker, summary }, 409);
 
-    // האישור הכפול נבדק גם כאן. הלקוח כבר דורש אותו, אבל נקודת קצה שסוגרת
+    // האישור הכפול נבדק גם כאן. הלקוח כבר דורש אותו, אבל נקודת קצה שמוחקת
     // חשבון בלחיצה אחת מסקריפט היא בדיוק מה שהאישור הכפול נועד למנוע.
-    if (body?.confirm !== "סגירת חשבון") return json({ error: "confirmation_mismatch" }, 400);
+    if (!CONFIRM_PHRASES.has(String(body?.confirm ?? ""))) return json({ error: "confirmation_mismatch" }, 400);
 
     const reason = typeof body?.reason === "string" ? body.reason.slice(0, 500) : null;
+    // מנוי בתשלום שבחר/ה "עכשיו": מוותר/ת על יתרת החודש. אין זיכוי יחסי
+    // (terms §19), והדיאלוג אומר את זה לפני האישור.
+    const now = !summary.immediate && body?.when === "now";
+    const effective = now ? new Date().toISOString() : summary.effective_at;
 
     const { error: markErr } = await supabase
       .from("agency_members")
       .update({
         closure_requested_at: new Date().toISOString(),
-        closure_effective_at: summary.effective_at,
+        closure_effective_at: effective,
         closure_reason: reason,
       })
       .eq("id", member.id);
     if (markErr) return json({ error: "db_error", detail: markErr.message }, 500);
 
-    // מנוי חודשי: הבקשה נרשמה, והריצה היומית תסגור בתאריך. עד אז הכול עובד.
-    if (!summary.immediate) {
-      return json({ success: true, scheduled: true, effective_at: summary.effective_at, summary });
+    // מנוי חודשי: הבקשה נרשמה, הסגירה בתאריך (3:40) והמחיקה אחריה (3:55).
+    // עד אז הכול עובד, והחידוש בכרטיס כבר לא ירוץ (claim_due_tier_renewals).
+    if (!summary.immediate && !now) {
+      return json({ success: true, scheduled: true, effective_at: effective, summary });
     }
 
     const { data: closed, error: closeErr } = await supabase
@@ -152,7 +184,12 @@ Deno.serve(async (req: Request) => {
     if (closeErr) return json({ error: "db_error", detail: closeErr.message }, 500);
     if (closed?.error) return json({ error: closed.error }, 409);
 
-    return json({ success: true, closed: true, result: closed, summary });
+    // הסגירה הצליחה. מחיקה שנכשלה כאן אינה מחזירה את הסגירה: account-erasure
+    // תשלים אותה בלילה (accounts_pending_erasure).
+    const erased = await eraseAgent(supabase, member.id);
+    if (erased.error) console.error("close-account: erase failed", member.id, erased);
+
+    return json({ success: true, closed: true, deleted: !erased.error, result: closed, summary });
   }
 
   // ---- ביטול בקשה שטרם נכנסה לתוקף -----------------------------------
@@ -170,3 +207,34 @@ Deno.serve(async (req: Request) => {
 
   return json({ error: "unknown_action" }, 400);
 });
+
+// ---- חברה יזמית ---------------------------------------------------------
+// deno-lint-ignore no-explicit-any
+async function developerFlow(supabase: any, dev: any, action: string, body: any) {
+  if (dev.closed_at) return json({ error: "already_closed" }, 409);
+  const [{ data: refundable }, { count: activeProjects }] = await Promise.all([
+    supabase.rpc("developer_refundable_amount", { p_developer_id: dev.id }),
+    supabase.from("projects").select("id", { count: "exact", head: true })
+      .eq("developer_id", dev.id).neq("status", "archived"),
+  ]);
+  const summary = {
+    kind: "developer",
+    developer_id: dev.id,
+    name: dev.name,
+    credit_balance: Number(dev.credit_balance ?? 0),
+    refundable: Number(refundable ?? 0),
+    active_projects: activeProjects ?? 0,
+    immediate: true,
+  };
+  if (action === "preview") return json({ success: true, summary });
+  if (action !== "request") return json({ error: "unknown_action" }, 400);
+  if (!CONFIRM_PHRASES.has(String(body?.confirm ?? ""))) return json({ error: "confirmation_mismatch" }, 400);
+
+  const reason = typeof body?.reason === "string" ? body.reason.slice(0, 500) : null;
+  const { data: closed, error } = await supabase
+    .rpc("close_developer_account", { p_developer_id: dev.id, p_reason: reason });
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+  if (closed?.error) return json({ error: closed.error }, 409);
+  const auth = await deleteAuthUser(supabase, closed?.user_id);
+  return json({ success: true, closed: true, deleted: auth !== "failed", result: closed, summary });
+}
