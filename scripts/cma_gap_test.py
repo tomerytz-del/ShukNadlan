@@ -123,6 +123,11 @@ SAMPLE_CASES = {
                          "subject_rooms": "4.0", "rooms_band_reason": "exact",
                          "subject_kind": "garden", "kind_matched": False,
                          "max_radius_meters": 4500, "excluded_other_rooms": 3}, 750],
+    # בית צמוד קרקע (20271105090000): 9 בתים, מהם 8 זוהו לפי החלקה
+    "house_by_parcel": [{"has_statistics": True, "comparables_found": 9, "rooms_band": 1,
+                         "subject_rooms": "5.0", "rooms_band_reason": "relaxed",
+                         "subject_kind": "house", "houses_by_parcel": 8,
+                         "excluded_other_rooms": 0}, 500],
     # משרד בלי קומה רשומה - וגם עם מספר חדרים (3.5), שאינו רלוונטי לו
     "no_floor": [{"has_statistics": True, "comparables_found": 8, "rooms_band": None,
                   "subject_rooms": "3.5", "rooms_band_reason": "subject_floor_missing",
@@ -314,6 +319,11 @@ def main() -> int:
         ("דירת גן בלי עסקאות מאותו סוג: נאמר שהממוצע של דירות רגילות",
          "דירות רגילות" in text(sample["garden_fallback"])
          and "4 חדרים" in text(sample["garden_fallback"])),
+        ("בית: נאמר כמה זוהו לפי החלקה, ושזה קירוב",
+         "8 מהבתים" in text(sample["house_by_parcel"])
+         and "קירוב" in text(sample["house_by_parcel"])),
+        ("ואחרי זה שורת החדרים הרגילה",
+         "4 עד 6 חדרים" in text(sample["house_by_parcel"])),
         ("ובשום מצב מסחרי לא מבקש מספר חדרים",
          all("חדרים" not in text(sample[k])
              for k in ("floor_exact", "floor_unfiltered", "no_floor"))),

@@ -119,7 +119,10 @@ import "../../assets/listing-title.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
-  ShukArticleBody: { parse: (text: string) => ArticleBlock[] };
+  ShukArticleBody: {
+    parse: (text: string) => ArticleBlock[];
+    html: (text: string) => string;
+  };
   ShukAgencyAbout: { paragraphs: (a: Record<string, unknown>) => string[] };
   ShukAgencyPlace?: {
     officeCity: (a: Record<string, unknown>) => string;
@@ -1390,14 +1393,10 @@ async function articleMeta(key: string): Promise<MetaResult> {
   };
   if (publishedAt) article.datePublished = publishedAt;
 
-  /* ‏גוף הכתבה עצמו - הטקסט שמנוע AI יצטט. אותו מבנה ש-renderBody בונה,
-     כאן ב-HTML מוברח: גוף שנכתב בעורך עם תגיות יוצא כטקסט, כמו בדפדפן. */
-  const blocks = shared.ShukArticleBody.parse(String(a.body || ""));
-  const bodyHtml = blocks.map((b) => {
-    if (b.tag === "ul") return `<ul>${(b.items || []).map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
-    const cls = b.lead ? ' class="lead-para"' : "";
-    return `<${b.tag}${cls}>${esc(b.text || "")}</${b.tag}>`;
-  }).join("");
+  /* ‏גוף הכתבה עצמו - הטקסט שמנוע AI יצטט. אותו HTML ש-renderBody מכניס
+     (‏ShukArticleBody.html): מבנה, בריחה, וקישורי http(s). גוף שנכתב
+     בעורך עם תגיות יוצא כטקסט, כמו בדפדפן. */
+  const bodyHtml = shared.ShukArticleBody.html(String(a.body || ""));
   const subtitle = String(a.subtitle || "").trim();
 
   return {

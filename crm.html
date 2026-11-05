@@ -5837,6 +5837,17 @@ window.shukArmTrackers = function () {
   .agr-sec{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:14px;
     margin-bottom:12px;background:var(--paper-raised)}
   .agr-sec>h4{margin:0 0 10px;font-size:.9rem;font-family:'Frank Ruhl Libre',serif;color:var(--teal-dark)}
+  /* מקטע מקופל באשף ההסכם (פרטי הנכס, המשאלון) - הכותרת היא הכפתור */
+  .agr-fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    font-size:.9rem;font-weight:700;font-family:'Frank Ruhl Libre',serif;color:var(--teal-dark)}
+  .agr-fold>summary::-webkit-details-marker{display:none}
+  .agr-fold>summary::after{content:'▾';margin-inline-start:auto;transition:transform .15s}
+  .agr-fold[open]>summary{margin-bottom:10px}
+  .agr-fold[open]>summary::after{transform:rotate(180deg)}
+  .agr-fold-sub{font-family:inherit;font-size:.76rem;font-weight:500;color:var(--muted)}
+  /* ‏.btn הוא inline-flex, וזה גובר על hidden של הדפדפן - בלי זה כפתורי
+     "+ הוספה" המקופלים (agrSyncAddBoxes) היו מוצגים תמיד */
+  .agr-sec [hidden]{display:none !important}
   .agr-grid,.agr-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   @media(max-width:560px){.agr-grid,.agr-fields{grid-template-columns:1fr}}
   /* פרטי הנכס בהסכם: שני שדות בשורה גם בטלפון. רובם ערך קצר ("4", "יש",
@@ -10911,7 +10922,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="field" style="margin-top:14px">
               <label for="arBody">גוף הכתבה</label>
               <textarea id="arBody" rows="10" placeholder="שורה ריקה מפרידה בין פסקאות.&#10;שורה שמסתיימת בנקודתיים הופכת לכותרת ביניים.&#10;שורה שמתחילה במקף הופכת לפריט ברשימה."></textarea>
-              <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">בלי HTML - הטקסט מעוצב לבד: שורה ריקה = פסקה חדשה, שורה שמסתיימת ב־":" = כותרת ביניים, שורה שפותחת ב־"-" = פריט ברשימה.</p>
+              <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">בלי HTML - הטקסט מעוצב לבד: שורה ריקה = פסקה חדשה, שורה שמסתיימת ב־":" = כותרת ביניים, שורה שפותחת ב־"-" = פריט ברשימה. כתובת http או https הופכת לקישור.</p>
             </div>
             <div class="field">
               <label for="arAuthor">שם הכותב/ת</label>

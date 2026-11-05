@@ -127,6 +127,11 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `data-professional` | בעל/ת מקצוע — בעמוד הפרופיל (`professional.html`) וברשימה (`professionals.html`) | `contact_professional` |
 | (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
+**קישור בתוך `#articleBody` אינו נספר.** כתובת `wa.me` שהודבקה בגוף כתבה
+היא חלק מהטקסט, לא כפתור פנייה, וספירתה הייתה מנפחת את `contact_agent`.
+המאזין מדלג על עוגן שבתוך הגוף. כפתור השיתוף של הכתבה יושב מחוץ ל-`#articleBody`
+ועדיין נספר כ-`share`.
+
 **‏`data-share-type` ו-`data-share-id` (אופציונליים, 1.11.2026):** קישור שיתוף שמצהיר
 עליהם מוסיף ל-`share` את `content_type` ואת `item_id` - הפרמטרים של אירוע `share`
 המומלץ ב-GA4. כך "שיתוף בוואטסאפ" בדף הנכס (`#waShareBtn`, ‏`data-share-type="property"`

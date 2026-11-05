@@ -136,6 +136,10 @@ Content-Encoding: gzip (רמה 6)
 
 ו-‏Chromium בסשן הענן עובר דרך הפרוקסי: שם מארח מדומה צריך `--no-proxy-server`.
 
+**ו-`measure.py` מוצא את Chromium לפי `chrome-linux*`** - התיקייה בסביבת הענן היא
+‏`chrome-linux64`, והחיפוש הישן (‏`chrome-linux/chrome`) לא מצא כלום ונפל לדפדפן של
+Playwright שאינו מותקן ("Executable doesn't exist"). תוקן ב-2.11.2026.
+
 ## מה שכבר נמדד, ואין צורך למדוד שוב
 
 * **הוצאת JS לקובץ ב-`assets/`** — משתלמת בביקור החוזר, בשלושה דפים
@@ -166,3 +170,15 @@ Content-Encoding: gzip (רמה 6)
 Function ששואלת את המסד (‏`path` ב-`export const config`), והאם היא מגדירה
 ‏`Netlify-CDN-Cache-Control` לתשובה שמולאה. ‏`/agencies` ו-`/projects` חיכו
 ל-Supabase בכל בקשה (‏1.5 שניות, 25.10.2026) - הסקיל `seo-edge`.
+
+## מה שנפרס מוקטן, והשרת כאן מגיש את המקור
+
+מ-2.11.2026 הפריסה מקטינה JS ו-HTML (‏`scripts/build_minify.mjs`,
+‏`docs/netlify-usage.md`, "הקטנה בפריסה"). שתי גרסאות של אותו דף עדיין מושוות
+נכון גם מהמקור, אבל **מספר מוחלט "כמו באוויר"** נמדד על עותק שנבנה:
+
+```sh
+B=$(mktemp -d) && git ls-files -z | xargs -0 -I{} cp --parents {} "$B"/
+(cd "$B" && bash scripts/netlify_build.sh)
+python "$B/.claude/skills/perf-measure/server.py" 8742 &   # השרת מגיש את התיקייה שבה הוא יושב
+```

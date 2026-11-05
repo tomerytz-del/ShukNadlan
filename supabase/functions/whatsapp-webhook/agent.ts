@@ -890,7 +890,10 @@ const TOOLS: Anthropic.Tool[] = [
       "שטח, קומה, מחיר מבוקש, מאפיינים) ומחזיר needs_details עם missing - אז שאל/י עליהם בהודעה אחת, " +
       "וקרא/י שוב עם כל מה שנמסר ועם proceed: true (גם אם הסוכן/ת ענה/תה רק על חלק או כתב/ה \"תפיק\"). " +
       "אם חזר details_guidance - בצע/י אותו. " +
-      "אם חזר location_guidance - אמור/אמרי אותו.",
+      "אם חזר location_guidance - אמור/אמרי אותו. " +
+      "**סוג הנכס לא מנחשים:** בלי סוג חוזר type_required, ושואלים \"בית צמוד קרקע, דירה, פנטהאוז או דירת גן?\" - גם אחרי \"תפיק\". " +
+      "**גם לגוש וחלקה, בלי כתובת** (gush + helka במקום city + street): המיקום מהחלקה עצמה. " +
+      "לבית צמוד קרקע הדוח משווה לבתים, וגם לעסקאות \"דירה\" שזוהו כבתים לפי החלקה (house_guidance).",
     input_schema: {
       type: "object",
       properties: {
@@ -923,8 +926,19 @@ const TOOLS: Anthropic.Tool[] = [
             "בלעדיו הכלי רק מחזיר את רשימת החסרים.",
         },
         // ‏features: [] = "אין מאפיינים" (נשאל ונענה), להבדיל מהיעדר השדה
+        gush: {
+          type: "string",
+          description:
+            "מספר גוש - **במקום רחוב** כשהסוכן/ת נתן/ה גוש וחלקה (בית צמוד קרקע, נכס בלי כתובת). " +
+            "המיקום, היישוב ושטח המגרש נלקחים משכבת החלקות של מפ\"י, גם כשלא נמכר בחלקה כלום.",
+        },
+        helka: { type: "string", description: "מספר חלקה, יחד עם gush." },
+        plot_sqm: {
+          type: "number",
+          description: "גודל המגרש במ\"ר, לבית צמוד קרקע (מהנסח או מהסוכן/ת). עם גוש וחלקה הוא נלקח מהשכבה.",
+        },
       },
-      required: ["city", "street"],
+      required: [],
     },
   },
   {
@@ -4199,6 +4213,13 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   const houseNumber = String(input.house_number || "").trim();
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
   const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+  // גוש/חלקה במקום כתובת (20271105090000): המיקום, היישוב ושטח המגרש משכבת
+  // החלקות של מפ"י (‏parcels_open), גם כשלא נמכר בחלקה כלום. זה בדיוק המקרה
+  // של בית צמוד קרקע - "17664/281, תעריכי" - שבו גבריאלה ענתה "לא יכולה".
+  const gush = String(input.gush ?? "").replace(/\D/g, "");
+  const helka = String(input.helka ?? "").replace(/\D/g, "");
+  const byParcel = Boolean(gush && helka);
+  const isHouseType = (t: string) => /בית|קוטג|וילה|דו.?משפחתי|צמוד קרקע/.test(t);
 
   // ‏**קודם שואלים, אחר כך מפיקים.** דוח בלי חדרים משווה לכל הגדלים, בלי שטח
   // אין מחיר למ"ר, ובלי מחיר מבוקש אין פער - והסוכן/ת בדרך כלל יודע/ת את כל
@@ -4219,10 +4240,12 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
       const land = /מגרש|קרקע|נחלה|משק/.test(type);
       const missing = [
         !type && "סוג הנכס (דירה, דירת גן, פנטהאוז, בית פרטי, חנות, משרד...)",
-        !houseNumber && "מספר בית",
+        !houseNumber && !byParcel && "מספר בית",
+        // לבית - גודל המגרש. עם גוש וחלקה הוא נלקח מהשכבה ואין מה לשאול
+        isHouseType(type) && !byParcel && num(input.plot_sqm) === null && "גודל המגרש במ\"ר (מהנסח)",
         !commercial && !land && num(input.rooms) === null && "מספר חדרים",
         num(input.size_sqm) === null && "שטח במ\"ר",
-        !land && num(input.floor) === null && "קומה",
+        !land && !isHouseType(type) && num(input.floor) === null && "קומה",
         num(input.asking_price) === null && "מחיר מבוקש (אם יש)",
         !land && !Array.isArray(input.features) && "מאפיינים: ממ\"ד, מעלית, חניה, מרפסת, מחסן, משופצת",
       ].filter(Boolean) as string[];
@@ -4248,7 +4271,9 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     p_city:          city,
     p_street:        street,
     p_house_number:  houseNumber || null,
-    p_property_type: String(input.property_type || "דירה"),
+    // בלי סוג: המסד מסיק אותו מהחלקה של הכתובת, ואם אי אפשר מחזיר
+    // type_required (20271105130000). "דירה" כברירת מחדל השווה בית לדירות.
+    p_property_type: String(input.property_type || "").trim() || null,
     p_rooms:         num(input.rooms),
     p_size_sqm:      num(input.size_sqm),
     p_floor:         num(input.floor) === null ? null : Math.round(Number(input.floor)),
@@ -4257,10 +4282,51 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     p_features:      Array.isArray(input.features) ? input.features.map(String) : null,
     p_lat:           coords?.lat ?? null,
     p_lng:           coords?.lng ?? null,
+    p_gush:          byParcel ? gush : null,
+    p_helka:         byParcel ? helka : null,
+    p_plot_sqm:      num(input.plot_sqm),
   });
   if (error) return { ok: false, error: error.message };
 
   const report = (data || {}) as Record<string, unknown>;
+  if (report.error === "type_required") {
+    // לא מנחשים סוג (20271105130000): שואלים, עם הרמזים שיש - העסקאות בחלקה
+    // של הכתובת, הייעוד אם נשמר אצלנו מידע תכנוני, והרחוב.
+    const stN = Number(report.street_deals) || 0;
+    const stHouse = Number(report.street_house_like) || 0;
+    const landUse = String(report.land_use || "").trim();
+    const hints = [
+      report.parcel_hint === "house" &&
+        "בחלקה של הכתובת נמכרו רק נכסים בלי קומה, וזה נראה כמו בית צמוד קרקע",
+      report.parcel_hint === "building" &&
+        "בחלקה של הכתובת יש עסקאות בקומות, כלומר זה בניין (דירה, פנטהאוז או דירת גן)",
+      landUse && `הייעוד של החלקה הוא "${landUse}"` +
+        (/מגורים\s*א(?![\u0590-\u05FF])/.test(landUse) ? " - בדרך כלל צמודי קרקע" : ""),
+      stN > 0 && stHouse / stN >= 0.5 &&
+        `רוב העסקאות ברחוב (${stHouse} מתוך ${stN}) נראות כמו בתים צמודי קרקע`,
+    ].filter(Boolean) as string[];
+    return {
+      ok: false,
+      needs_details: true,
+      missing: ["סוג הנכס: בית צמוד קרקע, דירה, פנטהאוז או דירת גן"],
+      type_hints: hints,
+      guidance:
+        "בלי סוג אי אפשר להפיק: דוח של בית, דירה, פנטהאוז ודירת גן באותו רחוב שונים לפעמים פי שניים. " +
+        "שאל/י **שאלה אחת קצרה**: בית צמוד קרקע, דירה, פנטהאוז או דירת גן? " +
+        (hints.length ? "אפשר לצרף את הרמזים מ-type_hints במשפט אחד, כרמז ולא כקביעה. " : "") +
+        "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם property_type (בית פרטי / דירה / פנטהאוז / דירת גן) " +
+        "ועם proceed: true. זו השאלה היחידה ששואלים גם אחרי \"תפיק\".",
+    };
+  }
+  if (report.error === "parcel_not_found") {
+    return {
+      ok: false,
+      error: String(report.detail),
+      guidance:
+        "הגוש והחלקה אינם קיימים בשכבת החלקות של מפ\"י - כמעט תמיד ספרות שהתחלפו. אמור/אמרי זאת, " +
+        "ובקש/י לבדוק את המספרים מול הנסח או לתת כתובת. אל תאמר/י שאי אפשר להעריך.",
+    };
+  }
   if (report.error === "tier_required") {
     return {
       ok: false,
@@ -4500,9 +4566,39 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
   const HOUSE_COVERAGE_NOTE =
     coverage.subject_kind === "house" &&
       (coverage.status === "none" || coverage.status === "insufficient")
-      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות, ובמאגר העסקאות יש מעט מאוד מכירות " +
-        "של בתים. אמור/אמרי זאת, ואל תציע/י לגזור מחיר מעסקאות של דירות."
+      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות. רשות המיסים רושמת כמעט כל בית כ\"דירה\", " +
+        "ולכן נספרים גם בתים שזוהו לפי החלקה (עסקה בלי קומה, היחידה בחלקה שלה) - ועדיין לא נמצאו די בתים. " +
+        "אמור/אמרי זאת, הצג/י את העסקאות שנמצאו כמו שהן, ואל תגזור/תגזרי מחיר מעסקאות של דירות."
       : "";
+
+  // בית צמוד קרקע (20271105090000): כמה מהבתים שנספרו זוהו לפי החלקה, ושטח
+  // המגרש מול חציון המגרשים שלהם. המסד משתיק את החציון מתחת לסף.
+  // **לא עוצרים בגלל מגרש חסר** - הדוח יוצא, ומבקשים את המגרש כדי לדייק.
+  const housePlots = (report.house_plots || null) as Record<string, unknown> | null;
+  const byParcelN = Number(coverage.houses_by_parcel) || 0;
+  const subjectPlot = housePlots?.subject_plot_sqm != null ? Number(housePlots.subject_plot_sqm) : null;
+  const medianPlot = housePlots?.median_plot_sqm != null ? Number(housePlots.median_plot_sqm) : null;
+  const house_guidance = coverage.subject_kind === "house"
+    ? [
+      byParcelN > 0
+        ? `${byParcelN} מהבתים שבהשוואה רשומים ברשות המיסים כ"דירה" וזוהו כבתים לפי החלקה: עסקה בלי קומה, ` +
+          "שהיא היחידה שנרשמה בחלקה שלה. זה קירוב - אמור/אמרי זאת במשפט אחד."
+        : "",
+      subjectPlot && medianPlot
+        ? `המגרש של הנכס ${subjectPlot.toLocaleString("en-US")} מ"ר, וחציון המגרשים של הבתים בהשוואה ` +
+          `${medianPlot.toLocaleString("en-US")} מ"ר. אמור/אמרי זאת: הפרש גדול במגרש מסביר חלק מהפער במחיר, ` +
+          "ואל תתקן/תתקני את המחיר לפיו בעצמך."
+        : "",
+      // בכרטיס הנכס אין שדה מגרש: הוא נלקח מהגוש והחלקה שבמידע התכנוני
+      !subjectPlot
+        ? "גודל המגרש של הנכס לא ידוע. מסור/מסרי את הדוח, ובסוף בקש/י " +
+          (byAddress
+            ? "את גודל המגרש (מהנסח), או גוש וחלקה, ולהריץ שוב את הדוח איתם"
+            : "להזין גוש וחלקה במידע התכנוני בכרטיס הנכס - משם נלקח שטח המגרש") +
+          ". בבית צמוד קרקע המגרש הוא חלק גדול מהמחיר. אל תעצור/תעצרי בגללו."
+        : "",
+    ].filter(Boolean).join(" ") || undefined
+    : undefined;
 
   const COVERAGE_GUIDANCE: Record<string, string> = {
     ok: "",
@@ -4615,6 +4711,11 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
     ownership,
     ...(ownership ? { ownership_guidance: CMA_OWNERSHIP_GUIDANCE } : {}),
+    // בית צמוד קרקע: המגרש, ובתים שזוהו לפי החלקה
+    subject_plot_sqm: subjectPlot ?? undefined,
+    comparables_median_plot_sqm: medianPlot ?? undefined,
+    houses_by_parcel: coverage.subject_kind === "house" ? byParcelN : undefined,
+    house_guidance,
   };
 }
 
@@ -4783,14 +4884,28 @@ async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
   const nearby = (res.nearby || null) as Record<string, unknown> | null;
   const center = (res.center || null) as Record<string, unknown> | null;
 
-  // הנחיה ולא נתון: שלושה מצבים שנשמעים דומים ואינם.
+  // החלקה בשכבת החלקות של מפ"י (‏parcels_open, 20271105090000): המיקום שלה
+  // גם בלי עסקה, והשטח הרשום שהוא המגרש. ‏in_parcel_layer=false עם גוש וחלקה
+  // = כמעט תמיד ספרות שהתחלפו (17664 במקום 16774, 4.11.2026).
+  const layer = (res.parcel_layer || null) as Record<string, unknown> | null;
+  const notInLayer = res.mode === "parcel" && res.in_parcel_layer === false;
+  const VALUATION_HINT =
+    " אם השאלה היא כמה הנכס שווה - הצע/י דוח CMA לגוש והחלקה (cma_report_address עם gush ו-helka), " +
+    "ואל תאמר/י שאי אפשר להעריך.";
+
+  // הנחיה ולא נתון: כמה מצבים שנשמעים דומים ואינם.
   const guidance = allTime === 0 && !center
-    ? "הגוש/החלקה לא מופיעים בכלל במאגר העסקאות של רשות המיסים שבידינו, ואין להם מיקום. אמור/י זאת במפורש, " +
-      "הצע/י חיפוש לפי רחוב או עיר, ואל תאמוד/תאמדי מחיר."
+    ? (notInLayer
+      ? "הגוש והחלקה אינם קיימים בשכבת החלקות של מפ\"י ואינם במאגר העסקאות - כמעט תמיד ספרות שהתחלפו. " +
+        "אמור/י זאת, ובקש/י לבדוק את המספרים מול הנסח. אל תאמוד/תאמדי מחיר."
+      : "הגוש/החלקה לא מופיעים במאגר העסקאות של רשות המיסים שבידינו, ואין להם מיקום. אמור/י זאת במפורש, " +
+        "הצע/י חיפוש לפי רחוב או עיר, ואל תאמוד/תאמדי מחיר.")
     : inParcel === 0
     ? `אין עסקאות בחלקה עצמה בתקופה שנבדקה (במאגר כולו: ${allTime}). ` +
-      (nearby ? "nearby הן עסקאות ברדיוס סביב מרכז החלקה - אמור/י שהן בסביבה ולא בחלקה." : "")
-    : "in_parcel הן עסקאות בחלקה עצמה (או בגוש, כש-mode הוא gush). nearby הן ברדיוס סביב המרכז - הצג/י אותן בנפרד.";
+      (nearby ? "nearby הן עסקאות ברדיוס סביב מרכז החלקה - אמור/י שהן בסביבה ולא בחלקה." : "") +
+      VALUATION_HINT
+    : "in_parcel הן עסקאות בחלקה עצמה (או בגוש, כש-mode הוא gush). nearby הן ברדיוס סביב המרכז - הצג/י אותן בנפרד." +
+      VALUATION_HINT;
 
   return {
     ok: true,
@@ -4806,6 +4921,10 @@ async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
     nearby_radius_meters: nearby?.radius_meters,
     nearby_total: nearby?.total_found,
     nearby: nearby?.deals,
+    // שטח החלקה הרשום (= המגרש, בבית צמוד קרקע), הסטטוס והיישוב - מהשכבה של מפ"י
+    parcel_area_sqm: layer?.legal_area ?? undefined,
+    parcel_status: layer?.status ?? undefined,
+    parcel_locality: layer?.locality ?? undefined,
     source: res.source,
     guidance,
   };
@@ -9285,7 +9404,9 @@ const SYSTEM_STATIC: string = (() => {
       "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
       "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +
       "בקריאה הראשונה הוא מחזיר needs_details - שאל/י על החסר בהודעה אחת, ואז proceed: true. " +
-      "אם חזר tier_required - זו יכולת של Elite; אמור/אמרי זאת ואל תחליף/י ברשימת עסקאות.",
+      "אם חזר tier_required - זו יכולת של Elite; אמור/אמרי זאת ואל תחליף/י ברשימת עסקאות. " +
+      "**\"כמה שווה\" עם גוש וחלקה** (בית צמוד קרקע, נכס בלי כתובת) = cma_report_address עם gush ו-helka - " +
+      "גם כשאין עסקאות בחלקה עצמה. **לעולם אל תאמר/י \"אני לא יכולה להעריך\" לפני שהרצת אותו.**",
     "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
       "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +

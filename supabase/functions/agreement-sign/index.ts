@@ -858,8 +858,17 @@ Deno.serve(async (req: Request) => {
 
     if (!signer.viewed_at) {
       await db.from("agreement_signers").update({ viewed_at: new Date().toISOString() }).eq("id", signer.id);
-      if (agreement.status === "sent") {
-        await db.from("agreements").update({ status: "viewed", viewed_at: new Date().toISOString() })
+      /* קישור שנפתח הוא קישור שיצא - גם כשהוא יצא בוואטסאפ או בהעתקה ולא
+         במייל, וההסכם עוד draft. בלי זה הוא נשאר "טיוטה" לא נעולה גם אחרי
+         שהלקוח/ה קרא/ה אותו. בבלעדיות agreements_bundle_status מעביר את
+         הזוג (הסכמה ← בלעדיות) יחד. */
+      const now = new Date().toISOString();
+      if (agreement.status === "draft") {
+        await db.from("agreements").update({ status: "sent", sent_at: now })
+          .eq("id", agreement.id).eq("status", "draft");
+      }
+      if (agreement.status === "draft" || agreement.status === "sent") {
+        await db.from("agreements").update({ status: "viewed", viewed_at: now })
           .eq("id", agreement.id).eq("status", "sent");
       }
     }

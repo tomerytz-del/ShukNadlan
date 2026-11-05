@@ -2297,6 +2297,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      קישור (?goto=) הוא החריג: קודם נפתח המסך ונטען רק מה שהוא קורא, ורק
      אחר כך שאר השרשראות. בלי קישור אף טעינה לא זזה - start() נקרא מכאן
      באותו רגע כמו קודם. שאילתה שנשמרת ב-start לא יוצאת פעמיים. */
+  /* ‏client_match_top היא השאילתה האיטית של הכניסה (ממוצע 0.94 שניות, ו-3.3
+     אצל סוכן/ת עם 79 לקוחות, pg_stat_statements 2.11.2026), והיא אינה תלויה
+     בנכסים. עד כאן היא יצאה רק בתחילת loadClients - שני סבבים אחרי הנכסים. */
+  const clientTopEarly = sb.rpc('client_match_top').then(r => r);
+  clientTopEarly.catch(() => {});
   const started = new Map();
   function start(key, fn){
     if (!started.has(key)) started.set(key, Promise.resolve().then(fn));
@@ -2315,7 +2320,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       renderQuotaMeter(freeQuota);
     }));
   }
-  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients())); }
+  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients({ topsP: clientTopEarly }))); }
   const gotoParams = new URLSearchParams(location.search);
   const gotoRaw = gotoParams.get('goto') || '';
   const gotoTab = gotoParams.get('tab') || '';
@@ -2351,6 +2356,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
           start('preferences', () => loadPreferences(agent.id)),
         ]);
       } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
+      else if (ADMIN_LOAD_FNS[key] && agent.is_platform_admin) await start(key, ADMIN_LOAD_FNS[key]);
     }
   }
   let gotoHandled = false;
@@ -2372,6 +2378,24 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
   // רצה בה תיפתח כרגיל, בלי הקטגוריה. אחרי יעד הקישור, כדי לא לרוץ לפניו.
   loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
+  /* אזור המנהל/ת וכלי הפלטפורמה יוצאים עכשיו, לצד הטעינה הראשית ולא אחריה:
+     אף אחד מהם אינו קורא נכסים, לקוחות, לידים או מחירים (נבדק 2.11.2026),
+     ועד כאן הם הוסיפו כארבעה סבבים בטור לכניסת מנהל/ת. ה-await נשאר במקומו
+     למטה, ולכן הסדר שבו המסך נגמר והטיפול בשגיאה לא השתנו. ‏catch ריק רק
+     מסמן שהדחייה תטופל שם - בלעדיו כישלון שקודם ל-await היה נרשם כלא מטופל. */
+  const managerLoadsP = agent.role === 'manager' ? Promise.all([
+    loadBranding(agent.agency_id),
+    loadTeam(agent.agency_id, agent.id),
+    start('reviews', () => loadPendingReviews(agent.agency_id)),
+    loadAgencyEthics(agent.agency_id),
+  ]) : null;
+  // דרך start, כדי שיעד מקישור שכבר טען אחת מהן (ADMIN_GOTO_LOADS) לא יטען שוב.
+  // ‏adminInbox מאחדת את התורים, אבל קוראת מהמסד ישירות ולא מהם.
+  const adminLoadsP = agent.is_platform_admin
+    ? Promise.all(Object.keys(ADMIN_LOAD_FNS).map(k => start(k, ADMIN_LOAD_FNS[k])))
+    : null;
+  if (managerLoadsP) managerLoadsP.catch(() => {});
+  if (adminLoadsP) adminLoadsP.catch(() => {});
   await Promise.all([
     pricingP(),
     propsP(),
@@ -2408,37 +2432,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       if (coachState.agent === undefined) coachLoad('agent').catch(err => console.warn('טעינת המנטור נכשלה:', err));
     });
   }
-  if (agent.role === 'manager'){
-    // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
-    await Promise.all([
-      loadBranding(agent.agency_id),
-      loadTeam(agent.agency_id, agent.id),
-      start('reviews', () => loadPendingReviews(agent.agency_id)),
-      loadAgencyEthics(agent.agency_id),
-    ]);
-  } else {
-    document.getElementById('ethicsAgencyBlock').hidden = true;
-  }
+  // ארבע הטעינות של אזור המנהל/ת יצאו למעלה, לצד הטעינה הראשית
+  if (managerLoadsP) await managerLoadsP;
+  else document.getElementById('ethicsAgencyBlock').hidden = true;
 
   // כלי הפלטפורמה נטענים למנהל/ת פלטפורמה, אבל *מוצגים* רק בתצוגת מנהל/ת —
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
-  // בין התצוגות יהיה מיידי ולא ימתין לרשת.
-  if (agent.is_platform_admin){
-    await Promise.all([
-      loadLicenseAppeals(),
-      loadCoachGaps(),
-      loadRefundQueue(),
-      loadSubscriptionsAdmin(),
-      loadNeighborhoodsAdmin(),
-      loadRssSourcesAdmin(),
-      loadArticlesAdmin(),
-      loadProfessionalCardsAdmin(),
-      loadUnroutedLeads(),
-      loadSuggestionsAdmin(),
-      // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-      loadAdminInbox(),
-    ]);
-  }
+  // בין התצוגות יהיה מיידי ולא ימתין לרשת. גם היא יצאה למעלה.
+  if (adminLoadsP) await adminLoadsP;
 
   // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
   // managerSection, המצב נקבע בשני הכיוונים כדי שהסרת הדגל תסגור את המגירה
@@ -2454,7 +2455,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // (navAccVisible), ובנייה מוקדמת מדי הייתה מייצרת מפה של דשבורד חצי-טעון
   renderGreeting(agent);
   renderViewSwitch();
-  setDashView('agent', { initial:true });
+  // קישור שפתח יעד של ניהול כבר עבר לתצוגה הזו (handleGotoParam). מעבר חוזר
+  // לסוכן/ת היה מסתיר את היעד, ו-setDashView('admin') שני היה טוען שוב את
+  // שמונת הדוחות - ולכן רק הבנייה מחדש של הניווט.
+  if (gotoHandled && dashView === 'admin'){
+    applyNavFilter();
+    renderSideNav();
+    renderBottomNav();
+  } else setDashView('agent', { initial:true });
   renderQuickActions();
   refreshNavCounts();
   dashPanelsMeasure();
@@ -2526,13 +2534,62 @@ function gotoLoadKeys(raw, tab){
   if (raw === 'accReviews') return ['reviews'];
   if (raw === 'accPrefs' || raw === 'accNotifPrefs') return ['prefs'];
   if (raw === 'bell') return ['notifications'];
+  /* ‏ADMIN_GOTO_LOADS: טעינות אזור הניהול שיעד מקישור צריך לפני שהוא נפתח.
+     המפתח הוא מפתח ה-start של adminLoadsP (ADMIN_LOAD_FNS), ולכן הטעינה לא
+     יוצאת פעמיים. מה שאין כאן (מצב העסקאות, יישובים, GovMap, יומן הביקורת,
+     ה-dashPanel*) נטען בעצמו כשהקטגוריה נפתחת או ב-setDashView('admin').
+     בתוך הפונקציה ולא לצדה: crm_goto_load_test.mjs מריץ אותה לבדה. */
+  const ADMIN_GOTO_LOADS = {
+    accLicenseAppeals: 'adm:licenseAppeals',
+    accCoachGaps: 'adm:coachGaps',
+    accRefundQueue: 'adm:refundQueue',
+    accSubscriptions: 'adm:subscriptions',
+    accNeighborhoods: 'adm:neighborhoods',
+    accRssSources: 'adm:rssSources',
+    accArticles: 'adm:articles',
+    accProfessionals: 'adm:professionals',
+    accUnroutedLeads: 'adm:unroutedLeads',
+    accSuggestions: 'adm:suggestions',
+    accAdminInbox: 'adm:adminInbox',
+  };
+  if (Object.prototype.hasOwnProperty.call(ADMIN_GOTO_LOADS, raw)) return [ADMIN_GOTO_LOADS[raw]];
   return [];
+}
+/* פונקציות ולא הפניות ישירות: חלקן ב-crm-coach.js וב-crm-admin-inbox.js,
+   שנטענים אחרי הקובץ הזה. */
+const ADMIN_LOAD_FNS = {
+  'adm:licenseAppeals': () => loadLicenseAppeals(),
+  'adm:coachGaps': () => loadCoachGaps(),
+  'adm:refundQueue': () => loadRefundQueue(),
+  'adm:subscriptions': () => loadSubscriptionsAdmin(),
+  'adm:neighborhoods': () => loadNeighborhoodsAdmin(),
+  'adm:rssSources': () => loadRssSourcesAdmin(),
+  'adm:articles': () => loadArticlesAdmin(),
+  'adm:professionals': () => loadProfessionalCardsAdmin(),
+  'adm:unroutedLeads': () => loadUnroutedLeads(),
+  'adm:suggestions': () => loadSuggestionsAdmin(),
+  'adm:adminInbox': () => loadAdminInbox(),
+};
+
+/* יעד של תצוגת הניהול. עד 4.11.2026 הוא חיכה לכל loadDashboard (מצב העסקאות
+   נפתח 7.5 שניות אחרי הכניסה, deeplink_timings), כי בסופה setDashView('agent')
+   היה מחזיר את המסך לתצוגת הסוכן/ת. עכשיו הוא נפתח אחרי הטעינה שלו בלבד,
+   וסוף loadDashboard משאיר את תצוגת הניהול כשהיא נפתחה מהקישור. */
+function gotoIsAdmin(raw){
+  if (!(currentAgent && currentAgent.is_platform_admin)) return false;
+  if (raw === 'adminOps' || raw === 'adminHome') return true;
+  return /^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '') && NAV_TAB_OF.get(raw) === 'admin';
 }
 
 /* יעד שאפשר לפתוח ברגע שהמעטפת על המסך. אזור המנהל/ת עדיין מוסתר כאן,
    ולכן ביקורת שממתינה נשארת לסוף loadDashboard - אחרת הקישור היה נמחק
    מהכתובת בלי שהכרטיס נפתח. */
 function gotoTargetReady(raw){
+  /* ‏bell (תקציר הלידים ותקציר ההתפרצות בוואטסאפ) - שכבה בכותרת ולא קטגוריה,
+     והיא גלויה לכל תפקיד. עד 3.11.2026 היא לא הייתה כאן, ולכן חיכתה לכל
+     loadDashboard: אצל מנהל/ת שהוא/היא גם מנהל/ת פלטפורמה ויועצ/ת משכנתאות
+     הפעמון נפתח 27 שניות אחרי הכניסה (deeplink_timings, lead_digest). */
+  if (raw === 'bell') return true;
   if (raw === 'mentor' || raw === 'license' || raw === 'cma' || raw === 'cmaAddress'
       || raw === 'promote' || raw === 'waShare' || raw === 'sign') return true;
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return false;
@@ -2541,6 +2598,8 @@ function gotoTargetReady(raw){
 }
 
 function gotoOpensEarly(raw, tab){
+  // תצוגת הניהול מוסתרת עד ש-handleGotoParam עובר אליה, ולכן לא navAccVisible
+  if (gotoIsAdmin(raw)) return true;
   if (!raw || !gotoTargetReady(raw)) return false;
   if (gotoLoadKeys(raw, tab).length) return true;
   return raw === 'mentor' || raw === 'license' || raw === 'cmaAddress' || raw === 'accPlanning';
@@ -15962,6 +16021,10 @@ async function loadProperties(agentId){
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   const propSelect = PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS;
+  /* המזהים שהוסתרו מתזכורת "לא פורסם" אינם תלויים ברשימה, ולכן יוצאים
+     עכשיו (.then - כדי שתצא ולא תחכה ל-await) ולא סבב שלם אחרי הנכסים:
+     הלידים, הלקוחות והתראות ההתאמה ממתינים כולם לסוף הפונקציה הזו. */
+  const hiddenIdsP = sb.rpc('unpublished_reminder_hidden_ids').then(r => r, err => ({ data: null, error: err }));
   let { data: props, error } = await sb
     .from('properties')
     .select(propSelect + ', air_directions, living_room_sqm')
@@ -16009,7 +16072,7 @@ async function loadProperties(agentId){
     return;
   }
   unpublishedReminderHidden = new Set();
-  const { data: hiddenIds, error: hiddenErr } = await sb.rpc('unpublished_reminder_hidden_ids');
+  const { data: hiddenIds, error: hiddenErr } = await hiddenIdsP;
   if (!hiddenErr && Array.isArray(hiddenIds)) hiddenIds.forEach(id => unpublishedReminderHidden.add(id));
   accSetCount('accProperties', (props||[]).length);
   renderShareLevelNotice('property', (props||[]).filter(p => p.agent_id === agentId || p.agent_id === undefined));
@@ -20682,6 +20745,7 @@ async function loadLeads(agentId){
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
+  // לחיצות היריד אינן תלויות ברשימת הלידים, ולכן יוצאות כאן ולא בסבב שאחריה
   let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
@@ -20690,6 +20754,7 @@ async function loadLeads(agentId){
     loadArchivedLeadIds(agentId),
     loadLeadWork(agentId),
     loadLeadVisitors(),
+    loadFairClicks(),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -20706,7 +20771,7 @@ async function loadLeads(agentId){
   leadVisitorOf = visitors;
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
-  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads), loadFairClicks()]);
+  await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
   renderLeads(agentId);
 }
 
@@ -23043,7 +23108,7 @@ let clientFormCategory = 'residential';
 
 function featureLabel(key){ return FEATURE_LABELS[key] || key; }
 
-async function loadClients(){
+async function loadClients(opts){
   const listEl = document.getElementById('clientsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
@@ -23051,7 +23116,9 @@ async function loadClients(){
      יחד, ולא שלושה סבבים בטור כמו עד אוקטובר 2026 */
   // ‏.then() ולא הבונה עצמו: שאילתת supabase-js יוצאת לשרת רק כשמישהו
   // קורא ל-then, ובלעדיו היא הייתה ממתינה עד ה-await שלמטה
-  const topsP = sb.rpc('client_match_top').then(r => r);
+  // בכניסה היא כבר יצאה מ-loadDashboard ומגיעה כאן כ-opts.topsP. ‏opts נבדק
+  // ולא מפורק: ‏loadClients נמסרת גם ככולבק, עם ארגומנטים שאינם שלה.
+  const topsP = (opts && opts.topsP) || sb.rpc('client_match_top').then(r => r);
   const showcasesP = typeof loadShowcaseSummaries === 'function' ? loadShowcaseSummaries() : null;
   const { data, error } = await sb
     .from('agent_clients')
@@ -34179,6 +34246,16 @@ function agrRenderStepDetails(){
      ו-<select> של הנכסים שלי הכריח להקליד אותם ידנית. --- */
   html += '<div class="agr-sec"><h4>' +
     (tpl.propertyMode === 'multi' ? 'הנכסים בהסכם' : 'הנכס בהסכם') + '</h4>' +
+    /* מה שכבר בטופס - בראש, לפני החיפוש. כשהנכס הגיע מכרטיס הנכס (והבעלים
+       איתו), חיפוש בראש המקטע נראה כאילו עוד צריך לבחור. */
+    '<div id="agrPropChips"></div>' +
+    (tpl.propertyMode === 'single'
+      ? '<p class="imp-note" style="margin:6px 0 12px">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
+      : '<p class="imp-note" style="margin:6px 0 12px">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
+    /* החיפוש וההזנה הידנית מקופלים מאחורי כפתור כשכבר יש נכס בטופס - כדי
+       שהטופס יישאר קצר, ושלא ייראה כאילו עוד צריך לבחור (agrSyncAddBoxes) */
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-prop-add" id="agrPropAddBtn" hidden></button>' +
+    '<div id="agrPropAdd">' +
     '<div class="agr-search">' +
       '<input type="search" id="agrPropSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש נכס - כתובת, עיר, סוג נכס או מספר מודעה" autocomplete="off">' +
@@ -34217,17 +34294,19 @@ function agrRenderStepDetails(){
       '<p class="imp-note" style="margin:8px 0 0">אלה השדות שנדרשים כדי לזהות את הנכס. ' +
         'כל היתר נפתח לעריכה מיד למטה, ומה שיישאר ריק מודפס במסמך כקו.</p>' +
     '</div>' +
+    '</div>' +
 
-    '<div id="agrPropChips" style="margin-top:12px"></div>' +
-    (tpl.propertyMode === 'single'
-      ? '<p class="imp-note">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
-      : '<p class="imp-note">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
   '</div>';
 
   /* --- צדדים ---
      אותו מחפש כמו בנכסים, ומאותה סיבה: קובץ לקוחות של מאות שורות ברשימה
      נפתחת אחת אינו ניתן לשימוש בטלפון. --- */
   html += '<div class="agr-sec"><h4>הצדדים החותמים</h4>' +
+    // החותמים שכבר בטופס (גם בעל/ת הנכס שנכנס/ה עם הנכס) - לפני החיפוש
+    '<div id="agrSignerForms" style="margin-bottom:12px"></div>' +
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-signer-add" id="agrSignerAddBtn" hidden>' +
+      '+ הוספת חותם/ת</button>' +
+    '<div id="agrSignerAdd">' +
     '<div class="agr-search">' +
       '<input type="search" id="agrClientSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש בקובץ הלקוחות - שם, טלפון, אימייל או עיר" autocomplete="off">' +
@@ -34244,15 +34323,18 @@ function agrRenderStepDetails(){
       ? '<button type="button" class="btn btn-ghost btn-block" data-agr="pick-contact-signer"' +
         ' style="margin-top:8px">📇 חותם/ת מאנשי הקשר בטלפון</button>'
       : '') +
-    '<div id="agrSignerForms" style="margin-top:12px"></div>' +
+    '</div>' +
     '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" - בן/בת זוג או שותף/ה. ' +
     'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
   '</div>';
 
   /* --- שדות הנכס --- */
-  html += '<div class="agr-sec"><h4>פרטי הנכס במסמך</h4>' +
+  /* מקופל: מה שידוע במערכת כבר מולא, ופתיחה היא רק למי שרוצה להשלים.
+     נפתח מעצמו כשנכנס נכס בהזנה ידנית (agrRenderPropFields) */
+  html += '<details class="agr-sec agr-fold" id="agrPropFieldsBox"><summary>פרטי הנכס במסמך' +
+      ' <span class="agr-fold-sub" id="agrPropFieldsSum"></span></summary>' +
     '<p class="imp-note" style="margin:0 0 10px">מה שידוע במערכת מולא לבד. שדה שנשאר ריק מודפס במסמך כקו לחתימה ידנית.</p>' +
-    '<div id="agrPropFields"></div></div>';
+    '<div id="agrPropFields"></div></details>';
 
   /* --- עמלה --- */
   html += '<div class="agr-sec"><h4>עמלה</h4><div class="agr-grid">' +
@@ -34304,12 +34386,14 @@ function agrRenderStepDetails(){
 
   /* --- משאלון --- */
   if (tpl.questionnaire){
-    html += '<div class="agr-sec"><h4>' + esc(tpl.questionnaire.title) + '</h4>' +
+    const answered = tpl.questionnaire.items.filter((q, i) => String(w.questionnaire[i] || '').trim()).length;
+    html += '<details class="agr-sec agr-fold"><summary>' + esc(tpl.questionnaire.title) +
+        ' <span class="agr-fold-sub" id="agrQSum">' + answered + ' מתוך ' + tpl.questionnaire.items.length + ' נענו</span></summary>' +
       '<p class="imp-note" style="margin:0 0 10px">תשובות בעל/ת הנכס. שאלה שנשארת ריקה מודפסת במסמך עם שורה ריקה למילוי ידני.</p>' +
       tpl.questionnaire.items.map((q, i) =>
         `<div class="agr-field" style="margin-bottom:9px"><label>${i + 1}. ${esc(q)}</label>
          <textarea rows="2" data-agr-q="${i}">${esc(w.questionnaire[i] || '')}</textarea></div>`).join('') +
-    '</div>';
+    '</details>';
   }
 
   /* --- שונות --- */
@@ -34508,9 +34592,31 @@ function agrRenderPropResults(){
     ? `<div class="agr-res-empty">מוצגים 8 מתוך ${total} - הקלידו כדי לחפש</div>` : '');
 }
 
+/* החיפוש (והכפתורים שלידו) פתוח רק כשאין עדיין נכס/חותם בטופס, או
+   כשלחצו "הוספה". אחרי בחירה הוא נסגר, וכך הטופס נשאר קצר. */
+function agrSyncAddBoxes(){
+  const w = agrWizard;
+  if (!w) return;
+  const tpl = agrTpl(w.kind);
+  const pairs = [
+    ['agrPropAdd', 'agrPropAddBtn', w.properties.length, 'propAddOpen',
+     tpl && tpl.propertyMode === 'single' ? '🔄 החלפת הנכס' : '+ הוספת נכס'],
+    ['agrSignerAdd', 'agrSignerAddBtn', w.signers.length, 'signerAddOpen', '+ הוספת חותם/ת'],
+  ];
+  pairs.forEach(([boxId, btnId, n, flag, label]) => {
+    const box = agrEl(boxId), btn = agrEl(btnId);
+    if (!box || !btn) return;
+    const open = !n || !!w[flag];
+    box.hidden = !open;
+    btn.hidden = !n || open;
+    btn.textContent = label;
+  });
+}
+
 function agrRenderPropChips(){
   const host = agrEl('agrPropChips');
   if (!host) return;
+  agrSyncAddBoxes();
   if (!agrWizard.properties.length){
     host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחר נכס.</p>';
     return;
@@ -34581,6 +34687,7 @@ async function agrAddProperty(propertyId, opts){
   }
 
   if (!(opts && opts.silent)){
+    w.propAddOpen = false;
     agrRenderPropChips();
     agrRenderPropFields();
     agrRenderSignerForms();
@@ -34627,6 +34734,7 @@ function agrAddManualProperty(){
   ['agrMpType','agrMpStreet','agrMpHouse','agrMpApt','agrMpPrice']
     .forEach(id => { if (agrEl(id)) agrEl(id).value = ''; });
   agrEl('agrManualProp').hidden = true;
+  agrWizard.propAddOpen = false;
 
   agrRenderPropChips();
   agrRenderPropFields();
@@ -35031,7 +35139,19 @@ function agrFillCountHtml(entry, fields){
     `מולאו <b>${filled}</b> מתוך ${fields.length} שדות · שדה שיישאר ריק יודפס כקו למילוי בכתב יד</p>`;
 }
 
+/* המונה בכותרת המקופלת של "פרטי הנכס במסמך" - כל הנכסים יחד */
+function agrUpdatePropFieldsSum(){
+  const sum = agrEl('agrPropFieldsSum');
+  const tpl = agrTpl(agrWizard.kind);
+  if (!sum || !tpl) return;
+  const all = agrWizard.properties.length * tpl.propertyFields.length;
+  const filled = agrWizard.properties.reduce((n, e) =>
+    n + tpl.propertyFields.filter(f => String(e.fields[f.key] || '').trim()).length, 0);
+  sum.textContent = all ? 'מולאו ' + filled + ' מתוך ' + all : '';
+}
+
 function agrUpdateFillCount(uid){
+  agrUpdatePropFieldsSum();
   const tpl = agrTpl(agrWizard.kind);
   const entry = agrWizard.properties.find(p => p.uid === uid);
   const el = document.querySelector('[data-agr-fillcount="' + CSS.escape(uid) + '"]');
@@ -35048,6 +35168,10 @@ function agrRenderPropFields(){
     return;
   }
   const overrides = tpl.propertyLabelOverrides || {};
+  const box = agrEl('agrPropFieldsBox');
+  agrUpdatePropFieldsSum();
+  // נכס בהזנה ידנית - רוב השדות ריקים, ולכן הם נפתחים להשלמה
+  if (box && agrWizard.properties.some(e => !e.property_id)) box.open = true;
 
   host.innerHTML = agrWizard.properties.map((entry, idx) => {
     const inputs = tpl.propertyFields.map(f =>
@@ -35142,8 +35266,24 @@ function agrAddClientSigner(clientId, opts){
     email: c.email || '', address: c.address || '', client_id: c.id,
   });
   if (!(opts && opts.silent)){
+    agrWizard.signerAddOpen = false;
     agrRenderSignerForms();
     agrRenderClientResults();
+    agrRevealLastSigner(false);
+  }
+}
+
+/* הטפסים של החותמים יושבים מעל החיפוש והכפתורים, ולכן מי שהוסיף/ה חותם/ת
+   מלמטה לא היה/תה רואה דבר משתנה ליד האצבע. מגלגלים אל הטופס החדש, ובחותם/ת
+   ריק/ה גם מתמקדים בשם. */
+function agrRevealLastSigner(focusName){
+  const host = agrEl('agrSignerForms');
+  const last = host && host.lastElementChild;
+  if (!last) return;
+  try { last.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (e) { last.scrollIntoView(); }
+  if (focusName){
+    const inp = last.querySelector('[data-key="full_name"]');
+    if (inp) inp.focus({ preventScroll:true });
   }
 }
 
@@ -35161,8 +35301,10 @@ async function agrPickContactSigner(){
     full_name: c.name || '', id_number:'', self_fill: true, phone: c.phone || '', email: c.email || '',
     address:'', client_id:null,
   });
+  agrWizard.signerAddOpen = false;
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(false);
 }
 
 function agrAddBlankSigner(){
@@ -35170,13 +35312,16 @@ function agrAddBlankSigner(){
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
     full_name:'', id_number:'', self_fill: true, phone:'', email:'', address:'', client_id:null,
   });
+  agrWizard.signerAddOpen = false;
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(true);
 }
 
 function agrRenderSignerForms(){
   const host = agrEl('agrSignerForms');
   if (!host) return;
+  agrSyncAddBoxes();
   if (!agrWizard.signers.length){
     host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחרו חותמים.</p>';
     return;
@@ -35664,6 +35809,20 @@ async function agrSaveAndGoSign(btn){
     return;
   }
   const w = agrWizard;
+  /* הסכם שהקישור שלו כבר יצא (וואטסאפ, העתקה, מייל) נעול במסד
+     (agreements_freeze_body). שמירה מחדש הייתה נופלת על agreement_locked */
+  /* הסטטוס שבזיכרון עלול להיות ישן - הלקוח/ה אולי פתח/ה את הקישור בינתיים
+     (agreement-sign/open מוציא מ-draft) - ולכן נשאל שוב */
+  if (w.agreementId && w.record){
+    const { data: cur } = await sb.from('agreements').select('status').eq('id', w.agreementId).maybeSingle();
+    if (cur && cur.status) w.record.status = cur.status;
+  }
+  if (w.agreementId && w.record && w.record.status && w.record.status !== 'draft'){
+    showToast('ההסכם כבר נשלח לחתימה ולכן אינו נשמר מחדש. לתיקון - בטלו אותו והוציאו הסכם חדש.');
+    w.step = 4;
+    agrRender();
+    return;
+  }
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'שומר…';
@@ -35917,9 +36076,26 @@ function agrSignerById(id){
   return (agrWizard.record.signers || []).find(s => s.id === id);
 }
 
+/* קישור שיצא בוואטסאפ או בהעתקה הוא הסכם שנשלח. עד היום רק המייל (בשרת)
+   העביר ל-sent, והסכם ששותף בוואטסאפ נשאר "טיוטה" ברשימה - לא נעול, בלי
+   "נצפה", ונראה כאילו לא יצא (וכך נוצר אותו הסכם פעמיים). בבלעדיות
+   הטריגר agreements_bundle_status מעביר גם את ההסכמה לפעולות שיווק. */
+async function agrMarkSent(){
+  const rec = agrWizard && agrWizard.record;
+  if (!rec || rec.status !== 'draft') return;
+  const now = new Date().toISOString();
+  const { error } = await sb.from('agreements')
+    .update({ status:'sent', sent_at: now }).eq('id', rec.id).eq('status', 'draft');
+  if (error){ console.warn('סימון ההסכם כנשלח נכשל:', error); return; }
+  rec.status = 'sent';
+  rec.sent_at = rec.sent_at || now;
+  loadAgreements();
+}
+
 async function agrCopySignLink(signerId){
   const s = agrSignerById(signerId);
   if (!s) return;
+  agrMarkSent();
   const url = agrSignUrl(s);
   try {
     await navigator.clipboard.writeText(url);
@@ -35938,6 +36114,7 @@ function agrWhatsappSign(signerId){
   const text = `שלום ${s.full_name}, מצורף קישור אישי לקריאה ולחתימה על ` +
     `${agrWizard.record.title}:\n${agrSignUrl(s)}\n\nהקישור אישי - אין להעביר אותו הלאה.`;
   window.open(wa + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+  agrMarkSent();
 }
 
 async function agrDownloadPdf(btn){
@@ -35998,6 +36175,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
     const box = agrEl('agrManualProp');
     box.hidden = !box.hidden;
     if (!box.hidden) agrEl('agrMpType').focus();
+    return;
+  }
+  if (act === 'toggle-prop-add' || act === 'toggle-signer-add'){
+    const prop = act === 'toggle-prop-add';
+    agrWizard[prop ? 'propAddOpen' : 'signerAddOpen'] = true;
+    agrSyncAddBoxes();
+    const inp = agrEl(prop ? 'agrPropSearch' : 'agrClientSearch');
+    if (inp) inp.focus();
     return;
   }
   if (act === 'add-manual-prop') return agrAddManualProperty();
@@ -36068,6 +36253,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
 agrEl('agrBody').addEventListener('input', async (e)=>{
   if (!agrWizard) return;
   const t = e.target;
+
+  // המונה בכותרת המקופלת של המשאלון
+  if (t.dataset.agrQ !== undefined){
+    const all = [...document.querySelectorAll('[data-agr-q]')];
+    const el = agrEl('agrQSum');
+    if (el) el.textContent = all.filter(x => x.value.trim()).length + ' מתוך ' + all.length + ' נענו';
+    return;
+  }
 
   /* שני דגלי החתימה מרחוק נשמרים מיד ולא ב"שמירה" נפרדת: הם משנים את
      ההתנהגות של הקישור הבא שנשלח, והמרחק בין הסימון לשליחה הוא לחיצה אחת. */
