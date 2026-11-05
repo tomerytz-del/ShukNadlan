@@ -1389,7 +1389,7 @@ async function professionalMeta(key: string): Promise<MetaResult> {
 
 async function articleMeta(key: string): Promise<MetaResult> {
   /* ‏select=* ולא רשימת עמודות: updated_at מצטרפת ל-articles_public במיגרציה
-     ‏20271105160000, והאתר עולה לפניה. עמודה שמבקשים בשם ואינה קיימת היא
+     ‏20271105170000, והאתר עולה לפניה. עמודה שמבקשים בשם ואינה קיימת היא
      400, כלומר כל הכתבות בלי תגיות עד שהמיגרציה רצה. */
   const got = await sbFetch(
     `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=*`,
