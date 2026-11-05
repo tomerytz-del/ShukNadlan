@@ -1753,6 +1753,21 @@ function showClosedScreen(agent){
     })
     .catch(()=>{ /* המסך עומד גם בלי השורה הזו */ });
 }
+/* אחרי מחיקה מיידית: המשתמש ב-Auth כבר נמחק, אבל האסימון בדפדפן עוד בתוקף
+   עד שעה. בלי signOut כאן, טעינה מחדש הייתה מוצאת אסימון בלי כרטיס ומציגה
+   "פתיחת משרד חדש". המסך מאשר שהמחיקה קרתה ומה עם הכסף. */
+async function showDeletedScreen(refundAmount){
+  try { await sb.auth.signOut(); } catch(_){ /* המשתמש כבר נמחק - זה צפוי */ }
+  routedUserId = null;
+  document.getElementById('closedTitle').textContent = 'החשבון נמחק';
+  document.getElementById('closedSub').textContent =
+    'הדף והמודעות ירדו מהאוויר, הפרטים האישיים נמחקו, ואי אפשר יותר להיכנס לחשבון הזה.';
+  document.getElementById('closedRefundNote').textContent = refundAmount > 0
+    ? 'בקשת ההחזר על יתרת הארנק (' + shekel(refundAmount) + ') נפתחה, וההחזר יגיע לאמצעי התשלום שממנו נטען הארנק. '
+    : '';
+  showScreen('closed');
+}
+
 document.getElementById('closedLogoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut(); routedUserId = null; showLoginCard();
 });
@@ -10167,7 +10182,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
    בקריאה אחת מסקריפט מבטלת את כל מה שהחלון הזה בא לעשות.
    ============================================================================ */
 
-const CLOSE_PHRASE = 'סגירת חשבון';
+const CLOSE_PHRASE = 'מחיקת חשבון';
 let closureSummary = null;
 
 async function callCloseAccount(payload){
@@ -10199,9 +10214,9 @@ function closureMoneyText(s){
   }
   if (s.subscription_until){
     parts.push('את/ה במנוי חודשי ששולם עד ' + hebDate(s.subscription_until) +
-               '. אין זיכוי יחסי על החודש שכבר שולם, ולכן ההתקשרות נפסקת בתאריך הזה - ועד אז הכול ממשיך לעבוד כרגיל.');
+               '. אין זיכוי יחסי על החודש שכבר שולם. אפשר למחוק בתאריך הזה (ועד אז הכול ממשיך לעבוד), או מיד - בוויתור על יתרת החודש. החידוש בכרטיס לא ירוץ שוב.');
   } else {
-    parts.push('אינך במנוי חודשי בתשלום, ולכן הסגירה נכנסת לתוקף מיד.');
+    parts.push('אינך במנוי חודשי בתשלום, ולכן המחיקה מתבצעת מיד.');
   }
   return parts.join(' ');
 }
@@ -10236,13 +10251,13 @@ async function loadClosureSection(){
     const due = new Date(s.closure_effective_at);
     const overdue = !isNaN(due.getTime()) && due.getTime() <= Date.now();
     document.getElementById('closurePendingTitle').textContent =
-      overdue ? 'הסגירה ממתינה להשלמה' : 'בקשת הסגירה נרשמה';
+      overdue ? 'המחיקה ממתינה להשלמה' : 'בקשת המחיקה נרשמה';
     document.getElementById('closurePendingBody').textContent = overdue
       // המועד עבר והשורה עדיין פתוחה - כמעט תמיד החסם של מנהל/ת אחרון/ה.
-      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והסגירה עדיין לא הושלמה. '
+      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והמחיקה עדיין לא הושלמה. '
         + 'ברוב המקרים הסיבה היא שאת/ה המנהל/ת הפעיל/ה היחיד/ה במשרד ויש בו עוד סוכנים - '
         + 'מינוי מנהל/ת נוסף/ת ב"צוות המשרד" משחרר את זה. לעזרה: 054-6929991.'
-      : 'החשבון ייסגר ב-' + hebDate(s.closure_effective_at) + ' - בתום תקופת החיוב ששולמה. '
+      : 'החשבון יימחק ב-' + hebDate(s.closure_effective_at) + ' - בתום תקופת החיוב ששולמה. '
         + 'עד אז הדף, המודעות והלידים ממשיכים כרגיל, ואפשר לבטל את הבקשה.';
     accSetCount('accCloseAccount', 'בקשה פתוחה');
     return;
@@ -10286,8 +10301,8 @@ document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
   if (s.blocker){
     feedback.style.color = '#b42318';
     feedback.textContent = s.blocker === 'last_manager'
-      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים.'
-      : 'לא ניתן לסגור את החשבון כרגע.';
+      ? 'אי אפשר למחוק כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים.'
+      : 'לא ניתן למחוק את החשבון כרגע.';
     return;
   }
 
@@ -10298,23 +10313,40 @@ document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
     s.active_properties > 0
       ? plural(s.active_properties, 'מודעה פעילה אחת יורדת', 'מודעות פעילות יורדות') + ' מהאתר ומהחיפוש.'
       : 'אין כרגע מודעות פעילות שיירדו.',
-    'לא נשלחות אליך יותר פניות, התראות או מיילים, והמייל שלך יוצא מרשימת התפוצה.',
-    'הכניסה לאיזור הסוכנים נסגרת. אין לזה כפתור חזרה.',
+    'לא נשלחות אליך יותר פניות, התראות או מיילים.',
+    'הפרטים האישיים נמחקים: שם, טלפון, אימייל, תמונה, ת.ז., היומן, כרטיסי הלקוחות הפרטיים והשיחות עם גבריאלה. המספרים הווירטואליים משתחררים.',
+    'הכניסה נמחקת, ואין לזה כפתור חזרה. חיובים, חשבוניות והסכמים חתומים נשמרים בלי שמך, כי החוק מחייב.',
   ].forEach(text=>{
     const li = document.createElement('li');
     li.textContent = text;
     list.appendChild(li);
   });
   document.getElementById('caStep1Money').textContent = closureMoneyText(s);
-  document.getElementById('caStep2Note').textContent = s.subscription_until
-    ? 'לאחר האישור הבקשה תירשם, והסגירה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
-    : 'לאחר האישור הסגירה מתבצעת מיד.';
-  document.getElementById('caConfirm').textContent =
-    s.subscription_until ? 'רישום בקשת הסגירה' : 'סגירת החשבון';
+  const when = document.getElementById('caWhen');
+  when.hidden = !s.subscription_until;
+  if (s.subscription_until){
+    document.getElementById('caWhenEnd').textContent = 'בסוף התקופה ששולמה - ' + hebDate(s.subscription_until) + ' (אפשר לבטל עד אז)';
+    when.querySelector('input[value="period_end"]').checked = true;
+  }
+  updateCaStep2();
 
   caModal.style.display = 'flex';
   document.getElementById('caAck').focus();
 });
+
+function caWhenNow(){
+  const picked = document.querySelector('input[name="caWhen"]:checked');
+  return !!(closureSummary && closureSummary.subscription_until && picked && picked.value === 'now');
+}
+function updateCaStep2(){
+  const s = closureSummary || {};
+  const later = !!s.subscription_until && !caWhenNow();
+  document.getElementById('caStep2Note').textContent = later
+    ? 'לאחר האישור הבקשה תירשם, והמחיקה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
+    : 'לאחר האישור המחיקה מתבצעת מיד, ואין ממנה חזרה.';
+  document.getElementById('caConfirm').textContent = later ? 'רישום בקשת המחיקה' : 'מחיקת החשבון';
+}
+document.querySelectorAll('input[name="caWhen"]').forEach(r=> r.addEventListener('change', updateCaStep2));
 
 document.getElementById('caAck').addEventListener('change', e=>{
   document.getElementById('caNext').disabled = !e.target.checked;
@@ -10342,10 +10374,12 @@ document.getElementById('caConfirm').addEventListener('click', async ()=>{
   const modalFeedback = document.getElementById('caModalFeedback');
   btn.disabled = true;
   modalFeedback.style.color = 'var(--ink-soft)';
-  modalFeedback.textContent = 'סוגרים…';
+  modalFeedback.textContent = 'מוחקים…';
 
   const { ok, data } = await callCloseAccount({
     action: 'request',
+    account: 'agent',
+    when: caWhenNow() ? 'now' : 'period_end',
     confirm: CLOSE_PHRASE,
     reason: (document.getElementById('closureReason').value || '').trim() || null,
   });
@@ -10353,18 +10387,18 @@ document.getElementById('caConfirm').addEventListener('click', async ()=>{
   if (!ok){
     modalFeedback.style.color = '#b42318';
     modalFeedback.textContent = data.error === 'last_manager'
-      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים. לעזרה: 054-6929991'
-      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת סגירה פתוחה.'
-      : data.error === 'already_closed' ? 'החשבון כבר סגור.'
+      ? 'אי אפשר למחוק כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים. לעזרה: 054-6929991'
+      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת מחיקה פתוחה.'
+      : data.error === 'already_closed' ? 'החשבון כבר נמחק.'
       : 'הפעולה נכשלה. אפשר לנסות שוב, או לפנות לתמיכה: 054-6929991';
     btn.disabled = false;
     return;
   }
 
   closeCaModal();
-  // סגירה מיידית: אין למה לחזור בדשבורד - טוענים מחדש, ו-loadDashboard
-  // ינחית על מסך "החשבון נסגר". סגירה מתוזמנת: רק מרעננים את המקטע.
-  if (data.closed) location.reload();
+  // מחיקה מיידית: אין למה לחזור בדשבורד - יוצאים, ומסך "החשבון נמחק".
+  // מחיקה מתוזמנת (סוף המנוי): רק מרעננים את המקטע.
+  if (data.closed) await showDeletedScreen(Number(data.result && data.result.refund_requested) || 0);
   else await loadClosureSection();
 });
 
@@ -10377,12 +10411,12 @@ document.getElementById('closureCancelBtn').addEventListener('click', async ()=>
   if (!ok){
     feedback.style.color = '#b42318';
     feedback.textContent = data.error === 'already_closed'
-      ? 'החשבון כבר נסגר ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
+      ? 'החשבון כבר נמחק ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
       : 'ביטול הבקשה נכשל - אפשר לנסות שוב.';
     return;
   }
   feedback.style.color = '#1c6b4a';
-  feedback.textContent = 'בקשת הסגירה בוטלה. החשבון ממשיך כרגיל.';
+  feedback.textContent = 'בקשת המחיקה בוטלה. החשבון ממשיך כרגיל.';
   await loadClosureSection();
 });
 
@@ -27886,7 +27920,7 @@ const NAV_GROUPS = [
     { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more', section:'support' },
     /* אחרון, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא שכנה של
        פעולה שעושים כל יום. */
-    { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more', section:'support' },
+    { acc:'accCloseAccount',  label:'מחיקת החשבון',      icon:'alert',    tab:'more', section:'support' },
   ]},
   /* כלי הפלטפורמה מופיעים אך ורק בתצוגת מנהל/ת (adminOnly). זו כל הנקודה:
      הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות "ניהול
