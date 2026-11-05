@@ -891,6 +891,7 @@ const TOOLS: Anthropic.Tool[] = [
       "וקרא/י שוב עם כל מה שנמסר ועם proceed: true (גם אם הסוכן/ת ענה/תה רק על חלק או כתב/ה \"תפיק\"). " +
       "אם חזר details_guidance - בצע/י אותו. " +
       "אם חזר location_guidance - אמור/אמרי אותו. " +
+      "**סוג הנכס לא מנחשים:** בלי סוג חוזר type_required, ושואלים \"בית צמוד קרקע, דירה, פנטהאוז או דירת גן?\" - גם אחרי \"תפיק\". " +
       "**גם לגוש וחלקה, בלי כתובת** (gush + helka במקום city + street): המיקום מהחלקה עצמה. " +
       "לבית צמוד קרקע הדוח משווה לבתים, וגם לעסקאות \"דירה\" שזוהו כבתים לפי החלקה (house_guidance).",
     input_schema: {
@@ -4270,7 +4271,9 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     p_city:          city,
     p_street:        street,
     p_house_number:  houseNumber || null,
-    p_property_type: String(input.property_type || "דירה"),
+    // בלי סוג: המסד מסיק אותו מהחלקה של הכתובת, ואם אי אפשר מחזיר
+    // type_required (20271105130000). "דירה" כברירת מחדל השווה בית לדירות.
+    p_property_type: String(input.property_type || "").trim() || null,
     p_rooms:         num(input.rooms),
     p_size_sqm:      num(input.size_sqm),
     p_floor:         num(input.floor) === null ? null : Math.round(Number(input.floor)),
@@ -4286,6 +4289,35 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   if (error) return { ok: false, error: error.message };
 
   const report = (data || {}) as Record<string, unknown>;
+  if (report.error === "type_required") {
+    // לא מנחשים סוג (20271105130000): שואלים, עם הרמזים שיש - העסקאות בחלקה
+    // של הכתובת, הייעוד אם נשמר אצלנו מידע תכנוני, והרחוב.
+    const stN = Number(report.street_deals) || 0;
+    const stHouse = Number(report.street_house_like) || 0;
+    const landUse = String(report.land_use || "").trim();
+    const hints = [
+      report.parcel_hint === "house" &&
+        "בחלקה של הכתובת נמכרו רק נכסים בלי קומה, וזה נראה כמו בית צמוד קרקע",
+      report.parcel_hint === "building" &&
+        "בחלקה של הכתובת יש עסקאות בקומות, כלומר זה בניין (דירה, פנטהאוז או דירת גן)",
+      landUse && `הייעוד של החלקה הוא "${landUse}"` +
+        (/מגורים\s*א(?![\u0590-\u05FF])/.test(landUse) ? " - בדרך כלל צמודי קרקע" : ""),
+      stN > 0 && stHouse / stN >= 0.5 &&
+        `רוב העסקאות ברחוב (${stHouse} מתוך ${stN}) נראות כמו בתים צמודי קרקע`,
+    ].filter(Boolean) as string[];
+    return {
+      ok: false,
+      needs_details: true,
+      missing: ["סוג הנכס: בית צמוד קרקע, דירה, פנטהאוז או דירת גן"],
+      type_hints: hints,
+      guidance:
+        "בלי סוג אי אפשר להפיק: דוח של בית, דירה, פנטהאוז ודירת גן באותו רחוב שונים לפעמים פי שניים. " +
+        "שאל/י **שאלה אחת קצרה**: בית צמוד קרקע, דירה, פנטהאוז או דירת גן? " +
+        (hints.length ? "אפשר לצרף את הרמזים מ-type_hints במשפט אחד, כרמז ולא כקביעה. " : "") +
+        "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם property_type (בית פרטי / דירה / פנטהאוז / דירת גן) " +
+        "ועם proceed: true. זו השאלה היחידה ששואלים גם אחרי \"תפיק\".",
+    };
+  }
   if (report.error === "parcel_not_found") {
     return {
       ok: false,
