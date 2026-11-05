@@ -235,6 +235,11 @@ verify_jwt = true
 [functions.close-account]
 verify_jwt = true
 
+# השלמת המחיקה אחרי סגירה מתוזמנת (מנוי בתשלום): מוחקת את המשתמש ב-Auth
+# ומשחררת מספרים ב-Twilio. רצה פעם ביום מ-pg_cron בלבד ואינה מקבלת קלט.
+[functions.account-erasure]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 [functions.rss-lead-purchase]
 verify_jwt = true
 
