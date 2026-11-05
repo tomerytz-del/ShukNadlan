@@ -462,6 +462,14 @@ function attachHeroVideo(main, videoSrc, poster){
   heroVideoEl = v;
 }
 
+/* ‏alt לתמונת נכס: כותרת הנכס ומספר התמונה (1-based), אותו נוסח ש-og-tags.ts
+   כותב בשרת. תמונה בלי alt אינה מופיעה בחיפוש התמונות, וקורא מסך קורא
+   "תמונה" בלבד (ביקורת 5.11.2026). */
+function galleryAlt(p, index){
+  const base = String((p && p.title) || '').replace(/\s+/g, ' ').trim() || 'נכס';
+  return `${base} - תמונה ${index + 1}`;
+}
+
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
   heroVideoEl = null;
@@ -514,10 +522,12 @@ function renderGallery(p){
       open.className = 'cell-open';
       open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
       const raw = galleryImages[index];
+      // פוסטר של סרטון נשאר בלי alt: התא הוא aria-hidden.
+      const imgAlt = videoSrc && hero ? '' : galleryAlt(p, index);
       open.innerHTML = hero
-        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="" fetchpriority="high"${heroImgExtra(raw)}>`
+        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="${escapeAttr(imgAlt)}" fetchpriority="high"${heroImgExtra(raw)}>`
         // התאים הקטנים בגלריה - מוקטנים; הגלריה המלאה (‏lbOpen) נשארת בגודל מלא
-        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
+        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="${escapeAttr(imgAlt)}" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
       open.addEventListener('click', ()=> lbOpen(opensAt));
       cell.appendChild(open);
       return cell;
@@ -1155,7 +1165,7 @@ function lbOpen(index){
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', `מעבר לתמונה ${i+1}`);
-      b.innerHTML = `<img src="${escapeAttr(url)}" alt="" loading="lazy">`;
+      b.innerHTML = `<img src="${escapeAttr(url)}" alt="${escapeAttr(galleryAlt(currentProperty, i))}" loading="lazy">`;
       b.addEventListener('click', ()=>{ lbIndex = i; lbRender(); });
       strip.appendChild(b);
     });

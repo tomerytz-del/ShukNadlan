@@ -55,6 +55,30 @@
 # context.next(), כי הפונקציה רצה על הנתיב הזה וממלאת תגיות אם ממשיכים.
 /agency.html    /agency    301!
 
+# ‏שאר הדפים הסטטיים: ‏Netlify **אינה** מפנה ‎.html‎ לחסרת הסיומת מעצמה -
+# ‏/about.html ו-/about החזירו שניהם 200 (ביקורת 5.11.2026). ה-canonical כיסה
+# את הכפילות, אבל כל תאום כזה הוא עוד כתובת שגוגל סורקת. דפי הפירוט
+# (‏property, agent, article, professional, project, developer) לא כאן:
+# ‏og-tags.ts רצה עליהם לפני ההפניה, כמו אצל /agency.html למעלה.
+/about.html            /about            301!
+/accessibility.html    /accessibility    301!
+/agencies.html         /agencies         301!
+/agents.html           /agents           301!
+/articles.html         /articles         301!
+/deals.html            /deals            301!
+/delete-account.html   /delete-account   301!
+/ethics-code.html      /ethics-code      301!
+/faq.html              /faq              301!
+/instagram.html        /instagram        301!
+/open-house.html       /open-house       301!
+/prices.html           /prices           301!
+/pricing.html          /pricing          301!
+/privacy.html          /privacy          301!
+/professionals.html    /professionals    301!
+/projects.html         /projects         301!
+/sell.html             /sell             301!
+/terms.html            /terms            301!
+
 # ‏"ללא עמלת תיווך" באתר = יריד הבתים הפתוחים, ויש לו דף אחד (‏PR 1010, חלק 5
 # §4.1, החלטה 1): כתובות שמתבקשות מקמפיינים ומגבריאלה מפנות אליו ולא דף שני.
 /no-commission    /open-house    301

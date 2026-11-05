@@ -249,8 +249,9 @@ type Meta = {
   description: string;
   image: string;
   canonical: string;
-  /* רק לכתבה — ‎article:published_time‎ */
+  /* רק לכתבה — ‎article:published_time‎ ו-‎article:modified_time‎ */
   publishedAt?: string;
+  modifiedAt?: string;
   /* ‏נתונים מובנים (JSON-LD): נכס, משרד, סוכן/ת וכתבה. ראו "תוכן לסורק" למטה. */
   jsonLd?: unknown;
   /* ‏אלמנטים בדף שמתמלאים בטקסט כבר בשרת, לפי id. ה-JS כותב אליהם שוב
@@ -776,7 +777,10 @@ function heroRenderUrl(url: string, w: number, h: number): string {
     + `?width=${w}&height=${h}&resize=cover&quality=60`;
 }
 
-function heroImg(original: string, video: boolean): { tag: string; lcp: string } {
+/* ‏alt של תמונת השער הוא כותרת הנכס: תמונת ה-LCP היא התמונה שגוגל מציגה
+   בחיפוש התמונות, ו-alt="" מחק אותה משם (ביקורת 5.11.2026, docs/seo-audits).
+   פוסטר של סרטון נשאר aria-hidden, ולכן ה-alt שלו ריק. */
+function heroImg(original: string, video: boolean, alt = ""): { tag: string; lcp: string } {
   const src800 = heroRenderUrl(original, 800, 500);
   const src1200 = heroRenderUrl(original, 1200, 800);
   const transformed = !!(src800 && src1200);
@@ -788,7 +792,7 @@ function heroImg(original: string, video: boolean): { tag: string; lcp: string }
     transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
     transformed ? `sizes="${HERO_SIZES}"` : "",
     transformed ? `data-full="${esc(original)}"` : "",
-    'alt=""',
+    `alt="${video ? "" : esc(alt)}"`,
     'fetchpriority="high"',
     video ? 'style="filter:none;transform:none"' : "",
     video ? 'aria-hidden="true"' : "",
@@ -846,21 +850,25 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
       : `<div class="bento-cell bento-main bento-empty">${placeholderImg()}${emptyHeroInner(p)}</div>`;
     return { count: 1, html: cell, lcp: "", placeholder: true };
   }
-  const thumb = (src: string, last: boolean) =>
-    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="" loading="lazy"></div>`;
+  /* ‏אותו alt ש-renderGallery ב-assets/property.js כותב: כותרת הנכס ומספר
+     התמונה. תמונות בלי שם הן תמונות בלי מילות מפתח. */
+  const altBase = String(p.title || "").replace(/\s+/g, " ").trim() || "נכס";
+  const altOf = (n: number) => `${altBase} - תמונה ${n}`;
+  const thumb = (src: string, last: boolean, n: number) =>
+    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="${esc(altOf(n))}" loading="lazy"></div>`;
   if (video) {
     const thumbEnd = Math.max(0, Math.min(images.length, 2));
     const count = 1 + thumbEnd;
     const shot = heroImg(poster, true);
     const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
-    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1)).join("");
+    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1, i + 1)).join("");
     return { count, html: main + thumbs, lcp: shot.lcp };
   }
   const thumbEnd = Math.max(1, Math.min(images.length, 3));
-  const shot = heroImg(images[0], false);
+  const shot = heroImg(images[0], false, altOf(1));
   const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
   const extra = images.slice(1, thumbEnd);
-  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1)).join("");
+  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1, i + 2)).join("");
   return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
 }
 
@@ -1034,13 +1042,19 @@ function countPhrase(n: number): string {
   return `${n} נכסים פעילים`;
 }
 
-/* ‏בלי עיר ובלי ספירה נשאר בדיוק הטקסט הישן (aboutText). */
+/* ‏בלי עיר ובלי ספירה נשאר בדיוק הטקסט הישן (aboutText).
+   ‏"על המשרד" של ShukAgencyAbout פותח בעצמו בשם המשרד, ולכן השם לא חוזר
+   פעמיים: כשהוא כבר בפסקה, הפתיח הוא העיר והספירה בלבד. 160 תווים ולא
+   200: גוגל חותכת סביב 155, והחיתוך נפל באמצע משפט (ביקורת 5.11.2026). */
 function agencyBlurb(name: unknown, city: string, count: number | null, aboutText: string): string {
   if (!city && count == null) return aboutText;
   const who = String(name || "").trim() || "משרד תיווך";
-  let lead = who + (city ? ` - משרד תיווך ב${city}` : " - משרד תיווך");
+  const named = who !== "משרד תיווך" && aboutText.includes(who);
+  let lead = named
+    ? (city ? `משרד תיווך ב${city}` : "משרד תיווך")
+    : who + (city ? ` - משרד תיווך ב${city}` : " - משרד תיווך");
   if (count != null) lead += `, ${countPhrase(count)}`;
-  return clamp(`${lead}. ${aboutText}`, 200);
+  return clamp(`${lead}. ${aboutText}`, 160);
 }
 
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
@@ -1119,7 +1133,7 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   if (coverLcp) {
     inner.push({
       id: "bannerMedia",
-      html: `<img class="banner-lcp" alt="" width="1400" height="800" fetchpriority="high" decoding="async" src="${esc(coverLcp)}">`,
+      html: `<img class="banner-lcp" alt="${esc(`תמונת הנושא של ${String(a.name || "המשרד").trim()}`)}" width="1400" height="800" fetchpriority="high" decoding="async" src="${esc(coverLcp)}">`,
     });
   }
 
@@ -1143,8 +1157,11 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const m = got.row;
+  /* ‏בלי ביו: משפט שאומר מה יש בדף, ולא רק את שם האתר (56 תווים היו מעט
+     מכדי שגוגל תציג אותו, ביקורת 5.11.2026). */
   const description = clamp(
-    String(m.bio || "") || `${m.display_name || ""} - נכסים, חוות דעת ודרכי יצירת קשר ב${SITE_NAME}.`,
+    String(m.bio || "") ||
+      `${String(m.display_name || "").trim() || "יועץ/ת נדל״ן"} - יועץ/ת נדל״ן בעפולה והעמק: הנכסים הפעילים, חוות דעת של לקוחות ויצירת קשר ישירה בוואטסאפ, ב${SITE_NAME}.`,
     200,
   );
 
@@ -1311,10 +1328,22 @@ async function professionalMeta(key: string): Promise<MetaResult> {
 
   const name = p.advertiser_name || "בעל מקצוע";
   const role = TYPE_LABELS[String(p.advertiser_type || "")] || TYPE_LABELS.general;
-  const title = [name, p.business_name].filter(Boolean).join(" · ");
+  const region = String(p.target_region || "עפולה והעמק").trim();
+  /* ‏"אלדד סורק עו"ד · אלדד סורק חברת עו"ד": כששם האדם כבר בתוך שם העסק,
+     הכותרת היא שם העסק בלבד, ואחריו התחום והאזור - מילות המפתח שבהן
+     מחפשים בעל/ת מקצוע. ארוך מ-65 תווים נשאר שם העסק והאתר. */
+  const personTokens = String(p.advertiser_name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  const business = String(p.business_name || "").trim();
+  const sameParty = !!business && personTokens.length > 0 && personTokens.every((t) => business.includes(t));
+  const titleCore = business && !sameParty ? `${name} · ${business}` : (business || String(name));
+  /* ‏תחום כללי ("בעל מקצוע") אינו מילת מפתח, ולכן אינו נכנס לכותרת. */
+  const withRole = `${titleCore} - ${role} ב${region} | ${SITE_NAME}`;
+  const title = role !== TYPE_LABELS.general && withRole.length <= 65 ? withRole : `${titleCore} | ${SITE_NAME}`;
+  /* ‏תיאור קצר ("עו״ד מקרקעין באזור עפולה." - 25 תווים) מקבל אחריו מה יש
+     בדף, כדי שיהיה מה להציג בתוצאה. */
+  const given = String(p.headline || p.description || "").trim() || `${role} באזור ${region}.`;
   const description = clamp(
-    String(p.headline || p.description || "") ||
-      `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
+    given.length >= 70 ? given : `${given} ${business || name}: שירותים, אזורי שירות ויצירת קשר ישירה, ב${SITE_NAME}.`,
     155,
   );
   const image = absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE;
@@ -1341,7 +1370,7 @@ async function professionalMeta(key: string): Promise<MetaResult> {
   }
 
   return {
-    title: clamp(`${title} | ${SITE_NAME}`, 90),
+    title: clamp(title, 90),
     description,
     image,
     canonical,
@@ -1359,9 +1388,11 @@ async function professionalMeta(key: string): Promise<MetaResult> {
 }
 
 async function articleMeta(key: string): Promise<MetaResult> {
-  const cols = "slug,title,subtitle,body,cover_url,published_at,author_name";
+  /* ‏select=* ולא רשימת עמודות: updated_at מצטרפת ל-articles_public במיגרציה
+     ‏20271105170000, והאתר עולה לפניה. עמודה שמבקשים בשם ואינה קיימת היא
+     400, כלומר כל הכתבות בלי תגיות עד שהמיגרציה רצה. */
   const got = await sbFetch(
-    `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
+    `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=*`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
@@ -1379,6 +1410,11 @@ async function articleMeta(key: string): Promise<MetaResult> {
      היא מה שגוגל מסמנת כחסר, וכרגע אף כתבה לא נושאת שם (9.10.2026). */
   const publisher = { "@type": "Organization", name: SITE_NAME, url: `${SITE}/`, logo: ORG_LOGO };
   const author = String(a.author_name || "").trim();
+  /* ‏dateModified ו-wordCount: שני השדות שגוגל ומנועי ה-AI קוראים כדי לדעת
+     כמה הכתבה טרייה וכמה יש בה (ביקורת 5.11.2026). updated_at מגיעה מה-view
+     רק אחרי המיגרציה, ועד אז השדה פשוט נעדר. */
+  const updatedAt = String(a.updated_at || "").trim() || undefined;
+  const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
   const article: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -1388,10 +1424,12 @@ async function articleMeta(key: string): Promise<MetaResult> {
     image: [image],
     inLanguage: "he",
     mainEntityOfPage: canonical,
-    author: author ? { "@type": "Person", name: author } : publisher,
+    author: author ? { "@type": "Person", name: author, worksFor: publisher } : publisher,
     publisher,
   };
   if (publishedAt) article.datePublished = publishedAt;
+  if (updatedAt && updatedAt !== publishedAt) article.dateModified = updatedAt;
+  if (wordCount) article.wordCount = wordCount;
 
   /* ‏גוף הכתבה עצמו - הטקסט שמנוע AI יצטט. אותו HTML ש-renderBody מכניס
      (‏ShukArticleBody.html): מבנה, בריחה, וקישורי http(s). גוף שנכתב
@@ -1405,6 +1443,7 @@ async function articleMeta(key: string): Promise<MetaResult> {
     image,
     canonical,
     publishedAt,
+    modifiedAt: updatedAt && updatedAt !== publishedAt ? updatedAt : undefined,
     jsonLd: article,
     fills: [
       { id: "articleTitle", text: String(a.title || "כתבה") },
@@ -1539,6 +1578,9 @@ function inject(html: string, m: Meta): string {
   );
   if (m.publishedAt) {
     add.push(`<meta property="article:published_time" content="${esc(m.publishedAt)}">`);
+  }
+  if (m.modifiedAt) {
+    add.push(`<meta property="article:modified_time" content="${esc(m.modifiedAt)}">`);
   }
 
   // ‏<title> הקיים מוחלף, וגם הוא ממוסך — הוא מה שנראה בלשונית ובשיתוף

@@ -130,7 +130,9 @@
       return '<span class="land-avatar" aria-hidden="true">' + escapeHtml(initials(alt)) + "</span>";
     }
     var src = renderUrl(url) || url;
-    return '<img src="' + escapeHtml(src) + '" alt="" width="48" height="48" loading="lazy" decoding="async"'
+    /* ‏alt = שם המשרד: הלוגו הוא התמונה היחידה של המשרד בדף, ו-alt="" השאיר
+       20 מ-21 התמונות בדף בלי שם (ביקורת 5.11.2026). */
+    return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(String(alt || "")) + '" width="48" height="48" loading="lazy" decoding="async"'
       + ' data-full="' + escapeHtml(url) + '"'
       + ' onerror="this.onerror=null;this.src=this.getAttribute(\'data-full\')">';
   }

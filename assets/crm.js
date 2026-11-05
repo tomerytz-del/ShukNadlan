@@ -12661,6 +12661,19 @@ function syncNpAirCount(){
   if (el) el.textContent = airCountLabel(n);
 }
 
+/* ‏כותרת נכס שהיא שם הבעלים או הטלפון שלהם: נכס אחד באוויר נקרא "פראדה
+   יזזאו אקלום" - שם אדם ב-H1, ב-og:title וב-JSON-LD (ביקורת 5.11.2026).
+   ההשוואה אחרי ניקוי רווחים וסימני פיסוק, כדי ש"פראדה יזזאו-אקלום" ייתפס. */
+function propertyTitleError(title, ownerName, ownerPhone){
+  const norm = s => String(s || '').toLowerCase().replace(/[\s"'״׳.,\-–()]/g, '');
+  const t = norm(title);
+  if (!t) return '';
+  if (ownerName && t === norm(ownerName)) return 'כותרת הנכס היא שם הבעלים. כתבו מה הנכס, איפה הוא ומה מיוחד בו, למשל "דירת 4 חדרים ברחוב הנשיא, גבעת המורה".';
+  const digits = String(ownerPhone || '').replace(/\D/g, '');
+  if (digits.length >= 7 && t.replace(/\D/g, '') === digits) return 'כותרת הנכס היא מספר טלפון. כתבו מה הנכס ואיפה הוא.';
+  return '';
+}
+
 function livingRoomSaveError(sqm, size, built){
   if (sqm == null || sqm === '') return '';
   const n = Number(sqm);
@@ -15042,6 +15055,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     feedback.style.color = 'var(--brick)';
     feedback.textContent = livingProblem;
     pfRevealField('npLivingSqm');
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+
+  const titleProblem = propertyTitleError(
+    document.getElementById('npTitle').value,
+    document.getElementById('npOwnerName')?.value,
+    document.getElementById('npOwnerPhone')?.value,
+  );
+  if (titleProblem){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = titleProblem;
+    pfRevealField('npTitle');
     btn.disabled = false;
     btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
     return;

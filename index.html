@@ -153,7 +153,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .section-head h2{font-size:var(--h2)}
   .section-head .section-sub{font-size:var(--h2-sub);color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance;line-height:1.5}
   .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
-  .head-line h2 > .info-dot{margin-inline-start:7px;translate:0 -2px}
+  .head-line h2 > .info-dot,.head-line h2 + .info-dot{margin-inline-start:7px;translate:0 -2px}
 
   .info-dot{
     width:19px;height:19px;flex:0 0 auto;border-radius:50%;padding:0;
@@ -4567,7 +4567,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="gab-disc" aria-hidden="true"></div>
               <picture>
             <source media="(max-width:759px)" srcset="/assets/gabriela-cutout-400.webp" width="400" height="695">
-            <img class="gab-img" src="/assets/gabriela-cutout.webp" width="742" height="1290" alt="" loading="eager" decoding="async">
+            <img class="gab-img" src="/assets/gabriela-cutout.webp" width="742" height="1290" alt="גבריאלה, עוזרת ה-AI של שוק הנדל״ן" loading="eager" decoding="async">
           </picture>
             </div>
           </div>
@@ -5199,10 +5199,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="dm-head">
         <div>
           <div class="head-line">
-            <h2 id="dealmakersTitle">האנשים מאחורי העסקאות<button
+            <!-- הכפתור מחוץ ל-h2: בתוכו הכותרת נקראה "האנשים מאחורי העסקאותi" -->
+            <h2 id="dealmakersTitle">האנשים מאחורי העסקאות</h2><button
                     type="button" class="info-dot" data-info-id="dealmakers" data-market-aria="data-info"
                     data-info="משרדי התיווך ויועצי הנדל״ן שפועלים בעפולה והעמק, עם הנכסים הפעילים של כל אחד. הרשימות והמונים נטענים מנתוני האתר בכל כניסה לדף."
-                    aria-label="מידע על הסקציה">i</button></h2>
+                    aria-label="מידע על הסקציה">i</button>
           </div>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן ב<span data-market-label>עפולה והעמק</span>, במקום אחד</p>
         </div>
