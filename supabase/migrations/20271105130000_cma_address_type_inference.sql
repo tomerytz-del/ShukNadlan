@@ -1,5 +1,5 @@
 -- ============================================================================
--- דוח CMA לכתובת: סוג נכס שלא נמסר - מסיקים מהחלקה, ואם אי אפשר שואלים
+-- דוח CMA לכתובת: סוג נכס שלא נמסר - שואלים, עם רמז מהחלקה ומהייעוד
 --
 -- ## מה קרה (5.11.2026)
 --
@@ -9,13 +9,12 @@
 --
 -- ## מה כאן
 --
--- ‏`agent_cma_report_address` בלי סוג (‏null או ריק):
---   1. החלקה של הכתובת (גוש/חלקה שנמסרו, או מעסקאות שנרשמו בכתובת) - עסקה עם
---      קומה = דירה; עסקאות בלי קומה בחלקה עד 1,500 מ"ר = בית פרטי. אותו כלל
---      של "בית לפי החלקה" ב-cma_deal_pool (20271105090000).
---   2. אחרת - ‏`type_required`, עם כמה עסקאות ברחוב נראות כמו בתים, וגבריאלה
---      שואלת שאלה אחת. לא מנחשים: הדוח של בית ושל דירה שונים פי שניים.
---   ‏`subject.property_type_source`: ‏given / parcel.
+-- ‏`agent_cma_report_address` בלי סוג (‏null או ריק) מחזירה ‏`type_required`,
+-- וגבריאלה שואלת: בית צמוד קרקע, דירה, פנטהאוז או דירת גן. לא מנחשים: דוח
+-- של בית ושל דירה שונים פי שניים, ובבניין יושבים גם פנטהאוז ודירת גן.
+-- השאלה נושאת רמזים: ‏`parcel_hint` (‏house / building, מהעסקאות בחלקה),
+-- ‏`land_use` (הייעוד, אם נשמר אצלנו מידע תכנוני לחלקה - "מגורים א" הוא בדרך
+-- כלל צמודי קרקע), ו-`street_house_like` מתוך `street_deals`.
 --
 -- ה-CRM (‏cma_report_address, ‏cma_link_share) מעביר תמיד סוג מהטופס - ללא שינוי.
 -- ============================================================================
@@ -50,12 +49,12 @@ declare
   v_num       text := nullif(btrim(coalesce(p_house_number, '')), '');
   -- בלי סוג: מסיקים מהעסקאות בחלקה של הכתובת, ואם אי אפשר - שואלים (20271105130000)
   v_type      text := nullif(btrim(coalesce(p_property_type, '')), '');
-  v_type_src  text := case when nullif(btrim(coalesce(p_property_type, '')), '') is not null then 'given' end;
   v_pdeals    integer;
   v_pfloor    integer;
   v_parea     numeric;
   v_st_n      integer;
   v_st_house  integer;
+  v_land_use  text;
   v_gush      integer := public.land_parcel_num(p_gush);
   v_helka     integer := public.land_parcel_num(p_helka);
   v_lat       double precision := p_lat;
@@ -135,29 +134,42 @@ begin
 
   -- סוג שלא נמסר (20271105130000). עד כאן הוא נפל ל"דירה", ובית צמוד קרקע
   -- ברחוב האגוז בעפולה הושווה ל-134 דירות: חציון 1.18 מיליון מול 2.9 של
-  -- הבתים בסביבה. ההסקה לפי החלקה של הכתובת, באותו כלל של cma_deal_pool:
-  -- כל העסקאות בה בלי קומה, וחלקה עד 1,500 מ"ר = בית. עסקה עם קומה = דירה.
-  if v_type is null and v_parcel is not null then
-    select count(*), count(*) filter (where nullif(btrim(o.floor), '') is not null)
-      into v_pdeals, v_pfloor
-      from public.market_deals_official o
-     where public.land_parcel_num(o.gush)  = public.land_parcel_num(v_parcel->>'gush')
-       and public.land_parcel_num(o.helka) = public.land_parcel_num(v_parcel->>'helka');
-    select po.legal_area into v_parea
-      from public.parcels_open po
-     where po.gush  = public.land_parcel_num(v_parcel->>'gush')
-       and po.helka = public.land_parcel_num(v_parcel->>'helka')
-       and po.gush_suffix = 0;
-    if v_pfloor > 0 then
-      v_type := 'דירה'; v_type_src := 'parcel';
-    elsif v_pdeals > 0 and (v_parea is null or v_parea <= 1500) then
-      v_type := 'בית פרטי'; v_type_src := 'parcel';
-    end if;
-  end if;
-
-  -- ואם עדיין אין - לא מנחשים. הדוח של דירה ושל בית שונים פי שניים, ולכן
-  -- חוזרת שאלה אחת, עם מה שהרחוב מרמז (עסקאות בלי קומה בחלקה משלהן).
+  -- הבתים בסביבה. **לא מנחשים** - בבניין עם עסקאות בקומות יכולים לשבת גם
+  -- פנטהאוז ודירת גן, והדוח של כל אחד מהם שונה. חוזרת שאלה אחת, עם שני רמזים:
+  --   - העסקאות בחלקה של הכתובת, באותו כלל של cma_deal_pool: עסקה עם קומה =
+  --     בניין; כולן בלי קומה בחלקה עד 1,500 מ"ר = בית.
+  --   - הייעוד, אם המידע התכנוני של החלקה כבר נשמר אצלנו (planning_lookups,
+  --     property_planning_info - נשמרים מהדפדפן; GovMap אסור בשרת).
+  --     "מגורים א" הוא בדרך כלל צמודי קרקע, אבל זה רמז ולא החלטה.
   if v_type is null then
+    if v_parcel is not null then
+      select count(*), count(*) filter (where nullif(btrim(o.floor), '') is not null)
+        into v_pdeals, v_pfloor
+        from public.market_deals_official o
+       where public.land_parcel_num(o.gush)  = public.land_parcel_num(v_parcel->>'gush')
+         and public.land_parcel_num(o.helka) = public.land_parcel_num(v_parcel->>'helka');
+      select po.legal_area into v_parea
+        from public.parcels_open po
+       where po.gush  = public.land_parcel_num(v_parcel->>'gush')
+         and po.helka = public.land_parcel_num(v_parcel->>'helka')
+         and po.gush_suffix = 0;
+      select u.land_use into v_land_use
+        from (
+          select l.land_use_designation as land_use, l.looked_up_at as at
+            from public.planning_lookups l
+           where public.land_parcel_num(l.gush::text)  = public.land_parcel_num(v_parcel->>'gush')
+             and public.land_parcel_num(l.helka::text) = public.land_parcel_num(v_parcel->>'helka')
+             and l.land_use_designation is not null
+          union all
+          select i.land_use_designation, null
+            from public.property_planning_info i
+           where public.land_parcel_num(i.gush::text)  = public.land_parcel_num(v_parcel->>'gush')
+             and public.land_parcel_num(i.helka::text) = public.land_parcel_num(v_parcel->>'helka')
+             and i.land_use_designation is not null
+        ) u
+       order by u.at desc nulls last
+       limit 1;
+    end if;
     if v_street is not null and v_city is not null then
       select count(*),
              count(*) filter (where nullif(btrim(o.floor), '') is null
@@ -170,7 +182,13 @@ begin
          and public.street_name_key(o.street) = public.street_name_key(v_street);
     end if;
     return jsonb_build_object('error', 'type_required',
-      'detail', 'צריך לדעת אם זו דירה או בית - הדוח משווה לנכסים מאותו סוג.',
+      'detail', 'צריך לדעת את סוג הנכס - הדוח משווה לנכסים מאותו סוג.',
+      'parcel_hint', case
+        when v_pfloor > 0 then 'building'
+        when v_pdeals > 0 and (v_parea is null or v_parea <= 1500) then 'house'
+      end,
+      'parcel_area', v_parea,
+      'land_use', v_land_use,
       'street_deals', coalesce(v_st_n, 0),
       'street_house_like', coalesce(v_st_house, 0));
   end if;
@@ -223,7 +241,6 @@ begin
       'gush',              v_parcel->>'gush',
       'helka',             v_parcel->>'helka',
       'plot_sqm',          case when public.property_kind(v_type) = 'house' then v_plot end,
-      'property_type_source', v_type_src,
       'location_precision', v_precision,
       'nearest_house_number', v_loc->>'nearest_house_number')),
     '{data_coverage}', (v_r->'data_coverage') || jsonb_build_object(

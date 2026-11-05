@@ -890,8 +890,8 @@ const TOOLS: Anthropic.Tool[] = [
       "שטח, קומה, מחיר מבוקש, מאפיינים) ומחזיר needs_details עם missing - אז שאל/י עליהם בהודעה אחת, " +
       "וקרא/י שוב עם כל מה שנמסר ועם proceed: true (גם אם הסוכן/ת ענה/תה רק על חלק או כתב/ה \"תפיק\"). " +
       "אם חזר details_guidance - בצע/י אותו. " +
-      "אם חזר location_guidance או type_guidance - אמור/אמרי אותו. " +
-      "**סוג הנכס לא מנחשים:** בלי סוג המסד מסיק אותו מהעסקאות בכתובת, ואם אין - חוזר type_required ושואלים \"דירה או בית?\". " +
+      "אם חזר location_guidance - אמור/אמרי אותו. " +
+      "**סוג הנכס לא מנחשים:** בלי סוג חוזר type_required, ושואלים \"בית צמוד קרקע, דירה, פנטהאוז או דירת גן?\" - גם אחרי \"תפיק\". " +
       "**גם לגוש וחלקה, בלי כתובת** (gush + helka במקום city + street): המיקום מהחלקה עצמה. " +
       "לבית צמוד קרקע הדוח משווה לבתים, וגם לעסקאות \"דירה\" שזוהו כבתים לפי החלקה (house_guidance).",
     input_schema: {
@@ -4290,22 +4290,32 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
 
   const report = (data || {}) as Record<string, unknown>;
   if (report.error === "type_required") {
+    // לא מנחשים סוג (20271105130000): שואלים, עם הרמזים שיש - העסקאות בחלקה
+    // של הכתובת, הייעוד אם נשמר אצלנו מידע תכנוני, והרחוב.
     const stN = Number(report.street_deals) || 0;
     const stHouse = Number(report.street_house_like) || 0;
+    const landUse = String(report.land_use || "").trim();
+    const hints = [
+      report.parcel_hint === "house" &&
+        "בחלקה של הכתובת נמכרו רק נכסים בלי קומה, וזה נראה כמו בית צמוד קרקע",
+      report.parcel_hint === "building" &&
+        "בחלקה של הכתובת יש עסקאות בקומות, כלומר זה בניין (דירה, פנטהאוז או דירת גן)",
+      landUse && `הייעוד של החלקה הוא "${landUse}"` +
+        (/מגורים\s*א(?![\u0590-\u05FF])/.test(landUse) ? " - בדרך כלל צמודי קרקע" : ""),
+      stN > 0 && stHouse / stN >= 0.5 &&
+        `רוב העסקאות ברחוב (${stHouse} מתוך ${stN}) נראות כמו בתים צמודי קרקע`,
+    ].filter(Boolean) as string[];
     return {
       ok: false,
       needs_details: true,
-      missing: ["סוג הנכס: דירה או בית צמוד קרקע (או דירת גן, פנטהאוז, חנות)"],
-      street_deals: stN,
-      street_house_like: stHouse,
+      missing: ["סוג הנכס: בית צמוד קרקע, דירה, פנטהאוז או דירת גן"],
+      type_hints: hints,
       guidance:
-        "בלי סוג אי אפשר להפיק: דוח של בית ושל דירה באותו רחוב שונים לפעמים פי שניים, ובכתובת עצמה אין עסקה " +
-        "שממנה אפשר להסיק. שאל/י **שאלה אחת קצרה**: דירה או בית? " +
-        (stN > 0 && stHouse / stN >= 0.5
-          ? `אפשר להוסיף שרוב העסקאות ברחוב (${stHouse} מתוך ${stN}) נראות כמו בתים צמודי קרקע. `
-          : "") +
-        "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם property_type ועם proceed: true. " +
-        "זו השאלה היחידה ששואלים גם אחרי \"תפיק\".",
+        "בלי סוג אי אפשר להפיק: דוח של בית, דירה, פנטהאוז ודירת גן באותו רחוב שונים לפעמים פי שניים. " +
+        "שאל/י **שאלה אחת קצרה**: בית צמוד קרקע, דירה, פנטהאוז או דירת גן? " +
+        (hints.length ? "אפשר לצרף את הרמזים מ-type_hints במשפט אחד, כרמז ולא כקביעה. " : "") +
+        "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם property_type (בית פרטי / דירה / פנטהאוז / דירת גן) " +
+        "ועם proceed: true. זו השאלה היחידה ששואלים גם אחרי \"תפיק\".",
     };
   }
   if (report.error === "parcel_not_found") {
@@ -4353,16 +4363,10 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   ].filter(Boolean);
 
   const button = await cmaButton(ctx, report, null);
-  // סוג שהמסד הסיק מהחלקה של הכתובת - נאמר בקול, כדי שטעות תתוקן בהרצה חוזרת
-  const typeGuidance = subject.property_type_source === "parcel"
-    ? `לא נמסר סוג הנכס. לפי העסקאות שנרשמו בכתובת זה ${String(subject.property_type || "")}, ולכן הדוח ` +
-      "משווה לנכסים מהסוג הזה. אמור/אמרי זאת במשפט אחד, ושאם הסוג אחר - אריץ שוב איתו."
-    : undefined;
   return {
     ...summary,
     ...button,
     report_kind: "address",
-    type_guidance: typeGuidance,
     location_precision: precision || undefined,
     location_guidance: precision
       ? LOCATION_GUIDANCE[precision] || undefined
