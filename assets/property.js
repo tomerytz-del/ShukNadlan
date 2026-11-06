@@ -2308,6 +2308,7 @@ const TYPE_FAMILIES = {
   'חנויות/שטח מסחרי':'commercial', 'משרדים':'commercial', 'מבני תעשייה':'commercial',
   'בנין':'commercial', 'בניין':'commercial', 'מחסן':'commercial', 'חנות':'commercial',
   'משרד':'commercial', 'מבנה מסחרי':'commercial', 'אולם':'commercial',
+  'מחסנים':'commercial', 'מרלו״ג/מרכז לוגיסטי':'commercial',
   'מגרש':'land', 'מגרשים':'land', 'קרקע':'land', 'קרקעות':'land', 'נחלה':'land', 'משק':'land'
 };
 function typeFamily(t){ return TYPE_FAMILIES[String(t || '').trim()] || null; }
@@ -2607,7 +2608,9 @@ function openInquiry(askPhotos){
     inquirySource = 'photo_request';
   }
   form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(()=>document.getElementById('inqName').focus({ preventScroll: true }), 350);
+  // ההודעה כבר מולאה - ישר לשלב הפרטים; אחרת מתחילים מהבקשה
+  inquiryStep(askPhotos ? 2 : 1);
+  setTimeout(()=>document.getElementById(askPhotos ? 'inqName' : 'inqMessage').focus({ preventScroll: true }), 350);
 }
 function prefillInquiryMessage(p){
   if (!p.listing_number) return;
@@ -2933,18 +2936,17 @@ function renderProperty(p){
   document.getElementById('propTitle').textContent = publicTitle(p);
   if (p.listing_number){
     document.getElementById('listingNoN').textContent = p.listing_number;
-    document.getElementById('listingNo').hidden = false;
-    document.getElementById('listingCopy').onclick = async (e) => {
-      try { await navigator.clipboard.writeText(String(p.listing_number)); e.target.textContent = 'הועתק'; }
-      catch(_){ e.target.textContent = String(p.listing_number); }
-      setTimeout(() => { e.target.textContent = 'העתקה'; }, 2000);
-    };
+    document.getElementById('listingNoLabel').hidden = false;
   }
+  // השורה מוצגת גם בלי מספר מודעה: כפתור גודל הטקסט יושב בה
+  document.getElementById('listingNo').hidden = false;
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
   linkNeighborhoodPage(p, addressEl);
+  renderMarketDistance(p, addressEl);
   renderOpenHouseBand(p);
+  loadRecentDeals(p);
 
   renderSpecPills(p);
   renderHighlights(p);
@@ -3154,12 +3156,14 @@ function renderContactButtons(p){
   const formBtn = document.getElementById('sbFormBtn');
   formBtn.onclick = ()=>{
     document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
-    setTimeout(()=> document.getElementById('inqName').focus(), 420);
+    setTimeout(()=> document.getElementById('inqMessage').focus(), 420);
   };
 
   if (!phone){
-    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס
+    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס. שורת הגילוי נשארת מתחתיו.
     formBtn.hidden = false;
+    document.getElementById('agentActions').innerHTML =
+      '<p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>';
     return;
   }
   formBtn.hidden = true;
@@ -3202,8 +3206,112 @@ function renderContactButtons(p){
     </a>
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
-    </a>`;
+    </a>` +
+    /* "מימון" ליד כפתורי הקשר (6.11.2026, ההשראה: כפתור Financing בכרטיס של
+       Eretzly): לא יכולת חדשה אלא פתח למחשבון שכבר בדף, עם מחיר הנכס. במודעת
+       השכרה המחשבון כולו יורד (למעלה), ולכן גם הכפתור. */
+    (p.deal_type === 'rent' ? '' : `
+    <a class="btn-fin" href="#calcCard" id="finBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3M13 11h3M8 15h3M13 15h3"/></svg>
+      <span>כמה מזומן ומשכנתא צריך לנכס הזה?</span>
+    </a>`) +
+    /* שורת הגילוי: מי מקבל את הפרטים. ‏privacy.html מבטיח את זה; כאן זה נאמר
+       במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly). */
+    `
+    <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;
+  const finBtn = document.getElementById('finBtn');
+  if (finBtn) finBtn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const card = document.getElementById('calcCard');
+    if (!card) return;
+    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(()=> document.getElementById('calcEquity')?.focus({ preventScroll:true }), 450);
+  });
 }
+
+/* ---------- עסקאות אחרונות בסביבה (6.11.2026, PR B) ----------
+   property_recent_deals במסד (20271106130000): עד 5 עסקאות רשמיות מאותו סוג
+   (same_type של cma_deal_pool) ברדיוס 2,000 מ' ו-24 חודשים, רחוב בלבד.
+   עובדות, בלי "מעל/מתחת למחיר": המחיר למ"ר של הנכס וחציון העסקאות מוצגים
+   זה ליד זה והגולש/ת משווה. הפונקציה חסרה (האתר עלה לפני המיגרציה) או
+   נכשלת - הבלוק נשאר מוסתר. docs/cma.md. */
+async function loadRecentDeals(p){
+  const sec = document.getElementById('dealsSection');
+  if (!sec || !p || p.deal_type === 'rent' || !window.supabase) return;
+  try{
+    const { data, error } = await sbClient().rpc('property_recent_deals', { p_property_id: p.id });
+    if (error || !Array.isArray(data) || !data.length) return;
+    renderRecentDeals(p, data);
+  } catch(e){ /* הבלוק נשאר מוסתר */ }
+}
+function renderRecentDeals(p, rows){
+  const body = document.getElementById('dealsBody');
+  const month = (d)=>{ const dt = new Date(d); return isNaN(dt) ? '' : String(dt.getMonth() + 1).padStart(2, '0') + '/' + dt.getFullYear(); };
+  body.innerHTML = rows.map(r => `<tr>
+    <td>${escapeHtml(month(r.sold_month))}</td>
+    <td>${escapeHtml(r.street ? 'רח׳ ' + r.street : (r.city || ''))}</td>
+    <td>${r.rooms ? escapeHtml(String(Number(r.rooms))) : '-'}</td>
+    <td>${r.size_sqm ? escapeHtml(String(Math.round(r.size_sqm))) : '-'}</td>
+    <td class="num">${nis(r.sale_price)} ₪</td>
+    <td>${r.price_per_sqm ? nis(r.price_per_sqm) + ' ₪' : '-'}</td>
+  </tr>`).join('');
+  const per = rows.map(r => Number(r.price_per_sqm)).filter(n => n > 0).sort((a, b)=> a - b);
+  const cmp = document.getElementById('dealsCompare');
+  const chips = [];
+  if (per.length >= 3){
+    const mid = per.length >> 1;
+    const med = per.length % 2 ? per[mid] : (per[mid - 1] + per[mid]) / 2;
+    chips.push(`חציון ${per.length} העסקאות: ${nis(med)} ₪ למ״ר`);
+    // אותו מספר שמוצג בגלולות הנכס (price_per_sqm, או המחיר עצמו כשהוא למ"ר)
+    const ppsqm = p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
+    if (ppsqm > 0) chips.push(`הנכס הזה: ${nis(ppsqm)} ₪ למ״ר (לפי המחיר המבוקש)`);
+  }
+  cmp.innerHTML = chips.map(t => `<span>${escapeHtml(t)}</span>`).join('');
+  cmp.hidden = !chips.length;
+  document.getElementById('dealsSection').hidden = false;
+}
+
+/* ---------- מרחק מהעיר המרכזית של השוק (6.11.2026, PR B) ----------
+   לנכס ביישוב שאינו העיר המרכזית: "כ-12 ק״מ מעפולה". השוק לפי הקואורדינטות
+   (ShukMarkets.locate), המרכז הוא center של השוק (מסגור, לא "מרכז העיר";
+   assets/markets.js) - ולכן בעיגול לק״מ שלם ורק מ-2 ק״מ. */
+function renderMarketDistance(p, el){
+  const M = window.ShukMarkets;
+  if (!M || !el || !p || !p.lat || !p.lng || !p.city) return;
+  let m = null;
+  try { m = M.locate ? M.locate(Number(p.lat), Number(p.lng)) : null; } catch(e){ m = null; }
+  // העיר המרכזית בכל כתיב ("קריית אתא" ב-markets.js, "קרית אתא" במסד). לא places:
+  // שם יושבים גם יישובי הסביבה, וכפר תבור כן מקבל "כ-15 ק״מ מעפולה"
+  const normCity = (s)=> String(s || '').replace(/קריית/g, 'קרית').replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
+  if (!m || !m.city || !m.center || normCity(p.city) === normCity(m.city)) return;
+  let km = null;
+  try { km = M.km ? M.km(Number(p.lat), Number(p.lng), m.center[0], m.center[1]) : null; } catch(e){ km = null; }
+  if (!(km >= 2)) return;
+  const span = document.createElement('span');
+  span.className = 'prop-dist';
+  span.textContent = ' · כ-' + Math.round(km) + ' ק״מ מ' + m.city;
+  el.appendChild(span);
+}
+
+/* ---------- גודל טקסט (6.11.2026, PR B) ----------
+   נשמר במכשיר בלבד (sk_text_size); חל על עמודת התוכן דרך html[data-text]. */
+(function initTextSize(){
+  const btn = document.getElementById('textSizeBtn');
+  if (!btn) return;
+  let on = false;
+  try { on = localStorage.getItem('sk_text_size') === 'lg'; } catch(e){ on = false; }
+  const apply = ()=>{
+    if (on) document.documentElement.setAttribute('data-text', 'lg');
+    else document.documentElement.removeAttribute('data-text');
+    btn.setAttribute('aria-pressed', String(on));
+  };
+  apply();
+  btn.addEventListener('click', ()=>{
+    on = !on;
+    try { localStorage.setItem('sk_text_size', on ? 'lg' : 'base'); } catch(e){ /* אחסון חסום */ }
+    apply();
+  });
+})();
 
 /* ---------- שמירה (§6, v10 בלבד) ----------
    אותה רשימה של "המועדפים" בהחלקה ובבועה: ‏sk_swipe_likes, מזהים, החדש בסוף,
@@ -3319,10 +3427,76 @@ function updateCalculator(){
   document.getElementById('calcLtvFill').style.width = Math.min(ltv*100, 100) + '%';
 
   const warn = document.getElementById('ltvWarn');
-  warn.textContent = (ltvPct > LTV_THRESHOLDS.single*100)
-    ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%)`
+  // התקרה לפי מה שנבחר ב"כמה מזומן": דירה יחידה 75%, דירה נוספת 50%
+  const capKey = cashBuyer === 'extra' ? 'investment' : 'single';
+  const capPct = Math.round(LTV_THRESHOLDS[capKey] * 100);
+  warn.textContent = (ltvPct > capPct)
+    ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת ל${cashBuyer === 'extra' ? 'דירה נוספת' : 'דירה יחידה'} (${capPct}%)`
     : '';
+  updateCashNeeded(price, equity, loan);
 }
+
+/* ---------- "כמה מזומן צריך להביא" (6.11.2026, PR B) ----------
+   השאלה שקודמת ל"כמה אחזיר בחודש": הון עצמי + מס רכישה + עו״ד + תיווך +
+   פתיחת תיק. ההשראה: גיליון ה-Financing של eretzly.com ("your own cash,
+   total"). docs/mortgage-leads.md.
+
+   מדרגות מס הרכישה לפי רשות המיסים: אלה של 16.1.2025, שחוק ההסדרים הקפיא
+   (אין עדכון מדד) **עד 15.1.2028** - ולכן הן גם מדרגות 2026 ו-2027. ב-16.1.2028
+   לעדכן כאן ואת taxAsOf, שמוצג בשורת ההסתייגות. שאר
+   המספרים הם שיעורים מקובלים (עו״ד 0.5%, תיווך 2%, שניהם + מע״מ 18%,
+   פתיחת תיק, שמאי ורישום כ-7,000 ₪) ולא הצעת מחיר - ההסכם קובע. */
+const CASH_COSTS = {
+  taxAsOf: '2026',
+  taxSingle: [[1978745, 0], [2347040, 0.035], [6055070, 0.05], [20183565, 0.08], [Infinity, 0.10]],
+  taxExtra:  [[6055070, 0.08], [Infinity, 0.10]],
+  vat: 0.18,
+  lawyerPct: 0.005,
+  brokerPct: 0.02,
+  bankFixed: 7000,
+};
+let cashBuyer = 'single';
+
+function purchaseTax(price, brackets){
+  let tax = 0, prev = 0;
+  for (const [cap, rate] of brackets){
+    if (price <= prev) break;
+    tax += (Math.min(price, cap) - prev) * rate;
+    prev = cap;
+  }
+  return Math.round(tax);
+}
+
+function updateCashNeeded(price, equity, loan){
+  const box = document.getElementById('calcCash');
+  if (!box || !currentProperty) return;
+  // מחיר למ"ר אינו מחיר הנכס: מס, עו"ד ותיווך על 12,000 ₪ היו שטות. הבלוק יורד
+  if (!(price > 0) || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
+  box.hidden = false;
+  const tax = purchaseTax(price, cashBuyer === 'single' ? CASH_COSTS.taxSingle : CASH_COSTS.taxExtra);
+  const lawyer = Math.round(price * CASH_COSTS.lawyerPct * (1 + CASH_COSTS.vat));
+  // נכס ביריד הבתים הפתוחים נמכר בלי עמלת תיווך (assets/open-house.js)
+  const noFee = !!(window.OpenHouse && OpenHouse.live(currentProperty));
+  const broker = noFee ? 0 : Math.round(price * CASH_COSTS.brokerPct * (1 + CASH_COSTS.vat));
+  const bank = loan > 0 ? CASH_COSTS.bankFixed : 0;
+  const total = Math.round(equity) + tax + lawyer + broker + bank;
+  document.getElementById('calcCashTotal').textContent = nis(total);
+  document.getElementById('cashEquity').textContent = nis(equity) + ' ₪';
+  document.getElementById('cashTax').textContent = tax ? nis(tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
+  document.getElementById('cashLawyer').textContent = nis(lawyer) + ' ₪';
+  document.getElementById('cashBroker').textContent = noFee ? '0 ₪ (ללא עמלת תיווך)' : nis(broker) + ' ₪';
+  document.getElementById('cashBankRow').hidden = !bank;
+  document.getElementById('cashBank').textContent = nis(bank) + ' ₪';
+  document.getElementById('calcCashFine').textContent =
+    `מס רכישה לפי מדרגות ${CASH_COSTS.taxAsOf} ל${cashBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
+}
+document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(b => {
+  b.addEventListener('click', ()=>{
+    cashBuyer = b.dataset.buyer;
+    document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    updateCalculator();
+  });
+});
 ['calcEquity','calcRate','calcYears'].forEach(id=>{
   document.getElementById(id).addEventListener('input', updateCalculator);
 });
@@ -3377,10 +3551,28 @@ function mleadOpen(){
     `${currentProperty?.title || 'הנכס'} · ${nis(price)} ₪ · הון עצמי ${nis(equity)} ₪ · ` +
     `${ltv}% מימון · ${mleadSnapshot.years} שנים בריבית ${mleadSnapshot.interest_rate}%`;
   mleadErrorEl.textContent = '';
+  // "יש ברשותי דירה" מתחיל ממה שנבחר במחשבון (דירה יחידה / נוספת), עד שהגולש/ת נגע/ה בו
+  if (!mleadOwnsTouched) document.getElementById('mleadOwns').checked = cashBuyer === 'extra';
+  mleadStep(1);
   mleadModal.classList.add('open');
-  document.getElementById('mleadName').focus();
+  document.getElementById('mleadOwns').focus();
 }
 function mleadClose(){ mleadModal.classList.remove('open'); }
+let mleadOwnsTouched = false;
+document.getElementById('mleadOwns').addEventListener('change', ()=>{ mleadOwnsTouched = true; });
+
+/* שני שלבים: הבקשה (מה היועץ/ת צריך/ה לדעת) ואז הפרטים. אותו payload. */
+function mleadStep(n){
+  mleadForm.querySelectorAll('.form-step').forEach(el => { el.hidden = el.dataset.step !== String(n); });
+  document.getElementById('mleadNextBtn').hidden = n !== 1;
+  document.getElementById('mleadSubmitBtn').hidden = n !== 2;
+  document.getElementById('mleadBackBtn').hidden = n !== 2;
+}
+document.getElementById('mleadNextBtn').addEventListener('click', ()=>{
+  mleadStep(2);
+  document.getElementById('mleadName').focus();
+});
+document.getElementById('mleadBackBtn').addEventListener('click', ()=> mleadStep(1));
 
 document.getElementById('mleadOpenBtn').addEventListener('click', ()=>{
   if (!currentProperty){ showToast('הנכס עדיין נטען, נסו שוב בעוד רגע'); return; }
@@ -3442,6 +3634,34 @@ mleadForm.addEventListener('submit', async (e)=>{
 });
 
 /* ---------- Inquiry form ---------- */
+/* שני שלבים בטופס הפנייה (6.11.2026, PR B): קודם הבקשה, אחר כך הפרטים.
+   ההשראה: "Request a Call" ו-"Ask a Lawyer" של eretzly.com. אותו payload. */
+function inquiryStep(n){
+  document.querySelectorAll('#inquiryForm .form-step').forEach(el => { el.hidden = el.dataset.step !== String(n); });
+}
+document.getElementById('inquiryNext').addEventListener('click', ()=>{
+  inquiryStep(2);
+  document.getElementById('inqName').focus({ preventScroll:true });
+});
+document.getElementById('inquiryBack').addEventListener('click', ()=> inquiryStep(1));
+// הודעת בקשת התמונות שנמחקה או שוכתבה ביד אינה בקשת תמונות עוד
+document.getElementById('inqMessage').addEventListener('input', ()=>{
+  if (inquirySource !== 'photo_request' || !window.NoPhoto || !currentProperty) return;
+  const auto = NoPhoto.STR.msg(currentProperty.title || 'הנכס');
+  if (document.getElementById('inqMessage').value.trim() !== String(auto).trim()) inquirySource = '';
+});
+document.querySelectorAll('.inq-quick button[data-quick]').forEach(b => {
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.inq-quick button[data-quick]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const box = document.getElementById('inqMessage');
+    // הבקשה המהירה מחליפה רק טקסט אוטומטי; מה שהגולש/ת כתב/ה ביד נשאר
+    if (!box.value.trim() || box.value.startsWith(INQUIRY_AUTO_PREFIX) || [...document.querySelectorAll('.inq-quick button[data-quick]')].some(x => x.dataset.quick === box.value.trim())) box.value = b.dataset.quick;
+    inquirySource = '';   // בקשה מהירה אינה בקשת תמונות
+    inquiryStep(2);
+    document.getElementById('inqName').focus({ preventScroll:true });
+  });
+});
+
 document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!currentProperty){ showToast('הנכס עדיין נטען, נסו שוב בעוד רגע'); return; }
@@ -3479,6 +3699,8 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
       currentProperty.id
     );
     document.getElementById('inquiryForm').reset();
+    inquiryStep(1);
+    document.querySelectorAll('.inq-quick button[data-quick]').forEach(x => x.removeAttribute('aria-pressed'));
     inquirySource = '';
     // reset מחזיר את השדות לערך שב-HTML (ריק) — ההודעה המוכנה והפרטים
     // השמורים נכתבים שוב
