@@ -5720,6 +5720,16 @@ function pcLinkText(p){
     : '';
   return price ? title + ' · ' + price : title;
 }
+/* המחיר בשורת תוצאה: המספר בשורה, והיחידה ("למ״ר לחודש + מע״מ") מתחתיו בקטן.
+   ‏priceLabel נשארת מילה אחת לפינים ולבלונים; כאן יש רוחב לשני חלקים. */
+function srPriceHtml(p){
+  const vat = p.category === 'commercial' && p.price_includes_vat !== true ? ' + מע״מ' : '';
+  const unit = priceUnitOf(p);
+  const per = unit === 'sqm' ? (p.deal_type === 'rent' ? 'למ״ר לחודש' : 'למ״ר') : unit === 'month' ? 'לחודש' : '';
+  const tail = (per + vat).trim();
+  return '₪' + Number(p.price).toLocaleString('he-IL') + (tail ? `<span class="sr-unit">${escAttr(tail)}</span>` : '');
+}
+
 function buildSearchRow(p, i){
   const row = document.createElement('article');
   row.className = 'sr-row';
@@ -5734,7 +5744,7 @@ function buildSearchRow(p, i){
     </div>
     <div class="sr-side">
       <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
-      <span class="sr-price">${priceLabel(p)}</span>
+      <span class="sr-price">${srPriceHtml(p)}</span>
     </div>`;
   /* ‏A-SEO-2: ‏<a> אמיתי שנמתח על השורה (‏.pc-link), במקום ‏role="link"‎ וניווט ב-JS -
      גוגל רואה את הקישור, ולשונית חדשה ותפריט הקשר עובדים. ‏P1-M: המקור נרשם לפני הניווט */
