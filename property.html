@@ -713,6 +713,16 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   }
   .btn-call:hover{background:#D3DEE8}
   .btn-call svg{width:18px;height:18px;flex:none}
+  /* "מימון" - שורה שלישית מתחת לשני כפתורי הקשר, על כל הרוחב. כפתור מחשבון ולא
+     פנייה, ולכן בצבעי הדף ולא בירוק של וואטסאפ. */
+  .btn-fin{
+    grid-column:1 / -1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:11px 14px;border-radius:0;background:var(--paper-raised,#fff);color:var(--navy,#0e2a6b);
+    font-weight:800;font-size:.86rem;border:1px solid var(--navy,#0e2a6b);text-decoration:none;
+  }
+  .btn-fin:hover,.btn-fin:focus-visible{background:var(--navy,#0e2a6b);color:#fff}
+  .btn-fin svg{width:18px;height:18px;flex:none}
+  .contact-note{grid-column:1 / -1;margin:2px 0 0;font-size:.72rem;line-height:1.45;color:var(--ink-soft);text-align:center}
 
   /* ====== נכסים דומים ======
      אותה שיטת מידוד כמו קרוסלות ה-featured-scroll בדף הבית: רוחב הכרטיס
@@ -1855,7 +1865,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </div>
 
-        <div class="calc-card">
+        <div class="calc-card" id="calcCard">
           <div>
             <h2>כמה משכנתא צריך לנכס הזה?</h2>
             <p class="calc-sub">מזיזים את ההון העצמי ורואים מיד את ההחזר החודשי</p>
@@ -2070,6 +2080,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">

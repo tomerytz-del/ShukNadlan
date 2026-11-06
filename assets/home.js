@@ -516,6 +516,21 @@ const calcModal = bindCalcModal({
   onOpen(){ ['calcPrice','calcEquity'].forEach(id => paintRange(document.getElementById(id))); },
 });
 
+/* גיליון הכניסה לפי תפקיד (6.11.2026): "כניסה" בכותרת ובתפריט פותחים אותו
+   כשאין סשן. עם סשן (‏.is-in, נקבע בסקריפט המוטבע בכותרת לפני הציור) הקישור
+   מוביל ישר ל-CRM, כמו קודם - מתווך/ת נכנס/ת עשר פעמים ביום ולא צריך/ה
+   לבחור תפקיד בכל פעם. בלי JS הקישור נשאר /crm. */
+const loginSheet = bindCalcModal({ id:'loginSheet', closeBtn:'loginSheetClose', hash:'#login' });
+['hdrLogin', 'menuLogin'].forEach(id => {
+  const a = document.getElementById(id);
+  if (!a) return;
+  a.addEventListener('click', (e)=>{
+    if (document.getElementById('hdrLogin')?.classList.contains('is-in')) return;
+    e.preventDefault();
+    loginSheet.open();
+  });
+});
+
 const LTV_THRESHOLDS = { single:0.75, replacement:0.70, investment:0.50 }; // מודול 2 §5.5 — קונפיגורבילי
 const nis = n => Math.round(n).toLocaleString('he-IL');
 
@@ -2726,6 +2741,8 @@ try {
     if (e.target.closest && e.target.closest('.leaflet-control-zoom')) markMapUserNav();
   }, { passive:true });
   heroMap.on('moveend zoomend', scheduleMapViewRows);
+  // נכסים מחוץ לשוק - רק במפה הפתוחה, ורק אחרי מחווה של הגולש/ת (ראו awayLayer)
+  heroMap.on('moveend zoomend', scheduleAwayLayer);
 
   /* השטח הפנוי משתנה רק כשהפריסה משתנה — שינוי גודל חלון, פתיחת התצוגה
      המפוצלת, הגדלת המפה — וכל אלה מגיעים ל-Leaflet כאירוע resize (המצבים
@@ -2753,6 +2770,108 @@ const mapMarkers = {};
 // הנכסים שמהם נבנו הפינים הנוכחיים, בסדר שבו הם התקבלו (מקודמים ואז חדשים).
 // מקור האמת של הפאנל המפוצל — ראו renderMap ו-updateSplitPanel.
 let mapProperties = [];
+
+/* ---------- נכסים מחוץ לשוק: על המפה בלבד (6.11.2026) ----------
+   הרשימה, המונים, המדפים והפאנל המפוצל נשארים של השוק (MARKET_FILTER). המפה
+   הפתוחה לא: ברגע שהגולש/ת גורר/ת או מתרחק/ת בה (מחווה, לא התאמה של הקוד),
+   נטענים פעם אחת כל הנכסים הפעילים שאינם בשוק ומצוירים כפינים דהויים; מתחת
+   לזום AWAY_CLUSTER_ZOOM הם מקובצים לאשכול אחד לעיר ("נתניה · 10") שלחיצה
+   עליו מתקרבת. הם אינם נכנסים ל-mapMarkers ולא ל-mapProperties, ולכן לא
+   למקרא, לא לרשימה ולא ל"הצג N נכסים". הדגם הוא המפה של מדלן: השבב נשאר
+   "עפולה" והמפה חופשית. גולש מעפולה שמרחיק את המפה רואה שיש נכסים בנתניה.
+   ‏docs/regional-pages.md, "המפה לפי המסך". */
+const AWAY_CLUSTER_ZOOM = 11;
+const AWAY_LIMIT = 600;
+const awayLayer = { status:'idle', props:[], markers:[], mode:'' };
+
+/* "מחוץ לשוק" לפי אותו כלל של MarketScope, רק הפוך: בשוק רגיל - עיר שאינה
+   ברשימה; בשוק ברירת המחדל - עיר של שוק אחר, ובלי עיר - מחוץ לתיבה. */
+function isAwayRow(r, spec){
+  if (!spec || !MS) return false;
+  if (spec.mode === 'include') return !r.city_id || spec.ids.indexOf(r.city_id) === -1;
+  if (!r.city_id) return !(MS._inBox && MS._box && MS._inBox(r, MS._box()));
+  return spec.ids.indexOf(r.city_id) !== -1;
+}
+
+async function loadAwayProperties(){
+  if (awayLayer.status !== 'idle' || !sb) return;
+  awayLayer.status = 'loading';
+  try {
+    const spec = await marketFilterSpec();
+    // בלי סינון שוק (המיפוי לא נטען) אין "מחוץ לשוק" - הכול כבר על המפה
+    if (!spec){ awayLayer.status = 'done'; return; }
+    const { data, error } = await sb.from('properties')
+      .select(PROPERTY_SELECT)
+      .eq('status', 'active')
+      .not('lat', 'is', null).not('lng', 'is', null)
+      .order('created_at', { ascending:false })
+      .limit(AWAY_LIMIT);
+    if (error) throw error;
+    const here = new Set(mapProperties.map(p => p.id));
+    awayLayer.props = (data || []).filter(r => !here.has(r.id) && isAwayRow(r, spec)).map(shapeProperty);
+    awayLayer.status = 'done';
+    drawAwayLayer();
+  } catch(e){
+    awayLayer.status = 'idle';   // ניסיון חוזר במחווה הבאה
+    console.warn('נכסים מחוץ לשוק לא נטענו למפה:', e);
+  }
+}
+
+function clearAwayLayer(){
+  awayLayer.markers.forEach(m => { if (heroMap) heroMap.removeLayer(m); });
+  awayLayer.markers = [];
+  awayLayer.mode = '';
+}
+
+function drawAwayLayer(){
+  if (!heroMap || awayLayer.status !== 'done' || !awayLayer.props.length) return;
+  if (!mapViewIsOpen()){ clearAwayLayer(); return; }
+  const mode = heroMap.getZoom() < AWAY_CLUSTER_ZOOM ? 'clusters' : 'pins';
+  if (mode === awayLayer.mode) return;
+  clearAwayLayer();
+  awayLayer.mode = mode;
+  if (mode === 'pins'){
+    awayLayer.props.forEach(p => {
+      const kind = dealKind(p);
+      const icon = L.divIcon({ className:'', iconSize:[0,0],
+        html:`<div class="map-pin is-away" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>` });
+      // מתחת לפינים של השוק: פין של השוק תמיד גובר על פין דהוי כשהם נחתכים
+      const m = L.marker([p.lat, p.lng], { icon, zIndexOffset:-100 });
+      m.bindPopup(mapPopupHtml(p, kind));
+      m.addTo(heroMap);
+      awayLayer.markers.push(m);
+    });
+    return;
+  }
+  const groups = new Map();
+  awayLayer.props.forEach(p => {
+    const key = p.city || 'אזור אחר';
+    const g = groups.get(key) || { n:0, lat:0, lng:0 };
+    g.n++; g.lat += Number(p.lat); g.lng += Number(p.lng);
+    groups.set(key, g);
+  });
+  groups.forEach((g, city) => {
+    const at = [g.lat / g.n, g.lng / g.n];
+    const icon = L.divIcon({ className:'', iconSize:[0,0],
+      html:`<div class="map-cluster" role="button" tabindex="0">${escAttr(city)} · ${g.n}</div>` });
+    const m = L.marker(at, { icon, keyboard:true, title: city + ': ' + g.n + ' נכסים' });
+    m.on('click', ()=>{ markMapUserNav(); heroMap.setView(at, AWAY_CLUSTER_ZOOM + 1, { animate:true }); });
+    m.addTo(heroMap);
+    awayLayer.markers.push(m);
+  });
+}
+
+/* נקרא מכל moveend/zoomend. הטעינה הראשונה דורשת מחווה טרייה של הגולש/ת
+   (‏markMapUserNav), כדי ש-fitMapToMarkers אחרי חיפוש לא יטען אותה לבד. */
+function scheduleAwayLayer(){
+  if (!heroMap || !mapViewIsOpen()) return;
+  if (awayLayer.status === 'idle'){
+    if (Date.now() - mapNavAt > MAP_NAV_WINDOW) return;
+    loadAwayProperties();
+    return;
+  }
+  drawAwayLayer();
+}
 
 /* המקרא שמתחת למפה הוא גם מסנן: כל סוג עסקה שכבוי כאן — הפינים שלו יורדים
    מהמפה. הסינון הזה חי רק בשכבת התצוגה ולא נוגע ברשימת הנכסים עצמה, ולכן
@@ -3828,6 +3947,8 @@ function closeMapViewNow(){
   if (heroMap){
     if (window.MapGestures && MapGestures.setFree) MapGestures.setFree(heroMap, false);
     try { heroMap.closePopup(); } catch(e){ /* אין בלון פתוח */ }
+    // המפה הסגורה היא של השוק בלבד; מה שנטען נשאר בזיכרון לפתיחה הבאה
+    clearAwayLayer();
   }
   const back = mapOpenReturn;
   mapOpenReturn = null;

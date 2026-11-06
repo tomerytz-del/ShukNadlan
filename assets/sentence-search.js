@@ -768,15 +768,19 @@
     return { res: res, patch: patch, fields: fields, features: res.features || [] };
   }
 
+  /* התווית של שדה אחד שפוענח, כפי שהוא עכשיו במשפט. משמשת גם לשורה "הבנתי"
+     וגם לשבבים מתחתיה (‏renderChips), כדי ששניהם יגידו אותו דבר. */
+  function fieldLabel(s, st, areas, ctx) {
+    if (s === 'deal') return st.deal === 'rent' ? 'שכירות' : 'קנייה';
+    if (s === 'type') return typesLabel(st);
+    if (s === 'area') return st.hoods && st.hoods.length ? hoodsLabel(st.hoods, areas, ctx) : areaLabel(st.area, areas, ctx);
+    if (s === 'rooms') return st.roomsIn && st.roomsIn.length ? roomsInLabel(st.roomsIn) : roomsLabel(st.rooms);
+    if (s === 'price') return st.priceMax === null ? 'כל תקציב' : priceLabel(st.priceMax, st.deal);
+    return '';
+  }
+
   function parsedNote(fields, st, areas, ctx) {
-    return fields.map(function (s) {
-      if (s === 'deal') return st.deal === 'rent' ? 'שכירות' : 'קנייה';
-      if (s === 'type') return typesLabel(st);
-      if (s === 'area') return st.hoods && st.hoods.length ? hoodsLabel(st.hoods, areas, ctx) : areaLabel(st.area, areas, ctx);
-      if (s === 'rooms') return st.roomsIn && st.roomsIn.length ? roomsInLabel(st.roomsIn) : roomsLabel(st.rooms);
-      if (s === 'price') return st.priceMax === null ? 'כל תקציב' : priceLabel(st.priceMax, st.deal);
-      return '';
-    }).filter(Boolean).join(' · ');
+    return fields.map(function (s) { return fieldLabel(s, st, areas, ctx); }).filter(Boolean).join(' · ');
   }
 
   function sentenceText(st, areas, ctx) {
@@ -1123,6 +1127,7 @@
     var goBtns = [].slice.call(doc.querySelectorAll('[data-ss-go]'));
     var countEls = [].slice.call(doc.querySelectorAll('[data-ss-count]'));
     var noteEl = ids('ssNote');
+    var chipsEl = ids('ssChips');
     var emptyEl = ids('ssEmpty');
     var emptyText = ids('ssEmptyText');
     var emptyBtn = ids('ssEmptyBtn');
@@ -1531,10 +1536,47 @@
 
     /* ---------- השדה החכם ---------- */
     var parsedFieldsLast = '';
+
+    /* מה שפוענח, כשבבים מתחת לשדה (6.11.2026; ההשראה: "Jerusalem · 3 rooms ·
+       up to $626,100" אחרי חיפוש ב-Eretzly, ושבב העיר במדלן). השורה "הבנתי"
+       נשארת כמו שהיא (החיפוש הקולי קורא אותה); השבבים הם אותן תוויות
+       (‏fieldLabel), ולחיצה על שבב פותחת את הבורר של אותו שדה במשפט - "תקנו
+       כאן". מאפיין ("עם ממ״ד") הוא שבב בלי בורר, כמו בסינון המתקדם. */
+    function renderChips(fields, stFor, feats) {
+      if (!chipsEl) return;
+      chipsEl.textContent = '';
+      var n = 0;
+      (fields || []).forEach(function (s) {
+        var label = fieldLabel(s, stFor, areas, ctx);
+        if (!label) return;
+        var b = doc.createElement('button');
+        b.type = 'button';
+        b.className = 'ss-chip';
+        b.setAttribute('data-chip-slot', s);
+        b.title = 'שינוי';
+        b.textContent = label;
+        chipsEl.appendChild(b); n++;
+      });
+      (feats || []).forEach(function (f) {
+        var c = doc.createElement('span');
+        c.className = 'ss-chip is-feature';
+        c.textContent = SC.featuresNote([f]);
+        chipsEl.appendChild(c); n++;
+      });
+      chipsEl.hidden = !n;
+    }
+    if (chipsEl) chipsEl.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-chip-slot]');
+      if (!b) return;
+      open(b.getAttribute('data-chip-slot'), false);
+      var slotBtn = sentenceEl && sentenceEl.querySelector('[data-slot="' + b.getAttribute('data-chip-slot') + '"]');
+      if (slotBtn && slotBtn.scrollIntoView) slotBtn.scrollIntoView({ block: 'nearest' });
+    });
+
     function runParse() {
       var text = (input.value || '').trim();
       parsedText = text;
-      if (!text) return false;
+      if (!text) { renderChips([], st, []); return false; }
       // אותו פענוח לשדה החכם כאן ולחיפוש בנכסים ב-CRM (‏compileQuery, למעלה)
       var cq = compileQuery(text, st, areas, props, ctx, opts.places);
       var res = cq.res, fields = cq.fields, patch = cq.patch;
@@ -1552,6 +1594,7 @@
         var heardAway = 'הבנתי: ' + parsedNote(fields, applyPatch(st, patch), areas, ctx);
         heardAway += featNote;
         noteEl.textContent = heardAway + '. ' + placeNote(pl, null);
+        renderChips(fields, applyPatch(st, patch), feats);
         awayPending = true;
         loadAway(pl, function () {
           awayPending = false;
@@ -1567,13 +1610,16 @@
         applyFeats();
         var heard = 'הבנתי: ' + parsedNote(fields, st, areas, ctx) + featNote;
         noteEl.textContent = heard + (pl && !filter(props, st, ctx).length ? '. ' + placeNote(pl, 0) : '');
+        renderChips(fields, st, feats);
       } else if (feats.length) {
         applyFeats();
         render();
         noteEl.textContent = 'הבנתי: ' + featuresNote(feats);
+        renderChips([], st, feats);
       } else {
         applyFeats();
         render();
+        renderChips([], st, []);
         if (freeOnly) {
           var ex = examplePhrases(areas, mq.matches)[0];
           noteEl.textContent = 'לא זיהיתי - נסו לכתוב סוג נכס, אזור או תקציב' + (ex ? ', למשל: ' + ex : '');
@@ -2133,6 +2179,7 @@
         input.value = '';
         parsedText = '';
         if (noteEl) noteEl.textContent = '';
+        renderChips([], st, []);
         active = null;
         touched = {};
         rollIndex = 0;

@@ -63,6 +63,7 @@
 # (‏property, agent, article, professional, project, developer) לא כאן:
 # ‏og-tags.ts רצה עליהם לפני ההפניה, כמו אצל /agency.html למעלה.
 /about.html            /about            301!
+/markets.html          /markets          301!
 /accessibility.html    /accessibility    301!
 /agencies.html         /agencies         301!
 /agents.html           /agents           301!
