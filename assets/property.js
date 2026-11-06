@@ -2935,13 +2935,10 @@ function renderProperty(p){
   document.getElementById('propTitle').textContent = publicTitle(p);
   if (p.listing_number){
     document.getElementById('listingNoN').textContent = p.listing_number;
-    document.getElementById('listingNo').hidden = false;
-    document.getElementById('listingCopy').onclick = async (e) => {
-      try { await navigator.clipboard.writeText(String(p.listing_number)); e.target.textContent = 'הועתק'; }
-      catch(_){ e.target.textContent = String(p.listing_number); }
-      setTimeout(() => { e.target.textContent = 'העתקה'; }, 2000);
-    };
+    document.getElementById('listingNoLabel').hidden = false;
   }
+  // השורה מוצגת גם בלי מספר מודעה: כפתור גודל הטקסט יושב בה
+  document.getElementById('listingNo').hidden = false;
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';

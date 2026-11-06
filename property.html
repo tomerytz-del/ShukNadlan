@@ -1013,7 +1013,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .deals-table td.num{font-weight:700;color:var(--ink)}
   .deals-fine{font-size:.68rem;color:var(--ink-soft);margin:10px 0 0}
   /* גודל טקסט */
-  .text-size-btn{margin-top:8px;font:inherit;font-size:.72rem;font-weight:700;padding:5px 10px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink-soft);cursor:pointer;border-radius:999px}
+  .text-size-btn{margin-inline-start:auto;font:inherit;font-size:.72rem;font-weight:700;padding:5px 10px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink-soft);cursor:pointer;border-radius:999px}
   .text-size-btn[aria-pressed="true"]{background:var(--teal);color:#fff;border-color:var(--teal)}
   .text-size-btn small{font-size:.7em;vertical-align:super}
   /* ‏zoom ולא font-size: כמעט כל הטקסט בדף ב-rem, ו-em על העמודה לא היה מגדיל אותו */
@@ -1294,7 +1294,6 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   /* ‏P1-P: מספר המודעה, שורה אפורה קטנה */
   #listingNo{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:13px;color:#6b7280}
   #listingNo[hidden]{display:none}
-  #listingCopy{min-height:32px;padding:0 10px;border:1px solid #d6dbe6;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1428,11 +1427,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
-        <!-- גודל טקסט (6.11.2026, PR B): נשמר במכשיר (sk_text_size), חל על עמודת התוכן -->
-        <button type="button" class="text-size-btn" id="textSizeBtn" aria-pressed="false" title="טקסט גדול יותר">א<small>+</small> טקסט גדול</button>
-        <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן -->
-        <p class="listing-no" id="listingNo" hidden>מודעה #<span id="listingNoN"></span>
-          <button type="button" id="listingCopy" aria-label="העתקת מספר המודעה" title="העתקת מספר המודעה">העתקה</button></p>
+        <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן.
+             כפתור "העתקה" ירד (תומר, 6.11.2026): מי שרוצה שומר/ת או משתף/ת. באותה
+             שורה כפתור גודל הטקסט (sk_text_size, חל על עמודת התוכן) - שורה אחת ולא שתיים -->
+        <p class="listing-no" id="listingNo" hidden><span id="listingNoLabel" hidden>מודעה #<span id="listingNoN"></span></span>
+          <button type="button" class="text-size-btn" id="textSizeBtn" aria-pressed="false" title="טקסט גדול יותר">א<small>+</small> טקסט גדול</button></p>
         <!-- §6: שמירה לאותה רשימה של "המועדפים" בהחלקה (‏sk_swipe_likes). רק ב-v10 -->
         <div class="prop-acts">
         <button type="button" class="prop-save" id="saveBtn" aria-pressed="false" aria-label="שמירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8c0 5.5-7.5 10.1-7.5 10.1Z"/></svg><span>שמירה</span></button>
