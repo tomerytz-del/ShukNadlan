@@ -1534,11 +1534,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   }
   .sr-meta{font-size:.73rem;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 10px;min-width:0}
   .sr-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* ‏6.11.2026: עמודת הצד נגזרה מרוחב המחיר, ו"₪55 למ״ר לחודש + מע״מ" (נכס מסחרי,
+     ‏nowrap) לקח 240px מתוך 370 ודחק את הכותרת ל"להש...". הצד מוגבל למחצית, המחיר
+     נשבר אחרי המספר (היחידה בשורה משלו), והגוף שומר לפחות 40% */
   .sr-side{
-    flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+    flex:0 1 auto;max-width:50%;min-width:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
     gap:6px;padding:10px 0 10px 12px;
   }
-  .sr-price{font-weight:900;font-size:1.05rem;color:#0E1116;letter-spacing:-.4px;white-space:nowrap}
+  .sr-price{font-weight:900;font-size:1.05rem;color:#0E1116;letter-spacing:-.4px;white-space:normal;text-align:left;line-height:1.2}
+  .sr-price .sr-unit{display:block;font-size:.72rem;font-weight:700;color:var(--ink-soft);letter-spacing:0}
+  .sr-body{min-width:40%}
   .sr-row .pc-facts{margin-top:5px;gap:3px 11px}
   .sr-deal{font-size:.65rem;font-weight:700;color:#fff;border-radius:0;padding:3px 9px;white-space:nowrap}
   .sr-deal[data-deal="sale"]{background:var(--deal-sale)}
