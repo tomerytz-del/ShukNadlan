@@ -47,7 +47,9 @@ create table if not exists public.building_projects (
   source_note          text,
   verification_status  public.building_project_verification not null default 'unverified',
   addresses            text[] not null default '{}',
-  created_by           uuid references auth.users(id) on delete set null,
+  -- uuid של auth.users, בלי FK: ההחלה המקומית ב-CI משחזרת את public בלי
+  -- auth.users, ומפתח זר חדש אליו מפיל את ה-job (relation "auth.users" does not exist).
+  created_by           uuid,
   created_at           timestamptz not null default now(),
   updated_at           timestamptz not null default now()
 );
@@ -58,6 +60,8 @@ comment on column public.building_projects.addresses is
   'כתובות מדויקות (רחוב ומספר בית) אחרי building_address_key. קישור לנכס רק בהתאמה מלאה.';
 comment on column public.building_projects.verification_status is
   'unverified: לא אומת. verified: אומת. conflict: הגיע ערך סותר והשם הקיים לא הוחלף.';
+comment on column public.building_projects.created_by is
+  'מזהה המשתמש מ-agency_members.user_id. בלי מפתח זר ל-auth.users, כי ההחלה המקומית ב-CI אינה משחזרת את הסכימה הזו.';
 
 create unique index if not exists building_projects_city_name_key
   on public.building_projects (city, name);

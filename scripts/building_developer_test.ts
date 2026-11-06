@@ -152,6 +152,7 @@ check("sent רק אחרי מסירה", migration.includes("building_developer_pr
 check("sent נכתב פעם אחת", migration.split("set status = 'sent'").length - 1 === 1);
 check("חלון התפיסה 15 דקות", migration.includes("interval '15 minutes'"));
 check("הדגל עדיין כבוי", migration.includes("('building_projects_enabled', 'false',"));
+check("created_by בלי מפתח זר ל-auth.users", !migration.includes("references auth.users"));
 
 const render = readFileSync("assets/cma-render.js", "utf8");
 check("הדוח מציג את השורה", render.includes("function cmaDeveloperLine") && render.includes("cmaDeveloperLine(s)"));
