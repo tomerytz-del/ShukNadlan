@@ -1,3 +1,3 @@
--- תוכן הקורס: הוחלף ב-20271106120002_course_content.sql (scripts/course_content_sql.py --bump).
+-- תוכן הקורס: הוחלף ב-20271106170000_course_content.sql (scripts/course_content_sql.py --bump).
 -- הקובץ נשאר כי ה-version שלו כבר רשום בפרודקשן. אין כאן DDL.
 select 1;
