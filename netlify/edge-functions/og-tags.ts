@@ -940,7 +940,7 @@ async function hoodCard(p: Record<string, unknown>): Promise<string> {
   const lat = Number(p.lat), lng = Number(p.lng);
   const reg = registry();
   const market = reg && Number.isFinite(lat) && Number.isFinite(lng) && p.lat != null && p.lng != null
-    ? reg.locate(lat, lng, false)
+    ? reg.locate(lat, lng, true) // אותה צורה כמו renderHoodCard בדפדפן: רק שוק חי
     : null;
   if (!neighborhoodIndexable(Number(row.props || 0), market?.slug || "", liveMarketSlugs())) return "";
   return hoodCardHtml(`/n/${encodeURIComponent(row.city_slug)}/${encodeURIComponent(row.slug)}`, hood);
