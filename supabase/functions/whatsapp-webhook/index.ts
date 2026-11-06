@@ -19,6 +19,11 @@ import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } f
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
+import {
+  answerBuildingDeveloperUnknown,
+  parseDeveloperUnknownButton,
+  runBuildingDeveloperAsks,
+} from "./building-developer.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import { showingCancelNotifyReply } from "./showing-actions.ts";
 import { loadRecentPushesNote, loadReplyPrefix, rememberReplyTo } from "./reply-context.ts";
@@ -2455,6 +2460,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         await reply(from, cancelNote, agent.id);
         return;
       }
+      // "לא יודע" על החברה היזמית. המזהה נושא את השאלה, והתשובה קבועה בלי מודל.
+      const developerPrompt = parseDeveloperUnknownButton(buttonId);
+      if (developerPrompt) {
+        await reply(from, await answerBuildingDeveloperUnknown(supabase, agent.id, developerPrompt), agent.id);
+        return;
+      }
       // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
       // והכותרת לבדה ("כן, לפתוח לשת״פ") אינה אומרת על איזה נכס עונים.
       const offer = await offerButtonReply(
@@ -3163,6 +3174,25 @@ Deno.serve(async (req: Request) => {
   // Meta ואין לו חתימת HMAC, ולכן האימות הוא של הקוראים הפנימיים.
   // ‏הצעות של גבריאלה על נכס חדש - שת"פ וסרטון (‏property-offers.ts). אותו
   // אימות פנימי של קליטת המייל, מאותה סיבה: הקורא הוא pg_cron ולא Meta.
+  if (url.searchParams.get("task") === "building-developer-ask") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runBuildingDeveloperAsks(supabase)
+        .then((r) => console.log("building developer asks", JSON.stringify(r)))
+        .catch((err) => console.error("building developer asks failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (url.searchParams.get("task") === "property-offers") {
     const auth = authorizeInternalCaller(req);
     if (!auth.ok) {
