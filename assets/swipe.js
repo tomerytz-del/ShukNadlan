@@ -2796,7 +2796,8 @@
         c.photo = slides(c.p).length - 1; syncSlide(top, c); return;
       }
       var st_ = e.target.closest('[data-studio]');
-      if (st_) { openSheetFor(c, { tab: 'viz', from: st_.dataset.studio }); return; }
+      // "✨ הדמיה לעסק שלי" מהשקופית של נכס מסחרי פותח ישר את שדה העסק, לא את הדוגמה שוב
+      if (st_) { openSheetFor(c, { tab: 'viz', from: st_.dataset.studio, own: st_.dataset.studio === 'slide_cta' && !!c.p && isComm(c.p) }); return; }
       if (e.target.closest('[data-spon-cta]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); openSheetFor(c); return; }
       if (e.target.closest('[data-spon-link]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); return; }
       if (e.target.closest('#swWiden')) { openFilter(e.target); return; }
@@ -2947,12 +2948,14 @@
       (studio ? '<div id="swTabViz" class="sw-studio" role="tabpanel" aria-labelledby="swTabBtnViz" hidden></div>' : '');
     $('swCtaBar').hidden = false;
     st = null;
+    $('swSheet').querySelector('.sw-sheet').classList.remove('is-studio');   // מתאפס יחד עם st, גם כשהגיליון כבר פתוח
     syncCta();
     if (opts.form) toggleForm(true);
     // בלוק המחיר של הכרטיס מוסתר כל עוד הגיליון פתוח - אחרת הוא מציץ מעל הגיליון (תומר 6.11)
     document.body.classList.add('sw-sheet-open');
     openDialog($('swSheet'));
-    if (studio && opts.tab === 'viz') setTab('viz', opts.from);
+    // ‏own אחרי הפוקוס של openDialog (30ms על הכותרת), אחרת הכותרת לוקחת את הפוקוס מהשדה
+    if (studio && opts.tab === 'viz') { setTab('viz', opts.from); if (opts.own) setTimeout(studioOwn, 80); }
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
     shukTrack('swipe_up_open', { slot: c.slot, position: c.pos });
     if (c.slot === 'property') seenMark(c.p, 'v');
@@ -3058,27 +3061,38 @@
     var seen = {}, out = [];
     (vizMap.get(p.id) || []).slice().sort(function (a, b) { return a.at < b.at ? 1 : -1; }).forEach(function (v) {
       var k = bizKey(v.biz);
-      if (k === '_' || seen[k] || out.length >= 6) return;
+      if (k === '_' || !bizName(v.biz) || seen[k] || out.length >= 6) return;
       seen[k] = 1; out.push([k, v.biz.trim()]);
     });
     return out;
   }
   /* עסקים מוצעים לפי סוג הנכס (תומר 6.11): שבבים לבחירה מהירה, ותמיד "עסק אחר…" בטקסט חופשי.
      מה שכבר הודמה בנכס קודם להם (‏bizChips) - הוא מוכן ובחינם */
+  /* הביטויים מול הרשימה הסגורה של סוגי הנכס המסחריים ב-search-core.js (‏'משרדים',
+     'חנויות/שטח מסחרי', 'מבני תעשייה', 'אולמות', 'חלל עבודה משותף', 'מחסנים', 'סטודיו',
+     'מרתף', 'בית מלון', 'קליניקות', 'מרלו״ג/מרכז לוגיסטי'); מה שלא נתפס - ברירת המחדל */
   var BIZ_SUGGEST = [
-    [/משרד|קליניק/, ['משרד רו״ח', 'קליניקה', 'סטודיו', 'משרד הייטק']],
-    [/מסעד|קפה/, ['מסעדה', 'בית קפה', 'בר', 'מאפייה']],
-    [/חנות|מסחר/, ['בית קפה', 'חנות בגדים', 'מספרה', 'מרפאה']],
+    [/משרד|קליניק|חלל עבודה/, ['משרד רו״ח', 'קליניקה', 'סטודיו', 'משרד הייטק']],
+    [/חנו|מסחר/, ['בית קפה', 'חנות בגדים', 'מספרה', 'מרפאה']],
     [/מחסן|תעשי|מרלו|לוגיסט/, ['מרלו״ג', 'חדר כושר', 'נגרייה', 'אולם תצוגה']],
-    [/אולם/, ['אולם אירועים', 'חדר כושר', 'גלריה', 'סטודיו לריקוד']]
+    [/אולם|מלון/, ['אולם אירועים', 'חדר כושר', 'גלריה', 'סטודיו לריקוד']],
+    [/סטודיו|מרתף/, ['סטודיו לצילום', 'חדר כושר', 'סטודיו ליוגה', 'גלריה']]
   ];
   function bizSuggest(p) {
     var t = p.property_type || '', hit = BIZ_SUGGEST.filter(function (x) { return x[0].test(t); })[0];
     return hit ? hit[1] : ['בית קפה', 'משרד', 'קליניקה', 'חנות'];
   }
+  /* התווית עוברת ב-bizName - כלל אחד לטקסט חופשי של גולש/ת (חיתוך ל-40, בלי רצף ספרות) */
   function bizChipHtml(key, label, done) {
     return '<button type="button" class="sw-st-chip" data-biz="' + esc(key) + '" data-biz-label="' + esc(label) + '" aria-pressed="' + (!st.other && key === st.key) + '"' + (st.busy ? ' disabled' : '') + '>' +
-      esc(label.length > 40 ? label.slice(0, 39) + '…' : label) + (done ? ' <b aria-hidden="true">✦</b>' : '') + '</button>';
+      esc(bizName(label)) + (done ? ' <b aria-hidden="true">✦</b>' : '') + '</button>';
+  }
+  /* "העסק שלי": שדה עסק ריק והטופס מתחתיו, עם פוקוס. מהכפתור שבסטודיו, מ"עסק אחר…" ומכפתור השקופית */
+  function studioOwn() {
+    if (!st || !st.comm) return;
+    st.other = true; st.key = '_'; st.bizLabel = ''; st.msg = ''; st.saved = false; renderStudio();
+    var bi = $('swStBiz');
+    if (bi) { bi.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' }); bi.focus({ preventScroll: true }); }
   }
   function studioStage() {
     /* ‏P1-K1: בלי הדמיה - לא התמונה הראשונה (לפעמים צילום חוץ מתחת ל"חלל העסק"), אלא
@@ -3190,6 +3204,13 @@
       '<h3 class="sw-sub-h"><span class="sw-st-n">2</span> ' + (st.comm ? 'איזה עסק תפתחו כאן?' : 'איזה סגנון?') + '</h3>' + styles_ + contact +
       '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והפרטים יועברו למפרסם המודעה. ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים; זו המחשה ממוחשבת ולא התחייבות.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
     bindBa(box.querySelector('.sw-ba'));
+    // יחס התמונה לבמה (‏--st-r, בטלפון מקצה לקצה): מה-bw/bh של הזוג כשיש, ואחרת מהתמונה עצמה כשנטענה -
+    // רק הזוג של השקופית עובר vizPrep, וההדמיות האחרות (וכל מה שנוצר עכשיו) מגיעות בלי מידות
+    var stage_ = box.querySelector('.sw-st-stage'), im_ = stage_ && stage_.querySelector('.sw-ba-before, img.sw-st-src.is-only');
+    if (stage_ && im_ && !stageR) {
+      var setR_ = function () { if (im_.naturalWidth && im_.naturalHeight) stage_.style.setProperty('--st-r', (im_.naturalWidth / im_.naturalHeight).toFixed(4)); };
+      if (im_.complete) setR_(); else im_.addEventListener('load', setR_, { once: true });
+    }
   }
   function vizGenerate(contact) {
     if (!VIZ_SWIPE_GENERATE || !st || st.busy) return;
@@ -3315,14 +3336,8 @@
       return;
     }
     if ((b = e.target.closest('[data-biz]'))) { st.key = b.dataset.biz; st.bizLabel = b.dataset.bizLabel; st.other = false; st.msg = ''; st.saved = false; renderStudio(); return; }
-    if (e.target.closest('[data-biz-other]')) { st.other = true; st.key = bizKey(st.bizLabel); renderStudio(); var bi = $('swStBiz'); if (bi) bi.focus(); return; }
-    // "✨ הדמיה לעסק שלי": שדה עסק ריק, והטופס מתחתיו - גוללים אליו ונותנים פוקוס
-    if (e.target.closest('[data-biz-focus]')) {
-      st.other = true; st.key = '_'; st.bizLabel = ''; st.msg = ''; st.saved = false; renderStudio();
-      var bi2 = $('swStBiz');
-      if (bi2) { bi2.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' }); bi2.focus({ preventScroll: true }); }
-      return;
-    }
+    // "עסק אחר…" ו-"✨ הדמיה לעסק שלי": שדה ריק (לא העסק של הדוגמה - אחרת הטופס לא מופיע, כי יש לו כבר הדמיה)
+    if (e.target.closest('[data-biz-other]') || e.target.closest('[data-biz-focus]')) { studioOwn(); return; }
     // הקשה על "לפני"/"אחרי" מזיזה את הידית לקצה - חלופה לגרירה
     if ((b = e.target.closest('[data-ba-set]'))) {
       var ba = b.closest('.sw-st-stage') && b.closest('.sw-st-stage').querySelector('.sw-ba');
@@ -3710,6 +3725,8 @@
       '<p class="sw-art-more"><a href="/article?slug=' + encodeURIComponent(a.slug || a.id) + '" data-art-full>להמשך קריאה ←</a></p>' +
       '<button type="button" class="sw-navy sw-wide" data-art-back>חזרה להחלקה</button></div>';
     $('swCtaBar').hidden = true;
+    $('swSheet').querySelector('.sw-sheet').classList.remove('is-studio');
+    document.body.classList.add('sw-sheet-open');
     openDialog($('swSheet'));
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
   }

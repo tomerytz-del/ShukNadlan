@@ -620,7 +620,8 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-st-line .sw-gold{min-height:42px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:800}
 .sw-st-sub{margin:0 0 6px;font-size:13px;color:var(--sw-body)}
 .sw-st-sub+.sw-st-row{margin-bottom:10px}
-body.sw-sheet-open .sw-cbody{visibility:hidden}
+/* התווית "אחרי · ✨ הדמיית AI · דוגמה: …" בשקופית: לא נכנסת לתווית "לפני" ולא לקצה הכרטיס */
+.sw-ba-lbl.is-after{max-width:calc(100% - 92px);overflow:hidden;text-overflow:ellipsis}
 @media (max-width:1023px){
   .sw-sheet.is-studio{height:96dvh;max-height:96dvh}
   .sw-studio .sw-st-stage{margin-inline:-18px;border-radius:0;aspect-ratio:var(--st-r,4/3);max-height:58dvh}
@@ -1214,6 +1215,8 @@ body[data-view=list] .sw-layout{display:inline-flex}
   body[data-view=deck] #swSheet .sw-sheet{max-height:80svh;border-radius:22px 22px 0 0}
   /* לשונית ההדמיה: הגיליון גבוה יותר, כדי שהתמונה מקצה לקצה תקבל מקום (תומר 6.11). אותה ספציפיות כמו השורה מעל */
   body[data-view=deck] #swSheet .sw-sheet.is-studio{height:96svh;max-height:96svh}
+  /* בלוק המחיר של הכרטיס מוסתר כל עוד הגיליון פתוח, רק כאן - בחפיסה בטלפון, שבה הגיליון יושב על הכרטיס */
+  body.sw-sheet-open[data-view=deck] .sw-cbody{visibility:hidden}
   body[data-view=deck] #swSheet .sw-cta-bar{padding-bottom:calc(12px + var(--sw-safe-b))}
   /* כפתור קשר זהב אחד בגיליון (‏#swCta). הגלולה שבבאנר נשארת ב-DOM (‏toggleForm כותב לחץ שלה) */
   .sw-dsheet .sw-bn-pill{display:none}
