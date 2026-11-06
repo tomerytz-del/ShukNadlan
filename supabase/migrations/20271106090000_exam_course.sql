@@ -250,8 +250,12 @@ as $$
      where user_id = auth.uid() and expires_at > now()
   );
 $$;
-revoke all on function public.course_has_access() from public, anon;
-grant execute on function public.course_has_access() to authenticated, service_role;
+-- גם ל-anon: ה-policy של course_lessons קוראת לה גם על שורה שאינה חינמית,
+-- ו-anon בלי execute היה מקבל "permission denied" על כל select בטבלה, לא
+-- רק על השורות הסגורות. ל-anon היא מחזירה false (auth.uid() ריק). קריאה
+-- בלבד, רשומה ב-PUBLIC_RPC של הסוכן התפעולי.
+revoke all on function public.course_has_access() from public;
+grant execute on function public.course_has_access() to anon, authenticated, service_role;
 
 drop policy if exists "course chapters are public" on public.course_chapters;
 create policy "course chapters are public" on public.course_chapters
@@ -683,17 +687,21 @@ begin
       return jsonb_build_object('error', 'course_not_enrolled');
     end if;
     -- שאלות שהתשובה האחרונה עליהן הייתה שגויה
+    -- ה-limit בתוך תת-השאילתה: limit על שאילתת aggregate מגביל שורה אחת, לא 25
     select coalesce(array_agg(q order by last_at desc), '{}') into v_ids from (
-      select distinct on (q) (a.elem->>'q')::uuid as q,
-             (a.elem->>'ok')::boolean as ok, a.started_at as last_at
-        from (select t.started_at, e.elem
-                from public.course_attempts t, jsonb_array_elements(t.answers) e(elem)
-               where t.user_id = v_uid) a
-       order by q, a.started_at desc
-    ) latest
-    join public.course_questions cq on cq.id = latest.q and cq.published
-    where latest.ok = false
-    limit 25;
+      select latest.q, latest.last_at from (
+        select distinct on (q) (a.elem->>'q')::uuid as q,
+               (a.elem->>'ok')::boolean as ok, a.started_at as last_at
+          from (select t.started_at, e.elem
+                  from public.course_attempts t, jsonb_array_elements(t.answers) e(elem)
+                 where t.user_id = v_uid) a
+         order by q, a.started_at desc
+      ) latest
+      join public.course_questions cq on cq.id = latest.q and cq.published
+      where latest.ok = false
+      order by latest.last_at desc
+      limit 25
+    ) wrong;
   end if;
 
   if coalesce(array_length(v_ids, 1), 0) = 0 then
