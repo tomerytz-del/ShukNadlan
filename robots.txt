@@ -47,6 +47,11 @@ Disallow: /plan.html
 Disallow: /cma
 Disallow: /cma.html
 
+# אזור הלמידה של קורס ההכנה למבחן המתווכים - תוכן בתשלום מאחורי כניסה
+# (docs/exam-course.md). דף המכירה /course נשאר ציבורי.
+Disallow: /learn
+Disallow: /learn.html
+
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary
 Disallow: /neighborhood-boundary.html
