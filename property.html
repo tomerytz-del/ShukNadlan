@@ -728,15 +728,6 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   }
   .btn-call:hover{background:#D3DEE8}
   .btn-call svg{width:18px;height:18px;flex:none}
-  /* "מימון" - שורה שלישית מתחת לשני כפתורי הקשר, על כל הרוחב. כפתור מחשבון ולא
-     פנייה, ולכן בצבעי הדף ולא בירוק של וואטסאפ. */
-  .btn-fin{
-    grid-column:1 / -1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:11px 14px;border-radius:0;background:var(--paper-raised,#fff);color:var(--navy,#0e2a6b);
-    font-weight:800;font-size:.86rem;border:1px solid var(--navy,#0e2a6b);text-decoration:none;
-  }
-  .btn-fin:hover,.btn-fin:focus-visible{background:var(--navy,#0e2a6b);color:#fff}
-  .btn-fin svg{width:18px;height:18px;flex:none}
   .contact-note{grid-column:1 / -1;margin:2px 0 0;font-size:.72rem;line-height:1.45;color:var(--ink-soft);text-align:center}
 
   /* ====== נכסים דומים ======
@@ -888,22 +879,41 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .sticky-bar .btn-call{flex:0 0 auto;width:46px;padding:12px 0}
   /* §6: שמירה - לב ריק / לב ירוק מלא כשנשמר (‏--fav-green, כמו בהחלקה). רק ב-v10 */
   .prop-save,.sticky-bar .btn-save{display:none}
-  /* שמירה ושיתוף בוואטסאפ בשורה אחת מתחת לכתובת; נשברת לשתי שורות בטלפון צר */
-  .prop-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 2px}
-  .prop-wa-share{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
-    background:#fff;color:#0e2a6b;font-size:.92rem;font-weight:700;text-decoration:none;white-space:nowrap}
-  .prop-wa-share[hidden]{display:none}
-  .prop-wa-share svg{width:20px;height:20px;fill:currentColor;flex:0 0 auto}
-  .prop-wa-share:hover{background:#f3f5fa}
-  .prop-wa-share:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
-  html.beta-hero .prop-save{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
-    background:#fff;color:#0e2a6b;font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
+  /* שורת הפעולות מתחת לכתובת: שמירה, שיתוף בוואטסאפ ואפשרויות מימון (7.11.2026, עיצוב מחדש).
+     בטלפון שלוש עמודות שוות ברוחב המסך, כך שהשורה אחת גם ב-320px; מ-560px כפתורים ברוחב התוכן.
+     אותה גלולה לשלושתם (גובה, צל וריחוף), ולכל אחד אייקון בצבע משלו: לב כחול (ירוק כשנשמר),
+     וואטסאפ ירוק, מחשבון בזהב. "מימון" הוא הכפתור היחיד עם רקע, כי הוא הצעד הבא בקנייה. */
+  .prop-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 4px}
+  @media(min-width:560px){.prop-acts{display:flex;flex-wrap:wrap;gap:10px}}
+  .prop-wa-share,.prop-fin,html.beta-hero .prop-save{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:0 8px;
+    border:1.5px solid rgba(14,42,107,.2);border-radius:999px;background:#fff;color:#0e2a6b;
+    font:inherit;font-size:.9rem;font-weight:800;line-height:1;text-decoration:none;white-space:nowrap;cursor:pointer;
+    box-shadow:0 1px 2px rgba(13,27,61,.06);
+    transition:border-color .15s ease,box-shadow .15s ease,background .15s ease,transform .15s ease}
+  @media(min-width:560px){.prop-wa-share,.prop-fin,html.beta-hero .prop-save{padding:0 20px;gap:8px;font-size:.92rem}}
+  .prop-wa-share[hidden],.prop-fin[hidden]{display:none}
+  .prop-wa-share svg,.prop-fin svg,.prop-save svg{width:20px;height:20px;flex:0 0 auto}
+  .prop-wa-share svg{fill:#25D366}
+  .prop-fin svg{color:var(--bronze,#8a6d10)}
+  .prop-save svg{fill:none;stroke:currentColor;stroke-width:2}
+  .prop-fin{background:var(--bronze-tint,#f7f1e2);border-color:rgba(201,162,39,.65)}
+  @media(hover:hover){
+    .prop-wa-share:hover,.prop-fin:hover,html.beta-hero .prop-save:hover{border-color:#0e2a6b;box-shadow:0 5px 14px rgba(14,42,107,.14);transform:translateY(-1px)}
+  }
+  .prop-wa-share:active,.prop-fin:active,html.beta-hero .prop-save:active{transform:scale(.97);box-shadow:none}
+  .prop-wa-share:focus-visible,.prop-fin:focus-visible,.prop-save:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  html.beta-hero .prop-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green);background:#eefaf2}
+  .prop-save[aria-pressed=true] svg{fill:var(--fav-green)}
+  /* תוויות קצרות בטלפון ("שיתוף", "מימון": האייקון של וואטסאפ אומר את השאר), מלאות מ-560px */
+  .act-long{display:none}
+  @media(min-width:560px){.act-long{display:inline}}
   html.beta-hero .sticky-bar .btn-save{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:46px;min-height:46px;padding:0;
     border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;cursor:pointer}
-  .prop-save svg,.btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
-  .prop-save[aria-pressed=true],.sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
-  .prop-save[aria-pressed=true] svg,.btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
-  .prop-save:focus-visible,.btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
+  .btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+  .sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
+  .btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
+  .btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
   .sticky-bar .btn-call span{display:none}
   @media(max-width:520px){.sticky-bar .btn-wa span{display:none}.sticky-bar .btn-wa{width:48px;padding:12px 0;justify-content:center}}
   body.has-sticky-bar{padding-bottom:78px}
@@ -1448,7 +1458,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- שיתוף עם חבר/ה, לא פנייה למפרסם: ‎wa.me/?text=‎ בלי מספר, ולכן data-share
              (‏events.js סופר אותו כ-share עם סוג הפריט והמזהה). ה-href נבנה ב-renderWaShare -->
         <a class="prop-wa-share" id="waShareBtn" href="#" target="_blank" rel="noopener noreferrer"
-           data-share data-share-type="property" aria-label="שיתוף הנכס בוואטסאפ" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg><span>שיתוף בוואטסאפ</span></a>
+           data-share data-share-type="property" aria-label="שיתוף הנכס בוואטסאפ" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg><span>שיתוף<span class="act-long"> בוואטסאפ</span></span></a>
+        <!-- אפשרויות מימון (7.11.2026, תומר): גלילה למחשבון שבעמוד, באותה שורה של שמירה ושיתוף.
+             ישב קודם מתחת לכפתורי הקשר, צמוד מדי למחשבון עצמו. מוסתר עד ש-initFinBtn (property.js)
+             מאשר מודעת מכירה; בהשכרה המחשבון כולו יורד. כפתור ולא קישור פנייה: בלי data-share -->
+        <button type="button" class="prop-fin" id="finBtn" aria-controls="calcCard" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3M13 11h3M8 15h3M13 15h3"/></svg><span><span class="act-long">אפשרויות </span>מימון</span></button>
         </div>
 
         <!-- ====== יריד הבתים הפתוחים ======
@@ -1969,7 +1983,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <!-- "כמה מזומן צריך להביא" (6.11.2026, PR B): השאלה שקודמת ל"כמה אחזיר
                בחודש". הון עצמי + מס רכישה (לפי סוג הרכישה) + עו״ד + תיווך + פתיחת
-               תיק. המספרים ב-CASH_COSTS ב-assets/property.js; docs/mortgage-leads.md -->
+               תיק. החישוב והמדרגות ב-assets/purchase-costs.js (משותף לדף הבית); docs/mortgage-leads.md -->
           <div class="calc-cash" id="calcCash">
             <div class="calc-cash-head">
               <span class="lbl">כמה מזומן צריך להביא?</span>
@@ -2186,6 +2200,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/air-living.js"></script>
 <script src="assets/fair-contact.js"></script>
 <script src="assets/listing-title.js"></script>
+<script src="assets/purchase-costs.js"></script>
 <script src="assets/property.js"></script>
 
 <footer class="site">

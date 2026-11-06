@@ -2987,6 +2987,7 @@ function renderProperty(p){
   renderAgentCard(p);
   renderContactButtons(p);
   renderWaShare(p);
+  initFinBtn(p);
   prefillInquiryMessage(p);
   setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
@@ -3209,7 +3210,8 @@ function renderContactButtons(p){
   sbCall.hidden = false;
   markFair(sbCall, 'call');
 
-  // כפתורים בכרטיס ההמרה
+  // כפתורים בכרטיס ההמרה, ושורת הגילוי: מי מקבל את הפרטים. privacy.html מבטיח את זה; כאן זה
+  // נאמר במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly)
   document.getElementById('agentActions').innerHTML = `
     <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${fairAttr('whatsapp')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
@@ -3217,22 +3219,22 @@ function renderContactButtons(p){
     </a>
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
-    </a>` +
-    /* "מימון" ליד כפתורי הקשר (6.11.2026, ההשראה: כפתור Financing בכרטיס של
-       Eretzly): לא יכולת חדשה אלא פתח למחשבון שכבר בדף, עם מחיר הנכס. במודעת
-       השכרה המחשבון כולו יורד (למעלה), ולכן גם הכפתור. */
-    (p.deal_type === 'rent' ? '' : `
-    <a class="btn-fin" href="#calcCard" id="finBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3M13 11h3M8 15h3M13 15h3"/></svg>
-      <span>כמה מזומן ומשכנתא צריך לנכס הזה?</span>
-    </a>`) +
-    /* שורת הגילוי: מי מקבל את הפרטים. ‏privacy.html מבטיח את זה; כאן זה נאמר
-       במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly). */
-    `
+    </a>
     <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;
-  const finBtn = document.getElementById('finBtn');
-  if (finBtn) finBtn.addEventListener('click', (e)=>{
-    e.preventDefault();
+}
+
+/* ---------- "אפשרויות מימון" בשורת השמירה והשיתוף (7.11.2026) ----------
+   לא יכולת חדשה אלא פתח למחשבון שכבר בדף (#calcCard, עם מחיר הנכס): גלילה אליו ופוקוס על
+   סליידר ההון העצמי. ההשראה: כפתור Financing בכרטיס של eretzly.com. הכפתור סטטי ב-
+   property.html (‏#finBtn, ‏.prop-fin) ומוסתר עד כאן; במודעת השכרה המחשבון כולו יורד, ולכן גם
+   הכפתור. ישב קודם מתחת לכפתורי הקשר ("כמה מזומן ומשכנתא צריך לנכס הזה?") וקרוב מדי למחשבון. */
+function initFinBtn(p){
+  const btn = document.getElementById('finBtn');
+  if (!btn) return;
+  btn.hidden = !p || p.deal_type === 'rent';
+  if (btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', ()=>{
     const card = document.getElementById('calcCard');
     if (!card) return;
     card.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -3444,7 +3446,7 @@ function updateCalculator(){
   warn.textContent = (ltvPct > capPct)
     ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת ל${cashBuyer === 'extra' ? 'דירה נוספת' : 'דירה יחידה'} (${capPct}%)`
     : '';
-  updateCashNeeded(price, equity, loan);
+  updateCashNeeded(price, equity);
 }
 
 /* ---------- "כמה מזומן צריך להביא" (6.11.2026, PR B) ----------
@@ -3452,54 +3454,33 @@ function updateCalculator(){
    פתיחת תיק. ההשראה: גיליון ה-Financing של eretzly.com ("your own cash,
    total"). docs/mortgage-leads.md.
 
-   מדרגות מס הרכישה לפי רשות המיסים: אלה של 16.1.2025, שחוק ההסדרים הקפיא
-   (אין עדכון מדד) **עד 15.1.2028** - ולכן הן גם מדרגות 2026 ו-2027. ב-16.1.2028
-   לעדכן כאן ואת taxAsOf, שמוצג בשורת ההסתייגות. שאר
-   המספרים הם שיעורים מקובלים (עו״ד 0.5%, תיווך 2%, שניהם + מע״מ 18%,
-   פתיחת תיק, שמאי ורישום כ-7,000 ₪) ולא הצעת מחיר - ההסכם קובע. */
-const CASH_COSTS = {
-  taxAsOf: '2026',
-  taxSingle: [[1978745, 0], [2347040, 0.035], [6055070, 0.05], [20183565, 0.08], [Infinity, 0.10]],
-  taxExtra:  [[6055070, 0.08], [Infinity, 0.10]],
-  vat: 0.18,
-  lawyerPct: 0.005,
-  brokerPct: 0.02,
-  bankFixed: 7000,
-};
+   החישוב והמדרגות ב-assets/purchase-costs.js (‏PurchaseCosts), משותפים למחשבון
+   של דף הבית: מדרגות מס הרכישה (קפואות עד 15.1.2028, לעדכן ב-16.1.2028) יושבות
+   רק שם. נטען כ-<script> רגיל לפני הקובץ הזה; אם לא נטען, הבלוק פשוט מוסתר
+   והמחשבון נשאר עובד. */
 let cashBuyer = 'single';
 
-function purchaseTax(price, brackets){
-  let tax = 0, prev = 0;
-  for (const [cap, rate] of brackets){
-    if (price <= prev) break;
-    tax += (Math.min(price, cap) - prev) * rate;
-    prev = cap;
-  }
-  return Math.round(tax);
-}
-
-function updateCashNeeded(price, equity, loan){
+function updateCashNeeded(price, equity){
   const box = document.getElementById('calcCash');
   if (!box || !currentProperty) return;
   // מחיר למ"ר אינו מחיר הנכס: מס, עו"ד ותיווך על 12,000 ₪ היו שטות. הבלוק יורד
-  if (!(price > 0) || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
+  // וגם בנכס מסחרי ובמגרש: מדרגות מס הרכישה הן של דירת מגורים בלבד (מסחרי וקרקע - 6% קבוע),
+  // והצגתן הייתה מורידה מאות אלפי שקלים מהמזומן הנדרש
+  const notHome = currentProperty.category === 'commercial' || /מגרש|קרקע|נחל|משק|חקלא/.test(currentProperty.property_type || '');
+  if (!window.PurchaseCosts || !(price > 0) || notHome || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
   box.hidden = false;
-  const tax = purchaseTax(price, cashBuyer === 'single' ? CASH_COSTS.taxSingle : CASH_COSTS.taxExtra);
-  const lawyer = Math.round(price * CASH_COSTS.lawyerPct * (1 + CASH_COSTS.vat));
   // נכס ביריד הבתים הפתוחים נמכר בלי עמלת תיווך (assets/open-house.js)
   const noFee = !!(window.OpenHouse && OpenHouse.live(currentProperty));
-  const broker = noFee ? 0 : Math.round(price * CASH_COSTS.brokerPct * (1 + CASH_COSTS.vat));
-  const bank = loan > 0 ? CASH_COSTS.bankFixed : 0;
-  const total = Math.round(equity) + tax + lawyer + broker + bank;
-  document.getElementById('calcCashTotal').textContent = nis(total);
-  document.getElementById('cashEquity').textContent = nis(equity) + ' ₪';
-  document.getElementById('cashTax').textContent = tax ? nis(tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
-  document.getElementById('cashLawyer').textContent = nis(lawyer) + ' ₪';
-  document.getElementById('cashBroker').textContent = noFee ? '0 ₪ (ללא עמלת תיווך)' : nis(broker) + ' ₪';
-  document.getElementById('cashBankRow').hidden = !bank;
-  document.getElementById('cashBank').textContent = nis(bank) + ' ₪';
+  const c = PurchaseCosts.breakdown({ price, equity, buyer: cashBuyer, noBrokerFee: noFee });
+  document.getElementById('calcCashTotal').textContent = nis(c.total);
+  document.getElementById('cashEquity').textContent = nis(c.equity) + ' ₪';
+  document.getElementById('cashTax').textContent = c.tax ? nis(c.tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
+  document.getElementById('cashLawyer').textContent = nis(c.lawyer) + ' ₪';
+  document.getElementById('cashBroker').textContent = noFee ? '0 ₪ (ללא עמלת תיווך)' : nis(c.broker) + ' ₪';
+  document.getElementById('cashBankRow').hidden = !c.bank;
+  document.getElementById('cashBank').textContent = nis(c.bank) + ' ₪';
   document.getElementById('calcCashFine').textContent =
-    `מס רכישה לפי מדרגות ${CASH_COSTS.taxAsOf} ל${cashBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
+    `מס רכישה לפי מדרגות ${PurchaseCosts.TAX_AS_OF} ל${cashBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
 }
 document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(b => {
   b.addEventListener('click', ()=>{
