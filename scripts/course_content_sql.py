@@ -14,7 +14,7 @@
 
 ## המבנה
 
-כל קובץ ב-`course/content/*.json` ו-`course/content/exams/*.json`:
+כל קובץ ב-`course-content/*.json` ו-`course-content/exams/*.json`:
 
     {"chapter": {"slug": "...", "title": "...", "summary": "...", "position": N},
      "lessons": [{"slug", "title", "position", "intro", "body_html", "key_points",
@@ -31,7 +31,7 @@
 והניסיונות של הלומדים מצביעים עליהם.
 
 המיגרציה נכתבת לקובץ אחד קבוע, `supabase/migrations/<VERSION>_course_content.sql`,
-ש-VERSION שלו נקבע בפעם הראשונה ונשמר ב-`course/content/.version`. כל עוד
+ש-VERSION שלו נקבע בפעם הראשונה ונשמר ב-`course-content/.version`. כל עוד
 המיגרציה לא רצה בפרודקשן (אותו PR), הרצה חוזרת פשוט מעדכנת את אותו קובץ.
 **אחרי שהיא רצה**, הצינור לא יריץ אותה שוב, ולכן עדכון תוכן מריצים עם
 `--bump`: הקובץ הישן הופך לקובץ ריק (ה-version שלו רשום בפרודקשן, ומחיקה
@@ -46,7 +46,7 @@ import sys
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONTENT = os.path.join(ROOT, 'course', 'content')
+CONTENT = os.path.join(ROOT, 'course-content')
 MIGRATIONS = os.path.join(ROOT, 'supabase', 'migrations')
 VERSION_FILE = os.path.join(CONTENT, '.version')
 
@@ -138,7 +138,7 @@ def render(chapters):
     out.append('-- ============================================================================')
     out.append('-- תוכן קורס ההכנה למבחן המתווכים - נוצר אוטומטית')
     out.append('--')
-    out.append('-- **אין לערוך ביד.** המקור הוא course/content/*.json, והקובץ הזה נוצר ב-')
+    out.append('-- **אין לערוך ביד.** המקור הוא course-content/*.json, והקובץ הזה נוצר ב-')
     out.append('-- scripts/course_content_sql.py. upsert לפי slug, ולכן ניתן להרצה חוזרת.')
     out.append('-- מה שנעלם מה-JSON מסומן published = false ולא נמחק (ההתקדמות מצביעה עליו).')
     out.append('-- נוצר: %s. הפרטים: docs/exam-course.md' % datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))
