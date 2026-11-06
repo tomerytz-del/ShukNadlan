@@ -1016,8 +1016,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .text-size-btn{margin-top:8px;font:inherit;font-size:.72rem;font-weight:700;padding:5px 10px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink-soft);cursor:pointer;border-radius:999px}
   .text-size-btn[aria-pressed="true"]{background:var(--teal);color:#fff;border-color:var(--teal)}
   .text-size-btn small{font-size:.7em;vertical-align:super}
-  html[data-text="lg"] .content-col{font-size:1.12em}
-  html[data-text="lg"] .content-col p,html[data-text="lg"] .content-col li,html[data-text="lg"] .content-col td{line-height:1.7}
+  /* ‏zoom ולא font-size: כמעט כל הטקסט בדף ב-rem, ו-em על העמודה לא היה מגדיל אותו */
+  html[data-text="lg"] .content-col{zoom:1.12}
   /* מרחק מהעיר המרכזית של השוק, לנכס ביישוב אחר */
   .prop-dist{color:var(--ink-soft);font-weight:600}
 
