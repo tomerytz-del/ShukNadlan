@@ -61,7 +61,7 @@ const STALE_MINUTES = 10;
 const EXPIRE_MINUTES = 180;
 
 // ---------------------------------------------------------------------------
-// ארבעה סוגי תשלום, מכונת מצבים אחת
+// חמישה סוגי תשלום, מכונת מצבים אחת
 //
 // טעינת ארנק, רכישת מנוי, רכישת כרטיסיית פרסום וטעינת ארנק יזם/ית הן אותו מסלול: שורת
 // pending, טופס תשלום, אימות מול מורנינג, ואז הפעולה. ההבדל היחיד הוא שם
@@ -71,8 +71,8 @@ const EXPIRE_MINUTES = 180;
 // שני היה סוד נוסף לנהל, לסובב ולשכוח. ההפרדה נעשית לפי המזהה שחוזר —
 // ‏UUID של שורה, שממילא ייחודי בין הטבלאות.
 // ---------------------------------------------------------------------------
-type OrderKind = "topup" | "subscription" | "ad" | "developer_topup";
-const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup"];
+type OrderKind = "topup" | "subscription" | "ad" | "developer_topup" | "course";
+const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup", "course"];
 
 const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; idParam: string }> = {
   topup: {
@@ -102,6 +102,14 @@ const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; 
     complete: "complete_developer_topup",
     fail: "fail_developer_topup",
     idParam: "p_topup_id",
+  },
+  // קורס ההכנה למבחן המתווכים (docs/exam-course.md). הקונה/ה אינו/ה
+  // סוכן/ת; complete_course_order פותחת גישה ב-course_enrollments.
+  course: {
+    table: "course_orders",
+    complete: "complete_course_order",
+    fail: "fail_course_order",
+    idParam: "p_order_id",
   },
 };
 
@@ -158,7 +166,7 @@ async function settleOrder(
 // ---------------------------------------------------------------------------
 // ה-reconcile
 // ---------------------------------------------------------------------------
-// סורק את ארבע הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
+// סורק את חמש הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
 // ‏₪750 ועובד/ת במסלול החינמי — ולכן אין שום סיבה שהוא ייסרק בתדירות נמוכה
 // יותר או יחכה למחזור נפרד.
 async function reconcile(supabase: any): Promise<Record<string, number>> {
@@ -241,7 +249,7 @@ Deno.serve(async (req: Request) => {
   }));
   if (!topupId && !formId) return json({ error: "missing_reference" }, 400);
 
-  // איזו מארבע הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
+  // איזו מחמש הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
   // נמצא באחת מהן בלבד. הסדר הוא לפי שכיחות ולא לפי חשיבות.
   let found: { kind: OrderKind; row: any } | null = null;
   for (const kind of ALL_KINDS) {

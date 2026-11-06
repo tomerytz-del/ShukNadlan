@@ -23,6 +23,8 @@
 /marketing/*                /404.html    404!
 /gtm/*                      /404.html    404!
 /mobile/*                   /404.html    404!
+# תוכן קורס ההכנה (JSON עם התשובות) - נכנס למסד דרך מיגרציה, לא מוגש (docs/exam-course.md)
+/course/*                   /404.html    404!
 /CLAUDE.md                  /404.html    404!
 /schema.sql                 /404.html    404!
 /requirements.txt           /404.html    404!

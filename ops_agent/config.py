@@ -396,6 +396,10 @@ MAKE_SCENARIOS = (
 # נקודת קצה פומבית שאיש אינו צריך. ‏28.9.2026: מתוך תשע שדווחו, שש נכנסו
 # לכאן ושלוש נסגרו (`20270119090000_revoke_anon_private_flags.sql`).
 PUBLIC_RPC = {
+    "course_catalog": "דף המכירה של קורס ההכנה (course.html) - שמות פרקים ושיעורים "
+                      "וספירות בלבד, בלי גוף ובלי שאלות; docs/exam-course.md",
+    "course_has_access": "ה-policy של course_lessons - האם למשתמש/ת המחובר/ת גישה "
+                         "פעילה לקורס; ל-anon תמיד false; docs/exam-course.md",
     "property_map_enabled": "דף הנכס (property.js) - האם להציג מפה מדויקת",
     "property_planning_public": "דף הנכס - נתוני תכנון של נכס פעיל",
     "property_visualizations_enabled": "דף הנכס - האם להציג הדמיות AI",
