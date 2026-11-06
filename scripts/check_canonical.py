@@ -125,6 +125,8 @@ PRIVATE = {
     "plan",
     # ‏דוח ה-CMA מגבריאלה - קישור עם טוקן (docs/cma.md, "הקישור לדוח")
     "cma",
+    # ‏אזור הלמידה של קורס ההכנה - תוכן בתשלום מאחורי כניסה (docs/exam-course.md)
+    "learn",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
