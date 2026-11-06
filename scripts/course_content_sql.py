@@ -4,6 +4,7 @@
 
     python3 scripts/course_content_sql.py                 # כותב את המיגרציה
     python3 scripts/course_content_sql.py --check         # רק מאמת את ה-JSON
+    python3 scripts/course_content_sql.py --allow-answer-change=exam-2024-05-q07   # תיקון מפתח אמיתי
 
 ## למה JSON ולא SQL ביד
 
@@ -54,6 +55,14 @@ MIGRATIONS = os.path.join(ROOT, 'supabase', 'migrations')
 VERSION_FILE = os.path.join(CONTENT, '.version')
 
 LONG_DASH = re.compile('[–—]')
+ANSWERS_FILE = os.path.join(CONTENT, '.answers.json')
+# הפניה למקום של חלופה בהסבר של שאלת practice. השרת מערבב את סדר החלופות
+# לכל ניסיון (20271106120003), ולכן "חלופה ג" מצביעה אצל כל לומד/ת על חלופה
+# אחרת. תופס: חלופה/תשובה/אפשרות/מסיח + אות, סדר (הראשונה..האחרונה), ואות
+# עם גרש לבדה ("ב' שגויה").
+ORDER_REF = re.compile(
+    r"(?:ה?חלופ(?:ה|ות)|ה?תשוב(?:ה|ות)|ה?אפשר(?:ות|ויות)|ה?מסיח(?:ים)?)\s+(?:[אבגד]['׳]?(?![א-ת])|ה(?:ראשונה|שנייה|שלישית|רביעית|אחרונה))"
+    r"|(?:^|\s)[אבגד]['׳]\s")
 
 
 def q(s):
@@ -97,7 +106,8 @@ def load():
     return [chapters[s] for s in order], problems
 
 
-def validate(chapters):
+def validate(chapters, answers_snapshot=None, allowed_answer_changes=()):
+    answers_snapshot = answers_snapshot or {}
     problems = []
     seen_q = set()
     seen_l = set()
@@ -113,7 +123,10 @@ def validate(chapters):
                 problems.append('%s: שיעור כפול %s' % (lesson['_file'], lesson['slug']))
             seen_l.add(key)
             steps = lesson.get('steps') or []
-            qslugs = {qu.get('slug') for qu in (lesson.get('questions') or [])}
+            # רק שאלות שמפורסמות: course_attempt_start מחזירה רק אותן, וצעד check
+            # שמצביע על שאלה שאינה חוזרת היה קלף שאי אפשר לענות עליו
+            qslugs = {qu.get('slug') for qu in (lesson.get('questions') or []) if qu.get('published', True)}
+            retired = {qu.get('slug') for qu in (lesson.get('questions') or []) if not qu.get('published', True)}
             checked = set()
             for i, st in enumerate(steps):
                 where = '%s / %s / צעד %d' % (lesson['_file'], lesson['slug'], i + 1)
@@ -121,7 +134,9 @@ def validate(chapters):
                 if t not in ('concept', 'example', 'check'):
                     problems.append(where + ': type חייב להיות concept / example / check')
                 elif t == 'check':
-                    if st.get('question') not in qslugs:
+                    if st.get('question') in retired:
+                        problems.append(where + ': check מצביע על שאלה שאינה מפורסמת (published: false): %s' % st.get('question'))
+                    elif st.get('question') not in qslugs:
                         problems.append(where + ': check מצביע על שאלה שאינה בשיעור: %s' % st.get('question'))
                     checked.add(st.get('question'))
                 elif not st.get('title') or not st.get('text'):
@@ -150,6 +165,25 @@ def validate(chapters):
                     problems.append(where + ': חסר question או explanation')
                 if qu.get('kind', 'practice') not in ('practice', 'exam'):
                     problems.append(where + ': kind לא מוכר')
+                # שאלה שנכתבה לקורס (לא של הרשם): הסקירה של 6.11.2026 מצאה שב-25
+                # מתוך 34 הנכונה הייתה הארוכה ביותר, ולומד/ת לומד/ת לבחור את
+                # הארוכה. והשרת מערבב את החלופות של practice בכל ניסיון, ולכן
+                # הסבר שמפנה לאות ("חלופה ג") היה מצביע על חלופה אחרת אצל כל לומד/ת.
+                if qu.get('kind', 'practice') == 'practice':
+                    if isinstance(opts, list) and len(opts) == 4 and all(isinstance(o, str) for o in opts) \
+                            and isinstance(c, int) and 0 <= c <= 3:
+                        longest_other = max(len(o) for i, o in enumerate(opts) if i != c)
+                        ratio = len(opts[c]) / max(1, longest_other)
+                        if ratio > 1.3 or ratio < 0.5:
+                            problems.append(where + ': הנכונה ארוכה פי %.2f מהמסיחה הארוכה (מותר 0.5-1.3)' % ratio)
+                    if ORDER_REF.search(qu.get('explanation') or ''):
+                        problems.append(where + ': ההסבר מפנה למקום של חלופה (אות או סדר), והשרת מערבב את הסדר')
+                # slug קיים שה-correct שלו השתנה: שאלה שנכתבה מחדש מקבלת slug חדש,
+                # אחרת ניסיון פתוח (answers.c הוא אינדקס) נבדק מול חלופה אחרת
+                if s in answers_snapshot and isinstance(c, int) and answers_snapshot[s] != c \
+                        and s not in allowed_answer_changes:
+                    problems.append(where + ': correct השתנה (%s -> %s) תחת אותו slug. שאלה שנכתבה מחדש מקבלת slug חדש; '
+                                    'תיקון מפתח אמיתי: --allow-answer-change=%s' % (answers_snapshot[s], c, s))
     return problems
 
 
@@ -236,9 +270,20 @@ def new_version():
     return v
 
 
+def load_answers():
+    # slug -> correct כפי שנכתב במיגרציה האחרונה. נכתב בכל הרצה שמייצרת.
+    if os.path.exists(ANSWERS_FILE):
+        return json.load(open(ANSWERS_FILE, encoding='utf-8'))
+    return {}
+
+
 def main():
+    allowed = set()
+    for arg in sys.argv[1:]:
+        if arg.startswith('--allow-answer-change='):
+            allowed.update(x.strip() for x in arg.split('=', 1)[1].split(',') if x.strip())
     chapters, problems = load()
-    problems += validate(chapters)
+    problems += validate(chapters, load_answers(), allowed)
     counts = (len(chapters), sum(len(c['lessons']) for c in chapters),
               sum(len(l.get('questions') or []) for c in chapters for l in c['lessons']))
     review = [qu['slug'] for c in chapters for l in c['lessons'] for qu in (l.get('questions') or []) if qu.get('needs_review')]
@@ -273,6 +318,10 @@ def main():
     target = os.path.join(MIGRATIONS, version + '_course_content.sql')
     with open(target, 'w', encoding='utf-8') as f:
         f.write(render(chapters))
+    with open(ANSWERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump({qu['slug']: qu['correct'] for c in chapters for l in c['lessons'] for qu in (l.get('questions') or [])},
+                  f, ensure_ascii=False, indent=0, sort_keys=True)
+        f.write('\n')
     print('נכתב: ' + os.path.relpath(target, ROOT))
     return 0
 

@@ -498,6 +498,12 @@
       foot = '<div class="foot">' + (S.lawOpen ? '' : '<button type="button" class="btn-o" id="lawBtn">' + I.scale + ' מה אומר החוק?</button>') + navBtns(true, 'הבא') + '</div>';
     } else if (st.type === 'check') {
       var q = S.qmap[st.question];
+      if (!q && (S.attempt || S.noQuestions)) {
+        // הניסיון כבר נפתח והשאלה אינה בו (למשל שאלה שהוסרה מהפרסום): מדלגים
+        // על הקלף במקום לפתוח ניסיון שוב ושוב
+        setTimeout(function () { if (state.steps !== S) return; if (S.idx < total - 1) { S.idx++; renderStep(); } else finishSteps(); }, 0);
+        return;
+      }
       if (!q) {
         html = '<div class="center"><div class="card" style="text-align:center"><div class="spin"></div></div></div>';
         ensureAttempt().then(function (ok) { if (ok) renderStep(); });
@@ -626,6 +632,7 @@
       return false;
     }
     S.attempt = r.data.attempt_id;
+    S.noQuestions = !r.data.attempt_id;   // שיעור בלי שאלות מפורסמות: אין ניסיון, ומסיימים בלי ציון
     (r.data.questions || []).forEach(function (q) { S.qmap[q.slug] = q; });
     return true;
   }
