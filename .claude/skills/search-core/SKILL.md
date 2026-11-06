@@ -111,6 +111,26 @@ Playwright על `crm.html` עם `myPropertyRows` מדומה (הסקיל `propert
 ו-route ל-`/rest/v1/neighborhood_aliases` - בלעדיו הבקשה נכשלת אחרי 7 שניות
 והחיפוש עובד בלי כינויים.
 
+## 7. סוג נכס חדש - תשע רשימות ומיגרציה
+
+ערך חדש של `property_type` (מרלו״ג, 6.11.2026, הוא הדוגמה) נכנס לכל
+הרשימות האלה באותו PR, אחרת הוא נשמר בטופס אחד ונעלם באחר - בשקט:
+
+| איפה | מה |
+| --- | --- |
+| `assets/search-core.js` | `PTYPE_NAMES` (מוצלב מול `agent.ts`), קבוצה ב-`PROPERTY_TYPES`, והמילים ב-`typeIn`; ואז `--fix` |
+| `assets/sentence-search.js` | שורה ב-`TYPES` עם `url` = הערך במסד, אחרת `typeIn` מחזיר מפתח ש-`typeDef` אינו מכיר ונופל ל"נכס" |
+| `supabase/functions/whatsapp-webhook/agent.ts` | `RESIDENTIAL_PTYPES` / `COMMERCIAL_PTYPES` |
+| `assets/crm.js` | `*_PTYPE_OPTIONS` - טופס הנכס, הלקוח/ה וההסכם |
+| `assets/home.js`, `agent.html`, `assets/agency.js`, `assets/buyer-banner.js` | רשימות הסוג של דף הבית ואשף הקונים |
+| `assets/property-import-core.js` | כינוי ב-`IMP_PTYPE_SYNONYMS*`; ואז `check_import_core.py --fix` |
+| `assets/swipe.js` | ה-regex של הצ'יפ שהסוג שייך אליו (‏`TYPES`), כי שם ההתאמה היא על הערך ולא דרך הליבה |
+| `scripts/search_feature_cases.json` | דוגמאות ל-`typeIn` ול-`botTypes` |
+| מיגרציה | `property_type_class` (הסקיל `cma-report`): סוג לא מוכר נופל מדוח ה-CMA בלי שגיאה |
+
+ונכסים שכבר פורסמו תחת סוג קרוב - מיגרציית backfill שמשמרת את טביעת
+האצבע השיווקית (‏`20271106150000`, לפי `20261202090000`).
+
 ## לפני הדחיפה
 
 ```sh
