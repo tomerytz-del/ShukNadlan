@@ -118,9 +118,9 @@ DISPLAY = [
     ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
     ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
     ('course.html', r'וסימולציות\. ' + N + r' ₪ לשישה חודשים',           'course_price_gross'),
-    ('learn.html',  r'id="payAmount">' + N + '<',                      'course_price_gross'),
-    ('learn.html',  r'id="payMonths">' + N + '<',                      'course_access_months'),
-    ('learn.html',  r'ב-' + N + r' ₪ כולל מע״מ',                        'course_price_gross'),
+    ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
+    ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
+    ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
 ]
 
 
