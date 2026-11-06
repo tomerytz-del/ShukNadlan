@@ -441,7 +441,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 
      במובייל זו ממילא עמודה אחת בסדר ה-DOM: פרטים ← הדמיות ← מפה ←
      משרד. */
-  .content-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:22px 0 40px}
+  /* ‏minmax(0,1fr) גם בטלפון: פריט גריד עם min-width:auto מתרחב לרוחב הטבלה
+     שבתוכו (עסקאות אחרונות, 420px) ודוחף את כל הדף לגלילה אופקית */
+  .content-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;padding:22px 0 40px}
   /* ההדמיות צמודות לפרטי הנכס — הן ההמשך שלהם ולא מקטע חדש. שאר
      הבלוקים בעמודה שומרים על מרווח מלא, כי הם כן מקטעים נפרדים. */
   .content-col > #vizSection{margin-top:10px}
@@ -475,6 +477,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
      בשתי עמודות (‏560px היא הנקודה שבה היא חוזרת אליהן). */
   @media(min-width:980px){
     .content-grid{grid-template-columns:minmax(0,1fr) 340px}
+    /* עמודת הצד נשארת על המסך כשגוללים את התוכן (6.11.2026, PR B): הקשר,
+       המחשבון והמשרד זמינים ליד כל מקטע. גבוהה מהמסך - נגללת בתוכה. */
+    .sidebar{position:sticky;top:12px;max-height:calc(100dvh - 24px);overflow-y:auto;scrollbar-width:thin}
   }
 
   h1.prop-title{font-size:1.4rem;line-height:1.3}
@@ -977,6 +982,44 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .calc-cta:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(14,42,107,.32)}
   .calc-cta svg{width:20px;height:20px;flex:none}
   .calc-fine{font-size:.68rem;color:var(--ink-soft);margin:0;text-align:center}
+  /* "כמה מזומן צריך להביא" */
+  .calc-cash{background:var(--surface-soft);border:1px solid var(--hair);padding:12px}
+  .calc-cash-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .calc-cash-head .lbl{font-size:.8rem;font-weight:800;color:var(--ink)}
+  .calc-buyer{display:inline-flex;border:1px solid var(--hair-strong);background:#fff}
+  .calc-buyer button{font:inherit;font-size:.72rem;font-weight:700;padding:5px 9px;border:0;background:transparent;color:var(--ink-soft);cursor:pointer}
+  .calc-buyer button[aria-pressed="true"]{background:var(--teal);color:#fff}
+  .calc-cash-total{font-size:1.5rem;font-weight:900;color:var(--teal-dark);margin:8px 0 6px;font-variant-numeric:tabular-nums}
+  .calc-cash-rows{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:.74rem;color:var(--ink-soft)}
+  .calc-cash-rows li{display:flex;justify-content:space-between;gap:8px}
+  .calc-cash-rows b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .calc-cash-fine{font-size:.66rem;color:var(--ink-soft);margin:8px 0 0}
+  /* שני שלבים בטפסים */
+  .step-ind{font-size:.74rem;font-weight:800;color:var(--teal-dark);margin:0 0 8px}
+  .inq-quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+  .inq-quick button{font:inherit;font-size:.76rem;font-weight:700;padding:7px 11px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink);cursor:pointer;border-radius:999px}
+  .inq-quick button[aria-pressed="true"],.inq-quick button:hover{border-color:var(--teal);background:var(--teal-tint);color:var(--teal-dark)}
+  .step-back{display:block;width:100%;margin-top:8px;font:inherit;font-size:.78rem;font-weight:700;color:var(--ink-soft);background:transparent;border:0;cursor:pointer;text-align:center}
+  .step-back:hover{color:var(--teal-dark);text-decoration:underline}
+  .mlead-foot .step-back{margin-top:6px}
+  /* עסקאות אחרונות בסביבה */
+  .panel-sub{font-size:.72rem;color:var(--ink-soft);font-weight:600}
+  .deals-compare{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .deals-compare span{font-size:.78rem;font-weight:700;background:var(--teal-tint);color:var(--teal-dark);padding:6px 10px}
+  .deals-wrap{overflow-x:auto}
+  .deals-table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:420px}
+  .deals-table th{text-align:right;font-size:.7rem;color:var(--ink-soft);font-weight:700;padding:6px 6px;border-bottom:1px solid var(--hair-strong)}
+  .deals-table td{padding:8px 6px;border-bottom:1px solid var(--hair);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .deals-table td.num{font-weight:700;color:var(--ink)}
+  .deals-fine{font-size:.68rem;color:var(--ink-soft);margin:10px 0 0}
+  /* גודל טקסט */
+  .text-size-btn{margin-top:8px;font:inherit;font-size:.72rem;font-weight:700;padding:5px 10px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink-soft);cursor:pointer;border-radius:999px}
+  .text-size-btn[aria-pressed="true"]{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .text-size-btn small{font-size:.7em;vertical-align:super}
+  /* ‏zoom ולא font-size: כמעט כל הטקסט בדף ב-rem, ו-em על העמודה לא היה מגדיל אותו */
+  html[data-text="lg"] .content-col{zoom:1.12}
+  /* מרחק מהעיר המרכזית של השוק, לנכס ביישוב אחר */
+  .prop-dist{color:var(--ink-soft);font-weight:600}
 
   /* ====== בלון ליד ייעוץ משכנתאות ====== */
   .mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:300;align-items:flex-end;justify-content:center}
@@ -1385,6 +1428,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
+        <!-- גודל טקסט (6.11.2026, PR B): נשמר במכשיר (sk_text_size), חל על עמודת התוכן -->
+        <button type="button" class="text-size-btn" id="textSizeBtn" aria-pressed="false" title="טקסט גדול יותר">א<small>+</small> טקסט גדול</button>
         <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן -->
         <p class="listing-no" id="listingNo" hidden>מודעה #<span id="listingNoN"></span>
           <button type="button" id="listingCopy" aria-label="העתקת מספר המודעה" title="העתקת מספר המודעה">העתקה</button></p>
@@ -1588,6 +1633,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
            כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
            והמפה עלתה בפועל. -->
+      <!-- עסקאות אחרונות בסביבה (6.11.2026, PR B): עובדות מרשות המיסים ליד המחיר
+           המבוקש, בלי ציון. property_recent_deals במסד; renderRecentDeals ב-property.js.
+           hidden עד שהמסד ענה, ונשאר מוסתר בהשכרה ובלי עסקאות. -->
+      <section class="panel" id="dealsSection" hidden>
+          <div class="panel-head">
+            <h2>עסקאות אחרונות בסביבה</h2>
+            <span class="panel-sub">רשות המיסים · אותו סוג נכס · עד 2 ק״מ</span>
+          </div>
+          <div class="deals-compare" id="dealsCompare" hidden></div>
+          <div class="deals-wrap">
+            <table class="deals-table">
+              <thead><tr><th>מתי</th><th>רחוב</th><th>חדרים</th><th>מ״ר</th><th>מחיר</th><th>למ״ר</th></tr></thead>
+              <tbody id="dealsBody"></tbody>
+            </table>
+          </div>
+          <p class="deals-fine">עסקאות שדווחו לרשות המיסים ב-24 החודשים האחרונים, ללא מספר בית. זה מידע, לא הערכת שווי ולא תחליף לשומה של שמאי/ת מקרקעין.</p>
+      </section>
+
       <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
@@ -1854,11 +1917,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <h2>תיאום ביקור בנכס</h2>
             <p class="sub">משאירים פרטים, והם יועברו למפרסם המודעה</p>
             <p class="fair-form-line" id="fairFormLine" hidden></p>
+            <!-- שני שלבים (6.11.2026, PR B): הבקשה קודם, הפרטים אחר כך. אותו payload. -->
             <form id="inquiryForm">
-              <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
-              <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>
-              <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
-              <button type="submit" class="btn-submit" id="inquirySubmit">שליחת פנייה</button>
+              <div class="form-step" data-step="1">
+                <p class="step-ind">שלב 1 מתוך 2 · מה תרצו?</p>
+                <div class="inq-quick" role="group" aria-label="בקשות נפוצות">
+                  <button type="button" data-quick="אשמח לתאם ביקור בנכס">לתאם ביקור</button>
+                  <button type="button" data-quick="אשמח לקבל פרטים נוספים על הנכס">פרטים נוספים</button>
+                  <button type="button" data-quick="אשמח לשיחה חוזרת">שיחה חוזרת</button>
+                </div>
+                <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
+                <button type="button" class="btn-submit" id="inquiryNext">המשך ←</button>
+              </div>
+              <div class="form-step" data-step="2" hidden>
+                <p class="step-ind">שלב 2 מתוך 2 · איך חוזרים אליכם?</p>
+                <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
+                <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>
+                <button type="submit" class="btn-submit" id="inquirySubmit">שליחת פנייה</button>
+                <button type="button" class="step-back" id="inquiryBack">← חזרה לבקשה</button>
+              </div>
             </form>
             <div id="inquiryFeedback"></div>
             <div class="agent-actions" id="agentActions"></div>
@@ -1874,6 +1951,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="calc-price">
             <span class="lbl">מחיר הנכס</span>
             <span class="val" id="calcPriceLabel">-</span>
+          </div>
+
+          <!-- "כמה מזומן צריך להביא" (6.11.2026, PR B): השאלה שקודמת ל"כמה אחזיר
+               בחודש". הון עצמי + מס רכישה (לפי סוג הרכישה) + עו״ד + תיווך + פתיחת
+               תיק. המספרים ב-CASH_COSTS ב-assets/property.js; docs/mortgage-leads.md -->
+          <div class="calc-cash" id="calcCash">
+            <div class="calc-cash-head">
+              <span class="lbl">כמה מזומן צריך להביא?</span>
+              <div class="calc-buyer" role="group" aria-label="סוג הרכישה">
+                <button type="button" data-buyer="single" aria-pressed="true">דירה יחידה</button>
+                <button type="button" data-buyer="extra" aria-pressed="false">דירה נוספת</button>
+              </div>
+            </div>
+            <div class="calc-cash-total"><span id="calcCashTotal">-</span> ₪</div>
+            <ul class="calc-cash-rows">
+              <li><span>הון עצמי</span><b id="cashEquity">-</b></li>
+              <li><span>מס רכישה</span><b id="cashTax">-</b></li>
+              <li><span>עו״ד (0.5% + מע״מ)</span><b id="cashLawyer">-</b></li>
+              <li id="cashBrokerRow"><span>דמי תיווך (2% + מע״מ)</span><b id="cashBroker">-</b></li>
+              <li id="cashBankRow"><span>פתיחת תיק, שמאי ורישום</span><b id="cashBank">-</b></li>
+            </ul>
+            <p class="calc-cash-fine" id="calcCashFine"></p>
           </div>
 
           <div>
@@ -1990,31 +2089,39 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <!-- novalidate: הוולידציה ב-JS כדי שההודעות יהיו בעברית ובמקום אחד -->
     <form id="mleadForm" novalidate>
+      <!-- שני שלבים (6.11.2026, PR B): קודם הבקשה (מה מבקשים ולמי), ואז הפרטים. -->
       <div class="mlead-body">
-        <p class="mlead-intro">משאירים פרטים, והפרטים יועברו ליועצי משכנתאות מהאזור, שיוכלו לפנות אליכם עם בדיקת זכאות ומסלולי מימון לנכס הזה.</p>
-        <div class="mlead-recap" id="mleadRecap"></div>
-
-        <div class="mlead-field">
-          <label for="mleadName">שם מלא</label>
-          <input type="text" id="mleadName" autocomplete="name">
+        <div class="form-step" data-step="1">
+          <p class="step-ind">שלב 1 מתוך 2 · הבקשה</p>
+          <p class="mlead-intro">יועץ/ת משכנתאות מהאזור יחזור/תחזור אליכם עם בדיקת זכאות ומסלולי מימון לנכס הזה. קודם מה שהיועץ/ת צריך/ה לדעת:</p>
+          <div class="mlead-recap" id="mleadRecap"></div>
+          <label class="mlead-check" for="mleadOwns">
+            <input type="checkbox" id="mleadOwns">
+            <span>יש ברשותי דירה</span>
+          </label>
+          <p class="mlead-privacy">הפרטים מועברים לגורם מקצועי אחד בלבד בתחום המשכנתאות, לצורך חזרה אליכם.</p>
         </div>
-        <div class="mlead-field">
-          <label for="mleadPhone">טלפון</label>
-          <input type="tel" id="mleadPhone" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+        <div class="form-step" data-step="2" hidden>
+          <p class="step-ind">שלב 2 מתוך 2 · איך חוזרים אליכם?</p>
+          <div class="mlead-field">
+            <label for="mleadName">שם מלא</label>
+            <input type="text" id="mleadName" autocomplete="name">
+          </div>
+          <div class="mlead-field">
+            <label for="mleadPhone">טלפון</label>
+            <input type="tel" id="mleadPhone" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+          </div>
+          <div class="mlead-field">
+            <label for="mleadEmail">אימייל</label>
+            <input type="email" id="mleadEmail" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+          </div>
+          <p class="mlead-error" id="mleadError" role="alert"></p>
         </div>
-        <div class="mlead-field">
-          <label for="mleadEmail">אימייל</label>
-          <input type="email" id="mleadEmail" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
-        </div>
-        <label class="mlead-check" for="mleadOwns">
-          <input type="checkbox" id="mleadOwns">
-          <span>יש ברשותי דירה</span>
-        </label>
-        <p class="mlead-error" id="mleadError" role="alert"></p>
-        <p class="mlead-privacy">הפרטים מועברים לגורם מקצועי אחד בלבד בתחום המשכנתאות, לצורך חזרה אליכם.</p>
       </div>
       <div class="mlead-foot">
-        <button type="submit" class="btn btn-gold btn-block" id="mleadSubmitBtn">שליחה</button>
+        <button type="button" class="btn btn-gold btn-block" id="mleadNextBtn">המשך ←</button>
+        <button type="submit" class="btn btn-gold btn-block" id="mleadSubmitBtn" hidden>שליחה</button>
+        <button type="button" class="step-back" id="mleadBackBtn" hidden>← חזרה</button>
       </div>
     </form>
 
