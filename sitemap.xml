@@ -95,6 +95,12 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/markets</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/faq</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>

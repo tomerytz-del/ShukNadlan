@@ -38,6 +38,7 @@ MARKETS_JS = ROOT / "assets" / "markets.js"
 MARKET_PAGES = ROOT / "netlify" / "edge-functions" / "market-pages.ts"
 REDIRECTS = ROOT / "_redirects"
 SITEMAP = ROOT / "sitemap.xml"
+MARKETS_PAGE = ROOT / "markets.html"
 MIGRATIONS = ROOT / "supabase" / "migrations"
 HOME_JS = ROOT / "assets" / "home.js"
 SERVICE_MARKETS_TS = ROOT / "supabase" / "functions" / "_shared" / "service-markets.ts"
@@ -187,6 +188,43 @@ def main() -> int:
     known = {m["path"] for m in markets if not m["default"]}
     for extra in sorted(paths - known):
         problems.append("‏%s ב-config.path של market-pages.ts ואין שוק כזה ב-assets/markets.js." % extra)
+
+    # ‏8. דף "השווקים שלנו" (‏markets.html) - הרשימה הציבורית שגוגל קוראת. היא
+    # סטטית בכוונה (מנועי AI אינם מריצים JS), ולכן היא עותק של markets.js
+    # שמתיישן בשקט: שוק חדש, שם שהשתנה או שוק שנדלק חייבים להופיע בה.
+    markets_page = MARKETS_PAGE.read_text(encoding="utf-8") if MARKETS_PAGE.exists() else ""
+    if not markets_page:
+        problems.append("‏markets.html חסר - דף השווקים הציבורי (docs/regional-pages.md).")
+    else:
+        for m in markets:
+            row = re.search(r'<li class="mk-row( is-live)?" data-market="%s">(.*?)</li>' % re.escape(m["slug"]),
+                            markets_page, re.S)
+            if not row:
+                problems.append("‏%s: אין שורה ב-markets.html (data-market=\"%s\")." % (m["slug"], m["slug"]))
+                continue
+            if ('href="%s"' % m["path"]) not in row.group(2):
+                problems.append("‏%s: השורה ב-markets.html אינה מקשרת ל-%s." % (m["slug"], m["path"]))
+            if (">%s</a>" % m["label"]) not in row.group(2):
+                problems.append("‏%s: השם ב-markets.html שונה מ-assets/markets.js (%s)." % (m["slug"], m["label"]))
+            if bool(row.group(1)) != m["live"]:
+                problems.append("‏%s: הסטטוס ב-markets.html (%s) שונה מ-live ב-assets/markets.js."
+                                % (m["slug"], "באוויר" if row.group(1) else "נפתחים בקרוב"))
+        page_slugs = set(re.findall(r'data-market="([^"]+)"', markets_page))
+        for extra in sorted(page_slugs - set(slugs)):
+            problems.append("‏%s ב-markets.html ואין שוק כזה ב-assets/markets.js." % extra)
+        # המספרים בדף (כותרת, תיאור, H1, שורת הסיכום, התשובה בשאלות) כתובים ביד
+        # ומתיישנים עם כל שוק שנוסף או נדלק: כל "N שווקים" / "N באוויר" /
+        # "N נפתחים בקרוב" / "N שווקים נוספים" חייב להתאים לרשימה.
+        total, live_n = len(markets), sum(1 for m in markets if m["live"])
+        for pat, want, what in [
+            (r"(\d+) (?:שווקים|שווקי|אזורים)(?!\w| נוספים)", total, "מספר השווקים"),
+            (r"(\d+) באוויר", live_n, "השווקים החיים"),
+            (r"(\d+) נפתחים בקרוב", total - live_n, "השווקים שעוד לא נפתחו"),
+            (r"(\d+) שווקים נוספים", total - 1, "השווקים הנוספים"),
+        ]:
+            for n in sorted({int(x) for x in re.findall(pat, markets_page)}):
+                if n != want:
+                    problems.append("‏markets.html: %s כתוב %d, וברשימה %d." % (what, n, want))
 
     if problems:
         print("✗ השווקים אינם מסכימים:\n")

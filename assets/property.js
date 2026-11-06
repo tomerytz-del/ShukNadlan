@@ -3158,8 +3158,10 @@ function renderContactButtons(p){
   };
 
   if (!phone){
-    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס
+    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס. שורת הגילוי נשארת מתחתיו.
     formBtn.hidden = false;
+    document.getElementById('agentActions').innerHTML =
+      '<p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>';
     return;
   }
   formBtn.hidden = true;
@@ -3202,7 +3204,27 @@ function renderContactButtons(p){
     </a>
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
-    </a>`;
+    </a>` +
+    /* "מימון" ליד כפתורי הקשר (6.11.2026, ההשראה: כפתור Financing בכרטיס של
+       Eretzly): לא יכולת חדשה אלא פתח למחשבון שכבר בדף, עם מחיר הנכס. במודעת
+       השכרה המחשבון כולו יורד (למעלה), ולכן גם הכפתור. */
+    (p.deal_type === 'rent' ? '' : `
+    <a class="btn-fin" href="#calcCard" id="finBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3M13 11h3M8 15h3M13 15h3"/></svg>
+      <span>כמה מזומן ומשכנתא צריך לנכס הזה?</span>
+    </a>`) +
+    /* שורת הגילוי: מי מקבל את הפרטים. ‏privacy.html מבטיח את זה; כאן זה נאמר
+       במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly). */
+    `
+    <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;
+  const finBtn = document.getElementById('finBtn');
+  if (finBtn) finBtn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const card = document.getElementById('calcCard');
+    if (!card) return;
+    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(()=> document.getElementById('calcEquity')?.focus({ preventScroll:true }), 450);
+  });
 }
 
 /* ---------- שמירה (§6, v10 בלבד) ----------
