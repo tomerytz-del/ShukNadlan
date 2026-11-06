@@ -68,7 +68,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px}
   html body a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:48px;text-align:center;padding:12px 20px}
   html body .trust{font-size:15px}
-  html body a.offer{display:inline-flex;align-items:center;justify-content:center;text-align:center;background:var(--brass-tint);color:var(--sapphire-deep);border:1px solid var(--brass);border-radius:999px;padding:12px 18px;font-weight:800;text-decoration:none;min-height:48px}
+  html body a.offer{align-items:center;justify-content:center;text-align:center;background:var(--brass-tint);color:var(--sapphire-deep);border:1px solid var(--brass);border-radius:999px;padding:12px 18px;font-weight:800;text-decoration:none;min-height:48px}
+  html body a.offer:not([hidden]){display:inline-flex}
   html body a.offer:hover{color:var(--sapphire-deep)}
   html body .table-scroll{overflow-x:auto;max-width:100%;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
   html body table.cmp{width:100%;border-collapse:collapse;min-width:36rem}
@@ -79,12 +80,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .faq summary{cursor:pointer;font-weight:800;color:var(--ink)}
   html body .faq details p{margin:8px 0 0;max-width:65ch}
   html body .closer{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 18px;margin-top:8px}
-  /* ההטבה מוסתרת עד ש-PROMO.active. הכלל עם !important גובר על display של
-     a.offer, כמו [hidden] ב-pricing.html. data-promo נקבע ב-head לפני הציור. */
-  html body .promo-gift[hidden]{display:none !important}
-  html[data-promo="on"] body .note.promo-gift[hidden]{display:block !important}
-  html[data-promo="on"] body a.offer.promo-gift[hidden]{display:inline-flex !important}
-  html[data-promo="on"] body span.promo-gift[hidden]{display:inline !important}
 </style>
 
 <script src="assets/page-bg.js" data-auto></script>
@@ -95,10 +90,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
-<!-- הדגל לפני הציור: בלי זה ההטבה הייתה קופצת אחרי הטעינה. בלי JS, או כש-PROMO.active כבוי, היא נשארת hidden. -->
 <script src="assets/tiers.js"></script>
 <script>
 document.documentElement.dataset.promo = (window.Tiers && Tiers.PROMO && Tiers.PROMO.active) ? "on" : "off";
+function revealPromoGifts() {
+  if (document.documentElement.dataset.promo !== "on") return;
+  var gifts = document.querySelectorAll(".promo-gift");
+  for (var i = 0; i < gifts.length; i++) gifts[i].hidden = false;
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", revealPromoGifts);
+else revealPromoGifts();
 </script>
 <script type="application/ld+json">
 {
@@ -356,6 +357,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <a class="offer promo-gift" href="/agency-signup" hidden>6 חודשי Elite במתנה, בלי כרטיס אשראי</a>
       </div>
     </section>
+    <script>revealPromoGifts();</script>
 
     <h2 id="faq">שאלות נפוצות</h2>
     <div class="faq">
