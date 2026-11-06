@@ -241,7 +241,7 @@ developer-crm?topup=success&topup_id=… → project-manage {action:"topup_statu
 `wallet_topups` ו-`subscription_orders`. הזמנת `ad_orders` (כרטיסיית בעל/ת
 מקצוע) שה-webhook שלה אבד לא הייתה מתיישבת לעולם, אלא אם במקרה הייתה באותו
 רגע טעינת ארנק פתוחה. `20270107090000` מוסיפה את `ad_orders` ואת
-`developer_topups` לתנאי, ו-`20271106090000` את `course_orders` (קורס ההכנה
+`developer_topups` לתנאי, ו-`20271106110000` את `course_orders` (קורס ההכנה
 למבחן המתווכים, `docs/exam-course.md`). **טבלת תשלום חדשה נכנסת לתנאי הזה
 באותה מיגרציה שיוצרת אותה**, אחרת הזמנה שה-webhook שלה אבד מחכה לטעינת ארנק
 של מישהו אחר.

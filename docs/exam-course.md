@@ -10,7 +10,7 @@
 | --- | --- |
 | דף המכירה (ציבורי, ב-sitemap) | `course.html` |
 | אזור הלמידה (פרטי, `noindex`, חסום ב-`robots.txt`) | `learn.html`, `assets/learn.js` |
-| הסכימה, ההרשאות והפונקציות | `supabase/migrations/20271106090000_exam_course.sql` |
+| הסכימה, ההרשאות והפונקציות | `supabase/migrations/20271106110000_exam_course.sql` |
 | התוכן | `course/content/*.json` → `scripts/course_content_sql.py` → `supabase/migrations/<version>_course_content.sql` |
 | הרכישה | `supabase/functions/course-purchase`, והסוג `course` ב-`wallet-topup-callback` |
 | המחיר והפרמטרים | `pricing_config`: ‏`course_price_gross`, ‏`course_access_months`, ‏`course_exam_questions`, ‏`course_exam_pass_pct` |
