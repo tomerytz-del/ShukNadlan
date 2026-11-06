@@ -42,13 +42,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="פלטפורמת מרקטפלייס נדל״ן למתווכים בישראל | שוק נדל״ן">
-<meta property="og:description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ. 6 חודשי Elite במתנה.">
+<meta property="og:description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
 <meta property="og:url" content="https://shuknadlan.co.il/for-brokers">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ. 6 חודשי Elite במתנה.">
+<meta name="description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -68,7 +68,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px}
   html body a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:48px;text-align:center;padding:12px 20px}
   html body .trust{font-size:15px}
-  html body a.offer{display:inline-flex;align-items:center;justify-content:center;text-align:center;background:var(--brass-tint);color:var(--sapphire-deep);border:1px solid var(--brass);border-radius:999px;padding:12px 18px;font-weight:800;text-decoration:none;min-height:48px}
+  html body a.offer{align-items:center;justify-content:center;text-align:center;background:var(--brass-tint);color:var(--sapphire-deep);border:1px solid var(--brass);border-radius:999px;padding:12px 18px;font-weight:800;text-decoration:none;min-height:48px}
+  html body a.offer:not([hidden]){display:inline-flex}
   html body a.offer:hover{color:var(--sapphire-deep)}
   html body .table-scroll{overflow-x:auto;max-width:100%;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
   html body table.cmp{width:100%;border-collapse:collapse;min-width:36rem}
@@ -89,6 +90,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
+<script src="assets/tiers.js"></script>
+<script>
+document.documentElement.dataset.promo = (window.Tiers && Tiers.PROMO && Tiers.PROMO.active) ? "on" : "off";
+function revealPromoGifts() {
+  if (document.documentElement.dataset.promo !== "on") return;
+  var gifts = document.querySelectorAll(".promo-gift");
+  for (var i = 0; i < gifts.length; i++) gifts[i].hidden = false;
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", revealPromoGifts);
+else revealPromoGifts();
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -159,7 +171,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       "name": "יש התחייבות או קנס יציאה?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "אין התחייבות ואין קנס יציאה. בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי; הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים."
+        "text": "אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים."
       }
     }
   ]
@@ -333,18 +345,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <li>מזמינים סוכנים בקישור מה-<a href="/crm">CRM</a>; כל סוכן בוחר מסלול.</li>
       <li>מעלים נכס ראשון מה-<a href="/crm">CRM</a>, או דרך גבריאלה בוואטסאפ במסלולים שכוללים אותה.</li>
     </ol>
-    <div class="note">
+    <div class="note promo-gift" hidden>
       <p><strong>הטבת השקה:</strong> מצטרפים חדשים מקבלים 6 חודשי Elite במתנה, בלי כרטיס אשראי. בתום התקופה בוחרים מסלול; מי שלא בוחר עובר ל-Pay&amp;GO בלי דמי מנוי ובלי לאבד נכסים, לידים ולקוחות.</p>
     </div>
 
     <section class="closer" aria-labelledby="closerTitle">
       <h2 id="closerTitle"><span class="nw">מוכנים לסדר את המשרד</span> <span class="nw">במקום אחד?</span></h2>
-      <p>הצטרפות קצרה. אין התחייבות ואין קנס יציאה. בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי. המסלולים והמחירים המלאים ב-<a href="/pricing">/pricing</a>.</p>
+      <p>הצטרפות קצרה. אין התחייבות ואין קנס יציאה. <span class="promo-gift" hidden>בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי.</span> המסלולים והמחירים המלאים ב-<a href="/pricing">/pricing</a>.</p>
       <div class="actions">
         <a class="btn btn-teal" href="/agency-signup">הצטרפות כמשרד תיווך</a>
-        <a class="offer" href="/agency-signup">6 חודשי Elite במתנה, בלי כרטיס אשראי</a>
+        <a class="offer promo-gift" href="/agency-signup" hidden>6 חודשי Elite במתנה, בלי כרטיס אשראי</a>
       </div>
     </section>
+    <script>revealPromoGifts();</script>
 
     <h2 id="faq">שאלות נפוצות</h2>
     <div class="faq">
@@ -370,7 +383,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
       <details>
         <summary>יש התחייבות או קנס יציאה?</summary>
-        <p>אין התחייבות ואין קנס יציאה. בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי; הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים.</p>
+        <p>אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים.</p>
       </details>
     </div>
 
