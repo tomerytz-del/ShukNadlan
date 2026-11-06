@@ -2987,6 +2987,7 @@ function renderProperty(p){
   renderAgentCard(p);
   renderContactButtons(p);
   renderWaShare(p);
+  initFinBtn(p);
   prefillInquiryMessage(p);
   setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
@@ -3209,7 +3210,8 @@ function renderContactButtons(p){
   sbCall.hidden = false;
   markFair(sbCall, 'call');
 
-  // כפתורים בכרטיס ההמרה
+  // כפתורים בכרטיס ההמרה, ושורת הגילוי: מי מקבל את הפרטים. privacy.html מבטיח את זה; כאן זה
+  // נאמר במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly)
   document.getElementById('agentActions').innerHTML = `
     <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${fairAttr('whatsapp')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
@@ -3217,22 +3219,22 @@ function renderContactButtons(p){
     </a>
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
-    </a>` +
-    /* "מימון" ליד כפתורי הקשר (6.11.2026, ההשראה: כפתור Financing בכרטיס של
-       Eretzly): לא יכולת חדשה אלא פתח למחשבון שכבר בדף, עם מחיר הנכס. במודעת
-       השכרה המחשבון כולו יורד (למעלה), ולכן גם הכפתור. */
-    (p.deal_type === 'rent' ? '' : `
-    <a class="btn-fin" href="#calcCard" id="finBtn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3M13 11h3M8 15h3M13 15h3"/></svg>
-      <span>כמה מזומן ומשכנתא צריך לנכס הזה?</span>
-    </a>`) +
-    /* שורת הגילוי: מי מקבל את הפרטים. ‏privacy.html מבטיח את זה; כאן זה נאמר
-       במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly). */
-    `
+    </a>
     <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;
-  const finBtn = document.getElementById('finBtn');
-  if (finBtn) finBtn.addEventListener('click', (e)=>{
-    e.preventDefault();
+}
+
+/* ---------- "אפשרויות מימון" בשורת השמירה והשיתוף (7.11.2026) ----------
+   לא יכולת חדשה אלא פתח למחשבון שכבר בדף (#calcCard, עם מחיר הנכס): גלילה אליו ופוקוס על
+   סליידר ההון העצמי. ההשראה: כפתור Financing בכרטיס של eretzly.com. הכפתור סטטי ב-
+   property.html (‏#finBtn, ‏.prop-fin) ומוסתר עד כאן; במודעת השכרה המחשבון כולו יורד, ולכן גם
+   הכפתור. ישב קודם מתחת לכפתורי הקשר ("כמה מזומן ומשכנתא צריך לנכס הזה?") וקרוב מדי למחשבון. */
+function initFinBtn(p){
+  const btn = document.getElementById('finBtn');
+  if (!btn) return;
+  btn.hidden = !p || p.deal_type === 'rent';
+  if (btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', ()=>{
     const card = document.getElementById('calcCard');
     if (!card) return;
     card.scrollIntoView({ behavior:'smooth', block:'start' });
