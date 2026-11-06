@@ -66,6 +66,7 @@
 - [כתבות ומדריכים](https://shuknadlan.co.il/articles)
 - [אודות](https://shuknadlan.co.il/about)
 - [מסלולים ומחירים ליועצי נדל״ן](https://shuknadlan.co.il/pricing)
+- [פלטפורמת מרקטפלייס ו-CRM למתווכים](https://shuknadlan.co.il/for-brokers)
 
 ## Optional
 
