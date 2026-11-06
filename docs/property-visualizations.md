@@ -375,7 +375,7 @@ POST { property_id, style?, business_type?, business_description?, name, phone }
 - בלם קצב: `visualization_ondemand_daily_cap` בקשות ל-24 שעות **פר נכס**
   (לא פר גולש/ת — אין לנו זהות אמינה בצד הזה).
 - **בלם לגולש/ת** (‏PR 1010; המיגרציה אושרה ב-6.11.2026,
-  ‏`20271106140000_visualization_visitor_cap.sql`): עד 10 בקשות שמייצרות הדמיה
+  ‏`20271106160000_visualization_visitor_cap.sql`): עד 10 בקשות שמייצרות הדמיה
   ב-24 שעות לפי מכשיר **או** IP. הדפדפן שולח `x-sk-device` (‏`sk_device_id`).
   ה-IP הוא מה ש**הפלטפורמה** כתבה - `clientIp()` מ-`_shared/fair-contact.ts`
   (‏`cf-connecting-ip`, או הקפיצה האחרונה ב-`x-forwarded-for`; הקפיצה הראשונה

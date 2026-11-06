@@ -344,7 +344,7 @@ Deno.serve(async (req: Request) => {
   // יכול לכתוב בעצמו), ונשמר רק כגיבוב של מפתח הקצב (‏IPv6 לפי /64) עם
   // ‏VIZ_IP_SALT; בלי הסוד - המלח הקבוע של fair-contact, כך שהבלם לפי IP פעיל
   // גם לפניו. ‏device_id ו-client_ip_hash נוספו במיגרציה
-  // ‏20271106140000_visualization_visitor_cap ומאופסות אחרי 30 יום.
+  // ‏20271106160000_visualization_visitor_cap ומאופסות אחרי 30 יום.
   const deviceId = String(req.headers.get("x-sk-device") ?? "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 64) || null;
   const rawIpHash = await hashIp(clientIp(req), Deno.env.get("VIZ_IP_SALT") ?? "");
   // בלי IP (‏SHARED_IP_HASH) אין מה לספור לפי IP: אחרת כל הבקשות בלי כתובת

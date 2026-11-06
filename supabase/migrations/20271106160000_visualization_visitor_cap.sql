@@ -252,7 +252,7 @@ begin
       end if;
 
     elsif s.policy = 'visualization_visitor_ids' then
-      -- נשמר מ-20271106140000. מזהה המכשיר וגיבוב ה-IP משרתים רק את בלם
+      -- נשמר מ-20271106160000. מזהה המכשיר וגיבוב ה-IP משרתים רק את בלם
       -- 24 השעות; אחרי 30 יום הם נמחקים מהשורה, והשורה (העבודה, הליד,
       -- החיוב) נשארת.
       select count(*) into v_n from public.visualization_jobs j
