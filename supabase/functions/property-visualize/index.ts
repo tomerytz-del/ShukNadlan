@@ -345,8 +345,8 @@ Deno.serve(async (req: Request) => {
   // נבדק רק כשבאמת יש מה לייצר: קאש אינו נספר ואינו נחסם. המזהה מגיע מהדפדפן
   // (‏x-sk-device, ‏sk_device_id ב-localStorage), וה-IP נשמר רק כגיבוב עם
   // ‏VIZ_IP_SALT - בלי המלח אין גיבוב ונשאר רק המכשיר. ‏device_id ו-
-  // ‏client_ip_hash נוספות במיגרציה שתומר מחיל (docs/proposals/), ועד אז
-  // השאילתה נכשלת על עמודה חסרה והבלם פשוט לא פעיל - כמו לפני השינוי.
+  // ‏client_ip_hash נוספו במיגרציה 20271106140000_visualization_visitor_cap;
+  // אם השאילתה נכשלת (למשל לפני שהיא רצה) הבלם פשוט לא פעיל.
   const deviceId = String(req.headers.get("x-sk-device") ?? "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 64) || null;
   const ip = String(req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
   const ipSalt = Deno.env.get("VIZ_IP_SALT");
