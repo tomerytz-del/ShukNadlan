@@ -669,6 +669,15 @@ create schema if not exists extensions;
 create schema if not exists private;
 create extension if not exists pgcrypto with schema extensions;
 create extension if not exists "uuid-ossp" with schema extensions;
+-- auth.users אינה ב-dump של public, ו-FK אליה במיגרציה **ממתינה** היה נופל כאן
+-- (20271106090000, course_enrollments) - בניגוד ל-FK שכבר בדאמפ, שהשגיאה שלו
+-- ברשימה המותרת. stub עם העמודות שמיגרציות קוראות (id, email, metadata).
+create table if not exists auth.users (
+  id uuid primary key,
+  email text,
+  raw_user_meta_data jsonb,
+  created_at timestamptz default now()
+);
 create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
 create or replace function auth.role() returns text language sql stable as $$ select ''::text $$;
 create or replace function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
