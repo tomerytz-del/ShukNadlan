@@ -147,7 +147,24 @@ description: סרטון שיווק, רילס או הדרכה לפלטפורמה 
 - **שוט לכל שורת קריינות**, האצה (`setpts`) רק לגלילה ולהחלקות, לא לרגעים
   שבהם משהו נפתח. ‏`timeline.json` שהסקריפט כותב הוא מה שמסנכרנים אליו את
   ההקלטה הקולית: חותכים לפי השקט בין השורות (`silencedetect`), בלי שירות חיצוני.
-- מוזיקה: אין ספרייה בסביבה. או Reelkit אחרי התחברות, או שהאודיו הטרנדי
-  נבחר באפליקציה בהעלאה - וזה גם עוזר להפצה.
+- **מקורות סאונד חינמיים**, בסדר הזה:
+  1. **הספרייה של Reelkit** (אחרי `reelkit auth login`): מוזיקה לפי תחושה
+     (`reelkit music <feeling> --search`, ‏`reelkit assets pull <id> --music`)
+     ואפקטים (`reelkit assets search "swipe whoosh" --kind sfx`). מכסה את רוב
+     הצרכים של רילס: whoosh, ping, chime, pop.
+  2. **SFXMint** (‏`sfxmint.com`, ברשימת הדומיינים של `shuknadlan`): 10,000+
+     אפקטים CC0, בלי קרדיט ובלי מפתח. ‏`GET https://sfxmint.com/api/v1/search?q=…&response=structured&limit=3`
+     מחזיר `candidates` (עומדים בכל התנאים) ו-`closest`; מורידים מ-`mp3_url`.
+     בלי מפתח: 20 חיפושים ו-5 הורדות ביום. יש לו גם שרת MCP מרוחק
+     (`https://sfxmint.com/mcp`) אם ירצו אותו כקונקטור.
+  3. **Soundza** (אפקטים, מוזיקה ואמביינס, חינם למסחרי): קונקטור MCP מרוחק
+     עם OAuth, `https://mcp.soundza.com/mcp/oauth`, מתחברים ב-claude.ai ולא
+     מהסשן.
+  4. **Freesound**: דורש מפתח API ב-Network secrets של הסביבה (host
+     ‏`freesound.org`, ‏`Authorization`, קידומת `Token`), ורק CC0 או CC-BY.
+  **קרדיט:** כל צליל שלא Reelkit ולא CC0 מקבל שורה ב-`ASSET_SOURCES.md` של
+  הסרטון (יוצר/ת, רישיון, קישור) כדי שהקרדיט יהיה מוכן לתיאור הפוסט.
+  ובהעלאה לאינסטגרם, סאונד טרנדי מהאפליקציה עדיף על מוזיקה צרובה: אז
+  מרנדרים עם הקריינות בלבד.
 - `check_long_dash.py` אינו רואה כתוביות שנצרבות לווידאו; הכלל על המקף הארוך
   נבדק בעין ב-`LINES` לפני הרינדור.
