@@ -646,7 +646,7 @@
     ['farm', fcl('farm', 'משקים ונחלות'), /^(משק חקלאי\/נחלה|משק עזר)$/], ['land', fcl('land', 'מגרשים'), /מגרש|קרקע/], ['comm', 'מסחרי', null],
     /* ‏P1-N1: תת-סוגים מסחריים - מוצגים רק כשהעסקה "מסחרי" */
     ['office', fcl('office', 'משרדים'), /משרד/, 1], ['shop', fcl('shop', 'חנויות'), /חנו|שטח מסחרי|קליניק/, 1], ['industry', fcl('industry', 'מבני תעשייה'), /תעשי/, 1],
-    ['warehouse', fcl('warehouse', 'מחסנים'), /מחס[ןנ]/, 1], ['comm_land', fcl('comm_land', 'מגרשים מסחריים'), /מגרש/, 1]];
+    ['warehouse', fcl('warehouse', 'מחסנים'), /מחס[ןנ]|לוגיסט/, 1], ['comm_land', fcl('comm_land', 'מגרשים מסחריים'), /מגרש/, 1]];
   // קישורים ישנים עם המפתחות הקודמים של /swipe (‏?type=apt, ‏c_office...)
   var TYPE_ALIAS = { apt: 'flats', garden: 'flats', roof: 'flats', c_office: 'office', c_shop: 'shop', c_industry: 'industry', c_storage: 'warehouse', c_land: 'comm_land' };
   function typeOk(p, key) {
