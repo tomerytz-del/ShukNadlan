@@ -264,7 +264,7 @@ export const RESIDENTIAL_PTYPES = [
 export const COMMERCIAL_PTYPES = [
   "משרדים", "חנויות/שטח מסחרי", "מבני תעשייה", "אולמות", "חלל עבודה משותף",
   "בניין משרדים", "מגרשים", "מחסנים", "סטודיו", "כללי", "מרתף", "חניון",
-  "בית מלון", "קליניקות",
+  "בית מלון", "קליניקות", "מרלו״ג/מרכז לוגיסטי",
 ];
 const RESIDENTIAL_FEATURES = [
   "parking", "elevator", "balcony", "sun_balcony", "ac", "bars", "accessible",
@@ -4371,7 +4371,7 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     const notElite = member && (!member.active || member.billing_status !== "active" || member.tier !== "premium");
     if (!notElite) {
       const type = String(input.property_type || "").trim();
-      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם/.test(type);
+      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם|מרלו|לוגיסט/.test(type);
       const land = /מגרש|קרקע|נחלה|משק/.test(type);
       const missing = [
         !type && "סוג הנכס (דירה, דירת גן, פנטהאוז, בית פרטי, חנות, משרד...)",

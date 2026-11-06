@@ -2308,6 +2308,7 @@ const TYPE_FAMILIES = {
   'חנויות/שטח מסחרי':'commercial', 'משרדים':'commercial', 'מבני תעשייה':'commercial',
   'בנין':'commercial', 'בניין':'commercial', 'מחסן':'commercial', 'חנות':'commercial',
   'משרד':'commercial', 'מבנה מסחרי':'commercial', 'אולם':'commercial',
+  'מחסנים':'commercial', 'מרלו״ג/מרכז לוגיסטי':'commercial',
   'מגרש':'land', 'מגרשים':'land', 'קרקע':'land', 'קרקעות':'land', 'נחלה':'land', 'משק':'land'
 };
 function typeFamily(t){ return TYPE_FAMILIES[String(t || '').trim()] || null; }
