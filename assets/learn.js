@@ -93,7 +93,6 @@
     return (h ? h + ':' : '') + (h ? ('0' + m).slice(-2) : m) + ':' + ('0' + sec).slice(-2);
   }
   function render(html) { $('app').innerHTML = html; window.scrollTo(0, 0); }
-  function wide() { return window.innerWidth >= 900; }
 
   if (!window.supabase) {
     render('<div class="band"><div class="band-in"><div class="bar-row"><img class="logo" src="' + LOGO + '" alt=""><span class="brand">קורס ההכנה</span></div></div></div>' +
@@ -345,7 +344,7 @@
     var me = state.me || {};
     var total = me.lessons_total || 0, done = me.lessons_done || 0;
     var exams = me.exams || [];
-    var last = exams.length ? Math.round(100 * exams[0].correct / exams[0].total) : null;
+    var last = exams.length && exams[0].total ? Math.round(100 * exams[0].correct / exams[0].total) : null;
     var nextId = nextOpenLesson();
     var extra = '<div class="map-head">' +
       '<div class="title-row"><h1>המסלול שלך</h1><span class="count">' + done + ' מתוך ' + total + ' שיעורים</span></div>' +
@@ -375,7 +374,7 @@
       '<button type="button" class="pc s" id="reviewBtn"><span class="r"><b>חזרה על טעויות</b></span><small>כל שאלה שטעיתם בה חוזרת עד שהיא יושבת</small></button>';
 
     render(band({ title: 'שוק נדל״ן', exit: 'logout', cls: 'map-band', extra: extra }) +
-      '<div class="map-cols"><div class="map">' + mapHtml + '</div><div class="practice aside-only">' + practice + '</div></div>' +
+      '<div class="map-cols"><div class="map">' + mapHtml + '</div><div class="practice">' + practice + '</div></div>' +
       '<nav class="map-nav" aria-label="תרגול">' +
       '<button type="button" class="btn-p" id="examBtnM">' + I.clock + ' סימולציה' + (last != null ? ' <span class="badge gold">' + last + '</span>' : '') + '</button>' +
       '<button type="button" class="btn-s" id="reviewBtnM">חזרה על טעויות</button></nav>');
@@ -383,8 +382,6 @@
     qa('.node').forEach(function (b) { b.addEventListener('click', function () { openLesson(b.getAttribute('data-lesson')); }); });
     ['examBtn', 'examBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('exam'); }); });
     ['reviewBtn', 'reviewBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('review'); }); });
-    // הכרטיסים של "סימולציה / חזרה" בצד מוצגים רק במחשב; בטלפון הסרגל התחתון
-    if (!wide()) { var pr = document.querySelector('.practice'); if (pr) pr.style.display = 'none'; }
   }
 
   /* ---------------------------------------------------------------- שיעור */
@@ -497,7 +494,7 @@
       html = '<div class="case-wrap">' + introM + '<div class="tab"><span>' + I.folder + ' תיק · סיפור מקרה</span></div>' +
         '<article class="case"><div class="who"><span class="ini">' + I.folder + '</span><div><b>' + escapeHtml(st.title) + '</b><small>מקרה מתוך הבחינה</small></div></div>' +
         '<p>' + escapeHtml(st.text) + '</p><p class="q">האם פעל כדין?</p></article>' +
-        (S.lawOpen ? '<section class="law" aria-label="מה אומר החוק"><small>' + I.scale + ' מה אומר החוק</small><p>' + escapeHtml(st.law || '') + '</p></section>' : '') + '</div>';
+        (S.lawOpen ? lawHtml(st) : '') + '</div>';
       foot = '<div class="foot">' + (S.lawOpen ? '' : '<button type="button" class="btn-o" id="lawBtn">' + I.scale + ' מה אומר החוק?</button>') + navBtns(true, 'הבא') + '</div>';
     } else if (st.type === 'check') {
       var q = S.qmap[st.question];
@@ -514,10 +511,7 @@
         foot = ans ? '' : '<div class="foot"><button type="button" class="btn-s" id="stepPrev"' + (S.idx === 0 ? ' disabled' : '') + '>הקודם</button></div>';
       }
     } else if (st.type === 'flash') {
-      var front = flashFront(st.text);
-      html = '<div class="deck-wrap"><div class="deck">' + (S.flipped
-        ? '<button type="button" class="flash back" id="flash" aria-label="חזרה לשאלה"><span class="pill navy">התשובה</span><span class="q">' + escapeHtml(front) + '</span><span class="big">' + escapeHtml(st.text) + '</span>' + (st.law ? '<span class="pill cream" style="font-size:15px">' + escapeHtml(st.law) + '</span>' : '') + '</button>'
-        : '<button type="button" class="flash front" id="flash" aria-label="הפכו את הכרטיס"><span class="pill gold">כרטיס זיכרון</span>' + I.doc + '<span class="big">' + escapeHtml(front) + '</span><span class="hint2">' + I.flip + ' הקישו כדי להפוך</span></button>') + '</div></div>';
+      html = '<div class="deck-wrap"><div class="deck">' + flashHtml(st, S.flipped) + '</div></div>';
       foot = '<div class="foot two"><button type="button" class="btn-no" id="noBtn">' + I.x16 + ' לא ידעתי</button><button type="button" class="btn-yes" id="yesBtn">' + I.check18 + ' ידעתי</button></div>';
     }
 
@@ -527,8 +521,24 @@
     on('fullText', 'click', function () { renderFullText(S.lesson, S.entry); });
     on('stepPrev', 'click', function () { if (S.idx > 0) { S.idx--; S.lawOpen = false; S.flipped = false; renderStep(); } });
     on('stepNext', 'click', function () { advance(); });
-    on('lawBtn', 'click', function () { S.lawOpen = true; renderStep(); });
-    on('flash', 'click', function () { S.flipped = !S.flipped; renderStep(); });
+    // הפיכת כרטיס ופתיחת "מה אומר החוק" נוגעות רק באלמנט שלהן: ציור מחדש של
+    // כל המסך היה מגלגל לראש הדף ומריץ שוב את אנימציית הכניסה.
+    on('lawBtn', 'click', function () {
+      S.lawOpen = true;
+      var btn = $('lawBtn'), wrap = document.querySelector('.case-wrap');
+      if (wrap) wrap.insertAdjacentHTML('beforeend', lawHtml(st));
+      if (btn) btn.remove();
+    });
+    bindFlash();
+    function bindFlash() {
+      on('flash', 'click', function () {
+        S.flipped = !S.flipped;
+        var deck = document.querySelector('.deck');
+        if (!deck) return;
+        deck.innerHTML = flashHtml(st, S.flipped);
+        bindFlash();
+      });
+    }
     on('noBtn', 'click', function () { S.unknown++; advance(); });
     on('yesBtn', 'click', function () { advance(); });
     if (st.type === 'check' && S.qmap[st.question]) {
@@ -542,6 +552,15 @@
       S.lawOpen = false; S.flipped = false;
       if (S.idx < total - 1) { S.idx++; renderStep(); } else finishSteps();
     }
+  }
+  function lawHtml(st) {
+    return '<section class="law" aria-label="מה אומר החוק"><small>' + I.scale + ' מה אומר החוק</small><p>' + escapeHtml(st.law || '') + '</p></section>';
+  }
+  function flashHtml(st, flipped) {
+    var front = flashFront(st.text);
+    return flipped
+      ? '<button type="button" class="flash back" id="flash" aria-label="חזרה לשאלה"><span class="pill navy">התשובה</span><span class="q">' + escapeHtml(front) + '</span><span class="big">' + escapeHtml(st.text) + '</span>' + (st.law ? '<span class="pill cream" style="font-size:15px">' + escapeHtml(st.law) + '</span>' : '') + '</button>'
+      : '<button type="button" class="flash front" id="flash" aria-label="הפכו את הכרטיס"><span class="pill gold">כרטיס זיכרון</span>' + I.doc + '<span class="big">' + escapeHtml(front) + '</span><span class="hint2">' + I.flip + ' הקישו כדי להפוך</span></button>';
   }
   function navBtns(prevOk, nextLabel) {
     var S = state.steps;
@@ -564,8 +583,9 @@
     el.addEventListener('touchend', function (e) {
       if (x0 == null) return;
       var dx = e.changedTouches[0].clientX - x0; x0 = null;
-      if (dx > 60) { var n = $('stepNext'); if (n) n.click(); }           // החלקה שמאלה ב-RTL = קדימה
-      else if (dx < -60) { var p = $('stepPrev'); if (p && !p.disabled) p.click(); }
+      // ב-RTL הקלף הבא יושב משמאל, והחץ ברמז מצביע שמאלה: החלקה שמאלה = קדימה
+      if (dx < -60) { var n = $('stepNext'); if (n) n.click(); }
+      else if (dx > 60) { var p = $('stepPrev'); if (p && !p.disabled) p.click(); }
     }, { passive: true });
   }
   function optionsHtml(q, ans, examMode) {
@@ -632,11 +652,30 @@
     }
     renderBoot('רושמים את הציון...');
     var r = await sb.rpc('course_attempt_finish', { p_attempt_id: S.attempt });
-    if (r.error || !r.data || r.data.error) { toast(errText(r.error || { message: r.data && r.data.error })); renderMap(); return; }
+    if (r.error || !r.data || r.data.error) {
+      // התשובות כבר במסד; מה שנכשל הוא הסיכום. לא זורקים את השיעור.
+      renderSubmitError(errText(r.error || { message: r.data && r.data.error }), finishSteps, renderStep);
+      return;
+    }
     var lesson = S.lesson, unknown = S.unknown;
     state.steps = null;
     await refreshMe();
     renderDone(r.data, lesson, unknown);
+  }
+
+  /* ההגשה נכשלה (רשת, תקלה רגעית): הניסיון נשאר פתוח ואפשר להגיש שוב.
+     back חוזר למסך שממנו הגיעו, ואין אותו כשהשעון כבר נגמר. */
+  function renderSubmitError(msg, retry, back) {
+    render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
+      '<div class="center"><div class="card">' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>התשובות שלכם נשמרו, רק הסיכום לא הגיע. ננסה שוב.</div></div>' +
+      '<p class="err" style="margin:0">' + escapeHtml(msg) + '</p>' +
+      '<button type="button" class="btn-p" id="retrySubmit">להגיש שוב</button>' +
+      (back ? '<button type="button" class="btn-s" id="backSubmit">חזרה לשאלות</button>' : '') +
+      '</div></div>');
+    bindBand();
+    on('retrySubmit', 'click', retry);
+    on('backSubmit', 'click', back);
   }
 
   /* -------------------------------------------------------- סיום שיעור */
@@ -688,7 +727,7 @@
   /* ------------------------------------------------- סימולציה / חזרה / חידון */
   async function startSim(kind, lessonId, title) {
     if (kind !== 'quiz' && !enrolled()) { renderPay(); return; }
-    renderBoot(kind === 'exam' ? 'מגרילים 25 שאלות...' : 'אוספים את השאלות...');
+    renderBoot(kind === 'exam' ? 'מגרילים ' + ((state.me && state.me.exam_questions) || 25) + ' שאלות...' : 'אוספים את השאלות...');
     var r = await sb.rpc('course_attempt_start', { p_kind: kind, p_lesson_id: lessonId || null });
     if (r.error || !r.data || r.data.error) {
       var code = r.error ? errText(r.error) : (r.data && r.data.error);
@@ -774,7 +813,13 @@
     clearInterval(state.timerId);
     renderBoot('בודקים...');
     var r = await sb.rpc('course_attempt_finish', { p_attempt_id: A.id });
-    if (r.error || !r.data || r.data.error) { toast(errText(r.error || { message: r.data && r.data.error })); renderMap(); return; }
+    if (r.error || !r.data || r.data.error) {
+      // סימולציה של שעתיים לא נזרקת בגלל בקשה אחת שנפלה: הניסיון עדיין פתוח במסד.
+      // כשהשעון נגמר אין "חזרה לשאלות", רק הגשה חוזרת.
+      renderSubmitError(errText(r.error || { message: r.data && r.data.error }),
+        function () { finishSim(forced); }, forced ? null : renderSim);
+      return;
+    }
     var mins = Math.round((Date.now() - A.startedAt) / 60000);
     state.sim = null;
     await refreshMe();
@@ -837,9 +882,4 @@
     }
     renderLogin();
   })();
-  window.addEventListener('resize', function () {
-    // כרטיסי התרגול בצד מוצגים רק במחשב; הסרגל התחתון רק בטלפון
-    var pr = document.querySelector('.practice');
-    if (pr) pr.style.display = wide() ? '' : 'none';
-  });
 })();
