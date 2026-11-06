@@ -556,13 +556,61 @@ function updateCalculator(){
   document.getElementById('calcLtvPct').textContent = ltvPct + '%';
   document.getElementById('calcLtvFill').style.width = Math.min(ltv*100, 100) + '%';
 
+  // התקרה לפי מה שנבחר ב"כמה מזומן": דירה יחידה 75%, דירה נוספת 50%
+  const extra = calcBuyer === 'extra';
+  const cap = LTV_THRESHOLDS[extra ? 'investment' : 'single'];
+  const capPct = Math.round(cap*100);
   const warn = document.getElementById('calcLtvWarning');
-  if (ltvPct > LTV_THRESHOLDS.single*100){
-    warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%) - כדאי לבדוק מול יועץ משכנתאות`;
+  const minBtn = document.getElementById('calcMinEquity');
+  if (ltvPct > capPct){
+    warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת ל${extra ? 'דירה נוספת' : 'דירה יחידה'} (${capPct}%) - כדאי לבדוק מול יועץ משכנתאות`;
+    // ההון העצמי הנמוך ביותר שעומד בתקרה, מעוגל למעלה לצעד הסליידר (עיגול למטה היה נשאר מתחת לתקרה)
+    const step = parseFloat(equityEl.step) || 1, max = parseFloat(equityEl.max) || Infinity;
+    calcMinEquityValue = Math.min(Math.ceil(PurchaseCosts.minEquity(price, cap) / step) * step, max);
+    minBtn.textContent = `הצבת הון עצמי מינימלי: ${nis(calcMinEquityValue)} ₪`;
+    minBtn.hidden = !(calcMinEquityValue > equity);
   } else {
     warn.textContent = '';
+    minBtn.hidden = true;
   }
+  updateCashNeeded(price, equity, loan);
 }
+
+/* ---------- "כמה מזומן צריך להביא" (7.11.2026) ----------
+   הון עצמי + מס רכישה + עו״ד + תיווך + פתיחת תיק. החישוב והמדרגות ב-
+   assets/purchase-costs.js (‏PurchaseCosts), משותפים למחשבון של דף הנכס. נטען כ-
+   <script> רגיל לפני הקובץ הזה; אם לא נטען, הבלוק מוסתר והמחשבון נשאר עובד. */
+let calcBuyer = 'single';
+let calcMinEquityValue = 0;
+function updateCashNeeded(price, equity, loan){
+  const box = document.getElementById('calcCash');
+  if (!box) return;
+  if (!window.PurchaseCosts || !(price > 0)){ box.hidden = true; return; }
+  box.hidden = false;
+  const c = PurchaseCosts.breakdown({ price, equity, buyer: calcBuyer });
+  document.getElementById('calcCashTotal').textContent = nis(c.total);
+  document.getElementById('cashEquity').textContent = nis(c.equity) + ' ₪';
+  document.getElementById('cashTax').textContent = c.tax ? nis(c.tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
+  document.getElementById('cashLawyer').textContent = nis(c.lawyer) + ' ₪';
+  document.getElementById('cashBroker').textContent = nis(c.broker) + ' ₪';
+  document.getElementById('cashBankRow').hidden = !c.bank;
+  document.getElementById('cashBank').textContent = nis(c.bank) + ' ₪';
+  document.getElementById('calcCashFine').textContent =
+    `מס רכישה לפי מדרגות ${PurchaseCosts.TAX_AS_OF} ל${calcBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
+}
+document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(b => {
+  b.addEventListener('click', ()=>{
+    calcBuyer = b.dataset.buyer;
+    document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    updateCalculator();
+  });
+});
+document.getElementById('calcMinEquity').addEventListener('click', ()=>{
+  const equityEl = document.getElementById('calcEquity');
+  equityEl.value = String(calcMinEquityValue);
+  updateCalculator();
+  equityEl.focus({ preventScroll:true });
+});
 ['calcPrice','calcEquity','calcRate','calcYears'].forEach(id=>{
   document.getElementById(id).addEventListener('input', updateCalculator);
 });
@@ -691,7 +739,12 @@ const mleadErrorEl= document.getElementById('mleadError');
 // שהסיכום שהמשתמש/ת רואה בטופס יהיה בדיוק מה שיישלח.
 let mleadSnapshot = {};
 
+// "יש ברשותי דירה" מתחיל ממה שנבחר במחשבון (דירה יחידה / נוספת), עד שהגולש/ת נגע/ה בו
+let mleadOwnsTouched = false;
+document.getElementById('mleadOwns').addEventListener('change', ()=>{ mleadOwnsTouched = true; });
+
 function mleadCaptureSnapshot(){
+  if (!mleadOwnsTouched) document.getElementById('mleadOwns').checked = calcBuyer === 'extra';
   const price  = parseFloat(document.getElementById('calcPrice').value) || 0;
   const equity = parseFloat(document.getElementById('calcEquity').value) || 0;
   const loan   = Math.max(price - equity, 0);

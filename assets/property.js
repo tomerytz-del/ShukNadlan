@@ -3452,54 +3452,30 @@ function updateCalculator(){
    פתיחת תיק. ההשראה: גיליון ה-Financing של eretzly.com ("your own cash,
    total"). docs/mortgage-leads.md.
 
-   מדרגות מס הרכישה לפי רשות המיסים: אלה של 16.1.2025, שחוק ההסדרים הקפיא
-   (אין עדכון מדד) **עד 15.1.2028** - ולכן הן גם מדרגות 2026 ו-2027. ב-16.1.2028
-   לעדכן כאן ואת taxAsOf, שמוצג בשורת ההסתייגות. שאר
-   המספרים הם שיעורים מקובלים (עו״ד 0.5%, תיווך 2%, שניהם + מע״מ 18%,
-   פתיחת תיק, שמאי ורישום כ-7,000 ₪) ולא הצעת מחיר - ההסכם קובע. */
-const CASH_COSTS = {
-  taxAsOf: '2026',
-  taxSingle: [[1978745, 0], [2347040, 0.035], [6055070, 0.05], [20183565, 0.08], [Infinity, 0.10]],
-  taxExtra:  [[6055070, 0.08], [Infinity, 0.10]],
-  vat: 0.18,
-  lawyerPct: 0.005,
-  brokerPct: 0.02,
-  bankFixed: 7000,
-};
+   החישוב והמדרגות ב-assets/purchase-costs.js (‏PurchaseCosts), משותפים למחשבון
+   של דף הבית: מדרגות מס הרכישה (קפואות עד 15.1.2028, לעדכן ב-16.1.2028) יושבות
+   רק שם. נטען כ-<script> רגיל לפני הקובץ הזה; אם לא נטען, הבלוק פשוט מוסתר
+   והמחשבון נשאר עובד. */
 let cashBuyer = 'single';
-
-function purchaseTax(price, brackets){
-  let tax = 0, prev = 0;
-  for (const [cap, rate] of brackets){
-    if (price <= prev) break;
-    tax += (Math.min(price, cap) - prev) * rate;
-    prev = cap;
-  }
-  return Math.round(tax);
-}
 
 function updateCashNeeded(price, equity, loan){
   const box = document.getElementById('calcCash');
   if (!box || !currentProperty) return;
   // מחיר למ"ר אינו מחיר הנכס: מס, עו"ד ותיווך על 12,000 ₪ היו שטות. הבלוק יורד
-  if (!(price > 0) || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
+  if (!window.PurchaseCosts || !(price > 0) || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
   box.hidden = false;
-  const tax = purchaseTax(price, cashBuyer === 'single' ? CASH_COSTS.taxSingle : CASH_COSTS.taxExtra);
-  const lawyer = Math.round(price * CASH_COSTS.lawyerPct * (1 + CASH_COSTS.vat));
   // נכס ביריד הבתים הפתוחים נמכר בלי עמלת תיווך (assets/open-house.js)
   const noFee = !!(window.OpenHouse && OpenHouse.live(currentProperty));
-  const broker = noFee ? 0 : Math.round(price * CASH_COSTS.brokerPct * (1 + CASH_COSTS.vat));
-  const bank = loan > 0 ? CASH_COSTS.bankFixed : 0;
-  const total = Math.round(equity) + tax + lawyer + broker + bank;
-  document.getElementById('calcCashTotal').textContent = nis(total);
-  document.getElementById('cashEquity').textContent = nis(equity) + ' ₪';
-  document.getElementById('cashTax').textContent = tax ? nis(tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
-  document.getElementById('cashLawyer').textContent = nis(lawyer) + ' ₪';
-  document.getElementById('cashBroker').textContent = noFee ? '0 ₪ (ללא עמלת תיווך)' : nis(broker) + ' ₪';
-  document.getElementById('cashBankRow').hidden = !bank;
-  document.getElementById('cashBank').textContent = nis(bank) + ' ₪';
+  const c = PurchaseCosts.breakdown({ price, equity, buyer: cashBuyer, noBrokerFee: noFee });
+  document.getElementById('calcCashTotal').textContent = nis(c.total);
+  document.getElementById('cashEquity').textContent = nis(c.equity) + ' ₪';
+  document.getElementById('cashTax').textContent = c.tax ? nis(c.tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
+  document.getElementById('cashLawyer').textContent = nis(c.lawyer) + ' ₪';
+  document.getElementById('cashBroker').textContent = noFee ? '0 ₪ (ללא עמלת תיווך)' : nis(c.broker) + ' ₪';
+  document.getElementById('cashBankRow').hidden = !c.bank;
+  document.getElementById('cashBank').textContent = nis(c.bank) + ' ₪';
   document.getElementById('calcCashFine').textContent =
-    `מס רכישה לפי מדרגות ${CASH_COSTS.taxAsOf} ל${cashBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
+    `מס רכישה לפי מדרגות ${PurchaseCosts.TAX_AS_OF} ל${cashBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
 }
 document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(b => {
   b.addEventListener('click', ()=>{
