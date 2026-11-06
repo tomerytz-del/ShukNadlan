@@ -257,19 +257,6 @@ function closeMobileMenu(){
   menuToggle.setAttribute('aria-expanded', false);
 }
 
-/* ארבע קבוצות היעדים הן לשוניות, ולכן מה שמתחלף הוא הפאנל הגלוי בלבד.
-   הבחירה נשמרת כל עוד העמוד פתוח: מי שסגר/ה את התפריט בלשונית מסוימת
-   וחזר/ה אליו מוצא/ת אותה במקום שבו השאיר/ה. */
-document.querySelectorAll('.menu-tabs button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.menu-tabs button').forEach(b=>{
-      const on = b === btn;
-      b.setAttribute('aria-selected', String(on));
-      document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
-    });
-  });
-});
-
 /* כל לחיצה על פריט בתפריט סוגרת אותו. רוב היעדים הם עוגנים באותו עמוד,
    ועוגן אינו טעינה מחדש — התפריט היה נשאר פתוח מעל היעד שאליו בדיוק
    גללנו, ודוחף אותו בגובהו מחוץ למסך. */
@@ -2798,8 +2785,11 @@ async function loadAwayProperties(){
   awayLayer.status = 'loading';
   try {
     const spec = await marketFilterSpec();
-    // בלי סינון שוק (המיפוי לא נטען) אין "מחוץ לשוק" - הכול כבר על המפה
-    if (!spec){ awayLayer.status = 'done'; return; }
+    // בלי סינון שוק (המיפוי לא נטען) אין "מחוץ לשוק" - הכול כבר על המפה.
+    // ובשוק רגיל שהמיפוי שלו נכשל (‏include עם NO_CITY בלבד) הכול היה "מחוץ",
+    // כולל הנכסים של השוק עצמו - אז גם כאן אין מה לצייר.
+    const failed = spec && spec.mode === 'include' && spec.ids.length === 1 && spec.ids[0] === MS.NO_CITY;
+    if (!spec || failed){ awayLayer.status = 'done'; return; }
     const { data, error } = await sb.from('properties')
       .select(PROPERTY_SELECT)
       .eq('status', 'active')
@@ -2823,15 +2813,22 @@ function clearAwayLayer(){
   awayLayer.mode = '';
 }
 
+/* אותם שני מסננים של פיני השוק (‏applyDealFilter): המקרא והאזור שסומן */
+function awayVisible(p){ return activeDealKinds.has(dealKind(p)) && inDrawnArea(p); }
+
 function drawAwayLayer(){
   if (!heroMap || awayLayer.status !== 'done' || !awayLayer.props.length) return;
   if (!mapViewIsOpen()){ clearAwayLayer(); return; }
   const mode = heroMap.getZoom() < AWAY_CLUSTER_ZOOM ? 'clusters' : 'pins';
-  if (mode === awayLayer.mode) return;
+  // אשכולות מצוירים פעם אחת לזום; פינים - רק מה שבתחום התצוגה (עם שוליים),
+  // ולכן מחדש בכל תזוזה, אחרת 600 סמנים על מפה של טלפון
+  if (mode === 'clusters' && mode === awayLayer.mode) return;
   clearAwayLayer();
   awayLayer.mode = mode;
   if (mode === 'pins'){
+    const bounds = heroMap.getBounds().pad(0.5);
     awayLayer.props.forEach(p => {
+      if (!awayVisible(p) || !bounds.contains([Number(p.lat), Number(p.lng)])) return;
       const kind = dealKind(p);
       const icon = L.divIcon({ className:'', iconSize:[0,0],
         html:`<div class="map-pin is-away" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>` });
@@ -2845,6 +2842,7 @@ function drawAwayLayer(){
   }
   const groups = new Map();
   awayLayer.props.forEach(p => {
+    if (!awayVisible(p)) return;
     const key = p.city || 'אזור אחר';
     const g = groups.get(key) || { n:0, lat:0, lng:0 };
     g.n++; g.lat += Number(p.lat); g.lng += Number(p.lng);
@@ -3235,6 +3233,9 @@ function applyDealFilter({ fit = false } = {}){
     });
     if (fit) fitMapToMarkers();
     relayoutMapPins();
+    // גם הפינים שמחוץ לשוק מכבדים את המקרא ואת האזור שסומן
+    awayLayer.mode = '';
+    drawAwayLayer();
   }
   updateLegendCounts();
   // המפה הפתוחה: "סינון" שבה מחיל חיפוש חדש, והשורה העליונה משקפת אותו (P0-B)

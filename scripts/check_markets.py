@@ -212,6 +212,19 @@ def main() -> int:
         page_slugs = set(re.findall(r'data-market="([^"]+)"', markets_page))
         for extra in sorted(page_slugs - set(slugs)):
             problems.append("‏%s ב-markets.html ואין שוק כזה ב-assets/markets.js." % extra)
+        # המספרים בדף (כותרת, תיאור, H1, שורת הסיכום, התשובה בשאלות) כתובים ביד
+        # ומתיישנים עם כל שוק שנוסף או נדלק: כל "N שווקים" / "N באוויר" /
+        # "N נפתחים בקרוב" / "N שווקים נוספים" חייב להתאים לרשימה.
+        total, live_n = len(markets), sum(1 for m in markets if m["live"])
+        for pat, want, what in [
+            (r"(\d+) (?:שווקים|שווקי|אזורים)(?!\w| נוספים)", total, "מספר השווקים"),
+            (r"(\d+) באוויר", live_n, "השווקים החיים"),
+            (r"(\d+) נפתחים בקרוב", total - live_n, "השווקים שעוד לא נפתחו"),
+            (r"(\d+) שווקים נוספים", total - 1, "השווקים הנוספים"),
+        ]:
+            for n in sorted({int(x) for x in re.findall(pat, markets_page)}):
+                if n != want:
+                    problems.append("‏markets.html: %s כתוב %d, וברשימה %d." % (what, n, want))
 
     if problems:
         print("✗ השווקים אינם מסכימים:\n")
