@@ -41,8 +41,8 @@ WHITE = (255, 255, 255)
 # One entry per voice-over line. A shot is (src, in, out, speed, crop_y);
 # a line may span two shots. gold = which caption line gets the gold pill.
 LINES = [
-    dict(vo="לא עוד עשרים טאבים של משרדים.",
-         caption=["לא עוד 20 טאבים", "של משרדים"], gold=None,
+    dict(vo="נמאס לכם לחפש דירה בעשרה מקומות שונים?",
+         caption=["נמאס לחפש דירה", "בעשרה מקומות שונים?"], gold=None,
          shots=[(C2, 1.0, 3.6, 1.0, 200)]),
     dict(vo="כל הנכסים של עפולה והעמק, בחיפוש אחד.",
          caption=["כל הנכסים של עפולה והעמק", "בחיפוש אחד"], gold=1,
