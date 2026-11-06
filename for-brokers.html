@@ -42,13 +42,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="פלטפורמת מרקטפלייס נדל״ן למתווכים בישראל | שוק נדל״ן">
-<meta property="og:description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ. 6 חודשי Elite במתנה.">
+<meta property="og:description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
 <meta property="og:url" content="https://shuknadlan.co.il/for-brokers">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ. 6 חודשי Elite במתנה.">
+<meta name="description" content="מרקטפלייס נדל״ן ו-CRM למתווכים בישראל: פרסום נכסים, פרסום אוטומטי לפייסבוק ואינסטגרם, לידים, החתמה דיגיטלית ועוזרת בוואטסאפ.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -79,6 +79,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html body .faq summary{cursor:pointer;font-weight:800;color:var(--ink)}
   html body .faq details p{margin:8px 0 0;max-width:65ch}
   html body .closer{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 18px;margin-top:8px}
+  /* ההטבה מוסתרת עד ש-PROMO.active. הכלל עם !important גובר על display של
+     a.offer, כמו [hidden] ב-pricing.html. data-promo נקבע ב-head לפני הציור. */
+  html body .promo-gift[hidden]{display:none !important}
+  html[data-promo="on"] body .note.promo-gift[hidden]{display:block !important}
+  html[data-promo="on"] body a.offer.promo-gift[hidden]{display:inline-flex !important}
+  html[data-promo="on"] body span.promo-gift[hidden]{display:inline !important}
 </style>
 
 <script src="assets/page-bg.js" data-auto></script>
@@ -89,6 +95,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="assets/markets.js"></script>
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
+<!-- הדגל לפני הציור: בלי זה ההטבה הייתה קופצת אחרי הטעינה. בלי JS, או כש-PROMO.active כבוי, היא נשארת hidden. -->
+<script src="assets/tiers.js"></script>
+<script>
+document.documentElement.dataset.promo = (window.Tiers && Tiers.PROMO && Tiers.PROMO.active) ? "on" : "off";
+</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -159,7 +170,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       "name": "יש התחייבות או קנס יציאה?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "אין התחייבות ואין קנס יציאה. בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי; הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים."
+        "text": "אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים."
       }
     }
   ]
@@ -333,16 +344,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <li>מזמינים סוכנים בקישור מה-<a href="/crm">CRM</a>; כל סוכן בוחר מסלול.</li>
       <li>מעלים נכס ראשון מה-<a href="/crm">CRM</a>, או דרך גבריאלה בוואטסאפ במסלולים שכוללים אותה.</li>
     </ol>
-    <div class="note">
+    <div class="note promo-gift" hidden>
       <p><strong>הטבת השקה:</strong> מצטרפים חדשים מקבלים 6 חודשי Elite במתנה, בלי כרטיס אשראי. בתום התקופה בוחרים מסלול; מי שלא בוחר עובר ל-Pay&amp;GO בלי דמי מנוי ובלי לאבד נכסים, לידים ולקוחות.</p>
     </div>
 
     <section class="closer" aria-labelledby="closerTitle">
       <h2 id="closerTitle"><span class="nw">מוכנים לסדר את המשרד</span> <span class="nw">במקום אחד?</span></h2>
-      <p>הצטרפות קצרה. אין התחייבות ואין קנס יציאה. בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי. המסלולים והמחירים המלאים ב-<a href="/pricing">/pricing</a>.</p>
+      <p>הצטרפות קצרה. אין התחייבות ואין קנס יציאה. <span class="promo-gift" hidden>בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי.</span> המסלולים והמחירים המלאים ב-<a href="/pricing">/pricing</a>.</p>
       <div class="actions">
         <a class="btn btn-teal" href="/agency-signup">הצטרפות כמשרד תיווך</a>
-        <a class="offer" href="/agency-signup">6 חודשי Elite במתנה, בלי כרטיס אשראי</a>
+        <a class="offer promo-gift" href="/agency-signup" hidden>6 חודשי Elite במתנה, בלי כרטיס אשראי</a>
       </div>
     </section>
 
@@ -370,7 +381,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
       <details>
         <summary>יש התחייבות או קנס יציאה?</summary>
-        <p>אין התחייבות ואין קנס יציאה. בתקופת ההשקה לא משלמים ולא נותנים כרטיס אשראי; הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים.</p>
+        <p>אין התחייבות ואין קנס יציאה. הנכסים, הלידים, הלקוחות ודף הסוכן נשארים אצלכם גם במעבר בין מסלולים.</p>
       </details>
     </div>
 
