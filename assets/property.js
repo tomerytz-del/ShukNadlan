@@ -2763,26 +2763,37 @@ function publicAddressText(p){
     .filter(Boolean).join(', ');
 }
 
-/* קישור לדף השכונה (‏/n/{עיר}/{שכונה}, docs/neighborhood-pages.md) - רק לשכונה
-   שיש לה דף שנכנס לאינדקס. קריאה נפרדת ולא חלק מהשליפה של הנכס: היא נשענת על
-   מיגרציה (20270728090000), והאתר עולה לפני המסד; כשל בה פשוט משאיר את
-   הכתובת בלי קישור. */
-function linkNeighborhoodPage(p, addressEl){
+/* כרטיס "רוצים לדעת עוד על השכונה?" - קישור לדף השכונה (‏/n/{עיר}/{שכונה},
+   docs/neighborhood-pages.md), רק לשכונה שיש לה דף שנכנס לאינדקס: ‏neighborhood_pages_public
+   (מודעה פעילה או חמש עסקאות) ושוק חי, כמו ‏hoodCard ב-netlify/edge-functions/og-tags.ts.
+   השרת ממלא את הכרטיס ב-HTML הראשון (‏#hoodCard כבר מכיל קישור) והפונקציה כאן עוזבת אותו;
+   היא רק משלימה כשהשרת לא הספיק (timeout, או נכס שעבר דרך מטמון). קריאה נפרדת ולא חלק
+   מהשליפה של הנכס: היא נשענת על מיגרציה (20270728090000), והאתר עולה לפני המסד; כשל
+   פשוט משאיר את הכרטיס מוסתר. המבנה זהה ל-hoodCardHtml בשרת (scripts/hood_card_test.ts). */
+function renderHoodCard(p){
+  const card = document.getElementById('hoodCard');
   const name = p.neighborhoods && p.neighborhoods.name;
-  if (!name || !addressEl) return;
+  if (!card || card.querySelector('[data-hood-card]')) return;
+  if (!name || !p.city || name === p.city) return;
   // ‏GET עם סינון על תוצאת הפונקציה - שורה אחת ולא כל השכונות
-  const q = 'name=eq.' + encodeURIComponent(name) + (p.city ? '&city=eq.' + encodeURIComponent(p.city) : '')
-    + '&select=city_slug,slug&limit=1';
+  const q = 'name=eq.' + encodeURIComponent(name) + '&city=eq.' + encodeURIComponent(p.city)
+    + '&select=city_slug,slug,props&limit=1';
   fetch(SUPABASE_URL + '/rest/v1/rpc/neighborhood_pages_public?' + q, {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
   }).then(r => r.ok ? r.json() : null).then(rows => {
     const hit = Array.isArray(rows) && rows[0];
-    if (!hit) return;
-    const a = document.createElement('a');
-    a.className = 'prop-hood-link';
-    a.href = '/n/' + encodeURIComponent(hit.city_slug) + '/' + encodeURIComponent(hit.slug);
-    a.textContent = 'על השכונה ←';
-    addressEl.appendChild(a);
+    if (!hit || !hit.city_slug || !hit.slug || !(Number(hit.props) > 0)) return;
+    // שוק חי: אותו כלל כמו בשרת. בלי קואורדינטות או בלי רשימת השווקים - בלי כרטיס
+    const lat = Number(p.lat), lng = Number(p.lng);
+    const M = window.ShukMarkets;
+    if (!M || p.lat == null || p.lng == null || !isFinite(lat) || !isFinite(lng) || !M.locate(lat, lng, true)) return;
+    const href = '/n/' + encodeURIComponent(hit.city_slug) + '/' + encodeURIComponent(hit.slug);
+    card.innerHTML = '<a class="hood-card-link" href="' + escapeHtml(href) + '" data-hood-card>'
+      + '<img class="hood-card-ava" src="/assets/gabriela-avatar.webp" alt="" width="56" height="56" loading="lazy" decoding="async">'
+      + '<span class="hood-card-txt"><b>רוצים לדעת עוד על השכונה?</b>'
+      + '<span>נכסים נוספים ב' + escapeHtml(name) + ', מחירי עסקאות ושכונות סמוכות</span></span>'
+      + '<span class="hood-card-go" aria-hidden="true">←</span></a>';
+    card.hidden = false;
   }).catch(() => {});
 }
 
@@ -2943,7 +2954,7 @@ function renderProperty(p){
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
-  linkNeighborhoodPage(p, addressEl);
+  renderHoodCard(p);
   renderMarketDistance(p, addressEl);
   renderOpenHouseBand(p);
   loadRecentDeals(p);

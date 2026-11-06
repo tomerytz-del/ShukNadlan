@@ -114,6 +114,8 @@ import "../../assets/agency-about.js";
 import "../../assets/markets.js";
 import "../../assets/agency-place.js";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
+import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
+import { registry } from "./lib/markets.ts";
 import "../../assets/air-living.js";
 import "../../assets/listing-title.js";
 
@@ -907,6 +909,43 @@ function propertyVisible(p: Record<string, unknown>, agentDisplay: string): Pick
   return { fills, inner, reveal };
 }
 
+/* ‏כרטיס "רוצים לדעת עוד על השכונה?" - הקישור לדף השכונה (‏/n/{עיר}/{שכונה},
+   docs/neighborhood-pages.md) כבר ב-HTML הראשון, כדי שכל נכס יצביע לדף השכונה שלו
+   בלי JS (קישור פנימי לסורק). אותו מבנה ש-renderHoodCard ב-assets/property.js כותב
+   כשהשרת לא הספיק; ‏assets/property.js אינו מודול, ולכן המבנה משוכפל, והבדיקה
+   (‏scripts/hood_card_test.ts) מחזיקה את שני הצדדים. התמונה דקורטיבית (‏alt="") -
+   הטקסט לידה אומר הכול. */
+function hoodCardHtml(href: string, hood: string): string {
+  return `<a class="hood-card-link" href="${esc(href)}" data-hood-card>` +
+    `<img class="hood-card-ava" src="/assets/gabriela-avatar.webp" alt="" width="56" height="56" loading="lazy" decoding="async">` +
+    `<span class="hood-card-txt"><b>רוצים לדעת עוד על השכונה?</b>` +
+    `<span>נכסים נוספים ב${esc(hood)}, מחירי עסקאות ושכונות סמוכות</span></span>` +
+    `<span class="hood-card-go" aria-hidden="true">←</span></a>`;
+}
+
+/* רק שכונה שיש לה דף שנכנס לאינדקס: ‏neighborhood_pages_public (שכונה עם מודעה
+   פעילה או חמש עסקאות), ושוק חי - אותו ‏neighborhoodIndexable כמו ב-sitemap ובדף
+   עצמו. כשל, timeout או "אין" - בלי כרטיס, והנכס יוצא כרגיל. */
+async function hoodCard(p: Record<string, unknown>): Promise<string> {
+  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const city = String(p.city || "").trim();
+  if (!hood || !city || hood === city) return "";
+  const got = await sbFetch(
+    `rpc/neighborhood_pages_public?name=eq.${encodeURIComponent(hood)}` +
+      `&city=eq.${encodeURIComponent(city)}&select=city_slug,slug,props&limit=1`,
+  );
+  if (got.kind !== "row") return "";
+  const row = got.row as { city_slug?: string; slug?: string; props?: number };
+  if (!row.city_slug || !row.slug) return "";
+  const lat = Number(p.lat), lng = Number(p.lng);
+  const reg = registry();
+  const market = reg && Number.isFinite(lat) && Number.isFinite(lng) && p.lat != null && p.lng != null
+    ? reg.locate(lat, lng, false)
+    : null;
+  if (!neighborhoodIndexable(Number(row.props || 0), market?.slug || "", liveMarketSlugs())) return "";
+  return hoodCardHtml(`/n/${encodeURIComponent(row.city_slug)}/${encodeURIComponent(row.slug)}`, hood);
+}
+
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
@@ -962,7 +1001,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
       `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
     )
     : Promise.resolve(null);
-  const [siblings, agent] = await Promise.all([siblingRows(p), agentP]);
+  const [siblings, agent, hoodHtml] = await Promise.all([siblingRows(p), agentP, hoodCard(p)]);
   const suffix = siblings ? titleSuffix({ ...p, id }, siblings) : "";
   const agentDisplay = agent && agent.kind === "row" ? String(agent.row.display_name || "") : "";
   const visible = propertyVisible(p, agentDisplay);
@@ -983,8 +1022,8 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
       { id: "propDescription", text: body },
       ...(visible.fills || []),
     ],
-    reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
-    inner: visible.inner,
+    reveal: [...(body ? ["descSection"] : []), ...(hoodHtml ? ["hoodCard"] : []), ...(visible.reveal || [])],
+    inner: [...(visible.inner || []), ...(hoodHtml ? [{ id: "hoodCard", html: hoodHtml }] : [])],
     paint: heroPaint(p),
     noindex: offMarket,
   };

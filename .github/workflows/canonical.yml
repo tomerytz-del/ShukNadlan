@@ -22,6 +22,8 @@ on:
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
+      - "scripts/hood_card_test.ts"
+      - "assets/property.js"
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
@@ -50,6 +52,8 @@ on:
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
+      - "scripts/hood_card_test.ts"
+      - "assets/property.js"
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
@@ -95,6 +99,10 @@ jobs:
 
       - name: התנהגות og-tags מול מסד מדומה
         run: node --experimental-strip-types scripts/og_tags_test.ts
+
+      # ‏כרטיס השכונה בדף הנכס: קישור לדף שנכנס לאינדקס בלבד, והמבנה זהה לשרת ולדפדפן
+      - name: כרטיס השכונה בדף הנכס
+        run: node --experimental-strip-types scripts/hood_card_test.ts
 
       # ‏ובאותה דרך, 14 עמודי התוצאות: מה שברשימה מקבל canonical משלו,
       # וכל צירוף פרמטרים אחר מתאחד לדף הבית. הכיוון השני הוא שמסוכן -
