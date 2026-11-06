@@ -38,6 +38,13 @@ python3 scripts/course_content_sql.py --bump     # רק אחרי שהקודם ר
    הסבר שלא אומת מול סעיף → `"needs_review": true`, ולהגיד לתומר.
 6. `--check`, הגנרטור, ו-`check_long_dash.py` (התוכן מוצג לגולשים).
 
+## 2א. שיעור חדש נכתב כצעדים
+
+`steps` ב-JSON: `concept` / `example` / `check` (ראו `docs/exam-course.md`,
+"צעדים"). כל שאלה בשיעור חייבת צעד `check`, אחרת היא נספרת כשגויה בסיום;
+הגנרטור חוסם. `body_html` נשאר כטקסט המלא, ושיעור בלי `steps` מוצג כמו
+קודם.
+
 ## 3. התשובות אינן בדפדפן
 
 `course_questions` סגורה לדפדפן. השאלות מגיעות מ-`course_attempt_start` בלי

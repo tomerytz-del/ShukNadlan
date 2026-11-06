@@ -335,14 +335,18 @@
   async function openLesson(id) {
     var entry = state.lessons[id];
     if (!entry) return;
+    if (state.currentLesson !== id) openLesson._fullText = false;
     state.currentLesson = id;
     state.attempt = null;
+    state.steps = null;
     renderSidebar();
     if (!lessonAvailable(entry.lesson)) { lockedView(entry); return; }
 
     $('stage').innerHTML = '<div class="lesson"><div class="spinner"></div></div>';
     var r = await Promise.all([
-      sb.from('course_lessons').select('id, title, intro, body_html, key_points, source_ref, video_url').eq('id', id).maybeSingle(),
+      // ‏select('*') ולא רשימת עמודות: האתר עולה לפני המיגרציה (הסקיל deploy-path),
+      // ובדקות שבהן העמודה steps עוד לא קיימת השיעור נפתח במצב הטקסט במקום להיכשל.
+      sb.from('course_lessons').select('*').eq('id', id).maybeSingle(),
       sb.rpc('course_lesson_open', { p_lesson_id: id })
     ]);
     var lesson = r[0].data;
@@ -352,6 +356,13 @@
     }
     var qn = (r[1].data && r[1].data.questions) || entry.lesson.questions || 0;
     var p = progressOf(id);
+    // שיעור עם צעדים: מסך אחד לכל רעיון (docs/exam-course.md, "צעדים").
+    // ‏?full=1 או הקישור "הטקסט המלא" מציגים את הגרסה הטקסטואלית.
+    if (Array.isArray(lesson.steps) && lesson.steps.length && !openLesson._fullText) {
+      renderSteps(lesson, entry, p);
+      return;
+    }
+    openLesson._fullText = false;
     var pct = lessonPct(p, false, qn);
 
     var video = '';
@@ -391,6 +402,151 @@
     var sq = $('startQuiz');
     if (sq) sq.addEventListener('click', function () { startAttempt('quiz', id); });
     $('nextLesson').addEventListener('click', function () { var n = nextLessonId(id); if (n) openLesson(n); else toast('זה היה השיעור האחרון. כל הכבוד!'); });
+  }
+
+  /* ------------------------------------------------------------- צעדים */
+  // שיעור כרצף: concept / example / check מהתוכן, ואחריהם כרטיסי זיכרון
+  // מנקודות המפתח וסיום. בדיקה מהירה פותחת ניסיון quiz בפעם הראשונה,
+  // עונה דרך course_answer, ובסיום course_attempt_finish מסמן את השיעור.
+  var STEP_PRAISE = ['יפה.', 'בדיוק.', 'נכון.', 'מצוין.'];
+
+  function renderSteps(lesson, entry, p) {
+    var authored = lesson.steps.slice();
+    var kp = Array.isArray(lesson.key_points) ? lesson.key_points : [];
+    var steps = [{ type: 'intro' }].concat(authored)
+      .concat(kp.map(function (k) { return { type: 'flash', text: k }; }))
+      .concat([{ type: 'done' }]);
+    state.steps = { lesson: lesson, entry: entry, steps: steps, idx: 0, attempt: null, qmap: {}, answers: {}, flipped: false, lawOpen: false };
+    renderStep();
+  }
+
+  function stepsNav(prevOk, nextLabel, nextId) {
+    return '<div class="snav">' +
+      '<button type="button" class="btn-secondary" id="stepPrev"' + (prevOk ? '' : ' disabled') + '>הקודם</button>' +
+      '<button type="button" class="btn-primary" id="' + (nextId || 'stepNext') + '">' + escapeHtml(nextLabel || 'הבא') + '</button></div>';
+  }
+
+  function renderStep() {
+    var S = state.steps;
+    if (!S) return;
+    var st = S.steps[S.idx];
+    var total = S.steps.length;
+    var pct = Math.round(100 * S.idx / (total - 1));
+    var head = '<div class="lprog"><span>' + escapeHtml(S.lesson.title) + '</span><div class="bar"><i style="width:' + pct + '%"></i></div><b>' + (S.idx + 1) + '/' + total + '</b></div>';
+    var html = '';
+    S.flipped = false; S.lawOpen = false;
+
+    if (st.type === 'intro') {
+      html = '<div class="scard intro"><div class="mentor-row"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b>' + escapeHtml(S.lesson.intro || 'מתחילים.') + '</div></div>' +
+        '<h1>' + escapeHtml(S.lesson.title) + '</h1>' +
+        (S.lesson.source_ref ? '<span class="chip">' + escapeHtml(S.lesson.source_ref) + '</span>' : '') +
+        '<p class="smeta">' + (total - 2) + ' צעדים קצרים, ובדיקה מהירה אחרי כל רעיון.</p>' +
+        stepsNav(false, 'מתחילים') +
+        '<button type="button" class="link-btn" id="fullText" style="margin-top:14px">לטקסט המלא של השיעור</button></div>';
+    } else if (st.type === 'concept') {
+      html = '<div class="scard"><div class="sicon">' + escapeHtml(st.icon || '💡') + '</div><h2>' + escapeHtml(st.title) + '</h2><p>' + escapeHtml(st.text) + '</p>' + stepsNav(true) + '</div>';
+    } else if (st.type === 'example') {
+      html = '<div class="scard example"><div class="stag">סיפור מקרה</div><h2>' + escapeHtml(st.title) + '</h2><p class="case">' + escapeHtml(st.text) + '</p>' +
+        '<button type="button" class="law-toggle" id="lawToggle">מה אומר החוק? ▾</button><div class="law hidden" id="lawBox">' + escapeHtml(st.law || '') + '</div>' +
+        stepsNav(true) + '</div>';
+    } else if (st.type === 'check') {
+      var q = S.qmap[st.question];
+      if (!q) { html = '<div class="scard"><div class="spinner"></div></div>'; ensureAttempt().then(function (ok) { if (ok) renderStep(); }); }
+      else {
+        var ans = S.answers[q.id];
+        html = '<div class="scard check"><div class="stag">בדיקה מהירה</div><p class="qtext">' + escapeHtml(q.question) + '</p><div class="opts">' +
+          (q.options || []).map(function (o, i) {
+            var cls = 'opt';
+            if (ans) {
+              if (ans.ok && ans.choice === i) cls += ' right';
+              else if (!ans.ok && ans.choice === i) cls += ' wrong';
+              else if (ans.correct === i || (ans.accepted || []).indexOf(i) >= 0) cls += ' right';
+            }
+            return '<button type="button" class="' + cls + '" data-i="' + i + '"' + (ans ? ' disabled' : '') + '><span class="l">' + LETTERS[i] + '</span><span>' + escapeHtml(o) + '</span></button>';
+          }).join('') + '</div><div id="fb"></div>' +
+          (ans ? stepsNav(true) : '<div class="snav"><button type="button" class="btn-secondary" id="stepPrev">הקודם</button></div>') + '</div>';
+      }
+    } else if (st.type === 'flash') {
+      html = '<div class="scard"><div class="stag">כרטיס זיכרון</div><div class="flash" id="flash"><div class="face front"><span>לזכור:</span><b>' + escapeHtml(st.text.split(/[.:]/)[0]) + '</b><small>לחיצה הופכת את הכרטיס</small></div><div class="face back"><p>' + escapeHtml(st.text) + '</p></div></div>' + stepsNav(true) + '</div>';
+    } else if (st.type === 'done') {
+      var n = Object.keys(S.answers).length;
+      var ok = Object.keys(S.answers).filter(function (k) { return S.answers[k].ok; }).length;
+      html = '<div class="scard"><div class="sicon">🏁</div><h2>סיימתם את הצעדים</h2><p>' + (n ? ok + ' מתוך ' + n + ' בדיקות מהירות נכונות. ' : '') + 'לחיצה על "סיום השיעור" רושמת את הציון ומסמנת את השיעור.</p>' +
+        '<div class="snav"><button type="button" class="btn-secondary" id="stepPrev">הקודם</button><button type="button" class="btn-primary" id="stepFinish">סיום השיעור</button></div></div>';
+    }
+
+    $('stage').innerHTML = '<div class="lesson steps">' + head + html + '</div>';
+
+    var prev = $('stepPrev'); if (prev) prev.addEventListener('click', function () { if (S.idx > 0) { S.idx--; renderStep(); } });
+    var next = $('stepNext'); if (next) next.addEventListener('click', function () { if (S.idx < total - 1) { S.idx++; renderStep(); } });
+    var ft = $('fullText'); if (ft) ft.addEventListener('click', function () { openLesson._fullText = true; openLesson(S.lesson.id); });
+    var lt = $('lawToggle'); if (lt) lt.addEventListener('click', function () { $('lawBox').classList.toggle('hidden'); lt.textContent = $('lawBox').classList.contains('hidden') ? 'מה אומר החוק? ▾' : 'מה אומר החוק? ▴'; });
+    var fl = $('flash'); if (fl) fl.addEventListener('click', function () { fl.classList.toggle('flipped'); });
+    var fin = $('stepFinish'); if (fin) fin.addEventListener('click', finishSteps);
+    if (st.type === 'check' && S.qmap[st.question]) {
+      var q2 = S.qmap[st.question];
+      $('stage').querySelectorAll('.opt').forEach(function (b) {
+        b.addEventListener('click', function () { answerStep(q2, Number(b.getAttribute('data-i'))); });
+      });
+      if (S.answers[q2.id]) showFeedback(S.answers[q2.id]);
+    }
+    window.scrollTo(0, 0);
+  }
+
+  async function ensureAttempt() {
+    var S = state.steps;
+    if (!S) return false;
+    if (S.attempt) return true;
+    if (S.loading) return false;
+    S.loading = true;
+    var r = await sb.rpc('course_attempt_start', { p_kind: 'quiz', p_lesson_id: S.lesson.id });
+    S.loading = false;
+    if (r.error || !r.data || r.data.error) {
+      var code = r.error ? errText(r.error) : (r.data && r.data.error);
+      if (code === 'course_not_enrolled') { showPay(); return false; }
+      toast(errText(r.error || { message: code }));
+      return false;
+    }
+    S.attempt = r.data.attempt_id;
+    (r.data.questions || []).forEach(function (q) { S.qmap[q.slug] = q; });
+    return true;
+  }
+
+  async function answerStep(q, choice) {
+    var S = state.steps;
+    if (!S || S.answers[q.id]) return;
+    $('stage').querySelectorAll('.opt').forEach(function (b) { b.disabled = true; });
+    var r = await sb.rpc('course_answer', { p_attempt_id: S.attempt, p_question_id: q.id, p_choice: choice });
+    if (r.error || !r.data || r.data.error) {
+      toast(errText(r.error || { message: r.data && r.data.error }));
+      $('stage').querySelectorAll('.opt').forEach(function (b) { b.disabled = false; });
+      return;
+    }
+    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref };
+    renderStep();
+  }
+
+  async function finishSteps() {
+    var S = state.steps;
+    if (!S) return;
+    if (!S.attempt) {
+      // שיעור בלי בדיקות: הפתיחה כבר סימנה אותו. רק מרעננים.
+      await refreshMe();
+      toast('השיעור הושלם');
+      var n0 = nextLessonId(S.lesson.id);
+      if (n0) openLesson(n0); else openLesson(S.lesson.id);
+      return;
+    }
+    $('stage').innerHTML = '<div class="lesson"><div class="spinner"></div></div>';
+    var r = await sb.rpc('course_attempt_finish', { p_attempt_id: S.attempt });
+    if (r.error || !r.data || r.data.error) {
+      $('stage').innerHTML = '<div class="lesson"><p>' + escapeHtml(errText(r.error || { message: r.data && r.data.error })) + '</p></div>';
+      return;
+    }
+    var pseudo = { kind: 'quiz', lessonId: S.lesson.id, startedAt: Date.now() };
+    state.steps = null;
+    await refreshMe();
+    renderResult(r.data, pseudo);
   }
 
   function lessonPct(p, read, qn) {

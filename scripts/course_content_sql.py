@@ -23,6 +23,9 @@
 `chapter` עם `slug` בלבד מצרף שיעורים לפרק שהוגדר בקובץ אחר (מבחני העבר).
 שאלה: `slug` (ייחודי גלובלית), `question`, `options` (4), `correct` (0-3),
 `explanation`, `law_ref`, `kind` (practice/exam), `source`, `needs_review`.
+שיעור יכול לשאת `steps`: רצף של `concept` (title, text, icon), `example`
+(title, text, law) ו-`check` (question = slug של שאלה **באותו שיעור**). כשיש
+צעדים, כל שאלה בשיעור חייבת צעד check, אחרת היא נספרת כשגויה בסיום.
 
 ## מה המיגרציה עושה
 
@@ -109,6 +112,23 @@ def validate(chapters):
             if key in seen_l:
                 problems.append('%s: שיעור כפול %s' % (lesson['_file'], lesson['slug']))
             seen_l.add(key)
+            steps = lesson.get('steps') or []
+            qslugs = {qu.get('slug') for qu in (lesson.get('questions') or [])}
+            checked = set()
+            for i, st in enumerate(steps):
+                where = '%s / %s / צעד %d' % (lesson['_file'], lesson['slug'], i + 1)
+                t = st.get('type') if isinstance(st, dict) else None
+                if t not in ('concept', 'example', 'check'):
+                    problems.append(where + ': type חייב להיות concept / example / check')
+                elif t == 'check':
+                    if st.get('question') not in qslugs:
+                        problems.append(where + ': check מצביע על שאלה שאינה בשיעור: %s' % st.get('question'))
+                    checked.add(st.get('question'))
+                elif not st.get('title') or not st.get('text'):
+                    problems.append(where + ': חסר title או text')
+            if steps and qslugs - checked:
+                # שאלה בלי צעד check לא הייתה נענית לעולם, ונספרת כשגויה בסיום
+                problems.append('%s / %s: שאלות בלי צעד check: %s' % (lesson['_file'], lesson['slug'], ', '.join(sorted(qslugs - checked))))
             for i, qu in enumerate(lesson.get('questions') or []):
                 where = '%s / %s / שאלה %d' % (lesson['_file'], lesson['slug'], i + 1)
                 s = qu.get('slug')
@@ -155,15 +175,17 @@ def render(chapters):
         out.append('')
         for lesson in ch['lessons']:
             lesson_keys.append((ch['slug'], lesson['slug']))
-            out.append('insert into public.course_lessons (chapter_id, slug, title, position, intro, body_html, key_points, source_ref, video_url, is_free, published)')
-            out.append('select c.id, %s, %s, %d, %s, %s, %s, %s, %s, %s, true' % (
+            out.append('insert into public.course_lessons (chapter_id, slug, title, position, intro, body_html, key_points, steps, source_ref, video_url, is_free, published)')
+            out.append('select c.id, %s, %s, %d, %s, %s, %s, %s, %s, %s, %s, true' % (
                 q(lesson['slug']), q(lesson['title']), int(lesson.get('position', 0)),
                 q(lesson.get('intro')), q(lesson.get('body_html') or ''),
-                jq(lesson.get('key_points') or []), q(lesson.get('source_ref')),
+                jq(lesson.get('key_points') or []), jq(lesson.get('steps') or []),
+                q(lesson.get('source_ref')),
                 q(lesson.get('video_url')), 'true' if lesson.get('is_free') else 'false'))
             out.append('  from public.course_chapters c where c.slug = %s' % q(ch['slug']))
             out.append('on conflict (chapter_id, slug) do update set title = excluded.title, position = excluded.position,')
             out.append('  intro = excluded.intro, body_html = excluded.body_html, key_points = excluded.key_points,')
+            out.append('  steps = excluded.steps,')
             out.append('  source_ref = excluded.source_ref, video_url = coalesce(excluded.video_url, public.course_lessons.video_url),')
             out.append('  is_free = excluded.is_free, published = true, updated_at = now();')
             out.append('')
