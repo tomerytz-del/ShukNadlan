@@ -990,3 +990,11 @@ python3 scripts/cma_gap_test.py
 - ~~**"עסקאות בעבודה היומית"**~~ - נשאר שורה בתפריט הצד (קבוצת העבודה
   היומית), ובלי כפתור בדף הבית של ה-CRM - תומר אישר שזה מספיק (26.10.2026).
 
+## חברה יזמית
+
+כש-`building_projects_enabled` דלוק ויש התאמת כתובת מדויקת,
+`cma_report_finish` מוסיף ל-`subject` את `developer_company`, השותפים,
+`developer_source_label` ו-`developer_verification`. `cmaDeveloperLine`
+ב-`assets/cma-render.js` מציגה אותם. בלי השדות אין שורה. נתון לא מאומת
+נאמר כלא מאומת, וסתירה לא מחליפה את השם. `docs/building-projects.md`.
+
