@@ -63,7 +63,16 @@ python3 scripts/course_content_sql.py --bump     # רק אחרי שהקודם ר
 שמוסיפה מע״מ כאן גובה אותו פעמיים.
 
 שינוי מחיר: מיגרציה ל-`pricing_config.course_price_gross`, ‏`PRICES` ו-`DISPLAY`
-ב-`check_pricing.py`, ושני הדפים (הסקיל `pricing-change`).
+ב-`check_pricing.py`, ‏`course.html` ו-`assets/learn.js` (מסך התשלום נבנה
+ב-JS, ולכן התבניות מצביעות לשם ולא ל-`learn.html`; הסקיל `pricing-change`).
+
+## 4א. הנגן מצייר הכל ב-JS, ונבדק בלי מסד
+
+`learn.html` הוא CSS ו-`#app` ריק; כל מסך נבנה ב-`assets/learn.js`
+(`docs/exam-course.md`, "המסכים"). שינוי במסך נבדק ב-Playwright מול לקוח
+supabase מדומה (‏`addInitScript` שמגדיר `window.supabase.createClient`,
+וחסימת ה-CDN), ב-390 וב-1280, כי מה שמוצג רק ברוחב אחד מוסתר ב-CSS ואי
+אפשר לראות בשני הרוחבים ממסך אחד.
 
 ## 5. כניסה: `/learn` ברשימת ה-Redirect URLs
 
