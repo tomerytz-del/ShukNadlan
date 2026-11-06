@@ -111,6 +111,33 @@ Playwright על `crm.html` עם `myPropertyRows` מדומה (הסקיל `propert
 ו-route ל-`/rest/v1/neighborhood_aliases` - בלעדיו הבקשה נכשלת אחרי 7 שניות
 והחיפוש עובד בלי כינויים.
 
+## 7. סוג נכס חדש - הרשימות המקבילות ומיגרציה
+
+ערך חדש של `property_type` (מרלו״ג, 6.11.2026, הוא הדוגמה) נכנס לכל
+הרשימות האלה באותו PR, אחרת הוא נשמר בטופס אחד ונעלם באחר - בשקט:
+
+| איפה | מה |
+| --- | --- |
+| `assets/search-core.js` | `PTYPE_NAMES` (מוצלב מול `agent.ts`), קבוצה ב-`PROPERTY_TYPES`, והמילים ב-`typeIn` - **אחרי `/דיר/`** אם המילה יכולה להופיע במשפט על דירה ("דירה ליד המרכז הלוגיסטי"); ואם הקבוצה רחבה מהערך - גם `GROUP_HEADS`, אחרת המודל ששולח את הערך המדויק מהרשימה מקבל רק אותו; ואז `--fix` |
+| `assets/sentence-search.js` | שורה ב-`TYPES` עם `url` = הערך במסד, אחרת `typeIn` מחזיר מפתח ש-`typeDef` אינו מכיר ונופל ל"נכס" |
+| `assets/filter-config.js` | צ'יפ ברשימת הסוגים מעל התוצאות (`TYPES.res` / `TYPES.comm`), אחרת סוג שנבחר במשפט משאיר את השורה בלי כפתור מסומן |
+| `assets/swipe.js` | שורה ב-`TYPES` עם regex על הערך - הליבה **אינה** נטענת שם, והקבוצות משוכפלות ביד |
+| `supabase/functions/whatsapp-webhook/agent.ts` | `RESIDENTIAL_PTYPES` / `COMMERCIAL_PTYPES` |
+| `assets/crm.js` | `*_PTYPE_OPTIONS` - טופס הנכס, הלקוח/ה וההסכם |
+| `assets/home.js`, `agent.html`, `assets/agency.js`, `assets/buyer-banner.js` | רשימות הסוג של דף הבית ואשף הקונים |
+| `assets/property.js` | `TYPE_FAMILIES` - בלי משפחה, "נכסים דומים" מציע דירות ליד מרלו״ג |
+| `assets/property-import-core.js` | כינוי ב-`IMP_PTYPE_SYNONYMS*`; ואז `check_import_core.py --fix` |
+| `scripts/search_feature_cases.json` | דוגמאות ל-`typeIn` ול-`botTypes` |
+| מיגרציה | `property_type_class` (הסקיל `cma-report`): סוג לא מוכר נופל מדוח ה-CMA בלי שגיאה |
+
+ונכסים שכבר פורסמו תחת סוג קרוב - מיגרציית backfill **לפי מזהים** (שינוי
+סוג הוא נתון עסקי, לא תו) שמשמרת את טביעת האצבע השיווקית
+(‏`20271106150000`, לפי `20261202090000`).
+
+**מה ידוע ולא תוקן:** בחירת ערך גולמי בודד שהוא גם ה-`url` של קבוצה
+("בית פרטי/קוטג'", "מחסנים", "מרלו״ג/מרכז לוגיסטי") נכתבת לכתובת כערך,
+ובטעינה מחדש נקראת כקבוצה. זה הדפוס הקיים של `house`, ולא נולד כאן.
+
 ## לפני הדחיפה
 
 ```sh

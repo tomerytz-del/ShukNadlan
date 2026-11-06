@@ -60,6 +60,9 @@
     { key: 'industry', label: 'מבנה תעשייה', ptypes: PT.industry, url: 'מבני תעשייה', commercial: true, noRooms: true },
     { key: 'comm_land', label: 'מגרש מסחרי', ptypes: PT.comm_land, url: 'מגרשים', commercial: true, noRooms: true },
     { key: 'warehouse', label: 'מחסן', ptypes: PT.warehouse, url: 'מחסנים', commercial: true, noRooms: true },
+    /* ‏6.11.2026: מרלו״ג - סוג משלו במסד, והקבוצה כוללת גם מחסנים ומבני תעשייה
+       (הליבה, PROPERTY_TYPES.logistics). ‏url הוא הערך במסד, כמו בשאר */
+    { key: 'logistics', label: 'מרלו״ג', optionLabel: 'מרלו״ג / מרכז לוגיסטי', ptypes: PT.logistics, url: 'מרלו״ג/מרכז לוגיסטי', commercial: true, noRooms: true },
     { key: 'commercial', label: 'נכס מסחרי', commercial: true, noRooms: true },
     /* ‏"דירות" בשורת סוג הנכס מעל התוצאות (‏KIND_CHIPS ב-home.js): כל דירה -
        רגילה, גן וגג. ‏chipOnly: לא מוצע בבורר של המשפט, שם "דירה", "דירת גן"
