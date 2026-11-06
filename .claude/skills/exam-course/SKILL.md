@@ -1,6 +1,6 @@
 ---
 name: exam-course
-description: קורס ההכנה למבחן המתווכים בריפו של שוק נדל״ן - course.html (מכירה), learn.html + assets/learn.js (למידה), course_* במסד, course-purchase והסוג course ב-wallet-topup-callback, והתוכן ב-course/content/*.json שהופך למיגרציה ב-scripts/course_content_sql.py. Use when adding a past exam (a zip of four versions and an answer key), a lesson or a chapter, when changing the course price or access period, when a learner cannot log in, pay or see a lesson, when a question's answer looks wrong, when touching course_attempt_start / course_answer / course_me, or when anyone proposes writing course content directly in SQL or opening the content tables to the browser.
+description: קורס ההכנה למבחן המתווכים בריפו של שוק נדל״ן - course.html (מכירה), learn.html + assets/learn.js (למידה), course_* במסד, course-purchase והסוג course ב-wallet-topup-callback, והתוכן ב-course-content/*.json שהופך למיגרציה ב-scripts/course_content_sql.py. Use when adding a past exam (a zip of four versions and an answer key), a lesson or a chapter, when changing the course price or access period, when a learner cannot log in, pay or see a lesson, when a question's answer looks wrong, when touching course_attempt_start / course_answer / course_me, or when anyone proposes writing course content directly in SQL or opening the content tables to the browser.
 ---
 
 # קורס ההכנה למבחן המתווכים
@@ -9,7 +9,7 @@ description: קורס ההכנה למבחן המתווכים בריפו של ש�
 
 ## 1. תוכן נכנס דרך JSON, לא דרך SQL ולא דרך הדשבורד
 
-`course/content/*.json` ו-`course/content/exams/*.json` הם מקור האמת.
+`course-content/*.json` ו-`course-content/exams/*.json` הם מקור האמת.
 `scripts/course_content_sql.py` כותב את המיגרציה (upsert לפי slug), ומטפל
 בגרשיים (מוכפלים) ובמקפים ארוכים (הופכים לרגילים). שאלה שנכתבה ישירות ב-SQL
 תידרס בהרצה הבאה של הגנרטור, או תיעלם (`published = false`) כי אינה ב-JSON.
@@ -20,7 +20,7 @@ python3 scripts/course_content_sql.py            # כותב/מעדכן את הק
 python3 scripts/course_content_sql.py --bump     # רק אחרי שהקודם רץ בפרודקשן
 ```
 
-**מתי `--bump`:** המיגרציה של התוכן נושאת version קבוע (`course/content/.version`).
+**מתי `--bump`:** המיגרציה של התוכן נושאת version קבוע (`course-content/.version`).
 כל עוד לא מוזגה, הרצה חוזרת מעדכנת את אותו קובץ. אחרי שרצה בפרודקשן הצינור
 לא יריץ אותה שוב, ולכן תוכן חדש צריך קובץ חדש, והישן נשאר כ-`select 1` (מחיקה
 שלו שוברת את `db push`).

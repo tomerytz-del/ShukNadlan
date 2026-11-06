@@ -62,7 +62,7 @@ NOT_SITE=(
   ':(exclude)marketing/**'
   ':(exclude)gtm/**'
   ':(exclude)mobile/**'
-  ':(exclude)course/**'
+  ':(exclude)course-content/**'
   ':(exclude,glob)*.py'
   ':(exclude,glob)*.md'
   ':(exclude)requirements.txt'
