@@ -4,26 +4,13 @@ name: עלויות רכישה - מדרגות מס במקום אחד
 # (assets/purchase-costs.js). הבדיקה מחזיקה את החישוב מול ערכים שחושבו ביד, ואוסרת
 # עותק של מדרגות המס בקובץ אחר: מחשבון שני עם עותק משלו נשאר עם מדרגות ישנות בשקט.
 
+# בלי paths בכוונה: הבדיקה אוסרת עותק של המדרגות בכל קובץ, ו-PR שמוסיף עותק כזה בקובץ חדש
+# (פונקציית Edge, דף) לא נוגע באף אחד מקובצי המחשבונים. כמו בדיקות המיגרציות - רצה על כל PR,
+# וזולה (בלי התקנה).
 on:
   pull_request:
-    paths:
-      - "assets/purchase-costs.js"
-      - "assets/home.js"
-      - "assets/property.js"
-      - "index.html"
-      - "property.html"
-      - "scripts/purchase_costs_test.cjs"
-      - ".github/workflows/purchase_costs.yml"
   push:
     branches: [main]
-    paths:
-      - "assets/purchase-costs.js"
-      - "assets/home.js"
-      - "assets/property.js"
-      - "index.html"
-      - "property.html"
-      - "scripts/purchase_costs_test.cjs"
-      - ".github/workflows/purchase_costs.yml"
   workflow_dispatch:
 
 permissions:

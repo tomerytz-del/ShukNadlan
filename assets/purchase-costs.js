@@ -50,7 +50,9 @@
      שהוא, והמשכנתא (‏price - equity) קובעת רק אם יש פתיחת תיק. */
   function breakdown(opts) {
     var price = Number(opts && opts.price) || 0;
-    var equity = Math.max(Number(opts && opts.equity) || 0, 0);
+    /* הון עצמי מעל המחיר אינו מזומן שצריך להביא: שני הסליידרים בדף הבית אינם תלויים
+       זה בזה (‏מחיר 300,000 עם הון עצמי 350,000), והסכום היה גדול מהנכס עצמו */
+    var equity = Math.min(Math.max(Number(opts && opts.equity) || 0, 0), price);
     var loan = Math.max(price - equity, 0);
     var t = tax(price, opts && opts.buyer);
     var lawyer = Math.round(price * LAWYER_PCT * (1 + VAT));

@@ -49,6 +49,10 @@ eq('פירוק: דירה נוספת', PC.breakdown({ price: 1700000, equity: 423
 eq('בלי עמלת תיווך (יריד הבתים הפתוחים)', PC.breakdown({ price: 1700000, equity: 423000, noBrokerFee: true }).broker, 0);
 eq('בלי משכנתא - בלי פתיחת תיק', PC.breakdown({ price: 1000000, equity: 1000000 }).bank, 0);
 eq('הון עצמי שלילי נחתך לאפס', PC.breakdown({ price: 1000000, equity: -5 }).equity, 0);
+const over = PC.breakdown({ price: 300000, equity: 350000 });
+eq('הון עצמי מעל המחיר נחתך למחיר', over.equity, 300000);
+eq('הון עצמי מעל המחיר: בלי משכנתא ובלי פתיחת תיק', over.bank, 0);
+eq('הון עצמי מעל המחיר: סך המזומן אינו עולה על מחיר + עלויות', over.total, 300000 + over.tax + over.lawyer + over.broker);
 
 eq('הון עצמי מינימלי ל-75% מימון', PC.minEquity(1000000, 0.75), 250000);
 eq('הון עצמי מינימלי ל-50% מימון', PC.minEquity(1000000, 0.5), 500000);

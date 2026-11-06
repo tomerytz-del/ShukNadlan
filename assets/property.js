@@ -3444,7 +3444,7 @@ function updateCalculator(){
   warn.textContent = (ltvPct > capPct)
     ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת ל${cashBuyer === 'extra' ? 'דירה נוספת' : 'דירה יחידה'} (${capPct}%)`
     : '';
-  updateCashNeeded(price, equity, loan);
+  updateCashNeeded(price, equity);
 }
 
 /* ---------- "כמה מזומן צריך להביא" (6.11.2026, PR B) ----------
@@ -3458,11 +3458,14 @@ function updateCalculator(){
    והמחשבון נשאר עובד. */
 let cashBuyer = 'single';
 
-function updateCashNeeded(price, equity, loan){
+function updateCashNeeded(price, equity){
   const box = document.getElementById('calcCash');
   if (!box || !currentProperty) return;
   // מחיר למ"ר אינו מחיר הנכס: מס, עו"ד ותיווך על 12,000 ₪ היו שטות. הבלוק יורד
-  if (!window.PurchaseCosts || !(price > 0) || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
+  // וגם בנכס מסחרי ובמגרש: מדרגות מס הרכישה הן של דירת מגורים בלבד (מסחרי וקרקע - 6% קבוע),
+  // והצגתן הייתה מורידה מאות אלפי שקלים מהמזומן הנדרש
+  const notHome = currentProperty.category === 'commercial' || /מגרש|קרקע|נחל|משק|חקלא/.test(currentProperty.property_type || '');
+  if (!window.PurchaseCosts || !(price > 0) || notHome || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
   box.hidden = false;
   // נכס ביריד הבתים הפתוחים נמכר בלי עמלת תיווך (assets/open-house.js)
   const noFee = !!(window.OpenHouse && OpenHouse.live(currentProperty));

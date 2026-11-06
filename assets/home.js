@@ -566,14 +566,15 @@ function updateCalculator(){
     warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת ל${extra ? 'דירה נוספת' : 'דירה יחידה'} (${capPct}%) - כדאי לבדוק מול יועץ משכנתאות`;
     // ההון העצמי הנמוך ביותר שעומד בתקרה, מעוגל למעלה לצעד הסליידר (עיגול למטה היה נשאר מתחת לתקרה)
     const step = parseFloat(equityEl.step) || 1, max = parseFloat(equityEl.max) || Infinity;
-    calcMinEquityValue = Math.min(Math.ceil(PurchaseCosts.minEquity(price, cap) / step) * step, max);
+    // בלי assets/purchase-costs.js אין חישוב הון מינימלי: האזהרה נשארת והכפתור מוסתר, והמחשבון ממשיך
+    calcMinEquityValue = window.PurchaseCosts ? Math.min(Math.ceil(PurchaseCosts.minEquity(price, cap) / step) * step, max) : 0;
     minBtn.textContent = `הצבת הון עצמי מינימלי: ${nis(calcMinEquityValue)} ₪`;
     minBtn.hidden = !(calcMinEquityValue > equity);
   } else {
     warn.textContent = '';
     minBtn.hidden = true;
   }
-  updateCashNeeded(price, equity, loan);
+  updateCashNeeded(price, equity);
 }
 
 /* ---------- "כמה מזומן צריך להביא" (7.11.2026) ----------
@@ -582,7 +583,7 @@ function updateCalculator(){
    <script> רגיל לפני הקובץ הזה; אם לא נטען, הבלוק מוסתר והמחשבון נשאר עובד. */
 let calcBuyer = 'single';
 let calcMinEquityValue = 0;
-function updateCashNeeded(price, equity, loan){
+function updateCashNeeded(price, equity){
   const box = document.getElementById('calcCash');
   if (!box) return;
   if (!window.PurchaseCosts || !(price > 0)){ box.hidden = true; return; }
