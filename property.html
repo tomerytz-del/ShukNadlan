@@ -879,33 +879,41 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .sticky-bar .btn-call{flex:0 0 auto;width:46px;padding:12px 0}
   /* §6: שמירה - לב ריק / לב ירוק מלא כשנשמר (‏--fav-green, כמו בהחלקה). רק ב-v10 */
   .prop-save,.sticky-bar .btn-save{display:none}
-  /* שמירה ושיתוף בוואטסאפ בשורה אחת מתחת לכתובת; נשברת לשתי שורות בטלפון צר */
-  .prop-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 2px}
-  .prop-wa-share{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
-    background:#fff;color:#0e2a6b;font-size:.92rem;font-weight:700;text-decoration:none;white-space:nowrap}
-  .prop-wa-share[hidden]{display:none}
-  .prop-wa-share svg{width:20px;height:20px;fill:currentColor;flex:0 0 auto}
-  .prop-wa-share:hover{background:#f3f5fa}
-  .prop-wa-share:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
-  .prop-fin{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
-    background:#fff;color:#0e2a6b;font:inherit;font-size:.92rem;font-weight:700;white-space:nowrap;cursor:pointer}
-  .prop-fin[hidden]{display:none}
-  .prop-fin svg{width:20px;height:20px;flex:0 0 auto}
-  .prop-fin:hover{background:#f3f5fa}
-  .prop-fin:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
-  /* שלושה כפתורים בשורה אחת בטלפון: "שיתוף" ו"מימון" בלבד (האייקון של וואטסאפ אומר את השאר);
-     מ-560px המלא. בטלפון צר מאוד השורה נשברת, כמו קודם */
+  /* שורת הפעולות מתחת לכתובת: שמירה, שיתוף בוואטסאפ ואפשרויות מימון (7.11.2026, עיצוב מחדש).
+     בטלפון שלוש עמודות שוות ברוחב המסך, כך שהשורה אחת גם ב-320px; מ-560px כפתורים ברוחב התוכן.
+     אותה גלולה לשלושתם (גובה, צל וריחוף), ולכל אחד אייקון בצבע משלו: לב כחול (ירוק כשנשמר),
+     וואטסאפ ירוק, מחשבון בזהב. "מימון" הוא הכפתור היחיד עם רקע, כי הוא הצעד הבא בקנייה. */
+  .prop-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 4px}
+  @media(min-width:560px){.prop-acts{display:flex;flex-wrap:wrap;gap:10px}}
+  .prop-wa-share,.prop-fin,html.beta-hero .prop-save{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:0 8px;
+    border:1.5px solid rgba(14,42,107,.2);border-radius:999px;background:#fff;color:#0e2a6b;
+    font:inherit;font-size:.9rem;font-weight:800;line-height:1;text-decoration:none;white-space:nowrap;cursor:pointer;
+    box-shadow:0 1px 2px rgba(13,27,61,.06);
+    transition:border-color .15s ease,box-shadow .15s ease,background .15s ease,transform .15s ease}
+  @media(min-width:560px){.prop-wa-share,.prop-fin,html.beta-hero .prop-save{padding:0 20px;gap:8px;font-size:.92rem}}
+  .prop-wa-share[hidden],.prop-fin[hidden]{display:none}
+  .prop-wa-share svg,.prop-fin svg,.prop-save svg{width:20px;height:20px;flex:0 0 auto}
+  .prop-wa-share svg{fill:#25D366}
+  .prop-fin svg{color:var(--bronze,#8a6d10)}
+  .prop-save svg{fill:none;stroke:currentColor;stroke-width:2}
+  .prop-fin{background:var(--bronze-tint,#f7f1e2);border-color:rgba(201,162,39,.65)}
+  @media(hover:hover){
+    .prop-wa-share:hover,.prop-fin:hover,html.beta-hero .prop-save:hover{border-color:#0e2a6b;box-shadow:0 5px 14px rgba(14,42,107,.14);transform:translateY(-1px)}
+  }
+  .prop-wa-share:active,.prop-fin:active,html.beta-hero .prop-save:active{transform:scale(.97);box-shadow:none}
+  .prop-wa-share:focus-visible,.prop-fin:focus-visible,.prop-save:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  html.beta-hero .prop-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green);background:#eefaf2}
+  .prop-save[aria-pressed=true] svg{fill:var(--fav-green)}
+  /* תוויות קצרות בטלפון ("שיתוף", "מימון": האייקון של וואטסאפ אומר את השאר), מלאות מ-560px */
   .act-long{display:none}
   @media(min-width:560px){.act-long{display:inline}}
-  @media(max-width:420px){.prop-acts{gap:6px}.prop-wa-share,.prop-fin,html.beta-hero .prop-save{padding:0 12px}}
-  html.beta-hero .prop-save{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
-    background:#fff;color:#0e2a6b;font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
   html.beta-hero .sticky-bar .btn-save{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:46px;min-height:46px;padding:0;
     border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;cursor:pointer}
-  .prop-save svg,.btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
-  .prop-save[aria-pressed=true],.sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
-  .prop-save[aria-pressed=true] svg,.btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
-  .prop-save:focus-visible,.btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
+  .btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+  .sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
+  .btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
+  .btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
   .sticky-bar .btn-call span{display:none}
   @media(max-width:520px){.sticky-bar .btn-wa span{display:none}.sticky-bar .btn-wa{width:48px;padding:12px 0;justify-content:center}}
   body.has-sticky-bar{padding-bottom:78px}
