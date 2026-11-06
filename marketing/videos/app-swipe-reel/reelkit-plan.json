@@ -1,0 +1,107 @@
+{
+  "title": "מחפשים דירה כמו שגוללים בטלפון?",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "fast",
+  "gap": "tight",
+  "captions": "none",
+  "scenes": [
+    {
+      "id": "problem",
+      "narration": "נמאס לכם לחפש דירה בעשרה מקומות שונים?",
+      "treatment": "motion-graphic",
+      "onScreenText": ["נמאס לחפש דירה", "בעשרה מקומות שונים?"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "LOOK: navy #0c2258, gold #e6c27e, heebo, RTL. This project exists only to record the voice lines; the picture is cut from real screen recordings outside Reelkit (marketing/videos/app-swipe-reel/build_reel.py). Home page, tap 'show properties'."
+    },
+    {
+      "id": "all",
+      "narration": "כל הנכסים של עפולה והעמק, בחיפוש אחד.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["כל הנכסים של עפולה והעמק", "בחיפוש אחד"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Map with all the pins."
+    },
+    {
+      "id": "swipe",
+      "narration": "מחפשים דירה כמו שגוללים בטלפון?",
+      "treatment": "motion-graphic",
+      "onScreenText": ["מחפשים דירה", "כמו שגוללים בטלפון?"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Fast swiping between properties."
+    },
+    {
+      "id": "save",
+      "narration": "ימינה שומרים, שמאלה מדלגים.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["ימינה שומרים", "שמאלה מדלגים"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Save stamp, then skip stamp."
+    },
+    {
+      "id": "gabriela",
+      "narration": "שמרתם שלושה? גבריאלה כבר מציעה לתאם ביקור.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["שמרתם 3?", "גבריאלה מציעה לתאם ביקור"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Gabriela's offer after three saved properties."
+    },
+    {
+      "id": "staging",
+      "narration": "רוצים לראות איך זה ייראה אחרי שיפוץ? הדמיית AI.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["איך זה ייראה אחרי שיפוץ?", "הדמיית AI"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Before/after slider and style picker."
+    },
+    {
+      "id": "cash",
+      "narration": "וכמה מזומן צריך להביא? המחשבון בתוך הדף.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["כמה מזומן צריך להביא?", "המחשבון בתוך הדף"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "Cash calculator with sliders."
+    },
+    {
+      "id": "cta",
+      "narration": "חדש באתר: מחליקים על דירות בעפולה והעמק. הקישור בביו.",
+      "treatment": "motion-graphic",
+      "onScreenText": ["חדש: מחליקים על דירות", "בעפולה והעמק", "הקישור בביו"],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "End card: logo, link in bio, shuknadlan.co.il/swipe."
+    }
+  ]
+}

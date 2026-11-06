@@ -32,10 +32,27 @@
 
 ```sh
 REEL_SRC=~/reel-src REEL_FONT=~/fonts/Heebo-Bold.ttf \
-  python3 build_reel.py out.mp4            # בלי קול (טיזר עם מוזיקה מהאפליקציה)
+  python3 build_reel.py out.mp4                       # בלי פסקול (סאונד מהאפליקציה בהעלאה)
 REEL_SRC=~/reel-src REEL_FONT=~/fonts/Heebo-Bold.ttf \
-  python3 build_reel.py out.mp4 vo.wav     # עם הקריינות כפסקול
+  python3 build_reel.py out.mp4 \
+    --vo swipe-vo/assets/voiceovers.json \
+    --music swipe-vo/assets/lib/music-viral-dance-pop/track.mp3
 ```
+
+**הקריינות** מגיעה מפרויקט Reelkit פרטי (`reelkit init swipe-vo --aspect 9:16
+--private`) שה-`plan.json` שלו הוא `reelkit-plan.json` כאן: שמונה סצנות, מזהה
+סצנה = `id` ב-`LINES`, הקול העברי `HjnCa0x8VgfBjy158Gpj` (היחיד בספרייה), ‏`pace`
+‏`fast` ו-`gap` ‏`tight`. ‏`reelkit assets voiceover --all` כותב קובץ לכל שורה ואת
+`assets/voiceovers.json`; הסקריפט מותח או חותך כל שוט לאורך השורה (שינוי מהירות
+עד 20%, ומעבר לזה פריים קפוא) ומניח את השורות על ציר הזמן. הגרסה הראשונה עם
+קול יצאה 32 שניות. **קול אמיתי עדיף** (הסקיל, סעיף 4): הקלטה אחת של שמונה
+השורות עם שקט ביניהן נחתכת לפי השקט לשמונה קבצים, ואותו `voiceovers.json`
+(עם `durationSec` לכל שורה) נכנס ל-`--vo`.
+
+**המוזיקה**: `reelkit assets pull music-viral-dance-pop --music` (‏124 BPM,
+"לטרנדים ולמונטאז' קצבי"). היא יושבת כ-13 dB מתחת לקול (`MUSIC_GAIN`), והמיקס
+מנורמל ל--14 LUFS. בהעלאה לאינסטגרם אפשר במקום זה סאונד טרנדי מהאפליקציה:
+אז מרנדרים בלי `--music`.
 
 `REEL_SRC` הוא תיקייה עם ארבעת קובצי ההקלטה בשמותיהם המקוריים (`C1`..`C4` בראש
 הסקריפט). ‏Heebo Bold מורידים מ-fonts.gstatic.com (הקישור בתוך ה-CSS של
