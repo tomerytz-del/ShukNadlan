@@ -329,3 +329,10 @@ curl -s "https://shuknadlan.co.il/property?id=<id>" | grep -E 'og:|<title>'
 `canonical` סטטי משלהם ב-`<head>`, ולא צריכים שרת בשביל זה: הכתובת שלהם
 קבועה. בעקבות זאת ירדו מ-`robots.txt` שלוש שורות החסימה של פרמטרי הסינון,
 שהיו שם במקום התגית וגרמו לנזק שניסו למנוע. `docs/security-headers.md`.
+
+## כרטיס השכונה בדף הנכס (7.11.2026)
+
+`og-tags.ts` ממלאת גם את `#hoodCard` (‏`<aside hidden>` ריק ב-`property.html`) בקישור
+`/n/{עיר}/{שכונה}` לדף השכונה, דרך `inner` ו-`reveal` כמו שאר מה שהדף ממלא. הקריאה
+(‏`neighborhood_pages_public`) יוצאת במקביל לאחים ולסוכן/ת, וכשל בה אינו מפיל את הנכס:
+האלמנט נשאר ריק. הכלל, הכשלים והבדיקה: `docs/neighborhood-pages.md`, "הקישורים אל הדף".
