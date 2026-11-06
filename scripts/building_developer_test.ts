@@ -7,8 +7,10 @@ import {
   addressLinkable,
   applyDeveloperClaim,
   buildingAddressKey,
+  DEVELOPER_ASK_CLAIM_STALE_MS,
   developerAskBody,
   developerAskHasVisibleUrl,
+  developerPromptClaimable,
   developerSpeech,
   developerUnknownButton,
   exactProjectMatch,
@@ -132,6 +134,24 @@ check("הדגל נולד כבוי", migration.includes("('building_projects_enab
 check("הפרויקט השביעי לא הומצא", migration.includes("פרויקט שביעי לא נמצא"));
 check("אין דריסת יזם בזרע", migration.includes("on conflict (city, name) do nothing"));
 check("הדוח עובר דרך הצירוף", migration.includes("cma_attach_building_developer"));
+const now = Date.parse("2026-11-06T12:00:00Z");
+check("pending נתפס", developerPromptClaimable("pending", null, now));
+check("claimed טרי לא נתפס", developerPromptClaimable("claimed", new Date(now - 60_000).toISOString(), now) === false);
+check(
+  "claimed בן 15 דקות בדיוק לא נתפס",
+  developerPromptClaimable("claimed", new Date(now - DEVELOPER_ASK_CLAIM_STALE_MS).toISOString(), now) === false,
+);
+check(
+  "claimed ישן נתפס",
+  developerPromptClaimable("claimed", new Date(now - DEVELOPER_ASK_CLAIM_STALE_MS - 1).toISOString(), now),
+);
+check("sent לא נתפס", developerPromptClaimable("sent", new Date(now - DEVELOPER_ASK_CLAIM_STALE_MS - 1).toISOString(), now) === false);
+check("failed לא נתפס מיד", developerPromptClaimable("failed", null, now) === false);
+check("התפיסה היא claimed ולא sent", migration.includes("set status = 'claimed', claimed_at = now()"));
+check("sent רק אחרי מסירה", migration.includes("building_developer_prompt_delivered"));
+check("sent נכתב פעם אחת", migration.split("set status = 'sent'").length - 1 === 1);
+check("חלון התפיסה 15 דקות", migration.includes("interval '15 minutes'"));
+check("הדגל עדיין כבוי", migration.includes("('building_projects_enabled', 'false',"));
 
 const render = readFileSync("assets/cma-render.js", "utf8");
 check("הדוח מציג את השורה", render.includes("function cmaDeveloperLine") && render.includes("cmaDeveloperLine(s)"));

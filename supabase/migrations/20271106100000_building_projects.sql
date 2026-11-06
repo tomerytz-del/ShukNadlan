@@ -99,20 +99,21 @@ create table if not exists public.building_developer_prompts (
   address_key          text not null,
   address_label        text,
   status               text not null default 'pending'
-                       check (status in ('pending', 'sent', 'failed', 'answered', 'unknown')),
+                       check (status in ('pending', 'claimed', 'sent', 'failed', 'answered', 'unknown')),
   created_at           timestamptz not null default now(),
+  claimed_at           timestamptz,
   sent_at              timestamptz,
   answered_at          timestamptz
 );
 
 create unique index if not exists building_developer_prompts_address_key
   on public.building_developer_prompts (city_key, address_key);
-create index if not exists building_developer_prompts_pending_idx
+create index if not exists building_developer_prompts_open_idx
   on public.building_developer_prompts (created_at)
-  where status = 'pending';
+  where status in ('pending', 'claimed');
 
 comment on table public.building_developer_prompts is
-  'שאלה אחת לגבריאלה על החברה היזמית של בניין. שורה אחת לכתובת, גם אם עלו כמה דירות.';
+  'שאלה אחת לגבריאלה על החברה היזמית של בניין. שורה אחת לכתובת. claimed הוא תפיסה לפני השליחה. sent רק אחרי שמטא קיבלה. claimed ישן מ-15 דקות נתפס שוב.';
 
 alter table public.building_developer_prompts enable row level security;
 revoke all on table public.building_developer_prompts from public, anon, authenticated;
@@ -420,7 +421,29 @@ create trigger properties_building_developer_ask
   on public.properties
   for each row execute function public.properties_enqueue_building_developer_ask();
 
--- סימון sent רק כשמותר לשלוח עכשיו: דגל, חלון שקט, וחלון 24 השעות.
+-- pending, או claimed שנשאר בלי שליחה יותר מ-15 דקות. claimed טרי אינו נתפס שוב.
+create or replace function public.building_developer_prompt_claimable(
+  p_status text,
+  p_claimed_at timestamptz
+)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select p_status = 'pending'
+      or (p_status = 'claimed'
+          and p_claimed_at is not null
+          and p_claimed_at < pg_catalog.now() - interval '15 minutes');
+$$;
+
+comment on function public.building_developer_prompt_claimable(text, timestamptz) is
+  'אפשר לתפוס שאלה: pending, או claimed ישן מ-15 דקות. claimed טרי, sent ו-failed לא.';
+
+revoke all on function public.building_developer_prompt_claimable(text, timestamptz) from public, anon, authenticated;
+grant execute on function public.building_developer_prompt_claimable(text, timestamptz) to service_role;
+
+-- תופס לשליחה. sent נכתב רק ב-building_developer_prompt_delivered, אחרי שמטא קיבלה.
 create or replace function public.building_developer_prompt_take(
   p_property_id uuid,
   p_deliver boolean
@@ -448,7 +471,9 @@ begin
   select * into v_prompt
     from public.building_developer_prompts pr
    where pr.city_key = v_city and pr.address_key = v_key;
-  if not found or v_prompt.status is distinct from 'pending' or v_prompt.agent_id is distinct from p.agent_id then
+  if not found
+     or not public.building_developer_prompt_claimable(v_prompt.status, v_prompt.claimed_at)
+     or v_prompt.agent_id is distinct from p.agent_id then
     return jsonb_build_object('send', false, 'reason', 'not_pending');
   end if;
   if not coalesce(p_deliver, false) then
@@ -465,8 +490,9 @@ begin
     return jsonb_build_object('send', false, 'deferred', true, 'reason', 'outside_24h');
   end if;
   update public.building_developer_prompts
-     set status = 'sent', sent_at = now()
-   where id = v_prompt.id and status = 'pending';
+     set status = 'claimed', claimed_at = now()
+   where id = v_prompt.id
+     and public.building_developer_prompt_claimable(status, claimed_at);
   if not found then
     return jsonb_build_object('send', false, 'reason', 'raced');
   end if;
@@ -502,7 +528,7 @@ begin
     select pr.id
       from public.building_developer_prompts pr
       join public.whatsapp_conversations c on c.agent_id = pr.agent_id
-     where pr.status = 'pending'
+     where public.building_developer_prompt_claimable(pr.status, pr.claimed_at)
        and c.last_message_at > now() - interval '23 hours'
      order by pr.created_at
      limit v_cap
@@ -510,9 +536,10 @@ begin
   ),
   upd as (
     update public.building_developer_prompts pr
-       set status = 'sent', sent_at = now()
+       set status = 'claimed', claimed_at = now()
       from due
-     where pr.id = due.id and pr.status = 'pending'
+     where pr.id = due.id
+       and public.building_developer_prompt_claimable(pr.status, pr.claimed_at)
     returning pr.id, pr.agent_id, pr.address_label
   )
   select upd.id, upd.agent_id, c.wa_phone, upd.address_label
@@ -522,10 +549,34 @@ end;
 $$;
 
 comment on function public.building_developer_prompts_claim(int) is
-  'תופס שאלות יזם שממתינות, רק בחלון השליחה ורק לסוכן/ת שכתב/ה ב-23 השעות האחרונות. הדגל הכבוי מחזיר אפס שורות.';
+  'תופס שאלות יזם ל-claimed. sent נכתב רק אחרי השליחה. claimed טרי לא נתפס שוב. claimed ישן מ-15 דקות כן. הדגל הכבוי מחזיר אפס שורות.';
 
 revoke all on function public.building_developer_prompts_claim(int) from public, anon, authenticated;
 grant execute on function public.building_developer_prompts_claim(int) to service_role;
+
+-- sent רק אחרי שמטא החזירה מזהה הודעה. claimed טרי לא חוזר ל-pending.
+create or replace function public.building_developer_prompt_delivered(p_prompt_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_n int;
+begin
+  update public.building_developer_prompts
+     set status = 'sent', sent_at = now()
+   where id = p_prompt_id and status = 'claimed';
+  get diagnostics v_n = row_count;
+  return v_n > 0;
+end;
+$$;
+
+comment on function public.building_developer_prompt_delivered(uuid) is
+  'מסמן שהשאלה נמסרה. רק מ-claimed. כשל שליחה משאיר claimed עד ש-15 הדקות יעברו.';
+
+revoke all on function public.building_developer_prompt_delivered(uuid) from public, anon, authenticated;
+grant execute on function public.building_developer_prompt_delivered(uuid) to service_role;
 
 create or replace function public.building_developer_prompt_unknown(
   p_prompt_id uuid,
@@ -543,7 +594,7 @@ begin
      set status = 'unknown', answered_at = coalesce(answered_at, now())
    where id = p_prompt_id
      and agent_id = p_agent_id
-     and status in ('pending', 'sent', 'unknown');
+     and status in ('pending', 'claimed', 'sent', 'unknown');
   get diagnostics v_n = row_count;
   if v_n = 0 then
     return jsonb_build_object('ok', false, 'reason', 'not_found');
@@ -597,7 +648,7 @@ begin
      where city_key = public.city_name_key(p.city)
        and address_key = v_key
        and agent_id = p_agent_id
-       and status in ('pending', 'sent');
+       and status in ('pending', 'claimed', 'sent');
     return jsonb_build_object('ok', true, 'unknown', true, 'stored', false);
   end if;
 
@@ -648,7 +699,7 @@ begin
          building_project_id = v_project
    where city_key = public.city_name_key(p.city)
      and address_key = v_key
-     and status in ('pending', 'sent');
+     and status in ('pending', 'claimed', 'sent');
 
   return jsonb_build_object('ok', true, 'action', v_action, 'stored', v_action in ('set', 'same', 'conflict'));
 end;

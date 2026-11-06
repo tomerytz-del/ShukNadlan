@@ -3,6 +3,25 @@
 
 export const DEVELOPER_UNKNOWN_TITLE = "לא יודע";
 
+/** claimed ישן מזה נתפס שוב. מתחת לזה אין שליחה שנייה. */
+export const DEVELOPER_ASK_CLAIM_STALE_MS = 15 * 60 * 1000;
+
+/**
+ * pending תמיד. claimed רק אחרי יותר מ-15 דקות.
+ * sent, failed, answered ו-unknown לא נתפסים.
+ */
+export function developerPromptClaimable(
+  status: string,
+  claimedAt: string | null | undefined,
+  nowMs: number,
+): boolean {
+  if (status === "pending") return true;
+  if (status !== "claimed" || !claimedAt) return false;
+  const at = Date.parse(claimedAt);
+  if (!Number.isFinite(at)) return false;
+  return nowMs - at > DEVELOPER_ASK_CLAIM_STALE_MS;
+}
+
 const UNKNOWN_ANSWERS = new Set([
   "לא יודע",
   "לא יודעת",

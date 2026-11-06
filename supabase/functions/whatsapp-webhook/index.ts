@@ -21,6 +21,7 @@ import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
 import {
   answerBuildingDeveloperUnknown,
+  markBuildingDeveloperDelivered,
   parseDeveloperUnknownButton,
   runBuildingDeveloperAsks,
 } from "./building-developer.ts";
@@ -569,7 +570,16 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
     await sendOutboxItem(item, {
       sendCtaUrl: (body, label, url, parts) => sendCtaUrl(to, body, label, url, parts),
       sendList: (body, button, section, rows, parts) => sendList(to, body, button, section, rows, parts),
-      sendButtons: (body, buttons, parts) => sendButtons(to, body, buttons, parts),
+      sendButtons: async (body, buttons, parts) => {
+        const start = parts.length;
+        const id = await sendButtons(to, body, buttons, parts);
+        const promptId = buttons
+          .map((b) => parseDeveloperUnknownButton(b.id))
+          .find((value): value is string => !!value);
+        const delivered = parts.slice(start).some((part) => part.kind === "interactive" && part.id);
+        if (promptId && delivered) await markBuildingDeveloperDelivered(supabase, promptId);
+        return id;
+      },
       reply: (text) => reply(to, text, agentId),
       log: async (row) => {
         await supabase.from("whatsapp_messages").insert({

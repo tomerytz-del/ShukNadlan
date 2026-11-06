@@ -46,6 +46,17 @@ export async function takeBuildingDeveloperAsk(
   };
 }
 
+/** sent רק אחרי שמטא החזירה מזהה. כשל משאיר את השורה claimed. */
+export async function markBuildingDeveloperDelivered(
+  supabase: SupabaseClient,
+  promptId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("building_developer_prompt_delivered", {
+    p_prompt_id: promptId,
+  });
+  if (error) console.error("building developer delivered failed", promptId, error.message);
+}
+
 export async function answerBuildingDeveloperUnknown(
   supabase: SupabaseClient,
   agentId: string,
@@ -97,13 +108,11 @@ export async function runBuildingDeveloperAsks(supabase: SupabaseClient) {
       status: waId ? "sent" : null,
       error: err,
     });
-    if (!waId) {
-      await supabase.from("building_developer_prompts")
-        .update({ status: "failed" })
-        .eq("id", row.prompt_id);
-      failed++;
-    } else {
+    if (waId) {
+      await markBuildingDeveloperDelivered(supabase, row.prompt_id);
       sent++;
+    } else {
+      failed++;
     }
   }
   return { claimed: rows.length, sent, failed };

@@ -50,7 +50,9 @@
 
 השליחה רק כש-`notification_send_window_open` פתוח (כולל שישי עד 13:00
 ושבת סגורה) ורק בתוך 24 השעות של וואטסאפ. מחוץ לחלון השאלה ממתינה
-ל-`?task=building-developer-ask`. הכפתור נתפס לפני המודל. שם שהסוכן/ת
+ל-`?task=building-developer-ask`. לפני היציאה השורה היא `claimed`.
+`sent` נכתב רק אחרי שמטא החזירה מזהה. `claimed` טרי לא נשלח שוב.
+`claimed` ישן מ-15 דקות נתפס מחדש. הכפתור נתפס לפני המודל. שם שהסוכן/ת
 כותב/ת נשמר `source_type = agent`, `unverified`. אין ניחוש.
 
 "מי בנה / מי היזם של הבניין ברחוב X" הוא `building_developer_lookup`.
