@@ -608,6 +608,23 @@ html body .sw-st-prog p{margin:0;font-weight:700;color:#fff;text-shadow:0 1px 6p
 .sw-st-note{margin:14px 0 4px;font-size:11.5px;color:var(--sw-body)}
 .sw-st-q.is-soft{color:var(--sw-body)}
 @media (prefers-reduced-motion:reduce){.sw-st-shim{animation:none}}
+/* מסחרי בהחלקה (תומר 6.11): "דוגמה: משרד" על התמונה, לפני/אחרי בהקשה, שורת "העסק שלי", ובטלפון
+   הגיליון גבוה יותר והתמונה מקצה לקצה כשלשונית ההדמיה פעילה. בלוק המחיר של הכרטיס מוסתר מתחת לגיליון */
+.sw-st-ex{position:absolute;top:12px;right:12px;z-index:3;padding:4px 10px;border-radius:999px;background:rgba(201,162,39,.95);color:#0d1b3d;font-size:12.5px;font-weight:800;pointer-events:none;white-space:nowrap}
+.sw-ba-tog{position:absolute;bottom:12px;left:50%;z-index:4;transform:translateX(-50%);display:flex;gap:2px;padding:3px;border-radius:999px;background:rgba(13,27,61,.72)}
+.sw-ba-tog button{min-height:32px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:#fff;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.sw-ba-tog button:focus-visible{outline:2px solid #e5c76a;outline-offset:1px}
+@media (hover:hover){.sw-ba-tog button:hover{background:rgba(255,255,255,.18)}}
+.sw-st-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin:10px 0 0}
+.sw-st-line p{margin:0;flex:1 1 180px;font-size:14px;font-weight:600;line-height:1.4;color:var(--sw-title)}
+.sw-st-line .sw-gold{min-height:42px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:800}
+.sw-st-sub{margin:0 0 6px;font-size:13px;color:var(--sw-body)}
+.sw-st-sub+.sw-st-row{margin-bottom:10px}
+body.sw-sheet-open .sw-cbody{visibility:hidden}
+@media (max-width:1023px){
+  .sw-sheet.is-studio{height:96dvh;max-height:96dvh}
+  .sw-studio .sw-st-stage{margin-inline:-18px;border-radius:0;aspect-ratio:var(--st-r,4/3);max-height:58dvh}
+}
 .sw-stamp{transition:none}
 
 /* ---------- סבב 4: הגיליון התחתון (‏#swBs) ---------- */
@@ -1195,6 +1212,8 @@ body[data-view=list] .sw-layout{display:inline-flex}
   /* גיליון הפרטים עולה עד למטה (העיגולים מתחתיו), וכפתור הזהב שבו נשאר מעל פס הבית */
   body[data-view=deck] #swSheet{bottom:0}
   body[data-view=deck] #swSheet .sw-sheet{max-height:80svh;border-radius:22px 22px 0 0}
+  /* לשונית ההדמיה: הגיליון גבוה יותר, כדי שהתמונה מקצה לקצה תקבל מקום (תומר 6.11). אותה ספציפיות כמו השורה מעל */
+  body[data-view=deck] #swSheet .sw-sheet.is-studio{height:96svh;max-height:96svh}
   body[data-view=deck] #swSheet .sw-cta-bar{padding-bottom:calc(12px + var(--sw-safe-b))}
   /* כפתור קשר זהב אחד בגיליון (‏#swCta). הגלולה שבבאנר נשארת ב-DOM (‏toggleForm כותב לחץ שלה) */
   .sw-dsheet .sw-bn-pill{display:none}
