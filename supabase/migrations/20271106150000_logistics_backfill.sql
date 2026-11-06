@@ -12,10 +12,11 @@
 --   | עפולה עילית     | מבני תעשייה     | 200 מ"ר, "לוגיסט" רק בטקסט השיווקי  | לא  |
 --
 -- שני האחרונים אינם מרלו״ג: הראשון הוא מחסן (והסוג "אולמות" שלו הוא עניין
--- של הסוכן), והשני מבנה תעשייה קטן. לכן הקריטריון הוא **"מרלו" בכותרת**
--- - מה שהסוכן/ת עצמו/ה קרא/ה לנכס - ועוד הנכס במבואות הגלבוע לפי מזהה,
--- כי שם המילה היא "לוגיסטיקה" בתיאור ולא בכותרת. לא regex על התיאור:
--- "יכול לשמש לאחסנה לוגיסטיקה" אינו מרלו״ג.
+-- של הסוכן), והשני מבנה תעשייה קטן. לכן **ששת הנכסים נקובים לפי מזהה**,
+-- ועוד תנאי שהסוג שלהם היום הוא זה שנבדק (מחסנים / מבני תעשייה): שינוי
+-- סוג הוא שינוי של נתון עסקי, ו-regex פתוח על הכותרת היה תופס גם נכס
+-- שייכנס בין הבדיקה למיזוג ("מרלו - מחסן קטן"), בשקט, עם notice ביומן
+-- ה-Actions בלבד. 20261202090000 הייתה פתוחה כי היא החליפה תו ולא תוכן.
 --
 -- המלכודת, כמו ב-20261202090000: ‏property_marketing_fingerprint() כוללת
 -- את property_type, ולכן שינוי הסוג מסמן תיאור שיווקי טרי כמתיישן - קריאת
@@ -25,34 +26,44 @@
 -- הטריגר properties_client_match_alerts_upd רץ על שינוי סוג ומחשב מחדש
 -- את ההתאמות של הנכס. לקוח/ה שביקש/ה "מחסנים" בלבד לא יתאים עוד
 -- למרלו״ג במסד (ההשוואה שם היא על הערך עצמו), וזה נכון: בשביל זה נולד
--- הסוג. באתר ובבוטים "מחסן" ממשיך לכלול מרלו״ג (PROPERTY_TYPES.warehouse).
+-- הסוג. בחיפוש חופשי באתר ובבוטים "מחסן" כולל מרלו״ג
+-- (‏PROPERTY_TYPES.warehouse); הערך "מחסנים" עצמו, כשהמודל שולח אותו
+-- מרשימת הטופס, נשאר מחסנים בלבד.
 --
 -- אידמפוטנטית: הרצה שנייה מוצאת את הנכסים כבר בסוג החדש ומעדכנת אפס.
 -- ===========================================================================
 
 do $$
 declare
-  c_type  constant text := 'מרלו״ג/מרכז לוגיסטי';
-  -- "מבני תעשייה במבואות גלבוע" - "מבנה תעשייה/לוגיסטיקה חדש", נדל"ן עפולה
-  c_gilboa constant uuid := 'ebb0350f-cad3-4860-9c79-e89621abe7ea';
+  c_type constant text := 'מרלו״ג/מרכז לוגיסטי';
+  c_ids  constant uuid[] := array[
+    -- שי דרזי: "מרלו״ג" בכותרת (4 מחסנים, מבנה תעשייה אחד)
+    '958ab56d-09a3-451a-b008-af1e031e07d6',  -- להשכרה | מרלו"ג | 1,600 מ"ר | שרון
+    '97051209-4db9-495b-b9f5-bdb9aadde790',  -- להשכרה | מרלו"ג | 900 - 13,000 מ"ר | גדרה
+    '852bd07c-27c4-45aa-a744-10e2b63da00f',  -- מרלו"ג | 4,800 מ"ר | אזור השרון | גובה 13 מ'
+    '143025e5-ae5d-4e45-9d91-85dbcd0605c4',  -- מרלו"ג | 4,800 מ"ר | בשרון | 13 מטר תקרה
+    'e7accbc3-c4fa-40ab-b013-0c4649d494db',  -- מרלו"ג 4,800 מ"ר, גובה 9 מ' - אזור השרון
+    -- נדל"ן עפולה: "מבני תעשייה במבואות גלבוע" - "מבנה תעשייה/לוגיסטיקה חדש"
+    'ebb0350f-cad3-4860-9c79-e89621abe7ea'
+  ]::uuid[];
   v_fresh uuid[];
   v_rows  bigint;
 begin
   -- 1. מי טרי לפני השינוי, מבין הנכסים שישתנו
   select array_agg(p.id) into v_fresh
     from public.properties p
-   where p.category = 'commercial'
-     and p.property_type is distinct from c_type
-     and (coalesce(p.title, '') ~* 'מרלו' or p.id = c_gilboa)
+   where p.id = any(c_ids)
+     and p.category = 'commercial'
+     and p.property_type in ('מחסנים', 'מבני תעשייה')
      and p.marketing_description_fingerprint is not null
      and p.marketing_description_fingerprint = public.property_marketing_fingerprint(p);
 
   -- 2. הסוג
   update public.properties p
      set property_type = c_type
-   where p.category = 'commercial'
-     and p.property_type is distinct from c_type
-     and (coalesce(p.title, '') ~* 'מרלו' or p.id = c_gilboa);
+   where p.id = any(c_ids)
+     and p.category = 'commercial'
+     and p.property_type in ('מחסנים', 'מבני תעשייה');
   get diagnostics v_rows = row_count;
   raise notice 'מרלו״ג: % נכסים סווגו מחדש', v_rows;
 
