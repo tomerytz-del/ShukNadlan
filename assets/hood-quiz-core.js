@@ -71,6 +71,13 @@
     return Math.min(Math.max(v, b.min), b.max);
   }
 
+  /* "העלאת התקציב": הצעד הקרוב מעל המחיר, או null כשהוא מעבר לתקרת הסליידר (הכפתור אז אינו מוצע) */
+  function raiseTo(deal, price) {
+    var b = BUDGET[deal] || BUDGET.sale;
+    var v = Math.ceil((Number(price) || 0) / b.step) * b.step;
+    return v > 0 && v <= b.max ? Math.max(v, b.min) : null;
+  }
+
   /* תקציב פתיחה: חציון המחירים של העסקה, כדי שהסליידר לא יתחיל במקום שבו אין כלום */
   function defaultBudget(props, deal) {
     var prices = (props || []).filter(function (p) { return isHome(p, deal); }).map(function (p) { return Number(p.price); });
@@ -136,6 +143,6 @@
 
   global.HoodQuiz = {
     BUDGET: BUDGET, ROOM_CHOICES: ROOM_CHOICES, FEATURES: FEATURES, MIN_FOR_TYPICAL: MIN_FOR_TYPICAL,
-    isHome: isHome, roomsOk: roomsOk, clampBudget: clampBudget, defaultBudget: defaultBudget, rank: rank,
+    isHome: isHome, roomsOk: roomsOk, clampBudget: clampBudget, raiseTo: raiseTo, defaultBudget: defaultBudget, rank: rank,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
