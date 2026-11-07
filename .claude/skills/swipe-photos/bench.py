@@ -66,6 +66,8 @@ with sync_playwright() as pw:
     allLat, kbs = [], []
     for i in range(N):
         l, kb = run(br); allLat.append(l); kbs.append(kb); print(json.dumps({"run": i, "lat": [round(x) for x in l], "img_kb": kb}), flush=True)
-    flat = [x for l in allLat for x in l]
+    flat = [x for l in allLat for x in l if x < 8000]
+    tmo = sum(x >= 8000 for l in allLat for x in l)   # timeout של המכשיר (לא מדידה), מחוץ לסטטיסטיקה
+    if tmo: print("TIMEOUTS (excluded):", tmo)
     print("SUMMARY %s median=%.0f p90=%.0f max=%.0f slow>150ms=%d/%d img_kb_median=%.0f" % (SCEN, statistics.median(flat), sorted(flat)[int(len(flat)*0.9)-1], max(flat), sum(x>150 for x in flat), len(flat), statistics.median(kbs)))
     br.close()

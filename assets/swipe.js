@@ -368,13 +368,15 @@
     v.src = u;
   }
   /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
-  function warm(u) {
+  function warm(u, low) {
     if (!u || WARM.has(u)) return;
     WARM.add(u);
     var go = function () {
       var im = new Image();
       im.decoding = 'async';
-      im.fetchPriority = 'low';   // טעינה מראש לא תוקעת תמונה שמישהו מחכה לה עכשיו
+      // חימום של קרוסלה ושל התמונה השנייה בעדיפות נמוכה: לא תוקע תמונה שמישהו מחכה לה עכשיו.
+      // התמונה הראשונה של כרטיס +2/+3 נשארת רגילה, כי עוד רגע היא תהיה התמונה שמחכים לה
+      if (low) im.fetchPriority = 'low';
       im.onload = function () { noteRatio(u, im.naturalWidth, im.naturalHeight, true); };
       im.src = sized(u, srcW(u));
       if (im.decode) im.decode().then(null, function () {});
@@ -2305,14 +2307,15 @@
     if (n < 2) return;
     [1, 2].forEach(function (d) {
       if (d > 1 && lean()) return;
-      var u = ph[(at + d) % n];
-      if (u && !slideKind(u) && u !== ph[at]) warm(u);
+      if (at + d >= n) return;   // בלי עטיפה: התמונה הראשונה כבר נטענה כשהכרטיס הוצג
+      var u = ph[at + d];
+      if (u && !slideKind(u)) warm(u, true);
     });
   }
   function secondImg(c) {
     if (lean() || !c || c.slot !== 'property') return '';
     var ph = slides(c.p), u = ph[1];
-    return u && !slideKind(u) && !slideKind(ph[0]) ? u : '';
+    return u && !slideKind(u) ? u : '';   // גם אחרי רילס: ph[1] היא התמונה שאחרי הפוסטר
   }
   function warmAhead(top, c) {
     var run = function () {
@@ -2324,8 +2327,8 @@
       }
       warm(firstImg(deck[idx + 2]));
       warm(firstImg(deck[idx + 3]));
-      warm(secondImg(deck[idx + 1]));
-      warm(secondImg(deck[idx + 2]));
+      warm(secondImg(deck[idx + 1]), true);
+      warm(secondImg(deck[idx + 2]), true);
     };
     warmReel(deck[idx + 1]);
     warmReel(deck[idx + 2]);
@@ -2632,9 +2635,6 @@
     if (ph.length < 2) return;
     c.photo = ((c.photo || 0) + step + ph.length) % ph.length;
     syncSlide(top, c);
-    // החלון זז עם ההקשה, אבל אחרי שהתמונה הנוכחית הגיעה - כדי לא להתחרות בה
-    var im = top && top.querySelector('img.sw-cimg'), at = c.photo, go = function () { if (cur() === c && c.photo === at) warmCarousel(c); };
-    if (im && !(im.complete && im.naturalWidth)) { im.addEventListener('load', go, { once: true }); setTimeout(go, 1500); } else setTimeout(go, 0);
   }
   /* היחס לפני הבקשה: בלי יחס הרוחב הוא הגדול (‏cardW), ותמונה לרוחב הייתה יורדת פי 3 */
   function ratioFirst(u, cb) {
@@ -2668,6 +2668,8 @@
       if (s !== u) img.setAttribute('data-orig', u); else img.removeAttribute('data-orig');
       img.setAttribute('data-watch', '');
       img.src = s;
+      // החלון של הקרוסלה זז רק אחרי שהתמונה שביקשו הגיעה (‏warm מוותרת על מה שכבר התבקש)
+      img.addEventListener('load', function () { var cc = cur(); if (cc && cc.p && img.getAttribute('data-u') === u) warmCarousel(cc); }, { once: true });
       if (blur) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
       watchFit(img);
     }

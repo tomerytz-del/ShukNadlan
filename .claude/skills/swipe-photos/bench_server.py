@@ -9,7 +9,7 @@ PORT = int(sys.argv[1]); SWIPE = pathlib.Path(sys.argv[2])
 CACHE = {}
 def ratio(path):
     h = int(hashlib.md5(path.encode()).hexdigest(), 16) % 10
-    return 0.75 if h < 7 else (1.5 if h < 9 else 0.5625)  # h/w: portrait mostly? w/h below
+    return 0.75 if h < 7 else (1.5 if h < 9 else 0.5625)  # גובה/רוחב: 70% לרוחב (0.75), 20% לאורך (1.5), 10% לרוחב רחב (0.5625)
 def make(path, w):
     k = (path, w)
     if k in CACHE: return CACHE[k]
