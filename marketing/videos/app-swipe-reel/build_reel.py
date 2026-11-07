@@ -67,7 +67,7 @@ LINES = [
          sfx=[(1.5, "pop"), (2.6, "pop")]),  # the "שמירה" stamp, then the "דילוג" stamp
     dict(id="visit", vo="מצאתם משהו? מתאמים ביקור ישר מהטלפון.",
          caption=["מצאתם משהו?", "מתאמים ביקור ישר מהטלפון"], gold=1,
-         shots=[(C1, 19.8, 21.25, 1.0, 460), (C4, 17.95, 18.95, 1.0, 400)],
+         shots=[(C1, 19.8, 20.9, 1.0, 460), (C4, 17.7, 18.45, 1.0, 300)],
          sfx=[(0.3, "ping")]),  # the "תיאום ביקור" button pops up, then the real visit form
     dict(id="staging", vo="רוצים לראות איך זה ייראה אחרי שיפוץ? הדמיית AI.",
          caption=["איך זה ייראה אחרי שיפוץ?", "הדמיית AI"], gold=1,
@@ -76,7 +76,7 @@ LINES = [
          caption=["כמה מזומן צריך להביא?", "המחשבון בתוך הדף"], gold=None,
          shots=[(C4, 19.6, 27.6, 1.95, 400)]),
 ]
-END = dict(id="cta", vo="חדש באתר: מחליקים על דירות בעפולה והעמק. הקישור בביו.", dur=3.8,
+END = dict(id="cta", vo="היכנסו לשוק הנדל״ן, ותתחילו להחליק על דירות בעפולה והעמק.", dur=3.8,
            sfx=[(0.0, "chime")])
 VO_GAP = 0.25        # silence after each line before the next shot
 MUSIC_GAIN = 0.07    # music about 13 dB under the voice (Reelkit lines are about -24 LUFS; the skill wants 10 to 22 dB)
@@ -134,18 +134,31 @@ def end_card(path):
         t = y / H
         d.line([(0, y), (W, y)], fill=tuple(int(NAVY[i] * (1 - t) + NAVY_DARK[i] * t) for i in range(3)))
     logo = Image.open(LOGO).convert("RGBA")
-    lw = 340
+    lw = 300
     logo = logo.resize((lw, int(logo.size[1] * lw / logo.size[0])))
-    img.paste(logo, ((W - lw) // 2, 290), logo)
-    y = 290 + logo.size[1] + 50
-    for line, f, col in [("חדש: מחליקים על דירות", font(80), WHITE),
-                         ("בעפולה והעמק", font(80), WHITE),
-                         ("הקישור בביו", font(80), GOLD),
-                         ("shuknadlan.co.il/swipe", font(52), WHITE)]:
-        bb = d.textbbox((0, 0), line, font=f, direction="rtl", language="he")
-        d.text(((W - (bb[2] - bb[0])) // 2 - bb[0], y), line, font=f, fill=col,
-               direction="rtl", language="he")
-        y += (bb[3] - bb[1]) + 34
+    img.paste(logo, ((W - lw) // 2, 200), logo)
+    y = 200 + logo.size[1] + 44
+
+    def centred(line, f, col, rtl=True):
+        nonlocal y
+        kw = dict(direction="rtl", language="he") if rtl else {}
+        bb = d.textbbox((0, 0), line, font=f, **kw)
+        d.text(((W - (bb[2] - bb[0])) // 2 - bb[0], y - bb[1]), line, font=f, fill=col, **kw)
+        y += (bb[3] - bb[1]) + 30
+
+    # the CTA names the brand and the action, as the narration says it (Tomer, 7.11.2026)
+    centred("היכנסו לשוק הנדל״ן", font(84), WHITE)
+    centred("ותתחילו להחליק על דירות", font(66), GOLD)
+    centred("בעפולה והעמק", font(66), GOLD)
+    y += 18
+    url, uf = "shuknadlan.co.il/swipe", font(54)
+    bb = d.textbbox((0, 0), url, font=uf)
+    bw, bh = bb[2] - bb[0] + 96, bb[3] - bb[1] + 52
+    x0 = (W - bw) // 2
+    d.rounded_rectangle([x0, y, x0 + bw, y + bh], radius=bh // 2, fill=GOLD)
+    d.text((x0 + 48 - bb[0], y + 26 - bb[1]), url, font=uf, fill=NAVY_DARK)
+    y += bh + 30
+    centred("הקישור בביו", font(46), WHITE)
     assert y < TEXT_FLOOR, "end card text reaches the clean bottom zone"
     img.save(path)
 
@@ -180,13 +193,18 @@ def main():
     for li, line in enumerate(LINES):
         start = t
         shots = line["shots"]
-        for off, job in line.get("sfx", []):
-            cues.append((start + off, job))
         d0 = sum((sh[2] - sh[1]) / sh[3] for sh in shots)
         target = d0
         if line["id"] in vo:
             target = max(vo[line["id"]][1] + VO_GAP, 1.0)
         ratio = target / d0
+        # a cue's offset is in the planned timing; the footage under it plays at
+        # sp / clamp(ratio), so the moment it marks moves by the same factor.
+        # A cue whose moment was trimmed off the end is dropped, not moved.
+        scale = max(min(ratio, STRETCH[1]), STRETCH[0])
+        for off, job in line.get("sfx", []):
+            if off * scale < target - 0.1:
+                cues.append((start + off * scale, job))
         for shot in shots:
             src, a, b, sp, cy = shot[:5]
             opts = shot[5] if len(shot) > 5 else {}
