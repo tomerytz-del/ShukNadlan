@@ -132,9 +132,14 @@
   // קורה פעם אחת, גם כשכמה קריאות נכשלו יחד. כשהרענון נכשל ברשת מחזירים את
   // הכישלון המקורי, והמסך שקרא מציג את "לנסות שוב" שלו.
   async function withAuth(call) {
-    if (authLost) return new Promise(function () {});
+    if (authLost || mfaGate) return new Promise(function () {});
     var r = await call();
     if (!authFailed(r)) return r;
+    // הבקשה הגיעה למסד עם טוקן תקין, והפונקציה ענתה unauthorized: זה סימן
+    // לחשבון שחייב אימות כניסה (מנהל/ת משרד, מנהל/ת פלטפורמה, מי שהפעיל/ה
+    // אימות) ב-session שעוד לא אומת. ‏mfa_pre_request מאפס/ת אז את ה-claims
+    // ו-auth.uid() הוא null, ורענון טוקן לא ישנה את זה (docs/mfa.md).
+    if (!r.error && await mfaGateIfPending()) return new Promise(function () {});
     var how = await refreshAuth();
     // הטוקן הישן פג והחדש לא הגיע בגלל הרשת: ההודעה הנכונה היא
     // "אין חיבור", לא "להתחבר מחדש"
@@ -152,6 +157,110 @@
     return new Promise(function () {});
   }
   function rpc(name, args) { return withAuth(function () { return sb.rpc(name, args); }); }
+
+  /* ------------------------------------------------------- אימות כניסה
+     אותה זרימה כמו ב-CRM (assets/crm.js, showMfaChallenge): הודעה אחת
+     לגבריאלה בוואטסאפ, או קוד מאפליקציית אימות. האימות הוא ל-session, ולכן
+     מי שאימת/ה ב-CRM באותו דפדפן ובאותה כניסה לא יראה את המסך הזה. */
+  var ASSISTANT_WA_NUMBER = '972532494740';
+  var MFA_POLL_MS = 3000, MFA_POLL_MAX_MS = 10 * 60 * 1000;
+  var mfaGate = null, mfaPoll = null;
+  async function mfaStatus() {
+    var r = await sb.rpc('mfa_status');
+    if (r.error) throw r.error;
+    return r.data || {};
+  }
+  async function mfaGateIfPending() {
+    if (mfaGate) return true;
+    var st;
+    try { st = await mfaStatus(); } catch (e) { return false; }
+    if (!st.pending) return false;
+    if (mfaGate) return true;   // קריאה מקבילה כבר פתחה את המסך
+    mfaGate = mfaGate || {};
+    clearInterval(state.pollTimer); clearInterval(state.timerId);
+    state.steps = null; state.sim = null;
+    renderMfa(st);
+    return true;
+  }
+  function mfaStopPolling() { if (mfaPoll) { clearInterval(mfaPoll.timer); mfaPoll = null; } }
+  function mfaStartPolling(onTimeout) {
+    mfaStopPolling();
+    var started = Date.now();
+    var tick = async function () {
+      if (!mfaPoll) return;
+      if (Date.now() - started > MFA_POLL_MAX_MS) { mfaStopPolling(); onTimeout(); return; }
+      try { if (!(await mfaStatus()).pending) mfaVerified(); } catch (e) { /* ננסה בסיבוב הבא */ }
+    };
+    mfaPoll = { timer: setInterval(tick, MFA_POLL_MS), tick: tick };
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && mfaPoll) mfaPoll.tick();
+  });
+  async function mfaVerified() {
+    mfaStopPolling();
+    mfaGate = null; routed = false;
+    var s = await sb.auth.getSession();
+    if (s.data && s.data.session) route(s.data.session); else renderLogin();
+  }
+  var MFA_START_ERRORS = {
+    no_phone: 'אין נייד בכרטיס הסוכן שמחובר לחשבון הזה, ולכן אין לאן לאמת. לעזרה: 054-6929991.',
+    rate_limited: 'יותר מדי ניסיונות בזמן קצר. כדאי לחכות כמה דקות ולנסות שוב.'
+  };
+  async function renderMfa(st) {
+    render(band({ title: 'קורס ההכנה', exit: 'logout', cls: 'tall' }) +
+      '<div class="center"><div class="card">' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>החשבון הזה מוגן באימות כניסה, כמו ב-CRM. מאמתים פעם אחת בכניסה הזו, וממשיכים ללמוד.</div></div>' +
+      '<h2>אימות כניסה</h2>' +
+      '<p>שולחים לגבריאלה בוואטסאפ את ההודעה המוכנה<span id="mfaTail"></span>, וחוזרים לכאן. הדף ייפתח לבד.</p>' +
+      '<a class="btn-p" id="mfaWa" href="#" aria-disabled="true" target="_blank" rel="noopener" data-bot>אימות בוואטסאפ</a>' +
+      '<p class="err" id="mfaStatus" style="color:#4a5578">מכינים את ההודעה...</p>' +
+      (st.totp ? '<div class="hr"></div><form id="mfaTotp" novalidate><label class="field">או קוד מאפליקציית האימות<input id="mfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr"></label>' +
+        '<button type="submit" class="btn-s" id="mfaTotpBtn" style="margin-top:12px">כניסה עם הקוד</button><p class="err" id="mfaTotpErr"></p></form>' : '') +
+      '</div></div>');
+    bindBand();
+    var link = $('mfaWa'), stEl = $('mfaStatus');
+    link.addEventListener('click', function (e) {
+      if (link.getAttribute('aria-disabled') === 'true') { e.preventDefault(); return; }
+      stEl.style.color = '#4a5578';
+      stEl.textContent = 'מחכים להודעה בוואטסאפ...';
+      mfaStartPolling(function () { stEl.style.color = ''; stEl.textContent = 'לא הגיעה הודעה. אפשר לרענן את הדף ולנסות שוב.'; });
+    });
+    on('mfaCode', 'input', function () { var i = $('mfaCode'); i.value = i.value.replace(/\D/g, '').slice(0, 6); });
+    on('mfaTotp', 'submit', async function (e) {
+      e.preventDefault();
+      var code = $('mfaCode').value.trim(), btn = $('mfaTotpBtn'), fb = $('mfaTotpErr');
+      fb.textContent = '';
+      if (!/^\d{6}$/.test(code)) { fb.textContent = 'הקוד הוא 6 ספרות.'; return; }
+      btn.disabled = true; btn.textContent = 'בודקים...';
+      try {
+        // listFactors ולא ה-session: אפליקציה שנוספה ממכשיר אחר אינה ב-session המקומי
+        var f = await sb.auth.mfa.listFactors();
+        if (f.error) throw f.error;
+        var factor = ((f.data && f.data.totp) || []).filter(function (x) { return x.status === 'verified'; })[0];
+        if (!factor) throw new Error('לא נמצאה אפליקציית אימות פעילה בחשבון. אפשר לאמת בוואטסאפ.');
+        var v = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code });
+        if (v.error) throw v.error;
+        mfaVerified();
+      } catch (err) {
+        fb.textContent = errText(err);
+        btn.disabled = false; btn.textContent = 'כניסה עם הקוד';
+      }
+    });
+    // הקוד נוצר כשהמסך עולה, כדי שהכפתור יהיה קישור אמיתי ולא חלון שנפתח
+    // אחרי await (דפדפנים חוסמים אותו כחלון קופץ)
+    try {
+      var r = await sb.rpc('wa_login_start', { p_enable: false });
+      if (r.error) throw r.error;
+      if (r.data && r.data.error) throw new Error(MFA_START_ERRORS[r.data.error] || errText({ message: r.data.error }));
+      link.href = 'https://wa.me/' + ASSISTANT_WA_NUMBER + '?text=' + encodeURIComponent('אימות כניסה ' + r.data.nonce);
+      link.removeAttribute('aria-disabled');
+      if (r.data.phone_tail && $('mfaTail')) $('mfaTail').textContent = ' מהנייד שמסתיים ב-' + r.data.phone_tail;
+      stEl.textContent = '';
+    } catch (err) {
+      stEl.style.color = '';
+      stEl.textContent = errText(err);
+    }
+  }
 
   var state = {
     user: null, me: null, catalog: null, lessons: {},
@@ -926,7 +1035,7 @@
   async function route(session) {
     if (routed) return;
     routed = true;
-    authLost = false;
+    authLost = false; mfaGate = null; mfaStopPolling();
     state.user = session.user;
     var params = new URLSearchParams(window.location.search);
     var order = params.get('order');
@@ -947,7 +1056,7 @@
     if (gerr) { cleanAuthParams(); renderLogin(gerr); return; }
     sb.auth.onAuthStateChange(function (event, session) {
       if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) setTimeout(function () { route(session); }, 0);
-      if (event === 'SIGNED_OUT') { routed = false; renderLogin(); }
+      if (event === 'SIGNED_OUT') { routed = false; mfaGate = null; mfaStopPolling(); renderLogin(); }
     });
     var s = await sb.auth.getSession();
     if (s.data && s.data.session) { route(s.data.session); return; }
