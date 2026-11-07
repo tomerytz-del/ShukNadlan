@@ -44,6 +44,7 @@ docs/exam-course.md.
 """
 import glob
 import json
+import subprocess
 import os
 import re
 import sys
@@ -109,7 +110,7 @@ def load():
 HEB_MONTHS = {'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'אפריל': 4, 'מאי': 5, 'יוני': 6, 'יולי': 7,
               'אוגוסט': 8, 'ספטמבר': 9, 'אוקטובר': 10, 'נובמבר': 11, 'דצמבר': 12}
 # "שאלה 14, יולי 2026" / "שאלה 20 במבחן יולי 2025": ציטוט של שאלה אמיתית מהמאגר
-CITATION = re.compile(r'שאלה (\d{1,2})(?:,| ב?מבחן| במועד)? (' + '|'.join(HEB_MONTHS) + r') (\d{4})')
+CITATION = re.compile(r'שאלה (\d{1,2})(?:,| ב?מבחן| ממבחן| למבחן| במועד)? (?:[במ](?=' + '|'.join(HEB_MONTHS) + r'))?(' + '|'.join(HEB_MONTHS) + r') (\d{4})')
 
 
 def check_citations(chapters, problems, warnings):
@@ -132,10 +133,12 @@ def check_citations(chapters, problems, warnings):
                 if isinstance(st, dict) and st.get('type') in ('concept', 'example'):
                     texts.append(('צעד ' + str(st.get('title')), ' '.join(str(st.get(k) or '') for k in ('title', 'text', 'law'))))
             texts.append(('גוף השיעור', lesson.get('body_html') or ''))
+            texts.append(('פתיח', lesson.get('intro') or ''))
+            texts.append(('נקודות המפתח', ' '.join(str(k) for k in (lesson.get('key_points') or []))))
             for where, text in texts:
                 for m in CITATION.finditer(text):
                     slug = 'exam-%s-%02d-q%02d' % (m.group(3), HEB_MONTHS[m.group(2)], int(m.group(1)))
-                    src = '%s / %s / %s' % (lesson['_file'], lesson['slug'], where)
+                    src = '%s / %s / %s' % (lesson.get('_file'), lesson.get('slug') or '?', where)
                     if slug not in bank:
                         problems.append(src + ': מצטט "%s" ואין שאלה כזו במאגר (%s)' % (m.group(0), slug))
                     elif bank[slug].get('published') is False:
@@ -219,10 +222,23 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
                         problems.append(where + ': ההסבר מפנה למקום של חלופה (אות או סדר), והשרת מערבב את הסדר')
                 # slug קיים שה-correct שלו השתנה: שאלה שנכתבה מחדש מקבלת slug חדש,
                 # אחרת ניסיון פתוח (answers.c הוא אינדקס) נבדק מול חלופה אחרת
-                if s in answers_snapshot and isinstance(c, int) and answers_snapshot[s] != c \
+                snap = answers_snapshot.get(s)
+                snap_c = snap[0] if isinstance(snap, list) else snap
+                snap_opts = snap[1] if isinstance(snap, list) and isinstance(snap[1], list) else None
+                if snap is not None and isinstance(c, int) and snap_c != c \
                         and s not in allowed_answer_changes:
                     problems.append(where + ': correct השתנה (%s -> %s) תחת אותו slug. שאלה שנכתבה מחדש מקבלת slug חדש; '
-                                    'תיקון מפתח אמיתי: --allow-answer-change=%s' % (answers_snapshot[s], c, s))
+                                    'תיקון מפתח אמיתי: --allow-answer-change=%s' % (snap_c, c, s))
+                # אותו correct, אבל החלופות הוחלפו בסדר: ניסיון פתוח והסדר המעורבב
+                # (option_orders) שמורים לפי אינדקס, ולכן הנכונה הייתה עוברת לטקסט אחר.
+                # כל חלופה שהייתה בתמונה ונמצאת עכשיו במקום אחר היא החלפת סדר, גם
+                # כשבאותה עריכה תוקן כתיב בחלופה אחרת. תיקון כתיב במקום מותר.
+                elif snap_opts is not None and isinstance(opts, list) and s not in allowed_answer_changes:
+                    moved = [(j, opts.index(t)) for j, t in enumerate(snap_opts)
+                             if t in opts and opts.index(t) != j and opts.count(t) == 1]
+                    if moved:
+                        problems.append(where + ': חלופות זזו ממקומן תחת אותו slug (%s). סדר החלופות קבוע; '
+                                        'שאלה שנכתבה מחדש מקבלת slug חדש' % ', '.join('%d->%d' % m for m in moved))
     return problems
 
 
@@ -309,8 +325,26 @@ def new_version():
     return v
 
 
+def applied_on_main(path):
+    """התוכן של המיגרציה כפי שהיא ב-origin/main, או None כשאינה שם (או שאין git)."""
+    rel = os.path.relpath(path, ROOT)
+    try:
+        # ref מקומי ישן היה מכבה את השמירה בשקט אחרי PR של מישהו אחר
+        f = subprocess.run(['git', 'fetch', '-q', 'origin', 'main'], cwd=ROOT,
+                           capture_output=True, text=True, timeout=60)
+        if f.returncode != 0:
+            print('אזהרה: git fetch origin main נכשל, והבדיקה אם המיגרציה כבר במיין רצה מול ref מקומי')
+        out = subprocess.run(['git', 'show', 'origin/main:' + rel], cwd=ROOT,
+                             capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        print('אזהרה: אין git, ולכן לא נבדק אם המיגרציה כבר במיין. אם היא רצה בפרודקשן, צריך --bump')
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
 def load_answers():
-    # slug -> correct כפי שנכתב במיגרציה האחרונה. נכתב בכל הרצה שמייצרת.
+    # slug -> [correct, ארבע החלופות] כפי שנכתב במיגרציה האחרונה (פורמט ישן: רק correct).
+    # נכתב בכל הרצה שמייצרת.
     if os.path.exists(ANSWERS_FILE):
         return json.load(open(ANSWERS_FILE, encoding='utf-8'))
     return {}
@@ -358,10 +392,21 @@ def main():
         with open(VERSION_FILE, 'w', encoding='utf-8') as f:
             f.write(version + '\n')
     target = os.path.join(MIGRATIONS, version + '_course_content.sql')
+    sql = render(chapters)
+    on_main = applied_on_main(target)
+    def body(x):   # בלי שורת "נוצר:", שמשתנה בכל הרצה
+        return '\n'.join(l for l in x.splitlines() if not l.startswith('-- נוצר:'))
+    if on_main is not None and body(on_main) != body(sql) and '--bump' not in sys.argv:
+        # הקובץ כבר במיין, כלומר כנראה כבר רץ בפרודקשן. כתיבה מחדש באותו version
+        # עוברת ירוק ב-CI, ו-db push מדלג עליה: התוכן החדש לא היה מגיע לאתר.
+        print('המיגרציה %s כבר ב-origin/main (וכנראה כבר רצה בפרודקשן), והתוכן השתנה.\n'
+              'מריצים עם --bump כדי ליצור מיגרציה חדשה.' % os.path.relpath(target, ROOT))
+        return 1
     with open(target, 'w', encoding='utf-8') as f:
-        f.write(render(chapters))
+        f.write(sql)
     with open(ANSWERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump({qu['slug']: qu['correct'] for c in chapters for l in c['lessons'] for qu in (l.get('questions') or [])},
+        json.dump({qu['slug']: [qu['correct'], qu['options']]
+                   for c in chapters for l in c['lessons'] for qu in (l.get('questions') or [])},
                   f, ensure_ascii=False, indent=0, sort_keys=True)
         f.write('\n')
     print('נכתב: ' + os.path.relpath(target, ROOT))
