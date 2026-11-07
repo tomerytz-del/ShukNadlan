@@ -383,7 +383,7 @@
     };
     if (RATIO.has(u) || SRCW.has(u)) { go(); return; }
     var th = new Image();
-    if (low) th.fetchPriority = 'low';   // גם הטשטוש שמקדים את התמונה: אחרת הוא מתחרה בתמונה הגלויה
+    // הטשטוש (כ-1KB) בעדיפות רגילה, בכוונה: ‏go() מתחיל רק אחריו, ועדיפות נמוכה יכולה לעכב את התמונה עצמה בשניות
     th.onload = function () { noteRatio(u, th.naturalWidth, th.naturalHeight, false); go(); };
     th.onerror = go;
     th.src = sized(u, 40);
@@ -2308,7 +2308,7 @@
     if (n < 2) return;
     // שתי התמונות הבאות, בלי עטיפה (הראשונה כבר נטענה כשהכרטיס הוצג), ובדילוג על שקופית מיוחדת
     // (רילס, לפני/אחרי, הזמנה) כדי לחמם את התמונה שאחריה ולא לוותר עליה
-    for (var i = at + 1, got = 0, max = lean() ? 1 : 2; i < n && got < max; i++) {
+    for (var i = at + 1, got = 0, max = lean() ? 1 : 2; i < n && i <= at + 3 && got < max; i++) {   // עד שלוש שקופיות קדימה
       var u = ph[i];
       if (u && !slideKind(u)) { warm(u, true); got++; }
     }
@@ -2675,10 +2675,11 @@
       // החלון של הקרוסלה זז רק אחרי שהתמונה שביקשו הגיעה (‏warm מוותרת על מה שכבר התבקש). המאזין
       // יוצא גם בשגיאה, כדי שלא יישאר תלוי על הצומת המשותף
       var adv = function () { var cc = cur(); if (cc && cc.p && img.getAttribute('data-u') === u) warmCarousel(cc); };
-      if (same) setTimeout(adv, 0);
+      if (same && img.complete && img.naturalWidth) setTimeout(adv, 0);
       else {
-        var onErr = function () { img.removeEventListener('load', adv); };
-        img.addEventListener('load', function () { img.removeEventListener('error', onErr); adv(); }, { once: true });
+        var onErr = function () { img.removeEventListener('load', onLoad); };
+        var onLoad = function () { img.removeEventListener('error', onErr); adv(); };
+        img.addEventListener('load', onLoad, { once: true });
         img.addEventListener('error', onErr, { once: true });
       }
       if (blur) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
