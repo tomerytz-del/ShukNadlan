@@ -269,7 +269,6 @@ def render(page: dict, parts: dict[str, str]) -> str:
         "url": url,
         "description": desc,
         "inLanguage": "he",
-        "isPartOf": {"@type": "WebSite", "name": "שוק נדל״ן", "url": SITE + "/"},
     }
 
     def ld(obj: dict) -> str:
