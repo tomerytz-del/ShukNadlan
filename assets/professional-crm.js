@@ -88,10 +88,12 @@
   });
 
   /* ---------- החשבון ---------- */
-  async function loadAccount() {
+  async function loadAccount(userId) {
+    // ‏eq('user_id') חובה: מנהל/ת פלטפורמה רואה את כל החשבונות (policy), ו-maybeSingle על כולם נכשל
     const { data, error } = await sb
       .from('professional_accounts')
       .select('id, kind, display_name, credit_balance, shelf_enabled, active, city_id')
+      .eq('user_id', userId)
       .maybeSingle();
     if (error) throw error;
     account = data;
@@ -242,7 +244,8 @@
           lead_already_sold: 'הליד כבר נמכר לעו״ד אחר/ת',
           lead_not_available: 'הליד כבר אינו זמין',
           lead_not_found: 'הליד לא נמצא',
-          not_a_lawyer: 'הגישה למדף עדיין לא אושרה',
+          not_a_lawyer: 'המדף הזה מיועד לעורכי דין בלבד',
+          shelf_not_approved: 'הגישה למדף עדיין לא אושרה על ידי הנהלת האתר',
           account_inactive: 'החשבון אינו פעיל',
         };
         setMsg('buyMsg', messages[data.error] || ('שגיאה: ' + errText(data.error)), 'err');
@@ -266,8 +269,14 @@
   });
 
   /* ---------- טעינה ---------- */
+  async function currentUserId() {
+    const { data: { session } } = await sb.auth.getSession();
+    return session ? session.user.id : null;
+  }
+
+  // אחרי כל פעולה: החשבון, התצוגה והמדף. boot משתמש באותה פונקציה אחרי בדיקות הכניסה
   async function refresh() {
-    await loadAccount();
+    await loadAccount(await currentUserId());
     renderAccount();
     if (account.kind === 'real_estate_lawyer' && account.shelf_enabled) {
       await Promise.all([loadShelf(), loadBought()]);
@@ -280,7 +289,7 @@
     if (recovering) return;
     if (!session) { showLogin(); return; }
     try {
-      await loadAccount();
+      await loadAccount(session.user.id);
     } catch (err) {
       showLogin();
       setMsg('lgMsg', 'שגיאה בטעינת החשבון: ' + errText(err), 'err');

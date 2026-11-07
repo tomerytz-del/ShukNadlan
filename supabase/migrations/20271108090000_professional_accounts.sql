@@ -100,7 +100,8 @@ create policy "platform admin reads professional accounts"
 -- יומן זיכויים: כל כסף שנכנס לארנק בלי סליקה (טעינה ידנית של מנהל/ת, עד שתהיה סליקה לבעלי מקצוע)
 create table if not exists public.professional_credit_log (
   id         uuid primary key default gen_random_uuid(),
-  account_id uuid not null references public.professional_accounts(id) on delete cascade,
+  -- ‏set null ולא cascade: מחיקת חשבון (account-erasure, מחיקת משתמש) אינה מוחקת את יומן הכסף
+  account_id uuid references public.professional_accounts(id) on delete set null,
   amount     numeric(12,2) not null check (amount <> 0),
   reason     text not null check (length(btrim(reason)) >= 3),
   balance_after numeric(12,2) not null,
@@ -173,8 +174,9 @@ create index if not exists lawyer_leads_sold_to_idx
 
 alter table public.lawyer_lead_purchases drop column if exists agent_id;
 alter table public.lawyer_lead_purchases drop column if exists agency_id;
+-- ‏set null ולא cascade: רשומת החיוב (מי שילם כמה, ולמי נחשפו פרטי הפונה) שורדת מחיקת חשבון
 alter table public.lawyer_lead_purchases
-  add column if not exists professional_id uuid not null references public.professional_accounts(id) on delete cascade;
+  add column if not exists professional_id uuid references public.professional_accounts(id) on delete set null;
 create index if not exists lawyer_lead_purchases_professional_idx
   on public.lawyer_lead_purchases (professional_id, created_at desc);
 
@@ -294,8 +296,11 @@ begin
   if not found then
     return jsonb_build_object('error', 'account_not_found');
   end if;
-  if v_acct.kind <> 'real_estate_lawyer' or v_acct.shelf_enabled is not true then
+  if v_acct.kind <> 'real_estate_lawyer' then
     return jsonb_build_object('error', 'not_a_lawyer');
+  end if;
+  if v_acct.shelf_enabled is not true then
+    return jsonb_build_object('error', 'shelf_not_approved');
   end if;
 
   -- אותו כלל של המדף, גם ברכישה: מי שאינו/ה עובד/ת בעיר הליד לא קונה אותו גם אם הגיע/ה למזהה.

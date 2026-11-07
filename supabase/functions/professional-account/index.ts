@@ -86,9 +86,14 @@ Deno.serve(async (req: Request) => {
 
   const { data: card } = await supabase
     .from("ad_placements")
-    .select("id, advertiser_name, business_name, advertiser_type, contact_email, phone_e164, target_region, status")
+    .select("id, advertiser_name, business_name, advertiser_type, contact_email, phone_e164, target_region, status, placement_type")
     .eq("id", access.placement_id).maybeSingle();
   if (!card) return json({ error: "card_not_found" }, 404);
+  // רק כרטיסיית בעל מקצוע חיה או ממתינה לאישור: אסימון של כרטיסייה שהוסרה או שאינה של בעל מקצוע
+  // אינו פותח ארנק
+  if (card.placement_type !== "professional_card" || !["active", "pending_approval"].includes(card.status)) {
+    return json({ error: "card_not_active", detail: "הכרטיסייה אינה פעילה" }, 409);
+  }
   if (!card.contact_email) return json({ error: "card_without_email" }, 409);
 
   const { data: existing } = await supabase
@@ -98,9 +103,11 @@ Deno.serve(async (req: Request) => {
   // העיר: לפי שם האזור שנרשם בכרטיסייה. בלי התאמה city_id ריק, ומנהל/ת משלים/ה לפני אישור המדף
   let cityId: string | null = null;
   if (card.target_region) {
-    const { data: city } = await supabase
-      .from("cities").select("id").eq("name", String(card.target_region).trim()).limit(1).maybeSingle();
-    cityId = city?.id ?? null;
+    const { data: cities } = await supabase
+      .from("cities").select("id").eq("name", String(card.target_region).trim()).limit(2);
+    // התאמה יחידה בלבד: שם שמשותף לשתי ערים, או אזור שאינו עיר, משאירים ריק (ההתראה למנהל/ת
+    // אומרת להשלים) ולא בוחרים עיר באקראי, כי העיר קובעת אילו לידים עו"ד רואה
+    cityId = cities && cities.length === 1 ? cities[0].id : null;
   }
 
   const email = String(card.contact_email).trim().toLowerCase();

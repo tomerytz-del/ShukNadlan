@@ -48,9 +48,16 @@ test('הטריגר של agency_members נועל את is_mortgage_advisor, ו-is_
   assert.match(accountsMig.text, /drop column if exists is_lawyer/);
 });
 
+test('יומני הכסף שורדים מחיקת חשבון (set null, לא cascade)', () => {
+  const t = accountsMig.text;
+  assert.match(t, /account_id uuid references public\.professional_accounts\(id\) on delete set null/);
+  assert.match(t, /professional_id uuid references public\.professional_accounts\(id\) on delete set null/);
+});
+
 test('הרכישה במסד: סוג, אישור, עיר ויתרה אמיתית', () => {
   const t = accountsMig.text;
-  assert.match(t, /v_acct\.kind <> 'real_estate_lawyer' or v_acct\.shelf_enabled is not true/);
+  assert.match(t, /v_acct\.kind <> 'real_estate_lawyer'[\s\S]{0,120}not_a_lawyer/);
+  assert.match(t, /v_acct\.shelf_enabled is not true[\s\S]{0,120}shelf_not_approved/);
   assert.match(t, /v_lead\.city_id is not null and not exists/);
   assert.match(t, /returning credit_balance into v_balance/);
   assert.match(t, /revoke all on function public\.purchase_lawyer_lead\(uuid, uuid\) from public, anon, authenticated;/);
@@ -72,6 +79,7 @@ test('פונקציית הרכישה: JWT, MFA, חשבון בעל מקצוע, ו�
   assert.match(purchaseFn, /rpc\("purchase_lawyer_lead"[\s\S]{0,80}p_account_id: account\.id/);
   assert.equal(/body\.(account_id|agent_id|p_account_id)/.test(purchaseFn), false, 'החשבון נגזר מה-JWT, לא מהגוף');
   assert.match(purchaseFn, /not_a_lawyer: 403/);
+  assert.match(purchaseFn, /shelf_not_approved: 403/);
 });
 
 test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור מדף אוטומטי, וניקוי משתמש שנוצר חלקית', () => {
@@ -82,6 +90,9 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.equal(/shelf_enabled/.test(accountFn.replace(/\/\/.*$/gm, '').replace(/\*\*shelf_enabled[^\n]*/g, '')), false, 'האישור למדף אינו נקבע בפתיחה');
   assert.match(accountFn, /deleteUser\(authUser\.user\.id\)/);
   assert.match(accountFn, /terms_accepted !== true/);
+  // רק כרטיסיית בעל מקצוע חיה או ממתינה לאישור, ועיר רק בהתאמה יחידה
+  assert.match(accountFn, /placement_type !== "professional_card"[\s\S]{0,120}"active", "pending_approval"/);
+  assert.match(accountFn, /cities\.length === 1/);
   // manage_link: האסימון יוצא רק לפי JWT
   assert.match(accountFn, /action === "manage_link"[\s\S]{0,400}auth\.getUser\(\)/);
 });
@@ -92,6 +103,8 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   assert.match(crmJs, /\.from\('lawyer_leads_public'\)/);
   assert.match(crmJs, /\/functions\/v1\/lawyer-lead-purchase/);
   assert.match(crmJs, /\.eq\('sold_to_professional_id', account\.id\)/);
+  // מנהל/ת פלטפורמה רואה את כל החשבונות (policy): בלי סינון לפי המשתמש maybeSingle נכשל
+  assert.match(crmJs, /\.from\('professional_accounts'\)[\s\S]{0,160}\.eq\('user_id', userId\)/);
   assert.match(crmJs, /account\.kind === 'real_estate_lawyer' && account\.shelf_enabled/);
   // כרטיס המדף מציג את השאלה אחרי הסתרת פרטים (question_text), לא את השאלה הגולמית
   const shelfRender = crmJs.slice(crmJs.indexOf('async function loadShelf'), crmJs.indexOf('async function loadBought'));
@@ -100,6 +113,8 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   // אישור הרכישה מציג מחיר ותנאים לפני החיוב
   assert.match(crmHtml, /הרכישה כפופה לתנאי השימוש והתקנון/);
   assert.match(crmHtml, /<meta name="robots" content="noindex, nofollow">/);
+  // המניפסט של הסוכנים נפתח על /crm: אפליקציה מותקנת של עו"ד לא אמורה לפתוח אותו
+  assert.match(crmHtml, /<link rel="manifest" href="\/manifest\.webmanifest">/);
   // אזור אישי: לא נמדד כפניות של גולשים (events.js)
   assert.equal(/assets\/events\.js/.test(crmHtml), false);
 });

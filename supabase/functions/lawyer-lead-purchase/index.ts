@@ -73,8 +73,11 @@ Deno.serve(async (req: Request) => {
   }
   // הבדיקה חוזרת גם ב-purchase_lawyer_lead (שם היא הקובעת, בתוך הטרנזקציה).
   // כאן היא רק כדי להחזיר 403 מוקדם בלי לגעת בליד.
-  if (account.kind !== "real_estate_lawyer" || !account.shelf_enabled) {
+  if (account.kind !== "real_estate_lawyer") {
     return json({ error: "not_a_lawyer" }, 403);
+  }
+  if (!account.shelf_enabled) {
+    return json({ error: "shelf_not_approved" }, 403);
   }
 
   // שלב 3: הרכישה עצמה — טרנזקציה אחת ב-DB (ניכוי, סימון כנמכר, יומן חיובים)
@@ -91,6 +94,7 @@ Deno.serve(async (req: Request) => {
     lead_already_sold: 409,
     account_not_found: 403,
     not_a_lawyer: 403,
+    shelf_not_approved: 403,
     insufficient_balance: 402,
   };
 
