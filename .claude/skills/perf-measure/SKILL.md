@@ -182,3 +182,7 @@ B=$(mktemp -d) && git ls-files -z | xargs -0 -I{} cp --parents {} "$B"/
 (cd "$B" && bash scripts/netlify_build.sh)
 python "$B/.claude/skills/perf-measure/server.py" 8742 &   # השרת מגיש את התיקייה שבה הוא יושב
 ```
+
+## החלקה ותמונות
+
+מדידת **הקשה עד תמונה גלויה** ב-`/swipe` (לא טעינת דף) יושבת בסקיל `swipe-photos`, עם אותם מוקשים: בלי `context.route`, ובדיווח של הבייטים לצד הזמן.
