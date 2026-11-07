@@ -59,9 +59,10 @@ URLs** (‏Supabase → Authentication → URL Configuration). בלעדיה הכ
 
 **נכתב ב-JSON, נכנס במיגרציה.** `course-content/01-intro.json`,
 ‏`02-brokers-law.json` (חוק המתווכים ושלוש התקנות), ‏`03-ethics-regulations.json`,
-‏`04-land-law.json` (חוק המקרקעין וחוק החיזוק, תמ"א 38), ‏`09-past-exams.json`, ו-`exams/exam-YYYY-MM.json`
-לכל מועד. הקידומת של הקובץ היא ה-`position` של הפרק, שנקבע בתוך הקובץ; 05-08 שמורות לפרקי
-החוקים הבאים (חוזים, מכר דירות, הגנת הדייר, תכנון ומיסוי). ‏`scripts/course_content_sql.py` מאמת
+‏`04-land-law.json` (חוק המקרקעין וחוק החיזוק, תמ"א 38), ‏`05-contracts.json` (חוק החוזים, חוק
+התרופות וחוק החוזים האחידים), ‏`09-past-exams.json`, ו-`exams/exam-YYYY-MM.json` לכל מועד. הקידומת
+של הקובץ היא ה-`position` של הפרק, שנקבע בתוך הקובץ; 06-08 שמורות לפרקי החוקים הבאים (מכר דירות,
+הגנת הדייר, תכנון ומיסוי). ‏`scripts/course_content_sql.py` מאמת
 (4 חלופות, `correct` 0-3, ‏slug ייחודי) וכותב מיגרציית `upsert` לפי slug; מה
 שנעלם מה-JSON מסומן ‏`published = false` ואינו נמחק, כי ההתקדמות והניסיונות
 מצביעים עליו.
@@ -217,6 +218,11 @@ python3 scripts/course_content_sql.py --bump    # אחרי שהקודמת רצה
 ל-`course-purchase` (‏`fetch` עם `authHeaders`) מחוץ לזה: 401 שם מוצג כהודעה
 בטופס התשלום, ולא תוקע מסך. וקלף בדיקה שלא נטען מסיבה אחרת מציג "לנסות
 שוב", "לקלף הקודם" ו"לדלג על הבדיקה" (‏`S.startError`), לא ספינר.
+
+**חשבון שחייב אימות כניסה (7.11.2026).** מנהל/ת משרד או פלטפורמה שנכנס/ת
+לקורס ב-session שלא אומת מקבל/ת `unauthorized` מכל `course_*`, ורענון טוקן
+לא עוזר. ‏`withAuth` שואלת אז `mfa_status` ומציגה מסך אימות (וואטסאפ או
+אפליקציה) במקום מסך הכניסה. ‏`docs/mfa.md`, "הזרימה בקורס ההכנה".
 
 **בדיקה בלי מסד:** `assets/learn.js` עובד מול כל אובייקט שמחזיר את
 הצורה של supabase-js, ולכן אפשר להזריק לקוח מדומה (`addInitScript`,
