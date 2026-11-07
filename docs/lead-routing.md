@@ -83,6 +83,25 @@
 | `agent_buyer` | כל סוכן/ת פעיל/ה (מדף מחפשי הדירה פתוח לכל `authenticated`) |
 | `mortgage_advisor` | רק חשבונות עם `is_mortgage_advisor` |
 
+### מדפי הלידים ממוקדים למי שביקש (7.11.2026)
+
+**ליד מוצג רק לקהל שלו.** ליד של יועץ/ת משכנתאות אינו מוצג למתווכים, וליד של עורך/ת דין
+(המדף הבא) לא יוצג להם ולא ליועצי משכנתאות. ההפרדה נעשית **ב-view**, לא ב-JS:
+‏`mortgage_leads_public` היה פתוח ל-`authenticated` כולו וה-CRM הסתיר את המגירה, כך
+שכל סוכן/ת שקרא/ה ל-REST ישירות קיבל/ה את הלידים (‏1 ליד בפרודקשן ביום התיקון). מסך
+שמסתיר מגירה אינו הרשאה.
+
+| מדף | מי רואה | איך נאכף |
+| --- | --- | --- |
+| `rss_leads_public`, `saved_search_leads_public` | כל סוכן/ת תיווך | בכוונה (`BROKER_SHELVES`) |
+| `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה, או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`) |
+
+‏`scripts/check_shelf_audience.py` (‏workflow `shelf_audience.yml`) בודק שההגדרה **האחרונה**
+של כל מדף מקצועי קוראת לפונקציית הקהל שלו, ו**מדף חדש (`*_leads_public`) חייב להצהיר למי
+הוא מיועד** - ב-`PROFESSIONAL_SHELVES` עם פונקציית קהל, או ב-`BROKER_SHELVES`. מדף עורכי הדין
+יתווסף עם `current_is_lawyer()` ודגל `is_lawyer` נעול למנהל/ת הפלטפורמה, כמו
+`is_mortgage_advisor`. הרכישה כבר הייתה חסומה (`purchase_mortgage_lead` בודקת את הדגל).
+
 ### ההתראה
 
 טריגר `lead_routing_alert_platform_admin` יוצר התראת `lead_unrouted` לכל
