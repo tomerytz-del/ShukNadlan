@@ -450,7 +450,8 @@ where p.status = 'active' and c.market_slug = 'afula-emek';
 - "מחיר חציוני לנכס בשכונה" מוצג רק מ-3 מודעות; בלי התאמה מוצגות 3 השכונות הקרובות
   ביותר עם כפתור "העלאת התקציב".
 - "הצגת הנכסים" סוגר את המודאל ומחיל את החיפוש (`sentence.patch`) על השכונה.
-- **בלי אירועי GA4 בכוונה:** אירוע חדש מצריך טריגר ותגית ב-`gtm/container.json`
-  (‏`check_gtm_container.py`); אם יוחלט למדוד, מוסיפים את שלושתם יחד.
+- **מדידה (8.11.2026):** ‏`hood_quiz_open`, `hood_quiz_results`, `hood_quiz_show`, `hood_quiz_about`
+  (‏`docs/analytics-events.md`, "שאלון"). ‏`results` = 0 מראה שאלון שנגמר בלי נכס. הטריגרים והתגיות
+  ב-`gtm/container.json`, ו**עד שמייבאים את `docs/gtm-hood-quiz-import.json` ב-GTM ומפרסמים - האירועים נדחפים ולא מגיעים ל-GA4**.
 - הקוד ב-`home.js` יושב מיד לפני `applyDeepLinkFilters()`, אחרי `allActiveProperties`
   ו-`sentence` (‏TDZ: `bindCalcModal` שנפתח מה-hash רץ מוקדם).

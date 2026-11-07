@@ -8353,7 +8353,15 @@ let freeTextFeatures = new Set();
   let linksP = null;
   let readyTimer = 0;
   let statusTimer = 0;
+  let resultsTimer = 0;
+  let openSource = 'hash';        // button | menu | hash: מאיפה נפתח, לאירוע hood_quiz_open
 
+  /* מדידה (‏docs/analytics-events.md): רק מה שבחרו ומה שהוצג - מספרים וקודים, בלי טקסט חופשי. אותו
+     שם אירוע ב-gtm/container.json ובטריגר שלו. */
+  const shukTrack = (name, params) => { try { window.shukTrack && window.shukTrack(name, params); } catch (e) {} };
+  const trackBase = () => ({ deal: quiz.deal, rooms: quiz.rooms, filters_n: quiz.feats.size, budget: quiz.budget });
+
+  const hoodNameOf = id => String((hoodState.byId && hoodState.byId.get(id) && hoodState.byId.get(id).name) || id || '').slice(0, 60);
   const budgetText = (deal, v) => '₪' + nis(v) + (deal === 'rent' ? ' לחודש' : '');
 
   function loadHoodLinks(){
@@ -8462,6 +8470,17 @@ let freeTextFeatures = new Set();
     document.getElementById('searchResults')?.scrollIntoView({ behavior:'smooth', block:'start' });
   }
 
+  /* "מה יצא לו": אחרי שהבחירה נעצרה (לא בכל צעד של הסליידר), כדי לדעת כמה פעמים השאלון נגמר בלי
+     אף נכס. נשלח רק אחרי שינוי של הגולש/ת, לא על הציור הראשון */
+  function trackResults(){
+    clearTimeout(resultsTimer);
+    resultsTimer = setTimeout(() => {
+      if (!allActiveProperties.length || quiz.budget == null) return;
+      const out = Quiz.rank(allActiveProperties, { deal:quiz.deal, budget:quiz.budget, rooms:quiz.rooms, feats:[...quiz.feats] }, {});
+      shukTrack('hood_quiz_results', Object.assign(trackBase(), { results: out.matching, area_n: out.results.length }));
+    }, 1500);
+  }
+
   function pick(group, btn){
     group.querySelectorAll('.hq-chip').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
   }
@@ -8469,6 +8488,8 @@ let freeTextFeatures = new Set();
   const modal = bindCalcModal({
     id:'hoodQuizModal', closeBtn:'hoodQuizClose', hash:'#hood-quiz',
     onOpen(){
+      shukTrack('hood_quiz_open', { source: openSource });
+      openSource = 'hash';
       loadHoodLinks();
       // תקציב הפתיחה נגזר מהנכסים - מחכים להם אם עוד לא הגיעו, אחרת הסליידר מתחיל במקום שאין בו כלום.
       // מתזמן אחד: פתיחה חוזרת אינה מערימה עוד, ובלי נכסים התקציב נשאר ריק עד שהם מגיעים
@@ -8488,35 +8509,37 @@ let freeTextFeatures = new Set();
     },
   });
 
-  document.querySelectorAll('[data-hood-quiz]').forEach(b => b.addEventListener('click', () => modal.open()));
+  document.querySelectorAll('[data-hood-quiz]').forEach(b => b.addEventListener('click', () => { openSource = 'button'; modal.open(); }));
+  document.querySelectorAll('a[href="#hood-quiz"]').forEach(a => a.addEventListener('click', () => { openSource = 'menu'; }));
   document.querySelectorAll('[data-hq-deal]').forEach(b => b.addEventListener('click', () => {
     pick(b.parentElement, b);
     quiz.deal = b.dataset.hqDeal;
     setBudget(quiz.deal, Quiz.defaultBudget(allActiveProperties, quiz.deal));
-    render();
+    render(); trackResults();
   }));
   document.querySelectorAll('[data-hq-rooms]').forEach(b => b.addEventListener('click', () => {
     pick(b.parentElement, b);
     quiz.rooms = b.dataset.hqRooms;
-    render();
+    render(); trackResults();
   }));
   document.querySelectorAll('[data-hq-feat]').forEach(b => b.addEventListener('click', () => {
     const on = b.getAttribute('aria-pressed') !== 'true';
     b.setAttribute('aria-pressed', String(on));
     on ? quiz.feats.add(b.dataset.hqFeat) : quiz.feats.delete(b.dataset.hqFeat);
-    render();
+    render(); trackResults();
   }));
   $('hqBudget').addEventListener('input', e => {
     quiz.budget = Number(e.target.value);
     $('hqBudgetOut').textContent = budgetText(quiz.deal, quiz.budget);
     paintRange(e.target);
-    render();
+    render(); trackResults();
   });
   $('hqResults').addEventListener('click', e => {
     const show = e.target.closest('[data-hq-show]');
-    if (show){ showHood(show.dataset.hqShow); return; }
+    if (show){ shukTrack('hood_quiz_show', Object.assign(trackBase(), { area: hoodNameOf(show.dataset.hqShow) })); showHood(show.dataset.hqShow); return; }
+    if (e.target.closest('.hq-about')){ shukTrack('hood_quiz_about', { area: hoodNameOf(e.target.closest('.hq-card')?.querySelector('h4')?.textContent) }); return; }
     const raise = e.target.closest('[data-hq-raise]');
-    if (raise){ setBudget(quiz.deal, Number(raise.dataset.hqRaise)); render(); }
+    if (raise){ setBudget(quiz.deal, Number(raise.dataset.hqRaise)); render(); trackResults(); }
   });
 })();
 

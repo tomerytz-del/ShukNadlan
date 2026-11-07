@@ -536,3 +536,15 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `dm_filter_sheet_apply` | ‏R8: "הצגת N" בגיליון | `tab`, `spec_n`, `area_n`, `results`, `surface` |
 | `search_advisor_suggest` | ‏R8 (v10): שורת החיפוש בדף הבית זיהתה בקשה ליועצי נדל״ן או למשרד תיווך והציגה הצעה ל-`/agents` או `/agencies` מסונן (פעם אחת לכל הצעה). בלי הטקסט ובלי מזהים | `tab`, `spec` (מפתח או `all`), `area_kind`: ‏`hood` \| `city` \| `none`, `surface`: ‏`home` |
 | `search_advisor_click` | ‏R8: לחיצה על ההצעה הזו, או Enter / חיפוש קולי שהוביל אליה | `tab`, `spec`, `area_kind`, `surface` |
+
+## שאלון "איזו שכונה מתאימה לי?" (דף הבית, 7.11.2026)
+
+ארבעה אירועים מ-`initHoodQuiz` ב-`assets/home.js`, בלי דגל. כולם מספרים וקודים: **בלי טקסט חופשי**, והתקציב הוא
+הערך שבסליידר ולא פרט על אדם. הטריגרים והתגיות ב-`gtm/container.json`, וקובץ ייבוא ב-`docs/gtm-hood-quiz-import.json`.
+
+| אירוע | מתי | פרמטרים |
+| --- | --- | --- |
+| `hood_quiz_open` | נפתח השאלון | `source`: ‏`button` (הכפתור מתחת למפה) \| `menu` (התפריט הקצר) \| `hash` (כתובת `/#hood-quiz`) |
+| `hood_quiz_results` | אחרי שהבחירה נעצרה 1.5 שניות (לא בכל צעד של הסליידר). `results` = 0 הוא שאלון שנגמר בלי נכס | `deal`, `rooms`: ‏`any` \| 2 \| 3 \| 4 \| 5, `filters_n` (כמה מאפיינים נבחרו), `budget`, `results` (נכסים שמתאימים), `area_n` (שכונות) |
+| `hood_quiz_show` | "הצגת הנכסים" בשכונה | `deal`, `rooms`, `filters_n`, `budget`, `area` (שם השכונה) |
+| `hood_quiz_about` | "על השכונה" - מעבר לדף השכונה | `area` |
