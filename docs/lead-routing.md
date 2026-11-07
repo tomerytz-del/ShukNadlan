@@ -95,12 +95,13 @@
 | --- | --- | --- |
 | `rss_leads_public`, `saved_search_leads_public` | כל סוכן/ת תיווך | בכוונה (`BROKER_SHELVES`) |
 | `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה, או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`) |
+| `lawyer_leads_public` | עו"ד פעיל/ה (`is_lawyer`) בעיר של הליד, או מנהל/ת פלטפורמה | `current_is_lawyer()` + `current_agent_works_city()` בתוך ה-view (`20271107220000`). `docs/lawyer-leads.md` |
 | `project_leads_shelf` | יזם רשום ופעיל | `exists` על `developers` בתוך ה-view (כבר מ-`20260921090000`) |
 
 ‏`scripts/check_shelf_audience.py` (‏workflow `shelf_audience.yml`, והוא נבדק בעצמו ב-`check_shelf_audience_test.py`) בודק שההגדרה **האחרונה**
 של כל מדף מקצועי מחברת את שומר הקהל שלו ב-**AND** לתנאי ה-where (לא בהערה, לא ב-OR, לא בתת-שאילתה),  ו**מדף חדש (`*_leads_public`, `*_leads_shelf`, `*_shelf`) חייב להצהיר למי
 הוא מיועד** - ב-`PROFESSIONAL_SHELVES` עם פונקציית קהל, או ב-`BROKER_SHELVES`. מדף עורכי הדין
-יתווסף עם `current_is_lawyer()` ודגל `is_lawyer` נעול למנהל/ת הפלטפורמה, כמו
+נוסף עם `current_is_lawyer()` ודגל `is_lawyer` נעול למנהל/ת הפלטפורמה, כמו
 `is_mortgage_advisor`. הרכישה כבר הייתה חסומה (`purchase_mortgage_lead` בודקת את הדגל).
 
 ### ההתראה

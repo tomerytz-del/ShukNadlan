@@ -10012,6 +10012,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" data-shelf-tab="rss" aria-pressed="true">מוכרים וקונים · <span id="shelfTabRssCount">0</span></button>
           <button type="button" data-shelf-tab="saved" aria-pressed="false">מחפשי דירה · <span id="shelfTabSavedCount">0</span></button>
           <button type="button" data-shelf-tab="mortgage" aria-pressed="false" hidden>משכנתאות · <span id="shelfTabMortgageCount">0</span></button>
+          <button type="button" data-shelf-tab="lawyer" aria-pressed="false" hidden>עורכי דין · <span id="shelfTabLawyerCount">0</span></button>
         </div>
 
         <!-- מדף ה-RSS: מוכרים, משכירים, קונים ושוכרים שנאספו מקבוצות ומלוחות -->
@@ -10079,6 +10080,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="form-subheading">הלידים שרכשתי</div>
           <div id="purchasedMortgageList"></div>
+        </div>
+
+        <!-- עורכי דין: מוצג רק ל-is_lawyer, ורק לליד בעיר שהעו"ד עובד/ת בה (המסד אוכף, לא רק המסך). ראו loadDashboard() -->
+        <div class="shelf-pane" data-shelf-pane="lawyer" hidden>
+          <p class="shelf-note">שאלות שגולשים השאירו לעורך דין מדף נכס, בעיר שאתם עובדים בה. הרכישה (<b id="lawyerShelfPriceLabel">₪50</b>) חושפת שם, טלפון ואימייל. הטלפון אומת בוואטסאפ לפני שהשאלה עלתה למדף.</p>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <button type="button" class="btn btn-ghost" id="lawyerShelfRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+
+          <div id="lawyerShelfList"></div>
+
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedLawyerList"></div>
         </div>
       </div>
     </details>
