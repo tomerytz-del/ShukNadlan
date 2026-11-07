@@ -2138,9 +2138,6 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // סל סובלני: סביבה שהמיגרציה עוד לא רצה בה נכנסת לדשבורד בלי מקטע הסגירה,
   // ולא נתקעת במסך שגיאה.
   const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
-  // ‏is_lawyer (מדף עורכי הדין) נוסעת באותו סל סובלני: האתר עולה דקות לפני המיגרציה, ועמודה
-  // חסרה מפילה את *כל* השאילתה - כל סוכן/ת היה/הייתה ננעל/ת מחוץ ל-CRM עד שהיא רצה.
-  const LAWYER_FIELD = 'is_lawyer';
   /* שם המשרד היה סבב שני בטור לפני שהמסך מופיע: הוא תלוי ב-agency_id, ו-
      embed אסור כאן (PGRST201, ראו למעלה). לכן ה-agency_id של הכניסה הקודמת
      נשמר, והשאילתה יוצאת במקביל לשורת הסוכן/ת - ‏.then כדי שתצא עכשיו ולא
@@ -2155,7 +2152,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
 
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number_last4, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS + ', ' + LAWYER_FIELD)
+    .select(AGENT_FIELDS + ', page_bg, id_number_last4, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -2163,7 +2160,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number_last4|gender|promo_|tier_selected_at|tier_source|closure_|closed_at|is_lawyer/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number_last4|gender|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
     console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת - נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -2465,12 +2462,6 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   setShelfMortgageVisible(agent.is_mortgage_advisor);
   if (agent.is_mortgage_advisor){
     await loadMortgageShelf(agent.id);
-  }
-  // מדף עורכי הדין: אותו דבר, על is_lawyer
-  // לא ממתינים לו: שורת טעינות לעו"ד בלבד, ואין בו צורך לציור הראשון (הסקיל crm-startup)
-  setShelfLawyerVisible(agent.is_lawyer);
-  if (agent.is_lawyer){
-    loadLawyerShelf(agent.id).catch(err => console.warn('מדף עורכי הדין לא נטען:', err));
   }
 
   renderDevMenu(agent);
@@ -21529,7 +21520,6 @@ function timeLeftLabel(ts){
    יושבת ב-purchase_mortgage_lead, וזו כאן היא נוחות בלבד.                */
 let shelfTab = 'rss';
 let shelfMortgageOpen = false;
-let shelfLawyerOpen = false;
 
 /* מצב הפתיחה של שש רשימות החנות — מדף ורכישות לכל מגירה. סט נפרד לכל
    רשימה ולא סט אחד משותף: ליד שנרכש שומר את אותו `id` גם במדף וגם ברשימת
@@ -21538,7 +21528,6 @@ const shelfExpanded = {
   rss: new Set(),      rssBought: new Set(),
   saved: new Set(),    savedBought: new Set(),
   mortgage: new Set(), mortgageBought: new Set(),
-  lawyer: new Set(),   lawyerBought: new Set(),
 };
 
 function renderShelfTabs(){
@@ -21550,7 +21539,6 @@ function renderShelfTabs(){
 
 function setShelfTab(tab){
   if (tab === 'mortgage' && !shelfMortgageOpen) return;
-  if (tab === 'lawyer' && !shelfLawyerOpen) return;
   shelfTab = tab;
   renderShelfTabs();
 }
@@ -21566,30 +21554,18 @@ function setShelfMortgageVisible(open){
   refreshShelfCounts();
 }
 
-// אותו דבר למגירת עורכי הדין: נפתחת רק ל-is_lawyer, והמסד אוכף זאת ב-lawyer_leads_public
-function setShelfLawyerVisible(open){
-  shelfLawyerOpen = !!open;
-  const btn = document.querySelector('#shelfTabs [data-shelf-tab="lawyer"]');
-  if (btn) btn.hidden = !shelfLawyerOpen;
-  if (!shelfLawyerOpen && shelfTab === 'lawyer') shelfTab = 'rss';
-  renderShelfTabs();
-  refreshShelfCounts();
-}
-
 /* המונה של הקטגוריה והמונים שעל המגירות נכתבים ממקום אחד, כדי שלא ייווצר
    מצב שבו הכותרת אומרת 12 והמגירות מסתכמות ל-9. */
 function refreshShelfCounts(){
   const rss      = shelfLeads.length;
   const saved    = savedSearchLeads.length;
   const mortgage = shelfMortgageOpen ? mortgageShelfLeads.length : 0;
-  const lawyer   = shelfLawyerOpen ? lawyerShelfLeads.length : 0;
   const setText = (id, n)=>{ const el = document.getElementById(id); if (el) el.textContent = n; };
   setText('shelfTabRssCount', rss);
   setText('shelfTabSavedCount', saved);
   setText('shelfTabMortgageCount', mortgage);
-  setText('shelfTabLawyerCount', lawyer);
 
-  const total = rss + saved + mortgage + lawyer;
+  const total = rss + saved + mortgage;
   accSetCount('accLeadShelf', total ? total + ' זמינים' : '');
   // מה שקובע אם שווה לפתוח את החנות היום: כמה יש, ובכמה
   accSetSummary('accLeadShelf', total
@@ -22151,241 +22127,6 @@ async function buyMortgageLead(lead, btn){
 document.getElementById('mortgageOwnsFilter').addEventListener('change', renderMortgageShelf);
 document.getElementById('mortgageShelfRefreshBtn').addEventListener('click', ()=> {
   if (currentAgent) loadMortgageShelf(currentAgent.id);
-});
-
-/* ---------- מדף עורכי הדין: "שאלה לעו״ד" מדף נכס ----------
-   אותה מכונה כמו מדף המשכנתאות, על מלאי אחר: שאלה שגולש/ת השאיר/ה לעורך דין
-   מדף נכס, אחרי שהטלפון שלו/ה אומת בוואטסאפ. המדף נקרא מ-lawyer_leads_public:
-   השאלה (בלי פרטים מזהים), העיר והנכס, בלי שם/טלפון/אימייל. והרכישה עוברת
-   ב-Edge Function lawyer-lead-purchase.
-
-   **ממוקד למי שביקש:** המסד מחזיר שורות רק לעו"ד מסומן (is_lawyer) ורק לליד בעיר
-   שהוא/היא עובד/ת בה, ולכן יועץ נדל״ן או יועץ משכנתאות לא יראו אותו גם בקריאה ישירה
-   ל-REST. המגירה שמוסתרת כאן היא נוחות, לא ההגנה (docs/lawyer-leads.md).      */
-let lawyerLeadPrice = 50;
-let lawyerShelfLeads = [];
-// כמו במשכנתאות: המפה נצברת ולא מוחלפת (מדף ורכישות חולקים אותה)
-let lawyerPropertyTitles = {};
-// כשל בשליפת כותרות הנכסים אינו "נכס שהוסר": הכרטיס לא יטען על הנכס דבר שאינו יודע
-let lawyerPropertyLookupFailed = false;
-
-async function loadLawyerShelf(agentId){
-  const listEl = document.getElementById('lawyerShelfList');
-  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
-
-  const { data: leads, error } = await sb
-    .from('lawyer_leads_public')
-    .select('*')
-    .eq('status', 'new')
-    .order('created_at', { ascending:false })
-    .limit(60);
-
-  lawyerLeadPrice = priceOf('lawyer_lead_price', 50);
-  document.getElementById('lawyerShelfPriceLabel').textContent = shekel(lawyerLeadPrice);
-
-  if (error){
-    const missing = /does not exist|schema cache/i.test(error.message || '');
-    listEl.innerHTML = '<div class="empty-state">' +
-      (missing ? 'מדף עורכי הדין לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(heErr(error))) +
-      '</div>';
-    lawyerShelfLeads = [];
-    refreshShelfCounts();
-    // הלידים שנרכשו אינם תלויים במדף: נטענים גם כשהמדף נכשל
-    await loadPurchasedLawyerLeads(agentId);
-    return;
-  }
-
-  lawyerShelfLeads = leads || [];
-  refreshShelfCounts();
-  await loadLawyerLeadProperties(lawyerShelfLeads);
-  renderLawyerShelf();
-  await loadPurchasedLawyerLeads(agentId);
-}
-
-async function loadLawyerLeadProperties(leads){
-  const ids = [...new Set(leads.map(l => l.property_id)
-    .filter(id => id && !lawyerPropertyTitles[id]))];
-  if (ids.length === 0) return;
-  const { data, error } = await sb.from('properties').select('id, title, city').in('id', ids);
-  if (error){ lawyerPropertyLookupFailed = true; return; }
-  (data||[]).forEach(p => { lawyerPropertyTitles[p.id] = p; });
-}
-
-/* ‏Text הוא טקסט גולמי (לדיאלוג, שמבריח בעצמו), Line הוא HTML מוברח לכרטיס */
-function lawyerSourceText(lead){
-  const prop = lead.property_id ? lawyerPropertyTitles[lead.property_id] : null;
-  if (prop) return `על נכס: ${prop.title || 'מודעה'}${prop.city ? ' · ' + prop.city : ''}`;
-  if (lead.property_id) return lawyerPropertyLookupFailed ? 'על נכס באתר' : 'על נכס שהוסר מהאתר';
-  return 'שאלה כללית';
-}
-function lawyerSourceLine(lead){
-  return '🏠 ' + esc(lawyerSourceText(lead));
-}
-
-// כותרת השורה: תחילת השאלה. השאלה כבר עברה הסתרת פרטים מזהים במסד
-function lawyerTitle(text){
-  const t = String(text || '').replace(/\s+/g, ' ').trim();
-  return t.length > 70 ? t.slice(0, 70).trimEnd() + '…' : (t || 'שאלה לעו״ד');
-}
-
-function renderLawyerShelf(){
-  const listEl = document.getElementById('lawyerShelfList');
-  if (lawyerShelfLeads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">אין כרגע שאלות פנויות בעיר שלכם.<br>שאלות חדשות עולות מדף נכס, אחרי אימות הטלפון של הפונה.</div>';
-    return;
-  }
-  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
-  const tabsWrap = listEl.querySelector('.prop-tabs');
-  lawyerShelfLeads.forEach(lead => {
-    tabsWrap.appendChild(buildTabRow({
-      key: lead.id, list:'shelfLawyer', expanded: shelfExpanded.lawyer,
-      cls: 'lead-tab kind-buyer',
-      icon: '⚖️',
-      title: lawyerTitle(lead.question_text),
-      sub: [lawyerSourceText(lead), tabShortDate(lead.created_at)].filter(Boolean).join(' · '),
-      price: shekel(lawyerLeadPrice),
-      buildCard: ()=> buildLawyerShelfCard(lead),
-    }));
-  });
-}
-
-function buildLawyerShelfCard(lead){
-  const el = document.createElement('div');
-  el.className = 'card lead-card kind-buyer';
-  el.innerHTML = `
-    <div class="lead-top">
-      <div>
-        <span class="lead-kind">⚖️ שאלה לעו״ד</span>
-        <div class="lead-name">${esc(lead.question_text)}</div>
-      </div>
-      <span class="status-pill status-masked">${shekel(lawyerLeadPrice)}</span>
-    </div>
-    ${tagsHtml([
-      { text: lead.has_email ? '📇 שם, טלפון ואימייל' : '📇 שם וטלפון', cls:'tag-info' },
-      { text:'✅ טלפון מאומת בוואטסאפ' },
-      { text:'📅 נוסף ' + hebDate(lead.created_at) },
-    ])}
-    <div class="lead-meta">${lawyerSourceLine(lead)}</div>
-    <div class="lead-actions"></div>
-  `;
-  addCardAction(el.querySelector('.lead-actions'), {
-    label:`🛒 רכישה · ${shekel(lawyerLeadPrice)}`, cls:'btn-gold act-wide',
-    onClick: btn => buyLawyerLead(lead, btn),
-  });
-  return el;
-}
-
-async function loadPurchasedLawyerLeads(agentId){
-  const listEl = document.getElementById('purchasedLawyerList');
-  const { data: leads, error } = await sb
-    .from('lawyer_leads')
-    .select('id, full_name, phone, email, question, property_id, sold_at')
-    .eq('sold_to_agent_id', agentId)
-    .order('sold_at', { ascending:false });
-
-  if (error){
-    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(heErr(error)) + '</div>';
-    return;
-  }
-  if (!leads || leads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהחנות.</div>';
-    return;
-  }
-
-  await loadLawyerLeadProperties(leads);
-
-  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
-  const tabsWrap = listEl.querySelector('.prop-tabs');
-  leads.forEach(lead => {
-    tabsWrap.appendChild(buildTabRow({
-      key: lead.id, list:'boughtLawyer', expanded: shelfExpanded.lawyerBought,
-      cls: 'lead-tab kind-buyer',
-      icon: '⚖️',
-      title: lead.full_name,
-      sub: [lawyerTitle(lead.question), lawyerSourceText(lead)].filter(Boolean).join(' · '),
-      pill: { text:'נרכש ' + tabShortDate(lead.sold_at), cls:'status-pill status-unlocked' },
-      buildCard: ()=> buildPurchasedLawyerCard(lead),
-    }));
-  });
-}
-
-function buildPurchasedLawyerCard(lead){
-  const el = document.createElement('div');
-  el.className = 'card lead-card kind-buyer';
-  // ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
-  const waDigits = String(lead.phone).replace(/\D/g, '').replace(/^0/, '972');
-  el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">⚖️ שאלה לעו״ד</span>
-          <div class="lead-name">${esc(lead.full_name)}</div>
-        </div>
-        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
-      </div>
-      <div class="lead-meta" style="white-space:pre-wrap">${esc(lead.question)}</div>
-      <div class="lead-meta">${lawyerSourceLine(lead)}</div>
-      <div class="lead-actions">
-        <a class="btn btn-gold" href="tel:${esc(lead.phone)}">📞 ${esc(lead.phone)}</a>
-        <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
-        ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">✉️ אימייל</a>` : ''}
-        ${lead.property_id && lawyerPropertyTitles[lead.property_id]
-          ? `<a class="btn btn-ghost" href="/property?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
-      </div>
-    `;
-  return el;
-}
-
-async function buyLawyerLead(lead, btn){
-  const approved = await confirmPurchase({
-    title: 'אישור רכישת שאלה לעו״ד',
-    lines: [
-      '⚖️ ' + lawyerTitle(lead.question_text),
-      lawyerSourceText(lead),
-      `הרכישה חושפת שם, טלפון${lead.has_email ? ' ואימייל' : ''}, ומשייכת את הליד אליך בלבד.`,
-    ].filter(Boolean),
-    price: lawyerLeadPrice,
-  });
-  if (!approved) return;
-
-  const leadId = lead.id;
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'רוכש…';
-  try{
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(SUPABASE_URL + '/functions/v1/lawyer-lead-purchase', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ lead_id: leadId }),
-    });
-    const data = await res.json();
-    if (!res.ok || data.error){
-      const errorMessages = {
-        insufficient_balance: `יתרה לא מספיקה - נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
-        lead_already_sold: 'הליד כבר נמכר לעו״ד אחר/ת',
-        lead_not_available: 'הליד כבר לא זמין למכירה',
-        lead_not_found: 'הליד לא נמצא',
-        agent_inactive: 'החשבון אינו פעיל',
-        not_a_lawyer: 'החשבון אינו מסומן כחשבון של עו״ד - פנו למנהל/ת הפלטפורמה',
-        no_matching_agent_profile: 'שגיאת הרשאה - אין פרופיל מקושר',
-      };
-      showToast(errorMessages[data.error] || ('שגיאה: ' + heErr(data.error)));
-      btn.disabled = false; btn.textContent = original;
-      return;
-    }
-    showToast(data.already_purchased
-      ? 'הליד כבר שלך - מופיע למטה תחת "הלידים שרכשתי"'
-      : `הליד נרכש! חויבת ${shekel(data.price_charged)}. פרטי הקשר מופיעים תחת "הלידים שרכשתי"`);
-    shelfExpanded.lawyer.delete(leadId);
-    await loadDashboard();
-  } catch(err){
-    console.error(err);
-    showToast('שגיאת רשת - נסו שוב');
-    btn.disabled = false; btn.textContent = original;
-  }
-}
-
-document.getElementById('lawyerShelfRefreshBtn').addEventListener('click', ()=> {
-  if (currentAgent) loadLawyerShelf(currentAgent.id);
 });
 
 /* ---------- מדף מחפשי הדירה: לידי הסוכן החכם ----------

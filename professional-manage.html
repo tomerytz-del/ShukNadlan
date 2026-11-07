@@ -85,6 +85,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #extendFeedback{font-size:.78rem;text-align:center;margin-top:8px;min-height:1em}
   .renew-row{display:flex;gap:8px;align-items:flex-start;font-size:.76rem;color:var(--ink-soft);margin-top:10px;cursor:pointer}
   .renew-row input{margin-top:3px;flex:0 0 auto}
+  .account-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin:0 0 12px;font-size:.8rem}
+  .account-title{font-weight:800;margin:0 0 6px}
+  .account-note{margin:0 0 8px;color:var(--ink-soft)}
+  .account-terms{display:block;margin:8px 0;font-weight:400}
+  #accountForm input[type=password]{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:var(--radius-sm);margin:4px 0 6px}
   .renew-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin:0 0 12px;font-size:.8rem}
   .renew-box[hidden]{display:none}
   .renew-box p{margin:0 0 8px;font-size:.82rem;color:var(--ink)}
@@ -179,6 +184,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <span class="status-badge" id="statusBadge"></span>
     <a href="#" class="view-link" id="viewPageLink" target="_blank" rel="noopener">צפייה בעמוד שלי ←</a>
     <div class="extended-banner" id="extendedBanner" hidden></div>
+
+    <!-- חשבון כניסה וארנק (עורכי דין): לקבל שאלות של לקוחות ולרכוש אותן. ההרשאה היא האסימון
+         שבקישור הזה; כתובת הכניסה היא האימייל שנרשם בכרטיסייה. docs/professional-accounts.md -->
+    <div class="account-box" id="accountBox" hidden>
+      <p class="account-title">חשבון כניסה וארנק</p>
+      <div id="accountHas" hidden>
+        <p class="account-note">יש לכם חשבון. אפשר להיכנס לארנק ולמדף השאלות.</p>
+        <a class="btn btn-ghost" href="/professional-crm">כניסה לאזור האישי</a>
+      </div>
+      <form id="accountForm" hidden>
+        <p class="account-note">עורכי דין מקבלים שאלות של לקוחות מדף נכס ורוכשים אותן מארנק. פתיחת החשבון חינם, והגישה למדף השאלות מאושרת בידי הנהלת האתר.</p>
+        <label for="accPassword">סיסמה לכניסה (8 תווים לפחות)</label>
+        <input type="password" id="accPassword" autocomplete="new-password" minlength="8" required>
+        <label class="account-terms"><input type="checkbox" id="accTerms" required> קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a></label>
+        <button type="submit" class="btn btn-ghost" id="accBtn">פתיחת חשבון</button>
+        <div id="accFeedback"></div>
+      </form>
+    </div>
 
     <!-- החיוב החודשי. מוצג רק כשיש מנוי (billing_subscriptions): פעיל,
          מבוטל או שנכשל. הכפתור מבטל/מחדש; ביטול אינו מוריד את הכרטיסייה
@@ -359,6 +382,47 @@ async function callManage(payload){
   const data = await res.json().catch(()=>({ error:'bad_response' }));
   return { ok: res.ok && !data.error, data };
 }
+
+/* ---------- חשבון כניסה וארנק (עורכי דין) ---------- */
+const ACCOUNT_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-account';
+function renderAccountBox(data){
+  const lawyer = data.card && data.card.advertiser_type === 'real_estate_lawyer';
+  el('accountBox').hidden = !lawyer;
+  if (!lawyer) return;
+  el('accountHas').hidden = !data.has_account;
+  el('accountForm').hidden = !!data.has_account;
+}
+el('accountForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('accBtn'), out = el('accFeedback');
+  btn.disabled = true; out.textContent = '';
+  try{
+    const res = await fetch(ACCOUNT_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ token, password: el('accPassword').value, terms_accepted: el('accTerms').checked }),
+    });
+    const data = await res.json().catch(()=>({ error:'bad_response' }));
+    if (!res.ok || data.error){
+      const messages = {
+        weak_password: 'הסיסמה צריכה להכיל לפחות 8 תווים',
+        terms_not_accepted: 'צריך לאשר את תנאי השימוש',
+        account_exists: 'כבר נפתח חשבון לכרטיסייה הזו. אפשר להיכנס לאזור האישי.',
+        email_in_use: 'הכתובת שבכרטיסייה כבר רשומה באתר. כתבו לנו ונחבר את החשבון.',
+        card_without_email: 'לכרטיסייה אין כתובת אימייל. כתבו לנו.',
+      };
+      out.textContent = messages[data.error] || 'לא הצלחנו לפתוח את החשבון. נסו שוב בעוד רגע.';
+      btn.disabled = false;
+      return;
+    }
+    out.textContent = 'החשבון נפתח. כתובת הכניסה: ' + data.login_email;
+    el('accountForm').hidden = true;
+    el('accountHas').hidden = false;
+  } catch(err){
+    out.textContent = 'שגיאת רשת - נסו שוב';
+    btn.disabled = false;
+  }
+});
 
 /* טקסט רב-שורתי ↔ מערך. שורה ריקה היא לא פריט, וזה גם מה שמאפשר להשאיר
    שורת רווח בין פריטים בלי שהיא תיהפך לתגית ריקה בעמוד. */
@@ -794,6 +858,7 @@ el('saveBtn').addEventListener('click', async ()=>{
     renewal = data.renewal || null;
     if (Array.isArray(data.extend_months) && data.extend_months.length) extendMonths = data.extend_months;
     fillForm(data.card);
+    renderAccountBox(data);
     if (params.get('extended') === '1'){
       const ends = data.card.ends_at ? new Date(data.card.ends_at + 'T00:00:00').toLocaleDateString('he-IL') : '';
       el('extendedBanner').textContent = 'התשלום התקבל - הפרסום הוארך' + (ends ? ' עד ' + ends : '') + '. תודה!';
