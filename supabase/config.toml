@@ -246,6 +246,9 @@ verify_jwt = true
 [functions.mortgage-lead-purchase]
 verify_jwt = true
 
+[functions.lawyer-lead-purchase]
+verify_jwt = true
+
 [functions.saved-search-lead-purchase]
 verify_jwt = true
 
