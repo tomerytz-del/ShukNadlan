@@ -36,7 +36,8 @@ REEL_SRC=~/reel-src REEL_FONT=~/fonts/Heebo-Bold.ttf \
 REEL_SRC=~/reel-src REEL_FONT=~/fonts/Heebo-Bold.ttf \
   python3 build_reel.py out.mp4 \
     --vo swipe-vo/assets/voiceovers.json \
-    --music swipe-vo/assets/lib/music-viral-dance-pop/track.mp3
+    --music swipe-vo/assets/lib/music-viral-dance-pop/track.mp3 \
+    --sfx swipe-vo/assets/lib
 ```
 
 **הקריינות** מגיעה מפרויקט Reelkit פרטי (`reelkit init swipe-vo --aspect 9:16
@@ -53,6 +54,21 @@ REEL_SRC=~/reel-src REEL_FONT=~/fonts/Heebo-Bold.ttf \
 "לטרנדים ולמונטאז' קצבי"). היא יושבת כ-13 dB מתחת לקול (`MUSIC_GAIN`), והמיקס
 מנורמל ל--14 LUFS. בהעלאה לאינסטגרם אפשר במקום זה סאונד טרנדי מהאפליקציה:
 אז מרנדרים בלי `--music`.
+
+**אפקטים** (`--sfx`, התיקייה `assets/lib` של פרויקט Reelkit אחרי `reelkit assets pull`):
+צליל אחד לכל תפקיד, אותו צליל בכל פעם. whoosh רך בכל חיתוך ועל ההחלקות, pop על
+חותמות "שמירה" ו"דילוג", ping כשההצעה של גבריאלה קופצת, ו-chime על דף הסיום.
+הזמנים ב-`sfx` של כל שורה הם שניות מתחילת השורה. כולם מספריית Reelkit:
+
+| תפקיד | מזהה בספרייה | רישיון |
+| --- | --- | --- |
+| whoosh | `sfx-ui-soft-whoosh` | ספריית Reelkit |
+| pop | `sfx-h0avxtjl0kfr` (kt-pop-soft) | ספריית Reelkit |
+| ping | `sfx-ui-notification-ping` | ספריית Reelkit |
+| chime | `sfx-ui-success-chime` | ספריית Reelkit |
+
+מקורות סאונד נוספים (SFXMint ב-CC0, Soundza, Freesound): הסקיל
+`marketing-video-production`, סעיף 7.
 
 `REEL_SRC` הוא תיקייה עם ארבעת קובצי ההקלטה בשמותיהם המקוריים (`C1`..`C4` בראש
 הסקריפט). ‏Heebo Bold מורידים מ-fonts.gstatic.com (הקישור בתוך ה-CSS של

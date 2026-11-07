@@ -10,13 +10,15 @@ bottom 35% stays clean (Instagram UI, and the playbook rule).
 
 Usage:
     REEL_SRC=<dir with the 4 recordings> REEL_FONT=<Heebo-Bold.ttf> \
-        python3 build_reel.py out.mp4 [--vo voiceovers.json] [--music track.mp3]
+        python3 build_reel.py out.mp4 [--vo voiceovers.json] [--music track.mp3] [--sfx assets/lib]
 
 --vo is Reelkit's assets/voiceovers.json (one file per scene, scene ids =
 LINES[i]["id"]): each shot is then stretched or trimmed to its line (speed
 within +-20%, a frozen last frame beyond that) and the lines are laid on the
-timeline. --music is looped under the voice, ducked. Without --vo the shots
-keep their planned length and the track is silent. The recordings, the font,
+timeline. --music is looped under the voice, ducked. --sfx is Reelkit's
+assets/lib with the four sounds in SFX (pulled with `reelkit assets pull`):
+a soft whoosh on every cut, and the cues each line lists. Without --vo the
+shots keep their planned length and the track is silent. The recordings, the font,
 the voice files and the music are not in git.
 """
 import json, os, subprocess, sys
@@ -52,13 +54,16 @@ LINES = [
          shots=[(C2, 4.6, 10.6, 1.6, 480)]),
     dict(id="swipe", vo="מחפשים דירה כמו שגוללים בטלפון?",
          caption=["מחפשים דירה", "כמו שגוללים בטלפון?"], gold=None,
-         shots=[(C3, 0.0, 9.4, 3.0, 200)]),
+         shots=[(C3, 0.0, 9.4, 3.0, 200)],
+         sfx=[(0.5, "whoosh"), (1.1, "whoosh"), (2.0, "whoosh"), (2.5, "whoosh")]),  # the swipes, at 3x
     dict(id="save", vo="ימינה שומרים, שמאלה מדלגים.",
          caption=["ימינה שומרים", "שמאלה מדלגים"], gold=0,
-         shots=[(C1, 17.0, 18.9, 1.0, 460), (C3, 5.3, 6.5, 1.0, 200)]),
+         shots=[(C1, 17.0, 18.9, 1.0, 460), (C3, 5.3, 6.5, 1.0, 200)],
+         sfx=[(1.5, "pop"), (2.6, "pop")]),  # the "שמירה" stamp, then the "דילוג" stamp
     dict(id="gabriela", vo="שמרתם שלושה? גבריאלה כבר מציעה לתאם ביקור.",
          caption=["שמרתם 3?", "גבריאלה מציעה לתאם ביקור"], gold=None,
-         shots=[(C1, 19.2, 23.3, 1.0, 460)]),
+         shots=[(C1, 19.2, 23.3, 1.0, 460)],
+         sfx=[(0.3, "ping")]),  # Gabriela's offer pops up
     dict(id="staging", vo="רוצים לראות איך זה ייראה אחרי שיפוץ? הדמיית AI.",
          caption=["איך זה ייראה אחרי שיפוץ?", "הדמיית AI"], gold=1,
          shots=[(C1, 8.0, 14.8, 1.5, 400)]),
@@ -66,10 +71,20 @@ LINES = [
          caption=["כמה מזומן צריך להביא?", "המחשבון בתוך הדף"], gold=None,
          shots=[(C4, 19.6, 27.6, 1.95, 400)]),
 ]
-END = dict(id="cta", vo="חדש באתר: מחליקים על דירות בעפולה והעמק. הקישור בביו.", dur=3.8)
+END = dict(id="cta", vo="חדש באתר: מחליקים על דירות בעפולה והעמק. הקישור בביו.", dur=3.8,
+           sfx=[(0.0, "chime")])
 VO_GAP = 0.25        # silence after each line before the next shot
 MUSIC_GAIN = 0.07    # music about 13 dB under the voice (Reelkit lines are about -24 LUFS; the skill wants 10 to 22 dB)
 STRETCH = (0.8, 1.25)  # speed change allowed to fit a line; beyond it, freeze or trim
+# Sound effects by job (reference/sound-design in the reelkit skill: one sound per job,
+# the same every time). Paths are inside --sfx (Reelkit's assets/lib). Gains sit the
+# -16 LUFS library files under a -24 LUFS voice.
+SFX = {
+    "whoosh": ("sfx-ui-soft-whoosh/clip.mp3", 0.22),          # transition: every cut
+    "pop": ("sfx-h0avxtjl0kfr/kt-pop-soft.wav", 0.32),         # engage: a stamp lands
+    "ping": ("sfx-ui-notification-ping/clip.mp3", 0.30),       # Gabriela's message arrives
+    "chime": ("sfx-ui-success-chime/clip.mp3", 0.25),          # payoff: the end card, under the last line
+}
 
 
 def font(size):
@@ -131,6 +146,8 @@ def main():
     out = args[0] if args and not args[0].startswith("--") else f"{S}/reel.mp4"
     vo_json = args[args.index("--vo") + 1] if "--vo" in args else None
     music = args[args.index("--music") + 1] if "--music" in args else None
+    sfx_dir = args[args.index("--sfx") + 1] if "--sfx" in args else None
+    cues = []  # (time, job)
     cap_dir = os.path.join(os.path.dirname(out) or ".", "cap")
     os.makedirs(cap_dir, exist_ok=True)
     end_png = f"{cap_dir}/end.png"
@@ -150,6 +167,8 @@ def main():
     for li, line in enumerate(LINES):
         start = t
         shots = line["shots"]
+        for off, job in line.get("sfx", []):
+            cues.append((start + off, job))
         d0 = sum((b - a) / sp for _, a, b, sp, _ in shots)
         target = d0
         if line["id"] in vo:
@@ -162,6 +181,8 @@ def main():
             # fit the shot to its share of the line: slow down or speed up within STRETCH,
             # freeze the last frame or trim beyond it
             share = (b - a) / sp / d0 * target
+            if t > 0:
+                cues.append((t, "whoosh"))  # every cut
             sp2 = sp / max(min(ratio, STRETCH[1]), STRETCH[0]) if ratio != 1 else sp
             nat = (b - a) / sp2
             fit = f"tpad=stop_mode=clone:stop_duration={share - nat:.3f}," if nat < share - 0.01 else ""
@@ -179,6 +200,9 @@ def main():
     inputs += ["-loop", "1", "-t", f"{end_dur:.3f}", "-i", end_png]
     fc.append(f"[{idx}:v]fps={FPS},format=yuv420p,setsar=1[vend]")
     timeline.append({"line": END["id"], "start": round(t, 2), "end": round(t + end_dur, 2), "vo": END["vo"]})
+    for off, job in END.get("sfx", []):
+        cues.append((t + off, job))
+    cues.append((t, "whoosh"))
     end_start, total = t, t + end_dur
     fc.append("".join(seg_labels) + f"[vend]concat=n={len(seg_labels) + 1}:v=1:a=0[base]")
 
@@ -213,13 +237,23 @@ def main():
         fc.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                   f"atrim=duration={total:.3f},volume={MUSIC_GAIN},"
                   f"afade=t=in:d=0.4,afade=t=out:st={total - 1.6:.3f}:d=1.6[music]")
-    if a_labels and music:
-        fc.append("[music][voice]amix=inputs=2:normalize=0:duration=first,"
-                  "loudnorm=I=-14:TP=-1.5:LRA=9[aout]")
-    elif a_labels:
-        fc.append("[voice]loudnorm=I=-14:TP=-1.5:LRA=9[aout]")
-    elif music:
-        fc.append("[music]loudnorm=I=-14:TP=-1.5:LRA=9[aout]")
+    s_labels = []
+    if sfx_dir:
+        for n, (when, job) in enumerate(sorted(cues)):
+            rel, gain = SFX[job]
+            idx = n_in()
+            inputs += ["-i", os.path.join(sfx_dir, rel)]
+            ms = int(when * 1000)
+            fc.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                      f"volume={gain},adelay={ms}|{ms}[s{n}]")
+            s_labels.append(f"[s{n}]")
+    if s_labels:
+        fc.append("".join(s_labels) + f"amix=inputs={len(s_labels)}:normalize=0,"
+                  f"apad=whole_dur={total:.3f},atrim=duration={total:.3f}[sfx]")
+    beds = [l for l, ok in (("[music]", bool(music)), ("[sfx]", bool(s_labels)), ("[voice]", bool(a_labels))) if ok]
+    if beds:
+        fc.append("".join(beds) + (f"amix=inputs={len(beds)}:normalize=0:duration=first," if len(beds) > 1 else "")
+                  + "loudnorm=I=-14:TP=-1.5:LRA=9[aout]")
     else:
         idx = n_in()
         inputs += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
