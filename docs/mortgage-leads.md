@@ -63,7 +63,7 @@ purchase_mortgage_lead()  ניכוי ארנק + status='sold' + יומן חיו�
   ויטרינה פומבית. כתיבה דרך ה-view נשללת, כי הוא רץ כבעלים ועוקף RLS.
   הקליטה והרכישה אינן עוברות בו.
 - `mortgage_lead_purchases` — יומן החיובים. `unique(lead_id)` מונע מכירה כפולה.
-- `agency_members.is_mortgage_advisor` — מי רואה את המדף ורשאי לקנות.
+- `agency_members.is_mortgage_advisor` — מי רואה את המדף ורשאי לקנות. **הסינון בתוך ה-view** (‏`current_is_mortgage_advisor()`, מ-7.11.2026), לא רק במגירה שב-CRM: עד אז כל סוכן/ת מחובר/ת קרא/ה את הלידים ישירות מה-REST. ראו `docs/lead-routing.md`, "מדפי הלידים ממוקדים".
 - `pricing_config.mortgage_lead_price` = 50.
 
 > **תלות:** המיגרציה משתמשת ב-`normalize_msisdn()` (מיגרציית הוואטסאפ),
