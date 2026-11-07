@@ -141,8 +141,18 @@ def replay_function_acls(cur) -> None:
         re.I,
     )
     stmts = []
+    dropped = set()
     for path in sorted((ROOT / "supabase/migrations").glob("*.sql")):
         text = _strip_comments(_strip_dollar(path.read_text(encoding="utf-8")))
+        # פונקציה שמיגרציה מאוחרת מוחקת: ה-grant שלה כבר אינו חתימה חיה.
+        dropped.update(
+            n.lower()
+            for n in re.findall(
+                r"drop\s+function\s+(?:if\s+exists\s+)?public\.(\w+)\s*\(",
+                text,
+                flags=re.I,
+            )
+        )
         stmts.extend(
             re.findall(
                 r"(?:grant|revoke)\s+(?:all|execute)\b[^;]*\bon\s+function\s+public\.\w+\s*\([^;]*;",
@@ -164,7 +174,9 @@ def replay_function_acls(cur) -> None:
         by_name.setdefault(name.lower(), []).append(oid)
         resolved.append((stmt, name.lower(), label, oid))
     unresolved = sorted(
-        name for name, oids in by_name.items() if oids and oids[-1] is None
+        name
+        for name, oids in by_name.items()
+        if oids and oids[-1] is None and name not in dropped
     )
     if unresolved:
         fail("חתימה לא נפתרת: " + ", ".join(unresolved[:12]))
