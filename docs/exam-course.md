@@ -62,7 +62,8 @@ URLs** (‏Supabase → Authentication → URL Configuration). בלעדיה הכ
 ‏`04-land-law.json` (חוק המקרקעין וחוק החיזוק, תמ"א 38), ‏`05-contracts.json` (חוק החוזים, חוק
 התרופות וחוק החוזים האחידים), ‏`06-sale-apartments.json` (חוק המכר (דירות) וחוק הבטחת השקעות),
 ‏`09-past-exams.json`, ו-`exams/exam-YYYY-MM.json` לכל מועד. הקידומת של הקובץ היא ה-`position` של
-הפרק, שנקבע בתוך הקובץ; 07-08 שמורות לפרקי החוקים הבאים (הגנת הדייר, תכנון ומיסוי). ‏`scripts/course_content_sql.py` מאמת
+הפרק, שנקבע בתוך הקובץ. ‏`07-tenant-protection.json` (חוק הגנת הדייר) בעמדה 7, ו-08 שמורה
+לתכנון ומיסוי. ‏`scripts/course_content_sql.py` מאמת
 (4 חלופות, `correct` 0-3, ‏slug ייחודי) וכותב מיגרציית `upsert` לפי slug; מה
 שנעלם מה-JSON מסומן ‏`published = false` ואינו נמחק, כי ההתקדמות והניסיונות
 מצביעים עליו.
