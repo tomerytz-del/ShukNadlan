@@ -925,10 +925,13 @@ export async function ensureTagged(
           console.error(`סיווג נכשל ל-${row.image_url}: ${classifyErr}`);
           return;
         }
-        Object.assign(row, tags);
+        // ‏classified_at גם בזיכרון, לא רק במסד: all_classified ב-property-visualize קורא אותו
+        // מהשורות שמוחזרות כאן, ושורה שסווגה עכשיו אינה "ממתינה".
+        const classifiedAt = new Date().toISOString();
+        Object.assign(row, tags, { classified_at: classifiedAt });
         await supabase
           .from("property_image_tags")
-          .update({ ...tags, classified_at: new Date().toISOString(), model: VISION_MODEL })
+          .update({ ...tags, classified_at: classifiedAt, model: VISION_MODEL })
           .eq("id", row.id);
       })
     );

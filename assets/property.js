@@ -2166,8 +2166,9 @@ async function requestVisualization(){
       if (out.error) console.error('property-visualize נכשל:', out.error, out.detail || '');
       /* ‏no_suitable_images אינו תקלה רגעית: בנכס אין צילום שאפשר לדמות ממנו, וכל לחיצה
          נוספת תיכשל אותו דבר. בנכס פרטי שאין לו אף הדמיה - התיבה יורדת יחד עם קיצור הדרך
-         אליה, במקום להשאיר כפתור שתמיד נכשל (אותו עיקרון כמו נכס בלי תמונות ב-loadVisualizations). */
-      if (out.error === 'no_suitable_images' && vizState.isPrivate && !vizItemsFlat().length){
+         אליה, במקום להשאיר כפתור שתמיד נכשל (אותו עיקרון כמו נכס בלי תמונות ב-loadVisualizations).
+         רק כש-all_classified: סיווג שנכשל רגעית מחזיר את אותה שגיאה, ושם הלחיצה הבאה עשויה להצליח. */
+      if (out.error === 'no_suitable_images' && out.all_classified && vizState.isPrivate && !vizItemsFlat().length){
         const sec = document.getElementById('vizSection');
         const jump = document.getElementById('vizJumpBtn');
         if (sec) sec.hidden = true;
