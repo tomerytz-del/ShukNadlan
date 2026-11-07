@@ -225,7 +225,13 @@ Deno.serve(async (req: Request) => {
 
   if (sources.length === 0) {
     return json(
-      { error: "no_suitable_images", message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה" },
+      {
+        error: "no_suitable_images",
+        message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה",
+        // ‏all_classified: הדף מוריד את התיבה רק כשזו תשובה סופית. צילום שהסיווג שלו נכשל
+        // (‏classified_at ריק) ינוסה שוב בבקשה הבאה, ואז "אין ממה לדמות" אינו ידוע עדיין.
+        all_classified: tags.length === images.length && tags.every((t: any) => t.classified_at),
+      },
       400
     );
   }
