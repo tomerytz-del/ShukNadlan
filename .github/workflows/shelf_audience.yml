@@ -23,3 +23,5 @@ jobs:
           persist-credentials: false
       - name: מדפי לידים ממוקדים
         run: python3 scripts/check_shelf_audience.py
+      - name: הבדיקה נבדקת בעצמה
+        run: python3 scripts/check_shelf_audience_test.py

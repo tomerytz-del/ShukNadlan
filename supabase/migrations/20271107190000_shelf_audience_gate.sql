@@ -14,9 +14,14 @@
 -- הרשאה.
 --
 -- ‏current_is_mortgage_advisor() היא ההגדרה היחידה של "מי רואה את המדף": יועץ/ת
--- פעיל/ה, או מנהל/ת פלטפורמה (שרואה את כל המדפים כדי לתפעל אותם). היא מחזירה
--- רק את מצב הקורא/ת עצמו/ה, ולכן ניתנת ל-authenticated: PostgreSQL בודק EXECUTE
--- על פונקציה בתוך view מול הקורא/ת, כמו ב-saved_search_intent_score.
+-- פעיל/ה, או מנהל/ת פלטפורמה (current_is_platform_admin, ההגדרה היחידה שלו) שרואה את
+-- כל המדפים כדי לתפעל אותם. היא מחזירה רק את מצב הקורא/ת עצמו/ה, ולכן ניתנת ל-
+-- authenticated: בפרודקשן נצפה ש-view של הבעלים נכשל עם permission denied על EXECUTE
+-- של פונקציה כזו אם הקורא/ת אינו מחזיק/ה בו (saved_search_intent_score, 20260830090000).
+--
+-- ‏שימו לב: ה-view בודק כל חברות פעילה של הקורא/ת (user_id), וה-CRM מציג מגירה לפי
+-- החברות שנבחרה. מי שיועץ/ת במשרד אחד וסוכן/ת במשרד אחר יקרא/תקרא את המדף ב-REST גם
+-- כשהמגירה מוסתרת - בכוונה: הוא/היא יועץ/ת, ובקשת REST אינה נושאת "חברות נבחרת".
 --
 -- ‏(select ...) עוטף את הקריאה כדי שתחושב פעם אחת לשאילתה ולא לכל שורה.
 -- ‏create or replace view: אותן עמודות באותו סדר, ורק ה-where השתנה. ההרשאות
@@ -34,8 +39,8 @@ as $$
     select 1 from agency_members
      where user_id = auth.uid()
        and active = true
-       and (is_mortgage_advisor = true or is_platform_admin = true)
-  );
+       and is_mortgage_advisor = true
+  ) or public.current_is_platform_admin();
 $$;
 
 comment on function public.current_is_mortgage_advisor() is
