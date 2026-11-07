@@ -1,0 +1,27 @@
+name: מדפי לידים ממוקדים לקהל שלהם
+
+# מדף מקצועי (משכנתאות, ובהמשך עורכי דין) הוא view שנקרא מה-CRM, וה-CRM הסתיר
+# את המגירה ב-JS בלי שום סינון בשורה: כל סוכן/ת תיווך שקרא/ה ל-REST קיבל/ה את
+# הלידים של יועצי המשכנתאות. הבדיקה מוודאת שההגדרה האחרונה של כל מדף קוראת
+# לפונקציית הקהל שלו, ושמדף חדש מחליט למי הוא מיועד.
+# בלי paths בכוונה: בדיקה נדרשת שמדולגת חוסמת מיזוג, והבדיקה קוראת קבצים בלבד.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: מדפי לידים ממוקדים
+        run: python3 scripts/check_shelf_audience.py
+      - name: הבדיקה נבדקת בעצמה
+        run: python3 scripts/check_shelf_audience_test.py

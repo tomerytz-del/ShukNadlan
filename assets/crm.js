@@ -21846,7 +21846,9 @@ document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
    מבטל שינוי credit_balance שלא הגיע מ-service_role.
 
    הסקציה מוצגת רק ל-is_mortgage_advisor, וגם purchase_mortgage_lead עצמה
-   מסרבת לקונה שאינו מסומן כך - ה-gating בתצוגה הוא נוחות, לא הגנה.      */
+   מסרבת לקונה שאינו מסומן כך. גם הקריאה סגורה במסד: mortgage_leads_public מחזירה
+   שורות רק ליועצ/ת או למנהל/ת פלטפורמה (current_is_mortgage_advisor), ולכן ה-gating
+   בתצוגה אינו ההגנה היחידה (docs/lead-routing.md, "מדפי הלידים ממוקדים").      */
 let mortgageLeadPrice = 50;
 let mortgageShelfLeads = [];
 
