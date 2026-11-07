@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { tokensMatch } from "../_shared/property-video.ts";
 
 // ============================================================================
 // ‏crm-request-log - קליטת יומן הבקשות ל-/crm מה-Edge של Netlify.
@@ -19,6 +18,14 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAX_BODY = 8 * 1024;
 
+// השוואה בזמן קבוע. בלי תלות במודול משותף גדול בנקודה ציבורית.
+function tokensMatch(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 const FIELDS = [
   "ip", "country", "city", "method", "path", "query", "status", "user_agent",
   "referer", "accept_lang", "sec_fetch", "ch_mobile", "ch_platform",
@@ -32,6 +39,9 @@ Deno.serve(async (req: Request) => {
   const got = req.headers.get("x-crm-log-secret") || "";
   if (!tokensMatch(got, secret)) return new Response(null, { status: 401 });
 
+  if (Number(req.headers.get("content-length") || 0) > MAX_BODY) {
+    return new Response(null, { status: 413 });
+  }
   let text = "";
   try {
     text = await req.text();

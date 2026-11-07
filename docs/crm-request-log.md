@@ -24,6 +24,9 @@ UUID אפס (`00000000-0000-4000-8000-000000000000`), באותה ספירה בד
 3. ב-Netlify: Site settings, Environment variables, `CRM_LOG_SECRET`, אותו ערך,
    ובהיקף **Functions** (ה-Edge Functions קוראות אותו דרך `Netlify.env`).
 4. לפרוס מחדש את האתר, כדי שהמשתנה ייקרא.
+5. **לוודא שהוא רושם:** לפתוח `/crm` בדפדפן ולהריץ `select count(*) from crm_request_log`.
+   אם נשאר 0, המשתנה לא מגיע ל-Edge (בדקו את ההיקף ב-Netlify). אין התראה על
+   סוד חסר, והיומן נראה תקין גם כשהוא ריק.
 
 ## לקרוא את היומן
 
@@ -46,6 +49,8 @@ where path like '//%' or query like '%`%' order by at desc limit 50;
 
 ## מה שחשוב לדעת
 
+- **ה-query נשמר בסינון:** רק פרמטרים ידועים (`goto`, `lead`, `wc` ועוד); `code`,
+  `state`, `k` וטוקנים נרשמים כשם בלבד. ה-referer בלי query.
 - **IP הוא מידע אישי.** הוא נשמר 30 יום ונמחק בתוך `crm_request_log_add`
   (לא ב-`data_retention_run`, כדי לא להעתיק פונקציה גדולה). מי שמעדכן את
   מסמך הפרטיות (`privacy.html`) צריך להוסיף את היומן.

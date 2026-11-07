@@ -44,10 +44,53 @@ async function send(token: string, entry: Record<string, unknown>): Promise<void
   }
 }
 
+/* ‏**מה נשמר מה-query:** רק שמות ידועים מהקישורים העמוקים של האפליקציה
+   (agent-deep-link.ts) ומקורות הכניסה. כל השאר - ‏code ו-state של OAuth,
+   ‏k של /plan ו-/cma, טוקנים - נרשם כשם בלבד: "code=[x]". קישור שהוא גם
+   הרשאה לא נשמר 30 יום במסד. ה-referer נשמר בלי query. */
+const KEEP = new Set([
+  "goto", "client", "property", "lead", "focus", "agenda", "agreement", "review",
+  "filter", "status", "import", "tab", "demand", "plan_city", "plan_street", "plan_num",
+  "plan_gush", "plan_helka", "wc", "wt", "src", "share",
+]);
+
+export function safeQuery(search: string): string {
+  const out: string[] = [];
+  try {
+    new URLSearchParams(search).forEach((v, k) => {
+      out.push(KEEP.has(k) ? `${k}=${v.slice(0, 80)}` : `${k.slice(0, 40)}=[x]`);
+    });
+  } catch {
+    return "";
+  }
+  return out.join("&");
+}
+
+export function safeReferer(raw: string | null): string {
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    return u.origin + u.pathname;
+  } catch {
+    return "";
+  }
+}
+
 export default async (req: Request, context: Context) => {
-  const res = await context.next();
+  let res: Response | null = null;
+  let failure: unknown = null;
+  try {
+    res = await context.next();
+  } catch (e) {
+    failure = e;
+  }
   const token = secret();
-  if (!token) return res;
+  if (token) record(req, context, token, res ? res.status : 0);
+  if (failure) throw failure;
+  return res as Response;
+};
+
+function record(req: Request, context: Context, token: string, status: number): void {
   try {
     const url = new URL(req.url);
     const h = req.headers;
@@ -57,10 +100,10 @@ export default async (req: Request, context: Context) => {
       city: context.geo?.city,
       method: req.method,
       path: url.pathname,
-      query: url.search.replace(/^\?/, ""),
-      status: res.status,
+      query: safeQuery(url.search),
+      status,
       user_agent: h.get("user-agent"),
-      referer: h.get("referer"),
+      referer: safeReferer(h.get("referer")),
       accept_lang: h.get("accept-language"),
       sec_fetch: [h.get("sec-fetch-site"), h.get("sec-fetch-mode"), h.get("sec-fetch-dest")]
         .filter(Boolean).join(","),
@@ -75,8 +118,7 @@ export default async (req: Request, context: Context) => {
   } catch {
     /* כל כשל בבניית הרישום נבלע: התשובה כבר מוכנה. */
   }
-  return res;
-};
+}
 
 export const config: Config = {
   path: ["/crm", "/crm.html", "/crm/*"],

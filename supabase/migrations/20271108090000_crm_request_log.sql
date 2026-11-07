@@ -10,7 +10,10 @@
 -- יום. המחיקה כאן ולא ב-data_retention_run: היא מוטמעת בפונקציית הכתיבה,
 -- כדי שלא להעתיק פונקציה של מאות שורות שפותחים בכל PR.
 --
--- ‏**הגנה מהצפה:** תקרה של 30,000 שורות ביום. מעבר לה לא נכתב כלום - עדיף
+-- ‏**מה לא נשמר:** ערכי query שאינם ברשימה (code, state, k, טוקנים) - רק שם
+-- הפרמטר; וה-referer בלי query. קישור שהוא הרשאה לא נשמר במסד.
+--
+-- ‏**הגנה מהצפה:** בקשה זהה מאותו IP בדקה לא נרשמת פעמיים; ותקרה של 30,000 שורות ביום. מעבר לה לא נכתב כלום - עדיף
 -- יומן שנחתך מהצפה על מסד שמתמלא. הקריאה רק לסוד משותף, ראו הפונקציה.
 -- ===========================================================================
 
@@ -57,8 +60,21 @@ as $$
 begin
   if p is null or jsonb_typeof(p) <> 'object' then return; end if;
 
-  -- מחיקה אחרי 30 יום. זולה: סריקת אינדקס על ‏at, ובדרך כלל אין מה למחוק.
-  delete from public.crm_request_log where at < now() - interval '30 days';
+  -- מחיקה אחרי 30 יום, בכל עשרים קריאות בקירוב ולא בכל קריאה
+  if random() < 0.05 then
+    delete from public.crm_request_log where at < now() - interval '30 days';
+  end if;
+
+  -- אותה בקשה בדיוק מאותו IP בדקה האחרונה אינה נרשמת שוב: סורק שחוזר על עצמו
+  -- לא ממלא את התקרה היומית ומסתיר את מה שחשוב
+  if exists (
+    select 1 from public.crm_request_log
+     where ip = left(p->>'ip', 64) and at > now() - interval '1 minute'
+       and path is not distinct from left(p->>'path', 300)
+       and query is not distinct from left(p->>'query', 600)
+  ) then
+    return;
+  end if;
 
   if (select count(*) from public.crm_request_log where at >= date_trunc('day', now())) >= 30000 then
     return;
