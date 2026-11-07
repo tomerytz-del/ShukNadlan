@@ -103,35 +103,52 @@
 
   /* החיבור שפג באמצע שיעור. טלפון שהדף שכב בו ברקע לא מרענן את הטוקן בזמן,
      ובחזרה הבקשה הראשונה יוצאת עם טוקן שפג (PGRST303 / 401) או בלי טוקן בכלל
-     (הפונקציות מחזירות unauthorized). מרעננים ומנסים פעם אחת שוב; רענון שנכשל
-     ברשת (הטלפון רק התעורר) מקבל עוד ניסיון אחרי שנייה וחצי. */
+     (הפונקציות מחזירות unauthorized). מרעננים ומנסים פעם אחת שוב. */
   function authFailed(r) {
     if (!r) return false;
     var e = r.error;
     if (e) return r.status === 401 || e.code === 'PGRST301' || e.code === 'PGRST303' || /jwt|auth session/i.test(e.message || '');
     return !!(r.data && r.data.error === 'unauthorized');
   }
-  async function refreshAuth() {
-    var res = await sb.auth.refreshSession();
-    if (res.error && !(res.error.status >= 400 && res.error.status < 500)) {
-      await new Promise(function (ok) { setTimeout(ok, 1500); });
-      res = await sb.auth.refreshSession();
-    }
-    return !res.error && !!(res.data && res.data.session);
+  // 'ok' | 'lost' (שרת האימות דחה את החיבור: אין דרך בלי כניסה מחדש) |
+  // 'later' (רשת או 429 - הטלפון רק התעורר; החיבור עצמו אולי תקין, ולכן לא
+  // זורקים למסך הכניסה). קריאות שנכשלו יחד (Promise.all) חולקות רענון אחד.
+  var refreshing = null, authLost = false;
+  function refreshAuth() {
+    if (!refreshing) refreshing = (async function () {
+      var res = await sb.auth.refreshSession();
+      var final = function (x) { return x.error && x.error.status >= 400 && x.error.status < 500 && x.error.status !== 429; };
+      if (res.error && !final(res)) {
+        await new Promise(function (ok) { setTimeout(ok, 1500); });
+        res = await sb.auth.refreshSession();
+      }
+      if (!res.error && res.data && res.data.session) return 'ok';
+      return final(res) ? 'lost' : 'later';
+    })().finally(function () { refreshing = null; });
+    return refreshing;
   }
-  // כשגם הרענון נכשל החיבור באמת נגמר: עוברים למסך הכניסה, וההבטחה נשארת
-  // תלויה בכוונה, כדי שהקוד שחיכה לה לא יצייר מעל מסך הכניסה הודעה או מפה.
-  // ההתקדמות שמורה במסד, וחוזרים אליה אחרי הכניסה.
+  // כשהחיבור באמת נגמר עוברים למסך הכניסה, וההבטחה נשארת תלויה בכוונה, כדי
+  // שהקוד שחיכה לה לא יצייר מעל מסך הכניסה הודעה או מפה. ‏authLost מבטיח שזה
+  // קורה פעם אחת, גם כשכמה קריאות נכשלו יחד. כשהרענון נכשל ברשת מחזירים את
+  // הכישלון המקורי, והמסך שקרא מציג את "לנסות שוב" שלו.
   async function withAuth(call) {
+    if (authLost) return new Promise(function () {});
     var r = await call();
     if (!authFailed(r)) return r;
-    if (await refreshAuth()) {
+    var how = await refreshAuth();
+    // הטוקן הישן פג והחדש לא הגיע בגלל הרשת: ההודעה הנכונה היא
+    // "אין חיבור", לא "להתחבר מחדש"
+    if (how === 'later') return { data: null, error: { message: 'Failed to fetch' } };
+    if (how === 'ok') {
       r = await call();
       if (!authFailed(r)) return r;
     }
-    clearInterval(state.pollTimer); clearInterval(state.timerId);
-    state.steps = null; state.sim = null; routed = false;
-    renderLogin('החיבור לחשבון פג. נכנסים שוב וממשיכים מאותה נקודה, ההתקדמות שמורה.');
+    if (!authLost) {
+      authLost = true;
+      clearInterval(state.pollTimer); clearInterval(state.timerId);
+      state.steps = null; state.sim = null; routed = false;
+      renderLogin('החיבור לחשבון פג, וצריך להיכנס שוב. השיעורים שכבר הושלמו שמורים.');
+    }
     return new Promise(function () {});
   }
   function rpc(name, args) { return withAuth(function () { return sb.rpc(name, args); }); }
@@ -546,6 +563,7 @@
           '<p class="err" style="margin:0">' + escapeHtml(S.startError) + '</p>' +
           '<button type="button" class="btn-p" id="startRetry">לנסות שוב</button>' +
           '<button type="button" class="btn-s" id="stepPrev"' + (S.idx === 0 ? ' disabled' : '') + '>לקלף הקודם</button>' +
+          '<button type="button" class="link" id="startSkip">לדלג על הבדיקה</button>' +
           '</div></div>';
       } else if (!q) {
         html = '<div class="center"><div class="card" style="text-align:center"><div class="spin"></div></div></div>';
@@ -572,6 +590,8 @@
     on('fullText', 'click', function () { renderFullText(S.lesson, S.entry); });
     on('stepPrev', 'click', function () { if (S.idx > 0) { S.idx--; S.lawOpen = false; S.flipped = false; S.startError = ''; renderStep(); } });
     on('startRetry', 'click', function () { S.startError = ''; renderStep(); });
+    // דילוג: הקלף הבא שהוא בדיקה ינסה שוב לפתוח ניסיון
+    on('startSkip', 'click', function () { S.startError = ''; advance(); });
     on('stepNext', 'click', function () { advance(); });
     // הפיכת כרטיס ופתיחת "מה אומר החוק" נוגעות רק באלמנט שלהן: ציור מחדש של
     // כל המסך היה מגלגל לראש הדף ומריץ שוב את אנימציית הכניסה.
@@ -906,6 +926,7 @@
   async function route(session) {
     if (routed) return;
     routed = true;
+    authLost = false;
     state.user = session.user;
     var params = new URLSearchParams(window.location.search);
     var order = params.get('order');
