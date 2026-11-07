@@ -310,7 +310,7 @@ as $$
 $$;
 
 comment on function public.current_is_lawyer() is
-  'האם הקורא/ת רשאי/ת לראות את מדף עורכי הדין: עו"ד פעיל/ה או מנהל/ת פלטפורמה. הגדרה אחת, בשימוש ה-view lawyer_leads_public.';
+  'האם הקורא/ת רשאי/ת לראות את מדף עורכי הדין: עו"ד פעיל/ה או מנהל/ת פלטפורמה (שרואה כדי לתפעל; רכישה רק לחשבון עם is_lawyer). הגדרה אחת, בשימוש ה-view lawyer_leads_public.';
 
 revoke all on function public.current_is_lawyer() from public, anon;
 grant execute on function public.current_is_lawyer() to authenticated, service_role;
@@ -387,6 +387,7 @@ declare
   v_agent public.agency_members%rowtype;
   v_price numeric;
   v_rows  int;
+  v_balance numeric;
 begin
   select * into v_lead from public.lawyer_leads where id = p_lead_id for update;
   if not found then
@@ -418,13 +419,22 @@ begin
     return jsonb_build_object('error', 'not_a_lawyer');
   end if;
 
+  -- אותו כלל של המדף, גם ברכישה: מי שאינו/ה עובד/ת בעיר הליד לא קונה אותו גם אם הגיע/ה
+  -- למזהה (קישור שהועבר, התראה). ליד בלי עיר פתוח לכל עו"ד.
+  if v_lead.city_id is not null and not public.agent_works_city(p_agent_id, v_lead.city_id) then
+    return jsonb_build_object('error', 'lead_not_available');
+  end if;
+
   select value into v_price from public.pricing_config where key = 'lawyer_lead_price';
   v_price := coalesce(v_price, 50);
 
+  v_balance := v_agent.credit_balance;
   if v_price > 0 then
+    -- ‏returning: היתרה האמיתית אחרי הניכוי, לא תצלום שנקרא לפני שנעלנו
     update public.agency_members
        set credit_balance = credit_balance - v_price
-     where id = p_agent_id and credit_balance >= v_price;
+     where id = p_agent_id and credit_balance >= v_price
+    returning credit_balance into v_balance;
     get diagnostics v_rows = row_count;
     if v_rows = 0 then
       return jsonb_build_object(
@@ -448,7 +458,7 @@ begin
   return jsonb_build_object(
     'success', true,
     'price_charged', v_price,
-    'balance', v_agent.credit_balance - v_price,
+    'balance', v_balance,
     'full_name', v_lead.full_name,
     'phone', v_lead.phone,
     'email', v_lead.email,

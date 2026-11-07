@@ -32,9 +32,14 @@ test('הדגל is_lawyer נעול בהגדרה האחרונה של protect_sensi
   assert.match(last.text, /new\.is_mortgage_advisor := old\.is_mortgage_advisor/, `${last.f} אינה נועלת is_mortgage_advisor`);
 });
 
-test('המגירה ב-CRM נפתחת רק ל-is_lawyer, והדגל נטען עם הסוכן/ת', () => {
-  assert.match(crmJs, /is_mortgage_advisor, is_lawyer, phone/);
-  assert.match(crmJs, /setShelfLawyerVisible\(agent\.is_lawyer\);\s*if \(agent\.is_lawyer\)\{\s*await loadLawyerShelf\(agent\.id\);/);
+test('המגירה ב-CRM נפתחת רק ל-is_lawyer, והדגל נטען בסל הסובלני ולא ב-AGENT_FIELDS', () => {
+  // האתר עולה דקות לפני המיגרציה: עמודה חסרה ב-AGENT_FIELDS ננעלת את כל הסוכנים מחוץ ל-CRM
+  const base = crmJs.match(/const AGENT_FIELDS = '([^']*)'/)[1];
+  assert.equal(base.includes('is_lawyer'), false, 'is_lawyer אינו ב-AGENT_FIELDS (הוא גם ב-fallback)');
+  assert.match(crmJs, /const LAWYER_FIELD = 'is_lawyer'/);
+  assert.match(crmJs, /CLOSURE_FIELDS \+ ', ' \+ LAWYER_FIELD\)/);
+  assert.match(crmJs, /closure_\|closed_at\|is_lawyer\/\.test\(agentErr\.message/);
+  assert.match(crmJs, /setShelfLawyerVisible\(agent\.is_lawyer\);\s*if \(agent\.is_lawyer\)\{\s*loadLawyerShelf\(agent\.id\)/);
   assert.match(crmJs, /if \(tab === 'lawyer' && !shelfLawyerOpen\) return;/);
   // כפתור המגירה נולד מוסתר
   assert.match(crmHtml, /<button[^>]*data-shelf-tab="lawyer"[^>]*\bhidden\b/);
@@ -58,6 +63,13 @@ test('הרכישה: JWT, בדיקת is_lawyer, ופונקציית ה-DB היחי
   // הסוכן/ת נגזר מה-JWT, לא מה-body
   assert.equal(/body\.(agent_id|agentId|p_agent_id)/.test(fn), false);
   assert.match(fn, /not_a_lawyer: 403/);
+});
+
+test('הרכישה אוכפת גם את העיר, ומחזירה את היתרה האמיתית', () => {
+  const dir = join(root, 'supabase/migrations');
+  const mig = readdirSync(dir).filter((f) => f.endsWith('_lawyer_leads.sql')).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+  assert.match(mig, /v_lead\.city_id is not null and not public\.agent_works_city\(p_agent_id, v_lead\.city_id\)/);
+  assert.match(mig, /returning credit_balance into v_balance/);
 });
 
 test('החלון מציג את המחיר לפני החיוב, ושמות המשתמש בשאלה לא נשלחים לכרטיס בלי הסתרה', () => {

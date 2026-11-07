@@ -2129,7 +2129,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // בין agency_members ל-agencies, לא יודע לבחור נתיב יחיד, ומחזיר PGRST201 (HTTP 300)
   // על כל embed כזה — כלומר **כל השאילתה** נכשלת ולא רק ה-embed. ההסבר המלא ורשימת
   // הקוראים: supabase/functions/_shared/agency-lookup.ts.
-  const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, is_lawyer, phone, email, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
+  const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, email, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
   // עמודות המסלול וההטבה נוספו במיגרציה מאוחרת יותר, ולכן הן בסל אחד עם
   // page_bg: אם המיגרציה עוד לא רצה, ה-fallback למטה טוען את הפרופיל בלעדיהן
   // והדשבורד נפתח כרגיל — בלי שער בחירת מסלול ובלי באנר הטבה.
@@ -2138,6 +2138,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // סל סובלני: סביבה שהמיגרציה עוד לא רצה בה נכנסת לדשבורד בלי מקטע הסגירה,
   // ולא נתקעת במסך שגיאה.
   const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
+  // ‏is_lawyer (מדף עורכי הדין) נוסעת באותו סל סובלני: האתר עולה דקות לפני המיגרציה, ועמודה
+  // חסרה מפילה את *כל* השאילתה - כל סוכן/ת היה/הייתה ננעל/ת מחוץ ל-CRM עד שהיא רצה.
+  const LAWYER_FIELD = 'is_lawyer';
   /* שם המשרד היה סבב שני בטור לפני שהמסך מופיע: הוא תלוי ב-agency_id, ו-
      embed אסור כאן (PGRST201, ראו למעלה). לכן ה-agency_id של הכניסה הקודמת
      נשמר, והשאילתה יוצאת במקביל לשורת הסוכן/ת - ‏.then כדי שתצא עכשיו ולא
@@ -2152,7 +2155,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
 
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number_last4, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
+    .select(AGENT_FIELDS + ', page_bg, id_number_last4, gender, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS + ', ' + LAWYER_FIELD)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -2160,7 +2163,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number_last4|gender|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number_last4|gender|promo_|tier_selected_at|tier_source|closure_|closed_at|is_lawyer/.test(agentErr.message || '')){
     console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת - נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -2464,9 +2467,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     await loadMortgageShelf(agent.id);
   }
   // מדף עורכי הדין: אותו דבר, על is_lawyer
+  // לא ממתינים לו: שורת טעינות לעו"ד בלבד, ואין בו צורך לציור הראשון (הסקיל crm-startup)
   setShelfLawyerVisible(agent.is_lawyer);
   if (agent.is_lawyer){
-    await loadLawyerShelf(agent.id);
+    loadLawyerShelf(agent.id).catch(err => console.warn('מדף עורכי הדין לא נטען:', err));
   }
 
   renderDevMenu(agent);
@@ -22162,6 +22166,8 @@ let lawyerLeadPrice = 50;
 let lawyerShelfLeads = [];
 // כמו במשכנתאות: המפה נצברת ולא מוחלפת (מדף ורכישות חולקים אותה)
 let lawyerPropertyTitles = {};
+// כשל בשליפת כותרות הנכסים אינו "נכס שהוסר": הכרטיס לא יטען על הנכס דבר שאינו יודע
+let lawyerPropertyLookupFailed = false;
 
 async function loadLawyerShelf(agentId){
   const listEl = document.getElementById('lawyerShelfList');
@@ -22184,6 +22190,8 @@ async function loadLawyerShelf(agentId){
       '</div>';
     lawyerShelfLeads = [];
     refreshShelfCounts();
+    // הלידים שנרכשו אינם תלויים במדף: נטענים גם כשהמדף נכשל
+    await loadPurchasedLawyerLeads(agentId);
     return;
   }
 
@@ -22198,7 +22206,8 @@ async function loadLawyerLeadProperties(leads){
   const ids = [...new Set(leads.map(l => l.property_id)
     .filter(id => id && !lawyerPropertyTitles[id]))];
   if (ids.length === 0) return;
-  const { data } = await sb.from('properties').select('id, title, city').in('id', ids);
+  const { data, error } = await sb.from('properties').select('id, title, city').in('id', ids);
+  if (error){ lawyerPropertyLookupFailed = true; return; }
   (data||[]).forEach(p => { lawyerPropertyTitles[p.id] = p; });
 }
 
@@ -22206,7 +22215,7 @@ async function loadLawyerLeadProperties(leads){
 function lawyerSourceText(lead){
   const prop = lead.property_id ? lawyerPropertyTitles[lead.property_id] : null;
   if (prop) return `על נכס: ${prop.title || 'מודעה'}${prop.city ? ' · ' + prop.city : ''}`;
-  if (lead.property_id) return 'על נכס שהוסר מהאתר';
+  if (lead.property_id) return lawyerPropertyLookupFailed ? 'על נכס באתר' : 'על נכס שהוסר מהאתר';
   return 'שאלה כללית';
 }
 function lawyerSourceLine(lead){
@@ -22351,7 +22360,7 @@ async function buyLawyerLead(lead, btn){
     const data = await res.json();
     if (!res.ok || data.error){
       const errorMessages = {
-        insufficient_balance: `יתרה לא מספיקה — נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
+        insufficient_balance: `יתרה לא מספיקה - נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
         lead_already_sold: 'הליד כבר נמכר לעו״ד אחר/ת',
         lead_not_available: 'הליד כבר לא זמין למכירה',
         lead_not_found: 'הליד לא נמצא',
