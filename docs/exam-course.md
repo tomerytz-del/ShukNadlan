@@ -60,9 +60,9 @@ URLs** (‏Supabase → Authentication → URL Configuration). בלעדיה הכ
 **נכתב ב-JSON, נכנס במיגרציה.** `course-content/01-intro.json`,
 ‏`02-brokers-law.json` (חוק המתווכים ושלוש התקנות), ‏`03-ethics-regulations.json`,
 ‏`04-land-law.json` (חוק המקרקעין וחוק החיזוק, תמ"א 38), ‏`05-contracts.json` (חוק החוזים, חוק
-התרופות וחוק החוזים האחידים), ‏`09-past-exams.json`, ו-`exams/exam-YYYY-MM.json` לכל מועד. הקידומת
-של הקובץ היא ה-`position` של הפרק, שנקבע בתוך הקובץ; 06-08 שמורות לפרקי החוקים הבאים (מכר דירות,
-הגנת הדייר, תכנון ומיסוי). ‏`scripts/course_content_sql.py` מאמת
+התרופות וחוק החוזים האחידים), ‏`06-sale-apartments.json` (חוק המכר (דירות) וחוק הבטחת השקעות),
+‏`09-past-exams.json`, ו-`exams/exam-YYYY-MM.json` לכל מועד. הקידומת של הקובץ היא ה-`position` של
+הפרק, שנקבע בתוך הקובץ; 07-08 שמורות לפרקי החוקים הבאים (הגנת הדייר, תכנון ומיסוי). ‏`scripts/course_content_sql.py` מאמת
 (4 חלופות, `correct` 0-3, ‏slug ייחודי) וכותב מיגרציית `upsert` לפי slug; מה
 שנעלם מה-JSON מסומן ‏`published = false` ואינו נמחק, כי ההתקדמות והניסיונות
 מצביעים עליו.
