@@ -8398,6 +8398,12 @@ let freeTextFeatures = new Set();
     </article>`;
   }
 
+  /* אותו דירוג להצגה ולמדידה: ‏names מ-hoodState, אחרת שכונה בלי שם במודעה נופלת במדידה בלבד */
+  function rankNow(){
+    const names = new Map((hoodState.rows || []).map(h => [h.id, h.name]));
+    return Quiz.rank(allActiveProperties, { deal:quiz.deal, budget:quiz.budget, rooms:quiz.rooms, feats:[...quiz.feats] }, { names });
+  }
+
   /* הקראה אחת אחרי שהגרירה נעצרת, ולא רשימה שלמה בכל צעד של הסליידר */
   function announce(text){
     clearTimeout(statusTimer);
@@ -8408,8 +8414,7 @@ let freeTextFeatures = new Set();
     const box = $('hqResults');
     if (quiz.budget == null) return;
     if (!allActiveProperties.length){ box.innerHTML = '<p class="hq-empty">טוענים את הנכסים…</p>'; return; }
-    const names = new Map((hoodState.rows || []).map(h => [h.id, h.name]));
-    const out = Quiz.rank(allActiveProperties, { deal:quiz.deal, budget:quiz.budget, rooms:quiz.rooms, feats:[...quiz.feats] }, { names });
+    const out = rankNow();
     if (out.results.length){
       const n = out.results.length;
       const sum = `${out.matching === 1 ? 'נכס אחד מתאים' : out.matching + ' נכסים מתאימים'} ב${n === 1 ? 'שכונה אחת' : n + ' שכונות'}`;
@@ -8442,6 +8447,7 @@ let freeTextFeatures = new Set();
      המאפיינים דרך searchState. בלי המשפט (‏supabase-js חסום) - קישור עם אותם פרמטרים */
   function showHood(hoodId){
     modal.close();
+    clearTimeout(resultsTimer);   // בלי אירוע תוצאות אחרי שהשאלון נסגר
     if (!sentence || !sentence.loaded()){
       const q = new URLSearchParams({ deal: quiz.deal, maxPrice: String(quiz.budget), hoods: hoodId });
       if (quiz.rooms !== 'any') q.set('rooms', quiz.rooms === '5' ? '5+' : quiz.rooms);
@@ -8471,12 +8477,12 @@ let freeTextFeatures = new Set();
   }
 
   /* "מה יצא לו": אחרי שהבחירה נעצרה (לא בכל צעד של הסליידר), כדי לדעת כמה פעמים השאלון נגמר בלי
-     אף נכס. נשלח רק אחרי שינוי של הגולש/ת, לא על הציור הראשון */
+     אף נכס. נשלח גם על התצוגה הראשונה בפתיחה, כי מי שרואה אותה ויוצא הוא בדיוק מי שמעניין */
   function trackResults(){
     clearTimeout(resultsTimer);
     resultsTimer = setTimeout(() => {
       if (!allActiveProperties.length || quiz.budget == null) return;
-      const out = Quiz.rank(allActiveProperties, { deal:quiz.deal, budget:quiz.budget, rooms:quiz.rooms, feats:[...quiz.feats] }, {});
+      const out = rankNow();
       shukTrack('hood_quiz_results', Object.assign(trackBase(), { results: out.matching, area_n: out.results.length }));
     }, 1500);
   }
@@ -8504,13 +8510,13 @@ let freeTextFeatures = new Set();
           return;
         }
         if (quiz.budget == null) setBudget(quiz.deal, Quiz.defaultBudget(allActiveProperties, quiz.deal));
-        render();
+        render(); trackResults();
       })();
     },
   });
 
-  document.querySelectorAll('[data-hood-quiz]').forEach(b => b.addEventListener('click', () => { openSource = 'button'; modal.open(); }));
-  document.querySelectorAll('a[href="#hood-quiz"]').forEach(a => a.addEventListener('click', () => { openSource = 'menu'; }));
+  document.querySelectorAll('[data-hood-quiz]').forEach(b => b.addEventListener('click', () => { openSource = 'button'; modal.open(); setTimeout(() => { openSource = 'hash'; }, 1000); }));
+  document.querySelectorAll('a[href="#hood-quiz"]').forEach(a => a.addEventListener('click', () => { openSource = 'menu'; setTimeout(() => { openSource = 'hash'; }, 1000); }));
   document.querySelectorAll('[data-hq-deal]').forEach(b => b.addEventListener('click', () => {
     pick(b.parentElement, b);
     quiz.deal = b.dataset.hqDeal;
