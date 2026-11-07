@@ -30,6 +30,7 @@ C1 = f"{UP}/9b1dbefc-Screen_Recording_20261106_222921_Chrome_1.mp4"  # swipe, AI
 C2 = f"{UP}/70e9db2e-Screen_Recording_20261106_223037_Chrome_1.mp4"  # home, list, map
 C3 = f"{UP}/e03111b7-Screen_Recording_20261106_224703_Chrome.mp4"    # fast swiping
 C4 = f"{UP}/0dd801bf-Screen_Recording_20261106_224943_Chrome.mp4"    # property page, calculator, visit form
+HK = f"{UP}/43824f23-20261105_163348.mp4"  # the hook: the platform's street sign in Afula, filmed from a window (5.11.2026)
 LOGO = os.path.normpath(os.path.join(S, "..", "..", "..", "assets", "logo-shuknadlan.png"))
 FONT = os.environ.get("REEL_FONT") or "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -43,12 +44,16 @@ NAVY_DARK = (7, 20, 56)
 GOLD = (230, 194, 126)  # #e6c27e
 WHITE = (255, 255, 255)
 
-# One entry per voice-over line. A shot is (src, in, out, speed, crop_y);
+# One entry per voice-over line. A shot is (src, in, out, speed, crop_y[, opts]);
 # a line may span two shots. gold = which caption line gets the gold pill.
+# opts: full=True for 9:16 footage shown whole (no phone crop); zoom=1.2 and
+# focus=(fx, fy) for a slow push-in toward that point; ambience=gain keeps the
+# clip's own sound under the voice; cut="whip" for the sound on the cut into it.
 LINES = [
-    dict(id="problem", vo="נמאס לכם לחפש דירה בעשרה מקומות שונים?",
-         caption=["נמאס לחפש דירה", "בעשרה מקומות שונים?"], gold=None,
-         shots=[(C2, 0.6, 4.0, 1.0, 200)]),
+    dict(id="hook", vo="ראיתם את השלט הזה בעפולה? זה מה שמסתתר מאחוריו.",
+         caption=["ראיתם את השלט הזה?", "זה מה שמאחוריו"], gold=None,
+         shots=[(HK, 2.5, 5.3, 1.3, 0, dict(full=True, zoom=1.22, focus=(0.42, 0.5), ambience=0.6)),
+                (C2, 0.6, 2.6, 1.0, 200, dict(cut="whip"))]),  # the sign, then the real home page
     dict(id="all", vo="כל הנכסים של עפולה והעמק, בחיפוש אחד.",
          caption=["כל הנכסים של עפולה והעמק", "בחיפוש אחד"], gold=1,
          shots=[(C2, 4.6, 10.6, 1.6, 480)]),
@@ -84,6 +89,7 @@ SFX = {
     "pop": ("sfx-h0avxtjl0kfr/kt-pop-soft.wav", 0.32),         # engage: a stamp lands
     "ping": ("sfx-ui-notification-ping/clip.mp3", 0.30),       # Gabriela's message arrives
     "chime": ("sfx-ui-success-chime/clip.mp3", 0.25),          # payoff: the end card, under the last line
+    "whip": ("sfx-k7eiyien0i35/kt-swipe-whip.wav", 0.40),      # attention: the cut from the street into the app
 }
 
 
@@ -164,17 +170,20 @@ def main():
     inputs, fc = [], []
     n_in = lambda: inputs.count("-i")
     seg_labels, caps, timeline, t = [], [], [], 0.0
+    amb_labels, music_start = [], 0.0
     for li, line in enumerate(LINES):
         start = t
         shots = line["shots"]
         for off, job in line.get("sfx", []):
             cues.append((start + off, job))
-        d0 = sum((b - a) / sp for _, a, b, sp, _ in shots)
+        d0 = sum((sh[2] - sh[1]) / sh[3] for sh in shots)
         target = d0
         if line["id"] in vo:
             target = max(vo[line["id"]][1] + VO_GAP, 1.0)
         ratio = target / d0
-        for src, a, b, sp, cy in shots:
+        for shot in shots:
+            src, a, b, sp, cy = shot[:5]
+            opts = shot[5] if len(shot) > 5 else {}
             k = len(seg_labels)
             idx = n_in()
             inputs += ["-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", src]
@@ -182,13 +191,28 @@ def main():
             # freeze the last frame or trim beyond it
             share = (b - a) / sp / d0 * target
             if t > 0:
-                cues.append((t, "whoosh"))  # every cut
+                cues.append((t, opts.get("cut", "whoosh")))  # every cut
             sp2 = sp / max(min(ratio, STRETCH[1]), STRETCH[0]) if ratio != 1 else sp
             nat = (b - a) / sp2
             fit = f"tpad=stop_mode=clone:stop_duration={share - nat:.3f}," if nat < share - 0.01 else ""
-            fc.append(f"[{idx}:v]scale=1080:-2,crop=1080:{CROP_H}:0:{cy},setpts=PTS/{sp2:.4f},"
-                      f"fps={FPS},{fit}trim=duration={share:.3f},setpts=PTS-STARTPTS,"
-                      f"pad={W}:{H}:0:{CROP_TOP}:color=#0c2258,setsar=1[v{k}]")
+            if opts.get("full"):
+                n_frames = max(int(share * FPS), 1)
+                z, (fx, fy) = opts.get("zoom", 1.0), opts.get("focus", (0.5, 0.5))
+                push = (f"zoompan=z='1+({z}-1)*min(on/{n_frames},1)':x='iw*{fx}-(iw/zoom)*{fx}':"
+                        f"y='ih*{fy}-(ih/zoom)*{fy}':d=1:s={W}x{H}:fps={FPS},") if z != 1.0 else ""
+                fc.append(f"[{idx}:v]scale={W}:{H},setpts=PTS/{sp2:.4f},fps={FPS},{push}{fit}"
+                          f"trim=duration={share:.3f},setpts=PTS-STARTPTS,setsar=1[v{k}]")
+                if opts.get("ambience"):
+                    ms = int(t * 1000)
+                    fc.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                              f"atempo={sp2:.4f},atrim=duration={share:.3f},volume={opts['ambience']},"
+                              f"afade=t=out:st={share - 0.35:.3f}:d=0.35,adelay={ms}|{ms}[amb{k}]")
+                    amb_labels.append(f"[amb{k}]")
+                    music_start = max(music_start, t + share)  # the music drops in on the cut out of the footage
+            else:
+                fc.append(f"[{idx}:v]scale=1080:-2,crop=1080:{CROP_H}:0:{cy},setpts=PTS/{sp2:.4f},"
+                          f"fps={FPS},{fit}trim=duration={share:.3f},setpts=PTS-STARTPTS,"
+                          f"pad={W}:{H}:0:{CROP_TOP}:color=#0c2258,setsar=1[v{k}]")
             seg_labels.append(f"[v{k}]")
             t += share
         png = f"{cap_dir}/cap{li}.png"
@@ -234,9 +258,11 @@ def main():
     if music:
         idx = n_in()
         inputs += ["-stream_loop", "-1", "-i", music]
+        mlen = total - music_start
+        mst = int(music_start * 1000)
         fc.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
-                  f"atrim=duration={total:.3f},volume={MUSIC_GAIN},"
-                  f"afade=t=in:d=0.4,afade=t=out:st={total - 1.6:.3f}:d=1.6[music]")
+                  f"atrim=duration={mlen:.3f},volume={MUSIC_GAIN},"
+                  f"afade=t=in:d=0.25,afade=t=out:st={mlen - 1.6:.3f}:d=1.6,adelay={mst}|{mst}[music]")
     s_labels = []
     if sfx_dir:
         for n, (when, job) in enumerate(sorted(cues)):
@@ -250,7 +276,10 @@ def main():
     if s_labels:
         fc.append("".join(s_labels) + f"amix=inputs={len(s_labels)}:normalize=0,"
                   f"apad=whole_dur={total:.3f},atrim=duration={total:.3f}[sfx]")
-    beds = [l for l, ok in (("[music]", bool(music)), ("[sfx]", bool(s_labels)), ("[voice]", bool(a_labels))) if ok]
+    if amb_labels:
+        fc.append("".join(amb_labels) + (f"amix=inputs={len(amb_labels)}:normalize=0," if len(amb_labels) > 1 else "")
+                  + f"apad=whole_dur={total:.3f},atrim=duration={total:.3f}[amb]")
+    beds = [l for l, ok in (("[music]", bool(music)), ("[amb]", bool(amb_labels)), ("[sfx]", bool(s_labels)), ("[voice]", bool(a_labels))) if ok]
     if beds:
         fc.append("".join(beds) + (f"amix=inputs={len(beds)}:normalize=0:duration=first," if len(beds) > 1 else "")
                   + "loudnorm=I=-14:TP=-1.5:LRA=9[aout]")

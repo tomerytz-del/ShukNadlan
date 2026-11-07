@@ -8,22 +8,28 @@
   "captions": "none",
   "scenes": [
     {
-      "id": "problem",
-      "narration": "נמאס לכם לחפש דירה בעשרה מקומות שונים?",
+      "id": "hook",
+      "narration": "ראיתם את השלט הזה בעפולה? זה מה שמסתתר מאחוריו.",
       "treatment": "motion-graphic",
-      "onScreenText": ["נמאס לחפש דירה", "בעשרה מקומות שונים?"],
+      "onScreenText": [
+        "ראיתם את השלט הזה?",
+        "זה מה שמאחוריו"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
       "imageTags": [],
       "userAssetIds": [],
-      "notes": "LOOK: navy #0c2258, gold #e6c27e, heebo, RTL. This project exists only to record the voice lines; the picture is cut from real screen recordings outside Reelkit (marketing/videos/app-swipe-reel/build_reel.py). Home page, tap 'show properties'."
+      "notes": "HOOK: the user's real street-sign clip (pole banner of the platform in Afula, Gabriela on it), rack focus into the sign, then the real home page. LOOK: navy #0c2258, gold #e6c27e, heebo, RTL. This project exists only to record the voice lines; the picture is cut from real screen recordings outside Reelkit (marketing/videos/app-swipe-reel/build_reel.py). Home page, tap 'show properties'."
     },
     {
       "id": "all",
       "narration": "כל הנכסים של עפולה והעמק, בחיפוש אחד.",
       "treatment": "motion-graphic",
-      "onScreenText": ["כל הנכסים של עפולה והעמק", "בחיפוש אחד"],
+      "onScreenText": [
+        "כל הנכסים של עפולה והעמק",
+        "בחיפוש אחד"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
@@ -35,7 +41,10 @@
       "id": "swipe",
       "narration": "מחפשים דירה כמו שגוללים בטלפון?",
       "treatment": "motion-graphic",
-      "onScreenText": ["מחפשים דירה", "כמו שגוללים בטלפון?"],
+      "onScreenText": [
+        "מחפשים דירה",
+        "כמו שגוללים בטלפון?"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
@@ -47,7 +56,10 @@
       "id": "save",
       "narration": "ימינה שומרים, שמאלה מדלגים.",
       "treatment": "motion-graphic",
-      "onScreenText": ["ימינה שומרים", "שמאלה מדלגים"],
+      "onScreenText": [
+        "ימינה שומרים",
+        "שמאלה מדלגים"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
@@ -59,7 +71,10 @@
       "id": "gabriela",
       "narration": "שמרתם שלושה? גבריאלה כבר מציעה לתאם ביקור.",
       "treatment": "motion-graphic",
-      "onScreenText": ["שמרתם 3?", "גבריאלה מציעה לתאם ביקור"],
+      "onScreenText": [
+        "שמרתם 3?",
+        "גבריאלה מציעה לתאם ביקור"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
@@ -71,7 +86,10 @@
       "id": "staging",
       "narration": "רוצים לראות איך זה ייראה אחרי שיפוץ? הדמיית AI.",
       "treatment": "motion-graphic",
-      "onScreenText": ["איך זה ייראה אחרי שיפוץ?", "הדמיית AI"],
+      "onScreenText": [
+        "איך זה ייראה אחרי שיפוץ?",
+        "הדמיית AI"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
@@ -83,7 +101,10 @@
       "id": "cash",
       "narration": "וכמה מזומן צריך להביא? המחשבון בתוך הדף.",
       "treatment": "motion-graphic",
-      "onScreenText": ["כמה מזומן צריך להביא?", "המחשבון בתוך הדף"],
+      "onScreenText": [
+        "כמה מזומן צריך להביא?",
+        "המחשבון בתוך הדף"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
@@ -95,7 +116,11 @@
       "id": "cta",
       "narration": "חדש באתר: מחליקים על דירות בעפולה והעמק. הקישור בביו.",
       "treatment": "motion-graphic",
-      "onScreenText": ["חדש: מחליקים על דירות", "בעפולה והעמק", "הקישור בביו"],
+      "onScreenText": [
+        "חדש: מחליקים על דירות",
+        "בעפולה והעמק",
+        "הקישור בביו"
+      ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
