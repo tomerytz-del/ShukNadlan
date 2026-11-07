@@ -68,19 +68,19 @@
       "notes": "Save stamp, then skip stamp."
     },
     {
-      "id": "gabriela",
-      "narration": "שמרתם שלושה? גבריאלה כבר מציעה לתאם ביקור.",
+      "id": "visit",
+      "narration": "מצאתם משהו? מתאמים ביקור ישר מהטלפון.",
       "treatment": "motion-graphic",
       "onScreenText": [
-        "שמרתם 3?",
-        "גבריאלה מציעה לתאם ביקור"
+        "מצאתם משהו?",
+        "מתאמים ביקור ישר מהטלפון"
       ],
       "imagePrompt": null,
       "clipPrompt": null,
       "shareable": false,
       "imageTags": [],
       "userAssetIds": [],
-      "notes": "Gabriela's offer after three saved properties."
+      "notes": "The popup's 'תיאום ביקור' button, then the property page's real visit form."
     },
     {
       "id": "staging",
