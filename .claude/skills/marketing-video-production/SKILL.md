@@ -157,9 +157,13 @@ description: סרטון שיווק, רילס או הדרכה לפלטפורמה 
      מחזיר `candidates` (עומדים בכל התנאים) ו-`closest`; מורידים מ-`mp3_url`.
      בלי מפתח: 20 חיפושים ו-5 הורדות ביום. יש לו גם שרת MCP מרוחק
      (`https://sfxmint.com/mcp`) אם ירצו אותו כקונקטור.
-  3. **Soundza** (אפקטים, מוזיקה ואמביינס, חינם למסחרי): קונקטור MCP מרוחק
-     עם OAuth, `https://mcp.soundza.com/mcp/oauth`, מתחברים ב-claude.ai ולא
-     מהסשן.
+  3. **Soundza** (אפקטים, מוזיקה ואמביינס, חינם למסחרי, בלי קרדיט): **מחובר
+     כקונקטור מ-7.11.2026** (‏`mcp__Soundza__*`): ‏`search_sounds` עם `type`
+     (‏`sound_effect` / `music` / `ambience`), ‏`good_for` (‏`transition`,
+     ‏`notification`, ‏`background_bed`…) ו-`fit_seconds` לאורך הסרטון;
+     ‏`download_sound` מחזיר קישור ל-WAV ל-15 דקות ופקודת curl. חלק מהצלילים
+     מסומנים `ai_content` - לומר למשתמש/ת. אם הקונקטור אינו בסשן, הכתובת
+     לחיבור ב-claude.ai היא `https://mcp.soundza.com/mcp/oauth`.
   4. **Freesound**: דורש מפתח API ב-Network secrets של הסביבה (host
      ‏`freesound.org`, ‏`Authorization`, קידומת `Token`), ורק CC0 או CC-BY.
   **קרדיט:** כל צליל שלא Reelkit ולא CC0 מקבל שורה ב-`ASSET_SOURCES.md` של
