@@ -7,6 +7,8 @@
 כרטיסייה ברצועת **"בעלי מקצוע נבחרים"** בדף הבית, ו**עמוד פרופיל מלא**
 שהיא מובילה אליו.
 
+**לכל תחום יש גם דף הצטרפות** (`docs/join-pages.md`, ‏`scripts/build_join_pages.py`) שנוסף לשם באותו PR.
+
 **תחום חדש נוגע בשלושה מקומות:** ה-check ‏`ad_placements_advertiser_type_check`
 במסד (מיגרציה חדשה שיוצרת אותו מחדש עם הערך), ‏`VALID_TYPES` ב-`professional-signup`
 וב-`professional-manage`, והתוויות בכל דף שמציג תחום. בשני דפי בעלי המקצוע אלה חמש רשימות משוכפלות (‏`TYPE_LABELS`, ‏`TYPE_PLURAL`, ‏`TYPE_FIELD`, ‏`PATHS`, ‏`TILE_TYPES`) - הסקיל `professionals-pages`. ה-check לא הופיע באף
