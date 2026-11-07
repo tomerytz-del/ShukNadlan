@@ -61,9 +61,11 @@ URLs** (‏Supabase → Authentication → URL Configuration). בלעדיה הכ
 ‏`02-brokers-law.json` (חוק המתווכים ושלוש התקנות), ‏`03-ethics-regulations.json`,
 ‏`04-land-law.json` (חוק המקרקעין וחוק החיזוק, תמ"א 38), ‏`05-contracts.json` (חוק החוזים, חוק
 התרופות וחוק החוזים האחידים), ‏`06-sale-apartments.json` (חוק המכר (דירות) וחוק הבטחת השקעות),
-‏`09-past-exams.json`, ו-`exams/exam-YYYY-MM.json` לכל מועד. הקידומת של הקובץ היא ה-`position` של
-הפרק, שנקבע בתוך הקובץ. ‏`07-tenant-protection.json` (חוק הגנת הדייר) בעמדה 7, ו-08 שמורה
-לתכנון ומיסוי. ‏`scripts/course_content_sql.py` מאמת
+‏`09-real-estate-tax.json` (מיסוי מקרקעין), ‏`12-past-exams.json`, ו-`exams/exam-YYYY-MM.json` לכל מועד. הקידומת של הקובץ היא ה-`position` של
+הפרק, שנקבע בתוך הקובץ. ‏`07-tenant-protection.json` (חוק הגנת הדייר) בעמדה 7; 08 לתכנון ובנייה; 10-11 לחוקים הקטנים
+שבחוברת (עונשין, רישוי עסקים, ירושה, הגנת הצרכן, הוצאה לפועל, מקרקעי ישראל). מבחני העבר עברו
+מעמדה 9 ל-12 כדי לפנות מקום (7.11.2026). **סכומי מדרגות בשקלים לא נכנסים לתוכן**: הם מתעדכנים כל
+שנה, והחוברת היא מהדורת 2020. ‏`scripts/course_content_sql.py` מאמת
 (4 חלופות, `correct` 0-3, ‏slug ייחודי) וכותב מיגרציית `upsert` לפי slug; מה
 שנעלם מה-JSON מסומן ‏`published = false` ואינו נמחק, כי ההתקדמות והניסיונות
 מצביעים עליו.
