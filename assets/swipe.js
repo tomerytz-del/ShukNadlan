@@ -368,12 +368,15 @@
     v.src = u;
   }
   /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
-  function warm(u) {
+  function warm(u, low) {
     if (!u || WARM.has(u)) return;
     WARM.add(u);
     var go = function () {
       var im = new Image();
       im.decoding = 'async';
+      // חימום של קרוסלה ושל התמונה השנייה בעדיפות נמוכה: לא תוקע תמונה שמישהו מחכה לה עכשיו.
+      // התמונה הראשונה של כרטיס +2/+3 נשארת רגילה, כי עוד רגע היא תהיה התמונה שמחכים לה
+      if (low) im.fetchPriority = 'low';
       im.onload = function () { noteRatio(u, im.naturalWidth, im.naturalHeight, true); };
       im.src = sized(u, srcW(u));
       if (im.decode) im.decode().then(null, function () {});
@@ -2293,16 +2296,39 @@
     var ph = slides(c.p);
     return ph.length && slideKind(ph[0]) !== 'ba' ? slideBase(c.p, ph[0]) : '';
   }
+  /* ‏swipe-photos-ahead: מי שמקיש בקרוסלה מחכה לרשת אם רק התמונה הבאה נטענה. שתיים קדימה (נכנס גם
+     מ-nextPhoto, כדי שהחלון יזוז עם ההקשה), והתמונה השנייה של הכרטיסים +1 ו-+2. סדר הבקשות הוא
+     העדיפות, ו-‏warm עצמה בעדיפות נמוכה. ב-‏Save-Data נשארת התמונה הבאה בלבד. אחורה לא נטען: נמדד,
+     ואין בו תועלת (תמונה שכבר נראתה במטמון), ובעטיפה מ-0 זה בייטים לשקופית שכמעט אף אחד לא פותח */
+  function lean() { var cn = navigator.connection; return !!(cn && (cn.saveData || /(^|-)2g$/.test(cn.effectiveType || ''))); }
+  function warmCarousel(c) {
+    if (!c || c.slot !== 'property') return;
+    var ph = slides(c.p), n = ph.length, at = c.photo || 0;
+    if (n < 2) return;
+    [1, 2].forEach(function (d) {
+      if (d > 1 && lean()) return;
+      if (at + d >= n) return;   // בלי עטיפה: התמונה הראשונה כבר נטענה כשהכרטיס הוצג
+      var u = ph[at + d];
+      if (u && !slideKind(u)) warm(u, true);
+    });
+  }
+  function secondImg(c) {
+    if (lean() || !c || c.slot !== 'property') return '';
+    var ph = slides(c.p), u = ph[1];
+    return u && !slideKind(u) ? u : '';   // גם אחרי רילס: ph[1] היא התמונה שאחרי הפוסטר
+  }
   function warmAhead(top, c) {
     var run = function () {
       if (c.slot === 'property') {
-        var ph = slides(c.p), nx = ph[((c.photo || 0) + 1) % (ph.length || 1)];
-        if (ph.length > 1 && nx && !slideKind(nx)) warm(nx);
+        warmCarousel(c);
+        var ph = slides(c.p);
         // היחס של כל התמונות בכרטיס (כ-1KB כל אחת), כדי שכל הקשה תבקש את הרוחב הנכון
         ph.forEach(function (x) { if (!slideKind(x) && !RATIO.has(x)) { var th = new Image(); th.onload = function () { noteRatio(x, th.naturalWidth, th.naturalHeight, false); }; th.src = sized(x, 40); } });
       }
       warm(firstImg(deck[idx + 2]));
       warm(firstImg(deck[idx + 3]));
+      warm(secondImg(deck[idx + 1]), true);
+      warm(secondImg(deck[idx + 2]), true);
     };
     warmReel(deck[idx + 1]);
     warmReel(deck[idx + 2]);
@@ -2630,6 +2656,7 @@
     var s = sized(u, w), done = false;
     var pre = new Image();
     pre.decoding = 'async';
+    pre.fetchPriority = 'high';
     pre.src = s;
     function apply(ready) {
       if (done || img._tok !== tok || !img.isConnected) return;
@@ -2641,6 +2668,8 @@
       if (s !== u) img.setAttribute('data-orig', u); else img.removeAttribute('data-orig');
       img.setAttribute('data-watch', '');
       img.src = s;
+      // החלון של הקרוסלה זז רק אחרי שהתמונה שביקשו הגיעה (‏warm מוותרת על מה שכבר התבקש)
+      img.addEventListener('load', function () { var cc = cur(); if (cc && cc.p && img.getAttribute('data-u') === u) warmCarousel(cc); }, { once: true });
       if (blur) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
       watchFit(img);
     }
