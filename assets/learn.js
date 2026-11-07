@@ -101,6 +101,58 @@
   }
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  /* החיבור שפג באמצע שיעור. טלפון שהדף שכב בו ברקע לא מרענן את הטוקן בזמן,
+     ובחזרה הבקשה הראשונה יוצאת עם טוקן שפג (PGRST303 / 401) או בלי טוקן בכלל
+     (הפונקציות מחזירות unauthorized). מרעננים ומנסים פעם אחת שוב. */
+  function authFailed(r) {
+    if (!r) return false;
+    var e = r.error;
+    if (e) return r.status === 401 || e.code === 'PGRST301' || e.code === 'PGRST303' || /jwt|auth session/i.test(e.message || '');
+    return !!(r.data && r.data.error === 'unauthorized');
+  }
+  // 'ok' | 'lost' (שרת האימות דחה את החיבור: אין דרך בלי כניסה מחדש) |
+  // 'later' (רשת או 429 - הטלפון רק התעורר; החיבור עצמו אולי תקין, ולכן לא
+  // זורקים למסך הכניסה). קריאות שנכשלו יחד (Promise.all) חולקות רענון אחד.
+  var refreshing = null, authLost = false;
+  function refreshAuth() {
+    if (!refreshing) refreshing = (async function () {
+      var res = await sb.auth.refreshSession();
+      var final = function (x) { return x.error && x.error.status >= 400 && x.error.status < 500 && x.error.status !== 429; };
+      if (res.error && !final(res)) {
+        await new Promise(function (ok) { setTimeout(ok, 1500); });
+        res = await sb.auth.refreshSession();
+      }
+      if (!res.error && res.data && res.data.session) return 'ok';
+      return final(res) ? 'lost' : 'later';
+    })().finally(function () { refreshing = null; });
+    return refreshing;
+  }
+  // כשהחיבור באמת נגמר עוברים למסך הכניסה, וההבטחה נשארת תלויה בכוונה, כדי
+  // שהקוד שחיכה לה לא יצייר מעל מסך הכניסה הודעה או מפה. ‏authLost מבטיח שזה
+  // קורה פעם אחת, גם כשכמה קריאות נכשלו יחד. כשהרענון נכשל ברשת מחזירים את
+  // הכישלון המקורי, והמסך שקרא מציג את "לנסות שוב" שלו.
+  async function withAuth(call) {
+    if (authLost) return new Promise(function () {});
+    var r = await call();
+    if (!authFailed(r)) return r;
+    var how = await refreshAuth();
+    // הטוקן הישן פג והחדש לא הגיע בגלל הרשת: ההודעה הנכונה היא
+    // "אין חיבור", לא "להתחבר מחדש"
+    if (how === 'later') return { data: null, error: { message: 'Failed to fetch' } };
+    if (how === 'ok') {
+      r = await call();
+      if (!authFailed(r)) return r;
+    }
+    if (!authLost) {
+      authLost = true;
+      clearInterval(state.pollTimer); clearInterval(state.timerId);
+      state.steps = null; state.sim = null; routed = false;
+      renderLogin('החיבור לחשבון פג, וצריך להיכנס שוב. השיעורים שכבר הושלמו שמורים.');
+    }
+    return new Promise(function () {});
+  }
+  function rpc(name, args) { return withAuth(function () { return sb.rpc(name, args); }); }
+
   var state = {
     user: null, me: null, catalog: null, lessons: {},
     steps: null,       // שיעור פתוח במצב קלפים
@@ -192,7 +244,7 @@
 
   /* --------------------------------------------------------------- טעינה */
   async function loadAll() {
-    var r = await Promise.all([sb.rpc('course_me'), sb.rpc('course_catalog')]);
+    var r = await Promise.all([rpc('course_me'), rpc('course_catalog')]);
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
     state.me = r[0].data || {};
@@ -203,7 +255,7 @@
     });
   }
   async function refreshMe() {
-    var r = await sb.rpc('course_me');
+    var r = await rpc('course_me');
     if (!r.error && r.data) state.me = r.data;
   }
   function progressOf(lessonId) {
@@ -316,7 +368,7 @@
     clearInterval(state.pollTimer);
     state.pollTimer = setInterval(async function () {
       tries++;
-      var r = await sb.rpc('course_me');
+      var r = await rpc('course_me');
       if (r.error || !r.data) return;
       state.me = r.data;
       if (state.me.enrolled) {
@@ -392,8 +444,8 @@
     renderBoot('פותחים את השיעור...');
     var r = await Promise.all([
       // select('*') ולא רשימת עמודות: האתר עולה לפני המיגרציה (הסקיל deploy-path)
-      sb.from('course_lessons').select('*').eq('id', id).maybeSingle(),
-      sb.rpc('course_lesson_open', { p_lesson_id: id })
+      withAuth(function () { return sb.from('course_lessons').select('*').eq('id', id).maybeSingle(); }),
+      rpc('course_lesson_open', { p_lesson_id: id })
     ]);
     var lesson = r[0].data;
     if (r[0].error || !lesson) { toast(r[0].error ? errText(r[0].error) : 'השיעור אינו זמין.'); renderMap(); return; }
@@ -504,9 +556,20 @@
         setTimeout(function () { if (state.steps !== S) return; if (S.idx < total - 1) { S.idx++; renderStep(); } else finishSteps(); }, 0);
         return;
       }
-      if (!q) {
+      if (!q && S.startError) {
+        // הבדיקה לא נטענה: כרטיס עם דרך להמשיך, ולא ספינר שמסתובב לנצח
+        html = '<div class="center"><div class="card">' +
+          '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>שאלת הבדיקה לא נטענה. מה שכבר עשיתם בשיעור נשמר.</div></div>' +
+          '<p class="err" style="margin:0">' + escapeHtml(S.startError) + '</p>' +
+          '<button type="button" class="btn-p" id="startRetry">לנסות שוב</button>' +
+          '<button type="button" class="btn-s" id="stepPrev"' + (S.idx === 0 ? ' disabled' : '') + '>לקלף הקודם</button>' +
+          '<button type="button" class="link" id="startSkip">לדלג על הבדיקה</button>' +
+          '</div></div>';
+      } else if (!q) {
         html = '<div class="center"><div class="card" style="text-align:center"><div class="spin"></div></div></div>';
-        ensureAttempt().then(function (ok) { if (ok) renderStep(); });
+        // מציירים שוב רק כשיש תוצאה (ניסיון או שגיאה); ensureAttempt שכבר רצה
+        // מחזירה false מיד, וציור חוזר אז היה לולאה
+        ensureAttempt().then(function () { if (state.steps === S && (S.attempt || S.noQuestions || S.startError)) renderStep(); });
       } else {
         var ans = S.answers[q.id];
         bandOpts.extra = sub + '<div class="q-band"><span class="pill gold" style="align-self:flex-start">בדיקה מהירה · קלף ' + (S.idx + 1) + '</span><h1>' + escapeHtml(q.question) + '</h1></div>';
@@ -525,7 +588,10 @@
     render(band(bandOpts) + (withAside ? '<div class="cols"><div class="main">' + html + foot + '</div>' + stepsAside(S) + '</div>' : html + foot));
     bindBand();
     on('fullText', 'click', function () { renderFullText(S.lesson, S.entry); });
-    on('stepPrev', 'click', function () { if (S.idx > 0) { S.idx--; S.lawOpen = false; S.flipped = false; renderStep(); } });
+    on('stepPrev', 'click', function () { if (S.idx > 0) { S.idx--; S.lawOpen = false; S.flipped = false; S.startError = ''; renderStep(); } });
+    on('startRetry', 'click', function () { S.startError = ''; renderStep(); });
+    // דילוג: הקלף הבא שהוא בדיקה ינסה שוב לפתוח ניסיון
+    on('startSkip', 'click', function () { S.startError = ''; advance(); });
     on('stepNext', 'click', function () { advance(); });
     // הפיכת כרטיס ופתיחת "מה אומר החוק" נוגעות רק באלמנט שלהן: ציור מחדש של
     // כל המסך היה מגלגל לראש הדף ומריץ שוב את אנימציית הכניסה.
@@ -623,14 +689,15 @@
     if (S.attempt) return true;
     if (S.loading) return false;
     S.loading = true;
-    var r = await sb.rpc('course_attempt_start', { p_kind: 'quiz', p_lesson_id: S.lesson.id });
+    var r = await rpc('course_attempt_start', { p_kind: 'quiz', p_lesson_id: S.lesson.id });
     S.loading = false;
     if (r.error || !r.data || r.data.error) {
       var code = r.error ? errText(r.error) : (r.data && r.data.error);
       if (code === 'course_not_enrolled') { renderPay(); return false; }
-      toast(errText(r.error || { message: code }));
+      S.startError = errText(r.error || { message: code });
       return false;
     }
+    S.startError = '';
     S.attempt = r.data.attempt_id;
     S.noQuestions = !r.data.attempt_id;   // שיעור בלי שאלות מפורסמות: אין ניסיון, ומסיימים בלי ציון
     (r.data.questions || []).forEach(function (q) { S.qmap[q.slug] = q; });
@@ -640,7 +707,7 @@
     var S = state.steps;
     if (!S || S.answers[q.id]) return;
     qa('.opt').forEach(function (b) { b.disabled = true; });
-    var r = await sb.rpc('course_answer', { p_attempt_id: S.attempt, p_question_id: q.id, p_choice: choice });
+    var r = await rpc('course_answer', { p_attempt_id: S.attempt, p_question_id: q.id, p_choice: choice });
     if (r.error || !r.data || r.data.error) {
       toast(errText(r.error || { message: r.data && r.data.error }));
       qa('.opt').forEach(function (b) { b.disabled = false; });
@@ -658,7 +725,7 @@
       return;
     }
     renderBoot('רושמים את הציון...');
-    var r = await sb.rpc('course_attempt_finish', { p_attempt_id: S.attempt });
+    var r = await rpc('course_attempt_finish', { p_attempt_id: S.attempt });
     if (r.error || !r.data || r.data.error) {
       // התשובות כבר במסד; מה שנכשל הוא הסיכום. לא זורקים את השיעור.
       renderSubmitError(errText(r.error || { message: r.data && r.data.error }), finishSteps, renderStep);
@@ -735,7 +802,7 @@
   async function startSim(kind, lessonId, title) {
     if (kind !== 'quiz' && !enrolled()) { renderPay(); return; }
     renderBoot(kind === 'exam' ? 'מגרילים ' + ((state.me && state.me.exam_questions) || 25) + ' שאלות...' : 'אוספים את השאלות...');
-    var r = await sb.rpc('course_attempt_start', { p_kind: kind, p_lesson_id: lessonId || null });
+    var r = await rpc('course_attempt_start', { p_kind: kind, p_lesson_id: lessonId || null });
     if (r.error || !r.data || r.data.error) {
       var code = r.error ? errText(r.error) : (r.data && r.data.error);
       if (code === 'course_not_enrolled') { renderPay(); return; }
@@ -801,7 +868,7 @@
     var A = state.sim;
     if (!A || A.answers[q.id]) return;
     qa('.opt').forEach(function (b) { b.disabled = true; });
-    var r = await sb.rpc('course_answer', { p_attempt_id: A.id, p_question_id: q.id, p_choice: choice });
+    var r = await rpc('course_answer', { p_attempt_id: A.id, p_question_id: q.id, p_choice: choice });
     if (r.error || !r.data || r.data.error) {
       toast(errText(r.error || { message: r.data && r.data.error }));
       qa('.opt').forEach(function (b) { b.disabled = false; });
@@ -819,7 +886,7 @@
     if (!forced && left > 0 && !window.confirm('נשארו ' + left + ' שאלות בלי תשובה. הן ייספרו כשגויות. לסיים בכל זאת?')) return;
     clearInterval(state.timerId);
     renderBoot('בודקים...');
-    var r = await sb.rpc('course_attempt_finish', { p_attempt_id: A.id });
+    var r = await rpc('course_attempt_finish', { p_attempt_id: A.id });
     if (r.error || !r.data || r.data.error) {
       // סימולציה של שעתיים לא נזרקת בגלל בקשה אחת שנפלה: הניסיון עדיין פתוח במסד.
       // כשהשעון נגמר אין "חזרה לשאלות", רק הגשה חוזרת.
@@ -859,6 +926,7 @@
   async function route(session) {
     if (routed) return;
     routed = true;
+    authLost = false;
     state.user = session.user;
     var params = new URLSearchParams(window.location.search);
     var order = params.get('order');

@@ -106,9 +106,48 @@ def load():
     return [chapters[s] for s in order], problems
 
 
-def validate(chapters, answers_snapshot=None, allowed_answer_changes=()):
+HEB_MONTHS = {'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'אפריל': 4, 'מאי': 5, 'יוני': 6, 'יולי': 7,
+              'אוגוסט': 8, 'ספטמבר': 9, 'אוקטובר': 10, 'נובמבר': 11, 'דצמבר': 12}
+# "שאלה 14, יולי 2026" / "שאלה 20 במבחן יולי 2025": ציטוט של שאלה אמיתית מהמאגר
+CITATION = re.compile(r'שאלה (\d{1,2})(?:,| ב?מבחן| במועד)? (' + '|'.join(HEB_MONTHS) + r') (\d{4})')
+
+
+def check_citations(chapters, problems, warnings):
+    """כל ציטוט של שאלה מהמאגר חייב להצביע על שאלה שקיימת ומפורסמת; שאלה
+    שמסומנת needs_review מודפסת כאזהרה. כך לא מלמדים "הרשם הכריע" על שאלה
+    שבוטלה במפתח הרשמי."""
+    bank = {}
+    for ch in chapters:
+        for lesson in ch['lessons']:
+            for qu in (lesson.get('questions') or []):
+                if qu.get('kind') == 'exam' and qu.get('slug'):
+                    bank[qu['slug']] = qu
+    for ch in chapters:
+        for lesson in ch['lessons']:
+            texts = []
+            for qu in (lesson.get('questions') or []):
+                if qu.get('kind', 'practice') == 'practice':
+                    texts.append(('שאלה ' + str(qu.get('slug')), qu.get('explanation') or ''))
+            for st in (lesson.get('steps') or []):
+                if isinstance(st, dict) and st.get('type') in ('concept', 'example'):
+                    texts.append(('צעד ' + str(st.get('title')), ' '.join(str(st.get(k) or '') for k in ('title', 'text', 'law'))))
+            texts.append(('גוף השיעור', lesson.get('body_html') or ''))
+            for where, text in texts:
+                for m in CITATION.finditer(text):
+                    slug = 'exam-%s-%02d-q%02d' % (m.group(3), HEB_MONTHS[m.group(2)], int(m.group(1)))
+                    src = '%s / %s / %s' % (lesson['_file'], lesson['slug'], where)
+                    if slug not in bank:
+                        problems.append(src + ': מצטט "%s" ואין שאלה כזו במאגר (%s)' % (m.group(0), slug))
+                    elif bank[slug].get('published') is False:
+                        problems.append(src + ': מצטט "%s" שבוטלה במפתח הרשמי (%s). שאלה שבוטלה אינה תקדים' % (m.group(0), slug))
+                    elif bank[slug].get('needs_review'):
+                        warnings.append(src + ': מצטט "%s" שמסומנת needs_review' % m.group(0))
+
+
+def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warnings=None):
     answers_snapshot = answers_snapshot or {}
     problems = []
+    check_citations(chapters, problems, warnings if warnings is not None else [])
     seen_q = set()
     seen_l = set()
     for ch in chapters:
@@ -283,7 +322,8 @@ def main():
         if arg.startswith('--allow-answer-change='):
             allowed.update(x.strip() for x in arg.split('=', 1)[1].split(',') if x.strip())
     chapters, problems = load()
-    problems += validate(chapters, load_answers(), allowed)
+    warnings = []
+    problems += validate(chapters, load_answers(), allowed, warnings)
     counts = (len(chapters), sum(len(c['lessons']) for c in chapters),
               sum(len(l.get('questions') or []) for c in chapters for l in c['lessons']))
     review = [qu['slug'] for c in chapters for l in c['lessons'] for qu in (l.get('questions') or []) if qu.get('needs_review')]
@@ -293,6 +333,8 @@ def main():
             print('  - ' + p)
         return 1
     print('%d פרקים, %d שיעורים, %d שאלות' % counts)
+    for w in warnings:
+        print('אזהרה: ' + w)
     if review:
         print('שאלות שמסומנות needs_review (%d): %s' % (len(review), ', '.join(review)))
     if '--check' in sys.argv:
