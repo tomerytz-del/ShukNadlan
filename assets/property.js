@@ -2164,6 +2164,17 @@ async function requestVisualization(){
        הקוד עצמו נשמר ל-console כדי שלא ילך לאיבוד באבחון. */
     if (!res.ok || out.error){
       if (out.error) console.error('property-visualize נכשל:', out.error, out.detail || '');
+      /* ‏no_suitable_images אינו תקלה רגעית: בנכס אין צילום שאפשר לדמות ממנו, וכל לחיצה
+         נוספת תיכשל אותו דבר. בנכס פרטי שאין לו אף הדמיה - התיבה יורדת יחד עם קיצור הדרך
+         אליה, במקום להשאיר כפתור שתמיד נכשל (אותו עיקרון כמו נכס בלי תמונות ב-loadVisualizations). */
+      if (out.error === 'no_suitable_images' && vizState.isPrivate && !vizItemsFlat().length){
+        const sec = document.getElementById('vizSection');
+        const jump = document.getElementById('vizJumpBtn');
+        if (sec) sec.hidden = true;
+        if (jump) jump.hidden = true;
+        showToast(out.message || 'אין בנכס הזה צילום שאפשר להדמות ממנו');
+        return;
+      }
       throw new Error(out.message || 'לא הצלחנו ליצור את ההדמיה כרגע. נסו שוב מאוחר יותר.');
     }
 
