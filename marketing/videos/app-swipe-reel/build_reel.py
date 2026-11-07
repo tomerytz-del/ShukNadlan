@@ -81,6 +81,9 @@ END = dict(id="cta", vo="חדש באתר: מחליקים על דירות בעפ�
 VO_GAP = 0.25        # silence after each line before the next shot
 MUSIC_GAIN = 0.07    # music about 13 dB under the voice (Reelkit lines are about -24 LUFS; the skill wants 10 to 22 dB)
 STRETCH = (0.8, 1.25)  # speed change allowed to fit a line; beyond it, freeze or trim
+# Voices that must never be heard in a platform video again (Tomer, 7.11.2026):
+# Reelkit's only Hebrew voice "Daniel". A voiceovers.json recorded with it is refused.
+BANNED_VOICES = {"HjnCa0x8VgfBjy158Gpj"}
 # Sound effects by job (reference/sound-design in the reelkit skill: one sound per job,
 # the same every time). Paths are inside --sfx (Reelkit's assets/lib). Gains sit the
 # -16 LUFS library files under a -24 LUFS voice.
@@ -165,6 +168,9 @@ def main():
             raw = json.load(fh)
         project = os.path.dirname(os.path.dirname(os.path.abspath(vo_json)))  # keys are project-relative
         for sid, v in raw.items():
+            if v.get("voiceId") in BANNED_VOICES:
+                sys.exit(f"voice line '{sid}' was recorded with a banned voice ({v['voiceId']}); "
+                         "change voiceId in the Reelkit plan and run reelkit assets voiceover --all --redo")
             vo[sid] = (os.path.join(project, v["key"]), float(v["durationSec"]))
 
     inputs, fc = [], []

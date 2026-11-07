@@ -2,7 +2,7 @@
   "title": "מחפשים דירה כמו שגוללים בטלפון?",
   "aspect": "9:16",
   "mode": "motion",
-  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "voiceId": "cgSgspJ2msm6clMCkdW9",
   "pace": "fast",
   "gap": "tight",
   "captions": "none",
@@ -20,7 +20,7 @@
       "shareable": false,
       "imageTags": [],
       "userAssetIds": [],
-      "notes": "HOOK: the user's real street-sign clip (pole banner of the platform in Afula, Gabriela on it), rack focus into the sign, then the real home page. LOOK: navy #0c2258, gold #e6c27e, heebo, RTL. This project exists only to record the voice lines; the picture is cut from real screen recordings outside Reelkit (marketing/videos/app-swipe-reel/build_reel.py). Home page, tap 'show properties'."
+      "notes": "HOOK: the user's real street-sign clip (pole banner of the platform in Afula, Gabriela on it), rack focus into the sign, then the real home page. VOICE: Jessica (cgSgspJ2msm6clMCkdW9). The Hebrew voice HjnCa0x8VgfBjy158Gpj is banned (7.11.2026). LOOK: navy #0c2258, gold #e6c27e, heebo, RTL. This project exists only to record the voice lines; the picture is cut from real screen recordings outside Reelkit (marketing/videos/app-swipe-reel/build_reel.py). Home page, tap 'show properties'."
     },
     {
       "id": "all",

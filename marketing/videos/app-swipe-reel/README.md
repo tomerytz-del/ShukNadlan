@@ -42,8 +42,9 @@ REEL_SRC=~/reel-src REEL_FONT=~/fonts/Heebo-Bold.ttf \
 
 **הקריינות** מגיעה מפרויקט Reelkit פרטי (`reelkit init swipe-vo --aspect 9:16
 --private`) שה-`plan.json` שלו הוא `reelkit-plan.json` כאן: שמונה סצנות, מזהה
-סצנה = `id` ב-`LINES`, הקול העברי `HjnCa0x8VgfBjy158Gpj` (היחיד בספרייה), ‏`pace`
-‏`fast` ו-`gap` ‏`tight`. ‏`reelkit assets voiceover --all` כותב קובץ לכל שורה ואת
+סצנה = `id` ב-`LINES`, הקול Jessica (‏`cgSgspJ2msm6clMCkdW9`, מדברת עברית), ‏`pace`
+‏`fast` ו-`gap` ‏`tight`. הקול העברי "Daniel" (‏`HjnCa0x8VgfBjy158Gpj`) שבגרסאות 4-6
+**נפסל ב-7.11.2026 ואינו משמש יותר**; הסקריפט מסרב לקובץ שהוקלט בו. ‏`reelkit assets voiceover --all` כותב קובץ לכל שורה ואת
 `assets/voiceovers.json`; הסקריפט מותח או חותך כל שוט לאורך השורה (שינוי מהירות
 עד 20%, ומעבר לזה פריים קפוא) ומניח את השורות על ציר הזמן. הגרסה הראשונה עם
 קול יצאה 32 שניות. **קול אמיתי עדיף** (הסקיל, סעיף 4): הקלטה אחת של שמונה
