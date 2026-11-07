@@ -383,6 +383,7 @@
     };
     if (RATIO.has(u) || SRCW.has(u)) { go(); return; }
     var th = new Image();
+    if (low) th.fetchPriority = 'low';   // גם הטשטוש שמקדים את התמונה: אחרת הוא מתחרה בתמונה הגלויה
     th.onload = function () { noteRatio(u, th.naturalWidth, th.naturalHeight, false); go(); };
     th.onerror = go;
     th.src = sized(u, 40);
@@ -2305,17 +2306,19 @@
     if (!c || c.slot !== 'property') return;
     var ph = slides(c.p), n = ph.length, at = c.photo || 0;
     if (n < 2) return;
-    [1, 2].forEach(function (d) {
-      if (d > 1 && lean()) return;
-      if (at + d >= n) return;   // בלי עטיפה: התמונה הראשונה כבר נטענה כשהכרטיס הוצג
-      var u = ph[at + d];
-      if (u && !slideKind(u)) warm(u, true);
-    });
+    // שתי התמונות הבאות, בלי עטיפה (הראשונה כבר נטענה כשהכרטיס הוצג), ובדילוג על שקופית מיוחדת
+    // (רילס, לפני/אחרי, הזמנה) כדי לחמם את התמונה שאחריה ולא לוותר עליה
+    for (var i = at + 1, got = 0, max = lean() ? 1 : 2; i < n && got < max; i++) {
+      var u = ph[i];
+      if (u && !slideKind(u)) { warm(u, true); got++; }
+    }
   }
-  function secondImg(c) {
-    if (lean() || !c || c.slot !== 'property') return '';
+  /* התמונה שאחרי הראשונה בכרטיס +1/+2. אחרי רילס (או שקופית מיוחדת אחרת) ph[1] היא התמונה האמיתית
+     הראשונה, ו-firstImg מחמם רק את הפוסטר: היא בעדיפות רגילה, אחרת היא עלולה להיתקע כשמגיעים אליה */
+  function warmSecond(c) {
+    if (lean() || !c || c.slot !== 'property') return;
     var ph = slides(c.p), u = ph[1];
-    return u && !slideKind(u) ? u : '';   // גם אחרי רילס: ph[1] היא התמונה שאחרי הפוסטר
+    if (u && !slideKind(u)) warm(u, !slideKind(ph[0]));
   }
   function warmAhead(top, c) {
     var run = function () {
@@ -2327,8 +2330,8 @@
       }
       warm(firstImg(deck[idx + 2]));
       warm(firstImg(deck[idx + 3]));
-      warm(secondImg(deck[idx + 1]), true);
-      warm(secondImg(deck[idx + 2]), true);
+      warmSecond(deck[idx + 1]);
+      warmSecond(deck[idx + 2]);
     };
     warmReel(deck[idx + 1]);
     warmReel(deck[idx + 2]);
@@ -2667,9 +2670,17 @@
       img.style.width = '';
       if (s !== u) img.setAttribute('data-orig', u); else img.removeAttribute('data-orig');
       img.setAttribute('data-watch', '');
+      var same = img.getAttribute('src') === s;   // אותה כתובת: אין אירוע load
       img.src = s;
-      // החלון של הקרוסלה זז רק אחרי שהתמונה שביקשו הגיעה (‏warm מוותרת על מה שכבר התבקש)
-      img.addEventListener('load', function () { var cc = cur(); if (cc && cc.p && img.getAttribute('data-u') === u) warmCarousel(cc); }, { once: true });
+      // החלון של הקרוסלה זז רק אחרי שהתמונה שביקשו הגיעה (‏warm מוותרת על מה שכבר התבקש). המאזין
+      // יוצא גם בשגיאה, כדי שלא יישאר תלוי על הצומת המשותף
+      var adv = function () { var cc = cur(); if (cc && cc.p && img.getAttribute('data-u') === u) warmCarousel(cc); };
+      if (same) setTimeout(adv, 0);
+      else {
+        var onErr = function () { img.removeEventListener('load', adv); };
+        img.addEventListener('load', function () { img.removeEventListener('error', onErr); adv(); }, { once: true });
+        img.addEventListener('error', onErr, { once: true });
+      }
       if (blur) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
       watchFit(img);
     }
