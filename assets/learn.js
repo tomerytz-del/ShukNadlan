@@ -152,6 +152,9 @@
       if (!r.error && await mfaGateIfPending(true)) return new Promise(function () {});
     }
     if (mfaGate) return new Promise(function () {});
+    return loseAuth();
+  }
+  function loseAuth() {
     if (!authLost) {
       authLost = true;
       clearInterval(state.pollTimer); clearInterval(state.timerId);
@@ -441,8 +444,8 @@
     return { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token };
   }
   /* course-purchase עם אותה התאוששות כמו withAuth: 401 (טוקן שפג או חסר) -> רענון
-     משותף וניסיון אחד נוסף; 403 mfa_required -> מסך אימות הכניסה. מחזיר
-     { ok, data }, ו-data הוא גוף התשובה (או השגיאה) כמו קודם. */
+     משותף וניסיון אחד נוסף, ורענון שנדחה -> מסך הכניסה. מחזיר { ok, data }, ו-data
+     הוא גוף התשובה (או השגיאה) כמו קודם. */
   async function purchaseFetch(method, body) {
     var call = async function () {
       var res = await fetch(PURCHASE_URL, { method: method, headers: await authHeaders(), body: body ? JSON.stringify(body) : undefined });
@@ -453,10 +456,11 @@
     var r = await call();
     if (r.status === 401) {
       var how = await refreshAuth();
-      if (how === 'ok') r = await call();
-      else if (how === 'later') return { ok: false, data: { message: 'Failed to fetch' } };
+      if (how === 'later') return { ok: false, data: { message: 'Failed to fetch' } };
+      if (how === 'lost') return loseAuth();
+      r = await call();
+      if (r.status === 401) return loseAuth();
     }
-    if (r.status === 403 && r.data && r.data.error === 'mfa_required' && await mfaGateIfPending(true)) return new Promise(function () {});
     return r;
   }
   async function renderPay(opts) {
@@ -610,11 +614,11 @@
     ]);
     // בקשה שיצאה בלי טוקן רצה כאורח/ת, ו-RLS מחזיר null בלי שגיאה, כך ש-withAuth
     // לא מזהה אותה. אם ה-RPC שלצידה רענן בינתיים את החיבור, שואלים שוב פעם אחת.
-    if (!r[0].error && !r[0].data) r[0] = await sb.from('course_lessons').select('*').eq('id', id).maybeSingle();
+    if (!r[0].error && !r[0].data) r[0] = await withAuth(function () { return sb.from('course_lessons').select('*').eq('id', id).maybeSingle(); });
     var lesson = r[0].data;
     if (r[0].error || !lesson) { toast(r[0].error ? errText(r[0].error) : 'השיעור אינו זמין.'); renderMap(); return; }
     // course_lesson_open הוא מה שרושם את הפתיחה, ובשיעור בלי שאלות גם את ההשלמה
-    var opened = !r[1].error && r[1].data && !r[1].data.error;
+    var opened = !!(!r[1].error && r[1].data && !r[1].data.error);
     if (Array.isArray(lesson.steps) && lesson.steps.length && !fullText) { startSteps(lesson, entry, opened); return; }
     renderFullText(lesson, entry);
   }
@@ -672,7 +676,7 @@
     var steps = lesson.steps.slice()
       .concat(kp.map(function (k) { return { type: 'flash', text: k, law: lesson.source_ref || '' }; }));
     state.sim = null;
-    state.steps = { lesson: lesson, entry: entry, steps: steps, idx: 0, attempt: null, qmap: {}, answers: {}, unknown: 0, lawOpen: false, flipped: false, opened: opened !== false, readOnly: false };
+    state.steps = { lesson: lesson, entry: entry, steps: steps, idx: 0, attempt: null, qmap: {}, answers: {}, unknown: 0, lawOpen: false, flipped: false, opened: opened === true, readOnly: false, dir: 1 };
     renderStep();
   }
 
@@ -719,7 +723,13 @@
       if (!q && (S.attempt || S.noQuestions || S.readOnly)) {
         // הניסיון כבר נפתח והשאלה אינה בו (למשל שאלה שהוסרה מהפרסום): מדלגים
         // על הקלף במקום לפתוח ניסיון שוב ושוב
-        setTimeout(function () { if (state.steps !== S) return; if (S.idx < total - 1) { S.idx++; renderStep(); } else finishSteps(); }, 0);
+        // בכיוון התנועה: מי שחזר אחורה ממשיך אחורה, אחרת "הקודם" היה מחזיר קדימה
+        setTimeout(function () {
+          if (state.steps !== S) return;
+          if (S.dir < 0 && S.idx > 0) { S.idx--; renderStep(); }
+          else if (S.idx < total - 1) { S.dir = 1; S.idx++; renderStep(); }
+          else finishSteps();
+        }, 0);
         return;
       }
       if (!q && S.startError) {
@@ -754,7 +764,7 @@
     render(band(bandOpts) + (withAside ? '<div class="cols"><div class="main">' + html + foot + '</div>' + stepsAside(S) + '</div>' : html + foot));
     bindBand();
     on('fullText', 'click', function () { renderFullText(S.lesson, S.entry); });
-    on('stepPrev', 'click', function () { if (S.idx > 0) { S.idx--; S.lawOpen = false; S.flipped = false; S.startError = ''; renderStep(); } });
+    on('stepPrev', 'click', function () { if (S.idx > 0) { S.idx--; S.dir = -1; S.lawOpen = false; S.flipped = false; S.startError = ''; renderStep(); } });
     on('startRetry', 'click', function () { S.startError = ''; renderStep(); });
     // המשך בקריאה בלבד: בלי ניסיון אין ציון, ולכן כל קלפי הבדיקה מכאן מדולגים
     // והסיום אומר שהשיעור לא נרשם. ניסיון שנפתח אחר כך היה כולל את השאלה
@@ -789,7 +799,7 @@
     }
     if (st.type === 'concept') bindSwipe();
     function advance() {
-      S.lawOpen = false; S.flipped = false;
+      S.lawOpen = false; S.flipped = false; S.dir = 1;
       if (S.idx < total - 1) { S.idx++; renderStep(); } else finishSteps();
     }
   }
@@ -895,8 +905,13 @@
         renderBoot('רושמים את השיעור...');
         var o = await rpc('course_lesson_open', { p_lesson_id: S.lesson.id });
         if (o.error || !o.data || o.data.error) {
-          renderSubmitError(errText(o.error || { message: o.data && o.data.error }), finishSteps, renderStep,
-            'הקלפים נקראו עד הסוף, רק הרישום לא הגיע. ננסה שוב.');
+          var oc = o.data && o.data.error;
+          if (oc === 'course_not_enrolled') { state.steps = null; renderPay(); return; }
+          if (oc === 'not_found') { state.steps = null; toast('השיעור אינו זמין.'); renderMap(); return; }
+          // בלי "חזרה לשאלות": בשיעור הזה אין שאלות, וחזרה לקלף האחרון הייתה
+          // סופרת שוב "לא ידעתי"
+          renderSubmitError(errText(o.error || { message: oc }), finishSteps, null,
+            'הקלפים נקראו עד הסוף, רק הרישום לא הגיע. ננסה שוב.', 'לנסות שוב');
           return;
         }
         S.opened = true;
@@ -936,12 +951,12 @@
 
   /* ההגשה נכשלה (רשת, תקלה רגעית): הניסיון נשאר פתוח ואפשר להגיש שוב.
      back חוזר למסך שממנו הגיעו, ואין אותו כשהשעון כבר נגמר. */
-  function renderSubmitError(msg, retry, back, note) {
+  function renderSubmitError(msg, retry, back, note, retryLabel) {
     render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
       '<div class="center"><div class="card">' +
       '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>' + escapeHtml(note || 'התשובות שלכם נשמרו, רק הסיכום לא הגיע. ננסה שוב.') + '</div></div>' +
       '<p class="err" style="margin:0">' + escapeHtml(msg) + '</p>' +
-      '<button type="button" class="btn-p" id="retrySubmit">להגיש שוב</button>' +
+      '<button type="button" class="btn-p" id="retrySubmit">' + escapeHtml(retryLabel || 'להגיש שוב') + '</button>' +
       (back ? '<button type="button" class="btn-s" id="backSubmit">חזרה לשאלות</button>' : '') +
       '</div></div>');
     bindBand();

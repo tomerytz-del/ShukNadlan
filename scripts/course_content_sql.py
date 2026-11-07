@@ -110,7 +110,7 @@ def load():
 HEB_MONTHS = {'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'אפריל': 4, 'מאי': 5, 'יוני': 6, 'יולי': 7,
               'אוגוסט': 8, 'ספטמבר': 9, 'אוקטובר': 10, 'נובמבר': 11, 'דצמבר': 12}
 # "שאלה 14, יולי 2026" / "שאלה 20 במבחן יולי 2025": ציטוט של שאלה אמיתית מהמאגר
-CITATION = re.compile(r'שאלה (\d{1,2})(?:,| ב?מבחן| ממבחן| במועד)? (?:[בממ](?=' + '|'.join(HEB_MONTHS) + r'))?(' + '|'.join(HEB_MONTHS) + r') (\d{4})')
+CITATION = re.compile(r'שאלה (\d{1,2})(?:,| ב?מבחן| ממבחן| למבחן| במועד)? (?:[במ](?=' + '|'.join(HEB_MONTHS) + r'))?(' + '|'.join(HEB_MONTHS) + r') (\d{4})')
 
 
 def check_citations(chapters, problems, warnings):
@@ -223,18 +223,22 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
                 # slug קיים שה-correct שלו השתנה: שאלה שנכתבה מחדש מקבלת slug חדש,
                 # אחרת ניסיון פתוח (answers.c הוא אינדקס) נבדק מול חלופה אחרת
                 snap = answers_snapshot.get(s)
-                snap_c, snap_t = (snap[0], snap[1]) if isinstance(snap, list) else (snap, None)
+                snap_c = snap[0] if isinstance(snap, list) else snap
+                snap_opts = snap[1] if isinstance(snap, list) and isinstance(snap[1], list) else None
                 if snap is not None and isinstance(c, int) and snap_c != c \
                         and s not in allowed_answer_changes:
                     problems.append(where + ': correct השתנה (%s -> %s) תחת אותו slug. שאלה שנכתבה מחדש מקבלת slug חדש; '
                                     'תיקון מפתח אמיתי: --allow-answer-change=%s' % (snap_c, c, s))
                 # אותו correct, אבל החלופות הוחלפו בסדר: ניסיון פתוח והסדר המעורבב
                 # (option_orders) שמורים לפי אינדקס, ולכן הנכונה הייתה עוברת לטקסט אחר.
-                # תיקון כתיב בטקסט של החלופה הנכונה (אותו מקום) מותר.
-                elif snap_t is not None and isinstance(opts, list) and isinstance(c, int) and 0 <= c < len(opts) \
-                        and snap_t in opts and opts.index(snap_t) != c and s not in allowed_answer_changes:
-                    problems.append(where + ': החלופה הנכונה זזה ממקום %d למקום %d תחת אותו slug (correct נשאר %d). '
-                                    'סדר החלופות קבוע; שאלה שנכתבה מחדש מקבלת slug חדש' % (c, opts.index(snap_t), c))
+                # כל חלופה שהייתה בתמונה ונמצאת עכשיו במקום אחר היא החלפת סדר, גם
+                # כשבאותה עריכה תוקן כתיב בחלופה אחרת. תיקון כתיב במקום מותר.
+                elif snap_opts is not None and isinstance(opts, list) and s not in allowed_answer_changes:
+                    moved = [(j, opts.index(t)) for j, t in enumerate(snap_opts)
+                             if t in opts and opts.index(t) != j and opts.count(t) == 1]
+                    if moved:
+                        problems.append(where + ': חלופות זזו ממקומן תחת אותו slug (%s). סדר החלופות קבוע; '
+                                        'שאלה שנכתבה מחדש מקבלת slug חדש' % ', '.join('%d->%d' % m for m in moved))
     return problems
 
 
@@ -325,15 +329,21 @@ def applied_on_main(path):
     """התוכן של המיגרציה כפי שהיא ב-origin/main, או None כשאינה שם (או שאין git)."""
     rel = os.path.relpath(path, ROOT)
     try:
+        # ref מקומי ישן היה מכבה את השמירה בשקט אחרי PR של מישהו אחר
+        f = subprocess.run(['git', 'fetch', '-q', 'origin', 'main'], cwd=ROOT,
+                           capture_output=True, text=True, timeout=60)
+        if f.returncode != 0:
+            print('אזהרה: git fetch origin main נכשל, והבדיקה אם המיגרציה כבר במיין רצה מול ref מקומי')
         out = subprocess.run(['git', 'show', 'origin/main:' + rel], cwd=ROOT,
                              capture_output=True, text=True, timeout=20)
     except (OSError, subprocess.SubprocessError):
+        print('אזהרה: אין git, ולכן לא נבדק אם המיגרציה כבר במיין. אם היא רצה בפרודקשן, צריך --bump')
         return None
     return out.stdout if out.returncode == 0 else None
 
 
 def load_answers():
-    # slug -> [correct, טקסט החלופה הנכונה] כפי שנכתב במיגרציה האחרונה (פורמט ישן: רק correct).
+    # slug -> [correct, ארבע החלופות] כפי שנכתב במיגרציה האחרונה (פורמט ישן: רק correct).
     # נכתב בכל הרצה שמייצרת.
     if os.path.exists(ANSWERS_FILE):
         return json.load(open(ANSWERS_FILE, encoding='utf-8'))
@@ -395,7 +405,7 @@ def main():
     with open(target, 'w', encoding='utf-8') as f:
         f.write(sql)
     with open(ANSWERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump({qu['slug']: [qu['correct'], qu['options'][qu['correct']]]
+        json.dump({qu['slug']: [qu['correct'], qu['options']]
                    for c in chapters for l in c['lessons'] for qu in (l.get('questions') or [])},
                   f, ensure_ascii=False, indent=0, sort_keys=True)
         f.write('\n')
