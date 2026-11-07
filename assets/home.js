@@ -8336,6 +8336,154 @@ let freeTextFeatures = new Set();
   $('hsMore').addEventListener('click', () => { syncPanelDeal(); document.getElementById('ssAdvancedBtn')?.click(); });
 })();
 
+/* ---------- "איזו שכונה מתאימה לי?" (7.11.2026) ----------
+   ‏#hoodQuizModal: שלוש שאלות (קנייה/השכרה, תקציב, חדרים) ומאפיינים שחייבים להיות, והדירוג מתעדכן
+   בזמן אמת. החישוב ב-assets/hood-quiz-core.js (טהור ונבדק); כאן רק הממשק והחיבור לחיפוש.
+   הנתונים הם הנכסים הפעילים שכבר נטענו לדף (‏allActiveProperties): בלי קריאה למסד, חוץ מקישורי
+   "על השכונה" (‏neighborhood_pages_public, פעם אחת, ורק שכונה שיש לה דף).
+   נמצא כאן, אחרי הכול, ולא ליד שאר המודאלים: ‏bindCalcModal קורא ל-onOpen מיד כשהכתובת היא
+   ‎#hood-quiz‎, ו-allActiveProperties עוד לא מאותחל (TDZ) בראש הקובץ. docs/home-page-sections.md */
+(function initHoodQuiz(){
+  const Quiz = window.HoodQuiz;
+  const modalEl = document.getElementById('hoodQuizModal');
+  if (!Quiz || !modalEl) return;
+  const $ = id => document.getElementById(id);
+  const quiz = { deal:'sale', budget:null, rooms:'any', feats:new Set() };
+  let hoodLinks = null;          // 'עיר|שכונה' → /n/{עיר}/{שכונה}; null = עוד לא נטען, Map ריק = אין
+  let linksP = null;
+
+  const budgetText = (deal, v) => '₪' + nis(v) + (deal === 'rent' ? ' לחודש' : '');
+
+  function loadHoodLinks(){
+    if (linksP || !sb) return linksP;
+    linksP = Promise.resolve(sb.rpc('neighborhood_pages_public')).then(res => {
+      const map = new Map();
+      ((res && !res.error && res.data) || []).forEach(r => {
+        if (r.city_slug && r.slug) map.set(r.city + '|' + r.name, '/n/' + encodeURIComponent(r.city_slug) + '/' + encodeURIComponent(r.slug));
+      });
+      hoodLinks = map;
+      render();
+    }, () => { hoodLinks = new Map(); });
+    return linksP;
+  }
+
+  function setBudget(deal, value){
+    const b = Quiz.BUDGET[deal], el = $('hqBudget');
+    el.min = b.min; el.max = b.max; el.step = b.step;
+    quiz.budget = Quiz.clampBudget(deal, value);
+    el.value = String(quiz.budget);
+    paintRange(el);
+    $('hqBudgetOut').textContent = budgetText(deal, quiz.budget);
+  }
+
+  function resultCard(r){
+    const h = hoodState.byId && hoodState.byId.get(r.id);
+    const link = hoodLinks && h ? hoodLinks.get(h.city + '|' + h.name) : null;
+    const range = r.min === r.max ? budgetText(quiz.deal, r.min) : budgetText(quiz.deal, r.min).replace(' לחודש', '') + ' עד ' + budgetText(quiz.deal, r.max);
+    return `<article class="hq-card">
+      <div class="hq-card-top"><h4>${escapeHtml(r.name)}</h4><span class="hq-count">${r.matches === 1 ? 'נכס אחד' : r.matches + ' נכסים'}</span></div>
+      <p class="hq-line">${range}</p>
+      ${r.typical ? `<p class="hq-note">מחיר חציוני לנכס כזה בשכונה: ${budgetText(quiz.deal, r.typical)} (${r.poolCount} מודעות)</p>` : ''}
+      <div class="hq-actions"><button type="button" class="hq-show" data-hq-show="${escapeHtml(r.id)}">הצגת הנכסים</button>${link ? `<a class="hq-about" href="${escapeHtml(link)}">על השכונה ←</a>` : ''}</div>
+    </article>`;
+  }
+
+  function render(){
+    const box = $('hqResults');
+    if (quiz.budget == null) return;
+    if (!allActiveProperties.length){ box.innerHTML = '<p class="hq-empty">טוענים את הנכסים…</p>'; return; }
+    const names = new Map((hoodState.rows || []).map(h => [h.id, h.name]));
+    const out = Quiz.rank(allActiveProperties, { deal:quiz.deal, budget:quiz.budget, rooms:quiz.rooms, feats:[...quiz.feats] }, { names });
+    if (out.results.length){
+      const n = out.results.length;
+      box.innerHTML = `<p class="hq-sum">${out.matching === 1 ? 'נכס אחד מתאים' : out.matching + ' נכסים מתאימים'} ב${n === 1 ? 'שכונה אחת' : n + ' שכונות'}</p>
+        <p class="hq-sub">איפה יש כרגע הכי הרבה נכסים שמתאימים:</p>` + out.results.slice(0, 6).map(resultCard).join('');
+      return;
+    }
+    if (!out.eligible){
+      box.innerHTML = `<p class="hq-empty">אין כרגע ${quiz.deal === 'rent' ? 'נכסים להשכרה' : 'נכסים למכירה'} עם שכונה מוגדרת באתר.</p>`;
+      return;
+    }
+    if (!out.nearest.length){
+      box.innerHTML = '<p class="hq-empty">אין כרגע נכס עם החדרים והמאפיינים האלה. אפשר לוותר על אחד מהם.</p>';
+      return;
+    }
+    box.innerHTML = '<p class="hq-empty">אין כרגע נכס שמתאים בתקציב הזה. הכי קרוב אליו:</p>' + out.nearest.map(x => `<article class="hq-card">
+      <div class="hq-card-top"><h4>${escapeHtml(x.name)}</h4></div>
+      <p class="hq-line">הנכס הזול ביותר: ${budgetText(quiz.deal, x.cheapest)}${x.overPct != null ? ` (${x.overPct}% מעל התקציב)` : ''}</p>
+      <div class="hq-actions"><button type="button" class="hq-raise" data-hq-raise="${x.cheapest}">העלאת התקציב ל-${budgetText(quiz.deal, Math.ceil(x.cheapest / Quiz.BUDGET[quiz.deal].step) * Quiz.BUDGET[quiz.deal].step)}</button></div>
+    </article>`).join('');
+  }
+
+  /* "הצגת הנכסים": אותו מסלול כמו הפאנל "מה אתם מחפשים" - המשפט (עסקה, שכונה, חדרים, תקציב) ואחריו
+     המאפיינים דרך searchState. בלי המשפט (‏supabase-js חסום) - קישור עם אותם פרמטרים */
+  function showHood(hoodId){
+    modal.close();
+    if (!sentence || !sentence.loaded()){
+      location.href = '/?deal=' + quiz.deal + '&maxPrice=' + quiz.budget + '&hoods=' + encodeURIComponent(hoodId);
+      return;
+    }
+    sentence.patch({
+      deal: quiz.deal, type: 'any', area: 'hood:' + hoodId, priceMax: quiz.budget,
+      rooms: quiz.rooms === 'any' ? null : sentence.Core.parseRooms(quiz.rooms === '5' ? '5+' : quiz.rooms),
+    });
+    syncSearchStateFromSentence(sentence.state());
+    searchState.r.propertyFeatures = new Set(quiz.feats);
+    applyAdvancedFilters();
+    showSentenceResults();
+    document.getElementById('searchResults')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function pick(group, btn){
+    group.querySelectorAll('.hq-chip').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  }
+
+  const modal = bindCalcModal({
+    id:'hoodQuizModal', closeBtn:'hoodQuizClose', hash:'#hood-quiz',
+    onOpen(){
+      loadHoodLinks();
+      // תקציב הפתיחה נגזר מהנכסים - מחכים להם אם עוד לא הגיעו, אחרת הסליידר מתחיל במקום שאין בו כלום
+      let tries = 0;
+      (function ready(){
+        if (!allActiveProperties.length && tries++ < 40){ $('hqResults').innerHTML = '<p class="hq-empty">טוענים את הנכסים…</p>'; setTimeout(ready, 250); return; }
+        if (quiz.budget == null) setBudget(quiz.deal, Quiz.defaultBudget(allActiveProperties, quiz.deal));
+        render();
+      })();
+    },
+  });
+
+  document.querySelectorAll('[data-hood-quiz]').forEach(b => b.addEventListener('click', () => modal.open()));
+  document.querySelectorAll('[data-hq-deal]').forEach(b => b.addEventListener('click', () => {
+    pick(b.parentElement, b);
+    quiz.deal = b.dataset.hqDeal;
+    setBudget(quiz.deal, Quiz.defaultBudget(allActiveProperties, quiz.deal));
+    render();
+  }));
+  document.querySelectorAll('[data-hq-rooms]').forEach(b => b.addEventListener('click', () => {
+    pick(b.parentElement, b);
+    quiz.rooms = b.dataset.hqRooms;
+    render();
+  }));
+  document.querySelectorAll('[data-hq-feat]').forEach(b => b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-pressed') !== 'true';
+    b.setAttribute('aria-pressed', String(on));
+    on ? quiz.feats.add(b.dataset.hqFeat) : quiz.feats.delete(b.dataset.hqFeat);
+    render();
+  }));
+  $('hqBudget').addEventListener('input', e => {
+    quiz.budget = Number(e.target.value);
+    $('hqBudgetOut').textContent = budgetText(quiz.deal, quiz.budget);
+    paintRange(e.target);
+    render();
+  });
+  $('hqResults').addEventListener('click', e => {
+    const show = e.target.closest('[data-hq-show]');
+    if (show){ showHood(show.dataset.hqShow); return; }
+    const raise = e.target.closest('[data-hq-raise]');
+    if (raise){ setBudget(quiz.deal, Math.ceil(Number(raise.dataset.hqRaise) / Quiz.BUDGET[quiz.deal].step) * Quiz.BUDGET[quiz.deal].step); render(); }
+  });
+})();
+
 applyDeepLinkFilters();
 
 /* ============================================================
