@@ -1,0 +1,31 @@
+name: חסימת סורקים ב-/crm
+
+# ‏netlify/edge-functions/lib/crm-guard.ts - הזהויות שלנו (הניטור) חייבות לעבור,
+# וסורק שמוסיף את שם האתר ל-User-Agent חייב להיחסם. ‏regression כאן נועל את
+# הניטור וסוכן התפעול מחוץ ל-/crm, ולכן הבדיקה רצה על כל PR שנוגע בקבצים.
+# ‏docs/crm-request-log.md
+
+on:
+  pull_request:
+    paths:
+      - "netlify/edge-functions/lib/crm-guard.ts"
+      - "netlify/edge-functions/crm-request-*.ts"
+      - "scripts/crm_guard_test.mjs"
+      - ".github/workflows/crm_guard.yml"
+  push:
+    branches: [main]
+    paths:
+      - "netlify/edge-functions/lib/crm-guard.ts"
+      - "scripts/crm_guard_test.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת ההגנה
+        run: node --experimental-strip-types scripts/crm_guard_test.mjs

@@ -1,5 +1,5 @@
 // בדיקת ההגנה והסינון של /crm. node --experimental-strip-types scripts/crm_guard_test.mjs
-import { blockReason, safeQuery, safeReferer } from "../netlify/edge-functions/lib/crm-guard.ts";
+import { blockReason, FORBIDDEN_HTML, safeQuery, safeReferer } from "../netlify/edge-functions/lib/crm-guard.ts";
 let bad = 0;
 const check = (n, ok) => { if (!ok) { bad++; console.error("✗", n); } else console.log("✓", n); };
 const b = (userAgent, country, geoAllow) => blockReason({ userAgent, country, geoAllow });
@@ -9,6 +9,13 @@ check("בלי UA נחסם", b("", "IL") === "scraper_ua");
 check("דפדפן רגיל עובר", b("Mozilla/5.0 (iPhone; CPU iPhone OS 18_7)", "IL") === null);
 check("headless Chrome עובר (נרשם ולא נחסם)", b("Mozilla/5.0 HeadlessChrome/120", "US") === null);
 check("הניטור שלנו עובר", b("Mozilla/5.0 (ShukNadlan-uptime-monitor)", "US") === null);
+check("ביקורת הבסיס עוברת", b("Mozilla/5.0 (ShukNadlan-baseline-audit)", "US") === null);
+check("זיוף: python-httpx ShukNadlan נחסם", b("python-httpx ShukNadlan", "US") === "scraper_ua");
+check("זיוף: curl shuknadlan נחסם", b("curl/8 shuknadlan", "IL") === "scraper_ua");
+check("זיוף: זהות מוסיפה זנב נחסמת/לא עוברת", b("Mozilla/5.0 (ShukNadlan-uptime-monitor) python-requests/2", "US") === "scraper_ua");
+check("Go-http-client נחסם", b("Go-http-client/1.1", "US") === "scraper_ua");
+check("libcurl נחסם", b("libcurl/8.1", "US") === "scraper_ua");
+check("geoAllow של רווחים בלבד = כבוי", b("Mozilla/5.0", "US", "  ") === null);
 check("סוכן התפעול עובר", b("ShukNadlanOpsAgent/1.0 (+ops_agent)", "US", "IL") === null);
 check("geo כבוי כברירת מחדל", b("Mozilla/5.0", "US") === null);
 check("geo חוסם מדינה שאינה ברשימה", b("Mozilla/5.0", "US", "IL") === "geo");
@@ -18,4 +25,5 @@ check("query: ידוע נשמר, OAuth נחתך",
   safeQuery("?goto=accLeads&lead=0&code=SECRET&state=abc") === "goto=accLeads&lead=0&code=[x]&state=[x]");
 check("referer בלי query", safeReferer("https://x.co/plan?k=TOKEN") === "https://x.co/plan");
 check("referer שבור", safeReferer("לא-כתובת") === "");
+check("403 בעברית ועם קישור לעזרה", /dir="rtl"/.test(FORBIDDEN_HTML) && /href="\/about"/.test(FORBIDDEN_HTML));
 process.exit(bad ? 1 : 0);

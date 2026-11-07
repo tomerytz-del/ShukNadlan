@@ -36,13 +36,18 @@ export function safeReferer(raw: string | null): string {
 }
 
 /* ‏**כלי סריקה שאינם דפדפן.** ‏/crm הוא דף של דפדפן: אין לקוח לגיטימי שמושך
-   אותו מ-curl או מספריית HTTP. ה-User-Agent קל לשנות, ולכן זה עוצר רק את
-   הסורקים הפשוטים - אבל אלה היו כל מה שנראה ביומן. headless Chrome אינו
-   ברשימה בכוונה: הוא נרשם ביומן ולא נחסם, כי כך מזהים את מי שמריץ אותו.
-   ‏**מי שמזדהה כ-ShukNadlan עובר:** הניטור (‏ShukNadlanOpsAgent,
-   ‏ShukNadlan-uptime-monitor) ובדיקות ה-CI שלנו. */
+   אותו מ-curl או מספריית HTTP. ה-User-Agent **קל לשנות**, ולכן זה עוצר רק את
+   הסורקים הפשוטים עם הזהות המובנית שלהם - אבל אלה היו כל מה שנראה ביומן.
+   זו אינה הגנה מסורק שמתחזה לדפדפן; את זה עוצר רק אימות (‏2FA וה-RLS).
+   headless Chrome אינו ברשימה בכוונה: הוא נרשם ביומן ולא נחסם.
+
+   ‏**מי שעובר:** רק הזהויות המדויקות של הניטור שלנו (‏ShukNadlanOpsAgent,
+   ‏ShukNadlan-uptime-monitor, ‏ShukNadlan-baseline-audit), לא כל UA שמכיל
+   את השם - אחרת מספיקה מילה אחת כדי לעקוף. גם זו זהות שאפשר לזייף מי
+   שמכיר/ה אותה, ולכן היא מקל על ניטור ולא נועלת דלת. */
 const SCRAPER_UA =
-  /^(python-(urllib|requests)|python-httpx|curl\/|wget\/|go-http-client|okhttp|libwww|scrapy|aiohttp|node-fetch|axios|apache-httpclient|postmanruntime|java\/)/i;
+  /(python-(urllib|requests|httpx)|^curl\/|libcurl|^wget|go-http-client|okhttp|libwww|scrapy|aiohttp|node-fetch|axios|apache-httpclient|postmanruntime|^java\/)/i;
+const OWN_UA = /^(ShukNadlanOpsAgent\/|Mozilla\/5\.0 \(ShukNadlan-(uptime-monitor|baseline-audit)\)$)/;
 
 export type GuardInput = {
   userAgent: string | null;
@@ -53,10 +58,18 @@ export type GuardInput = {
 
 export function blockReason(i: GuardInput): "scraper_ua" | "geo" | null {
   const ua = (i.userAgent || "").trim();
-  if (/shuknadlan/i.test(ua)) return null;
+  if (OWN_UA.test(ua)) return null;
   if (!ua || SCRAPER_UA.test(ua)) return "scraper_ua";
   const allow = String(i.geoAllow || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   /* מדינה לא ידועה עוברת: חסימה בגלל geo חסר הייתה נועלת גולש/ת לגיטימי/ת. */
   if (allow.length && i.country && !allow.includes(String(i.country).toUpperCase())) return "geo";
   return null;
 }
+
+/* ‏403 בעברית ועם דרך לבקש עזרה (‏CLAUDE.md, "הודעת שגיאה"). */
+export const FORBIDDEN_HTML =
+  '<!doctype html><meta charset="utf-8"><title>הגישה נחסמה</title>' +
+  '<body dir="rtl" style="font-family:sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem">' +
+  "<h1>הגישה מכאן נחסמה</h1>" +
+  "<p>האזור האישי זמין כרגע מישראל בלבד, ולכלים אוטומטיים אין גישה אליו.</p>" +
+  '<p>אם זו טעות (למשל בחו"ל, או דרך VPN), פנו אלינו דרך <a href="/about">עמוד "אודות"</a> ונסדר.</p>';

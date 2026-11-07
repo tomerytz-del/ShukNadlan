@@ -14,7 +14,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
-import { blockReason, safeQuery, safeReferer } from "./lib/crm-guard.ts";
+import { safeQuery, safeReferer } from "./lib/crm-guard.ts";
 
 const LOG_URL = "https://obookujgolazrwycsiyn.supabase.co/functions/v1/crm-request-log";
 const LOG_TIMEOUT_MS = 2500;
@@ -49,27 +49,16 @@ async function send(token: string, entry: Record<string, unknown>): Promise<void
 export default async (req: Request, context: Context) => {
   let res: Response | null = null;
   let failure: unknown = null;
-  /* חסימה לפני הדף: כלי סריקה, ואם CRM_GEO_ALLOW מוגדר - גם מדינות שאינן ברשימה.
-     החסימה נרשמת ביומן (סטטוס 403) כמו כל בקשה. */
-  const blocked = blockReason({
-    userAgent: req.headers.get("user-agent"),
-    country: context.geo?.country?.code,
-    geoAllow: env("CRM_GEO_ALLOW"),
-  });
-  if (blocked) {
-    res = new Response("Forbidden", {
-      status: 403,
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-    });
-  } else {
-    try {
-      res = await context.next();
-    } catch (e) {
-      failure = e;
-    }
+  try {
+    res = await context.next();
+  } catch (e) {
+    failure = e;
   }
   const token = secret();
-  if (token) record(req, context, token, res ? res.status : 0);
+  /* חסימות של crm-request-zguard (403) נדגמות: אחת מכל עשר. סורק שחוזר לא
+     ממלא את התקרה היומית ולא דוחק החוצה בקשות אמיתיות. */
+  const status = res ? res.status : 0;
+  if (token && (status !== 403 || Math.random() < 0.1)) record(req, context, token, status);
   if (failure) throw failure;
   return res as Response;
 };

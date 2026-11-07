@@ -60,19 +60,27 @@ where path like '//%' or query like '%`%' order by at desc limit 50;
 - הטבלה נקראת רק על ידי מנהל/ת פלטפורמה (RLS). `anon` ו-`authenticated` אינם
   מקבלים הרשאת כתיבה.
 
-## חסימת סורקים ו-/crm מחו"ל (באותה פונקציה)
+## חסימת סורקים ו-/crm מחו"ל (פונקציה נפרדת)
 
-`netlify/edge-functions/lib/crm-guard.ts` מחליטה לפני שהדף יוצא. הבדיקה:
+`netlify/edge-functions/crm-request-zguard.ts` (ו-`lib/crm-guard.ts`) מחליטה לפני
+שהדף יוצא. היא נפרדת מהיומן בכוונה: מוחקים קובץ אחד כדי לכבות אותה, ותקלה בה
+לא מפילה את הרישום. בכל כשל בבדיקה הדף עובר. הבדיקה רצה ב-CI
+(`.github/workflows/crm_guard.yml`) או ידנית:
 `node --experimental-strip-types scripts/crm_guard_test.mjs`.
 
 | מה | ברירת מחדל | הערות |
 | --- | --- | --- |
-| User-Agent של כלי סריקה (`python-urllib`, `python-requests`, `python-httpx`, `curl`, `wget`, `go-http-client`, `scrapy`, `aiohttp`, `axios` ועוד) או בלי User-Agent | **חסום, 403** | מי שמזדהה כ-`ShukNadlan...` עובר (הניטור, סוכן התפעול, ה-CI) |
-| headless Chrome / Playwright | **עובר, ונרשם** | בכוונה: כך מזהים מי מריץ אותו |
+| User-Agent של כלי סריקה (`python-urllib/requests/httpx`, `curl`, `libcurl`, `wget`, `go-http-client`, `scrapy`, `aiohttp`, `axios` ועוד) או בלי User-Agent | **חסום, 403 בעברית** | עוצר רק סורקים שלא החליפו זהות |
+| הזהויות המדויקות של הניטור שלנו | עוברות | `ShukNadlanOpsAgent/`, `ShukNadlan-uptime-monitor`, `ShukNadlan-baseline-audit` |
+| headless Chrome / Playwright | **עובר, ונרשם** | כך מזהים מי מריץ אותו |
 | מדינה שאינה ברשימה | **כבוי** | `CRM_GEO_ALLOW=IL` ב-Netlify מדליק. מדינה לא ידועה עוברת |
 
-- הדלקת `CRM_GEO_ALLOW` תחסום גם סוכנים בחו"ל וסשנים של Claude/Grok בענן (ארה"ב),
-  חוץ ממי שמזדהה כ-`ShukNadlan`. ראו `docs/crm-request-log.md` לפני שמדליקים.
+- **זו אינה הגנה מסורק שמתחזה לדפדפן.** User-Agent קל לשנות, וגם הזהויות של הניטור
+  שלנו ניתנות לזיוף למי שמכיר/ה אותן. ההגנה האמיתית על הנתונים היא האימות וה-RLS.
+- הדלקת `CRM_GEO_ALLOW` תחסום גם סוכנים בחו"ל או ב-VPN, וסשנים של Claude/Grok בענן
+  (ארה"ב). המשתמש מקבל הודעה בעברית עם קישור לעזרה.
+- חסימות נרשמות ביומן בדגימה של אחת מכל עשר (סטטוס 403), כדי שסורק חוזר לא
+  ימלא את התקרה היומית. אם הסדר של Netlify יהיה הפוך מהצפוי, חסימות לא יירשמו כלל.
 - **לא נעשה:** הגבלת קצב ב-Netlify (תלויה בתוכנית, לא אומתה), ורישום קריאות `anon`
   ביומן הגישה למסד. ב-`scripts/access_log_sync.py` ה-`role` של מפתח ה-publishable ריק,
   ושינוי שאילתת ה-ClickHouse של סנכרון חובה (3 שנים לפי תקנה 10) דורש בדיקה מול
