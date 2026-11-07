@@ -61,10 +61,20 @@ LINES = [
          caption=["מחפשים דירה", "כמו שגוללים בטלפון?"], gold=None,
          shots=[(C3, 0.0, 9.4, 3.0, 200)],
          sfx=[(0.5, "whoosh"), (1.1, "whoosh"), (2.0, "whoosh"), (2.5, "whoosh")]),  # the swipes, at 3x
-    dict(id="save", vo="ימינה שומרים, שמאלה מדלגים.",
-         caption=["ימינה שומרים", "שמאלה מדלגים"], gold=0,
-         shots=[(C1, 17.0, 18.9, 1.0, 460), (C3, 5.3, 6.5, 1.0, 200)],
-         sfx=[(1.5, "pop"), (2.6, "pop")]),  # the "שמירה" stamp, then the "דילוג" stamp
+    # The two swipes are two lines, each word on its own gesture, slowed and frozen on
+    # the stamp so the green "שמירה" and the red "דילוג" are read (Tomer, 7.11.2026:
+    # they flashed by). exact=True: shots keep the speed written here instead of being
+    # stretched to the voice. Crops sit each stamp below the caption.
+    # Source: C1 card moves at 18.45, "שמירה" shows 18.5-18.9, gone at 19.05;
+    #         C3 "דילוג" shows 6.15-6.5, gone at 6.6.
+    dict(id="save", vo="ימינה שומרים.", caption=["ימינה שומרים"], gold=0, exact=True,
+         shots=[(C1, 18.25, 18.72, 0.7, 150, dict(hold=0.5)),
+                (C1, 18.72, 19.1, 0.85, 150, dict(cut="none"))],
+         sfx=[(0.30, "card"), (0.42, "like")]),
+    dict(id="skip", vo="שמאלה מדלגים.", caption=["שמאלה מדלגים"], gold=None, exact=True,
+         shots=[(C3, 5.9, 6.38, 0.7, 0, dict(hold=0.5)),
+                (C3, 6.38, 6.75, 0.85, 0, dict(cut="none"))],
+         sfx=[(0.30, "card"), (0.40, "nope")]),
     dict(id="visit", vo="מצאתם משהו? מתאמים ביקור ישר מהטלפון.",
          caption=["מצאתם משהו?", "מתאמים ביקור ישר מהטלפון"], gold=1,
          shots=[(C1, 19.8, 20.9, 1.0, 460), (C4, 17.7, 18.45, 1.0, 300)],
@@ -93,6 +103,11 @@ SFX = {
     "ping": ("sfx-ui-notification-ping/clip.mp3", 0.30),       # Gabriela's message arrives
     "chime": ("sfx-ui-success-chime/clip.mp3", 0.25),          # payoff: the end card, under the last line
     "whip": ("sfx-k7eiyien0i35/kt-swipe-whip.wav", 0.40),      # attention: the cut from the street into the app
+    # the two swipes, from Soundza (soundza.com, Soundza Standard License, no credit needed);
+    # gains bring their RMS peak to about -24 dB, the level of the other effects
+    "card": ("soundza/soundza-card-swipe-1.wav", 0.55),        # the card starts to move
+    "like": ("soundza/soundza-success-beep.wav", 0.32),        # the green "שמירה" stamp
+    "nope": ("soundza/soundza-cancel.wav", 1.00),              # the red "דילוג" stamp
 }
 
 
@@ -193,11 +208,15 @@ def main():
     for li, line in enumerate(LINES):
         start = t
         shots = line["shots"]
-        d0 = sum((sh[2] - sh[1]) / sh[3] for sh in shots)
+        hold_of = lambda sh: (sh[5] if len(sh) > 5 else {}).get("hold", 0.0)
+        d0 = sum((sh[2] - sh[1]) / sh[3] + hold_of(sh) for sh in shots)
         target = d0
         if line["id"] in vo:
             target = max(vo[line["id"]][1] + VO_GAP, 1.0)
-        ratio = target / d0
+        exact = line.get("exact", False)
+        if exact:
+            target = max(target, d0)  # never squeeze; a longer voice freezes the last frame
+        ratio = 1.0 if exact else target / d0
         # a cue's offset is in the planned timing; the footage under it plays at
         # sp / clamp(ratio), so the moment it marks moves by the same factor.
         # A cue whose moment was trimmed off the end is dropped, not moved.
@@ -213,8 +232,13 @@ def main():
             inputs += ["-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", src]
             # fit the shot to its share of the line: slow down or speed up within STRETCH,
             # freeze the last frame or trim beyond it
-            share = (b - a) / sp / d0 * target
-            if t > 0:
+            if exact:
+                share = (b - a) / sp + opts.get("hold", 0.0)
+                if shot is shots[-1]:
+                    share += target - d0
+            else:
+                share = ((b - a) / sp + opts.get("hold", 0.0)) / d0 * target
+            if t > 0 and opts.get("cut", "whoosh") != "none":
                 cues.append((t, opts.get("cut", "whoosh")))  # every cut
             sp2 = sp / max(min(ratio, STRETCH[1]), STRETCH[0]) if ratio != 1 else sp
             nat = (b - a) / sp2

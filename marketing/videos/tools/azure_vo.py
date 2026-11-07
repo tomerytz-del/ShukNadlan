@@ -4,7 +4,10 @@
 Writes one WAV per line and a voiceovers.json in Reelkit's format (key,
 durationSec, voiceId), so build_reel.py --vo reads it the same way.
 
-    python3 azure_vo.py lines.json out_dir [--voice he-IL-HilaNeural] [--rate +8%]
+    python3 azure_vo.py lines.json out_dir [--voice he-IL-HilaNeural] [--rate +8%] [--only id,id]
+
+--only records just those lines and keeps the rest of an existing voiceovers.json:
+a wrong word is fixed in its line, not by recording the film again.
 
 lines.json: [{"id": "hook", "text": "on-screen wording", "tts": "optional spelling for the voice"}]
 `tts` carries vowel points (niqqud) or a respelling for a word the voice gets
@@ -51,12 +54,21 @@ def main():
     rate = args[args.index("--rate") + 1] if "--rate" in args else "+8%"
     region = os.environ.get("AZURE_SPEECH_REGION", "westeurope")
     key = os.environ.get("AZURE_SPEECH_KEY", "proxy-injected")
+    only = set(args[args.index("--only") + 1].split(",")) if "--only" in args else None
     with open(lines_path) as fh:
         lines = json.load(fh)
     assets = os.path.join(out_dir, "assets")
     os.makedirs(assets, exist_ok=True)
     out = {}
+    existing = os.path.join(assets, "voiceovers.json")
+    if only and os.path.exists(existing):
+        with open(existing) as fh:
+            out = json.load(fh)
+    ids = {ln["id"] for ln in lines}
+    out = {k: v for k, v in out.items() if k in ids}  # a line removed from lines.json leaves too
     for ln in lines:
+        if only and ln["id"] not in only:
+            continue
         rel = f"assets/vo-{ln['id']}.wav"
         dur = tts(ln.get("tts") or ln["text"], os.path.join(out_dir, rel), voice, rate, region, key)
         out[ln["id"]] = {"key": rel, "durationSec": dur, "voiceId": f"azure:{voice}",
