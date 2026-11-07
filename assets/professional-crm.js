@@ -274,13 +274,17 @@
     return session ? session.user.id : null;
   }
 
-  // אחרי כל פעולה: החשבון, התצוגה והמדף. boot משתמש באותה פונקציה אחרי בדיקות הכניסה
-  async function refresh() {
-    await loadAccount(await currentUserId());
+  // renderAll: התצוגה והמדף, לפי החשבון הטעון. refresh (אחרי כל פעולה) ו-boot (אחרי בדיקות הכניסה) משתמשים בה
+  async function renderAll() {
     renderAccount();
     if (account.kind === 'real_estate_lawyer' && account.shelf_enabled) {
       await Promise.all([loadShelf(), loadBought()]);
     }
+  }
+
+  async function refresh() {
+    await loadAccount(await currentUserId());
+    await renderAll();
   }
 
   async function boot() {
@@ -303,10 +307,7 @@
       return;
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);
-    renderAccount();
-    if (account.kind === 'real_estate_lawyer' && account.shelf_enabled) {
-      await Promise.all([loadShelf(), loadBought()]);
-    }
+    await renderAll();
   }
 
   if (sb) {
