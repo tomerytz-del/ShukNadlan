@@ -56,7 +56,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | קובץ | תפקיד |
 |---|---|
 | `supabase/functions/whatsapp-webhook/index.ts` | נקודת הכניסה: אימות חתימה, ניתוב הודעות, מדיה, מצב שיחה |
-| `supabase/functions/whatsapp-webhook/ops-question.ts` | שאלה תפעולית לסוכן/ת אחד/ת (`?task=ops-question`). כפתור `ops_q` לא מגיע למודל |
+| `supabase/functions/whatsapp-webhook/ops-question.ts` | שאלה תפעולית לסוכן/ת אחד/ת (`?task=ops-question`) ותור הריקון (`?task=ops-question-drain`). כפתור `ops_q` לא מגיע למודל |
 | `supabase/functions/whatsapp-webhook/agent.ts` | הכלים שה-LLM יכול להפעיל + לולאת השיחה |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | עטיפה מעל Graph API (שליחה, הורדת מדיה, אימות חתימה) |
 | `supabase/functions/whatsapp-webhook/geocode.ts` | גיאוקוד כתובות בעפולה (העתק של `geocode-address`, בלי דרישת JWT) |
@@ -934,6 +934,7 @@ Authorization: Bearer <service_role>
 | `shai_dup_warehouse_2026_10` | `83d91018-29f0-477c-9088-9ecabc3237f8` |
 | `photo_check_1147_2026_10` | `ad2b60a0-e2c1-4d1f-8a10-9bbea8026c19` |
 | `photo_check_1336_2026_10` | `248e9455-53d6-4e82-80b5-582cea77f80f` |
+| `yaakov_lead_email_2026_11` | `4dd1148b-bddd-405a-ae5b-9c836325f3bb` |
 
 כותרות הכפתורים עד 20 יחידות UTF-16. בשאלת שי: "כולם אותו נכס", "13 ו-9 מ' שונים", "שלושה נכסים שונים".
 
@@ -946,6 +947,43 @@ Authorization: Bearer <service_role>
 תשובה בטקסט על השאלות האלה אינה מעבירה ואינה מעתיקה תמונות. ההיסטוריה
 אומרת זאת במפורש לנכסים 1147, 1148, 1336 ו-1385. ההעברה נשארת רק בכפתור
 האישור הקיים (`pmv:`).
+
+הודעת מידע יכולה להיות בלי כפתורים, בלי כפתור קישור ובלי הודעת המשך.
+`followup` אופציונלי: כשאין אותו נשלחת הודעת טקסט אחת. הודעת כפתורים בלי
+כפתור נדחית אצל Meta, ולכן המסלול הזה קורא ל-`sendText`. `yaakov_lead_email_2026_11`
+היא הודעה כזו ליעקב שוץ על המייל עם הליד. המזהה בטבלה הוא `agency_members.id`,
+לא `user_id`.
+
+### תור, בלי מפתח service_role מחוץ לשרת
+
+`?task=ops-question` עדיין נפתח רק עם `service_role`. כדי לשלוח פעם אחת
+בלי שהמפתח יצא מהשרת, מוסיפים שורה ל-`ops_question_queue` מעורך ה-SQL
+(התפקיד `postgres`, בעל הטבלה, עוקף RLS). ל-`anon` ול-`authenticated` אין
+grant ואין policy. `service_role` קורא ומעדכן מהפונקציה.
+
+```sql
+insert into public.ops_question_queue (purpose, agent_member_id)
+values ('yaakov_lead_email_2026_11', '4dd1148b-bddd-405a-ae5b-9c836325f3bb');
+```
+
+הייחוד `(purpose, agent_member_id)` מונע שורה שנייה. המיגרציה עצמה אינה
+מכניסה את השורה, כדי שמיזוג לא ישלח לבד.
+
+`pg_cron` בשם `ops-question-drain` רץ כל חמש דקות, ורק כש-
+`ops_question_queue_ready()` אמת, אל `whatsapp-webhook?task=ops-question-drain`
+עם `x-alert-cron-secret` מ-Vault (`alert_cron_secret`). אין סוד חדש.
+הריקון קורא ל-`runOpsQuestion`, עם אותם שערים.
+
+| תוצאה | השורה |
+| --- | --- |
+| נשלח | `sent` |
+| כבר נשלח במסלול הישיר | `sent`, הסיבה `already_sent` |
+| אין נכנסת ב-24 שעות, שעות שקט, שישי אחרי 13:00, שבת, או תקרה יומית | נשאר `pending` עם הסיבה |
+| מסלול, חשבון כבוי, וואטסאפ כבוי, אין מספר, סוכן/ת לא ברשימה, purpose לא ברשימה | `skipped` עם הסיבה |
+| כשל שליחה, תפיסה שנתקעה, שגיאת מסד | `failed`. הסבב הבא מנסה שוב עם `retry` על `send_failed`, `in_progress` ו-`db_error` |
+
+`partial_sent` נשאר `failed` בלי ניסיון אוטומטי, כי מה שכבר יצא לא נשלח שוב.
+סימון השורה מותנה בסטטוס שנקרא, כדי שסבב מקביל לא ידרוס `sent`.
 
 | מצב | תשובה |
 | --- | --- |
@@ -969,7 +1007,8 @@ Authorization: Bearer <service_role>
 סוכן/ת והמזהה ב-`button_ids`. אחרת `purpose=unmatched` ו-`agent_id` ריק.
 התשובה הקבועה היא "תודה, העברתי לבדיקה".
 
-שתי הטבלאות עם RLS ובלי policy, ורק `service_role`. מיגרציה `20271031100000`.
+שתי טבלאות היומן עם RLS ובלי policy, ורק `service_role`. מיגרציה `20271031100000`.
+תור `ops_question_queue` באותה צורה (מיגרציה `20271102140000`), ו-`postgres` מוסיף שורה כבעל הטבלה.
 
 ## המודל והעלות
 
@@ -1687,6 +1726,7 @@ Marketing, שני פרמטרים): `{{1}}` הוא `תומר`, `{{2}}` הוא ח�
 | `notification_push_log` | יומן הודעות ההתראה היוצאות: אילו התראות, באיזה מצב (טקסט/תבנית), ומה קרה |
 | `whatsapp_ops_questions` | שאלה תפעולית: שורה אחת לכל purpose וסוכן/ת, נתפסת לפני השליחה. רק service_role |
 | `whatsapp_ops_answers` | לחיצה על כפתור `ops_q`. יומן בלבד, בלי עדכון נתונים. רק service_role |
+| `ops_question_queue` | תור לשליחה החד-פעמית. insert מעורך ה-SQL, ריקון ב-cron. אין גישה ל-anon ול-authenticated |
 
 `whatsapp_conversations`, `whatsapp_messages` ו-`notification_push_log` ב-RLS עם קריאה בלבד לסוכן/ת עצמו/ה; הכתיבה היא רק דרך `service_role` בתוך
 ה-Edge Function — אותה תבנית כמו `notifications`. שתי טבלאות השאלה התפעולית סגורות גם לקריאה.
