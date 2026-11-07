@@ -361,3 +361,6 @@ verify_jwt = false          # גבריאלה בפייסבוק/אינסטגרם (
 
 [functions.csp-report]
 verify_jwt = false          # הדפדפן שולח דיווחי CSP בלי כותרות שלנו; הגנה מהצפה בתקרה היומית במסד
+
+[functions.crm-request-log]
+verify_jwt = false          # ה-Edge של Netlify אין לו JWT; סוד משותף CRM_LOG_SECRET ב-x-crm-log-secret, fail-closed (503 בלעדיו)
