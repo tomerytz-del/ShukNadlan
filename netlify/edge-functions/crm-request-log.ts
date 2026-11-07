@@ -14,18 +14,20 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import { blockReason, safeQuery, safeReferer } from "./lib/crm-guard.ts";
 
 const LOG_URL = "https://obookujgolazrwycsiyn.supabase.co/functions/v1/crm-request-log";
 const LOG_TIMEOUT_MS = 2500;
 
-function secret(): string {
+function env(name: string): string {
   try {
     return (globalThis as { Netlify?: { env?: { get(k: string): string | undefined } } })
-      .Netlify?.env?.get("CRM_LOG_SECRET") || "";
+      .Netlify?.env?.get(name) || "";
   } catch {
     return "";
   }
 }
+const secret = () => env("CRM_LOG_SECRET");
 
 async function send(token: string, entry: Record<string, unknown>): Promise<void> {
   const ctrl = new AbortController();
@@ -44,45 +46,27 @@ async function send(token: string, entry: Record<string, unknown>): Promise<void
   }
 }
 
-/* ‏**מה נשמר מה-query:** רק שמות ידועים מהקישורים העמוקים של האפליקציה
-   (agent-deep-link.ts) ומקורות הכניסה. כל השאר - ‏code ו-state של OAuth,
-   ‏k של /plan ו-/cma, טוקנים - נרשם כשם בלבד: "code=[x]". קישור שהוא גם
-   הרשאה לא נשמר 30 יום במסד. ה-referer נשמר בלי query. */
-const KEEP = new Set([
-  "goto", "client", "property", "lead", "focus", "agenda", "agreement", "review",
-  "filter", "status", "import", "tab", "demand", "plan_city", "plan_street", "plan_num",
-  "plan_gush", "plan_helka", "wc", "wt", "src", "share",
-]);
-
-export function safeQuery(search: string): string {
-  const out: string[] = [];
-  try {
-    new URLSearchParams(search).forEach((v, k) => {
-      out.push(KEEP.has(k) ? `${k}=${v.slice(0, 80)}` : `${k.slice(0, 40)}=[x]`);
-    });
-  } catch {
-    return "";
-  }
-  return out.join("&");
-}
-
-export function safeReferer(raw: string | null): string {
-  if (!raw) return "";
-  try {
-    const u = new URL(raw);
-    return u.origin + u.pathname;
-  } catch {
-    return "";
-  }
-}
-
 export default async (req: Request, context: Context) => {
   let res: Response | null = null;
   let failure: unknown = null;
-  try {
-    res = await context.next();
-  } catch (e) {
-    failure = e;
+  /* חסימה לפני הדף: כלי סריקה, ואם CRM_GEO_ALLOW מוגדר - גם מדינות שאינן ברשימה.
+     החסימה נרשמת ביומן (סטטוס 403) כמו כל בקשה. */
+  const blocked = blockReason({
+    userAgent: req.headers.get("user-agent"),
+    country: context.geo?.country?.code,
+    geoAllow: env("CRM_GEO_ALLOW"),
+  });
+  if (blocked) {
+    res = new Response("Forbidden", {
+      status: 403,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  } else {
+    try {
+      res = await context.next();
+    } catch (e) {
+      failure = e;
+    }
   }
   const token = secret();
   if (token) record(req, context, token, res ? res.status : 0);

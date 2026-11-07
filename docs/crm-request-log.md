@@ -59,3 +59,21 @@ where path like '//%' or query like '%`%' order by at desc limit 50;
 - **הקליטה סוגרת על עצמה:** בלי `CRM_LOG_SECRET` ב-Supabase כל POST מקבל 503.
 - הטבלה נקראת רק על ידי מנהל/ת פלטפורמה (RLS). `anon` ו-`authenticated` אינם
   מקבלים הרשאת כתיבה.
+
+## חסימת סורקים ו-/crm מחו"ל (באותה פונקציה)
+
+`netlify/edge-functions/lib/crm-guard.ts` מחליטה לפני שהדף יוצא. הבדיקה:
+`node --experimental-strip-types scripts/crm_guard_test.mjs`.
+
+| מה | ברירת מחדל | הערות |
+| --- | --- | --- |
+| User-Agent של כלי סריקה (`python-urllib`, `python-requests`, `python-httpx`, `curl`, `wget`, `go-http-client`, `scrapy`, `aiohttp`, `axios` ועוד) או בלי User-Agent | **חסום, 403** | מי שמזדהה כ-`ShukNadlan...` עובר (הניטור, סוכן התפעול, ה-CI) |
+| headless Chrome / Playwright | **עובר, ונרשם** | בכוונה: כך מזהים מי מריץ אותו |
+| מדינה שאינה ברשימה | **כבוי** | `CRM_GEO_ALLOW=IL` ב-Netlify מדליק. מדינה לא ידועה עוברת |
+
+- הדלקת `CRM_GEO_ALLOW` תחסום גם סוכנים בחו"ל וסשנים של Claude/Grok בענן (ארה"ב),
+  חוץ ממי שמזדהה כ-`ShukNadlan`. ראו `docs/crm-request-log.md` לפני שמדליקים.
+- **לא נעשה:** הגבלת קצב ב-Netlify (תלויה בתוכנית, לא אומתה), ורישום קריאות `anon`
+  ביומן הגישה למסד. ב-`scripts/access_log_sync.py` ה-`role` של מפתח ה-publishable ריק,
+  ושינוי שאילתת ה-ClickHouse של סנכרון חובה (3 שנים לפי תקנה 10) דורש בדיקה מול
+  הנקודה החיה לפני שנוגעים בו.
