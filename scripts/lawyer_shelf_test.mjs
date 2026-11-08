@@ -290,6 +290,12 @@ test('ההתראה לסוכן/ת הנכס: מקושרת לנכס, ובלי שם,
   }
 });
 
+test('התראות חיות במיגרציה נושאות suppress_push = false (check_notification_backfill.py)', () => {
+  const inserts = [...intakeMig.text.matchAll(/insert into (?:public\.)?notifications \(([^)]*)\)/g)];
+  assert.ok(inserts.length >= 3);
+  for (const [, cols] of inserts) assert.match(cols, /suppress_push/, `insert בלי suppress_push: (${cols})`);
+});
+
 test('data_retention_run מכסה את lawyer_leads, ולא כותבת לעמודה המחושבת', () => {
   const fn = intakeMig.text.split('create or replace function public.data_retention_run()')[1];
   assert.match(fn, /from public\.lawyer_leads/);

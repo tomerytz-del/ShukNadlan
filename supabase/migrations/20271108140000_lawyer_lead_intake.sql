@@ -129,13 +129,15 @@ begin
   for v_admin_id in
     select id from agency_members where is_platform_admin = true and active = true
   loop
-    insert into notifications (agent_id, type, title, body, related_lead_id)
+    -- ‏suppress_push = false מפורש: התראה חיה, לא מילוי (check_notification_backfill.py)
+    insert into notifications (agent_id, type, title, body, related_lead_id, suppress_push)
     values (
       v_admin_id,
       'lead_unrouted',
       'ליד חדש שאין למי להפנות',
       v_body,
-      case when new.lead_table = 'leads' then new.lead_id else null end
+      case when new.lead_table = 'leads' then new.lead_id else null end,
+      false
     );
   end loop;
 
@@ -380,13 +382,15 @@ begin
 
   -- התראה לסוכן/ת של הנכס. בלי שם, טלפון ושאלה: הם המוצר שנמכר לעו"ד
   if v_agent is not null then
-    insert into public.notifications (agent_id, type, title, body, related_property_id)
+    -- ‏suppress_push = false מפורש: התראה חיה שצריכה לצאת לסוכן/ת (לא מילוי), check_notification_backfill.py
+    insert into public.notifications (agent_id, type, title, body, related_property_id, suppress_push)
     values (
       v_agent, 'system',
       'מבקר/ת ביקש/ה ייעוץ משפטי על הנכס שלך',
       'מבקר/ת בנכס "' || coalesce(nullif(btrim(v_title), ''), 'הנכס') || '" השאיר/ה באתר שאלה לעורך דין. '
         || 'פרטי הפונה נמסרים רק לעורך דין שרוכש את השאלה, ואינם עוברים אליך. הנכס והפניות שלך אינם מושפעים.',
-      v_lead.property_id
+      v_lead.property_id,
+      false
     );
   end if;
 
