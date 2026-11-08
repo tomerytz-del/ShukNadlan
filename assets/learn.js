@@ -477,7 +477,7 @@
       '<div class="hr"></div><b style="font-size:14px">פרטים לחשבונית</b>' +
       '<label class="field">שם מלא<input id="payName" type="text" autocomplete="name" maxlength="100" value="' + escapeHtml(name) + '"></label>' +
       '<label class="field">טלפון<input id="payPhone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" dir="ltr" style="text-align:right"></label>' +
-      '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. ביטול לפי תנאי השימוש.</span></label>' +
+      '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. אפשר לבטל בתוך 14 ימים, כל עוד לא נפתח שיעור בתשלום או מבחן סימולציה, ולקבל החזר מלא במייל shuknadlan@gmail.com.</span></label>' +
       '<button type="submit" class="btn-p" id="payBtn">' + I.lockS + ' לתשלום מאובטח</button>' +
       '<button type="button" class="btn-s" id="freeLessonBtn">לשיעור החינמי קודם</button>' +
       '<button type="button" class="btn-s hidden" id="testEnrollBtn">פתיחת גישה לבדיקה (צוות הניהול)</button>' +

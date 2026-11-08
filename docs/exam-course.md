@@ -289,8 +289,40 @@ python3 scripts/course_content_sql.py --bump    # אחרי שהקודמת רצה
   תכנון ובנייה): כשליש מהשאלות בבחינה על חוק המתווכים, והשאר על אלה. היום
   הם נלמדים דרך מבחני העבר בלבד.
 - **תעודה / מייל סיכום** אחרי סימולציה שעברה.
-- **ביטול והחזר**: מדיניות 14 יום כתובה בדף, ההחזר ידני במורנינג
-  (`course_orders` שומרת את מזהה המסמך).
+- **ביטול והחזר אוטומטי**: היום ההחזר ידני במורנינג (`course_orders` שומרת
+  את מזהה המסמך). המדיניות בסעיף הבא.
+
+## ביטול והחזר (החלטת תומר, 8.11.2026)
+
+**14 ימים מהרכישה, כל עוד לא התחילו ללמוד, החזר מלא.** "התחילו ללמוד" =
+נפתח שיעור שאינו `is_free` (כולל שיעורי מבחני העבר) או התחיל מבחן סימולציה
+(‏`course_attempts.kind = 'exam'`). השיעור החינמי אינו נספר. הנוסח מופיע
+בשלושה מקומות, וכל שינוי נוגע בשלושתם: השאלות הנפוצות ב-`course.html`,
+חלון התשלום ב-`assets/learn.js` (ליד תיבת האישור), וסעיף 21 ב-`terms.html`.
+
+הבדיקה לפני החזר, ב-`execute_sql` (קריאה בלבד), לפי המייל שממנו הגיעה הבקשה
+(ב-`execute_sql` מחליפים את `:'email'` במחרוזת; ב-psql זה משתנה):
+
+```sql
+with o as (
+  select user_id, created_at from public.course_orders
+   where status = 'success' and email = :'email'
+   order by created_at desc limit 1)
+select o.created_at as purchased,
+       now() - o.created_at < interval '14 days' as within_14_days,
+       exists (select 1 from public.course_progress p
+                 join public.course_lessons l on l.id = p.lesson_id
+                where p.user_id = o.user_id and not l.is_free
+                  and p.opened_at >= o.created_at) as opened_paid_lesson,
+       exists (select 1 from public.course_attempts a
+                where a.user_id = o.user_id and a.kind = 'exam'
+                  and a.started_at >= o.created_at) as started_simulation
+  from o;
+```
+
+`opened_at` מתעדכן בכל פתיחה, ולכן ההשוואה למועד הרכישה מספיקה: שיעור בתשלום
+נפתח רק עם גישה. אחרי ההחזר במורנינג, הגישה נסגרת ב-`course_enrollments`
+(‏`expires_at = now()`), בהחלטה ידנית של מנהל/ת הפלטפורמה.
 
 ## בדיקות
 
