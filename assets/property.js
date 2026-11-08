@@ -3671,6 +3671,10 @@ function lqOpen(){
   lqForm.hidden = false; lqWait.hidden = true; lqDone.hidden = true;
   document.getElementById('lqRecap').textContent = currentProperty?.title || 'הנכס';
   lqErrorEl.textContent = '';
+  // אחרי שליחה קודמת הכפתור נשאר "שולח…" ומושבת; פתיחה מחדש (לתיקון) חייבת להחזיר אותו
+  const lqBtn = document.getElementById('lqSubmitBtn');
+  lqBtn.disabled = false;
+  lqBtn.textContent = 'שליחה ואימות בוואטסאפ';
   lqStep(1);
   lqModal.classList.add('open');
   document.getElementById('lqQuestion').focus();

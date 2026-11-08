@@ -20,7 +20,7 @@
 --      ייעוץ משפטי. **ההתראה אינה נושאת שם, טלפון או שאלה:** אלה המוצר שנמכר לעו"ד. המתווך לא נעקף ולא מקבל את הליד.
 --
 -- פרטיות: ליד שלא אומת נמחק אחרי 7 ימים (ניקוי בתוך lawyer_lead_submit, בלי cron), ו-data_retention_run מכסה את
--- lawyer_leads במדיניות leads_pii (סעיף 6).
+-- lawyer_leads במדיניות leads_pii (סעיף 9).
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -144,6 +144,31 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- 3א. ניקוי ליד שלא אומת: אחרי 7 ימים
+--
+-- שם, טלפון ומייל של מי שלא שלח/ה את הודעת האימות אינם נשמרים. מופעל מכל קליטה וגם מ-cron יומי (סעיף 8): מי שנשען על
+-- הקליטה בלבד הבטיח מחיקה שתלויה בכך שמישהו ימלא טופס.
+-- ---------------------------------------------------------------------------
+create or replace function public.lawyer_lead_purge_unverified()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_n integer;
+begin
+  with gone as (
+    delete from public.lawyer_leads
+     where status = 'pending' and created_at < now() - interval '7 days'
+    returning 1
+  )
+  select count(*) into v_n from gone;
+  return v_n;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 3. הקליטה
 --
 -- service_role בלבד, מ-lawyer-lead-intake (ציבורית). הדפדפן שולח טקסט, וכל הכללים כאן:
@@ -194,16 +219,15 @@ begin
     return jsonb_build_object('error', 'invalid_email');
   end if;
 
+  -- ניקוי מי שלא אימת: גם כאן (כל קליטה מנקה) וגם ב-cron היומי, כדי שההבטחה לא תלויה בתנועה
+  perform public.lawyer_lead_purge_unverified();
+
   select p.id, p.city_id into v_prop
     from public.properties p
    where p.id = p_property_id and p.status = 'active';
   if not found then
     return jsonb_build_object('error', 'property_not_found');
   end if;
-
-  -- ניקוי מי שלא אימת
-  delete from public.lawyer_leads
-   where status = 'pending' and created_at < now() - interval '7 days';
 
   -- בלם הצפה
   if p_ip_hash is not null and p_ip_hash !~ '^0+$' then
@@ -237,7 +261,12 @@ begin
     end if;
     if v_existing.wa_verify_requested_at is not null
        and v_existing.wa_verify_requested_at > now() - interval '1 minute' then
-      -- לחיצה כפולה: אותו nonce, כדי שהודעה ששלח/ה כבר לא תיפסל
+      -- לחיצה כפולה או תיקון מהיר של השאלה: אותו nonce, כדי שהודעה ששלח/ה כבר לא תיפסל, אבל **התוכן מתעדכן**:
+      -- השאלה היא מה שעורך הדין משלם עליו, ואסור שגרסה ישנה שלה תיקלט בשקט
+      update public.lawyer_leads
+         set full_name = v_name, email = v_email, question = v_question,
+             property_id = p_property_id, city_id = v_prop.city_id
+       where id = v_existing.id;
       return jsonb_build_object('success', true, 'lead_id', v_existing.id, 'nonce', v_existing.wa_verify_nonce,
                                 'verified', false);
     end if;
@@ -396,8 +425,67 @@ grant execute on function public.lawyer_lead_wa_verify(text, text) to service_ro
 revoke all on function public.lawyer_lead_verified(uuid) from public, anon, authenticated;
 grant execute on function public.lawyer_lead_verified(uuid) to service_role;
 
+revoke all on function public.lawyer_lead_purge_unverified() from public, anon, authenticated;
+grant execute on function public.lawyer_lead_purge_unverified() to service_role;
+
 -- ---------------------------------------------------------------------------
--- 7. data_retention_run מכסה את lawyer_leads (מדיניות leads_pii, שנתיים)
+-- 8. התור של מנהל/ת הפלטפורמה: "קהל עכשיו" לליד עו"ד נספר לפי העיר של הליד
+--
+-- lead_audience_size('lawyer') סופרת עו"ד מאושרים בכל הארץ, ולכן "יש קהל עכשיו" היה נדלק על ליד שאף אחד מהם לא רואה
+-- במדף (העיר שלו אחרת). בשאר הסוגים אין ממד עיר, והם נשארים על הפונקציה. התצוגה security_invoker: מנהל/ת הפלטפורמה
+-- קורא/ת את professional_accounts דרך ה-policy שלו/ה, ושאר המשתמשים ממילא אינם רואים שורות.
+-- עמודות בלי שינוי, באותו סדר.
+-- ---------------------------------------------------------------------------
+create or replace view public.lead_routing_open
+with (security_invoker = true)
+as
+select
+  l.id,
+  l.created_at,
+  l.source,
+  l.lead_kind,
+  l.lead_table,
+  l.lead_id,
+  l.recipients,
+  l.reason,
+  l.summary,
+  l.city,
+  l.deal_type,
+  l.property_type,
+  case when l.lead_kind = 'lawyer' then (
+    select count(*)::int
+      from public.professional_accounts pa
+      left join public.cities pc on pc.id = pa.city_id
+      join public.lawyer_leads ll on ll.id = l.lead_id
+      left join public.cities lc on lc.id = ll.city_id
+     where pa.active and pa.shelf_enabled and pa.kind = 'real_estate_lawyer'
+       and (ll.city_id is null
+            or pa.city_id = ll.city_id
+            or (pc.market_slug is not null and pc.market_slug = lc.market_slug)))
+  else public.lead_audience_size(l.lead_kind) end as audience_now
+  from public.lead_routing_log l
+ where l.routing = 'unrouted'
+   and l.resolved_at is null
+ order by l.created_at desc;
+
+-- ניקוי יומי של ליד שלא אומת (סעיף 3א), 03:57 UTC
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    if exists (select 1 from cron.job where jobname = 'lawyer-leads-purge-unverified') then
+      perform cron.unschedule('lawyer-leads-purge-unverified');
+    end if;
+    perform cron.schedule(
+      'lawyer-leads-purge-unverified',
+      '57 3 * * *',
+      $cron$select public.lawyer_lead_purge_unverified();$cron$
+    );
+  end if;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 9. data_retention_run מכסה את lawyer_leads (מדיניות leads_pii, שנתיים)
 -- ---------------------------------------------------------------------------
 create or replace function public.data_retention_run()
 returns jsonb
@@ -466,10 +554,13 @@ begin
          where created_at < v_cut and raw_content is not null;
         -- ‏phone_e164 מחושבת (generated), ולכן לא נכתבת: phone = '' מחשב אותה מחדש ל-null.
         -- ‏question מוחלפת בטקסט ולא ב-null: יש עליה CHECK של 10 תווים לפחות.
+        -- ליד פתוח (pending או new) שנמחק הופך ל-archived באותה פקודה: lawyer_leads_public מסנן רק לפי status = 'new',
+        -- וליד מרוקן שנשאר במדף היה נמכר ב-₪59 בלי טלפון ובלי שאלה.
         update public.lawyer_leads
            set full_name = 'נמחק', phone = '', email = null,
                question = 'תוכן השאלה נמחק לפי מדיניות שמירת מידע',
-               client_ip_hash = null, wa_verify_nonce = null
+               client_ip_hash = null, wa_verify_nonce = null,
+               status = case when status in ('pending', 'new') then 'archived' else status end
          where created_at < v_cut and full_name <> 'נמחק';
         update public.lead_routing_log set summary = null
          where created_at < v_cut and summary is not null;

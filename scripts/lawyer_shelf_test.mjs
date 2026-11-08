@@ -120,7 +120,13 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
 });
 
 test('מדף עורכי הדין אינו יושב ב-CRM של הסוכנים', () => {
-  assert.equal(/lawyer/i.test(read('assets/crm.js').replace(/real_estate_lawyer:'עו״ד מקרקעין'/, '')), false);
+  // תוויות התור "לידים ללא יעד" (סוג, סיבה ומקור) הן תצוגת ניתוב של מנהל/ת הפלטפורמה, לא מדף: הן מותרות. כל השאר אסור.
+  const crmNoRoutingLabels = read('assets/crm.js')
+    .replace(/real_estate_lawyer:'עו״ד מקרקעין'/, '')
+    .replace(/^\s*lawyer:\s*'שאלה לעו"ד',?$/gm, '')
+    .replace(/^\s*no_lawyer_in_city:'[^']*',?$/gm, '')
+    .replace(/^\s*property_page_lawyer_question:'[^']*',?$/gm, '');
+  assert.equal(/lawyer/i.test(crmNoRoutingLabels), false, 'קוד של מדף עורכי הדין בתוך ה-CRM של הסוכנים');
   assert.equal(/lawyer/i.test(read('crm.html')), false);
 });
 
@@ -292,6 +298,36 @@ test('data_retention_run מכסה את lawyer_leads, ולא כותבת לעמו�
   assert.equal(/phone_e164/.test(upd), false, 'phone_e164 מחושבת (generated)');
   // question עם CHECK של 10 תווים: מוחלפת בטקסט ולא ב-null
   assert.match(upd, /question = '[^']{10,}'/);
+  // ליד פתוח שנמחק יוצא מהמדף: lawyer_leads_public מסנן רק status = 'new', וליד מרוקן היה נמכר בלי טלפון
+  assert.match(upd, /status = case when status in \('pending', 'new'\) then 'archived' else status end/);
+});
+
+test('ליד שלא אומת נמחק אחרי 7 ימים גם בלי תנועה (cron), ושליחה חוזרת מעדכנת את השאלה', () => {
+  const t = intakeMig.text;
+  assert.match(t, /create or replace function public\.lawyer_lead_purge_unverified\(\)/);
+  assert.match(t, /status = 'pending' and created_at < now\(\) - interval '7 days'/);
+  assert.match(t, /cron\.schedule\(\s*'lawyer-leads-purge-unverified'/);
+  assert.match(t.replace(/\s+/g, ' '), /revoke all on function public\.lawyer_lead_purge_unverified\(\) from public, anon, authenticated; grant execute on function public\.lawyer_lead_purge_unverified\(\) to service_role;/);
+  // שליחה חוזרת בתוך דקה: אותו nonce, אבל התוכן מתעדכן
+  const submit = t.split('create or replace function public.lawyer_lead_submit')[1].split('create or replace function public.lawyer_lead_wa_verify')[0];
+  assert.match(submit, /לחיצה כפולה או תיקון מהיר[\s\S]*update public\.lawyer_leads\s+set full_name = v_name, email = v_email, question = v_question/);
+});
+
+test('תור "לידים ללא יעד" סופר קהל לליד עו"ד לפי העיר שלו, והתוויות ב-CRM ובטיפוסים מכירות אותו', () => {
+  assert.match(intakeMig.text, /create or replace view public\.lead_routing_open[\s\S]*when l\.lead_kind = 'lawyer'[\s\S]*ll\.city_id is null/);
+  const crmJsSrc = read('assets/crm.js');
+  assert.match(crmJsSrc, /UNROUTED_KIND_LABELS = \{[\s\S]*lawyer:/);
+  assert.match(crmJsSrc, /no_lawyer_in_city:/);
+  assert.match(crmJsSrc, /property_page_lawyer_question:/);
+  assert.match(crmJsSrc, /LX_KINDS = \{[\s\S]*lawyer:/);
+  const ts = read('supabase/functions/_shared/lead-routing.ts');
+  assert.match(ts, /export type LeadKind = [^;]*"lawyer"/);
+  assert.match(ts, /export type LeadTable = [^;]*"lawyer_leads"/);
+});
+
+test('הדף: פתיחה מחדש של המודאל מחזירה את כפתור השליחה', () => {
+  const open = propertyJs.split('function lqOpen(){')[1].split('function lqClose')[0];
+  assert.match(open, /lqBtn\.disabled = false/);
 });
 
 test('רישום הניתוב מכיר ליד עו"ד (lead_kind ו-lead_table)', () => {

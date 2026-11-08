@@ -3811,9 +3811,11 @@ const UNROUTED_KIND_LABELS = {
   agent_owner:'ליד בעל/ת נכס',
   agent_buyer:'ליד מחפש/ת דירה',
   mortgage_advisor:'ליד ייעוץ משכנתאות',
+  lawyer:'שאלה לעו"ד',
 };
 const UNROUTED_REASONS = {
   no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
+  no_lawyer_in_city:'אין עו"ד מאושר/ת בעיר או בשוק של הנכס',
   no_eligible_agents:'אין סוכני PROFESSIONAL/Elite עם העדפות לידים פעילות',
   no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
   no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
@@ -3826,6 +3828,7 @@ const UNROUTED_SOURCES = {
   homepage_search_agent:'הסוכן החכם (תוצאות חיפוש)',
   homepage_mortgage_calc:'מחשבון משכנתא (דף הבית)',
   property_page_mortgage_calc:'מחשבון משכנתא (דף נכס)',
+  property_page_lawyer_question:'שאלה לעו"ד (דף נכס)',
   homepage_yield_calc:'מחשבון תשואה (דף הבית)',
   agency_page_owner_wizard:'הערכת שווי (דף משרד)',
   agency_page_yield_calc:'מחשבון תשואה (דף משרד)',
@@ -5612,6 +5615,7 @@ const LX_KINDS = {
   agent_owner:      'בעל/ת נכס',
   agent_buyer:      'מחפש/ת דירה',
   mortgage_advisor: 'ייעוץ משכנתאות',
+  lawyer:           'שאלה לעו"ד',
   developer:        'מחפש/ת פרויקט חדש',
 };
 
