@@ -233,7 +233,7 @@ async function notifyPlatformAdmins(
   title: string,
   body: string,
   type: string = PLATFORM_SIGNUP_TYPE,
-): Promise<void> {
+): Promise<boolean> {
   // ‏active=true בלבד: מנהל/ת פלטפורמה שכרטיסו/ה כובה אינו/ה מקבל/ת התראות,
   // בדיוק כמו ב-alert_platform_admin_on_low_review.
   const { data: admins, error: adminErr } = await (supabase
@@ -244,7 +244,7 @@ async function notifyPlatformAdmins(
 
   if (adminErr || !admins?.length) {
     if (adminErr) console.error("platform signup alert: admin lookup failed", adminErr.message);
-    return;
+    return false;
   }
 
   // ‏INSERT אחד לכל המנהלים. הטריגר notifications_apply_preferences מסנן
@@ -259,6 +259,8 @@ async function notifyPlatformAdmins(
   ) as QueryResult<unknown>);
 
   if (insErr) console.error("platform signup alert: insert failed", insErr.message);
+  // ‏true = ההתראה נכתבה. רוב הקוראים מתעלמים (כישלון כאן אינו מפיל כלום); ההחזר של ליד עו"ד לא מתעלם.
+  return !insErr;
 }
 
 /* תוויות תחומי העיסוק. עותק מכוון של TYPE_LABELS ב-professional-signup:
@@ -484,12 +486,13 @@ export async function announceLawyerLeadRefundNeeded(
   try {
     const { data: o, error } = await (supabase
       .from("lawyer_lead_orders")
-      .select("amount, failure_reason, provider_document_id, professional_accounts(display_name)")
+      .select("amount, failure_reason, provider_document_id, refund_alerted_at, professional_accounts(display_name)")
       .eq("id", orderId)
       .maybeSingle() as QueryResult<{
         amount: number | null;
         failure_reason: string | null;
         provider_document_id: string | null;
+        refund_alerted_at: string | null;
         professional_accounts: { display_name: string | null } | { display_name: string | null }[] | null;
       } | null>);
 
@@ -497,6 +500,7 @@ export async function announceLawyerLeadRefundNeeded(
       console.error("lawyer lead refund alert: order lookup failed", error?.message);
       return;
     }
+    if (o.refund_alerted_at) return;
     const acct = Array.isArray(o.professional_accounts) ? (o.professional_accounts[0] ?? null) : o.professional_accounts;
     const reasons: Record<string, string> = {
       lead_sold_to_other: "הליד נמכר לעו\"ד אחר/ת",
@@ -506,16 +510,24 @@ export async function announceLawyerLeadRefundNeeded(
       lead_deleted: "הליד נמחק",
       account_deleted: "החשבון נמחק",
     };
+    const reason = o.failure_reason || "";
     const title = `נדרש החזר: ליד עו"ד ששולם ואינו זמין`;
     const body = joinParts([
       acct?.display_name ? `עו"ד: ${acct.display_name}` : null,
       o.amount ? `שולם ₪${Math.round(Number(o.amount))} כולל מע"מ` : null,
-      reasons[o.failure_reason || ""] || o.failure_reason,
+      reasons[reason] || (reason.startsWith("amount_mismatch") ? "הסכום שדווח בסליקה שונה מהסכום שנרשם" : reason),
       o.provider_document_id ? `מסמך במורנינג: ${o.provider_document_id}` : null,
+      `הזמנה ${orderId}`,
       "להחזיר במורנינג ואז לסמן את ההזמנה refunded",
     ]);
 
-    await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);
+    const sent = await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);
+    // מסמנים רק כשההתראה נכתבה: אחרת ה-reconcile ינסה שוב, וזו הדרך היחידה שבה מישהו יידע להחזיר
+    if (sent) {
+      await (supabase.from("lawyer_lead_orders")
+        .update({ refund_alerted_at: new Date().toISOString() })
+        .eq("id", orderId) as QueryResult<unknown>);
+    }
   } catch (err) {
     console.error("lawyer lead refund alert failed", err);
   }

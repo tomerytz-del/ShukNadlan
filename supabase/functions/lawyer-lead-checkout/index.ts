@@ -41,6 +41,7 @@ const STATUS_BY_ERROR: Record<string, number> = {
   not_a_lawyer: 403,
   shelf_not_approved: 403,
   too_many_open_orders: 429,
+  order_in_progress: 409,
   free_lead: 400,
 };
 
@@ -89,14 +90,15 @@ Deno.serve(async (req: Request) => {
 
     const { data: order } = await supabase
       .from("lawyer_lead_orders")
-      .select("id, lead_id, professional_id, status, failure_reason, amount")
+      .select("id, lead_id, professional_id, status")
       .eq("id", orderId)
       .maybeSingle();
     // הזמנה של אחר/ת נראית כמו הזמנה שאינה קיימת
     if (!order || order.professional_id !== account.id) return json({ error: "order_not_found" }, 404);
 
+    // רק המצב. failure_reason הוא טקסט פנימי (שגיאות של הסולק) ולא מוצג לגולש/ת
     if (order.status !== "success") {
-      return json({ status: order.status, reason: order.failure_reason ?? null });
+      return json({ status: order.status });
     }
     // שולם ואומת: פרטי הפונה דרך אותה פונקציה של הארנק. הליד כבר שלו/ה, ולכן ללא חיוב נוסף.
     const { data: lead, error } = await supabase.rpc("purchase_lawyer_lead", {
@@ -130,9 +132,14 @@ Deno.serve(async (req: Request) => {
 
   const orderId = started.order_id as string;
 
-  // אותה הזמנה פתוחה (לחיצה כפולה או חזרה מדף התשלום) עם טופס שכבר נוצר: ממשיכים אליו
-  if (started.reused && started.payment_url) {
-    return json({ success: true, order_id: orderId, amount: started.amount, redirect_url: started.payment_url });
+  // אותה הזמנה פתוחה (לחיצה כפולה, חזרה מדף התשלום או לשונית שנשארה פתוחה): ממשיכים לאותו טופס
+  if (started.reused) {
+    if (started.payment_url) {
+      return json({ success: true, order_id: orderId, amount: started.amount, redirect_url: started.payment_url });
+    }
+    // הבקשה הראשונה עוד יוצרת את הטופס. טופס שני על אותה הזמנה (אותו reference) היה מאפשר שני תשלומים
+    // שרק אחד מהם ניתן להתאמה, ולכן ממתינים לראשונה.
+    return json({ error: "order_in_progress" }, 409);
   }
 
   const notifyUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
@@ -158,10 +165,12 @@ Deno.serve(async (req: Request) => {
     }, 502);
   }
 
-  await supabase
+  // כשל בשמירה אינו מבטל את התשלום (ה-callback מוצא את ההזמנה לפי ה-reference), אבל חייב להיראות בלוג
+  const { error: saveErr } = await supabase
     .from("lawyer_lead_orders")
     .update({ provider_form_id: form.formId, provider_payment_url: form.url })
     .eq("id", orderId);
+  if (saveErr) console.error("lawyer-lead-checkout: saving payment url failed", orderId, saveErr.message);
 
   return json({
     success: true,

@@ -53,8 +53,12 @@ create table if not exists public.lawyer_lead_orders (
   reserved_until       timestamptz not null,
   created_at           timestamptz not null default now(),
   completed_at         timestamptz,
-  failure_reason       text
+  failure_reason       text,
+  -- מתי נשלחה למנהלי הפלטפורמה ההתראה על refund_needed. ריק = עוד לא נשלחה, וה-reconcile שולח שוב.
+  refund_alerted_at    timestamptz
 );
+
+alter table public.lawyer_lead_orders add column if not exists refund_alerted_at timestamptz;
 
 comment on table public.lawyer_lead_orders is
   'רכישת ליד עו"ד בחיוב ישיר בכרטיס (בלי ארנק). אותה מכונת מצבים כמו ad_orders; refund_needed = שולם והליד כבר אינו זמין, להחזר ידני.';
@@ -69,6 +73,9 @@ create index if not exists lawyer_lead_orders_pending_idx
 
 create index if not exists lawyer_lead_orders_professional_idx
   on public.lawyer_lead_orders (professional_id, created_at desc);
+
+create index if not exists lawyer_lead_orders_refund_idx
+  on public.lawyer_lead_orders (created_at) where status = 'refund_needed' and refund_alerted_at is null;
 
 create index if not exists lawyer_lead_orders_lead_idx
   on public.lawyer_lead_orders (lead_id) where lead_id is not null;
@@ -179,12 +186,20 @@ begin
     return jsonb_build_object('error', 'lead_reserved', 'reserved_until', v_lead.reserved_until);
   end if;
 
-  -- לחיצה כפולה או חזרה מדף התשלום: אותה הזמנה פתוחה, לא שורה חדשה
+  -- לחיצה כפולה, חזרה מדף התשלום, או לשונית שנשארה פתוחה מעבר ל-15 הדקות: אותה הזמנה פתוחה (ואותו טופס),
+  -- לא שורה חדשה. הטופס אצל מורנינג עדיין ניתן לתשלום, ושתי הזמנות על אותו ליד הן סיכון לחיוב כפול.
+  -- חלון השימוש החוזר זהה לחלון שאחריו ה-reconcile סוגר הזמנה (180 דקות). השמירה מתחדשת: מכאן
+  -- ל-15 דקות נוספות (הבדיקה למעלה כבר וידאה שהליד אינו שמור לאחר/ת).
   select * into v_exist from public.lawyer_lead_orders
    where lead_id = p_lead_id and professional_id = p_account_id
-     and status = 'pending' and reserved_until > now()
-   order by created_at desc limit 1;
+     and status = 'pending' and created_at > now() - interval '180 minutes'
+   order by created_at desc limit 1
+   for update;
   if found then
+    update public.lawyer_lead_orders set reserved_until = v_until where id = v_exist.id;
+    update public.lawyer_leads
+       set reserved_by_professional_id = p_account_id, reserved_until = v_until
+     where id = p_lead_id;
     return jsonb_build_object('success', true, 'reused', true, 'order_id', v_exist.id,
                               'amount', v_exist.amount, 'payment_url', v_exist.provider_payment_url);
   end if;
@@ -192,6 +207,7 @@ begin
   -- חסם על שמירות פתוחות: מי שפותח/ת הזמנות ולא משלם/ת לא תופס/ת את המדף כולו
   select count(*) into v_open from public.lawyer_lead_orders
    where professional_id = p_account_id and status = 'pending' and reserved_until > now();
+  -- (הזמנה שהשמירה שלה פגה אינה תופסת את המדף, ולכן אינה נספרת)
   if v_open >= 3 then
     return jsonb_build_object('error', 'too_many_open_orders');
   end if;
@@ -256,13 +272,22 @@ begin
     return jsonb_build_object('error', 'order_not_pending', 'status', v_order.status);
   end if;
 
+  -- הסכום שמורנינג דיווחה אינו הסכום שרשמנו. **הכסף כבר נגבה** (הסכום שונה, לא נעדר), ולכן זה לא
+  -- "failed" שקט כמו בשאר הסוגים: ההזמנה refund_needed, השמירה משוחררת, ומנהלי הפלטפורמה מקבלים התראה.
   if p_verified_amount is not null and p_verified_amount <> v_order.amount then
     update public.lawyer_lead_orders
-       set status = 'failed',
+       set status = 'refund_needed', completed_at = now(),
+           provider_charge_id   = coalesce(p_provider_charge_id, provider_charge_id),
+           provider_document_id = coalesce(p_document_id, provider_document_id),
+           provider_pdf_url     = coalesce(p_pdf_url, provider_pdf_url),
            failure_reason = format('amount_mismatch: expected %s, provider reported %s',
                                    v_order.amount, p_verified_amount)
      where id = p_order_id;
-    return jsonb_build_object('error', 'amount_mismatch',
+    update public.lawyer_leads
+       set reserved_by_professional_id = null, reserved_until = null
+     where id = v_order.lead_id
+       and reserved_by_professional_id is not distinct from v_order.professional_id;
+    return jsonb_build_object('error', 'refund_needed', 'reason', 'amount_mismatch',
                               'expected', v_order.amount, 'reported', p_verified_amount);
   end if;
 
@@ -477,7 +502,7 @@ revoke all on function public.purchase_lawyer_lead(uuid, uuid) from public, anon
 grant execute on function public.purchase_lawyer_lead(uuid, uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 9. ה-reconcile רואה גם את הטבלה השישית
+-- 9. ה-reconcile רואה גם את הטבלה השישית, וגם החזר שההתראה עליו לא יצאה
 --
 -- זהה ל-20271106110000 פרט לשורה הנוספת בתנאי. בלעדיה הזמנת ליד ששולמה וה-webhook שלה אבד
 -- הייתה מחכה לטעינת ארנק של מישהו אחר (docs/wallet-payments.md, "ה-reconcile ראה רק שתי טבלאות").
@@ -507,7 +532,8 @@ begin
        or exists (select 1 from public.ad_orders           where status = 'pending')
        or exists (select 1 from public.developer_topups    where status = 'pending')
        or exists (select 1 from public.course_orders       where status = 'pending')
-       or exists (select 1 from public.lawyer_lead_orders  where status = 'pending');
+       or exists (select 1 from public.lawyer_lead_orders  where status = 'pending')
+       or exists (select 1 from public.lawyer_lead_orders  where status = 'refund_needed' and refund_alerted_at is null);
   $cron$, v_base || 'wallet-topup-callback?mode=reconcile'));
 end;
 $$;

@@ -163,11 +163,13 @@ test('הליד שמור לאחר/ת: start, הארנק וה-view מכבדים א
 test('complete_lawyer_lead_order: משווה סכום, ושולם-בלי-ליד הוא refund_needed ולא מכירה כפולה', () => {
   const body = orderMig.text.split('create or replace function public.complete_lawyer_lead_order')[1].split('create or replace function public.fail_lawyer_lead_order')[0];
   assert.match(body, /p_verified_amount <> v_order\.amount/);
+  // אי-התאמת סכום אחרי גבייה היא refund_needed (הכסף נגבה), לא failed שקט
+  assert.match(body.split('p_verified_amount <> v_order.amount')[1].split('התשלום אומת')[0], /status = 'refund_needed'/);
+  assert.equal(/status = 'failed'/.test(body), false, 'complete לעולם אינה מסמנת failed אחרי גבייה');
   assert.match(body, /for update/);
   for (const reason of ['lead_sold_to_other', 'already_owned', 'lead_reserved_by_other', 'lead_not_available', 'lead_deleted', 'account_deleted']) {
     assert.ok(body.includes(`'${reason}'`), `חסרה סיבה ${reason}`);
   }
-  assert.match(body, /status = 'refund_needed'/);
   // בשורת הרכישה נרשם המחיר הנקוב ולא הסכום כולל מע"מ, כמו ברכישה מהארנק
   assert.match(body, /v_order\.amount_before_vat, 'success', 'card', p_order_id/);
   // הארנק אינו נוגע: זה חיוב בכרטיס
@@ -194,12 +196,26 @@ test('lawyer-lead-checkout: JWT ו-MFA, החשבון מה-JWT, הסכום מהמ
   assert.equal(/complete_lawyer_lead_order/.test(checkoutFn), false);
 });
 
+test('start: הזמנה פתוחה בחלון התשלום נמשכת (גם אחרי פקיעת השמירה), והשמירה מתחדשת', () => {
+  const body = orderMig.text.split('create or replace function public.start_lawyer_lead_order')[1].split('create or replace function public.complete_lawyer_lead_order')[0];
+  assert.match(body, /status = 'pending' and created_at > now\(\) - interval '180 minutes'/);
+  assert.match(body, /update public\.lawyer_lead_orders set reserved_until = v_until/);
+});
+
+test('התראת ההחזר נשלחת שוב עד שיצאה (refund_alerted_at), וה-reconcile סורק אותה', () => {
+  assert.match(orderMig.text, /refund_alerted_at\s+timestamptz/);
+  assert.match(callbackFn, /\.eq\("status", "refund_needed"\)\s*\.is\("refund_alerted_at", null\)/);
+  const alertTs = read('supabase/functions/_shared/platform-signup-alert.ts');
+  assert.match(alertTs, /if \(sent\) \{[\s\S]*refund_alerted_at/);
+});
+
 test('ה-cron של ה-reconcile מכיר את lawyer_lead_orders (אחרת תשלום שאבד לא יתיישב)', () => {
   // ההגדרה האחרונה של wallet-topup-reconcile היא הקובעת
   let last = null;
   for (const m of migrations) if (m.text.includes("cron.schedule('wallet-topup-reconcile'")) last = m;
   assert.ok(last, 'אין תזמון reconcile');
   assert.match(last.text, /exists \(select 1 from public\.lawyer_lead_orders\s+where status = 'pending'\)/, `${last.f} אינה סורקת lawyer_lead_orders`);
+  assert.match(last.text, /lawyer_lead_orders\s+where status = 'refund_needed' and refund_alerted_at is null/, `${last.f} אינה מעירה את ה-reconcile על החזר שלא הותרע`);
 });
 
 test('wallet-topup-callback: lawyer_lead הוא סוג, ו-refund_needed מתריע למנהל/ת', () => {

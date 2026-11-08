@@ -162,9 +162,8 @@ async function settleOrder(
     console.error(`wallet-topup-callback: complete failed (${kind})`, order.id, error.message);
     return "pending";
   }
-  // כסף שנגבה ואין מה למסור תמורתו. ההזמנה כבר refund_needed במסד (אין סבב נוסף עליה),
-  // וההתראה למנהל/ת היא הדרך היחידה שבה מישהו יידע להחזיר. כפילות אינה אפשרית: מכאן ואילך
-  // settleOrder יוצאת למעלה על הזמנה שאינה pending.
+  // כסף שנגבה ואין מה למסור תמורתו. ההזמנה כבר refund_needed במסד, וההתראה למנהל/ת היא הדרך היחידה
+  // שבה מישהו יידע להחזיר. היא נשלחת פעם אחת (refund_alerted_at), ואם נכשלה - ה-reconcile שולח שוב.
   if (result?.error === "refund_needed") {
     console.error(`wallet-topup-callback: refund needed (${kind})`, order.id, result.reason);
     if (kind === "lawyer_lead") await announceLawyerLeadRefundNeeded(supabase, order.id);
@@ -185,7 +184,7 @@ async function settleOrder(
 // ---------------------------------------------------------------------------
 // ה-reconcile
 // ---------------------------------------------------------------------------
-// סורק את חמש הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
+// סורק את שש הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
 // ‏₪750 ועובד/ת במסלול החינמי — ולכן אין שום סיבה שהוא ייסרק בתדירות נמוכה
 // יותר או יחכה למחזור נפרד.
 async function reconcile(supabase: any): Promise<Record<string, number>> {
@@ -220,6 +219,17 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
       }
     }
   }
+
+  // החזרים שההתראה עליהם לא יצאה (נכשלה בכתיבה, או שהפונקציה נפלה אחרי המסד). בלי הסבב הזה הזמנה
+  // refund_needed נשכחת: היא כבר אינה pending, ואף סורק אחר לא רואה אותה.
+  const { data: refunds } = await supabase
+    .from("lawyer_lead_orders")
+    .select("id")
+    .eq("status", "refund_needed")
+    .is("refund_alerted_at", null)
+    .order("created_at", { ascending: true })
+    .limit(20);
+  for (const row of refunds ?? []) await announceLawyerLeadRefundNeeded(supabase, row.id);
 
   return stats;
 }
@@ -268,7 +278,7 @@ Deno.serve(async (req: Request) => {
   }));
   if (!topupId && !formId) return json({ error: "missing_reference" }, 400);
 
-  // איזו מחמש הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
+  // איזו מששת הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
   // נמצא באחת מהן בלבד. הסדר הוא לפי שכיחות ולא לפי חשיבות.
   let found: { kind: OrderKind; row: any } | null = null;
   for (const kind of ALL_KINDS) {

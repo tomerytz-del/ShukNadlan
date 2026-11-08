@@ -243,6 +243,7 @@
     lead_not_available: 'הליד כבר אינו זמין',
     lead_not_found: 'הליד לא נמצא',
     lead_reserved: 'עו״ד אחר/ת בתהליך רכישה של הליד הזה. נסו שוב בעוד כמה דקות.',
+    order_in_progress: 'דף התשלום עוד נפתח. נסו שוב בעוד רגע.',
     already_purchased: 'הליד כבר שלכם, והוא מופיע למטה תחת "הלידים שרכשתי"',
     too_many_open_orders: 'יש לכם כבר שלוש רכישות פתוחות. השלימו אותן או המתינו 15 דקות.',
     not_a_lawyer: 'המדף הזה מיועד לעורכי דין בלבד',
@@ -307,9 +308,18 @@
           body: JSON.stringify({ action: 'status', order_id: orderId }),
         });
         const data = await res.json();
+        // תשובת שגיאה (למשל אימות דו-שלבי שפג) לא תשתנה בניסיון חוזר: עוצרים במקום להמתין 30 שניות
+        if (!res.ok) {
+          setMsg('appMsg', 'לא הצלחנו לאמת את התשלום כרגע. רעננו את הדף. אם שילמתם, הליד יופיע תחת "הלידים שרכשתי" ברגע שיאושר.', 'err');
+          return;
+        }
         if (data.status === 'success') {
           setMsg('appMsg', 'התשלום התקבל. פרטי הקשר של הפונה מופיעים למטה תחת "הלידים שרכשתי".', 'ok');
           await refresh();
+          return;
+        }
+        if (data.status === 'refunded') {
+          setMsg('appMsg', 'התשלום הוחזר לכם במלואו.', 'ok');
           return;
         }
         if (data.status === 'refund_needed') {
@@ -403,7 +413,8 @@
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);
     await renderAll();
-    await handlePaymentReturn();
+    // בלי await: האימות מתחיל להמתין עד 30 שניות, והמדף כבר מוצג
+    handlePaymentReturn();
   }
 
   if (sb) {
