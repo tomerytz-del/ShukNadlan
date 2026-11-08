@@ -3637,6 +3637,153 @@ mleadForm.addEventListener('submit', async (e)=>{
   }
 });
 
+/* ---------- שאלה לעורך דין ---------- */
+/* אותה צורה כמו בלון המשכנתא: שני שלבים (השאלה, אחר כך הפרטים), ואז שלב שלישי שהוא האימות: הפונה שולח/ת הודעת
+   וואטסאפ מוכנה מהנייד שהזין/ה, והליד עולה למדף העו"ד רק אחרי שהשרת אישר. הדף שואל את השרת ("אומת?") ולא מניח
+   שהכפתור נלחץ. כל הכללים (נייד, אורכים, העיר מהנכס, ליד פתוח אחד לטלפון, בלם הצפה) בשרת. docs/lawyer-leads.md. */
+const LQ_FUNCTION_URL = SUPABASE_URL + '/functions/v1/lawyer-lead-intake';
+const lqModal   = document.getElementById('lqModal');
+const lqForm    = document.getElementById('lqForm');
+const lqWait    = document.getElementById('lqWait');
+const lqDone    = document.getElementById('lqDone');
+const lqErrorEl = document.getElementById('lqError');
+let lqPoll = null;
+
+const LQ_ERRORS = {
+  invalid_name: 'נא להזין שם מלא',
+  invalid_phone: 'נא להזין מספר נייד ישראלי (למשל 050-1234567)',
+  invalid_email: 'נא להזין כתובת אימייל תקינה, או להשאיר ריק',
+  invalid_question: 'נא לכתוב שאלה של 10 תווים לפחות',
+  property_not_found: 'הנכס אינו זמין כרגע לשאלות',
+  rate_limited: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב מאוחר יותר.',
+  try_again: 'לא הצלחנו לקלוט כרגע. נסו שוב בעוד רגע.',
+};
+
+function lqStep(n){
+  lqForm.querySelectorAll('.form-step').forEach(el => { el.hidden = el.dataset.step !== String(n); });
+  document.getElementById('lqNextBtn').hidden = n !== 1;
+  document.getElementById('lqSubmitBtn').hidden = n !== 2;
+  document.getElementById('lqBackBtn').hidden = n !== 2;
+}
+function lqStopPolling(){ if (lqPoll){ clearInterval(lqPoll); lqPoll = null; } }
+function lqOpen(){
+  lqStopPolling();
+  lqForm.hidden = false; lqWait.hidden = true; lqDone.hidden = true;
+  document.getElementById('lqRecap').textContent = currentProperty?.title || 'הנכס';
+  lqErrorEl.textContent = '';
+  lqStep(1);
+  lqModal.classList.add('open');
+  document.getElementById('lqQuestion').focus();
+}
+function lqClose(){ lqStopPolling(); lqModal.classList.remove('open'); }
+
+function lqShowDone(text){
+  lqStopPolling();
+  lqForm.hidden = true; lqWait.hidden = true; lqDone.hidden = false;
+  if (text) document.getElementById('lqDoneText').textContent = text;
+}
+
+/* שואלים את השרת כל 3 שניות עד 10 דקות. אחרי זה הליד נשאר pending עד 30 דקות מהבקשה, והכפתור עדיין עובד */
+function lqStartPolling(leadId){
+  lqStopPolling();
+  const startedAt = Date.now();
+  lqPoll = setInterval(async ()=>{
+    if (Date.now() - startedAt > 10 * 60 * 1000){
+      lqStopPolling();
+      document.getElementById('lqWaitStatus').textContent = 'עדיין לא קיבלנו את ההודעה. אם שלחתם אותה, היא תיקלט ותקבלו אישור בוואטסאפ.';
+      return;
+    }
+    try{
+      const res = await fetch(LQ_FUNCTION_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action:'status', lead_id: leadId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.verified === true) lqShowDone();
+    } catch(_){ /* ניסיון נוסף בסבב הבא */ }
+  }, 3000);
+}
+
+document.getElementById('lqOpenBtn').addEventListener('click', ()=>{
+  if (!currentProperty){ showToast('הנכס עדיין נטען, נסו שוב בעוד רגע'); return; }
+  lqOpen();
+});
+document.getElementById('lqCloseBtn').addEventListener('click', lqClose);
+lqModal.addEventListener('click', (e)=>{ if (e.target === lqModal) lqClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && lqModal.classList.contains('open')) lqClose();
+});
+document.getElementById('lqNextBtn').addEventListener('click', ()=>{
+  const q = document.getElementById('lqQuestion');
+  const bad = q.value.trim().length < 10;
+  q.classList.toggle('invalid', bad);
+  if (bad){ lqErrorEl.textContent = ''; showToast(LQ_ERRORS.invalid_question); q.focus(); return; }
+  lqStep(2);
+  document.getElementById('lqName').focus();
+});
+document.getElementById('lqBackBtn').addEventListener('click', ()=> lqStep(1));
+
+lqForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const nameEl = document.getElementById('lqName');
+  const phoneEl = document.getElementById('lqPhone');
+  const emailEl = document.getElementById('lqEmail');
+  const full_name = nameEl.value.trim();
+  const phone = phoneEl.value.trim();
+  const email = emailEl.value.trim();
+  const phoneDigits = phone.replace(/\D/g, '');
+  const bad = {
+    name: full_name.length < 2,
+    phone: !/^(972|0)?5\d{8}$/.test(phoneDigits),
+    email: email !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+  };
+  nameEl.classList.toggle('invalid', bad.name);
+  phoneEl.classList.toggle('invalid', bad.phone);
+  emailEl.classList.toggle('invalid', bad.email);
+  if (bad.name)  { lqErrorEl.textContent = LQ_ERRORS.invalid_name; nameEl.focus(); return; }
+  if (bad.phone) { lqErrorEl.textContent = LQ_ERRORS.invalid_phone; phoneEl.focus(); return; }
+  if (bad.email) { lqErrorEl.textContent = LQ_ERRORS.invalid_email; emailEl.focus(); return; }
+  lqErrorEl.textContent = '';
+
+  const btn = document.getElementById('lqSubmitBtn');
+  const originalLabel = btn.textContent;
+  btn.textContent = 'שולח…';
+  btn.disabled = true;
+  try{
+    const res = await fetch(LQ_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        action:'submit',
+        property_id: currentProperty?.id || null,
+        question: document.getElementById('lqQuestion').value.trim(),
+        full_name, phone, email,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      lqErrorEl.textContent = LQ_ERRORS[data.error] || 'השליחה נכשלה, נסו שוב';
+      btn.textContent = originalLabel; btn.disabled = false;
+      return;
+    }
+    if (data.verified){
+      // כבר יש שאלה פתוחה מהטלפון הזה, והיא אומתה: אין מה לאמת שוב
+      lqShowDone('כבר יש לכם שאלה פתוחה אצלנו, והיא הועברה לעורכי דין מהאזור.');
+      return;
+    }
+    const waBtn = document.getElementById('lqWaBtn');
+    waBtn.href = data.wa_url;
+    lqForm.hidden = true; lqWait.hidden = false;
+    document.getElementById('lqWaitStatus').textContent = 'ממתינים לאימות…';
+    lqStartPolling(data.lead_id);
+  } catch(err){
+    console.error('lawyer-lead-intake failed:', err);
+    lqErrorEl.textContent = 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
+    btn.textContent = originalLabel; btn.disabled = false;
+  }
+});
+
 /* ---------- Inquiry form ---------- */
 /* שני שלבים בטופס הפנייה (6.11.2026, PR B): קודם הבקשה, אחר כך הפרטים.
    ההשראה: "Request a Call" ו-"Ask a Lawyer" של eretzly.com. אותו payload. */

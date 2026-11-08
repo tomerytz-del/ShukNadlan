@@ -32,6 +32,19 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
 * **סוג תשלום חדש ב-`wallet-topup-callback`** נכנס לשלושה מקומות באותו PR: `KINDS`/`ALL_KINDS`, תנאי ה-cron של `wallet-topup-reconcile` (מיגרציה שמגדירה אותו מחדש),
   ו-`docs/wallet-payments.md`. בלי התנאי, הזמנה שה-webhook שלה אבד מחכה לנצח.
 
+## הקליטה: ליד נכנס pending ועולה למדף רק אחרי אימות
+
+* **כרטיס המדף אומר "טלפון מאומת בוואטסאפ".** ליד שעולה למדף בלי אימות נמכר ב-₪59 עם מספר שאולי אינו של מי ששאל. הליד נכנס `pending`
+  (`lawyer_lead_submit`), ועולה `new` רק ב-`lawyer_lead_wa_verify`.
+* **המספר שממנו נשלחה ההודעה הוא ההוכחה** (`phone_e164 = from` של Meta), לא הקוד: שש ספרות יכולות לחזור אצל שני פונים. אותו עיקרון כמו
+  `agreement-signing`, והקריאה ב-`whatsapp-webhook` נשארת **לפני זיהוי הסוכן/ת**, אחרת הפונה מקבל/ת "איני מזהה את מספר הטלפון שלך".
+* **ההתראה לסוכן/ת הנכס אינה נושאת שם, טלפון, מייל או שאלה** (המוצר שנמכר), ומשתמשת בסוג `system` עם `related_property_id`. סוג חדש יוצא לכל
+  הסוכנים בוואטסאפ (הסקיל `agent-notifications`).
+* **ליד שאין לו עו"ד בעיר נרשם `unrouted`** ב-`lead_routing_log`, אחרת הוא יושב במדף שאיש אינו רואה. ערך `lead_kind`/`lead_table` חדש נכנס ל-CHECK, ל-`lead_audience_size` ולתווית ב-`alert_platform_admin_on_unrouted_lead`.
+* **עמודה מחושבת (`phone_e164`) אינה נכתבת ב-`data_retention_run`**: `phone = ''` מחשב אותה מחדש. `question` מוחלפת בטקסט ולא ב-null (CHECK של 10 תווים).
+* **פונקציית קליטה ציבורית חדשה** = `verify_jwt = false` ב-`config.toml`, שורה ב-`PUBLIC_EDGE_FUNCTIONS` ב-`ops_agent/config.py`, ובלם הצפה במסד.
+* **קישור `wa.me` בדף נושא `data-site-contact`**, אחרת `events.js` סופר כל לחיצה כפנייה למתווך (`contact_agent`).
+
 ## מוסיפים קהל חדש (שמאי, אדריכל...)
 
 * `kind` כבר ב-`professional_accounts.kind`. מדף משלו = view משלו עם שומר `current_is_<kind>()`, שורה ב-`PROFESSIONAL_SHELVES` ב-`check_shelf_audience.py`,
