@@ -5,10 +5,11 @@ import { mfaGate } from "../_shared/mfa-gate.ts";
 // ============================================================================
 // רכישת ליד "שאלה לעו"ד" — ₪50 מיתרת הארנק.
 //
-// עותק של mortgage-lead-purchase: זו פעולה שמעבירה כסף, ולכן verify_jwt=true
-// והעו"ד הפועל/ת נגזר/ת מה-JWT המאומת בלבד — לעולם לא מה-body. פונקציית
-// ה-DB ‏purchase_lawyer_lead נעולה ל-service_role, כך שאין דרך לעקוף את
-// הנתיב הזה ולחייב חשבון אחר או לקבל את פרטי הפונה בלי לשלם.
+// עותק של mortgage-lead-purchase, על חשבון בעל המקצוע (professional_accounts) ולא על
+// agency_members: לעו"ד אין רישיון תיווך ולכן אין חשבון CRM. זו פעולה שמעבירה כסף, ולכן
+// verify_jwt=true והחשבון הפועל נגזר מה-JWT המאומת בלבד — לעולם לא מה-body. פונקציית
+// ה-DB ‏purchase_lawyer_lead נעולה ל-service_role, כך שאין דרך לעקוף את הנתיב הזה ולחייב
+// חשבון אחר או לקבל את פרטי הפונה בלי לשלם.
 // המחיר מ-pricing_config בתוך הפונקציה, והארנק לפני מע"מ (הסקיל wallet-charges).
 // ============================================================================
 
@@ -57,29 +58,32 @@ Deno.serve(async (req: Request) => {
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
 
-  // שלב 2: מיפוי user_id -> agency_members.id
-  const { data: agentRow, error: agentErr } = await serviceClient
-    .from("agency_members")
-    .select("id, active, is_lawyer")
+  // שלב 2: מיפוי user_id -> professional_accounts.id
+  const { data: account, error: accountErr } = await serviceClient
+    .from("professional_accounts")
+    .select("id, active, kind, shelf_enabled")
     .eq("user_id", userData.user.id)
     .maybeSingle();
 
-  if (agentErr || !agentRow) {
-    return json({ error: "no_matching_agent_profile", detail: "המשתמש מחובר אך אין לו פרופיל משויך" }, 403);
+  if (accountErr || !account) {
+    return json({ error: "no_matching_account", detail: "המשתמש מחובר אך אין לו חשבון בעל מקצוע" }, 403);
   }
-  if (!agentRow.active) {
-    return json({ error: "agent_inactive" }, 403);
+  if (!account.active) {
+    return json({ error: "account_inactive" }, 403);
   }
   // הבדיקה חוזרת גם ב-purchase_lawyer_lead (שם היא הקובעת, בתוך הטרנזקציה).
   // כאן היא רק כדי להחזיר 403 מוקדם בלי לגעת בליד.
-  if (!agentRow.is_lawyer) {
+  if (account.kind !== "real_estate_lawyer") {
     return json({ error: "not_a_lawyer" }, 403);
+  }
+  if (!account.shelf_enabled) {
+    return json({ error: "shelf_not_approved" }, 403);
   }
 
   // שלב 3: הרכישה עצמה — טרנזקציה אחת ב-DB (ניכוי, סימון כנמכר, יומן חיובים)
   const { data: result, error: rpcErr } = await serviceClient.rpc("purchase_lawyer_lead", {
     p_lead_id: lead_id,
-    p_agent_id: agentRow.id,
+    p_account_id: account.id,
   });
 
   if (rpcErr) return json({ error: "db_error", detail: rpcErr.message }, 500);
@@ -88,8 +92,9 @@ Deno.serve(async (req: Request) => {
     lead_not_found: 404,
     lead_not_available: 410,
     lead_already_sold: 409,
-    agent_not_found: 403,
+    account_not_found: 403,
     not_a_lawyer: 403,
+    shelf_not_approved: 403,
     insufficient_balance: 402,
   };
 

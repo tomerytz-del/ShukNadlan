@@ -346,6 +346,40 @@ interface DeveloperRow {
 }
 
 /**
+ * בעל/ת מקצוע פתח/ה חשבון כניסה וארנק (professional-account). ההודעה אומרת מה ממתין:
+ * ‏shelf_enabled נקבע רק על ידי מנהל/ת הפלטפורמה, ועד אז החשבון רואה ארנק וכרטיסייה בלבד.
+ */
+export async function announceProfessionalAccount(
+  supabase: Client,
+  accountId: string,
+): Promise<void> {
+  try {
+    const { data: a, error } = await (supabase
+      .from("professional_accounts")
+      .select("display_name, kind, city_id, card_id")
+      .eq("id", accountId)
+      .maybeSingle() as QueryResult<{ display_name: string; kind: string; city_id: string | null; card_id: string | null } | null>);
+    if (error || !a) {
+      console.error("platform signup alert: professional account lookup failed", error?.message);
+      return;
+    }
+    const field = PROFESSIONAL_TYPE_LABELS[a.kind] || "בעל/ת מקצוע";
+    const needsShelf = a.kind === "real_estate_lawyer";
+    await notifyPlatformAdmins(
+      supabase,
+      `בעל/ת מקצוע פתח/ה חשבון: ${a.display_name}`,
+      joinParts([
+        field,
+        a.city_id ? null : "בלי עיר מוגדרת (target_region לא תאם עיר) - להשלים לפני אישור המדף",
+        needsShelf ? "ממתין/ה לאישור מדף הלידים (shelf_enabled)" : "אין מדף לתחום הזה עדיין",
+      ]),
+    );
+  } catch (err) {
+    console.error("platform signup alert (professional account) failed", err);
+  }
+}
+
+/**
  * חברה יזמית שנפתחה.
  *
  * "המסלול" כאן הוא שאין מסלול: פתיחת החברה חינם, והחיוב הוא לפי פרויקט

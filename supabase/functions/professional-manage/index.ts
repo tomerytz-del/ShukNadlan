@@ -175,9 +175,13 @@ Deno.serve(async (req: Request) => {
         .select("value")
         .eq("key", "professional_card_free_publishing")
         .maybeSingle();
+      // חשבון כניסה וארנק (professional-account): המסך מציע לפתוח אחד רק כשאין
+      const { data: acct } = await supabase
+        .from("professional_accounts").select("id").eq("card_id", access.placement_id).maybeSingle();
       return json({
         success: true,
         card,
+        has_account: !!acct,
         free_publishing: Number(freeCfg?.value) > 0,
         pricing: pricing && !pricing.error ? pricing : null,
         extend_months: EXTEND_MONTHS,

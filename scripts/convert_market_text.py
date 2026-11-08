@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # ‏דפים שאינם מוצגים לגולשים בשוק כלשהו: האזור האישי, כלי פנימי, וקישורים עם
 # טוקן. אין להם לוגו של שוק, והם אינם טוענים את הקבצים.
 SKIP = {
-    "crm.html", "developer-crm.html", "professional-manage.html",
+    "crm.html", "developer-crm.html", "professional-manage.html", "professional-crm.html",
     "neighborhood-boundary.html", "sign.html", "review-request.html",
     "agreement.html", "market-soon.html",
 }

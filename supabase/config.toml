@@ -43,6 +43,9 @@ verify_jwt = false          # הסרה/חזרה לרשימת היריד לפי �
 [functions.professional-manage]
 verify_jwt = false          # עריכת כרטיס בעל מקצוע לפי טוקן שנשלח אליו
 
+[functions.professional-account]
+verify_jwt = false          # פתיחת חשבון כניסה וארנק לבעל מקצוע, לפי טוקן הכרטיסייה שלו
+
 [functions.submit-review]
 verify_jwt = false          # כתיבת ביקורת לפי linked_lead_id, בלי חשבון
 
