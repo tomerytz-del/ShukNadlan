@@ -186,11 +186,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="dialog">
     <h2 id="buyTitle">אישור רכישת שאלה</h2>
     <p id="buyQuestion"></p>
-    <p>מחיר: <span class="price" id="buyPrice"></span> <small>(לפני מע״מ, מהארנק)</small></p>
+    <p>מחיר: <span class="price" id="buyPrice"></span> <small>(לפני מע״מ)</small></p>
+    <p id="buyCardNote" style="font-size:.9rem"></p>
     <p id="buyBalance"></p>
-    <p style="font-size:.85rem;color:var(--ink-soft)">הרכישה חושפת שם, טלפון ואימייל, ומשייכת את הליד אליכם בלבד. הרכישה כפופה לתנאי השימוש והתקנון.</p>
+    <div id="buyInvoice" style="display:grid;gap:8px;margin:10px 0">
+      <label style="font-size:.85rem">שם לחשבונית
+        <input id="buyInvName" type="text" maxlength="100" autocomplete="organization" style="width:100%">
+      </label>
+      <label style="font-size:.85rem">ח.פ / ע.מ (לא חובה)
+        <input id="buyInvTax" type="text" inputmode="numeric" maxlength="20" style="width:100%">
+      </label>
+    </div>
+    <p style="font-size:.85rem;color:var(--ink-soft)">הרכישה חושפת שם, טלפון ואימייל, ומשייכת את הליד אליכם בלבד. הליד נשמר עבורכם 15 דקות מרגע המעבר לתשלום. הרכישה כפופה לתנאי השימוש והתקנון.</p>
     <div class="row" style="margin-top:14px">
-      <button class="btn btn-gold" type="button" id="buyConfirm">אישור ורכישה</button>
+      <button class="btn btn-gold" type="button" id="buyCard">תשלום בכרטיס אשראי</button>
+      <button class="btn btn-ghost" type="button" id="buyConfirm">רכישה מהיתרה</button>
       <button class="btn btn-ghost" type="button" id="buyCancel">ביטול</button>
     </div>
     <div class="msg err" id="buyMsg" role="status" aria-live="polite"></div>

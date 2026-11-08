@@ -7,7 +7,8 @@
    כל ההרשאות במסד, לא כאן:
      • החשבון והלידים שנרכשו נקראים ישירות (RLS לפי user_id / sold_to_professional_id).
      • המדף נקרא מ-lawyer_leads_public, שמחזיר שורות רק לחשבון עו"ד מאושר ובעיר שלו.
-     • הרכישה עוברת ב-Edge Function lawyer-lead-purchase (JWT), שמחייבת את הארנק במסד.
+     • הרכישה: מהארנק ב-lawyer-lead-purchase, או בכרטיס ב-lawyer-lead-checkout (JWT; הליד נשמר 15 דקות,
+       והסגירה רק ב-wallet-topup-callback אחרי אימות מול מורנינג).
    המסך שמסתיר מדף הוא נוחות, לא ההגנה.
    ============================================================================ */
 (function () {
@@ -28,6 +29,7 @@
 
   let account = null;
   let price = 50;
+  let vatRate = 0.18;   // תצוגה בלבד: הסכום שנגבה נקבע במסד (start_lawyer_lead_order)
   let shelf = [];
   const propertyTitles = {};
   let propertyLookupFailed = false;
@@ -133,8 +135,11 @@
   /* ---------- מדף השאלות ---------- */
   async function loadPrice() {
     try {
-      const { data } = await sb.from('pricing_config').select('value').eq('key', 'lawyer_lead_price').maybeSingle();
-      if (data && Number(data.value) >= 0) price = Number(data.value);
+      const { data } = await sb.from('pricing_config').select('key, value').in('key', ['lawyer_lead_price', 'vat_rate']);
+      (data || []).forEach((r) => {
+        if (r.key === 'lawyer_lead_price' && Number(r.value) >= 0) price = Number(r.value);
+        if (r.key === 'vat_rate' && Number(r.value) >= 0) vatRate = Number(r.value);
+      });
     } catch (e) { /* ברירת המחדל */ }
     el('shelfPrice').textContent = nis(price);
   }
@@ -177,7 +182,9 @@
       <div class="lead">
         <div class="q">${escapeHtml(l.question_text)}</div>
         <div class="meta">${escapeHtml(sourceText(l))} · ${escapeHtml(hebDate(l.created_at))} · ${l.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון'} · טלפון מאומת בוואטסאפ</div>
-        <div class="acts"><button class="btn btn-gold" type="button" data-buy="${escapeHtml(l.id)}">רכישה · ${escapeHtml(nis(price))}</button></div>
+        <div class="acts">${l.reserved_by_other
+          ? '<button class="btn btn-ghost" type="button" disabled title="עו״ד אחר/ת בתהליך רכישה. נסו שוב בעוד כמה דקות">בטיפול</button>'
+          : `<button class="btn btn-gold" type="button" data-buy="${escapeHtml(l.id)}">רכישה · ${escapeHtml(nis(price))}</button>`}</div>
       </div>`).join('');
   }
 
@@ -216,15 +223,109 @@
     el('buyQuestion').textContent = lead.question_text;
     el('buyPrice').textContent = nis(price);
     const enough = Number(account.credit_balance) >= price;
+    const gross = Math.round(price * (1 + vatRate) * 100) / 100;
+    el('buyCardNote').textContent = 'בכרטיס אשראי: ' + nis(gross) + ' כולל מע״מ. הרכישה חד-פעמית, בלי הוראת קבע.';
     el('buyBalance').textContent = enough
-      ? 'יתרה אחרי הרכישה: ' + nis(Number(account.credit_balance) - price)
-      : 'היתרה (' + nis(account.credit_balance) + ') אינה מספיקה. לטעינה כתבו לנו.';
-    el('buyConfirm').disabled = !enough;
+      ? 'או מהיתרה (לפני מע״מ). יתרה אחרי הרכישה: ' + nis(Number(account.credit_balance) - price)
+      : '';
+    show('buyConfirm', enough);
+    el('buyInvName').value = el('buyInvName').value || account.display_name || '';
+    el('buyCard').disabled = false;
+    el('buyCard').textContent = 'תשלום בכרטיס אשראי';
     setMsg('buyMsg', '');
     show('buyOverlay', true);
   });
 
   el('buyCancel').addEventListener('click', () => { pendingBuy = null; show('buyOverlay', false); });
+
+  const BUY_ERRORS = {
+    lead_already_sold: 'הליד כבר נמכר לעו״ד אחר/ת',
+    lead_not_available: 'הליד כבר אינו זמין',
+    lead_not_found: 'הליד לא נמצא',
+    lead_reserved: 'עו״ד אחר/ת בתהליך רכישה של הליד הזה. נסו שוב בעוד כמה דקות.',
+    already_purchased: 'הליד כבר שלכם, והוא מופיע למטה תחת "הלידים שרכשתי"',
+    too_many_open_orders: 'יש לכם כבר שלוש רכישות פתוחות. השלימו אותן או המתינו 15 דקות.',
+    not_a_lawyer: 'המדף הזה מיועד לעורכי דין בלבד',
+    shelf_not_approved: 'הגישה למדף עדיין לא אושרה על ידי הנהלת האתר',
+    account_inactive: 'החשבון אינו פעיל',
+    payment_unavailable: 'התשלום בכרטיס אינו זמין כרגע. נסו שוב מאוחר יותר.',
+    payment_provider_error: 'לא הצלחנו לפתוח את דף התשלום. נסו שוב בעוד רגע.',
+    payment_terminal_missing: 'התשלום בכרטיס אינו זמין כרגע. נסו שוב מאוחר יותר.',
+  };
+
+  // תשלום בכרטיס: ההזמנה נפתחת בשרת (הסכום נקבע שם), והליד נשמר לכם 15 דקות. הסגירה אחרי התשלום
+  // נעשית רק בשרת, אחרי אימות מול חברת הסליקה: החזרה לכאן אינה "הוכחת תשלום"
+  el('buyCard').addEventListener('click', async () => {
+    if (!pendingBuy) return;
+    const btn = el('buyCard');
+    btn.disabled = true; btn.textContent = 'פותח דף תשלום…'; setMsg('buyMsg', '');
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(SUPABASE_URL + '/functions/v1/lawyer-lead-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({
+          action: 'start',
+          lead_id: pendingBuy.id,
+          client_name: el('buyInvName').value.trim(),
+          client_tax_id: el('buyInvTax').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error || !data.redirect_url) {
+        setMsg('buyMsg', BUY_ERRORS[data.error] || ('שגיאה: ' + errText(data.error)), 'err');
+        btn.disabled = false; btn.textContent = 'תשלום בכרטיס אשראי';
+        if (data.error === 'lead_already_sold' || data.error === 'lead_not_available' || data.error === 'lead_reserved') await refresh();
+        return;
+      }
+      location.href = data.redirect_url;
+    } catch (err) {
+      setMsg('buyMsg', 'שגיאת רשת - נסו שוב', 'err');
+      btn.disabled = false; btn.textContent = 'תשלום בכרטיס אשראי';
+    }
+  });
+
+  // חזרה מדף התשלום (?lead_payment=...&order_id=...): שואלים את השרת, וה-webhook סוגר ברקע, ולכן כמה ניסיונות
+  async function handlePaymentReturn() {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return; }
+    const result = q.get('lead_payment');
+    const orderId = q.get('order_id');
+    if (!result || !orderId) return;
+    history.replaceState(null, '', location.pathname);
+    if (result === 'failure') {
+      setMsg('appMsg', 'התשלום לא הושלם ולא בוצע חיוב. אפשר לנסות שוב (הליד נשמר לכם עד 15 דקות מפתיחת התשלום).', 'err');
+      return;
+    }
+    setMsg('appMsg', 'מאמתים את התשלום…', 'ok');
+    for (let i = 0; i < 10; i++) {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(SUPABASE_URL + '/functions/v1/lawyer-lead-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({ action: 'status', order_id: orderId }),
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          setMsg('appMsg', 'התשלום התקבל. פרטי הקשר של הפונה מופיעים למטה תחת "הלידים שרכשתי".', 'ok');
+          await refresh();
+          return;
+        }
+        if (data.status === 'refund_needed') {
+          setMsg('appMsg', 'התשלום התקבל, אבל הליד כבר אינו זמין (נמכר בינתיים). נחזיר לכם את התשלום במלואו, ונעדכן.', 'err');
+          return;
+        }
+        if (data.status === 'failed') {
+          setMsg('appMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err');
+          await refresh();
+          return;
+        }
+      } catch (e) { /* ניסיון נוסף */ }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    setMsg('appMsg', 'עדיין מאמתים את התשלום. הליד יופיע תחת "הלידים שרכשתי" ברגע שיאושר, ואין צורך לשלם שוב.', 'ok');
+  }
 
   el('buyConfirm').addEventListener('click', async () => {
     if (!pendingBuy) return;
@@ -239,19 +340,13 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        const messages = {
-          insufficient_balance: 'היתרה אינה מספיקה. נדרש ' + nis(data.required) + '. לטעינה כתבו לנו.',
-          lead_already_sold: 'הליד כבר נמכר לעו״ד אחר/ת',
-          lead_not_available: 'הליד כבר אינו זמין',
-          lead_not_found: 'הליד לא נמצא',
-          not_a_lawyer: 'המדף הזה מיועד לעורכי דין בלבד',
-          shelf_not_approved: 'הגישה למדף עדיין לא אושרה על ידי הנהלת האתר',
-          account_inactive: 'החשבון אינו פעיל',
-        };
+        const messages = Object.assign({
+          insufficient_balance: 'היתרה אינה מספיקה. נדרש ' + nis(data.required) + '. אפשר לשלם בכרטיס אשראי.',
+        }, BUY_ERRORS);
         setMsg('buyMsg', messages[data.error] || ('שגיאה: ' + errText(data.error)), 'err');
-        btn.textContent = 'אישור ורכישה';
+        btn.textContent = 'רכישה מהיתרה';
         btn.disabled = false;
-        if (data.error === 'lead_already_sold' || data.error === 'lead_not_available') await refresh();
+        if (data.error === 'lead_already_sold' || data.error === 'lead_not_available' || data.error === 'lead_reserved') await refresh();
         return;
       }
       show('buyOverlay', false);
@@ -264,7 +359,7 @@
       setMsg('buyMsg', 'שגיאת רשת - נסו שוב', 'err');
       btn.disabled = false;
     } finally {
-      btn.textContent = 'אישור ורכישה';
+      btn.textContent = 'רכישה מהיתרה';
     }
   });
 
@@ -308,6 +403,7 @@
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);
     await renderAll();
+    await handlePaymentReturn();
   }
 
   if (sb) {

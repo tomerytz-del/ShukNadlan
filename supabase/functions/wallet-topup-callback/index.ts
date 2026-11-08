@@ -9,7 +9,10 @@ import {
   secretsMatch,
   verifyPaymentByReference,
 } from "../_shared/morning.ts";
-import { announceProfessionalPaid } from "../_shared/platform-signup-alert.ts";
+import {
+  announceLawyerLeadRefundNeeded,
+  announceProfessionalPaid,
+} from "../_shared/platform-signup-alert.ts";
 
 // ============================================================================
 // טעינת ארנק — סגירת התשלום
@@ -71,8 +74,8 @@ const EXPIRE_MINUTES = 180;
 // שני היה סוד נוסף לנהל, לסובב ולשכוח. ההפרדה נעשית לפי המזהה שחוזר —
 // ‏UUID של שורה, שממילא ייחודי בין הטבלאות.
 // ---------------------------------------------------------------------------
-type OrderKind = "topup" | "subscription" | "ad" | "developer_topup" | "course";
-const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup", "course"];
+type OrderKind = "topup" | "subscription" | "ad" | "developer_topup" | "course" | "lawyer_lead";
+const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup", "course", "lawyer_lead"];
 
 const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; idParam: string }> = {
   topup: {
@@ -109,6 +112,14 @@ const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; 
     table: "course_orders",
     complete: "complete_course_order",
     fail: "fail_course_order",
+    idParam: "p_order_id",
+  },
+  // ליד "שאלה לעו"ד" בחיוב ישיר (docs/lawyer-leads.md). הסחורה יחידה, ולכן complete_lawyer_lead_order
+  // יכולה להחזיר refund_needed: שולם, והליד כבר נמכר לאחר/ת.
+  lawyer_lead: {
+    table: "lawyer_lead_orders",
+    complete: "complete_lawyer_lead_order",
+    fail: "fail_lawyer_lead_order",
     idParam: "p_order_id",
   },
 };
@@ -150,6 +161,14 @@ async function settleOrder(
   if (error) {
     console.error(`wallet-topup-callback: complete failed (${kind})`, order.id, error.message);
     return "pending";
+  }
+  // כסף שנגבה ואין מה למסור תמורתו. ההזמנה כבר refund_needed במסד (אין סבב נוסף עליה),
+  // וההתראה למנהל/ת היא הדרך היחידה שבה מישהו יידע להחזיר. כפילות אינה אפשרית: מכאן ואילך
+  // settleOrder יוצאת למעלה על הזמנה שאינה pending.
+  if (result?.error === "refund_needed") {
+    console.error(`wallet-topup-callback: refund needed (${kind})`, order.id, result.reason);
+    if (kind === "lawyer_lead") await announceLawyerLeadRefundNeeded(supabase, order.id);
+    return "failed";
   }
   if (result?.error) {
     console.error(`wallet-topup-callback: complete rejected (${kind})`, order.id, JSON.stringify(result));

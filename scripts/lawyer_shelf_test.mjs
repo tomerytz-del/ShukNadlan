@@ -123,3 +123,96 @@ test('מדף עורכי הדין אינו יושב ב-CRM של הסוכנים', 
   assert.equal(/lawyer/i.test(read('assets/crm.js').replace(/real_estate_lawyer:'עו״ד מקרקעין'/, '')), false);
   assert.equal(/lawyer/i.test(read('crm.html')), false);
 });
+
+/* ---------- חיוב ישיר בכרטיס (lawyer_lead_orders) ---------- */
+const orderMig = migrations.find((m) => m.f.endsWith('_lawyer_lead_card_orders.sql'));
+const checkoutFn = read('supabase/functions/lawyer-lead-checkout/index.ts');
+const callbackFn = read('supabase/functions/wallet-topup-callback/index.ts');
+
+test('הזמנות הכרטיס: הטבלה סגורה לכתיבה, והפונקציות service_role בלבד', () => {
+  assert.ok(orderMig, 'אין מיגרציית lawyer_lead_card_orders');
+  const t = orderMig.text;
+  assert.match(t, /revoke all on table public\.lawyer_lead_orders from public, anon, authenticated;\s*grant select on table public\.lawyer_lead_orders to authenticated;/);
+  const policies = [...t.matchAll(/create policy "([^"]+)"\s+on public\.lawyer_lead_orders for (\w+)/g)];
+  assert.ok(policies.length >= 1);
+  for (const [, name, verb] of policies) assert.equal(verb, 'select', `policy "${name}" אינה קריאה בלבד`);
+  for (const sig of [
+    'start_lawyer_lead_order\\(uuid, uuid\\)',
+    'complete_lawyer_lead_order\\(uuid, numeric, text, text, text\\)',
+    'fail_lawyer_lead_order\\(uuid, text\\)',
+    'purchase_lawyer_lead\\(uuid, uuid\\)',
+  ]) {
+    assert.match(t.replace(/\s+/g, ' '), new RegExp(`revoke all on function public\\.${sig} from public, anon, authenticated; grant execute on function public\\.${sig} to service_role;`), sig);
+  }
+  // רשומת החיוב שורדת מחיקת ליד וחשבון
+  assert.match(t, /lead_id\s+uuid references public\.lawyer_leads\(id\) on delete set null/);
+  assert.match(t, /professional_id\s+uuid references public\.professional_accounts\(id\) on delete set null/);
+});
+
+test('הליד שמור לאחר/ת: start, הארנק וה-view מכבדים את השמירה', () => {
+  const t = orderMig.text;
+  // start ו-purchase דוחות ליד שמור לאחר/ת
+  assert.equal((t.match(/'error', 'lead_reserved'/g) || []).length, 2, 'start_lawyer_lead_order ו-purchase_lawyer_lead חייבות לדחות ליד שמור');
+  // חסם על שמירות פתוחות
+  assert.match(t, /v_open >= 3/);
+  // ה-view: העמודה בסוף, והשומרים נשארים (check_shelf_audience בודק את האחרונה)
+  assert.match(t, /create or replace view public\.lawyer_leads_public as[\s\S]*reserved_by_other[\s\S]*current_is_lawyer\(\)[\s\S]*current_professional_works_city/);
+  assert.match(t, /where l\.status = 'new'/);
+});
+
+test('complete_lawyer_lead_order: משווה סכום, ושולם-בלי-ליד הוא refund_needed ולא מכירה כפולה', () => {
+  const body = orderMig.text.split('create or replace function public.complete_lawyer_lead_order')[1].split('create or replace function public.fail_lawyer_lead_order')[0];
+  assert.match(body, /p_verified_amount <> v_order\.amount/);
+  assert.match(body, /for update/);
+  for (const reason of ['lead_sold_to_other', 'already_owned', 'lead_reserved_by_other', 'lead_not_available', 'lead_deleted', 'account_deleted']) {
+    assert.ok(body.includes(`'${reason}'`), `חסרה סיבה ${reason}`);
+  }
+  assert.match(body, /status = 'refund_needed'/);
+  // בשורת הרכישה נרשם המחיר הנקוב ולא הסכום כולל מע"מ, כמו ברכישה מהארנק
+  assert.match(body, /v_order\.amount_before_vat, 'success', 'card', p_order_id/);
+  // הארנק אינו נוגע: זה חיוב בכרטיס
+  assert.equal(/credit_balance/.test(body), false);
+});
+
+test('lawyer-lead-checkout: JWT ו-MFA, החשבון מה-JWT, הסכום מהמסד, פרטי פונה רק אחרי success', () => {
+  assert.match(config, /\[functions\.lawyer-lead-checkout\]\s*\nverify_jwt = true/);
+  assert.match(checkoutFn, /auth\.getUser\(\)/);
+  assert.match(checkoutFn, /mfaGate\(authHeader\)/);
+  assert.match(checkoutFn, /\.eq\("user_id", userData\.user\.id\)/);
+  // הסכום נקבע ב-start_lawyer_lead_order. אין קריאה של amount/price מה-body
+  assert.equal(/body\??\.(amount|price)/.test(checkoutFn), false);
+  assert.match(checkoutFn, /amount: Number\(started\.amount\)/);
+  // כתובות ההחזרה נושאות order_id בלבד, בלי אסימון
+  assert.match(checkoutFn, /lead_payment=success&order_id=\$\{orderId\}/);
+  assert.equal(/successUrl:[^\n]*token/i.test(checkoutFn), false);
+  // הזמנה של אחר/ת נראית כלא קיימת, והפרטים רק ממצב success
+  assert.match(checkoutFn, /order\.professional_id !== account\.id/);
+  assert.match(checkoutFn, /if \(order\.status !== "success"\)/);
+  // כישלון בפתיחת הטופס משחרר את הליד
+  assert.match(checkoutFn, /fail_lawyer_lead_order/);
+  // הפונקציה אינה סוגרת תשלום בעצמה
+  assert.equal(/complete_lawyer_lead_order/.test(checkoutFn), false);
+});
+
+test('ה-cron של ה-reconcile מכיר את lawyer_lead_orders (אחרת תשלום שאבד לא יתיישב)', () => {
+  // ההגדרה האחרונה של wallet-topup-reconcile היא הקובעת
+  let last = null;
+  for (const m of migrations) if (m.text.includes("cron.schedule('wallet-topup-reconcile'")) last = m;
+  assert.ok(last, 'אין תזמון reconcile');
+  assert.match(last.text, /exists \(select 1 from public\.lawyer_lead_orders\s+where status = 'pending'\)/, `${last.f} אינה סורקת lawyer_lead_orders`);
+});
+
+test('wallet-topup-callback: lawyer_lead הוא סוג, ו-refund_needed מתריע למנהל/ת', () => {
+  assert.match(callbackFn, /lawyer_lead: \{\s*table: "lawyer_lead_orders",\s*complete: "complete_lawyer_lead_order",\s*fail: "fail_lawyer_lead_order"/);
+  assert.match(callbackFn, /ALL_KINDS: OrderKind\[\] = \[[^\]]*"lawyer_lead"/);
+  assert.match(callbackFn, /result\?\.error === "refund_needed"[\s\S]*announceLawyerLeadRefundNeeded/);
+});
+
+test('הדף: תשלום בכרטיס דרך lawyer-lead-checkout, ליד שמור לאחר/ת מסומן "בטיפול", וחזרה מהתשלום נשאלת בשרת', () => {
+  assert.match(crmJs, /functions\/v1\/lawyer-lead-checkout/);
+  assert.match(crmJs, /reserved_by_other/);
+  assert.match(crmJs, /action: 'status', order_id: orderId/);
+  assert.match(crmHtml, /id="buyCard"/);
+  // אין "התשלום הצליח" לפי כתובת החזרה: ההצלחה נקבעת רק מתשובת השרת
+  assert.match(crmJs, /data\.status === 'success'/);
+});

@@ -471,3 +471,52 @@ export async function announceProfessionalPaid(
     console.error("platform paid alert failed", err);
   }
 }
+
+/**
+ * עו"ד שילם/ה בכרטיס על ליד שכבר אינו זמין (נמכר לאחר/ת בחלון שבין פקיעת השמירה לתשלום).
+ * הכסף נגבה ואין מה למסור, ולכן זו ההתראה היחידה שגורמת להחזר: ההזמנה כבר `refund_needed`
+ * במסד ו-reconcile לא סורק אותה שוב. ההודעה נושאת סכום, עו"ד וסיבה בלבד, בלי פרטי הפונה.
+ */
+export async function announceLawyerLeadRefundNeeded(
+  supabase: Client,
+  orderId: string,
+): Promise<void> {
+  try {
+    const { data: o, error } = await (supabase
+      .from("lawyer_lead_orders")
+      .select("amount, failure_reason, provider_document_id, professional_accounts(display_name)")
+      .eq("id", orderId)
+      .maybeSingle() as QueryResult<{
+        amount: number | null;
+        failure_reason: string | null;
+        provider_document_id: string | null;
+        professional_accounts: { display_name: string | null } | { display_name: string | null }[] | null;
+      } | null>);
+
+    if (error || !o) {
+      console.error("lawyer lead refund alert: order lookup failed", error?.message);
+      return;
+    }
+    const acct = Array.isArray(o.professional_accounts) ? (o.professional_accounts[0] ?? null) : o.professional_accounts;
+    const reasons: Record<string, string> = {
+      lead_sold_to_other: "הליד נמכר לעו\"ד אחר/ת",
+      already_owned: "הליד כבר נרכש על ידי אותו/ה עו\"ד",
+      lead_reserved_by_other: "הליד נשמר בינתיים לעו\"ד אחר/ת",
+      lead_not_available: "הליד כבר אינו זמין",
+      lead_deleted: "הליד נמחק",
+      account_deleted: "החשבון נמחק",
+    };
+    const title = `נדרש החזר: ליד עו"ד ששולם ואינו זמין`;
+    const body = joinParts([
+      acct?.display_name ? `עו"ד: ${acct.display_name}` : null,
+      o.amount ? `שולם ₪${Math.round(Number(o.amount))} כולל מע"מ` : null,
+      reasons[o.failure_reason || ""] || o.failure_reason,
+      o.provider_document_id ? `מסמך במורנינג: ${o.provider_document_id}` : null,
+      "להחזיר במורנינג ואז לסמן את ההזמנה refunded",
+    ]);
+
+    await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);
+  } catch (err) {
+    console.error("lawyer lead refund alert failed", err);
+  }
+}
