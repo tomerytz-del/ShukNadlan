@@ -105,4 +105,4 @@ supabase מדומה (‏`addInitScript` שמגדיר `window.supabase.createClie
 | `/course` ציבורי | `sitemap.xml`, ‏canonical בדף |
 | `course_catalog` פתוח ל-anon | `PUBLIC_RPC` ב-`ops_agent/config.py` |
 | קודי שגיאה חדשים | `RULES` ב-`assets/friendly-error.js` |
-| "מבחן המתווכים", "דיני מתווכים" | `ALLOWED` ב-`check_yoetz_copy.py` |
+| "מתווך" בכל הקורס (המונח של החוק והבחינה, תומר 8.11.2026) | `SKIP` ב-`check_yoetz_copy.py`, ‏`docs/yoetz-copy.md` |
