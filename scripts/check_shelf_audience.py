@@ -36,6 +36,8 @@ MIGRATIONS = ROOT / "supabase" / "migrations"
 PROFESSIONAL_SHELVES = {
     # יועצי משכנתאות (agency_members.is_mortgage_advisor)
     "mortgage_leads_public": r"\bcurrent_is_mortgage_advisor\s*\(",
+    # עורכי דין (agency_members.is_lawyer), ובנוסף רק בעיר שהם עובדים בה
+    "lawyer_leads_public": r"\bcurrent_is_lawyer\s*\(",
     # יזמים רשומים ופעילים (developers)
     "project_leads_shelf": r"\bfrom\s+public\.developers\b",
 }
