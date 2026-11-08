@@ -57,7 +57,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # אופציונלי — מוגדרים כ-Repository Variables, לא כסודות
-          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          # משתנה משלו ולא CLAUDE_MODEL של מנוע הלידים: המבזקים על Haiku 5.5
+          # (‏news_engine/config.py), והלידים נשארים במודל שלהם.
+          NEWS_CLAUDE_MODEL: ${{ vars.NEWS_CLAUDE_MODEL }}
           NEWS_FEED_URLS: ${{ vars.NEWS_FEED_URLS }}
           MAX_NEW_NEWS_PER_RUN: ${{ vars.MAX_NEW_NEWS_PER_RUN }}
           MIN_NEWS_SCORE_TO_PUBLISH: ${{ vars.MIN_NEWS_SCORE_TO_PUBLISH }}

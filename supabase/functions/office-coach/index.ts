@@ -54,9 +54,14 @@ const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 
 // המודל כסוד עם ברירת מחדל, כמו בשאר הפונקציות שקוראות ל-Claude: שינוי
 // מודל הוא החלטת איכות ועלות, ולא אמור לקרות בשקט בפריסה. מאמן הסוכן/ת
-// רץ על כל סוכן/ת כל יום, ולכן ברירת המחדל שלו מודל קטן יותר.
+// רץ על כל סוכן/ת כל יום, ולכן ברירת המחדל שלו מודל קטן יותר: Haiku 5.5 מאז
+// 8.11.2026 (פי 20 זול מ-Sonnet 5.5, ‏docs/coaches.md "המודל"). חזרה: הסוד
+// AGENT_COACH_MODEL=claude-sonnet-5-5, בלי פריסה.
 const OFFICE_MODEL = Deno.env.get("OFFICE_COACH_MODEL") || "claude-opus-5-5";
-const AGENT_MODEL = Deno.env.get("AGENT_COACH_MODEL") || "claude-sonnet-5-5";
+const AGENT_MODEL = Deno.env.get("AGENT_COACH_MODEL") || "claude-haiku-5-5";
+// ל-Haiku 5.5 אין גיבוי בשרת (‏fallbacks לא חל עליו), ולכן סירוב שלו נשלח פעם
+// אחת למודל הזה מהקוד.
+const AGENT_REFUSAL_FALLBACK = "claude-sonnet-5-5";
 const AGENT_ENABLED = Deno.env.get("AGENT_COACH_ENABLED") === "1";
 
 // ‏Edge Function נעצרת אחרי 150 שניות. מה שלא הספקנו נלקח בהרצה הבאה
@@ -92,16 +97,18 @@ type CoachOut =
 async function coach(
   kind: SummaryKind, payload: unknown, refs: RefMap,
   system = kind === "platform" ? PLATFORM_SYSTEM_PROMPT : SYSTEM_PROMPTS[kind],
+  modelOverride?: string,
 ): Promise<CoachOut> {
-  const model = kind === "agent" ? AGENT_MODEL : OFFICE_MODEL;
+  const model = modelOverride ?? (kind === "agent" ? AGENT_MODEL : OFFICE_MODEL);
+  const haiku = model.startsWith("claude-haiku");
   let response: Anthropic.Beta.Messages.BetaMessage;
   try {
     response = await anthropic.beta.messages.create({
       model,
       // מודל שסירב (סיווג בטיחות שגוי על נתוני מכירות) מועבר בשרת למודל גיבוי
-      // באותה קריאה, במקום שהקורא/ת יישאר/תישאר בלי סיכום.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      // באותה קריאה, במקום שהקורא/ת יישאר/תישאר בלי סיכום. ל-Haiku אין גיבוי
+      // כזה - שם הסירוב חוזר למטה, ל-AGENT_REFUSAL_FALLBACK.
+      ...(haiku ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" }),
       // ‏max_tokens כולל גם את החשיבה הנסתרת. תקרה נמוכה מחזירה תשובה ריקה
       // (ראו generateMarketingCopy, 1.10.2026), ולכן יש מקום.
       max_tokens: 8000,
@@ -115,7 +122,11 @@ async function coach(
     return { ok: false, reason: "network" };
   }
 
-  // ‏refusal אחרי הגיבוי: כל השרשרת סירבה. מדלגים, וזה מופיע ביומן.
+  // ‏refusal אחרי הגיבוי: כל השרשרת סירבה. מדלגים, וזה מופיע ביומן. ‏Haiku
+  // שסירב מקבל ניסיון אחד ב-AGENT_REFUSAL_FALLBACK.
+  if (response.stop_reason === "refusal" && haiku && kind === "agent") {
+    return coach(kind, payload, refs, system, AGENT_REFUSAL_FALLBACK);
+  }
   if (response.stop_reason === "refusal") return { ok: false, reason: "refusal" };
   if (response.stop_reason === "max_tokens") return { ok: false, reason: "max_tokens" };
 

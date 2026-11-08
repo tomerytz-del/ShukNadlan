@@ -46,7 +46,9 @@ class Settings:
     # ונופל לניסוח היוריסטי (כותרת הפיד, מנוקה ומקוצרת). זה מכוון — מבזק
     # הוא תוכן ציבורי שכבר נוסח על ידי עיתונאי/ת, ולא ליד שצריך לסווג.
     anthropic_api_key: str = ""
-    model: str = "claude-sonnet-5"
+    # ‏Haiku 5.5 מאז 8.11.2026: ניסוח מבזק וציון רלוונטיות הם סיווג וחילוץ, וזה
+    # המודל לזה - פי 20 זול מ-Sonnet. ‏NEWS_CLAUDE_MODEL מחזיר מודל אחר בלי קוד.
+    model: str = "claude-haiku-5-5"
     # התקרה הזו הייתה 1500, והיא הפילה הרצה שלמה ב-18.9.2026.
     #
     # ‏claude-sonnet-5 מריץ חשיבה מורחבת (adaptive) כברירת מחדל — גם בלי
@@ -90,7 +92,7 @@ def load_settings() -> Settings:
         supabase_url=_required("SUPABASE_URL"),
         supabase_service_role_key=_required("SUPABASE_SERVICE_ROLE_KEY"),
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
-        model=os.environ.get("CLAUDE_MODEL", "").strip() or "claude-sonnet-5",
+        model=os.environ.get("NEWS_CLAUDE_MODEL", "").strip() or "claude-haiku-5-5",
         max_tokens=_int("NEWS_MAX_TOKENS", 6000),
         items_table=os.environ.get("NEWS_ITEMS_TABLE", "").strip() or "news_items",
         sources_table=os.environ.get("NEWS_SOURCES_TABLE", "").strip() or "news_sources",
