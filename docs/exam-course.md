@@ -299,6 +299,6 @@ python3 scripts/course_content_sql.py --check
 python3 scripts/check_pricing.py          # 199 ו-6 ב-course.html וב-assets/learn.js מול pricing_config
 python3 scripts/check_canonical.py        # /course ב-sitemap, /learn פרטי
 python3 scripts/check_events.py           # learn אינו טוען events.js
-python3 scripts/check_yoetz_copy.py       # "מבחן המתווכים" ו"דיני מתווכים" מותרים
+python3 scripts/check_yoetz_copy.py       # דפי הקורס פטורים: "מתווך" הוא המונח של הבחינה (8.11.2026)
 python3 scripts/check_edge_types.py course-purchase
 ```
