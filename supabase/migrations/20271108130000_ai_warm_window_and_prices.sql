@@ -14,7 +14,9 @@
 -- 3. ‏Gemini: עד היום "בלי מחיר". המחירים מאתרי השוואה ולא מדף התמחור של
 --    Google (חסום בסשן שכתב את זה), ולכן הם הערכה: flash-lite ‏$0.30 / $2.50,
 --    והדמיה ‏$0.50 לקלט ו-$60 למיליון טוקני פלט - הפלט הוא בעיקר טוקני
---    התמונה (‏~$0.067 לתמונה ב-1024px). שינוי מחיר = שורת update כאן.
+--    התמונה (‏~$0.067 לתמונה ב-1024px). ‏geminiRow סופר גם טוקני חשיבה וטקסט
+--    בפלט, והם מתומחרים כאן במחיר התמונה - ולכן ההדמיה היא הערכה מלמעלה (כ-15%
+--    לפי היומן, יותר כש-GEMINI_IMAGE_THINKING מוגדר). שינוי מחיר = שורת update.
 -- ============================================================================
 
 create or replace function public.ai_cache_warm_targets()
@@ -36,6 +38,9 @@ $$;
 
 revoke all on function public.ai_cache_warm_targets() from public, anon, authenticated;
 grant execute on function public.ai_cache_warm_targets() to service_role;
+
+comment on function public.ai_cache_warm_targets() is
+  'הבוטים שהמטמון שלהם עומד לפוג בשעות היום, ורק עד 3 שעות אחרי קריאה אמיתית (לא חימום) - התנאי של ה-cron ai-cache-warm. docs/platform-costs.md';
 
 insert into public.ai_model_prices
   (model, input_usd_mtok, output_usd_mtok, cache_read_usd_mtok, cache_write_usd_mtok, cache_write_1h_usd_mtok, unit_usd, unit_label) values

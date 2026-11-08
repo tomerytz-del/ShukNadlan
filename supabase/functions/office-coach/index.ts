@@ -60,8 +60,8 @@ const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
 const OFFICE_MODEL = Deno.env.get("OFFICE_COACH_MODEL") || "claude-opus-5-5";
 const AGENT_MODEL = Deno.env.get("AGENT_COACH_MODEL") || "claude-haiku-5-5";
 // ל-Haiku 5.5 אין גיבוי בשרת (‏fallbacks לא חל עליו), ולכן סירוב שלו נשלח פעם
-// אחת למודל הזה מהקוד.
-const AGENT_REFUSAL_FALLBACK = "claude-sonnet-5-5";
+// אחת למודל הזה מהקוד. גם הוא בסוד, כמו שאר המודלים כאן.
+const AGENT_REFUSAL_FALLBACK = Deno.env.get("AGENT_COACH_FALLBACK_MODEL") || "claude-sonnet-5-5";
 const AGENT_ENABLED = Deno.env.get("AGENT_COACH_ENABLED") === "1";
 
 // ‏Edge Function נעצרת אחרי 150 שניות. מה שלא הספקנו נלקח בהרצה הבאה
@@ -125,7 +125,19 @@ async function coach(
   // ‏refusal אחרי הגיבוי: כל השרשרת סירבה. מדלגים, וזה מופיע ביומן. ‏Haiku
   // שסירב מקבל ניסיון אחד ב-AGENT_REFUSAL_FALLBACK.
   if (response.stop_reason === "refusal" && haiku && kind === "agent") {
-    return coach(kind, payload, refs, system, AGENT_REFUSAL_FALLBACK);
+    // הסירוב כבר עלה טוקנים, והם נוספים לשורה שנשמרת - אחרת ההערכה בפאנל
+    // "עלויות" מחמיצה בדיוק את הסיכומים ששולמו פעמיים.
+    const retry = await coach(kind, payload, refs, system, AGENT_REFUSAL_FALLBACK);
+    if (!retry.ok) return retry;
+    const u = response.usage;
+    return {
+      ...retry,
+      input_tokens: retry.input_tokens + u.input_tokens + (u.cache_read_input_tokens ?? 0) +
+        (u.cache_creation_input_tokens ?? 0),
+      output_tokens: retry.output_tokens + u.output_tokens,
+      cache_read_tokens: retry.cache_read_tokens + (u.cache_read_input_tokens ?? 0),
+      cache_write_tokens: retry.cache_write_tokens + (u.cache_creation_input_tokens ?? 0),
+    };
   }
   if (response.stop_reason === "refusal") return { ok: false, reason: "refusal" };
   if (response.stop_reason === "max_tokens") return { ok: false, reason: "max_tokens" };
