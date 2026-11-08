@@ -92,6 +92,7 @@ Deno.serve(async (req: Request) => {
     lead_not_found: 404,
     lead_not_available: 410,
     lead_already_sold: 409,
+    lead_reserved: 409,
     account_not_found: 403,
     not_a_lawyer: 403,
     shelf_not_approved: 403,
