@@ -751,7 +751,7 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
-deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
+deno test --allow-read --allow-env supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/sender_context_test.ts
 node --experimental-strip-types scripts/gabriela_reply_style_test.ts
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html

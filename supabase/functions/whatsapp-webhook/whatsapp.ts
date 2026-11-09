@@ -69,10 +69,26 @@ function senderId(): string {
   return senderStore?.getStore() || PHONE_NUMBER_ID;
 }
 
+/** לבדיקה בלבד (sender_context_test.ts): מה senderId מחזיר כרגע. */
+export function _senderIdForTests(): string {
+  return senderId();
+}
+
 /** האם ההודעה הגיעה למספר הציבורי של גבריאלה. ‏false כשאין מספר ציבורי מוגדר. */
 export function isPublicNumber(phoneNumberId: unknown): boolean {
   const id = String(phoneNumberId || "").trim();
   return !!PUBLIC_PHONE_NUMBER_ID && id === PUBLIC_PHONE_NUMBER_ID;
+}
+
+/** האם מוגדר מספר ציבורי נפרד (הסוד קיים), בלי קשר להודעה הנוכחית. */
+export function publicNumberConfigured(): boolean {
+  return !!PUBLIC_PHONE_NUMBER_ID;
+}
+
+if (PUBLIC_PHONE_NUMBER_ID && !senderStore) {
+  // המצב הגרוע: הניתוב ישלח גולשים לבוט הציבורי, והתשובה תצא מהמספר של
+  // הסוכנים. שורה שנייה, מפורשת, כדי שזה ייראה ביומן ליד השגיאה למעלה.
+  console.error("WHATSAPP_PUBLIC_PHONE_NUMBER_ID is set but AsyncLocalStorage is unavailable: replies to the public number will leave from the agents' number");
 }
 
 // מגבלת גוף הודעת טקסט ב-Cloud API. גזירה עדיפה על 400 מ-Meta ואפס תשובה לסוכן/ת.

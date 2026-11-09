@@ -6,6 +6,7 @@ import {
   formatForWhatsapp,
   isPublicNumber,
   markReadAndTyping,
+  publicNumberConfigured,
   sendButtons,
   sendContactCard,
   sendCtaUrl,
@@ -1621,10 +1622,17 @@ const ASSISTANT_PHONE = (Deno.env.get("WHATSAPP_DISPLAY_NUMBER") || "97253249474
   .replace(/\D/g, "");
 // המספר הציבורי של גבריאלה לגולשים (מ-10.11.2026) - אותו מספר כמו NUMBER
 // ב-assets/bot-link.js. זה מה שכרטיס איש הקשר נושא: הכרטיס אומר "כך תמצאו
-// אותי בחיפוש הבא", והחיפוש הבא הוא במספר הציבורי. בלי הסוד - המספר של
-// הסוכנים, כמו לפני הפיצול.
-const PUBLIC_ASSISTANT_PHONE =
-  (Deno.env.get("WHATSAPP_PUBLIC_DISPLAY_NUMBER") || "").replace(/\D/g, "") || ASSISTANT_PHONE;
+// אותי בחיפוש הבא", והחיפוש הבא הוא במספר הציבורי.
+//
+// שני הסודות הולכים יחד. בלי שניהם - המספר של הסוכנים, כמו לפני הפיצול.
+// מזהה בלי מספר להצגה הוא טעות תצורה: הבוט היה עונה מהמספר הציבורי ומחלק
+// כרטיס עם המספר של הסוכנים, פעם אחת לכל טלפון ובלי תיקון. אז בלי כרטיס
+// בכלל, ושורה ביומן.
+const PUBLIC_DISPLAY_PHONE = (Deno.env.get("WHATSAPP_PUBLIC_DISPLAY_NUMBER") || "").replace(/\D/g, "");
+const PUBLIC_ASSISTANT_PHONE = PUBLIC_DISPLAY_PHONE || (publicNumberConfigured() ? "" : ASSISTANT_PHONE);
+if (publicNumberConfigured() && !PUBLIC_DISPLAY_PHONE) {
+  console.error("WHATSAPP_PUBLIC_PHONE_NUMBER_ID is set without WHATSAPP_PUBLIC_DISPLAY_NUMBER: Gabriela's contact card is disabled until both are set");
+}
 const CONTACT_CARD_NOTE =
   "ועוד משהו קטן - שווה לשמור אותי באנשי הקשר 📇 ככה יהיה קל למצוא אותי " +
   "בחיפוש הבא: פשוט לכתוב לי מה מחפשים.";
