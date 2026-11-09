@@ -81,7 +81,43 @@
   }
 
   function title(d) {
-    return heading(d) + ' - נכסים למכירה ולהשכרה ומחירי עסקאות';
+    /* ‏קצר: עם "| שוק נדל״ן" הכותרת הגיעה ל-71-74 תווים ונחתכה בתוצאה
+       (ביקורת 5.11.2026). "למכירה ולהשכרה" נשאר בתיאור ובגוף הדף. */
+    return heading(d) + ' - נכסים ומחירי עסקאות';
+  }
+
+  /* ‏ב' היחס. ה' הידיעה בתחילת שם כללי נבלעת: "העמק" → "בעמק", לא "בהעמק".
+     שם פרטי שמתחיל ב-ה (הרצליה, הוד השרון, הזורע) נשאר "בהרצליה".
+     זו רשימת שמות כלליים, לא רשימת ערים. */
+  var DEFINITE_PLACE = {
+    'עמק': 1, 'עמקים': 1, 'שרון': 1, 'גליל': 1, 'גולן': 1,
+    'נגב': 1, 'כרמל': 1, 'שפלה': 1, 'חוף': 1, 'מושבה': 1,
+    'קריות': 1, 'בקעה': 1
+  };
+  function inPlace(name) {
+    var s = String(name || '').trim();
+    if (!s) return '';
+    if (s.charAt(0) === 'ה') {
+      var rest = s.slice(1);
+      var word = rest.split(/[\s-]/)[0];
+      if (DEFINITE_PLACE[word]) return 'ב' + rest;
+    }
+    return 'ב' + s;
+  }
+
+  /* ‏"נכסים" רק כשיש מודעות בדף, "מחירים" רק כשיש מקטע מחירי עסקאות,
+     "שכונות סמוכות" רק כשיש שכונות נוספות. בלי ספירת מודעות. */
+  function hasListings(d) {
+    return (Array.isArray(d.props) && d.props.length > 0) || Number(d.props_active) > 0;
+  }
+  function topicTail(d) {
+    var bits = [];
+    if (hasListings(d)) bits.push('נכסים');
+    if (Number(d.deals) > 0) bits.push('מחירים');
+    if (Array.isArray(d.siblings) && d.siblings.length) bits.push('שכונות סמוכות');
+    if (!bits.length) return '';
+    if (bits.length === 1) return bits[0];
+    return bits.slice(0, -1).join(', ') + ' ו' + bits[bits.length - 1];
   }
   function heroIntro(d) {
     var t = d.about && d.about.hero_intro != null ? String(d.about.hero_intro).replace(/\s+/g, ' ').trim() : '';
@@ -100,7 +136,13 @@
   function description(d) {
     var lead = heroIntro(d);
     if (lead) return clipMeta(lead);
-    return clipMeta(hoodPlace(d.name, d.city) + ': נכסים למכירה ולהשכרה, מחירי עסקאות ומשרדים שפעילים בשכונה.');
+    var parts = [hoodLabel(d.name) + ' ' + inPlace(d.city)];
+    if (d.deals && d.median_price != null) {
+      parts.push(num(d.deals) + ' עסקאות שדווחו לרשות המסים בשנתיים האחרונות, מחיר חציוני ₪' + num(d.median_price)
+        + (d.median_ppsqm != null ? ' ו-₪' + num(d.median_ppsqm) + ' למ״ר' : ''));
+    }
+    var tail = topicTail(d);
+    return parts.join('. ') + (tail ? '. ' + tail : '') + '.';
   }
   function heroLead(d) {
     var lead = heroIntro(d);
@@ -486,7 +528,7 @@
   function nearby(d) {
     var sib = Array.isArray(d.siblings) ? d.siblings : [];
     if (!sib.length) return '';
-    return '<section class="hood-nearby"><h2>שכונות סמוכות ב' + escapeHtml(d.city || '') + '</h2>'
+    return '<section class="hood-nearby"><h2>שכונות סמוכות ' + escapeHtml(inPlace(d.city || '')) + '</h2>'
       + '<div class="hood-near">' + sib.map(function (s) {
         var n = s.props != null ? ' <span>· ' + num(s.props) + '</span>' : '';
         return '<a href="' + escapeHtml(path(d.city_slug, s.slug)) + '">' + escapeHtml(s.name) + n + '</a>';
@@ -607,6 +649,7 @@
         { '@type': 'ListItem', position: 3, name: hoodLabel(d.name), item: url },
       ] },
       { '@type': 'Place', name: heading(d), url: url,
+        description: description(d),
         containedInPlace: { '@type': 'City', name: d.city } },
     ];
     var c = coverModel(d);

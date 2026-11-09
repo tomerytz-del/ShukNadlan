@@ -12,7 +12,9 @@
    ========================================================================== */
 (function (root) {
   var SITE_NAME = 'שוק נדל״ן';
-  var TITLE_MAX = 90;
+  /* ‏65 ולא 90: גוגל מציגה כ-60 תווים, ומעבר לזה הכותרת נחתכת באמצע
+     שם האתר (ביקורת 5.11.2026). */
+  var TITLE_MAX = 65;
 
   function clean(s) {
     return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
@@ -66,6 +68,10 @@
     var suffix = city ? (' - משרד תיווך ב' + city + ' | ' + SITE_NAME) : (' - משרד תיווך | ' + SITE_NAME);
     var full = base + suffix;
     if (full.length <= TITLE_MAX) return full;
+    /* ‏שם משרד ארוך: קודם יורד "משרד תיווך בעיר", ורק אחר כך נחתך השם
+       עצמו ("M.R.G-ייעוץ תיווך ושיווק נדל״ן וקרקעות" הגיע ל-70 תווים). */
+    var bare = base + ' | ' + SITE_NAME;
+    if (bare.length <= TITLE_MAX) return bare;
     var room = TITLE_MAX - suffix.length;
     if (room < 8) return full.slice(0, TITLE_MAX - 1).trimEnd() + '…';
     var short = base.slice(0, room - 1).trimEnd() + '…';

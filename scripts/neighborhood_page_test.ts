@@ -92,7 +92,8 @@ function check(name: string, ok: boolean) {
   check("שאר הכרטיסים lazy", !!second && second.includes('loading="lazy"') && !second.includes("fetchpriority"));
   check("בלי שער אין preload של כרטיס", !html.includes('rel="preload" as="image"'));
   const meta = html.match(/name="description" content="([^"]*)"/);
-  check("תיאור בלי מספרים", !!meta && meta[1] === "שכונת גבעת המורה בעפולה: נכסים למכירה ולהשכרה, מחירי עסקאות ומשרדים שפעילים בשכונה."
+  /* ‏#1199 (8.11.2026): בלי ספירת מודעות, ונתוני העסקאות נשארים. מתחת לשורה הזו, פתיחה ידנית (hero_intro) גוברת */
+  check("תיאור בלי ספירת מודעות", !!meta && !/\d+ נכס(ים)? פעיל/.test(meta[1]) && meta[1].startsWith("שכונת גבעת המורה בעפולה.")
     && !meta[1].includes("..."));
   check("הספירה היא כל הפעילים", html.includes("מציג 3 מתוך 5"));
   check("בלי כפתור התראה", !html.includes("hoodAlert") && !html.includes("קבלו התראה"));
@@ -275,6 +276,140 @@ resetLastGood();
   const html = await res.text();
   check("כתובת לא תקינה: 404 ו-noindex בלי מסד", res.status === 404 && html.includes("noindex") && calls === 0);
   check("כתובת לא תקינה: no-store", res.headers.get("Cache-Control") === "no-store");
+}
+{
+  const res = await run("https://shuknadlan.co.il/n", 200, HOOD);
+  const html = await res.text();
+  check("‏/n בלי slug: 404 ו-noindex בלי מסד", res.status === 404 && html.includes("noindex,follow") && calls === 0);
+  check("‏/n בלי slug: בלי canonical", !html.includes('rel="canonical"'));
+}
+
+const LISTING_COUNT = /\d[\d,]*\s*נכס|נכסים פעילים|נכס פעיל/;
+const EM_DASH = /[—–―]/;
+
+function mirrors(html: string) {
+  const meta = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+  const og = (html.match(/<meta property="og:description" content="([^"]*)"/) || [])[1] || "";
+  const tw = (html.match(/<meta name="twitter:description" content="([^"]*)"/) || [])[1] || "";
+  const lead = (html.match(/<p id="dealsLead">([^<]*)<\/p>/) || [])[1] || "";
+  const raw = (html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1] || "{}";
+  const graph = JSON.parse(raw)["@graph"] || [];
+  const place = graph.find((n: { "@type"?: string }) => n["@type"] === "Place") || {};
+  return { meta, og, tw, lead, ld: String(place.description || "") };
+}
+
+function sameCopy(html: string): boolean {
+  const m = mirrors(html);
+  /* ‏הפתיחה (dealsLead) נבנית מהטקסט של השכונה כשיש, ולכן אינה חייבת להיות זהה למטא */
+  return !!m.meta && m.meta === m.og && m.meta === m.tw && m.meta === m.ld;
+}
+
+/* ‏הקישורים של דף הבדיקה, לפני שהתיאור ירד מהספירה. שינוי בתיאור לא אמור להזיז אף href. */
+const HREFS_BEFORE = ["/", "/assets/favicon-192.png", "/assets/favicon-96.png", "/assets/favicon-48.png", "/favicon.ico", "/assets/favicon.svg", "/manifest.webmanifest", "/assets/apple-touch-icon.png", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap", "assets/site-footer.css", "assets/buyer-banner.css", "assets/design-system.css", "assets/content-page.css", "https://shuknadlan.co.il/n/afula/%D7%92%D7%91%D7%A2%D7%AA-%D7%94%D7%9E%D7%95%D7%A8%D7%94", "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg?width=800&amp;height=500&amp;resize=cover&amp;quality=60", "/", "/", "/property?id=p1", "/property?id=p2", "/property?id=p3", "/?q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94", "/deals/afula", "/n/afula/%D7%9E%D7%A8%D7%9B%D7%96-%D7%94%D7%A2%D7%99%D7%A8", "https://www.govmap.gov.il/", "/", "/agents", "/", "/markets", "/agency-signup", "/developer-signup", "/professional-signup", "mailto:shuknadlan@gmail.com", "https://www.facebook.com/share/19LytY6L6b/", "https://www.instagram.com/shuknadlan/", "/#allProps-sale", "/#allProps-rent", "/#allProps-commercial", "/#allProps", "/open-house", "/projects", "/#calc", "/#yield", "/sell", "/#heroSection", "/articles", "/agencies", "/agents", "/professionals", "/agency-signup", "/developer-signup", "/about", "mailto:shuknadlan@gmail.com", "/faq", "/pricing", "/for-brokers", "/ethics-code", "/crm", "/?deal=sale", "/?deal=sale&amp;rooms=3", "/?deal=sale&amp;rooms=4", "/?deal=sale&amp;rooms=5", "/?deal=sale&amp;maxPrice=1500000", "/?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F", "/?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96", "/?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'", "/?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94", "/?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA", "/?deal=rent&amp;rooms=3", "/?deal=rent&amp;rooms=4", "/?deal=rent&amp;maxPrice=4000", "/?deal=commercial", "/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D", "/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99", "/agencies", "/afula/מתווכים", "/agents", "/prices", "/afula/דירות-3-חדרים", "/afula/בתים-פרטיים", "/afula/דירות-גן", "/afula/נדלן-מסחרי", "/emek-yizrael/בתים-ומגרשים", "/terms", "/privacy", "/accessibility"];
+
+{
+  const res = await run(URL_HOOD, 200, HOOD);
+  const html = await res.text();
+  const m = mirrors(html);
+  const hrefs = [...html.matchAll(/href="([^"]*)"/g)].map((x) => x[1]);
+  const many = "שכונת גבעת המורה בעפולה. 151 עסקאות שדווחו לרשות המסים בשנתיים האחרונות, מחיר חציוני ₪1,430,000 ו-₪13,600 למ״ר. נכסים, מחירים ושכונות סמוכות.";
+  check("תיאור אחד ב-meta, og, twitter ו-JSON-LD", sameCopy(html) && m.meta === many);
+  check("בלי ספירת מודעות", !LISTING_COUNT.test(m.meta) && !LISTING_COUNT.test(m.ld));
+  check("בלי מקף ארוך בתיאור", !EM_DASH.test(m.meta));
+  check("כותרת לא זזה", html.includes("<title>שכונת גבעת המורה, עפולה - נכסים ומחירי עסקאות | שוק נדל״ן</title>"));
+  check("H1 לא זז", html.includes('<h1 id="dealsH1">שכונת גבעת המורה, עפולה</h1>'));
+  check("canonical לא זז", html.includes(`<link rel="canonical" href="${CANON}">`));
+  // רק הקישורים שהדף הזה בונה מהנתונים (שכונות, נכסים, עסקאות, חיפוש). הפוטר והכותרת של התבנית
+  // משתנים ב-PR-ים אחרים, ובדיקה שמקבעת את כולם נופלת על כל שינוי בהם
+  /* ‏החיפוש בדף השכונה נעשה בלי פרמטרים (#1052), ולכן /?q= אינו מוחזק */
+const own = (h: string) => /^(\/n\/|\/deals\/|\/property\?|https:\/\/shuknadlan\.co\.il\/n\/)/.test(h);
+  /* ‏#1052 הוסיף קישורים (משרדים, חיפוש), ולכן בודקים שהקישורים הקיימים של הדף לא נעלמו ולא שונו */
+  const hrefSet = new Set(hrefs);
+  check("אף href לא נעלם", HREFS_BEFORE.filter(own).every((h) => hrefSet.has(h)));
+  check("כותרת שכונות סמוכות בעפולה", html.includes("שכונות סמוכות בעפולה"));
+}
+
+async function described(over: Record<string, unknown>): Promise<string> {
+  const res = await run(URL_HOOD, 200, { ...HOOD, ...over });
+  return mirrors(await res.text()).meta;
+}
+
+{
+  const one = await described({
+    name: "רמת ישי", city: "חיפה", city_slug: "haifa", props_active: 1, props_sale: 1, props_rent: 0,
+    props: [{ id: "only", title: "דירה", property_type: "דירה", deal_type: "sale", price: 1, rooms: 3, size_sqm: 70, image: "" }],
+    deals: 0, median_price: null, median_ppsqm: null, siblings: [], sale_min: null,
+  });
+  check("מודעה אחת: בלי ספירה, רק נכסים", one === "שכונת רמת ישי בחיפה. נכסים." && !LISTING_COUNT.test(one));
+}
+{
+  const none = await described({
+    name: "שכונה עתידית", city: "נוף הגליל", props_active: 0, props: [], deals: 0,
+    median_price: null, median_ppsqm: null, siblings: [], sale_min: null,
+  });
+  check("אפס ומודעות עתידיות: בלי נכסים ובלי מחירים", none === "שכונה עתידית בנוף הגליל." && !LISTING_COUNT.test(none));
+}
+{
+  const prices = await described({
+    props_active: 0, props: [], siblings: [{ name: "מרכז העיר", slug: "מרכז-העיר" }],
+  });
+  check("רק מחירי עסקאות: בלי נכסים", prices.startsWith("שכונת גבעת המורה בעפולה. 151 עסקאות")
+    && prices.endsWith("מחירים ושכונות סמוכות.") && !prices.includes("נכסים") && !LISTING_COUNT.test(prices));
+}
+{
+  const listings = await described({ deals: 0, median_price: null, median_ppsqm: null, props_active: 22 });
+  check("רק מודעות: בלי מחירים ובלי 22", listings === "שכונת גבעת המורה בעפולה. נכסים ושכונות סמוכות."
+    && !listings.includes("22") && !listings.includes("מחירים"));
+}
+{
+  const emek = await described({
+    name: "לב", city: "העמק", props_active: 9, props: [], deals: 0, median_price: null, siblings: [],
+  });
+  check("העמק: בעמק ולא בהעמק", emek === "שכונת לב בעמק. נכסים." && !emek.includes("בהעמק"));
+}
+{
+  const emekim = await described({
+    name: "צפון", city: "העמקים", props_active: 0, props: [], deals: 0, median_price: null, siblings: [],
+  });
+  check("העמקים: בעמקים", emekim === "שכונת צפון בעמקים.");
+}
+{
+  const herz = await described({
+    name: "מרכז", city: "הרצליה", props_active: 4, props: [{ id: "h", title: "דירה" }], deals: 0, median_price: null, siblings: [],
+  });
+  check("הרצליה נשארת בהרצליה", herz === "שכונת מרכז בהרצליה. נכסים." && !herz.includes("ברצליה"));
+}
+{
+  const hod = await described({
+    name: "מזרח", city: "הוד השרון", props_active: 0, props: [], deals: 0, median_price: null, siblings: [],
+  });
+  check("הוד השרון נשאר בהוד השרון", hod === "שכונת מזרח בהוד השרון.");
+}
+{
+  const haz = await described({
+    name: "הקיבוץ", city: "הזורע", props_active: 2, props: [{ id: "z", title: "בית" }], deals: 0, median_price: null, siblings: [],
+  });
+  check("הזורע נשאר בהזורע", haz === "שכונת הקיבוץ בהזורע. נכסים.");
+}
+{
+  const galil = await described({
+    name: "דרום", city: "הגליל והגולן", props_active: 0, props: [], deals: 3, median_price: null, siblings: [],
+  });
+  check("הגליל: בגליל, בלי מחיר מומצא", galil === "שכונת דרום בגליל והגולן. מחירים." && !galil.includes("₪"));
+}
+{
+  const migdal = await described({
+    name: "ותיקים", city: "מגדל העמק", props_active: 0, props: [], deals: 0, median_price: null, siblings: [],
+  });
+  check("מגדל העמק נשאר במגדל העמק", migdal === "שכונת ותיקים במגדל העמק.");
+}
+{
+  const manyFuture = await described({
+    name: "שכונה שעוד לא נולדה", city: "עפולה", props_active: 1000,
+    props: [{ id: "n", title: "דירה" }], deals: 0, median_price: null, siblings: [],
+  });
+  check("שכונה עתידית עם אלף מודעות: בלי הספירה", manyFuture === "שכונה שעוד לא נולדה בעפולה. נכסים."
+    && !LISTING_COUNT.test(manyFuture));
 }
 
 resetLastGood();

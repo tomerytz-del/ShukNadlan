@@ -12,6 +12,7 @@ import {
   isInternalCaller,
   socialSourceLabel,
 } from "../_shared/lead-routing.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
 // רץ עם service_role — צריך לקרוא חוצי-סוכנים (agent_lead_preferences של כל הסוכנים
@@ -97,8 +98,25 @@ async function getConfigValue(supabase: any, key: string, fallback: number) {
   return data?.value ?? fallback;
 }
 
+/* המועמדים לליד בעלים של הפלטפורמה: קודם סוכנים בתשלום (mid/premium); אם אין
+   אף אחד/ת שמתאים/ה לסוג הנכס ולעסקה - גם Pay&GO (9.11.2026), שפותח/ת את
+   הליד ב-ppl_price_owner_free (claim_lead). זו המשמעות המעשית של "המנויים
+   רואים קודם": אין כאן מאגר, כל ליד מנותב לסוכן/ת אחד/ת. עד היום ליד בלי
+   סוכן/ת בתשלום מתאים/ה נשאר לא מנותב, כלומר אבד. */
 async function findCandidateAgentIds(
   supabase: any,
+  neighborhoodId: string | null,
+  propertyType: string,
+  dealType: string,
+): Promise<string[]> {
+  const paid = await findCandidateAgentIdsIn(supabase, ["mid", "premium"], neighborhoodId, propertyType, dealType);
+  if (paid.length) return paid;
+  return findCandidateAgentIdsIn(supabase, ["free"], neighborhoodId, propertyType, dealType);
+}
+
+async function findCandidateAgentIdsIn(
+  supabase: any,
+  tiers: string[],
   neighborhoodId: string | null,
   propertyType: string,
   dealType: string,
@@ -106,7 +124,7 @@ async function findCandidateAgentIds(
   const { data: eligibleAgents, error: e1 } = await supabase
     .from("agency_members")
     .select("id")
-    .in("tier", ["mid", "premium"])
+    .in("tier", tiers)
     .eq("active", true);
   if (e1) throw e1;
   const eligibleIds: string[] = (eligibleAgents ?? []).map((a: any) => a.id);
@@ -350,11 +368,36 @@ Deno.serve(async (req: Request) => {
        אם property_inquiry אינו חוקי בסביבה. השיוך והפתיחה זהים.
        שגיאה חולפת עם SQLSTATE מהרשימה מנסה את אותה שורה פעם נוספת.
        בלי SQLSTATE, וגם אילוץ, עוברים לשורה הבאה בלי ניסיון שני. */
+    /* הסכמה עם חותמת זמן (‏docs/proposals/fair_signup_and_lead_consent.sql, ממתינה לאישור): כרטיס "חושבים למכור?" בהחלקה שולח
+       את הנוסח שאושר; הזמן נכתב כאן ולעולם לא מהדפדפן. רק בניסיון הראשון של
+       כל מסלול - מסד שטרם הריץ את המיגרציה נסוג לשורה בלעדיה ולא מפיל ליד. */
+    const consent: Record<string, unknown> = body.consent_contact === true
+      ? {
+        consent_contact_at: new Date().toISOString(),
+        consent_text: typeof body.consent_text === "string" ? body.consent_text.slice(0, 400) : null,
+        consent_version: typeof body.consent_version === "string" && /^[a-z0-9-]{1,20}$/.test(body.consent_version)
+          ? body.consent_version : null,
+      }
+      : {};
+    const hasConsent = Object.keys(consent).length > 0;
+    // מקור שנכתב ל-leads.source גם במסלול הפלטפורמה (ולא רק ליומן): בלעדיו
+    // ליד מההחלקה נעלם בדוח הערוצים
+    const platformSource = normalizeSource(body.source, "", trusted);
+    const ownSource = ["swipe_seller", "sell_page", "sell_page_agent"].includes(platformSource) ? platformSource : "";
     const attempts: Record<string, unknown>[] = agencyRouting
-      ? pageLeadInsertAttempts(baseRow, preferredType, pageSource)
+      ? [
+        ...(hasConsent ? [{ ...baseRow, lead_type: preferredType, source: ownSource || pageSource, ...consent }] : []),
+        ...pageLeadInsertAttempts(baseRow, preferredType, pageSource),
+      ]
       : trackedLabel
       ? [
         { ...baseRow, lead_type: "owner_inbound", source: inboundSource, source_detail: trackedLabel, external_ref: externalRef },
+        { ...baseRow, lead_type: "owner_inbound" },
+      ]
+      : ownSource || hasConsent
+      ? [
+        ...(hasConsent ? [{ ...baseRow, lead_type: "owner_inbound", ...(ownSource ? { source: ownSource } : {}), ...consent }] : []),
+        ...(ownSource ? [{ ...baseRow, lead_type: "owner_inbound", source: ownSource }] : []),
         { ...baseRow, lead_type: "owner_inbound" },
       ]
       : [{ ...baseRow, lead_type: "owner_inbound" }];
@@ -364,8 +407,11 @@ Deno.serve(async (req: Request) => {
     for (const row of attempts) {
       let retried = false;
       for (;;) {
-        ({ data: lead, error: leadErr } = await supabase
-          .from("leads").insert(row).select().single());
+        ({ data: lead, error: leadErr } = await writeVisitInsert(
+          (payload) => supabase.from("leads").insert(payload).select().single(),
+          row,
+          body,
+        ));
         if (!leadErr) break;
         // אותה פנייה מהרשתות במקביל: הליד כבר קיים - לא לנסות שורה בלי המקור
         if (externalRef && (leadErr as any).code === "23505") {
@@ -390,7 +436,13 @@ Deno.serve(async (req: Request) => {
        הוא ליד תקוע — אבל מסיבה אחרת לגמרי מזו של ליד פלטפורמה בלי סוכנים
        מתאימים, והתשובה לשתיהן שונה. */
     const routedAgentId = matchedAgentId;
+    /* קהל המנויים (lead_audience_size סופרת mid/premium). מ-9.11.2026 גם free
+       מועמד/ת כשאין מנוי/ה מתאים/ה, ולכן "אין סוכנים זכאים" נכון רק כשאין גם
+       סוכן/ת free פעיל/ה עם העדפות; אחרת הסיבה היא ההעדפות. */
     const audience = await audienceSize(supabase, "agent_owner");
+    const { count: freeAudience } = routedAgentId ? { count: 0 } : await supabase
+      .from("agency_members").select("id", { count: "exact", head: true })
+      .eq("tier", "free").eq("active", true);
     await logLeadRouting(supabase, {
       source: normalizeSource(
         body.source,
@@ -410,7 +462,7 @@ Deno.serve(async (req: Request) => {
         ? null
         : agencyRouting
           ? "agency_without_active_member"
-          : audience > 0
+          : audience > 0 || (freeAudience ?? 0) > 0
             ? "no_matching_agent_preferences"
             : "no_eligible_agents",
       summary: [
@@ -446,7 +498,7 @@ Deno.serve(async (req: Request) => {
           : "ליד מדף המשרד - שויך למנהל/ת המשרד ונשמר מוסתר; הפתיחה נספרת במכסת הפניות החודשית"
         : matchedAgentId
           ? "הליד שויך ונשמר במצב מוסתר (masked). שליחת התראה בפועל עדיין לא מוטמעת בשלב זה"
-          : "לא נמצא סוכן Mid/Premium מתאים כרגע - הליד נשמר ללא שיוך",
+          : "לא נמצא סוכן/ת מתאים/ה כרגע (בתשלום ואז Pay&GO) - הליד נשמר ללא שיוך",
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

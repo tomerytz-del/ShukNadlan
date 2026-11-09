@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: התקנת Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -57,7 +57,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # אופציונלי — מוגדרים כ-Repository Variables, לא כסודות
-          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          # משתנה משלו ולא CLAUDE_MODEL של מנוע הלידים: המבזקים על Haiku 5.5
+          # (‏news_engine/config.py), והלידים נשארים במודל שלהם.
+          NEWS_CLAUDE_MODEL: ${{ vars.NEWS_CLAUDE_MODEL }}
           NEWS_FEED_URLS: ${{ vars.NEWS_FEED_URLS }}
           MAX_NEW_NEWS_PER_RUN: ${{ vars.MAX_NEW_NEWS_PER_RUN }}
           MIN_NEWS_SCORE_TO_PUBLISH: ${{ vars.MIN_NEWS_SCORE_TO_PUBLISH }}

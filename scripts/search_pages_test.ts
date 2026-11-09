@@ -21,7 +21,7 @@
    ========================================================================== */
 
 import { readFileSync } from "node:fs";
-import handler, { SEARCH_PAGES } from "../netlify/edge-functions/search-pages.ts";
+import handler, { resetHoodCache, SEARCH_PAGES } from "../netlify/edge-functions/search-pages.ts";
 
 /* ‏אותו מבנה H1 כמו ב-index.html: שם עיר שהסקריפט מחליף, וכפתור בורר השוק.
    עמוד תוצאות חייב להחליף את הטקסט, להוריד את ‎#heroCityName‎ (אחרת
@@ -70,6 +70,7 @@ type Result = {
   marketButtonInH1: boolean;
   ogTitles: string[];
   ogUrls: string[];
+  cdn: string | null;
 };
 
 /* ‏מה שדפדפן קורא מהמאפיין. ‏‎&‎ בתוך ‎href="…"‎ **חייב** להיכתב ‎&amp;‎
@@ -108,6 +109,7 @@ async function serve(url: string, html = PAGE): Promise<Result> {
     marketButtonInH1: !!h1 && /data-market-menu/.test(h1[0]),
     ogTitles: [...body.matchAll(/property="og:title" content="([^"]*)"/g)].map((m) => decode(m[1])!),
     ogUrls: [...body.matchAll(/property="og:url" content="([^"]*)"/g)].map((m) => decode(m[1])!),
+    cdn: res.headers.get("Netlify-CDN-Cache-Control"),
   };
 }
 
@@ -149,6 +151,8 @@ const SAME: [string, string, string][] = [
   ["‏gclid של גוגל אדס", "/?deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D&gclid=test", "deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D"],
   ["‏gad_source ליד gclid", "/?deal=sale&gclid=abc&gad_source=1&gad_campaignid=9", "deal=sale"],
   ["‏index.html במקום /", "/index.html?deal=sale&rooms=4", "deal=sale&rooms=4"],
+  /* ‏A-SEO-3 (PR 1010): ‏beta=1 מדליק תצוגה בדפדפן ואינו תוכן - עמוד ברשימה שומר את הכותרת וה-canonical */
+  ["דגל v10 על עמוד ברשימה", "/?deal=sale&rooms=4&beta=1", "deal=sale&rooms=4"],
 ];
 for (const [name, url, query] of SAME) {
   const r = await serve(url);
@@ -232,15 +236,132 @@ for (const [name, url, query] of SAME) {
   const base = SEARCH_PAGES.find((p) => p.query === "deal=sale&rooms=3")!;
   const plain = await serve("/?deal=sale&rooms=3");
   const bad = await serve("/?deal=sale&rooms=3&city=" + encodeURIComponent("<script>"));
-  const upper = await serve("/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("נוף הגליל"));
+  const upper = await serve("/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("עפולה"));
   const upperPage = SEARCH_PAGES.find((p) => p.title === "נכסים למכירה בעפולה עילית")!;
   check("בלי עיר נשאר העמק", plain.h1 === base.title, plain.h1 || "");
   check("עיר לא תקינה אינה משנה כותרת", bad.h1 === base.title && bad.canonical === canonOf(base), bad.h1 || "");
   check(
     "עפולה עילית אינה מתקצרת לעיר",
-    upper.h1 === upperPage.title,
+    upper.h1 === upperPage.title && upper.canonical === canonOf(upperPage),
     upper.h1 || "",
   );
+  const hood = await serve("/?deal=sale&q=" + encodeURIComponent("גבעת המורה"));
+  const hoodPage = SEARCH_PAGES.find((p) => p.landing === "/n/afula/גבעת-המורה")!;
+  check(
+    "שכונה ב-canonical של דף /n/",
+    hood.canonical === canonOf(hoodPage) && hood.canonical.endsWith("/n/afula/גבעת-המורה"),
+    hood.canonical,
+  );
+  resetHoodCache();
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify([
+      { name: "רובע יזרעאל", city: "עפולה", path_key: "afula/רובע-יזרעאל", props: 20 },
+      { name: "אזור התעשייה ע. עלית", city: "עפולה", path_key: "afula/אזור-התעשייה-ע-עלית", props: 1 },
+      { name: "בלי מודעות", city: "עפולה", path_key: "afula/ריקה", props: 0 },
+      { name: "מרכז העיר", city: "עפולה", path_key: "afula/מרכז-העיר", props: 33 },
+      { name: "מרכז העיר", city: "עמק יזרעאל", path_key: "emek-yizrael/מרכז-העיר", props: 4 },
+    ]), { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const rova = await serve("/?deal=sale&q=" + encodeURIComponent("רובע יזרעאל"));
+  const extra = await serve("/?deal=sale&q=" + encodeURIComponent("אזור התעשייה ע. עלית"));
+  const thin = await serve("/?deal=sale&q=" + encodeURIComponent("בלי מודעות"));
+  const unknown = await serve("/?deal=sale&q=" + encodeURIComponent("משהו אחר"));
+  const sameName = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר") + "&city=" + encodeURIComponent("עמק יזרעאל"));
+  const otherCity = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר") + "&city=" + encodeURIComponent("חיפה"));
+  const defaultCenter = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר"));
+  globalThis.fetch = (async () =>
+    new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  resetHoodCache();
+  void prevFetch;
+  check(
+    "שכונה חיה שאינה בשורה הסגורה מצביעה ל-/n/",
+    rova.canonical === `${SITE}/n/afula/רובע-יזרעאל`
+      && extra.canonical === `${SITE}/n/afula/אזור-התעשייה-ע-עלית`,
+    JSON.stringify({ rova: rova.canonical, extra: extra.canonical }),
+  );
+  check("שכונה בלי מודעות נשארת מאוחדת לדף הבית", thin.untouched, thin.canonical || "");
+  check("טקסט חופשי שאינו שכונה נשאר מאוחד", unknown.untouched, unknown.canonical || "");
+  check(
+    "אותו שם בעיר אחרת אינו מצביע לעפולה",
+    sameName.canonical === `${SITE}/n/emek-yizrael/מרכז-העיר`
+      && defaultCenter.canonical === `${SITE}/n/afula/מרכז-העיר`
+      && otherCity.canonical === `${SITE}/`
+      && !String(otherCity.canonical).includes("/n/afula/"),
+    JSON.stringify({ sameName: sameName.canonical, defaultCenter: defaultCenter.canonical, otherCity: otherCity.canonical }),
+  );
+  const nof = await serve(
+    "/?deal=sale&q=" + encodeURIComponent("גבעת המורה") + "&city=" + encodeURIComponent("נוף הגליל"),
+  );
+  const selfNof = `${SITE}/?city=${encodeURIComponent("נוף הגליל")}&deal=sale&q=${encodeURIComponent("גבעת המורה")}`;
+  check(
+    "עיר בלי דף /n/ נשארת על עצמה, בלי כותרת של עפולה",
+    nof.canonical === selfNof
+      && nof.title === "שוק נדל״ן | עפולה והעמק"
+      && !String(nof.title).includes("גבעת המורה"),
+    JSON.stringify({ canonical: nof.canonical, title: nof.title }),
+  );
+  const upperOther = await serve(
+    "/?deal=sale&q=" + encodeURIComponent("עפולה עילית") + "&city=" + encodeURIComponent("נוף הגליל"),
+  );
+  const selfUpper = `${SITE}/?city=${encodeURIComponent("נוף הגליל")}&deal=sale&q=${encodeURIComponent("עפולה עילית")}`;
+  check(
+    "עפולה עילית בעיר בלי דף /n/ נשארת על עצמה",
+    upperOther.canonical === selfUpper
+      && upperOther.title === "שוק נדל״ן | עפולה והעמק"
+      && !String(upperOther.h1).includes("עילית"),
+    JSON.stringify({ canonical: upperOther.canonical, title: upperOther.title, h1: upperOther.h1 }),
+  );
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const target = String(input instanceof Request ? input.url : input);
+    const rows = target.includes("category=eq.commercial") ? [{ id: "c1" }] : [];
+    return new Response(JSON.stringify(rows), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  const afulaCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  const emekCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("נהלל"));
+  const broadCommercial = await serve("/?deal=commercial");
+  check(
+    "מסחרי בעפולה עם מלאי מצביע לדף",
+    afulaCommercial.canonical === `${SITE}/afula/נדלן-מסחרי`,
+    afulaCommercial.canonical || "",
+  );
+  check(
+    "מסחרי בעמק אינו מצביע לדף עפולה",
+    emekCommercial.canonical === `${SITE}/?deal=commercial` && broadCommercial.canonical === `${SITE}/?deal=commercial`,
+    JSON.stringify({ emek: emekCommercial.canonical, broad: broadCommercial.canonical }),
+  );
+  globalThis.fetch = (async () =>
+    new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const emptyCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  globalThis.fetch = (async () =>
+    new Response("down", { status: 500, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
+  const downCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  check(
+    "מסחרי בלי מלאי או בכשל נשאר על הצירוף",
+    emptyCommercial.canonical === `${SITE}/?deal=commercial` && downCommercial.canonical === `${SITE}/?deal=commercial`,
+    JSON.stringify({ empty: emptyCommercial.canonical, down: downCommercial.canonical }),
+  );
+  check(
+    "כשל מלאי אינו נשמר, ואין מלאי כן",
+    downCommercial.cdn === "no-store" && (emptyCommercial.cdn || "").includes("s-maxage=3600"),
+    JSON.stringify({ down: downCommercial.cdn, empty: emptyCommercial.cdn }),
+  );
+  resetHoodCache();
+  globalThis.fetch = (async () => {
+    throw new Error("hood down");
+  }) as typeof fetch;
+  const staticHood = await serve("/?deal=sale&q=" + encodeURIComponent("מרכז העיר"));
+  check(
+    "כשל מפת שכונות: הרשימה הסטטית בלי מטמון שעה",
+    staticHood.canonical === `${SITE}/n/afula/מרכז-העיר` && staticHood.cdn === "no-store",
+    JSON.stringify({ canonical: staticHood.canonical, cdn: staticHood.cdn }),
+  );
+  globalThis.fetch = (async () =>
+    new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
+  ) as typeof fetch;
 }
 {
   const only = await serve("/?city=" + encodeURIComponent("עפולה"));
@@ -260,6 +381,9 @@ const UNTOUCHED: [string, string][] = [
   ["מחיר שרירותי", "/?deal=sale&maxPrice=1317000"],
   ["צירוף ברשימה ועוד פרמטר", "/?deal=sale&rooms=4&page=3"],
   ["פרמטר סינון נוסף", "/?deal=sale&rooms=4&ai=1"],
+  /* דגל v10 (‏docs/home-page-sections.md): התצוגה החדשה אינה כתובת חדשה */
+  ["דגל v10 בדף הבית", "/?beta=1"],
+  ["כיבוי דגל v10", "/?beta=0"],
 ];
 for (const [name, url] of UNTOUCHED) {
   const r = await serve(url);
@@ -302,6 +426,54 @@ for (const [name, url] of UNTOUCHED) {
     JSON.stringify({ h1: live.h1, h1Count: live.h1Count, citySlot: live.citySlot, title: live.title }),
   );
   check("דף הבית האמיתי יוצא כמו שהוא", home.untouched && home.h1 !== offices.title, `h1=${home.h1}`);
+}
+
+{
+  const res = await handler(new Request(`${SITE}/?deal=sale&rooms=4&utm_source=google&gclid=abc`), contextFor(PAGE));
+  await res.text();
+  const vary = res.headers.get("Netlify-Vary") || "";
+  const cdn = res.headers.get("Netlify-CDN-Cache-Control") || "";
+  check(
+    "עמוד תוצאות: אותו Vary ו-s-maxage",
+    vary.includes("cookie=shuk_market|shuk_soon") && vary.includes("query=deal|") && !vary.includes("utm")
+      && cdn.includes("s-maxage=3600") && cdn.includes("stale-while-revalidate=600")
+      && res.headers.get("Cache-Control") === "public, max-age=0, must-revalidate"
+      && !(res.headers.get("CDN-Cache-Control") || "").includes("s-maxage"),
+    vary + " | " + cdn + " | " + res.headers.get("Cache-Control"),
+  );
+  const plain = await handler(new Request(`${SITE}/`), contextFor(PAGE));
+  await plain.text();
+  const missed = await handler(new Request(`${SITE}/?q=לא-ברשימה`), contextFor(PAGE));
+  await missed.text();
+  const other = await handler(
+    new Request(`${SITE}/`),
+    { next: async () => new Response("{}", { headers: { "content-type": "application/json" } }) } as never,
+  );
+  const broken = await handler(
+    new Request(`${SITE}/?deal=sale&rooms=4`),
+    {
+      next: async () => {
+        const r = new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+        r.text = async () => { throw new Error("read failed"); };
+        return r;
+      },
+    } as never,
+  );
+  const brokenHtml = await broken.text();
+  check(
+    "כשל קריאה: גוף חדש ו-Vary",
+    broken.status === 200 && brokenHtml === PAGE
+      && (broken.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && broken.headers.get("Netlify-CDN-Cache-Control") === "no-store",
+    String(broken.status) + " " + brokenHtml.slice(0, 40),
+  );
+  check(
+    "יציאה בלי עמוד תוצאות: אותו Vary",
+    (plain.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && (missed.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && (other.headers.get("Netlify-Vary") || "").includes("cookie=shuk_market|shuk_soon")
+      && !plain.headers.get("Netlify-CDN-Cache-Control"),
+  );
 }
 
 if (failed) {

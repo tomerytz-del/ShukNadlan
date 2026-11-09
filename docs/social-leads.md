@@ -29,6 +29,7 @@ Content-Type: application/json
 | `email` | | |
 | `message` | | מה הפונה כתב/ה. נכנס לליד ומוצג לסוכן/ת אחרי פתיחה |
 | `property_id` / `listing_number` | ב-`property` | הנכס. אחד מהשניים |
+| `message_at` | | שעת ההודעה ברשת (ISO 8601). נכנסת ליומן פניות היריד כשהנכס ביריד (‏`docs/open-house-fair.md`) |
 | `city`, `deal_type`, `property_type`, `rooms`, `min_rooms`, `max_rooms`, `min_price`, `max_price`, `neighborhood_id` | | הקריטריונים (‏`buyer`), או פרטי הנכס (‏`owner`: ‏`city` ו-`property_type` חובה) |
 | `consent_agent_contact` | ב-`buyer`: כן (`true`) | הסכמה שמתווך/ת יפנה/תפנה. בלעדיה אין ליד |
 | `subscribe_alerts` | | `true` = גם התראות על נכסים חדשים בוואטסאפ. ברירת המחדל - בלי |
@@ -154,6 +155,17 @@ Content-Type: application/json
 מהמגירה, ‏`store_purchase_to_lead` כותבת `source_detail = 'מחפשי דירה · פייסבוק · הודעה'`
 במקום `'מחפשי דירה'` בלבד (‏`lead_source_label()` במסד, אותה מפה כמו
 `SOCIAL_SOURCE_LABELS`). ‏`leads.source` נשאר `'store'` - הליד נקנה.
+
+**לפני הרכישה המקור גלוי, הפרופיל לא.** ההודעה של הפונה (‏`free_text`) מגיעה
+מגבריאלה, ונושאת לפעמים את שם המשתמש ברשת - "(אינסטגרם shirel_19.5)". עד
+1.11.2026 המדף הציג אותה כמו שהיא, וכל סוכן/ת יכול/ה היה/הייתה לפנות לפונה
+דרך הפרופיל בלי לקנות. מאז ‏`saved_search_leads_public` מעבירה את `free_text`
+ואת `label` דרך `redact_contact_text(text, full_name)`
+(‏`20271101130000_shelf_redact_contact_text.sql`): שם משתמש אחרי שם של רשת,
+‏`@handle`, מילה לטינית בצורת שם משתמש, קישור לפרופיל, מייל, טלפון והשם של
+הפונה יוצאים "•••", ושם הרשת עצמו נשאר ("(אינסטגרם •••)"). הטקסט המלא נשאר
+ב-`saved_searches` ונקרא אחרי הרכישה. **טקסט חופשי חדש שמוצג במדף כלשהו לפני
+רכישה עובר באותה פונקציה, במסד** - לא בדפדפן, אחרת הוא יוצא ברשת לפני המסך.
 
 ## ב-CRM
 

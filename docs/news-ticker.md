@@ -187,7 +187,7 @@ python scripts/news_filter_test.py
 | `SUPABASE_URL` | כן | — |
 | `SUPABASE_SERVICE_ROLE_KEY` | כן | — |
 | `ANTHROPIC_API_KEY` | לא | בלעדיו רץ בניסוח היוריסטי |
-| `CLAUDE_MODEL` | לא | `claude-sonnet-5` |
+| `NEWS_CLAUDE_MODEL` | לא | `claude-haiku-5-5` (עד 8.11.2026: `CLAUDE_MODEL` המשותף ללידים, ו-`claude-sonnet-5`) |
 | `NEWS_MAX_TOKENS` | לא | 6000 |
 | `NEWS_FEED_URLS` | לא | ריק |
 | `MAX_NEW_NEWS_PER_RUN` | לא | 25 |

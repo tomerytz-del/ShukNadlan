@@ -27,7 +27,7 @@
     var rows = got.data;
     var range = got.res.headers.get("content-range") || "";
     var match = /\/(\d+)\s*$/.exec(range);
-    var extras = { total: match ? Number(match[1]) : rows.length, counted: !!match, hoods: null, related: [], agencies: [] };
+    var extras = { total: match ? Number(match[1]) : rows.length, counted: !!match, hoods: null, related: [], agencies: [], stock: [] };
     var tasks = [
       get(SUPABASE_URL + "/rest/v1/properties?" + S.hoodCountQuery(page), "count=exact").then(function (x) {
         if (!Array.isArray(x.data)) return;
@@ -40,9 +40,15 @@
         if (Array.isArray(x.data)) extras.agencies = x.data;
       }).catch(function () {}),
     ];
+    if (page.dynamicStock && S.stockQuery) {
+      tasks.push(get(SUPABASE_URL + "/rest/v1/properties?" + S.stockQuery(page)).then(function (x) {
+        if (Array.isArray(x.data)) extras.stock = x.data;
+      }).catch(function () {}));
+    }
     return Promise.all(tasks).then(function () { return { rows: rows, extras: extras }; });
   }).then(function (packed) {
-    box.innerHTML = S.render(page, packed.rows, packed.extras);
+    var view = S.withStock ? S.withStock(page, packed.rows, packed.extras) : page;
+    box.innerHTML = S.render(view, packed.rows, packed.extras);
     box.setAttribute("data-ssr", "0");
     var h1 = document.getElementById("siloH1");
     var benefit = document.getElementById("siloBenefit");
@@ -57,23 +63,23 @@
       cityCrumb.textContent = city.name;
       cityCrumb.setAttribute("href", city.home);
     }
-    if (h1) h1.textContent = page.h1;
-    if (benefit) benefit.textContent = page.benefit || page.description;
-    if (crumb) crumb.textContent = page.h1;
-    if (chips) chips.innerHTML = S.chipsHtml(page, packed.rows, packed.extras);
+    if (h1) h1.textContent = view.h1;
+    if (benefit) benefit.textContent = view.benefit || view.description;
+    if (crumb) crumb.textContent = view.h1;
+    if (chips) chips.innerHTML = S.chipsHtml(view, packed.rows, packed.extras);
     if (updated) updated.innerHTML = S.updatedHtml(packed.rows);
-    if (hero) hero.innerHTML = S.heroHtml(page);
+    if (hero) hero.innerHTML = S.heroHtml(view);
     if (S.heroPreload) {
       var old = document.querySelectorAll('link[rel="preload"][as="image"]');
       for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
-      document.head.insertAdjacentHTML("beforeend", S.heroPreload(page));
+      document.head.insertAdjacentHTML("beforeend", S.heroPreload(view));
     }
     if (all) {
-      all.setAttribute("href", S.allHref(page));
+      all.setAttribute("href", S.allHref(view));
       var n = packed.extras.counted ? packed.extras.total : (packed.rows.length < 24 ? packed.rows.length : 0);
       all.setAttribute("data-count", String(n || 0));
     }
-    document.title = S.fullTitle(page);
+    document.title = S.fullTitle(view);
   }).catch(function () {
     box.innerHTML = '<p class="deals-note">לא הצלחנו לטעון את הנכסים. נסו לרענן את הדף.</p>';
   });

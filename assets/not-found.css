@@ -16,7 +16,10 @@
 .nf-gab{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px;padding:16px 18px;
   background:var(--brass-tint);border-radius:var(--radius-lg,16px)}
 .nf-gab[hidden]{display:none}
-.nf-gab img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none;background:#fff1c9}
+/* B2 (תומר 29.10): העיגול גדל ל-80/96px, חתוך מהגזרה כך שהפנים ממלאות אותו. בלי טבעת */
+.gab-ring{position:relative;display:block;flex:none;width:80px;height:80px;border-radius:50%;overflow:hidden;background:#fff1c9}
+.gab-ring img{position:absolute;left:0;top:-8%;width:160%;height:auto;max-width:none;border:0;border-radius:0}
+@media(min-width:760px){.gab-ring{width:96px;height:96px}}
 .nf-gab div{flex:1;min-width:180px}
 .nf-gab b{font-size:17px;color:var(--ink)}
 .nf-gab p{margin:4px 0 0!important;font-size:15px!important}

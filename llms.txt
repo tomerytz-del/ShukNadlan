@@ -1,6 +1,6 @@
 # שוק נדל״ן (shuknadlan.co.il)
 
-> מרקטפלייס הנדל״ן המקומי של עפולה, עפולה עילית ועמק יזרעאל: כל הנכסים למכירה ולהשכרה מכל משרדי התיווך באזור, המתווכים, בעלי המקצוע והפרויקטים החדשים, בכתובת אחת. האתר בעברית.
+> מרקטפלייס הנדל״ן המקומי של עפולה, עפולה עילית ועמק יזרעאל: כל הנכסים למכירה ולהשכרה מכל משרדי התיווך באזור, יועצי הנדל״ן, בעלי המקצוע והפרויקטים החדשים, בכתובת אחת. האתר בעברית.
 
 כל מודעה באתר מגיעה ממשרד תיווך עם רישיון מאומת מול רשם המתווכים במשרד המשפטים. מחירים בשקלים; מחירי המודעות הם המחיר המבוקש, ולא מחיר עסקה.
 
@@ -10,6 +10,35 @@
 - [דף נכס](https://shuknadlan.co.il/property?id=): פרטי מודעה אחת - מחיר, חדרים, שטח, קומה, תיאור ותמונות. מספר הבית אינו מוצג בכוונה
 - [יריד הבתים הפתוחים](https://shuknadlan.co.il/open-house): נכסים שמוצעים לקונים ללא עמלת תיווך לתקופה מוגבלת
 - [פרויקטים חדשים](https://shuknadlan.co.il/projects): דירות מקבלן ויזמים באזור
+
+## דפי נחיתה
+
+דפים שמחזירים 200 ואפשר לאנדקס (שוק חי). דף של שוק שטרם נפתח מחזיר 200 עם noindex ואינו כאן.
+
+- [דירות למכירה בעפולה](https://shuknadlan.co.il/afula/דירות-למכירה)
+- [בתים פרטיים למכירה בעפולה](https://shuknadlan.co.il/afula/בתים-פרטיים)
+- [דירות גן למכירה בעפולה](https://shuknadlan.co.il/afula/דירות-גן)
+- [דירות 3 חדרים למכירה בעפולה](https://shuknadlan.co.il/afula/דירות-3-חדרים)
+- [נדל״ן מסחרי בעפולה](https://shuknadlan.co.il/afula/נדלן-מסחרי): הסוגים שמוצעים עכשיו למכירה או להשכרה, לפי המלאי הפעיל
+- [יועצי נדל״ן בעפולה](https://shuknadlan.co.il/afula/מתווכים)
+- [בתים ומגרשים ביישובי עמק יזרעאל](https://shuknadlan.co.il/emek-yizrael/בתים-ומגרשים)
+
+## שכונות
+
+דף לכל שכונה בעפולה שיש בה מודעה פעילה. הכתובת היא `/n/{עיר}/{שכונה}`.
+
+- [אזור התעשייה](https://shuknadlan.co.il/n/afula/אזור-התעשייה)
+- [אזור התעשייה ע. עלית](https://shuknadlan.co.il/n/afula/אזור-התעשייה-ע-עלית)
+- [גבעת המורה](https://shuknadlan.co.il/n/afula/גבעת-המורה)
+- [דרום העיר](https://shuknadlan.co.il/n/afula/דרום-העיר)
+- [השכונה הצפון מערבית](https://shuknadlan.co.il/n/afula/השכונה-הצפון-מערבית)
+- [לב העמק C1](https://shuknadlan.co.il/n/afula/לב-העמק-c1)
+- [מזרח העיר](https://shuknadlan.co.il/n/afula/מזרח-העיר)
+- [מערב העיר (שיכון גאולים)](https://shuknadlan.co.il/n/afula/מערב-העיר-שיכון-גאולים)
+- [מרכז העיר](https://shuknadlan.co.il/n/afula/מרכז-העיר)
+- [עפולה הירוקה](https://shuknadlan.co.il/n/afula/עפולה-הירוקה)
+- [עפולה עלית](https://shuknadlan.co.il/n/afula/עפולה-עלית)
+- [רובע יזרעאל](https://shuknadlan.co.il/n/afula/רובע-יזרעאל)
 
 ## חיפושים נפוצים
 
@@ -22,11 +51,12 @@
 ## נתוני שוק
 
 - [מחירי דירות לפי עיר וחדרים](https://shuknadlan.co.il/prices): מחיר חציוני לדירה ולמ״ר לפי עיר ומספר חדרים, מתוך עסקאות שדווחו לרשות המסים ב-12 החודשים האחרונים במאגר. מחירי עסקה ולא מחירי מודעות
+- [עסקאות נדל״ן בעפולה](https://shuknadlan.co.il/deals/afula): עסקאות לפי שכונה, מתוך דיווחי רשות המסים
 
 ## אנשי מקצוע
 
 - [משרדי התיווך](https://shuknadlan.co.il/agencies): כל משרדי התיווך באזור, עם דף לכל משרד
-- [המתווכים](https://shuknadlan.co.il/agents): כל המתווכים, עם מספר רישיון ודף אישי
+- [יועצי הנדל״ן](https://shuknadlan.co.il/agents): כל יועצי הנדל״ן, עם מספר רישיון ודף אישי
 - [בעלי מקצוע](https://shuknadlan.co.il/professionals): יועצי משכנתאות, שמאים, עורכי דין, אדריכלים ומעצבי פנים
 - [הקוד האתי ותו האיכות](https://shuknadlan.co.il/ethics-code)
 
@@ -35,7 +65,12 @@
 - [שאלות נפוצות](https://shuknadlan.co.il/faq)
 - [כתבות ומדריכים](https://shuknadlan.co.il/articles)
 - [אודות](https://shuknadlan.co.il/about)
-- [מסלולים ומחירים למתווכים](https://shuknadlan.co.il/pricing)
+- [מסלולים ומחירים ליועצי נדל״ן](https://shuknadlan.co.il/pricing)
+- [פלטפורמת מרקטפלייס ו-CRM למתווכים](https://shuknadlan.co.il/for-brokers)
+- [הצטרפות כיועץ/ת משכנתאות](https://shuknadlan.co.il/join-mortgage-advisor)
+- [הצטרפות כעו״ד מקרקעין](https://shuknadlan.co.il/join-lawyer)
+- [הצטרפות כשמאי/ת מקרקעין](https://shuknadlan.co.il/join-appraiser)
+- [הצטרפות כיזם או קבלן](https://shuknadlan.co.il/join-developer)
 
 ## Optional
 

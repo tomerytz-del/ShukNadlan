@@ -36,8 +36,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------------------------------------- ההצהרה
 # המפתח ב-pricing_config -> הערך. שינוי מחיר מתחיל במיגרציה, וממשיך כאן.
 PRICES = {
-    'tier_mid_monthly_price':            399,
-    'tier_premium_monthly_price':        599,
+    'tier_mid_monthly_price':            199,
+    'tier_premium_monthly_price':        399,
     'phone_line_monthly_price':          89,
     'phone_line_included_minutes':       150,
     'phone_line_overage_per_min':        0.5,
@@ -50,9 +50,16 @@ PRICES = {
     'property_video_premium_monthly_cap': 8,
     'ppl_price_buyer_renter':            25,
     'ppl_price_owner_mid':               50,
+    # ליד בעלים של הפלטפורמה לסוכן/ת Pay&GO (20271109142000). הנוסח בדף "ליד ב-₪N",
+    # להבדיל מ-"₪N לליד" של המסלולים בתשלום.
+    'ppl_price_owner_free':              69,
     'free_lead_quota_monthly':           10,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
+    # קורס ההכנה למבחן המתווכים (20271106090000): מחיר לצרכן/ית, **כולל** מע"מ,
+    # בניגוד לשאר המחירון. docs/exam-course.md
+    'course_price_gross':                199,
+    'course_access_months':              6,
 }
 
 # ------------------------------------------------------------- התצוגה
@@ -70,7 +77,7 @@ DISPLAY = [
     # בוחר המסלול ושורת הערך של Elite (PICK_PRICES)
     ('pricing.html', r'PICK_PRICES = \{ video: ' + N,                 'property_video_price_mid'),
     ('pricing.html', r'PICK_PRICES = \{[^}]*ownerLead: ' + N,         'ppl_price_owner_mid'),
-    ('pricing.html', r'PICK_PRICES = \{[^}]*line: ' + N,              'phone_line_monthly_price'),
+    ('pricing.html', r'PICK_PRICES = \{[^}]*ownerLeadFree: ' + N,     'ppl_price_owner_free'),
     ('pricing.html', r'PICK_PRICES = \{[^}]*videoCap: ' + N,          'property_video_premium_monthly_cap'),
     ('pricing.html', r'לפני מע״מ: ₪' + N + ' ו-₪',                     'tier_mid_monthly_price'),
     ('pricing.html', r'ו-₪' + N + ' לחודש, וכך',                       'tier_premium_monthly_price'),
@@ -109,6 +116,16 @@ DISPLAY = [
     ('assets/tiers.js', r"'" + N + r' פניות בחודש כלולות',             'free_lead_quota_monthly'),
     ('pricing.html', r'₪' + N + r' לליד',                              'ppl_price_owner_mid'),
     ('assets/tiers.js', r'₪' + N + r' לליד',                           'ppl_price_owner_mid'),
+    ('pricing.html', r'ליד ב-₪' + N,                                   'ppl_price_owner_free'),
+    ('assets/tiers.js', r'ליד ב-₪' + N,                                'ppl_price_owner_free'),
+    # קורס ההכנה למבחן המתווכים - דף המכירה ואזור הלמידה
+    ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
+    ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
+    ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
+    ('course.html', r'וסימולציות\. ' + N + r' ₪ לשישה חודשים',           'course_price_gross'),
+    ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
+    ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
+    ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
 ]
 
 

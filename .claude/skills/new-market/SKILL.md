@@ -32,6 +32,8 @@ description: פתיחת שוק מקומי חדש באתר שוק נדל״ן ("ח
 | 5 | `scripts/markets_test.ts` - מקרה `locate` לנקודה בשוק | כפתור ה-GPS עלול לשלוח את האזור לשוק אחר, ואף בדיקה לא תראה |
 | 6 | `supabase/functions/_shared/service-markets.ts` - slug ושם | גבריאלה לא מציעה את השוק כאזור פעילות לסוכנים (ב-CRM הוא מופיע מעצמו) |
 
+הקוד של `market-pages.ts`, ושל דפי השכונה והעסקאות של העיר החדשה: הסקיל `seo-edge`.
+
 ```sh
 python scripts/check_markets.py                               # 1-4 ו-6 מסכימים
 node --experimental-strip-types scripts/markets_test.ts       # 5 וההתנהגות

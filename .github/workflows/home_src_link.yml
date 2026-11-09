@@ -1,0 +1,31 @@
+name: סינון מקישור בלי referrer
+
+# דפדפן פנימי (מסנג'ר, אינסטגרם, וואטסאפ) לא שולח referrer. בלי ?src=link
+# הכתובת המסוננת נפתחת נקייה. הבדיקה מריצה את הקטע מ-assets/home.js ב-Node.
+
+on:
+  pull_request:
+    paths:
+      - "assets/home.js"
+      - "scripts/home_src_link_test.mjs"
+      - ".github/workflows/home_src_link.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/home.js"
+      - "scripts/home_src_link_test.mjs"
+      - ".github/workflows/home_src_link.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: בדיקת src=link
+        run: node scripts/home_src_link_test.mjs

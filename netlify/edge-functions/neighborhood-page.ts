@@ -130,17 +130,22 @@ export function inject(html: string, d: Hood): string {
   /* ‏ה-H1 יושב על תמונת השער, בתוך הרינדור. בלי זה נשארת גם הכותרת של המעטפת. */
   const preload = H.lcpPreload ? H.lcpPreload(d) : "";
   const og = H.ogImage ? H.ogImage(d) : "";
+  /* ‏אותו משפט ב-meta, ב-og, ב-twitter וב-JSON-LD. התבנית אין בה twitter:description. */
+  const twitter = /<meta name="twitter:description"/.test(html)
+    ? ""
+    : `<meta name="twitter:description" content="${attr(desc)}">\n`;
   let out = html
     .replace(box, () => `<div id="dealsBody" data-ssr="1">\n${H.render(d)}\n<!--/deals-->`)
     .replace(/<section class="page-head">[\s\S]*?<\/section>\s*/, "")
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
     .replace(/(<meta property="og:title" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(full)}${b}`)
     .replace(/(<meta property="og:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
+    .replace(/(<meta name="twitter:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`);
   if (og) {
     out = out.replace(/(<meta property="og:image" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(og)}${b}`);
   }
-  return out.replace(/<\/head>/i, () => `${preload}<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
+  return out.replace(/<\/head>/i, () => `${preload}${twitter}<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
@@ -205,5 +210,6 @@ export default async function handler(request: Request, context: Context) {
 }
 
 export const config: Config = {
-  path: ["/n/*", "/neighborhood", "/neighborhood.html"],
+  /* ‏/n בלי עיר ושכונה אינו /n/* ב-Netlify, והיה יוצא 200 עם H1 "שכונה". */
+  path: ["/n", "/n/", "/n/*", "/neighborhood", "/neighborhood.html"],
 };

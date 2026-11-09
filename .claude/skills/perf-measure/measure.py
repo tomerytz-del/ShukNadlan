@@ -49,7 +49,7 @@ METRICS = """async () => {
 
 
 def chromium_path():
-    hits = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome"))
+    hits = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome"))
     return hits[-1] if hits else None
 
 

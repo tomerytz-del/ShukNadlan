@@ -182,7 +182,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
     }
     if (frame < experts.startFrame) {
       const photoW = SW * 0.9, photoH = photoW * (535 / 790);
-      const styles = ["מודרני נקי", "ים-תיכוני לבן", "סקנדינבי חמים", "יוקרה מודרנית"];
+      const styles = ["מודרני נקי", "ים תיכוני לבן", "סקנדינבי חמים", "יוקרה מודרנית"];
       return (
         <div style={{ position: "absolute", inset: 0, background: palette.vizBg, direction: "rtl" }}>
           <div style={{ position: "absolute", top: SH * 0.05, width: "100%", display: "flex", justifyContent: "center" }}>

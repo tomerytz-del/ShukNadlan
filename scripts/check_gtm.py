@@ -61,7 +61,17 @@ def check(path: Path) -> list[str]:
     for stray in set(re.findall(r"GTM-[A-Z0-9]+", text)) - {CONTAINER_ID}:
         problems.append("מזהה מכולה זר: %s (הנכון הוא %s)" % (stray, CONTAINER_ID))
 
-    if HEAD_SNIPPET not in head:
+    # ‏crm.html דוחה את gtm.js עד שהמסך היעד מצויר (assets/crm.js,
+    # shukArmTrackers). המכולה אותה מכולה, וה-noscript נשאר מיד אחרי body.
+    # שאר הדפים נשארים עם הקטע המלא: שם אין מסך כניסה של 10 שניות.
+    delayed_crm = (
+        path.name == "crm.html"
+        and "shukLoadTrackers" in head
+        and "shukArmTrackers" in head
+        and "gtm.js?id=" in head
+        and CONTAINER_ID in head
+    )
+    if HEAD_SNIPPET not in head and not delayed_crm:
         where = "מחוץ ל-‎<head>‎" if HEAD_SNIPPET in text else "חסר"
         problems.append("קטע ה-script %s" % where)
 

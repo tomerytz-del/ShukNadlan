@@ -125,7 +125,11 @@
       spatialCoverage: cities.map(function (c) { return { '@type': 'Place', name: c }; }),
       variableMeasured: ['מחיר חציוני לדירה (₪)', 'מחיר חציוני למ״ר (₪)', 'מספר עסקאות']
     };
-    if (p && p.start && p.end) data.temporalCoverage = p.start + '/' + p.end;
+    if (p && p.start && p.end) {
+      data.temporalCoverage = p.start + '/' + p.end;
+      /* ‏העסקה האחרונה במאגר היא גם מועד העדכון האחרון של הטבלה. */
+      data.dateModified = p.end;
+    }
     return JSON.stringify(data).replace(/</g, '\\u003c');
   }
 

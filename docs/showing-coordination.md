@@ -135,7 +135,7 @@ payload לפי האינדקס (`COORD_BUTTONS` ב-`showing-coord.ts`). כותר�
 | `showing_coord_ready()` | התנאי של ה-cron `showing-coord` (כל דקה): בקשה שממתינה, תזכורת שהגיע זמנה, או הצעה |
 | `showing_coord_nudge_claim` | התזכורת לנמען/ת. ‏`nudged_at` נכתב לפני השליחה, ותזכורת שנכשלה **אינה** משנה את סטטוס הבקשה - המקורית כבר הגיעה |
 | `showing_coord_briefs()` | הסיכום לסוכן/ת, בתוך המסד - ה-cron `showing-coord-briefs` (כל דקה) מעיר את `notification-push` רק כשנוצר סיכום. ‏`client_showcase_meetings.coord_briefs` זוכר מה כבר יצא (`early`, `final`) |
-| הטריגר `client_showcase_meetings_cancel_coord` | סיור שבוטל או נדחה - מה שעוד ממתין אינו יוצא |
+| הטריגר `client_showcase_meetings_cancel_coord` | סיור שבוטל או נדחה - כל בקשה שאינה סופית (`pending`, `sending`, `sent`, `postpone`, `confirmed`) עוברת ל-`canceled`. מי שכבר קיבל הודעה מסומן `cancel_unnotified` |
 
 הסטטוסים: `pending` → `sending` → `sent` → `confirmed` / `postpone` / `declined`,
 ובדרך: `no_phone`, `no_channel`, `failed`, `opted_out`, `canceled`. לחיצה נוספת
@@ -145,8 +145,9 @@ payload לפי האינדקס (`COORD_BUTTONS` ב-`showing-coord.ts`). כותר�
 
 **ההתראה לסוכן/ת היא `agenda_reminder`**, לא סוג חדש: סיור "היום בסביבות 17:00"
 ביום שישי לא יכול לחכות לראשון, והסוג הזה עוקף שעות וימים שקטים. היא נושאת
-`related_client_id` (פותח את כרטיס הלקוח/ה), ו-`related_agenda_item_id` כשהסיור
-כבר אושר ונרשם ביומן.
+`related_client_id` (פותח את כרטיס הלקוח/ה), `related_showcase_id` (המיניסייט),
+ו-`related_agenda_item_id` כשהסיור כבר אושר ונרשם ביומן. מיניסייט סגור או
+לקוח/ה בסטטוס `closed` לא מקבלים סיכום, תזכורת, ולא מעירים את ה-cron.
 
 **הגייט:** `agent_agenda_enabled` (PROFESSIONAL ו-Elite) - ב-`agent_showing_coord_start`
 וב-`showing_coord_offer_claim`, ושורה משלו ב-`pricing.html`.
@@ -173,6 +174,10 @@ select status, count(*) from showing_coord_requests
 
 ## מה עוד אפשר
 
-- **הודעת ביטול לנמענים** כשהלקוח/ה מבטל/ת סיור שכבר יצאו עליו בקשות. היום רק
-  מה שעוד ממתין נעצר, ומי שכבר אישר/ה ולוחץ/ת שוב מקבל/ת "הביקור בוטל".
+- הודעת ביטול למי שכבר קיבל בקשה יוצאת מוואטסאפ רק אחרי שהסוכן/ת אישר/ה
+  (`cancel_showing` עם `notify_targets`, או הכפתור `scn:`), ורק כשיש מספר
+  וחלון של 24 שעות. הנוסח הוא של גבריאלה, עם השם הפרטי של הסוכן/ת ויום
+  ושעה בלי תאריך. `cancel_unnotified` יורד רק אצל מי שההודעה אליו יצאה.
+  בלי האישור הבקשה נסגרת והאדם לא מקבל הודעה חדשה. ההודעה נרשמת ביומן
+  השיחה של הסוכן/ת (`agent_id`).
 - **"מבקש/ת לדחות" עם שעה** - היום זו תשובה בלי שעה, והסוכן/ת חוזר/ת לתאם.

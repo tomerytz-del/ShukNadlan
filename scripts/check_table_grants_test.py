@@ -16,6 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_table_grants as ctg  # noqa: E402
 
 OLD = '20200101000000'
+# אחרי CUTOFF ולפני ACL_REVOKE_FROM: ההחלטה היא grant או revoke, בלי
+# לחייב revoke all מ-authenticated.
+MID = '20270901000000'
 NEW = '29990101000000'
 
 CASES = [
@@ -27,16 +30,16 @@ CASES = [
              'revoke all on table public.t1 from anon;',
     }),
     ('grant לשניים ו-revoke לשלישי עובר', 0, {
-        NEW: 'create table public.t1 (id int);\n'
+        MID: 'create table public.t1 (id int);\n'
              'grant select, insert, update, delete on table public.t1 to authenticated, service_role;\n'
              'revoke all on table public.t1 from anon;',
     }),
     ('grant בלי המילה table, על רשימת טבלאות', 0, {
-        NEW: 'create table public.t1 (id int);\ncreate table public.t2 (id int);\n'
+        MID: 'create table public.t1 (id int);\ncreate table public.t2 (id int);\n'
              'grant select on public.t1, public.t2 to anon, authenticated, service_role;',
     }),
     ('grant דינמי ב-do $$ על מערך שמות', 0, {
-        NEW: "create table public.t1 (id int);\n"
+        MID: "create table public.t1 (id int);\n"
              "do $$ declare t text; begin\n"
              "  foreach t in array array['t1'] loop\n"
              "    execute format('revoke all on table public.%I from anon', t);\n"
@@ -60,6 +63,18 @@ CASES = [
     ('grant על פונקציה אינו נספר לטבלה', 1, {
         NEW: 'create table public.t1 (id int);\n'
              'grant execute on function public.t1() to anon, authenticated, service_role;',
+    }),
+    ('grant חלקי בלי revoke all מ-authenticated נחסם', 1, {
+        NEW: 'create table public.t1 (id int);\n'
+             'revoke all on table public.t1 from public, anon;\n'
+             'grant select, delete on table public.t1 to authenticated;\n'
+             'grant select, insert, update, delete on table public.t1 to service_role;',
+    }),
+    ('revoke all מ-authenticated ואז grant חלקי עובר', 0, {
+        NEW: 'create table public.t1 (id int);\n'
+             'revoke all on table public.t1 from public, anon, authenticated;\n'
+             'grant select, delete on table public.t1 to authenticated;\n'
+             'grant select, insert, update, delete on table public.t1 to service_role;',
     }),
 ]
 

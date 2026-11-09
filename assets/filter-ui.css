@@ -1,0 +1,67 @@
+/* ============================================================================
+   R8: הסינון של יועצי הנדל״ן והמשרדים (‏assets/dm-filters.js) - בדף הבית, ב-/agents
+   וב-/agencies. אותו מראה כמו הסינון של הנכסים בדף הבית (‏.hs-mchip והגיליון התחתון):
+   צ'יפ במסגרת נייבי, מלא נייבי עם ✓ זהב כשנבחר, 44px; זהב רק בכפתור "הצגת N" ובמונה.
+   נטען מ-dm-filters.js (רק ב-beta), לא ב-<link> בדף.
+   ============================================================================ */
+.dmf{min-width:0;font-family:Heebo,system-ui,sans-serif}
+.dmf-d{display:flex;flex-direction:column;gap:10px;min-width:0}
+.dmf-row{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:start;gap:10px;min-width:0}
+.dmf-lbl{padding-top:12px;font-size:14px;font-weight:800;color:#1b1f2a}
+.dmf-chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.dmf-chip,.dmf-more-btn,.dmf-pick{min-height:44px;padding:0 12px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;
+  font:700 14px Heebo,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.dmf-chip[aria-pressed="true"]{background:#0e2a6b;color:#fff}
+.dmf-chip[aria-pressed="true"]::before{content:"✓ ";color:#c9a227}
+.dmf-chip:disabled{opacity:.4;cursor:default}
+.dmf-n{font-weight:600;opacity:.75}
+.dmf-more-btn{border-style:dashed}
+.dmf-more{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.dmf-more[hidden]{display:none}
+.dmf-count{margin:0;font-size:14px;color:#4a5060}
+.dmf-link{border:0;background:none;padding:0 4px;min-height:44px;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.dmf-chip:focus-visible,.dmf-more-btn:focus-visible,.dmf-pick:focus-visible,.dmf-open:focus-visible,.dmf-link:focus-visible,
+.dmf-x:focus-visible,.dmf-go:focus-visible,.dmf-ghost:focus-visible,.dmf-act:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+
+/* הטלפון: כפתור אחד ברוחב מלא, ומתחתיו הבחירות עם ✕ */
+.dmf-m{display:none;flex-direction:column;gap:8px}
+.dmf-open{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:0 14px;border:1.5px solid #0e2a6b;border-radius:12px;
+  background:#fff;color:#0e2a6b;font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}
+.dmf-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#c9a227;color:#0e2a6b;font-size:13px}
+.dmf-picked{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.dmf-picked::-webkit-scrollbar{display:none}
+.dmf-pick{flex:none;background:#0e2a6b;color:#fff}
+.dmf-pick span{color:#c9a227;margin-inline-start:4px}
+@media (max-width:759px){
+  .dmf-d{display:none}
+  .dmf-m{display:flex}
+}
+
+/* הגיליון התחתון - כמו "סינון מתקדם" של הנכסים: טיוטה, ו"הצגת N" שמחיל */
+.dmf-lock,.dmf-lock body{overflow:hidden}
+.dmf-sheet-wrap{position:fixed;inset:0;z-index:1300;display:flex;align-items:flex-end;justify-content:center}
+.dmf-scrim{position:absolute;inset:0;background:rgba(14,42,107,.55)}
+.dmf-sheet{position:relative;display:flex;flex-direction:column;width:100%;max-width:560px;max-height:88vh;max-height:88dvh;
+  border-radius:20px 20px 0 0;background:#fff;box-shadow:0 -12px 40px rgba(13,27,61,.25);overflow:hidden}
+.dmf-grip{display:block;width:40px;height:4px;margin:8px auto 0;border-radius:2px;background:#d4d9e4}
+.dmf-shead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 8px 8px}
+.dmf-shead h2{margin:0;font:800 22px/1.3 Heebo,system-ui,sans-serif;color:#1b1f2a}
+.dmf-x{flex:none;width:44px;height:44px;border:0;border-radius:999px;background:#eef1f7;color:#0e2a6b;font:700 18px/1 Heebo,system-ui,sans-serif;cursor:pointer}
+.dmf-sbody{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 16px 16px}
+.dmf-h{margin:14px 0 8px;font:800 16px Heebo,system-ui,sans-serif;color:#1b1f2a}
+.dmf-h span{font-weight:600;color:#6b7280;font-size:14px}
+.dmf-sub{margin:10px 0 6px;font-size:13.5px;font-weight:700;color:#4a5060}
+.dmf-sbody-x .tool-row{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-top:14px}
+.dmf-sfoot{display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #e3e8f2;background:#fff}
+.dmf-ghost{flex:0 0 auto;min-height:48px;padding:0 18px;border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}
+.dmf-go{flex:1;min-height:48px;border:0;border-radius:12px;background:#c9a227;color:#0e2a6b;font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}
+.dmf-go:disabled{background:#e7e2d2;color:#6b6450;cursor:default}
+@media (min-width:640px){
+  .dmf-sheet-wrap{align-items:center}
+  .dmf-sheet{border-radius:20px}
+}
+
+/* מצב ריק */
+.dmf-empty-acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.dmf-act{min-height:44px;padding:0 14px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif;cursor:pointer}
+.dmf-elsewhere{margin:10px 0 0;font-size:14px;color:#4a5060}

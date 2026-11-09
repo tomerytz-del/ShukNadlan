@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { noLongDash } from "../_shared/marketing-copy.ts";
+import { ctaPayload, logWaUrlGuard, planWaText, WA_CTA_BODY_MAX, WA_EMPTY_BODY } from "../_shared/wa-url-guard.ts";
 
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -106,12 +107,45 @@ export function sendShowcaseTemplate(to: string, firstName: string, line: string
   });
 }
 
-export function sendShowcaseText(to: string, body: string) {
-  return post({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: { preview_url: true, body: noLongDash(body).slice(0, 4000) },
-  });
+export async function sendShowcaseText(to: string, body: string, label = "לעמוד האישי", url?: string) {
+  const plan = planWaText(noLongDash(body));
+  if (plan.stripped) logWaUrlGuard("showcase", plan);
+  const text = (plan.text || WA_EMPTY_BODY).slice(0, 4000);
+  const buttonUrl = url || plan.links.find((link) => link.kind === "cta")?.url;
+  if (!buttonUrl) {
+    return post({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { preview_url: false, body: text },
+    });
+  }
+  try {
+    if (text.length > WA_CTA_BODY_MAX) {
+      const textId = await post({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: { preview_url: false, body: text },
+      });
+      await post(ctaPayload(to, WA_EMPTY_BODY, label, buttonUrl));
+      return textId;
+    }
+    return await post(ctaPayload(to, text, label, buttonUrl));
+  } catch (err) {
+    console.error("wa-url-guard showcase cta failed", err);
+    const note = "העמוד האישי זמין גם באתר שוק נדל״ן.";
+    // גוף ארוך כבר יצא לפני הכפתור. כאן רק המשפט, בלי לשלוח את הגוף פעמיים.
+    const alreadySent = text.length > WA_CTA_BODY_MAX;
+    const body = alreadySent || !text.trim() ? note : `${text.trim()}\n${note}`;
+    return post({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { preview_url: false, body: body.slice(0, 4000) },
+    });
+  }
 }

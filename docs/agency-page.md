@@ -27,7 +27,9 @@
 
 רכיב אחד — `.banner`:
 
-- תמונת הנושא היא **הרקע** שלו (`#bannerMedia`), לא רצועה נפרדת מעליו.
+- תמונת הנושא היא `<img class="banner-lcp">` בתוך `#bannerMedia` (לא רקע CSS),
+  עם `fetchpriority="high"`. ‏`og-tags` כותב אותה ואת מחלקת `agency-ready`
+  כבר ב-HTML, בעותק `render/image` של 1400×800. ה-`og:image` נשאר על הקובץ המלא.
 - מעל התמונה שכבת כהות בגוון המותג, שמאפשרת לטקסט לשבת על כל תמונה.
 - בתוכו, פעם אחת: לוגו, שם, מוטו, דירוג, ושורת הקשר (`משרד תיווך · עפולה ·
   מגדל העמק`) שהחליפה את שורת התגיות "אזורי פעילות".
@@ -302,7 +304,7 @@ DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city'
 |---|---|---|
 | שיוך | רוטציה: שכונה → סוג נכס → תור | **מנהל/ת המשרד** ישירות |
 | סטטוס | `masked` | `unlocked` במסלול בתשלום · `masked` ב-Pay&GO |
-| מחיר | `ppl_price_owner_mid` / מכסה / tier | **חינם** ב-PROFESSIONAL ו-Elite · ב-Pay&GO נספר במכסת הפניות החודשית, ומעבר לה ₪25 |
+| מחיר | `ppl_price_owner_mid` (₪50 במנוי) / `ppl_price_owner_free` (₪69 ב-Pay&GO) | **חינם** ב-PROFESSIONAL ו-Elite · ב-Pay&GO נספר במכסת הפניות החודשית, ומעבר לה ₪25 |
 | בלעדיות | `owner_lead_exclusivity_hours` | לא רלוונטי |
 | `source` | `null` | `agency_page` |
 
@@ -537,3 +539,11 @@ PropertyCard.visualizedIds(sb, ids) // למי יש הדמיית AI
 מתיר `update` רק כש-`current_member_role() = 'manager'` ובמשרד של המשתמש/ת.
 המקטע ב-CRM (`#managerBrandingSection`) מוצג למנהל/ת בלבד, אבל גם סוכן/ת
 שיפתח/תפתח אותו בכוח יקבל/תקבל אפס שורות מעודכנות.
+
+## שיתוף הדף
+
+כפתור עגול בפינת הבאנר: ‏`<button data-share data-share-type="agency" data-page-share hidden>`
+ב-HTML, ו-`assets/page-share.js` (משותף לדף המשרד ולדף הסוכן/ת) מוסיף לו סגנון,
+חושף אותו ומחבר את הלחיצה. ‏Web Share בטלפון, והעתקת קישור במחשב. הכתובת היא
+ה-`canonical` ש-`og-tags.ts` מזריקה (בלי utm), ו-`share` נדחף רק אחרי שהשיתוף
+קרה (`docs/analytics-events.md`).

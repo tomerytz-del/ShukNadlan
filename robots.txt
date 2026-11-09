@@ -11,6 +11,8 @@ Disallow: /developer-crm
 Disallow: /developer-crm.html
 Disallow: /professional-manage
 Disallow: /professional-manage.html
+Disallow: /professional-crm
+Disallow: /professional-crm.html
 Disallow: /csm
 Disallow: /csm.html
 
@@ -31,8 +33,10 @@ Disallow: /sign.html
 Disallow: /review-request
 Disallow: /review-request.html
 # המיניסייט האישי ללקוח/ה - קישור עם טוקן (docs/client-showcase.md)
+# ‏/m/ הוא הקישור הקצר של אותה כתובת. בלי הלוכסן /m היה תופס גם /meeting.
 Disallow: /showcase
 Disallow: /showcase.html
+Disallow: /m/
 # דף הפגישה ללקוח/ה - קישור עם טוקן (docs/meeting-client-followup.md)
 Disallow: /meeting
 Disallow: /meeting.html
@@ -45,9 +49,19 @@ Disallow: /plan.html
 Disallow: /cma
 Disallow: /cma.html
 
+# אזור הלמידה של קורס ההכנה למבחן המתווכים - תוכן בתשלום מאחורי כניסה
+# (docs/exam-course.md). דף המכירה /course נשאר ציבורי.
+Disallow: /learn
+Disallow: /learn.html
+
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary
 Disallow: /neighborhood-boundary.html
+
+# /go/<code> הוא הפניה שסופרת קליק, לא עמוד. החסימה מונעת מגוגל לאנדקס
+# את כתובת ההפניה. לחיצה של אדם אינה נעצרת כאן.
+Disallow: /go$
+Disallow: /go/
 
 # ‏פרמטרי הסינון של דף הבית ושל דפי הרשימות היו חסומים כאן עד היום, בשלוש
 # שורות (‏filter=, sort=, page=), "עד שיהיו תגיות canonical בדפים האלה".

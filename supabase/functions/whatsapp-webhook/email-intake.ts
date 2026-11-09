@@ -26,6 +26,7 @@ import PostalMime from "npm:postal-mime@2.7.6";
 import { ImapClient, imapDate } from "../_shared/imap.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
+import { emailFailureNotice, emailLockPlan, type TurnLockResult } from "./turn-lock.ts";
 import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate } from "./whatsapp.ts";
 import {
   type ExistingCost,
@@ -117,6 +118,27 @@ export interface IntakeDeps {
   reply: (to: string, text: string, agentId: string | null) => Promise<void>;
   loadConversation: (agentId: string, phone: string) => Promise<ConversationState>;
   saveConversation: (agentId: string, phone: string, conv: ConversationState) => Promise<void>;
+  /** נעילת התור של הסוכן/ת, כדי שמייל ווואטסאפ לא ירוצו יחד על אותה היסטוריה. */
+  holdTurn?: (
+    agentId: string,
+    run: (ctx: { signal: AbortSignal }) => Promise<void>,
+  ) => Promise<TurnLockResult>;
+}
+
+/** בלי וואטסאפ ישיר: הפעמון שולח לפי שעות שקט, כפתור בלי כתובת, ומסלול חינם לא בוואטסאפ. */
+async function notifyEmailFailed(
+  sb: SupabaseClient,
+  agentId: string,
+  toolsRan: boolean | "unknown",
+): Promise<void> {
+  const note = emailFailureNotice(toolsRan);
+  const { error } = await sb.from("notifications").insert({
+    agent_id: agentId,
+    type: "email_intake",
+    title: note.title,
+    body: note.body,
+  });
+  if (error) console.error("email failure notice failed", error.message);
 }
 
 // ---------------------------------------------------------------------------
@@ -586,21 +608,43 @@ async function handleOne(
   uidvalidity: number,
   uid: number,
   who: { token: string } | { agentId: string },
+  resume?: { id: number; attemptCount?: number },
 ): Promise<void> {
   const sb = deps.supabase;
 
   // ‏claim לפני כל דבר שעולה כסף או כותב. שתי הרצות חופפות רואות את אותו
-  // מייל; השנייה נתקלת ב-23505 ועוזבת.
-  const via = "token" in who ? "token" : "sender";
-  const { data: claimed, error: claimErr } = await sb.from("email_intake_messages")
-    .insert({ mailbox, uidvalidity, uid, status: "processing", via })
-    .select("id")
-    .single();
-  if (claimErr || !claimed) {
-    if (claimErr?.code !== "23505") console.error("email intake claim failed", claimErr);
-    return;
+  // מייל; השנייה נתקלת ב-23505 ועוזבת. שורה lock_wait חוזרת בלי claim חדש.
+  let row: ClaimRow;
+  const attemptCount = resume?.attemptCount ?? 0;
+  if (resume) {
+    row = { id: resume.id };
+  } else {
+    const via = "token" in who ? "token" : "sender";
+    const { data: claimed, error: claimErr } = await sb.from("email_intake_messages")
+      .insert({ mailbox, uidvalidity, uid, status: "processing", via })
+      .select("id")
+      .single();
+    if (claimErr || !claimed) {
+      if (claimErr?.code !== "23505") console.error("email intake claim failed", claimErr);
+      return;
+    }
+    row = claimed as ClaimRow;
   }
-  const row = claimed as ClaimRow;
+
+  const parkForLock = async (agentForNotice: string) => {
+    const used = Math.max(attemptCount, 1);
+    if (emailLockPlan(used) === "fail") {
+      await finish(sb, row, "failed", "lock_busy");
+      await notifyEmailFailed(sb, agentForNotice, false);
+      return;
+    }
+    await sb.from("email_intake_messages").update({
+      status: "lock_wait",
+      detail: "lock_wait",
+      attempt_count: used,
+      next_attempt_at: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+    }).eq("id", row.id);
+  };
 
   let agentId: string;
   if ("token" in who) {
@@ -664,6 +708,7 @@ async function handleOne(
     agencies: (await loadAgency(sb, agent.agency_id, "name")) as { name?: string } | null,
   } as unknown as AgentRow;
 
+  const turn = async (ctx?: { signal?: AbortSignal }) => {
   const conv = await deps.loadConversation(agent.id, phone);
 
   // אחרי הגייטים: קריאת PDF והקלטה עולות כסף. כשל כללי כאן (לא של קובץ
@@ -692,21 +737,76 @@ async function handleOne(
       userContent: content,
       userSummary: historySummary(mail, att.history),
       allowedTools: EMAIL_TOOLS,
+      signal: ctx?.signal,
     });
   } catch (err) {
+    if (ctx?.signal?.aborted) {
+      if (conv.abortedToolNames && conv.abortedToolNames.length) {
+        await deps.saveConversation(agent.id, phone, conv);
+      }
+      await finish(sb, row, "failed", "lease_aborted");
+      await notifyEmailFailed(sb, agent.id, !!(conv.abortedToolNames && conv.abortedToolNames.length));
+      return;
+    }
     console.error("email intake turn failed", err);
     await finish(sb, row, "failed", `turn: ${String((err as Error)?.message || err)}`);
-    await deliver(
-      deps, phone, agent, mail.subject,
-      `קיבלתי את המייל "${mail.subject || "ללא נושא"}" אבל לא הצלחתי לטפל בו כרגע. ` +
-        "אפשר להעביר אותו שוב, או לכתוב לי כאן מה להכניס.",
-    );
+    await notifyEmailFailed(sb, agent.id, false);
     return;
   }
 
   await deps.saveConversation(agent.id, phone, conv);
   await deliver(deps, phone, agent, mail.subject, answer);
   await finish(sb, row, "done", answer);
+  };
+
+  if (deps.holdTurn) {
+    const held = await deps.holdTurn(agent.id, turn);
+    if (held.skippedBusy) await parkForLock(agent.id);
+  } else {
+    await turn();
+  }
+}
+
+async function retryLockWaitMails(
+  deps: IntakeDeps,
+  imap: ImapClient,
+  mailbox: string,
+  uidvalidity: number,
+): Promise<void> {
+  const sb = deps.supabase;
+  const { data: stuck, error: stuckErr } = await sb.rpc("email_intake_fail_stuck", { p_mailbox: mailbox });
+  if (stuckErr) {
+    if (!String(stuckErr.message || "").includes("email_intake_fail_stuck")) {
+      console.error("email stuck sweep failed", stuckErr);
+    }
+  } else {
+    for (const row of (stuck as { id: number; agent_id: string | null }[]) || []) {
+      if (row.agent_id) await notifyEmailFailed(sb, row.agent_id, "unknown");
+    }
+  }
+  const { data: ready, error } = await sb.rpc("email_intake_claim_lock_wait", {
+    p_mailbox: mailbox,
+    p_uidvalidity: uidvalidity,
+    p_limit: 3,
+  });
+  if (error) {
+    if (!String(error.message || "").includes("email_intake_claim_lock_wait")) {
+      console.error("email lock claim failed", error);
+    }
+    return;
+  }
+  for (const row of (ready as { id: number; uid: number; agent_id: string | null; attempt_count: number }[]) || []) {
+    if (!row.agent_id) continue;
+    try {
+      await handleOne(
+        deps, imap, mailbox, uidvalidity, Number(row.uid),
+        { agentId: String(row.agent_id) },
+        { id: Number(row.id), attemptCount: Number(row.attempt_count) || 1 },
+      );
+    } catch (err) {
+      console.error("email lock retry failed", row.uid, err);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -841,6 +941,7 @@ export async function runEmailIntake(deps: IntakeDeps): Promise<Record<string, u
   try {
     await imap.login(IMAP_USER, IMAP_PASS);
     const { uidvalidity, uidnext } = await imap.examine(MAILBOX);
+    await retryLockWaitMails(deps, imap, mailbox, uidvalidity);
 
     const { data: cursor } = await sb.from("email_intake_cursor")
       .select("uidvalidity, last_uid").eq("mailbox", mailbox).maybeSingle();
