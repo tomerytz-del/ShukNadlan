@@ -678,6 +678,23 @@ create table if not exists auth.users (
   raw_user_meta_data jsonb,
   created_at timestamptz default now()
 );
+-- storage אינה ב-dump של public. מיגרציה **ממתינה** שיוצרת דלי או מדיניות עליו (neighborhood-covers,
+-- 20271109160000) נפלה על "relation storage.buckets does not exist". stub עם העמודות שהן קוראות.
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id text primary key,
+  name text,
+  public boolean default false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text,
+  name text,
+  owner uuid,
+  created_at timestamptz default now()
+);
 create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
 create or replace function auth.role() returns text language sql stable as $$ select ''::text $$;
 create or replace function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
