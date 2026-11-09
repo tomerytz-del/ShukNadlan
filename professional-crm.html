@@ -23,14 +23,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
      שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
      לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="/app-professional.webmanifest">
 <meta name="theme-color" content="#0e2a6b">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
-<script defer src="assets/pwa-install.js"></script>
+<meta name="apple-mobile-web-app-title" content="אזור מקצועי">
+<script defer src="assets/pwa-install.js" data-first-visit="show"></script>
 <!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
      סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
      docs/security-headers.md -->
@@ -125,7 +125,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- אחרי קישור איפוס סיסמה -->
   <section class="card" id="recoverCard" hidden>
-    <h1>סיסמה חדשה</h1>
+    <h1 id="rcTitle">סיסמה חדשה</h1>
     <form id="recoverForm">
       <label for="rcPassword">סיסמה חדשה (8 תווים לפחות)</label>
       <input type="password" id="rcPassword" autocomplete="new-password" minlength="8" required>
@@ -172,6 +172,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="note" style="margin-top:0">הגישה למדף שאלות הלקוחות ממתינה לאישור הנהלת האתר. נעדכן כשהיא נפתחת.</div>
     </section>
 
+    <!-- מחיקת החשבון (Apple 5.1.1(v), Google Play). אישור כפול: הבנה מאחורי סימון, ואז הקלדת "מחיקת חשבון".
+         הכול נקבע בשרת (close-account, close_professional_account). docs/account-closure.md -->
+    <section class="card" id="deleteCard" style="border-color:#c0392b">
+      <h2 style="color:#c0392b">מחיקת החשבון</h2>
+      <p class="empty" style="text-align:start;padding:0 0 10px">הכניסה והפרטים האישיים נמחקים, והמדף נסגר. הכרטיסייה שלכם באתר נשארת ומנוהלת מהקישור האישי שלה. זו פעולה שאין ממנה חזרה.</p>
+      <button class="btn btn-ghost" type="button" id="deleteOpenBtn" style="color:#c0392b;border-color:#c0392b">מחיקת החשבון</button>
+      <div class="msg" id="deleteMsg" role="status" aria-live="polite"></div>
+    </section>
+
     <section class="card" id="noShelfCard" hidden>
       <h2>מדף הלידים</h2>
       <div class="empty">אין עדיין מדף לידים לתחום שלכם. הכרטיסייה פעילה, ואפשר לערוך אותה מהכפתור למעלה.</div>
@@ -204,6 +213,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-ghost" type="button" id="buyCancel">ביטול</button>
     </div>
     <div class="msg err" id="buyMsg" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- אישור מחיקת חשבון -->
+<div class="overlay" id="delOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="delTitle">
+  <div class="dialog">
+    <h2 id="delTitle">מחיקת החשבון</h2>
+    <div id="delStep1">
+      <p style="font-weight:800">אחרי האישור, מיד:</p>
+      <ul style="margin:0 0 10px;padding-inline-start:18px;font-size:.88rem;line-height:1.6">
+        <li>הכניסה, השם והטלפון נמחקים, והמדף נסגר.</li>
+        <li>הכרטיסייה שלכם באתר נשארת, ומנוהלת מהקישור האישי שלה.</li>
+        <li id="delLeads" hidden></li>
+        <li>נשמרים בלי פרטי קשר, כי החוק מחייב: החיובים, החשבוניות ויומן הזיכויים.</li>
+      </ul>
+      <p id="delMoney" style="font-size:.86rem"></p>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.86rem;margin-top:10px;cursor:pointer">
+        <input type="checkbox" id="delAck"> <span>קראתי והבנתי. הבקשה היא למחוק את החשבון.</span>
+      </label>
+    </div>
+    <div id="delStep2" hidden>
+      <p style="font-size:.9rem">זה האישור האחרון. כדי לוודא שזו לא לחיצה בטעות, הקלידו <b>מחיקת חשבון</b> בשדה שלמטה.</p>
+      <input type="text" id="delPhrase" autocomplete="off" spellcheck="false" style="width:100%" aria-label="הקלדת המילים מחיקת חשבון לאישור">
+    </div>
+    <div class="msg err" id="delDlgMsg" role="status" aria-live="polite"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-ghost" type="button" id="delNext" disabled style="color:#c0392b;border-color:#c0392b">המשך לאישור האחרון</button>
+      <button class="btn btn-ghost" type="button" id="delConfirm" hidden disabled style="color:#c0392b;border-color:#c0392b">מחיקת החשבון</button>
+      <button class="btn btn-ghost" type="button" id="delCancel">ביטול</button>
+    </div>
   </div>
 </div>
 

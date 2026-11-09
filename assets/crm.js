@@ -925,6 +925,35 @@ function showBootCard(message){
   showScreen('boot');
 }
 
+/* מסך הביניים אומר לאן הקישור הולך. בלי ?goto= נשאר המשפט הכללי.
+   קטגוריה שהתפקיד הזה לא רואה (navAccVisible) לא נפתחת, והנחיתה היא
+   הדשבורד - אז גם המסך לא מבטיח מסך אחר. */
+function bootMessageFor(raw, tab){
+  const hidden = /^(acc|dashPanel)/.test(raw) && typeof navAccVisible === 'function'
+    && !navAccVisible(typeof accAliasTarget === 'function' ? accAliasTarget(raw) : raw);
+  if (hidden) return 'טוענים את איזור הסוכנים…';
+  if (raw === 'accLeads' && tab === 'demand') return 'פותחים את הביקושים הפתוחים…';
+  if (raw === 'accLeads') return 'פותחים את הלידים…';
+  if (raw === 'accProperties') return 'פותחים את הנכסים…';
+  if (raw === 'accClients') return 'פותחים את הלקוחות…';
+  if (raw === 'accSharedWithMe') return 'פותחים את הנכסים ששותפו איתך…';
+  if (raw === 'accAgreements' || raw === 'sign') return 'פותחים את ההסכמים…';
+  if (raw === 'accAgenda') return 'פותחים את היומן…';
+  if (raw === 'accPlanning') return 'פותחים את המידע התכנוני…';
+  if (raw === 'accPrefs' || raw === 'accNotifPrefs') return 'פותחים את ההגדרות…';
+  if (raw === 'accReviews') return 'פותחים את הביקורות…';
+  if (raw === 'cma' || raw === 'cmaAddress') return 'פותחים את דוח ה-CMA…';
+  if (raw === 'license') return 'פותחים את הרישיון…';
+  if (raw === 'mentor') return 'פותחים את המנטור…';
+  if (raw === 'promote' || raw === 'waShare') return 'פותחים את השיווק…';
+  if (raw) return 'פותחים את המסך…';
+  return 'טוענים את איזור הסוכנים…';
+}
+function bootMessage(){
+  const params = new URLSearchParams(location.search);
+  return bootMessageFor(params.get('goto') || '', params.get('tab') || '');
+}
+
 /* ---------- ניקוי תשובת Google מהכתובת ----------
    Google מחזיר את התשובה בכתובת עצמה: בהצלחה כ-#access_token=… (או ?code=…),
    בכישלון כ-error/error_description. supabase-js קורא אותה בעצמו בזמן האתחול,
@@ -1667,7 +1696,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     releasedAgent = null;
     // מסך ההמתנה במקום כיבוי ידני של הכרטיס: כך אין רגע ריק בין סגירת מסך
     // פתיחת המשרד לבין הופעת הדשבורד. showScreen() מכבה את הכרטיס בעצמו.
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     if (!wasAdopted) markWelcome();
     await loadDashboard(session.user);
     if (wasAdopted){
@@ -2071,7 +2100,7 @@ async function routeAfterAuthOnce(user){
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
   routedUserId = user.id;
-  showBootCard('טוענים את איזור הסוכנים…');
+  showBootCard(bootMessage());
   // אין כאן שאילתת agency_members נפרדת: loadDashboard() ממילא שולף את השורה
   // ומבדיל בעצמו בין שגיאה (מסך שגיאה) לבין אין-שורה (מסך פתיחת משרד).
   // השאילתה הכפולה הוסיפה סיבוב רשת שלם לכל כניסה, לפני שמשהו הופיע על המסך.
@@ -3810,9 +3839,11 @@ const UNROUTED_KIND_LABELS = {
   agent_owner:'ליד בעל/ת נכס',
   agent_buyer:'ליד מחפש/ת דירה',
   mortgage_advisor:'ליד ייעוץ משכנתאות',
+  lawyer:'שאלה לעו"ד',
 };
 const UNROUTED_REASONS = {
   no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
+  no_lawyer_in_city:'אין עו"ד מאושר/ת בעיר או בשוק של הנכס',
   no_eligible_agents:'אין סוכני PROFESSIONAL/Elite עם העדפות לידים פעילות',
   no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
   no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
@@ -3825,6 +3856,7 @@ const UNROUTED_SOURCES = {
   homepage_search_agent:'הסוכן החכם (תוצאות חיפוש)',
   homepage_mortgage_calc:'מחשבון משכנתא (דף הבית)',
   property_page_mortgage_calc:'מחשבון משכנתא (דף נכס)',
+  property_page_lawyer_question:'שאלה לעו"ד (דף נכס)',
   homepage_yield_calc:'מחשבון תשואה (דף הבית)',
   agency_page_owner_wizard:'הערכת שווי (דף משרד)',
   agency_page_yield_calc:'מחשבון תשואה (דף משרד)',
@@ -5611,6 +5643,7 @@ const LX_KINDS = {
   agent_owner:      'בעל/ת נכס',
   agent_buyer:      'מחפש/ת דירה',
   mortgage_advisor: 'ייעוץ משכנתאות',
+  lawyer:           'שאלה לעו"ד',
   developer:        'מחפש/ת פרויקט חדש',
 };
 
@@ -9309,11 +9342,11 @@ async function chooseTier(tierId, btn){
       feedback.textContent = data.detail || 'הבקשה נקלטה. ניצור קשר להסדרת התשלום.';
       // מסמנים שהבקשה פתוחה, כדי שהמסך לא יחזור עד שהיא תטופל
       if (currentAgent) currentAgent.pending_tier_change = tierId;
-      setTimeout(()=>{ showBootCard('טוענים את איזור הסוכנים…'); loadDashboard(); }, 2600);
+      setTimeout(()=>{ showBootCard(bootMessage()); loadDashboard(); }, 2600);
       return;
     }
 
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     await loadDashboard();
     if (window.Tiers) showToast('המסלול שלך: ' + Tiers.label(data.tier || tierId));
   } catch(err){
@@ -9480,7 +9513,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
     const saved = await acceptEthicsFor(memberId);
     if (currentAgent) Object.assign(currentAgent, saved);
 
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     await loadDashboard();
   } catch(err){
     // המסך נשאר כמו שהוא — עם מה שהוקלד בו. ‏showEthicsGate מחדש כאן היה

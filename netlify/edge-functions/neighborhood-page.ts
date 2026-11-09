@@ -127,15 +127,20 @@ export function inject(html: string, d: Hood): string {
   const h1 = `שכונת ${d.name}, ${d.city}`;
   const lcp = H.lcpHref ? H.lcpHref(d) : "";
   const preload = lcp ? `<link rel="preload" as="image" href="${attr(lcp)}" fetchpriority="high">\n` : "";
+  /* ‏אותו משפט ב-meta, ב-og, ב-twitter וב-JSON-LD. התבנית אין בה twitter:description. */
+  const twitter = /<meta name="twitter:description"/.test(html)
+    ? ""
+    : `<meta name="twitter:description" content="${attr(desc)}">\n`;
   return html
     .replace(box, () => `<div id="dealsBody" data-ssr="1">\n${H.render(d)}\n<!--/deals-->`)
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${text(full)}</title>`)
     .replace(/(<meta property="og:title" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(full)}${b}`)
     .replace(/(<meta property="og:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
+    .replace(/(<meta name="twitter:description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
     .replace(/(<meta name="description" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(desc)}${b}`)
     .replace(/(<h1 id="dealsH1">)[\s\S]*?(<\/h1>)/, (_m, a, b) => `${a}${text(h1)}${b}`)
     .replace(/(<p id="dealsLead">)[\s\S]*?(<\/p>)/, (_m, a, b) => `${a}${text(desc)}${b}`)
-    .replace(/<\/head>/i, () => `${preload}<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}${twitter}<script type="application/ld+json">${H.jsonLd(d, SITE)}</script>\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {

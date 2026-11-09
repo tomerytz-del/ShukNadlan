@@ -21,8 +21,8 @@
 import { META_ADS_SOURCES } from "./lead-dedupe.ts";
 import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "./platform-mail-client.ts";
 
-export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor";
-export type LeadTable = "leads" | "saved_searches" | "mortgage_leads";
+export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor" | "lawyer";
+export type LeadTable = "leads" | "saved_searches" | "mortgage_leads" | "lawyer_leads";
 /** assigned = שויך לסוכן/ת · shelf = פורסם למדף · unrouted = אין למי להפנות
  *  · no_consent = הפונה ביקש/ה התראות בלבד ולא אישר/ה יצירת קשר */
 export type LeadRouting = "assigned" | "shelf" | "unrouted" | "no_consent";
@@ -47,6 +47,7 @@ const KIND_LABELS: Record<LeadKind, string> = {
   agent_owner: "ליד בעל/ת נכס",
   agent_buyer: "ליד מחפש/ת דירה",
   mortgage_advisor: "ליד ייעוץ משכנתאות",
+  lawyer: "שאלה לעו\"ד",
 };
 
 /* ---------------------------------------------------------------------------
@@ -114,6 +115,8 @@ const KNOWN_SOURCES = new Set([
   "homepage_search_agent",
   "homepage_mortgage_calc",
   "property_page_mortgage_calc",
+  // שאלה לעו"ד מדף הנכס: נרשמת במסד (lawyer_lead_wa_verify), לא מ-Edge
+  "property_page_lawyer_question",
   // תיבת ההדמיות בדף הנכס: "חושבים למכור/להשכיר?". הליד נושא agent_slug
   // ולכן היה נרשם ביומן כ-agent_page_owner_wizard — נכון לגבי היעד, מטעה
   // לגבי המקור. שני הכלים מייצרים לידים באותה כמות ובאותו מסלול, וההבדל

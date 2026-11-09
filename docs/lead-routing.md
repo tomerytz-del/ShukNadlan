@@ -98,6 +98,11 @@
 | `lawyer_leads_public` | חשבון עו"ד מאושר (`professional_accounts.shelf_enabled`) בעיר של הליד, או מנהל/ת פלטפורמה | `current_is_lawyer()` + `current_professional_works_city()` בתוך ה-view (`20271108090000`). `docs/lawyer-leads.md`, `docs/professional-accounts.md` |
 | `project_leads_shelf` | יזם רשום ופעיל | `exists` על `developers` בתוך ה-view (כבר מ-`20260921090000`) |
 
+**ליד עו"ד נרשם ב-`lead_routing_log` ברגע האימות** (`lead_kind = 'lawyer'`, `lead_table = 'lawyer_leads'`): `shelf` כשיש עו"ד מאושר בעיר או באותו שוק,
+ו-`unrouted` עם `reason = 'no_lawyer_in_city'` כשאין, שמעיר את `lead_unrouted` למנהל/ת הפלטפורמה. הרישום נעשה **במסד** (`lawyer_lead_wa_verify`) ולא
+ב-Edge, ולכן המייל למנהל/ת (שהפונקציות הקולטות האחרות שולחות) אינו יוצא; הפעמון מכסה. `docs/lawyer-leads.md`, "הקליטה".
+
+
 ‏`scripts/check_shelf_audience.py` (‏workflow `shelf_audience.yml`, והוא נבדק בעצמו ב-`check_shelf_audience_test.py`) בודק שההגדרה **האחרונה**
 של כל מדף מקצועי מחברת את שומר הקהל שלו ב-**AND** לתנאי ה-where (לא בהערה, לא ב-OR, לא בתת-שאילתה),  ו**מדף חדש (`*_leads_public`, `*_leads_shelf`, `*_shelf`) חייב להצהיר למי
 הוא מיועד** - ב-`PROFESSIONAL_SHELVES` עם פונקציית קהל, או ב-`BROKER_SHELVES`. מדף עורכי הדין
