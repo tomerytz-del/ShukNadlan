@@ -408,6 +408,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .picker-ctas .cta-gold{font-size:17px}
   .picker-ctas .wa{color:var(--sapphire);font-weight:800;text-decoration:none}
   .picker-note{font-size:13px;color:var(--dim)}
+  /* ‏הבוחר כאשף: JS מוסיף is-wizard, ואז שאלה אחת מוצגת בכל פעם ומתחלפת
+     באנימציה אחרי התשובה. בלי JS - כל השאלות גלויות כרגיל. */
+  .pq-progress{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--dim)}
+  .pq-progress .dots{display:flex;gap:6px}
+  .pq-progress .dots i{width:22px;height:4px;border-radius:2px;background:var(--line);transition:background .25s}
+  .pq-progress .dots i.on{background:var(--sapphire)}
+  .pq-progress .dots i.done{background:var(--gold)}
+  .is-wizard .pq{display:none;flex-direction:column;align-items:flex-start;gap:10px}
+  .is-wizard .pq.is-on{display:flex;animation:pqIn .32s cubic-bezier(.2,.7,.2,1) both}
+  .is-wizard .pq.is-out{display:flex;animation:pqOut .22s ease-in both;pointer-events:none}
+  .is-wizard .pq legend{float:none;font-size:18px;line-height:1.35;margin:0 0 4px}
+  .is-wizard .pq .opts{display:flex;flex-wrap:wrap;gap:8px}
+  .is-wizard .pq span{font-size:15px;padding:9px 16px}
+  @keyframes pqIn{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+  @keyframes pqOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(28px)}}
+  .pq-nav{display:none;gap:14px;align-items:center;font-size:14px}
+  .is-wizard .pq-nav{display:flex}
+  .pq-nav button{background:none;border:0;padding:0;color:var(--sapphire);font-weight:700;cursor:pointer;font-size:14px}
+  .pq-nav button[hidden]{display:none}
+  .is-wizard .bubble.rec{animation:pqIn .4s cubic-bezier(.2,.7,.2,1) both}
+  @media(prefers-reduced-motion:reduce){
+    .is-wizard .pq.is-on,.is-wizard .pq.is-out,.is-wizard .bubble.rec{animation:none}
+  }
 
   /* מה גבריאלה עושה בשבילך (#gabriela) */
   .gabsec{background:linear-gradient(165deg,var(--gab-1),var(--gab-2));color:#fff;border-radius:28px;display:grid;
@@ -527,28 +550,39 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </p>
   </section>
 
-  <!-- בוחר המסלול: שאלון של 2 שאלות. ממליץ רק לפי מחירים מאומתים (Tiers + PICK_PRICES). -->
+  <!-- בוחר המסלול: ארבע שאלות על הסוכן/ת (ותק, היקף, עוזרת, מה חסר), לא מחשבון. ההמלצה
+       נגזרת ממה שכל מסלול נותן בפועל, והמחירים מ-Tiers. המנטור כלול בכל מסלול ולכן אינו שאלה. -->
   <section class="wrap" id="picker" aria-labelledby="pickerTitle">
     <div class="picker">
       <div class="picker-side"><img src="/assets/gabriela-cutout.webp" width="742" height="1290" loading="lazy" decoding="async" alt="גבריאלה, העוזרת האישית בוואטסאפ - דמות שנוצרה ב-AI"></div>
       <form class="picker-main" id="pickerForm" onsubmit="return false">
-        <span class="kicker">לא בטוחים איזה מסלול? 2 שאלות</span>
+        <span class="kicker">לא בטוחים איזה מסלול? 4 שאלות קצרות</span>
         <h2 id="pickerTitle">גבריאלה תעזור לכם לבחור</h2>
-        <div class="bubble">היי, אני גבריאלה. בתקופת ההשקה כל מי שמצטרף מתחיל ב-Elite ללא תשלום לחודשיים. 2 שאלות קצרות, ואגיד לך איזה מסלול הכי משתלם לך אחרי זה.</div>
-        <fieldset class="pq"><legend>1. כמה סרטונים לנכסים היית רוצה בחודש?</legend>
-          <label><input type="radio" name="pv" value="0"><span>אף אחד</span></label>
-          <label><input type="radio" name="pv" value="4" checked><span>בערך 4</span></label>
-          <label><input type="radio" name="pv" value="8"><span>8</span></label></fieldset>
-        <fieldset class="pq"><legend>2. כמה לידים של בעלי נכסים היית רוצה בחודש?</legend>
-          <label><input type="radio" name="po" value="0"><span>אף אחד</span></label>
-          <label><input type="radio" name="po" value="2" checked><span>בערך 2</span></label>
-          <label><input type="radio" name="po" value="4"><span>4 ומעלה</span></label></fieldset>
+        <div class="bubble">היי, אני גבריאלה. בתקופת ההשקה כל מי שמצטרף מתחיל ב-Elite ללא תשלום לחודשיים. ספרו לי קצת על העבודה שלכם, ואגיד לכם איזה מסלול מתאים אחרי זה.</div>
+        <div class="pq-progress" id="pqProgress" hidden><span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="pqStep">שאלה 1 מתוך 4</span></div>
+        <fieldset class="pq"><legend>1. כמה זמן את/ה בתיווך?</legend><div class="opts">
+          <label><input type="radio" name="px" value="new"><span>מתחיל/ה, עד שנה</span></label>
+          <label><input type="radio" name="px" value="mid"><span>כמה שנים</span></label>
+          <label><input type="radio" name="px" value="vet"><span>ותיק/ה, עם תיק נכסים</span></label></div></fieldset>
+        <fieldset class="pq"><legend>2. כמה נכסים את/ה מעלה בחודש, בממוצע?</legend><div class="opts">
+          <label><input type="radio" name="pn" value="low"><span>עד 2</span></label>
+          <label><input type="radio" name="pn" value="mid"><span>3 עד 8</span></label>
+          <label><input type="radio" name="pn" value="high"><span>9 ומעלה</span></label></div></fieldset>
+        <fieldset class="pq"><legend>3. עוזרת אישית בוואטסאפ, שמעלה נכסים, מתאמת ביקורים ומכינה הסכמים - תעזור לך לסגור יותר?</legend><div class="opts">
+          <label><input type="radio" name="pa" value="yes"><span>כן, בטוח</span></label>
+          <label><input type="radio" name="pa" value="maybe"><span>אולי</span></label>
+          <label><input type="radio" name="pa" value="no"><span>אני מסתדר/ת לבד</span></label></div></fieldset>
+        <fieldset class="pq"><legend>4. מה הכי חסר לך היום?</legend><div class="opts">
+          <label><input type="radio" name="pw" value="leads"><span>לידים</span></label>
+          <label><input type="radio" name="pw" value="time"><span>זמן</span></label>
+          <label><input type="radio" name="pw" value="listings"><span>נכסים לתיק</span></label></div></fieldset>
+        <div class="pq-nav"><button type="button" id="pqBack" hidden>→ חזרה</button><button type="button" id="pqRestart" hidden>לענות שוב</button></div>
         <div class="bubble rec" id="pickerRec" aria-live="polite"></div>
         <div class="picker-ctas">
           <a href="/agency-signup?tier=premium" class="cta-gold" id="pickerCta">מתחילים Elite ב-₪0</a>
           <span id="pickerGab"></span>
         </div>
-        <span class="picker-note">המחירים לחודש, לפני מע״מ. בשאלה השנייה "4 ומעלה" מחושב כ-4.</span>
+        <span class="picker-note">המחירים לחודש, לפני מע״מ. ההמלצה היא כיוון, ואפשר לעבור מסלול בכל חודש.</span>
       </form>
     </div>
   </section>
@@ -1102,42 +1136,82 @@ if (!current){
 }
 
 /* ---------- בוחר המסלול (#picker) ----------
-   שתי שאלות, המלצה אחת. מחירי המנוי נקראים מ-tiers.js; התוספות מ-PICK_PRICES,
-   שנבדקות ב-check_pricing.py מול pricing_config (property_video_price_mid,
-   ppl_price_owner_mid, ppl_price_owner_free). מ-9.11.2026: ליד בעלים עולה ₪50
-   בשני המסלולים בתשלום ו-₪69 ב-Pay&GO (רק כשאין סוכן/ת במנוי מתאים/ה), והמספר
-   הווירטואלי עולה אותו דבר בכולם - לכן מה שמבדיל את Elite מ-PROFESSIONAL הוא
-   הסרטונים, ומה שמבדיל את PROFESSIONAL מ-Pay&GO הוא גבריאלה והפניות. */
+   ארבע שאלות על הסוכן/ת - ותק, היקף העלאות, האם עוזרת אישית תעזור, ומה חסר -
+   והמלצה אחת. לא מחשבון: עד 9.11.2026 הבוחר חישב סרטונים ולידים בשקלים, ותומר
+   ביקש שאלות רחבות. ההמלצה נגזרת ממה שכל מסלול נותן בפועל (assets/tiers.js,
+   COMPARE): Pay&GO - המערכת בלי עוזרת ועם 10 פניות; PROFESSIONAL - גבריאלה ופניות
+   ללא הגבלה; Elite - 8 סרטונים, הדמיות, CMA לכל כתובת וגבריאלה בלי תקרה, כלומר
+   כלי הגיוס. המנטור כלול בכל מסלול ולכן הוא משפט בתשובה ולא שאלה. המחירים
+   מ-Tiers בלבד. */
 (function picker(){
   const form = document.getElementById('pickerForm');
   if (!form) return;
   const rec = document.getElementById('pickerRec');
   const PRO = Tiers.byId('mid').priceMonthly, ELITE = Tiers.byId('premium').priceMonthly;
   const ils = function(n){ return '₪' + n.toLocaleString('he-IL'); };
-  function val(name){ const el = form.querySelector('input[name="' + name + '"]:checked'); return el ? Number(el.value) : 0; }
+  function val(name){ const el = form.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; }
+  const steps = Array.from(form.querySelectorAll('.pq'));
+  const progress = document.getElementById('pqProgress'), stepTxt = document.getElementById('pqStep');
+  const dots = progress ? Array.from(progress.querySelectorAll('.dots i')) : [];
+  const backBtn = document.getElementById('pqBack'), restartBtn = document.getElementById('pqRestart');
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let step = 0, busy = false;
+  /* אשף: שאלה אחת בכל פעם. המצב "נענו כולן" הוא step === steps.length, ואז
+     ההמלצה מוצגת והשאלות מוסתרות. חזרה פותחת את השאלה הקודמת בלי למחוק תשובות. */
+  function show(i){
+    step = i;
+    steps.forEach(function(f, k){ f.classList.toggle('is-on', k === i); f.classList.remove('is-out'); });
+    dots.forEach(function(d, k){ d.classList.toggle('on', k === i); d.classList.toggle('done', k < i); });
+    const done = i >= steps.length;
+    if (stepTxt) stepTxt.textContent = done ? 'זהו, יש המלצה' : 'שאלה ' + (i + 1) + ' מתוך ' + steps.length;
+    if (backBtn) backBtn.hidden = i === 0;
+    if (restartBtn) restartBtn.hidden = !done;
+    rec.textContent = done ? recommendation() : '';
+    if (done && !reduceMotion) rec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function advance(){
+    if (busy) return;
+    const cur = steps[step];
+    if (!cur) return;
+    if (reduceMotion){ show(step + 1); return; }
+    busy = true;
+    cur.classList.add('is-out');
+    setTimeout(function(){ busy = false; show(step + 1); }, 230);
+  }
   function render(){
-    const v = val('pv'), o = val('po');
-    const leads = o * PICK_PRICES.ownerLead;
-    const paygo = o * PICK_PRICES.ownerLeadFree;
-    const pro = PRO + v * PICK_PRICES.video + leads;
-    const elite = ELITE + leads;
-    const tail = promoOpen ? ' ועכשיו מתחילים ב-Elite ללא תשלום ל' + promoMonthsText() + '.' : '';
+    rec.textContent = step >= steps.length ? recommendation() : '';
+  }
+  function recommendation(){
+    const exp = val('px'), vol = val('pn'), assist = val('pa'), want = val('pw');
+    const tail = promoOpen ? ' ועכשיו מתחילים ב-Elite ללא תשלום ל' + promoMonthsText() + ', אז אפשר לבדוק את הכול לפני שמחליטים.' : '';
+    const mentor = ' המנטור AI מלווה בכל מסלול, גם ב-Pay&GO.';
     let text;
-    if (v === 0 && o === 0){
-      text = 'לפי מה שסיפרת, Pay&GO יכול להספיק לך: בלי דמי מנוי, עם 10 פניות בחודש. ' +
-        'צריך את גבריאלה בוואטסאפ ופניות קונים ללא הגבלה? זה PROFESSIONAL ב-' + ils(PRO) + ' לחודש.' + tail;
-    } else if (v === 0){
-      text = 'לפי מה שסיפרת, ב-Pay&GO הלידים האלה עולים ' + ils(paygo) + ' לחודש, והם מגיעים אליך רק כשאין סוכן/ת במנוי שמתאים/ה. ' +
-        'ב-PROFESSIONAL זה ' + ils(pro) + ' לחודש, עם גבריאלה, פניות קונים ללא הגבלה וקדימות בלידים.' +
-        (paygo >= PRO ? ' PROFESSIONAL משתלם לך יותר.' : '') + tail;
-    } else if (pro >= elite){
-      text = 'לפי מה שסיפרת, Elite הכי משתלם לך: ב-PROFESSIONAL זה היה יוצא ' + ils(pro) +
-        ' לחודש, וב-Elite ' + ils(elite) + ' עם ' + PICK_PRICES.videoCap + ' סרטונים, הדמיות, סיורי 360° וגבריאלה בלי תקרה.' + tail;
+    /* מי שמגייס/ת נכסים או מעלה הרבה - Elite: הסרטונים, ההדמיות ודוח ה-CMA לכל
+       כתובת הם כלי הגיוס, וגבריאלה בלי תקרה. */
+    if (want === 'listings' || vol === 'high' || (exp === 'vet' && vol === 'mid' && assist === 'yes')){
+      text = (want === 'listings'
+          ? 'כשחסרים נכסים לתיק, Elite הוא המסלול: דוח CMA לכל כתובת לפני פגישת הגיוס, 8 סרטונים בחודש והדמיות שמוכרים את הנכס לבעלים, וגבריאלה בלי תקרת שימוש.'
+          : 'בהיקף כזה Elite משתלם: 8 סרטונים בחודש כלולים, הדמיות וסיורי 360° לכל נכס, דוח CMA לכל כתובת, וגבריאלה בלי תקרת שימוש.') +
+        ' ' + ils(ELITE) + ' לחודש.' + mentor + tail;
+    /* בלי עוזרת ובהיקף קטן - Pay&GO מספיק, ואומרים את זה. */
+    } else if (assist === 'no' && vol === 'low'){
+      text = 'לפי מה שסיפרת, Pay&GO יכול להספיק לך: כל המערכת, פרסום באתר ללא הגבלה, ו-10 פניות בחודש בלי דמי מנוי.' +
+        (want === 'leads' ? ' כשתרצה/י פניות קונים ללא הגבלה ולידי בעלים ראשון/ה בתור - PROFESSIONAL ב-' + ils(PRO) + ' לחודש.' : '') +
+        mentor + tail;
+    /* מתחיל/ה שמסתדר/ת לבד - Pay&GO, עם הדלת ל-PROFESSIONAL. */
+    } else if (assist === 'no' && exp === 'new'){
+      text = 'בהתחלה Pay&GO מספיק: המערכת המלאה, דף סוכן/ת ומשרד, פרסום באתר ו-10 פניות בחודש, בלי דמי מנוי. כשהעבודה גדלה, PROFESSIONAL ב-' + ils(PRO) +
+        ' לחודש מוסיף את גבריאלה ופניות ללא הגבלה.' + mentor + tail;
+    /* כל השאר - PROFESSIONAL: העוזרת והפניות, בלי לשלם על כלי גיוס שעוד לא צריך. */
     } else {
-      text = 'לפי מה שסיפרת, PROFESSIONAL יספיק לך: ' + ils(pro) + ' לחודש, מול ' + ils(elite) +
-        ' ב-Elite. ב-Elite יש גם הדמיות, סיורי 360°, דוח CMA לכל כתובת וגבריאלה בלי תקרה.' + tail;
+      text = (want === 'time'
+          ? 'כשחסר זמן, PROFESSIONAL הוא המסלול: גבריאלה מעלה נכסים מהודעה, מתאמת ביקורים, מכינה הסכמים ומטפלת במיילים - '
+          : want === 'leads'
+          ? 'כשחסרים לידים, PROFESSIONAL הוא המסלול: פניות קונים ללא הגבלה, קדימות בלידי בעלים, וגבריאלה שעונה ומתאמת - '
+          : 'PROFESSIONAL מתאים לך: גבריאלה בוואטסאפ, פניות קונים ללא הגבלה ודוח CMA - ') +
+        ils(PRO) + ' לחודש. Elite ב-' + ils(ELITE) + ' מוסיף 8 סרטונים בחודש, הדמיות ודוח CMA לכל כתובת - כשמתחילים לגייס.' + mentor + tail;
     }
-    rec.textContent = text;
+    return text;
   }
   /* ‏OPEN #5: קישור לגבריאלה בוואטסאפ. ‏PRICING_GAB_LINK = false מסתיר אותו. */
   const PRICING_GAB_LINK = true;
@@ -1145,8 +1219,19 @@ if (!current){
     document.getElementById('pickerGab').innerHTML = ShukBot.anchorHtml('הגעתי מהאתר מדף המחירים ואני יועץ נדל״ן ומתלבט איזה מסלול לבחור',
       'יש לי עוד שאלה: לדבר עם גבריאלה בוואטסאפ ←', 'wa');
   }
-  form.addEventListener('change', render);
-  render();
+  form.classList.add('is-wizard');
+  if (progress) progress.hidden = false;
+  form.addEventListener('change', function(e){
+    const f = e.target.closest('.pq');
+    const i = steps.indexOf(f);
+    if (i === step) advance(); else render();   // שינוי תשובה ישנה מעדכן את ההמלצה בלי לקפוץ
+  });
+  if (backBtn) backBtn.addEventListener('click', function(){ show(Math.max(0, step - 1)); });
+  if (restartBtn) restartBtn.addEventListener('click', function(){
+    form.querySelectorAll('input[type=radio]').forEach(function(r){ r.checked = false; });
+    show(0);
+  });
+  show(0);
 })();
 
 /* מספרים מחושבים בשאלה "מה ההבדל בשקלים" (faq_new). הטקסט הסטטי הוא גיבוי בלבד. */
