@@ -100,6 +100,8 @@ function makeDom() {
       return ids.get(id);
     },
     querySelectorAll() { return []; },
+    /* initTextSize (6.11.2026) כותב data-text על <html> בעלייה */
+    documentElement: { setAttribute() {}, removeAttribute() {}, getAttribute() { return null; } },
     addEventListener(type: string, fn: (ev?: { key?: string }) => void) {
       listeners.set(type, (listeners.get(type) || []).concat(fn));
     },

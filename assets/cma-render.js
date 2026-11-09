@@ -346,6 +346,21 @@ function cmaGaugeCard({ title, value, valueText, mode, caption }){
     </figure>`;
 }
 
+/* חברה יזמית, רק כשהמסד החזיר אותה. הניסוח זהה ל-developerVerificationPhrase. */
+function cmaDeveloperLine(s){
+  if (!s || !s.developer_company) return '';
+  const partners = Array.isArray(s.developer_partners) && s.developer_partners.length
+    ? ' (שותפים: ' + esc(s.developer_partners.join(', ')) + ')' : '';
+  const source = s.developer_source_label ? 'מקור: ' + esc(s.developer_source_label) : '';
+  const verify = s.developer_verification === 'verified'
+    ? 'הנתון אומת'
+    : s.developer_verification === 'conflict'
+      ? 'יש סתירה בין מקורות, והשם לא הוחלף'
+      : 'הנתון לא אומת';
+  return '<div class="cma-note">חברה יזמית: <strong>' + esc(s.developer_company) + '</strong>'
+    + partners + (source ? '. ' + source : '') + '. ' + esc(verify) + '.</div>';
+}
+
 function renderCmaReport(r, brand){
   const s   = r.subject || {};
   const st  = r.stats || {};
@@ -715,6 +730,7 @@ function renderCmaReport(r, brand){
     <section class="cma-hero">
       <h2>${esc(s.title)}</h2>
       <div class="cma-addr">${esc([s.address, s.city].filter(Boolean).join(', '))}</div>
+      ${cmaDeveloperLine(s)}
       ${locNote ? `<div class="cma-note" style="margin-bottom:10px">${locNote}</div>` : ''}
       <dl class="cma-chips">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
     </section>

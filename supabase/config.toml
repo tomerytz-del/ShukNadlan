@@ -43,6 +43,9 @@ verify_jwt = false          # הסרה/חזרה לרשימת היריד לפי �
 [functions.professional-manage]
 verify_jwt = false          # עריכת כרטיס בעל מקצוע לפי טוקן שנשלח אליו
 
+[functions.professional-account]
+verify_jwt = false          # פתיחת חשבון כניסה וארנק לבעל מקצוע, לפי טוקן הכרטיסייה שלו
+
 [functions.submit-review]
 verify_jwt = false          # כתיבת ביקורת לפי linked_lead_id, בלי חשבון
 
@@ -235,11 +238,25 @@ verify_jwt = true
 [functions.close-account]
 verify_jwt = true
 
+# השלמת המחיקה אחרי סגירה מתוזמנת (מנוי בתשלום): מוחקת את המשתמש ב-Auth
+# ומשחררת מספרים ב-Twilio. רצה פעם ביום מ-pg_cron בלבד ואינה מקבלת קלט.
+[functions.account-erasure]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 [functions.rss-lead-purchase]
 verify_jwt = true
 
 [functions.mortgage-lead-purchase]
 verify_jwt = true
+
+[functions.lawyer-lead-purchase]
+verify_jwt = true
+
+[functions.lawyer-lead-intake]
+verify_jwt = false          # שאלה לעו"ד מדף הנכס: הגולש/ת אינו/ה מחובר/ת. הליד pending עד אימות טלפון בוואטסאפ, ובלם הצפה במסד
+
+[functions.lawyer-lead-checkout]
+verify_jwt = true           # חיוב ישיר בכרטיס על ליד עו"ד: החשבון מה-JWT, והסגירה רק ב-wallet-topup-callback
 
 [functions.saved-search-lead-purchase]
 verify_jwt = true
@@ -255,6 +272,12 @@ verify_jwt = true           # קידום נכס — נוגע ב-credit_balance
 
 [functions.wallet-topup]
 verify_jwt = true           # טעינת ארנק
+
+# רכישת קורס ההכנה למבחן המתווכים (docs/exam-course.md). הקונה/ה הוא/היא
+# משתמש/ת auth רגיל/ה (Google), בלי שורה עסקית - הזהות מה-JWT, המחיר מהמסד,
+# והגישה נפתחת רק ב-wallet-topup-callback אחרי אימות מול מורנינג.
+[functions.course-purchase]
+verify_jwt = true
 
 # בקשת החזר יתרה. ‏verify_jwt=true כי כל חמש הפעולות מזוהות: שתיים על
 # הסוכן/ת עצמו/ה, ושלוש מוגבלות ל-is_platform_admin שנבדק בתוך הפונקציה.

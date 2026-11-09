@@ -302,6 +302,7 @@ python scripts/ops_probe_codes_test.py
 python scripts/check_long_dash.py        # הודעות לפאנל ושגיאות בעברית
 python scripts/check_duplicate_ids.py    # id חדש בפאנל שכבר קיים בדשבורד
 node --experimental-strip-types scripts/paused_launch_test.ts
+node --experimental-strip-types scripts/google_channel_sync_test.ts
 ```
 
 שינוי ב-SQL של `probes/ads.py` נבדק גם מול Postgres מקומי עם המיגרציות
@@ -316,3 +317,9 @@ node --experimental-strip-types scripts/paused_launch_test.ts
 יד2) כותב שורות ליום ולקמפיין לאותה טבלה עם `channel` משלו, ומקבל שם בעברית
 ב-`ADS_CHANNELS`. בלי זה ההוצאה שלו לא נספרת בתקציב הפרסום ולא בכרטיס במרכז הפיקוד
 (`docs/platform-costs.md`, "פרסום: מכל הערוצים").
+
+גוגל עם `segments.date` לא מחזירה יום בלי impression. סנכרון שכותב רק את
+מה שחזר משאיר את `synced_at` על היום האחרון עם הוצאה, וקמפיין מושהה נראה
+כמו cron שנעצר. `google_sync_insights` ממלא אפס לכל יום בחלון שדולג, ורושם
+כל הרצה ב-`ads_actions_log` (גם כשל). בלי שורות היסטוריה ביומן, הממצא
+`ads_google_sync_silent` שותק.

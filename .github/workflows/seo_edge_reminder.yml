@@ -1,0 +1,43 @@
+name: תזכורת - סקיל seo-edge
+
+# ‏PR שנוגע ב-netlify/edge-functions/ מקבל כאן תזכורת לקרוא את הסקיל `seo-edge` לפני המיזוג.
+#
+# **זו תזכורת ולא אכיפה, ואינה נכשלת לעולם.** CI אינו יכול לדעת מי קרא סקיל. מה שהוא כן יכול: להציג את
+# ארבעת הכללים במקום שבו מי שפותח/ת את ה-PR רואה/ה אותם (בסיכום הריצה ובהערה על הבדיקה), כי הכשל בקבצים האלה שקט -
+# הדף נטען ונראה תקין וגוגל מקבלת 200 בלי התוכן, בלי שגיאה בקונסול.
+# הכלל המלא: CLAUDE.md, "סדר העבודה הקבוע", וה-PR מציין בתיאורו איזה מהכללים חל עליו.
+#
+# הבדיקה אינה נדרשת במיזוג ולא נועדה להיות. היא רצה רק כשהשינוי נוגע בקבצים האלה.
+
+on:
+  pull_request:
+    paths:
+      - "netlify/edge-functions/**"
+      - ".github/workflows/seo_edge_reminder.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reminder:
+    name: תזכורת - סקיל seo-edge
+    runs-on: ubuntu-latest
+    steps:
+      - name: תזכורת
+        run: |
+          {
+            echo "## שינוי ב-netlify/edge-functions/: קראתם את הסקיל seo-edge?"
+            echo
+            echo "הסקיל: \`.claude/skills/seo-edge/SKILL.md\`. הכשל בקבצים האלה שקט: הדף נטען ונראה תקין, וגוגל מקבלת 200 בלי התוכן או עם כותרת גנרית."
+            echo
+            echo "1. **סטטוס בכשל.** 404 רק כשהמסד אמר שאין (\`null\`). timeout או שגיאה (\`undefined\`) הם 503 **בלי** \`noindex\`, עם \`Retry-After: 60\`, ועותק אחרון שמולא יוצא 200. שתי כותרות המטמון ביחד (\`Cache-Control\` ו-\`Netlify-CDN-Cache-Control\`)."
+            echo "2. **מילוי ה-HTML הראשון** באותם \`id\` שה-JS כותב אחר כך, כדי שהסורק יראה תוכן ולא מעטפת ריקה."
+            echo "3. **בלוק ב-sitemap** נשמר כשפונקציה נוגעת בו, ודף פירוט חדש נרשם בשתי פונקציות ה-edge (\`sitemap.ts\` ו-\`og-tags.ts\`)."
+            echo "4. **LCP ו-CLS.** תמונת שער ב-HTML, מקום שמור לתוכן שנטען, כרטיס ראשון בלי השהיה, מפה עצלה."
+            echo
+            echo "ופונקציה ששואלת את המסד **בלי מטמון** משלמת סיבוב ל-Supabase בכל בקשה (\`slow_ttfb\`, 25.10.2026)."
+            echo
+            echo "**בתיאור ה-PR:** לציין שהסקיל נקרא, ואיזה מהכללים האלה חל על השינוי."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=סקיל seo-edge::שינוי ב-netlify/edge-functions/. לקרוא את .claude/skills/seo-edge/SKILL.md ולציין בתיאור ה-PR איזה מארבעת הכללים חל. זו תזכורת בלבד."

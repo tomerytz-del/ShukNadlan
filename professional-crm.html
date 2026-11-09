@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
+<!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
+<script src="assets/friendly-error.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>האזור האישי לבעלי מקצוע | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/app-professional.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="אזור מקצועי">
+<script defer src="assets/pwa-install.js" data-first-visit="show"></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --gold:#c8962b; --gold-tint:#f7f1e2; --green:#1F6B4A; --red:#a3262d;
+    --radius-sm:8px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;padding:20px 16px 48px}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:var(--blue)}
+  a:hover{color:var(--blue-dark)}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit;font-size:1rem}
+  [hidden]{display:none !important}
+  .wrap{max-width:720px;margin:0 auto}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);padding:24px 20px;margin-bottom:16px}
+  .logo-link{display:block;width:60px;margin:0 auto 14px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block}
+  h1{font-size:1.35rem;text-align:center;margin-bottom:4px}
+  h2{font-size:1.1rem;margin-bottom:10px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
+  label{display:block;font-weight:700;font-size:.9rem;margin:12px 0 4px}
+  input[type=email],input[type=password]{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:var(--radius-sm)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:10px 18px;border-radius:var(--radius-md);font-weight:800;text-decoration:none;font-size:.95rem}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:var(--blue-dark);color:#fff}
+  .btn-gold{background:var(--gold);color:#fff}
+  .btn-gold:hover{background:#a67a1f;color:#fff}
+  .btn-ghost{background:#fff;color:var(--blue);border:1.5px solid var(--line)}
+  .btn-ghost:hover{background:var(--blue-tint);color:var(--blue-dark)}
+  .btn[disabled]{opacity:.6;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .msg{font-size:.9rem;margin:10px 0 0;min-height:1.3em}
+  .msg.err{color:var(--red)}
+  .msg.ok{color:var(--green)}
+  .link-btn{background:none;color:var(--blue);text-decoration:underline;padding:6px 0;font-size:.88rem;font-weight:700}
+  .link-btn:hover{color:var(--blue-dark)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .head .who{font-weight:800;font-size:1.05rem}
+  .head .kind{color:var(--ink-soft);font-size:.88rem}
+  .wallet{background:var(--blue-tint);border-radius:var(--radius-md);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .wallet b{font-size:1.4rem;color:var(--blue-dark)}
+  .wallet small{display:block;color:var(--ink-soft)}
+  .note{background:var(--gold-tint);border-radius:var(--radius-md);padding:12px 14px;font-size:.9rem;margin-top:14px}
+  .lead{border:1px solid var(--line);border-radius:var(--radius-md);padding:14px;margin-top:10px;background:#fff}
+  .lead .q{white-space:pre-wrap;font-size:.95rem}
+  .lead .meta{color:var(--ink-soft);font-size:.82rem;margin-top:6px}
+  .lead .acts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .empty{color:var(--ink-soft);font-size:.92rem;padding:10px 0}
+  .overlay{position:fixed;inset:0;background:rgba(13,27,61,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .dialog{background:#fff;border-radius:var(--radius-lg);padding:22px 20px;max-width:440px;width:100%}
+  .dialog p{margin:8px 0}
+  .dialog .price{font-size:1.3rem;font-weight:800;color:var(--blue-dark)}
+  .foot{text-align:center;font-size:.8rem;color:var(--ink-soft);margin-top:18px}
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<div class="wrap">
+  <a class="logo-link" href="/" aria-label="שוק הנדל״ן - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+
+  <!-- כניסה -->
+  <section class="card" id="loginCard" hidden>
+    <h1>האזור האישי לבעלי מקצוע</h1>
+    <p class="sub">ארנק ולידים לבעלי מקצוע שנרשמו בכרטיסייה.</p>
+    <form id="loginForm">
+      <label for="lgEmail">אימייל</label>
+      <input type="email" id="lgEmail" autocomplete="username" required>
+      <label for="lgPassword">סיסמה</label>
+      <input type="password" id="lgPassword" autocomplete="current-password" required>
+      <div class="row" style="margin-top:16px">
+        <button class="btn btn-primary" type="submit" id="lgBtn">כניסה</button>
+        <button class="link-btn" type="button" id="forgotBtn">שכחתי סיסמה</button>
+      </div>
+      <div class="msg" id="lgMsg" role="status" aria-live="polite"></div>
+    </form>
+    <p class="sub" style="margin-top:14px">נרשמתם בכרטיסייה ועוד אין לכם חשבון? פתחו אותו מקישור העריכה האישי שקיבלתם בסיום ההרשמה.</p>
+  </section>
+
+  <!-- אחרי קישור איפוס סיסמה -->
+  <section class="card" id="recoverCard" hidden>
+    <h1 id="rcTitle">סיסמה חדשה</h1>
+    <form id="recoverForm">
+      <label for="rcPassword">סיסמה חדשה (8 תווים לפחות)</label>
+      <input type="password" id="rcPassword" autocomplete="new-password" minlength="8" required>
+      <div class="row" style="margin-top:16px"><button class="btn btn-primary" type="submit">שמירה</button></div>
+      <div class="msg" id="rcMsg" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <!-- החשבון -->
+  <div id="app" hidden>
+    <section class="card">
+      <div class="head">
+        <div>
+          <div class="who" id="acctName"></div>
+          <div class="kind" id="acctKind"></div>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" type="button" id="manageBtn">עריכת הכרטיסייה</button>
+          <button class="link-btn" type="button" id="logoutBtn">יציאה</button>
+        </div>
+      </div>
+      <div class="wallet">
+        <div><small>יתרה בארנק (לפני מע״מ)</small><b id="acctBalance">-</b></div>
+        <a class="btn btn-ghost" id="topupLink" data-site-contact href="mailto:shuknadlan@gmail.com?subject=%D7%98%D7%A2%D7%99%D7%A0%D7%AA%20%D7%90%D7%A8%D7%A0%D7%A7%20%D7%91%D7%A2%D7%9C%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2">טעינת ארנק</a>
+      </div>
+      <div class="note" id="topupNote">טעינה בכרטיס אשראי עדיין אינה זמינה לבעלי מקצוע. כדי לטעון, כתבו לנו ונזכה את הארנק ידנית.</div>
+      <div class="msg" id="appMsg" role="status" aria-live="polite"></div>
+    </section>
+
+    <!-- מדף הלידים (עורכי דין מאושרים) -->
+    <section class="card" id="shelfCard" hidden>
+      <h2>שאלות לעו״ד בעיר שלכם</h2>
+      <p class="sub" style="text-align:right">שאלות של גולשים שנשאלו מדף נכס, אחרי אימות הטלפון. הרכישה (<b id="shelfPrice">₪50</b>) חושפת שם, טלפון ואימייל.</p>
+      <div id="shelfList"></div>
+    </section>
+
+    <section class="card" id="boughtCard" hidden>
+      <h2>הלידים שרכשתי</h2>
+      <div id="boughtList"></div>
+    </section>
+
+    <section class="card" id="pendingShelfCard" hidden>
+      <h2>מדף הלידים</h2>
+      <div class="note" style="margin-top:0">הגישה למדף שאלות הלקוחות ממתינה לאישור הנהלת האתר. נעדכן כשהיא נפתחת.</div>
+    </section>
+
+    <!-- מחיקת החשבון (Apple 5.1.1(v), Google Play). אישור כפול: הבנה מאחורי סימון, ואז הקלדת "מחיקת חשבון".
+         הכול נקבע בשרת (close-account, close_professional_account). docs/account-closure.md -->
+    <section class="card" id="deleteCard" style="border-color:#c0392b">
+      <h2 style="color:#c0392b">מחיקת החשבון</h2>
+      <p class="empty" style="text-align:start;padding:0 0 10px">הכניסה והפרטים האישיים נמחקים, והמדף נסגר. הכרטיסייה שלכם באתר נשארת ומנוהלת מהקישור האישי שלה. זו פעולה שאין ממנה חזרה.</p>
+      <button class="btn btn-ghost" type="button" id="deleteOpenBtn" style="color:#c0392b;border-color:#c0392b">מחיקת החשבון</button>
+      <div class="msg" id="deleteMsg" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="card" id="noShelfCard" hidden>
+      <h2>מדף הלידים</h2>
+      <div class="empty">אין עדיין מדף לידים לתחום שלכם. הכרטיסייה פעילה, ואפשר לערוך אותה מהכפתור למעלה.</div>
+    </section>
+  </div>
+
+  <div class="foot"><a href="/terms">תנאי שימוש</a> · <a href="/privacy">מדיניות פרטיות</a></div>
+</div>
+
+<!-- אישור רכישה: המחיר והיתרה לפני החיוב, והתנאים -->
+<div class="overlay" id="buyOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="buyTitle">
+  <div class="dialog">
+    <h2 id="buyTitle">אישור רכישת שאלה</h2>
+    <p id="buyQuestion"></p>
+    <p>מחיר: <span class="price" id="buyPrice"></span> <small>(לפני מע״מ)</small></p>
+    <p id="buyCardNote" style="font-size:.9rem"></p>
+    <p id="buyBalance"></p>
+    <div id="buyInvoice" style="display:grid;gap:8px;margin:10px 0">
+      <label style="font-size:.85rem">שם לחשבונית
+        <input id="buyInvName" type="text" maxlength="100" autocomplete="organization" style="width:100%">
+      </label>
+      <label style="font-size:.85rem">ח.פ / ע.מ (לא חובה)
+        <input id="buyInvTax" type="text" inputmode="numeric" maxlength="20" style="width:100%">
+      </label>
+    </div>
+    <p style="font-size:.85rem;color:var(--ink-soft)">הרכישה חושפת שם, טלפון ואימייל, ומשייכת את הליד אליכם בלבד. הליד נשמר עבורכם 15 דקות מרגע המעבר לתשלום. הרכישה כפופה לתנאי השימוש והתקנון.</p>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-gold" type="button" id="buyCard">תשלום בכרטיס אשראי</button>
+      <button class="btn btn-ghost" type="button" id="buyConfirm">רכישה מהיתרה</button>
+      <button class="btn btn-ghost" type="button" id="buyCancel">ביטול</button>
+    </div>
+    <div class="msg err" id="buyMsg" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- אישור מחיקת חשבון -->
+<div class="overlay" id="delOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="delTitle">
+  <div class="dialog">
+    <h2 id="delTitle">מחיקת החשבון</h2>
+    <div id="delStep1">
+      <p style="font-weight:800">אחרי האישור, מיד:</p>
+      <ul style="margin:0 0 10px;padding-inline-start:18px;font-size:.88rem;line-height:1.6">
+        <li>הכניסה, השם והטלפון נמחקים, והמדף נסגר.</li>
+        <li>הכרטיסייה שלכם באתר נשארת, ומנוהלת מהקישור האישי שלה.</li>
+        <li id="delLeads" hidden></li>
+        <li>נשמרים בלי פרטי קשר, כי החוק מחייב: החיובים, החשבוניות ויומן הזיכויים.</li>
+      </ul>
+      <p id="delMoney" style="font-size:.86rem"></p>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.86rem;margin-top:10px;cursor:pointer">
+        <input type="checkbox" id="delAck"> <span>קראתי והבנתי. הבקשה היא למחוק את החשבון.</span>
+      </label>
+    </div>
+    <div id="delStep2" hidden>
+      <p style="font-size:.9rem">זה האישור האחרון. כדי לוודא שזו לא לחיצה בטעות, הקלידו <b>מחיקת חשבון</b> בשדה שלמטה.</p>
+      <input type="text" id="delPhrase" autocomplete="off" spellcheck="false" style="width:100%" aria-label="הקלדת המילים מחיקת חשבון לאישור">
+    </div>
+    <div class="msg err" id="delDlgMsg" role="status" aria-live="polite"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-ghost" type="button" id="delNext" disabled style="color:#c0392b;border-color:#c0392b">המשך לאישור האחרון</button>
+      <button class="btn btn-ghost" type="button" id="delConfirm" hidden disabled style="color:#c0392b;border-color:#c0392b">מחיקת החשבון</button>
+      <button class="btn btn-ghost" type="button" id="delCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/professional-crm.js"></script>
+</body>
+</html>

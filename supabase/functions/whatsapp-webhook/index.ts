@@ -19,6 +19,12 @@ import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } f
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
+import {
+  answerBuildingDeveloperUnknown,
+  markBuildingDeveloperDelivered,
+  parseDeveloperUnknownButton,
+  runBuildingDeveloperAsks,
+} from "./building-developer.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
 import { showingCancelNotifyReply } from "./showing-actions.ts";
 import { loadRecentPushesNote, loadReplyPrefix, rememberReplyTo } from "./reply-context.ts";
@@ -127,6 +133,7 @@ import {
   wrapRecording,
 } from "./media-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
+import { handleLawyerLeadVerify } from "../_shared/lawyer-lead-wa.ts";
 import { feedbackToMeeting, parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
   catalogBlock,
@@ -564,7 +571,16 @@ async function sendOutbox(to: string, items: OutboxItem[], agentId: string | nul
     await sendOutboxItem(item, {
       sendCtaUrl: (body, label, url, parts) => sendCtaUrl(to, body, label, url, parts),
       sendList: (body, button, section, rows, parts) => sendList(to, body, button, section, rows, parts),
-      sendButtons: (body, buttons, parts) => sendButtons(to, body, buttons, parts),
+      sendButtons: async (body, buttons, parts) => {
+        const start = parts.length;
+        const id = await sendButtons(to, body, buttons, parts);
+        const promptId = buttons
+          .map((b) => parseDeveloperUnknownButton(b.id))
+          .find((value): value is string => !!value);
+        const delivered = parts.slice(start).some((part) => part.kind === "interactive" && part.id);
+        if (promptId && delivered) await markBuildingDeveloperDelivered(supabase, promptId);
+        return id;
+      },
       reply: (text) => reply(to, text, agentId),
       log: async (row) => {
         await supabase.from("whatsapp_messages").insert({
@@ -2151,6 +2167,17 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
   }
 
+  // --- אימות ליד "שאלה לעו"ד" ("אימות שאלה 482193") ---
+  // גם הוא לפני זיהוי הסוכן/ת, מאותה סיבה: הפונה אינו/ה סוכן/ת. הבדיקה (הקוד, התוקף והמספר שממנו נשלחה
+  // ההודעה) במסד, ב-lawyer_lead_wa_verify. ‏_shared/lawyer-lead-wa.ts, ‏docs/lawyer-leads.md.
+  if (msg.type === "text") {
+    const lawyerReply = await handleLawyerLeadVerify(supabase, from, String(msg.text?.body || ""));
+    if (lawyerReply) {
+      await reply(from, lawyerReply, null, { customer: true });
+      return;
+    }
+  }
+
   // --- אימות כניסה ל-CRM ("אימות כניסה 482193") ---
   // לפני זיהוי הסוכן/ת, כדי שההודעה לא תגיע לגבריאלה כבקשה. כל הבדיקה
   // (הקוד, התוקף, והנייד שבכרטיס מול from) במסד, ב-wa_login_verify.
@@ -2453,6 +2480,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
       if (cancelNote) {
         await reply(from, cancelNote, agent.id);
+        return;
+      }
+      // "לא יודע" על החברה היזמית. המזהה נושא את השאלה, והתשובה קבועה בלי מודל.
+      const developerPrompt = parseDeveloperUnknownButton(buttonId);
+      if (developerPrompt) {
+        await reply(from, await answerBuildingDeveloperUnknown(supabase, agent.id, developerPrompt), agent.id);
         return;
       }
       // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
@@ -3163,6 +3196,25 @@ Deno.serve(async (req: Request) => {
   // Meta ואין לו חתימת HMAC, ולכן האימות הוא של הקוראים הפנימיים.
   // ‏הצעות של גבריאלה על נכס חדש - שת"פ וסרטון (‏property-offers.ts). אותו
   // אימות פנימי של קליטת המייל, מאותה סיבה: הקורא הוא pg_cron ולא Meta.
+  if (url.searchParams.get("task") === "building-developer-ask") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runBuildingDeveloperAsks(supabase)
+        .then((r) => console.log("building developer asks", JSON.stringify(r)))
+        .catch((err) => console.error("building developer asks failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (url.searchParams.get("task") === "property-offers") {
     const auth = authorizeInternalCaller(req);
     if (!auth.ok) {

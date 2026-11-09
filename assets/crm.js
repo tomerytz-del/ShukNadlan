@@ -1753,6 +1753,21 @@ function showClosedScreen(agent){
     })
     .catch(()=>{ /* המסך עומד גם בלי השורה הזו */ });
 }
+/* אחרי מחיקה מיידית: המשתמש ב-Auth כבר נמחק, אבל האסימון בדפדפן עוד בתוקף
+   עד שעה. בלי signOut כאן, טעינה מחדש הייתה מוצאת אסימון בלי כרטיס ומציגה
+   "פתיחת משרד חדש". המסך מאשר שהמחיקה קרתה ומה עם הכסף. */
+async function showDeletedScreen(refundAmount){
+  try { await sb.auth.signOut(); } catch(_){ /* המשתמש כבר נמחק - זה צפוי */ }
+  routedUserId = null;
+  document.getElementById('closedTitle').textContent = 'החשבון נמחק';
+  document.getElementById('closedSub').textContent =
+    'הדף והמודעות ירדו מהאוויר, הפרטים האישיים נמחקו, ואי אפשר יותר להיכנס לחשבון הזה.';
+  document.getElementById('closedRefundNote').textContent = refundAmount > 0
+    ? 'בקשת ההחזר על יתרת הארנק (' + shekel(refundAmount) + ') נפתחה, וההחזר יגיע לאמצעי התשלום שממנו נטען הארנק. '
+    : '';
+  showScreen('closed');
+}
+
 document.getElementById('closedLogoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut(); routedUserId = null; showLoginCard();
 });
@@ -3796,9 +3811,11 @@ const UNROUTED_KIND_LABELS = {
   agent_owner:'ליד בעל/ת נכס',
   agent_buyer:'ליד מחפש/ת דירה',
   mortgage_advisor:'ליד ייעוץ משכנתאות',
+  lawyer:'שאלה לעו"ד',
 };
 const UNROUTED_REASONS = {
   no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
+  no_lawyer_in_city:'אין עו"ד מאושר/ת בעיר או בשוק של הנכס',
   no_eligible_agents:'אין סוכני PROFESSIONAL/Elite עם העדפות לידים פעילות',
   no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
   no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
@@ -3811,6 +3828,7 @@ const UNROUTED_SOURCES = {
   homepage_search_agent:'הסוכן החכם (תוצאות חיפוש)',
   homepage_mortgage_calc:'מחשבון משכנתא (דף הבית)',
   property_page_mortgage_calc:'מחשבון משכנתא (דף נכס)',
+  property_page_lawyer_question:'שאלה לעו"ד (דף נכס)',
   homepage_yield_calc:'מחשבון תשואה (דף הבית)',
   agency_page_owner_wizard:'הערכת שווי (דף משרד)',
   agency_page_yield_calc:'מחשבון תשואה (דף משרד)',
@@ -5597,6 +5615,7 @@ const LX_KINDS = {
   agent_owner:      'בעל/ת נכס',
   agent_buyer:      'מחפש/ת דירה',
   mortgage_advisor: 'ייעוץ משכנתאות',
+  lawyer:           'שאלה לעו"ד',
   developer:        'מחפש/ת פרויקט חדש',
 };
 
@@ -10167,7 +10186,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
    בקריאה אחת מסקריפט מבטלת את כל מה שהחלון הזה בא לעשות.
    ============================================================================ */
 
-const CLOSE_PHRASE = 'סגירת חשבון';
+const CLOSE_PHRASE = 'מחיקת חשבון';
 let closureSummary = null;
 
 async function callCloseAccount(payload){
@@ -10198,10 +10217,10 @@ function closureMoneyText(s){
     parts.push('אין יתרה בארנק, ולכן אין החזר.');
   }
   if (s.subscription_until){
-    parts.push('את/ה במנוי חודשי ששולם עד ' + hebDate(s.subscription_until) +
-               '. אין זיכוי יחסי על החודש שכבר שולם, ולכן ההתקשרות נפסקת בתאריך הזה - ועד אז הכול ממשיך לעבוד כרגיל.');
+    parts.push('המנוי החודשי שולם עד ' + hebDate(s.subscription_until) +
+               '. אין זיכוי יחסי על החודש שכבר שולם. אפשר למחוק בתאריך הזה (ועד אז הכול ממשיך לעבוד), או מיד - בוויתור על יתרת החודש. החידוש בכרטיס לא ירוץ שוב.');
   } else {
-    parts.push('אינך במנוי חודשי בתשלום, ולכן הסגירה נכנסת לתוקף מיד.');
+    parts.push('אינך במנוי חודשי בתשלום, ולכן המחיקה מתבצעת מיד.');
   }
   return parts.join(' ');
 }
@@ -10236,13 +10255,13 @@ async function loadClosureSection(){
     const due = new Date(s.closure_effective_at);
     const overdue = !isNaN(due.getTime()) && due.getTime() <= Date.now();
     document.getElementById('closurePendingTitle').textContent =
-      overdue ? 'הסגירה ממתינה להשלמה' : 'בקשת הסגירה נרשמה';
+      overdue ? 'המחיקה ממתינה להשלמה' : 'בקשת המחיקה נרשמה';
     document.getElementById('closurePendingBody').textContent = overdue
       // המועד עבר והשורה עדיין פתוחה - כמעט תמיד החסם של מנהל/ת אחרון/ה.
-      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והסגירה עדיין לא הושלמה. '
-        + 'ברוב המקרים הסיבה היא שאת/ה המנהל/ת הפעיל/ה היחיד/ה במשרד ויש בו עוד סוכנים - '
-        + 'מינוי מנהל/ת נוסף/ת ב"צוות המשרד" משחרר את זה. לעזרה: 054-6929991.'
-      : 'החשבון ייסגר ב-' + hebDate(s.closure_effective_at) + ' - בתום תקופת החיוב ששולמה. '
+      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והמחיקה עדיין לא הושלמה. '
+        + 'ברוב המקרים הסיבה היא שבמשרד יש ניהול פעיל אחד בלבד ויש בו עוד סוכנים. '
+        + 'מינוי ניהול נוסף ב"צוות המשרד" משחרר את זה. לעזרה: 054-6929991.'
+      : 'החשבון יימחק ב-' + hebDate(s.closure_effective_at) + ' - בתום תקופת החיוב ששולמה. '
         + 'עד אז הדף, המודעות והלידים ממשיכים כרגיל, ואפשר לבטל את הבקשה.';
     accSetCount('accCloseAccount', 'בקשה פתוחה');
     return;
@@ -10286,35 +10305,53 @@ document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
   if (s.blocker){
     feedback.style.color = '#b42318';
     feedback.textContent = s.blocker === 'last_manager'
-      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים.'
-      : 'לא ניתן לסגור את החשבון כרגע.';
+      ? 'אי אפשר למחוק כל עוד הניהול הפעיל במשרד הוא יחיד ויש בו סוכנים פעילים.'
+      : 'לא ניתן למחוק את החשבון כרגע.';
     return;
   }
 
   const list = document.getElementById('caStep1List');
   list.textContent = '';
   [
-    'דף הסוכן/ת שלך יורד מהאוויר, וגם הכרטיס שלך בספריית יועצי הנדל״ן.',
+    'הדף האישי יורד מהאוויר, וגם הכרטיס בספריית יועצי הנדל״ן.',
     s.active_properties > 0
       ? plural(s.active_properties, 'מודעה פעילה אחת יורדת', 'מודעות פעילות יורדות') + ' מהאתר ומהחיפוש.'
       : 'אין כרגע מודעות פעילות שיירדו.',
-    'לא נשלחות אליך יותר פניות, התראות או מיילים, והמייל שלך יוצא מרשימת התפוצה.',
-    'הכניסה לאיזור הסוכנים נסגרת. אין לזה כפתור חזרה.',
+    'לא נשלחות אליך יותר פניות, התראות או מיילים.',
+    'הפרטים האישיים נמחקים: שם, טלפון, אימייל, תמונה, ת.ז., היומן, כרטיסי הלקוחות הפרטיים והשיחות עם גבריאלה. המספרים הווירטואליים משתחררים.',
+    'קישורי שיתוף שכבר נשלחו ללקוחות יפסיקו לעבוד אחרי המחיקה.',
+    'הכניסה נמחקת, ואין לזה כפתור חזרה. חיובים, חשבוניות והסכמים חתומים נשמרים בלי שמך, כי החוק מחייב.',
   ].forEach(text=>{
     const li = document.createElement('li');
     li.textContent = text;
     list.appendChild(li);
   });
   document.getElementById('caStep1Money').textContent = closureMoneyText(s);
-  document.getElementById('caStep2Note').textContent = s.subscription_until
-    ? 'לאחר האישור הבקשה תירשם, והסגירה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
-    : 'לאחר האישור הסגירה מתבצעת מיד.';
-  document.getElementById('caConfirm').textContent =
-    s.subscription_until ? 'רישום בקשת הסגירה' : 'סגירת החשבון';
+  const when = document.getElementById('caWhen');
+  when.hidden = !s.subscription_until;
+  if (s.subscription_until){
+    document.getElementById('caWhenEnd').textContent = 'בסוף התקופה ששולמה - ' + hebDate(s.subscription_until) + ' (אפשר לבטל עד אז)';
+    when.querySelector('input[value="period_end"]').checked = true;
+  }
+  updateCaStep2();
 
   caModal.style.display = 'flex';
   document.getElementById('caAck').focus();
 });
+
+function caWhenNow(){
+  const picked = document.querySelector('input[name="caWhen"]:checked');
+  return !!(closureSummary && closureSummary.subscription_until && picked && picked.value === 'now');
+}
+function updateCaStep2(){
+  const s = closureSummary || {};
+  const later = !!s.subscription_until && !caWhenNow();
+  document.getElementById('caStep2Note').textContent = later
+    ? 'לאחר האישור הבקשה תירשם, והמחיקה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
+    : 'לאחר האישור המחיקה מתבצעת מיד, ואין ממנה חזרה.';
+  document.getElementById('caConfirm').textContent = later ? 'רישום בקשת המחיקה' : 'מחיקת החשבון';
+}
+document.querySelectorAll('input[name="caWhen"]').forEach(r=> r.addEventListener('change', updateCaStep2));
 
 document.getElementById('caAck').addEventListener('change', e=>{
   document.getElementById('caNext').disabled = !e.target.checked;
@@ -10342,10 +10379,12 @@ document.getElementById('caConfirm').addEventListener('click', async ()=>{
   const modalFeedback = document.getElementById('caModalFeedback');
   btn.disabled = true;
   modalFeedback.style.color = 'var(--ink-soft)';
-  modalFeedback.textContent = 'סוגרים…';
+  modalFeedback.textContent = 'מוחקים…';
 
   const { ok, data } = await callCloseAccount({
     action: 'request',
+    account: 'agent',
+    when: caWhenNow() ? 'now' : 'period_end',
     confirm: CLOSE_PHRASE,
     reason: (document.getElementById('closureReason').value || '').trim() || null,
   });
@@ -10353,18 +10392,18 @@ document.getElementById('caConfirm').addEventListener('click', async ()=>{
   if (!ok){
     modalFeedback.style.color = '#b42318';
     modalFeedback.textContent = data.error === 'last_manager'
-      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים. לעזרה: 054-6929991'
-      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת סגירה פתוחה.'
-      : data.error === 'already_closed' ? 'החשבון כבר סגור.'
+      ? 'אי אפשר למחוק כל עוד הניהול הפעיל במשרד הוא יחיד ויש בו סוכנים פעילים. לעזרה: 054-6929991'
+      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת מחיקה פתוחה.'
+      : data.error === 'already_closed' ? 'החשבון כבר נמחק.'
       : 'הפעולה נכשלה. אפשר לנסות שוב, או לפנות לתמיכה: 054-6929991';
     btn.disabled = false;
     return;
   }
 
   closeCaModal();
-  // סגירה מיידית: אין למה לחזור בדשבורד - טוענים מחדש, ו-loadDashboard
-  // ינחית על מסך "החשבון נסגר". סגירה מתוזמנת: רק מרעננים את המקטע.
-  if (data.closed) location.reload();
+  // מחיקה מיידית: אין למה לחזור בדשבורד - יוצאים, ומסך "החשבון נמחק".
+  // מחיקה מתוזמנת (סוף המנוי): רק מרעננים את המקטע.
+  if (data.closed) await showDeletedScreen(Number(data.result && data.result.refund_requested) || 0);
   else await loadClosureSection();
 });
 
@@ -10377,12 +10416,12 @@ document.getElementById('closureCancelBtn').addEventListener('click', async ()=>
   if (!ok){
     feedback.style.color = '#b42318';
     feedback.textContent = data.error === 'already_closed'
-      ? 'החשבון כבר נסגר ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
+      ? 'החשבון כבר נמחק ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
       : 'ביטול הבקשה נכשל - אפשר לנסות שוב.';
     return;
   }
   feedback.style.color = '#1c6b4a';
-  feedback.textContent = 'בקשת הסגירה בוטלה. החשבון ממשיך כרגיל.';
+  feedback.textContent = 'בקשת המחיקה בוטלה. החשבון ממשיך כרגיל.';
   await loadClosureSection();
 });
 
@@ -12541,7 +12580,7 @@ const RESIDENTIAL_PTYPE_OPTIONS = [
   'בית פרטי/קוטג\'','דו משפחתי','משק חקלאי/נחלה','משק עזר',
   'מגרש','בניין מגורים','מחסן','חניה','קב\' רכישה/זכות לנכס',
 ];
-const COMMERCIAL_PTYPE_OPTIONS = ['משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים','מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות'];
+const COMMERCIAL_PTYPE_OPTIONS = ['משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים','מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות','מרלו״ג/מרכז לוגיסטי'];
 /* ‏"עם תמונה" ו-"יש סיור 3D" היו כאן כדגלים ידניים, והוסרו: המערכת כבר יודעת
    את שניהם מהנתונים עצמם — ‎images‎ ו-‎tour_3d_url‎ — וסימון ידני רק מאפשר
    לו לסתור אותם. בפועל הוא גם סתר: ל-48 נכסים היו תמונות ורק אחד סומן, כך
@@ -12625,6 +12664,19 @@ function syncNpAirCount(){
   const n = getCheckedValues('npAir').length;
   const el = document.getElementById('npAirCount');
   if (el) el.textContent = airCountLabel(n);
+}
+
+/* ‏כותרת נכס שהיא שם הבעלים או הטלפון שלהם: נכס אחד באוויר נקרא "פראדה
+   יזזאו אקלום" - שם אדם ב-H1, ב-og:title וב-JSON-LD (ביקורת 5.11.2026).
+   ההשוואה אחרי ניקוי רווחים וסימני פיסוק, כדי ש"פראדה יזזאו-אקלום" ייתפס. */
+function propertyTitleError(title, ownerName, ownerPhone){
+  const norm = s => String(s || '').toLowerCase().replace(/[\s"'״׳.,\-–()]/g, '');
+  const t = norm(title);
+  if (!t) return '';
+  if (ownerName && t === norm(ownerName)) return 'כותרת הנכס היא שם הבעלים. כתבו מה הנכס, איפה הוא ומה מיוחד בו, למשל "דירת 4 חדרים ברחוב הנשיא, גבעת המורה".';
+  const digits = String(ownerPhone || '').replace(/\D/g, '');
+  if (digits.length >= 7 && t.replace(/\D/g, '') === digits) return 'כותרת הנכס היא מספר טלפון. כתבו מה הנכס ואיפה הוא.';
+  return '';
 }
 
 function livingRoomSaveError(sqm, size, built){
@@ -15008,6 +15060,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     feedback.style.color = 'var(--brick)';
     feedback.textContent = livingProblem;
     pfRevealField('npLivingSqm');
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+
+  const titleProblem = propertyTitleError(
+    document.getElementById('npTitle').value,
+    document.getElementById('npOwnerName')?.value,
+    document.getElementById('npOwnerPhone')?.value,
+  );
+  if (titleProblem){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = titleProblem;
+    pfRevealField('npTitle');
     btn.disabled = false;
     btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
     return;
@@ -21784,7 +21850,9 @@ document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
    מבטל שינוי credit_balance שלא הגיע מ-service_role.
 
    הסקציה מוצגת רק ל-is_mortgage_advisor, וגם purchase_mortgage_lead עצמה
-   מסרבת לקונה שאינו מסומן כך - ה-gating בתצוגה הוא נוחות, לא הגנה.      */
+   מסרבת לקונה שאינו מסומן כך. גם הקריאה סגורה במסד: mortgage_leads_public מחזירה
+   שורות רק ליועצ/ת או למנהל/ת פלטפורמה (current_is_mortgage_advisor), ולכן ה-gating
+   בתצוגה אינו ההגנה היחידה (docs/lead-routing.md, "מדפי הלידים ממוקדים").      */
 let mortgageLeadPrice = 50;
 let mortgageShelfLeads = [];
 
@@ -27859,7 +27927,7 @@ const NAV_GROUPS = [
     { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more', section:'support' },
     /* אחרון, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא שכנה של
        פעולה שעושים כל יום. */
-    { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more', section:'support' },
+    { acc:'accCloseAccount',  label:'מחיקת החשבון',      icon:'alert',    tab:'more', section:'support' },
   ]},
   /* כלי הפלטפורמה מופיעים אך ורק בתצוגת מנהל/ת (adminOnly). זו כל הנקודה:
      הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות "ניהול

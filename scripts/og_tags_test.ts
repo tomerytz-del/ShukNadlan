@@ -327,6 +327,70 @@ const bodies: [string, boolean][] = [
   ["משרד עם כיסוי מארח זר: אין img", !agEvil.includes('<img class="banner-lcp"')],
 ];
 
+/* ‏קישורים בגוף הכתבה. אותו html() לשרת ולדפדפן, ורק http(s). */
+const ab = (globalThis as unknown as { ShukArticleBody: { html: (text: string) => string } }).ShukArticleBody;
+const same = "https://shuknadlan.co.il/n/afula/%D7%92%D7%91%D7%A2%D7%AA-%D7%94%D7%9E%D7%95%D7%A8%D7%94";
+const sameHtml = ab.html("ראו " + same + ".");
+const extHtml = ab.html("וגם https://example.com/a?x=1&y=2.");
+const longSlug = "א".repeat(80);
+const longUrl = "https://shuknadlan.co.il/article?slug=" + encodeURIComponent(longSlug);
+const longHtml = ab.html(longUrl);
+const longAnchor = longHtml.match(/<a href="([^"]*)" dir="ltr" title="([^"]*)">([^<]*)<\/a>/);
+const xss = ab.html('<img src=x onerror="alert(1)"> https://example.com/"><script>alert(1)</script>');
+const schemes = ab.html("javascript:alert(1) data:text/html,hi xhttps://example.com/no");
+const spoof = ab.html("https://shuknadlan.co.il.evil.com/x https://shuknadlan.co.il@evil.com/x https://evil.com/shuknadlan.co.il https://notshuknadlan.co.il/a https://shuknadlan.co.il%00.evil.com/x");
+const spoofAnchors = spoof.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) || [];
+const linkBody = "ראו " + same + " וגם https://example.com/a?x=1&y=2.";
+const artLinks = await serve("article.html", "/article?slug=a", { slug: "a", title: "כותרת", body: linkBody });
+const linkInner = (artLinks.match(/id="articleBody">([\s\S]*?)<\/div>/) || [])[1];
+const articleSrc = readFileSync(new URL("../article.html", import.meta.url), "utf8");
+bodies.push(
+  ["כתבה: קישור פנימי - נתיב מפוענח, אותה לשונית",
+    sameHtml.includes('href="' + same + '"') && sameHtml.includes(">/n/afula/גבעת-המורה</a>.") &&
+    !sameHtml.includes("target=") && !sameHtml.includes("nofollow") && !sameHtml.includes("%D7%92%D7%91%D7%A2%D7%AA</a>")],
+  ["כתבה: קישור חיצוני - nofollow ולשונית חדשה, & מוברח",
+    extHtml.includes('<a href="https://example.com/a?x=1&amp;y=2" dir="ltr" rel="noopener nofollow" target="_blank">https://example.com/a?x=1&amp;y=2</a>.')],
+  ["כתבה: www ושורש האתר פנימיים",
+    ab.html("https://www.shuknadlan.co.il/pricing").includes('dir="ltr">/pricing</a>') &&
+    !ab.html("https://www.shuknadlan.co.il/pricing").includes("target=") &&
+    ab.html("https://shuknadlan.co.il/") === '<p><a href="https://shuknadlan.co.il/" dir="ltr">shuknadlan.co.il</a></p>'],
+  ["כתבה: http לאותו אתר, בלי העוגן בתווית",
+    ab.html("http://SHUKNADLAN.CO.IL/about#team").includes('href="http://SHUKNADLAN.CO.IL/about#team"') &&
+    ab.html("http://SHUKNADLAN.CO.IL/about#team").includes(">/about</a>") &&
+    !ab.html("http://SHUKNADLAN.CO.IL/about#team").includes("target=")],
+  ["כתבה: שאילתה מפוענחת",
+    ab.html("https://shuknadlan.co.il/?q=%D7%93%D7%99%D7%A8%D7%94").includes(">/?q=דירה</a>")],
+  ["כתבה: נתיב ארוך נחתך, וה-href וה-title מלאים",
+    !!longAnchor && longAnchor[1] === longUrl && longAnchor[2] === "/article?slug=" + longSlug &&
+    longAnchor[3].endsWith("\u2026") && longAnchor[3].length <= 64 && !longHtml.includes("target=")],
+  ["כתבה: תגית ופריצת מאפיין נשארות טקסט",
+    !xss.includes("<img") && !xss.includes("<script") && xss.includes("&lt;img") && xss.includes("&quot;") &&
+    xss.includes('href="https://example.com/"') && !/<a\b[^>]*\son\w+=/i.test(xss)],
+  ["כתבה: אחוזים של תגית בנתיב פנימי יוצאים מוברחים",
+    ab.html("https://shuknadlan.co.il/%3Cscript%3E").includes(">/&lt;script&gt;</a>") &&
+    !ab.html("https://shuknadlan.co.il/%3Cscript%3E").includes("<script>")],
+  ["כתבה: javascript, data, ואות שנדבקת לסכמה - בלי קישור", !schemes.includes("<a")],
+  ["כתבה: מארח זר שנראה כמו האתר - חיצוני או טקסט",
+    spoofAnchors.length >= 4 && spoofAnchors.every((a) => a.includes('rel="noopener nofollow"') && a.includes('target="_blank"'))],
+  ["כתבה: userinfo לא הופך מארח זר לפנימי",
+    ab.html("https://shuknadlan.co.il@evil.com/phish").includes("nofollow") &&
+    !ab.html("https://shuknadlan.co.il@evil.com/phish").includes(">/phish</a>")],
+  ["כתבה: סוגריים מאוזנים נשארים, סוגר מיותר נשאר בחוץ",
+    ab.html("https://en.wikipedia.org/wiki/Real_estate_(Israel)").includes('href="https://en.wikipedia.org/wiki/Real_estate_(Israel)"') &&
+    ab.html("(https://example.com/a)").includes('">https://example.com/a</a>)')],
+  ["כתבה: קישור בפריט רשימה, ושני קישורים בפסקה",
+    ab.html("- https://shuknadlan.co.il/pricing") === '<ul><li><a href="https://shuknadlan.co.il/pricing" dir="ltr">/pricing</a></li></ul>' &&
+    ab.html("https://example.com/one https://shuknadlan.co.il/two").includes('target="_blank">https://example.com/one</a>') &&
+    ab.html("https://example.com/one https://shuknadlan.co.il/two").includes('dir="ltr">/two</a>')],
+  ["כתבה: לוכסן הפוך קוטע כתובת ולא מצמיד את האתר אליה",
+    ab.html("https://evil.com\\@shuknadlan.co.il/secret").includes('href="https://evil.com"') &&
+    ab.html("https://evil.com\\@shuknadlan.co.il/secret").includes("nofollow") &&
+    !ab.html("https://evil.com\\@shuknadlan.co.il/secret").includes(">/secret</a>")],
+  ["כתבה: השרת והדפדפן מקבלים אותו HTML",
+    linkInner === ab.html(linkBody) &&
+    articleSrc.includes("el('articleBody').innerHTML = window.ShukArticleBody.html(text)")],
+);
+
 /* ‏סוכן/ת, פרויקט, יזם ובעל/ת מקצוע: H1 ותוכן מהשרת, ונתונים מובנים */
 const ldOf = (h: string) => {
   const m = h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);

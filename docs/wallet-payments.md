@@ -241,7 +241,10 @@ developer-crm?topup=success&topup_id=… → project-manage {action:"topup_statu
 `wallet_topups` ו-`subscription_orders`. הזמנת `ad_orders` (כרטיסיית בעל/ת
 מקצוע) שה-webhook שלה אבד לא הייתה מתיישבת לעולם, אלא אם במקרה הייתה באותו
 רגע טעינת ארנק פתוחה. `20270107090000` מוסיפה את `ad_orders` ואת
-`developer_topups` לתנאי.
+`developer_topups` לתנאי, ו-`20271106110000` את `course_orders` (קורס ההכנה
+למבחן המתווכים, `docs/exam-course.md`), ו-`20271108120000` את `lawyer_lead_orders`. **טבלת תשלום חדשה נכנסת לתנאי הזה
+באותה מיגרציה שיוצרת אותה**, אחרת הזמנה שה-webhook שלה אבד מחכה לטעינת ארנק
+של מישהו אחר.
 
 ## ההגדרה
 
@@ -1084,8 +1087,12 @@ UUID של שורה, שממילא ייחודי בין הטבלאות — ו-`KIND
 | `topup` | `wallet_topups` | היתרה בארנק |
 | `subscription` | `subscription_orders` | מסלול בתשלום עד תאריך |
 | `ad` | `ad_orders` | כרטיסיית בעל/ת מקצוע (ראו `docs/professional-cards.md`) |
+| `developer_topup` | `developer_topups` | היתרה בארנק היזם/ית |
+| `course` | `course_orders` | גישה לקורס ההכנה למבחן המתווכים, שישה חודשים (`docs/exam-course.md`) |
+| `lawyer_lead` | `lawyer_lead_orders` | פרטי ליד "שאלה לעו"ד", תשלום חד-פעמי בכרטיס (`docs/lawyer-leads.md`). סחורה יחידה: `complete_lawyer_lead_order` יכולה להחזיר `refund_needed` |
 
-**הסוג השלישי הוא היחיד שמשלם/ת בו מי שאינו/ה סוכן/ת** — לבעל/ת מקצוע אין
+**הסוג השלישי והחמישי הם היחידים שמשלם/ת בהם מי שאינו/ה סוכן/ת** (בקורס
+הקונה/ה הוא/היא משתמש/ת auth רגיל/ה, והמחיר שם **כולל** מע״מ, מחיר לצרכן/ית) — לבעל/ת מקצוע אין
 חשבון באתר, ולכן החשבונית נשמרת על שורת ההזמנה ולא בטבלת `invoices`
 (ששם `agent_id` הוא `not null`).
 
