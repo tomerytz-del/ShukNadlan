@@ -13,7 +13,7 @@ const assert = require('assert');
 const ROOT = path.join(__dirname, '..');
 const crm = fs.readFileSync(path.join(ROOT, 'assets/crm.js'), 'utf8');
 const sql = fs.readFileSync(
-  path.join(ROOT, 'supabase/migrations/20271109160000_reminder_free_no_whatsapp.sql'),
+  path.join(ROOT, 'supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql'),
   'utf8',
 );
 

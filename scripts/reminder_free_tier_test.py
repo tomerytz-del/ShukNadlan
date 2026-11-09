@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20271109160000_reminder_free_no_whatsapp.sql"
+MIGRATION = ROOT / "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
 
 sql = MIGRATION.read_text(encoding="utf-8")
 for required in (

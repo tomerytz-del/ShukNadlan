@@ -1,18 +1,18 @@
 name: תזכורת בלי וואטסאפ בחינם
 
-# 20271109160000: מסלול חינם לא נבחר לוואטסאפ ב-agent_reminder_due_agents.
+# 20271030183000: מסלול חינם לא נבחר לוואטסאפ ב-agent_reminder_due_agents.
 # מסלול mid/premium נשאר עם הערוץ, כולל הנפילה למייל בלי מספר.
 
 on:
   pull_request:
     paths:
-      - "supabase/migrations/20271109160000_reminder_free_no_whatsapp.sql"
+      - "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
       - "scripts/reminder_free_tier_test.py"
       - ".github/workflows/reminder_free_tier.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/20271109160000_reminder_free_no_whatsapp.sql"
+      - "supabase/migrations/20271030183000_reminder_free_no_whatsapp.sql"
       - "scripts/reminder_free_tier_test.py"
       - ".github/workflows/reminder_free_tier.yml"
   workflow_dispatch:
