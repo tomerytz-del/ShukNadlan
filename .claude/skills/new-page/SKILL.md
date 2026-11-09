@@ -97,6 +97,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 | --- | --- |
 | ציבורי | כלשונו |
 | אזור אישי | `href="/app-crm.webmanifest"`, הכותרת `content="אזור אישי"`, ו-`<script … data-first-visit="show">` |
+| אזור אישי של בעלי מקצוע (`professional-crm`, `professional-manage`) | `href="/app-professional.webmanifest"` ו-`data-first-visit="show"`; ב-`check_pwa.py` הם ב-`PAGE_MANIFEST` |
 | תהליך (תשלום, חתימה) | `<script … data-no-auto>` — בלי רצועה אוטומטית |
 | סרגל קבוע בתחתית | `<script … data-bottom="124px">` (‏ה-CRM) |
 
@@ -211,6 +212,8 @@ Disallow: /my-page.html
 | הכתובות | `SOURCES` ב-`netlify/edge-functions/sitemap.ts` | הקישורים אליו נבנים ב-JS, וסורק אינו יכול לעקוב אחריהם |
 | `canonical` ו-`og:` | `config.path` ב-`netlify/edge-functions/og-tags.ts` | מוזרקות בשרת מהמסד |
 | `canonical` סטטית | **אין.** אסור | ראו למטה |
+
+**הקוד של פונקציות ה-edge עצמן** (סטטוס בכשל, מילוי ה-HTML הראשון, מטמון): הסקיל `seo-edge`. כאן רק הרישום של דף חדש בהן.
 
 **ואסור לתת לדף פירוט תגית `canonical` סטטית.** היא יכולה להצהיר רק על
 `/my-page` בלי הפרמטר, ו-`og-tags.ts` נופלת בחזרה לדף כמו שהוא בכל כשל

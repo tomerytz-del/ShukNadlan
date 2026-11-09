@@ -7,12 +7,14 @@ import { deleteAuthUser, eraseAgent } from "../_shared/account-erasure.ts";
 // ============================================================================
 // מחיקת חשבון ביוזמת המשתמש/ת (וקודם לכן "סגירת חשבון")
 //
-// שלושה סוגי חשבון, לפי מי שמחזיק/ה ב-JWT (ו-body.account כשיש שניים):
+// ארבעה סוגי חשבון, לפי מי שמחזיק/ה ב-JWT (ו-body.account כשיש יותר מאחד):
 //   agent      סוכן/ת. סגירה (close_agent_account) ואחריה מחיקה
 //              (erase_agent_account): הפרטים, הכניסה ב-Auth והמספרים ב-Twilio.
 //              במנוי בתשלום - בסוף התקופה (account-erasure משלימה), או מיד
 //              אם בחרו when='now' ומוותרים על יתרת החודש.
 //   developer  חברה יזמית. close_developer_account סוגרת ומוחקת בקריאה אחת.
+//   professional  בעל/ת מקצוע (עו"ד...). close_professional_account סוגרת ומוחקת בקריאה אחת; השורה נשארת מאונונמת
+//              (חיובים מפנים אליה), והכרטיסייה באתר נשארת. בלי הסוג הזה המשתמש/ת נחשב/ת none, והחשבון והארנק נמחקים בשקט.
 //   none       משתמש/ת שנכנס/ה (למשל עם Google) ולא השלים/ה הרשמה. נמחק/ת
 //              המשתמש ב-Auth בלבד - אין מה עוד למחוק.
 //
@@ -79,21 +81,26 @@ Deno.serve(async (req: Request) => {
   const userId = userData.user.id;
   const action = String(body?.action ?? "preview");
 
-  const [{ data: member, error: memberErr }, { data: developer, error: devErr }] = await Promise.all([
+  const [{ data: member, error: memberErr }, { data: developer, error: devErr }, { data: professional, error: proErr }] = await Promise.all([
     supabase.from("agency_members").select("id, user_id, agency_id, role, active, display_name, email, credit_balance, tier, tier_source, paid_tier, paid_tier_until, released_at, closure_requested_at, closure_effective_at, closed_at").eq("user_id", userId).maybeSingle(),
     supabase.from("developers").select("id, user_id, name, credit_balance, closed_at, erased_at, status").eq("user_id", userId).maybeSingle(),
+    // בעל/ת מקצוע (עו"ד...). בלי השורה הזו משתמש/ת כזה/ת נחשב/ת "none", ומחיקת המשתמש ב-Auth מוחקת בשקט (cascade) את החשבון והארנק
+    supabase.from("professional_accounts").select("id, user_id, kind, display_name, credit_balance, erased_at").eq("user_id", userId).is("erased_at", null).maybeSingle(),
   ]);
   if (memberErr) return json({ error: "db_error", detail: memberErr.message }, 500);
   if (devErr) return json({ error: "db_error", detail: devErr.message }, 500);
+  if (proErr) return json({ error: "db_error", detail: proErr.message }, 500);
 
   // איזה חשבון. משתמש/ת שהוא/היא גם סוכן/ת וגם חברה יזמית מוחק/ת כל אחד
   // מהמסך שלו, ולכן הדף אומר במפורש (account). בלי - הסוכן/ת קודם.
   const wanted = String(body?.account ?? "");
   const kind = wanted === "developer" && developer ? "developer"
+    : wanted === "professional" && professional ? "professional"
     : wanted === "agent" && member ? "agent"
-    : member ? "agent" : developer ? "developer" : "none";
+    : member ? "agent" : developer ? "developer" : professional ? "professional" : "none";
 
   if (kind === "developer") return developerFlow(supabase, developer, action, body);
+  if (kind === "professional") return professionalFlow(supabase, professional, action, body);
   if (kind === "none") {
     if (action === "preview") return json({ success: true, summary: { kind: "none", email: userData.user.email ?? null } });
     if (action !== "request") return json({ error: "unknown_action" }, 400);
@@ -237,4 +244,39 @@ async function developerFlow(supabase: any, dev: any, action: string, body: any)
   if (closed?.error) return json({ error: closed.error }, 409);
   const auth = await deleteAuthUser(supabase, closed?.user_id);
   return json({ success: true, closed: true, deleted: auth !== "failed", result: closed, summary });
+}
+
+// ---- בעל/ת מקצוע (עו"ד, יועץ משכנתאות...) ---------------------------------
+// ‏close_professional_account מוחקת את הפרטים והכניסה בקריאה אחת (אין לבעל מקצוע מנוי תקופתי), והשורה נשארת
+// מאונונמת כי חיובים ויומן זיכויים מפנים אליה. כרטיסיית בעל המקצוע באתר נשארת: היא מוצר נפרד שמנוהל מהקישור האישי שלה.
+// deno-lint-ignore no-explicit-any
+async function professionalFlow(supabase: any, pro: any, action: string, body: any) {
+  const [{ count: bought }, { count: pending }] = await Promise.all([
+    supabase.from("lawyer_leads").select("id", { count: "exact", head: true }).eq("sold_to_professional_id", pro.id),
+    supabase.from("lawyer_lead_orders").select("id", { count: "exact", head: true })
+      .eq("professional_id", pro.id).eq("status", "pending"),
+  ]);
+  const summary = {
+    kind: "professional",
+    account_id: pro.id,
+    name: pro.display_name,
+    credit_balance: Number(pro.credit_balance ?? 0),
+    bought_leads: bought ?? 0,
+    // תשלום שעוד בדרך חוסם: מחיקה באמצע הייתה משאירה כסף שנגבה בלי חשבון למסור לו את הליד
+    blocker: (pending ?? 0) > 0 ? "payment_pending" : null,
+    immediate: true,
+  };
+  if (action === "preview") return json({ success: true, summary });
+  if (action !== "request") return json({ error: "unknown_action" }, 400);
+  if (!CONFIRM_PHRASES.has(String(body?.confirm ?? ""))) return json({ error: "confirmation_mismatch" }, 400);
+  if (summary.blocker) return json({ error: summary.blocker, summary }, 409);
+
+  const reason = typeof body?.reason === "string" ? body.reason.slice(0, 500) : null;
+  const { data: closed, error } = await supabase
+    .rpc("close_professional_account", { p_account_id: pro.id, p_reason: reason });
+  if (error) return json({ error: "db_error", detail: error.message }, 500);
+  if (closed?.error) return json({ error: closed.error }, 409);
+  // ‏user_id כבר מתאפס בשורה, ולכן מחיקת המשתמש ב-Auth אינה מוחקת אותה (cascade)
+  const auth = await deleteAuthUser(supabase, closed?.user_id);
+  return json({ success: true, closed: true, deleted: auth !== "failed", auth, result: closed, summary });
 }
