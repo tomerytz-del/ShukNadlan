@@ -102,8 +102,6 @@ DISPLAY = [
     ('assets/tiers.js', r'₪' + N + r' להפקה',                          'property_video_price_mid'),
     ('pricing.html', r"'" + N + r' בחודש · ללא חיוב',                  'property_video_premium_monthly_cap'),
     ('assets/tiers.js', r"'" + N + r' סרטונים שיווקיים בחודש',         'property_video_premium_monthly_cap'),
-    # האריח בסקשן "הנשק הסודי" - HTML סטטי
-    ('pricing.html', r'<b>' + N + r' סרטונים שיווקיים בחודש',          'property_video_premium_monthly_cap'),
     # לידים
     ('pricing.html', r"'" + N + r" בחודש, ואז ₪\d+'",                 'free_lead_quota_monthly'),
     ('pricing.html', r"'\d+ בחודש, ואז ₪" + N + "'",                   'ppl_price_buyer_renter'),
