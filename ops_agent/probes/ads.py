@@ -36,6 +36,7 @@ def run(ctx) -> Iterator[Finding]:
         return
     yield from _token(ctx)
     yield from _sync_silent(ctx)
+    yield from _google_sync_silent(ctx)
     yield from _campaigns_without_leads(ctx)
     yield from _leads_failed(ctx)
     yield from _leads_unmapped(ctx)
@@ -121,6 +122,50 @@ def _sync_silent(ctx) -> Iterator[Finding]:
                 % (int(hours), "" if row.get("last_ok") else " (או שלא היה אף פעם)")),
         suggestion=("לפתוח את ads_actions_log (action = sync_insights) ולראות את השגיאה "
                     "בתקציר; ואם אין שם שורות בכלל - לבדוק את ה-job ads-insights-sync ב-pg_cron."),
+        metric=round(hours, 1), metric_unit="שעות",
+        evidence={"last_ok": row.get("last_ok"), "last_any": row.get("last_any")},
+    )
+
+
+def _google_sync_silent(ctx) -> Iterator[Finding]:
+    """סנכרון גוגל דלוק ולא הצליח מעל 36 שעות.
+
+    יום בלי חשיפות נכתב כאפס ורץ מוצלח נרשם ביומן, אז הממצא נפתח רק
+    כשהקריאה עצמה לא הושלמה. בלי אף שורה של google_sync_insights נשארים
+    שקטים: לפני הרישום הזה לא הייתה היסטוריה, וממצא על היעדרה לא היה נסגר.
+    """
+    if not (ctx.db.has_table("ads_actions_log") and _enabled(ctx)):
+        return
+    t = ctx.settings.thresholds
+    ctx.count()
+    row = ctx.db.one(
+        """
+        select max(created_at) filter (where ok) as last_ok,
+               max(created_at) as last_any,
+               count(*) as n,
+               (select updated_at from public.ads_settings where key = 'enabled') as enabled_at,
+               extract(epoch from now() - coalesce(
+                 max(created_at) filter (where ok),
+                 (select updated_at from public.ads_settings where key = 'enabled'))) / 3600 as hours
+          from public.ads_actions_log
+         where action = 'google_sync_insights'
+        """
+    )
+    if not row or int(row.get("n") or 0) == 0:
+        return
+    hours = float(row["hours"]) if row.get("hours") is not None else None
+    if hours is None or hours < t.ads_sync_silent_hours:
+        return
+    yield Finding(
+        area="health", code="ads_google_sync_silent", severity="high",
+        subject="ads-google-sync",
+        title="ביצועי הקמפיינים לא מסתנכרנים מגוגל",
+        detail=("הקונסולה דלוקה, והסנכרון המוצלח האחרון מגוגל היה לפני %d שעות%s. "
+                "הדופק נרשם גם ביום בלי הוצאה, ולכן הממצא הזה אומר שהסנכרון עצמו לא הושלם."
+                % (int(hours), "" if row.get("last_ok") else " (או שלא היה אף פעם)")),
+        suggestion=("לפתוח את ads_actions_log (action = google_sync_insights) ולקרוא את השגיאה. "
+                    "אם אין שורות חדשות, לבדוק את ה-job ads-google-sync ב-pg_cron. "
+                    "invalid_grant הוא טוקן שפג, ו-404 היא גרסת API שנסגרה."),
         metric=round(hours, 1), metric_unit="שעות",
         evidence={"last_ok": row.get("last_ok"), "last_any": row.get("last_any")},
     )
