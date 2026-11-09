@@ -31,6 +31,7 @@ on:
       - "scripts/wa_forward_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/google_channel_sync_test.ts"
       - "scripts/lead_source_test.ts"
       - "scripts/ops_question_test.ts"
       - ".github/workflows/edge_types.yml"
@@ -53,6 +54,7 @@ on:
       - "scripts/wa_forward_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/google_channel_sync_test.ts"
       - "scripts/lead_source_test.ts"
       - "scripts/ops_question_test.ts"
       - ".github/workflows/edge_types.yml"
@@ -144,6 +146,11 @@ jobs:
       # תקציב עם גוגל, והרצה שנייה לא שולחת. בלי קריאה למטא.
       - name: השקה מושהית במטא
         run: node --experimental-strip-types scripts/paused_launch_test.ts
+
+      # יום בלי חשיפה בגוגל נכתב כאפס, והיומן של הסנכרון בלי מזהה חשבון.
+      # בלי רשת ובלי מסד.
+      - name: סנכרון הוצאה יומית מגוגל
+        run: node --experimental-strip-types scripts/google_channel_sync_test.ts
 
       # שאלה תפעולית לסוכן/ת: service_role בלבד, מסלול חינם, חלון 24 שעות,
       # אידמפוטנטיות, ולחיצה על ops_q שלא מגיעה למודל. בלי Meta.

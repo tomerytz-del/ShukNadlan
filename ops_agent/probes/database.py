@@ -108,6 +108,12 @@ def _cron(ctx) -> Iterator[Finding]:
         if failed >= t.cron_fail_min:
             rate = failed / runs if runs else 1.0
             severity = "critical" if rate >= 0.5 else "high"
+            # כשל בודד מתוך 12 הרצות ומעלה הוא ניתוק רגעי של החיבור
+            # (8.11.2026: חמישה jobs נפלו באותה דקה, 1 מתוך 288 כל אחד,
+            # והמשיכו לרוץ). זה לא "האוטומציה שבורה". job יומי שנכשל פעם
+            # אחת (runs קטן) נשאר high.
+            if failed == 1 and runs >= 12:
+                severity = "low"
             yield Finding(
                 area="health", code="cron_failing", severity=severity,
                 subject=name,

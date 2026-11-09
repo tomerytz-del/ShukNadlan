@@ -742,3 +742,12 @@ Finished processing build request in 1.034s
 
 **‏Issue נפתח על אתר שלא נפל** — שתי בקשות נכשלו מה-runner. אם זה חוזר,
 לבדוק אם Netlify חוסם את טווח ה-IP של GitHub Actions.
+
+### `cron_failing`: כשל בודד מתוך הרבה הרצות אינו high
+
+ב-8.11.2026 חמישה jobs (`notification-push`, `meeting-client-dispatch`,
+`lead-response-escalations`, `admin-inbox-overdue`, `saved-search-notify`)
+דווחו high באותה דקה, כל אחד על כשל אחד (`connection failed`) מתוך 288
+הרצות, וכולם המשיכו לרוץ בהצלחה. ניתוק רגעי של החיבור אינו "האוטומציה
+שבורה". מעכשיו כשל בודד מתוך 12 הרצות ומעלה הוא `low`; job יומי שנכשל פעם
+אחת נשאר `high`, כי שם כשל אחד הוא כל הריצות.
