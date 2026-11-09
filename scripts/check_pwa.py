@@ -47,7 +47,10 @@ PROFESSIONAL_MANIFEST = "/app-professional.webmanifest"
 # האזור האישי. הם גם אלה שמקבלים מניפסט שנפתח על ה-CRM ולא על דף הבית.
 PERSONAL_PAGES = {"crm.html", "developer-crm.html", "professional-manage.html", "csm.html", "professional-crm.html"}
 # דף אזור אישי שיש לו מניפסט משלו (כל השאר: PERSONAL_MANIFEST)
-PAGE_MANIFEST = {"professional-crm.html": PROFESSIONAL_MANIFEST}
+PAGE_MANIFEST = {
+    "professional-crm.html": PROFESSIONAL_MANIFEST,
+    "professional-manage.html": PROFESSIONAL_MANIFEST,
+}
 
 REQUIRED = [
     (
@@ -136,6 +139,16 @@ def check_page(path: Path) -> list[str]:
     return problems
 
 
+# ה-id של כל מניפסט, וה-start_url חייב להיות הדף שלו. ‏id משותף בין שתי אפליקציות מותקנות הוא אפליקציה אחת, ו-start_url שגוי
+# פותח אותה בדף הלא נכון. שתיהן עוברות את שאר הבדיקות (JSON תקין, אייקונים קיימים), ולכן נבדקות כאן במפורש.
+# ‏share_target (קבלת איש קשר מהטלפון) הוא יכולת של ה-CRM של הסוכנים בלבד.
+EXPECTED_ID = {
+    "manifest.webmanifest": "/",
+    "app-crm.webmanifest": "/crm",
+    "app-professional.webmanifest": "/professional-crm",
+}
+
+
 def check_manifest(name: str) -> list[str]:
     path = ROOT / name
     if not path.exists():
@@ -171,6 +184,15 @@ def check_manifest(name: str) -> list[str]:
             src = (icon.get("src") or "").lstrip("/")
             if src and not (ROOT / src).exists():
                 problems.append("אייקון של קיצור דרך חסר: %s" % icon.get("src"))
+
+    want_id = EXPECTED_ID.get(name)
+    if want_id:
+        if data.get("id") != want_id:
+            problems.append("‏id הוא %r ולא %r. מניפסט עם id של אחר הוא אותה אפליקציה מותקנת." % (data.get("id"), want_id))
+        if (data.get("start_url") or "").split("?")[0] != want_id:
+            problems.append("‏start_url (%s) אינו הדף של האפליקציה (%s)." % (data.get("start_url"), want_id))
+        if name != "app-crm.webmanifest" and "share_target" in data:
+            problems.append("‏share_target שייך ל-app-crm בלבד (קבלת איש קשר ל-CRM של הסוכנים).")
 
     start = data.get("start_url", "")
     scope = data.get("scope", "/")
