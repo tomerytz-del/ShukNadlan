@@ -1226,6 +1226,16 @@ if (!current){
     const i = steps.indexOf(f);
     if (i === step) advance(); else render();   // שינוי תשובה ישנה מעדכן את ההמלצה בלי לקפוץ
   });
+  /* אחרי "חזרה" התשובה כבר מסומנת, ולחיצה חוזרת עליה אינה מפעילה change -
+     לכן לחיצה על תשובה שכבר מסומנת בשאלה הנוכחית מתקדמת בעצמה. בזמן click
+     על ה-label הקלט עדיין לא השתנה, ולכן checked=true פירושו "כבר היה מסומן". */
+  form.addEventListener('click', function(e){
+    const label = e.target.closest('.pq label');
+    if (!label) return;
+    const r = label.querySelector('input[type=radio]');
+    const i = steps.indexOf(label.closest('.pq'));
+    if (r && r.checked && i === step) advance();
+  });
   if (backBtn) backBtn.addEventListener('click', function(){ show(Math.max(0, step - 1)); });
   if (restartBtn) restartBtn.addEventListener('click', function(){
     form.querySelectorAll('input[type=radio]').forEach(function(r){ r.checked = false; });
