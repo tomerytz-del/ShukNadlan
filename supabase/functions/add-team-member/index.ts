@@ -4,7 +4,7 @@ import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 import { sendWhatsappInvite, toWhatsappMsisdn } from "../_shared/whatsapp-invite.ts";
 import { freeAgentSlug } from "../_shared/agent-slug.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
-import { PROMO_MONTHS } from "../_shared/launch-promo.ts";
+import { promoMonthsText } from "../_shared/launch-promo.ts";
 
 // ============================================================================
 // הוספת סוכן/ת לצוות המשרד — בהזמנה, לא בסיסמה שממציאים עבורו/ה
@@ -140,7 +140,7 @@ const PITCH = "כל הנכסים, הלידים והלקוחות שלך במקו�
 /* הטבת ההשקה נאמרת כבר במכתב ההזמנה, ולא רק במסך שאחרי ההתחברות: היא הסיבה
    הטובה ביותר ללחוץ על הקישור היום ולא "מתישהו". הענקתה עצמה נעשית בשרת
    (‏grant_launch_promo) ברגע השיוך. */
-const PROMO_LINE = `ההצטרפות עכשיו כוללת ${PROMO_MONTHS === 2 ? "חודשיים" : `${PROMO_MONTHS} חודשים`} במסלול Elite - המסלול המלא, ללא תשלום וללא כרטיס אשראי.`;
+const PROMO_LINE = `ההצטרפות עכשיו כוללת ${promoMonthsText()} במסלול Elite - המסלול המלא, ללא תשלום וללא כרטיס אשראי.`;
 
 /** שם מלא הוא שדה אופציונלי בטופס, ולכן הפתיח חייב לעבוד גם בלעדיו. */
 const greet = (name: string) => (name || "").trim() || "שלום";

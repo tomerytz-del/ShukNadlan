@@ -234,7 +234,9 @@ function israelMonthStartIso(now = new Date()): string {
   return new Date(Date.UTC(get("year"), get("month") - 1, 1) - offsetMs).toISOString();
 }
 
-/** האם הסוכן/ת עבר/ה החודש את תקרת השימוש ההוגן. כשל בקריאה = לא חוסמים. */
+/** האם ההודעה הנוכחית היא מעבר לתקרת השימוש ההוגן החודשית: סופרת את ההודעות
+ *  שכבר נחתמו לסוכן/ת החודש (ההודעה הנוכחית עדיין לא), ולכן >= ולא >.
+ *  כשל בקריאה = לא חוסמים. */
 async function fairUseExceeded(agentId: string): Promise<boolean> {
   try {
     const [{ data: cfg }, { count }] = await Promise.all([
@@ -244,7 +246,7 @@ async function fairUseExceeded(agentId: string): Promise<boolean> {
     ]);
     const cap = Number(cfg?.value);
     const limit = Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT;
-    return (count ?? 0) > limit;
+    return (count ?? 0) >= limit;
   } catch (err) {
     console.error("fair use check failed", err);
     return false;
@@ -2289,8 +2291,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // ל-mid; ב-Elite אין תקרה. הערך ב-pricing_config (gabriela_fair_use_monthly)
   // והוא **פנימי** - דף המסלולים אומר "שימוש הוגן" בלי מספר, וגם ההודעה כאן
   // אינה נוקבת בו ואין התראה מקדימה. הבדיקה אחרי הכפתורים (odc:, cadence), כי
-  // לחיצה אינה קריאה למודל, ולפני כל דבר שעולה כסף. ההודעה הנוכחית כבר
-  // נרשמה ביומן ולכן נספרת: ההודעה שמעבר לתקרה היא שנענית בהצעת השדרוג.
+  // לחיצה אינה קריאה למודל, ולפני כל דבר שעולה כסף. ההודעה הנוכחית נרשמה
+  // ביומן בלי agent_id (הוא נחתם רק למטה), ולכן המונה הוא ההודעות **שלפניה**:
+  // כשהוא כבר על התקרה, ההודעה הזו היא שמעבר לה ונענית בהצעת השדרוג.
   if (String(agent.tier) === "mid" && await fairUseExceeded(agent.id)) {
     await replyCta(from, FAIR_USE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
     return;

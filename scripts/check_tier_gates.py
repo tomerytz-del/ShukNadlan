@@ -65,7 +65,9 @@ GATES = {
     # לכיוון המסוכן יותר: Pay&GO קיבל/ה משם פניות ללא הגבלה וללא עלות.
     'פניות ממחשבון התשואה בדף הסוכן/ת ובדף המשרד': 'claim_lead',
     'פניות מהערכת השווי בדף הסוכן/ת ובדף המשרד':   'claim_lead',
-    'הפניה אוטומטית של לידי בעל-נכס אליך':         'lead_audience_size',
+    # הניתוב עצמו ב-Edge: קודם mid/premium, ו-free רק כשאין מנוי/ה מתאים/ה
+    # (9.11.2026). lead_audience_size רק סופרת את קהל המנויים לדוח הניתוב.
+    'הפניה אוטומטית של לידי בעל-נכס אליך':         'findCandidateAgentIds',
     # אותו שם גייט של העוזר: קבוע נפרד בשם זהה ב-whatsapp-webhook/email-intake.ts,
     # עם בדיקת billing_status לפני הקריאה למודל (docs/email-intake.md).
     'העברת מייל לגבריאלה - היא מטפלת בו ועונה לך בוואטסאפ': 'TIER_ALLOWED',
@@ -102,6 +104,7 @@ GATES = {
 # להופיע בטבלת התיעוד, ולכן הם כאן ולא מחוץ לבדיקה.
 EDGE_GATES = {
     'TIER_ALLOWED': 'supabase/functions/whatsapp-webhook/index.ts',
+    'findCandidateAgentIds': 'supabase/functions/owner-lead-intake/index.ts',
 }
 
 # פונקציות שקיימות בפרודקשן ואין להן קובץ תחת supabase/migrations/, מפני

@@ -9133,7 +9133,7 @@ function renderTierGate(){
   if (promo.active){
     const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
     title.textContent = 'קיבלת ' + gift.name + ' במתנה';
-    sub.textContent = `${Tiers.PROMO.months === 2 ? 'חודשיים' : Tiers.PROMO.months + ' חודשים'} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
+    sub.textContent = `${Tiers.promoMonthsText()} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
                       'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
   } else if (agent.tier_source === 'promo_expired'){
     title.textContent = 'תקופת ההטבה הסתיימה';
@@ -9175,7 +9175,7 @@ function renderTierGate(){
       .join('');
 
     card.innerHTML =
-      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + (Tiers.PROMO.months === 2 ? 'חודשיים' : Tiers.PROMO.months + ' חודשים') + '</span>' : '') +
+      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText() + '</span>' : '') +
       '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
       '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
       (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +
@@ -25043,7 +25043,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
   catch (err){
     btn.disabled = false;
     msg.textContent = err.code === 'tier_required'
-      ? 'במסלול שלך אפשר להחזיק מספר וירטואלי אחד. מספרים נוספים זמינים במסלול Elite.'
+      ? 'אי אפשר להזמין מספר נוסף כרגע. לפרטים: דף המסלולים.'
       : 'לא הצלחנו לחפש מספר: ' + heErr(err);
     return;
   }
@@ -25074,7 +25074,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
     if (externalNumber) showForwardHowto({ twilio_number: out.number, external_number: externalNumber });
   } catch (err){
     showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
-      err.code === 'tier_required' ? 'מספרים וירטואליים נוספים זמינים במסלול Elite' :
+      err.code === 'tier_required' ? 'אי אפשר להזמין מספר נוסף כרגע' :
       'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + heErr(err));
     refreshAgentBalance();
   }

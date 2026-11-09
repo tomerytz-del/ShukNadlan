@@ -436,7 +436,13 @@ Deno.serve(async (req: Request) => {
        הוא ליד תקוע — אבל מסיבה אחרת לגמרי מזו של ליד פלטפורמה בלי סוכנים
        מתאימים, והתשובה לשתיהן שונה. */
     const routedAgentId = matchedAgentId;
+    /* קהל המנויים (lead_audience_size סופרת mid/premium). מ-9.11.2026 גם free
+       מועמד/ת כשאין מנוי/ה מתאים/ה, ולכן "אין סוכנים זכאים" נכון רק כשאין גם
+       סוכן/ת free פעיל/ה עם העדפות; אחרת הסיבה היא ההעדפות. */
     const audience = await audienceSize(supabase, "agent_owner");
+    const { count: freeAudience } = routedAgentId ? { count: 0 } : await supabase
+      .from("agency_members").select("id", { count: "exact", head: true })
+      .eq("tier", "free").eq("active", true);
     await logLeadRouting(supabase, {
       source: normalizeSource(
         body.source,
@@ -456,7 +462,7 @@ Deno.serve(async (req: Request) => {
         ? null
         : agencyRouting
           ? "agency_without_active_member"
-          : audience > 0
+          : audience > 0 || (freeAudience ?? 0) > 0
             ? "no_matching_agent_preferences"
             : "no_eligible_agents",
       summary: [

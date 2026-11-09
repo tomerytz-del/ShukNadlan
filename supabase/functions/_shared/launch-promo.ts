@@ -36,6 +36,12 @@ export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 199, premium: 3
    ‏grant_launch_promo אידמפוטנטית ואינה מקצרת promo_ends_at קיים. */
 export const PROMO_TIER: Tier = "premium";
 export const PROMO_MONTHS = 2;
+/** הנוסח העברי של מספר החודשים ("חודשיים", לא "2 חודשים") - אותו כלל כמו Tiers.promoMonthsText ב-assets/tiers.js. */
+export function promoMonthsText(months: number = PROMO_MONTHS): string {
+  if (months === 1) return "חודש";
+  if (months === 2) return "חודשיים";
+  return `${months} חודשים`;
+}
 /** ימים לפני הסיום שבהם נשלחות שתי ההתראות — חודש לפני, ואז שבועיים אחרי. */
 export const PROMO_NOTICE_DAYS = [30, 14] as const;
 /** תזכורות בוואטסאפ בלבד (דרך הפעמון), שבוע ויום לפני הסיום. נרשמות ב-promo_notices. */

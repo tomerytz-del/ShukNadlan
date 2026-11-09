@@ -885,8 +885,8 @@ const promoState = Tiers.promoState({ promo_ends_at: promoEnds });
 /* ההטבה מוצגת כשהיא פעילה למי שמולנו (סוכן/ת עם תאריך סיום), או כשהיא פתוחה
    לכולם ואין עדיין חשבון — כלומר בדף השיווקי ובמסלול ההזמנה. */
 const promoOpen = promoState.active || (Tiers.PROMO.active && !current);
-/* "חודשיים" ולא "2 חודשים": הנוסח העברי של מספר החודשים בהטבה, במקום אחד. */
-function promoMonthsText(){ const m = Tiers.PROMO.months; return m === 2 ? 'חודשיים' : m + ' חודשים'; }
+/* הנוסח העברי של מספר החודשים ("חודשיים", לא "2 חודשים") - Tiers.promoMonthsText, במקום אחד. */
+function promoMonthsText(){ return Tiers.promoMonthsText(); }
 const gift = promoMonthsText() + ' ב-₪0';
 
 /* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */

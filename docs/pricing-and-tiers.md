@@ -81,7 +81,7 @@
 | יכולת | היכן נאכף |
 |---|---|
 | לידי בעל-נכס, מכסת הפניות החינמית, מחיר הפנייה הנוספת | `claim_lead` במסד — ומי שמכניס את הליד קובע אם הוא נולד `masked` (‏`owner-lead-intake`, `property-inquiry-intake`, `agent-direct-inquiry-intake`, `property-visualize`) |
-| ניתוב אוטומטי של לידי בעל-נכס | `findCandidateAgentIds` ב-`owner-lead-intake` — קודם `mid`/`premium`; `free` רק כשאין אף סוכן/ת בתשלום שמתאים/ה לסוג הנכס ולעסקה (9.11.2026). `lead_audience_size` סופרת את קהל המנויים |
+| ניתוב אוטומטי של לידי בעל-נכס | `findCandidateAgentIds` ב-`owner-lead-intake` (גייט ב-Edge, רשום ב-`EDGE_GATES` של `check_tier_gates.py`) — קודם `mid`/`premium`; `free` רק כשאין אף סוכן/ת בתשלום שמתאים/ה לסוג הנכס ולעסקה (9.11.2026). `lead_audience_size` רק סופרת את קהל המנויים לדוח הניתוב |
 | דוח CMA | `cma_report` במסד — ולעוזר בוואטסאפ `agent_cma_report`, אותו קוד עם מזהה סוכן/ת מפורש |
 | דוח CMA לכתובת | `agent_cma_report_address` - `premium` בלבד, פעיל ובמנוי בתוקף (כמו שאילתת העסקאות); ‏`cma_report_address` העטיפה לדפדפן, וגבריאלה קוראת לה מ-`cma_report_address` ב-`agent.ts` |
 | שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן. לפי גוש/חלקה: `agent_market_deals_by_parcel` בודקת את אותו גייט בעצמה |

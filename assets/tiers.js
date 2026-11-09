@@ -216,6 +216,15 @@
     return t ? t.name : String(id || '');
   }
 
+  /** "חודשיים" ולא "2 חודשים": הנוסח העברי של מספר חודשי ההטבה, במקום אחד
+   *  לדף המסלולים, ל-CRM ולכל מי שמציג את ההטבה. */
+  function promoMonthsText() {
+    var m = PROMO.months;
+    if (m === 1) return 'חודש';
+    if (m === 2) return 'חודשיים';
+    return m + ' חודשים';
+  }
+
   /** ‏0 אינו "₪0" אלא "ללא דמי מנוי" — מחיר אפס שנכתב כמספר נקרא כמו טעות. */
   function priceText(id) {
     var t = byId(id);
@@ -271,6 +280,7 @@
     priceText: priceText,
     isUpgrade: isUpgrade,
     promo: function () { return PROMO; },
+    promoMonthsText: promoMonthsText,
     promoState: promoState,
     formatDate: formatDate,
   };

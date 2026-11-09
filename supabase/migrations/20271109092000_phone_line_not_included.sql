@@ -249,15 +249,17 @@ begin
          downgrade_deadline = null, downgrade_keep = false
    where id = p_line_id;
 
-  insert into public.notifications (agent_id, type, title, body) values
+  -- ‏suppress_push=false במפורש: שתי התראות חיות (שיוך שנעשה עכשיו), לא מילוי
+  -- (‏check_notification_backfill.py, docs/notifications-center.md).
+  insert into public.notifications (agent_id, type, title, body, suppress_push) values
     (p_agent_id, 'system', 'קיבלת מספר וירטואלי',
      format('מנהל/ת המשרד העביר/ה אליך את המספר %s%s. שיחות אליו יגיעו לנייד שלך, עם הקלטה וסיכום.%s',
             v_num, coalesce(' (' || v_line.label || ')', ''),
             case when v_line.monthly_price is not null
-                 then format(' החידוש החודשי (%s ₪) יורד מהארנק שלך.', v_line.monthly_price) else '' end)),
+                 then format(' החידוש החודשי (%s ₪) יורד מהארנק שלך.', v_line.monthly_price) else '' end), false),
     (v_line.agent_id, 'system', 'מספר וירטואלי הועבר',
      format('המספר %s%s הועבר ל%s. השיחות הקודמות שלו נשארות אצלך ביומן.',
-            v_num, coalesce(' (' || v_line.label || ')', ''), coalesce(v_to, 'סוכן/ת אחר/ת')));
+            v_num, coalesce(' (' || v_line.label || ')', ''), coalesce(v_to, 'סוכן/ת אחר/ת')), false);
 
   return jsonb_build_object('success', true, 'from', v_from, 'to', v_to);
 end;
