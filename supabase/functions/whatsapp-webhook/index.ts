@@ -133,6 +133,7 @@ import {
   wrapRecording,
 } from "./media-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
+import { handleLawyerLeadVerify } from "../_shared/lawyer-lead-wa.ts";
 import { feedbackToMeeting, parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
   catalogBlock,
@@ -2162,6 +2163,17 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     const verifyReply = await handleWaSignVerify(supabase, from, String(msg.text?.body || ""));
     if (verifyReply) {
       await reply(from, verifyReply, null, { customer: true });
+      return;
+    }
+  }
+
+  // --- אימות ליד "שאלה לעו"ד" ("אימות שאלה 482193") ---
+  // גם הוא לפני זיהוי הסוכן/ת, מאותה סיבה: הפונה אינו/ה סוכן/ת. הבדיקה (הקוד, התוקף והמספר שממנו נשלחה
+  // ההודעה) במסד, ב-lawyer_lead_wa_verify. ‏_shared/lawyer-lead-wa.ts, ‏docs/lawyer-leads.md.
+  if (msg.type === "text") {
+    const lawyerReply = await handleLawyerLeadVerify(supabase, from, String(msg.text?.body || ""));
+    if (lawyerReply) {
+      await reply(from, lawyerReply, null, { customer: true });
       return;
     }
   }

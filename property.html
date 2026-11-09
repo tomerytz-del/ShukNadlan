@@ -1002,6 +1002,16 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .calc-cta:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(14,42,107,.32)}
   .calc-cta svg{width:20px;height:20px;flex:none}
   .calc-fine{font-size:.68rem;color:var(--ink-soft);margin:0;text-align:center}
+  /* שאלה לעו"ד (docs/lawyer-leads.md): כפתור משני בכרטיס המימון, ומודאל על אותם סגנונות mlead-* */
+  .lq-open{display:block;width:100%;margin:10px 0 0;font:inherit;font-size:.8rem;font-weight:700;color:var(--teal-dark);background:transparent;border:1.5px solid var(--hair-strong);padding:10px 12px;cursor:pointer;text-align:center}
+  .lq-open:hover{border-color:var(--teal);color:var(--teal)}
+  .mlead-field textarea{width:100%;min-height:110px;border:1.5px solid var(--hair-strong);border-radius:0;padding:11px 12px;background:var(--surface-soft);font:inherit;resize:vertical}
+  .mlead-field textarea:focus{border-color:var(--teal);background:#fff;outline:none}
+  .mlead-field textarea.invalid{border-color:var(--brick);background:var(--gold-tint)}
+  .lq-notes{margin:10px 0 0;padding:0 18px 0 0;font-size:.74rem;color:var(--ink-soft)}
+  .lq-notes li{margin:0 0 4px}
+  .lq-wait .btn{display:block;text-decoration:none;text-align:center;margin:14px 0 8px}
+  .lq-wait .status{font-size:.78rem;color:var(--ink-soft);text-align:center;margin:0}
   /* "כמה מזומן צריך להביא" */
   .calc-cash{background:var(--surface-soft);border:1px solid var(--hair);padding:12px}
   .calc-cash-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -2049,6 +2059,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             בדיקת זכאות וייעוץ אישי
           </button>
           <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת.</p>
+          <button type="button" class="lq-open" id="lqOpenBtn">יש לכם שאלה משפטית על הנכס? שאלו עורך דין</button>
         </div>
       </div>
     </div>
@@ -2157,6 +2168,72 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="mark">✓</div>
       <h4>הפרטים נשלחו</h4>
       <p>תודה! הפרטים יועברו ליועצי משכנתאות מהאזור.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== שאלה לעורך דין ======
+     אותה צורה כמו בלון המשכנתא. הליד נכנס pending ועולה למדף העו"ד רק אחרי שהפונה שולח/ת הודעת אימות
+     בוואטסאפ מהנייד שהזין/ה (lawyer-lead-intake, whatsapp-webhook). docs/lawyer-leads.md. -->
+<div class="mlead-overlay" id="lqModal" role="dialog" aria-modal="true" aria-labelledby="lqTitle">
+  <div class="mlead-panel">
+    <div class="mlead-head">
+      <h3 id="lqTitle">שאלה לעורך דין</h3>
+      <button type="button" class="mlead-close" id="lqCloseBtn" aria-label="סגירה">✕</button>
+    </div>
+
+    <form id="lqForm" novalidate>
+      <div class="mlead-body">
+        <div class="form-step" data-step="1">
+          <p class="step-ind">שלב 1 מתוך 2 · השאלה</p>
+          <p class="mlead-intro">אפשר לשאול עורך דין מקרקעין מהאזור על הנכס הזה. קודם השאלה:</p>
+          <div class="mlead-recap" id="lqRecap"></div>
+          <div class="mlead-field">
+            <label for="lqQuestion">מה השאלה שלכם?</label>
+            <textarea id="lqQuestion" maxlength="2000" placeholder="למשל: מה צריך לבדוק בנסח הטאבו לפני חתימה על חוזה?"></textarea>
+          </div>
+          <ul class="lq-notes">
+            <li>הגשת שאלה אינה יוצרת יחסי עורך דין-לקוח.</li>
+            <li>אל תשלחו סיסמאות, פרטי תשלום או מסמכי זהות.</li>
+          </ul>
+        </div>
+        <div class="form-step" data-step="2" hidden>
+          <p class="step-ind">שלב 2 מתוך 2 · איך חוזרים אליכם?</p>
+          <div class="mlead-field">
+            <label for="lqName">שם מלא</label>
+            <input type="text" id="lqName" autocomplete="name" maxlength="100">
+          </div>
+          <div class="mlead-field">
+            <label for="lqPhone">טלפון נייד</label>
+            <input type="tel" id="lqPhone" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+          </div>
+          <div class="mlead-field">
+            <label for="lqEmail">אימייל (לא חובה)</label>
+            <input type="email" id="lqEmail" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left" maxlength="200">
+          </div>
+          <p class="mlead-privacy">הפרטים מועברים לעורך דין אחד בלבד, שרוכש את השאלה, לצורך חזרה אליכם. הסוכן/ת של הנכס יקבל/תקבל הודעה שנשאלה שאלה על הנכס, בלי הפרטים שלכם. בהמשך נבקש לאמת את הטלפון בהודעת וואטסאפ.</p>
+          <p class="mlead-error" id="lqError" role="alert"></p>
+        </div>
+      </div>
+      <div class="mlead-foot">
+        <button type="button" class="btn btn-gold btn-block" id="lqNextBtn">המשך ←</button>
+        <button type="submit" class="btn btn-gold btn-block" id="lqSubmitBtn" hidden>שליחה ואימות בוואטסאפ</button>
+        <button type="button" class="step-back" id="lqBackBtn" hidden>← חזרה</button>
+      </div>
+    </form>
+
+    <div class="mlead-body lq-wait" id="lqWait" hidden>
+      <p class="step-ind">עוד צעד אחד · אימות הטלפון</p>
+      <p class="mlead-intro">כדי שעורך הדין יידע שהמספר שלכם אמיתי, שלחו לנו את ההודעה המוכנה בוואטסאפ, <b>מהנייד שהזנתם</b>. אין צורך לכתוב דבר.</p>
+      <!-- data-site-contact: המספר של שוק נדל"ן עצמו, לא סוכן/ת (events.js סופר אחרת כל לחיצה כפנייה למתווך) -->
+      <a class="btn btn-gold btn-block" id="lqWaBtn" data-site-contact href="#" target="_blank" rel="noopener noreferrer">שליחת הודעת אימות בוואטסאפ</a>
+      <p class="status" id="lqWaitStatus" role="status" aria-live="polite">ממתינים לאימות…</p>
+    </div>
+
+    <div class="mlead-body mlead-done" id="lqDone" hidden>
+      <div class="mark">✓</div>
+      <h4>השאלה נקלטה</h4>
+      <p id="lqDoneText">עורך דין מהאזור שירכוש את השאלה ייצור איתכם קשר בטלפון.</p>
     </div>
   </div>
 </div>
@@ -2292,6 +2369,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
           <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
           <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>

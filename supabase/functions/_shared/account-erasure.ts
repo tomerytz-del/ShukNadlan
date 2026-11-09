@@ -29,14 +29,16 @@ async function releaseTwilioNumber(sid: string | null | undefined): Promise<void
   }
 }
 
-/** האם לאותו משתמש נשאר פרופיל חי אחר (סוכן/ת שהוא/היא גם חברה יזמית).
- *  אם כן - המשתמש ב-Auth נשאר, כי מחיקתו הייתה נועלת גם את החשבון השני. */
+/** האם לאותו משתמש נשאר פרופיל חי אחר (סוכן/ת שהוא/היא גם חברה יזמית או בעל/ת מקצוע).
+ *  אם כן - המשתמש ב-Auth נשאר, כי מחיקתו הייתה נועלת גם את החשבון השני. ובמקרה של בעל/ת מקצוע גם מוחקת אותו:
+ *  professional_accounts.user_id הוא on delete cascade, והארנק והחשבון היו נעלמים בשקט. */
 async function otherLiveProfile(sb: Sb, userId: string): Promise<boolean> {
-  const [{ data: agent }, { data: dev }] = await Promise.all([
+  const [{ data: agent }, { data: dev }, { data: pro }] = await Promise.all([
     sb.from("agency_members").select("id").eq("user_id", userId).is("erased_at", null).maybeSingle(),
     sb.from("developers").select("id").eq("user_id", userId).is("erased_at", null).maybeSingle(),
+    sb.from("professional_accounts").select("id").eq("user_id", userId).is("erased_at", null).maybeSingle(),
   ]);
-  return !!(agent || dev);
+  return !!(agent || dev || pro);
 }
 
 /** מחיקת המשתמש ב-Auth. ‏404 הוא "כבר נמחק" ולא שגיאה. */

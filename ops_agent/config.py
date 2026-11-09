@@ -298,6 +298,9 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     # טפסי קליטה — הגולש/ת אינו/ה מחובר/ת בהגדרה
     "owner-lead-intake",
     "mortgage-lead-intake",
+    # שאלה לעו"ד מדף הנכס. הגולש אינו מחובר. הליד pending עד אימות טלפון בוואטסאפ; בלם ההצפה ב-lawyer_lead_submit:
+    # 5 לשעה לכתובת, 20 לנכס, 200 לאתר.
+    "lawyer-lead-intake",
     "property-inquiry-intake",
     # לחיצה על וואטסאפ או חיוג בנכס ביריד. הגולש אינו מחובר. אין שם ואין
     # טלפון. ההצפה נעצרת ב-fair_contact_click: כפילות של אותו דפדפן ל-15
