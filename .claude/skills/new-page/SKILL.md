@@ -97,6 +97,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 | --- | --- |
 | ציבורי | כלשונו |
 | אזור אישי | `href="/app-crm.webmanifest"`, הכותרת `content="אזור אישי"`, ו-`<script … data-first-visit="show">` |
+| אזור אישי של בעלי מקצוע (`professional-crm`) | `href="/app-professional.webmanifest"` ו-`data-first-visit="show"`; ב-`check_pwa.py` נכנס ל-`PAGE_MANIFEST` |
 | תהליך (תשלום, חתימה) | `<script … data-no-auto>` — בלי רצועה אוטומטית |
 | סרגל קבוע בתחתית | `<script … data-bottom="124px">` (‏ה-CRM) |
 

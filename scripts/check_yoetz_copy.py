@@ -75,7 +75,7 @@ def main():
         if not WORD.search(src): continue
         h = hits(f, src)
         if h: bad.append((f, h))
-    for f in ('llms.txt', 'manifest.webmanifest', 'app-crm.webmanifest'):
+    for f in ('llms.txt', 'manifest.webmanifest', 'app-crm.webmanifest', 'app-professional.webmanifest'):
         if os.path.exists(f):
             src = open(f, encoding='utf-8').read()
             h = []

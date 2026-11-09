@@ -61,7 +61,7 @@ select public.professional_credit_add('<id>', 100, 'טעינה ידנית');
 
 כניסה (אימייל וסיסמה, איפוס סיסמה), הארנק, ומדף "שאלה לעו״ד" לעו"ד מאושר: המדף מ-`lawyer_leads_public`,
 הרכישה ב-`lawyer-lead-purchase` (JWT + MFA), והלידים שנרכשו מ-`lawyer_leads` (policy לפי `sold_to_professional_id`).
-דף פרטי: `noindex`, `Disallow` ב-`robots.txt` בשתי הצורות, בלי `events.js`. **המניפסט הוא הציבורי** (`/manifest.webmanifest`): `app-crm.webmanifest` נפתח על `/crm`, ואפליקציה מותקנת של עו"ד לא אמורה לנחות שם (מניפסט משלו עם `start_url` על הדף הזה הוא המשך אפשרי; `professional-manage` עדיין על `app-crm`). **המסך מסתיר מדף ללא אישור, אבל ההגנה במסד**
+דף פרטי: `noindex`, `Disallow` ב-`robots.txt` בשתי הצורות, בלי `events.js`. **המניפסט הוא `app-professional.webmanifest`** (`start_url` ו-`id` על `/professional-crm`, בלי `share_target`): `app-crm.webmanifest` נפתח על `/crm`, ואפליקציה מותקנת של עו"ד לא אמורה לנחות שם. הדף נושא `data-first-visit="show"` כמו שאר דפי האזור האישי. `professional-manage` עדיין על `app-crm` (`docs/pwa-install.md`). **המסך מסתיר מדף ללא אישור, אבל ההגנה במסד**
 (`docs/lawyer-leads.md`).
 
 ## מה עוד לא כאן
