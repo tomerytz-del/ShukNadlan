@@ -59,6 +59,7 @@ import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
   canonicalCity,
+  canonicalCityName,
   citySearchArgs,
   collapseCityNames,
   applyGroupAreaHint,
@@ -4343,7 +4344,9 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
  * ארוך מערבב עסקאות במרחק קילומטרים, בלי ממוצע ובלי סולם חדרים.
  */
 async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unknown>) {
-  const city = String(input.city || "").trim();
+  // השם ברישום ולא הכינוי (ראו toolMarketDealsLookup): "תל אביב" לבדה לא
+  // מצאה מיקום ולא עסקאות, כי המאגר כותב "תל אביב - יפו".
+  const city = await canonicalCityName(ctx.supabase, String(input.city || "").trim()) || "";
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
@@ -4918,7 +4921,9 @@ const CMA_OWNERSHIP_GUIDANCE =
  */
 async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unknown>) {
   if (String(input.gush || "").replace(/\D/g, "")) return await dealsByParcel(ctx, input);
-  const city = String(input.city || "עפולה").trim();
+  // השם ברישום ("תל אביב - יפו") ולא הכינוי ("תל אביב", "ת"א"): המאגר, השכונות
+  // והגאוקוד כולם לפי השם ברישום. עיר שאינה מוכרת נשארת כמו שנאמרה.
+  const city = await canonicalCityName(ctx.supabase, String(input.city || "עפולה").trim()) || "עפולה";
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
   const neighborhood = String(input.neighborhood || "").trim();
@@ -5148,7 +5153,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const gate = await planningTierGate(ctx);
   if (gate) return gate;
 
-  const city = clean(input.city) || await listingCityWhenOmitted(ctx);
+  // השם ברישום: GovMap רושם "תל אביב -יפו", והאימות בדף הבדיקה משווה את
+  // היישוב שחזר למה שנשלח. "תל אביב" לבדה אינה שווה לו.
+  const city = (await canonicalCityName(ctx.supabase, clean(input.city))) || await listingCityWhenOmitted(ctx);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -9581,7 +9588,8 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות. " +
       "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב). " +
       "\"עסקאות בשכונה X\" / \"מה נמכר בגבעת המורה\" = market_deals_lookup עם neighborhood (בלי רחוב): " +
-      "גבעת המורה, מרכז העיר, עפולה עלית ודומיהן הן **שכונות** ולא רחובות.",
+      "גבעת המורה בעפולה, פלורנטין בתל אביב, בורוכוב בגבעתיים ודומיהן הן **שכונות** ולא רחובות. " +
+      "עיר אומרים כמו שהסוכן/ת אמר/ה (\"תל אביב\", \"ת\"א\") - הכלים מכירים את הכינויים.",
     "- **מידע תכנוני (גוש, חלקה, ייעוד, תוכניות, 77-78, סוג בעלות) - רק כפתור לדף הבדיקה.** " +
       "נכס במערכת = planning_info; כתובת או גוש+חלקה = planning_lookup. שניהם שולחים כפתור " +
       "\"📄 מידע תכנוני\" אוטומטית אחרי התשובה; את/ה כותב/ת רק את מה שה-guidance אומר. **לעולם " +

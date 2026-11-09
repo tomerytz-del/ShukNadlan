@@ -407,7 +407,7 @@ const TOOLS: Anthropic.Tool[] = [
     name: "search_properties",
     description:
       "מחפש נכסים פעילים במאגר הציבורי של האתר. זה הכלי לכל שאלה בסגנון " +
-      "'יש דירת 4 חדרים בעפולה עד מיליון ושש?'. מחזיר עד " + MAX_RESULTS +
+      "'יש דירת 4 חדרים בגבעתיים עד 4 מיליון?'. מחזיר עד " + MAX_RESULTS +
       " נכסים, המקודמים והמעודכנים קודם, כל אחד עם קישור לדף שלו. " +
       "**כשנמצא מעט או כלום, הכלי מרחיב בעצמו** ומחזיר `close_matches` - " +
       "נכסים פוטנציאליים במחיר או בחדרים קרובים, או בשכונה אחרת באותה עיר, " +
@@ -2407,8 +2407,12 @@ async function outcomeAfter(
  */
 const SYSTEM_STATIC: string = (() => {
   const lines = [
-    "את גבריאלה, העוזרת האוטומטית של שוק הנדל\"ן של עפולה והסביבה - אתר " +
-    "נדל\"ן מקומי שבו משרדי תיווך מפרסמים נכסים. את משוחחת בוואטסאפ עם " +
+    // בלי שם של עיר: האתר הוא שווקים מקומיים (עפולה והעמק, חיפה, תל אביב-יפו,
+    // רמת גן וגבעתיים ועוד), והשוק שממנו הגיע/ה הפונה נכנס בהקשר של התור
+    // (‏sessionContext) - לא כאן, כי הבלוק הזה במטמון ומשותף לכל השיחות.
+    "את גבריאלה, העוזרת האוטומטית של שוק נדל\"ן - אתר נדל\"ן של שווקים " +
+    "מקומיים (עפולה והעמק, חיפה, תל אביב-יפו, רמת גן וגבעתיים ועוד) שבו " +
+    "משרדי תיווך מפרסמים נכסים. את משוחחת בוואטסאפ עם " +
     "גולש/ת שאינו/ה רשומ/ה במערכת: בדרך כלל מי שמחפש/ת דירה, שוקל/ת למכור, " +
     "או רוצה לדעת לאיזה משרד לפנות.",
     "- **השם שלך הוא גבריאלה**, ואת מדברת על עצמך בלשון נקבה (\"מצאתי\", " +
@@ -2475,7 +2479,7 @@ const SYSTEM_STATIC: string = (() => {
     "- **‏close_matches אינם תשובה לשאלה - הם הקרוב לה.** הם מוצגים רק אחרי " +
       `לחיצה על "${SIMILAR_TITLE}" (או בקשה כזו בטקסט), ותמיד עם במה הם ` +
       "שונים לפי relaxed_on (\"קצת מעל התקציב\", \"3 חדרים ולא 4\", " +
-      "\"שכונה אחרת בעפולה\"). להציג אותם כהתאמה היא הטעיה.",
+      "\"שכונה אחרת באותה עיר\"). להציג אותם כהתאמה היא הטעיה.",
     "- **מידע פנימי על הנכס אינו נמסר**: כתובת מדויקת ומספר בית, גוש וחלקה, " +
       "שם בעל/ת הנכס או כל פרט מזהה אחר עליו/ה. הנכסים מוצגים ברחוב ובשכונה. " +
       "אין לנחש, אין לשחזר מהתיאור, ואין להתנצל על כך.",
@@ -2662,8 +2666,20 @@ function buildSystem(): Anthropic.TextBlockParam[] {
 }
 
 /** החלק המשתנה — יושב אחרי נקודת השבירה ולכן אינו מבטל את המטמון. */
-function sessionContext(conv: PublicConversationState, hasProfileName: boolean): string {
+function sessionContext(conv: PublicConversationState, hasProfileName: boolean, marketLabel: string | null = null): string {
   const lines: string[] = [];
+
+  // השוק שממנו הגיע/ה הפונה (תג [region:<slug>] מחלונית גבריאלה, index.ts).
+  // נכנס להודעת המשתמש/ת ולכן נשמר בהיסטוריה - התורים הבאים רואים אותו
+  // בלי תג חוזר. שם השוק אינו עיר ("רמת גן וגבעתיים"), ולכן ההנחיה היא
+  // לחפש בעיר מתוך האזור או לשאול, ולא להניח עיר אחרת.
+  if (marketLabel) {
+    lines.push(
+      "",
+      `הפונה הגיע/ה מדף השוק "${marketLabel}" באתר. כשלא נאמרה עיר, זה האזור: ` +
+        "חפש/י בעיר מתוך האזור הזה או שאל/י באיזו עיר בו, ואל תניח/י עיר באזור אחר.",
+    );
+  }
 
   // רק **האם** יש שם, לא השם עצמו: המודל צריך לדעת אם לשאול, לא מי זה.
   lines.push(
@@ -2676,8 +2692,9 @@ function sessionContext(conv: PublicConversationState, hasProfileName: boolean):
     lines.push(
       "",
       "**זו ההודעה הראשונה בשיחה.** לפתוח במשפט אחד קצר שבו את מציגה את " +
-        "עצמך בשמך - \"היי, אני גבריאלה, העוזרת של שוק הנדל\"ן של עפולה " +
-        "והסביבה\" - ומיד לענות לגופו של עניין. לא תפריט, לא ברכה ארוכה.",
+        "עצמך בשמך - \"היי, אני גבריאלה, העוזרת של שוק נדל\"ן" +
+        (marketLabel ? ` ב${marketLabel}` : "") +
+        "\" - ומיד לענות לגופו של עניין. לא תפריט, לא ברכה ארוכה.",
     );
   }
   if (conv.last_property_id) {
@@ -2726,10 +2743,13 @@ export async function runPublicTurn(opts: {
   waPhone: string;
   /** שם הפרופיל בוואטסאפ (‏`contacts[].profile.name` ב-webhook), אם נשלח */
   profileName?: string | null;
+  /** שם השוק שממנו הגיע/ה הפונה ("תל אביב-יפו"), מתג [region:] בהודעת הפתיחה */
+  marketLabel?: string | null;
 }): Promise<{ text: string; shareContact: boolean }> {
   const { supabase, conv, userText, waPhone } = opts;
   const model = await resolvePublicModel(supabase);
   const profileName = String(opts.profileName || "").trim().slice(0, 80) || null;
+  const marketLabel = String(opts.marketLabel || "").trim().slice(0, 60) || null;
   const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0, profileName, userText };
 
   // נכס מדף הנכס באתר: נטען לפני ההקשר, כדי ש-last_property_id כבר יצביע עליו
@@ -2742,7 +2762,7 @@ export async function runPublicTurn(opts: {
     // ההקשר כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה (prompt-cache.ts)
     {
       role: "user",
-      content: withTurnContext(sessionContext(conv, !!profileName) + (asked ? "\n\n" + asked : ""), userText),
+      content: withTurnContext(sessionContext(conv, !!profileName, marketLabel) + (asked ? "\n\n" + asked : ""), userText),
     },
   ];
 

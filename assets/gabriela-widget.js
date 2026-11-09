@@ -105,14 +105,36 @@
     { k: 'proj',  t: 'פרויקטים חדשים בעפולה עילית', when: 'projects' },
     { k: 'balc',  t: 'דירה עם מרפסת וחניה' }
   ];
+  /* הנוסח למעלה הוא של שוק ברירת המחדל (עפולה והעמק), כפי שאושר. בשוק אחר
+     (‏/tel-aviv, /ramat-gan) השאלות על עפולה מטעות - "דירת 4 חדרים בעפולה"
+     למי שגולש/ת בתל אביב. שם העיר מתחלף בעיר הראשית של השוק (‏places[0]
+     ב-markets.js), והתקציב יורד, כי 1.5 מיליון בעפולה אינו 1.5 מיליון בתל
+     אביב. המפתח (k) נשאר, ולכן hint_index במדידה יציב. */
+  var GW_HINTS_MARKET = {
+    buy4:  function (city) { return 'מחפשים דירת 4 חדרים ב' + city; },
+    rent:  function (city) { return 'מה יש להשכרה במרכז ' + city + '?'; },
+    house: function () { return 'מחפשים בית פרטי או דירת גן באזור'; },
+    shop:  function (city) { return 'חנות להשכרה ב' + city; },
+    proj:  function (city) { return 'פרויקטים חדשים ב' + city; }
+  };
+  function marketHint(h) {
+    var m = window.CityContext && window.CityContext.market && window.CityContext.market();
+    if (!m || m.isDefault || !GW_HINTS_MARKET[h.k]) return h;
+    var city = (m.places && m.places[0]) || m.city || m.label;
+    return { k: h.k, t: GW_HINTS_MARKET[h.k](city), when: h.when };
+  }
+  function hintIndex(h) {
+    for (var i = 0; i < GW_HINTS.length; i++) if (GW_HINTS[i].k === h.k) return i;
+    return -1;
+  }
   /* השאלות שעברו את תנאי ה-when. עד שהבדיקות חוזרות - רק אלה שאין להן תנאי */
   var hintsLiveP = null;
   function liveHints() {
     if (hintsLiveP) return hintsLiveP;
     hintsLiveP = Promise.all([prosTypes(), projectsLive()]).then(function (r) {
       var ok = { appraiser: !!r[0].appraiser, projects: !!r[1] };
-      return GW_HINTS.filter(function (h) { return !h.when || ok[h.when]; });
-    }).catch(function () { return GW_HINTS.filter(function (h) { return !h.when; }); });
+      return GW_HINTS.filter(function (h) { return !h.when || ok[h.when]; }).map(marketHint);
+    }).catch(function () { return GW_HINTS.filter(function (h) { return !h.when; }).map(marketHint); });
     return hintsLiveP;
   }
   /* ‏surface של אירועי הווידג'ט: שם הדף בלי סיומת ("home" לדף הבית) */
@@ -161,10 +183,18 @@
   function storageGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } }
   function storageSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) { /* בלי אחסון - רק לדף הזה */ } }
 
+  /* תג השוק אחרי תג המקור: "[region:tel-aviv]" - השוק שהדף מציג (‏CityContext),
+     כדי שגבריאלה תדע מאיזה אזור הפונה ותציג את עצמה נכון (‏regionLabelOf
+     ב-index.ts מוריד אותו מהטקסט). בלי CityContext - בלי תג, והבוט עונה כללי. */
+  function regionTag() {
+    var m = window.CityContext && window.CityContext.market && window.CityContext.market();
+    return m && m.slug ? ' [region:' + m.slug + ']' : '';
+  }
+
   /* תג המקור בסוף ההודעה. ‏siteEntryOf ב-index.ts קורא אותו ומוריד אותו לפני
      שגבריאלה רואה את הטקסט. */
   function taggedHello(text) {
-    return String(text || FREE_DEFAULT).trim() + ' [site:' + PAGE + ']';
+    return String(text || FREE_DEFAULT).trim() + ' [site:' + PAGE + ']' + regionTag();
   }
 
   function propertyLine(p) {
@@ -706,7 +736,7 @@
         syncFree();
         input.focus();
         // ‏hint_index: המקום ב-GW_HINTS (לא ברשימה המסוננת), כדי שהמספר יציב
-        if (window.shukTrack) window.shukTrack('gab_hint_click', { hint_index: GW_HINTS.indexOf(h) });
+        if (window.shukTrack) window.shukTrack('gab_hint_click', { hint_index: hintIndex(h) });
       });
     }
     free.addEventListener('submit', function (e) { e.preventDefault(); syncFree(); go.click(); });
