@@ -114,6 +114,9 @@ def baseline() -> dict:
         "parameter": [{"type": "TEMPLATE", "key": "tagId", "value": chk.MEASUREMENT_ID}],
         "firingTriggerId": ["1"],
     })
+    # ‏privacy.html מצהיר על Google Ads (מ-9.11.2026), ולכן מכולת הבסיס נושאת Conversion Linker.
+    tags.append({"tagId": "102", "name": "Conversion Linker", "type": "gclidw",
+                 "parameter": [], "firingTriggerId": ["1"]})
     tags.append({
         "tagId": "101", "name": "Meta Pixel", "type": "html",
         "parameter": [{"type": "TEMPLATE", "key": "html", "value": PIXEL_HTML}],
@@ -182,6 +185,20 @@ def main() -> int:
     case("טריגר לאירוע שהקוד אינו דוחף",
          lambda c: c["containerVersion"]["trigger"].append(ce_trigger("999", "contact_whatsapp")),
          "ואין בקוד מי שדוחף אותו")
+
+    def hand_edit(c):
+        # ‏תגית שנכתבה ביד: fingerprint חודש אחרי exportTime (2026-09-21).
+        c["containerVersion"]["tag"][0]["fingerprint"] = "1792000000000"
+    case("פריט שנכתב ביד (fingerprint אחרי הייצוא)", hand_edit, "נכתבו ביד")
+
+    case("fingerprint אמיתי (לפני הייצוא) אינו ממצא",
+         lambda c: c["containerVersion"]["tag"][0].update({"fingerprint": "1789000000000"}),
+         None)
+
+    case("privacy.html מצהיר על Google Ads ואין לו תגית",
+         lambda c: c["containerVersion"].update(
+             {"tag": [t for t in c["containerVersion"]["tag"] if t.get("type") != "gclidw"]}),
+         "מצהיר על Google Ads")
 
     case("מכולה אחרת",
          lambda c: c["containerVersion"]["container"].update({"publicId": "GTM-XXXXXXX"}),
