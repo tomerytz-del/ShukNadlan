@@ -8,7 +8,7 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
 המסמכים המלאים: `docs/professional-accounts.md`, `docs/lawyer-leads.md`, `docs/lead-routing.md` ("מדפי הלידים ממוקדים"),
 והנדאוף עם מה שנשאר: `docs/handoff-professional-leads-2026-11-07.md`.
 
-## חמשת הכללים ששוברים בשקט
+## הכללים ששוברים בשקט
 
 1. **בעל מקצוע אינו `agency_members`.** חשבון CRM דורש רישיון תיווך, ולעו"ד אין. לכן `professional_accounts` (כמו `developers`): חשבון
    נפרד שאינו מקבל התראות ביקוש, אינו נספר במשרדים ואינו רואה מדפי סוכנים. **אל תוסיפו דגל על `agency_members`** (כך נבנה #1186 ונמחק ב-#1189).
@@ -31,6 +31,33 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
   אינה הוכחה: הדף שואל את השרת (`action: 'status'`), ופרטי הפונה מוחזרים רק מ-`success`.
 * **סוג תשלום חדש ב-`wallet-topup-callback`** נכנס לשלושה מקומות באותו PR: `KINDS`/`ALL_KINDS`, תנאי ה-cron של `wallet-topup-reconcile` (מיגרציה שמגדירה אותו מחדש),
   ו-`docs/wallet-payments.md`. בלי התנאי, הזמנה שה-webhook שלה אבד מחכה לנצח.
+
+## הקליטה: ליד נכנס pending ועולה למדף רק אחרי אימות
+
+* **כרטיס המדף אומר "טלפון מאומת בוואטסאפ".** ליד שעולה למדף בלי אימות נמכר ב-₪59 עם מספר שאולי אינו של מי ששאל. הליד נכנס `pending`
+  (`lawyer_lead_submit`), ועולה `new` רק ב-`lawyer_lead_wa_verify`.
+* **המספר שממנו נשלחה ההודעה הוא ההוכחה** (`phone_e164 = from` של Meta), לא הקוד: שש ספרות יכולות לחזור אצל שני פונים. אותו עיקרון כמו
+  `agreement-signing`, והקריאה ב-`whatsapp-webhook` נשארת **לפני זיהוי הסוכן/ת**, אחרת הפונה מקבל/ת "איני מזהה את מספר הטלפון שלך".
+* **ההתראה לסוכן/ת הנכס אינה נושאת שם, טלפון, מייל או שאלה** (המוצר שנמכר), ומשתמשת בסוג `system` עם `related_property_id`. סוג חדש יוצא לכל
+  הסוכנים בוואטסאפ (הסקיל `agent-notifications`).
+* **ליד שאין לו עו"ד בעיר נרשם `unrouted`** ב-`lead_routing_log`, אחרת הוא יושב במדף שאיש אינו רואה. ערך `lead_kind`/`lead_table` חדש נכנס ל-CHECK, ל-`lead_audience_size` ולתווית ב-`alert_platform_admin_on_unrouted_lead`.
+* **עמודה מחושבת (`phone_e164`) אינה נכתבת ב-`data_retention_run`**: `phone = ''` מחשב אותה מחדש. `question` מוחלפת בטקסט ולא ב-null (CHECK של 10 תווים).
+* **פונקציית קליטה ציבורית חדשה** = `verify_jwt = false` ב-`config.toml`, שורה ב-`PUBLIC_EDGE_FUNCTIONS` ב-`ops_agent/config.py`, ובלם הצפה במסד.
+* **קישור `wa.me` בדף נושא `data-site-contact`**, אחרת `events.js` סופר כל לחיצה כפנייה למתווך (`contact_agent`).
+
+## מחיקת חשבון: השורה נשארת, ו-Auth נמחק אחרי שהיא מנותקת ממנו
+
+* **`professional_accounts.user_id` הוא `on delete cascade`.** מחיקת משתמש ב-Auth בלי לאפס אותו קודם מוחקת בשקט את החשבון והארנק, והחיובים נותקים.
+  `close_professional_account` מאפסת `user_id` (nullable) **לפני** שהפונקציה מוחקת את המשתמש, והשורה נשארת מאונונמת כי חיובים ויומן זיכויים מפנים אליה.
+* **`close-account` חייב להכיר כל סוג חשבון.** סוג שאינו מוכר נחשב "none" ומוחק את המשתמש ב-Auth בלבד. סוג חשבון חדש נכנס ל-`close-account` וגם ל-`otherLiveProfile` ב-`_shared/account-erasure.ts`.
+* **הזמנת תשלום פתוחה חוסמת מחיקה** (`payment_pending`), והיתרה מאופסת ביומן ומתריעה למנהל/ת (אין "יתרה שנטענה בתשלום" לבעל מקצוע).
+
+## פתיחת חשבון: המייל מאומת בהזמנה, לא נוצר מאושר
+
+* **`professional-account` יוצר משתמש ב-`inviteUserByEmail`, לא ב-`createUser` עם `email_confirm: true`.** האסימון מוחזר לטופס ההרשמה, ולכן מחזיק/ה בו
+  מי שהגיש/ה את הכרטיסייה, גם עם כתובת של אחר. הסיסמה נקבעת בנחיתה מהקישור (`inviteOpen` ב-`assets/professional-crm.js`, נקרא לפני שה-hash נמחק).
+* **משתמש שלא אישר נמחק בבקשה חוזרת** (לא לפני דקה), ו**אף פעם לא משתמש שאישר**: לפני שמוסיפים מחיקה כזו מוודאים שאי אפשר היה להיכנס אליו (אין יתרה או הזמנות).
+  ‏`has_account` ב-`professional-manage` אינו נכון לחשבון שלא אושר, ולכן יש `account_pending`.
 
 ## מוסיפים קהל חדש (שמאי, אדריכל...)
 

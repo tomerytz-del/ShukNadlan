@@ -135,6 +135,9 @@
 /app-crm.webmanifest
   Content-Type: application/manifest+json; charset=utf-8
 
+/app-professional.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+
 /sw.js
   Cache-Control: no-cache
   Content-Type: application/javascript; charset=utf-8
