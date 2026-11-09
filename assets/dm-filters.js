@@ -247,6 +247,13 @@
         (opts.countLine ? '<p class="dmf-count" aria-live="polite"></p>' : '') +
         '</div>';
       syncCount();
+      /* בטלפון השורה של המחשב מוסתרת ב-CSS. בלי inert הצ'יפים שלה נשארים
+         בסדר ה-Tab גם כשלא רואים אותם, והכרטיס לא מגיע. */
+      var desk = box.querySelector('.dmf-d');
+      if (desk) {
+        if (mq.matches) desk.setAttribute('inert', '');
+        else desk.removeAttribute('inert');
+      }
     }
     function pick(g, k, label) {
       return '<button type="button" class="dmf-pick" data-unpick="' + g + '" data-v="' + esc(k) + '" aria-label="' + esc('הסרת ' + label) + '">' + esc(label) + ' <span aria-hidden="true">✕</span></button>';
