@@ -252,6 +252,9 @@ verify_jwt = true
 [functions.lawyer-lead-purchase]
 verify_jwt = true
 
+[functions.lawyer-lead-intake]
+verify_jwt = false          # שאלה לעו"ד מדף הנכס: הגולש/ת אינו/ה מחובר/ת. הליד pending עד אימות טלפון בוואטסאפ, ובלם הצפה במסד
+
 [functions.lawyer-lead-checkout]
 verify_jwt = true           # חיוב ישיר בכרטיס על ליד עו"ד: החשבון מה-JWT, והסגירה רק ב-wallet-topup-callback
 

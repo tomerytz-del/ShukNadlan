@@ -1,6 +1,6 @@
 ---
 name: seo-edge
-description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, דף נחיתה עם מודעות (canonical ממסנן, noindex רק על רשימה ריקה), וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, silo-page, search-pages, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
+description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, דף נחיתה עם מודעות (canonical ממסנן, noindex רק על רשימה ריקה), וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing anything under netlify/edge-functions/ that renders or fills a page (neighborhood-page, deals-page, prices-page, brokers-page, index-jsonld, projects-page, market-pages, og-tags, sitemap.ts, silo-page, search-pages), a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
 ---
 
 # רינדור ל-SEO ב-edge

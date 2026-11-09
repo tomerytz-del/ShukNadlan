@@ -87,9 +87,23 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /from\("ad_placement_access"\)[\s\S]{0,80}eq\("manage_token", token\)/);
   // כתובת הכניסה היא זו שבכרטיסייה, לא כתובת מהגוף
   assert.match(accountFn, /card\.contact_email/);
-  assert.equal(/shelf_enabled/.test(accountFn.replace(/\/\/.*$/gm, '').replace(/\*\*shelf_enabled[^\n]*/g, '')), false, 'האישור למדף אינו נקבע בפתיחה');
+  // האישור למדף אינו נקבע בפתיחה. הוא מופיע רק בהעברת ערך שמנהל/ת כבר קבע/ה בשליחה חוזרת (carried), ולעולם לא מהגוף
+  const shelfLines = accountFn.replace(/\/\/.*$/gm, '').split('\n').filter((l) => /shelf_enabled/.test(l));
+  assert.ok(shelfLines.length > 0 && shelfLines.every((l) => /existing\.shelf_enabled|carried|keepErr|\.select\(|shelf_enabled: true/.test(l)), 'האישור למדף אינו נקבע בפתיחה: ' + shelfLines.join(' | '));
+  assert.equal(/body\.shelf_enabled/.test(accountFn), false);
   assert.match(accountFn, /deleteUser\(authUser\.user\.id\)/);
   assert.match(accountFn, /terms_accepted !== true/);
+  // אימות מייל: האסימון יוצא לטופס ההרשמה, ולכן המשתמש נוצר בהזמנה במייל ולא עם email_confirm וסיסמה מהגוף
+  const accountCode = accountFn.replace(/\/\/.*$/gm, '');
+  assert.match(accountCode, /auth\.admin\.inviteUserByEmail\(email,/);
+  assert.match(accountCode, /redirectTo: `\$\{siteBaseUrl\}\/professional-crm`/);
+  assert.equal(/email_confirm\s*:/.test(accountCode), false, 'משתמש שנוצר מאושר מראש מוותר על הוכחת הכתובת');
+  assert.equal(/admin\.createUser/.test(accountCode), false);
+  assert.equal(/body\.password/.test(accountCode), false, 'הסיסמה נקבעת אחרי הלחיצה על הקישור, לא בטופס');
+  // משתמש שלא אישר לא תופס את הכתובת: בקשה חוזרת מוחקת אותו ושולחת הזמנה, לא לפני דקה, ולעולם לא משתמש מאושר
+  assert.match(accountCode, /stale\.email_confirmed_at[\s\S]{0,200}account_exists/);
+  assert.match(accountCode, /RESEND_AFTER_MS[\s\S]{0,200}resend_too_soon/);
+  assert.match(accountCode, /deleteUser\(stale\.id\)/);
   // רק כרטיסיית בעל מקצוע חיה או ממתינה לאישור, ועיר רק בהתאמה יחידה
   assert.match(accountFn, /placement_type !== "professional_card"[\s\S]{0,120}"active", "pending_approval"/);
   assert.match(accountFn, /cities\.length === 1/);
@@ -98,7 +112,14 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
 });
 
 test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי דין, והאזור האישי קורא מה-view הסגור', () => {
-  assert.match(manageFn, /has_account: !!acct/);
+  assert.match(manageFn, /has_account: !!acct && !accountPending/);
+  assert.match(manageFn, /!au\.user\.email_confirmed_at/);
+  assert.equal(/accPassword/.test(manageHtml), false, 'טופס פתיחת החשבון אינו מבקש סיסמה');
+  assert.match(manageHtml, /account_pending/);
+  // הנחיתה מהקישור שבמייל: type=invite נקרא לפני שה-hash נמחק, וטופס הסיסמה גובר על boot
+  assert.match(crmJs, /let inviteOpen = \/\[#&\]type=invite/);
+  assert.match(crmJs, /if \(inviteOpen\) \{[\s\S]{0,120}recovering = true;[\s\S]{0,160}show\('recoverCard', true\)/);
+  assert.match(crmJs, /otp_expired/);
   assert.match(manageHtml, /advertiser_type === 'real_estate_lawyer'/);
   assert.match(crmJs, /\.from\('lawyer_leads_public'\)/);
   assert.match(crmJs, /\/functions\/v1\/lawyer-lead-purchase/);
@@ -113,14 +134,26 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   // אישור הרכישה מציג מחיר ותנאים לפני החיוב
   assert.match(crmHtml, /הרכישה כפופה לתנאי השימוש והתקנון/);
   assert.match(crmHtml, /<meta name="robots" content="noindex, nofollow">/);
-  // המניפסט של הסוכנים נפתח על /crm: אפליקציה מותקנת של עו"ד לא אמורה לפתוח אותו
-  assert.match(crmHtml, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+  // מניפסט משלו: של הסוכנים נפתח על /crm (שם אין לעו"ד חשבון), והציבורי על דף הבית. גם הקישור האישי של הכרטיסייה
+  assert.match(crmHtml, /<link rel="manifest" href="\/app-professional\.webmanifest">/);
+  assert.match(manageHtml, /<link rel="manifest" href="\/app-professional\.webmanifest">/);
+  assert.equal(/app-crm\.webmanifest/.test(crmHtml), false);
+  const proManifest = JSON.parse(read('app-professional.webmanifest'));
+  assert.equal(proManifest.id, '/professional-crm');
+  assert.match(proManifest.start_url, /^\/professional-crm(\?|$)/);
+  assert.equal('share_target' in proManifest, false);
   // אזור אישי: לא נמדד כפניות של גולשים (events.js)
   assert.equal(/assets\/events\.js/.test(crmHtml), false);
 });
 
 test('מדף עורכי הדין אינו יושב ב-CRM של הסוכנים', () => {
-  assert.equal(/lawyer/i.test(read('assets/crm.js').replace(/real_estate_lawyer:'עו״ד מקרקעין'/, '')), false);
+  // תוויות התור "לידים ללא יעד" (סוג, סיבה ומקור) הן תצוגת ניתוב של מנהל/ת הפלטפורמה, לא מדף: הן מותרות. כל השאר אסור.
+  const crmNoRoutingLabels = read('assets/crm.js')
+    .replace(/real_estate_lawyer:'עו״ד מקרקעין'/, '')
+    .replace(/^\s*lawyer:\s*'שאלה לעו"ד',?$/gm, '')
+    .replace(/^\s*no_lawyer_in_city:'[^']*',?$/gm, '')
+    .replace(/^\s*property_page_lawyer_question:'[^']*',?$/gm, '');
+  assert.equal(/lawyer/i.test(crmNoRoutingLabels), false, 'קוד של מדף עורכי הדין בתוך ה-CRM של הסוכנים');
   assert.equal(/lawyer/i.test(read('crm.html')), false);
 });
 
@@ -231,4 +264,202 @@ test('הדף: תשלום בכרטיס דרך lawyer-lead-checkout, ליד שמו
   assert.match(crmHtml, /id="buyCard"/);
   // אין "התשלום הצליח" לפי כתובת החזרה: ההצלחה נקבעת רק מתשובת השרת
   assert.match(crmJs, /data\.status === 'success'/);
+});
+
+/* ---------- קליטת "שאלה לעו"ד" עם אימות וואטסאפ ---------- */
+const intakeMig = migrations.find((m) => m.f.endsWith('_lawyer_lead_intake.sql'));
+const intakeFn = read('supabase/functions/lawyer-lead-intake/index.ts');
+const waFile = read('supabase/functions/_shared/lawyer-lead-wa.ts');
+const webhook = read('supabase/functions/whatsapp-webhook/index.ts');
+const opsConfig = read('ops_agent/config.py');
+const propertyHtml = read('property.html');
+const propertyJs = read('assets/property.js');
+
+test('הקליטה במסד: נייד ישראלי בלבד, נכס פעיל, ליד נכנס pending, ופונקציות service_role בלבד', () => {
+  assert.ok(intakeMig, 'אין מיגרציית lawyer_lead_intake');
+  const t = intakeMig.text;
+  const submit = t.split('create or replace function public.lawyer_lead_submit')[1].split('create or replace function public.lawyer_lead_wa_verify')[0];
+  assert.match(submit, /\^9725\[0-9\]\{8\}\$/, 'חסר נייד ישראלי');
+  assert.match(submit, /p\.status = 'active'/, 'חסר נכס פעיל');
+  assert.match(submit, /'pending'/);
+  assert.equal(/status\s*=\s*'new'\s*,?\s*\n?\s*wa_verify/.test(submit), false, 'קליטה לא מעלה למדף');
+  // בלם הצפה
+  assert.match(submit, /v_n >= 5/);
+  assert.match(submit, /v_n >= 20/);
+  assert.match(submit, /v_n >= 200/);
+  for (const sig of [
+    'lawyer_lead_submit\\(uuid, text, text, text, text, text\\)',
+    'lawyer_lead_wa_verify\\(text, text\\)',
+    'lawyer_lead_verified\\(uuid\\)',
+  ]) {
+    assert.match(t.replace(/\s+/g, ' '), new RegExp(`revoke all on function public\\.${sig} from public, anon, authenticated; grant execute on function public\\.${sig} to service_role;`), sig);
+  }
+});
+
+test('האימות: המספר שממנו נשלחה ההודעה הוא ההוכחה, והליד עולה למדף רק אחריו', () => {
+  const verify = intakeMig.text.split('create or replace function public.lawyer_lead_wa_verify')[1].split('create or replace function public.lawyer_lead_verified')[0];
+  // התאמה לפי הנייד (from של Meta), לא רק לפי הקוד
+  assert.match(verify, /phone_e164 = p_from/);
+  assert.match(verify, /wa_verify_requested_at > now\(\) - interval '30 minutes'/);
+  assert.match(verify, /set status = 'new', phone_verified_at = now\(\), wa_verify_nonce = null/);
+  // רישום ניתוב: אין עו"ד בעיר = unrouted עם סיבה, שמתריע למנהל/ת
+  assert.match(verify, /'lawyer', 'lawyer_leads'/);
+  assert.match(verify, /'no_lawyer_in_city'/);
+});
+
+test('ההתראה לסוכן/ת הנכס: מקושרת לנכס, ובלי שם, טלפון או שאלה (הם המוצר)', () => {
+  const verify = intakeMig.text.split('create or replace function public.lawyer_lead_wa_verify')[1].split('create or replace function public.lawyer_lead_verified')[0];
+  const notif = verify.split('insert into public.notifications')[1].split('end if;')[0];
+  assert.match(notif, /related_property_id/);
+  assert.match(notif, /v_lead\.property_id/);
+  for (const forbidden of ['v_lead.full_name', 'v_lead.phone', 'v_lead.question', 'v_lead.email']) {
+    assert.equal(notif.includes(forbidden), false, `ההתראה לסוכן/ת חושפת ${forbidden}`);
+  }
+});
+
+test('התראות חיות במיגרציה נושאות suppress_push = false (check_notification_backfill.py)', () => {
+  const inserts = [...intakeMig.text.matchAll(/insert into (?:public\.)?notifications \(([^)]*)\)/g)];
+  assert.ok(inserts.length >= 3);
+  for (const [, cols] of inserts) assert.match(cols, /suppress_push/, `insert בלי suppress_push: (${cols})`);
+});
+
+test('data_retention_run מכסה את lawyer_leads, ולא כותבת לעמודה המחושבת', () => {
+  const fn = intakeMig.text.split('create or replace function public.data_retention_run()')[1];
+  assert.match(fn, /from public\.lawyer_leads/);
+  const upd = fn.split('update public.lawyer_leads')[1].split(';')[0];
+  assert.match(upd, /full_name = 'נמחק', phone = '', email = null/);
+  assert.equal(/phone_e164/.test(upd), false, 'phone_e164 מחושבת (generated)');
+  // question עם CHECK של 10 תווים: מוחלפת בטקסט ולא ב-null
+  assert.match(upd, /question = '[^']{10,}'/);
+  // ליד פתוח שנמחק יוצא מהמדף: lawyer_leads_public מסנן רק status = 'new', וליד מרוקן היה נמכר בלי טלפון
+  assert.match(upd, /status = case when status in \('pending', 'new'\) then 'archived' else status end/);
+});
+
+test('ליד שלא אומת נמחק אחרי 7 ימים גם בלי תנועה (cron), ושליחה חוזרת מעדכנת את השאלה', () => {
+  const t = intakeMig.text;
+  assert.match(t, /create or replace function public\.lawyer_lead_purge_unverified\(\)/);
+  assert.match(t, /status = 'pending' and created_at < now\(\) - interval '7 days'/);
+  assert.match(t, /cron\.schedule\(\s*'lawyer-leads-purge-unverified'/);
+  assert.match(t.replace(/\s+/g, ' '), /revoke all on function public\.lawyer_lead_purge_unverified\(\) from public, anon, authenticated; grant execute on function public\.lawyer_lead_purge_unverified\(\) to service_role;/);
+  // שליחה חוזרת בתוך דקה: אותו nonce, אבל התוכן מתעדכן
+  const submit = t.split('create or replace function public.lawyer_lead_submit')[1].split('create or replace function public.lawyer_lead_wa_verify')[0];
+  assert.match(submit, /לחיצה כפולה או תיקון מהיר[\s\S]*update public\.lawyer_leads\s+set full_name = v_name, email = v_email, question = v_question/);
+});
+
+test('תור "לידים ללא יעד" סופר קהל לליד עו"ד לפי העיר שלו, והתוויות ב-CRM ובטיפוסים מכירות אותו', () => {
+  assert.match(intakeMig.text, /create or replace view public\.lead_routing_open[\s\S]*when l\.lead_kind = 'lawyer'[\s\S]*ll\.city_id is null/);
+  const crmJsSrc = read('assets/crm.js');
+  assert.match(crmJsSrc, /UNROUTED_KIND_LABELS = \{[\s\S]*lawyer:/);
+  assert.match(crmJsSrc, /no_lawyer_in_city:/);
+  assert.match(crmJsSrc, /property_page_lawyer_question:/);
+  assert.match(crmJsSrc, /LX_KINDS = \{[\s\S]*lawyer:/);
+  const ts = read('supabase/functions/_shared/lead-routing.ts');
+  assert.match(ts, /export type LeadKind = [^;]*"lawyer"/);
+  assert.match(ts, /export type LeadTable = [^;]*"lawyer_leads"/);
+});
+
+test('הדף: פתיחה מחדש של המודאל מחזירה את כפתור השליחה', () => {
+  const open = propertyJs.split('function lqOpen(){')[1].split('function lqClose')[0];
+  assert.match(open, /lqBtn\.disabled = false/);
+});
+
+test('רישום הניתוב מכיר ליד עו"ד (lead_kind ו-lead_table)', () => {
+  assert.match(intakeMig.text, /lead_kind in \('agent_owner','agent_buyer','mortgage_advisor','lawyer'\)/);
+  assert.match(intakeMig.text, /lead_table in \('leads','saved_searches','mortgage_leads','lawyer_leads'\)/);
+});
+
+test('lawyer-lead-intake: ציבורית עם בלם, ומחזירה רק "אומת" ב-status', () => {
+  assert.match(config, /\[functions\.lawyer-lead-intake\]\s*\nverify_jwt = false/);
+  assert.match(opsConfig, /"lawyer-lead-intake"/, 'חייבת להיות מוצהרת פומבית ב-PUBLIC_EDGE_FUNCTIONS');
+  assert.match(intakeFn, /hashIp\(clientIp\(req\)/);
+  assert.match(intakeFn, /MAX_BODY/);
+  // status: מחזיר {verified} בלבד
+  const status = intakeFn.split('body?.action === "status"')[1].split('body?.action !== "submit"')[0];
+  assert.match(status, /return json\(\{ verified: data === true \}\)/);
+  assert.equal(/full_name|phone|question/.test(status), false);
+  // שגיאת מסד אינה מחזירה את הטקסט שלה לגולש/ת
+  assert.equal(/detail:\s*error\.message/.test(intakeFn), false);
+});
+
+test('whatsapp-webhook תופס "אימות שאלה" לפני זיהוי הסוכן/ת', () => {
+  const call = webhook.indexOf('handleLawyerLeadVerify(supabase');
+  const agentLookup = webhook.indexOf('.eq("phone_e164", from)');
+  assert.ok(call > 0, 'הוובהוק אינו קורא ל-handleLawyerLeadVerify');
+  assert.ok(agentLookup > 0 && call < agentLookup, 'הקריאה חייבת לבוא לפני השאילתה על agency_members, אחרת הפונה מקבל/ת "איני מזהה את מספר הטלפון שלך"');
+  assert.match(waFile, /אימות\\s\*שאלה/);
+  assert.match(waFile, /lawyer_lead_wa_verify/);
+});
+
+test('הדף: הקישור לוואטסאפ מסווג כמספר האתר, וההצלחה נקבעת רק מתשובת השרת', () => {
+  assert.match(propertyHtml, /id="lqWaBtn" data-site-contact/);
+  assert.match(propertyJs, /functions\/v1\/lawyer-lead-intake/);
+  assert.match(propertyJs, /action:'status', lead_id: leadId/);
+  assert.match(propertyJs, /data\.verified === true\) lqShowDone/);
+  // הדיסקליימרים בטופס
+  assert.match(propertyHtml, /אינה יוצרת יחסי עורך דין-לקוח/);
+  assert.match(propertyHtml, /אל תשלחו סיסמאות, פרטי תשלום או מסמכי זהות/);
+  assert.match(propertyHtml, /הסוכן\/ת של הנכס יקבל\/תקבל הודעה/);
+});
+
+
+/* ---------- מחיקת חשבון בעל מקצוע ---------- */
+const closureMig = migrations.find((m) => m.f.endsWith('_professional_account_closure.sql'));
+const closeAccountFn = read('supabase/functions/close-account/index.ts');
+const erasureTs = read('supabase/functions/_shared/account-erasure.ts');
+
+test('close_professional_account: השורה נשארת מאונונמת, user_id מתאפס לפני Auth, והכסף לא נעלם בשקט', () => {
+  assert.ok(closureMig, 'אין מיגרציית professional_account_closure');
+  const t = closureMig.text;
+  // ‏user_id nullable: אחרת אי אפשר לנתק את השורה מהמשתמש לפני מחיקתו (cascade)
+  assert.match(t, /alter column user_id drop not null/);
+  const body = t.split('create or replace function public.close_professional_account')[1];
+  assert.match(body, /user_id = null/);
+  assert.match(body, /card_id = null/);
+  assert.match(body, /erased_at = now\(\)/);
+  // השורה לא נמחקת: חיובים ויומן זיכויים מפנים אליה
+  assert.equal(/delete from public\.professional_accounts/.test(body), false);
+  // יתרה: מאופסת ביומן ומתריעה למנהלים (suppress_push = false מפורש), לא נעלמת
+  assert.match(body, /insert into public\.professional_credit_log/);
+  assert.match(body, /insert into public\.notifications \([^)]*suppress_push\)/);
+  // הזמנת תשלום פתוחה חוסמת
+  assert.match(body, /status = 'pending'[\s\S]*'payment_pending'/);
+  assert.match(t.replace(/\s+/g, ' '), /revoke all on function public\.close_professional_account\(uuid, text\) from public, anon, authenticated; grant execute on function public\.close_professional_account\(uuid, text\) to service_role;/);
+});
+
+test('close-account מכיר בעל/ת מקצוע, ו-otherLiveProfile לא מוחק משתמש שנשאר לו חשבון כזה', () => {
+  assert.match(closeAccountFn, /from\("professional_accounts"\)\.select\([^)]*\)\.eq\("user_id", userId\)\.is\("erased_at", null\)/);
+  assert.match(closeAccountFn, /wanted === "professional" && professional \? "professional"/);
+  // בלי הענף הזה משתמש כזה נחשב "none" ומחיקת Auth מוחקת בשקט את החשבון והארנק
+  assert.match(closeAccountFn, /professional \? "professional" : "none"/);
+  assert.match(closeAccountFn, /close_professional_account/);
+  assert.match(closeAccountFn, /summary\.blocker\) return json\(\{ error: summary\.blocker/);
+  assert.match(closeAccountFn, /CONFIRM_PHRASES\.has\(String\(body\?\.confirm/);
+  assert.match(erasureTs, /from\("professional_accounts"\)\.select\("id"\)\.eq\("user_id", userId\)\.is\("erased_at", null\)/);
+  assert.match(erasureTs, /return !!\(agent \|\| dev \|\| pro\)/);
+});
+
+test('הדף: מחיקת חשבון באישור כפול, הסיכום מהשרת, ויציאה אחרי המחיקה', () => {
+  assert.match(crmHtml, /id="deleteOpenBtn"/);
+  assert.match(crmHtml, /מחיקת חשבון/);
+  assert.match(crmJs, /account: 'professional'/);
+  assert.match(crmJs, /action: 'preview'/);
+  assert.match(crmJs, /action: 'request', confirm: DELETE_PHRASE/);
+  assert.match(crmJs, /sb\.auth\.signOut\(\)/);
+});
+
+test('מחיקת חשבון: תשלום שמגיע אחרי המחיקה הוא refund_needed, והדחיפה נשמרת למי שיש לו פרופיל חי אחר', () => {
+  const t = closureMig.text;
+  // ‏complete_lawyer_lead_order מוגדרת מחדש כאן, ו-erased_at הופך את החשבון ל-account_deleted (השורה נשארת, ולכן professional_id אינו null)
+  assert.match(t, /create or replace function public\.complete_lawyer_lead_order/);
+  assert.match(t, /pa\.erased_at is not null\) then 'account_deleted'/);
+  // מכשירי דחיפה וניוזלטר נמחקים רק כשאין פרופיל חי אחר (אותו כלל כמו Auth)
+  const close = t.split('create or replace function public.close_professional_account')[1].split('create or replace function public.complete_lawyer_lead_order')[0];
+  assert.match(close, /v_other :=[\s\S]*agency_members[\s\S]*developers/);
+  assert.match(close, /if not v_other then[\s\S]*delete from public\.app_push_devices/);
+});
+
+test('הדף אומר מה קרה בפועל במחיקה: נכשלה מחיקת הכניסה, או שהיא נשארה בגלל חשבון נוסף', () => {
+  assert.match(crmJs, /data\.deleted === false/);
+  assert.match(crmJs, /data\.auth === 'kept'/);
+  assert.match(closeAccountFn, /deleted: auth !== "failed", auth,/);
 });
