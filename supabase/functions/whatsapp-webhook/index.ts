@@ -68,7 +68,9 @@ import {
   type OpsTapDb,
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
-import { isReactionMessage } from "./inbound-kind.ts";
+import {
+  FAIR_USE_BUTTON_TYPES, FAIR_USE_CAPTION_TYPES, FAIR_USE_COUNTED_TYPES, fairUseNeverBlocks, isReactionMessage,
+} from "./inbound-kind.ts";
 import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
 import {
   abortedTurnPlan,
@@ -223,8 +225,10 @@ const TIER_REQUIRED_MSG =
    בלי מספר הסרטונים: הוא מוצג בדף ונבדק שם, ועותק כאן היה מתיישן בשקט. */
 const FAIR_USE_ELITE_PITCH =
   "ב-Elite אין תקרה, ויש גם סרטונים שיווקיים כלולים בחודש, הדמיות ודוח CMA לכל כתובת.";
+/** הפתיחה של הודעת החסימה, שלפיה fairUseShouldAnnounce מזהה שכבר נשלחה. */
+const FAIR_USE_MSG_PREFIX = "הגעת החודש לתקרת השימוש ההוגן";
 const FAIR_USE_MSG =
-  "הגעת החודש לתקרת השימוש ההוגן של מסלול PROFESSIONAL בעוזרת בוואטסאפ. " +
+  FAIR_USE_MSG_PREFIX + " של מסלול PROFESSIONAL בעוזרת בוואטסאפ. " +
   "היא חוזרת בתחילת החודש הבא. " + FAIR_USE_ELITE_PITCH +
   " בינתיים אפשר להמשיך לעבוד באיזור הסוכנים. לשדרוג:";
 const FAIR_USE_NOTICES: ReadonlyArray<{ threshold: 75 | 90; body: string }> = [
@@ -235,6 +239,10 @@ const FAIR_USE_NOTICES: ReadonlyArray<{ threshold: 75 | 90; body: string }> = [
     body: "הגעת ל-75% מהשימוש ההוגן של PROFESSIONAL בעוזרת החודש. " + FAIR_USE_ELITE_PITCH + " לשדרוג:" },
 ];
 const FAIR_USE_DEFAULT = 200;
+/** כמה דקות שקט מסיימות "שיחה". מי שעבד/ה עם גבריאלה בחצי השעה האחרונה נמצא/ת
+ *  באמצע פעולה (היא שאלה מחיר, ביקשה כתובת, מחכה לתמונות), והתקרה אינה קוטעת
+ *  אותה: היא נבדקת רק בפתיחה של שיחה חדשה. */
+const FAIR_USE_SESSION_MIN = 30;
 
 /** תחילת החודש הנוכחי בשעון ישראל, כ-ISO. הסטייה האפשרית היא שעת החלפת שעון
  *  בתוך החודש - שעה אחת בגבול, וזה מספיק למונה של שימוש הוגן. */
@@ -249,15 +257,24 @@ function israelMonthStartIso(now = new Date()): string {
   return new Date(Date.UTC(get("year"), get("month") - 1, 1) - offsetMs).toISOString();
 }
 
-/** כמה הודעות נכנסות נחתמו לסוכן/ת החודש (שעון ישראל), ומה התקרה. */
+/** כמה הודעות טקסט וקול (וכיתובים על תמונות) נחתמו לסוכן/ת החודש (שעון
+ *  ישראל), ומה התקרה. לחיצות על כפתורים ותמונות בלי כיתוב אינן נספרות. */
 async function fairUseUsage(agentId: string): Promise<{ used: number; limit: number }> {
-  const [{ data: cfg }, { count }] = await Promise.all([
+  const monthStart = israelMonthStartIso();
+  const counted = () => supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
+    .eq("agent_id", agentId).eq("direction", "in").gte("created_at", monthStart);
+  const [{ data: cfg }, typed, captions] = await Promise.all([
     supabase.from("pricing_config").select("value").eq("key", "gabriela_fair_use_monthly").maybeSingle(),
-    supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
-      .eq("agent_id", agentId).eq("direction", "in").gte("created_at", israelMonthStartIso()),
+    counted().in("msg_type", FAIR_USE_COUNTED_TYPES as string[]),
+    // ‏like '_%' = body לא ריק (null אינו עונה ל-like).
+    counted().in("msg_type", FAIR_USE_CAPTION_TYPES as string[]).like("body", "_%"),
   ]);
+  if (typed.error || captions.error) throw typed.error || captions.error;
   const cap = Number(cfg?.value);
-  return { used: count ?? 0, limit: Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT };
+  return {
+    used: (typed.count ?? 0) + (captions.count ?? 0),
+    limit: Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT,
+  };
 }
 
 /** האם ההודעה הנוכחית היא מעבר לתקרת השימוש ההוגן החודשית: סופרת את ההודעות
@@ -271,6 +288,52 @@ async function fairUseExceeded(agentId: string): Promise<boolean> {
     console.error("fair use check failed", err);
     return false;
   }
+}
+
+/** האם הסוכן/ת באמצע פעולה עם גבריאלה, ולכן התקרה אינה עוצרת את ההודעה: הודעה
+ *  שעברה את השער (נחתמה ל-agent_id) ב-FAIR_USE_SESSION_MIN הדקות האחרונות.
+ *  ‏**לא כפתור** (FAIR_USE_BUTTON_TYPES): כפתורים עוברים תמיד, ולחיצה על התראה
+ *  ישנה הייתה פותחת חצי שעה בלי תקרה. ‏**ולא pending_images:** תמונות שלא שויכו
+ *  אינן נמחקות (20271102093000), ותמונה מלפני שבוע הייתה פוטרת לתמיד. תמונה
+ *  שנשלחה עכשיו כבר נחתמה, ולכן היא מכוסה כאן. הודעה שנחסמה אינה נחתמת, ולכן
+ *  החסימה עצמה אינה פותחת שיחה. כשל בקריאה = לא חוסמים, כמו fairUseExceeded. */
+async function fairUseInProgress(agentId: string): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - FAIR_USE_SESSION_MIN * 60_000).toISOString();
+    const { count, error } = await supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
+      .eq("agent_id", agentId).eq("direction", "in").gte("created_at", since)
+      .not("msg_type", "in", `(${FAIR_USE_BUTTON_TYPES.join(",")})`);
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  } catch (err) {
+    console.error("fair use session check failed", err);
+    return true;
+  }
+}
+
+/** האם לשלוח את הודעת החסימה. פעם אחת לשיחה ולא לכל הודעה, בשני מנגנונים:
+ *  ‏(1) הודעה שנשלחה **בהצלחה** (`error is null`) לאותו מספר באותה פתיחה בחצי
+ *  השעה האחרונה - שליחה שנכשלה אינה משתיקה את הבאה; ‏(2) באלבום, כשעשר תמונות
+ *  מגיעות במקביל ואף אחת עוד לא שלחה, רק **הראשונה** עונה: אם יש הודעה נכנסת
+ *  מאותו מספר בשתי הדקות שלפני ההודעה הזו, היא שעונה. ההכרעה לפי created_at
+ *  ביומן ולא לפי סדר הריצה, ולכן שני workers אינם עונים שניהם. */
+async function fairUseShouldAnnounce(from: string, waMessageId: string): Promise<boolean> {
+  const since = new Date(Date.now() - FAIR_USE_SESSION_MIN * 60_000).toISOString();
+  const [{ count: sent }, { data: own }] = await Promise.all([
+    supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
+      .eq("direction", "out").eq("wa_phone", from).is("error", null)
+      .like("body", `${FAIR_USE_MSG_PREFIX}%`).gte("created_at", since),
+    supabase.from("whatsapp_messages").select("created_at")
+      .eq("wa_message_id", waMessageId).eq("direction", "in").maybeSingle(),
+  ]);
+  if ((sent ?? 0) > 0) return false;
+  const ownAt = Date.parse(String(own?.created_at || ""));
+  if (!Number.isFinite(ownAt)) return true;
+  const { count: earlier } = await supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
+    .eq("direction", "in").eq("wa_phone", from).neq("msg_type", "reaction")
+    .gte("created_at", new Date(ownAt - 120_000).toISOString())
+    .lt("created_at", new Date(ownAt).toISOString());
+  return (earlier ?? 0) === 0;
 }
 
 /** אחרי התשובה של גבריאלה, ל-PROFESSIONAL בלבד: הודעת 75% או 90% עם הצעה
@@ -2347,15 +2410,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await handleCadenceTap(agent.id, from, cadenceId);
     return;
   }
-  // שימוש הוגן ב-PROFESSIONAL (9.11.2026): תקרה חודשית של הודעות נכנסות, רק
-  // ל-mid; ב-Elite אין תקרה. הערך ב-pricing_config (gabriela_fair_use_monthly)
-  // והוא **פנימי** - דף המסלולים אומר "שימוש הוגן" בלי מספר, וגם ההודעה כאן
-  // אינה נוקבת בו ואין התראה מקדימה. הבדיקה אחרי הכפתורים (odc:, cadence), כי
-  // לחיצה אינה קריאה למודל, ולפני כל דבר שעולה כסף. ההודעה הנוכחית נרשמה
-  // ביומן בלי agent_id (הוא נחתם רק למטה), ולכן המונה הוא ההודעות **שלפניה**:
-  // כשהוא כבר על התקרה, ההודעה הזו היא שמעבר לה ונענית בהצעת השדרוג.
-  if (String(agent.tier) === "mid" && await fairUseExceeded(agent.id)) {
-    await replyCta(from, FAIR_USE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
+  // שימוש הוגן ב-PROFESSIONAL (9.11.2026): תקרה חודשית, רק ל-mid; ב-Elite אין
+  // תקרה. הערך ב-pricing_config (gabriela_fair_use_monthly) והוא **פנימי** - דף
+  // המסלולים אומר "שימוש הוגן" בלי מספר, וגם ההודעות אינן נוקבות בו.
+  // ‏**נספר** רק טקסט וקול שהסוכן/ת יזם/ה (FAIR_USE_COUNTED_TYPES, וכיתוב על
+  // תמונה), לא לחיצות ולא תמונות. ‏**נעצר** רק פתיחה של שיחה חדשה: לחיצה על כפתור עוברת תמיד
+  // (fairUseNeverBlocks), וכך גם כל הודעה בתוך שיחה פעילה (fairUseInProgress),
+  // כדי שאף פעולה לא תיקטע באמצע. הבדיקה לפני כל דבר שעולה כסף. ההודעה הנוכחית
+  // נרשמה ביומן בלי agent_id (הוא נחתם רק למטה), ולכן המונה הוא ההודעות
+  // **שלפניה**. ‏docs/whatsapp-setup.md, "שימוש הוגן ב-PROFESSIONAL".
+  if (String(agent.tier) === "mid" && !fairUseNeverBlocks(msg) &&
+      await fairUseExceeded(agent.id) && !(await fairUseInProgress(agent.id))) {
+    if (await fairUseShouldAnnounce(from, String(msg.id || ""))) {
+      await replyCta(from, FAIR_USE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
+    }
     return;
   }
 
