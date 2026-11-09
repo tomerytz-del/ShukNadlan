@@ -43,6 +43,8 @@ else location.replace(q==='0'?'/?beta=0':'/');})();</script>
      ‏noindex יחד עם canonical לדף אחר הן שתי הצהרות סותרות (‏A-SEO-4, ‏og-tags.ts) -->
 <meta name="robots" content="noindex,follow">
 <meta name="description" content="גלישה בהחלקה בין הנכסים באזור: ימינה שמירה, שמאלה דילוג, ולמעלה לפרטים ויצירת קשר.">
+<!-- חיבור מחומם לאחסון התמונות (render/image). בלי crossorigin, בכוונה: תמונות נטענות בחיבור "עם עוגיות" ו-fetch של supabase-js בחיבור אחר, ו-preconnect עם crossorigin היה מחמם רק את השני. docs/swipe-mode.md -->
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
