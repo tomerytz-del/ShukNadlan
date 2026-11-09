@@ -45,6 +45,13 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
 * **פונקציית קליטה ציבורית חדשה** = `verify_jwt = false` ב-`config.toml`, שורה ב-`PUBLIC_EDGE_FUNCTIONS` ב-`ops_agent/config.py`, ובלם הצפה במסד.
 * **קישור `wa.me` בדף נושא `data-site-contact`**, אחרת `events.js` סופר כל לחיצה כפנייה למתווך (`contact_agent`).
 
+## מחיקת חשבון: השורה נשארת, ו-Auth נמחק אחרי שהיא מנותקת ממנו
+
+* **`professional_accounts.user_id` הוא `on delete cascade`.** מחיקת משתמש ב-Auth בלי לאפס אותו קודם מוחקת בשקט את החשבון והארנק, והחיובים נותקים.
+  `close_professional_account` מאפסת `user_id` (nullable) **לפני** שהפונקציה מוחקת את המשתמש, והשורה נשארת מאונונמת כי חיובים ויומן זיכויים מפנים אליה.
+* **`close-account` חייב להכיר כל סוג חשבון.** סוג שאינו מוכר נחשב "none" ומוחק את המשתמש ב-Auth בלבד. סוג חשבון חדש נכנס ל-`close-account` וגם ל-`otherLiveProfile` ב-`_shared/account-erasure.ts`.
+* **הזמנת תשלום פתוחה חוסמת מחיקה** (`payment_pending`), והיתרה מאופסת ביומן ומתריעה למנהל/ת (אין "יתרה שנטענה בתשלום" לבעל מקצוע).
+
 ## מוסיפים קהל חדש (שמאי, אדריכל...)
 
 * `kind` כבר ב-`professional_accounts.kind`. מדף משלו = view משלו עם שומר `current_is_<kind>()`, שורה ב-`PROFESSIONAL_SHELVES` ב-`check_shelf_audience.py`,

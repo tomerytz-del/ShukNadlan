@@ -373,3 +373,66 @@ test('הדף: הקישור לוואטסאפ מסווג כמספר האתר, וה
   assert.match(propertyHtml, /אל תשלחו סיסמאות, פרטי תשלום או מסמכי זהות/);
   assert.match(propertyHtml, /הסוכן\/ת של הנכס יקבל\/תקבל הודעה/);
 });
+
+
+/* ---------- מחיקת חשבון בעל מקצוע ---------- */
+const closureMig = migrations.find((m) => m.f.endsWith('_professional_account_closure.sql'));
+const closeAccountFn = read('supabase/functions/close-account/index.ts');
+const erasureTs = read('supabase/functions/_shared/account-erasure.ts');
+
+test('close_professional_account: השורה נשארת מאונונמת, user_id מתאפס לפני Auth, והכסף לא נעלם בשקט', () => {
+  assert.ok(closureMig, 'אין מיגרציית professional_account_closure');
+  const t = closureMig.text;
+  // ‏user_id nullable: אחרת אי אפשר לנתק את השורה מהמשתמש לפני מחיקתו (cascade)
+  assert.match(t, /alter column user_id drop not null/);
+  const body = t.split('create or replace function public.close_professional_account')[1];
+  assert.match(body, /user_id = null/);
+  assert.match(body, /card_id = null/);
+  assert.match(body, /erased_at = now\(\)/);
+  // השורה לא נמחקת: חיובים ויומן זיכויים מפנים אליה
+  assert.equal(/delete from public\.professional_accounts/.test(body), false);
+  // יתרה: מאופסת ביומן ומתריעה למנהלים (suppress_push = false מפורש), לא נעלמת
+  assert.match(body, /insert into public\.professional_credit_log/);
+  assert.match(body, /insert into public\.notifications \([^)]*suppress_push\)/);
+  // הזמנת תשלום פתוחה חוסמת
+  assert.match(body, /status = 'pending'[\s\S]*'payment_pending'/);
+  assert.match(t.replace(/\s+/g, ' '), /revoke all on function public\.close_professional_account\(uuid, text\) from public, anon, authenticated; grant execute on function public\.close_professional_account\(uuid, text\) to service_role;/);
+});
+
+test('close-account מכיר בעל/ת מקצוע, ו-otherLiveProfile לא מוחק משתמש שנשאר לו חשבון כזה', () => {
+  assert.match(closeAccountFn, /from\("professional_accounts"\)\.select\([^)]*\)\.eq\("user_id", userId\)\.is\("erased_at", null\)/);
+  assert.match(closeAccountFn, /wanted === "professional" && professional \? "professional"/);
+  // בלי הענף הזה משתמש כזה נחשב "none" ומחיקת Auth מוחקת בשקט את החשבון והארנק
+  assert.match(closeAccountFn, /professional \? "professional" : "none"/);
+  assert.match(closeAccountFn, /close_professional_account/);
+  assert.match(closeAccountFn, /summary\.blocker\) return json\(\{ error: summary\.blocker/);
+  assert.match(closeAccountFn, /CONFIRM_PHRASES\.has\(String\(body\?\.confirm/);
+  assert.match(erasureTs, /from\("professional_accounts"\)\.select\("id"\)\.eq\("user_id", userId\)\.is\("erased_at", null\)/);
+  assert.match(erasureTs, /return !!\(agent \|\| dev \|\| pro\)/);
+});
+
+test('הדף: מחיקת חשבון באישור כפול, הסיכום מהשרת, ויציאה אחרי המחיקה', () => {
+  assert.match(crmHtml, /id="deleteOpenBtn"/);
+  assert.match(crmHtml, /מחיקת חשבון/);
+  assert.match(crmJs, /account: 'professional'/);
+  assert.match(crmJs, /action: 'preview'/);
+  assert.match(crmJs, /action: 'request', confirm: DELETE_PHRASE/);
+  assert.match(crmJs, /sb\.auth\.signOut\(\)/);
+});
+
+test('מחיקת חשבון: תשלום שמגיע אחרי המחיקה הוא refund_needed, והדחיפה נשמרת למי שיש לו פרופיל חי אחר', () => {
+  const t = closureMig.text;
+  // ‏complete_lawyer_lead_order מוגדרת מחדש כאן, ו-erased_at הופך את החשבון ל-account_deleted (השורה נשארת, ולכן professional_id אינו null)
+  assert.match(t, /create or replace function public\.complete_lawyer_lead_order/);
+  assert.match(t, /pa\.erased_at is not null\) then 'account_deleted'/);
+  // מכשירי דחיפה וניוזלטר נמחקים רק כשאין פרופיל חי אחר (אותו כלל כמו Auth)
+  const close = t.split('create or replace function public.close_professional_account')[1].split('create or replace function public.complete_lawyer_lead_order')[0];
+  assert.match(close, /v_other :=[\s\S]*agency_members[\s\S]*developers/);
+  assert.match(close, /if not v_other then[\s\S]*delete from public\.app_push_devices/);
+});
+
+test('הדף אומר מה קרה בפועל במחיקה: נכשלה מחיקת הכניסה, או שהיא נשארה בגלל חשבון נוסף', () => {
+  assert.match(crmJs, /data\.deleted === false/);
+  assert.match(crmJs, /data\.auth === 'kept'/);
+  assert.match(closeAccountFn, /deleted: auth !== "failed", auth,/);
+});

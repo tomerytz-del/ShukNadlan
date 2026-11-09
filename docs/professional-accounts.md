@@ -68,6 +68,6 @@ select public.professional_credit_add('<id>', 100, 'טעינה ידנית');
 
 - **סליקה לבעלי מקצוע.** הטעינה ידנית. הפתרון הוא סוג שישי ב-`wallet-topup-callback` (כמו `developer`, `course`),
   עם `start/complete_professional_topup` ו-`checkout.html?product=professional`. הכסף כאן הוא כסף אמיתי, ולכן ב-PR נפרד.
-- **מחיקת חשבון ושמירת נתונים:** `professional_accounts` נושאת שם וטלפון. מחיקת חשבון (`account-erasure`) ו-
-  `data_retention_run` צריכות לכסות אותה לפני שיהיו מספיק חשבונות.
+- **מחיקת חשבון:** נבנתה (`close_professional_account`, `docs/account-closure.md`, "בעל/ת מקצוע"). **נשאר:** מדיניות שמירה לחשבון שלא היה פעיל
+  (`data_retention_run`), שדורשת החלטה על משך.
 - **יועצי משכנתאות** עדיין על `agency_members.is_mortgage_advisor` (חשבון אחד). מעבר אליהם לכאן הוא החלטה נפרדת.
