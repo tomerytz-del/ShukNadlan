@@ -113,8 +113,14 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   // אישור הרכישה מציג מחיר ותנאים לפני החיוב
   assert.match(crmHtml, /הרכישה כפופה לתנאי השימוש והתקנון/);
   assert.match(crmHtml, /<meta name="robots" content="noindex, nofollow">/);
-  // המניפסט של הסוכנים נפתח על /crm: אפליקציה מותקנת של עו"ד לא אמורה לפתוח אותו
-  assert.match(crmHtml, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+  // מניפסט משלו: של הסוכנים נפתח על /crm (שם אין לעו"ד חשבון), והציבורי על דף הבית. גם הקישור האישי של הכרטיסייה
+  assert.match(crmHtml, /<link rel="manifest" href="\/app-professional\.webmanifest">/);
+  assert.match(manageHtml, /<link rel="manifest" href="\/app-professional\.webmanifest">/);
+  assert.equal(/app-crm\.webmanifest/.test(crmHtml), false);
+  const proManifest = JSON.parse(read('app-professional.webmanifest'));
+  assert.equal(proManifest.id, '/professional-crm');
+  assert.match(proManifest.start_url, /^\/professional-crm(\?|$)/);
+  assert.equal('share_target' in proManifest, false);
   // אזור אישי: לא נמדד כפניות של גולשים (events.js)
   assert.equal(/assets\/events\.js/.test(crmHtml), false);
 });
