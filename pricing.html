@@ -366,6 +366,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .compare-box tr.group td{background:var(--paper);border-top:1px solid var(--line)}
   .compare-box tr.group td.col-elite{background:var(--elite-head)}
   .compare-box tbody td.col-paygo{color:var(--ink-soft)}
+  #compareTable.is-folded tr.same{display:none}
+  .compare-box tr.fold td{padding:0;border-top:1px solid #eef1f8;background:var(--surface)}
+  /* ‏הטבלה נגללת לצד בנייד (min-width 640px), ולכן הכפתור ברוחב החלון ולא ברוחב הטבלה
+     ו-sticky: אחרת התווית הממורכזת יושבת מחוץ לאזור הגלוי. */
+  .compare-box tr.fold button{width:min(100%, calc(100vw - 34px));display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 16px;
+    background:var(--paper);border:0;color:var(--sapphire);font-weight:800;font-size:15px;cursor:pointer;position:sticky;inset-inline-start:0}
+  @media print{#compareTable.is-folded tr.same{display:table-row}.compare-box tr.fold{display:none}}
+  .compare-box tr.fold button:hover{background:var(--brass-tint)}
+  .compare-box tr.fold .chev{transition:transform .2s}
+  .compare-box tr.fold button[aria-expanded="true"] .chev{transform:rotate(180deg)}
   .compare-box td.txt{font-size:14px;font-weight:600;line-height:1.4;white-space:normal;min-width:130px}
   .yes{width:26px;height:26px;border-radius:50%;background:var(--ok-tint);color:var(--ok);display:inline-flex;
     align-items:center;justify-content:center;font-weight:900}
@@ -977,7 +987,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- ‏הכותרת הסטטית היא הנוסח של תקופת ההשקה ("חודשיים" = ‏Tiers.PROMO.months),
        כי זה מה שסורק בלי JS צריך לראות כל עוד ההטבה פתוחה. כשהיא סגורה, או
        במצבי CRM והזמנה, ה-JS מחליף את closerTitle / closerLead / closerCta. -->
-  <section class="wrap closer">
+  <section class="wrap closer" id="closer">
     <div class="closer-panel">
       <span class="kicker">שוק הנדל״ן לעסקים</span>
       <h2 id="closerTitle"><span class="ln">חודשיים של Elite.</span><span class="ln">₪0. בלי כרטיס אשראי.</span></h2>
@@ -1600,7 +1610,17 @@ COMPARE.forEach(function(group){
     });
   });
 });
-ROWS.sort(function(a, b){ return b.score - a.score; });
+/* ‏בתוך "כלול בכל המסלולים": קודם השורות שבהן הערך שונה בין המסלולים (מחיר ליד, מכסה),
+   ואחריהן השורות הזהות בשלושתם - והן מקופלות כברירת מחדל (תומר, 9.11.2026: 56 שורות
+   "כלול" הסתירו את ההבדלים). ‏same נגזר מהנתונים, כמו score. */
+const ALL_TIERS = Tiers.list().length;
+ROWS.forEach(function(r){
+  // ערכי COMPARE הם true / false / מחרוזת, ולכן השוואה ישירה מספיקה.
+  r.same = r.values.every(function(v){ return v === r.values[0]; });
+  r.folded = r.score === ALL_TIERS && r.same;
+});
+ROWS.sort(function(a, b){ return (b.score - a.score) || ((a.folded ? 1 : 0) - (b.folded ? 1 : 0)); });
+const SAME_COUNT = ROWS.filter(function(r){ return r.folded; }).length;
 const GROUP_COUNT = {};
 ROWS.forEach(function(r){ GROUP_COUNT[r.score] = (GROUP_COUNT[r.score] || 0) + 1; });
 
@@ -1620,11 +1640,17 @@ document.getElementById('compareTable').innerHTML =
   ROWS.map(function(row, i){
     let head = '';
     if (i === 0 || ROWS[i - 1].score !== row.score){
-      head = '<tr class="group"><th scope="colgroup">' + esc(GROUP_TITLES[row.score] || '') +
+      // ‏<bdi>: כותרת שנגמרת באנגלית ("ב-Elite וב-PROFESSIONAL") הייתה נדבקת למספר שאחריה.
+      head = '<tr class="group"><th scope="colgroup"><bdi>' + esc(GROUP_TITLES[row.score] || '') + '</bdi>' +
         '<span class="count">' + GROUP_COUNT[row.score] + ' יכולות</span></th>' +
         COLS.map(function(t){ return '<td class="col-' + t.color + '"></td>'; }).join('') + '</tr>';
     }
-    return head + '<tr class="crow"><th scope="row">' + esc(row.label) +
+    let fold = '';
+    if (row.folded && !(i > 0 && ROWS[i - 1].folded)){
+      fold = '<tr class="fold"><td colspan="' + (COLS.length + 1) + '"><button type="button" id="cmpFold" aria-expanded="false" aria-controls="compareTable">' +
+        '<span class="lbl">עוד ' + SAME_COUNT + ' יכולות שכלולות בכל מסלול, באותו אופן</span><span class="chev" aria-hidden="true">▾</span></button></td></tr>';
+    }
+    return head + fold + '<tr class="crow' + (row.folded ? ' same' : '') + '"><th scope="row">' + esc(row.label) +
       '<span class="topic">' + esc(row.topic) + '</span></th>' +
       COLS.map(function(t, c){ return cell(row.values[DATA_IDX[c]], t.color); }).join('') + '</tr>';
   }).join('') + '</tbody>' +
@@ -1636,6 +1662,49 @@ document.getElementById('compareTable').innerHTML =
       ? '<span class="ccta is-disabled">' + esc(c.label) + '</span>'
       : '<a class="ccta" href="' + esc(c.href) + '">' + esc(c.label) + '</a>') + '</td>';
   }).join('') + '</tr></tfoot>';
+
+(function compareFold(){
+  const table = document.getElementById('compareTable');
+  const btn = document.getElementById('cmpFold');
+  if (!btn) return;
+  table.classList.add('is-folded');
+  btn.addEventListener('click', function(){
+    const open = table.classList.toggle('is-folded') === false;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.querySelector('.lbl').textContent = open
+      ? 'הסתרת ' + SAME_COUNT + ' היכולות שזהות בכל המסלולים'
+      : 'עוד ' + SAME_COUNT + ' יכולות שכלולות בכל מסלול, באותו אופן';
+  });
+})();
+
+/* ---------- עד איפה גוללים (pricing_section_view) ----------
+   אירוע אחד לכל סקשן שהגולש/ת הגיע/ה אליו - כשהקצה העליון שלו עובר את אמצע המסך -
+   פעם אחת לטעינה. ‏section הוא ה-id, ‏n מיקומו בדף (1 = הכרטיסים), כך שב-GA4 רואים
+   עד איפה הגיעו בלי לחשב גבהים. בלי PII: רק שמות סקשנים. נולד כשהגלילה האוטומטית
+   ל-Elite ירדה (9.11.2026), כדי לראות לאן גוללים לבד. הטריגר והתגית ב-
+   gtm/container.json, וקובץ ייבוא ב-docs/gtm-pricing-scroll-import.json. */
+(function sectionDepth(){
+  if (!('IntersectionObserver' in window) || typeof window.shukTrack !== 'function') return;
+  // ‏הרשימה והמיקום מה-DOM, לא מעותק ביד: סקשן שנוסף או זז נמדד במקומו האמיתי.
+  const els = Array.prototype.slice.call(document.querySelectorAll('main > section[id]'));
+  const sent = new Set();
+  const send = function(el){
+    if (sent.has(el)) return;
+    sent.add(el);
+    window.shukTrack('pricing_section_view', { section: el.id, n: els.indexOf(el) + 1 });
+  };
+  const io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if (e.isIntersecting){ io.unobserve(e.target); send(e.target); } });
+  }, { rootMargin: '0px 0px -50% 0px', threshold: 0 });
+  els.forEach(function(el){ io.observe(el); });
+  // ‏הסקשן האחרון קצר, ובמסך גבוה הקצה העליון שלו לא מגיע לאמצע גם בתחתית הדף. מי שהגיע/ה
+  // לתחתית ראה/תה את כל מה שנשאר.
+  window.addEventListener('scroll', function onBottom(){
+    if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 4) return;
+    els.forEach(function(el){ if (el.getBoundingClientRect().top < window.innerHeight) send(el); });
+    window.removeEventListener('scroll', onBottom);
+  }, { passive: true });
+})();
 
 /* ---------- הסיום, וקישורי החזרה ---------- */
 if (fromCrm || inviteTok){
