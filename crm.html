@@ -929,6 +929,9 @@ window.shukArmTrackers = function () {
   .ca-confirm-input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
     font-size:1rem;font-weight:700;text-align:center;letter-spacing:.02em}
   .ca-confirm-input:focus{outline:2px solid #b42318;outline-offset:-1px}
+  .ca-when{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin:12px 0 0;font-size:.83rem;line-height:1.45}
+  .ca-when legend{font-weight:800;padding:0 4px}
+  .ca-when label{display:flex;gap:8px;align-items:flex-start;margin-top:6px;cursor:pointer}
   .ca-phrase{display:inline-block;background:#fdf5f4;border:1px solid #e7c3c3;border-radius:6px;
     padding:1px 8px;font-weight:800;color:#b42318}
 
@@ -5837,6 +5840,17 @@ window.shukArmTrackers = function () {
   .agr-sec{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:14px;
     margin-bottom:12px;background:var(--paper-raised)}
   .agr-sec>h4{margin:0 0 10px;font-size:.9rem;font-family:'Frank Ruhl Libre',serif;color:var(--teal-dark)}
+  /* מקטע מקופל באשף ההסכם (פרטי הנכס, המשאלון) - הכותרת היא הכפתור */
+  .agr-fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    font-size:.9rem;font-weight:700;font-family:'Frank Ruhl Libre',serif;color:var(--teal-dark)}
+  .agr-fold>summary::-webkit-details-marker{display:none}
+  .agr-fold>summary::after{content:'▾';margin-inline-start:auto;transition:transform .15s}
+  .agr-fold[open]>summary{margin-bottom:10px}
+  .agr-fold[open]>summary::after{transform:rotate(180deg)}
+  .agr-fold-sub{font-family:inherit;font-size:.76rem;font-weight:500;color:var(--muted)}
+  /* ‏.btn הוא inline-flex, וזה גובר על hidden של הדפדפן - בלי זה כפתורי
+     "+ הוספה" המקופלים (agrSyncAddBoxes) היו מוצגים תמיד */
+  .agr-sec [hidden]{display:none !important}
   .agr-grid,.agr-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   @media(max-width:560px){.agr-grid,.agr-fields{grid-template-columns:1fr}}
   /* פרטי הנכס בהסכם: שני שדות בשורה גם בטלפון. רובם ערך קצר ("4", "יש",
@@ -7442,7 +7456,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <li>ההרשמה לוקחת כמה דקות</li>
       </ul>
       <a href="/agency-signup" class="btn btn-block">להצטרפות ←</a>
-      <div class="auth-gift">🎁 <b>6 חודשים במתנה</b> - ללא התחייבות וללא פרטי אשראי</div>
+      <div class="auth-gift">🎁 <b>חודשיים במתנה</b> - ללא התחייבות וללא פרטי אשראי</div>
     </section>
     <p class="auth-agent-note">סוכן/ת במשרד שכבר רשום אצלנו? אין צורך להירשם - נכנסים למעלה עם המייל שמנהל/ת המשרד רשם/ה, ונחבר אותך לכרטיס.</p>
     </div>
@@ -7554,11 +7568,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        של לחיצה: המודעות אורכבו, הדף הוסר מהאינדקס וההחזר כבר בדרך. -->
   <div class="card login-card" id="closedScreen" style="display:none">
     <div class="logo"><a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
-    <h1>החשבון נסגר</h1>
-    <p class="sub">סגרת את החשבון ב-<b id="closedDate">-</b>. דף הסוכן/ת והמודעות ירדו מהאוויר, ואנחנו לא פונים אליך יותר.</p>
+    <h1 id="closedTitle">החשבון נסגר</h1>
+    <p class="sub" id="closedSub">סגרת את החשבון ב-<b id="closedDate">-</b>. הדף האישי והמודעות ירדו מהאוויר, ואנחנו לא פונים אליך יותר.</p>
     <div style="background:#fdf5f4;border:1.5px solid #e7c3c3;border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
       <span id="closedRefundNote"></span>
-      רוצה לחזור? זה אפשרי, אבל לא בלחיצה - צריך לפתוח את החשבון מחדש מולנו.
+      שאלות על החשבון או על ההחזר?
       התמיכה זמינה בטלפון <a href="tel:+972546929991" dir="ltr" style="color:var(--teal);font-weight:700">054-6929991</a>.
     </div>
     <a class="btn btn-gold btn-block" href="/" style="justify-content:center">חזרה לדף הבית</a>
@@ -7597,11 +7611,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="field"><label for="caLicense">מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456" inputmode="numeric"></div>
     <!-- ---------- המסלול ----------
          בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
-         המסלול המלא לחצי שנה, ובחירה אמיתית תיפתח בתומה — במסך בחירת
+         המסלול המלא לחודשיים, ובחירה אמיתית תיפתח בתומה — במסך בחירת
          המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
          שדה נוסף למלא. -->
     <div id="caTierField" class="promo-tag">
-      🎁 <b>6 חודשים במתנה עלינו</b> - ללא התחייבות וללא פרטי אשראי
+      🎁 <b>חודשיים במתנה עלינו</b> - ללא התחייבות וללא פרטי אשראי
     </div>
     <div class="ethics-consent" style="margin-bottom:12px">
       <input type="checkbox" id="caEthicsConsent">
@@ -8846,6 +8860,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <div class="field"><label for="npDeal">סוג עסקה</label>
             <select id="npDeal" required>
+              <option value="">בחרו מכירה או השכרה</option>
               <option value="sale">מכירה</option>
               <option value="rent">השכרה</option>
             </select>
@@ -9585,7 +9600,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="cf-grid cf-grid-2">
               <div class="field"><label id="clDealLabel">סוג עסקה</label>
                 <div class="pf-seg" role="group" aria-labelledby="clDealLabel">
-                  <button type="button" class="active" data-client-deal="sale" aria-pressed="true">קנייה</button>
+                  <button type="button" data-client-deal="sale" aria-pressed="false">קנייה</button>
                   <button type="button" data-client-deal="rent" aria-pressed="false">שכירות</button>
                 </div></div>
               <div class="field"><label id="clCategoryLabel">קטגוריה</label>
@@ -10433,9 +10448,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </details>
         <!-- אין כאן בחירת מסלול. המסלול הוא הוצאה חודשית של הסוכן/ת, והוא
              נבחר על ידו/ה בכניסה הראשונה — לא נקבע מראש בטופס של מישהו אחר.
-             מה שכן מוצג כאן הוא מה שההזמנה שווה: חצי שנה במסלול המלא. -->
+             מה שכן מוצג כאן הוא מה שההזמנה שווה: חודשיים במסלול המלא. -->
         <div style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:11px 13px;font-size:.78rem;line-height:1.55">
-          🎁 <b>ההזמנה כוללת 6 חודשי Elite במתנה.</b>
+          🎁 <b>ההזמנה כוללת חודשיים Elite במתנה.</b>
           הסוכן/ת נכנס/ת עם הקישור, מוסר/ת את מספר הרישיון ומאשר/ת את הקוד האתי במסך אחד,
           ומשויך/ת אוטומטית למשרד. המסלול שנבחר יופיע כאן ברשימת הצוות.
         </div>
@@ -10910,7 +10925,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="field" style="margin-top:14px">
               <label for="arBody">גוף הכתבה</label>
               <textarea id="arBody" rows="10" placeholder="שורה ריקה מפרידה בין פסקאות.&#10;שורה שמסתיימת בנקודתיים הופכת לכותרת ביניים.&#10;שורה שמתחילה במקף הופכת לפריט ברשימה."></textarea>
-              <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">בלי HTML - הטקסט מעוצב לבד: שורה ריקה = פסקה חדשה, שורה שמסתיימת ב־":" = כותרת ביניים, שורה שפותחת ב־"-" = פריט ברשימה.</p>
+              <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">בלי HTML - הטקסט מעוצב לבד: שורה ריקה = פסקה חדשה, שורה שמסתיימת ב־":" = כותרת ביניים, שורה שפותחת ב־"-" = פריט ברשימה. כתובת http או https הופכת לקישור.</p>
             </div>
             <div class="field">
               <label for="arAuthor">שם הכותב/ת</label>
@@ -11917,51 +11932,53 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          ושם — סימון הבנה ואז הקלדת "סגירת חשבון" במלואו. -->
     <details class="acc acc-danger" id="accCloseAccount">
       <summary>
-        <span class="acc-title">סגירת החשבון והפסקת ההתקשרות</span>
+        <span class="acc-title">מחיקת החשבון</span>
         <span class="acc-count" id="accCloseAccountCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כאן אפשר לסגור את החשבון, להוריד את דף הסוכן/ת מהאוויר ולהפסיק כל פנייה מאיתנו. זו פעולה שאין ממנה חזרה, ולכן היא דורשת שני אישורים.</p>
+        <p class="acc-sub">כאן אפשר למחוק את החשבון: הדף והמודעות יורדים מהאוויר, הפרטים האישיים נמחקים ואי אפשר יותר להיכנס. זו פעולה שאין ממנה חזרה, ולכן היא דורשת שני אישורים.</p>
 
         <!-- בקשה שכבר נרשמה ועדיין לא נכנסה לתוקף. מוצג במקום כפתור הסגירה. -->
         <div class="danger-pending" id="closurePending" hidden>
-          <p class="dz-h" id="closurePendingTitle">בקשת הסגירה נרשמה</p>
+          <p class="dz-h" id="closurePendingTitle">בקשת המחיקה נרשמה</p>
           <p class="dz-p" id="closurePendingBody"></p>
-          <button type="button" class="btn btn-ghost btn-block" id="closureCancelBtn">ביטול בקשת הסגירה - אני נשאר/ת</button>
+          <button type="button" class="btn btn-ghost btn-block" id="closureCancelBtn">ביטול בקשת המחיקה - נשארים בחשבון</button>
         </div>
 
         <div id="closureOffer">
           <div class="danger-zone">
-            <p class="dz-h">מה קורה כשסוגרים</p>
+            <p class="dz-h">מה קורה כשמוחקים</p>
             <ul class="dz-list">
-              <li><b>דף הסוכן/ת יורד מהאוויר</b> - גם הכרטיס בספריית יועצי הנדל״ן וגם הנוכחות בדף המשרד.</li>
+              <li><b>הדף האישי יורד מהאוויר</b> - גם הכרטיס בספריית יועצי הנדל״ן וגם הנוכחות בדף המשרד.</li>
               <li><b>כל המודעות הפעילות יורדות</b> מהאתר ומהחיפוש (<span id="closureProps">-</span>).</li>
-              <li><b>מפסיקים לפנות אליך</b> - אין עוד לידים, התראות, מיילים או הודעות מהמערכת, והמייל שלך יוצא מרשימת התפוצה.</li>
-              <li><b>הכניסה לאיזור הסוכנים נסגרת.</b> הנתונים נשמרים אצלנו לפי מדיניות הפרטיות, אבל אינם נגישים לך מהמסך.</li>
+              <li><b>מפסיקים לפנות אליך</b> - אין עוד לידים, התראות, מיילים או הודעות מהמערכת.</li>
+              <li><b>הפרטים האישיים נמחקים</b> - שם, טלפון, אימייל, תמונה, ת.ז., היומן, כרטיסי הלקוחות הפרטיים, השיחות עם גבריאלה וחיבור היומן. המספרים הווירטואליים משתחררים והחידוש בכרטיס מבוטל.</li>
+              <li><b>הכניסה נמחקת</b> - אי אפשר יותר להתחבר עם המייל הזה לחשבון הזה.</li>
             </ul>
+            <p class="dz-fine">מה נשמר, כי החוק או צד שלישי מחייבים: חיובים, קבלות וחשבוניות (חובת שמירה למס), הסכמים חתומים ועסקאות, לידים שהגיעו דרך הפלטפורמה (הפרטים בהם נמחקים אחרי שנתיים), וכרטיסי לקוחות ששיתפת עם המשרד. הם נשמרים בלי שמך. הפירוט: <a href="/privacy#delete-account" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</p>
           </div>
 
           <div class="danger-zone dz-money">
             <p class="dz-h">הכסף</p>
             <p class="dz-p" id="closureMoney">-</p>
-            <p class="dz-fine">הזיכוי היחיד הוא יתרת הארנק שנטענה ולא מומשה. אין זיכוי יחסי על דמי מנוי באמצע חודש; למי שבמנוי חודשי ההתקשרות נפסקת בתום תקופת החיוב ששולמה. התנאים המלאים: <a href="/terms#t19" target="_blank" rel="noopener">סעיף 19 בתנאי השימוש</a>.</p>
+            <p class="dz-fine">הזיכוי היחיד הוא יתרת הארנק שנטענה ולא מומשה. אין זיכוי יחסי על דמי מנוי באמצע חודש; למי שבמנוי חודשי המחיקה מתבצעת בתום תקופת החיוב ששולמה, או מיד - בוויתור על יתרת החודש. התנאים המלאים: <a href="/terms#t19" target="_blank" rel="noopener">סעיף 19 בתנאי השימוש</a>.</p>
           </div>
 
           <!-- חסם: מנהל/ת אחרון/ה במשרד שיש בו עוד סוכנים פעילים. מוצג
                במקום הכפתור, עם הדרך קדימה ומספר התמיכה. -->
           <div class="danger-zone dz-block" id="closureBlocked" hidden>
-            <p class="dz-h">אי אפשר לסגור עדיין</p>
-            <p class="dz-p">את/ה המנהל/ת הפעיל/ה היחיד/ה במשרד, ויש בו עוד סוכנים. משרד בלי מנהל/ת הוא משרד נעול - אי אפשר להוסיף אליו סוכנים, לאשר בקשות שיוך או לערוך את המיתוג שלו.</p>
-            <p class="dz-p">כדי להמשיך: למנות מנהל/ת נוסף/ת ב"צוות המשרד", או לשחרר את הסוכנים שנותרו. לעזרה אפשר לפנות לתמיכה בטלפון <a href="tel:+972546929991" dir="ltr">054-6929991</a>.</p>
+            <p class="dz-h">אי אפשר למחוק עדיין</p>
+            <p class="dz-p">במשרד יש ניהול פעיל אחד בלבד, ויש בו עוד סוכנים. משרד בלי ניהול פעיל הוא משרד נעול - אי אפשר להוסיף אליו סוכנים, לאשר בקשות שיוך או לערוך את המיתוג שלו.</p>
+            <p class="dz-p">כדי להמשיך: למנות ניהול נוסף ב"צוות המשרד", או לשחרר את הסוכנים שנותרו. לעזרה אפשר לפנות לתמיכה בטלפון <a href="tel:+972546929991" dir="ltr">054-6929991</a>.</p>
           </div>
 
           <div class="field" id="closureReasonField">
-            <label for="closureReason">למה סוגרים? (רשות)</label>
+            <label for="closureReason">למה מוחקים? (רשות)</label>
             <textarea id="closureReason" rows="2" maxlength="500" placeholder="מה גרם להחלטה. זה לא מעכב כלום - אנחנו רק רוצים ללמוד."></textarea>
           </div>
 
-          <button type="button" class="btn btn-block btn-danger" id="closeAccountBtn">סגירת החשבון והפסקת ההתקשרות</button>
+          <button type="button" class="btn btn-block btn-danger" id="closeAccountBtn">מחיקת החשבון</button>
         </div>
         <div id="closureFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </div>
@@ -12160,7 +12177,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      האדום — ולא עוד "אישור" שנמצא במקום שבו האצבע כבר נמצאת. -->
 <div class="pm-overlay" id="closeAccountModal" role="dialog" aria-modal="true" aria-labelledby="caModalTitle" style="display:none">
   <div class="pm-card">
-    <div class="pm-title" id="caModalTitle">סגירת החשבון</div>
+    <div class="pm-title" id="caModalTitle">מחיקת החשבון</div>
 
     <div class="ca-step" id="caStep1">
       <div class="danger-zone">
@@ -12173,8 +12190,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <label class="pm-ack">
         <input type="checkbox" id="caAck">
-        <span>קראתי והבנתי. אני מבקש/ת לסגור את החשבון ולהפסיק את ההתקשרות.</span>
+        <span>קראתי והבנתי. הבקשה היא למחוק את החשבון ואת הפרטים האישיים.</span>
       </label>
+      <!-- מנוי חודשי בתשלום בלבד: מתי. ברירת המחדל היא סוף התקופה ששולמה. -->
+      <fieldset class="ca-when" id="caWhen" hidden>
+        <legend>מתי למחוק?</legend>
+        <label><input type="radio" name="caWhen" value="period_end" checked> <span id="caWhenEnd">בסוף התקופה ששולמה</span></label>
+        <label><input type="radio" name="caWhen" value="now"> <span>עכשיו, בוויתור על יתרת החודש ששולם (אין עליה זיכוי)</span></label>
+      </fieldset>
       <div class="pm-actions">
         <button type="button" class="btn btn-ghost" id="caCancel1">ביטול</button>
         <button type="button" class="btn btn-danger" id="caNext" disabled>המשך לאישור האחרון</button>
@@ -12184,15 +12207,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="ca-step" id="caStep2" hidden>
       <p class="pm-body" style="margin-bottom:12px">
         זה האישור האחרון. כדי לוודא שזו לא לחיצה בטעות, הקלידו
-        <span class="ca-phrase">סגירת חשבון</span> בשדה שלמטה.
+        <span class="ca-phrase">מחיקת חשבון</span> בשדה שלמטה.
       </p>
       <input type="text" class="ca-confirm-input" id="caPhrase" autocomplete="off"
-             autocorrect="off" spellcheck="false" aria-label="הקלדת המילים סגירת חשבון לאישור">
+             autocorrect="off" spellcheck="false" aria-label="הקלדת המילים מחיקת חשבון לאישור">
       <p class="dz-fine" id="caStep2Note"></p>
       <div id="caModalFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
       <div class="pm-actions">
         <button type="button" class="btn btn-ghost" id="caBack">חזרה</button>
-        <button type="button" class="btn btn-danger" id="caConfirm" disabled>סגירת החשבון</button>
+        <button type="button" class="btn btn-danger" id="caConfirm" disabled>מחיקת החשבון</button>
       </div>
     </div>
   </div>

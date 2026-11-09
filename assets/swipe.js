@@ -28,10 +28,11 @@
      גם כש-sponsors מלא, ולכן אין "ממומן", אין sponsored_impression/click ואין ליד
      ממומן. מדליקים רק אחרי שיש מפרסם משלם וצינור ליד שנבדק (‏docs/swipe-mode.md). */
   var SPONSORED_ENABLED = false;
-  /* יצירת הדמיה מתוך ההחלקה (חלק 2 §5.3): כבוי עד שהמיגרציה של הבלם לגולש/ת
-     (‏docs/proposals/visualization_visitor_cap.sql) תוחל. הקריאה, שקופית לפני/אחרי
-     והסטודיו עובדים גם כך - במקום הכפתור יש קישור לדף הנכס. */
-  var VIZ_SWIPE_GENERATE = false;
+  /* יצירת הדמיה מתוך ההחלקה (חלק 2 §5.3): דלוק מ-6.11.2026, אחרי שהבלם לגולש/ת
+     (‏supabase/migrations/20271106160000_visualization_visitor_cap.sql, 10 ב-24 שעות
+     לפי מכשיר או IP ב-property-visualize) באוויר. כבוי - הקריאה, שקופית לפני/אחרי
+     והסטודיו עובדים גם כך, ובמקום הכפתור יש קישור לדף הנכס. */
+  var VIZ_SWIPE_GENERATE = true;
 
   /* ---------- סדר הכרטיסים (‏seq-v2, חלק 5 §7 - מקור האמת היחיד) ----------
      המקומות סופרים כל כרטיס בחפיסה (1-based). כרטיס שאינו נכס שהגיע זמנו
@@ -62,11 +63,16 @@
     sponsors: []
   };
   /* R2: כששניים בשלים יחד */
-  var SEQ_PRIO = ['spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article', 'advice'];
+  var SEQ_PRIO = ['deal_pick', 'spon_agency', 'spon_pro', 'spon_any', 'nc_promo', 'seller', 'article', 'advice'];
   /* R8: התוויות של ‎?seqdebug=1‎ */
   var SLOT_LABEL = { property: 'נכס', property_fair: 'נכס · יריד', spon_agency: 'ממומן · משרד', spon_pro: 'ממומן · בעלי מקצוע',
-    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', advice: 'עצה מגבריאלה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
-  var PROMO = { nc_promo: 1, seller: 1, article: 1, advice: 1 };
+    nc_promo: 'יריד · הזמנה', seller: 'חושבים למכור', article: 'כתבה', advice: 'עצה מגבריאלה', deal_pick: 'בחירת עסקה', np_bridge: 'גשר · בלי תמונות', end: 'כרטיס סיום' };
+  var PROMO = { nc_promo: 1, seller: 1, article: 1, advice: 1, deal_pick: 1 };
+  /* ‏deal-pick (תומר 1.11.2026): בהחלקה על "כל הנכסים", אחרי 4 נכסים - כרטיס של גבריאלה ששואל מה
+     להמשיך לראות (מכירה / השכרה / מסחרי). דילוג, ✕ או החלקה - ממשיכים בכל הנכסים. פעם בביקור,
+     ו"לא להציע לי שוב" - לתמיד במכשיר (‏sk_swipe_dealpick_off). ‏docs/swipe-mode.md */
+  var DEAL_PICK_AT = 5;
+  var DEAL_LABEL = { all: 'כל הנכסים', sale: 'למכירה', rent: 'להשכרה', commercial: 'מסחרי' };
 
   /* ---------- §5b: "קבלו עצה ממומחה" - כרטיס עצה מגבריאלה בחפיסה (Phase 2) ----------
      **העצות לא אושרו** - הן ממתינות לעורך דין (מס רכישה, תב״ע, שכירות הוגנת) ולתומר (גם
@@ -362,18 +368,22 @@
     v.src = u;
   }
   /* ‏P0-4: טעינה מראש - היחס מהטשטוש, ואז התמונה בגודל הנכון, מפוענחת */
-  function warm(u) {
+  function warm(u, low) {
     if (!u || WARM.has(u)) return;
     WARM.add(u);
     var go = function () {
       var im = new Image();
       im.decoding = 'async';
+      // חימום של קרוסלה ושל התמונה השנייה בעדיפות נמוכה: לא תוקע תמונה שמישהו מחכה לה עכשיו.
+      // התמונה הראשונה של כרטיס +2/+3 נשארת רגילה, כי עוד רגע היא תהיה התמונה שמחכים לה
+      if (low) im.fetchPriority = 'low';
       im.onload = function () { noteRatio(u, im.naturalWidth, im.naturalHeight, true); };
       im.src = sized(u, srcW(u));
       if (im.decode) im.decode().then(null, function () {});
     };
     if (RATIO.has(u) || SRCW.has(u)) { go(); return; }
     var th = new Image();
+    // הטשטוש (כ-1KB) בעדיפות רגילה, בכוונה: ‏go() מתחיל רק אחריו, ועדיפות נמוכה יכולה לעכב את התמונה עצמה בשניות
     th.onload = function () { noteRatio(u, th.naturalWidth, th.naturalHeight, false); go(); };
     th.onerror = go;
     th.src = sized(u, 40);
@@ -629,7 +639,7 @@
   }
 
   /* ---------- 2. הסינון ---------- */
-  var filter = { deal: 'sale', area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
+  var filter = { deal: 'all', area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
   /* ‏P0-3: סוג נכס - בחירה אחת. ‏sort אחד להחלקה, לרשימה ולמפה; "מומלצים" = סדר החפיסה */
   /* ‏R6 (‏A3-1): המפתחות והתוויות של FilterConfig.TYPES (‏assets/filter-config.js) - אותם סוגים כמו
      בצ'יפים מעל התוצאות ובחלון הסינון בדף הבית: דירות, בתים, משקים ונחלות (‏C3), מגרשים; ובמסחרי
@@ -641,7 +651,10 @@
     ['farm', fcl('farm', 'משקים ונחלות'), /^(משק חקלאי\/נחלה|משק עזר)$/], ['land', fcl('land', 'מגרשים'), /מגרש|קרקע/], ['comm', 'מסחרי', null],
     /* ‏P1-N1: תת-סוגים מסחריים - מוצגים רק כשהעסקה "מסחרי" */
     ['office', fcl('office', 'משרדים'), /משרד/, 1], ['shop', fcl('shop', 'חנויות'), /חנו|שטח מסחרי|קליניק/, 1], ['industry', fcl('industry', 'מבני תעשייה'), /תעשי/, 1],
-    ['warehouse', fcl('warehouse', 'מחסנים'), /מחס[ןנ]/, 1], ['comm_land', fcl('comm_land', 'מגרשים מסחריים'), /מגרש/, 1]];
+    /* מרלו״ג (6.11.2026) - אותן קבוצות של הליבה (‏PROPERTY_TYPES ב-search-core.js, שאינו נטען כאן):
+       "מחסנים" כולל מרלו״ג, ו"מרלו״ג" כולל גם מחסנים ומבני תעשייה - המלאי שפורסם לפני שהסוג נולד */
+    ['warehouse', fcl('warehouse', 'מחסנים'), /מחס[ןנ]|לוגיסט/, 1], ['logistics', fcl('logistics', 'מרלו״ג'), /לוגיסט|מרלו|מחס[ןנ]|תעשי/, 1],
+    ['comm_land', fcl('comm_land', 'מגרשים מסחריים'), /מגרש/, 1]];
   // קישורים ישנים עם המפתחות הקודמים של /swipe (‏?type=apt, ‏c_office...)
   var TYPE_ALIAS = { apt: 'flats', garden: 'flats', roof: 'flats', c_office: 'office', c_shop: 'shop', c_industry: 'industry', c_storage: 'warehouse', c_land: 'comm_land' };
   function typeOk(p, key) {
@@ -685,7 +698,7 @@
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
       if (view === 'list' || view === 'map' || view === 'likes') q.set('view', view);
-      if (filter.deal !== 'sale') q.set('deal', filter.deal);
+      if (filter.deal !== 'all') q.set('deal', filter.deal);
       if (filter.deal === 'commercial' && filter.cdeal) q.set('cdeal', filter.cdeal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
@@ -702,7 +715,7 @@
   }
   function readUrl() {
     var d = params.get('deal');
-    if (d === 'rent' || d === 'sale' || d === 'commercial') filter.deal = d;
+    if (d === 'rent' || d === 'sale' || d === 'commercial' || d === 'all') filter.deal = d;
     var a = params.get('area');
     if (a && (a === 'main' || a === 'around' || a.indexOf('city:') === 0)) filter.area = a;
     var r = Number(params.get('rooms')); if ([3, 4, 5].indexOf(r) >= 0) filter.rooms = r;
@@ -731,7 +744,8 @@
     return (f.deal === 'commercial' && COMM_BUDGETS[f.cdeal]) || BUDGETS[f.deal] || [];
   }
   function dealOk(p, deal, cdeal) {
-    // ‏cdeal: במסחרי בלבד - '' (הכול) | 'rent' | 'sale'
+    // ‏cdeal: במסחרי בלבד - '' (הכול) | 'rent' | 'sale'. ‏'all' - כל הנכסים (ברירת המחדל בלי עסקה)
+    if (deal === 'all' || !deal) return true;
     if (deal === 'commercial') return isComm(p) && (!cdeal || p.deal_type === cdeal);
     return !isComm(p) && p.deal_type === deal;
   }
@@ -1033,7 +1047,10 @@
     $('swFOther').hidden = !otherOpen;
     if (otherOpen) renderOther();
 
-    renderPrice();
+    // "כל הנכסים": מחירי מכירה ושכירות על אותה מסילה הם חסרי משמעות - המחיר מופיע אחרי בחירת עסקה
+    var mixedDeal = filter.deal === 'all';
+    $('swFBudget').hidden = $('swFBudgetL').hidden = mixedDeal;
+    if (!mixedDeal) renderPrice();
     var showRooms = filter.deal !== 'commercial';
     $('swFRooms').hidden = $('swFRoomsL').hidden = !showRooms;
     $('swFRooms').innerHTML = [0, 3, 4, 5].map(function (v) { return chip(v ? v + '+' : 'הכול', 'data-rooms="' + v + '"', filter.rooms === v); }).join('');
@@ -1044,7 +1061,7 @@
     // סוג בלי אף נכס בסינון אינו מוצג (חוץ מהנבחר) - לעולם לא בחירה שמובילה לאפס
     var commDeal = filter.deal === 'commercial';
     $('swFType').innerHTML = chip('הכול', 'data-type=""', !filter.type) + TYPES.filter(function (t) {
-      return commDeal ? !!t[3] : !t[3] && t[0] !== 'comm';
+      return mixedDeal ? !t[3] : commDeal ? !!t[3] : !t[3] && t[0] !== 'comm';
     }).map(function (t) {
       var k = countFor({ type: t[0] });
       return k || filter.type === t[0] ? chip(esc(t[1]) + ' ' + n(k), 'data-type="' + t[0] + '"', filter.type === t[0]) : '';
@@ -1082,7 +1099,7 @@
   }
   var fSrT = 0;
   function renderSummary() {
-    var deal = { sale: 'למכירה', rent: 'להשכרה', commercial: 'מסחרי' }[filter.deal] +
+    var deal = DEAL_LABEL[filter.deal] +
       (filter.deal === 'commercial' && filter.cdeal ? (filter.cdeal === 'rent' ? ' להשכרה' : ' למכירה') : '');
     var area = filter.near ? 'לידי' : filter.area === 'all' ? marketLabel : filter.area === 'main' ? mainCity :
       filter.area === 'around' ? 'יישובי הסביבה' : filter.area.slice(5);
@@ -1202,10 +1219,13 @@
     townsOpen = otherOpen = false; renderFilter();
   });
   $('swFGo').addEventListener('click', function () {
-    var sp = { deal: filter.deal, region: market ? market.slug : '', via: 'swipe_filter' };
+    /* ‏1.11.2026: ‏swipe_start נספר בלחיצה שמובילה להחלקה (דף הבית, גבריאלה, המועדפים,
+       היריד). כאן זה החלת סינון בתוך ההחלקה, ולכן אירוע משלו - אחרת כניסה מדף הבית
+       ואחריה סינון נספרו כשתי התחלות. */
+    var sp = { deal: filter.deal, region: market ? market.slug : '' };
     if (filter.viz) sp.viz = 1;
     if (filter.fair) sp.fair = 1;
-    shukTrack('swipe_start', sp);
+    shukTrack('swipe_filter_apply', sp);
     closeFilter();
     buildDeck();
     /* ‏P0-E: מ"אהבתי" הסינון לא משנה את הרשימה השמורה - עוברים לתצוגה שממנה הגיעו */
@@ -1428,6 +1448,7 @@
       var at = firstSession && s.firstSessionAt ? s.firstSessionAt : longDeck && s.longAt ? s.longAt : s.at;
       if (at === pos) out.push(s.kind);
     });
+    if (filter.deal === 'all' && pos === DEAL_PICK_AT) out.push('deal_pick');
     if (adviceOn() && pos >= ADVICE_EVERY && pos % ADVICE_EVERY === 0) out.push('advice');
     var last = SEQ_CONFIG.slots[SEQ_CONFIG.slots.length - 1].at;
     if (pos > last && (pos - last) % SEQ_CONFIG.cycleEvery === 0) {
@@ -1455,6 +1476,7 @@
       used[s.id] = 1; counts.sponsored++;
       return { slot: kind, sponsor: s };
     }
+    if (kind === 'deal_pick') { var dc = dealPickCounts(); return dc ? { slot: 'deal_pick', counts: dc } : null; }
     if (kind === 'nc_promo') return ncPromoOk() ? { slot: 'nc_promo', variant: all.some(fairLive) ? 'live' : 'wait' } : null;
     if (kind === 'seller') return sellerOk() ? { slot: 'seller' } : null;
     if (kind === 'advice') {
@@ -1493,12 +1515,30 @@
     if (!all.some(fairLive) && ago('sk_nc_promo_wait_seen') < 7 * DAY) return false;   // גרסת ההמתנה: פעם בשבוע
     return true;
   }
+  /* מתי מוצע: "כל הנכסים", לא ביריד, לא הוצע בביקור הזה, לא "לא להציע לי שוב", ויש לפחות שתי עסקאות
+     עם נכסים (בחירה אחת אינה בחירה). המונים - עם שאר הסינון */
+  function dealPickCounts() {
+    if (filter.deal !== 'all' || filter.fair || shownGet('deal_pick') || store('sk_swipe_dealpick_off') === '1') return null;
+    var cn = { sale: countFor({ deal: 'sale' }), rent: countFor({ deal: 'rent' }), commercial: countFor({ deal: 'commercial', cdeal: '' }) };
+    return ['sale', 'rent', 'commercial'].filter(function (k) { return cn[k] > 0; }).length >= 2 ? cn : null;
+  }
+  function dealPickChoose(c, k) {
+    c.acted = true;
+    sessSet('sk_swipe_shown_deal_pick');
+    shukTrack('swipe_deal_pick', { choice: k, position: c.pos });
+    filter.deal = k; filter.cdeal = ''; filter.type = ''; filter.budget = 0; filter.priceMin = 0;
+    if (k === 'commercial') filter.rooms = 0;
+    // כמו בכרטיס היריד: החפיסה נבנית מחדש עם העסקה שנבחרה; מה שכבר נצפה עובר לסוף (‏seenSplit)
+    buildDeck(); renderSummary(); renderFilter();
+    toast('מעכשיו: נכסים ' + (k === 'commercial' ? 'מסחריים' : DEAL_LABEL[k]) + '. אפשר לשנות בסינון', 3200);
+  }
   function sellerOk() {
     if (filter.fair || shownGet('seller')) return false;
     return ago('sk_seller_dismiss') >= 30 * DAY && ago('sk_seller_sent') >= 180 * DAY;
   }
   /* "דחייה" = המשך בלי פעולה. שתיים (גם בין ביקורים) - הכרטיס יורד ל-14 / 30 יום */
   function promoDismiss(c, how) {
+    if (c.slot === 'deal_pick') { shukTrack('swipe_deal_pick', { choice: 'skip', position: c.pos }); return; }
     if (c.slot === 'nc_promo') {
       shukTrack('nc_promo_dismiss', { how: how });
       var n = (Number(store('sk_nc_promo_dn')) || 0) + 1;
@@ -1561,12 +1601,30 @@
     }
     return out;
   }
+  /* "כל הנכסים" במיון "מומלצים": סדר מעורבב - אקראי אבל קבוע לאורך הביקור (זרע ב-sessionStorage),
+     כדי ש"חזרה" מדף נכס או רענון לא יערבבו מחדש. מקודמים נשארים ראשונים */
+  function mixSeed() {
+    var sd = sessGet('sk_swipe_mix_seed');
+    if (!sd || sd === '1') { sd = String(Math.floor(Math.random() * 1e9)); try { sessionStorage.setItem('sk_swipe_mix_seed', sd); } catch (e) {} }
+    return sd;
+  }
+  function mixHash(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function mixOrder(list) {
+    var sd = mixSeed(), key = {};
+    list.forEach(function (p) { key[p.id] = mixHash(sd + ':' + p.id); });
+    return list.slice().sort(function (a, b) { return (!!b.is_promoted - !!a.is_promoted) || (key[a.id] - key[b.id]); });
+  }
+  function mixedDeck() { return filter.deal === 'all' && sortKey === 'rec'; }
   function deckProps() {
-    var props = promoteReels(sortProps(filtered()));
+    var props = promoteReels(mixedDeck() ? mixOrder(filtered()) : sortProps(filtered()));
     npRest = [];
     if (filter.photos) {
       var rest = filtered(Object.assign({}, filter, { photos: false })).filter(function (p) { return !hasPhoto(p); });
-      npRest = sortKey === 'rec' ? npOrder(rest) : sortProps(rest);
+      npRest = mixedDeck() ? mixOrder(rest) : sortKey === 'rec' ? npOrder(rest) : sortProps(rest);
       return props;
     }
     var W = props.filter(hasPhoto), N = props.filter(function (p) { return !hasPhoto(p); });
@@ -1746,7 +1804,8 @@
         // ‏P0-1: כפתור ראשי לדף הנכס בכל שקופית; "פרטים ויצירת קשר" (הגיליון) משני, ובשקופית לפני/אחרי - ההדמיה במקומו
         '<div class="sw-acts"><a class="sw-open" href="/property?id=' + encodeURIComponent(p.id) + '" data-open>לפרטי הנכס ←</a>' +
         '<button type="button" class="sw-up" data-up' + (sp === 'ba' ? ' hidden' : '') + '>פרטים ויצירת קשר <span aria-hidden="true">↑</span></button>' +
-        '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b></button></div>' +
+        // בנכס מסחרי המוצר הוא "העסק שלך", לא "סגנון אחר" (תומר 6.11)
+        '<button type="button" class="sw-vcta" data-studio="slide_cta"' + (sp === 'ba' ? '' : ' hidden') + '>' + (isComm(p) ? 'יש לכם עסק אחר בראש? <b>✨ הדמיה לעסק שלי</b>' : 'רוצים לראות בסגנון אחר? <b>✨ צרו הדמיה</b>') + '</button></div>' +
         // ‏Variant C: בטלפון כפתור זהב אחד במקום שורת sw-acts (מוצג רק שם, ‏swipe.css)
         '<button type="button" class="sw-gold sw-cmain" data-up>לפרטים ויצירת קשר</button></div>' +
         '<span class="sw-stamp is-like" aria-hidden="true">שמירה</span><span class="sw-stamp is-skip" aria-hidden="true">דילוג</span></article>';
@@ -1799,13 +1858,29 @@
         (live ? '<button type="button" class="sw-promo-link" data-nc-signup>עדכנו אותי כשנכנסת דירה</button>'
           : '<a class="sw-promo-link" href="/open-house" data-nc-page>מה זה היריד? ←</a>') + '</div></article>';
     }
+    if (c.slot === 'deal_pick') {
+      var cn = c.counts;
+      var opt = function (k, label) {
+        return cn[k] ? '<button type="button" class="sw-dpick-opt" data-dpick-opt="' + k + '"><span>' + esc(label) + '</span><b>' + cn[k] + '</b></button>' : '';
+      };
+      return '<article class="sw-card sw-promo sw-dpick" data-slot="deal_pick" aria-label="גבריאלה: מה תרצו לראות מעכשיו? למכירה, להשכרה או מסחרי">' + dbg +
+        '<button type="button" class="sw-dpick-x" data-dpick="close" aria-label="סגירה, להמשיך בכל הנכסים"><span aria-hidden="true">✕</span></button>' +
+        '<div class="sw-promo-in"><span class="sw-promo-gab"><img src="/assets/gabriela-cutout-400.webp" alt="" width="84" height="84" onerror="this.parentNode.hidden=true"></span>' +
+        '<p class="sw-promo-kick">גבריאלה</p>' +
+        '<h2 class="sw-promo-title">מה תרצו לראות מעכשיו?</h2>' +
+        '<p class="sw-promo-sub">עד עכשיו ראיתם נכסים מכל הסוגים. בחרו, ואמשיך להציג רק את מה שמעניין אתכם.</p>' +
+        '<div class="sw-dpick-opts" role="group" aria-label="סוג עסקה">' + opt('sale', 'למכירה') + opt('rent', 'להשכרה') + opt('commercial', 'מסחרי') + '</div>' +
+        '<button type="button" class="sw-promo-link" data-dpick="skip">דלגו, המשיכו בכל הנכסים</button>' +
+        '<label class="sw-dpick-never"><input type="checkbox" data-dpick-never> <span>לא להציע לי שוב</span></label>' +
+        '</div></article>';
+    }
     if (c.slot === 'seller') {
       var rent = filter.deal === 'rent';
       return '<article class="sw-card sw-promo sw-seller" data-slot="seller" aria-label="' + esc('לבעלי נכסים: ' + (rent ? 'חושבים להשכיר?' : 'חושבים למכור?') + ' השאירו פרטים') + '">' + dbg +
         '<div class="sw-promo-in">' + SELLER_ART +
         '<p class="sw-promo-kick">לבעלי נכסים</p>' +
         '<h2 class="sw-promo-title">' + (rent ? 'חושבים להשכיר?' : 'חושבים למכור?') + '</h2>' +
-        '<p class="sw-promo-sub">השאירו פרטים, ויועץ נדל״ן מהאזור יחזור אליכם.</p>' +
+        '<p class="sw-promo-sub">משאירים פרטים, והם יועברו ליועץ נדל״ן מהאזור.</p>' +
         '<p class="sw-promo-gold">הערכת שווי ללא עלות · הנכס יכול להתפרסם כאן עם הדמיות AI</p>' +
         '<button type="button" class="sw-gold sw-wide" data-promo-go>השאירו פרטים</button>' +
         '<button type="button" class="sw-promo-link" data-seller-later>לא עכשיו</button></div></article>';
@@ -1949,7 +2024,8 @@
   }
   function layerHtml(p, sp) {
     if (sp === 'reel') return reelLayer(p);
-    if (sp === 'ba') { var v = vizPair.get(p.id); return baHtml(v, true, baFit(v)); }
+    // בנכס מסחרי השקופית אומרת לאיזה עסק זו דוגמה ("דוגמה: משרד"), כדי שיהיה ברור שאפשר לבקש אחר
+    if (sp === 'ba') { var v = vizPair.get(p.id); return baHtml(v, true, baFit(v), isComm(p) ? bizName(v.biz) : ''); }
     if (sp !== 'invite') return '';
     var line = isComm(p) ? 'ראו איך הוא יכול להיראות כעסק שלכם'
       : p.deal_type === 'rent' ? 'ראו איך הוא יכול להיראות מרוהט ומעוצב' : 'ראו איך הוא יכול להיראות אחרי שיפוץ';
@@ -1969,14 +2045,15 @@
     var d = $('swDeck'), r = d ? d.getBoundingClientRect() : { width: 0, height: 0 };
     return fitMode(v.bw, v.bh, r.width, r.height) === 'cover' ? 'cover' : 'frame';
   }
-  function baHtml(v, withAfter, fit) {
+  /* ‏tag - שם העסק שההדמיה מדגימה ("דוגמה: משרד"), רק בנכס מסחרי. החותמת "הדמיית AI" נשארת תמיד */
+  function baHtml(v, withAfter, fit, tag) {
     var w = cardW(), ratio = v.bw && v.bh ? (v.bw / v.bh).toFixed(4) : '0.75';
     return '<div class="sw-ba' + (baHintGone ? ' is-touched' : '') + '" data-fit="' + (fit || 'cover') + '" style="--pos:50%;--r:' + ratio + '">' +
       '<div class="sw-ba-box">' +
       (withAfter ? '<img class="sw-ba-after" draggable="false" data-fb="sw-ba-after" ' + imgSrc(v.after, w) + ' alt="אחרי - הדמיית AI">' : '') +
       '<img class="sw-ba-before" draggable="false" data-fb="sw-ba-before" ' + imgSrc(v.before, w) + ' alt="לפני - הצילום האמיתי"></div>' +
       '<span class="sw-ba-line" aria-hidden="true"></span><span class="sw-ba-knob" aria-hidden="true">‹ ›</span>' +
-      '<span class="sw-ba-lbl is-before" aria-hidden="true">לפני</span><span class="sw-ba-lbl is-after" aria-hidden="true">אחרי · ✨ הדמיית AI</span>' +
+      '<span class="sw-ba-lbl is-before" aria-hidden="true">לפני</span><span class="sw-ba-lbl is-after" aria-hidden="true">אחרי · ✨ הדמיית AI' + (tag ? ' · דוגמה: ' + esc(tag) : '') + '</span>' +
       '<span class="sw-ba-hint" aria-hidden="true">גררו להשוואה</span>' +
       '<span class="sw-ba-hand" aria-hidden="true" hidden>' + HAND + '</span>' +
       '<div class="sw-ba-strip" role="slider" tabindex="0" aria-label="ידית השוואה: גררו להשוואה בין לפני לאחרי" aria-valuemin="3" aria-valuemax="97" aria-valuenow="50"></div></div>';
@@ -2203,6 +2280,9 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>' +
       esc(label || 'עדכנו אותי על נכס חדש') + '</button>' +
       '<form class="sw-aform" id="' + id + '" hidden novalidate>' +
+      (filter.deal === 'all' ? '<fieldset class="sw-adeal"><legend>מה מחפשים?</legend>' +
+        '<label><input type="radio" name="adeal" value="sale"> <span>לקנות</span></label>' +
+        '<label><input type="radio" name="adeal" value="rent"> <span>לשכור</span></label></fieldset>' : '') +
       '<label class="sw-field"><span>שם</span><input name="name" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון או אימייל</span><input name="contact" autocomplete="tel" inputmode="email" required></label>' +
       '<label class="sw-consent"><input type="checkbox" name="consent"> <span>מאשרים לקבל משוק נדל״ן הודעות וואטסאפ או SMS על נכסים חדשים שמתאימים לחיפוש הזה. אפשר להפסיק בכל רגע.</span></label>' +
@@ -2217,16 +2297,41 @@
     var ph = slides(c.p);
     return ph.length && slideKind(ph[0]) !== 'ba' ? slideBase(c.p, ph[0]) : '';
   }
+  /* ‏swipe-photos-ahead: מי שמקיש בקרוסלה מחכה לרשת אם רק התמונה הבאה נטענה. שתיים קדימה (נכנס גם
+     מ-nextPhoto, כדי שהחלון יזוז עם ההקשה), והתמונה השנייה של הכרטיסים +1 ו-+2. סדר הבקשות הוא
+     העדיפות, ו-‏warm עצמה בעדיפות נמוכה. ב-‏Save-Data נשארת התמונה הבאה בלבד. אחורה לא נטען: נמדד,
+     ואין בו תועלת (תמונה שכבר נראתה במטמון), ובעטיפה מ-0 זה בייטים לשקופית שכמעט אף אחד לא פותח */
+  function lean() { var cn = navigator.connection; return !!(cn && (cn.saveData || /(^|-)2g$/.test(cn.effectiveType || ''))); }
+  function warmCarousel(c) {
+    if (!c || c.slot !== 'property') return;
+    var ph = slides(c.p), n = ph.length, at = c.photo || 0;
+    if (n < 2) return;
+    // שתי התמונות הבאות, בלי עטיפה (הראשונה כבר נטענה כשהכרטיס הוצג), ובדילוג על שקופית מיוחדת
+    // (רילס, לפני/אחרי, הזמנה) כדי לחמם את התמונה שאחריה ולא לוותר עליה
+    for (var i = at + 1, got = 0, max = lean() ? 1 : 2; i < n && i <= at + 3 && got < max; i++) {   // עד שלוש שקופיות קדימה
+      var u = ph[i];
+      if (u && !slideKind(u)) { warm(u, true); got++; }
+    }
+  }
+  /* התמונה שאחרי הראשונה בכרטיס +1/+2. אחרי רילס (או שקופית מיוחדת אחרת) ph[1] היא התמונה האמיתית
+     הראשונה, ו-firstImg מחמם רק את הפוסטר: היא בעדיפות רגילה, אחרת היא עלולה להיתקע כשמגיעים אליה */
+  function warmSecond(c) {
+    if (lean() || !c || c.slot !== 'property') return;
+    var ph = slides(c.p), u = ph[1];
+    if (u && !slideKind(u)) warm(u, !slideKind(ph[0]));
+  }
   function warmAhead(top, c) {
     var run = function () {
       if (c.slot === 'property') {
-        var ph = slides(c.p), nx = ph[((c.photo || 0) + 1) % (ph.length || 1)];
-        if (ph.length > 1 && nx && !slideKind(nx)) warm(nx);
+        warmCarousel(c);
+        var ph = slides(c.p);
         // היחס של כל התמונות בכרטיס (כ-1KB כל אחת), כדי שכל הקשה תבקש את הרוחב הנכון
         ph.forEach(function (x) { if (!slideKind(x) && !RATIO.has(x)) { var th = new Image(); th.onload = function () { noteRatio(x, th.naturalWidth, th.naturalHeight, false); }; th.src = sized(x, 40); } });
       }
       warm(firstImg(deck[idx + 2]));
       warm(firstImg(deck[idx + 3]));
+      warmSecond(deck[idx + 1]);
+      warmSecond(deck[idx + 2]);
     };
     warmReel(deck[idx + 1]);
     warmReel(deck[idx + 2]);
@@ -2496,6 +2601,8 @@
     if (top && !reduceMotion) { top.classList.add(dir === 'like' ? 'fly-like' : 'fly-skip'); setTimeout(go_, 220); } else go_();
   }
   function promoGo(c, via) {
+    // בחירת עסקה: אין פעולה ראשית אחת - ♥ או החלקה למעלה ממשיכים בכל הנכסים, והקשה על הכרטיס לא עושה דבר
+    if (c.slot === 'deal_pick') { if (via !== 'tap') { shukTrack('swipe_deal_pick', { choice: 'skip', position: c.pos }); c.acted = true; promoNext(c, via, 'skip'); } return; }
     c.acted = true;
     if (c.slot === 'nc_promo') {
       if (c.variant === 'live') {
@@ -2512,7 +2619,8 @@
     if (c.slot === 'nc_promo') {
       if (c.variant === 'wait') store('sk_nc_promo_wait_seen', String(Date.now()));
       shukTrack('nc_promo_view', { variant: c.variant, position: c.pos });
-    } else if (c.slot === 'seller') shukTrack('seller_card_view', { position: c.pos, deal: filter.deal });
+    } else if (c.slot === 'deal_pick') shukTrack('swipe_deal_pick', { choice: 'view', position: c.pos });
+    else if (c.slot === 'seller') shukTrack('seller_card_view', { position: c.pos, deal: filter.deal });
     else if (c.slot === 'advice') {
       sessSet('sk_swipe_shown_advice_' + c.aud + '_' + c.tip);
       shukTrack('advice_card_view', { audience: c.aud, tip: c.tip + 1, position: c.pos });
@@ -2551,6 +2659,7 @@
     var s = sized(u, w), done = false;
     var pre = new Image();
     pre.decoding = 'async';
+    pre.fetchPriority = 'high';
     pre.src = s;
     function apply(ready) {
       if (done || img._tok !== tok || !img.isConnected) return;
@@ -2561,7 +2670,18 @@
       img.style.width = '';
       if (s !== u) img.setAttribute('data-orig', u); else img.removeAttribute('data-orig');
       img.setAttribute('data-watch', '');
+      var same = img.getAttribute('src') === s;   // אותה כתובת: אין אירוע load
       img.src = s;
+      // החלון של הקרוסלה זז רק אחרי שהתמונה שביקשו הגיעה (‏warm מוותרת על מה שכבר התבקש). המאזין
+      // יוצא גם בשגיאה, כדי שלא יישאר תלוי על הצומת המשותף
+      var adv = function () { var cc = cur(); if (cc && cc.p && img.getAttribute('data-u') === u) warmCarousel(cc); };
+      if (same && img.complete && img.naturalWidth) setTimeout(adv, 0);
+      else {
+        var onErr = function () { img.removeEventListener('load', onLoad); };
+        var onLoad = function () { img.removeEventListener('error', onErr); adv(); };
+        img.addEventListener('load', onLoad, { once: true });
+        img.addEventListener('error', onErr, { once: true });
+      }
       if (blur) { blur.setAttribute('data-u', u); blur.src = sized(u, 40); }
       watchFit(img);
     }
@@ -2670,6 +2790,15 @@
       if (c && PROMO[c.slot]) {
         var wasTap = tapPromo; tapPromo = false;
         if (e.target.closest('[data-promo-go]')) { promoGo(c, 'button'); return; }
+        var dpo = e.target.closest('[data-dpick-opt]');
+        if (dpo) { dealPickChoose(c, dpo.dataset.dpickOpt); return; }
+        var dpx = e.target.closest('[data-dpick]');
+        if (dpx) { shukTrack('swipe_deal_pick', { choice: dpx.dataset.dpick, position: c.pos }); c.acted = true; promoNext(c, dpx.dataset.dpick, 'skip'); return; }
+        if (e.target.matches && e.target.matches('input[data-dpick-never]')) {
+          if (e.target.checked) { store('sk_swipe_dealpick_off', '1'); shukTrack('swipe_deal_pick', { choice: 'never', position: c.pos }); }
+          else store('sk_swipe_dealpick_off', null);
+          return;
+        }
         if (e.target.closest('[data-nc-signup]')) { c.acted = true; shukTrack('nc_promo_click', { cta: 'signup' }); openFairSignup('swipe_promo'); return; }
         if (e.target.closest('[data-nc-page]')) { c.acted = true; shukTrack('nc_promo_click', { cta: 'page' }); return; }
         if (e.target.closest('[data-seller-later]')) { shukTrack('seller_card_click', { cta: 'later' }); promoDismiss(c, 'later'); c.acted = true; promoNext(c, 'later', 'skip'); return; }
@@ -2708,7 +2837,8 @@
         c.photo = slides(c.p).length - 1; syncSlide(top, c); return;
       }
       var st_ = e.target.closest('[data-studio]');
-      if (st_) { openSheetFor(c, { tab: 'viz', from: st_.dataset.studio }); return; }
+      // "✨ הדמיה לעסק שלי" מהשקופית של נכס מסחרי פותח ישר את שדה העסק, לא את הדוגמה שוב
+      if (st_) { openSheetFor(c, { tab: 'viz', from: st_.dataset.studio, own: st_.dataset.studio === 'slide_cta' && !!c.p && isComm(c.p) }); return; }
       if (e.target.closest('[data-spon-cta]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); openSheetFor(c); return; }
       if (e.target.closest('[data-spon-link]')) { shukTrack('sponsored_click', { slot: c.slot, sponsor_id: c.sponsor.id }); return; }
       if (e.target.closest('#swWiden')) { openFilter(e.target); return; }
@@ -2825,7 +2955,7 @@
       (p ? qHtml(questionsFor(c)) : sponQHtml()) +
       '<label class="sw-consent"><input type="checkbox" id="swLConsent"> <span>מאשרים פנייה חוזרת מהמפרסם בנוגע לפנייה הזו, בהתאם ל<a href="/terms" target="_blank">תנאי השימוש</a> ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a>.</span></label>' +
       '<p class="sw-ferr" id="swLErr" role="alert"></p></form>' +
-      '<p class="sw-done" id="swLDone" hidden>✅ הפנייה נשלחה. יחזרו אליכם בקרוב.</p>';
+      '<p class="sw-done" id="swLDone" hidden>✅ הפנייה נשלחה. הפרטים יועברו למפרסם המודעה.</p>';
   }
   /* "בקשו תמונות מהמפרסם": הגיליון נפתח עם הטופס וההודעה המלאה. שום דבר לא נשלח בלחיצה */
   function npRequest(c, level, surface) {
@@ -2849,7 +2979,7 @@
     var studio = studioOk(c);
     $('swSheetBody').innerHTML = (studio ? '<div class="sw-tabs" role="tablist" aria-label="פרטי הנכס והדמיה">' +
         '<button type="button" role="tab" id="swTabBtnInfo" data-tab="info" aria-controls="swTabInfo" aria-selected="true">פרטים</button>' +
-        '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">✨ הדמיה</button></div>' : '') +
+        '<button type="button" role="tab" id="swTabBtnViz" data-tab="viz" aria-controls="swTabViz" aria-selected="false" tabindex="-1">' + (c.p && isComm(c.p) ? '✨ העסק שלכם כאן' : '✨ הדמיה') + '</button></div>' : '') +
       '<div id="swTabInfo"' + (studio ? ' role="tabpanel" aria-labelledby="swTabBtnInfo"' : '') + '>' + bannerHtml(adv, label) + formHtml(c, opts.msg, opts.fullMsg) +
         (c.p && fairLive(c.p) ? '<div class="sw-fairband"><p>' + esc(FAIR_NAME + ' · ' + NO_FEE + ' לקונה ' + OpenHouse.rangeLabel(c.p)) + '</p>' + (fairFormLine(c.p) ? '<p class="sw-fairform">' + esc(fairFormLine(c.p)) + '</p>' : '') + '<a href="/open-house">מה זה היריד? ←</a></div>' : '') +
         (c.p ? '<div class="sw-sh-share"><button type="button" class="sw-white sw-wide" data-share-prop>' + SHARE_SVG + 'שיתוף הנכס</button></div>' : '') +
@@ -2859,10 +2989,14 @@
       (studio ? '<div id="swTabViz" class="sw-studio" role="tabpanel" aria-labelledby="swTabBtnViz" hidden></div>' : '');
     $('swCtaBar').hidden = false;
     st = null;
+    $('swSheet').querySelector('.sw-sheet').classList.remove('is-studio');   // מתאפס יחד עם st, גם כשהגיליון כבר פתוח
     syncCta();
     if (opts.form) toggleForm(true);
+    // בלוק המחיר של הכרטיס מוסתר כל עוד הגיליון פתוח - אחרת הוא מציץ מעל הגיליון (תומר 6.11)
+    document.body.classList.add('sw-sheet-open');
     openDialog($('swSheet'));
-    if (studio && opts.tab === 'viz') setTab('viz', opts.from);
+    // ‏own אחרי הפוקוס של openDialog (30ms על הכותרת), אחרת הכותרת לוקחת את הפוקוס מהשדה
+    if (studio && opts.tab === 'viz') { setTab('viz', opts.from); if (opts.own) setTimeout(studioOwn, 80); }
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
     shukTrack('swipe_up_open', { slot: c.slot, position: c.pos });
     if (c.slot === 'property') seenMark(c.p, 'v');
@@ -2946,6 +3080,8 @@
       b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
     });
     $('swCtaBar').hidden = t === 'viz';
+    // בלשונית ההדמיה הגיליון נפתח גבוה יותר בטלפון (‏swipe.css), כדי שהתמונה תקבל מקום
+    $('swSheet').querySelector('.sw-sheet').classList.toggle('is-studio', t === 'viz');
     if (t === 'viz') {
       if (!st) studioInit(sheetCard.p);
       renderStudio();
@@ -2966,10 +3102,38 @@
     var seen = {}, out = [];
     (vizMap.get(p.id) || []).slice().sort(function (a, b) { return a.at < b.at ? 1 : -1; }).forEach(function (v) {
       var k = bizKey(v.biz);
-      if (k === '_' || seen[k] || out.length >= 6) return;
+      if (k === '_' || !bizName(v.biz) || seen[k] || out.length >= 6) return;
       seen[k] = 1; out.push([k, v.biz.trim()]);
     });
     return out;
+  }
+  /* עסקים מוצעים לפי סוג הנכס (תומר 6.11): שבבים לבחירה מהירה, ותמיד "עסק אחר…" בטקסט חופשי.
+     מה שכבר הודמה בנכס קודם להם (‏bizChips) - הוא מוכן ובחינם */
+  /* הביטויים מול הרשימה הסגורה של סוגי הנכס המסחריים ב-search-core.js (‏'משרדים',
+     'חנויות/שטח מסחרי', 'מבני תעשייה', 'אולמות', 'חלל עבודה משותף', 'מחסנים', 'סטודיו',
+     'מרתף', 'בית מלון', 'קליניקות', 'מרלו״ג/מרכז לוגיסטי'); מה שלא נתפס - ברירת המחדל */
+  var BIZ_SUGGEST = [
+    [/משרד|קליניק|חלל עבודה/, ['משרד רו״ח', 'קליניקה', 'סטודיו', 'משרד הייטק']],
+    [/חנו|מסחר/, ['בית קפה', 'חנות בגדים', 'מספרה', 'מרפאה']],
+    [/מחסן|תעשי|מרלו|לוגיסט/, ['מרלו״ג', 'חדר כושר', 'נגרייה', 'אולם תצוגה']],
+    [/אולם|מלון/, ['אולם אירועים', 'חדר כושר', 'גלריה', 'סטודיו לריקוד']],
+    [/סטודיו|מרתף/, ['סטודיו לצילום', 'חדר כושר', 'סטודיו ליוגה', 'גלריה']]
+  ];
+  function bizSuggest(p) {
+    var t = p.property_type || '', hit = BIZ_SUGGEST.filter(function (x) { return x[0].test(t); })[0];
+    return hit ? hit[1] : ['בית קפה', 'משרד', 'קליניקה', 'חנות'];
+  }
+  /* התווית עוברת ב-bizName - כלל אחד לטקסט חופשי של גולש/ת (חיתוך ל-40, בלי רצף ספרות) */
+  function bizChipHtml(key, label, done) {
+    return '<button type="button" class="sw-st-chip" data-biz="' + esc(key) + '" data-biz-label="' + esc(label) + '" aria-pressed="' + (!st.other && key === st.key) + '"' + (st.busy ? ' disabled' : '') + '>' +
+      esc(bizName(label)) + (done ? ' <b aria-hidden="true">✦</b>' : '') + '</button>';
+  }
+  /* "העסק שלי": שדה עסק ריק והטופס מתחתיו, עם פוקוס. מהכפתור שבסטודיו, מ"עסק אחר…" ומכפתור השקופית */
+  function studioOwn() {
+    if (!st || !st.comm) return;
+    st.other = true; st.key = '_'; st.bizLabel = ''; st.msg = ''; st.saved = false; renderStudio();
+    var bi = $('swStBiz');
+    if (bi) { bi.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' }); bi.focus({ preventScroll: true }); }
   }
   function studioStage() {
     /* ‏P1-K1: בלי הדמיה - לא התמונה הראשונה (לפעמים צילום חוץ מתחת ל"חלל העסק"), אלא
@@ -2986,8 +3150,13 @@
         (st.total > 1 ? '<p class="sw-st-k">מוכנות ' + (st.total - (st.pending || []).length) + ' מתוך ' + st.total + '</p>' : '') +
         '<span class="sw-st-bar"><i style="width:' + pct + '%"></i></span><b>' + pct + '%</b></div></div>';
     }
-    if (r && r.before) return baHtml({ before: r.before, after: r.after }, true);
-    if (r) return '<img data-fb="sw-st-src" class="sw-st-src is-only" ' + imgSrc(r.after, 800) + ' alt="' + esc('הדמיית AI - ' + vizRoom(p, st.target)) + '">';
+    // בנכס מסחרי התמונה אומרת לאיזה עסק היא דוגמה, ולפני/אחרי מתחלפים גם בהקשה (לא רק בגרירה)
+    var tag = st.comm && r ? '<span class="sw-st-ex">דוגמה: ' + esc(bizName(r.biz) || studioStyleLabel()) + '</span>' : '';
+    if (r && r.before) {
+      return baHtml({ before: r.before, after: r.after }, true) + tag +
+        '<div class="sw-ba-tog" role="group" aria-label="לפני ואחרי"><button type="button" data-ba-set="before">לפני</button><button type="button" data-ba-set="after">אחרי</button></div>';
+    }
+    if (r) return '<img data-fb="sw-st-src" class="sw-st-src is-only" ' + imgSrc(r.after, 800) + ' alt="' + esc('הדמיית AI - ' + vizRoom(p, st.target)) + '">' + tag;
     var over = '';
     if (st.msg) over = '<div class="sw-st-err" role="alert"><p>' + esc(st.msg) + '</p>' + (st.limit ? '' : '<button type="button" class="sw-white" data-gen-retry>נסו שוב</button>') + '</div>';
     else if (!VIZ_SWIPE_GENERATE && !st.comm) return vizInvite(p, st.key, studioStyleLabel(), src, true);
@@ -3022,7 +3191,8 @@
   function renderStudio() {
     var box = $('swTabViz');
     if (!box || !st) return;
-    if (st.comm) {
+    // כשהיצירה כבויה, נכס מסחרי מקבל תצוגה בלבד וקישור לדף הנכס (‏P1-K2)
+    if (st.comm && !VIZ_SWIPE_GENERATE) {
       box.innerHTML = '<p class="sw-st-head"><b>הדמיות עסקים בנכס</b></p>' + commShowcase(st.p);
       box.querySelectorAll('.sw-ba').forEach(function (b) { bindBa(b); });
       return;
@@ -3047,12 +3217,19 @@
           '<span>' + esc(x[1]) + (v ? ' <b aria-label="יש הדמיה">✦</b>' : '') + '</span></button>';
       }).join('') + '</div>';
     } else {
-      var chips = bizChips(p);
-      styles_ = '<div class="sw-st-row">' + chips.map(function (b) {
-        return '<button type="button" class="sw-st-chip" data-biz="' + esc(b[0]) + '" data-biz-label="' + esc(b[1]) + '" aria-pressed="' + (!st.other && b[0] === st.key) + '"' + (st.busy ? ' disabled' : '') + '>' + esc(b[1].length > 40 ? b[1].slice(0, 39) + '…' : b[1]) + ' <b aria-hidden="true">✦</b></button>';
-      }).join('') + '<button type="button" class="sw-st-chip" data-biz-other aria-pressed="' + st.other + '"' + (st.busy ? ' disabled' : '') + '>עסק אחר…</button></div>' +
+      // מה שכבר הודמה כאן (מוכן ובחינם) קודם, ואחריו הצעות לפי סוג הנכס ו"עסק אחר…"
+      var done_ = bizChips(p), seen_ = {};
+      done_.forEach(function (b) { seen_[b[0]] = 1; });
+      var sugg_ = bizSuggest(p).filter(function (l) { return !seen_[bizKey(l)]; });
+      styles_ = (done_.length ? '<p class="sw-st-sub">כבר הודמו כאן, מוכנות לצפייה:</p><div class="sw-st-row">' + done_.map(function (b) { return bizChipHtml(b[0], b[1], true); }).join('') + '</div>' : '') +
+        '<div class="sw-st-row">' + sugg_.map(function (l) { return bizChipHtml(bizKey(l), l, false); }).join('') +
+        '<button type="button" class="sw-st-chip" data-biz-other aria-pressed="' + st.other + '"' + (st.busy ? ' disabled' : '') + '>עסק אחר…</button></div>' +
         (st.other ? '<label class="sw-field"><span>איזה עסק?</span><input id="swStBiz" maxlength="80" placeholder="למשל: בית קפה, קליניקה, חנות בגדים" value="' + esc(st.bizLabel) + '"></label>' : '');
     }
+    // מסחרי עם דוגמה על המסך: לקרוא לדבר בשמו, ודרך קצרה ל"העסק שלי" (תומר 6.11)
+    var askOwn = st.comm && r && !st.busy ? '<div class="sw-st-line"><p>ככה זה יכול להיראות כ' + esc(bizName(r.biz) || studioStyleLabel()) + '. יש לכם עסק אחר בראש?</p>' +
+      '<button type="button" class="sw-gold" data-biz-focus>✨ הדמיה לעסק שלי</button></div>' : '';
+    var stageR = r && r.bw && r.bh ? ' style="--st-r:' + (r.bw / r.bh).toFixed(4) + '"' : '';
     var contact = st.comm && VIZ_SWIPE_GENERATE && !r ? '<form class="sw-st-form" id="swStForm" novalidate>' +
       '<label class="sw-field"><span>שם</span><input id="swStName" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון</span><input id="swStPhone" type="tel" inputmode="tel" autocomplete="tel" required></label>' +
@@ -3062,12 +3239,19 @@
     var quota = VIZ_SWIPE_GENERATE && !r ? (vizLeft() ? '<p class="sw-st-q">נותרו ' + vizLeft() + ' מתוך ' + VIZ_DAILY + ' הדמיות היום</p>'
       : '<p class="sw-st-q is-soft">' + esc(VIZ_LIMIT) + '</p>') : '';
     box.innerHTML = '<p class="sw-st-head"><b>' + esc(head) + '</b>' + (r ? ' <span class="sw-st-real">הדמיה אמיתית</span>' : '') + '</p>' +
-      '<div class="sw-st-stage">' + studioStage() + '</div>' + (st.busy ? '' : quota) +
+      '<div class="sw-st-stage"' + stageR + '>' + studioStage() + '</div>' + askOwn + (st.busy ? '' : quota) +
       (r && !st.busy ? '<button type="button" class="sw-navy sw-wide sw-st-save" data-viz-save' + (st.saved ? ' disabled' : '') + '>' + (st.saved ? '✓ נשמר במועדפים' : '♡ שמירה במועדפים') + '</button>' : '') +
       '<h3 class="sw-sub-h"><span class="sw-st-n">1</span> ' + (st.comm ? 'איזה חלל?' : 'איזה חדר?') + '</h3><div class="sw-st-row">' + rooms_ + '</div>' +
       '<h3 class="sw-sub-h"><span class="sw-st-n">2</span> ' + (st.comm ? 'איזה עסק תפתחו כאן?' : 'איזה סגנון?') + '</h3>' + styles_ + contact +
-      '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והמשרד המפרסם יחזור אליכם.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
+      '<p class="sw-st-note">' + (st.comm ? 'בנכס מסחרי נבקש שם וטלפון, והפרטים יועברו למפרסם המודעה. ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים; זו המחשה ממוחשבת ולא התחייבות.' : 'ההדמיה נשמרת בדף הנכס ותוצג גם למבקרים אחרים. זו המחשה ממוחשבת ולא התחייבות לשיפוץ.') + '</p>';
     bindBa(box.querySelector('.sw-ba'));
+    // יחס התמונה לבמה (‏--st-r, בטלפון מקצה לקצה): מה-bw/bh של הזוג כשיש, ואחרת מהתמונה עצמה כשנטענה -
+    // רק הזוג של השקופית עובר vizPrep, וההדמיות האחרות (וכל מה שנוצר עכשיו) מגיעות בלי מידות
+    var stage_ = box.querySelector('.sw-st-stage'), im_ = stage_ && stage_.querySelector('.sw-ba-before, img.sw-st-src.is-only');
+    if (stage_ && im_ && !stageR) {
+      var setR_ = function () { if (im_.naturalWidth && im_.naturalHeight) stage_.style.setProperty('--st-r', (im_.naturalWidth / im_.naturalHeight).toFixed(4)); };
+      if (im_.complete) setR_(); else im_.addEventListener('load', setR_, { once: true });
+    }
   }
   function vizGenerate(contact) {
     if (!VIZ_SWIPE_GENERATE || !st || st.busy) return;
@@ -3193,7 +3377,14 @@
       return;
     }
     if ((b = e.target.closest('[data-biz]'))) { st.key = b.dataset.biz; st.bizLabel = b.dataset.bizLabel; st.other = false; st.msg = ''; st.saved = false; renderStudio(); return; }
-    if (e.target.closest('[data-biz-other]')) { st.other = true; st.key = bizKey(st.bizLabel); renderStudio(); var bi = $('swStBiz'); if (bi) bi.focus(); return; }
+    // "עסק אחר…" ו-"✨ הדמיה לעסק שלי": שדה ריק (לא העסק של הדוגמה - אחרת הטופס לא מופיע, כי יש לו כבר הדמיה)
+    if (e.target.closest('[data-biz-other]') || e.target.closest('[data-biz-focus]')) { studioOwn(); return; }
+    // הקשה על "לפני"/"אחרי" מזיזה את הידית לקצה - חלופה לגרירה
+    if ((b = e.target.closest('[data-ba-set]'))) {
+      var ba = b.closest('.sw-st-stage') && b.closest('.sw-st-stage').querySelector('.sw-ba');
+      if (ba && ba._set) { ba._set(b.dataset.baSet === 'before' ? 0 : 100); baHintGone = true; ba.classList.add('is-touched'); }
+      return;
+    }
     if (e.target.closest('[data-gen]') || e.target.closest('[data-gen-retry]')) {
       st.msg = '';
       if (st.comm) { renderStudio(); var n_ = $('swStName'); if (n_) n_.focus(); return; }
@@ -3225,6 +3416,8 @@
     if ($('swSheet').hidden) return;
     vizToken++;   // הפסקת ה-polling; העבודה עצמה ממשיכה בשרת
     st = null;
+    document.body.classList.remove('sw-sheet-open');
+    $('swSheet').querySelector('.sw-sheet').classList.remove('is-studio');
     closeDialog($('swSheet'), sheetOpener);
     if (sheetPushed && !fromPop) { sheetPushed = false; ownBack = true; history.back(); }
     sheetPushed = false;
@@ -3351,13 +3544,16 @@
   function submitAlert(form) {
     var name = form.name.value.trim(), contact = form.contact.value.trim(), err = form.querySelector('.sw-ferr');
     var isMail = /@/.test(contact);
+    // "כל הנכסים": החיפוש השמור צריך עסקה אחת - שואלים במקום להניח מכירה
+    var adeal = form.adeal ? (form.querySelector('input[name=adeal]:checked') || {}).value : '';
+    if (form.adeal && !adeal) { err.textContent = 'בחרו אם מחפשים לקנות או לשכור'; form.querySelector('input[name=adeal]').focus(); return; }
     if (name.length < 2) { err.textContent = 'נא להזין שם'; form.name.focus(); return; }
     if (isMail ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) : contact.replace(/\D/g, '').length < 9) { err.textContent = 'נא להזין טלפון או אימייל תקינים'; form.contact.focus(); return; }
     if (!form.consent.checked) { err.textContent = 'צריך לסמן את האישור כדי לשלוח'; form.consent.focus(); return; }
     err.textContent = '';
     var f = filter;
     var body = { full_name: name, consent_agent_contact: false, source: 'swipe_end',
-      deal_type: f.deal === 'rent' ? 'rent' : 'sale', category: f.deal === 'commercial' ? 'commercial' : 'residential',
+      deal_type: adeal || (f.deal === 'rent' ? 'rent' : 'sale'), category: f.deal === 'commercial' ? 'commercial' : 'residential',
       contact_channel: isMail ? 'email' : 'whatsapp' };
     if (isMail) body.email = contact; else body.phone = contact;
     if (f.budget) body.max_price = f.budget;
@@ -3491,7 +3687,7 @@
       '<p class="sw-snote">הפרטים עוברים ליועץ נדל״ן אחד מהאזור, ולא מתפרסמים באתר.</p>' +
       '<p class="sw-ferr" data-serr="send" role="alert"></p>' +
       '<div class="sw-sbar"><button type="submit" class="sw-gold sw-wide" id="swSGo">שליחה ליועץ נדל״ן</button></div></form>' +
-      '<div class="sw-sdone" hidden role="status"><p>תודה! יועץ נדל״ן מהאזור יחזור אליכם בהקדם.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
+      '<div class="sw-sdone" hidden role="status"><p>תודה! הפרטים יועברו ליועץ נדל״ן מהאזור.</p><button type="button" class="sw-navy sw-wide" data-sback>חזרה להחלקה</button></div></div>';
   }
   function bindSeller() {
     var box = $('swBsBody'), form = $('swSellerForm'), stepped = {};
@@ -3533,7 +3729,7 @@
       if (!city) { err('city', 'נא לבחור יישוב'); first = first || $('swSCity'); }
       if (name.length < 2) { err('name', 'נא להזין שם מלא'); first = first || $('swSName'); }
       if (!/^0?5\d{8}$/.test(phone)) { err('phone', 'נא להזין מספר טלפון תקין'); first = first || $('swSPhone'); }
-      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיחזרו אליכם'); first = first || $('swSConsent'); }
+      if (!$('swSConsent').checked) { err('consent', 'כדי לשלוח צריך לאשר שיועץ נדל״ן מהאזור יוכל לפנות אליכם'); first = first || $('swSConsent'); }
       if (first) { first.focus(); return; }
       var pick = function (q) { var x = box.querySelector('[data-sq="' + q + '"][aria-pressed="true"]'); return x ? x.dataset.v : ''; };
       var type = pick('type') || 'דירה', when = pick('timing'), rooms = $('swSRooms').hidden ? '' : pick('rooms');
@@ -3570,6 +3766,8 @@
       '<p class="sw-art-more"><a href="/article?slug=' + encodeURIComponent(a.slug || a.id) + '" data-art-full>להמשך קריאה ←</a></p>' +
       '<button type="button" class="sw-navy sw-wide" data-art-back>חזרה להחלקה</button></div>';
     $('swCtaBar').hidden = true;
+    $('swSheet').querySelector('.sw-sheet').classList.remove('is-studio');
+    document.body.classList.add('sw-sheet-open');
     openDialog($('swSheet'));
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
   }
@@ -3859,7 +4057,7 @@
   window.SwipeApp = {
     apply: function (o) {
       o = o || {};
-      if (o.deal === 'sale' || o.deal === 'rent' || o.deal === 'commercial') filter.deal = o.deal;
+      if (o.deal === 'sale' || o.deal === 'rent' || o.deal === 'commercial' || o.deal === 'all') filter.deal = o.deal;
       filter.fair = !!o.fair;
       if (!$('swFilter').hidden) closeFilter();
       buildDeck();
@@ -4027,7 +4225,7 @@
     box.innerHTML = ['sale', 'rent', 'commercial'].map(function (k) {
       var n_ = countFor({ deal: k });
       if (!n_ && filter.deal !== k) return '';
-      return '<button type="button" class="sw-lg is-' + k + '" data-kind="' + k + '" aria-pressed="' + (filter.deal === k) + '">' +
+      return '<button type="button" class="sw-lg is-' + k + '" data-kind="' + k + '" aria-pressed="' + (filter.deal === k || filter.deal === 'all') + '">' +
         '<i aria-hidden="true"></i>' + esc({ sale: 'מכירה', rent: 'השכרה', commercial: 'מסחרי' }[k]) + ' <b>' + n_ + '</b></button>';
     }).join('');
   }
@@ -4104,9 +4302,30 @@
      כדי שלא תישאר רשומה ישנה ו"אחורה" אחר כך יתנהג כמו קודם. גיליון שנפתח מעל המועדפים נסגר קודם
      (הרשומה שלו מעל זו). הגלילה ברשימה נשמרת ומשוחזרת */
   var likesPushed = false, likesOwnBack = false, likesScroll = 0, likesResume = null;
+  /* רשומות התצוגה (ראו setView): התצוגה של הרשומה שאליה חזרנו. רשומה בלי swView היא ההחלקה
+     (הכניסה לדף, מעבר היריד), חוץ מרשומת גיליון (‏swSheet), שהקוד שלה מטפל בה.
+     ‏viewRestore: הכניסה ל-?view=map בטעינה אינה מעבר ואינה דוחפת */
+  var viewRestore = false;
+  function stateView(st) {
+    if (st && (st.swView === 'deck' || st.swView === 'map' || st.swView === 'list')) return st.swView;
+    if (st && (st.swView || st.swSheet)) return null;
+    return 'deck';
+  }
+  window.addEventListener('popstate', function (e) {
+    if (view === 'likes' || likesOwnBack) return;   // המועדפים מטפלים ברשומה שלהם
+    var tv = stateView(e.state);
+    if (tv && tv !== view) setView(tv, false, false, true);
+  });
   window.addEventListener('popstate', function (e) {
     // הכתובת נכתבת רק עכשיו, על הרשומה שאליה חזרנו - ולא על רשומת המועדפים שיצאה (סינון שהשתנה במועדפים)
-    if (likesOwnBack) { likesOwnBack = false; writeUrl(); syncLvBack(); return; }
+    if (likesOwnBack) {
+      likesOwnBack = false;
+      /* מהמועדפים לתצוגה אחרת מזו שממנה נפתחו: הרשומה שלה נדחפת רק עכשיו, אחרי שהמועדפים יצאו */
+      if (view !== 'likes' && stateView(history.state) !== view) {
+        try { history.pushState(Object.assign({}, history.state, { swView: view }), ''); } catch (e2) { /* בזיכרון בלבד */ }
+      }
+      writeUrl(); syncLvBack(); return;
+    }
     if (!likesPushed || view !== 'likes') return;
     if (e.state && e.state.swView === 'likes') return;   // רק הגיליון שמעל נסגר
     likesPushed = false;
@@ -4150,6 +4369,12 @@
     } else if (view === 'likes' && v !== 'likes' && likesPushed && !fromPop) {
       likesPushed = false; likesOwnBack = true;
       try { history.back(); deferUrl = true; } catch (e) { likesOwnBack = false; }
+    }
+    /* ‏1.11.2026 (תומר): כל מעבר בין החלקה, מפה ורשימה דוחף רשומה בהיסטוריה (‏swView), ולכן
+       "אחורה" חוזר לתצוגה הקודמת, בסדר שבו נפתחו (רשימה ← מפה ← החלקה), ולא יוצא מ-/swipe.
+       המועדפים מנהלים רשומה משלהם (למטה) */
+    if ((v === 'deck' || v === 'map' || v === 'list') && v !== view && view !== 'likes' && !fromPop && !viewRestore) {
+      try { history.pushState(Object.assign({}, history.state, { swView: v }), ''); } catch (e) { /* בזיכרון בלבד */ }
     }
     var backToList = view === 'likes' && v === 'list' && preLikes === 'list';
     // ‏"אהבתי" אינה תצוגה שחוזרים אליה מהמפה (‏P0-E)
@@ -4434,7 +4659,7 @@
   if (filter.fair && params.get('view') === 'list') { location.replace(fairListHref('swipe_list_link')); return; }
   syncSortBtn();
   var urlDeal = params.get('deal');
-  if (urlDeal === 'rent' || urlDeal === 'sale' || urlDeal === 'commercial') filter.deal = urlDeal;
+  if (urlDeal === 'rent' || urlDeal === 'sale' || urlDeal === 'commercial' || urlDeal === 'all') filter.deal = urlDeal;
   if (params.get('fair') === '1') filter.fair = true;
   renderLikes();
   document.body.dataset.view = 'deck';
@@ -4442,15 +4667,23 @@
   function start() {
     load().then(function (rows) { return extReady.then(function () { initExt(rows); return rows; }); }).then(function (rows) {
       all = rows;
-      /* ‏"הסינון לפני ההחלקה" רק בכניסה נקייה: כתובת שכבר נושאת סינון (‏reload, קישור
-         מדף הבית) או חזרה ב"אחורה" מדף נכס - בלי גיליון שנפתח מעצמו (‏P0-C, ‏P1-L) */
-      if (!urlHasFilter && !cameBack()) openFilter($('swSum'));
+      /* ‏1.11.2026 (תומר): הסינון כבר לא נפתח מעצמו בכניסה - הגולש/ת רואה נכסים
+         מיד, ומי שרוצה מסנן/ת דרך כפתור הסינון. ההדרכה, שעד עכשיו התחילה אחרי
+         "התחילו להחליק" בגיליון, מתחילה כאן בכניסה נקייה (בלי סינון בכתובת ובלי
+         "אחורה" מדף נכס). */
       buildDeck();
+      if (!urlHasFilter && !cameBack() && view === 'deck') maybeTour();
       maybeResume();
       var v0 = params.get('view');
       var hs = history.state;
       if (v0 === 'likes' && hs && hs.swView === 'likes') likesResume = hs.from === 'map' || hs.from === 'list' ? hs.from : 'deck';
+      viewRestore = true;
       if (v0 === 'list' || v0 === 'map' || v0 === 'likes') setView(v0);
+      viewRestore = false;
+      // כניסה ישירה ל-?view=map: הרשומה הנוכחית מסומנת כמפה, כדי ש"אחורה" מרשימה שתיפתח אחריה יחזור אליה
+      if ((view === 'map' || view === 'list') && stateView(hs) !== view) {
+        try { history.replaceState(Object.assign({}, hs, { swView: view }), ''); } catch (e) { /* בזיכרון בלבד */ }
+      }
       if (cameBack()) restoreListScroll();
       loadViz(rows).then(function () {
         if (ext && ext.st.ai) buildDeck();   // ‏hf עם ai=1 - החפיסה אחרי שההדמיות ידועות

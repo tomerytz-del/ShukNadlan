@@ -180,6 +180,11 @@
       else if (href.indexOf('mailto:') === 0) method = 'email';
       if (!method) return;
 
+      /* ‏קישור שהודבק בגוף הכתבה אינו פנייה. כתובת wa.me בטקסט נשארת
+         קישור, וספירתה כליד מנפחת את המדד. כפתור השיתוף יושב מחוץ
+         ל-#articleBody ועדיין נספר. */
+      if (link.closest('#articleBody')) return;
+
       if (link.hasAttribute('data-bot')){
         // ‏entry הוא נקודת הכניסה שממנה נלחץ הכפתור ("search_empty"), ולא
         // הדף — page_type כבר מגיע מ-pageContext ואין טעם לשכפל אותו.
@@ -201,7 +206,15 @@
          **כל** לחיצה על מספר הפלטפורמה נספרה כליד למתווך בכל 11 הדפים
          הנמדדים. הוא כן נמדד, בשם משלו, כי זה מספר שכדאי לדעת. */
       if (link.hasAttribute('data-share')){
-        shukTrack('share', { method: method });
+        /* ‏content_type / item_id - הפרמטרים של אירוע share המומלץ ב-GA4,
+           רק כשהקישור מצהיר עליהם (‏property.html: ‎data-share-type="property"‎
+           ומזהה הנכס). מזהה מודעה ולא פרט אישי. */
+        var sp = { method: method };
+        var st = link.getAttribute('data-share-type');
+        var sid = link.getAttribute('data-share-id');
+        if (st) sp.content_type = st;
+        if (sid) sp.item_id = sid;
+        shukTrack('share', sp);
         return;
       }
       if (link.hasAttribute('data-site-contact')){

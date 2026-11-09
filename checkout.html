@@ -298,7 +298,7 @@ const isWallet   = rawProduct === null || rawProduct === 'wallet' || isDevWallet
    החודש הראשון כאן, והחידוש החודשי מהכרטיס השמור. הסכום אינו נשלח מכאן:
    ‏subscription-purchase מחשב אותו במסד, והמחירים כאן הם תצוגה בלבד -
    ‏check_pricing.py מצליב אותם מול pricing_config. */
-const SUB_TIERS = { mid: { name: 'PROFESSIONAL', price: 399 }, premium: { name: 'Elite', price: 599 } };
+const SUB_TIERS = { mid: { name: 'PROFESSIONAL', price: 199 }, premium: { name: 'Elite', price: 399 } };
 const subTier    = params.get('tier');
 const isSub      = rawProduct === 'subscription' && Object.prototype.hasOwnProperty.call(SUB_TIERS, subTier);
 
@@ -920,6 +920,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">

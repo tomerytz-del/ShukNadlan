@@ -150,6 +150,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hero-card.has-cover{margin-top:-46px;position:relative;z-index:1}
   @media(min-width:760px){.hero-card{padding:26px 28px;border-radius:0}}
 
+  /* כפתור השיתוף יושב בפינה (assets/page-share.js), והתו שבקצה השורה מפנה לו מקום */
+  .hero-card{position:relative}
+  .hero-card:has(.page-share:not([hidden])) .hero-top{padding-inline-end:48px}
   .hero-top{display:flex;align-items:flex-start;gap:16px}
   @media(max-width:520px){.hero-top{gap:13px}}
 
@@ -984,6 +987,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/prop-shelf.css">
 <script src="assets/site-footer.js" defer></script>
+<script src="assets/page-share.js" defer></script>
 <script src="assets/gabriela-widget.js" defer data-page="agent"></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
@@ -1018,6 +1022,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- ראש הדף: כרטיס אחד עם התמונה, התגיות ושני כפתורי יצירת קשר -->
   <section class="hero-card" id="heroCard">
+    <!-- שיתוף הדף (assets/page-share.js): נחשף רק כשהסקריפט נטען -->
+    <button type="button" class="page-share" data-share data-share-type="agent" data-page-share hidden aria-label="שיתוף הדף של יועץ הנדל״ן" title="שיתוף הדף של יועץ הנדל״ן"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>
     <div class="hero-top">
       <div class="avatar-wrap">
         <div class="profile-avatar" id="profileAvatar">·</div>
@@ -1204,7 +1210,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
               <!-- שלב 3 -->
               <section class="wiz-panel" data-panel="3">
-                <p class="wiz-q">לאן נחזור אליכם?</p>
+                <p class="wiz-q">איך נוח ליצור איתכם קשר?</p>
                 <label class="wiz-label" for="wizName">שם מלא</label>
                 <input type="text" id="wizName" class="wiz-input" autocomplete="name">
                 <label class="wiz-label" for="wizPhone">טלפון</label>
@@ -2776,7 +2782,7 @@ const BUY_RESIDENTIAL_PTYPES = [
 ];
 const BUY_COMMERCIAL_PTYPES = [
   'משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים',
-  'מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות',
+  'מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות','מרלו״ג/מרכז לוגיסטי',
 ];
 
 const buyHoods = { rows:[], byId:new Map() };
@@ -3282,6 +3288,7 @@ loadAgentProfile();
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -3356,6 +3363,8 @@ loadAgentProfile();
           <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
           <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>

@@ -127,6 +127,18 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `data-professional` | בעל/ת מקצוע — בעמוד הפרופיל (`professional.html`) וברשימה (`professionals.html`) | `contact_professional` |
 | (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
+**קישור בתוך `#articleBody` אינו נספר.** כתובת `wa.me` שהודבקה בגוף כתבה
+היא חלק מהטקסט, לא כפתור פנייה, וספירתה הייתה מנפחת את `contact_agent`.
+המאזין מדלג על עוגן שבתוך הגוף. כפתור השיתוף של הכתבה יושב מחוץ ל-`#articleBody`
+ועדיין נספר כ-`share`.
+
+**‏`data-share-type` ו-`data-share-id` (אופציונליים, 1.11.2026):** קישור שיתוף שמצהיר
+עליהם מוסיף ל-`share` את `content_type` ואת `item_id` - הפרמטרים של אירוע `share`
+המומלץ ב-GA4. כך "שיתוף בוואטסאפ" בדף הנכס (`#waShareBtn`, ‏`data-share-type="property"`
+ומזהה הנכס). מזהה מודעה, לא פרט אישי. התגית `GA4 — share` כבר מעבירה את `item_id`;
+את `content_type` (ומשתנה `DLV - content_type`) הוסיף ה-PR של הכפתור **לקובץ הייצוא** -
+הוא נכנס ל-GA4 רק אחרי ייבוא הקובץ ל-GTM ופרסום גרסה (החלטה של תומר).
+
 שניים מהם נמצאו אחרי `data-bot`, ושניהם היו חיים:
 
 1. **כפתור השיתוף ב-`project.html`.** ‏`wa.me/?text=` בלי מספר פותח את
@@ -392,7 +404,8 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `quick_search_tag_click` | **v10**: צ'יפ בחיפוש המהיר (‏`#quickSearchSec`) | `group`: ‏`hood` \| `type` \| `area`, `tag` |
 | `fair_banner_click` | **v10**: לחיצה על באנר היריד | `fair_id` (‏`open_house_<תאריך סיום>`) |
 | `site_stats_view` | **v10**: המונים (‏`#dmStats`) נכנסו למסך, פעם אחת בדף | `source`: ‏`cache` \| `client`, `deals_shown`: ‏0 \| 1 |
-| `swipe_start` | **v10**: "התחילו להחליק" ב-`/swipe`, או הקישור מה-hero / מבאנר ההדמיות | `deal`, `region`, `via`: ‏`swipe_filter` \| `hero_link` \| `ai_banner` |
+| `swipe_start` | **v10, מ-1.11.2026 רק בלחיצה שמובילה להחלקה**: הקישורים בדף הבית, הכפתור של גבריאלה (מחוץ ל-`/swipe`), "המשך גלישה בהחלקה" בחלון המועדפים, ו"להחליק על דירות היריד" בדף היריד. עד 1.11.2026 נשלח גם מ"התחילו להחליק" בסינון שבתוך `/swipe` (‏`via: swipe_filter`), וכניסה מדף הבית שאחריה סינון נספרה פעמיים. כל הכניסות, כולל ישירות ושיתופים: צפיות הדף `/swipe` ב-GA4 | `deal`, `region`, `via`: ‏`hero_link` \| `ai_banner` \| `hero_views` \| `home_invite_card` \| `results_*` \| `gabriela` \| `likes_panel` \| `open_house` (ו-`swipe_filter` בנתונים שלפני 1.11.2026) |
+| `swipe_filter_apply` | **v10, 1.11.2026**: "הצגת N נכסים" בסינון שבתוך `/swipe` - החלת סינון, לא התחלה | `deal`, `region`, `viz`, `fair` |
 | `swipe_tour_skip` | **v10**: דילוג על ההדרכה ב-`/swipe` | `visit`: ‏1 \| 2 |
 | `swipe_like` | **v10**: החלקה ימינה / לב | `slot`, `position` |
 | `swipe_skip` | **v10**: החלקה שמאלה / דילוג | `slot`, `position` |
@@ -452,6 +465,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `generate_lead` (‏`form_id`) | **ערכים חדשים, רק עם דגל v10**: הרשמה ליריד (מהדף ומהגיליון) ו"חושבים למכור?" בהחלקה - רק אחרי תשובת 2xx | `form_id`: ‏`nocommission_fair` \| `swipe_fair` \| `swipe_seller` |
 | `seller_card_view` | **v10**: כרטיס "חושבים למכור?" פעיל שנייה, פעם בביקור | `position`, `deal` |
 | `seller_card_click` | **v10**: כפתור בכרטיס "חושבים למכור?" | `cta`: ‏`open` \| `later` |
+| `swipe_deal_pick` | כרטיס "מה תרצו לראות מעכשיו?" בהחלקה על "כל הנכסים" (אחרי 4 נכסים, פעם בביקור): הצגה (שנייה על המסך), בחירה, דילוג, סגירה ו"לא להציע לי שוב" | `choice`: ‏`view` \| `sale` \| `rent` \| `commercial` \| `skip` \| `close` \| `never`, ‏`position` |
 | `seller_sheet_step` | **v10**: מגע ראשון בכל שאלה בגיליון המוכרים | `q`: ‏`deal` \| `type` \| `area` \| `rooms` \| `timing` |
 | `seller_sheet_close` | **v10**: גיליון המוכרים נסגר | `sent`: ‏`0` \| `1` |
 | `article_card_view` | **v10**: כרטיס הכתבה פעיל שנייה (ואז הוא נחשב "נקרא" ל-7 ימים במכשיר) | `article_id`, `position`, `deal`: ‏`sale` \| `rent` \| `com` \| `seller` \| `*` |
@@ -522,3 +536,16 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `dm_filter_sheet_apply` | ‏R8: "הצגת N" בגיליון | `tab`, `spec_n`, `area_n`, `results`, `surface` |
 | `search_advisor_suggest` | ‏R8 (v10): שורת החיפוש בדף הבית זיהתה בקשה ליועצי נדל״ן או למשרד תיווך והציגה הצעה ל-`/agents` או `/agencies` מסונן (פעם אחת לכל הצעה). בלי הטקסט ובלי מזהים | `tab`, `spec` (מפתח או `all`), `area_kind`: ‏`hood` \| `city` \| `none`, `surface`: ‏`home` |
 | `search_advisor_click` | ‏R8: לחיצה על ההצעה הזו, או Enter / חיפוש קולי שהוביל אליה | `tab`, `spec`, `area_kind`, `surface` |
+
+## שאלון "איזו שכונה מתאימה לי?" (דף הבית, 7.11.2026)
+
+ארבעה אירועים מ-`initHoodQuiz` ב-`assets/home.js`, בלי דגל. כולם מספרים וקודים: **בלי טקסט חופשי**, והתקציב הוא
+הערך שבסליידר ולא פרט על אדם. הטריגרים והתגיות ב-`gtm/container.json`, וקובץ ייבוא ב-`docs/gtm-hood-quiz-import.json`.
+**האירועים נדחפים מיד אבל מגיעים ל-GA4 רק אחרי ייבוא הקובץ ב-GTM (‏Merge) ופרסום גרסה, ואז מייצאים מחדש ל-`gtm/container.json`** (‏`container.json` כבר מכיל אותם, בכתיבה ידנית, כדי שההצלבה תעבור).
+
+| אירוע | מתי | פרמטרים |
+| --- | --- | --- |
+| `hood_quiz_open` | נפתח השאלון | `source`: ‏`button` (הכפתור מתחת למפה) \| `menu` (התפריט הקצר) \| `hash` (כתובת `/#hood-quiz`) |
+| `hood_quiz_results` | על התצוגה הראשונה בפתיחה, ושוב אחרי שהבחירה נעצרה 1.5 שניות (לא בכל צעד של הסליידר). `results` = 0 הוא שאלון שנגמר בלי נכס | `deal`, `rooms`: ‏`any` \| 2 \| 3 \| 4 \| 5, `filters_n` (כמה מאפיינים נבחרו), `budget`, `results` (נכסים שמתאימים), `area_n` (שכונות) |
+| `hood_quiz_show` | "הצגת הנכסים" בשכונה | `deal`, `rooms`, `filters_n`, `budget`, `area` (שם השכונה) |
+| `hood_quiz_about` | "על השכונה" - מעבר לדף השכונה | `area` |

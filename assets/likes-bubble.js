@@ -139,6 +139,8 @@
   });
   wrap.addEventListener('click', function (e) {
     if (e.target.closest('[data-lk-close]')) { close(); return; }
+    /* "המשך גלישה בהחלקה" - כניסה להחלקה (‏swipe_start נספר בלחיצה). ב-/swipe עצמו זו חזרה, לא התחלה */
+    if (e.target.closest('.lk-go') && !/^\/swipe/.test(location.pathname)) shukTrack('swipe_start', { via: 'likes_panel', count: likes().length });
     var rm = e.target.closest('[data-lk-rm]');
     if (rm) {
       pending = rm.dataset.lkRm;

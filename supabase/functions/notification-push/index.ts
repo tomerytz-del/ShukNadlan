@@ -157,6 +157,8 @@ const ACC_BY_TYPE: Record<string, string> = {
   // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
   // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
   system: "accProperties",
+  // מייל שהועבר ולא טופל. הרשימה, לא לקוח/ה אחד/ת.
+  email_intake: "accClients",
   platform_signup: "accSubscriptions",
   // ‏פריט בתיבת המשימות של מנהל/ת הפלטפורמה שחרג מזמן היעד (docs/admin-inbox.md)
   admin_overdue: "accAdminInbox",
@@ -314,7 +316,8 @@ function itemPath(it: Item): string | null {
 // כאן: הם נספרים בתקרה, וכשהיא מלאה נשארים בפעמון.
 const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
 
-// רקע: שיתוף נכס ממשרד אחר ונרשם/ת חדש/ה לפלטפורמה. במסד הם לא מעירים שליחה
+// רקע: שיתוף נכס ממשרד אחר ונרשם/ת חדש/ה לפלטפורמה (ובמסד, מ-20271109130000,
+// גם open_demand - הוא רק לא מתקפל כאן לשורה אחת). במסד הם לא מעירים שליחה
 // לבד (notification_push_is_ambient), וכאן הם מתקפלים לשורה אחת לכל סוג - ב-
 // 11.10.2026 נכתבו 678 התראות "נכס חדש שותף איתך" ביום אחד.
 const isShare = (it: Item) => it.type === "system" && it.property_id != null && it.property_mine === false;

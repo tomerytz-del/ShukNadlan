@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { writeVisitInsert } from "../_shared/visit-attr.ts";
 import { logAiUsage } from "../_shared/ai-usage.ts";
+import { clientIp, hashIp, SHARED_IP_HASH } from "../_shared/fair-contact.ts";
 import {
   buildCommercialPrompt,
   buildPrivatePrompt,
@@ -64,11 +65,6 @@ function businessKey(s: unknown): string {
 // ההדמיה מקאש ובקשה שנכשלה אינן נספרות.
 const VISITOR_DAILY_CAP = 10;
 const VISITOR_LIMIT_MESSAGE = "הגעתם למכסה היומית של ההדמיות. נשמח לראותכם מחר ✨";
-
-async function sha256Hex(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -229,7 +225,13 @@ Deno.serve(async (req: Request) => {
 
   if (sources.length === 0) {
     return json(
-      { error: "no_suitable_images", message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה" },
+      {
+        error: "no_suitable_images",
+        message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה",
+        // ‏all_classified: הדף מוריד את התיבה רק כשזו תשובה סופית. צילום שהסיווג שלו נכשל
+        // (‏classified_at ריק) ינוסה שוב בבקשה הבאה, ואז "אין ממה לדמות" אינו ידוע עדיין.
+        all_classified: tags.length === images.length && tags.every((t: any) => t.classified_at),
+      },
       400
     );
   }
@@ -343,14 +345,20 @@ Deno.serve(async (req: Request) => {
 
   // ---- בלם לגולש/ת (מכשיר ו-IP) -----------------------------------------
   // נבדק רק כשבאמת יש מה לייצר: קאש אינו נספר ואינו נחסם. המזהה מגיע מהדפדפן
-  // (‏x-sk-device, ‏sk_device_id ב-localStorage), וה-IP נשמר רק כגיבוב עם
-  // ‏VIZ_IP_SALT - בלי המלח אין גיבוב ונשאר רק המכשיר. ‏device_id ו-
-  // ‏client_ip_hash נוספות במיגרציה שתומר מחיל (docs/proposals/), ועד אז
-  // השאילתה נכשלת על עמודה חסרה והבלם פשוט לא פעיל - כמו לפני השינוי.
+  // (‏x-sk-device, ‏sk_device_id ב-localStorage). ה-IP הוא מה שהפלטפורמה כתבה
+  // (‏cf-connecting-ip, או הקפיצה האחרונה ב-x-forwarded-for - לא הראשונה, שהדפדפן
+  // יכול לכתוב בעצמו), ונשמר רק כגיבוב של מפתח הקצב (‏IPv6 לפי /64) עם
+  // ‏VIZ_IP_SALT; בלי הסוד - המלח הקבוע של fair-contact, כך שהבלם לפי IP פעיל
+  // גם לפניו. ‏device_id ו-client_ip_hash נוספו במיגרציה
+  // ‏20271106160000_visualization_visitor_cap ומאופסות אחרי 30 יום.
   const deviceId = String(req.headers.get("x-sk-device") ?? "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 64) || null;
-  const ip = String(req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
-  const ipSalt = Deno.env.get("VIZ_IP_SALT");
-  const ipHash = ip && ipSalt ? await sha256Hex(ip + ipSalt) : null;
+  const rawIpHash = await hashIp(clientIp(req), Deno.env.get("VIZ_IP_SALT") ?? "");
+  // בלי IP (‏SHARED_IP_HASH) אין מה לספור לפי IP: אחרת כל הבקשות בלי כתובת
+  // היו חולקות מכסה אחת של 10 ביום.
+  const ipHash = rawIpHash === SHARED_IP_HASH ? null : rawIpHash;
+  // המזהים נכתבים על העבודה רק אחרי שהספירה הצליחה: הפונקציה והמיגרציה
+  // נפרסות מאותו מיזוג בשני workflows מקבילים, וספירה שהצליחה היא ההוכחה
+  // שהעמודות כבר קיימות. ‏insert שמונה עמודה חסרה היה מפיל כל בקשה בחלון הזה.
   let visitorCols: Record<string, string | null> = {};
   if (todo.length > 0 && (deviceId || ipHash)) {
     const anyOf = [deviceId ? `device_id.eq.${deviceId}` : "", ipHash ? `client_ip_hash.eq.${ipHash}` : ""]
@@ -362,7 +370,11 @@ Deno.serve(async (req: Request) => {
       .neq("status", "failed")
       .gte("created_at", since)
       .or(anyOf);
-    if (!visitorErr) {
+    if (visitorErr) {
+      // תקלה במסד אינה חוסמת גולש/ת, אבל היא גם לא שקטה: בלי השורה הזו
+      // בלם שנפל נראה בדיוק כמו בלם שעובד.
+      console.warn("property-visualize: visitor cap count failed:", visitorErr.message);
+    } else {
       if ((visitorCount ?? 0) >= VISITOR_DAILY_CAP) {
         return json({ error: "visitor_rate_limited", message: VISITOR_LIMIT_MESSAGE }, 429);
       }

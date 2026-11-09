@@ -216,6 +216,59 @@
     if (typeof app.trackingAllowed === 'undefined') app.trackingAllowed = undefined;
     app.setTrackingAllowed = function (value) { publishTracking(win, value); };
     win.ShukNadlanApp = app;
+    installPixelGate(win);
+  }
+
+  // הפיקסל של Meta באפליקציה רק אחרי הסכמה (Apple 5.1.2, ATT; ‏Play: opt-out
+  // של מזהה הפרסום). קטע הפיקסל ב-GTM מתחיל ב-`if(f.fbq)return;`, ולכן fbq
+  // מדומה שמוגדר כאן, בתחילת המסמך, עוצר את טעינת fbevents.js. הקריאות
+  // (init, PageView) נאספות בתור באותו מבנה של Meta: אחרי "מותר" הסקריפט
+  // נטען ומעבד את התור, ואחרי "אסור" התור נזרק. ההחלטה האחרונה נשמרת
+  // במכשיר, כדי שבדף הבא הפיקסל ייטען כרגיל בלי לחכות לתשובה.
+  var PIXEL_CONSENT_KEY = 'shuk_app_tracking';
+  var PIXEL_SRC = 'https://connect.facebook.net/en_US/fbevents.js';
+
+  function storedPixelConsent(win) {
+    try { return win.localStorage.getItem(PIXEL_CONSENT_KEY); } catch (e) { return null; }
+  }
+
+  function installPixelGate(win) {
+    if (storedPixelConsent(win) === '1') return false;
+    if (win.fbq) return false;
+    var n = function () {
+      if (n.callMethod) n.callMethod.apply(n, arguments);
+      else n.queue.push(arguments);
+    };
+    n.push = n;
+    n.loaded = true;
+    n.version = '2.0';
+    n.queue = [];
+    n.__shukGate = true;
+    win.fbq = n;
+    if (!win._fbq) win._fbq = n;
+    return true;
+  }
+
+  function settlePixelGate(win, allowed) {
+    try { win.localStorage.setItem(PIXEL_CONSENT_KEY, allowed ? '1' : '0'); } catch (e) {}
+    var gate = win.fbq;
+    if (!gate || !gate.__shukGate) return;
+    if (!allowed) {
+      gate.queue.length = 0;
+      return;
+    }
+    // נטען גם כשהתור עוד ריק: אם GTM ירוץ אחרי התשובה, הקריאות שלו יעברו
+    // ישר ל-fbevents.js דרך callMethod.
+    if (gate.__shukLoading) return;
+    gate.__shukLoading = true;
+    var doc = win.document;
+    if (!doc || !doc.createElement) return;
+    var tag = doc.createElement('script');
+    tag.async = true;
+    tag.src = PIXEL_SRC;
+    var first = doc.getElementsByTagName ? doc.getElementsByTagName('script')[0] : null;
+    if (first && first.parentNode) first.parentNode.insertBefore(tag, first);
+    else if (doc.head) doc.head.appendChild(tag);
   }
 
   function publishTracking(win, value) {
@@ -227,6 +280,7 @@
     app.trackingAllowed = allowed;
     app.setTrackingAllowed = function (next) { publishTracking(win, next); };
     win.ShukNadlanApp = app;
+    settlePixelGate(win, allowed);
     if (same) return;
     win.__shukTrackingValue = allowed;
     win.__shukTrackingAt = now;
@@ -1558,6 +1612,10 @@
     safeSiteRetry: safeSiteRetry,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
+    PIXEL_CONSENT_KEY: PIXEL_CONSENT_KEY,
+    installPixelGate: installPixelGate,
+    settlePixelGate: settlePixelGate,
+    publishTracking: publishTracking,
     install: install,
   };
 });

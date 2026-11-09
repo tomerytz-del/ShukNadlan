@@ -18,7 +18,7 @@ import { processCsmCall } from "../_shared/csm-call.ts";
 //
 //   ?event=incoming   — שיחה נכנסת. יוצרת שורה ב-agent_calls ומחזירה TwiML.
 //   ?event=dial       — ה-action של <Dial>: נענתה או לא. שיחה שלא נענתה
-//                       מקבלת הודעה ללקוח/ה ("נחזור אליכם") והתראה לסוכן/ת.
+//                       מקבלת הודעה ללקוח/ה ("אפשר לנסות שוב מאוחר יותר") והתראה לסוכן/ת.
 //   ?event=recording  — ההקלטה מוכנה. עוברת אלינו (דלי call-recordings),
 //                       נמחקת מ-Twilio, מתומללת ב-Whisper ומסוכמת ב-Claude,
 //                       והסוכן/ת מקבל/ת בוואטסאפ את הסיכום ואת ההקלטה.
@@ -70,8 +70,8 @@ const WA_AUDIO_MAX_BYTES = 16 * 1024 * 1024;
 
 const VOICE = 'voice="Google.he-IL-Standard-A" language="he-IL"';
 const MSG_RECORDED = "שלום, הגעתם לשוק נדל״ן. השיחה מוקלטת לשיפור השירות.";
-const MSG_MISSED = "לא הצלחנו לענות כרגע. נחזור אליכם בהקדם. תודה.";
-const MSG_VOICEMAIL = "לא הצלחנו לענות כרגע. השאירו הודעה אחרי הצליל, ונחזור אליכם בהקדם.";
+const MSG_MISSED = "לא הצלחנו לענות כרגע. אפשר לנסות שוב מאוחר יותר. תודה.";
+const MSG_VOICEMAIL = "לא הצלחנו לענות כרגע. אפשר להשאיר הודעה אחרי הצליל. תודה.";
 const MSG_VOICEMAIL_DONE = "תודה, ההודעה נשמרה.";
 // ‏הודעה קולית: עד שתי דקות, וחמש שניות של שקט מסיימות אותה. הודעה קצרה
 // מ-VOICEMAIL_MIN_SEC היא ניתוק אחרי הצליל ולא הודעה - נמחקת בלי תמלול.
@@ -348,16 +348,15 @@ async function loadAgent(agentId: string) {
  */
 async function rememberForBot(agentId: string, text: string): Promise<void> {
   try {
-    const { data } = await supabase.from("whatsapp_conversations")
-      .select("history").eq("agent_id", agentId).maybeSingle();
-    if (!data) return;
-    const history = Array.isArray(data.history) ? data.history : [];
-    const next = [
-      ...history,
+    const entries = [
       { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה לסוכן/ת הודעה על שיחת טלפון]" },
       { role: "assistant", content: noLongDash(text).slice(0, 3000) },
-    ].slice(-12);
-    await supabase.from("whatsapp_conversations").update({ history: next }).eq("agent_id", agentId);
+    ];
+    const { error } = await supabase.rpc("whatsapp_history_append", {
+      p_agent_id: agentId,
+      p_entries: entries,
+    });
+    if (error) console.error("remember for bot append failed", error.message);
   } catch (err) {
     console.error("remember for bot failed", err);
   }
@@ -513,7 +512,7 @@ async function onDial(p: URLSearchParams): Promise<Response> {
   return xml(await voicemailXml(call?.line_id ?? null));
 }
 
-/** ‏**תא קולי** במקום "נחזור אליכם" וניתוק. ההודעה עוברת את צינור ההקלטה
+/** ‏**תא קולי** במקום ניתוק מיד. ההודעה עוברת את צינור ההקלטה
  *  (‏event=voicemail): אחסון, תמלול, סיכום ווואטסאפ לסוכן/ת.
  *
  *  ‏**אותו תנאי של הקלטת שיחה** (‏phone_line_recording_allowed): מספר שעבר את
@@ -658,7 +657,11 @@ const NOT_IN_LIST = "הלקוח לא ברשימת הלקוחות שלך, תרצ�
 function needsLine(c: Record<string, any>): string {
   const parts: string[] = [];
   // בעל/ת נכס (client_kind owner) אינו/ה מחפש/ת - שדות החיפוש לא אומרים עליו/ה דבר
-  if (c.client_kind === "owner") return `: ${c.deal_type === "rent" ? "משכיר/ה" : "מוכר/ת"}`;
+  if (c.client_kind === "owner") {
+    if (c.deal_type === "rent") return ": משכיר/ה";
+    if (c.deal_type === "sale") return ": מוכר/ת";
+    return ": בעל/ת נכס";
+  }
   if (c.deal_type) parts.push(c.deal_type === "rent" ? "שכירות" : "קנייה");
   if (Array.isArray(c.cities) && c.cities.length) parts.push(c.cities.join(", "));
   if (c.min_rooms) parts.push(`${c.min_rooms}+ חדרים`);
@@ -1392,9 +1395,9 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
   });
 }
 
-/** מספר וירטואלי לפי מסלול: Elite - אחד כלול ונוספים בתשלום; האחרים - אחד
- *  בתשלום. הסבב רץ לפני החידוש, כי הוא שממיר מספר כלול של מי שירד/ה לבתשלום
- *  (phone_line_tier_sweep, docs/call-tracking.md). */
+/** התראות הסבב היומי (phone_line_tier_sweep). מ-9.11.2026 המספר אינו כלול
+ *  באף מסלול ואין תקרה למסלול, ולכן הסבב מחזיר מערכים ריקים והנוסחים כאן
+ *  אינם יוצאים; הם נשארים כדי שחתימת התשובה לא תשתנה (docs/call-tracking.md). */
 function tierSweepNotes(sweep: Record<string, any> | null) {
   const ils = (d: string) => new Date(d).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" });
   const name = (r: Record<string, any>) => `${localPhone(r.number)}${r.label ? ` (${r.label})` : ""}`;

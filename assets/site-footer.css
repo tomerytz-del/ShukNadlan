@@ -61,6 +61,10 @@ footer.site *{box-sizing:border-box}
 .footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.5;color:#94a3c6;margin:0}
 .footer-tagline span{display:block}
 .footer-tagline-strong{color:#e6ecf9;font-weight:600;margin-top:2px}
+/* המיצוב הארצי, במשפט אחד מתחת לתיאור השוק: קישור לדף השווקים. מה שגוגל
+   מצטטת על "האם האתר ארצי" (docs/regional-pages.md, "איך גוגל רואה אותנו") */
+.footer-tagline .footer-net{display:block;margin-top:4px;color:#c9a227;font-weight:600;text-decoration:none}
+.footer-tagline .footer-net:hover,.footer-tagline .footer-net:focus-visible{color:#e5c76a;text-decoration:underline}
 
 /* הכפתורים מוגדרים כאן במלואם ולא נשענים על ‎.btn‎ של הדף המארח — ‎.btn‎ לא
    קיים בכל דף, ובחלק מהדפים הוא בצבע אחר לגמרי */

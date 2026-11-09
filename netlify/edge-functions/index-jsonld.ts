@@ -26,6 +26,8 @@ type Page = {
   href: (row: Row) => string;
   label: (row: Row) => string;
   itemType?: string;
+  /* ‏ה-id של הרשת שה-JS ממלא. הקישורים נכתבים לתוכה כבר בשרת. */
+  gridId: string;
 };
 
 const PAGES: Page[] = [
@@ -36,6 +38,7 @@ const PAGES: Page[] = [
     query: "agency_members_public?select=slug,display_name&slug=not.is.null&order=display_name.asc&limit=1000",
     href: (row) => `/agent?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.display_name || "").trim(),
+    gridId: "agentsGrid",
   },
   {
     path: "/agencies",
@@ -45,6 +48,7 @@ const PAGES: Page[] = [
     href: (row) => `/agency?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.name || "").trim(),
     itemType: "RealEstateAgent",
+    gridId: "agenciesGrid",
   },
   {
     path: "/professionals",
@@ -53,6 +57,7 @@ const PAGES: Page[] = [
     query: "professional_cards_public?select=slug,business_name,advertiser_name&slug=not.is.null&limit=1000",
     href: (row) => `/professional?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.business_name || row.advertiser_name || "").trim(),
+    gridId: "prosGrid",
   },
   {
     path: "/articles",
@@ -61,8 +66,51 @@ const PAGES: Page[] = [
     query: "articles_public?select=slug,title&slug=not.is.null&order=published_at.desc&limit=1000",
     href: (row) => `/article?slug=${encodeURIComponent(String(row.slug))}`,
     label: (row) => String(row.title || "").trim(),
+    gridId: "articlesGrid",
   },
 ];
+
+function esc(s: unknown): string {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!
+  );
+}
+
+/* ‏הקישורים לפריטים ב-HTML הראשון, לא רק ב-ItemList: סורק שאינו מריץ JS
+   (ורוב סורקי ה-AI כאלה) ראה ב-/agents קישור אחד וב-/agencies אפס, בעוד
+   ה-JSON-LD הצהיר על 51 ו-33 (ביקורת 5.11.2026). הרשימה נכתבת לתוך הרשת
+   הריקה שה-JS ממלא אחר כך (‏innerHTML / textContent מחליפים אותה), ולכן
+   הגולש/ת רואה קישורים עד שהכרטיסים נטענים, ולא ריק. רק רשת ריקה מתמלאת. */
+const SSR_STYLE = `<style id="ssrListStyle">.ssr-list{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:4px 0 12px;list-style:none}.ssr-list a{display:inline-block;padding:8px 14px;border:1px solid rgba(0,0,0,.12);border-radius:999px;font-size:.95rem;text-decoration:none;color:inherit;background:rgba(255,255,255,.7)}</style>`;
+
+/* ‏תקרה ל-HTML בלבד; ה-ItemList ב-JSON-LD נשאר מלא. */
+const SSR_MAX_LINKS = 120;
+
+function listHtml(page: Page, rows: Row[]): string {
+  const links: string[] = [];
+  for (const row of rows) {
+    if (links.length >= SSR_MAX_LINKS) break;
+    const slug = String(row.slug || "").trim();
+    const label = page.label(row);
+    if (!slug || !label) continue;
+    links.push(`<li><a href="${esc(page.href(row))}">${esc(label)}</a></li>`);
+  }
+  if (!links.length) return "";
+  return `<ul class="ssr-list" aria-label="${esc(page.name)}">${links.join("")}</ul>`;
+}
+
+function fillGrid(html: string, page: Page, rows: Row[]): string {
+  const list = listHtml(page, rows);
+  if (!list) return html;
+  const re = new RegExp(`(<div\\b[^>]*\\bid="${page.gridId}"[^>]*)(>)\\s*(</div>)`);
+  if (!re.test(html)) return html;
+  /* ‏prosGrid נולד hidden; הרשימה מהשרת נראית, וה-JS קובע hidden מחדש
+     לפי התוצאות, כמו שהוא עושה ממילא. */
+  const out = html.replace(re, (_m, open: string, gt: string, close: string) =>
+    `${open.replace(/\s+hidden(?=\s|$)/, "")}${gt}${list}${close}`
+  );
+  return out.replace(/<\/head>/i, () => `${SSR_STYLE}\n</head>`);
+}
 
 function pageOf(pathname: string): Page | null {
   const path = pathname.replace(/\.html$/, "").replace(/\/$/, "") || "/";
@@ -166,24 +214,8 @@ export default async function handler(request: Request, context: Context) {
   if (!got.ok) return passthrough();
 
   const json = JSON.stringify(graph(page, got.rows, got.total)).replace(/</g, "\\u003c");
-  let out = html.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
-  if (page.path === "/agencies") {
-    const links = got.rows.map((row) => {
-      const slug = String(row.slug || "").trim();
-      const name = String(row.name || "").trim();
-      if (!slug || !name) return "";
-      const href = `/agency?slug=${encodeURIComponent(slug)}`;
-      return `<a tabindex="-1" href="${href.replace(/"/g, "&quot;")}">${name.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c))}</a>`;
-    }).filter(Boolean).join("");
-    if (links) {
-      /* מחוץ לגריד, ומוסתר. הכרטיסים החיים נבנים ב-JS; הקישורים האלה
-         לסורק בלבד, ולא נכנסים לסדר ה-Tab. */
-      out = out.replace(
-        /(<div\b[^>]*\bid="agenciesGrid"[^>]*>)\s*(<\/div>)/i,
-        (_match, open: string, close: string) => `${open}${close}<div id="agenciesCrawl" hidden>${links}</div>`,
-      );
-    }
-  }
+  const withList = fillGrid(html, page, got.rows);
+  const out = withList.replace(/<\/head>/i, () => `<script type="application/ld+json">${json}</script>\n</head>`);
   /* בלי מטמון כל בקשה חיכתה לשאילתה ל-Supabase (‏count=exact, עד 1,000 שורות):
      ‏/agencies הגיע ל-1.1-1.5 שניות עד הבייט הראשון (‏slow_ttfb, 25.10.2026).
      הרשימה שהגולש/ת רואה נבנית בדפדפן, והבלוק הזה הוא לסורק בלבד - שעה של

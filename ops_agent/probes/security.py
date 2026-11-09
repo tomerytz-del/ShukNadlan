@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 from typing import Iterator
 
-from ..config import EDGE_AUTH_PATTERNS, PUBLIC_EDGE_FUNCTIONS, PUBLIC_RPC
+from ..config import EDGE_AUTH_PATTERNS, PUBLIC_EDGE_FUNCTIONS, PUBLIC_RPC, PUBLIC_RPC_WRITES
 from ..models import Finding
 
 _EDGE_AUTH_CACHE = None
@@ -151,6 +151,20 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
             declared_names.append(row["name"])
             continue
 
+        # כותבת בכוונה (‏`PUBLIC_RPC_WRITES`) - רק לטבלאות שהוצהרו, ובלי
+        # שום פעולה שמשנה הרשאות או הגדרות.
+        if writes and row["name"] in PUBLIC_RPC_WRITES:
+            allowed = set(PUBLIC_RPC_WRITES[row["name"]][1])
+            targets = {m.group(2).lower() for m in re.finditer(
+                r"\b(insert\s+into|update|delete\s+from)\s+(?:only\s+)?"
+                r"(?:public\.)?\"?(\w+)", body, re.I)}
+            dangerous = re.search(r"\b(truncate|perform\s+set_config|grant\s|revoke\s)\b",
+                                  body, re.I)
+            if targets and targets <= allowed and not dangerous:
+                declared_names.append("%s (כותבת ל-%s)" % (
+                    row["name"], ", ".join(sorted(targets))))
+                continue
+
         yield Finding(
             area="security", code="anon_secdef_unguarded",
             severity="high" if writes else "medium",
@@ -194,8 +208,9 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
             subject="public_rpc",
             title="%d פונקציות פומביות מוצהרות" % len(declared_names),
             detail="הפונקציות: %s" % ", ".join(declared_names),
-            suggestion="פתוחות ל-anon בכוונה, קריאה בלבד - הקורא/ת של כל אחת "
-                       "רשום/ה ב-PUBLIC_RPC ב-ops_agent/config.py. להסיר משם "
+            suggestion="פתוחות ל-anon בכוונה - קריאה בלבד (‏PUBLIC_RPC), או כתיבה "
+                       "לטבלאות שהוצהרו בלבד (‏PUBLIC_RPC_WRITES), והקורא/ת של "
+                       "כל אחת רשום/ה ב-ops_agent/config.py. להסיר משם "
                        "כשקורא/ת נעלם/ת.",
             metric=float(len(declared_names)), metric_unit="פונקציות",
             evidence={"functions": declared_names},

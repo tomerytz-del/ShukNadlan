@@ -441,7 +441,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 
      במובייל זו ממילא עמודה אחת בסדר ה-DOM: פרטים ← הדמיות ← מפה ←
      משרד. */
-  .content-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:22px 0 40px}
+  /* ‏minmax(0,1fr) גם בטלפון: פריט גריד עם min-width:auto מתרחב לרוחב הטבלה
+     שבתוכו (עסקאות אחרונות, 420px) ודוחף את כל הדף לגלילה אופקית */
+  .content-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;padding:22px 0 40px}
   /* ההדמיות צמודות לפרטי הנכס — הן ההמשך שלהם ולא מקטע חדש. שאר
      הבלוקים בעמודה שומרים על מרווח מלא, כי הם כן מקטעים נפרדים. */
   .content-col > #vizSection{margin-top:10px}
@@ -475,14 +477,27 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
      בשתי עמודות (‏560px היא הנקודה שבה היא חוזרת אליהן). */
   @media(min-width:980px){
     .content-grid{grid-template-columns:minmax(0,1fr) 340px}
+    /* עמודת הצד נשארת על המסך כשגוללים את התוכן (6.11.2026, PR B): הקשר,
+       המחשבון והמשרד זמינים ליד כל מקטע. גבוהה מהמסך - נגללת בתוכה. */
+    .sidebar{position:sticky;top:12px;max-height:calc(100dvh - 24px);overflow-y:auto;scrollbar-width:thin}
   }
 
   h1.prop-title{font-size:1.4rem;line-height:1.3}
   @media(min-width:640px){h1.prop-title{font-size:1.72rem}}
   .prop-address{display:flex;align-items:center;gap:6px;color:var(--ink-soft);font-size:.9rem;font-weight:600;margin-top:7px}
   .prop-address svg{width:16px;height:16px;flex:none;color:var(--bronze)}
-  .prop-address .prop-hood-link{margin-inline-start:8px;font-size:.84rem;color:var(--bronze);text-decoration:none;white-space:nowrap}
-  .prop-address .prop-hood-link:hover{text-decoration:underline}
+  /* כרטיס "רוצים לדעת עוד על השכונה?" (‏docs/neighborhood-pages.md): קישור לדף השכונה
+     בכל נכס. מולא בשרת (‏og-tags.ts) או ב-renderHoodCard (‏assets/property.js) */
+  .hood-card{margin:14px 0 0}
+  .hood-card[hidden]{display:none}
+  .hood-card-link{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--surface-soft);color:var(--ink);text-decoration:none}
+  .hood-card-link:focus-visible{outline:3px solid var(--bronze);outline-offset:2px}
+  @media(hover:hover){.hood-card-link:hover{border-color:var(--teal);background:var(--teal-tint)}}
+  .hood-card-ava{flex:none;width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--teal-tint)}
+  .hood-card-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .hood-card-txt b{font-size:1rem;font-weight:800;color:var(--teal)}
+  .hood-card-txt span{font-size:.86rem;line-height:1.4;color:var(--ink-soft)}
+  .hood-card-go{flex:none;font-size:1.25rem;font-weight:800;color:var(--bronze)}
 
   /* סרגל נתונים בקפסולות */
   /* שתי קפסולות בשורה בכל רוחב: בעמודת התוכן (‎1.6fr‎ מתוך 900px) ארבע
@@ -716,6 +731,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   }
   .btn-call:hover{background:#D3DEE8}
   .btn-call svg{width:18px;height:18px;flex:none}
+  .contact-note{grid-column:1 / -1;margin:2px 0 0;font-size:.72rem;line-height:1.45;color:var(--ink-soft);text-align:center}
 
   /* ====== נכסים דומים ======
      אותה שיטת מידוד כמו קרוסלות ה-featured-scroll בדף הבית: רוחב הכרטיס
@@ -866,14 +882,41 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .sticky-bar .btn-call{flex:0 0 auto;width:46px;padding:12px 0}
   /* §6: שמירה - לב ריק / לב ירוק מלא כשנשמר (‏--fav-green, כמו בהחלקה). רק ב-v10 */
   .prop-save,.sticky-bar .btn-save{display:none}
-  html.beta-hero .prop-save{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin:6px 0 2px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:999px;
-    background:#fff;color:#0e2a6b;font:inherit;font-size:.92rem;font-weight:700;cursor:pointer}
+  /* שורת הפעולות מתחת לכתובת: שמירה, שיתוף בוואטסאפ ואפשרויות מימון (7.11.2026, עיצוב מחדש).
+     בטלפון שלוש עמודות שוות ברוחב המסך, כך שהשורה אחת גם ב-320px; מ-560px כפתורים ברוחב התוכן.
+     אותה גלולה לשלושתם (גובה, צל וריחוף), ולכל אחד אייקון בצבע משלו: לב כחול (ירוק כשנשמר),
+     וואטסאפ ירוק, מחשבון בזהב. "מימון" הוא הכפתור היחיד עם רקע, כי הוא הצעד הבא בקנייה. */
+  .prop-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 4px}
+  @media(min-width:560px){.prop-acts{display:flex;flex-wrap:wrap;gap:10px}}
+  .prop-wa-share,.prop-fin,html.beta-hero .prop-save{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:0 8px;
+    border:1.5px solid rgba(14,42,107,.2);border-radius:999px;background:#fff;color:#0e2a6b;
+    font:inherit;font-size:.9rem;font-weight:800;line-height:1;text-decoration:none;white-space:nowrap;cursor:pointer;
+    box-shadow:0 1px 2px rgba(13,27,61,.06);
+    transition:border-color .15s ease,box-shadow .15s ease,background .15s ease,transform .15s ease}
+  @media(min-width:560px){.prop-wa-share,.prop-fin,html.beta-hero .prop-save{padding:0 20px;gap:8px;font-size:.92rem}}
+  .prop-wa-share[hidden],.prop-fin[hidden]{display:none}
+  .prop-wa-share svg,.prop-fin svg,.prop-save svg{width:20px;height:20px;flex:0 0 auto}
+  .prop-wa-share svg{fill:#25D366}
+  .prop-fin svg{color:var(--bronze,#8a6d10)}
+  .prop-save svg{fill:none;stroke:currentColor;stroke-width:2}
+  .prop-fin{background:var(--bronze-tint,#f7f1e2);border-color:rgba(201,162,39,.65)}
+  @media(hover:hover){
+    .prop-wa-share:hover,.prop-fin:hover,html.beta-hero .prop-save:hover{border-color:#0e2a6b;box-shadow:0 5px 14px rgba(14,42,107,.14);transform:translateY(-1px)}
+  }
+  .prop-wa-share:active,.prop-fin:active,html.beta-hero .prop-save:active{transform:scale(.97);box-shadow:none}
+  .prop-wa-share:focus-visible,.prop-fin:focus-visible,.prop-save:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  html.beta-hero .prop-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green);background:#eefaf2}
+  .prop-save[aria-pressed=true] svg{fill:var(--fav-green)}
+  /* תוויות קצרות בטלפון ("שיתוף", "מימון": האייקון של וואטסאפ אומר את השאר), מלאות מ-560px */
+  .act-long{display:none}
+  @media(min-width:560px){.act-long{display:inline}}
   html.beta-hero .sticky-bar .btn-save{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:46px;min-height:46px;padding:0;
     border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;cursor:pointer}
-  .prop-save svg,.btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
-  .prop-save[aria-pressed=true],.sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
-  .prop-save[aria-pressed=true] svg,.btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
-  .prop-save:focus-visible,.btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
+  .btn-save svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+  .sticky-bar .btn-save[aria-pressed=true]{color:var(--fav-green);border-color:var(--fav-green)}
+  .btn-save[aria-pressed=true] svg{fill:var(--fav-green)}
+  .btn-save:focus-visible{outline:2px solid #0e2a6b;outline-offset:2px}
   .sticky-bar .btn-call span{display:none}
   @media(max-width:520px){.sticky-bar .btn-wa span{display:none}.sticky-bar .btn-wa{width:48px;padding:12px 0;justify-content:center}}
   body.has-sticky-bar{padding-bottom:78px}
@@ -962,6 +1005,54 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .calc-cta:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(14,42,107,.32)}
   .calc-cta svg{width:20px;height:20px;flex:none}
   .calc-fine{font-size:.68rem;color:var(--ink-soft);margin:0;text-align:center}
+  /* שאלה לעו"ד (docs/lawyer-leads.md): כפתור משני בכרטיס המימון, ומודאל על אותם סגנונות mlead-* */
+  .lq-open{display:block;width:100%;margin:10px 0 0;font:inherit;font-size:.8rem;font-weight:700;color:var(--teal-dark);background:transparent;border:1.5px solid var(--hair-strong);padding:10px 12px;cursor:pointer;text-align:center}
+  .lq-open:hover{border-color:var(--teal);color:var(--teal)}
+  .mlead-field textarea{width:100%;min-height:110px;border:1.5px solid var(--hair-strong);border-radius:0;padding:11px 12px;background:var(--surface-soft);font:inherit;resize:vertical}
+  .mlead-field textarea:focus{border-color:var(--teal);background:#fff;outline:none}
+  .mlead-field textarea.invalid{border-color:var(--brick);background:var(--gold-tint)}
+  .lq-notes{margin:10px 0 0;padding:0 18px 0 0;font-size:.74rem;color:var(--ink-soft)}
+  .lq-notes li{margin:0 0 4px}
+  .lq-wait .btn{display:block;text-decoration:none;text-align:center;margin:14px 0 8px}
+  .lq-wait .status{font-size:.78rem;color:var(--ink-soft);text-align:center;margin:0}
+  /* "כמה מזומן צריך להביא" */
+  .calc-cash{background:var(--surface-soft);border:1px solid var(--hair);padding:12px}
+  .calc-cash-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .calc-cash-head .lbl{font-size:.8rem;font-weight:800;color:var(--ink)}
+  .calc-buyer{display:inline-flex;border:1px solid var(--hair-strong);background:#fff}
+  .calc-buyer button{font:inherit;font-size:.72rem;font-weight:700;padding:5px 9px;border:0;background:transparent;color:var(--ink-soft);cursor:pointer}
+  .calc-buyer button[aria-pressed="true"]{background:var(--teal);color:#fff}
+  .calc-cash-total{font-size:1.5rem;font-weight:900;color:var(--teal-dark);margin:8px 0 6px;font-variant-numeric:tabular-nums}
+  .calc-cash-rows{list-style:none;margin:0;padding:0;display:grid;gap:3px;font-size:.74rem;color:var(--ink-soft)}
+  .calc-cash-rows li{display:flex;justify-content:space-between;gap:8px}
+  .calc-cash-rows b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .calc-cash-fine{font-size:.66rem;color:var(--ink-soft);margin:8px 0 0}
+  /* שני שלבים בטפסים */
+  .step-ind{font-size:.74rem;font-weight:800;color:var(--teal-dark);margin:0 0 8px}
+  .inq-quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+  .inq-quick button{font:inherit;font-size:.76rem;font-weight:700;padding:7px 11px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink);cursor:pointer;border-radius:999px}
+  .inq-quick button[aria-pressed="true"],.inq-quick button:hover{border-color:var(--teal);background:var(--teal-tint);color:var(--teal-dark)}
+  .step-back{display:block;width:100%;margin-top:8px;font:inherit;font-size:.78rem;font-weight:700;color:var(--ink-soft);background:transparent;border:0;cursor:pointer;text-align:center}
+  .step-back:hover{color:var(--teal-dark);text-decoration:underline}
+  .mlead-foot .step-back{margin-top:6px}
+  /* עסקאות אחרונות בסביבה */
+  .panel-sub{font-size:.72rem;color:var(--ink-soft);font-weight:600}
+  .deals-compare{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .deals-compare span{font-size:.78rem;font-weight:700;background:var(--teal-tint);color:var(--teal-dark);padding:6px 10px}
+  .deals-wrap{overflow-x:auto}
+  .deals-table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:420px}
+  .deals-table th{text-align:right;font-size:.7rem;color:var(--ink-soft);font-weight:700;padding:6px 6px;border-bottom:1px solid var(--hair-strong)}
+  .deals-table td{padding:8px 6px;border-bottom:1px solid var(--hair);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .deals-table td.num{font-weight:700;color:var(--ink)}
+  .deals-fine{font-size:.68rem;color:var(--ink-soft);margin:10px 0 0}
+  /* גודל טקסט */
+  .text-size-btn{margin-inline-start:auto;font:inherit;font-size:.72rem;font-weight:700;padding:5px 10px;border:1px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink-soft);cursor:pointer;border-radius:999px}
+  .text-size-btn[aria-pressed="true"]{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .text-size-btn small{font-size:.7em;vertical-align:super}
+  /* ‏zoom ולא font-size: כמעט כל הטקסט בדף ב-rem, ו-em על העמודה לא היה מגדיל אותו */
+  html[data-text="lg"] .content-col{zoom:1.12}
+  /* מרחק מהעיר המרכזית של השוק, לנכס ביישוב אחר */
+  .prop-dist{color:var(--ink-soft);font-weight:600}
 
   /* ====== בלון ליד ייעוץ משכנתאות ====== */
   .mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:300;align-items:flex-end;justify-content:center}
@@ -1236,7 +1327,6 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   /* ‏P1-P: מספר המודעה, שורה אפורה קטנה */
   #listingNo{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:13px;color:#6b7280}
   #listingNo[hidden]{display:none}
-  #listingCopy{min-height:32px;padding:0 10px;border:1px solid #d6dbe6;border-radius:999px;background:#fff;color:#0e2a6b;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -1370,11 +1460,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
-        <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן -->
-        <p class="listing-no" id="listingNo" hidden>מודעה #<span id="listingNoN"></span>
-          <button type="button" id="listingCopy" aria-label="העתקת מספר המודעה" title="העתקת מספר המודעה">העתקה</button></p>
+        <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן.
+             כפתור "העתקה" ירד (תומר, 6.11.2026): מי שרוצה שומר/ת או משתף/ת. באותה
+             שורה כפתור גודל הטקסט (sk_text_size, חל על עמודת התוכן) - שורה אחת ולא שתיים -->
+        <p class="listing-no" id="listingNo" hidden><span id="listingNoLabel" hidden>מודעה #<span id="listingNoN"></span></span>
+          <button type="button" class="text-size-btn" id="textSizeBtn" aria-pressed="false" title="טקסט גדול יותר">א<small>+</small> טקסט גדול</button></p>
         <!-- §6: שמירה לאותה רשימה של "המועדפים" בהחלקה (‏sk_swipe_likes). רק ב-v10 -->
+        <div class="prop-acts">
         <button type="button" class="prop-save" id="saveBtn" aria-pressed="false" aria-label="שמירה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8c0 5.5-7.5 10.1-7.5 10.1Z"/></svg><span>שמירה</span></button>
+        <!-- שיתוף עם חבר/ה, לא פנייה למפרסם: ‎wa.me/?text=‎ בלי מספר, ולכן data-share
+             (‏events.js סופר אותו כ-share עם סוג הפריט והמזהה). ה-href נבנה ב-renderWaShare -->
+        <a class="prop-wa-share" id="waShareBtn" href="#" target="_blank" rel="noopener noreferrer"
+           data-share data-share-type="property" aria-label="שיתוף הנכס בוואטסאפ" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg><span>שיתוף<span class="act-long"> בוואטסאפ</span></span></a>
+        <!-- אפשרויות מימון (7.11.2026, תומר): גלילה למחשבון שבעמוד, באותה שורה של שמירה ושיתוף.
+             ישב קודם מתחת לכפתורי הקשר, צמוד מדי למחשבון עצמו. מוסתר עד ש-initFinBtn (property.js)
+             מאשר מודעת מכירה; בהשכרה המחשבון כולו יורד. כפתור ולא קישור פנייה: בלי data-share -->
+        <button type="button" class="prop-fin" id="finBtn" aria-controls="calcCard" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h3M13 11h3M8 15h3M13 15h3"/></svg><span><span class="act-long">אפשרויות </span>מימון</span></button>
+        </div>
 
         <!-- ====== יריד הבתים הפתוחים ======
              הרצועה יושבת מעל התיאור ולא בתחתית העמוד: "בלי עמלת תיווך"
@@ -1396,6 +1498,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <h2>מה יש בנכס</h2>
           <div class="highlights" id="highlightsList"></div>
         </section>
+
+        <!-- כרטיס השכונה (7.11.2026): הקישור לדף השכונה מוזרק בשרת (og-tags.ts, hoodCard)
+             לתוך האלמנט הריק הזה, וב-renderHoodCard (property.js) כשהשרת לא הספיק.
+             hidden עד שיש קישור: שכונה בלי דף שנכנס לאינדקס אינה מקבלת כרטיס. -->
+        <aside class="hood-card" id="hoodCard" hidden></aside>
 
         <!-- ====== סיור 360° ======
              הסיור העצמאי: פנורמות שהסוכן/ת העלה/תה ב-CRM, מתנגנות כאן
@@ -1533,7 +1640,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </button>
             </div>
             <p class="owner-lead-sub" id="olSub">
-              השאירו פרטים ונחזור אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.
+              משאירים פרטים, ויועץ נדל״ן מהאזור יוכל לתאם איתכם פגישה, כולל הדמיות AI לנכס שלכם.
             </p>
             <form id="ownerLeadForm" novalidate>
               <div class="owner-lead-toggle" role="group" aria-label="מה תרצו לעשות עם הנכס">
@@ -1567,6 +1674,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
            כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
            והמפה עלתה בפועל. -->
+      <!-- עסקאות אחרונות בסביבה (6.11.2026, PR B): עובדות מרשות המיסים ליד המחיר
+           המבוקש, בלי ציון. property_recent_deals במסד; renderRecentDeals ב-property.js.
+           hidden עד שהמסד ענה, ונשאר מוסתר בהשכרה ובלי עסקאות. -->
+      <section class="panel" id="dealsSection" hidden>
+          <div class="panel-head">
+            <h2>עסקאות אחרונות בסביבה</h2>
+            <span class="panel-sub">רשות המיסים · אותו סוג נכס · עד 2 ק״מ</span>
+          </div>
+          <div class="deals-compare" id="dealsCompare" hidden></div>
+          <div class="deals-wrap">
+            <table class="deals-table">
+              <thead><tr><th>מתי</th><th>רחוב</th><th>חדרים</th><th>מ״ר</th><th>מחיר</th><th>למ״ר</th></tr></thead>
+              <tbody id="dealsBody"></tbody>
+            </table>
+          </div>
+          <p class="deals-fine">עסקאות שדווחו לרשות המיסים ב-24 החודשים האחרונים, ללא מספר בית. זה מידע, לא הערכת שווי ולא תחליף לשומה של שמאי/ת מקרקעין.</p>
+      </section>
+
       <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
@@ -1831,20 +1956,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <span class="v" id="agentPriceValue">-</span>
             </div>
             <h2>תיאום ביקור בנכס</h2>
-            <p class="sub">משאירים פרטים, ויועץ הנדל״ן חוזר אליכם בהקדם</p>
+            <p class="sub">משאירים פרטים, והם יועברו למפרסם המודעה</p>
             <p class="fair-form-line" id="fairFormLine" hidden></p>
+            <!-- שני שלבים (6.11.2026, PR B): הבקשה קודם, הפרטים אחר כך. אותו payload. -->
             <form id="inquiryForm">
-              <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
-              <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>
-              <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
-              <button type="submit" class="btn-submit" id="inquirySubmit">שליחת פנייה</button>
+              <div class="form-step" data-step="1">
+                <p class="step-ind">שלב 1 מתוך 2 · מה תרצו?</p>
+                <div class="inq-quick" role="group" aria-label="בקשות נפוצות">
+                  <button type="button" data-quick="אשמח לתאם ביקור בנכס">לתאם ביקור</button>
+                  <button type="button" data-quick="אשמח לקבל פרטים נוספים על הנכס">פרטים נוספים</button>
+                  <button type="button" data-quick="אשמח לשיחה חוזרת">שיחה חוזרת</button>
+                </div>
+                <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
+                <button type="button" class="btn-submit" id="inquiryNext">המשך ←</button>
+              </div>
+              <div class="form-step" data-step="2" hidden>
+                <p class="step-ind">שלב 2 מתוך 2 · איך חוזרים אליכם?</p>
+                <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
+                <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>
+                <button type="submit" class="btn-submit" id="inquirySubmit">שליחת פנייה</button>
+                <button type="button" class="step-back" id="inquiryBack">← חזרה לבקשה</button>
+              </div>
             </form>
             <div id="inquiryFeedback"></div>
             <div class="agent-actions" id="agentActions"></div>
           </div>
         </div>
 
-        <div class="calc-card">
+        <div class="calc-card" id="calcCard">
           <div>
             <h2>כמה משכנתא צריך לנכס הזה?</h2>
             <p class="calc-sub">מזיזים את ההון העצמי ורואים מיד את ההחזר החודשי</p>
@@ -1853,6 +1992,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="calc-price">
             <span class="lbl">מחיר הנכס</span>
             <span class="val" id="calcPriceLabel">-</span>
+          </div>
+
+          <!-- "כמה מזומן צריך להביא" (6.11.2026, PR B): השאלה שקודמת ל"כמה אחזיר
+               בחודש". הון עצמי + מס רכישה (לפי סוג הרכישה) + עו״ד + תיווך + פתיחת
+               תיק. החישוב והמדרגות ב-assets/purchase-costs.js (משותף לדף הבית); docs/mortgage-leads.md -->
+          <div class="calc-cash" id="calcCash">
+            <div class="calc-cash-head">
+              <span class="lbl">כמה מזומן צריך להביא?</span>
+              <div class="calc-buyer" role="group" aria-label="סוג הרכישה">
+                <button type="button" data-buyer="single" aria-pressed="true">דירה יחידה</button>
+                <button type="button" data-buyer="extra" aria-pressed="false">דירה נוספת</button>
+              </div>
+            </div>
+            <div class="calc-cash-total"><span id="calcCashTotal">-</span> ₪</div>
+            <ul class="calc-cash-rows">
+              <li><span>הון עצמי</span><b id="cashEquity">-</b></li>
+              <li><span>מס רכישה</span><b id="cashTax">-</b></li>
+              <li><span>עו״ד (0.5% + מע״מ)</span><b id="cashLawyer">-</b></li>
+              <li id="cashBrokerRow"><span>דמי תיווך (2% + מע״מ)</span><b id="cashBroker">-</b></li>
+              <li id="cashBankRow"><span>פתיחת תיק, שמאי ורישום</span><b id="cashBank">-</b></li>
+            </ul>
+            <p class="calc-cash-fine" id="calcCashFine"></p>
           </div>
 
           <div>
@@ -1901,6 +2062,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             בדיקת זכאות וייעוץ אישי
           </button>
           <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת.</p>
+          <button type="button" class="lq-open" id="lqOpenBtn">יש לכם שאלה משפטית על הנכס? שאלו עורך דין</button>
         </div>
       </div>
     </div>
@@ -1969,38 +2131,112 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <!-- novalidate: הוולידציה ב-JS כדי שההודעות יהיו בעברית ובמקום אחד -->
     <form id="mleadForm" novalidate>
+      <!-- שני שלבים (6.11.2026, PR B): קודם הבקשה (מה מבקשים ולמי), ואז הפרטים. -->
       <div class="mlead-body">
-        <p class="mlead-intro">משאירים פרטים, ויועצי משכנתאות מהאזור חוזרים אליכם עם בדיקת זכאות ומסלולי מימון לנכס הזה.</p>
-        <div class="mlead-recap" id="mleadRecap"></div>
-
-        <div class="mlead-field">
-          <label for="mleadName">שם מלא</label>
-          <input type="text" id="mleadName" autocomplete="name">
+        <div class="form-step" data-step="1">
+          <p class="step-ind">שלב 1 מתוך 2 · הבקשה</p>
+          <p class="mlead-intro">יועץ/ת משכנתאות מהאזור יחזור/תחזור אליכם עם בדיקת זכאות ומסלולי מימון לנכס הזה. קודם מה שהיועץ/ת צריך/ה לדעת:</p>
+          <div class="mlead-recap" id="mleadRecap"></div>
+          <label class="mlead-check" for="mleadOwns">
+            <input type="checkbox" id="mleadOwns">
+            <span>יש ברשותי דירה</span>
+          </label>
+          <p class="mlead-privacy">הפרטים מועברים לגורם מקצועי אחד בלבד בתחום המשכנתאות, לצורך חזרה אליכם.</p>
         </div>
-        <div class="mlead-field">
-          <label for="mleadPhone">טלפון</label>
-          <input type="tel" id="mleadPhone" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+        <div class="form-step" data-step="2" hidden>
+          <p class="step-ind">שלב 2 מתוך 2 · איך חוזרים אליכם?</p>
+          <div class="mlead-field">
+            <label for="mleadName">שם מלא</label>
+            <input type="text" id="mleadName" autocomplete="name">
+          </div>
+          <div class="mlead-field">
+            <label for="mleadPhone">טלפון</label>
+            <input type="tel" id="mleadPhone" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+          </div>
+          <div class="mlead-field">
+            <label for="mleadEmail">אימייל</label>
+            <input type="email" id="mleadEmail" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+          </div>
+          <p class="mlead-error" id="mleadError" role="alert"></p>
         </div>
-        <div class="mlead-field">
-          <label for="mleadEmail">אימייל</label>
-          <input type="email" id="mleadEmail" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
-        </div>
-        <label class="mlead-check" for="mleadOwns">
-          <input type="checkbox" id="mleadOwns">
-          <span>יש ברשותי דירה</span>
-        </label>
-        <p class="mlead-error" id="mleadError" role="alert"></p>
-        <p class="mlead-privacy">הפרטים מועברים לגורם מקצועי אחד בלבד בתחום המשכנתאות, לצורך חזרה אליכם.</p>
       </div>
       <div class="mlead-foot">
-        <button type="submit" class="btn btn-gold btn-block" id="mleadSubmitBtn">שליחה</button>
+        <button type="button" class="btn btn-gold btn-block" id="mleadNextBtn">המשך ←</button>
+        <button type="submit" class="btn btn-gold btn-block" id="mleadSubmitBtn" hidden>שליחה</button>
+        <button type="button" class="step-back" id="mleadBackBtn" hidden>← חזרה</button>
       </div>
     </form>
 
     <div class="mlead-body mlead-done" id="mleadDone" hidden>
       <div class="mark">✓</div>
       <h4>הפרטים נשלחו</h4>
-      <p>נחזור אליכם בהקדם עם ייעוץ משכנתאות.</p>
+      <p>תודה! הפרטים יועברו ליועצי משכנתאות מהאזור.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== שאלה לעורך דין ======
+     אותה צורה כמו בלון המשכנתא. הליד נכנס pending ועולה למדף העו"ד רק אחרי שהפונה שולח/ת הודעת אימות
+     בוואטסאפ מהנייד שהזין/ה (lawyer-lead-intake, whatsapp-webhook). docs/lawyer-leads.md. -->
+<div class="mlead-overlay" id="lqModal" role="dialog" aria-modal="true" aria-labelledby="lqTitle">
+  <div class="mlead-panel">
+    <div class="mlead-head">
+      <h3 id="lqTitle">שאלה לעורך דין</h3>
+      <button type="button" class="mlead-close" id="lqCloseBtn" aria-label="סגירה">✕</button>
+    </div>
+
+    <form id="lqForm" novalidate>
+      <div class="mlead-body">
+        <div class="form-step" data-step="1">
+          <p class="step-ind">שלב 1 מתוך 2 · השאלה</p>
+          <p class="mlead-intro">אפשר לשאול עורך דין מקרקעין מהאזור על הנכס הזה. קודם השאלה:</p>
+          <div class="mlead-recap" id="lqRecap"></div>
+          <div class="mlead-field">
+            <label for="lqQuestion">מה השאלה שלכם?</label>
+            <textarea id="lqQuestion" maxlength="2000" placeholder="למשל: מה צריך לבדוק בנסח הטאבו לפני חתימה על חוזה?"></textarea>
+          </div>
+          <ul class="lq-notes">
+            <li>הגשת שאלה אינה יוצרת יחסי עורך דין-לקוח.</li>
+            <li>אל תשלחו סיסמאות, פרטי תשלום או מסמכי זהות.</li>
+          </ul>
+        </div>
+        <div class="form-step" data-step="2" hidden>
+          <p class="step-ind">שלב 2 מתוך 2 · איך חוזרים אליכם?</p>
+          <div class="mlead-field">
+            <label for="lqName">שם מלא</label>
+            <input type="text" id="lqName" autocomplete="name" maxlength="100">
+          </div>
+          <div class="mlead-field">
+            <label for="lqPhone">טלפון נייד</label>
+            <input type="tel" id="lqPhone" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+          </div>
+          <div class="mlead-field">
+            <label for="lqEmail">אימייל (לא חובה)</label>
+            <input type="email" id="lqEmail" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left" maxlength="200">
+          </div>
+          <p class="mlead-privacy">הפרטים מועברים לעורך דין אחד בלבד, שרוכש את השאלה, לצורך חזרה אליכם. הסוכן/ת של הנכס יקבל/תקבל הודעה שנשאלה שאלה על הנכס, בלי הפרטים שלכם. בהמשך נבקש לאמת את הטלפון בהודעת וואטסאפ.</p>
+          <p class="mlead-error" id="lqError" role="alert"></p>
+        </div>
+      </div>
+      <div class="mlead-foot">
+        <button type="button" class="btn btn-gold btn-block" id="lqNextBtn">המשך ←</button>
+        <button type="submit" class="btn btn-gold btn-block" id="lqSubmitBtn" hidden>שליחה ואימות בוואטסאפ</button>
+        <button type="button" class="step-back" id="lqBackBtn" hidden>← חזרה</button>
+      </div>
+    </form>
+
+    <div class="mlead-body lq-wait" id="lqWait" hidden>
+      <p class="step-ind">עוד צעד אחד · אימות הטלפון</p>
+      <p class="mlead-intro">כדי שעורך הדין יידע שהמספר שלכם אמיתי, שלחו לנו את ההודעה המוכנה בוואטסאפ, <b>מהנייד שהזנתם</b>. אין צורך לכתוב דבר.</p>
+      <!-- data-site-contact: המספר של שוק נדל"ן עצמו, לא סוכן/ת (events.js סופר אחרת כל לחיצה כפנייה למתווך) -->
+      <a class="btn btn-gold btn-block" id="lqWaBtn" data-site-contact href="#" target="_blank" rel="noopener noreferrer">שליחת הודעת אימות בוואטסאפ</a>
+      <p class="status" id="lqWaitStatus" role="status" aria-live="polite">ממתינים לאימות…</p>
+    </div>
+
+    <div class="mlead-body mlead-done" id="lqDone" hidden>
+      <div class="mark">✓</div>
+      <h4>השאלה נקלטה</h4>
+      <p id="lqDoneText">עורך דין מהאזור שירכוש את השאלה ייצור איתכם קשר בטלפון.</p>
     </div>
   </div>
 </div>
@@ -2044,6 +2280,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/air-living.js"></script>
 <script src="assets/fair-contact.js"></script>
 <script src="assets/listing-title.js"></script>
+<script src="assets/purchase-costs.js"></script>
 <script src="assets/property.js"></script>
 
 <footer class="site">
@@ -2059,6 +2296,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -2133,6 +2371,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
           <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
