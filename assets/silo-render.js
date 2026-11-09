@@ -945,8 +945,12 @@
       strip = '<ul class="land-logos">';
       for (var j = 0; j < logos.length && j < 12; j++) {
         var src = renderUrl(logos[j].logo_url, 144, 144, "contain") || logos[j].logo_url;
-        strip += '<li><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(logos[j].name || "משרד תיווך")
-          + '" width="72" height="72" loading="lazy" decoding="async"></li>';
+        var img = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(logos[j].name || "משרד תיווך")
+          + '" width="72" height="72" loading="lazy" decoding="async">';
+        var slug = logos[j].slug;
+        strip += '<li>' + (slug
+          ? '<a href="/agency?slug=' + encodeURIComponent(slug) + '">' + img + '</a>'
+          : img) + '</li>';
       }
       strip += "</ul>";
     }
