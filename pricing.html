@@ -161,14 +161,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:var(--gold-pale);border-radius:99px;padding:5px 14px}
 
   /* ---------- שלושת המסלולים ----------
-     ‏flex-end: ‏Elite רחב וגבוה יותר, והשניים האחרים "עומדים" לידו על אותו
-     קו תחתון - כך הכפתורים של שלושתם בשורה אחת. */
+     מדרג מתון ולא קפיצה של אחד (תומר, 9.11.2026: "Elite גדול מדי"): רוחב, ראש
+     הכרטיס, שם ומחיר גדלים בצעדים קטנים - Pay&GO, ‏PROFESSIONAL, ‏Elite. ‏stretch
+     ו-flex-grow של הרשימה מיישרים את שלושת הכפתורים לאותו קו תחתון, והמדרג בגובה
+     הוא margin-top בדסקטופ בלבד (בנייד הכרטיסים זה מתחת לזה). */
   .plans-sec{margin-top:-150px;position:relative}
-  .plans{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
+  .plans{display:flex;flex-wrap:wrap;gap:20px;align-items:stretch}
+  @media(min-width:981px){
+    .plan.paygo{margin-top:44px}
+    .plan.pro{margin-top:22px;flex-grow:1.4}
+  }
   .plan{flex:1 1 290px;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:22px;
     padding:30px 26px;display:flex;flex-direction:column;gap:16px;position:relative;
     box-shadow:0 24px 50px -34px rgba(13,27,61,.45)}
   .plan.pro{border:1.5px solid var(--sapphire)}
+  .plan.pro .plan-name{font-size:29px}
+  .plan.pro .plan-price .num{font-size:50px}
   .plan-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:26px;line-height:1.2}
   .plan-tagline{color:var(--ink-soft);font-size:15.5px;line-height:1.45;display:block;margin-top:4px}
   .plan-price{display:flex;align-items:baseline;gap:6px 12px;flex-wrap:wrap}
@@ -190,13 +198,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .plan-foot:empty{display:none}
 
   /* --- Elite: כחול כהה, מסגרת זהב והילה --- */
-  .plan.elite{flex:1.3 1 340px;background:linear-gradient(170deg,var(--night) 0%,var(--sapphire-deep) 55%);color:#fff;
-    border:0;border-radius:26px;padding:44px 32px 32px;gap:18px;
+  .plan.elite{flex:1.16 1 320px;background:linear-gradient(170deg,var(--night) 0%,var(--sapphire-deep) 55%);color:#fff;
+    border:0;border-radius:24px;padding:38px 28px 30px;gap:17px;
     box-shadow:0 0 0 2px var(--gold-deep),0 40px 80px -30px rgba(13,27,61,.75),0 0 60px -10px rgba(212,175,55,.45)}
-  @media(max-width:520px){.plan.elite{padding:40px 22px 26px}.plan{padding:26px 20px}}
-  .plan.elite .plan-name{font-weight:900;font-size:44px;line-height:1;color:var(--gold-pale)}
-  .plan.elite .plan-tagline{color:var(--mist-2);font-size:17px;font-weight:600;margin-top:6px}
-  .plan.elite .plan-price .num{font-size:64px}
+  @media(max-width:520px){.plan.elite{padding:36px 22px 26px}.plan{padding:26px 20px}}
+  .plan.elite .plan-name{font-weight:900;font-size:34px;line-height:1.1;color:var(--gold-pale)}
+  .plan.elite .plan-tagline{color:var(--mist-2);font-size:16px;font-weight:600;margin-top:4px}
+  .plan.elite .plan-price .num{font-size:54px}
   .plan.elite .plan-price .per{color:var(--mist)}
   .plan-after{color:var(--gold-pale);font-weight:700;font-size:15px;display:block;margin-top:2px}
   .plan.elite .plan-list{font-size:15.5px;gap:10px}
