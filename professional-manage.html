@@ -89,7 +89,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .account-title{font-weight:800;margin:0 0 6px}
   .account-note{margin:0 0 8px;color:var(--ink-soft)}
   .account-terms{display:block;margin:8px 0;font-weight:400}
-  #accountForm input[type=password]{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:var(--radius-sm);margin:4px 0 6px}
   .renew-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin:0 0 12px;font-size:.8rem}
   .renew-box[hidden]{display:none}
   .renew-box p{margin:0 0 8px;font-size:.82rem;color:var(--ink)}
@@ -195,8 +194,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <form id="accountForm" hidden>
         <p class="account-note">עורכי דין מקבלים שאלות של לקוחות מדף נכס ורוכשים אותן מארנק. פתיחת החשבון חינם, והגישה למדף השאלות מאושרת בידי הנהלת האתר.</p>
-        <label for="accPassword">סיסמה לכניסה (8 תווים לפחות)</label>
-        <input type="password" id="accPassword" autocomplete="new-password" minlength="8" required>
+        <p class="account-note">נשלח מייל אימות לכתובת שבכרטיסייה. הלחיצה על הקישור שבו מאשרת את הכתובת, ושם קובעים סיסמה.</p>
         <label class="account-terms"><input type="checkbox" id="accTerms" required> קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a></label>
         <button type="submit" class="btn btn-ghost" id="accBtn">פתיחת חשבון</button>
         <div id="accFeedback"></div>
@@ -391,6 +389,11 @@ function renderAccountBox(data){
   if (!lawyer) return;
   el('accountHas').hidden = !data.has_account;
   el('accountForm').hidden = !!data.has_account;
+  // נשלח מייל אימות ועוד לא נלחץ: אותו טופס, עם הסבר ושליחה חוזרת
+  if (data.account_pending){
+    el('accFeedback').textContent = 'נשלח מייל אימות לכתובת שבכרטיסייה ועדיין לא אושר. לא הגיע? בדקו בספאם, או בקשו שליחה חוזרת.';
+    el('accBtn').textContent = 'שליחה חוזרת של מייל האימות';
+  }
 }
 el('accountForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -400,24 +403,25 @@ el('accountForm').addEventListener('submit', async (e)=>{
     const res = await fetch(ACCOUNT_FUNCTION_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({ token, password: el('accPassword').value, terms_accepted: el('accTerms').checked }),
+      body: JSON.stringify({ token, terms_accepted: el('accTerms').checked }),
     });
     const data = await res.json().catch(()=>({ error:'bad_response' }));
     if (!res.ok || data.error){
       const messages = {
-        weak_password: 'הסיסמה צריכה להכיל לפחות 8 תווים',
         terms_not_accepted: 'צריך לאשר את תנאי השימוש',
         account_exists: 'כבר נפתח חשבון לכרטיסייה הזו. אפשר להיכנס לאזור האישי.',
         email_in_use: 'הכתובת שבכרטיסייה כבר רשומה באתר. כתבו לנו ונחבר את החשבון.',
         card_without_email: 'לכרטיסייה אין כתובת אימייל. כתבו לנו.',
+        invite_failed: 'לא הצלחנו לשלוח את מייל האימות. נסו שוב בעוד רגע.',
+        resend_too_soon: 'שלחנו מייל אימות לפני רגע. אפשר לבקש שוב בעוד דקה.',
       };
       out.textContent = messages[data.error] || 'לא הצלחנו לפתוח את החשבון. נסו שוב בעוד רגע.';
       btn.disabled = false;
       return;
     }
-    out.textContent = 'החשבון נפתח. כתובת הכניסה: ' + data.login_email;
-    el('accountForm').hidden = true;
-    el('accountHas').hidden = false;
+    // החשבון עוד לא פעיל: הוא נפתח בלחיצה על הקישור במייל. לכן הטופס נשאר, ובקשה חוזרת (אחרי דקה) שולחת מייל חדש
+    out.textContent = 'שלחנו מייל אימות אל ' + data.login_email + '. לחצו על הקישור שבו וקבעו סיסמה. לא הגיע? בדקו בספאם, ואפשר לבקש שוב בעוד דקה.';
+    btn.disabled = false; btn.textContent = 'שליחה חוזרת של מייל האימות';
   } catch(err){
     out.textContent = 'שגיאת רשת - נסו שוב';
     btn.disabled = false;

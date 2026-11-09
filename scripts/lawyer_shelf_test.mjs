@@ -90,6 +90,17 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.equal(/shelf_enabled/.test(accountFn.replace(/\/\/.*$/gm, '').replace(/\*\*shelf_enabled[^\n]*/g, '')), false, 'האישור למדף אינו נקבע בפתיחה');
   assert.match(accountFn, /deleteUser\(authUser\.user\.id\)/);
   assert.match(accountFn, /terms_accepted !== true/);
+  // אימות מייל: האסימון יוצא לטופס ההרשמה, ולכן המשתמש נוצר בהזמנה במייל ולא עם email_confirm וסיסמה מהגוף
+  const accountCode = accountFn.replace(/\/\/.*$/gm, '');
+  assert.match(accountCode, /auth\.admin\.inviteUserByEmail\(email,/);
+  assert.match(accountCode, /redirectTo: `\$\{siteBaseUrl\}\/professional-crm`/);
+  assert.equal(/email_confirm\s*:/.test(accountCode), false, 'משתמש שנוצר מאושר מראש מוותר על הוכחת הכתובת');
+  assert.equal(/admin\.createUser/.test(accountCode), false);
+  assert.equal(/body\.password/.test(accountCode), false, 'הסיסמה נקבעת אחרי הלחיצה על הקישור, לא בטופס');
+  // משתמש שלא אישר לא תופס את הכתובת: בקשה חוזרת מוחקת אותו ושולחת הזמנה, לא לפני דקה, ולעולם לא משתמש מאושר
+  assert.match(accountCode, /stale\.email_confirmed_at[\s\S]{0,200}account_exists/);
+  assert.match(accountCode, /RESEND_AFTER_MS[\s\S]{0,200}resend_too_soon/);
+  assert.match(accountCode, /deleteUser\(stale\.id\)/);
   // רק כרטיסיית בעל מקצוע חיה או ממתינה לאישור, ועיר רק בהתאמה יחידה
   assert.match(accountFn, /placement_type !== "professional_card"[\s\S]{0,120}"active", "pending_approval"/);
   assert.match(accountFn, /cities\.length === 1/);
@@ -98,7 +109,14 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
 });
 
 test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי דין, והאזור האישי קורא מה-view הסגור', () => {
-  assert.match(manageFn, /has_account: !!acct/);
+  assert.match(manageFn, /has_account: !!acct && !accountPending/);
+  assert.match(manageFn, /!au\.user\.email_confirmed_at/);
+  assert.equal(/accPassword/.test(manageHtml), false, 'טופס פתיחת החשבון אינו מבקש סיסמה');
+  assert.match(manageHtml, /account_pending/);
+  // הנחיתה מהקישור שבמייל: type=invite נקרא לפני שה-hash נמחק, וטופס הסיסמה גובר על boot
+  assert.match(crmJs, /let inviteOpen = \/\[#&\]type=invite/);
+  assert.match(crmJs, /if \(inviteOpen\) \{[\s\S]{0,120}recovering = true;[\s\S]{0,160}show\('recoverCard', true\)/);
+  assert.match(crmJs, /otp_expired/);
   assert.match(manageHtml, /advertiser_type === 'real_estate_lawyer'/);
   assert.match(crmJs, /\.from\('lawyer_leads_public'\)/);
   assert.match(crmJs, /\/functions\/v1\/lawyer-lead-purchase/);

@@ -17,6 +17,14 @@ import { announceProfessionalAccount } from "../_shared/platform-signup-alert.ts
 // כתובת הכניסה היא ה-contact_email שנרשם בכרטיסייה ולא כתובת שהוקלדה כאן: טעות הקלדה
 // הייתה יוצרת חשבון בלי דרך לאפס סיסמה.
 //
+// ## אימות המייל: הזמנה, לא סיסמה שמוקלדת כאן
+// האסימון מוחזר לטופס ההרשמה ולא רק נשלח למייל, ולכן מי שהגיש/ה כרטיסייה עם כתובת של אדם אחר
+// מחזיק/ה בו. לכן אין כאן `email_confirm: true` וסיסמה שהוא/היא בחר/ה (כמו שעושים agency-signup
+// ו-developer-signup, שם הכתובת היא של מי שמקליד/ה): המשתמש נוצר ב-`inviteUserByEmail`, המייל נשלח
+// לכתובת שבכרטיסייה, והסיסמה נקבעת רק אחרי הלחיצה על הקישור (professional-crm). בלי לחיצה אי אפשר
+// להיכנס, ולכן אין ארנק ואין מדף. כתובת שלא אושרה לא נשארת תפוסה: בקשה חוזרת (אחרי דקה) מוחקת את
+// המשתמש שלא אושר (אי אפשר היה להיכנס אליו, ואין בו יתרה) ושולחת הזמנה חדשה.
+//
 // ## מה נוצר, ומה לא
 // נוצרים משתמש (auth), ושורת professional_accounts עם kind מהכרטיסייה, עיר מ-target_region
 // וארנק ריק. **shelf_enabled נשאר false:** מי שרשאי/ת לראות ולקנות לידים נקבע על ידי מנהל/ת
@@ -25,6 +33,9 @@ import { announceProfessionalAccount } from "../_shared/platform-signup-alert.ts
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const siteBaseUrl = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
+// הבקשה החוזרת לא תשלח מייל נוסף לכתובת לפני שעברה דקה מההזמנה האחרונה (גם מגבלת המייל של Supabase)
+const RESEND_AFTER_MS = 60_000;
 
 function corsHeaders() {
   return {
@@ -70,11 +81,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const token = typeof body.token === "string" ? body.token.trim() : "";
-  const password = typeof body.password === "string" ? body.password : "";
   if (!UUID_RE.test(token)) return json({ error: "invalid_token" }, 400);
-  if (password.length < 8) {
-    return json({ error: "weak_password", detail: "סיסמה צריכה להכיל לפחות 8 תווים" }, 400);
-  }
   // התנאים נאכפים בשרת ולא בתיבת סימון בדפדפן (כמו בשאר ההרשמות)
   if (body.terms_accepted !== true) {
     return json({ error: "terms_not_accepted", detail: "פתיחת החשבון מותנית באישור תנאי השימוש" }, 400);
@@ -97,8 +104,26 @@ Deno.serve(async (req: Request) => {
   if (!card.contact_email) return json({ error: "card_without_email" }, 409);
 
   const { data: existing } = await supabase
-    .from("professional_accounts").select("id").eq("card_id", card.id).maybeSingle();
-  if (existing) return json({ error: "account_exists", detail: "כבר נפתח חשבון לכרטיסייה הזו. אפשר להתחבר, או לאפס סיסמה." }, 409);
+    .from("professional_accounts").select("id, user_id, erased_at").eq("card_id", card.id).maybeSingle();
+  if (existing) {
+    // חשבון שאושר (או שנמחק) נשאר כמות שהוא. חשבון שההזמנה אליו לא נלחצה: שולחים הזמנה חדשה
+    const stale = existing.user_id && !existing.erased_at
+      ? (await supabase.auth.admin.getUserById(existing.user_id)).data?.user
+      : null;
+    if (!stale || stale.email_confirmed_at) {
+      return json({ error: "account_exists", detail: "כבר נפתח חשבון לכרטיסייה הזו. אפשר להתחבר, או לאפס סיסמה." }, 409);
+    }
+    const sentAt = Date.parse(stale.invited_at || stale.created_at || "");
+    if (Number.isFinite(sentAt) && Date.now() - sentAt < RESEND_AFTER_MS) {
+      return json({ error: "resend_too_soon", detail: "שלחנו הזמנה לפני רגע. אפשר לבקש שוב בעוד דקה." }, 429);
+    }
+    // אי אפשר היה להיכנס אליו, ולכן אין בו יתרה, הזמנות או לידים. ה-cascade מוחק גם את שורת החשבון
+    const { error: delErr } = await supabase.auth.admin.deleteUser(stale.id);
+    if (delErr) {
+      console.error("professional account: deleting unconfirmed user failed", delErr.message);
+      return json({ error: "auth_error", detail: delErr.message }, 500);
+    }
+  }
 
   // העיר: לפי שם האזור שנרשם בכרטיסייה. בלי התאמה city_id ריק, ומנהל/ת משלים/ה לפני אישור המדף
   let cityId: string | null = null;
@@ -113,11 +138,10 @@ Deno.serve(async (req: Request) => {
   const email = String(card.contact_email).trim().toLowerCase();
   const displayName = String(card.advertiser_name || card.business_name || "").trim();
 
-  const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: displayName, account_type: "professional" },
+  // מייל ההזמנה הוא ההוכחה שהכתובת של מי שפותח/ת את החשבון. רק הלחיצה עליו מאשרת את הכתובת
+  const { data: authUser, error: authErr } = await supabase.auth.admin.inviteUserByEmail(email, {
+    data: { full_name: displayName, account_type: "professional" },
+    redirectTo: `${siteBaseUrl}/professional-crm`,
   });
   if (authErr || !authUser?.user) {
     // כתובת שכבר רשומה (למשל סוכן/ת שהוא/היא גם בעל/ת מקצוע): לא מחברים חשבון קיים לפי אסימון
@@ -127,7 +151,12 @@ Deno.serve(async (req: Request) => {
         detail: "הכתובת שבכרטיסייה כבר רשומה באתר. כתבו לנו ונחבר את החשבון.",
       }, 409);
     }
-    return json({ error: "auth_error", detail: authErr?.message || "יצירת המשתמש נכשלה" }, 400);
+    // ‏429 של מגבלת המיילים של Supabase, או SMTP שנפל: אין משתמש (ההזמנה נכשלה לפני שנשלחה), ואפשר לנסות שוב
+    console.error("professional account invite failed", authErr?.message);
+    return json({
+      error: "invite_failed",
+      detail: "לא הצלחנו לשלוח את מייל האימות. נסו שוב בעוד רגע.",
+    }, 502);
   }
 
   const { data: account, error: insErr } = await supabase
@@ -153,5 +182,5 @@ Deno.serve(async (req: Request) => {
 
   await announceProfessionalAccount(supabase, account.id);
 
-  return json({ success: true, login_email: email, login_url: "/professional-crm" });
+  return json({ success: true, verification_sent: true, login_email: email, login_url: "/professional-crm" });
 });
