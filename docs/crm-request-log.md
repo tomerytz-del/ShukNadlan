@@ -11,7 +11,7 @@ UUID אפס (`00000000-0000-4000-8000-000000000000`), באותה ספירה בד
    ו-`/crm/*`. היא מחזירה את התשובה **כמות שהיא** ורושמת ב-`waitUntil`.
 2. היא שולחת POST ל-`supabase/functions/crm-request-log` עם סוד משותף
    (`x-crm-log-secret`).
-3. הפונקציה קוראת ל-`crm_request_log_add` (מיגרציה `20271108090000`) ששומרת
+3. הפונקציה קוראת ל-`crm_request_log_add` (מיגרציה `20271109150000`) ששומרת
    ל-`crm_request_log`: IP, מדינה ועיר, שיטה, נתיב, query, סטטוס, user-agent,
    referer, שפה, כותרות `sec-fetch-*` ו-`sec-ch-ua-*`.
 
