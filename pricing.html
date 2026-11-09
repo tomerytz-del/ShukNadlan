@@ -1177,8 +1177,6 @@ function priceBlock(tier){
          '<span class="per">/ חודש + מע״מ</span></div>';
 }
 
-/* שורת הערך בכרטיס Elite: מה עולים 8 הסרטונים ב-PROFESSIONAL. מחושב, לא נכתב. */
-
 document.getElementById('planCards').innerHTML = Tiers.list().map(function(tier){
   const cta = ctaFor(tier);
   const isCurrent = tier.id === current;
