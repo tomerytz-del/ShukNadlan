@@ -163,7 +163,7 @@ function intro(li: LeadInfo): string {
 }
 
 /** הודעה מלאה (חלון 24 השעות), כשההודעה כולה היא ליד אחד. */
-export function leadText(first: string, li: LeadInfo, link: string | null, optOutLine: string): string {
+export function leadText(first: string, li: LeadInfo, _link: string | null, optOutLine: string): string {
   const lines = [
     first ? `🔥 ${first}, נכנס לך ליד חם!` : "🔥 נכנס לך ליד חם!",
     "",
@@ -173,7 +173,6 @@ export function leadText(first: string, li: LeadInfo, link: string | null, optOu
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
     "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
-    ...(link ? [`👈 ${link}`] : []),
     "",
     optOutLine,
   ];
@@ -186,9 +185,9 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
     alone ? "⏱️ מי שחוזר ראשון - סוגר!" : "",
-    url ? `לפרטי הפונה: ${url}` : "",
   ];
-  return parts.filter(Boolean).join(" · ");
+  const line = parts.filter(Boolean).join(" · ");
+  return url ? `${line} ${url}` : `${line} פרטים ב-CRM.`;
 }
 
 /** שורה בתוך הודעה מרוכזת (כמה התראות) - כותרת וגוף במקום הנוסח הגנרי. */

@@ -63,6 +63,52 @@
           intro: "בית פרטי למכירה בעפולה כולל כאן גם בית קרקע וגם קוטג'. אלה בתים למכירה מכל משרדי התיווך בעיר, כולל עפולה עילית וגבעת המורה, עם מחיר, גודל ותמונות.",
         },
       },
+      /* דירות למכירה - לא במקום שלושת הסוגים. flats כמו ?deal=sale (בלי בית ומגרש). */
+      extra: [
+        /* הסוגים וסוג העסקה נבנים ב-withStock מהמלאי הפעיל, לא מהטקסט הזה. */
+        {
+          slug: "נדלן-מסחרי",
+          what: "נדל״ן מסחרי",
+          h1: "נדל״ן מסחרי בעפולה",
+          label: "נדל״ן מסחרי בעפולה",
+          benefit: "נדל״ן מסחרי בעפולה ממשרדי התיווך באזור.",
+          description: "נדל״ן מסחרי בעפולה ממשרדי התיווך באזור.",
+          intro: "נדל״ן מסחרי בעפולה ממשרדי התיווך באזור. בכל מודעה מופיעים המחיר, הגודל והתמונות.",
+          property_type: null,
+          category: "commercial",
+          anyDeal: true,
+          dynamicStock: true,
+          collection: true,
+          crumbName: "עפולה",
+          crumbPath: "/afula/דירות-למכירה",
+          faqs: [
+            ["אילו נכסים כלולים בעמוד?", "העמוד מציג את מודעות הנדל״ן המסחרי הפעילות בעפולה."],
+            ["מי מפרסם את הנכסים?", "משרדי תיווך שמפרסמים באתר. בדף של כל נכס מופיעים שם המשרד ופרטי הקשר שלו."],
+            ["מה עושים אם אין כרגע מודעות?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס שמתאים."],
+          ],
+          rooms: null,
+        },
+        {
+          slug: "דירות-למכירה",
+          what: "דירות",
+          hero: "דירות-3-חדרים",
+          h1: "דירות למכירה בעפולה",
+          benefit: "דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר.",
+          description: "דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר: מחיר, גודל ותמונות לכל מודעה פעילה, ופנייה מהירה דרך האתר.",
+          intro: "דירות למכירה בעפולה מיועצי הנדל״ן והמשרדים בעיר. בכל מודעה מופיעים המחיר, הגודל והתמונות.",
+          /* התשובה הראשונה רק כאן. השאר זהות ל-faqs() המשותף, כי הוא אומר
+             "משרדי התיווך" ומשמש את שאר דפי הנחיתה. */
+          faqs: [
+            ["מאיפה המודעות בעמוד הזה?", "אלה נכסים למכירה בעפולה שיועצי נדל״ן ומשרדים מפרסמים באתר."],
+            ["איפה רואים את המחיר ואת כל הפרטים?", "בדף של כל נכס מופיעים המחיר שפורסם והמפרט המלא. אם אין מחיר במודעה, אפשר לפנות דרך האתר ולשאול."],
+            ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות בעפולה, ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
+            ["מה עושים אם אין כרגע מודעות?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס שמתאים."],
+          ],
+          property_type: null,
+          property_types: ["דירה", "דופלקס", "טריפלקס", "סטודיו/לופט", "יחידת דיור", "מרתף/פרטר", "דירת גן", "גג/פנטהאוז"],
+          rooms: null,
+        },
+      ],
     },
     /* ‏12 השכונות עם הכי הרבה עסקאות ב-market_deals_official (‏25.10.2026). */
     { slug: "haifa", name: "חיפה", market: "haifa",
@@ -231,6 +277,7 @@
       also: [
         ["/afula/בתים-פרטיים", "בתים פרטיים למכירה בעפולה"],
         ["/afula/דירות-גן", "דירות גן למכירה בעפולה"],
+        ["/afula/דירות-למכירה", "דירות למכירה בעפולה"],
         ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
         ["/afula/מתווכים", "מתווכים בעפולה"],
       ],
@@ -311,9 +358,14 @@
       cityId: c.cityId,
       market: c.market,
       faqs: t.faqs || null,
-      collection: c.ld === "collection",
+      collection: c.ld === "collection" || t.collection === true,
       hero: t.hero || null,
       placeName: c.name,
+      category: t.category || null,
+      anyDeal: t.anyDeal === true,
+      dynamicStock: t.dynamicStock === true,
+      crumbName: t.crumbName || null,
+      crumbPath: t.crumbPath || null,
     };
   }
 
@@ -344,6 +396,9 @@
         cityId: c0.cityId,
         market: c0.market,
       });
+    }
+    if (cCity.extra && cCity.extra.length) {
+      for (var ek = 0; ek < cCity.extra.length; ek++) PAGES.push(customPage(cCity, cCity.extra[ek]));
     }
   }
 
@@ -405,12 +460,13 @@
     var parts = [
       "select=" + select,
       "status=eq.active",
-      "deal_type=eq.sale",
-      "category=eq.residential",
+      "category=eq." + encodeURIComponent(page.category || "residential"),
       cityFilter,
       "order=is_promoted.desc,created_at.desc",
       "limit=" + limit,
     ];
+    /* דף מסחרי לא נועל מכירה: גם השכרה פעילה נספרת. שאר הדפים נשארים מכירה. */
+    if (!page.anyDeal) parts.push("deal_type=eq.sale");
     if (page.property_types && page.property_types.length) {
       parts.push("property_type=in." + pgIn(page.property_types));
     } else if (page.property_type) parts.push("property_type=eq." + encodeURIComponent(page.property_type));
@@ -420,6 +476,12 @@
 
   function queryOf(page) {
     return queryParts(page, "id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name)", 24);
+  }
+
+  /* מלאי מלא לסוגים ולסוג העסקה. 24 הכרטיסים אינם המלאי: סוג שנדחק
+     מהרשימה הגלויה עדיין קיים, ואסור להשמיט אותו מהתיאור. */
+  function stockQuery(page) {
+    return queryParts(page, "property_type,deal_type", 1000);
   }
 
   /* ספירת שכונות לאותו סוג בדיוק, לא לכל העיר. */
@@ -538,7 +600,7 @@
   /* ‏החיפוש של העיר: "/?…" בעפולה (שוק ברירת המחדל), "/haifa?…" בחיפה. */
   function qs(params, home) {
     var parts = [];
-    var keys = ["deal", "ptype", "rooms", "maxPrice", "minPrice"];
+    var keys = ["deal", "ptype", "rooms", "maxPrice", "minPrice", "cdeal"];
     for (var i = 0; i < keys.length; i++) {
       var v = params[keys[i]];
       if (v == null || v === "") continue;
@@ -548,7 +610,7 @@
   }
 
   function searchHref(page, over) {
-    var q = { deal: "sale" };
+    var q = { deal: page.category === "commercial" ? "commercial" : "sale" };
     if (page.property_type) q.ptype = page.property_type;
     if (page.rooms != null) q.rooms = String(page.rooms);
     if (over) {
@@ -565,6 +627,14 @@
 
   function filters(page) {
     var html = '<nav class="land-filters" aria-label="סינון מהיר">';
+    /* מסחרי: רק סוג עסקה שקיים במלאי. בלי חדרים ובלי "לקנייה" כברירת מחדל. */
+    if (page.category === "commercial") {
+      var home = cityOf(page).home;
+      var live = page.liveDeals || [];
+      if (live.indexOf("sale") >= 0) html += chip(qs({ deal: "commercial", cdeal: "sale" }, home), "<span>לקנייה</span>", false);
+      if (live.indexOf("rent") >= 0) html += chip(qs({ deal: "commercial", cdeal: "rent" }, home), "<span>להשכרה</span>", false);
+      return html + "</nav>";
+    }
     html += chip(searchHref(page, { deal: "sale" }), "<span>לקנייה</span>", true);
     html += chip(searchHref(page, { deal: "rent" }), "<span>להשכרה</span>", false);
     html += chip(searchHref(page, { maxPrice: "1000000" }), "<span>עד</span>" + bdi("1") + "<span>מיליון</span>", false);
@@ -761,6 +831,7 @@
   }
 
   function relatedHtml(page, rows, extras) {
+    if (page.category === "commercial") return "";
     if (listOf(rows).length >= 3) return "";
     var rel = relatedRows(rows, extras);
     if (!rel.length) return "";
@@ -894,6 +965,9 @@
     if (page.rooms === 3) {
       return n === 1 ? "דירת 3 חדרים למכירה " + at : "דירות 3 חדרים למכירה " + at;
     }
+    if (page.slug === "דירות-למכירה") {
+      return n === 1 ? "דירה למכירה " + at : "דירות למכירה " + at;
+    }
     return n === 1 ? "מודעה פעילה" : "מודעות פעילות";
   }
 
@@ -936,11 +1010,18 @@
     var c = cityOf(page);
     var at = escapeHtml(c.at);
     var market = marketHtml(page, rows, extras);
+    if (page.category === "commercial") {
+      return '<section class="land-seo"><h2>על הרשימה</h2>'
+        + "<p>" + escapeHtml(page.intro) + "</p>"
+        + (market ? "<p>" + market + "</p>" : "")
+        + "<p>המודעות מתפרסמות על ידי משרדי תיווך. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
+        + "להשוואת עסקאות שדווחו לרשות המסים: " + dealsLink(c, at) + ".</p></section>";
+    }
     return '<section class="land-seo"><h2>על הרשימה</h2>'
       + "<p>" + escapeHtml(page.intro) + "</p>"
       + (market ? "<p>" + market + "</p>" : "")
       + focusHoods(page)
-      + "<p>המודעות הן נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
+      + "<p>המודעות הן נכסים למכירה " + at + " שיועצי נדל״ן ומשרדים מפרסמים באתר. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
       + "להשוואת עסקאות שדווחו לרשות המסים: " + dealsLink(c, at) + ", ולמחירי דירות לפי חדרים: "
       + '<a href="/prices">מחירי דירות</a>.</p></section>';
   }
@@ -959,20 +1040,19 @@
     var extra = [];
     if (page && page.slug === "בתים-פרטיים") {
       extra = [
-        ["מה נכלל בבית פרטי למכירה " + at + "?", "בעמוד הזה מופיעים בתים פרטיים, בתי קרקע וקוטג'ים למכירה " + at + (c.alsoIn ? ", כולל ב" + c.alsoIn : "") + ". המודעות מתפרסמות על ידי משרדי תיווך."],
+        ["מה נכלל בבית פרטי למכירה " + at + "?", "בעמוד הזה מופיעים בתים פרטיים, בתי קרקע וקוטג'ים למכירה " + at + (c.alsoIn ? ", כולל ב" + c.alsoIn : "") + ". המודעות מתפרסמות על ידי יועצי נדל״ן ומשרדים."],
         ["יש הבדל בין בית פרטי, בית קרקע וקוטג'?", "בית קרקע הוא בית על מגרש. קוטג' הוא סוג של בית פרטי, ולעתים בית דו-משפחתי. בדף הנכס מופיע המפרט שפורסם במודעה."],
-        ["אפשר לקנות בית " + at + " בלי תיווך?", "המודעות בעמוד הזה מתפרסמות על ידי משרדי תיווך. מוכר פרטי לא מפרסם כאן בעצמו."],
       ];
     } else if (page && page.slug === "דירות-גן") {
       extra = [
-        ["מהי דירת גן למכירה " + at + "?", "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה " + at + ", מכל משרדי התיווך."],
+        ["מהי דירת גן למכירה " + at + "?", "דירת גן היא דירה עם גינה פרטית, בדרך כלל בקומת קרקע. בעמוד הזה מופיעות דירות גן פעילות למכירה " + at + ", מיועצי נדל״ן ומשרדים."],
         ["במה דירת גן שונה מבית פרטי?", "דירת גן היא דירה בבניין, עם גינה. בית פרטי הוא בית על מגרש. שטח הגינה מופיע במודעה כשהוא מפורסם."],
         ["המחיר של דירת גן כולל את הגינה?", "המחיר והשטחים הם מה שפורסם במודעה. הפירוט המלא נמצא בדף הנכס."],
       ];
     }
     return extra.concat([
-      ["מאיפה המודעות בעמוד הזה?", "אלה נכסים למכירה " + at + " שמשרדי התיווך מפרסמים באתר."],
-      ["האם המחיר שמופיע הוא המחיר הסופי?", "המחיר והמפרט המלא נמצאים בדף של כל נכס. אם אין מחיר במודעה, הוא לפי פנייה."],
+      ["מאיפה המודעות בעמוד הזה?", "אלה נכסים למכירה " + at + " שיועצי נדל״ן ומשרדים מפרסמים באתר."],
+      ["איפה רואים את המחיר ואת כל הפרטים?", "בדף של כל נכס מופיעים המחיר שפורסם והמפרט המלא. אם אין מחיר במודעה, אפשר לפנות דרך האתר ולשאול."],
       ["איפה רואים עסקאות ומחירי דירות?", "עסקאות שדווחו לרשות המסים נמצאות בעמוד העסקאות " + at + ", ומחירי דירות לפי חדרים בעמוד מחירי הדירות."],
       ["מה עושים אם אין כרגע מודעות?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס שמתאים."],
     ]);
@@ -1008,6 +1088,80 @@
   function emptyState() {
     return '<div class="land-empty"><p>אין כרגע מודעות פעילות.</p>'
       + '<button type="button" class="land-btn land-btn-primary" data-land-alert>קבלו התראה</button></div>';
+  }
+
+  /* תווית תצוגה לסוג מהמסד. סוג שאינו במפה נשאר כמו שהוא.
+     הרשימה עצמה באה מהשורות, לא מהמפה: מפתח שלא חזר מהמסד לא נכתב. */
+  var STOCK_LABEL = {
+    "משרדים": "משרדים",
+    "חנויות/שטח מסחרי": "חנויות ושטחי מסחר",
+    "מבני תעשייה": "מבני תעשייה",
+    "מגרשים": "מגרשים",
+  };
+
+  function stockSource(rows, extras) {
+    if (extras && Array.isArray(extras.stock) && extras.stock.length) return extras.stock;
+    return listOf(rows);
+  }
+
+  function stockFacts(rows) {
+    var counts = {};
+    var deals = {};
+    var list = listOf(rows);
+    for (var i = 0; i < list.length; i++) {
+      var t = String((list[i] && list[i].property_type) || "").trim();
+      var d = String((list[i] && list[i].deal_type) || "").trim();
+      if (t) counts[t] = (counts[t] || 0) + 1;
+      if (d === "sale" || d === "rent") deals[d] = true;
+    }
+    var types = Object.keys(counts).sort(function (a, b) {
+      if (counts[a] !== counts[b]) return counts[b] - counts[a];
+      return a.localeCompare(b, "he");
+    });
+    return { types: types, deals: deals };
+  }
+
+  function heJoin(list) {
+    if (!list.length) return "";
+    if (list.length === 1) return list[0];
+    return list.slice(0, -1).join(", ") + " ו" + list[list.length - 1];
+  }
+
+  function copyPage(page) {
+    var copy = {};
+    for (var k in page) copy[k] = page[k];
+    return copy;
+  }
+
+  /* התיאור, ה-H1 וה-FAQ של דף המסחרי. בלי מלאי נשאר הנוסח הגנרי,
+     בלי שם סוג ובלי "למכירה"/"להשכרה". */
+  function withStock(page, rows, extras) {
+    if (!page || !page.dynamicStock) return page;
+    var facts = stockFacts(stockSource(rows, extras));
+    var copy = copyPage(page);
+    copy.liveDeals = [];
+    if (facts.deals.sale) copy.liveDeals.push("sale");
+    if (facts.deals.rent) copy.liveDeals.push("rent");
+    if (!facts.types.length) return copy;
+    var words = heJoin(facts.types.map(function (t) { return STOCK_LABEL[t] || t; }));
+    var how = facts.deals.sale && facts.deals.rent ? "למכירה ולהשכרה"
+      : facts.deals.sale ? "למכירה"
+      : facts.deals.rent ? "להשכרה"
+      : "";
+    var description = words + (how ? " " + how : "") + " בעפולה, ממשרדי התיווך באזור.";
+    var name = "נדל״ן מסחרי בעפולה - " + words;
+    copy.h1 = name;
+    /* ‏ה-<title> נשאר קצר: עם רשימת הסוגים הוא הגיע ל-79 תווים ונחתך
+       בתוצאה (ביקורת 5.11.2026). ה-H1 שומר את הרשימה. */
+    copy.title = page.h1;
+    copy.description = description;
+    copy.intro = description;
+    copy.benefit = description;
+    copy.label = name;
+    var faqs = (page.faqs || []).map(function (row) { return [row[0], row[1]]; });
+    if (faqs.length) faqs[0][1] = "בעמוד הזה: " + words + (how ? " " + how : "") + " בעפולה.";
+    copy.faqs = faqs;
+    return copy;
   }
 
   function render(page, rows, extras) {
@@ -1067,7 +1221,7 @@
           "@id": url + "#breadcrumb",
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
-            { "@type": "ListItem", position: 2, name: c.homeLabel || c.name, item: site + c.home },
+            { "@type": "ListItem", position: 2, name: page.crumbName || c.homeLabel || c.name, item: site + (page.crumbPath || c.home) },
             { "@type": "ListItem", position: 3, name: page.h1, item: url },
           ],
         },
@@ -1090,6 +1244,7 @@
       numberOfItems: items.length,
       itemListElement: items,
     };
+    if (page.dynamicStock) itemList.itemListOrder = "https://schema.org/ItemListOrderDescending";
     return [graph, itemList];
   }
 
@@ -1111,7 +1266,7 @@
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "דף הבית", item: site + "/" },
-        { "@type": "ListItem", position: 2, name: cityOf(page).name, item: site + cityOf(page).home },
+        { "@type": "ListItem", position: 2, name: page.crumbName || cityOf(page).name, item: site + (page.crumbPath || cityOf(page).home) },
         { "@type": "ListItem", position: 3, name: page.h1, item: url },
       ],
     };
@@ -1158,6 +1313,8 @@
     countedNeighborhoods: function (rows, page) { return neighborhoods(page, { hoods: rows }, true); },
     pageOf: pageOf,
     queryOf: queryOf,
+    stockQuery: stockQuery,
+    withStock: withStock,
     hoodCountQuery: hoodCountQuery,
     hoodRowsFromListings: hoodRowsFromListings,
     render: render,
@@ -1169,6 +1326,6 @@
     allHref: allHref,
     jsonLd: jsonLd,
     scripts: scripts,
-    fullTitle: function (page) { return page.h1 + " | " + SITE_NAME; },
+    fullTitle: function (page) { return (page.title || page.h1) + " | " + SITE_NAME; },
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

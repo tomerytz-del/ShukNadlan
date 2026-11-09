@@ -1,11 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { setPairReserve } from "../_shared/wa-pair-pace.ts";
+import { setWaDropLogger } from "../_shared/wa-url-guard.ts";
 import {
   feedbackTemplateConfigured, feedbackToMeeting, firstName, inWindow, kickNotificationPush, type MeetingFeedback,
   meetingNoun, meetingTemplateConfigured, meetingWhenText, type MeetingResponse, phoneE164,
-  reminderTemplateConfigured, respondToMeeting, sendButtonsTemplate, sendButtonsText, sendMeetingTemplate,
-  sendText, SITE, IL_TZ, waConfigured, WaError, WA_OPTED_OUT,
+  reminderTemplateConfigured, respondToMeeting, sendButtonsTemplate, sendButtonsText, sendLinkButton,
+  sendMeetingTemplate, sendText, SITE, IL_TZ, waConfigured, WaError, WA_OPTED_OUT,
 } from "../_shared/meeting-client.ts";
 
 // ============================================================================
@@ -50,6 +52,31 @@ type Row = Record<string, any>;
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  setPairReserve(async (phone, gapMs) => {
+    const { data, error } = await supabase.rpc("whatsapp_pair_reserve", {
+      p_phone: phone,
+      p_gap_ms: gapMs,
+    });
+    if (error) return 0;
+    const n = Number(data);
+    return Number.isFinite(n) ? n : 0;
+  });
+  setWaDropLogger(async (row) => {
+    const phone = String(row.wa_phone || "").replace(/\D/g, "");
+    let agent_id: string | null = null;
+    if (phone) {
+      const { data } = await supabase.from("agency_members").select("id").eq("phone_e164", phone).maybeSingle();
+      agent_id = data?.id ?? null;
+    }
+    await supabase.from("whatsapp_messages").insert({
+      direction: "out",
+      wa_phone: row.wa_phone,
+      agent_id,
+      msg_type: "text",
+      body: row.body,
+      error: row.error,
+    });
+  });
 
   if (req.method === "GET") {
     const url = new URL(req.url);
@@ -264,15 +291,13 @@ function lineFor(row: Row): string {
   const withWho = row.agency_name ? `${agent} (${row.agency_name})` : agent;
   const when = meetingWhenText(row.due_at);
   const where = row.location ? `, ב${row.location}` : "";
-  const phone = phoneE164(row.agent_phone);
   switch (row.kind) {
     case "confirm":
       return `נקבעה לך ${noun} עם ${withWho} ל${when}${where}. אפשר להוסיף אותה ליומן בכפתור למטה, ושעה לפני אשלח תזכורת.`;
     case "update":
       return `המועד של ה${noun} עם ${withWho} עודכן: ${when}${where}. כדאי לעדכן גם ביומן - בכפתור למטה.`;
     case "cancel":
-      return `ה${noun} עם ${withWho} שנקבעה ל${when} בוטלה. לתיאום מועד חדש אפשר לפנות ל${agent}` +
-        (phone ? ` ב-wa.me/${phone}.` : ".");
+      return `ה${noun} עם ${withWho} שנקבעה ל${when} בוטלה. לתיאום מועד חדש אפשר לפנות ל${agent}.`;
     case "reminder_day":
       return `תזכורת: מחר יש לך ${noun} עם ${withWho}, ${when}${where}. נשמח לדעת שזה בתוקף.`;
     case "feedback": {
@@ -327,8 +352,9 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
   }
 
   const link = `${SITE}/meeting?t=${row.token}`;
-  const text = `שלום ${name || ""}`.trim() + ",\n" + line +
-    (row.kind === "cancel" || buttons ? "" : `\n\nלפרטים ולהוספה ליומן: ${link}`);
+  const calendar = row.kind !== "cancel" && !buttons;
+  // שורת האישור והעדכון כבר אומרת שאפשר להוסיף ליומן. לא מוסיפים את זה שוב.
+  const text = `שלום ${name || ""}`.trim() + ",\n" + line;
 
   try {
     let wamid: string | null;
@@ -336,8 +362,10 @@ async function sendOne(supabase: SupabaseClient, row: Row): Promise<string> {
       wamid = buttons
         ? await sendButtonsTemplate(buttons, to, name, line, row.token)
         : await sendMeetingTemplate(to, name, line, row.token);
+    } else if (calendar) {
+      wamid = await sendLinkButton(to, text, "לפרטים וליומן", link);
     } else {
-      wamid = buttons ? await sendButtonsText(buttons, to, text, row.token) : await sendText(to, text);
+      wamid = buttons ? await sendButtonsText(buttons, to, text, row.token) : await sendText(to, text, row.agent_name);
     }
     // כל הודעה יוצאת נרשמת ביומן - מעקב מסירה (docs/whatsapp-setup.md)
     await supabase.from("whatsapp_messages").insert({

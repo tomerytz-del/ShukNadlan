@@ -16,6 +16,7 @@ import { MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 import { matchesPlatform, PlacesError, placesSearch, registryCityCounts } from "./intel.ts";
 import { alertLead, LEAD_FIELDS, pageToken, routeLead, storeLead } from "../_shared/meta-leads.ts";
 import { customerPath, fromMicros, gaql, googleAdsConfig, GoogleAdsError, keywordIdeas, mutate } from "../_shared/google-ads.ts";
+import { googleChannelRecordsFromGaql, GOOGLE_CAMPAIGN_LIST_GAQL, googleMetricGaql, googleSyncLogEntry, syncWindow } from "../_shared/google-channel-sync.ts";
 import { DIRECTIONS, seedsFor } from "./google-directions.ts";
 import { buildGooglePlan, createdCampaignId } from "./google-campaign.ts";
 import { buildPlan, type Created, DESTINATIONS, type Destination, execute, type Format, FORMATS, type GeoPoint, type PlanInput, type VideoRef } from "./campaign.ts";
@@ -110,7 +111,8 @@ import {
 //                    (‏_shared/google-ads.ts, שלב 7)
 //   google_sync_insights ‏{days?} - ההוצאה היומית לכל קמפיין → ads_channel_daily
 //                    (‏channel = 'google'), בשביל הסכום של כל הערוצים בניהול
-//                    (‏admin_ads_spend, docs/platform-costs.md). ה-cron מורשה
+//                    (‏admin_ads_spend, docs/platform-costs.md). יום בלי חשיפות
+//                    נכתב כאפס, וכל הרצה נרשמת ב-ads_actions_log. ה-cron מורשה
 //   google_directions   כיווני הפרסום (‏google-directions.ts) - בלי קריאה לגוגל
 //   google_create_campaign ‏{direction, market, market_path, daily_budget, radius_km,
 //                    max_cpc?, keywords, negatives, headlines, descriptions, dry_run}
@@ -125,8 +127,8 @@ import {
 //   - JWT של מנהל/ת פלטפורמה פעיל/ה (agency_members.is_platform_admin) —
 //     הקונסולה ב-crm.html. כל הפעולות.
 //   - ‏x-alert-cron-secret / service_role (‎_shared/cron-auth.ts‎) — ה-cron
-//     הלילי. ‏cron_secret מורשה ל-sync_insights בלבד: סוד שדלף מה-Vault לא
-//     יכול להשהות קמפיינים או להעלות תקציב.
+//     הלילי. ‏cron_secret מורשה ל-sync_insights, ל-sync_leads ול-google_sync_insights
+//     בלבד: סוד שדלף מה-Vault לא יכול להשהות קמפיינים או להעלות תקציב.
 // לכן verify_jwt = false ב-config.toml: ה-cron אינו נושא JWT, וה-Gateway
 // היה חוסם אותו. (המסמך תכנן true — זה התיקון שלו.)
 //
@@ -1375,51 +1377,57 @@ async function actionGoogleCampaigns(body: any) {
 // שאילתה אחת ולא קריאה חיה לכל ערוץ (‏admin_ads_spend). חלון של 3 ימים כמו
 // במטא - גוגל מעדכנת המרות כמה ימים אחורה - ובסנכרון הראשון 31 יום, כדי
 // שהחודש יהיה שלם מהיום הראשון.
-async function actionGoogleSyncInsights(sb: SupabaseClient, body: any) {
+//
+// גוגל לא מחזירה יום בלי impression. בלי מילוי אפסים, קמפיין מושהה משאיר
+// את synced_at על היום האחרון עם הוצאה, וזה נראה כמו סנכרון שעצר. הרשימה
+// בלי segments.date היא מה ש-google_campaigns כבר עושה מאותה סיבה. כל
+// תוצאה, כולל אפס שורות וכשל, נכתבת ל-ads_actions_log.
+async function actionGoogleSyncInsights(sb: SupabaseClient, caller: Caller, body: any) {
   const { config } = googleAdsConfig((k) => Deno.env.get(k));
-  if (!config) return json({ ok: true, skipped: "google_not_configured" });
-  let days = Number(body?.days);
+  const requested = Number(body?.days);
+  if (!config) {
+    await log(sb, caller, googleSyncLogEntry({ ok: false, days: Number.isFinite(requested) ? requested : null, error: "google_not_configured" }));
+    return json({ ok: true, skipped: "google_not_configured" });
+  }
+  let days = requested;
   if (!Number.isFinite(days) || days <= 0) {
     const { count } = await sb.from("ads_channel_daily").select("day", { count: "exact", head: true }).eq("channel", "google");
     days = count ? 3 : 31;
   }
   days = Math.min(Math.max(Math.floor(days), 1), 90);
-  const ymd = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
-  const to = new Date();
-  const from = new Date(to.getTime() - (days - 1) * 86_400_000);
+  let from = "";
+  let to = "";
   try {
-    const rows = await gaql(config, `
-      SELECT campaign.id, campaign.name, campaign.status, customer.currency_code, segments.date,
-             metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
-        FROM campaign
-       WHERE segments.date BETWEEN '${ymd(from)}' AND '${ymd(to)}'
-         AND campaign.status != 'REMOVED'`);
-    const now = new Date().toISOString();
-    const skipped = new Set<string>();
-    const records = rows.flatMap((r: any) => {
-      const currency = String(r.customer?.currencyCode || "ILS");
-      if (currency !== "ILS" && currency !== "USD") { skipped.add(currency); return []; }
-      return [{
-        channel: "google",
-        day: r.segments?.date,
-        campaign_id: String(r.campaign?.id || ""),
-        campaign_name: r.campaign?.name || null,
-        campaign_status: r.campaign?.status || null,
-        spend: fromMicros(r.metrics?.costMicros),
-        currency,
-        clicks: Number(r.metrics?.clicks || 0),
-        impressions: Number(r.metrics?.impressions || 0),
-        conversions: Number(r.metrics?.conversions || 0),
-        synced_at: now,
-      }];
-    }).filter((r: any) => r.day && r.campaign_id);
-    if (records.length) {
-      const { error } = await sb.from("ads_channel_daily").upsert(records, { onConflict: "channel,day,campaign_id" });
-      if (error) return json({ error: "db_error", detail: error.message }, 500);
+    ({ from, to } = syncWindow(new Date(), days));
+    const campaignRows = await gaql(config, GOOGLE_CAMPAIGN_LIST_GAQL);
+    const metricRows = await gaql(config, googleMetricGaql(from, to));
+    const built = googleChannelRecordsFromGaql({
+      metricRows, campaignRows, from, to, syncedAt: new Date().toISOString(),
+    });
+    if (built.records.length) {
+      const { error } = await sb.from("ads_channel_daily").upsert(built.records, { onConflict: "channel,day,campaign_id" });
+      if (error) {
+        await log(sb, caller, googleSyncLogEntry({
+          ok: false, days, from, to, error: error.message, code: "db_error",
+        }));
+        return json({ error: "db_error", detail: error.message }, 500);
+      }
     }
-    return json({ ok: true, from: ymd(from), to: ymd(to), rows: records.length,
-      skipped_currencies: [...skipped] });
+    await log(sb, caller, googleSyncLogEntry({
+      ok: true, days, from, to,
+      rows: built.records.length, zeroRows: built.zeroRows, metricRows: built.metricRows,
+      skippedCurrencies: built.skippedCurrencies,
+    }));
+    return json({
+      ok: true, from, to, rows: built.records.length, zero_rows: built.zeroRows,
+      metric_rows: built.metricRows, skipped_currencies: built.skippedCurrencies,
+    });
   } catch (e) {
+    await log(sb, caller, googleSyncLogEntry({
+      ok: false, days, from: from || undefined, to: to || undefined,
+      error: (e as Error)?.message ?? String(e),
+      code: e instanceof GoogleAdsError ? e.code : "google_error",
+    }));
     return googleErrorResponse(e);
   }
 }
@@ -2536,7 +2544,7 @@ Deno.serve(async (req: Request) => {
   // גוגל - חשבון נפרד וסודות נפרדים, ולכן לפני הבדיקה של מטא.
   if (action === "google_status") return await actionGoogleStatus();
   if (action === "google_campaigns") return await actionGoogleCampaigns(body);
-  if (action === "google_sync_insights") return await actionGoogleSyncInsights(sb, body);
+  if (action === "google_sync_insights") return await actionGoogleSyncInsights(sb, caller, body);
   if (action === "google_directions") return json({ directions: DIRECTIONS });
   if (action === "google_keyword_ideas") return await actionGoogleKeywordIdeas(sb, body);
   if (action === "google_create_campaign") return await actionGoogleCreateCampaign(sb, caller, body);

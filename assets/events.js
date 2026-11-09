@@ -39,6 +39,7 @@
      **מסונן לתבנית קצרה** ולא מועבר כלשונו — זהו ערך מכתובת, כלומר קלט
      מבחוץ, והוא נוחת כמימד מותאם ב-GA4. */
   var SRC_RE = /^[a-z0-9_]{1,24}$/i;
+  var BROWSE_RE = /^(swipe|swipe_list|swipe_map|home_list|map|search|home|gabriela|likes|fair|similar|direct)$/;
 
   function entrySource(){
     try{
@@ -66,8 +67,74 @@
     if (id) ctx.item_id = id;
     const src = entrySource();
     if (src) ctx.src = src;
+    /* ‏browse (‏P1-M, v10): מאיזו צורת גלישה הגיעו לנכס הזה - נרשם ברגע הלחיצה (‏shukBrowseMark),
+       ונצמד לכל אירוע בדף הנכס **של אותו נכס**. ‏src אומר מאיפה הגיעו לאתר; browse - איך הגיעו לנכס.
+       לא בכתובת (‏canonical ו-SEO) */
+    if (ctx.page_type === 'property' && document.documentElement.classList.contains('beta-hero')){
+      let b = null;
+      try { if (sessionStorage.getItem('shukBrowseId') === ctx.item_id) b = sessionStorage.getItem('shukBrowse'); } catch(e){ /* אחסון חסום */ }
+      ctx.browse = b && BROWSE_RE.test(b) ? b : 'direct';
+    }
     return ctx;
   }
+  function shukBrowseMark(browse, id){
+    try {
+      if (!BROWSE_RE.test(browse || '') || !id) return;
+      sessionStorage.setItem('shukBrowse', browse);
+      sessionStorage.setItem('shukBrowseId', String(id));
+    } catch(e){ /* אחסון חסום */ }
+  }
+  window.shukBrowseMark = shukBrowseMark;
+  /* כל קישור לדף נכס: המקור הוא ה-data-browse הקרוב, ובדף נכס עצמו - "נכסים דומים" */
+  document.addEventListener('click', function(e){
+    try{
+      const link = e.target && e.target.closest && e.target.closest('a[href*="/property?id="]');
+      if (!link) return;
+      const id = new URL(link.getAttribute('href'), location.href).searchParams.get('id');
+      const box = link.closest('[data-browse]');
+      const page = (location.pathname.split('/').pop() || 'index').replace(/\.html$/, '');
+      shukBrowseMark(box ? box.getAttribute('data-browse') : page === 'property' ? 'similar' : page === 'index' || page === '' ? 'home' : 'direct', id);
+    } catch(err){ /* מדידה לא שוברת אתר */ }
+  }, true);
+
+  /* ‏list_impression (‏P1-M, v10): כרטיס או שורה שנראו ב-50% לפחות במשך שנייה. כל נכס פעם
+     אחת בכל טעינה של הרשימה, במנות של עד 10 מזהים. רק מזהי נכסים - בלי טקסט */
+  function shukObserveList(container, view, layoutOf){
+    if (!container || !('IntersectionObserver' in window) || !document.documentElement.classList.contains('beta-hero')) return;
+    const seen = new Set(), queue = [], timers = new Map();
+    function idOf(el){
+      if (el.dataset.pid) return el.dataset.pid;
+      const a = el.matches('a[href*="/property?id="]') ? el : el.querySelector('a[href*="/property?id="]');
+      try { return a ? new URL(a.getAttribute('href'), location.href).searchParams.get('id') : null; } catch(e){ return null; }
+    }
+    function flush(){
+      while (queue.length){
+        const ids = queue.splice(0, 10);
+        const p = { view: view, ids: ids.join(','), count: ids.length };
+        if (layoutOf) p.layout = layoutOf();
+        shukTrack('list_impression', p);
+      }
+    }
+    let flushT = 0;
+    const io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        const id = idOf(en.target);
+        if (!id || seen.has(id)) return;
+        if (en.isIntersecting && en.intersectionRatio >= 0.5){
+          if (!timers.has(id)) timers.set(id, setTimeout(function(){
+            timers.delete(id); seen.add(id); queue.push(id);
+            if (queue.length >= 10) flush(); else { clearTimeout(flushT); flushT = setTimeout(flush, 2000); }
+          }, 1000));
+        } else if (timers.has(id)){ clearTimeout(timers.get(id)); timers.delete(id); }
+      });
+    }, { threshold: [0, 0.5] });
+    const ITEM = '[data-pid], a[href*="/property?id="]';
+    const watch = function(){ container.querySelectorAll(ITEM).forEach(function(el){ if (!el.__shukIo){ el.__shukIo = 1; io.observe(el); } }); };
+    watch();
+    new MutationObserver(watch).observe(container, { childList: true, subtree: true });
+    window.addEventListener('pagehide', flush);
+  }
+  window.shukObserveList = shukObserveList;
 
   /* ‏shukTrack(name, params) — הדרך היחידה לדחוף אירוע מקוד האתר.
      ‏מחזירה true/false כדי שקריאה כושלת תהיה גלויה בבדיקה ידנית, אבל
@@ -113,6 +180,11 @@
       else if (href.indexOf('mailto:') === 0) method = 'email';
       if (!method) return;
 
+      /* ‏קישור שהודבק בגוף הכתבה אינו פנייה. כתובת wa.me בטקסט נשארת
+         קישור, וספירתה כליד מנפחת את המדד. כפתור השיתוף יושב מחוץ
+         ל-#articleBody ועדיין נספר. */
+      if (link.closest('#articleBody')) return;
+
       if (link.hasAttribute('data-bot')){
         // ‏entry הוא נקודת הכניסה שממנה נלחץ הכפתור ("search_empty"), ולא
         // הדף — page_type כבר מגיע מ-pageContext ואין טעם לשכפל אותו.
@@ -134,7 +206,15 @@
          **כל** לחיצה על מספר הפלטפורמה נספרה כליד למתווך בכל 11 הדפים
          הנמדדים. הוא כן נמדד, בשם משלו, כי זה מספר שכדאי לדעת. */
       if (link.hasAttribute('data-share')){
-        shukTrack('share', { method: method });
+        /* ‏content_type / item_id - הפרמטרים של אירוע share המומלץ ב-GA4,
+           רק כשהקישור מצהיר עליהם (‏property.html: ‎data-share-type="property"‎
+           ומזהה הנכס). מזהה מודעה ולא פרט אישי. */
+        var sp = { method: method };
+        var st = link.getAttribute('data-share-type');
+        var sid = link.getAttribute('data-share-id');
+        if (st) sp.content_type = st;
+        if (sid) sp.item_id = sid;
+        shukTrack('share', sp);
         return;
       }
       if (link.hasAttribute('data-site-contact')){
@@ -174,3 +254,13 @@
     } catch(err){ /* מדידה לא שוברת אתר */ }
   }, true);
 })();
+
+/* ייחוס ביקור ראשון. נטען מכאן כי events.js כבר יושב בכל דף ציבורי,
+   בלי להוסיף תגית לכל דף. דף הרשמה בלי events.js טוען את הקובץ בעצמו. */
+if (document.readyState === "loading") {
+  document.write('<script src="/assets/visit-attr.js"><\/script>');
+} else {
+  var visitAttrScript = document.createElement("script");
+  visitAttrScript.src = "/assets/visit-attr.js";
+  document.head.appendChild(visitAttrScript);
+}

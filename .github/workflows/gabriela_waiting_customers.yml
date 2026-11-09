@@ -1,0 +1,54 @@
+name: לקוחות שמחכים אחרי מענה חלופי
+
+# קריאה ל-service_role. אין שליחה. הנוסח במיגרציה חייב להיות זהה
+# ל-llm-fallback.ts, תו אחר תו.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271030000400_gabriela_waiting_customers.sql"
+      - "supabase/functions/whatsapp-webhook/llm-fallback.ts"
+      - "supabase/migrations/20271031210000_wa_fallback_no_url.sql"
+      - "scripts/gabriela_waiting_customers_test.py"
+      - ".github/workflows/gabriela_waiting_customers.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271030000400_gabriela_waiting_customers.sql"
+      - "supabase/functions/whatsapp-webhook/llm-fallback.ts"
+      - "supabase/migrations/20271031210000_wa_fallback_no_url.sql"
+      - "scripts/gabriela_waiting_customers_test.py"
+      - ".github/workflows/gabriela_waiting_customers.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: לקוחות שמחכים
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: לקוח Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: בדיקה
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: python3 scripts/gabriela_waiting_customers_test.py

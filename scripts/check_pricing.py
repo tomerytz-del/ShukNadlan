@@ -53,6 +53,10 @@ PRICES = {
     'free_lead_quota_monthly':           10,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
+    # קורס ההכנה למבחן המתווכים (20271106090000): מחיר לצרכן/ית, **כולל** מע"מ,
+    # בניגוד לשאר המחירון. docs/exam-course.md
+    'course_price_gross':                199,
+    'course_access_months':              6,
 }
 
 # ------------------------------------------------------------- התצוגה
@@ -109,6 +113,14 @@ DISPLAY = [
     ('assets/tiers.js', r"'" + N + r' פניות בחודש כלולות',             'free_lead_quota_monthly'),
     ('pricing.html', r'₪' + N + r' לליד',                              'ppl_price_owner_mid'),
     ('assets/tiers.js', r'₪' + N + r' לליד',                           'ppl_price_owner_mid'),
+    # קורס ההכנה למבחן המתווכים - דף המכירה ואזור הלמידה
+    ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
+    ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
+    ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
+    ('course.html', r'וסימולציות\. ' + N + r' ₪ לשישה חודשים',           'course_price_gross'),
+    ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
+    ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
+    ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
 ]
 
 

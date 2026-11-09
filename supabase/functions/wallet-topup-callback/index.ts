@@ -9,7 +9,10 @@ import {
   secretsMatch,
   verifyPaymentByReference,
 } from "../_shared/morning.ts";
-import { announceProfessionalPaid } from "../_shared/platform-signup-alert.ts";
+import {
+  announceLawyerLeadRefundNeeded,
+  announceProfessionalPaid,
+} from "../_shared/platform-signup-alert.ts";
 
 // ============================================================================
 // טעינת ארנק — סגירת התשלום
@@ -61,7 +64,7 @@ const STALE_MINUTES = 10;
 const EXPIRE_MINUTES = 180;
 
 // ---------------------------------------------------------------------------
-// ארבעה סוגי תשלום, מכונת מצבים אחת
+// חמישה סוגי תשלום, מכונת מצבים אחת
 //
 // טעינת ארנק, רכישת מנוי, רכישת כרטיסיית פרסום וטעינת ארנק יזם/ית הן אותו מסלול: שורת
 // pending, טופס תשלום, אימות מול מורנינג, ואז הפעולה. ההבדל היחיד הוא שם
@@ -71,8 +74,8 @@ const EXPIRE_MINUTES = 180;
 // שני היה סוד נוסף לנהל, לסובב ולשכוח. ההפרדה נעשית לפי המזהה שחוזר —
 // ‏UUID של שורה, שממילא ייחודי בין הטבלאות.
 // ---------------------------------------------------------------------------
-type OrderKind = "topup" | "subscription" | "ad" | "developer_topup";
-const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup"];
+type OrderKind = "topup" | "subscription" | "ad" | "developer_topup" | "course" | "lawyer_lead";
+const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup", "course", "lawyer_lead"];
 
 const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; idParam: string }> = {
   topup: {
@@ -102,6 +105,22 @@ const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; 
     complete: "complete_developer_topup",
     fail: "fail_developer_topup",
     idParam: "p_topup_id",
+  },
+  // קורס ההכנה למבחן המתווכים (docs/exam-course.md). הקונה/ה אינו/ה
+  // סוכן/ת; complete_course_order פותחת גישה ב-course_enrollments.
+  course: {
+    table: "course_orders",
+    complete: "complete_course_order",
+    fail: "fail_course_order",
+    idParam: "p_order_id",
+  },
+  // ליד "שאלה לעו"ד" בחיוב ישיר (docs/lawyer-leads.md). הסחורה יחידה, ולכן complete_lawyer_lead_order
+  // יכולה להחזיר refund_needed: שולם, והליד כבר נמכר לאחר/ת.
+  lawyer_lead: {
+    table: "lawyer_lead_orders",
+    complete: "complete_lawyer_lead_order",
+    fail: "fail_lawyer_lead_order",
+    idParam: "p_order_id",
   },
 };
 
@@ -143,6 +162,13 @@ async function settleOrder(
     console.error(`wallet-topup-callback: complete failed (${kind})`, order.id, error.message);
     return "pending";
   }
+  // כסף שנגבה ואין מה למסור תמורתו. ההזמנה כבר refund_needed במסד, וההתראה למנהל/ת היא הדרך היחידה
+  // שבה מישהו יידע להחזיר. היא נשלחת פעם אחת (refund_alerted_at), ואם נכשלה - ה-reconcile שולח שוב.
+  if (result?.error === "refund_needed") {
+    console.error(`wallet-topup-callback: refund needed (${kind})`, order.id, result.reason);
+    if (kind === "lawyer_lead") await announceLawyerLeadRefundNeeded(supabase, order.id);
+    return "failed";
+  }
   if (result?.error) {
     console.error(`wallet-topup-callback: complete rejected (${kind})`, order.id, JSON.stringify(result));
     return result.error === "amount_mismatch" ? "failed" : "pending";
@@ -158,7 +184,7 @@ async function settleOrder(
 // ---------------------------------------------------------------------------
 // ה-reconcile
 // ---------------------------------------------------------------------------
-// סורק את ארבע הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
+// סורק את שש הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
 // ‏₪750 ועובד/ת במסלול החינמי — ולכן אין שום סיבה שהוא ייסרק בתדירות נמוכה
 // יותר או יחכה למחזור נפרד.
 async function reconcile(supabase: any): Promise<Record<string, number>> {
@@ -193,6 +219,17 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
       }
     }
   }
+
+  // החזרים שההתראה עליהם לא יצאה (נכשלה בכתיבה, או שהפונקציה נפלה אחרי המסד). בלי הסבב הזה הזמנה
+  // refund_needed נשכחת: היא כבר אינה pending, ואף סורק אחר לא רואה אותה.
+  const { data: refunds } = await supabase
+    .from("lawyer_lead_orders")
+    .select("id")
+    .eq("status", "refund_needed")
+    .is("refund_alerted_at", null)
+    .order("created_at", { ascending: true })
+    .limit(20);
+  for (const row of refunds ?? []) await announceLawyerLeadRefundNeeded(supabase, row.id);
 
   return stats;
 }
@@ -241,7 +278,7 @@ Deno.serve(async (req: Request) => {
   }));
   if (!topupId && !formId) return json({ error: "missing_reference" }, 400);
 
-  // איזו מארבע הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
+  // איזו מששת הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
   // נמצא באחת מהן בלבד. הסדר הוא לפי שכיחות ולא לפי חשיבות.
   let found: { kind: OrderKind; row: any } | null = null;
   for (const kind of ALL_KINDS) {

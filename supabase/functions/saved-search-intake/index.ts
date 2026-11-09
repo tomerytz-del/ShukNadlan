@@ -8,6 +8,7 @@ import {
   resolveAgencyRouting,
   resolveAgentRouting,
 } from "../_shared/lead-routing.ts";
+import { stampVisitAttr } from "../_shared/visit-attr.ts";
 
 // ============================================================================
 // שמירת חיפוש של מחפש/ת דירה — "הסוכן החכם".
@@ -214,6 +215,16 @@ Deno.serve(async (req: Request) => {
     features.length > 0;
   if (!hasCriteria) return json({ error: "no_criteria" }, 400);
 
+  /* ---- ההרשמה ליריד הבתים הפתוחים (‏open_house_only, ‏docs/proposals/fair_signup_and_lead_consent.sql) ------
+     התראות רק על נכסים שביריד, ולכן ההסכמה השיווקית חובה (הנוסח והגרסה נשמרים;
+     הזמן נכתב כאן ולא מהדפדפן), וגם יישוב אחד לפחות - "כל הארץ" אינה בקשה. */
+  const openHouseOnly = body.open_house_only === true;
+  if (openHouseOnly && body.marketing_consent !== true) return json({ error: "consent_required" }, 400);
+  if (openHouseOnly && cities.length === 0) return json({ error: "no_criteria" }, 400);
+  const consentVersion = typeof body.consent_version === "string" && /^[a-z0-9-]{1,20}$/.test(body.consent_version)
+    ? body.consent_version : null;
+  const consentText = typeof body.consent_text === "string" ? body.consent_text.slice(0, 400) : null;
+
   /* ---- הליד של דף המשרד ושל דף הסוכן/ת --------------------------------------
      ‏agency_slug נשלח מווידג'ט "מחפשים נכס" שבדף המשרד, ו-agent_slug מאותו
      ווידג'ט בדף הסוכן/ת. כשאחד מהם מגיע, החיפוש נשמר בדיוק כרגיל — ההתראות
@@ -305,6 +316,23 @@ Deno.serve(async (req: Request) => {
 
   if (error) return json({ error: "db_error", detail: error.message }, 500);
 
+  /* ‏create_saved_search אינה מכירה את עמודות היריד, ולכן הן נכתבות אחריה.
+     אם הכתיבה נכשלת (מסד שטרם הריץ את המיגרציה) החיפוש מושהה - חיפוש רגיל
+     פעיל היה שולח נכסים שאינם ביריד למי שאישר/ה רק את היריד. */
+  if (openHouseOnly && result?.search_id && !result?.duplicate) {
+    const { error: ohErr } = await serviceClient.from("saved_searches").update({
+      open_house_only: true,
+      marketing_consent_at: new Date().toISOString(),
+      consent_text: consentText,
+      consent_version: consentVersion,
+    }).eq("id", result.search_id);
+    if (ohErr) {
+      console.warn("open_house_only update failed, pausing search:", ohErr.message);
+      await serviceClient.from("saved_searches").update({ status: "paused" }).eq("id", result.search_id);
+      return json({ error: "not_ready" }, 503);
+    }
+  }
+
   // מה שהמסד באמת עשה, ולא מה שביקשנו ממנו: פונקציה ישנה מחזירה בלי השדות
   // האלה, וגם הסכמה חסרה מאפסת שם את השיוך.
   const assignedAgencyId: string | null = result?.agency_id ?? null;
@@ -324,6 +352,10 @@ Deno.serve(async (req: Request) => {
 
      כפילות (‏duplicate) אינה נרשמת: לא נוצר ליד חדש, ואין מה לנתב. */
   if (result?.search_id) {
+    await stampVisitAttr(
+      (attr) => serviceClient.from("saved_searches").update(attr).eq("id", result.search_id),
+      body,
+    );
     /* ליד של משרד אינו נמדד מול המדף: הוא לא אמור להיות שם, ויש לו נמען
        אחד ידוע. שלושת המצבים שנשארו הם של ליד הפלטפורמה כמו קודם. */
     const assigned = !!assignedAgencyId;
@@ -354,6 +386,7 @@ Deno.serve(async (req: Request) => {
               : "no_active_agents",
       summary: [row.label, dealType === "rent" ? "להשכרה" : "למכירה",
                 category === "commercial" ? "מסחרי" : null,
+                openHouseOnly ? "רק יריד הבתים הפתוחים" : null,
                 leadOnly ? "בלי התראות" : null].filter(Boolean).join(" · "),
       deal_type: dealType,
       city: cities[0] ?? null,

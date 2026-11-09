@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from ops_agent.config import PUBLIC_RPC  # noqa: E402
+from ops_agent.config import PUBLIC_RPC, PUBLIC_RPC_WRITES  # noqa: E402
 from ops_agent.probes.security import _anon_rpc  # noqa: E402
 
 READ = "select exists (select 1 from public.properties where id = $1)"
@@ -71,6 +71,25 @@ found = run(("some_admin_rpc", GUARD))
 check("בודקת הרשאה בעצמה - לא מושפעת מההצהרה",
       found == {("anon_secdef_guarded", "rpc_surface", "info")}, found)
 
+CLICK = ("if (select count(*) from public.link_clicks where code = v_code) >= 60 then "
+         "return; end if; insert into public.link_clicks (code) values (v_code);")
+
+found = run(("record_link_click", CLICK))
+check("כותבת בכוונה לטבלה המוצהרת - שורת מידע ולא ממצא",
+      found == {("anon_secdef_declared", "public_rpc", "info")}, found)
+
+found = run(("record_link_click", CLICK + " update public.properties set x = 1;"))
+check("כותבת בכוונה וגם לטבלה שלא הוצהרה - גבוה",
+      found == {("anon_secdef_unguarded", "record_link_click", "high")}, found)
+
+found = run(("record_link_click", CLICK + " grant select on public.x to anon;"))
+check("כותבת בכוונה ומשנה הרשאות - גבוה",
+      found == {("anon_secdef_unguarded", "record_link_click", "high")}, found)
+
+found = run(("some_writer", WRITE))
+check("כותבת ולא מוצהרת - גבוה",
+      found == {("anon_secdef_unguarded", "some_writer", "high")}, found)
+
 # ‏שם ברשימה שאינו קיים באף מיגרציה הוא שגיאת כתיב - ושגיאת כתיב כאן
 # אינה שקטה בלבד: היא משאירה פתוחה את הפונקציה האמיתית בלי שאיש ידע.
 corpus = "\n".join(p.read_text(encoding="utf-8")
@@ -79,6 +98,11 @@ missing = [n for n in PUBLIC_RPC
            if not re.search(r"function\s+(public\.)?%s\s*\(" % re.escape(n), corpus, re.I)]
 check("כל שם ב-PUBLIC_RPC מוגדר במיגרציה", not missing, missing)
 check("לכל שורה ב-PUBLIC_RPC יש קורא/ת", all(v.strip() for v in PUBLIC_RPC.values()))
+missing = [n for n in PUBLIC_RPC_WRITES
+           if not re.search(r"function\s+(public\.)?%s\s*\(" % re.escape(n), corpus, re.I)]
+check("כל שם ב-PUBLIC_RPC_WRITES מוגדר במיגרציה", not missing, missing)
+check("לכל שורה ב-PUBLIC_RPC_WRITES יש קורא/ת וטבלאות",
+      all(c.strip() and t for c, t in PUBLIC_RPC_WRITES.values()))
 
 print("\n" + ("✗ %d נכשלו" % failed if failed else "✓ _anon_rpc מדווחת בדיוק מתי שצריך"))
 sys.exit(1 if failed else 0)

@@ -1,6 +1,6 @@
 ---
 name: seo-edge
-description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, דף נחיתה עם מודעות (canonical ממסנן, noindex רק על רשימה ריקה), וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing neighborhood-page, deals-page, prices-page, og-tags, sitemap.ts, silo-page, search-pages, a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
+description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס בכשל (404 מול 503, בלי noindex על כשל זמני), מילוי HTML ראשון באותם id שה-JS כותב, שמירה על בלוק ב-sitemap, דף נחיתה עם מודעות (canonical ממסנן, noindex רק על רשימה ריקה), וכללי LCP/CLS (תמונת שער ב-HTML, מקום שמור, כרטיס ראשון, מפה עצלה). Use when changing anything under netlify/edge-functions/ that renders or fills a page (neighborhood-page, deals-page, prices-page, brokers-page, index-jsonld, projects-page, market-pages, og-tags, sitemap.ts, silo-page, search-pages), a detail page's initial HTML, the property hero, or the homepage map and neighborhood load.
 ---
 
 # רינדור ל-SEO ב-edge
@@ -62,6 +62,13 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 (‏`assets/property.js` אינו מודול). בלי אייקונים: ה-JS דורס את
 ה-`innerHTML`, והסורק צריך את הטקסט.
 
+**הסמן שבו הבלוק נגמר הוא הערה של מילה אחת בלי רווח** (‏`<!--/deals-->`,
+‏`<!--area-links-->`). מ-2.11.2026 הפריסה מוחקת כל הערת HTML אחרת
+(‏`scripts/build_minify.mjs`), ולכן סמן חדש עם רווח או עם טקסט לצדו
+(‏`<!-- סוף הבלוק -->`) נעלם באוויר, ה-regex לא מוצא אותו, והדף יוצא בלי התוכן
+מהשרת - בלי שגיאה. בדיקה: להריץ את הבנייה על עותק (הסקיל `perf-measure`) ולוודא
+שהסמן שם.
+
 ‏H1 אחד. בלוק "לא נמצא" אינו כותרת, ואינו ב-DOM של דף שהצליח. הוא
 נוצר כפסקה רק ב-404 או כשהדפדפן לא מצא את הרשומה.
 
@@ -110,6 +117,8 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 
 `data-count` זהה לזה ש-`renderGallery` יכתוב. ה-JS שומר את **אותו צומת** `img` רק אם ה-`src`, ה-`data-count` **וגם** פריסת הסרטון (`bento-video`) תואמים. `data-count` של שער עם סרטון ושל גלריה רגילה מתלכד כשיש שתי תמונות ומעלה. reduced-motion, Save-Data ו-2G לא ידועים לשרת, ולכן אי-התאמה של המחלקה בונה את הגלריה מחדש.
 
+בלי תמונה ובלי פוסטר, כולל סרטון בלי פוסטר, השער הוא `<img class="hero-placeholder" data-lcp fetchpriority="high">` של `/assets/property-placeholder.jpg`, עם `width="1600"` ו-`height="1000"` (16/10, כמו `.bento[data-count="1"] .bento-main`). ה-`preload` שלו נכנס מיד אחרי `charset`, ורק אז. נכס עם תמונה או עם פוסטר לא מקבל את הקובץ הזה. `renderGallery` לא מוחק את הצומת כל עוד מחלקת הסרטון תואמת את `heroVideoSource` (`!!videoSrc === paintedVideo`). אי-התאמה בונה מחדש: סרטון שהדפדפן לא ינגן (reduced-motion, Save-Data, 2G) הופך ל-`bento-empty` עם הלוגו וההודעה, ו-HTML ישן של תא ריק לא מקבל סרטון מעל הלוגו. בסרטון בלי פוסטר שהמחלקה תואמת, ה-`<video>` נשאר `visibility:hidden` עד אירוע `playing`, וה-`img` נשאר ב-DOM גם אחריו, כדי שה-LCP לא יעבור אל `#planningSummary`. `z-index` על הווידאו חל רק כשיש `.hero-placeholder`, לא על סרטון עם פוסטר.
+
 תמונה מ-`/storage/v1/object/public/` יורדת ב-`render/image`, לא כקובץ המלא. `src` ו-`preload` הם אותה כתובת: 800×500, `resize=cover`, איכות 60. `srcset` מוסיף 1200×800. `sizes` הוא `(min-width:640px) 640px, 100vw`. `posterForHero` ב-`assets/property.js` מחזיר את מחרוזת ה-800 הזו בדיוק. מחרוזת אחרת מוחקת את הצומת, והדפדפן מוריד שוב. `data-full` וה-`onerror` חוזרים למקור. `og:image` וה-JSON-LD נשארים על הקובץ המלא. כתובת שאינה מהאחסון לא משתנה. הטרנספורם הראשון של כתובת חדשה איטי (נמדד כ-679ms מול 38ms אחרי שהתוצאה נשמרה). אגודל עצל של אותה תמונה עדיין יכול להוריד את הקובץ המלא.
 
 ### כרטיס ראשון בדף שכונה
@@ -139,15 +148,22 @@ description: רינדור ל-SEO ב-edge של שוק נדל״ן - סטטוס ב�
 - **הרשימה ב-HTML הראשון**, מאותו קובץ render שהדפדפן מריץ כשאין `data-ssr`. כרטיס ראשון עם מידות ו-`render/image`, כמו דף שכונה.
 - **רשימה ריקה אינה כשל.** מערך ריק הוא 200 עם `noindex` ו-`no-store`, בלי `Retry-After`. זה שונה במכוון משורת `prices` בטבלה למעלה: שם דף ריק הוא הדף. כאן אין מה לאנדקס. `undefined` בלי עותק שמולא נשאר 503 בלי `noindex`, עם ה-canonical של הכתובת כבר כתוב. יש עותק - הוא יוצא 200.
 - **שלושה בלוקי JSON-LD**, לא אחד במקום השני: `WebPage`, `BreadcrumbList`, `ItemList`. `<` בתוך JSON הוא `\u003c`. הבדיקה מפרסרת את שלושתם. `FAQPage` הוא בלוק רביעי, והשאלות זהות ל-`<details>` שבעמוד. הוא אינו מחליף אף אחד מהשלושה.
-- **תמונת הגיבור** לפי סוג (`HEROES` ב-`silo-render.js`), `fetchpriority="high"`, עם `srcset` ו-`preload` שמצביע עליה. בטלפון בלי מתאר `w`. סוג לא מוכר ודף המתווכים נשארים על תמונת העמק. הגובה בטלפון צר הוא `min(56svh, 460px)`, ומ-760px `min(460px, 100svh - 67px)` (שולחן נשאר 460px, טלפון לרוחב מתכווץ). לכרטיסים יש `width` ו-`height`, והם `loading="lazy"`.
+- **תמונת הגיבור** לפי סוג (`HEROES` ב-`silo-render.js`), `fetchpriority="high"`, עם `srcset` ו-`preload` שמצביע עליה. בטלפון בלי מתאר `w`. סוג לא מוכר ודף המתווכים נשארים על תמונת העמק. הגובה בטלפון צר הוא `min(56svh, 460px)`, ומ-760px `min(460px, 100svh - 67px)` (שולחן נשאר 460px, טלפון לרוחב מתכווץ). לכרטיסים יש `width` ו-`height`, והם `loading="lazy"`. שורת הנתונים בגיבור קופצת כש-Heebo מחליף גופן רחב יותר. המספרים חיים, אז אין `size-adjust` אחד, והגיבוי המקומי אינו באנדרואיד. עד 759px ל-`.land-chips` יש `min-height` של שתי שורות ב-`landing-hero-v10.css`. בלי זה דף על גבול השורה (בתים ומגרשים בעמק, רוחב 412) זז, ודף שהגיבוי שלו צר יותר (מגדל העמק ב-360, בתים בעפולה ב-412) זז לכיוון ההפוך.
 - **`/projects` הוא חריג לרשימה ריקה.** אין עליו `noindex`, והוא נשאר ב-sitemap גם בלי פרויקט. `ItemList` רק כשיש פרויקט. המדריך ב-HTML. `projects-page.ts`, לא `index-jsonld.ts`.
 - **עפולה נשארת שורה סטטית** ב-`sitemap.xml` (`changefreq`, `priority`). ‏`sitemap.ts` אינו מוסיף אותה שוב: `polish` מזהה `loc` קיים, שם או מקודד, ומכניס רק `lastmod`. עיר אחרת מ-`CITIES` נכנסת ל-sitemap החי רק אם `landingIndexable` והדף אינו רשימה ריקה, בלי `changefreq` ובלי `priority`. אין לה שורה ב-`SOURCES`. ‏`check_canonical.py` עדיין דורש את שורת השוק החי בקובץ הסטטי (נפילה לקובץ) ואוסר שורה של שוק שאינו חי. דף עם `names` מכסה כמה יישובים באותו סינון; בלי השדה נשאר `cityName` האחד. עיר עם `types` אינה מקבלת את שלושת הסוגים. `CollectionPage` ב-`@graph` רק כש-`ld` הוא `collection`.
 
 מדור מתווכים (`/afula/מתווכים`) יושב על אותו חוזה סטטוס. ה-`ItemList` שלו הוא `LocalBusiness` + `RealEstateAgent`, ועוד `BreadcrumbList`. הוא אינו מחליף את `/about`.
 
+## 7. תמונה עם שם, ורשימה שקיימת גם בלי JS
+
+שני כשלים שקטים שביקורת ה-SEO של 5.11.2026 מצאה (`docs/seo-audits/2026-11-05.md`), ושניהם נראו תקינים לחלוטין בדפדפן.
+
+- **כל תמונה שהשרת כותב נושאת `alt` עם תוכן, אלא אם היא דקורטיבית בכוונה.** תמונת נכס: כותרת הנכס ומספר התמונה, אותו נוסח בשרת (`heroPaint` ב-`og-tags.ts`) ובדפדפן (`galleryAlt` ב-`assets/property.js`), כדי ששמירת הצומת לא תחליף alt באחר. לוגו משרד: שם המשרד (`logo` ב-`assets/brokers-render.js`). תמונת הנושא של משרד: "תמונת הנושא של {שם}". פוסטר של סרטון נשאר `alt=""` כי התא `aria-hidden`. ‏`alt=""` על תמונת ה-LCP מחק את כל תמונות הנכסים מחיפוש התמונות, ושום בדיקה לא צעקה.
+- **דף רשימה (`/agents`, `/agencies`, `/articles`, `/professionals`) כותב את הקישורים לפריטים ב-HTML הראשון**, לתוך אותה רשת ריקה שה-JS ממלא (`fillGrid` ב-`index-jsonld.ts`, עד 120 קישורים, `prosGrid` מאבד את `hidden`). ה-JS מחליף את ה-`innerHTML` ואת `hidden` לפי התוצאות, כמו קודם. ‏`ItemList` עם 51 פריטים ו-HTML עם קישור אחד היו סתירה שסורק בלי JS רואה כ"אין כאן יועצי נדל״ן עדיין". רשת שאינה ריקה אינה מתמלאת, ו-HTML בלי הרשת (הבדיקה) יוצא כמו שהוא.
+
 ## מה לא לערבב לכאן
 
-מדיניות "שכונה דקה ב-sitemap", דף עיר `/n/{עיר}`, ו-HTML של רשימות שנבנה רק בדפדפן - החלטות נפרדות. שינוי שלהן אינו תיקון של הכללים למעלה. כללי ה-LCP של דף הבית יושבים בסעיף 5, לא כתוספת אגבית לתיקון סטטוס.
+מדיניות "שכונה דקה ב-sitemap" ודף עיר `/n/{עיר}` - החלטות נפרדות. שינוי שלהן אינו תיקון של הכללים למעלה. כללי ה-LCP של דף הבית יושבים בסעיף 5, לא כתוספת אגבית לתיקון סטטוס. הכרטיסים המלאים של דפי הרשימה נשארים בדפדפן; סעיף 7 מכניס לשרת את הקישורים בלבד.
 
 מיגרציה שמקצרת שאילתה של דף edge (טבלה מוכנה מראש) נכנסת רק כקובץ
 ב-`supabase/migrations/`, עם version גדול מהאחרון ב-`main`, ואינה

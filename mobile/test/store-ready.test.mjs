@@ -20,3 +20,34 @@ test('the install banner bails out before counting a visit inside the app', () =
   assert.ok(guard > 0);
   assert.ok(count > guard);
 });
+
+const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8');
+
+test('android targets API 36, the Play minimum for new apps', () => {
+  const vars = read('../android/variables.gradle');
+  assert.match(vars, /compileSdkVersion = 36/);
+  assert.match(vars, /targetSdkVersion = 36/);
+  assert.match(read('../capacitor.config.js'), /adjustMarginsForEdgeToEdge:\s*'auto'/);
+});
+
+test('android does not back up the session to the cloud', () => {
+  const manifest = read('../android/app/src/main/AndroidManifest.xml');
+  assert.match(manifest, /android:allowBackup="false"/);
+  assert.match(manifest, /android:dataExtractionRules="@xml\/data_extraction_rules"/);
+});
+
+test('ios hands the APNs token to Capacitor and declares push', () => {
+  const delegate = read('../ios/App/App/AppDelegate.swift');
+  assert.match(delegate, /didRegisterForRemoteNotificationsWithDeviceToken[\s\S]*capacitorDidRegisterForRemoteNotifications/);
+  assert.match(delegate, /didFailToRegisterForRemoteNotificationsWithError[\s\S]*capacitorDidFailToRegisterForRemoteNotifications/);
+  assert.match(read('../ios/App/App/App.entitlements'), /<key>aps-environment<\/key>/);
+  const plist = read('../ios/App/App/Info.plist');
+  assert.match(plist, /<key>UIRequiredDeviceCapabilities<\/key>\s*<array>\s*<string>arm64<\/string>/);
+});
+
+test('the privacy manifest declares the pixel as tracking', () => {
+  const privacy = read('../ios/App/App/PrivacyInfo.xcprivacy');
+  assert.match(privacy, /<key>NSPrivacyTracking<\/key>\s*<true\/>/);
+  assert.match(privacy, /<string>connect\.facebook\.net<\/string>/);
+  assert.match(privacy, /NSPrivacyCollectedDataTypeEmailAddress/);
+});

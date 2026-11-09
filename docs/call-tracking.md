@@ -16,7 +16,7 @@
                               │  הודעת הקלטה (Google TTS, עברית)
                               │  <Dial record> לנייד של הסוכן/ת, callerId = המתקשר/ת
                               ▼
-                        ?event=dial ── לא נענתה ──► "נחזור אליכם" + וואטסאפ לסוכן/ת
+                        ?event=dial ── לא נענתה ──► "אפשר לנסות שוב מאוחר יותר" + וואטסאפ לסוכן/ת
                               │
                         ?event=recording
                               │  הורדה ← דלי call-recordings ← מחיקה מ-Twilio

@@ -1,0 +1,56 @@
+name: פונקציות משותפות וחלון לקוחות
+
+# הגוף האחרון של פונקציה משותפת נקבע לפי version, לא לפי סדר המיזוג.
+# send_window_open ותקרת 3 לטלפון חייבים להישאר בגוף האחרון, יחד עם
+# מה שכבר נכנס לפניהם: suppress_push, burst_prepare, action_path,
+# showcase, window_on, ומכסת 15 של הביקוש הפתוח.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/saved-search-notify/**"
+      - "supabase/functions/open-house-notify/**"
+      - "scripts/shared_fn_invariants_test.py"
+      - "scripts/customer_send_window_test.py"
+      - ".github/workflows/shared_fn_invariants.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/saved-search-notify/**"
+      - "supabase/functions/open-house-notify/**"
+      - "scripts/shared_fn_invariants_test.py"
+      - "scripts/customer_send_window_test.py"
+      - ".github/workflows/shared_fn_invariants.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: לקוח Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: גוף אחרון
+        run: python3 scripts/shared_fn_invariants_test.py
+      - name: חלון ותקרה
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+        run: python3 scripts/customer_send_window_test.py

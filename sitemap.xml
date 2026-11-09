@@ -35,6 +35,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/sell</loc>
+    <lastmod>2026-10-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/open-house</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>daily</changefreq>
@@ -51,6 +57,36 @@
     <lastmod>2026-09-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/for-brokers</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-mortgage-advisor</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-lawyer</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-appraiser</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-developer</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://shuknadlan.co.il/instagram</loc>
@@ -71,10 +107,22 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/course</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/about</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/markets</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://shuknadlan.co.il/faq</loc>
@@ -101,6 +149,12 @@
     <priority>0.3</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/delete-account</loc>
+    <lastmod>2026-11-05</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/accessibility</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>yearly</changefreq>
@@ -116,11 +170,6 @@
 
        ואין כאן lastmod בכוונה: התוכן משתנה עם כל מודעה חדשה, ותאריך מומצא
        גרוע מתאריך חסר (ראו netlify/edge-functions/sitemap.ts). -->
-  <url>
-    <loc>https://shuknadlan.co.il/?deal=sale</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
   <url>
     <loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=4</loc>
     <changefreq>daily</changefreq>
@@ -138,16 +187,6 @@
   </url>
   <url>
     <loc>https://shuknadlan.co.il/?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://shuknadlan.co.il/?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
@@ -200,7 +239,17 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/afula/דירות-למכירה</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/afula/דירות-3-חדרים</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/afula/נדלן-מסחרי</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>

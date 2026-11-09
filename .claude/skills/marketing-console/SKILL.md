@@ -131,11 +131,17 @@ description: קונסולת השיווק ב-CRM של שוק נדל״ן - הפא�
 
 - **ליד נכנס דרך אותן פונקציות קליטה כמו ליד מהאתר**
   (`property-inquiry-intake` / `owner-lead-intake` / `saved-search-intake`),
-  עם `source=meta_ads_*`. אל תבנו נתיב משלו: הרוטציה, המחירים והטריות
-  יושבים שם.
+  עם `source=meta_ads_*` ו-`external_ref=meta_lead_id`. אל תבנו נתיב משלו:
+  הרוטציה, המחירים והטריות יושבים שם. `meta_ads_*` מתקבל רק מקורא פנימי
+  (`isInternalCaller`), כמו מקור חברתי. `owner-lead-intake` כותב את
+  המקור על שורת הליד, לא רק ביומן.
 - ‏`meta_lead_id` הוא המפתח, ו-`ads_lead_claim()` הוא הנעילה. ה-webhook
-  והסנכרון השעתי רצים על אותה שורה, ושני לידים לאותו אדם הם כסף שנגבה
-  פעמיים מסוכן/ת.
+  והסנכרון השעתי רצים על אותה שורה. ניסיון חוזר נופל על
+  `(source, external_ref)`. אותו טלפון בליד **unlocked** אצל סוכן/ת
+  מ-30 הימים (אותו `lead_type`, ובנכס גם אותו `property_id` ואותו
+  משרד/סוכן/ת) מצורף בלי רוטציה, עם התראת "פנייה נוספת"
+  (`phone_e164`, `source_touches`). ליד מוסתר, של משרד אחר, או טופס
+  מהדפדפן - שורה חדשה. ‏`docs/social-leads.md`.
 - **טופס שלא שויך** - הלידים שלו `new` ונשלחים ברגע השיוך. זה לא באג.
 - ה-webhook **נכשל סגור**: בלי `META_APP_SECRET` הוא מחזיר 503, ועל חתימה
   שגויה 401. על POST חתום הוא עונה **תמיד 200**, גם כשליד בודד נכשל: מטא
@@ -296,6 +302,7 @@ python scripts/ops_probe_codes_test.py
 python scripts/check_long_dash.py        # הודעות לפאנל ושגיאות בעברית
 python scripts/check_duplicate_ids.py    # id חדש בפאנל שכבר קיים בדשבורד
 node --experimental-strip-types scripts/paused_launch_test.ts
+node --experimental-strip-types scripts/google_channel_sync_test.ts
 ```
 
 שינוי ב-SQL של `probes/ads.py` נבדק גם מול Postgres מקומי עם המיגרציות
@@ -310,3 +317,9 @@ node --experimental-strip-types scripts/paused_launch_test.ts
 יד2) כותב שורות ליום ולקמפיין לאותה טבלה עם `channel` משלו, ומקבל שם בעברית
 ב-`ADS_CHANNELS`. בלי זה ההוצאה שלו לא נספרת בתקציב הפרסום ולא בכרטיס במרכז הפיקוד
 (`docs/platform-costs.md`, "פרסום: מכל הערוצים").
+
+גוגל עם `segments.date` לא מחזירה יום בלי impression. סנכרון שכותב רק את
+מה שחזר משאיר את `synced_at` על היום האחרון עם הוצאה, וקמפיין מושהה נראה
+כמו cron שנעצר. `google_sync_insights` ממלא אפס לכל יום בחלון שדולג, ורושם
+כל הרצה ב-`ads_actions_log` (גם כשל). בלי שורות היסטוריה ביומן, הממצא
+`ads_google_sync_silent` שותק.

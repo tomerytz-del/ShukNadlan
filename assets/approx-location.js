@@ -32,7 +32,7 @@
     var where = p && p.location_precision === 'zone'
       ? 'הנכס נמצא ב' + (zoneName(p) || 'אזור התעשייה') + ', והנקודה על המפה מסמנת את האזור ולא את הכתובת המדויקת.'
       : 'הנקודה על המפה מסמנת את אזור החלקה ולא את הכתובת המדויקת.';
-    return 'המיקום של הנכס הזה מוערך. ' + where + ' לפרטים מדויקים, פנו לסוכן/ת.';
+    return 'המיקום של הנכס הזה מוערך. ' + where + ' לפרטים מדויקים, פנו ליועץ הנדל״ן של הנכס.';
   }
 
   /* התווית הקצרה - לתגית, לבלון במפה ולכרטיס ב-CRM */
@@ -50,7 +50,7 @@
 
   /* תגית עם בועית: ⓘ + התווית, והטקסט המלא בריחוף, במיקוד ובלחיצה (טלפון) */
   function badgeHtml(p) {
-    return '<span class="approx-loc" tabindex="0" role="note" aria-label="' + esc(text(p)) + '">' +
+    return '<span class="approx-loc" tabindex="0" role="note" data-info-id="approx_location" aria-label="' + esc(text(p)) + '">' +
       '<span class="approx-loc-i" aria-hidden="true">i</span>' + esc(label(p)) +
       '<span class="approx-loc-tip" aria-hidden="true">' + esc(text(p)) + '</span></span>';
   }

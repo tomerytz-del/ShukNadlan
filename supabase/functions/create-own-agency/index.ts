@@ -6,6 +6,7 @@ import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-ga
 import { agencyName } from "../_shared/agency-lookup.ts";
 import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
 import { cleanServiceMarkets, serviceAreaText } from "../_shared/service-markets.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 import { mfaGate } from "../_shared/mfa-gate.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -154,8 +155,11 @@ Deno.serve(async (req: Request) => {
     // עיר המשרד - מטופס ישן; בטופס הנוכחי הטריגר agencies_set_city_id גוזר
     // אותה מסוף הכתובת המלאה (20270115101000). לא הוכרה - מהנכס הראשון.
     const cityId = await resolveAgencyCityId(supabase, body);
-    const { data: agency, error: agencyErr } = await supabase
-      .from("agencies").insert({ slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body) }).select().single();
+    const { data: agency, error: agencyErr } = await writeVisitInsert(
+      (payload) => supabase.from("agencies").insert(payload).select().single(),
+      { slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body) },
+      body,
+    );
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
 
     // ----------------------------------------------------------------------

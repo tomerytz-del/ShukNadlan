@@ -1,0 +1,31 @@
+name: יעד קישור ששורד כניסת Google
+
+# ‏כניסה עם Google חוזרת אל /crm בלי ה-query (redirectTo בלי פרמטרים, כדי
+# להתאים לרשימת הכתובות). בלי השמירה ב-auth-return.js קישור מוואטסאפ
+# ‏(?goto=, tab, lead) נעלם בדיוק אחרי ההתחברות, וכניסה בסיסמה לא. הבדיקה
+# טוענת את הקובץ מול window מזויף — בלי דפדפן ובלי רשת.
+
+on:
+  pull_request:
+    paths:
+      - "assets/auth-return.js"
+      - "scripts/auth_return_test.mjs"
+      - ".github/workflows/auth_return.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/auth-return.js"
+      - "scripts/auth_return_test.mjs"
+      - ".github/workflows/auth_return.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת השמירה וההחזרה
+        run: node scripts/auth_return_test.mjs

@@ -407,7 +407,7 @@ function buildOfficeAdvice(view, data){
       steps:['פגישת חידוש שבועיים לפני הסיום, עם דוח פעילות על הנכס',
              'הצעת עדכון מחיר מבוססת דוח CMA ועסקאות אחרונות באזור',
              'חידוש בהחתמה דיגיטלית, בלי לחכות לפגישה נוספת'],
-      impact:'כל בלעדיות שאובדת היא נכס שמתווך/ת מתחרה ימכור/תמכור' });
+      impact:'כל בלעדיות שאובדת היא נכס שיועץ נדל״ן מתחרה ימכור' });
   }
 
   // 7. יעדים
@@ -648,7 +648,7 @@ function odPendingHtml(data){
     s: 'חוות דעת של לקוחות שמחכות לפרסום', cta: 'לאישור', acc: 'accReviews' });
   const claims = typeof officePendingClaims === 'number' ? officePendingClaims : 0;
   if (claims) items.push({ n: claims, t: odCount(claims, 'בקשת שיוך אחת', 'בקשות שיוך'),
-    s: 'מתווכים שביקשו להצטרף למשרד', cta: 'לבדיקה', acc: 'accTeam' });
+    s: 'יועצי נדל״ן שביקשו להצטרף למשרד', cta: 'לבדיקה', acc: 'accTeam' });
   (data.teams || []).filter(t => !t.lead_member_id).forEach(t => items.push({ n: 1,
     t: 'מינוי מנהל/ת צוות', s: 'לצוות ' + t.name + ' אין מנהל/ת', cta: 'למינוי', acc: 'accTeam' }));
   if (!items.length) return '';

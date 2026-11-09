@@ -81,7 +81,7 @@ GATES = {
         'agent_agenda_enabled',
     # ‏agent_showing_coord_start מסרבת (tier_required) מחוץ למסלול, וגם
     # ההצעה של גבריאלה (showing_coord_offer_claim) בודקת את אותו גייט.
-    'תיאום ביקור עם בעלי הנכסים והמתווכים בוואטסאפ, בלחיצה אחת':
+    'תיאום ביקור עם בעלי הנכסים ויועצי הנדל״ן בוואטסאפ, בלחיצה אחת':
         'agent_agenda_enabled',
     # ההגבלה ההפוכה מכל השאר: מה ש-Pay&GO **אינו** רשאי לכתוב. הכלל חי
     # בטריגר על properties ועל agency_members, ולא בבדיקה בדפדפן.

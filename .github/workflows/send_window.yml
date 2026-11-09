@@ -1,0 +1,49 @@
+name: חלון שליחה - שישי עד 13:00
+
+# שישי 08:00-13:00 פתוח רק כש-notif_send_window_friday_enabled הוא 1.
+# משישי 13:00 עד ראשון 08:00 סגור. דגל 0 משאיר את שישי שלם שקט.
+# ההסלמה אינה כותבת מחוץ לחלון ואינה משתמשת ב-agenda_reminder.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271029235000_send_window_friday.sql"
+      - "supabase/migrations/20271029250000_lead_escalations.sql"
+      - "scripts/send_window_test.py"
+      - ".github/workflows/send_window.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271029235000_send_window_friday.sql"
+      - "supabase/migrations/20271029250000_lead_escalations.sql"
+      - "scripts/send_window_test.py"
+      - ".github/workflows/send_window.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: לקוח Postgres
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: חלון והסלמה
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+        run: python3 scripts/send_window_test.py

@@ -22,6 +22,9 @@ on:
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
+      - "scripts/hood_card_test.ts"
+      - "scripts/property_hero_video_test.ts"
+      - "assets/property.js"
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
@@ -37,6 +40,8 @@ on:
       - "assets/silo-render.js"
       - "scripts/projects_page_test.ts"
       - "scripts/index_jsonld_test.ts"
+      - "scripts/home_listings_test.ts"
+      - "scripts/go_link_test.ts"
       - "projects.html"
       - ".github/workflows/canonical.yml"
   push:
@@ -48,6 +53,9 @@ on:
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
+      - "scripts/hood_card_test.ts"
+      - "scripts/property_hero_video_test.ts"
+      - "assets/property.js"
       - "scripts/search_pages_test.ts"
       - "scripts/prices_page_test.ts"
       - "assets/prices-render.js"
@@ -63,6 +71,8 @@ on:
       - "assets/silo-render.js"
       - "scripts/projects_page_test.ts"
       - "scripts/index_jsonld_test.ts"
+      - "scripts/home_listings_test.ts"
+      - "scripts/go_link_test.ts"
       - "projects.html"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
@@ -91,6 +101,13 @@ jobs:
 
       - name: התנהגות og-tags מול מסד מדומה
         run: node --experimental-strip-types scripts/og_tags_test.ts
+
+      # ‏כרטיס השכונה בדף הנכס: קישור לדף שנכנס לאינדקס בלבד, והמבנה זהה לשרת ולדפדפן
+      - name: כרטיס השכונה בדף הנכס
+        run: node --experimental-strip-types scripts/hood_card_test.ts
+
+      - name: שער הסרטון והדפדפן של property.js
+        run: node --experimental-strip-types scripts/property_hero_video_test.ts
 
       # ‏ובאותה דרך, 14 עמודי התוצאות: מה שברשימה מקבל canonical משלו,
       # וכל צירוף פרמטרים אחר מתאחד לדף הבית. הכיוון השני הוא שמסוכן -
@@ -128,3 +145,12 @@ jobs:
       # לתשובה שמולאה (slow_ttfb על /agencies, 25.10.2026).
       - name: JSON-LD של הרשימות
         run: node --experimental-strip-types scripts/index_jsonld_test.ts
+
+      # ‏דף הבית: כ-12 קישורים לנכס ו-ItemList ב-HTML הראשון. כשל מסד
+      # משאיר את הדף כמו שהוא, בלי noindex.
+      - name: קישורים בדף הבית
+        run: node --experimental-strip-types scripts/home_listings_test.ts
+
+      # ‏/go/<code>: הפניה לאותו אתר, רישום שלא חוסם את ההפניה, בלי IP.
+      - name: קישור קליק /go
+        run: node --experimental-strip-types scripts/go_link_test.ts

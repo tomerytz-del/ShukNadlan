@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { generateMarketingCopy, MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
+import { generateMarketingCopy, LivingSizeClaimError, MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 
 // ============================================================================
 // תיאור שיווקי לנכס — השרת של שני המסלולים.
@@ -59,6 +59,18 @@ function json(obj: unknown, status = 200) {
 // deno-lint-ignore no-explicit-any
 type Sb = any;
 
+/** טענת גודל סלון בלי נתון. סוגרים את התור. לא מנסים שוב בכל סבב. */
+async function closeLivingSizeClaim(sb: Sb, jobId: string | null, propertyId: string) {
+  console.error("living_size_claim", propertyId);
+  if (!jobId) return;
+  const { error } = await sb.from("property_description_jobs").update({
+    status: "failed",
+    last_error: "living_size_claim",
+    completed_at: new Date().toISOString(),
+  }).eq("id", jobId);
+  if (error) console.error("living_size_claim_mark", propertyId, error.message);
+}
+
 /** עובדות הנכס מהמסד — מקור אמת אחד לשני המסלולים. */
 async function loadFacts(sb: Sb, propertyId: string) {
   const { data, error } = await sb.rpc("property_marketing_facts", {
@@ -115,6 +127,11 @@ async function drainQueue(sb: Sb, limit: number) {
       await sb.rpc("mark_property_description", { p_job_id: job.job_id, p_ok: true, p_error: null });
       results.push({ property_id: job.property_id, reason: job.reason, generated: true });
     } catch (e) {
+      if (e instanceof LivingSizeClaimError) {
+        await closeLivingSizeClaim(sb, job.job_id, job.property_id);
+        results.push({ property_id: job.property_id, skipped: "living_size_claim" });
+        continue;
+      }
       // מפתח שנדחה מפיל את כל השורות באותה מידה. עוצרים את הסבב ולא מסמנים
       // כישלון — בדיוק כמו במפתח חסר: השורות נשארות pending, ממתינות רבע שעה
       // (ה-backoff שנקבע בתפיסה) וממשיכות מעצמן ברגע שהמפתח יתוקן.
@@ -297,6 +314,10 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     // אותה הבחנה כמו בתור: מפתח שנדחה הוא מצב התקנה, והתשובה לסוכן/ת צריכה
     // לומר את זה ולא "נסו שוב". שורת התור נשארת כפי שהיא.
+    if (e instanceof LivingSizeClaimError) {
+      await closeLivingSizeClaim(sb, jobId, propertyId);
+      return json({ error: "generation_failed", detail: "living_size_claim" }, 502);
+    }
     if (e instanceof MarketingCopyAuthError) {
       console.error("כתיבת תיאור שיווקי נעצרה", propertyId, e.message);
       return json({ error: "copy_not_configured", detail: e.message }, 503);

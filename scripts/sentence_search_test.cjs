@@ -428,4 +428,144 @@ test('compileQuery - אותו פענוח לשדה החכם ולחיפוש בנכ
   assert.ok(!cq.fields.length && !cq.features.length);
 });
 
+/* ‏R8: מספרים שנאמרו בקול - לספרות לפני הפענוח (‏spokenNumbers) */
+test('חיפוש קולי: מספרים במילים', () => {
+  const cases = [
+    ['דירה עד מיליון ושבע מאות אלף', 1700000], ['דירה עד מיליון ושבע מאות', 1700000], ['עד שני מיליון', 2000000],
+    ['דירה עד מיליון וחצי', 1500000], ['דירה עד מיליון', 1000000], ['שניים וחצי מיליון', 2500000],
+    ['דירה להשכרה עד חמשת אלפים', 5000], ['להשכרה עד שלושת וחצי', 3500], ['דירה עד שבע מאות אלף', 700000],
+    ['עד שבע מאות וחמישים אלף', 750000], ['להשכרה עד ארבעת אלפים וחמש מאות', 4500], ['להשכרה עד אלף וחמש מאות', 1500],
+  ];
+  cases.forEach(([text, want]) => {
+    const r = C.parse(C.spokenNumbers(text), C.defaultState(), AREAS);
+    assert.strictEqual(r.patch.priceMax, want, text + ' → ' + C.spokenNumbers(text));
+  });
+  // מילים שאינן מחיר לא משתנות
+  assert.strictEqual(C.spokenNumbers('דירת ארבעה חדרים בעפולה'), 'דירת ארבעה חדרים בעפולה');
+  assert.strictEqual(C.spokenNumbers('עד 5 אלף'), 'עד 5 אלף');
+  assert.strictEqual(C.spokenNumbers('עד 1.5 מיליון'), 'עד 1.5 מיליון');
+});
+
+/* ‏A3-1 / C3 / C4 / R5 (PR 1010): משקים ונחלות, "למכירה" כמגורים, והכתובת הקנונית */
+test('משק ונחלה - סוג משלו, לא בית', () => {
+  const props = PROPS.concat([P({ id: 'farm1', deal_type: 'sale', property_type: 'משק חקלאי/נחלה', rooms: 5, price: 3000000 })]);
+  assert.strictEqual(C.parse('נחלה בעמק', C.defaultState(), AREAS).patch.type, 'farm');
+  assert.strictEqual(C.parse('משק עזר', C.defaultState(), AREAS).patch.type, 'farm');
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  assert.deepStrictEqual(C.filter(props, Object.assign({}, st, { type: 'farm' }), CTX).map(p => p.id), ['farm1']);
+  assert.ok(!C.filter(props, Object.assign({}, st, { type: 'house' }), Object.assign({ farmSplit: true }, CTX)).some(p => p.id === 'farm1'));
+  // בלי הדגל (‏farmSplit) - כמו היום: הנחלה היא גם "בית"
+  assert.ok(C.filter(props, Object.assign({}, st, { type: 'house' }), CTX).some(p => p.id === 'farm1'));
+});
+test('C4: למכירה בלי סוג - מגורים בלבד, רק עם saleResidential', () => {
+  const props = PROPS.concat([P({ id: 'shop1', deal_type: 'sale', category: 'commercial', property_type: 'חנויות/שטח מסחרי', price: 900000 })]);
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  assert.ok(C.filter(props, st, CTX).some(p => p.id === 'shop1'));
+  assert.ok(!C.filter(props, st, Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
+  assert.ok(C.filter(props, Object.assign({}, st, { type: 'commercial' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'shop1'));
+});
+test('F2: מגרשים במכירה - בלי המגרשים המסחריים, עם saleResidential', () => {
+  const props = PROPS.concat([P({ id: 'cland', deal_type: 'sale', category: 'commercial', property_type: 'מגרשים', price: 2000000 })]);
+  const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'land' });
+  assert.ok(C.filter(props, st, CTX).some(p => p.id === 'cland'));
+  const res = C.filter(props, st, Object.assign({ saleResidential: true }, CTX));
+  assert.deepStrictEqual(res.map(p => p.id), ['h']);
+  // תחת מסחרי הוא עדיין שם
+  assert.ok(C.filter(props, Object.assign({}, st, { deal: null, type: 'comm_land' }), Object.assign({ saleResidential: true }, CTX)).some(p => p.id === 'cland'));
+});
+test('C3: נחלה נספרת רק תחת משקים ונחלות - לא בתים ולא מגרשים', () => {
+  const props = PROPS.concat([P({ id: 'farm2', deal_type: 'sale', property_type: 'משק חקלאי/נחלה', rooms: 5, price: 3100000 })]);
+  const ctx = Object.assign({ saleResidential: true, farmSplit: true }, CTX);
+  const st = Object.assign(C.defaultState(), { deal: 'sale' });
+  const has = (type) => C.filter(props, Object.assign({}, st, { type }), ctx).some(p => p.id === 'farm2');
+  assert.ok(has('farm')); assert.ok(!has('house')); assert.ok(!has('land')); assert.ok(has('any'));
+});
+test('R5: type= במקום ptype=, ו-ptype= עדיין נקרא', () => {
+  const st = Object.assign(C.defaultState(), { deal: 'sale', type: 'garden' });
+  assert.ok(/(^|&)type=garden(&|$)/.test(C.toParams(st, AREAS, { typeParam: true })));
+  assert.ok(!/ptype=/.test(C.toParams(st, AREAS, { typeParam: true })));
+  const multi = Object.assign(C.defaultState(), { deal: 'sale', types: ['flats', 'farm'] });
+  const back = C.fromParams(new URLSearchParams(C.toParams(multi, AREAS, { typeParam: true })));
+  assert.deepStrictEqual(back.types, ['flats', 'farm']);
+  assert.strictEqual(C.fromParams(new URLSearchParams('ptype=' + encodeURIComponent('דירת גן'))).type, 'garden');
+  assert.strictEqual(C.fromParams(new URLSearchParams('type=' + encodeURIComponent('raw:דופלקס'))).type, 'raw:דופלקס');
+  assert.strictEqual(C.fromParams(new URLSearchParams('type=nonsense')).type, 'any');
+});
+
+test('חיפוש קולי: קטעים מצטברים של אנדרואיד אינם משורשרים', () => {
+  assert.strictEqual(C.joinSpeech(['מחפש', 'מחפש דירת', 'מחפש דירת ארבעה חדרים', 'מחפש דירת ארבעה חדרים ברובע']), 'מחפש דירת ארבעה חדרים ברובע');
+  // ‏Chrome במחשב: קטעים נפרדים
+  assert.strictEqual(C.joinSpeech(['דירה ', 'בעפולה']), 'דירה בעפולה');
+  assert.strictEqual(C.joinSpeech(['דירה בעפולה', 'בעפולה']), 'דירה בעפולה');
+  assert.strictEqual(C.joinSpeech([]), '');
+});
+
+test('עדכון כתובת שומר utm, gclid ו-fbclid, ו-deal=sale מפורש נשאר', () => {
+  const base = 'https://shuknadlan.co.il/?utm_source=google&utm_medium=cpc&gclid=abc&fbclid=z&beta=1';
+  const withRooms = C.applySearchToUrl(base, 'deal=sale&rooms=4');
+  assert.ok(withRooms.includes('utm_source=google'), withRooms);
+  assert.ok(withRooms.includes('utm_medium=cpc'), withRooms);
+  assert.ok(withRooms.includes('gclid=abc'), withRooms);
+  assert.ok(withRooms.includes('fbclid=z'), withRooms);
+  assert.ok(withRooms.includes('beta=1'), withRooms);
+  assert.ok(withRooms.includes('deal=sale'), withRooms);
+  assert.ok(withRooms.includes('rooms=4'), withRooms);
+  const bare = C.applySearchToUrl(base + '&deal=rent', 'deal=sale');
+  assert.ok(/(^|[?&])deal=sale(&|$)/.test(bare), bare);
+  assert.ok(!/deal=rent/.test(bare), bare);
+  assert.ok(bare.includes('utm_source=google') && bare.includes('gclid=abc') && bare.includes('fbclid=z'), bare);
+  const flats = C.applySearchToUrl(base, 'deal=sale&type=flats');
+  assert.ok(/deal=sale/.test(flats) && /type=flats/.test(flats), flats);
+  const kept = C.applySearchToUrl('https://shuknadlan.co.il/?utm_source=a&q=' + encodeURIComponent('גבעת המורה'), 'deal=rent&q=' + encodeURIComponent('מרכז העיר'));
+  assert.ok(kept.includes('utm_source=a'), kept);
+  assert.ok(kept.includes('deal=rent'), kept);
+  assert.ok(!kept.includes(encodeURIComponent('גבעת המורה')), kept);
+  assert.ok(kept.includes(encodeURIComponent('מרכז העיר')), kept);
+  const hash = C.applySearchToUrl('https://shuknadlan.co.il/?gclid=1#allProps', 'rooms=3&deal=sale');
+  assert.ok(hash.endsWith('#allProps'), hash);
+  assert.ok(hash.includes('gclid=1') && hash.includes('rooms=3'), hash);
+});
+
+const TAANACH = ['אביטל', 'אדירים', 'ברק', 'גדיש', 'דבורה', 'מלאה', 'מיטב', 'אומן', 'חבר', 'יעל', 'ניר יפה', 'פרזון'];
+const TAANACH_GROUPS = [{
+  name: 'חבל תענך',
+  aliases: ['תענכים', 'התענכים', 'חבל תענך', 'תענך', 'יישובי תענך', 'ישובי תענך', 'גוש תענך', 'אזור תענך'],
+  member_names: TAANACH,
+}];
+function taanachPack(ptype) {
+  const props = TAANACH.map((city, i) => P({
+    id: 't' + i, city, deal_type: 'sale', property_type: ptype, rooms: 4, price: 1500000,
+  }));
+  [1, 2, 3].forEach(n => props.push(P({
+    id: 'af' + n, city: 'עפולה', deal_type: 'sale', property_type: ptype, rooms: 4, price: 1500000,
+  })));
+  const areas = C.deriveAreas(props, [], TAANACH_GROUPS);
+  return { props, areas, ctx: { areaIndex: areas.index, marketLabel: 'עפולה והעמק' } };
+}
+function taanachCities(q, ptype) {
+  const pack = taanachPack(ptype);
+  const parsed = C.compileQuery(q, C.defaultState(), pack.areas, pack.props, pack.ctx, []);
+  const st = C.applyPatch(C.defaultState(), parsed.patch);
+  const hits = C.filter(pack.props, st, pack.ctx);
+  return { cities: [...new Set(hits.map(p => p.city))].sort(), n: hits.length };
+}
+test('חבל תענך: תענכים, התענכים, דירה בחבל תענך ובית בתענך הם 12 היישובים בלי עפולה', () => {
+  const want = TAANACH.slice().sort();
+  [['תענכים', 'דירה'], ['התענכים', 'דירה'], ['דירה בחבל תענך', 'דירה']].forEach(([q, ptype]) => {
+    const got = taanachCities(q, ptype);
+    assert.deepStrictEqual(got.cities, want, q);
+    assert.strictEqual(got.n, 12, q);
+    assert.ok(!got.cities.includes('עפולה'), q);
+  });
+  const house = taanachCities('בית בתענך', "בית פרטי/קוטג'");
+  assert.deepStrictEqual(house.cities, want, 'בית בתענך');
+  assert.strictEqual(house.n, 12);
+  assert.ok(!house.cities.includes('עפולה'));
+});
+test('אומן לבד הוא רק אומן, לא כל חבל תענך', () => {
+  const got = taanachCities('אומן', 'דירה');
+  assert.deepStrictEqual(got.cities, ['אומן']);
+  assert.strictEqual(got.n, 1);
+});
+
 console.log(passed + ' בדיקות עברו' + (process.exitCode ? ' - ויש כישלונות' : ''));

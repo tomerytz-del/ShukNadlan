@@ -72,10 +72,120 @@
     return false;
   }
 
+  /* המפתחות ש-handleGotoParam ב-crm.js קורא מהכתובת. רק הם נשמרים:
+     query שלם היה סוחב איתו גם code ו-access_token של סבב קודם, והיה
+     נכנס ל-location.replace. status נשמר גם הוא — קישור נכס לפי סטטוס
+     (פעיל / נמכר / הושכר) משתמש בו, גם אם המסך עוד לא קורא אותו. */
+  var GOTO_KEYS = [
+    'goto', 'client', 'property', 'lead', 'focus', 'agenda', 'agreement',
+    'review', 'filter', 'status', 'import', 'tab',
+    'plan_city', 'plan_street', 'plan_num', 'plan_gush', 'plan_helka',
+    // מדידת הלחיצה (deeplink-timing): בלי wc ו-wt חזרה מ-Google נשארת
+    // login_wall גם כשהיעד נפתח, כי הסקריפט רץ רק כשהם בכתובת
+    'wc', 'wt'
+  ];
+
+  /* מפתח נפרד מהנתיב: הנתיב נכנס ל-location.replace כמות שהוא, ו-query
+     שמודבק עליו היה יוצר ?goto=…?code=… כש-catchLanding מוסיף את תשובת
+     Google. הערכים נשמרים כאן ומוחזרים לכתובת רק אחרי שחוזרים ליעד. */
+  var QUERY_KEY = 'shuknadlan.auth_return_query';
+  /* יעד שנשמר לפני יציאה ל-Google. מי שביטל/ה את ההתחברות וחזר/ה ל-CRM
+     אחר כך לא אמור/ה להיזרק למסך הישן, וגם חזרה שהתעכבה יותר מעשר דקות
+     לא פותחת יעד שכבר לא רלוונטי. */
+  var QUERY_TTL_MS = 10 * 60 * 1000;
+
+  function allowlistedQuery(search){
+    var params = parse(String(search || '').replace(/^\?/, ''));
+    if (!params) return '';
+    var out = new global.URLSearchParams();
+    for (var i = 0; i < GOTO_KEYS.length; i++){
+      var key = GOTO_KEYS[i];
+      if (!params.has(key)) continue;
+      var value = params.get(key) || '';
+      if (!value) continue;
+      if (value.length > 200) value = value.slice(0, 200);
+      // ערך אינו כתובת: // ו-javascript: לא אמורים להופיע בפרמטר של מסך
+      if (/[\u0000-\u001f\u007f\\]/.test(value)) continue;
+      if (/^\s*javascript:/i.test(value)) continue;
+      if (value.indexOf('//') === 0) continue;
+      out.append(key, value);
+    }
+    return out.toString();
+  }
+
   function remember(path){
-    var value = path || global.location.pathname;
-    try { global.sessionStorage.setItem(STORE_KEY, value); }
+    var value = String(path || global.location.pathname).split('?')[0].split('#')[0];
+    try {
+      global.sessionStorage.setItem(STORE_KEY, value);
+      // כניסה בלי יעד מוחקת יעד ישן, כדי שסבב Google הבא לא יקפוץ אליו
+      var query = allowlistedQuery(global.location.search);
+      if (query){
+        global.sessionStorage.setItem(QUERY_KEY, JSON.stringify({
+          q: query, t: global.Date.now(),
+        }));
+      } else global.sessionStorage.removeItem(QUERY_KEY);
+    }
     catch (e) { /* גלישה פרטית חוסמת אחסון; נשארים עם ברירת המחדל */ }
+  }
+
+  function clearQuery(){
+    try { global.sessionStorage.removeItem(QUERY_KEY); }
+    catch (e) { /* אין אחסון — אין גם מה למחוק */ }
+  }
+
+  function storedQuery(){
+    var raw = '';
+    try { raw = global.sessionStorage.getItem(QUERY_KEY) || ''; }
+    catch (e) { raw = ''; }
+    if (!raw) return '';
+    var query = '';
+    var savedAt = 0;
+    if (raw.charAt(0) === '{'){
+      try {
+        var obj = JSON.parse(raw);
+        query = obj && obj.q ? String(obj.q) : '';
+        savedAt = obj && obj.t ? Number(obj.t) : 0;
+      } catch (e) { query = ''; }
+    }
+    if (!query || !savedAt || (global.Date.now() - savedAt) > QUERY_TTL_MS){
+      clearQuery();
+      return '';
+    }
+    return allowlistedQuery(query);
+  }
+
+  /* current גובר: תשובת Google (code / error) שנמצאת כבר בכתובת לא נדרסת
+     ביעד שנשמר, ולהפך — יעד לא נמחק בגלל שהתשובה הגיעה. */
+  function mergeSearch(stored, current){
+    var out = new global.URLSearchParams(stored || '');
+    var cur = parse(current || '') || new global.URLSearchParams();
+    cur.forEach(function(v, k){ out.set(k, v); });
+    return out.toString();
+  }
+
+  /* מחזיר את יעד הקישור לכתובת של הדף שכבר נטען (חזרה ישר ל-CRM, בלי
+     סיבוב דרך דף הבית). לא נוגע ב-hash: שם יושבת תשובת implicit. */
+  function restoreQuery(){
+    // בלי תשובת Google בכתובת זו כניסה רגילה. יעד שנשמר מסבב שלא הושלם
+    // נשאר באחסון עד שיפוג, ולא נפתח עכשיו.
+    if (!hasAuthResponse()) return false;
+    var extra = storedQuery();
+    if (!extra) return false;
+    if (!samePage(global.location.pathname, storedPath())) return false;
+    var cur = parse(global.location.search) || new global.URLSearchParams();
+    var add = new global.URLSearchParams(extra);
+    var changed = false;
+    add.forEach(function(v, k){
+      if (!cur.has(k)){ cur.set(k, v); changed = true; }
+    });
+    if (!global.history || !global.history.replaceState) return false;
+    try {
+      var search = cur.toString();
+      global.history.replaceState(global.history.state, '',
+        global.location.pathname + (search ? '?' + search : '') + global.location.hash);
+      clearQuery();
+    } catch (e) { return false; }
+    return changed;
   }
 
   /* היעד חייב להיות נתיב באתר הזה ולא כתובת מלאה: מה שנקרא מהאחסון חוזר
@@ -85,6 +195,7 @@
     var value = '';
     try { value = global.sessionStorage.getItem(STORE_KEY) || ''; }
     catch (e) { value = ''; }
+    value = String(value).split('?')[0].split('#')[0];
     return /^\/[^/\\]/.test(value) ? value : DEFAULT_PATH;
   }
 
@@ -100,9 +211,14 @@
     if (!hasAuthResponse()) return false;
     var target = storedPath();
     // היעד הוא הדף הזה עצמו: התשובה הגיעה לאן שהתכוונה, ואין מה להעביר —
-    // וניסיון להעביר בכל זאת היה לולאה.
-    if (samePage(global.location.pathname, target)) return false;
-    try { global.location.replace(target + global.location.search + global.location.hash); }
+    // וניסיון להעביר בכל זאת היה לולאה. היעד שנשמר (goto וחבריו) כן חוזר
+    // לכתובת, כי redirectTo של Google הוא הנתיב בלי ה-query.
+    if (samePage(global.location.pathname, target)){
+      restoreQuery();
+      return false;
+    }
+    var search = mergeSearch(storedQuery(), global.location.search);
+    try { global.location.replace(target + (search ? '?' + search : '') + global.location.hash); }
     catch (e) { return false; }
     return true;
   }
@@ -111,8 +227,13 @@
     remember: remember,
     hasAuthResponse: hasAuthResponse,
     catchLanding: catchLanding,
+    restoreQuery: restoreQuery,
   };
 
   var tag = document.currentScript;
-  if (tag && tag.hasAttribute('data-catch')) catchLanding();
+  if (tag && tag.hasAttribute('data-catch')){
+    if (!catchLanding() && hasAuthResponse()) restoreQuery();
+  } else if (hasAuthResponse()) {
+    restoreQuery();
+  }
 })(window);

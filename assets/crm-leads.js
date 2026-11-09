@@ -173,28 +173,45 @@ function leadsPriorityGroups(){
   return groupLeadsByVisitor(leadsPrioritySort(fresh));
 }
 
+function paintFairClicks(){
+  const host = document.getElementById('fairClickHost');
+  if (!host) return;
+  const html = leadsTab === 'demand' || typeof fairClickBlockHtml !== 'function' ? '' : fairClickBlockHtml();
+  host.innerHTML = html;
+  host.hidden = !html;
+}
+
 function renderLeadsUnified(agentId){
   const listEl = document.getElementById('leadsList');
   if (!listEl) return;
+  paintFairClicks();
   const active = allLeads.filter(l => !archivedLeadIds.has(l.id));
   const archived = allLeads.filter(l => archivedLeadIds.has(l.id));
   const fresh = active.filter(l => leadStageOf(l) === 'new');
   const work = active.filter(l => leadStageOf(l) !== 'new');
 
-  accSetCount('accLeads', fresh.length);
+  /* כל מונה כאן סופר פונים ולא שורות ב-leads, כמו הרשימה: פונה עם שתי
+     פניות הוא כרטיס אחד, ו"4" מעל רשימה של 2 נקרא כבאג (docs/lead-card.md) */
+  const people = list => groupLeadsByVisitor(list).length;
+  const nFresh = people(fresh), nActive = people(active);
+
+  accSetCount('accLeads', nFresh);
   syncLeadsSettings();
   renderClientsTop();
-  accSetSummary('accLeads', active.length
-    ? plural(active.length, 'ליד פתוח אחד', 'לידים פתוחים') + (fresh.length ? ' · ' + plural(fresh.length, 'אחד חדש', 'חדשים') : '')
+  accSetSummary('accLeads', nActive
+    ? plural(nActive, 'ליד פתוח אחד', 'לידים פתוחים') + (nFresh ? ' · ' + plural(nFresh, 'אחד חדש', 'חדשים') : '')
     : '');
 
   // הלשוניות
-  const counts = { new: fresh.length, work: work.length, archive: archived.length,
+  const counts = { new: nFresh, work: people(work), archive: people(archived),
                    demand: openDemandRows ? openDemandRows.filter(d => !d.mine).length : '·' };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
     b.querySelector('[data-n]').textContent = counts[b.dataset.leadsTab];
   });
+  syncDemandTab();
+  // המונה של "ביקוש פתוח" נטען פעם אחת גם בלי לפתוח את הלשונית, כדי שתודגש כשיש
+  if (openDemandRows === null && !openDemandLoading) loadOpenDemand(true);
   alignScrollTabs(document.getElementById('leadsTabs'));
   document.getElementById('leadsSrc').hidden = leadsTab === 'demand';
   if (leadsTab === 'demand'){ renderOpenDemand(listEl); return; }
@@ -202,15 +219,16 @@ function renderLeadsUnified(agentId){
   const pool = leadsTab === 'archive' ? archived : leadsTab === 'work' ? work : fresh;
 
   // צ'יפים של מקור - רק מקורות שיש בהם משהו בלשונית הזו
+  // המונה הוא מספר הכרטיסים שהלחיצה על הצ'יפ תציג
+  const inSrc = (l, src) => src === 'all' || leadSrcKey(l) === src || (src === 'prop' && leadSrcKey(l) === 'site');
   const srcCount = {};
-  pool.forEach(l => { const k = leadSrcKey(l); srcCount[k] = (srcCount[k] || 0) + 1; });
+  LEAD_SRC_FILTERS.forEach(([k]) => { srcCount[k] = people(pool.filter(l => inSrc(l, k))); });
   if (leadsSrc !== 'all' && !srcCount[leadsSrc]) leadsSrc = 'all';
   document.getElementById('leadsSrc').innerHTML = LEAD_SRC_FILTERS
-    .filter(([k]) => k === 'all' || srcCount[k] || (k === 'prop' && srcCount.site))
-    .map(([k, label]) => uiChip(label, { value:k, on: leadsSrc === k, icon:false,
-      count: k === 'all' ? pool.length : (srcCount[k] || 0) + (k === 'prop' ? (srcCount.site || 0) : 0) })).join('');
+    .filter(([k]) => k === 'all' || srcCount[k])
+    .map(([k, label]) => uiChip(label, { value:k, on: leadsSrc === k, icon:false, count: srcCount[k] })).join('');
 
-  const filtered = pool.filter(l => leadsSrc === 'all' || leadSrcKey(l) === leadsSrc || (leadsSrc === 'prop' && leadSrcKey(l) === 'site'));
+  const filtered = pool.filter(l => inSrc(l, leadsSrc));
   const sorted = leadsTab === 'archive'
     ? filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     : leadsPrioritySort(filtered);
@@ -504,15 +522,37 @@ const OPEN_DEMAND_NO_BROKER = {
            rule: 'לא להגיב בפוסט, רק בהודעה פרטית בפייסבוק. הצעה אחת ומנומסת לשיווק מקצועי.' },
 };
 
-async function loadOpenDemand(){
-  if (openDemandLoading) return;
+let openDemandP = null;
+let openDemandQuiet = false;
+function loadOpenDemand(silent){
+  // אותה הבטחה לקוראים שנכנסו באמצע (קישור עמוק, וציור הלשונית שביקש שוב).
+  // קריאה רגילה באמצע טעינה שקטה עדיין מציגה שגיאה.
+  if (openDemandP) {
+    if (!silent) openDemandQuiet = false;
+    return openDemandP;
+  }
+  openDemandQuiet = !!silent;
   openDemandLoading = true;
-  const [list, stats] = await Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]);
-  openDemandLoading = false;
-  if (list.error){ showToast(heErr(list.error)); openDemandRows = []; }
-  else openDemandRows = list.data || [];
-  openDemandStats = stats.error ? null : stats.data;
-  if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+  openDemandP = Promise.all([sb.rpc('open_demand_list'), sb.rpc('open_demand_stats')]).then(([list, stats]) => {
+    if (list.error){ if (!openDemandQuiet) showToast(heErr(list.error)); openDemandRows = []; }
+    else openDemandRows = list.data || [];
+    openDemandStats = stats.error ? null : stats.data;
+    if (leadsTab === 'demand') renderLeads(currentAgent && currentAgent.id);
+    else syncDemandTab();
+  }).finally(() => {
+    openDemandLoading = false;
+    openDemandP = null;
+  });
+  return openDemandP;
+}
+
+/* מונה והדגשה של "ביקוש פתוח" - ביקושים שעוד לא תפסתי */
+function syncDemandTab(){
+  const b = document.querySelector('#leadsTabs [data-leads-tab="demand"]');
+  if (!b) return;
+  const n = openDemandRows ? openDemandRows.filter(d => !d.mine).length : null;
+  if (n !== null) b.querySelector('[data-n]').textContent = n;
+  b.classList.toggle('has-open', !!n);
 }
 
 function openDemandWants(d){
@@ -598,9 +638,15 @@ async function claimOpenDemand(id, btn){
   renderLeads(currentAgent && currentAgent.id);
 }
 
-function openLeadsDemand(){
+/* הכניסה הראשונה מ-?goto=accLeads&tab=demand משאירה את הטעינה שכבר
+   יצאה עם הדשבורד. כל קריאה אחרת, כולל הפעמון, מאפסת ומושכת מחדש:
+   ביקוש נוסף ונמחק כל שעה, ודשבורד פתוח שעות היה מראה רשימה ישנה. */
+let openDemandLinkKept = false;
+function openLeadsDemand(opts){
   leadsTab = 'demand';
-  openDemandRows = null;
+  const keep = !!(opts && opts.fromLink) && !openDemandLinkKept;
+  if (opts && opts.fromLink) openDemandLinkKept = true;
+  if (!keep) openDemandRows = null;
   renderLeads(currentAgent && currentAgent.id);
 }
 

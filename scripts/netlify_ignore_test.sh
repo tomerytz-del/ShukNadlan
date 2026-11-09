@@ -64,6 +64,7 @@ check docs/x.md 0
 check CLAUDE.md 0
 check supabase/migrations/1_x.sql 0
 check supabase/functions/a/index.ts 0
+check supabase/functions/_shared/wa-forward.ts 1
 check scripts/check_x.py 0
 check .claude/skills/x/SKILL.md 0
 check .github/workflows/x.yml 0

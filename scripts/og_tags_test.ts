@@ -29,6 +29,9 @@
 import handler from "../netlify/edge-functions/og-tags.ts";
 import { resetLastGood } from "../netlify/edge-functions/lib/last-good.ts";
 
+/* הבדיקות מחליפות את fetch. השאילתה החיה נשארת על המקור. */
+const realFetch = globalThis.fetch;
+
 const PAGE =
   `<!doctype html><html><head><title>נכס | שוק נדל״ן</title></head><body>x</body></html>`;
 
@@ -45,6 +48,7 @@ const PROPERTY = {
   house_number: "12",
   address: "הרצל 12",
   city: "עפולה",
+  city_id: "afula",
   images: ["/a.jpg"],
   price: 1500000,
   deal_type: "sale",
@@ -71,8 +75,7 @@ const CASES: Case[] = [
         משוכפל בלי שנבחר דף קנוני". */
   { name: "‏/property בלי ?id=", url: "/property", expect: "noindex" },
   { name: "‏/property.html בלי ?id=", url: "/property.html", expect: "noindex" },
-  { name: "‏/agency בלי ?slug=", url: "/agency", expect: "noindex" },
-  { name: "‏/agent בלי ?slug=", url: "/agent", expect: "noindex" },
+  /* ‏/agent ו-/agency בלי slug הם 301 לרשימה, לא noindex. נבדק למטה. */
   { name: "‏/project בלי ?slug=", url: "/project", expect: "noindex" },
   { name: "‏/developer בלי ?slug=", url: "/developer", expect: "noindex" },
   { name: "‏/professional בלי מפתח", url: "/professional", expect: "noindex" },
@@ -95,6 +98,9 @@ const CASES: Case[] = [
 
   /* ‏4. המסלול הרגיל, כדי שהבדיקה לא תעבור על פונקציה שהפסיקה להזריק */
   { name: "נכס קיים", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: PROPERTY, expect: "tags" },
+  /* ‏P0-A2: נכס בלי עיר - בתוך תיבת עפולה והעמק נשאר, מחוץ לה (‏"אזור השרון") noindex */
+  { name: "נכס בלי עיר בעפולה", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: { ...PROPERTY, city_id: null, lat: "32.61", lng: "35.29" }, expect: "tags" },
+  { name: "נכס בלי עיר מחוץ לשוק", url: "/property?id=11111111-1111-4111-8111-111111111111", status: 200, body: { ...PROPERTY, city_id: null, lat: "32.3181", lng: "34.9108" }, expect: "noindex" },
   { name: "משרד קיים", url: "/agency?slug=a", status: 200, body: { name: "משרד", description: "ד" }, expect: "tags" },
   { name: "כתבה קיימת", url: "/article?slug=a", status: 200, body: { slug: "a", title: "כותרת" }, expect: "tags" },
 ];
@@ -301,6 +307,9 @@ const artBare = await serve("article.html", "/article?slug=a", { slug: "a", titl
 const ag = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד הדר", description: "פסקה א\n\nפסקה <ב>", address: "הנשיא 5, עפולה" });
 const agFallback = await serve("agency.html", "/agency?slug=a", { id: "x", name: "אביה גולדברג - תיווך", description: null, address: "עפולה", specialty_areas: ["עפולה", "גבעת המורה", "בית שאן"] });
 const agEmpty = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: null, address: null, specialty_areas: [] });
+const COVER = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a/cover.jpg";
+const agCover = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: "ד", cover_url: COVER });
+const agEvil = await serve("agency.html", "/agency?slug=a", { id: "x", name: "משרד", description: "ד", cover_url: "https://evil.example/storage/v1/object/public/x.jpg" });
 
 const bodies: [string, boolean][] = [
   ["כתבה: H1 בשרת", /<h1 class="title" id="articleTitle">כותרת<\/h1>/.test(art)],
@@ -313,7 +322,74 @@ const bodies: [string, boolean][] = [
   ["משרד: H1 בשרת", /id="brandName">משרד הדר<\/h1>/.test(ag)],
   ["משרד בלי תיאור: משפט עובדתי עם הכתובת והאזורים", agFallback.includes("<p>משרד התיווך אביה גולדברג - תיווך, עפולה. אזורי פעילות: עפולה, גבעת המורה ובית שאן.</p>")],
   ["משרד בלי תיאור, כתובת ואזורים: המקטע מוסתר", /id="aboutSec" aria-labelledby="aboutHeading" hidden>/.test(agEmpty) && /id="aboutText"><\/div>/.test(agEmpty)],
+  ["משרד בלי תמונת נושא: אין img של השער", !ag.includes('<img class="banner-lcp"')],
+  ["משרד עם כיסוי מהאחסון: img ו-preload של העותק המוקטן", agCover.includes('<img class="banner-lcp"') && agCover.includes("width=1400&amp;height=800") && agCover.includes('rel="preload"')],
+  ["משרד עם כיסוי מארח זר: אין img", !agEvil.includes('<img class="banner-lcp"')],
 ];
+
+/* ‏קישורים בגוף הכתבה. אותו html() לשרת ולדפדפן, ורק http(s). */
+const ab = (globalThis as unknown as { ShukArticleBody: { html: (text: string) => string } }).ShukArticleBody;
+const same = "https://shuknadlan.co.il/n/afula/%D7%92%D7%91%D7%A2%D7%AA-%D7%94%D7%9E%D7%95%D7%A8%D7%94";
+const sameHtml = ab.html("ראו " + same + ".");
+const extHtml = ab.html("וגם https://example.com/a?x=1&y=2.");
+const longSlug = "א".repeat(80);
+const longUrl = "https://shuknadlan.co.il/article?slug=" + encodeURIComponent(longSlug);
+const longHtml = ab.html(longUrl);
+const longAnchor = longHtml.match(/<a href="([^"]*)" dir="ltr" title="([^"]*)">([^<]*)<\/a>/);
+const xss = ab.html('<img src=x onerror="alert(1)"> https://example.com/"><script>alert(1)</script>');
+const schemes = ab.html("javascript:alert(1) data:text/html,hi xhttps://example.com/no");
+const spoof = ab.html("https://shuknadlan.co.il.evil.com/x https://shuknadlan.co.il@evil.com/x https://evil.com/shuknadlan.co.il https://notshuknadlan.co.il/a https://shuknadlan.co.il%00.evil.com/x");
+const spoofAnchors = spoof.match(/<a\b[^>]*>[\s\S]*?<\/a>/g) || [];
+const linkBody = "ראו " + same + " וגם https://example.com/a?x=1&y=2.";
+const artLinks = await serve("article.html", "/article?slug=a", { slug: "a", title: "כותרת", body: linkBody });
+const linkInner = (artLinks.match(/id="articleBody">([\s\S]*?)<\/div>/) || [])[1];
+const articleSrc = readFileSync(new URL("../article.html", import.meta.url), "utf8");
+bodies.push(
+  ["כתבה: קישור פנימי - נתיב מפוענח, אותה לשונית",
+    sameHtml.includes('href="' + same + '"') && sameHtml.includes(">/n/afula/גבעת-המורה</a>.") &&
+    !sameHtml.includes("target=") && !sameHtml.includes("nofollow") && !sameHtml.includes("%D7%92%D7%91%D7%A2%D7%AA</a>")],
+  ["כתבה: קישור חיצוני - nofollow ולשונית חדשה, & מוברח",
+    extHtml.includes('<a href="https://example.com/a?x=1&amp;y=2" dir="ltr" rel="noopener nofollow" target="_blank">https://example.com/a?x=1&amp;y=2</a>.')],
+  ["כתבה: www ושורש האתר פנימיים",
+    ab.html("https://www.shuknadlan.co.il/pricing").includes('dir="ltr">/pricing</a>') &&
+    !ab.html("https://www.shuknadlan.co.il/pricing").includes("target=") &&
+    ab.html("https://shuknadlan.co.il/") === '<p><a href="https://shuknadlan.co.il/" dir="ltr">shuknadlan.co.il</a></p>'],
+  ["כתבה: http לאותו אתר, בלי העוגן בתווית",
+    ab.html("http://SHUKNADLAN.CO.IL/about#team").includes('href="http://SHUKNADLAN.CO.IL/about#team"') &&
+    ab.html("http://SHUKNADLAN.CO.IL/about#team").includes(">/about</a>") &&
+    !ab.html("http://SHUKNADLAN.CO.IL/about#team").includes("target=")],
+  ["כתבה: שאילתה מפוענחת",
+    ab.html("https://shuknadlan.co.il/?q=%D7%93%D7%99%D7%A8%D7%94").includes(">/?q=דירה</a>")],
+  ["כתבה: נתיב ארוך נחתך, וה-href וה-title מלאים",
+    !!longAnchor && longAnchor[1] === longUrl && longAnchor[2] === "/article?slug=" + longSlug &&
+    longAnchor[3].endsWith("\u2026") && longAnchor[3].length <= 64 && !longHtml.includes("target=")],
+  ["כתבה: תגית ופריצת מאפיין נשארות טקסט",
+    !xss.includes("<img") && !xss.includes("<script") && xss.includes("&lt;img") && xss.includes("&quot;") &&
+    xss.includes('href="https://example.com/"') && !/<a\b[^>]*\son\w+=/i.test(xss)],
+  ["כתבה: אחוזים של תגית בנתיב פנימי יוצאים מוברחים",
+    ab.html("https://shuknadlan.co.il/%3Cscript%3E").includes(">/&lt;script&gt;</a>") &&
+    !ab.html("https://shuknadlan.co.il/%3Cscript%3E").includes("<script>")],
+  ["כתבה: javascript, data, ואות שנדבקת לסכמה - בלי קישור", !schemes.includes("<a")],
+  ["כתבה: מארח זר שנראה כמו האתר - חיצוני או טקסט",
+    spoofAnchors.length >= 4 && spoofAnchors.every((a) => a.includes('rel="noopener nofollow"') && a.includes('target="_blank"'))],
+  ["כתבה: userinfo לא הופך מארח זר לפנימי",
+    ab.html("https://shuknadlan.co.il@evil.com/phish").includes("nofollow") &&
+    !ab.html("https://shuknadlan.co.il@evil.com/phish").includes(">/phish</a>")],
+  ["כתבה: סוגריים מאוזנים נשארים, סוגר מיותר נשאר בחוץ",
+    ab.html("https://en.wikipedia.org/wiki/Real_estate_(Israel)").includes('href="https://en.wikipedia.org/wiki/Real_estate_(Israel)"') &&
+    ab.html("(https://example.com/a)").includes('">https://example.com/a</a>)')],
+  ["כתבה: קישור בפריט רשימה, ושני קישורים בפסקה",
+    ab.html("- https://shuknadlan.co.il/pricing") === '<ul><li><a href="https://shuknadlan.co.il/pricing" dir="ltr">/pricing</a></li></ul>' &&
+    ab.html("https://example.com/one https://shuknadlan.co.il/two").includes('target="_blank">https://example.com/one</a>') &&
+    ab.html("https://example.com/one https://shuknadlan.co.il/two").includes('dir="ltr">/two</a>')],
+  ["כתבה: לוכסן הפוך קוטע כתובת ולא מצמיד את האתר אליה",
+    ab.html("https://evil.com\\@shuknadlan.co.il/secret").includes('href="https://evil.com"') &&
+    ab.html("https://evil.com\\@shuknadlan.co.il/secret").includes("nofollow") &&
+    !ab.html("https://evil.com\\@shuknadlan.co.il/secret").includes(">/secret</a>")],
+  ["כתבה: השרת והדפדפן מקבלים אותו HTML",
+    linkInner === ab.html(linkBody) &&
+    articleSrc.includes("el('articleBody').innerHTML = window.ShukArticleBody.html(text)")],
+);
 
 /* ‏סוכן/ת, פרויקט, יזם ובעל/ת מקצוע: H1 ותוכן מהשרת, ונתונים מובנים */
 const ldOf = (h: string) => {
@@ -457,9 +533,30 @@ const propHttp: [string, boolean][] = [
   ["משרד, 403: נשאר 200 בלי שינוי", agencyDown.status === 200 && agencyDownHtml === PAGE],
 ];
 
+async function redirectOf(url: string): Promise<Response> {
+  globalThis.fetch = (async () => {
+    throw new Error("לא הייתה צריכה לצאת קריאה");
+  }) as typeof fetch;
+  return await handler(new Request(`https://shuknadlan.co.il${url}`), context());
+}
+const agentBare = await redirectOf("/agent");
+const agencyBare = await redirectOf("/agency.html");
+const agentMiss = await responseOf("/agent?slug=nobody", 406, { code: "PGRST116" });
+const agentMissHtml = await agentMiss.text();
+const agencyMiss = await responseOf("/agency?slug=nobody", 406, { code: "PGRST116" });
+const agencyMissHtml = await agencyMiss.text();
+propHttp.push(
+  ["‏/agent בלי slug: 301 ל-/agents", agentBare.status === 301 && agentBare.headers.get("Location") === "/agents"],
+  ["‏/agency.html בלי slug: 301 ל-/agencies", agencyBare.status === 301 && agencyBare.headers.get("Location") === "/agencies"],
+  ["סוכן שאינו קיים: 404 ו-noindex", agentMiss.status === 404 && NOINDEX.test(agentMissHtml)
+    && !/<h1[^>]*>הסוכן לא נמצא</.test(agentMissHtml)],
+  ["משרד שאינו קיים: 404 ו-noindex, בלי canonical", agencyMiss.status === 404 && NOINDEX.test(agencyMissHtml)
+    && !CANONICAL.test(agencyMissHtml)],
+);
+
 /* מחיר, מאפיינים, משרד וסוכן/ת ב-HTML הראשון. שאילתת הסוכן/ת נפרדת. */
 const VISIBLE =
-  `<!doctype html><html><head><title>x</title></head><body>` +
+  `<!doctype html><html><head><meta charset="UTF-8"><title>x</title></head><body>` +
   `<div id="loadingState">טוען</div><div id="propertyContent">` +
   `<div class="bento" id="bentoGrid"></div>` +
   `<h1 id="propTitle">-</h1>` +
@@ -559,7 +656,71 @@ propHttp.push(
     && storedReel.includes(`src="${amp(R800)}"`)
     && storedReel.includes(`rel="preload" as="image" href="${amp(R800)}"`)
     && storedReel.includes(`data-full="${amp(ORIG)}"`)
-    && !storedReel.includes("<video")],
+    && !storedReel.includes("<video")
+    && !storedReel.includes("property-placeholder")],
+);
+const PLACEHOLDER = "/assets/property-placeholder.jpg";
+const noPhoto = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  agencies: { name: "משרד הדר", logo_url: "https://cdn.example/logo.png" },
+}, { display_name: "דנה כהן" });
+const videoBare = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  video_url: "https://cdn.example/property-videos/reel.mp4",
+  video_poster_url: null,
+  agencies: { name: "משרד הדר" },
+}, { display_name: "דנה כהן" });
+const videoPoster = await visible({
+  ...VISIBLE_ROW,
+  images: [],
+  video_url: "https://cdn.example/property-videos/reel.mp4",
+  video_poster_url: "https://cdn.example/poster.jpg",
+}, { display_name: "דנה כהן" });
+const h1 = (html: string) => (html.match(/<h1\b[^>]*>([^<]*)<\/h1>/) || [])[1] || "";
+const canon = (html: string) => (html.match(/rel="canonical" href="([^"]+)"/) || [])[1] || "";
+const ogImage = (html: string) => (html.match(/property="og:image" content="([^"]+)"/) || [])[1] || "";
+const jsonLd = (html: string) => (html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1] || "";
+const preloadCount = (html: string, href: string) => html.split(`rel="preload" as="image" href="${href}"`).length - 1;
+propHttp.push(
+  ["בלי תמונה: img של הפלייסהולדר ו-preload מיד אחרי charset",
+    noPhoto.includes(`class="hero-placeholder" data-lcp="1" src="${PLACEHOLDER}"`)
+    && noPhoto.includes('width="1600" height="1000"')
+    && noPhoto.includes('fetchpriority="high"')
+    && noPhoto.includes('class="bento-cell bento-main bento-empty"')
+    && noPhoto.includes('id="bentoGrid" data-count="1"')
+    && noPhoto.includes('class="empty-logo" src="https://cdn.example/logo.png"')
+    && noPhoto.includes("תמונות של הנכס יעלו בקרוב")
+    && /<meta charset="UTF-8">\s*<link rel="preload" as="image" href="\/assets\/property-placeholder\.jpg" fetchpriority="high">/.test(noPhoto)
+    && preloadCount(noPhoto, PLACEHOLDER) === 1
+    && !noPhoto.includes("<video")],
+  ["עם תמונה: אין preload של הפלייסהולדר",
+    !seen.includes("property-placeholder")
+    && seen.includes('rel="preload" as="image" href="https://shuknadlan.co.il/a.jpg"')
+    && preloadCount(seen, PLACEHOLDER) === 0],
+  ["סרטון בלי פוסטר: הפלייסהולדר נשאר, בלי תגית video",
+    videoBare.includes('class="bento-cell bento-main bento-video"')
+    && videoBare.includes(`src="${PLACEHOLDER}"`)
+    && videoBare.includes('data-lcp="1"')
+    && preloadCount(videoBare, PLACEHOLDER) === 1
+    && !videoBare.includes("bento-empty")
+    && !videoBare.includes("<video")],
+  ["סרטון עם פוסטר: הפוסטר כמו שהיה, בלי פלייסהולדר",
+    videoPoster.includes('class="bento-video-bg"')
+    && videoPoster.includes('src="https://cdn.example/poster.jpg"')
+    && videoPoster.includes('rel="preload" as="image" href="https://cdn.example/poster.jpg"')
+    && !videoPoster.includes("property-placeholder")
+    && !videoPoster.includes("<video")],
+  ["הפלייסהולדר לא נוגע ב-title, ב-h1, ב-canonical, ב-og:image וב-JSON-LD",
+    titleOf(noPhoto) === titleOf(seen)
+    && h1(noPhoto) === h1(seen)
+    && canon(noPhoto) === canon(seen)
+    && ogImage(noPhoto) === "https://shuknadlan.co.il/assets/logo-shuknadlan.png"
+    && !ogImage(noPhoto).includes("placeholder")
+    && !jsonLd(noPhoto).includes("placeholder")
+    && !jsonLd(noPhoto).includes("property-placeholder")
+    && jsonLd(seen).includes("https://shuknadlan.co.il/a.jpg")],
 );
 resetLastGood();
 const propGood = await responseOf("/property?id=11111111-1111-4111-8111-111111111111", 200, PROPERTY);
@@ -613,9 +774,168 @@ propHttp.push(
     garbage.status === 404 && !bareFetch && NOINDEX.test(garbageHtml)
     && !garbage.headers.get("Retry-After")],
 );
+const OFFICE = {
+  id: "11111111-1111-4111-8111-111111111111",
+  title: "משרד",
+  house_number: "25",
+  street: "המלאכה",
+  address: "המלאכה 25",
+  city: "עפולה",
+  city_id: "afula",
+  images: ["/a.jpg"],
+  price: 900000,
+  deal_type: "sale",
+  property_type: "משרדים",
+  status: "active",
+  size_sqm: "80",
+  floor: 2,
+  neighborhoods: { name: "אזור התעשייה" },
+};
+async function renderRouted(row: Record<string, unknown>, list: unknown): Promise<string> {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const u = String(input instanceof Request ? input.url : input);
+    const body = u.includes("order=id.asc") ? list : row;
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  const res = await handler(new Request("https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"), {
+    next: async () => new Response(PROP_PAGE, { headers: { "content-type": "text/html; charset=utf-8" } }),
+  } as never);
+  return res.text();
+}
+const aloneHtml = await renderRouted(OFFICE, [OFFICE]);
+const twinHtml = await renderRouted(OFFICE, [OFFICE, {
+  ...OFFICE, id: "22222222-2222-4222-8222-222222222222", size_sqm: "140",
+}]);
+const airHtml = await renderRouted({ ...OFFICE, air_directions: ["צפון", "דרום"], living_room_sqm: 32, size_sqm: null, price: 1650000, rooms: "5" }, []);
+const tabTitle = (h: string) => (h.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+const descOf = (h: string) => (h.match(/<meta name="description" content="([^"]*)">/) || [])[1] || "";
+const aloneTitle = tabTitle(aloneHtml);
+const twinTitle = tabTitle(twinHtml);
+const airDesc = descOf(airHtml);
+const aloneDesc = descOf(aloneHtml);
+const rentHtml = await renderRouted({ ...OFFICE, deal_type: "rent", price: 3500 }, [OFFICE]);
+const rentDesc = descOf(rentHtml);
+const freeHtml = await renderRouted(
+  { ...OFFICE, price: null },
+  [OFFICE, { ...OFFICE, id: "22222222-2222-4222-8222-222222222222", price: null, size_sqm: "140" }],
+);
+const freeTitle = tabTitle(freeHtml);
+const NOSTREET = {
+  ...OFFICE,
+  street: null,
+  address: null,
+  house_number: null,
+  title: "משרד להשכרה בעפולה",
+  neighborhoods: { name: "מרכז העיר" },
+};
+const nostreetAloneHtml = await renderRouted(NOSTREET, [NOSTREET]);
+const nostreetTwinHtml = await renderRouted(NOSTREET, [
+  NOSTREET,
+  { ...NOSTREET, id: "33333333-3333-4333-8333-333333333333", size_sqm: "40", price: 2000 },
+]);
+propHttp.push(
+  ["כותרת יחידה בלי מבדיל", aloneTitle === "משרדים בהמלאכה 25, עפולה | שוק נדל״ן"],
+  ["כותרת כפולה מקבלת שטח, וה-H1 נשאר בלי מבדיל",
+    twinTitle.includes("80 מ״ר") && !twinTitle.includes("140")
+    && /<h1 class="prop-title" id="propTitle">משרדים בהמלאכה 25, עפולה<\/h1>/.test(twinHtml)],
+  ["תיאור קצר: משפט מכירה, שכונה, בלי רחוב ובלי פרטי קשר",
+    aloneDesc.includes("משרד למכירה באזור התעשייה. תמונות, מפה ופנייה מהירה דרך האתר.")
+    && !aloneDesc.includes("משרד למכירה בהמלאכה")
+    && !aloneDesc.includes("פרטי קשר")
+    && !aloneDesc.includes("למכירה/להשכרה")
+    && aloneDesc.length <= 155],
+  ["כיווני אוויר וסלון נשארים בנוסח מספרי",
+    airDesc.includes("כיווני אוויר") && airDesc.includes("סלון של")
+    && !airDesc.includes("סלון גדול") && !airDesc.includes("מרווח")
+    && airDesc.length <= 155],
+  ["השכרה: מילה אחת, לא למכירה",
+    rentDesc.includes("משרד להשכרה באזור התעשייה. תמונות, מפה ופנייה מהירה דרך האתר.")
+    && !rentDesc.includes("למכירה")],
+  ["בלי מחיר: אין ₪0 בכותרת",
+    freeTitle.includes("80 מ״ר") && !freeTitle.includes("₪0") && !freeTitle.includes("₪")],
+  ["בלי רחוב, כותרת יחידה: אין מבדיל",
+    tabTitle(nostreetAloneHtml) === "משרד להשכרה בעפולה | שוק נדל״ן"],
+  ["בלי רחוב, כותרת כפולה: מבדיל שטח",
+    tabTitle(nostreetTwinHtml).includes("80 מ״ר") && tabTitle(nostreetTwinHtml).includes("משרד להשכרה בעפולה")],
+);
+const titles = (globalThis as unknown as {
+  ShukListingTitle: {
+    pageTitle: (base: string, suffix: string) => string;
+    siblingFilter: (row: Record<string, unknown>) => string;
+    pgQuoted: (value: string) => string;
+  };
+}).ShukListingTitle;
+const longBase = "דירה 4 חד׳ ברחוב הארוך מאוד " + "א".repeat(80);
+const brand = " | שוק נדל״ן";
+const suf = " · 80 מ״ר";
+const priceSuf = " · 115 מ״ר · קומה 7 · למכירה · ₪1,440,000";
+const clamped = titles.pageTitle(longBase, "");
+const withSuffix = titles.pageTitle(longBase, suf);
+const priced = titles.pageTitle(longBase, priceSuf);
+const spaced = titles.pageTitle("דירה   4   חד׳", "");
+const short = titles.pageTitle("דירה קצרה", suf);
+const bumpy = titles.pageTitle("דירה " + "א ".repeat(60), "");
+const street = 'מערב העיר (שיכון, "גאולים")';
+const quoted = titles.siblingFilter({
+  city: "עפולה", property_type: "דירה", streetName: street, neighborhood: "",
+});
+const noStreet = titles.siblingFilter({
+  city: "עפולה", property_type: "דירה", streetName: "", neighborhood: "גבעת המורה",
+});
+const clientSrc = readFileSync(new URL("../assets/property.js", import.meta.url), "utf8");
+propHttp.push(
+  ["כותרת ארוכה: נחתך רק הבסיס, הסיומת והמותג נשארים",
+    clamped.length <= 90 && clamped.endsWith(brand) && clamped.includes("…") && !clamped.endsWith("…")
+    && !/\s…/.test(clamped)
+    && withSuffix.length <= 90 && withSuffix.endsWith("80 מ״ר" + brand) && withSuffix.includes("…")
+    && !/\s…/.test(withSuffix)
+    && priced.length <= 90 && priced.endsWith("₪1,440,000" + brand) && priced.includes("קומה 7")
+    && short === "דירה קצרה · 80 מ״ר | שוק נדל״ן"
+    && bumpy.length <= 90 && bumpy.endsWith(brand) && !/\s…/.test(bumpy)
+    && spaced === "דירה 4 חד׳ | שוק נדל״ן"],
+  ["רחוב עם פסיק וסוגריים מצוטט ב-or",
+    quoted.includes("street.eq." + titles.pgQuoted(street))
+    && quoted.includes(encodeURIComponent('"' + street.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'))
+    && !quoted.includes("street.eq." + encodeURIComponent(street) + ",")],
+  ["בלי רחוב: עיר, סוג, רחוב ריק, בלי שכונה",
+    noStreet.includes("street.is.null") && noStreet.includes("address.is.null")
+    && !noStreet.includes("neighborhoods")
+    && noStreet.includes("city=eq." + encodeURIComponent("עפולה"))
+    && noStreet.includes("property_type=eq." + encodeURIComponent("דירה"))
+    && noStreet.includes("order=id.asc")],
+  ["הלקוח קורא לאותו pageTitle",
+    clientSrc.includes("ShukListingTitle.pageTitle") && !clientSrc.includes("function documentTitleWithSuffix")],
+);
+/* צורת השאילתה נבדקת למעלה בלי רשת. הקריאה ל-PostgREST רצה רק
+   כש-RUN_NETWORK_TESTS=1, כדי ש-CI לא ייפול על 400 מזדמן. */
+if (process.env.RUN_NETWORK_TESTS === "1") {
+  const ANON = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
+  const liveHeaders = { apikey: ANON, Authorization: `Bearer ${ANON}`, Accept: "application/json" };
+  const liveUrl = "https://obookujgolazrwycsiyn.supabase.co/rest/v1/properties?" + noStreet + "&offset=0";
+  const liveRes = await realFetch(liveUrl, { headers: liveHeaders });
+  const liveText = await liveRes.text();
+  let liveRows: unknown = null;
+  try { liveRows = JSON.parse(liveText); } catch { liveRows = null; }
+  const brokenUrl = liveUrl + "&neighborhoods.name=eq." + titles.pgQuoted("גבעת המורה");
+  const brokenRes = await realFetch(brokenUrl, { headers: liveHeaders });
+  const brokenText = await brokenRes.text();
+  propHttp.push(
+    ["שאילתת אחים בלי רחוב חיה: 200 ומערך, לא PGRST108",
+      liveRes.status === 200 && Array.isArray(liveRows) && !liveText.includes("PGRST108")
+      && !noStreet.includes("neighborhoods")],
+    ["neighborhoods.name בלי embed: 400 PGRST108",
+      brokenRes.status === 400 && brokenText.includes("PGRST108")],
+  );
+}
 for (const [name, pass] of propHttp) {
   if (!pass) failed++;
   console.log(`${pass ? "✓" : "✗"} ${name}`);
+}
+if (process.env.RUN_NETWORK_TESTS !== "1") {
+  console.log("· דילוג על PostgREST (הגדר RUN_NETWORK_TESTS=1)");
 }
 
 const total = CASES.length + checks.length + 3 + more.length + bodies.length + propHttp.length;

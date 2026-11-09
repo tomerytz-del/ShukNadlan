@@ -18,10 +18,11 @@
 // והמשלוח עצמו מרוכז ב-platform-mail, שהיא היחידה שמכירה את פרטי השולח.
 // ============================================================================
 
+import { META_ADS_SOURCES } from "./lead-dedupe.ts";
 import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "./platform-mail-client.ts";
 
-export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor";
-export type LeadTable = "leads" | "saved_searches" | "mortgage_leads";
+export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor" | "lawyer";
+export type LeadTable = "leads" | "saved_searches" | "mortgage_leads" | "lawyer_leads";
 /** assigned = שויך לסוכן/ת · shelf = פורסם למדף · unrouted = אין למי להפנות
  *  · no_consent = הפונה ביקש/ה התראות בלבד ולא אישר/ה יצירת קשר */
 export type LeadRouting = "assigned" | "shelf" | "unrouted" | "no_consent";
@@ -46,6 +47,7 @@ const KIND_LABELS: Record<LeadKind, string> = {
   agent_owner: "ליד בעל/ת נכס",
   agent_buyer: "ליד מחפש/ת דירה",
   mortgage_advisor: "ליד ייעוץ משכנתאות",
+  lawyer: "שאלה לעו\"ד",
 };
 
 /* ---------------------------------------------------------------------------
@@ -56,6 +58,9 @@ const KIND_LABELS: Record<LeadKind, string> = {
  * מתקבל בהן רק מקורא פנימי (‏isInternalCaller - ‏service role, כמו
  * ‏meta-leads.ts); מהדפדפן הוא נופל לברירת המחדל של הקורא. אחרת כל אחד
  * היה יכול לייצר לידים "מפייסבוק" ולזהם את הדוח.
+ *
+ * ‏meta_ads_* אותו כלל בדיוק: רק ads-leads-webhook / ads-admin (‏service
+ * role) רשאים לסמן טופס מטא. מהדפדפן המקור נופל לברירת המחדל.
  *
  * התוויות - מה שהסוכן/ת רואה ב-source_detail. אותה מפה כמו
  * ‏lead_source_label() במסד (‏20270806090000).
@@ -75,14 +80,26 @@ export function socialSourceLabel(source: string | null | undefined): string | n
   return source && SOCIAL_SOURCES.has(source) ? SOCIAL_SOURCE_LABELS[source as SocialSource] : null;
 }
 
-/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
-export function isInternalCaller(req: Request): boolean {
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const got = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+/**
+ * ה-Bearer הוא מפתח ה-service role. השוואה באורך קבוע.
+ * כותרת apikey אינה נבדקת: מפתח anon שם אינו קורא פנימי.
+ */
+export function authorizationMatchesServiceRole(
+  authorization: string | null | undefined,
+  serviceRoleKey: string | null | undefined,
+): boolean {
+  const key = serviceRoleKey || "";
+  const got = (authorization || "").replace(/^Bearer\s+/i, "");
   if (!key || got.length !== key.length) return false;
   let diff = 0;
   for (let i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ got.charCodeAt(i);
   return diff === 0;
+}
+
+/** קורא פנימי = מי שמחזיק/ה במפתח ה-service role (פונקציית Edge אחרת). */
+export function isInternalCaller(req: Request, serviceRoleKey?: string | null): boolean {
+  const key = serviceRoleKey ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return authorizationMatchesServiceRole(req.headers.get("authorization"), key);
 }
 
 /** מזהה אצל הספק (Zernio) - אותו אוצר תווים כמו leads_external_ref_format. */
@@ -98,6 +115,8 @@ const KNOWN_SOURCES = new Set([
   "homepage_search_agent",
   "homepage_mortgage_calc",
   "property_page_mortgage_calc",
+  // שאלה לעו"ד מדף הנכס: נרשמת במסד (lawyer_lead_wa_verify), לא מ-Edge
+  "property_page_lawyer_question",
   // תיבת ההדמיות בדף הנכס: "חושבים למכור/להשכיר?". הליד נושא agent_slug
   // ולכן היה נרשם ביומן כ-agent_page_owner_wizard — נכון לגבי היעד, מטעה
   // לגבי המקור. שני הכלים מייצרים לידים באותה כמות ובאותו מסלול, וההבדל
@@ -136,6 +155,30 @@ const KNOWN_SOURCES = new Set([
   "meta_ads_owner_form",
   "meta_ads_buyer_form",
   "meta_ads_property_form",
+  // גלישה בהחלקה (‏/swipe, ‏docs/swipe-mode.md): פנייה על נכס מגיליון הפרטים,
+  // ופנייה למפרסם מכרטיס ממומן (כבוי כרגע - SPONSORED_ENABLED ב-assets/swipe.js).
+  // ‏lead_source_channel() ממפה את swipe* לערוץ swipe (‏docs/proposals/fair_signup_and_lead_consent.sql, ממתינה לאישור).
+  "swipe",
+  "swipe_sponsored",
+  // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
+  // של saved-search-intake ונרשם כסוכן החכם של דף הבית
+  "swipe_end",
+  // "בקשו תמונות מהמפרסם" בנכס בלי תמונות (‏assets/no-photo.js, ‏docs/no-photo.md):
+  // פנייה על נכס לכל דבר, מגיליון ההחלקה או מטופס דף הנכס. התווית ב-CRM
+  // "בקשת תמונות" (‏lead_source_label במסד, ‏LX_SOURCES ב-crm.js)
+  "photo_request",
+  // יריד הבתים הפתוחים: ההרשמה בדף היריד (‏/open-house) ובגיליון שבהחלקה
+  // (‏assets/fair-signup.js → saved-search-intake עם open_house_only).
+  // ‏lead_source_channel() ממפה את שניהם לערוץ open_house
+  "nocommission_fair",
+  "swipe_fair",
+  // כרטיס "חושבים למכור?" בהחלקה → owner-lead-intake. נכתב גם ל-leads.source
+  // במסלול הפלטפורמה (ולא רק ליומן), כדי שהערוץ swipe ייראה בדוחות
+  "swipe_seller",
+  // דף "חושבים למכור?" (‏/sell, ‏assets/owner-wizard.js). ‏_agent - מכרטיס יועץ/ת
+  // בדף, עם agent_slug, ולכן הליד הולך במסלול דף הסוכן/ת
+  "sell_page",
+  "sell_page_agent",
   // גבריאלה בפייסבוק ובאינסטגרם (Zernio → social-lead-intake, ‏docs/social-leads.md).
   // **רק מקורא פנימי** - ראו SOCIAL_SOURCES למטה.
   ...SOCIAL_SOURCES_LIST,
@@ -220,10 +263,10 @@ export async function resolveAgentRouting(
   return { agencyId: member.agency_id, agentId: member.id, tier: member.tier ?? null };
 }
 
-/** ‏trusted = הקורא פנימי (‏isInternalCaller). מקור חברתי בלי זה - ברירת המחדל. */
+/** ‏trusted = הקורא פנימי (‏isInternalCaller). מקור חברתי או meta_ads_* בלי זה - ברירת המחדל. */
 export function normalizeSource(value: unknown, fallback: string, trusted = false): string {
   if (typeof value !== "string" || !KNOWN_SOURCES.has(value)) return fallback;
-  if (SOCIAL_SOURCES.has(value) && !trusted) return fallback;
+  if ((SOCIAL_SOURCES.has(value) || META_ADS_SOURCES.has(value)) && !trusted) return fallback;
   return value;
 }
 

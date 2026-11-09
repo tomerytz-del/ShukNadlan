@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { attachToOpenLead, metaAdsSourceLabel } from "../_shared/lead-dedupe.ts";
+import { duplicateLeadBody, propertyPhoneAttach } from "../_shared/lead-attach-plan.ts";
 import {
   cleanExternalRef,
   isInternalCaller,
@@ -7,6 +9,7 @@ import {
   normalizeSource,
   socialSourceLabel,
 } from "../_shared/lead-routing.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // מודול 1 (המנגנון המקורי) — פניית קונה/שוכר על נכס קיים.
 // שונה מ-owner-lead-intake בנקודה אחת חשובה: אין כאן מנגנון התאמה/רוטציה
@@ -30,6 +33,45 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
+/** ‏ISO מהפלטפורמה, לא בעתיד ולא בן יותר מחודש. אחרת - כאילו לא נשלח. */
+function platformTime(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 40) return null;
+  const t = Date.parse(value);
+  if (!Number.isFinite(t)) return null;
+  const now = Date.now();
+  if (t > now + 5 * 60_000 || t < now - 31 * 86_400_000) return null;
+  return new Date(t).toISOString();
+}
+
+/* ---------- יומן פניות היריד ----------
+   הטריגר leads_log_fair_inquiry כותב את השורה בשעת השרת, באותה טרנזקציה של
+   ה-insert. כאן רק קוראים אותה בחזרה לתשובה, ומשלימים מה שהטריגר אינו
+   רואה: שעת הפלטפורמה ו-source_page='app' (‏User-Agent של האפליקציה).
+   לעולם אינו מפיל את הבקשה: כל כשל = תשובה בלי fair. ‏docs/open-house-fair.md */
+async function fairLogged(
+  supabase: any,
+  leadId: string,
+  extra: { platform_at?: string | null; source_page?: string | null },
+): Promise<Record<string, unknown> | null> {
+  try {
+    const { data } = await supabase.from("fair_inquiries")
+      .select("id, ref, created_at, fair_end, status, platform_at, source_page")
+      .eq("lead_id", leadId).maybeSingle();
+    if (!data) return null;
+    const patch: Record<string, string> = {};
+    if (extra.platform_at && !data.platform_at) patch.platform_at = extra.platform_at;
+    if (extra.source_page && !data.source_page) patch.source_page = extra.source_page;
+    if (Object.keys(patch).length) {
+      const { error } = await supabase.from("fair_inquiries").update(patch).eq("id", data.id);
+      if (error) console.warn("fair_inquiries patch:", error.message);
+    }
+    return { logged: true, ref: data.ref, logged_at: data.created_at, fair_end: data.fair_end, status: data.status };
+  } catch (e) {
+    console.warn("fair_inquiries read:", (e as Error)?.message ?? e);
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -47,11 +89,14 @@ Deno.serve(async (req: Request) => {
   // הליד - כמו היום. ליד מטופס של מטא (ads-leads-webhook) נושא
   // meta_ads_property_form, ובלי זה היה נספר כפנייה מדף הנכס.
   //
-  // מקור חברתי (‏facebook_dm...) ו-external_ref - רק מקורא פנימי: ‏social-lead-intake
-  // מאמתת את גבריאלה וקוראת לכאן עם ה-service role. ‏docs/social-leads.md.
+  // מקור חברתי (‏facebook_dm...) ו-meta_ads_* ו-external_ref - רק מקורא
+  // פנימי: ‏social-lead-intake ו-meta-leads (‏service role). מהדפדפן המקור
+  // נופל. ‏external_ref של מטא הוא meta_lead_id. ‏docs/social-leads.md.
   const trusted = isInternalCaller(req);
   const source = normalizeSource(body?.source, "", trusted);
   const externalRef = trusted && source ? cleanExternalRef(body?.external_ref) : null;
+  // שעת ההודעה אצל הפלטפורמה (‏social-lead-intake), לנכס ביריד בלבד
+  const platformAt = trusted && source ? platformTime(body?.platform_at) : null;
   if (!property_id || !name || !phone) {
     return json({ error: "missing_fields", required: ["property_id", "name", "phone"] }, 400);
   }
@@ -83,6 +128,25 @@ Deno.serve(async (req: Request) => {
     if (propErr || !property) return json({ error: "property_not_found" }, 404);
     if (property.status !== "active") return json({ error: "property_not_active" }, 400);
 
+    /* אותו טלפון, אותו נכס, אותו משרד ואותו/ה סוכן/ת, ליד שכבר פתוח אצלם
+       מ-30 הימים. propertyPhoneAttach הוא null לדפדפן (isInternalCaller
+       נכשל) וגם כשאין סוכן/ת או משרד על הנכס: אז אין קריאה להצמדה, והתשובה
+       היא ה-insert הרגיל (success, lead_id, auto_unlocked, note) בלי
+       duplicate ובלי lead_id של ליד אחר. */
+    const plan = propertyPhoneAttach({
+      trusted,
+      phone,
+      propertyId: property.id,
+      agencyId: property.agency_id,
+      agentId: property.agent_id,
+      source: source || null,
+      externalRef,
+      message: typeof message === "string" ? message : null,
+      sourceLabel: socialSourceLabel(source) || metaAdsSourceLabel(source),
+    });
+    const merged = plan ? await attachToOpenLead(supabase, plan) : null;
+    if (merged) return json(duplicateLeadBody(merged.lead_id));
+
     const tier = (property as any).agency_members?.tier ?? "free";
     const autoUnlock = tier === "mid" || tier === "premium";
 
@@ -100,7 +164,7 @@ Deno.serve(async (req: Request) => {
     };
     if (source) insertPayload.source = source;
     // ‏source_detail מוצג לסוכן/ת בכרטיס - תווית קריאה, לא המזהה של הספק
-    const detail = socialSourceLabel(source);
+    const detail = socialSourceLabel(source) || metaAdsSourceLabel(source);
     if (detail) insertPayload.source_detail = detail;
     if (externalRef) insertPayload.external_ref = externalRef;
 
@@ -113,11 +177,11 @@ Deno.serve(async (req: Request) => {
       insertPayload.status = "masked";
     }
 
-    const { data: lead, error: leadErr } = await supabase
-      .from("leads")
-      .insert(insertPayload)
-      .select()
-      .single();
+    const { data: lead, error: leadErr } = await writeVisitInsert(
+      (payload) => supabase.from("leads").insert(payload).select().single(),
+      insertPayload,
+      body,
+    );
 
     if (leadErr) {
       // מרוץ: שתי שליחות של אותה פנייה ביחד - השנייה נופלת על ה-unique
@@ -157,11 +221,17 @@ Deno.serve(async (req: Request) => {
         (Number.isFinite(n) && n > 0 ? ` או ₪${n})` : " או תשלום)");
     }
 
+    const fair = await fairLogged(supabase, lead.id, {
+      platform_at: platformAt,
+      source_page: /ShukNadlanApp\//.test(req.headers.get("user-agent") || "") ? "app" : null,
+    });
+
     return json({
       success: true,
       lead_id: lead.id,
       auto_unlocked: autoUnlock,
       note,
+      ...(fair ? { fair } : {}),
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

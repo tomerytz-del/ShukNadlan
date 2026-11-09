@@ -1,0 +1,74 @@
+name: יומן פניות היריד
+
+# ‏20271031220000_fair_inquiries.sql רצה על Postgres מקומי פעמיים, ואז
+# התרחישים: החלון בשעון השרת, הגבול 23:59:59 בשני אזורי זמן, הסיווג (טופס
+# והדמיה זכאים, רשתות ומטא ממתינים להחלטה), רישום שנכשל ואינו מפיל ליד,
+# שורה שאינה נמחקת ואינה משתנה, ההרשאות ומחיקת השם והטלפון אחרי שנתיים.
+# ואז 20271031350000: הדגל יורד, השורה נמחקת אחרי שנתיים, ויועץ/ת רואה
+# רק ערוץ, שעה וסטטוס. ואז 20271031360000: לחיצת וואטסאפ או חיוג נרשמת
+# באותו יומן, בלי ליד. ‏docs/open-house-fair.md, "רישום פניות היריד".
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271031220000_fair_inquiries.sql"
+      - "supabase/migrations/20271031350000_fair_contact_always_on.sql"
+      - "scripts/fair_inquiries_test.py"
+      - "scripts/fair_inquiries_setup.sql"
+      - "scripts/fair_inquiries_assert.sql"
+      - "scripts/fair_contact_always_assert.sql"
+      - "supabase/migrations/20271031360000_fair_contact_click.sql"
+      - "scripts/fair_contact_click_assert.sql"
+      - "scripts/fair_contact_log_test.ts"
+      - "scripts/fair_contact_client_test.mjs"
+      - "assets/fair-contact.js"
+      - "supabase/functions/fair-contact-log/**"
+      - "supabase/functions/_shared/fair-contact.ts"
+      - ".github/workflows/fair_inquiries.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271031220000_fair_inquiries.sql"
+      - "supabase/migrations/20271031350000_fair_contact_always_on.sql"
+      - "scripts/fair_inquiries_test.py"
+      - "scripts/fair_inquiries_setup.sql"
+      - "scripts/fair_inquiries_assert.sql"
+      - "scripts/fair_contact_always_assert.sql"
+      - "supabase/migrations/20271031360000_fair_contact_click.sql"
+      - "scripts/fair_contact_click_assert.sql"
+      - "scripts/fair_contact_log_test.ts"
+      - "scripts/fair_contact_client_test.mjs"
+      - "assets/fair-contact.js"
+      - "supabase/functions/fair-contact-log/**"
+      - "supabase/functions/_shared/fair-contact.ts"
+      - ".github/workflows/fair_inquiries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - name: בדיקת יומן פניות היריד
+        run: python3 scripts/fair_inquiries_test.py
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: לחיצת וואטסאפ וחיוג, השרת והדפדפן
+        run: |
+          node --experimental-strip-types scripts/fair_contact_log_test.ts
+          node scripts/fair_contact_client_test.mjs
