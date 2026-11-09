@@ -186,7 +186,10 @@ const HREFS_BEFORE = ["/", "/assets/favicon-192.png", "/assets/favicon-96.png", 
   check("כותרת לא זזה", html.includes("<title>שכונת גבעת המורה, עפולה - נכסים ומחירי עסקאות | שוק נדל״ן</title>"));
   check("H1 לא זז", html.includes('<h1 id="dealsH1">שכונת גבעת המורה, עפולה</h1>'));
   check("canonical לא זז", html.includes(`<link rel="canonical" href="${CANON}">`));
-  check("אף href לא זז", hrefs.join("\n") === HREFS_BEFORE.join("\n"));
+  // רק הקישורים שהדף הזה בונה מהנתונים (שכונות, נכסים, עסקאות, חיפוש). הפוטר והכותרת של התבנית
+  // משתנים ב-PR-ים אחרים, ובדיקה שמקבעת את כולם נופלת על כל שינוי בהם
+  const own = (h: string) => /^(\/n\/|\/deals\/|\/property\?|\/\?q=|https:\/\/shuknadlan\.co\.il\/n\/)/.test(h);
+  check("אף href לא זז", hrefs.filter(own).join("\n") === HREFS_BEFORE.filter(own).join("\n"));
   check("כותרת שכונות סמוכות בעפולה", html.includes("שכונות נוספות בעפולה"));
 }
 
