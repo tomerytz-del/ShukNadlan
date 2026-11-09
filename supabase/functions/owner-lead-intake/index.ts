@@ -98,8 +98,25 @@ async function getConfigValue(supabase: any, key: string, fallback: number) {
   return data?.value ?? fallback;
 }
 
+/* המועמדים לליד בעלים של הפלטפורמה: קודם סוכנים בתשלום (mid/premium); אם אין
+   אף אחד/ת שמתאים/ה לסוג הנכס ולעסקה - גם Pay&GO (9.11.2026), שפותח/ת את
+   הליד ב-ppl_price_owner_free (claim_lead). זו המשמעות המעשית של "המנויים
+   רואים קודם": אין כאן מאגר, כל ליד מנותב לסוכן/ת אחד/ת. עד היום ליד בלי
+   סוכן/ת בתשלום מתאים/ה נשאר לא מנותב, כלומר אבד. */
 async function findCandidateAgentIds(
   supabase: any,
+  neighborhoodId: string | null,
+  propertyType: string,
+  dealType: string,
+): Promise<string[]> {
+  const paid = await findCandidateAgentIdsIn(supabase, ["mid", "premium"], neighborhoodId, propertyType, dealType);
+  if (paid.length) return paid;
+  return findCandidateAgentIdsIn(supabase, ["free"], neighborhoodId, propertyType, dealType);
+}
+
+async function findCandidateAgentIdsIn(
+  supabase: any,
+  tiers: string[],
   neighborhoodId: string | null,
   propertyType: string,
   dealType: string,
@@ -107,7 +124,7 @@ async function findCandidateAgentIds(
   const { data: eligibleAgents, error: e1 } = await supabase
     .from("agency_members")
     .select("id")
-    .in("tier", ["mid", "premium"])
+    .in("tier", tiers)
     .eq("active", true);
   if (e1) throw e1;
   const eligibleIds: string[] = (eligibleAgents ?? []).map((a: any) => a.id);
@@ -475,7 +492,7 @@ Deno.serve(async (req: Request) => {
           : "ליד מדף המשרד - שויך למנהל/ת המשרד ונשמר מוסתר; הפתיחה נספרת במכסת הפניות החודשית"
         : matchedAgentId
           ? "הליד שויך ונשמר במצב מוסתר (masked). שליחת התראה בפועל עדיין לא מוטמעת בשלב זה"
-          : "לא נמצא סוכן Mid/Premium מתאים כרגע - הליד נשמר ללא שיוך",
+          : "לא נמצא סוכן/ת מתאים/ה כרגע (בתשלום ואז Pay&GO) - הליד נשמר ללא שיוך",
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

@@ -27,13 +27,15 @@ export const TIER_NAMES: Record<Tier, string> = {
 };
 
 /** מחיר חודשי לפני מע"מ. משמש בהודעות בלבד — הגבייה אינה כאן. */
-export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 399, premium: 599 };
+export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 199, premium: 399 };
 
 /* תקופת ההשקה. שלושת המספרים האלה חוזרים ב-assets/tiers.js (תצוגה)
    וב-promo-lifecycle (התראות), ושלושתם חייבים להישאר זהים: דף שמבטיח חצי
-   שנה ושרת שנותן שלושה חודשים הוא תלונה, לא באג נסבל. */
+   שנה ושרת שנותן שלושה חודשים הוא תלונה, לא באג נסבל.
+   ‏9.11.2026: חודשיים במקום שישה. ההטבה של מי שכבר קיבל/ה אותה אינה משתנה -
+   ‏grant_launch_promo אידמפוטנטית ואינה מקצרת promo_ends_at קיים. */
 export const PROMO_TIER: Tier = "premium";
-export const PROMO_MONTHS = 6;
+export const PROMO_MONTHS = 2;
 /** ימים לפני הסיום שבהם נשלחות שתי ההתראות — חודש לפני, ואז שבועיים אחרי. */
 export const PROMO_NOTICE_DAYS = [30, 14] as const;
 /** תזכורות בוואטסאפ בלבד (דרך הפעמון), שבוע ויום לפני הסיום. נרשמות ב-promo_notices. */

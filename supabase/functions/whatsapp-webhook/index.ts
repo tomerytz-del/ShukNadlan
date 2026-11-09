@@ -215,6 +215,41 @@ const BILLING_INACTIVE_MSG =
 const TIER_REQUIRED_MSG =
   "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
   "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. לפרטים ולשדרוג:";
+/* בלי מספר ובכוונה: התקרה היא הגדרה פנימית של "שימוש הוגן" (החלטת תומר, 9.11.2026). */
+const FAIR_USE_MSG =
+  "הגעת החודש לתקרת השימוש ההוגן של מסלול PROFESSIONAL בעוזרת בוואטסאפ. " +
+  "היא חוזרת בתחילת החודש הבא, וב-Elite אין תקרה. בינתיים אפשר להמשיך לעבוד באיזור הסוכנים. לפרטים ולשדרוג:";
+const FAIR_USE_DEFAULT = 200;
+
+/** תחילת החודש הנוכחי בשעון ישראל, כ-ISO. הסטייה האפשרית היא שעת החלפת שעון
+ *  בתוך החודש - שעה אחת בגבול, וזה מספיק למונה של שימוש הוגן. */
+function israelMonthStartIso(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jerusalem", hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const wall = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  const offsetMs = wall - now.getTime();
+  return new Date(Date.UTC(get("year"), get("month") - 1, 1) - offsetMs).toISOString();
+}
+
+/** האם הסוכן/ת עבר/ה החודש את תקרת השימוש ההוגן. כשל בקריאה = לא חוסמים. */
+async function fairUseExceeded(agentId: string): Promise<boolean> {
+  try {
+    const [{ data: cfg }, { count }] = await Promise.all([
+      supabase.from("pricing_config").select("value").eq("key", "gabriela_fair_use_monthly").maybeSingle(),
+      supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
+        .eq("agent_id", agentId).eq("direction", "in").gte("created_at", israelMonthStartIso()),
+    ]);
+    const cap = Number(cfg?.value);
+    const limit = Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT;
+    return (count ?? 0) > limit;
+  } catch (err) {
+    console.error("fair use check failed", err);
+    return false;
+  }
+}
 const PRICING_BUTTON = "למסלולים";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -2248,6 +2283,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (cadenceId) {
     await handleCadenceTap(agent.id, from, cadenceId);
+    return;
+  }
+  // שימוש הוגן ב-PROFESSIONAL (9.11.2026): תקרה חודשית של הודעות נכנסות, רק
+  // ל-mid; ב-Elite אין תקרה. הערך ב-pricing_config (gabriela_fair_use_monthly)
+  // והוא **פנימי** - דף המסלולים אומר "שימוש הוגן" בלי מספר, וגם ההודעה כאן
+  // אינה נוקבת בו ואין התראה מקדימה. הבדיקה אחרי הכפתורים (odc:, cadence), כי
+  // לחיצה אינה קריאה למודל, ולפני כל דבר שעולה כסף. ההודעה הנוכחית כבר
+  // נרשמה ביומן ולכן נספרת: ההודעה שמעבר לתקרה היא שנענית בהצעת השדרוג.
+  if (String(agent.tier) === "mid" && await fairUseExceeded(agent.id)) {
+    await replyCta(from, FAIR_USE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
     return;
   }
 
