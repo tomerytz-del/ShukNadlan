@@ -69,7 +69,8 @@ import {
 } from "./ops-question.ts";
 import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
 import {
-  FAIR_USE_BUTTON_TYPES, FAIR_USE_CAPTION_TYPES, FAIR_USE_COUNTED_TYPES, fairUseNeverBlocks, isReactionMessage,
+  FAIR_USE_BUTTON_TYPES, FAIR_USE_CAPTION_TYPES, FAIR_USE_COUNTED_TYPES, fairUseBlocks, isButtonReply,
+  isReactionMessage,
 } from "./inbound-kind.ts";
 import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
 import {
@@ -218,20 +219,24 @@ const BILLING_INACTIVE_MSG =
 const TIER_REQUIRED_MSG =
   "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
   "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. לפרטים ולשדרוג:";
-/* בלי מספר ובכוונה: התקרה היא הגדרה פנימית של "שימוש הוגן" (החלטת תומר, 9.11.2026).
-   אחוזים מותרים - הם אינם חושפים את התקרה. שלוש הודעות: 75% ו-90% אחרי
-   התשובה של גבריאלה (maybeFairUseNotice, פעם אחת לסף לחודש דרך
-   gabriela_fair_use_notices), ו-100% במקום התשובה (fairUseExceeded).
-   בלי מספר הסרטונים: הוא מוצג בדף ונבדק שם, ועותק כאן היה מתיישן בשקט. */
+/* בלי מספר ובכוונה: התקרות הן הגדרה פנימית של "שימוש הוגן" (החלטת תומר, 9.11.2026).
+   אחוזים מותרים - הם אינם חושפים את התקרה. ‏75%, 90% ו-100% אחרי התשובה של
+   גבריאלה (maybeFairUseNotice, פעם אחת לסף לחודש דרך gabriela_fair_use_notices;
+   ‏100% רק למי שחצה/תה את הרכה בתוך שיחה פעילה), והחסימה עצמה במקום התשובה
+   (fairUseAnnounce). בלי מספר הסרטונים: הוא מוצג בדף ונבדק שם, ועותק כאן היה
+   מתיישן בשקט. */
 const FAIR_USE_ELITE_PITCH =
   "ב-Elite אין תקרה, ויש גם סרטונים שיווקיים כלולים בחודש, הדמיות ודוח CMA לכל כתובת.";
-/** הפתיחה של הודעת החסימה, שלפיה fairUseShouldAnnounce מזהה שכבר נשלחה. */
-const FAIR_USE_MSG_PREFIX = "הגעת החודש לתקרת השימוש ההוגן";
 const FAIR_USE_MSG =
-  FAIR_USE_MSG_PREFIX + " של מסלול PROFESSIONAL בעוזרת בוואטסאפ. " +
+  "הגעת החודש לתקרת השימוש ההוגן של מסלול PROFESSIONAL בעוזרת בוואטסאפ. " +
   "היא חוזרת בתחילת החודש הבא. " + FAIR_USE_ELITE_PITCH +
   " בינתיים אפשר להמשיך לעבוד באיזור הסוכנים. לשדרוג:";
-const FAIR_USE_NOTICES: ReadonlyArray<{ threshold: 75 | 90; body: string }> = [
+const FAIR_USE_NOTICES: ReadonlyArray<{ threshold: 75 | 90 | 100; body: string }> = [
+  // ‏100%: מי שחצה/תה את הרכה **בתוך** שיחה פעילה ממשיך/ה לעבוד, ובלי ההודעה הזו
+  // היה/הייתה נעצר/ת בקשיחה באמצע פעולה בלי אזהרה.
+  { threshold: 100,
+    body: "הגעת לתקרת השימוש ההוגן של PROFESSIONAL בעוזרת החודש. אפשר לסיים את מה שבאמצע, " +
+      "ושיחה חדשה תחכה לתחילת החודש הבא. " + FAIR_USE_ELITE_PITCH + " לשדרוג:" },
   { threshold: 90,
     body: "הגעת ל-90% מהשימוש ההוגן של PROFESSIONAL בעוזרת החודש. עוד קצת והיא תחכה לחודש הבא. " +
       FAIR_USE_ELITE_PITCH + " לשדרוג:" },
@@ -239,9 +244,19 @@ const FAIR_USE_NOTICES: ReadonlyArray<{ threshold: 75 | 90; body: string }> = [
     body: "הגעת ל-75% מהשימוש ההוגן של PROFESSIONAL בעוזרת החודש. " + FAIR_USE_ELITE_PITCH + " לשדרוג:" },
 ];
 const FAIR_USE_DEFAULT = 200;
-/** כמה דקות שקט מסיימות "שיחה". מי שעבד/ה עם גבריאלה בחצי השעה האחרונה נמצא/ת
- *  באמצע פעולה (היא שאלה מחיר, ביקשה כתובת, מחכה לתמונות), והתקרה אינה קוטעת
- *  אותה: היא נבדקת רק בפתיחה של שיחה חדשה. */
+/** התקרה הקשיחה כשאין ערך במסד: רבע מעל התקרה הרכה. */
+const FAIR_USE_HARD_FACTOR = 1.25;
+/** כמה פעמים מנסים לשלוח את הודעת החסימה (fairUseAnnounce). כל ניסיון הוא כבר
+ *  שתי שליחות (replyCta נופלת לטקסט רגיל), ולכן שניים ולא יותר. */
+const FAIR_USE_ANNOUNCE_ATTEMPTS = 2;
+/** אחרי כמה זמן תפיסה שלא הסתיימה בשליחה עוברת להודעה הבאה של הסוכן/ת. קצר
+ *  מספיק כדי שהודעה מאוחרת תנסה שוב, וארוך מספיק כדי ששאר הרצף (וגם ה-payload
+ *  שמעובד הודעה אחר הודעה) לא ינסה כל אחת מחדש. */
+const FAIR_USE_RECLAIM_MS = 2 * 60_000;
+/** כמה דקות שקט מסיימות "שיחה". בין התקרה הרכה לקשיחה, מי שעבד/ה עם גבריאלה
+ *  בחצי השעה האחרונה נמצא/ת באמצע פעולה (היא שאלה מחיר, ביקשה כתובת, מחכה
+ *  לתמונות), והרכה אינה קוטעת אותה. מעל הקשיחה גם שיחה פעילה נעצרת, חוץ
+ *  מכפתור (fairUseBlocks ב-inbound-kind.ts). */
 const FAIR_USE_SESSION_MIN = 30;
 
 /** תחילת החודש הנוכחי בשעון ישראל, כ-ISO. הסטייה האפשרית היא שעת החלפת שעון
@@ -258,35 +273,42 @@ function israelMonthStartIso(now = new Date()): string {
 }
 
 /** כמה הודעות טקסט וקול (וכיתובים על תמונות) נחתמו לסוכן/ת החודש (שעון
- *  ישראל), ומה התקרה. לחיצות על כפתורים ותמונות בלי כיתוב אינן נספרות. */
-async function fairUseUsage(agentId: string): Promise<{ used: number; limit: number }> {
+ *  ישראל), ושתי התקרות. לחיצות על כפתורים ותמונות בלי כיתוב אינן נספרות.
+ *  ‏`limit` היא הרכה (gabriela_fair_use_monthly): מעליה נעצרת רק פתיחה של שיחה
+ *  חדשה. ‏`hard` היא הקשיחה (gabriela_fair_use_hard_monthly): מעליה נעצרת גם
+ *  שיחה פעילה. שתיהן פנימיות. קשיחה חסרה או נמוכה מהרכה = רכה × FAIR_USE_HARD_FACTOR
+ *  או הרכה עצמה, כך שהקשיחה לעולם אינה מתחת לרכה. */
+async function fairUseUsage(agentId: string): Promise<{ used: number; limit: number; hard: number }> {
   const monthStart = israelMonthStartIso();
   const counted = () => supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
     .eq("agent_id", agentId).eq("direction", "in").gte("created_at", monthStart);
   const [{ data: cfg }, typed, captions] = await Promise.all([
-    supabase.from("pricing_config").select("value").eq("key", "gabriela_fair_use_monthly").maybeSingle(),
+    supabase.from("pricing_config").select("key, value")
+      .in("key", ["gabriela_fair_use_monthly", "gabriela_fair_use_hard_monthly"]),
     counted().in("msg_type", FAIR_USE_COUNTED_TYPES as string[]),
     // ‏like '_%' = body לא ריק (null אינו עונה ל-like).
     counted().in("msg_type", FAIR_USE_CAPTION_TYPES as string[]).like("body", "_%"),
   ]);
   if (typed.error || captions.error) throw typed.error || captions.error;
-  const cap = Number(cfg?.value);
-  return {
-    used: (typed.count ?? 0) + (captions.count ?? 0),
-    limit: Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT,
+  const num = (key: string) => {
+    const v = Number((cfg || []).find((r: { key: string }) => r.key === key)?.value);
+    return Number.isFinite(v) && v > 0 ? v : null;
   };
+  const limit = num("gabriela_fair_use_monthly") ?? FAIR_USE_DEFAULT;
+  const hard = Math.max(limit, num("gabriela_fair_use_hard_monthly") ?? Math.round(limit * FAIR_USE_HARD_FACTOR));
+  return { used: (typed.count ?? 0) + (captions.count ?? 0), limit, hard };
 }
 
-/** האם ההודעה הנוכחית היא מעבר לתקרת השימוש ההוגן החודשית: סופרת את ההודעות
- *  שכבר נחתמו לסוכן/ת החודש (ההודעה הנוכחית עדיין לא), ולכן >= ולא >.
- *  כשל בקריאה = לא חוסמים. */
-async function fairUseExceeded(agentId: string): Promise<boolean> {
+/** איפה ההודעה הנוכחית ביחס לתקרות: סופרת את ההודעות שכבר נחתמו לסוכן/ת החודש
+ *  (ההודעה הנוכחית עדיין לא), ולכן >= ולא >. ‏"soft" - מעל הרכה, "hard" - מעל
+ *  הקשיחה. כשל בקריאה = "ok" (לא חוסמים). */
+async function fairUseLevel(agentId: string): Promise<"ok" | "soft" | "hard"> {
   try {
-    const { used, limit } = await fairUseUsage(agentId);
-    return used >= limit;
+    const { used, limit, hard } = await fairUseUsage(agentId);
+    return used >= hard ? "hard" : used >= limit ? "soft" : "ok";
   } catch (err) {
     console.error("fair use check failed", err);
-    return false;
+    return "ok";
   }
 }
 
@@ -296,7 +318,7 @@ async function fairUseExceeded(agentId: string): Promise<boolean> {
  *  ישנה הייתה פותחת חצי שעה בלי תקרה. ‏**ולא pending_images:** תמונות שלא שויכו
  *  אינן נמחקות (20271102093000), ותמונה מלפני שבוע הייתה פוטרת לתמיד. תמונה
  *  שנשלחה עכשיו כבר נחתמה, ולכן היא מכוסה כאן. הודעה שנחסמה אינה נחתמת, ולכן
- *  החסימה עצמה אינה פותחת שיחה. כשל בקריאה = לא חוסמים, כמו fairUseExceeded. */
+ *  החסימה עצמה אינה פותחת שיחה. כשל בקריאה = לא חוסמים, כמו fairUseLevel. */
 async function fairUseInProgress(agentId: string): Promise<boolean> {
   try {
     const since = new Date(Date.now() - FAIR_USE_SESSION_MIN * 60_000).toISOString();
@@ -311,29 +333,53 @@ async function fairUseInProgress(agentId: string): Promise<boolean> {
   }
 }
 
-/** האם לשלוח את הודעת החסימה. פעם אחת לשיחה ולא לכל הודעה, בשני מנגנונים:
- *  ‏(1) הודעה שנשלחה **בהצלחה** (`error is null`) לאותו מספר באותה פתיחה בחצי
- *  השעה האחרונה - שליחה שנכשלה אינה משתיקה את הבאה; ‏(2) באלבום, כשעשר תמונות
- *  מגיעות במקביל ואף אחת עוד לא שלחה, רק **הראשונה** עונה: אם יש הודעה נכנסת
- *  מאותו מספר בשתי הדקות שלפני ההודעה הזו, היא שעונה. ההכרעה לפי created_at
- *  ביומן ולא לפי סדר הריצה, ולכן שני workers אינם עונים שניהם. */
-async function fairUseShouldAnnounce(from: string, waMessageId: string): Promise<boolean> {
-  const since = new Date(Date.now() - FAIR_USE_SESSION_MIN * 60_000).toISOString();
-  const [{ count: sent }, { data: own }] = await Promise.all([
-    supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
-      .eq("direction", "out").eq("wa_phone", from).is("error", null)
-      .like("body", `${FAIR_USE_MSG_PREFIX}%`).gte("created_at", since),
-    supabase.from("whatsapp_messages").select("created_at")
-      .eq("wa_message_id", waMessageId).eq("direction", "in").maybeSingle(),
-  ]);
-  if ((sent ?? 0) > 0) return false;
-  const ownAt = Date.parse(String(own?.created_at || ""));
-  if (!Number.isFinite(ownAt)) return true;
-  const { count: earlier } = await supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
-    .eq("direction", "in").eq("wa_phone", from).neq("msg_type", "reaction")
-    .gte("created_at", new Date(ownAt - 120_000).toISOString())
-    .lt("created_at", new Date(ownAt).toISOString());
-  return (earlier ?? 0) === 0;
+/** הודעת החסימה: פעם אחת לשיחה, ובלי שכישלון ישתיק אותה. שורה אחת לסוכן/ת
+ *  ב-gabriela_fair_use_blocks, והתפיסה היא כתיבה אטומית אליה:
+ *  ‏(1) אין שורה - insert ... on conflict do nothing, ומי שהכניס/ה שולח/ת. רצף
+ *      (אלבום, כמה הודעות ברצף) מגיע כ-webhooks במקביל, ורק אחת תופסת.
+ *  ‏(2) יש שורה - update מותנה: נשלחה לפני יותר מ-FAIR_USE_SESSION_MIN דקות (שיחה
+ *      חדשה, הודעה חדשה), או נתפסה ולא נשלחה לפני יותר מ-FAIR_USE_RECLAIM_MS
+ *      (הניסיון הקודם נכשל). Postgres בודק את התנאי מחדש אחרי נעילת השורה, ולכן
+ *      שני מעדכנים במקביל אינם תופסים שניהם. חלון נגלל ולא משבצות שעון - אחרת
+ *      רצף שחוצה גבול משבצת תופס פעמיים.
+ *  ‏(3) התופס/ת מנסה FAIR_USE_ANNOUNCE_ATTEMPTS פעמים. הצלחה כותבת sent_at;
+ *      כישלון משאיר את התפיסה, וההודעה הבאה של הסוכן/ת אחרי FAIR_USE_RECLAIM_MS
+ *      מנסה שוב. לא מוחקים: מחיקה גרמה לכל תמונה באותו payload לנסות מחדש.
+ *  ‏(4) כשל בתפיסה עצמה (הטבלה עוד לא קיימת) - שולחים בלעדיה. עדיפה כפילות
+ *      נדירה על שתיקה. */
+async function fairUseAnnounce(agentId: string, from: string): Promise<void> {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  let claimed = false;
+  const ins = await supabase.from("gabriela_fair_use_blocks")
+    .upsert({ agent_id: agentId, claimed_at: nowIso, sent_at: null },
+      { onConflict: "agent_id", ignoreDuplicates: true })
+    .select("agent_id");
+  if (ins.error) {
+    console.error("fair use block claim failed", ins.error.message);
+    claimed = true;   // ‏(4)
+  } else if (ins.data?.length) {
+    claimed = true;
+  } else {
+    const sentBefore = new Date(now - FAIR_USE_SESSION_MIN * 60_000).toISOString();
+    const claimBefore = new Date(now - FAIR_USE_RECLAIM_MS).toISOString();
+    const upd = await supabase.from("gabriela_fair_use_blocks")
+      .update({ claimed_at: nowIso, sent_at: null })
+      .eq("agent_id", agentId)
+      .or(`sent_at.lt.${sentBefore},and(sent_at.is.null,claimed_at.lt.${claimBefore})`)
+      .select("agent_id");
+    if (upd.error) console.error("fair use block reclaim failed", upd.error.message);
+    claimed = !upd.error && (upd.data?.length ?? 0) > 0;
+  }
+  if (!claimed) return;
+  for (let attempt = 0; attempt < FAIR_USE_ANNOUNCE_ATTEMPTS; attempt++) {
+    if (attempt) await sleep(1_500);
+    if (await replyCta(from, FAIR_USE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agentId, WA_NO_BUTTON)) {
+      await supabase.from("gabriela_fair_use_blocks").update({ sent_at: new Date().toISOString() })
+        .eq("agent_id", agentId);
+      return;
+    }
+  }
 }
 
 /** אחרי התשובה של גבריאלה, ל-PROFESSIONAL בלבד: הודעת 75% או 90% עם הצעה
@@ -344,11 +390,21 @@ async function fairUseShouldAnnounce(from: string, waMessageId: string): Promise
 async function maybeFairUseNotice(agent: { id: string; tier?: unknown }, from: string): Promise<void> {
   if (String(agent.tier ?? "") !== "mid") return;
   try {
-    const { used, limit } = await fairUseUsage(agent.id);
-    if (used >= limit) return;   // החסימה עצמה כבר ענתה בתור הזה או בבא
+    const { used, limit, hard } = await fairUseUsage(agent.id);
     const pct = (used / limit) * 100;
     const notice = FAIR_USE_NOTICES.find((n) => pct >= n.threshold);
     if (!notice) return;
+    // ‏100% ("אפשר לסיים את מה שבאמצע") רק למי שחצה/תה את הרכה בתוך שיחה, ורק
+    // כשיש באמת מרווח עד הקשיחה. לא למי שכבר קיבל/ה את הודעת החסימה (שורה ב-
+    // gabriela_fair_use_blocks) - למשל נחסם/ה ואז לחץ/ה על כפתור, שעובר ומגיע לכאן:
+    // שתי הודעות תקרה סותרות.
+    if (notice.threshold === 100) {
+      if (hard <= limit) return;
+      const { count: blocked } = await supabase.from("gabriela_fair_use_blocks")
+        .select("agent_id", { count: "exact", head: true })
+        .eq("agent_id", agent.id).gte("claimed_at", israelMonthStartIso());
+      if ((blocked ?? 0) > 0) return;
+    }
     const month = israelMonthStartIso().slice(0, 10);
     const { data: claimed, error } = await supabase.from("gabriela_fair_use_notices")
       .upsert({ agent_id: agent.id, month, threshold: notice.threshold },
@@ -604,7 +660,7 @@ async function replyCta(
   url: string,
   agentId: string | null,
   fallbackNote = "",
-): Promise<void> {
+): Promise<boolean> {
   const body = formatForWhatsapp(raw);
   let waMessageId: string | null = null;
   let sendError: string | null = null;
@@ -631,6 +687,7 @@ async function replyCta(
     status: waMessageId ? "sent" : null,
     error: sendError,
   });
+  return sendError == null;
 }
 
 async function reply(
@@ -2410,21 +2467,23 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     await handleCadenceTap(agent.id, from, cadenceId);
     return;
   }
-  // שימוש הוגן ב-PROFESSIONAL (9.11.2026): תקרה חודשית, רק ל-mid; ב-Elite אין
-  // תקרה. הערך ב-pricing_config (gabriela_fair_use_monthly) והוא **פנימי** - דף
-  // המסלולים אומר "שימוש הוגן" בלי מספר, וגם ההודעות אינן נוקבות בו.
+  // שימוש הוגן ב-PROFESSIONAL (9.11.2026): שתי תקרות חודשיות, רק ל-mid; ב-Elite
+  // אין. הערכים ב-pricing_config (gabriela_fair_use_monthly, ‏_hard_monthly) והם
+  // **פנימיים** - דף המסלולים אומר "שימוש הוגן" בלי מספר, וגם ההודעות אינן נוקבות בהם.
   // ‏**נספר** רק טקסט וקול שהסוכן/ת יזם/ה (FAIR_USE_COUNTED_TYPES, וכיתוב על
-  // תמונה), לא לחיצות ולא תמונות. ‏**נעצר** רק פתיחה של שיחה חדשה: לחיצה על כפתור עוברת תמיד
-  // (fairUseNeverBlocks), וכך גם כל הודעה בתוך שיחה פעילה (fairUseInProgress),
-  // כדי שאף פעולה לא תיקטע באמצע. הבדיקה לפני כל דבר שעולה כסף. ההודעה הנוכחית
-  // נרשמה ביומן בלי agent_id (הוא נחתם רק למטה), ולכן המונה הוא ההודעות
-  // **שלפניה**. ‏docs/whatsapp-setup.md, "שימוש הוגן ב-PROFESSIONAL".
-  if (String(agent.tier) === "mid" && !fairUseNeverBlocks(msg) &&
-      await fairUseExceeded(agent.id) && !(await fairUseInProgress(agent.id))) {
-    if (await fairUseShouldAnnounce(from, String(msg.id || ""))) {
-      await replyCta(from, FAIR_USE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
+  // תמונה), לא לחיצות ולא תמונות. ‏**נעצר** (fairUseBlocks ב-inbound-kind.ts):
+  // מעל הרכה - רק פתיחה של שיחה חדשה, וכפתור עובר תמיד, כדי ששום פעולה לא
+  // תיקטע; מעל הקשיחה - הכול, חוץ מכפתור בתוך שיחה פעילה. לפני כל דבר שעולה כסף. ההודעה הנוכחית נרשמה ביומן בלי
+  // agent_id (הוא נחתם רק למטה), ולכן המונה הוא ההודעות **שלפניה**.
+  // ‏docs/whatsapp-setup.md, "שימוש הוגן ב-PROFESSIONAL".
+  if (String(agent.tier) === "mid") {
+    const level = await fairUseLevel(agent.id);
+    // השיחה הפעילה נבדקת בכל הודעה מעל הרכה (שאילתה אחת), וההכרעה כולה ב-fairUseBlocks.
+    const active = level === "ok" ? false : await fairUseInProgress(agent.id);
+    if (fairUseBlocks(level, isButtonReply(msg), active)) {
+      await fairUseAnnounce(agent.id, from);
+      return;
     }
-    return;
   }
 
   // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): PostgREST מחזיר

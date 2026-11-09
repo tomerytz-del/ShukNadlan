@@ -12,13 +12,25 @@ export function isReactionMessage(msg: { type?: unknown } | null | undefined): b
 export const FAIR_USE_COUNTED_TYPES: readonly string[] = ["text", "audio", "voice"];
 export const FAIR_USE_CAPTION_TYPES: readonly string[] = ["image"];
 
-/** הודעה שהתקרה לעולם אינה עוצרת: לחיצה על כפתור (button / interactive) היא
- *  המשך של פעולה שגבריאלה כבר התחילה - אישור, בחירה מרשימה, "כן, לפרסם" - וחסימה
- *  שלה משאירה את הפעולה חצי עשויה. */
-export function fairUseNeverBlocks(msg: { type?: unknown } | null | undefined): boolean {
+/** לחיצה על כפתור (button / interactive). בשימוש ההוגן היא אינה נספרת, ומתחת
+ *  לתקרה הקשיחה אינה נעצרת: היא המשך של פעולה שגבריאלה כבר התחילה - אישור,
+ *  בחירה מרשימה, "כן, לפרסם" - וחסימה שלה משאירה את הפעולה חצי עשויה. מעל
+ *  הקשיחה היא עוברת רק בתוך שיחה פעילה, כי לחיצה על התראה ישנה היא תור מלא
+ *  של המודל (index.ts, השער של שימוש הוגן). */
+export function isButtonReply(msg: { type?: unknown } | null | undefined): boolean {
   return FAIR_USE_BUTTON_TYPES.includes(String(msg?.type || ""));
 }
 
 /** כפתורים - הסוגים שאינם פותחים "שיחה פעילה" גם כשהם עוברים את השער: לחיצה
  *  על כפתור ישן בהתראה מלפני יומיים אינה אמורה להדליק חצי שעה בלי תקרה. */
 export const FAIR_USE_BUTTON_TYPES: readonly string[] = ["button", "interactive"];
+
+/** ההכרעה של שער השימוש ההוגן, כפונקציה טהורה שנבדקת בלי מסד.
+ *  ‏"ok" - מתחת לרכה: הכול עובר. ‏"soft" - בין הרכה לקשיחה: נעצרת רק פתיחה של
+ *  שיחה חדשה, וכפתור עובר תמיד. ‏"hard" - מעל הקשיחה: נעצר הכול, חוץ מכפתור
+ *  בתוך שיחה פעילה (הוא מסיים פעולה פתוחה; כפתור ישן בהתראה הוא תור חדש). */
+export function fairUseBlocks(level: "ok" | "soft" | "hard", button: boolean, activeSession: boolean): boolean {
+  if (level === "ok") return false;
+  if (level === "soft") return !button && !activeSession;
+  return !(button && activeSession);
+}
