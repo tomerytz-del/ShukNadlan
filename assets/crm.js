@@ -462,9 +462,8 @@ function walletHeroSync(){
   const promote = Number(priceOf('promote_price', 0));
   const uses = document.getElementById('wlUses');
   uses.innerHTML = '<li><strong>מה משלמים מהארנק:</strong></li>'
-    // ב-Elite המספר הראשון כלול, וכל נוסף מהארנק (החלטה של תומר, 20.10.2026)
-    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש${currentAgent && currentAgent.tier === 'premium'
-        ? ' - הראשון כלול במסלול Elite, כל מספר נוסף מהארנק' : ''}</li>` : '')
+    // מ-9.11.2026 המספר עולה אותו דבר בכל מסלול ואינו כלול באף אחד
+    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש, לכל מספר</li>` : '')
     + (promote ? `<li>קידום נכס · <b>${esc(shekel(promote))}</b></li>` : '')
     + '<li>לידים מחנות הלידים</li>';
   const note = document.getElementById('wlLineNote');
@@ -924,6 +923,35 @@ function showLoginCard(message){
 function showBootCard(message){
   document.getElementById('bootMessage').textContent = message;
   showScreen('boot');
+}
+
+/* מסך הביניים אומר לאן הקישור הולך. בלי ?goto= נשאר המשפט הכללי.
+   קטגוריה שהתפקיד הזה לא רואה (navAccVisible) לא נפתחת, והנחיתה היא
+   הדשבורד - אז גם המסך לא מבטיח מסך אחר. */
+function bootMessageFor(raw, tab){
+  const hidden = /^(acc|dashPanel)/.test(raw) && typeof navAccVisible === 'function'
+    && !navAccVisible(typeof accAliasTarget === 'function' ? accAliasTarget(raw) : raw);
+  if (hidden) return 'טוענים את איזור הסוכנים…';
+  if (raw === 'accLeads' && tab === 'demand') return 'פותחים את הביקושים הפתוחים…';
+  if (raw === 'accLeads') return 'פותחים את הלידים…';
+  if (raw === 'accProperties') return 'פותחים את הנכסים…';
+  if (raw === 'accClients') return 'פותחים את הלקוחות…';
+  if (raw === 'accSharedWithMe') return 'פותחים את הנכסים ששותפו איתך…';
+  if (raw === 'accAgreements' || raw === 'sign') return 'פותחים את ההסכמים…';
+  if (raw === 'accAgenda') return 'פותחים את היומן…';
+  if (raw === 'accPlanning') return 'פותחים את המידע התכנוני…';
+  if (raw === 'accPrefs' || raw === 'accNotifPrefs') return 'פותחים את ההגדרות…';
+  if (raw === 'accReviews') return 'פותחים את הביקורות…';
+  if (raw === 'cma' || raw === 'cmaAddress') return 'פותחים את דוח ה-CMA…';
+  if (raw === 'license') return 'פותחים את הרישיון…';
+  if (raw === 'mentor') return 'פותחים את המנטור…';
+  if (raw === 'promote' || raw === 'waShare') return 'פותחים את השיווק…';
+  if (raw) return 'פותחים את המסך…';
+  return 'טוענים את איזור הסוכנים…';
+}
+function bootMessage(){
+  const params = new URLSearchParams(location.search);
+  return bootMessageFor(params.get('goto') || '', params.get('tab') || '');
 }
 
 /* ---------- ניקוי תשובת Google מהכתובת ----------
@@ -1668,7 +1696,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     releasedAgent = null;
     // מסך ההמתנה במקום כיבוי ידני של הכרטיס: כך אין רגע ריק בין סגירת מסך
     // פתיחת המשרד לבין הופעת הדשבורד. showScreen() מכבה את הכרטיס בעצמו.
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     if (!wasAdopted) markWelcome();
     await loadDashboard(session.user);
     if (wasAdopted){
@@ -2072,7 +2100,7 @@ async function routeAfterAuthOnce(user){
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
   routedUserId = user.id;
-  showBootCard('טוענים את איזור הסוכנים…');
+  showBootCard(bootMessage());
   // אין כאן שאילתת agency_members נפרדת: loadDashboard() ממילא שולף את השורה
   // ומבדיל בעצמו בין שגיאה (מסך שגיאה) לבין אין-שורה (מסך פתיחת משרד).
   // השאילתה הכפולה הוסיפה סיבוב רשת שלם לכל כניסה, לפני שמשהו הופיע על המסך.
@@ -3811,9 +3839,11 @@ const UNROUTED_KIND_LABELS = {
   agent_owner:'ליד בעל/ת נכס',
   agent_buyer:'ליד מחפש/ת דירה',
   mortgage_advisor:'ליד ייעוץ משכנתאות',
+  lawyer:'שאלה לעו"ד',
 };
 const UNROUTED_REASONS = {
   no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
+  no_lawyer_in_city:'אין עו"ד מאושר/ת בעיר או בשוק של הנכס',
   no_eligible_agents:'אין סוכני PROFESSIONAL/Elite עם העדפות לידים פעילות',
   no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
   no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
@@ -3826,6 +3856,7 @@ const UNROUTED_SOURCES = {
   homepage_search_agent:'הסוכן החכם (תוצאות חיפוש)',
   homepage_mortgage_calc:'מחשבון משכנתא (דף הבית)',
   property_page_mortgage_calc:'מחשבון משכנתא (דף נכס)',
+  property_page_lawyer_question:'שאלה לעו"ד (דף נכס)',
   homepage_yield_calc:'מחשבון תשואה (דף הבית)',
   agency_page_owner_wizard:'הערכת שווי (דף משרד)',
   agency_page_yield_calc:'מחשבון תשואה (דף משרד)',
@@ -5612,6 +5643,7 @@ const LX_KINDS = {
   agent_owner:      'בעל/ת נכס',
   agent_buyer:      'מחפש/ת דירה',
   mortgage_advisor: 'ייעוץ משכנתאות',
+  lawyer:           'שאלה לעו"ד',
   developer:        'מחפש/ת פרויקט חדש',
 };
 
@@ -9134,7 +9166,7 @@ function renderTierGate(){
   if (promo.active){
     const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
     title.textContent = 'קיבלת ' + gift.name + ' במתנה';
-    sub.textContent = `${Tiers.PROMO.months} חודשים של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
+    sub.textContent = `${Tiers.promoMonthsText()} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
                       'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
   } else if (agent.tier_source === 'promo_expired'){
     title.textContent = 'תקופת ההטבה הסתיימה';
@@ -9176,7 +9208,7 @@ function renderTierGate(){
       .join('');
 
     card.innerHTML =
-      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.PROMO.months + ' חודשים</span>' : '') +
+      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText() + '</span>' : '') +
       '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
       '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
       (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +
@@ -9310,11 +9342,11 @@ async function chooseTier(tierId, btn){
       feedback.textContent = data.detail || 'הבקשה נקלטה. ניצור קשר להסדרת התשלום.';
       // מסמנים שהבקשה פתוחה, כדי שהמסך לא יחזור עד שהיא תטופל
       if (currentAgent) currentAgent.pending_tier_change = tierId;
-      setTimeout(()=>{ showBootCard('טוענים את איזור הסוכנים…'); loadDashboard(); }, 2600);
+      setTimeout(()=>{ showBootCard(bootMessage()); loadDashboard(); }, 2600);
       return;
     }
 
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     await loadDashboard();
     if (window.Tiers) showToast('המסלול שלך: ' + Tiers.label(data.tier || tierId));
   } catch(err){
@@ -9481,7 +9513,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
     const saved = await acceptEthicsFor(memberId);
     if (currentAgent) Object.assign(currentAgent, saved);
 
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     await loadDashboard();
   } catch(err){
     // המסך נשאר כמו שהוא — עם מה שהוקלד בו. ‏showEthicsGate מחדש כאן היה
@@ -21281,8 +21313,8 @@ function claimCost(lead){
      המשותפת ולא למסלול לידי הפלטפורמה. אותה הבחנה בדיוק ב-claim_lead במסד. */
   const ownChannel = lead.source === 'agency_page' || lead.source === 'agent_page';
   if (lead.lead_type === 'owner_inbound' && !ownChannel){
-    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO' };
-    if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול Elite' };
+    // ‏9.11.2026: פתוח לכל המסלולים במחיר ליחידה - ₪69 ב-Pay&GO, ₪50 במנוי (claim_lead)
+    if (tier === 'free') return { price: priceOf('ppl_price_owner_free', 69) };
     return { price: priceOf('ppl_price_owner_mid', 50) };
   }
   if (tier === 'mid' || tier === 'premium') return { price:0, note:'הפניות כלולות במסלול שלך, ללא הגבלה' };
@@ -21323,7 +21355,6 @@ async function claimLead(lead, btn, agentId){
       const errorMessages = {
         exclusive_to_another_agent: 'הליד עדיין בבלעדיות לסוכן אחר',
         insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
-        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO',
         lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
         already_unlocked: 'הליד כבר פתוח',
       };
@@ -24759,7 +24790,7 @@ async function loadCalls(){
     .eq('agent_id', currentAgent.id).neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
   walletHeroSync();   // הבאנר "היתרה לא מכסה חודש של מספר" (3.7)
-  // מה מותר להזמין: Elite - אחד כלול ונוספים בתשלום, האחרים - מספר אחד (order_phone_line אוכפת)
+  // מה מותר להזמין ובכמה (phone_line_quota). מ-9.11.2026: כל מספר במחיר המלא, בכל מסלול, בלי תקרה
   const { data: quota } = await sb.rpc('my_phone_line_quota');
   lineQuota = quota || null;
   const hasLine = lineRows.some(l => l.active);
@@ -24882,13 +24913,11 @@ function renderLines(){
     const st = lineStats[l.id] || { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() };
     const prop = l.property_id ? (typeof myPropertyRows !== 'undefined' ? myPropertyRows.find(p => p.id === l.property_id) : null) : null;
     const meta = [LINE_SOURCE_LABELS[l.source_type], prop && linePropLabel(prop)].filter(Boolean).join(' · ');
-    const renew = l.included ? 'כלול במסלול Elite'
+    const renew = l.included ? 'כלול - מתחדש בלי חיוב (מסלול קודם)'
       : l.monthly_price && l.paid_until
       ? `${shekel(l.monthly_price)} לחודש · מתחדש ב-${new Date(l.paid_until).toLocaleDateString('he-IL')}` : '';
-    const choose = l.downgrade_deadline
-      ? `<div class="line-warn">המסלול כבר אינו Elite, ובו נשאר מספר וירטואלי אחד (89 ₪ לחודש).
-          עד ${new Date(l.downgrade_deadline).toLocaleDateString('he-IL')} בחרו איזה נשאר - בלי בחירה יישאר זה שקיבל הכי הרבה שיחות.
-          <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לשדרוג חזרה ל-Elite</a></div>` : '';
+    // מ-9.11.2026 אין ירידת מסלול שמשחררת מספרים; downgrade_deadline מנוקה בסבב ואינו מוצג.
+    const choose = '';
     return `<div class="line-row" data-line="${esc(l.id)}">
       <div class="line-top">
         <span><span class="line-name">${esc(l.label || 'מספר בלי כינוי')}</span>
@@ -24924,19 +24953,15 @@ function renderLines(){
     </div>`;
   }).join('');
   const q = lineQuota;
-  /* מי שאינו/ה Elite ויש לו/ה כבר מספר: הכפתור מוצג ולא מוסתר, ואומר איפה
-     זה זמין - הוא גם התשובה וגם ההזמנה לשדרג (‏new-tier-capability). */
+  /* מ-9.11.2026 המספר עולה אותו דבר בכל מסלול, בלי תקרה למספר המספרים
+     (phone_line_quota.can_order תמיד true). הענף של !can_order נשאר למקרה
+     שהמסד ישוב להגביל - כפתור מוצג ולא מוסתר (‏new-tier-capability). */
   const order = q && !q.can_order
-    ? `<button type="button" class="btn btn-ghost" disabled>➕ מספרים וירטואליים נוספים - במסלול Elite</button>
-       <span class="call-meta">במסלול Elite מספר אחד כלול, ומספרים נוספים ב-89 ₪ לחודש - לכל שלט, מודעה וקמפיין.
-         <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים ולשדרוג</a></span>`
+    ? `<button type="button" class="btn btn-ghost" disabled>➕ מספרים וירטואליים נוספים</button>
+       <span class="call-meta">אי אפשר להזמין מספר נוסף כרגע.
+         <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a></span>`
     : `<button type="button" class="btn btn-gold" data-line-act="order">➕ הזמנת מספר וירטואלי חדש</button>
-       <span class="call-meta">${q && Number(q.next_price) === 0
-         ? 'מספר אחד כלול במסלול Elite שלך - בלי חיוב'
-         : q && !q.premium
-         ? `מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע. במסלול Elite המספר הראשון כלול ואפשר להוסיף עוד.
-            <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a>`
-         : 'מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע'}</span>`;
+       <span class="call-meta">מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע. ${q && q.price ? shekel(Number(q.price)) + ' לחודש לכל מספר, מהארנק.' : ''}</span>`;
   box.innerHTML = linesSummaryHtml() + rows + `<div class="call-actions" style="margin-top:8px">${order}</div>`;
   accSetCount('accLines', lineRows.length || '');
 }
@@ -25002,11 +25027,9 @@ function openLineModal(line){
   const free = lineQuota && Number(lineQuota.next_price) === 0;
   document.getElementById('plPriceNote').textContent = line ? '' :
     'מספר קווי ישראלי, מנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ. ' +
-    (free ? 'המספר הזה כלול במסלול Elite שלך, בלי חיוב.'
-          : '89 ₪ לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.') +
-    ` כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.` +
-    (lineQuota && lineQuota.premium
-      ? ' אם המסלול יורד מ-Elite, נשאר מספר אחד לבחירתך ב-89 ₪ לחודש, והשאר משתחררים.' : '');
+    (free ? 'המספר הזה כלול, בלי חיוב.'
+          : `${shekel(Number(lineQuota && lineQuota.price) || 89)} לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.`) +
+    ` כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.`;
   modal.style.display = 'flex';
   document.getElementById('plLabel').focus();
 }
@@ -25053,26 +25076,25 @@ document.getElementById('plSave').addEventListener('click', async () => {
   catch (err){
     btn.disabled = false;
     msg.textContent = err.code === 'tier_required'
-      ? 'במסלול שלך אפשר להחזיק מספר וירטואלי אחד. מספרים נוספים זמינים במסלול Elite.'
+      ? 'אי אפשר להזמין מספר נוסף כרגע. לפרטים: דף המסלולים.'
       : 'לא הצלחנו לחפש מספר: ' + heErr(err);
     return;
   }
   btn.disabled = false;
   if (!avail.number){ msg.textContent = 'אין כרגע מספר פנוי בקידומת הזו. נסו קידומת אחרת.'; return; }
   closeLineModal();
-  const tierLine = lineQuota && lineQuota.premium
-    ? `אם המסלול יורד מ-Elite: נשאר מספר וירטואלי אחד לבחירתך ב-${shekel(avail.monthly_price)} לחודש, והשאר משתחררים אחרי 7 ימים.`
-    : null;
+  // מ-9.11.2026 אין ירידת מסלול שמשחררת מספרים, ולכן אין שורת אזהרה ואין אישור נוסף.
+  const tierLine = null;
   const ok = await confirmPurchase({
     title: 'הזמנת מספר וירטואלי',
     lines: [`"${label}" - ${LINE_SOURCE_LABELS[source] || ''}`, `קידומת 0${area}`,
-      avail.included ? 'כלול במסלול Elite שלך - בלי חיוב, מתחדש אוטומטית כל עוד המסלול Elite.'
+      avail.included ? 'כלול - בלי חיוב, מתחדש אוטומטית.'
         : `${shekel(avail.price)} לחודש, מתחדש אוטומטית מהארנק. אפשר לבטל בכל עת.`,
       `כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.`,
       tierLine].filter(Boolean),
     price: avail.price,
     requireAck: !!tierLine,
-    ackText: avail.included ? 'קראתי ואני מבין/ה מה קורה למספרים אם המסלול יורד מ-Elite.' : undefined,
+    ackText: undefined,
     confirmLabel: avail.included ? 'הזמנת המספר' : `הזמנה וחיוב ${shekel(avail.price)}`,
   });
   if (!ok) return;
@@ -25085,7 +25107,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
     if (externalNumber) showForwardHowto({ twilio_number: out.number, external_number: externalNumber });
   } catch (err){
     showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
-      err.code === 'tier_required' ? 'מספרים וירטואליים נוספים זמינים במסלול Elite' :
+      err.code === 'tier_required' ? 'אי אפשר להזמין מספר נוסף כרגע' :
       'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + heErr(err));
     refreshAgentBalance();
   }

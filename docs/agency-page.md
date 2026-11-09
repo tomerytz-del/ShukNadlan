@@ -304,7 +304,7 @@ DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city'
 |---|---|---|
 | שיוך | רוטציה: שכונה → סוג נכס → תור | **מנהל/ת המשרד** ישירות |
 | סטטוס | `masked` | `unlocked` במסלול בתשלום · `masked` ב-Pay&GO |
-| מחיר | `ppl_price_owner_mid` / מכסה / tier | **חינם** ב-PROFESSIONAL ו-Elite · ב-Pay&GO נספר במכסת הפניות החודשית, ומעבר לה ₪25 |
+| מחיר | `ppl_price_owner_mid` (₪50 במנוי) / `ppl_price_owner_free` (₪69 ב-Pay&GO) | **חינם** ב-PROFESSIONAL ו-Elite · ב-Pay&GO נספר במכסת הפניות החודשית, ומעבר לה ₪25 |
 | בלעדיות | `owner_lead_exclusivity_hours` | לא רלוונטי |
 | `source` | `null` | `agency_page` |
 

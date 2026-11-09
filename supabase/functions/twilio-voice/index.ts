@@ -1395,9 +1395,9 @@ async function linesAgentTask(req: Request, task: string): Promise<Response> {
   });
 }
 
-/** מספר וירטואלי לפי מסלול: Elite - אחד כלול ונוספים בתשלום; האחרים - אחד
- *  בתשלום. הסבב רץ לפני החידוש, כי הוא שממיר מספר כלול של מי שירד/ה לבתשלום
- *  (phone_line_tier_sweep, docs/call-tracking.md). */
+/** התראות הסבב היומי (phone_line_tier_sweep). מ-9.11.2026 המספר אינו כלול
+ *  באף מסלול ואין תקרה למסלול, ולכן הסבב מחזיר מערכים ריקים והנוסחים כאן
+ *  אינם יוצאים; הם נשארים כדי שחתימת התשובה לא תשתנה (docs/call-tracking.md). */
 function tierSweepNotes(sweep: Record<string, any> | null) {
   const ils = (d: string) => new Date(d).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" });
   const name = (r: Record<string, any>) => `${localPhone(r.number)}${r.label ? ` (${r.label})` : ""}`;

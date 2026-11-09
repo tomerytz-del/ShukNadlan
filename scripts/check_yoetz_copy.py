@@ -34,6 +34,8 @@ SKIP = {
     'assets/landing.js', 'netlify/edge-functions/brokers-page.ts', 'netlify/edge-functions/silo-page.ts',
     # דף נחיתה SEO. הנוסח אושר ב-6.11.2026 ומילת המפתח היא "מתווכים". docs/for-brokers.md
     'for-brokers.html',
+    # קורס ההכנה למבחן: "מתווך" הוא המונח המשפטי שהבחינה משתמשת בו (תומר, 8.11.2026). docs/exam-course.md
+    'course.html', 'learn.html', 'assets/learn.js',
 }
 # החלטה 10 (תומר, 27.10, אושרה במלואה): ב-title, ב-meta description וב-og של דפי המתווכים הניסוח
 # המשולב "יועצי נדל״ן ומתווכים", וב-/agencies משפט גלוי אחד "יועצי נדל״ן (מתווכים) בעפולה ובעמק"
@@ -73,7 +75,7 @@ def main():
         if not WORD.search(src): continue
         h = hits(f, src)
         if h: bad.append((f, h))
-    for f in ('llms.txt', 'manifest.webmanifest', 'app-crm.webmanifest'):
+    for f in ('llms.txt', 'manifest.webmanifest', 'app-crm.webmanifest', 'app-professional.webmanifest'):
         if os.path.exists(f):
             src = open(f, encoding='utf-8').read()
             h = []

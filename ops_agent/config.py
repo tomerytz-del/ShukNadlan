@@ -257,7 +257,7 @@ LIVE_PAGES = (
 )
 
 # דפים שהם אפליקציה ולא דף תוכן — נמדדים מול סף אחר.
-APP_PAGES = ("crm.html", "developer-crm.html", "professional-manage.html")
+APP_PAGES = ("crm.html", "developer-crm.html", "professional-manage.html", "professional-crm.html")
 
 # התורים שהסוכן בודק. ‏(טבלה, עמודת סטטוס, הערכים שנחשבים "ממתין",
 # עמודת הזמן, שם קריא, מה שבור כשזה נתקע).
@@ -298,6 +298,9 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     # טפסי קליטה — הגולש/ת אינו/ה מחובר/ת בהגדרה
     "owner-lead-intake",
     "mortgage-lead-intake",
+    # שאלה לעו"ד מדף הנכס. הגולש אינו מחובר. הליד pending עד אימות טלפון בוואטסאפ; בלם ההצפה ב-lawyer_lead_submit:
+    # 5 לשעה לכתובת, 20 לנכס, 200 לאתר.
+    "lawyer-lead-intake",
     "property-inquiry-intake",
     # לחיצה על וואטסאפ או חיוג בנכס ביריד. הגולש אינו מחובר. אין שם ואין
     # טלפון. ההצפה נעצרת ב-fair_contact_click: כפילות של אותו דפדפן ל-15
@@ -314,6 +317,8 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     "agency-signup",
     "developer-signup",
     "professional-signup",
+    # פתיחת חשבון כניסה לבעל מקצוע שכבר נרשם: מוגנת באסימון הכרטיסייה (UUID בגוף הבקשה)
+    "professional-account",
     # שליפות ממרשמים ציבוריים. אין בהן נתון שלנו
     "company-registry-lookup",
     "broker-license-lookup",

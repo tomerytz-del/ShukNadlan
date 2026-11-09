@@ -20,8 +20,9 @@
   ‏1. כל דף נושא את חמשת הרכיבים: מניפסט, ‎theme-color‎, אייקון אפל,
      כותרת האפליקציה ל-iOS, והסקריפט ‎assets/pwa-install.js‎.
   ‏2. **המניפסט הנכון לסוג הדף.** דפי האזור האישי מצביעים ל-
-     ‎app-crm.webmanifest‎ (‏שנפתח על ‎/crm‎), וכל השאר ל-
-     ‎manifest.webmanifest‎ (‏שנפתח על דף הבית). היפוך כאן הוא התקלה
+     ‎app-crm.webmanifest‎ (‏שנפתח על ‎/crm‎), ‏professional-crm ל-
+     ‎app-professional.webmanifest‎ (‏שנפתח על האזור האישי של בעלי
+     המקצוע), וכל השאר ל-‎manifest.webmanifest‎ (‏שנפתח על דף הבית). היפוך כאן הוא התקלה
      הכי שקטה בקבוצה: האפליקציה תותקן, ותיפתח בדף הלא נכון.
   ‏3. המניפסטים עצמם: ‎JSON‎ תקין, שדות חובה, ושכל קובץ אייקון שהם
      מצביעים אליו קיים בריפו. ‏Netlify מפרסם קבצים סטטיים בלבד — אייקון
@@ -39,10 +40,17 @@ ROOT = Path(__file__).resolve().parent.parent
 
 PUBLIC_MANIFEST = "/manifest.webmanifest"
 PERSONAL_MANIFEST = "/app-crm.webmanifest"
+# בעלי מקצוע (עו"ד...) אינם סוכנים: האפליקציה שלהם נפתחת על האזור האישי שלהם ולא על /crm
+PROFESSIONAL_MANIFEST = "/app-professional.webmanifest"
 
 # אותה רשימה בדיוק שקובעת מי טוען את events.js (ראו CLAUDE.md): דפי
 # האזור האישי. הם גם אלה שמקבלים מניפסט שנפתח על ה-CRM ולא על דף הבית.
-PERSONAL_PAGES = {"crm.html", "developer-crm.html", "professional-manage.html", "csm.html"}
+PERSONAL_PAGES = {"crm.html", "developer-crm.html", "professional-manage.html", "csm.html", "professional-crm.html"}
+# דף אזור אישי שיש לו מניפסט משלו (כל השאר: PERSONAL_MANIFEST)
+PAGE_MANIFEST = {
+    "professional-crm.html": PROFESSIONAL_MANIFEST,
+    "professional-manage.html": PROFESSIONAL_MANIFEST,
+}
 
 REQUIRED = [
     (
@@ -90,12 +98,15 @@ def check_page(path: Path) -> list[str]:
     # המניפסט הנכון לסוג הדף
     link = REQUIRED[0][0].search(head)
     if link:
-        want = PERSONAL_MANIFEST if path.name in PERSONAL_PAGES else PUBLIC_MANIFEST
+        want = (
+            PAGE_MANIFEST.get(path.name, PERSONAL_MANIFEST)
+            if path.name in PERSONAL_PAGES else PUBLIC_MANIFEST
+        )
         if link.group(1) != want:
             problems.append(
                 "מצביע ל-%s ולא ל-%s.\n"
-                "            דף באזור האישי נפתח על /crm, וכל דף אחר על דף הבית."
-                % (link.group(1), want)
+                "            דף באזור האישי נפתח על /crm (בעלי מקצוע: על /professional-crm),\n"
+                "            וכל דף אחר על דף הבית." % (link.group(1), want)
             )
 
     # ‏data-first-visit — אותה חלוקה, ובשני הכיוונים
@@ -126,6 +137,16 @@ def check_page(path: Path) -> list[str]:
             )
 
     return problems
+
+
+# ה-id של כל מניפסט, וה-start_url חייב להיות הדף שלו. ‏id משותף בין שתי אפליקציות מותקנות הוא אפליקציה אחת, ו-start_url שגוי
+# פותח אותה בדף הלא נכון. שתיהן עוברות את שאר הבדיקות (JSON תקין, אייקונים קיימים), ולכן נבדקות כאן במפורש.
+# ‏share_target (קבלת איש קשר מהטלפון) הוא יכולת של ה-CRM של הסוכנים בלבד.
+EXPECTED_ID = {
+    "manifest.webmanifest": "/",
+    "app-crm.webmanifest": "/crm",
+    "app-professional.webmanifest": "/professional-crm",
+}
 
 
 def check_manifest(name: str) -> list[str]:
@@ -164,6 +185,15 @@ def check_manifest(name: str) -> list[str]:
             if src and not (ROOT / src).exists():
                 problems.append("אייקון של קיצור דרך חסר: %s" % icon.get("src"))
 
+    want_id = EXPECTED_ID.get(name)
+    if want_id:
+        if data.get("id") != want_id:
+            problems.append("‏id הוא %r ולא %r. מניפסט עם id של אחר הוא אותה אפליקציה מותקנת." % (data.get("id"), want_id))
+        if (data.get("start_url") or "").split("?")[0] != want_id:
+            problems.append("‏start_url (%s) אינו הדף של האפליקציה (%s)." % (data.get("start_url"), want_id))
+        if name != "app-crm.webmanifest" and "share_target" in data:
+            problems.append("‏share_target שייך ל-app-crm בלבד (קבלת איש קשר ל-CRM של הסוכנים).")
+
     start = data.get("start_url", "")
     scope = data.get("scope", "/")
     if start and not start.startswith(scope):
@@ -176,7 +206,7 @@ def main() -> int:
     failures = 0
 
     # ---- הקבצים המשותפים ----
-    for name in (PUBLIC_MANIFEST.lstrip("/"), PERSONAL_MANIFEST.lstrip("/")):
+    for name in (PUBLIC_MANIFEST.lstrip("/"), PERSONAL_MANIFEST.lstrip("/"), PROFESSIONAL_MANIFEST.lstrip("/")):
         problems = check_manifest(name)
         if problems:
             failures += 1
@@ -217,7 +247,7 @@ def main() -> int:
     if failed or failures:
         return 1
 
-    print("✓ כל %d הדפים ניתנים להתקנה, ושני המניפסטים שלמים." % len(pages))
+    print("✓ כל %d הדפים ניתנים להתקנה, ושלושת המניפסטים שלמים." % len(pages))
     return 0
 
 

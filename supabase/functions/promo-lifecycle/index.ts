@@ -166,7 +166,7 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
     const tierName = TIER_NAMES[paidTier];
     const title = `${name}, המנוי שלך ל-${tierName} התחיל`;
     const body = [
-      p(`שישה חודשים של <b>Elite</b> במתנה הסתיימו, והחשבון ממשיך ב-<b>${esc(tierName)}</b> ששילמת עליו.`),
+      p(`תקופת <b>Elite</b> במתנה הסתיימה, והחשבון ממשיך ב-<b>${esc(tierName)}</b> ששילמת עליו.`),
       p(`החודש ששולם בתוקף עד <b>${esc(hebDate(paidUntil))}</b>, ומשם המנוי מתחדש חודשית (${esc(priceLine(paidTier))}). אפשר לבטל את החידוש בכל עת ב-CRM, תחת "ארנק וחיובים".`),
     ].join("");
     const text = [
@@ -182,7 +182,7 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
   const title = `${name}, תקופת ההטבה הסתיימה`;
   const body = downgraded
     ? [
-        p("שישה חודשים של <b>Elite</b> במתנה הסתיימו, והחשבון שלך עבר ל-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש ו-₪25 לליד נוסף."),
+        p("תקופת <b>Elite</b> במתנה הסתיימה, והחשבון שלך עבר ל-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש ו-₪25 לליד נוסף."),
         p("<b>שום דבר לא אבד:</b> הנכסים, הלידים, הלקוחות, דף הסוכן/ת ויתרת הארנק נשארו בדיוק כפי שהיו."),
         p(`מה שכן השתנה: לידי בעל-נכס, דוחות CMA, המידע התכנוני, הסרטונים וההדמיות זמינים במסלולים בתשלום (${esc(priceLine("mid"))}, ${esc(priceLine("premium"))}). אפשר לחזור אליהם בכל רגע.`),
       ].join("")
@@ -193,7 +193,7 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
 
   const text = downgraded
     ? [
-        `${name}, שישה חודשי Elite במתנה הסתיימו והחשבון עבר ל-Pay&GO.`,
+        `${name}, תקופת Elite במתנה הסתיימה והחשבון עבר ל-Pay&GO.`,
         "",
         "הנכסים, הלידים, הלקוחות והארנק נשארו כמו שהם.",
         "לידי בעל-נכס, דוח CMA, מידע תכנוני, סרטונים והדמיות זמינים במסלולים בתשלום.",
