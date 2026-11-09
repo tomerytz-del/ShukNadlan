@@ -18,6 +18,7 @@ import {
   SEEKER_DEAL_ASK,
   seekerDealAsk,
 } from "./client-deal.ts";
+import { developerSpeech, takeBuildingDeveloperAsk } from "./building-developer.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
@@ -263,7 +264,7 @@ export const RESIDENTIAL_PTYPES = [
 export const COMMERCIAL_PTYPES = [
   "משרדים", "חנויות/שטח מסחרי", "מבני תעשייה", "אולמות", "חלל עבודה משותף",
   "בניין משרדים", "מגרשים", "מחסנים", "סטודיו", "כללי", "מרתף", "חניון",
-  "בית מלון", "קליניקות",
+  "בית מלון", "קליניקות", "מרלו״ג/מרכז לוגיסטי",
 ];
 const RESIDENTIAL_FEATURES = [
   "parking", "elevator", "balcony", "sun_balcony", "ac", "bars", "accessible",
@@ -891,6 +892,7 @@ const TOOLS: Anthropic.Tool[] = [
       "וקרא/י שוב עם כל מה שנמסר ועם proceed: true (גם אם הסוכן/ת ענה/תה רק על חלק או כתב/ה \"תפיק\"). " +
       "אם חזר details_guidance - בצע/י אותו. " +
       "אם חזר location_guidance - אמור/אמרי אותו. " +
+      "**סוג הנכס לא מנחשים:** בלי סוג חוזר type_required, ושואלים \"בית צמוד קרקע, דירה, פנטהאוז או דירת גן?\" - גם אחרי \"תפיק\". " +
       "**גם לגוש וחלקה, בלי כתובת** (gush + helka במקום city + street): המיקום מהחלקה עצמה. " +
       "לבית צמוד קרקע הדוח משווה לבתים, וגם לעסקאות \"דירה\" שזוהו כבתים לפי החלקה (house_guidance).",
     input_schema: {
@@ -938,6 +940,43 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: "building_developer_lookup",
+    description:
+      "מי בנה או מי היזם של בניין בכתובת מדויקת. זה הכלי ל\"מי בנה את הבניין ברחוב X\" " +
+      "ול\"מי היזם\". חובה עיר, רחוב ומספר בית. בלי מספר בית אל תענה/י שם. " +
+      "אמרי את speech כמו שהוא: יש בו את המקור, ואם הנתון לא אומת הוא אומר זאת. " +
+      "אל תמציא/י חברה ואל תשלים/י משם פרויקט ששמעת עליו.",
+    input_schema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "העיר." },
+        street: { type: "string", description: "שם הרחוב, בלי המילה רחוב ובלי מספר בית." },
+        house_number: { type: "string", description: "מספר הבית. בלי מספר אין תשובה." },
+      },
+      required: ["city", "street", "house_number"],
+    },
+  },
+  {
+    name: "record_building_developer",
+    description:
+      "שומר את שם החברה היזמית שהסוכן/ת אמר/ה עכשיו על נכס בבנייה חדשה או בפרויקט. " +
+      "company הוא הציטוט שלו/ה, לא ניחוש ולא שם מהזיכרון. " +
+      "\"לא יודע\" נשמר בלי לרשום חברה. לא דורס חברה שכבר רשומה בערך אחר.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string", description: "הנכס שעליו נשאלה השאלה, או הנכס האחרון." },
+        company: { type: "string", description: "שם החברה כמו שהסוכן/ת כתב/ה, או לא יודע." },
+        partners: {
+          type: "array",
+          items: { type: "string" },
+          description: "שותפים רק אם הסוכן/ת מנה/תה אותם. אל תמלא/י לבד.",
+        },
+      },
+      required: ["company"],
     },
   },
   {
@@ -2432,6 +2471,24 @@ function geocodeForProperty(ctx: ToolContext, city: string, street: string, hous
     : geocodeInCity(ctx.supabase, city, street, houseNumber);
 }
 
+/** שאלה אחת על החברה היזמית, אחרי שהנכס כבר נשמר. כשל כאן לא מפיל את הקליטה. */
+async function attachDeveloperAsk(ctx: ToolContext, propertyId: string): Promise<Record<string, unknown>> {
+  try {
+    const ask = await takeBuildingDeveloperAsk(ctx.supabase, propertyId, !!ctx.outbox);
+    if (!ask || !ctx.outbox) return {};
+    ctx.outbox.push({ kind: "buttons", body: ask.body, buttons: ask.buttons });
+    return {
+      developer_question_sent: true,
+      guidance_developer:
+        "יצא כפתור \"לא יודע\". אל תשאל/י בעצמך מי בנה, ואל תחכה/י לתשובה כדי לאשר שהנכס נוצר. " +
+        "אם הסוכן/ת כותב/ת שם חברה, record_building_developer עם המילים שלו/ה בדיוק ואת property_id. אל תמציא/י שם.",
+    };
+  } catch (err) {
+    console.error("building developer ask failed", err);
+    return {};
+  }
+}
+
 async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknown>) {
   if (!ctx.agent.agency_id) {
     return { ok: false, error: "לסוכן/ת אין משרד משויך - צריך להשלים הרשמה בדשבורד." };
@@ -2559,8 +2616,9 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     ...(payload.status === "active" ? modelLink(ctx, propertyLink(data.id), "לדף הנכס", "הדף באתר:", "link") : {}),
     ...propertyCreatedEdit(ctx, data.id, data.title),
   };
-  if (!askFirst) return created;
+  if (!askFirst) return { ...created, ...await attachDeveloperAsk(ctx, data.id) };
   const gate = await askPublishConfirm(ctx, data.id, String(data.title || ""));
+  const developerAsk = await attachDeveloperAsk(ctx, data.id);
   return {
     ...created,
     published: false,
@@ -2572,6 +2630,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       : gate.ok
         ? { guidance: gate.guidance }
         : { error: gate.error, guidance: gate.guidance || gate.error }),
+    ...developerAsk,
   };
 }
 
@@ -2735,13 +2794,14 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (error) return { ok: false, error: error.message };
 
   ctx.conv.last_property_id = propertyId;
-  return {
+  const updated = {
     ok: true,
     property_id: propertyId,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     ...modelLink(ctx, propertyLink(propertyId), "לדף הנכס", "הדף באתר:", "link"),
     ...crmButton(ctx, crmPropertyLink(propertyId)),
   };
+  return { ...updated, ...await attachDeveloperAsk(ctx, propertyId) };
 }
 
 async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
@@ -4164,6 +4224,82 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
  * עסקאות העיר שאי אפשר למקם. לכן חוזרות רק ההשוואות הקרובות ביותר, והדוח
  * להדפסה נשאר בדשבורד.
  */
+async function toolBuildingDeveloperLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  const { data, error } = await ctx.supabase.rpc("building_developer_lookup", {
+    p_city: String(input.city || "").trim(),
+    p_street: String(input.street || "").trim(),
+    p_house_number: String(input.house_number || "").trim(),
+  });
+  if (error) {
+    console.error("building developer lookup failed", error.code, error.message);
+    return { ok: false, error: "לא הצלחתי לבדוק עכשיו.", guidance: "אל תנחש/י חברה יזמית." };
+  }
+  const row = (data || {}) as Record<string, unknown>;
+  if (row.enabled === false || row.reason === "disabled") {
+    return { ok: false, error: "המעקב אחר חברות יזמיות כבוי.", guidance: "אל תנחש/י חברה יזמית." };
+  }
+  const partners = Array.isArray(row.partners) ? row.partners.map(String) : [];
+  const speech = developerSpeech({
+    found: row.found === true,
+    ambiguous: row.ambiguous === true,
+    company: typeof row.company === "string" ? row.company : null,
+    partners,
+    source_label: typeof row.source_label === "string" ? row.source_label : null,
+    verification: typeof row.verification === "string" ? row.verification : null,
+    house_number_required: row.house_number_required === true,
+  });
+  return {
+    ok: true,
+    found: row.found === true,
+    speech,
+    guidance: "אמרי את speech כמו שהוא. אל תוסיפי חברה שלא כתובה בו.",
+  };
+}
+
+async function toolRecordBuildingDeveloper(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || ctx.conv.last_property_id || "");
+  const company = String(input.company || "").trim();
+  const partners = Array.isArray(input.partners)
+    ? input.partners.map((p) => String(p).trim()).filter(Boolean)
+    : null;
+  if (!propertyId) return { ok: false, error: "חסר נכס. לא נשמר שם.", guidance: "אל תמציא/י חברה יזמית." };
+  const { data, error } = await ctx.supabase.rpc("building_developer_record", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+    p_company: company,
+    p_partners: partners,
+  });
+  if (error) {
+    console.error("building developer record failed", error.code, error.message);
+    return { ok: false, error: "לא שמרתי את שם החברה.", guidance: "אל תאמרי שנשמר, ואל תנחש/י שם אחר." };
+  }
+  const row = (data || {}) as Record<string, unknown>;
+  if (row.reason === "disabled") {
+    return { ok: false, error: "המעקב אחר חברות יזמיות כבוי.", guidance: "אל תנחש/י חברה יזמית." };
+  }
+  if (row.ok !== true) {
+    return { ok: false, error: "לא שמרתי את שם החברה.", guidance: "אל תאמרי שנשמר." };
+  }
+  if (row.unknown === true) {
+    return { ok: true, stored: false, speech: "לא רשמתי חברה יזמית." };
+  }
+  if (row.action === "conflict") {
+    return {
+      ok: true,
+      stored: true,
+      action: "conflict",
+      speech: "השם שכבר רשום לא הוחלף, כי הגיע ערך אחר. סימנתי סתירה. הנתון לא אומת.",
+    };
+  }
+  return {
+    ok: true,
+    stored: true,
+    action: row.action,
+    speech: `רשמתי את ${company}. מקור: סוכן או סוכנת. הנתון לא אומת.`,
+    guidance: "אמרי את speech כמו שהוא.",
+  };
+}
+
 async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
@@ -4235,7 +4371,7 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     const notElite = member && (!member.active || member.billing_status !== "active" || member.tier !== "premium");
     if (!notElite) {
       const type = String(input.property_type || "").trim();
-      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם/.test(type);
+      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם|מרלו|לוגיסט/.test(type);
       const land = /מגרש|קרקע|נחלה|משק/.test(type);
       const missing = [
         !type && "סוג הנכס (דירה, דירת גן, פנטהאוז, בית פרטי, חנות, משרד...)",
@@ -4270,7 +4406,9 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     p_city:          city,
     p_street:        street,
     p_house_number:  houseNumber || null,
-    p_property_type: String(input.property_type || "דירה"),
+    // בלי סוג: המסד מסיק אותו מהחלקה של הכתובת, ואם אי אפשר מחזיר
+    // type_required (20271105130000). "דירה" כברירת מחדל השווה בית לדירות.
+    p_property_type: String(input.property_type || "").trim() || null,
     p_rooms:         num(input.rooms),
     p_size_sqm:      num(input.size_sqm),
     p_floor:         num(input.floor) === null ? null : Math.round(Number(input.floor)),
@@ -4286,6 +4424,35 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
   if (error) return { ok: false, error: error.message };
 
   const report = (data || {}) as Record<string, unknown>;
+  if (report.error === "type_required") {
+    // לא מנחשים סוג (20271105130000): שואלים, עם הרמזים שיש - העסקאות בחלקה
+    // של הכתובת, הייעוד אם נשמר אצלנו מידע תכנוני, והרחוב.
+    const stN = Number(report.street_deals) || 0;
+    const stHouse = Number(report.street_house_like) || 0;
+    const landUse = String(report.land_use || "").trim();
+    const hints = [
+      report.parcel_hint === "house" &&
+        "בחלקה של הכתובת נמכרו רק נכסים בלי קומה, וזה נראה כמו בית צמוד קרקע",
+      report.parcel_hint === "building" &&
+        "בחלקה של הכתובת יש עסקאות בקומות, כלומר זה בניין (דירה, פנטהאוז או דירת גן)",
+      landUse && `הייעוד של החלקה הוא "${landUse}"` +
+        (/מגורים\s*א(?![\u0590-\u05FF])/.test(landUse) ? " - בדרך כלל צמודי קרקע" : ""),
+      stN > 0 && stHouse / stN >= 0.5 &&
+        `רוב העסקאות ברחוב (${stHouse} מתוך ${stN}) נראות כמו בתים צמודי קרקע`,
+    ].filter(Boolean) as string[];
+    return {
+      ok: false,
+      needs_details: true,
+      missing: ["סוג הנכס: בית צמוד קרקע, דירה, פנטהאוז או דירת גן"],
+      type_hints: hints,
+      guidance:
+        "בלי סוג אי אפשר להפיק: דוח של בית, דירה, פנטהאוז ודירת גן באותו רחוב שונים לפעמים פי שניים. " +
+        "שאל/י **שאלה אחת קצרה**: בית צמוד קרקע, דירה, פנטהאוז או דירת גן? " +
+        (hints.length ? "אפשר לצרף את הרמזים מ-type_hints במשפט אחד, כרמז ולא כקביעה. " : "") +
+        "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם property_type (בית פרטי / דירה / פנטהאוז / דירת גן) " +
+        "ועם proceed: true. זו השאלה היחידה ששואלים גם אחרי \"תפיק\".",
+    };
+  }
   if (report.error === "parcel_not_found") {
     return {
       ok: false,
@@ -4684,6 +4851,29 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     comparables_median_plot_sqm: medianPlot ?? undefined,
     houses_by_parcel: coverage.subject_kind === "house" ? byParcelN : undefined,
     house_guidance,
+    ...(subject.developer_company
+      ? {
+        building_developer: {
+          company: subject.developer_company,
+          partners: subject.developer_partners,
+          source: subject.developer_source_label,
+          verification: subject.developer_verification,
+        },
+        building_developer_guidance: developerSpeech({
+          found: true,
+          company: String(subject.developer_company),
+          partners: Array.isArray(subject.developer_partners)
+            ? subject.developer_partners.map(String)
+            : [],
+          source_label: typeof subject.developer_source_label === "string"
+            ? subject.developer_source_label
+            : null,
+          verification: typeof subject.developer_verification === "string"
+            ? subject.developer_verification
+            : null,
+        }) + " אם מוסרים את הדוח, כללי את המשפט.",
+      }
+      : {}),
   };
 }
 
@@ -9174,6 +9364,8 @@ async function runTool(
       case "property_performance": return await toolPropertyPerformance(ctx, input);
       case "cma_report": return await toolCmaReport(ctx, input);
       case "cma_report_address": return await toolCmaReportAddress(ctx, input);
+      case "building_developer_lookup": return await toolBuildingDeveloperLookup(ctx, input);
+      case "record_building_developer": return await toolRecordBuildingDeveloper(ctx, input);
       case "market_deals_lookup": return await toolMarketDealsLookup(ctx, input);
       case "planning_info": return await toolPlanningInfo(ctx, input);
       case "planning_lookup": return await toolPlanningLookup(ctx, input);
@@ -9327,6 +9519,12 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
+    "- **חברה יזמית של בניין:** \"מי בנה\" או \"מי היזם\" של בניין ברחוב = building_developer_lookup " +
+      "עם עיר, רחוב ומספר בית. אמרי את speech כמו שהוא. בלי מספר בית אל תעני שם. " +
+      "אל תנחשי חברה, גם אם שמעת על פרויקט בעיר.",
+    "- אם create_property או update_property החזירו developer_question_sent: אל תשאל/י מי בנה, " +
+      "הכפתור כבר יצא, ואל תחכי לתשובה כדי לאשר את הנכס. שם שהסוכן/ת כותב/ת אחר כך = " +
+      "record_building_developer עם company כמו שנאמר ו-property_id. \"לא יודע\" הוא הכפתור, לא שם חברה.",
     "- create_property: אם חזר published=true הנכס באוויר. אם חזר needs_confirmation, " +
       "בוואטסאפ יוצאת רשימת יעד אחת, רק היעדים שאפשר לבצע עכשיו. אל תמני יעד שלא יצא ברשימה. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +

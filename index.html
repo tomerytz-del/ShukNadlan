@@ -153,7 +153,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .section-head h2{font-size:var(--h2)}
   .section-head .section-sub{font-size:var(--h2-sub);color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance;line-height:1.5}
   .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
-  .head-line h2 > .info-dot{margin-inline-start:7px;translate:0 -2px}
+  .head-line h2 > .info-dot,.head-line h2 + .info-dot{margin-inline-start:7px;translate:0 -2px}
 
   .info-dot{
     width:19px;height:19px;flex:0 0 auto;border-radius:50%;padding:0;
@@ -222,17 +222,6 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     max-height:calc(100dvh - var(--header-h));overflow-y:auto;overscroll-behavior:contain;
   }
   .mobile-menu.open{display:flex}
-  .menu-tabs{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
-    background:var(--sky-soft);border:1px solid var(--sky);padding:4px;
-  }
-  .menu-tabs button{
-    min-height:42px;padding:0 4px;border:0;border-radius:0;cursor:pointer;
-    background:transparent;font-family:inherit;font-size:.76rem;font-weight:700;
-    line-height:1.25;color:var(--teal);
-    transition:background .18s ease, color .18s ease;
-  }
-  .menu-tabs button[aria-selected="true"]{background:var(--teal);color:#fff;box-shadow:var(--shadow-sm)}
   .menu-panel{
     display:flex;flex-direction:column;gap:2px;
     background:var(--paper-raised);border:1px solid var(--line);padding:6px;
@@ -244,6 +233,25 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     padding:8px 0 calc(14px + env(safe-area-inset-bottom, 0px));background:var(--sky-tint);
   }
   .mobile-menu .btn-block{margin-top:0}
+  /* התפריט הקצר: יעד עם שורת הסבר, ו"עוד" מקופל */
+  .menu-main{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .menu-main a{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md,12px)}
+  .menu-main a b{font-weight:800;font-size:.95rem;color:var(--ink)}
+  .menu-main a span{font-size:.78rem;font-weight:500;line-height:1.35;color:var(--ink-soft)}
+  .menu-more{border:1px solid var(--line);border-radius:var(--radius-md,12px);background:var(--paper-raised)}
+  .menu-more summary{padding:10px 12px;font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+  .menu-more summary::-webkit-details-marker{display:none}
+  .menu-more summary::after{content:"▾";font-size:.9rem;color:var(--ink-soft)}
+  .menu-more[open] summary::after{content:"▴"}
+  .menu-more .menu-panel{border:0;border-top:1px solid var(--line)}
+  /* גיליון הכניסה לפי תפקיד (‏#loginSheet): שורה לכל אזור אישי */
+  .login-roles{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .login-roles a{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-md,12px);background:var(--paper-raised);text-decoration:none;color:var(--ink)}
+  .login-roles a:hover,.login-roles a:focus-visible{border-color:var(--teal);background:var(--sky-tint)}
+  .login-roles a b{font-weight:800;font-size:.95rem}
+  .login-roles a span{font-size:.8rem;color:var(--ink-soft);line-height:1.35}
+  .login-join{margin:14px 0 0;font-size:.82rem;color:var(--ink-soft);text-align:center}
+  .login-join a{color:var(--teal-dark);font-weight:700}
 
   @media(min-width:900px){
     nav.primary{display:flex}
@@ -497,6 +505,19 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .ss-empty-btn[hidden]{display:none}
   .ss-note{margin:0;padding:0 22px 12px;font-size:13px;color:var(--ss-soft);pointer-events:auto}
   .ss-note:empty{display:none}
+  /* השבבים של "הבנתי": אותן תוויות, לחיצה פותחת את הבורר של השדה */
+  .ss-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 22px 12px}
+  .ss-chips .ss-chip{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--ss-line-2);background:#fff;color:var(--ss-ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .ss-chips button.ss-chip::after{content:"✎";font-size:11px;color:var(--ss-muted)}
+  .ss-chips .ss-chip:hover,.ss-chips .ss-chip:focus-visible{border-color:var(--ss-gold);outline:none}
+  .ss-chips .ss-chip.is-feature{cursor:default;background:var(--ss-paper,#f6f7fb)}
+  /* שבב האזור בתוך שורת החיפוש */
+  .ss-mkt{flex:none;display:inline-flex;align-items:center;gap:4px;align-self:center;max-width:38%;min-height:32px;padding:0 9px 0 7px;margin-inline-start:6px;border:1px solid var(--ss-line-2);border-radius:999px;background:#fff;color:var(--ss-navy);font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .ss-mkt svg{width:14px;height:14px;flex:none;color:var(--ss-gold)}
+  .ss-mkt .ss-mkt-l{overflow:hidden;text-overflow:ellipsis}
+  .ss-mkt .ss-mkt-c{font-size:10px;color:var(--ss-muted)}
+  .ss-mkt:hover,.ss-mkt:focus-visible{border-color:var(--ss-gold);outline:none}
+  @media(max-width:359px){ .ss-mkt{display:none} }
   .ss-shell .hero-near-msg{margin:6px 0 0;pointer-events:auto;text-shadow:0 1px 3px rgba(255,255,255,.95)}
 
   .ss-map-tag{
@@ -1012,6 +1033,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     width:13px;height:13px;padding:0;border-radius:50%;
     font-size:0;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.8), 0 2px 6px rgba(0,0,0,.4);
   }
+  /* נכס מחוץ לשוק (awayLayer ב-home.js): אותו פין, דהוי, מתחת לפיני השוק */
+  .map-pin.is-away{opacity:.78;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  /* אשכול לעיר כשמתרחקים: "נתניה · 10". לחיצה מתקרבת */
+  .map-cluster{
+    position:absolute;top:0;left:0;transform:translate(-50%,-50%);
+    background:var(--sapphire,#0e2a6b);color:#fff;padding:7px 12px;border-radius:999px;
+    font:700 12px/1.2 'Heebo',sans-serif;white-space:nowrap;cursor:pointer;
+    box-shadow:0 0 0 2px rgba(255,255,255,.85), 0 2px 8px rgba(0,0,0,.3);
+  }
+  .map-cluster:hover,.map-cluster:focus-visible{background:var(--teal-dark,#0b5c6b);outline:none}
   .map-pin-halo{
     position:absolute;top:0;left:0;width:34px;height:34px;margin:-17px 0 0 -17px;
     border-radius:50%;background:var(--brass,#c9a227);pointer-events:none;
@@ -1503,11 +1534,16 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   }
   .sr-meta{font-size:.73rem;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 10px;min-width:0}
   .sr-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* ‏6.11.2026: עמודת הצד נגזרה מרוחב המחיר, ו"₪55 למ״ר לחודש + מע״מ" (נכס מסחרי,
+     ‏nowrap) לקח 240px מתוך 370 ודחק את הכותרת ל"להש...". הצד מוגבל למחצית, המחיר
+     נשבר אחרי המספר (היחידה בשורה משלו), והגוף שומר לפחות 40% */
   .sr-side{
-    flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+    flex:0 1 auto;max-width:50%;min-width:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
     gap:6px;padding:10px 0 10px 12px;
   }
-  .sr-price{font-weight:900;font-size:1.05rem;color:#0E1116;letter-spacing:-.4px;white-space:nowrap}
+  .sr-price{font-weight:900;font-size:1.05rem;color:#0E1116;letter-spacing:-.4px;white-space:normal;text-align:left;line-height:1.2}
+  .sr-price .sr-unit{display:block;font-size:.72rem;font-weight:700;color:var(--ink-soft);letter-spacing:0}
+  .sr-body{min-width:40%}
   .sr-row .pc-facts{margin-top:5px;gap:3px 11px}
   .sr-deal{font-size:.65rem;font-weight:700;color:#fff;border-radius:0;padding:3px 9px;white-space:nowrap}
   .sr-deal[data-deal="sale"]{background:var(--deal-sale)}
@@ -2019,6 +2055,49 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .calc-cta svg{width:22px;height:22px;flex:none}
   .calc-fine{font-size:.72rem;color:var(--ink-soft);margin:0;text-align:center}
 
+  /* "כמה מזומן צריך להביא" - אותו בלוק כמו בדף הנכס (property.html), בצבעי דף הבית */
+  .calc-cash{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);padding:12px 14px}
+  .calc-cash-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .calc-cash-head .lbl{font-size:.84rem;font-weight:800;color:var(--ink)}
+  .calc-buyer{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff}
+  .calc-buyer button{font:inherit;font-size:.74rem;font-weight:700;padding:6px 11px;border:0;background:transparent;color:var(--ink-soft);cursor:pointer}
+  .calc-buyer button[aria-pressed="true"]{background:var(--teal-dark);color:#fff}
+  .calc-buyer button:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+  .calc-cash-total{font-size:1.7rem;font-weight:900;color:var(--teal-dark);margin:8px 0 6px;font-variant-numeric:tabular-nums}
+  .calc-cash-rows{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:.78rem;color:var(--ink-soft)}
+  .calc-cash-rows li{display:flex;justify-content:space-between;gap:8px}
+  .calc-cash-rows b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .calc-cash-fine{font-size:.68rem;color:var(--ink-soft);margin:8px 0 0;line-height:1.45}
+  /* "איזו שכונה מתאימה לי?" (#hoodQuizModal) - אותו מעטפת כמו המחשבונים, גלולות בפינות מהסולם */
+  .hq-q{margin:0 0 16px}
+  .hq-ql{display:block;margin:0 0 8px;font-size:.86rem;font-weight:800;color:var(--ink-soft)}
+  .hq-ql small{font-weight:600;color:var(--ink-soft)}
+  .hq-q .calc-slider-head{margin-bottom:6px}
+  .hq-q .calc-slider-head .hq-ql{margin:0}
+  .hq-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .hq-chip{font:inherit;font-size:.86rem;font-weight:700;min-height:40px;padding:0 16px;border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--ink-soft);cursor:pointer;transition:border-color .15s ease,background .15s ease}
+  .hq-chip[aria-pressed="true"]{border-color:var(--teal-dark);background:var(--teal-dark);color:#fff}
+  .hq-chip:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+  @media(hover:hover){.hq-chip:hover{border-color:var(--teal-dark)}}
+  .hq-results{margin:20px 0 12px;display:grid;gap:10px}
+  .hq-sum{margin:0;font-size:.92rem;font-weight:800;color:var(--teal-dark)}
+  .hq-sub{margin:-4px 0 2px;font-size:.78rem;color:var(--ink-soft)}
+  .hq-card{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);padding:12px 14px}
+  .hq-card-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .hq-card h4{margin:0;font-size:1.02rem;font-weight:800;color:var(--teal-dark)}
+  .hq-count{flex:none;font-size:.8rem;font-weight:800;color:var(--teal-dark);background:var(--teal-tint);border-radius:999px;padding:3px 10px}
+  .hq-line{margin:6px 0 0;font-size:.86rem;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .hq-note{margin:2px 0 0;font-size:.76rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .hq-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:10px}
+  .hq-show{font:inherit;font-size:.84rem;font-weight:800;min-height:38px;padding:0 16px;border:0;border-radius:999px;background:var(--teal-dark);color:#fff;cursor:pointer}
+  .hq-show:focus-visible,.hq-raise:focus-visible,.hq-about:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+  .hq-about{font-size:.82rem;font-weight:700;color:var(--teal-dark);text-decoration:underline;text-underline-offset:3px}
+  .hq-raise{font:inherit;font-size:.82rem;font-weight:800;min-height:38px;padding:0 14px;border:1.5px solid var(--teal-dark);border-radius:999px;background:transparent;color:var(--teal-dark);cursor:pointer}
+  .hq-empty{margin:0;font-size:.88rem;line-height:1.5;color:var(--ink-soft)}
+  .calc-minq{align-self:center;font:inherit;font-size:.8rem;font-weight:800;color:var(--teal-dark);background:var(--teal-tint);border:1px solid var(--line);border-radius:999px;padding:8px 16px;cursor:pointer}
+  .calc-minq:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+  @media(hover:hover){.calc-minq:hover{border-color:var(--teal)}}
+
   .mlead-intro{font-size:.84rem;color:var(--ink-soft);margin:0 0 14px}
   .mlead-recap{
     background:var(--teal-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;
@@ -2151,7 +2230,6 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.a11y-contrast .a11y-panel,
   html.a11y-contrast header.site,
   html.a11y-contrast .mobile-menu,
-  html.a11y-contrast .menu-tabs,
   html.a11y-contrast .menu-panel,
   html.a11y-contrast .menu-cta,
   html.a11y-contrast .hero,
@@ -2179,8 +2257,6 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.a11y-contrast .footer-seo-links a,
   html.a11y-contrast .footer-social a{background:#000 !important;border:1.5px solid #FFD84D !important;color:#FFD84D !important}
   html.a11y-contrast .footer-social svg{fill:#FFD84D !important}
-  html.a11y-contrast .menu-tabs button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
-  html.a11y-contrast .menu-tabs button[aria-selected="true"]{background:#FFD84D !important;color:#000 !important}
   html.a11y-contrast .dm-bar,
   html.a11y-contrast .dm-tabs{background:#000 !important;border-color:#FFD84D !important}
   html.a11y-contrast .dm-tabs button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
@@ -2311,7 +2387,6 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .nav-drop-menu a{padding:11px 12px;border-radius:9px;font-size:15px;font-weight:600;color:var(--sapphire);white-space:nowrap}
   .nav-drop-menu a:hover,.nav-drop-menu a:focus-visible{background:var(--sky-tint);color:var(--sapphire)}
   @media(prefers-reduced-motion:reduce){ .nav-drop-btn svg{transition:none} }
-  .menu-tabs button[aria-selected="true"]{box-shadow:inset 0 -3px 0 var(--brass),var(--shadow-sm)}
   .menu-gab:empty{display:none}
   .menu-gab{margin-bottom:8px}
   .menu-gab-link{
@@ -3337,12 +3412,12 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   "@context": "https://schema.org",
   "@type": "RealEstateAgent",
   "@id": "https://shuknadlan.co.il/#organization",
-  "name": "שוק הנדל״ן של עפולה והסביבה",
-  "alternateName": "שוק נדל״ן",
+  "name": "שוק נדל״ן",
+  "alternateName": ["שוק הנדל״ן של עפולה והסביבה", "Shuk Nadlan"],
   "url": "https://shuknadlan.co.il/",
   "telephone": "+972546929991",
   "logo": "https://shuknadlan.co.il/assets/logo-shuknadlan-square.png",
-  "description": "כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע בעפולה והעמק בכתובת אחת.",
+  "description": "רשת ארצית של שווקי נדל״ן מקומיים: בכל שוק כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע של האזור בכתובת אחת. השוק הראשון נפתח בעפולה והעמק, והשאר נפתחים משרד אחר משרד.",
   "email": "shuknadlan@gmail.com",
   "address": {
     "@type": "PostalAddress",
@@ -3351,10 +3426,44 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     "addressCountry": "IL"
   },
   "areaServed": [
-    { "@type": "City", "name": "עפולה" },
-    { "@type": "City", "name": "עפולה עילית" },
-    { "@type": "City", "name": "מגדל העמק" },
-    { "@type": "Place", "name": "עמק יזרעאל" }
+    { "@type": "AdministrativeArea", "name": "עפולה והעמק" },
+    { "@type": "AdministrativeArea", "name": "חיפה והסביבה" },
+    { "@type": "AdministrativeArea", "name": "הקריות והסביבה" },
+    { "@type": "AdministrativeArea", "name": "עכו ונהריה" },
+    { "@type": "AdministrativeArea", "name": "כרמיאל ומשגב" },
+    { "@type": "AdministrativeArea", "name": "נוף הגליל ומגדל העמק" },
+    { "@type": "AdministrativeArea", "name": "חדרה והסביבה" },
+    { "@type": "AdministrativeArea", "name": "נתניה והסביבה" },
+    { "@type": "AdministrativeArea", "name": "כפר סבא ורעננה" },
+    { "@type": "AdministrativeArea", "name": "הרצליה ורמת השרון" },
+    { "@type": "AdministrativeArea", "name": "תל אביב-יפו" },
+    { "@type": "AdministrativeArea", "name": "רמת גן וגבעתיים" },
+    { "@type": "AdministrativeArea", "name": "בני ברק ואלעד" },
+    { "@type": "AdministrativeArea", "name": "פתח תקווה וראש העין" },
+    { "@type": "AdministrativeArea", "name": "חולון ובת ים" },
+    { "@type": "AdministrativeArea", "name": "ראשון לציון" },
+    { "@type": "AdministrativeArea", "name": "רחובות ונס ציונה" },
+    { "@type": "AdministrativeArea", "name": "מודיעין והסביבה" },
+    { "@type": "AdministrativeArea", "name": "לוד ורמלה" },
+    { "@type": "AdministrativeArea", "name": "אשדוד והסביבה" },
+    { "@type": "AdministrativeArea", "name": "אשקלון והסביבה" },
+    { "@type": "AdministrativeArea", "name": "קריית גת והסביבה" },
+    { "@type": "AdministrativeArea", "name": "שדרות, נתיבות ואופקים" },
+    { "@type": "AdministrativeArea", "name": "באר שבע והסביבה" },
+    { "@type": "AdministrativeArea", "name": "ירושלים והסביבה" },
+    { "@type": "AdministrativeArea", "name": "בית שמש והסביבה" },
+    { "@type": "AdministrativeArea", "name": "אריאל והשומרון" },
+    { "@type": "AdministrativeArea", "name": "בנימין ומודיעין עילית" },
+    { "@type": "AdministrativeArea", "name": "גוש עציון והר חברון" },
+    { "@type": "AdministrativeArea", "name": "דימונה, ערד וירוחם" },
+    { "@type": "AdministrativeArea", "name": "אילת והסביבה" },
+    { "@type": "AdministrativeArea", "name": "קריית שמונה והגליל העליון" },
+    { "@type": "AdministrativeArea", "name": "צפת, ראש פינה וחצור" },
+    { "@type": "AdministrativeArea", "name": "רמת הגולן וקצרין" },
+    { "@type": "AdministrativeArea", "name": "טבריה והכנרת" },
+    { "@type": "AdministrativeArea", "name": "בית שאן, עמק המעיינות ועמק הירדן" },
+    { "@type": "AdministrativeArea", "name": "יקנעם, רמת ישי והסביבה" },
+    { "@type": "Country", "name": "ישראל" }
   ],
   "sameAs": ["https://www.facebook.com/share/19LytY6L6b/", "https://www.instagram.com/shuknadlan/"]
 }
@@ -3789,6 +3898,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   html.beta-hero .hood-map-open svg{width:18px;height:18px;flex:none}
   html.beta-hero .hood-map-open:hover{background:#0b2257}
   html.beta-hero .hood-map-open:focus-visible{outline:3px solid var(--v10-gold);outline-offset:2px}
+  /* "איזו שכונה מתאימה לי?" - הכפתור המשני מתחת ל"פתיחת מפה מלאה": מתאר ולא מלא */
+  html.beta-hero .hood-map-open.hq-open{margin-top:8px;background:#fff;color:var(--v10-navy);box-shadow:inset 0 0 0 1.5px var(--v10-navy)}
+  html.beta-hero .hood-map-open.hq-open:hover{background:#eef2fb}
   html.beta-hero .hm-pin{position:relative;display:flex;flex-direction:column;align-items:center;background:none;border:0}
   html.beta-hero .hm-pin-logo{display:block;width:27px;height:32px;filter:drop-shadow(0 2px 3px rgba(13,27,61,.3))}
   html.beta-hero .hm-pin-n{position:absolute;bottom:30px;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:#fff;
@@ -4240,48 +4352,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
   <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
-    <div class="menu-tabs" role="tablist" aria-label="קבוצות בתפריט">
-      <button type="button" role="tab" id="menuTabProps" data-menu-tab="props"
-              aria-controls="menuPanelProps" aria-selected="true">נכסים</button>
-      <button type="button" role="tab" id="menuTabPeople" data-menu-tab="people"
-              aria-controls="menuPanelPeople" aria-selected="false">אנשי מקצוע</button>
-      <button type="button" role="tab" id="menuTabTools" data-menu-tab="tools"
-              aria-controls="menuPanelTools" aria-selected="false">כלים ותוכן</button>
-      <button type="button" role="tab" id="menuTabJoin" data-menu-tab="join"
-              aria-controls="menuPanelJoin" aria-selected="false">הצטרפות</button>
-    </div>
-
-    <div class="menu-panel" id="menuPanelProps" role="tabpanel" aria-labelledby="menuTabProps">
-      <a href="#allProps">כל הנכסים</a>
-      <a href="#allProps-private">נכסים פרטיים</a>
-      <a href="#allProps-commercial">נכסים מסחריים</a>
-      <a href="/open-house">יריד הבתים הפתוחים</a>
-      <a href="/projects">פרויקטים חדשים</a>
-      <a href="#heroSection" data-map-open="menu">חיפוש על המפה</a>
-    </div>
-
-    <div class="menu-panel" id="menuPanelPeople" role="tabpanel" aria-labelledby="menuTabPeople" hidden>
-      <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
-      <a href="#dealmakers" data-dm-tab="agents">יועצי נדל״ן</a>
-      <a href="/professionals">בעלי מקצוע</a>
-    </div>
-
-    <div class="menu-panel" id="menuPanelTools" role="tabpanel" aria-labelledby="menuTabTools" hidden>
-      <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
-      <a href="#calc">מחשבון משכנתא</a>
-      <a href="#yield">מחשבון תשואה</a>
-      <a href="#articles">כתבות ובלוגים</a>
-    </div>
-
-    <div class="menu-panel" id="menuPanelJoin" role="tabpanel" aria-labelledby="menuTabJoin" hidden>
-      <a href="/pricing">משרד תיווך - מסלולים ומחירים</a>
-      <a href="/professional-signup">הצטרפות כבעל מקצוע</a>
-      <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
-    </div>
+    <!-- שישה יעדים ראשיים, כל אחד עם שורת הסבר, והשאר מאחורי "עוד" (6.11.2026).
+         לפני כן: ארבע לשוניות ו-16 קישורים בלי הסבר. docs/home-page-sections.md -->
+    <ul class="menu-main">
+      <li><a href="#allProps"><b>כל הנכסים</b><span>למכירה, להשכרה ומסחרי, מכל המשרדים באזור</span></a></li>
+      <li><a href="#heroSection" data-map-open="menu"><b>חיפוש על המפה</b><span>כל נכס במקומו, וגם מה שיש באזורים הסמוכים</span></a></li>
+      <li><a href="#dealmakers" data-dm-tab="agencies"><b>משרדים ויועצי נדל״ן</b><span>מי מטפל בכל נכס, עם דירוג מלקוחות שסגרו עסקה</span></a></li>
+      <li><a href="/sell"><b>חושבים למכור?</b><span>הערכת שווי חינם מיועץ/ת נדל״ן מהאזור</span></a></li>
+      <li><a href="#calc"><b>מחשבון משכנתא</b><span>כמה מזומן צריך להביא וכמה החזר חודשי, לפי מחיר הנכס</span></a></li>
+      <li><a href="/markets"><b>השווקים שלנו</b><span>רשת ארצית של שווקים מקומיים: מה באוויר ומה בדרך</span></a></li>
+    </ul>
+    <details class="menu-more">
+      <summary>עוד</summary>
+      <div class="menu-panel">
+        <a href="#allProps-private">נכסים פרטיים</a>
+        <a href="#allProps-commercial">נכסים מסחריים</a>
+        <a href="/open-house">יריד הבתים הפתוחים</a>
+        <a href="/projects">פרויקטים חדשים</a>
+        <a href="#dealmakers" data-dm-tab="agents">יועצי נדל״ן</a>
+        <a href="/professionals">בעלי מקצוע</a>
+        <a href="#hood-quiz">איזו שכונה מתאימה לי?</a>
+        <a href="#yield">מחשבון תשואה</a>
+        <a href="#articles">כתבות ובלוגים</a>
+        <a href="/pricing">משרד תיווך - מסלולים ומחירים</a>
+        <a href="/professional-signup">הצטרפות כבעל מקצוע</a>
+        <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
+      </div>
+    </details>
 
     <div class="menu-cta">
       <div class="menu-gab" id="menuGab"></div>
-      <a href="/crm" class="btn btn-teal btn-block">כניסת יועצי נדל״ן</a>
+      <a href="/crm" class="btn btn-teal btn-block" id="menuLogin">כניסה לאזור האישי</a>
     </div>
   </nav>
 </header>
@@ -4449,6 +4550,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
             <form class="ss-smart" id="ssSmart" role="search" autocomplete="off">
               <span class="ss-spark" aria-hidden="true">✦</span>
+              <!-- שבב האזור בשורת החיפוש (6.11.2026): ברירת המחדל היא השוק של הדף, ולחיצה פותחת את בורר השווקים (‏city-menu.js, [data-market-menu]). בלי שוק שני הוא מוסתר. -->
+              <button type="button" class="ss-mkt" data-market-menu hidden aria-label="בחירת אזור"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="ss-mkt-l" data-market-label>עפולה והעמק</span><span class="ss-mkt-c" aria-hidden="true">▾</span></button>
               <label class="visually-hidden" for="ssQuery">חיפוש בכתיבה חופשית</label>
               <div class="ss-field">
                 <input id="ssQuery" class="ss-input" type="search" enterkeyhint="search" maxlength="120"
@@ -4538,6 +4641,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="ss-empty-btn" id="ssEmptyBtn" hidden></button>
             </div>
             <p class="ss-note" id="ssNote" aria-live="polite"></p>
+            <!-- מה שפוענח, כשבבים: לחיצה פותחת את הבורר של אותו שדה (‏renderChips ב-sentence-search.js) -->
+            <div class="ss-chips" id="ssChips" hidden></div>
             <!-- ‏P1-P: הצעה לבעלי מקצוע או למודעה לפי מספר - מעל הפירוש הרגיל, בלי מעבר אוטומטי -->
             <div class="ss-suggest" id="ssSuggest" aria-live="polite" hidden></div>
           </div>
@@ -4567,7 +4672,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="gab-disc" aria-hidden="true"></div>
               <picture>
             <source media="(max-width:759px)" srcset="/assets/gabriela-cutout-400.webp" width="400" height="695">
-            <img class="gab-img" src="/assets/gabriela-cutout.webp" width="742" height="1290" alt="" loading="eager" decoding="async">
+            <img class="gab-img" src="/assets/gabriela-cutout.webp" width="742" height="1290" alt="גבריאלה, עוזרת ה-AI של שוק הנדל״ן" loading="eager" decoding="async">
           </picture>
             </div>
           </div>
@@ -5110,7 +5215,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <div class="hood-map-chips" id="hoodMapChips" hidden></div>
-    <p class="hood-map-cta"><button type="button" class="hood-map-open" data-map-open="hood_section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>פתיחת מפה מלאה</button></p>
+    <p class="hood-map-cta"><button type="button" class="hood-map-open" data-map-open="hood_section"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>פתיחת מפה מלאה</button> <button type="button" class="hood-map-open hq-open" data-hood-quiz><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 17h.01"/></svg>איזו שכונה מתאימה לי?</button></p>
   </section>
 
 
@@ -5199,10 +5304,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="dm-head">
         <div>
           <div class="head-line">
-            <h2 id="dealmakersTitle">האנשים מאחורי העסקאות<button
+            <!-- הכפתור מחוץ ל-h2: בתוכו הכותרת נקראה "האנשים מאחורי העסקאותi" -->
+            <h2 id="dealmakersTitle">האנשים מאחורי העסקאות</h2><button
                     type="button" class="info-dot" data-info-id="dealmakers" data-market-aria="data-info"
                     data-info="משרדי התיווך ויועצי הנדל״ן שפועלים בעפולה והעמק, עם הנכסים הפעילים של כל אחד. הרשימות והמונים נטענים מנתוני האתר בכל כניסה לדף."
-                    aria-label="מידע על הסקציה">i</button></h2>
+                    aria-label="מידע על הסקציה">i</button>
           </div>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן ב<span data-market-label>עפולה והעמק</span>, במקום אחד</p>
         </div>
@@ -5473,14 +5579,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 
+  <!-- גיליון הכניסה לפי תפקיד (6.11.2026). ‏#hdrLogin ו-#menuLogin פותחים אותו
+       כשאין סשן; עם סשן הם מובילים ישר ל-CRM. ‏fixed מחוץ ל-hero (הסקיל home-page 2א1). -->
+  <div class="mlead-overlay login-sheet" id="loginSheet" role="dialog" aria-modal="true" aria-labelledby="loginSheetTitle">
+    <div class="filter-modal">
+      <div class="filter-modal-header">
+        <h3 id="loginSheetTitle">כניסה לאזור האישי</h3>
+        <button type="button" class="filter-modal-close" id="loginSheetClose" aria-label="סגירה">✕</button>
+      </div>
+      <div class="filter-modal-body">
+        <p class="mlead-intro">לכל תפקיד אזור משלו. לאן נכנסים?</p>
+        <ul class="login-roles">
+          <li><a href="/crm"><b>יועץ/ת נדל״ן או מנהל/ת משרד</b><span>ה-CRM: הנכסים, הלידים, הלקוחות והפרסום לרשתות</span></a></li>
+          <li><a href="/crm"><b>יועץ/ת משכנתאות</b><span>מדף לידי המשכנתאות והלידים שרכשת</span></a></li>
+          <li><a href="/developer-crm"><b>יזם/ית או קבלן/ית</b><span>הפרויקטים ומשרד המכירות</span></a></li>
+          <li><a href="/professional-manage"><b>בעל/ת מקצוע</b><span>שמאי/ת, עו״ד, אדריכל/ית ובעלי מלאכה: הכרטיס והפניות</span></a></li>
+          <li><a href="/csm"><b>צוות ההדרכה וההטמעה</b><span>אזור ההטמעה</span></a></li>
+        </ul>
+        <p class="login-join">עדיין לא בשוק נדל״ן? <a href="/for-brokers">הצטרפות כמשרד תיווך</a> · <a href="/professional-signup">כבעל/ת מקצוע</a> · <a href="/developer-signup">כיזם/ית</a></p>
+      </div>
+    </div>
+  </div>
+
   <div class="mlead-overlay calc-modal" id="calcModal" role="dialog" aria-modal="true" aria-labelledby="calcModalTitle">
     <div class="filter-modal">
       <div class="filter-modal-header">
-        <h3 id="calcModalTitle">מחשבון משכנתא</h3>
+        <h3 id="calcModalTitle">מחשבון רכישה: מזומן ומשכנתא</h3>
         <button type="button" class="filter-modal-close" id="calcModalClose" aria-label="סגירה">✕</button>
       </div>
       <div class="filter-modal-body">
-        <p class="mlead-intro">מזיזים את הסליידרים ורואים מיד את ההחזר החודשי המשוער.</p>
+        <p class="mlead-intro">מזיזים את הסליידרים ורואים מיד כמה מזומן צריך להביא, וכמה יהיה ההחזר החודשי.</p>
         <div class="card calc-card">
 
           <div class="calc-controls">
@@ -5525,6 +5653,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
           </div>
 
+          <!-- "כמה מזומן צריך להביא" (7.11.2026): הון עצמי + מס רכישה (לפי סוג הרכישה) + עו״ד +
+               תיווך + פתיחת תיק. החישוב והמדרגות ב-assets/purchase-costs.js, משותפים למחשבון
+               של דף הנכס; docs/mortgage-leads.md -->
+          <div class="calc-cash" id="calcCash">
+            <div class="calc-cash-head">
+              <span class="lbl">כמה מזומן צריך להביא?</span>
+              <div class="calc-buyer" role="group" aria-label="סוג הרכישה">
+                <button type="button" data-buyer="single" aria-pressed="true">דירה יחידה</button>
+                <button type="button" data-buyer="extra" aria-pressed="false">דירה נוספת</button>
+              </div>
+            </div>
+            <div class="calc-cash-total"><span id="calcCashTotal">-</span> ₪</div>
+            <ul class="calc-cash-rows">
+              <li><span>הון עצמי</span><b id="cashEquity">-</b></li>
+              <li><span>מס רכישה</span><b id="cashTax">-</b></li>
+              <li><span>עו״ד (0.5% + מע״מ)</span><b id="cashLawyer">-</b></li>
+              <li><span>דמי תיווך (2% + מע״מ)</span><b id="cashBroker">-</b></li>
+              <li id="cashBankRow"><span>פתיחת תיק, שמאי ורישום</span><b id="cashBank">-</b></li>
+            </ul>
+            <p class="calc-cash-fine" id="calcCashFine"></p>
+          </div>
+
           <div class="calc-result">
             <div class="side">
               <div class="ttl">החזר חודשי</div>
@@ -5533,12 +5683,63 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="num" id="calcMonthly">-</div>
           </div>
           <p class="calc-warn" id="calcLtvWarning"></p>
+          <button type="button" class="calc-minq" id="calcMinEquity" hidden></button>
           <button type="button" class="calc-cta" id="mleadOpenBtn">
             <svg viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
             בדיקת זכאות מיידית וייעוץ אישי
           </button>
           <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- "איזו שכונה מתאימה לי?" (7.11.2026): שלוש שאלות והדירוג מתעדכן בזמן אמת. רק עובדות מהמודעות
+       הפעילות (assets/hood-quiz-core.js), בלי טענות על איכות חיים. docs/home-page-sections.md -->
+  <div class="mlead-overlay calc-modal hq-modal" id="hoodQuizModal" role="dialog" aria-modal="true" aria-labelledby="hoodQuizTitle">
+    <div class="filter-modal">
+      <div class="filter-modal-header">
+        <h3 id="hoodQuizTitle">איזו שכונה מתאימה לי?</h3>
+        <button type="button" class="filter-modal-close" id="hoodQuizClose" aria-label="סגירה">✕</button>
+      </div>
+      <div class="filter-modal-body">
+        <p class="mlead-intro">עונים על שלוש שאלות, ורואים איפה יש כרגע נכסים שמתאימים לכם.</p>
+        <div class="hq-q">
+          <span class="hq-ql" id="hqDealLbl">מה מחפשים?</span>
+          <div class="hq-chips" role="group" aria-labelledby="hqDealLbl">
+            <button type="button" class="hq-chip" data-hq-deal="sale" aria-pressed="true">לקנות</button>
+            <button type="button" class="hq-chip" data-hq-deal="rent" aria-pressed="false">לשכור</button>
+          </div>
+        </div>
+        <div class="hq-q">
+          <div class="calc-slider-head">
+            <label class="hq-ql" for="hqBudget" id="hqBudgetLbl">תקציב מקסימלי</label>
+            <span class="val"><span id="hqBudgetOut">-</span></span>
+          </div>
+          <input type="range" class="calc-range" id="hqBudget" min="400000" max="5000000" step="50000" value="1500000" aria-labelledby="hqBudgetLbl">
+        </div>
+        <div class="hq-q">
+          <span class="hq-ql" id="hqRoomsLbl">כמה חדרים?</span>
+          <div class="hq-chips" role="group" aria-labelledby="hqRoomsLbl">
+            <button type="button" class="hq-chip" data-hq-rooms="any" aria-pressed="true">לא משנה</button>
+            <button type="button" class="hq-chip" data-hq-rooms="2" aria-pressed="false">2</button>
+            <button type="button" class="hq-chip" data-hq-rooms="3" aria-pressed="false">3</button>
+            <button type="button" class="hq-chip" data-hq-rooms="4" aria-pressed="false">4</button>
+            <button type="button" class="hq-chip" data-hq-rooms="5" aria-pressed="false">5 ומעלה</button>
+          </div>
+        </div>
+        <div class="hq-q">
+          <span class="hq-ql" id="hqFeatLbl">חייב להיות בנכס <small>(לא חובה)</small></span>
+          <div class="hq-chips" role="group" aria-labelledby="hqFeatLbl">
+            <button type="button" class="hq-chip" data-hq-feat="elevator" aria-pressed="false">מעלית</button>
+            <button type="button" class="hq-chip" data-hq-feat="parking" aria-pressed="false">חניה</button>
+            <button type="button" class="hq-chip" data-hq-feat="mamad" aria-pressed="false">ממ״ד</button>
+            <button type="button" class="hq-chip" data-hq-feat="balcony" aria-pressed="false">מרפסת</button>
+          </div>
+        </div>
+        <p class="visually-hidden" id="hqStatus" role="status" aria-live="polite"></p>
+        <div class="hq-results" id="hqResults" role="region" aria-label="השכונות שמתאימות"></div>
+        <p class="calc-fine">הדירוג לפי המודעות הפעילות באתר עכשיו: כמה נכסים מתאימים ובאילו מחירים. הוא אינו בודק שקט, תחבורה או בתי ספר; כדי להכיר שכונה, היכנסו לדף שלה.</p>
       </div>
     </div>
   </div>
@@ -5799,6 +6000,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -5864,6 +6066,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/pricing">הצטרפות כמשרד תיווך</a>
           <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
         </div>
       </details>
@@ -5994,6 +6198,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/search-core.js"></script>
 <script src="assets/sentence-search.js"></script>
 <script src="assets/owner-wizard.js"></script>
+<script src="assets/purchase-costs.js"></script>
+<script src="assets/hood-quiz-core.js"></script>
 <script src="assets/home.js"></script>
 <script src="assets/likes-bubble.js" defer></script>
 </body>

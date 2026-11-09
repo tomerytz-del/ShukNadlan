@@ -17,7 +17,7 @@ description: שינוי מחיר, מכסה או תקרה בריפו של שוק 
 | 1 | **מה שנגבה** | מיגרציה שמעדכנת את `pricing_config` |
 | 2 | ההצהרה שהבדיקה מצליבה | `PRICES` ב-`scripts/check_pricing.py` |
 | 3 | טבלת ההשוואה | `COMPARE` ב-`pricing.html` |
-| 4 | השאלות הנפוצות | `<details>` ב-`pricing.html` (מנויים, מע״מ, מספר וירטואלי) |
+| 4 | השאלות הנפוצות | `<details>` ב-`pricing.html` (מנויים, מע״מ, מספר וירטואלי), **ועותק זהה** ב-`FAQPage` (JSON-LD) ב-`<head>` של אותו דף. השאלה "מה ההבדל בשקלים" אינה בבלוק, כי התשובה בה מחושבת מ-`pricing_config` בזמן ריצה (`data-calc`) |
 | 5 | הכרטיסים | `features` ו-`priceMonthly` ב-`assets/tiers.js` - גם מסך בחירת המסלול ב-CRM |
 | 6 | השרת | `TIER_PRICES` ב-`supabase/functions/_shared/launch-promo.ts` (מנויים) |
 | 7 | שיתוף וחיפוש | `<meta name="description">` ב-`pricing.html` (מנויים) |

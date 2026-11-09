@@ -33,6 +33,9 @@
         { key: 'shop', label: 'חנויות' },
         { key: 'industry', label: 'מבני תעשייה' },
         { key: 'warehouse', label: 'מחסנים' },
+        /* ‏6.11.2026: סוג משלו (‏PROPERTY_TYPES.logistics בליבה). בדף הבית הצ'יפ
+           יורד מעצמו כשאין בו נכס, כמו כל צ'יפ מסחרי */
+        { key: 'logistics', label: 'מרלו״ג' },
         { key: 'comm_land', label: 'מגרשים מסחריים' },
       ],
     },

@@ -59,6 +59,36 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/for-brokers</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-mortgage-advisor</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-lawyer</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-appraiser</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/join-developer</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/instagram</loc>
     <lastmod>2026-09-30</lastmod>
     <changefreq>daily</changefreq>
@@ -77,10 +107,22 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://shuknadlan.co.il/course</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://shuknadlan.co.il/about</loc>
     <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/markets</loc>
+    <lastmod>2026-11-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://shuknadlan.co.il/faq</loc>
@@ -103,6 +145,12 @@
   <url>
     <loc>https://shuknadlan.co.il/privacy</loc>
     <lastmod>2026-09-15</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://shuknadlan.co.il/delete-account</loc>
+    <lastmod>2026-11-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

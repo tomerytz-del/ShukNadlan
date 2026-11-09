@@ -257,7 +257,7 @@ LIVE_PAGES = (
 )
 
 # דפים שהם אפליקציה ולא דף תוכן — נמדדים מול סף אחר.
-APP_PAGES = ("crm.html", "developer-crm.html", "professional-manage.html")
+APP_PAGES = ("crm.html", "developer-crm.html", "professional-manage.html", "professional-crm.html")
 
 # התורים שהסוכן בודק. ‏(טבלה, עמודת סטטוס, הערכים שנחשבים "ממתין",
 # עמודת הזמן, שם קריא, מה שבור כשזה נתקע).
@@ -298,6 +298,9 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     # טפסי קליטה — הגולש/ת אינו/ה מחובר/ת בהגדרה
     "owner-lead-intake",
     "mortgage-lead-intake",
+    # שאלה לעו"ד מדף הנכס. הגולש אינו מחובר. הליד pending עד אימות טלפון בוואטסאפ; בלם ההצפה ב-lawyer_lead_submit:
+    # 5 לשעה לכתובת, 20 לנכס, 200 לאתר.
+    "lawyer-lead-intake",
     "property-inquiry-intake",
     # לחיצה על וואטסאפ או חיוג בנכס ביריד. הגולש אינו מחובר. אין שם ואין
     # טלפון. ההצפה נעצרת ב-fair_contact_click: כפילות של אותו דפדפן ל-15
@@ -314,6 +317,8 @@ PUBLIC_EDGE_FUNCTIONS = frozenset({
     "agency-signup",
     "developer-signup",
     "professional-signup",
+    # פתיחת חשבון כניסה לבעל מקצוע שכבר נרשם: מוגנת באסימון הכרטיסייה (UUID בגוף הבקשה)
+    "professional-account",
     # שליפות ממרשמים ציבוריים. אין בהן נתון שלנו
     "company-registry-lookup",
     "broker-license-lookup",
@@ -396,8 +401,14 @@ MAKE_SCENARIOS = (
 # נקודת קצה פומבית שאיש אינו צריך. ‏28.9.2026: מתוך תשע שדווחו, שש נכנסו
 # לכאן ושלוש נסגרו (`20270119090000_revoke_anon_private_flags.sql`).
 PUBLIC_RPC = {
+    "course_catalog": "דף המכירה של קורס ההכנה (course.html) - שמות פרקים ושיעורים "
+                      "וספירות בלבד, בלי גוף ובלי שאלות; docs/exam-course.md",
+    "course_has_access": "ה-policy של course_lessons - האם למשתמש/ת המחובר/ת גישה "
+                         "פעילה לקורס; ל-anon תמיד false; docs/exam-course.md",
     "property_map_enabled": "דף הנכס (property.js) - האם להציג מפה מדויקת",
     "property_planning_public": "דף הנכס - נתוני תכנון של נכס פעיל",
+    "property_recent_deals": "דף הנכס (property.js) - עד 5 עסקאות רשמיות מאותו סוג ברדיוס "
+                             "2,000 מ', רחוב בלבד, לנכס פעיל למכירה; 20271106130000, docs/cma.md",
     "property_visualizations_enabled": "דף הנכס - האם להציג הדמיות AI",
     "visualization_job_status": "דף הנכס - מעקב אחרי הדמיה לפי מזהה משימה (uuid)",
     "platform_prior_rating": "ה-view agency_rating_scores - ממוצע ביקורות שפורסמו; "
