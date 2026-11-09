@@ -176,20 +176,20 @@ def main() -> int:
         fail("has_backlog האחרון בסדר הפריסה ישן מהחריץ השמור")
     if "whatsapp_template_cap_digest_kind" not in backlog:
         fail("has_backlog מעיר את הקרון גם כשהמרווח של 8 השעות לא מתקיים")
-    # 20271105180000: השער של ה-cron. בלי החלון הוא מריץ כל פונקציה על כל
+    # 20271109130000: השער של ה-cron. בלי החלון הוא מריץ כל פונקציה על כל
     # התראה שלא נקראה (9,038 ב-5.11.2026) ולוקח שנייה בכל 5 דקות.
-    if version_of(Path(where["public.notification_push_has_backlog"])) >= "20271105180000":
+    if version_of(Path(where["public.notification_push_has_backlog"])) >= "20271109130000":
         if "greatest(n.created_at, n.push_deferred_at) > (select g.since from g)" not in backlog:
             fail("has_backlog האחרון בלי חלון הזמן שלפני הפונקציות")
-        if "notifications_push_window_idx" not in (MIG / "20271105180000_notification_push_gate_window.sql").read_text(encoding="utf-8"):
+        if "notifications_push_window_idx" not in (MIG / "20271109130000_notification_push_gate_window.sql").read_text(encoding="utf-8"):
             fail("חסר האינדקס של חלון השער")
-    if version_of(Path(where["public.notification_push_due_agents"])) >= "20271105180000":
+    if version_of(Path(where["public.notification_push_due_agents"])) >= "20271109130000":
         if "cross join cfg c" not in due or "not c.cap_on" not in due:
             fail("due_agents האחרון קורא את כל היומן או את cap_on לכל שורה")
         if due.count("whatsapp_template_cap_on()") != 1:
             fail("due_agents האחרון קורא ל-whatsapp_template_cap_on() יותר מפעם אחת")
     ambient = final.get("public.notification_push_is_ambient", "")
-    if version_of(Path(where["public.notification_push_is_ambient"])) >= "20271105180000" and "'open_demand'" not in ambient:
+    if version_of(Path(where["public.notification_push_is_ambient"])) >= "20271109130000" and "'open_demand'" not in ambient:
         fail("ביקוש פתוח חזר להעיר תבנית לבד (notification_push_is_ambient)")
     if where["public.notification_send_window_open"] != WIN.name:
         fail("notification_send_window_open נדרס אחרי חלון הלקוחות")

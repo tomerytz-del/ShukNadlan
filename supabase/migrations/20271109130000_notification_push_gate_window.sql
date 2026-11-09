@@ -158,7 +158,7 @@ as $$
            ) as hit_131049
       from public.notification_push_log l
      cross join cfg c
-     -- 20271105180000: רק השורות שמישהו למטה קורא. החלון רחב מכל השוואה
+     -- 20271109130000: רק השורות שמישהו למטה קורא. החלון רחב מכל השוואה
      -- (מרווח, תקציר, מרווח תבנית, 24 שעות, 131049), ולכן התוצאה זהה.
      where l.created_at > pg_catalog.now() - greatest(
              make_interval(hours => greatest(c.hold_hours, 24)),
@@ -241,7 +241,7 @@ as $$
 $$;
 
 comment on function public.notification_push_due_agents() is
-  'גוף 20271030000200. ‏20271105180000: cap_on פעם אחת, ו-recent קורא רק את חלון היומן שמשווים אליו. אותה תוצאה.';
+  'גוף 20271030000200. ‏20271109130000: cap_on פעם אחת, ו-recent קורא רק את חלון היומן שמשווים אליו. אותה תוצאה.';
 
 revoke all on function public.notification_push_due_agents() from public, anon, authenticated;
 grant execute on function public.notification_push_due_agents() to service_role;
@@ -275,7 +275,7 @@ as $$
         where n.agent_id = a.agent_id
           and not n.read
           and not n.suppress_push
-          -- 20271105180000: חלון גס וזול לפני כל קריאה לפונקציה, על האינדקס
+          -- 20271109130000: חלון גס וזול לפני כל קריאה לפונקציה, על האינדקס
           -- notifications_push_window_idx. ‏greatest אינו קטן מ-coalesce של
           -- הענף הראשון ולא מ-created_at של השני, ולכן אינו משנה את התוצאה.
           and greatest(n.created_at, n.push_deferred_at) > (select g.since from g)
@@ -354,7 +354,7 @@ as $$
 $$;
 
 comment on function public.notification_push_has_backlog(boolean) is
-  'פריט תקרה מעיר את הקרון בחלון תקציר רק אם מותרת תבנית: חריץ רגיל, או החריץ השמור אחרי 8 שעות, או טקסט בחלון 24 השעות. ‏20271105180000: חלון זמן על notifications_push_window_idx לפני הפונקציות.';
+  'פריט תקרה מעיר את הקרון בחלון תקציר רק אם מותרת תבנית: חריץ רגיל, או החריץ השמור אחרי 8 שעות, או טקסט בחלון 24 השעות. ‏20271109130000: חלון זמן על notifications_push_window_idx לפני הפונקציות.';
 
 revoke all on function public.notification_push_has_backlog(boolean) from public, anon, authenticated;
 grant execute on function public.notification_push_has_backlog(boolean) to service_role;
@@ -379,7 +379,7 @@ as $$
 $$;
 
 comment on function public.notification_push_is_ambient(text, uuid, uuid) is
-  'התראת רקע (שיתוף נכס ממשרד אחר, נרשם/ת חדש/ה, ביקוש פתוח): לא מעירה שליחה בוואטסאפ לבד, אלא מצטרפת להודעה הבאה או לתקציר (20270420090000, ביקוש פתוח מ-20271105180000).';
+  'התראת רקע (שיתוף נכס ממשרד אחר, נרשם/ת חדש/ה, ביקוש פתוח): לא מעירה שליחה בוואטסאפ לבד, אלא מצטרפת להודעה הבאה או לתקציר (20270420090000, ביקוש פתוח מ-20271109130000).';
 
 revoke all on function public.notification_push_is_ambient(text, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.notification_push_is_ambient(text, uuid, uuid) to service_role;
