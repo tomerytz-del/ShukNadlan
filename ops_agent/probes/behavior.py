@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import re
 
 from typing import Iterator
 
@@ -874,21 +875,39 @@ def _deal_sync_cycle(ctx) -> Iterator[Finding]:
     כדי שהעיר החדשה בשוק לא תצעק ביום הראשון.
     """
     if not (ctx.db.has_table("deal_settlements")
-            and ctx.db.has_column("deal_settlements", "last_attempt_at")):
+            and ctx.db.has_column("deal_settlements", "last_attempt_at")
+            and ctx.db.has_column("deal_settlements", "fail_streak")):
         return
     rows = ctx.db.rows(
         """
         -- deal_sync:cycle
-        select count(*) filter (where s.active and (
+        select count(*) filter (where s.active and not (
+                   s.last_synced_at is null and s.last_status like 'שגיאה:%%')
+                 and (
                  (s.last_synced_at is null and s.created_at < now() - make_interval(days => %s))
                  or s.last_synced_at < now() - make_interval(days => s.sync_every_days + %s)))
                                                                          as overdue,
-               count(*) filter (where s.active and s.last_status like 'שגיאה:%%') as failing,
+               count(*) filter (where s.active and s.last_synced_at is not null
+                                  and s.last_status like 'שגיאה:%%')  as failing,
+               count(*) filter (where s.active and s.last_synced_at is null
+                                  and s.last_status like 'שגיאה:%%')  as no_data,
+               count(*) filter (where s.active and s.last_synced_at is null
+                                  and s.last_status like 'שגיאה:%%'
+                                  and s.fail_streak >= 2)                as no_data_paused,
+               (select coalesce(jsonb_agg(e order by e.n desc), '[]'::jsonb) from (
+                  select x.last_status as status, count(*) as n,
+                         array_agg(x.name order by x.name) as names
+                    from public.deal_settlements x
+                   where x.active and x.last_synced_at is null
+                     and x.last_status like 'שגיאה:%%'
+                   group by 1) e)                                       as no_data_top,
                count(*) filter (where s.active)                          as active,
                max(s.last_synced_at)                                     as last_ok,
                extract(day from now() - max(s.last_synced_at))::int      as last_ok_days,
                (array_agg(s.name order by coalesce(s.last_synced_at, s.created_at))
-                  filter (where s.active))[1:5]                         as oldest
+                  filter (where s.active and not (
+                    s.last_synced_at is null and s.last_status like 'שגיאה:%%')))[1:5]
+                                                                         as oldest
           from public.deal_settlements s
         """,
         (DEAL_SYNC_GRACE_DAYS, DEAL_SYNC_GRACE_DAYS),
@@ -897,6 +916,7 @@ def _deal_sync_cycle(ctx) -> Iterator[Finding]:
         return
     r = rows[0]
     ctx.count()
+    yield from _deal_sync_no_data(r)
     overdue = int(r.get("overdue") or 0)
     if not overdue:
         return
@@ -928,12 +948,110 @@ def _deal_sync_cycle(ctx) -> Iterator[Finding]:
         title="‏%d יישובים חורגים ממחזור העדכון של העסקאות%s"
               % (overdue, " - %d מהם נכשלים" % failing if failing else ""),
         detail="המחזור רץ, אבל לא מגיע לכולם: המנה של deal_sync_plan קטנה מכמות "
-               "הממתינים, או שיישובים נכשלים שוב ושוב ויורדים לסוף התור.",
+               "הממתינים, או שיישובים שכבר עודכנו בעבר התחילו להיכשל. (יישוב שלא "
+               "נמשך מעולם ונכשל אינו נספר כאן - הוא בממצא deal_sync_no_data.)",
         suggestion="ב-CRM, יישובים לעסקאות: לסנן \"רק ממתינים\" ולבדוק את עמודת המצב. "
                    "שגיאה שחוזרת - שם היישוב ב-GovMap שונה מהשם ברשימה, או יישוב "
                    "שאינו קיים שם (לכבות אותו). אחרת - להריץ שוב עד ש-due_total מגיע ל-0.",
         metric=overdue, metric_unit="יישובים", evidence=evidence,
     )
+
+
+# ‏הסוכן מדווח כישלון בטקסט חופשי (‏`deal_sync_fail(name, error)`), ולכן
+# הסיווג לפי מילים. סדר הבדיקה הוא חלק מהכלל: "בחיפוש ... מופיע רק X -
+# יישוב אחר" הוא שם, לא עיר אחרת. הקידומות `שם:` / `עיר אחרת:` / `אין נתונים:`
+# הן מה שהסקיל של הסוכן מבקש מעכשיו (‏docs/agent-skills/govmap-deals-sync),
+# והמילים הן לדיווחים שנכתבו לפני כן. נבדק על 33 הנוסחים האמיתיים של
+# ‏2.11.2026 ב-scripts/ops_deal_sync_test.py.
+_FAIL_NAME = re.compile(r"שגיאה:\s*שם:|לא נמצא בחיפוש|בחיפוש של|מופיע כ")
+_FAIL_OTHER_CITY = re.compile(
+    r"שגיאה:\s*עיר אחרת:|עסקאות של|עיר אחרת|שייכת לרשימה של|מציגה עסקאות|"
+    r"מציגות רחובות של|לא ניתן לשייך|מכל הארץ|הרשימה הכללית|דלי כללי")
+
+
+def _deal_fail_kind(status: str) -> str:
+    """‏'name' (השם שגוי), ‏'other_city' (הגיעו עסקאות של מקום אחר), או 'no_data'."""
+    status = status or ""
+    if _FAIL_NAME.search(status):
+        return "name"
+    if _FAIL_OTHER_CITY.search(status):
+        return "other_city"
+    return "no_data"
+
+
+_DEAL_FAIL_KINDS = (
+    # (סוג, code, severity, subject, כותרת, מה לעשות)
+    ("name", "deal_sync_name_mismatch", "low", "deals:name_mismatch",
+     "‏%d יישובים שהשם שלהם לא נמצא בחיפוש של GovMap",
+     "השם ברשימה שונה מהשם ב-GovMap (כתיב, \"כפר\" בראש השם, שם ישן). ב-CRM, "
+     "יישובים לעסקאות: לתקן את השם לשם שמופיע בחיפוש של GovMap - הוא נכתב גם "
+     "ל-market_deals_official.city. יישוב שאינו קיים שם - לכבות. אחרי התיקון "
+     "הוא חוזר לתור ב\"עדכן עסקאות\" הבא."),
+    ("other_city", "deal_sync_other_city", "info", "deals:other_city",
+     "‏%d יישובים ש-GovMap החזיר להם עסקאות של מקום אחר",
+     "הסוכן צדק שלא כתב: החלקה שבתחום היישוב שייכת ברשימה של GovMap ליישוב "
+     "אחר, או שחזרה הרשימה הכללית של 1,500 עסקאות מכל הארץ. אין מה לתקן כאן - "
+     "העסקאות שלהם, אם יש, נספרות ביישוב השכן. אפשר לכבות אותם."),
+    ("no_data", "deal_sync_no_data", "info", "deals:no_data",
+     "‏%d יישובים שאין להם עסקאות ביישוב ב-GovMap",
+     "ל-GovMap אין להם פוליגון, חלקות עם עסקאות או לשונית \"עסקאות ביישוב\" - "
+     "בדרך כלל כפרים, קיבוצים ויישובים קטנים. ניסיון חוזר מחזיר אותה תשובה, "
+     "ו-deal_sync_plan כבר משהה אותם. אפשר לכבות אותם ב-CRM, יישובים לעסקאות, "
+     "או להשאיר להשהיה."),
+)
+
+
+def _deal_sync_no_data(r) -> Iterator[Finding]:
+    """יישובים שלא נמשכו מעולם, והסוכן דיווח עליהם כישלון - לפי סוג השגיאה.
+
+    ‏**זה אינו "המחזור לא מגיע אליהם".** ‏2.11.2026: ‏249 יישובים נספרו
+    ב-`deal_sync_overdue` כ"חורגים ממחזור העדכון - 249 מהם נכשלים", וכולם
+    היו יישובים שהסוכן **הגיע** אליהם. הממצא הישן לא היה יכול להיסגר בשום
+    פעולה של הסוכן - בדיוק "המדד שמודד משהו אחר ממה שהכותרת טוענת"
+    (CLAUDE.md, *מדידה*). ‏`deal_sync_plan` כבר משהה אותם לבד (‏`fail_streak`).
+
+    ‏**ושלוש שגיאות, שלוש פעולות שונות - ולכן שלושה ממצאים:**
+      ‏· deal_sync_name_mismatch (נמוך) - השם לא נמצא בחיפוש. היחיד שיש בו
+        תיקון: לשנות את השם ברשימה. ממצא שמתערבב עם 230 כפרים בלי נתונים
+        הוא ממצא שאיש לא יקרא עד השורה החמש-עשרה.
+      ‏· deal_sync_other_city (מידע) - GovMap החזיר עסקאות של מקום אחר, והסוכן
+        צדק שלא כתב.
+      ‏· deal_sync_no_data (מידע) - ל-GovMap אין נתונים ליישוב.
+    יישוב שכבר עודכן בעבר והתחיל להיכשל נשאר ב-`deal_sync_overdue`, כי שם
+    משהו **השתנה** - וזה גם מה שייראה כש-GovMap ישנה ממשק.
+    """
+    if not int(r.get("no_data") or 0):
+        return
+    paused = int(r.get("no_data_paused") or 0)
+    groups: dict[str, dict] = {}
+    for t in r.get("no_data_top") or []:
+        g = groups.setdefault(_deal_fail_kind(t.get("status")),
+                              {"n": 0, "names": [], "statuses": []})
+        n = int(t.get("n") or 0)
+        g["n"] += n
+        g["names"] += list(t.get("names") or [])
+        g["statuses"].append({"status": (t.get("status") or "")[:120], "n": n})
+    for kind, code, severity, subject, title, suggestion in _DEAL_FAIL_KINDS:
+        g = groups.get(kind)
+        if not g or not g["n"]:
+            continue
+        names = sorted(g["names"])
+        detail = "הסוכן הגיע אליהם ודיווח כישלון, ואף אחד מהם לא נמשך מעולם. "
+        if kind == "name":
+            detail += "היישובים: %s." % ", ".join(names[:30])
+        else:
+            detail += "הסיבה הנפוצה: %s (%d)." % (
+                g["statuses"][0]["status"], g["statuses"][0]["n"])
+        yield Finding(
+            area="health", code=code, severity=severity, subject=subject,
+            title=title % g["n"],
+            detail=detail,
+            suggestion=suggestion + " ‏docs/settlement-deals.md.",
+            metric=float(g["n"]), metric_unit="יישובים",
+            evidence={"count": g["n"], "names": names[:60],
+                      "statuses": g["statuses"][:8],
+                      "paused_all_kinds": paused},
+        )
 
 
 def _market_data(ctx) -> Iterator[Finding]:

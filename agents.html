@@ -10,14 +10,24 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<script src="assets/text-match.js" defer></script>
 <!-- השוק הפעיל, והכלל "מה שייך אליו": הרשימה מציגה את מתווכי השוק בלבד.
      docs/regional-pages.md -->
 <script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/dm-filters.js" defer></script>
+<!-- אותו דגל כמו בדף הבית: ברירת המחדל דלוקה, ?beta=0 מכבה. שורות הסינון
+     בטלפון מוסתרות מהציור הראשון, כמו ש-dm-filters עושה אחרי הטעינה. -->
+<script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
+if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
+try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
+if(on)document.documentElement.classList.add('beta-hero');})();</script>
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>כל המתווכים בשוק הנדל״ן</title>
+<title>יועצי נדל״ן בעפולה - פרופילים אישיים ודירוגים | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
@@ -51,10 +61,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="כל המתווכים והמתווכות בעפולה והסביבה בעמוד אחד - חיפוש לפי שם, משרד תיווך, תחום התמחות ודירוג כוכבים, עם מעבר ישיר לעמוד האישי ולוואטסאפ.">
+<meta name="twitter:title" content="יועצי נדל״ן בעפולה - פרופילים אישיים ודירוגים | שוק נדל״ן">
+<meta name="description" content="יועצי נדל״ן ומתווכים בעפולה והסביבה בעמוד אחד - חיפוש לפי שם, משרד תיווך, תחום התמחות ודירוג כוכבים, עם מעבר ישיר לעמוד האישי ולוואטסאפ.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="כל המתווכים בשוק הנדל״ן">
-<meta property="og:description" content="כל המתווכים והמתווכות בעפולה והסביבה - דירוגי לקוחות, תחומי התמחות ומספר הנכסים הפעילים של כל אחד ואחת.">
+<meta property="og:title" content="יועצי נדל״ן בעפולה - פרופילים אישיים ודירוגים | שוק נדל״ן">
+<meta property="og:description" content="יועצי נדל״ן ומתווכים בעפולה והסביבה - דירוגי לקוחות, תחומי התמחות ומספר הנכסים הפעילים של כל יועץ נדל״ן.">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
@@ -85,6 +96,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
   a{color:inherit;text-decoration:none}
+  a.fb-platform{font-weight:700;text-decoration:underline;text-underline-offset:3px}
   img{max-width:100%;display:block}
   button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
   input{font-family:inherit;font-size:1rem;min-width:0}
@@ -335,6 +347,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .join-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 
   /* ====== Footer (זהה לשאר הדפים) ====== */
+  /* ‏P1-U1 (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0) */
+  /* ‏R8: עיצוב הסינון ב-assets/filter-ui.css (נטען מ-dm-filters.js); כאן רק מה ששייך לדף */
+  .dmf-on > :not(#dmfEmpty){display:none}
+  .adv-sel{min-height:44px;max-width:100%;padding:0 12px;border:1.5px solid #0e2a6b;border-radius:999px;background:#fff;color:#0e2a6b;font:700 14px Heebo,system-ui,sans-serif;cursor:pointer}
+  .adv-sel:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+  .dmf-sbody-x .adv-sel{width:100%;border-radius:12px}
+  @media (max-width:759px){ .toolbar.has-dmf .rate-row,.toolbar.has-dmf #agencyRow{display:none} .dmf-sbody-x .rate-row,.dmf-sbody-x #agencyRow{display:flex !important} }
+  /* אותן שורות, כבר בציור הראשון: אחרת הן נעלמות אחרי שהרשימה מגיעה
+     והסרגל מתקצר. בגיליון הן חוזרות, כמו הכלל שלמעלה. */
+  @media (max-width:759px){
+    html.beta-hero .toolbar .rate-row,
+    html.beta-hero .toolbar #agencyRow{display:none}
+    html.beta-hero .dmf-sbody-x .rate-row,
+    html.beta-hero .dmf-sbody-x #agencyRow{display:flex !important}
+  }
+  /* הבאנר שבפוטר עמד במסך ונדחף למטה כשהרשימה נכנסה. הסרגל בגובהו
+     הסופי כבר מההתחלה, והרשימה יושבת במקום שמור מתחתיו. */
+  #listStage{min-height:100svh}
+  #toolbar{min-height:288px}
+  @media(min-width:900px){#toolbar{min-height:512px}}
+  #gridHost{position:relative}
+  #gridHost > #loadingState{position:absolute;inset-inline:0;top:0;width:100%;margin:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -367,23 +401,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="wrap">
 
     <div class="hero">
-      <p class="eyebrow">מתווכי נדל״ן</p>
-      <h1>כל המתווכים והמתווכות בעפולה והסביבה</h1>
-      <p class="lede">מחפשים מתווך באזור? כל <a href="/afula/מתווכים">המתווכים בעפולה</a> מרוכזים בעמוד אחד, עם דירוגים, תחומי התמחות ומעבר ישיר לוואטסאפ.</p>
+      <p class="eyebrow">יועצי נדל״ן</p>
+      <h1>כל יועצי הנדל״ן בעפולה והסביבה</h1>
+      <p class="lede">מחפשים יועץ נדל״ן באזור? כל <a href="/afula/מתווכים">יועצי הנדל״ן בעפולה</a> מרוכזים בעמוד אחד, עם דירוגים, תחומי התמחות ומעבר ישיר לוואטסאפ.</p>
       <p class="lede">חפשו לפי שם, לפי משרד התיווך, לפי תחום התמחות או לפי דירוג הכוכבים שקיבלו מלקוחות</p>
+      <p class="lede"><a class="fb-platform" href="/for-brokers">פלטפורמה למתווכים</a> · <a href="/agency-signup">הצטרפות כמשרד תיווך</a></p>
     </div>
 
     <!-- ====== סרגל חיפוש, סינון ומיון ====== -->
-    <div class="toolbar" id="toolbar" hidden>
+    <div id="listStage">
+    <div class="toolbar" id="toolbar">
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
         </svg>
         <input type="search" id="agentSearch" placeholder="חיפוש לפי שם, שם משרד או תחום התמחות…"
-               aria-label="חיפוש לפי שם מתווך/ת, שם משרד או תחום התמחות" autocomplete="off">
+               aria-label="חיפוש לפי שם יועץ נדל״ן, שם משרד או תחום התמחות" autocomplete="off">
       </div>
 
-      <div class="tool-row">
+      <div class="tool-row" id="agencyRow">
         <span class="tool-label" id="agencyLabel">משרד</span>
         <div class="pill-group" id="agencyPills" role="group" aria-labelledby="agencyLabel"></div>
       </div>
@@ -393,7 +429,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="pill-group" id="specPills" role="group" aria-labelledby="specLabel"></div>
       </div>
 
-      <div class="tool-row">
+      <div class="tool-row rate-row">
         <span class="tool-label" id="rateLabel">דירוג</span>
         <div class="pill-group" id="ratePills" role="group" aria-labelledby="rateLabel"></div>
       </div>
@@ -408,33 +444,38 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="result-count" id="resultCount" aria-live="polite"></p>
     </div>
 
-    <div class="state" id="loadingState">טוען את רשימת המתווכים…</div>
+    <div id="gridHost">
+    <div class="state" id="loadingState">טוען את רשימת יועצי הנדל״ן…</div>
 
     <div class="state" id="emptyState" hidden>
-      <h2>אין כאן מתווכים עדיין</h2>
+      <h2>אין כאן יועצי נדל״ן עדיין</h2>
       <p>הפלטפורמה בהרצה. בינתיים אפשר לחזור לדף הבית ולראות מה חדש בשוק.</p>
       <a href="/" class="btn btn-teal" style="margin-top:16px">לדף הבית</a>
     </div>
 
     <div class="state" id="noResultsState" hidden>
-      <h2>לא נמצא מתווך/ת מתאים/ה</h2>
+      <h2>לא נמצאו יועצי נדל״ן מתאימים</h2>
       <p>נסו שם אחר, משרד אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
       <button type="button" class="btn btn-ghost" id="noResultsReset" style="margin-top:16px">איפוס הסינון</button>
+      <div id="dmfEmpty" hidden></div>
     </div>
 
     <div class="grid" id="agentsGrid"></div>
+    </div>
 
     <section class="join-band" id="joinBand" hidden>
-      <h2>מתווכים ומתווכות - רוצים עמוד משלכם?</h2>
+      <h2>יועצי נדל״ן - רוצים עמוד משלכם?</h2>
       <p>
-        כרטיס מתווך/ת נפתח דרך משרד התיווך: אם המשרד שלכם כבר בפלטפורמה, בקשו
-        מהמנהל/ת לצרף אתכם לצוות, ואם עוד לא - זו נקודת ההתחלה.
+        כרטיס יועץ נדל״ן נפתח דרך משרד התיווך: אם המשרד שלכם כבר בפלטפורמה, בקשו
+        מהנהלת המשרד לצרף אתכם לצוות, ואם עוד לא - זו נקודת ההתחלה.
       </p>
       <div class="join-actions">
         <a href="/agency-signup" class="btn btn-teal">הצטרפות כמשרד תיווך</a>
-        <a href="/crm" class="btn btn-ghost">כניסת מתווכים</a>
+        <a href="/for-brokers" class="btn btn-ghost">פלטפורמה למתווכים</a>
+        <a href="/crm" class="btn btn-ghost">כניסת יועצי נדל״ן</a>
       </div>
     </section>
+    </div>
   </div>
 </main>
 
@@ -611,7 +652,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
               <label class="buy-check" for="buyConsent">
                 <input type="checkbox" id="buyConsent">
-                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+                <span>אשמח שיועצי נדל״ן מהאזור יפנו אליי עם נכסים מתאימים</span>
               </label>
 
               <p class="wiz-err" id="buyErr3"></p>
@@ -643,7 +684,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -696,6 +738,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="/#calc">מחשבון משכנתא</a>
           <a href="/#yield">מחשבון תשואה</a>
+          <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
           <a href="/#heroSection">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
@@ -704,7 +747,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>בעלי מקצוע</h4></summary>
         <div class="footer-col-links">
           <a href="/agencies">כל משרדי התיווך</a>
-          <a href="/agents">כל המתווכים</a>
+          <a href="/agents">כל יועצי הנדל״ן</a>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
@@ -717,8 +760,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </nav>
@@ -749,10 +794,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
-      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+      <a href="/agents">יועצי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+  <nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only aria-label="חיפושים פופולריים">
+    <h4>חיפושים פופולריים</h4>
+    <div class="footer-seo-links">
+      <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
+      <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נדל״ן מסחרי בעפולה</a>
+      <a href="/emek-yizrael/בתים-ומגרשים">בתים ומגרשים ביישובי עמק יזרעאל</a>
+    </div>
+  </nav>
+
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
@@ -783,6 +839,17 @@ function safeUrl(u){
     return /^https?:$/.test(url.protocol) ? url.href : '';
   } catch(e){ return ''; }
 }
+/* תמונת הפרופיל של הכרטיס הראשון היא ה-LCP בטלפון. קובץ מלא מהאחסון
+   (מאות KB) מתחלף ב-render/image; כתובת אחרת נשארת כמו שהיא. */
+function photoSrc(u){
+  const s = safeUrl(u);
+  const mark = '/storage/v1/object/public/';
+  const at = s.indexOf(mark);
+  if (at < 0) return s;
+  const path = s.slice(at + mark.length).split(/[?#]/)[0];
+  if (!path) return s;
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=640&quality=60';
+}
 /* ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
    מצפים לו. הבדיקה היא גם שער אבטחה: המספר נכנס ל-href. */
 const PHONE_RE = /^\d{9,15}$/;
@@ -806,7 +873,7 @@ const ETHICS_BADGE_MINI =
 function waLink(phone, name){
   const text = [
     'היי' + (name ? ' ' + name : '') + ',',
-    'הגעתי דרך רשימת המתווכים בשוק הנדל״ן של עפולה והסביבה ואשמח להתייעץ לגבי נכס.',
+    'הגעתי דרך רשימת יועצי הנדל״ן בשוק הנדל״ן של עפולה והסביבה ואשמח להתייעץ לגבי נכס.',
     window.location.href,
   ].join('\n');
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
@@ -820,6 +887,8 @@ let agencyOptions = [];   // [{key, label}] — נבנה מהמתווכים שנ
 let specOptions = [];     // [{key, label}] — תחומי ההתמחות שהוקלדו ב-CRM
 let filters = { query:'', agency:'all', spec:'all', rate:'all' };
 let sortMode = 'rating';
+let dmf = null;             // ‏P1-U1: התמחות ואזור מהנכסים (‏assets/dm-filters.js, בעיצוב v10 - כבוי ב-?beta=0)
+let allProps = [];
 
 /* מדרגות הדירוג. "עם ביקורות" הוא לא סף אלא שאלה אחרת לגמרי — "הראו לי רק
    מי שכבר יש עליו/ה מה לומר" — ולכן הוא גלולה בפני עצמה ולא ערך של 0.1. */
@@ -872,8 +941,10 @@ function assignRankBadges(list){
    ============================================================================ */
 function matchesQuery(a, q){
   if (!q) return true;
-  return [a.display_name, a.agency_name, a.service_area, ...a.specialties]
-    .some(v => String(v || '').toLowerCase().includes(q));
+  const fields = [a.display_name, a.agency_name, a.service_area, ...a.specialties, a._dmWords];
+  // גרשיים ומקף לא קובעים, וכל מילה בכל סדר ובכל שדה (assets/text-match.js)
+  if (window.TextMatch) return TextMatch.matches(fields, q);
+  return fields.some(v => String(v || '').toLowerCase().includes(q));
 }
 const matchesAgency = (a, key) => key === 'all' || a.agency_id === key;
 const matchesSpec = (a, key) => key === 'all' || a.specialties.some(s => s === key);
@@ -890,10 +961,11 @@ function passes(a, f, except){
   return Object.keys(TESTS).every(k => k === except || TESTS[k](a, f));
 }
 function visibleAgents(){
-  return agents.filter(a => passes(a, filters)).sort(COMPARE[sortMode]);
+  const list = agents.filter(a => passes(a, filters)).sort(COMPARE[sortMode]);
+  return dmf ? dmf.apply(list, byName) : list;
 }
 const isFiltered = ()=> !!filters.query.trim() || filters.agency !== 'all' ||
-  filters.spec !== 'all' || filters.rate !== 'all';
+  filters.spec !== 'all' || filters.rate !== 'all' || !!(dmf && dmf.active());
 
 /* ============================================================================
    רכיב הכרטיס
@@ -904,8 +976,8 @@ function starsHtml(rating){
                 ><i style="width:${pct.toFixed(1)}%"></i></span>`;
 }
 
-function agentCardHtml(a){
-  const name = a.display_name || 'מתווך/ת';
+function agentCardHtml(a, eager){
+  const name = a.display_name || 'יועץ נדל״ן';
   // agent.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן לקשר,
   // ולכן הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
   const key = a.slug || a.id;
@@ -914,15 +986,17 @@ function agentCardHtml(a){
   // נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM. הערך נכנס ל-CSS ולכן נבדק כאן
   // בדיוק כפי שהוא נבדק ב-DB: שני אחוזים ותו לא.
   const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
-  const photo = safeUrl(a.photo_url);
+  const photo = photoSrc(a.photo_url);
   const media = photo
-    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(name)}" loading="lazy"
+    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(name)}"
+            ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}
+            width="640" height="800"
             ${focus ? `style="--photo-pos:${escapeHtml(focus)}"` : ''} onerror="this.remove()">`
     : '';
 
   const rank = a.rankBadge ? `<span class="ag-overlay ag-rank">#${a.rankBadge}</span>` : '';
   const badge = a.has_ethics_badge ? ETHICS_BADGE_MINI : '';
-  const propsLabel = a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים';
+  const propsLabel = a.dmText != null ? escapeHtml(a.dmText) : a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים';
 
   const rating = a.rating !== null
     ? `${starsHtml(a.rating)}
@@ -960,7 +1034,7 @@ function agentCardHtml(a){
       <div class="ag-media">
         <span class="ag-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || 'מ')}</span>
         ${media}${rank}${badge}
-        <span class="ag-overlay ag-count"><b>${a.active_properties_count}</b> ${propsLabel}</span>
+        <span class="ag-overlay ag-count">${a.dmText != null && !a.dmN ? '' : `<b>${a.dmText != null ? a.dmN : a.active_properties_count}</b> `}${propsLabel}</span>
       </div>
       <div class="ag-body">
         <h2 class="ag-name">${escapeHtml(name)}</h2>
@@ -971,7 +1045,7 @@ function agentCardHtml(a){
       </div>
       <div class="ag-actions">
         ${href
-          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד המתווך/ת</a>`
+          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד יועץ הנדל״ן</a>`
           : '<span class="ag-cta is-static">העמוד האישי בהכנה</span>'}
         ${contact}
       </div>
@@ -982,7 +1056,7 @@ function agentCardHtml(a){
    רינדור
    ============================================================================ */
 function renderCounts(list){
-  const many = n => n === 1 ? 'מתווך/ת אחד/ת' : n + ' מתווכים';
+  const many = n => n === 1 ? 'יועץ נדל״ן אחד' : n + ' יועצי נדל״ן';
   el('resultCount').innerHTML = list.length
     ? (isFiltered()
         ? `${escapeHtml(many(list.length))} מתוך ${agents.length} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`
@@ -994,7 +1068,8 @@ function renderCounts(list){
   // המונה שעל כל גלולה נספר מול שאר הסינונים הפעילים ולא מול הסינון שהיא
   // עצמה שייכת לו — אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
   countPills('agencyPills', 'agency', (a, key)=> matchesAgency(a, key));
-  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));
+  syncOfficeSelect();
+  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));   // ‏null בעיצוב v10 - ראו mountDm
   countPills('ratePills',   'rate',   (a, key)=> matchesRate(a, key));
 }
 
@@ -1016,8 +1091,14 @@ function render(){
   const list = visibleAgents();
   renderCounts(list);
   el('noResultsState').hidden = list.length > 0;
+  if (dmf){
+    dmf.after(list);
+    el('dmfEmpty').hidden = !dmf.active();
+    el('noResultsState').classList.toggle('dmf-on', dmf.active());
+    el('dmfEmpty').innerHTML = dmf.active() ? dmf.emptyHtml() : '';
+  }
   el('agentsGrid').hidden = !list.length;
-  el('agentsGrid').innerHTML = list.map(agentCardHtml).join('');
+  el('agentsGrid').innerHTML = list.map((a, i) => agentCardHtml(a, i === 0)).join('');
 }
 
 /* ============================================================================
@@ -1068,8 +1149,10 @@ function resetFilters(){
   filters = { query:'', agency:'all', spec:'all', rate:'all' };
   el('agentSearch').value = '';
   syncPills(el('agencyPills'), 'all');
-  syncPills(el('specPills'), 'all');
+  if (officeSel) officeSel.value = 'all';
+  if (el('specPills')) syncPills(el('specPills'), 'all');
   syncPills(el('ratePills'), 'all');
+  if (dmf && dmf.active()){ dmf.clear('all'); return; }
   render();
   el('toolbar').scrollIntoView({ block:'start', behavior:'smooth' });
 }
@@ -1140,7 +1223,7 @@ async function loadMembers(sb){
   for (const fields of MEMBER_TIERS){
     const { data, error } = await sb.from('agency_members_public').select(fields).limit(500);
     if (!error) return data || [];
-    console.warn('טעינת המתווכים בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
+    console.warn('טעינת יועצי הנדל״ן בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
   }
   return [];
 }
@@ -1236,10 +1319,66 @@ function applyDeepLink(){
   }
 }
 
+/* ‏dm-filters.js נטען defer, והוא רץ לפני DOMContentLoaded - הרשימה ממתינה לו רק בטעינה מהירה מהרשת */
+function whenDm(fn){
+  if (window.DmFilters) fn();
+  else document.addEventListener('DOMContentLoaded', fn, { once:true });
+}
+/* ‏R8: 32 גלולות משרד דחקו את הסינון מתחת למסך הראשון בטלפון - ב-beta בורר אחד */
+let officeSel = null;
+function mountOfficeSelect(){
+  const row = el('agencyRow');
+  if (!row || officeSel) return;
+  officeSel = document.createElement('select');
+  officeSel.className = 'adv-sel';
+  officeSel.id = 'agencySelect';
+  officeSel.setAttribute('aria-labelledby', 'agencyLabel');
+  officeSel.innerHTML = '<option value="all"></option>' + agencyOptions.map(o => `<option value="${escapeHtml(o.key)}"></option>`).join('');
+  officeSel.value = filters.agency;
+  officeSel.addEventListener('change', ()=>{ filters.agency = officeSel.value; syncPills(el('agencyPills'), filters.agency); render(); });
+  el('agencyPills').hidden = true;
+  row.appendChild(officeSel);
+}
+function syncOfficeSelect(){
+  if (!officeSel) return;
+  const pool = agents.filter(a => passes(a, filters, 'agency'));
+  [...officeSel.options].forEach(o => {
+    const n = o.value === 'all' ? agencyOptions.length : pool.filter(a => matchesAgency(a, o.value)).length;
+    const label = o.value === 'all' ? 'כל המשרדים' : (agencyOptions.find(x => x.key === o.value) || {}).label;
+    o.textContent = `${label} (${n})`;
+  });
+  officeSel.value = filters.agency;
+}
+function mountDm(){
+  if (dmf || !window.DmFilters || !allProps.length) return;
+  const host = document.createElement('div');
+  if (window.DmFilters.on()) mountOfficeSelect();
+  dmf = window.DmFilters.mount({
+    host, items: agents.map(a => ({ id: a.id, declared: a.specialties })), props: allProps,
+    idKey: 'agent_id', tab: 'agents', surface: 'agents',
+    mainCity: (window.CityContext && window.CityContext.name && window.CityContext.name()) || 'עפולה',
+    onChange: render,
+    // בטלפון "משרד" ו"דירוג" עוברים לגיליון
+    sheetRows: [el('agencyRow'), document.querySelector('#toolbar .rate-row')],
+  });
+  if (!dmf) return;
+  el('toolbar').classList.add('has-dmf');
+  // הגלולות של התוויות המוצהרות מתחלפות באותם מפתחות כמו בדף הבית (עם המיפוי)
+  filters.spec = 'all';
+  el('specRow').hidden = false;
+  el('specRow').replaceWith(host);
+  agents.forEach(a => { a._dmWords = dmf.words(a.id); });
+  el('dmfEmpty').addEventListener('click', e => {
+    const b = e.target.closest('[data-dm-clear]');
+    if (b) dmf.clear(b.dataset.dmClear);
+  });
+  render();
+}
+
 (async function init(){
   const finish = (list)=>{
     el('loadingState').hidden = true;
-    if (!list.length){ el('emptyState').hidden = false; return; }
+    if (!list.length){ el('toolbar').hidden = true; el('emptyState').hidden = false; return; }
 
     agents = list;
     assignRankBadges(agents);
@@ -1261,6 +1400,7 @@ function applyDeepLink(){
 
     el('toolbar').hidden = false;
     el('joinBand').hidden = false;
+    whenDm(mountDm);
     render();
   };
 
@@ -1281,7 +1421,7 @@ function applyDeepLink(){
         : Promise.resolve({ data: [] }),
       sb.from('agent_rankings').select('agent_id, active_properties_count').limit(500),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(5000),
-      sb.from('properties').select('agent_id').eq('status', 'active').limit(5000),
+      sb.from('properties').select('agent_id, deal_type, category, property_type, project_status, city, city_id, neighborhood_id, neighborhoods(name)').eq('status', 'active').limit(5000),
     ]);
     const dataOf = res => (res.status === 'fulfilled' && res.value.data) || [];
 
@@ -1298,6 +1438,7 @@ function applyDeepLink(){
     });
 
     const propsLoaded = propsRes.status === 'fulfilled' && !propsRes.value.error;
+    allProps = dataOf(propsRes);
     const liveCount = new Map();
     dataOf(propsRes).forEach(p=>{
       if (p.agent_id) liveCount.set(p.agent_id, (liveCount.get(p.agent_id) || 0) + 1);
@@ -1323,7 +1464,7 @@ function applyDeepLink(){
       propsLoaded,
     )));
   } catch(e){
-    console.warn('טעינת רשימת המתווכים נכשלה, משתמש בנתוני fallback:', e);
+    console.warn('טעינת רשימת יועצי הנדל״ן נכשלה, משתמש בנתוני fallback:', e);
     finish(FALLBACK_AGENTS);
   }
 })();

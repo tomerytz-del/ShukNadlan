@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cleanExternalRef, isInternalCaller, normalizeSource, socialSourceLabel } from "../_shared/lead-routing.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // מודול 3 §4.2 — פנייה ישירה מדף פרופיל סוכן אישי. אין property_id
 // (לא קשורה לנכס ספציפי) — הסוכן כבר ידוע, אז לא דורש מנגנון התאמה.
@@ -90,7 +91,11 @@ Deno.serve(async (req: Request) => {
       insertPayload.status = "masked";
     }
 
-    const { data: lead, error: leadErr } = await supabase.from("leads").insert(insertPayload).select().single();
+    const { data: lead, error: leadErr } = await writeVisitInsert(
+      (payload) => supabase.from("leads").insert(payload).select().single(),
+      insertPayload,
+      body,
+    );
     if (leadErr) {
       if ((leadErr as any).code === "23505") {
         const again = await existingLead();

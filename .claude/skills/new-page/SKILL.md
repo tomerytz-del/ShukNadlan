@@ -97,6 +97,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 | --- | --- |
 | ציבורי | כלשונו |
 | אזור אישי | `href="/app-crm.webmanifest"`, הכותרת `content="אזור אישי"`, ו-`<script … data-first-visit="show">` |
+| אזור אישי של בעלי מקצוע (`professional-crm`, `professional-manage`) | `href="/app-professional.webmanifest"` ו-`data-first-visit="show"`; ב-`check_pwa.py` הם ב-`PAGE_MANIFEST` |
 | תהליך (תשלום, חתימה) | `<script … data-no-auto>` — בלי רצועה אוטומטית |
 | סרגל קבוע בתחתית | `<script … data-bottom="124px">` (‏ה-CRM) |
 
@@ -178,7 +179,7 @@ Disallow: /my-page
 Disallow: /my-page.html
 ```
 
-**דף ציבורי סטטי** צריך שני דברים, ושניהם ידניים:
+**דף ציבורי סטטי** צריך שלושה דברים, וכולם ידניים:
 
 1. שורה ב-`sitemap.xml` — הקובץ הוא מקור האמת לדפים הסטטיים.
 2. תגית `canonical` ב-`<head>`, מיד אחרי תגית האימות:
@@ -186,6 +187,18 @@ Disallow: /my-page.html
 ```html
 <link rel="canonical" href="https://shuknadlan.co.il/my-page">
 ```
+
+3. שורת 301 ב-`_redirects`, ליד שאר הדפים הסטטיים:
+
+```
+/my-page.html    /my-page    301!
+```
+
+‏Netlify **אינה** מפנה `.html` לחסרת הסיומת מעצמה - `/about.html` ו-`/about`
+החזירו שניהם 200 עד 5.11.2026, וה-canonical רק כיסה את הכפילות. סימן
+הקריאה חובה, כי הקובץ קיים והכלל צריך לגבור עליו. דף פירוט שעובר דרך
+`og-tags.ts` (נכס, משרד, סוכן/ת, כתבה, בעל/ת מקצוע, פרויקט, יזם) **לא**
+נכנס לשם: הפונקציה רצה לפני ההפניה, והיא זו שמחזירה 301 (ראו `/agency.html`).
 
 הכתובת היא **בלי הסיומת**, כי Netlify מגיש כל דף גם כ-`/my-page` וגם
 כ-`/my-page.html` — שתי כתובות לאותו תוכן, וגוגל בוחרת לבד איזו לאנדקס
@@ -199,6 +212,8 @@ Disallow: /my-page.html
 | הכתובות | `SOURCES` ב-`netlify/edge-functions/sitemap.ts` | הקישורים אליו נבנים ב-JS, וסורק אינו יכול לעקוב אחריהם |
 | `canonical` ו-`og:` | `config.path` ב-`netlify/edge-functions/og-tags.ts` | מוזרקות בשרת מהמסד |
 | `canonical` סטטית | **אין.** אסור | ראו למטה |
+
+**הקוד של פונקציות ה-edge עצמן** (סטטוס בכשל, מילוי ה-HTML הראשון, מטמון): הסקיל `seo-edge`. כאן רק הרישום של דף חדש בהן.
 
 **ואסור לתת לדף פירוט תגית `canonical` סטטית.** היא יכולה להצהיר רק על
 `/my-page` בלי הפרמטר, ו-`og-tags.ts` נופלת בחזרה לדף כמו שהוא בכל כשל
@@ -221,9 +236,11 @@ Perplexity, Claude) **אינם מריצים JS**: דף שה-H1 שלו הוא `-`
 
 **מבנה שגם ה-JS בונה יושב בקובץ משותף ב-`assets/`**, שנטען בדף כ-`<script src>`
 **ומיובא** ב-edge לתופעת הלוואי שלו, בלי `export` (‏`article-body.js`,
-‏`agency-about.js`, ‏`prices-render.js`, ‏`markets.js`). הקובץ מחזיר נתונים
-ולא HTML: השרת בונה בבריחה, הדפדפן ב-`textContent`. שני מימושים של אותו
-כלל מתפצלים, והדף קופץ בטעינה. בדיקה ב-`scripts/og_tags_test.ts` מריצה את
+‏`agency-about.js`, ‏`prices-render.js`, ‏`markets.js`). שני מימושים של אותו
+כלל מתפצלים, והדף קופץ בטעינה. בכתבה שני הצדדים מכניסים את
+`ShukArticleBody.html()` (טקסט מוברח וקישורי http(s)), ולא בונים את ה-HTML
+כל אחד לבד. בשאר הקבצים הקובץ מחזיר נתונים: השרת בונה בבריחה, הדפדפן
+ב-`textContent`. בדיקה ב-`scripts/og_tags_test.ts` מריצה את
 הפונקציה על **הדף האמיתי** (`serve(...)`), כי ה-id-ים בו הם החוזה.
 
 **וכל קישור לדף החדש — ואליו — נכתב בלי הסיומת:**

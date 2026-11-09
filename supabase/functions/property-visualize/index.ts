@@ -1,5 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
+import { logAiUsage } from "../_shared/ai-usage.ts";
+import { clientIp, hashIp, SHARED_IP_HASH } from "../_shared/fair-contact.ts";
 import {
   buildCommercialPrompt,
   buildPrivatePrompt,
@@ -11,9 +14,13 @@ import {
   json,
   pickCommercialSources,
   pickPrivateSources,
+  prerenderAllStylesOn,
   privateTargetsFor,
+  queueOtherStyles,
+  STYLE_KEYS,
   renderModeFor,
   runVisualizationJob,
+  sourceStillFits,
   type CommercialTarget,
   type PrivateTarget,
   type StyleKey,
@@ -37,7 +44,7 @@ import {
 //      וטלפון לפני שרואים אותם הוא מחסום לפני הערך ולא אחריו. בקשה בלי
 //      פרטים פשוט לא מייצרת ליד.
 //   2. הדמיה פרטית שכבר קיימת לא נוצרת מחדש. שני גולשים שביקשו "סלון בסגנון
-//      ים-תיכוני" מקבלים את אותה תמונה — הליד נרשם פעמיים, ה-API נקרא פעם אחת.
+//      ים תיכוני" מקבלים את אותה תמונה — הליד נרשם פעמיים, ה-API נקרא פעם אחת.
 //      זה מה שהופך את המודל ההיברידי לזול יותר מ-batch מראש.
 //   3. הזכאות נקבעת ב-DB (property_visualizations_enabled) ולא כאן, כדי שלא
 //      יהיו שתי הגדרות שונות ל"מי זכאי".
@@ -53,6 +60,11 @@ function businessKey(s: unknown): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// בלם לגולש/ת: עד 10 בקשות שמייצרות הדמיה ב-24 שעות, לפי מכשיר **או** IP.
+// ההדמיה מקאש ובקשה שנכשלה אינן נספרות.
+const VISITOR_DAILY_CAP = 10;
+const VISITOR_LIMIT_MESSAGE = "הגעתם למכסה היומית של ההדמיות. נשמח לראותכם מחר ✨";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -213,7 +225,13 @@ Deno.serve(async (req: Request) => {
 
   if (sources.length === 0) {
     return json(
-      { error: "no_suitable_images", message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה" },
+      {
+        error: "no_suitable_images",
+        message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה",
+        // ‏all_classified: הדף מוריד את התיבה רק כשזו תשובה סופית. צילום שהסיווג שלו נכשל
+        // (‏classified_at ריק) ינוסה שוב בבקשה הבאה, ואז "אין ממה לדמות" אינו ידוע עדיין.
+        all_classified: tags.length === images.length && tags.every((t: any) => t.classified_at),
+      },
       400
     );
   }
@@ -239,8 +257,11 @@ Deno.serve(async (req: Request) => {
       .eq("style_key", styleKey)
       .eq("mode", mode)
       .eq("status", "done");
+    /* ‏viz-speed + viz-1115-fix: הדמיה תקפה כל עוד הצילום שלה עדיין בנכס ועדיין מתויג לאותו חדר
+       (‏sourceStillFits) - לא רק כשהוא בדיוק הצילום שנבחר היום. עד 1.11 המפתח לא כלל את הצילום כלל,
+       ונכס שהחליף צילום הציג הדמיה של צילום שכבר אינו שם. רק שורה כזו נוצרת מחדש למטה (‏todo) */
     ready = (existing ?? [])
-      .filter((r: any) => r.result_url)
+      .filter((r: any) => r.result_url && sourceStillFits(tags, r.source_image_url, r.target as PrivateTarget, mode))
       .map((r: any) => ({
         target: r.target,
         style_key: r.style_key,
@@ -296,6 +317,83 @@ Deno.serve(async (req: Request) => {
   const readyTargets = new Set(ready.map((r) => r.target));
   const todo = sources.filter((s) => !readyTargets.has(s.target));
 
+  /* ‏viz-speed: פגיעה במטמון לא יוצרת job ולא ליד, ולכן לא נמדדה. שורה ביומן (‏units = כמה תמונות),
+     בלי טוקנים ובלי עלות - כדי לדעת כמה מהבקשות כבר מוגשות מיד */
+  if (ready.length > 0) {
+    logAiUsage({
+      feature: "viz_cache_hit", provider: "google", model: "cache",
+      uncached_input_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cache_write_1h_tokens: 0, output_tokens: 0,
+      units: ready.length, agency_id: property.agency_id ?? null, agent_id: property.agent_id ?? null,
+    });
+  }
+
+  /* ‏viz-speed שינוי 1: מי שביקש/ה סגנון אחד בנכס פרטי - שאר הסגנונות החסרים נוצרים ברקע (רק כשהדגל
+     visualization_prerender_all_styles דלוק), כך שהלחיצה הבאה על סגנון אחר כבר מיידית */
+  if (isPrivate && await prerenderAllStylesOn(supabase)) {
+    const { data: have } = await supabase
+      .from("property_visualizations")
+      .select("style_key")
+      .eq("property_id", property_id)
+      .eq("kind", "private_room")
+      .eq("mode", mode)
+      .eq("status", "done");
+    const done = new Set((have ?? []).map((r: any) => r.style_key));
+    const missing = STYLE_KEYS.filter((k) => k !== styleKey && !done.has(k));
+    // @ts-ignore — EdgeRuntime.waitUntil זמין בסביבת ה-Edge Functions של Supabase
+    if (missing.length) EdgeRuntime.waitUntil(queueOtherStyles(property_id, missing));
+  }
+
+  // ---- בלם לגולש/ת (מכשיר ו-IP) -----------------------------------------
+  // נבדק רק כשבאמת יש מה לייצר: קאש אינו נספר ואינו נחסם. המזהה מגיע מהדפדפן
+  // (‏x-sk-device, ‏sk_device_id ב-localStorage). ה-IP הוא מה שהפלטפורמה כתבה
+  // (‏cf-connecting-ip, או הקפיצה האחרונה ב-x-forwarded-for - לא הראשונה, שהדפדפן
+  // יכול לכתוב בעצמו), ונשמר רק כגיבוב של מפתח הקצב (‏IPv6 לפי /64) עם
+  // ‏VIZ_IP_SALT; בלי הסוד - המלח הקבוע של fair-contact, כך שהבלם לפי IP פעיל
+  // גם לפניו. ‏device_id ו-client_ip_hash נוספו במיגרציה
+  // ‏20271106160000_visualization_visitor_cap ומאופסות אחרי 30 יום.
+  const deviceId = String(req.headers.get("x-sk-device") ?? "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 64) || null;
+  const rawIpHash = await hashIp(clientIp(req), Deno.env.get("VIZ_IP_SALT") ?? "");
+  // בלי IP (‏SHARED_IP_HASH) אין מה לספור לפי IP: אחרת כל הבקשות בלי כתובת
+  // היו חולקות מכסה אחת של 10 ביום.
+  const ipHash = rawIpHash === SHARED_IP_HASH ? null : rawIpHash;
+  // המזהים נכתבים על העבודה רק אחרי שהספירה הצליחה: הפונקציה והמיגרציה
+  // נפרסות מאותו מיזוג בשני workflows מקבילים, וספירה שהצליחה היא ההוכחה
+  // שהעמודות כבר קיימות. ‏insert שמונה עמודה חסרה היה מפיל כל בקשה בחלון הזה.
+  let visitorCols: Record<string, string | null> = {};
+  if (todo.length > 0 && (deviceId || ipHash)) {
+    const anyOf = [deviceId ? `device_id.eq.${deviceId}` : "", ipHash ? `client_ip_hash.eq.${ipHash}` : ""]
+      .filter(Boolean).join(",");
+    const { count: visitorCount, error: visitorErr } = await supabase
+      .from("visualization_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("trigger_source", "ondemand")
+      .neq("status", "failed")
+      .gte("created_at", since)
+      .or(anyOf);
+    if (visitorErr) {
+      // תקלה במסד אינה חוסמת גולש/ת, אבל היא גם לא שקטה: בלי השורה הזו
+      // בלם שנפל נראה בדיוק כמו בלם שעובד.
+      console.warn("property-visualize: visitor cap count failed:", visitorErr.message);
+    } else {
+      if ((visitorCount ?? 0) >= VISITOR_DAILY_CAP) {
+        return json({ error: "visitor_rate_limited", message: VISITOR_LIMIT_MESSAGE }, 429);
+      }
+      if (deviceId) {
+        const { count: busyCount } = await supabase
+          .from("visualization_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("trigger_source", "ondemand")
+          .eq("status", "processing")
+          .eq("device_id", deviceId)
+          .gte("created_at", new Date(Date.now() - 3 * 60 * 1000).toISOString());
+        if ((busyCount ?? 0) > 0) {
+          return json({ error: "busy", message: "ההדמיה הקודמת עדיין בהכנה" }, 429);
+        }
+      }
+      visitorCols = { device_id: deviceId, client_ip_hash: ipHash };
+    }
+  }
+
   // ---- הליד -------------------------------------------------------------
   // נוצר בכל בקשה שיש בה פרטים, גם כשאין מה לייצר: מה שמעניין את הסוכן/ת
   // הוא הפנייה, לא האם התמונה במקרה כבר הייתה בקאש.
@@ -312,7 +410,10 @@ Deno.serve(async (req: Request) => {
       ? `${mode === "staging" ? "הדמיית הלבשת בית" : "הדמיית נכס פרטי"} · סגנון: ${styleKey}`
       : `הדמיית עסק · סוג: ${business_type}${business_description ? ` · ${business_description}` : ""}`;
 
+    // מגלישה בהחלקה (‏/swipe) הליד נושא את המקור, כמו פנייה מגיליון הנכס שם
+    const fromSwipe = body?.source === "swipe";
     const leadPayload: Record<string, unknown> = {
+      ...(fromSwipe ? { source: "swipe" } : {}),
       lead_type: "visualization",
       deal_type: property.deal_type,
       property_id: property.id,
@@ -320,7 +421,7 @@ Deno.serve(async (req: Request) => {
       agent_id: property.agent_id,
       raw_name: name,
       raw_phone: phone,
-      raw_message: details,
+      raw_message: fromSwipe ? `${details}\nמקור: גלישה בהחלקה` : details,
       property_details: details,
       city: property.city,
       property_type: property.property_type,
@@ -332,7 +433,11 @@ Deno.serve(async (req: Request) => {
       leadPayload.unlocked_by = property.agent_id;
     }
 
-    const { data: lead, error: leadErr } = await supabase.from("leads").insert(leadPayload).select("id").single();
+    const { data: lead, error: leadErr } = await writeVisitInsert(
+      (payload) => supabase.from("leads").insert(payload).select("id").single(),
+      leadPayload,
+      body,
+    );
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
     leadId = lead.id;
   }
@@ -363,6 +468,7 @@ Deno.serve(async (req: Request) => {
       business_description: business_description ?? null,
       lead_id: leadId,
       status: "processing",
+      ...visitorCols,
     })
     .select("id")
     .single();
@@ -373,10 +479,11 @@ Deno.serve(async (req: Request) => {
     // בהדמיה פרטית המפתח (נכס, מטרה, סגנון) ייחודי — מעדכנים שורה קיימת
     // שנכשלה במקום להתנגש באינדקס.
     let rowId: string | null = null;
+    let previous: WorkItem["previous"] = undefined;
     if (isPrivate) {
       const { data: prior } = await supabase
         .from("property_visualizations")
-        .select("id")
+        .select("id, status, result_url, source_image_url")
         .eq("property_id", property_id)
         .eq("kind", "private_room")
         .eq("target", s.target)
@@ -384,10 +491,17 @@ Deno.serve(async (req: Request) => {
         .eq("mode", mode)
         .maybeSingle();
       if (prior) {
-        await supabase
-          .from("property_visualizations")
-          .update({ job_id: job.id, source_image_url: s.url, status: "pending", error_detail: null })
-          .eq("id", prior.id);
+        /* ‏viz-1115-fix: שורה שמוצגת (‏done עם תמונה) נשארת כמו שהיא עד שהחדשה מוכנה, וחוזרת אליה
+           אם היצירה נכשלת (‏WorkItem.previous ב-runVisualizationJob). רק שורה שאינה מוצגת עוברת ל-pending */
+        if (prior.status === "done" && prior.result_url) {
+          previous = { result_url: prior.result_url, source_image_url: prior.source_image_url ?? null };
+          await supabase.from("property_visualizations").update({ job_id: job.id }).eq("id", prior.id);
+        } else {
+          await supabase
+            .from("property_visualizations")
+            .update({ job_id: job.id, source_image_url: s.url, status: "pending", error_detail: null })
+            .eq("id", prior.id);
+        }
         rowId = prior.id;
       }
     }
@@ -412,7 +526,7 @@ Deno.serve(async (req: Request) => {
       rowId = inserted.id;
     }
 
-    items.push({ rowId, target: s.target, sourceUrl: s.url, prompt: s.prompt });
+    items.push({ rowId, target: s.target, sourceUrl: s.url, prompt: s.prompt, previous });
   }
 
   if (items.length === 0) {

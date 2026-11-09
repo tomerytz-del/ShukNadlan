@@ -22,7 +22,13 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import * as XLSX from "npm:xlsx@0.18.5";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { strFromU8, unzipSync } from "npm:fflate@0.8.2";
-import { agentPlaces, sniff, transcribe, WHISPER_DOMAIN, WHISPER_MAX_BYTES } from "../_shared/whisper.ts";
+import { agentPlaces, sniff, transcribeDetail, WHISPER_DOMAIN, WHISPER_MAX_BYTES } from "../_shared/whisper.ts";
+import {
+  extFromAudioMime,
+  VOICE_NOTE_MIN_BYTES,
+  voiceFailureReply,
+  whisperHintFor,
+} from "../_shared/whisper-read.ts";
 
 /** כמה טקסט מקובץ אחד נכנס לתור. ~15 אלף טוקנים - שיחה של כחצי שעה, או
  *  מסמך של עשרות עמודים. מעבר לזה נחתך, והמודל יודע שנחתך. */
@@ -52,6 +58,7 @@ export const MEDIA_TOOLS: ReadonlySet<string> = new Set([
   "property_link",
   "agenda_list",
   "agenda_free_slots",
+  "list_showings",
 ]);
 
 export const MEDIA_TOOLS_DENIED =
@@ -81,12 +88,8 @@ export function audioExt(mime: string, bytes: Uint8Array, fileName = ""): string
   if (k === "wav") return "wav";
   if (k === "webm") return "webm";
   if (k === "amr") return "amr";
-  const byMime: Record<string, string> = {
-    "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/m4a": "m4a",
-    "audio/aac": "aac", "audio/ogg": "ogg", "audio/opus": "ogg", "audio/wav": "wav", "audio/x-wav": "wav",
-    "audio/webm": "webm", "audio/flac": "flac", "audio/amr": "amr", "audio/3gpp": "m4a", "video/mp4": "mp4",
-  };
-  if (byMime[mime]) return byMime[mime];
+  const fromMime = extFromAudioMime(mime);
+  if (fromMime) return fromMime;
   const fromName = (fileName.split(".").pop() || "").toLowerCase();
   if (["mp3", "m4a", "aac", "ogg", "opus", "wav", "webm", "flac", "amr", "mp4"].includes(fromName)) {
     return fromName === "opus" ? "ogg" : fromName;
@@ -132,17 +135,35 @@ export async function transcribeMedia(opts: {
       "audio_amr",
     );
   }
+  // הודעה קולית (call=false) אינה שיחה עם לקוח. פרומפט ארוך של "שיחת מתווך
+  // ולקוח" מחזיר על קליפ של כמה שניות טקסט ריק, והמודל היה עונה "ההודעה
+  // הגיעה בלי טקסט" וחוזר על שאלות פתוחות. קליפ קצר נשלח בלי פרומפט.
+  // קובץ קטוע אינו שתיקה: אין מה לשמוע כי ההורדה לא הגיעה שלמה.
+  if (!opts.call && bytes.byteLength < VOICE_NOTE_MIN_BYTES) {
+    const err = voiceFailureReply(false);
+    return fail(err.reply, err.error);
+  }
   const places = opts.call ? await agentPlaces(opts.supabase, opts.agentId) : "";
-  const hint = places ? `${WHISPER_DOMAIN} מקומות: ${places}.` : WHISPER_DOMAIN;
+  const hint = whisperHintFor({ call: opts.call, bytes: bytes.byteLength, domain: WHISPER_DOMAIN, places });
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
-  const text = await transcribe(opts.openaiKey, copy, WHISPER_MIME[ext] || mime, ext, hint);
-  if (!text) {
-    console.error("media transcription failed", mime, ext, opts.fileName || "", sniff(bytes));
-    return fail("לא הצלחתי לתמלל את ההקלטה. אפשר לשלוח אותה שוב כקובץ MP3 או M4A, או לכתוב את הפרטים?",
+  const detail = await transcribeDetail(opts.openaiKey, copy, WHISPER_MIME[ext] || mime, ext, hint);
+  if (!detail.text) {
+    console.error("media transcription failed", mime, ext, opts.fileName || "", sniff(bytes),
+      detail.silent ? "silent" : "failed");
+    if (detail.silent) {
+      const empty = voiceFailureReply(true);
+      return fail(empty.reply, empty.error);
+    }
+    if (!opts.call) {
+      const err = voiceFailureReply(false);
+      return fail(err.reply, err.error);
+    }
+    return fail(
+      "לא הצלחתי לתמלל את ההקלטה, גם אחרי ניסיון נוסף. אפשר לשלוח אותה שוב כקובץ MP3 או M4A, או לכתוב את הפרטים?",
       "transcription_failed");
   }
-  return { ok: true, text };
+  return { ok: true, text: detail.text };
 }
 
 export function wrapRecording(transcript: string, fileName: string, forwarded: boolean): string {

@@ -11,6 +11,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co">
+<link rel="preconnect" href="https://obookujgolazrwycsiyn.supabase.co" crossorigin>
 <script src="assets/agency-about.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>משרד תיווך | שוק נדל״ן</title>
@@ -159,8 +161,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #notFoundState{display:none}
   /* המקום של התוכן שמור בזמן הטעינה: בלעדיו הפוטר עמד מתחת לשורת "טוען" ונדחף
      למטה כשהמשרד נטען - תזוזה גבוהה (CLS). docs/site-footer.md */
-  #loadingState{min-height:calc(100vh - 80px)}
-  #agencyContent{display:none}
+  /* הפוטר מתחיל מתחת למסך גם בזמן "טוען" וגם אחרי שהמשרד נפתח.
+     calc(100vh - 80px) השאיר אותו בתוך המסך במחשב, והנכסים דחפו אותו החוצה. */
+  #loadingState{min-height:100svh}
+  #agencyContent{display:none;min-height:100svh}
+  body.agency-ready #loadingState{display:none}
+  body.agency-ready #agencyContent{display:block}
+  body.agency-ready.has-cover{--banner-ink:#fff}
+  body.agency-ready.has-cover .banner{--banner-ink:#fff}
+  body.agency-ready.has-cover .banner-inner{min-height:280px}
+  @media(min-width:900px){body.agency-ready.has-cover .banner-inner{min-height:360px}}
+  /* סרגל המדדים נדלק אחרי שהבאנר כבר על המסך ודוחף את "על המשרד".
+     המקום שמור מהציור הראשון (agency-ready), והתוכן מתמלא לתוכו. */
+  body.agency-ready #statBar{
+    display:block !important;
+    min-height:200px;
+  }
+  body.agency-ready #statBar[hidden]{visibility:hidden}
+  /* כפתורי הפנייה בבאנר מוסתרים עד שיש מספר. בטלפון הם מתחת לזהות
+     ומגביהים את הבאנר. הגובה שמור גם כשהם ריקים. */
+  body.agency-ready.has-cover .banner-side,
+  body.agency-ready.has-cover .banner-side:empty,
+  body.agency-ready.has-cover .banner-side:has(.brand-cta:empty){
+    display:flex !important;
+    min-height:72px;
+  }
+  body.agency-ready.has-cover .banner-side:has(.brand-cta:empty){visibility:hidden}
+  .banner-media img.banner-lcp{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 
   /* ---------- הבאנר של המשרד ----------
      עד כה ראש הדף היה שני דברים שאמרו את אותו הדבר: רצועת נושא שהלוגו נשען
@@ -1163,6 +1190,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/prop-shelf.css">
 <script src="assets/site-footer.js" defer></script>
+<script src="assets/page-share.js" defer></script>
 <script src="assets/gabriela-widget.js" defer data-page="agency"></script>
 <!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
      docs/regional-pages.md) -->
@@ -1188,7 +1216,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div id="loadingState">טוען משרד…</div>
 <div id="notFoundState" class="wrap">
-  <h1 style="font-size:1.3rem">המשרד לא נמצא</h1>
+  <p class="nf-title" style="font-size:1.3rem;font-weight:700;margin:0">המשרד לא נמצא</p>
   <a href="/" class="card" style="display:inline-block;margin-top:16px;padding:12px 20px">חזרה לדף הבית</a>
 </div>
 
@@ -1200,6 +1228,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        נקראו פעמיים במסך אחד. -->
   <section class="banner" id="banner" aria-labelledby="brandName">
     <div class="banner-media" id="bannerMedia" aria-hidden="true"></div>
+    <!-- שיתוף הדף (assets/page-share.js): נחשף רק כשהסקריפט נטען -->
+    <button type="button" class="page-share" data-share data-share-type="agency" data-page-share hidden aria-label="שיתוף דף המשרד" title="שיתוף דף המשרד"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>
     <div class="wrap banner-inner">
       <div class="banner-main">
         <div class="banner-id">
@@ -1245,13 +1275,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          מתוך agency_members_public, ומנהל/ת המשרד מוצב/ת בראשה. -->
     <section class="team-sec" id="teamSec" aria-labelledby="teamHeading">
       <div class="sec-head">
-        <h2 id="teamHeading">נבחרת המתווכים שלנו</h2>
+        <h2 id="teamHeading">נבחרת יועצי הנדל״ן שלנו</h2>
         <span id="teamCount"></span>
       </div>
       <div class="rail-wrap">
-        <button type="button" class="rail-nav prev" id="teamPrev" aria-label="המתווכים הקודמים" hidden></button>
-        <div class="team-rail rail" id="teamRail" tabindex="0" role="group" aria-label="נבחרת המתווכים של המשרד"></div>
-        <button type="button" class="rail-nav next" id="teamNext" aria-label="המתווכים הבאים" hidden></button>
+        <button type="button" class="rail-nav prev" id="teamPrev" aria-label="יועצי הנדל״ן הקודמים" hidden></button>
+        <div class="team-rail rail" id="teamRail" tabindex="0" role="group" aria-label="נבחרת יועצי הנדל״ן של המשרד"></div>
+        <button type="button" class="rail-nav next" id="teamNext" aria-label="יועצי הנדל״ן הבאים" hidden></button>
       </div>
       <div class="rail-dots" id="teamDots"></div>
     </section>
@@ -1318,7 +1348,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </span>
           <span class="lead-teaser-copy">
             <span class="lead-teaser-title">כמה שווה הנכס שלכם היום?</span>
-            <span class="lead-teaser-sub" id="ownerTeaserSub">הערכת שווי חינם ממתווכי המשרד</span>
+            <span class="lead-teaser-sub" id="ownerTeaserSub">הערכת שווי חינם מיועצי הנדל״ן של המשרד</span>
           </span>
           <span class="lead-teaser-go" aria-hidden="true">
             <span class="lead-teaser-go-open">לבדיקה ←</span>
@@ -1329,7 +1359,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="lead-panel" id="ownerPanel" hidden>
           <div class="owner-intro">
             <h2 id="ownerHeadline">מוכר/משכיר?</h2>
-            <p id="ownerLead">קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווכי המשרד.</p>
+            <p id="ownerLead">קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, מיועצי הנדל״ן של המשרד.</p>
           </div>
 
           <!-- אשף 3 שלבים; מוצג ברגע שהבאנר נפתח -->
@@ -1428,7 +1458,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
             <!-- שלב 3 -->
             <section class="wiz-panel" data-panel="3">
-              <p class="wiz-q">לאן נחזור אליכם?</p>
+              <p class="wiz-q">איך נוח ליצור איתכם קשר?</p>
               <label class="wiz-label" for="wizName">שם מלא</label>
               <input type="text" id="wizName" class="wiz-input" autocomplete="name">
               <label class="wiz-label" for="wizPhone">טלפון</label>
@@ -1445,7 +1475,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="wiz-done" id="wizDone" hidden>
             <div class="wiz-done-mark" aria-hidden="true">✓</div>
             <h3>הפרטים נשלחו למשרד</h3>
-            <p id="wizDoneNote">מתווך/ת מהמשרד יחזור/תחזור אליכם בזמן קצר עם הערכת המחיר לנכס.</p>
+            <p id="wizDoneNote">הפרטים הועברו ליועצי הנדל״ן של המשרד להמשך טיפול.</p>
             <button type="button" class="btn btn-ghost-light" id="wizRestart">שליחת נכס נוסף</button>
           </div>
           </div><!-- /owner-wizard -->
@@ -1614,7 +1644,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                      יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
                 <label class="buy-check" for="buyConsent">
                   <input type="checkbox" id="buyConsent">
-                  <span id="buyConsentText">אשמח שמתווך/ת מהמשרד ייצור איתי קשר עם נכסים מתאימים</span>
+                  <span id="buyConsentText">אשמח שיועצי הנדל״ן של המשרד יפנו אליי עם נכסים מתאימים</span>
                 </label>
 
                 <p class="wiz-err" id="buyErr3"></p>
@@ -1692,7 +1722,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -1745,6 +1776,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="footer-col-links">
           <a href="/#calc">מחשבון משכנתא</a>
           <a href="/#yield">מחשבון תשואה</a>
+          <a href="/sell">חושבים למכור? הערכת שווי חינם</a>
           <a href="/#heroSection">חיפוש על המפה</a>
           <a href="/articles">כתבות ובלוגים</a>
         </div>
@@ -1753,7 +1785,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>בעלי מקצוע</h4></summary>
         <div class="footer-col-links">
           <a href="/agencies">כל משרדי התיווך</a>
-          <a href="/agents">כל המתווכים</a>
+          <a href="/agents">כל יועצי הנדל״ן</a>
           <a href="/professionals">כל בעלי המקצוע</a>
           <a href="/agency-signup">הצטרפות כמשרד תיווך</a>
           <a href="/developer-signup">הצטרפות כיזם/קבלן</a>
@@ -1766,8 +1798,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
-          <a href="/crm">כניסת מתווכים</a>
+          <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
     </nav>
@@ -1798,10 +1832,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
-      <a href="/agents">מתווכי נדל״ן בעפולה</a>
+      <a href="/agents">יועצי נדל״ן בעפולה</a>
       <a href="/prices">מחירי דירות בעפולה לפי עסקאות</a>
     </div>
   </details>
+  <nav class="footer-wrap footer-seo" id="landingLinks" data-market-default-only aria-label="חיפושים פופולריים">
+    <h4>חיפושים פופולריים</h4>
+    <div class="footer-seo-links">
+      <a href="/afula/דירות-3-חדרים">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="/afula/בתים-פרטיים">בתים פרטיים למכירה בעפולה</a>
+      <a href="/afula/דירות-גן">דירות גן למכירה בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נדל״ן מסחרי בעפולה</a>
+      <a href="/emek-yizrael/בתים-ומגרשים">בתים ומגרשים ביישובי עמק יזרעאל</a>
+    </div>
+  </nav>
+
 
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>

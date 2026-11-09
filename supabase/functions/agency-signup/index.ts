@@ -5,6 +5,7 @@ import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { checkBrokerLicense, licenseSummary } from "../_shared/broker-license-gate.ts";
 import { cleanAgencyAddress, resolveAgencyCityId } from "../_shared/agency-city.ts";
 import { cleanServiceMarkets, serviceAreaText } from "../_shared/service-markets.ts";
+import { writeVisitInsert } from "../_shared/visit-attr.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
 // למערכת לראשונה (רובמנו) — אין הרשמה עצמאית לסוכן, רק למשרד.
@@ -126,11 +127,11 @@ Deno.serve(async (req: Request) => {
     // עיר המשרד - מטופס ישן; בטופס הנוכחי הטריגר agencies_set_city_id גוזר
     // אותה מסוף הכתובת המלאה (20270115101000). לא הוכרה - מהנכס הראשון.
     const cityId = await resolveAgencyCityId(supabase, body);
-    const { data: agency, error: agencyErr } = await supabase
-      .from("agencies")
-      .insert({ slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body), specialties: cleanSpecialties(body.specialties) })
-      .select()
-      .single();
+    const { data: agency, error: agencyErr } = await writeVisitInsert(
+      (payload) => supabase.from("agencies").insert(payload).select().single(),
+      { slug: finalSlug, name: agency_name, city_id: cityId, address: cleanAgencyAddress(body), specialties: cleanSpecialties(body.specialties) },
+      body,
+    );
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
 
     // יצירת משתמש Auth אמתי דרך Admin API — לא INSERT ישיר ל-auth.users כמו שעשיתי

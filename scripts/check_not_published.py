@@ -24,13 +24,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 NOT_SITE_DIRS = {
     "docs", "supabase", "scripts", "netlify", ".claude", ".github", ".git",
     "ops_agent", "news_engine", "lead_engine", "deals_engine", "marketing",
-    "gtm", "mobile",
+    "gtm", "mobile", "course-content",
 }
 SITE_DIRS = {"assets", "vendor", ".well-known"}
 # קבצים בשורש שהאתר מגיש בכוונה.
 SITE_FILES = {
     "_headers", "_redirects", "robots.txt", "sitemap.xml", "llms.txt", "sw.js",
-    "manifest.webmanifest", "app-crm.webmanifest", "promoted.png",
+    "manifest.webmanifest", "app-crm.webmanifest", "app-professional.webmanifest", "promoted.png",
 }
 NOT_SITE_FILE = re.compile(r"\.(py|md|sql|toml|txt)$|^\.")
 

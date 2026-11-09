@@ -21,10 +21,19 @@ on:
       - "scripts/catalog_link_test.ts"
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
+      - "scripts/gabriela_showings_test.ts"
+      - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/gabriela_reply_style_test.ts"
+      - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/wa_url_guard_test.ts"
+      - "scripts/wa_forward_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/google_channel_sync_test.ts"
+      - "scripts/lead_source_test.ts"
+      - "scripts/ops_question_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -35,10 +44,19 @@ on:
       - "scripts/catalog_link_test.ts"
       - "scripts/cost_mail_test.ts"
       - "scripts/prompt_cache_test.ts"
+      - "scripts/gabriela_showings_test.ts"
+      - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/gabriela_reply_style_test.ts"
+      - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
       - "scripts/meta_lead_alert_test.ts"
+      - "scripts/wa_url_guard_test.ts"
+      - "scripts/wa_forward_test.ts"
       - "scripts/lead_dedupe_test.ts"
       - "scripts/paused_launch_test.ts"
+      - "scripts/google_channel_sync_test.ts"
+      - "scripts/lead_source_test.ts"
+      - "scripts/ops_question_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -63,6 +81,11 @@ jobs:
       - name: בדיקת טיפוסים מול הרף
         run: python3 scripts/check_edge_types.py
 
+      # בורר נכס של גבריאלה: בלי כרטיס כפול, בלי רשימה בתור מיניסייט,
+      # ו-property_refs רק מול ההתאמות של הלקוח/ה. בלי מסד ובלי וואטסאפ.
+      - name: בורר נכס ומיניסייט של גבריאלה
+        run: deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
+
       # ‏קישור לפריט בקטלוג וואטסאפ (‏whatsapp-webhook/catalog-link.ts). הדף
       # מדומה - wa.me אינו זמין מ-CI - בצורה של הדף האמיתי.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -82,6 +105,22 @@ jobs:
       - name: המטמון של גבריאלה
         run: node --experimental-strip-types scripts/prompt_cache_test.ts
 
+      # סיורי מיניסייט: התאמת שם מתמלול, הקשר תשובה, והמיגרציה שסוגרת
+      # כל בקשת תיאום שאינה סופית (בלי עדכון שורות).
+      - name: סיורי מיניסייט של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_showings_test.ts
+
+      # כתיב סלחני, קישור CRM, כשל מודל, ומרווח שליחה (בלי קריאה ל-Meta).
+      - name: ניצחונות מהירים של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_quick_wins_test.ts
+
+      # שאלה שכבר נענתה, תזכורת על נושא אחר, תפריט, והודעה קולית בלי מילים.
+      - name: תשובות גבריאלה בלי עומס
+        run: node --experimental-strip-types scripts/gabriela_reply_style_test.ts
+
+      - name: תקציר התראות של גבריאלה
+        run: node --experimental-strip-types scripts/gabriela_notif_digest_test.ts
+
       # ‏שלושת המאמנים (סוכן/ת, צוות, משרד): מה שיוצא למודל הוא אגרגטים
       # בלבד, ומה שנשמר הוא עד 3 צעדים בלי מקף ארוך, עם כפתור רק מהרשימה
       # הסגורה (‏docs/coaches.md).
@@ -93,6 +132,12 @@ jobs:
       - name: התראת ליד ממטא
         run: node --experimental-strip-types scripts/meta_lead_alert_test.ts
 
+      - name: כתובת בוואטסאפ יוצאת ככפתור
+        run: node --experimental-strip-types scripts/wa_url_guard_test.ts
+
+      - name: קישור קצר בהודעה שהסוכן/ת מעביר/ה
+        run: node --experimental-strip-types scripts/wa_forward_test.ts
+
       # אידמפוטנטיות של טופס מטא וכפילות לפי טלפון. בלי מסד ובלי רשת.
       - name: כפילות ליד ממטא ומהרשתות
         run: node --experimental-strip-types scripts/lead_dedupe_test.ts
@@ -101,3 +146,18 @@ jobs:
       # תקציב עם גוגל, והרצה שנייה לא שולחת. בלי קריאה למטא.
       - name: השקה מושהית במטא
         run: node --experimental-strip-types scripts/paused_launch_test.ts
+
+      # יום בלי חשיפה בגוגל נכתב כאפס, והיומן של הסנכרון בלי מזהה חשבון.
+      # בלי רשת ובלי מסד.
+      - name: סנכרון הוצאה יומית מגוגל
+        run: node --experimental-strip-types scripts/google_channel_sync_test.ts
+
+      # שאלה תפעולית לסוכן/ת: service_role בלבד, מסלול חינם, חלון 24 שעות,
+      # אידמפוטנטיות, ולחיצה על ops_q שלא מגיעה למודל. בלי Meta.
+      - name: שאלה תפעולית בוואטסאפ
+        run: node --experimental-strip-types scripts/ops_question_test.ts
+
+      # מקורות הליד שהאתר שולח (‏swipe, ‏photo_request...) מוכרים ב-KNOWN_SOURCES,
+      # ומה שאינו מוכר נופל לברירת המחדל של הקורא.
+      - name: מקורות ליד
+        run: node --experimental-strip-types scripts/lead_source_test.ts

@@ -8,27 +8,117 @@ import {
   sendButtons,
   sendContactCard,
   sendCtaUrl,
+  sendList,
   sendText,
   verifySignature,
+  WA_CUSTOMER_NOTE,
+  type WaSent,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
+import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } from "./photo-target.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
 import { offerButtonReply, runPropertyOffers } from "./property-offers.ts";
+import {
+  answerBuildingDeveloperUnknown,
+  markBuildingDeveloperDelivered,
+  parseDeveloperUnknownButton,
+  runBuildingDeveloperAsks,
+} from "./building-developer.ts";
 import { coordOfferButtonReply, parseCoordPayload, respondToCoord, runShowingCoord } from "./showing-coord.ts";
+import { showingCancelNotifyReply } from "./showing-actions.ts";
+import { loadRecentPushesNote, loadReplyPrefix, rememberReplyTo } from "./reply-context.ts";
 import {
   type AgentRow,
   type ConversationState,
   loadProfile,
   type OutboxItem,
   profileGaps,
+  listingActionReply,
   runAgentTurn,
   showcaseButtonReply,
   warmPromptCache,
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { collapseCreatedPropertyEdits } from "./listing-defaults.ts";
+import { setPairReserve } from "../_shared/wa-pair-pace.ts";
+import { alertPlatformAdmins, FALLBACK_AGENT_PATH, fallbackReply, isModelCallError, llmErrorText, llmFailureKind, PUBLIC_FALLBACK_SITE } from "./llm-fallback.ts";
+import {
+  isLessKeptType,
+  LESS_HOLD_DAYS,
+  parseLessButton,
+  parseMoreButton,
+  RESTORE_COMMAND,
+  RESTORE_TITLE,
+  topicLabel,
+} from "../notification-push/notif-digest.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import {
+  appendOpsHistory,
+  inboundOpsButton,
+  OPS_TAP_REPLY,
+  TIER_ALLOWED,
+  opsQuestionAuthRefusal,
+  recordOpsTap,
+  runOpsQuestion,
+  whatsappAgentBlock,
+  whatsappFullyOptedOut,
+  type OpsQuestionDb,
+  type OpsTapDb,
+} from "./ops-question.ts";
+import { absoluteUrl, ctaLabel, parseNavId, withClick, withClickUrl } from "../_shared/agent-deep-link.ts";
+import { isReactionMessage } from "./inbound-kind.ts";
+import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
+import {
+  abortedTurnPlan,
+  CAS_ATTEMPTS,
+  entriesAddedSince,
+  historyPersistPlan,
+  historyWithAppendedTurn,
+  nextRequeue,
+  rpcMissing,
+  runTurnUntilQuiet,
+  shouldFlushPendingImages,
+  photoAskLead,
+  rememberAskedImages,
+  stripRequeueMark,
+  unsolicitedPhotoAsk,
+  urlsHandledByTurn,
+  urlsNotAskedRecently,
+  withCatalogNote,
+  type LockAcquire,
+  type RenewBeat,
+  type TurnLockResult,
+  type TurnLockStore,
+} from "./turn-lock.ts";
+import { planWaText, sendOutboxItem, setWaDropLogger, WA_NO_BUTTON, WaBodyNotSentError } from "../_shared/wa-url-guard.ts";
+import {
+  CADENCE_BACK_TITLE,
+  CADENCE_DONE_ID,
+  CADENCE_DONE_TITLE,
+  CADENCE_LIST_BUTTON,
+  CADENCE_MORE_ID,
+  CADENCE_MORE_TITLE,
+  CADENCE_OFF_CONFIRM_TITLE,
+  CADENCE_PATH,
+  CADENCE_SAVED_CTA,
+  CADENCE_TYPE_BUTTON,
+  CADENCE_TYPES_BODY,
+  type CadenceChoice,
+  meetingsInfo,
+  cadenceFocus,
+  cadenceGroup,
+  cadenceIdFromMessage,
+  cadenceOptionRows,
+  cadenceTypeBody,
+  offAfterText,
+  offWarn,
+  parseCadenceTap,
+  typeConfirmLine,
+  typeListRows,
+} from "../_shared/notif-cadence.ts";
+import { directPostUrl } from "../_shared/open-demand-brief.ts";
 import { runEmailIntake } from "./email-intake.ts";
 import {
   docKind,
@@ -43,6 +133,7 @@ import {
   wrapRecording,
 } from "./media-intake.ts";
 import { handleWaSignVerify } from "../_shared/agreement-wa-verify.ts";
+import { handleLawyerLeadVerify } from "../_shared/lawyer-lead-wa.ts";
 import { feedbackToMeeting, parseMeetingPayload, respondToMeeting } from "../_shared/meeting-client.ts";
 import {
   catalogBlock,
@@ -106,28 +197,179 @@ const publicBotEnabled =
 const PUBLIC_HOURLY_LIMIT = 30;
 const PUBLIC_DAILY_LIMIT = 120;
 const PUBLIC_LIMIT_MSG =
-  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר - https://shuknadlan.co.il - " +
-  "ולחזור אליי מאוחר יותר.";
+  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר, ולחזור אליי מאוחר יותר.";
+const PUBLIC_LIMIT_MSG_OLD =
+  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר - https://shuknadlan.co.il - ולחזור אליי מאוחר יותר.";
 /* שיחה שנשכחה אינה ממשיכה מעצמה: מי שכותב שוב אחרי חצי יום מתחיל נקי, כדי
    שהבוט לא יענה על שאלה של אתמול ולא יגרור הקשר שכבר אינו רלוונטי. */
 const PUBLIC_IDLE_RESET_HOURS = 12;
 
 /* הסוכן העוזר בוואטסאפ זמין ב-PROFESSIONAL וב-Elite. ‏Pay&GO מקבל/ת תשובה
    שמסבירה מה זה ולאן ללכת, ולא שתיקה: הודעה שלא נענית נראית כמו תקלה, וזה
-   בדיוק הרגע שבו כדאי להסביר מה המסלול נותן. */
-const TIER_ALLOWED = new Set(["mid", "premium"]);
+   בדיוק הרגע שבו כדאי להסביר מה המסלול נותן. השער עצמו הוא whatsappAgentBlock
+   (אותו אחד של השאלה התפעולית): פעיל, חיוב פעיל, mid או premium. */
 // ‏tier לבדו אינו מסלול: מנוי שהתשלום עליו נכשל (`past_due`) או בוטל
 // (`canceled`) נשאר עם `tier = 'mid'` עד ש-`expire_paid_subscriptions` מורידה
 // אותו, וכל שאר היכולות בתשלום כבר בודקות את זה (‏`.claude/skills/new-tier-capability`).
 const BILLING_INACTIVE_MSG =
-  "המנוי שלך אינו פעיל כרגע, ולכן העוזר בוואטסאפ מושהה. " +
-  "לפרטים ולחידוש המנוי: https://shuknadlan.co.il/pricing";
+  "המנוי שלך אינו פעיל כרגע, ולכן העוזר בוואטסאפ מושהה. לפרטים ולחידוש המנוי:";
 const TIER_REQUIRED_MSG =
   "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
-  "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. " +
-  "לפרטים ולשדרוג: https://shuknadlan.co.il/pricing";
+  "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. לפרטים ולשדרוג:";
+const PRICING_BUTTON = "למסלולים";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
+const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/$/, "");
+
+// מרווח בין הודעות לאותו מספר, גם מול התראות שרצות בפונקציה אחרת.
+// בלי המיגרציה ה-RPC נכשל והמרווח המקומי ב-wa-pair-pace נשאר.
+setPairReserve(async (phone, gapMs) => {
+  const { data, error } = await supabase.rpc("whatsapp_pair_reserve", {
+    p_phone: phone,
+    p_gap_ms: gapMs,
+  });
+  if (error) return 0;
+  const n = Number(data);
+  return Number.isFinite(n) ? n : 0;
+});
+
+setWaDropLogger(async (row) => {
+  const phone = String(row.wa_phone || "").replace(/\D/g, "");
+  let agent_id: string | null = null;
+  if (phone) {
+    const { data } = await supabase.from("agency_members").select("id").eq("phone_e164", phone).maybeSingle();
+    agent_id = data?.id ?? null;
+  }
+  await supabase.from("whatsapp_messages").insert({
+    direction: "out",
+    wa_phone: row.wa_phone,
+    agent_id,
+    msg_type: "text",
+    body: row.body,
+    error: row.error,
+  });
+});
+
+async function outboundAfterInbound(phone: string, waMessageId: string): Promise<boolean> {
+  const { data: inbound } = await supabase.from("whatsapp_messages")
+    .select("created_at")
+    .eq("wa_message_id", waMessageId)
+    .eq("direction", "in")
+    .maybeSingle();
+  if (!inbound?.created_at) return false;
+  const { data: out } = await supabase.from("whatsapp_messages")
+    .select("id")
+    .eq("wa_phone", phone)
+    .eq("direction", "out")
+    .gte("created_at", inbound.created_at)
+    .limit(1);
+  return !!out?.length;
+}
+
+async function fallbackConversation(
+  agentId: string | null,
+  phone: string,
+): Promise<{ id: string; channel: "agent" | "public" } | null> {
+  if (agentId) {
+    const { data, error } = await supabase.from("whatsapp_conversations")
+      .select("id").eq("agent_id", agentId).maybeSingle();
+    if (error || !data?.id) return null;
+    return { id: String(data.id), channel: "agent" };
+  }
+  const { data, error } = await supabase.from("whatsapp_public_conversations")
+    .select("id").eq("wa_phone", phone).maybeSingle();
+  if (error || !data?.id) return null;
+  return { id: String(data.id), channel: "public" };
+}
+
+async function replyAfterLlmFailure(
+  to: string,
+  agentId: string | null,
+  err: unknown,
+  inboundWaId: string | null,
+): Promise<void> {
+  const kind = llmFailureKind(err);
+  const audience = agentId ? "agent" : "visitor";
+  const detail = llmErrorText(err).slice(0, 300);
+  console.error("llm turn failed", audience, kind, isModelCallError(err), detail);
+  // תשובה שכבר יצאה בתור הזה לא מקבלת הודעת כשל שנייה.
+  if (inboundWaId && await outboundAfterInbound(to, inboundWaId)) return;
+  const conv = await fallbackConversation(agentId, to);
+  let send = true;
+  if (conv) {
+    const { data, error } = await supabase.rpc("gabriela_llm_fallback_log", {
+      p_conversation_id: conv.id,
+      p_channel: conv.channel,
+      p_reason: kind,
+    });
+    if (error) {
+      const code = String(error.code || "");
+      // הטבלה עוד לא עלתה: שולחים, כמו קודם. כשל אחר לא משתיק את התשובה.
+      if (code !== "42883" && code !== "PGRST202") console.error("llm fallback log failed", code);
+    } else {
+      send = data === true;
+    }
+  }
+  if (send) {
+    const failText = fallbackReply(kind, audience, SITE_BASE);
+    if (audience === "agent") {
+      await sendOutbox(to, [{
+        kind: "cta",
+        body: failText,
+        label: "לאזור האישי",
+        url: withClickUrl(absoluteUrl(SITE_BASE, FALLBACK_AGENT_PATH), "fallback"),
+      }], agentId);
+    } else if (kind === "billing") {
+      let waMessageId: string | null = null;
+      let sendError: string | null = null;
+      try {
+        waMessageId = await sendCtaUrl(to, failText, "לאתר", PUBLIC_FALLBACK_SITE);
+      } catch (err) {
+        sendError = String((err as Error)?.message || err);
+        console.error("visitor fallback button failed", err);
+        try {
+          waMessageId = await sendText(to, failText);
+        } catch (err2) {
+          sendError = String((err2 as Error)?.message || err2);
+        }
+      }
+      await supabase.from("whatsapp_messages").insert({
+        wa_message_id: waMessageId,
+        direction: "out",
+        wa_phone: to,
+        agent_id: null,
+        msg_type: waMessageId && !sendError ? "interactive" : "text",
+        body: failText,
+        status: waMessageId ? "sent" : null,
+        error: sendError,
+      });
+    } else {
+      await reply(to, failText, agentId, { customer: true });
+    }
+  }
+  if (!isModelCallError(err)) return;
+  await alertPlatformAdmins({
+    recentCount: async (type, title, since) => {
+      const { count } = await supabase.from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("type", type)
+        .eq("title", title)
+        .gte("created_at", since);
+      return count ?? 0;
+    },
+    adminIds: async () => {
+      const { data } = await supabase.from("agency_members")
+        .select("id")
+        .eq("is_platform_admin", true)
+        .eq("active", true);
+      return (data || []).map((r) => String(r.id));
+    },
+    insert: async (rows) => {
+      const { error } = await supabase.from("notifications").insert(rows);
+      return error?.message ?? null;
+    },
+  }, kind, detail);
+}
 
 // ---------------------------------------------------------------------------
 // יומן הודעות
@@ -149,34 +391,155 @@ async function logInbound(msg: Record<string, any>): Promise<boolean> {
   if (error) {
     if (error.code === "23505") return false; // כבר טופלה
     console.error("inbound log failed", error);
+    return true;
   }
+  await rememberReplyTo(supabase, String(msg.id || ""), msg);
   return true;
+}
+
+async function replyButtons(
+  to: string,
+  raw: string,
+  buttons: { id: string; title: string }[],
+  agentId: string,
+): Promise<void> {
+  const body = formatForWhatsapp(raw);
+  let waMessageId: string | null = null;
+  let sendError: string | null = null;
+  try {
+    waMessageId = await sendButtons(to, body, buttons);
+  } catch (err) {
+    sendError = String((err as Error)?.message || err);
+    console.error("reply buttons failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: to,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body: `${body}\n[${buttons.map((b) => b.title).join(" | ")}]`,
+    status: waMessageId ? "sent" : null,
+    error: sendError,
+  });
+  if (sendError) await reply(to, body, agentId);
+}
+
+async function restoreLessNotifs(to: string, agentId: string, type: string | null): Promise<void> {
+  const released = await supabase.rpc("notification_push_less_release", {
+    p_agent: agentId,
+    p_type: type,
+  });
+  let error = released.error;
+  if (error) {
+    // הפונקציה עולה עם המיגרציה. עד אז אותה מחיקה, בלי לסמן skipped.
+    let q = supabase.from("agent_notif_less").delete().eq("agent_id", agentId);
+    if (type) q = q.eq("notif_type", type);
+    error = (await q).error;
+  } else if (released.data !== true) {
+    await reply(to, "לא מצאתי הפחתה להחזיר.", agentId);
+    return;
+  }
+  if (error) {
+    console.error("notif less restore failed", error.message);
+    await reply(to, "לא הצלחתי להחזיר את ההתראות. אפשר לנסות שוב, או מהמסך התראות והודעות.", agentId);
+    return;
+  }
+  const what = type ? `בנושא ${topicLabel(type)} ` : "";
+  await reply(to, `החזרתי את ההתראות ${what}לקצב הרגיל.`, agentId);
+}
+
+async function replyCta(
+  to: string,
+  raw: string,
+  label: string,
+  url: string,
+  agentId: string | null,
+  fallbackNote = "",
+): Promise<void> {
+  const body = formatForWhatsapp(raw);
+  let waMessageId: string | null = null;
+  let sendError: string | null = null;
+  try {
+    waMessageId = await sendCtaUrl(to, body, label, url);
+  } catch (err) {
+    sendError = String((err as Error)?.message || err);
+    console.error("reply cta failed", err);
+    const plain = fallbackNote ? `${body}\n${fallbackNote}` : body;
+    try {
+      waMessageId = await sendText(to, plain);
+      sendError = null;
+    } catch (err2) {
+      sendError = String((err2 as Error)?.message || err2);
+    }
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: to,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body,
+    status: waMessageId ? "sent" : null,
+    error: sendError,
+  });
 }
 
 async function reply(
   to: string,
   raw: string,
   agentId: string | null,
+  opts?: { keepUrls?: boolean; contactName?: string; customer?: boolean },
 ): Promise<void> {
   // היומן רושם את מה שיצא בפועל, לא את מה שהמודל כתב. אחרת בדיקה ביומן
   // הייתה מראה מקף ארוך שהסוכן/ת מעולם לא קיבל/ה.
-  const body = formatForWhatsapp(raw);
+  // keepUrls: נוסח שהסוכן/ת מעביר/ה ללקוח/ה מהוואטסאפ האישי, והקישור חייב להישאר.
+  const formatted = formatForWhatsapp(raw);
+  const planned = opts?.keepUrls ? null : planWaText(formatted);
+  const emptyNote = opts?.customer ? WA_CUSTOMER_NOTE : WA_NO_BUTTON;
+  const body = opts?.keepUrls
+    ? formatted
+    : (planned!.text || (planned!.stripped ? emptyNote : formatted));
+  const sent: WaSent[] = [];
   try {
     // מזהה ההודעה של מטא נשמר כדי שאירועי המסירה שיחזרו יידעו על איזו שורה
     // לשבת. בלעדיו "נשלח" הוא כל מה שנדע לעולם — וזה בדיוק ההבדל בין הודעה
-    // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס.
-    const waMessageId = await sendText(to, body);
-    await supabase.from("whatsapp_messages").insert({
-      wa_message_id: waMessageId,
-      direction: "out",
-      wa_phone: to,
-      agent_id: agentId,
-      msg_type: "text",
-      body,
-      status: waMessageId ? "sent" : null,
-    });
+    // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס. היומן שומר כל הודעה שיצאה,
+    // כולל כפתור המשך, בלי כתובת בגוף.
+    await sendText(to, raw, sent, opts?.contactName, !!opts?.keepUrls, !!opts?.customer);
+    const parts = sent.length ? sent : [{ id: null, kind: "text" as const, body }];
+    for (const part of parts) {
+      await supabase.from("whatsapp_messages").insert({
+        wa_message_id: part.id,
+        direction: "out",
+        wa_phone: to,
+        agent_id: agentId,
+        msg_type: part.kind,
+        body: part.body || body,
+        status: part.id ? "sent" : null,
+      });
+    }
   } catch (err) {
     console.error("reply failed", err);
+    if (err instanceof WaBodyNotSentError) {
+      const delivered: { id: string | null; kind: string; body: string }[] = sent.length
+        ? sent
+        : err.delivered.map((part) => ({ id: part.id, kind: part.type, body }));
+      for (const part of delivered) {
+        const kind = part.kind === "video" || part.kind === "image" || part.kind === "text"
+          ? part.kind
+          : "interactive";
+        await supabase.from("whatsapp_messages").insert({
+          wa_message_id: part.id,
+          direction: "out",
+          wa_phone: to,
+          agent_id: agentId,
+          msg_type: kind,
+          body: part.body || body,
+          status: part.id ? "sent" : null,
+        });
+      }
+    }
     await supabase.from("whatsapp_messages").insert({
       direction: "out",
       wa_phone: to,
@@ -194,32 +557,48 @@ async function reply(
  * כישלון אחת אינו עוצר את הבאה; ושורת היומן נושאת את השגיאה.
  */
 async function sendOutbox(to: string, items: OutboxItem[], agentId: string | null): Promise<void> {
-  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת
+  // כמה נכסים שנוצרו בתור אחד - הודעת עריכה אחת, לא כפתור לכל נכס.
+  // אותו כפתור פעמיים בתור אחד (יצירת נכס ואז עדכון שלו) - פעם אחת.
   const seen = new Set<string>();
-  for (const item of items) {
-    const key = item.kind === "cta" ? item.url : item.buttons.map((b) => b.id).join("|");
+  for (const item of collapseCreatedPropertyEdits(items)) {
+    const key = item.kind === "cta"
+      ? item.url
+      : item.kind === "list"
+      ? item.rows.map((row) => row.id).join("|")
+      : item.buttons.map((b) => b.id).join("|");
     if (seen.has(key)) continue;
     seen.add(key);
-    const logBody = item.kind === "cta"
-      ? `${item.body}\n[${item.label}] ${item.url}`
-      : `${item.body}\n[${item.buttons.map((b) => b.title).join(" | ")}]`;
-    try {
-      const waMessageId = item.kind === "cta"
-        ? await sendCtaUrl(to, item.body, item.label, item.url)
-        : await sendButtons(to, item.body, item.buttons);
-      await supabase.from("whatsapp_messages").insert({
-        wa_message_id: waMessageId, direction: "out", wa_phone: to, agent_id: agentId,
-        msg_type: "interactive", body: logBody, status: waMessageId ? "sent" : null,
-      });
-    } catch (err) {
-      console.error("outbox send failed", err);
-      await supabase.from("whatsapp_messages").insert({
-        direction: "out", wa_phone: to, agent_id: agentId, msg_type: "interactive",
-        body: logBody, error: String((err as Error)?.message || err),
-      });
-      // הכפתור לא יצא - הקישור בטקסט, כדי שהסוכן/ת לא יישאר/תישאר בלי דרך לשלוח
-      if (item.kind === "cta") await reply(to, `${item.label}: ${item.url}`, agentId);
-    }
+    await sendOutboxItem(item, {
+      sendCtaUrl: (body, label, url, parts) => sendCtaUrl(to, body, label, url, parts),
+      sendList: (body, button, section, rows, parts) => sendList(to, body, button, section, rows, parts),
+      sendButtons: async (body, buttons, parts) => {
+        const start = parts.length;
+        const id = await sendButtons(to, body, buttons, parts);
+        const promptId = buttons
+          .map((b) => parseDeveloperUnknownButton(b.id))
+          .find((value): value is string => !!value);
+        const delivered = parts.slice(start).some((part) => part.kind === "interactive" && part.id);
+        if (promptId && delivered) await markBuildingDeveloperDelivered(supabase, promptId);
+        return id;
+      },
+      reply: (text) => reply(to, text, agentId),
+      log: async (row) => {
+        await supabase.from("whatsapp_messages").insert({
+          direction: "out",
+          wa_phone: to,
+          agent_id: agentId,
+          wa_message_id: row.wa_message_id,
+          msg_type: row.msg_type,
+          body: row.body,
+          status: row.status,
+          error: row.error,
+        });
+      },
+      crmUrl: (rowId) => {
+        const path = parseNavId(rowId);
+        return path ? absoluteUrl(SITE_BASE, path) : null;
+      },
+    });
   }
 }
 
@@ -507,28 +886,69 @@ async function attachCatalogImage(
 // ---------------------------------------------------------------------------
 // מצב שיחה
 // ---------------------------------------------------------------------------
+function historyVersionMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const blob = `${error.code || ""} ${error.message || ""}`;
+  return error.code === "42703" || error.code === "PGRST204" || /history_version/.test(blob);
+}
+
 async function loadConversation(
   agentId: string,
   phone: string,
 ): Promise<ConversationState> {
-  const { data } = await supabase
+  const base = "history, pending_images, last_property_id, last_client_id";
+  // גרסה והיסטוריה באותה שורה. שתי שאילתות אפשרו append באמצע, ואז
+  // compare-and-set על גרסה ישנה דרס את מה שנוסף.
+  let { data, error } = await supabase
     .from("whatsapp_conversations")
-    .select("history, pending_images, last_property_id, last_client_id")
+    .select(`${base}, history_version`)
     .eq("agent_id", agentId)
     .maybeSingle();
+  let historyVersion: number | null = 0;
+  if (error && historyVersionMissing(error)) {
+    const second = await supabase
+      .from("whatsapp_conversations")
+      .select(base)
+      .eq("agent_id", agentId)
+      .maybeSingle();
+    data = second.data as typeof data;
+    error = second.error;
+    historyVersion = null;
+  } else if (error) {
+    console.error("conversation load failed", error);
+    historyVersion = null;
+    data = null;
+  } else if (!data) {
+    historyVersion = 0;
+  } else {
+    const n = Number((data as { history_version?: number | null }).history_version);
+    historyVersion = Number.isFinite(n) ? n : 0;
+  }
 
+  const row = data as {
+    history?: Anthropic.MessageParam[];
+    pending_images?: string[];
+    last_property_id?: string | null;
+    last_client_id?: string | null;
+  } | null;
+  const peeled = peelShownMatches((row?.history as Anthropic.MessageParam[]) || []);
   return {
-    history: (data?.history as Anthropic.MessageParam[]) || [],
-    pending_images: data?.pending_images || [],
-    last_property_id: data?.last_property_id || null,
-    last_client_id: data?.last_client_id || null,
+    history: peeled.history,
+    shownMatches: peeled.shown,
+    pending_images: row?.pending_images || [],
+    last_property_id: row?.last_property_id || null,
+    last_client_id: row?.last_client_id || null,
+    historyVersion,
+    loadedHistory: peeled.history.slice(),
+    loadedLastClientId: row?.last_client_id || null,
   };
 }
 
-async function saveConversation(
+async function legacySaveConversation(
   agentId: string,
   phone: string,
   conv: ConversationState,
+  history: Anthropic.MessageParam[],
 ): Promise<void> {
   // ‏**בלי `pending_images`.** הרשימה משתנה רק דרך הפונקציות האטומיות
   // (‏`whatsapp_pending_image_add` / `_take`, מיגרציה 20270115095000). כתיבה
@@ -537,13 +957,157 @@ async function saveConversation(
   const { error } = await supabase.from("whatsapp_conversations").upsert({
     agent_id: agentId,
     wa_phone: phone,
-    history: conv.history,
+    history,
     last_property_id: conv.last_property_id,
     last_client_id: conv.last_client_id,
     last_message_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "agent_id" });
   if (error) console.error("conversation save failed", error);
+}
+
+async function saveConversation(
+  agentId: string,
+  phone: string,
+  conv: ConversationState,
+): Promise<void> {
+  const loaded = conv.loadedHistory ?? conv.history;
+  const added = entriesAddedSince(loaded, conv.history);
+  const fast = stampShownMatches(conv.history, conv.shownMatches);
+  if (conv.historyVersion == null) {
+    const appended = await appendTurnEntries(agentId, added);
+    const plan = historyPersistPlan({
+      versionKnown: false,
+      append: appended,
+      casConflicts: 0,
+      casMissing: false,
+    });
+    if (appended === "ok") conv.loadedHistory = conv.history.slice();
+    // upsert מלא רק כשהעמודה וה-RPC עוד לא קיימים. כשל אחר לא דורס.
+    if (plan === "legacy") {
+      await legacySaveConversation(agentId, phone, conv, fast);
+      conv.loadedHistory = conv.history.slice();
+    }
+    return;
+  }
+
+  let expected = conv.historyVersion;
+  let body = fast;
+  let conflicts = 0;
+  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase.rpc("whatsapp_history_cas", {
+      p_agent_id: agentId,
+      p_phone: phone,
+      p_expected: expected,
+      p_history: body,
+      p_last_property_id: conv.last_property_id,
+      p_last_client_id: conv.last_client_id,
+    });
+    if (error) {
+      if (rpcMissing(error) && historyPersistPlan({
+        versionKnown: true,
+        append: "pending",
+        casConflicts: conflicts,
+        casMissing: true,
+      }) === "legacy") {
+        await legacySaveConversation(agentId, phone, conv, fast);
+        conv.historyVersion = null;
+        conv.loadedHistory = conv.history.slice();
+        return;
+      }
+      console.error("conversation save failed", error);
+      return;
+    }
+    const version = Number(data);
+    if (version > 0) {
+      const peeled = peelShownMatches(body);
+      conv.history = peeled.history;
+      conv.shownMatches = peeled.shown;
+      conv.loadedHistory = peeled.history.slice();
+      conv.loadedLastClientId = conv.last_client_id;
+      conv.historyVersion = version;
+      return;
+    }
+    conflicts++;
+    const fresh = await loadConversation(agentId, phone);
+    expected = fresh.historyVersion ?? 0;
+    conv.historyVersion = expected;
+    // שיחה (צלצול) שסימנה לקוח/ה בזמן התור לא נדרסת, אם התור עצמו לא בחר אחר.
+    if ((conv.loadedLastClientId ?? null) === (conv.last_client_id ?? null)) {
+      conv.last_client_id = fresh.last_client_id;
+    }
+    conv.loadedLastClientId = fresh.last_client_id;
+    body = historyWithAppendedTurn(fresh.history, added, {
+      ...(fresh.shownMatches || {}),
+      ...(conv.shownMatches || {}),
+    });
+  }
+  if (historyPersistPlan({
+    versionKnown: true,
+    append: "pending",
+    casConflicts: conflicts,
+    casMissing: false,
+  }) === "append") {
+    const appended = await appendTurnEntries(agentId, added);
+    if (appended !== "ok") console.error("conversation save conflict, append failed");
+  }
+}
+
+async function appendTurnEntries(
+  agentId: string,
+  added: Anthropic.MessageParam[],
+): Promise<"ok" | "missing" | "failed"> {
+  if (!added.length) return "failed";
+  const { error } = await supabase.rpc("whatsapp_history_append", {
+    p_agent_id: agentId,
+    p_entries: added,
+  });
+  if (!error) return "ok";
+  if (rpcMissing(error)) return "missing";
+  console.error("history append failed", error);
+  return "failed";
+}
+
+function turnStore(): TurnLockStore {
+  return {
+    async acquire(agentId, token): Promise<LockAcquire> {
+      const { data, error } = await supabase.rpc("whatsapp_turn_acquire", {
+        p_agent_id: agentId,
+        p_token: token,
+      });
+      if (error) {
+        if (!rpcMissing(error)) console.error("turn acquire failed", error);
+        // בלי ה-RPC אי אפשר לנעול. התור רץ פעם אחת, כמו לפני הנעילה.
+        return "unavailable";
+      }
+      return data === true;
+    },
+    async renew(agentId, token): Promise<RenewBeat> {
+      const { data, error } = await supabase.rpc("whatsapp_turn_renew", {
+        p_agent_id: agentId,
+        p_token: token,
+      });
+      if (error) {
+        // הפונקציה עלתה לפני המיגרציה: אין דופק, והחכירה במסד עדיין 120 שניות.
+        // false כאן היה עוצר תור חי אחרי 15 שניות.
+        if (rpcMissing(error)) return "unavailable";
+        console.error("turn renew failed", error);
+        return "error";
+      }
+      return data === true;
+    },
+    async release(agentId, token): Promise<boolean> {
+      const { data, error } = await supabase.rpc("whatsapp_turn_release", {
+        p_agent_id: agentId,
+        p_token: token,
+      });
+      if (error) {
+        console.error("turn release failed", error);
+        throw new Error(String(error.message || "turn release failed"));
+      }
+      return data === true;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -561,6 +1125,7 @@ async function publicRateExceeded(phone: string): Promise<boolean> {
     .select("created_at")
     .eq("wa_phone", phone)
     .eq("direction", "in")
+    .neq("msg_type", "reaction")
     .gte("created_at", new Date(dayAgo).toISOString())
     .limit(PUBLIC_DAILY_LIMIT + 1);
 
@@ -589,7 +1154,7 @@ async function limitNoticeAlreadySent(phone: string): Promise<boolean> {
     .select("id")
     .eq("wa_phone", phone)
     .eq("direction", "out")
-    .eq("body", PUBLIC_LIMIT_MSG)
+    .in("body", [PUBLIC_LIMIT_MSG, PUBLIC_LIMIT_MSG_OLD])
     .gte("created_at", hourAgo)
     .limit(1);
   return !!(data && data.length);
@@ -727,7 +1292,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   // המסלולים קודם לו בענף של הסוכנים.
   if (await publicRateExceeded(from)) {
     if (!(await limitNoticeAlreadySent(from))) {
-      await reply(from, PUBLIC_LIMIT_MSG, null);
+      await replyCta(from, PUBLIC_LIMIT_MSG, "לאתר", SITE_BASE, null);
     }
     return;
   }
@@ -744,7 +1309,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
       const media = msg.audio || msg.voice;
       const transcript = await transcribeAudio(media.id);
       if (!transcript) {
-        await reply(from, "לא הצלחתי לשמוע את ההקלטה. אפשר לכתוב לי מה מחפשים?", null);
+        await reply(from, "לא הצלחתי לשמוע את ההקלטה, גם אחרי ניסיון נוסף. אפשר לכתוב לי מה מחפשים?", null, { customer: true });
         return;
       }
       userText = transcript;
@@ -767,11 +1332,12 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     // תחת תיקייה של סוכן/ת — לאלמוני אין כזו, ופתיחת אחסון לכל מי שיודע את
     // המספר היא בדיוק סוג הדלת שלא צריך לפתוח בשביל נוחות.
     default:
-      await reply(
+        await reply(
         from,
         "אני יודעת לקרוא הודעות טקסט והקלטות קוליות. מה מחפשים? (למשל: " +
           "\"3 חדרים בעפולה עד מיליון ושלוש\")",
         null,
+        { customer: true },
       );
       return;
   }
@@ -819,13 +1385,13 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     // נשמר גם בכשל: אם הכלי הספיק לפתוח ליד לפני שהתור נפל, המונה שלו כבר
     // עלה — ותקרה שנשכחת בכל שגיאה אינה תקרה.
     await savePublicConversation(from, conv);
-    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", null);
+    await replyAfterLlmFailure(from, null, err, String(msg.id || ""));
     return;
   }
 
   await savePublicConversation(from, conv);
   // ריק = התור נגמר בהודעת כפתורים שכבר נשלחה (offer_save_search)
-  if (answer) await reply(from, answer, null);
+  if (answer) await reply(from, answer, null, { customer: true });
 
   // ההצעה לשמור את גבריאלה באנשי הקשר - בעיקר אחרי שמירת חיפוש, ולעולם לא
   // באותו תור שבו נשלחו הכפתורים: הכרטיס היה דוחף אותם למעלה, רגע לפני
@@ -863,7 +1429,7 @@ async function maybeShareContactCard(phone: string): Promise<void> {
     .limit(1);
   if (sent && sent.length) return;
 
-  await reply(phone, CONTACT_CARD_NOTE, null);
+  await reply(phone, CONTACT_CARD_NOTE, null, { customer: true });
   const body = `גבריאלה - שוק נדל"ן (+${ASSISTANT_PHONE})`;
   try {
     const waMessageId = await sendContactCard(phone, {
@@ -958,16 +1524,6 @@ async function pendingImagesSince(agentId: string): Promise<number | null> {
   return Number.isFinite(at) ? at : null;
 }
 
-/** "מ-24.10 בשעה 23:11" - מתי נשלחה תמונה ממתינה, בשעון ישראל. */
-function sentAtLabel(at: number): string {
-  const d = new Date(at);
-  const tz = { timeZone: "Asia/Jerusalem" } as const;
-  const day = d.toLocaleDateString("he-IL", { ...tz, day: "numeric", month: "numeric" });
-  const today = new Date().toLocaleDateString("he-IL", { ...tz, day: "numeric", month: "numeric" });
-  const time = d.toLocaleTimeString("he-IL", { ...tz, hour: "2-digit", minute: "2-digit", hour12: false });
-  return day === today ? `מהשעה ${time}` : `מ-${day} בשעה ${time}`;
-}
-
 /**
  * ‏**מה שהוובהוק עשה בלי המודל נכנס להיסטוריה** (27.10.2026). הצירוף, השאלה
  * וההסרה יוצאים מכאן ולא מגבריאלה, ולכן היא לא ראתה אותם: צילום מסך צורף
@@ -979,6 +1535,15 @@ function rememberPhotoAction(conv: ConversationState, text: string): void {
   conv.history = [
     ...conv.history,
     { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: טיפול בתמונות שהסוכן/ת שלח/ה]" },
+    { role: "assistant", content: text },
+  ];
+}
+
+/** לחיצה על כפתור מחיקה או הסכם. בלי זה גבריאלה לא רואה מה הוובהוק כבר עשה. */
+function rememberListingAction(conv: ConversationState, text: string): void {
+  conv.history = [
+    ...conv.history,
+    { role: "user", content: "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: לחיצה על כפתור אישור]" },
     { role: "assistant", content: text },
   ];
 }
@@ -1141,63 +1706,89 @@ async function flushImageBatch(
   conv: ConversationState,
   count: number,
 ): Promise<void> {
-  const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
-
-  // תמונות שממתינות מלפני הרצף הזה (שאלה שלא נענתה, צילום מסך מהבוקר)
+  // תמונות שממתינות מלפני הרצף הזה נשארות ברשימה. הגיל רק קובע אם
+  // מצרפים אוטומטית או שואלים. לא מוחקים אותן.
   const since = await pendingImagesSince(agentId);
   const olderWaiting = since != null && Date.now() - since > PHOTO_ASK_GAP_MS;
 
-  if (conv.last_property_id) {
-    const { data: property } = await supabase.from("properties")
-      .select("id, title, updated_at").eq("id", conv.last_property_id).eq("agent_id", agentId).maybeSingle();
-
-    if (property) {
-      // ‏**השקט נמדד גם מהנכס, לא רק מהשיחה** (27.10.2026). צילום מסך של
-      // דיון בבית משפט נשלח 33 שניות אחרי הודעה על היומן - "בלי שקט" - וצורף
-      // למשרד בגולד סנטר, שאיש לא נגע בו מאז 25.10. כל צירוף ועדכון מרעננים
-      // את updated_at, ולכן אלבום שני של אותו נכס עדיין מצטרף בלי שאלה.
-      const propertyIdle = Date.now() - Date.parse(String(property.updated_at || "")) > PHOTO_ASK_GAP_MS;
-      if (olderWaiting || propertyIdle || await photoBurstNeedsAsk(from)) {
-        const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
-        const body = formatForWhatsapp(
-          `📸 יש ${what} שממתינות לשיוך${older}. לצרף ל"${property.title}" שעבדנו עליו קודם, ${PHOTO_ASK_MARK}`);
-        const buttons = [
-          { id: `pimg:p:${property.id}`, title: "📎 לנכס הקודם" },
-          { id: "pimg:n", title: "🏠 נכס חדש" },
-          { id: "pimg:d", title: "🗑 לא לשום נכס" },
-        ];
-        let waMessageId: string | null = null;
-        let sendError: string | null = null;
-        try {
-          waMessageId = await sendButtons(from, body, buttons);
-        } catch (err) {
-          sendError = String((err as Error)?.message || err);
-          console.error("photo ask buttons failed", err);
-        }
-        await supabase.from("whatsapp_messages").insert({
-          wa_message_id: waMessageId, direction: "out", wa_phone: from, agent_id: agentId,
-          msg_type: "interactive", body: `${body}\n[${buttons.map((b) => b.title).join(" | ")}]`,
-          status: waMessageId ? "sent" : null, error: sendError,
-        });
-        // הכפתורים לא יצאו - אותה שאלה בטקסט, כדי שהתמונות לא יישארו בלי מילה
-        if (sendError) {
-          await reply(from, `${body} אפשר לכתוב "לקודם", "לא שייכות", או את פרטי הנכס החדש.`, agentId);
-        }
-        rememberPhotoAction(conv,
-          `${body} (נשאל בכפתורים; התמונות לא צורפו לשום נכס עד תשובה. "לא שייכות" = ` +
-            "discard_pending_images.)");
-        await saveConversation(agentId, from, conv);
-        return;
-      }
-      if (await attachPendingImages(agentId, from, property, conv)) {
-        await saveConversation(agentId, from, conv);
-      }
-      return;
+  const { data: owned } = await supabase.from("properties")
+    .select("id, title, property_type, street, listing_number, updated_at")
+    .eq("agent_id", agentId)
+    .in("status", ["active", "unpublished", "sold", "rented"])
+    .order("updated_at", { ascending: false })
+    .limit(40);
+  const candidates = ((owned || []) as PhotoCandidate[]);
+  const last = candidates.find((c) => c.id === conv.last_property_id);
+  const sinceIso = new Date(Date.now() - PHOTO_ASK_GAP_MS).toISOString();
+  // שש ההודעות האחרונות בחלון, לא שש הראשונות. הסדר חוזר לכרונולוגי.
+  const { data: recentIn } = await supabase.from("whatsapp_messages")
+    .select("body, created_at")
+    .eq("wa_phone", from)
+    .eq("direction", "in")
+    .gte("created_at", sinceIso)
+    .order("created_at", { ascending: false })
+    .limit(6);
+  const recentText = photoContextText(
+    ((recentIn || []) as { body: string | null; created_at: string }[]).slice().reverse().map((row) => ({
+      role: "user",
+      content: row.body,
+      at: row.created_at,
+    })),
+    Date.now(),
+    PHOTO_ASK_GAP_MS,
+  );
+  const choice = choosePhotoTarget({
+    lastId: conv.last_property_id,
+    candidates,
+    recentText,
+    lastUpdatedAt: last?.updated_at || null,
+    now: Date.now(),
+    idleMs: PHOTO_ASK_GAP_MS,
+    conversationIdle: olderWaiting || await photoBurstNeedsAsk(from),
+  });
+  if (choice.kind === "attach") {
+    const property = candidates.find((c) => c.id === choice.id);
+    if (property && await attachPendingImages(agentId, from, property, conv)) {
+      await saveConversation(agentId, from, conv);
     }
+    return;
+  }
+  const lead = photoAskLead(count, since, Date.now(), PHOTO_ASK_GAP_MS);
+  if (choice.ids.length) {
+    const body = formatForWhatsapp(
+      `📸 ${lead}. לאיזה נכס לצרף? ${PHOTO_ASK_MARK}`);
+    const titleMax = choice.ids.length + 2 <= 3 ? 20 : 24;
+    const rows = choice.ids.slice(0, 8).map((id) => {
+      const c = candidates.find((x) => x.id === id);
+      return { id: `pimg:p:${id}`, title: clipTitle(c?.title || "נכס", titleMax) };
+    });
+    rows.push({ id: "pimg:n", title: "נכס חדש" });
+    rows.push({ id: "pimg:d", title: "לא לשום נכס" });
+    let waMessageId: string | null = null;
+    let sendError: string | null = null;
+    try {
+      waMessageId = rows.length <= 3
+        ? await sendButtons(from, body, rows.slice(0, 3))
+        : await sendList(from, body, "בחירת נכס", "נכסים", rows.slice(0, 10));
+    } catch (err) {
+      sendError = String((err as Error)?.message || err);
+      console.error("photo ask buttons failed", err);
+    }
+    await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId, direction: "out", wa_phone: from, agent_id: agentId,
+      msg_type: "interactive", body: `${body}\n[${rows.map((b) => b.title).join(" | ")}]`,
+      status: waMessageId ? "sent" : null, error: sendError,
+    });
+    if (sendError) {
+      await reply(from, `${body} אפשר לכתוב את שם הנכס, "נכס חדש", או "לא שייכות".`, agentId);
+    }
+    rememberPhotoAction(conv,
+      `${body} (נשאל לפי שם הנכס; התמונות לא צורפו עד תשובה. "לא שייכות" = discard_pending_images.)`);
+    await saveConversation(agentId, from, conv);
+    return;
   }
 
-  const older = olderWaiting ? ` (הראשונה ${sentAtLabel(since!)})` : "";
-  const text = `📸 יש ${what} שממתינות לשיוך${older}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
+  const text = `📸 ${lead}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
     "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
     "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\". לא לשום נכס? כתוב/כתבי \"לא שייכות\".";
   await reply(from, text, agentId);
@@ -1205,12 +1796,317 @@ async function flushImageBatch(
   await saveConversation(agentId, from, conv);
 }
 
+const WA_STOP_WORDS = new Set(["הפסק", "הפסקה", "wa_stop"]);
+
+/** הודעה שהיא רק מילת ההפסקה, או לחיצה על כפתור ההפסקה בתבנית. */
+function isWhatsappStop(msg: Record<string, any>): boolean {
+  const raw = msg.type === "button"
+    ? String(msg.button?.payload || msg.button?.text || "")
+    : msg.type === "interactive"
+    ? String(msg.interactive?.button_reply?.id || msg.interactive?.button_reply?.title || "")
+    : msg.type === "text" && !forwardedPrefix(msg)
+    ? String(msg.text?.body || "")
+    : "";
+  const token = raw.replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim();
+  return WA_STOP_WORDS.has(token);
+}
+
+/** אותו כיבוי ערוץ כמו 131050. אחריו כפתור למסך שמפעיל מחדש. */
+async function applyWhatsappStop(agentId: string, from: string): Promise<void> {
+  const { error } = await supabase.rpc("notification_push_opt_out", { p_agent_id: agentId });
+  if (error) {
+    console.error("whatsapp stop failed", error.message);
+    await reply(from, "לא הצלחתי להפסיק את ההתראות כרגע. אפשר לכבות אותן במסך התראות והודעות.", agentId);
+    return;
+  }
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "ההתראות בוואטסאפ הופסקו. להפעלה מחדש:",
+    label: ctaLabel("/crm?goto=accNotifPrefs"),
+    url: absoluteUrl(SITE_BASE, "/crm?goto=accNotifPrefs"),
+  }], agentId);
+}
+
+type CadenceApplyRow = {
+  enabled?: boolean;
+  changed?: boolean;
+  needs_confirm?: boolean;
+  expired?: boolean;
+  choice?: string | null;
+  notif_type?: string | null;
+  cadences?: Record<string, string> | null;
+  off_types?: string[] | null;
+  daily_hour?: number;
+  hours?: number[];
+};
+
+async function applyCadence(
+  agentId: string,
+  type: string | null,
+  event: string,
+  choice: string | null,
+): Promise<{ row: CadenceApplyRow | null; error: boolean }> {
+  const { data, error } = await supabase.rpc("notif_cadence_apply", {
+    p_agent: agentId,
+    p_type: type,
+    p_event: event,
+    p_choice: choice,
+  });
+  const row = (Array.isArray(data) ? data[0] : data) as CadenceApplyRow | null;
+  return { row, error: !!error };
+}
+
+function cadenceHours(row: CadenceApplyRow | null): number[] {
+  return Array.isArray(row?.hours) ? row.hours.map(Number) : [9, 13, 17];
+}
+
+async function sendCadenceDisabled(agentId: string, from: string): Promise<void> {
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "אפשר תמיד לשנות את זה גם במערכת.",
+    label: CADENCE_SAVED_CTA,
+    url: absoluteUrl(SITE_BASE, withClick(CADENCE_PATH, "lead_cadence")),
+  }], agentId);
+}
+
+async function sendCadenceTypeList(
+  agentId: string,
+  from: string,
+  row: CadenceApplyRow | null,
+  first: string | null,
+): Promise<void> {
+  const rows = typeListRows(first, row?.cadences || {}, row?.off_types || []);
+  let waMessageId: string | null = null;
+  try {
+    waMessageId = await sendList(from, CADENCE_TYPES_BODY, CADENCE_TYPE_BUTTON, "סוגי התראות", rows);
+  } catch (err) {
+    console.error("cadence type list failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: from,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body: CADENCE_TYPES_BODY,
+    status: waMessageId ? "sent" : null,
+  });
+}
+
+async function sendCadenceOptions(
+  agentId: string,
+  from: string,
+  typeId: string,
+  row: CadenceApplyRow | null,
+): Promise<void> {
+  const body = cadenceTypeBody(typeId);
+  const rows = cadenceOptionRows(typeId, Number(row?.daily_hour) || 9, cadenceHours(row));
+  let waMessageId: string | null = null;
+  try {
+    waMessageId = await sendList(from, body, CADENCE_LIST_BUTTON, "קצב", rows);
+  } catch (err) {
+    console.error("cadence options failed", err);
+  }
+  await supabase.from("whatsapp_messages").insert({
+    wa_message_id: waMessageId,
+    direction: "out",
+    wa_phone: from,
+    agent_id: agentId,
+    msg_type: "interactive",
+    body,
+    status: waMessageId ? "sent" : null,
+  });
+}
+
+async function sendCadenceSaved(
+  agentId: string,
+  from: string,
+  typeId: string,
+  line: string,
+): Promise<void> {
+  await replyButtons(from, line, [
+    { id: CADENCE_MORE_ID, title: CADENCE_MORE_TITLE },
+    { id: CADENCE_DONE_ID, title: CADENCE_DONE_TITLE },
+  ], agentId);
+  await sendOutbox(from, [{
+    kind: "cta",
+    body: "אפשר לשנות את זה גם במערכת.",
+    label: CADENCE_SAVED_CTA,
+    url: absoluteUrl(SITE_BASE, withClick(cadenceFocus(typeId), "lead_cadence")),
+  }], agentId);
+}
+
+async function handleCadenceTap(agentId: string, from: string, cadenceId: string): Promise<void> {
+  const tap = parseCadenceTap(cadenceId);
+  if (!tap) return;
+  if (tap.kind === "done") {
+    await reply(from, "נשמר. אפשר לשנות את זה בכל רגע במערכת.", agentId);
+    return;
+  }
+  if (tap.kind === "types" || tap.kind === "open") {
+    const { row, error } = await applyCadence(agentId, tap.kind === "open" ? tap.type : null, "open", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    await sendCadenceTypeList(agentId, from, row, tap.kind === "open" ? tap.type : null);
+    return;
+  }
+  const typeId = tap.type;
+  if (!typeId) {
+    const { row, error } = await applyCadence(agentId, null, "open", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    await sendCadenceTypeList(agentId, from, row, null);
+    return;
+  }
+  if (tap.kind === "back") {
+    const { row, error } = await applyCadence(agentId, typeId, "back", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    if (cadenceGroup(typeId)?.mode === "locked") {
+      await sendCadenceSaved(agentId, from, typeId, meetingsInfo());
+      return;
+    }
+    await sendCadenceOptions(agentId, from, typeId, row);
+    return;
+  }
+  if (tap.kind === "type") {
+    const { row, error } = await applyCadence(agentId, typeId, "open", null);
+    if (error || !row?.enabled) {
+      await sendCadenceDisabled(agentId, from);
+      return;
+    }
+    if (cadenceGroup(typeId)?.mode === "locked") {
+      await sendCadenceSaved(agentId, from, typeId, meetingsInfo());
+      return;
+    }
+    await sendCadenceOptions(agentId, from, typeId, row);
+    return;
+  }
+  const choice: CadenceChoice = tap.kind === "confirm" ? "off" : tap.choice;
+  const event = tap.kind === "choice" && choice === "off" && cadenceGroup(typeId)?.confirmOff
+    ? "ask"
+    : "choose";
+  const { row, error } = await applyCadence(agentId, typeId, event, choice);
+  if (error || !row?.enabled) {
+    await sendCadenceDisabled(agentId, from);
+    return;
+  }
+  if (row.needs_confirm) {
+    await replyButtons(from, offWarn(typeId), [
+      { id: `ncad:yes:${typeId}`, title: CADENCE_OFF_CONFIRM_TITLE },
+      { id: `ncad:back:${typeId}`, title: CADENCE_BACK_TITLE },
+    ], agentId);
+    return;
+  }
+  if (row.expired) {
+    await reply(from, "האישור פג, ולא נשמר דבר.", agentId);
+    await sendCadenceOptions(agentId, from, typeId, row);
+    return;
+  }
+  const line = choice === "off"
+    ? offAfterText(typeId)
+    : typeConfirmLine(typeId, choice, row.changed === true, Number(row.daily_hour) || 9, cadenceHours(row));
+  await sendCadenceSaved(agentId, from, typeId, line);
+}
+
+async function cadenceButtonOn(): Promise<boolean> {
+  const { data, error } = await supabase.from("app_config")
+    .select("value")
+    .eq("key", "notif_cadence_button_enabled")
+    .maybeSingle();
+  if (error || !data) return false;
+  return ["1", "true", "on", "yes"].includes(String(data.value || "").trim().toLowerCase());
+}
+
+async function handleOpenDemandClaim(agentId: string, from: string, rawId: string): Promise<void> {
+  if (!(await cadenceButtonOn())) {
+    await reply(from, "הכפתור הזה לא פעיל.", agentId);
+    return;
+  }
+  const { data: member } = await supabase.from("agency_members")
+    .select("tier")
+    .eq("id", agentId)
+    .maybeSingle();
+  if (!TIER_ALLOWED.has(String(member?.tier ?? ""))) {
+    await reply(from, "מסלול חינם לא מחובר לגבריאלה, ואין גישה לביקוש הפתוח.", agentId);
+    return;
+  }
+  const id = rawId.slice("odc:".length);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    await reply(from, "הכפתור הזה כבר לא בתוקף.", agentId);
+    return;
+  }
+  const { data, error } = await supabase.rpc("open_demand_claim_for_agent", {
+    p_agent: agentId,
+    p_id: id,
+  });
+  if (error) {
+    await reply(from, "לא הצלחתי לשמור את הפנייה. אפשר לנסות מהלשונית ביקוש פתוח.", agentId);
+    return;
+  }
+  const result = (data || {}) as {
+    success?: boolean;
+    error?: string;
+    post_url?: string;
+    source_post_url?: string;
+    lead_id?: string;
+  };
+  const post = directPostUrl(result.source_post_url) || directPostUrl(result.post_url);
+  if (result.success && post) {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "הביקוש שמור אליך. אפשר להגיב רק בפוסט, לא ב-SMS ולא בוואטסאפ.",
+      label: "לפוסט",
+      url: post,
+    }], agentId);
+    return;
+  }
+  if (result.success && /^[0-9a-f-]{36}$/i.test(result.lead_id || "")) {
+    await sendOutbox(from, [{
+      kind: "cta",
+      body: "הביקוש שמור אליך. פרטי הקשר בכרטיס הליד.",
+      label: "לליד",
+      url: absoluteUrl(SITE_BASE, withClick(`/crm?goto=accLeads&lead=${result.lead_id}`, "open_demand")),
+    }], agentId);
+    return;
+  }
+  if (result.success) {
+    await reply(from, "הביקוש שמור אליך. אין כאן פרטי קשר.", agentId);
+    return;
+  }
+  const text = result.error === "claimed"
+    ? "סוכן/ת אחר/ת כבר פנה/תה לביקוש הזה."
+    : result.error === "daily_cap"
+    ? "הגעת לתקרה היומית. מחר אפשר שוב."
+    : "הביקוש כבר לא פתוח.";
+  await reply(from, text, agentId);
+}
+
 async function handleMessage(msg: Record<string, any>): Promise<void> {
   const from: string = msg.from;
   if (!from || !msg.id) return;
 
   if (!(await logInbound(msg))) return; // משלוח חוזר של Meta — כבר טופל
+  // אימוג'י על הודעה. בלי תשובה, בלי "מקלידה", ובלי מודל - אחרת גבריאלה
+  // עונה "אני יודעת לקבל טקסט, תמונות..." על תגובה.
+  if (isReactionMessage(msg)) return;
   markReadAndTyping(msg.id);
+
+  // שאלה תפעולית (ops_q). לפני זיהוי הסוכן/ת, הבוט הציבורי והמודל.
+  // גם מזהה שמתחיל בקידומת ואינו מתפרש אינו הופך לטקסט שהמודל קורא,
+  // ואינו כותב נתון מלבד שורת היומן.
+  const opsTap = inboundOpsButton(msg);
+  if (opsTap) {
+    const agentId = await recordOpsTap(opsTapDb(), from, opsTap, new Date());
+    await reply(from, OPS_TAP_REPLY, agentId);
+    return;
+  }
 
   // --- תשובה של לקוח/ה לתזכורת על פגישה (אישור / ביטול / מועד אחר),
   //     או משוב אחרי סיור (אהבתי / מתלבט/ת / לא בשבילי) ---
@@ -1224,10 +2120,17 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       : null,
   );
   if (meetingBtn) {
-    const res = meetingBtn.type === "response"
-      ? await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response)
-      : await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
-    await reply(from, res.reply, null);
+    if (meetingBtn.type === "response") {
+      const res = await respondToMeeting(supabase, meetingBtn.token, meetingBtn.response);
+      const phone = res.agentPhone || "";
+      const wa = phone
+        ? `${res.reply}\nhttps://wa.me/${phone}`
+        : res.reply;
+      await reply(from, wa, null, { contactName: res.agentName, customer: true });
+    } else {
+      const res = await feedbackToMeeting(supabase, meetingBtn.token, meetingBtn.feedback);
+      await reply(from, res.reply, null, { customer: true });
+    }
     return;
   }
 
@@ -1241,7 +2144,15 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       : null,
   );
   if (coordBtn) {
-    await reply(from, await respondToCoord(supabase, coordBtn.token, coordBtn.answer), null);
+    const coord = await respondToCoord(supabase, coordBtn.token, coordBtn.answer);
+    const coordWa = coord.agentPhone
+      ? `${coord.text}\nhttps://wa.me/${coord.agentPhone}`
+      : coord.text;
+    await reply(from, coordWa, null, {
+      contactName: coord.agentName,
+      // בעלים מקבלים נוסח ללקוח/ה. מתווך/ת בשת"פ נשאר/ת על נוסח לסוכן/ת.
+      ...(coord.customer ? { customer: true } : {}),
+    });
     return;
   }
 
@@ -1251,7 +2162,18 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   if (msg.type === "text") {
     const verifyReply = await handleWaSignVerify(supabase, from, String(msg.text?.body || ""));
     if (verifyReply) {
-      await reply(from, verifyReply, null);
+      await reply(from, verifyReply, null, { customer: true });
+      return;
+    }
+  }
+
+  // --- אימות ליד "שאלה לעו"ד" ("אימות שאלה 482193") ---
+  // גם הוא לפני זיהוי הסוכן/ת, מאותה סיבה: הפונה אינו/ה סוכן/ת. הבדיקה (הקוד, התוקף והמספר שממנו נשלחה
+  // ההודעה) במסד, ב-lawyer_lead_wa_verify. ‏_shared/lawyer-lead-wa.ts, ‏docs/lawyer-leads.md.
+  if (msg.type === "text") {
+    const lawyerReply = await handleLawyerLeadVerify(supabase, from, String(msg.text?.body || ""));
+    if (lawyerReply) {
+      await reply(from, lawyerReply, null, { customer: true });
       return;
     }
   }
@@ -1265,6 +2187,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     if (m) {
       const { data, error } = await supabase.rpc("wa_login_verify", { p_nonce: m[1], p_from: from });
       if (error) console.error("wa login verify failed", error.message);
+      // אימות כניסה הוא לסוכן/ת. נוסח הנפילה נשאר "פרטים ב-CRM".
       await reply(from, error ? "לא הצלחנו לאמת כרגע. נסו לשלוח שוב בעוד דקה." : String(data), null);
       return;
     }
@@ -1293,24 +2216,50 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       return;
     }
     if (!publicBotEnabled) {
-      await reply(from, UNKNOWN_SENDER_MSG, null);
+      await reply(from, UNKNOWN_SENDER_MSG, null, { customer: true });
       return;
     }
     await handlePublicMessage(msg);
     return;
   }
-  if (!agent.active) {
+  const waBlock = whatsappAgentBlock({
+    active: agent.active === true,
+    tier: agent.tier == null ? null : String(agent.tier),
+    billing_status: agent.billing_status == null ? null : String(agent.billing_status),
+  });
+  if (waBlock === "inactive") {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
+    return;
+  }
+  const buttonId = msg.type === "button"
+    ? String(msg.button?.payload || "")
+    : msg.type === "interactive"
+    ? String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "")
+    : "";
+  const cadenceId = cadenceIdFromMessage(msg);
+  // "הפסק" / "הפסקה", או כפתור תשובה מהירה באותו טקסט. לפני המודל ולפני
+  // גייט המסלול: תבנית UTILITY אינה נושאת כפתור כיבוי, והמילה היא הכיבוי.
+  if (isWhatsappStop(msg)) {
+    await applyWhatsappStop(agent.id, from);
     return;
   }
   // הגייטינג נעשה כאן, לפני שההודעה מומרת לקלט ל-LLM: הבדיקה חייבת לקדום
   // לכל דבר שעולה כסף (Whisper, Claude, אחסון תמונה) ולכל דבר שכותב למסד.
-  if (!TIER_ALLOWED.has(String(agent.tier))) {
-    await reply(from, TIER_REQUIRED_MSG, agent.id);
+  // TIER_ALLOWED הוא השם ש-check_tier_gates מחפש, ואותו Set ב-whatsappAgentBlock.
+  if (!TIER_ALLOWED.has(String(agent.tier ?? ""))) {
+    await replyCta(from, TIER_REQUIRED_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
     return;
   }
-  if (agent.billing_status !== "active") {
-    await reply(from, BILLING_INACTIVE_MSG, agent.id);
+  if (waBlock === "billing_inactive") {
+    await replyCta(from, BILLING_INACTIVE_MSG, PRICING_BUTTON, `${SITE_BASE}/pricing`, agent.id, WA_NO_BUTTON);
+    return;
+  }
+  if (buttonId.startsWith("odc:")) {
+    await handleOpenDemandClaim(agent.id, from, buttonId);
+    return;
+  }
+  if (cadenceId) {
+    await handleCadenceTap(agent.id, from, cadenceId);
     return;
   }
 
@@ -1332,15 +2281,20 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   const conv = await loadConversation(agent.id, from);
 
   // --- המרת ההודעה לקלט טקסטואלי/ויזואלי ל-LLM ---
-  const content: Anthropic.ContentBlockParam[] = [];
   let userText = "";
   let newImageUrl: string | null = null;
 
   switch (msg.type) {
-    case "text":
+    case "text": {
+      const typed = String(msg.text?.body || "").trim();
+      if (typed === RESTORE_COMMAND && !forwardedPrefix(msg)) {
+        await restoreLessNotifs(from, agent.id, null);
+        return;
+      }
       userText = forwardedPrefix(msg) + (msg.text?.body || "") +
         (await catalogLinksToText(String(msg.text?.body || ""), agent.id, from));
       break;
+    }
 
     case "contacts":
       userText = await contactsToText(msg.contacts, agent.id);
@@ -1448,8 +2402,60 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
 
     case "interactive": {
+      const buttonId = String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "");
+      const navPath = parseNavId(buttonId);
+      if (navPath) {
+        await sendOutbox(from, [{
+          kind: "cta",
+          body: "נפתח כאן:",
+          label: ctaLabel(navPath),
+          url: absoluteUrl(SITE_BASE, navPath),
+        }], agent.id);
+        return;
+      }
+      const moreType = parseMoreButton(buttonId);
+      if (moreType) {
+        await restoreLessNotifs(from, agent.id, moreType);
+        return;
+      }
+      const lessType = parseLessButton(buttonId);
+      if (lessType) {
+        if (isLessKeptType(lessType)) {
+          await reply(
+            from,
+            `${topicLabel(lessType)} נשארות כרגיל. ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת לא מופחתים.`,
+            agent.id,
+          );
+          return;
+        }
+        const until = new Date(Date.now() + LESS_HOLD_DAYS * 86400000).toISOString();
+        const { error: lessErr } = await supabase.from("agent_notif_less").upsert(
+          { agent_id: agent.id, notif_type: lessType, expires_at: until },
+          { onConflict: "agent_id,notif_type" },
+        );
+        if (lessErr) {
+          console.error("notif less save failed", lessErr.message);
+          await reply(from, "לא הצלחתי לשמור את זה. אפשר לנסות שוב אחרי עדכון המערכת.", agent.id);
+          return;
+        }
+        const lessBody =
+          `מעכשיו אשלח פחות התראות בנושא ${topicLabel(lessType)}. ` +
+          `הן יוצאות רק בחלון הבוקר, הצהריים או אחר הצהריים, פעם בחלון, ל-${LESS_HOLD_DAYS} יום. ` +
+          `ליד חדש, ליד שלא שובץ, סיור, תזכורת מהיומן והתראות אבטחה, תקציב ומערכת ממשיכים כרגיל. ` +
+          `להחזרה: הכפתור, "${RESTORE_COMMAND}", או המסך התראות והודעות.`;
+        await replyButtons(from, lessBody, [{ id: `nmore:${lessType}`, title: RESTORE_TITLE }], agent.id);
+        return;
+      }
       // ‏"לנכס הקודם" / "נכס חדש" אחרי אלבום שפתח את השיחה (flushImageBatch)
-      if (await photoButtonReply(agent.id, from, conv, String(msg.interactive?.button_reply?.id || ""))) {
+      if (await photoButtonReply(agent.id, from, conv, String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || ""))) {
+        return;
+      }
+      const listingAct = await listingActionReply(supabase, agentRow as unknown as AgentRow, buttonId);
+      if (listingAct) {
+        if (listingAct.text) await reply(from, listingAct.text, agent.id);
+        if (listingAct.outbox?.length) await sendOutbox(from, listingAct.outbox, agent.id);
+        rememberListingAction(conv, listingAct.text || "הפעולה מהכפתור בוצעה.");
+        await saveConversation(agent.id, from, conv);
         return;
       }
       // ‏"תצוגה מקדימה" / "נוסח להעתקה" אחרי פתיחת מיניסייט (agent.ts): המזהה
@@ -1457,7 +2463,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       const sc = await showcaseButtonReply(
         supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
       if (sc) {
-        if (sc.text) await reply(from, sc.text, agent.id);
+        if (sc.text) await reply(from, sc.text, agent.id, { keepUrls: true });
         if (sc.outbox?.length) await sendOutbox(from, sc.outbox, agent.id);
         return;
       }
@@ -1467,6 +2473,19 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
       if (coordReply) {
         await reply(from, coordReply, agent.id);
+        return;
+      }
+      // "להודיע על הביטול" אחרי cancel_showing (showing-actions.ts).
+      const cancelNote = await showingCancelNotifyReply(
+        supabase, agent.id, String(msg.interactive?.button_reply?.id || ""));
+      if (cancelNote) {
+        await reply(from, cancelNote, agent.id);
+        return;
+      }
+      // "לא יודע" על החברה היזמית. המזהה נושא את השאלה, והתשובה קבועה בלי מודל.
+      const developerPrompt = parseDeveloperUnknownButton(buttonId);
+      if (developerPrompt) {
+        await reply(from, await answerBuildingDeveloperUnknown(supabase, agent.id, developerPrompt), agent.id);
         return;
       }
       // כפתור של הצעת שת"פ/סרטון (property-offers.ts): המזהה נושא את הנכס,
@@ -1482,12 +2501,15 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         if (offer.propertyId) conv.last_property_id = offer.propertyId;
         break;
       }
+      // כפתור ops_q נענה למעלה, לפני הסוכן/ת והמודל. מה שמגיע לכאן
+      // הוא כפתור שהכותרת שלו היא הטקסט שהמודל קורא.
       userText = msg.interactive?.button_reply?.title ||
         msg.interactive?.list_reply?.title || "";
       break;
     }
 
     case "button":
+      // כפתור ops_q (גם בתבנית) נענה למעלה. כאן נשארת כותרת שהמודל קורא.
       userText = msg.button?.text || "";
       break;
 
@@ -1514,6 +2536,28 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // תור אחד על כל מה שנאסף. בלי זה כל טקסט הריץ תור משלו, והתשובות סתרו זו
   // את זו (22.9: "רק חסר מחיר" ו"חסר לי סוג הנכס" באותה שנייה).
   // ‏docs/whatsapp-setup.md, מיגרציות 20270115095000 ו-20270115099000.
+  //
+  // מעבר לחלון, שני POST-ים עדיין רצים יחד (inBackground). הנעילה לפי
+  // סוכן/ת היא מה שמונע מהשני לטעון היסטוריה ישנה ולדרוס את הראשון.
+  // מי שלא תפס/ה חוזר/ת בלי take. המחזיק/ה מרוקן/ת את מה שנשאר.
+  const replyLead = await loadReplyPrefix(supabase, agent.id, msg);
+  if (replyLead) userText = replyLead + userText;
+
+  const played = {
+    agent: agentRow as unknown as AgentRow,
+    from,
+    conv,
+    msgId: msg.id ? String(msg.id) : null,
+  };
+  const runQueued = (ctx?: { pass: number; signal?: AbortSignal; followUp?: boolean }) =>
+    playQueuedTurn({
+      ...played,
+      // followUp הוא רק ריקון מ-waitUntil. רצף שחיכה לנעילה עדיין שואל.
+      flushImages: (ctx?.pass ?? 0) === 0 && ctx?.followUp !== true,
+      signal: ctx?.signal,
+    });
+  const kick = () => kickPendingDrain(agent.id, 8);
+
   const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
     p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
   });
@@ -1523,80 +2567,342 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
       return;
     }
-    // טקסט בלי רצף: עדיף לענות עליו לבד מאשר לא לענות.
-  } else {
-    const typed = QUICK_BURST_TYPES.has(String(msg.type)) && !forwardedPrefix(msg) && !newImageUrl &&
-      !(await freshPendingImages(agent.id)).length;
-    const photo = msg.type === "image" && !forwardedPrefix(msg);
-    await sleep(typed ? QUICK_BURST_WAIT_MS : photo ? IMAGE_BURST_WAIT_MS : BURST_WAIT_MS);
-    const { data: nowSeq } = await supabase.rpc("whatsapp_burst_seq", { p_agent_id: agent.id });
-    if (Number(nowSeq) !== Number(mySeq)) return; // הודעה מאוחרת יותר עונה על כל הרצף
-
-    // השיחה נטענה לפני ההמתנה. תור קודם שהסתיים בינתיים כבר שמר היסטוריה,
-    // ונכס שנוצר בו הוא "הנכס האחרון" - בלי טעינה מחדש, השמירה שלנו דורסת אותם.
-    Object.assign(conv, await loadConversation(agent.id, from));
-    const { data: texts } = await supabase.rpc("whatsapp_pending_texts_take", { p_agent_id: agent.id });
-    userText = ((texts as string[]) || []).join("\n");
-    conv.pending_images = await freshPendingImages(agent.id);
-
-    if (!userText.trim()) {
-      // רצף של תמונות בלבד: צירוף לנכס הפעיל, או שאלה לאיזה נכס.
-      if (conv.pending_images.length) {
-        await flushImageBatch(agent.id, from, conv, conv.pending_images.length);
+    // הטקסט לא נכנס לרצף. מחזירים אותו לתור ועונים תחת הנעילה, כמו הודעה רגילה.
+    if (userText.trim()) {
+      const queued = await requeueAgentTexts(agent.id, from, [userText]);
+      if (!queued) {
+        await reply(from, "לא הצלחתי לקלוט את ההודעה. אפשר לשלוח אותה שוב?", agent.id);
+        return;
       }
-      return;
     }
-    // התמונה שהמודל רואה: האחרונה ברצף (קודם - התמונה של ההודעה הנוכחית).
-    newImageUrl = conv.pending_images[conv.pending_images.length - 1] || null;
-  }
-
-  // פריט מקטלוג וואטסאפ: התמונה שלו מצטרפת רק עכשיו, כשידוע כמה פריטים ברצף.
-  const catalog = await attachCatalogImage(agent.id, from, conv, userText);
-  if (catalog.image) newImageUrl = catalog.image;
-  userText += catalog.note;
-
-  if (!userText.trim()) {
-    await saveConversation(agent.id, from, conv);
+    await runTurnUntilQuiet({
+      agentId: agent.id,
+      store: turnStore(),
+      kicksLeft: 8,
+      kick,
+      runTurn: runQueued,
+    });
     return;
   }
 
-  // התמונה של התור הנוכחי נשלחת למודל כדי שיוכל לשפר את התיאור
-  // ("דירה משופצת עם מרפסת") מתוך מה שרואים בפועל
-  if (newImageUrl) {
-    content.push({ type: "image", source: { type: "url", url: newImageUrl } });
+  const typed = QUICK_BURST_TYPES.has(String(msg.type)) && !forwardedPrefix(msg) && !newImageUrl &&
+    !(await freshPendingImages(agent.id)).length;
+  const photo = msg.type === "image" && !forwardedPrefix(msg);
+  await sleep(typed ? QUICK_BURST_WAIT_MS : photo ? IMAGE_BURST_WAIT_MS : BURST_WAIT_MS);
+  const { data: nowSeq } = await supabase.rpc("whatsapp_burst_seq", { p_agent_id: agent.id });
+  if (Number(nowSeq) !== Number(mySeq)) return; // הודעה מאוחרת יותר עונה על כל הרצף
+
+  // תפוס: ממתינים עד שהנעילה מתיישנת (45 שניות בלי דופק) ותופסים שוב.
+  // אם נשאר טקסט אחרי התקציב, waitUntil ממשיך. הלקיחה אטומית, אז תשובה אחת.
+  await runTurnUntilQuiet({
+    agentId: agent.id,
+    store: turnStore(),
+    kicksLeft: 8,
+    kick,
+    runTurn: runQueued,
+  });
+}
+
+/** תור אחד על טקסט שכבר נאסף. נקרא רק כשהנעילה בידינו, או כשה-RPC עוד לא קיים. */
+async function playTextTurn(opts: {
+  agent: AgentRow;
+  from: string;
+  conv: ConversationState;
+  msgId: string | null;
+  text: string;
+  image: string | null;
+  signal?: AbortSignal;
+  /** הטקסטים כפי שנלקחו, כולל סימון [[rq:n]], כדי שתקרת ההחזרה תישמר. */
+  requeueTexts?: string[];
+}): Promise<"work" | "idle"> {
+  const { agent, from, conv } = opts;
+  let turnText = opts.text;
+  let turnImage = opts.image;
+  const catalog = await attachCatalogImage(agent.id, from, conv, turnText);
+  if (catalog.image) turnImage = catalog.image;
+  turnText = withCatalogNote(turnText, catalog.note);
+  if (!turnText.trim()) {
+    await saveConversation(agent.id, from, conv);
+    return "work";
   }
-  content.push({ type: "text", text: userText });
-
+  conv.recent_note = await loadRecentPushesNote(supabase, agent.id);
+  const content: Anthropic.ContentBlockParam[] = [];
+  if (turnImage) content.push({ type: "image", source: { type: "url", url: turnImage } });
+  content.push({ type: "text", text: turnText });
   conv.introduce = !(await assistantIntroduced(agent.id));
-  const mediaTurn = hasMediaBlock(userText);
-
-  // --- הפעלת ה-LLM ---
+  const mediaTurn = hasMediaBlock(turnText);
   let answer: string;
   const outbox: OutboxItem[] = [];
   try {
     answer = await runAgentTurn({
       supabase,
-      agent: agentRow as unknown as AgentRow,
+      agent,
       conv,
       outbox,
       userContent: content,
-      userSummary: (newImageUrl ? "[תמונה] " : "") + (mediaTurn ? mediaForHistory(userText) : userText),
-      // תור שקורא הקלטה או מסמך רק מציע - ‏media-intake.ts
+      userSummary: (turnImage ? "[תמונה] " : "") + (mediaTurn ? mediaForHistory(turnText) : turnText),
+      signal: opts.signal,
       ...(mediaTurn ? { allowedTools: MEDIA_TOOLS, deniedToolMessage: MEDIA_TOOLS_DENIED } : {}),
     });
   } catch (err) {
+    if (opts.signal?.aborted || (err as { name?: string })?.name === "AbortError") {
+      if (abortedTurnPlan(conv.abortedToolNames || []) === "save") {
+        await saveConversation(agent.id, from, conv);
+        await reply(
+          from,
+          "התחלתי לטפל, אבל התשובה נקטעה. מה שכבר נשמר נשאר. אפשר לשאול אותי מה נעשה.",
+          agent.id,
+        );
+        return "work";
+      }
+      await requeueOrFail(agent.id, from, opts.requeueTexts?.length ? opts.requeueTexts : [turnText]);
+      return "work";
+    }
     console.error("agent turn failed", err);
-    await supabase.from("whatsapp_messages")
-      .update({ error: String((err as Error)?.message || err) })
-      .eq("wa_message_id", msg.id);
-    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", agent.id);
-    return;
+    if (opts.msgId) {
+      await supabase.from("whatsapp_messages")
+        .update({ error: String((err as Error)?.message || err) })
+        .eq("wa_message_id", opts.msgId);
+    }
+    await replyAfterLlmFailure(from, agent.id, err, opts.msgId);
+    return "work";
   }
-
   await saveConversation(agent.id, from, conv);
   await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
+  // האלבום עם הכיתוב הוצג. מסמנים את כולן, לא רק את הכתובת שנשלחה למודל.
+  if (turnImage) {
+    const shown = await pendingImagesForAsk(agent.id);
+    await markImagesHandled(agent.id, urlsHandledByTurn(turnImage, shown.urls, shown.at));
+  }
   if (outbox.length) await sendOutbox(from, outbox, agent.id);
+  return "work";
 }
+
+async function playQueuedTurn(opts: {
+  agent: AgentRow;
+  from: string;
+  conv: ConversationState;
+  msgId: string | null;
+  flushImages?: boolean;
+  signal?: AbortSignal;
+}): Promise<"work" | "idle"> {
+  Object.assign(opts.conv, await loadConversation(opts.agent.id, opts.from));
+  const { data: texts, error: takeErr } = await supabase.rpc("whatsapp_pending_texts_take", {
+    p_agent_id: opts.agent.id,
+  });
+  if (takeErr) console.error("pending texts take failed", takeErr);
+  const rawTexts = ((texts as string[]) || []);
+  const queued = rawTexts.map(stripRequeueMark).filter((t) => t.trim()).join("\n");
+  opts.conv.pending_images = await freshPendingImages(opts.agent.id);
+  if (!queued.trim()) {
+    // בלי claim לפני ההחלטה: ריקון היה מסמן "נשאל" בלי לשאול, והמלצר היה שותק.
+    if (shouldFlushPendingImages({
+      flushImages: opts.flushImages === true,
+      hasText: false,
+      pendingImages: opts.conv.pending_images.length,
+    })) {
+      const unasked = await claimImageAsk(opts.agent.id);
+      const ask = unsolicitedPhotoAsk({
+        flushImages: true,
+        hasText: false,
+        pending: unasked,
+        handled: [],
+      });
+      if (ask.length) {
+        rememberAskedImages(imageAskSeen, opts.agent.id, ask);
+        await flushImageBatch(opts.agent.id, opts.from, opts.conv, opts.conv.pending_images.length);
+        return "work";
+      }
+    }
+    return "idle";
+  }
+  if (opts.signal?.aborted) {
+    await requeueOrFail(opts.agent.id, opts.from, rawTexts);
+    return "idle";
+  }
+  return playTextTurn({
+    ...opts,
+    text: queued,
+    requeueTexts: rawTexts,
+    image: await imageRecentEnoughForModel(opts.agent.id, opts.conv.pending_images),
+  });
+}
+
+const MODEL_IMAGE_MAX_MS = 24 * 60 * 60 * 1000;
+
+/** תור טקסט לא מראה למודל תמונה ישנה מ-24 שעות. הרשימה עצמה נשארת. */
+async function imageRecentEnoughForModel(agentId: string, images: string[]): Promise<string | null> {
+  if (!images.length) return null;
+  const { data, error } = await supabase.from("whatsapp_conversations")
+    .select("pending_image_at")
+    .eq("agent_id", agentId)
+    .maybeSingle();
+  const ats = !error ? ((data?.pending_image_at as string[] | null) || []) : [];
+  const stamp = ats.length === images.length ? ats[ats.length - 1] : "";
+  const last = Date.parse(String(stamp || ""));
+  if (Number.isFinite(last)) {
+    return Date.now() - last > MODEL_IMAGE_MAX_MS ? null : images[images.length - 1];
+  }
+  const since = await pendingImagesSince(agentId);
+  if (since != null && Date.now() - since > MODEL_IMAGE_MAX_MS) return null;
+  return images[images.length - 1];
+}
+
+/** תמונה שכבר נשאלה ב-isolate הזה, ליממה. מגבה כשסימון המסד לא נשמר. */
+const imageAskSeen = new Map<string, number>();
+
+/**
+ * מסמן את התמונות שעוד לא נשאלו. מערך ריק = כבר נשאלו, לא שואלים שוב.
+ * כשל בסימון לא שותק, אבל לא חוזרים על אותה תמונה בתוך יממה.
+ */
+async function claimImageAsk(agentId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc("whatsapp_pending_images_claim_ask", {
+    p_agent_id: agentId,
+  });
+  if (!error) return (data as string[]) || [];
+  if (!rpcMissing(error)) console.error("image ask claim failed", error);
+  // לפי כתובת, לא לפי "הייתה שאלה". אלבום אחר עדיין נשאל.
+  return urlsNotAskedRecently(imageAskSeen, agentId, await freshPendingImages(agentId));
+}
+
+async function pendingImagesForAsk(agentId: string): Promise<{ urls: string[]; at: (number | null)[] }> {
+  const { data, error } = await supabase.from("whatsapp_conversations")
+    .select("pending_images, pending_image_at")
+    .eq("agent_id", agentId)
+    .maybeSingle();
+  if (error) {
+    const urls = await freshPendingImages(agentId);
+    return { urls, at: [] };
+  }
+  const urls = (data?.pending_images as string[]) || [];
+  const raw = (data?.pending_image_at as string[] | null) || [];
+  if (raw.length !== urls.length) return { urls, at: [] };
+  return {
+    urls,
+    at: raw.map((stamp) => {
+      const n = Date.parse(String(stamp || ""));
+      return Number.isFinite(n) ? n : null;
+    }),
+  };
+}
+
+async function markImagesHandled(agentId: string, urls: string[]): Promise<void> {
+  if (!urls.length) return;
+  rememberAskedImages(imageAskSeen, agentId, urls);
+  const { error } = await supabase.rpc("whatsapp_pending_images_mark_asked", {
+    p_agent_id: agentId,
+    p_urls: urls,
+  });
+  if (error && !rpcMissing(error)) console.error("image handled mark failed", error);
+}
+
+async function requeueOrFail(agentId: string, phone: string, texts: string[]): Promise<void> {
+  const keep: string[] = [];
+  let gaveUp = false;
+  for (const text of texts) {
+    const next = nextRequeue(text);
+    if (next.giveUp) gaveUp = true;
+    else if (next.text.trim()) keep.push(next.text);
+  }
+  if (keep.length) {
+    const ok = await requeueAgentTexts(agentId, phone, keep);
+    if (!ok) gaveUp = true;
+  }
+  if (gaveUp) {
+    await reply(phone, "לא הספקתי לענות על ההודעה. אפשר לשלוח אותה שוב?", agentId);
+  }
+}
+
+async function requeueAgentTexts(agentId: string, phone: string, texts: string[]): Promise<boolean> {
+  const clean = texts.map((t) => t.trim()).filter(Boolean);
+  if (!clean.length) return false;
+  const { error } = await supabase.rpc("whatsapp_pending_texts_prepend", {
+    p_agent_id: agentId,
+    p_phone: phone,
+    p_texts: clean,
+  });
+  if (error) {
+    console.error("pending texts prepend failed", error);
+    return false;
+  }
+  return true;
+}
+
+/** אחרי תור שלא בא מוואטסאפ (מייל): לרוקן טקסטים שנכנסו בזמן שהנעילה הייתה תפוסה. */
+async function resumePendingTurns(agentId: string): Promise<boolean> {
+  const { data: row } = await supabase.from("whatsapp_conversations")
+    .select("wa_phone").eq("agent_id", agentId).maybeSingle();
+  const phone = String(row?.wa_phone || "");
+  if (!phone || phone === "unknown") return false;
+  const { data: agent } = await supabase.from("agency_members")
+    .select("id, agency_id, display_name, tier")
+    .eq("id", agentId)
+    .maybeSingle();
+  if (!agent) return false;
+  const agentRow = {
+    ...agent,
+    tier: String(agent.tier ?? ""),
+    agencies: (await loadAgency(supabase, agent.agency_id, "name")) as { name?: string } | null,
+  } as unknown as AgentRow;
+  const conv = await loadConversation(agentId, phone);
+  const result = await runTurnUntilQuiet({
+    agentId,
+    store: turnStore(),
+    retryBusy: false,
+    waitForLockMs: 1500,
+    kicksLeft: 0,
+    runTurn: () => playQueuedTurn({
+      agent: agentRow, from: phone, conv, msgId: null, flushImages: false,
+    }),
+  });
+  return result.leftPending || result.skippedBusy;
+}
+
+/** שרשרת אחת בתוך אותו worker. בין workers הלקיחה האטומית של pending_texts מונעת תשובה כפולה. */
+const activeDrains = new Set<string>();
+
+function kickPendingDrain(agentId: string, kicksLeft: number): void {
+  if (kicksLeft <= 0 || activeDrains.has(agentId)) return;
+  activeDrains.add(agentId);
+  const work = (async () => {
+    let left = kicksLeft;
+    while (left > 0) {
+      const more = await resumePendingTurns(agentId);
+      if (!more) break;
+      left -= 1;
+    }
+  })().finally(() => {
+    activeDrains.delete(agentId);
+  });
+  try {
+    EdgeRuntime.waitUntil(work);
+  } catch (err) {
+    activeDrains.delete(agentId);
+    console.error("pending drain kick failed", err);
+  }
+}
+
+async function holdAgentTurn(
+  agentId: string,
+  run: (ctx: { signal: AbortSignal }) => Promise<void>,
+): Promise<TurnLockResult> {
+  // כמה שניות, לא דקות: הסבב של המייל לא מחכה לנעילה ארוכה.
+  return await runTurnUntilQuiet({
+    agentId,
+    store: turnStore(),
+    maxTurns: 1,
+    retryBusy: false,
+    waitForLockMs: 3_000,
+    kicksLeft: 8,
+    kick: () => kickPendingDrain(agentId, 8),
+    runTurn: async (ctx) => {
+      if (ctx.signal.aborted) return "idle";
+      await run({ signal: ctx.signal });
+      return "work";
+    },
+  });
+}
+
 
 /**
  * שורת תזכורת על פרופיל חסר, או מחרוזת ריקה.
@@ -1672,6 +2978,25 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
           await handleMessage(msg);
         } catch (err) {
           console.error("message handling failed", err);
+          // גם כשל מחוץ ל-try של המודל לא משאיר את הפונה בלי תשובה.
+          // סוכן/ת פעיל/ה מקבל/ת קישור לאזור האישי. לקוח/ה, בעלים, חותם/ת
+          // וגולש/ת לא. כשל בשליחה כאן לא מונע טיפול ב-statuses שבהמשך.
+          const from = String(msg?.from || "");
+          if (!from) continue;
+          try {
+            const { data: who } = await supabase.from("agency_members")
+              .select("id")
+              .eq("phone_e164", from)
+              .eq("active", true)
+              .limit(1);
+            const agentId = who?.[0]?.id ? String(who[0].id) : null;
+            // בוט ציבורי כבוי: שולח/ת לא מוכר/ת לא מקבל/ת הודעת כשל.
+            // ההודעה הקבועה יוצאת רק במסלול הרגיל, כמו קודם.
+            if (!agentId && !publicBotEnabled) continue;
+            await replyAfterLlmFailure(from, agentId, err, msg?.id ? String(msg.id) : null);
+          } catch (sendErr) {
+            console.error("llm failure reply failed", sendErr);
+          }
         }
       }
       // ‏statuses מגיעים לאותו וובהוק. עד היום הם נזרקו, ולכן "נשלח" היה כל
@@ -1693,6 +3018,154 @@ declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 /** עבודה שממשיכה אחרי שהתשובה חזרה לקורא (Meta, או pg_cron). */
 function inBackground(work: Promise<unknown>): void {
   EdgeRuntime.waitUntil(work);
+}
+
+// ---------------------------------------------------------------------------
+// שאלה תפעולית. היומן וההיסטוריה נכתבים כמו הודעה יוצאת של גבריאלה,
+// בלי להזיז את last_message_at (הוא לא חלון 24 השעות של ההודעה הנכנסת).
+
+function opsTapDb(): OpsTapDb {
+  return {
+    async agentIdByPhone(phone) {
+      const { data, error } = await supabase.from("agency_members")
+        .select("id")
+        .eq("phone_e164", phone)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data?.id ? String(data.id) : null;
+    },
+    async sentButton(agentId, purpose, buttonId) {
+      const { data, error } = await supabase.from("whatsapp_ops_questions")
+        .select("button_ids, followup_button_ids")
+        .eq("agent_id", agentId)
+        .eq("purpose", purpose)
+        .eq("status", "sent")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return false;
+      const ids = [
+        ...((data.button_ids as string[] | null) ?? []),
+        ...((data.followup_button_ids as string[] | null) ?? []),
+      ];
+      return ids.includes(buttonId);
+    },
+    async insertAnswer(row) {
+      const { error } = await supabase.from("whatsapp_ops_answers").insert({
+        agent_id: row.agent_id,
+        purpose: row.purpose,
+        button_id: row.button_id,
+        button_title: row.button_title,
+        answered_at: row.answered_at,
+      });
+      if (error) throw new Error(error.message);
+    },
+  };
+}
+
+function opsQuestionDb(): OpsQuestionDb {
+  return {
+    async getAgent(id) {
+      const { data, error } = await supabase.from("agency_members")
+        .select("id, tier, phone_e164, active, billing_status")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data?.id) return null;
+      return {
+        id: String(data.id),
+        tier: data.tier == null ? null : String(data.tier),
+        phone: data.phone_e164 == null ? null : String(data.phone_e164),
+        active: data.active === true,
+        billing_status: data.billing_status == null ? null : String(data.billing_status),
+      };
+    },
+    async whatsappOff(agentId) {
+      const prefs = await supabase.from("agent_notification_preferences")
+        .select("whatsapp_types, whatsapp_off_types")
+        .eq("agent_id", agentId)
+        .maybeSingle();
+      if (prefs.error) throw new Error(prefs.error.message);
+      const known = await supabase.rpc("notification_known_types");
+      if (known.error) throw new Error(known.error.message);
+      const types = Array.isArray(known.data) ? known.data.map((t) => String(t)) : [];
+      return whatsappFullyOptedOut({
+        whatsapp_types: (prefs.data?.whatsapp_types as string[] | null) ?? null,
+        whatsapp_off_types: (prefs.data?.whatsapp_off_types as string[] | null) ?? null,
+      }, types);
+    },
+    async lastInboundAt(phone) {
+      const { data, error } = await supabase.from("whatsapp_messages")
+        .select("created_at")
+        .eq("wa_phone", phone)
+        .eq("direction", "in")
+        .neq("msg_type", "reaction")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data?.created_at ? String(data.created_at) : null;
+    },
+    async priorWaIds(agentId, purpose) {
+      const { data, error } = await supabase.from("whatsapp_ops_questions")
+        .select("wa_message_ids")
+        .eq("agent_id", agentId)
+        .eq("purpose", purpose)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return ((data?.wa_message_ids as string[] | null) ?? []).map((id) => String(id));
+    },
+    async claim(row) {
+      const { data, error } = await supabase.rpc("whatsapp_ops_question_claim", {
+        p_agent: row.agentId,
+        p_purpose: row.purpose,
+        p_body: row.body,
+        p_button_ids: row.buttonIds,
+        p_followup_body: row.followupBody,
+        p_followup_button_ids: row.followupButtonIds,
+        p_retry: row.retry,
+      });
+      if (error) throw new Error(error.message);
+      return String(data ?? "");
+    },
+    async markSent(agentId, purpose, waIds, status, errorText) {
+      const { error } = await supabase.from("whatsapp_ops_questions").update({
+        status,
+        wa_message_ids: waIds,
+        error: errorText,
+      }).eq("agent_id", agentId).eq("purpose", purpose);
+      if (error) throw new Error(error.message);
+    },
+    async appendHistory(agentId, phone, lastInbound, assistantText, note) {
+      // הזוג נבנה בלי לקרוא את ההיסטוריה. ההצמדה אטומית במסד (||).
+      const entries = appendOpsHistory([], assistantText, note);
+      const { error } = await supabase.rpc("whatsapp_ops_history_append", {
+        p_agent: agentId,
+        p_phone: phone,
+        p_last_inbound: lastInbound,
+        p_entries: entries,
+      });
+      if (error) throw new Error(error.message);
+    },
+    async logOutbound(row) {
+      const { error } = await supabase.from("whatsapp_messages").insert({
+        wa_message_id: row.waMessageId,
+        direction: "out",
+        wa_phone: row.phone,
+        agent_id: row.agentId,
+        msg_type: "interactive",
+        body: row.body,
+        status: row.waMessageId ? "sent" : null,
+        error: row.error,
+      });
+      if (error) throw new Error(error.message);
+    },
+    async sendWindowOpen(atIso) {
+      // אותו חלון של הסוכנים: 08:00-21:00, שישי עד 13:00, שבת סגורה.
+      const { data, error } = await supabase.rpc("notification_send_window_open", { p_at: atIso });
+      if (error) throw new Error(error.message);
+      return data === true;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1723,6 +3196,25 @@ Deno.serve(async (req: Request) => {
   // Meta ואין לו חתימת HMAC, ולכן האימות הוא של הקוראים הפנימיים.
   // ‏הצעות של גבריאלה על נכס חדש - שת"פ וסרטון (‏property-offers.ts). אותו
   // אימות פנימי של קליטת המייל, מאותה סיבה: הקורא הוא pg_cron ולא Meta.
+  if (url.searchParams.get("task") === "building-developer-ask") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error, detail: auth.detail }), {
+        status: auth.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    inBackground(
+      runBuildingDeveloperAsks(supabase)
+        .then((r) => console.log("building developer asks", JSON.stringify(r)))
+        .catch((err) => console.error("building developer asks failed", err)),
+    );
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (url.searchParams.get("task") === "property-offers") {
     const auth = authorizeInternalCaller(req);
     if (!auth.ok) {
@@ -1795,8 +3287,8 @@ Deno.serve(async (req: Request) => {
       }
     };
     const results = await Promise.all([
-      ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", warmPromptCache)] : []),
-      ...(due.includes("gabriela_public") ? [warm("gabriela_public", warmPublicPromptCache)] : []),
+      ...(due.includes("gabriela_agent") ? [warm("gabriela_agent", async () => warmPromptCache(await cadenceButtonOn()))] : []),
+      ...(due.includes("gabriela_public") ? [warm("gabriela_public", () => warmPublicPromptCache(supabase))] : []),
     ]);
     console.log("cache warm", JSON.stringify(results));
     return new Response(JSON.stringify({ results }), {
@@ -1856,7 +3348,7 @@ Deno.serve(async (req: Request) => {
       });
     }
     inBackground(
-      runEmailIntake({ supabase, reply, loadConversation, saveConversation })
+      runEmailIntake({ supabase, reply, loadConversation, saveConversation, holdTurn: holdAgentTurn })
         .then((r) => console.log("email intake", JSON.stringify(r)))
         .catch((err) => console.error("email intake failed", err)),
     );
@@ -1864,6 +3356,47 @@ Deno.serve(async (req: Request) => {
       status: 202,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // שאלה תפעולית לסוכן/ת אחד/ת (ops-question.ts). הקורא הוא אופרטור עם
+  // מפתח service_role, לא Meta ולא pg_cron: סוד ה-cron אינו מספיק.
+  // התשובה סינכרונית, כי סירוב (חלון, מסלול, כפילות) חייב לחזור לקורא.
+  if (url.searchParams.get("task") === "ops-question") {
+    const auth = authorizeInternalCaller(req);
+    const refused = opsQuestionAuthRefusal(auth);
+    if (refused) {
+      return new Response(JSON.stringify({ error: refused.error, detail: refused.detail }), {
+        status: refused.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    let input: unknown;
+    try {
+      input = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "bad_json" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    try {
+      const result = await runOpsQuestion({
+        db: opsQuestionDb(),
+        input,
+        sendButtons,
+        sendCta: sendCtaUrl,
+      });
+      return new Response(JSON.stringify(result.body), {
+        status: result.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("ops question failed", err);
+      return new Response(JSON.stringify({ error: "db_error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   const rawBody = await req.text();

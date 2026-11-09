@@ -1,0 +1,44 @@
+name: יועצי נדל״ן בטקסט שמוצג
+
+# ‏החלטת תומר (27.10.2026): "יועץ/יועצי נדל״ן" ולא "מתווך/מתווכים" בכל טקסט
+# שהאתר מציג. כמו המקף הארוך זו טעות **שקטה**: הדף נטען ונראה תקין, והמילה
+# הישנה חוזרת בכל נוסח שמועתק מדף ישן. החריגים (שמות בחוק, מסמכים משפטיים,
+# כתובות ‏/…/מתווכים, קבצי PR #955) כתובים בראש הסקריפט.
+#
+# הבדיקה קוראת קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "netlify/edge-functions/*.ts"
+      - "llms.txt"
+      - "manifest.webmanifest"
+      - "scripts/check_yoetz_copy.py"
+      - "scripts/check_long_dash.py"
+      - ".github/workflows/yoetz_copy.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "netlify/edge-functions/*.ts"
+      - "llms.txt"
+      - "manifest.webmanifest"
+      - "scripts/check_yoetz_copy.py"
+      - "scripts/check_long_dash.py"
+      - ".github/workflows/yoetz_copy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: בדיקת "יועצי נדל״ן"
+        run: python3 scripts/check_yoetz_copy.py

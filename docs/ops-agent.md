@@ -175,6 +175,16 @@ python ops_scan.py --only frontend --dry-run   # בלי מסד בכלל
 ‏`scripts/ops_anon_rpc_test.py` בודק את זה, וגם שכל שם ברשימה מוגדר
 באיזו מיגרציה (שגיאת כתיב הייתה משאירה את הפונקציה האמיתית פתוחה בשקט).
 
+**‏`PUBLIC_RPC_WRITES` - והחריג היחיד לכתיבה.** ‏2.11.2026: ‏`record_link_click`
+דווחה ב-`high` כ"פונקציה פתוחה שכותבת". היא אכן כותבת, ובכוונה: ה-edge של
+‏`/go/<code>` מחזיק רק את המפתח הציבורי (‏`docs/click-tracking.md`). הקלט
+מאומת ב-regex ויש תקרה של 60 לקוד ו-300 לכולם בדקה, ולכן היא נרשמה ברשימה
+נפרדת שהרף שלה גבוה יותר: לכל פונקציה רשומות **הטבלאות** שמותר לה לכתוב
+אליהן, והבדיקה מחלצת את יעדי ה-insert/update/delete מהגוף. יעד שלא הוצהר,
+או ‏`grant`/`revoke`/`truncate`/`set_config`, מחזירים אותה ל-`high`. באותו
+יום נכנסו ל-`PUBLIC_RPC` גם `city_ids_for_name` ו-`city_groups_public` (שמות
+קבוצות היישובים לחיפוש בדף הבית).
+
 ### והממצא שדיווח על בעיה שכבר תוקנה
 
 הממצא הכבד ביותר בדשבורד ב-19.9.2026 היה שאילתת ה-`net.http_post` של
@@ -732,3 +742,12 @@ Finished processing build request in 1.034s
 
 **‏Issue נפתח על אתר שלא נפל** — שתי בקשות נכשלו מה-runner. אם זה חוזר,
 לבדוק אם Netlify חוסם את טווח ה-IP של GitHub Actions.
+
+### `cron_failing`: כשל בודד מתוך הרבה הרצות אינו high
+
+ב-8.11.2026 חמישה jobs (`notification-push`, `meeting-client-dispatch`,
+`lead-response-escalations`, `admin-inbox-overdue`, `saved-search-notify`)
+דווחו high באותה דקה, כל אחד על כשל אחד (`connection failed`) מתוך 288
+הרצות, וכולם המשיכו לרוץ בהצלחה. ניתוק רגעי של החיבור אינו "האוטומציה
+שבורה". מעכשיו כשל בודד מתוך 12 הרצות ומעלה הוא `low`; job יומי שנכשל פעם
+אחת נשאר `high`, כי שם כשל אחד הוא כל הריצות.

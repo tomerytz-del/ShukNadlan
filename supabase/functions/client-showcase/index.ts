@@ -819,13 +819,14 @@ async function notifyOne(supabase: SupabaseClient, sc: Row): Promise<string> {
       "WHATSAPP_SHOWCASE_TEMPLATE לא מוגדר, והלקוח/ה לא כתב/ה למספר ב-24 השעות האחרונות", false);
   }
 
+  const pageUrl = `https://shuknadlan.co.il/${suffix}`;
   const body = mode === "template"
     ? line
-    : `שלום ${name}, ${line}.\nלצפייה ולתשובה: https://shuknadlan.co.il/${suffix}`;
+    : `שלום ${name}, ${line}.`;
   try {
     const wamid = mode === "template"
       ? await sendShowcaseTemplate(to, name, line, suffix)
-      : await sendShowcaseText(to, body);
+      : await sendShowcaseText(to, body, "לעמוד האישי", pageUrl);
     // כל הודעה יוצאת נרשמת ביומן - מעקב מסירה (docs/whatsapp-setup.md)
     await supabase.from("whatsapp_messages").insert({
       wa_message_id: wamid, direction: "out", wa_phone: to, msg_type: mode, body: body.slice(0, 2000),

@@ -284,7 +284,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       עוד אין חשבון? <a href="/developer-signup" style="color:var(--teal);font-weight:700">פתיחת חשבון יזם</a>
     </p>
     <p style="text-align:center;font-size:.78rem;margin:8px 0 0;color:var(--ink-muted)">
-      מתווכים וסוכנים - <a href="/crm" style="color:var(--teal);font-weight:700">הכניסה שלכם כאן</a>
+      יועצי נדל״ן וסוכנים - <a href="/crm" style="color:var(--teal);font-weight:700">הכניסה שלכם כאן</a>
     </p>
   </div>
 </div>
@@ -455,6 +455,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="msg" id="coMsg" role="status" aria-live="polite" style="margin:0"></p>
         </div>
       </form>
+
+      <!-- מחיקת החשבון (Apple 5.1.1(v), Google Play). הכפתור פותח אישור
+           כפול: הבנה מאחורי סימון, ואז הקלדת "מחיקת חשבון". הכול נקבע בשרת
+           (close-account, ‏close_developer_account). docs/account-closure.md -->
+      <div class="card" id="devDeleteCard" style="margin-top:18px;border-color:var(--danger)">
+        <h3 style="color:var(--danger)">מחיקת החשבון</h3>
+        <p class="sub">הפרויקטים יורדים מהאתר, הכניסה נמחקת, ופרטי הקשר נמחקים. יתרת ארנק שנטענה בתשלום ולא מומשה מוחזרת. זו פעולה שאין ממנה חזרה.</p>
+        <button type="button" class="btn btn-danger" id="devDeleteBtn">מחיקת החשבון</button>
+        <p class="msg" id="devDeleteMsg" role="status" aria-live="polite"></p>
+      </div>
     </section>
 
     <!-- ---------- פניות ---------- -->
@@ -704,6 +714,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <div class="sheet-foot">
       <button type="button" class="btn btn-ghost" id="topupClose">סגירה</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="devDeleteSheet" aria-labelledby="ddTitle" style="max-width:min(520px,96vw)">
+  <div class="sheet-inner">
+    <div class="sheet-head"><h3 id="ddTitle">מחיקת החשבון</h3></div>
+    <div class="sheet-body" id="ddStep1">
+      <p style="font-weight:800;margin:0 0 6px">אחרי האישור, מיד:</p>
+      <ul style="margin:0 0 12px;padding-inline-start:18px;font-size:.86rem;line-height:1.6">
+        <li id="ddProjects">כל הפרויקטים יורדים מהאתר.</li>
+        <li>דף החברה יורד, ופניות חדשות לא מגיעות.</li>
+        <li>השם, הטלפון, האימייל והכניסה לחשבון נמחקים.</li>
+        <li>נשמרים בלי פרטי קשר, כי החוק מחייב: שם החברה והח״פ, החיובים, הקבלות והחשבוניות, ופניות שכבר נרכשו.</li>
+      </ul>
+      <div class="notice" id="ddMoney"></div>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.85rem;margin-top:10px;cursor:pointer">
+        <input type="checkbox" id="ddAck"> <span>קראתי והבנתי. הבקשה היא למחוק את החשבון של החברה.</span>
+      </label>
+      <div class="field" style="margin-top:12px"><label for="ddReason">למה מוחקים? (רשות)</label><textarea id="ddReason" rows="2" maxlength="500"></textarea></div>
+    </div>
+    <div class="sheet-body" id="ddStep2" hidden>
+      <p style="font-size:.88rem;margin:0 0 10px">זה האישור האחרון. כדי לוודא שזו לא לחיצה בטעות, הקלידו <b>מחיקת חשבון</b> בשדה שלמטה.</p>
+      <div class="field"><input type="text" id="ddPhrase" autocomplete="off" spellcheck="false" aria-label="הקלדת המילים מחיקת חשבון לאישור"></div>
+      <p class="msg" id="ddMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="btn btn-ghost" id="ddCancel">ביטול</button>
+      <button type="button" class="btn btn-danger" id="ddNext" disabled>המשך לאישור האחרון</button>
+      <button type="button" class="btn btn-danger" id="ddConfirm" hidden disabled>מחיקת החשבון</button>
     </div>
   </div>
 </dialog>
@@ -1794,6 +1834,72 @@ async function handleTopupReturn(){
   }
 }
 el('topupClose').addEventListener('click', ()=> el('topupSheet').close());
+
+/* ---------- מחיקת החשבון ----------
+   הסיכום (כמה פרויקטים, כמה יוחזר) מגיע מהשרת ולא מנוחש כאן. ההקלדה
+   נבדקת שוב בשרת. אחרי המחיקה המשתמש ב-Auth כבר אינו קיים, ולכן יוצאים
+   ומציגים את מסך הכניסה עם אישור. */
+const DELETE_PHRASE = 'מחיקת חשבון';
+async function callCloseAccount(payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok:false, data:{ error:'no_session' } };
+  const res = await fetch(SUPABASE_URL + '/functions/v1/close-account', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify(Object.assign({ account:'developer' }, payload)),
+  });
+  const data = await res.json().catch(()=> ({}));
+  return { ok: res.ok && !data.error, data };
+}
+function resetDeleteSheet(){
+  el('ddStep1').hidden = false; el('ddStep2').hidden = true;
+  el('ddAck').checked = false; el('ddNext').disabled = true; el('ddNext').hidden = false;
+  el('ddConfirm').hidden = true; el('ddConfirm').disabled = true;
+  el('ddPhrase').value = ''; setMsg('ddMsg', '');
+}
+el('devDeleteBtn').addEventListener('click', async ()=>{
+  setMsg('devDeleteMsg', 'טוענים…');
+  const { ok, data } = await callCloseAccount({ action:'preview' });
+  if (!ok || !data.summary){ setMsg('devDeleteMsg', 'לא הצלחנו לטעון את פרטי המחיקה. נסו שוב, או כתבו אלינו: shuknadlan@gmail.com', 'err'); return; }
+  setMsg('devDeleteMsg', '');
+  const s = data.summary;
+  el('ddProjects').textContent = s.active_projects > 0
+    ? (s.active_projects === 1 ? 'הפרויקט שלכם יורד מהאתר.' : s.active_projects + ' הפרויקטים שלכם יורדים מהאתר.')
+    : 'אין כרגע פרויקטים באתר.';
+  el('ddMoney').textContent = s.refundable > 0
+    ? 'יתרת הארנק שנטענה בתשלום ולא מומשה - ' + money(s.refundable) + ' - תוחזר לאמצעי התשלום שממנו נטענה. יתרה שלא נטענה בתשלום (זיכוי או מתנה) אינה מוחזרת. אין זיכוי על דמי דף נחיתה או קידום שכבר חויבו.'
+    : (s.credit_balance > 0
+      ? 'בארנק יש ' + money(s.credit_balance) + ', אבל אין מזה סכום שנטען בתשלום וטרם מומש, ולכן אין החזר. אין זיכוי על דמי דף נחיתה או קידום שכבר חויבו.'
+      : 'אין יתרה בארנק, ולכן אין החזר.');
+  resetDeleteSheet();
+  el('devDeleteSheet').showModal();
+});
+el('ddAck').addEventListener('change', e=>{ el('ddNext').disabled = !e.target.checked; });
+el('ddNext').addEventListener('click', ()=>{
+  el('ddStep1').hidden = true; el('ddStep2').hidden = false;
+  el('ddNext').hidden = true; el('ddConfirm').hidden = false;
+  el('ddPhrase').focus();
+});
+el('ddPhrase').addEventListener('input', e=>{ el('ddConfirm').disabled = e.target.value.trim() !== DELETE_PHRASE; });
+el('ddCancel').addEventListener('click', ()=>{ el('devDeleteSheet').close(); resetDeleteSheet(); });
+el('ddConfirm').addEventListener('click', async ()=>{
+  el('ddConfirm').disabled = true;
+  setMsg('ddMsg', 'מוחקים…');
+  const { ok, data } = await callCloseAccount({
+    action:'request', confirm: DELETE_PHRASE,
+    reason: (el('ddReason').value || '').trim() || null,
+  });
+  if (!ok){
+    setMsg('ddMsg', data.error === 'already_closed' ? 'החשבון כבר נמחק.' : 'המחיקה נכשלה. אפשר לנסות שוב, או לכתוב אלינו: shuknadlan@gmail.com', 'err');
+    el('ddConfirm').disabled = false;
+    return;
+  }
+  el('devDeleteSheet').close();
+  const refund = Number(data.result && data.result.refund_requested) || 0;
+  try { await sb.auth.signOut(); } catch(_){ /* המשתמש כבר נמחק */ }
+  showLogin('החשבון נמחק. הפרויקטים ירדו מהאתר והפרטים האישיים נמחקו.' +
+    (refund > 0 ? ' ההחזר על יתרת הארנק (' + money(refund) + ') בטיפול.' : ''));
+});
 
 /* ---------- טעינה ורענון ---------- */
 function renderHeader(){

@@ -40,6 +40,16 @@
                     ואחרת ערך כוזב. היא נקראת רק ברגע הלחיצה על "אחורה",
                     ולכן היא יכולה לבדוק את מצב הדף בזמן אמת.
 
+   ‏configure (אפשר גם אחרי mount, נקרא ברגע הלחיצה):
+     ask   — במקום confirm() של הדפדפן: פונקציה שמקבלת את הנוסח ומחזירה
+             Promise<boolean> (‏true = לצאת). דף הבית ב-v10 מציג בה גיליון משלו.
+     once  — מפתח ב-sessionStorage: אחרי ששאלו פעם אחת בביקור, "אחורה" יוצא
+             בלחיצה אחת בלי שאלה.
+
+   ‏data-gesture-when="<מחלקה על html>" — כשהמחלקה על <html>, הזקיף נדחף רק
+   אחרי המחווה הראשונה (הקשה או מקש) ולא בטעינה: Chrome מדלג ב"אחורה" על
+   רשומה שנוספה בלי מחווה של המשתמש/ת, ואז השאלה לא הייתה עולה בכלל.
+
    דף שאין לו אף אחת מהשלוש — נכנסו אליו מתוך האתר, בלי always ובלי בדיקת
    unsaved — לא נוגע בהיסטוריה בכלל.
 
@@ -69,6 +79,8 @@
   var leaveMsg  = 'לצאת מהאתר?';
   var stayMsg   = '';      // ריק = משתמשים ב-leaveMsg
   var unsaved   = null;
+  var ask       = null;    // configure: במקום confirm()
+  var onceKey   = '';      // configure: מפתח ב-sessionStorage
 
   function stateWith(key){
     var base = global.history.state;
@@ -144,8 +156,22 @@
     var reason = reasonToAsk();
     // אין מה לשאול: הלחיצה הייתה אמיתית, וכל מה שהיא בזבזה הוא את הזקיף
     if (!reason){ global.history.back(); return; }
-    if (global.confirm(reason)) global.history.back();
-    else arm();
+    if (onceKey){
+      var asked = false;
+      try { asked = global.sessionStorage.getItem(onceKey) === '1'; } catch (e) {}
+      if (asked){ global.history.back(); return; }
+      try { global.sessionStorage.setItem(onceKey, '1'); } catch (e) {}
+    }
+    if (!ask){
+      if (global.confirm(reason)) global.history.back();
+      else arm();
+      return;
+    }
+    // הזקיף חוזר מיד, כדי שהדף יישאר במקומו בזמן שהשאלה פתוחה
+    arm();
+    Promise.resolve(ask(reason)).then(function (leave) {
+      if (leave){ armed = false; global.history.go(-2); }
+    });
   }
 
   function mount(opts){
@@ -161,15 +187,31 @@
     mounted = true;
     global.addEventListener('popstate', onPopState);
     tagPage();
-    arm();
+    if (!opts.armOnGesture){ arm(); return; }
+    var evs = ['pointerdown', 'keydown'];
+    function first(){
+      evs.forEach(function (t) { global.removeEventListener(t, first, true); });
+      if (!armed) arm();
+    }
+    evs.forEach(function (t) { global.addEventListener(t, first, true); });
+  }
+
+  function configure(opts){
+    opts = opts || {};
+    if (typeof opts.ask === 'function') ask = opts.ask;
+    if (opts.once) onceKey = String(opts.once);
   }
 
   global.ExitGuard = {
     mount: mount,
+    configure: configure,
     isMounted: function(){ return mounted; },
     leavesSite: function(){ return leaves; },
   };
 
   var tag = document.currentScript;
-  if (tag && tag.hasAttribute('data-auto')) mount();
+  if (tag && tag.hasAttribute('data-auto')){
+    var when = tag.getAttribute('data-gesture-when');
+    mount({ armOnGesture: !!(when && document.documentElement.classList.contains(when)) });
+  }
 })(window);

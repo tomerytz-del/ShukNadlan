@@ -1,0 +1,62 @@
+/* ============================================================================
+   ‏FilterSheet (‏assets/filter-sheet.js) - תיבת הסינון האחידה, A3-2 / A3-3 (PR 1010).
+   טוקנים: כותרות Heebo 700/800, נייבי #0e2a6b לצ'יפ לחוץ ולמסגרות, זהב #c9a227 לכפתור
+   ההחלה עם טקסט נייבי, צ'יפ 44px ברדיוס 22, רווח 8. לעולם לא שחור ולא טורקיז.
+   מ-1024px חלון ממורכז 880px בשני טורים; מתחת - גיליון תחתון ברוחב מלא, עד 92dvh.
+   ============================================================================ */
+.fs-locked,.fs-locked body{overflow:hidden}
+.fs-wrap{position:fixed;inset:0;z-index:1400;display:flex;align-items:flex-end;justify-content:center;font-family:Heebo,system-ui,sans-serif}
+.fs-scrim{position:absolute;inset:0;background:rgba(14,42,107,.55)}
+.fs-dlg{position:relative;display:flex;flex-direction:column;width:100%;max-height:92vh;max-height:92dvh;border-radius:20px 20px 0 0;background:#fff;color:#1b1f2a;
+  box-shadow:0 -12px 40px rgba(13,27,61,.25);overflow:hidden;animation:fsUp .26s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fsUp{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.fs-dlg{animation:none}}
+.fs-grip{display:block;width:40px;height:4px;margin:8px auto 0;border-radius:2px;background:#d4d9e4}
+.fs-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 10px;border-bottom:1px solid #e3e8f2}
+.fs-head h2{margin:0;font:800 22px/1.3 Heebo,system-ui,sans-serif;color:#0e2a6b}
+.fs-head h2:focus{outline:none}
+.fs-x{flex:none;width:44px;height:44px;border:1.5px solid #d5dae6;border-radius:50%;background:#fff;color:#0e2a6b;font:700 18px/1 Heebo,system-ui,sans-serif;cursor:pointer}
+.fs-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 16px 16px}
+.fs-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:4px 32px}
+.fs-sec[hidden]{display:none}
+.fs-h{margin:16px 0 8px;font:800 16px/1.3 Heebo,system-ui,sans-serif;color:#1b1f2a}
+.fs-chips{display:flex;flex-wrap:wrap;gap:8px}
+.fs-chip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border:1.5px solid #0e2a6b;border-radius:22px;background:#fff;color:#0e2a6b;
+  font:700 14.5px Heebo,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.fs-chip[aria-pressed="true"]{background:#0e2a6b;color:#fff}
+.fs-n{font-weight:600;opacity:.75;font-size:13px}
+.fs-chips.is-seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;border:1.5px solid #0e2a6b;border-radius:12px;overflow:hidden}
+/* ‏!important: ‏design-system.css מעגל כפתורים ב-!important */
+.fs-wrap .fs-chips.is-seg .fs-chip{justify-content:center;border:0;border-radius:0 !important;min-height:46px}
+.fs-chips.is-seg .fs-chip + .fs-chip{border-inline-start:1.5px solid #0e2a6b}
+.fs-range{display:flex;align-items:center;gap:8px}
+.fs-range span{color:#6b7280}
+.fs-in{box-sizing:border-box;width:100%;min-width:0;height:48px;padding:0 12px;border:1.5px solid #c9d0de;border-radius:12px;background:#fff;color:#1b1f2a;font:600 15px Heebo,system-ui,sans-serif}
+.fs-range .fs-in{flex:1}
+.fs-in:focus{outline:none;border-color:#0e2a6b;box-shadow:0 0 0 3px rgba(201,162,39,.45)}
+.fs-more-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;margin-top:16px;border:1.5px dashed #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;
+  font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}
+.fs-more-btn[hidden]{display:none}
+.fs-more{display:none}
+.fs-more.is-open{display:grid}
+.fs-foot{position:relative;display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid #e3e8f2;background:#fff}
+.fs-reset{flex:0 0 auto;min-height:48px;padding:0 18px;border:1.5px solid #0e2a6b;border-radius:12px;background:#fff;color:#0e2a6b;font:800 15px Heebo,system-ui,sans-serif;cursor:pointer}
+.fs-go{flex:1;min-height:48px;padding:0 12px;border:0;border-radius:12px;background:#c9a227;color:#0e2a6b;font:800 15.5px Heebo,system-ui,sans-serif;cursor:pointer}
+.fs-go:disabled{background:#ece8dc;color:#6b6450;cursor:not-allowed}
+.fs-sr{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.fs-chip:focus-visible,.fs-x:focus-visible,.fs-reset:focus-visible,.fs-go:focus-visible,.fs-more-btn:focus-visible{outline:3px solid #c9a227;outline-offset:2px}
+@media (min-width:1024px){
+  .fs-wrap{align-items:center}
+  .fs-dlg{width:880px;max-width:calc(100vw - 48px);max-height:min(86vh,820px);border-radius:20px}
+  .fs-grip{display:none}
+  .fs-head{min-height:64px;padding:8px 24px}
+  .fs-head h2{font-size:1.35rem}
+  .fs-body{padding:4px 24px 20px}
+  .fs-grid{grid-template-columns:1fr 1fr;align-items:start}
+  .fs-sec.is-wide{grid-column:1/-1}
+  /* במחשב הכול גלוי: בלי "עוד אפשרויות" */
+  .fs-more-btn{display:none !important}
+  .fs-more{display:grid}
+  .fs-foot{padding:14px 24px}
+  .fs-go{flex:0 1 320px;margin-inline-start:auto}
+}

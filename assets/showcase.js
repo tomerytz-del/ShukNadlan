@@ -197,7 +197,7 @@
      מי שמחליט/ה יחד (בן/בת זוג, הורים) רואה/ה את אותו עמוד ואת אותן העדפות.
      הקישור הוא המפתח, ולכן משתפים אותו כמו שהוא - בלי ?preview. */
   async function sharePage(){
-    const url = location.origin + '/showcase?t=' + encodeURIComponent(TOKEN);
+    const url = location.origin + '/m/' + encodeURIComponent(TOKEN);
     const text = 'הנכסים ש' + (state.agent.name || 'הסוכן/ת') + ' בחר/ה בשבילנו - מה דעתך?';
     if (navigator.share){
       try { await navigator.share({ title: document.title, text, url }); return; }
@@ -222,7 +222,7 @@
           ${a.photo_url ? `<img class="agent" src="${esc(a.photo_url)}" alt="${esc(a.name)}">` : ''}
           <div style="min-width:0">
             <div class="agent-name">${esc(a.name || '')}</div>
-            <div class="agent-sub">${esc(['מתווך/ת מוסמך/ת', a.license_number && 'רישיון ' + a.license_number, a.agency_name].filter(Boolean).join(' · '))}</div>
+            <div class="agent-sub">${esc(['יועץ נדל״ן', a.license_number && 'רישיון ' + a.license_number, a.agency_name].filter(Boolean).join(' · '))}</div>
           </div>
         </div>
         <h1>${esc(state.client_name)}, ${a.name ? 'בחרתי' : 'נבחרו'} בשבילך ${state.items.length === 1 ? 'נכס אחד' : esc(state.items.length) + ' נכסים'}</h1>
