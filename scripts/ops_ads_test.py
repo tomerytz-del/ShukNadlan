@@ -91,6 +91,14 @@ check("סנכרון: 20 שעות - שקט",
       codes(ads._sync_silent, _Db({"sync_insights": [{"hours": 20, "last_ok": "x", "last_any": "x"}]})) == [])
 check("סנכרון: הקונסולה כבויה - שקט גם אחרי שבוע",
       codes(ads._sync_silent, _Db({"sync_insights": [{"hours": 200}]}, enabled=False)) == [])
+check("גוגל: 50 שעות בלי הצלחה אחרי שהיו ריצות - ממצא",
+      codes(ads._google_sync_silent, _Db({"google_sync_insights": [{"hours": 50, "n": 4, "last_ok": None, "last_any": "x"}]})) == ["ads_google_sync_silent"])
+check("גוגל: 20 שעות - שקט",
+      codes(ads._google_sync_silent, _Db({"google_sync_insights": [{"hours": 20, "n": 4, "last_ok": "x", "last_any": "x"}]})) == [])
+check("גוגל: אין היסטוריה ביומן - שקט",
+      codes(ads._google_sync_silent, _Db({"google_sync_insights": [{"hours": 900, "n": 0, "last_ok": None, "last_any": None}]})) == [])
+check("גוגל: הקונסולה כבויה - שקט",
+      codes(ads._google_sync_silent, _Db({"google_sync_insights": [{"hours": 200, "n": 4}]}, enabled=False)) == [])
 
 # ---- קמפיין בלי לידים
 camp = {"campaign_id": "120", "name": "SN · נכס", "spend": 180, "before_results": 0, "console_lead": True}
