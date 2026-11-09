@@ -124,5 +124,5 @@ update public.lawyer_lead_orders set status = 'refunded' where id = '<order_id>'
 ## מה עוד לא כאן
 
 1. **אירוע מדידה** בטופס (GA4): לא נוסף, כי כל אירוע חדש מחייב שורה ב-`gtm/container.json` וייצוא מחדש מהמכולה החיה (`check_gtm_container.py`).
-2. **אימות מייל בחשבון בעל המקצוע**, **מחיקת חשבון ושמירת נתונים** ל-`professional_accounts`, ומניפסט משלו ל-`professional-crm`: `docs/handoff-professional-leads-2026-11-07.md`.
+2. **מדיניות שמירה** לחשבון בעל מקצוע שלא היה פעיל (`docs/professional-accounts.md`). אימות המייל, מחיקת החשבון והמניפסט נבנו.
 3. **עורכי דין בערים נוספות:** המדף מציג ליד רק לעו"ד בעיר שלו, והליד בעיר בלי עו"ד נשאר `unrouted` עד שמאשרים עו"ד.
