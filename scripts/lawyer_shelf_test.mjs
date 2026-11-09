@@ -87,7 +87,10 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /from\("ad_placement_access"\)[\s\S]{0,80}eq\("manage_token", token\)/);
   // כתובת הכניסה היא זו שבכרטיסייה, לא כתובת מהגוף
   assert.match(accountFn, /card\.contact_email/);
-  assert.equal(/shelf_enabled/.test(accountFn.replace(/\/\/.*$/gm, '').replace(/\*\*shelf_enabled[^\n]*/g, '')), false, 'האישור למדף אינו נקבע בפתיחה');
+  // האישור למדף אינו נקבע בפתיחה. הוא מופיע רק בהעברת ערך שמנהל/ת כבר קבע/ה בשליחה חוזרת (carried), ולעולם לא מהגוף
+  const shelfLines = accountFn.replace(/\/\/.*$/gm, '').split('\n').filter((l) => /shelf_enabled/.test(l));
+  assert.ok(shelfLines.length > 0 && shelfLines.every((l) => /existing\.shelf_enabled|carried|keepErr|\.select\(|shelf_enabled: true/.test(l)), 'האישור למדף אינו נקבע בפתיחה: ' + shelfLines.join(' | '));
+  assert.equal(/body\.shelf_enabled/.test(accountFn), false);
   assert.match(accountFn, /deleteUser\(authUser\.user\.id\)/);
   assert.match(accountFn, /terms_accepted !== true/);
   // אימות מייל: האסימון יוצא לטופס ההרשמה, ולכן המשתמש נוצר בהזמנה במייל ולא עם email_confirm וסיסמה מהגוף

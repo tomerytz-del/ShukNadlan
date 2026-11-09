@@ -25,6 +25,8 @@ import { announceProfessionalAccount } from "../_shared/platform-signup-alert.ts
 // להיכנס, ולכן אין ארנק ואין מדף. כתובת שלא אושרה לא נשארת תפוסה: בקשה חוזרת (אחרי דקה) מוחקת את
 // המשתמש שלא אושר (אי אפשר היה להיכנס אליו, ואין בו יתרה) ושולחת הזמנה חדשה.
 //
+// שליחה חוזרת שומרת את מה שמנהל/ת הפלטפורמה כבר קבע/ה (עיר, אישור מדף) ואינה שולחת התראה נוספת.
+//
 // ## מה נוצר, ומה לא
 // נוצרים משתמש (auth), ושורת professional_accounts עם kind מהכרטיסייה, עיר מ-target_region
 // וארנק ריק. **shelf_enabled נשאר false:** מי שרשאי/ת לראות ולקנות לידים נקבע על ידי מנהל/ת
@@ -104,7 +106,9 @@ Deno.serve(async (req: Request) => {
   if (!card.contact_email) return json({ error: "card_without_email" }, 409);
 
   const { data: existing } = await supabase
-    .from("professional_accounts").select("id, user_id, erased_at").eq("card_id", card.id).maybeSingle();
+    .from("professional_accounts").select("id, user_id, erased_at, city_id, shelf_enabled").eq("card_id", card.id).maybeSingle();
+  // מה שמנהל/ת הפלטפורמה כבר קבע/ה לחשבון שלא אושר (עיר, אישור מדף) עובר לשורה החדשה, ולא נמחק עם ה-cascade
+  let carried: { city_id: string | null; shelf_enabled: boolean } | null = null;
   if (existing) {
     // חשבון שאושר (או שנמחק) נשאר כמות שהוא. חשבון שההזמנה אליו לא נלחצה: שולחים הזמנה חדשה
     const stale = existing.user_id && !existing.erased_at
@@ -123,6 +127,7 @@ Deno.serve(async (req: Request) => {
       console.error("professional account: deleting unconfirmed user failed", delErr.message);
       return json({ error: "auth_error", detail: delErr.message }, 500);
     }
+    carried = { city_id: existing.city_id ?? null, shelf_enabled: !!existing.shelf_enabled };
   }
 
   // העיר: לפי שם האזור שנרשם בכרטיסייה. בלי התאמה city_id ריק, ומנהל/ת משלים/ה לפני אישור המדף
@@ -167,7 +172,7 @@ Deno.serve(async (req: Request) => {
       kind: card.advertiser_type,
       display_name: displayName.length >= 2 ? displayName : "בעל/ת מקצוע",
       phone: card.phone_e164 ?? null,
-      city_id: cityId,
+      city_id: carried?.city_id ?? cityId,
       terms_accepted_at: new Date().toISOString(),
     })
     .select("id")
@@ -180,7 +185,16 @@ Deno.serve(async (req: Request) => {
     return json({ error: "db_error", detail: insErr?.message ?? "insert_failed" }, 500);
   }
 
-  await announceProfessionalAccount(supabase, account.id);
+  if (carried) {
+    // שליחה חוזרת, לא חשבון חדש: בלי התראה נוספת למנהל/ת, והאישור שכבר ניתן נשמר
+    if (carried.shelf_enabled) {
+      const { error: keepErr } = await supabase
+        .from("professional_accounts").update({ shelf_enabled: true }).eq("id", account.id);
+      if (keepErr) console.error("professional account: carrying shelf_enabled failed", keepErr.message);
+    }
+  } else {
+    await announceProfessionalAccount(supabase, account.id);
+  }
 
   return json({ success: true, verification_sent: true, login_email: email, login_url: "/professional-crm" });
 });
