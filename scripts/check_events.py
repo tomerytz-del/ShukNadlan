@@ -93,9 +93,18 @@ SITE_PHONE = "+972546929991"
 # ש-mailto: לא נמדד בכלל — ראו ההערה ב-assets/events.js.
 SITE_EMAIL = "shuknadlan@gmail.com"
 
-# ‏המספר העסקי של העוזר הציבורי (assets/bot-link.js). קישור אליו מסומן
+# ‏המספר העסקי של העוזר הציבורי - נקרא מ-assets/bot-link.js (מקור האמת
+# היחיד; מ-10.11.2026 הוא נפרד מהמספר של הסוכנים). קישור אליו מסומן
 # ‏data-bot, ולכן הוא נבדק כאן רק כדי שלא ייחשב "מספר של סוכן/ת".
-BOT_PHONE = "972532494740"
+def _bot_phone() -> str:
+    src = (ROOT / "assets" / "bot-link.js").read_text(encoding="utf-8")
+    m = re.search(r"var NUMBER = '(\d{9,15})'", src)
+    if not m:
+        sys.exit("assets/bot-link.js: לא נמצא var NUMBER = '<מספר>' - הבדיקה כבר אינה רואה את המספר הציבורי")
+    return m.group(1)
+
+
+BOT_PHONE = _bot_phone()
 
 # ‏דפי האזור האישי — אסור להם לטעון events.js. ‏showcase הוא המיניסייט שבין
 # סוכן/ת ללקוח/ה שלו/ה: חיוג משם הוא לקוח/ה קיים/ת ולא פנייה חדשה, מאותו

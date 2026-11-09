@@ -4,6 +4,7 @@ import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import {
   downloadMedia,
   formatForWhatsapp,
+  isPublicNumber,
   markReadAndTyping,
   sendButtons,
   sendContactCard,
@@ -13,6 +14,7 @@ import {
   verifySignature,
   WA_CUSTOMER_NOTE,
   type WaSent,
+  withSender,
 } from "./whatsapp.ts";
 import { prepareImportJob } from "./property-import.ts";
 import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } from "./photo-target.ts";
@@ -159,16 +161,21 @@ import {
 // תמלול/תמונות, LLM עם כלים, תשובה חזרה בוואטסאפ).
 //
 // ---------------------------------------------------------------------------
-// שני ענפים על אותו מספר
+// שני ענפים, שני מספרים (מ-10.11.2026)
 // ---------------------------------------------------------------------------
-// מספר שנמצא ב-agency_members מגיע ל-`agent.ts` — העוזר שכותב למסד בשמו/ה.
-// מספר שאינו שם מגיע ל-`public-agent.ts` — בוט קריאה-בלבד שמחפש נכסים
-// במאגר הציבורי (‏docs/whatsapp-public-bot.md).
+// ‏Meta אומרת בכל הודעה לאיזה מספר היא הגיעה (`value.metadata.phone_number_id`).
 //
-// הפיצול נשען כרגע על **היעדר התאמה בטבלה**, כי שני הענפים חולקים מספר אחד.
-// ברגע שיהיה מספר שני ל-WABA, הניתוב צריך לעבור להישען על
-// ‏`value.metadata.phone_number_id` שמטא שולחת בכל הודעה — שדה מפורש עדיף על
-// היעדר שורה, כי טעות בנתוני סוכן/ת לא אמורה להפיל אותו/ה לענף הציבורי.
+// * **המספר הציבורי** (`WHATSAPP_PUBLIC_PHONE_NUMBER_ID`): תמיד `public-agent.ts`,
+//   גם כשהשולח/ת הוא/היא סוכן/ת - שדה מפורש גובר על "אין שורה ב-agency_members".
+//   זה המספר שבאתר (`assets/bot-link.js`) ובכרטיס איש הקשר של גבריאלה.
+// * **המספר של הסוכנים** (`WHATSAPP_PHONE_NUMBER_ID`): כמו קודם - סוכן/ת לפי
+//   `agency_members`, צוות ההטמעה לפי `csm_staff`, ואחרת הבוט הציבורי. השאר
+//   נשאר כאן בכוונה: לקוח/ה שעונה לתזכורת על פגישה, לעדכון מיניסייט או
+//   להתראה של "הסוכן החכם" מגיע/ה למספר הזה, והנוסחים שם מפנים לכפתור.
+//
+// התשובה יוצאת מהמספר שההודעה הגיעה אליו (`withSender` ב-whatsapp.ts, סביב
+// כל הודעה ב-`handlePayload`). בלי הסוד של המספר הציבורי הכול מספר אחד,
+// והניתוב נשען על היעדר השורה כמו עד היום. ‏docs/whatsapp-public-bot.md.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -1608,10 +1615,16 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
 // גבריאלה באנשי הקשר
 // ---------------------------------------------------------------------------
 
-// המספר העסקי של העוזרת - אותו מספר כמו ב-assets/bot-link.js וב-crm.js. מזהה
-// ציבורי ולא סוד; המשתנה קיים כדי שהחלפת מספר ב-Meta לא תחכה לפריסה של קוד.
+// המספר העסקי של העוזרת של הסוכנים - אותו מספר כמו ASSISTANT_WA_NUMBER ב-crm.js.
+// מזהה ציבורי ולא סוד; המשתנה קיים כדי שהחלפת מספר ב-Meta לא תחכה לפריסה של קוד.
 const ASSISTANT_PHONE = (Deno.env.get("WHATSAPP_DISPLAY_NUMBER") || "972532494740")
   .replace(/\D/g, "");
+// המספר הציבורי של גבריאלה לגולשים (מ-10.11.2026) - אותו מספר כמו NUMBER
+// ב-assets/bot-link.js. זה מה שכרטיס איש הקשר נושא: הכרטיס אומר "כך תמצאו
+// אותי בחיפוש הבא", והחיפוש הבא הוא במספר הציבורי. בלי הסוד - המספר של
+// הסוכנים, כמו לפני הפיצול.
+const PUBLIC_ASSISTANT_PHONE =
+  (Deno.env.get("WHATSAPP_PUBLIC_DISPLAY_NUMBER") || "").replace(/\D/g, "") || ASSISTANT_PHONE;
 const CONTACT_CARD_NOTE =
   "ועוד משהו קטן - שווה לשמור אותי באנשי הקשר 📇 ככה יהיה קל למצוא אותי " +
   "בחיפוש הבא: פשוט לכתוב לי מה מחפשים.";
@@ -1624,7 +1637,7 @@ const CONTACT_CARD_NOTE =
  * חדשה - היומן ממילא רושם כל הודעה יוצאת, ומקור אמת שני היה מתפצל ממנו.
  */
 async function maybeShareContactCard(phone: string): Promise<void> {
-  if (!ASSISTANT_PHONE) return;
+  if (!PUBLIC_ASSISTANT_PHONE) return;
   const { data: sent } = await supabase
     .from("whatsapp_messages")
     .select("id")
@@ -1635,12 +1648,12 @@ async function maybeShareContactCard(phone: string): Promise<void> {
   if (sent && sent.length) return;
 
   await reply(phone, CONTACT_CARD_NOTE, null, { customer: true });
-  const body = `גבריאלה - שוק נדל"ן (+${ASSISTANT_PHONE})`;
+  const body = `גבריאלה - שוק נדל"ן (+${PUBLIC_ASSISTANT_PHONE})`;
   try {
     const waMessageId = await sendContactCard(phone, {
       name: "גבריאלה",
       company: "שוק נדל\"ן",
-      phoneDigits: ASSISTANT_PHONE,
+      phoneDigits: PUBLIC_ASSISTANT_PHONE,
       url: "https://shuknadlan.co.il",
     });
     await supabase.from("whatsapp_messages").insert({
@@ -2398,21 +2411,31 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     }
   }
 
+  // --- המספר שההודעה הגיעה אליו (10.11.2026) ---
+  // המספר הציבורי של גבריאלה: הבוט הציבורי לכולם, גם לסוכן/ת שכותב/ת אליו
+  // (למשל כדי לראות מה הלקוחות רואים). אין חיפוש ב-agency_members ולא
+  // ב-csm_staff: השדה שמטא שולחת הוא ההחלטה, לא היעדר שורה.
+  const onPublicNumber = isPublicNumber(msg._phone_number_id);
+
   // --- זיהוי הסוכן/ת לפי מספר הטלפון ---
   // phone_e164 היא עמודה מחושבת שמנרמלת את agency_members.phone לאותו פורמט
   // ש-Meta שולחת ב-from, כך שההשוואה היא שוויון פשוט ומאונדקס.
-  const { data: agent } = await supabase
-    .from("agency_members")
-    .select("id, agency_id, display_name, tier, active, billing_status")
-    .eq("phone_e164", from)
-    .maybeSingle();
+  const { data: agent } = onPublicNumber
+    ? { data: null }
+    : await supabase
+      .from("agency_members")
+      .select("id, agency_id, display_name, tier, active, billing_status")
+      .eq("phone_e164", from)
+      .maybeSingle();
 
   if (!agent) {
     // --- צוות ההטמעה (csm_staff): לא סוכן/ת ולא גולש/ת. תור נפרד עם כלי
     // ההטמעה בלבד (csm-chat.ts, ‏docs/csm-adoption.md). אחרי הסוכנים, ולכן
-    // csm_staff_save דוחה טלפון של סוכן/ת.
-    const { data: staff } = await supabase.from("csm_staff")
-      .select("id, display_name").eq("phone_e164", from).eq("active", true).maybeSingle();
+    // csm_staff_save דוחה טלפון של סוכן/ת. רק במספר של הסוכנים.
+    const { data: staff } = onPublicNumber
+      ? { data: null }
+      : await supabase.from("csm_staff")
+        .select("id, display_name").eq("phone_e164", from).eq("active", true).maybeSingle();
     if (staff) {
       await handleCsmMessage({
         supabase, msg, staff, openaiKey, downloadMedia,
@@ -3196,32 +3219,42 @@ async function handlePayload(payload: Record<string, any>): Promise<void> {
         const name = String(c?.profile?.name || "").trim();
         if (c?.wa_id && name) profileNames.set(String(c.wa_id), name);
       }
+      // המספר שההודעות הגיעו אליו. כל מה שנשלח בתוך הטיפול - כולל הודעת
+      // הכשל - יוצא ממנו (withSender, ‏whatsapp.ts). ‏handleMessage קורא אותו
+      // מההודעה כדי לנתב.
+      const phoneNumberId = String(change.value?.metadata?.phone_number_id || "").trim();
       for (const msg of change.value?.messages || []) {
-        try {
-          if (profileNames.has(msg.from)) msg._profile_name = profileNames.get(msg.from);
-          await handleMessage(msg);
-        } catch (err) {
-          console.error("message handling failed", err);
-          // גם כשל מחוץ ל-try של המודל לא משאיר את הפונה בלי תשובה.
-          // סוכן/ת פעיל/ה מקבל/ת קישור לאזור האישי. לקוח/ה, בעלים, חותם/ת
-          // וגולש/ת לא. כשל בשליחה כאן לא מונע טיפול ב-statuses שבהמשך.
-          const from = String(msg?.from || "");
-          if (!from) continue;
+        msg._phone_number_id = phoneNumberId;
+        await withSender(phoneNumberId, async () => {
           try {
-            const { data: who } = await supabase.from("agency_members")
-              .select("id")
-              .eq("phone_e164", from)
-              .eq("active", true)
-              .limit(1);
-            const agentId = who?.[0]?.id ? String(who[0].id) : null;
-            // בוט ציבורי כבוי: שולח/ת לא מוכר/ת לא מקבל/ת הודעת כשל.
-            // ההודעה הקבועה יוצאת רק במסלול הרגיל, כמו קודם.
-            if (!agentId && !publicBotEnabled) continue;
-            await replyAfterLlmFailure(from, agentId, err, msg?.id ? String(msg.id) : null);
-          } catch (sendErr) {
-            console.error("llm failure reply failed", sendErr);
+            if (profileNames.has(msg.from)) msg._profile_name = profileNames.get(msg.from);
+            await handleMessage(msg);
+          } catch (err) {
+            console.error("message handling failed", err);
+            // גם כשל מחוץ ל-try של המודל לא משאיר את הפונה בלי תשובה.
+            // סוכן/ת פעיל/ה מקבל/ת קישור לאזור האישי. לקוח/ה, בעלים, חותם/ת
+            // וגולש/ת לא. כשל בשליחה כאן לא מונע טיפול ב-statuses שבהמשך.
+            const from = String(msg?.from || "");
+            if (!from) return;
+            try {
+              // במספר הציבורי אין סוכנים: גם סוכן/ת שכתב/ה אליו הוא/היא גולש/ת שם.
+              const { data: who } = isPublicNumber(phoneNumberId)
+                ? { data: null }
+                : await supabase.from("agency_members")
+                  .select("id")
+                  .eq("phone_e164", from)
+                  .eq("active", true)
+                  .limit(1);
+              const agentId = who?.[0]?.id ? String(who[0].id) : null;
+              // בוט ציבורי כבוי: שולח/ת לא מוכר/ת לא מקבל/ת הודעת כשל.
+              // ההודעה הקבועה יוצאת רק במסלול הרגיל, כמו קודם.
+              if (!agentId && !publicBotEnabled) return;
+              await replyAfterLlmFailure(from, agentId, err, msg?.id ? String(msg.id) : null);
+            } catch (sendErr) {
+              console.error("llm failure reply failed", sendErr);
+            }
           }
-        }
+        });
       }
       // ‏statuses מגיעים לאותו וובהוק. עד היום הם נזרקו, ולכן "נשלח" היה כל
       // מה שהיומן ידע לומר על הודעה יוצאת.

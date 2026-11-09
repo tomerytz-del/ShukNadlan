@@ -102,7 +102,9 @@ Dashboard → Project Settings → **Edge Functions → Secrets** (או `supabas
 | סוד | חובה? | מה זה |
 |---|---|---|
 | `WHATSAPP_TOKEN` | ✅ | טוקן הגישה הקבוע של ה-System User |
-| `WHATSAPP_PHONE_NUMBER_ID` | ✅ | מזהה המספר העסקי מ-API Setup |
+| `WHATSAPP_PHONE_NUMBER_ID` | ✅ | מזהה המספר העסקי מ-API Setup - **המספר של הסוכנים**, וממנו יוצאות כל ההודעות היזומות (התראות, תזכורות, מיניסייט) |
+| `WHATSAPP_PUBLIC_PHONE_NUMBER_ID` | ⬜ | מזהה **המספר הציבורי** של גבריאלה לגולשים (מ-10.11.2026), מספר שני באותו WABA. הודעה שמגיעה אליו מנותבת תמיד לבוט הציבורי, והתשובה יוצאת ממנו. ריק = מספר אחד, כמו לפני. ראו [`whatsapp-public-bot.md`](whatsapp-public-bot.md), "שני מספרים" |
+| `WHATSAPP_PUBLIC_DISPLAY_NUMBER` | ⬜ | המספר הציבורי עצמו (ספרות, `9725...`) - מה שכרטיס איש הקשר של גבריאלה נושא. אותו מספר כמו `NUMBER` ב-`assets/bot-link.js`. ריק = `WHATSAPP_DISPLAY_NUMBER` |
 | `WHATSAPP_APP_SECRET` | ✅ | App Secret — משמש לאימות חתימת הוובהוק |
 | `WHATSAPP_VERIFY_TOKEN` | ✅ | מחרוזת אקראית שאתם ממציאים; חייבת להיות זהה למה שתזינו ב-Meta |
 | `ANTHROPIC_API_KEY` | ✅ | מפתח API מ-[console.anthropic.com](https://console.anthropic.com/) — מפעיל את הבוט |

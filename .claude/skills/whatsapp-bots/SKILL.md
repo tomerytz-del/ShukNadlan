@@ -10,7 +10,7 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 
 | קובץ | מה |
 | --- | --- |
-| `supabase/functions/whatsapp-webhook/index.ts` | הניתוב בין שני הענפים, יומן ההודעות, ההיכרות, כרטיס איש הקשר |
+| `supabase/functions/whatsapp-webhook/index.ts` | הניתוב בין שני הענפים (לפי המספר שההודעה הגיעה אליו, ואז לפי הטבלאות), יומן ההודעות, ההיכרות, כרטיס איש הקשר |
 | `supabase/functions/whatsapp-webhook/agent.ts` | העוזרת של הסוכנים: `SYSTEM_STATIC`, `sessionContext`, הכלים |
 | `supabase/functions/whatsapp-webhook/public-agent.ts` | הבוט הציבורי: הכלים, ההוראות ולולאת השיחה |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | כל מה שיוצא ל-Meta: טקסט, תמונה, כפתורים, איש קשר, תבנית |
@@ -19,6 +19,29 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 | `supabase/functions/whatsapp-webhook/property-import.ts` | קובץ נכסים → עבודת ייבוא וסיכום יבש, והקליטה אחרי אישור (`import_properties_file`) - ליבה משותפת עם האשף ב-CRM (הסקיל `property-import`) |
 | `supabase/functions/whatsapp-webhook/catalog-link.ts` | קישור לפריט בקטלוג וואטסאפ (`wa.me/p/...`) → טיוטת נכס |
 | `supabase/functions/whatsapp-webhook/ops-question.ts` | שאלה תפעולית לסוכן/ת (`?task=ops-question`), כפתור `ops_q` שלא מגיע למודל |
+
+## שני מספרים: התשובה יוצאת מהמספר שההודעה הגיעה אליו
+
+מ-10.11.2026 לגבריאלה הציבורית מספר משלה (`WHATSAPP_PUBLIC_PHONE_NUMBER_ID`),
+באותו WABA ואותו וובהוק. מה שנשבר בשקט:
+
+* **הניתוב הוא קודם לפי המספר, ואז לפי הטבלאות.** הודעה למספר הציבורי היא
+  הבוט הציבורי גם מטלפון של סוכן/ת - בלי `agency_members` ובלי `csm_staff`.
+  במספר של הסוכנים הכול כמו קודם, כולל מי שאינו/ה באף טבלה (לקוח/ה שעונה
+  לתזכורת). מי שמוסיף/ה ענף (עוד טבלה של אנשים) שם אותו **אחרי** בדיקת
+  `onPublicNumber`, לא לפניה.
+* **אין להעביר `phone_number_id` כפרמטר לשליחה.** ‏`withSender` ב-`whatsapp.ts`
+  עוטף את כל `handleMessage` (ב-`handlePayload`), ו-`postMessage` /
+  `markReadAndTyping` קוראים את המספר מ-`AsyncLocalStorage`. פונקציה שמשיבה
+  **מחוץ** לעטיפה (משימה שרצה אחר כך, cron) יוצאת מהמספר של הסוכנים - וזה
+  נכון לכל ההודעות היזומות. תשובה לגולש/ת מהמספר הלא נכון = שיחה שנייה אצלו/ה.
+* **בלי הסוד - מספר אחד,** והניתוב נשען על היעדר שורה כמו לפני. לכן הקוד
+  נפרס לפני שהמספר קיים, והסוד מדליק.
+* **כרטיס איש הקשר נושא את המספר הציבורי** (`WHATSAPP_PUBLIC_DISPLAY_NUMBER`),
+  כי הוא מזמין לחיפוש הבא. ‏`WHATSAPP_DISPLAY_NUMBER` ו-`WHATSAPP_BUSINESS_NUMBER`
+  נשארים המספר של הסוכנים (אימות חתימה, ‏`crm.js`, ‏`learn.js`).
+* **הבדיקות קוראות את המספר הציבורי מ-`bot-link.js`** (`ShukBot.NUMBER`,
+  ‏`check_events.py`, ‏`neighborhood_page_test.ts`) - לא מחרוזת משלהן.
 
 ## השם חי בהרבה מקומות, ומשתנה בכולם יחד
 
@@ -495,9 +518,10 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
   מחליט מתי - בעיקר אחרי שמירת חיפוש. מי שמוסיף/ה כפתורים לתור נוסף בודק/ת
   שהכרטיס עדיין מגיע לאנשהו: כשכל חיפוש עבר לכפתורים, התנאי הקודם ("אחרי
   חיפוש, כשאין כפתורים") הפסיק להתקיים לגמרי, בשקט.
-* המספר: `WHATSAPP_DISPLAY_NUMBER`, ואחרת `972532494740` - אותו מספר כמו
-  `NUMBER` ב-`bot-link.js` ו-`ASSISTANT_WA_NUMBER` ב-`crm.js`. החלפת מספר
-  ב-Meta מעדכנת את שלושתם.
+* המספר: `WHATSAPP_PUBLIC_DISPLAY_NUMBER` - המספר הציבורי, אותו מספר כמו
+  `NUMBER` ב-`bot-link.js`. בלי הסוד - `WHATSAPP_DISPLAY_NUMBER` של הסוכנים
+  (אותו מספר כמו `ASSISTANT_WA_NUMBER` ב-`crm.js`). החלפת מספר ב-Meta
+  מעדכנת את הסוד ואת הקובץ יחד.
 
 ## כל הודעה יוצאת נרשמת ביומן
 
