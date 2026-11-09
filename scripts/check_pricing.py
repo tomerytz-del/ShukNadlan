@@ -50,7 +50,7 @@ PRICES = {
     'property_video_premium_monthly_cap': 8,
     'ppl_price_buyer_renter':            25,
     'ppl_price_owner_mid':               50,
-    # ליד בעלים של הפלטפורמה לסוכן/ת Pay&GO (20271109091000). הנוסח בדף "ליד ב-₪N",
+    # ליד בעלים של הפלטפורמה לסוכן/ת Pay&GO (20271109142000). הנוסח בדף "ליד ב-₪N",
     # להבדיל מ-"₪N לליד" של המסלולים בתשלום.
     'ppl_price_owner_free':              69,
     'free_lead_quota_monthly':           10,

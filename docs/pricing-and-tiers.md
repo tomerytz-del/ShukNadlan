@@ -15,7 +15,7 @@
 המחיר נגבה מ-`pricing_config` (‏`tier_mid_monthly_price`, ‏`tier_premium_monthly_price`),
 ומוצג מ-`assets/tiers.js`, מ-`pricing.html`, מ-`checkout.html` ומ-`TIER_PRICES` ב-`_shared/launch-promo.ts`.
 שינוי מחיר נוגע בכולם באותו PR - האחרון היה ₪399/₪599 → ₪199/₪399
-(‏`20271109090000_tier_prices_199_399.sql`, החלטת תומר 9.11.2026; לפניו ₪750/₪950 → ₪399/₪599
+(‏`20271109141000_tier_prices_199_399.sql`, החלטת תומר 9.11.2026; לפניו ₪750/₪950 → ₪399/₪599
 ב-`20270123090000`).
 
 **המודל מ-9.11.2026, במשפט:** הבסיס חינמי כדי לבנות נזילות (מלאי ולקוחות
@@ -97,7 +97,7 @@
 | תיאום ביקור עם הבעלים והמתווכים | `agent_agenda_enabled` — נבדק ב-`agent_showing_coord_start` (הכפתור ב-CRM דרך `showing_coord_request`, וה"כן" בוואטסאפ), וההצעה של גבריאלה (`showing_coord_offer_claim`) יוצאת רק למי שעומד/ת בו. ראו `docs/showing-coordination.md` |
 | מדריך ההתחלה | **פתוח לכל המסלולים** מאז `20270602100000` — הצעד הראשון הוא הרישיון, שנחוץ בכל מסלול, ו-`agent_onboarding_active` / `agent_onboarding_state` אינן בודקות מסלול. רק צעדי גבריאלה והיומן בתוכו נשענים על `whatsapp_included` (`mid`/`premium`), ומוצגים "במסלול..." למי שאינו כלול (ראו `docs/agent-onboarding.md`) |
 | מספר טלפון בתיאור המודעה ובביו | `paygo_text_rules_apply` — **ההגבלה ההפוכה מכל השאר**: ב-Pay&GO המספר מוסר בשמירה, בטריגר על `properties` ועל `agency_members`. ההסרה חד-כיוונית (ראו `docs/public-text-policy.md`) |
-| מספר טלפון וירטואלי | **פתוח לכל המסלולים מ-9.11.2026**, במחיר מלא לכל מספר ובלי תקרה (`20271109092000`). `phone_line_included_eligible` נשארת ומחזירה `false`; הקו הכלול היחיד שנוצר לפני כן נשמר דרך `agent_phone_lines.included` ומתחדש בלי חיוב עד שישוחרר (`docs/call-tracking.md`) |
+| מספר טלפון וירטואלי | **פתוח לכל המסלולים מ-9.11.2026**, במחיר מלא לכל מספר ובלי תקרה (`20271109143000`). `phone_line_included_eligible` נשארת ומחזירה `false`; הקו הכלול היחיד שנוצר לפני כן נשמר דרך `agent_phone_lines.included` ומתחדש בלי חיוב עד שישוחרר (`docs/call-tracking.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |
 | קריאה לפעולה בפוסט ברשתות ("לצפייה בתמונות... כנסו לקישור") | **פתוחה לכל המסלולים** מאז 6.10.2026, מאותה סיבה של הפרסום עצמו. ‏`ctaTier` ב-`property-marketing-publish` קובע רק את הנוסח: "הדמיות" נכתב רק ב-`premium` + `billing_status` + `active`, כמו `property_visualizations_enabled` |
 
@@ -118,7 +118,7 @@
 **מה שמחוץ למכסה, ובכוונה:**
 
 - **ליד בעל-נכס של הפלטפורמה** — מחיר ליחידה בכל מסלול (9.11.2026,
-  ‏`20271109091000`): ₪50 ב-`mid` וב-`premium` (‏`ppl_price_owner_mid`), ₪69
+  ‏`20271109142000`): ₪50 ב-`mid` וב-`premium` (‏`ppl_price_owner_mid`), ₪69
   ב-`free` (‏`ppl_price_owner_free`, ‏`quota_source = 'paid_69'`), עם חלון
   בלעדיות למי שהליד נותב אליו/ה. עד אז `free` היה חסום ו-`premium` קיבל חינם
   (‏`'premium_free'`, שנשאר ברשימה המותרת בשביל לידים ישנים). ‏`claim_lead` מבדילה אותו מליד בעל-נכס שנוצר בדף של הסוכן/ת
