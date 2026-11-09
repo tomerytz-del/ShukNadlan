@@ -651,7 +651,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="tile"><span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8a4 4 0 1 0 0 8c3 0 7-8 10-8a4 4 0 1 1 0 8c-3 0-7-8-10-8"/></svg></span>
           <div><b>לידי קונים ושוכרים ללא הגבלה</b><span class="t">בלי מכסה ובלי תשלום לפנייה</span></div></div>
         <div class="tile"><span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg></span>
-          <div><b>גבריאלה בוואטסאפ</b><span class="t">מעלה נכסים, מתאמת ביקורים ומפיקה סרטון לפי הודעה</span></div></div>
+          <div><b>גבריאלה בוואטסאפ</b><span class="t">מעלה נכסים, מכינה הסכם תיווך לחתימה, שולחת דוח CMA ומפיקה סרטון לפי הודעה</span></div></div>
         <div class="tile"><span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><path d="M12 7a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5"/></svg></span>
           <div><b>חיפוש עסקאות ודוח CMA לפי כתובת</b><span class="t">כמה נמכר ברחוב ובסביבה, ודוח השוואת שוק מלא לכל כתובת - לפני פגישת הגיוס, גם דרך גבריאלה</span></div></div>
         <div class="tile"><span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>
@@ -668,7 +668,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        (סקיל new-tier-capability). הדמות נוצרה ב-AI ואין לה שם - "המנטור"
        (סקיל mentor). -->
   <!-- מה גבריאלה עושה בשבילך. כל משפט מגובה בתיעוד: docs/property-marketing-video.md,
-       docs/facebook-auto-publish.md, docs/social-leads.md, docs/scraped-leads.md. -->
+       docs/facebook-auto-publish.md, docs/social-leads.md, docs/scraped-leads.md,
+       docs/client-agreements.md (prepare_agreement מהצ'אט: קישור חתימה לכל חותם/ת,
+       הבוט אינו שולח ללקוח/ה) ו-docs/cma.md (כפתור "📊 דוח CMA"; לכתובת שאינה
+       במערכת - Elite, הסקיל cma-report). -->
   <section class="wrap sec" id="gabriela" aria-labelledby="gabsecTitle">
     <div class="gabsec">
       <div class="gabsec-body">
@@ -680,6 +683,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="gstep"><b>פרסום אוטומטי ברשתות</b><span>נכס חדש עולה כפוסט לדף הפייסבוק ולאינסטגרם של שוק הנדל״ן, עם תמונות, תיאור וקישור לנכס.</span></div>
           <div class="gstep"><b>עונה לפניות בפייסבוק ובאינסטגרם</b><span>מי ששואל על נכס בהודעה או בתגובה מקבל תשובה, והפנייה נכנסת אליך כמו כל פנייה מהאתר.</span></div>
           <div class="gstep"><b>ביקושים מהקבוצות</b><span>אנשים שמחפשים או מוכרים נכס בקבוצות הפייסבוק ובמרקטפלייס, אחרי שהסכימו שיועץ נדל״ן יחזור אליהם.</span></div>
+          <div class="gstep"><b>מכינה הסכמי תיווך בהודעה</b><span>"תכיני הזמנת תיווך לרונית על הדירה בעלייה 20, 2% עמלה" - ההסכם נבנה מקובץ הלקוחות ומהנכס, וחוזר קישור חתימה אישי לכל חותם/ת, לחתימה מרחוק או פנים מול פנים. את הקישור שולחים אתם.</span></div>
+          <div class="gstep"><b>דוח CMA בהודעה</b><span>"כמה שווה הדירה ברחוב הרצל 12?" - עסקאות שנסגרו בסביבה, ממוצע, חציון ומחיר למ״ר, בכפתור לדוח ממותג שאפשר לשלוח ללקוח/ה. לנכס במערכת ב-PROFESSIONAL ומעלה, ולכל כתובת ב-Elite.</span></div>
           <div class="gstep"><b>מנהלת לך את היום</b><span>מעלה נכסים מהודעה, מטפלת במיילים, מתאמת ביקורים ושולחת תזכורות.</span></div>
         </div>
         <div class="gabsec-foot">
@@ -706,9 +711,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="mate-body">
           <span class="mate-tag"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>בוואטסאפ · ב-PROFESSIONAL וב-Elite</span>
           <h3 id="gabTitle">גבריאלה: העוזרת שלך בוואטסאפ</h3>
-          <p>שולחים לה הודעה, תמונה או הקלטה, והנכס עולה, הלקוח נכנס לקובץ וההתאמות מגיעות. כותבים "תעשי סרטון לדירה ב..." ומקבלים סרטון. מעבירים לה מייל, והיא מטפלת. היא מאשרת פגישות, מתאמת ביקורים עם בעלי הנכסים ושולחת תזכורות.</p>
+          <p>שולחים לה הודעה, תמונה או הקלטה, והנכס עולה, הלקוח נכנס לקובץ וההתאמות מגיעות. כותבים "תעשי סרטון לדירה ב..." ומקבלים סרטון. מבקשים הסכם תיווך ומקבלים קישור לחתימה, שואלים כמה שווה נכס ומקבלים דוח CMA. מעבירים לה מייל, והיא מטפלת. היא מאשרת פגישות, מתאמת ביקורים עם בעלי הנכסים ושולחת תזכורות.</p>
           <div class="mate-tags">
             <span>נכסים ולקוחות בהודעה</span>
+            <span>הסכם תיווך לחתימה</span>
+            <span>דוח CMA בכפתור</span>
             <span>סרטון לפי בקשה</span>
             <span>תיאום ביקור בלחיצה</span>
           </div>
