@@ -82,7 +82,6 @@ Deno.serve(async (req: Request) => {
     already_unlocked: 200,
     claim_in_progress: 409,
     agent_not_found: 403,
-    free_tier_not_eligible_owner_lead: 403,
     exclusive_to_another_agent: 403,
     not_your_lead: 403,
     lead_already_claimed_by_someone_else: 409,
