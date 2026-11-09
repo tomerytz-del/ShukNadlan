@@ -79,7 +79,7 @@
 
 | קהל | מי נספר |
 | --- | --- |
-| `agent_owner` | סוכני Mid/Premium פעילים עם העדפות לידים פעילות — בדיוק התנאים של `findCandidateAgentIds` |
+| `agent_owner` | סוכני Mid/Premium פעילים עם העדפות לידים פעילות — השכבה הראשונה של `findCandidateAgentIds`; מ-9.11.2026 הפונקציה נופלת ל-`free` כשאין אף מנוי/ה מתאים/ה, והקהל הזה אינו נספר כאן |
 | `agent_buyer` | כל סוכן/ת פעיל/ה (מדף מחפשי הדירה פתוח לכל `authenticated`) |
 | `mortgage_advisor` | רק חשבונות עם `is_mortgage_advisor` |
 

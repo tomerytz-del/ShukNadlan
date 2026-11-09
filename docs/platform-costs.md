@@ -181,7 +181,7 @@ morning (למשל "קבלה - נייטס אנטרטיינמנט") נחסם גם 
 | ערוץ | מאיפה | הסנכרון |
 | --- | --- | --- |
 | מטא | `ads_insights_daily` (‏`level = 'campaign'`) | ‏`ads-insights-sync`, 00:10 UTC |
-| גוגל | `ads_channel_daily` (‏`channel = 'google'`) | ‏`ads-google-sync`, 00:25 UTC (`ads-admin` ‏`google_sync_insights`, 3 ימים אחורה; בפעם הראשונה 31) |
+| גוגל | `ads_channel_daily` (‏`channel = 'google'`) | ‏`ads-google-sync`, 00:25 UTC (`ads-admin` ‏`google_sync_insights`, 3 ימים אחורה; בפעם הראשונה 31). יום בלי חשיפות נכתב כאפס, כדי ש-`synced_at` יזוז גם בקמפיין מושהה |
 | ערוץ חדש | `ads_channel_daily` עם `channel` משלו | שורה ב-`ADS_CHANNELS` (`assets/crm-ads-spend.js`) לשם בעברית. בלי מיגרציה |
 
 **והפרסום הוא חלק מעלויות הפלטפורמה** (תומר, 22.10.2026): בפאנל, "סה"כ בתקופה",
