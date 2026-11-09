@@ -215,10 +215,24 @@ const BILLING_INACTIVE_MSG =
 const TIER_REQUIRED_MSG =
   "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
   "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. לפרטים ולשדרוג:";
-/* בלי מספר ובכוונה: התקרה היא הגדרה פנימית של "שימוש הוגן" (החלטת תומר, 9.11.2026). */
+/* בלי מספר ובכוונה: התקרה היא הגדרה פנימית של "שימוש הוגן" (החלטת תומר, 9.11.2026).
+   אחוזים מותרים - הם אינם חושפים את התקרה. שלוש הודעות: 75% ו-90% אחרי
+   התשובה של גבריאלה (maybeFairUseNotice, פעם אחת לסף לחודש דרך
+   gabriela_fair_use_notices), ו-100% במקום התשובה (fairUseExceeded).
+   בלי מספר הסרטונים: הוא מוצג בדף ונבדק שם, ועותק כאן היה מתיישן בשקט. */
+const FAIR_USE_ELITE_PITCH =
+  "ב-Elite אין תקרה, ויש גם סרטונים שיווקיים כלולים בחודש, הדמיות ודוח CMA לכל כתובת.";
 const FAIR_USE_MSG =
   "הגעת החודש לתקרת השימוש ההוגן של מסלול PROFESSIONAL בעוזרת בוואטסאפ. " +
-  "היא חוזרת בתחילת החודש הבא, וב-Elite אין תקרה. בינתיים אפשר להמשיך לעבוד באיזור הסוכנים. לפרטים ולשדרוג:";
+  "היא חוזרת בתחילת החודש הבא. " + FAIR_USE_ELITE_PITCH +
+  " בינתיים אפשר להמשיך לעבוד באיזור הסוכנים. לשדרוג:";
+const FAIR_USE_NOTICES: ReadonlyArray<{ threshold: 75 | 90; body: string }> = [
+  { threshold: 90,
+    body: "הגעת ל-90% מהשימוש ההוגן של PROFESSIONAL בעוזרת החודש. עוד קצת והיא תחכה לחודש הבא. " +
+      FAIR_USE_ELITE_PITCH + " לשדרוג:" },
+  { threshold: 75,
+    body: "הגעת ל-75% מהשימוש ההוגן של PROFESSIONAL בעוזרת החודש. " + FAIR_USE_ELITE_PITCH + " לשדרוג:" },
+];
 const FAIR_USE_DEFAULT = 200;
 
 /** תחילת החודש הנוכחי בשעון ישראל, כ-ISO. הסטייה האפשרית היא שעת החלפת שעון
@@ -234,22 +248,56 @@ function israelMonthStartIso(now = new Date()): string {
   return new Date(Date.UTC(get("year"), get("month") - 1, 1) - offsetMs).toISOString();
 }
 
+/** כמה הודעות נכנסות נחתמו לסוכן/ת החודש (שעון ישראל), ומה התקרה. */
+async function fairUseUsage(agentId: string): Promise<{ used: number; limit: number }> {
+  const [{ data: cfg }, { count }] = await Promise.all([
+    supabase.from("pricing_config").select("value").eq("key", "gabriela_fair_use_monthly").maybeSingle(),
+    supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
+      .eq("agent_id", agentId).eq("direction", "in").gte("created_at", israelMonthStartIso()),
+  ]);
+  const cap = Number(cfg?.value);
+  return { used: count ?? 0, limit: Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT };
+}
+
 /** האם ההודעה הנוכחית היא מעבר לתקרת השימוש ההוגן החודשית: סופרת את ההודעות
  *  שכבר נחתמו לסוכן/ת החודש (ההודעה הנוכחית עדיין לא), ולכן >= ולא >.
  *  כשל בקריאה = לא חוסמים. */
 async function fairUseExceeded(agentId: string): Promise<boolean> {
   try {
-    const [{ data: cfg }, { count }] = await Promise.all([
-      supabase.from("pricing_config").select("value").eq("key", "gabriela_fair_use_monthly").maybeSingle(),
-      supabase.from("whatsapp_messages").select("id", { count: "exact", head: true })
-        .eq("agent_id", agentId).eq("direction", "in").gte("created_at", israelMonthStartIso()),
-    ]);
-    const cap = Number(cfg?.value);
-    const limit = Number.isFinite(cap) && cap > 0 ? cap : FAIR_USE_DEFAULT;
-    return (count ?? 0) >= limit;
+    const { used, limit } = await fairUseUsage(agentId);
+    return used >= limit;
   } catch (err) {
     console.error("fair use check failed", err);
     return false;
+  }
+}
+
+/** אחרי התשובה של גבריאלה, ל-PROFESSIONAL בלבד: הודעת 75% או 90% עם הצעה
+ *  ל-Elite, פעם אחת לסף לחודש. ההודעה הנוכחית כבר נחתמה כאן, ולכן המונה כולל
+ *  אותה. הסף הגבוה גובר: מי שקפץ/ה מ-70% ל-92% בתור אחד מקבל/ת רק את 90%.
+ *  הכתיבה ל-gabriela_fair_use_notices היא התפיסה (on conflict do nothing),
+ *  ולכן שני תורים במקביל אינם שולחים פעמיים. כשל = בלי הודעה, לא בלי תשובה. */
+async function maybeFairUseNotice(agent: { id: string; tier?: unknown }, from: string): Promise<void> {
+  if (String(agent.tier ?? "") !== "mid") return;
+  try {
+    const { used, limit } = await fairUseUsage(agent.id);
+    if (used >= limit) return;   // החסימה עצמה כבר ענתה בתור הזה או בבא
+    const pct = (used / limit) * 100;
+    const notice = FAIR_USE_NOTICES.find((n) => pct >= n.threshold);
+    if (!notice) return;
+    const month = israelMonthStartIso().slice(0, 10);
+    const { data: claimed, error } = await supabase.from("gabriela_fair_use_notices")
+      .upsert({ agent_id: agent.id, month, threshold: notice.threshold },
+        { onConflict: "agent_id,month,threshold", ignoreDuplicates: true })
+      .select("threshold");
+    if (error) throw error;
+    if (!claimed?.length) return;   // כבר נשלחה החודש
+    await sendOutbox(from, [{
+      kind: "cta", body: notice.body, label: PRICING_BUTTON,
+      url: `${SITE_BASE}/pricing?utm_source=gabriela&utm_medium=whatsapp&utm_campaign=fair_use_${notice.threshold}`,
+    }], agent.id);
+  } catch (err) {
+    console.error("fair use notice failed", err);
   }
 }
 const PRICING_BUTTON = "למסלולים";
@@ -2711,6 +2759,7 @@ async function playTextTurn(opts: {
     await markImagesHandled(agent.id, urlsHandledByTurn(turnImage, shown.urls, shown.at));
   }
   if (outbox.length) await sendOutbox(from, outbox, agent.id);
+  await maybeFairUseNotice(agent, from);
   return "work";
 }
 
