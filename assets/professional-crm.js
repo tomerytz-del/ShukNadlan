@@ -373,6 +373,83 @@
     }
   });
 
+  /* ---------- מחיקת החשבון ----------
+     הסיכום (כמה לידים, כמה יתרה) מגיע מהשרת, וההקלדה נבדקת שוב שם. אחרי המחיקה המשתמש ב-Auth כבר אינו קיים,
+     ולכן יוצאים ומציגים את מסך הכניסה עם אישור. */
+  const DELETE_PHRASE = 'מחיקת חשבון';
+  async function callCloseAccount(payload) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return { ok: false, data: { error: 'no_session' } };
+    const res = await fetch(SUPABASE_URL + '/functions/v1/close-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify(Object.assign({ account: 'professional' }, payload)),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok && !data.error, data };
+  }
+  function resetDeleteDialog() {
+    show('delStep1', true); show('delStep2', false);
+    el('delAck').checked = false;
+    el('delNext').disabled = true; show('delNext', true);
+    show('delConfirm', false); el('delConfirm').disabled = true;
+    el('delPhrase').value = ''; setMsg('delDlgMsg', '');
+  }
+  el('deleteOpenBtn').addEventListener('click', async () => {
+    setMsg('deleteMsg', 'טוענים…');
+    const { ok, data } = await callCloseAccount({ action: 'preview' });
+    if (!ok || !data.summary) { setMsg('deleteMsg', 'לא הצלחנו לטעון את פרטי המחיקה. נסו שוב, או כתבו אלינו: shuknadlan@gmail.com', 'err'); return; }
+    setMsg('deleteMsg', '');
+    const s = data.summary;
+    show('delLeads', s.bought_leads > 0);
+    el('delLeads').textContent = 'הפרטים של ' + s.bought_leads + ' פניות שרכשתם נשארים אצלנו עד שהם נמחקים לפי מדיניות שמירת המידע.';
+    el('delMoney').textContent = s.credit_balance > 0
+      ? 'בארנק יש ' + nis(s.credit_balance) + '. היתרה מאופסת. אם היא נטענה בתשלום, הנהלת האתר תבדוק ותחזיר ידנית. יתרה שהיא זיכוי או מתנה אינה מוחזרת.'
+      : 'אין יתרה בארנק.';
+    resetDeleteDialog();
+    if (s.blocker === 'payment_pending') {
+      el('delAck').disabled = true;
+      setMsg('delDlgMsg', 'יש תשלום על ליד שעדיין מתעדכן. אי אפשר למחוק כרגע, ואפשר לנסות שוב בעוד כמה דקות.', 'err');
+    } else {
+      el('delAck').disabled = false;
+    }
+    show('delOverlay', true);
+  });
+  el('delAck').addEventListener('change', (e) => { el('delNext').disabled = !e.target.checked; });
+  el('delNext').addEventListener('click', () => {
+    show('delStep1', false); show('delStep2', true);
+    show('delNext', false); show('delConfirm', true);
+    el('delPhrase').focus();
+  });
+  el('delPhrase').addEventListener('input', (e) => { el('delConfirm').disabled = e.target.value.trim() !== DELETE_PHRASE; });
+  el('delCancel').addEventListener('click', () => { show('delOverlay', false); resetDeleteDialog(); });
+  el('delConfirm').addEventListener('click', async () => {
+    el('delConfirm').disabled = true;
+    setMsg('delDlgMsg', 'מוחקים…', 'ok');
+    const { ok, data } = await callCloseAccount({ action: 'request', confirm: DELETE_PHRASE });
+    if (!ok) {
+      const messages = {
+        already_closed: 'החשבון כבר נמחק.',
+        payment_pending: 'יש תשלום על ליד שעדיין מתעדכן. נסו שוב בעוד כמה דקות.',
+      };
+      setMsg('delDlgMsg', messages[data.error] || 'המחיקה נכשלה. אפשר לנסות שוב, או לכתוב אלינו: shuknadlan@gmail.com', 'err');
+      el('delConfirm').disabled = false;
+      return;
+    }
+    show('delOverlay', false);
+    account = null;
+    try { await sb.auth.signOut(); } catch (_) { /* המשתמש כבר נמחק */ }
+    showLogin();
+    // מה שנאמר כאן הוא מה שקרה בפועל: מחיקת הכניסה ב-Auth יכולה להיכשל (deleted=false), או להישאר כי יש פרופיל חי אחר (auth='kept')
+    if (data.deleted === false) {
+      setMsg('lgMsg', 'הפרטים האישיים נמחקו, אבל מחיקת הכניסה נכשלה. כתבו לנו (shuknadlan@gmail.com) ונשלים אותה. הכרטיסייה שלכם באתר נשארת.', 'err');
+    } else if (data.auth === 'kept') {
+      setMsg('lgMsg', 'חשבון בעל המקצוע נמחק. הכניסה נשארת כי יש לכם חשבון נוסף באתר. הכרטיסייה שלכם באתר נשארת.', 'ok');
+    } else {
+      setMsg('lgMsg', 'החשבון נמחק, והפרטים האישיים והכניסה הוסרו. הכרטיסייה שלכם באתר נשארת.', 'ok');
+    }
+  });
+
   /* ---------- טעינה ---------- */
   async function currentUserId() {
     const { data: { session } } = await sb.auth.getSession();
