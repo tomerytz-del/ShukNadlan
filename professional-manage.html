@@ -86,6 +86,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .renew-row{display:flex;gap:8px;align-items:flex-start;font-size:.76rem;color:var(--ink-soft);margin-top:10px;cursor:pointer}
   .renew-row input{margin-top:3px;flex:0 0 auto}
   .account-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin:0 0 12px;font-size:.8rem}
+  /* טופס שחזור הקישור במצב "בלי אסימון": אותו מסגור כמו תיבת החשבון, בעמוד השגיאה */
+  .recover-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin:16px 0 0;text-align:right;font-size:.8rem}
+  .recover-box label{display:block;font-weight:700;margin:0 0 4px}
+  .recover-box input{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:var(--radius-sm);font-family:inherit;font-size:.9rem}
+  #recoverFeedback{font-size:.78rem;color:var(--ink-soft);margin-top:8px;min-height:1.1em}
   .account-title{font-weight:800;margin:0 0 6px}
   .account-note{margin:0 0 8px;color:var(--ink-soft)}
   .account-terms{display:block;margin:8px 0;font-weight:400}
@@ -170,9 +175,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="stateError">
     <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
     </a>
-    <h1>הקישור לא תקין</h1>
+    <h1 id="errorTitle">הקישור לא תקין</h1>
     <p class="sub" id="errorText">קישור העריכה שגוי או פג תוקפו.</p>
-    <p class="note">קישור העריכה הוא הקישור שהתקבל בסיום ההרשמה. אם איבדתם אותו, כתבו לנו ונשלח אותו מחדש לכתובת המייל שאיתה נרשמתם.</p>
+    <!-- שחזור הקישור למייל שבכרטיסייה (professional-manage, action recover_link). הקישור
+         נשלח למייל ולא מוצג כאן: הוא המפתח לעריכה. docs/professional-cards.md -->
+    <form id="recoverForm" class="recover-box">
+      <p class="note" style="margin:0 0 10px">קישור העריכה הוא הקישור שהתקבל בסיום ההרשמה. איבדתם אותו? נשלח אותו שוב לכתובת המייל שאיתה נרשמתם.</p>
+      <label for="recoverEmail">האימייל שבכרטיסייה</label>
+      <input type="email" id="recoverEmail" autocomplete="email" required placeholder="name@example.com" dir="ltr">
+      <button type="submit" class="btn btn-ghost" id="recoverBtn" style="margin-top:10px">שליחת קישור העריכה למייל</button>
+      <div id="recoverFeedback" role="status" aria-live="polite"></div>
+    </form>
+    <p class="note">יש לכם חשבון כניסה? <a href="/professional-crm">לאזור האישי</a> - משם מגיעים לעריכה בלחיצה.</p>
     <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 
@@ -184,16 +198,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a href="#" class="view-link" id="viewPageLink" target="_blank" rel="noopener">צפייה בעמוד שלי ←</a>
     <div class="extended-banner" id="extendedBanner" hidden></div>
 
-    <!-- חשבון כניסה וארנק (עורכי דין): לקבל שאלות של לקוחות ולרכוש אותן. ההרשאה היא האסימון
-         שבקישור הזה; כתובת הכניסה היא האימייל שנרשם בכרטיסייה. docs/professional-accounts.md -->
+    <!-- חשבון כניסה וארנק, לכל תחום: כניסה עם אימייל וסיסמה במקום לשמור את הקישור הזה,
+         ומדף לידים למי שיש לו (עו"ד, יועצי משכנתאות). ההרשאה היא האסימון שבקישור הזה;
+         כתובת הכניסה היא האימייל שנרשם בכרטיסייה. docs/professional-accounts.md -->
     <div class="account-box" id="accountBox" hidden>
       <p class="account-title">חשבון כניסה וארנק</p>
       <div id="accountHas" hidden>
-        <p class="account-note">יש לכם חשבון. אפשר להיכנס לארנק ולמדף השאלות.</p>
+        <p class="account-note">יש לכם חשבון. אפשר להיכנס עם אימייל וסיסמה, לערוך את העמוד ולראות את הארנק והלידים.</p>
         <a class="btn btn-ghost" href="/professional-crm">כניסה לאזור האישי</a>
       </div>
       <form id="accountForm" hidden>
-        <p class="account-note">עורכי דין מקבלים שאלות של לקוחות מדף נכס ורוכשים אותן מארנק. פתיחת החשבון חינם, והגישה למדף השאלות מאושרת בידי הנהלת האתר.</p>
+        <p class="account-note" id="accountPitch">חשבון כניסה עם אימייל וסיסמה, כדי לא להיות תלויים בקישור הזה: עריכת העמוד, ארנק, ולידים של לקוחות למי שיש להם מדף. פתיחת החשבון חינם.</p>
         <p class="account-note">נשלח מייל אימות לכתובת שבכרטיסייה. הלחיצה על הקישור שבו מאשרת את הכתובת, ושם קובעים סיסמה.</p>
         <label class="account-terms"><input type="checkbox" id="accTerms" required> קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a></label>
         <button type="submit" class="btn btn-ghost" id="accBtn">פתיחת חשבון</button>
@@ -381,12 +396,17 @@ async function callManage(payload){
   return { ok: res.ok && !data.error, data };
 }
 
-/* ---------- חשבון כניסה וארנק (עורכי דין) ---------- */
+/* ---------- חשבון כניסה וארנק (כל התחומים) ---------- */
 const ACCOUNT_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-account';
+// מה החשבון נותן, לפי התחום. שני תחומים עם מדף לידים; לשאר - כניסה ועריכה בלי לשמור את הקישור
+const ACCOUNT_PITCH = {
+  real_estate_lawyer: 'עורכי דין מקבלים שאלות של לקוחות מדף נכס ורוכשים אותן מהחשבון. פתיחת החשבון חינם, והגישה למדף השאלות מאושרת בידי הנהלת האתר.',
+  mortgage_advisor: 'יועצי משכנתאות רוכשים מהחשבון לידים ממחשבון המשכנתא באתר. פתיחת החשבון חינם, והגישה למדף הלידים מאושרת בידי הנהלת האתר.',
+};
 function renderAccountBox(data){
-  const lawyer = data.card && data.card.advertiser_type === 'real_estate_lawyer';
-  el('accountBox').hidden = !lawyer;
-  if (!lawyer) return;
+  if (!data.card) { el('accountBox').hidden = true; return; }
+  el('accountBox').hidden = false;
+  el('accountPitch').textContent = ACCOUNT_PITCH[data.card.advertiser_type] || el('accountPitch').textContent;
   el('accountHas').hidden = !data.has_account;
   el('accountForm').hidden = !!data.has_account;
   // נשלח מייל אימות ועוד לא נלחץ: אותו טופס, עם הסבר ושליחה חוזרת
@@ -423,6 +443,36 @@ el('accountForm').addEventListener('submit', async (e)=>{
     // החשבון עוד לא פעיל: הוא נפתח בלחיצה על הקישור במייל. לכן הטופס נשאר, ובקשה חוזרת (אחרי דקה) שולחת מייל חדש
     out.textContent = 'שלחנו מייל אימות אל ' + data.login_email + '. לחצו על הקישור שבו וקבעו סיסמה. לא הגיע? בדקו בספאם, ואפשר לבקש שוב בעוד דקה.';
     btn.disabled = false; btn.textContent = 'שליחה חוזרת של מייל האימות';
+  } catch(err){
+    out.textContent = 'שגיאת רשת - נסו שוב';
+    btn.disabled = false;
+  }
+});
+
+/* ---------- שחזור קישור העריכה ----------
+   בלי אסימון (או עם אסימון שגוי) הדף מציע לשלוח את הקישור למייל שבכרטיסייה.
+   התשובה מהשרת זהה אם הכתובת רשומה או לא, ולכן הנוסח כאן הוא "אם הכתובת רשומה". */
+el('recoverForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('recoverBtn'), out = el('recoverFeedback');
+  const email = el('recoverEmail').value.trim();
+  if (!email) return;
+  btn.disabled = true; out.textContent = 'שולחים…';
+  try{
+    const res = await fetch(MANAGE_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ action:'recover_link', email }),
+    });
+    const data = await res.json().catch(()=>({ error:'bad_response' }));
+    if (!res.ok || data.error){
+      out.textContent = data.error === 'invalid_email' ? 'כתובת האימייל לא נראית תקינה' : 'לא הצלחנו לשלוח כרגע. נסו שוב בעוד דקה.';
+      btn.disabled = false;
+      return;
+    }
+    out.textContent = data.throttled
+      ? 'שלחנו קישור לכתובת הזו לפני כמה דקות. בדקו גם בספאם, ואפשר לבקש שוב בעוד עשר דקות.'
+      : 'אם הכתובת רשומה אצלנו, קישור העריכה בדרך אליה. לא הגיע תוך כמה דקות? בדקו בספאם.';
   } catch(err){
     out.textContent = 'שגיאת רשת - נסו שוב';
     btn.disabled = false;
@@ -846,6 +896,10 @@ el('saveBtn').addEventListener('click', async ()=>{
     return;
   }
   if (!token){
+    // הגעה בלי אסימון (למשל מהקישור "איבדתם את קישור העריכה?" בעמוד הציבורי): לא שגיאה,
+    // אלא דף השחזור
+    el('errorTitle').textContent = 'עריכת העמוד שלכם';
+    el('errorText').textContent = 'העריכה נעשית מקישור אישי שנשלח בסיום ההרשמה.';
     showState('stateError');
     return;
   }

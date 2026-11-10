@@ -172,12 +172,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <h1 id="doneTitle">הכרטיסייה עלתה לאוויר!</h1>
     <p class="sub" id="doneSub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך - תמונות ותיאור.</p>
 
-    <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
-         חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
-         הבליטות של הבלוק ושל כפתור ההעתקה. -->
+    <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. הוא הדרך לחזור ולערוך
+         עד שפותחים חשבון כניסה (מתוך דף העריכה), ומי שאיבד/ה אותו מבקש/ת
+         אותו שוב למייל (‏/professional-manage) — ומכאן הבליטות של הבלוק ושל
+         כפתור ההעתקה. -->
     <div class="manage-box" id="manageBox" hidden>
       <p class="manage-title">הקישור לעמוד העריכה שלך</p>
-      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הפרופיל - שמרו אותו במועדפים.</p>
+      <p class="manage-note">שמרו אותו במועדפים. בעמוד העריכה אפשר גם לפתוח חשבון כניסה עם אימייל וסיסמה, ואם הקישור אבד - מבקשים אותו שוב למייל.</p>
       <input type="text" id="manageLink" readonly>
       <button type="button" class="btn btn-ghost" id="copyLinkBtn">העתקת הקישור</button>
     </div>
@@ -277,6 +278,25 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       feedback.style.color = 'var(--ink-soft)';
       feedback.textContent = data.detail || 'ההרשמה נקלטה. ניצור קשר להשלמת התשלום.';
       btn.disabled = true; btn.textContent = 'ההרשמה נקלטה';
+      return;
+    }
+    // כבר יש כרטיסייה חיה או ממתינה לאישור לכתובת הזו: במקום כפילות, השרת שלח את
+    // קישור העריכה של הקיימת למייל (או לא, אם נשלח לפני דקות), והטופס אומר את זה
+    if (data.error === 'card_exists'){
+      feedback.style.color = 'var(--ink-soft)';
+      feedback.textContent = data.throttled
+        ? 'כבר יש כרטיסייה לכתובת הזו, ושלחנו אליה את קישור העריכה לפני כמה דקות. בדקו גם בספאם, ואפשר לבקש שוב בעוד עשר דקות.'
+        : data.link_sent
+          ? 'כבר יש כרטיסייה לכתובת הזו. שלחנו עכשיו את קישור העריכה שלה למייל - בדקו גם בספאם. אם היא ממתינה לאישור, היא תעלה לאתר עם האישור.'
+          : 'כבר יש כרטיסייה לכתובת הזו. כתבו לנו ונשלח את קישור העריכה.';
+      btn.disabled = false; btn.textContent = submitLabel();
+      return;
+    }
+    if (data.error === 'invalid_email'){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'כתובת האימייל לא נראית תקינה';
+      btn.disabled = false; btn.textContent = submitLabel();
+      document.getElementById('advEmail').focus();
       return;
     }
     if (data.error === 'invalid_phone' || data.error === 'phone_required'){

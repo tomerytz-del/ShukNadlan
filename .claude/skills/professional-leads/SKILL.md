@@ -52,8 +52,13 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
 * **`close-account` חייב להכיר כל סוג חשבון.** סוג שאינו מוכר נחשב "none" ומוחק את המשתמש ב-Auth בלבד. סוג חשבון חדש נכנס ל-`close-account` וגם ל-`otherLiveProfile` ב-`_shared/account-erasure.ts`.
 * **הזמנת תשלום פתוחה חוסמת מחיקה** (`payment_pending`), והיתרה מאופסת ביומן ומתריעה למנהל/ת (אין "יתרה שנטענה בתשלום" לבעל מקצוע).
 
-## פתיחת חשבון: המייל מאומת בהזמנה, לא נוצר מאושר
+## פתיחת חשבון: לכל תחום, והמייל מאומת בהזמנה, לא נוצר מאושר
 
+* **החשבון נפתח לכל תחום** (מ-10.11.2026), לא רק לעו"ד: תיבת "חשבון כניסה וארנק" ב-`professional-manage.html` מוצגת לכל כרטיסייה, והנוסח לפי התחום (`ACCOUNT_PITCH`).
+  מדף יש לשניים: עו"ד (`lawyer_leads_public`) ויועץ/ת משכנתאות (`mortgage_leads_public`, רכישה מהארנק בלבד דרך `mortgage-lead-purchase` → `purchase_mortgage_lead_professional`;
+  `current_is_mortgage_advisor()` מכיר גם חשבון בעל מקצוע מאושר). תחום חדש עם מדף נכנס ל-`SHELF_COPY` ב-`assets/professional-crm.js`, ל-`announceProfessionalAccount` (`needsShelf`), ול-`lead_audience_size`.
+* **קישור העריכה שאבד משוחזר למייל שבכרטיסייה, לא בתשובה לדפדפן** (`professional-manage` ‏`action: 'recover_link'`, ‏`_shared/professional-link-mail.ts`, בלם עשר דקות ב-`ad_placement_access.link_sent_at`).
+  הרשמה חוזרת לאותו מייל עם כרטיסייה `active`/`pending_approval` היא `card_exists` ושליחת הקישור, לא כרטיסייה שנייה. מנהל/ת הפלטפורמה מעתיק/ה את הקישור מהפאנל (`admin_professional_card_manage_link`).
 * **`professional-account` יוצר משתמש ב-`inviteUserByEmail`, לא ב-`createUser` עם `email_confirm: true`.** האסימון מוחזר לטופס ההרשמה, ולכן מחזיק/ה בו
   מי שהגיש/ה את הכרטיסייה, גם עם כתובת של אחר. הסיסמה נקבעת בנחיתה מהקישור (`inviteOpen` ב-`assets/professional-crm.js`, נקרא לפני שה-hash נמחק).
 * **משתמש שלא אישר נמחק בבקשה חוזרת** (לא לפני דקה), ו**אף פעם לא משתמש שאישר**: לפני שמוסיפים מחיקה כזו מוודאים שאי אפשר היה להיכנס אליו (אין יתרה או הזמנות).
@@ -61,7 +66,7 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
 
 ## מוסיפים קהל חדש (שמאי, אדריכל...)
 
-* `kind` כבר ב-`professional_accounts.kind`. מדף משלו = view משלו עם שומר `current_is_<kind>()`, שורה ב-`PROFESSIONAL_SHELVES` ב-`check_shelf_audience.py`,
+* `kind` כבר ב-`professional_accounts.kind`, והחשבון כבר נפתח לו. מדף משלו = view משלו עם שומר `current_is_<kind>()`, שורה ב-`PROFESSIONAL_SHELVES` ב-`check_shelf_audience.py`,
   ובדיקה ב-`scripts/lawyer_shelf_test.mjs` (או קובץ מקביל).
 * ליד של קהל אחד **לעולם אינו מוצג** למתווכים ולקהלים אחרים, ולהפך.
 * לפני ששורה ראשונה נכנסת: `data_retention_run` מכסה את הטבלה (שם, טלפון, מייל, שאלה), ורישום ב-`lead_routing_log`.

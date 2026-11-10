@@ -111,7 +111,7 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /action === "manage_link"[\s\S]{0,400}auth\.getUser\(\)/);
 });
 
-test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי דין, והאזור האישי קורא מה-view הסגור', () => {
+test('הדפים: הכרטיסייה מציעה חשבון לכל תחום, והאזור האישי קורא מה-view הסגור', () => {
   assert.match(manageFn, /has_account: !!acct && !accountPending/);
   assert.match(manageFn, /!au\.user\.email_confirmed_at/);
   assert.equal(/accPassword/.test(manageHtml), false, 'טופס פתיחת החשבון אינו מבקש סיסמה');
@@ -120,13 +120,18 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   assert.match(crmJs, /let inviteOpen = \/\[#&\]type=invite/);
   assert.match(crmJs, /if \(inviteOpen\) \{[\s\S]{0,120}recovering = true;[\s\S]{0,160}show\('recoverCard', true\)/);
   assert.match(crmJs, /otp_expired/);
-  assert.match(manageHtml, /advertiser_type === 'real_estate_lawyer'/);
+  // מ-10.11.2026 תיבת החשבון לכל תחום (לא רק עו"ד): אין סינון לפי advertiser_type לפני הצגתה
+  const accountBoxCode = manageHtml.slice(manageHtml.indexOf('function renderAccountBox'), manageHtml.indexOf("el('accountForm').addEventListener"));
+  assert.equal(/advertiser_type === 'real_estate_lawyer'/.test(accountBoxCode), false, 'תיבת החשבון מוגבלת לעו"ד');
+  assert.match(accountBoxCode, /ACCOUNT_PITCH\[data\.card\.advertiser_type\]/);
   assert.match(crmJs, /\.from\('lawyer_leads_public'\)/);
-  assert.match(crmJs, /\/functions\/v1\/lawyer-lead-purchase/);
+  assert.match(crmJs, /'lawyer-lead-purchase'/);
   assert.match(crmJs, /\.eq\('sold_to_professional_id', account\.id\)/);
   // מנהל/ת פלטפורמה רואה את כל החשבונות (policy): בלי סינון לפי המשתמש maybeSingle נכשל
   assert.match(crmJs, /\.from\('professional_accounts'\)[\s\S]{0,160}\.eq\('user_id', userId\)/);
-  assert.match(crmJs, /account\.kind === 'real_estate_lawyer' && account\.shelf_enabled/);
+  // המדף מוצג רק לתחום שיש לו מדף (SHELF_COPY) ורק אחרי אישור
+  assert.match(crmJs, /show\('shelfCard', hasShelf && account\.shelf_enabled\)/);
+  assert.match(crmJs, /const SHELF_COPY = \{[\s\S]{0,80}real_estate_lawyer:[\s\S]{0,600}mortgage_advisor:/);
   // כרטיס המדף מציג את השאלה אחרי הסתרת פרטים (question_text), לא את השאלה הגולמית
   const shelfRender = crmJs.slice(crmJs.indexOf('async function loadShelf'), crmJs.indexOf('async function loadBought'));
   assert.ok(shelfRender.includes('question_text'));
@@ -144,6 +149,62 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   assert.equal('share_target' in proManifest, false);
   // אזור אישי: לא נמדד כפניות של גולשים (events.js)
   assert.equal(/assets\/events\.js/.test(crmHtml), false);
+});
+
+/* ---------- כל התחומים: מדף המשכנתאות לחשבון בעל מקצוע, ושחזור קישור העריכה (10.11.2026) ---------- */
+const allKindsMig = migrations.find((m) => m.f.endsWith('_professional_accounts_all_kinds.sql'));
+const mortgagePurchaseFn = read('supabase/functions/mortgage-lead-purchase/index.ts');
+const signupFn = read('supabase/functions/professional-signup/index.ts');
+const linkMail = read('supabase/functions/_shared/professional-link-mail.ts');
+
+test('מדף המשכנתאות: חשבון בעל מקצוע מאושר רואה וקונה, והקונה נרשם ב-professional_id', () => {
+  assert.ok(allKindsMig, 'אין מיגרציה professional_accounts_all_kinds');
+  const t = allKindsMig.text;
+  // השומר של ה-view (check_shelf_audience.py) מכיר גם חשבון בעל מקצוע, ורק עם shelf_enabled
+  const gate = t.slice(t.indexOf('function public.current_is_mortgage_advisor'), t.indexOf('comment on function public.current_is_mortgage_advisor'));
+  assert.match(gate, /from professional_accounts[\s\S]{0,200}shelf_enabled = true[\s\S]{0,80}kind = 'mortgage_advisor'/);
+  assert.match(gate, /is_mortgage_advisor = true/, 'היועצים שסומנו ב-CRM ממשיכים לראות את המדף');
+  // הרכישה: תחום, אישור, יתרה אמיתית, ו-service_role בלבד
+  assert.match(t, /v_acct\.kind <> 'mortgage_advisor'[\s\S]{0,120}not_a_mortgage_advisor/);
+  assert.match(t, /v_acct\.shelf_enabled is not true[\s\S]{0,120}shelf_not_approved/);
+  assert.match(t, /insert into public\.mortgage_lead_purchases \(lead_id, professional_id, amount, status, payment_method\)/);
+  assert.match(t, /revoke all on function public\.purchase_mortgage_lead_professional\(uuid, uuid\) from public, anon, authenticated;/);
+  // agent_id כבר אינו not null, אבל קונה אחד חובה
+  assert.match(t, /alter column agent_id drop not null/);
+  assert.match(t, /check \(agent_id is not null or professional_id is not null\)/);
+  // הפונקציה: בלי agency_members נופלים לחשבון בעל מקצוע, וגם שם ה-JWT ולא הגוף
+  assert.match(mortgagePurchaseFn, /from\("professional_accounts"\)[\s\S]{0,900}rpc\("purchase_mortgage_lead_professional"[\s\S]{0,80}p_account_id: account\.id/);
+  assert.equal(/body\.(account_id|agent_id|p_account_id)/.test(mortgagePurchaseFn), false);
+  // האזור האישי: מהארנק בלבד ליועץ/ת (אין lawyer_lead_orders למשכנתאות), וה-view הסגור
+  assert.match(crmJs, /\.from\('mortgage_leads_public'\)/);
+  assert.match(crmJs, /isLawyer\(\) \? 'lawyer-lead-purchase' : 'mortgage-lead-purchase'/);
+  assert.match(crmJs, /mortgage_advisor: \{[\s\S]{0,300}card: false/);
+  // גודל הקהל סופר גם חשבונות בעלי מקצוע, אחרת ליד משכנתאות נרשם unrouted כשיש יועץ/ת
+  assert.match(t, /when 'mortgage_advisor' then \([\s\S]{0,300}from professional_accounts[\s\S]{0,120}kind = 'mortgage_advisor'/);
+});
+
+test('שחזור קישור העריכה: למייל שבכרטיסייה בלבד, עם בלם, ולמנהל/ת פלטפורמה מהפאנל', () => {
+  // הקישור יוצא למייל ולא בתשובה: הדפדפן מקבל רק success/throttled
+  assert.match(manageFn, /body\.action === "recover_link"[\s\S]{0,400}sendManageLinks\(supabase, email\)/);
+  const recoverBlock = manageFn.slice(manageFn.indexOf('body.action === "recover_link"'), manageFn.indexOf('const token ='));
+  assert.equal(/manage_token/.test(recoverBlock), false, 'האסימון יוצא בתשובה');
+  assert.match(linkMail, /link_sent_at/);
+  assert.match(linkMail, /RESEND_AFTER_MS = 10 \* 60_000/);
+  // תבנית מילולית: "a_b@x.il" לא יקבל את המפתח של "aXb@x.il"
+  assert.match(linkMail, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
+  assert.match(signupFn, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
+  assert.match(linkMail, /replace\(\/\[\\\\%_\]\/g/);
+  assert.match(manageHtml, /action:'recover_link'/);
+  // הרשמה חוזרת לאותו מייל: אין כרטיסייה כפולה, הקישור של הקיימת נשלח
+  assert.match(signupFn, /\.in\("status", \["active", "pending_approval"\]\)[\s\S]{0,200}card_exists/);
+  assert.match(read('professional-signup.html'), /card_exists/);
+  // הפאנל: הקישור רק למנהל/ת פלטפורמה, ורק של כרטיסיית בעל מקצוע
+  const t = allKindsMig.text;
+  assert.match(t, /function public\.admin_professional_card_manage_link[\s\S]{0,400}current_is_platform_admin\(\)[\s\S]{0,400}placement_type = 'professional_card'/);
+  assert.match(t, /revoke all on function public\.admin_professional_card_manage_link\(uuid\) from public, anon, authenticated;/);
+  assert.match(read('assets/crm.js'), /rpc\('admin_professional_card_manage_link'/);
+  // העמוד הציבורי אומר איך עורכים
+  assert.match(read('professional.html'), /class="owner-note"[\s\S]{0,200}\/professional-crm[\s\S]{0,200}\/professional-manage/);
 });
 
 test('מדף עורכי הדין אינו יושב ב-CRM של הסוכנים', () => {

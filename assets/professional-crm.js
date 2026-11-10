@@ -1,14 +1,16 @@
 /* ============================================================================
    האזור האישי לבעלי מקצוע (professional-crm.html)
    ----------------------------------------------------------------------------
-   כניסה, ארנק, ומדף "שאלה לעו״ד" לעורכי דין מאושרים. לבעלי מקצוע אין חשבון CRM (הוא דורש
+   כניסה, עריכת הכרטיסייה, ארנק, ומדף לידים לשני תחומים: "שאלה לעו״ד" לעורכי דין מאושרים,
+   ולידים ממחשבון המשכנתא ליועצי משכנתאות מאושרים. לבעלי מקצוע אין חשבון CRM (הוא דורש
    רישיון תיווך), ולכן חשבון נפרד: professional_accounts (docs/professional-accounts.md).
 
    כל ההרשאות במסד, לא כאן:
      • החשבון והלידים שנרכשו נקראים ישירות (RLS לפי user_id / sold_to_professional_id).
-     • המדף נקרא מ-lawyer_leads_public, שמחזיר שורות רק לחשבון עו"ד מאושר ובעיר שלו.
-     • הרכישה: מהארנק ב-lawyer-lead-purchase, או בכרטיס ב-lawyer-lead-checkout (JWT; הליד נשמר 15 דקות,
-       והסגירה רק ב-wallet-topup-callback אחרי אימות מול מורנינג).
+     • המדף נקרא מ-lawyer_leads_public (רק לחשבון עו"ד מאושר ובעיר שלו) או מ-mortgage_leads_public
+       (רק ליועץ/ת משכנתאות מאושר/ת).
+     • הרכישה: מהארנק ב-lawyer-lead-purchase / mortgage-lead-purchase, או בכרטיס ב-lawyer-lead-checkout
+       (עו"ד בלבד; JWT; הליד נשמר 15 דקות, והסגירה רק ב-wallet-topup-callback אחרי אימות מול מורנינג).
    המסך שמסתיר מדף הוא נוחות, לא ההגנה.
    ============================================================================ */
 (function () {
@@ -31,6 +33,22 @@
   const nis = (n) => '₪' + Math.round(Number(n) || 0).toLocaleString('he-IL');
   const hebDate = (d) => (d ? new Date(d).toLocaleDateString('he-IL') : '');
   const errText = (e) => (window.FriendlyError ? FriendlyError.text(e) : (e && e.message) || 'שגיאה');
+
+  // המדף לפי התחום. תחום שאינו כאן רואה "אין עדיין מדף". הסינון האמיתי ב-view במסד
+  const SHELF_COPY = {
+    real_estate_lawyer: {
+      title: 'שאלות לעו״ד בעיר שלכם',
+      sub: 'שאלות של גולשים שנשאלו מדף נכס, אחרי אימות הטלפון. הרכישה (<b id="shelfPrice">₪50</b>) חושפת שם, טלפון ואימייל.',
+      priceKey: 'lawyer_lead_price', buyTitle: 'אישור רכישת שאלה', card: true,
+    },
+    mortgage_advisor: {
+      title: 'לידים ממחשבון המשכנתא',
+      sub: 'פונים שביקשו ייעוץ משכנתא במחשבון באתר (דף הבית ודפי הנכסים). הרכישה (<b id="shelfPrice">₪50</b>) חושפת שם, טלפון ואימייל.',
+      priceKey: 'mortgage_lead_price', buyTitle: 'אישור רכישת ליד משכנתאות', card: false,
+    },
+  };
+  const shelfCopy = () => (account && SHELF_COPY[account.kind]) || null;
+  const isLawyer = () => !!account && account.kind === 'real_estate_lawyer';
 
   let account = null;
   let price = 50;
@@ -111,11 +129,16 @@
     el('acctName').textContent = account.display_name;
     el('acctKind').textContent = KIND_LABELS[account.kind] || KIND_LABELS.general;
     el('acctBalance').textContent = nis(account.credit_balance);
-    const lawyer = account.kind === 'real_estate_lawyer';
-    show('shelfCard', lawyer && account.shelf_enabled);
-    show('boughtCard', lawyer && account.shelf_enabled);
-    show('pendingShelfCard', lawyer && !account.shelf_enabled);
-    show('noShelfCard', !lawyer);
+    const copy = shelfCopy();
+    const hasShelf = !!copy;
+    if (copy) {
+      el('shelfTitle').textContent = copy.title;
+      el('shelfSub').innerHTML = copy.sub;   // נוסח קבוע מהקוד, לא מהמסד
+    }
+    show('shelfCard', hasShelf && account.shelf_enabled);
+    show('boughtCard', hasShelf && account.shelf_enabled);
+    show('pendingShelfCard', hasShelf && !account.shelf_enabled);
+    show('noShelfCard', !hasShelf);
   }
 
   el('manageBtn').addEventListener('click', async () => {
@@ -140,14 +163,16 @@
 
   /* ---------- מדף השאלות ---------- */
   async function loadPrice() {
+    const key = (shelfCopy() || SHELF_COPY.real_estate_lawyer).priceKey;
     try {
-      const { data } = await sb.from('pricing_config').select('key, value').in('key', ['lawyer_lead_price', 'vat_rate']);
+      const { data } = await sb.from('pricing_config').select('key, value').in('key', [key, 'vat_rate']);
       (data || []).forEach((r) => {
-        if (r.key === 'lawyer_lead_price' && Number(r.value) >= 0) price = Number(r.value);
+        if (r.key === key && Number(r.value) >= 0) price = Number(r.value);
         if (r.key === 'vat_rate' && Number(r.value) >= 0) vatRate = Number(r.value);
       });
     } catch (e) { /* ברירת המחדל */ }
-    el('shelfPrice').textContent = nis(price);
+    const priceEl = el('shelfPrice');
+    if (priceEl) priceEl.textContent = nis(price);
   }
 
   async function loadProperties(leads) {
@@ -166,7 +191,90 @@
     return 'שאלה כללית';
   }
 
+  /* ---------- מדף המשכנתאות (יועצי משכנתאות מאושרים) ----------
+     אותו מלאי כמו המגירה ב-CRM של הסוכנים (mortgage_leads_public: נתוני המחשבון בלי שם,
+     טלפון ואימייל). הרכישה מהארנק בלבד, ב-mortgage-lead-purchase, שמזהה חשבון בעל מקצוע
+     לפי ה-JWT. תשלום בכרטיס על ליד משכנתאות עוד לא נבנה (lawyer_lead_orders הוא של עו"ד). */
+  const mortgageKind = (l) => (l.owns_property
+    ? '🏘️ יש דירה בבעלות (משפר/ת דיור או משקיע/ה)'
+    : '🔑 דירה יחידה');
+  function mortgageMeta(l) {
+    return [
+      l.property_price ? 'נכס ' + nis(l.property_price) : null,
+      l.equity != null ? 'הון עצמי ' + nis(l.equity) : null,
+      l.ltv_pct != null ? Math.round(l.ltv_pct) + '% מימון' : null,
+      l.years ? l.years + ' שנים' : null,
+      l.interest_rate != null ? 'ריבית ' + l.interest_rate + '%' : null,
+    ].filter(Boolean).join(' · ');
+  }
+  function mortgageSource(l) {
+    const p = l.property_id ? propertyTitles[l.property_id] : null;
+    if (p) return 'מנכס: ' + (p.title || 'מודעה') + (p.city ? ' · ' + p.city : '');
+    if (l.property_id) return propertyLookupFailed ? 'מנכס באתר' : 'מנכס שהוסר מהאתר';
+    return 'ממחשבון דף הבית';
+  }
+  // הטקסט שמוצג בדיאלוג האישור (ובכרטיס): מה שצריך כדי להחליט אם הליד שווה את המחיר
+  function mortgageSummary(l) {
+    return ['החזר חודשי מבוקש ' + nis(l.monthly_payment), mortgageKind(l), mortgageMeta(l), mortgageSource(l)]
+      .filter(Boolean).join('\n');
+  }
+
+  async function loadMortgageShelf() {
+    const list = el('shelfList');
+    list.innerHTML = '<div class="empty">טוען…</div>';
+    await loadPrice();
+    const { data, error } = await sb
+      .from('mortgage_leads_public').select('*').eq('status', 'new')
+      .order('created_at', { ascending: false }).limit(60);
+    if (error) {
+      list.innerHTML = '<div class="empty">שגיאה בטעינת המדף: ' + escapeHtml(errText(error)) + '</div>';
+      shelf = [];
+      return;
+    }
+    shelf = data || [];
+    await loadProperties(shelf);
+    if (!shelf.length) {
+      list.innerHTML = '<div class="empty">אין כרגע לידי משכנתאות פנויים. לידים חדשים נכנסים ממחשבון המשכנתא בדף הבית ובדפי הנכסים.</div>';
+      return;
+    }
+    list.innerHTML = shelf.map((l) => `
+      <div class="lead">
+        <div class="q"><b>החזר חודשי מבוקש ${escapeHtml(nis(l.monthly_payment))}</b><br>${escapeHtml(mortgageKind(l))}</div>
+        <div class="meta">${escapeHtml(mortgageMeta(l))}</div>
+        <div class="meta">${escapeHtml(mortgageSource(l))} · ${escapeHtml(hebDate(l.created_at))} · ${l.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון'}</div>
+        <div class="acts"><button class="btn btn-gold" type="button" data-buy="${escapeHtml(l.id)}">רכישה · ${escapeHtml(nis(price))}</button></div>
+      </div>`).join('');
+  }
+
+  async function loadMortgageBought() {
+    const list = el('boughtList');
+    const { data, error } = await sb
+      .from('mortgage_leads').select('id, full_name, phone, email, owns_property, property_price, equity, loan_amount, interest_rate, years, monthly_payment, ltv_pct, property_id, sold_at')
+      .eq('sold_to_professional_id', account.id).order('sold_at', { ascending: false });
+    if (error) { list.innerHTML = '<div class="empty">שגיאה בטעינת הלידים שנרכשו: ' + escapeHtml(errText(error)) + '</div>'; return; }
+    if (!data || !data.length) { list.innerHTML = '<div class="empty">עוד לא רכשתם לידים.</div>'; return; }
+    await loadProperties(data);
+    list.innerHTML = data.map((l) => {
+      const wa = String(l.phone).replace(/\D/g, '').replace(/^0/, '972');
+      return `
+      <div class="lead">
+        <div><b>${escapeHtml(l.full_name)}</b> <span class="meta">נרכש ${escapeHtml(hebDate(l.sold_at))}</span></div>
+        <div class="q" style="margin-top:6px">החזר חודשי ${escapeHtml(nis(l.monthly_payment))}${l.loan_amount != null ? ' · הלוואה ' + escapeHtml(nis(l.loan_amount)) : ''}<br>${escapeHtml(mortgageKind(l))}</div>
+        <div class="meta">${escapeHtml(mortgageMeta(l))}</div>
+        <div class="meta">${escapeHtml(mortgageSource(l))}</div>
+        <div class="acts">
+          <a class="btn btn-gold" href="tel:${escapeHtml(l.phone)}">📞 ${escapeHtml(l.phone)}</a>
+          <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(wa)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
+          ${l.email ? `<a class="btn btn-ghost" href="mailto:${escapeHtml(l.email)}">✉️ אימייל</a>` : ''}
+          ${l.property_id && propertyTitles[l.property_id] ? `<a class="btn btn-ghost" href="/property?id=${escapeHtml(l.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ---------- מדף עורכי הדין ---------- */
   async function loadShelf() {
+    if (!isLawyer()) return loadMortgageShelf();
     const list = el('shelfList');
     list.innerHTML = '<div class="empty">טוען…</div>';
     await loadPrice();
@@ -195,6 +303,7 @@
   }
 
   async function loadBought() {
+    if (!isLawyer()) return loadMortgageBought();
     const list = el('boughtList');
     const { data, error } = await sb
       .from('lawyer_leads').select('id, full_name, phone, email, question, property_id, sold_at')
@@ -226,14 +335,22 @@
     const lead = shelf.find((l) => l.id === btn.dataset.buy);
     if (!lead) return;
     pendingBuy = lead;
-    el('buyQuestion').textContent = lead.question_text;
+    const copy = shelfCopy() || SHELF_COPY.real_estate_lawyer;
+    el('buyTitle').textContent = copy.buyTitle;
+    el('buyQuestion').textContent = isLawyer() ? lead.question_text : mortgageSummary(lead);
     el('buyPrice').textContent = nis(price);
     const enough = Number(account.credit_balance) >= price;
     const gross = Math.round(price * (1 + vatRate) * 100) / 100;
-    el('buyCardNote').textContent = 'בכרטיס אשראי: ' + nis(gross) + ' כולל מע״מ. הרכישה חד-פעמית, בלי הוראת קבע.';
-    el('buyBalance').textContent = enough
-      ? 'או מהיתרה (לפני מע״מ). יתרה אחרי הרכישה: ' + nis(Number(account.credit_balance) - price)
+    // תשלום בכרטיס קיים רק לליד עו"ד (lawyer_lead_orders). ליועץ/ת משכנתאות: מהארנק בלבד
+    show('buyCard', copy.card);
+    show('buyInvoice', copy.card);
+    show('buyReserveNote', copy.card);
+    el('buyCardNote').textContent = copy.card
+      ? 'בכרטיס אשראי: ' + nis(gross) + ' כולל מע״מ. הרכישה חד-פעמית, בלי הוראת קבע.'
       : '';
+    el('buyBalance').textContent = enough
+      ? (copy.card ? 'או מהיתרה (לפני מע״מ). ' : 'מהיתרה (לפני מע״מ). ') + 'יתרה אחרי הרכישה: ' + nis(Number(account.credit_balance) - price)
+      : (copy.card ? '' : 'היתרה אינה מספיקה. נדרש ' + nis(price) + '. לטעינת הארנק כתבו לנו מהכפתור למעלה.');
     show('buyConfirm', enough);
     el('buyInvName').value = el('buyInvName').value || account.display_name || '';
     el('buyCard').disabled = false;
@@ -253,6 +370,9 @@
     already_purchased: 'הליד כבר שלכם, והוא מופיע למטה תחת "הלידים שרכשתי"',
     too_many_open_orders: 'יש לכם כבר שלוש רכישות פתוחות. השלימו אותן או המתינו 15 דקות.',
     not_a_lawyer: 'המדף הזה מיועד לעורכי דין בלבד',
+    not_a_mortgage_advisor: 'המדף הזה מיועד ליועצי משכנתאות בלבד',
+    no_matching_agent_profile: 'לא נמצא חשבון בעל מקצוע לכניסה הזו',
+    no_matching_account: 'לא נמצא חשבון בעל מקצוע לכניסה הזו',
     shelf_not_approved: 'הגישה למדף עדיין לא אושרה על ידי הנהלת האתר',
     account_inactive: 'החשבון אינו פעיל',
     payment_unavailable: 'התשלום בכרטיס אינו זמין כרגע. נסו שוב מאוחר יותר.',
@@ -349,7 +469,9 @@
     btn.disabled = true; btn.textContent = 'רוכש…'; setMsg('buyMsg', '');
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const res = await fetch(SUPABASE_URL + '/functions/v1/lawyer-lead-purchase', {
+      // הפונקציה לפי התחום. שתיהן גוזרות את החשבון מה-JWT, ולא מהגוף
+      const fn = isLawyer() ? 'lawyer-lead-purchase' : 'mortgage-lead-purchase';
+      const res = await fetch(SUPABASE_URL + '/functions/v1/' + fn, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
         body: JSON.stringify({ lead_id: pendingBuy.id }),
@@ -465,7 +587,7 @@
   // renderAll: התצוגה והמדף, לפי החשבון הטעון. refresh (אחרי כל פעולה) ו-boot (אחרי בדיקות הכניסה) משתמשים בה
   async function renderAll() {
     renderAccount();
-    if (account.kind === 'real_estate_lawyer' && account.shelf_enabled) {
+    if (shelfCopy() && account.shelf_enabled) {
       await Promise.all([loadShelf(), loadBought()]);
     }
   }
@@ -502,7 +624,7 @@
       // מחובר, אבל אין חשבון בעל מקצוע (למשל סוכן/ת שנכנס/ת לכאן בטעות)
       await sb.auth.signOut();
       showLogin();
-      setMsg('lgMsg', 'אין חשבון בעל מקצוע לכתובת הזו. מי שנרשם/ה בכרטיסייה פותח/ת חשבון מקישור העריכה האישי.', 'err');
+      setMsg('lgMsg', 'אין חשבון בעל מקצוע לכתובת הזו. מי שנרשם/ה בכרטיסייה פותח/ת חשבון מקישור העריכה האישי (איבדתם אותו? הקישור "איבדתם את הקישור?" למטה).', 'err');
       return;
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);

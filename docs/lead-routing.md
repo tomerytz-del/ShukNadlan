@@ -81,7 +81,7 @@
 | --- | --- |
 | `agent_owner` | סוכני Mid/Premium פעילים עם העדפות לידים פעילות — השכבה הראשונה של `findCandidateAgentIds`; מ-9.11.2026 הפונקציה נופלת ל-`free` כשאין אף מנוי/ה מתאים/ה, והקהל הזה אינו נספר כאן |
 | `agent_buyer` | כל סוכן/ת פעיל/ה (מדף מחפשי הדירה פתוח לכל `authenticated`) |
-| `mortgage_advisor` | רק חשבונות עם `is_mortgage_advisor` |
+| `mortgage_advisor` | חשבונות CRM עם `is_mortgage_advisor`, ומ-10.11.2026 גם חשבונות בעלי מקצוע (`professional_accounts`, `kind = 'mortgage_advisor'`, `shelf_enabled`) |
 
 ### מדפי הלידים ממוקדים למי שביקש (7.11.2026)
 
@@ -94,7 +94,7 @@
 | מדף | מי רואה | איך נאכף |
 | --- | --- | --- |
 | `rss_leads_public`, `saved_search_leads_public` | כל סוכן/ת תיווך | בכוונה (`BROKER_SHELVES`) |
-| `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה, או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`) |
+| `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה (ב-CRM, או חשבון בעל מקצוע מאושר), או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`, הורחב ב-`20271110090000`) |
 | `lawyer_leads_public` | חשבון עו"ד מאושר (`professional_accounts.shelf_enabled`) בעיר של הליד, או מנהל/ת פלטפורמה | `current_is_lawyer()` + `current_professional_works_city()` בתוך ה-view (`20271108090000`). `docs/lawyer-leads.md`, `docs/professional-accounts.md` |
 | `project_leads_shelf` | יזם רשום ופעיל | `exists` על `developers` בתוך ה-view (כבר מ-`20260921090000`) |
 

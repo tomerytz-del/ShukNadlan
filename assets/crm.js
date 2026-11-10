@@ -7538,6 +7538,28 @@ async function loadProfessionalCardsAdmin(){
     });
     actions.appendChild(statusBtn);
 
+    // קישור העריכה של בעל/ת המקצוע (admin_professional_card_manage_link, מנהל/ת פלטפורמה
+    // בלבד). הוא המפתח לכרטיסייה, ולכן לא ברשימה: נשלף בלחיצה, מועתק, ולא מוצג על המסך
+    const linkBtn = document.createElement('button');
+    linkBtn.type = 'button';
+    linkBtn.className = 'btn btn-ghost';
+    linkBtn.style.padding = '5px 12px';
+    linkBtn.textContent = 'קישור עריכה';
+    linkBtn.title = 'העתקת קישור העריכה האישי, לשליחה לבעל/ת המקצוע';
+    linkBtn.addEventListener('click', async ()=>{
+      linkBtn.disabled = true;
+      const { data: res, error: lkErr } = await sb.rpc('admin_professional_card_manage_link', { p_id: card.id });
+      linkBtn.disabled = false;
+      if (lkErr || !res || res.error || !res.path){
+        showToast('לא נמצא קישור עריכה לכרטיסייה הזו' + (lkErr ? ': ' + heErr(lkErr) : ''));
+        return;
+      }
+      const url = location.origin + res.path;
+      try { await navigator.clipboard.writeText(url); showToast('קישור העריכה הועתק. שלחו אותו רק לבעל/ת המקצוע.'); }
+      catch(e){ prompt('קישור העריכה (העתיקו ידנית):', url); }
+    });
+    actions.appendChild(linkBtn);
+
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'btn btn-ghost';

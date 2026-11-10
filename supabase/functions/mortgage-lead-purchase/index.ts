@@ -9,6 +9,12 @@ import { mfaGate } from "../_shared/mfa-gate.ts";
 // והיועצ/ת הפועל/ת נגזר/ת מה-JWT המאומת בלבד — לעולם לא מה-body. פונקציית
 // ה-DB ‏purchase_mortgage_lead נעולה ל-service_role, כך שאין דרך לעקוף את
 // הנתיב הזה ולחייב חשבון אחר או לקבל את פרטי הפונה בלי לשלם.
+//
+// שני סוגי קונים (מ-10.11.2026), לפי מי שמחובר/ת:
+//   • agency_members עם is_mortgage_advisor (יועץ/ת שנרשם/ה ל-CRM) → purchase_mortgage_lead
+//   • professional_accounts בתחום mortgage_advisor עם shelf_enabled (יועץ/ת שנרשם/ה
+//     בכרטיסייה ופתח/ה חשבון, professional-crm) → purchase_mortgage_lead_professional
+// מי שמחזיק/ה בשניהם קונה דרך ה-CRM (הסדר כאן). הארנקים נפרדים.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -64,7 +70,36 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (agentErr || !agentRow) {
-    return json({ error: "no_matching_agent_profile", detail: "המשתמש מחובר אך אין לו פרופיל משויך" }, 403);
+    // אין חברות במשרד: אולי חשבון בעל מקצוע (professional-crm)
+    const { data: account } = await serviceClient
+      .from("professional_accounts")
+      .select("id, active, kind, shelf_enabled")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    if (!account) {
+      return json({ error: "no_matching_agent_profile", detail: "המשתמש מחובר אך אין לו פרופיל משויך" }, 403);
+    }
+    if (!account.active) return json({ error: "account_inactive" }, 403);
+    // הבדיקות חוזרות גם ב-purchase_mortgage_lead_professional (שם הן הקובעות, בטרנזקציה)
+    if (account.kind !== "mortgage_advisor") return json({ error: "not_a_mortgage_advisor" }, 403);
+    if (!account.shelf_enabled) return json({ error: "shelf_not_approved" }, 403);
+
+    const { data: result, error: rpcErr } = await serviceClient.rpc("purchase_mortgage_lead_professional", {
+      p_lead_id: lead_id,
+      p_account_id: account.id,
+    });
+    if (rpcErr) return json({ error: "db_error", detail: rpcErr.message }, 500);
+    const statusMap: Record<string, number> = {
+      lead_not_found: 404,
+      lead_not_available: 410,
+      lead_already_sold: 409,
+      account_not_found: 403,
+      not_a_mortgage_advisor: 403,
+      shelf_not_approved: 403,
+      insufficient_balance: 402,
+    };
+    if (result?.error) return json(result, statusMap[result.error] ?? 400);
+    return json(result, 200);
   }
   if (!agentRow.active) {
     return json({ error: "agent_inactive" }, 403);
