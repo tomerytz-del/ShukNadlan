@@ -40,6 +40,7 @@ import {
   warmPromptCache,
 } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn, warmPublicPromptCache } from "./public-agent.ts";
+import { serviceMarketLabels as marketLabelsOf } from "../_shared/service-markets.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 import { collapseCreatedPropertyEdits } from "./listing-defaults.ts";
 import { setPairReserve } from "../_shared/wa-pair-pace.ts";
@@ -1455,6 +1456,19 @@ const SITE_TAGS: Readonly<Record<string, string>> = {
 };
 const SITE_TAG_RE = /\s*\[site:([a-z]{2,12})\]/;
 
+/* תג השוק שאותה חלונית מוסיפה אחרי תג המקור: "[region:tel-aviv]" - השוק
+   שהדף מציג (‏CityContext.market). לא נחתם במסד; הוא רק אומר לגבריאלה מאיזה
+   אזור הפונה, כדי שלא תציג את עצמה כעוזרת של עפולה למי שהגיע/ה מתל אביב.
+   ‏slug שאינו ברשימת השווקים (‏service-markets.ts) נזרק. יורד מהטקסט לפני
+   גבריאלה, כמו תג המקור. */
+const REGION_TAG_RE = /\s*\[region:([a-z][a-z0-9-]{1,30})\]/;
+
+function regionLabelOf(text: string): string | null {
+  const tag = text.match(REGION_TAG_RE);
+  if (!tag) return null;
+  return marketLabelsOf([tag[1]])[0] || null;
+}
+
 function siteEntryOf(text: string): string {
   const tag = text.match(SITE_TAG_RE);
   if (tag && SITE_TAGS[tag[1]]) return SITE_TAGS[tag[1]];
@@ -1540,7 +1554,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
         await reply(
         from,
         "אני יודעת לקרוא הודעות טקסט והקלטות קוליות. מה מחפשים? (למשל: " +
-          "\"3 חדרים בעפולה עד מיליון ושלוש\")",
+          "\"3 חדרים בגבעתיים עד 3 מיליון\")",
         null,
         { customer: true },
       );
@@ -1570,7 +1584,11 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
     if (error) console.error("public entry stamp failed", error);
   }
   // הקוד נחתם; לגבריאלה הוא רעש, והיא עלולה לצטט אותו לפונה.
-  userText = userText.replace(AD_REF_RE, "").replace(SITE_TAG_RE, "").trim() || userText;
+  const marketLabel = regionLabelOf(userText);
+  userText = userText.replace(AD_REF_RE, "").replace(SITE_TAG_RE, "").replace(REGION_TAG_RE, "").trim() || userText;
+  // השוק נשאר בטקסט שנשמר בהיסטוריה (ולא רק בהקשר של התור, שאינו נשמר):
+  // בתור השני, "יש 3 חדרים עד 3 מיליון?" בלי עיר עדיין יודע מאיזה אזור הפונה.
+  if (marketLabel) userText += ` (הגעתי מדף השוק "${marketLabel}" באתר)`;
 
   let answer: string;
   let shareContact = false;
@@ -1581,6 +1599,7 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
       userText,
       waPhone: from,
       profileName: msg._profile_name || null,
+      marketLabel,
     }));
   } catch (err) {
     console.error("public turn failed", err);
