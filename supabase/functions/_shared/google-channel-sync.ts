@@ -19,7 +19,7 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ALLOWED_CURRENCY = new Set(["ILS", "USD"]);
 
 export const GOOGLE_CAMPAIGN_LIST_GAQL = `
-  SELECT campaign.id, campaign.name, campaign.status, campaign.start_date, customer.currency_code
+  SELECT campaign.id, campaign.name, campaign.status, campaign.start_date_time, customer.currency_code
     FROM campaign
    WHERE campaign.status != 'REMOVED'`;
 
@@ -148,7 +148,7 @@ function recordFrom(m: {
   };
 }
 
-// metrics גוברים על אפס. יום שלפני campaign.start_date לא מקבל אפס,
+// metrics גוברים על אפס. יום שלפני campaign.start_date_time לא מקבל אפס,
 // אבל שורת הוצאה שגוגל כן החזירה נשמרת. קמפיין חסר מהרשימה (או REMOVED)
 // לא ממולא, וההוצאה שלו נשמרת אם הגיעה בשאילתת הימים.
 export function googleChannelRecordsFromGaql(input: {
@@ -185,7 +185,8 @@ export function googleChannelRecordsFromGaql(input: {
     const campaignId = String(row?.campaign?.id || "");
     const status = text(row?.campaign?.status);
     if (!campaignId || status === "REMOVED") continue;
-    const start = text(row?.campaign?.startDate);
+    // start_date נסגר בגרסאות החדשות של ה-API; start_date_time הוא "yyyy-MM-dd HH:mm:ss".
+    const start = (text(row?.campaign?.startDateTime) || text(row?.campaign?.startDate)).slice(0, 10);
     const currency = currencyOf(row?.customer?.currencyCode);
     const name = text(row?.campaign?.name);
     for (const day of days) {

@@ -27,7 +27,7 @@ const BUYERS = "24350623422";
 const syncedAt = "2026-11-08T00:25:09.970Z";
 
 const paused = (status = "PAUSED", startDate = "2026-10-16") => ({
-  campaign: { id: BUYERS, name: "buyers", status, startDate },
+  campaign: { id: BUYERS, name: "buyers", status, startDateTime: `${startDate} 00:00:00` },
   customer: { currencyCode: "ILS" },
 });
 
@@ -102,7 +102,7 @@ const eur = googleChannelRecordsFromGaql({
     metrics: { costMicros: "1000000", clicks: "1", impressions: "1", conversions: "0" },
   }],
   campaignRows: [{
-    campaign: { id: "9", name: "x", status: "ENABLED", startDate: "2026-11-01" },
+    campaign: { id: "9", name: "x", status: "ENABLED", startDateTime: "2026-11-01 00:00:00" },
     customer: { currencyCode: "EUR" },
   }],
   from: "2026-11-08",
@@ -114,7 +114,7 @@ ok("מטבע שאינו שקל או דולר לא נכתב ומדווח", eur.re
 const usd = googleChannelRecordsFromGaql({
   metricRows: [],
   campaignRows: [{
-    campaign: { id: "8", name: "usd", status: "PAUSED", startDate: "2026-11-08" },
+    campaign: { id: "8", name: "usd", status: "PAUSED", startDateTime: "2026-11-08 00:00:00" },
     customer: { currencyCode: "USD" },
   }],
   from: "2026-11-08",
