@@ -478,8 +478,11 @@
       });
       const data = await res.json();
       if (!res.ok || data.error) {
+        // תשלום בכרטיס קיים רק במדף עו"ד; ליועץ/ת משכנתאות הדרך היא טעינת הארנק
+        const copy = shelfCopy() || SHELF_COPY.real_estate_lawyer;
         const messages = Object.assign({
-          insufficient_balance: 'היתרה אינה מספיקה. נדרש ' + nis(data.required) + '. אפשר לשלם בכרטיס אשראי.',
+          insufficient_balance: 'היתרה אינה מספיקה. נדרש ' + nis(data.required) + '. ' +
+            (copy.card ? 'אפשר לשלם בכרטיס אשראי.' : 'לטעינת הארנק כתבו לנו מהכפתור למעלה.'),
         }, BUY_ERRORS);
         setMsg('buyMsg', messages[data.error] || ('שגיאה: ' + errText(data.error)), 'err');
         btn.textContent = 'רכישה מהיתרה';

@@ -137,9 +137,10 @@ select public.professional_credit_add('<id>', 100, 'טעינה ידנית');   -
 
 - `current_is_mortgage_advisor()` מכיר את שני הסוגים (`20271110090000`), ולכן ה-view
   וה-`check_shelf_audience.py` לא השתנו.
-- הרכישה: `mortgage-lead-purchase` מחפש קודם `agency_members`; בלי חברות הוא נופל
-  לחשבון בעל מקצוע וקורא ל-`purchase_mortgage_lead_professional` (אותה לוגיקה, על
-  `professional_accounts.credit_balance`). הקונה נרשם ב-`mortgage_leads.sold_to_professional_id`
+- הרכישה: `mortgage-lead-purchase` (`resolveBuyer`) בוחר חברות CRM **פעילה עם
+  `is_mortgage_advisor`**; אחרת חשבון בעל מקצוע **מאושר**, וקורא ל-`purchase_mortgage_lead_professional`
+  (אותה לוגיקה, על `professional_accounts.credit_balance`). חברות ישנה ולא פעילה אינה
+  חוסמת את החשבון. הקונה נרשם ב-`mortgage_leads.sold_to_professional_id`
   וב-`mortgage_lead_purchases.professional_id` (`agent_id` כבר אינו חובה; CHECK על קונה אחד).
 - **מהארנק בלבד.** תשלום בכרטיס על ליד משכנתאות עוד לא נבנה (הזמנות הכרטיס הן של
   `lawyer_leads`).

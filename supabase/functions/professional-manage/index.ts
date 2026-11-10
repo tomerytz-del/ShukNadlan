@@ -27,7 +27,8 @@ import { normalizeEmail, sendManageLinks } from "../_shared/professional-link-ma
 //
 // ‏recover_link הוא המסלול היחיד בלי אסימון: מי שאיבד/ה את הקישור מקליד/ה את
 // המייל שבכרטיסייה, והקישור נשלח **לשם** (לא מוחזר בתשובה), עם בלם של עשר
-// דקות. התשובה זהה אם הכתובת רשומה או לא (‏_shared/professional-link-mail.ts).
+// דקות. ‏`throttled` בתשובה כן מסגיר שהכתובת רשומה, בכוונה
+// (‏_shared/professional-link-mail.ts, "מה התשובה מסגירה").
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -151,8 +152,7 @@ Deno.serve(async (req: Request) => {
     const email = normalizeEmail(body.email);
     if (!email) return json({ error: "invalid_email" }, 400);
     const r = await sendManageLinks(supabase, email);
-    // ‏throttled חוזר כדי שהדף יגיד "נשלח לפני רגע" במקום להציע לחכות למייל שלא יגיע;
-    // הוא אינו מסגיר יותר מ"נשלח": בשני המקרים הכתובת רשומה, וזה גם מה ש"נשלח" אומר
+    // ‏throttled חוזר כדי שהדף יגיד "נשלח לפני רגע" במקום להציע לחכות למייל שלא יגיע
     return json({ success: true, throttled: r.throttled });
   }
 

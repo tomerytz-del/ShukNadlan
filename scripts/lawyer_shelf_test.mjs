@@ -173,8 +173,14 @@ test('מדף המשכנתאות: חשבון בעל מקצוע מאושר רוא�
   assert.match(t, /alter column agent_id drop not null/);
   assert.match(t, /check \(agent_id is not null or professional_id is not null\)/);
   // הפונקציה: בלי agency_members נופלים לחשבון בעל מקצוע, וגם שם ה-JWT ולא הגוף
-  assert.match(mortgagePurchaseFn, /from\("professional_accounts"\)[\s\S]{0,900}rpc\("purchase_mortgage_lead_professional"[\s\S]{0,80}p_account_id: account\.id/);
+  assert.match(mortgagePurchaseFn, /from\("professional_accounts"\)[\s\S]{0,600}"purchase_mortgage_lead_professional"[\s\S]{0,80}p_account_id: account\.id/);
   assert.equal(/body\.(account_id|agent_id|p_account_id)/.test(mortgagePurchaseFn), false);
+  // חברות לא פעילה (או לא יועץ/ת) אינה חוסמת חשבון בעל מקצוע מאושר: הבחירה לפי כשירות, לא לפי קיום השורה
+  assert.match(mortgagePurchaseFn, /agentRow\?\.active && agentRow\.is_mortgage_advisor/);
+  assert.match(mortgagePurchaseFn, /account\?\.active && account\.kind === "mortgage_advisor" && account\.shelf_enabled/);
+  // שחזור הקישור: בלי pending_payment (האסימון נמסר רק אחרי תשלום), ובלי * בכתובת (PostgREST מתרגם ל-%)
+  assert.match(linkMail, /RECOVERABLE_STATUSES = \["active", "pending_approval", "paused"\]/);
+  assert.match(linkMail, /\[\^@\\s\*%\]\+@/);
   // האזור האישי: מהארנק בלבד ליועץ/ת (אין lawyer_lead_orders למשכנתאות), וה-view הסגור
   assert.match(crmJs, /\.from\('mortgage_leads_public'\)/);
   assert.match(crmJs, /isLawyer\(\) \? 'lawyer-lead-purchase' : 'mortgage-lead-purchase'/);

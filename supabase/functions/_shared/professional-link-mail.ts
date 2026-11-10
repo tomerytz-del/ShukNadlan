@@ -12,10 +12,12 @@
 // לכל מי שיודע את הכתובת של בעל/ת המקצוע (היא מופיעה בעמוד הציבורי כשהוא/היא
 // בחר/ה להציג אותה).
 //
-// ## בלם
-// שליחה אחת לעשר דקות לכרטיסייה (ad_placement_access.link_sent_at). התשובה לקורא
-// זהה בכל מקרה (נשלח / לא נשלח לא מסגיר אם הכתובת רשומה): הקורא מקבל רק האם
-// הכתובת נראית תקינה. כישלון במשלוח נרשם ללוג ואינו זורק.
+// ## בלם, ומה התשובה מסגירה
+// שליחה אחת לעשר דקות לכרטיסייה (ad_placement_access.link_sent_at). הדפדפן מקבל
+// `throttled`, שהוא true רק כשיש כרטיסייה לכתובת: כלומר התשובה **כן** מסגירה אם הכתובת
+// רשומה, בדיוק כמו `card_exists` בהרשמה חוזרת. זו החלטה: הכתובת של בעל/ת מקצוע אינה
+// סוד (רבים מציגים אותה בעמוד הציבורי), ו"שלחנו לפני רגע" חוסך פנייה אלינו. מה שלא
+// יוצא לעולם הוא האסימון עצמו. כישלון במשלוח נרשם ללוג ואינו זורק.
 // ============================================================================
 
 import { sendPlatformEmail } from "./platform-mail-client.ts";
@@ -23,18 +25,26 @@ import { sendPlatformEmail } from "./platform-mail-client.ts";
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 const RESEND_AFTER_MS = 10 * 60_000;
 
-/** כרטיסייה שאפשר לערוך: חיה, ממתינה לאישור, או מושהית (הפרופיל שלה עדיין נערך). */
-const RECOVERABLE_STATUSES = ["active", "pending_approval", "paused", "pending_payment"];
+/** כרטיסייה שאפשר לערוך: חיה, ממתינה לאישור, או מושהית (הפרופיל שלה עדיין נערך).
+ *  **לא** pending_payment: במסלול בתשלום האסימון נמסר רק אחרי שהתשלום אומת
+ *  (professional-signup, action status), ושחזור למייל היה עוקף את זה. */
+const RECOVERABLE_STATUSES = ["active", "pending_approval", "paused"];
 
+/**
+ * כתובת תקינה, באותיות קטנות. בלי `*` ו-`%`: PostgREST מתרגם `*` ל-`%` בתבנית ilike לפני
+ * שהיא מגיעה ל-Postgres, ולכן אי אפשר לברוח ממנו, וכתובת עם תו-כל הייתה תופסת כרטיסיות
+ * של אחרים. כתובת אמיתית אינה מכילה אותם.
+ */
 export function normalizeEmail(value: unknown): string | null {
   const v = typeof value === "string" ? value.trim().toLowerCase() : "";
-  return v && /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(v) && v.length <= 254 ? v : null;
+  return v && /^[^@\s*%]+@[^@\s.*%]+\.[^@\s*%]+$/.test(v) && v.length <= 254 ? v : null;
 }
 
 /**
  * כתובת כתבנית ilike **מילולית**: ‏`_` ו-`%` הם תווי-כל ב-LIKE, ו-"a_b@x.il" היה תופס גם
  * "aXb@x.il". כאן זה לא עניין של דיוק אלא של למי נשלח המפתח: התאמה רחבה מדי הייתה שולחת
  * את קישור העריכה של כרטיסייה אחרת לכתובת שביקשה. ‏ilike ולא eq כדי להתעלם מרישיות.
+ * ‏`*` לא נברח כאן אלא נדחה ב-normalizeEmail (ראו שם).
  */
 export function likeLiteral(email: string): string {
   return email.replace(/[\\%_]/g, (c) => "\\" + c);
@@ -80,14 +90,20 @@ export async function sendManageLinks(supabase: any, email: string): Promise<Rec
     .in("placement_id", ids);
   const byCard = new Map<string, any>((access ?? []).map((a: any) => [a.placement_id, a]));
 
+  // כרטיסייה בלי שורת אסימון (יצירת האסימון בהרשמה נכשלה ונרשמה ללוג בלבד) אינה "נשלח
+  // לפני רגע": אין מה לשלוח, והקורא מקבל "אם הכתובת רשומה" ולא "נסו בעוד עשר דקות" לנצח
+  const withToken = cards.filter((c: any) => byCard.has(c.id));
+  if (!withToken.length) {
+    console.error("manage link recovery: card(s) without ad_placement_access", ids.join(","));
+    return { found: 0, sent: false, throttled: false };
+  }
+
   const now = Date.now();
-  const fresh = cards.filter((c: any) => {
-    const a = byCard.get(c.id);
-    if (!a) return false;
-    const last = Date.parse(a.link_sent_at || "");
+  const fresh = withToken.filter((c: any) => {
+    const last = Date.parse(byCard.get(c.id).link_sent_at || "");
     return !(Number.isFinite(last) && now - last < RESEND_AFTER_MS);
   });
-  if (!fresh.length) return { found: cards.length, sent: false, throttled: true };
+  if (!fresh.length) return { found: withToken.length, sent: false, throttled: true };
 
   const lines = fresh.map((c: any) => {
     const name = String(c.business_name || c.advertiser_name || "הכרטיסייה").trim();
@@ -125,7 +141,7 @@ export async function sendManageLinks(supabase: any, email: string): Promise<Rec
   });
   if (!result.sent) {
     console.error("manage link recovery: mail failed", result.error);
-    return { found: cards.length, sent: false, throttled: false };
+    return { found: withToken.length, sent: false, throttled: false };
   }
   // הבלם נרשם רק אחרי משלוח שהצליח: כישלון אצל ספק המייל לא נועל את הכתובת לעשר דקות
   const { error: stampErr } = await supabase
@@ -133,5 +149,5 @@ export async function sendManageLinks(supabase: any, email: string): Promise<Rec
     .update({ link_sent_at: new Date().toISOString() })
     .in("placement_id", fresh.map((c: any) => c.id));
   if (stampErr) console.error("manage link recovery: stamping link_sent_at failed", stampErr.message);
-  return { found: cards.length, sent: true, throttled: false };
+  return { found: withToken.length, sent: true, throttled: false };
 }
