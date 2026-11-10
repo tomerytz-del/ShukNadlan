@@ -105,7 +105,7 @@ export async function sendManageLinks(supabase: any, email: string): Promise<Rec
   });
   if (!fresh.length) return { found: withToken.length, sent: false, throttled: true };
 
-  const lines = fresh.map((c: any) => {
+  const lines: { name: string; url: string; state: string }[] = fresh.map((c: any) => {
     const name = String(c.business_name || c.advertiser_name || "הכרטיסייה").trim();
     const url = `${SITE_BASE}/professional-manage?token=${byCard.get(c.id).manage_token}`;
     const state = c.status === "pending_approval" ? " (ממתינה לאישור הנהלת האתר)" : "";
