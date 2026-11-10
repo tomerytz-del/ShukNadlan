@@ -1586,6 +1586,9 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
   // הקוד נחתם; לגבריאלה הוא רעש, והיא עלולה לצטט אותו לפונה.
   const marketLabel = regionLabelOf(userText);
   userText = userText.replace(AD_REF_RE, "").replace(SITE_TAG_RE, "").replace(REGION_TAG_RE, "").trim() || userText;
+  // השוק נשאר בטקסט שנשמר בהיסטוריה (ולא רק בהקשר של התור, שאינו נשמר):
+  // בתור השני, "יש 3 חדרים עד 3 מיליון?" בלי עיר עדיין יודע מאיזה אזור הפונה.
+  if (marketLabel) userText += ` (הגעתי מדף השוק "${marketLabel}" באתר)`;
 
   let answer: string;
   let shareContact = false;

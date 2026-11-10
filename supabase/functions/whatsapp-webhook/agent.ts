@@ -4488,8 +4488,10 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     street_nearest:
       `הכתובת לא מוקמה בדיוק, ולכן הדוח נמדד ממספר ${String(subject.nearest_house_number || "")} באותו רחוב. ` +
       "אמור/אמרי זאת בקצרה.",
-    street:
-      "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
+    // גם בלי מספר בית, וגם כשנמסר מספר ואין עסקה קרובה אליו ברחוב (20271109180000)
+    street: houseNumber
+      ? "אין עסקה קרובה למספר הבית ברחוב הזה, ולכן הדוח נמדד ממרכז העסקאות ברחוב ולא מהבניין. אמור/אמרי זאת בקצרה."
+      : "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
   };
   // מה שמסנן את בני ההשוואה: חדרים לנכס מגורים, קומה לנכס מסחרי (לחנות
   // אין חדרים - הסקיל cma-report), ושטח לכולם - בלעדיו אין מחיר למ"ר.
@@ -4921,9 +4923,12 @@ const CMA_OWNERSHIP_GUIDANCE =
  */
 async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unknown>) {
   if (String(input.gush || "").replace(/\D/g, "")) return await dealsByParcel(ctx, input);
-  // השם ברישום ("תל אביב - יפו") ולא הכינוי ("תל אביב", "ת"א"): המאגר, השכונות
-  // והגאוקוד כולם לפי השם ברישום. עיר שאינה מוכרת נשארת כמו שנאמרה.
-  const city = await canonicalCityName(ctx.supabase, String(input.city || "עפולה").trim()) || "עפולה";
+  // העיר נשלחת **כמו שנאמרה**: agent_market_deals_lookup פותרת כינוי ("תל אביב",
+  // "ת"א") לשם שבמאגר בעצמה, ורק כשהכתיב שהוקלד אינו פוגש אף עסקה
+  // (20271109180000). פענוח כאן היה מחליף "קרית טבעון" ב"קריית טבעון" של
+  // הרישום - ו-property_text_key אינה מכווצת יו"ד כפולה, כלומר העסקאות
+  // שרשומות בכתיב של רשות המיסים היו נעלמות.
+  const city = String(input.city || "עפולה").trim();
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
   const neighborhood = String(input.neighborhood || "").trim();

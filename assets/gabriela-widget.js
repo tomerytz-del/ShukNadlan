@@ -133,10 +133,13 @@
     if (hintsLiveP) return hintsLiveP;
     hintsLiveP = Promise.all([prosTypes(), projectsLive()]).then(function (r) {
       var ok = { appraiser: !!r[0].appraiser, projects: !!r[1] };
-      return GW_HINTS.filter(function (h) { return !h.when || ok[h.when]; }).map(marketHint);
-    }).catch(function () { return GW_HINTS.filter(function (h) { return !h.when; }).map(marketHint); });
+      return GW_HINTS.filter(function (h) { return !h.when || ok[h.when]; });
+    }).catch(function () { return GW_HINTS.filter(function (h) { return !h.when; }); });
     return hintsLiveP;
   }
+  /* הנוסח לשוק מחושב בזמן הקריאה ולא נשמר ברשימה: אם השוק נפתר אחרי
+     שהרשימה כבר נבנתה, הגולש/ת בתל אביב לא נשאר/ת עם שאלות על עפולה. */
+  function hintWording(h) { return h ? marketHint(h).t : ''; }
   /* ‏surface של אירועי הווידג'ט: שם הדף בלי סיומת ("home" לדף הבית) */
   function surfaceName() {
     var p = location.pathname.replace(/^\/+|\.html$|\/+$/g, '');
@@ -679,7 +682,7 @@
       var first = fi >= 0 ? [fi] : [];
       return first.concat(idx.filter(function (x) { return first.indexOf(x) < 0; }));
     }
-    function hintText(n) { var h = hint.list && hint.list[hint.order[n]]; return h ? h.t : ''; }
+    function hintText(n) { var h = hint.list && hint.list[hint.order[n]]; return hintWording(h); }
     function hintCanRun() { return v10 && open && !document.hidden && !input.value && document.activeElement !== input; }
     function hintTick() {
       hint.t = 0;
@@ -731,8 +734,9 @@
         var h = hint.list && hint.list[hint.order[reduceMotion ? 0 : hint.i]];
         if (!h) return;
         hintStop();
-        // הנוסח המדויק של GW_HINTS, בלי תוספת: גבריאלה מזהה כך שיחות שהתחילו משאלה לדוגמה
-        input.value = h.t;
+        // הנוסח המדויק של GW_HINTS (או של GW_HINTS_MARKET בשוק אחר), בלי תוספת:
+        // גבריאלה מזהה כך שיחות שהתחילו משאלה לדוגמה (docs/qa/gab-hints-answers.md)
+        input.value = hintWording(h);
         syncFree();
         input.focus();
         // ‏hint_index: המקום ב-GW_HINTS (לא ברשימה המסוננת), כדי שהמספר יציב
