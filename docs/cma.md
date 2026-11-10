@@ -308,6 +308,23 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 ‏`data_coverage` מדווח את שני המספרים: ‏`comparables_in_radius` ו-
 `excluded_other_type`. דוח שמשתיק נתונים חייב לומר שהשתיק.
 
+### עסקה בלי סוג נכס נחשבת דירה (10.11.2026)
+
+‏GovMap מחזיר "-" בסוג הנכס לחלק גדול מהעסקאות (הסוכן כותב `null`), ו-
+`property_type_class(null)` הוא `null` - כלומר העסקה נפלה מכל דוח. בתל אביב
+אלה היו 734 מתוך 1,855 עסקאות (40%), ברמת גן 463 מתוך 1,629, ולכולן יש
+מספר חדרים. ההחלטה (תומר, 10.11.2026): עסקה בלי סוג **ועם חדרים** היא דירה.
+
+| פונקציה | מה |
+| --- | --- |
+| `deal_type_class(type, rooms)` | `property_type_class`, ובלי סוג (או "-") עם חדרים - `dwelling`. "בנין" נשאר `null` |
+| `deal_property_kind(type, rooms)` | `property_kind`, ולעסקה כזו - `unit` (גן/גג עדיין מהקומה ב-`cma_deal_pool`) |
+
+שתיהן משמשות **רק** את העסקאות: `cma_deal_pool` (הבריכה) ושכבת השכונה ב-
+`cma_report_core`. ‏`property_type_class` עצמה לא השתנתה - היא משרתת גם את
+טופס האתר ואת `deals_engine`, ו-`check_deals_normalize.py` מצליב אותה.
+המיגרציה: `20271110120000`.
+
 ## וגם למספר חדרים תואם, ושם המחיר הכולל נשבר
 
 ‏`property_type_class` הוציא מהממוצע את הקרקע ואת המסחר. **מה שנשאר בפנים

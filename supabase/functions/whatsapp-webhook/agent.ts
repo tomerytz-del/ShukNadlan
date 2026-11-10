@@ -2610,6 +2610,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     on_map: data.lat != null,
     ...(data.location_precision === "zone"
       ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
+      // פין משוער על הרחוב (20271110120000): מהעסקאות שנסגרו ברחוב, עד שה-CRM
+      // ישלים פין מדויק מ-GovMap בפתיחה הבאה.
+      : data.location_precision === "street"
+      ? { approximate_location: "הנכס על המפה במיקום משוער לפי הרחוב, ובאתר כתוב שהמיקום מוערך. פין מדויק יושלם מהאזור האישי." }
       : {}),
     ...(hoodWarning || {}),
     ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
@@ -4749,7 +4753,8 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     none:
       "לא נמצאה אף עסקה להשוואה בסביבת הנכס. אמור/י זאת במפורש ואל תאמוד/תאמדי מחיר בעצמך.",
     no_location:
-      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית.",
+      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. פין מגיע מכתובת עם רחוב ומספר בית " +
+      "(או מהרחוב לבדו, כשנסגרו בו עסקאות); נכס בלי רחוב נשאר בלי פין. הצע/י להוסיף כתובת בכרטיס הנכס.",
   };
 
   // שכבת הבעלות (טאבו). ‏null = עוד לא נטענה, ואז פשוט לא מוזכרת.
@@ -4794,6 +4799,13 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     data_coverage: coverage,
     coverage_guidance:
       ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE + HOUSE_COVERAGE_NOTE).trim() || undefined,
+    // פין משוער (20271110120000): הנכס מוקם מהרחוב, מאזור התעשייה או מהחלקה,
+    // ולכן המרחקים לבני ההשוואה הם בקירוב - נאמר, ולא מוצג כמדויק.
+    location_guidance: ({
+      street: "מיקום הנכס משוער לפי העסקאות ברחוב (אין לו פין מדויק), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      zone: "מיקום הנכס משוער בתוך אזור התעשייה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      parcel: "מיקום הנכס הוא מרכז החלקה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+    } as Record<string, string>)[String(subject.location_precision || "")] || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".

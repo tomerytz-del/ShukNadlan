@@ -1,8 +1,9 @@
 /* מיקום משוער - רכיב אחד לכל המפות.
 
    נכס באזור תעשייה בלי כתובת מדויקת מקבל במסד נקודה אקראית בתוך האזור
-   (location_precision = 'zone'), ונכס על חלקה גדולה - את מרכז החלקה
-   ('parcel'). הפין הזה **אינו** המיקום, ולכן כל מפה שמציגה אותו אומרת זאת:
+   (location_precision = 'zone'), נכס על חלקה גדולה - את מרכז החלקה
+   ('parcel'), ונכס בלי פין שיש לו רחוב - נקודה מהעסקאות שנסגרו ברחוב
+   ('street', מ-10.11.2026). הפין הזה **אינו** המיקום, ולכן כל מפה שמציגה אותו אומרת זאת:
    פין בעיצוב שונה, ובועית "המיקום של הנכס הזה מוערך". הנוסח יושב כאן ורק
    כאן, כדי שדף הבית, דף הנכס וה-CRM לא יתפצלו.
 
@@ -19,7 +20,7 @@
   }
 
   function isApprox(p) {
-    return !!p && (p.location_precision === 'zone' || p.location_precision === 'parcel');
+    return !!p && (p.location_precision === 'zone' || p.location_precision === 'parcel' || p.location_precision === 'street');
   }
 
   function zoneName(p) {
@@ -31,13 +32,16 @@
   function text(p) {
     var where = p && p.location_precision === 'zone'
       ? 'הנכס נמצא ב' + (zoneName(p) || 'אזור התעשייה') + ', והנקודה על המפה מסמנת את האזור ולא את הכתובת המדויקת.'
+      : p && p.location_precision === 'street'
+      ? 'הנקודה על המפה מסמנת את הרחוב ולא את הבניין המדויק.'
       : 'הנקודה על המפה מסמנת את אזור החלקה ולא את הכתובת המדויקת.';
     return 'המיקום של הנכס הזה מוערך. ' + where + ' לפרטים מדויקים, פנו ליועץ הנדל״ן של הנכס.';
   }
 
   /* התווית הקצרה - לתגית, לבלון במפה ולכרטיס ב-CRM */
   function label(p) {
-    var z = p && p.location_precision === 'zone' ? zoneName(p) : '';
+    var z = p && p.location_precision === 'zone' ? zoneName(p)
+      : p && p.location_precision === 'street' ? 'ברחוב' : '';
     return 'מיקום משוער' + (z ? ' - ' + z : '');
   }
 
