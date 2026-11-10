@@ -2614,6 +2614,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       // ישלים פין מדויק מ-GovMap בפתיחה הבאה.
       : data.location_precision === "street"
       ? { approximate_location: "הנכס על המפה במיקום משוער לפי הרחוב, ובאתר כתוב שהמיקום מוערך. פין מדויק יושלם מהאזור האישי." }
+      : data.location_precision === "neighborhood"
+      ? { approximate_location: "הנכס על המפה במיקום משוער בתוך השכונה, ובאתר כתוב שהמיקום מוערך. כתובת עם רחוב ומספר תדייק אותו." }
+      : data.location_precision === "city"
+      ? { approximate_location: "הנכס על המפה במיקום משוער ברמת היישוב בלבד, ובאתר כתוב שהמיקום מוערך. רחוב או שכונה ידייקו אותו." }
       : {}),
     ...(hoodWarning || {}),
     ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
@@ -4803,6 +4807,8 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     // ולכן המרחקים לבני ההשוואה הם בקירוב - נאמר, ולא מוצג כמדויק.
     location_guidance: ({
       street: "מיקום הנכס משוער לפי העסקאות ברחוב (אין לו פין מדויק), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      neighborhood: "מיקום הנכס משוער בתוך השכונה (אין לו רחוב), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד, והצע/י להוסיף כתובת לדיוק.",
+      city: "מיקום הנכס משוער ברמת היישוב בלבד (אין לו רחוב ולא שכונה), ולכן ההשוואה היא לעסקאות ביישוב ולא בסביבה. אמור/אמרי זאת, והצע/י להוסיף רחוב או שכונה.",
       zone: "מיקום הנכס משוער בתוך אזור התעשייה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
       parcel: "מיקום הנכס הוא מרכז החלקה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
     } as Record<string, string>)[String(subject.location_precision || "")] || undefined,

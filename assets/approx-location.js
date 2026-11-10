@@ -19,8 +19,9 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  var APPROX = { zone: 1, parcel: 1, street: 1, neighborhood: 1, city: 1 };
   function isApprox(p) {
-    return !!p && (p.location_precision === 'zone' || p.location_precision === 'parcel' || p.location_precision === 'street');
+    return !!p && !!APPROX[p.location_precision];
   }
 
   function zoneName(p) {
@@ -30,18 +31,25 @@
 
   /* הטקסט המלא - לבועית בדף הנכס */
   function text(p) {
-    var where = p && p.location_precision === 'zone'
+    var k = p ? p.location_precision : '';
+    var where = k === 'zone'
       ? 'הנכס נמצא ב' + (zoneName(p) || 'אזור התעשייה') + ', והנקודה על המפה מסמנת את האזור ולא את הכתובת המדויקת.'
-      : p && p.location_precision === 'street'
+      : k === 'street'
       ? 'הנקודה על המפה מסמנת את הרחוב ולא את הבניין המדויק.'
+      : k === 'neighborhood'
+      ? 'הנכס נמצא ב' + (zoneName(p) ? 'שכונת ' + zoneName(p) : 'השכונה') + ', והנקודה על המפה מסמנת את השכונה ולא את הכתובת המדויקת.'
+      : k === 'city'
+      ? 'הנקודה על המפה מסמנת את היישוב ולא את הכתובת המדויקת.'
       : 'הנקודה על המפה מסמנת את אזור החלקה ולא את הכתובת המדויקת.';
     return 'המיקום של הנכס הזה מוערך. ' + where + ' לפרטים מדויקים, פנו ליועץ הנדל״ן של הנכס.';
   }
 
   /* התווית הקצרה - לתגית, לבלון במפה ולכרטיס ב-CRM */
   function label(p) {
-    var z = p && p.location_precision === 'zone' ? zoneName(p)
-      : p && p.location_precision === 'street' ? 'ברחוב' : '';
+    var k = p ? p.location_precision : '';
+    var z = k === 'zone' || k === 'neighborhood' ? zoneName(p)
+      : k === 'street' ? 'ברחוב'
+      : k === 'city' ? 'ביישוב' : '';
     return 'מיקום משוער' + (z ? ' - ' + z : '');
   }
 

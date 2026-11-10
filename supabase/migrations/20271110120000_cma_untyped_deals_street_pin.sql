@@ -15,31 +15,39 @@
 -- החלקה (בלי קומה, היחידה בחלקה עד 1,500 מ"ר) - בכוונה, כי "דירה" ב-GovMap
 -- היא ממילא ברירת המחדל לכל מגורים, ו"-" הוא אותו דבר בלי שנכתב.
 --
--- ## 2. פין משוער על הרחוב
+-- ## 2. פין משוער לכל נכס בארץ בלי כתובת מדויקת, ברמה הכי מדויקת שיש
 --
 -- מחוץ לעפולה אין ספק גאוקוד בשרת (GovMap אסור בשרת - הסקיל govmap), ולכן
 -- נכס שנוצר בוואטסאפ או יובא בקובץ נולד בלי פין עד שהסוכן/ת פותח/ת את
 -- ה-CRM. בלי פין: לא על המפה, ואין דוח CMA (no_location). ב-9.11.2026: 19
--- מתוך 33 נכסים פעילים מחוץ לעפולה. עכשיו טריגר ממקם נכס בלי פין מהכתובת
--- דרך cma_locate_address (עסקה בכתובת, מרכז החלקה, מספר בית קרוב, או מרכז
--- הרחוב) ומסמן location_precision = 'street' - אותה משפחה של 'zone' ו-'parcel'
--- (docs/property-map.md, "מיקום משוער"): תגית "מיקום משוער" בכל מפה, עיגול
--- במקום פין בדף הנכס, ובלי ניווט. פין אמיתי שמגיע אחר כך (GovMap בדפדפן,
--- הזנה ידנית) מחליף אותו: הטריגר הקיים הופך lat/lng שזזו ל-'exact', ו-
--- govmap_admin_save מעדכנת גם 'street' ולא רק פין חסר.
+-- מתוך 33 נכסים פעילים מחוץ לעפולה, ו-92 נכסים בלי פין בכל הארץ (45 עם
+-- רחוב, 18 עם שכונה, 44 עם יישוב בלבד). ההחלטה (תומר, 10.11.2026): פין
+-- משוער לכל נכס, ברמה הכי מדויקת שיש - property_approx_location:
+--
+--   street        - cma_locate_address: עסקה בכתובת, מרכז החלקה, מספר בית
+--                   קרוב (עד 80) או מרכז העסקאות ברחוב
+--   neighborhood  - נקודה במצולע השכונה (neighborhood_approx_point, המנגנון
+--                   של zone לכל שכונה); אזור תעשייה נשאר 'zone'
+--   city          - מרכז היישוב משכבת החלקות הפתוחה (city_approx_point): ב-
+--                   cities אין קואורדינטות לאף יישוב, והחלקות מכסות 1,042
+--
+-- כולן באותה משפחה של 'zone' ו-'parcel' (docs/property-map.md, "מיקום
+-- משוער"): תגית "מיקום משוער" בכל מפה, עיגול במקום פין בדף הנכס, ובלי
+-- ניווט. פין אמיתי שמגיע אחר כך (GovMap בדפדפן, הגאוקוד העירוני בעפולה,
+-- הזנה ידנית) מחליף אותו ל-'exact', ושלושת התורים רואים פין משוער כ"חסר".
 --
 -- **לא** פין משוער שנראה מדויק: ההכרעה מ-12.10.2026 על אזורי תעשייה חלה כאן.
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. 'street' ב-location_precision
+-- 1. 'street', 'neighborhood' ו-'city' ב-location_precision
 -- ---------------------------------------------------------------------------
 do $$
 begin
   if exists (select 1 from pg_constraint
               where conrelid = 'public.properties'::regclass
                 and conname = 'properties_location_precision_chk'
-                and pg_get_constraintdef(oid) not like '%street%') then
+                and pg_get_constraintdef(oid) not like '%neighborhood%') then
     alter table public.properties drop constraint properties_location_precision_chk;
   end if;
   if not exists (select 1 from pg_constraint
@@ -47,7 +55,7 @@ begin
                     and conname = 'properties_location_precision_chk') then
     alter table public.properties
       add constraint properties_location_precision_chk
-      check (location_precision is null or location_precision in ('exact', 'zone', 'parcel', 'street'));
+      check (location_precision is null or location_precision in ('exact', 'zone', 'parcel', 'street', 'neighborhood', 'city'));
   end if;
 end $$;
 
@@ -828,18 +836,229 @@ revoke all on function public.cma_report_core(uuid, public.properties) from publ
 grant execute on function public.cma_report_core(uuid, public.properties) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 5. פין משוער על הרחוב לנכס בלי פין
---
--- לפני properties_set_neighborhood_trg (לפי שם: "locate" < "set"), כדי שהפין
--- שנקבע כאן יקבל שכונה באותה כתיבה, ולפני properties_zone_location_trg
--- ("locate" < "zone"): שם, lat/lng שזזו עם location_precision שלא השתנה
--- הופכים ל-'exact' - וזה בדיוק מה שקורה כשפין אמיתי מחליף את זה המשוער.
--- כאן הדיוק נכתב יחד עם הנקודה, ולכן הטריגר ההוא אינו נוגע בה.
---
--- מתי: אין פין ויש רחוב ועיר (כל יצירה), או שהפין הוא 'street' והכתובת
--- השתנתה (אז מחשבים מחדש). פין אמיתי - לא נוגעים. נכס בלי רחוב - נשאר
--- בלי פין (אזור תעשייה מקבל נקודה מהטריגר של האזור, כמו קודם).
+-- 5. פין משוער לכל נכס בלי פין, בדיוק הכי טוב שיש (תומר, 10.11.2026):
+--    רחוב (עסקאות) ← שכונה (מצולע או מרכז ורדיוס) ← עיר (מרכז החלקות של
+--    היישוב). כל רמה מסומנת ב-location_precision משלה, וכל מפה אומרת זאת.
 -- ---------------------------------------------------------------------------
+
+-- נקודה בתוך שכונה - כל שכונה, לא רק אזור תעשייה. הגוף של zone_approx_point
+-- (20270430090000) בלי הסינון is_industrial; zone_approx_point נשארת עטיפה
+-- לאזורי תעשייה, כדי שהטריגר הישן ימשיך לעבוד בדיוק כמו קודם.
+create or replace function public.neighborhood_approx_point(p_hood uuid, p_seed uuid)
+returns table (lat double precision, lng double precision, radius_m integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  h       record;
+  v_ring  jsonb;
+  v_clat  double precision;
+  v_clng  double precision;
+  v_max   double precision := 0;
+  v_r     double precision;
+  v_n     integer;
+  i       integer;
+  v_hash  text;
+  u1      double precision;
+  u2      double precision;
+  v_dist  double precision;
+  v_ang   double precision;
+  c_lat   double precision;
+  c_lng   double precision;
+  k_m     constant double precision := 111320;   -- מטרים למעלת רוחב
+begin
+  select n.boundary, n.lat, n.lng, n.radius_m
+    into h
+    from public.neighborhoods n
+   where n.id = p_hood;
+  if not found then
+    return;
+  end if;
+
+  if jsonb_typeof(h.boundary) = 'array' and jsonb_array_length(h.boundary) >= 3 then
+    v_ring := h.boundary;
+    v_n := jsonb_array_length(v_ring);
+    if h.lat is not null and h.lng is not null and public.point_in_ring(v_ring, h.lat, h.lng) then
+      v_clat := h.lat; v_clng := h.lng;
+    else
+      select avg((e ->> 0)::double precision), avg((e ->> 1)::double precision)
+        into v_clat, v_clng
+        from jsonb_array_elements(v_ring) e;
+    end if;
+    for i in 0 .. v_n - 1 loop
+      v_max := greatest(v_max, sqrt(
+        power(((v_ring -> i ->> 0)::double precision - v_clat) * k_m, 2) +
+        power(((v_ring -> i ->> 1)::double precision - v_clng) * k_m * cos(radians(v_clat)), 2)));
+    end loop;
+  elsif h.lat is not null and h.lng is not null and h.radius_m is not null then
+    v_clat := h.lat; v_clng := h.lng; v_max := h.radius_m;
+  else
+    return;
+  end if;
+
+  v_r := least(1000, greatest(v_max, 50));
+
+  for i in 0 .. 63 loop
+    v_hash := md5(coalesce(p_seed::text, '') || ':' || i);
+    u1 := ('x' || substr(v_hash, 1, 8))::bit(32)::bigint / 4294967295.0;
+    u2 := ('x' || substr(v_hash, 9, 8))::bit(32)::bigint / 4294967295.0;
+    v_dist := v_r * sqrt(u1);
+    v_ang  := 2 * pi() * u2;
+    c_lat := v_clat + (v_dist * cos(v_ang)) / k_m;
+    c_lng := v_clng + (v_dist * sin(v_ang)) / (k_m * cos(radians(v_clat)));
+    if v_ring is null or public.point_in_ring(v_ring, c_lat, c_lng) then
+      lat := round(c_lat::numeric, 6); lng := round(c_lng::numeric, 6); radius_m := round(v_r);
+      return next;
+      return;
+    end if;
+  end loop;
+
+  -- אף הגרלה לא נפלה בגבול (אזור צר ומפותל): המרכז
+  lat := round(v_clat::numeric, 6); lng := round(v_clng::numeric, 6); radius_m := round(v_r);
+  return next;
+end $$;
+
+comment on function public.neighborhood_approx_point(uuid, uuid) is
+  'נקודה דטרמיניסטית (לפי seed) בתוך שכונה: במצולע שלה, או ברדיוס סביב מרכזה. הבסיס של zone_approx_point (אזורי תעשייה) ושל הפין המשוער לכל נכס. 20271110120000.';
+
+revoke all on function public.neighborhood_approx_point(uuid, uuid) from public, anon, authenticated;
+
+create or replace function public.zone_approx_point(p_hood uuid, p_seed uuid)
+returns table (lat double precision, lng double precision, radius_m integer)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select a.lat, a.lng, a.radius_m
+    from public.neighborhoods n
+    cross join lateral public.neighborhood_approx_point(n.id, p_seed) a
+   where n.id = p_hood and n.is_industrial;
+$$;
+
+revoke all on function public.zone_approx_point(uuid, uuid) from public, anon, authenticated;
+
+-- מרכז היישוב, משכבת החלקות הפתוחה (parcels_open, 1,042 יישובים). ב-cities אין
+-- עדיין קואורדינטות לאף יישוב, והחלקות הן המקור הפתוח היחיד שמכסה את הארץ.
+-- הרדיוס: פי 1.5 מפיזור החלקות, בין 300 ל-1,000 מ' (התקרה שהתצוגה מציירת).
+create or replace function public.city_approx_point(p_city_id uuid)
+returns table (lat double precision, lng double precision, radius_m integer)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select round(avg(po.lat)::numeric, 6)::double precision,
+         round(avg(po.lng)::numeric, 6)::double precision,
+         least(1000, greatest(300, round(1.5 * greatest(
+           coalesce(stddev_pop(po.lat), 0) * 111320,
+           coalesce(stddev_pop(po.lng), 0) * 111320 * cos(radians(avg(po.lat)))))))::integer
+    from public.cities c
+    join public.parcels_open po on po.locality_code = c.muni_code::integer
+   where c.id = p_city_id
+     and c.muni_code ~ '^\d+$'
+     and po.lat is not null and po.lng is not null
+  having count(*) > 0;
+$$;
+
+comment on function public.city_approx_point(uuid) is
+  'מרכז היישוב ורדיוס הפיזור, מהחלקות הפתוחות של מפ"י. הרמה האחרונה של הפין המשוער. 20271110120000.';
+
+revoke all on function public.city_approx_point(uuid) from public, anon, authenticated;
+
+-- הבחירה: הרמה הכי מדויקת שיש לנכס. אותה פונקציה לטריגר ולהשלמה למפרע.
+create or replace function public.property_approx_location(
+  p_city         text,
+  p_street       text,
+  p_house_number text,
+  p_neighborhood uuid,
+  p_city_id      uuid,
+  p_seed         uuid
+)
+returns table (lat double precision, lng double precision, kind text, radius_m integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_loc jsonb;
+  v_pt  record;
+begin
+  -- 1. הרחוב: עסקה בכתובת, מרכז החלקה, מספר בית קרוב, או מרכז הרחוב
+  if nullif(btrim(coalesce(p_street, '')), '') is not null
+     and nullif(btrim(coalesce(p_city, '')), '') is not null then
+    begin
+      v_loc := public.cma_locate_address(p_city, p_street, p_house_number);
+    exception when others then
+      v_loc := null;
+    end;
+    if v_loc is not null and (v_loc->>'lat') is not null and (v_loc->>'lng') is not null then
+      lat := (v_loc->>'lat')::double precision;
+      lng := (v_loc->>'lng')::double precision;
+      kind := 'street';
+      radius_m := case v_loc->>'precision'
+                    when 'address_deal'   then 80
+                    when 'parcel'         then 80
+                    when 'street_nearest' then 150
+                    else 300
+                  end;
+      return next;
+      return;
+    end if;
+  end if;
+
+  -- 2. השכונה (אזור תעשייה נשאר 'zone' - אותה תצוגה ואותו טריגר כמו קודם)
+  if p_neighborhood is not null then
+    select a.lat, a.lng, a.radius_m, n.is_industrial
+      into v_pt
+      from public.neighborhoods n
+      cross join lateral public.neighborhood_approx_point(n.id, p_seed) a
+     where n.id = p_neighborhood;
+    if found and v_pt.lat is not null then
+      lat := v_pt.lat; lng := v_pt.lng;
+      kind := case when v_pt.is_industrial then 'zone' else 'neighborhood' end;
+      radius_m := v_pt.radius_m;
+      return next;
+      return;
+    end if;
+  end if;
+
+  -- 3. היישוב
+  if p_city_id is not null then
+    select c.lat, c.lng, c.radius_m into v_pt from public.city_approx_point(p_city_id) c;
+    if found and v_pt.lat is not null then
+      lat := v_pt.lat; lng := v_pt.lng;
+      kind := 'city';
+      radius_m := v_pt.radius_m;
+      return next;
+      return;
+    end if;
+  end if;
+  return;
+end $$;
+
+comment on function public.property_approx_location(text, text, text, uuid, uuid, uuid) is
+  'הפין המשוער של נכס בלי פין: רחוב (מהעסקאות) ← שכונה ← יישוב, עם location_precision ורדיוס לכל רמה. docs/property-map.md, "מיקום משוער". 20271110120000.';
+
+revoke all on function public.property_approx_location(text, text, text, uuid, uuid, uuid) from public, anon, authenticated;
+
+-- הטריגר. לפני properties_set_neighborhood_trg (לפי שם: "locate" < "set"), כדי
+-- שהפין שנקבע כאן יקבל שכונה באותה כתיבה, ולפני properties_zone_location_trg
+-- ("locate" < "zone"): שם, lat/lng שזזו עם location_precision שלא השתנה
+-- הופכים ל-'exact' - בדיוק מה שקורה כשפין אמיתי מחליף את זה המשוער. כאן
+-- הדיוק נכתב יחד עם הנקודה, ולכן הטריגר ההוא אינו נוגע בה (ולפין משוער
+-- שחושב מחדש אחרי שינוי כתובת יש שם חריג, סעיף 6ב).
+--
+-- אחרי properties_set_city_id_trg? לא: "locate" < "set_city". ולכן city_id
+-- נפתר כאן בעצמו כשהוא עדיין ריק (אותה פונקציה, city_id_for_name).
+--
+-- מתי: ביצירה, או כשפין משוער קיים והכתובת/השכונה השתנו (מחשבים מחדש).
+-- פין אמיתי - לא נוגעים. נכס שאין לו רחוב, שכונה ולא יישוב מוכר - נשאר
+-- בלי פין. רק ביצירה ובשינוי, לא בכל שמירה: החיפוש ברחוב עובר על עסקאות
+-- העיר, ושמירת מחיר בנכס שאין ברחובו עסקה לא צריכה להריץ אותו שוב.
 create or replace function public.properties_locate_street()
 returns trigger
 language plpgsql
@@ -847,46 +1066,35 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_loc jsonb;
-  v_address_changed boolean := false;
+  v_pt record;
+  v_changed boolean := false;
+  v_city_id uuid := new.city_id;
 begin
   if tg_op = 'UPDATE' then
-    v_address_changed := new.street is distinct from old.street
-                      or new.house_number is distinct from old.house_number
-                      or new.city is distinct from old.city;
-    -- פין משוער על הרחוב והכתובת השתנתה: מחשבים מחדש. פין אמיתי - לא נוגעים.
-    if v_address_changed and old.location_precision = 'street'
+    v_changed := new.street is distinct from old.street
+              or new.house_number is distinct from old.house_number
+              or new.city is distinct from old.city
+              or new.neighborhood_id is distinct from old.neighborhood_id;
+    -- פין משוער והמקור שלו השתנה: מחשבים מחדש. פין אמיתי - לא נוגעים.
+    if v_changed and old.location_precision in ('street', 'neighborhood', 'city')
        and new.lat is not distinct from old.lat and new.lng is not distinct from old.lng then
       new.lat := null; new.lng := null;
       new.location_precision := null; new.location_radius_m := null;
     end if;
   end if;
 
-  -- רק ביצירה או כשהכתובת השתנתה: שמירה של מחיר או תיאור בנכס שאין ברחוב
-  -- שלו עסקה לא מריצה שוב את החיפוש במאגר (הוא רץ ב-cma_locate_address על
-  -- כל העסקאות של העיר). ההשלמה למפרע (סעיף 7) קוראת לפונקציה ישירות.
-  if (tg_op = 'INSERT' or v_address_changed)
-     and (new.lat is null or new.lng is null)
-     and nullif(btrim(coalesce(new.street, '')), '') is not null
-     and nullif(btrim(coalesce(new.city, '')), '') is not null then
-    begin
-      v_loc := public.cma_locate_address(new.city, new.street, new.house_number);
-    exception when others then
-      -- מיקום משוער הוא תוספת; כשל בו אינו עוצר שמירה של נכס
-      v_loc := null;
-    end;
-    if v_loc is not null and (v_loc->>'lat') is not null and (v_loc->>'lng') is not null then
-      new.lat := (v_loc->>'lat')::double precision;
-      new.lng := (v_loc->>'lng')::double precision;
-      new.location_precision := 'street';
-      -- הרדיוס שמוצג בדף הנכס: עסקה בכתובת או מרכז החלקה - הבניין בערך;
-      -- מספר קרוב - כמה בניינים; מרכז הרחוב - הרחוב.
-      new.location_radius_m := case v_loc->>'precision'
-                                 when 'address_deal'   then 80
-                                 when 'parcel'         then 80
-                                 when 'street_nearest' then 150
-                                 else 300
-                               end;
+  if (tg_op = 'INSERT' or v_changed) and (new.lat is null or new.lng is null) then
+    if v_city_id is null and nullif(btrim(coalesce(new.city, '')), '') is not null then
+      v_city_id := public.city_id_for_name(new.city);
+    end if;
+    select * into v_pt
+      from public.property_approx_location(new.city, new.street, new.house_number,
+                                           new.neighborhood_id, v_city_id, new.id);
+    if found and v_pt.lat is not null then
+      new.lat := v_pt.lat;
+      new.lng := v_pt.lng;
+      new.location_precision := v_pt.kind;
+      new.location_radius_m := v_pt.radius_m;
     end if;
   end if;
   return new;
@@ -894,13 +1102,13 @@ end;
 $$;
 
 comment on function public.properties_locate_street() is
-  'נכס בלי פין שיש לו רחוב ועיר מקבל פין משוער מהעסקאות והחלקות (cma_locate_address) עם location_precision = ''street''. פין אמיתי מחליף אותו. 20271110120000, docs/property-map.md.';
+  'נכס בלי פין מקבל פין משוער ברמה הכי מדויקת שיש (property_approx_location): רחוב, שכונה או יישוב. פין אמיתי מחליף אותו. 20271110120000, docs/property-map.md.';
 
 revoke all on function public.properties_locate_street() from public, anon, authenticated;
 
 drop trigger if exists properties_locate_street_trg on public.properties;
 create trigger properties_locate_street_trg
-  before insert or update of lat, lng, street, house_number, city on public.properties
+  before insert or update of lat, lng, street, house_number, city, neighborhood_id on public.properties
   for each row execute function public.properties_locate_street();
 
 -- ---------------------------------------------------------------------------
@@ -948,7 +1156,7 @@ begin
     update public.properties
        set lat = v_lat, lng = v_lng, location_precision = 'exact', location_radius_m = null
      where id = p_property_id
-       and (lat is null or lng is null or location_precision = 'street');
+       and (lat is null or lng is null or location_precision in ('street', 'neighborhood', 'city'));
   end if;
 
   select exists (select 1 from public.properties p
@@ -1001,10 +1209,11 @@ begin
   if tg_op = 'UPDATE' then
     v_moved := new.lat is distinct from old.lat or new.lng is distinct from old.lng;
     if v_moved and new.location_precision is not distinct from old.location_precision
-       and not (old.location_precision = 'street'
+       and not (old.location_precision in ('street', 'neighborhood', 'city')
                 and (new.street is distinct from old.street
                      or new.house_number is distinct from old.house_number
-                     or new.city is distinct from old.city)) then
+                     or new.city is distinct from old.city
+                     or new.neighborhood_id is distinct from old.neighborhood_id)) then
       if new.lat is not null and new.lng is not null then
         new.location_precision := 'exact';
       else
@@ -1058,7 +1267,7 @@ as $$
         join public.city_geocode_sources s
           on s.city_key = public.city_name_key(p.city) and s.active
        where p.status = 'active'
-         and (p.lat is null or p.lng is null or p.location_precision = 'street')
+         and (p.lat is null or p.lng is null or p.location_precision in ('street', 'neighborhood', 'city'))
          and nullif(btrim(coalesce(p.street, '')), '')       is not null
          and nullif(btrim(coalesce(p.house_number, '')), '') is not null
          and p.geocode_attempts < p_max_attempts
@@ -1156,7 +1365,7 @@ begin
   return query
   with base as (
     select p.id, btrim(p.city) as city, btrim(p.street) as street, btrim(p.house_number) as house_number,
-           (p.lat is null or p.lng is null or p.location_precision = 'street') as need_pin,
+           (p.lat is null or p.lng is null or p.location_precision in ('street', 'neighborhood', 'city')) as need_pin,
            (not exists (select 1 from public.property_planning_info i
                          where i.property_id = p.id and i.gush is not null)
             and exists (select 1 from public.agency_members m
@@ -1206,7 +1415,7 @@ as $$
       and p.lng is not null
       and (
         (p.house_number is not null and (p.street is not null or p.address is not null))
-        or p.location_precision in ('zone', 'parcel', 'street')
+        or p.location_precision in ('zone', 'parcel', 'street', 'neighborhood', 'city')
       )
   );
 $$;
@@ -1221,44 +1430,43 @@ create index if not exists market_deals_official_city_street_name_idx
   on public.market_deals_official (city, public.street_name_key(street));
 
 -- ---------------------------------------------------------------------------
--- 7. השלמה למפרע: נכסים פעילים וטיוטות בלי פין שיש להם רחוב. אותה פונקציה
---    של הטריגר, ישירות (הטריגר רץ רק ביצירה ובשינוי כתובת). נכס שאין לו
---    עסקה ברחוב נשאר כמו שהיה.
+-- 7. השלמה למפרע: כל נכס פעיל או טיוטה בלי פין, בכל הארץ. אותה פונקציה של
+--    הטריגר, ישירות (הטריגר רץ רק ביצירה ובשינוי). מי שאין לו רחוב עם
+--    עסקאות, שכונה עם גבול או יישוב בשכבת החלקות - נשאר בלי פין.
 -- ---------------------------------------------------------------------------
 do $$
 declare
   v_before integer;
   v_done   integer;
+  v_by     text;
 begin
   select count(*) into v_before
     from public.properties
-   where (lat is null or lng is null) and status in ('active', 'unpublished')
-     and nullif(btrim(coalesce(street, '')), '') is not null
-     and nullif(btrim(coalesce(city, '')), '') is not null;
+   where (lat is null or lng is null) and status in ('active', 'unpublished');
 
   with located as (
-    select p.id, public.cma_locate_address(p.city, p.street, p.house_number) as loc
+    select p.id, a.lat, a.lng, a.kind, a.radius_m
       from public.properties p
+      cross join lateral public.property_approx_location(
+        p.city, p.street, p.house_number, p.neighborhood_id,
+        coalesce(p.city_id, public.city_id_for_name(p.city)), p.id) a
      where (p.lat is null or p.lng is null) and p.status in ('active', 'unpublished')
-       and nullif(btrim(coalesce(p.street, '')), '') is not null
-       and nullif(btrim(coalesce(p.city, '')), '') is not null
   )
   update public.properties p
-     set lat = (l.loc->>'lat')::double precision,
-         lng = (l.loc->>'lng')::double precision,
-         location_precision = 'street',
-         location_radius_m  = case l.loc->>'precision'
-                                when 'address_deal'   then 80
-                                when 'parcel'         then 80
-                                when 'street_nearest' then 150
-                                else 300
-                              end
+     set lat = l.lat, lng = l.lng,
+         location_precision = l.kind,
+         location_radius_m  = l.radius_m
     from located l
-   where l.id = p.id
-     and l.loc is not null
-     and (l.loc->>'lat') is not null and (l.loc->>'lng') is not null;
+   where l.id = p.id and l.lat is not null;
   get diagnostics v_done = row_count;
 
-  raise notice 'פין משוער על הרחוב: % נכסים בלי פין עם רחוב, % קיבלו פין, % נשארו (אין עסקה ברחוב)',
-    v_before, v_done, v_before - v_done;
+  select string_agg(location_precision || ': ' || n, ', ')
+    into v_by
+    from (select location_precision, count(*) as n
+            from public.properties
+           where location_precision in ('street', 'neighborhood', 'zone', 'city')
+           group by 1) s;
+
+  raise notice 'פין משוער: % נכסים בלי פין, % קיבלו פין (%), % נשארו',
+    v_before, v_done, coalesce(v_by, ''), v_before - v_done;
 end $$;

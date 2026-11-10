@@ -56,11 +56,12 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 השכונה). ‏`property_type_class(null)` נשאר `null`, כי היא משרתת גם את האתר.
 בתל אביב זה 40% מהעסקאות; בלעדיהן "אין די עסקאות" ברחוב שנמכרו בו עשרות.
 
-**נכס בלי פין שיש לו רחוב מקבל פין משוער על הרחוב** (`location_precision =
-'street'`, הטריגר `properties_locate_street_trg`, ‏`docs/property-map.md`), ולכן
-הדוח עובד גם לנכס שנוצר בוואטסאפ מחוץ לעפולה. הדוח מחזיר `subject.location_precision`,
-ו-`cma-render.js` ו-`toolCmaReport` אומרים שהמרחקים בקירוב. `no_location` נשאר
-רק לנכס בלי רחוב, או ברחוב שלא נסגרה בו עסקה.
+**נכס בלי פין מקבל פין משוער ברמה הכי מדויקת שיש** - רחוב (`street`), שכונה
+(`neighborhood`) או יישוב (`city`); `property_approx_location` והטריגר
+`properties_locate_street_trg`, ‏`docs/property-map.md`. לכן הדוח עובד גם לנכס
+שנוצר בוואטסאפ מחוץ לעפולה. הדוח מחזיר `subject.location_precision`, ו-
+`cma-render.js` ו-`toolCmaReport` אומרים שהמרחקים בקירוב (ברמת יישוב - גס).
+`no_location` נשאר רק לנכס שאין לו אף אחד מהשלושה.
 
 **סוג נכס חדש באתר** (‏`RESIDENTIAL_PTYPE_OPTIONS` / `COMMERCIAL_PTYPE_OPTIONS`
 ב-`assets/crm.js`) **או ב-`TYPE_MAP` של `deals_engine/normalize.py`**: הוא
