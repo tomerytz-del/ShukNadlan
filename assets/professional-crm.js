@@ -25,27 +25,11 @@
   let inviteOpen = /[#&]type=invite\b/.test(location.hash);
   const linkExpired = /[#&]error_code=otp_expired\b/.test(location.hash);
 
-  // תשובת Google (כמו ב-crm.js): בהצלחה #access_token בכתובת, בכישלון error/error_description.
-  // נקראת כאן, לפני ש-supabase-js צורך אותה, ומנוקה מהכתובת אחרי שה-session בידינו
-  const AUTH_HASH_KEYS = ['access_token', 'refresh_token', 'provider_token', 'expires_in', 'expires_at', 'token_type', 'error', 'error_code', 'error_description', 'type'];
-  const AUTH_QUERY_KEYS = ['code', 'state', 'error', 'error_code', 'error_description'];
-  const oauthError = (() => {
-    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-    const q = new URLSearchParams(location.search);
-    const pick = (k) => h.get(k) || q.get(k) || '';
-    return { code: pick('error') || pick('error_code'), description: pick('error_description') };
-  })();
-  function cleanAuthParamsFromUrl() {
-    if (!history.replaceState) return;
-    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-    const q = new URLSearchParams(location.search);
-    const dropHash = AUTH_HASH_KEYS.some((k) => h.has(k));
-    let dropped = false;
-    AUTH_QUERY_KEYS.forEach((k) => { if (q.has(k)) { q.delete(k); dropped = true; } });
-    if (!dropHash && !dropped) return;
-    const search = q.toString();
-    history.replaceState(history.state, '', location.pathname + (search ? '?' + search : '') + (dropHash ? '' : location.hash));
-  }
+  // תשובת Google: בהצלחה #access_token בכתובת, בכישלון error/error_description. נקראת כאן, לפני
+  // ש-supabase-js צורך אותה, ומנוקה מהכתובת אחרי שה-session בידינו. הקוד עצמו ב-assets/auth-return.js
+  // (נטען לפני supabase-js), כדי לא להחזיק עותק נוסף של רשימת המפתחות
+  const oauthError = window.AuthReturn ? AuthReturn.readError() : { code: '', description: '' };
+  function cleanAuthParamsFromUrl() { if (window.AuthReturn) AuthReturn.cleanUrl(); }
 
   const el = (id) => document.getElementById(id);
   const KIND_LABELS = {
@@ -123,6 +107,7 @@
   }
   googleBtn.addEventListener('click', async () => {
     setMsg('lgMsg', '');
+    if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); return; }
     googleBtn.disabled = true;
     googleBtn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
     if (window.AuthReturn) AuthReturn.remember();
@@ -136,53 +121,81 @@
     }
   });
 
-  /* ---------- כניסה ראשונה בלי חשבון: חשבון לפי הכרטיסייה שבכתובת ---------- */
-  async function callAccount(payload) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return { ok: false, data: { error: 'no_session' } };
-    const res = await fetch(SUPABASE_URL + '/functions/v1/professional-account', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
-      body: JSON.stringify(Object.assign({ action: 'claim_by_login' }, payload)),
-    });
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok && !data.error, data };
+  /* ---------- כניסה ראשונה בלי חשבון: חשבון לפי הכרטיסייה שבכתובת ----------
+     בזמן שמסך האישור מוצג ה-session **לא** נשאר באחסון: מי שסוגר/ת את הלשונית בלי להחליט (או
+     סוכן/ת שנכנס/ת לכאן בטעות) היה/תה נשאר/ת מחובר/ת לכל האתר, ו-/crm היה פותח לו/ה "פתיחת
+     משרד". לכן יוצאים מקומית (האסימון עצמו נשאר תקף בשרת עד פקיעתו), שומרים אותו בזיכרון הדף
+     לשלב האישור, ומחזירים אותו ל-supabase-js (setSession) רק אחרי שהחשבון נוצר. */
+  let claimSession = null;
+  async function callAccount(payload, token) {
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/professional-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
+        body: JSON.stringify(Object.assign({ action: 'claim_by_login' }, payload)),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok && !data.error, data };
+    } catch (err) {
+      return { ok: false, data: { error: 'network' } };
+    }
   }
   const CLAIM_ERRORS = {
     email_not_verified: 'כתובת המייל של החשבון עוד לא אושרה. היכנסו עם Google, או לחצו על הקישור במייל האישור.',
     card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
+    network: 'שגיאת רשת - נסו שוב',
   };
-  // מחובר/ת, אבל בלי חשבון: האם יש כרטיסייה בכתובת הזו? אם כן, אישור תנאים ופתיחה. אם לא, יציאה והסבר
+  // מחובר/ת, אבל בלי חשבון: האם יש כרטיסייה בכתובת הזו? אם כן, אישור תנאים ופתיחה. אם לא, יציאה והסבר.
+  // רק "אין כרטיסייה" (וכתובת לא מאושרת / כרטיסייה של אחר/ת) מוציאים: כשל זמני בשרת אינו "אין לך כרטיסייה"
   async function offerClaim(session) {
-    const { ok, data } = await callAccount({ terms_accepted: false });
+    const { ok, data } = await callAccount({ terms_accepted: false }, session.access_token);
     if (ok && data.account_exists) { await boot(); return; }
     if (ok && data.card_found) {
+      claimSession = { access_token: session.access_token, refresh_token: session.refresh_token, email: session.user.email || '' };
+      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* האחסון כבר ריק */ }
       show('loginCard', false); show('app', false); show('claimCard', true);
-      el('claimText').textContent = 'נמצאה הכרטיסייה "' + (data.display_name || '') + '" (' + (KIND_LABELS[data.kind] || KIND_LABELS.general) + ') בכתובת ' + (session.user.email || '') +
+      el('claimText').textContent = 'נמצאה הכרטיסייה "' + (data.display_name || '') + '" (' + (KIND_LABELS[data.kind] || KIND_LABELS.general) + ') בכתובת ' + claimSession.email +
         (data.status === 'pending_approval' ? '. היא ממתינה לאישור הנהלת האתר, ואפשר כבר לפתוח לה חשבון.' : '.');
       el('claimTerms').checked = false; el('claimBtn').disabled = true; setMsg('claimMsg', '');
       return;
     }
-    await sb.auth.signOut();
+    const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
+    if (terminal) {
+      try { await sb.auth.signOut(); } catch (e) { /* נמשיך למסך הכניסה */ }
+      showLogin();
+      resetGoogleButton();
+      setMsg('lgMsg', CLAIM_ERRORS[data.error] || ('לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + (session.user.email || 'הזו') +
+        '. נרשמים ב-/professional-signup, או נכנסים בכתובת שנרשמתם איתה.'), 'err');
+      return;
+    }
+    // כשל זמני (רשת, שרת): נשארים מחוברים, ורענון מנסה שוב
     showLogin();
     resetGoogleButton();
-    setMsg('lgMsg', CLAIM_ERRORS[data.error] || ('לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + (session.user.email || 'הזו') +
-      '. נרשמים ב-/professional-signup, או נכנסים בכתובת שנרשמתם איתה.'), 'err');
+    setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע' + (data.error === 'network' ? ' (שגיאת רשת)' : '') + '. רעננו את הדף לניסיון נוסף.', 'err');
   }
   el('claimTerms').addEventListener('change', (e) => { el('claimBtn').disabled = !e.target.checked; });
   el('claimBtn').addEventListener('click', async () => {
+    if (!claimSession) { showLogin(); return; }
     el('claimBtn').disabled = true; setMsg('claimMsg', 'פותחים את החשבון…', 'ok');
-    const { ok, data } = await callAccount({ terms_accepted: true });
-    if (!ok) {
+    const { ok, data } = await callAccount({ terms_accepted: true }, claimSession.access_token);
+    if (!ok && !data.account_exists) {
       setMsg('claimMsg', CLAIM_ERRORS[data.error] || ('לא הצלחנו לפתוח את החשבון: ' + errText(data.error || 'שגיאה')), 'err');
       el('claimBtn').disabled = false;
       return;
     }
+    // החשבון קיים: מחזירים את ה-session לאחסון ונכנסים
+    const { error } = await sb.auth.setSession({ access_token: claimSession.access_token, refresh_token: claimSession.refresh_token });
+    claimSession = null;
     show('claimCard', false);
+    if (error) {
+      showLogin(); resetGoogleButton();
+      setMsg('lgMsg', 'החשבון נפתח. היכנסו שוב כדי להמשיך.', 'ok');
+      return;
+    }
     await boot();
   });
-  el('claimCancel').addEventListener('click', async () => {
-    await sb.auth.signOut();
+  el('claimCancel').addEventListener('click', () => {
+    claimSession = null;   // כבר יצאנו מקומית כשהמסך הוצג
     show('claimCard', false);
     showLogin();
     resetGoogleButton();

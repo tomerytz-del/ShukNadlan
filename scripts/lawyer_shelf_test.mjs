@@ -222,11 +222,28 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   assert.equal(/body\.email/.test(claim), false, 'הכתובת מה-JWT, לא מהגוף');
   // הכרטיסייה לפי הכתובת, מילולית, ורק חיה או ממתינה
   assert.match(claim, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
-  assert.match(claim, /\.in\("status", \["active", "pending_approval"\]\)/);
-  // תנאים לפני יצירה, אישור מדף לא נקבע כאן, וכרטיסייה שכבר יש לה חשבון אחר אינה מחוברת שוב
+  assert.match(claim, /\.in\("status", \["active", "pending_approval", "paused"\]\)/);
+  // כשל במסד הוא 500 ולא "אין כרטיסייה" (no_card מוציא את המשתמש/ת ושולח להרשמה)
+  assert.match(claim, /if \(mineErr\) return json\(\{ error: "db_error"/);
+  assert.match(claim, /if \(cardsErr\) return json\(\{ error: "db_error"/);
+  // תנאים לפני יצירה, אישור מדף לא נקבע כאן, חשבון מאושר של אחר/ת אינו מחובר שוב, והזמנה שלא נלחצה מפנה מקום
   assert.match(claim, /terms_accepted !== true[\s\S]{0,200}terms_required: true/);
   assert.equal(/shelf_enabled/.test(claim), false);
-  assert.match(claim, /taken\.user_id !== user\.id[\s\S]{0,80}card_has_account/);
+  assert.match(claim, /!au\.user\.email_confirmed_at[\s\S]{0,80}staleUserId = au\.user\.id/);
+  assert.match(claim, /sawTaken[\s\S]{0,120}card_has_account/);
+  // עיר ושורת החשבון בעוזר אחד לשני המסלולים
+  assert.match(accountFn, /async function cityIdForRegion/);
+  assert.equal((accountFn.match(/accountRowFromCard\(card\)/g) || []).length, 2);
+  // בזמן מסך האישור ה-session אינו באחסון (סוכן/ת שנכנס/ת בטעות לא נשאר/ת מחובר/ת לכל האתר)
+  assert.match(crmJs, /card_found\) \{[\s\S]{0,400}signOut\(\{ scope: 'local' \}\)/);
+  assert.match(crmJs, /sb\.auth\.setSession\(\{ access_token: claimSession\.access_token/);
+  // כשל זמני אינו "אין כרטיסייה": רק no_card וחבריו מוציאים
+  assert.match(crmJs, /const terminal = data\.error === 'no_card'/);
+  assert.match(crmJs, /catch \(err\) \{\s*return \{ ok: false, data: \{ error: 'network' \} \}/);
+  // קריאת השגיאה וניקוי הכתובת מהעותק המשותף ב-auth-return.js, לא עותק חמישי
+  assert.match(crmJs, /AuthReturn\.readError\(\)/);
+  assert.match(crmJs, /AuthReturn\.cleanUrl\(\)/);
+  assert.match(read('assets/auth-return.js'), /readError: readError,\s*cleanUrl: cleanUrl,/);
   // הדף: כפתור Google כמו אצל הסוכנים (select_account, redirectTo בלי query, AuthReturn.remember לפני)
   assert.match(crmHtml, /id="googleLoginBtn"/);
   assert.match(crmHtml, /<script src="assets\/auth-return\.js"><\/script>\s*<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/);

@@ -223,11 +223,44 @@
     return true;
   }
 
+  /* ‏קריאת שגיאת Google מהכתובת (access_denied וחבריו, ב-hash או ב-query) וניקוי התשובה
+     אחרי שה-session נצרך. אותו בלוק חי גם ב-crm.js, csm-page.js ו-developer-crm.html;
+     הדפים החדשים (professional-crm) משתמשים בעותק הזה כדי שלא ייווצר חמישי. */
+  var AUTH_HASH_KEYS = ['access_token', 'refresh_token', 'provider_token', 'provider_refresh_token',
+    'expires_in', 'expires_at', 'token_type', 'error', 'error_code', 'error_description', 'type'];
+  var AUTH_QUERY_KEYS = ['code', 'state', 'error', 'error_code', 'error_description'];
+
+  function readError(){
+    var hash  = parse(global.location.hash.replace(/^#/, '')) || new global.URLSearchParams();
+    var query = parse(global.location.search) || new global.URLSearchParams();
+    var pick = function(key){ return hash.get(key) || query.get(key) || ''; };
+    return { code: pick('error') || pick('error_code'), description: pick('error_description') };
+  }
+
+  function cleanUrl(){
+    if (!global.history || !global.history.replaceState) return false;
+    var hash  = parse(global.location.hash.replace(/^#/, ''));
+    var query = parse(global.location.search);
+    if (!hash || !query) return false;
+    var dropHash = false, dropped = false, i;
+    for (i = 0; i < AUTH_HASH_KEYS.length; i++) if (hash.has(AUTH_HASH_KEYS[i])) dropHash = true;
+    for (i = 0; i < AUTH_QUERY_KEYS.length; i++) if (query.has(AUTH_QUERY_KEYS[i])) { query['delete'](AUTH_QUERY_KEYS[i]); dropped = true; }
+    if (!dropHash && !dropped) return false;
+    var search = query.toString();
+    try {
+      global.history.replaceState(global.history.state, '',
+        global.location.pathname + (search ? '?' + search : '') + (dropHash ? '' : global.location.hash));
+    } catch (e) { return false; }
+    return true;
+  }
+
   global.AuthReturn = {
     remember: remember,
     hasAuthResponse: hasAuthResponse,
     catchLanding: catchLanding,
     restoreQuery: restoreQuery,
+    readError: readError,
+    cleanUrl: cleanUrl,
   };
 
   var tag = document.currentScript;

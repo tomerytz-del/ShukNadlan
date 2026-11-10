@@ -66,6 +66,28 @@ function json(obj: unknown, status = 200) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** העיר לפי שם האזור שבכרטיסייה: התאמה יחידה בלבד. שם שמשותף לשתי ערים, או אזור שאינו עיר,
+ *  משאיר ריק (ההתראה למנהל/ת אומרת להשלים) ולא בוחר עיר באקראי, כי העיר קובעת אילו לידים עו"ד רואה.
+ *  משותף לשני מסלולי הפתיחה (אסימון ו-claim_by_login). */
+async function cityIdForRegion(supabase: any, region: unknown): Promise<string | null> {
+  const name = typeof region === "string" ? region.trim() : "";
+  if (!name) return null;
+  const { data: cities } = await supabase.from("cities").select("id").eq("name", name).limit(2);
+  return cities && cities.length === 1 ? cities[0].id : null;
+}
+
+/** שורת החשבון מהכרטיסייה, בלי user_id ו-city_id (נקבעים לפי המסלול). אותה צורה בשני המסלולים. */
+function accountRowFromCard(card: any) {
+  const displayName = String(card.advertiser_name || card.business_name || "").trim();
+  return {
+    card_id: card.id as string,
+    kind: card.advertiser_type as string,
+    display_name: displayName.length >= 2 ? displayName : "בעל/ת מקצוע",
+    phone: (card.phone_e164 ?? null) as string | null,
+    terms_accepted_at: new Date().toISOString(),
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -111,52 +133,66 @@ Deno.serve(async (req: Request) => {
       return json({ error: "email_not_verified" }, 403);
     }
 
-    const { data: mine } = await supabase
+    // כשל במסד הוא 500, לא "אין כרטיסייה": no_card מוציא את המשתמש/ת ושולח להרשמה
+    const { data: mine, error: mineErr } = await supabase
       .from("professional_accounts").select("id, erased_at").eq("user_id", user.id).maybeSingle();
+    if (mineErr) return json({ error: "db_error", detail: mineErr.message }, 500);
     if (mine && !mine.erased_at) return json({ success: true, account_exists: true });
 
-    const { data: cards } = await supabase
+    // הכרטיסיות בכתובת הזו: גם paused (הפרופיל שלה עדיין נערך, ובעליה לא אמור/ה להירשם שוב)
+    const { data: cards, error: cardsErr } = await supabase
       .from("ad_placements")
-      .select("id, advertiser_name, business_name, advertiser_type, contact_email, phone_e164, target_region, status")
+      .select("id, advertiser_name, business_name, advertiser_type, contact_email, phone_e164, target_region, status, created_at")
       .eq("placement_type", "professional_card")
-      .in("status", ["active", "pending_approval"])
+      .in("status", ["active", "pending_approval", "paused"])
       .ilike("contact_email", likeLiteral(email))
       .order("created_at", { ascending: false })
-      .limit(2);
-    const card = cards?.[0];
-    if (!card) return json({ error: "no_card" }, 404);
+      .limit(5);
+    if (cardsErr) return json({ error: "db_error", detail: cardsErr.message }, 500);
+    if (!cards?.length) return json({ error: "no_card" }, 404);
 
-    // כרטיסייה שכבר יש לה חשבון של משתמש/ת אחר/ת (הזמנה שנלחצה מחשבון אחר): לא מחברים
-    // חשבון שני לאותה כרטיסייה
-    const { data: taken } = await supabase
-      .from("professional_accounts").select("id, user_id, erased_at").eq("card_id", card.id).maybeSingle();
-    if (taken && !taken.erased_at && taken.user_id && taken.user_id !== user.id) {
-      return json({ error: "card_has_account", detail: "לכרטיסייה הזו כבר יש חשבון כניסה אחר. כתבו לנו ונחבר." }, 409);
+    // הכרטיסייה שנבחרת: בלי חשבון של אחר/ת, ומביניהן חיה לפני ממתינה, וחדשה לפני ישנה. חשבון של
+    // הזמנה שלא נלחצה (משתמש/ת שלא אישר/ה) מפנה את מקומו כמו במסלול האסימון: אי אפשר היה להיכנס
+    // אליו, ואין בו כלום. חשבון מאושר של אחר/ת אינו מחובר שוב (card_has_account)
+    const { data: accounts, error: accErr } = await supabase
+      .from("professional_accounts").select("id, card_id, user_id, erased_at")
+      .in("card_id", cards.map((c: any) => c.id));
+    if (accErr) return json({ error: "db_error", detail: accErr.message }, 500);
+    const rank = (s: string) => (s === "active" ? 0 : s === "pending_approval" ? 1 : 2);
+    const ordered = [...cards].sort((a: any, b: any) => rank(a.status) - rank(b.status) || (a.created_at < b.created_at ? 1 : -1));
+    let card: any = null;
+    let staleUserId: string | null = null;
+    let sawTaken = false;
+    for (const c of ordered) {
+      const acct = (accounts ?? []).find((a: any) => a.card_id === c.id && !a.erased_at && a.user_id);
+      if (!acct || acct.user_id === user.id) { card = c; break; }
+      const { data: au } = await supabase.auth.admin.getUserById(acct.user_id);
+      if (au?.user && !au.user.email_confirmed_at) { card = c; staleUserId = au.user.id; break; }
+      sawTaken = true;
+    }
+    if (!card) {
+      return sawTaken
+        ? json({ error: "card_has_account", detail: "לכרטיסייה הזו כבר יש חשבון כניסה אחר. כתבו לנו ונחבר." }, 409)
+        : json({ error: "no_card" }, 404);
     }
 
-    const displayName = String(card.advertiser_name || card.business_name || "").trim();
+    const row = accountRowFromCard(card);
     // שלב 1 (בלי אישור תנאים): רק אומרים מה נמצא, והדף מציג את האישור
     if (body.terms_accepted !== true) {
-      return json({ success: true, card_found: true, terms_required: true, display_name: displayName, kind: card.advertiser_type, status: card.status });
+      return json({ success: true, card_found: true, terms_required: true, display_name: row.display_name, kind: card.advertiser_type, status: card.status });
     }
 
-    let cityId: string | null = null;
-    if (card.target_region) {
-      const { data: cities } = await supabase
-        .from("cities").select("id").eq("name", String(card.target_region).trim()).limit(2);
-      cityId = cities && cities.length === 1 ? cities[0].id : null;
+    if (staleUserId) {
+      // ה-cascade מוחק גם את שורת החשבון שלא אושר
+      const { error: delErr } = await supabase.auth.admin.deleteUser(staleUserId);
+      if (delErr) {
+        console.error("professional account claim: deleting unconfirmed user failed", delErr.message);
+        return json({ error: "auth_error", detail: delErr.message }, 500);
+      }
     }
     const { data: account, error: insErr } = await supabase
       .from("professional_accounts")
-      .insert({
-        user_id: user.id,
-        card_id: card.id,
-        kind: card.advertiser_type,
-        display_name: displayName.length >= 2 ? displayName : "בעל/ת מקצוע",
-        phone: card.phone_e164 ?? null,
-        city_id: cityId,
-        terms_accepted_at: new Date().toISOString(),
-      })
+      .insert({ ...row, user_id: user.id, city_id: await cityIdForRegion(supabase, card.target_region) })
       .select("id")
       .single();
     if (insErr || !account) {
@@ -215,18 +251,10 @@ Deno.serve(async (req: Request) => {
     carried = { city_id: existing.city_id ?? null, shelf_enabled: !!existing.shelf_enabled };
   }
 
-  // העיר: לפי שם האזור שנרשם בכרטיסייה. בלי התאמה city_id ריק, ומנהל/ת משלים/ה לפני אישור המדף
-  let cityId: string | null = null;
-  if (card.target_region) {
-    const { data: cities } = await supabase
-      .from("cities").select("id").eq("name", String(card.target_region).trim()).limit(2);
-    // התאמה יחידה בלבד: שם שמשותף לשתי ערים, או אזור שאינו עיר, משאירים ריק (ההתראה למנהל/ת
-    // אומרת להשלים) ולא בוחרים עיר באקראי, כי העיר קובעת אילו לידים עו"ד רואה
-    cityId = cities && cities.length === 1 ? cities[0].id : null;
-  }
-
+  const cityId = await cityIdForRegion(supabase, card.target_region);
   const email = String(card.contact_email).trim().toLowerCase();
-  const displayName = String(card.advertiser_name || card.business_name || "").trim();
+  const row = accountRowFromCard(card);
+  const displayName = row.display_name;
 
   // מייל ההזמנה הוא ההוכחה שהכתובת של מי שפותח/ת את החשבון. רק הלחיצה עליו מאשרת את הכתובת
   const { data: authUser, error: authErr } = await supabase.auth.admin.inviteUserByEmail(email, {
@@ -251,15 +279,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: account, error: insErr } = await supabase
     .from("professional_accounts")
-    .insert({
-      user_id: authUser.user.id,
-      card_id: card.id,
-      kind: card.advertiser_type,
-      display_name: displayName.length >= 2 ? displayName : "בעל/ת מקצוע",
-      phone: card.phone_e164 ?? null,
-      city_id: carried?.city_id ?? cityId,
-      terms_accepted_at: new Date().toISOString(),
-    })
+    .insert({ ...row, user_id: authUser.user.id, city_id: carried?.city_id ?? cityId })
     .select("id")
     .single();
 
