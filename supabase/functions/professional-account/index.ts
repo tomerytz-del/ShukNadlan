@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { announceProfessionalAccount } from "../_shared/platform-signup-alert.ts";
+import { likeLiteral, normalizeEmail } from "../_shared/professional-link-mail.ts";
 
 // ============================================================================
 // פתיחת חשבון כניסה לבעל/ת מקצוע שכבר יש לו/ה כרטיסייה
@@ -35,6 +36,14 @@ import { announceProfessionalAccount } from "../_shared/platform-signup-alert.ts
 // מ-10.11.2026 החשבון נפתח לכל תחום, לא רק לעו"ד: כניסה, עריכת הכרטיסייה (manage_link),
 // ומדף לידים למי שיש לו (עו"ד: lawyer_leads, יועץ/ת משכנתאות: mortgage_leads). לשאר התחומים
 // עדיין אין מדף, והאזור האישי אומר זאת.
+//
+// ## המסלול השני: כניסה עם Google (claim_by_login)
+// כמו אצל הסוכנים (join-agency, "התאמת אימייל"): מי שנכנס/ת ל-professional-crm עם Google
+// (או עם אימייל וסיסמה שאושר) ואין לו/ה חשבון, מקבל/ת חשבון לפי הכרטיסייה שה-contact_email
+// שלה הוא כתובת הכניסה. ההוכחה כאן היא הכניסה עצמה: Google (או מייל האישור) העיד/ה
+// שהכתובת של המשתמש/ת, וזה בדיוק מה שמייל ההזמנה במסלול הראשון בא להוכיח. התנאים
+// מאושרים בדף לפני היצירה (terms_accepted), וה-JWT הוא ההרשאה, לא אסימון בגוף.
+// כתובת בלי כרטיסייה חיה או ממתינה: no_card, והדף מסביר איפה נרשמים.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -84,6 +93,78 @@ Deno.serve(async (req: Request) => {
       .from("ad_placement_access").select("manage_token").eq("placement_id", acct.card_id).maybeSingle();
     if (!acc) return json({ error: "no_card" }, 404);
     return json({ url: "/professional-manage?token=" + encodeURIComponent(acc.manage_token) });
+  }
+
+  // ‏claim_by_login: חשבון לפי כתובת הכניסה המאומתת (Google, או סיסמה אחרי אישור המייל)
+  if (body.action === "claim_by_login") {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return json({ error: "missing_authorization" }, 401);
+    const authed = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await authed.auth.getUser();
+    if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+    const user = userData.user;
+    const email = normalizeEmail(user.email);
+    // הכתובת היא ההוכחה, ולכן רק כתובת שאושרה: Google מאשרת, הרשמה בסיסמה מאשרת במייל
+    if (!email || !(user.email_confirmed_at || user.confirmed_at)) {
+      return json({ error: "email_not_verified" }, 403);
+    }
+
+    const { data: mine } = await supabase
+      .from("professional_accounts").select("id, erased_at").eq("user_id", user.id).maybeSingle();
+    if (mine && !mine.erased_at) return json({ success: true, account_exists: true });
+
+    const { data: cards } = await supabase
+      .from("ad_placements")
+      .select("id, advertiser_name, business_name, advertiser_type, contact_email, phone_e164, target_region, status")
+      .eq("placement_type", "professional_card")
+      .in("status", ["active", "pending_approval"])
+      .ilike("contact_email", likeLiteral(email))
+      .order("created_at", { ascending: false })
+      .limit(2);
+    const card = cards?.[0];
+    if (!card) return json({ error: "no_card" }, 404);
+
+    // כרטיסייה שכבר יש לה חשבון של משתמש/ת אחר/ת (הזמנה שנלחצה מחשבון אחר): לא מחברים
+    // חשבון שני לאותה כרטיסייה
+    const { data: taken } = await supabase
+      .from("professional_accounts").select("id, user_id, erased_at").eq("card_id", card.id).maybeSingle();
+    if (taken && !taken.erased_at && taken.user_id && taken.user_id !== user.id) {
+      return json({ error: "card_has_account", detail: "לכרטיסייה הזו כבר יש חשבון כניסה אחר. כתבו לנו ונחבר." }, 409);
+    }
+
+    const displayName = String(card.advertiser_name || card.business_name || "").trim();
+    // שלב 1 (בלי אישור תנאים): רק אומרים מה נמצא, והדף מציג את האישור
+    if (body.terms_accepted !== true) {
+      return json({ success: true, card_found: true, terms_required: true, display_name: displayName, kind: card.advertiser_type, status: card.status });
+    }
+
+    let cityId: string | null = null;
+    if (card.target_region) {
+      const { data: cities } = await supabase
+        .from("cities").select("id").eq("name", String(card.target_region).trim()).limit(2);
+      cityId = cities && cities.length === 1 ? cities[0].id : null;
+    }
+    const { data: account, error: insErr } = await supabase
+      .from("professional_accounts")
+      .insert({
+        user_id: user.id,
+        card_id: card.id,
+        kind: card.advertiser_type,
+        display_name: displayName.length >= 2 ? displayName : "בעל/ת מקצוע",
+        phone: card.phone_e164 ?? null,
+        city_id: cityId,
+        terms_accepted_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (insErr || !account) {
+      console.error("professional account claim insert failed", insErr?.message);
+      return json({ error: "db_error", detail: insErr?.message ?? "insert_failed" }, 500);
+    }
+    await announceProfessionalAccount(supabase, account.id);
+    return json({ success: true, created: true });
   }
 
   const token = typeof body.token === "string" ? body.token.trim() : "";

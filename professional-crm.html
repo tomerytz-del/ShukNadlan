@@ -36,6 +36,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- לפני supabase-js: זוכר שיצאנו מכאן ל-Google, כדי שתשובה שנחתה בדף הבית תחזור לכאן
+     ולא ל-/crm (ברירת המחדל של auth-return). docs/google-login.md -->
+<script src="assets/auth-return.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -76,6 +79,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .msg.err{color:var(--red)}
   .msg.ok{color:var(--green)}
   .link-btn{background:none;color:var(--blue);text-decoration:underline;padding:6px 0;font-size:.88rem;font-weight:700}
+  /* כפתור Google והמפריד: אותו מראה כמו במסך הכניסה של הסוכנים (crm.html, .auth-google) */
+  .auth-google{width:100%;background:#fff;border:1.5px solid var(--line);color:var(--ink);padding:13px 18px;font-size:1rem;gap:10px;box-shadow:0 2px 6px rgba(16,24,40,.06)}
+  .auth-google:hover{border-color:var(--blue);color:var(--ink)}
+  .auth-or{display:flex;align-items:center;gap:12px;margin:16px 0 4px;font-size:.8rem;color:var(--ink-soft)}
+  .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
+  .terms-row{display:flex;gap:9px;align-items:flex-start;font-size:.9rem;margin:12px 0;cursor:pointer}
   .link-btn:hover{color:var(--blue-dark)}
   .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
   .head .who{font-weight:800;font-size:1.05rem}
@@ -108,7 +117,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- כניסה -->
   <section class="card" id="loginCard" hidden>
     <h1>האזור האישי לבעלי מקצוע</h1>
-    <p class="sub">ארנק ולידים לבעלי מקצוע שנרשמו בכרטיסייה.</p>
+    <p class="sub">עריכת העמוד, ארנק ולידים לבעלי מקצוע שנרשמו בכרטיסייה. הכי מהיר עם Google, ואפשר גם עם אימייל וסיסמה.</p>
+    <!-- כניסה עם Google: אותו ספק ואותו prompt=select_account כמו אצל הסוכנים. חשבון שאין לו
+         עדיין שורת professional_accounts נוצר אחרי הכניסה לפי הכרטיסייה שבכתובת הזו (claimCard) -->
+    <button type="button" class="btn auth-google" id="googleLoginBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">התחברות עם Google</span>
+    </button>
+    <div class="auth-or">או עם אימייל וסיסמה</div>
     <form id="loginForm">
       <label for="lgEmail">אימייל</label>
       <input type="email" id="lgEmail" autocomplete="username" required>
@@ -120,7 +136,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <div class="msg" id="lgMsg" role="status" aria-live="polite"></div>
     </form>
-    <p class="sub" style="margin-top:14px">נרשמתם בכרטיסייה ועוד אין לכם חשבון? פתחו אותו מקישור העריכה האישי שקיבלתם בסיום ההרשמה. <a href="/professional-manage">איבדתם את הקישור?</a></p>
+    <p class="sub" style="margin-top:14px">נרשמתם בכרטיסייה ועוד אין לכם חשבון? היכנסו עם Google בכתובת שנרשמתם איתה והחשבון ייפתח מעצמו, או פתחו אותו מקישור העריכה האישי. <a href="/professional-manage">איבדתם את הקישור?</a></p>
+  </section>
+
+  <!-- כניסה ראשונה בלי חשבון: נמצאה כרטיסייה בכתובת הזו, ונשאר לאשר תנאים -->
+  <section class="card" id="claimCard" hidden>
+    <h1>פתיחת החשבון</h1>
+    <p class="sub" id="claimText"></p>
+    <label class="terms-row"><input type="checkbox" id="claimTerms"> <span>קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a></span></label>
+    <div class="row">
+      <button class="btn btn-primary" type="button" id="claimBtn" disabled>פתיחת החשבון</button>
+      <button class="link-btn" type="button" id="claimCancel">לא עכשיו, יציאה</button>
+    </div>
+    <div class="msg" id="claimMsg" role="status" aria-live="polite"></div>
   </section>
 
   <!-- אחרי קישור איפוס סיסמה -->

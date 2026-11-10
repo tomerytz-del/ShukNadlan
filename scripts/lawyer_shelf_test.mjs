@@ -213,6 +213,32 @@ test('שחזור קישור העריכה: למייל שבכרטיסייה בלב
   assert.match(read('professional.html'), /class="owner-note"[\s\S]{0,200}\/professional-crm[\s\S]{0,200}\/professional-manage/);
 });
 
+test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתובת המאומתת, אחרי אישור תנאים, ולא מהגוף', () => {
+  const claim = accountFn.slice(accountFn.indexOf('body.action === "claim_by_login"'), accountFn.indexOf('const token ='));
+  assert.ok(claim.length > 200, 'אין claim_by_login');
+  // הזהות מה-JWT, והכתובת חייבת להיות מאושרת (Google מאשרת; סיסמה אחרי מייל האישור)
+  assert.match(claim, /auth\.getUser\(\)/);
+  assert.match(claim, /email_confirmed_at \|\| user\.confirmed_at/);
+  assert.equal(/body\.email/.test(claim), false, 'הכתובת מה-JWT, לא מהגוף');
+  // הכרטיסייה לפי הכתובת, מילולית, ורק חיה או ממתינה
+  assert.match(claim, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
+  assert.match(claim, /\.in\("status", \["active", "pending_approval"\]\)/);
+  // תנאים לפני יצירה, אישור מדף לא נקבע כאן, וכרטיסייה שכבר יש לה חשבון אחר אינה מחוברת שוב
+  assert.match(claim, /terms_accepted !== true[\s\S]{0,200}terms_required: true/);
+  assert.equal(/shelf_enabled/.test(claim), false);
+  assert.match(claim, /taken\.user_id !== user\.id[\s\S]{0,80}card_has_account/);
+  // הדף: כפתור Google כמו אצל הסוכנים (select_account, redirectTo בלי query, AuthReturn.remember לפני)
+  assert.match(crmHtml, /id="googleLoginBtn"/);
+  assert.match(crmHtml, /<script src="assets\/auth-return\.js"><\/script>\s*<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/);
+  assert.match(crmJs, /AuthReturn\.remember\(\)[\s\S]{0,120}signInWithOAuth\(\{[\s\S]{0,200}prompt: 'select_account'/);
+  assert.match(crmJs, /redirectTo: location\.origin \+ location\.pathname/);
+  // בלי חשבון: הצעה לפתוח לפי הכרטיסייה, ולא יציאה שקטה; התשובה של Google יורדת מהכתובת
+  assert.match(crmJs, /if \(!account\) \{[\s\S]{0,300}offerClaim\(session\)/);
+  assert.match(crmJs, /action: 'claim_by_login'/);
+  assert.match(crmJs, /cleanAuthParamsFromUrl\(\)/);
+  assert.match(crmJs, /access_denied\|cancel/);
+});
+
 test('מדף עורכי הדין אינו יושב ב-CRM של הסוכנים', () => {
   // תוויות התור "לידים ללא יעד" (סוג, סיבה ומקור) הן תצוגת ניתוב של מנהל/ת הפלטפורמה, לא מדף: הן מותרות. כל השאר אסור.
   const crmNoRoutingLabels = read('assets/crm.js')

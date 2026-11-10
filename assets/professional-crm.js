@@ -25,6 +25,28 @@
   let inviteOpen = /[#&]type=invite\b/.test(location.hash);
   const linkExpired = /[#&]error_code=otp_expired\b/.test(location.hash);
 
+  // תשובת Google (כמו ב-crm.js): בהצלחה #access_token בכתובת, בכישלון error/error_description.
+  // נקראת כאן, לפני ש-supabase-js צורך אותה, ומנוקה מהכתובת אחרי שה-session בידינו
+  const AUTH_HASH_KEYS = ['access_token', 'refresh_token', 'provider_token', 'expires_in', 'expires_at', 'token_type', 'error', 'error_code', 'error_description', 'type'];
+  const AUTH_QUERY_KEYS = ['code', 'state', 'error', 'error_code', 'error_description'];
+  const oauthError = (() => {
+    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const q = new URLSearchParams(location.search);
+    const pick = (k) => h.get(k) || q.get(k) || '';
+    return { code: pick('error') || pick('error_code'), description: pick('error_description') };
+  })();
+  function cleanAuthParamsFromUrl() {
+    if (!history.replaceState) return;
+    const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const q = new URLSearchParams(location.search);
+    const dropHash = AUTH_HASH_KEYS.some((k) => h.has(k));
+    let dropped = false;
+    AUTH_QUERY_KEYS.forEach((k) => { if (q.has(k)) { q.delete(k); dropped = true; } });
+    if (!dropHash && !dropped) return;
+    const search = q.toString();
+    history.replaceState(history.state, '', location.pathname + (search ? '?' + search : '') + (dropHash ? '' : location.hash));
+  }
+
   const el = (id) => document.getElementById(id);
   const KIND_LABELS = {
     real_estate_lawyer: 'עו״ד מקרקעין', mortgage_advisor: 'יועץ/ת משכנתאות', appraiser: 'שמאי/ת מקרקעין',
@@ -69,7 +91,7 @@
 
   /* ---------- כניסה ---------- */
   function showLogin() {
-    show('loginCard', true); show('recoverCard', false); show('app', false);
+    show('loginCard', true); show('recoverCard', false); show('app', false); show('claimCard', false);
   }
 
   el('loginForm').addEventListener('submit', async (e) => {
@@ -87,6 +109,83 @@
     } finally {
       btn.disabled = false; btn.textContent = 'כניסה';
     }
+  });
+
+  /* ---------- כניסה עם Google ----------
+     אותו ספק ואותן הגדרות כמו אצל הסוכנים (docs/google-login.md): redirectTo הוא הנתיב בלי query,
+     prompt=select_account כדי לבחור חשבון, ו-AuthReturn.remember לפני היציאה כדי שתשובה שנחתה
+     בדף הבית תחזור לכאן. אחרי החזרה boot() מוצא את ה-session; בלי חשבון בעל מקצוע הוא מציע
+     לפתוח אחד לפי הכרטיסייה שבכתובת הזו (claim_by_login). */
+  const googleBtn = el('googleLoginBtn');
+  function resetGoogleButton() {
+    googleBtn.disabled = false;
+    googleBtn.querySelector('.gl-label').textContent = 'התחברות עם Google';
+  }
+  googleBtn.addEventListener('click', async () => {
+    setMsg('lgMsg', '');
+    googleBtn.disabled = true;
+    googleBtn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+    if (window.AuthReturn) AuthReturn.remember();
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } },
+    });
+    if (error) {
+      resetGoogleButton();
+      setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + errText(error), 'err');
+    }
+  });
+
+  /* ---------- כניסה ראשונה בלי חשבון: חשבון לפי הכרטיסייה שבכתובת ---------- */
+  async function callAccount(payload) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return { ok: false, data: { error: 'no_session' } };
+    const res = await fetch(SUPABASE_URL + '/functions/v1/professional-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify(Object.assign({ action: 'claim_by_login' }, payload)),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok && !data.error, data };
+  }
+  const CLAIM_ERRORS = {
+    email_not_verified: 'כתובת המייל של החשבון עוד לא אושרה. היכנסו עם Google, או לחצו על הקישור במייל האישור.',
+    card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
+  };
+  // מחובר/ת, אבל בלי חשבון: האם יש כרטיסייה בכתובת הזו? אם כן, אישור תנאים ופתיחה. אם לא, יציאה והסבר
+  async function offerClaim(session) {
+    const { ok, data } = await callAccount({ terms_accepted: false });
+    if (ok && data.account_exists) { await boot(); return; }
+    if (ok && data.card_found) {
+      show('loginCard', false); show('app', false); show('claimCard', true);
+      el('claimText').textContent = 'נמצאה הכרטיסייה "' + (data.display_name || '') + '" (' + (KIND_LABELS[data.kind] || KIND_LABELS.general) + ') בכתובת ' + (session.user.email || '') +
+        (data.status === 'pending_approval' ? '. היא ממתינה לאישור הנהלת האתר, ואפשר כבר לפתוח לה חשבון.' : '.');
+      el('claimTerms').checked = false; el('claimBtn').disabled = true; setMsg('claimMsg', '');
+      return;
+    }
+    await sb.auth.signOut();
+    showLogin();
+    resetGoogleButton();
+    setMsg('lgMsg', CLAIM_ERRORS[data.error] || ('לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + (session.user.email || 'הזו') +
+      '. נרשמים ב-/professional-signup, או נכנסים בכתובת שנרשמתם איתה.'), 'err');
+  }
+  el('claimTerms').addEventListener('change', (e) => { el('claimBtn').disabled = !e.target.checked; });
+  el('claimBtn').addEventListener('click', async () => {
+    el('claimBtn').disabled = true; setMsg('claimMsg', 'פותחים את החשבון…', 'ok');
+    const { ok, data } = await callAccount({ terms_accepted: true });
+    if (!ok) {
+      setMsg('claimMsg', CLAIM_ERRORS[data.error] || ('לא הצלחנו לפתוח את החשבון: ' + errText(data.error || 'שגיאה')), 'err');
+      el('claimBtn').disabled = false;
+      return;
+    }
+    show('claimCard', false);
+    await boot();
+  });
+  el('claimCancel').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    show('claimCard', false);
+    showLogin();
+    resetGoogleButton();
   });
 
   el('forgotBtn').addEventListener('click', async () => {
@@ -604,9 +703,17 @@
     if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); show('loginCard', true); return; }
     const { data: { session } } = await sb.auth.getSession();
     if (recovering) return;
+    // התשובה של Google (או ההזמנה) כבר נצרכה: יורדת מהכתובת, כדי שרענון לא יעבד אותה שוב
+    if (!inviteOpen) cleanAuthParamsFromUrl();
     if (!session) {
       showLogin();
+      resetGoogleButton();
       if (linkExpired) setMsg('lgMsg', 'הקישור במייל פג תוקף. בקשו שליחה חוזרת של מייל האימות מקישור העריכה של הכרטיסייה.', 'err');
+      else if (oauthError.code || oauthError.description) {
+        setMsg('lgMsg', /access_denied|cancel/i.test(oauthError.code)
+          ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
+          : 'ההתחברות עם Google נכשלה: ' + (oauthError.description || oauthError.code), 'err');
+      }
       return;
     }
     if (inviteOpen) {
@@ -624,10 +731,9 @@
       return;
     }
     if (!account) {
-      // מחובר, אבל אין חשבון בעל מקצוע (למשל סוכן/ת שנכנס/ת לכאן בטעות)
-      await sb.auth.signOut();
-      showLogin();
-      setMsg('lgMsg', 'אין חשבון בעל מקצוע לכתובת הזו. מי שנרשם/ה בכרטיסייה פותח/ת חשבון מקישור העריכה האישי (איבדתם אותו? הקישור "איבדתם את הקישור?" למטה).', 'err');
+      // מחובר/ת (Google, או סיסמה) בלי חשבון בעל מקצוע: אולי יש כרטיסייה בכתובת הזו.
+      // offerClaim מציע לפתוח חשבון, או מוציא עם הסבר (למשל סוכן/ת שנכנס/ת לכאן בטעות)
+      await offerClaim(session);
       return;
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);
