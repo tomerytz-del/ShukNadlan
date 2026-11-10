@@ -13,7 +13,7 @@
 | `properties.status = 'active'` | מודעה לא פעילה לא מוצגת בכלל |
 | `agency_members.tier in ('mid','premium')` | המפה היא יכולת של מסלול בתשלום |
 | `agency_members.active` ו-`billing_status = 'active'` | אותו כלל כמו בכל יכולות ה-tier |
-| `house_number` קיים, ולצידו `street` או `address` - **או** מיקום משוער (`location_precision` הוא `zone`/`parcel`) | "כתובת מדויקת", או מיקום שמוצג במפורש כמשוער (למטה) |
+| `house_number` קיים, ולצידו `street` או `address` - **או** מיקום משוער (`location_precision` הוא `zone`/`parcel`/`street`) | "כתובת מדויקת", או מיקום שמוצג במפורש כמשוער (למטה) |
 | `lat` ו-`lng` קיימים | בלי קואורדינטות אין מה לצייר |
 
 הדרישה למספר בית היא העיקר כאן: הגאוקודינג מחזיר לנכס שנרשם עם עיר בלבד את

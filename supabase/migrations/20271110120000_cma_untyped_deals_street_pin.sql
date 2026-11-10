@@ -11,6 +11,9 @@
 -- בבריכה של הדוח ובשכבת השכונה. ‏property_type_class עצמה לא משתנה - היא
 -- משרתת גם את האתר ואת deals_engine, ו-check_deals_normalize.py מצליב אותה -
 -- אלא שתי עטיפות לעסקאות: deal_type_class ו-deal_property_kind.
+-- עסקה כזו מתנהגת מכאן ואילך בדיוק כמו עסקת "דירה": גן/גג מהקומה, ובית לפי
+-- החלקה (בלי קומה, היחידה בחלקה עד 1,500 מ"ר) - בכוונה, כי "דירה" ב-GovMap
+-- היא ממילא ברירת המחדל לכל מגורים, ו"-" הוא אותו דבר בלי שנכתב.
 --
 -- ## 2. פין משוער על הרחוב
 --
@@ -859,7 +862,11 @@ begin
     end if;
   end if;
 
-  if (new.lat is null or new.lng is null)
+  -- רק ביצירה או כשהכתובת השתנתה: שמירה של מחיר או תיאור בנכס שאין ברחוב
+  -- שלו עסקה לא מריצה שוב את החיפוש במאגר (הוא רץ ב-cma_locate_address על
+  -- כל העסקאות של העיר). ההשלמה למפרע (סעיף 7) קוראת לפונקציה ישירות.
+  if (tg_op = 'INSERT' or v_address_changed)
+     and (new.lat is null or new.lng is null)
      and nullif(btrim(coalesce(new.street, '')), '') is not null
      and nullif(btrim(coalesce(new.city, '')), '') is not null then
     begin
@@ -973,30 +980,285 @@ revoke all on function public.govmap_admin_save(uuid, jsonb) from public, anon, 
 grant execute on function public.govmap_admin_save(uuid, jsonb) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 7. השלמה למפרע: נכסים פעילים וטיוטות בלי פין שיש להם רחוב. הטריגר עושה
---    את העבודה; ה-update רק מעיר אותו. נכס שאין לו עסקה ברחוב נשאר כמו שהיה.
+-- 6ב. מה שקורא "אין פין" חייב להכיר גם 'street' (מביקורת הקוד, 10.11.2026):
+--     אחרת פין משוער היה מסתיר לתמיד את הפין המדויק שהיה מגיע אחריו.
+-- ---------------------------------------------------------------------------
+
+-- פין משוער על הרחוב שחושב מחדש אחרי שינוי כתובת (properties_locate_street
+-- רץ לפני, ומשאיר 'street') זז - אבל לא למקום אמיתי. הטריגר הזה היה הופך
+-- אותו ל-'exact', כי הדיוק "לא השתנה". הגוף מהגרסה החיה (20270430090000),
+-- עם התנאי הנוסף בלבד.
+create or replace function public.properties_zone_location()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_moved boolean := false;
+  z       record;
+begin
+  if tg_op = 'UPDATE' then
+    v_moved := new.lat is distinct from old.lat or new.lng is distinct from old.lng;
+    if v_moved and new.location_precision is not distinct from old.location_precision
+       and not (old.location_precision = 'street'
+                and (new.street is distinct from old.street
+                     or new.house_number is distinct from old.house_number
+                     or new.city is distinct from old.city)) then
+      if new.lat is not null and new.lng is not null then
+        new.location_precision := 'exact';
+      else
+        new.location_precision := null;
+      end if;
+      new.location_radius_m := null;
+    end if;
+    if not v_moved and old.location_precision = 'zone'
+       and new.location_precision is not distinct from 'zone'
+       and new.neighborhood_id is distinct from old.neighborhood_id then
+      new.lat := null; new.lng := null;
+      new.location_precision := null; new.location_radius_m := null;
+    end if;
+  end if;
+
+  if new.location_precision = 'exact' then
+    new.location_radius_m := null;
+  end if;
+
+  if (new.lat is null or new.lng is null) and new.neighborhood_id is not null then
+    select * into z from public.zone_approx_point(new.neighborhood_id, new.id);
+    if found and z.lat is not null then
+      new.lat := z.lat; new.lng := z.lng;
+      new.location_precision := 'zone';
+      new.location_radius_m := z.radius_m;
+    end if;
+  end if;
+  return new;
+end $$;
+
+revoke all on function public.properties_zone_location() from public, anon, authenticated;
+
+-- תור הגאוקוד בשרת (עפולה): נכס עם פין משוער על הרחוב עדיין מחכה לפין
+-- המדויק מהשכבה העירונית. הגוף מהגרסה החיה (20261201090000), עם התנאי בלבד.
+create or replace function public.geocode_backfill_queue(
+  p_limit        integer  default 25,
+  p_max_attempts smallint default 3,
+  p_retry_after  interval default interval '20 hours'
+)
+returns table (id uuid, street text, house_number text, kind text, city text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select q.id, q.street, q.house_number, q.kind, q.city
+    from (
+      select p.id, p.street, p.house_number, 'property'::text as kind, p.city,
+             p.geocode_attempted_at, p.created_at as ordered_at
+        from public.properties p
+        join public.city_geocode_sources s
+          on s.city_key = public.city_name_key(p.city) and s.active
+       where p.status = 'active'
+         and (p.lat is null or p.lng is null or p.location_precision = 'street')
+         and nullif(btrim(coalesce(p.street, '')), '')       is not null
+         and nullif(btrim(coalesce(p.house_number, '')), '') is not null
+         and p.geocode_attempts < p_max_attempts
+         and (p.geocode_attempted_at is null
+              or p.geocode_attempted_at < now() - p_retry_after)
+
+      union all
+
+      select o.id, o.street, o.house_number, 'official_deal'::text as kind, o.city,
+             o.geocode_attempted_at, o.imported_at as ordered_at
+        from public.market_deals_official o
+        join public.city_geocode_sources s
+          on s.city_key = public.city_name_key(o.city) and s.active
+       where (o.lat is null or o.lng is null)
+         and nullif(btrim(coalesce(o.street, '')), '')       is not null
+         and nullif(btrim(coalesce(o.house_number, '')), '') is not null
+         and o.geocode_attempts < p_max_attempts
+         and (o.geocode_attempted_at is null
+              or o.geocode_attempted_at < now() - p_retry_after)
+    ) q
+   order by q.geocode_attempted_at asc nulls first, q.ordered_at desc
+   limit greatest(p_limit, 0);
+$$;
+
+revoke all on function public.geocode_backfill_queue(integer, smallint, interval) from public, anon, authenticated;
+grant execute on function public.geocode_backfill_queue(integer, smallint, interval) to service_role;
+
+-- תוצאת הגאוקוד היא פין מדויק: נכתב במפורש, גם כשהיא מחליפה פין משוער.
+create or replace function public.geocode_record_result(
+  p_id    uuid,
+  p_lat   double precision,
+  p_lng   double precision,
+  p_error text,
+  p_kind  text default 'property'
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_kind = 'official_deal' then
+    update public.market_deals_official
+       set lat                  = coalesce(p_lat, lat),
+           lng                  = coalesce(p_lng, lng),
+           geocode_attempted_at = now(),
+           geocode_attempts     = case when p_error = 'address_not_found'
+                                       then geocode_attempts + 1
+                                       else geocode_attempts end,
+           geocode_error        = p_error
+     where id = p_id;
+  else
+    update public.properties
+       set lat                  = coalesce(p_lat, lat),
+           lng                  = coalesce(p_lng, lng),
+           location_precision   = case when p_lat is not null and p_lng is not null
+                                       then 'exact' else location_precision end,
+           location_radius_m    = case when p_lat is not null and p_lng is not null
+                                       then null else location_radius_m end,
+           geocode_attempted_at = now(),
+           geocode_attempts     = case when p_error = 'address_not_found'
+                                       then geocode_attempts + 1
+                                       else geocode_attempts end,
+           geocode_error        = p_error
+     where id = p_id;
+  end if;
+end;
+$$;
+
+revoke all on function public.geocode_record_result(uuid, double precision, double precision, text, text) from public, anon, authenticated;
+grant execute on function public.geocode_record_result(uuid, double precision, double precision, text, text) to service_role;
+
+-- התור של ההשלמה מ-GovMap בדפדפן (מנהל/ת): פין משוער על הרחוב הוא "חסר פין".
+-- בלעדיו הענף החדש ב-govmap_admin_save לא היה מגיע אף פעם. הגוף מהגרסה
+-- החיה (20270103090000), עם התנאי בלבד.
+create or replace function public.govmap_backfill_candidates(p_limit integer default 40)
+returns table (
+  id            uuid,
+  city          text,
+  street        text,
+  house_number  text,
+  need_pin      boolean,
+  need_planning boolean
+)
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $$
+begin
+  if not public.current_is_platform_admin() then
+    raise exception 'not_platform_admin';
+  end if;
+
+  return query
+  with base as (
+    select p.id, btrim(p.city) as city, btrim(p.street) as street, btrim(p.house_number) as house_number,
+           (p.lat is null or p.lng is null or p.location_precision = 'street') as need_pin,
+           (not exists (select 1 from public.property_planning_info i
+                         where i.property_id = p.id and i.gush is not null)
+            and exists (select 1 from public.agency_members m
+                         where m.id = p.agent_id and m.active = true
+                           and m.billing_status = 'active'
+                           and m.tier in ('mid', 'premium'))) as need_planning
+      from public.properties p
+     where p.status = 'active'
+       and nullif(btrim(coalesce(p.city, '')), '') is not null
+       and btrim(p.city) <> 'עפולה'
+       and nullif(btrim(coalesce(p.street, '')), '') is not null
+       and nullif(btrim(coalesce(p.house_number, '')), '') is not null
+       and not exists (select 1 from public.govmap_backfill_attempts a
+                        where a.property_id = p.id
+                          and a.attempted_at > now() - interval '7 days')
+  )
+  select b.id, b.city, b.street, b.house_number, b.need_pin, b.need_planning
+    from base b
+   where b.need_pin or b.need_planning
+   order by b.need_pin desc, b.id
+   limit greatest(1, least(coalesce(p_limit, 40), 200));
+end;
+$$;
+
+revoke all on function public.govmap_backfill_candidates(integer) from public, anon, authenticated;
+grant execute on function public.govmap_backfill_candidates(integer) to authenticated;
+
+-- המפה בדף הנכס: גם מיקום משוער על הרחוב מוצג (כעיגול), כמו zone ו-parcel.
+-- הגוף מהגרסה החיה (20270430090000), עם הערך הנוסף בלבד.
+create or replace function public.property_map_enabled(p_property_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.properties p
+    join public.agency_members m on m.id = p.agent_id
+    where p.id = p_property_id
+      and p.status = 'active'
+      and m.active = true
+      and m.tier in ('mid', 'premium')
+      and m.billing_status = 'active'
+      and p.lat is not null
+      and p.lng is not null
+      and (
+        (p.house_number is not null and (p.street is not null or p.address is not null))
+        or p.location_precision in ('zone', 'parcel', 'street')
+      )
+  );
+$$;
+
+revoke all on function public.property_map_enabled(uuid) from public, anon, authenticated;
+grant execute on function public.property_map_enabled(uuid) to anon, authenticated, service_role;
+
+-- cma_locate_address מסננת לפי city ו-street_name_key(street), והאינדקס הקיים
+-- הוא על property_text_key - מפתח אחר. בעיר של 1,855 עסקאות (וגדלה) כל
+-- קריאה סרקה את כל העיר; הטריגר קורא לה בכל יצירת נכס.
+create index if not exists market_deals_official_city_street_name_idx
+  on public.market_deals_official (city, public.street_name_key(street));
+
+-- ---------------------------------------------------------------------------
+-- 7. השלמה למפרע: נכסים פעילים וטיוטות בלי פין שיש להם רחוב. אותה פונקציה
+--    של הטריגר, ישירות (הטריגר רץ רק ביצירה ובשינוי כתובת). נכס שאין לו
+--    עסקה ברחוב נשאר כמו שהיה.
 -- ---------------------------------------------------------------------------
 do $$
 declare
   v_before integer;
-  v_after  integer;
+  v_done   integer;
 begin
   select count(*) into v_before
     from public.properties
-   where lat is null and status in ('active', 'unpublished')
-     and nullif(btrim(coalesce(street, '')), '') is not null;
-
-  update public.properties
-     set street = street
-   where lat is null and status in ('active', 'unpublished')
+   where (lat is null or lng is null) and status in ('active', 'unpublished')
      and nullif(btrim(coalesce(street, '')), '') is not null
      and nullif(btrim(coalesce(city, '')), '') is not null;
 
-  select count(*) into v_after
-    from public.properties
-   where lat is null and status in ('active', 'unpublished')
-     and nullif(btrim(coalesce(street, '')), '') is not null;
+  with located as (
+    select p.id, public.cma_locate_address(p.city, p.street, p.house_number) as loc
+      from public.properties p
+     where (p.lat is null or p.lng is null) and p.status in ('active', 'unpublished')
+       and nullif(btrim(coalesce(p.street, '')), '') is not null
+       and nullif(btrim(coalesce(p.city, '')), '') is not null
+  )
+  update public.properties p
+     set lat = (l.loc->>'lat')::double precision,
+         lng = (l.loc->>'lng')::double precision,
+         location_precision = 'street',
+         location_radius_m  = case l.loc->>'precision'
+                                when 'address_deal'   then 80
+                                when 'parcel'         then 80
+                                when 'street_nearest' then 150
+                                else 300
+                              end
+    from located l
+   where l.id = p.id
+     and l.loc is not null
+     and (l.loc->>'lat') is not null and (l.loc->>'lng') is not null;
+  get diagnostics v_done = row_count;
 
   raise notice 'פין משוער על הרחוב: % נכסים בלי פין עם רחוב, % קיבלו פין, % נשארו (אין עסקה ברחוב)',
-    v_before, v_before - v_after, v_after;
+    v_before, v_done, v_before - v_done;
 end $$;
