@@ -51,6 +51,18 @@ description: דוח ה-CMA (השוואת שוק) בריפו של שוק נדל״
 | `property_kind` | בתוך dwelling: `house` / `garden` / `roof` / `unit` |
 | `floor_group`, `floor_num` | טקסט קומה חופשי של רשות המיסים לקבוצה / למספר |
 
+**עסקה בלי סוג (GovMap "-") עם חדרים היא דירה** - דרך `deal_type_class` ו-
+`deal_property_kind` (‏20271110120000), שמשמשות רק את העסקאות (הבריכה ושכבת
+השכונה). ‏`property_type_class(null)` נשאר `null`, כי היא משרתת גם את האתר.
+בתל אביב זה 40% מהעסקאות; בלעדיהן "אין די עסקאות" ברחוב שנמכרו בו עשרות.
+
+**נכס בלי פין מקבל פין משוער ברמה הכי מדויקת שיש** - רחוב (`street`), שכונה
+(`neighborhood`) או יישוב (`city`); `property_approx_location` והטריגר
+`properties_locate_street_trg`, ‏`docs/property-map.md`. לכן הדוח עובד גם לנכס
+שנוצר בוואטסאפ מחוץ לעפולה. הדוח מחזיר `subject.location_precision`, ו-
+`cma-render.js` ו-`toolCmaReport` אומרים שהמרחקים בקירוב (ברמת יישוב - גס).
+`no_location` נשאר רק לנכס שאין לו אף אחד מהשלושה.
+
 **סוג נכס חדש באתר** (‏`RESIDENTIAL_PTYPE_OPTIONS` / `COMMERCIAL_PTYPE_OPTIONS`
 ב-`assets/crm.js`) **או ב-`TYPE_MAP` של `deals_engine/normalize.py`**: הוא
 חייב להיכנס לרשימות של `property_type_class` (ואם הוא בית/גן/גג - גם של
