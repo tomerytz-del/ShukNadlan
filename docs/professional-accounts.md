@@ -25,8 +25,9 @@
 ## ההרשמה: מהכרטיסייה, עם האסימון
 
 1. בעל/ת המקצוע נרשם/ת בכרטיסייה כרגיל וקיבל/ה את קישור העריכה.
-2. ב-`professional-manage.html`, **לעורכי דין בלבד** (`advertiser_type = 'real_estate_lawyer'`), מוצג "חשבון כניסה וארנק":
-   אישור תנאים בלבד (בלי סיסמה). `load` מחזיר `has_account`, ו-`account_pending` כשההזמנה נשלחה ולא נלחצה (הטופס נשאר, עם "שליחה חוזרת").
+2. ב-`professional-manage.html`, **לכל תחום** (מ-10.11.2026; עד אז לעו"ד בלבד), מוצג "חשבון כניסה וארנק":
+   אישור תנאים בלבד (בלי סיסמה). הנוסח לפי התחום (`ACCOUNT_PITCH`): עו"ד ויועצי משכנתאות שומעים על המדף שלהם, השאר על כניסה ועריכה בלי לשמור את הקישור.
+   `load` מחזיר `has_account`, ו-`account_pending` כשההזמנה נשלחה ולא נלחצה (הטופס נשאר, עם "שליחה חוזרת").
 3. `professional-account` (`verify_jwt = false`, כמו `professional-manage`): האסימון (UUID) מזהה את הכרטיסייה
    (`ad_placement_access`), **כתובת הכניסה היא ה-`contact_email` שבכרטיסייה** (לא כתובת מהגוף: טעות הקלדה
    הייתה יוצרת חשבון בלי איפוס סיסמה), נוצר משתמש **בהזמנה במייל** (`inviteUserByEmail`) + שורת חשבון עם ארנק ריק, ו-`shelf_enabled` נשאר `false`.
@@ -67,8 +68,20 @@ select public.professional_credit_add('<id>', 100, 'טעינה ידנית');
 
 ## האזור האישי: `professional-crm.html`
 
-כניסה (אימייל וסיסמה, איפוס סיסמה), הארנק, ומדף "שאלה לעו״ד" לעו"ד מאושר: המדף מ-`lawyer_leads_public`,
-הרכישה ב-`lawyer-lead-purchase` (JWT + MFA), והלידים שנרכשו מ-`lawyer_leads` (policy לפי `sold_to_professional_id`).
+כניסה (אימייל וסיסמה, איפוס סיסמה), "עריכת הכרטיסייה" (`manage_link`), הארנק, ומדף לידים לשני תחומים (`SHELF_COPY` ב-`assets/professional-crm.js`):
+
+| תחום | המדף | הרכישה | הלידים שנרכשו |
+| --- | --- | --- | --- |
+| עו"ד מאושר/ת | `lawyer_leads_public` (בעיר של החשבון) | מהארנק ב-`lawyer-lead-purchase`, או בכרטיס ב-`lawyer-lead-checkout` (JWT + MFA) | `lawyer_leads` לפי `sold_to_professional_id` |
+| יועץ/ת משכנתאות מאושר/ת | `mortgage_leads_public` (ארצי, אותו מלאי כמו המגירה ב-CRM של הסוכנים) | **מהארנק בלבד**, ב-`mortgage-lead-purchase` (`resolveBuyer`: חברות CRM פעילה עם `is_mortgage_advisor` קודמת; אחרת חשבון בעל מקצוע מאושר → `purchase_mortgage_lead_professional`) | `mortgage_leads` לפי `sold_to_professional_id` (`20271110130000`) |
+| שאר התחומים | אין עדיין מדף, והמסך אומר זאת | | |
+
+**מדף המשכנתאות לחשבון בעל מקצוע (10.11.2026).** `current_is_mortgage_advisor()` מכיר שני סוגי קוראים: חברות ב-`agency_members` עם `is_mortgage_advisor`
+(יועצים שנרשמו ל-CRM, `docs/mortgage-leads.md`), וחשבון בעל מקצוע `mortgage_advisor` עם `shelf_enabled`. מי שמחזיק/ה בשניהם קונה דרך ה-CRM (הסדר ב-`mortgage-lead-purchase`), והארנקים נפרדים.
+`mortgage_lead_purchases.agent_id` כבר אינו `not null`; `professional_id` נוסף, ו-CHECK מבטיח קונה אחד. `lead_audience_size('mortgage_advisor')` סופר את שניהם, אחרת ליד משכנתאות היה נרשם `unrouted` כשיש יועץ/ת.
+**תשלום בכרטיס על ליד משכנתאות עוד לא נבנה** (`lawyer_lead_orders` ו-`start/complete_lawyer_lead_order` הם של `lawyer_leads`); עד אז הארנק נטען ידנית (`professional_credit_add`). נבדק מקומית על Postgres 16 (סכימה מדומה, הרצה כפולה): מי רואה את המדף (מאושר/ת, CRM ומנהל/ת כן; ממתין/ה, שמאי/ת וזר/ה לא), הרכישה (תחום, אישור, יתרה, רכישה חוזרת בלי חיוב, ליד של אחר/ת), ה-policy לקונה, ו-`authenticated` שאינו קורא לפונקציות.
+
+**שחזור קישור העריכה** (לכל תחום, בלי חשבון): `docs/professional-cards.md`, "איבדתם את הקישור?".
 דף פרטי: `noindex`, `Disallow` ב-`robots.txt` בשתי הצורות, בלי `events.js`. **המניפסט הוא `app-professional.webmanifest`** (`start_url` ו-`id` על `/professional-crm`, בלי `share_target`): `app-crm.webmanifest` נפתח על `/crm`, ואפליקציה מותקנת של עו"ד לא אמורה לנחות שם. הדף נושא `data-first-visit="show"` כמו שאר דפי האזור האישי. גם `professional-manage` על אותו מניפסט (`docs/pwa-install.md`). **המסך מסתיר מדף ללא אישור, אבל ההגנה במסד**
 (`docs/lawyer-leads.md`).
 
@@ -78,4 +91,5 @@ select public.professional_credit_add('<id>', 100, 'טעינה ידנית');
   עם `start/complete_professional_topup` ו-`checkout.html?product=professional`. הכסף כאן הוא כסף אמיתי, ולכן ב-PR נפרד.
 - **מחיקת חשבון:** נבנתה (`close_professional_account`, `docs/account-closure.md`, "בעל/ת מקצוע"). **נשאר:** מדיניות שמירה לחשבון שלא היה פעיל
   (`data_retention_run`), שדורשת החלטה על משך.
-- **יועצי משכנתאות** עדיין על `agency_members.is_mortgage_advisor` (חשבון אחד). מעבר אליהם לכאן הוא החלטה נפרדת.
+- **תשלום בכרטיס על ליד משכנתאות** לחשבון בעל מקצוע (היום: ארנק בלבד). יועצים שסומנו ב-`agency_members.is_mortgage_advisor` ממשיכים לקנות מה-CRM; שני המסלולים חיים יחד.
+- **מדף לשאר התחומים** (שמאי/ת, אדריכל/ית...): החשבון כבר נפתח להם, ומה שחסר הוא מלאי.

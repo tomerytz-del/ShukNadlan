@@ -31,6 +31,10 @@ import { announceProfessionalAccount } from "../_shared/platform-signup-alert.ts
 // נוצרים משתמש (auth), ושורת professional_accounts עם kind מהכרטיסייה, עיר מ-target_region
 // וארנק ריק. **shelf_enabled נשאר false:** מי שרשאי/ת לראות ולקנות לידים נקבע על ידי מנהל/ת
 // הפלטפורמה, וההתראה אליו/ה אומרת זאת. חשבון אחד לכרטיסייה (unique(card_id)).
+//
+// מ-10.11.2026 החשבון נפתח לכל תחום, לא רק לעו"ד: כניסה, עריכת הכרטיסייה (manage_link),
+// ומדף לידים למי שיש לו (עו"ד: lawyer_leads, יועץ/ת משכנתאות: mortgage_leads). לשאר התחומים
+// עדיין אין מדף, והאזור האישי אומר זאת.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

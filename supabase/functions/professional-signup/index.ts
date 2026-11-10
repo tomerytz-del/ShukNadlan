@@ -10,6 +10,7 @@ import {
 } from "../_shared/morning.ts";
 import { announceProfessionalSignup } from "../_shared/platform-signup-alert.ts";
 import { normalizeProfessionalPhone } from "../_shared/professional-phone.ts";
+import { likeLiteral, normalizeEmail, sendManageLinks } from "../_shared/professional-link-mail.ts";
 
 // ============================================================================
 // הרשמת בעל/ת מקצוע לכרטיסיית "בעלי מקצוע נבחרים"
@@ -136,6 +137,26 @@ Deno.serve(async (req: Request) => {
   if (months < 1 || months > 12) return json({ error: "invalid_months" }, 400);
 
   try {
+    // ---- הרשמה חוזרת לאותו מייל --------------------------------------------
+    // מי שכבר יש לו/ה כרטיסייה חיה או ממתינה לאישור ונרשם/ת שוב כמעט תמיד איבד/ה את
+    // קישור העריכה, או לא ראה/תה את הכרטיסייה הראשונה עולה (ב-21.10 וב-5.11.2026 אותו
+    // יועץ נרשם פעמיים, ומנהל/ת הפלטפורמה קיבל/ה שתי בקשות אישור). במקום כרטיסייה
+    // כפולה: הקישור של הקיימת נשלח למייל, והדף אומר את זה. ‏ended ו-paused אינם
+    // חוסמים: מי שהפרסום שלו/ה נגמר רשאי/ת להירשם מחדש.
+    const email = normalizeEmail(contact_email);
+    if (!email) return json({ error: "invalid_email" }, 400);
+    const { data: existingCards } = await supabase
+      .from("ad_placements")
+      .select("id")
+      .eq("placement_type", "professional_card")
+      .in("status", ["active", "pending_approval"])
+      .ilike("contact_email", likeLiteral(email))
+      .limit(1);
+    if (existingCards?.length) {
+      const r = await sendManageLinks(supabase, email);
+      return json({ error: "card_exists", link_sent: r.sent, throttled: r.throttled }, 409);
+    }
+
     // ---- פרסום חינם בכפוף לאישור --------------------------------------
     // כשהמתג דלוק (‏pricing_config.professional_card_free_publishing) אין
     // סולק ואין הטבה חד-פעמית: הכרטיסייה נוצרת כ-`pending_approval`, ומנהל/ת
