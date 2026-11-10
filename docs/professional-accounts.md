@@ -73,7 +73,7 @@ select public.professional_credit_add('<id>', 100, 'טעינה ידנית');
 | תחום | המדף | הרכישה | הלידים שנרכשו |
 | --- | --- | --- | --- |
 | עו"ד מאושר/ת | `lawyer_leads_public` (בעיר של החשבון) | מהארנק ב-`lawyer-lead-purchase`, או בכרטיס ב-`lawyer-lead-checkout` (JWT + MFA) | `lawyer_leads` לפי `sold_to_professional_id` |
-| יועץ/ת משכנתאות מאושר/ת | `mortgage_leads_public` (ארצי, אותו מלאי כמו המגירה ב-CRM של הסוכנים) | **מהארנק בלבד**, ב-`mortgage-lead-purchase` (`resolveBuyer`: חברות CRM פעילה עם `is_mortgage_advisor` קודמת; אחרת חשבון בעל מקצוע מאושר → `purchase_mortgage_lead_professional`) | `mortgage_leads` לפי `sold_to_professional_id` (`20271110090000`) |
+| יועץ/ת משכנתאות מאושר/ת | `mortgage_leads_public` (ארצי, אותו מלאי כמו המגירה ב-CRM של הסוכנים) | **מהארנק בלבד**, ב-`mortgage-lead-purchase` (`resolveBuyer`: חברות CRM פעילה עם `is_mortgage_advisor` קודמת; אחרת חשבון בעל מקצוע מאושר → `purchase_mortgage_lead_professional`) | `mortgage_leads` לפי `sold_to_professional_id` (`20271110130000`) |
 | שאר התחומים | אין עדיין מדף, והמסך אומר זאת | | |
 
 **מדף המשכנתאות לחשבון בעל מקצוע (10.11.2026).** `current_is_mortgage_advisor()` מכיר שני סוגי קוראים: חברות ב-`agency_members` עם `is_mortgage_advisor`

@@ -94,7 +94,7 @@
 | מדף | מי רואה | איך נאכף |
 | --- | --- | --- |
 | `rss_leads_public`, `saved_search_leads_public` | כל סוכן/ת תיווך | בכוונה (`BROKER_SHELVES`) |
-| `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה (ב-CRM, או חשבון בעל מקצוע מאושר), או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`, הורחב ב-`20271110090000`) |
+| `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה (ב-CRM, או חשבון בעל מקצוע מאושר), או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`, הורחב ב-`20271110130000`) |
 | `lawyer_leads_public` | חשבון עו"ד מאושר (`professional_accounts.shelf_enabled`) בעיר של הליד, או מנהל/ת פלטפורמה | `current_is_lawyer()` + `current_professional_works_city()` בתוך ה-view (`20271108090000`). `docs/lawyer-leads.md`, `docs/professional-accounts.md` |
 | `project_leads_shelf` | יזם רשום ופעיל | `exists` על `developers` בתוך ה-view (כבר מ-`20260921090000`) |
 

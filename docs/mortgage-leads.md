@@ -135,7 +135,7 @@ update public.professional_accounts set shelf_enabled = true where id = '<id>';
 select public.professional_credit_add('<id>', 100, 'טעינה ידנית');   -- ארנק, עד שתהיה סליקה
 ```
 
-- `current_is_mortgage_advisor()` מכיר את שני הסוגים (`20271110090000`), ולכן ה-view
+- `current_is_mortgage_advisor()` מכיר את שני הסוגים (`20271110130000`), ולכן ה-view
   וה-`check_shelf_audience.py` לא השתנו.
 - הרכישה: `mortgage-lead-purchase` (`resolveBuyer`) בוחר חברות CRM **פעילה עם
   `is_mortgage_advisor`**; אחרת חשבון בעל מקצוע **מאושר**, וקורא ל-`purchase_mortgage_lead_professional`
