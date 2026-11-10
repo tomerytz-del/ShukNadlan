@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import {
+  currentSenderId,
   downloadMedia,
   formatForWhatsapp,
   isPublicNumber,
@@ -1629,9 +1630,12 @@ const ASSISTANT_PHONE = (Deno.env.get("WHATSAPP_DISPLAY_NUMBER") || "97253249474
 // כרטיס עם המספר של הסוכנים, פעם אחת לכל טלפון ובלי תיקון. אז בלי כרטיס
 // בכלל, ושורה ביומן.
 const PUBLIC_DISPLAY_PHONE = (Deno.env.get("WHATSAPP_PUBLIC_DISPLAY_NUMBER") || "").replace(/\D/g, "");
-const PUBLIC_ASSISTANT_PHONE = PUBLIC_DISPLAY_PHONE || (publicNumberConfigured() ? "" : ASSISTANT_PHONE);
-if (publicNumberConfigured() && !PUBLIC_DISPLAY_PHONE) {
-  console.error("WHATSAPP_PUBLIC_PHONE_NUMBER_ID is set without WHATSAPP_PUBLIC_DISPLAY_NUMBER: Gabriela's contact card is disabled until both are set");
+const PUBLIC_ASSISTANT_PHONE = publicNumberConfigured()
+  ? PUBLIC_DISPLAY_PHONE           // שניהם, או בלי כרטיס
+  : ASSISTANT_PHONE;               // מספר אחד, כמו לפני הפיצול - גם אם מישהו הגדיר רק מספר להצגה
+if (publicNumberConfigured() !== !!PUBLIC_DISPLAY_PHONE) {
+  console.error("WHATSAPP_PUBLIC_PHONE_NUMBER_ID and WHATSAPP_PUBLIC_DISPLAY_NUMBER must be set together: " +
+    (publicNumberConfigured() ? "Gabriela's contact card is disabled until the display number is set" : "the display number is ignored until the phone number id is set"));
 }
 const CONTACT_CARD_NOTE =
   "ועוד משהו קטן - שווה לשמור אותי באנשי הקשר 📇 ככה יהיה קל למצוא אותי " +
@@ -1646,12 +1650,15 @@ const CONTACT_CARD_NOTE =
  */
 async function maybeShareContactCard(phone: string): Promise<void> {
   if (!PUBLIC_ASSISTANT_PHONE) return;
+  // "פעם אחת" - לכל **מספר** שהכרטיס נושא (הגוף כולל אותו): מי שקיבל/ה את
+  // הכרטיס עם המספר של הסוכנים לפני הפיצול מקבל/ת פעם אחת את החדש.
   const { data: sent } = await supabase
     .from("whatsapp_messages")
     .select("id")
     .eq("wa_phone", phone)
     .eq("direction", "out")
     .eq("msg_type", "contacts")
+    .ilike("body", `%${PUBLIC_ASSISTANT_PHONE}%`)
     .limit(1);
   if (sent && sent.length) return;
 
@@ -2424,6 +2431,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // (למשל כדי לראות מה הלקוחות רואים). אין חיפוש ב-agency_members ולא
   // ב-csm_staff: השדה שמטא שולחת הוא ההחלטה, לא היעדר שורה.
   const onPublicNumber = isPublicNumber(msg._phone_number_id);
+  // ההקשר של השולח (withSender) אמור להיות כאן. אם אבד - כל תשובה בתור הזה
+  // תצא מהמספר של הסוכנים, בשקט. שורה ביומן היא ההבדל בין תקלה שרואים
+  // לתקלה שמגלים מתלונה.
+  if (onPublicNumber && currentSenderId() !== String(msg._phone_number_id)) {
+    console.error("sender context lost: message to the public number but replies will leave from", currentSenderId());
+  }
 
   // --- זיהוי הסוכן/ת לפי מספר הטלפון ---
   // phone_e164 היא עמודה מחושבת שמנרמלת את agency_members.phone לאותו פורמט

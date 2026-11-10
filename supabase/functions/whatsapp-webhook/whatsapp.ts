@@ -60,7 +60,9 @@ try {
 /** מריצה את `fn` כך שכל שליחה בתוכה יוצאת מהמספר `phoneNumberId` (מזהה של Meta, לא המספר עצמו). */
 export function withSender<T>(phoneNumberId: unknown, fn: () => Promise<T>): Promise<T> {
   const id = String(phoneNumberId || "").trim();
-  if (!id || !senderStore || id === PHONE_NUMBER_ID) return fn();
+  if (!id || !senderStore) return fn();
+  // גם המספר של הסוכנים נכנס להקשר, ולא "בלי הקשר": הקשר חיצוני (קריאה
+  // מקוננת, עטיפה עתידית של מנה שלמה) לא יזלוג פנימה.
   return senderStore.run(id, fn);
 }
 
@@ -69,8 +71,8 @@ function senderId(): string {
   return senderStore?.getStore() || PHONE_NUMBER_ID;
 }
 
-/** לבדיקה בלבד (sender_context_test.ts): מה senderId מחזיר כרגע. */
-export function _senderIdForTests(): string {
+/** המספר שההקשר הנוכחי שולח ממנו - לבדיקה (index.ts מאמת בתחילת התור, והבדיקה). */
+export function currentSenderId(): string {
   return senderId();
 }
 

@@ -9,7 +9,7 @@
 Deno.env.set("WHATSAPP_PHONE_NUMBER_ID", "111");
 Deno.env.set("WHATSAPP_PUBLIC_PHONE_NUMBER_ID", "222");
 
-const { withSender, isPublicNumber, publicNumberConfigured, _senderIdForTests } = await import("./whatsapp.ts");
+const { withSender, isPublicNumber, publicNumberConfigured, currentSenderId } = await import("./whatsapp.ts");
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -25,10 +25,10 @@ Deno.test("isPublicNumber: רק המזהה הציבורי, ורק כשהסוד �
 });
 
 Deno.test("withSender: ברירת המחדל בלי הקשר, ובמזהה של הסוכנים", async () => {
-  assert(_senderIdForTests() === "111", "בלי הקשר - המספר של הסוכנים");
-  const inside = await withSender("111", async () => _senderIdForTests());
+  assert(currentSenderId() === "111", "בלי הקשר - המספר של הסוכנים");
+  const inside = await withSender("111", async () => currentSenderId());
   assert(inside === "111", "המזהה של הסוכנים אינו פותח הקשר");
-  const empty = await withSender("", async () => _senderIdForTests());
+  const empty = await withSender("", async () => currentSenderId());
   assert(empty === "111", "מזהה ריק אינו פותח הקשר");
 });
 
@@ -44,20 +44,20 @@ Deno.test("withSender: ההקשר נשמר אחרי await ו-setTimeout, ולא 
   const seen = await Promise.all([
     withSender("222", async () => {
       await sleep(20);
-      const a = _senderIdForTests();
-      const b = await paced(async () => { await sleep(5); return _senderIdForTests(); });
+      const a = currentSenderId();
+      const b = await paced(async () => { await sleep(5); return currentSenderId(); });
       return `${a},${b}`;
     }),
     withSender("333", async () => {
       await sleep(5);
-      const a = _senderIdForTests();
-      const b = await paced(async () => _senderIdForTests());
+      const a = currentSenderId();
+      const b = await paced(async () => currentSenderId());
       return `${a},${b}`;
     }),
-    (async () => { await sleep(10); return _senderIdForTests(); })(),
+    (async () => { await sleep(10); return currentSenderId(); })(),
   ]);
   assert(seen[0] === "222,222", `הריצה הציבורית איבדה הקשר: ${seen[0]}`);
   assert(seen[1] === "333,333", `ריצה שנייה איבדה הקשר או קיבלה את הראשונה: ${seen[1]}`);
   assert(seen[2] === "111", `ריצה בלי הקשר קיבלה הקשר זר: ${seen[2]}`);
-  assert(_senderIdForTests() === "111", "ההקשר דלף החוצה אחרי הריצות");
+  assert(currentSenderId() === "111", "ההקשר דלף החוצה אחרי הריצות");
 });
