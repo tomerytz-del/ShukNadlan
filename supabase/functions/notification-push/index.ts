@@ -10,6 +10,7 @@ import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts"
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
+import { shareDigestItems, type ShareDigestLine } from "../_shared/share-digest.ts";
 import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import {
   absoluteUrl,
@@ -157,6 +158,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   // "שותפו איתי" הוא לשונית ב"נכסים" מאז שלב 5 (docs/properties-unified.md);
   // נכס מסוים עדיין נפתח ב-goto=accSharedWithMe (itemPath), כינוי ב-CRM
   system: "accProperties",
+  share_digest: "accProperties",
   // מייל שהועבר ולא טופל. הרשימה, לא לקוח/ה אחד/ת.
   email_intake: "accClients",
   platform_signup: "accSubscriptions",
@@ -321,6 +323,34 @@ const PRIORITY_TYPES = ["agenda_reminder", "showcase_meeting", "new_lead"];
 // לבד (notification_push_is_ambient), וכאן הם מתקפלים לשורה אחת לכל סוג - ב-
 // 11.10.2026 נכתבו 678 התראות "נכס חדש שותף איתך" ביום אחד.
 const isShare = (it: Item) => it.type === "system" && it.property_id != null && it.property_mine === false;
+
+/** כשל בקריאת שורות הסיכום. לא שולחים את מציין המקום, ומסמנים failed כדי שהסבב הבא ינסה שוב פעם אחת. */
+class ShareDigestLinesError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ShareDigestLinesError";
+  }
+}
+
+/** סיכום שיתופים: שורה לכל נכס, לפני arrange, כדי שלא יתקפל ל"N נכסים". */
+async function expandShareDigest(sb: { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message?: string; code?: string } | null }> }, logId: string, items: Item[]): Promise<Item[]> {
+  if (!items.some((it) => it.type === "share_digest")) return items;
+  const { data, error } = await sb.rpc("share_digest_lines_for_log", { p_log_id: logId });
+  if (error) {
+    console.error("share_digest_lines_for_log failed", logId, error.message || error.code || "");
+    throw new ShareDigestLinesError(error.message || "share_digest_lines_for_log failed");
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    console.error("share_digest_lines_for_log empty", logId);
+    throw new ShareDigestLinesError("share_digest_lines_for_log returned no lines");
+  }
+  const lines = shareDigestItems(data as ShareDigestLine[]);
+  if (!lines.length) {
+    console.error("share_digest_lines_for_log unusable", logId);
+    throw new ShareDigestLinesError("share_digest lines had no property");
+  }
+  return items.filter((it) => it.type !== "share_digest").concat(lines);
+}
 const isSignup = (it: Item) => it.type === "platform_signup";
 
 function notifIds(it: Item): string[] {
@@ -1029,11 +1059,52 @@ Deno.serve(async (req: Request) => {
       skipped++;
       return;
     }
-    let items = collapseForSend(withLeadLines(arrange(((row.items || []) as Item[]).map((it) =>
+    const base = ((row.items || []) as Item[]).map((it) =>
       it.type === "new_lead" && it.lead_id && leadInfo.has(it.lead_id)
         ? { ...it, lead: leadInfo.get(it.lead_id) }
         : it
-    ))), undefined, digest.guardOn);
+    );
+    let expanded: Item[];
+    try {
+      expanded = await expandShareDigest(sb, row.log_id, base);
+    } catch (err) {
+      if (!(err instanceof ShareDigestLinesError)) throw err;
+      // לא נשלח כלום. failed לא חוסם, אז הסבב הבא תופס את אותה התראה פעם אחת.
+      const msg = err.message.slice(0, 500);
+      console.error("share digest lines failed, retry next cycle", row.log_id, msg);
+      const { error: markErr } = await sb.rpc("notification_push_mark", {
+        p_log_id: row.log_id,
+        p_status: "failed",
+        p_error: msg,
+      });
+      if (markErr) console.error("mark failed", row.log_id, markErr.message);
+      failed++;
+      return;
+    }
+    // מחוץ לחלון ה-claim מסמן template. תוכן "שותף איתך" אינו יוצא כתבנית.
+    if (row.channel_mode === "template" && expanded.some((it) => it.type === "share_digest")) {
+      const rest = expanded.filter((it) => it.type !== "share_digest");
+      if (rest.length === 0) {
+        console.error("share digest bell only, never a utility template", row.log_id);
+        const { error: skipErr } = await sb.from("notification_push_log").update({
+          whatsapp_status: "skipped",
+          last_error: "share_digest bell only; never a utility template",
+        }).eq("id", row.log_id);
+        if (skipErr) {
+          console.error("skip share digest template failed", row.log_id, skipErr.message);
+          const { error: markErr } = await sb.rpc("notification_push_mark", {
+            p_log_id: row.log_id,
+            p_status: "failed",
+            p_error: "share_digest bell only; never a utility template",
+          });
+          if (markErr) console.error("mark failed", row.log_id, markErr.message);
+        }
+        failed++;
+        return;
+      }
+      expanded = rest;
+    }
+    let items = collapseForSend(withLeadLines(arrange(expanded)), undefined, digest.guardOn);
     if (items.some((it) => it.type === "agenda_reminder" && !it.meeting_id && !it.showcase_id)) {
       const showcaseIds = await reminderShowcaseIds(sb, row.log_id);
       if (showcaseIds == null) {

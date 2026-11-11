@@ -48,17 +48,55 @@ Content-Type: application/json
 | --- | --- | --- |
 | `property`, נכס פעיל | `property-inquiry-intake` - לסוכן/ת שמפרסם/ת | `leads.source` = הערוץ, `source_detail` = "פייסבוק · הודעה" |
 | `property`, נכס לא פעיל או לא נמצא | `saved-search-intake` עם `lead_only`, והקריטריונים מהנכס (עיר, סוג, חדרים, עסקה) | `saved_searches.source` |
-| `buyer` | `saved-search-intake` - `lead_only` אלא אם `subscribe_alerts` | `saved_searches.source` |
+| `buyer` | `saved-search-intake` - `lead_only` אלא אם `subscribe_alerts`. כש-`social_buyer_open_demand_enabled` הוא 1 ויומן התקרה קיים, הטריגר שאחרי ה-insert מעביר למדף הביקוש הפתוח (למטה). רק חיפוש חדש | `saved_searches.source` |
 | `owner` | `owner-lead-intake` - הרוטציה הרגילה | `leads.source`, `source_detail` |
-| `mortgage` | `mortgage-lead-intake` - מדף היועצים | `mortgage_leads.source` |
+| `mortgage` | `mortgage-lead-intake` - מדף היועצים. כש-`mortgage_social_route_enabled` הוא 1, ליד חדש מהרשתות עובר בחינם ליועץ/ת המשכנתאות (למטה) | `mortgage_leads.source` |
 
 כל ניתוב נרשם ב-`lead_routing_log` בפונקציית הקליטה עצמה (‏`docs/lead-routing.md`),
 עם המקור החברתי. ‏`social_leads` שומרת לכל `zernio_id` מה נשלח, לאן, ומה חזר
 (‏`target`, ‏`error`) - קריאה למנהל/ת הפלטפורמה בלבד.
 
 **נכס שירד מהאוויר:** הפונה עדיין מחפש/ת נכס כזה, ולכן הוא/היא נכנס/ת למגירת
-"מחפשי דירה" בחנות. פנייה על נכס היא בקשה שמתווך/ת יחזור/תחזור - כמו הטופס
+"מחפשי דירה" בחנות. פנייה על נכס היא בקשה שיועץ/ת נדל״ן יחזור/תחזור - כמו הטופס
 בדף הנכס - ולכן ההסכמה נלקחת ממנה, אלא אם גבריאלה שלחה `consent_agent_contact: false`.
+זה `kind=property`, והטריגר של הביקוש הפתוח לא נוגע בו.
+
+## מחפש/ת לביקוש הפתוח
+
+`social_buyer_open_demand_enabled` דלוק (1) ב-`20271111182000`. הטריגר
+`social_buyer_to_open_demand` רץ רק אחרי insert ל-`saved_searches`, ורק אם
+יומן `open_demand_notify_log` קיים. חיפוש שכבר נשמר לא עובר, ואין מילוי לאחור.
+`open_demand_notify_cap_enabled` נשאר 0: הדלקתו הייתה מחליפה את מסלול ההתאמה
+של כל ביקוש פתוח. מחפש/ת מהרשתות הולך/ת בעצמו/ה עד `open_demand_notify_cap`
+(8). כל עוד `whatsapp_template_cap_on()` מחזירה false (היום
+`notif_digest_enabled` הוא 0), ההתראה נשארת בפעמון (`suppress_push`), בלי
+וואטסאפ.
+
+ההתראה אומרת, בלי שם ובלי טלפון:
+
+`חינם. הסוכן/ת הראשון/ה שלוחץ/ת "אני פונה" יקבל/תקבל קישור לפוסט.`
+
+או, כשאין פוסט:
+
+`חינם. הסוכן/ת הראשון/ה שלוחץ/ת "אני פונה" יקבל/תקבל את פרטי הקשר.`
+
+`social_buyer_handoff_enabled` נשאר 0: "אני פונה" על הודעה פרטית פותח ליד,
+ובלי שורה בתור לגבריאלה של מטא. אין שליחה לפונה מהריפו.
+
+## ליד משכנתא מהרשתות, בחינם
+
+`mortgage_social_route_enabled` דלוק (1) ב-`20271111180000`. הטריגר
+`mortgage_social_route` רץ אחרי insert ל-`mortgage_leads` בלבד. ליד שכבר
+על המדף לא מנותב ולא שולח התראה. היועץ/ת עם `is_mortgage_advisor` מקבל/ת
+את הליד בסכום 0 (`payment_method = social_route`), בלי חיוב ארנק.
+
+ההתראה אחת, `new_lead`, בלי שם ובלי טלפון של הפונה:
+
+כותרת: `ליד משכנתא חדש מהרשתות`
+
+גוף: `ליד ייעוץ משכנתאות הגיע אליך בלי חיוב. הפרטים בכרטיס הליד.`
+
+מסלול שאינו Professional או Elite נשאר בפעמון (`suppress_push`).
 
 ## מי רשאי/ת לסמן מקור חברתי
 
