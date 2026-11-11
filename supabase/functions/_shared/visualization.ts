@@ -155,7 +155,34 @@ export function sourceStillFits(
 ): boolean {
   if (!sourceUrl) return false;
   const rooms = targetRooms(target, mode);
-  return tags.some((t) => t.image_url === sourceUrl && rooms.includes(t.room_type as string));
+  if (tags.some((t) => t.image_url === sourceUrl && rooms.includes(t.room_type as string))) return true;
+  // הדמיה שנוצרה מנפילת הסלון (ראו livingRoomFallback) תקפה כל עוד הנפילה עדיין חלה - כלומר
+  // עדיין אין צילום שסווג סלון, והצילום עדיין "other" בנכס. אחרת כל ביקור היה החטאה בתשלום.
+  return target === "living_room" &&
+    !tags.some((t) => rooms.includes(t.room_type as string)) &&
+    tags.some((t) => t.image_url === sourceUrl && isLivingRoomFallback(t));
+}
+
+/**
+ * ‏viz-other-fallback (7.11.2026): נפילה לסלון כשאין אף צילום שסווג living_room.
+ *
+ * ‏classify-property-images מסווג חלק ניכר מצילומי הפנים כ-other (‏177 מתוך ~1,400), ובדירות
+ * קטנות - שבהן הסלון, פינת האוכל והמטבח הפתוח הם חלל אחד - זה בדיוק הסלון. בלי נפילה הבקשה
+ * נגמרה ב-no_suitable_images, והגולש/ת ראה/תה "לא נמצאו תמונות מתאימות" אחרי לחיצה על כפתור
+ * שהוצע לו/ה (אירע ב"דירה 2 חדרים בשיבולים 9": ארבעה צילומים - other, other, bathroom, kitchen,
+ * להשכרה - כך שהסלון וחדר השינה ירדו שניהם, והמטבח לא מיוצר בהלבשת בית).
+ *
+ * חלל מרכזי לפני עזר, כמו בבחירה המסחרית. ‏other בתמונת חוץ - לעולם לא: הדמיית סלון על חזית
+ * היא תמונה שבורה ולא הדמיה פחות מוצלחת. הנפילה היא לסלון בלבד: חדר שינה ומטבח הם פרומפטים
+ * ספציפיים מדי (מיטה, ארונות) כדי להלביש אותם על חדר שאינו ידוע.
+ */
+function isLivingRoomFallback(t: PhotoTags): boolean {
+  return t.photo_type === "interior" && t.room_type === "other";
+}
+
+function livingRoomFallback(tags: Array<{ image_url: string } & PhotoTags>): string | undefined {
+  const pool = tags.filter(isLivingRoomFallback);
+  return (pool.find((t) => t.space_role === "main") ?? pool[0])?.image_url;
 }
 
 // ---------------------------------------------------------------------------
@@ -898,10 +925,13 @@ export async function ensureTagged(
           console.error(`סיווג נכשל ל-${row.image_url}: ${classifyErr}`);
           return;
         }
-        Object.assign(row, tags);
+        // ‏classified_at גם בזיכרון, לא רק במסד: all_classified ב-property-visualize קורא אותו
+        // מהשורות שמוחזרות כאן, ושורה שסווגה עכשיו אינה "ממתינה".
+        const classifiedAt = new Date().toISOString();
+        Object.assign(row, tags, { classified_at: classifiedAt });
         await supabase
           .from("property_image_tags")
-          .update({ ...tags, classified_at: new Date().toISOString(), model: VISION_MODEL })
+          .update({ ...tags, classified_at: classifiedAt, model: VISION_MODEL })
           .eq("id", row.id);
       })
     );
@@ -953,6 +983,7 @@ export function privateTargetsFor(propertyType: string | null, mode: RenderMode)
  * הדמיית חצר מוכרת גינה. בהלבשת בית ההעדפה מתהפכת — ראו STAGING_TARGET_ROOMS.
  * כשאין תמונה מתאימה המטרה פשוט יורדת — עדיף שתי הדמיות אמיתיות מאשר שלוש
  * כשאחת מהן נגזרה מתמונה של חדר אחר.
+ * היוצא מן הכלל הוא הסלון, שנופל לצילום פנים שסווג other - ראו livingRoomFallback.
  */
 export function pickPrivateSources(
   tags: Array<{ image_url: string } & PhotoTags>,
@@ -969,6 +1000,10 @@ export function pickPrivateSources(
         break;
       }
     }
+  }
+  if (targets.includes("living_room") && !out.living_room) {
+    const fallback = livingRoomFallback(tags);
+    if (fallback) out.living_room = fallback;
   }
   return out;
 }

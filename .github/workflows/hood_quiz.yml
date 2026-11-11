@@ -1,0 +1,23 @@
+name: איזו שכונה מתאימה לי - הדירוג מול נתונים שחושבו ביד
+
+# הדירוג (assets/hood-quiz-core.js) מציג רשימה "הגיונית" גם כשהוא סופר נכס מסחרי, מגרש
+# או "4 חדרים" שמפספס 4.5 - ולכן כל כלל נבדק מול נתונים קטנים. בלי paths בכוונה:
+# בדיקה נדרשת שמדולגת חוסמת מיזוג, והבדיקה זולה (בלי התקנה).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: דירוג השכונות
+        run: node scripts/hood_quiz_test.cjs

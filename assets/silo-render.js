@@ -945,8 +945,12 @@
       strip = '<ul class="land-logos">';
       for (var j = 0; j < logos.length && j < 12; j++) {
         var src = renderUrl(logos[j].logo_url, 144, 144, "contain") || logos[j].logo_url;
-        strip += '<li><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(logos[j].name || "משרד תיווך")
-          + '" width="72" height="72" loading="lazy" decoding="async"></li>';
+        var img = '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(logos[j].name || "משרד תיווך")
+          + '" width="72" height="72" loading="lazy" decoding="async">';
+        var slug = logos[j].slug;
+        strip += '<li>' + (slug
+          ? '<a href="/agency?slug=' + encodeURIComponent(slug) + '">' + img + '</a>'
+          : img) + '</li>';
       }
       strip += "</ul>";
     }
@@ -1151,6 +1155,9 @@
     var description = words + (how ? " " + how : "") + " בעפולה, ממשרדי התיווך באזור.";
     var name = "נדל״ן מסחרי בעפולה - " + words;
     copy.h1 = name;
+    /* ‏ה-<title> נשאר קצר: עם רשימת הסוגים הוא הגיע ל-79 תווים ונחתך
+       בתוצאה (ביקורת 5.11.2026). ה-H1 שומר את הרשימה. */
+    copy.title = page.h1;
     copy.description = description;
     copy.intro = description;
     copy.benefit = description;
@@ -1323,6 +1330,6 @@
     allHref: allHref,
     jsonLd: jsonLd,
     scripts: scripts,
-    fullTitle: function (page) { return page.h1 + " | " + SITE_NAME; },
+    fullTitle: function (page) { return (page.title || page.h1) + " | " + SITE_NAME; },
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

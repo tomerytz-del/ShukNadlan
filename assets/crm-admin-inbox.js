@@ -22,6 +22,8 @@ const ADMIN_INBOX_KINDS = {
   coach_gap:      { label:'חסר למנטור',     acc:'accCoachGaps' },
   // טיוטת AI לדף שכונה - האישור ב"SEO ושכונות" (assets/crm-hood-drafts.js)
   hood_draft:     { label:'תיאור שכונה',    acc:'accNeighborhoods' },
+  // דיווח על ליד לא תקין שעבר את תקרת הניצול - ההחלטה ב"דיווחי לידים" (docs/lead-refunds.md)
+  lead_report:    { label:'דיווח על ליד',   acc:'accLeadReports' },
 };
 
 let adminInboxKind = null;      // הצ'יפ הנבחר; null = הכל
@@ -55,6 +57,10 @@ function inboxRowText(row){
   }
   if (row.kind === 'license_appeal'){
     return { title: m.name || 'פונה', sub: m.license ? 'רישיון ' + m.license : '' };
+  }
+  if (row.kind === 'lead_report'){
+    const reasons = typeof LEAD_REPORT_REASON_LABEL !== 'undefined' ? LEAD_REPORT_REASON_LABEL : {};
+    return { title: m.agent || 'סוכן/ת', sub: [reasons[m.reason] || '', m.lead_type === 'store' ? 'ליד מהחנות' : '', m.city].filter(Boolean).join(' · ') };
   }
   if (row.kind === 'hood_draft'){
     return { title: m.name || 'שכונה', sub: [m.city, 'טיוטת AI לאישור'].filter(Boolean).join(' · ') };

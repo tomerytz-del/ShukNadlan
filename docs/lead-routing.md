@@ -79,9 +79,35 @@
 
 | קהל | מי נספר |
 | --- | --- |
-| `agent_owner` | סוכני Mid/Premium פעילים עם העדפות לידים פעילות — בדיוק התנאים של `findCandidateAgentIds` |
+| `agent_owner` | סוכני Mid/Premium פעילים עם העדפות לידים פעילות — השכבה הראשונה של `findCandidateAgentIds`; מ-9.11.2026 הפונקציה נופלת ל-`free` כשאין אף מנוי/ה מתאים/ה, והקהל הזה אינו נספר כאן |
 | `agent_buyer` | כל סוכן/ת פעיל/ה (מדף מחפשי הדירה פתוח לכל `authenticated`) |
-| `mortgage_advisor` | רק חשבונות עם `is_mortgage_advisor` |
+| `mortgage_advisor` | חשבונות CRM עם `is_mortgage_advisor`, ומ-10.11.2026 גם חשבונות בעלי מקצוע (`professional_accounts`, `kind = 'mortgage_advisor'`, `shelf_enabled`) |
+
+### מדפי הלידים ממוקדים למי שביקש (7.11.2026)
+
+**ליד מוצג רק לקהל שלו.** ליד של יועץ/ת משכנתאות אינו מוצג למתווכים, וליד של עורך/ת דין
+(המדף הבא) לא יוצג להם ולא ליועצי משכנתאות. ההפרדה נעשית **ב-view**, לא ב-JS:
+‏`mortgage_leads_public` היה פתוח ל-`authenticated` כולו וה-CRM הסתיר את המגירה, כך
+שכל סוכן/ת שקרא/ה ל-REST ישירות קיבל/ה את הלידים (‏1 ליד בפרודקשן ביום התיקון). מסך
+שמסתיר מגירה אינו הרשאה.
+
+| מדף | מי רואה | איך נאכף |
+| --- | --- | --- |
+| `rss_leads_public`, `saved_search_leads_public` | כל סוכן/ת תיווך | בכוונה (`BROKER_SHELVES`) |
+| `mortgage_leads_public` | יועץ/ת משכנתאות פעיל/ה (ב-CRM, או חשבון בעל מקצוע מאושר), או מנהל/ת פלטפורמה | `current_is_mortgage_advisor()` בתוך ה-view (`20271107190000`, הורחב ב-`20271110130000`) |
+| `lawyer_leads_public` | חשבון עו"ד מאושר (`professional_accounts.shelf_enabled`) בעיר של הליד, או מנהל/ת פלטפורמה | `current_is_lawyer()` + `current_professional_works_city()` בתוך ה-view (`20271108090000`). `docs/lawyer-leads.md`, `docs/professional-accounts.md` |
+| `project_leads_shelf` | יזם רשום ופעיל | `exists` על `developers` בתוך ה-view (כבר מ-`20260921090000`) |
+
+**ליד עו"ד נרשם ב-`lead_routing_log` ברגע האימות** (`lead_kind = 'lawyer'`, `lead_table = 'lawyer_leads'`): `shelf` כשיש עו"ד מאושר בעיר או באותו שוק,
+ו-`unrouted` עם `reason = 'no_lawyer_in_city'` כשאין, שמעיר את `lead_unrouted` למנהל/ת הפלטפורמה. הרישום נעשה **במסד** (`lawyer_lead_wa_verify`) ולא
+ב-Edge, ולכן המייל למנהל/ת (שהפונקציות הקולטות האחרות שולחות) אינו יוצא; הפעמון מכסה. `docs/lawyer-leads.md`, "הקליטה".
+
+
+‏`scripts/check_shelf_audience.py` (‏workflow `shelf_audience.yml`, והוא נבדק בעצמו ב-`check_shelf_audience_test.py`) בודק שההגדרה **האחרונה**
+של כל מדף מקצועי מחברת את שומר הקהל שלו ב-**AND** לתנאי ה-where (לא בהערה, לא ב-OR, לא בתת-שאילתה),  ו**מדף חדש (`*_leads_public`, `*_leads_shelf`, `*_shelf`) חייב להצהיר למי
+הוא מיועד** - ב-`PROFESSIONAL_SHELVES` עם פונקציית קהל, או ב-`BROKER_SHELVES`. מדף עורכי הדין
+נוסף עם `current_is_lawyer()` ו-`professional_accounts.shelf_enabled`, שרק מנהל/ת הפלטפורמה קובע/ת
+(`docs/professional-accounts.md`). הרכישה כבר הייתה חסומה (`purchase_mortgage_lead` בודקת את הדגל).
 
 ### ההתראה
 

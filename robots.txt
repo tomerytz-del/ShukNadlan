@@ -11,6 +11,8 @@ Disallow: /developer-crm
 Disallow: /developer-crm.html
 Disallow: /professional-manage
 Disallow: /professional-manage.html
+Disallow: /professional-crm
+Disallow: /professional-crm.html
 Disallow: /csm
 Disallow: /csm.html
 
@@ -46,6 +48,14 @@ Disallow: /plan.html
 # דוח CMA מגבריאלה - קישור עם טוקן, גם ללקוח/ה (docs/cma.md)
 Disallow: /cma
 Disallow: /cma.html
+# דוח שבועי לבעל הנכס - קישור עם טוקן, נשלח על ידי הסוכן/ת (docs/owner-report.md)
+Disallow: /owner-report
+Disallow: /owner-report.html
+
+# אזור הלמידה של קורס ההכנה למבחן המתווכים - תוכן בתשלום מאחורי כניסה
+# (docs/exam-course.md). דף המכירה /course נשאר ציבורי.
+Disallow: /learn
+Disallow: /learn.html
 
 # כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
 Disallow: /neighborhood-boundary

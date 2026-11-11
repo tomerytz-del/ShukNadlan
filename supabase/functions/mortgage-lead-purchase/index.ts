@@ -9,11 +9,30 @@ import { mfaGate } from "../_shared/mfa-gate.ts";
 // והיועצ/ת הפועל/ת נגזר/ת מה-JWT המאומת בלבד — לעולם לא מה-body. פונקציית
 // ה-DB ‏purchase_mortgage_lead נעולה ל-service_role, כך שאין דרך לעקוף את
 // הנתיב הזה ולחייב חשבון אחר או לקבל את פרטי הפונה בלי לשלם.
+//
+// שני סוגי קונים (מ-10.11.2026), לפי מי שמחובר/ת:
+//   • agency_members עם is_mortgage_advisor (יועץ/ת שנרשם/ה ל-CRM) → purchase_mortgage_lead
+//   • professional_accounts בתחום mortgage_advisor עם shelf_enabled (יועץ/ת שנרשם/ה
+//     בכרטיסייה ופתח/ה חשבון, professional-crm) → purchase_mortgage_lead_professional
+// מי שמחזיק/ה בשניהם קונה דרך ה-CRM (הסדר כאן). הארנקים נפרדים.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// קודי השגיאה של שתי פונקציות ה-DB, במפה אחת
+const STATUS_BY_ERROR: Record<string, number> = {
+  lead_not_found: 404,
+  lead_not_available: 410,
+  lead_already_sold: 409,
+  agent_not_found: 403,
+  account_not_found: 403,
+  account_inactive: 403,
+  not_a_mortgage_advisor: 403,
+  shelf_not_approved: 403,
+  insufficient_balance: 402,
+};
 
 function corsHeaders() {
   return {
@@ -56,44 +75,54 @@ Deno.serve(async (req: Request) => {
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
 
-  // שלב 2: מיפוי user_id -> agency_members.id
-  const { data: agentRow, error: agentErr } = await serviceClient
-    .from("agency_members")
-    .select("id, active, is_mortgage_advisor")
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
+  // שלב 2: מי הקונה. חברות במשרד שהיא יועץ/ת פעיל/ה קודמת (הסדר שבראש הקובץ); אחרת
+  // חשבון בעל מקצוע מאושר. רק כשאף אחד מהשניים אינו קונה כשיר חוזרת השגיאה של מה שנמצא:
+  // מי שיש לו/ה חברות ישנה ולא פעילה **וגם** חשבון בעל מקצוע מאושר קונה דרך החשבון, כי
+  // המדף (current_is_mortgage_advisor) כבר מוצג לו/ה דרכו.
+  const buyer = await resolveBuyer(serviceClient, userData.user.id, String(lead_id));
+  if ("error" in buyer) return json({ error: buyer.error, detail: buyer.detail }, 403);
 
-  if (agentErr || !agentRow) {
-    return json({ error: "no_matching_agent_profile", detail: "המשתמש מחובר אך אין לו פרופיל משויך" }, 403);
-  }
-  if (!agentRow.active) {
-    return json({ error: "agent_inactive" }, 403);
-  }
-  // הבדיקה חוזרת גם ב-purchase_mortgage_lead (שם היא הקובעת, בתוך הטרנזקציה).
-  // כאן היא רק כדי להחזיר 403 מוקדם בלי לגעת בליד.
-  if (!agentRow.is_mortgage_advisor) {
-    return json({ error: "not_a_mortgage_advisor" }, 403);
-  }
-
-  // שלב 3: הרכישה עצמה — טרנזקציה אחת ב-DB (ניכוי, סימון כנמכר, יומן חיובים)
-  const { data: result, error: rpcErr } = await serviceClient.rpc("purchase_mortgage_lead", {
-    p_lead_id: lead_id,
-    p_agent_id: agentRow.id,
-  });
-
+  // שלב 3: הרכישה עצמה — טרנזקציה אחת ב-DB (ניכוי, סימון כנמכר, יומן חיובים).
+  // הבדיקות של שלב 2 חוזרות בפונקציית ה-DB, ושם הן הקובעות; כאן הן רק 403 מוקדם בלי לגעת בליד.
+  const { data: result, error: rpcErr } = await serviceClient.rpc(buyer.rpc, buyer.args);
   if (rpcErr) return json({ error: "db_error", detail: rpcErr.message }, 500);
-
-  const statusMap: Record<string, number> = {
-    lead_not_found: 404,
-    lead_not_available: 410,
-    lead_already_sold: 409,
-    agent_not_found: 403,
-    not_a_mortgage_advisor: 403,
-    insufficient_balance: 402,
-  };
-
-  if (result?.error) {
-    return json(result, statusMap[result.error] ?? 400);
-  }
+  if (result?.error) return json(result, STATUS_BY_ERROR[result.error] ?? 400);
   return json(result, 200);
 });
+
+type Buyer =
+  | { rpc: "purchase_mortgage_lead"; args: { p_lead_id: string; p_agent_id: string } }
+  | { rpc: "purchase_mortgage_lead_professional"; args: { p_lead_id: string; p_account_id: string } }
+  | { error: string; detail?: string };
+
+async function resolveBuyer(serviceClient: any, userId: string, leadId: string): Promise<Buyer> {
+  const { data: agentRow } = await serviceClient
+    .from("agency_members")
+    .select("id, active, is_mortgage_advisor")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (agentRow?.active && agentRow.is_mortgage_advisor) {
+    return { rpc: "purchase_mortgage_lead", args: { p_lead_id: leadId, p_agent_id: agentRow.id } };
+  }
+
+  const { data: account } = await serviceClient
+    .from("professional_accounts")
+    .select("id, active, kind, shelf_enabled")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (account?.active && account.kind === "mortgage_advisor" && account.shelf_enabled) {
+    return { rpc: "purchase_mortgage_lead_professional", args: { p_lead_id: leadId, p_account_id: account.id } };
+  }
+
+  // אף אחד מהשניים אינו קונה כשיר: השגיאה של מה שכן קיים, כדי שהמסך יגיד למה
+  if (agentRow) {
+    if (!agentRow.active) return { error: "agent_inactive" };
+    return { error: "not_a_mortgage_advisor" };
+  }
+  if (account) {
+    if (!account.active) return { error: "account_inactive" };
+    if (account.kind !== "mortgage_advisor") return { error: "not_a_mortgage_advisor" };
+    return { error: "shelf_not_approved" };
+  }
+  return { error: "no_matching_agent_profile", detail: "המשתמש מחובר אך אין לו פרופיל משויך" };
+}

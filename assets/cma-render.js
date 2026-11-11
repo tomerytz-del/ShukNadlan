@@ -132,7 +132,8 @@ function cmaCoverageBlock(cov){
   const house = cov.subject_kind === 'house'
     && (cov.status === 'none' || cov.status === 'insufficient')
     ? `<div class="d">בית פרטי מושווה לבתים פרטיים בלבד, ולא לדירות - המחיר למ"ר של בית, עם הקרקע שלו, אינו דומה לזה של דירה. `
-      + `במאגר העסקאות יש מעט מאוד מכירות של בתים, ולכן גם ברדיוס של 4.5 ק"מ לא נמצאו די בתים להשוואה.</div>` : '';
+      + `רשות המיסים רושמת כמעט כל בית כ"דירה", ולכן נספרים גם בתים שזוהו לפי החלקה (עסקה בלי קומה, היחידה בחלקה שלה) - `
+      + `ועדיין, גם ברדיוס של 4.5 ק"מ לא נמצאו די בתים להשוואה.</div>` : '';
   return `<div class="cma-gap">
       <div class="t">${esc(x.t)}</div>
       <div class="d">${esc(x.d)}</div>${commercial}${house}
@@ -192,6 +193,16 @@ function cmaSampleNote(cov, radiusUsed){
   if (kindFallback){
     const base = cmaSampleNote({ ...cov, subject_kind: null }, radiusUsed);
     return kindFallback + base;
+  }
+
+  /* בית צמוד קרקע (20271105090000): רשות המיסים רושמת כמעט כל בית כ"דירה",
+     ולכן בתים מזוהים גם לפי החלקה - עסקה בלי קומה, היחידה בחלקה שלה. זה
+     קירוב, והדוח אומר אותו לפני השורה על החדרים. */
+  const byParcel = cov.subject_kind === 'house' ? Number(cov.houses_by_parcel) || 0 : 0;
+  if (byParcel > 0){
+    const houseNote = `<div class="cma-note">${esc(byParcel)} מהבתים בהשוואה רשומים ברשות המיסים כ"דירה", `
+      + `וזוהו כבתים לפי החלקה: עסקה בלי קומה, שהיא היחידה שנרשמה בחלקה שלה. זה קירוב.</div>`;
+    return houseNote + cmaSampleNote({ ...cov, houses_by_parcel: 0 }, radiusUsed);
   }
 
   if (cov.rooms_band_reason === 'exact'){
@@ -335,6 +346,21 @@ function cmaGaugeCard({ title, value, valueText, mode, caption }){
     </figure>`;
 }
 
+/* חברה יזמית, רק כשהמסד החזיר אותה. הניסוח זהה ל-developerVerificationPhrase. */
+function cmaDeveloperLine(s){
+  if (!s || !s.developer_company) return '';
+  const partners = Array.isArray(s.developer_partners) && s.developer_partners.length
+    ? ' (שותפים: ' + esc(s.developer_partners.join(', ')) + ')' : '';
+  const source = s.developer_source_label ? 'מקור: ' + esc(s.developer_source_label) : '';
+  const verify = s.developer_verification === 'verified'
+    ? 'הנתון אומת'
+    : s.developer_verification === 'conflict'
+      ? 'יש סתירה בין מקורות, והשם לא הוחלף'
+      : 'הנתון לא אומת';
+  return '<div class="cma-note">חברה יזמית: <strong>' + esc(s.developer_company) + '</strong>'
+    + partners + (source ? '. ' + source : '') + '. ' + esc(verify) + '.</div>';
+}
+
 function renderCmaReport(r, brand){
   const s   = r.subject || {};
   const st  = r.stats || {};
@@ -438,7 +464,9 @@ function renderCmaReport(r, brand){
      טבלה של 8 שורות מתחת לממוצע של 180 נקראת אחרת כצירוף מקרים. */
   const compRows = comps.map(c => `<tr>
       <td class="cma-c-rank">${esc(c.similarity_rank ?? '')}</td>
-      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}${c.rooms != null ? ' · ' + esc(String(Number(c.rooms))) + ' חד׳' : ''}${c.same_building
+      <td>${c.kind === 'house_parcel'
+        ? `בית <span class="cma-basis" title="רשום ברשות המיסים כ&quot;דירה&quot;. עסקה בלי קומה, היחידה בחלקה שלה">לפי החלקה</span>${c.plot_sqm ? ' · מגרש ' + esc(String(Number(c.plot_sqm))) + ' מ״ר' : ''}`
+        : esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}${c.rooms != null ? ' · ' + esc(String(Number(c.rooms))) + ' חד׳' : ''}${c.same_building
         ? ' <span class="cma-basis is-same" title="אותו גוש וחלקה כמו הנכס - אותו בניין, ולכן אותו גיל ורמת בנייה">באותו בניין</span>' : ''}</td>
       <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
       <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
@@ -659,6 +687,10 @@ function renderCmaReport(r, brand){
     cov.band_dimension === 'floor' && cov.subject_floor_group
       ? ['קומה', ({ ground:'קרקע', upper:'עליונה', below:'מרתף' })[cov.subject_floor_group] || '-'] : null,
     s.size_sqm ? ['שטח', `${esc(s.size_sqm)} מ״ר`] : null,
+    /* בית: המגרש (מהחלקה, או ממה שהסוכן/ת מסר/ה), מול חציון המגרשים בהשוואה */
+    r.house_plots && r.house_plots.subject_plot_sqm
+      ? ['מגרש', `${esc(r.house_plots.subject_plot_sqm)} מ״ר`
+          + (r.house_plots.median_plot_sqm ? ` (חציון בהשוואה: ${esc(r.house_plots.median_plot_sqm)})` : '')] : null,
     /* בדוח לכתובת (cma_report_address) המחיר המבוקש אינו חובה */
     s.price || s.source !== 'address' ? ['מחיר מבוקש', shekel(s.price)] : null,
     s.price_per_sqm ? ['למ״ר', shekel(s.price_per_sqm)] : null,
@@ -669,9 +701,20 @@ function renderCmaReport(r, brand){
      מאות מטרים - הדוח אומר את זה ולא מציג אותו כמדויק. */
   const LOC_NOTE = {
     street_nearest: `המרחקים נמדדו ממספר ${esc(s.nearest_house_number || '')} באותו רחוב, הכתובת עצמה לא מוקמה בדיוק.`,
-    street: 'לא צוין מספר בית, ולכן המרחקים נמדדו ממרכז הרחוב.',
+    street: 'המרחקים נמדדו ממרכז העסקאות ברחוב, לא מהבניין עצמו.',
   };
-  const locNote = s.source === 'address' ? (LOC_NOTE[s.location_precision] || '') : '';
+  /* נכס במערכת עם פין משוער (location_precision של properties, 20271110120000):
+     על הרחוב, באזור תעשייה או על חלקה - המרחקים בערך, והדוח אומר זאת. */
+  const PROP_LOC_NOTE = {
+    street: 'מיקום הנכס משוער לפי העסקאות ברחוב, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+    neighborhood: 'מיקום הנכס משוער בתוך השכונה, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+    city: 'מיקום הנכס משוער ברמת היישוב בלבד, ולכן המרחקים לבני ההשוואה הם בקירוב גס.',
+    zone: 'מיקום הנכס משוער בתוך האזור, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+    parcel: 'מיקום הנכס הוא מרכז החלקה, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+  };
+  const locNote = s.source === 'address'
+    ? (LOC_NOTE[s.location_precision] || '')
+    : (PROP_LOC_NOTE[s.location_precision] || '');
 
   document.getElementById('cmaBody').innerHTML = `
    <div class="cma-doc" style="${brandStyle}">
@@ -698,6 +741,7 @@ function renderCmaReport(r, brand){
     <section class="cma-hero">
       <h2>${esc(s.title)}</h2>
       <div class="cma-addr">${esc([s.address, s.city].filter(Boolean).join(', '))}</div>
+      ${cmaDeveloperLine(s)}
       ${locNote ? `<div class="cma-note" style="margin-bottom:10px">${locNote}</div>` : ''}
       <dl class="cma-chips">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
     </section>

@@ -113,6 +113,7 @@ PRIVATE = {
     "crm",
     "developer-crm",
     "professional-manage",
+    "professional-crm",
     # ‏אזור ההטמעה - צוות פנימי, כניסה עם Google (docs/csm-adoption.md)
     "csm",
     "sign",
@@ -125,6 +126,10 @@ PRIVATE = {
     "plan",
     # ‏דוח ה-CMA מגבריאלה - קישור עם טוקן (docs/cma.md, "הקישור לדוח")
     "cma",
+    # דוח שבועי לבעל הנכס - קישור עם טוקן (docs/owner-report.md)
+    "owner-report",
+    # ‏אזור הלמידה של קורס ההכנה - תוכן בתשלום מאחורי כניסה (docs/exam-course.md)
+    "learn",
     "neighborhood-boundary",
     "agreement",
     # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,

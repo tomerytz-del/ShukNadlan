@@ -141,6 +141,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="checkbox" id="autoRenew" checked style="margin-top:3px;width:16px;height:16px;flex:none">
             <span>חידוש חודשי אוטומטי מהכרטיס. אפשר לבטל בכל עת באיזור הסוכנים, והמסלול נשאר עד סוף החודש ששולם.</span>
           </label>
+          <!-- הנחת משרד ב-Elite (20271111160000): מוצגת רק כשהמסד אומר שהיא חלה על הסוכן/ת הזה/זו.
+               הסכום עצמו מגיע מ-subscription_quote, אותה פונקציה שגובה. -->
+          <p id="subDiscount" style="display:none;margin:10px 0 0;color:var(--green,#1c8546);font-weight:600;line-height:1.5"></p>
         </div>
       </div>
       <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-weight:700">
@@ -298,7 +301,7 @@ const isWallet   = rawProduct === null || rawProduct === 'wallet' || isDevWallet
    החודש הראשון כאן, והחידוש החודשי מהכרטיס השמור. הסכום אינו נשלח מכאן:
    ‏subscription-purchase מחשב אותו במסד, והמחירים כאן הם תצוגה בלבד -
    ‏check_pricing.py מצליב אותם מול pricing_config. */
-const SUB_TIERS = { mid: { name: 'PROFESSIONAL', price: 399 }, premium: { name: 'Elite', price: 599 } };
+const SUB_TIERS = { mid: { name: 'PROFESSIONAL', price: 199 }, premium: { name: 'Elite', price: 399 } };
 const subTier    = params.get('tier');
 const isSub      = rawProduct === 'subscription' && Object.prototype.hasOwnProperty.call(SUB_TIERS, subTier);
 
@@ -429,6 +432,36 @@ function paintTotal(){
       ? ' לחודש (₪' + credit.toLocaleString('he-IL') + ' + מע״מ ₪' + vat.toLocaleString('he-IL') + ')'
       : ' (₪' + credit.toLocaleString('he-IL') + ' לארנק + מע״מ ₪' + vat.toLocaleString('he-IL') + ')');
 }
+/* ‏מחיר המנוי של הסוכן/ת המחובר/ת, כולל הנחת משרד ב-Elite. הרשימה ב-SUB_TIERS היא מחיר
+   המחירון, וזה מה שמוצג עד שהתשובה חוזרת (או אם נכשלה); מה שנגבה נקבע בשרת
+   (start_subscription_order) מאותה פונקציה בדיוק, כך שהתצוגה והחיוב אינם יכולים להיפרד. */
+let subQuoteP = Promise.resolve();   /* ההגשה ממתינה לו: לא משלמים לפני שהמחיר שנראה הוא מחיר השרת */
+function loadSubQuote(){
+  subQuoteP = fetchSubQuote();
+  return subQuoteP;
+}
+async function fetchSubQuote(){
+  try{
+    const { data, error } = await sb.rpc('subscription_quote', { p_tier: subTier });
+    if (error || !data || data.error || !(Number(data.monthly) > 0)) return;
+    SUB_TIERS[subTier].price = Number(data.monthly);
+    paintTotal();
+    const pct = Number(data.discount_pct) || 0;
+    if (pct > 0){
+      const note = document.getElementById('subDiscount');
+      note.textContent = 'הנחת משרד: ' + pct + '% על המנוי החודשי (מחיר מלא ₪' +
+        Number(data.list_monthly).toLocaleString('he-IL') + '), כי יש במשרד ' +
+        data.paying_elite + ' סוכנים ב-Elite.';
+      note.style.display = '';
+    }
+  }catch(_){ /* נשארים על מחיר המחירון; השרת גובה את הסכום הנכון */ }
+  /* לא הצלחנו לשאול: הסכום שנגבה הוא של השרת, כולל הנחת משרד אם יש. אומרים את זה במקום לשתוק. */
+  const note = document.getElementById('subDiscount');
+  if (!note.textContent){
+    note.textContent = 'ב-Elite ייתכנו הנחת משרד: הסכום הסופי מוצג בעמוד הסליקה ובחשבונית.';
+    note.style.display = '';
+  }
+}
 amountEl.addEventListener('change', paintTotal);
 if (isWallet || isSub) paintTotal();
 
@@ -485,6 +518,7 @@ let countryRestored = false;
     const { data: { session } } = await sb.auth.getSession();
     if (!session){ document.getElementById('guestNotice').style.display = ''; return; }
     signedIn = true;
+    if (isSub) loadSubQuote();
     setIfEmpty(emailEl, session.user.email || '');
     const { data: agent } = await sb.from('agency_members')
       .select('id, display_name, phone, is_platform_admin').eq('user_id', session.user.id).maybeSingle();
@@ -585,6 +619,7 @@ document.getElementById('testTopupBtn').addEventListener('click', async ()=>{
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!isWallet && !isSub) return;   /* הטופס מוסתר בלאו הכי; זו הרצועה השנייה */
+  if (isSub) await subQuoteP;        /* המחיר שנראה הוא מחיר השרת לפני שממשיכים */
   const first = firstEl.value.trim();
   const last  = lastEl.value.trim();
   const email = emailEl.value.trim();
@@ -920,6 +955,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -994,6 +1030,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
           <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
+          <a href="/terms#t27">פרטי בית העסק</a>
           <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>

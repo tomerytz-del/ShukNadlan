@@ -113,17 +113,44 @@ import "../../assets/agency-about.js";
 /* ‏עיר המשרד וכותרת הדף - אותו כלל ש-agency.js כותב אחרי הטעינה. */
 import "../../assets/markets.js";
 import "../../assets/agency-place.js";
+import "../../assets/specialties.js";
+import "../../assets/agency-public.js";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
+import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
+import { registry } from "./lib/markets.ts";
 import "../../assets/air-living.js";
 import "../../assets/listing-title.js";
 
 type ArticleBlock = { tag: "p" | "h2" | "blockquote" | "ul"; text?: string; items?: string[]; lead?: boolean };
 const shared = globalThis as unknown as {
-  ShukArticleBody: { parse: (text: string) => ArticleBlock[] };
+  ShukArticleBody: {
+    parse: (text: string) => ArticleBlock[];
+    html: (text: string) => string;
+  };
   ShukAgencyAbout: { paragraphs: (a: Record<string, unknown>) => string[] };
   ShukAgencyPlace?: {
     officeCity: (a: Record<string, unknown>) => string;
     title: (name: unknown, city: string) => string;
+    description: (opts: Record<string, unknown>) => string;
+  };
+  ShukAgencyPublic?: {
+    LISTING_LIMIT: number;
+    phoneOk: (phone: unknown) => boolean;
+    sortTeam: (members: Record<string, unknown>[]) => Record<string, unknown>[];
+    pickContact: (members: Record<string, unknown>[]) => Record<string, unknown> | null;
+    teamHtml: (members: Record<string, unknown>[], opts?: { agencyName?: string; pageUrl?: string }) => string;
+    listingsHtml: (props: Record<string, unknown>[]) => string;
+    listingLinksHtml: (props: Record<string, unknown>[]) => string;
+    contactHtml: (address: unknown, phone: unknown) => string;
+    bannerCtaHtml: (phone: unknown, waHref: unknown, name: unknown) => string;
+    expertiseLabels: (ids: string[], declared: boolean) => string[];
+    expertiseChips: (ids: string[], declared: boolean) => string;
+    statGridHtml: (count: number | null, ethics: boolean) => string;
+    trendChipHtml: () => string;
+  };
+  Specialties?: {
+    forAgency: (agency: Record<string, unknown>, properties: unknown) => { source: string; ids: string[] };
+    iconFor: (id: string) => string;
   };
 };
 
@@ -239,6 +266,29 @@ async function sbFetch(path: string): Promise<Fetched> {
   }
 }
 
+/* רשימה. null הוא כשל (הדף ממשיך בלעדיה). מערך ריק הוא תשובה. */
+async function sbList(path: string): Promise<Record<string, unknown>[] | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: "application/json",
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data as Record<string, unknown>[] : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ---------- בניית התגיות לכל סוג דף ---------- */
 
 type Meta = {
@@ -246,8 +296,9 @@ type Meta = {
   description: string;
   image: string;
   canonical: string;
-  /* רק לכתבה — ‎article:published_time‎ */
+  /* רק לכתבה — ‎article:published_time‎ ו-‎article:modified_time‎ */
   publishedAt?: string;
+  modifiedAt?: string;
   /* ‏נתונים מובנים (JSON-LD): נכס, משרד, סוכן/ת וכתבה. ראו "תוכן לסורק" למטה. */
   jsonLd?: unknown;
   /* ‏אלמנטים בדף שמתמלאים בטקסט כבר בשרת, לפי id. ה-JS כותב אליהם שוב
@@ -266,6 +317,16 @@ type Meta = {
      גם has-cover. preloadImage היא תמונת ה-LCP, אותה כתובת כמו ה-img. */
   bodyClass?: string;
   preloadImage?: string;
+  /* מאפיין על אלמנט קיים (ה-href של רצועת המשרד בדף נכס). */
+  attrs?: { id: string; name: string; value: string }[];
+  /* מחלקה על אלמנט קיים, בלי לדרוס את השאר (is-on למקטע שמולא). */
+  addClass?: { id: string; className: string }[];
+  /* מקטע ריק יורד מה-HTML. כשל בשאילתה אינו מוחק - הדפדפן עוד עשוי למלא. */
+  omitIds?: string[];
+  /* משרד שנמצא: בלי המשפטים המוסתרים "המשרד לא נמצא" / "לא נמצאו נכסים". */
+  stripAgencyMiss?: boolean;
+  /* כשל בשאילתה משנית: הדף יוצא, אבל לא נשמר במטמון. */
+  noStore?: boolean;
   /* ‏דף נכס בלי עיר ומחוץ לתיבת השוק (‏P0-A2): 200 עם כל התגיות, ועוד noindex */
   noindex?: boolean;
 };
@@ -654,11 +715,19 @@ function heNum(n: unknown): string {
   return Number.isFinite(v) && v > 0 ? v.toLocaleString("he-IL") : "";
 }
 
-function agencyOf(p: Record<string, unknown>): string {
+function agencyRecord(p: Record<string, unknown>): { name?: string; slug?: string } | null {
   const a = p.agencies;
   const row = Array.isArray(a) ? a[0] : a;
-  if (!row || typeof row !== "object") return "";
-  return String((row as { name?: string }).name || "");
+  if (!row || typeof row !== "object") return null;
+  return row as { name?: string; slug?: string };
+}
+
+function agencyOf(p: Record<string, unknown>): string {
+  return String(agencyRecord(p)?.name || "");
+}
+
+function agencySlugOf(p: Record<string, unknown>): string {
+  return String(agencyRecord(p)?.slug || "").trim();
 }
 
 /* ‏אותו פירוק של priceParts / priceFlat ב-property.js, בלי האייקון. */
@@ -773,7 +842,10 @@ function heroRenderUrl(url: string, w: number, h: number): string {
     + `?width=${w}&height=${h}&resize=cover&quality=60`;
 }
 
-function heroImg(original: string, video: boolean): { tag: string; lcp: string } {
+/* ‏alt של תמונת השער הוא כותרת הנכס: תמונת ה-LCP היא התמונה שגוגל מציגה
+   בחיפוש התמונות, ו-alt="" מחק אותה משם (ביקורת 5.11.2026, docs/seo-audits).
+   פוסטר של סרטון נשאר aria-hidden, ולכן ה-alt שלו ריק. */
+function heroImg(original: string, video: boolean, alt = ""): { tag: string; lcp: string } {
   const src800 = heroRenderUrl(original, 800, 500);
   const src1200 = heroRenderUrl(original, 1200, 800);
   const transformed = !!(src800 && src1200);
@@ -785,7 +857,7 @@ function heroImg(original: string, video: boolean): { tag: string; lcp: string }
     transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
     transformed ? `sizes="${HERO_SIZES}"` : "",
     transformed ? `data-full="${esc(original)}"` : "",
-    'alt=""',
+    `alt="${video ? "" : esc(alt)}"`,
     'fetchpriority="high"',
     video ? 'style="filter:none;transform:none"' : "",
     video ? 'aria-hidden="true"' : "",
@@ -843,21 +915,25 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
       : `<div class="bento-cell bento-main bento-empty">${placeholderImg()}${emptyHeroInner(p)}</div>`;
     return { count: 1, html: cell, lcp: "", placeholder: true };
   }
-  const thumb = (src: string, last: boolean) =>
-    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="" loading="lazy"></div>`;
+  /* ‏אותו alt ש-renderGallery ב-assets/property.js כותב: כותרת הנכס ומספר
+     התמונה. תמונות בלי שם הן תמונות בלי מילות מפתח. */
+  const altBase = String(p.title || "").replace(/\s+/g, " ").trim() || "נכס";
+  const altOf = (n: number) => `${altBase} - תמונה ${n}`;
+  const thumb = (src: string, last: boolean, n: number) =>
+    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="${esc(altOf(n))}" loading="lazy"></div>`;
   if (video) {
     const thumbEnd = Math.max(0, Math.min(images.length, 2));
     const count = 1 + thumbEnd;
     const shot = heroImg(poster, true);
     const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
-    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1)).join("");
+    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1, i + 1)).join("");
     return { count, html: main + thumbs, lcp: shot.lcp };
   }
   const thumbEnd = Math.max(1, Math.min(images.length, 3));
-  const shot = heroImg(images[0], false);
+  const shot = heroImg(images[0], false, altOf(1));
   const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
   const extra = images.slice(1, thumbEnd);
-  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1)).join("");
+  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1, i + 2)).join("");
   return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
 }
 
@@ -896,6 +972,43 @@ function propertyVisible(p: Record<string, unknown>, agentDisplay: string): Pick
   return { fills, inner, reveal };
 }
 
+/* ‏כרטיס "רוצים לדעת עוד על השכונה?" - הקישור לדף השכונה (‏/n/{עיר}/{שכונה},
+   docs/neighborhood-pages.md) כבר ב-HTML הראשון, כדי שכל נכס יצביע לדף השכונה שלו
+   בלי JS (קישור פנימי לסורק). אותו מבנה ש-renderHoodCard ב-assets/property.js כותב
+   כשהשרת לא הספיק; ‏assets/property.js אינו מודול, ולכן המבנה משוכפל, והבדיקה
+   (‏scripts/hood_card_test.ts) מחזיקה את שני הצדדים. התמונה דקורטיבית (‏alt="") -
+   הטקסט לידה אומר הכול. */
+function hoodCardHtml(href: string, hood: string): string {
+  return `<a class="hood-card-link" href="${esc(href)}" data-hood-card>` +
+    `<img class="hood-card-ava" src="/assets/gabriela-avatar.webp" alt="" width="56" height="56" loading="lazy" decoding="async">` +
+    `<span class="hood-card-txt"><b>רוצים לדעת עוד על השכונה?</b>` +
+    `<span>נכסים נוספים ב${esc(hood)}, מחירי עסקאות ושכונות סמוכות</span></span>` +
+    `<span class="hood-card-go" aria-hidden="true">←</span></a>`;
+}
+
+/* רק שכונה שיש לה דף שנכנס לאינדקס: ‏neighborhood_pages_public (שכונה עם מודעה
+   פעילה או חמש עסקאות), ושוק חי - אותו ‏neighborhoodIndexable כמו ב-sitemap ובדף
+   עצמו. כשל, timeout או "אין" - בלי כרטיס, והנכס יוצא כרגיל. */
+async function hoodCard(p: Record<string, unknown>): Promise<string> {
+  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const city = String(p.city || "").trim();
+  if (!hood || !city || hood === city) return "";
+  const got = await sbFetch(
+    `rpc/neighborhood_pages_public?name=eq.${encodeURIComponent(hood)}` +
+      `&city=eq.${encodeURIComponent(city)}&select=city_slug,slug,props&limit=1`,
+  );
+  if (got.kind !== "row") return "";
+  const row = got.row as { city_slug?: string; slug?: string; props?: number };
+  if (!row.city_slug || !row.slug) return "";
+  const lat = Number(p.lat), lng = Number(p.lng);
+  const reg = registry();
+  const market = reg && Number.isFinite(lat) && Number.isFinite(lng) && p.lat != null && p.lng != null
+    ? reg.locate(lat, lng, true) // אותה צורה כמו renderHoodCard בדפדפן: רק שוק חי
+    : null;
+  if (!neighborhoodIndexable(Number(row.props || 0), market?.slug || "", liveMarketSlugs())) return "";
+  return hoodCardHtml(`/n/${encodeURIComponent(row.city_slug)}/${encodeURIComponent(row.slug)}`, hood);
+}
+
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
@@ -904,7 +1017,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
     "air_directions,living_room_sqm," +
-    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name,logo_url)," +
+    "mamad_location,storage_location,restrooms_location,agent_id,agent2_name,agencies(name,slug,logo_url)," +
     "video_url,video_poster_url,city_id,lat,lng";
   const base = `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=`;
   let got = await sbFetch(base + encodeURIComponent(cols));
@@ -951,7 +1064,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
       `agency_members_public?id=eq.${encodeURIComponent(String(p.agent_id))}&select=${encodeURIComponent("display_name")}`,
     )
     : Promise.resolve(null);
-  const [siblings, agent] = await Promise.all([siblingRows(p), agentP]);
+  const [siblings, agent, hoodHtml] = await Promise.all([siblingRows(p), agentP, hoodCard(p)]);
   const suffix = siblings ? titleSuffix({ ...p, id }, siblings) : "";
   const agentDisplay = agent && agent.kind === "row" ? String(agent.row.display_name || "") : "";
   const visible = propertyVisible(p, agentDisplay);
@@ -972,10 +1085,13 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
       { id: "propDescription", text: body },
       ...(visible.fills || []),
     ],
-    reveal: [...(body ? ["descSection"] : []), ...(visible.reveal || [])],
-    inner: visible.inner,
+    reveal: [...(body ? ["descSection"] : []), ...(hoodHtml ? ["hoodCard"] : []), ...(visible.reveal || [])],
+    inner: [...(visible.inner || []), ...(hoodHtml ? [{ id: "hoodCard", html: hoodHtml }] : [])],
     paint: heroPaint(p),
     noindex: offMarket,
+    attrs: agencySlugOf(p)
+      ? [{ id: "agencyStrip", name: "href", value: `/agency?slug=${encodeURIComponent(agencySlugOf(p))}` }]
+      : undefined,
   };
 }
 
@@ -996,23 +1112,22 @@ const MIN_REVIEWS_RATED = 2;
 /* ‏ספירת נכסים פעילים. כשל, timeout, או תשובה בלי Content-Range (הבדיקות
    שמחזירות את שורת המשרד לכל קריאה) מחזירים null - והדף יוצא בלי מספר,
    לא עם מספר מומצא. */
-async function activeListingCount(agencyId: string): Promise<number | null> {
+/* ספירה בלי להוריד את השורות. null הוא כשל או תשובה בלי Content-Range. */
+async function headCount(path: string): Promise<number | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/properties?agency_id=eq.${encodeURIComponent(agencyId)}&status=eq.active&select=id`,
-      {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Accept: "application/json",
-          Prefer: "count=exact",
-          Range: "0-0",
-        },
-        signal: ctrl.signal,
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: "application/json",
+        Prefer: "count=exact",
+        Range: "0-0",
       },
-    );
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
     const range = res.headers.get("content-range") || "";
     const m = /\/(\d+)\s*$/.exec(range);
     if (!m) return null;
@@ -1025,24 +1140,36 @@ async function activeListingCount(agencyId: string): Promise<number | null> {
   }
 }
 
+async function activeListingCount(agencyId: string): Promise<number | null> {
+  return headCount(
+    `properties?agency_id=eq.${encodeURIComponent(agencyId)}&status=eq.active&select=id`,
+  );
+}
+
 function countPhrase(n: number): string {
   if (n === 0) return "אין כרגע נכסים פעילים";
   if (n === 1) return "נכס פעיל אחד";
   return `${n} נכסים פעילים`;
 }
 
-/* ‏בלי עיר ובלי ספירה נשאר בדיוק הטקסט הישן (aboutText). */
+/* ‏בלי עיר ובלי ספירה נשאר בדיוק הטקסט הישן (aboutText).
+   ‏"על המשרד" של ShukAgencyAbout פותח בעצמו בשם המשרד, ולכן השם לא חוזר
+   פעמיים: כשהוא כבר בפסקה, הפתיח הוא העיר והספירה בלבד. 160 תווים ולא
+   200: גוגל חותכת סביב 155, והחיתוך נפל באמצע משפט (ביקורת 5.11.2026). */
 function agencyBlurb(name: unknown, city: string, count: number | null, aboutText: string): string {
   if (!city && count == null) return aboutText;
   const who = String(name || "").trim() || "משרד תיווך";
-  let lead = who + (city ? ` - משרד תיווך ב${city}` : " - משרד תיווך");
+  const named = who !== "משרד תיווך" && aboutText.includes(who);
+  let lead = named
+    ? (city ? `משרד תיווך ב${city}` : "משרד תיווך")
+    : who + (city ? ` - משרד תיווך ב${city}` : " - משרד תיווך");
   if (count != null) lead += `, ${countPhrase(count)}`;
-  return clamp(`${lead}. ${aboutText}`, 200);
+  return clamp(`${lead}. ${aboutText}`, 160);
 }
 
 async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
   const got = await sbFetch(
-    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address,specialty_areas`,
+    `agencies?slug=eq.${encodeURIComponent(slug)}&select=id,name,description,logo_url,cover_url,tagline,address,specialty_areas,specialties,ethics_code_accepted_at,ethics_badge_revoked_at`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
@@ -1061,7 +1188,7 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
      אדם, ולכן היא נכנסת כמו שהיא (בשונה מנכס, שבו מספר הבית ממוסך). */
   const agency: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "RealEstateAgent",
+    "@type": ["RealEstateAgent", "LocalBusiness"],
     "@id": `${canonical}#agency`,
     name: String(a.name || ""),
     url: canonical,
@@ -1070,23 +1197,60 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   };
   if (a.logo_url) agency.logo = absolute(a.logo_url);
   if (a.tagline) agency.slogan = String(a.tagline);
-  if (a.address) agency.address = { "@type": "PostalAddress", streetAddress: String(a.address), addressCountry: "IL" };
 
-  /* ‏AggregateRating - רק מה שהדף עצמו מציג: אותו ציון (‏agency_ratings_public,
-     ‏score) ואותו סף (‏MIN_REVIEWS_SHOWN = 2 ב-agency.html). דירוג בנתונים
-     המובנים שאינו מופיע בדף הוא הפרה של הנחיות גוגל, ולכן מתחת לסף - כלום.
-     כשל בשאילתה השנייה אינו מפיל את הדף: הוא יוצא בלי דירוג. */
-  /* ‏הספירה משנית: כישלון שלה אינו מפיל את הדף, והכותרת יוצאת בלי מספר.
-     ‏206/416 עם Content-Range עדיין מספר; בלי הכותרת הזו אין מספר אמיתי. */
+  const city = shared.ShukAgencyPlace?.officeCity(a) || "";
+  if (a.address || city) {
+    const postal: Record<string, unknown> = { "@type": "PostalAddress", addressCountry: "IL" };
+    if (a.address) postal.streetAddress = String(a.address);
+    if (city) postal.addressLocality = city;
+    agency.address = postal;
+  }
+  const served: Record<string, unknown>[] = [];
+  if (city) served.push({ "@type": "City", name: city });
+  const areas = Array.isArray(a.specialty_areas) ? a.specialty_areas : [];
+  for (const area of areas) {
+    const name = String(area || "").trim();
+    if (name && name !== city) served.push({ "@type": "Place", name });
+  }
+  if (served.length === 1) agency.areaServed = served[0];
+  else if (served.length) agency.areaServed = served;
+
+  /* ‏שאילתות משניות. כשל באחת מהן אינו 503: הדף יוצא בלי החלק הזה,
+     ובלי מטמון, כדי שדקה של Supabase לא תקפיא HTML חסר. */
   let listingCount: number | null = null;
+  let saleCount: number | null = null;
+  let rentCount: number | null = null;
+  let members: Record<string, unknown>[] | null = null;
+  let listings: Record<string, unknown>[] | null = null;
+  let typeRows: Record<string, unknown>[] | null = null;
+  let closedDeals: number | null = null;
+  let ratingsFailed = false;
+  let typesFailed = false;
+  let dealsFailed = false;
   if (a.id) {
-    const [r, counted] = await Promise.all([
-      sbFetch(
-        `agency_ratings_public?agency_id=eq.${encodeURIComponent(String(a.id))}&select=score,review_count`,
-      ),
+    const id = encodeURIComponent(String(a.id));
+    const [r, counted, team, props, types, closed] = await Promise.all([
+      sbFetch(`agency_ratings_public?agency_id=eq.${id}&select=score,review_count`),
       activeListingCount(String(a.id)),
+      sbList(
+        `agency_members_public?agency_id=eq.${id}&select=${encodeURIComponent("id,slug,display_name,role,photo_url,photo_position,license_number,has_ethics_badge,phone_e164")}`,
+      ),
+      sbList(
+        `properties?agency_id=eq.${id}&status=eq.active&select=${encodeURIComponent("id,title,price,deal_type,property_type,rooms,size_sqm,floor,city,street,images")}&order=created_at.desc&limit=12`,
+      ),
+      sbList(
+        `properties?agency_id=eq.${id}&status=eq.active&select=${encodeURIComponent("deal_type,property_type,category")}&limit=1000`,
+      ),
+      headCount(`market_deals?agency_id=eq.${id}&select=id`),
     ]);
     listingCount = counted;
+    members = team;
+    listings = props;
+    typeRows = types;
+    closedDeals = closed;
+    typesFailed = typeRows === null;
+    dealsFailed = closedDeals === null;
+    ratingsFailed = r.kind === "error";
     const score = r.kind === "row" ? Number(r.row.score) : NaN;
     const count = r.kind === "row" ? Number(r.row.review_count) : 0;
     if (r.kind === "row" && r.row.score != null && Number.isFinite(score) && count >= MIN_REVIEWS_RATED) {
@@ -1098,12 +1262,95 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
         worstRating: 1,
       };
     }
+    const typed = typeRows;
+    const typedComplete = !!(typed && listingCount != null && typed.length === listingCount);
+    const cardsComplete = !!(listings && listingCount != null && listings.length === listingCount);
+    if (typedComplete && typed) {
+      saleCount = typed.filter((p) => p.deal_type !== "rent").length;
+      rentCount = typed.filter((p) => p.deal_type === "rent").length;
+    } else if (cardsComplete && listings) {
+      saleCount = listings.filter((p) => p.deal_type !== "rent").length;
+      rentCount = listings.filter((p) => p.deal_type === "rent").length;
+    } else if (listings && listingCount == null && listings.length < 12) {
+      saleCount = listings.filter((p) => p.deal_type !== "rent").length;
+      rentCount = listings.filter((p) => p.deal_type === "rent").length;
+      listingCount = listings.length;
+    }
   }
 
-  const city = shared.ShukAgencyPlace?.officeCity(a) || "";
+  const pub = shared.ShukAgencyPublic;
+  const contact = members && pub ? pub.pickContact(members) : null;
+  const phone = contact && pub && pub.phoneOk(contact.phone_e164) ? String(contact.phone_e164) : "";
+  if (phone) agency.telephone = "+" + phone;
+  if (members && members.length && pub) {
+    agency.employee = pub.sortTeam(members).map((m) => {
+      const href = String(m.slug || m.id || "").trim();
+      const person: Record<string, unknown> = {
+        "@type": "Person",
+        name: String(m.display_name || ""),
+        jobTitle: m.role === "manager" ? "ניהול משרד" : "יועץ נדל״ן",
+      };
+      if (href) person.url = `${SITE}/agent?slug=${encodeURIComponent(href)}`;
+      return person;
+    }).filter((p) => p.url);
+  }
+
+  const specRows = (typeRows && listingCount != null && typeRows.length === listingCount) ? typeRows : listings;
+  const picked = shared.Specialties?.forAgency(a, specRows || null);
+  const know = picked && pub ? pub.expertiseLabels(picked.ids, picked.source === "declared") : [];
+  if (know.length) agency.knowsAbout = know;
+
   const title = shared.ShukAgencyPlace
     ? shared.ShukAgencyPlace.title(a.name, city)
     : clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90);
+  const aboutFirst = about[0] || "";
+  const description = shared.ShukAgencyPlace?.description
+    ? shared.ShukAgencyPlace.description({
+      name: a.name,
+      city,
+      address: a.address || "",
+      total: listingCount,
+      sale: saleCount,
+      rent: rentCount,
+      tagline: a.tagline || "",
+      aboutFirst: a.tagline ? "" : aboutFirst,
+      hasPhone: !!phone,
+      hasAgents: !!(members && members.length),
+    })
+    : agencyBlurb(a.name, city, listingCount, aboutText);
+
+  const crumbs: Record<string, unknown>[] = [
+    { "@type": "ListItem", position: 1, name: "שוק נדל״ן", item: `${SITE}/` },
+    { "@type": "ListItem", position: 2, name: "משרדי תיווך", item: `${SITE}/agencies` },
+  ];
+  if (city === "עפולה") {
+    crumbs.push({
+      "@type": "ListItem",
+      position: crumbs.length + 1,
+      name: city,
+      item: `${SITE}/afula/%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D`,
+    });
+  } else if (city) {
+    crumbs.push({ "@type": "ListItem", position: crumbs.length + 1, name: city });
+  }
+  crumbs.push({ "@type": "ListItem", position: crumbs.length + 1, name: String(a.name || ""), item: canonical });
+  const graph: Record<string, unknown>[] = [
+    agency,
+    { "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`, itemListElement: crumbs },
+  ];
+  if (listings && listings.length) {
+    graph.push({
+      "@type": "ItemList",
+      "@id": `${canonical}#listings`,
+      numberOfItems: listingCount != null ? listingCount : listings.length,
+      itemListElement: listings.map((p, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: `${SITE}/property?id=${encodeURIComponent(String(p.id))}`,
+        name: String(p.title || p.property_type || "נכס"),
+      })),
+    });
+  }
 
   /* תמונת הנושא היא ה-LCP. ה-og:image נשאר על הקובץ המלא; ה-img וה-preload
      על העותק המוקטן, אותה מחרוזת ש-coverRenderUrl ב-agency.js כותב.
@@ -1112,23 +1359,100 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   const coverAbs = coverSafe ? absolute(coverSafe) : "";
   const coverLcp = coverAbs ? (heroRenderUrl(coverAbs, 1400, 800) || coverAbs) : "";
   const inner: { id: string; html: string }[] = [];
-  if (about.length) inner.push({ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") });
+  const fills: { id: string; text: string }[] = [{ id: "brandName", text: String(a.name || "") }];
+  const reveal: string[] = [];
+  const addClass: { id: string; className: string }[] = [];
+  const omitIds: string[] = [];
+  if (about.length) {
+    inner.push({ id: "aboutText", html: about.map((t) => `<p>${esc(t)}</p>`).join("") });
+    reveal.push("aboutSec");
+  }
   if (coverLcp) {
     inner.push({
       id: "bannerMedia",
-      html: `<img class="banner-lcp" alt="" width="1400" height="800" fetchpriority="high" decoding="async" src="${esc(coverLcp)}">`,
+      html: `<img class="banner-lcp" alt="${esc(`תמונת הנושא של ${String(a.name || "המשרד").trim()}`)}" width="1400" height="800" fetchpriority="high" decoding="async" src="${esc(coverLcp)}">`,
     });
+  }
+  const logoSafe = safeImageUrl(a.logo_url);
+  if (logoSafe) {
+    inner.push({
+      id: "brandLogo",
+      html: `<img src="${esc(logoSafe)}" alt="" width="96" height="96">`,
+    });
+  }
+  const tagline = String(a.tagline || "").trim();
+  if (tagline) {
+    fills.push({ id: "brandTagline", text: tagline });
+    reveal.push("brandTagline");
+  }
+  const eyebrow = areas.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 3).join(" · ");
+  if (eyebrow) {
+    fills.push({ id: "brandEyebrow", text: eyebrow });
+    reveal.push("brandEyebrow");
+  }
+  const ethics = !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at);
+  if (pub) {
+    const grid = pub.statGridHtml(listingCount, ethics);
+    let chips = picked ? pub.expertiseChips(picked.ids, picked.source === "declared") : "";
+    if (closedDeals != null && closedDeals >= 10) chips += pub.trendChipHtml();
+    if (grid) inner.push({ id: "statGrid", html: grid });
+    if (chips) inner.push({ id: "trustStrip", html: chips });
+    if (grid || chips) reveal.push("statBar");
+  }
+  /* מקטע ריק נשאר ב-HTML ומוסתר. מחיקה שלו נתקעת במטמון, וליסטינג
+     או יועץ חדש לא יופיעו עד שהעותק יפוג. */
+  if (members && pub && members.length) {
+    const cards = pub.teamHtml(members, { agencyName: String(a.name || ""), pageUrl: canonical });
+    if (cards) {
+      inner.push({ id: "teamRail", html: cards });
+      addClass.push({ id: "teamSec", className: "is-on" });
+      const n = members.length;
+      fills.push({ id: "teamCount", text: n === 1 ? "יועץ נדל״ן אחד במשרד" : `${n} יועצי נדל״ן במשרד` });
+    }
+  }
+  if (listings && pub && listings.length) {
+    const rows = pub.listingLinksHtml(listings);
+    if (rows) {
+      /* בלי is-on: המקטע נשאר display:none כמו ב-main, והמדפים מחליפים
+         את הקישורים לפני שהוא נפתח, בלי קפיצה. */
+      inner.push({ id: "activeProps", html: rows });
+      const n = listingCount != null ? listingCount : listings.length;
+      fills.push({ id: "propsCount", text: n === 1 ? "נכס פעיל אחד" : `${n} נכסים פעילים` });
+    }
+  }
+  if (phone && pub) {
+    const wa = `https://wa.me/${phone}`;
+    const cta = pub.bannerCtaHtml(phone, wa, String(a.name || ""));
+    if (cta) inner.push({ id: "brandCta", html: cta });
+  }
+  if (pub && (phone || a.address)) {
+    const block = pub.contactHtml(a.address, phone);
+    if (block) {
+      inner.push({ id: "contactCard", html: block });
+      addClass.push({ id: "contactSec", className: "is-on" });
+    }
+  }
+
+  const secondaryFailed = !!a.id && (ratingsFailed || typesFailed || dealsFailed || listingCount === null || members === null || listings === null);
+  const attrs: { id: string; name: string; value: string }[] = [];
+  for (const id of ["teamRail", "activeProps", "contactCard", "trustStrip", "statGrid"]) {
+    if (inner.some((part) => part.id === id)) attrs.push({ id, name: "data-ssr", value: "1" });
   }
 
   return {
     title,
-    description: agencyBlurb(a.name, city, listingCount, aboutText),
+    description,
     image,
     canonical,
-    jsonLd: agency,
-    fills: [{ id: "brandName", text: String(a.name || "") }],
+    jsonLd: { "@context": "https://schema.org", "@graph": graph },
+    fills,
     inner,
-    reveal: about.length ? ["aboutSec"] : [],
+    reveal,
+    attrs,
+    addClass,
+    omitIds,
+    stripAgencyMiss: !!(members && members.length),
+    noStore: secondaryFailed,
     bodyClass: coverLcp ? "agency-ready has-cover" : "agency-ready",
     preloadImage: coverLcp || undefined,
   };
@@ -1140,8 +1464,11 @@ async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const m = got.row;
+  /* ‏בלי ביו: משפט שאומר מה יש בדף, ולא רק את שם האתר (56 תווים היו מעט
+     מכדי שגוגל תציג אותו, ביקורת 5.11.2026). */
   const description = clamp(
-    String(m.bio || "") || `${m.display_name || ""} - נכסים, חוות דעת ודרכי יצירת קשר ב${SITE_NAME}.`,
+    String(m.bio || "") ||
+      `${String(m.display_name || "").trim() || "יועץ/ת נדל״ן"} - יועץ/ת נדל״ן בעפולה והעמק: הנכסים הפעילים, חוות דעת של לקוחות ויצירת קשר ישירה בוואטסאפ, ב${SITE_NAME}.`,
     200,
   );
 
@@ -1308,10 +1635,22 @@ async function professionalMeta(key: string): Promise<MetaResult> {
 
   const name = p.advertiser_name || "בעל מקצוע";
   const role = TYPE_LABELS[String(p.advertiser_type || "")] || TYPE_LABELS.general;
-  const title = [name, p.business_name].filter(Boolean).join(" · ");
+  const region = String(p.target_region || "עפולה והעמק").trim();
+  /* ‏"אלדד סורק עו"ד · אלדד סורק חברת עו"ד": כששם האדם כבר בתוך שם העסק,
+     הכותרת היא שם העסק בלבד, ואחריו התחום והאזור - מילות המפתח שבהן
+     מחפשים בעל/ת מקצוע. ארוך מ-65 תווים נשאר שם העסק והאתר. */
+  const personTokens = String(p.advertiser_name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  const business = String(p.business_name || "").trim();
+  const sameParty = !!business && personTokens.length > 0 && personTokens.every((t) => business.includes(t));
+  const titleCore = business && !sameParty ? `${name} · ${business}` : (business || String(name));
+  /* ‏תחום כללי ("בעל מקצוע") אינו מילת מפתח, ולכן אינו נכנס לכותרת. */
+  const withRole = `${titleCore} - ${role} ב${region} | ${SITE_NAME}`;
+  const title = role !== TYPE_LABELS.general && withRole.length <= 65 ? withRole : `${titleCore} | ${SITE_NAME}`;
+  /* ‏תיאור קצר ("עו״ד מקרקעין באזור עפולה." - 25 תווים) מקבל אחריו מה יש
+     בדף, כדי שיהיה מה להציג בתוצאה. */
+  const given = String(p.headline || p.description || "").trim() || `${role} באזור ${region}.`;
   const description = clamp(
-    String(p.headline || p.description || "") ||
-      `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
+    given.length >= 70 ? given : `${given} ${business || name}: שירותים, אזורי שירות ויצירת קשר ישירה, ב${SITE_NAME}.`,
     155,
   );
   const image = absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE;
@@ -1338,7 +1677,7 @@ async function professionalMeta(key: string): Promise<MetaResult> {
   }
 
   return {
-    title: clamp(`${title} | ${SITE_NAME}`, 90),
+    title: clamp(title, 90),
     description,
     image,
     canonical,
@@ -1356,9 +1695,11 @@ async function professionalMeta(key: string): Promise<MetaResult> {
 }
 
 async function articleMeta(key: string): Promise<MetaResult> {
-  const cols = "slug,title,subtitle,body,cover_url,published_at,author_name";
+  /* ‏select=* ולא רשימת עמודות: updated_at מצטרפת ל-articles_public במיגרציה
+     ‏20271105170000, והאתר עולה לפניה. עמודה שמבקשים בשם ואינה קיימת היא
+     400, כלומר כל הכתבות בלי תגיות עד שהמיגרציה רצה. */
   const got = await sbFetch(
-    `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
+    `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=*`,
   );
   if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
   const a = got.row;
@@ -1376,6 +1717,11 @@ async function articleMeta(key: string): Promise<MetaResult> {
      היא מה שגוגל מסמנת כחסר, וכרגע אף כתבה לא נושאת שם (9.10.2026). */
   const publisher = { "@type": "Organization", name: SITE_NAME, url: `${SITE}/`, logo: ORG_LOGO };
   const author = String(a.author_name || "").trim();
+  /* ‏dateModified ו-wordCount: שני השדות שגוגל ומנועי ה-AI קוראים כדי לדעת
+     כמה הכתבה טרייה וכמה יש בה (ביקורת 5.11.2026). updated_at מגיעה מה-view
+     רק אחרי המיגרציה, ועד אז השדה פשוט נעדר. */
+  const updatedAt = String(a.updated_at || "").trim() || undefined;
+  const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
   const article: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -1385,19 +1731,17 @@ async function articleMeta(key: string): Promise<MetaResult> {
     image: [image],
     inLanguage: "he",
     mainEntityOfPage: canonical,
-    author: author ? { "@type": "Person", name: author } : publisher,
+    author: author ? { "@type": "Person", name: author, worksFor: publisher } : publisher,
     publisher,
   };
   if (publishedAt) article.datePublished = publishedAt;
+  if (updatedAt && updatedAt !== publishedAt) article.dateModified = updatedAt;
+  if (wordCount) article.wordCount = wordCount;
 
-  /* ‏גוף הכתבה עצמו - הטקסט שמנוע AI יצטט. אותו מבנה ש-renderBody בונה,
-     כאן ב-HTML מוברח: גוף שנכתב בעורך עם תגיות יוצא כטקסט, כמו בדפדפן. */
-  const blocks = shared.ShukArticleBody.parse(String(a.body || ""));
-  const bodyHtml = blocks.map((b) => {
-    if (b.tag === "ul") return `<ul>${(b.items || []).map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
-    const cls = b.lead ? ' class="lead-para"' : "";
-    return `<${b.tag}${cls}>${esc(b.text || "")}</${b.tag}>`;
-  }).join("");
+  /* ‏גוף הכתבה עצמו - הטקסט שמנוע AI יצטט. אותו HTML ש-renderBody מכניס
+     (‏ShukArticleBody.html): מבנה, בריחה, וקישורי http(s). גוף שנכתב
+     בעורך עם תגיות יוצא כטקסט, כמו בדפדפן. */
+  const bodyHtml = shared.ShukArticleBody.html(String(a.body || ""));
   const subtitle = String(a.subtitle || "").trim();
 
   return {
@@ -1406,6 +1750,7 @@ async function articleMeta(key: string): Promise<MetaResult> {
     image,
     canonical,
     publishedAt,
+    modifiedAt: updatedAt && updatedAt !== publishedAt ? updatedAt : undefined,
     jsonLd: article,
     fills: [
       { id: "articleTitle", text: String(a.title || "כתבה") },
@@ -1451,6 +1796,35 @@ function fillInner(html: string, id: string, inner: string): string {
 function unhide(html: string, id: string): string {
   const re = new RegExp(`<[a-z0-9]+\\b[^>]*\\bid="${id}"[^>]*>`, "i");
   return html.replace(re, (tag) => tag.replace(/\s+hidden(?=[\s>])/i, ""));
+}
+
+function setAttr(html: string, id: string, name: string, value: string): string {
+  const re = new RegExp(`(<[a-z0-9]+\\b[^>]*\\bid="${id}"[^>]*)>`, "i");
+  return html.replace(re, (tag) => {
+    const attr = `${name}="${esc(value)}"`;
+    if (new RegExp(`\\b${name}="`).test(tag)) return tag.replace(new RegExp(`\\b${name}="[^"]*"`), attr);
+    return tag.replace(/>$/, ` ${attr}>`);
+  });
+}
+
+function addClassById(html: string, id: string, cls: string): string {
+  const re = new RegExp(`(<[a-z0-9]+\\b[^>]*\\bid="${id}"[^>]*)>`, "i");
+  return html.replace(re, (tag) => {
+    if (new RegExp(`\\b${cls}\\b`).test(tag)) return tag;
+    if (/\bclass="/.test(tag)) return tag.replace(/\bclass="/, `class="${cls} `);
+    return tag.replace(/>$/, ` class="${cls}">`);
+  });
+}
+
+function omitById(html: string, id: string): string {
+  const re = new RegExp(`<section\\b[^>]*\\bid="${id}"[^>]*>[\\s\\S]*?</section>`, "i");
+  return html.replace(re, "");
+}
+
+function stripAgencyMissText(html: string): string {
+  return html
+    .replace(/(<p\b[^>]*\bclass="nf-title"[^>]*>)[\s\S]*?(<\/p>)/i, "$1$2")
+    .replace(/(<div\b[^>]*\bid="propsEmpty"[^>]*>)[\s\S]*?(<\/div>)/i, "$1$2");
 }
 
 function addBodyClass(html: string, cls: string): string {
@@ -1541,6 +1915,9 @@ function inject(html: string, m: Meta): string {
   if (m.publishedAt) {
     add.push(`<meta property="article:published_time" content="${esc(m.publishedAt)}">`);
   }
+  if (m.modifiedAt) {
+    add.push(`<meta property="article:modified_time" content="${esc(m.modifiedAt)}">`);
+  }
 
   // ‏<title> הקיים מוחלף, וגם הוא ממוסך — הוא מה שנראה בלשונית ובשיתוף
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(m.title)}</title>`);
@@ -1548,6 +1925,10 @@ function inject(html: string, m: Meta): string {
   for (const f of m.fills || []) out = fillText(out, f.id, f.text);
   for (const f of m.inner || []) out = fillInner(out, f.id, f.html);
   for (const id of m.reveal || []) out = unhide(out, id);
+  for (const attr of m.attrs || []) out = setAttr(out, attr.id, attr.name, attr.value);
+  for (const item of m.addClass || []) out = addClassById(out, item.id, item.className);
+  for (const id of m.omitIds || []) out = omitById(out, id);
+  if (m.stripAgencyMiss) out = stripAgencyMissText(out);
   if (m.bodyClass) out = addBodyClass(out, m.bodyClass);
   if (m.preloadImage) {
     add.push(`<link rel="preload" as="image" href="${esc(m.preloadImage)}" fetchpriority="high">`);
@@ -1719,8 +2100,13 @@ export default async function handler(request: Request, context: Context) {
     const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
     const headers = new Headers(res.headers);
-    headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    if (meta !== "missing" && meta.noStore) {
+      headers.set("Cache-Control", "no-store");
+      headers.set("Netlify-CDN-Cache-Control", "no-store");
+    } else {
+      headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+      headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    }
     const response = new Response(out, { status: res.status, headers });
     if (isProperty && meta !== "missing") {
       await remember(lastGoodKey(request.url), response, waitUntilOf(context));

@@ -171,7 +171,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:760px){.body p{font-size:1.06rem;line-height:1.75}}
   /* האות הראשונה של הפסקה הראשונה — סימן פתיחה שמבדיל בין כתבה לבין
      עוד בלוק טקסט באתר. רק בדסקטופ (במובייל היא גוזלת שליש משורה) ורק
-     כשהפסקה ארוכה מספיק כדי לעטוף אותה — ראו .lead-para ב-renderBody. */
+     כשהפסקה ארוכה מספיק כדי לעטוף אותה — ראו lead-para ב-article-body.js. */
   @media(min-width:760px){
     .body > p.lead-para::first-letter{
       float:right;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--gold-dark);
@@ -194,6 +194,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .body li::before{
     content:"";position:absolute;inset-inline-start:0;top:.62em;
     width:7px;height:7px;border-radius:50%;background:var(--gold);
+  }
+  /* כתובת בגוף. ה-a הגלובלי בלי קו, אז הקישור כאן מסומן לבד. */
+  .body a{
+    color:var(--teal);font-weight:600;border-bottom:1.5px solid var(--gold);
+    padding-bottom:1px;overflow-wrap:anywhere;
   }
 
   /* ====== שיתוף ======
@@ -591,6 +596,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל יועצי הנדל״ן ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
+        <a class="footer-net" href="/markets">חלק מרשת ארצית של שווקים מקומיים</a>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -665,7 +671,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="/faq">שאלות נפוצות</a>
           <a href="/pricing">מסלולים ומחירים</a>
+          <a href="/for-brokers">פלטפורמה למתווכים</a>
+          <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
+          <a href="/terms#t27">פרטי בית העסק</a>
           <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>
@@ -757,29 +766,11 @@ function readingMinutes(body){
 }
 
 /* ---------- גוף הכתבה ----------
-   הטקסט נשמר חופשי, וארבעה כללים פשוטים ומוסכמים ממירים אותו למבנה - הם
-   ב-assets/article-body.js, שגם og-tags.ts משתמשת בו כדי לכתוב את אותו גוף
-   כבר בשרת (לסורקים שאינם מריצים JS). הכל דרך textContent, אז טקסט שנכתב
-   בעורך לעולם לא הופך ל-HTML.                                            */
+   הטקסט נשמר חופשי. המבנה והקישורים נבנים ב-assets/article-body.js
+   (‏html), ואותה פונקציה כותבת את הגוף ב-og-tags.ts. כתובת http או https
+   הופכת לקישור; שאר הטקסט מוברח. אין HTML שנשמר במסד.                  */
 function renderBody(text){
-  const wrap = el('articleBody');
-  wrap.textContent = '';
-  window.ShukArticleBody.parse(text).forEach(b => {
-    if (b.tag === 'ul'){
-      const list = document.createElement('ul');
-      b.items.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = item;
-        list.appendChild(li);
-      });
-      wrap.appendChild(list);
-      return;
-    }
-    const node = document.createElement(b.tag);
-    node.textContent = b.text;
-    if (b.lead) node.classList.add('lead-para');
-    wrap.appendChild(node);
-  });
+  el('articleBody').innerHTML = window.ShukArticleBody.html(text);
 }
 
 /* ---------- ראש הכתבה ---------- */

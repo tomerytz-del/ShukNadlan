@@ -9,6 +9,8 @@ import {
   isTerminalMissing,
 } from "../_shared/morning.ts";
 import { announceProfessionalSignup } from "../_shared/platform-signup-alert.ts";
+import { normalizeProfessionalPhone } from "../_shared/professional-phone.ts";
+import { likeLiteral, normalizeEmail, sendManageLinks } from "../_shared/professional-link-mail.ts";
 
 // ============================================================================
 // הרשמת בעל/ת מקצוע לכרטיסיית "בעלי מקצוע נבחרים"
@@ -119,16 +121,42 @@ Deno.serve(async (req: Request) => {
   // ---- הרשמה ------------------------------------------------------------
   const { advertiser_name, advertiser_type, contact_email, target_region } = body;
   if (!advertiser_name || !advertiser_type || !contact_email) {
-    return json({ error: "missing_fields", required: ["advertiser_name","advertiser_type","contact_email"] }, 400);
+    return json({ error: "missing_fields", required: ["advertiser_name","advertiser_type","contact_email","phone"] }, 400);
   }
   if (!VALID_TYPES.includes(advertiser_type)) {
     return json({ error: "invalid_advertiser_type", allowed: VALID_TYPES }, 400);
+  }
+  // הטלפון חובה כבר בהרשמה: הוא כל כפתורי הקשר בעמוד הפרופיל. עד 2.11.2026
+  // הוא נדחה למסך העריכה, וכרטיסייה עלתה לאוויר בלי שום דרך לפנות אליה.
+  const phone_e164 = normalizeProfessionalPhone(body?.phone);
+  if (!phone_e164) {
+    return json({ error: body?.phone ? "invalid_phone" : "phone_required" }, 400);
   }
 
   const months = Number.isInteger(body?.months) ? Number(body.months) : 1;
   if (months < 1 || months > 12) return json({ error: "invalid_months" }, 400);
 
   try {
+    // ---- הרשמה חוזרת לאותו מייל --------------------------------------------
+    // מי שכבר יש לו/ה כרטיסייה חיה או ממתינה לאישור ונרשם/ת שוב כמעט תמיד איבד/ה את
+    // קישור העריכה, או לא ראה/תה את הכרטיסייה הראשונה עולה (ב-21.10 וב-5.11.2026 אותו
+    // יועץ נרשם פעמיים, ומנהל/ת הפלטפורמה קיבל/ה שתי בקשות אישור). במקום כרטיסייה
+    // כפולה: הקישור של הקיימת נשלח למייל, והדף אומר את זה. ‏ended ו-paused אינם
+    // חוסמים: מי שהפרסום שלו/ה נגמר רשאי/ת להירשם מחדש.
+    const email = normalizeEmail(contact_email);
+    if (!email) return json({ error: "invalid_email" }, 400);
+    const { data: existingCards } = await supabase
+      .from("ad_placements")
+      .select("id")
+      .eq("placement_type", "professional_card")
+      .in("status", ["active", "pending_approval"])
+      .ilike("contact_email", likeLiteral(email))
+      .limit(1);
+    if (existingCards?.length) {
+      const r = await sendManageLinks(supabase, email);
+      return json({ error: "card_exists", link_sent: r.sent, throttled: r.throttled }, 409);
+    }
+
     // ---- פרסום חינם בכפוף לאישור --------------------------------------
     // כשהמתג דלוק (‏pricing_config.professional_card_free_publishing) אין
     // סולק ואין הטבה חד-פעמית: הכרטיסייה נוצרת כ-`pending_approval`, ומנהל/ת
@@ -148,6 +176,7 @@ Deno.serve(async (req: Request) => {
           business_name: trimmedOrNull(body.business_name),
           advertiser_type,
           contact_email,
+          phone_e164,
           target_region: target_region || "עפולה",
           creative_url: safeUrl(body.creative_url),
           click_url: safeUrl(body.click_url),
@@ -205,6 +234,7 @@ Deno.serve(async (req: Request) => {
         business_name: trimmedOrNull(body.business_name),
         advertiser_type,
         contact_email,
+        phone_e164,
         target_region: target_region || "עפולה",
         // תמונת הפרופיל שממלאת את האריח בדף הבית.
         creative_url: safeUrl(body.creative_url),

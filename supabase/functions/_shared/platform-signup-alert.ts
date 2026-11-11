@@ -233,7 +233,7 @@ async function notifyPlatformAdmins(
   title: string,
   body: string,
   type: string = PLATFORM_SIGNUP_TYPE,
-): Promise<void> {
+): Promise<boolean> {
   // ‏active=true בלבד: מנהל/ת פלטפורמה שכרטיסו/ה כובה אינו/ה מקבל/ת התראות,
   // בדיוק כמו ב-alert_platform_admin_on_low_review.
   const { data: admins, error: adminErr } = await (supabase
@@ -244,7 +244,7 @@ async function notifyPlatformAdmins(
 
   if (adminErr || !admins?.length) {
     if (adminErr) console.error("platform signup alert: admin lookup failed", adminErr.message);
-    return;
+    return false;
   }
 
   // ‏INSERT אחד לכל המנהלים. הטריגר notifications_apply_preferences מסנן
@@ -259,6 +259,8 @@ async function notifyPlatformAdmins(
   ) as QueryResult<unknown>);
 
   if (insErr) console.error("platform signup alert: insert failed", insErr.message);
+  // ‏true = ההתראה נכתבה. רוב הקוראים מתעלמים (כישלון כאן אינו מפיל כלום); ההחזר של ליד עו"ד לא מתעלם.
+  return !insErr;
 }
 
 /* תוויות תחומי העיסוק. עותק מכוון של TYPE_LABELS ב-professional-signup:
@@ -343,6 +345,41 @@ interface DeveloperRow {
   contact_name: string | null;
   city: string | null;
   slug: string | null;
+}
+
+/**
+ * בעל/ת מקצוע פתח/ה חשבון כניסה וארנק (professional-account). ההודעה אומרת מה ממתין:
+ * ‏shelf_enabled נקבע רק על ידי מנהל/ת הפלטפורמה, ועד אז החשבון רואה ארנק וכרטיסייה בלבד.
+ */
+export async function announceProfessionalAccount(
+  supabase: Client,
+  accountId: string,
+): Promise<void> {
+  try {
+    const { data: a, error } = await (supabase
+      .from("professional_accounts")
+      .select("display_name, kind, city_id, card_id")
+      .eq("id", accountId)
+      .maybeSingle() as QueryResult<{ display_name: string; kind: string; city_id: string | null; card_id: string | null } | null>);
+    if (error || !a) {
+      console.error("platform signup alert: professional account lookup failed", error?.message);
+      return;
+    }
+    const field = PROFESSIONAL_TYPE_LABELS[a.kind] || "בעל/ת מקצוע";
+    // שני תחומים עם מדף: עו"ד (lawyer_leads, לפי עיר) ויועץ/ת משכנתאות (mortgage_leads, ארצי)
+    const needsShelf = a.kind === "real_estate_lawyer" || a.kind === "mortgage_advisor";
+    await notifyPlatformAdmins(
+      supabase,
+      `בעל/ת מקצוע פתח/ה חשבון: ${a.display_name}`,
+      joinParts([
+        field,
+        a.city_id || a.kind !== "real_estate_lawyer" ? null : "בלי עיר מוגדרת (target_region לא תאם עיר) - להשלים לפני אישור המדף",
+        needsShelf ? "ממתין/ה לאישור מדף הלידים (shelf_enabled)" : "אין מדף לתחום הזה עדיין",
+      ]),
+    );
+  } catch (err) {
+    console.error("platform signup alert (professional account) failed", err);
+  }
 }
 
 /**
@@ -435,5 +472,64 @@ export async function announceProfessionalPaid(
     await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);
   } catch (err) {
     console.error("platform paid alert failed", err);
+  }
+}
+
+/**
+ * עו"ד שילם/ה בכרטיס על ליד שכבר אינו זמין (נמכר לאחר/ת בחלון שבין פקיעת השמירה לתשלום).
+ * הכסף נגבה ואין מה למסור, ולכן זו ההתראה היחידה שגורמת להחזר: ההזמנה כבר `refund_needed`
+ * במסד ו-reconcile לא סורק אותה שוב. ההודעה נושאת סכום, עו"ד וסיבה בלבד, בלי פרטי הפונה.
+ */
+export async function announceLawyerLeadRefundNeeded(
+  supabase: Client,
+  orderId: string,
+): Promise<void> {
+  try {
+    const { data: o, error } = await (supabase
+      .from("lawyer_lead_orders")
+      .select("amount, failure_reason, provider_document_id, refund_alerted_at, professional_accounts(display_name)")
+      .eq("id", orderId)
+      .maybeSingle() as QueryResult<{
+        amount: number | null;
+        failure_reason: string | null;
+        provider_document_id: string | null;
+        refund_alerted_at: string | null;
+        professional_accounts: { display_name: string | null } | { display_name: string | null }[] | null;
+      } | null>);
+
+    if (error || !o) {
+      console.error("lawyer lead refund alert: order lookup failed", error?.message);
+      return;
+    }
+    if (o.refund_alerted_at) return;
+    const acct = Array.isArray(o.professional_accounts) ? (o.professional_accounts[0] ?? null) : o.professional_accounts;
+    const reasons: Record<string, string> = {
+      lead_sold_to_other: "הליד נמכר לעו\"ד אחר/ת",
+      already_owned: "הליד כבר נרכש על ידי אותו/ה עו\"ד",
+      lead_reserved_by_other: "הליד נשמר בינתיים לעו\"ד אחר/ת",
+      lead_not_available: "הליד כבר אינו זמין",
+      lead_deleted: "הליד נמחק",
+      account_deleted: "החשבון נמחק",
+    };
+    const reason = o.failure_reason || "";
+    const title = `נדרש החזר: ליד עו"ד ששולם ואינו זמין`;
+    const body = joinParts([
+      acct?.display_name ? `עו"ד: ${acct.display_name}` : null,
+      o.amount ? `שולם ₪${Math.round(Number(o.amount))} כולל מע"מ` : null,
+      reasons[reason] || (reason.startsWith("amount_mismatch") ? "הסכום שדווח בסליקה שונה מהסכום שנרשם" : reason),
+      o.provider_document_id ? `מסמך במורנינג: ${o.provider_document_id}` : null,
+      `הזמנה ${orderId}`,
+      "להחזיר במורנינג ואז לסמן את ההזמנה refunded",
+    ]);
+
+    const sent = await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);
+    // מסמנים רק כשההתראה נכתבה: אחרת ה-reconcile ינסה שוב, וזו הדרך היחידה שבה מישהו יידע להחזיר
+    if (sent) {
+      await (supabase.from("lawyer_lead_orders")
+        .update({ refund_alerted_at: new Date().toISOString() })
+        .eq("id", orderId) as QueryResult<unknown>);
+    }
+  } catch (err) {
+    console.error("lawyer lead refund alert failed", err);
   }
 }

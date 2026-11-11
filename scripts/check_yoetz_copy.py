@@ -12,6 +12,7 @@
   * שמות סטטוטוריים: רשם המתווכים, פנקס המתווכים, חוק המתווכים, תקנות המתווכים, מאגר המתווכים (של משרד המשפטים).
   * כתובות: ‏/…/מתווכים (נתיבי SEO של PR #955 - רק טקסט העוגן משתנה).
   * העוגן "מתווכים בעפולה" לקישור ‏/afula/מתווכים בבלוק "חיפושים פופולריים" בפוטר (חריג SEO, 29.10).
+  * ‏for-brokers.html כולו, ועוגן "פלטפורמה למתווכים" אל ‏/for-brokers (דף נחיתה, 6.11.2026). docs/for-brokers.md
   * הערך במסד "בלוג המתווכים" (קטגוריית כתבות; התצוגה ממופה בקוד).
   * מסמכים משפטיים ותבניות ההסכם (נוסח החוק) וקבצי PR #955 - לא נסרקים.
 
@@ -31,11 +32,15 @@ SKIP = {
     # קבצי PR #955 - מעקב אחרי שהוא ימוזג
     'brokers.html', 'silo.html', 'assets/brokers-render.js', 'assets/brokers.js', 'assets/silo-render.js', 'assets/silo.js',
     'assets/landing.js', 'netlify/edge-functions/brokers-page.ts', 'netlify/edge-functions/silo-page.ts',
+    # דף נחיתה SEO. הנוסח אושר ב-6.11.2026 ומילת המפתח היא "מתווכים". docs/for-brokers.md
+    'for-brokers.html',
+    # קורס ההכנה למבחן: "מתווך" הוא המונח המשפטי שהבחינה משתמשת בו (תומר, 8.11.2026). docs/exam-course.md
+    'course.html', 'learn.html', 'assets/learn.js', 'assets/course-scene.js',
 }
 # החלטה 10 (תומר, 27.10, אושרה במלואה): ב-title, ב-meta description וב-og של דפי המתווכים הניסוח
 # המשולב "יועצי נדל״ן ומתווכים", וב-/agencies משפט גלוי אחד "יועצי נדל״ן (מתווכים) בעפולה ובעמק"
 # חריג SEO (תומר 29.10 01:40, גבריאלה אישרה): עוגן הקישור ל-/afula/מתווכים בבלוק "חיפושים פופולריים" בפוטר
-ALLOWED = re.compile(r'<a href="/afula/מתווכים">מתווכים בעפולה</a>|יועצי נדל״ן ומתווכים|יועצי נדל״ן \(מתווכים\)|<meta property="og:(?:title|description)" content="[^"]*"|חוק המתווכים, פרטי המתווך|(רשם|פנקס|חוק|תקנות|מאגר) המתווכים|([\x27"])בלוג המתווכים\2|ניתוח שוק / בלוג המתווכים|(תקנות|חוק) \x27 \+\s*\x27המתווכים|/מתווכים|%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D')
+ALLOWED = re.compile(r'<a href="/afula/מתווכים">מתווכים בעפולה</a>|<a[^>]*href="/for-brokers"[^>]*>פלטפורמה למתווכים</a>|יועצי נדל״ן ומתווכים|יועצי נדל״ן \(מתווכים\)|<meta property="og:(?:title|description)" content="[^"]*"|חוק המתווכים, פרטי המתווך|(רשם|פנקס|חוק|תקנות|מאגר|מבחן) המתווכים|דיני מתווכים|([\x27"])בלוג המתווכים\2|ניתוח שוק / בלוג המתווכים|(תקנות|חוק) \x27 \+\s*\x27המתווכים|/מתווכים|%D7%9E%D7%AA%D7%95%D7%95%D7%9B%D7%99%D7%9D')
 WORD = re.compile(r'מתווכ|מתווך')
 
 
@@ -70,12 +75,22 @@ def main():
         if not WORD.search(src): continue
         h = hits(f, src)
         if h: bad.append((f, h))
-    for f in ('llms.txt', 'manifest.webmanifest', 'app-crm.webmanifest'):
+    for f in ('llms.txt', 'manifest.webmanifest', 'app-crm.webmanifest', 'app-professional.webmanifest'):
         if os.path.exists(f):
             src = open(f, encoding='utf-8').read()
-            h = [(src.count('\n', 0, m.start()) + 1, src[max(0, m.start() - 30):m.start() + 30].replace('\n', ' '))
-                 for m in WORD.finditer(src) if not ALLOWED.search(src[max(0, m.start() - 6):m.start() + 12])]
-            h = [x for x in h if not re.search(r'(רשם|פנקס|חוק|תקנות) המתווכים', x[1])]
+            h = []
+            for m in WORD.finditer(src):
+                line_end = src.find('\n', m.start())
+                line = src[src.rfind('\n', 0, m.start()) + 1: len(src) if line_end < 0 else line_end]
+                ctx = src[max(0, m.start() - 30):m.start() + 30].replace('\n', ' ')
+                # השורה ב-llms.txt לדף /for-brokers. מילת המפתח אושרה עם הנוסח. docs/for-brokers.md
+                if 'shuknadlan.co.il/for-brokers' in line:
+                    continue
+                if ALLOWED.search(src[max(0, m.start() - 6):m.start() + 12]):
+                    continue
+                if re.search(r'(רשם|פנקס|חוק|תקנות) המתווכים', ctx):
+                    continue
+                h.append((src.count('\n', 0, m.start()) + 1, ctx))
             if h: bad.append((f, h))
     if not bad:
         print('✓ אין "מתווך/מתווכים" בטקסט שהאתר מציג (חוץ מהחריגים המותרים).')

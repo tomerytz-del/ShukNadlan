@@ -124,7 +124,7 @@ test('plan cards follow the live catalog and leave out prices', () => {
   assert.equal(blob.includes('₪'), false);
   assert.equal(blob.includes('@'), false);
   assert.equal(blob.includes('הצטרפות'), false);
-  assert.equal(model.offer.headline, '6 חודשים Elite במתנה');
+  assert.equal(model.offer.headline, 'חודשיים Elite במתנה');
   assert.match(model.offer.sub, /בלי תשלום ובלי כרטיס אשראי/);
   assert.equal(model.cards.length, 3);
   assert.equal(model.cards[0].heading, 'מה כלול');

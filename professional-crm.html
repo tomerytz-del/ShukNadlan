@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
+<!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
+<script src="assets/friendly-error.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>האזור האישי לבעלי מקצוע | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/app-professional.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="אזור מקצועי">
+<script defer src="assets/pwa-install.js" data-first-visit="show"></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- לפני supabase-js: זוכר שיצאנו מכאן ל-Google, כדי שתשובה שנחתה בדף הבית תחזור לכאן
+     ולא ל-/crm (ברירת המחדל של auth-return). docs/google-login.md -->
+<script src="assets/auth-return.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --gold:#c8962b; --gold-tint:#f7f1e2; --green:#1F6B4A; --red:#a3262d;
+    --radius-sm:8px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;padding:20px 16px 48px}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:var(--blue)}
+  a:hover{color:var(--blue-dark)}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit;font-size:1rem}
+  [hidden]{display:none !important}
+  .wrap{max-width:720px;margin:0 auto}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);padding:24px 20px;margin-bottom:16px}
+  .logo-link{display:block;width:60px;margin:0 auto 14px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block}
+  h1{font-size:1.35rem;text-align:center;margin-bottom:4px}
+  h2{font-size:1.1rem;margin-bottom:10px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
+  label{display:block;font-weight:700;font-size:.9rem;margin:12px 0 4px}
+  input[type=email],input[type=password]{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:var(--radius-sm)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:10px 18px;border-radius:var(--radius-md);font-weight:800;text-decoration:none;font-size:.95rem}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:var(--blue-dark);color:#fff}
+  .btn-gold{background:var(--gold);color:#fff}
+  .btn-gold:hover{background:#a67a1f;color:#fff}
+  .btn-ghost{background:#fff;color:var(--blue);border:1.5px solid var(--line)}
+  .btn-ghost:hover{background:var(--blue-tint);color:var(--blue-dark)}
+  .btn[disabled]{opacity:.6;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .msg{font-size:.9rem;margin:10px 0 0;min-height:1.3em}
+  .msg.err{color:var(--red)}
+  .msg.ok{color:var(--green)}
+  .link-btn{background:none;color:var(--blue);text-decoration:underline;padding:6px 0;font-size:.88rem;font-weight:700}
+  .link-btn:hover{color:var(--blue-dark)}
+
+  /* ====== השער: מסך הכניסה ======
+     כרטיס אחד, סדר אחד: Google, ואז אימייל וסיסמה, ואז עזרה. פס זהב בראש הכרטיס, כותרת
+     בסריף כמו בדפי האתר, ושלושת ה"מה מקבלים" בתחתית כדי שמי שהגיע/ה מקישור יבין/תבין לאן נכנסים. */
+  .gate{position:relative;overflow:hidden;padding:30px 22px 22px;max-width:520px;margin-inline:auto}
+  .gate::before{content:"";position:absolute;inset-inline:0;top:0;height:5px;background:linear-gradient(90deg,var(--gold),#e3b95a)}
+  .gate-head{text-align:center;margin-bottom:20px}
+  .gate-eyebrow{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gold);background:var(--gold-tint);border-radius:999px;padding:4px 12px;margin-bottom:10px}
+  .gate h1{font-size:1.7rem;line-height:1.2;margin-bottom:6px}
+  .gate .sub{margin-bottom:0;font-size:.95rem}
+  .auth-google{width:100%;background:#fff;border:1.5px solid #cfd7ea;color:var(--ink);padding:14px 18px;font-size:1.05rem;gap:12px;box-shadow:0 2px 8px rgba(16,24,40,.08);transition:transform .12s,box-shadow .12s,border-color .12s}
+  .auth-google:hover{border-color:var(--blue);color:var(--ink);transform:translateY(-1px);box-shadow:0 8px 18px -8px rgba(16,24,40,.3)}
+  .gate-fine{text-align:center;font-size:.8rem;color:var(--ink-soft);margin:10px 0 0;line-height:1.5}
+  .auth-or{display:flex;align-items:center;gap:12px;margin:20px 0 6px;font-size:.8rem;color:var(--ink-soft)}
+  .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
+  .gate-form label{margin-top:10px}
+  .gate-form input[type=email],.gate-form input[type=password]{padding:13px 14px;border-radius:var(--radius-md)}
+  .gate-form input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-tint)}
+  .btn-block{width:100%;margin-top:14px;font-size:1rem}
+  .gate-links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center;font-size:.88rem;margin-top:6px;color:var(--ink-soft)}
+  .gate-links a{font-weight:700}
+  .gate-help{margin-top:18px;padding:12px 14px;border-radius:var(--radius-md);background:var(--blue-tint);display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:.86rem;color:var(--ink-soft)}
+  .btn-wa{background:#1f8a4c;color:#fff;gap:8px;min-height:42px;padding:8px 16px;font-size:.92rem}
+  .btn-wa:hover{background:#176b3b;color:#fff}
+  .gate-perks{list-style:none;margin:20px 0 0;padding:16px 0 0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .gate-perks li{display:flex;flex-direction:column;gap:2px;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+  .gate-perks b{color:var(--ink);font-size:.86rem}
+  .perk-ico{font-size:1.25rem;line-height:1;margin-bottom:4px}
+  .gate-join{text-align:center;font-size:.86rem;color:var(--ink-soft);margin:16px 0 0}
+  @media (max-width:480px){
+    .gate{padding:26px 16px 18px}
+    .gate h1{font-size:1.45rem}
+    .gate-perks{grid-template-columns:1fr;gap:10px}
+    .gate-perks li{flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap}
+    .gate-perks li span:last-child{flex-basis:100%;padding-inline-start:30px}
+    .perk-ico{margin:0}
+  }
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .head .who{font-weight:800;font-size:1.05rem}
+  .head .kind{color:var(--ink-soft);font-size:.88rem}
+  .wallet{background:var(--blue-tint);border-radius:var(--radius-md);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .wallet b{font-size:1.4rem;color:var(--blue-dark)}
+  .wallet small{display:block;color:var(--ink-soft)}
+  .note{background:var(--gold-tint);border-radius:var(--radius-md);padding:12px 14px;font-size:.9rem;margin-top:14px}
+  .lead{border:1px solid var(--line);border-radius:var(--radius-md);padding:14px;margin-top:10px;background:#fff}
+  .lead .q{white-space:pre-wrap;font-size:.95rem}
+  .lead .meta{color:var(--ink-soft);font-size:.82rem;margin-top:6px}
+  .lead .acts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .empty{color:var(--ink-soft);font-size:.92rem;padding:10px 0}
+  .overlay{position:fixed;inset:0;background:rgba(13,27,61,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .dialog{background:#fff;border-radius:var(--radius-lg);padding:22px 20px;max-width:440px;width:100%}
+  .dialog p{margin:8px 0}
+  .dialog .price{font-size:1.3rem;font-weight:800;color:var(--blue-dark)}
+  .foot{text-align:center;font-size:.8rem;color:var(--ink-soft);margin-top:18px}
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<div class="wrap">
+  <a class="logo-link" href="/" aria-label="שוק הנדל״ן - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+
+  <!-- כניסה: השער של בעלי המקצוע. Google ראשון (בכניסה מאשרים תנאים, ואין צעד נוסף), אימייל וסיסמה
+       שני, ומתחת: שכחתי סיסמה, קישור העריכה שאבד, ותמיכה בוואטסאפ. חשבון שאין לו עדיין שורת
+       professional_accounts נוצר בכניסה הראשונה לפי הכרטיסייה שבכתובת הזו (claim_by_login). -->
+  <section class="card gate" id="loginCard" hidden>
+    <div class="gate-head">
+      <span class="gate-eyebrow">בעלי מקצוע</span>
+      <h1>האזור האישי שלכם</h1>
+      <p class="sub">העמוד שלכם באתר, הלידים והארנק, במקום אחד.</p>
+    </div>
+    <button type="button" class="btn auth-google" id="googleLoginBtn">
+      <svg width="20" height="20" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">כניסה עם Google</span>
+    </button>
+    <p class="gate-fine">הכי מהיר: בוחרים את חשבון Google שנרשמתם איתו, וזהו. בכניסה אתם מאשרים את <a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a>.</p>
+    <div class="auth-or">או עם אימייל וסיסמה</div>
+    <form id="loginForm" class="gate-form">
+      <label for="lgEmail">אימייל</label>
+      <input type="email" id="lgEmail" autocomplete="username" required placeholder="name@example.com" dir="ltr">
+      <label for="lgPassword">סיסמה</label>
+      <input type="password" id="lgPassword" autocomplete="current-password" required>
+      <button class="btn btn-primary btn-block" type="submit" id="lgBtn">כניסה</button>
+      <div class="msg" id="lgMsg" role="status" aria-live="polite"></div>
+    </form>
+    <div class="gate-links">
+      <button class="link-btn" type="button" id="forgotBtn">שכחתי סיסמה</button>
+      <span aria-hidden="true">·</span>
+      <a href="/professional-manage">איבדתם את קישור העריכה?</a>
+    </div>
+    <!-- תמיכה: המספר של הפלטפורמה (data-site-contact, לא פנייה למתווך/ת). ההודעה נפתחת מוכנה -->
+    <div class="gate-help">
+      <a class="btn btn-wa" id="supportWa" data-site-contact href="https://wa.me/972546929991?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%91%D7%A2%D7%9C%2F%D7%AA%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%20%D7%95%D7%90%D7%A0%D7%99%20%D7%A6%D7%A8%D7%99%D7%9A%2F%D7%94%20%D7%A2%D7%96%D7%A8%D7%94%20%D7%91%D7%9B%D7%A0%D7%99%D7%A1%D7%94%20%D7%9C%D7%90%D7%96%D7%95%D7%A8%20%D7%94%D7%90%D7%99%D7%A9%D7%99%20%D7%91%D7%A9%D7%95%D7%A7%20%D7%A0%D7%93%D7%9C%D7%B4%D7%9F." target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.9 11.9 0 0 0 4.5 4c.6.3 1.1.4 1.5.5a3.6 3.6 0 0 0 1.6.1 2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .2-1.2c-.1-.1-.3-.2-.5-.3z"/></svg>
+        תמיכה בוואטסאפ
+      </a>
+      <span>נתקעתם בכניסה? כתבו לנו ונעזור.</span>
+    </div>
+    <ul class="gate-perks" aria-label="מה יש באזור האישי">
+      <li><span class="perk-ico">✏️</span><b>העמוד שלכם</b><span>תמונות, תיאור ושירותים, מתעדכן מיד באתר</span></li>
+      <li><span class="perk-ico">📩</span><b>לידים</b><span>פניות של לקוחות לעורכי דין וליועצי משכנתאות</span></li>
+      <li><span class="perk-ico">👛</span><b>ארנק</b><span>היתרה והרכישות שלכם, בלי הוראת קבע</span></li>
+    </ul>
+    <p class="gate-join">עוד לא באתר? <a href="/professional-signup">פרסום חינם בעמוד משלכם</a></p>
+  </section>
+
+  <!-- סוכן/ת מחובר/ת שנכנס/ת לכאן בלי כרטיסייה של בעל מקצוע בכתובת שלו/ה: לא יוצאים מהחשבון (ההתחברות
+       משותפת עם ה-CRM), רק מסבירים ומפנים. docs/professional-accounts.md -->
+  <section class="card gate" id="agentCard" hidden>
+    <div class="gate-head">
+      <span class="gate-eyebrow">בעלי מקצוע</span>
+      <h1>אתם מחוברים כסוכנים</h1>
+      <p class="sub" id="agentText"></p>
+    </div>
+    <a class="btn btn-primary btn-block" href="/crm">חזרה ל-CRM</a>
+    <div class="gate-links"><button class="link-btn" type="button" id="agentSwitch">התחברות עם חשבון Google אחר (תנותקו גם מה-CRM בדפדפן הזה)</button></div>
+    <p class="gate-join">הכרטיסייה שלכם רשומה בכתובת אחרת? <a id="agentHelp" data-site-contact href="https://wa.me/972546929991" target="_blank" rel="noopener noreferrer">כתבו לנו בוואטסאפ</a>. עוד אין כרטיסייה? <a href="/professional-signup">פרסום חינם</a></p>
+  </section>
+
+  <!-- אחרי קישור איפוס סיסמה -->
+  <section class="card gate" id="recoverCard" hidden>
+    <div class="gate-head">
+      <span class="gate-eyebrow">בעלי מקצוע</span>
+      <h1 id="rcTitle">סיסמה חדשה</h1>
+      <p class="sub">אחרי השמירה נכנסים ישר לאזור האישי.</p>
+    </div>
+    <form id="recoverForm" class="gate-form">
+      <label for="rcPassword">סיסמה חדשה (8 תווים לפחות)</label>
+      <input type="password" id="rcPassword" autocomplete="new-password" minlength="8" required>
+      <button class="btn btn-primary btn-block" type="submit">שמירה וכניסה</button>
+      <div class="msg" id="rcMsg" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <!-- החשבון -->
+  <div id="app" hidden>
+    <section class="card">
+      <div class="head">
+        <div>
+          <div class="who" id="acctName"></div>
+          <div class="kind" id="acctKind"></div>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" type="button" id="manageBtn">עריכת הכרטיסייה</button>
+          <button class="link-btn" type="button" id="logoutBtn">יציאה</button>
+        </div>
+      </div>
+      <div class="wallet">
+        <div><small>יתרה בארנק (לפני מע״מ)</small><b id="acctBalance">-</b></div>
+        <a class="btn btn-ghost" id="topupLink" data-site-contact href="mailto:shuknadlan@gmail.com?subject=%D7%98%D7%A2%D7%99%D7%A0%D7%AA%20%D7%90%D7%A8%D7%A0%D7%A7%20%D7%91%D7%A2%D7%9C%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2">טעינת ארנק</a>
+      </div>
+      <div class="note" id="topupNote">טעינה בכרטיס אשראי עדיין אינה זמינה לבעלי מקצוע. כדי לטעון, כתבו לנו ונזכה את הארנק ידנית.</div>
+      <div class="msg" id="appMsg" role="status" aria-live="polite"></div>
+    </section>
+
+    <!-- מדף הלידים: עו"ד מאושר/ת רואה שאלות (lawyer_leads_public), יועץ/ת משכנתאות מאושר/ת
+         רואה לידים ממחשבון המשכנתא (mortgage_leads_public). הכותרת והתיאור לפי התחום (SHELF_COPY) -->
+    <section class="card" id="shelfCard" hidden>
+      <h2 id="shelfTitle">שאלות לעו״ד בעיר שלכם</h2>
+      <p class="sub" style="text-align:right" id="shelfSub">שאלות של גולשים שנשאלו מדף נכס, אחרי אימות הטלפון. הרכישה (<b id="shelfPrice">₪50</b>) חושפת שם, טלפון ואימייל.</p>
+      <div id="shelfList"></div>
+    </section>
+
+    <section class="card" id="boughtCard" hidden>
+      <h2>הלידים שרכשתי</h2>
+      <div id="boughtList"></div>
+    </section>
+
+    <section class="card" id="pendingShelfCard" hidden>
+      <h2>מדף הלידים</h2>
+      <div class="note" style="margin-top:0">הגישה למדף הלידים ממתינה לאישור הנהלת האתר. נעדכן כשהיא נפתחת.</div>
+    </section>
+
+    <!-- מחיקת החשבון (Apple 5.1.1(v), Google Play). אישור כפול: הבנה מאחורי סימון, ואז הקלדת "מחיקת חשבון".
+         הכול נקבע בשרת (close-account, close_professional_account). docs/account-closure.md -->
+    <section class="card" id="deleteCard" style="border-color:#c0392b">
+      <h2 style="color:#c0392b">מחיקת החשבון</h2>
+      <p class="empty" style="text-align:start;padding:0 0 10px">הכניסה והפרטים האישיים נמחקים, והמדף נסגר. הכרטיסייה שלכם באתר נשארת ומנוהלת מהקישור האישי שלה. זו פעולה שאין ממנה חזרה.</p>
+      <button class="btn btn-ghost" type="button" id="deleteOpenBtn" style="color:#c0392b;border-color:#c0392b">מחיקת החשבון</button>
+      <div class="msg" id="deleteMsg" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="card" id="noShelfCard" hidden>
+      <h2>מדף הלידים</h2>
+      <div class="empty">אין עדיין מדף לידים לתחום שלכם. הכרטיסייה פעילה, ואפשר לערוך אותה מהכפתור למעלה.</div>
+    </section>
+  </div>
+
+  <div class="foot"><a href="/terms">תנאי שימוש</a> · <a href="/privacy">מדיניות פרטיות</a></div>
+</div>
+
+<!-- אישור רכישה: המחיר והיתרה לפני החיוב, והתנאים -->
+<div class="overlay" id="buyOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="buyTitle">
+  <div class="dialog">
+    <h2 id="buyTitle">אישור רכישת שאלה</h2>
+    <p id="buyQuestion" style="white-space:pre-wrap"></p>
+    <p>מחיר: <span class="price" id="buyPrice"></span> <small>(לפני מע״מ)</small></p>
+    <p id="buyCardNote" style="font-size:.9rem"></p>
+    <p id="buyBalance"></p>
+    <div id="buyInvoice" style="display:grid;gap:8px;margin:10px 0">
+      <label style="font-size:.85rem">שם לחשבונית
+        <input id="buyInvName" type="text" maxlength="100" autocomplete="organization" style="width:100%">
+      </label>
+      <label style="font-size:.85rem">ח.פ / ע.מ (לא חובה)
+        <input id="buyInvTax" type="text" inputmode="numeric" maxlength="20" style="width:100%">
+      </label>
+    </div>
+    <p style="font-size:.85rem;color:var(--ink-soft)">הרכישה חושפת שם, טלפון ואימייל, ומשייכת את הליד אליכם בלבד. <span id="buyReserveNote">הליד נשמר עבורכם 15 דקות מרגע המעבר לתשלום.</span> הרכישה כפופה לתנאי השימוש והתקנון.</p>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-gold" type="button" id="buyCard">תשלום בכרטיס אשראי</button>
+      <button class="btn btn-ghost" type="button" id="buyConfirm">רכישה מהיתרה</button>
+      <button class="btn btn-ghost" type="button" id="buyCancel">ביטול</button>
+    </div>
+    <div class="msg err" id="buyMsg" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- אישור מחיקת חשבון -->
+<div class="overlay" id="delOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="delTitle">
+  <div class="dialog">
+    <h2 id="delTitle">מחיקת החשבון</h2>
+    <div id="delStep1">
+      <p style="font-weight:800">אחרי האישור, מיד:</p>
+      <ul style="margin:0 0 10px;padding-inline-start:18px;font-size:.88rem;line-height:1.6">
+        <li>הכניסה, השם והטלפון נמחקים, והמדף נסגר.</li>
+        <li>הכרטיסייה שלכם באתר נשארת, ומנוהלת מהקישור האישי שלה.</li>
+        <li id="delLeads" hidden></li>
+        <li>נשמרים בלי פרטי קשר, כי החוק מחייב: החיובים, החשבוניות ויומן הזיכויים.</li>
+      </ul>
+      <p id="delMoney" style="font-size:.86rem"></p>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.86rem;margin-top:10px;cursor:pointer">
+        <input type="checkbox" id="delAck"> <span>קראתי והבנתי. הבקשה היא למחוק את החשבון.</span>
+      </label>
+    </div>
+    <div id="delStep2" hidden>
+      <p style="font-size:.9rem">זה האישור האחרון. כדי לוודא שזו לא לחיצה בטעות, הקלידו <b>מחיקת חשבון</b> בשדה שלמטה.</p>
+      <input type="text" id="delPhrase" autocomplete="off" spellcheck="false" style="width:100%" aria-label="הקלדת המילים מחיקת חשבון לאישור">
+    </div>
+    <div class="msg err" id="delDlgMsg" role="status" aria-live="polite"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-ghost" type="button" id="delNext" disabled style="color:#c0392b;border-color:#c0392b">המשך לאישור האחרון</button>
+      <button class="btn btn-ghost" type="button" id="delConfirm" hidden disabled style="color:#c0392b;border-color:#c0392b">מחיקת החשבון</button>
+      <button class="btn btn-ghost" type="button" id="delCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/professional-crm.js"></script>
+</body>
+</html>

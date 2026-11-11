@@ -6,6 +6,8 @@ import {
   isTerminalMissing,
   morningConfigured,
 } from "../_shared/morning.ts";
+import { normalizeProfessionalPhone } from "../_shared/professional-phone.ts";
+import { normalizeEmail, sendManageLinks } from "../_shared/professional-link-mail.ts";
 
 // עריכה עצמית של כרטיסיית בעל-מקצוע ושל עמוד הפרופיל שלה
 // (professional-manage.html → professional.html).
@@ -22,6 +24,11 @@ import {
 // starts_at/ends_at, test_mode — לא נגזר מהבקשה בשום מקרה, גם אם נשלח בגוף
 // שלה: ‏extend מקבל מספר חודשים בלבד, והסכום והתאריכים נקבעים במסד
 // (‏start_ad_order, ואחרי אימות התשלום complete_ad_order).
+//
+// ‏recover_link הוא המסלול היחיד בלי אסימון: מי שאיבד/ה את הקישור מקליד/ה את
+// המייל שבכרטיסייה, והקישור נשלח **לשם** (לא מוחזר בתשובה), עם בלם של עשר
+// דקות. ‏`throttled` בתשובה כן מסגיר שהכתובת רשומה, בכוונה
+// (‏_shared/professional-link-mail.ts, "מה התשובה מסגירה").
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -85,17 +92,9 @@ function urlList(value: unknown, maxItems: number): string[] | null {
 }
 
 // ‏wa.me ו-tel: מצפים לספרות בלבד עם קידומת מדינה. הקלט מגיע איך שאנשים
-// כותבים טלפון (050-1234567, ‎+972 50 …‎), ולכן הנרמול כאן ולא בתצוגה:
-// מספר שגוי בעמוד הוא כפתור וואטסאפ שמוביל לשום מקום.
-function normalizePhone(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  let digits = value.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  if (digits.startsWith("0")) digits = "972" + digits.slice(1);
-  else if (!digits.startsWith("972") && digits.length <= 10) digits = "972" + digits;
-  return digits.length >= 11 && digits.length <= 15 ? digits : null;
-}
+// כותבים טלפון (050-1234567, ‎+972 50 …‎), ולכן הנרמול בשרת ולא בתצוגה:
+// מספר שגוי בעמוד הוא כפתור וואטסאפ שמוביל לשום מקום. הנרמול עצמו ב-
+// ‏_shared/professional-phone.ts, משותף עם professional-signup.
 
 function safeEmail(value: unknown): string | null {
   const v = trimmedOrNull(value, 254);
@@ -146,12 +145,22 @@ Deno.serve(async (req: Request) => {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // ---- שחזור קישור העריכה למייל (בלי אסימון) -------------------------------
+  if (body.action === "recover_link") {
+    const email = normalizeEmail(body.email);
+    if (!email) return json({ error: "invalid_email" }, 400);
+    const r = await sendManageLinks(supabase, email);
+    // ‏throttled חוזר כדי שהדף יגיד "נשלח לפני רגע" במקום להציע לחכות למייל שלא יגיע
+    return json({ success: true, throttled: r.throttled });
+  }
+
   const token = typeof body.token === "string" ? body.token.trim() : "";
   if (!UUID_RE.test(token)) return json({ error: "invalid_token" }, 400);
 
   const action = ["save", "upload", "extend", "renew_on", "renew_off"].includes(body.action)
     ? body.action : "load";
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
     const { data: access, error: accessErr } = await supabase
@@ -182,9 +191,20 @@ Deno.serve(async (req: Request) => {
         .select("value")
         .eq("key", "professional_card_free_publishing")
         .maybeSingle();
+      // חשבון כניסה וארנק (professional-account): המסך מציע לפתוח אחד רק כשאין
+      const { data: acct } = await supabase
+        .from("professional_accounts").select("id, user_id, erased_at").eq("card_id", access.placement_id).maybeSingle();
+      // חשבון שההזמנה אליו לא נלחצה (מייל האימות) אינו "יש חשבון": הטופס נשאר, ובקשה חוזרת שולחת מייל חדש
+      let accountPending = false;
+      if (acct && acct.user_id && !acct.erased_at) {
+        const { data: au } = await supabase.auth.admin.getUserById(acct.user_id);
+        accountPending = !!au?.user && !au.user.email_confirmed_at;
+      }
       return json({
         success: true,
         card,
+        has_account: !!acct && !accountPending,
+        account_pending: accountPending,
         free_publishing: Number(freeCfg?.value) > 0,
         pricing: pricing && !pricing.error ? pricing : null,
         extend_months: EXTEND_MONTHS,
@@ -309,6 +329,12 @@ Deno.serve(async (req: Request) => {
     if (body.advertiser_type !== undefined && !VALID_TYPES.includes(body.advertiser_type)) {
       return json({ error: "invalid_advertiser_type", allowed: VALID_TYPES }, 400);
     }
+    // הטלפון חובה גם כאן, לא רק בהרשמה: מחיקה שלו במסך העריכה הייתה מורידה
+    // מהעמוד את כל כפתורי הקשר (docs/professional-cards.md, "הטלפון חובה").
+    const phone_e164 = normalizeProfessionalPhone(body.phone_e164);
+    if (!phone_e164) {
+      return json({ error: body.phone_e164 ? "invalid_phone" : "phone_required" }, 400);
+    }
 
     const patch: Record<string, unknown> = {
       advertiser_name,
@@ -322,7 +348,7 @@ Deno.serve(async (req: Request) => {
       gallery_urls: urlList(body.gallery_urls, MAX_GALLERY),
       video_url: safeUrl(body.video_url),
       click_url: safeUrl(body.click_url),
-      phone_e164: normalizePhone(body.phone_e164),
+      phone_e164,
       public_email: safeEmail(body.public_email),
       license_number: trimmedOrNull(body.license_number, 40),
       years_experience: safeYears(body.years_experience),

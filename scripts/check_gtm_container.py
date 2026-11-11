@@ -88,6 +88,10 @@ BENIGN_TYPES = {
     "gaawe": "אירוע GA4",
     "gaawc": "הגדרת GA4 (ישן)",
     "googtag": "תגית Google / הגדרת GA4",
+    # ‏Conversion Linker של Google Ads: שומר את מזהה הלחיצה (gclid) בעוגייה של האתר.
+    # אין בו JS חופשי, אבל הוא איסוף פרסומי, ולכן הוא גם יכולת ב-CAPABILITIES ומחייב
+    # הצהרה ב-privacy.html (9.11.2026, גרסה 17).
+    "gclidw": "Conversion Linker של Google Ads",
 }
 
 # ‏תגיות Custom HTML שמישהו הסתכל עליהן. השם חייב להיות מדויק כפי שהוא
@@ -109,6 +113,14 @@ CAPABILITIES = [
         "signatures": ("connect.facebook.net", "fbq(", "fbevents.js"),
         "privacy_phrase": "הפיקסל של Meta",
         "why": "פרסום ושיווק מחדש — סוג איסוף אחר ממדידה סטטיסטית",
+    },
+    {
+        "key": "google_ads",
+        "name": "Google Ads",
+        # ‏הסוג בייצוא, במירכאות: "gclidw" (Conversion Linker) ו-"awct" (תגית המרה).
+        "signatures": ('"gclidw"', '"awct"'),
+        "privacy_phrase": "Google Ads",
+        "why": "ייחוס המרות של מודעות גוגל - עוגייה פרסומית, לא מדידה סטטיסטית",
     },
     {
         "key": "ga4",
@@ -245,6 +257,34 @@ def check(path: Path) -> tuple[list[str], list[str]]:
     tags = version.get("tag") or []
     triggers = version.get("trigger") or []
     raw = json.dumps(data, ensure_ascii=False)
+
+    # ‏0. הייצוא אמיתי ולא נערך ביד. ‏fingerprint של כל פריט הוא חותמת הזמן (ms) של
+    # העריכה האחרונה שלו ב-GTM, ולכן פריט אמיתי לעולם אינו חדש מהייצוא עצמו. עד
+    # 9.11.2026 נכתבו כאן ביד 118 טריגרים ותגיות עם fingerprint "עתידי", ו-118
+    # האירועים שלהם לא הגיעו ל-GA4 חודשים, בעוד הבדיקה ירוקה (gtm/README.md,
+    # "המחזור החמישי"). יום שלם של מרווח לשעון ולאזור הזמן.
+    export_ms = None
+    try:
+        from datetime import datetime, timezone
+        export_ms = int(datetime.strptime(str(data.get("exportTime", "")), "%Y-%m-%d %H:%M:%S")
+                        .replace(tzinfo=timezone.utc).timestamp() * 1000)
+    except ValueError:
+        problems.append("‏exportTime חסר או בפורמט לא צפוי (%r) - ייצוא אמיתי מ-GTM תמיד נושא אותו,\n"
+                        "        ובלעדיו אי אפשר לבדוק שהעותק לא נערך ביד." % data.get("exportTime"))
+    if export_ms is not None:
+        hand = []
+        for kind in ("tag", "trigger", "variable"):
+            for item in version.get(kind) or []:
+                fp = str(item.get("fingerprint") or "")
+                if fp.isdigit() and int(fp) > export_ms + 86_400_000:
+                    hand.append("%s \"%s\"" % (kind, item.get("name")))
+        if hand:
+            problems.append(
+                "%d פריטים חדשים מהייצוא עצמו (fingerprint אחרי exportTime) - הם נכתבו ביד\n"
+                "        ב-container.json ולא נוצרו ב-GTM: %s%s\n"
+                "        הבדיקה הייתה ירוקה עליהם בעוד שהאירועים אינם מגיעים ל-GA4. מייבאים\n"
+                "        ל-GTM (קובץ ייבוא ב-docs/), מפרסמים ומייצאים מחדש - לא עורכים את הייצוא."
+                % (len(hand), ", ".join(hand[:5]), " ..." if len(hand) > 5 else ""))
 
     info.append("ייצוא מ-%s, גרסת מכולה %s"
                 % (data.get("exportTime", "(אין תאריך)"),

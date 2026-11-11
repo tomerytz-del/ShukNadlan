@@ -180,6 +180,11 @@
       else if (href.indexOf('mailto:') === 0) method = 'email';
       if (!method) return;
 
+      /* ‏קישור שהודבק בגוף הכתבה אינו פנייה. כתובת wa.me בטקסט נשארת
+         קישור, וספירתה כליד מנפחת את המדד. כפתור השיתוף יושב מחוץ
+         ל-#articleBody ועדיין נספר. */
+      if (link.closest('#articleBody')) return;
+
       if (link.hasAttribute('data-bot')){
         // ‏entry הוא נקודת הכניסה שממנה נלחץ הכפתור ("search_empty"), ולא
         // הדף — page_type כבר מגיע מ-pageContext ואין טעם לשכפל אותו.

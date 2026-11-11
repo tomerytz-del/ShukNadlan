@@ -24,14 +24,14 @@ const LEAD_SRC = {
   prop:  { label:'דף נכס',      tone:'accent', why:'פנייה מהאתר' },
   agent: { label:'דף הסוכן',    tone:'accent', why:'פנייה מהדף שלך' },
   site:  { label:'האתר',        tone:'accent', why:'פנייה מהאתר' },
-  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק או מאינסטגרם' },
+  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק, מאינסטגרם או ממדלן' },
 };
 const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['store', 'חנות הלידים']];
 const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
-  // פוסט בקבוצה או במרקטפלייס, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
-  'facebook_group', 'facebook_marketplace']);
+  // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
+  'facebook_group', 'facebook_marketplace', 'madlan']);
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
 const LEADS_STEP = 3;
@@ -190,15 +190,20 @@ function renderLeadsUnified(agentId){
   const fresh = active.filter(l => leadStageOf(l) === 'new');
   const work = active.filter(l => leadStageOf(l) !== 'new');
 
-  accSetCount('accLeads', fresh.length);
+  /* כל מונה כאן סופר פונים ולא שורות ב-leads, כמו הרשימה: פונה עם שתי
+     פניות הוא כרטיס אחד, ו"4" מעל רשימה של 2 נקרא כבאג (docs/lead-card.md) */
+  const people = list => groupLeadsByVisitor(list).length;
+  const nFresh = people(fresh), nActive = people(active);
+
+  accSetCount('accLeads', nFresh);
   syncLeadsSettings();
   renderClientsTop();
-  accSetSummary('accLeads', active.length
-    ? plural(active.length, 'ליד פתוח אחד', 'לידים פתוחים') + (fresh.length ? ' · ' + plural(fresh.length, 'אחד חדש', 'חדשים') : '')
+  accSetSummary('accLeads', nActive
+    ? plural(nActive, 'ליד פתוח אחד', 'לידים פתוחים') + (nFresh ? ' · ' + plural(nFresh, 'אחד חדש', 'חדשים') : '')
     : '');
 
   // הלשוניות
-  const counts = { new: fresh.length, work: work.length, archive: archived.length,
+  const counts = { new: nFresh, work: people(work), archive: people(archived),
                    demand: openDemandRows ? openDemandRows.filter(d => !d.mine).length : '·' };
   document.querySelectorAll('#leadsTabs [data-leads-tab]').forEach(b => {
     b.setAttribute('aria-selected', String(b.dataset.leadsTab === leadsTab));
@@ -214,15 +219,16 @@ function renderLeadsUnified(agentId){
   const pool = leadsTab === 'archive' ? archived : leadsTab === 'work' ? work : fresh;
 
   // צ'יפים של מקור - רק מקורות שיש בהם משהו בלשונית הזו
+  // המונה הוא מספר הכרטיסים שהלחיצה על הצ'יפ תציג
+  const inSrc = (l, src) => src === 'all' || leadSrcKey(l) === src || (src === 'prop' && leadSrcKey(l) === 'site');
   const srcCount = {};
-  pool.forEach(l => { const k = leadSrcKey(l); srcCount[k] = (srcCount[k] || 0) + 1; });
+  LEAD_SRC_FILTERS.forEach(([k]) => { srcCount[k] = people(pool.filter(l => inSrc(l, k))); });
   if (leadsSrc !== 'all' && !srcCount[leadsSrc]) leadsSrc = 'all';
   document.getElementById('leadsSrc').innerHTML = LEAD_SRC_FILTERS
-    .filter(([k]) => k === 'all' || srcCount[k] || (k === 'prop' && srcCount.site))
-    .map(([k, label]) => uiChip(label, { value:k, on: leadsSrc === k, icon:false,
-      count: k === 'all' ? pool.length : (srcCount[k] || 0) + (k === 'prop' ? (srcCount.site || 0) : 0) })).join('');
+    .filter(([k]) => k === 'all' || srcCount[k])
+    .map(([k, label]) => uiChip(label, { value:k, on: leadsSrc === k, icon:false, count: srcCount[k] })).join('');
 
-  const filtered = pool.filter(l => leadsSrc === 'all' || leadSrcKey(l) === leadsSrc || (leadsSrc === 'prop' && leadSrcKey(l) === 'site'));
+  const filtered = pool.filter(l => inSrc(l, leadsSrc));
   const sorted = leadsTab === 'archive'
     ? filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     : leadsPrioritySort(filtered);
@@ -500,9 +506,9 @@ function openLeadUnified(id){
    פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
    docs/scraped-leads.md), ובתקופת ההשקה - כל פוסט מרגע הקליטה, במקביל לבקשת
    ההסכמה (open_demand_list). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
-   תשלום. הדרך היחידה לפנות היא הפוסט עצמו - ולכן אין כאן חיוג, וואטסאפ או
-   "הוספה כלקוח/ה". "אני פונה" (open_demand_claim) תופס את הביקוש לסוכן/ת
-   אחד/ת ופותח את הפוסט, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
+   תשלום. בפייסבוק הדרך לפנות היא הפוסט עצמו. מדלן: מתקשרים למספר, בלי פניה
+   לבעלים מצד המערכת, והטלפון בכרטיס. "אני פונה" (open_demand_claim) תופס את
+   הביקוש לסוכן/ת אחד/ת, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
 let openDemandRows = null;
 let openDemandStats = null;
 let openDemandLoading = false;
@@ -579,22 +585,23 @@ function renderOpenDemand(listEl){
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים או מציעים, ולא השאירו פרטים.'
-    + ' "אני פונה" שומר את הביקוש לך בלבד ופותח את הפוסט.</span>'
-    + '<span><strong>' + OPEN_DEMAND_RULE + '</strong></span></p>';
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק או במדלן מה הם מחפשים או מציעים.'
+    + ' "אני פונה" שומר את הביקוש לך בלבד.</span>'
+    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן מתקשרים למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
   }
   listEl.innerHTML = hint + openDemandRows.map(d => {
-    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
+    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס'
+      : d.source === 'madlan' ? 'מדלן' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
     const act = d.mine
       ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">אני פונה - לפוסט ↗</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">${d.source === 'madlan' ? 'אני פונה' : 'אני פונה - לפוסט ↗'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -604,7 +611,9 @@ function renderOpenDemand(listEl){
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
       + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
-      + `<p class="lp-why"><strong>${esc(nb ? nb.rule : OPEN_DEMAND_RULE)}</strong></p>`
+      + `<p class="lp-why"><strong>${esc(d.source === 'madlan'
+          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
+          : (nb ? nb.rule : OPEN_DEMAND_RULE))}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');

@@ -46,8 +46,13 @@ await pg.addInitScript(({ DELAY, role }) => {
     agent_id: 'a1', created_at: '2026-10-01', features: [], images: [], title: 'נכס ' + i, city: 'עפולה' }));
   const CLIENTS = [...Array(10)].map((_, i) => ({ id: 'c' + i, full_name: 'לקוח ' + i, status: 'active', created_at: '2026-10-01' }));
   const user = { id: 'u1', email: 'a@b.c' };
+  // שכונה אחת ועיר אחת: ‏ensureNeighborhoodsLoaded בודקת `allNeighborhoods.length`,
+  // ורשימה ריקה גרמה לכל קורא לטעון אותה מחדש - סבב מדומה שאינו קיים באתר
+  // (‏2.11.2026: ‏loadClients ישבה עליו, והוא נראה כחלק מהשרשרת).
+  const HOODS = [{ id: 'n1', city: 'עפולה', name: 'מרכז', city_id: 'c1', is_planned: false, is_industrial: false }];
   const rows = t => t === 'properties' ? PROPS : t === 'agent_clients' ? CLIENTS
-    : t === 'agency_members' ? [AGENT] : t === 'agencies' ? [{ id: 'g1', name: 'משרד' }] : [];
+    : t === 'agency_members' ? [AGENT] : t === 'agencies' ? [{ id: 'g1', name: 'משרד' }]
+    : t === 'neighborhoods' ? HOODS : t === 'market_cities_public' ? [{ city_id: 'c1', market_slug: 'afula' }] : [];
   // בונה שאילתה מדומה: כל שרשור מחזיר אותו, והבקשה "יוצאת" רק ב-then -
   // בדיוק כמו ב-supabase-js, ולכן גם המוקש של שאילתה שלא יצאה נמדד נכון
   function builder(table) {

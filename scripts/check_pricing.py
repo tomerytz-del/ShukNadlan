@@ -36,8 +36,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------------------------------------- ההצהרה
 # המפתח ב-pricing_config -> הערך. שינוי מחיר מתחיל במיגרציה, וממשיך כאן.
 PRICES = {
-    'tier_mid_monthly_price':            399,
-    'tier_premium_monthly_price':        599,
+    'tier_mid_monthly_price':            199,
+    'tier_premium_monthly_price':        399,
     'phone_line_monthly_price':          89,
     'phone_line_included_minutes':       150,
     'phone_line_overage_per_min':        0.5,
@@ -50,9 +50,22 @@ PRICES = {
     'property_video_premium_monthly_cap': 8,
     'ppl_price_buyer_renter':            25,
     'ppl_price_owner_mid':               50,
+    # ליד בעלים של הפלטפורמה לסוכן/ת Pay&GO (20271109142000). הנוסח בדף "ליד ב-₪N",
+    # להבדיל מ-"₪N לליד" של המסלולים בתשלום.
+    'ppl_price_owner_free':              69,
     'free_lead_quota_monthly':           10,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
+    # קורס ההכנה למבחן המתווכים (20271106090000): מחיר לצרכן/ית, **כולל** מע"מ,
+    # בניגוד לשאר המחירון. docs/exam-course.md
+    'course_price_gross':                199,
+    'course_access_months':              6,
+    # הנחת משרד ב-Elite (20271111160000): בדף ב-#office, ב-tiers.js ובשאלות. המחירים
+    # שנגזרים מהם (₪339.15, ₪299.25 ודוגמת המשרד) נבדקים ב-derived() למטה.
+    'office_discount_min_agents':        3,
+    'office_discount_pct_small':         15,
+    'office_discount_big_min_agents':    6,
+    'office_discount_pct_big':           25,
 }
 
 # ------------------------------------------------------------- התצוגה
@@ -70,7 +83,7 @@ DISPLAY = [
     # בוחר המסלול ושורת הערך של Elite (PICK_PRICES)
     ('pricing.html', r'PICK_PRICES = \{ video: ' + N,                 'property_video_price_mid'),
     ('pricing.html', r'PICK_PRICES = \{[^}]*ownerLead: ' + N,         'ppl_price_owner_mid'),
-    ('pricing.html', r'PICK_PRICES = \{[^}]*line: ' + N,              'phone_line_monthly_price'),
+    ('pricing.html', r'PICK_PRICES = \{[^}]*ownerLeadFree: ' + N,     'ppl_price_owner_free'),
     ('pricing.html', r'PICK_PRICES = \{[^}]*videoCap: ' + N,          'property_video_premium_monthly_cap'),
     ('pricing.html', r'לפני מע״מ: ₪' + N + ' ו-₪',                     'tier_mid_monthly_price'),
     ('pricing.html', r'ו-₪' + N + ' לחודש, וכך',                       'tier_premium_monthly_price'),
@@ -95,8 +108,6 @@ DISPLAY = [
     ('assets/tiers.js', r'₪' + N + r' להפקה',                          'property_video_price_mid'),
     ('pricing.html', r"'" + N + r' בחודש · ללא חיוב',                  'property_video_premium_monthly_cap'),
     ('assets/tiers.js', r"'" + N + r' סרטונים שיווקיים בחודש',         'property_video_premium_monthly_cap'),
-    # האריח בסקשן "הנשק הסודי" - HTML סטטי
-    ('pricing.html', r'<b>' + N + r' סרטונים שיווקיים בחודש',          'property_video_premium_monthly_cap'),
     # לידים
     ('pricing.html', r"'" + N + r" בחודש, ואז ₪\d+'",                 'free_lead_quota_monthly'),
     ('pricing.html', r"'\d+ בחודש, ואז ₪" + N + "'",                   'ppl_price_buyer_renter'),
@@ -109,7 +120,49 @@ DISPLAY = [
     ('assets/tiers.js', r"'" + N + r' פניות בחודש כלולות',             'free_lead_quota_monthly'),
     ('pricing.html', r'₪' + N + r' לליד',                              'ppl_price_owner_mid'),
     ('assets/tiers.js', r'₪' + N + r' לליד',                           'ppl_price_owner_mid'),
+    ('pricing.html', r'ליד ב-₪' + N,                                   'ppl_price_owner_free'),
+    ('assets/tiers.js', r'ליד ב-₪' + N,                                'ppl_price_owner_free'),
+    # קורס ההכנה למבחן המתווכים - דף המכירה ואזור הלמידה
+    ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
+    ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
+    ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
+    ('course.html', r'וסימולציות\. ' + N + r' ₪ לשישה חודשים',           'course_price_gross'),
+    ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
+    ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
+    ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
+    # הנחת משרד: הטבלה ב-#office, הכרטיס ב-tiers.js והשאלה הנפוצה
+    ('pricing.html', r'data-office="min">' + N,                         'office_discount_min_agents'),
+    ('pricing.html', r'data-office="small">' + N,                       'office_discount_pct_small'),
+    ('pricing.html', r'data-office="bigmin">' + N,                      'office_discount_big_min_agents'),
+    ('pricing.html', r'data-office="big">' + N,                         'office_discount_pct_big'),
+    ('pricing.html', r'מ-' + N + r' סוכנים 15%',                       'office_discount_min_agents'),
+    ('pricing.html', r'ומ-' + N + r' סוכנים 25%',                      'office_discount_big_min_agents'),
+    ('pricing.html', r'הנחת משרד ב-Elite: ' + N + r'% לכל',             'office_discount_pct_small'),
+    ('assets/tiers.js', r'הנחת משרד: ' + N + r'% לכל סוכן/ת נוסף/ת במשרד', 'office_discount_pct_small'),
+    ('assets/tiers.js', r'ו-' + N + r'% מ-6 סוכנים',                    'office_discount_pct_big'),
+    ('assets/tiers.js', r'הנחת משרד[^\n]*?עם ' + N + r' עד 5',          'office_discount_min_agents'),
+    ('assets/tiers.js', r'ו-\d+% מ-' + N + r' סוכנים',                  'office_discount_big_min_agents'),
+    ('terms.html', r'<strong>הנחה של ' + N + r'%</strong> כשיש במשרד',   'office_discount_pct_small'),
+    ('terms.html', r'ו-<strong>הנחה של\s+' + N + r'%</strong> כשיש שישה', 'office_discount_pct_big'),
 ]
+
+
+def derived(problems):
+    """המחירים שנגזרים מהנחת המשרד: מחיר Elite כפול (1 - אחוז). הם כתובים בדף כמספרים,
+    ולכן נבדקים כאן ולא ב-DISPLAY: מי שמשנה את האחוז או את מחיר Elite חייב לעדכן אותם."""
+    elite, small, big = (PRICES['tier_premium_monthly_price'], PRICES['office_discount_pct_small'],
+                         PRICES['office_discount_pct_big'])
+    price_small = round(elite * (1 - small / 100), 2)
+    price_big = round(elite * (1 - big / 100), 2)
+    team4 = round(elite + 3 * price_small, 2)
+    full4 = elite * 4
+    text = open(os.path.join(ROOT, 'pricing.html'), encoding='utf-8').read()
+    def fmt(v):
+        return f'{v:,.2f}'.rstrip('0').rstrip('.') if v != int(v) else f'{int(v):,}'
+    for label, v in (('מחיר סוכן נוסף ב-3 עד 5', price_small), ('מחיר סוכן נוסף ב-6 ומעלה', price_big),
+                     ('סכום משרד של 4 (בדוגמה)', team4), ('המחיר המלא של 4 (בדוגמה)', full4)):
+        if '₪' + fmt(v) not in text:
+            problems.append(f'pricing.html: {label} אמור להיות ₪{fmt(v)} לפי pricing_config, ולא נמצא בדף.')
 
 
 def num(s):
@@ -167,6 +220,8 @@ def main():
         for v in found:
             if num(v) != PRICES[key]:
                 problems.append(f'{path}: {key} מוצג {num(v)}, והמסד גובה {PRICES[key]}.')
+
+    derived(problems)
 
     if problems:
         print(f'✗ {len(problems)} פערים בין המחירים שמוצגים למחירים שנגבים:\n')

@@ -462,9 +462,8 @@ function walletHeroSync(){
   const promote = Number(priceOf('promote_price', 0));
   const uses = document.getElementById('wlUses');
   uses.innerHTML = '<li><strong>מה משלמים מהארנק:</strong></li>'
-    // ב-Elite המספר הראשון כלול, וכל נוסף מהארנק (החלטה של תומר, 20.10.2026)
-    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש${currentAgent && currentAgent.tier === 'premium'
-        ? ' - הראשון כלול במסלול Elite, כל מספר נוסף מהארנק' : ''}</li>` : '')
+    // מ-9.11.2026 המספר עולה אותו דבר בכל מסלול ואינו כלול באף אחד
+    + (line ? `<li>מספר וירטואלי · <b>${esc(shekel(line))}</b> לחודש, לכל מספר</li>` : '')
     + (promote ? `<li>קידום נכס · <b>${esc(shekel(promote))}</b></li>` : '')
     + '<li>לידים מחנות הלידים</li>';
   const note = document.getElementById('wlLineNote');
@@ -927,6 +926,35 @@ function showLoginCard(message){
 function showBootCard(message){
   document.getElementById('bootMessage').textContent = message;
   showScreen('boot');
+}
+
+/* מסך הביניים אומר לאן הקישור הולך. בלי ?goto= נשאר המשפט הכללי.
+   קטגוריה שהתפקיד הזה לא רואה (navAccVisible) לא נפתחת, והנחיתה היא
+   הדשבורד - אז גם המסך לא מבטיח מסך אחר. */
+function bootMessageFor(raw, tab){
+  const hidden = /^(acc|dashPanel)/.test(raw) && typeof navAccVisible === 'function'
+    && !navAccVisible(typeof accAliasTarget === 'function' ? accAliasTarget(raw) : raw);
+  if (hidden) return 'טוענים את איזור הסוכנים…';
+  if (raw === 'accLeads' && tab === 'demand') return 'פותחים את הביקושים הפתוחים…';
+  if (raw === 'accLeads') return 'פותחים את הלידים…';
+  if (raw === 'accProperties') return 'פותחים את הנכסים…';
+  if (raw === 'accClients') return 'פותחים את הלקוחות…';
+  if (raw === 'accSharedWithMe') return 'פותחים את הנכסים ששותפו איתך…';
+  if (raw === 'accAgreements' || raw === 'sign') return 'פותחים את ההסכמים…';
+  if (raw === 'accAgenda') return 'פותחים את היומן…';
+  if (raw === 'accPlanning') return 'פותחים את המידע התכנוני…';
+  if (raw === 'accPrefs' || raw === 'accNotifPrefs') return 'פותחים את ההגדרות…';
+  if (raw === 'accReviews') return 'פותחים את הביקורות…';
+  if (raw === 'cma' || raw === 'cmaAddress') return 'פותחים את דוח ה-CMA…';
+  if (raw === 'license') return 'פותחים את הרישיון…';
+  if (raw === 'mentor') return 'פותחים את המנטור…';
+  if (raw === 'promote' || raw === 'waShare') return 'פותחים את השיווק…';
+  if (raw) return 'פותחים את המסך…';
+  return 'טוענים את איזור הסוכנים…';
+}
+function bootMessage(){
+  const params = new URLSearchParams(location.search);
+  return bootMessageFor(params.get('goto') || '', params.get('tab') || '');
 }
 
 /* ---------- ניקוי תשובת Google מהכתובת ----------
@@ -1671,7 +1699,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     releasedAgent = null;
     // מסך ההמתנה במקום כיבוי ידני של הכרטיס: כך אין רגע ריק בין סגירת מסך
     // פתיחת המשרד לבין הופעת הדשבורד. showScreen() מכבה את הכרטיס בעצמו.
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     if (!wasAdopted) markWelcome();
     await loadDashboard(session.user);
     if (wasAdopted){
@@ -1759,6 +1787,21 @@ function showClosedScreen(agent){
     })
     .catch(()=>{ /* המסך עומד גם בלי השורה הזו */ });
 }
+/* אחרי מחיקה מיידית: המשתמש ב-Auth כבר נמחק, אבל האסימון בדפדפן עוד בתוקף
+   עד שעה. בלי signOut כאן, טעינה מחדש הייתה מוצאת אסימון בלי כרטיס ומציגה
+   "פתיחת משרד חדש". המסך מאשר שהמחיקה קרתה ומה עם הכסף. */
+async function showDeletedScreen(refundAmount){
+  try { await sb.auth.signOut(); } catch(_){ /* המשתמש כבר נמחק - זה צפוי */ }
+  routedUserId = null;
+  document.getElementById('closedTitle').textContent = 'החשבון נמחק';
+  document.getElementById('closedSub').textContent =
+    'הדף והמודעות ירדו מהאוויר, הפרטים האישיים נמחקו, ואי אפשר יותר להיכנס לחשבון הזה.';
+  document.getElementById('closedRefundNote').textContent = refundAmount > 0
+    ? 'בקשת ההחזר על יתרת הארנק (' + shekel(refundAmount) + ') נפתחה, וההחזר יגיע לאמצעי התשלום שממנו נטען הארנק. '
+    : '';
+  showScreen('closed');
+}
+
 document.getElementById('closedLogoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut(); routedUserId = null; showLoginCard();
 });
@@ -2063,7 +2106,7 @@ async function routeAfterAuthOnce(user){
   clearTimeout(bootWatchdog);
   cleanAuthParamsFromUrl();
   routedUserId = user.id;
-  showBootCard('טוענים את איזור הסוכנים…');
+  showBootCard(bootMessage());
   // אין כאן שאילתת agency_members נפרדת: loadDashboard() ממילא שולף את השורה
   // ומבדיל בעצמו בין שגיאה (מסך שגיאה) לבין אין-שורה (מסך פתיחת משרד).
   // השאילתה הכפולה הוסיפה סיבוב רשת שלם לכל כניסה, לפני שמשהו הופיע על המסך.
@@ -2310,6 +2353,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      קישור (?goto=) הוא החריג: קודם נפתח המסך ונטען רק מה שהוא קורא, ורק
      אחר כך שאר השרשראות. בלי קישור אף טעינה לא זזה - start() נקרא מכאן
      באותו רגע כמו קודם. שאילתה שנשמרת ב-start לא יוצאת פעמיים. */
+  /* ‏client_match_top היא השאילתה האיטית של הכניסה (ממוצע 0.94 שניות, ו-3.3
+     אצל סוכן/ת עם 79 לקוחות, pg_stat_statements 2.11.2026), והיא אינה תלויה
+     בנכסים. עד כאן היא יצאה רק בתחילת loadClients - שני סבבים אחרי הנכסים. */
+  const clientTopEarly = sb.rpc('client_match_top').then(r => r);
+  clientTopEarly.catch(() => {});
   const started = new Map();
   function start(key, fn){
     if (!started.has(key)) started.set(key, Promise.resolve().then(fn));
@@ -2328,7 +2376,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       renderQuotaMeter(freeQuota);
     }));
   }
-  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients())); }
+  function clientsListP(){ return start('clientsList', () => propsP().then(() => loadClients({ topsP: clientTopEarly }))); }
   const gotoParams = new URLSearchParams(location.search);
   const gotoRaw = gotoParams.get('goto') || '';
   const gotoTab = gotoParams.get('tab') || '';
@@ -2369,6 +2417,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
             : crmNeedThen('settings', () => (typeof loadPreferences === 'function' ? loadPreferences(agent.id) : null)))),
         ]);
       } else if (key === 'notifications') await start('notifications', () => loadNotifications(agent.id));
+      else if (ADMIN_LOAD_FNS[key] && agent.is_platform_admin) await start(key, ADMIN_LOAD_FNS[key]);
     }
   }
   let gotoHandled = false;
@@ -2396,6 +2445,24 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   /* כשל של מסך אחד (קובץ שחזר 502) לא מפיל את שאר הדשבורד: בלי זה
      setDashView, המונים וה-goto המאוחר לא רצים. */
   const crmQuiet = (p) => Promise.resolve(p).catch(err => console.warn('טעינה נעצרה בלי להפיל את הדשבורד:', err));
+  /* אזור המנהל/ת וכלי הפלטפורמה יוצאים עכשיו, לצד הטעינה הראשית ולא אחריה:
+     אף אחד מהם אינו קורא נכסים, לקוחות, לידים או מחירים (נבדק 2.11.2026),
+     ועד כאן הם הוסיפו כארבעה סבבים בטור לכניסת מנהל/ת. ה-await נשאר במקומו
+     למטה, ולכן הסדר שבו המסך נגמר והטיפול בשגיאה לא השתנו. ‏catch ריק רק
+     מסמן שהדחייה תטופל שם - בלעדיו כישלון שקודם ל-await היה נרשם כלא מטופל. */
+  const managerLoadsP = agent.role === 'manager' ? Promise.all([
+    crmQuiet(loadBranding(agent.agency_id)),
+    crmQuiet(loadTeam(agent.agency_id, agent.id)),
+    crmQuiet(start('reviews', () => loadPendingReviews(agent.agency_id))),
+    crmQuiet(loadAgencyEthics(agent.agency_id)),
+  ]) : null;
+  // דרך start, כדי שיעד מקישור שכבר טען אחת מהן (ADMIN_GOTO_LOADS) לא יטען שוב.
+  // ‏adminInbox מאחדת את התורים, אבל קוראת מהמסד ישירות ולא מהם.
+  const adminLoadsP = agent.is_platform_admin
+    ? Promise.all(Object.keys(ADMIN_LOAD_FNS).map(k => crmQuiet(start(k, ADMIN_LOAD_FNS[k]))))
+    : null;
+  if (managerLoadsP) managerLoadsP.catch(() => {});
+  if (adminLoadsP) adminLoadsP.catch(() => {});
   await Promise.all([
     crmQuiet(pricingP()),
     crmQuiet(propsP()),
@@ -2443,37 +2510,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   };
   if (typeof coachLoad === 'function') armCoach();
   else crmNeedThen('coach', armCoach);
-  if (agent.role === 'manager'){
-    // ארבע טעינות שאינן תלויות זו בזו - במקביל, מאותה סיבה שלמעלה
-    await Promise.all([
-      crmQuiet(loadBranding(agent.agency_id)),
-      crmQuiet(loadTeam(agent.agency_id, agent.id)),
-      crmQuiet(start('reviews', () => loadPendingReviews(agent.agency_id))),
-      crmQuiet(loadAgencyEthics(agent.agency_id)),
-    ]);
-  } else {
-    document.getElementById('ethicsAgencyBlock').hidden = true;
-  }
+  // ארבע הטעינות של אזור המנהל/ת יצאו למעלה, לצד הטעינה הראשית
+  if (managerLoadsP) await managerLoadsP;
+  else document.getElementById('ethicsAgencyBlock').hidden = true;
 
   // כלי הפלטפורמה נטענים למנהל/ת פלטפורמה, אבל *מוצגים* רק בתצוגת מנהל/ת —
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
-  // בין התצוגות יהיה מיידי ולא ימתין לרשת.
-  if (agent.is_platform_admin){
-    await Promise.all([
-      crmQuiet(loadLicenseAppeals()),
-      crmQuiet(typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeedThen('coach', () => (typeof loadCoachGaps === 'function' ? loadCoachGaps() : null))),
-      crmQuiet(loadRefundQueue()),
-      crmQuiet(loadSubscriptionsAdmin()),
-      crmQuiet(loadNeighborhoodsAdmin()),
-      crmQuiet(loadRssSourcesAdmin()),
-      crmQuiet(loadArticlesAdmin()),
-      crmQuiet(loadProfessionalCardsAdmin()),
-      crmQuiet(loadUnroutedLeads()),
-      crmQuiet(typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeedThen('suggestions', () => (typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : null))),
-      // מאחדת את ארבעת התורים שלמעלה, אבל קוראת מהמסד ישירות ולא מהם
-      crmQuiet(typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeedThen('adminInbox', () => (typeof loadAdminInbox === 'function' ? loadAdminInbox() : null))),
-    ]);
-  }
+  // בין התצוגות יהיה מיידי ולא ימתין לרשת. גם היא יצאה למעלה.
+  if (adminLoadsP) await adminLoadsP;
 
   // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
   // managerSection, המצב נקבע בשני הכיוונים כדי שהסרת הדגל תסגור את המגירה
@@ -2489,7 +2533,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // (navAccVisible), ובנייה מוקדמת מדי הייתה מייצרת מפה של דשבורד חצי-טעון
   renderGreeting(agent);
   renderViewSwitch();
-  setDashView('agent', { initial:true });
+  // קישור שפתח יעד של ניהול כבר עבר לתצוגה הזו (handleGotoParam). מעבר חוזר
+  // לסוכן/ת היה מסתיר את היעד, ו-setDashView('admin') שני היה טוען שוב את
+  // שמונת הדוחות - ולכן רק הבנייה מחדש של הניווט.
+  if (gotoHandled && dashView === 'admin'){
+    applyNavFilter();
+    renderSideNav();
+    renderBottomNav();
+  } else setDashView('agent', { initial:true });
   renderQuickActions();
   refreshNavCounts();
   dashPanelsMeasure();
@@ -2577,7 +2628,53 @@ function gotoLoadKeys(raw, tab){
   if (raw === 'accReviews') return ['reviews'];
   if (raw === 'accPrefs' || raw === 'accNotifPrefs') return ['prefs'];
   if (raw === 'bell') return ['notifications'];
+  /* ‏ADMIN_GOTO_LOADS: טעינות אזור הניהול שיעד מקישור צריך לפני שהוא נפתח.
+     המפתח הוא מפתח ה-start של adminLoadsP (ADMIN_LOAD_FNS), ולכן הטעינה לא
+     יוצאת פעמיים. מה שאין כאן (מצב העסקאות, יישובים, GovMap, יומן הביקורת,
+     ה-dashPanel*) נטען בעצמו כשהקטגוריה נפתחת או ב-setDashView('admin').
+     בתוך הפונקציה ולא לצדה: crm_goto_load_test.mjs מריץ אותה לבדה. */
+  const ADMIN_GOTO_LOADS = {
+    accLicenseAppeals: 'adm:licenseAppeals',
+    accCoachGaps: 'adm:coachGaps',
+    accRefundQueue: 'adm:refundQueue',
+    accSubscriptions: 'adm:subscriptions',
+    accNeighborhoods: 'adm:neighborhoods',
+    accRssSources: 'adm:rssSources',
+    accArticles: 'adm:articles',
+    accProfessionals: 'adm:professionals',
+    accUnroutedLeads: 'adm:unroutedLeads',
+    accSuggestions: 'adm:suggestions',
+    accLeadReports: 'adm:leadReports',
+    accAdminInbox: 'adm:adminInbox',
+  };
+  if (Object.prototype.hasOwnProperty.call(ADMIN_GOTO_LOADS, raw)) return [ADMIN_GOTO_LOADS[raw]];
   return [];
+}
+/* פונקציות ולא הפניות ישירות. אלה שבקבצים העצלים (coach, suggestions,
+   adminInbox) מחכות לקבוצה שלהן דרך crmNeedThen, כי הן אינן בשרשרת ה-defer. */
+const ADMIN_LOAD_FNS = {
+  'adm:licenseAppeals': () => loadLicenseAppeals(),
+  'adm:coachGaps': () => (typeof loadCoachGaps === 'function' ? loadCoachGaps() : crmNeedThen('coach', () => (typeof loadCoachGaps === 'function' ? loadCoachGaps() : null))),
+  'adm:refundQueue': () => loadRefundQueue(),
+  'adm:subscriptions': () => loadSubscriptionsAdmin(),
+  'adm:neighborhoods': () => loadNeighborhoodsAdmin(),
+  'adm:rssSources': () => loadRssSourcesAdmin(),
+  'adm:articles': () => loadArticlesAdmin(),
+  'adm:professionals': () => loadProfessionalCardsAdmin(),
+  'adm:unroutedLeads': () => loadUnroutedLeads(),
+  'adm:suggestions': () => (typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : crmNeedThen('suggestions', () => (typeof loadSuggestionsAdmin === 'function' ? loadSuggestionsAdmin() : null))),
+  'adm:leadReports': () => (typeof loadLeadReportsAdmin === 'function' ? loadLeadReportsAdmin() : crmNeedThen('leads', () => (typeof loadLeadReportsAdmin === 'function' ? loadLeadReportsAdmin() : null))),
+  'adm:adminInbox': () => (typeof loadAdminInbox === 'function' ? loadAdminInbox() : crmNeedThen('adminInbox', () => (typeof loadAdminInbox === 'function' ? loadAdminInbox() : null))),
+};
+
+/* יעד של תצוגת הניהול. עד 4.11.2026 הוא חיכה לכל loadDashboard (מצב העסקאות
+   נפתח 7.5 שניות אחרי הכניסה, deeplink_timings), כי בסופה setDashView('agent')
+   היה מחזיר את המסך לתצוגת הסוכן/ת. עכשיו הוא נפתח אחרי הטעינה שלו בלבד,
+   וסוף loadDashboard משאיר את תצוגת הניהול כשהיא נפתחה מהקישור. */
+function gotoIsAdmin(raw){
+  if (!(currentAgent && currentAgent.is_platform_admin)) return false;
+  if (raw === 'adminOps' || raw === 'adminHome') return true;
+  return /^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '') && NAV_TAB_OF.get(raw) === 'admin';
 }
 
 /* יעד שאפשר לפתוח ברגע שהמעטפת על המסך. אזור המנהל/ת עדיין מוסתר כאן,
@@ -2589,6 +2686,11 @@ function accAliasTarget(id){ return id === 'accSharedWithMe' ? 'accProperties' :
 function accResolve(id){ return accAliasTarget(id); }
 
 function gotoTargetReady(raw){
+  /* ‏bell (תקציר הלידים ותקציר ההתפרצות בוואטסאפ) - שכבה בכותרת ולא קטגוריה,
+     והיא גלויה לכל תפקיד. עד 3.11.2026 היא לא הייתה כאן, ולכן חיכתה לכל
+     loadDashboard: אצל מנהל/ת שהוא/היא גם מנהל/ת פלטפורמה ויועצ/ת משכנתאות
+     הפעמון נפתח 27 שניות אחרי הכניסה (deeplink_timings, lead_digest). */
+  if (raw === 'bell') return true;
   if (raw === 'mentor' || raw === 'license' || raw === 'cma' || raw === 'cmaAddress'
       || raw === 'promote' || raw === 'waShare' || raw === 'sign') return true;
   if (!/^(acc|dashPanel)[A-Za-z0-9]{1,40}$/.test(raw || '')) return false;
@@ -2597,6 +2699,8 @@ function gotoTargetReady(raw){
 }
 
 function gotoOpensEarly(raw, tab){
+  // תצוגת הניהול מוסתרת עד ש-handleGotoParam עובר אליה, ולכן לא navAccVisible
+  if (gotoIsAdmin(raw)) return true;
   if (!raw || !gotoTargetReady(raw)) return false;
   if (gotoLoadKeys(raw, tab).length) return true;
   return raw === 'mentor' || raw === 'license' || raw === 'cmaAddress' || raw === 'accPlanning';
@@ -3796,9 +3900,11 @@ const UNROUTED_KIND_LABELS = {
   agent_owner:'ליד בעל/ת נכס',
   agent_buyer:'ליד מחפש/ת דירה',
   mortgage_advisor:'ליד ייעוץ משכנתאות',
+  lawyer:'שאלה לעו"ד',
 };
 const UNROUTED_REASONS = {
   no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
+  no_lawyer_in_city:'אין עו"ד מאושר/ת בעיר או בשוק של הנכס',
   no_eligible_agents:'אין סוכני PROFESSIONAL/Elite עם העדפות לידים פעילות',
   no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
   no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
@@ -3811,6 +3917,7 @@ const UNROUTED_SOURCES = {
   homepage_search_agent:'הסוכן החכם (תוצאות חיפוש)',
   homepage_mortgage_calc:'מחשבון משכנתא (דף הבית)',
   property_page_mortgage_calc:'מחשבון משכנתא (דף נכס)',
+  property_page_lawyer_question:'שאלה לעו"ד (דף נכס)',
   homepage_yield_calc:'מחשבון תשואה (דף הבית)',
   agency_page_owner_wizard:'הערכת שווי (דף משרד)',
   agency_page_yield_calc:'מחשבון תשואה (דף משרד)',
@@ -5525,7 +5632,7 @@ const LX_CHANNELS = {
   sell_page:     'דף חושבים למכור',
   rss_engine:    'מנוע ה-RSS',
   meta_ads:      'מודעות ממומנות במטא',
-  social:        'גבריאלה בפייסבוק ובאינסטגרם',
+  social:        'פייסבוק, אינסטגרם ומדלן',
   unattributed:  'ללא שיוך מקור',
   other:         'אחר',
 };
@@ -5591,12 +5698,14 @@ const LX_SOURCES = {
   meta_ads_buyer_form:         'טופס לידים במטא · מחפש/ת',
   meta_ads_property_form:      'טופס לידים במטא · פנייה על נכס',
   unattributed:                'ללא שיוך מקור',
+  madlan:                      'מדלן',
 };
 
 const LX_KINDS = {
   agent_owner:      'בעל/ת נכס',
   agent_buyer:      'מחפש/ת דירה',
   mortgage_advisor: 'ייעוץ משכנתאות',
+  lawyer:           'שאלה לעו"ד',
   developer:        'מחפש/ת פרויקט חדש',
 };
 
@@ -7424,6 +7533,11 @@ async function loadProfessionalCardsAdmin(){
     if (!card.profile_filled){
       head.appendChild(proPill('פרופיל לא מולא', 'background:var(--paper);color:var(--ink-soft)'));
     }
+    // בלי טלפון אין בעמוד הפרופיל כפתור וואטסאפ ואין חיוג, והאישור נחסם במסד
+    // (‏phone_required ב-admin_set_professional_card_status)
+    if (!card.phone_e164){
+      head.appendChild(proPill('אין טלפון', 'background:var(--red);color:#fff'));
+    }
     row.appendChild(head);
 
     if (card.business_name){
@@ -7485,6 +7599,28 @@ async function loadProfessionalCardsAdmin(){
       await loadProfessionalCardsAdmin();
     });
     actions.appendChild(statusBtn);
+
+    // קישור העריכה של בעל/ת המקצוע (admin_professional_card_manage_link, מנהל/ת פלטפורמה
+    // בלבד). הוא המפתח לכרטיסייה, ולכן לא ברשימה: נשלף בלחיצה, מועתק, ולא מוצג על המסך
+    const linkBtn = document.createElement('button');
+    linkBtn.type = 'button';
+    linkBtn.className = 'btn btn-ghost';
+    linkBtn.style.padding = '5px 12px';
+    linkBtn.textContent = 'קישור עריכה';
+    linkBtn.title = 'העתקת קישור העריכה האישי, לשליחה לבעל/ת המקצוע';
+    linkBtn.addEventListener('click', async ()=>{
+      linkBtn.disabled = true;
+      const { data: res, error: lkErr } = await sb.rpc('admin_professional_card_manage_link', { p_id: card.id });
+      linkBtn.disabled = false;
+      if (lkErr || !res || res.error || !res.path){
+        showToast('לא נמצא קישור עריכה לכרטיסייה הזו' + (lkErr ? ': ' + heErr(lkErr) : ''));
+        return;
+      }
+      const url = location.origin + res.path;
+      try { await navigator.clipboard.writeText(url); showToast('קישור העריכה הועתק. שלחו אותו רק לבעל/ת המקצוע.'); }
+      catch(e){ prompt('קישור העריכה (העתיקו ידנית):', url); }
+    });
+    actions.appendChild(linkBtn);
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
@@ -9119,7 +9255,7 @@ function renderTierGate(){
   if (promo.active){
     const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
     title.textContent = 'קיבלת ' + gift.name + ' במתנה';
-    sub.textContent = `${Tiers.PROMO.months} חודשים של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
+    sub.textContent = `${Tiers.promoMonthsText()} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
                       'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
   } else if (agent.tier_source === 'promo_expired'){
     title.textContent = 'תקופת ההטבה הסתיימה';
@@ -9161,7 +9297,7 @@ function renderTierGate(){
       .join('');
 
     card.innerHTML =
-      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.PROMO.months + ' חודשים</span>' : '') +
+      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText() + '</span>' : '') +
       '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
       '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
       (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +
@@ -9295,11 +9431,11 @@ async function chooseTier(tierId, btn){
       feedback.textContent = data.detail || 'הבקשה נקלטה. ניצור קשר להסדרת התשלום.';
       // מסמנים שהבקשה פתוחה, כדי שהמסך לא יחזור עד שהיא תטופל
       if (currentAgent) currentAgent.pending_tier_change = tierId;
-      setTimeout(()=>{ showBootCard('טוענים את איזור הסוכנים…'); loadDashboard(); }, 2600);
+      setTimeout(()=>{ showBootCard(bootMessage()); loadDashboard(); }, 2600);
       return;
     }
 
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     await loadDashboard();
     if (window.Tiers) showToast('המסלול שלך: ' + Tiers.label(data.tier || tierId));
   } catch(err){
@@ -9466,7 +9602,7 @@ document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
     const saved = await acceptEthicsFor(memberId);
     if (currentAgent) Object.assign(currentAgent, saved);
 
-    showBootCard('טוענים את איזור הסוכנים…');
+    showBootCard(bootMessage());
     await loadDashboard();
   } catch(err){
     // המסך נשאר כמו שהוא — עם מה שהוקלד בו. ‏showEthicsGate מחדש כאן היה
@@ -10167,7 +10303,7 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
    בקריאה אחת מסקריפט מבטלת את כל מה שהחלון הזה בא לעשות.
    ============================================================================ */
 
-const CLOSE_PHRASE = 'סגירת חשבון';
+const CLOSE_PHRASE = 'מחיקת חשבון';
 let closureSummary = null;
 
 async function callCloseAccount(payload){
@@ -10198,10 +10334,10 @@ function closureMoneyText(s){
     parts.push('אין יתרה בארנק, ולכן אין החזר.');
   }
   if (s.subscription_until){
-    parts.push('את/ה במנוי חודשי ששולם עד ' + hebDate(s.subscription_until) +
-               '. אין זיכוי יחסי על החודש שכבר שולם, ולכן ההתקשרות נפסקת בתאריך הזה - ועד אז הכול ממשיך לעבוד כרגיל.');
+    parts.push('המנוי החודשי שולם עד ' + hebDate(s.subscription_until) +
+               '. אין זיכוי יחסי על החודש שכבר שולם. אפשר למחוק בתאריך הזה (ועד אז הכול ממשיך לעבוד), או מיד - בוויתור על יתרת החודש. החידוש בכרטיס לא ירוץ שוב.');
   } else {
-    parts.push('אינך במנוי חודשי בתשלום, ולכן הסגירה נכנסת לתוקף מיד.');
+    parts.push('אינך במנוי חודשי בתשלום, ולכן המחיקה מתבצעת מיד.');
   }
   return parts.join(' ');
 }
@@ -10236,13 +10372,13 @@ async function loadClosureSection(){
     const due = new Date(s.closure_effective_at);
     const overdue = !isNaN(due.getTime()) && due.getTime() <= Date.now();
     document.getElementById('closurePendingTitle').textContent =
-      overdue ? 'הסגירה ממתינה להשלמה' : 'בקשת הסגירה נרשמה';
+      overdue ? 'המחיקה ממתינה להשלמה' : 'בקשת המחיקה נרשמה';
     document.getElementById('closurePendingBody').textContent = overdue
       // המועד עבר והשורה עדיין פתוחה - כמעט תמיד החסם של מנהל/ת אחרון/ה.
-      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והסגירה עדיין לא הושלמה. '
-        + 'ברוב המקרים הסיבה היא שאת/ה המנהל/ת הפעיל/ה היחיד/ה במשרד ויש בו עוד סוכנים - '
-        + 'מינוי מנהל/ת נוסף/ת ב"צוות המשרד" משחרר את זה. לעזרה: 054-6929991.'
-      : 'החשבון ייסגר ב-' + hebDate(s.closure_effective_at) + ' - בתום תקופת החיוב ששולמה. '
+      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והמחיקה עדיין לא הושלמה. '
+        + 'ברוב המקרים הסיבה היא שבמשרד יש ניהול פעיל אחד בלבד ויש בו עוד סוכנים. '
+        + 'מינוי ניהול נוסף ב"צוות המשרד" משחרר את זה. לעזרה: 054-6929991.'
+      : 'החשבון יימחק ב-' + hebDate(s.closure_effective_at) + ' - בתום תקופת החיוב ששולמה. '
         + 'עד אז הדף, המודעות והלידים ממשיכים כרגיל, ואפשר לבטל את הבקשה.';
     accSetCount('accCloseAccount', 'בקשה פתוחה');
     return;
@@ -10286,35 +10422,53 @@ document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
   if (s.blocker){
     feedback.style.color = '#b42318';
     feedback.textContent = s.blocker === 'last_manager'
-      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים.'
-      : 'לא ניתן לסגור את החשבון כרגע.';
+      ? 'אי אפשר למחוק כל עוד הניהול הפעיל במשרד הוא יחיד ויש בו סוכנים פעילים.'
+      : 'לא ניתן למחוק את החשבון כרגע.';
     return;
   }
 
   const list = document.getElementById('caStep1List');
   list.textContent = '';
   [
-    'דף הסוכן/ת שלך יורד מהאוויר, וגם הכרטיס שלך בספריית יועצי הנדל״ן.',
+    'הדף האישי יורד מהאוויר, וגם הכרטיס בספריית יועצי הנדל״ן.',
     s.active_properties > 0
       ? plural(s.active_properties, 'מודעה פעילה אחת יורדת', 'מודעות פעילות יורדות') + ' מהאתר ומהחיפוש.'
       : 'אין כרגע מודעות פעילות שיירדו.',
-    'לא נשלחות אליך יותר פניות, התראות או מיילים, והמייל שלך יוצא מרשימת התפוצה.',
-    'הכניסה לאיזור הסוכנים נסגרת. אין לזה כפתור חזרה.',
+    'לא נשלחות אליך יותר פניות, התראות או מיילים.',
+    'הפרטים האישיים נמחקים: שם, טלפון, אימייל, תמונה, ת.ז., היומן, כרטיסי הלקוחות הפרטיים והשיחות עם גבריאלה. המספרים הווירטואליים משתחררים.',
+    'קישורי שיתוף שכבר נשלחו ללקוחות יפסיקו לעבוד אחרי המחיקה.',
+    'הכניסה נמחקת, ואין לזה כפתור חזרה. חיובים, חשבוניות והסכמים חתומים נשמרים בלי שמך, כי החוק מחייב.',
   ].forEach(text=>{
     const li = document.createElement('li');
     li.textContent = text;
     list.appendChild(li);
   });
   document.getElementById('caStep1Money').textContent = closureMoneyText(s);
-  document.getElementById('caStep2Note').textContent = s.subscription_until
-    ? 'לאחר האישור הבקשה תירשם, והסגירה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
-    : 'לאחר האישור הסגירה מתבצעת מיד.';
-  document.getElementById('caConfirm').textContent =
-    s.subscription_until ? 'רישום בקשת הסגירה' : 'סגירת החשבון';
+  const when = document.getElementById('caWhen');
+  when.hidden = !s.subscription_until;
+  if (s.subscription_until){
+    document.getElementById('caWhenEnd').textContent = 'בסוף התקופה ששולמה - ' + hebDate(s.subscription_until) + ' (אפשר לבטל עד אז)';
+    when.querySelector('input[value="period_end"]').checked = true;
+  }
+  updateCaStep2();
 
   caModal.style.display = 'flex';
   document.getElementById('caAck').focus();
 });
+
+function caWhenNow(){
+  const picked = document.querySelector('input[name="caWhen"]:checked');
+  return !!(closureSummary && closureSummary.subscription_until && picked && picked.value === 'now');
+}
+function updateCaStep2(){
+  const s = closureSummary || {};
+  const later = !!s.subscription_until && !caWhenNow();
+  document.getElementById('caStep2Note').textContent = later
+    ? 'לאחר האישור הבקשה תירשם, והמחיקה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
+    : 'לאחר האישור המחיקה מתבצעת מיד, ואין ממנה חזרה.';
+  document.getElementById('caConfirm').textContent = later ? 'רישום בקשת המחיקה' : 'מחיקת החשבון';
+}
+document.querySelectorAll('input[name="caWhen"]').forEach(r=> r.addEventListener('change', updateCaStep2));
 
 document.getElementById('caAck').addEventListener('change', e=>{
   document.getElementById('caNext').disabled = !e.target.checked;
@@ -10342,10 +10496,12 @@ document.getElementById('caConfirm').addEventListener('click', async ()=>{
   const modalFeedback = document.getElementById('caModalFeedback');
   btn.disabled = true;
   modalFeedback.style.color = 'var(--ink-soft)';
-  modalFeedback.textContent = 'סוגרים…';
+  modalFeedback.textContent = 'מוחקים…';
 
   const { ok, data } = await callCloseAccount({
     action: 'request',
+    account: 'agent',
+    when: caWhenNow() ? 'now' : 'period_end',
     confirm: CLOSE_PHRASE,
     reason: (document.getElementById('closureReason').value || '').trim() || null,
   });
@@ -10353,18 +10509,18 @@ document.getElementById('caConfirm').addEventListener('click', async ()=>{
   if (!ok){
     modalFeedback.style.color = '#b42318';
     modalFeedback.textContent = data.error === 'last_manager'
-      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים. לעזרה: 054-6929991'
-      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת סגירה פתוחה.'
-      : data.error === 'already_closed' ? 'החשבון כבר סגור.'
+      ? 'אי אפשר למחוק כל עוד הניהול הפעיל במשרד הוא יחיד ויש בו סוכנים פעילים. לעזרה: 054-6929991'
+      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת מחיקה פתוחה.'
+      : data.error === 'already_closed' ? 'החשבון כבר נמחק.'
       : 'הפעולה נכשלה. אפשר לנסות שוב, או לפנות לתמיכה: 054-6929991';
     btn.disabled = false;
     return;
   }
 
   closeCaModal();
-  // סגירה מיידית: אין למה לחזור בדשבורד - טוענים מחדש, ו-loadDashboard
-  // ינחית על מסך "החשבון נסגר". סגירה מתוזמנת: רק מרעננים את המקטע.
-  if (data.closed) location.reload();
+  // מחיקה מיידית: אין למה לחזור בדשבורד - יוצאים, ומסך "החשבון נמחק".
+  // מחיקה מתוזמנת (סוף המנוי): רק מרעננים את המקטע.
+  if (data.closed) await showDeletedScreen(Number(data.result && data.result.refund_requested) || 0);
   else await loadClosureSection();
 });
 
@@ -10377,12 +10533,12 @@ document.getElementById('closureCancelBtn').addEventListener('click', async ()=>
   if (!ok){
     feedback.style.color = '#b42318';
     feedback.textContent = data.error === 'already_closed'
-      ? 'החשבון כבר נסגר ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
+      ? 'החשבון כבר נמחק ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
       : 'ביטול הבקשה נכשל - אפשר לנסות שוב.';
     return;
   }
   feedback.style.color = '#1c6b4a';
-  feedback.textContent = 'בקשת הסגירה בוטלה. החשבון ממשיך כרגיל.';
+  feedback.textContent = 'בקשת המחיקה בוטלה. החשבון ממשיך כרגיל.';
   await loadClosureSection();
 });
 
@@ -12567,7 +12723,7 @@ const RESIDENTIAL_PTYPE_OPTIONS = [
   'בית פרטי/קוטג\'','דו משפחתי','משק חקלאי/נחלה','משק עזר',
   'מגרש','בניין מגורים','מחסן','חניה','קב\' רכישה/זכות לנכס',
 ];
-const COMMERCIAL_PTYPE_OPTIONS = ['משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים','מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות'];
+const COMMERCIAL_PTYPE_OPTIONS = ['משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים','מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות','מרלו״ג/מרכז לוגיסטי'];
 /* ‏"עם תמונה" ו-"יש סיור 3D" היו כאן כדגלים ידניים, והוסרו: המערכת כבר יודעת
    את שניהם מהנתונים עצמם — ‎images‎ ו-‎tour_3d_url‎ — וסימון ידני רק מאפשר
    לו לסתור אותם. בפועל הוא גם סתר: ל-48 נכסים היו תמונות ורק אחד סומן, כך
@@ -12651,6 +12807,19 @@ function syncNpAirCount(){
   const n = getCheckedValues('npAir').length;
   const el = document.getElementById('npAirCount');
   if (el) el.textContent = airCountLabel(n);
+}
+
+/* ‏כותרת נכס שהיא שם הבעלים או הטלפון שלהם: נכס אחד באוויר נקרא "פראדה
+   יזזאו אקלום" - שם אדם ב-H1, ב-og:title וב-JSON-LD (ביקורת 5.11.2026).
+   ההשוואה אחרי ניקוי רווחים וסימני פיסוק, כדי ש"פראדה יזזאו-אקלום" ייתפס. */
+function propertyTitleError(title, ownerName, ownerPhone){
+  const norm = s => String(s || '').toLowerCase().replace(/[\s"'״׳.,\-–()]/g, '');
+  const t = norm(title);
+  if (!t) return '';
+  if (ownerName && t === norm(ownerName)) return 'כותרת הנכס היא שם הבעלים. כתבו מה הנכס, איפה הוא ומה מיוחד בו, למשל "דירת 4 חדרים ברחוב הנשיא, גבעת המורה".';
+  const digits = String(ownerPhone || '').replace(/\D/g, '');
+  if (digits.length >= 7 && t.replace(/\D/g, '') === digits) return 'כותרת הנכס היא מספר טלפון. כתבו מה הנכס ואיפה הוא.';
+  return '';
 }
 
 function livingRoomSaveError(sqm, size, built){
@@ -15048,6 +15217,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     return;
   }
 
+  const titleProblem = propertyTitleError(
+    document.getElementById('npTitle').value,
+    document.getElementById('npOwnerName')?.value,
+    document.getElementById('npOwnerPhone')?.value,
+  );
+  if (titleProblem){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = titleProblem;
+    pfRevealField('npTitle');
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+
   const payload = {
     title: document.getElementById('npTitle').value,
     category: currentCategory,
@@ -15998,7 +16181,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone, owner_email)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -16155,6 +16338,10 @@ async function loadProperties(agentId, opts){
   /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
      שנשארת ברשימה של שניהם. docs/office-referrals.md */
   const propSelect = PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS + PROPERTY_SHARE_LEVEL_COLUMN + PROPERTY_LOCATION_COLUMNS + PROPERTY_DEST_COLUMNS + PROPERTY_UNPUBLISHED_COLUMNS;
+  /* המזהים שהוסתרו מתזכורת "לא פורסם" אינם תלויים ברשימה, ולכן יוצאים
+     עכשיו (.then - כדי שתצא ולא תחכה ל-await) ולא סבב שלם אחרי הנכסים:
+     הלידים, הלקוחות והתראות ההתאמה ממתינים כולם לסוף הפונקציה הזו. */
+  const hiddenIdsP = sb.rpc('unpublished_reminder_hidden_ids').then(r => r, err => ({ data: null, error: err }));
   let { data: props, error } = await sb
     .from('properties')
     .select(propSelect + ', air_directions, living_room_sqm')
@@ -16202,7 +16389,7 @@ async function loadProperties(agentId, opts){
     return;
   }
   unpublishedReminderHidden = new Set();
-  const { data: hiddenIds, error: hiddenErr } = await sb.rpc('unpublished_reminder_hidden_ids');
+  const { data: hiddenIds, error: hiddenErr } = await hiddenIdsP;
   if (!hiddenErr && Array.isArray(hiddenIds)) hiddenIds.forEach(id => unpublishedReminderHidden.add(id));
   accSetCount('accProperties', (props||[]).length);
   renderShareLevelNotice('property', (props||[]).filter(p => p.agent_id === agentId || p.agent_id === undefined));
@@ -16746,6 +16933,19 @@ function buildPropertyCard(p, agentId){
     title:'הזמנת שירותי תיווך או בלעדיות מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
     onClick:()=> openSignChooser(p),
   });
+
+  // דוח שבועי לבעל הנכס - היועץ/ת מפיק/ה ושולח/ת בעצמו/ה (assets/crm-owner-report.js).
+  // owner_report_create בודקת במסד שוב: הסוכן/ת של הנכס או מנהל/ת המשרד.
+  // אותו תנאי כמו owner_report_create: הסוכן/ת של הנכס, או מנהל/ת המשרד שלו. לא canReferRow -
+  // היא מרשה גם referred_by, ושם ההפקה נדחית. ורק למודעה שבאוויר.
+  if (p.status === 'active' && (p.agent_id === agentId
+      || (currentAgent.role === 'manager' && p.agency_id && p.agency_id === currentAgent.agency_id))){
+    addQuickAction(actions, {
+      label:'דוח לבעלים', icon:'chart',
+      title:'דוח שבועי לבעל הנכס: מבקרים, צפיות ופניות ב-7 הימים האחרונים, בקישור שאתם שולחים בוואטסאפ או במייל',
+      onClick:()=> openOwnerReport(p),
+    });
+  }
 
   if (p.status === 'active'){
     /* שת"פ ויריד הבתים הפתוחים היו שני כפתורים רחבים בשורה משלהם מתחת
@@ -20943,7 +21143,8 @@ async function loadLeads(agentId, opts){
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
-  let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
+  // לחיצות היריד אינן תלויות ברשימת הלידים, ולכן יוצאות כאן ולא בסבב שאחריה
+  let [{ data: leads, error }, archived, work, visitors, , reports] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
@@ -20951,6 +21152,8 @@ async function loadLeads(agentId, opts){
     loadArchivedLeadIds(agentId),
     loadLeadWork(agentId),
     loadLeadVisitors(),
+    loadFairClicks(),
+    loadLeadReports(agentId),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -20965,12 +21168,12 @@ async function loadLeads(agentId, opts){
   archivedLeadIds = archived;
   leadWork = work;
   leadVisitorOf = visitors;
+  leadReportOf = reports;   // דיווחי לידים לא תקינים (assets/crm-lead-reports.js)
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
   await Promise.all([
     typeof loadLeadCalls === 'function' ? loadLeadCalls(allLeads) : null,
     loadLeadFair(allLeads),
-    loadFairClicks(),
   ]);
   renderLeads(agentId);
 }
@@ -21300,9 +21503,11 @@ function buildLeadCard(lead, agentId, isArchived){
       },
     });
   }
+  // דיווח על ליד לא תקין (48 שעות מפתיחה, החזר לארנק) או שורת המצב של דיווח קיים
+  leadReportMount(secondary, lead, agentId);
   /* הארכוב אחרון ושקט: הוא לא מתחרה על העין עם "פתיחת ליד" או חיוג - הוא
      מה שעושים *אחרי* שסיימו. בליד נעול הוא גם ה"לא מתאים לי". */
-  addCardAction(secondary, isArchived ? {
+  if (!(isArchived && leadReportBlocksUnarchive(lead))) addCardAction(secondary, isArchived ? {
     label:'↩️ החזרה מהארכיון',
     title:'הליד יחזור לרשימת הלידים הפעילים',
     onClick: btn => unarchiveLead(lead, btn, agentId),
@@ -21432,9 +21637,10 @@ function claimCost(lead){
      הוצעה לאיש אחר, ולכן גם כשהיא רשומה כ-owner_inbound היא נכנסת למכסה
      המשותפת ולא למסלול לידי הפלטפורמה. אותה הבחנה בדיוק ב-claim_lead במסד. */
   const ownChannel = lead.source === 'agency_page' || lead.source === 'agent_page';
+  if (lead.source === 'madlan') return { price: 0, note: 'ליד ממדלן, בלי חיוב' };
   if (lead.lead_type === 'owner_inbound' && !ownChannel){
-    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO' };
-    if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול Elite' };
+    // ‏9.11.2026: פתוח לכל המסלולים במחיר ליחידה - ₪69 ב-Pay&GO, ₪50 במנוי (claim_lead)
+    if (tier === 'free') return { price: priceOf('ppl_price_owner_free', 69) };
     return { price: priceOf('ppl_price_owner_mid', 50) };
   }
   if (tier === 'mid' || tier === 'premium') return { price:0, note:'הפניות כלולות במסלול שלך, ללא הגבלה' };
@@ -21475,7 +21681,6 @@ async function claimLead(lead, btn, agentId){
       const errorMessages = {
         exclusive_to_another_agent: 'הליד עדיין בבלעדיות לסוכן אחר',
         insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
-        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO',
         lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
         already_unlocked: 'הליד כבר פתוח',
       };
@@ -21998,7 +22203,9 @@ document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
    מבטל שינוי credit_balance שלא הגיע מ-service_role.
 
    הסקציה מוצגת רק ל-is_mortgage_advisor, וגם purchase_mortgage_lead עצמה
-   מסרבת לקונה שאינו מסומן כך - ה-gating בתצוגה הוא נוחות, לא הגנה.      */
+   מסרבת לקונה שאינו מסומן כך. גם הקריאה סגורה במסד: mortgage_leads_public מחזירה
+   שורות רק ליועצ/ת או למנהל/ת פלטפורמה (current_is_mortgage_advisor), ולכן ה-gating
+   בתצוגה אינו ההגנה היחידה (docs/lead-routing.md, "מדפי הלידים ממוקדים").      */
 let mortgageLeadPrice = 50;
 let mortgageShelfLeads = [];
 
@@ -23326,7 +23533,7 @@ let clientFormCategory = 'residential';
 
 function featureLabel(key){ return FEATURE_LABELS[key] || key; }
 
-async function loadClients(){
+async function loadClients(opts){
   if (window.crmNeed) {
     const leadsP = crmNeed('leads');
     const showP = crmNeed('showcase');
@@ -23334,7 +23541,7 @@ async function loadClients(){
     try { await Promise.all([leadsP, showP]); } catch (e) {}
     officeP.catch(() => {});
     if (typeof officePreloadNames !== 'function' && window.crmAfter) {
-      window.crmAfter('office', () => { if (typeof officePreloadNames === 'function') loadClients(); });
+      window.crmAfter('office', () => { if (typeof officePreloadNames === 'function') loadClients(opts); });
     }
   }
   const listEl = document.getElementById('clientsList');
@@ -23344,7 +23551,9 @@ async function loadClients(){
      יחד, ולא שלושה סבבים בטור כמו עד אוקטובר 2026 */
   // ‏.then() ולא הבונה עצמו: שאילתת supabase-js יוצאת לשרת רק כשמישהו
   // קורא ל-then, ובלעדיו היא הייתה ממתינה עד ה-await שלמטה
-  const topsP = sb.rpc('client_match_top').then(r => r);
+  // בכניסה היא כבר יצאה מ-loadDashboard ומגיעה כאן כ-opts.topsP. ‏opts נבדק
+  // ולא מפורק: ‏loadClients נמסרת גם ככולבק, עם ארגומנטים שאינם שלה.
+  const topsP = (opts && opts.topsP) || sb.rpc('client_match_top').then(r => r);
   const showcasesP = typeof loadShowcaseSummaries === 'function' ? loadShowcaseSummaries() : null;
   const { data, error } = await sb
     .from('agent_clients')
@@ -24940,7 +25149,7 @@ async function loadCalls(){
     .eq('agent_id', currentAgent.id).neq('status', 'released').order('created_at');
   lineRows = lineErr ? [] : (lines || []);
   walletHeroSync();   // הבאנר "היתרה לא מכסה חודש של מספר" (3.7)
-  // מה מותר להזמין: Elite - אחד כלול ונוספים בתשלום, האחרים - מספר אחד (order_phone_line אוכפת)
+  // מה מותר להזמין ובכמה (phone_line_quota). מ-9.11.2026: כל מספר במחיר המלא, בכל מסלול, בלי תקרה
   const { data: quota } = await sb.rpc('my_phone_line_quota');
   lineQuota = quota || null;
   const hasLine = lineRows.some(l => l.active);
@@ -25063,13 +25272,11 @@ function renderLines(){
     const st = lineStats[l.id] || { calls:0, answered:0, missed:0, callers:new Set(), known:0, added:new Set() };
     const prop = l.property_id ? (typeof myPropertyRows !== 'undefined' ? myPropertyRows.find(p => p.id === l.property_id) : null) : null;
     const meta = [LINE_SOURCE_LABELS[l.source_type], prop && linePropLabel(prop)].filter(Boolean).join(' · ');
-    const renew = l.included ? 'כלול במסלול Elite'
+    const renew = l.included ? 'כלול - מתחדש בלי חיוב (מסלול קודם)'
       : l.monthly_price && l.paid_until
       ? `${shekel(l.monthly_price)} לחודש · מתחדש ב-${new Date(l.paid_until).toLocaleDateString('he-IL')}` : '';
-    const choose = l.downgrade_deadline
-      ? `<div class="line-warn">המסלול כבר אינו Elite, ובו נשאר מספר וירטואלי אחד (89 ₪ לחודש).
-          עד ${new Date(l.downgrade_deadline).toLocaleDateString('he-IL')} בחרו איזה נשאר - בלי בחירה יישאר זה שקיבל הכי הרבה שיחות.
-          <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לשדרוג חזרה ל-Elite</a></div>` : '';
+    // מ-9.11.2026 אין ירידת מסלול שמשחררת מספרים; downgrade_deadline מנוקה בסבב ואינו מוצג.
+    const choose = '';
     return `<div class="line-row" data-line="${esc(l.id)}">
       <div class="line-top">
         <span><span class="line-name">${esc(l.label || 'מספר בלי כינוי')}</span>
@@ -25105,19 +25312,15 @@ function renderLines(){
     </div>`;
   }).join('');
   const q = lineQuota;
-  /* מי שאינו/ה Elite ויש לו/ה כבר מספר: הכפתור מוצג ולא מוסתר, ואומר איפה
-     זה זמין - הוא גם התשובה וגם ההזמנה לשדרג (‏new-tier-capability). */
+  /* מ-9.11.2026 המספר עולה אותו דבר בכל מסלול, בלי תקרה למספר המספרים
+     (phone_line_quota.can_order תמיד true). הענף של !can_order נשאר למקרה
+     שהמסד ישוב להגביל - כפתור מוצג ולא מוסתר (‏new-tier-capability). */
   const order = q && !q.can_order
-    ? `<button type="button" class="btn btn-ghost" disabled>➕ מספרים וירטואליים נוספים - במסלול Elite</button>
-       <span class="call-meta">במסלול Elite מספר אחד כלול, ומספרים נוספים ב-89 ₪ לחודש - לכל שלט, מודעה וקמפיין.
-         <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים ולשדרוג</a></span>`
+    ? `<button type="button" class="btn btn-ghost" disabled>➕ מספרים וירטואליים נוספים</button>
+       <span class="call-meta">אי אפשר להזמין מספר נוסף כרגע.
+         <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a></span>`
     : `<button type="button" class="btn btn-gold" data-line-act="order">➕ הזמנת מספר וירטואלי חדש</button>
-       <span class="call-meta">${q && Number(q.next_price) === 0
-         ? 'מספר אחד כלול במסלול Elite שלך - בלי חיוב'
-         : q && !q.premium
-         ? `מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע. במסלול Elite המספר הראשון כלול ואפשר להוסיף עוד.
-            <a href="${esc(pricingUrl(currentAgent))}" target="_blank" rel="noopener">לפרטים</a>`
-         : 'מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע'}</span>`;
+       <span class="call-meta">מספר לכל שלט, מודעה או קמפיין - ותדעו מאיפה כל לקוח הגיע. ${q && q.price ? shekel(Number(q.price)) + ' לחודש לכל מספר, מהארנק.' : ''}</span>`;
   box.innerHTML = linesSummaryHtml() + rows + `<div class="call-actions" style="margin-top:8px">${order}</div>`;
   accSetCount('accLines', lineRows.length || '');
 }
@@ -25183,11 +25386,9 @@ function openLineModal(line){
   const free = lineQuota && Number(lineQuota.next_price) === 0;
   document.getElementById('plPriceNote').textContent = line ? '' :
     'מספר קווי ישראלי, מנותב לנייד שלך, עם הקלטה, תמלול וסיכום בוואטסאפ. ' +
-    (free ? 'המספר הזה כלול במסלול Elite שלך, בלי חיוב.'
-          : '89 ₪ לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.') +
-    ` כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.` +
-    (lineQuota && lineQuota.premium
-      ? ' אם המסלול יורד מ-Elite, נשאר מספר אחד לבחירתך ב-89 ₪ לחודש, והשאר משתחררים.' : '');
+    (free ? 'המספר הזה כלול, בלי חיוב.'
+          : `${shekel(Number(lineQuota && lineQuota.price) || 89)} לחודש מהארנק, מתחדש אוטומטית. אפשר לבטל בכל עת.`) +
+    ` כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.`;
   modal.style.display = 'flex';
   document.getElementById('plLabel').focus();
 }
@@ -25234,26 +25435,25 @@ document.getElementById('plSave').addEventListener('click', async () => {
   catch (err){
     btn.disabled = false;
     msg.textContent = err.code === 'tier_required'
-      ? 'במסלול שלך אפשר להחזיק מספר וירטואלי אחד. מספרים נוספים זמינים במסלול Elite.'
+      ? 'אי אפשר להזמין מספר נוסף כרגע. לפרטים: דף המסלולים.'
       : 'לא הצלחנו לחפש מספר: ' + heErr(err);
     return;
   }
   btn.disabled = false;
   if (!avail.number){ msg.textContent = 'אין כרגע מספר פנוי בקידומת הזו. נסו קידומת אחרת.'; return; }
   closeLineModal();
-  const tierLine = lineQuota && lineQuota.premium
-    ? `אם המסלול יורד מ-Elite: נשאר מספר וירטואלי אחד לבחירתך ב-${shekel(avail.monthly_price)} לחודש, והשאר משתחררים אחרי 7 ימים.`
-    : null;
+  // מ-9.11.2026 אין ירידת מסלול שמשחררת מספרים, ולכן אין שורת אזהרה ואין אישור נוסף.
+  const tierLine = null;
   const ok = await confirmPurchase({
     title: 'הזמנת מספר וירטואלי',
     lines: [`"${label}" - ${LINE_SOURCE_LABELS[source] || ''}`, `קידומת 0${area}`,
-      avail.included ? 'כלול במסלול Elite שלך - בלי חיוב, מתחדש אוטומטית כל עוד המסלול Elite.'
+      avail.included ? 'כלול - בלי חיוב, מתחדש אוטומטית.'
         : `${shekel(avail.price)} לחודש, מתחדש אוטומטית מהארנק. אפשר לבטל בכל עת.`,
       `כולל ${Number(lineQuota && lineQuota.included_minutes) || 150} דקות שיחה בחודש; כל דקה נוספת ${shekel(Number(lineQuota && lineQuota.overage_per_min) || 0.5)} מהארנק.`,
       tierLine].filter(Boolean),
     price: avail.price,
     requireAck: !!tierLine,
-    ackText: avail.included ? 'קראתי ואני מבין/ה מה קורה למספרים אם המסלול יורד מ-Elite.' : undefined,
+    ackText: undefined,
     confirmLabel: avail.included ? 'הזמנת המספר' : `הזמנה וחיוב ${shekel(avail.price)}`,
   });
   if (!ok) return;
@@ -25266,7 +25466,7 @@ document.getElementById('plSave').addEventListener('click', async () => {
     if (externalNumber) showForwardHowto({ twilio_number: out.number, external_number: externalNumber });
   } catch (err){
     showToast(err.code === 'insufficient_balance' ? 'אין מספיק יתרה בארנק' :
-      err.code === 'tier_required' ? 'מספרים וירטואליים נוספים זמינים במסלול Elite' :
+      err.code === 'tier_required' ? 'אי אפשר להזמין מספר נוסף כרגע' :
       'ההזמנה נכשלה' + (err.refunded ? ' והכסף הוחזר לארנק' : '') + ': ' + heErr(err));
     refreshAgentBalance();
   }
@@ -28154,7 +28354,7 @@ const NAV_GROUPS = [
     { acc:'accSecurity',      label:'אימות כניסה',        icon:'shield',   tab:'more', section:'support' },
     /* אחרון, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא שכנה של
        פעולה שעושים כל יום. */
-    { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more', section:'support' },
+    { acc:'accCloseAccount',  label:'מחיקת החשבון',      icon:'alert',    tab:'more', section:'support' },
   ]},
   /* כלי הפלטפורמה מופיעים אך ורק בתצוגת מנהל/ת (adminOnly). זו כל הנקודה:
      הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות "ניהול
@@ -28170,6 +28370,7 @@ const NAV_GROUPS = [
     { acc:'accAdminInbox',      label:'תיבת משימות',      icon:'inbox',   tab:'admin' },
     { acc:'accUnroutedLeads',   label:'לידים ללא יעד',    icon:'alert',   tab:'admin' },
     { acc:'accSuggestions',     label:'הצעות לשיפור',     icon:'bug',     tab:'admin' },
+    { acc:'accLeadReports',     label:'דיווחי לידים',     icon:'alert',   tab:'admin' },
   ]},
   { key:'aMarket', label:'שוק ומשתמשים', icon:'users', adminOnly:true, open:true, items:[
     { acc:'accGrowth',          label:'שווקים וצמיחה',    icon:'chart',   tab:'admin' },
@@ -28235,7 +28436,7 @@ const ADMIN_BOTTOM_NAV = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLicenseAppeals','accCoachGaps']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLeadReports','accLicenseAppeals','accCoachGaps']);
 /* קטגוריות שאדומות לפי מצב ולא לפי סוג: תיבת המשימות של הניהול
    (assets/crm-admin-inbox.js) אדומה רק כשיש בה פריט שחרג מזמן היעד, ואחרת
    המונה שלה כהה - "ממתין", לא "דחוף" (docs/admin-inbox.md). */
@@ -34571,6 +34772,16 @@ function agrRenderStepDetails(){
      ו-<select> של הנכסים שלי הכריח להקליד אותם ידנית. --- */
   html += '<div class="agr-sec"><h4>' +
     (tpl.propertyMode === 'multi' ? 'הנכסים בהסכם' : 'הנכס בהסכם') + '</h4>' +
+    /* מה שכבר בטופס - בראש, לפני החיפוש. כשהנכס הגיע מכרטיס הנכס (והבעלים
+       איתו), חיפוש בראש המקטע נראה כאילו עוד צריך לבחור. */
+    '<div id="agrPropChips"></div>' +
+    (tpl.propertyMode === 'single'
+      ? '<p class="imp-note" style="margin:6px 0 12px">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
+      : '<p class="imp-note" style="margin:6px 0 12px">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
+    /* החיפוש וההזנה הידנית מקופלים מאחורי כפתור כשכבר יש נכס בטופס - כדי
+       שהטופס יישאר קצר, ושלא ייראה כאילו עוד צריך לבחור (agrSyncAddBoxes) */
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-prop-add" id="agrPropAddBtn" hidden></button>' +
+    '<div id="agrPropAdd">' +
     '<div class="agr-search">' +
       '<input type="search" id="agrPropSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש נכס - כתובת, עיר, סוג נכס או מספר מודעה" autocomplete="off">' +
@@ -34609,17 +34820,19 @@ function agrRenderStepDetails(){
       '<p class="imp-note" style="margin:8px 0 0">אלה השדות שנדרשים כדי לזהות את הנכס. ' +
         'כל היתר נפתח לעריכה מיד למטה, ומה שיישאר ריק מודפס במסמך כקו.</p>' +
     '</div>' +
+    '</div>' +
 
-    '<div id="agrPropChips" style="margin-top:12px"></div>' +
-    (tpl.propertyMode === 'single'
-      ? '<p class="imp-note">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
-      : '<p class="imp-note">אפשר לצרף כמה נכסים - כל אחד מהם יופיע במסמך בנפרד.</p>') +
   '</div>';
 
   /* --- צדדים ---
      אותו מחפש כמו בנכסים, ומאותה סיבה: קובץ לקוחות של מאות שורות ברשימה
      נפתחת אחת אינו ניתן לשימוש בטלפון. --- */
   html += '<div class="agr-sec"><h4>הצדדים החותמים</h4>' +
+    // החותמים שכבר בטופס (גם בעל/ת הנכס שנכנס/ה עם הנכס) - לפני החיפוש
+    '<div id="agrSignerForms" style="margin-bottom:12px"></div>' +
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-signer-add" id="agrSignerAddBtn" hidden>' +
+      '+ הוספת חותם/ת</button>' +
+    '<div id="agrSignerAdd">' +
     '<div class="agr-search">' +
       '<input type="search" id="agrClientSearch" class="filter-input" style="width:100%"' +
         ' placeholder="חיפוש בקובץ הלקוחות - שם, טלפון, אימייל או עיר" autocomplete="off">' +
@@ -34636,15 +34849,18 @@ function agrRenderStepDetails(){
       ? '<button type="button" class="btn btn-ghost btn-block" data-agr="pick-contact-signer"' +
         ' style="margin-top:8px">📇 חותם/ת מאנשי הקשר בטלפון</button>'
       : '') +
-    '<div id="agrSignerForms" style="margin-top:12px"></div>' +
+    '</div>' +
     '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" - בן/בת זוג או שותף/ה. ' +
     'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
   '</div>';
 
   /* --- שדות הנכס --- */
-  html += '<div class="agr-sec"><h4>פרטי הנכס במסמך</h4>' +
+  /* מקופל: מה שידוע במערכת כבר מולא, ופתיחה היא רק למי שרוצה להשלים.
+     נפתח מעצמו כשנכנס נכס בהזנה ידנית (agrRenderPropFields) */
+  html += '<details class="agr-sec agr-fold" id="agrPropFieldsBox"><summary>פרטי הנכס במסמך' +
+      ' <span class="agr-fold-sub" id="agrPropFieldsSum"></span></summary>' +
     '<p class="imp-note" style="margin:0 0 10px">מה שידוע במערכת מולא לבד. שדה שנשאר ריק מודפס במסמך כקו לחתימה ידנית.</p>' +
-    '<div id="agrPropFields"></div></div>';
+    '<div id="agrPropFields"></div></details>';
 
   /* --- עמלה --- */
   html += '<div class="agr-sec"><h4>עמלה</h4><div class="agr-grid">' +
@@ -34696,12 +34912,14 @@ function agrRenderStepDetails(){
 
   /* --- משאלון --- */
   if (tpl.questionnaire){
-    html += '<div class="agr-sec"><h4>' + esc(tpl.questionnaire.title) + '</h4>' +
+    const answered = tpl.questionnaire.items.filter((q, i) => String(w.questionnaire[i] || '').trim()).length;
+    html += '<details class="agr-sec agr-fold"><summary>' + esc(tpl.questionnaire.title) +
+        ' <span class="agr-fold-sub" id="agrQSum">' + answered + ' מתוך ' + tpl.questionnaire.items.length + ' נענו</span></summary>' +
       '<p class="imp-note" style="margin:0 0 10px">תשובות בעל/ת הנכס. שאלה שנשארת ריקה מודפסת במסמך עם שורה ריקה למילוי ידני.</p>' +
       tpl.questionnaire.items.map((q, i) =>
         `<div class="agr-field" style="margin-bottom:9px"><label>${i + 1}. ${esc(q)}</label>
          <textarea rows="2" data-agr-q="${i}">${esc(w.questionnaire[i] || '')}</textarea></div>`).join('') +
-    '</div>';
+    '</details>';
   }
 
   /* --- שונות --- */
@@ -34900,9 +35118,31 @@ function agrRenderPropResults(){
     ? `<div class="agr-res-empty">מוצגים 8 מתוך ${total} - הקלידו כדי לחפש</div>` : '');
 }
 
+/* החיפוש (והכפתורים שלידו) פתוח רק כשאין עדיין נכס/חותם בטופס, או
+   כשלחצו "הוספה". אחרי בחירה הוא נסגר, וכך הטופס נשאר קצר. */
+function agrSyncAddBoxes(){
+  const w = agrWizard;
+  if (!w) return;
+  const tpl = agrTpl(w.kind);
+  const pairs = [
+    ['agrPropAdd', 'agrPropAddBtn', w.properties.length, 'propAddOpen',
+     tpl && tpl.propertyMode === 'single' ? '🔄 החלפת הנכס' : '+ הוספת נכס'],
+    ['agrSignerAdd', 'agrSignerAddBtn', w.signers.length, 'signerAddOpen', '+ הוספת חותם/ת'],
+  ];
+  pairs.forEach(([boxId, btnId, n, flag, label]) => {
+    const box = agrEl(boxId), btn = agrEl(btnId);
+    if (!box || !btn) return;
+    const open = !n || !!w[flag];
+    box.hidden = !open;
+    btn.hidden = !n || open;
+    btn.textContent = label;
+  });
+}
+
 function agrRenderPropChips(){
   const host = agrEl('agrPropChips');
   if (!host) return;
+  agrSyncAddBoxes();
   if (!agrWizard.properties.length){
     host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחר נכס.</p>';
     return;
@@ -34973,6 +35213,7 @@ async function agrAddProperty(propertyId, opts){
   }
 
   if (!(opts && opts.silent)){
+    w.propAddOpen = false;
     agrRenderPropChips();
     agrRenderPropFields();
     agrRenderSignerForms();
@@ -35019,6 +35260,7 @@ function agrAddManualProperty(){
   ['agrMpType','agrMpStreet','agrMpHouse','agrMpApt','agrMpPrice']
     .forEach(id => { if (agrEl(id)) agrEl(id).value = ''; });
   agrEl('agrManualProp').hidden = true;
+  agrWizard.propAddOpen = false;
 
   agrRenderPropChips();
   agrRenderPropFields();
@@ -35423,7 +35665,19 @@ function agrFillCountHtml(entry, fields){
     `מולאו <b>${filled}</b> מתוך ${fields.length} שדות · שדה שיישאר ריק יודפס כקו למילוי בכתב יד</p>`;
 }
 
+/* המונה בכותרת המקופלת של "פרטי הנכס במסמך" - כל הנכסים יחד */
+function agrUpdatePropFieldsSum(){
+  const sum = agrEl('agrPropFieldsSum');
+  const tpl = agrTpl(agrWizard.kind);
+  if (!sum || !tpl) return;
+  const all = agrWizard.properties.length * tpl.propertyFields.length;
+  const filled = agrWizard.properties.reduce((n, e) =>
+    n + tpl.propertyFields.filter(f => String(e.fields[f.key] || '').trim()).length, 0);
+  sum.textContent = all ? 'מולאו ' + filled + ' מתוך ' + all : '';
+}
+
 function agrUpdateFillCount(uid){
+  agrUpdatePropFieldsSum();
   const tpl = agrTpl(agrWizard.kind);
   const entry = agrWizard.properties.find(p => p.uid === uid);
   const el = document.querySelector('[data-agr-fillcount="' + CSS.escape(uid) + '"]');
@@ -35440,6 +35694,10 @@ function agrRenderPropFields(){
     return;
   }
   const overrides = tpl.propertyLabelOverrides || {};
+  const box = agrEl('agrPropFieldsBox');
+  agrUpdatePropFieldsSum();
+  // נכס בהזנה ידנית - רוב השדות ריקים, ולכן הם נפתחים להשלמה
+  if (box && agrWizard.properties.some(e => !e.property_id)) box.open = true;
 
   host.innerHTML = agrWizard.properties.map((entry, idx) => {
     const inputs = tpl.propertyFields.map(f =>
@@ -35534,8 +35792,24 @@ function agrAddClientSigner(clientId, opts){
     email: c.email || '', address: c.address || '', client_id: c.id,
   });
   if (!(opts && opts.silent)){
+    agrWizard.signerAddOpen = false;
     agrRenderSignerForms();
     agrRenderClientResults();
+    agrRevealLastSigner(false);
+  }
+}
+
+/* הטפסים של החותמים יושבים מעל החיפוש והכפתורים, ולכן מי שהוסיף/ה חותם/ת
+   מלמטה לא היה/תה רואה דבר משתנה ליד האצבע. מגלגלים אל הטופס החדש, ובחותם/ת
+   ריק/ה גם מתמקדים בשם. */
+function agrRevealLastSigner(focusName){
+  const host = agrEl('agrSignerForms');
+  const last = host && host.lastElementChild;
+  if (!last) return;
+  try { last.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (e) { last.scrollIntoView(); }
+  if (focusName){
+    const inp = last.querySelector('[data-key="full_name"]');
+    if (inp) inp.focus({ preventScroll:true });
   }
 }
 
@@ -35554,8 +35828,10 @@ async function agrPickContactSigner(){
     full_name: c.name || '', id_number:'', self_fill: true, phone: c.phone || '', email: c.email || '',
     address:'', client_id:null,
   });
+  agrWizard.signerAddOpen = false;
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(false);
 }
 
 function agrAddBlankSigner(){
@@ -35563,13 +35839,16 @@ function agrAddBlankSigner(){
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
     full_name:'', id_number:'', self_fill: true, phone:'', email:'', address:'', client_id:null,
   });
+  agrWizard.signerAddOpen = false;
   agrRenderSignerForms();
   agrRenderClientResults();
+  agrRevealLastSigner(true);
 }
 
 function agrRenderSignerForms(){
   const host = agrEl('agrSignerForms');
   if (!host) return;
+  agrSyncAddBoxes();
   if (!agrWizard.signers.length){
     host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחרו חותמים.</p>';
     return;
@@ -36057,6 +36336,20 @@ async function agrSaveAndGoSign(btn){
     return;
   }
   const w = agrWizard;
+  /* הסכם שהקישור שלו כבר יצא (וואטסאפ, העתקה, מייל) נעול במסד
+     (agreements_freeze_body). שמירה מחדש הייתה נופלת על agreement_locked */
+  /* הסטטוס שבזיכרון עלול להיות ישן - הלקוח/ה אולי פתח/ה את הקישור בינתיים
+     (agreement-sign/open מוציא מ-draft) - ולכן נשאל שוב */
+  if (w.agreementId && w.record){
+    const { data: cur } = await sb.from('agreements').select('status').eq('id', w.agreementId).maybeSingle();
+    if (cur && cur.status) w.record.status = cur.status;
+  }
+  if (w.agreementId && w.record && w.record.status && w.record.status !== 'draft'){
+    showToast('ההסכם כבר נשלח לחתימה ולכן אינו נשמר מחדש. לתיקון - בטלו אותו והוציאו הסכם חדש.');
+    w.step = 4;
+    agrRender();
+    return;
+  }
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'שומר…';
@@ -36311,9 +36604,26 @@ function agrSignerById(id){
   return (agrWizard.record.signers || []).find(s => s.id === id);
 }
 
+/* קישור שיצא בוואטסאפ או בהעתקה הוא הסכם שנשלח. עד היום רק המייל (בשרת)
+   העביר ל-sent, והסכם ששותף בוואטסאפ נשאר "טיוטה" ברשימה - לא נעול, בלי
+   "נצפה", ונראה כאילו לא יצא (וכך נוצר אותו הסכם פעמיים). בבלעדיות
+   הטריגר agreements_bundle_status מעביר גם את ההסכמה לפעולות שיווק. */
+async function agrMarkSent(){
+  const rec = agrWizard && agrWizard.record;
+  if (!rec || rec.status !== 'draft') return;
+  const now = new Date().toISOString();
+  const { error } = await sb.from('agreements')
+    .update({ status:'sent', sent_at: now }).eq('id', rec.id).eq('status', 'draft');
+  if (error){ console.warn('סימון ההסכם כנשלח נכשל:', error); return; }
+  rec.status = 'sent';
+  rec.sent_at = rec.sent_at || now;
+  loadAgreements();
+}
+
 async function agrCopySignLink(signerId){
   const s = agrSignerById(signerId);
   if (!s) return;
+  agrMarkSent();
   const url = agrSignUrl(s);
   try {
     await navigator.clipboard.writeText(url);
@@ -36332,6 +36642,7 @@ function agrWhatsappSign(signerId){
   const text = `שלום ${s.full_name}, מצורף קישור אישי לקריאה ולחתימה על ` +
     `${agrWizard.record.title}:\n${agrSignUrl(s)}\n\nהקישור אישי - אין להעביר אותו הלאה.`;
   window.open(wa + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+  agrMarkSent();
 }
 
 async function agrDownloadPdf(btn){
@@ -36392,6 +36703,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
     const box = agrEl('agrManualProp');
     box.hidden = !box.hidden;
     if (!box.hidden) agrEl('agrMpType').focus();
+    return;
+  }
+  if (act === 'toggle-prop-add' || act === 'toggle-signer-add'){
+    const prop = act === 'toggle-prop-add';
+    agrWizard[prop ? 'propAddOpen' : 'signerAddOpen'] = true;
+    agrSyncAddBoxes();
+    const inp = agrEl(prop ? 'agrPropSearch' : 'agrClientSearch');
+    if (inp) inp.focus();
     return;
   }
   if (act === 'add-manual-prop') return agrAddManualProperty();
@@ -36462,6 +36781,14 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
 agrEl('agrBody').addEventListener('input', async (e)=>{
   if (!agrWizard) return;
   const t = e.target;
+
+  // המונה בכותרת המקופלת של המשאלון
+  if (t.dataset.agrQ !== undefined){
+    const all = [...document.querySelectorAll('[data-agr-q]')];
+    const el = agrEl('agrQSum');
+    if (el) el.textContent = all.filter(x => x.value.trim()).length + ' מתוך ' + all.length + ' נענו';
+    return;
+  }
 
   /* שני דגלי החתימה מרחוק נשמרים מיד ולא ב"שמירה" נפרדת: הם משנים את
      ההתנהגות של הקישור הבא שנשלח, והמרחק בין הסימון לשליחה הוא לחיצה אחת. */

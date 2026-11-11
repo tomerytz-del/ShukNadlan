@@ -18,6 +18,7 @@ import {
   SEEKER_DEAL_ASK,
   seekerDealAsk,
 } from "./client-deal.ts";
+import { developerSpeech, takeBuildingDeveloperAsk } from "./building-developer.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
@@ -58,6 +59,7 @@ import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
   canonicalCity,
+  canonicalCityName,
   citySearchArgs,
   collapseCityNames,
   applyGroupAreaHint,
@@ -94,6 +96,12 @@ import { relocatePropertyPhotos } from "../_shared/photo-relocate.ts";
 import { CANCEL_NOTIFY_BUTTON_TITLE } from "./showing-match.ts";
 import { cancelShowingForAgent, listShowingsForAgent, type ShowingView } from "./showing-actions.ts";
 import { clientMatchesQuery, namesLikelySame, namesNeedConfirm, phonesMatch } from "./hebrew-name.ts";
+import {
+  sameTimeConflictLine,
+  collectToolAsks,
+  shapeAgentReply,
+  styleContext,
+} from "./reply-style.ts";
 import { pageLink, pageLinkTopics } from "./crm-pages.ts";
 import { ctaLabel, isSafeCrmPath, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
@@ -257,7 +265,7 @@ export const RESIDENTIAL_PTYPES = [
 export const COMMERCIAL_PTYPES = [
   "משרדים", "חנויות/שטח מסחרי", "מבני תעשייה", "אולמות", "חלל עבודה משותף",
   "בניין משרדים", "מגרשים", "מחסנים", "סטודיו", "כללי", "מרתף", "חניון",
-  "בית מלון", "קליניקות",
+  "בית מלון", "קליניקות", "מרלו״ג/מרכז לוגיסטי",
 ];
 const RESIDENTIAL_FEATURES = [
   "parking", "elevator", "balcony", "sun_balcony", "ac", "bars", "accessible",
@@ -884,7 +892,10 @@ const TOOLS: Anthropic.Tool[] = [
       "שטח, קומה, מחיר מבוקש, מאפיינים) ומחזיר needs_details עם missing - אז שאל/י עליהם בהודעה אחת, " +
       "וקרא/י שוב עם כל מה שנמסר ועם proceed: true (גם אם הסוכן/ת ענה/תה רק על חלק או כתב/ה \"תפיק\"). " +
       "אם חזר details_guidance - בצע/י אותו. " +
-      "אם חזר location_guidance - אמור/אמרי אותו.",
+      "אם חזר location_guidance - אמור/אמרי אותו. " +
+      "**סוג הנכס לא מנחשים:** בלי סוג חוזר type_required, ושואלים \"בית צמוד קרקע, דירה, פנטהאוז או דירת גן?\" - גם אחרי \"תפיק\". " +
+      "**גם לגוש וחלקה, בלי כתובת** (gush + helka במקום city + street): המיקום מהחלקה עצמה. " +
+      "לבית צמוד קרקע הדוח משווה לבתים, וגם לעסקאות \"דירה\" שזוהו כבתים לפי החלקה (house_guidance).",
     input_schema: {
       type: "object",
       properties: {
@@ -917,8 +928,56 @@ const TOOLS: Anthropic.Tool[] = [
             "בלעדיו הכלי רק מחזיר את רשימת החסרים.",
         },
         // ‏features: [] = "אין מאפיינים" (נשאל ונענה), להבדיל מהיעדר השדה
+        gush: {
+          type: "string",
+          description:
+            "מספר גוש - **במקום רחוב** כשהסוכן/ת נתן/ה גוש וחלקה (בית צמוד קרקע, נכס בלי כתובת). " +
+            "המיקום, היישוב ושטח המגרש נלקחים משכבת החלקות של מפ\"י, גם כשלא נמכר בחלקה כלום.",
+        },
+        helka: { type: "string", description: "מספר חלקה, יחד עם gush." },
+        plot_sqm: {
+          type: "number",
+          description: "גודל המגרש במ\"ר, לבית צמוד קרקע (מהנסח או מהסוכן/ת). עם גוש וחלקה הוא נלקח מהשכבה.",
+        },
       },
-      required: ["city", "street"],
+      required: [],
+    },
+  },
+  {
+    name: "building_developer_lookup",
+    description:
+      "מי בנה או מי היזם של בניין בכתובת מדויקת. זה הכלי ל\"מי בנה את הבניין ברחוב X\" " +
+      "ול\"מי היזם\". חובה עיר, רחוב ומספר בית. בלי מספר בית אל תענה/י שם. " +
+      "אמרי את speech כמו שהוא: יש בו את המקור, ואם הנתון לא אומת הוא אומר זאת. " +
+      "אל תמציא/י חברה ואל תשלים/י משם פרויקט ששמעת עליו.",
+    input_schema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "העיר." },
+        street: { type: "string", description: "שם הרחוב, בלי המילה רחוב ובלי מספר בית." },
+        house_number: { type: "string", description: "מספר הבית. בלי מספר אין תשובה." },
+      },
+      required: ["city", "street", "house_number"],
+    },
+  },
+  {
+    name: "record_building_developer",
+    description:
+      "שומר את שם החברה היזמית שהסוכן/ת אמר/ה עכשיו על נכס בבנייה חדשה או בפרויקט. " +
+      "company הוא הציטוט שלו/ה, לא ניחוש ולא שם מהזיכרון. " +
+      "\"לא יודע\" נשמר בלי לרשום חברה. לא דורס חברה שכבר רשומה בערך אחר.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string", description: "הנכס שעליו נשאלה השאלה, או הנכס האחרון." },
+        company: { type: "string", description: "שם החברה כמו שהסוכן/ת כתב/ה, או לא יודע." },
+        partners: {
+          type: "array",
+          items: { type: "string" },
+          description: "שותפים רק אם הסוכן/ת מנה/תה אותם. אל תמלא/י לבד.",
+        },
+      },
+      required: ["company"],
     },
   },
   {
@@ -1677,7 +1736,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "קובע ביומן של הסוכן/ת פגישה, סיור, חתימה, שיחה או משימה, עם תזכורת " +
       "בוואטסאפ ובפעמון. \"תזכיר לי מחר ב-10 להתקשר לרונית\", \"יש לי פגישה " +
-      "ביום ג' ב-17:00 עם דני בהרצל 12\". השעה היא שעון ישראל.",
+      "ביום ג' ב-17:00 עם דני בהרצל 12\". השעה היא שעון ישראל. " +
+      "מי שאינו/ה בקובץ הלקוחות נקבע/ת בלי client_id, בלי לשאול אם להוסיף.",
     input_schema: {
       type: "object",
       properties: {
@@ -2412,6 +2472,24 @@ function geocodeForProperty(ctx: ToolContext, city: string, street: string, hous
     : geocodeInCity(ctx.supabase, city, street, houseNumber);
 }
 
+/** שאלה אחת על החברה היזמית, אחרי שהנכס כבר נשמר. כשל כאן לא מפיל את הקליטה. */
+async function attachDeveloperAsk(ctx: ToolContext, propertyId: string): Promise<Record<string, unknown>> {
+  try {
+    const ask = await takeBuildingDeveloperAsk(ctx.supabase, propertyId, !!ctx.outbox);
+    if (!ask || !ctx.outbox) return {};
+    ctx.outbox.push({ kind: "buttons", body: ask.body, buttons: ask.buttons });
+    return {
+      developer_question_sent: true,
+      guidance_developer:
+        "יצא כפתור \"לא יודע\". אל תשאל/י בעצמך מי בנה, ואל תחכה/י לתשובה כדי לאשר שהנכס נוצר. " +
+        "אם הסוכן/ת כותב/ת שם חברה, record_building_developer עם המילים שלו/ה בדיוק ואת property_id. אל תמציא/י שם.",
+    };
+  } catch (err) {
+    console.error("building developer ask failed", err);
+    return {};
+  }
+}
+
 async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknown>) {
   if (!ctx.agent.agency_id) {
     return { ok: false, error: "לסוכן/ת אין משרד משויך - צריך להשלים הרשמה בדשבורד." };
@@ -2532,6 +2610,14 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     on_map: data.lat != null,
     ...(data.location_precision === "zone"
       ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
+      // פין משוער על הרחוב (20271110120000): מהעסקאות שנסגרו ברחוב, עד שה-CRM
+      // ישלים פין מדויק מ-GovMap בפתיחה הבאה.
+      : data.location_precision === "street"
+      ? { approximate_location: "הנכס על המפה במיקום משוער לפי הרחוב, ובאתר כתוב שהמיקום מוערך. פין מדויק יושלם מהאזור האישי." }
+      : data.location_precision === "neighborhood"
+      ? { approximate_location: "הנכס על המפה במיקום משוער בתוך השכונה, ובאתר כתוב שהמיקום מוערך. כתובת עם רחוב ומספר תדייק אותו." }
+      : data.location_precision === "city"
+      ? { approximate_location: "הנכס על המפה במיקום משוער ברמת היישוב בלבד, ובאתר כתוב שהמיקום מוערך. רחוב או שכונה ידייקו אותו." }
       : {}),
     ...(hoodWarning || {}),
     ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
@@ -2539,8 +2625,9 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     ...(payload.status === "active" ? modelLink(ctx, propertyLink(data.id), "לדף הנכס", "הדף באתר:", "link") : {}),
     ...propertyCreatedEdit(ctx, data.id, data.title),
   };
-  if (!askFirst) return created;
+  if (!askFirst) return { ...created, ...await attachDeveloperAsk(ctx, data.id) };
   const gate = await askPublishConfirm(ctx, data.id, String(data.title || ""));
+  const developerAsk = await attachDeveloperAsk(ctx, data.id);
   return {
     ...created,
     published: false,
@@ -2552,6 +2639,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       : gate.ok
         ? { guidance: gate.guidance }
         : { error: gate.error, guidance: gate.guidance || gate.error }),
+    ...developerAsk,
   };
 }
 
@@ -2715,13 +2803,14 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (error) return { ok: false, error: error.message };
 
   ctx.conv.last_property_id = propertyId;
-  return {
+  const updated = {
     ok: true,
     property_id: propertyId,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at"),
     ...modelLink(ctx, propertyLink(propertyId), "לדף הנכס", "הדף באתר:", "link"),
     ...crmButton(ctx, crmPropertyLink(propertyId)),
   };
+  return { ...updated, ...await attachDeveloperAsk(ctx, propertyId) };
 }
 
 async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
@@ -4144,6 +4233,82 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
  * עסקאות העיר שאי אפשר למקם. לכן חוזרות רק ההשוואות הקרובות ביותר, והדוח
  * להדפסה נשאר בדשבורד.
  */
+async function toolBuildingDeveloperLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  const { data, error } = await ctx.supabase.rpc("building_developer_lookup", {
+    p_city: String(input.city || "").trim(),
+    p_street: String(input.street || "").trim(),
+    p_house_number: String(input.house_number || "").trim(),
+  });
+  if (error) {
+    console.error("building developer lookup failed", error.code, error.message);
+    return { ok: false, error: "לא הצלחתי לבדוק עכשיו.", guidance: "אל תנחש/י חברה יזמית." };
+  }
+  const row = (data || {}) as Record<string, unknown>;
+  if (row.enabled === false || row.reason === "disabled") {
+    return { ok: false, error: "המעקב אחר חברות יזמיות כבוי.", guidance: "אל תנחש/י חברה יזמית." };
+  }
+  const partners = Array.isArray(row.partners) ? row.partners.map(String) : [];
+  const speech = developerSpeech({
+    found: row.found === true,
+    ambiguous: row.ambiguous === true,
+    company: typeof row.company === "string" ? row.company : null,
+    partners,
+    source_label: typeof row.source_label === "string" ? row.source_label : null,
+    verification: typeof row.verification === "string" ? row.verification : null,
+    house_number_required: row.house_number_required === true,
+  });
+  return {
+    ok: true,
+    found: row.found === true,
+    speech,
+    guidance: "אמרי את speech כמו שהוא. אל תוסיפי חברה שלא כתובה בו.",
+  };
+}
+
+async function toolRecordBuildingDeveloper(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || ctx.conv.last_property_id || "");
+  const company = String(input.company || "").trim();
+  const partners = Array.isArray(input.partners)
+    ? input.partners.map((p) => String(p).trim()).filter(Boolean)
+    : null;
+  if (!propertyId) return { ok: false, error: "חסר נכס. לא נשמר שם.", guidance: "אל תמציא/י חברה יזמית." };
+  const { data, error } = await ctx.supabase.rpc("building_developer_record", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+    p_company: company,
+    p_partners: partners,
+  });
+  if (error) {
+    console.error("building developer record failed", error.code, error.message);
+    return { ok: false, error: "לא שמרתי את שם החברה.", guidance: "אל תאמרי שנשמר, ואל תנחש/י שם אחר." };
+  }
+  const row = (data || {}) as Record<string, unknown>;
+  if (row.reason === "disabled") {
+    return { ok: false, error: "המעקב אחר חברות יזמיות כבוי.", guidance: "אל תנחש/י חברה יזמית." };
+  }
+  if (row.ok !== true) {
+    return { ok: false, error: "לא שמרתי את שם החברה.", guidance: "אל תאמרי שנשמר." };
+  }
+  if (row.unknown === true) {
+    return { ok: true, stored: false, speech: "לא רשמתי חברה יזמית." };
+  }
+  if (row.action === "conflict") {
+    return {
+      ok: true,
+      stored: true,
+      action: "conflict",
+      speech: "השם שכבר רשום לא הוחלף, כי הגיע ערך אחר. סימנתי סתירה. הנתון לא אומת.",
+    };
+  }
+  return {
+    ok: true,
+    stored: true,
+    action: row.action,
+    speech: `רשמתי את ${company}. מקור: סוכן או סוכנת. הנתון לא אומת.`,
+    guidance: "אמרי את speech כמו שהוא.",
+  };
+}
+
 async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
@@ -4187,11 +4352,20 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
  * ארוך מערבב עסקאות במרחק קילומטרים, בלי ממוצע ובלי סולם חדרים.
  */
 async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unknown>) {
-  const city = String(input.city || "").trim();
+  // השם ברישום ולא הכינוי (ראו toolMarketDealsLookup): "תל אביב" לבדה לא
+  // מצאה מיקום ולא עסקאות, כי המאגר כותב "תל אביב - יפו".
+  const city = await canonicalCityName(ctx.supabase, String(input.city || "").trim()) || "";
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
   const num = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+  // גוש/חלקה במקום כתובת (20271105090000): המיקום, היישוב ושטח המגרש משכבת
+  // החלקות של מפ"י (‏parcels_open), גם כשלא נמכר בחלקה כלום. זה בדיוק המקרה
+  // של בית צמוד קרקע - "17664/281, תעריכי" - שבו גבריאלה ענתה "לא יכולה".
+  const gush = String(input.gush ?? "").replace(/\D/g, "");
+  const helka = String(input.helka ?? "").replace(/\D/g, "");
+  const byParcel = Boolean(gush && helka);
+  const isHouseType = (t: string) => /בית|קוטג|וילה|דו.?משפחתי|צמוד קרקע/.test(t);
 
   // ‏**קודם שואלים, אחר כך מפיקים.** דוח בלי חדרים משווה לכל הגדלים, בלי שטח
   // אין מחיר למ"ר, ובלי מחיר מבוקש אין פער - והסוכן/ת בדרך כלל יודע/ת את כל
@@ -4208,14 +4382,16 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     const notElite = member && (!member.active || member.billing_status !== "active" || member.tier !== "premium");
     if (!notElite) {
       const type = String(input.property_type || "").trim();
-      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם/.test(type);
+      const commercial = /חנות|משרד|מסחרי|מחסן|קליניק|אולם|מרלו|לוגיסט/.test(type);
       const land = /מגרש|קרקע|נחלה|משק/.test(type);
       const missing = [
         !type && "סוג הנכס (דירה, דירת גן, פנטהאוז, בית פרטי, חנות, משרד...)",
-        !houseNumber && "מספר בית",
+        !houseNumber && !byParcel && "מספר בית",
+        // לבית - גודל המגרש. עם גוש וחלקה הוא נלקח מהשכבה ואין מה לשאול
+        isHouseType(type) && !byParcel && num(input.plot_sqm) === null && "גודל המגרש במ\"ר (מהנסח)",
         !commercial && !land && num(input.rooms) === null && "מספר חדרים",
         num(input.size_sqm) === null && "שטח במ\"ר",
-        !land && num(input.floor) === null && "קומה",
+        !land && !isHouseType(type) && num(input.floor) === null && "קומה",
         num(input.asking_price) === null && "מחיר מבוקש (אם יש)",
         !land && !Array.isArray(input.features) && "מאפיינים: ממ\"ד, מעלית, חניה, מרפסת, מחסן, משופצת",
       ].filter(Boolean) as string[];
@@ -4241,7 +4417,9 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     p_city:          city,
     p_street:        street,
     p_house_number:  houseNumber || null,
-    p_property_type: String(input.property_type || "דירה"),
+    // בלי סוג: המסד מסיק אותו מהחלקה של הכתובת, ואם אי אפשר מחזיר
+    // type_required (20271105130000). "דירה" כברירת מחדל השווה בית לדירות.
+    p_property_type: String(input.property_type || "").trim() || null,
     p_rooms:         num(input.rooms),
     p_size_sqm:      num(input.size_sqm),
     p_floor:         num(input.floor) === null ? null : Math.round(Number(input.floor)),
@@ -4250,10 +4428,51 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     p_features:      Array.isArray(input.features) ? input.features.map(String) : null,
     p_lat:           coords?.lat ?? null,
     p_lng:           coords?.lng ?? null,
+    p_gush:          byParcel ? gush : null,
+    p_helka:         byParcel ? helka : null,
+    p_plot_sqm:      num(input.plot_sqm),
   });
   if (error) return { ok: false, error: error.message };
 
   const report = (data || {}) as Record<string, unknown>;
+  if (report.error === "type_required") {
+    // לא מנחשים סוג (20271105130000): שואלים, עם הרמזים שיש - העסקאות בחלקה
+    // של הכתובת, הייעוד אם נשמר אצלנו מידע תכנוני, והרחוב.
+    const stN = Number(report.street_deals) || 0;
+    const stHouse = Number(report.street_house_like) || 0;
+    const landUse = String(report.land_use || "").trim();
+    const hints = [
+      report.parcel_hint === "house" &&
+        "בחלקה של הכתובת נמכרו רק נכסים בלי קומה, וזה נראה כמו בית צמוד קרקע",
+      report.parcel_hint === "building" &&
+        "בחלקה של הכתובת יש עסקאות בקומות, כלומר זה בניין (דירה, פנטהאוז או דירת גן)",
+      landUse && `הייעוד של החלקה הוא "${landUse}"` +
+        (/מגורים\s*א(?![\u0590-\u05FF])/.test(landUse) ? " - בדרך כלל צמודי קרקע" : ""),
+      stN > 0 && stHouse / stN >= 0.5 &&
+        `רוב העסקאות ברחוב (${stHouse} מתוך ${stN}) נראות כמו בתים צמודי קרקע`,
+    ].filter(Boolean) as string[];
+    return {
+      ok: false,
+      needs_details: true,
+      missing: ["סוג הנכס: בית צמוד קרקע, דירה, פנטהאוז או דירת גן"],
+      type_hints: hints,
+      guidance:
+        "בלי סוג אי אפשר להפיק: דוח של בית, דירה, פנטהאוז ודירת גן באותו רחוב שונים לפעמים פי שניים. " +
+        "שאל/י **שאלה אחת קצרה**: בית צמוד קרקע, דירה, פנטהאוז או דירת גן? " +
+        (hints.length ? "אפשר לצרף את הרמזים מ-type_hints במשפט אחד, כרמז ולא כקביעה. " : "") +
+        "כשהסוכן/ת עונה - קרא/י שוב ל-cma_report_address עם property_type (בית פרטי / דירה / פנטהאוז / דירת גן) " +
+        "ועם proceed: true. זו השאלה היחידה ששואלים גם אחרי \"תפיק\".",
+    };
+  }
+  if (report.error === "parcel_not_found") {
+    return {
+      ok: false,
+      error: String(report.detail),
+      guidance:
+        "הגוש והחלקה אינם קיימים בשכבת החלקות של מפ\"י - כמעט תמיד ספרות שהתחלפו. אמור/אמרי זאת, " +
+        "ובקש/י לבדוק את המספרים מול הנסח או לתת כתובת. אל תאמר/י שאי אפשר להעריך.",
+    };
+  }
   if (report.error === "tier_required") {
     return {
       ok: false,
@@ -4277,8 +4496,10 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     street_nearest:
       `הכתובת לא מוקמה בדיוק, ולכן הדוח נמדד ממספר ${String(subject.nearest_house_number || "")} באותו רחוב. ` +
       "אמור/אמרי זאת בקצרה.",
-    street:
-      "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
+    // גם בלי מספר בית, וגם כשנמסר מספר ואין עסקה קרובה אליו ברחוב (20271109180000)
+    street: houseNumber
+      ? "אין עסקה קרובה למספר הבית ברחוב הזה, ולכן הדוח נמדד ממרכז העסקאות ברחוב ולא מהבניין. אמור/אמרי זאת בקצרה."
+      : "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
   };
   // מה שמסנן את בני ההשוואה: חדרים לנכס מגורים, קומה לנכס מסחרי (לחנות
   // אין חדרים - הסקיל cma-report), ושטח לכולם - בלעדיו אין מחיר למ"ר.
@@ -4493,9 +4714,39 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
   const HOUSE_COVERAGE_NOTE =
     coverage.subject_kind === "house" &&
       (coverage.status === "none" || coverage.status === "insufficient")
-      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות, ובמאגר העסקאות יש מעט מאוד מכירות " +
-        "של בתים. אמור/אמרי זאת, ואל תציע/י לגזור מחיר מעסקאות של דירות."
+      ? " זה בית פרטי: הוא מושווה לבתים פרטיים בלבד ולא לדירות. רשות המיסים רושמת כמעט כל בית כ\"דירה\", " +
+        "ולכן נספרים גם בתים שזוהו לפי החלקה (עסקה בלי קומה, היחידה בחלקה שלה) - ועדיין לא נמצאו די בתים. " +
+        "אמור/אמרי זאת, הצג/י את העסקאות שנמצאו כמו שהן, ואל תגזור/תגזרי מחיר מעסקאות של דירות."
       : "";
+
+  // בית צמוד קרקע (20271105090000): כמה מהבתים שנספרו זוהו לפי החלקה, ושטח
+  // המגרש מול חציון המגרשים שלהם. המסד משתיק את החציון מתחת לסף.
+  // **לא עוצרים בגלל מגרש חסר** - הדוח יוצא, ומבקשים את המגרש כדי לדייק.
+  const housePlots = (report.house_plots || null) as Record<string, unknown> | null;
+  const byParcelN = Number(coverage.houses_by_parcel) || 0;
+  const subjectPlot = housePlots?.subject_plot_sqm != null ? Number(housePlots.subject_plot_sqm) : null;
+  const medianPlot = housePlots?.median_plot_sqm != null ? Number(housePlots.median_plot_sqm) : null;
+  const house_guidance = coverage.subject_kind === "house"
+    ? [
+      byParcelN > 0
+        ? `${byParcelN} מהבתים שבהשוואה רשומים ברשות המיסים כ"דירה" וזוהו כבתים לפי החלקה: עסקה בלי קומה, ` +
+          "שהיא היחידה שנרשמה בחלקה שלה. זה קירוב - אמור/אמרי זאת במשפט אחד."
+        : "",
+      subjectPlot && medianPlot
+        ? `המגרש של הנכס ${subjectPlot.toLocaleString("en-US")} מ"ר, וחציון המגרשים של הבתים בהשוואה ` +
+          `${medianPlot.toLocaleString("en-US")} מ"ר. אמור/אמרי זאת: הפרש גדול במגרש מסביר חלק מהפער במחיר, ` +
+          "ואל תתקן/תתקני את המחיר לפיו בעצמך."
+        : "",
+      // בכרטיס הנכס אין שדה מגרש: הוא נלקח מהגוש והחלקה שבמידע התכנוני
+      !subjectPlot
+        ? "גודל המגרש של הנכס לא ידוע. מסור/מסרי את הדוח, ובסוף בקש/י " +
+          (byAddress
+            ? "את גודל המגרש (מהנסח), או גוש וחלקה, ולהריץ שוב את הדוח איתם"
+            : "להזין גוש וחלקה במידע התכנוני בכרטיס הנכס - משם נלקח שטח המגרש") +
+          ". בבית צמוד קרקע המגרש הוא חלק גדול מהמחיר. אל תעצור/תעצרי בגללו."
+        : "",
+    ].filter(Boolean).join(" ") || undefined
+    : undefined;
 
   const COVERAGE_GUIDANCE: Record<string, string> = {
     ok: "",
@@ -4506,7 +4757,8 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     none:
       "לא נמצאה אף עסקה להשוואה בסביבת הנכס. אמור/י זאת במפורש ואל תאמוד/תאמדי מחיר בעצמך.",
     no_location:
-      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית.",
+      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. פין מגיע מכתובת עם רחוב ומספר בית " +
+      "(או מהרחוב לבדו, כשנסגרו בו עסקאות); נכס בלי רחוב נשאר בלי פין. הצע/י להוסיף כתובת בכרטיס הנכס.",
   };
 
   // שכבת הבעלות (טאבו). ‏null = עוד לא נטענה, ואז פשוט לא מוזכרת.
@@ -4551,6 +4803,15 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     data_coverage: coverage,
     coverage_guidance:
       ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE + HOUSE_COVERAGE_NOTE).trim() || undefined,
+    // פין משוער (20271110120000): הנכס מוקם מהרחוב, מאזור התעשייה או מהחלקה,
+    // ולכן המרחקים לבני ההשוואה הם בקירוב - נאמר, ולא מוצג כמדויק.
+    location_guidance: ({
+      street: "מיקום הנכס משוער לפי העסקאות ברחוב (אין לו פין מדויק), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      neighborhood: "מיקום הנכס משוער בתוך השכונה (אין לו רחוב), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד, והצע/י להוסיף כתובת לדיוק.",
+      city: "מיקום הנכס משוער ברמת היישוב בלבד (אין לו רחוב ולא שכונה), ולכן ההשוואה היא לעסקאות ביישוב ולא בסביבה. אמור/אמרי זאת, והצע/י להוסיף רחוב או שכונה.",
+      zone: "מיקום הנכס משוער בתוך אזור התעשייה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      parcel: "מיקום הנכס הוא מרכז החלקה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+    } as Record<string, string>)[String(subject.location_precision || "")] || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
@@ -4608,6 +4869,34 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
     ownership,
     ...(ownership ? { ownership_guidance: CMA_OWNERSHIP_GUIDANCE } : {}),
+    // בית צמוד קרקע: המגרש, ובתים שזוהו לפי החלקה
+    subject_plot_sqm: subjectPlot ?? undefined,
+    comparables_median_plot_sqm: medianPlot ?? undefined,
+    houses_by_parcel: coverage.subject_kind === "house" ? byParcelN : undefined,
+    house_guidance,
+    ...(subject.developer_company
+      ? {
+        building_developer: {
+          company: subject.developer_company,
+          partners: subject.developer_partners,
+          source: subject.developer_source_label,
+          verification: subject.developer_verification,
+        },
+        building_developer_guidance: developerSpeech({
+          found: true,
+          company: String(subject.developer_company),
+          partners: Array.isArray(subject.developer_partners)
+            ? subject.developer_partners.map(String)
+            : [],
+          source_label: typeof subject.developer_source_label === "string"
+            ? subject.developer_source_label
+            : null,
+          verification: typeof subject.developer_verification === "string"
+            ? subject.developer_verification
+            : null,
+        }) + " אם מוסרים את הדוח, כללי את המשפט.",
+      }
+      : {}),
   };
 }
 
@@ -4652,6 +4941,11 @@ const CMA_OWNERSHIP_GUIDANCE =
  */
 async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unknown>) {
   if (String(input.gush || "").replace(/\D/g, "")) return await dealsByParcel(ctx, input);
+  // העיר נשלחת **כמו שנאמרה**: agent_market_deals_lookup פותרת כינוי ("תל אביב",
+  // "ת"א") לשם שבמאגר בעצמה, ורק כשהכתיב שהוקלד אינו פוגש אף עסקה
+  // (20271109180000). פענוח כאן היה מחליף "קרית טבעון" ב"קריית טבעון" של
+  // הרישום - ו-property_text_key אינה מכווצת יו"ד כפולה, כלומר העסקאות
+  // שרשומות בכתיב של רשות המיסים היו נעלמות.
   const city = String(input.city || "עפולה").trim();
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
@@ -4776,14 +5070,28 @@ async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
   const nearby = (res.nearby || null) as Record<string, unknown> | null;
   const center = (res.center || null) as Record<string, unknown> | null;
 
-  // הנחיה ולא נתון: שלושה מצבים שנשמעים דומים ואינם.
+  // החלקה בשכבת החלקות של מפ"י (‏parcels_open, 20271105090000): המיקום שלה
+  // גם בלי עסקה, והשטח הרשום שהוא המגרש. ‏in_parcel_layer=false עם גוש וחלקה
+  // = כמעט תמיד ספרות שהתחלפו (17664 במקום 16774, 4.11.2026).
+  const layer = (res.parcel_layer || null) as Record<string, unknown> | null;
+  const notInLayer = res.mode === "parcel" && res.in_parcel_layer === false;
+  const VALUATION_HINT =
+    " אם השאלה היא כמה הנכס שווה - הצע/י דוח CMA לגוש והחלקה (cma_report_address עם gush ו-helka), " +
+    "ואל תאמר/י שאי אפשר להעריך.";
+
+  // הנחיה ולא נתון: כמה מצבים שנשמעים דומים ואינם.
   const guidance = allTime === 0 && !center
-    ? "הגוש/החלקה לא מופיעים בכלל במאגר העסקאות של רשות המיסים שבידינו, ואין להם מיקום. אמור/י זאת במפורש, " +
-      "הצע/י חיפוש לפי רחוב או עיר, ואל תאמוד/תאמדי מחיר."
+    ? (notInLayer
+      ? "הגוש והחלקה אינם קיימים בשכבת החלקות של מפ\"י ואינם במאגר העסקאות - כמעט תמיד ספרות שהתחלפו. " +
+        "אמור/י זאת, ובקש/י לבדוק את המספרים מול הנסח. אל תאמוד/תאמדי מחיר."
+      : "הגוש/החלקה לא מופיעים במאגר העסקאות של רשות המיסים שבידינו, ואין להם מיקום. אמור/י זאת במפורש, " +
+        "הצע/י חיפוש לפי רחוב או עיר, ואל תאמוד/תאמדי מחיר.")
     : inParcel === 0
     ? `אין עסקאות בחלקה עצמה בתקופה שנבדקה (במאגר כולו: ${allTime}). ` +
-      (nearby ? "nearby הן עסקאות ברדיוס סביב מרכז החלקה - אמור/י שהן בסביבה ולא בחלקה." : "")
-    : "in_parcel הן עסקאות בחלקה עצמה (או בגוש, כש-mode הוא gush). nearby הן ברדיוס סביב המרכז - הצג/י אותן בנפרד.";
+      (nearby ? "nearby הן עסקאות ברדיוס סביב מרכז החלקה - אמור/י שהן בסביבה ולא בחלקה." : "") +
+      VALUATION_HINT
+    : "in_parcel הן עסקאות בחלקה עצמה (או בגוש, כש-mode הוא gush). nearby הן ברדיוס סביב המרכז - הצג/י אותן בנפרד." +
+      VALUATION_HINT;
 
   return {
     ok: true,
@@ -4799,6 +5107,10 @@ async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
     nearby_radius_meters: nearby?.radius_meters,
     nearby_total: nearby?.total_found,
     nearby: nearby?.deals,
+    // שטח החלקה הרשום (= המגרש, בבית צמוד קרקע), הסטטוס והיישוב - מהשכבה של מפ"י
+    parcel_area_sqm: layer?.legal_area ?? undefined,
+    parcel_status: layer?.status ?? undefined,
+    parcel_locality: layer?.locality ?? undefined,
     source: res.source,
     guidance,
   };
@@ -4864,7 +5176,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const gate = await planningTierGate(ctx);
   if (gate) return gate;
 
-  const city = clean(input.city) || await listingCityWhenOmitted(ctx);
+  // השם ברישום: GovMap רושם "תל אביב -יפו", והאימות בדף הבדיקה משווה את
+  // היישוב שחזר למה שנשלח. "תל אביב" לבדה אינה שווה לו.
+  const city = (await canonicalCityName(ctx.supabase, clean(input.city))) || await listingCityWhenOmitted(ctx);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -8738,17 +9052,43 @@ async function toolAgendaAdd(ctx: ToolContext, input: Record<string, unknown>) {
 
   const [shaped] = await agendaShape(ctx, [data]);
   const gcalOffer = await agendaGcalOffer(ctx, kind, due ?? null);
+  const sameTime = await exactSameTimeNote(ctx, kind, due ?? null, String(data.id));
   return {
     ok: true,
     item: shaped,
     reminder: remind && remind.length === 0 ? "בלי תזכורת"
       : due ? "תזכורת תגיע בוואטסאפ ובפעמון" : "משימה בלי מועד - בלי תזכורת",
     client_followup: followup.note,
-    guidance: "אשר/י במשפט אחד: מה, מתי (when) ועם מי. אל תציג/י item_id." +
+    same_time: sameTime || undefined,
+    guidance: "אשר/י בשורה אחת או שתיים: מה, מתי (יום ושעה מ-when) ושם פרטי. " +
+      "בלי לסכם מה שנאמר קודם, ובלי פגישות אחרות. אל תציג/י item_id. " +
+      "אין להציע להוסיף לקובץ הלקוחות מתוך כותרת הפגישה, ואין לנחש שם. " +
+      "הצעה רק אם הסוכן/ת אמר/ה שם של אדם ו-list_clients לא מצא אותו, בניסוח שלך, פעם אחת." +
       (followup.note ? " אם יש client_followup - אמור/אמרי אותו במשפט אחד נוסף." : "") +
+      (sameTime ? " same_time היא שורה אחת אחרי האישור, בלי לשאול אם להזיז." : " אין להזכיר פגישה אחרת.") +
       (gcalOffer ? " ואחרי האישור, בשורה נפרדת, הצע/י את gcal_offer כמו שהוא - הצעה, לא לחץ." : ""),
     gcal_offer: gcalOffer || undefined,
   };
+}
+
+/** פגישה אחרת באותה דקה בדיוק. כשל בקריאה אינו חוסם את מה שכבר נשמר. */
+async function exactSameTimeNote(
+  ctx: ToolContext,
+  kind: string,
+  due: string | null,
+  selfId: string,
+): Promise<string | null> {
+  if (!due || !["meeting", "showing", "signing"].includes(kind)) return null;
+  const t = Date.parse(due);
+  if (!Number.isFinite(t)) return null;
+  const { data, error } = await ctx.supabase.from("agent_agenda_items")
+    .select("id, title, kind, status, due_at")
+    .eq("agent_id", ctx.agent.id)
+    .eq("status", "open")
+    .gte("due_at", new Date(t - 90_000).toISOString())
+    .lt("due_at", new Date(t + 90_000).toISOString());
+  if (error || !data) return null;
+  return sameTimeConflictLine(kind, due, data, selfId);
 }
 
 /**
@@ -9054,6 +9394,8 @@ async function runTool(
       case "property_performance": return await toolPropertyPerformance(ctx, input);
       case "cma_report": return await toolCmaReport(ctx, input);
       case "cma_report_address": return await toolCmaReportAddress(ctx, input);
+      case "building_developer_lookup": return await toolBuildingDeveloperLookup(ctx, input);
+      case "record_building_developer": return await toolRecordBuildingDeveloper(ctx, input);
       case "market_deals_lookup": return await toolMarketDealsLookup(ctx, input);
       case "planning_info": return await toolPlanningInfo(ctx, input);
       case "planning_lookup": return await toolPlanningLookup(ctx, input);
@@ -9207,6 +9549,12 @@ const SYSTEM_STATIC: string = (() => {
     "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
       "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note - אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
+    "- **חברה יזמית של בניין:** \"מי בנה\" או \"מי היזם\" של בניין ברחוב = building_developer_lookup " +
+      "עם עיר, רחוב ומספר בית. אמרי את speech כמו שהוא. בלי מספר בית אל תעני שם. " +
+      "אל תנחשי חברה, גם אם שמעת על פרויקט בעיר.",
+    "- אם create_property או update_property החזירו developer_question_sent: אל תשאל/י מי בנה, " +
+      "הכפתור כבר יצא, ואל תחכי לתשובה כדי לאשר את הנכס. שם שהסוכן/ת כותב/ת אחר כך = " +
+      "record_building_developer עם company כמו שנאמר ו-property_id. \"לא יודע\" הוא הכפתור, לא שם חברה.",
     "- create_property: אם חזר published=true הנכס באוויר. אם חזר needs_confirmation, " +
       "בוואטסאפ יוצאת רשימת יעד אחת, רק היעדים שאפשר לבצע עכשיו. אל תמני יעד שלא יצא ברשימה. " +
       "אל תאמרי שהנכס באתר, ואל תקראי ל-set_property_status באותו תור. " +
@@ -9252,7 +9600,9 @@ const SYSTEM_STATIC: string = (() => {
       "אם יש בכתובת נכס במערכת - של הסוכן/ת או נכס פעיל של משרד אחר - cma_report עם המזהה שלו. " +
       "אחרת cma_report_address, **ולא** market_deals_lookup: רשימת עסקאות לפי שם רחוב אינה דוח CMA. " +
       "בקריאה הראשונה הוא מחזיר needs_details - שאל/י על החסר בהודעה אחת, ואז proceed: true. " +
-      "אם חזר tier_required - זו יכולת של Elite; אמור/אמרי זאת ואל תחליף/י ברשימת עסקאות.",
+      "אם חזר tier_required - זו יכולת של Elite; אמור/אמרי זאת ואל תחליף/י ברשימת עסקאות. " +
+      "**\"כמה שווה\" עם גוש וחלקה** (בית צמוד קרקע, נכס בלי כתובת) = cma_report_address עם gush ו-helka - " +
+      "גם כשאין עסקאות בחלקה עצמה. **לעולם אל תאמר/י \"אני לא יכולה להעריך\" לפני שהרצת אותו.**",
     "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
       "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +
@@ -9261,7 +9611,8 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות. " +
       "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב). " +
       "\"עסקאות בשכונה X\" / \"מה נמכר בגבעת המורה\" = market_deals_lookup עם neighborhood (בלי רחוב): " +
-      "גבעת המורה, מרכז העיר, עפולה עלית ודומיהן הן **שכונות** ולא רחובות.",
+      "גבעת המורה בעפולה, פלורנטין בתל אביב, בורוכוב בגבעתיים ודומיהן הן **שכונות** ולא רחובות. " +
+      "עיר אומרים כמו שהסוכן/ת אמר/ה (\"תל אביב\", \"ת\"א\") - הכלים מכירים את הכינויים.",
     "- **מידע תכנוני (גוש, חלקה, ייעוד, תוכניות, 77-78, סוג בעלות) - רק כפתור לדף הבדיקה.** " +
       "נכס במערכת = planning_info; כתובת או גוש+חלקה = planning_lookup. שניהם שולחים כפתור " +
       "\"📄 מידע תכנוני\" אוטומטית אחרי התשובה; את/ה כותב/ת רק את מה שה-guidance אומר. **לעולם " +
@@ -9376,11 +9727,10 @@ const SYSTEM_STATIC: string = (() => {
       "האחרונות בטלפון. ליד כל אחד כתוב אם הוא כבר בקובץ הלקוחות - זה נבדק בקוד, סמוך/י עליו.",
     "- אם באותה הודעה (או באותו רצף) יש הוראה של הסוכן/ת - בצע/י אותה על איש הקשר " +
       "(\"תוסיף כקונה בחיפה עד 2 מליון\" = create_client עם השם, הטלפון והדרישות).",
-    "- בלי הוראה: למי שאינו בקובץ שאל/י בשאלה אחת \"להוסיף את <שם> כלקוח/ה? מה הוא/היא " +
-      "מחפש/ת - קנייה או שכירות, איפה, כמה חדרים ותקציב? או שזה בעל/ת נכס שמוכר/ת או " +
-      "משכיר/ה? אפשר לענות בהקלטה\". " +
-      "\"כן\" לבד = create_client עם שם וטלפון בלבד. למי שכבר בקובץ - אל תיצור/י; " +
-      "אמור/אמרי שהוא כבר לקוח/ה (בשם שבקובץ) ושאל/י מה לעדכן.",
+    "- בלי הוראה: למי שאינו בקובץ, שורה אחת לכל היותר \"אפשר להוסיף את <שם> לקובץ הלקוחות.\" " +
+      "בלי לשאול קנייה, שכירות, בעלות או טלפון, ופעם אחת לאדם בשיחה. " +
+      "\"כן\" לבד = create_client עם שם וטלפון מהכרטיס, בלי שאלות נוספות. למי שכבר בקובץ - אל תיצור/י; " +
+      "אמור/אמרי שהוא כבר לקוח/ה (בשם שבקובץ) ואל תשאל/י מה לעדכן אלא אם ביקשו.",
     "- כמה אנשי קשר בבת אחת: שאלה אחת על כולם (\"להוסיף את שלושתם?\"), ואז create_client לכל אחד.",
     "- איש קשר עם חברה (org) עשוי להיות בעל/ת מקצוע או בעל/ת נכס ולא לקוח/ה מחפש/ת - " +
       "אם זה לא ברור, שאל/י לפני שיוצרים.",
@@ -9485,11 +9835,30 @@ const SYSTEM_STATIC: string = (() => {
     "- מספר רישיון וטלפון אינם נערכים בצ'אט - הפנה/י לדשבורד.",
     "",
     "יומן, פגישות ותזכורות:",
+    "- **שאלה רק כשהפעולה נחסמת בלעדיה** (סוג עסקה, עיר, מחיר, איות שם, או על איזה פריט). " +
+      "כמה דברים שכולם חוסמים נשאלים יחד בשורה קצרה אחת, ואין לוותר על אף אחד. " +
+      "העשרה לפגישה עם מי שלא נשמר/ת כלקוח/ה (הוספה לקובץ, טלפון) אינה נשאלת. " +
+      "לכל היותר הצעה אחת בניסוח שלך, רק אם הסוכן/ת אמר/ה שם ואין התאמה בקובץ. לא מתוך כותרת. " +
+      "קנייה או שכירות, ומוכר או משכיר, נשאלים כש-create_client או update_client מחזירים ask: " +
+      "בלי זה הכרטיס לא נשמר. שאלי את ask כמו שהוא, פעם אחת. אם כבר נענה, אל תשאלי שוב.",
+    "- **אין לשאול שוב** מה שכבר נענה בשיחה הזו, כולל \"כן\" ו\"הכוונה ל...\". " +
+      "זיהוי שם חל רק על השם המדויק שנרשם בהקשר. אין להחיל אותו על אדם אחר, " +
+      "ואם נאמר שם אחר הזיהוי בטל. לא \"ועוד דבר אחד\" על אותו שם.",
+    "- בלי תפריט כשיש קריאה אחת סבירה: מבצעים ואומרים בשורה מה נעשה. " +
+      "\"ולא עם X\" אחרי תיקון של פגישה אחרת הוא חלק מהתיקון, לא בקשה לבטל את X.",
+    "- **אין לצרף לתשובה תזכורת, התנגשות או פגישה אחרת** שלא קשורה לבקשה. " +
+      "הסיכום והתזכורות כבר יוצאים לבד. חריג יחיד: same_time (אותה שעה בדיוק " +
+      "של פגישה שנוצרת עכשיו), שורה אחת, בלי לשאול אם להזיז.",
     "- \"תזכיר לי...\" / \"יש לי פגישה...\" / \"תקבע סיור...\" = agenda_add. תאריך ושעה " +
       "בשעון ישראל, מחושבים מ\"עכשיו\" שבהקשר (\"מחר\", \"ביום ג'\", \"בעוד שעה\" = in_minutes). " +
       "אם לא נאמרה שעה לפגישה - שאל/י בשאלה אחת; למשימה אפשר בלי שעה (09:00).",
     "- פגישה עם לקוח/ה מהקובץ: קודם list_clients עם query, והעבר/י client_id - אז השם " +
-      "והטלפון יופיעו בתזכורת.",
+      "והטלפון יופיעו בתזכורת. מי שאינו/ה בקובץ: agenda_add בלי client_id. " +
+      "אין לשאול אם להוסיף ואין לשאול טלפון, ואין להמציא שם מהכותרת. " +
+      "סוג עסקה נשאל רק אם יוצרים או מעדכנים כרטיס והכלי החזיר ask.",
+    "- אין להזכיר פגישה אחרת, תזכורת או התנגשות בתשובה על משהו אחר. " +
+      "אם חזר same_time - שורה אחת אחרי האישור, בלי לשאול אם להזיז. " +
+      "פגישה בשעה אחרת אינה התנגשות.",
     "- פגישה, סיור או חתימה עם לקוח/ה מהקובץ: הלקוח/ה מקבל/ת לבד אישור בוואטסאפ (עם הוספה ליומן) " +
       "ותזכורת שעה לפני עם כפתורי אישור הגעה, ביטול ומועד אחר. התשובה מגיעה לסוכן/ת כהתראה. " +
       "אמור/אמרי את client_followup שחזר במשפט אחד. \"אל תשלחי ללקוח\" = notify_client false.",
@@ -9614,6 +9983,21 @@ function sessionContext(
   return lines.join("\n");
 }
 
+/** הקשר התור: השעה והמצב, ואחריהם מה שכבר נענה וקריאה אחת אם יש. לא ב-SYSTEM_STATIC. */
+function turnContext(
+  agent: AgentRow,
+  conv: ConversationState,
+  gaps: string[],
+  pendingSince: number | null,
+  listingCity: string | null | undefined,
+  demandOn: boolean,
+  userText: string,
+): string {
+  const base = sessionContext(agent, conv, gaps, pendingSince, listingCity, demandOn);
+  const extra = styleContext(conv.history, userText);
+  return extra ? `${base}\n\n${extra}` : base;
+}
+
 /**
  * קריאה ל-Claude. ‏fallbacks מפעיל ניתוב אוטומטי למודל חלופי אם בקשה נדחית
  * על ידי מסנני הבטיחות, כדי שסוכן/ת לא תיתקע בלי תשובה. אם ה-beta לא זמין
@@ -9730,7 +10114,7 @@ export async function runAgentTurn(opts: {
   const messages: Anthropic.MessageParam[] = [
     ...historyWithBreakpoint(conv.history),
     // ההקשר (שעה, נכס אחרון) כאן ולא ב-system: אחרת הוא מבטל את מטמון ההיסטוריה
-    { role: "user", content: withTurnContext(sessionContext(agent, conv, gaps, pendingSince, listingCity, demandOn), userContent) },
+    { role: "user", content: withTurnContext(turnContext(agent, conv, gaps, pendingSince, listingCity, demandOn, userSummary), userContent) },
   ];
 
   let finalText = "";
@@ -9739,14 +10123,16 @@ export async function runAgentTurn(opts: {
   // כלי כתיבה בתור הזה מוריד בוררי חיפוש (list_properties / search_properties)
   // לפני שהתור נשלח. הסימון הוא על הקריאה, גם אם הכלי החזיר שאלה ולא כתב.
   let mutated = false;
+  const toolAsks: string[] = [];
   const toolsDone: string[] = [];
   const stopForAbort = (): never => {
     if (abortedTurnPlan(toolsDone) === "save") {
       conv.abortedToolNames = toolsDone.slice();
+      const stampedAt = new Date().toISOString();
       conv.history = trimHistory([
         ...conv.history,
-        { role: "user", content: userSummary },
-        { role: "assistant", content: abortedTurnNote(toolsDone) },
+        { role: "user", content: userSummary, at: stampedAt },
+        { role: "assistant", content: abortedTurnNote(toolsDone), at: stampedAt },
       ], HISTORY_LIMIT);
     }
     throw new DOMException("turn aborted", "AbortError");
@@ -9849,6 +10235,7 @@ export async function runAgentTurn(opts: {
       // הואט ב-2.3 שניות בלי שינוי במספר הקריאות. בלי זמן לכל קריאה ולכל
       // כלי אי אפשר לדעת אם זה המודל (פרומפט גדל) או כלי שקורא החוצה.
       console.log(`tool ${use.name} iter=${i} ms=${Date.now() - toolStart}`);
+      if (!blocked) collectToolAsks(toolAsks, result);
       results.push({
         type: "tool_result",
         tool_use_id: use.id,
@@ -9881,6 +10268,8 @@ export async function runAgentTurn(opts: {
 
   if (!finalText) {
     finalText = "לא הצלחתי להשלים את הפעולה. אפשר לנסות שוב או לפנות לדשבורד.";
+  } else if (!finalText.startsWith("לא הצלחתי") && !finalText.startsWith("מצטערת")) {
+    finalText = shapeAgentReply(finalText, { userText: userSummary, history: conv.history, toolAsks });
   }
 
   // ההיסטוריה נשמרת כטקסט בלבד — בלי בלוקי הכלים ובלי התמונות. זה מספיק
@@ -9888,10 +10277,11 @@ export async function runAgentTurn(opts: {
   // ומצבים לא חוקיים של tool_result יתום אחרי גזימה.
   // גזימה במדרגות ולא slice(-HISTORY_LIMIT): חלון מחליק מזיז את תחילת
   // ההיסטוריה בכל תור, ואז היא לא נקראת מהמטמון לעולם (prompt-cache.ts)
+  const stampedAt = new Date().toISOString();
   conv.history = trimHistory([
     ...conv.history,
-    { role: "user", content: userSummary },
-    { role: "assistant", content: finalText },
+    { role: "user", content: userSummary, at: stampedAt },
+    { role: "assistant", content: finalText, at: stampedAt },
   ], HISTORY_LIMIT);
 
   if (opts.outbox && mutated) {

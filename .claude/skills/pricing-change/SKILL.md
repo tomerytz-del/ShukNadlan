@@ -17,7 +17,7 @@ description: שינוי מחיר, מכסה או תקרה בריפו של שוק 
 | 1 | **מה שנגבה** | מיגרציה שמעדכנת את `pricing_config` |
 | 2 | ההצהרה שהבדיקה מצליבה | `PRICES` ב-`scripts/check_pricing.py` |
 | 3 | טבלת ההשוואה | `COMPARE` ב-`pricing.html` |
-| 4 | השאלות הנפוצות | `<details>` ב-`pricing.html` (מנויים, מע״מ, מספר וירטואלי) |
+| 4 | השאלות הנפוצות | `<details>` ב-`pricing.html` (מנויים, מע״מ, מספר וירטואלי), **ועותק זהה** ב-`FAQPage` (JSON-LD) ב-`<head>` של אותו דף. השאלה "מה ההבדל בשקלים" אינה בבלוק, כי התשובה בה מחושבת מ-`pricing_config` בזמן ריצה (`data-calc`) |
 | 5 | הכרטיסים | `features` ו-`priceMonthly` ב-`assets/tiers.js` - גם מסך בחירת המסלול ב-CRM |
 | 6 | השרת | `TIER_PRICES` ב-`supabase/functions/_shared/launch-promo.ts` (מנויים) |
 | 7 | שיתוף וחיפוש | `<meta name="description">` ב-`pricing.html` (מנויים) |
@@ -59,6 +59,23 @@ python scripts/check_pricing.py
 שורה חדשה ב-`COMPARE` שנושאת מספר מקבלת שתי שורות בבדיקה: המפתח ב-`PRICES`,
 ותבנית ב-`DISPLAY` עם קבוצת לכידה אחת למספר. אם המספר שונה בין המסלולים,
 זו גם יכולת מובחנת - הסקיל `new-tier-capability`.
+
+## הנחת משרד ב-Elite: מחיר שתלוי במי שמשלם
+
+מ-11.11.2026 מחיר Elite אינו מספר אחד: **15% לכל סוכן/ת נוסף/ת במשרד עם 3 עד 5 סוכנים
+משלמים, 25% מ-6** (`office_discount_*` ב-`pricing_config`; הסוכן/ת הוותיק/ה משלם/ת מלא; Elite בלבד;
+לא נקודות). מה שנגבה: `subscription_price(tier, months, agent)` ← `office_elite_discount`, ו-
+`start_subscription_order` ו-`claim_due_tier_renewals` קוראות לו. **מה שמוצג בדף התשלום הוא
+`subscription_quote`, לא `SUB_TIERS`**: מחיר ב-`checkout.html` שנכתב ביד לא ישקף את ההנחה.
+
+- **המחירים שנגזרים מהאחוז** (₪339.15, ₪299.25, דוגמת ה-4 סוכנים) כתובים בדף כמספרים; `derived()` ב-
+  `check_pricing.py` מחשב אותם מ-`PRICES` ומחפש אותם ב-`pricing.html`. שינוי מחיר Elite או אחוז =
+  עדכון שלהם, והבדיקה אומרת איזה.
+- **התקנון (§6 "הנחת משרד")** נושא את האחוזים והספים, ו-`check_pricing.py` מצליב גם אותם.
+- **דשבורדי הכנסות שמחשבים MRR מ-`tier_premium_monthly_price`** מנפחים אותו במשרדים עם הנחה: מה שנגבה
+  הוא `subscription_orders.amount`.
+- **"חינם" ב-Pay&GO**: ‏`Tiers.priceText('free')` והכרטיס ב-`pricing.html` אומרים "חינם", לא "₪0".
+  ‏"Elite ב-₪0" של הטבת ההשקה נשאר ₪0 בכוונה (זו הטבה, לא מחיר).
 
 ## מע״מ: כל מחיר בדף הוא לפני מע״מ
 

@@ -462,6 +462,14 @@ function attachHeroVideo(main, videoSrc, poster){
   heroVideoEl = v;
 }
 
+/* ‏alt לתמונת נכס: כותרת הנכס ומספר התמונה (1-based), אותו נוסח ש-og-tags.ts
+   כותב בשרת. תמונה בלי alt אינה מופיעה בחיפוש התמונות, וקורא מסך קורא
+   "תמונה" בלבד (ביקורת 5.11.2026). */
+function galleryAlt(p, index){
+  const base = String((p && p.title) || '').replace(/\s+/g, ' ').trim() || 'נכס';
+  return `${base} - תמונה ${index + 1}`;
+}
+
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
   heroVideoEl = null;
@@ -514,10 +522,12 @@ function renderGallery(p){
       open.className = 'cell-open';
       open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
       const raw = galleryImages[index];
+      // פוסטר של סרטון נשאר בלי alt: התא הוא aria-hidden.
+      const imgAlt = videoSrc && hero ? '' : galleryAlt(p, index);
       open.innerHTML = hero
-        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="" fetchpriority="high"${heroImgExtra(raw)}>`
+        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="${escapeAttr(imgAlt)}" fetchpriority="high"${heroImgExtra(raw)}>`
         // התאים הקטנים בגלריה - מוקטנים; הגלריה המלאה (‏lbOpen) נשארת בגודל מלא
-        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
+        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="${escapeAttr(imgAlt)}" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
       open.addEventListener('click', ()=> lbOpen(opensAt));
       cell.appendChild(open);
       return cell;
@@ -1155,7 +1165,7 @@ function lbOpen(index){
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', `מעבר לתמונה ${i+1}`);
-      b.innerHTML = `<img src="${escapeAttr(url)}" alt="" loading="lazy">`;
+      b.innerHTML = `<img src="${escapeAttr(url)}" alt="${escapeAttr(galleryAlt(currentProperty, i))}" loading="lazy">`;
       b.addEventListener('click', ()=>{ lbIndex = i; lbRender(); });
       strip.appendChild(b);
     });
@@ -2154,6 +2164,18 @@ async function requestVisualization(){
        הקוד עצמו נשמר ל-console כדי שלא ילך לאיבוד באבחון. */
     if (!res.ok || out.error){
       if (out.error) console.error('property-visualize נכשל:', out.error, out.detail || '');
+      /* ‏no_suitable_images אינו תקלה רגעית: בנכס אין צילום שאפשר לדמות ממנו, וכל לחיצה
+         נוספת תיכשל אותו דבר. בנכס פרטי שאין לו אף הדמיה - התיבה יורדת יחד עם קיצור הדרך
+         אליה, במקום להשאיר כפתור שתמיד נכשל (אותו עיקרון כמו נכס בלי תמונות ב-loadVisualizations).
+         רק כש-all_classified: סיווג שנכשל רגעית מחזיר את אותה שגיאה, ושם הלחיצה הבאה עשויה להצליח. */
+      if (out.error === 'no_suitable_images' && out.all_classified && vizState.isPrivate && !vizItemsFlat().length){
+        const sec = document.getElementById('vizSection');
+        const jump = document.getElementById('vizJumpBtn');
+        if (sec) sec.hidden = true;
+        if (jump) jump.hidden = true;
+        showToast(out.message || 'אין בנכס הזה צילום שאפשר להדמות ממנו');
+        return;
+      }
       throw new Error(out.message || 'לא הצלחנו ליצור את ההדמיה כרגע. נסו שוב מאוחר יותר.');
     }
 
@@ -2298,6 +2320,7 @@ const TYPE_FAMILIES = {
   'חנויות/שטח מסחרי':'commercial', 'משרדים':'commercial', 'מבני תעשייה':'commercial',
   'בנין':'commercial', 'בניין':'commercial', 'מחסן':'commercial', 'חנות':'commercial',
   'משרד':'commercial', 'מבנה מסחרי':'commercial', 'אולם':'commercial',
+  'מחסנים':'commercial', 'מרלו״ג/מרכז לוגיסטי':'commercial',
   'מגרש':'land', 'מגרשים':'land', 'קרקע':'land', 'קרקעות':'land', 'נחלה':'land', 'משק':'land'
 };
 function typeFamily(t){ return TYPE_FAMILIES[String(t || '').trim()] || null; }
@@ -2597,7 +2620,9 @@ function openInquiry(askPhotos){
     inquirySource = 'photo_request';
   }
   form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(()=>document.getElementById('inqName').focus({ preventScroll: true }), 350);
+  // ההודעה כבר מולאה - ישר לשלב הפרטים; אחרת מתחילים מהבקשה
+  inquiryStep(askPhotos ? 2 : 1);
+  setTimeout(()=>document.getElementById(askPhotos ? 'inqName' : 'inqMessage').focus({ preventScroll: true }), 350);
 }
 function prefillInquiryMessage(p){
   if (!p.listing_number) return;
@@ -2750,26 +2775,37 @@ function publicAddressText(p){
     .filter(Boolean).join(', ');
 }
 
-/* קישור לדף השכונה (‏/n/{עיר}/{שכונה}, docs/neighborhood-pages.md) - רק לשכונה
-   שיש לה דף שנכנס לאינדקס. קריאה נפרדת ולא חלק מהשליפה של הנכס: היא נשענת על
-   מיגרציה (20270728090000), והאתר עולה לפני המסד; כשל בה פשוט משאיר את
-   הכתובת בלי קישור. */
-function linkNeighborhoodPage(p, addressEl){
+/* כרטיס "רוצים לדעת עוד על השכונה?" - קישור לדף השכונה (‏/n/{עיר}/{שכונה},
+   docs/neighborhood-pages.md), רק לשכונה שיש לה דף שנכנס לאינדקס: ‏neighborhood_pages_public
+   (מודעה פעילה או חמש עסקאות) ושוק חי, כמו ‏hoodCard ב-netlify/edge-functions/og-tags.ts.
+   השרת ממלא את הכרטיס ב-HTML הראשון (‏#hoodCard כבר מכיל קישור) והפונקציה כאן עוזבת אותו;
+   היא רק משלימה כשהשרת לא הספיק (timeout, או נכס שעבר דרך מטמון). קריאה נפרדת ולא חלק
+   מהשליפה של הנכס: היא נשענת על מיגרציה (20270728090000), והאתר עולה לפני המסד; כשל
+   פשוט משאיר את הכרטיס מוסתר. המבנה זהה ל-hoodCardHtml בשרת (scripts/hood_card_test.ts). */
+function renderHoodCard(p){
+  const card = document.getElementById('hoodCard');
   const name = p.neighborhoods && p.neighborhoods.name;
-  if (!name || !addressEl) return;
+  if (!card || card.querySelector('[data-hood-card]')) return;
+  if (!name || !p.city || name === p.city) return;
   // ‏GET עם סינון על תוצאת הפונקציה - שורה אחת ולא כל השכונות
-  const q = 'name=eq.' + encodeURIComponent(name) + (p.city ? '&city=eq.' + encodeURIComponent(p.city) : '')
-    + '&select=city_slug,slug&limit=1';
+  const q = 'name=eq.' + encodeURIComponent(name) + '&city=eq.' + encodeURIComponent(p.city)
+    + '&select=city_slug,slug,props&limit=1';
   fetch(SUPABASE_URL + '/rest/v1/rpc/neighborhood_pages_public?' + q, {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
   }).then(r => r.ok ? r.json() : null).then(rows => {
     const hit = Array.isArray(rows) && rows[0];
-    if (!hit) return;
-    const a = document.createElement('a');
-    a.className = 'prop-hood-link';
-    a.href = '/n/' + encodeURIComponent(hit.city_slug) + '/' + encodeURIComponent(hit.slug);
-    a.textContent = 'על השכונה ←';
-    addressEl.appendChild(a);
+    if (!hit || !hit.city_slug || !hit.slug || !(Number(hit.props) > 0)) return;
+    // שוק חי: אותו כלל כמו בשרת. בלי קואורדינטות או בלי רשימת השווקים - בלי כרטיס
+    const lat = Number(p.lat), lng = Number(p.lng);
+    const M = window.ShukMarkets;
+    if (!M || p.lat == null || p.lng == null || !isFinite(lat) || !isFinite(lng) || !M.locate(lat, lng, true)) return;
+    const href = '/n/' + encodeURIComponent(hit.city_slug) + '/' + encodeURIComponent(hit.slug);
+    card.innerHTML = '<a class="hood-card-link" href="' + escapeHtml(href) + '" data-hood-card>'
+      + '<img class="hood-card-ava" src="/assets/gabriela-avatar.webp" alt="" width="56" height="56" loading="lazy" decoding="async">'
+      + '<span class="hood-card-txt"><b>רוצים לדעת עוד על השכונה?</b>'
+      + '<span>נכסים נוספים ב' + escapeHtml(name) + ', מחירי עסקאות ושכונות סמוכות</span></span>'
+      + '<span class="hood-card-go" aria-hidden="true">←</span></a>';
+    card.hidden = false;
   }).catch(() => {});
 }
 
@@ -2923,18 +2959,17 @@ function renderProperty(p){
   document.getElementById('propTitle').textContent = publicTitle(p);
   if (p.listing_number){
     document.getElementById('listingNoN').textContent = p.listing_number;
-    document.getElementById('listingNo').hidden = false;
-    document.getElementById('listingCopy').onclick = async (e) => {
-      try { await navigator.clipboard.writeText(String(p.listing_number)); e.target.textContent = 'הועתק'; }
-      catch(_){ e.target.textContent = String(p.listing_number); }
-      setTimeout(() => { e.target.textContent = 'העתקה'; }, 2000);
-    };
+    document.getElementById('listingNoLabel').hidden = false;
   }
+  // השורה מוצגת גם בלי מספר מודעה: כפתור גודל הטקסט יושב בה
+  document.getElementById('listingNo').hidden = false;
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
-  linkNeighborhoodPage(p, addressEl);
+  renderHoodCard(p);
+  renderMarketDistance(p, addressEl);
   renderOpenHouseBand(p);
+  loadRecentDeals(p);
 
   renderSpecPills(p);
   renderHighlights(p);
@@ -2964,13 +2999,15 @@ function renderProperty(p){
   renderAgentCard(p);
   renderContactButtons(p);
   renderWaShare(p);
+  initFinBtn(p);
   prefillInquiryMessage(p);
   setGabWidgetContext(p);
   applyOwnerLeadAgent(p);
   prefillInquiryContact();
-  document.getElementById('agencyStrip').addEventListener('click', ()=>{
-    if (p.agencies?.slug) window.location.href = '/agency?slug=' + p.agencies.slug;
-  });
+  const strip = document.getElementById('agencyStrip');
+  if (strip && p.agencies?.slug) {
+    strip.href = '/agency?slug=' + encodeURIComponent(p.agencies.slug);
+  }
 
   // המפה נטענת ברקע: היא דורשת בדיקת זכאות נוספת מול ה-DB, ואין סיבה שהיא
   // תעכב את רינדור הנכס עצמו.
@@ -3144,12 +3181,14 @@ function renderContactButtons(p){
   const formBtn = document.getElementById('sbFormBtn');
   formBtn.onclick = ()=>{
     document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
-    setTimeout(()=> document.getElementById('inqName').focus(), 420);
+    setTimeout(()=> document.getElementById('inqMessage').focus(), 420);
   };
 
   if (!phone){
-    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס
+    // בלי טלפון נשארת רק דרך אחת ליצור קשר: הטופס. שורת הגילוי נשארת מתחתיו.
     formBtn.hidden = false;
+    document.getElementById('agentActions').innerHTML =
+      '<p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>';
     return;
   }
   formBtn.hidden = true;
@@ -3184,7 +3223,8 @@ function renderContactButtons(p){
   sbCall.hidden = false;
   markFair(sbCall, 'call');
 
-  // כפתורים בכרטיס ההמרה
+  // כפתורים בכרטיס ההמרה, ושורת הגילוי: מי מקבל את הפרטים. privacy.html מבטיח את זה; כאן זה
+  // נאמר במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly)
   document.getElementById('agentActions').innerHTML = `
     <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${fairAttr('whatsapp')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
@@ -3192,8 +3232,112 @@ function renderContactButtons(p){
     </a>
     <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
-    </a>`;
+    </a>
+    <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;
 }
+
+/* ---------- "אפשרויות מימון" בשורת השמירה והשיתוף (7.11.2026) ----------
+   לא יכולת חדשה אלא פתח למחשבון שכבר בדף (#calcCard, עם מחיר הנכס): גלילה אליו ופוקוס על
+   סליידר ההון העצמי. ההשראה: כפתור Financing בכרטיס של eretzly.com. הכפתור סטטי ב-
+   property.html (‏#finBtn, ‏.prop-fin) ומוסתר עד כאן; במודעת השכרה המחשבון כולו יורד, ולכן גם
+   הכפתור. ישב קודם מתחת לכפתורי הקשר ("כמה מזומן ומשכנתא צריך לנכס הזה?") וקרוב מדי למחשבון. */
+function initFinBtn(p){
+  const btn = document.getElementById('finBtn');
+  if (!btn) return;
+  btn.hidden = !p || p.deal_type === 'rent';
+  if (btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', ()=>{
+    const card = document.getElementById('calcCard');
+    if (!card) return;
+    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(()=> document.getElementById('calcEquity')?.focus({ preventScroll:true }), 450);
+  });
+}
+
+/* ---------- עסקאות אחרונות בסביבה (6.11.2026, PR B) ----------
+   property_recent_deals במסד (20271106130000): עד 5 עסקאות רשמיות מאותו סוג
+   (same_type של cma_deal_pool) ברדיוס 2,000 מ' ו-24 חודשים, רחוב בלבד.
+   עובדות, בלי "מעל/מתחת למחיר": המחיר למ"ר של הנכס וחציון העסקאות מוצגים
+   זה ליד זה והגולש/ת משווה. הפונקציה חסרה (האתר עלה לפני המיגרציה) או
+   נכשלת - הבלוק נשאר מוסתר. docs/cma.md. */
+async function loadRecentDeals(p){
+  const sec = document.getElementById('dealsSection');
+  if (!sec || !p || p.deal_type === 'rent' || !window.supabase) return;
+  try{
+    const { data, error } = await sbClient().rpc('property_recent_deals', { p_property_id: p.id });
+    if (error || !Array.isArray(data) || !data.length) return;
+    renderRecentDeals(p, data);
+  } catch(e){ /* הבלוק נשאר מוסתר */ }
+}
+function renderRecentDeals(p, rows){
+  const body = document.getElementById('dealsBody');
+  const month = (d)=>{ const dt = new Date(d); return isNaN(dt) ? '' : String(dt.getMonth() + 1).padStart(2, '0') + '/' + dt.getFullYear(); };
+  body.innerHTML = rows.map(r => `<tr>
+    <td>${escapeHtml(month(r.sold_month))}</td>
+    <td>${escapeHtml(r.street ? 'רח׳ ' + r.street : (r.city || ''))}</td>
+    <td>${r.rooms ? escapeHtml(String(Number(r.rooms))) : '-'}</td>
+    <td>${r.size_sqm ? escapeHtml(String(Math.round(r.size_sqm))) : '-'}</td>
+    <td class="num">${nis(r.sale_price)} ₪</td>
+    <td>${r.price_per_sqm ? nis(r.price_per_sqm) + ' ₪' : '-'}</td>
+  </tr>`).join('');
+  const per = rows.map(r => Number(r.price_per_sqm)).filter(n => n > 0).sort((a, b)=> a - b);
+  const cmp = document.getElementById('dealsCompare');
+  const chips = [];
+  if (per.length >= 3){
+    const mid = per.length >> 1;
+    const med = per.length % 2 ? per[mid] : (per[mid - 1] + per[mid]) / 2;
+    chips.push(`חציון ${per.length} העסקאות: ${nis(med)} ₪ למ״ר`);
+    // אותו מספר שמוצג בגלולות הנכס (price_per_sqm, או המחיר עצמו כשהוא למ"ר)
+    const ppsqm = p.price_unit === 'sqm' ? Number(p.price) : Number(p.price_per_sqm);
+    if (ppsqm > 0) chips.push(`הנכס הזה: ${nis(ppsqm)} ₪ למ״ר (לפי המחיר המבוקש)`);
+  }
+  cmp.innerHTML = chips.map(t => `<span>${escapeHtml(t)}</span>`).join('');
+  cmp.hidden = !chips.length;
+  document.getElementById('dealsSection').hidden = false;
+}
+
+/* ---------- מרחק מהעיר המרכזית של השוק (6.11.2026, PR B) ----------
+   לנכס ביישוב שאינו העיר המרכזית: "כ-12 ק״מ מעפולה". השוק לפי הקואורדינטות
+   (ShukMarkets.locate), המרכז הוא center של השוק (מסגור, לא "מרכז העיר";
+   assets/markets.js) - ולכן בעיגול לק״מ שלם ורק מ-2 ק״מ. */
+function renderMarketDistance(p, el){
+  const M = window.ShukMarkets;
+  if (!M || !el || !p || !p.lat || !p.lng || !p.city) return;
+  let m = null;
+  try { m = M.locate ? M.locate(Number(p.lat), Number(p.lng)) : null; } catch(e){ m = null; }
+  // העיר המרכזית בכל כתיב ("קריית אתא" ב-markets.js, "קרית אתא" במסד). לא places:
+  // שם יושבים גם יישובי הסביבה, וכפר תבור כן מקבל "כ-15 ק״מ מעפולה"
+  const normCity = (s)=> String(s || '').replace(/קריית/g, 'קרית').replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
+  if (!m || !m.city || !m.center || normCity(p.city) === normCity(m.city)) return;
+  let km = null;
+  try { km = M.km ? M.km(Number(p.lat), Number(p.lng), m.center[0], m.center[1]) : null; } catch(e){ km = null; }
+  if (!(km >= 2)) return;
+  const span = document.createElement('span');
+  span.className = 'prop-dist';
+  span.textContent = ' · כ-' + Math.round(km) + ' ק״מ מ' + m.city;
+  el.appendChild(span);
+}
+
+/* ---------- גודל טקסט (6.11.2026, PR B) ----------
+   נשמר במכשיר בלבד (sk_text_size); חל על עמודת התוכן דרך html[data-text]. */
+(function initTextSize(){
+  const btn = document.getElementById('textSizeBtn');
+  if (!btn) return;
+  let on = false;
+  try { on = localStorage.getItem('sk_text_size') === 'lg'; } catch(e){ on = false; }
+  const apply = ()=>{
+    if (on) document.documentElement.setAttribute('data-text', 'lg');
+    else document.documentElement.removeAttribute('data-text');
+    btn.setAttribute('aria-pressed', String(on));
+  };
+  apply();
+  btn.addEventListener('click', ()=>{
+    on = !on;
+    try { localStorage.setItem('sk_text_size', on ? 'lg' : 'base'); } catch(e){ /* אחסון חסום */ }
+    apply();
+  });
+})();
 
 /* ---------- שמירה (§6, v10 בלבד) ----------
    אותה רשימה של "המועדפים" בהחלקה ובבועה: ‏sk_swipe_likes, מזהים, החדש בסוף,
@@ -3309,10 +3453,55 @@ function updateCalculator(){
   document.getElementById('calcLtvFill').style.width = Math.min(ltv*100, 100) + '%';
 
   const warn = document.getElementById('ltvWarn');
-  warn.textContent = (ltvPct > LTV_THRESHOLDS.single*100)
-    ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%)`
+  // התקרה לפי מה שנבחר ב"כמה מזומן": דירה יחידה 75%, דירה נוספת 50%
+  const capKey = cashBuyer === 'extra' ? 'investment' : 'single';
+  const capPct = Math.round(LTV_THRESHOLDS[capKey] * 100);
+  warn.textContent = (ltvPct > capPct)
+    ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת ל${cashBuyer === 'extra' ? 'דירה נוספת' : 'דירה יחידה'} (${capPct}%)`
     : '';
+  updateCashNeeded(price, equity);
 }
+
+/* ---------- "כמה מזומן צריך להביא" (6.11.2026, PR B) ----------
+   השאלה שקודמת ל"כמה אחזיר בחודש": הון עצמי + מס רכישה + עו״ד + תיווך +
+   פתיחת תיק. ההשראה: גיליון ה-Financing של eretzly.com ("your own cash,
+   total"). docs/mortgage-leads.md.
+
+   החישוב והמדרגות ב-assets/purchase-costs.js (‏PurchaseCosts), משותפים למחשבון
+   של דף הבית: מדרגות מס הרכישה (קפואות עד 15.1.2028, לעדכן ב-16.1.2028) יושבות
+   רק שם. נטען כ-<script> רגיל לפני הקובץ הזה; אם לא נטען, הבלוק פשוט מוסתר
+   והמחשבון נשאר עובד. */
+let cashBuyer = 'single';
+
+function updateCashNeeded(price, equity){
+  const box = document.getElementById('calcCash');
+  if (!box || !currentProperty) return;
+  // מחיר למ"ר אינו מחיר הנכס: מס, עו"ד ותיווך על 12,000 ₪ היו שטות. הבלוק יורד
+  // וגם בנכס מסחרי ובמגרש: מדרגות מס הרכישה הן של דירת מגורים בלבד (מסחרי וקרקע - 6% קבוע),
+  // והצגתן הייתה מורידה מאות אלפי שקלים מהמזומן הנדרש
+  const notHome = currentProperty.category === 'commercial' || /מגרש|קרקע|נחל|משק|חקלא/.test(currentProperty.property_type || '');
+  if (!window.PurchaseCosts || !(price > 0) || notHome || priceUnitOf(currentProperty) === 'sqm'){ box.hidden = true; return; }
+  box.hidden = false;
+  // נכס ביריד הבתים הפתוחים נמכר בלי עמלת תיווך (assets/open-house.js)
+  const noFee = !!(window.OpenHouse && OpenHouse.live(currentProperty));
+  const c = PurchaseCosts.breakdown({ price, equity, buyer: cashBuyer, noBrokerFee: noFee });
+  document.getElementById('calcCashTotal').textContent = nis(c.total);
+  document.getElementById('cashEquity').textContent = nis(c.equity) + ' ₪';
+  document.getElementById('cashTax').textContent = c.tax ? nis(c.tax) + ' ₪' : '0 ₪ (פטור במדרגה הראשונה)';
+  document.getElementById('cashLawyer').textContent = nis(c.lawyer) + ' ₪';
+  document.getElementById('cashBroker').textContent = noFee ? '0 ₪ (ללא עמלת תיווך)' : nis(c.broker) + ' ₪';
+  document.getElementById('cashBankRow').hidden = !c.bank;
+  document.getElementById('cashBank').textContent = nis(c.bank) + ' ₪';
+  document.getElementById('calcCashFine').textContent =
+    `מס רכישה לפי מדרגות ${PurchaseCosts.TAX_AS_OF} ל${cashBuyer === 'single' ? 'דירה יחידה' : 'דירה נוספת'}; עו״ד ותיווך לפי שיעורים מקובלים, ובפועל לפי ההסכם. הערכה בלבד, לא ייעוץ מס.`;
+}
+document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(b => {
+  b.addEventListener('click', ()=>{
+    cashBuyer = b.dataset.buyer;
+    document.querySelectorAll('.calc-buyer button[data-buyer]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    updateCalculator();
+  });
+});
 ['calcEquity','calcRate','calcYears'].forEach(id=>{
   document.getElementById(id).addEventListener('input', updateCalculator);
 });
@@ -3367,10 +3556,28 @@ function mleadOpen(){
     `${currentProperty?.title || 'הנכס'} · ${nis(price)} ₪ · הון עצמי ${nis(equity)} ₪ · ` +
     `${ltv}% מימון · ${mleadSnapshot.years} שנים בריבית ${mleadSnapshot.interest_rate}%`;
   mleadErrorEl.textContent = '';
+  // "יש ברשותי דירה" מתחיל ממה שנבחר במחשבון (דירה יחידה / נוספת), עד שהגולש/ת נגע/ה בו
+  if (!mleadOwnsTouched) document.getElementById('mleadOwns').checked = cashBuyer === 'extra';
+  mleadStep(1);
   mleadModal.classList.add('open');
-  document.getElementById('mleadName').focus();
+  document.getElementById('mleadOwns').focus();
 }
 function mleadClose(){ mleadModal.classList.remove('open'); }
+let mleadOwnsTouched = false;
+document.getElementById('mleadOwns').addEventListener('change', ()=>{ mleadOwnsTouched = true; });
+
+/* שני שלבים: הבקשה (מה היועץ/ת צריך/ה לדעת) ואז הפרטים. אותו payload. */
+function mleadStep(n){
+  mleadForm.querySelectorAll('.form-step').forEach(el => { el.hidden = el.dataset.step !== String(n); });
+  document.getElementById('mleadNextBtn').hidden = n !== 1;
+  document.getElementById('mleadSubmitBtn').hidden = n !== 2;
+  document.getElementById('mleadBackBtn').hidden = n !== 2;
+}
+document.getElementById('mleadNextBtn').addEventListener('click', ()=>{
+  mleadStep(2);
+  document.getElementById('mleadName').focus();
+});
+document.getElementById('mleadBackBtn').addEventListener('click', ()=> mleadStep(1));
 
 document.getElementById('mleadOpenBtn').addEventListener('click', ()=>{
   if (!currentProperty){ showToast('הנכס עדיין נטען, נסו שוב בעוד רגע'); return; }
@@ -3431,7 +3638,186 @@ mleadForm.addEventListener('submit', async (e)=>{
   }
 });
 
+/* ---------- שאלה לעורך דין ---------- */
+/* אותה צורה כמו בלון המשכנתא: שני שלבים (השאלה, אחר כך הפרטים), ואז שלב שלישי שהוא האימות: הפונה שולח/ת הודעת
+   וואטסאפ מוכנה מהנייד שהזין/ה, והליד עולה למדף העו"ד רק אחרי שהשרת אישר. הדף שואל את השרת ("אומת?") ולא מניח
+   שהכפתור נלחץ. כל הכללים (נייד, אורכים, העיר מהנכס, ליד פתוח אחד לטלפון, בלם הצפה) בשרת. docs/lawyer-leads.md. */
+const LQ_FUNCTION_URL = SUPABASE_URL + '/functions/v1/lawyer-lead-intake';
+const lqModal   = document.getElementById('lqModal');
+const lqForm    = document.getElementById('lqForm');
+const lqWait    = document.getElementById('lqWait');
+const lqDone    = document.getElementById('lqDone');
+const lqErrorEl = document.getElementById('lqError');
+let lqPoll = null;
+
+const LQ_ERRORS = {
+  invalid_name: 'נא להזין שם מלא',
+  invalid_phone: 'נא להזין מספר נייד ישראלי (למשל 050-1234567)',
+  invalid_email: 'נא להזין כתובת אימייל תקינה, או להשאיר ריק',
+  invalid_question: 'נא לכתוב שאלה של 10 תווים לפחות',
+  property_not_found: 'הנכס אינו זמין כרגע לשאלות',
+  rate_limited: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב מאוחר יותר.',
+  try_again: 'לא הצלחנו לקלוט כרגע. נסו שוב בעוד רגע.',
+};
+
+function lqStep(n){
+  lqForm.querySelectorAll('.form-step').forEach(el => { el.hidden = el.dataset.step !== String(n); });
+  document.getElementById('lqNextBtn').hidden = n !== 1;
+  document.getElementById('lqSubmitBtn').hidden = n !== 2;
+  document.getElementById('lqBackBtn').hidden = n !== 2;
+}
+function lqStopPolling(){ if (lqPoll){ clearInterval(lqPoll); lqPoll = null; } }
+function lqOpen(){
+  lqStopPolling();
+  lqForm.hidden = false; lqWait.hidden = true; lqDone.hidden = true;
+  document.getElementById('lqRecap').textContent = currentProperty?.title || 'הנכס';
+  lqErrorEl.textContent = '';
+  // אחרי שליחה קודמת הכפתור נשאר "שולח…" ומושבת; פתיחה מחדש (לתיקון) חייבת להחזיר אותו
+  const lqBtn = document.getElementById('lqSubmitBtn');
+  lqBtn.disabled = false;
+  lqBtn.textContent = 'שליחה ואימות בוואטסאפ';
+  lqStep(1);
+  lqModal.classList.add('open');
+  document.getElementById('lqQuestion').focus();
+}
+function lqClose(){ lqStopPolling(); lqModal.classList.remove('open'); }
+
+function lqShowDone(text){
+  lqStopPolling();
+  lqForm.hidden = true; lqWait.hidden = true; lqDone.hidden = false;
+  if (text) document.getElementById('lqDoneText').textContent = text;
+}
+
+/* שואלים את השרת כל 3 שניות עד 10 דקות. אחרי זה הליד נשאר pending עד 30 דקות מהבקשה, והכפתור עדיין עובד */
+function lqStartPolling(leadId){
+  lqStopPolling();
+  const startedAt = Date.now();
+  lqPoll = setInterval(async ()=>{
+    if (Date.now() - startedAt > 10 * 60 * 1000){
+      lqStopPolling();
+      document.getElementById('lqWaitStatus').textContent = 'עדיין לא קיבלנו את ההודעה. אם שלחתם אותה, היא תיקלט ותקבלו אישור בוואטסאפ.';
+      return;
+    }
+    try{
+      const res = await fetch(LQ_FUNCTION_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action:'status', lead_id: leadId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.verified === true) lqShowDone();
+    } catch(_){ /* ניסיון נוסף בסבב הבא */ }
+  }, 3000);
+}
+
+document.getElementById('lqOpenBtn').addEventListener('click', ()=>{
+  if (!currentProperty){ showToast('הנכס עדיין נטען, נסו שוב בעוד רגע'); return; }
+  lqOpen();
+});
+document.getElementById('lqCloseBtn').addEventListener('click', lqClose);
+lqModal.addEventListener('click', (e)=>{ if (e.target === lqModal) lqClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && lqModal.classList.contains('open')) lqClose();
+});
+document.getElementById('lqNextBtn').addEventListener('click', ()=>{
+  const q = document.getElementById('lqQuestion');
+  const bad = q.value.trim().length < 10;
+  q.classList.toggle('invalid', bad);
+  if (bad){ lqErrorEl.textContent = ''; showToast(LQ_ERRORS.invalid_question); q.focus(); return; }
+  lqStep(2);
+  document.getElementById('lqName').focus();
+});
+document.getElementById('lqBackBtn').addEventListener('click', ()=> lqStep(1));
+
+lqForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const nameEl = document.getElementById('lqName');
+  const phoneEl = document.getElementById('lqPhone');
+  const emailEl = document.getElementById('lqEmail');
+  const full_name = nameEl.value.trim();
+  const phone = phoneEl.value.trim();
+  const email = emailEl.value.trim();
+  const phoneDigits = phone.replace(/\D/g, '');
+  const bad = {
+    name: full_name.length < 2,
+    phone: !/^(972|0)?5\d{8}$/.test(phoneDigits),
+    email: email !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+  };
+  nameEl.classList.toggle('invalid', bad.name);
+  phoneEl.classList.toggle('invalid', bad.phone);
+  emailEl.classList.toggle('invalid', bad.email);
+  if (bad.name)  { lqErrorEl.textContent = LQ_ERRORS.invalid_name; nameEl.focus(); return; }
+  if (bad.phone) { lqErrorEl.textContent = LQ_ERRORS.invalid_phone; phoneEl.focus(); return; }
+  if (bad.email) { lqErrorEl.textContent = LQ_ERRORS.invalid_email; emailEl.focus(); return; }
+  lqErrorEl.textContent = '';
+
+  const btn = document.getElementById('lqSubmitBtn');
+  const originalLabel = btn.textContent;
+  btn.textContent = 'שולח…';
+  btn.disabled = true;
+  try{
+    const res = await fetch(LQ_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        action:'submit',
+        property_id: currentProperty?.id || null,
+        question: document.getElementById('lqQuestion').value.trim(),
+        full_name, phone, email,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      lqErrorEl.textContent = LQ_ERRORS[data.error] || 'השליחה נכשלה, נסו שוב';
+      btn.textContent = originalLabel; btn.disabled = false;
+      return;
+    }
+    if (data.verified){
+      // כבר יש שאלה פתוחה מהטלפון הזה, והיא אומתה: אין מה לאמת שוב
+      lqShowDone('כבר יש לכם שאלה פתוחה אצלנו, והיא הועברה לעורכי דין מהאזור.');
+      return;
+    }
+    const waBtn = document.getElementById('lqWaBtn');
+    waBtn.href = data.wa_url;
+    lqForm.hidden = true; lqWait.hidden = false;
+    document.getElementById('lqWaitStatus').textContent = 'ממתינים לאימות…';
+    lqStartPolling(data.lead_id);
+  } catch(err){
+    console.error('lawyer-lead-intake failed:', err);
+    lqErrorEl.textContent = 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
+    btn.textContent = originalLabel; btn.disabled = false;
+  }
+});
+
 /* ---------- Inquiry form ---------- */
+/* שני שלבים בטופס הפנייה (6.11.2026, PR B): קודם הבקשה, אחר כך הפרטים.
+   ההשראה: "Request a Call" ו-"Ask a Lawyer" של eretzly.com. אותו payload. */
+function inquiryStep(n){
+  document.querySelectorAll('#inquiryForm .form-step').forEach(el => { el.hidden = el.dataset.step !== String(n); });
+}
+document.getElementById('inquiryNext').addEventListener('click', ()=>{
+  inquiryStep(2);
+  document.getElementById('inqName').focus({ preventScroll:true });
+});
+document.getElementById('inquiryBack').addEventListener('click', ()=> inquiryStep(1));
+// הודעת בקשת התמונות שנמחקה או שוכתבה ביד אינה בקשת תמונות עוד
+document.getElementById('inqMessage').addEventListener('input', ()=>{
+  if (inquirySource !== 'photo_request' || !window.NoPhoto || !currentProperty) return;
+  const auto = NoPhoto.STR.msg(currentProperty.title || 'הנכס');
+  if (document.getElementById('inqMessage').value.trim() !== String(auto).trim()) inquirySource = '';
+});
+document.querySelectorAll('.inq-quick button[data-quick]').forEach(b => {
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.inq-quick button[data-quick]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const box = document.getElementById('inqMessage');
+    // הבקשה המהירה מחליפה רק טקסט אוטומטי; מה שהגולש/ת כתב/ה ביד נשאר
+    if (!box.value.trim() || box.value.startsWith(INQUIRY_AUTO_PREFIX) || [...document.querySelectorAll('.inq-quick button[data-quick]')].some(x => x.dataset.quick === box.value.trim())) box.value = b.dataset.quick;
+    inquirySource = '';   // בקשה מהירה אינה בקשת תמונות
+    inquiryStep(2);
+    document.getElementById('inqName').focus({ preventScroll:true });
+  });
+});
+
 document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!currentProperty){ showToast('הנכס עדיין נטען, נסו שוב בעוד רגע'); return; }
@@ -3469,6 +3855,8 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
       currentProperty.id
     );
     document.getElementById('inquiryForm').reset();
+    inquiryStep(1);
+    document.querySelectorAll('.inq-quick button[data-quick]').forEach(x => x.removeAttribute('aria-pressed'));
     inquirySource = '';
     // reset מחזיר את השדות לערך שב-HTML (ריק) — ההודעה המוכנה והפרטים
     // השמורים נכתבים שוב

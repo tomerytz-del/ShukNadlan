@@ -46,6 +46,21 @@ test('בלי יעד אין טעינה מוקדמת', () => {
   assert.deepEqual(gotoLoadKeys('mentor', ''), []);
 });
 
+test('הפעמון טוען רק את ההתראות', () => {
+  assert.deepEqual(gotoLoadKeys('bell', ''), ['notifications']);
+});
+
+test('יעד ניהול טוען רק את הטעינה שלו, באותו מפתח של adminLoadsP', () => {
+  assert.deepEqual(gotoLoadKeys('accRefundQueue', ''), ['adm:refundQueue']);
+  assert.deepEqual(gotoLoadKeys('accDealsImport', ''), []);
+  const fns = src.match(/const ADMIN_LOAD_FNS = \{([\s\S]*?)\n\};/);
+  assert.ok(fns, 'ADMIN_LOAD_FNS לא נמצא');
+  const map = src.match(/const ADMIN_GOTO_LOADS = \{([\s\S]*?)\n  \};/);
+  assert.ok(map, 'ADMIN_GOTO_LOADS לא נמצא');
+  for (const k of map[1].match(/'adm:[A-Za-z]+'/g)) assert.ok(fns[1].includes(k), k + ' חסר ב-ADMIN_LOAD_FNS');
+  assert.match(src, /Object\.keys\(ADMIN_LOAD_FNS\)\.map\(k => (?:crmQuiet\()?start\(k, ADMIN_LOAD_FNS\[k\]\)\)?\)/);
+});
+
 test('ליד, CMA וקידום מחכים למחיר שכבר התחיל', () => {
   const start = src.indexOf('if (gotoRaw && gotoOpensEarly');
   const block = src.slice(start, start + 1100);
