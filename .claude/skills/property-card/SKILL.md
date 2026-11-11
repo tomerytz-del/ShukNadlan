@@ -78,6 +78,14 @@ description: קטגוריית "הנכסים שלי" ב-CRM של שוק נדל״�
    ולהפך - ספירה של `code` שקפצה פתאום אחרי עריכה שלכם היא סימן
    שהזזתם אותו; עדיף תבנית (`` `${a}/${b}` ``) על `'/' +` ליד מחרוזות.
 
+## "דוח לבעלים" (11.11.2026)
+
+אריח ללא `tone`, אחרי "החתמה", רק ל-`status = 'active'` ולסוכן/ת של הנכס או למנהל/ת
+המשרד שלו (`officeIsManager()` ו-`agency_id` זהה) - **אותו תנאי כמו `owner_report_create`**,
+לא `canReferRow` (היא מרשה גם `referred_by`, ושם ההפקה נדחית). האימייל של הבעלים נשלף
+ב-`PROPERTY_SELECT_COLUMNS` (‏`property_owners(owner_name, owner_phone, owner_email)`).
+הסקיל `owner-report`.
+
 ## שדה החיפוש: אותו מפענח של האתר
 
 `propSearch` (ו-`sharedSearch` בלשונית "נכסים ששותפו") עוברים ב-`crmQueryMatches`
