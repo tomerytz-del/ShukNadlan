@@ -322,4 +322,7 @@ node --experimental-strip-types scripts/google_channel_sync_test.ts
 מה שחזר משאיר את `synced_at` על היום האחרון עם הוצאה, וקמפיין מושהה נראה
 כמו cron שנעצר. `google_sync_insights` ממלא אפס לכל יום בחלון שדולג, ורושם
 כל הרצה ב-`ads_actions_log` (גם כשל). בלי שורות היסטוריה ביומן, הממצא
-`ads_google_sync_silent` שותק.
+`ads_google_sync_silent` שותק. רשימת הקמפיינים שואלת
+`campaign.start_date_time` - מ-v23 אין `campaign.start_date` ואין
+`campaign.end_date`, ושאילתה איתם נכשלת כולה (`UNRECOGNIZED_FIELD`) לפני
+שנכתבת שורה.

@@ -27,7 +27,7 @@ const BUYERS = "24350623422";
 const syncedAt = "2026-11-08T00:25:09.970Z";
 
 const paused = (status = "PAUSED", startDate = "2026-10-16") => ({
-  campaign: { id: BUYERS, name: "buyers", status, startDate },
+  campaign: { id: BUYERS, name: "buyers", status, startDateTime: `${startDate} 00:00:00` },
   customer: { currencyCode: "ILS" },
 });
 
@@ -92,7 +92,31 @@ const beforeStart = googleChannelRecordsFromGaql({
   to: "2026-11-03",
   syncedAt,
 });
-ok("אין אפס לפני תאריך ההתחלה", beforeStart.records.map((r) => r.day).join(",") === "2026-11-02,2026-11-03", beforeStart.records.map((r) => r.day));
+ok("אין אפס לפני תאריך ההתחלה, ויום ההתחלה עצמו נשאר", beforeStart.records.map((r) => r.day).join(",") === "2026-11-02,2026-11-03", beforeStart.records.map((r) => r.day));
+
+const afternoon = googleChannelRecordsFromGaql({
+  metricRows: [],
+  campaignRows: [{
+    campaign: { id: BUYERS, name: "buyers", status: "PAUSED", startDateTime: "2026-11-02 15:00:00" },
+    customer: { currencyCode: "ILS" },
+  }],
+  from: "2026-11-01",
+  to: "2026-11-03",
+  syncedAt,
+});
+ok("שעת התחלה באמצע היום עדיין כוללת את יום ההתחלה", afternoon.records.map((r) => r.day).join(",") === "2026-11-02,2026-11-03", afternoon.records.map((r) => r.day));
+
+const legacyDate = googleChannelRecordsFromGaql({
+  metricRows: [],
+  campaignRows: [{
+    campaign: { id: BUYERS, name: "buyers", status: "PAUSED", startDate: "2026-11-08" },
+    customer: { currencyCode: "ILS" },
+  }],
+  from: "2026-11-06",
+  to: "2026-11-08",
+  syncedAt,
+});
+ok("המפתח הישן startDate לא נקרא", legacyDate.records.map((r) => r.day).join(",") === "2026-11-06,2026-11-07,2026-11-08", legacyDate.records.map((r) => r.day));
 
 const eur = googleChannelRecordsFromGaql({
   metricRows: [{
@@ -102,7 +126,7 @@ const eur = googleChannelRecordsFromGaql({
     metrics: { costMicros: "1000000", clicks: "1", impressions: "1", conversions: "0" },
   }],
   campaignRows: [{
-    campaign: { id: "9", name: "x", status: "ENABLED", startDate: "2026-11-01" },
+    campaign: { id: "9", name: "x", status: "ENABLED", startDateTime: "2026-11-01 00:00:00" },
     customer: { currencyCode: "EUR" },
   }],
   from: "2026-11-08",
@@ -114,7 +138,7 @@ ok("מטבע שאינו שקל או דולר לא נכתב ומדווח", eur.re
 const usd = googleChannelRecordsFromGaql({
   metricRows: [],
   campaignRows: [{
-    campaign: { id: "8", name: "usd", status: "PAUSED", startDate: "2026-11-08" },
+    campaign: { id: "8", name: "usd", status: "PAUSED", startDateTime: "2026-11-08 00:00:00" },
     customer: { currencyCode: "USD" },
   }],
   from: "2026-11-08",
@@ -158,7 +182,14 @@ try { googleMetricGaql("2026-11-06' OR 1=1 --", "2026-11-08"); } catch { threw =
 ok("תאריך שאינו יום לא נכנס לשאילתה", threw);
 const metricSql = googleMetricGaql("2026-11-06", "2026-11-08");
 ok("שאילתת הימים מוגבלת לחלון", metricSql.includes("BETWEEN '2026-11-06' AND '2026-11-08'") && metricSql.includes("segments.date"));
+const selectFields = (sql: string) => {
+  const select = sql.split(/\bFROM\b/i)[0];
+  return [...select.matchAll(/\b(?:campaign|customer|segments|metrics)\.[a-z0-9_.]+/g)].map((m) => m[0]);
+};
 ok("רשימת הקמפיינים בלי segments.date, בלי קמפיין שהוסר", !GOOGLE_CAMPAIGN_LIST_GAQL.includes("segments.date") && GOOGLE_CAMPAIGN_LIST_GAQL.includes("campaign.status != 'REMOVED'"));
+ok("רשימת הקמפיינים שואלת start_date_time", selectFields(GOOGLE_CAMPAIGN_LIST_GAQL).join(",") === "campaign.id,campaign.name,campaign.status,campaign.start_date_time,customer.currency_code", selectFields(GOOGLE_CAMPAIGN_LIST_GAQL));
+ok("אין campaign.start_date או campaign.end_date", !/\bcampaign\.start_date\b/.test(GOOGLE_CAMPAIGN_LIST_GAQL) && !/\bcampaign\.end_date\b/.test(GOOGLE_CAMPAIGN_LIST_GAQL + " " + metricSql));
+ok("שאילתת הימים נשארת על השדות שגוגל כבר קיבלה", selectFields(metricSql).join(",") === "campaign.id,campaign.name,campaign.status,customer.currency_code,segments.date,metrics.impressions,metrics.clicks,metrics.cost_micros,metrics.conversions", selectFields(metricSql));
 
 const entry = googleSyncLogEntry({
   ok: true, days: 3, from: nov8.from, to: nov8.to,
