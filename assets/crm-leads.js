@@ -30,7 +30,7 @@ const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי ב
 const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
-  // פוסט בקבוצה או במרקטפלייס, או מודעה במדלן, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
+  // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
   'facebook_group', 'facebook_marketplace', 'madlan']);
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
@@ -506,9 +506,9 @@ function openLeadUnified(id){
    פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
    docs/scraped-leads.md), ובתקופת ההשקה - כל פוסט מרגע הקליטה, במקביל לבקשת
    ההסכמה (open_demand_list). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
-   תשלום. הדרך היחידה לפנות היא הפוסט עצמו - ולכן אין כאן חיוג, וואטסאפ או
-   "הוספה כלקוח/ה". "אני פונה" (open_demand_claim) תופס את הביקוש לסוכן/ת
-   אחד/ת ופותח את הפוסט, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
+   תשלום. בפייסבוק הדרך לפנות היא הפוסט עצמו. מדלן: מתקשרים למספר, בלי פניה
+   לבעלים מצד המערכת, והטלפון בכרטיס. "אני פונה" (open_demand_claim) תופס את
+   הביקוש לסוכן/ת אחד/ת, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
 let openDemandRows = null;
 let openDemandStats = null;
 let openDemandLoading = false;

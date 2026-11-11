@@ -177,7 +177,9 @@ export function leadText(first: string, li: LeadInfo, _link: string | null, optO
     ...(li.excerpt ? ["", `💬 "${li.excerpt}"`] : []),
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
-    "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
+    li.source === "מדלן"
+      ? "⏱️ מי שמתקשר ראשון - סוגר."
+      : "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
     "",
     optOutLine,
   ];
@@ -189,7 +191,9 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
   const parts = [
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
-    alone ? "⏱️ מי שחוזר ראשון - סוגר!" : "",
+    alone
+      ? (li.source === "מדלן" ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שחוזר ראשון - סוגר!")
+      : "",
   ];
   const line = parts.filter(Boolean).join(" · ");
   return url ? `${line} ${url}` : `${line} פרטים ב-CRM.`;

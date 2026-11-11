@@ -817,6 +817,7 @@ def main():
     pushed = psql(db, sql_text="""
       select (bool_and(suppress_push)
               and bool_and(body like '%073%' and body like '%מעביר את השיחה%')
+              and bool_and(body like '%חינם, למי שלוחץ ראשון על "אני פונה".%')
               and bool_and(body not like '%הודעת פייסבוק%'))::text
         from public.notifications
        where type = 'open_demand'

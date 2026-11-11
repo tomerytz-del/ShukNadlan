@@ -500,7 +500,7 @@ begin
     case when v_free then 'launch_free' end,
     case when v_free then now() end,
     case when v_free then v_agent end,
-    coalesce(s.raw_name, case when s.source = 'madlan' then 'פונה ממדלן' else 'פונה מפייסבוק' end), s.raw_phone, v_msg,
+    coalesce(s.raw_name, case when s.source = 'madlan' then 'מודעה ממדלן' else 'פונה מפייסבוק' end), s.raw_phone, v_msg,
     s.city, s.neighborhood_id, s.deal_type, s.property_type,
     nullif(concat_ws(' · ', s.property_details,
                      case when s.rooms is not null then trim_scale(s.rooms)::text || ' חדרים' end,
@@ -665,7 +665,7 @@ begin
                                 || to_char(r.budget, 'FM999,999,999') end,
                       case when r.move_in is not null then 'כניסה: ' || r.move_in end,
                       case when r.no_broker is not null then 'כתבו ללא תיווך' end)
-    || '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". '
+    || '. חינם, למי שלוחץ ראשון על "אני פונה". '
     || case when r.source = 'madlan'
             then 'אפשר להתקשר ל-' || coalesce(r.raw_phone, 'מספר לא מופיע')
                  || '. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
@@ -883,7 +883,7 @@ end $$;
 
 
 comment on function public.scraped_lead_notify_demand(uuid) is
-  'התראת open_demand. תקרה שנדלקת אחרי גל התאמה סופרת את מי שכבר קיבל. מדלן: להגיב במודעה, לא בפייסבוק. docs/scraped-leads.md';
+  'התראת open_demand. תקרה שנדלקת אחרי גל התאמה סופרת את מי שכבר קיבל. מדלן: מתקשרים למספר, בלי פניה לבעלים מצד המערכת. docs/scraped-leads.md';
 
 revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;
