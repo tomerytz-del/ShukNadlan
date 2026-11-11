@@ -2450,6 +2450,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      ועד כאן הם הוסיפו כארבעה סבבים בטור לכניסת מנהל/ת. ה-await נשאר במקומו
      למטה, ולכן הסדר שבו המסך נגמר והטיפול בשגיאה לא השתנו. ‏catch ריק רק
      מסמן שהדחייה תטופל שם - בלעדיו כישלון שקודם ל-await היה נרשם כלא מטופל. */
+  // מסכי מנהל/ת הפלטפורמה נטענים ברקע רק למי שפותח/ת אותם (assets/crm-lazy.js, ADMIN_ONLY)
+  if (agent.is_platform_admin && window.crmArmAdminSections) window.crmArmAdminSections();
   const managerLoadsP = agent.role === 'manager' ? Promise.all([
     crmQuiet(loadBranding(agent.agency_id)),
     crmQuiet(loadTeam(agent.agency_id, agent.id)),

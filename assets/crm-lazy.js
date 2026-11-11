@@ -597,6 +597,10 @@
      שעון המתנה לאף קורא. עדיפות 0, ו-ui / לידים / נכסים קודמים
      בתור כדי שלא ייתקעו מאחורי שאר הקבצים. */
   var PREFETCH_FIRST = ['ui', 'leads', 'properties', 'settings', 'office'];
+  /* מסכי מנהל/ת הפלטפורמה: סוכן/ת רגיל/ה אינו פותח אותם לעולם, ולכן אינם נטענים
+     ברקע (11.11.2026). מי שהוא מנהל/ת פלטפורמה מקבל/ת אותם דרך crmArmAdminSections
+     אחרי שהדשבורד נטען, ופתיחה ישירה (crmNeed, ‏?goto=) לא הושפעה. */
+  var ADMIN_ONLY = ['csm', 'adminInbox', 'command', 'growth', 'budget', 'adsSpend', 'hoodDrafts'];
   function crmArmSections() {
     if (crmArmSections.armed) return;
     crmArmSections.armed = true;
@@ -607,7 +611,7 @@
         if (GROUPS[PREFETCH_FIRST[i]]) ordered.push(PREFETCH_FIRST[i]);
       }
       for (var n = 0; n < names.length; n++) {
-        if (ordered.indexOf(names[n]) < 0) ordered.push(names[n]);
+        if (ordered.indexOf(names[n]) < 0 && ADMIN_ONLY.indexOf(names[n]) < 0) ordered.push(names[n]);
       }
       ordered.forEach(function (g) {
         needShared(g, 0).catch(function () {});
@@ -619,7 +623,19 @@
     });
   }
 
+  function crmArmAdminSections() {
+    if (crmArmAdminSections.armed) return;
+    crmArmAdminSections.armed = true;
+    var idle = global.requestIdleCallback || function (fn) { global.setTimeout(fn, 400); };
+    idle(function () {
+      ADMIN_ONLY.forEach(function (g) {
+        if (GROUPS[g]) needShared(g, 0).catch(function () {});
+      });
+    }, { timeout: 3000 });
+  }
+
   global.crmNeed = crmNeed;
+  global.crmArmAdminSections = crmArmAdminSections;
   global.crmAfter = crmAfter;
   global.crmInflight = crmInflight;
   global.crmEvalFailed = crmEvalFailed;
