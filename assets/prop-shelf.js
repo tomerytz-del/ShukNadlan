@@ -116,19 +116,6 @@
     return !!(p && p.is_promoted) && (!p.promoted_until || new Date(p.promoted_until) > new Date());
   }
 
-  /* תמונה מוקטנת מהאחסון של Supabase (‏render/image), לאריח שרוחבו ידוע.
-     ‏resize=contain במפורש: ‏width לבדו חותך רצועה מהמרכז (ברירת המחדל היא
-     cover) - אותו כלל כמו ‎sized()‎ ב-assets/swipe.js. כתובת שאינה מהאחסון
-     שלנו חוזרת כמו שהיא. */
-  function sized(url, w) {
-    var s = String(url || '');
-    var marker = '/storage/v1/object/public/';
-    var at = s.indexOf(marker);
-    if (at < 0) return s;
-    var path = s.slice(at + marker.length).split(/[?#]/)[0];
-    if (!path) return s;
-    return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&resize=contain&quality=60';
-  }
 
   /* הרשימה חוזרת מה-DB ממוינת מקודמים־קודם, ולכן נכס מקודם ישן היה נכנס
      ל"החדשים ביותר" לפני נכס חדש שלא שולם עליו. כאן היא ממוינת לפי
@@ -456,10 +443,19 @@
        מנגן רילס אחד: זה שבתחילת הרצועה מבין אלה שנראים בה בשלמותם,
        ורק כשהרצועה עצמה על המסך. ‏src נכתב רק אז ונמחק כשהוא יוצא
        (‏PropertyCard.playVideo / stopVideo - אותה תקרה של האריחים,
-       MAX_PLAYING = 1), ולכן זו אותה עלות של נגיעה באריח, ולא שלושה
-       סרטונים בבת אחת. ‏reduced-motion, Save-Data ו-2G: פוסטרים בלבד,
-       בלי אלמנט וידאו (‏PropertyCard.motionAllowed). */
-    var REEL_POSTER_W = 240;
+       MAX_PLAYING = 1), ולכן בכל רגע יורד סרטון אחד לכל היותר.
+       ‏reduced-motion, Save-Data ו-2G: פוסטרים בלבד, בלי אלמנט וידאו
+       (‏PropertyCard.motionAllowed).
+
+       אלמנט הווידאו נוצר בעצלתיים: הרצועה מחזיקה את כל הרילסים של המדף,
+       ו-‎<video>‎ לכל אחד מהם - גם עם preload="none" - הוא עשרות אלמנטי
+       מדיה בשביל שניים וחצי שרואים. האריח נולד עם ‎data-reel‎ בלבד, והווידאו
+       נכנס אליו כשהוא מתקרב לחלון הרצועה (‏rootMargin של רוחב מסך). */
+    /* הפוסטר: אריח 9:16 ברוחב של כ-40% מהמסך, שעל טלפון עם DPR 3 הוא
+       כ-450×800 פיקסלים אמיתיים. ‏resize=cover לממדים האלה - האריח ממילא
+       מציג אותו ב-object-fit:cover, ותמונה ראשונה לרוחב (המקרה הנפוץ כשאין
+       video_poster_url) ב-240 לרוחב הייתה נמתחת פי שש ומטושטשת. */
+    var REEL_POSTER_W = 450, REEL_POSTER_H = 800;
     var REEL_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
     var REEL_FILM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
       'stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>';
@@ -467,7 +463,7 @@
     function reelPoster(p) {
       var u = p.video_poster_url;
       if (typeof u !== 'string' || !/^https?:\/\//i.test(u.trim())) u = hasPhoto(p) ? p.images[0] : '';
-      return u ? sized(u.trim(), REEL_POSTER_W) : '';
+      return u ? PropertyCard.imageUrl(u.trim(), REEL_POSTER_W, REEL_POSTER_H) : '';
     }
 
     function reelTile(p) {
@@ -482,13 +478,11 @@
       el.className = 'pp-reel';
       el.href = '/property?id=' + encodeURIComponent(p.id);
       el.setAttribute('data-deal', p.deal_type === 'rent' ? 'rent' : 'sale');
+      // הווידאו עצמו נוצר ב-bindReelsStrip כשהאריח מתקרב לחלון הרצועה
+      if (PropertyCard.motionAllowed()) el.setAttribute('data-reel', src);
       el.innerHTML =
         '<span class="pp-reel-media">' +
           (poster ? '<img class="pp-reel-poster" src="' + escAttr(poster) + '" alt="" loading="lazy" decoding="async">' : '') +
-          (PropertyCard.motionAllowed()
-            ? '<video class="pp-reel-video" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1" ' +
-              'data-pc-video="' + escAttr(src) + '"></video>'
-            : '') +
           '<span class="pp-reel-play" aria-hidden="true">' + REEL_ICON + '</span>' +
           '<span class="pp-reel-deal">' + (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
           // הצבע של "מקודם" מגיע מ-design-system.css (‏.promoted-flag); כאן רק המיקום
@@ -505,11 +499,18 @@
       return el;
     }
 
+    /* המפתח של הרצועה: מי בפנים ובאיזה סדר. ‏renderGrid רץ גם כשהרילסים לא
+       השתנו (‏setVisualized מיד אחרי הציור הראשון, "עוד", מיון שלא נגע בהם),
+       ורצועה שנבנית מחדש מוחקת את ה-src של הרילס שמנגן ומורידה אותו שוב
+       מאפס. רצועה עם אותו מפתח נשארת כמו שהיא ורק חוזרת לגריד. */
+    function reelsKey(reels) { return reels.map(function (p) { return p.id; }).join('|'); }
+
     function reelsStrip(reels) {
       var strip = document.createElement('div');
       strip.className = 'pp-reels';
       strip.setAttribute('role', 'region');
       strip.setAttribute('aria-label', 'רילס של נכסים');
+      strip.dataset.key = reelsKey(reels);
       strip.innerHTML =
         '<div class="pp-reels-head">' +
           '<span class="pp-reels-title">' + REEL_FILM + 'רילס של נכסים</span>' +
@@ -524,16 +525,24 @@
     }
 
     function bindReelsStrip(strip, track) {
-      var tiles = Array.prototype.slice.call(track.querySelectorAll('.pp-reel'));
-      var withVideo = tiles.filter(function (t) { return t.querySelector('video.pp-reel-video'); });
-      if (!withVideo.length || !('IntersectionObserver' in global)) return;
+      var tiles = Array.prototype.slice.call(track.querySelectorAll('.pp-reel[data-reel]'));
+      if (!tiles.length || !('IntersectionObserver' in global)) return;
 
       var inView = false;          // הרצועה עצמה על המסך
       var fully = new Set();       // אריחים שנראים בשלמותם בתוך הרצועה
       var current = null;          // הווידאו שאמור לנגן עכשיו
 
-      withVideo.forEach(function (t) {
+      /* אלמנט הווידאו של אריח - נוצר בפעם הראשונה שמבקשים אותו (האריח
+         התקרב לחלון הרצועה), ומאז נשאר בו. */
+      function videoOf(t) {
         var v = t.querySelector('video.pp-reel-video');
+        if (v) return v;
+        v = document.createElement('video');
+        v.className = 'pp-reel-video';
+        v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
+        v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
+        v.setAttribute('aria-hidden', 'true'); v.tabIndex = -1;
+        v.setAttribute('data-pc-video', t.getAttribute('data-reel'));
         // המחלקה נקבעת ממה שקרה בפועל ולא מהבקשה: ניגון שנחסם משאיר את הפוסטר ואת הסימן
         v.addEventListener('playing', function () { t.classList.add('is-playing'); });
         v.addEventListener('pause', function () { t.classList.remove('is-playing'); });
@@ -542,17 +551,26 @@
           t.classList.remove('is-playing');
           if (current === v) { current = null; pick(); }
         });
-      });
+        var media = t.querySelector('.pp-reel-media');
+        media.insertBefore(v, media.querySelector('.pp-reel-play'));
+        return v;
+      }
 
       function pick() {
         var next = null;
         if (inView) {
-          for (var i = 0; i < withVideo.length; i++) {
-            var v = withVideo[i].querySelector('video.pp-reel-video');
-            if (fully.has(withVideo[i]) && !v.dataset.err) { next = v; break; }
+          for (var i = 0; i < tiles.length; i++) {
+            if (!fully.has(tiles[i])) continue;
+            var v = videoOf(tiles[i]);
+            if (!v.dataset.err) { next = v; break; }
           }
         }
-        if (next === current) return;
+        if (next === current) {
+          /* אריח אחר בדף (ריחוף, פוקוס מהמקלדת) יכול לתפוס את התקרה ולהשהות
+             את הרילס בלי שהבחירה כאן השתנתה - חוזרים לנגן אותו */
+          if (current && current.paused) PropertyCard.playVideo(current);
+          return;
+        }
         if (current) {
           /* ‏stopVideo מוחק את ה-src וקורא ל-load(), וזה מבטל את אירוע ה-pause
              שהיה בדרך - המחלקה יורדת כאן ולא מחכה לאירוע שלא יגיע */
@@ -563,6 +581,12 @@
         if (current) PropertyCard.playVideo(current);
       }
 
+      // אריח שמתקרב לחלון הרצועה (רוחב מסך מכל צד) מקבל את אלמנט הווידאו שלו
+      var near = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { videoOf(en.target); near.unobserve(en.target); } });
+      }, { root: track, rootMargin: '0px 100%' });
+      tiles.forEach(function (t) { near.observe(t); });
+
       var inTrack = new IntersectionObserver(function (entries) {
         entries.forEach(function (en) {
           if (en.isIntersecting && en.intersectionRatio >= 0.9) fully.add(en.target);
@@ -570,7 +594,7 @@
         });
         pick();
       }, { root: track, threshold: [0, 0.9] });
-      withVideo.forEach(function (t) { inTrack.observe(t); });
+      tiles.forEach(function (t) { inTrack.observe(t); });
 
       var onScreen = new IntersectionObserver(function (entries) {
         entries.forEach(function (en) { inView = en.isIntersecting && en.intersectionRatio >= 0.5; });
@@ -578,10 +602,11 @@
       }, { threshold: [0, 0.5] });
       onScreen.observe(strip);
 
-      /* הגריד מצויר מחדש בכל סינון, מיון ו"עוד": הרצועה הישנה יוצאת מה-DOM,
-         והצופים שלה חייבים לרדת איתה - אחרת הם ממשיכים להחזיק אותה ואת
-         הווידאו שבה. ‏renderGrid קורא לזה לפני שהוא מרוקן את הגריד. */
+      /* רצועה שיורדת מה-DOM (הרילסים השתנו) משחררת את הצופים ואת הווידאו
+         שלה - אחרת הם ממשיכים להחזיק אותה ואת הקובץ. ‏renderGrid קורא לזה
+         לפני שהוא מרוקן את הגריד. */
       strip._teardown = function () {
+        near.disconnect();
         inTrack.disconnect();
         onScreen.disconnect();
         if (current) PropertyCard.stopVideo(current, true);
@@ -794,26 +819,45 @@
       /* ‏cfg.invite (דף הבית עם דגל v10): כרטיס הזמנה להחלקה כתא הראשון. הוא אינו נכס - לא
          נספר, ובמחשב תופס תא אחד מהשורה הראשונה במקום הנכס האחרון בה, כדי שלא תיווצר שורה יתומה */
       var invite = cfg.invite && items.length ? cfg.invite() : null;
-      var compactNow = ppNarrow.matches;
-      var shown = items.slice(0, Math.max(1, limit() - (invite && !compactNow && state.shown === 0 ? 1 : 0)));
+      var compact = ppNarrow.matches;
 
-      // הרצועה הקודמת, אם הייתה, משחררת את הצופים ואת הווידאו שלה לפני שהיא נמחקת
+      /* ‏cfg.reels בטלפון: כשיש רילס במלאי המסונן, רצועת הרילס תופסת את
+         מקום הוויטרינה (האריח שהרילס ישב בו עם פסים שחורים), והנכסים
+         שנפתחים הם שורות דחוסות. **הרילסים עצמם אינם חוזרים כשורות**:
+         ‏sortByMedia מעלה אותם לראש, ובלי זה שתי השורות הראשונות היו אותם
+         שני נכסים שבדיוק מוצגים ברצועה מעליהן. הם נספרים במונה ובמפה כרגיל -
+         רק התצוגה שלהם כאן היא הרצועה, ולכן גם "עוד" סופר/ת את מה שנשאר
+         בלעדיהם. בלי רילס - כמו קודם. */
+      var reels = (compact && cfg.reels && items.length) ? items.filter(PropertyCard.isReel) : [];
+      var pool = items;
+      if (reels.length) {
+        var reelIds = new Set(reels.map(function (p) { return p.id; }));
+        pool = items.filter(function (p) { return !reelIds.has(p.id); });
+      }
+      var shown = pool.slice(0, Math.max(1, limit() - (invite && !compact && state.shown === 0 ? 1 : 0)));
+
+      /* הרצועה הקודמת נשארת אם הרילסים לא השתנו (‏reelsKey) - ציור מחדש
+         בגלל "עוד", מיון או setVisualized אינו מפיל את הרילס שמנגן. רצועה
+         עם רילסים אחרים משחררת קודם את הצופים ואת הווידאו שלה. */
       var oldStrip = grid.querySelector('.pp-reels');
-      if (oldStrip && oldStrip._teardown) oldStrip._teardown();
-      grid.innerHTML = '';
-      if (invite) grid.appendChild(invite);
+      var strip = null;
+      if (oldStrip) {
+        if (reels.length && oldStrip.dataset.key === reelsKey(reels)) strip = oldStrip;
+        else if (oldStrip._teardown) oldStrip._teardown();
+      }
+      /* הרצועה שנשארת אינה יוצאת מה-DOM ולו לרגע: הוצאה והחזרה מדליקות את
+         הצופים שלה ב"לא נראית" ואז ב"נראית", וזה מוחק את ה-src ומתחיל את
+         הרילס מאפס - בדיוק מה שהשמירה באה למנוע. מוחקים את כל השאר סביבה. */
+      if (strip) Array.prototype.forEach.call(Array.prototype.slice.call(grid.children), function (c) { if (c !== strip) c.remove(); });
+      else grid.innerHTML = '';
+      if (invite) grid.insertBefore(invite, strip);
       if (!items.length) {
         var empty = document.createElement('p');
         empty.className = 'pp-empty';
         empty.textContent = 'אין נכסים שמתאימים לתגיות שנבחרו.';
         grid.appendChild(empty);
       } else {
-        var compact = ppNarrow.matches;
-        /* ‏cfg.reels בטלפון: כשיש רילס במלאי המסונן, רצועת הרילס תופסת את
-           מקום הוויטרינה (האריח שהרילס ישב בו עם פסים שחורים), וכל הנכסים
-           שנפתחים - כולל הראשון - הם שורות דחוסות. בלי רילס - כמו קודם. */
-        var reels = (compact && cfg.reels) ? items.filter(PropertyCard.isReel) : [];
-        if (reels.length) grid.appendChild(reelsStrip(reels));
+        if (reels.length && !strip) grid.appendChild(reelsStrip(reels));
         shown.forEach(function (p, i) {
           grid.appendChild((compact && (i > 0 || reels.length)) ? propRow(p) : propCard(p));
         });
@@ -824,7 +868,7 @@
       }
 
       if (moreBtn) {
-        var rest = items.length - shown.length;
+        var rest = pool.length - shown.length;
         moreBtn.hidden = rest <= 0;
         // המספר על הכפתור הוא מה שהלחיצה תוסיף, ולא הזנב כולו: כפתור
         // שמבטיח "עוד 62 נכסים" ומוסיף עשרה משקר פעם אחת לכל לחיצה.

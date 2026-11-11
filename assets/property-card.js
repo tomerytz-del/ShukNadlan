@@ -358,6 +358,23 @@
      אותו שלם (‏pc-portrait) ורצועת הרילס במדף יודעת מי נכנס אליה. סרטון
      אנכי שהסוכן/ת צילם/ה בטלפון אינו רילס - אין בו טקסט שנחתך ואין לו
      תבנית, והוא נשאר באריח הרגיל. */
+  /* תמונה מוקטנת מהאחסון של Supabase (‏render/image) לממדים ידועים, ב-
+     ‏resize=cover: לתמונה שמוצגת ממילא ב-object-fit:cover (אריח). ‏width
+     לבדו חותך רצועה מהמרכז (ברירת המחדל של Supabase היא cover) - מי שצריך
+     את התמונה שלמה מבקש contain, כמו ‎sized()‎ ב-assets/swipe.js. כתובת
+     שאינה מהאחסון שלנו חוזרת כמו שהיא. עותקים דומים: ‏cardImgUrl ב-home.js,
+     ‏sized ב-swipe.js וב-no-photo.js - מי שמשנה את ההמרה משנה בכולם. */
+  function imageUrl(url, w, h) {
+    var s = String(url || '');
+    var marker = '/storage/v1/object/public/';
+    var at = s.indexOf(marker);
+    if (at < 0) return s;
+    var path = s.slice(at + marker.length).split(/[?#]/)[0];
+    if (!path) return s;
+    return s.slice(0, at) + '/storage/v1/render/image/public/' + path +
+      '?width=' + w + (h ? '&height=' + h + '&resize=cover' : '&resize=contain') + '&quality=70';
+  }
+
   var REEL_FILE = /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i;
   function reelUrl(p) {
     var src = playableVideo(p);
@@ -740,6 +757,7 @@
        שמתחיל מכבה את הקודם. */
     isReel: isReel,
     reelUrl: reelUrl,
+    imageUrl: imageUrl,
     motionAllowed: motionAllowed,
     playVideo: startVideo,
     stopVideo: stopVideo,
