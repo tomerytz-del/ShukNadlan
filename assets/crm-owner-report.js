@@ -116,12 +116,12 @@ async function ownerReportLoadHistory(el, p, seq){
 }
 
 const OWNER_REPORT_ERRORS = {
-  forbidden: 'רק היועץ/ת של הנכס או מנהל/ת המשרד יכולים להפיק לו דוח.',
+  forbidden: 'רק היועץ של הנכס או מנהל המשרד יכולים להפיק לו דוח.',
   not_found: 'הנכס לא נמצא.',
   not_active: 'דוח מופק רק למודעה שבאוויר. הנכס הזה אינו פעיל.',
   daily_limit: 'הופקו היום 40 דוחות, וזו התקרה היומית. אפשר להמשיך מחר.',
   note_too_long: 'ההערה ארוכה מדי.',
-  not_agent: 'צריך להיות מחובר/ת כיועץ/ת נדל״ן.',
+  not_agent: 'הפקת דוח זמינה רק לחשבון של יועץ נדל״ן.',
 };
 
 async function openOwnerReport(p){

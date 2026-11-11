@@ -21059,6 +21059,7 @@ async function saveLeadWork(lead, patch){
    בלי הטלפון עצמו, ולכן גם ליד נעול מקובץ בלי לחשוף דבר. מסד שהמיגרציה
    ‏20270502090000 טרם רצה בו פשוט מציג כל ליד בשורה משלו. */
 let leadVisitorOf = new Map();
+let leadAgentPhoneOf = new Map();   // lead_id → true אם הפונה הוא הסוכן/ת עצמו/ה (רק לידים פתוחים שהטלפון בהם של יועץ/ת רשום/ה)
 
 /* יומן פניות היריד (‏fair_inquiries): lead_id → { status, fair_end }. רק
    ללידים שנטענו ויש להם נכס, במנות של 150 מזהים (‏in() על מאות מזהים מנפח
@@ -21136,6 +21137,18 @@ async function loadLeadVisitors(){
   return new Map((data || []).map(r => [r.lead_id, r.visitor_id]));
 }
 
+/* לידים פתוחים שהפונה בהם הוא יועץ/ת רשום/ה: סימון בלבד, בלי חסימה (11.11.2026).
+   נגזר במסד לפי הטלפון (lead_agent_phone_flags) ומחזיר דגל בלי זהות. לפני המיגרציה
+   הפונקציה חסרה, ואז אין סימון והרשימה עולה כרגיל. */
+async function loadLeadAgentPhones(){
+  const { data, error } = await sb.rpc('lead_agent_phone_flags');
+  if (error){
+    if (!['PGRST202', '42883'].includes(error.code)) console.warn('סימון פונים רשומים נכשל:', error.message);
+    return new Map();
+  }
+  return new Map((data || []).map(r => [r.lead_id, !!r.is_self]));
+}
+
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
 async function loadLeads(agentId, opts){
@@ -21181,7 +21194,7 @@ async function loadLeads(agentId, opts){
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
   // לחיצות היריד אינן תלויות ברשימת הלידים, ולכן יוצאות כאן ולא בסבב שאחריה
-  let [{ data: leads, error }, archived, work, visitors, , reports] = await Promise.all([
+  let [{ data: leads, error }, archived, work, visitors, , reports, agentPhones] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
@@ -21191,6 +21204,7 @@ async function loadLeads(agentId, opts){
     loadLeadVisitors(),
     loadFairClicks(),
     loadLeadReports(agentId),
+    loadLeadAgentPhones(),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -21205,6 +21219,7 @@ async function loadLeads(agentId, opts){
   archivedLeadIds = archived;
   leadWork = work;
   leadVisitorOf = visitors;
+  leadAgentPhoneOf = agentPhones;
   leadReportOf = reports;   // דיווחי לידים לא תקינים (assets/crm-lead-reports.js)
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
@@ -21441,6 +21456,7 @@ function buildLeadCard(lead, agentId, isArchived){
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
           ${leadFairChip(lead)}
+          ${typeof leadAgentPhoneTagHtml === 'function' ? leadAgentPhoneTagHtml(lead) : ''}
         </div>
         <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
         <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>

@@ -118,5 +118,38 @@ check("מחזור ה-cron נקרא מהקובץ",
 check("cron בהערה אינו נספר",
       pipeline._cron_cadence_days(ctx, ".github/workflows/rss_scraper.yml") == 1)
 
+# ---------------------------------------------------------------- access_log_stale
+# ‏11.11.2026: ‏GitHub מריץ את ה-cron השעתי של access_log.yml כל 5-8 שעות
+# (מקסימום 10.8), והסף של 6 שעות פתח ממצא גבוה על צינור תקין.
+
+
+class _AccessDb:
+    def __init__(self, lag_hours):
+        self.lag_hours = lag_hours
+
+    def has_table(self, name):
+        return True
+
+    def one(self, sql, params=None):
+        synced = (None if self.lag_hours is None
+                  else datetime.now(timezone.utc) - timedelta(hours=self.lag_hours))
+        return {"synced_until": synced, "last_run_at": synced, "last_error": None}
+
+
+class _AccessCtx(_Ctx):
+    def __init__(self, lag_hours):
+        super().__init__()
+        self.db = _AccessDb(lag_hours)
+
+
+def access(lag_hours):
+    return [(f.code, f.severity) for f in pipeline._access_log(_AccessCtx(lag_hours))]
+
+
+check("יומן הגישה: 8 שעות אחרי GitHub שמאחר - שקט", access(8) == [])
+check("יומן הגישה: 13 שעות - גבוה", access(13) == [("access_log_stale", "high")])
+check("יומן הגישה: 4 ימים - חמור", access(100) == [("access_log_stale", "critical")])
+check("יומן הגישה: לא התמלא מעולם - חמור", access(None) == [("access_log_stale", "critical")])
+
 print("\n" + ("✗ %d נכשלו" % failed if failed else "✓ בריאות ה-workflows מדווחת בדיוק מתי שצריך"))
 sys.exit(1 if failed else 0)
