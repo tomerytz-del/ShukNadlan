@@ -3050,8 +3050,14 @@ function openNotificationTarget(n){
   };
   if (clientId && n.type === 'client_match')
     return go('accClients', () => openClientFromParam(clientId, 'matches'));
-  if (n.type === 'lead_prefs_default' && typeof openLeadPrefs === 'function'
-      && navAccVisible(accAliasTarget('accPrefs'))){ openLeadPrefs(); return true; }
+  if (n.type === 'lead_prefs_default' && navAccVisible(accAliasTarget('accPrefs'))){
+    if (typeof openLeadPrefs === 'function'){ openLeadPrefs(); return true; }
+    // crm-settings.js עדיין יורד (לחיצה מיד אחרי הכניסה): מחכים לו במקום לא לעשות דבר
+    if (window.crmNeed){
+      crmNeedThen('settings', () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); });
+      return true;
+    }
+  }
   if (n.related_property_id && n.type !== 'client_match' && n.type !== 'deal_closed'
       && myPropertyRows.some(p => p.id === n.related_property_id))
     return go('accProperties', () => openPropertyFromParam(n.related_property_id));
@@ -15032,8 +15038,12 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   if (!currentAgent) return;
   const btn = document.getElementById('addPropertyBtn');
   const feedbackEarly = document.getElementById('addPropertyFeedback');
+  // הכפתור ננעל לפני ההמתנה לקובץ העצלן: בלי זה לחיצה שנייה בזמן שהוא יורד שולחת פעמיים
+  if (btn.disabled) return;
+  btn.disabled = true;
   try { await ensureImportCore(); }
   catch (err) {
+    btn.disabled = false;
     if (feedbackEarly){
       feedbackEarly.style.color = 'var(--brick)';
       feedbackEarly.textContent = 'שמירת הנכס לא נטענה. נסו שוב.';
@@ -16260,8 +16270,12 @@ if (window.crmOnGiveUp) window.crmOnGiveUp('settings', noteSettingsGaveUp);
 function crmNeedThen(group, fn){
   if (!window.crmNeed) return Promise.resolve();
   const run = () => (typeof fn === 'function' ? fn() : null);
-  return crmNeed(group).then(run).catch(() => {
-    if (window.crmAfter) window.crmAfter(group, run);
+  let loaded = false;
+  return crmNeed(group).then(() => { loaded = true; return run(); }).catch(err => {
+    // רק כשל טעינה עובר ל-crmAfter. שגיאה ש-fn עצמה זרקה אחרי שהקובץ הגיע אינה
+    // רצה שוב (הקבוצה כבר settled, והבקשה הייתה יוצאת פעמיים): היא נרשמת בלבד.
+    if (!loaded && window.crmAfter) window.crmAfter(group, run);
+    else console.warn('crmNeedThen:', group, err);
   });
 }
 
