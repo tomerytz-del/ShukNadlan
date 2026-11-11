@@ -66,6 +66,18 @@ function json(obj: unknown, status = 200) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** המשתמש/ת מה-JWT שבכותרת (לא מהגוף). אותו בלוק ל-manage_link ול-claim_by_login. */
+async function userFromRequest(req: Request): Promise<{ user: any } | { error: string }> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) return { error: "missing_authorization" };
+  const authed = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await authed.auth.getUser();
+  if (error || !data?.user) return { error: "unauthorized" };
+  return { user: data.user };
+}
+
 /** העיר לפי שם האזור שבכרטיסייה: התאמה יחידה בלבד. שם שמשותף לשתי ערים, או אזור שאינו עיר,
  *  משאיר ריק (ההתראה למנהל/ת אומרת להשלים) ולא בוחר עיר באקראי, כי העיר קובעת אילו לידים עו"ד רואה.
  *  משותף לשני מסלולי הפתיחה (אסימון ו-claim_by_login). */
@@ -101,15 +113,10 @@ Deno.serve(async (req: Request) => {
   // הקישור המקורי. האסימון יושב ב-ad_placement_access (נגיש ל-service_role בלבד), ולכן
   // הוא יוצא רק לבעל החשבון, לפי ה-JWT ולא לפי גוף הבקשה.
   if (body.action === "manage_link") {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "missing_authorization" }, 401);
-    const authed = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await authed.auth.getUser();
-    if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+    const who = await userFromRequest(req);
+    if ("error" in who) return json({ error: who.error }, 401);
     const { data: acct } = await supabase
-      .from("professional_accounts").select("card_id").eq("user_id", userData.user.id).maybeSingle();
+      .from("professional_accounts").select("card_id").eq("user_id", who.user.id).maybeSingle();
     if (!acct?.card_id) return json({ error: "no_card" }, 404);
     const { data: acc } = await supabase
       .from("ad_placement_access").select("manage_token").eq("placement_id", acct.card_id).maybeSingle();
@@ -119,14 +126,13 @@ Deno.serve(async (req: Request) => {
 
   // ‏claim_by_login: חשבון לפי כתובת הכניסה המאומתת (Google, או סיסמה אחרי אישור המייל)
   if (body.action === "claim_by_login") {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "missing_authorization" }, 401);
-    const authed = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await authed.auth.getUser();
-    if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
-    const user = userData.user;
+    const who = await userFromRequest(req);
+    if ("error" in who) return json({ error: who.error }, 401);
+    const user = who.user;
+    // התנאים: השורה במסך הכניסה ("בכניסה אתם מאשרים") היא האישור, והדף שולח true. בלעדיו אין חשבון
+    if (body.terms_accepted !== true) {
+      return json({ error: "terms_not_accepted", detail: "פתיחת החשבון מותנית באישור תנאי השימוש" }, 400);
+    }
     const email = normalizeEmail(user.email);
     // הכתובת היא ההוכחה, ולכן רק כתובת שאושרה: Google מאשרת, הרשמה בסיסמה מאשרת במייל
     if (!email || !(user.email_confirmed_at || user.confirmed_at)) {
@@ -155,19 +161,26 @@ Deno.serve(async (req: Request) => {
     // הזמנה שלא נלחצה (משתמש/ת שלא אישר/ה) מפנה את מקומו כמו במסלול האסימון: אי אפשר היה להיכנס
     // אליו, ואין בו כלום. חשבון מאושר של אחר/ת אינו מחובר שוב (card_has_account)
     const { data: accounts, error: accErr } = await supabase
-      .from("professional_accounts").select("id, card_id, user_id, erased_at")
+      .from("professional_accounts").select("id, card_id, user_id, erased_at, city_id, shelf_enabled")
       .in("card_id", cards.map((c: any) => c.id));
     if (accErr) return json({ error: "db_error", detail: accErr.message }, 500);
     const rank = (s: string) => (s === "active" ? 0 : s === "pending_approval" ? 1 : 2);
     const ordered = [...cards].sort((a: any, b: any) => rank(a.status) - rank(b.status) || (a.created_at < b.created_at ? 1 : -1));
     let card: any = null;
-    let staleUserId: string | null = null;
+    // הזמנה שלא נלחצה שמפנה את מקומה: המשתמש/ת שיימחק/תימחק, ומה שמנהל/ת כבר קבע/ה לשורה שלו/ה
+    let stale: { userId: string; city_id: string | null; shelf_enabled: boolean } | null = null;
     let sawTaken = false;
     for (const c of ordered) {
       const acct = (accounts ?? []).find((a: any) => a.card_id === c.id && !a.erased_at && a.user_id);
       if (!acct || acct.user_id === user.id) { card = c; break; }
-      const { data: au } = await supabase.auth.admin.getUserById(acct.user_id);
-      if (au?.user && !au.user.email_confirmed_at) { card = c; staleUserId = au.user.id; break; }
+      // כשל ב-Auth API הוא 500 (הדף מבקש רענון), לא "הכרטיסייה תפוסה" שמוציא את המשתמש/ת
+      const { data: au, error: auErr } = await supabase.auth.admin.getUserById(acct.user_id);
+      if (auErr) return json({ error: "auth_error", detail: auErr.message }, 500);
+      if (au?.user && !au.user.email_confirmed_at) {
+        card = c;
+        stale = { userId: au.user.id, city_id: acct.city_id ?? null, shelf_enabled: !!acct.shelf_enabled };
+        break;
+      }
       sawTaken = true;
     }
     if (!card) {
@@ -176,30 +189,34 @@ Deno.serve(async (req: Request) => {
         : json({ error: "no_card" }, 404);
     }
 
-    const row = accountRowFromCard(card);
-    // שלב 1 (בלי אישור תנאים): רק אומרים מה נמצא, והדף מציג את האישור
-    if (body.terms_accepted !== true) {
-      return json({ success: true, card_found: true, terms_required: true, display_name: row.display_name, kind: card.advertiser_type, status: card.status });
-    }
-
-    if (staleUserId) {
-      // ה-cascade מוחק גם את שורת החשבון שלא אושר
-      const { error: delErr } = await supabase.auth.admin.deleteUser(staleUserId);
+    if (stale) {
+      // ה-cascade מוחק גם את שורת החשבון שלא אושר; העיר ואישור המדף שלה עוברים לשורה החדשה
+      const { error: delErr } = await supabase.auth.admin.deleteUser(stale.userId);
       if (delErr) {
         console.error("professional account claim: deleting unconfirmed user failed", delErr.message);
         return json({ error: "auth_error", detail: delErr.message }, 500);
       }
     }
+    const row = accountRowFromCard(card);
     const { data: account, error: insErr } = await supabase
       .from("professional_accounts")
-      .insert({ ...row, user_id: user.id, city_id: await cityIdForRegion(supabase, card.target_region) })
+      .insert({ ...row, user_id: user.id, city_id: stale?.city_id ?? await cityIdForRegion(supabase, card.target_region) })
       .select("id")
       .single();
     if (insErr || !account) {
       console.error("professional account claim insert failed", insErr?.message);
       return json({ error: "db_error", detail: insErr?.message ?? "insert_failed" }, 500);
     }
-    await announceProfessionalAccount(supabase, account.id);
+    if (stale) {
+      // כמו בשליחה חוזרת במסלול האסימון: האישור שכבר ניתן נשמר, ואין התראה שנייה למנהל/ת
+      if (stale.shelf_enabled) {
+        const { error: keepErr } = await supabase
+          .from("professional_accounts").update({ shelf_enabled: true }).eq("id", account.id);
+        if (keepErr) console.error("professional account claim: carrying shelf_enabled failed", keepErr.message);
+      }
+    } else {
+      await announceProfessionalAccount(supabase, account.id);
+    }
     return json({ success: true, created: true });
   }
 

@@ -63,7 +63,9 @@
   const propertyTitles = {};
   let propertyLookupFailed = false;
   let pendingBuy = null;
-  let recovering = false;   // חזרה מקישור איפוס סיסמה: הטופס של הסיסמה החדשה גובר על boot
+  // חזרה מקישור איפוס סיסמה: הטופס של הסיסמה החדשה גובר על boot. נקרא מהכתובת כאן, ולא רק מהאירוע
+  // PASSWORD_RECOVERY: הוא משודר אחרי ש-getSession חזרה, ו-boot היה מספיק להציג את האפליקציה מעליו
+  let recovering = /[#&]type=recovery\b/.test(location.hash);
 
   function setMsg(id, text, cls) {
     const n = el(id);
@@ -107,9 +109,10 @@
      בדף הבית תחזור לכאן. אחרי החזרה boot() מוצא את ה-session; בלי חשבון בעל מקצוע הוא מציע
      לפתוח אחד לפי הכרטיסייה שבכתובת הזו (claim_by_login). */
   const googleBtn = el('googleLoginBtn');
+  const GOOGLE_LABEL = googleBtn.querySelector('.gl-label').textContent;   // התווית מה-HTML, במקום אחד
   function resetGoogleButton() {
     googleBtn.disabled = false;
-    googleBtn.querySelector('.gl-label').textContent = 'התחברות עם Google';
+    googleBtn.querySelector('.gl-label').textContent = GOOGLE_LABEL;
   }
   googleBtn.addEventListener('click', async () => {
     setMsg('lgMsg', '');
@@ -154,7 +157,7 @@
   async function offerClaim(session) {
     const { ok, data } = await callAccount({ terms_accepted: true }, session.access_token);
     if (ok && (data.account_exists || data.created)) {
-      await loadAccount(session.user.id);
+      try { await loadAccount(session.user.id); } catch (e) { account = null; }
       if (account) {
         show('loginCard', false); show('recoverCard', false); show('app', true);
         if (data.created) setMsg('appMsg', 'ברוכים הבאים! החשבון נפתח לפי הכרטיסייה שלכם. מכאן עורכים את העמוד, ולידים נפתחים אחרי אישור הנהלת האתר.', 'ok');
@@ -164,7 +167,8 @@
     }
     const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
     if (terminal) {
-      try { await sb.auth.signOut(); } catch (e) { /* נמשיך למסך הכניסה */ }
+      // מקומית בלבד: סוכן/ת שנכנס/ת לכאן בטעות לא אמור/ה לצאת מה-CRM בכל המכשירים
+      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
       showLogin();
       resetGoogleButton();
       setMsg('lgMsg', CLAIM_ERRORS[data.error] || ('לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + (session.user.email || 'הזו') +
@@ -194,7 +198,8 @@
     setMsg('rcMsg', 'הסיסמה נשמרה', 'ok');
     show('recoverCard', false);
     recovering = false;
-    if (inviteOpen) { inviteOpen = false; history.replaceState(null, '', location.pathname); }
+    inviteOpen = false;
+    cleanAuthParamsFromUrl();
     await boot();
   });
 
@@ -693,7 +698,11 @@
   async function boot() {
     if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); show('loginCard', true); return; }
     const { data: { session } } = await sb.auth.getSession();
-    if (recovering) return;
+    if (recovering) {
+      if (session) { show('loginCard', false); show('app', false); show('recoverCard', true); }
+      else { recovering = false; showLogin(); setMsg('lgMsg', 'קישור איפוס הסיסמה פג תוקף. בקשו "שכחתי סיסמה" שוב, או היכנסו עם Google.', 'err'); }
+      return;
+    }
     // התשובה של Google (או ההזמנה) כבר נצרכה: יורדת מהכתובת, כדי שרענון לא יעבד אותה שוב
     if (!inviteOpen) cleanAuthParamsFromUrl();
     if (!session) {
@@ -703,7 +712,7 @@
       else if (oauthError.code || oauthError.description) {
         setMsg('lgMsg', /access_denied|cancel/i.test(oauthError.code)
           ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
-          : 'ההתחברות עם Google נכשלה: ' + (oauthError.description || oauthError.code), 'err');
+          : 'ההתחברות עם Google נכשלה: ' + errText({ message: oauthError.description || oauthError.code }), 'err');
       }
       return;
     }

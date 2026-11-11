@@ -89,7 +89,7 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /card\.contact_email/);
   // האישור למדף אינו נקבע בפתיחה. הוא מופיע רק בהעברת ערך שמנהל/ת כבר קבע/ה בשליחה חוזרת (carried), ולעולם לא מהגוף
   const shelfLines = accountFn.replace(/\/\/.*$/gm, '').split('\n').filter((l) => /shelf_enabled/.test(l));
-  assert.ok(shelfLines.length > 0 && shelfLines.every((l) => /existing\.shelf_enabled|carried|keepErr|\.select\(|shelf_enabled: true/.test(l)), 'האישור למדף אינו נקבע בפתיחה: ' + shelfLines.join(' | '));
+  assert.ok(shelfLines.length > 0 && shelfLines.every((l) => /existing\.shelf_enabled|carried|stale|keepErr|\.select\(|shelf_enabled: true/.test(l)), 'האישור למדף אינו נקבע בפתיחה: ' + shelfLines.join(' | '));
   assert.equal(/body\.shelf_enabled/.test(accountFn), false);
   assert.match(accountFn, /deleteUser\(authUser\.user\.id\)/);
   assert.match(accountFn, /terms_accepted !== true/);
@@ -108,7 +108,7 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /placement_type !== "professional_card"[\s\S]{0,120}"active", "pending_approval"/);
   assert.match(accountFn, /cities\.length === 1/);
   // manage_link: האסימון יוצא רק לפי JWT
-  assert.match(accountFn, /action === "manage_link"[\s\S]{0,400}auth\.getUser\(\)/);
+  assert.match(accountFn, /action === "manage_link"[\s\S]{0,200}userFromRequest\(req\)/);
 });
 
 test('הדפים: הכרטיסייה מציעה חשבון לכל תחום, והאזור האישי קורא מה-view הסגור', () => {
@@ -217,7 +217,8 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   const claim = accountFn.slice(accountFn.indexOf('body.action === "claim_by_login"'), accountFn.indexOf('const token ='));
   assert.ok(claim.length > 200, 'אין claim_by_login');
   // הזהות מה-JWT, והכתובת חייבת להיות מאושרת (Google מאשרת; סיסמה אחרי מייל האישור)
-  assert.match(claim, /auth\.getUser\(\)/);
+  assert.match(claim, /userFromRequest\(req\)/);
+  assert.match(accountFn, /async function userFromRequest[\s\S]{0,400}auth\.getUser\(\)/);
   assert.match(claim, /email_confirmed_at \|\| user\.confirmed_at/);
   assert.equal(/body\.email/.test(claim), false, 'הכתובת מה-JWT, לא מהגוף');
   // הכרטיסייה לפי הכתובת, מילולית, ורק חיה או ממתינה
@@ -227,9 +228,17 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   assert.match(claim, /if \(mineErr\) return json\(\{ error: "db_error"/);
   assert.match(claim, /if \(cardsErr\) return json\(\{ error: "db_error"/);
   // תנאים לפני יצירה, אישור מדף לא נקבע כאן, חשבון מאושר של אחר/ת אינו מחובר שוב, והזמנה שלא נלחצה מפנה מקום
-  assert.match(claim, /terms_accepted !== true[\s\S]{0,200}terms_required: true/);
-  assert.equal(/shelf_enabled/.test(claim), false);
-  assert.match(claim, /!au\.user\.email_confirmed_at[\s\S]{0,80}staleUserId = au\.user\.id/);
+  assert.match(claim, /terms_accepted !== true[\s\S]{0,120}terms_not_accepted/);
+  assert.equal(/terms_required/.test(claim), false, 'ענף דו-שלבי שאיש אינו קורא');
+  // הזמנה שלא נלחצה: העיר והאישור שלה עוברים ואין התראה שנייה; כשל ב-Auth API הוא 500 ולא "תפוס"
+  assert.match(claim, /stale\?\.city_id \?\? await cityIdForRegion/);
+  assert.match(claim, /if \(stale\) \{[\s\S]{0,300}shelf_enabled: true[\s\S]{0,200}\} else \{\s*await announceProfessionalAccount/);
+  assert.match(claim, /if \(auErr\) return json\(\{ error: "auth_error"/);
+  assert.match(accountFn, /async function userFromRequest/);
+  // האישור למדף אינו נקבע בכניסה: shelf_enabled נכתב רק מערך שהועבר מהזמנה שלא נלחצה (stale), לעולם לא מהגוף
+  assert.equal(/body\.shelf_enabled/.test(claim), false);
+  assert.ok(claim.split('\n').filter((l) => /shelf_enabled: true/.test(l)).every((l) => /update\(\{ shelf_enabled: true \}\)/.test(l)));
+  assert.match(claim, /!au\.user\.email_confirmed_at[\s\S]{0,120}stale = \{ userId: au\.user\.id/);
   assert.match(claim, /sawTaken[\s\S]{0,120}card_has_account/);
   // עיר ושורת החשבון בעוזר אחד לשני המסלולים
   assert.match(accountFn, /async function cityIdForRegion/);
@@ -239,7 +248,10 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   assert.match(crmHtml, /בכניסה אתם מאשרים את <a href="\/terms"/);
   assert.match(crmJs, /callAccount\(\{ terms_accepted: true \}, session\.access_token\)/);
   assert.equal(/claimCard|claimTerms|setSession/.test(crmJs), false, 'מסך ביניים לאישור תנאים');
-  assert.match(crmJs, /if \(terminal\) \{[\s\S]{0,80}signOut\(\)/);
+  assert.match(crmJs, /if \(terminal\) \{[\s\S]{0,200}signOut\(\{ scope: 'local' \}\)/);
+  // חזרה מקישור איפוס סיסמה נקראת מהכתובת (האירוע מגיע אחרי getSession), ושגיאת Google בעברית
+  assert.match(crmJs, /let recovering = \/\[#&\]type=recovery/);
+  assert.match(crmJs, /errText\(\{ message: oauthError\.description \|\| oauthError\.code \}\)/);
   // השער: שכחתי סיסמה, קישור העריכה שאבד, ותמיכה בוואטסאפ למספר של הפלטפורמה (data-site-contact)
   assert.match(crmHtml, /id="forgotBtn"/);
   assert.match(crmHtml, /href="\/professional-manage">איבדתם את קישור העריכה\?/);
