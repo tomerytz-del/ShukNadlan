@@ -195,7 +195,15 @@ as $$
     from public.notifications n
     join public.agency_members m on m.id = n.agent_id
     join public.properties p on p.id = n.related_property_id
-    left join public.agency_members sh on sh.id = p.agent_id
+    left join lateral (
+      select ps.owner_agent_id
+        from public.property_shares ps
+        join public.agency_members recv on recv.id = n.agent_id
+       where ps.property_id = p.id
+         and ps.shared_with_agency_id = recv.agency_id
+       limit 1
+    ) share on true
+    left join public.agency_members sh on sh.id = share.owner_agent_id
     cross join cut
    where n.type = 'system'
      and n.title = 'נכס חדש שותף איתך'
@@ -390,7 +398,15 @@ begin
       into v_rows
       from public.notifications n
       join public.properties p on p.id = n.related_property_id
-      left join public.agency_members sh on sh.id = p.agent_id
+      left join lateral (
+      select ps.owner_agent_id
+        from public.property_shares ps
+        join public.agency_members recv on recv.id = n.agent_id
+       where ps.property_id = p.id
+         and ps.shared_with_agency_id = recv.agency_id
+       limit 1
+    ) share on true
+    left join public.agency_members sh on sh.id = share.owner_agent_id
      where n.agent_id = ag.id
        and n.type = 'system'
        and n.title = 'נכס חדש שותף איתך'

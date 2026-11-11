@@ -1098,8 +1098,10 @@ Deno.serve(async (req: Request) => {
             p_error: "share_digest bell only; never a utility template",
           });
           if (markErr) console.error("mark failed", row.log_id, markErr.message);
+          failed++;
+          return;
         }
-        failed++;
+        skipped++;
         return;
       }
       expanded = rest;

@@ -539,7 +539,7 @@ begin
                 when new.min_price is not null and new.min_price > 0 then new.min_price
               end;
   v_summary := left(concat_ws(' · ',
-    case new.deal_type when 'rent' then 'מחפש/ת לשכור' else 'מחפש/ת לקנות' end,
+    case new.deal_type when 'rent' then 'מחפשים לשכור' else 'מחפשים לקנות' end,
     nullif(btrim(coalesce(new.property_types[1], '')), ''),
     case when v_rooms is not null then trim_scale(v_rooms)::text || ' חדרים' end,
     case when v_budget is not null then 'עד ₪' || to_char(v_budget, 'FM999,999,999') end
@@ -668,6 +668,7 @@ declare
   v_day0  timestamptz := date_trunc('day', now() at time zone 'Asia/Jerusalem') at time zone 'Asia/Jerusalem';
   v_hand  jsonb;
   v_post  text;
+  v_lead  uuid;
 begin
   if p_agent is null then
     return jsonb_build_object('error', 'not_agent');
@@ -688,6 +689,23 @@ begin
       return jsonb_build_object('success', true, 'source_post_url', v_post, 'already_mine', true);
     end if;
     if public.social_buyer_is_dm(s.source, s.lead_type) then
+      if s.lead_id is not null then
+        return jsonb_build_object(
+          'success', true, 'lead_id', s.lead_id, 'already_mine', true,
+          'price_charged', 0, 'quota_source', 'social_free');
+      end if;
+      select l.id into v_lead
+        from public.leads l
+       where l.source = s.source
+         and l.external_ref = s.external_ref
+         and l.unlocked_by = p_agent
+         and l.status = 'unlocked';
+      if v_lead is not null then
+        update public.scraped_leads set lead_id = v_lead where id = p_id;
+        return jsonb_build_object(
+          'success', true, 'lead_id', v_lead, 'already_mine', true,
+          'price_charged', 0, 'quota_source', 'social_free');
+      end if;
       v_hand := public.social_buyer_handover(p_id, p_agent);
       return v_hand || jsonb_build_object('already_mine', true);
     end if;
@@ -835,7 +853,7 @@ begin
   v_title := 'ביקוש פתוח: '
     || case when r.lead_type = 'owner_inbound'
             then case r.deal_type when 'rent' then 'משכיר/ה' else 'מוכר/ת' end
-            else case r.deal_type when 'rent' then 'מחפש/ת לשכור' else 'מחפש/ת לקנות' end end
+            else case r.deal_type when 'rent' then 'מחפשים לשכור' else 'מחפשים לקנות' end end
     || ' ב' || r.city;
   v_body := concat_ws(' · ', r.property_type,
                       case when r.rooms is not null then trim_scale(r.rooms)::text || ' חדרים' end,
@@ -846,10 +864,10 @@ begin
                       case when r.no_broker is not null then 'כתבו ללא תיווך' end)
     || case
          when v_social and public.social_post_host_ok(r.source_post_url)
-           then '. חינם. הסוכן/ת הראשון/ה שלוחץ/ת "אני פונה" יקבל/תקבל קישור לפוסט.'
+           then '. בלי עלות. הסוכן הראשון שלוחץ "אני פונה" מקבל קישור לפוסט.'
          when v_social
-           then '. חינם. הסוכן/ת הראשון/ה שלוחץ/ת "אני פונה" יקבל/תקבל את פרטי הקשר.'
-         else '. חינם, למי שלוחץ ראשון על "אני פונה". '
+           then '. בלי עלות. הסוכן הראשון שלוחץ "אני פונה" מקבל את פרטי הקשר.'
+         else '. בלי עלות, למי שלוחץ ראשון על "אני פונה". '
               || case when r.source = 'madlan'
                       then 'אפשר להתקשר ל-' || coalesce(r.raw_phone, 'מספר לא מופיע')
                            || '. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
@@ -1070,3 +1088,206 @@ comment on function public.scraped_lead_notify_demand(uuid) is
 
 revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;
+
+-- ביקוש ממחפש/ת ברשתות נפתח בלי ארנק ובלי מכסה. העתק מ-20271111150000 וענף social_free.
+create or replace function public.claim_lead(p_lead_id uuid, p_agent_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_lead leads%rowtype;
+  v_agent agency_members%rowtype;
+  v_exclusivity_hours numeric;
+  v_price_owner_mid numeric;
+  v_price_owner_free numeric;
+  -- המחיר של פנייה בערוץ של הסוכן/ת. שם המפתח במסד היסטורי.
+  v_price_own_channel numeric;
+  v_quota_limit numeric;
+  v_price numeric := 0;
+  v_quota_source text;
+  v_within_exclusivity boolean;
+  v_own_channel boolean;
+  v_rows int;
+begin
+  select * into v_lead from leads where id = p_lead_id for update;
+  if not found then
+    return jsonb_build_object('error','lead_not_found');
+  end if;
+  if v_lead.status = 'unlocked' then
+    -- ביקוש מהרשתות שכבר נפתח אצל אותו סוכן/ת: אותה תשובה, בלי חיוב שני.
+    if v_lead.unlocked_by = p_agent_id
+       and v_lead.lead_type = 'seeker_inbound'
+       and v_lead.source in ('facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment') then
+      return jsonb_build_object(
+        'success', true,
+        'price_charged', 0,
+        'quota_source', coalesce(v_lead.quota_source, 'social_free'),
+        'raw_name', v_lead.raw_name,
+        'raw_phone', v_lead.raw_phone,
+        'raw_message', v_lead.raw_message,
+        'already_mine', true
+      );
+    end if;
+    return jsonb_build_object('error','already_unlocked');
+  end if;
+  if v_lead.status = 'pending_charge' then
+    return jsonb_build_object('error','claim_in_progress');
+  end if;
+
+  select * into v_agent from agency_members where id = p_agent_id and active = true;
+  if not found then
+    return jsonb_build_object('error','agent_not_found');
+  end if;
+
+  select value into v_exclusivity_hours from pricing_config where key='owner_lead_exclusivity_hours';
+  select value into v_price_owner_mid   from pricing_config where key='ppl_price_owner_mid';
+  select value into v_price_owner_free  from pricing_config where key='ppl_price_owner_free';
+  select value into v_price_own_channel from pricing_config where key='ppl_price_buyer_renter';
+  select value into v_quota_limit       from pricing_config where key='free_lead_quota_monthly';
+  v_exclusivity_hours := coalesce(v_exclusivity_hours, 12);
+  v_price_owner_mid   := coalesce(v_price_owner_mid, 50);
+  v_price_owner_free  := coalesce(v_price_owner_free, 69);
+
+  -- הערוץ של הסוכן/ת עצמו/ה: הערכת שווי או מחשבון תשואה שנמסרו **בדף שלו/ה**
+  -- או בדף המשרד. ליד כזה לא הוצע לאיש אחר, אין לו חלון בלעדיות, והוא מגיע
+  -- למכסה המשותפת במקום למסלול הפלטפורמה — גם כשה-lead_type הוא owner_inbound.
+  -- פנייה מדף הנכס (property_inquiry / visualization) ומדף הסוכן/ת
+  -- (agent_direct_inquiry) נופלות ממילא לענף הזה לפי סוג הליד.
+  v_own_channel := (v_lead.source in ('agency_page','agent_page')
+                    and v_lead.agent_id is not distinct from p_agent_id);
+
+  -- זכאות: ליד בעלים של הפלטפורמה פתוח לכל המסלולים (9.11.2026), עם חלון
+  -- הבלעדיות למי שהליד נותב אליו/ה; property_inquiry תמיד שייך לסוכן/ת המקורי/ת.
+  if v_lead.lead_type = 'owner_inbound' and not v_own_channel then
+    v_within_exclusivity := (now() < v_lead.created_at + make_interval(hours => v_exclusivity_hours::int));
+    if v_within_exclusivity and v_lead.agent_id is distinct from p_agent_id then
+      return jsonb_build_object('error','exclusive_to_another_agent',
+        'exclusivity_ends_at', v_lead.created_at + make_interval(hours => v_exclusivity_hours::int));
+    end if;
+  else
+    if v_lead.agent_id is distinct from p_agent_id then
+      return jsonb_build_object('error','not_your_lead');
+    end if;
+  end if;
+
+  -- תפיסה אטומית: masked -> pending_charge (rowCount=0 = מישהו כבר תפס)
+  update leads set status = 'pending_charge' where id = p_lead_id and status = 'masked';
+  get diagnostics v_rows = row_count;
+  if v_rows = 0 then
+    return jsonb_build_object('error','lead_already_claimed_by_someone_else');
+  end if;
+
+  -- מדלן לא נמכר: בלי ארנק, בלי מכסה, בלי מחיר.
+  if v_lead.source = 'madlan' then
+    v_price := 0; v_quota_source := 'madlan_free';
+  elsif v_lead.lead_type = 'seeker_inbound'
+        and v_lead.source in ('facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment') then
+    -- כמו מדלן: בלי ארנק, בלי מכסה, בלי שורת חיוב.
+    v_price := 0; v_quota_source := 'social_free';
+  elsif v_lead.lead_type = 'owner_inbound' and not v_own_channel then
+    -- ליד בעלים של הפלטפורמה: מחיר ליחידה בכל מסלול. Pay&GO משלם/ת יותר -
+    -- זה גם ההכנסה מהמסלול החינמי וגם הסיבה לשדרג.
+    if v_agent.tier = 'free' then
+      v_price := v_price_owner_free; v_quota_source := 'paid_69';
+    else
+      v_price := v_price_owner_mid; v_quota_source := 'paid_50';
+    end if;
+  else
+    if v_agent.tier in ('mid','premium') then
+      v_price := 0; v_quota_source := 'subscription_unlimited';
+    else
+      -- מונה אחד לכל המקורות. זו כל המשמעות של "10 פניות בחודש": לא עשר
+      -- מדף הנכס ועוד עשר מדף הסוכן/ת, אלא עשר יחד.
+      update agency_members
+      set free_quota_used = case when free_quota_cycle_start < date_trunc('month', now())::date then 1 else free_quota_used + 1 end,
+          free_quota_cycle_start = date_trunc('month', now())::date
+      where id = p_agent_id
+        and (free_quota_cycle_start < date_trunc('month', now())::date or free_quota_used < v_quota_limit);
+      get diagnostics v_rows = row_count;
+      if v_rows = 1 then
+        v_price := 0; v_quota_source := 'free_quota';
+      else
+        -- ‏'paid_10' הוא שם היסטורי של "שולם לפי פנייה" ולא סכום. הוא נשאר
+        -- כפי שהוא: שינוי שלו היה מחייב backfill של כל הלידים שכבר נפתחו בעבר.
+        v_price := v_price_own_channel; v_quota_source := 'paid_10';
+      end if;
+    end if;
+  end if;
+
+  if v_price > 0 then
+    update agency_members set credit_balance = credit_balance - v_price
+    where id = p_agent_id and credit_balance >= v_price;
+    get diagnostics v_rows = row_count;
+    if v_rows = 0 then
+      update leads set status = 'masked' where id = p_lead_id; -- rollback הנעילה
+      return jsonb_build_object('error','insufficient_balance', 'required', v_price);
+    end if;
+    insert into lead_charges (lead_id, agency_id, agent_id, amount, status, payment_method)
+    values (p_lead_id, v_lead.agency_id, p_agent_id, v_price, 'success', 'balance');
+  end if;
+
+  update leads
+  set status = 'unlocked', quota_source = v_quota_source, unlocked_at = now(), unlocked_by = p_agent_id,
+      agent_id = coalesce(agent_id, p_agent_id)
+  where id = p_lead_id;
+
+  return jsonb_build_object(
+    'success', true,
+    'price_charged', v_price,
+    'quota_source', v_quota_source,
+    'raw_name', v_lead.raw_name,
+    'raw_phone', v_lead.raw_phone,
+    'raw_message', v_lead.raw_message
+  );
+end;
+$$;
+
+comment on function public.claim_lead(uuid, uuid) is
+  'פתיחת ליד. מדלן (madlan_free) וביקוש ממחפש/ת ברשתות (social_free) בלי ארנק ובלי מכסה. שאר המסלולים כמו 20271111150000.';
+
+revoke all on function public.claim_lead(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.claim_lead(uuid, uuid) to service_role;
+
+-- social_free נוסף לרשימה הקיימת, לא מחליף אותה. אותו דפוס כמו madlan_free.
+do $$
+declare
+  v_def   text;
+  v_vals  text[];
+  v_brace text;
+  v_live  text[];
+begin
+  select pg_get_constraintdef(oid) into v_def
+    from pg_constraint
+   where conname = 'leads_quota_source_check' and conrelid = 'public.leads'::regclass;
+  if v_def is null then
+    return;
+  end if;
+  select coalesce(array_agg(m[1]), '{}') into v_vals
+    from regexp_matches(v_def, '''([a-z_0-9]+)''', 'g') as m;
+  v_brace := (regexp_match(v_def, '''\{([^}'']*)\}'''))[1];
+  if v_brace is not null then
+    select coalesce(v_vals, '{}') || coalesce(array_agg(trim(x)), '{}')
+      into v_vals
+      from regexp_split_to_table(v_brace, ',') as x
+     where trim(x) ~ '^[a-z_0-9]+$';
+  end if;
+  select coalesce(array_agg(distinct quota_source), '{}') into v_live
+    from public.leads
+   where quota_source is not null;
+  if coalesce(cardinality(v_vals), 0) = 0
+     and coalesce(cardinality(v_live), 0) = 0
+     and v_def !~ 'social_free'
+  then
+    raise exception 'leads_quota_source_check: could not read existing quota_source values from %', v_def;
+  end if;
+  v_vals := array(
+    select distinct x
+      from unnest(coalesce(v_vals, '{}') || coalesce(v_live, '{}') || array['social_free']) as x
+     where x is not null and length(x) > 0
+     order by 1
+  );
+  alter table public.leads drop constraint if exists leads_quota_source_check;
+  execute format('alter table public.leads add constraint leads_quota_source_check check (quota_source = any (%L::text[]))', v_vals);
+end $$;

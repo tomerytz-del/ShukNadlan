@@ -26646,7 +26646,7 @@ const NOTIF_TYPES = [
     when: ()=> false },
   { type:'open_demand',    tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ביקוש פתוח',
-    sub:'מישהו/י בעיר שלך כתב/ה בפייסבוק מה הוא/היא מחפש/ת או מוכר/ת. חינם, לכל הסוכנים באזור.' },
+    sub:'מישהו/י בעיר שלך כתב/ה בפייסבוק מה הוא/היא מחפש/ת או מוכר/ת. בלי עלות, לכל הסוכנים באזור.' },
   { type:'unpublished_nudge', tone:'', goto:'accProperties', focus:'#propertiesList',
     title:'נכסים שלא באוויר',
     sub:'תזכורת שבועית אחת: טיוטה שלא פורסמה, או נכס שירד מהמדף. בכרטיס: לפרסם, שת״פ, או לא עכשיו.' },

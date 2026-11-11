@@ -558,7 +558,7 @@ function syncDemandTab(){
 function openDemandWants(d){
   const owner = d.lead_type === 'owner_inbound';
   const rent = d.deal_type === 'rent';
-  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות');
+  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפשים לשכור' : 'מחפשים לקנות');
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
@@ -611,7 +611,7 @@ function renderOpenDemand(listEl){
           : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : ''))
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה - לפוסט ↗' : 'אני פונה'}</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -620,7 +620,7 @@ function renderOpenDemand(listEl){
       + (nb ? `<span class="ui-tag ui-tag--warn">${esc(nb.tag)}</span>` : '')
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
-      + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
+      + (d.mine ? '' : `<p class="lp-why"><strong>בלי עלות:</strong> הסוכן הראשון שלוחץ "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
       + `<p class="lp-why"><strong>${esc(rule)}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;

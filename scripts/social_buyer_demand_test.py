@@ -80,6 +80,100 @@ def psql_script(sql: str) -> None:
         fail(f"psql:\n{proc.stderr[-2500:]}")
 
 
+def free_claim() -> None:
+    """מסלול free, מכסה שנגמרה וארנק ריק: פתיחה בלי חיוב, וחזרה שקטה."""
+    db = "social_buyer_free_claim"
+    agent = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    lead = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+
+    def run(sql: str, script: bool = False) -> str:
+        cmd = ["psql", "-v", "ON_ERROR_STOP=1", "-d", db]
+        if script:
+            proc = subprocess.run(cmd, text=True, input=sql, capture_output=True)
+        else:
+            proc = subprocess.run(cmd + ["-At", "-c", sql], text=True, capture_output=True)
+        if proc.returncode != 0:
+            fail(f"free claim psql:\n{proc.stderr[-2000:]}")
+        lines = proc.stdout.strip().splitlines()
+        if lines and re.match(r"^(INSERT|UPDATE|DELETE|MERGE)\b", lines[-1]):
+            lines = lines[:-1]
+        return "\n".join(lines).strip()
+
+    subprocess.run(["dropdb", "--if-exists", db], check=False)
+    subprocess.run(["createdb", db], check=True)
+    try:
+        run("""
+create table public.pricing_config (key text primary key, value numeric);
+insert into public.pricing_config (key, value) values
+  ('owner_lead_exclusivity_hours', 12),
+  ('ppl_price_owner_mid', 50),
+  ('ppl_price_owner_free', 69),
+  ('ppl_price_buyer_renter', 50),
+  ('free_lead_quota_monthly', 2);
+create table public.agency_members (
+  id uuid primary key,
+  active boolean,
+  tier text,
+  agency_id uuid,
+  credit_balance numeric not null default 0,
+  free_quota_used int not null default 0,
+  free_quota_cycle_start date
+);
+create table public.leads (
+  id uuid primary key,
+  status text,
+  lead_type text,
+  source text,
+  agent_id uuid,
+  agency_id uuid,
+  created_at timestamptz not null default now(),
+  quota_source text,
+  unlocked_at timestamptz,
+  unlocked_by uuid,
+  raw_name text,
+  raw_phone text,
+  raw_message text
+);
+create table public.lead_charges (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid, agency_id uuid, agent_id uuid,
+  amount numeric, status text, payment_method text
+);
+""", script=True)
+        run(extract(MIG, "claim_lead(p_lead_id uuid, p_agent_id uuid)"), script=True)
+        run(
+            f"insert into public.agency_members "
+            f"(id, active, tier, credit_balance, free_quota_used, free_quota_cycle_start) values "
+            f"('{agent}', true, 'free', 0, 2, date_trunc('month', now())::date)"
+        )
+        run(
+            f"insert into public.leads (id, status, lead_type, source, agent_id, raw_name) values "
+            f"('{lead}', 'masked', 'seeker_inbound', 'facebook_dm', '{agent}', 'דנה')"
+        )
+        first = run(f"select public.claim_lead('{lead}', '{agent}')::text")
+        compact = first.replace(" ", "")
+        if "social_free" not in first or '"success":true' not in compact:
+            fail(f"פתיחה לא בלי עלות: {first}")
+        state = run(
+            "select free_quota_used::text || '|' || credit_balance::text || '|' || "
+            "(select count(*)::text from public.lead_charges) from public.agency_members"
+        )
+        if state != "2|0|0":
+            fail(f"מכסה או ארנק זזו: {state}")
+        second = run(f"select public.claim_lead('{lead}', '{agent}')::text")
+        if "already_mine" not in second or "social_free" not in second or "error" in second:
+            fail(f"תפיסה חוזרת: {second}")
+        state = run(
+            "select free_quota_used::text || '|' || credit_balance::text || '|' || "
+            "(select count(*)::text from public.lead_charges) from public.agency_members"
+        )
+        if state != "2|0|0":
+            fail(f"חזרה הזיזה מכסה או ארנק: {state}")
+        print("✓ מסלול free בלי יתרה: בלי מכסה ובלי ארנק, וחזרה שקטה")
+    finally:
+        subprocess.run(["dropdb", "--if-exists", db], check=False)
+
+
 def main() -> int:
     src = MIG.read_text(encoding="utf-8")
     code = re.sub(r"--[^\n]*", "", src)
@@ -92,10 +186,17 @@ def main() -> int:
         fail("המיגרציה מפעילה התראה (מילוי לאחור)")
     if "notify_agent_on_new_lead" in code or "notifications_apply_preferences" in code:
         fail("הטריגר נוגע בפונקציות שאסור לשנות")
-    if "יקבל/תקבל קישור לפוסט" not in src or "יקבל/תקבל את פרטי הקשר" not in src:
-        fail("נוסח ההתראה לא מפריד פוסט מהודעה פרטית")
+    if "בלי עלות. הסוכן הראשון שלוחץ \"אני פונה\" מקבל קישור לפוסט." not in src:
+        fail("נוסח הפוסט")
+    if "בלי עלות. הסוכן הראשון שלוחץ \"אני פונה\" מקבל את פרטי הקשר." not in src:
+        fail("נוסח ההודעה הפרטית")
+    if "חינם" in extract(MIG, "scraped_lead_notify_demand("):
+        fail("המילה חינם נשארה בגוף ההתראה")
     if "social_buyer_handover" not in extract(MIG, "open_demand_claim_core("):
         fail("התפיסה לא קוראת למסירה")
+    if "quota_source', 'social_free'" not in src and "v_quota_source := 'social_free'" not in src:
+        fail("אין מסלול social_free")
+    free_claim()
 
     subprocess.run(["dropdb", "--if-exists", DB], check=False)
     subprocess.run(["createdb", DB], check=True)
@@ -303,7 +404,7 @@ insert into public.pricing_config (key, value) values
             fail(f"נצמד לחיפוש האחר של אותו טלפון: {row}")
         if not row.endswith("https://shuknadlan.co.il/crm?goto=accLeads&tab=demand"):
             fail(f"post_url: {row}")
-        if "4 חדרים" not in row or "מחפש/ת לקנות" not in row:
+        if "4 חדרים" not in row or "מחפשים לקנות" not in row:
             fail(f"הסיכום חסר: {row}")
         print("✓ דגל 1 ותקרות: ארכיון בלי לעצור התראות, והקריטריונים בוחרים את השורה")
 
@@ -353,7 +454,26 @@ insert into public.pricing_config (key, value) values
         )
         if "lead_id" not in claimed or "source_post_url" in claimed or "phone" in claimed or "050" in claimed or "דנה" in claimed:
             fail(f"אני פונה החזיר קישור או פרטים: {claimed}")
-        print("✓ אני פונה על הודעה פרטית מחזיר ליד, לא קישור")
+        psql_script(
+            "create or replace function public.claim_lead(p_lead_id uuid, p_agent_id uuid) "
+            "returns jsonb language plpgsql as $$ begin "
+            "return jsonb_build_object('error', 'already_unlocked'); end $$;"
+        )
+        again = psql(
+            "select public.open_demand_claim(id)::text from public.scraped_leads "
+            "where external_ref = 'z-buyer'"
+        )
+        if "already_mine" not in again or "lead_id" not in again or "error" in again or "050" in again:
+            fail(f"תפיסה חוזרת: {again}")
+        psql_script(
+            "create or replace function public.claim_lead(p_lead_id uuid, p_agent_id uuid) "
+            "returns jsonb language plpgsql as $$ begin "
+            "update public.leads set status = 'unlocked', unlocked_by = p_agent_id, unlocked_at = now() "
+            "where id = p_lead_id; "
+            "return jsonb_build_object('success', true, 'price_charged', 0, "
+            "'quota_source', 'subscription_unlimited'); end $$;"
+        )
+        print("✓ אני פונה על הודעה פרטית מחזיר ליד, לא קישור, וחזרה שקטה")
 
         add_social("z-nocity", "buyer", "0509999999")
         _sid, status = add_search("0509999999", None, rooms=None, max_price=None, ptype=None)
@@ -389,7 +509,7 @@ insert into public.pricing_config (key, value) values
         if status != "archived|active":
             fail(f"התאמת מייל לא העבירה ({status})")
         summary = psql("select demand_summary from public.scraped_leads where external_ref = 'z-mail'")
-        if summary != "מחפש/ת לשכור" or "דנה" in (summary or ""):
+        if summary != "מחפשים לשכור" or "דנה" in (summary or ""):
             fail(f"סיכום מייל: {summary}")
         print("✓ התאמת מייל, בלי שם בסיכום")
 
@@ -423,8 +543,11 @@ create table if not exists public.scraped_lead_match_dispatch (
         if n != "8":
             fail(f"התקרה לא חתכה ל-8 ({n})")
         body = psql("select distinct body from public.notifications")
-        if "פרטי הקשר" not in body or "פוסט" in body or "050" in body or "דנה" in body:
+        if "בלי עלות. הסוכן הראשון שלוחץ \"אני פונה\" מקבל את פרטי הקשר." not in body or "חינם" in body or "פוסט" in body or "050" in body or "דנה" in body:
             fail(f"נוסח ההתראה: {body}")
+        title = psql("select distinct title from public.notifications")
+        if "מחפשים לשכור" not in title or "מחפש/ת" in title:
+            fail(f"כותרת: {title}")
         pulls = psql(
             "select count(*) from public.open_demand_notify_log l "
             "join public.leads d on d.unlocked_by = l.agent_id"
