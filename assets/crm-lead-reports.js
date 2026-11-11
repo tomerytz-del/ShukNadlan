@@ -260,7 +260,7 @@ async function leadReportDecide(row, approve, btn){
     { p_report: row.id, p_approve: approve, p_note: (note || '').trim() || null });
   btn.disabled = false;
   if (error || !data || data.error){
-    showToast('הפעולה נכשלה: ' + heErr(error || (data && data.error)), 6000);
+    showToast('הפעולה נכשלה: ' + ((data && LEAD_REPORT_ERRORS[data.error]) || heErr(error || (data && data.error))), 6000);
     return;
   }
   showToast(approve ? 'הוחזר לארנק' : 'הדיווח נדחה');

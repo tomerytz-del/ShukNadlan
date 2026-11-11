@@ -98,6 +98,11 @@ begin
   if v_lead.lead_type = 'store' then
     -- ליד חנות: אין שורה ב-lead_charges. הרכישה בטבלה של המקור, והיא נסגרת כ-refunded שם
     select * into v_store from public._lead_store_purchase(v_lead.origin_id, v_r.agent_id);
+    -- בלי רכישה חיה אין מה להחזיר, ו"הוחזר ₪0" שמארכב את הליד הוא שקר: לא נוגעים בדבר.
+    -- (בדיווח עצמו זה נבדק מראש; כאן זה תופס אישור ידני שמגיע אחרי שהרכישה כבר טופלה)
+    if v_store.purchase_id is null or v_store.amount <= 0 then
+      return jsonb_build_object('error', 'nothing_to_refund');
+    end if;
     if v_store.purchase_id is not null and v_store.amount > 0 then
       v_amount := v_store.amount;
       update public.agency_members set credit_balance = credit_balance + v_amount where id = v_r.agent_id;
@@ -263,7 +268,12 @@ begin
   returning id into v_id;
 
   if not v_over then
-    return public._lead_report_apply(v_id, null, true);
+    v_result := public._lead_report_apply(v_id, null, true);
+    -- הדיווח כבר נכנס: אם ההחזר סירב, מגלגלים הכול אחורה במקום להשאיר דיווח תלוי בלי החזר
+    if v_result ? 'error' then
+      raise exception 'lead_report_apply_failed: %', v_result->>'error';
+    end if;
+    return v_result;
   end if;
 
   -- מעל התקרה: ממתין לבדיקה ידנית, והמנהלים מקבלים התראה
