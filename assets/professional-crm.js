@@ -25,6 +25,12 @@
   let inviteOpen = /[#&]type=invite\b/.test(location.hash);
   const linkExpired = /[#&]error_code=otp_expired\b/.test(location.hash);
 
+  // תשובת Google: בהצלחה #access_token בכתובת, בכישלון error/error_description. נקראת כאן, לפני
+  // ש-supabase-js צורך אותה, ומנוקה מהכתובת אחרי שה-session בידינו. הקוד עצמו ב-assets/auth-return.js
+  // (נטען לפני supabase-js), כדי לא להחזיק עותק נוסף של רשימת המפתחות
+  const oauthError = window.AuthReturn ? AuthReturn.readError() : { code: '', description: '' };
+  function cleanAuthParamsFromUrl() { if (window.AuthReturn) AuthReturn.cleanUrl(); }
+
   const el = (id) => document.getElementById(id);
   const KIND_LABELS = {
     real_estate_lawyer: 'עו״ד מקרקעין', mortgage_advisor: 'יועץ/ת משכנתאות', appraiser: 'שמאי/ת מקרקעין',
@@ -57,7 +63,9 @@
   const propertyTitles = {};
   let propertyLookupFailed = false;
   let pendingBuy = null;
-  let recovering = false;   // חזרה מקישור איפוס סיסמה: הטופס של הסיסמה החדשה גובר על boot
+  // חזרה מקישור איפוס סיסמה: הטופס של הסיסמה החדשה גובר על boot. נקרא מהכתובת כאן, ולא רק מהאירוע
+  // PASSWORD_RECOVERY: הוא משודר אחרי ש-getSession חזרה, ו-boot היה מספיק להציג את האפליקציה מעליו
+  let recovering = /[#&]type=recovery\b/.test(location.hash);
 
   function setMsg(id, text, cls) {
     const n = el(id);
@@ -80,7 +88,13 @@
       const { error } = await sb.auth.signInWithPassword({
         email: el('lgEmail').value.trim(), password: el('lgPassword').value,
       });
-      if (error) { setMsg('lgMsg', 'אימייל או סיסמה שגויים', 'err'); return; }
+      if (error) {
+        // מי שנכנס/ת בדרך כלל עם Google אין לו/ה סיסמה בכלל: הרמז חוסך "שכחתי סיסמה" מיותר
+        setMsg('lgMsg', /not confirmed/i.test(error.message || '')
+          ? 'כתובת המייל עוד לא אושרה. לחצו על הקישור במייל שקיבלתם, או היכנסו עם Google.'
+          : 'אימייל או סיסמה שגויים. נרשמתם עם Google? היכנסו עם הכפתור למעלה.', 'err');
+        return;
+      }
       await boot();
     } catch (err) {
       setMsg('lgMsg', 'שגיאת רשת - נסו שוב', 'err');
@@ -89,12 +103,92 @@
     }
   });
 
+  /* ---------- כניסה עם Google ----------
+     אותו ספק ואותן הגדרות כמו אצל הסוכנים (docs/google-login.md): redirectTo הוא הנתיב בלי query,
+     prompt=select_account כדי לבחור חשבון, ו-AuthReturn.remember לפני היציאה כדי שתשובה שנחתה
+     בדף הבית תחזור לכאן. אחרי החזרה boot() מוצא את ה-session; בלי חשבון בעל מקצוע הוא מציע
+     לפתוח אחד לפי הכרטיסייה שבכתובת הזו (claim_by_login). */
+  const googleBtn = el('googleLoginBtn');
+  const GOOGLE_LABEL = googleBtn.querySelector('.gl-label').textContent;   // התווית מה-HTML, במקום אחד
+  function resetGoogleButton() {
+    googleBtn.disabled = false;
+    googleBtn.querySelector('.gl-label').textContent = GOOGLE_LABEL;
+  }
+  googleBtn.addEventListener('click', async () => {
+    setMsg('lgMsg', '');
+    if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); return; }
+    googleBtn.disabled = true;
+    googleBtn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+    if (window.AuthReturn) AuthReturn.remember();
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } },
+    });
+    if (error) {
+      resetGoogleButton();
+      setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + errText(error), 'err');
+    }
+  });
+
+  /* ---------- כניסה ראשונה בלי חשבון: חשבון לפי הכרטיסייה שבכתובת ----------
+     צעד אחד ולא שניים: מסך הכניסה אומר "בכניסה אתם מאשרים את תנאי השימוש", ולכן הכניסה עצמה
+     היא האישור (terms_accepted: true) והחשבון נוצר מיד, בלי מסך ביניים. מי שאין לו/ה כרטיסייה
+     בכתובת הזו (למשל סוכן/ת שנכנס/ת לכאן בטעות) יוצא/ת מיד עם הסבר, ולא נשאר/ת מחובר/ת לכל האתר. */
+  async function callAccount(payload, token) {
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/professional-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
+        body: JSON.stringify(Object.assign({ action: 'claim_by_login' }, payload)),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok && !data.error, data };
+    } catch (err) {
+      return { ok: false, data: { error: 'network' } };
+    }
+  }
+  const CLAIM_ERRORS = {
+    email_not_verified: 'כתובת המייל של החשבון עוד לא אושרה. היכנסו עם Google, או לחצו על הקישור במייל האישור.',
+    card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
+    network: 'שגיאת רשת - נסו שוב',
+  };
+  // מחובר/ת, אבל בלי חשבון: יש כרטיסייה בכתובת הזו? החשבון נפתח ונכנסים. אין? יציאה והסבר.
+  // רק "אין כרטיסייה" (וכתובת לא מאושרת / כרטיסייה של אחר/ת) מוציאים: כשל זמני בשרת אינו "אין לך כרטיסייה"
+  async function offerClaim(session) {
+    const { ok, data } = await callAccount({ terms_accepted: true }, session.access_token);
+    if (ok && (data.account_exists || data.created)) {
+      try { await loadAccount(session.user.id); } catch (e) { account = null; }
+      if (account) {
+        show('loginCard', false); show('recoverCard', false); show('app', true);
+        if (data.created) setMsg('appMsg', 'ברוכים הבאים! החשבון נפתח לפי הכרטיסייה שלכם. מכאן עורכים את העמוד, ולידים נפתחים אחרי אישור הנהלת האתר.', 'ok');
+        await renderAll();
+        return;
+      }
+    }
+    const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
+    if (terminal) {
+      // מקומית בלבד: סוכן/ת שנכנס/ת לכאן בטעות לא אמור/ה לצאת מה-CRM בכל המכשירים
+      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
+      showLogin();
+      resetGoogleButton();
+      setMsg('lgMsg', CLAIM_ERRORS[data.error] || ('לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + (session.user.email || 'הזו') +
+        '. נרשמים ב-/professional-signup, או נכנסים בכתובת שנרשמתם איתה.'), 'err');
+      return;
+    }
+    // כשל זמני (רשת, שרת): נשארים מחוברים, ורענון מנסה שוב
+    showLogin();
+    resetGoogleButton();
+    setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע' + (data.error === 'network' ? ' (שגיאת רשת)' : '') + '. רעננו את הדף לניסיון נוסף.', 'err');
+  }
   el('forgotBtn').addEventListener('click', async () => {
     const email = el('lgEmail').value.trim();
     if (!email) { setMsg('lgMsg', 'כתבו את כתובת האימייל ולחצו שוב', 'err'); return; }
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/professional-crm' });
-    // אותה תשובה בכל מקרה: לא מגלים אם הכתובת רשומה
-    setMsg('lgMsg', error ? 'לא הצלחנו לשלוח כרגע - נסו שוב בעוד דקה' : 'אם הכתובת רשומה, נשלח אליה קישור לאיפוס סיסמה', error ? 'err' : 'ok');
+    // אותה תשובה בכל מקרה: לא מגלים אם הכתובת רשומה. מי שאין לו/ה חשבון בכלל יקבל/תקבל כלום,
+    // ולכן הדרך הקצרה (Google) כתובה כאן ולא רק למעלה
+    setMsg('lgMsg', error
+      ? 'לא הצלחנו לשלוח כרגע. נסו שוב בעוד דקה, או כתבו לנו בוואטסאפ למטה.'
+      : 'אם הכתובת רשומה, שלחנו אליה קישור לקביעת סיסמה (בדקו גם בספאם). עוד אין לכם חשבון? כניסה עם Google פותחת אותו מעצמה.', error ? 'err' : 'ok');
   });
 
   el('recoverForm').addEventListener('submit', async (e) => {
@@ -104,7 +198,8 @@
     setMsg('rcMsg', 'הסיסמה נשמרה', 'ok');
     show('recoverCard', false);
     recovering = false;
-    if (inviteOpen) { inviteOpen = false; history.replaceState(null, '', location.pathname); }
+    inviteOpen = false;
+    cleanAuthParamsFromUrl();
     await boot();
   });
 
@@ -603,10 +698,22 @@
   async function boot() {
     if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); show('loginCard', true); return; }
     const { data: { session } } = await sb.auth.getSession();
-    if (recovering) return;
+    if (recovering) {
+      if (session) { show('loginCard', false); show('app', false); show('recoverCard', true); }
+      else { recovering = false; showLogin(); setMsg('lgMsg', 'קישור איפוס הסיסמה פג תוקף. בקשו "שכחתי סיסמה" שוב, או היכנסו עם Google.', 'err'); }
+      return;
+    }
+    // התשובה של Google (או ההזמנה) כבר נצרכה: יורדת מהכתובת, כדי שרענון לא יעבד אותה שוב
+    if (!inviteOpen) cleanAuthParamsFromUrl();
     if (!session) {
       showLogin();
+      resetGoogleButton();
       if (linkExpired) setMsg('lgMsg', 'הקישור במייל פג תוקף. בקשו שליחה חוזרת של מייל האימות מקישור העריכה של הכרטיסייה.', 'err');
+      else if (oauthError.code || oauthError.description) {
+        setMsg('lgMsg', /access_denied|cancel/i.test(oauthError.code)
+          ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
+          : 'ההתחברות עם Google נכשלה: ' + errText({ message: oauthError.description || oauthError.code }), 'err');
+      }
       return;
     }
     if (inviteOpen) {
@@ -624,10 +731,9 @@
       return;
     }
     if (!account) {
-      // מחובר, אבל אין חשבון בעל מקצוע (למשל סוכן/ת שנכנס/ת לכאן בטעות)
-      await sb.auth.signOut();
-      showLogin();
-      setMsg('lgMsg', 'אין חשבון בעל מקצוע לכתובת הזו. מי שנרשם/ה בכרטיסייה פותח/ת חשבון מקישור העריכה האישי (איבדתם אותו? הקישור "איבדתם את הקישור?" למטה).', 'err');
+      // מחובר/ת (Google, או סיסמה) בלי חשבון בעל מקצוע: אולי יש כרטיסייה בכתובת הזו.
+      // offerClaim מציע לפתוח חשבון, או מוציא עם הסבר (למשל סוכן/ת שנכנס/ת לכאן בטעות)
+      await offerClaim(session);
       return;
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);

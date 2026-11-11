@@ -12,8 +12,9 @@ Google OAuth דרך Supabase Auth. המסמך הזה מתאר את מסלול ה
    מנתב את הדפדפן ל-Google. הכפתור ננעל ומציג "מעבירים ל-Google…" — כדי
    שלחיצה שנייה לא תפתח ניתוב מקביל.
 
-   **‏`prompt: 'select_account'` הוא חובה, בכל ארבעת הכפתורים** (‏`crm.js`,
-   ‏`developer-crm.html`, ‏`developer-signup.html`, ‏`csm-page.js`). בלעדיו
+   **‏`prompt: 'select_account'` הוא חובה, בכל חמשת הכפתורים** (‏`crm.js`,
+   ‏`developer-crm.html`, ‏`developer-signup.html`, ‏`csm-page.js`, ו-`professional-crm.js`
+   של בעלי המקצוע). בלעדיו
    Google נכנסת בשקט עם החשבון שכבר מחובר בדפדפן, ומי שצריך/ה להיכנס
    בחשבון אחר אינו/ה יכול/ה לבחור בו — כך תמיר ברגר (19.10.2026) נכנס שוב
    ושוב בחשבון של הכרטיס הישן ולא בחשבון שלו. החלפת הכתובת שעל כרטיס קיים
@@ -197,6 +198,7 @@ notifications    17:15:34.595  /  17:15:34.910
 | `assets/crm.js` | `https://<הדומיין>/crm` |
 | `developer-crm.html` | `https://<הדומיין>/developer-crm` |
 | `developer-signup.html` | `https://<הדומיין>/developer-crm` |
+| `assets/professional-crm.js` (בעלי מקצוע, מ-10.11.2026) | `https://<הדומיין>/professional-crm` (מכוסה ב-`https://shuknadlan.co.il/*` שברשימה; `docs/professional-accounts.md`) |
 | פיתוח מקומי | `http://localhost:<port>/crm.html` |
 
 השורה השלישית אמרה `‎/developer-crm.html` עד שהקישורים הפנימיים באתר

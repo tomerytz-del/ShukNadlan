@@ -179,14 +179,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="sub" id="errorText">קישור העריכה שגוי או פג תוקפו.</p>
     <!-- שחזור הקישור למייל שבכרטיסייה (professional-manage, action recover_link). הקישור
          נשלח למייל ולא מוצג כאן: הוא המפתח לעריכה. docs/professional-cards.md -->
+    <!-- הדרך הקצרה קודם: כניסה עם Google פותחת את החשבון מעצמה ומגיעה לעריכה בלחיצה. שחזור הקישור
+         למייל הוא למי שמעדיף/ה בלי חשבון -->
+    <a class="btn" href="/professional-crm" style="display:flex;text-decoration:none;margin-top:16px">כניסה עם Google לעריכת העמוד ←</a>
+    <p class="note" style="margin-top:8px">נכנסים עם חשבון Google של הכתובת שנרשמתם איתה, והעריכה נפתחת. בלי סיסמה ובלי קישור.</p>
     <form id="recoverForm" class="recover-box">
-      <p class="note" style="margin:0 0 10px">קישור העריכה הוא הקישור שהתקבל בסיום ההרשמה. איבדתם אותו? נשלח אותו שוב לכתובת המייל שאיתה נרשמתם.</p>
+      <p class="note" style="margin:0 0 10px">מעדיפים את קישור העריכה? נשלח אותו שוב לכתובת המייל שאיתה נרשמתם.</p>
       <label for="recoverEmail">האימייל שבכרטיסייה</label>
       <input type="email" id="recoverEmail" autocomplete="email" required placeholder="name@example.com" dir="ltr">
       <button type="submit" class="btn btn-ghost" id="recoverBtn" style="margin-top:10px">שליחת קישור העריכה למייל</button>
       <div id="recoverFeedback" role="status" aria-live="polite"></div>
     </form>
-    <p class="note">יש לכם חשבון כניסה? <a href="/professional-crm">לאזור האישי</a> - משם מגיעים לעריכה בלחיצה.</p>
+    <p class="note">נתקעתם? <a href="https://wa.me/972546929991?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%91%D7%A2%D7%9C%2F%D7%AA%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%20%D7%95%D7%90%D7%A0%D7%99%20%D7%A6%D7%A8%D7%99%D7%9A%2F%D7%94%20%D7%A2%D7%96%D7%A8%D7%94%20%D7%91%D7%A2%D7%A8%D7%99%D7%9B%D7%AA%20%D7%94%D7%A2%D7%9E%D7%95%D7%93%20%D7%A9%D7%9C%D7%99%20%D7%91%D7%A9%D7%95%D7%A7%20%D7%A0%D7%93%D7%9C%D7%B4%D7%9F." target="_blank" rel="noopener noreferrer" data-site-contact>תמיכה בוואטסאפ</a>, ונעזור להיכנס.</p>
     <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 
@@ -209,7 +213,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <form id="accountForm" hidden>
         <p class="account-note" id="accountPitch">חשבון כניסה עם אימייל וסיסמה, כדי לא להיות תלויים בקישור הזה: עריכת העמוד, ארנק, ולידים של לקוחות למי שיש להם מדף. פתיחת החשבון חינם.</p>
-        <p class="account-note">נשלח מייל אימות לכתובת שבכרטיסייה. הלחיצה על הקישור שבו מאשרת את הכתובת, ושם קובעים סיסמה.</p>
+        <p class="account-note">נשלח מייל אימות לכתובת שבכרטיסייה. הלחיצה על הקישור שבו מאשרת את הכתובת, ושם קובעים סיסמה. דרך מהירה יותר: <a href="/professional-crm">כניסה עם Google</a> בכתובת שבכרטיסייה פותחת את החשבון מעצמה.</p>
         <label class="account-terms"><input type="checkbox" id="accTerms" required> קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a></label>
         <button type="submit" class="btn btn-ghost" id="accBtn">פתיחת חשבון</button>
         <div id="accFeedback"></div>

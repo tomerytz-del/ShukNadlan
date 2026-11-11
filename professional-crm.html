@@ -36,6 +36,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- לפני supabase-js: זוכר שיצאנו מכאן ל-Google, כדי שתשובה שנחתה בדף הבית תחזור לכאן
+     ולא ל-/crm (ברירת המחדל של auth-return). docs/google-login.md -->
+<script src="assets/auth-return.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -77,6 +80,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .msg.ok{color:var(--green)}
   .link-btn{background:none;color:var(--blue);text-decoration:underline;padding:6px 0;font-size:.88rem;font-weight:700}
   .link-btn:hover{color:var(--blue-dark)}
+
+  /* ====== השער: מסך הכניסה ======
+     כרטיס אחד, סדר אחד: Google, ואז אימייל וסיסמה, ואז עזרה. פס זהב בראש הכרטיס, כותרת
+     בסריף כמו בדפי האתר, ושלושת ה"מה מקבלים" בתחתית כדי שמי שהגיע/ה מקישור יבין/תבין לאן נכנסים. */
+  .gate{position:relative;overflow:hidden;padding:30px 22px 22px;max-width:520px;margin-inline:auto}
+  .gate::before{content:"";position:absolute;inset-inline:0;top:0;height:5px;background:linear-gradient(90deg,var(--gold),#e3b95a)}
+  .gate-head{text-align:center;margin-bottom:20px}
+  .gate-eyebrow{display:inline-block;font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gold);background:var(--gold-tint);border-radius:999px;padding:4px 12px;margin-bottom:10px}
+  .gate h1{font-size:1.7rem;line-height:1.2;margin-bottom:6px}
+  .gate .sub{margin-bottom:0;font-size:.95rem}
+  .auth-google{width:100%;background:#fff;border:1.5px solid #cfd7ea;color:var(--ink);padding:14px 18px;font-size:1.05rem;gap:12px;box-shadow:0 2px 8px rgba(16,24,40,.08);transition:transform .12s,box-shadow .12s,border-color .12s}
+  .auth-google:hover{border-color:var(--blue);color:var(--ink);transform:translateY(-1px);box-shadow:0 8px 18px -8px rgba(16,24,40,.3)}
+  .gate-fine{text-align:center;font-size:.8rem;color:var(--ink-soft);margin:10px 0 0;line-height:1.5}
+  .auth-or{display:flex;align-items:center;gap:12px;margin:20px 0 6px;font-size:.8rem;color:var(--ink-soft)}
+  .auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
+  .gate-form label{margin-top:10px}
+  .gate-form input[type=email],.gate-form input[type=password]{padding:13px 14px;border-radius:var(--radius-md)}
+  .gate-form input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-tint)}
+  .btn-block{width:100%;margin-top:14px;font-size:1rem}
+  .gate-links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center;font-size:.88rem;margin-top:6px;color:var(--ink-soft)}
+  .gate-links a{font-weight:700}
+  .gate-help{margin-top:18px;padding:12px 14px;border-radius:var(--radius-md);background:var(--blue-tint);display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:.86rem;color:var(--ink-soft)}
+  .btn-wa{background:#1f8a4c;color:#fff;gap:8px;min-height:42px;padding:8px 16px;font-size:.92rem}
+  .btn-wa:hover{background:#176b3b;color:#fff}
+  .gate-perks{list-style:none;margin:20px 0 0;padding:16px 0 0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .gate-perks li{display:flex;flex-direction:column;gap:2px;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+  .gate-perks b{color:var(--ink);font-size:.86rem}
+  .perk-ico{font-size:1.25rem;line-height:1;margin-bottom:4px}
+  .gate-join{text-align:center;font-size:.86rem;color:var(--ink-soft);margin:16px 0 0}
+  @media (max-width:480px){
+    .gate{padding:26px 16px 18px}
+    .gate h1{font-size:1.45rem}
+    .gate-perks{grid-template-columns:1fr;gap:10px}
+    .gate-perks li{flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap}
+    .gate-perks li span:last-child{flex-basis:100%;padding-inline-start:30px}
+    .perk-ico{margin:0}
+  }
   .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
   .head .who{font-weight:800;font-size:1.05rem}
   .head .kind{color:var(--ink-soft);font-size:.88rem}
@@ -105,31 +145,61 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="wrap">
   <a class="logo-link" href="/" aria-label="שוק הנדל״ן - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
 
-  <!-- כניסה -->
-  <section class="card" id="loginCard" hidden>
-    <h1>האזור האישי לבעלי מקצוע</h1>
-    <p class="sub">ארנק ולידים לבעלי מקצוע שנרשמו בכרטיסייה.</p>
-    <form id="loginForm">
+  <!-- כניסה: השער של בעלי המקצוע. Google ראשון (בכניסה מאשרים תנאים, ואין צעד נוסף), אימייל וסיסמה
+       שני, ומתחת: שכחתי סיסמה, קישור העריכה שאבד, ותמיכה בוואטסאפ. חשבון שאין לו עדיין שורת
+       professional_accounts נוצר בכניסה הראשונה לפי הכרטיסייה שבכתובת הזו (claim_by_login). -->
+  <section class="card gate" id="loginCard" hidden>
+    <div class="gate-head">
+      <span class="gate-eyebrow">בעלי מקצוע</span>
+      <h1>האזור האישי שלכם</h1>
+      <p class="sub">העמוד שלכם באתר, הלידים והארנק, במקום אחד.</p>
+    </div>
+    <button type="button" class="btn auth-google" id="googleLoginBtn">
+      <svg width="20" height="20" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">כניסה עם Google</span>
+    </button>
+    <p class="gate-fine">הכי מהיר: בוחרים את חשבון Google שנרשמתם איתו, וזהו. בכניסה אתם מאשרים את <a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a>.</p>
+    <div class="auth-or">או עם אימייל וסיסמה</div>
+    <form id="loginForm" class="gate-form">
       <label for="lgEmail">אימייל</label>
-      <input type="email" id="lgEmail" autocomplete="username" required>
+      <input type="email" id="lgEmail" autocomplete="username" required placeholder="name@example.com" dir="ltr">
       <label for="lgPassword">סיסמה</label>
       <input type="password" id="lgPassword" autocomplete="current-password" required>
-      <div class="row" style="margin-top:16px">
-        <button class="btn btn-primary" type="submit" id="lgBtn">כניסה</button>
-        <button class="link-btn" type="button" id="forgotBtn">שכחתי סיסמה</button>
-      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="lgBtn">כניסה</button>
       <div class="msg" id="lgMsg" role="status" aria-live="polite"></div>
     </form>
-    <p class="sub" style="margin-top:14px">נרשמתם בכרטיסייה ועוד אין לכם חשבון? פתחו אותו מקישור העריכה האישי שקיבלתם בסיום ההרשמה. <a href="/professional-manage">איבדתם את הקישור?</a></p>
+    <div class="gate-links">
+      <button class="link-btn" type="button" id="forgotBtn">שכחתי סיסמה</button>
+      <span aria-hidden="true">·</span>
+      <a href="/professional-manage">איבדתם את קישור העריכה?</a>
+    </div>
+    <!-- תמיכה: המספר של הפלטפורמה (data-site-contact, לא פנייה למתווך/ת). ההודעה נפתחת מוכנה -->
+    <div class="gate-help">
+      <a class="btn btn-wa" id="supportWa" data-site-contact href="https://wa.me/972546929991?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A0%D7%99%20%D7%91%D7%A2%D7%9C%2F%D7%AA%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2%20%D7%95%D7%90%D7%A0%D7%99%20%D7%A6%D7%A8%D7%99%D7%9A%2F%D7%94%20%D7%A2%D7%96%D7%A8%D7%94%20%D7%91%D7%9B%D7%A0%D7%99%D7%A1%D7%94%20%D7%9C%D7%90%D7%96%D7%95%D7%A8%20%D7%94%D7%90%D7%99%D7%A9%D7%99%20%D7%91%D7%A9%D7%95%D7%A7%20%D7%A0%D7%93%D7%9C%D7%B4%D7%9F." target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.9 11.9 0 0 0 4.5 4c.6.3 1.1.4 1.5.5a3.6 3.6 0 0 0 1.6.1 2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .2-1.2c-.1-.1-.3-.2-.5-.3z"/></svg>
+        תמיכה בוואטסאפ
+      </a>
+      <span>נתקעתם בכניסה? כתבו לנו ונעזור.</span>
+    </div>
+    <ul class="gate-perks" aria-label="מה יש באזור האישי">
+      <li><span class="perk-ico">✏️</span><b>העמוד שלכם</b><span>תמונות, תיאור ושירותים, מתעדכן מיד באתר</span></li>
+      <li><span class="perk-ico">📩</span><b>לידים</b><span>פניות של לקוחות לעורכי דין וליועצי משכנתאות</span></li>
+      <li><span class="perk-ico">👛</span><b>ארנק</b><span>היתרה והרכישות שלכם, בלי הוראת קבע</span></li>
+    </ul>
+    <p class="gate-join">עוד לא באתר? <a href="/professional-signup">פרסום חינם בעמוד משלכם</a></p>
   </section>
 
   <!-- אחרי קישור איפוס סיסמה -->
-  <section class="card" id="recoverCard" hidden>
-    <h1 id="rcTitle">סיסמה חדשה</h1>
-    <form id="recoverForm">
+  <section class="card gate" id="recoverCard" hidden>
+    <div class="gate-head">
+      <span class="gate-eyebrow">בעלי מקצוע</span>
+      <h1 id="rcTitle">סיסמה חדשה</h1>
+      <p class="sub">אחרי השמירה נכנסים ישר לאזור האישי.</p>
+    </div>
+    <form id="recoverForm" class="gate-form">
       <label for="rcPassword">סיסמה חדשה (8 תווים לפחות)</label>
       <input type="password" id="rcPassword" autocomplete="new-password" minlength="8" required>
-      <div class="row" style="margin-top:16px"><button class="btn btn-primary" type="submit">שמירה</button></div>
+      <button class="btn btn-primary btn-block" type="submit">שמירה וכניסה</button>
       <div class="msg" id="rcMsg" role="status" aria-live="polite"></div>
     </form>
   </section>
