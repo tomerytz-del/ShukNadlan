@@ -812,18 +812,9 @@ def main():
       delete from public.notifications where type = 'open_demand';
     """)
     n_dem = psql(db, sql_text=f"select public.scraped_lead_notify_demand('{bbb}')")
-    if not n_dem.isdigit() or int(n_dem) < 1:
-        fail(f"ביקוש פתוח ממדלן לא הופץ: {n_dem}")
-    pushed = psql(db, sql_text="""
-      select (bool_and(suppress_push)
-              and bool_and(body like '%073%' and body like '%מעביר את השיחה%')
-              and bool_and(body like '%חינם, למי שלוחץ ראשון על "אני פונה".%')
-              and bool_and(body not like '%הודעת פייסבוק%'))::text
-        from public.notifications
-       where type = 'open_demand'
-    """)
-    if pushed != "true":
-        fail(f"התראת מדלן בלי תאריך יצאה לדחיפה או בלי הטלפון: {pushed}")
+    n_rows = psql(db, sql_text="select count(*) from public.notifications")
+    if n_dem != "0" or n_rows != "0":
+        fail(f"מדלן בלי תאריך יצר התראה: notify={n_dem} rows={n_rows}")
 
     # תאריך ידוע וטרי: עד התקרה היומית נדחף, והבאה נשארת באתר.
     psql(db, sql_text="update public.app_config set value = '2' where key = 'madlan_notify_daily_cap'")
@@ -844,6 +835,39 @@ def main():
     """)
     if caps != "2|1":
         fail(f"תקרת הדחיפה של מדלן: {caps}")
+    psql(db, sql_text=f"""
+      update public.scraped_leads set city_id = '{city}'
+       where external_ref = 'madlan.co.il/listings/fresh1';
+      delete from public.notifications;
+    """)
+    n_fresh = psql(db, sql_text="""
+      select public.scraped_lead_notify_demand(
+        (select id from public.scraped_leads
+          where external_ref = 'madlan.co.il/listings/fresh1'))
+    """)
+    fresh_note = psql(db, sql_text="""
+      select count(*)::text || '|' ||
+             (bool_and(not suppress_push))::text || '|' ||
+             (bool_and(body like '%073%' and body like '%מעביר את השיחה%'
+                       and body like '%חינם, למי שלוחץ ראשון על "אני פונה".%'))::text
+        from public.notifications
+       where type = 'open_demand'
+    """)
+    if n_fresh == "0" or fresh_note != f"{n_fresh}|true|true":
+        fail(f"מודעת מדלן עם תאריך לא הודיעה: {n_fresh} {fresh_note}")
+    before_over = psql(db, sql_text="select count(*) from public.notifications")
+    psql(db, sql_text=f"""
+      update public.scraped_leads set city_id = '{city}'
+       where external_ref = 'madlan.co.il/listings/fresh3'
+    """)
+    n_over = psql(db, sql_text="""
+      select public.scraped_lead_notify_demand(
+        (select id from public.scraped_leads
+          where external_ref = 'madlan.co.il/listings/fresh3'))
+    """)
+    after_over = psql(db, sql_text="select count(*) from public.notifications")
+    if n_over != "0" or after_over != before_over:
+        fail(f"מודעת מדלן מעל התקרה יצרה התראה: {n_over} {before_over}->{after_over}")
 
     # אחרי 30 יום מותר לקלוט שוב. אין חסימה לצמיתות.
     blocked = psql(db, sql_text="""

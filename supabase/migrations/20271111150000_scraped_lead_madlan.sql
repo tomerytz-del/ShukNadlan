@@ -635,11 +635,12 @@ begin
   v_site := coalesce(r.push_site_only, false)
     or (r.posted_at is not null and r.posted_at < now() - make_interval(days => v_days))
     or coalesce(v_suppress, false);
-  -- מלאי בלי date_known, או שורה שסומנה לא לדחיפה, לא יוצאים לוואטסאפ.
+  -- מלאי בלי date_known, או שורה שסומנה לא לדחיפה: אין שורת התראה בכלל,
+  -- לא בפעמון ולא בוואטסאפ. מודעה עם תאריך ידוע ובתוך התקרה ממשיכה כרגיל.
   if r.source = 'madlan' and (
     not coalesce(r.date_known, false) or coalesce(r.push_site_only, false)
   ) then
-    v_site := true;
+    return 0;
   end if;
 
   v_on := coalesce((select value::int from public.pricing_config
