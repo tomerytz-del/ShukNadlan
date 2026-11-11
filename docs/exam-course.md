@@ -187,6 +187,64 @@ python3 scripts/course_content_sql.py --bump    # אחרי שהקודמת רצה
 ושיעור בלי `steps` (מבחני העבר) מוצג כמו קודם: טקסט ואז חידון. הבריף
 שנשלח לקלוד דיזיין: `docs/exam-course-design-brief.md`.
 
+### סצנות: "עצרו את התמונה" (11.11.2026)
+
+סוג צעד רביעי, `scene`: סיפור מונפש עם דמויות קבועות (נועה, יועצת נדל״ן בתחילת
+הדרך, והאנשים שהיא פוגשת), שקופא ברגע ההחלטה. המנטור נכנס לפריים, שואל את
+שאלת הבדיקה, והבחירה קובעת איזה סוף מתנגן: מי שטעה רואה מה היה קורה (הלקוח
+שלא משלם, בית המשפט), ואחר כך יכול "להחזיר את הסרט" ולראות את הסוף הנכון.
+הפיילוט שתומר אישר: פרק 1, "החתימה שלא הייתה", בשיעור `written-order`.
+
+**הסצנה היא צעד הבדיקה של השאלה שלה.** ‏`question` מצביע על שאלת `practice`
+באותו שיעור, והתשובה עוברת ב-`course_answer` כמו בכל בדיקה, נספרת בציון
+ובחזרה על טעויות.
+
+**הסופים אינם בצעד.** הסוף הנכון חושף את התשובה, ולכן הוא יושב על השאלה
+(‏`course_questions.scene`, מיגרציה `20271111090000`) ויוצא רק מ-`course_answer`,
+אחרי שהתשובה נרשמה. בצעד יש רק הפתיחה עד ההקפאה. מי שמעביר/ה את `right`/`wrong`
+לתוך `steps` "כדי לחסוך קריאה" שולח/ת את התשובה לדפדפן לפני שנשאלה.
+
+| איפה | מה |
+| --- | --- |
+| הצעד ב-`steps` | `type: "scene"`, ‏`title`, ‏`subtitle`, ‏`question`, ‏`freeze` (מה שהמנטור אומר בהקפאה), ‏`beats` (הפתיחה) |
+| השאלה | `scene: {"wrong": [...], "right": [...]}` - שני הסופים, באותו פורמט של `beats` |
+| הנגן | `assets/course-scene.js`, ש-`learn.js` טוען רק כשיש סצנה בשיעור |
+
+**ה-beats** הם רשימת צעדים קטנים, כל אחד אובייקט, והגנרטור חוסם מפתח לא מוכר
+(`SCENE_BEAT_KEYS`): `scene` (‏`street`/`room`, עם `cast`: ‏`[["noa", 30], ["dana", 58, "flip"]]`),
+‏`chip` (כיתוב מקום וזמן), ‏`walk` + ‏`ms`, ‏`wave`, ‏`say` + ‏`text` (בועה מדוברת),
+‏`zoom` (‏`[1.12, x, y]`), ‏`cut` (קפיצת זמן: `title`, ‏`sub`, ‏`vo`), ‏`inside`
+(נכנסים לבניין), ‏`phone` (‏`who`, ‏`msgs`), ‏`doc` (‏`title`, ‏`rows`, ‏`sign`),
+‏`court` (‏`court`, ‏`title`, ‏`lines`, ‏`verdict`, ‏`ref`, ‏`vo`), ‏`badge`,
+‏`music` (‏`day`/`tense`/`warm`), ‏`wait`, ו-`vo` (קריינות של המנטור בלי בועה).
+`null` ב-`doc` או `phone` סוגר אותם.
+
+**הקול** הוא אותם קולות של הרילסים: Azure, הילה (נועה, דנה) ואבי (עידו, משה,
+המנטור, השופט), שנבדלים בגובה ובקצב (`scripts/course_scene_voices.py`). כל משפט
+מדובר הוא קובץ `assets/course-scenes/<שם>.mp3`, והשם נגזר מהקול ומהטקסט, ולכן:
+
+```sh
+python3 scripts/course_scene_audio.py      # מפיק רק את המשפטים שאין להם קובץ
+python3 scripts/course_content_sql.py --check   # חוסם משפט בלי קובץ
+```
+
+משפט ששונה מקבל קובץ חדש, והקודם נשאר (מחיקה ידנית כשאיש אינו מפנה אליו).
+המפתח: `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION`, או סשן ענן בסביבה `shuknadlan`,
+שבה ה-proxy מוסיף אותו לבקשות ל-`westeurope.tts.speech.microsoft.com`.
+**המוזיקה** (`assets/course-scenes/music.mp3`) היא 45 שניות מהטראק של הרילסים,
+"Funky House" (‏CC0, ‏`marketing/reel_worker/brand/music/tracks.json`), בדיוק 96
+פעמות, כך שהלולאה נשארת על הקצב. בהקפאה היא "נעצרת כמו קלטת", בסוף השגוי היא
+עמומה, ומתחת לקריינות היא יורדת.
+
+**דמות או רקע חדשים:** דמות נכנסת ל-`LOOK` שב-`course-scene.js` **ול-`PROFILES`
+ו-`CHARACTERS`** שב-`course_scene_voices.py` (הגנרטור חוסם דמות שאינה שם). רקע
+חדש נכנס ל-`BG` שב-`course-scene.js`.
+
+**מה נשמר אצל הלומד/ת:** ההשתקה (`localStorage`, ‏`cs-muted`). בלי קול, במצב
+השתקה, או כשקובץ לא הגיע תוך 6 שניות, הטקסט מוקלד בקצב קריאה. "דילוג לשאלה"
+מריץ את הפתיחה בלי זמן ובלי קול, עד ההקפאה. ‏`prefers-reduced-motion` מקצר כל
+המתנה.
+
 ### המסכים (הכיוון "חפיסת קלפים", 6.11.2026)
 
 הנגן מצייר כל מסך לתוך `#app` ב-`render(html)`, ואין לו HTML סטטי חוץ
@@ -335,4 +393,5 @@ python3 scripts/check_canonical.py        # /course ב-sitemap, /learn פרטי
 python3 scripts/check_events.py           # learn אינו טוען events.js
 python3 scripts/check_yoetz_copy.py       # דפי הקורס פטורים: "מתווך" הוא המונח של הבחינה (8.11.2026)
 python3 scripts/check_edge_types.py course-purchase
+python3 scripts/course_scene_audio.py --list   # משפט בסצנה בלי קובץ קול
 ```
