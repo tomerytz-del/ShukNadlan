@@ -63,7 +63,7 @@ Content-Type: application/json
 
 ## מחפש/ת לביקוש הפתוח
 
-`social_buyer_open_demand_enabled` דלוק (1) ב-`20271111182000`. הטריגר
+`social_buyer_open_demand_enabled` דלוק (1) ב-`20271112122000`. הטריגר
 `social_buyer_to_open_demand` רץ רק אחרי insert ל-`saved_searches`, ורק אם
 יומן `open_demand_notify_log` קיים. חיפוש שכבר נשמר לא עובר, ואין מילוי לאחור.
 `open_demand_notify_cap_enabled` נשאר 0: הדלקתו הייתה מחליפה את מסלול ההתאמה
@@ -85,7 +85,7 @@ Content-Type: application/json
 
 ## ליד משכנתא מהרשתות, בחינם
 
-`mortgage_social_route_enabled` דלוק (1) ב-`20271111180000`. הטריגר
+`mortgage_social_route_enabled` דלוק (1) ב-`20271112120000`. הטריגר
 `mortgage_social_route` רץ אחרי insert ל-`mortgage_leads` בלבד. ליד שכבר
 על המדף לא מנותב ולא שולח התראה. היועץ/ת עם `is_mortgage_advisor` מקבל/ת
 את הליד בסכום 0 (`payment_method = social_route`), בלי חיוב ארנק.

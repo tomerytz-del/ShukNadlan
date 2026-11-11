@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 
 const sql = readFileSync(
-  "supabase/migrations/20271111180000_mortgage_social_route.sql",
+  "supabase/migrations/20271112120000_mortgage_social_route.sql",
   "utf8",
 );
 const crm = readFileSync("assets/crm.js", "utf8");

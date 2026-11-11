@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { shareDigestBody, shareDigestItems } from "../supabase/functions/_shared/share-digest.ts";
 
 const sql = readFileSync(
-  "supabase/migrations/20271111181000_share_digest.sql",
+  "supabase/migrations/20271112121000_share_digest.sql",
   "utf8",
 );
 const push = readFileSync("supabase/functions/notification-push/index.ts", "utf8");
