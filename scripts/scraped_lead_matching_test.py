@@ -653,8 +653,90 @@ def main():
     if psql(db, sql_text="select count(*) from public.notifications") != before_n:
         fail("המילוי כתב התראה")
     phone_hash_privilege_check(db)
+    # הפרודקשן שומר את האילוץ כמילול '{a,b}', לא כ-ARRAY['a'::text].
+    # שורות עם הערכים שכבר קיימים חייבות לשרוד, וגם ערך שמופיע רק בטקסט
+    # (אין לו שורה) חייב להישאר. אחרת האילוץ מצטמצם ל-madlan_free.
+    prod_def = "{free_quota,launch_free,paid_10,paid_50,paid_69,premium_free,subscription_unlimited}"
+    row_vals = ("subscription_unlimited", "premium_free", "paid_50", "launch_free")
+    text_only = ("free_quota", "paid_10", "paid_69")
+    psql(db, sql_text=f"""
+      alter table public.leads drop constraint if exists leads_quota_source_check;
+      alter table public.leads add constraint leads_quota_source_check
+        check ((quota_source = any ('{prod_def}'::text[])));
+      insert into public.leads (lead_type, status, source, quota_source) values
+        {", ".join(f"('owner_inbound', 'unlocked', 'quota_fixture', '{v}')" for v in row_vals)},
+        ('owner_inbound', 'masked', 'quota_fixture', null);
+    """)
+    shown = psql(db, sql_text="""
+      select pg_get_constraintdef(oid) from pg_constraint
+       where conname = 'leads_quota_source_check' and conrelid = 'public.leads'::regclass
+    """)
+    if shown != f"CHECK ((quota_source = ANY ('{prod_def}'::text[])))":
+        fail(f"האילוץ בבדיקה אינו בצורת הפרודקשן: {shown}")
+
+    def quota_check_values() -> str:
+        return psql(db, sql_text=r"""
+          select coalesce(string_agg(v, ',' order by v), '')
+            from (
+              select m[1] as v
+                from pg_constraint c
+                cross join lateral regexp_matches(
+                  pg_get_constraintdef(c.oid), '''([a-z_0-9]+)''', 'g') as m
+               where c.conname = 'leads_quota_source_check'
+                 and c.conrelid = 'public.leads'::regclass
+              union
+              select trim(x)
+                from pg_constraint c
+                cross join lateral regexp_split_to_table(
+                  coalesce((regexp_match(pg_get_constraintdef(c.oid), '''\{([^}'']*)\}'''))[1], ''),
+                  ',') as x
+               where c.conname = 'leads_quota_source_check'
+                 and c.conrelid = 'public.leads'::regclass
+                 and trim(x) <> ''
+            ) s
+        """)
+
+    expected = ",".join(sorted((*text_only, *row_vals, "madlan_free")))
     psql(db, MADLAN)
+    if quota_check_values() != expected:
+        fail(f"אחרי המיגרציה האילוץ איבד ערך: {quota_check_values()}")
+    kept_rows = psql(db, sql_text="""
+      select (count(*) filter (where quota_source is null))::text
+             || '|' ||
+             (count(*) filter (where quota_source is not null))::text
+        from public.leads where source = 'quota_fixture'
+    """)
+    if kept_rows != f"1|{len(row_vals)}":
+        fail(f"שורות quota_source קיימות נפגעו: {kept_rows}")
+    # בלי שורות לערך: רק האיחוד עם מה שכבר בטבלה שומר אותו.
+    psql(db, sql_text="""
+      alter table public.leads drop constraint leads_quota_source_check;
+      alter table public.leads add constraint leads_quota_source_check
+        check ((quota_source = any ('{paid_10}'::text[]))) not valid;
+    """)
     psql(db, MADLAN)
+    after_union = set(quota_check_values().split(","))
+    if not {*row_vals, "paid_10", "madlan_free"} <= after_union:
+        fail(f"איחוד הערכים מהטבלה נשמט: {sorted(after_union)}")
+    # הצורה השנייה: ARRAY['a'::text, ...]. free_quota מופיע רק בה, לא בשורה.
+    psql(db, sql_text="""
+      alter table public.leads drop constraint leads_quota_source_check;
+      alter table public.leads add constraint leads_quota_source_check
+        check (quota_source = any (array[
+          'subscription_unlimited'::text, 'premium_free'::text,
+          'paid_50'::text, 'launch_free'::text, 'free_quota'::text
+        ]));
+    """)
+    shown_array = psql(db, sql_text="""
+      select pg_get_constraintdef(oid) from pg_constraint
+       where conname = 'leads_quota_source_check' and conrelid = 'public.leads'::regclass
+    """)
+    if "ARRAY[" not in shown_array:
+        fail(f"האילוץ לא נשמר כ-ARRAY: {shown_array}")
+    psql(db, MADLAN)
+    after_array = set(quota_check_values().split(","))
+    if not {*row_vals, "free_quota", "madlan_free"} <= after_array:
+        fail(f"פענוח ARRAY איבד ערך: {sorted(after_array)}")
     psql(db, sql_text="""
       update public.scraped_leads
          set raw_phone = null
