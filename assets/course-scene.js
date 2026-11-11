@@ -249,7 +249,7 @@
     }
     host.innerHTML =
       '<div class="cs"><div class="cs-stage" role="group" aria-label="' + esc('סצנה: ' + (opt.title || '')) + '">' +
-      '<div class="cs-cam"><div class="cs-bg" data-bg="street">' + BG.street + '</div><div class="cs-bg off" data-bg="room">' + BG.room + '</div><div class="cs-bg off" data-bg="office">' + BG.office + '</div><div class="cs-cast"></div></div>' +
+      '<div class="cs-cam"><div class="cs-cast"></div></div>' +
       '<span class="cs-chip hide"></span><div class="cs-cut"><div></div></div>' +
       '<div class="cs-ov" data-ov="doc"></div><div class="cs-ov" data-ov="phone"></div><div class="cs-ov" data-ov="court"></div>' +
       '<div class="cs-badge"></div>' +
@@ -314,6 +314,15 @@
     }
 
     function narrow() { return stage.clientWidth < 520; }
+    // רקע נבנה רק כשסצנה משתמשת בו, ישר מ-BG: רקע חדש הוא שורה אחת שם
+    function showBg(name) {
+      if (!BG[name]) return;
+      if (!root.querySelector('.cs-bg[data-bg="' + name + '"]')) {
+        var el = document.createElement('div'); el.className = 'cs-bg off'; el.setAttribute('data-bg', name); el.innerHTML = BG[name];
+        cam.insertBefore(el, castEl); void el.offsetWidth;
+      }
+      Array.prototype.forEach.call(root.querySelectorAll('.cs-bg'), function (el) { el.classList.toggle('off', el.getAttribute('data-bg') !== name); });
+    }
     function spawn(who, left, flip) {
       var el = document.createElement('div'); el.className = 'cs-ch' + (flip ? ' flip' : ''); el.style.left = left + '%';
       el.innerHTML = charSvg(LOOK[who] || LOOK.noa); castEl.appendChild(el); actors[who] = el;
@@ -382,7 +391,7 @@
       if (b.phone === null) ov('phone', null);
       if (b.music !== undefined) { if (b.music) musicStart(b.music); else musicStop(); }
       if (b.scene) {
-        Array.prototype.forEach.call(root.querySelectorAll('.cs-bg'), function (el) { el.classList.toggle('off', el.getAttribute('data-bg') !== b.scene); });
+        showBg(b.scene);
         castEl.innerHTML = ''; actors = {}; hush(); zoom(1);
         (b.cast || []).forEach(function (c) { spawn(c[0], c[1], c[2] === 'flip'); });
       }

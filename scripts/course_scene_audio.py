@@ -20,8 +20,10 @@ import os
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 import time
 import urllib.error
+from email.utils import parsedate_to_datetime
 import urllib.request
 from xml.sax.saxutils import escape
 
@@ -30,6 +32,20 @@ import course_scene_voices as voices  # noqa: E402
 import course_content_sql as content  # noqa: E402
 
 ROOT = content.ROOT
+
+
+def retry_after(value):
+    """Retry-After הוא מספר שניות או תאריך HTTP; כל דבר אחר - 0, והקורא בוחר המתנה בעצמו."""
+    if not value:
+        return 0
+    try:
+        return max(0, int(value))
+    except ValueError:
+        pass
+    try:
+        return max(0, int((parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()))
+    except (TypeError, ValueError):
+        return 0
 
 
 def tts(text, who, out):
@@ -46,17 +62,23 @@ def tts(text, who, out):
     with tempfile.TemporaryDirectory() as d:
         raw = os.path.join(d, 'raw.mp3')
         # למפתח יש מכסה לדקה (429). מחכים כמה שהשרת מבקש, וגם מעט בין בקשה לבקשה
+        # ותקלת רשת חולפת (timeout, ניתוק) לא מפילה הרצה של עשרות משפטים
         for attempt in range(8):
             try:
                 with urllib.request.urlopen(req, timeout=60) as r, open(raw, 'wb') as f:
                     f.write(r.read())
                 break
             except urllib.error.HTTPError as e:
-                if e.code != 429 or attempt == 7:
+                if e.code not in (429, 500, 502, 503) or attempt == 7:
                     raise
-                wait = int(e.headers.get('Retry-After') or 0) or 10 * (attempt + 1)
-                print('  429 מ-Azure, מחכים %d שניות' % wait)
+                wait = retry_after(e.headers.get('Retry-After')) or 10 * (attempt + 1)
+                print('  %d מ-Azure, מחכים %d שניות' % (e.code, wait))
                 time.sleep(wait)
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                if attempt == 7:
+                    raise
+                print('  תקלת רשת (%s), מנסים שוב' % e)
+                time.sleep(5 * (attempt + 1))
         # שקט בקצוות היה משאיר את הבועה פתוחה על כלום
         trim = ('silenceremove=start_periods=1:start_threshold=-45dB,areverse,'
                 'silenceremove=start_periods=1:start_threshold=-45dB,areverse')
@@ -84,9 +106,10 @@ def main():
         print('%d משפטים בלי קובץ.' % len(todo))
         return 1
     os.makedirs(os.path.join(ROOT, voices.AUDIO_DIR), exist_ok=True)
-    for who, text, path in todo.values():
+    for n, (who, text, path) in enumerate(todo.values()):
+        if n:
+            time.sleep(1.5)  # המכסה של המפתח לדקה
         tts(text, who, path)
-        time.sleep(1.5)
         print('נכתב %s  (%s) %s' % (os.path.relpath(path, ROOT), who, text[:50]))
     print('✓ %d קבצים חדשים.' % len(todo))
     return 0
