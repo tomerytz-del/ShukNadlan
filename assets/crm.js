@@ -2369,7 +2369,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   function propertiesP(){ return start('properties', () => loadProperties(agent.id)); }
   function shareP(){ return start('share', () => loadSharePartners(agent)); }
   function propsP(){ return start('props', () => Promise.all([shareP(), propertiesP()])); }
-  leadsPropsReady = propsP;   // הפונקציה עצמה, לא קריאה: ב-?goto= הנכסים לא יוצאים לפני שהמסך שנפתח צריך אותם
+  leadsPropsReady = propertiesP;   // הפונקציה עצמה, לא קריאה. הנכסים בלבד: כרטיס הליד לא קורא את נתוני השת״פ, ולכן הציור לא ממתין להם
   function pricingP(){
     return start('pricing', () => loadPricing().then(() => {
       // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
@@ -21154,7 +21154,7 @@ async function loadLeadAgentPhones(){
 
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
-/* propsP של loadDashboard (נכסי הסוכן/ת). שאילתת הלידים יוצאת במקביל לנכסים, והציור ממתין להם:
+/* propertiesP של loadDashboard (נכסי הסוכן/ת). שאילתת הלידים יוצאת במקביל לנכסים, והציור ממתין להם:
    כרטיס הליד מציג את הנכס מתוך myPropertyRows (leadPropertyContext). עד 11.11.2026 גם השאילתה
    חיכתה, ולכן הלידים יצאו שני סבבים אחרי הנכסים. null מחוץ לכניסה: אז הנכסים כבר ביד. */
 let leadsPropsReady = null;
