@@ -55,7 +55,7 @@ const checkoutUrl = (tier: Tier) => `${SITE_BASE_URL}/checkout?product=subscript
 // ‏Elite: מחיר המחירון. במשרד עם כמה סוכנים ב-Elite יש הנחה לסוכנים נוספים (אחוזים ב-pricing.html, לא כאן:
 // מספרים כפולים בנוסח מייל הם מה שנשכח כשמשנים אחוז).
 const priceLine = (tier: Tier) =>
-  `${TIER_NAMES[tier]} ₪${TIER_PRICES[tier]} לחודש + מע״מ` + (tier === "premium" ? " (למשרדים: הנחה לסוכנים נוספים ב-Elite)" : "");
+  `${TIER_NAMES[tier]} ₪${TIER_PRICES[tier]} לחודש + מע״מ` + (tier === "premium" ? " (במשרד עם 3 סוכנים ומעלה ב-Elite יש הנחה לכל סוכן נוסף)" : "");
 
 function corsHeaders() {
   return {
