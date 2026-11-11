@@ -16730,6 +16730,16 @@ function buildPropertyCard(p, agentId){
     onClick:()=> openSignChooser(p),
   });
 
+  // דוח שבועי לבעל הנכס - היועץ/ת מפיק/ה ושולח/ת בעצמו/ה (assets/crm-owner-report.js).
+  // owner_report_create בודקת במסד שוב: הסוכן/ת של הנכס או מנהל/ת המשרד.
+  if (p.agent_id === agentId || canReferRow('property', p)){
+    addQuickAction(actions, {
+      label:'דוח לבעלים', icon:'chart',
+      title:'דוח שבועי לבעל הנכס: מבקרים, צפיות ופניות ב-7 הימים האחרונים, בקישור שאתם שולחים בוואטסאפ או במייל',
+      onClick:()=> openOwnerReport(p),
+    });
+  }
+
   if (p.status === 'active'){
     /* שת"פ ויריד הבתים הפתוחים היו שני כפתורים רחבים בשורה משלהם מתחת
        לרשת. שתי שורות שלמות לשתי פעולות, בזמן שהרשת שמעליהן נגמרה
