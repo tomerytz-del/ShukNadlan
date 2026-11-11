@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
-import { fetchPromoUsage, recommendTier, usageLines, type PromoUsage } from "../_shared/promo-usage.ts";
+import { fetchPromoUsage, usageLines, type PromoUsage } from "../_shared/promo-usage.ts";
 import { PROMO_NOTICE_DAYS, PROMO_WHATSAPP_DAYS, TIER_NAMES, TIER_PRICES, type Tier } from "../_shared/launch-promo.ts";
 
 // ============================================================================
@@ -115,21 +115,15 @@ function prePaidOf(m: { paid_tier: string | null; paid_tier_until: string | null
   return { tier: m.paid_tier, until: m.paid_tier_until };
 }
 
-/** בלוק "מה קיבלת בתקופה הזו", או null אם אין מה להראות. ‏html + טקסט + המלצה. */
+/** בלוק "מה קרה אצלך בתקופה הזו", או null אם אין מה להראות. ‏html + טקסט. בלי המלצת מסלול. */
 function usageBlock(u: PromoUsage | null) {
   if (!u) return null;
   const lines = usageLines(u);
   if (!lines.length) return null;
-  const rec = recommendTier(u);
-  const recHtml = rec
-    ? p(`<b>ההמלצה שלנו:</b> ${esc(rec.reason)} <a href="${esc(checkoutUrl(rec.tier))}" style="color:#0e2a6b">להמשיך ב-${esc(TIER_NAMES[rec.tier])}</a>`)
-    : "";
   const html =
     p("<b>מה קרה אצלך בתקופה הזו:</b>") +
-    `<ul style="margin:0 0 14px;padding:0 20px 0 0;font-size:15px;line-height:1.7;color:#3D4A5C">${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +
-    recHtml;
-  const text = ["מה קרה אצלך בתקופה הזו:", ...lines.map((l) => `- ${l}`),
-    ...(rec ? ["", `ההמלצה שלנו: ${rec.reason} ${checkoutUrl(rec.tier)}`] : [])].join("\n");
+    `<ul style="margin:0 0 14px;padding:0 20px 0 0;font-size:15px;line-height:1.7;color:#3D4A5C">${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`;
+  const text = ["מה קרה אצלך בתקופה הזו:", ...lines.map((l) => `- ${l}`)].join("\n");
   return { html, text };
 }
 

@@ -141,6 +141,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="checkbox" id="autoRenew" checked style="margin-top:3px;width:16px;height:16px;flex:none">
             <span>חידוש חודשי אוטומטי מהכרטיס. אפשר לבטל בכל עת באיזור הסוכנים, והמסלול נשאר עד סוף החודש ששולם.</span>
           </label>
+          <!-- הנחת משרד ב-Elite (20271111160000): מוצגת רק כשהמסד אומר שהיא חלה על הסוכן/ת הזה/זו.
+               הסכום עצמו מגיע מ-subscription_quote, אותה פונקציה שגובה. -->
+          <p id="subDiscount" style="display:none;margin:10px 0 0;color:var(--green,#1c8546);font-weight:600;line-height:1.5"></p>
         </div>
       </div>
       <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-weight:700">
@@ -429,6 +432,25 @@ function paintTotal(){
       ? ' לחודש (₪' + credit.toLocaleString('he-IL') + ' + מע״מ ₪' + vat.toLocaleString('he-IL') + ')'
       : ' (₪' + credit.toLocaleString('he-IL') + ' לארנק + מע״מ ₪' + vat.toLocaleString('he-IL') + ')');
 }
+/* ‏מחיר המנוי של הסוכן/ת המחובר/ת, כולל הנחת משרד ב-Elite. הרשימה ב-SUB_TIERS היא מחיר
+   המחירון, וזה מה שמוצג עד שהתשובה חוזרת (או אם נכשלה); מה שנגבה נקבע בשרת
+   (start_subscription_order) מאותה פונקציה בדיוק, כך שהתצוגה והחיוב אינם יכולים להיפרד. */
+async function loadSubQuote(){
+  try{
+    const { data, error } = await sb.rpc('subscription_quote', { p_tier: subTier });
+    if (error || !data || data.error || !(Number(data.monthly) > 0)) return;
+    SUB_TIERS[subTier].price = Number(data.monthly);
+    paintTotal();
+    const pct = Number(data.discount_pct) || 0;
+    if (pct > 0){
+      const note = document.getElementById('subDiscount');
+      note.textContent = 'הנחת משרד: ' + pct + '% על המנוי החודשי (מחיר מלא ₪' +
+        Number(data.list_monthly).toLocaleString('he-IL') + '), כי יש במשרד ' +
+        data.paying_elite + ' סוכנים ב-Elite.';
+      note.style.display = '';
+    }
+  }catch(_){ /* נשארים על מחיר המחירון; השרת גובה את הסכום הנכון */ }
+}
 amountEl.addEventListener('change', paintTotal);
 if (isWallet || isSub) paintTotal();
 
@@ -485,6 +507,7 @@ let countryRestored = false;
     const { data: { session } } = await sb.auth.getSession();
     if (!session){ document.getElementById('guestNotice').style.display = ''; return; }
     signedIn = true;
+    if (isSub) loadSubQuote();
     setIfEmpty(emailEl, session.user.email || '');
     const { data: agent } = await sb.from('agency_members')
       .select('id, display_name, phone, is_platform_admin').eq('user_id', session.user.id).maybeSingle();

@@ -67,3 +67,26 @@
 המיגרציה נבדקה על Postgres מקומי עם טבלאות stub: ליד בתשלום, ליד במכסה (המונה יורד),
 חלון שנסגר, סוכן אחר, ליד במנוי, ליד מהחנות, דיווח כפול, מעבר לתקרה, אישור ודחייה
 של מנהל/ת, ומשתמש שאינו מנהל/ת.
+
+## בדיקה על הדיווח הראשון בפרודקשן
+
+הבדיקה על Postgres מקומי אינה מחליפה את הדיווח הראשון האמיתי. כשהוא קורה (שורה ראשונה ב-`lead_invalid_reports`),
+בודקים בקריאה בלבד שכל החלקים מסכימים:
+
+```sql
+select r.id, r.status, r.reason, r.refund_amount, r.quota_returned, r.auto,
+       (select c.status from public.lead_charges c
+         where c.lead_id = r.lead_id and c.agent_id = r.agent_id
+         order by c.created_at desc limit 1)                          as charge_status,
+       exists (select 1 from public.lead_archives a where a.lead_id = r.lead_id) as archived,
+       exists (select 1 from public.notifications n
+                where n.related_lead_id = r.lead_id and n.agent_id = r.agent_id)  as agent_notified,
+       (select m.credit_balance from public.agency_members m where m.id = r.agent_id) as balance_now
+  from public.lead_invalid_reports r
+ order by r.created_at limit 5;
+```
+
+**`refunded` תקין** כש-`charge_status = 'refunded'` (כשהוחזר סכום), `archived` ו-`agent_notified` אמת, ו-
+`refund_amount` שווה לסכום שנגבה ב-`lead_charges`. **`pending_review` תקין** כש-`archived` שקר ויש התראה
+למנהל/ת הפלטפורמה. אי-התאמה בין אלה היא באג בפרודקשן ולא רעש.
+
