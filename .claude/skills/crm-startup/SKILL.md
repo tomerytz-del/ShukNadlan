@@ -184,3 +184,14 @@ node "$REPO/.claude/skills/crm-startup/dashboard_load.mjs" "$REPO" agent
 * **טעינות של קטגוריות שאינן במסך הראשון** (הסכמים, שותפו איתי, העדפות) עדיין
   רצות בכניסה. עכשיו הן במקביל ולכן כמעט אינן עולות זמן; טעינה עצלה הייתה
   משנה את המונים בניווט שנשענים עליהן.
+
+## קובץ חדש ב-CRM: שם ברמה העליונה שכבר קיים הוא CRM מת
+
+כל סקריפט classic ב-CRM חולק היקף אחד ל-`let`/`const`/`class`. קובץ שמצהיר על שם
+שקיים ב-`crm.js` נופל ב-SyntaxError, ו-**`crm.js` כולו אינו רץ**: מסך כניסה
+ריק, בלי שורה בלוג השרת. ב-11.11.2026 `leadReportBusy` ב-`crm-lead-reports.js`
+התנגש עם אותו שם ב-`crm.js` (פאנל דוח הלידים של מנהל/ת הפלטפורמה), ובדיקות
+`crm_goto_load_test`/`crm_lazy_test` עברו ירוק כי הן אינן טוענות את שני הקבצים יחד.
+`scripts/check_crm_globals.py` חוסם את זה ב-CI; **ובדיקה בדפדפן של קובץ חדש
+טוענת אותו יחד עם `crm.js`** (`dashboard_load.mjs` נכשל עם `loadDashboard is not
+defined` ו-`pageErrors`), לא לבד.

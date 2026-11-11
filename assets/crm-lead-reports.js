@@ -97,7 +97,7 @@ function leadReportMount(container, lead, agentId){
 }
 
 let leadReportModal = null;
-let leadReportBusy = false;
+let leadReportSending = false;
 
 function leadReportEnsureModal(){
   if (leadReportModal) return leadReportModal;
@@ -130,7 +130,7 @@ function leadReportEnsureModal(){
       </div>
     </div>`;
   document.body.appendChild(el);
-  const close = () => { if (!leadReportBusy) el.style.display = 'none'; };
+  const close = () => { if (!leadReportSending) el.style.display = 'none'; };
   el.querySelector('#lrCancel').addEventListener('click', close);
   el.addEventListener('click', e => { if (e.target === el) close(); });
   el.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
@@ -153,15 +153,15 @@ function openLeadReport(lead, agentId){
   fresh.disabled = false;
   fresh.textContent = 'שליחת הדיווח';
   fresh.addEventListener('click', async () => {
-    if (leadReportBusy) return;
-    leadReportBusy = true;
+    if (leadReportSending) return;
+    leadReportSending = true;
     fresh.disabled = true;
     fresh.textContent = 'שולח…';
     const reason = el.querySelector('input[name=lrReason]:checked').value;
     const details = el.querySelector('#lrDetails').value.trim();
     const { data, error } = await sb.rpc('report_invalid_lead',
       { p_lead: lead.id, p_reason: reason, p_details: details || null });
-    leadReportBusy = false;
+    leadReportSending = false;
     fresh.disabled = false;
     fresh.textContent = 'שליחת הדיווח';
     if (error || !data || data.error){
