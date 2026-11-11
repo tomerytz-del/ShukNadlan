@@ -353,6 +353,35 @@
     return MEDIA_FILE.test(u.pathname) ? u.href : null;
   }
 
+  /* רילס של המערכת (תבנית D, ‏docs/property-marketing-video.md): קובץ
+     ‎marketing-reel-…mp4‎, תמיד 9:16. ההגדרה אחת ומשותפת: לפי זה האריח מציג
+     אותו שלם (‏pc-portrait) ורצועת הרילס במדף יודעת מי נכנס אליה. סרטון
+     אנכי שהסוכן/ת צילם/ה בטלפון אינו רילס - אין בו טקסט שנחתך ואין לו
+     תבנית, והוא נשאר באריח הרגיל. */
+  /* תמונה מוקטנת מהאחסון של Supabase (‏render/image) לממדים ידועים, ב-
+     ‏resize=cover: לתמונה שמוצגת ממילא ב-object-fit:cover (אריח). ‏width
+     לבדו חותך רצועה מהמרכז (ברירת המחדל של Supabase היא cover) - מי שצריך
+     את התמונה שלמה מבקש contain, כמו ‎sized()‎ ב-assets/swipe.js. כתובת
+     שאינה מהאחסון שלנו חוזרת כמו שהיא. עותקים דומים: ‏cardImgUrl ב-home.js,
+     ‏sized ב-swipe.js וב-no-photo.js - מי שמשנה את ההמרה משנה בכולם. */
+  function imageUrl(url, w, h) {
+    var s = String(url || '');
+    var marker = '/storage/v1/object/public/';
+    var at = s.indexOf(marker);
+    if (at < 0) return s;
+    var path = s.slice(at + marker.length).split(/[?#]/)[0];
+    if (!path) return s;
+    return s.slice(0, at) + '/storage/v1/render/image/public/' + path +
+      '?width=' + w + (h ? '&height=' + h + '&resize=cover' : '&resize=contain') + '&quality=70';
+  }
+
+  var REEL_FILE = /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i;
+  function reelUrl(p) {
+    var src = playableVideo(p);
+    return src && REEL_FILE.test(src) ? src : null;
+  }
+  function isReel(p) { return !!reelUrl(p); }
+
   function motionAllowed() {
     if (typeof window === 'undefined') return false;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
@@ -379,7 +408,7 @@
     // גוזר ממנו את המחיר שלמעלה ואת פס הסוכן/ת שלמטה, כלומר בדיוק את מה
     // שהרילס בנוי סביבו. סרטון אנכי שהסוכן/ת צילם/ה בטלפון נשאר ב-cover
     // וממלא את האריח כמו קודם - אין בו טקסט שנחתך.
-    var portrait = /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i.test(src) ? ' pc-portrait' : '';
+    var portrait = REEL_FILE.test(src) ? ' pc-portrait' : '';
     return '<video class="pc-cover-video' + portrait + '" muted loop playsinline preload="none" ' +
       'aria-hidden="true" tabindex="-1" data-pc-video="' + escapeHtml(src) + '"></video>';
   }
@@ -723,6 +752,15 @@
     distinctTitle: distinctTitle,
     coverVideoHtml: coverVideoHtml,
     hydrateVideos: hydrateVideos,
+    /* רצועת הרילס במדף (‏assets/prop-shelf.js) מנגנת דרך אותן שתי פונקציות
+       של האריח, ולכן היא חולקת איתו את התקרה: סרטון אחד בכל הדף, ומי
+       שמתחיל מכבה את הקודם. */
+    isReel: isReel,
+    reelUrl: reelUrl,
+    imageUrl: imageUrl,
+    motionAllowed: motionAllowed,
+    playVideo: startVideo,
+    stopVideo: stopVideo,
     mediaRank: mediaRank,
     sortByMedia: sortByMedia,
     photosFirst: photosFirst,
