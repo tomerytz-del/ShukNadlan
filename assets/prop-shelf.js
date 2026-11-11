@@ -437,8 +437,8 @@
        לרוחב: הסרטון נכנס אליה שלם (‏pc-portrait) עם פס שחור מכל צד, וזה
        מה שהגולש/ת ראה/תה ראשון. כשיש במלאי ולו רילס אחד, האריח הזה מתחלף
        ברצועה של אריחים אנכיים - שניים וחצי במסך, השלישי חצוי - שגוללת
-       על כל הרילסים של המדף (בסדר של המדף, אחרי התגיות והמיון). כל אריח
-       הוא קישור לדף הנכס, כמו כל אריח אחר.
+       על כל הרילסים של המדף (אחרי התגיות, בסדר אקראי שמתחלף בכל טעינת
+       דף - ראו reelOrder). כל אריח הוא קישור לדף הנכס, כמו כל אריח אחר.
 
        מנגן רילס אחד: זה שבתחילת הרצועה מבין אלה שנראים בה בשלמותם,
        ורק כשהרצועה עצמה על המסך. ‏src נכתב רק אז ונמחק כשהוא יוצא
@@ -504,6 +504,24 @@
        ורצועה שנבנית מחדש מוחקת את ה-src של הרילס שמנגן ומורידה אותו שוב
        מאפס. רצועה עם אותו מפתח נשארת כמו שהיא ורק חוזרת לגריד. */
     function reelsKey(reels) { return reels.map(function (p) { return p.id; }).join('|'); }
+
+    /* הסדר ברצועה אקראי, ומתחלף בכל טעינת דף (תומר, 11.11.2026): בסדר
+       של המדף אותו רילס - החדש ביותר - היה פותח את הרצועה לכל מבקר/ת, בכל
+       ביקור, והשאר לא נראו. הגרלה אחת לכל נכס לכל טעינה (‏reelRank), ולא
+       בכל ציור: תגית או מיון שמציירים את הגריד מחדש משאירים את הסדר כמו
+       שהוא, אחרת הרצועה הייתה מתערבבת מול העיניים ונבנית מחדש (‏reelsKey)
+       באמצע ניגון. מקודמים נשארים ראשונים - כמו בשאר המדף - ומוגרלים בינם
+       לבין עצמם. */
+    var reelRank = new Map();
+    function reelOrder(list) {
+      return list.slice().sort(function (a, b) {
+        var pa = isPromoted(a) ? 1 : 0, pb = isPromoted(b) ? 1 : 0;
+        if (pa !== pb) return pb - pa;
+        if (!reelRank.has(a.id)) reelRank.set(a.id, Math.random());
+        if (!reelRank.has(b.id)) reelRank.set(b.id, Math.random());
+        return reelRank.get(a.id) - reelRank.get(b.id);
+      });
+    }
 
     function reelsStrip(reels) {
       var strip = document.createElement('div');
@@ -828,7 +846,7 @@
          שני נכסים שבדיוק מוצגים ברצועה מעליהן. הם נספרים במונה ובמפה כרגיל -
          רק התצוגה שלהם כאן היא הרצועה, ולכן גם "עוד" סופר/ת את מה שנשאר
          בלעדיהם. בלי רילס - כמו קודם. */
-      var reels = (compact && cfg.reels && items.length) ? items.filter(PropertyCard.isReel) : [];
+      var reels = (compact && cfg.reels && items.length) ? reelOrder(items.filter(PropertyCard.isReel)) : [];
       var pool = items;
       if (reels.length) {
         var reelIds = new Set(reels.map(function (p) { return p.id; }));
