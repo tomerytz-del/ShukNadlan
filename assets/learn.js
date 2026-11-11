@@ -909,10 +909,11 @@
     return sceneLib;
   }
   function mountScene(S, st, q, advance) {
-    var idx = S.idx;
+    // אסימון לכל ציור: יציאה וחזרה לאותו קלף לפני שהנגן נטען היו יוצרות שני נגנים על אותה במה
+    var token = S.sceneMount = (S.sceneMount || 0) + 1;
     loadSceneLib().then(function (ok) {
       var host = $('sceneHost');
-      if (state.steps !== S || S.idx !== idx || !host) return;
+      if (state.steps !== S || S.sceneMount !== token || !host) return;
       if (!ok) { scenePanel(S, st, q, advance); return; }
       state.sceneCtl = window.CourseScene.create(host, {
         title: st.title, subtitle: st.subtitle, beats: st.beats || [], freeze: st.freeze, freeze_a: st.freeze_a,
@@ -930,7 +931,7 @@
     el.innerHTML = '<span class="pill gold">המנטור עצר את הסרט</span><h2>' + escapeHtml(q.question) + '</h2>' +
       '<div class="opts" role="radiogroup" aria-label="חלופות">' + optionsHtml(q, ans, false) + '</div>' +
       (ans ? feedbackHtml(ans, false) : '') +
-      (ans && ans.scene ? '<div class="scene-acts"><button type="button" class="btn-s" id="sceneEnd">' +
+      (ans && ans.scene && state.sceneCtl ? '<div class="scene-acts"><button type="button" class="btn-s" id="sceneEnd">' +
         (ans.ok ? 'לראות איך זה נגמר' : 'לראות מה היה קורה') + '</button>' +
         (ans.ok ? '' : '<button type="button" class="btn-s" id="sceneRight">⏪ להחזיר את הסרט ולראות את הסוף הנכון</button>') + '</div>' : '');
     if (!ans) {
@@ -962,33 +963,29 @@
   }
   async function sceneAnswer(S, st, q, advance, choice) {
     if (!S || S.answers[q.id]) return;
-    qa('#scenePanel .opt').forEach(function (b) { b.disabled = true; });
-    var r = await rpc('course_answer', { p_attempt_id: S.attempt, p_question_id: q.id, p_choice: choice });
-    if (r.error || !r.data || r.data.error) {
-      toast(errText(r.error || { message: r.data && r.data.error }));
-      qa('#scenePanel .opt').forEach(function (b) { b.disabled = false; });
-      return;
-    }
-    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref, scene: r.data.scene || null };
-    if (state.steps !== S) return;
+    if (!(await recordAnswer(S, q, choice, '#scenePanel .opt')) || state.steps !== S) return;
     scenePanel(S, st, q, advance);
     // הסוף של הבחירה מתנגן מעצמו; מי שטעה רואה קודם מה היה קורה
     var ans = S.answers[q.id];
     if (ans.scene && state.sceneCtl) watchEnding(state.sceneCtl.playEnding(ans.scene[ans.ok ? 'right' : 'wrong']));
   }
 
-  async function answerStep(q, choice) {
-    var S = state.steps;
-    if (!S || S.answers[q.id]) return;
-    qa('.opt').forEach(function (b) { b.disabled = true; });
+  // רישום תשובה אחד לבדיקה ולסצנה: הקריאה, השגיאה, והאובייקט שנשמר
+  async function recordAnswer(S, q, choice, sel) {
+    qa(sel).forEach(function (b) { b.disabled = true; });
     var r = await rpc('course_answer', { p_attempt_id: S.attempt, p_question_id: q.id, p_choice: choice });
     if (r.error || !r.data || r.data.error) {
       toast(errText(r.error || { message: r.data && r.data.error }));
-      qa('.opt').forEach(function (b) { b.disabled = false; });
-      return;
+      qa(sel).forEach(function (b) { b.disabled = false; });
+      return null;
     }
-    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref };
-    renderStep();
+    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref, scene: r.data.scene || null };
+    return S.answers[q.id];
+  }
+  async function answerStep(q, choice) {
+    var S = state.steps;
+    if (!S || S.answers[q.id]) return;
+    if (await recordAnswer(S, q, choice, '.opt')) renderStep();
   }
   async function finishSteps() {
     var S = state.steps;

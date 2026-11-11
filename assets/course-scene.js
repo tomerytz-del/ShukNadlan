@@ -214,7 +214,8 @@
   function preload(names) {
     if (!AC) return Promise.resolve();
     var all = names.map(function (n) { return fetchBuf(BASE + n + '.mp3'); });
-    if (!musicP) musicP = fetchBuf(BASE + 'music.mp3').then(function (b) { musicBuf = b; });
+    // כישלון אחד לא משתיק את שאר הביקור: הבטחה שנכשלה מתאפסת וננסה בפעם הבאה
+    if (!musicP) musicP = fetchBuf(BASE + 'music.mp3').then(function (b) { musicBuf = b; if (!b) musicP = null; });
     all.push(musicP);
     return Promise.race([Promise.all(all), new Promise(function (r) { setTimeout(r, 6000); })]);
   }
@@ -242,7 +243,7 @@
       var st = document.createElement('style'); st.id = 'cs-style'; st.textContent = CSS; document.head.appendChild(st);
     }
     host.innerHTML =
-      '<div class="cs"><div class="cs-stage" role="img" aria-label="' + esc('סצנה: ' + (opt.title || '')) + '">' +
+      '<div class="cs"><div class="cs-stage" role="group" aria-label="' + esc('סצנה: ' + (opt.title || '')) + '">' +
       '<div class="cs-cam"><div class="cs-bg" data-bg="street">' + BG.street + '</div><div class="cs-bg off" data-bg="room">' + BG.room + '</div><div class="cs-cast"></div></div>' +
       '<span class="cs-chip hide"></span><div class="cs-cut"><div></div></div>' +
       '<div class="cs-ov" data-ov="doc"></div><div class="cs-ov" data-ov="phone"></div><div class="cs-ov" data-ov="court"></div>' +
@@ -450,8 +451,10 @@
     }
 
     function freeze() {
+      // "עצירת קלטת" רק כשהמוזיקה באמת התנגנה, לא אחרי דילוג
+      var skipped = ff;
       phase = 'frozen'; ff = false; paused = false; setPlayIcon(false); skipBtn.hidden = true;
-      musicStop(!ff); hush();
+      musicStop(!skipped); hush();
       stage.classList.add('frozen');
       setTimeout(function () { sfx('thud'); }, 380); setTimeout(function () { sfx('stamp'); }, 520);
       var my = run; setTimeout(function () { if (my === run && !dead) speak(opt.freeze_a); }, 1250);
@@ -494,7 +497,8 @@
         if (dead || !beats || !beats.length) return Promise.resolve();
         audio(); run++; ff = false; paused = false; phase = 'playing'; skipBtn.hidden = true; setPlayIcon(true);
         var my = run;
-        shush(); unfreeze();
+        // חזרה לסצנה שכבר נענתה מציגה את הפוסטר; הסוף מתנגן על הבמה, לא מתחתיו
+        shush(); unfreeze(); poster.classList.add('hide');
         return preload(audioNames(beats)).then(function () {
           if (my !== run || dead) return;
           return runBeats(beats).then(function () { phase = 'done'; setPlayIcon(false); musicStop(); });

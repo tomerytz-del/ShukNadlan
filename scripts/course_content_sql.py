@@ -192,8 +192,12 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
                     if not isinstance(sc, dict) or not sc.get('right') or not sc.get('wrong'):
                         problems.append(where + ': לשאלה של הסצנה חסר scene עם right ו-wrong (שני הסופים)')
                     else:
-                        problems.extend(where + ' / סוף נכון: ' + m for m in scene_problems(sc.get('right'), require=True))
-                        problems.extend(where + ' / סוף שגוי: ' + m for m in scene_problems(sc.get('wrong'), require=True))
+                        for name, end in (('סוף נכון', sc.get('right')), ('סוף שגוי', sc.get('wrong'))):
+                            problems.extend('%s / %s: %s' % (where, name, m) for m in scene_problems(end, require=True))
+                            # סוף יכול להתנגן על במה שנבנתה מחדש (חזרה לסצנה שכבר נענתה, או אחרי
+                            # "החזרת הסרט"), ולכן הוא פותח בבמה ובשחקנים משלו
+                            if isinstance(end, list) and end and not (isinstance(end[0], dict) and end[0].get('scene')):
+                                problems.append('%s / %s: ה-beat הראשון חייב לקבוע scene ו-cast' % (where, name))
                 elif t == 'check':
                     if st.get('question') in retired:
                         problems.append(where + ': check מצביע על שאלה שאינה מפורסמת (published: false): %s' % st.get('question'))
@@ -288,6 +292,9 @@ def scene_problems(beats, require=False):
             out.append('beat %d: say של דמות לא מוכרת: %s' % (i + 1, b['say']))
         if b.get('say') and not b.get('text'):
             out.append('beat %d: say בלי text' % (i + 1))
+        if b.get('say') and b.get('vo'):
+            # לשניהם יש קובץ קול באותו מפתח, והנגן עונה ל-say ולא מגיע ל-vo
+            out.append('beat %d: say ו-vo באותו beat. מפצלים לשני beats' % (i + 1))
         for who in [c[0] for c in (b.get('cast') or []) if isinstance(c, list) and c]:
             if who not in scene_voices.CHARACTERS:
                 out.append('beat %d: cast עם דמות לא מוכרת: %s' % (i + 1, who))
