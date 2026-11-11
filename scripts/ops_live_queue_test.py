@@ -111,7 +111,21 @@ ctx = _QCtx()
 list(database._queues(ctx))
 pub = ctx.db.sql.get("property_publications", "")
 check("תור הפרסום מחריג מודעה בלי תמונה", "not exists" in pub and "marketing_image is null" in pub, pub)
-others = [t for t, s in ctx.db.sql.items() if t != "property_publications" and "not exists" in s]
+alerts = ctx.db.sql.get("saved_search_alerts", "")
+check("תור ההתראות מחריג חיפוש שמיצה את התקרה היומית",
+      "not exists" in alerts and "saved_search_daily_cap" in alerts
+      and "t.status = 'sent'" in alerts and "interval '24 hours'" in alerts, alerts)
+# ‏ההגדרה של "נשלח היממה" חייבת להישאר זו של saved_search_pending_alerts,
+# אחרת ה-probe מחריג שורות שהעובד דווקא כן היה בוחר.
+_MIG = ROOT / "supabase" / "migrations"
+_pending_defs = [f for f in sorted(_MIG.glob("*.sql"))
+                 if "function public.saved_search_pending_alerts" in f.read_text(encoding="utf-8")]
+check("ההגדרה זהה ל-saved_search_pending_alerts",
+      bool(_pending_defs)
+      and "a.status = 'sent' and a.sent_at > now() - interval '24 hours'"
+      in _pending_defs[-1].read_text(encoding="utf-8"), [f.name for f in _pending_defs])
+others = [t for t, s in ctx.db.sql.items()
+          if t not in ("property_publications", "saved_search_alerts") and "not exists" in s]
 check("שאר התורים לא השתנו", not others, others)
 check("ההגדרה זהה ל-listings_no_image",
       "coalesce(array_length(p.images, 1), 0) = 0" in pub
