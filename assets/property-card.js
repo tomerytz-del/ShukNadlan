@@ -353,6 +353,18 @@
     return MEDIA_FILE.test(u.pathname) ? u.href : null;
   }
 
+  /* רילס של המערכת (תבנית D, ‏docs/property-marketing-video.md): קובץ
+     ‎marketing-reel-…mp4‎, תמיד 9:16. ההגדרה אחת ומשותפת: לפי זה האריח מציג
+     אותו שלם (‏pc-portrait) ורצועת הרילס במדף יודעת מי נכנס אליה. סרטון
+     אנכי שהסוכן/ת צילם/ה בטלפון אינו רילס - אין בו טקסט שנחתך ואין לו
+     תבנית, והוא נשאר באריח הרגיל. */
+  var REEL_FILE = /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i;
+  function reelUrl(p) {
+    var src = playableVideo(p);
+    return src && REEL_FILE.test(src) ? src : null;
+  }
+  function isReel(p) { return !!reelUrl(p); }
+
   function motionAllowed() {
     if (typeof window === 'undefined') return false;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
@@ -379,7 +391,7 @@
     // גוזר ממנו את המחיר שלמעלה ואת פס הסוכן/ת שלמטה, כלומר בדיוק את מה
     // שהרילס בנוי סביבו. סרטון אנכי שהסוכן/ת צילם/ה בטלפון נשאר ב-cover
     // וממלא את האריח כמו קודם - אין בו טקסט שנחתך.
-    var portrait = /\/marketing-reel-[^/?#]*\.mp4(?:[?#]|$)/i.test(src) ? ' pc-portrait' : '';
+    var portrait = REEL_FILE.test(src) ? ' pc-portrait' : '';
     return '<video class="pc-cover-video' + portrait + '" muted loop playsinline preload="none" ' +
       'aria-hidden="true" tabindex="-1" data-pc-video="' + escapeHtml(src) + '"></video>';
   }
@@ -723,6 +735,14 @@
     distinctTitle: distinctTitle,
     coverVideoHtml: coverVideoHtml,
     hydrateVideos: hydrateVideos,
+    /* רצועת הרילס במדף (‏assets/prop-shelf.js) מנגנת דרך אותן שתי פונקציות
+       של האריח, ולכן היא חולקת איתו את התקרה: סרטון אחד בכל הדף, ומי
+       שמתחיל מכבה את הקודם. */
+    isReel: isReel,
+    reelUrl: reelUrl,
+    motionAllowed: motionAllowed,
+    playVideo: startVideo,
+    stopVideo: stopVideo,
     mediaRank: mediaRank,
     sortByMedia: sortByMedia,
     photosFirst: photosFirst,

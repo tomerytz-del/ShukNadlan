@@ -116,6 +116,20 @@
     return !!(p && p.is_promoted) && (!p.promoted_until || new Date(p.promoted_until) > new Date());
   }
 
+  /* תמונה מוקטנת מהאחסון של Supabase (‏render/image), לאריח שרוחבו ידוע.
+     ‏resize=contain במפורש: ‏width לבדו חותך רצועה מהמרכז (ברירת המחדל היא
+     cover) - אותו כלל כמו ‎sized()‎ ב-assets/swipe.js. כתובת שאינה מהאחסון
+     שלנו חוזרת כמו שהיא. */
+  function sized(url, w) {
+    var s = String(url || '');
+    var marker = '/storage/v1/object/public/';
+    var at = s.indexOf(marker);
+    if (at < 0) return s;
+    var path = s.slice(at + marker.length).split(/[?#]/)[0];
+    if (!path) return s;
+    return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + w + '&resize=contain&quality=60';
+  }
+
   /* הרשימה חוזרת מה-DB ממוינת מקודמים־קודם, ולכן נכס מקודם ישן היה נכנס
      ל"החדשים ביותר" לפני נכס חדש שלא שולם עליו. כאן היא ממוינת לפי
      ‎created_at‎ בלבד; ‏Array.sort יציב ב-JS מודרני, כך שרשומות בלי תאריך
@@ -431,6 +445,150 @@
       return el;
     }
 
+    /* ---------- רצועת הרילס (טלפון, ‏cfg.reels) ----------
+       הרילס של המערכת הוא 9:16, והוויטרינה שבראש המדף בטלפון היא אריח
+       לרוחב: הסרטון נכנס אליה שלם (‏pc-portrait) עם פס שחור מכל צד, וזה
+       מה שהגולש/ת ראה/תה ראשון. כשיש במלאי ולו רילס אחד, האריח הזה מתחלף
+       ברצועה של אריחים אנכיים - שלושה במסך ועוד קצה של הרביעי - שגוללת
+       על כל הרילסים של המדף (בסדר של המדף, אחרי התגיות והמיון). כל אריח
+       הוא קישור לדף הנכס, כמו כל אריח אחר.
+
+       מנגן רילס אחד: זה שבתחילת הרצועה מבין אלה שנראים בה בשלמותם,
+       ורק כשהרצועה עצמה על המסך. ‏src נכתב רק אז ונמחק כשהוא יוצא
+       (‏PropertyCard.playVideo / stopVideo - אותה תקרה של האריחים,
+       MAX_PLAYING = 1), ולכן זו אותה עלות של נגיעה באריח, ולא שלושה
+       סרטונים בבת אחת. ‏reduced-motion, Save-Data ו-2G: פוסטרים בלבד,
+       בלי אלמנט וידאו (‏PropertyCard.motionAllowed). */
+    var REEL_POSTER_W = 240;
+    var REEL_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
+    var REEL_FILM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+      'stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>';
+
+    function reelPoster(p) {
+      var u = p.video_poster_url;
+      if (typeof u !== 'string' || !/^https?:\/\//i.test(u.trim())) u = hasPhoto(p) ? p.images[0] : '';
+      return u ? sized(u.trim(), REEL_POSTER_W) : '';
+    }
+
+    function reelTile(p) {
+      var src = PropertyCard.reelUrl(p);
+      var poster = reelPoster(p);
+      var hood = p.neighborhood_name || p.city || '';
+      var what = [p.property_type, hood].filter(Boolean).join(' · ');
+      var price = Number(p.price);
+      // בלי "לחודש": ברוחב של כ-100px הוא דחף את המספר ל-ellipsis, והתגית "להשכרה" שעל האריח כבר אומרת זאת
+      var priceText = (isFinite(price) && price > 0) ? '₪' + price.toLocaleString('he-IL') : 'לפי בקשה';
+      var el = document.createElement('a');
+      el.className = 'pp-reel';
+      el.href = '/property?id=' + encodeURIComponent(p.id);
+      el.setAttribute('data-deal', p.deal_type === 'rent' ? 'rent' : 'sale');
+      el.innerHTML =
+        '<span class="pp-reel-media">' +
+          (poster ? '<img class="pp-reel-poster" src="' + escAttr(poster) + '" alt="" loading="lazy" decoding="async">' : '') +
+          (PropertyCard.motionAllowed()
+            ? '<video class="pp-reel-video" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1" ' +
+              'data-pc-video="' + escAttr(src) + '"></video>'
+            : '') +
+          '<span class="pp-reel-play" aria-hidden="true">' + REEL_ICON + '</span>' +
+          '<span class="pp-reel-deal">' + (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
+          // הצבע של "מקודם" מגיע מ-design-system.css (‏.promoted-flag); כאן רק המיקום
+          (isPromoted(p) ? '<span class="promoted-flag pp-reel-promo">מקודם</span>' : '') +
+        '</span>' +
+        '<span class="pp-reel-price">' + priceText + '</span>' +
+        '<span class="pp-reel-what">' + escAttr(what) + '</span>' +
+        '<span class="pc-link-text">' + escAttr(tileLinkText(p)) + '</span>';
+      el.addEventListener('click', function () {
+        // ‏P1-M: מקור החשיפה נרשם לפני הניווט, כמו באריח (‏events.js)
+        var box = el.closest('[data-browse]');
+        if (box && global.shukBrowseMark) global.shukBrowseMark(box.getAttribute('data-browse'), p.id);
+      });
+      return el;
+    }
+
+    function reelsStrip(reels) {
+      var strip = document.createElement('div');
+      strip.className = 'pp-reels';
+      strip.setAttribute('role', 'region');
+      strip.setAttribute('aria-label', 'רילס של נכסים');
+      strip.innerHTML =
+        '<div class="pp-reels-head">' +
+          '<span class="pp-reels-title">' + REEL_FILM + 'רילס של נכסים</span>' +
+          '<span class="pp-reels-n">' + (reels.length === 1 ? 'סרטון אחד'
+            : reels.length.toLocaleString('he-IL') + ' סרטונים') + '</span>' +
+        '</div>' +
+        '<div class="pp-reels-track" data-pp="reels"></div>';
+      var track = strip.querySelector('[data-pp="reels"]');
+      reels.forEach(function (p) { track.appendChild(reelTile(p)); });
+      bindReelsStrip(strip, track);
+      return strip;
+    }
+
+    function bindReelsStrip(strip, track) {
+      var tiles = Array.prototype.slice.call(track.querySelectorAll('.pp-reel'));
+      var withVideo = tiles.filter(function (t) { return t.querySelector('video.pp-reel-video'); });
+      if (!withVideo.length || !('IntersectionObserver' in global)) return;
+
+      var inView = false;          // הרצועה עצמה על המסך
+      var fully = new Set();       // אריחים שנראים בשלמותם בתוך הרצועה
+      var current = null;          // הווידאו שאמור לנגן עכשיו
+
+      withVideo.forEach(function (t) {
+        var v = t.querySelector('video.pp-reel-video');
+        // המחלקה נקבעת ממה שקרה בפועל ולא מהבקשה: ניגון שנחסם משאיר את הפוסטר ואת הסימן
+        v.addEventListener('playing', function () { t.classList.add('is-playing'); });
+        v.addEventListener('pause', function () { t.classList.remove('is-playing'); });
+        v.addEventListener('error', function () {
+          v.dataset.err = '1';
+          t.classList.remove('is-playing');
+          if (current === v) { current = null; pick(); }
+        });
+      });
+
+      function pick() {
+        var next = null;
+        if (inView) {
+          for (var i = 0; i < withVideo.length; i++) {
+            var v = withVideo[i].querySelector('video.pp-reel-video');
+            if (fully.has(withVideo[i]) && !v.dataset.err) { next = v; break; }
+          }
+        }
+        if (next === current) return;
+        if (current) {
+          /* ‏stopVideo מוחק את ה-src וקורא ל-load(), וזה מבטל את אירוע ה-pause
+             שהיה בדרך - המחלקה יורדת כאן ולא מחכה לאירוע שלא יגיע */
+          PropertyCard.stopVideo(current, true);
+          current.closest('.pp-reel').classList.remove('is-playing');
+        }
+        current = next;
+        if (current) PropertyCard.playVideo(current);
+      }
+
+      var inTrack = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting && en.intersectionRatio >= 0.9) fully.add(en.target);
+          else fully.delete(en.target);
+        });
+        pick();
+      }, { root: track, threshold: [0, 0.9] });
+      withVideo.forEach(function (t) { inTrack.observe(t); });
+
+      var onScreen = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { inView = en.isIntersecting && en.intersectionRatio >= 0.5; });
+        pick();
+      }, { threshold: [0, 0.5] });
+      onScreen.observe(strip);
+
+      /* הגריד מצויר מחדש בכל סינון, מיון ו"עוד": הרצועה הישנה יוצאת מה-DOM,
+         והצופים שלה חייבים לרדת איתה - אחרת הם ממשיכים להחזיק אותה ואת
+         הווידאו שבה. ‏renderGrid קורא לזה לפני שהוא מרוקן את הגריד. */
+      strip._teardown = function () {
+        inTrack.disconnect();
+        onScreen.disconnect();
+        if (current) PropertyCard.stopVideo(current, true);
+        current = null;
+      };
+    }
+
     /* ---------- התגיות המובנות ----------
        שתי קבוצות. **עסקה** — מכירה/השכרה, מה שהפרדת הרצועות אמרה קודם בלי
        שאפשר היה לבטל אותה. **סוג נכס** — נבנית מהמלאי עצמו ולא מרשימה
@@ -639,6 +797,9 @@
       var compactNow = ppNarrow.matches;
       var shown = items.slice(0, Math.max(1, limit() - (invite && !compactNow && state.shown === 0 ? 1 : 0)));
 
+      // הרצועה הקודמת, אם הייתה, משחררת את הצופים ואת הווידאו שלה לפני שהיא נמחקת
+      var oldStrip = grid.querySelector('.pp-reels');
+      if (oldStrip && oldStrip._teardown) oldStrip._teardown();
       grid.innerHTML = '';
       if (invite) grid.appendChild(invite);
       if (!items.length) {
@@ -648,8 +809,13 @@
         grid.appendChild(empty);
       } else {
         var compact = ppNarrow.matches;
+        /* ‏cfg.reels בטלפון: כשיש רילס במלאי המסונן, רצועת הרילס תופסת את
+           מקום הוויטרינה (האריח שהרילס ישב בו עם פסים שחורים), וכל הנכסים
+           שנפתחים - כולל הראשון - הם שורות דחוסות. בלי רילס - כמו קודם. */
+        var reels = (compact && cfg.reels) ? items.filter(PropertyCard.isReel) : [];
+        if (reels.length) grid.appendChild(reelsStrip(reels));
         shown.forEach(function (p, i) {
-          grid.appendChild((compact && i > 0) ? propRow(p) : propCard(p));
+          grid.appendChild((compact && (i > 0 || reels.length)) ? propRow(p) : propCard(p));
         });
       }
 
