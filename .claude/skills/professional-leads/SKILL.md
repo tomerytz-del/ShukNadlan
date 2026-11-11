@@ -58,7 +58,8 @@ description: חשבונות בעלי מקצוע ומדף הלידים של עו�
   מדף יש לשניים: עו"ד (`lawyer_leads_public`) ויועץ/ת משכנתאות (`mortgage_leads_public`, רכישה מהארנק בלבד דרך `mortgage-lead-purchase` → `purchase_mortgage_lead_professional`;
   `current_is_mortgage_advisor()` מכיר גם חשבון בעל מקצוע מאושר). תחום חדש עם מדף נכנס ל-`SHELF_COPY` ב-`assets/professional-crm.js`, ל-`announceProfessionalAccount` (`needsShelf`), ול-`lead_audience_size`.
 * **כניסה עם Google כמו אצל הסוכנים** (`googleLoginBtn` ב-`professional-crm`, `select_account`, `auth-return.js` לפני `supabase-js`), ובכניסה ראשונה בלי חשבון
-  `claim_by_login` (JWT) פותח חשבון לפי הכרטיסייה שה-`contact_email` שלה הוא כתובת הכניסה **המאושרת**, אחרי אישור תנאים בדף. הכתובת מה-JWT, לא מהגוף; `shelf_enabled` לא נקבע שם.
+  `claim_by_login` (JWT) פותח חשבון לפי הכרטיסייה שה-`contact_email` שלה הוא כתובת הכניסה **המאושרת**, בצעד אחד (השורה "בכניסה אתם מאשרים את תנאי השימוש" במסך היא האישור; אין מסך ביניים). הכתובת מה-JWT, לא מהגוף; `shelf_enabled` לא נקבע שם.
+  מי שאין לו/ה כרטיסייה יוצא/ת מיד (`no_card`), כשל זמני אינו "אין כרטיסייה". השער (`.gate`) נושא תמיד: שכחתי סיסמה, קישור העריכה שאבד, ותמיכה בוואטסאפ עם `data-site-contact`.
 * **קישור העריכה שאבד משוחזר למייל שבכרטיסייה, לא בתשובה לדפדפן** (`professional-manage` ‏`action: 'recover_link'`, ‏`_shared/professional-link-mail.ts`, בלם עשר דקות ב-`ad_placement_access.link_sent_at`).
   הרשמה חוזרת לאותו מייל עם כרטיסייה `active`/`pending_approval` היא `card_exists` ושליחת הקישור, לא כרטיסייה שנייה. מנהל/ת הפלטפורמה מעתיק/ה את הקישור מהפאנל (`admin_professional_card_manage_link`).
 * **`professional-account` יוצר משתמש ב-`inviteUserByEmail`, לא ב-`createUser` עם `email_confirm: true`.** האסימון מוחזר לטופס ההרשמה, ולכן מחזיק/ה בו

@@ -234,9 +234,17 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   // עיר ושורת החשבון בעוזר אחד לשני המסלולים
   assert.match(accountFn, /async function cityIdForRegion/);
   assert.equal((accountFn.match(/accountRowFromCard\(card\)/g) || []).length, 2);
-  // בזמן מסך האישור ה-session אינו באחסון (סוכן/ת שנכנס/ת בטעות לא נשאר/ת מחובר/ת לכל האתר)
-  assert.match(crmJs, /card_found\) \{[\s\S]{0,400}signOut\(\{ scope: 'local' \}\)/);
-  assert.match(crmJs, /sb\.auth\.setSession\(\{ access_token: claimSession\.access_token/);
+  // צעד אחד: הכניסה היא האישור (השורה "בכניסה אתם מאשרים את תנאי השימוש" במסך), ואין מסך ביניים.
+  // מי שאין לו/ה כרטיסייה יוצא/ת מיד, ולא נשאר/ת מחובר/ת לכל האתר
+  assert.match(crmHtml, /בכניסה אתם מאשרים את <a href="\/terms"/);
+  assert.match(crmJs, /callAccount\(\{ terms_accepted: true \}, session\.access_token\)/);
+  assert.equal(/claimCard|claimTerms|setSession/.test(crmJs), false, 'מסך ביניים לאישור תנאים');
+  assert.match(crmJs, /if \(terminal\) \{[\s\S]{0,80}signOut\(\)/);
+  // השער: שכחתי סיסמה, קישור העריכה שאבד, ותמיכה בוואטסאפ למספר של הפלטפורמה (data-site-contact)
+  assert.match(crmHtml, /id="forgotBtn"/);
+  assert.match(crmHtml, /href="\/professional-manage">איבדתם את קישור העריכה\?/);
+  assert.match(crmHtml, /id="supportWa" data-site-contact href="https:\/\/wa\.me\/972546929991/);
+  assert.match(read('professional-manage.html'), /wa\.me\/972546929991[^"]*" target="_blank" rel="noopener noreferrer" data-site-contact/);
   // כשל זמני אינו "אין כרטיסייה": רק no_card וחבריו מוציאים
   assert.match(crmJs, /const terminal = data\.error === 'no_card'/);
   assert.match(crmJs, /catch \(err\) \{\s*return \{ ok: false, data: \{ error: 'network' \} \}/);

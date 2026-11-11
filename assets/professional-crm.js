@@ -75,7 +75,7 @@
 
   /* ---------- כניסה ---------- */
   function showLogin() {
-    show('loginCard', true); show('recoverCard', false); show('app', false); show('claimCard', false);
+    show('loginCard', true); show('recoverCard', false); show('app', false);
   }
 
   el('loginForm').addEventListener('submit', async (e) => {
@@ -86,7 +86,13 @@
       const { error } = await sb.auth.signInWithPassword({
         email: el('lgEmail').value.trim(), password: el('lgPassword').value,
       });
-      if (error) { setMsg('lgMsg', 'אימייל או סיסמה שגויים', 'err'); return; }
+      if (error) {
+        // מי שנכנס/ת בדרך כלל עם Google אין לו/ה סיסמה בכלל: הרמז חוסך "שכחתי סיסמה" מיותר
+        setMsg('lgMsg', /not confirmed/i.test(error.message || '')
+          ? 'כתובת המייל עוד לא אושרה. לחצו על הקישור במייל שקיבלתם, או היכנסו עם Google.'
+          : 'אימייל או סיסמה שגויים. נרשמתם עם Google? היכנסו עם הכפתור למעלה.', 'err');
+        return;
+      }
       await boot();
     } catch (err) {
       setMsg('lgMsg', 'שגיאת רשת - נסו שוב', 'err');
@@ -122,11 +128,9 @@
   });
 
   /* ---------- כניסה ראשונה בלי חשבון: חשבון לפי הכרטיסייה שבכתובת ----------
-     בזמן שמסך האישור מוצג ה-session **לא** נשאר באחסון: מי שסוגר/ת את הלשונית בלי להחליט (או
-     סוכן/ת שנכנס/ת לכאן בטעות) היה/תה נשאר/ת מחובר/ת לכל האתר, ו-/crm היה פותח לו/ה "פתיחת
-     משרד". לכן יוצאים מקומית (האסימון עצמו נשאר תקף בשרת עד פקיעתו), שומרים אותו בזיכרון הדף
-     לשלב האישור, ומחזירים אותו ל-supabase-js (setSession) רק אחרי שהחשבון נוצר. */
-  let claimSession = null;
+     צעד אחד ולא שניים: מסך הכניסה אומר "בכניסה אתם מאשרים את תנאי השימוש", ולכן הכניסה עצמה
+     היא האישור (terms_accepted: true) והחשבון נוצר מיד, בלי מסך ביניים. מי שאין לו/ה כרטיסייה
+     בכתובת הזו (למשל סוכן/ת שנכנס/ת לכאן בטעות) יוצא/ת מיד עם הסבר, ולא נשאר/ת מחובר/ת לכל האתר. */
   async function callAccount(payload, token) {
     try {
       const res = await fetch(SUPABASE_URL + '/functions/v1/professional-account', {
@@ -145,19 +149,18 @@
     card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
     network: 'שגיאת רשת - נסו שוב',
   };
-  // מחובר/ת, אבל בלי חשבון: האם יש כרטיסייה בכתובת הזו? אם כן, אישור תנאים ופתיחה. אם לא, יציאה והסבר.
+  // מחובר/ת, אבל בלי חשבון: יש כרטיסייה בכתובת הזו? החשבון נפתח ונכנסים. אין? יציאה והסבר.
   // רק "אין כרטיסייה" (וכתובת לא מאושרת / כרטיסייה של אחר/ת) מוציאים: כשל זמני בשרת אינו "אין לך כרטיסייה"
   async function offerClaim(session) {
-    const { ok, data } = await callAccount({ terms_accepted: false }, session.access_token);
-    if (ok && data.account_exists) { await boot(); return; }
-    if (ok && data.card_found) {
-      claimSession = { access_token: session.access_token, refresh_token: session.refresh_token, email: session.user.email || '' };
-      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* האחסון כבר ריק */ }
-      show('loginCard', false); show('app', false); show('claimCard', true);
-      el('claimText').textContent = 'נמצאה הכרטיסייה "' + (data.display_name || '') + '" (' + (KIND_LABELS[data.kind] || KIND_LABELS.general) + ') בכתובת ' + claimSession.email +
-        (data.status === 'pending_approval' ? '. היא ממתינה לאישור הנהלת האתר, ואפשר כבר לפתוח לה חשבון.' : '.');
-      el('claimTerms').checked = false; el('claimBtn').disabled = true; setMsg('claimMsg', '');
-      return;
+    const { ok, data } = await callAccount({ terms_accepted: true }, session.access_token);
+    if (ok && (data.account_exists || data.created)) {
+      await loadAccount(session.user.id);
+      if (account) {
+        show('loginCard', false); show('recoverCard', false); show('app', true);
+        if (data.created) setMsg('appMsg', 'ברוכים הבאים! החשבון נפתח לפי הכרטיסייה שלכם. מכאן עורכים את העמוד, ולידים נפתחים אחרי אישור הנהלת האתר.', 'ok');
+        await renderAll();
+        return;
+      }
     }
     const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
     if (terminal) {
@@ -173,40 +176,15 @@
     resetGoogleButton();
     setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע' + (data.error === 'network' ? ' (שגיאת רשת)' : '') + '. רעננו את הדף לניסיון נוסף.', 'err');
   }
-  el('claimTerms').addEventListener('change', (e) => { el('claimBtn').disabled = !e.target.checked; });
-  el('claimBtn').addEventListener('click', async () => {
-    if (!claimSession) { showLogin(); return; }
-    el('claimBtn').disabled = true; setMsg('claimMsg', 'פותחים את החשבון…', 'ok');
-    const { ok, data } = await callAccount({ terms_accepted: true }, claimSession.access_token);
-    if (!ok && !data.account_exists) {
-      setMsg('claimMsg', CLAIM_ERRORS[data.error] || ('לא הצלחנו לפתוח את החשבון: ' + errText(data.error || 'שגיאה')), 'err');
-      el('claimBtn').disabled = false;
-      return;
-    }
-    // החשבון קיים: מחזירים את ה-session לאחסון ונכנסים
-    const { error } = await sb.auth.setSession({ access_token: claimSession.access_token, refresh_token: claimSession.refresh_token });
-    claimSession = null;
-    show('claimCard', false);
-    if (error) {
-      showLogin(); resetGoogleButton();
-      setMsg('lgMsg', 'החשבון נפתח. היכנסו שוב כדי להמשיך.', 'ok');
-      return;
-    }
-    await boot();
-  });
-  el('claimCancel').addEventListener('click', () => {
-    claimSession = null;   // כבר יצאנו מקומית כשהמסך הוצג
-    show('claimCard', false);
-    showLogin();
-    resetGoogleButton();
-  });
-
   el('forgotBtn').addEventListener('click', async () => {
     const email = el('lgEmail').value.trim();
     if (!email) { setMsg('lgMsg', 'כתבו את כתובת האימייל ולחצו שוב', 'err'); return; }
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/professional-crm' });
-    // אותה תשובה בכל מקרה: לא מגלים אם הכתובת רשומה
-    setMsg('lgMsg', error ? 'לא הצלחנו לשלוח כרגע - נסו שוב בעוד דקה' : 'אם הכתובת רשומה, נשלח אליה קישור לאיפוס סיסמה', error ? 'err' : 'ok');
+    // אותה תשובה בכל מקרה: לא מגלים אם הכתובת רשומה. מי שאין לו/ה חשבון בכלל יקבל/תקבל כלום,
+    // ולכן הדרך הקצרה (Google) כתובה כאן ולא רק למעלה
+    setMsg('lgMsg', error
+      ? 'לא הצלחנו לשלוח כרגע. נסו שוב בעוד דקה, או כתבו לנו בוואטסאפ למטה.'
+      : 'אם הכתובת רשומה, שלחנו אליה קישור לקביעת סיסמה (בדקו גם בספאם). עוד אין לכם חשבון? כניסה עם Google פותחת אותו מעצמה.', error ? 'err' : 'ok');
   });
 
   el('recoverForm').addEventListener('submit', async (e) => {
