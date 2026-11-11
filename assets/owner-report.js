@@ -93,7 +93,7 @@
     html += '<div class="or-hero"><h1>' + esc(p.title || 'הנכס שלכם') + '</h1><p class="or-sub">' + esc(subtitle) + '</p></div>';
 
     if (data.note){
-      html += '<div class="or-note"><b>הערה מיועץ/ת הנדל״ן</b><p>' + esc(data.note) + '</p></div>';
+      html += '<div class="or-note"><b>הערה מיועץ הנדל״ן</b><p>' + esc(data.note) + '</p></div>';
     }
 
     html += '<section class="or-sec"><h2 class="or-h">7 הימים האחרונים</h2><div class="or-stats">'
@@ -103,15 +103,18 @@
       + '</div></section>';
 
     html += '<section class="or-sec"><h2 class="or-h">צפיות לפי יום</h2>' + barsHtml(v.daily)
+      /* בלי צפיות: המערכת אינה מציעה לבעלים לדבר על מחיר. שיחת מחיר שייכת להערה האישית של היועץ/ת. */
       + '<p class="or-cap">כל עמודה היא יום אחד, לפי שעון ישראל. ' + (Number(v.week || 0)
-        ? '' : 'אם לא הייתה תנועה השבוע, זה הזמן לדבר על מחיר, תמונות או חשיפה. ') + '</p></section>';
+        ? '' : 'השבוע לא היו צפיות במודעה. כדאי לדבר עם יועץ הנדל״ן על דרכים להגדיל את החשיפה. ') + '</p></section>';
 
     const m = r.market;
     if (m && typeof m.beat_pct === 'number'){
       html += '<section class="or-sec"><h2 class="or-h">מול השוק</h2><div class="or-market"><span class="big">'
         + esc(m.beat_pct) + '%</span> מהנכסים ' + (rent ? 'להשכרה' : 'למכירה') + (p.city ? ' ב' + esc(p.city) : '')
         + ' קיבלו פחות צפיות מהנכס שלכם ב-7 הימים האחרונים.'
-        + '<p class="or-cap" style="margin-top:6px">ההשוואה היא מול ' + num(m.sample) + ' נכסים פעילים נוספים מאותו סוג עסקה.</p></div></section>';
+        /* הכיתוב אומר מול מה משווים: אותה עיר ואותו סוג עסקה, כמו הסינון ב-owner_report_create */
+        + '<p class="or-cap" style="margin-top:6px">ההשוואה היא מול ' + num(m.sample) + ' נכסים פעילים נוספים '
+        + (rent ? 'להשכרה' : 'למכירה') + (p.city ? ' ב' + esc(p.city) : '') + '</p></div></section>';
     }
 
     const facts = [
@@ -133,7 +136,7 @@
       + '<div class="or-agent-meta">' + [phone, mail, b.license ? 'רישיון ' + esc(b.license) : ''].filter(Boolean).join(' · ') + '</div></div></div>';
 
     html += '<p class="or-foot">הנתונים מבוססים על כניסות לדף הנכס באתר שוק נדל״ן ועל פניות שהתקבלו עליו, עד מועד הפקת הדוח. '
-      + 'צפיות הן ספירת כניסות ולא מספר אנשים, ו"מבקרים" הם גולשים שונים לפי ביקור בדפדפן. הדוח הוא תמונת מצב ואינו מתעדכן.</p>';
+      + 'צפיות הן ספירת כניסות ולא מספר אנשים, ו"מבקרים" נספרים לפי דפדפן, כך שאותו אדם משני מכשירים נספר פעמיים. הדוח הוא תמונת מצב ואינו מתעדכן.</p>';
 
     document.getElementById('orBody').innerHTML = html;
     document.title = 'דוח שבועי' + (p.title ? ' - ' + p.title : '') + ' | שוק נדל״ן';

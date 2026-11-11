@@ -41,6 +41,11 @@ BODY_SNIPPET = """<!-- Google Tag Manager (noscript) -->
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->""" % CONTAINER_ID
 
+# דפים שבכוונה **אינם** נושאים GTM. ‏owner-report הוא דף עם טוקן שבעל/ת הנכס
+# מקבל/ת מהיועץ/ת (docs/owner-report.md): הוא נפתח מקישור משותף ולא משיווק, ותגיות
+# שיווק לא רצות בו. הבדיקה עדיין תופסת בו מזהה מכולה זר, ותופסת GTM שחזר אליו.
+NO_GTM = {"owner-report.html"}
+
 BODY_RE = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
 HEAD_END_RE = re.compile(r"</head\s*>", re.IGNORECASE)
 
@@ -60,6 +65,13 @@ def check(path: Path) -> list[str]:
     # מזהה זר הוא תקלה חמורה יותר מהיעדר תגית: הדף כן נמדד, רק לא אלינו.
     for stray in set(re.findall(r"GTM-[A-Z0-9]+", text)) - {CONTAINER_ID}:
         problems.append("מזהה מכולה זר: %s (הנכון הוא %s)" % (stray, CONTAINER_ID))
+
+    if path.name in NO_GTM:
+        # דף שפטור מ-GTM נבדק בכיוון ההפוך: מי שמדביק אליו את הקטע בלי לדעת
+        # שהוא פטור מחזיר תגיות שיווק לדף עם טוקן, ואין לזה שום סימן אחר.
+        if "googletagmanager.com" in text or CONTAINER_ID in text:
+            problems.append("הדף פטור מ-GTM בכוונה (NO_GTM), ובכל זאת נושא אותו")
+        return problems
 
     # ‏crm.html דוחה את gtm.js עד שהמסך היעד מצויר (assets/crm.js,
     # shukArmTrackers). המכולה אותה מכולה, וה-noscript נשאר מיד אחרי body.
@@ -95,7 +107,8 @@ def main() -> int:
     failed = {p: probs for p in pages if (probs := check(p))}
 
     if not failed:
-        print("✓ כל %d דפי ה-HTML נושאים את תגיות %s." % (len(pages), CONTAINER_ID))
+        print("✓ כל %d דפי ה-HTML נושאים את תגיות %s (חוץ מ-%d שפטורים בכוונה: %s)."
+              % (len(pages) - len(NO_GTM), CONTAINER_ID, len(NO_GTM), ", ".join(sorted(NO_GTM))))
         return 0
 
     print("✗ %d מתוך %d דפים ללא תגיות GTM תקינות:\n" % (len(failed), len(pages)))

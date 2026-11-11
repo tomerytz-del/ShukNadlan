@@ -138,7 +138,7 @@ DISPLAY = [
     ('pricing.html', r'מ-' + N + r' סוכנים 15%',                       'office_discount_min_agents'),
     ('pricing.html', r'ומ-' + N + r' סוכנים 25%',                      'office_discount_big_min_agents'),
     ('pricing.html', r'הנחת משרד ב-Elite: ' + N + r'% לכל',             'office_discount_pct_small'),
-    ('assets/tiers.js', r'הנחת משרד: ' + N + r'% לכל סוכן/ת נוסף/ת במשרד', 'office_discount_pct_small'),
+    ('assets/tiers.js', r'הנחת משרד: ' + N + r'% לכל סוכן נוסף במשרד',   'office_discount_pct_small'),
     ('assets/tiers.js', r'ו-' + N + r'% מ-6 סוכנים',                    'office_discount_pct_big'),
     ('assets/tiers.js', r'הנחת משרד[^\n]*?עם ' + N + r' עד 5',          'office_discount_min_agents'),
     ('assets/tiers.js', r'ו-\d+% מ-' + N + r' סוכנים',                  'office_discount_big_min_agents'),
