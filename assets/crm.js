@@ -21223,7 +21223,7 @@ function buildLeadCard(lead, agentId, isArchived){
   leadReportMount(secondary, lead, agentId);
   /* הארכוב אחרון ושקט: הוא לא מתחרה על העין עם "פתיחת ליד" או חיוג - הוא
      מה שעושים *אחרי* שסיימו. בליד נעול הוא גם ה"לא מתאים לי". */
-  addCardAction(secondary, isArchived ? {
+  if (!(isArchived && leadReportBlocksUnarchive(lead))) addCardAction(secondary, isArchived ? {
     label:'↩️ החזרה מהארכיון',
     title:'הליד יחזור לרשימת הלידים הפעילים',
     onClick: btn => unarchiveLead(lead, btn, agentId),

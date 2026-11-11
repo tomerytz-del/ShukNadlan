@@ -53,7 +53,8 @@ async function loadLeadReports(agentId){
 function leadReportEligible(lead, agentId){
   if (!lead || lead.status !== 'unlocked' || lead.unlocked_by !== agentId) return false;
   if (lead.lead_type === 'store' || lead.lead_type === 'call') return false;
-  if (!['free_quota', 'paid_10', 'paid_50', 'paid_69'].includes(lead.quota_source)) return false;
+  // מקורות שלא נגבה בהם דבר ולא נספרה מכסה. כל השאר - המסד מחליט (nothing_to_refund)
+  if (['subscription_unlimited', 'premium_free', 'launch_free'].includes(lead.quota_source)) return false;
   const t = new Date(lead.unlocked_at).getTime();
   if (!t || Date.now() > t + LEAD_REPORT_WINDOW_HOURS * 3600 * 1000) return false;
   return !leadReportOf.has(lead.id);
@@ -262,4 +263,11 @@ async function leadReportDecide(row, approve, btn){
   }
   showToast(approve ? 'הוחזר לארנק' : 'הדיווח נדחה');
   loadLeadReportsAdmin();
+}
+
+/* ליד שהוחזר עליו חיוב נשאר בארכיון: המסד חוסם את המחיקה מ-lead_archives, והכפתור
+   "החזרה מהארכיון" אינו מוצג */
+function leadReportBlocksUnarchive(lead){
+  const r = leadReportOf.get(lead.id);
+  return !!r && r.status === 'refunded';
 }

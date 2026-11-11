@@ -102,6 +102,58 @@ create policy "agent reads own lead reports"
   using (agent_id = (select public.current_agent_id()));
 
 -- ---------------------------------------------------------------------------
+-- 2ב. ‏lead_charges.status חייב להכיר 'refunded'. בפרודקשן הוא מכיר (נבדק
+-- 11.11.2026), אבל הטבלה נוצרה לפני תיקיית המיגרציות, ובסביבה אחרת העדכון
+-- היה זורק check ומבטל את כל ההחזר. מוסיפים למה שקיים ולא כותבים מחדש.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_def  text;
+  v_vals text[];
+begin
+  select pg_get_constraintdef(oid) into v_def
+    from pg_constraint where conname = 'lead_charges_status_check' and conrelid = 'public.lead_charges'::regclass;
+  if v_def is not null and v_def not like '%refunded%' then
+    select coalesce(array_agg(m[1]), '{}') into v_vals
+      from regexp_matches(v_def, '''([a-z_]+)''', 'g') as m;
+    v_vals := array(select distinct unnest(v_vals || array['pending', 'success', 'failed', 'refunded']) order by 1);
+    alter table public.lead_charges drop constraint lead_charges_status_check;
+    execute format('alter table public.lead_charges add constraint lead_charges_status_check check (status = any (%L::text[]))', v_vals);
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 2ג. ליד שהוחזר נשאר סגור. ‏lead_archives היא "הסתרה בלבד" והסוכן/ת מוחק/ת
+-- ממנה שורה כדי להחזיר ליד לרשימה - וכך ליד שקיבל/ה עליו החזר היה חוזר
+-- לעבודה בחינם. הטריגר חוסם מחיקה ישירה של שורת ארכיון של ליד שהוחזר.
+-- ‏pg_trigger_depth() > 1 = מחיקה ב-cascade (מחיקת הליד או הסוכן/ת, שמירת
+-- נתונים), שחייבת לעבור.
+-- ---------------------------------------------------------------------------
+create or replace function public.lead_archives_guard_refunded()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $$
+begin
+  if pg_trigger_depth() > 1 then return old; end if;
+  if exists (select 1 from public.lead_invalid_reports r
+              where r.lead_id = old.lead_id and r.status = 'refunded') then
+    raise exception 'lead_refunded' using errcode = 'P0001',
+      hint = 'ליד שהוחזר עליו חיוב נשאר בארכיון';
+  end if;
+  return old;
+end;
+$$;
+
+revoke all on function public.lead_archives_guard_refunded() from public, anon, authenticated;
+
+drop trigger if exists lead_archives_guard_refunded on public.lead_archives;
+create trigger lead_archives_guard_refunded
+  before delete on public.lead_archives
+  for each row execute function public.lead_archives_guard_refunded();
+
+-- ---------------------------------------------------------------------------
 -- 3. ההחזר עצמו. ‏service_role בלבד - נקראת רק מהפונקציות שלמטה, אחרי שבדקו הרשאה.
 --
 -- אידמפוטנטית: דיווח שכבר הוחזר חוזר כמו שהוא, ולא מחזיר פעמיים.
@@ -163,13 +215,15 @@ begin
          auto = p_auto, decided_by = p_decided_by, decided_at = now()
    where id = p_report;
 
-  insert into public.notifications (agent_id, type, title, body, related_lead_id)
+  -- ‏suppress_push = p_auto: מי שדיווח הרגע רואה את התוצאה במסך ואינו צריך וואטסאפ;
+  -- החלטה ידנית של מנהל/ת מגיעה אליו/ה כשהוא/היא לא מסתכל/ת, ולכן נדחפת
+  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
   values (v_r.agent_id, 'system',
           'הליד סומן כלא תקין' || case when v_amount > 0 then ' והסכום הוחזר לארנק' else '' end,
           case when v_amount > 0 then '₪' || trim_scale(v_amount)::text || ' חזרו לארנק. ' else '' end
             || case when v_quota then 'הפנייה חזרה למכסה החינמית של החודש. ' else '' end
             || 'הליד עבר לארכיון.',
-          v_r.lead_id);
+          v_r.lead_id, p_auto);
 
   return jsonb_build_object('status', 'refunded', 'refund_amount', v_amount, 'quota_returned', v_quota);
 end;
@@ -237,7 +291,8 @@ begin
   v_pct    := coalesce(v_pct, 20);
 
   v_ends := v_lead.unlocked_at + make_interval(hours => v_window::int);
-  if now() > v_ends then
+  -- ‏unlocked_at ריק (שורה ישנה): "now() > null" הוא null ו-if לא נכנס, והחלון היה נעקף
+  if v_lead.unlocked_at is null or now() > v_ends then
     return jsonb_build_object('error', 'window_closed', 'window_ended_at', v_ends);
   end if;
 
@@ -280,14 +335,16 @@ begin
   -- מעל התקרה: ממתין לבדיקה ידנית, והמנהלים מקבלים התראה
   select coalesce(nullif(btrim(display_name), ''), 'סוכן/ת') into v_name
     from public.agency_members where id = v_agent;
-  insert into public.notifications (agent_id, type, title, body)
+  -- ‏action_path: ההתראה לא נושאת ליד של המנהל/ת (אין לו/ה גישה אליו), היעד הוא הרשימה
+  insert into public.notifications (agent_id, type, title, body, action_path, suppress_push)
   select a.id, 'system', 'דיווח על ליד לא תקין ממתין לבדיקה',
          v_name || ' דיווח/ה על ליד, מעל תקרת ההחזר האוטומטי (' || (v_reports + 1) || ' דיווחים מתוך '
-         || v_opened || ' לידים ב-30 יום). הבדיקה ב"דיווחי לידים".'
+         || v_opened || ' לידים ב-30 יום). הבדיקה ב"דיווחי לידים".',
+         '/crm?goto=accLeadReports', false
     from public.agency_members a where a.is_platform_admin and a.id <> v_agent;
-  insert into public.notifications (agent_id, type, title, body, related_lead_id)
+  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
   values (v_agent, 'system', 'הדיווח על הליד התקבל',
-          'מספר הדיווחים שלך החודש גבוה, ולכן הוא עובר לבדיקה של צוות הפלטפורמה. נעדכן כאן.', p_lead);
+          'מספר הדיווחים שלך החודש גבוה, ולכן הוא עובר לבדיקה של צוות הפלטפורמה. נעדכן כאן.', p_lead, true);
   v_result := jsonb_build_object('status', 'pending_review');
   return v_result;
 end;
@@ -364,9 +421,9 @@ begin
   update public.lead_invalid_reports
      set status = 'rejected', decided_by = v_admin, decided_at = now(), decision_note = v_note
    where id = p_report;
-  insert into public.notifications (agent_id, type, title, body, related_lead_id)
+  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
   values (v_r.agent_id, 'system', 'הדיווח על הליד לא אושר',
-          coalesce(v_note, 'לאחר בדיקה, הליד נשאר אצלך ולא הוחזר חיוב.'), v_r.lead_id);
+          coalesce(v_note, 'לאחר בדיקה, הליד נשאר אצלך ולא הוחזר חיוב.'), v_r.lead_id, false);
   return jsonb_build_object('status', 'rejected');
 end;
 $$;
