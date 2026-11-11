@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { fetchPromoUsage, recommendTier, usageLines, type PromoUsage } from "../_shared/promo-usage.ts";
 import { PROMO_NOTICE_DAYS, PROMO_WHATSAPP_DAYS, TIER_NAMES, TIER_PRICES, type Tier } from "../_shared/launch-promo.ts";
 
 // ============================================================================
@@ -114,7 +115,25 @@ function prePaidOf(m: { paid_tier: string | null; paid_tier_until: string | null
   return { tier: m.paid_tier, until: m.paid_tier_until };
 }
 
-function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: PrePaid | null) {
+/** בלוק "מה קיבלת בתקופה הזו", או null אם אין מה להראות. ‏html + טקסט + המלצה. */
+function usageBlock(u: PromoUsage | null) {
+  if (!u) return null;
+  const lines = usageLines(u);
+  if (!lines.length) return null;
+  const rec = recommendTier(u);
+  const recHtml = rec
+    ? p(`<b>ההמלצה שלנו:</b> ${esc(rec.reason)} <a href="${esc(checkoutUrl(rec.tier))}" style="color:#0e2a6b">להמשיך ב-${esc(TIER_NAMES[rec.tier])}</a>`)
+    : "";
+  const html =
+    p("<b>מה קרה אצלך בתקופה הזו:</b>") +
+    `<ul style="margin:0 0 14px;padding:0 20px 0 0;font-size:15px;line-height:1.7;color:#3D4A5C">${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` +
+    recHtml;
+  const text = ["מה קרה אצלך בתקופה הזו:", ...lines.map((l) => `- ${l}`),
+    ...(rec ? ["", `ההמלצה שלנו: ${rec.reason} ${checkoutUrl(rec.tier)}`] : [])].join("\n");
+  return { html, text };
+}
+
+function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: PrePaid | null, usage: PromoUsage | null = null) {
   const when = hebDate(endsAt);
 
   if (prePaid) {
@@ -137,8 +156,10 @@ function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: Pre
   const title = daysLeft > 20
     ? `${name}, נשאר חודש להטבת ההשקה שלך`
     : `${name}, עוד שבועיים - וההטבה מסתיימת`;
+  const block = usageBlock(usage);
   const html = shell(title, [
     p(`מסלול <b>Elite</b> שקיבלת במתנה עם ההצטרפות מסתיים ב-<b>${esc(when)}</b>.`),
+    ...(block ? [block.html] : []),
     p("עד אז הכול ממשיך כרגיל: לידי בעל-נכס ללא עלות, סרטונים שיווקיים, הדמיות AI, דוחות CMA ומידע תכנוני."),
     p(`<b>להמשיך בלי הפסקה:</b> ${esc(priceLine("premium"))}, או ${esc(priceLine("mid"))}. התשלום כבר עכשיו אינו גובה דבר על ימי ההטבה שנותרו - החודש ששולם מתחיל ב-${esc(when)}, ומשם המנוי מתחדש חודשית וניתן לביטול בכל עת.`),
     p(`מי שלא בוחר/ת ממשיך/ה אוטומטית ב-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידים בחודש. הנכסים, הלידים והלקוחות נשארים במקומם בכל מקרה.`),
@@ -148,6 +169,7 @@ function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: Pre
   const text = [
     `${name}, מסלול Elite שקיבלת במתנה מסתיים ב-${when}.`,
     "",
+    ...(block ? [block.text, ""] : []),
     `להמשיך בלי הפסקה: ${priceLine("premium")}, או ${priceLine("mid")}.`,
     `התשלום עכשיו אינו גובה על ימי ההטבה שנותרו - החודש ששולם מתחיל ב-${when}, ומתחדש חודשית.`,
     "מי שלא בוחר/ת ממשיך/ה ב-Pay&GO - בלי דמי מנוי, עם 10 לידים בחודש.",
@@ -161,7 +183,7 @@ function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: Pre
 }
 
 /** סוף ההטבה, משלושה מצבים: עבר/ה למנוי ששילם/ה, ירד/ה ל-Pay&GO, או ממשיך/ה במסלול שנבחר אחרת. */
-function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, paidUntil: string | null) {
+function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, paidUntil: string | null, usage: PromoUsage | null = null) {
   if (paidTier) {
     const tierName = TIER_NAMES[paidTier];
     const title = `${name}, המנוי שלך ל-${tierName} התחיל`;
@@ -180,9 +202,11 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
   }
 
   const title = `${name}, תקופת ההטבה הסתיימה`;
+  const block = downgraded ? usageBlock(usage) : null;
   const body = downgraded
     ? [
         p("תקופת <b>Elite</b> במתנה הסתיימה, והחשבון שלך עבר ל-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש ו-₪25 לליד נוסף."),
+        ...(block ? [block.html] : []),
         p("<b>שום דבר לא אבד:</b> הנכסים, הלידים, הלקוחות, דף הסוכן/ת ויתרת הארנק נשארו בדיוק כפי שהיו."),
         p(`מה שכן השתנה: לידי בעל-נכס, דוחות CMA, המידע התכנוני, הסרטונים וההדמיות זמינים במסלולים בתשלום (${esc(priceLine("mid"))}, ${esc(priceLine("premium"))}). אפשר לחזור אליהם בכל רגע.`),
       ].join("")
@@ -195,6 +219,7 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
     ? [
         `${name}, תקופת Elite במתנה הסתיימה והחשבון עבר ל-Pay&GO.`,
         "",
+        ...(block ? [block.text, ""] : []),
         "הנכסים, הלידים, הלקוחות והארנק נשארו כמו שהם.",
         "לידי בעל-נכס, דוח CMA, מידע תכנוני, סרטונים והדמיות זמינים במסלולים בתשלום.",
         "",
@@ -298,6 +323,7 @@ interface MemberRow {
   promo_ends_at: string;
   paid_tier: string | null;
   paid_tier_until: string | null;
+  created_at: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -326,7 +352,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: due, error } = await supabase
         .from("agency_members")
-        .select("id, display_name, email, promo_ends_at, paid_tier, paid_tier_until")
+        .select("id, display_name, email, promo_ends_at, paid_tier, paid_tier_until, created_at")
         .not("promo_ends_at", "is", null)
         .is("promo_ended_at", null)
         .is(column, null)
@@ -353,7 +379,10 @@ Deno.serve(async (req: Request) => {
         if (!member.email) continue;
 
         const daysLeft = Math.max(1, Math.ceil((new Date(member.promo_ends_at).getTime() - Date.now()) / 86400000));
-        const mail = noticeMail(member.display_name || "שלום", member.promo_ends_at, daysLeft, prePaid);
+        // הסיכום רק בהתראה השנייה (שבועיים לפני), ורק למי שעוד לא שילם/ה.
+        const usage = i === 1 && !prePaid && member.created_at
+          ? await fetchPromoUsage(supabase, member.id, member.created_at) : null;
+        const mail = noticeMail(member.display_name || "שלום", member.promo_ends_at, daysLeft, prePaid, usage);
         const sent = await sendPlatformEmail({ to: [member.email], ...mail });
         if (!sent.sent) { summary.mail_failed++; console.error("notice mail failed", member.id, sent.error); }
       }
@@ -416,11 +445,13 @@ Deno.serve(async (req: Request) => {
       // מי עבר/ה למנוי ששילם/ה. ‏expire_launch_promos אינה מחזירה את
       // tier_source, ולכן נקרא כאן - אחרי העדכון, כך שזה המצב שנקבע בפועל.
       const paid = new Map<string, { tier: Tier; until: string | null }>();
+      const joined = new Map<string, string>();
       if (rows.length) {
         const { data: src } = await supabase.from("agency_members")
-          .select("id, tier, tier_source, paid_tier_until")
+          .select("id, tier, tier_source, paid_tier_until, created_at")
           .in("id", rows.map((r) => r.member));
         for (const m of src || []) {
+          if (m.created_at) joined.set(m.id, m.created_at);
           if (m.tier_source === "paid" && (m.tier === "mid" || m.tier === "premium")) {
             paid.set(m.id, { tier: m.tier, until: m.paid_tier_until });
           }
@@ -434,7 +465,9 @@ Deno.serve(async (req: Request) => {
         await ring(supabase, endedBell(row.member, row.downgraded, pt?.tier ?? null));
         if (!row.member_email) continue;
 
-        const mail = endedMail(row.member_name || "שלום", row.downgraded, pt?.tier ?? null, pt?.until ?? null);
+        const since = joined.get(row.member);
+        const usage = row.downgraded && !pt && since ? await fetchPromoUsage(supabase, row.member, since) : null;
+        const mail = endedMail(row.member_name || "שלום", row.downgraded, pt?.tier ?? null, pt?.until ?? null, usage);
         const sent = await sendPlatformEmail({ to: [row.member_email], ...mail });
         if (!sent.sent) { summary.mail_failed++; console.error("ended mail failed", row.member, sent.error); }
       }
