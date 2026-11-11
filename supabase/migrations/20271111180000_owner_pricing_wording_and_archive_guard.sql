@@ -322,7 +322,7 @@ begin
     return new;
   end if;
   -- ‏UPDATE שאינו נוגע בזהות השורה אינו מוציא את הליד מהארכיון
-  if tg_op = 'UPDATE' and new.lead_id = old.lead_id and new.agent_id = old.agent_id then
+  if tg_op = 'UPDATE' and new.lead_id is not distinct from old.lead_id and new.agent_id is not distinct from old.agent_id then
     return new;
   end if;
   if exists (select 1 from public.lead_invalid_reports r

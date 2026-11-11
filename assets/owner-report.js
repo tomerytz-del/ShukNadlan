@@ -114,7 +114,7 @@
         + ' קיבלו פחות צפיות מהנכס שלכם ב-7 הימים האחרונים.'
         /* הכיתוב אומר מול מה משווים: אותה עיר ואותו סוג עסקה, כמו הסינון ב-owner_report_create */
         + '<p class="or-cap" style="margin-top:6px">ההשוואה היא מול ' + num(m.sample) + ' נכסים פעילים נוספים '
-        + (rent ? 'להשכרה' : 'למכירה') + (p.city ? ' ב' + esc(p.city) : '') + '</p></div></section>';
+        + (rent ? 'להשכרה' : 'למכירה') + (p.city ? ' ב' + esc(p.city) : '') + '.</p></div></section>';
     }
 
     const facts = [
