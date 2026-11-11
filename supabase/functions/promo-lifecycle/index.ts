@@ -368,6 +368,12 @@ Deno.serve(async (req: Request) => {
       for (const member of (due || []) as MemberRow[]) {
         if (dryRun) { summary[i === 0 ? "notice_1" : "notice_2"]++; continue; }
 
+        // הסיכום נשלף **לפני** הסימון: שבע ספירות בלולאה טורית הן הזמן שבו ריצה שנקטעה
+        // משאירה סוכן/ת מסומן/ת כמי שקיבל/ה מייל שלא יצא (ולא ינסה שוב).
+        const prePaidNow = prePaidOf(member);
+        const usage = i === 1 && !prePaidNow && member.created_at
+          ? await fetchPromoUsage(supabase, member.id, member.created_at) : null;
+
         // סימון לפני שליחה — ראו ההסבר בראש הקובץ.
         const { error: markErr } = await supabase
           .from("agency_members").update({ [column]: new Date().toISOString() }).eq("id", member.id);
@@ -379,9 +385,6 @@ Deno.serve(async (req: Request) => {
         if (!member.email) continue;
 
         const daysLeft = Math.max(1, Math.ceil((new Date(member.promo_ends_at).getTime() - Date.now()) / 86400000));
-        // הסיכום רק בהתראה השנייה (שבועיים לפני), ורק למי שעוד לא שילם/ה.
-        const usage = i === 1 && !prePaid && member.created_at
-          ? await fetchPromoUsage(supabase, member.id, member.created_at) : null;
         const mail = noticeMail(member.display_name || "שלום", member.promo_ends_at, daysLeft, prePaid, usage);
         const sent = await sendPlatformEmail({ to: [member.email], ...mail });
         if (!sent.sent) { summary.mail_failed++; console.error("notice mail failed", member.id, sent.error); }

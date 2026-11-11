@@ -50,7 +50,10 @@ export async function fetchPromoUsage(supabase: any, memberId: string, since: st
       count(supabase.from("leads").select("id", head).eq("agent_id", memberId).gte("created_at", since)),
       count(supabase.from("properties").select("id", head).eq("agent_id", memberId).gte("created_at", since)),
       count(supabase.from("agent_clients").select("id", head).eq("agent_id", memberId).gte("created_at", since)),
-      count(supabase.from("agreements").select("id", head).eq("agent_id", memberId).eq("status", "signed").gte("signed_at", since)),
+      // מסמך ההסכמה לשיווק (marketing_*) אינו הסכם: חתימה על בלעדיות יוצרת שניים, ו-agreement_is_consent
+      // במסד מוציאה אותו מכל מונה אחר (docs/client-agreements.md). הרשימה היא ההפך שלה.
+      count(supabase.from("agreements").select("id", head).eq("agent_id", memberId).eq("status", "signed")
+        .in("kind", ["buy", "sell", "tenant", "landlord", "exclusive_sell", "exclusive_landlord"]).gte("signed_at", since)),
       count(supabase.from("agreements").select("id", head).eq("agent_id", memberId).eq("status", "signed")
         .in("kind", ["exclusive_sell", "exclusive_landlord"]).gte("signed_at", since)),
       count(supabase.from("property_video_jobs").select("id", head).eq("agent_id", memberId).eq("status", "done").gte("created_at", since)),

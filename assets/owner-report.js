@@ -143,7 +143,8 @@
     const msg = document.getElementById('orMsg');
     document.getElementById('orPrint').addEventListener('click', () => window.print());
     document.getElementById('orCopy').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(location.href); msg.textContent = 'הקישור הועתק'; }
+      // בלי ?p=1: זה קישור תצוגה מקדימה של היועץ/ת, והעתקה שלו לבעלים הייתה מעלימה את הפתיחות שלהם
+      try { await navigator.clipboard.writeText(location.origin + location.pathname + '?k=' + encodeURIComponent(K)); msg.textContent = 'הקישור הועתק'; }
       catch(_){ msg.textContent = 'לא הצלחנו להעתיק. אפשר להעתיק מהכתובת למעלה.'; }
     });
   }
