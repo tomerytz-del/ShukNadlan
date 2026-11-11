@@ -2369,6 +2369,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   function propertiesP(){ return start('properties', () => loadProperties(agent.id)); }
   function shareP(){ return start('share', () => loadSharePartners(agent)); }
   function propsP(){ return start('props', () => Promise.all([shareP(), propertiesP()])); }
+  leadsPropsReady = propertiesP;   // הפונקציה עצמה, לא קריאה. הנכסים בלבד: כרטיס הליד לא קורא את נתוני השת״פ, ולכן הציור לא ממתין להם
   function pricingP(){
     return start('pricing', () => loadPricing().then(() => {
       // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
@@ -2397,7 +2398,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       if (key === 'props') await propertiesP();
       else if (key === 'leads') {
         if (waitPrice) await pricingP();
-        await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
+        await start('leads', () => loadLeads(agent.id));
       }
       else if (key === 'clients') await clientsListP();
       else if (key === 'demand') await start('demand', () =>
@@ -2450,6 +2451,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
      ועד כאן הם הוסיפו כארבעה סבבים בטור לכניסת מנהל/ת. ה-await נשאר במקומו
      למטה, ולכן הסדר שבו המסך נגמר והטיפול בשגיאה לא השתנו. ‏catch ריק רק
      מסמן שהדחייה תטופל שם - בלעדיו כישלון שקודם ל-await היה נרשם כלא מטופל. */
+  // מסכי מנהל/ת הפלטפורמה נטענים ברקע רק למי שפותח/ת אותם (assets/crm-lazy.js, ADMIN_ONLY)
+  if (agent.is_platform_admin && window.crmArmAdminSections) window.crmArmAdminSections();
   const managerLoadsP = agent.role === 'manager' ? Promise.all([
     crmQuiet(loadBranding(agent.agency_id)),
     crmQuiet(loadTeam(agent.agency_id, agent.id)),
@@ -2467,7 +2470,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     crmQuiet(pricingP()),
     crmQuiet(propsP()),
     crmQuiet(clientsP()),
-    crmQuiet(propsP().then(() => start('leads', () => loadLeads(agent.id)))),
+    crmQuiet(start('leads', () => loadLeads(agent.id))),
     crmQuiet(pricingP().then(() => start('shelves', () => Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])))),
     crmQuiet(start('shared', () => loadSharedWithMe())),
     crmQuiet(start('agreements', () => loadAgreements())),
@@ -21151,6 +21154,11 @@ async function loadLeadAgentPhones(){
 
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
+/* propertiesP של loadDashboard (נכסי הסוכן/ת). שאילתת הלידים יוצאת במקביל לנכסים, והציור ממתין להם:
+   כרטיס הליד מציג את הנכס מתוך myPropertyRows (leadPropertyContext). עד 11.11.2026 גם השאילתה
+   חיכתה, ולכן הלידים יצאו שני סבבים אחרי הנכסים. null מחוץ לכניסה: אז הנכסים כבר ביד. */
+let leadsPropsReady = null;
+
 async function loadLeads(agentId, opts){
   // הרשימה עצמה היא crm-leads.js. קובץ המשרד רק מוסיף שמות לכרטיס,
   // וההגדרות והמדריך נפתחים מהכפתור. כישלון שלהם לא מחביא את הרשימה.
@@ -21227,6 +21235,7 @@ async function loadLeads(agentId, opts){
     typeof loadLeadCalls === 'function' ? loadLeadCalls(allLeads) : null,
     loadLeadFair(allLeads),
   ]);
+  if (leadsPropsReady){ try { await leadsPropsReady(); } catch(_){ /* כשל בנכסים: מציירים בלי שם נכס */ } }
   renderLeads(agentId);
 }
 

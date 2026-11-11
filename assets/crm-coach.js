@@ -232,11 +232,13 @@ function coachDateLabel(iso){
 }
 
 function coachWeekLabel(weekStart){
-  if (typeof odRangeLabel !== 'function' || typeof odIso !== 'function') return '';
+  // בלי תלות ב-crm-office-dashboard.js (קבוצת officeDash תלויה ב-coach ולא להפך), ובאותו פורמט של
+  // odRangeLabel: ‏ד.ח.שנה-ד.ח.שנה. קודם חזרה מכאן מחרוזת ריקה כשהקובץ ההוא לא נטען.
   const end = new Date(weekStart + 'T00:00:00');
   end.setDate(end.getDate() - 1);
   const from = new Date(end); from.setDate(from.getDate() - 6);
-  return odRangeLabel({ from: odIso(from), to: odIso(end) });
+  const fmt = d => d.getDate() + '.' + (d.getMonth() + 1) + '.' + String(d.getFullYear()).slice(2);
+  return fmt(from) + '-' + fmt(end);
 }
 
 function coachSub(kind, row){
