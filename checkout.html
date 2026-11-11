@@ -435,7 +435,12 @@ function paintTotal(){
 /* ‏מחיר המנוי של הסוכן/ת המחובר/ת, כולל הנחת משרד ב-Elite. הרשימה ב-SUB_TIERS היא מחיר
    המחירון, וזה מה שמוצג עד שהתשובה חוזרת (או אם נכשלה); מה שנגבה נקבע בשרת
    (start_subscription_order) מאותה פונקציה בדיוק, כך שהתצוגה והחיוב אינם יכולים להיפרד. */
-async function loadSubQuote(){
+let subQuoteP = Promise.resolve();   /* ההגשה ממתינה לו: לא משלמים לפני שהמחיר שנראה הוא מחיר השרת */
+function loadSubQuote(){
+  subQuoteP = fetchSubQuote();
+  return subQuoteP;
+}
+async function fetchSubQuote(){
   try{
     const { data, error } = await sb.rpc('subscription_quote', { p_tier: subTier });
     if (error || !data || data.error || !(Number(data.monthly) > 0)) return;
@@ -450,6 +455,12 @@ async function loadSubQuote(){
       note.style.display = '';
     }
   }catch(_){ /* נשארים על מחיר המחירון; השרת גובה את הסכום הנכון */ }
+  /* לא הצלחנו לשאול: הסכום שנגבה הוא של השרת, כולל הנחת משרד אם יש. אומרים את זה במקום לשתוק. */
+  const note = document.getElementById('subDiscount');
+  if (!note.textContent){
+    note.textContent = 'ב-Elite ייתכנו הנחת משרד: הסכום הסופי מוצג בעמוד הסליקה ובחשבונית.';
+    note.style.display = '';
+  }
 }
 amountEl.addEventListener('change', paintTotal);
 if (isWallet || isSub) paintTotal();
@@ -608,6 +619,7 @@ document.getElementById('testTopupBtn').addEventListener('click', async ()=>{
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!isWallet && !isSub) return;   /* הטופס מוסתר בלאו הכי; זו הרצועה השנייה */
+  if (isSub) await subQuoteP;        /* המחיר שנראה הוא מחיר השרת לפני שממשיכים */
   const first = firstEl.value.trim();
   const last  = lastEl.value.trim();
   const email = emailEl.value.trim();

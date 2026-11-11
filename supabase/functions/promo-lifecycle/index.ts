@@ -52,7 +52,10 @@ const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.i
 const PRICING_URL = `${SITE_BASE_URL}/pricing`;
 const CRM_URL = `${SITE_BASE_URL}/crm`;
 const checkoutUrl = (tier: Tier) => `${SITE_BASE_URL}/checkout?product=subscription&tier=${tier}`;
-const priceLine = (tier: Tier) => `${TIER_NAMES[tier]} ₪${TIER_PRICES[tier]} לחודש + מע״מ`;
+// ‏Elite: מחיר המחירון. במשרד עם כמה סוכנים ב-Elite יש הנחה לסוכנים נוספים (אחוזים ב-pricing.html, לא כאן:
+// מספרים כפולים בנוסח מייל הם מה שנשכח כשמשנים אחוז).
+const priceLine = (tier: Tier) =>
+  `${TIER_NAMES[tier]} ₪${TIER_PRICES[tier]} לחודש + מע״מ` + (tier === "premium" ? " (למשרדים: הנחה לסוכנים נוספים ב-Elite)" : "");
 
 function corsHeaders() {
   return {
