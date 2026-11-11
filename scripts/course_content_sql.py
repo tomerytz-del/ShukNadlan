@@ -49,6 +49,10 @@ import os
 import re
 import sys
 from datetime import datetime, timezone
+import copy
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import course_scene_voices as scene_voices
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTENT = os.path.join(ROOT, 'course-content')
@@ -151,6 +155,7 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
     answers_snapshot = answers_snapshot or {}
     problems = []
     check_citations(chapters, problems, warnings if warnings is not None else [])
+    problems.extend(scene_lib_problems())
     seen_q = set()
     seen_l = set()
     for ch in chapters:
@@ -173,8 +178,27 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
             for i, st in enumerate(steps):
                 where = '%s / %s / צעד %d' % (lesson['_file'], lesson['slug'], i + 1)
                 t = st.get('type') if isinstance(st, dict) else None
-                if t not in ('concept', 'example', 'check'):
-                    problems.append(where + ': type חייב להיות concept / example / check')
+                if t not in ('concept', 'example', 'check', 'scene'):
+                    problems.append(where + ': type חייב להיות concept / example / check / scene')
+                elif t == 'scene':
+                    # סצנה היא גם צעד הבדיקה של השאלה שלה: היא קופאת ושואלת אותה
+                    if st.get('question') not in qslugs:
+                        problems.append(where + ': scene מצביעה על שאלה שאינה בשיעור (או שאינה מפורסמת): %s' % st.get('question'))
+                    checked.add(st.get('question'))
+                    problems.extend(where + ': ' + m for m in scene_problems(st.get('beats'), require=True))
+                    if not st.get('title') or not st.get('freeze'):
+                        problems.append(where + ': לסצנה חסר title או freeze (מה שהמנטור שואל בהקפאה)')
+                    sq = next((qu for qu in (lesson.get('questions') or []) if qu.get('slug') == st.get('question')), None)
+                    sc = (sq or {}).get('scene')
+                    if not isinstance(sc, dict) or not sc.get('right') or not sc.get('wrong'):
+                        problems.append(where + ': לשאלה של הסצנה חסר scene עם right ו-wrong (שני הסופים)')
+                    else:
+                        for name, end in (('סוף נכון', sc.get('right')), ('סוף שגוי', sc.get('wrong'))):
+                            problems.extend('%s / %s: %s' % (where, name, m) for m in scene_problems(end, require=True))
+                            # סוף יכול להתנגן על במה שנבנתה מחדש (חזרה לסצנה שכבר נענתה, או אחרי
+                            # "החזרת הסרט"), ולכן הוא פותח בבמה ובשחקנים משלו
+                            if isinstance(end, list) and end and not (isinstance(end[0], dict) and end[0].get('scene')):
+                                problems.append('%s / %s: ה-beat הראשון חייב לקבוע scene ו-cast' % (where, name))
                 elif t == 'check':
                     if st.get('question') in retired:
                         problems.append(where + ': check מצביע על שאלה שאינה מפורסמת (published: false): %s' % st.get('question'))
@@ -183,6 +207,15 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
                     checked.add(st.get('question'))
                 elif not st.get('title') or not st.get('text'):
                     problems.append(where + ': חסר title או text')
+            # כל משפט מדובר צריך קובץ קול. בלעדיו הנגן מבקש קובץ שאינו קיים
+            for obj, who, text in scene_voices.scene_lines(lesson):
+                if who not in scene_voices.PROFILES:
+                    problems.append('%s / %s: דובר לא מוכר בסצנה: %s' % (lesson['_file'], lesson['slug'], who))
+                    continue
+                f = os.path.join(ROOT, scene_voices.AUDIO_DIR, scene_voices.audio_name(who, text) + '.mp3')
+                if not os.path.exists(f):
+                    problems.append('%s / %s: חסר קובץ קול ל"%s". הריצו python3 scripts/course_scene_audio.py'
+                                    % (lesson['_file'], lesson['slug'], text[:40]))
             if steps and qslugs - checked:
                 # שאלה בלי צעד check לא הייתה נענית לעולם, ונספרת כשגויה בסיום
                 problems.append('%s / %s: שאלות בלי צעד check: %s' % (lesson['_file'], lesson['slug'], ', '.join(sorted(qslugs - checked))))
@@ -242,6 +275,66 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
     return problems
 
 
+SCENE_BEAT_KEYS = {'scene', 'chip', 'cast', 'walk', 'ms', 'wave', 'say', 'text', 'zoom', 'cut', 'inside',
+                   'phone', 'doc', 'court', 'badge', 'music', 'wait', 'vo', 'voice'}
+
+
+def scene_problems(beats, require=False):
+    out = []
+    if not isinstance(beats, list) or (require and not beats):
+        return ['צריך רשימת beats לא ריקה']
+    for i, b in enumerate(beats):
+        if not isinstance(b, dict):
+            out.append('beat %d אינו אובייקט' % (i + 1)); continue
+        extra = set(b) - SCENE_BEAT_KEYS
+        if extra:
+            out.append('beat %d: מפתח לא מוכר %s' % (i + 1, ', '.join(sorted(extra))))
+        if b.get('say') and b['say'] not in scene_voices.CHARACTERS:
+            out.append('beat %d: say של דמות לא מוכרת: %s' % (i + 1, b['say']))
+        if b.get('say') and not b.get('text'):
+            out.append('beat %d: say בלי text' % (i + 1))
+        if b.get('say') and b.get('vo'):
+            # לשניהם יש קובץ קול באותו מפתח, והנגן עונה ל-say ולא מגיע ל-vo
+            out.append('beat %d: say ו-vo באותו beat. מפצלים לשני beats' % (i + 1))
+        if b.get('scene') and b['scene'] not in scene_voices.BACKGROUNDS:
+            out.append('beat %d: scene לא מוכר: %s (יש ציור רק ל-%s)' % (i + 1, b['scene'], ', '.join(scene_voices.BACKGROUNDS)))
+        for who in [c[0] for c in (b.get('cast') or []) if isinstance(c, list) and c]:
+            if who not in scene_voices.CHARACTERS:
+                out.append('beat %d: cast עם דמות לא מוכרת: %s' % (i + 1, who))
+    return out
+
+
+def scene_lib_problems():
+    """הדמויות והרקעים שהגנרטור מאשר חייבים ציור בנגן, אחרת הם מצוירים כנועה או על במה ריקה."""
+    path = os.path.join(ROOT, 'assets', 'course-scene.js')
+    if not os.path.exists(path):
+        return []
+    src = open(path, encoding='utf-8').read()
+    look = re.search(r'var LOOK = \{(.*?)\n  \};', src, re.S)
+    bg = re.search(r'var BG = \{(.*?)\n  \};', src, re.S)
+    out = []
+    looks = set(re.findall(r"^\s+(\w+): \{ name:", look.group(1), re.M)) if look else set()
+    bgs = set(re.findall(r"^\s+(\w+): '<svg", bg.group(1), re.M)) if bg else set()
+    for c in scene_voices.CHARACTERS:
+        if c not in looks:
+            out.append('הדמות %s ב-CHARACTERS אבל לא ב-LOOK שב-assets/course-scene.js' % c)
+    for b in scene_voices.BACKGROUNDS:
+        if b not in bgs:
+            out.append('הרקע %s ב-BACKGROUNDS אבל לא ב-BG שב-assets/course-scene.js' % b)
+    return out
+
+
+def with_audio(lesson):
+    """עותק של הצעדים ושל הסופים, שבו כל משפט מדובר נושא את שם קובץ הקול שלו."""
+    lesson = copy.deepcopy(lesson)
+    for obj, who, text in scene_voices.scene_lines(lesson):
+        if who not in scene_voices.PROFILES:
+            continue
+        key = 'freeze_a' if obj.get('type') == 'scene' and obj.get('freeze') == text else 'a'
+        obj[key] = scene_voices.audio_name(who, text)
+    return lesson
+
+
 def render(chapters):
     out = []
     out.append('-- ============================================================================')
@@ -263,6 +356,7 @@ def render(chapters):
         out.append('  position = excluded.position, published = true;')
         out.append('')
         for lesson in ch['lessons']:
+            lesson = with_audio(lesson)
             lesson_keys.append((ch['slug'], lesson['slug']))
             out.append('insert into public.course_lessons (chapter_id, slug, title, position, intro, body_html, key_points, steps, source_ref, video_url, is_free, published)')
             out.append('select c.id, %s, %s, %d, %s, %s, %s, %s, %s, %s, %s, true' % (
@@ -286,17 +380,18 @@ def render(chapters):
                 # ‏"accepted": [1, 3] - מועד שבו הרשם קיבל יותר מתשובה אחת
                 acc = qu.get('accepted')
                 acc_sql = ('array[%s]::smallint[]' % ','.join(str(int(a)) for a in acc)) if acc else 'null'
-                out.append('insert into public.course_questions (slug, chapter_id, lesson_id, kind, source, question, options, correct, accepted, explanation, law_ref, position, published)')
-                out.append('select %s, l.chapter_id, l.id, %s, %s, %s, %s, %d, %s, %s, %s, %d, %s' % (
+                out.append('insert into public.course_questions (slug, chapter_id, lesson_id, kind, source, question, options, correct, accepted, explanation, law_ref, position, published, scene)')
+                out.append('select %s, l.chapter_id, l.id, %s, %s, %s, %s, %d, %s, %s, %s, %d, %s, %s' % (
                     q(qu['slug']), q(qu.get('kind', 'practice')), q(qu.get('source')),
                     q(qu['question']), jq(qu['options']), int(qu['correct']), acc_sql,
-                    q(qu['explanation']), q(qu.get('law_ref')), i + 1, pub))
+                    q(qu['explanation']), q(qu.get('law_ref')), i + 1, pub,
+                    jq(qu['scene']) if qu.get('scene') else 'null'))
                 out.append('  from public.course_lessons l join public.course_chapters c on c.id = l.chapter_id')
                 out.append('  where c.slug = %s and l.slug = %s' % (q(ch['slug']), q(lesson['slug'])))
                 out.append('on conflict (slug) do update set chapter_id = excluded.chapter_id, lesson_id = excluded.lesson_id,')
                 out.append('  kind = excluded.kind, source = excluded.source, question = excluded.question, options = excluded.options,')
                 out.append('  correct = excluded.correct, accepted = excluded.accepted, explanation = excluded.explanation, law_ref = excluded.law_ref,')
-                out.append('  position = excluded.position, published = excluded.published;')
+                out.append('  position = excluded.position, published = excluded.published, scene = excluded.scene;')
                 out.append('')
     out.append('-- ---- מה שאינו ב-JSON יותר יורד מהאוויר, ולא נמחק')
     out.append('update public.course_questions set published = false where slug not in (%s);' %

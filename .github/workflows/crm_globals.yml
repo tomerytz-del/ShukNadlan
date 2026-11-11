@@ -1,0 +1,33 @@
+name: CRM - הצהרות גלובליות כפולות
+
+# סקריפט classic שמצהיר let/const/class על שם שכבר קיים בקובץ אחר של ה-CRM
+# נכשל ב-SyntaxError, ו-crm.js לא רץ בכלל (11.11.2026: leadReportBusy). אין
+# שורה בלוג השרת, והבדיקות שאינן טוענות את שני הקבצים יחד עוברות ירוק.
+# קוראת קבצים בלבד - בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "crm.html"
+      - "assets/*.js"
+      - "scripts/check_crm_globals.py"
+      - ".github/workflows/crm_globals.yml"
+  push:
+    branches: [main]
+    paths:
+      - "crm.html"
+      - "assets/*.js"
+      - "scripts/check_crm_globals.py"
+      - ".github/workflows/crm_globals.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: בדיקת הצהרות כפולות
+        run: python3 scripts/check_crm_globals.py
