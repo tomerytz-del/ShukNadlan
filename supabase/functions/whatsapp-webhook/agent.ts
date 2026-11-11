@@ -59,6 +59,7 @@ import {
   applyPropertyFilters,
   AREA_SCAN_LIMIT,
   canonicalCity,
+  canonicalCityName,
   citySearchArgs,
   collapseCityNames,
   applyGroupAreaHint,
@@ -2609,6 +2610,14 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     on_map: data.lat != null,
     ...(data.location_precision === "zone"
       ? { approximate_location: "הנכס על המפה במיקום משוער בתוך אזור התעשייה, ובאתר כתוב שהמיקום מוערך. כתובת מלאה תחליף אותו." }
+      // פין משוער על הרחוב (20271110120000): מהעסקאות שנסגרו ברחוב, עד שה-CRM
+      // ישלים פין מדויק מ-GovMap בפתיחה הבאה.
+      : data.location_precision === "street"
+      ? { approximate_location: "הנכס על המפה במיקום משוער לפי הרחוב, ובאתר כתוב שהמיקום מוערך. פין מדויק יושלם מהאזור האישי." }
+      : data.location_precision === "neighborhood"
+      ? { approximate_location: "הנכס על המפה במיקום משוער בתוך השכונה, ובאתר כתוב שהמיקום מוערך. כתובת עם רחוב ומספר תדייק אותו." }
+      : data.location_precision === "city"
+      ? { approximate_location: "הנכס על המפה במיקום משוער ברמת היישוב בלבד, ובאתר כתוב שהמיקום מוערך. רחוב או שכונה ידייקו אותו." }
       : {}),
     ...(hoodWarning || {}),
     ...(elsewhereWarning ? { elsewhere_warning: elsewhereWarning } : {}),
@@ -4343,7 +4352,9 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
  * ארוך מערבב עסקאות במרחק קילומטרים, בלי ממוצע ובלי סולם חדרים.
  */
 async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unknown>) {
-  const city = String(input.city || "").trim();
+  // השם ברישום ולא הכינוי (ראו toolMarketDealsLookup): "תל אביב" לבדה לא
+  // מצאה מיקום ולא עסקאות, כי המאגר כותב "תל אביב - יפו".
+  const city = await canonicalCityName(ctx.supabase, String(input.city || "").trim()) || "";
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
@@ -4485,8 +4496,10 @@ async function toolCmaReportAddress(ctx: ToolContext, input: Record<string, unkn
     street_nearest:
       `הכתובת לא מוקמה בדיוק, ולכן הדוח נמדד ממספר ${String(subject.nearest_house_number || "")} באותו רחוב. ` +
       "אמור/אמרי זאת בקצרה.",
-    street:
-      "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
+    // גם בלי מספר בית, וגם כשנמסר מספר ואין עסקה קרובה אליו ברחוב (20271109180000)
+    street: houseNumber
+      ? "אין עסקה קרובה למספר הבית ברחוב הזה, ולכן הדוח נמדד ממרכז העסקאות ברחוב ולא מהבניין. אמור/אמרי זאת בקצרה."
+      : "לא נמסר מספר בית, ולכן הדוח נמדד ממרכז העסקאות ברחוב. אמור/אמרי זאת, והצע/י לתת מספר בית כדי לדייק.",
   };
   // מה שמסנן את בני ההשוואה: חדרים לנכס מגורים, קומה לנכס מסחרי (לחנות
   // אין חדרים - הסקיל cma-report), ושטח לכולם - בלעדיו אין מחיר למ"ר.
@@ -4744,7 +4757,8 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     none:
       "לא נמצאה אף עסקה להשוואה בסביבת הנכס. אמור/י זאת במפורש ואל תאמוד/תאמדי מחיר בעצמך.",
     no_location:
-      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית.",
+      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. פין מגיע מכתובת עם רחוב ומספר בית " +
+      "(או מהרחוב לבדו, כשנסגרו בו עסקאות); נכס בלי רחוב נשאר בלי פין. הצע/י להוסיף כתובת בכרטיס הנכס.",
   };
 
   // שכבת הבעלות (טאבו). ‏null = עוד לא נטענה, ואז פשוט לא מוזכרת.
@@ -4789,6 +4803,15 @@ function cmaSummary(report: Record<string, unknown>, limit: number, byAddress = 
     data_coverage: coverage,
     coverage_guidance:
       ((COVERAGE_GUIDANCE[String(coverage.status)] || "") + COMMERCIAL_COVERAGE_NOTE + HOUSE_COVERAGE_NOTE).trim() || undefined,
+    // פין משוער (20271110120000): הנכס מוקם מהרחוב, מאזור התעשייה או מהחלקה,
+    // ולכן המרחקים לבני ההשוואה הם בקירוב - נאמר, ולא מוצג כמדויק.
+    location_guidance: ({
+      street: "מיקום הנכס משוער לפי העסקאות ברחוב (אין לו פין מדויק), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      neighborhood: "מיקום הנכס משוער בתוך השכונה (אין לו רחוב), ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד, והצע/י להוסיף כתובת לדיוק.",
+      city: "מיקום הנכס משוער ברמת היישוב בלבד (אין לו רחוב ולא שכונה), ולכן ההשוואה היא לעסקאות ביישוב ולא בסביבה. אמור/אמרי זאת, והצע/י להוסיף רחוב או שכונה.",
+      zone: "מיקום הנכס משוער בתוך אזור התעשייה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+      parcel: "מיקום הנכס הוא מרכז החלקה, ולכן המרחקים לבני ההשוואה בקירוב. אמור/אמרי זאת במשפט אחד.",
+    } as Record<string, string>)[String(subject.location_precision || "")] || undefined,
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
@@ -4918,6 +4941,11 @@ const CMA_OWNERSHIP_GUIDANCE =
  */
 async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unknown>) {
   if (String(input.gush || "").replace(/\D/g, "")) return await dealsByParcel(ctx, input);
+  // העיר נשלחת **כמו שנאמרה**: agent_market_deals_lookup פותרת כינוי ("תל אביב",
+  // "ת"א") לשם שבמאגר בעצמה, ורק כשהכתיב שהוקלד אינו פוגש אף עסקה
+  // (20271109180000). פענוח כאן היה מחליף "קרית טבעון" ב"קריית טבעון" של
+  // הרישום - ו-property_text_key אינה מכווצת יו"ד כפולה, כלומר העסקאות
+  // שרשומות בכתיב של רשות המיסים היו נעלמות.
   const city = String(input.city || "עפולה").trim();
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
@@ -5148,7 +5176,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const gate = await planningTierGate(ctx);
   if (gate) return gate;
 
-  const city = clean(input.city) || await listingCityWhenOmitted(ctx);
+  // השם ברישום: GovMap רושם "תל אביב -יפו", והאימות בדף הבדיקה משווה את
+  // היישוב שחזר למה שנשלח. "תל אביב" לבדה אינה שווה לו.
+  const city = (await canonicalCityName(ctx.supabase, clean(input.city))) || await listingCityWhenOmitted(ctx);
   return byParcel
     ? await planningButton(ctx, { gush, helka }, `גוש ${gush} חלקה ${helka}`)
     : await planningButton(ctx, { city, street, house_number: houseNumber }, `${street} ${houseNumber}${city ? ", " + city : ""}`);
@@ -9581,7 +9611,8 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות. " +
       "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב). " +
       "\"עסקאות בשכונה X\" / \"מה נמכר בגבעת המורה\" = market_deals_lookup עם neighborhood (בלי רחוב): " +
-      "גבעת המורה, מרכז העיר, עפולה עלית ודומיהן הן **שכונות** ולא רחובות.",
+      "גבעת המורה בעפולה, פלורנטין בתל אביב, בורוכוב בגבעתיים ודומיהן הן **שכונות** ולא רחובות. " +
+      "עיר אומרים כמו שהסוכן/ת אמר/ה (\"תל אביב\", \"ת\"א\") - הכלים מכירים את הכינויים.",
     "- **מידע תכנוני (גוש, חלקה, ייעוד, תוכניות, 77-78, סוג בעלות) - רק כפתור לדף הבדיקה.** " +
       "נכס במערכת = planning_info; כתובת או גוש+חלקה = planning_lookup. שניהם שולחים כפתור " +
       "\"📄 מידע תכנוני\" אוטומטית אחרי התשובה; את/ה כותב/ת רק את מה שה-guidance אומר. **לעולם " +

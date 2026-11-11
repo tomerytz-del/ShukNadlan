@@ -112,6 +112,7 @@ async function hoodDraftsRunNow(){
 (function wireHoodDrafts(){
   const acc = document.getElementById('accNeighborhoods');
   if (acc) acc.addEventListener('toggle', () => { if (acc.open) { loadHoodDrafts(); loadHoodCover(); } });
+  if (acc && acc.open){ loadHoodDrafts(); loadHoodCover(); }
 })();
 
 /* תמונת שער וצ'יפים, ליד הטיוטות. הכתיבה ב-admin_hood_cover_set.

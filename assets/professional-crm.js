@@ -1,14 +1,16 @@
 /* ============================================================================
    האזור האישי לבעלי מקצוע (professional-crm.html)
    ----------------------------------------------------------------------------
-   כניסה, ארנק, ומדף "שאלה לעו״ד" לעורכי דין מאושרים. לבעלי מקצוע אין חשבון CRM (הוא דורש
+   כניסה, עריכת הכרטיסייה, ארנק, ומדף לידים לשני תחומים: "שאלה לעו״ד" לעורכי דין מאושרים,
+   ולידים ממחשבון המשכנתא ליועצי משכנתאות מאושרים. לבעלי מקצוע אין חשבון CRM (הוא דורש
    רישיון תיווך), ולכן חשבון נפרד: professional_accounts (docs/professional-accounts.md).
 
    כל ההרשאות במסד, לא כאן:
      • החשבון והלידים שנרכשו נקראים ישירות (RLS לפי user_id / sold_to_professional_id).
-     • המדף נקרא מ-lawyer_leads_public, שמחזיר שורות רק לחשבון עו"ד מאושר ובעיר שלו.
-     • הרכישה: מהארנק ב-lawyer-lead-purchase, או בכרטיס ב-lawyer-lead-checkout (JWT; הליד נשמר 15 דקות,
-       והסגירה רק ב-wallet-topup-callback אחרי אימות מול מורנינג).
+     • המדף נקרא מ-lawyer_leads_public (רק לחשבון עו"ד מאושר ובעיר שלו) או מ-mortgage_leads_public
+       (רק ליועץ/ת משכנתאות מאושר/ת).
+     • הרכישה: מהארנק ב-lawyer-lead-purchase / mortgage-lead-purchase, או בכרטיס ב-lawyer-lead-checkout
+       (עו"ד בלבד; JWT; הליד נשמר 15 דקות, והסגירה רק ב-wallet-topup-callback אחרי אימות מול מורנינג).
    המסך שמסתיר מדף הוא נוחות, לא ההגנה.
    ============================================================================ */
 (function () {
@@ -23,6 +25,12 @@
   let inviteOpen = /[#&]type=invite\b/.test(location.hash);
   const linkExpired = /[#&]error_code=otp_expired\b/.test(location.hash);
 
+  // תשובת Google: בהצלחה #access_token בכתובת, בכישלון error/error_description. נקראת כאן, לפני
+  // ש-supabase-js צורך אותה, ומנוקה מהכתובת אחרי שה-session בידינו. הקוד עצמו ב-assets/auth-return.js
+  // (נטען לפני supabase-js), כדי לא להחזיק עותק נוסף של רשימת המפתחות
+  const oauthError = window.AuthReturn ? AuthReturn.readError() : { code: '', description: '' };
+  function cleanAuthParamsFromUrl() { if (window.AuthReturn) AuthReturn.cleanUrl(); }
+
   const el = (id) => document.getElementById(id);
   const KIND_LABELS = {
     real_estate_lawyer: 'עו״ד מקרקעין', mortgage_advisor: 'יועץ/ת משכנתאות', appraiser: 'שמאי/ת מקרקעין',
@@ -32,6 +40,22 @@
   const hebDate = (d) => (d ? new Date(d).toLocaleDateString('he-IL') : '');
   const errText = (e) => (window.FriendlyError ? FriendlyError.text(e) : (e && e.message) || 'שגיאה');
 
+  // המדף לפי התחום. תחום שאינו כאן רואה "אין עדיין מדף". הסינון האמיתי ב-view במסד
+  const SHELF_COPY = {
+    real_estate_lawyer: {
+      title: 'שאלות לעו״ד בעיר שלכם',
+      sub: 'שאלות של גולשים שנשאלו מדף נכס, אחרי אימות הטלפון. הרכישה (<b id="shelfPrice">₪50</b>) חושפת שם, טלפון ואימייל.',
+      priceKey: 'lawyer_lead_price', buyTitle: 'אישור רכישת שאלה', card: true,
+    },
+    mortgage_advisor: {
+      title: 'לידים ממחשבון המשכנתא',
+      sub: 'פונים שביקשו ייעוץ משכנתא במחשבון באתר (דף הבית ודפי הנכסים). הרכישה (<b id="shelfPrice">₪50</b>) חושפת שם, טלפון ואימייל.',
+      priceKey: 'mortgage_lead_price', buyTitle: 'אישור רכישת ליד משכנתאות', card: false,
+    },
+  };
+  const shelfCopy = () => (account && SHELF_COPY[account.kind]) || null;
+  const isLawyer = () => !!account && account.kind === 'real_estate_lawyer';
+
   let account = null;
   let price = 50;
   let vatRate = 0.18;   // תצוגה בלבד: הסכום שנגבה נקבע במסד (start_lawyer_lead_order)
@@ -39,7 +63,9 @@
   const propertyTitles = {};
   let propertyLookupFailed = false;
   let pendingBuy = null;
-  let recovering = false;   // חזרה מקישור איפוס סיסמה: הטופס של הסיסמה החדשה גובר על boot
+  // חזרה מקישור איפוס סיסמה: הטופס של הסיסמה החדשה גובר על boot. נקרא מהכתובת כאן, ולא רק מהאירוע
+  // PASSWORD_RECOVERY: הוא משודר אחרי ש-getSession חזרה, ו-boot היה מספיק להציג את האפליקציה מעליו
+  let recovering = /[#&]type=recovery\b/.test(location.hash);
 
   function setMsg(id, text, cls) {
     const n = el(id);
@@ -47,11 +73,15 @@
     n.textContent = text || '';
     n.className = 'msg' + (cls ? ' ' + cls : '');
   }
-  function show(id, on) { el(id).hidden = !on; }
+  // הצגת כל כרטיס אחר מסתירה את כרטיס הסוכן (agentCard), כדי שלא יישאר לצד האפליקציה או טופס הסיסמה
+  function show(id, on) {
+    el(id).hidden = !on;
+    if (on && id !== 'agentCard') el('agentCard').hidden = true;
+  }
 
   /* ---------- כניסה ---------- */
   function showLogin() {
-    show('loginCard', true); show('recoverCard', false); show('app', false);
+    show('loginCard', true); show('recoverCard', false); show('app', false); show('agentCard', false);
   }
 
   el('loginForm').addEventListener('submit', async (e) => {
@@ -62,7 +92,13 @@
       const { error } = await sb.auth.signInWithPassword({
         email: el('lgEmail').value.trim(), password: el('lgPassword').value,
       });
-      if (error) { setMsg('lgMsg', 'אימייל או סיסמה שגויים', 'err'); return; }
+      if (error) {
+        // מי שנכנס/ת בדרך כלל עם Google אין לו/ה סיסמה בכלל: הרמז חוסך "שכחתי סיסמה" מיותר
+        setMsg('lgMsg', /not confirmed/i.test(error.message || '')
+          ? 'כתובת המייל עוד לא אושרה. לחצו על הקישור במייל שקיבלתם, או היכנסו עם Google.'
+          : 'אימייל או סיסמה שגויים. נרשמתם עם Google? היכנסו עם הכפתור למעלה.', 'err');
+        return;
+      }
       await boot();
     } catch (err) {
       setMsg('lgMsg', 'שגיאת רשת - נסו שוב', 'err');
@@ -71,12 +107,128 @@
     }
   });
 
+  /* ---------- כניסה עם Google ----------
+     אותו ספק ואותן הגדרות כמו אצל הסוכנים (docs/google-login.md): redirectTo הוא הנתיב בלי query,
+     prompt=select_account כדי לבחור חשבון, ו-AuthReturn.remember לפני היציאה כדי שתשובה שנחתה
+     בדף הבית תחזור לכאן. אחרי החזרה boot() מוצא את ה-session; בלי חשבון בעל מקצוע הוא מציע
+     לפתוח אחד לפי הכרטיסייה שבכתובת הזו (claim_by_login). */
+  const googleBtn = el('googleLoginBtn');
+  const GOOGLE_LABEL = googleBtn.querySelector('.gl-label').textContent;   // התווית מה-HTML, במקום אחד
+  function resetGoogleButton() {
+    googleBtn.disabled = false;
+    googleBtn.querySelector('.gl-label').textContent = GOOGLE_LABEL;
+  }
+  googleBtn.addEventListener('click', async () => {
+    setMsg('lgMsg', '');
+    if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); return; }
+    googleBtn.disabled = true;
+    googleBtn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+    if (window.AuthReturn) AuthReturn.remember();
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } },
+    });
+    if (error) {
+      resetGoogleButton();
+      setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + errText(error), 'err');
+    }
+  });
+
+  /* ---------- כניסה ראשונה בלי חשבון: חשבון לפי הכרטיסייה שבכתובת ----------
+     צעד אחד ולא שניים: מסך הכניסה אומר "בכניסה אתם מאשרים את תנאי השימוש", ולכן הכניסה עצמה
+     היא האישור (terms_accepted: true) והחשבון נוצר מיד, בלי מסך ביניים. מי שאין לו/ה כרטיסייה
+     בכתובת הזו (למשל סוכן/ת שנכנס/ת לכאן בטעות) יוצא/ת מיד עם הסבר, ולא נשאר/ת מחובר/ת לכל האתר. */
+  async function callAccount(payload, token) {
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/professional-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
+        body: JSON.stringify(Object.assign({ action: 'claim_by_login' }, payload)),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok && !data.error, data };
+    } catch (err) {
+      return { ok: false, data: { error: 'network' } };
+    }
+  }
+  const CLAIM_ERRORS = {
+    email_not_verified: 'כתובת המייל של החשבון עוד לא אושרה. היכנסו עם Google, או לחצו על הקישור במייל האישור.',
+    card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
+    network: 'שגיאת רשת - נסו שוב',
+  };
+  // האם למשתמש/ת יש שורה פעילה ב-agency_members (סוכן/ת, כולל מי שגם יועץ/ת משכנתאות). שלוש תשובות:
+  // true / false / null. supabase-js אינו זורק על שאילתה שנכשלה אלא מחזיר { error }, ולכן **שגיאה היא null
+  // ("לא יודעים") ולא false**: false מוביל ליציאה, והיציאה (גם מקומית) מנתקת סוכן/ת אמיתי/ת מה-CRM
+  async function hasAgentProfile(userId) {
+    try {
+      const { data, error } = await sb.from('agency_members').select('id').eq('user_id', userId).eq('active', true).limit(1);
+      if (error) return null;
+      return !!(data && data.length);
+    } catch (e) { return null; }
+  }
+  function showAgentNote(session, errorCode) {
+    const email = session.user.email || 'הזו';
+    el('agentText').textContent = errorCode === 'no_card'
+      ? 'לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + email + ', ולכן לא נפתח כאן חשבון. ההתחברות ל-CRM נשארה כמו שהייתה.'
+      : (CLAIM_ERRORS[errorCode] || 'לא הצלחנו לפתוח כאן חשבון.') + ' ההתחברות ל-CRM נשארה כמו שהייתה.';
+    el('agentHelp').href = 'https://wa.me/972546929991?text=' + encodeURIComponent(
+      'שלום, אני סוכן/ת ורשום/ה גם כבעל/ת מקצוע (כתובת ' + email + ') ואני צריך/ה עזרה בחיבור הכרטיסייה לחשבון.');
+    show('loginCard', false); show('recoverCard', false); show('app', false); show('agentCard', true);
+  }
+  // מחובר/ת, אבל בלי חשבון: יש כרטיסייה בכתובת הזו? החשבון נפתח ונכנסים. אין? יציאה והסבר.
+  // רק "אין כרטיסייה" (וכתובת לא מאושרת / כרטיסייה של אחר/ת) מוציאים: כשל זמני בשרת אינו "אין לך כרטיסייה"
+  async function offerClaim(session) {
+    const { ok, data } = await callAccount({ terms_accepted: true }, session.access_token);
+    if (ok && (data.account_exists || data.created)) {
+      try { await loadAccount(session.user.id); } catch (e) { account = null; }
+      if (account) {
+        show('loginCard', false); show('recoverCard', false); show('app', true);
+        if (data.created) setMsg('appMsg', 'ברוכים הבאים! החשבון נפתח לפי הכרטיסייה שלכם. מכאן עורכים את העמוד, ולידים נפתחים אחרי אישור הנהלת האתר.', 'ok');
+        await renderAll();
+        return;
+      }
+    }
+    const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
+    if (terminal) {
+      // סוכן/ת (גם יועץ/ת משכנתאות עם משרד) שנכנס/ת לכאן בלי כרטיסייה בכתובת שלו/ה: לא יוצאים. ההתחברות
+      // משותפת עם ה-CRM (אותו אחסון), ויציאה, גם מקומית, הייתה מנתקת אותו/ה משם. רק מסבירים ומפנים
+      const agent = await hasAgentProfile(session.user.id);
+      if (agent) { showAgentNote(session, data.error); return; }
+      if (agent === null) {
+        // לא הצלחנו לברר: לא יוצאים (ייתכן שזה/זו סוכן/ת), רק מבקשים רענון
+        showLogin(); resetGoogleButton();
+        setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע. רעננו את הדף לניסיון נוסף.', 'err');
+        return;
+      }
+      // מקומית בלבד: מי שאין לו/ה אף פרופיל באתר לא אמור/ה לצאת בכל המכשירים
+      try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
+      showLogin();
+      resetGoogleButton();
+      setMsg('lgMsg', CLAIM_ERRORS[data.error] || ('לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + (session.user.email || 'הזו') +
+        '. נרשמים ב-/professional-signup, או נכנסים בכתובת שנרשמתם איתה.'), 'err');
+      return;
+    }
+    // כשל זמני (רשת, שרת): נשארים מחוברים, ורענון מנסה שוב
+    showLogin();
+    resetGoogleButton();
+    setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע' + (data.error === 'network' ? ' (שגיאת רשת)' : '') + '. רעננו את הדף לניסיון נוסף.', 'err');
+  }
+  // מי שנכנס/ת עם חשבון Google הלא נכון (הכרטיסייה רשומה בכתובת אחרת) חייב/ת דרך לעבור: יציאה מקומית
+  // (מנתקת גם מה-CRM בדפדפן הזה, וזה כתוב על הכפתור) וחזרה למסך הכניסה
+  el('agentSwitch').addEventListener('click', async () => {
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
+    showLogin(); resetGoogleButton();
+  });
+
   el('forgotBtn').addEventListener('click', async () => {
     const email = el('lgEmail').value.trim();
     if (!email) { setMsg('lgMsg', 'כתבו את כתובת האימייל ולחצו שוב', 'err'); return; }
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/professional-crm' });
-    // אותה תשובה בכל מקרה: לא מגלים אם הכתובת רשומה
-    setMsg('lgMsg', error ? 'לא הצלחנו לשלוח כרגע - נסו שוב בעוד דקה' : 'אם הכתובת רשומה, נשלח אליה קישור לאיפוס סיסמה', error ? 'err' : 'ok');
+    // אותה תשובה בכל מקרה: לא מגלים אם הכתובת רשומה. מי שאין לו/ה חשבון בכלל יקבל/תקבל כלום,
+    // ולכן הדרך הקצרה (Google) כתובה כאן ולא רק למעלה
+    setMsg('lgMsg', error
+      ? 'לא הצלחנו לשלוח כרגע. נסו שוב בעוד דקה, או כתבו לנו בוואטסאפ למטה.'
+      : 'אם הכתובת רשומה, שלחנו אליה קישור לקביעת סיסמה (בדקו גם בספאם). עוד אין לכם חשבון? כניסה עם Google פותחת אותו מעצמה.', error ? 'err' : 'ok');
   });
 
   el('recoverForm').addEventListener('submit', async (e) => {
@@ -86,7 +238,8 @@
     setMsg('rcMsg', 'הסיסמה נשמרה', 'ok');
     show('recoverCard', false);
     recovering = false;
-    if (inviteOpen) { inviteOpen = false; history.replaceState(null, '', location.pathname); }
+    inviteOpen = false;
+    cleanAuthParamsFromUrl();
     await boot();
   });
 
@@ -111,11 +264,16 @@
     el('acctName').textContent = account.display_name;
     el('acctKind').textContent = KIND_LABELS[account.kind] || KIND_LABELS.general;
     el('acctBalance').textContent = nis(account.credit_balance);
-    const lawyer = account.kind === 'real_estate_lawyer';
-    show('shelfCard', lawyer && account.shelf_enabled);
-    show('boughtCard', lawyer && account.shelf_enabled);
-    show('pendingShelfCard', lawyer && !account.shelf_enabled);
-    show('noShelfCard', !lawyer);
+    const copy = shelfCopy();
+    const hasShelf = !!copy;
+    if (copy) {
+      el('shelfTitle').textContent = copy.title;
+      el('shelfSub').innerHTML = copy.sub;   // נוסח קבוע מהקוד, לא מהמסד
+    }
+    show('shelfCard', hasShelf && account.shelf_enabled);
+    show('boughtCard', hasShelf && account.shelf_enabled);
+    show('pendingShelfCard', hasShelf && !account.shelf_enabled);
+    show('noShelfCard', !hasShelf);
   }
 
   el('manageBtn').addEventListener('click', async () => {
@@ -140,14 +298,16 @@
 
   /* ---------- מדף השאלות ---------- */
   async function loadPrice() {
+    const key = (shelfCopy() || SHELF_COPY.real_estate_lawyer).priceKey;
     try {
-      const { data } = await sb.from('pricing_config').select('key, value').in('key', ['lawyer_lead_price', 'vat_rate']);
+      const { data } = await sb.from('pricing_config').select('key, value').in('key', [key, 'vat_rate']);
       (data || []).forEach((r) => {
-        if (r.key === 'lawyer_lead_price' && Number(r.value) >= 0) price = Number(r.value);
+        if (r.key === key && Number(r.value) >= 0) price = Number(r.value);
         if (r.key === 'vat_rate' && Number(r.value) >= 0) vatRate = Number(r.value);
       });
     } catch (e) { /* ברירת המחדל */ }
-    el('shelfPrice').textContent = nis(price);
+    const priceEl = el('shelfPrice');
+    if (priceEl) priceEl.textContent = nis(price);
   }
 
   async function loadProperties(leads) {
@@ -166,7 +326,90 @@
     return 'שאלה כללית';
   }
 
+  /* ---------- מדף המשכנתאות (יועצי משכנתאות מאושרים) ----------
+     אותו מלאי כמו המגירה ב-CRM של הסוכנים (mortgage_leads_public: נתוני המחשבון בלי שם,
+     טלפון ואימייל). הרכישה מהארנק בלבד, ב-mortgage-lead-purchase, שמזהה חשבון בעל מקצוע
+     לפי ה-JWT. תשלום בכרטיס על ליד משכנתאות עוד לא נבנה (lawyer_lead_orders הוא של עו"ד). */
+  const mortgageKind = (l) => (l.owns_property
+    ? '🏘️ יש דירה בבעלות (משפר/ת דיור או משקיע/ה)'
+    : '🔑 דירה יחידה');
+  function mortgageMeta(l) {
+    return [
+      l.property_price ? 'נכס ' + nis(l.property_price) : null,
+      l.equity != null ? 'הון עצמי ' + nis(l.equity) : null,
+      l.ltv_pct != null ? Math.round(l.ltv_pct) + '% מימון' : null,
+      l.years ? l.years + ' שנים' : null,
+      l.interest_rate != null ? 'ריבית ' + l.interest_rate + '%' : null,
+    ].filter(Boolean).join(' · ');
+  }
+  function mortgageSource(l) {
+    const p = l.property_id ? propertyTitles[l.property_id] : null;
+    if (p) return 'מנכס: ' + (p.title || 'מודעה') + (p.city ? ' · ' + p.city : '');
+    if (l.property_id) return propertyLookupFailed ? 'מנכס באתר' : 'מנכס שהוסר מהאתר';
+    return 'ממחשבון דף הבית';
+  }
+  // הטקסט שמוצג בדיאלוג האישור (ובכרטיס): מה שצריך כדי להחליט אם הליד שווה את המחיר
+  function mortgageSummary(l) {
+    return ['החזר חודשי מבוקש ' + nis(l.monthly_payment), mortgageKind(l), mortgageMeta(l), mortgageSource(l)]
+      .filter(Boolean).join('\n');
+  }
+
+  async function loadMortgageShelf() {
+    const list = el('shelfList');
+    list.innerHTML = '<div class="empty">טוען…</div>';
+    await loadPrice();
+    const { data, error } = await sb
+      .from('mortgage_leads_public').select('*').eq('status', 'new')
+      .order('created_at', { ascending: false }).limit(60);
+    if (error) {
+      list.innerHTML = '<div class="empty">שגיאה בטעינת המדף: ' + escapeHtml(errText(error)) + '</div>';
+      shelf = [];
+      return;
+    }
+    shelf = data || [];
+    await loadProperties(shelf);
+    if (!shelf.length) {
+      list.innerHTML = '<div class="empty">אין כרגע לידי משכנתאות פנויים. לידים חדשים נכנסים ממחשבון המשכנתא בדף הבית ובדפי הנכסים.</div>';
+      return;
+    }
+    list.innerHTML = shelf.map((l) => `
+      <div class="lead">
+        <div class="q"><b>החזר חודשי מבוקש ${escapeHtml(nis(l.monthly_payment))}</b><br>${escapeHtml(mortgageKind(l))}</div>
+        <div class="meta">${escapeHtml(mortgageMeta(l))}</div>
+        <div class="meta">${escapeHtml(mortgageSource(l))} · ${escapeHtml(hebDate(l.created_at))} · ${l.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון'}</div>
+        <div class="acts"><button class="btn btn-gold" type="button" data-buy="${escapeHtml(l.id)}">רכישה · ${escapeHtml(nis(price))}</button></div>
+      </div>`).join('');
+  }
+
+  async function loadMortgageBought() {
+    const list = el('boughtList');
+    const { data, error } = await sb
+      .from('mortgage_leads').select('id, full_name, phone, email, owns_property, property_price, equity, loan_amount, interest_rate, years, monthly_payment, ltv_pct, property_id, sold_at')
+      .eq('sold_to_professional_id', account.id).order('sold_at', { ascending: false });
+    if (error) { list.innerHTML = '<div class="empty">שגיאה בטעינת הלידים שנרכשו: ' + escapeHtml(errText(error)) + '</div>'; return; }
+    if (!data || !data.length) { list.innerHTML = '<div class="empty">עוד לא רכשתם לידים.</div>'; return; }
+    await loadProperties(data);
+    list.innerHTML = data.map((l) => {
+      const wa = String(l.phone).replace(/\D/g, '').replace(/^0/, '972');
+      return `
+      <div class="lead">
+        <div><b>${escapeHtml(l.full_name)}</b> <span class="meta">נרכש ${escapeHtml(hebDate(l.sold_at))}</span></div>
+        <div class="q" style="margin-top:6px">החזר חודשי ${escapeHtml(nis(l.monthly_payment))}${l.loan_amount != null ? ' · הלוואה ' + escapeHtml(nis(l.loan_amount)) : ''}<br>${escapeHtml(mortgageKind(l))}</div>
+        <div class="meta">${escapeHtml(mortgageMeta(l))}</div>
+        <div class="meta">${escapeHtml(mortgageSource(l))}</div>
+        <div class="acts">
+          <a class="btn btn-gold" href="tel:${escapeHtml(l.phone)}">📞 ${escapeHtml(l.phone)}</a>
+          <a class="btn btn-ghost" href="https://wa.me/${escapeHtml(wa)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
+          ${l.email ? `<a class="btn btn-ghost" href="mailto:${escapeHtml(l.email)}">✉️ אימייל</a>` : ''}
+          ${l.property_id && propertyTitles[l.property_id] ? `<a class="btn btn-ghost" href="/property?id=${escapeHtml(l.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ---------- מדף עורכי הדין ---------- */
   async function loadShelf() {
+    if (!isLawyer()) return loadMortgageShelf();
     const list = el('shelfList');
     list.innerHTML = '<div class="empty">טוען…</div>';
     await loadPrice();
@@ -195,6 +438,7 @@
   }
 
   async function loadBought() {
+    if (!isLawyer()) return loadMortgageBought();
     const list = el('boughtList');
     const { data, error } = await sb
       .from('lawyer_leads').select('id, full_name, phone, email, question, property_id, sold_at')
@@ -226,14 +470,22 @@
     const lead = shelf.find((l) => l.id === btn.dataset.buy);
     if (!lead) return;
     pendingBuy = lead;
-    el('buyQuestion').textContent = lead.question_text;
+    const copy = shelfCopy() || SHELF_COPY.real_estate_lawyer;
+    el('buyTitle').textContent = copy.buyTitle;
+    el('buyQuestion').textContent = isLawyer() ? lead.question_text : mortgageSummary(lead);
     el('buyPrice').textContent = nis(price);
     const enough = Number(account.credit_balance) >= price;
     const gross = Math.round(price * (1 + vatRate) * 100) / 100;
-    el('buyCardNote').textContent = 'בכרטיס אשראי: ' + nis(gross) + ' כולל מע״מ. הרכישה חד-פעמית, בלי הוראת קבע.';
-    el('buyBalance').textContent = enough
-      ? 'או מהיתרה (לפני מע״מ). יתרה אחרי הרכישה: ' + nis(Number(account.credit_balance) - price)
+    // תשלום בכרטיס קיים רק לליד עו"ד (lawyer_lead_orders). ליועץ/ת משכנתאות: מהארנק בלבד
+    show('buyCard', copy.card);
+    show('buyInvoice', copy.card);
+    show('buyReserveNote', copy.card);
+    el('buyCardNote').textContent = copy.card
+      ? 'בכרטיס אשראי: ' + nis(gross) + ' כולל מע״מ. הרכישה חד-פעמית, בלי הוראת קבע.'
       : '';
+    el('buyBalance').textContent = enough
+      ? (copy.card ? 'או מהיתרה (לפני מע״מ). ' : 'מהיתרה (לפני מע״מ). ') + 'יתרה אחרי הרכישה: ' + nis(Number(account.credit_balance) - price)
+      : (copy.card ? '' : 'היתרה אינה מספיקה. נדרש ' + nis(price) + '. לטעינת הארנק כתבו לנו מהכפתור למעלה.');
     show('buyConfirm', enough);
     el('buyInvName').value = el('buyInvName').value || account.display_name || '';
     el('buyCard').disabled = false;
@@ -253,6 +505,9 @@
     already_purchased: 'הליד כבר שלכם, והוא מופיע למטה תחת "הלידים שרכשתי"',
     too_many_open_orders: 'יש לכם כבר שלוש רכישות פתוחות. השלימו אותן או המתינו 15 דקות.',
     not_a_lawyer: 'המדף הזה מיועד לעורכי דין בלבד',
+    not_a_mortgage_advisor: 'המדף הזה מיועד ליועצי משכנתאות בלבד',
+    no_matching_agent_profile: 'לא נמצא חשבון בעל מקצוע לכניסה הזו',
+    no_matching_account: 'לא נמצא חשבון בעל מקצוע לכניסה הזו',
     shelf_not_approved: 'הגישה למדף עדיין לא אושרה על ידי הנהלת האתר',
     account_inactive: 'החשבון אינו פעיל',
     payment_unavailable: 'התשלום בכרטיס אינו זמין כרגע. נסו שוב מאוחר יותר.',
@@ -349,15 +604,20 @@
     btn.disabled = true; btn.textContent = 'רוכש…'; setMsg('buyMsg', '');
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const res = await fetch(SUPABASE_URL + '/functions/v1/lawyer-lead-purchase', {
+      // הפונקציה לפי התחום. שתיהן גוזרות את החשבון מה-JWT, ולא מהגוף
+      const fn = isLawyer() ? 'lawyer-lead-purchase' : 'mortgage-lead-purchase';
+      const res = await fetch(SUPABASE_URL + '/functions/v1/' + fn, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
         body: JSON.stringify({ lead_id: pendingBuy.id }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
+        // תשלום בכרטיס קיים רק במדף עו"ד; ליועץ/ת משכנתאות הדרך היא טעינת הארנק
+        const copy = shelfCopy() || SHELF_COPY.real_estate_lawyer;
         const messages = Object.assign({
-          insufficient_balance: 'היתרה אינה מספיקה. נדרש ' + nis(data.required) + '. אפשר לשלם בכרטיס אשראי.',
+          insufficient_balance: 'היתרה אינה מספיקה. נדרש ' + nis(data.required) + '. ' +
+            (copy.card ? 'אפשר לשלם בכרטיס אשראי.' : 'לטעינת הארנק כתבו לנו מהכפתור למעלה.'),
         }, BUY_ERRORS);
         setMsg('buyMsg', messages[data.error] || ('שגיאה: ' + errText(data.error)), 'err');
         btn.textContent = 'רכישה מהיתרה';
@@ -465,7 +725,7 @@
   // renderAll: התצוגה והמדף, לפי החשבון הטעון. refresh (אחרי כל פעולה) ו-boot (אחרי בדיקות הכניסה) משתמשים בה
   async function renderAll() {
     renderAccount();
-    if (account.kind === 'real_estate_lawyer' && account.shelf_enabled) {
+    if (shelfCopy() && account.shelf_enabled) {
       await Promise.all([loadShelf(), loadBought()]);
     }
   }
@@ -478,10 +738,22 @@
   async function boot() {
     if (!sb) { setMsg('lgMsg', 'לא הצלחנו לטעון את האתר. רעננו את הדף.', 'err'); show('loginCard', true); return; }
     const { data: { session } } = await sb.auth.getSession();
-    if (recovering) return;
+    if (recovering) {
+      if (session) { show('loginCard', false); show('app', false); show('recoverCard', true); }
+      else { recovering = false; showLogin(); setMsg('lgMsg', 'קישור איפוס הסיסמה פג תוקף. בקשו "שכחתי סיסמה" שוב, או היכנסו עם Google.', 'err'); }
+      return;
+    }
+    // התשובה של Google (או ההזמנה) כבר נצרכה: יורדת מהכתובת, כדי שרענון לא יעבד אותה שוב
+    if (!inviteOpen) cleanAuthParamsFromUrl();
     if (!session) {
       showLogin();
+      resetGoogleButton();
       if (linkExpired) setMsg('lgMsg', 'הקישור במייל פג תוקף. בקשו שליחה חוזרת של מייל האימות מקישור העריכה של הכרטיסייה.', 'err');
+      else if (oauthError.code || oauthError.description) {
+        setMsg('lgMsg', /access_denied|cancel/i.test(oauthError.code)
+          ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
+          : 'ההתחברות עם Google נכשלה: ' + errText({ message: oauthError.description || oauthError.code }), 'err');
+      }
       return;
     }
     if (inviteOpen) {
@@ -499,10 +771,9 @@
       return;
     }
     if (!account) {
-      // מחובר, אבל אין חשבון בעל מקצוע (למשל סוכן/ת שנכנס/ת לכאן בטעות)
-      await sb.auth.signOut();
-      showLogin();
-      setMsg('lgMsg', 'אין חשבון בעל מקצוע לכתובת הזו. מי שנרשם/ה בכרטיסייה פותח/ת חשבון מקישור העריכה האישי.', 'err');
+      // מחובר/ת (Google, או סיסמה) בלי חשבון בעל מקצוע: אולי יש כרטיסייה בכתובת הזו.
+      // offerClaim מציע לפתוח חשבון, או מוציא עם הסבר (למשל סוכן/ת שנכנס/ת לכאן בטעות)
+      await offerClaim(session);
       return;
     }
     show('loginCard', false); show('recoverCard', false); show('app', true);

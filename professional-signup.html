@@ -71,6 +71,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
   p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 18px}
   .price-badge{display:block;text-align:center;background:var(--blue-tint);color:var(--blue-dark);font-weight:800;font-size:.85rem;padding:8px;border-radius:var(--radius-sm);margin-bottom:18px}
+  /* "כבר רשומים? כניסה": בולט ומעל הטופס, כי מי שכבר רשום/ה נוחת/ת כאן ומחפש/ת את הכניסה */
+  .login-strip{display:block;text-align:center;background:var(--gold-tint,#f7f1e2);color:var(--blue-dark);border:1.5px solid var(--gold,#c8962b);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:14px;font-size:.95rem;text-decoration:none}
+  .login-strip b{color:var(--gold-dark,#a67a1f);text-decoration:underline}
+  .login-strip:hover{background:#fff;color:var(--blue-dark)}
   .field{margin-bottom:12px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
@@ -109,6 +113,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62"></a>
     <h1>כרטיסיית בעל מקצוע</h1>
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
+    <!-- מי שכבר רשום/ה מגיע/ה לכאן ומחפש/ת כניסה (11.11.2026): השורה למעלה, לפני הטופס,
+         מפנה לשער של בעלי המקצוע (/professional-crm, Google או סיסמה). -->
+    <a class="login-strip" href="/professional-crm">כבר רשומים? <b>כניסה לאזור האישי ←</b></a>
     <!-- פרסום חינם בכפוף לאישור (‏20270701090000_professional_free_publishing.sql).
          השרת הוא שמחליט: כשהמתג כבוי הוא חוזר להטבת ההצטרפות ולתשלום, והדף
          מגיב לתשובה (promo_already_used) ולא לטקסט שכאן. -->
@@ -172,12 +179,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <h1 id="doneTitle">הכרטיסייה עלתה לאוויר!</h1>
     <p class="sub" id="doneSub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך - תמונות ותיאור.</p>
 
-    <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
-         חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
-         הבליטות של הבלוק ושל כפתור ההעתקה. -->
+    <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. הוא הדרך לחזור ולערוך
+         עד שפותחים חשבון כניסה (מתוך דף העריכה), ומי שאיבד/ה אותו מבקש/ת
+         אותו שוב למייל (‏/professional-manage) — ומכאן הבליטות של הבלוק ושל
+         כפתור ההעתקה. -->
     <div class="manage-box" id="manageBox" hidden>
       <p class="manage-title">הקישור לעמוד העריכה שלך</p>
-      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הפרופיל - שמרו אותו במועדפים.</p>
+      <p class="manage-note">שמרו אותו במועדפים. בעמוד העריכה אפשר גם לפתוח חשבון כניסה עם אימייל וסיסמה, ואם הקישור אבד - מבקשים אותו שוב למייל.</p>
       <input type="text" id="manageLink" readonly>
       <button type="button" class="btn btn-ghost" id="copyLinkBtn">העתקת הקישור</button>
     </div>
@@ -277,6 +285,25 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       feedback.style.color = 'var(--ink-soft)';
       feedback.textContent = data.detail || 'ההרשמה נקלטה. ניצור קשר להשלמת התשלום.';
       btn.disabled = true; btn.textContent = 'ההרשמה נקלטה';
+      return;
+    }
+    // כבר יש כרטיסייה חיה או ממתינה לאישור לכתובת הזו: במקום כפילות, השרת שלח את
+    // קישור העריכה של הקיימת למייל (או לא, אם נשלח לפני דקות), והטופס אומר את זה
+    if (data.error === 'card_exists'){
+      feedback.style.color = 'var(--ink-soft)';
+      feedback.textContent = data.throttled
+        ? 'כבר יש כרטיסייה לכתובת הזו, ושלחנו אליה את קישור העריכה לפני כמה דקות. בדקו גם בספאם, ואפשר לבקש שוב בעוד עשר דקות.'
+        : data.link_sent
+          ? 'כבר יש כרטיסייה לכתובת הזו. שלחנו עכשיו את קישור העריכה שלה למייל - בדקו גם בספאם. אם היא ממתינה לאישור, היא תעלה לאתר עם האישור.'
+          : 'כבר יש כרטיסייה לכתובת הזו. כתבו לנו ונשלח את קישור העריכה.';
+      btn.disabled = false; btn.textContent = submitLabel();
+      return;
+    }
+    if (data.error === 'invalid_email'){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'כתובת האימייל לא נראית תקינה';
+      btn.disabled = false; btn.textContent = submitLabel();
+      document.getElementById('advEmail').focus();
       return;
     }
     if (data.error === 'invalid_phone' || data.error === 'phone_required'){

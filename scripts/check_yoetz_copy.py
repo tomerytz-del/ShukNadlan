@@ -35,7 +35,7 @@ SKIP = {
     # דף נחיתה SEO. הנוסח אושר ב-6.11.2026 ומילת המפתח היא "מתווכים". docs/for-brokers.md
     'for-brokers.html',
     # קורס ההכנה למבחן: "מתווך" הוא המונח המשפטי שהבחינה משתמשת בו (תומר, 8.11.2026). docs/exam-course.md
-    'course.html', 'learn.html', 'assets/learn.js',
+    'course.html', 'learn.html', 'assets/learn.js', 'assets/course-scene.js',
 }
 # החלטה 10 (תומר, 27.10, אושרה במלואה): ב-title, ב-meta description וב-og של דפי המתווכים הניסוח
 # המשולב "יועצי נדל״ן ומתווכים", וב-/agencies משפט גלוי אחד "יועצי נדל״ן (מתווכים) בעפולה ובעמק"

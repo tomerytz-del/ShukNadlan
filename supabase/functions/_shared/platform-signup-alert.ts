@@ -366,13 +366,14 @@ export async function announceProfessionalAccount(
       return;
     }
     const field = PROFESSIONAL_TYPE_LABELS[a.kind] || "בעל/ת מקצוע";
-    const needsShelf = a.kind === "real_estate_lawyer";
+    // שני תחומים עם מדף: עו"ד (lawyer_leads, לפי עיר) ויועץ/ת משכנתאות (mortgage_leads, ארצי)
+    const needsShelf = a.kind === "real_estate_lawyer" || a.kind === "mortgage_advisor";
     await notifyPlatformAdmins(
       supabase,
       `בעל/ת מקצוע פתח/ה חשבון: ${a.display_name}`,
       joinParts([
         field,
-        a.city_id ? null : "בלי עיר מוגדרת (target_region לא תאם עיר) - להשלים לפני אישור המדף",
+        a.city_id || a.kind !== "real_estate_lawyer" ? null : "בלי עיר מוגדרת (target_region לא תאם עיר) - להשלים לפני אישור המדף",
         needsShelf ? "ממתין/ה לאישור מדף הלידים (shelf_enabled)" : "אין מדף לתחום הזה עדיין",
       ]),
     );

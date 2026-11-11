@@ -89,7 +89,7 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /card\.contact_email/);
   // האישור למדף אינו נקבע בפתיחה. הוא מופיע רק בהעברת ערך שמנהל/ת כבר קבע/ה בשליחה חוזרת (carried), ולעולם לא מהגוף
   const shelfLines = accountFn.replace(/\/\/.*$/gm, '').split('\n').filter((l) => /shelf_enabled/.test(l));
-  assert.ok(shelfLines.length > 0 && shelfLines.every((l) => /existing\.shelf_enabled|carried|keepErr|\.select\(|shelf_enabled: true/.test(l)), 'האישור למדף אינו נקבע בפתיחה: ' + shelfLines.join(' | '));
+  assert.ok(shelfLines.length > 0 && shelfLines.every((l) => /existing\.shelf_enabled|carried|stale|keepErr|\.select\(|shelf_enabled: true/.test(l)), 'האישור למדף אינו נקבע בפתיחה: ' + shelfLines.join(' | '));
   assert.equal(/body\.shelf_enabled/.test(accountFn), false);
   assert.match(accountFn, /deleteUser\(authUser\.user\.id\)/);
   assert.match(accountFn, /terms_accepted !== true/);
@@ -108,10 +108,10 @@ test('פתיחת חשבון: אסימון הכרטיסייה, בלי אישור 
   assert.match(accountFn, /placement_type !== "professional_card"[\s\S]{0,120}"active", "pending_approval"/);
   assert.match(accountFn, /cities\.length === 1/);
   // manage_link: האסימון יוצא רק לפי JWT
-  assert.match(accountFn, /action === "manage_link"[\s\S]{0,400}auth\.getUser\(\)/);
+  assert.match(accountFn, /action === "manage_link"[\s\S]{0,200}userFromRequest\(req\)/);
 });
 
-test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי דין, והאזור האישי קורא מה-view הסגור', () => {
+test('הדפים: הכרטיסייה מציעה חשבון לכל תחום, והאזור האישי קורא מה-view הסגור', () => {
   assert.match(manageFn, /has_account: !!acct && !accountPending/);
   assert.match(manageFn, /!au\.user\.email_confirmed_at/);
   assert.equal(/accPassword/.test(manageHtml), false, 'טופס פתיחת החשבון אינו מבקש סיסמה');
@@ -120,13 +120,18 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   assert.match(crmJs, /let inviteOpen = \/\[#&\]type=invite/);
   assert.match(crmJs, /if \(inviteOpen\) \{[\s\S]{0,120}recovering = true;[\s\S]{0,160}show\('recoverCard', true\)/);
   assert.match(crmJs, /otp_expired/);
-  assert.match(manageHtml, /advertiser_type === 'real_estate_lawyer'/);
+  // מ-10.11.2026 תיבת החשבון לכל תחום (לא רק עו"ד): אין סינון לפי advertiser_type לפני הצגתה
+  const accountBoxCode = manageHtml.slice(manageHtml.indexOf('function renderAccountBox'), manageHtml.indexOf("el('accountForm').addEventListener"));
+  assert.equal(/advertiser_type === 'real_estate_lawyer'/.test(accountBoxCode), false, 'תיבת החשבון מוגבלת לעו"ד');
+  assert.match(accountBoxCode, /ACCOUNT_PITCH\[data\.card\.advertiser_type\]/);
   assert.match(crmJs, /\.from\('lawyer_leads_public'\)/);
-  assert.match(crmJs, /\/functions\/v1\/lawyer-lead-purchase/);
+  assert.match(crmJs, /'lawyer-lead-purchase'/);
   assert.match(crmJs, /\.eq\('sold_to_professional_id', account\.id\)/);
   // מנהל/ת פלטפורמה רואה את כל החשבונות (policy): בלי סינון לפי המשתמש maybeSingle נכשל
   assert.match(crmJs, /\.from\('professional_accounts'\)[\s\S]{0,160}\.eq\('user_id', userId\)/);
-  assert.match(crmJs, /account\.kind === 'real_estate_lawyer' && account\.shelf_enabled/);
+  // המדף מוצג רק לתחום שיש לו מדף (SHELF_COPY) ורק אחרי אישור
+  assert.match(crmJs, /show\('shelfCard', hasShelf && account\.shelf_enabled\)/);
+  assert.match(crmJs, /const SHELF_COPY = \{[\s\S]{0,80}real_estate_lawyer:[\s\S]{0,600}mortgage_advisor:/);
   // כרטיס המדף מציג את השאלה אחרי הסתרת פרטים (question_text), לא את השאלה הגולמית
   const shelfRender = crmJs.slice(crmJs.indexOf('async function loadShelf'), crmJs.indexOf('async function loadBought'));
   assert.ok(shelfRender.includes('question_text'));
@@ -144,6 +149,147 @@ test('הדפים: הכרטיסייה מציעה חשבון רק לעורכי ד�
   assert.equal('share_target' in proManifest, false);
   // אזור אישי: לא נמדד כפניות של גולשים (events.js)
   assert.equal(/assets\/events\.js/.test(crmHtml), false);
+});
+
+/* ---------- כל התחומים: מדף המשכנתאות לחשבון בעל מקצוע, ושחזור קישור העריכה (10.11.2026) ---------- */
+const allKindsMig = migrations.find((m) => m.f.endsWith('_professional_accounts_all_kinds.sql'));
+const mortgagePurchaseFn = read('supabase/functions/mortgage-lead-purchase/index.ts');
+const signupFn = read('supabase/functions/professional-signup/index.ts');
+const linkMail = read('supabase/functions/_shared/professional-link-mail.ts');
+
+test('מדף המשכנתאות: חשבון בעל מקצוע מאושר רואה וקונה, והקונה נרשם ב-professional_id', () => {
+  assert.ok(allKindsMig, 'אין מיגרציה professional_accounts_all_kinds');
+  const t = allKindsMig.text;
+  // השומר של ה-view (check_shelf_audience.py) מכיר גם חשבון בעל מקצוע, ורק עם shelf_enabled
+  const gate = t.slice(t.indexOf('function public.current_is_mortgage_advisor'), t.indexOf('comment on function public.current_is_mortgage_advisor'));
+  assert.match(gate, /from professional_accounts[\s\S]{0,200}shelf_enabled = true[\s\S]{0,80}kind = 'mortgage_advisor'/);
+  assert.match(gate, /is_mortgage_advisor = true/, 'היועצים שסומנו ב-CRM ממשיכים לראות את המדף');
+  // הרכישה: תחום, אישור, יתרה אמיתית, ו-service_role בלבד
+  assert.match(t, /v_acct\.kind <> 'mortgage_advisor'[\s\S]{0,120}not_a_mortgage_advisor/);
+  assert.match(t, /v_acct\.shelf_enabled is not true[\s\S]{0,120}shelf_not_approved/);
+  assert.match(t, /insert into public\.mortgage_lead_purchases \(lead_id, professional_id, amount, status, payment_method\)/);
+  assert.match(t, /revoke all on function public\.purchase_mortgage_lead_professional\(uuid, uuid\) from public, anon, authenticated;/);
+  // agent_id כבר אינו not null, אבל קונה אחד חובה
+  assert.match(t, /alter column agent_id drop not null/);
+  assert.match(t, /check \(agent_id is not null or professional_id is not null\)/);
+  // הפונקציה: בלי agency_members נופלים לחשבון בעל מקצוע, וגם שם ה-JWT ולא הגוף
+  assert.match(mortgagePurchaseFn, /from\("professional_accounts"\)[\s\S]{0,600}"purchase_mortgage_lead_professional"[\s\S]{0,80}p_account_id: account\.id/);
+  assert.equal(/body\.(account_id|agent_id|p_account_id)/.test(mortgagePurchaseFn), false);
+  // חברות לא פעילה (או לא יועץ/ת) אינה חוסמת חשבון בעל מקצוע מאושר: הבחירה לפי כשירות, לא לפי קיום השורה
+  assert.match(mortgagePurchaseFn, /agentRow\?\.active && agentRow\.is_mortgage_advisor/);
+  assert.match(mortgagePurchaseFn, /account\?\.active && account\.kind === "mortgage_advisor" && account\.shelf_enabled/);
+  // שחזור הקישור: בלי pending_payment (האסימון נמסר רק אחרי תשלום), ובלי * בכתובת (PostgREST מתרגם ל-%)
+  assert.match(linkMail, /RECOVERABLE_STATUSES = \["active", "pending_approval", "paused"\]/);
+  assert.match(linkMail, /\[\^@\\s\*%\]\+@/);
+  // האזור האישי: מהארנק בלבד ליועץ/ת (אין lawyer_lead_orders למשכנתאות), וה-view הסגור
+  assert.match(crmJs, /\.from\('mortgage_leads_public'\)/);
+  assert.match(crmJs, /isLawyer\(\) \? 'lawyer-lead-purchase' : 'mortgage-lead-purchase'/);
+  assert.match(crmJs, /mortgage_advisor: \{[\s\S]{0,300}card: false/);
+  // גודל הקהל סופר גם חשבונות בעלי מקצוע, אחרת ליד משכנתאות נרשם unrouted כשיש יועץ/ת
+  assert.match(t, /when 'mortgage_advisor' then \([\s\S]{0,300}from professional_accounts[\s\S]{0,120}kind = 'mortgage_advisor'/);
+});
+
+test('שחזור קישור העריכה: למייל שבכרטיסייה בלבד, עם בלם, ולמנהל/ת פלטפורמה מהפאנל', () => {
+  // הקישור יוצא למייל ולא בתשובה: הדפדפן מקבל רק success/throttled
+  assert.match(manageFn, /body\.action === "recover_link"[\s\S]{0,400}sendManageLinks\(supabase, email\)/);
+  const recoverBlock = manageFn.slice(manageFn.indexOf('body.action === "recover_link"'), manageFn.indexOf('const token ='));
+  assert.equal(/manage_token/.test(recoverBlock), false, 'האסימון יוצא בתשובה');
+  assert.match(linkMail, /link_sent_at/);
+  assert.match(linkMail, /RESEND_AFTER_MS = 10 \* 60_000/);
+  // תבנית מילולית: "a_b@x.il" לא יקבל את המפתח של "aXb@x.il"
+  assert.match(linkMail, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
+  assert.match(signupFn, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
+  assert.match(linkMail, /replace\(\/\[\\\\%_\]\/g/);
+  assert.match(manageHtml, /action:'recover_link'/);
+  // הרשמה חוזרת לאותו מייל: אין כרטיסייה כפולה, הקישור של הקיימת נשלח
+  assert.match(signupFn, /\.in\("status", \["active", "pending_approval"\]\)[\s\S]{0,200}card_exists/);
+  assert.match(read('professional-signup.html'), /card_exists/);
+  // הפאנל: הקישור רק למנהל/ת פלטפורמה, ורק של כרטיסיית בעל מקצוע
+  const t = allKindsMig.text;
+  assert.match(t, /function public\.admin_professional_card_manage_link[\s\S]{0,400}current_is_platform_admin\(\)[\s\S]{0,400}placement_type = 'professional_card'/);
+  assert.match(t, /revoke all on function public\.admin_professional_card_manage_link\(uuid\) from public, anon, authenticated;/);
+  assert.match(read('assets/crm.js'), /rpc\('admin_professional_card_manage_link'/);
+  // העמוד הציבורי אומר איך עורכים
+  assert.match(read('professional.html'), /class="owner-note"[\s\S]{0,200}\/professional-crm[\s\S]{0,200}\/professional-manage/);
+});
+
+test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתובת המאומתת, אחרי אישור תנאים, ולא מהגוף', () => {
+  const claim = accountFn.slice(accountFn.indexOf('body.action === "claim_by_login"'), accountFn.indexOf('const token ='));
+  assert.ok(claim.length > 200, 'אין claim_by_login');
+  // הזהות מה-JWT, והכתובת חייבת להיות מאושרת (Google מאשרת; סיסמה אחרי מייל האישור)
+  assert.match(claim, /userFromRequest\(req\)/);
+  assert.match(accountFn, /async function userFromRequest[\s\S]{0,400}auth\.getUser\(\)/);
+  assert.match(claim, /email_confirmed_at \|\| user\.confirmed_at/);
+  assert.equal(/body\.email/.test(claim), false, 'הכתובת מה-JWT, לא מהגוף');
+  // הכרטיסייה לפי הכתובת, מילולית, ורק חיה או ממתינה
+  assert.match(claim, /\.ilike\("contact_email", likeLiteral\(email\)\)/);
+  assert.match(claim, /\.in\("status", \["active", "pending_approval", "paused"\]\)/);
+  // כשל במסד הוא 500 ולא "אין כרטיסייה" (no_card מוציא את המשתמש/ת ושולח להרשמה)
+  assert.match(claim, /if \(mineErr\) return json\(\{ error: "db_error"/);
+  assert.match(claim, /if \(cardsErr\) return json\(\{ error: "db_error"/);
+  // תנאים לפני יצירה, אישור מדף לא נקבע כאן, חשבון מאושר של אחר/ת אינו מחובר שוב, והזמנה שלא נלחצה מפנה מקום
+  assert.match(claim, /terms_accepted !== true[\s\S]{0,120}terms_not_accepted/);
+  assert.equal(/terms_required/.test(claim), false, 'ענף דו-שלבי שאיש אינו קורא');
+  // הזמנה שלא נלחצה: העיר והאישור שלה עוברים ואין התראה שנייה; כשל ב-Auth API הוא 500 ולא "תפוס"
+  assert.match(claim, /stale\?\.city_id \?\? await cityIdForRegion/);
+  assert.match(claim, /if \(stale\) \{[\s\S]{0,300}shelf_enabled: true[\s\S]{0,200}\} else \{\s*await announceProfessionalAccount/);
+  assert.match(claim, /if \(auErr\) return json\(\{ error: "auth_error"/);
+  assert.match(accountFn, /async function userFromRequest/);
+  // האישור למדף אינו נקבע בכניסה: shelf_enabled נכתב רק מערך שהועבר מהזמנה שלא נלחצה (stale), לעולם לא מהגוף
+  assert.equal(/body\.shelf_enabled/.test(claim), false);
+  assert.ok(claim.split('\n').filter((l) => /shelf_enabled: true/.test(l)).every((l) => /update\(\{ shelf_enabled: true \}\)/.test(l)));
+  assert.match(claim, /!au\.user\.email_confirmed_at[\s\S]{0,120}stale = \{ userId: au\.user\.id/);
+  assert.match(claim, /sawTaken[\s\S]{0,120}card_has_account/);
+  // עיר ושורת החשבון בעוזר אחד לשני המסלולים
+  assert.match(accountFn, /async function cityIdForRegion/);
+  assert.equal((accountFn.match(/accountRowFromCard\(card\)/g) || []).length, 2);
+  // צעד אחד: הכניסה היא האישור (השורה "בכניסה אתם מאשרים את תנאי השימוש" במסך), ואין מסך ביניים.
+  // מי שאין לו/ה כרטיסייה יוצא/ת מיד, ולא נשאר/ת מחובר/ת לכל האתר
+  assert.match(crmHtml, /בכניסה אתם מאשרים את <a href="\/terms"/);
+  assert.match(crmJs, /callAccount\(\{ terms_accepted: true \}, session\.access_token\)/);
+  assert.equal(/claimCard|claimTerms|setSession/.test(crmJs), false, 'מסך ביניים לאישור תנאים');
+  // סוכן/ת בלי כרטיסייה בכתובת שלו/ה לא מנותק/ת מה-CRM (אותו אחסון): מסבירים ומפנים, ורק מי שאין לו/ה פרופיל יוצא.
+  // הבדיקה מבנית (סדר ותוכן) ולא חלון תווים: הבדיקה נעשית לפני היציאה, ושגיאת שאילתה היא "לא יודעים" ולא "לא סוכן/ת"
+  const terminalBlock = crmJs.slice(crmJs.indexOf('if (terminal) {'));
+  const iCheck = terminalBlock.indexOf('hasAgentProfile(session.user.id)');
+  const iNote = terminalBlock.indexOf('showAgentNote(session, data.error)');
+  const iNull = terminalBlock.indexOf('agent === null');
+  const iSignOut = terminalBlock.indexOf("signOut({ scope: 'local' })");
+  assert.ok(iCheck > 0 && iNote > iCheck && iNull > iNote && iSignOut > iNull, 'הבדיקה חייבת לבוא לפני היציאה, ו-null לא יוצא');
+  const hasAgentFn = crmJs.slice(crmJs.indexOf('async function hasAgentProfile'), crmJs.indexOf('function showAgentNote'));
+  assert.match(hasAgentFn, /\.eq\('active', true\)/, 'רק שורה פעילה');
+  assert.match(hasAgentFn, /if \(error\) return null/, 'שגיאת שאילתה אינה "לא סוכן/ת"');
+  assert.match(hasAgentFn, /catch \(e\) \{ return null; \}/);
+  // הכרטיס נעלם כשמציגים כרטיס אחר, ויש ממנו דרך החוצה
+  assert.match(crmJs, /if \(on && id !== 'agentCard'\) el\('agentCard'\)\.hidden = true/);
+  assert.match(crmJs, /el\('agentSwitch'\)\.addEventListener\('click'/);
+  assert.match(crmHtml, /id="agentSwitch"/);
+  assert.match(crmHtml, /id="agentCard"[\s\S]{0,900}href="\/crm">חזרה ל-CRM/);
+  // חזרה מקישור איפוס סיסמה נקראת מהכתובת (האירוע מגיע אחרי getSession), ושגיאת Google בעברית
+  assert.match(crmJs, /let recovering = \/\[#&\]type=recovery/);
+  assert.match(crmJs, /errText\(\{ message: oauthError\.description \|\| oauthError\.code \}\)/);
+  // השער: שכחתי סיסמה, קישור העריכה שאבד, ותמיכה בוואטסאפ למספר של הפלטפורמה (data-site-contact)
+  assert.match(crmHtml, /id="forgotBtn"/);
+  assert.match(crmHtml, /href="\/professional-manage">איבדתם את קישור העריכה\?/);
+  assert.match(crmHtml, /id="supportWa" data-site-contact href="https:\/\/wa\.me\/972546929991/);
+  assert.match(read('professional-manage.html'), /wa\.me\/972546929991[^"]*" target="_blank" rel="noopener noreferrer" data-site-contact/);
+  // כשל זמני אינו "אין כרטיסייה": רק no_card וחבריו מוציאים
+  assert.match(crmJs, /const terminal = data\.error === 'no_card'/);
+  assert.match(crmJs, /catch \(err\) \{\s*return \{ ok: false, data: \{ error: 'network' \} \}/);
+  // קריאת השגיאה וניקוי הכתובת מהעותק המשותף ב-auth-return.js, לא עותק חמישי
+  assert.match(crmJs, /AuthReturn\.readError\(\)/);
+  assert.match(crmJs, /AuthReturn\.cleanUrl\(\)/);
+  assert.match(read('assets/auth-return.js'), /readError: readError,\s*cleanUrl: cleanUrl,/);
+  // הדף: כפתור Google כמו אצל הסוכנים (select_account, redirectTo בלי query, AuthReturn.remember לפני)
+  assert.match(crmHtml, /id="googleLoginBtn"/);
+  assert.match(crmHtml, /<script src="assets\/auth-return\.js"><\/script>\s*<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/);
+  assert.match(crmJs, /AuthReturn\.remember\(\)[\s\S]{0,120}signInWithOAuth\(\{[\s\S]{0,200}prompt: 'select_account'/);
+  assert.match(crmJs, /redirectTo: location\.origin \+ location\.pathname/);
+  // בלי חשבון: הצעה לפתוח לפי הכרטיסייה, ולא יציאה שקטה; התשובה של Google יורדת מהכתובת
+  assert.match(crmJs, /if \(!account\) \{[\s\S]{0,300}offerClaim\(session\)/);
+  assert.match(crmJs, /action: 'claim_by_login'/);
+  assert.match(crmJs, /cleanAuthParamsFromUrl\(\)/);
+  assert.match(crmJs, /access_denied\|cancel/);
 });
 
 test('מדף עורכי הדין אינו יושב ב-CRM של הסוכנים', () => {

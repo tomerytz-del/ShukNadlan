@@ -701,9 +701,20 @@ function renderCmaReport(r, brand){
      מאות מטרים - הדוח אומר את זה ולא מציג אותו כמדויק. */
   const LOC_NOTE = {
     street_nearest: `המרחקים נמדדו ממספר ${esc(s.nearest_house_number || '')} באותו רחוב, הכתובת עצמה לא מוקמה בדיוק.`,
-    street: 'לא צוין מספר בית, ולכן המרחקים נמדדו ממרכז הרחוב.',
+    street: 'המרחקים נמדדו ממרכז העסקאות ברחוב, לא מהבניין עצמו.',
   };
-  const locNote = s.source === 'address' ? (LOC_NOTE[s.location_precision] || '') : '';
+  /* נכס במערכת עם פין משוער (location_precision של properties, 20271110120000):
+     על הרחוב, באזור תעשייה או על חלקה - המרחקים בערך, והדוח אומר זאת. */
+  const PROP_LOC_NOTE = {
+    street: 'מיקום הנכס משוער לפי העסקאות ברחוב, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+    neighborhood: 'מיקום הנכס משוער בתוך השכונה, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+    city: 'מיקום הנכס משוער ברמת היישוב בלבד, ולכן המרחקים לבני ההשוואה הם בקירוב גס.',
+    zone: 'מיקום הנכס משוער בתוך האזור, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+    parcel: 'מיקום הנכס הוא מרכז החלקה, ולכן המרחקים לבני ההשוואה הם בקירוב.',
+  };
+  const locNote = s.source === 'address'
+    ? (LOC_NOTE[s.location_precision] || '')
+    : (PROP_LOC_NOTE[s.location_precision] || '');
 
   document.getElementById('cmaBody').innerHTML = `
    <div class="cma-doc" style="${brandStyle}">

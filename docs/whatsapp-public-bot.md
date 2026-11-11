@@ -768,6 +768,13 @@ WHATSAPP_PUBLIC_BOT = on
 | `[site:agent]` | `agent` |
 | `[site:agency]` | `agency` |
 
+**ואחרי תג המקור - תג השוק** (9.11.2026): `[region:tel-aviv]`, השוק שהדף מציג
+(‏`CityContext.market`). הוא אינו נחתם במסד; ‏`regionLabelOf` ב-`index.ts` מתרגם
+אותו לשם השוק (`service-markets.ts`) ומעביר ל-`runPublicTurn` כ-`marketLabel`,
+וגבריאלה מציגה את עצמה "העוזרת של שוק נדל״ן בתל אביב-יפו" ויודעת באיזה אזור
+לחפש כשלא נאמרה עיר. ההנחיה נכנסת להודעת המשתמש/ת ולכן נשמרת בהיסטוריה.
+עד אז הפרומפט אמר "של עפולה והסביבה" לכל פונה, גם ממי שהגיע/ה מ-`/tel-aviv`.
+
 שלושת האחרונים נוספו לאילוץ ב-`20270805090000_gabriela_widget_entries.sql`, ונספרים
 "מהאתר". עד שהמיגרציה רצה הפונקציה חותמת אותם `site`. **הליד עצמו** נשאר עם
 המקור של הכלי (‏`whatsapp_bot_search_agent`, ‏`whatsapp_bot_owner_wizard`...) - מקור

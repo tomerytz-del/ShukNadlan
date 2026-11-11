@@ -572,6 +572,7 @@ function mdOpen(kind, ref){
   const host = document.getElementById('myDash');
   if (!acc || !host) return;
   acc.addEventListener('toggle', () => { if (acc.open) loadMyDashboard(); });
+  if (acc.open) loadMyDashboard();
   host.addEventListener('click', e => {
     const per = e.target.closest('[data-md-period]');
     if (per){

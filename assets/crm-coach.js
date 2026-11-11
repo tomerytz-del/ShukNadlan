@@ -164,7 +164,8 @@ function coachOpenInbox(kind){
 function coachOpenMarket(slug){
   if (typeof growthTab !== 'undefined') growthTab = 'markets';
   gotoSection('accGrowth');
-  if (typeof renderGrowthTabs === 'function'){ renderGrowthTabs(); renderGrowth(); }
+  if (typeof renderGrowthTabs === 'function') renderGrowthTabs();
+  if (typeof renderGrowth === 'function') renderGrowth();
   setTimeout(() => {
     const el = document.querySelector(`[data-market="${CSS.escape(slug)}"]`);
     if (!el) return;
@@ -231,6 +232,7 @@ function coachDateLabel(iso){
 }
 
 function coachWeekLabel(weekStart){
+  if (typeof odRangeLabel !== 'function' || typeof odIso !== 'function') return '';
   const end = new Date(weekStart + 'T00:00:00');
   end.setDate(end.getDate() - 1);
   const from = new Date(end); from.setDate(from.getDate() - 6);
@@ -482,6 +484,7 @@ async function loadCoachGaps(){
 (function wireCoachGaps(){
   const acc = document.getElementById('accCoachGaps');
   if (acc) acc.addEventListener('toggle', e => { if (e.target.open) loadCoachGaps(); });
+  if (acc && acc.open) loadCoachGaps();
 })();
 
 (function wireCoach(){
