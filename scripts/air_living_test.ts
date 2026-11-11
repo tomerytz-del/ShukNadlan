@@ -86,6 +86,8 @@ check("הוא מרווח", mentionsLivingSizeClaim("הסלון הוא מרווח
 check("סלון אירוח", mentionsLivingSizeClaim("סלון אירוח מרווח"));
 check("מקף", mentionsLivingSizeClaim("סלון-מרווח"));
 check("עצום", mentionsLivingSizeClaim("סלון עצום"));
+check("ענקי", mentionsLivingSizeClaim("הסלון ענקי"));
+check("בגדול אינו תואר", !mentionsLivingSizeClaim("סלון בגדול"));
 check("סלון ומטבח", mentionsLivingSizeClaim("סלון ומטבח מרווחים"));
 check("מרפסת גדולה אינה סלון", !mentionsLivingSizeClaim("סלון ומרפסת גדולה"));
 check("חדרים מרווחים אינם סלון", !mentionsLivingSizeClaim("סלון וחדרים מרווחים"));
@@ -98,6 +100,7 @@ check("משפט שמירה מלא", savedSearchAirLivingLine(["האזור", "ה�
 check("בלי אזור שלא נשמר", !savedSearchAirLivingLine(["החדרים", "התקציב"]).includes("האזור"));
 check("בקשת כיוון", visitorAskedAirOrLiving("מחפשים כיווני אוויר דרום") && !visitorAskedAirOrLiving("דירה מרווחת"));
 check("דרום מערב בלי המילה אוויר", visitorAskedAirOrLiving("דירה עם דרום מערב"));
+check("בצפון מערב הרצליה אינו כיוון", !visitorAskedAirOrLiving("דירה בצפון מערב הרצליה"));
 check("צפון מערב העיר אינו כיוון", !visitorAskedAirOrLiving("דירה בצפון מערב העיר"));
 check("לשלושה כיוונים", visitorAskedAirOrLiving("לשלושה כיוונים") && !visitorAskedAirOrLiving("דרום העיר"));
 check("שכונה שלא זוהתה אינה אזור",

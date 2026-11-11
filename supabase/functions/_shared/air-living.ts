@@ -197,7 +197,7 @@ export function writeAirDirections(
 }
 
 const MASC_SG =
-  "ה?(?:גדול|מרווח|ענק|עצום|רחב\\s+ידיים)";
+  "ה?(?:גדול|מרווח|ענקי?|עצום|רחב\\s+ידיים)";
 const MASC_PL =
   "ה?(?:גדולים|מרווחים|ענקיים|עצומים)";
 const WORD_SG = "[\\u0590-\\u05FF]+(?<!ים)(?<!ות)";
@@ -212,7 +212,7 @@ export function mentionsLivingSizeClaim(s: string): boolean {
   const patterns = [
     `${head}סלון[\\s־-]+(?:הוא\\s+)?${MASC_SG}${end}`,
     `${head}סלונים[\\s־-]+${MASC_PL}${end}`,
-    `${head}סלון\\s+${WORD_SG}\\s*[,ו]?\\s*${MASC_SG}${end}`,
+    `${head}סלון\\s+${WORD_SG}(?:\\s*,\\s*|\\s+ו\\s*|\\s+)${MASC_SG}${end}`,
     `${head}סלון\\s+ו\\s*${WORD_SG}\\s+${MASC_PL}${end}`,
   ];
   return patterns.some((p) => new RegExp(p, "u").test(text));
@@ -248,10 +248,9 @@ function askedAirPair(s: string): boolean {
   const re = /(צפון|דרום|מזרח|מערב)(?:\s+|[-־/])(צפון|דרום|מזרח|מערב)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(s))) {
+    // "בצפון מערב הרצליה", "מצפון מערב לעיר": מקום, לא בקשת אוויר.
     const before = s.slice(Math.max(0, m.index - 1), m.index);
-    const after = s.slice(m.index + m[0].length);
-    const inPlace = before === "ב" && /^\s*(?:העיר|שכונ|האזור|הרחוב)/.test(after);
-    if (inPlace) continue;
+    if (before === "ב" || before === "מ") continue;
     return true;
   }
   return false;

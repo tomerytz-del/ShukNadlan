@@ -145,6 +145,7 @@ const follow = readFileSync(new URL("../supabase/migrations/20271112123000_image
 check("גלריה jsonb", follow.includes("jsonb_array_elements") && follow.includes("e->>'url'") && follow.includes("m.gallery") && follow.includes("a.gallery"));
 check("אינדקס על הכתובות עצמן", follow.includes("p.images && p_urls") && !follow.includes("image_ref_key"));
 check("קריאה אחת עם כל הגרסאות", relocate.includes("p_urls: urls") && !relocate.includes("for (const probe"));
+check("בדיקה שנכשלה לא סוגרת את השורה", relocate.includes('"unknown"') && relocate.includes("failed = unknown ||"));
 check("ניסיונות מחיקה חסומים", relocate.includes("cleanup_attempts") && relocate.includes("cleaned_at") && relocate.includes("removed?.error"));
 check("הטופס לא מוחק קובץ", !crm.includes("action: 'release'") && !crm.includes("releasePropertyImage"));
 check("בריחה בגיליון", crm.includes("esc(from.title") && crm.includes("esc(text)"));

@@ -129,7 +129,7 @@ export async function relocatePropertyPhotos(
     p_actor: opts.actorId,
   });
   if (error || !id) {
-    const fresh = await pathsSafeToDelete(
+    const { drop: fresh } = await pathsSafeToDelete(
       supabase,
       copyPaths.map((path) => ({ path, url: publicImageUrl(opts.baseUrl, path) })),
       String(to.agent_id || ""),
@@ -172,7 +172,7 @@ export async function undoRelocation(
     .maybeSingle();
   const paths = Array.isArray(data) ? data as string[] : [];
   const owner = !rowErr && row ? String(row.copy_agent_id || "") : "";
-  const drop = await pathsSafeToDelete(
+  const { drop } = await pathsSafeToDelete(
     supabase,
     paths.map((path) => ({ path })),
     owner,
@@ -182,19 +182,30 @@ export async function undoRelocation(
   return { ok: true, text: "ההעברה בוטלה." };
 }
 
+type Usage = "used" | "free" | "unknown";
+
+async function imageUrlUsage(
+  supabase: Client,
+  url: string,
+  exceptId?: string | null,
+): Promise<Usage> {
+  const urls = imageUrlProbes(url);
+  if (!urls.length) return "used";
+  const { data, error } = await supabase.rpc("property_image_still_used", {
+    p_urls: urls,
+    p_except: exceptId || null,
+  });
+  if (error) return "unknown";
+  return data === true ? "used" : "free";
+}
+
+/** כשל בבדיקה נחשב "בשימוש": לא מוחקים. */
 export async function imageUrlStillUsed(
   supabase: Client,
   url: string,
   exceptId?: string | null,
 ): Promise<boolean> {
-  const urls = imageUrlProbes(url);
-  if (!urls.length) return true;
-  const { data, error } = await supabase.rpc("property_image_still_used", {
-    p_urls: urls,
-    p_except: exceptId || null,
-  });
-  if (error) return true;
-  return data === true;
+  return (await imageUrlUsage(supabase, url, exceptId)) !== "free";
 }
 
 async function pathsSafeToDelete(
@@ -202,16 +213,19 @@ async function pathsSafeToDelete(
   items: Array<{ path: string; url?: string }>,
   ownerAgentId: string,
   baseUrl: string,
-): Promise<string[]> {
-  if (!ownerAgentId) return [];
+): Promise<{ drop: string[]; unknown: boolean }> {
   const drop: string[] = [];
+  let unknown = false;
+  if (!ownerAgentId) return { drop, unknown };
   for (const item of items) {
     if (!deletableStoragePath(item.path, ownerAgentId)) continue;
     const stored = item.url || (baseUrl ? publicImageUrl(baseUrl, item.path) : "");
-    if (!stored || await imageUrlStillUsed(supabase, stored)) continue;
-    drop.push(item.path);
+    if (!stored) continue;
+    const usage = await imageUrlUsage(supabase, stored);
+    if (usage === "unknown") unknown = true;
+    if (usage === "free") drop.push(item.path);
   }
-  return drop;
+  return { drop, unknown };
 }
 
 async function cleanupRelocations(supabase: Client): Promise<void> {
@@ -235,11 +249,12 @@ async function cleanupRelocations(supabase: Client): Promise<void> {
       if (!url || !path || storagePath(url) !== path) continue;
       owned.push({ path, url });
     }
-    const drop = await pathsSafeToDelete(supabase, owned, String(row.source_agent_id || ""), "");
-    let failed = false;
+    const { drop, unknown } = await pathsSafeToDelete(supabase, owned, String(row.source_agent_id || ""), "");
+    // בדיקה שלא הצליחה היא לא "אין שימוש": השורה נשארת לסבב הבא, עם תקרת ניסיונות.
+    let failed = unknown;
     if (drop.length) {
       const removed = await supabase.storage.from(BUCKET).remove(drop);
-      failed = !!removed?.error;
+      failed = unknown || !!removed?.error;
     }
     if (failed) {
       const next = Math.min(5, Number(row.cleanup_attempts || 0) + 1);
