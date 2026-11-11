@@ -20,6 +20,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from xml.sax.saxutils import escape
 
@@ -43,8 +45,18 @@ def tts(text, who, out):
                  'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3', 'User-Agent': 'shuknadlan-course'})
     with tempfile.TemporaryDirectory() as d:
         raw = os.path.join(d, 'raw.mp3')
-        with urllib.request.urlopen(req, timeout=60) as r, open(raw, 'wb') as f:
-            f.write(r.read())
+        # למפתח יש מכסה לדקה (429). מחכים כמה שהשרת מבקש, וגם מעט בין בקשה לבקשה
+        for attempt in range(8):
+            try:
+                with urllib.request.urlopen(req, timeout=60) as r, open(raw, 'wb') as f:
+                    f.write(r.read())
+                break
+            except urllib.error.HTTPError as e:
+                if e.code != 429 or attempt == 7:
+                    raise
+                wait = int(e.headers.get('Retry-After') or 0) or 10 * (attempt + 1)
+                print('  429 מ-Azure, מחכים %d שניות' % wait)
+                time.sleep(wait)
         # שקט בקצוות היה משאיר את הבועה פתוחה על כלום
         trim = ('silenceremove=start_periods=1:start_threshold=-45dB,areverse,'
                 'silenceremove=start_periods=1:start_threshold=-45dB,areverse')
@@ -74,6 +86,7 @@ def main():
     os.makedirs(os.path.join(ROOT, voices.AUDIO_DIR), exist_ok=True)
     for who, text, path in todo.values():
         tts(text, who, path)
+        time.sleep(1.5)
         print('נכתב %s  (%s) %s' % (os.path.relpath(path, ROOT), who, text[:50]))
     print('✓ %d קבצים חדשים.' % len(todo))
     return 0

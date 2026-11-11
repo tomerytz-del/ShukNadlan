@@ -295,6 +295,8 @@ def scene_problems(beats, require=False):
         if b.get('say') and b.get('vo'):
             # לשניהם יש קובץ קול באותו מפתח, והנגן עונה ל-say ולא מגיע ל-vo
             out.append('beat %d: say ו-vo באותו beat. מפצלים לשני beats' % (i + 1))
+        if b.get('scene') and b['scene'] not in scene_voices.BACKGROUNDS:
+            out.append('beat %d: scene לא מוכר: %s (יש ציור רק ל-%s)' % (i + 1, b['scene'], ', '.join(scene_voices.BACKGROUNDS)))
         for who in [c[0] for c in (b.get('cast') or []) if isinstance(c, list) and c]:
             if who not in scene_voices.CHARACTERS:
                 out.append('beat %d: cast עם דמות לא מוכרת: %s' % (i + 1, who))
