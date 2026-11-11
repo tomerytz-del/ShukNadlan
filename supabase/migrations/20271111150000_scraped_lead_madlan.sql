@@ -890,10 +890,20 @@ revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;
 
 -- madlan_free נכנס לרשימה הקיימת, לא מחליף אותה.
+-- pg_get_constraintdef מגיע בשתי צורות, ושתיהן חייבות להיקרא:
+--   ANY ('{a,b}'::text[])                 כך זה שמור בפרודקשן
+--   ANY (ARRAY['a'::text, 'b'::text])     כך זה נראה אחרי חלק מהשחזורים
+-- ביטוי שתופס רק מילה בתוך גרשיים מחזיר כלום על הצורה הראשונה.
+-- ב-11.11.2026 האילוץ הצטמצם ל-madlan_free, שורות קיימות הפרו אותו
+-- (subscription_unlimited, premium_free, paid_50, launch_free), והמיגרציה
+-- התגלגלה לאחור. לכן מאחדים גם כל quota_source שכבר כתוב ב-leads: האילוץ
+-- החדש אינו צר מהטקסט ואינו צר מהנתונים.
 do $$
 declare
-  v_def  text;
-  v_vals text[];
+  v_def   text;
+  v_vals  text[];
+  v_brace text;
+  v_live  text[];
 begin
   select pg_get_constraintdef(oid) into v_def
     from pg_constraint
@@ -903,7 +913,28 @@ begin
   end if;
   select coalesce(array_agg(m[1]), '{}') into v_vals
     from regexp_matches(v_def, '''([a-z_0-9]+)''', 'g') as m;
-  v_vals := array(select distinct unnest(v_vals || array['madlan_free']) order by 1);
+  v_brace := (regexp_match(v_def, '''\{([^}'']*)\}'''))[1];
+  if v_brace is not null then
+    select coalesce(v_vals, '{}') || coalesce(array_agg(trim(x)), '{}')
+      into v_vals
+      from regexp_split_to_table(v_brace, ',') as x
+     where trim(x) ~ '^[a-z_0-9]+$';
+  end if;
+  select coalesce(array_agg(distinct quota_source), '{}') into v_live
+    from public.leads
+   where quota_source is not null;
+  if coalesce(cardinality(v_vals), 0) = 0
+     and coalesce(cardinality(v_live), 0) = 0
+     and v_def !~ 'madlan_free'
+  then
+    raise exception 'leads_quota_source_check: could not read existing quota_source values from %', v_def;
+  end if;
+  v_vals := array(
+    select distinct x
+      from unnest(coalesce(v_vals, '{}') || coalesce(v_live, '{}') || array['madlan_free']) as x
+     where x is not null and length(x) > 0
+     order by 1
+  );
   alter table public.leads drop constraint if exists leads_quota_source_check;
   execute format('alter table public.leads add constraint leads_quota_source_check check (quota_source = any (%L::text[]))', v_vals);
 end $$;
