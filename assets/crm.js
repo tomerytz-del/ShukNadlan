@@ -2593,6 +2593,7 @@ function gotoLoadKeys(raw, tab){
     accProfessionals: 'adm:professionals',
     accUnroutedLeads: 'adm:unroutedLeads',
     accSuggestions: 'adm:suggestions',
+    accLeadReports: 'adm:leadReports',
     accAdminInbox: 'adm:adminInbox',
   };
   if (Object.prototype.hasOwnProperty.call(ADMIN_GOTO_LOADS, raw)) return [ADMIN_GOTO_LOADS[raw]];
@@ -2611,6 +2612,7 @@ const ADMIN_LOAD_FNS = {
   'adm:professionals': () => loadProfessionalCardsAdmin(),
   'adm:unroutedLeads': () => loadUnroutedLeads(),
   'adm:suggestions': () => loadSuggestionsAdmin(),
+  'adm:leadReports': () => loadLeadReportsAdmin(),
   'adm:adminInbox': () => loadAdminInbox(),
 };
 
@@ -16079,7 +16081,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone, owner_email)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -16730,6 +16732,19 @@ function buildPropertyCard(p, agentId){
     title:'הזמנת שירותי תיווך או בלעדיות מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
     onClick:()=> openSignChooser(p),
   });
+
+  // דוח שבועי לבעל הנכס - היועץ/ת מפיק/ה ושולח/ת בעצמו/ה (assets/crm-owner-report.js).
+  // owner_report_create בודקת במסד שוב: הסוכן/ת של הנכס או מנהל/ת המשרד.
+  // אותו תנאי כמו owner_report_create: הסוכן/ת של הנכס, או מנהל/ת המשרד שלו. לא canReferRow -
+  // היא מרשה גם referred_by, ושם ההפקה נדחית. ורק למודעה שבאוויר.
+  if (p.status === 'active' && (p.agent_id === agentId
+      || (officeIsManager() && p.agency_id && p.agency_id === currentAgent.agency_id))){
+    addQuickAction(actions, {
+      label:'דוח לבעלים', icon:'chart',
+      title:'דוח שבועי לבעל הנכס: מבקרים, צפיות ופניות ב-7 הימים האחרונים, בקישור שאתם שולחים בוואטסאפ או במייל',
+      onClick:()=> openOwnerReport(p),
+    });
+  }
 
   if (p.status === 'active'){
     /* שת"פ ויריד הבתים הפתוחים היו שני כפתורים רחבים בשורה משלהם מתחת
@@ -20863,7 +20878,7 @@ async function loadLeads(agentId){
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
   // לחיצות היריד אינן תלויות ברשימת הלידים, ולכן יוצאות כאן ולא בסבב שאחריה
-  let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
+  let [{ data: leads, error }, archived, work, visitors, , reports] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
@@ -20872,6 +20887,7 @@ async function loadLeads(agentId){
     loadLeadWork(agentId),
     loadLeadVisitors(),
     loadFairClicks(),
+    loadLeadReports(agentId),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -20886,6 +20902,7 @@ async function loadLeads(agentId){
   archivedLeadIds = archived;
   leadWork = work;
   leadVisitorOf = visitors;
+  leadReportOf = reports;   // דיווחי לידים לא תקינים (assets/crm-lead-reports.js)
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
   await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
@@ -21203,9 +21220,11 @@ function buildLeadCard(lead, agentId, isArchived){
       onClick:()=> openReferModal('lead', lead, lead.display_name, ()=> loadLeads(agentId)),
     });
   }
+  // דיווח על ליד לא תקין (48 שעות מפתיחה, החזר לארנק) או שורת המצב של דיווח קיים
+  leadReportMount(secondary, lead, agentId);
   /* הארכוב אחרון ושקט: הוא לא מתחרה על העין עם "פתיחת ליד" או חיוג - הוא
      מה שעושים *אחרי* שסיימו. בליד נעול הוא גם ה"לא מתאים לי". */
-  addCardAction(secondary, isArchived ? {
+  if (!(isArchived && leadReportBlocksUnarchive(lead))) addCardAction(secondary, isArchived ? {
     label:'↩️ החזרה מהארכיון',
     title:'הליד יחזור לרשימת הלידים הפעילים',
     onClick: btn => unarchiveLead(lead, btn, agentId),
@@ -27985,6 +28004,7 @@ const NAV_GROUPS = [
     { acc:'accAdminInbox',      label:'תיבת משימות',      icon:'inbox',   tab:'admin' },
     { acc:'accUnroutedLeads',   label:'לידים ללא יעד',    icon:'alert',   tab:'admin' },
     { acc:'accSuggestions',     label:'הצעות לשיפור',     icon:'bug',     tab:'admin' },
+    { acc:'accLeadReports',     label:'דיווחי לידים',     icon:'alert',   tab:'admin' },
   ]},
   { key:'aMarket', label:'שוק ומשתמשים', icon:'users', adminOnly:true, open:true, items:[
     { acc:'accGrowth',          label:'שווקים וצמיחה',    icon:'chart',   tab:'admin' },
@@ -28050,7 +28070,7 @@ const ADMIN_BOTTOM_NAV = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLicenseAppeals','accCoachGaps']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLeadReports','accLicenseAppeals','accCoachGaps']);
 /* קטגוריות שאדומות לפי מצב ולא לפי סוג: תיבת המשימות של הניהול
    (assets/crm-admin-inbox.js) אדומה רק כשיש בה פריט שחרג מזמן היעד, ואחרת
    המונה שלה כהה - "ממתין", לא "דחוף" (docs/admin-inbox.md). */

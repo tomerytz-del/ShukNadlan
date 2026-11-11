@@ -61,6 +61,15 @@ python3 scripts/course_content_sql.py --bump     # רק אחרי שהקודם ר
 שנכתבה מחדש מקבלת slug חדש, אחרת ניסיון פתוח נבדק מול חלופה אחרת
 (`docs/exam-course.md`, "שאלת בדיקה מהירה שכותבים בעצמנו", "סדר החלופות").
 
+## 2ב. סצנה ("עצרו את התמונה")
+
+צעד `scene` הוא צעד הבדיקה של השאלה שלו: הפתיחה עד ההקפאה ב-`steps`, ו**שני
+הסופים על השאלה** (`scene.right`/`scene.wrong`), כי הסוף הנכון חושף את התשובה
+והוא יוצא רק מ-`course_answer`. כל משפט מדובר צריך קובץ ב-`assets/course-scenes/`:
+אחרי עריכה `python3 scripts/course_scene_audio.py` ואז `--check` (שחוסם משפט בלי
+קובץ). הקולות הם של הרילסים (`scripts/course_scene_voices.py`), ודמות חדשה
+נכנסת שם וגם ל-`LOOK` שב-`assets/course-scene.js`. הפרטים: `docs/exam-course.md`, "סצנות".
+
 ## 3. התשובות אינן בדפדפן
 
 `course_questions` סגורה לדפדפן. השאלות מגיעות מ-`course_attempt_start` בלי
