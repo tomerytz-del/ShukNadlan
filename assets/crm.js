@@ -2369,6 +2369,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   function propertiesP(){ return start('properties', () => loadProperties(agent.id)); }
   function shareP(){ return start('share', () => loadSharePartners(agent)); }
   function propsP(){ return start('props', () => Promise.all([shareP(), propertiesP()])); }
+  leadsPropsReady = propsP;   // הפונקציה עצמה, לא קריאה: ב-?goto= הנכסים לא יוצאים לפני שהמסך שנפתח צריך אותם
   function pricingP(){
     return start('pricing', () => loadPricing().then(() => {
       // המחירים לפני מדפי הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
@@ -2397,7 +2398,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
       if (key === 'props') await propertiesP();
       else if (key === 'leads') {
         if (waitPrice) await pricingP();
-        await propertiesP().then(() => start('leads', () => loadLeads(agent.id)));
+        await start('leads', () => loadLeads(agent.id));
       }
       else if (key === 'clients') await clientsListP();
       else if (key === 'demand') await start('demand', () =>
@@ -2469,7 +2470,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     crmQuiet(pricingP()),
     crmQuiet(propsP()),
     crmQuiet(clientsP()),
-    crmQuiet(propsP().then(() => start('leads', () => loadLeads(agent.id)))),
+    crmQuiet(start('leads', () => loadLeads(agent.id))),
     crmQuiet(pricingP().then(() => start('shelves', () => Promise.all([loadLeadShelf(agent.id), loadSavedSearchShelf(agent.id)])))),
     crmQuiet(start('shared', () => loadSharedWithMe())),
     crmQuiet(start('agreements', () => loadAgreements())),
@@ -21153,6 +21154,11 @@ async function loadLeadAgentPhones(){
 
 function leadGroupKey(visitorId){ return 'v:' + visitorId; }
 
+/* propsP של loadDashboard (נכסי הסוכן/ת). שאילתת הלידים יוצאת במקביל לנכסים, והציור ממתין להם:
+   כרטיס הליד מציג את הנכס מתוך myPropertyRows (leadPropertyContext). עד 11.11.2026 גם השאילתה
+   חיכתה, ולכן הלידים יצאו שני סבבים אחרי הנכסים. null מחוץ לכניסה: אז הנכסים כבר ביד. */
+let leadsPropsReady = null;
+
 async function loadLeads(agentId, opts){
   // הרשימה עצמה היא crm-leads.js. קובץ המשרד רק מוסיף שמות לכרטיס,
   // וההגדרות והמדריך נפתחים מהכפתור. כישלון שלהם לא מחביא את הרשימה.
@@ -21229,6 +21235,7 @@ async function loadLeads(agentId, opts){
     typeof loadLeadCalls === 'function' ? loadLeadCalls(allLeads) : null,
     loadLeadFair(allLeads),
   ]);
+  if (leadsPropsReady){ try { await leadsPropsReady(); } catch(_){ /* כשל בנכסים: מציירים בלי שם נכס */ } }
   renderLeads(agentId);
 }
 
