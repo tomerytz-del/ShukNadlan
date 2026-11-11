@@ -196,20 +196,26 @@ export function writeAirDirections(
   payload[key] = null;
 }
 
-const LIVING_SIZE_ADJ =
-  "ה?(?:גדול(?:ה|ים|ות)?|מרווח(?:ה|ת|ים|ות)?|ענק(?:ית|יים|יות|י)?|רחב(?:ה|ות|י)?\\s+ידיים)";
+const MASC_SG =
+  "ה?(?:גדול|מרווח|ענק|עצום|רחב\\s+ידיים)";
+const MASC_PL =
+  "ה?(?:גדולים|מרווחים|ענקיים|עצומים)";
+const WORD_SG = "[\\u0590-\\u05FF]+(?<!ים)(?<!ות)";
 
 /**
- * טענה על גודל הסלון: סלון/סלונים, עם ו/ב/ל/מ/ש/כ/ה לפניהם,
- * תואר מיודע, תואר אחרי תואר אחר, ורחב ידיים. "משרד מרווח" ו"דירה מרווחת" לא.
+ * טענה על גודל הסלון. תואר שמתאים לשם אחר ("מרפסת גדולה", "חדרים מרווחים") לא נספר.
  */
 export function mentionsLivingSizeClaim(s: string): boolean {
-  const adj = LIVING_SIZE_ADJ;
-  const re = new RegExp(
-    `(?:^|[^\\u0590-\\u05FF])[ובלמשכה]{0,4}סלו(?:ן|נים)\\s+(?:${adj}|[\\u0590-\\u05FF]+\\s+ו\\s*${adj})(?=$|[^\\u0590-\\u05FF])`,
-    "u",
-  );
-  return re.test(String(s || ""));
+  const text = String(s || "");
+  const head = `(?:^|[^\\u0590-\\u05FF])[ובלמשכה]{0,4}`;
+  const end = `(?=$|[^\\u0590-\\u05FF])`;
+  const patterns = [
+    `${head}סלון[\\s־-]+(?:הוא\\s+)?${MASC_SG}${end}`,
+    `${head}סלונים[\\s־-]+${MASC_PL}${end}`,
+    `${head}סלון\\s+${WORD_SG}\\s*[,ו]?\\s*${MASC_SG}${end}`,
+    `${head}סלון\\s+ו\\s*${WORD_SG}\\s+${MASC_PL}${end}`,
+  ];
+  return patterns.some((p) => new RegExp(p, "u").test(text));
 }
 
 const AIR_LIVING_UNSAVED =
@@ -231,8 +237,56 @@ export function savedSearchAirLivingLine(labels: string[]): string {
 export function visitorAskedAirOrLiving(text: string): boolean {
   const s = String(text || "");
   if (/כיוו(?:ן|ני|נות)(?:\s+ה)?\s*אוויר/.test(s)) return true;
+  if (askedAirPair(s)) return true;
+  if (/(?:ל)?(?:שני|שתיים|שלושה|שלוש|ארבעה|ארבע|\d+)\s+כיוונים/.test(s)) return true;
   if (/גודל\s+ה?סלון|שטח\s+ה?סלון|סלון\s+מינימ/.test(s)) return true;
   return mentionsLivingSizeClaim(s);
+}
+
+/** זוג כיוונים. "בצפון מערב העיר" הוא מקום, לא בקשת אוויר. */
+function askedAirPair(s: string): boolean {
+  const re = /(צפון|דרום|מזרח|מערב)(?:\s+|[-־/])(צפון|דרום|מזרח|מערב)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) {
+    const before = s.slice(Math.max(0, m.index - 1), m.index);
+    const after = s.slice(m.index + m[0].length);
+    const inPlace = before === "ב" && /^\s*(?:העיר|שכונ|האזור|הרחוב)/.test(after);
+    if (inPlace) continue;
+    return true;
+  }
+  return false;
+}
+
+function labelValues(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v) => String(v || "").trim()).filter(Boolean);
+}
+
+function labelNumber(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return false;
+  return Number.isFinite(Number(value));
+}
+
+/** רק שדות שנשמרו. שכונה שלא זוהתה אינה "האזור". */
+export function savedSearchLabelList(saved: {
+  cities?: unknown;
+  neighborhoodIds?: unknown;
+  minRooms?: unknown;
+  maxRooms?: unknown;
+  minPrice?: unknown;
+  maxPrice?: unknown;
+  propertyTypes?: unknown;
+  minSize?: unknown;
+  features?: unknown;
+}): string[] {
+  const labels: string[] = [];
+  if (labelValues(saved.cities).length || labelValues(saved.neighborhoodIds).length) labels.push("האזור");
+  if (labelNumber(saved.minRooms) || labelNumber(saved.maxRooms)) labels.push("החדרים");
+  if (labelNumber(saved.minPrice) || labelNumber(saved.maxPrice)) labels.push("התקציב");
+  if (labelValues(saved.propertyTypes).length) labels.push("סוג הנכס");
+  if (labelNumber(saved.minSize)) labels.push("השטח");
+  if (labelValues(saved.features).length) labels.push("המאפיינים");
+  return labels;
 }
 
 /** סינון חיפוש: נכס בלי נתון עובר. נכס עם נתון שלא מתאים לא. */
