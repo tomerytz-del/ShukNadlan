@@ -115,7 +115,8 @@
   // ---------------------------------------------------------------- רקעים
   var BG = {
     street: '<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><defs><linearGradient id="csSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc3ff"/><stop offset="1" stop-color="#dfeaff"/></linearGradient></defs><rect width="800" height="500" fill="url(#csSky)"/><circle cx="680" cy="80" r="36" fill="#ffe7a3"/><g fill="#fff" opacity=".85"><ellipse cx="160" cy="90" rx="60" ry="16"/><ellipse cx="200" cy="78" rx="38" ry="16"/><ellipse cx="520" cy="60" rx="50" ry="12"/></g><rect x="0" y="330" width="800" height="170" fill="#c9d1e3"/><rect x="0" y="420" width="800" height="80" fill="#8f9bb6"/><rect x="250" y="70" width="300" height="300" rx="6" fill="#f3e7cf"/><rect x="250" y="70" width="300" height="20" fill="#e2d0ab"/><g fill="#7da3d9"><rect x="280" y="110" width="50" height="42" rx="4"/><rect x="375" y="110" width="50" height="42" rx="4"/><rect x="470" y="110" width="50" height="42" rx="4"/><rect x="280" y="180" width="50" height="42" rx="4"/><rect x="375" y="180" width="50" height="42" rx="4"/><rect x="470" y="180" width="50" height="42" rx="4"/><rect x="280" y="250" width="50" height="42" rx="4"/><rect x="470" y="250" width="50" height="42" rx="4"/></g><rect x="372" y="262" width="56" height="108" rx="6" fill="#0e2a6b"/><circle cx="418" cy="318" r="3.5" fill="#e5c76a"/><rect x="378" y="240" width="44" height="14" rx="3" fill="#fff"/><text x="400" y="251" font-size="10" text-anchor="middle" fill="#0d1b3d">12</text><rect x="596" y="250" width="10" height="120" fill="#7a5b3a"/><circle cx="601" cy="230" r="46" fill="#5fae6e"/><circle cx="575" cy="250" r="30" fill="#4f9a5e"/><circle cx="628" cy="252" r="28" fill="#6cbc7b"/><rect x="120" y="282" width="6" height="88" fill="#4a5578"/><rect x="70" y="250" width="106" height="44" rx="6" fill="#fff" stroke="#0e2a6b" stroke-width="3"/><text x="123" y="279" font-size="20" font-weight="800" text-anchor="middle" fill="#0e2a6b">למכירה</text></svg>',
-    room: '<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><rect width="800" height="500" fill="#f6efe2"/><rect x="0" y="360" width="800" height="140" fill="#d9c3a0"/><g stroke="#cdb38a" stroke-width="2"><line x1="0" y1="400" x2="800" y2="400"/><line x1="0" y1="450" x2="800" y2="450"/></g><rect x="80" y="70" width="190" height="150" rx="6" fill="#9cc3ff" stroke="#fff" stroke-width="10"/><line x1="175" y1="70" x2="175" y2="220" stroke="#fff" stroke-width="8"/><rect x="520" y="90" width="120" height="86" rx="4" fill="#e5c76a"/><rect x="530" y="100" width="100" height="66" fill="#0e2a6b" opacity=".85"/><circle cx="580" cy="133" r="16" fill="#e5c76a" opacity=".8"/><rect x="300" y="300" width="230" height="16" rx="4" fill="#7a5b3a"/><rect x="316" y="316" width="10" height="64" fill="#7a5b3a"/><rect x="504" y="316" width="10" height="64" fill="#7a5b3a"/><rect x="360" y="282" width="70" height="18" rx="2" fill="#fff"/><g transform="translate(450 286)"><circle r="7" fill="none" stroke="#b8952e" stroke-width="3"/><rect x="5" y="-2" width="18" height="4" fill="#b8952e"/></g></svg>'
+    room: '<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><rect width="800" height="500" fill="#f6efe2"/><rect x="0" y="360" width="800" height="140" fill="#d9c3a0"/><g stroke="#cdb38a" stroke-width="2"><line x1="0" y1="400" x2="800" y2="400"/><line x1="0" y1="450" x2="800" y2="450"/></g><rect x="80" y="70" width="190" height="150" rx="6" fill="#9cc3ff" stroke="#fff" stroke-width="10"/><line x1="175" y1="70" x2="175" y2="220" stroke="#fff" stroke-width="8"/><rect x="520" y="90" width="120" height="86" rx="4" fill="#e5c76a"/><rect x="530" y="100" width="100" height="66" fill="#0e2a6b" opacity=".85"/><circle cx="580" cy="133" r="16" fill="#e5c76a" opacity=".8"/><rect x="300" y="300" width="230" height="16" rx="4" fill="#7a5b3a"/><rect x="316" y="316" width="10" height="64" fill="#7a5b3a"/><rect x="504" y="316" width="10" height="64" fill="#7a5b3a"/><rect x="360" y="282" width="70" height="18" rx="2" fill="#fff"/><g transform="translate(450 286)"><circle r="7" fill="none" stroke="#b8952e" stroke-width="3"/><rect x="5" y="-2" width="18" height="4" fill="#b8952e"/></g></svg>',
+    office: '<svg viewBox="0 0 800 500" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><rect width="800" height="500" fill="#eef2fb"/><rect x="0" y="372" width="800" height="128" fill="#c7cfe0"/><rect x="0" y="366" width="800" height="8" fill="#b3bdd3"/><rect x="520" y="70" width="210" height="160" rx="6" fill="#9cc3ff" stroke="#fff" stroke-width="10"/><g fill="#7da3d9"><rect x="540" y="150" width="34" height="75"/><rect x="584" y="125" width="40" height="100"/><rect x="634" y="160" width="30" height="65"/><rect x="674" y="140" width="38" height="85"/></g><line x1="625" y1="70" x2="625" y2="230" stroke="#fff" stroke-width="7"/><rect x="70" y="70" width="230" height="150" rx="8" fill="#fff" stroke="#e3e8f4" stroke-width="3"/><text x="185" y="98" font-size="17" font-weight="800" text-anchor="middle" fill="#0e2a6b">נכסים למכירה</text><g fill="#e5c76a"><rect x="92" y="114" width="56" height="40" rx="4"/><rect x="157" y="114" width="56" height="40" rx="4"/><rect x="222" y="114" width="56" height="40" rx="4"/></g><g fill="#c9d3ee"><rect x="92" y="162" width="56" height="40" rx="4"/><rect x="157" y="162" width="56" height="40" rx="4"/><rect x="222" y="162" width="56" height="40" rx="4"/></g><rect x="300" y="292" width="250" height="16" rx="4" fill="#0e2a6b"/><rect x="318" y="308" width="12" height="66" fill="#0e2a6b"/><rect x="520" y="308" width="12" height="66" fill="#0e2a6b"/><rect x="392" y="252" width="80" height="40" rx="4" fill="#4a5578"/><rect x="398" y="257" width="68" height="30" rx="2" fill="#9cc3ff"/><rect x="380" y="290" width="104" height="5" rx="2" fill="#4a5578"/><rect x="700" y="300" width="40" height="72" rx="6" fill="#b8952e"/><circle cx="720" cy="282" r="28" fill="#5fae6e"/><circle cx="702" cy="296" r="18" fill="#4f9a5e"/><circle cx="740" cy="294" r="18" fill="#6cbc7b"/></svg>'
   };
 
   // ---------------------------------------------------------------- דמויות
@@ -124,6 +125,9 @@
     noa: { name: 'נועה', pitch: 520, skin: '#f1c7a5', hair: '#3b2416', style: 'long', top: '#e5c76a', shirt: '#ffffff', pants: '#0e2a6b' },
     dana: { name: 'דנה', pitch: 610, skin: '#e8b48e', hair: '#9b4a24', style: 'bob', top: '#2f9e8f', shirt: '#2f9e8f', pants: '#3b4a6b' },
     ido: { name: 'עידו', pitch: 300, skin: '#d9a27a', hair: '#1d1d1d', style: 'short', top: '#5b6bd6', shirt: '#5b6bd6', pants: '#2c3550', beard: true },
+    avi: { name: 'אבי, הבעלים', pitch: 260, skin: '#e3b08a', hair: '#5a4632', style: 'short', top: '#3f6e8c', shirt: '#3f6e8c', pants: '#2f3542', glasses: true },
+    shira: { name: 'שירה, השכנה', pitch: 560, skin: '#f0c9ab', hair: '#2b2b2b', style: 'long', top: '#c0587e', shirt: '#c0587e', pants: '#3b3f58' },
+    yael: { name: 'יעל, אחותה של נועה', pitch: 590, skin: '#f1c7a5', hair: '#3b2416', style: 'bob', top: '#7a5cc4', shirt: '#7a5cc4', pants: '#2c3550' },
     moshe: { name: 'משה, הבעלים', pitch: 230, skin: '#efc09a', hair: '#b9b9b9', style: 'bald', top: '#8a6d4b', shirt: '#8a6d4b', pants: '#4a3b2a', mus: true }
   };
   function charSvg(L) {
@@ -152,6 +156,7 @@
       '<path d="M44 45 Q50 42 55 45 M65 45 Q70 42 76 45" stroke="' + brow + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
       '<path d="M60 56 Q64 63 59 64" stroke="#b9805e" stroke-width="2" fill="none" stroke-linecap="round"/>' +
       '<ellipse cx="44" cy="64" rx="5" ry="3" fill="#f08a7a" opacity=".35"/><ellipse cx="76" cy="64" rx="5" ry="3" fill="#f08a7a" opacity=".35"/>' +
+      (L.glasses ? '<g fill="none" stroke="#1f2433" stroke-width="2"><circle cx="50" cy="54" r="7.5"/><circle cx="70" cy="54" r="7.5"/><path d="M57.5 54 L62.5 54"/></g>' : '') +
       mus + '<rect class="mouth" x="54" y="69" width="12" height="4" rx="2" fill="#8a2c2c"/></g></svg>';
   }
 
@@ -244,7 +249,7 @@
     }
     host.innerHTML =
       '<div class="cs"><div class="cs-stage" role="group" aria-label="' + esc('סצנה: ' + (opt.title || '')) + '">' +
-      '<div class="cs-cam"><div class="cs-bg" data-bg="street">' + BG.street + '</div><div class="cs-bg off" data-bg="room">' + BG.room + '</div><div class="cs-cast"></div></div>' +
+      '<div class="cs-cam"><div class="cs-cast"></div></div>' +
       '<span class="cs-chip hide"></span><div class="cs-cut"><div></div></div>' +
       '<div class="cs-ov" data-ov="doc"></div><div class="cs-ov" data-ov="phone"></div><div class="cs-ov" data-ov="court"></div>' +
       '<div class="cs-badge"></div>' +
@@ -309,6 +314,15 @@
     }
 
     function narrow() { return stage.clientWidth < 520; }
+    // רקע נבנה רק כשסצנה משתמשת בו, ישר מ-BG: רקע חדש הוא שורה אחת שם
+    function showBg(name) {
+      if (!BG[name]) return;
+      if (!root.querySelector('.cs-bg[data-bg="' + name + '"]')) {
+        var el = document.createElement('div'); el.className = 'cs-bg off'; el.setAttribute('data-bg', name); el.innerHTML = BG[name];
+        cam.insertBefore(el, castEl); void el.offsetWidth;
+      }
+      Array.prototype.forEach.call(root.querySelectorAll('.cs-bg'), function (el) { el.classList.toggle('off', el.getAttribute('data-bg') !== name); });
+    }
     function spawn(who, left, flip) {
       var el = document.createElement('div'); el.className = 'cs-ch' + (flip ? ' flip' : ''); el.style.left = left + '%';
       el.innerHTML = charSvg(LOOK[who] || LOOK.noa); castEl.appendChild(el); actors[who] = el;
@@ -377,7 +391,7 @@
       if (b.phone === null) ov('phone', null);
       if (b.music !== undefined) { if (b.music) musicStart(b.music); else musicStop(); }
       if (b.scene) {
-        Array.prototype.forEach.call(root.querySelectorAll('.cs-bg'), function (el) { el.classList.toggle('off', el.getAttribute('data-bg') !== b.scene); });
+        showBg(b.scene);
         castEl.innerHTML = ''; actors = {}; hush(); zoom(1);
         (b.cast || []).forEach(function (c) { spawn(c[0], c[1], c[2] === 'flip'); });
       }

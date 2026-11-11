@@ -17,10 +17,15 @@ PROFILES = {
     'dana':   ('he-IL-HilaNeural', '+12%', '+9%'),
     'ido':    ('he-IL-AvriNeural', '+14%', '+5%'),
     'moshe':  ('he-IL-AvriNeural', '+0%',  '-9%'),
+    'avi':    ('he-IL-AvriNeural', '+6%',  '-3%'),
+    'shira':  ('he-IL-HilaNeural', '+8%',  '-7%'),
+    'yael':   ('he-IL-HilaNeural', '+12%', '+4%'),
     'mentor': ('he-IL-AvriNeural', '+4%',  '-5%'),
     'judge':  ('he-IL-AvriNeural', '-6%',  '-14%'),
 }
-CHARACTERS = ('noa', 'dana', 'ido', 'moshe')
+CHARACTERS = ('noa', 'dana', 'ido', 'moshe', 'avi', 'shira', 'yael')
+# רקעים שיש להם ציור ב-BG שב-assets/course-scene.js
+BACKGROUNDS = ('street', 'room', 'office')
 AUDIO_DIR = 'assets/course-scenes'
 
 
