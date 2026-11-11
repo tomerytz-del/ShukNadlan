@@ -21433,6 +21433,7 @@ function buildLeadCard(lead, agentId, isArchived){
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           ${fresh && !isArchived ? '<span class="lc-new">חדש</span>' : ''}
           ${leadFairChip(lead)}
+          ${typeof leadAgentPhoneTagHtml === 'function' ? leadAgentPhoneTagHtml(lead) : ''}
         </div>
         <div class="lead-name">${unlocked ? '' : '🔒 '}<bdi dir="auto">${esc(lead.display_name || '-')}</bdi></div>
         <div class="lead-phone"><bdi dir="auto">${esc(lead.display_phone || '-')}</bdi></div>

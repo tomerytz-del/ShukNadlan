@@ -12,6 +12,13 @@
 --
 --   * נגזר בזמן הקריאה ולא נשמר. סוכן/ת שנרשם/ה אחרי הליד, או שהחליף/ה מספר,
 --     מתעדכן/ת מעצמו/ה, ואין טריגר על הכנסת ליד ואין backfill.
+--   * רק הלידים של הסוכן/ת עצמו/ה (agent_id), לא של מי שהפנה (referred_by):
+--     למפנה אין מה לעשות עם הסימן, ואין סיבה שיראה אותו.
+--   * חבר/ת משרד שנסגר/ה או שוחרר/ה (closed_at, released_at) אינו/ה "יועץ/ת רשום/ה":
+--     לקוח/ה אמיתי/ת שמשתמש/ת במספר ישן לא יסומן/ תסומן בטעות. הטלפון של הסוכן/ת
+--     עצמו/ה מסומן תמיד, גם אם נסגר/ה לאחר מכן.
+--   * שאילתה אחת: טלפון הקורא/ת נשלף פעם אחת, והבדיקה מול שאר החברים נשענת על
+--     agency_members_phone_e164_key. ה-RPC יוצא בכל טעינת לידים.
 --   * רק ליד פתוח (status = 'unlocked'). "הפונה הוא יועץ/ת" הוא מידע על
 --     זהות הפונה, ולכן בליד נעול הוא אינו מוצג (הסקיל lead-card, כלל 1).
 --   * מחזירה רק מזהה ליד ודגל. לא את זהות הסוכן/ת, לא המשרד ולא הטלפון.
@@ -31,22 +38,22 @@ security definer
 set search_path = ''
 as $$
   with me as (
-    select public.current_agent_id() as id
+    select m.id, m.phone_e164
+      from public.agency_members m
+     where m.id = public.current_agent_id()
   )
-  select l.id,
-         exists (
-           select 1 from public.agency_members m
-            where m.id = me.id and m.phone_e164 = l.phone_e164
-         ) as is_self
+  select l.id, (l.phone_e164 = me.phone_e164) as is_self
     from public.leads l
-    cross join me
-   where me.id is not null
-     and (l.agent_id = me.id or l.referred_by = me.id)
-     and l.status = 'unlocked'
+    join me on l.agent_id = me.id
+   where l.status = 'unlocked'
      and l.phone_e164 is not null
-     and exists (
-       select 1 from public.agency_members m
-        where m.phone_e164 = l.phone_e164
+     and (
+       l.phone_e164 = me.phone_e164
+       or exists (
+         select 1 from public.agency_members m
+          where m.phone_e164 = l.phone_e164
+            and m.closed_at is null and m.released_at is null
+       )
      );
 $$;
 
