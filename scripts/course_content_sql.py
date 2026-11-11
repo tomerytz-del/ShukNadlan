@@ -155,6 +155,7 @@ def validate(chapters, answers_snapshot=None, allowed_answer_changes=(), warning
     answers_snapshot = answers_snapshot or {}
     problems = []
     check_citations(chapters, problems, warnings if warnings is not None else [])
+    problems.extend(scene_lib_problems())
     seen_q = set()
     seen_l = set()
     for ch in chapters:
@@ -295,9 +296,31 @@ def scene_problems(beats, require=False):
         if b.get('say') and b.get('vo'):
             # לשניהם יש קובץ קול באותו מפתח, והנגן עונה ל-say ולא מגיע ל-vo
             out.append('beat %d: say ו-vo באותו beat. מפצלים לשני beats' % (i + 1))
+        if b.get('scene') and b['scene'] not in scene_voices.BACKGROUNDS:
+            out.append('beat %d: scene לא מוכר: %s (יש ציור רק ל-%s)' % (i + 1, b['scene'], ', '.join(scene_voices.BACKGROUNDS)))
         for who in [c[0] for c in (b.get('cast') or []) if isinstance(c, list) and c]:
             if who not in scene_voices.CHARACTERS:
                 out.append('beat %d: cast עם דמות לא מוכרת: %s' % (i + 1, who))
+    return out
+
+
+def scene_lib_problems():
+    """הדמויות והרקעים שהגנרטור מאשר חייבים ציור בנגן, אחרת הם מצוירים כנועה או על במה ריקה."""
+    path = os.path.join(ROOT, 'assets', 'course-scene.js')
+    if not os.path.exists(path):
+        return []
+    src = open(path, encoding='utf-8').read()
+    look = re.search(r'var LOOK = \{(.*?)\n  \};', src, re.S)
+    bg = re.search(r'var BG = \{(.*?)\n  \};', src, re.S)
+    out = []
+    looks = set(re.findall(r"^\s+(\w+): \{ name:", look.group(1), re.M)) if look else set()
+    bgs = set(re.findall(r"^\s+(\w+): '<svg", bg.group(1), re.M)) if bg else set()
+    for c in scene_voices.CHARACTERS:
+        if c not in looks:
+            out.append('הדמות %s ב-CHARACTERS אבל לא ב-LOOK שב-assets/course-scene.js' % c)
+    for b in scene_voices.BACKGROUNDS:
+        if b not in bgs:
+            out.append('הרקע %s ב-BACKGROUNDS אבל לא ב-BG שב-assets/course-scene.js' % b)
     return out
 
 
