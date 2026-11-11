@@ -25,16 +25,19 @@ export interface PromoUsage {
   exclusiveSigned: number;
   videos: number;
   calls: number;
+  /** false = לפחות שאילתה אחת נכשלה. מספרים חלקיים אינם מספיקים להמלצה. */
+  complete: boolean;
 }
 
 const ZERO: PromoUsage = {
   leads: 0, properties: 0, clients: 0, signedAgreements: 0,
-  exclusiveSigned: 0, videos: 0, calls: 0,
+  exclusiveSigned: 0, videos: 0, calls: 0, complete: false,
 };
 
-async function count(q: PromiseLike<{ count: number | null; error: { message: string } | null }>): Promise<number> {
+/** ‏null = השאילתה נכשלה. אפס אמיתי ושגיאה אינם אותו דבר. */
+async function count(q: PromiseLike<{ count: number | null; error: { message: string } | null }>): Promise<number | null> {
   const { count: n, error } = await q;
-  if (error) { console.error("promo usage count failed", error.message); return 0; }
+  if (error) { console.error("promo usage count failed", error.message); return null; }
   return n ?? 0;
 }
 
@@ -53,7 +56,13 @@ export async function fetchPromoUsage(supabase: any, memberId: string, since: st
       count(supabase.from("property_video_jobs").select("id", head).eq("agent_id", memberId).eq("status", "done").gte("created_at", since)),
       count(supabase.from("agent_calls").select("id", head).eq("agent_id", memberId).gte("created_at", since)),
     ]);
-    return { leads, properties, clients, signedAgreements: signed, exclusiveSigned: exclusive, videos, calls };
+    const all = [leads, properties, clients, signed, exclusive, videos, calls];
+    const n = (v: number | null) => v ?? 0;
+    return {
+      leads: n(leads), properties: n(properties), clients: n(clients), signedAgreements: n(signed),
+      exclusiveSigned: n(exclusive), videos: n(videos), calls: n(calls),
+      complete: all.every((v) => v !== null),
+    };
   } catch (err) {
     console.error("promo usage failed", memberId, String((err as Error)?.message ?? err));
     return { ...ZERO };
@@ -80,8 +89,10 @@ export interface PromoRecommendation {
   reason: string;
 }
 
-/** ‏null = אין שימוש כלל, ולכן אין על מה להמליץ. */
+/** ‏null = אין שימוש כלל, או שמדד אחד לא נספר (המלצה על נתון חלקי עלולה לטעון
+ *  "לא חתמת על בלעדיות" למי שחתם/ה, ולהטות החלטת רכישה). */
 export function recommendTier(u: PromoUsage): PromoRecommendation | null {
+  if (!u.complete) return null;
   if (usageLines(u).length === 0) return null;
   if (u.exclusiveSigned > 0 || u.videos > 0) {
     const parts: string[] = [];
