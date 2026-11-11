@@ -5571,7 +5571,7 @@ const LX_CHANNELS = {
   sell_page:     'דף חושבים למכור',
   rss_engine:    'מנוע ה-RSS',
   meta_ads:      'מודעות ממומנות במטא',
-  social:        'גבריאלה בפייסבוק ובאינסטגרם',
+  social:        'פייסבוק, אינסטגרם ומדלן',
   unattributed:  'ללא שיוך מקור',
   other:         'אחר',
 };
@@ -5637,6 +5637,7 @@ const LX_SOURCES = {
   meta_ads_buyer_form:         'טופס לידים במטא · מחפש/ת',
   meta_ads_property_form:      'טופס לידים במטא · פנייה על נכס',
   unattributed:                'ללא שיוך מקור',
+  madlan:                      'מדלן',
 };
 
 const LX_KINDS = {

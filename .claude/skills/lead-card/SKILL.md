@@ -85,7 +85,7 @@ description: כרטיס הליד ב-CRM של שוק נדל״ן - buildLeadCard /
   ‏`leadsPriorityGroups`, משותפים עם דף הבית). מקור חדש נכנס בארבעה מקומות: `leadSrcKey`,
   ‏`LEAD_SRC` (תווית, גוון ו"למה עכשיו"), ‏`LEAD_PRIO`, ו-`LEAD_SRC_FILTERS` אם יש לו צ'יפ.
   מקור שחסר ב-`LEAD_PRIO` נותן `NaN` בהשוואה, והמיון נופל לתאריך בלבד - בשקט.
-- **ליד מפוסט בפייסבוק** (`source` = `facebook_group` / `facebook_marketplace`,
+- **ליד מפוסט בפייסבוק או ממודעת מדלן** (`source` = `facebook_group` / `facebook_marketplace` / `madlan`,
   ‏`lead_type` = `owner_inbound` או `seeker_inbound`) נולד רק אחרי הסכמה, ונספר
   תחת "רשתות חברתיות" (`LEAD_SOCIAL_SOURCES`). ליד בעלים ממנו נשאר "לידי בעלים".
   ‏`seeker_inbound` מקבל ענף משלו ב-`leadKind`, ובלעדיו הוא נופל ל"ליד קונה".

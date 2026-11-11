@@ -41,10 +41,11 @@ export const SOURCE_LABEL: Record<string, string> = {
   // ‏פוסט שהסוכן הסורק מצא, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
   facebook_group: "קבוצת פייסבוק",
   facebook_marketplace: "מרקטפלייס של פייסבוק",
+  madlan: "מדלן",
 };
 
 // הפונה לא פנה/תה אלינו: פרסם/ה פוסט, ואישר/ה שמתווך/ת יחזור/תחזור אליו/ה
-const POST_SOURCES = new Set(["facebook_group", "facebook_marketplace"]);
+const POST_SOURCES = new Set(["facebook_group", "facebook_marketplace", "madlan"]);
 
 export function sourceLabel(src: string | null | undefined): string {
   if (src == null || String(src).trim() === "") return "האתר";

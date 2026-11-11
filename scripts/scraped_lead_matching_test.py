@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20271030210000_scraped_lead_matching.sql"
 FOLLOW = ROOT / "supabase/migrations/20271030221500_scraped_match_cap_lock.sql"
 PHONE_HASH = ROOT / "supabase/migrations/20271031250000_scraped_leads_phone_hash.sql"
+MADLAN = ROOT / "supabase/migrations/20271111150000_scraped_lead_madlan.sql"
+REF_SQL = ROOT / "supabase/migrations/20270812090000_scraped_leads.sql"
 
 SETUP = r"""
 do $$ begin
@@ -651,6 +653,8 @@ def main():
     if psql(db, sql_text="select count(*) from public.notifications") != before_n:
         fail("המילוי כתב התראה")
     phone_hash_privilege_check(db)
+    psql(db, MADLAN)
+    psql(db, MADLAN)
     psql(db, sql_text="""
       update public.scraped_leads
          set raw_phone = null
@@ -679,6 +683,146 @@ def main():
        where id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'
     """) != "true":
         fail("הכפילות או המחיקה נגעו ב-demand_notified_at או ב-hash")
+
+    # מדלן: בלי תאריך פרסום, כתובת המודעה היא המזהה, ו-073 לא מאחד מודעות.
+    ref_sql = REF_SQL.read_text(encoding="utf-8")
+    ref_start = ref_sql.index("create or replace function public.scraped_lead_ref")
+    ref_end = ref_sql.index("revoke all on function public.scraped_lead_ref", ref_start)
+    psql(db, sql_text=ref_sql[ref_start:ref_end] + """
+      alter table public.neighborhoods add column if not exists name text;
+      alter table public.scraped_leads alter column id set default gen_random_uuid();
+    """)
+    canon = psql(db, sql_text="""
+      select public.scraped_lead_ref('https://www.madlan.co.il/listings/abc123')
+             || '|' ||
+             public.scraped_lead_ref('https://m.madlan.co.il/listings/abc123/?utm_source=x')
+    """)
+    if canon != "madlan.co.il/listings/abc123|madlan.co.il/listings/abc123":
+        fail(f"המזהה הקנוני של מדלן: {canon}")
+
+    def add_lead(fields: str) -> str:
+        return psql(db, sql_text=f"select public.scraped_lead_add({fields}::jsonb)::text")
+
+    old_fb = add_lead("""jsonb_build_object(
+      'lead_type', 'seeker_inbound', 'source', 'facebook_group',
+      'external_ref', 'https://facebook.com/groups/1/posts/9001',
+      'posted_at', now() - interval '4 days', 'city', 'עפולה', 'raw_phone', '0501111111')""")
+    if "post_too_old" not in old_fb:
+        fail(f"פייסבוק ישן לא נדחה: {old_fb}")
+    missing_at = add_lead("""jsonb_build_object(
+      'lead_type', 'seeker_inbound', 'source', 'facebook_group',
+      'external_ref', 'https://facebook.com/groups/1/posts/9002',
+      'city', 'עפולה', 'raw_phone', '0501111112')""")
+    if "missing_posted_at" not in missing_at:
+        fail(f"פייסבוק בלי תאריך לא נדחה: {missing_at}")
+    bad_source = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'yad2',
+      'external_ref', 'https://www.yad2.co.il/item/1',
+      'city', 'עפולה', 'raw_phone', '0501111113')""")
+    if "invalid_source" not in bad_source:
+        fail(f"מקור לא מוכר התקבל: {bad_source}")
+
+    first = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://www.madlan.co.il/listings/aaa111',
+      'posted_at', now() - interval '40 days',
+      'city', 'עפולה', 'raw_phone', '073-123-4567', 'source_detail', 'עפולה')""")
+    if '"success": true' not in first and '"success":true' not in first.replace(" ", ""):
+        fail(f"מדלן בלי תאריך אמיתי נדחה: {first}")
+    row = psql(db, sql_text="""
+      select external_ref || '|' || (phone_hash is null)::text
+             || '|' || (posted_at > now() - interval '2 minutes')::text
+        from public.scraped_leads
+       where source = 'madlan' and post_url like '%aaa111%'
+    """)
+    if row != "madlan.co.il/listings/aaa111|true|true":
+        fail(f"מודעת מדלן לא נשמרה לפי הכתובת ובלי hash: {row}")
+    second = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://madlan.co.il/listings/bbb222',
+      'city', 'עפולה', 'raw_phone', '+972-73-1234567')""")
+    if "success" not in second:
+        fail(f"מודעה שנייה עם אותו 073 נחסמה: {second}")
+    same = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://m.madlan.co.il/listings/aaa111?utm_campaign=a',
+      'city', 'עפולה', 'raw_phone', '0502222222')""")
+    if '"duplicate": "post"' not in same and '"duplicate":"post"' not in same.replace(" ", ""):
+        fail(f"אותה מודעה לא זוהתה ככפילות: {same}")
+    real = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://www.madlan.co.il/listings/ccc333',
+      'city', 'עפולה', 'raw_phone', '052-333-3333')""")
+    if "success" not in real:
+        fail(f"מדלן עם נייד אמיתי נדחה: {real}")
+    real_dup = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://www.madlan.co.il/listings/ddd444',
+      'city', 'עפולה', 'raw_phone', '0523333333')""")
+    if "duplicate" not in real_dup or "phone" not in real_dup:
+        fail(f"נייד אמיתי במדלן לא אוחד: {real_dup}")
+    fb_virtual = add_lead("""jsonb_build_object(
+      'lead_type', 'seeker_inbound', 'source', 'facebook_group',
+      'external_ref', 'https://facebook.com/groups/1/posts/9003',
+      'posted_at', now(), 'city', 'עפולה', 'raw_phone', '0731234567')""")
+    if "success" not in fb_virtual:
+        fail(f"פוסט פייסבוק עם 073 של מדלן נחסם: {fb_virtual}")
+    channels = psql(db, sql_text="""
+      select public.lead_source_channel('madlan') || '|' ||
+             public.lead_source_channel('facebook_group') || '|' ||
+             public.lead_source_channel('homepage_owner_wizard') || '|' ||
+             public.lead_source_channel('yad2')
+    """)
+    if channels != "social|social|homepage|other":
+        fail(f"ערוץ המקור השתנה: {channels}")
+
+    named = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://www.madlan.co.il/listings/eee555',
+      'city', 'עפולה', 'raw_phone', '054-444-4444', 'source_detail', 'עפולה')""")
+    if "success" not in named:
+        fail(f"מודעה להסכמה נדחתה: {named}")
+    lead_id = psql(db, sql_text="""
+      select id::text from public.scraped_leads
+       where external_ref = 'madlan.co.il/listings/eee555'
+    """)
+    consented = psql(db, sql_text=f"select public.scraped_lead_set_consent('{lead_id}', 'consented')::text")
+    if "consented" not in consented:
+        fail(f"הסכמה על מדלן נכשלה: {consented}")
+    label = psql(db, sql_text="""
+      select source_detail || '|' || raw_name || '|' || (raw_message like '%נקלט:%')::text
+             || '|' || (raw_message like '%המודעה:%')::text
+        from public.leads where source = 'madlan' and external_ref = 'madlan.co.il/listings/eee555'
+    """)
+    if label != "מדלן · עפולה|פונה ממדלן|true|true":
+        fail(f"תווית הליד ממדלן: {label}")
+
+    psql(db, sql_text=f"""
+      update public.scraped_leads set city_id = '{city}'
+       where external_ref = 'madlan.co.il/listings/bbb222'
+    """)
+    bbb = psql(db, sql_text="""
+      select id::text from public.scraped_leads
+       where external_ref = 'madlan.co.il/listings/bbb222'
+    """)
+    psql(db, sql_text="""
+      update public.pricing_config set value = 0
+       where key in ('scraped_lead_matching_enabled', 'open_demand_notify_cap_enabled');
+      delete from public.notifications where type = 'open_demand';
+    """)
+    n_dem = psql(db, sql_text=f"select public.scraped_lead_notify_demand('{bbb}')")
+    if not n_dem.isdigit() or int(n_dem) < 1:
+        fail(f"ביקוש פתוח ממדלן לא הופץ: {n_dem}")
+    body = psql(db, sql_text="""
+      select string_agg(distinct case
+               when body like '%במודעה במדלן%' and body not like '%הודעת פייסבוק%' then 'madlan'
+               else 'other' end, ',')
+        from public.notifications
+       where type = 'open_demand'
+    """)
+    if body != "madlan":
+        fail(f"התראת הביקוש ממדלן לא אומרת להגיב במודעה: {body}")
+    phone_hash_privilege_check(db)
     print("scraped lead matching: ok")
 
 
