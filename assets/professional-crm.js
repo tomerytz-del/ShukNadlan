@@ -77,7 +77,7 @@
 
   /* ---------- כניסה ---------- */
   function showLogin() {
-    show('loginCard', true); show('recoverCard', false); show('app', false);
+    show('loginCard', true); show('recoverCard', false); show('app', false); show('agentCard', false);
   }
 
   el('loginForm').addEventListener('submit', async (e) => {
@@ -152,6 +152,23 @@
     card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
     network: 'שגיאת רשת - נסו שוב',
   };
+  // האם למשתמש/ת יש שורה ב-agency_members (סוכן/ת, כולל מי שגם יועץ/ת משכנתאות). שגיאה או RLS שחוסם:
+  // false, והתנהגות היציאה המקומית הרגילה
+  async function hasAgentProfile(userId) {
+    try {
+      const { data } = await sb.from('agency_members').select('id').eq('user_id', userId).limit(1);
+      return !!(data && data.length);
+    } catch (e) { return false; }
+  }
+  function showAgentNote(session, errorCode) {
+    const email = session.user.email || 'הזו';
+    el('agentText').textContent = errorCode === 'no_card'
+      ? 'לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + email + ', ולכן לא נפתח כאן חשבון. ההתחברות ל-CRM נשארה כמו שהייתה.'
+      : (CLAIM_ERRORS[errorCode] || 'לא הצלחנו לפתוח כאן חשבון.') + ' ההתחברות ל-CRM נשארה כמו שהייתה.';
+    el('agentHelp').href = 'https://wa.me/972546929991?text=' + encodeURIComponent(
+      'שלום, אני סוכן/ת ורשום/ה גם כבעל/ת מקצוע (כתובת ' + email + ') ואני צריך/ה עזרה בחיבור הכרטיסייה לחשבון.');
+    show('loginCard', false); show('recoverCard', false); show('app', false); show('agentCard', true);
+  }
   // מחובר/ת, אבל בלי חשבון: יש כרטיסייה בכתובת הזו? החשבון נפתח ונכנסים. אין? יציאה והסבר.
   // רק "אין כרטיסייה" (וכתובת לא מאושרת / כרטיסייה של אחר/ת) מוציאים: כשל זמני בשרת אינו "אין לך כרטיסייה"
   async function offerClaim(session) {
@@ -167,7 +184,10 @@
     }
     const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
     if (terminal) {
-      // מקומית בלבד: סוכן/ת שנכנס/ת לכאן בטעות לא אמור/ה לצאת מה-CRM בכל המכשירים
+      // סוכן/ת (גם יועץ/ת משכנתאות עם משרד) שנכנס/ת לכאן בלי כרטיסייה בכתובת שלו/ה: לא יוצאים. ההתחברות
+      // משותפת עם ה-CRM (אותו אחסון), ויציאה, גם מקומית, הייתה מנתקת אותו/ה משם. רק מסבירים ומפנים
+      if (await hasAgentProfile(session.user.id)) { showAgentNote(session, data.error); return; }
+      // מקומית בלבד: מי שאין לו/ה אף פרופיל באתר לא אמור/ה לצאת בכל המכשירים
       try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
       showLogin();
       resetGoogleButton();

@@ -248,7 +248,10 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   assert.match(crmHtml, /בכניסה אתם מאשרים את <a href="\/terms"/);
   assert.match(crmJs, /callAccount\(\{ terms_accepted: true \}, session\.access_token\)/);
   assert.equal(/claimCard|claimTerms|setSession/.test(crmJs), false, 'מסך ביניים לאישור תנאים');
-  assert.match(crmJs, /if \(terminal\) \{[\s\S]{0,200}signOut\(\{ scope: 'local' \}\)/);
+  // סוכן/ת בלי כרטיסייה בכתובת שלו/ה לא מנותק/ת מה-CRM (אותו אחסון): מסבירים ומפנים, ורק מי שאין לו/ה פרופיל יוצא
+  assert.match(crmJs, /if \(terminal\) \{[\s\S]{0,500}hasAgentProfile\(session\.user\.id\)\) \{ showAgentNote\(session, data\.error\); return; \}[\s\S]{0,300}signOut\(\{ scope: 'local' \}\)/);
+  assert.match(crmJs, /from\('agency_members'\)\.select\('id'\)\.eq\('user_id', userId\)/);
+  assert.match(crmHtml, /id="agentCard"[\s\S]{0,900}href="\/crm">חזרה ל-CRM/);
   // חזרה מקישור איפוס סיסמה נקראת מהכתובת (האירוע מגיע אחרי getSession), ושגיאת Google בעברית
   assert.match(crmJs, /let recovering = \/\[#&\]type=recovery/);
   assert.match(crmJs, /errText\(\{ message: oauthError\.description \|\| oauthError\.code \}\)/);
