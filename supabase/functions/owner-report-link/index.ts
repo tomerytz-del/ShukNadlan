@@ -44,7 +44,8 @@ Deno.serve(async (req: Request) => {
   if (!TOKEN_RE.test(k)) return json({ error: "unauthorized" }, 401);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const { data, error } = await supabase.rpc("owner_report_open", { p_id: k });
+  // ‏preview = התצוגה המקדימה של היועץ/ת ב-CRM: לא נספרת כפתיחה של הבעלים
+  const { data, error } = await supabase.rpc("owner_report_open", { p_id: k, p_count: body.preview !== true });
   if (error) return json({ error: "server", message: "תקלה זמנית. נסו שוב בעוד רגע." }, 500);
   if (!data) {
     return json({ error: "not_found", message: "הקישור לדוח פג תוקף או שאינו תקין. אפשר לבקש מיועץ הנדל״ן קישור חדש." }, 404);

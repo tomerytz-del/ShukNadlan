@@ -168,14 +168,20 @@ begin
   if v_agent is null then return jsonb_build_object('error', 'not_agent'); end if;
   if p_property is null then return jsonb_build_object('error', 'no_property'); end if;
 
-  select id, agent_id, agency_id into v_prop from public.properties where id = p_property;
+  select id, agent_id, agency_id, status into v_prop from public.properties where id = p_property;
   if not found then return jsonb_build_object('error', 'not_found'); end if;
-  if not (v_prop.agent_id = v_agent
-          or (v_prop.agency_id is not null
-              and v_prop.agency_id = public.current_agency_id()
-              and public.current_member_role() = 'manager')) then
+  -- coalesce: current_agency_id() / current_member_role() יכולות להיות null, ו-
+  -- "not (false or null)" הוא null - ‏if על null אינו נכנס, וההרשאה הייתה נעקפת
+  if not coalesce(
+       v_prop.agent_id = v_agent
+       or (v_prop.agency_id is not null
+           and v_prop.agency_id = public.current_agency_id()
+           and public.current_member_role() = 'manager'), false) then
     return jsonb_build_object('error', 'forbidden');
   end if;
+
+  -- דוח הוא על מודעה חיה: נכס שהורד או נמכר מציג אפס צפיות ואינו אומר דבר
+  if v_prop.status <> 'active' then return jsonb_build_object('error', 'not_active'); end if;
 
   if v_note is not null and char_length(v_note) > 600 then
     return jsonb_build_object('error', 'note_too_long');
@@ -201,8 +207,11 @@ grant execute on function public.owner_report_create(uuid, text) to authenticate
 
 -- ---------------------------------------------------------------------------
 -- פתיחה - הדף, דרך owner-report-link. ‏null = אין קישור כזה, או שפג.
+-- ‏p_count = false בתצוגה המקדימה של הסוכן/ת ("צפייה בדוח" ב-CRM), כדי
+-- ש-opened_at ו-open_count יספרו פתיחות של הבעלים ולא בדיקה של היועץ/ת.
+-- זה מדד משוער: רענון, או תצוגה מקדימה של קישור שמריצה JS, נספרים.
 -- ---------------------------------------------------------------------------
-create or replace function public.owner_report_open(p_id text)
+create or replace function public.owner_report_open(p_id text, p_count boolean default true)
 returns jsonb
 language plpgsql
 security definer
@@ -211,10 +220,14 @@ as $$
 declare
   v_row public.owner_report_links%rowtype;
 begin
-  update public.owner_report_links
-     set opened_at = coalesce(opened_at, now()), open_count = open_count + 1
-   where id = p_id and expires_at > now()
-   returning * into v_row;
+  if p_count then
+    update public.owner_report_links
+       set opened_at = coalesce(opened_at, now()), open_count = open_count + 1
+     where id = p_id and expires_at > now()
+     returning * into v_row;
+  else
+    select * into v_row from public.owner_report_links where id = p_id and expires_at > now();
+  end if;
   if not found then return null; end if;
   return jsonb_build_object(
     'agent_id', v_row.agent_id, 'report', v_row.report, 'note', v_row.note,
@@ -222,5 +235,5 @@ begin
 end;
 $$;
 
-revoke all on function public.owner_report_open(text) from public, anon, authenticated;
-grant execute on function public.owner_report_open(text) to service_role;
+revoke all on function public.owner_report_open(text, boolean) from public, anon, authenticated;
+grant execute on function public.owner_report_open(text, boolean) to service_role;

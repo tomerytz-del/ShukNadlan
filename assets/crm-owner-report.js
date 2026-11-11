@@ -15,6 +15,7 @@
 
 const OWNER_REPORT_NOTE_MAX = 600;
 let ownerReportModal = null;
+let ownerReportSeq = 0;   // פתיחה אחרונה בלבד מקבלת תשובה (חלון אחד משותף לכל הנכסים)
 
 function ownerReportUrl(id){
   return location.origin + '/owner-report?k=' + encodeURIComponent(id);
@@ -75,6 +76,7 @@ function ownerReportEnsureModal(){
 const OWNER_REPORT_ERRORS = {
   forbidden: 'רק היועץ/ת של הנכס או מנהל/ת המשרד יכולים להפיק לו דוח.',
   not_found: 'הנכס לא נמצא.',
+  not_active: 'דוח מופק רק למודעה שבאוויר. הנכס הזה אינו פעיל.',
   daily_limit: 'הופקו היום 40 דוחות, וזו התקרה היומית. אפשר להמשיך מחר.',
   note_too_long: 'ההערה ארוכה מדי.',
   not_agent: 'צריך להיות מחובר/ת כיועץ/ת נדל״ן.',
@@ -82,6 +84,7 @@ const OWNER_REPORT_ERRORS = {
 
 async function openOwnerReport(p){
   if (!p || !p.id) return;
+  const seq = ++ownerReportSeq;
   const el = ownerReportEnsureModal();
   const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
   const ownerName = (ownerRow?.owner_name || '').trim();
@@ -106,6 +109,7 @@ async function openOwnerReport(p){
     fresh.textContent = 'מפיק…';
     const note = el.querySelector('#orNote').value.trim();
     const { data, error } = await sb.rpc('owner_report_create', { p_property: p.id, p_note: note || null });
+    if (seq !== ownerReportSeq) return;   // נפתח בינתיים נכס אחר: התשובה אינה שלו
     fresh.disabled = false;
     fresh.textContent = 'הפקת הדוח';
     if (error || !data || data.error){
@@ -117,12 +121,18 @@ async function openOwnerReport(p){
     const greeting = ownerName ? 'שלום ' + ownerName + ',' : 'שלום,';
     const text = greeting + '\nהדוח השבועי על הנכס "' + (p.title || '') + '":\n' + url;
     el.querySelector('#orLink').value = url;
-    el.querySelector('#orOpen').href = url;
+    el.querySelector('#orOpen').href = url + '&p=1';   // תצוגה מקדימה: לא נספרת כפתיחה של הבעלים
     const wa = el.querySelector('#orWa');
     wa.onclick = () => window.open((ownerWa || 'https://wa.me/') + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
     const mail = el.querySelector('#orMail');
-    mail.onclick = () => { location.href = 'mailto:' + encodeURIComponent(ownerMail) + '?subject='
-      + encodeURIComponent('הדוח השבועי על הנכס') + '&body=' + encodeURIComponent(text); };
+    mail.onclick = () => {
+      // קישור שנלחץ ולא location.href: לא מפעיל את מאזיני היציאה של ה-CRM. הכתובת גולמית,
+      // כי encodeURIComponent הופך את @ ל-%40 ולא כל לקוח מייל מפענח אותו.
+      const a = document.createElement('a');
+      a.href = 'mailto:' + ownerMail + '?subject=' + encodeURIComponent('הדוח השבועי על הנכס')
+        + '&body=' + encodeURIComponent(text);
+      a.click();
+    };
     el.querySelector('#orCopy').onclick = async () => {
       try { await navigator.clipboard.writeText(url); showToast('הקישור הועתק'); }
       catch(_){ el.querySelector('#orLink').select(); showToast('סמנו והעתיקו מהשדה'); }

@@ -16078,7 +16078,7 @@ document.getElementById('propFilterToggle').addEventListener('click', e => {
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, bumped_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, yad2_listing_id, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, price_unit, price_total, shared_with_partners, shared_at, license_hold_at, property_owners(owner_name, owner_phone, owner_email)';
 /* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
    בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
 const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
@@ -16732,7 +16732,10 @@ function buildPropertyCard(p, agentId){
 
   // דוח שבועי לבעל הנכס - היועץ/ת מפיק/ה ושולח/ת בעצמו/ה (assets/crm-owner-report.js).
   // owner_report_create בודקת במסד שוב: הסוכן/ת של הנכס או מנהל/ת המשרד.
-  if (p.agent_id === agentId || canReferRow('property', p)){
+  // אותו תנאי כמו owner_report_create: הסוכן/ת של הנכס, או מנהל/ת המשרד שלו. לא canReferRow -
+  // היא מרשה גם referred_by, ושם ההפקה נדחית. ורק למודעה שבאוויר.
+  if (p.status === 'active' && (p.agent_id === agentId
+      || (officeIsManager() && p.agency_id && p.agency_id === currentAgent.agency_id))){
     addQuickAction(actions, {
       label:'דוח לבעלים', icon:'chart',
       title:'דוח שבועי לבעל הנכס: מבקרים, צפיות ופניות ב-7 הימים האחרונים, בקישור שאתם שולחים בוואטסאפ או במייל',

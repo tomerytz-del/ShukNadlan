@@ -18,6 +18,7 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
   const FN_URL = SUPABASE_URL + '/functions/v1/owner-report-link';
   const K = (new URLSearchParams(location.search).get('k') || '').trim();
+  const PREVIEW = new URLSearchParams(location.search).get('p') === '1';
   const state = document.getElementById('orState');
   const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -160,7 +161,7 @@
       const res = await fetch(FN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-        body: JSON.stringify({ k: K }),
+        body: JSON.stringify({ k: K, preview: PREVIEW }),
       });
       data = await res.json().catch(() => ({}));
       if (!res.ok || data.error){
