@@ -2593,6 +2593,7 @@ function gotoLoadKeys(raw, tab){
     accProfessionals: 'adm:professionals',
     accUnroutedLeads: 'adm:unroutedLeads',
     accSuggestions: 'adm:suggestions',
+    accLeadReports: 'adm:leadReports',
     accAdminInbox: 'adm:adminInbox',
   };
   if (Object.prototype.hasOwnProperty.call(ADMIN_GOTO_LOADS, raw)) return [ADMIN_GOTO_LOADS[raw]];
@@ -2611,6 +2612,7 @@ const ADMIN_LOAD_FNS = {
   'adm:professionals': () => loadProfessionalCardsAdmin(),
   'adm:unroutedLeads': () => loadUnroutedLeads(),
   'adm:suggestions': () => loadSuggestionsAdmin(),
+  'adm:leadReports': () => loadLeadReportsAdmin(),
   'adm:adminInbox': () => loadAdminInbox(),
 };
 
@@ -20875,7 +20877,7 @@ async function loadLeads(agentId){
   // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
   // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
   // לחיצות היריד אינן תלויות ברשימת הלידים, ולכן יוצאות כאן ולא בסבב שאחריה
-  let [{ data: leads, error }, archived, work, visitors] = await Promise.all([
+  let [{ data: leads, error }, archived, work, visitors, , reports] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
       .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
@@ -20884,6 +20886,7 @@ async function loadLeads(agentId){
     loadLeadWork(agentId),
     loadLeadVisitors(),
     loadFairClicks(),
+    loadLeadReports(agentId),
   ]);
   if (referralSchemaMissing(error)){
     ({ data: leads, error } = await sb.from('leads_masked')
@@ -20898,6 +20901,7 @@ async function loadLeads(agentId){
   archivedLeadIds = archived;
   leadWork = work;
   leadVisitorOf = visitors;
+  leadReportOf = reports;   // דיווחי לידים לא תקינים (assets/crm-lead-reports.js)
   allLeads = leads || [];
   // מה זוהה בשיחה וההקלטה - ללידי השיחה בלבד (assets/crm-leads.js)
   await Promise.all([loadLeadCalls(allLeads), loadLeadFair(allLeads)]);
@@ -21215,6 +21219,8 @@ function buildLeadCard(lead, agentId, isArchived){
       onClick:()=> openReferModal('lead', lead, lead.display_name, ()=> loadLeads(agentId)),
     });
   }
+  // דיווח על ליד לא תקין (48 שעות מפתיחה, החזר לארנק) או שורת המצב של דיווח קיים
+  leadReportMount(secondary, lead, agentId);
   /* הארכוב אחרון ושקט: הוא לא מתחרה על העין עם "פתיחת ליד" או חיוג - הוא
      מה שעושים *אחרי* שסיימו. בליד נעול הוא גם ה"לא מתאים לי". */
   addCardAction(secondary, isArchived ? {
@@ -27996,6 +28002,7 @@ const NAV_GROUPS = [
     { acc:'accAdminInbox',      label:'תיבת משימות',      icon:'inbox',   tab:'admin' },
     { acc:'accUnroutedLeads',   label:'לידים ללא יעד',    icon:'alert',   tab:'admin' },
     { acc:'accSuggestions',     label:'הצעות לשיפור',     icon:'bug',     tab:'admin' },
+    { acc:'accLeadReports',     label:'דיווחי לידים',     icon:'alert',   tab:'admin' },
   ]},
   { key:'aMarket', label:'שוק ומשתמשים', icon:'users', adminOnly:true, open:true, items:[
     { acc:'accGrowth',          label:'שווקים וצמיחה',    icon:'chart',   tab:'admin' },
@@ -28061,7 +28068,7 @@ const ADMIN_BOTTOM_NAV = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLicenseAppeals','accCoachGaps']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accSuggestions','accLeadReports','accLicenseAppeals','accCoachGaps']);
 /* קטגוריות שאדומות לפי מצב ולא לפי סוג: תיבת המשימות של הניהול
    (assets/crm-admin-inbox.js) אדומה רק כשיש בה פריט שחרג מזמן היעד, ואחרת
    המונה שלה כהה - "ממתין", לא "דחוף" (docs/admin-inbox.md). */

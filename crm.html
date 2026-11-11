@@ -10999,6 +10999,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div id="unroutedLeadsList"></div>
         </div>
       </details>
+
+      <!-- דיווחי לידים לא תקינים שעברו את תקרת ההחזר האוטומטי וממתינים להחלטה.
+           מתחתיהם, מה שהוחלט לאחרונה. docs/lead-refunds.md -->
+      <details class="acc" id="accLeadReports">
+        <summary>
+          <span class="acc-title">דיווחי לידים</span>
+          <span class="acc-count hot" id="accLeadReportsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">סוכנים מדווחים על ליד לא תקין תוך 48 שעות מפתיחתו, וההחזר לארנק אוטומטי. כאן רק מי שעבר/ה את תקרת הניצול: יותר משני דיווחים ב-30 יום ומעל 20% מהלידים שפתח/ה. אישור מחזיר לארנק ומעביר את הליד לארכיון, דחייה משאירה אותו אצל הסוכן/ת.</p>
+          <div id="leadReportsList"></div>
+        </div>
+      </details>
     </div>
 
     <details class="acc" id="accWallet">
@@ -12713,6 +12727,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script defer src="assets/crm-office.js"></script>
 <!-- דוח שבועי לבעל הנכס: החלון שמפיק ושולח קישור (docs/owner-report.md) -->
 <script defer src="assets/crm-owner-report.js"></script>
+<!-- דיווח על ליד לא תקין והחזר לארנק: הכפתור בכרטיס הליד ורשימת המנהל/ת (docs/lead-refunds.md) -->
+<script defer src="assets/crm-lead-reports.js"></script>
 <!-- ערכת הרכיבים (צ'יפ, מתג, מקופל, פס שמירה, "עוד X"; docs/crm-ui-kit.md).
      לפני שאר המודולים, שבונים ממנה את המסכים -->
 <script defer src="assets/crm-ui.js"></script>
