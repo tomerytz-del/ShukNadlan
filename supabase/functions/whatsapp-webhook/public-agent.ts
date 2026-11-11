@@ -24,7 +24,7 @@ import {
   SearchCore,
   visitorHash,
 } from "./property-search.ts";
-import { airLivingGapNote, airLivingRowKept, savedSearchAirLivingLine, visitorAskedAirOrLiving } from "../_shared/air-living.ts";
+import { airLivingGapNote, airLivingRowKept, savedSearchAirLivingLine, savedSearchLabelList, visitorAskedAirOrLiving } from "../_shared/air-living.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -2044,21 +2044,23 @@ function strListArg(value: unknown, max: number): string[] {
   return value.map((v) => text(v)).filter((v): v is string => !!v).slice(0, max);
 }
 
-function filledNumber(value: unknown): boolean {
-  if (value === null || value === undefined || value === "") return false;
-  return Number.isFinite(Number(value));
-}
-
-/** רק מה שנכתב להתראה. בלי כיוון אוויר ובלי גודל סלון, הם לא נשמרים. */
-function savedSearchLabels(args: Record<string, unknown>, cities: string[]): string[] {
-  const labels: string[] = [];
-  if (cities.length || text(args.area)) labels.push("האזור");
-  if (filledNumber(args.min_rooms) || filledNumber(args.max_rooms)) labels.push("החדרים");
-  if (filledNumber(args.min_price) || filledNumber(args.max_price)) labels.push("התקציב");
-  if (strListArg(args.property_types, 6).length) labels.push("סוג הנכס");
-  if (filledNumber(args.min_size_sqm)) labels.push("השטח");
-  if (strListArg(args.required_features, 8).length) labels.push("המאפיינים");
-  return labels;
+/** רק מה שנשמר. שכונה שלא זוהתה לא נספרת כאזור. */
+function savedSearchLabels(
+  args: Record<string, unknown>,
+  cities: string[],
+  neighborhoodId: string | null,
+): string[] {
+  return savedSearchLabelList({
+    cities,
+    neighborhoodIds: neighborhoodId ? [neighborhoodId] : [],
+    minRooms: args.min_rooms,
+    maxRooms: args.max_rooms,
+    minPrice: args.min_price,
+    maxPrice: args.max_price,
+    propertyTypes: args.property_types,
+    minSize: args.min_size_sqm,
+    features: args.required_features,
+  });
 }
 
 function visitorTranscript(ctx: PublicContext): string {
@@ -2149,7 +2151,7 @@ async function saveSearchAlert(
   const searchId = typeof body.search_id === "string" ? body.search_id : null;
   ctx.conv.last_saved_search_id = searchId;
   const askedAir = visitorAskedAirOrLiving(visitorTranscript(ctx));
-  const savedLabels = savedSearchLabels(args, cities);
+  const savedLabels = savedSearchLabels(args, cities, neighborhoodId);
   return {
     saved: true,
     duplicate: body.duplicate === true,

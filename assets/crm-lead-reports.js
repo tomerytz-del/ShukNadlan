@@ -29,7 +29,7 @@ const LEAD_REPORT_REASON_LABEL = Object.fromEntries(LEAD_REPORT_REASONS.map(r =>
 const LEAD_REPORT_ERRORS = {
   forbidden: 'אפשר לדווח רק על ליד שפתחת בעצמך.',
   not_found: 'הליד לא נמצא.',
-  not_supported: 'לידים שנרכשו בחנות ושיחות אינם בהחזר אוטומטי. אפשר לפנות לתמיכה.',
+  not_supported: 'שיחות במספר וירטואלי אינן בהחזר אוטומטי. אפשר לפנות לתמיכה.',
   already_reported: 'כבר דיווחת על הליד הזה.',
   window_closed: 'עברו 48 שעות מפתיחת הליד, ולכן אי אפשר לדווח עליו.',
   nothing_to_refund: 'הליד נפתח במסלול שאינו כולל חיוב או מכסה, ולכן אין מה להחזיר.',
@@ -51,8 +51,10 @@ async function loadLeadReports(agentId){
 }
 
 function leadReportEligible(lead, agentId){
-  if (!lead || lead.status !== 'unlocked' || lead.unlocked_by !== agentId) return false;
-  if (lead.lead_type === 'store' || lead.lead_type === 'call') return false;
+  if (!lead || lead.status !== 'unlocked') return false;
+  // ליד חנות נרכש בחנות: הבעלים הוא agent_id ואין unlocked_by. שיחות אינן בהחזר האוטומטי
+  const owner = lead.lead_type === 'store' ? lead.agent_id : lead.unlocked_by;
+  if (owner !== agentId || lead.lead_type === 'call') return false;
   // מקורות שלא נגבה בהם דבר ולא נספרה מכסה. כל השאר - המסד מחליט (nothing_to_refund)
   if (['subscription_unlimited', 'premium_free', 'launch_free'].includes(lead.quota_source)) return false;
   const t = new Date(lead.unlocked_at).getTime();
@@ -95,7 +97,7 @@ function leadReportMount(container, lead, agentId){
 }
 
 let leadReportModal = null;
-let leadReportBusy = false;
+let leadReportSending = false;
 
 function leadReportEnsureModal(){
   if (leadReportModal) return leadReportModal;
@@ -128,7 +130,7 @@ function leadReportEnsureModal(){
       </div>
     </div>`;
   document.body.appendChild(el);
-  const close = () => { if (!leadReportBusy) el.style.display = 'none'; };
+  const close = () => { if (!leadReportSending) el.style.display = 'none'; };
   el.querySelector('#lrCancel').addEventListener('click', close);
   el.addEventListener('click', e => { if (e.target === el) close(); });
   el.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
@@ -151,15 +153,15 @@ function openLeadReport(lead, agentId){
   fresh.disabled = false;
   fresh.textContent = 'שליחת הדיווח';
   fresh.addEventListener('click', async () => {
-    if (leadReportBusy) return;
-    leadReportBusy = true;
+    if (leadReportSending) return;
+    leadReportSending = true;
     fresh.disabled = true;
     fresh.textContent = 'שולח…';
     const reason = el.querySelector('input[name=lrReason]:checked').value;
     const details = el.querySelector('#lrDetails').value.trim();
     const { data, error } = await sb.rpc('report_invalid_lead',
       { p_lead: lead.id, p_reason: reason, p_details: details || null });
-    leadReportBusy = false;
+    leadReportSending = false;
     fresh.disabled = false;
     fresh.textContent = 'שליחת הדיווח';
     if (error || !data || data.error){
@@ -258,7 +260,7 @@ async function leadReportDecide(row, approve, btn){
     { p_report: row.id, p_approve: approve, p_note: (note || '').trim() || null });
   btn.disabled = false;
   if (error || !data || data.error){
-    showToast('הפעולה נכשלה: ' + heErr(error || (data && data.error)), 6000);
+    showToast('הפעולה נכשלה: ' + ((data && LEAD_REPORT_ERRORS[data.error]) || heErr(error || (data && data.error))), 6000);
     return;
   }
   showToast(approve ? 'הוחזר לארנק' : 'הדיווח נדחה');

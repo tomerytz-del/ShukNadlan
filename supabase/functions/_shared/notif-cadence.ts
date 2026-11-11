@@ -94,6 +94,8 @@ export const CADENCE_EXCLUDED = new Set([
   "improvement_suggestion",
   // כשל טיפול במייל של הסוכן/ת: לא סיכום, לא עדיפות, והשליחה לא משתנה.
   "email_intake",
+  // סיכום שיתופים נבנה בעצמו. לא נכנס לסיכום המנטור ולא נמחק מהשליחה.
+  "share_digest",
 ]);
 
 export const CADENCE_MORE_ID = "ncad:more";

@@ -19,6 +19,11 @@
 כל שורה, בכל מצב, נמחקת 30 יום אחרי תאריך הפוסט (`scraped_leads_lifecycle`,
 cron כל שעה ב-‎:29).
 
+מחפש/ת מפייסבוק או מאינסטגרם (`kind=buyer`) נכנס/ת לכאן כ-`open_demand`
+בלי שם ובלי טלפון, רק אחרי insert חדש ל-`saved_searches`, כש-
+`social_buyer_open_demand_enabled` הוא 1 ויומן התקרה קיים. אין מילוי של
+חיפושים ישנים. המסלול: `docs/social-leads.md`, "מחפש/ת לביקוש הפתוח".
+
 ## הקריאות של הסוכן הסורק
 
 ההוראות לסוכן הסורק עצמו, בנוסח שאפשר להעביר לו: `docs/agent-skills/facebook-leads-scanner.md`.

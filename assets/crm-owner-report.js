@@ -45,6 +45,10 @@ function ownerReportEnsureModal(){
           <button type="button" class="btn btn-ghost" id="orCancel">ביטול</button>
           <button type="button" class="btn btn-gold" id="orMake">הפקת הדוח</button>
         </div>
+        <div id="orHistory" style="margin-top:16px;display:none">
+          <div class="exp-note" style="margin:0 0 6px;font-weight:700">דוחות שנשלחו על הנכס</div>
+          <div id="orHistoryList"></div>
+        </div>
       </div>
       <div id="orStepShare" style="display:none">
         <div class="field">
@@ -73,13 +77,51 @@ function ownerReportEnsureModal(){
   return el;
 }
 
+/* "דוחות שנשלחו": מה הופק לנכס הזה ומה נפתח. הרשימה נטענת בפתיחת החלון (owner_reports_list,
+   אותה הרשאה כמו ההפקה). "נפתח" נספר מהעמוד של הבעלים, בלי תצוגה מקדימה של היועץ/ת, והוא מדד
+   משוער: רענון נספר. */
+async function ownerReportLoadHistory(el, p, seq){
+  const wrap = el.querySelector('#orHistory');
+  const list = el.querySelector('#orHistoryList');
+  wrap.style.display = 'none';
+  list.innerHTML = '';
+  let rows = [];
+  try {
+    const { data, error } = await sb.rpc('owner_reports_list', { p_property: p.id });
+    if (!error && Array.isArray(data)) rows = data;
+  } catch(_){ /* המסד עוד לא עודכן: אין רשימה, ההפקה עובדת */ }
+  if (seq !== ownerReportSeq || !rows.length) return;
+  const now = Date.now();
+  rows.forEach(r => {
+    const expired = new Date(r.expires_at).getTime() < now;
+    const status = r.opened_at
+      ? 'נפתח ' + (r.open_count === 1 ? 'פעם אחת' : r.open_count + ' פעמים') + ', לראשונה ב-' + hebDate(r.opened_at)
+      : (expired ? 'פג תוקף, לא נפתח' : 'טרם נפתח');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line,#e4e2dc);font-size:.85rem';
+    row.innerHTML = '<span>' + escapeHtml(hebDate(r.created_at)) + ' · ' + escapeHtml(status) + (expired && r.opened_at ? ' · פג תוקף' : '') + '</span>';
+    if (!expired){
+      const copy = document.createElement('button');
+      copy.type = 'button'; copy.className = 'btn btn-ghost'; copy.style.cssText = 'padding:2px 10px;flex:none';
+      copy.textContent = 'העתקת קישור';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(ownerReportUrl(r.id)); showToast('הקישור הועתק'); }
+        catch(_){ showToast('לא הצלחנו להעתיק'); }
+      });
+      row.appendChild(copy);
+    }
+    list.appendChild(row);
+  });
+  wrap.style.display = '';
+}
+
 const OWNER_REPORT_ERRORS = {
-  forbidden: 'רק היועץ/ת של הנכס או מנהל/ת המשרד יכולים להפיק לו דוח.',
+  forbidden: 'רק היועץ של הנכס או מנהל המשרד יכולים להפיק לו דוח.',
   not_found: 'הנכס לא נמצא.',
   not_active: 'דוח מופק רק למודעה שבאוויר. הנכס הזה אינו פעיל.',
   daily_limit: 'הופקו היום 40 דוחות, וזו התקרה היומית. אפשר להמשיך מחר.',
   note_too_long: 'ההערה ארוכה מדי.',
-  not_agent: 'צריך להיות מחובר/ת כיועץ/ת נדל״ן.',
+  not_agent: 'הפקת דוח זמינה רק לחשבון של יועץ נדל״ן.',
 };
 
 async function openOwnerReport(p){
@@ -100,6 +142,7 @@ async function openOwnerReport(p){
   make.textContent = 'הפקת הדוח';
   el.style.display = 'flex';
   el.querySelector('#orNote').focus();
+  ownerReportLoadHistory(el, p, seq);   // אותו seq של הפתיחה: הכפלה הייתה מבטלת את תשובת ההפקה
 
   // מחליפים את הכפתור בשכפול שלו, כדי שלא יצטברו מאזינים מפתיחה קודמת
   const fresh = make.cloneNode(true);

@@ -105,6 +105,18 @@ function leadStageTagHtml(lead){
   return `<span class="lp-st lp-st-${stage}">${esc(label)}</span>`;
 }
 
+/* הפונה הוא יועץ/ת רשום/ה (lead_agent_phone_flags): סימון בלבד, בליד פתוח בלבד.
+   "המספר שלך" = בדיקה של הסוכן/ת עצמו/ה. אחר = ייתכן שאינו פונה אמיתי/ת (סיבת broker
+   בדיווח על ליד לא תקין). המסד מחזיר רק ליד פתוח, והבדיקה כאן היא רשת שנייה. */
+function leadAgentPhoneTagHtml(lead){
+  if (!lead || lead.status !== 'unlocked' || typeof leadAgentPhoneOf === 'undefined' || !leadAgentPhoneOf.has(lead.id)) return '';
+  const self = leadAgentPhoneOf.get(lead.id);
+  return '<span class="ui-tag ui-tag--warn" title="' + (self
+    ? 'הטלפון בליד הוא הטלפון שלך. נראה שזו בדיקה שלך, לא פנייה של גולש/ת.'
+    : 'הטלפון בליד רשום אצלנו כיועץ/ת נדל״ן. ייתכן שזו פנייה מקצועית ולא של לקוח/ה.') + '">'
+    + (self ? 'בדיקה: המספר שלך' : 'הפונה רשום/ה כיועץ/ת') + '</span>';
+}
+
 /* מה זוהה בשיחה - extracted.facts מהסיכום (twilio-voice). שיחה שסוכמה לפני
    שהשדה נולד - נגזר מ-extracted.needs */
 function leadCallFacts(call){
@@ -324,6 +336,7 @@ function buildLeadPriorityCard(group, rank, agentId){
     + (phone ? `<div class="lp-phone"><bdi dir="auto">${esc(phone)}</bdi></div>` : '')
     + `<div class="lp-meta"><span class="ui-tag ui-tag--${meta.tone}">${esc(meta.label)}${detail ? ' · ' + esc(detail) : ''}</span>`
     + leadStageTagHtml(lead)
+    + leadAgentPhoneTagHtml(lead)
     + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
@@ -558,7 +571,7 @@ function syncDemandTab(){
 function openDemandWants(d){
   const owner = d.lead_type === 'owner_inbound';
   const rent = d.deal_type === 'rent';
-  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות');
+  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפשים לשכור' : 'מחפשים לקנות');
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
@@ -593,15 +606,25 @@ function renderOpenDemand(listEl){
     return;
   }
   listEl.innerHTML = hint + openDemandRows.map(d => {
-    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס'
+    const socialTalk = d.source === 'instagram_dm' || d.source === 'instagram_comment' || d.source === 'facebook_dm' || d.source === 'facebook_comment';
+    const src = socialTalk
+      ? (d.source.indexOf('instagram') === 0 ? 'אינסטגרם' : 'פייסבוק')
+      : d.source === 'facebook_marketplace' ? 'מרקטפלייס'
       : d.source === 'madlan' ? 'מדלן' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
+    const rule = socialTalk && !url
+      ? 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
+      : (d.source === 'madlan'
+          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
+          : (nb ? nb.rule : OPEN_DEMAND_RULE));
     const act = d.mine
-      ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
+      ? (url
+          ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`
+          : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : ''))
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">${d.source === 'madlan' ? 'אני פונה' : 'אני פונה - לפוסט ↗'}</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -610,10 +633,8 @@ function renderOpenDemand(listEl){
       + (nb ? `<span class="ui-tag ui-tag--warn">${esc(nb.tag)}</span>` : '')
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
-      + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
-      + `<p class="lp-why"><strong>${esc(d.source === 'madlan'
-          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
-          : (nb ? nb.rule : OPEN_DEMAND_RULE))}</strong></p>`
+      + (d.mine ? '' : `<p class="lp-why"><strong>בלי עלות:</strong> הסוכן הראשון שלוחץ "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
+      + `<p class="lp-why"><strong>${esc(rule)}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');
@@ -626,12 +647,16 @@ const OPEN_DEMAND_CLAIM_ERR = {
 };
 
 async function claimOpenDemand(id, btn){
-  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await
-  const win = window.open('', '_blank');
+  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await.
+  // בלי פוסט (שיחה עם גבריאלה) אין לאן לפתוח, וחלון ריק רק מפריע.
+  const openPost = !!(btn && btn.getAttribute('data-open-post') === '1');
+  const win = openPost ? window.open('', '_blank') : null;
   if (btn) btn.disabled = true;
   const { data, error } = await sb.rpc('open_demand_claim', { p_id: id });
   const err = error ? heErr(error) : (data && data.error ? (OPEN_DEMAND_CLAIM_ERR[data.error] || heErr(data.error)) : '');
-  const url = !err && data && /^https:\/\//.test(data.post_url || '') ? data.post_url : '';
+  const posted = !err && data && (/^https:\/\//.test(data.post_url || '') ? data.post_url
+    : /^https:\/\//.test(data.source_post_url || '') ? data.source_post_url : '');
+  const url = posted || '';
   if (win){
     if (url){ win.opener = null; win.location.href = url; }
     else win.close();
@@ -701,14 +726,23 @@ function openLeadsDemand(opts){
     syncLeadsSettings();
   });
   // המתג של לידי הבעלים - אותו מתג של "ההגדרות שלי", מסונכרן
-  document.getElementById('leadsOwnerSwitch').addEventListener('input', e => {
+  document.getElementById('leadsOwnerSwitch').addEventListener('input', async e => {
     const main = document.getElementById('setOwnerSwitch');
+    if (!main) return;
     main.setAttribute('aria-pressed', e.currentTarget.getAttribute('aria-pressed'));
-    setOwnerLeadsActive(main);
+    if (typeof setOwnerLeadsActive !== 'function' && window.crmNeed) {
+      try { await crmNeed('settings'); } catch (err) {}
+    }
+    if (typeof setOwnerLeadsActive === 'function') setOwnerLeadsActive(main);
   });
-  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const openLeadPrefsGuarded = () => {
+    const run = () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); };
+    if (typeof openLeadPrefs === 'function' || !window.crmNeed) { run(); return; }
+    crmNeed('settings').then(run).catch(() => {});
+  };
+  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefsGuarded());
   const prefEdit = document.getElementById('leadsPrefEdit');
-  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefsGuarded());
   const sheetClose = document.getElementById('leadPrefsSheetClose');
   const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
   if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);
@@ -826,7 +860,8 @@ window.addEventListener('resize', () => {
   const sheet = document.getElementById('leadPrefsSheet');
   if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
 });
-document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+else leadPrefsFromHash();
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){
