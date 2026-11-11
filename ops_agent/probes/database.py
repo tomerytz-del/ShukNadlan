@@ -30,6 +30,21 @@ QUEUE_EXPLAINED_ELSEWHERE = {
                       where p.id = q.property_id
                         and coalesce(array_length(p.images, 1), 0) = 0
                         and p.marketing_image is null)""",
+    # ‏11.11.2026: ‏"ממתין לתנאי מקדים: התראות הסוכן החכם" (בינוני) ספר שלוש
+    # שורות של חיפוש אחד - שכבר קיבל באותה יממה את חמש ההתראות שהתקרה
+    # היומית מתירה (`saved_search_daily_cap` ב-`pricing_config`). ‏
+    # `saved_search_pending_alerts` מדלגת עליהן בכוונה, והן יוצאות מעצמן
+    # כשהיממה מתגלגלת. אותה הגדרה בדיוק של "נשלח היממה": ‏`status = 'sent'`
+    # ו-`sent_at` ב-24 השעות האחרונות, לאותו `search_id`.
+    "saved_search_alerts": """
+               and not exists (
+                     select 1 from public.saved_search_alerts t
+                      where t.search_id = q.search_id
+                        and t.status = 'sent'
+                        and t.sent_at > now() - interval '24 hours'
+                     having count(*) >= coalesce(
+                       (select value::int from public.pricing_config
+                         where key = 'saved_search_daily_cap'), 5))""",
 }
 
 def run(ctx) -> Iterator[Finding]:

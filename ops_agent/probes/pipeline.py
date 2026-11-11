@@ -419,9 +419,11 @@ def _access_log(ctx) -> Iterator[Finding]:
 
     ‏access_log.yml מעתיק כל שעה מיומני Supabase, שנשמרים שם 7 ימים בלבד.
     **יומן שהפסיק להתמלא נראה בדיוק כמו יומן של שבוע שקט** - ולכן הבדיקה
-    היא על הסמן (מתי הריצה האחרונה הצליחה) ולא על מספר השורות. אחרי 6 שעות
-    זה ממצא גבוה; אחרי 4 ימים חמור, כי משם נשארים פחות מ-3 ימים עד שהתיעוד
-    נמחק אצל Supabase ואובד לתמיד. ‏docs/data-access-log.md
+    היא על הסמן (מתי הריצה האחרונה הצליחה) ולא על מספר השורות. הספים ב-
+    `config.py` (‏`access_log_stale_hours_*`): גבוה אחרי 12 שעות, חמור אחרי
+    4 ימים, כי משם נשארים פחות מ-3 ימים עד שהתיעוד נמחק אצל Supabase ואובד
+    לתמיד. ‏**12 ולא 6, כי ה-cron של GitHub מאחר:** ה-workflow מתוזמן כל שעה
+    ורץ בפועל כל 5-8 שעות (המדידה ליד הסף). ‏docs/data-access-log.md
     """
     ctx.count()
     if not ctx.db.has_table("data_access_log_sync"):
@@ -434,12 +436,14 @@ def _access_log(ctx) -> Iterator[Finding]:
         return
     if not row:
         return
+    t = ctx.settings.thresholds
     synced = row.get("synced_until")
     now = datetime.now(timezone.utc)
     lag_h = (now - synced).total_seconds() / 3600 if synced else None
-    if lag_h is not None and lag_h < 6:
+    if lag_h is not None and lag_h < t.access_log_stale_hours_high:
         return
-    severity = "critical" if (lag_h is None or lag_h >= 96) else "high"
+    severity = ("critical" if (lag_h is None or lag_h >= t.access_log_stale_hours_critical)
+                else "high")
     yield Finding(
         area="health", code="access_log_stale", severity=severity,
         subject="data_access_log",
