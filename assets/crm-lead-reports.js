@@ -29,7 +29,7 @@ const LEAD_REPORT_REASON_LABEL = Object.fromEntries(LEAD_REPORT_REASONS.map(r =>
 const LEAD_REPORT_ERRORS = {
   forbidden: 'אפשר לדווח רק על ליד שפתחת בעצמך.',
   not_found: 'הליד לא נמצא.',
-  not_supported: 'לידים שנרכשו בחנות ושיחות אינם בהחזר אוטומטי. אפשר לפנות לתמיכה.',
+  not_supported: 'שיחות במספר וירטואלי אינן בהחזר אוטומטי. אפשר לפנות לתמיכה.',
   already_reported: 'כבר דיווחת על הליד הזה.',
   window_closed: 'עברו 48 שעות מפתיחת הליד, ולכן אי אפשר לדווח עליו.',
   nothing_to_refund: 'הליד נפתח במסלול שאינו כולל חיוב או מכסה, ולכן אין מה להחזיר.',
@@ -51,8 +51,10 @@ async function loadLeadReports(agentId){
 }
 
 function leadReportEligible(lead, agentId){
-  if (!lead || lead.status !== 'unlocked' || lead.unlocked_by !== agentId) return false;
-  if (lead.lead_type === 'store' || lead.lead_type === 'call') return false;
+  if (!lead || lead.status !== 'unlocked') return false;
+  // ליד חנות נרכש בחנות: הבעלים הוא agent_id ואין unlocked_by. שיחות אינן בהחזר האוטומטי
+  const owner = lead.lead_type === 'store' ? lead.agent_id : lead.unlocked_by;
+  if (owner !== agentId || lead.lead_type === 'call') return false;
   // מקורות שלא נגבה בהם דבר ולא נספרה מכסה. כל השאר - המסד מחליט (nothing_to_refund)
   if (['subscription_unlimited', 'premium_free', 'launch_free'].includes(lead.quota_source)) return false;
   const t = new Date(lead.unlocked_at).getTime();
