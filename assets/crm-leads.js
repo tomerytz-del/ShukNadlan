@@ -105,6 +105,18 @@ function leadStageTagHtml(lead){
   return `<span class="lp-st lp-st-${stage}">${esc(label)}</span>`;
 }
 
+/* הפונה הוא יועץ/ת רשום/ה (lead_agent_phone_flags): סימון בלבד, בליד פתוח בלבד.
+   "המספר שלך" = בדיקה של הסוכן/ת עצמו/ה. אחר = ייתכן שאינו פונה אמיתי/ת (סיבת broker
+   בדיווח על ליד לא תקין). המסד מחזיר רק ליד פתוח, והבדיקה כאן היא רשת שנייה. */
+function leadAgentPhoneTagHtml(lead){
+  if (!lead || lead.status !== 'unlocked' || typeof leadAgentPhoneOf === 'undefined' || !leadAgentPhoneOf.has(lead.id)) return '';
+  const self = leadAgentPhoneOf.get(lead.id);
+  return '<span class="ui-tag ui-tag--warn" title="' + (self
+    ? 'הטלפון בליד הוא הטלפון שלך. נראה שזו בדיקה שלך, לא פנייה של גולש/ת.'
+    : 'הטלפון בליד רשום אצלנו כיועץ/ת נדל״ן. ייתכן שזו פנייה מקצועית ולא של לקוח/ה.') + '">'
+    + (self ? 'בדיקה: המספר שלך' : 'הפונה רשום/ה כיועץ/ת') + '</span>';
+}
+
 /* מה זוהה בשיחה - extracted.facts מהסיכום (twilio-voice). שיחה שסוכמה לפני
    שהשדה נולד - נגזר מ-extracted.needs */
 function leadCallFacts(call){
@@ -324,6 +336,7 @@ function buildLeadPriorityCard(group, rank, agentId){
     + (phone ? `<div class="lp-phone"><bdi dir="auto">${esc(phone)}</bdi></div>` : '')
     + `<div class="lp-meta"><span class="ui-tag ui-tag--${meta.tone}">${esc(meta.label)}${detail ? ' · ' + esc(detail) : ''}</span>`
     + leadStageTagHtml(lead)
+    + leadAgentPhoneTagHtml(lead)
     + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
@@ -701,14 +714,23 @@ function openLeadsDemand(opts){
     syncLeadsSettings();
   });
   // המתג של לידי הבעלים - אותו מתג של "ההגדרות שלי", מסונכרן
-  document.getElementById('leadsOwnerSwitch').addEventListener('input', e => {
+  document.getElementById('leadsOwnerSwitch').addEventListener('input', async e => {
     const main = document.getElementById('setOwnerSwitch');
+    if (!main) return;
     main.setAttribute('aria-pressed', e.currentTarget.getAttribute('aria-pressed'));
-    setOwnerLeadsActive(main);
+    if (typeof setOwnerLeadsActive !== 'function' && window.crmNeed) {
+      try { await crmNeed('settings'); } catch (err) {}
+    }
+    if (typeof setOwnerLeadsActive === 'function') setOwnerLeadsActive(main);
   });
-  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const openLeadPrefsGuarded = () => {
+    const run = () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); };
+    if (typeof openLeadPrefs === 'function' || !window.crmNeed) { run(); return; }
+    crmNeed('settings').then(run).catch(() => {});
+  };
+  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefsGuarded());
   const prefEdit = document.getElementById('leadsPrefEdit');
-  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefsGuarded());
   const sheetClose = document.getElementById('leadPrefsSheetClose');
   const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
   if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);
@@ -826,7 +848,8 @@ window.addEventListener('resize', () => {
   const sheet = document.getElementById('leadPrefsSheet');
   if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
 });
-document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+else leadPrefsFromHash();
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){
