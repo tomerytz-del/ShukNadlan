@@ -248,7 +248,23 @@ test('כניסה עם Google: חשבון לפי הכרטיסייה שבכתוב�
   assert.match(crmHtml, /בכניסה אתם מאשרים את <a href="\/terms"/);
   assert.match(crmJs, /callAccount\(\{ terms_accepted: true \}, session\.access_token\)/);
   assert.equal(/claimCard|claimTerms|setSession/.test(crmJs), false, 'מסך ביניים לאישור תנאים');
-  assert.match(crmJs, /if \(terminal\) \{[\s\S]{0,200}signOut\(\{ scope: 'local' \}\)/);
+  // סוכן/ת בלי כרטיסייה בכתובת שלו/ה לא מנותק/ת מה-CRM (אותו אחסון): מסבירים ומפנים, ורק מי שאין לו/ה פרופיל יוצא.
+  // הבדיקה מבנית (סדר ותוכן) ולא חלון תווים: הבדיקה נעשית לפני היציאה, ושגיאת שאילתה היא "לא יודעים" ולא "לא סוכן/ת"
+  const terminalBlock = crmJs.slice(crmJs.indexOf('if (terminal) {'));
+  const iCheck = terminalBlock.indexOf('hasAgentProfile(session.user.id)');
+  const iNote = terminalBlock.indexOf('showAgentNote(session, data.error)');
+  const iNull = terminalBlock.indexOf('agent === null');
+  const iSignOut = terminalBlock.indexOf("signOut({ scope: 'local' })");
+  assert.ok(iCheck > 0 && iNote > iCheck && iNull > iNote && iSignOut > iNull, 'הבדיקה חייבת לבוא לפני היציאה, ו-null לא יוצא');
+  const hasAgentFn = crmJs.slice(crmJs.indexOf('async function hasAgentProfile'), crmJs.indexOf('function showAgentNote'));
+  assert.match(hasAgentFn, /\.eq\('active', true\)/, 'רק שורה פעילה');
+  assert.match(hasAgentFn, /if \(error\) return null/, 'שגיאת שאילתה אינה "לא סוכן/ת"');
+  assert.match(hasAgentFn, /catch \(e\) \{ return null; \}/);
+  // הכרטיס נעלם כשמציגים כרטיס אחר, ויש ממנו דרך החוצה
+  assert.match(crmJs, /if \(on && id !== 'agentCard'\) el\('agentCard'\)\.hidden = true/);
+  assert.match(crmJs, /el\('agentSwitch'\)\.addEventListener\('click'/);
+  assert.match(crmHtml, /id="agentSwitch"/);
+  assert.match(crmHtml, /id="agentCard"[\s\S]{0,900}href="\/crm">חזרה ל-CRM/);
   // חזרה מקישור איפוס סיסמה נקראת מהכתובת (האירוע מגיע אחרי getSession), ושגיאת Google בעברית
   assert.match(crmJs, /let recovering = \/\[#&\]type=recovery/);
   assert.match(crmJs, /errText\(\{ message: oauthError\.description \|\| oauthError\.code \}\)/);

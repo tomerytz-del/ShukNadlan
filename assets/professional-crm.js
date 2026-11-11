@@ -73,11 +73,15 @@
     n.textContent = text || '';
     n.className = 'msg' + (cls ? ' ' + cls : '');
   }
-  function show(id, on) { el(id).hidden = !on; }
+  // הצגת כל כרטיס אחר מסתירה את כרטיס הסוכן (agentCard), כדי שלא יישאר לצד האפליקציה או טופס הסיסמה
+  function show(id, on) {
+    el(id).hidden = !on;
+    if (on && id !== 'agentCard') el('agentCard').hidden = true;
+  }
 
   /* ---------- כניסה ---------- */
   function showLogin() {
-    show('loginCard', true); show('recoverCard', false); show('app', false);
+    show('loginCard', true); show('recoverCard', false); show('app', false); show('agentCard', false);
   }
 
   el('loginForm').addEventListener('submit', async (e) => {
@@ -152,6 +156,25 @@
     card_has_account: 'לכרטיסייה בכתובת הזו כבר יש חשבון כניסה אחר. כתבו לנו (shuknadlan@gmail.com) ונחבר.',
     network: 'שגיאת רשת - נסו שוב',
   };
+  // האם למשתמש/ת יש שורה פעילה ב-agency_members (סוכן/ת, כולל מי שגם יועץ/ת משכנתאות). שלוש תשובות:
+  // true / false / null. supabase-js אינו זורק על שאילתה שנכשלה אלא מחזיר { error }, ולכן **שגיאה היא null
+  // ("לא יודעים") ולא false**: false מוביל ליציאה, והיציאה (גם מקומית) מנתקת סוכן/ת אמיתי/ת מה-CRM
+  async function hasAgentProfile(userId) {
+    try {
+      const { data, error } = await sb.from('agency_members').select('id').eq('user_id', userId).eq('active', true).limit(1);
+      if (error) return null;
+      return !!(data && data.length);
+    } catch (e) { return null; }
+  }
+  function showAgentNote(session, errorCode) {
+    const email = session.user.email || 'הזו';
+    el('agentText').textContent = errorCode === 'no_card'
+      ? 'לא נמצאה כרטיסייה של בעל/ת מקצוע בכתובת ' + email + ', ולכן לא נפתח כאן חשבון. ההתחברות ל-CRM נשארה כמו שהייתה.'
+      : (CLAIM_ERRORS[errorCode] || 'לא הצלחנו לפתוח כאן חשבון.') + ' ההתחברות ל-CRM נשארה כמו שהייתה.';
+    el('agentHelp').href = 'https://wa.me/972546929991?text=' + encodeURIComponent(
+      'שלום, אני סוכן/ת ורשום/ה גם כבעל/ת מקצוע (כתובת ' + email + ') ואני צריך/ה עזרה בחיבור הכרטיסייה לחשבון.');
+    show('loginCard', false); show('recoverCard', false); show('app', false); show('agentCard', true);
+  }
   // מחובר/ת, אבל בלי חשבון: יש כרטיסייה בכתובת הזו? החשבון נפתח ונכנסים. אין? יציאה והסבר.
   // רק "אין כרטיסייה" (וכתובת לא מאושרת / כרטיסייה של אחר/ת) מוציאים: כשל זמני בשרת אינו "אין לך כרטיסייה"
   async function offerClaim(session) {
@@ -167,7 +190,17 @@
     }
     const terminal = data.error === 'no_card' || data.error === 'email_not_verified' || data.error === 'card_has_account';
     if (terminal) {
-      // מקומית בלבד: סוכן/ת שנכנס/ת לכאן בטעות לא אמור/ה לצאת מה-CRM בכל המכשירים
+      // סוכן/ת (גם יועץ/ת משכנתאות עם משרד) שנכנס/ת לכאן בלי כרטיסייה בכתובת שלו/ה: לא יוצאים. ההתחברות
+      // משותפת עם ה-CRM (אותו אחסון), ויציאה, גם מקומית, הייתה מנתקת אותו/ה משם. רק מסבירים ומפנים
+      const agent = await hasAgentProfile(session.user.id);
+      if (agent) { showAgentNote(session, data.error); return; }
+      if (agent === null) {
+        // לא הצלחנו לברר: לא יוצאים (ייתכן שזה/זו סוכן/ת), רק מבקשים רענון
+        showLogin(); resetGoogleButton();
+        setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע. רעננו את הדף לניסיון נוסף.', 'err');
+        return;
+      }
+      // מקומית בלבד: מי שאין לו/ה אף פרופיל באתר לא אמור/ה לצאת בכל המכשירים
       try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
       showLogin();
       resetGoogleButton();
@@ -180,6 +213,13 @@
     resetGoogleButton();
     setMsg('lgMsg', 'לא הצלחנו לבדוק את החשבון כרגע' + (data.error === 'network' ? ' (שגיאת רשת)' : '') + '. רעננו את הדף לניסיון נוסף.', 'err');
   }
+  // מי שנכנס/ת עם חשבון Google הלא נכון (הכרטיסייה רשומה בכתובת אחרת) חייב/ת דרך לעבור: יציאה מקומית
+  // (מנתקת גם מה-CRM בדפדפן הזה, וזה כתוב על הכפתור) וחזרה למסך הכניסה
+  el('agentSwitch').addEventListener('click', async () => {
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* נמשיך למסך הכניסה */ }
+    showLogin(); resetGoogleButton();
+  });
+
   el('forgotBtn').addEventListener('click', async () => {
     const email = el('lgEmail').value.trim();
     if (!email) { setMsg('lgMsg', 'כתבו את כתובת האימייל ולחצו שוב', 'err'); return; }
