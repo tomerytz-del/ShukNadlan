@@ -58,7 +58,7 @@ test('יעד ניהול טוען רק את הטעינה שלו, באותו מפ�
   const map = src.match(/const ADMIN_GOTO_LOADS = \{([\s\S]*?)\n  \};/);
   assert.ok(map, 'ADMIN_GOTO_LOADS לא נמצא');
   for (const k of map[1].match(/'adm:[A-Za-z]+'/g)) assert.ok(fns[1].includes(k), k + ' חסר ב-ADMIN_LOAD_FNS');
-  assert.match(src, /Object\.keys\(ADMIN_LOAD_FNS\)\.map\(k => start\(k, ADMIN_LOAD_FNS\[k\]\)\)/);
+  assert.match(src, /Object\.keys\(ADMIN_LOAD_FNS\)\.map\(k => (?:crmQuiet\()?start\(k, ADMIN_LOAD_FNS\[k\]\)\)?\)/);
 });
 
 test('ליד, CMA וקידום מחכים למחיר שכבר התחיל', () => {
