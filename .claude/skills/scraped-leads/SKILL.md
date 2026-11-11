@@ -47,6 +47,15 @@ description: לידים מפוסטים בקבוצות פייסבוק ובמרק�
 בליד שנוצר מהסכמה הקישור יושב ב-`raw_message` (נחשף בפתיחה) ולא ב-
 `property_details` (גלוי בליד נעול): הוא מזהה את האדם.
 
+מחפש/ת מפייסבוק או מאינסטגרם (`kind=buyer`) נכנס/ת לביקוש הפתוח רק אחרי
+insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הוא 1
+ו-`social_buyer_caps_ready()` (יומן `open_demand_notify_log` קיים). אין
+מילוי לאחור. הטריגר לא קורא ל-`scraped_lead_notify_demand`. ההתראה יוצאת
+אחר כך מ-`scraped_leads_lifecycle`, עד התקרה, ובלי וואטסאפ כל עוד
+`whatsapp_template_cap_on()` כבויה. "אני פונה" על הודעה פרטית בלי פוסט
+קורא ל-`social_buyer_handover`. תור `seeker_handoffs` נכתב רק כש-
+`social_buyer_handoff_enabled` הוא 1, והוא נשאר 0. אין שליחה לפונה.
+
 ## 3. "עובד/ת בעיר" ו"מתעסק/ת בסוג" - שתי פונקציות, שלושה צרכנים
 
 `agent_works_city` ו-`agent_handles_type` קובעות את הסוכן/ת שמקבל/ת ליד אחרי

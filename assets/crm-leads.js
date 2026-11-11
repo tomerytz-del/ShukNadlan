@@ -571,7 +571,7 @@ function syncDemandTab(){
 function openDemandWants(d){
   const owner = d.lead_type === 'owner_inbound';
   const rent = d.deal_type === 'rent';
-  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות');
+  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפשים לשכור' : 'מחפשים לקנות');
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
@@ -606,15 +606,25 @@ function renderOpenDemand(listEl){
     return;
   }
   listEl.innerHTML = hint + openDemandRows.map(d => {
-    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס'
+    const socialTalk = d.source === 'instagram_dm' || d.source === 'instagram_comment' || d.source === 'facebook_dm' || d.source === 'facebook_comment';
+    const src = socialTalk
+      ? (d.source.indexOf('instagram') === 0 ? 'אינסטגרם' : 'פייסבוק')
+      : d.source === 'facebook_marketplace' ? 'מרקטפלייס'
       : d.source === 'madlan' ? 'מדלן' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
+    const rule = socialTalk && !url
+      ? 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
+      : (d.source === 'madlan'
+          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
+          : (nb ? nb.rule : OPEN_DEMAND_RULE));
     const act = d.mine
-      ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
+      ? (url
+          ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`
+          : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : ''))
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">${d.source === 'madlan' ? 'אני פונה' : 'אני פונה - לפוסט ↗'}</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -623,10 +633,8 @@ function renderOpenDemand(listEl){
       + (nb ? `<span class="ui-tag ui-tag--warn">${esc(nb.tag)}</span>` : '')
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
-      + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
-      + `<p class="lp-why"><strong>${esc(d.source === 'madlan'
-          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
-          : (nb ? nb.rule : OPEN_DEMAND_RULE))}</strong></p>`
+      + (d.mine ? '' : `<p class="lp-why"><strong>בלי עלות:</strong> הסוכן הראשון שלוחץ "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
+      + `<p class="lp-why"><strong>${esc(rule)}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');
@@ -639,12 +647,16 @@ const OPEN_DEMAND_CLAIM_ERR = {
 };
 
 async function claimOpenDemand(id, btn){
-  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await
-  const win = window.open('', '_blank');
+  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await.
+  // בלי פוסט (שיחה עם גבריאלה) אין לאן לפתוח, וחלון ריק רק מפריע.
+  const openPost = !!(btn && btn.getAttribute('data-open-post') === '1');
+  const win = openPost ? window.open('', '_blank') : null;
   if (btn) btn.disabled = true;
   const { data, error } = await sb.rpc('open_demand_claim', { p_id: id });
   const err = error ? heErr(error) : (data && data.error ? (OPEN_DEMAND_CLAIM_ERR[data.error] || heErr(data.error)) : '');
-  const url = !err && data && /^https:\/\//.test(data.post_url || '') ? data.post_url : '';
+  const posted = !err && data && (/^https:\/\//.test(data.post_url || '') ? data.post_url
+    : /^https:\/\//.test(data.source_post_url || '') ? data.source_post_url : '');
+  const url = posted || '';
   if (win){
     if (url){ win.opener = null; win.location.href = url; }
     else win.close();
