@@ -17,7 +17,7 @@
 | שליחה: וואטסאפ למספר הבעלים הרשום בנכס, מייל או העתקה | אותו חלון. הכפתורים רק פותחים את הערוץ עם נוסח מוכן |
 | הבעלים פותחים `/owner-report?k=` | `owner-report.html` + `assets/owner-report.js` ← Edge Function `owner-report-link` ← `owner_report_open` |
 
-מיגרציה: `20271111090000_owner_report_links.sql`. אין שינוי בטבלאות קיימות.
+מיגרציה: `20271111095000_owner_report_links.sql`. אין שינוי בטבלאות קיימות.
 
 ## מה בדוח
 
