@@ -129,6 +129,7 @@
     shira: { name: 'שירה, השכנה', pitch: 560, skin: '#f0c9ab', hair: '#2b2b2b', style: 'long', top: '#c0587e', shirt: '#c0587e', pants: '#3b3f58' },
     yael: { name: 'יעל, אחותה של נועה', pitch: 590, skin: '#f1c7a5', hair: '#3b2416', style: 'bob', top: '#7a5cc4', shirt: '#7a5cc4', pants: '#2c3550' },
     eli: { name: 'אלי, הקבלן', pitch: 250, skin: '#d8a07a', hair: '#2e2a26', style: 'short', top: '#e07b39', shirt: '#e07b39', pants: '#3a3f4b', beard: true },
+    tal: { name: 'טל', pitch: 330, skin: '#e9b892', hair: '#6b4a2b', style: 'short', top: '#2f7f6f', shirt: '#2f7f6f', pants: '#2c3550' },
     rina: { name: 'רינה', pitch: 470, skin: '#efc6a6', hair: '#d6d6d6', style: 'bob', top: '#5f8f6b', shirt: '#5f8f6b', pants: '#4a4f63', glasses: true },
     moshe: { name: 'משה, הבעלים', pitch: 230, skin: '#efc09a', hair: '#b9b9b9', style: 'bald', top: '#8a6d4b', shirt: '#8a6d4b', pants: '#4a3b2a', mus: true }
   };
