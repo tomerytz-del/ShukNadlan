@@ -100,8 +100,9 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
 
 ## מדלן
 
-מודעות של בעלים פרטיים מ-`https://www.madlan.co.il/listings/<id>`. אותו
-מסלול: `scraped_lead_add`, ואז הסכמה או ביקוש פתוח. לא insert ל-`leads`.
+מודעות של בעלים פרטיים מ-`https://www.madlan.co.il/listings/<id>`. אין פניה
+לבעלים: לא בקשת הסכמה, לא הודעה ולא תזכורת. `scraped_lead_set_consent` על
+`requested` או `consented` מחזיר `no_owner_contact`.
 
 ```sql
 select public.scraped_lead_add('{
@@ -109,6 +110,8 @@ select public.scraped_lead_add('{
   "source": "madlan",
   "source_detail": "עפולה",
   "external_ref": "https://www.madlan.co.il/listings/abc123",
+  "first_seen_at": "2026-11-11T12:00:00+02:00",
+  "date_known": false,
   "raw_phone": "073-123-4567",
   "city": "עפולה",
   "deal_type": "sale", "property_type": "דירה",
@@ -116,23 +119,24 @@ select public.scraped_lead_add('{
 }'::jsonb);
 ```
 
-`posted_at` לא נשלח. הפונקציה כותבת `now()` ומתעלמת מתאריך שנשלח: אין
-במודעה תאריך פרסום, ומחיקה אחרי 30 יום יושבת על `posted_at`. תאריך ישן
-היה מוחק את השורה בסבב הבא. לפייסבוק חלון 72 השעות לא משתנה.
+`first_seen_at` הוא מתי הסורק ראה את המודעה לראשונה. בסריקה הראשונה זה
+היום לכל המלאי, ולכן `date_known` חייב להיות `false`. בלי `date_known`
+אין דחיפת וואטסאפ, גם אם התאריך הוא היום. כש-`date_known` הוא `true`
+והתאריך בתוך חלון הטריות (14 יום), נדחפות עד `madlan_notify_daily_cap`
+מודעות ביום (ברירת מחדל 5). השאר נשארות באתר.
 
-המזהה הקנוני הוא `madlan.co.il/listings/<id>`: בלי `www.` או `m.`, בלי
-פרמטרי מעקב, באותיות קטנות. אותה מודעה בשתי הצורות היא `duplicate: post`.
+אם `scraped_lead_matching_enabled` דלוק ויש התאמה, והשורה מותרת לדחיפה,
+נולד ליד פתוח לסוכן/ת אחד/ת עם `quota_source = madlan_free`. אחרת זו
+ביקוש פתוח, והטלפון מופיע בכרטיס. `claim_lead` על `source = madlan` לא
+נוגע בארנק ולא במכסה.
 
-אחרי הסכמה `source_detail` הוא "מדלן · ...", ובלי שם הליד נולד "פונה ממדלן".
-השעון ב-`raw_message` הוא "נקלט", לא "פורסם". בביקוש הפתוח ההנחיה היא
-להגיב במודעה במדלן, לא בפייסבוק. הסבב אחרי הסכמה סופר גם לידים שמקורם
-`madlan`, יחד עם פייסבוק.
+אחרי 30 יום השורה נמחקת, ומותר לקלוט את אותה כתובת שוב. מספר `073` לא
+מאחד מודעות. לפייסבוק חלון 72 השעות לא משתנה.
 
-`scraped_lead_matching_enabled` נשאר 0. כשהוא כבוי, ההתאמה לא רצה, והליד
-הולך בסבב. כשהוא דלוק, `scraped_lead_matches` לא מסננת לפי `source`: מודעת
-מדלן נכנסת לאותה התאמה לפי עיר, סוג, עסקה, חדרים ומחיר. בהשקה (עד
-25.1.2027) המודעה מוצגת כביקוש פתוח מרגע הקליטה, ו-`scraped_lead_notify_demand`
-שולחת `open_demand` לסוכנים בעיר.
+המזהה הקנוני הוא `madlan.co.il/listings/<id>`.
+
+בפרודקשן `scraped_lead_matching_enabled` הוא 1 (נבדק 11.11.2026). ההתאמה
+לא מסננת לפי `source`.
 
 ## אחרי הסכמה: ליד רגיל
 
@@ -148,7 +152,7 @@ select public.scraped_lead_add('{
 | `external_ref` | המזהה הקנוני |
 | `raw_message` | הטקסט, תאריך הפוסט והקישור. נחשף רק אחרי פתיחה, כי הקישור מזהה את האדם |
 
-**התמחור והמכסה הם של `claim_lead` כמו שהם:** ליד בעלים - ‏12 שעות בלעדיות,
+**התמחור והמכסה הם של `claim_lead` כמו שהם, חוץ מ-`source = madlan` שנפתח בלי חיוב:** ליד בעלים - ‏12 שעות בלעדיות,
 ‏Premium חינם, ‏Mid ‏₪50. ‏`seeker_inbound` נופל לאותו ענף של פנייה על נכס:
 רק מי שהליד שויך אליו/ה, ‏Mid/Premium בלי עלות, ‏Pay&GO במכסה ואחריה ₪25.
 

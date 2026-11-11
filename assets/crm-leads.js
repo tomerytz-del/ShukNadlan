@@ -585,9 +585,9 @@ function renderOpenDemand(listEl){
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק או במדלן מה הם מחפשים או מציעים, ולא השאירו פרטים.'
-    + ' "אני פונה" שומר את הביקוש לך בלבד ופותח את הפרסום.</span>'
-    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן מגיבים במודעה. לא ב-SMS ולא בוואטסאפ.</strong></span></p>';
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק או במדלן מה הם מחפשים או מציעים.'
+    + ' "אני פונה" שומר את הביקוש לך בלבד.</span>'
+    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן מתקשרים למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -601,7 +601,7 @@ function renderOpenDemand(listEl){
       ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">אני פונה - לפוסט ↗</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">${d.source === 'madlan' ? 'אני פונה' : 'אני פונה - לפוסט ↗'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -612,7 +612,7 @@ function renderOpenDemand(listEl){
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
       + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
       + `<p class="lp-why"><strong>${esc(d.source === 'madlan'
-          ? 'אפשר להגיב רק במודעה במדלן, לא ב-SMS ולא בוואטסאפ'
+          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
           : (nb ? nb.rule : OPEN_DEMAND_RULE))}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;

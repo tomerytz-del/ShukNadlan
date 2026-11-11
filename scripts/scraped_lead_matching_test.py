@@ -203,9 +203,9 @@ $$;
 create function public.agent_handles_type(p_agent uuid, p_type text, p_deal text)
 returns boolean language sql stable as $$ select true $$;
 create function public.scraped_lead_is_demand(
-  p_status text, p_lead_type text, p_no_broker text, p_posted timestamptz, p_city uuid
+  p_status text, p_lead_type text, p_no_broker text, p_posted_at timestamptz, p_city_id uuid
 ) returns boolean language sql stable as $$
-  select p_city is not null and p_status in ('pending_consent', 'open_demand');
+  select p_city_id is not null and p_status in ('pending_consent', 'open_demand');
 $$;
 create function public.notifications_suppress_on()
 returns boolean language sql stable as $$ select false $$;
@@ -732,10 +732,12 @@ def main():
     row = psql(db, sql_text="""
       select external_ref || '|' || (phone_hash is null)::text
              || '|' || (posted_at > now() - interval '2 minutes')::text
+             || '|' || push_site_only::text
+             || '|' || (consent_requested_at is null)::text
         from public.scraped_leads
        where source = 'madlan' and post_url like '%aaa111%'
     """)
-    if row != "madlan.co.il/listings/aaa111|true|true":
+    if row != "madlan.co.il/listings/aaa111|true|true|true|true":
         fail(f"מודעת מדלן לא נשמרה לפי הכתובת ובלי hash: {row}")
     second = add_lead("""jsonb_build_object(
       'lead_type', 'owner_inbound', 'source', 'madlan',
@@ -779,23 +781,22 @@ def main():
     named = add_lead("""jsonb_build_object(
       'lead_type', 'owner_inbound', 'source', 'madlan',
       'external_ref', 'https://www.madlan.co.il/listings/eee555',
-      'city', 'עפולה', 'raw_phone', '054-444-4444', 'source_detail', 'עפולה')""")
-    if "success" not in named:
-        fail(f"מודעה להסכמה נדחתה: {named}")
-    lead_id = psql(db, sql_text="""
-      select id::text from public.scraped_leads
+      'city', 'עפולה', 'raw_phone', '054-444-4444', 'source_detail', 'עפולה',
+      'consent_requested', true)""")
+    if "success" not in named or "consent_deferred" in named:
+        fail(f"מודעת מדלן לא נקלטה בלי פניה לבעלים: {named}")
+    if psql(db, sql_text="""
+      select (consent_requested_at is null)::text from public.scraped_leads
        where external_ref = 'madlan.co.il/listings/eee555'
+    """) != "true":
+        fail("נרשמה בקשת הסכמה למדלן")
+    no_contact = psql(db, sql_text="""
+      select public.scraped_lead_set_consent(
+        (select id from public.scraped_leads where external_ref = 'madlan.co.il/listings/eee555'),
+        'consented') ->> 'error'
     """)
-    consented = psql(db, sql_text=f"select public.scraped_lead_set_consent('{lead_id}', 'consented')::text")
-    if "consented" not in consented:
-        fail(f"הסכמה על מדלן נכשלה: {consented}")
-    label = psql(db, sql_text="""
-      select source_detail || '|' || raw_name || '|' || (raw_message like '%נקלט:%')::text
-             || '|' || (raw_message like '%המודעה:%')::text
-        from public.leads where source = 'madlan' and external_ref = 'madlan.co.il/listings/eee555'
-    """)
-    if label != "מדלן · עפולה|פונה ממדלן|true|true":
-        fail(f"תווית הליד ממדלן: {label}")
+    if no_contact != "no_owner_contact":
+        fail(f"הסכמה על מדלן לא נחסמה: {no_contact}")
 
     psql(db, sql_text=f"""
       update public.scraped_leads set city_id = '{city}'
@@ -813,15 +814,74 @@ def main():
     n_dem = psql(db, sql_text=f"select public.scraped_lead_notify_demand('{bbb}')")
     if not n_dem.isdigit() or int(n_dem) < 1:
         fail(f"ביקוש פתוח ממדלן לא הופץ: {n_dem}")
-    body = psql(db, sql_text="""
-      select string_agg(distinct case
-               when body like '%במודעה במדלן%' and body not like '%הודעת פייסבוק%' then 'madlan'
-               else 'other' end, ',')
+    pushed = psql(db, sql_text="""
+      select (bool_and(suppress_push)
+              and bool_and(body like '%073%' and body like '%מעביר את השיחה%')
+              and bool_and(body not like '%הודעת פייסבוק%'))::text
         from public.notifications
        where type = 'open_demand'
     """)
-    if body != "madlan":
-        fail(f"התראת הביקוש ממדלן לא אומרת להגיב במודעה: {body}")
+    if pushed != "true":
+        fail(f"התראת מדלן בלי תאריך יצאה לדחיפה או בלי הטלפון: {pushed}")
+
+    # תאריך ידוע וטרי: עד התקרה היומית נדחף, והבאה נשארת באתר.
+    psql(db, sql_text="update public.app_config set value = '2' where key = 'madlan_notify_daily_cap'")
+    fresh_ids = []
+    for n, phone in ((1, "0501000001"), (2, "0501000002"), (3, "0501000003")):
+        got = add_lead(f"""jsonb_build_object(
+          'lead_type', 'owner_inbound', 'source', 'madlan',
+          'external_ref', 'https://www.madlan.co.il/listings/fresh{n}',
+          'first_seen_at', now(), 'date_known', true,
+          'city', 'עפולה', 'raw_phone', '{phone}')""")
+        if "success" not in got:
+            fail(f"מודעה טרייה {n} נדחתה: {got}")
+    caps = psql(db, sql_text="""
+      select (count(*) filter (where not push_site_only))::text || '|' ||
+             (count(*) filter (where push_site_only))::text
+        from public.scraped_leads
+       where external_ref like 'madlan.co.il/listings/fresh%'
+    """)
+    if caps != "2|1":
+        fail(f"תקרת הדחיפה של מדלן: {caps}")
+
+    # אחרי 30 יום מותר לקלוט שוב. אין חסימה לצמיתות.
+    blocked = psql(db, sql_text="""
+      select public.scraped_lead_set_consent(
+        (select id from public.scraped_leads where external_ref = 'madlan.co.il/listings/fresh3'),
+        'declined') ->> 'status'
+    """)
+    if blocked != "deleted":
+        fail(f"סירוב לא מחק את המודעה: {blocked}")
+    psql(db, sql_text="""
+      update public.scraped_lead_blocks set expires_at = now() - interval '1 day';
+      delete from public.scraped_lead_blocks where expires_at < now();
+    """)
+    again = add_lead("""jsonb_build_object(
+      'lead_type', 'owner_inbound', 'source', 'madlan',
+      'external_ref', 'https://www.madlan.co.il/listings/fresh3',
+      'city', 'עפולה', 'raw_phone', '0501000009')""")
+    if "success" not in again:
+        fail(f"קליטה חוזרת אחרי 30 יום נחסמה: {again}")
+
+    psql(db, sql_text="""
+      alter table public.agency_members add column if not exists credit_balance numeric default 100;
+      update public.agency_members set credit_balance = 100;
+      insert into public.leads (lead_type, agent_id, status, source, raw_phone, city)
+      values ('owner_inbound', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', 'masked', 'madlan', '0520000000', 'עפולה');
+    """)
+    price = psql(db, sql_text="""
+      select public.claim_lead(
+               (select id from public.leads where source = 'madlan' and status = 'masked' limit 1),
+               'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1') ->> 'price_charged'
+    """)
+    charged = psql(db, sql_text="""
+      select (select credit_balance::int::text from public.agency_members
+               where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1')
+             || '|' ||
+             (select quota_source from public.leads where source = 'madlan' and status = 'unlocked' limit 1)
+    """)
+    if price != "0" or charged != "100|madlan_free":
+        fail(f"ליד מדלן חויב: {price} {charged}")
     phone_hash_privilege_check(db)
     print("scraped lead matching: ok")
 

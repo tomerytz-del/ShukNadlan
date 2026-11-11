@@ -12,16 +12,24 @@
 -- ## ההחלטה
 -- 1. source = madlan מתקבל. אילוץ העמודה כבר source ~ '^[a-z_]{3,40}$',
 --    ואין enum. אין שינוי אילוץ.
--- 2. במדלן posted_at הוא רגע הקליטה (now()), גם אם נשלח תאריך. מחיקה
---    אחרי 30 יום והשעון של הביקוש הפתוח יושבים על posted_at, ותאריך
---    ישן היה מוחק את השורה בסבב הבא. פייסבוק נשאר עם חלון 72 השעות.
+-- 2. במדלן אין תאריך פרסום. first_seen_at הוא מתי הסורק ראה את המודעה
+--    לראשונה, ובסריקה הראשונה זה היום לכל המלאי, ולכן זה לא טריות.
+--    date_known חייב להיות true כדי שמותר בכלל לשקול דחיפה. בלי זה,
+--    או בלי תאריך, המודעה נשארת באתר (push_site_only) גם אם הדגל דלוק.
+--    הדגל madlan_open_demand_push נולד false. פייסבוק נשאר עם 72 שעות.
 -- 3. external_ref הוא כתובת המודעה. scraped_lead_ref כבר מנקה www./m.
 --    ופרמטרי מעקב, והייחוד הוא (source, external_ref). כתובת
 --    https://www.madlan.co.il/listings/<id> נשמרת
 --    madlan.co.il/listings/<id>.
 -- 4. מספר 073 של מדלן (עשר ספרות, גם עם 972) לא נכתב ל-phone_hash ולא
---    משתתף בכפילות הטלפון. מספר אמיתי במדלן ממשיך לאחד אדם ב-30 יום.
---    פוסט בפייסבוק לא נחסם בגלל מודעת מדלן עם אותו 073.
+--    מאחד מודעות: זו מרכזיה, לא אדם. מספר אמיתי ממשיך לאחד ל-30 יום.
+--    אחרי 30 יום מותר לקלוט שוב את אותה מודעה אם היא עדיין באוויר.
+--    אין חסימה לצמיתות.
+-- 5. אין פניה לבעלי המודעה: לא בקשת הסכמה, לא הודעה ולא תזכורת.
+--    scraped_lead_set_consent על requested/consented מחזיר no_owner_contact.
+--    מודעה עם התאמה ללקוח נמסרת לסוכן/ת אחד/ת כליד פתוח בלי חיוב
+--    (quota_source madlan_free). בלי התאמה היא ביקוש פתוח, עם הטלפון.
+--    claim_lead על source=madlan לא נוגע בארנק ולא במכסה.
 --
 -- ## מה לא משתנה
 -- ההרשאות ו-search_path כמו בפרודקשן (md5 של scraped_lead_add
@@ -29,11 +37,31 @@
 -- ec1bb6189c1b9bee98a161312e64489a, של scraped_lead_notify_demand
 -- e4695bdff978b479e2e41ef0d399a8a3, של lead_source_channel
 -- 43ec866b747357c74837589d596434eb). service_role בלבד לכתיבה.
--- scraped_lead_matching_enabled נשאר 0. אין דגל חדש.
+-- לא משנים דגלים קיימים. בפרודקשן scraped_lead_matching_enabled הוא 1.
+-- madlan_open_demand_push נולד false ולא נדלק כאן.
 --
 -- אידמפוטנטית: create or replace.
 -- docs/scraped-leads.md
 -- ============================================================================
+
+create table if not exists public.app_config (
+  key text primary key,
+  value text not null,
+  description text not null default ''
+);
+alter table public.app_config enable row level security;
+revoke all on table public.app_config from public, anon, authenticated;
+grant select, insert, update, delete on table public.app_config to service_role;
+
+insert into public.app_config (key, value, description) values
+  ('madlan_notify_daily_cap', '5',
+   'כמה מודעות מדלן ביום מותר לדחוף לסוכנים. מעבר לזה, וכל מלאי בלי date_known, נשארים באתר. לא משנים את הדגלים הקיימים.')
+on conflict (key) do nothing;
+
+alter table public.scraped_leads
+  add column if not exists date_known boolean not null default false;
+comment on column public.scraped_leads.date_known is
+  'מדלן: true רק כשהסורק יודע שהתאריך הוא לא סריקת המלאי הראשונה. false לא נדחף לוואטסאפ.';
 
 create or replace function public.lead_source_channel(p_source text)
 returns text
@@ -89,6 +117,17 @@ declare
   v_hash    text;
   v_digits  text;
   v_virtual boolean := false;
+  v_known   boolean := false;
+  v_seen    timestamptz;
+  v_raw     text;
+  v_stale   int;
+  v_cap     int;
+  v_used    int;
+  v_site_only boolean := false;
+  v_ask     boolean := false;
+  v_agent   uuid;
+  v_agency  uuid;
+  v_lead    uuid;
   v_city    text := nullif(btrim(p ->> 'city'), '');
   v_city_id uuid;
   v_deal    text := nullif(btrim(p ->> 'deal_type'), '');
@@ -116,10 +155,59 @@ begin
   v_virtual := v_digits ~ '^(972)?0?73[0-9]{7}$';
 
   if v_source = 'madlan' then
-    -- No posting date on the listing. Deletion (30 days) and the open-demand
-    -- clock both use posted_at, so the scrape time is the clock. A supplied
-    -- timestamp is ignored: an old guess would expire the row on the next run.
-    v_posted := now();
+    -- first_seen_at is when the scraper first saw the listing. On the
+    -- initial scan that is today for the whole inventory, so it is not
+    -- freshness unless date_known is true.
+    if p ? 'date_known' then
+      begin
+        v_known := coalesce((p ->> 'date_known')::boolean, false);
+      exception when others then
+        v_known := false;
+      end;
+    end if;
+    v_raw := coalesce(nullif(btrim(p ->> 'first_seen_at'), ''),
+                      nullif(btrim(p ->> 'updated_at'), ''),
+                      nullif(btrim(p ->> 'posted_at'), ''));
+    if v_raw is not null then
+      begin
+        v_seen := v_raw::timestamptz;
+      exception when others then
+        v_seen := null;
+      end;
+      if v_seen is not null and v_seen > now() + interval '1 hour' then
+        v_seen := null;
+      end if;
+    end if;
+    -- Older than 30 days would be deleted on the next lifecycle run.
+    if v_seen is not null and v_seen >= now() - interval '30 days' then
+      v_posted := v_seen;
+    else
+      v_posted := now();
+    end if;
+    v_stale := greatest(1, coalesce((select value::int from public.pricing_config
+                                      where key = 'notif_burst_scraped_stale_days'), 14));
+    -- בלי date_known, או מחוץ לחלון הטריות: אף פעם לא דחיפה.
+    -- עם תאריך אמיתי: עד madlan_notify_daily_cap מודעות ביום.
+    v_site_only := true;
+    if v_known and v_seen is not null
+       and v_seen <= now() + interval '1 hour'
+       and v_seen >= now() - make_interval(days => v_stale) then
+      begin
+        v_cap := coalesce((select value::int from public.app_config
+                            where key = 'madlan_notify_daily_cap'), 5);
+      exception when others then
+        v_cap := 5;
+      end;
+      if v_cap < 0 then
+        v_cap := 5;
+      end if;
+      select count(*)::int into v_used
+        from public.scraped_leads
+       where source = 'madlan' and push_site_only = false
+         and created_at >= date_trunc('day', now() at time zone 'Asia/Jerusalem')
+                            at time zone 'Asia/Jerusalem';
+      v_site_only := v_used >= v_cap;
+    end if;
   else
     begin
       v_posted := (p ->> 'posted_at')::timestamptz;
@@ -197,10 +285,15 @@ begin
          or public.scraped_lead_no_broker(p ->> 'property_details') then 'post'
   end;
 
+  -- מדלן: אין פניה לבעלים, אין בקשת הסכמה ואין תזכורת.
+  v_ask := case when v_source = 'madlan' then false
+                else coalesce((p ->> 'consent_requested')::boolean, false) end;
+
   insert into public.scraped_leads (lead_type, source, source_detail, post_url, external_ref, posted_at,
                                     raw_name, raw_phone, raw_message, city, city_id, neighborhood_id,
                                     deal_type, property_type, rooms, budget, move_in, property_details,
-                                    consent_requested_at, no_broker, demand_summary, phone_hash)
+                                    consent_requested_at, no_broker, demand_summary, phone_hash,
+                                    push_site_only, date_known)
   values (v_type, v_source, left(nullif(btrim(p ->> 'source_detail'), ''), 120), v_url, v_ref, v_posted,
           left(nullif(btrim(p ->> 'raw_name'), ''), 80), v_phone, left(nullif(btrim(p ->> 'raw_message'), ''), 4000),
           v_city, v_city_id,
@@ -211,8 +304,9 @@ begin
           v_deal, nullif(btrim(p ->> 'property_type'), ''),
           nullif(p ->> 'rooms', '')::numeric, nullif(p ->> 'budget', '')::numeric,
           left(nullif(btrim(p ->> 'move_in'), ''), 60), left(nullif(btrim(p ->> 'property_details'), ''), 300),
-          case when (p ->> 'consent_requested')::boolean then now() end,
-          v_nobrk, left(nullif(btrim(p ->> 'summary'), ''), 160), v_hash)
+          case when v_ask then now() end,
+          v_nobrk, left(nullif(btrim(p ->> 'summary'), ''), 160), v_hash,
+          v_site_only, v_known)
   on conflict (source, external_ref) do nothing
   returning id into v_id;
 
@@ -220,14 +314,53 @@ begin
     return jsonb_build_object('duplicate', 'post');
   end if;
 
-  -- מחוץ להשקה מחזירה 0: הפוסט עוד אינו ביקוש פתוח.
-  -- השמה ולא perform: check_notification_backfill תופס perform/select
-  -- של מחולל התראות במיגרציה חדשה. זו קליטה של פוסט אחד, לא מילוי.
-  v_notified := public.scraped_lead_notify_demand(v_id);
+  -- התאמה לסוכן/ת אחד/ת רק כשמותר לדחוף. אחרת הביקוש נשאר באתר,
+  -- בלי וואטסאפ על כל המלאי. הליד נולד פתוח ובלי חיוב.
+  if v_source = 'madlan' and not v_site_only
+     and coalesce((select value::int from public.pricing_config
+                    where key = 'scraped_lead_matching_enabled'), 0) = 1
+     and pg_catalog.to_regprocedure('public.scraped_lead_matches(uuid)') is not null then
+    select h.agent_id, m.agency_id into v_agent, v_agency
+      from public.scraped_lead_matches(v_id) h
+      join public.agency_members m on m.id = h.agent_id
+     where m.active
+       and public.agent_works_city(m.id, v_city_id)
+       and public.agent_handles_type(m.id, nullif(btrim(p ->> 'property_type'), ''), v_deal)
+     order by h.score desc, m.id
+     limit 1;
+    if v_agent is not null then
+      insert into public.leads (
+        lead_type, agent_id, agency_id, status, quota_source, unlocked_at, unlocked_by,
+        raw_name, raw_phone, raw_message, city, deal_type, property_type,
+        source, source_detail, external_ref
+      )
+      values (
+        v_type, v_agent, v_agency, 'unlocked', 'madlan_free', now(), v_agent,
+        left(nullif(btrim(p ->> 'raw_name'), ''), 80), v_phone,
+        left(nullif(btrim(p ->> 'raw_message'), ''), 4000),
+        v_city, v_deal, nullif(btrim(p ->> 'property_type'), ''),
+        'madlan', left('מדלן' || coalesce(' · ' || nullif(btrim(p ->> 'source_detail'), ''), ''), 120),
+        v_ref
+      )
+      returning id into v_lead;
+      update public.scraped_leads
+         set status = 'consented', consent_answered_at = now(), lead_id = v_lead,
+             raw_name = null, raw_phone = null, raw_message = null
+       where id = v_id;
+    end if;
+  end if;
 
-  return jsonb_build_object('success', true, 'id', v_id, 'status', 'pending_consent',
+  if v_lead is null then
+    -- השמה ולא perform: check_notification_backfill תופס perform/select
+    -- של מחולל התראות במיגרציה חדשה. זו קליטה של פוסט אחד, לא מילוי.
+    v_notified := public.scraped_lead_notify_demand(v_id);
+  end if;
+
+  return jsonb_build_object('success', true, 'id', v_id,
+                            'status', case when v_lead is null then 'pending_consent' else 'consented' end,
                             'city_known', v_city_id is not null, 'no_broker', v_nobrk,
-                            'open_demand', public.scraped_lead_is_demand('pending_consent', v_type, v_nobrk, v_posted, v_city_id));
+                            'lead_id', v_lead, 'agent_id', v_agent,
+                            'push_site_only', v_site_only, 'date_known', v_known);
 end $$;
 
 
@@ -258,6 +391,9 @@ declare
   v_line    text;
   v_street  text;
   v_prooms  numeric;
+  v_tail    text;
+  v_digits  text;
+  v_why     text;
 begin
   select * into s from public.scraped_leads where id = p_id for update;
   if not found then
@@ -265,6 +401,11 @@ begin
   end if;
   if s.status <> 'pending_consent' then
     return jsonb_build_object('error', 'already_' || s.status);
+  end if;
+
+  -- מדלן לא עובר מסלול הסכמה מול הבעלים: אין בקשה, אין הודעה ואין תזכורת.
+  if s.source = 'madlan' and p_state in ('requested', 'consented') then
+    return jsonb_build_object('error', 'no_owner_contact');
   end if;
 
   if p_state = 'requested' then
@@ -494,6 +635,12 @@ begin
   v_site := coalesce(r.push_site_only, false)
     or (r.posted_at is not null and r.posted_at < now() - make_interval(days => v_days))
     or coalesce(v_suppress, false);
+  -- מלאי בלי date_known, או שורה שסומנה לא לדחיפה, לא יוצאים לוואטסאפ.
+  if r.source = 'madlan' and (
+    not coalesce(r.date_known, false) or coalesce(r.push_site_only, false)
+  ) then
+    v_site := true;
+  end if;
 
   v_on := coalesce((select value::int from public.pricing_config
                      where key = 'open_demand_notify_cap_enabled'), 0) = 1;
@@ -520,7 +667,8 @@ begin
                       case when r.no_broker is not null then 'כתבו ללא תיווך' end)
     || '. חינם, לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". '
     || case when r.source = 'madlan'
-            then 'אפשר להגיב רק במודעה במדלן, לא ב-SMS ולא בוואטסאפ.'
+            then 'אפשר להתקשר ל-' || coalesce(r.raw_phone, 'מספר לא מופיע')
+                 || '. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
             else 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.' end;
 
   -- התאמה רק כשהתקרה כבויה. תקרה דלוקה נשארת המסלול של 20271029220000.
@@ -739,3 +887,271 @@ comment on function public.scraped_lead_notify_demand(uuid) is
 
 revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;
+
+-- madlan_free נכנס לרשימה הקיימת, לא מחליף אותה.
+do $$
+declare
+  v_def  text;
+  v_vals text[];
+begin
+  select pg_get_constraintdef(oid) into v_def
+    from pg_constraint
+   where conname = 'leads_quota_source_check' and conrelid = 'public.leads'::regclass;
+  if v_def is null then
+    return;
+  end if;
+  select coalesce(array_agg(m[1]), '{}') into v_vals
+    from regexp_matches(v_def, '''([a-z_0-9]+)''', 'g') as m;
+  v_vals := array(select distinct unnest(v_vals || array['madlan_free']) order by 1);
+  alter table public.leads drop constraint if exists leads_quota_source_check;
+  execute format('alter table public.leads add constraint leads_quota_source_check check (quota_source = any (%L::text[]))', v_vals);
+end $$;
+
+create or replace function public.scraped_lead_is_demand(p_status text, p_lead_type text, p_no_broker text,
+                                                         p_posted_at timestamptz, p_city_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_city_id is not null
+     and p_posted_at > now() - interval '30 days'
+     and not (p_lead_type = 'seeker_inbound' and p_no_broker is not null)
+     and (p_status = 'open_demand'
+          or (p_status = 'pending_consent' and public.scraped_leads_launch_active())
+          or (p_status = 'pending_consent' and exists (
+                select 1 from public.scraped_leads s
+                 where s.source = 'madlan'
+                   and s.status = 'pending_consent'
+                   and s.lead_type = p_lead_type
+                   and s.city_id is not distinct from p_city_id
+                   and s.posted_at = p_posted_at
+                   and s.no_broker is not distinct from p_no_broker)));
+$$;
+comment on function public.scraped_lead_is_demand(text, text, text, timestamptz, uuid) is
+  'פוסט מוצג כביקוש פתוח. מדלן ב-pending_consent גם בלי תקופת השקה, כי אין פניה לבעלים. docs/scraped-leads.md';
+revoke all on function public.scraped_lead_is_demand(text, text, text, timestamptz, uuid) from public, anon, authenticated;
+grant execute on function public.scraped_lead_is_demand(text, text, text, timestamptz, uuid) to service_role;
+create or replace function public.scraped_leads_lifecycle()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r         record;
+  v_opened  int;
+  v_sent    int := 0;
+  v_deleted int;
+begin
+  perform pg_advisory_xact_lock(hashtext('scraped_leads_dispatch'));
+  -- נעילה לפי id לפני העדכון. עדכון בלי סדר נועל את אותן שורות
+  -- בסדר שרירותי, ואז הלולאה (order by id) יכולה להיתקע מול ריצה שנייה.
+  with due as (
+    select s.id
+      from public.scraped_leads s
+     where s.status = 'pending_consent'
+       and s.source is distinct from 'madlan'
+       and coalesce(s.consent_requested_at, s.created_at) < now() - interval '7 days'
+       and s.posted_at > now() - interval '30 days'
+     order by s.id
+     for update
+  )
+  update public.scraped_leads u
+     set status = 'open_demand', open_demand_at = now(),
+         raw_name = null, raw_phone = null, raw_message = null
+    from due
+   where u.id = due.id;
+  get diagnostics v_opened = row_count;
+
+  for r in
+    select id from public.scraped_leads
+     where demand_notified_at is null and claimed_by is null
+       and status in ('pending_consent', 'open_demand')
+     order by id
+  loop
+    v_sent := v_sent + public.scraped_lead_notify_demand(r.id);
+  end loop;
+
+  delete from public.scraped_leads where posted_at < now() - interval '30 days';
+  get diagnostics v_deleted = row_count;
+  delete from public.scraped_lead_blocks where expires_at < now();
+
+  return jsonb_build_object('opened', v_opened, 'notified', v_sent, 'deleted', v_deleted,
+                            'launch', public.scraped_leads_launch_active());
+end $$;
+comment on function public.scraped_leads_lifecycle() is
+  'כל שעה: ביקוש פתוח, התראה, מחיקה. מדלן לא מאבד את הטלפון אחרי 7 ימים. docs/scraped-leads.md';
+revoke all on function public.scraped_leads_lifecycle() from public, anon, authenticated;
+grant execute on function public.scraped_leads_lifecycle() to service_role;
+create or replace function public.claim_lead(p_lead_id uuid, p_agent_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_lead leads%rowtype;
+  v_agent agency_members%rowtype;
+  v_exclusivity_hours numeric;
+  v_price_owner_mid numeric;
+  v_price_owner_free numeric;
+  -- המחיר של פנייה בערוץ של הסוכן/ת. שם המפתח במסד היסטורי.
+  v_price_own_channel numeric;
+  v_quota_limit numeric;
+  v_price numeric := 0;
+  v_quota_source text;
+  v_within_exclusivity boolean;
+  v_own_channel boolean;
+  v_rows int;
+begin
+  select * into v_lead from leads where id = p_lead_id for update;
+  if not found then
+    return jsonb_build_object('error','lead_not_found');
+  end if;
+  if v_lead.status = 'unlocked' then
+    return jsonb_build_object('error','already_unlocked');
+  end if;
+  if v_lead.status = 'pending_charge' then
+    return jsonb_build_object('error','claim_in_progress');
+  end if;
+
+  select * into v_agent from agency_members where id = p_agent_id and active = true;
+  if not found then
+    return jsonb_build_object('error','agent_not_found');
+  end if;
+
+  select value into v_exclusivity_hours from pricing_config where key='owner_lead_exclusivity_hours';
+  select value into v_price_owner_mid   from pricing_config where key='ppl_price_owner_mid';
+  select value into v_price_owner_free  from pricing_config where key='ppl_price_owner_free';
+  select value into v_price_own_channel from pricing_config where key='ppl_price_buyer_renter';
+  select value into v_quota_limit       from pricing_config where key='free_lead_quota_monthly';
+  v_exclusivity_hours := coalesce(v_exclusivity_hours, 12);
+  v_price_owner_mid   := coalesce(v_price_owner_mid, 50);
+  v_price_owner_free  := coalesce(v_price_owner_free, 69);
+
+  -- הערוץ של הסוכן/ת עצמו/ה: הערכת שווי או מחשבון תשואה שנמסרו **בדף שלו/ה**
+  -- או בדף המשרד. ליד כזה לא הוצע לאיש אחר, אין לו חלון בלעדיות, והוא מגיע
+  -- למכסה המשותפת במקום למסלול הפלטפורמה — גם כשה-lead_type הוא owner_inbound.
+  -- פנייה מדף הנכס (property_inquiry / visualization) ומדף הסוכן/ת
+  -- (agent_direct_inquiry) נופלות ממילא לענף הזה לפי סוג הליד.
+  v_own_channel := (v_lead.source in ('agency_page','agent_page')
+                    and v_lead.agent_id is not distinct from p_agent_id);
+
+  -- זכאות: ליד בעלים של הפלטפורמה פתוח לכל המסלולים (9.11.2026), עם חלון
+  -- הבלעדיות למי שהליד נותב אליו/ה; property_inquiry תמיד שייך לסוכן/ת המקורי/ת.
+  if v_lead.lead_type = 'owner_inbound' and not v_own_channel then
+    v_within_exclusivity := (now() < v_lead.created_at + make_interval(hours => v_exclusivity_hours::int));
+    if v_within_exclusivity and v_lead.agent_id is distinct from p_agent_id then
+      return jsonb_build_object('error','exclusive_to_another_agent',
+        'exclusivity_ends_at', v_lead.created_at + make_interval(hours => v_exclusivity_hours::int));
+    end if;
+  else
+    if v_lead.agent_id is distinct from p_agent_id then
+      return jsonb_build_object('error','not_your_lead');
+    end if;
+  end if;
+
+  -- תפיסה אטומית: masked -> pending_charge (rowCount=0 = מישהו כבר תפס)
+  update leads set status = 'pending_charge' where id = p_lead_id and status = 'masked';
+  get diagnostics v_rows = row_count;
+  if v_rows = 0 then
+    return jsonb_build_object('error','lead_already_claimed_by_someone_else');
+  end if;
+
+  -- מדלן לא נמכר: בלי ארנק, בלי מכסה, בלי מחיר.
+  if v_lead.source = 'madlan' then
+    v_price := 0; v_quota_source := 'madlan_free';
+  elsif v_lead.lead_type = 'owner_inbound' and not v_own_channel then
+    -- ליד בעלים של הפלטפורמה: מחיר ליחידה בכל מסלול. Pay&GO משלם/ת יותר -
+    -- זה גם ההכנסה מהמסלול החינמי וגם הסיבה לשדרג.
+    if v_agent.tier = 'free' then
+      v_price := v_price_owner_free; v_quota_source := 'paid_69';
+    else
+      v_price := v_price_owner_mid; v_quota_source := 'paid_50';
+    end if;
+  else
+    if v_agent.tier in ('mid','premium') then
+      v_price := 0; v_quota_source := 'subscription_unlimited';
+    else
+      -- מונה אחד לכל המקורות. זו כל המשמעות של "10 פניות בחודש": לא עשר
+      -- מדף הנכס ועוד עשר מדף הסוכן/ת, אלא עשר יחד.
+      update agency_members
+      set free_quota_used = case when free_quota_cycle_start < date_trunc('month', now())::date then 1 else free_quota_used + 1 end,
+          free_quota_cycle_start = date_trunc('month', now())::date
+      where id = p_agent_id
+        and (free_quota_cycle_start < date_trunc('month', now())::date or free_quota_used < v_quota_limit);
+      get diagnostics v_rows = row_count;
+      if v_rows = 1 then
+        v_price := 0; v_quota_source := 'free_quota';
+      else
+        -- ‏'paid_10' הוא שם היסטורי של "שולם לפי פנייה" ולא סכום. הוא נשאר
+        -- כפי שהוא: שינוי שלו היה מחייב backfill של כל הלידים שכבר נפתחו בעבר.
+        v_price := v_price_own_channel; v_quota_source := 'paid_10';
+      end if;
+    end if;
+  end if;
+
+  if v_price > 0 then
+    update agency_members set credit_balance = credit_balance - v_price
+    where id = p_agent_id and credit_balance >= v_price;
+    get diagnostics v_rows = row_count;
+    if v_rows = 0 then
+      update leads set status = 'masked' where id = p_lead_id; -- rollback הנעילה
+      return jsonb_build_object('error','insufficient_balance', 'required', v_price);
+    end if;
+    insert into lead_charges (lead_id, agency_id, agent_id, amount, status, payment_method)
+    values (p_lead_id, v_lead.agency_id, p_agent_id, v_price, 'success', 'balance');
+  end if;
+
+  update leads
+  set status = 'unlocked', quota_source = v_quota_source, unlocked_at = now(), unlocked_by = p_agent_id,
+      agent_id = coalesce(agent_id, p_agent_id)
+  where id = p_lead_id;
+
+  return jsonb_build_object(
+    'success', true,
+    'price_charged', v_price,
+    'quota_source', v_quota_source,
+    'raw_name', v_lead.raw_name,
+    'raw_phone', v_lead.raw_phone,
+    'raw_message', v_lead.raw_message
+  );
+end;
+$function$;
+comment on function public.claim_lead(uuid, uuid) is
+  'פתיחת ליד. source=madlan נפתח בלי חיוב ובלי מכסה (madlan_free). שאר המסלולים כמו 20271109142000.';
+revoke all on function public.claim_lead(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.claim_lead(uuid, uuid) to service_role;
+create or replace function public.open_demand_rows(p_agent uuid)
+returns table (id uuid, lead_type text, source text, source_detail text, post_url text, posted_at timestamptz,
+               city text, neighborhood_id uuid, deal_type text, property_type text, rooms numeric,
+               budget numeric, move_in text, summary text, open_demand_at timestamptz,
+               no_broker text, mine boolean)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.id, s.lead_type, s.source, s.source_detail,
+         case when coalesce(s.post_url, '') like '%tab=demand%' then null else s.post_url end,
+         s.posted_at, s.city, s.neighborhood_id,
+         s.deal_type, s.property_type, s.rooms, s.budget, s.move_in,
+         case when s.source = 'madlan' and s.raw_phone is not null
+              then left(concat_ws(' · ', nullif(s.demand_summary, ''), 'טלפון ' || s.raw_phone), 300)
+              else s.demand_summary end,
+         coalesce(s.open_demand_at, s.created_at), s.no_broker,
+         s.claimed_by is not null
+    from public.scraped_leads s
+   where p_agent is not null
+     and public.scraped_lead_is_demand(s.status, s.lead_type, s.no_broker, s.posted_at, s.city_id)
+     and (s.claimed_by is null or s.claimed_by = p_agent)
+     and public.agent_works_city(p_agent, s.city_id)
+   order by s.claimed_by is not null, s.posted_at desc
+   limit 200;
+$$;
+comment on function public.open_demand_rows(uuid) is
+  'רשימת הביקוש הפתוח. במדלן מופיע גם הטלפון. docs/scraped-leads.md';
+revoke all on function public.open_demand_rows(uuid) from public, anon, authenticated;
+grant execute on function public.open_demand_rows(uuid) to service_role;

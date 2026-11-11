@@ -45,7 +45,7 @@ export const SOURCE_LABEL: Record<string, string> = {
 };
 
 // הפונה לא פנה/תה אלינו: פרסם/ה פוסט, ואישר/ה שמתווך/ת יחזור/תחזור אליו/ה
-const POST_SOURCES = new Set(["facebook_group", "facebook_marketplace", "madlan"]);
+const POST_SOURCES = new Set(["facebook_group", "facebook_marketplace"]);
 
 export function sourceLabel(src: string | null | undefined): string {
   if (src == null || String(src).trim() === "") return "האתר";
@@ -155,6 +155,10 @@ export async function loadLeadInfo(sb: any, batch: Row[]): Promise<Map<string, L
 
 function intro(li: LeadInfo): string {
   const via = li.source ? ` דרך ${li.source}` : "";
+  if (li.source === "מדלן") {
+    const who = li.leadType === "owner_inbound" ? "בעל נכס" : "מחפש נכס";
+    return `${li.name} - ${who} - מודעה במדלן. אפשר להתקשר למספר שבליד. לרוב זה מספר 073 שמעביר את השיחה${li.what ? ":" : "."}`;
+  }
   if (li.fromPost) {
     const who = li.leadType === "owner_inbound" ? "בעל/ת נכס" : "מחפש/ת נכס";
     return `${li.name} - ${who} - פרסם/ה פוסט ב${li.source} ואישר/ה שנחזור${li.what ? ":" : "!"}`;

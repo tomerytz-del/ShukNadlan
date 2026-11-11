@@ -21335,6 +21335,7 @@ function claimCost(lead){
      הוצעה לאיש אחר, ולכן גם כשהיא רשומה כ-owner_inbound היא נכנסת למכסה
      המשותפת ולא למסלול לידי הפלטפורמה. אותה הבחנה בדיוק ב-claim_lead במסד. */
   const ownChannel = lead.source === 'agency_page' || lead.source === 'agent_page';
+  if (lead.source === 'madlan') return { price: 0, note: 'ליד ממדלן, בלי חיוב' };
   if (lead.lead_type === 'owner_inbound' && !ownChannel){
     // ‏9.11.2026: פתוח לכל המסלולים במחיר ליחידה - ₪69 ב-Pay&GO, ₪50 במנוי (claim_lead)
     if (tier === 'free') return { price: priceOf('ppl_price_owner_free', 69) };
