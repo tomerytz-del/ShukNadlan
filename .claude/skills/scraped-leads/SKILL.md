@@ -133,7 +133,9 @@ insert חדש ל-`saved_searches`, כש-`social_buyer_open_demand_enabled` הו�
   במדלן וביד2 אין פניה לבעלים. `first_seen_at` בלי `date_known` לא נדחף.
   עד `madlan_notify_daily_cap` מודעות מדלן ויד2 **יחד** ביום. הליד חינם
   (`madlan_free` / `yad2_free`). מלאי חי: `listing_inventory_sync`, הסנכרון
-  הראשון של עיר זורע בלי לידים, ותמונה ריקה לא מוחקת (`docs/listing-inventory.md`).
+  הראשון של עיר זורע בלי לידים, השלמה גדולה פי 2 בתוך יומיים זורעת שוב,
+  דחייה לא מנוסה עד 30 יום או עד שינוי טלפון או מחיר, ותמונה ריקה לא מוחקת
+  (`docs/listing-inventory.md`).
 - 7 ימים מ-`consent_requested_at` (או מהקליטה) - ביקוש פתוח.
 - 30 יום מ-`posted_at` - מחיקה, בכל מצב. **לא `created_at`**: זה מה שהובטח.
 

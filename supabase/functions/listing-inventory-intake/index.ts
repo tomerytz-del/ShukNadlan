@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { MAX_BODY_BYTES, readLimitedBody } from "./body.ts";
 
 // ============================================================================
 // קליטת מלאי מודעות מיד2 וממדלן. הסורק שולח פעמיים ביום את מה שחי עכשיו
@@ -15,7 +16,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SECRET = Deno.env.get("LISTING_INTAKE_SECRET") ?? "";
 
-const MAX_BODY = 1_000_000;
 const MAX_ITEMS = 2000;
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -48,8 +48,9 @@ Deno.serve(async (req: Request) => {
   const given = req.headers.get("x-listing-intake-secret") ?? "";
   if (!timingSafeEqual(given, SECRET)) return json({ error: "unauthorized" }, 401);
 
-  const raw = await req.text();
-  if (raw.length > MAX_BODY) return json({ error: "payload_too_large" }, 413);
+  const limited = await readLimitedBody(req, MAX_BODY_BYTES);
+  if (!limited.ok) return json({ error: limited.error }, 413);
+  const raw = limited.raw;
 
   let body: unknown;
   try {

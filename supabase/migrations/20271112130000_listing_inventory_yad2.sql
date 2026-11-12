@@ -18,8 +18,13 @@
 --    listing_inventory_sync(source, city, items) מעדכן מה שנמצא, מסמן
 --    removed_at למה שלא בתמונה, ויוצר ליד רק למודעה חדשה אחרי שכבר היה
 --    סנכרון מלא של אותה עיר. הסנכרון הראשון זורע בשקט.
+--    אם בתוך listing_inventory_seed_catchup_days (2) מגיעה תמונה שגדולה
+--    לפחות פי listing_inventory_seed_catchup_ratio (2) מהזריעה, גם היא
+--    זורעת בשקט: הזריעה הקטנה הייתה חלקית, והשאר אינו לידים חדשים.
 --    תמונה ריקה או קטנה מ-listing_inventory_min_snapshot_ratio (0.5)
 --    לא מוחקת מלאי. אחרי 30 יום מותר להציע שוב רק אם המודעה עדיין חיה.
+--    קליטה שנדחתה (בלי טלפון, כפילות) נרשמת ולא מנוסה שוב עד 30 יום,
+--    או עד שהטלפון או המחיר משתנים.
 --    ההתראה יוצאת מ-scraped_lead_add, ולכן חלות התקרה היומית ושעות השקט
 --    של notification-push. אין כאן שליחה משלנו.
 --
@@ -53,6 +58,16 @@ on conflict (key) do update
 insert into public.app_config (key, value, description) values
   ('listing_inventory_min_snapshot_ratio', '0.5',
    'אם מספר המודעות בתמונה קטן מהיחס הזה מתוך המלאי הפעיל של אותה עיר ומקור, לא מסמנים מחיקות. מונע מחיקה מסריקה חלקית או ריקה.')
+on conflict (key) do nothing;
+
+insert into public.app_config (key, value, description) values
+  ('listing_inventory_seed_catchup_days', '2',
+   'תוך כמה ימים מזריעה, תמונה גדולה בהרבה נחשבת השלמה של זריעה חלקית ולא גל לידים. 0 מכבה.')
+on conflict (key) do nothing;
+
+insert into public.app_config (key, value, description) values
+  ('listing_inventory_seed_catchup_ratio', '2',
+   'תמונה שמגיעה לפי הזה לפחות מגודל הזריעה האחרונה, בתוך חלון הימים, זורעת שוב בשקט.')
 on conflict (key) do nothing;
 
 create or replace function public.lead_source_channel(p_source text)
@@ -1256,6 +1271,13 @@ create table if not exists public.listing_inventory (
   -- כדי להציע שוב רק אחרי 30 יום ורק אם המודעה עדיין בתמונה.
   from_seed        boolean not null default false,
   lead_offered_at  timestamptz,
+  -- דחייה של scraped_lead_add. לא מנסים שוב עד 30 יום, אלא אם הטלפון
+  -- או המחיר השתנו (הטביעה היא sha256 של הספרות והמחיר, לא הטלפון עצמו).
+  lead_skip_reason text check (lead_skip_reason is null or char_length(lead_skip_reason) <= 40),
+  lead_attempted_at timestamptz,
+  lead_attempt_fingerprint text check (
+    lead_attempt_fingerprint is null or lead_attempt_fingerprint ~ '^[0-9a-f]{64}$'
+  ),
   unique (source, external_ref)
 );
 comment on table public.listing_inventory is
@@ -1263,7 +1285,11 @@ comment on table public.listing_inventory is
 comment on column public.listing_inventory.scraped_lead_id is
   'הליד שנוצר מהמודעה, אם נוצר. נמחק איתו (set null) אחרי 30 יום, ואז מותר להציע שוב אם המודעה חיה.';
 comment on column public.listing_inventory.from_seed is
-  'true למודעה שנכנסה בסנכרון הראשון של העיר. היא לא נפתחת כליד.';
+  'true למודעה שנכנסה בזריעה, כולל השלמה של זריעה חלקית. היא לא נפתחת כליד.';
+comment on column public.listing_inventory.lead_skip_reason is
+  'למה scraped_lead_add דחה את המודעה (missing_phone, phone, lead). בלי הטלפון עצמו.';
+comment on column public.listing_inventory.lead_attempt_fingerprint is
+  'sha256 של ספרות הטלפון והמחיר בזמן הדחייה. שינוי באחד מהם מנסה שוב מיד. אין כאן טלפון.';
 
 create index if not exists listing_inventory_active_city_idx
   on public.listing_inventory (source, city)
@@ -1328,7 +1354,13 @@ declare
   v_skip     boolean := false;
   v_seeded_before boolean := false;
   v_is_seed  boolean := false;
+  v_catchup  boolean := false;
+  v_catchup_days int := 2;
+  v_catchup_ratio numeric := 2;
+  v_seed_count int := 0;
+  v_seeded_at timestamptz;
   v_note     text := 'ok';
+  v_fp       text;
   v_item     jsonb;
   v_url      text;
   v_ref      text;
@@ -1367,6 +1399,24 @@ begin
   end;
   if v_ratio <= 0 or v_ratio > 1 then
     v_ratio := 0.5;
+  end if;
+  begin
+    v_catchup_days := coalesce((select value::int from public.app_config
+                                 where key = 'listing_inventory_seed_catchup_days'), 2);
+  exception when others then
+    v_catchup_days := 2;
+  end;
+  begin
+    v_catchup_ratio := coalesce((select value::numeric from public.app_config
+                                  where key = 'listing_inventory_seed_catchup_ratio'), 2);
+  exception when others then
+    v_catchup_ratio := 2;
+  end;
+  if v_catchup_days < 0 then
+    v_catchup_days := 2;
+  end if;
+  if v_catchup_ratio <= 1 then
+    v_catchup_ratio := 2;
   end if;
 
   v_city_id := public.city_id_for_name(v_city);
@@ -1444,11 +1494,24 @@ begin
   );
   v_skip := v_active > 0 and (v_n::numeric / v_active::numeric) < v_ratio;
   v_is_seed := (not v_seeded_before) and v_n > 0 and not v_skip;
+  -- זריעה של 10 מודעות ואחר כך 200 הייתה פותחת 190 לידים. בתוך חלון
+  -- הימים, תמונה שגדולה לפחות פי היחס מהזריעה האחרונה היא השלמה שקטה.
+  if v_seeded_before and v_catchup_days > 0 and not v_skip then
+    select s.item_count, s.seeded_at into v_seed_count, v_seeded_at
+      from public.listing_inventory_seeds s
+     where s.source = p_source and s.city = v_city;
+    v_catchup := coalesce(v_seed_count, 0) > 0
+      and v_seeded_at >= pg_catalog.now() - make_interval(days => v_catchup_days)
+      and v_n > v_seed_count
+      and v_n::numeric >= v_seed_count::numeric * v_catchup_ratio;
+  end if;
 
   if v_skip then
     v_note := case when v_n = 0 then 'empty_snapshot' else 'snapshot_too_small' end;
   elsif v_is_seed then
     v_note := 'seed';
+  elsif v_catchup then
+    v_note := 'seed_catchup';
   elsif v_n = 0 and v_active = 0 then
     v_note := 'empty';
   end if;
@@ -1500,10 +1563,25 @@ begin
     insert into public.listing_inventory_seeds (source, city, item_count)
     values (p_source, v_city, v_n)
     on conflict (source, city) do nothing;
+  elsif v_catchup then
+    update public.listing_inventory i
+       set from_seed = true
+      from _li_in t
+     where i.source = p_source
+       and i.external_ref = t.external_ref
+       and i.scraped_lead_id is null;
+    update public.listing_inventory_seeds
+       set item_count = v_n,
+           seeded_at = pg_catalog.now()
+     where source = p_source and city = v_city;
   elsif v_seeded_before then
     for rec in
       select i.id, i.lead_offered_at, t.url, t.raw_phone, t.raw_name, t.summary,
-             t.deal_type, t.property_type, t.rooms, t.price
+             t.deal_type, t.property_type, t.rooms, t.price,
+             encode(extensions.digest(
+               coalesce(regexp_replace(coalesce(t.raw_phone, ''), '\D', '', 'g'), '')
+               || '|' || coalesce(t.price::text, ''),
+               'sha256'), 'hex') as fp
         from public.listing_inventory i
         join _li_in t on t.external_ref = i.external_ref
        where i.source = p_source
@@ -1511,6 +1589,14 @@ begin
          and i.scraped_lead_id is null
          and i.removed_at is null
          and (i.lead_offered_at is null or i.lead_offered_at <= pg_catalog.now() - interval '30 days')
+         and (
+           i.lead_attempted_at is null
+           or i.lead_attempted_at <= pg_catalog.now() - interval '30 days'
+           or i.lead_attempt_fingerprint is distinct from encode(extensions.digest(
+                coalesce(regexp_replace(coalesce(t.raw_phone, ''), '\D', '', 'g'), '')
+                || '|' || coalesce(t.price::text, ''),
+                'sha256'), 'hex')
+         )
        order by i.external_ref
        for update of i
     loop
@@ -1542,16 +1628,29 @@ begin
       -- השמה, לא perform: מחולל ההתראות רץ מתוך scraped_lead_add, ושם
       -- כבר יש suppress_push. קריאה כאן היא ליד אחד חדש, לא מילוי.
       v_res := public.scraped_lead_add(v_payload);
+      v_fp := rec.fp;
       if coalesce(v_res ->> 'success', '') = 'true' and (v_res ->> 'id') is not null then
         update public.listing_inventory
            set scraped_lead_id = (v_res ->> 'id')::uuid,
-               lead_offered_at = pg_catalog.now()
+               lead_offered_at = pg_catalog.now(),
+               lead_skip_reason = null,
+               lead_attempted_at = null,
+               lead_attempt_fingerprint = null
          where id = rec.id;
         v_new := v_new + 1;
       elsif v_res ->> 'duplicate' = 'post' and (v_res ->> 'id') is not null then
         update public.listing_inventory
            set scraped_lead_id = (v_res ->> 'id')::uuid,
-               lead_offered_at = coalesce(lead_offered_at, pg_catalog.now())
+               lead_offered_at = coalesce(lead_offered_at, pg_catalog.now()),
+               lead_skip_reason = null,
+               lead_attempted_at = null,
+               lead_attempt_fingerprint = null
+         where id = rec.id;
+      else
+        update public.listing_inventory
+           set lead_skip_reason = left(coalesce(v_res ->> 'error', v_res ->> 'duplicate', 'rejected'), 40),
+               lead_attempted_at = pg_catalog.now(),
+               lead_attempt_fingerprint = v_fp
          where id = rec.id;
       end if;
     end loop;
@@ -1562,7 +1661,7 @@ begin
     new_leads, seeded, removals_skipped, note
   ) values (
     p_source, v_city, v_n, v_active, v_added, v_updated, v_removed,
-    v_new, v_is_seed, v_skip, v_note
+    v_new, (v_is_seed or v_catchup), v_skip, v_note
   );
 
   return jsonb_build_object(
@@ -1570,12 +1669,12 @@ begin
     'updated', v_updated,
     'removed', v_removed,
     'new_leads', v_new,
-    'seeded', v_is_seed,
+    'seeded', (v_is_seed or v_catchup),
     'removals_skipped', v_skip
   );
 end $$;
 
 comment on function public.listing_inventory_sync(text, text, jsonb) is
-  'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים. מודעה חדשה אחר כך נכנסת דרך scraped_lead_add עם date_known. תמונה קטנה מדי לא מוחקת. docs/listing-inventory.md';
+  'מעדכן מלאי מודעות למקור ועיר. הסנכרון הראשון זורע בלי לידים, וגם השלמה גדולה בתוך חלון הימים. דחייה לא מנוסה שוב עד 30 יום או עד שינוי טלפון או מחיר. docs/listing-inventory.md';
 revoke all on function public.listing_inventory_sync(text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.listing_inventory_sync(text, text, jsonb) to service_role;

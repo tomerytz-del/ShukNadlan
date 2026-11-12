@@ -325,11 +325,11 @@ def main():
 
     psql(DB, sql_text="update public.app_config set value = '1' where key = 'madlan_notify_daily_cap'")
     psql(DB, sql_text="delete from public.notifications")
+    # 2 ל-3 הוא מתחת לפי 2, אז זו מודעה חדשה ולא השלמת זריעה.
     fresh = sync_once(DB, "עפולה", seed_items + [
         item("https://www.yad2.co.il/realestate/item/a-new", "0501000001", 1500000),
-        item("https://www.yad2.co.il/realestate/item/b-new", "0501000002", 1600000),
     ])
-    if fresh != "2|2|0|2|false|false":
+    if fresh != "1|2|0|1|false|false":
         fail(f"מודעות חדשות: {fresh}")
     caps = psql(DB, sql_text="""
       select (count(*) filter (where not push_site_only))::text || '|' ||
@@ -337,9 +337,9 @@ def main():
              bool_and(date_known)::text
         from public.scraped_leads
        where source = 'yad2'
-         and external_ref in ('yad2.co.il/realestate/item/a-new', 'yad2.co.il/realestate/item/b-new')
+         and external_ref = 'yad2.co.il/realestate/item/a-new'
     """)
-    if caps != "1|1|true":
+    if caps != "1|0|true":
         fail(f"תקרה על מודעות חדשות: {caps}")
     note = psql(DB, sql_text="""
       select count(*)::text || '|' || bool_and(body like '%המערכת לא פונה לבעלים%')::text
@@ -349,9 +349,8 @@ def main():
         fail(f"התראה על יד2: {note}")
     again = sync_once(DB, "עפולה", seed_items + [
         item("https://www.yad2.co.il/realestate/item/a-new", "0501000001", 1510000),
-        item("https://www.yad2.co.il/realestate/item/b-new", "0501000002", 1600000),
     ])
-    if again != "0|4|0|0|false|false":
+    if again != "0|3|0|0|false|false":
         fail(f"סנכרון חוזר פתח ליד: {again}")
     if psql(DB, sql_text="select count(*) from public.notifications where type = 'open_demand'") != "1":
         fail("סנכרון חוזר הוסיף התראה")
@@ -419,16 +418,19 @@ def main():
         fail("תמונה חלקית סימנה ירידה")
 
     # הצעה חוזרת אחרי 30 יום רק אם המודעה חיה.
-    sync_once(DB, "עכו", [item("https://www.yad2.co.il/realestate/item/akko-seed")])
-    opened = sync_once(DB, "עכו", [
+    # שתי שורות זריעה ואז אחת חדשה: 3/2 מתחת לפי 2, לא השלמת זריעה.
+    akko_base = [
         item("https://www.yad2.co.il/realestate/item/akko-seed"),
+        item("https://www.yad2.co.il/realestate/item/akko-keep"),
+    ]
+    sync_once(DB, "עכו", akko_base)
+    opened = sync_once(DB, "עכו", akko_base + [
         item("https://www.yad2.co.il/realestate/item/akko-new", "0501000003", 900000),
     ])
-    if not opened.endswith("|1|false|false") or not opened.startswith("1|1|0|"):
+    if opened != "1|2|0|1|false|false":
         fail(f"ליד עכו: {opened}")
     psql(DB, sql_text="delete from public.scraped_leads where city = 'עכו'")
-    too_soon = sync_once(DB, "עכו", [
-        item("https://www.yad2.co.il/realestate/item/akko-seed"),
+    too_soon = sync_once(DB, "עכו", akko_base + [
         item("https://www.yad2.co.il/realestate/item/akko-new", "0501000003", 900000),
     ])
     if not too_soon.endswith("|0|false|false"):
@@ -438,8 +440,7 @@ def main():
          set lead_offered_at = now() - interval '31 days'
        where external_ref = 'yad2.co.il/realestate/item/akko-new'
     """)
-    reoffer = sync_once(DB, "עכו", [
-        item("https://www.yad2.co.il/realestate/item/akko-seed"),
+    reoffer = sync_once(DB, "עכו", akko_base + [
         item("https://www.yad2.co.il/realestate/item/akko-new", "0501000003", 900000),
     ])
     if not reoffer.endswith("|1|false|false"):
@@ -451,7 +452,7 @@ def main():
          set lead_offered_at = now() - interval '31 days'
        where external_ref = 'yad2.co.il/realestate/item/akko-new';
     """)
-    dead = sync_once(DB, "עכו", [item("https://www.yad2.co.il/realestate/item/akko-seed")])
+    dead = sync_once(DB, "עכו", akko_base)
     after_dead = psql(DB, sql_text="select count(*) from public.scraped_leads where city = 'עכו'")
     removed_flag = psql(DB, sql_text="""
       select (removed_at is not null)::text from public.listing_inventory
@@ -475,9 +476,13 @@ def main():
     """) != "yad2.co.il/realestate/item/canon":
         fail("המזהה הקנוני לא נשמר")
 
-    sync_once(DB, "טבריה", [item("https://www.yad2.co.il/realestate/item/t-seed")])
+    sync_once(DB, "טבריה", [
+        item("https://www.yad2.co.il/realestate/item/t-seed"),
+        item("https://www.yad2.co.il/realestate/item/t-keep"),
+    ])
     array = "jsonb_build_array(" + ", ".join([
         item("https://www.yad2.co.il/realestate/item/t-seed"),
+        item("https://www.yad2.co.il/realestate/item/t-keep"),
         item("https://www.yad2.co.il/realestate/item/t-new", "0501000004", 700000),
     ]) + ")"
     sql = f"select public.listing_inventory_sync('yad2', 'טבריה', {array})::text"
@@ -500,6 +505,162 @@ def main():
     """)
     if leads != "1":
         fail(f"סנכרון מקבילי פתח {leads} לידים: {outs}")
+
+    # זריעה חלקית: התמונה הבאה גדולה פי 2 בתוך יומיים, וזורעת שוב בלי לידים.
+    zfat = [
+        item("https://www.yad2.co.il/realestate/item/z1"),
+        item("https://www.yad2.co.il/realestate/item/z2"),
+    ]
+    if not sync_once(DB, "צפת", zfat).endswith("|true|false"):
+        fail("זריעת צפת נכשלה")
+    caught = sync_once(DB, "צפת", zfat + [
+        item("https://www.yad2.co.il/realestate/item/z3", "0504100001", 500000),
+        item("https://www.yad2.co.il/realestate/item/z4", "0504100002", 500000),
+        item("https://www.yad2.co.il/realestate/item/z5", "0504100003", 500000),
+        item("https://www.yad2.co.il/realestate/item/z6", "0504100004", 500000),
+    ])
+    if caught != "4|2|0|0|true|false":
+        fail(f"השלמת זריעה פתחה לידים: {caught}")
+    if psql(DB, sql_text="""
+      select count(*)::text || '|' || bool_and(from_seed)::text
+             || '|' || (select item_count::text from public.listing_inventory_seeds
+                         where city = 'צפת')
+             || '|' || (select note from public.listing_inventory_sync_log
+                         where city = 'צפת' order by created_at desc limit 1)
+        from public.listing_inventory where city = 'צפת'
+    """) != "6|true|6|seed_catchup":
+        fail("השלמת הזריעה לא סומנה")
+    if psql(DB, sql_text="select count(*) from public.scraped_leads where city = 'צפת'") != "0":
+        fail("השלמת זריעה כתבה ליד")
+    after = sync_once(DB, "צפת", zfat + [
+        item("https://www.yad2.co.il/realestate/item/z3", "0504100001", 500000),
+        item("https://www.yad2.co.il/realestate/item/z4", "0504100002", 500000),
+        item("https://www.yad2.co.il/realestate/item/z5", "0504100003", 500000),
+        item("https://www.yad2.co.il/realestate/item/z6", "0504100004", 500000),
+        item("https://www.yad2.co.il/realestate/item/z7", "0504100005", 500000),
+    ])
+    if not after.endswith("|1|false|false"):
+        fail(f"מודעה אחרי השלמת הזריעה: {after}")
+
+    # מחוץ לחלון היומיים, אותה קפיצה כן פותחת לידים.
+    lod = [
+        item("https://www.yad2.co.il/realestate/item/l1"),
+        item("https://www.yad2.co.il/realestate/item/l2"),
+    ]
+    sync_once(DB, "לוד", lod)
+    psql(DB, sql_text="""
+      update public.listing_inventory_seeds
+         set seeded_at = now() - interval '3 days'
+       where city = 'לוד'
+    """)
+    late = sync_once(DB, "לוד", lod + [
+        item("https://www.yad2.co.il/realestate/item/l3", "0504200001", 400000),
+        item("https://www.yad2.co.il/realestate/item/l4", "0504200002", 400000),
+        item("https://www.yad2.co.il/realestate/item/l5", "0504200003", 400000),
+        item("https://www.yad2.co.il/realestate/item/l6", "0504200004", 400000),
+    ])
+    if late != "4|2|0|4|false|false":
+        fail(f"אחרי חלון הזריעה היה צריך לידים: {late}")
+
+    # דחייה לא מנוסה שוב עד שינוי טלפון או מחיר, או 30 יום.
+    ramla = [
+        item("https://www.yad2.co.il/realestate/item/r1"),
+        item("https://www.yad2.co.il/realestate/item/r2"),
+        item("https://www.yad2.co.il/realestate/item/r3"),
+    ]
+    sync_once(DB, "רמלה", ramla)
+    missed = sync_once(DB, "רמלה", ramla + [
+        item("https://www.yad2.co.il/realestate/item/r-new", price=800000),
+    ])
+    if not missed.endswith("|0|false|false"):
+        fail(f"בלי טלפון נפתח ליד: {missed}")
+    skip1 = psql(DB, sql_text="""
+      select lead_skip_reason || '|' || (lead_attempted_at is not null)::text
+        from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/r-new'
+    """)
+    if skip1 != "missing_phone|true":
+        fail(f"דחיית טלפון חסר: {skip1}")
+    attempted = psql(DB, sql_text="""
+      select lead_attempted_at::text from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/r-new'
+    """)
+    sync_once(DB, "רמלה", ramla + [
+        item("https://www.yad2.co.il/realestate/item/r-new", price=800000),
+    ])
+    if psql(DB, sql_text="""
+      select lead_attempted_at::text from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/r-new'
+    """) != attempted:
+        fail("דחייה זהה נוסתה שוב")
+    got_phone = sync_once(DB, "רמלה", ramla + [
+        item("https://www.yad2.co.il/realestate/item/r-new", "0504300001", 800000),
+    ])
+    if not got_phone.endswith("|1|false|false"):
+        fail(f"טלפון חדש לא ניסה שוב: {got_phone}")
+    if psql(DB, sql_text="""
+      select lead_skip_reason is null and scraped_lead_id is not null
+        from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/r-new'
+    """) != "t":
+        fail("אחרי טלפון הדחייה נשארה")
+
+    psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'yad2',
+        'external_ref', 'https://www.yad2.co.il/realestate/item/held',
+        'city', 'אשדוד', 'raw_phone', '0504300002', 'date_known', false))
+    """)
+    ashdod = [
+        item("https://www.yad2.co.il/realestate/item/a1"),
+        item("https://www.yad2.co.il/realestate/item/a2"),
+        item("https://www.yad2.co.il/realestate/item/a3"),
+    ]
+    sync_once(DB, "אשדוד", ashdod)
+    dup = sync_once(DB, "אשדוד", ashdod + [
+        item("https://www.yad2.co.il/realestate/item/a-dup", "0504300002", 1000000),
+    ])
+    if not dup.endswith("|0|false|false"):
+        fail(f"כפילות טלפון פתחה ליד: {dup}")
+    if psql(DB, sql_text="""
+      select lead_skip_reason from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/a-dup'
+    """) != "phone":
+        fail("כפילות לא נרשמה")
+    held_at = psql(DB, sql_text="""
+      select lead_attempted_at::text from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/a-dup'
+    """)
+    sync_once(DB, "אשדוד", ashdod + [
+        item("https://www.yad2.co.il/realestate/item/a-dup", "0504300002", 1000000),
+    ])
+    if psql(DB, sql_text="""
+      select lead_attempted_at::text from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/a-dup'
+    """) != held_at:
+        fail("אותו מחיר וטלפון נוסו שוב")
+    sync_once(DB, "אשדוד", ashdod + [
+        item("https://www.yad2.co.il/realestate/item/a-dup", "0504300002", 1100000),
+    ])
+    if psql(DB, sql_text="""
+      select lead_attempted_at::text from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/a-dup'
+    """) == held_at:
+        fail("שינוי מחיר לא ניסה שוב")
+    psql(DB, sql_text="""
+      update public.listing_inventory
+         set lead_attempted_at = now() - interval '31 days'
+       where external_ref = 'yad2.co.il/realestate/item/a-dup'
+    """)
+    sync_once(DB, "אשדוד", ashdod + [
+        item("https://www.yad2.co.il/realestate/item/a-dup", "0504300002", 1100000),
+    ])
+    if psql(DB, sql_text="""
+      select lead_attempted_at > now() - interval '1 hour'
+        from public.listing_inventory
+       where external_ref = 'yad2.co.il/realestate/item/a-dup'
+    """) != "t":
+        fail("אחרי 30 יום לא ניסינו שוב")
 
     print("listing inventory: ok")
 
