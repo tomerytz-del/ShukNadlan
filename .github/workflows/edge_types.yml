@@ -34,6 +34,7 @@ on:
       - "scripts/google_channel_sync_test.ts"
       - "scripts/lead_source_test.ts"
       - "scripts/ops_question_test.ts"
+      - "scripts/board_listings_test.ts"
       - ".github/workflows/edge_types.yml"
   push:
     branches: [main]
@@ -57,6 +58,7 @@ on:
       - "scripts/google_channel_sync_test.ts"
       - "scripts/lead_source_test.ts"
       - "scripts/ops_question_test.ts"
+      - "scripts/board_listings_test.ts"
       - ".github/workflows/edge_types.yml"
   workflow_dispatch:
 
@@ -94,6 +96,9 @@ jobs:
 
       - name: קישור לקטלוג וואטסאפ
         run: node --experimental-strip-types scripts/catalog_link_test.ts
+
+      - name: מודעות יד2 ומדלן בחיפוש של גבריאלה
+        run: node --experimental-strip-types scripts/board_listings_test.ts
 
       # ‏קבלות ל-+costs (‏whatsapp-webhook/cost-mail.ts): העברה של הסוכן של
       # תומר ("מקור:", הקבלה ב-HTML), ומה שאינו הוצאה (‏docs/platform-costs.md).
