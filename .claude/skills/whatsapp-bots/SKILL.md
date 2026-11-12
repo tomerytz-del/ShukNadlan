@@ -263,7 +263,8 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 בעל/ת נכס שנוצר/ה בלי הסימון הוא קונה בלי דרישות - מתאים/ה לכל נכס במאגר.
 ‏`client_matches` על בעל/ת נכס מחזירה הסבר (`owner: true`) ולא רשימה ריקה,
 ו-`clientNeeds()` כותבת את הצד במפורש ("מחפש/ת לקנות", לא "למכירה" - מודל קרא
-בזה מוכר/ת). הפרטים: הסקיל `client-matching`.
+בזה מוכר/ת) ואת שם השכונה מ-`neighborhood_id` (`שכונה: גבעת המורה`). בלי השם
+ב-`needs` המודל אומר שהשכונה אולי לא נשמרה ושומר שוב. הפרטים: הסקיל `client-matching`.
 
 ## המיניסייט מהשיחה: `create_showcase`, ‏`showcase_status` ו-`remove_from_showcase`
 
@@ -410,6 +411,18 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 (`typePattern`), לא `in` מדויק: במסד חיים "מגרש" ו"מגרשים". מילה חדשה לסוג -
 ב-`typeIn` בליבה, לא כאן (הסקיל `search-core`). קוד מאפיין שאינו ב-`FEATURE_CODES`
 יורד מהסינון וחוזר ב-`features_not_recognized`.
+
+**מודעות מיד2 וממדלן (`board_listings`).** ‏`search_properties` ו-`client_matches`
+מוסיפים, אחרי הנכסים של הסוכן/ת ושל המשרד, מודעות חיות מ-`listing_inventory`.
+המשרד כבר מכוסה (`source = agency`). המודעות הן שדה נפרד, בכותרת
+"מודעות מהלוחות יד 2 / מדלן", לא `source` של נכס. הודעה אינטראקטיבית
+אחת יוצאת רק אם התשובה כותבת את הכותרת (כפתור למודעה אחת, רשימה לכמה).
+עד 5, ואומרים כמה עוד. אין טלפון, אין פנייה לבעלים, אין חיוב ואין ליד
+או התראה מהמסלול הזה. הסינון: עיר (כולל חבל תענך), עסקה, סוג, חדרים ומחיר.
+בלי עיר - ערי השוק של המשרד. טבלה חסרה, שגיאה, או עיר בלי מלאי הם
+`unavailable` - לא אומרים "אין מודעות". חיפוש שרץ והעיר במלאי אבל אין
+התאמה הוא `none`, ושורה אחת בתשובה. מאפיין חובה (ממ״ד, מעלית, חניה) הוא
+`skipped_feature`: לא מצרפים, ואומרים שהלוחות לא נבדקו. ‏`docs/listing-inventory.md`.
 
 **כל חיפוש מול גולש/ת נרשם** (‏`logBotSearch` ל-`bot_search_events`), ומה שקרה
 אחריו מסומן ב-`outcomeAfter` (שמירה, מתווך/ת) ובחיפוש החוזר של "דומים". כלי
@@ -727,7 +740,8 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
-deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
+deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/client_deal_test.ts
+node --experimental-strip-types scripts/board_listings_test.ts   # אם נגעת ב-board-listings.ts
 node --experimental-strip-types scripts/gabriela_reply_style_test.ts
 python scripts/check_long_dash.py
 python scripts/check_tier_gates.py   # אם נגעת בשורה ב-pricing.html
