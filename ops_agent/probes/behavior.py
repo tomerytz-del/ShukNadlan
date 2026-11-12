@@ -848,11 +848,16 @@ MARKET_DEALS_THIN_RATIO = 0.2
 MARKET_DEALS_THIN_MEDIAN_MIN = 500
 MARKET_CITY_MIN_HOODS = 3
 MARKET_DEALS_STALE_DAYS = 150
-# - ‏45 יום מהסנכרון המוצלח האחרון: "עסקאות ישנות" הוא ממצא רק כשהעדכון **לא
-#   רץ**. ‏12.11.2026: 391 מתוך 392 ממצאי `market_city_deals_stale` היו על
-#   יישובים שסוכן הדפדפן סנכרן בהצלחה בימים שלפני (מלאה: 27 עסקאות, האחרונה
-#   ב-2018 - זה כל מה שיש ב-GovMap על מושב של 400 תושבים). ‏`sync_every_days`
-#   הארוך ביותר הוא 30, ועוד 15 יום לשבוע שדולג.
+# - ‏45 יום מהסנכרון המוצלח האחרון, ביישוב (פחות מ-500 עסקאות במאגר):
+#   "עסקאות ישנות" הוא ממצא רק כשהעדכון **לא רץ**. ‏12.11.2026: כל 392 ממצאי
+#   `market_city_deals_stale` היו על יישובים שסוכן הדפדפן סנכרן בהצלחה
+#   בימים שלפני (מלאה: 27 עסקאות, האחרונה ב-2018 - זה כל מה שיש ב-GovMap על
+#   מושב של 400 תושבים; הגדול שבהם, גן נר, 349). ‏`sync_every_days` הארוך
+#   ביותר הוא 30, ועוד 15 יום לשני שבועות שבהם "עדכן עסקאות" לא הורץ בכרום.
+#   עיר של ממש (500+ עסקאות, אותו קו של `MARKET_DEALS_THIN_MEDIAN_MIN`)
+#   נשארת ממצא גם אחרי סנכרון תקין: חמישה חודשים בלי עסקה בעיר הם מקור
+#   שמחזיר רשימה ריקה, לא עיר שלא נמכר בה דבר. שלוש שכונות אינן המבחן כאן:
+#   לאשלים יש 4 שכונות ו-2 עסקאות.
 MARKET_DEALS_SYNC_OK_DAYS = 45
 MARKET_UNPINNED_RATIO = 0.25
 MARKET_UNPINNED_MIN = 100
@@ -1079,14 +1084,15 @@ def _market_data(ctx) -> Iterator[Finding]:
             and ctx.db.has_table("neighborhoods")):
         return
 
-    # מתי סוכן הדפדפן סנכרן את היישוב בהצלחה בפעם האחרונה. בלי הטבלה (מסד
-    # ישן, בדיקה) - לא ידוע, והממצא על עסקאות ישנות נשאר כפי שהיה.
+    # מתי סוכן הדפדפן סנכרן את היישוב בהצלחה בפעם האחרונה. ‏`last_synced_at`
+    # נכתב רק בסיום מוצלח (`deal_sync_summary`); כישלון נוגע ב-`last_status`
+    # בלבד, ולכן אין לסנן לפיו - הוא היה מוחק הצלחה שלפני כישלון אחד. בלי
+    # הטבלה (מסד ישן, בדיקה) - לא ידוע, והממצא על עסקאות ישנות נשאר כפי שהיה.
     sync_col = "null::int"
     if ctx.db.has_table("deal_settlements"):
         sync_col = (
             "(select current_date - max(s.last_synced_at)::date"
-            "   from public.deal_settlements s"
-            "  where s.city_id = c.id and left(s.last_status, 2) = 'ok')"
+            "   from public.deal_settlements s where s.city_id = c.id)"
         )
     cities = ctx.db.rows(
         """
@@ -1155,11 +1161,15 @@ def _market_data(ctx) -> Iterator[Finding]:
             # הממצא טוען "העדכון לא רץ", ולכן הוא נבדק מול העדכון עצמו ולא
             # רק מול תאריך העסקה: יישוב שסונכרן בהצלחה לאחרונה והעסקה
             # האחרונה בו ישנה הוא יישוב שאין בו עסקאות חדשות ב-GovMap, לא
-            # מאגר שלא עודכן (12.11.2026, 391 ממצאים כאלה).
+            # מאגר שלא עודכן (12.11.2026, 392 ממצאים כאלה). עיר של ממש (500+
+            # עסקאות) נשארת ממצא גם אז - שם הסיבה הסבירה היא מקור שמחזיר
+            # רשימה ריקה.
             ctx.count()
             days = r.get("last_sold_days")
             synced = r.get("last_ok_sync_days")
-            synced_recently = synced is not None and int(synced) <= MARKET_DEALS_SYNC_OK_DAYS
+            village = deals < MARKET_DEALS_THIN_MEDIAN_MIN
+            synced_recently = (village and synced is not None
+                               and int(synced) <= MARKET_DEALS_SYNC_OK_DAYS)
             if (deals and days is not None and int(days) > MARKET_DEALS_STALE_DAYS
                     and not synced_recently):
                 yield Finding(
@@ -1170,8 +1180,12 @@ def _market_data(ctx) -> Iterator[Finding]:
                     detail="המאגר מתעדכן מסוכן הדפדפן (\"עדכן עסקאות\"). רשות המיסים מפרסמת "
                            "עסקה חודשיים-שלושה אחרי שנסגרה, ולכן פער של יותר מחמישה "
                            "חודשים הוא עדכון שלא רץ - ודוח CMA שמשווה למחירים ישנים. "
-                           + ("הסנכרון המוצלח האחרון של היישוב היה לפני %d ימים."
-                              % int(synced) if synced is not None
+                           + ("הסנכרון המוצלח האחרון של היישוב היה לפני %d ימים%s"
+                              % (int(synced),
+                                 " - ועדיין אין עסקה חדשה: לבדוק שהרשימה שהמקור "
+                                 "מחזיר לעיר אינה ריקה." if int(synced) <= MARKET_DEALS_SYNC_OK_DAYS
+                                 else ".")
+                              if synced is not None
                               else "ליישוב אין אף סנכרון מוצלח."),
                     suggestion="לבדוק ב-CRM, יישובים לעסקאות, את המצב של העיר: שגיאה "
                                "אחרונה, או יישוב כבוי. העדכון אידמפוטנטי: עסקה שכבר "
