@@ -42,6 +42,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   facebook_group: "קבוצת פייסבוק",
   facebook_marketplace: "מרקטפלייס של פייסבוק",
   madlan: "מדלן",
+  yad2: "יד2",
 };
 
 // הפונה לא פנה/תה אלינו: פרסם/ה פוסט, ואישר/ה שמתווך/ת יחזור/תחזור אליו/ה
@@ -155,9 +156,12 @@ export async function loadLeadInfo(sb: any, batch: Row[]): Promise<Map<string, L
 
 function intro(li: LeadInfo): string {
   const via = li.source ? ` דרך ${li.source}` : "";
-  if (li.source === "מדלן") {
+  if (li.source === "מדלן" || li.source === "יד2") {
     const who = li.leadType === "owner_inbound" ? "בעל נכס" : "מחפש נכס";
-    return `${li.name} - ${who} - מודעה במדלן. אפשר להתקשר למספר שבליד. לרוב זה מספר 073 שמעביר את השיחה${li.what ? ":" : "."}`;
+    const how = li.source === "מדלן"
+      ? "לרוב זה מספר 073 שמעביר את השיחה"
+      : "המערכת לא פונה לבעלים";
+    return `${li.name} - ${who} - מודעה ב${li.source}. אפשר להתקשר למספר שבליד. ${how}${li.what ? ":" : "."}`;
   }
   if (li.fromPost) {
     const who = li.leadType === "owner_inbound" ? "בעל/ת נכס" : "מחפש/ת נכס";
@@ -177,7 +181,7 @@ export function leadText(first: string, li: LeadInfo, _link: string | null, optO
     ...(li.excerpt ? ["", `💬 "${li.excerpt}"`] : []),
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
-    li.source === "מדלן"
+    li.source === "מדלן" || li.source === "יד2"
       ? "⏱️ מי שמתקשר ראשון - סוגר."
       : "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
     "",
@@ -192,7 +196,7 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
     alone
-      ? (li.source === "מדלן" ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שחוזר ראשון - סוגר!")
+      ? (li.source === "מדלן" || li.source === "יד2" ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שחוזר ראשון - סוגר!")
       : "",
   ];
   const line = parts.filter(Boolean).join(" · ");
