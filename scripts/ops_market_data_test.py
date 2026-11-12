@@ -21,10 +21,11 @@ sys.path.insert(0, str(ROOT))
 from ops_agent.probes.behavior import _market_data  # noqa: E402
 
 
-def city(market, name, deals, unpinned=0, hoods=0, no_boundary=0, days=45):
+def city(market, name, deals, unpinned=0, hoods=0, no_boundary=0, days=45, synced=None):
     return {"market_slug": market, "name": name, "hoods": hoods,
             "hoods_no_boundary": no_boundary, "deals": deals, "unpinned": unpinned,
-            "last_sold": "2026-08-12", "last_sold_days": days if deals else None}
+            "last_sold": "2026-08-12", "last_sold_days": days if deals else None,
+            "last_ok_sync_days": synced}
 
 
 KRAYOT = [
@@ -107,7 +108,15 @@ check("בלי פין: חיפה (31%) וקריית אתא (35%), לא נשר (13%
 
 check("עסקאות של 45 ימים - טריות, אין ממצא", not of(fs, "market_city_deals_stale"))
 stale = of(run([city("afula-emek", "עפולה", 1512, hoods=14, days=200)]), "market_city_deals_stale")
-check("עסקה אחרונה לפני 200 ימים - ממצא", len(stale) == 1 and stale[0].metric == 200)
+check("עסקה אחרונה לפני 200 ימים, בלי סנכרון ידוע - ממצא", len(stale) == 1 and stale[0].metric == 200)
+# ‏12.11.2026: מלאה - 27 עסקאות, האחרונה ב-2018, וסוכן הדפדפן סנכרן אותה אתמול.
+# זה כל מה שיש ב-GovMap על המושב, לא עדכון שלא רץ.
+check("עסקה אחרונה לפני 3,059 ימים אבל סונכרן לפני יום - אין ממצא",
+      not of(run([city("afula-emek", "מלאה", 27, days=3059, synced=1)]), "market_city_deals_stale"))
+old_sync = of(run([city("afula-emek", "גדעונה", 1, days=352, synced=90)]), "market_city_deals_stale")
+check("עסקה אחרונה לפני 352 ימים והסנכרון המוצלח האחרון לפני 90 - ממצא, עם הסנכרון בראיות",
+      len(old_sync) == 1 and old_sync[0].evidence["last_ok_sync_days"] == 90
+      and "90" in old_sync[0].detail)
 
 check("כל השכונות עם גבול - אין ממצא", not of(fs, "market_hoods_no_boundary"))
 nb = of(run([city("haifa", "חיפה", 1510, hoods=77, no_boundary=6),
