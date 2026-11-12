@@ -14,12 +14,13 @@ export const BOARD_CAP = 5;
 /** הכותרת לסוכן/ת. לא מערבים את השורות עם הנכסים שלו/ה. */
 export const BOARD_HEADING = "מודעות מהלוחות יד 2 / מדלן";
 
-/** רק העמודות שאפשר להראות. אין טלפון, אין שם, אין כתובת רחוב בטבלה. */
-export const BOARD_COLUMNS = "source, city, deal_type, property_type, rooms, price, url";
+/** רק העמודות לחיפוש. id ליומן ההצגה, לא לתשובה לסוכן/ת. */
+export const BOARD_COLUMNS = "id, source, city, deal_type, property_type, rooms, price, url";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type BoardListingRow = {
+  id?: unknown;
   source?: unknown;
   city?: unknown;
   deal_type?: unknown;
@@ -58,23 +59,40 @@ export type BoardOp =
   | { op: "order"; column: "last_seen_at"; ascending: false }
   | { op: "limit"; value: number };
 
-export type BoardOutboxItem = {
-  kind: "cta";
-  body: string;
-  label: string;
-  url: string;
-  origin: "lookup";
-};
+/** מזהה שורת רשימה. הלחיצה נתפסת לפני המודל ופותחת את המודעה בכפתור. */
+export const BOARD_ROW_PREFIX = "bu:";
+/** תקרת מזהה שורה בוואטסאפ. מעבר לה המזהה נחתך והקישור נשבר. */
+export const BOARD_ROW_ID_MAX = 200;
+
+export type BoardInteractive =
+  | { kind: "cta"; body: string; label: string; url: string }
+  | {
+    kind: "list";
+    body: string;
+    button: string;
+    section: string;
+    rows: { id: string; title: string; description?: string }[];
+  };
 
 export type BoardPresentation = {
   listings: Record<string, unknown>[];
-  outbox: BoardOutboxItem[];
+  /** הודעה אינטראקטיבית אחת. נשלחת רק אם התשובה מציגה את המודעות. */
+  message: BoardInteractive | null;
+  lines: string[];
+  /** המודעות שנכנסו להודעה, באותו סדר. בלי כתובת. */
+  logged: { id: string; source: "yad2" | "madlan" }[];
   note: string;
   heading: string;
   total: number;
   shown: number;
   more: number;
-  buttonsSent: boolean;
+};
+
+export type BoardPresentationLog = {
+  agent_id: string;
+  tool: "search_properties" | "client_matches";
+  listing_ids: string[];
+  sources: ("yad2" | "madlan")[];
 };
 
 function finite(value: unknown): number | null {
@@ -196,6 +214,132 @@ export function boardButtonLabel(source: unknown): string | null {
   return null;
 }
 
+function boardHost(url: string): "yad2" | "madlan" | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host === "yad2.co.il" || host.endsWith(".yad2.co.il")) return "yad2";
+    if (host === "madlan.co.il" || host.endsWith(".madlan.co.il")) return "madlan";
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/** מזהה שורה רק לכתובת לוח קצרה מספיק. אחרת אין שורה, כי חיתוך שובר את הקישור. */
+export function boardRowId(url: string): string | null {
+  const safe = safeListingUrl(url);
+  if (!safe || !boardHost(safe)) return null;
+  const id = BOARD_ROW_PREFIX + safe;
+  return id.length <= BOARD_ROW_ID_MAX ? id : null;
+}
+
+/** הכתובת מלחיצה על שורת הרשימה. רק יד2 ומדלן. */
+export function boardUrlFromRowId(id: string): string | null {
+  if (!id.startsWith(BOARD_ROW_PREFIX)) return null;
+  const url = safeListingUrl(id.slice(BOARD_ROW_PREFIX.length));
+  if (!url || !boardHost(url)) return null;
+  return url;
+}
+
+export function boardButtonLabelForUrl(url: string): string | null {
+  const host = boardHost(url);
+  return host ? boardButtonLabel(host) : null;
+}
+
+/**
+ * מאפיין חובה שהמלאי לא יכול לאמת (ממ״ד, מעלית, חניה) חוסם את הלוחות.
+ * ויתור מפורש על כולם אינו חובה יותר. בלי מאפיין - מצרפים.
+ */
+export function shouldAttachBoardListings(input: {
+  features?: readonly unknown[] | null;
+  required?: readonly unknown[] | null;
+  waived?: readonly unknown[] | null;
+}): boolean {
+  if (texts(input.features).length) return false;
+  const waived = new Set(texts(input.waived));
+  return !texts(input.required).some((feature) => !waived.has(feature));
+}
+
+function clipChars(value: string, max: number): string {
+  return Array.from(value).slice(0, max).join("");
+}
+
+function foldText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+/** התשובה מציגה את המודעות. בלי הכותרת או שורת מודעה - אין הודעה. */
+export function replyPresentsBoard(reply: string, lines: readonly string[]): boolean {
+  const text = foldText(reply);
+  if (!text) return false;
+  if (text.includes(foldText("אין מודעות מהלוחות"))) return false;
+  if (text.includes(foldText(BOARD_HEADING)) || text.includes(foldText("מודעות מהלוחות"))) return true;
+  for (const line of lines) {
+    const folded = foldText(line);
+    if (folded && text.includes(folded)) return true;
+  }
+  return false;
+}
+
+/** הודעה אחת, ורק אם התשובה הציגה את המודעות. */
+export function boardInteractiveForReply(
+  reply: string,
+  lines: readonly string[],
+  message: BoardInteractive | null,
+): BoardInteractive | null {
+  if (!message || !replyPresentsBoard(reply, lines)) return null;
+  return message;
+}
+
+function listingUuid(value: unknown): string | null {
+  const s = String(value || "").trim();
+  return UUID_RE.test(s) ? s : null;
+}
+
+/** שורת יומן רק להודעה שבאמת יוצאת. בלי הצגה, או בלי מזהים תקינים - null. */
+export function boardPresentationLog(input: {
+  agentId: string;
+  tool: unknown;
+  reply: string;
+  lines: readonly string[];
+  message: BoardInteractive | null;
+  logged: readonly { id?: unknown; source?: unknown }[];
+}): BoardPresentationLog | null {
+  if (!boardInteractiveForReply(input.reply, input.lines, input.message)) return null;
+  const tool = input.tool === "search_properties" || input.tool === "client_matches" ? input.tool : null;
+  const agentId = listingUuid(input.agentId);
+  if (!tool || !agentId) return null;
+  const listingIds: string[] = [];
+  const sources: ("yad2" | "madlan")[] = [];
+  for (const row of input.logged) {
+    const id = listingUuid(row.id);
+    const source = row.source === "yad2" || row.source === "madlan" ? row.source : null;
+    if (!id || !source) continue;
+    listingIds.push(id);
+    sources.push(source);
+  }
+  if (!listingIds.length) return null;
+  return { agent_id: agentId, tool, listing_ids: listingIds, sources };
+}
+
+/** כתיבה ליומן. כשל לא עולה למעלה. */
+export async function recordBoardPresentation(
+  db: {
+    from(table: string): {
+      insert(row: BoardPresentationLog): PromiseLike<{ error: { message?: string } | null }>;
+    };
+  },
+  row: BoardPresentationLog | null,
+): Promise<void> {
+  if (!row) return;
+  try {
+    const { error } = await db.from("board_listing_presentations").insert(row);
+    if (error) console.warn("board presentation log skipped", error.message || "error");
+  } catch (err) {
+    console.warn("board presentation log skipped", err instanceof Error ? err.message : "error");
+  }
+}
+
 /** https בלבד, בלי רווח, בתקרת העמודה. אחרת אין כפתור ואין שורה. */
 export function safeListingUrl(url: unknown): string | null {
   const s = String(url || "").trim();
@@ -241,15 +385,58 @@ export function boardLine(row: BoardListingRow): string | null {
   ].filter(Boolean).join(" - ");
 }
 
+function rowTitle(row: BoardListingRow, label: string): string {
+  const rooms = finite(row.rooms);
+  const title = rooms !== null && rooms > 0 ? `${label} - ${roomsLabel(rooms)}` : label;
+  return clipChars(title, 24);
+}
+
 /**
- * שורות להצגה, וכפתור אחד לכל מודעה. בלי כפתורים (תור מייל) ה-url נשאר
- * בתוצאה כדי שהשכבה שמוציאה הודעה תהפוך אותו לכפתור. בטקסט של הכפתור
- * אין כתובת.
+ * הודעה אינטראקטיבית אחת. מודעה אחת: כפתור קישור. כמה: רשימה אחת,
+ * כי וואטסאפ מתיר כפתור קישור אחד להודעה. אין כתובת בגוף.
+ */
+export function boardInteractiveMessage(
+  picked: readonly { row: BoardListingRow; line: string; url: string; label: string }[],
+): BoardInteractive | null {
+  const openable = picked.flatMap((item) => {
+    const id = boardRowId(item.url);
+    return id ? [{ ...item, id }] : [];
+  });
+  if (!openable.length) return null;
+  if (openable.length === 1) {
+    const one = openable[0];
+    return {
+      kind: "cta",
+      body: `${BOARD_HEADING}\n${one.line}`,
+      label: one.label,
+      url: one.url,
+    };
+  }
+  return {
+    kind: "list",
+    body: BOARD_HEADING,
+    button: "למודעות",
+    section: "יד2 / מדלן",
+    rows: openable.map((item) => {
+      const description = clipChars(item.line, 72);
+      const title = rowTitle(item.row, sourceLabel(item.row.source) || item.label);
+      return {
+        id: item.id,
+        title,
+        ...(description ? { description } : {}),
+      };
+    }),
+  };
+}
+
+/**
+ * שורות להצגה. הודעת הלוחות היא אחת, ונשלחת רק אם התשובה מציגה אותן.
+ * בלי כפתורים (תור מייל) ה-url נשאר בתוצאה. בטקסט אין כתובת.
  */
 export function presentBoardListings(
   rows: readonly BoardListingRow[],
   total: number,
-  opts: { buttons: boolean; featuresUnchecked?: boolean },
+  opts: { buttons: boolean },
 ): BoardPresentation | null {
   const picked: { row: BoardListingRow; line: string; url: string; label: string }[] = [];
   for (const row of rows) {
@@ -280,37 +467,41 @@ export function presentBoardListings(
     if (!opts.buttons) item.url = url;
     return item;
   });
-  const outbox: BoardOutboxItem[] = opts.buttons
-    ? picked.map(({ line, url, label }, index) => ({
-      kind: "cta",
-      body: index === 0 ? `${BOARD_HEADING}\n${line}` : line,
-      label,
-      url,
-      origin: "lookup",
-    }))
-    : [];
+  const lines = picked.map((item) => item.line);
+  const message = opts.buttons ? boardInteractiveMessage(picked) : null;
+  const logged: { id: string; source: "yad2" | "madlan" }[] = [];
+  for (const item of picked) {
+    if (!boardRowId(item.url)) continue;
+    const id = listingUuid(item.row.id);
+    const source = item.row.source === "yad2" || item.row.source === "madlan" ? item.row.source : null;
+    if (id && source) logged.push({ id, source });
+  }
   const bits = [
     `${BOARD_HEADING}. אלה מודעות ציבוריות, לא נכסים שלך ולא של המשרד. ` +
       "להציג אותן אחרי הנכסים שלך ושל המשרד, בכותרת הזו, בלי לערבב.",
     "אין טלפון ואין שם ואין כתובת רחוב. אין לפנות לבעלים, ואין חיוב. " +
       "אין שכונה במודעות. אם נשאלה שכונה, אל תאמרי שהמודעה בה.",
   ];
-  if (opts.buttons) bits.push("הכפתורים יוצאים אחרי התשובה. אל תכתבי כתובת אתר.");
-  else bits.push("בכל שורה יש url. העתיקי אותו לתשובה: בוואטסאפ הוא יוצא ככפתור ולא כטקסט גלוי.");
-  if (opts.featuresUnchecked) {
-    bits.push("אין במודעות האלה מאפיינים. אל תאמרי שיש בהן ממ״ד, מעלית או חניה.");
+  if (opts.buttons) {
+    bits.push(
+      "אם את מציגה את המודעות, כתבי את הכותרת ואל תכתבי כתובת אתר. " +
+        "הודעה אחת יוצאת אחרי התשובה. אם אינך מציגה אותן, אל תכתבי את הכותרת.",
+    );
+  } else {
+    bits.push("בכל שורה יש url. העתיקי אותו לתשובה: בוואטסאפ הוא יוצא ככפתור ולא כטקסט גלוי.");
   }
   if (more > 0) bits.push(`מוצגות ${shown} מתוך ${counted}. יש עוד ${more}.`);
   bits.push("אם אין נכסים שלך או של המשרד ויש כאן מודעות - יש מה להראות, לא אפס.");
   return {
     listings,
-    outbox,
+    message,
+    lines,
+    logged,
     note: bits.join(" "),
     heading: BOARD_HEADING,
     total: counted,
     shown,
     more,
-    buttonsSent: outbox.length > 0,
   };
 }
 
@@ -323,7 +514,6 @@ export function boardToolFields(presented: BoardPresentation | null): Record<str
     board_more: presented.more,
     board_heading: presented.heading,
     board_note: presented.note,
-    ...(presented.buttonsSent ? { board_buttons_sent: true } : {}),
   };
 }
 

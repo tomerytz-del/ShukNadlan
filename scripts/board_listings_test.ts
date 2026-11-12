@@ -8,15 +8,19 @@ import {
   BOARD_HEADING,
   boardButtonLabel,
   boardCriteria,
+  boardInteractiveForReply,
   boardLine,
+  boardPresentationLog,
   boardQueryOps,
   boardToolFields,
+  boardUrlFromRowId,
   fetchBoardListings,
   presentBoardListings,
+  recordBoardPresentation,
   safeListingUrl,
+  shouldAttachBoardListings,
   type BoardListingRow,
 } from "../supabase/functions/whatsapp-webhook/board-listings.ts";
-import { dropLookupOnMutation } from "../supabase/functions/whatsapp-webhook/lookup_turn.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -109,30 +113,112 @@ function row(n: number, extra: Partial<BoardListingRow> = {}): BoardListingRow {
 const shown = presentBoardListings(
   [row(1), row(2, { url: "http://insecure.example/a" }), row(3, { source: "facebook" }), ...[4, 5, 6, 7, 8].map(row)],
   12,
-  { buttons: true, featuresUnchecked: true },
+  { buttons: true },
 );
 check("מוצגות 5 והשאר נספרות", shown?.shown === 5 && shown.more === 7 && shown.total === 12);
-check("כפתור אחד למודעה, בלי כתובת בגוף",
-  shown?.outbox.length === 5 &&
-  shown.outbox.every((item) => item.kind === "cta" && item.url.startsWith("https://") && !item.body.includes("http")) &&
-  shown.outbox[0].body.startsWith(BOARD_HEADING));
-check("כותרת הכפתור בתקרת 20",
-  shown?.outbox.every((item) => item.label.length <= 20 && (item.label === "פתיחה ביד2" || item.label === "פתיחה במדלן")) === true);
+check("כמה מודעות הן הודעת רשימה אחת, בלי כתובת",
+  shown?.message?.kind === "list" &&
+  shown.message.rows.length === 5 &&
+  !shown.message.body.includes("http") &&
+  shown.message.rows.every((item) => item.id.startsWith("bu:https://") && !item.title.includes("http") && !(item.description || "").includes("http")) &&
+  shown.message.button.length <= 20 &&
+  shown.message.rows.every((item) => item.title.length <= 24 && (item.description || "").length <= 72));
 check("המודל לא רואה כתובת כשיש כפתורים",
-  shown?.listings.every((item) => !("url" in item) && !("phone" in item) && !JSON.stringify(item).includes("http")) === true);
+  shown?.listings.every((item) => !("url" in item) && !("id" in item) && !("phone" in item) && !JSON.stringify(item).includes("http")) === true);
 check("הכותרת והאיסור על טלפון ב-note",
-  !!shown && shown.note.includes(BOARD_HEADING) && shown.note.includes("אין טלפון") &&
-  shown.note.includes("ממ״ד") && shown.note.includes("אין שכונה"));
+  !!shown && shown.note.includes(BOARD_HEADING) && shown.note.includes("אין טלפון") && shown.note.includes("אין שכונה"));
 const fields = boardToolFields(shown);
 check("השדה נפרד מהנכסים של הסוכן/ת",
-  fields.board_heading === BOARD_HEADING && !("properties" in fields) && !("matches" in fields));
-check("בורר חיפוש יורד בתור כתיבה",
-  dropLookupOnMutation(shown?.outbox || [], true).length === 0 &&
-  dropLookupOnMutation(shown?.outbox || [], false).length === 5);
+  fields.board_heading === BOARD_HEADING && !("properties" in fields) && !("matches" in fields) && !("board_buttons_sent" in fields));
+const opened = shown?.message?.kind === "list" ? boardUrlFromRowId(shown.message.rows[0].id) : null;
+check("לחיצה על שורה פותחת רק כתובת לוח",
+  !!opened && opened.startsWith("https://") && boardUrlFromRowId("bu:https://evil.example/a") === null);
+const sent = boardInteractiveForReply(`מצאתי אצלך שתיים.\n${BOARD_HEADING}`, shown?.lines || [], shown?.message || null);
+check("הודעה אחת רק אם התשובה מציגה את הלוחות",
+  sent === shown?.message &&
+  boardInteractiveForReply("יש שתי דירות שלך.", shown?.lines || [], shown?.message || null) === null &&
+  boardInteractiveForReply("אין מודעות מהלוחות.", shown?.lines || [], shown?.message || null) === null);
+const one = presentBoardListings([row(2)], 1, { buttons: true });
+check("מודעה אחת היא כפתור קישור אחד",
+  one?.message?.kind === "cta" && one.message.label === "פתיחה ביד2" && !one.message.body.includes("http"));
+check("חיפוש עם ממ״ד לא מצרף לוחות", shouldAttachBoardListings({ features: ["mamad"] }) === false);
+check("חיפוש עם מעלית או חניה לא מצרף",
+  shouldAttachBoardListings({ features: ["elevator"] }) === false &&
+  shouldAttachBoardListings({ features: ["parking"] }) === false);
+check("חיפוש בלי מאפיין מצרף", shouldAttachBoardListings({ features: [] }) === true);
+check("לקוח/ה עם מעלית חובה לא מצרף", shouldAttachBoardListings({ required: ["elevator"], waived: [] }) === false);
+check("ויתור על כל החובה מצרף", shouldAttachBoardListings({ required: ["elevator"], waived: ["elevator"] }) === true);
+check("חובה שלא ויתרו עליה חוסמת",
+  shouldAttachBoardListings({ required: ["mamad", "parking"], waived: ["parking"] }) === false);
+
+const agentId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const idYad = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1";
+const idMad = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2";
+const loggedShown = presentBoardListings(
+  [row(2, { id: idYad }), row(1, { id: idMad })],
+  2,
+  { buttons: true },
+);
+const logRow = boardPresentationLog({
+  agentId,
+  tool: "search_properties",
+  reply: `שתיים שלך, ואחר כך ${BOARD_HEADING}`,
+  lines: loggedShown?.lines || [],
+  message: loggedShown?.message || null,
+  logged: loggedShown?.logged || [],
+});
+check("יומן להצגת חיפוש",
+  logRow?.tool === "search_properties" &&
+  logRow.agent_id === agentId &&
+  logRow.listing_ids.join() === `${idYad},${idMad}` &&
+  logRow.sources.join() === "yad2,madlan" &&
+  !JSON.stringify(logRow).includes("http"));
+check("בלי הצגה אין שורת יומן",
+  boardPresentationLog({
+    agentId,
+    tool: "search_properties",
+    reply: "יש שתי דירות שלך.",
+    lines: loggedShown?.lines || [],
+    message: loggedShown?.message || null,
+    logged: loggedShown?.logged || [],
+  }) === null);
+check("התאמה נרשמת בשם הכלי",
+  boardPresentationLog({
+    agentId,
+    tool: "client_matches",
+    reply: BOARD_HEADING,
+    lines: loggedShown?.lines || [],
+    message: loggedShown?.message || null,
+    logged: loggedShown?.logged || [],
+  })?.tool === "client_matches");
+let inserted: { table?: string; row?: unknown } | null = null;
+await recordBoardPresentation({
+  from(table: string) {
+    return {
+      insert: async (row: unknown) => {
+        inserted = { table, row };
+        return { error: null };
+      },
+    };
+  },
+}, logRow);
+check("שורה אחת לטבלת ההצגות",
+  inserted?.table === "board_listing_presentations" && inserted.row === logRow);
+let threw = false;
+try {
+  await recordBoardPresentation({
+    from() {
+      return { insert: async () => { throw new Error("relation missing"); } };
+    },
+  }, logRow);
+} catch {
+  threw = true;
+}
+check("כשל יומן לא שובר את התשובה", threw === false);
 
 const mailed = presentBoardListings([row(1, { deal_type: "rent", price: 4500, rooms: 3 })], 1, { buttons: false });
 check("בלי כפתורים ה-url נשאר לתוצאה",
-  mailed?.listings.length === 1 && mailed.listings[0].url === "https://www.yad2.co.il/realestate/item/n1" && mailed.outbox.length === 0);
+  mailed?.listings.length === 1 && mailed.listings[0].url === "https://www.yad2.co.il/realestate/item/n1" && mailed.message === null);
 check("שכירות לא נראית כמחיר קנייה",
   String(mailed?.listings[0].line || "").includes("לחודש") && String(mailed?.listings[0].line || "").includes("להשכרה"));
 check("כתובת לא תקינה לא מוצגת",
@@ -187,6 +273,14 @@ const agent = readFileSync(new URL("../supabase/functions/whatsapp-webhook/agent
 check("המשרד נשאר מקור agency", agent.includes('p.agency_id === pools.agencyId ? "agency"'));
 check("הפרומפט מכיר את שלושת המקורות",
   agent.includes(BOARD_HEADING) && agent.includes("board_listings") && agent.includes("של המשרד"));
+const searchFn = agent.slice(agent.indexOf("async function toolSearchProperties"), agent.indexOf("async function logAgentSearchMiss"));
+const clientFn = agent.slice(agent.indexOf("async function toolClientMatches"), agent.indexOf("async function clientBoardScope"));
+check("חיפוש עם מאפיין חובה לא מצרף לוחות",
+  searchFn.includes("features: feats") && searchFn.includes("boardSection"));
+check("התאמה עם מאפיין חובה לא מצרפת לוחות",
+  clientFn.includes("shouldAttachBoardListings({ required, waived: waive })"));
+check("היומן נכתב רק אחרי שהתשובה מציגה",
+  agent.includes("boardPresentationLog") && agent.includes("recordBoardPresentation"));
 
 if (failed) {
   console.error(`נכשלו ${failed}`);
