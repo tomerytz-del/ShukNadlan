@@ -450,8 +450,9 @@ async function fetchSubQuote(){
       quoted = true;
       SUB_TIERS[subTier].price = Number(data.monthly);
       paintTotal();
+      const note = document.getElementById('subDiscount');
+      note.style.display = 'none';   /* תשובה חדשה מחליפה את הקודמת: אין הערה ישנה שנשארת */
       if (Number(data.monthly) < Number(data.list_monthly)){
-        const note = document.getElementById('subDiscount');
         note.textContent = 'מחיר משרד: ₪' + Number(data.monthly).toLocaleString('he-IL') +
           ' לחודש לסוכן (במקום ₪' + Number(data.list_monthly).toLocaleString('he-IL') +
           '), כי יש במשרד ' + data.paying_elite + ' סוכנים ב-Elite.';
