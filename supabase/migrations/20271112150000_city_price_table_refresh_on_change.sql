@@ -45,8 +45,17 @@ create table if not exists private.city_price_table_state (
 comment on table private.city_price_table_state is
   'שורה אחת: החותמת (max(updated_at) ומונה המחיקות של העסקאות והערים, ו-oid של התמונה) שממנה נבנתה private.city_price_table_mv בפעם האחרונה. city_price_table_refresh() מרעננת רק כשהחותמת זזה. docs/city-prices.md';
 
-comment on materialized view private.city_price_table_mv is
-  'Snapshot of the /prices aggregate (city x rooms medians, last 12 months). Refreshed by city-price-table-refresh (hourly check) only when market_deals_official or cities changed since the last refresh: private.city_price_table_refresh(). No anon/authenticated access; read only via public.city_price_table().';
+-- ‏`private` אינה ב-`pg_dump --schema=public` שמשחזר את הסכימה ב-CI, ולכן
+-- התמונה (20271031180000, כבר מוחלת בפרודקשן) אינה קיימת שם. הערה ישירה
+-- עליה נפלה ב-"החלת מיגרציות על Postgres" (‏#1253). בפרודקשן התמונה קיימת
+-- וההערה נכתבת; ב-CI היא מדולגת, והפונקציה למטה סובלת את היעדרה בזמן ריצה.
+do $$
+begin
+  if to_regclass('private.city_price_table_mv') is not null then
+    comment on materialized view private.city_price_table_mv is
+      'Snapshot of the /prices aggregate (city x rooms medians, last 12 months). Refreshed by city-price-table-refresh (hourly check) only when market_deals_official or cities changed since the last refresh: private.city_price_table_refresh(). No anon/authenticated access; read only via public.city_price_table().';
+  end if;
+end $$;
 
 revoke all on table private.city_price_table_state from public, anon, authenticated, service_role;
 
