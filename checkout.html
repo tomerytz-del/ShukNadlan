@@ -141,7 +141,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <input type="checkbox" id="autoRenew" checked style="margin-top:3px;width:16px;height:16px;flex:none">
             <span>חידוש חודשי אוטומטי מהכרטיס. אפשר לבטל בכל עת באיזור הסוכנים, והמסלול נשאר עד סוף החודש ששולם.</span>
           </label>
-          <!-- הנחת משרד ב-Elite (20271111160000): מוצגת רק כשהמסד אומר שהיא חלה על הסוכן/ת הזה/זו.
+          <!-- מחיר משרד ב-Elite (20271112125000): מוצג רק כשהמסד אומר שהוא חל על הסוכן/ת הזה/זו.
                הסכום עצמו מגיע מ-subscription_quote, אותה פונקציה שגובה. -->
           <p id="subDiscount" style="display:none;margin:10px 0 0;color:var(--green,#1c8546);font-weight:600;line-height:1.5"></p>
         </div>
@@ -432,7 +432,7 @@ function paintTotal(){
       ? ' לחודש (₪' + credit.toLocaleString('he-IL') + ' + מע״מ ₪' + vat.toLocaleString('he-IL') + ')'
       : ' (₪' + credit.toLocaleString('he-IL') + ' לארנק + מע״מ ₪' + vat.toLocaleString('he-IL') + ')');
 }
-/* ‏מחיר המנוי של הסוכן/ת המחובר/ת, כולל הנחת משרד ב-Elite. הרשימה ב-SUB_TIERS היא מחיר
+/* ‏מחיר המנוי של הסוכן/ת המחובר/ת, כולל מחיר משרד ב-Elite. הרשימה ב-SUB_TIERS היא מחיר
    המחירון, וזה מה שמוצג עד שהתשובה חוזרת (או אם נכשלה); מה שנגבה נקבע בשרת
    (start_subscription_order) מאותה פונקציה בדיוק, כך שהתצוגה והחיוב אינם יכולים להיפרד. */
 let subQuoteP = Promise.resolve();   /* ההגשה ממתינה לו: לא משלמים לפני שהמחיר שנראה הוא מחיר השרת */
@@ -441,7 +441,7 @@ function loadSubQuote(){
   return subQuoteP;
 }
 async function fetchSubQuote(){
-  /* ‏quoted הופך ל-true רק כשהשרת ענה תשובה תקינה. הצעת מחיר תקינה עם 0% הנחה
+  /* ‏quoted הופך ל-true רק כשהשרת ענה תשובה תקינה. הצעת מחיר תקינה בלי מחיר משרד
      היא תשובה, לא כשל, ולכן אינה מקבלת את הודעת הגיבוי שלמטה. */
   let quoted = false;
   try{
@@ -450,21 +450,20 @@ async function fetchSubQuote(){
       quoted = true;
       SUB_TIERS[subTier].price = Number(data.monthly);
       paintTotal();
-      const pct = Number(data.discount_pct) || 0;
-      if (pct > 0){
+      if (Number(data.monthly) < Number(data.list_monthly)){
         const note = document.getElementById('subDiscount');
-        note.textContent = 'הנחת משרד: ' + pct + '% על המנוי החודשי (מחיר מלא ₪' +
-          Number(data.list_monthly).toLocaleString('he-IL') + '), כי יש במשרד ' +
-          data.paying_elite + ' סוכנים ב-Elite.';
+        note.textContent = 'מחיר משרד: ₪' + Number(data.monthly).toLocaleString('he-IL') +
+          ' לחודש לסוכן (במקום ₪' + Number(data.list_monthly).toLocaleString('he-IL') +
+          '), כי יש במשרד ' + data.paying_elite + ' סוכנים ב-Elite.';
         note.style.display = '';
       }
     }
   }catch(_){ /* נשארים על מחיר המחירון; השרת גובה את הסכום הנכון */ }
-  /* לא הצלחנו לשאול, ורק ב-Elite (שם יש הנחת משרד): הסכום שנגבה הוא של השרת,
-     כולל ההנחה אם יש. אומרים את זה במקום לשתוק. ב-PROFESSIONAL אין מה להודיע. */
+  /* לא הצלחנו לשאול, ורק ב-Elite (שם יש מחיר משרד): הסכום שנגבה הוא של השרת,
+     כולל מחיר המשרד אם יש. אומרים את זה במקום לשתוק. ב-PROFESSIONAL אין מה להודיע. */
   if (!quoted && subTier === 'premium'){
     const note = document.getElementById('subDiscount');
-    note.textContent = 'במסלול Elite ייתכן שתחול הנחת משרד. הסכום הסופי מוצג בעמוד הסליקה ובחשבונית.';
+    note.textContent = 'במסלול Elite ייתכן שיחול מחיר משרד מוזל. הסכום הסופי מוצג בעמוד הסליקה ובחשבונית.';
     note.style.display = '';
   }
 }
