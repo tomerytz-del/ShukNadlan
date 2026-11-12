@@ -60,19 +60,20 @@ python scripts/check_pricing.py
 ותבנית ב-`DISPLAY` עם קבוצת לכידה אחת למספר. אם המספר שונה בין המסלולים,
 זו גם יכולת מובחנת - הסקיל `new-tier-capability`.
 
-## הנחת משרד ב-Elite: מחיר שתלוי במי שמשלם
+## מחיר משרד ב-Elite: מחיר שתלוי במי שמשלם
 
-מ-11.11.2026 מחיר Elite אינו מספר אחד: **15% לכל סוכן/ת נוסף/ת במשרד עם 3 עד 5 סוכנים
-משלמים, 25% מ-6** (`office_discount_*` ב-`pricing_config`; הסוכן/ת הוותיק/ה משלם/ת מלא; Elite בלבד;
-לא נקודות). מה שנגבה: `subscription_price(tier, months, agent)` ← `office_elite_discount`, ו-
-`start_subscription_order` ו-`claim_due_tier_renewals` קוראות לו. **מה שמוצג בדף התשלום הוא
-`subscription_quote`, לא `SUB_TIERS`**: מחיר ב-`checkout.html` שנכתב ביד לא ישקף את ההנחה.
+מ-12.11.2026 מחיר Elite אינו מספר אחד: **₪359 לכל סוכן/ת במשרד עם 3 עד 5 סוכנים משלמים, ₪339 עם 6 עד 10,
+₪299 מ-11** (`office_price_tier*` ב-`pricing_config`; **כל** הסוכנים במשרד משלמים אותו מחיר, גם הוותיק/ה;
+1-2 סוכנים: ₪399; Elite בלבד; לא נקודות). מה שנגבה: `subscription_price(tier, months, agent)` ←
+`office_elite_price`, ו-`start_subscription_order` ו-`claim_due_tier_renewals` קוראות לו. **מה שמוצג בדף
+התשלום הוא `subscription_quote`, לא `SUB_TIERS`**: מחיר ב-`checkout.html` שנכתב ביד לא ישקף את מחיר המשרד.
 
-- **המחירים שנגזרים מהאחוז** (₪339.15, ₪299.25, דוגמת ה-4 סוכנים) כתובים בדף כמספרים; `derived()` ב-
-  `check_pricing.py` מחשב אותם מ-`PRICES` ומחפש אותם ב-`pricing.html`. שינוי מחיר Elite או אחוז =
-  עדכון שלהם, והבדיקה אומרת איזה.
-- **התקנון (§6 "הנחת משרד")** נושא את האחוזים והספים, ו-`check_pricing.py` מצליב גם אותם.
-- **דשבורדי הכנסות שמחשבים MRR מ-`tier_premium_monthly_price`** מנפחים אותו במשרדים עם הנחה: מה שנגבה
+- **בדף מציגים מספרים בלבד:** בלי אחוזים, בלי "הנחה" ובלי דוגמת חישוב (החלטת תומר, 12.11.2026).
+  `discount_pct` יצא מתשובת `subscription_price`; מי שמוסיף תצוגה קורא `monthly` מול `list_monthly`.
+- **כל המספרים כתובים בדף כמספרים** (הטבלה ב-`#office`, השאלה הנפוצה ב-HTML וב-JSON-LD, שורת ההשוואה,
+  `tiers.js`, התקנון §6), ו-`check_pricing.py` מצליב אותם מול `PRICES`. שינוי מחיר או סף = עדכון שלהם,
+  והבדיקה אומרת איזה. שורת "1 עד 2" נבדקת מול מחיר Elite ב-`derived()`.
+- **דשבורדי הכנסות שמחשבים MRR מ-`tier_premium_monthly_price`** מנפחים אותו במשרדים עם מחיר משרד: מה שנגבה
   הוא `subscription_orders.amount`.
 - **"חינם" ב-Pay&GO**: ‏`Tiers.priceText('free')` והכרטיס ב-`pricing.html` אומרים "חינם", לא "₪0".
   ‏"Elite ב-₪0" של הטבת ההשקה נשאר ₪0 בכוונה (זו הטבה, לא מחיר).

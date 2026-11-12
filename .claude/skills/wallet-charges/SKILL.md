@@ -111,7 +111,7 @@ locked`, ובלי יתרה מסמן `payment_failed_at`, מתריע בפעמון
 את הליד 15 דקות (`reserved_until`), ותשלום שמגיע אחרי שהליד נמכר לאחר/ת הוא `refund_needed` + התראה למנהל/ת, **לא** הצלחה ולא
 מכירה כפולה (`docs/lawyer-leads.md`). סוג תשלום חדש נכנס גם לתנאי ה-cron של `wallet-topup-reconcile` באותה מיגרציה.
 
-**מחיר מנוי Elite אינו קבוע:** `subscription_price(tier, months, agent)` מחיל הנחת משרד לפי כמה סוכנים
+**מחיר מנוי Elite אינו קבוע:** `subscription_price(tier, months, agent)` מחיל מחיר משרד לפי כמה סוכנים
 במשרד משלמים Elite ברגע החיוב (הסקיל `pricing-change`). פונקציית חיוב חדשה למנוי קוראת לגרסה עם הסוכן/ת,
 ולא לגרסה של שני הפרמטרים (שנשארה מחיר מחירון בלבד).
 
