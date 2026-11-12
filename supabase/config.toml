@@ -374,5 +374,8 @@ verify_jwt = false          # מטא + חתימת X-Hub-Signature-256
 [functions.social-lead-intake]
 verify_jwt = false          # גבריאלה בפייסבוק/אינסטגרם (Zernio) - סוד משותף SOCIAL_LEAD_SECRET, fail-closed
 
+[functions.listing-inventory-intake]
+verify_jwt = false          # סורק מלאי יד2/מדלן - סוד משותף LISTING_INTAKE_SECRET ב-x-listing-intake-secret, fail-closed
+
 [functions.csp-report]
 verify_jwt = false          # הדפדפן שולח דיווחי CSP בלי כותרות שלנו; הגנה מהצפה בתקרה היומית במסד

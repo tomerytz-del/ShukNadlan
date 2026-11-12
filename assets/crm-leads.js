@@ -24,14 +24,14 @@ const LEAD_SRC = {
   prop:  { label:'דף נכס',      tone:'accent', why:'פנייה מהאתר' },
   agent: { label:'דף הסוכן',    tone:'accent', why:'פנייה מהדף שלך' },
   site:  { label:'האתר',        tone:'accent', why:'פנייה מהאתר' },
-  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק, מאינסטגרם או ממדלן' },
+  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק, מאינסטגרם, ממדלן או מיד2' },
 };
 const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['store', 'חנות הלידים']];
 const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
-  // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
-  'facebook_group', 'facebook_marketplace', 'madlan']);
+  // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן ויד2: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
+  'facebook_group', 'facebook_marketplace', 'madlan', 'yad2']);
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
 const LEADS_STEP = 3;
@@ -598,9 +598,9 @@ function renderOpenDemand(listEl){
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק או במדלן מה הם מחפשים או מציעים.'
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק, במדלן או ביד2 מה הם מחפשים או מציעים.'
     + ' "אני פונה" שומר את הביקוש לך בלבד.</span>'
-    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן מתקשרים למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.</strong></span></p>';
+    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן וביד2 מתקשרים למספר שבכרטיס. במדלן לרוב זה מספר 073, והוא מעביר את השיחה. המערכת לא פונה לבעלים.</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -610,14 +610,17 @@ function renderOpenDemand(listEl){
     const src = socialTalk
       ? (d.source.indexOf('instagram') === 0 ? 'אינסטגרם' : 'פייסבוק')
       : d.source === 'facebook_marketplace' ? 'מרקטפלייס'
-      : d.source === 'madlan' ? 'מדלן' : 'קבוצת פייסבוק';
+      : d.source === 'madlan' ? 'מדלן'
+      : d.source === 'yad2' ? 'יד2' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
     const rule = socialTalk && !url
       ? 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
       : (d.source === 'madlan'
           ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
-          : (nb ? nb.rule : OPEN_DEMAND_RULE));
+          : (d.source === 'yad2'
+              ? 'אפשר להתקשר למספר שבכרטיס. המערכת לא פונה לבעלים.'
+              : (nb ? nb.rule : OPEN_DEMAND_RULE)));
     const act = d.mine
       ? (url
           ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`

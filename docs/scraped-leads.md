@@ -36,7 +36,7 @@ cron כל שעה ב-‎:29).
 ```sql
 select public.scraped_lead_add('{
   "lead_type": "seeker_inbound",            -- או owner_inbound
-  "source": "facebook_group",               -- או facebook_marketplace, או madlan
+  "source": "facebook_group",               -- או facebook_marketplace, או madlan, או yad2
   "source_detail": "דירות להשכרה בעפולה",   -- שם הקבוצה, עד 120 תווים
   "external_ref": "https://www.facebook.com/groups/123/posts/456/",
   "posted_at": "2026-10-24T09:12:00+03:00", -- עד 72 שעות אחורה
@@ -143,6 +143,30 @@ select public.scraped_lead_add('{
 בפרודקשן `scraped_lead_matching_enabled` הוא 1 (נבדק 11.11.2026). ההתאמה
 לא מסננת לפי `source`.
 
+## יד2
+
+אותם כללים כמו מדלן, למודעות בעלים פרטיים מ-`https://www.yad2.co.il/...`.
+אין פניה לבעלים: לא בקשת הסכמה, לא הודעה ולא תזכורת.
+`scraped_lead_set_consent` על `requested` או `consented` מחזיר
+`no_owner_contact`. הליד נפתח בלי חיוב (`quota_source = yad2_free`).
+`claim_lead` על `source = yad2` לא נוגע בארנק ולא במכסה.
+
+`date_known` ו-`push_site_only` כמו במדלן. תקרת הדחיפה היא אותה
+`madlan_notify_daily_cap`, ונספרות **יחד** מודעות מדלן ויד2, כדי ששני
+המקורות לא יכפילו את הוואטסאפ. מספר `073` נשאר חריג של מדלן בלבד: ביד2
+מספר אמיתי מאחד אדם ל-30 יום.
+
+אחרי 30 יום השורה נמחקת. מותר להציע את אותה מודעה שוב **רק אם היא עדיין
+חיה** במלאי (`listing_inventory.removed_at` ריק). מודעה שירדה לא נפתחת
+מחדש. המלאי עצמו: `docs/listing-inventory.md`.
+
+## מלאי מודעות
+
+`listing_inventory_sync` מקבל תמונה של מה שחי עכשיו בעיר, במדלן או ביד2.
+הסנכרון הראשון של עיר זורע בשקט. מודעה שמופיעה אחר כך נכנסת דרך
+`scraped_lead_add` עם `date_known = true`. תמונה ריקה או קטנה מדי לא
+מוחקת את המלאי. בטבלה אין טלפון ואין שם בעלים.
+
 ## אחרי הסכמה: ליד רגיל
 
 `scraped_lead_set_consent(id, 'consented')` כותבת ל-`leads`:
@@ -151,13 +175,13 @@ select public.scraped_lead_add('{
 | --- | --- |
 | `lead_type` | `owner_inbound` / `seeker_inbound` |
 | `status` | `masked`. ‏`quota_source` נשאר ריק, ו-`claim_lead` כותבת אותו בפתיחה |
-| `agent_id`, `agency_id` | סוכן/ת אחד/ת: עובד/ת בעיר ומתעסק/ת בסוג הנכס (ראו למטה). לליד בעלים רק `mid`/`premium`, כי `free` אינו רשאי לפתוח אותו. מי שקיבל/ה ליד מפייסבוק או ממדלן הכי מזמן קודם |
-| `source` | `facebook_group` / `facebook_marketplace` / `madlan`, ערוץ `social` בבקרת הלידים |
-| `source_detail` | "קבוצת פייסבוק · <שם הקבוצה>", "מרקטפלייס · ...", או "מדלן · ..." |
+| `agent_id`, `agency_id` | סוכן/ת אחד/ת: עובד/ת בעיר ומתעסק/ת בסוג הנכס (ראו למטה). לליד בעלים רק `mid`/`premium`, כי `free` אינו רשאי לפתוח אותו. מי שקיבל/ה ליד מפייסבוק, ממדלן או מיד2 הכי מזמן קודם |
+| `source` | `facebook_group` / `facebook_marketplace` / `madlan` / `yad2`, ערוץ `social` בבקרת הלידים |
+| `source_detail` | "קבוצת פייסבוק · <שם הקבוצה>", "מרקטפלייס · ...", "מדלן · ...", או "יד2 · ..." |
 | `external_ref` | המזהה הקנוני |
 | `raw_message` | הטקסט, תאריך הפוסט והקישור. נחשף רק אחרי פתיחה, כי הקישור מזהה את האדם |
 
-**התמחור והמכסה הם של `claim_lead` כמו שהם, חוץ מ-`source = madlan` שנפתח בלי חיוב:** ליד בעלים - ‏12 שעות בלעדיות,
+**התמחור והמכסה הם של `claim_lead` כמו שהם, חוץ מ-`source = madlan` או `yad2` שנפתח בלי חיוב:** ליד בעלים - ‏12 שעות בלעדיות,
 ‏Premium חינם, ‏Mid ‏₪50. ‏`seeker_inbound` נופל לאותו ענף של פנייה על נכס:
 רק מי שהליד שויך אליו/ה, ‏Mid/Premium בלי עלות, ‏Pay&GO במכסה ואחריה ₪25.
 
