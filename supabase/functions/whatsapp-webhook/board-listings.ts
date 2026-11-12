@@ -14,6 +14,15 @@ export const BOARD_CAP = 5;
 /** הכותרת לסוכן/ת. לא מערבים את השורות עם הנכסים שלו/ה. */
 export const BOARD_HEADING = "מודעות מהלוחות יד 2 / מדלן";
 
+/** נאמר רק כשהחיפוש בלוחות רץ והעיר כן במלאי, ואין התאמה. */
+export const BOARD_NONE_LINE = "בלוחות יד 2 ומדלן אין כרגע מודעות מתאימות.";
+
+/** נאמר כשמאפיין חובה מנע את החיפוש בלוחות. */
+export const BOARD_FEATURE_LINE =
+  "מודעות בלוחות יד 2 ומדלן לא נבדקו, כי אין בהן נתון על המאפיין שנדרש.";
+
+export type BoardStatus = "matches" | "none" | "skipped_feature" | "unavailable";
+
 /** רק העמודות לחיפוש. id ליומן ההצגה, לא לתשובה לסוכן/ת. */
 export const BOARD_COLUMNS = "id, source, city, deal_type, property_type, rooms, price, url";
 
@@ -250,6 +259,58 @@ export function boardButtonLabelForUrl(url: string): string | null {
  * מאפיין חובה שהמלאי לא יכול לאמת (ממ״ד, מעלית, חניה) חוסם את הלוחות.
  * ויתור מפורש על כולם אינו חובה יותר. בלי מאפיין - מצרפים.
  */
+/**
+ * אפס אחרי חיפוש אמיתי הוא none רק אם בעיר יש מלאי. עיר בלי מלאי,
+ * או כשל, הם unavailable - לא אומרים "אין מודעות".
+ */
+export function boardSearchStatus(input: {
+  filtered: number | null;
+  cityStock: number | null;
+}): BoardStatus {
+  if (input.filtered === null || input.filtered < 0) return "unavailable";
+  if (input.filtered > 0) return "matches";
+  if (input.cityStock === null || input.cityStock <= 0) return "unavailable";
+  return "none";
+}
+
+/** ספירת המלאי החי בעיר, בלי שאר הסינונים. */
+export function boardCityStockCriteria(criteria: BoardCriteria): BoardCriteria {
+  return {
+    cityIds: criteria.cityIds,
+    cityNames: criteria.cityNames,
+    dealType: null,
+    propertyTypes: [],
+    minPrice: null,
+    maxPrice: null,
+    minRooms: null,
+    maxRooms: null,
+  };
+}
+
+export function boardStatusFields(status: BoardStatus): Record<string, unknown> {
+  if (status === "none") {
+    return {
+      board_status: status,
+      board_say: BOARD_NONE_LINE,
+      board_note: "החיפוש בלוחות רץ ואין התאמה. כתבי את board_say כמו שהוא, בתוך התשובה. בלי הודעה נוספת.",
+    };
+  }
+  if (status === "skipped_feature") {
+    return {
+      board_status: status,
+      board_say: BOARD_FEATURE_LINE,
+      board_note: "הלוחות לא נבדקו. כתבי את board_say בקצרה. אל תאמרי שאין בהם מודעות.",
+    };
+  }
+  if (status === "unavailable") {
+    return {
+      board_status: status,
+      board_note: "הלוחות לא נבדקו, או שאין מלאי לעיר. אל תאמרי שאין מודעות ביד 2 ובמדלן.",
+    };
+  }
+  return { board_status: status };
+}
+
 export function shouldAttachBoardListings(input: {
   features?: readonly unknown[] | null;
   required?: readonly unknown[] | null;

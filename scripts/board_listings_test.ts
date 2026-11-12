@@ -7,12 +7,17 @@ import {
   BOARD_COLUMNS,
   BOARD_HEADING,
   boardButtonLabel,
+  BOARD_FEATURE_LINE,
+  BOARD_NONE_LINE,
   boardCriteria,
   boardInteractiveForReply,
+  boardSearchStatus,
+  boardStatusFields,
   boardLine,
   boardPresentationLog,
   boardQueryOps,
   boardToolFields,
+  replyPresentsBoard,
   boardUrlFromRowId,
   fetchBoardListings,
   presentBoardListings,
@@ -150,6 +155,22 @@ check("לקוח/ה עם מעלית חובה לא מצרף", shouldAttachBoardLis
 check("ויתור על כל החובה מצרף", shouldAttachBoardListings({ required: ["elevator"], waived: ["elevator"] }) === true);
 check("חובה שלא ויתרו עליה חוסמת",
   shouldAttachBoardListings({ required: ["mamad", "parking"], waived: ["parking"] }) === false);
+const noneFields = boardStatusFields(boardSearchStatus({ filtered: 0, cityStock: 12 }));
+check("אפס בעיר עם מלאי הוא none והשורה המדויקת",
+  noneFields.board_status === "none" && noneFields.board_say === BOARD_NONE_LINE &&
+  !("message" in noneFields));
+check("עיר בלי מלאי אינה none",
+  boardSearchStatus({ filtered: 0, cityStock: 0 }) === "unavailable" &&
+  boardSearchStatus({ filtered: 0, cityStock: null }) === "unavailable" &&
+  !("board_say" in boardStatusFields("unavailable")));
+check("כשל חיפוש אינו none", boardSearchStatus({ filtered: null, cityStock: 4 }) === "unavailable");
+check("יש התאמה", boardSearchStatus({ filtered: 2, cityStock: 0 }) === "matches");
+const featureFields = boardStatusFields("skipped_feature");
+check("מאפיין חובה אומר שלא נבדק, לא שאין",
+  featureFields.board_status === "skipped_feature" &&
+  featureFields.board_say === BOARD_FEATURE_LINE &&
+  !String(featureFields.board_say).includes("אין כרגע מודעות"));
+check("שורת אין בלוחות אינה הודעת וואטסאפ", replyPresentsBoard(BOARD_NONE_LINE, []) === false);
 
 const agentId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const idYad = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1";

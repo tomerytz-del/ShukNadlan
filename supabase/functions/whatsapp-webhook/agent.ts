@@ -70,9 +70,12 @@ import {
   shouldLogSearchMiss,
 } from "./property-search.ts";
 import {
+  boardCityStockCriteria,
   boardCriteria,
   boardInteractiveForReply,
   boardPresentationLog,
+  boardSearchStatus,
+  boardStatusFields,
   boardToolFields,
   fetchBoardListings,
   presentBoardListings,
@@ -714,8 +717,10 @@ const TOOLS: Anthropic.Tool[] = [
       "(agency), במה שמשרדים אחרים שיתפו (shared), ובנכסים הפעילים של מתווכים אחרים " +
       "בשוק המקומי (market). כל תוצאה כזו חוזרת עם source, ובשאינה שלך גם עם המתווך/ת " +
       "והטלפון. בנוסף, בנפרד, board_listings: מודעות ציבוריות מיד2 וממדלן. הן אינן " +
-      "נכסים שלך. אין בהן טלפון. עם מאפיין חובה (ממ״ד, מעלית, חניה) אין board_listings. " +
-      "אם מציגים אותן, כותבים את הכותרת בלי כתובת. שכונה בהתאמה סלחנית ('סי 1', 'ברובע').",
+      "נכסים שלך. אין בהן טלפון. board_status: matches מציגים בכותרת בלי כתובת; " +
+      "none - כותבים את board_say בתוך התשובה; skipped_feature - כותבים את board_say " +
+      "ולא אומרים שאין מודעות; unavailable - לא מזכירים את הלוחות. " +
+      "שכונה בהתאמה סלחנית ('סי 1', 'ברובע').",
     input_schema: {
       type: "object",
       properties: {
@@ -1326,9 +1331,10 @@ const TOOLS: Anthropic.Tool[] = [
       "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
       "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון). ואחריהם, בנפרד, " +
       "board_listings: מודעות ציבוריות מיד2 וממדלן לפי אותן דרישות (עיר, עסקה, " +
-      "סוג, חדרים, מחיר). אין בהן טלפון ואין לפנות לבעלים. אם ללקוח/ה נשאר מאפיין " +
-      "חובה שלא ויתרו עליו, אין board_listings. אם מציגים אותן, כותבים את הכותרת " +
-      "בלי כתובת. מאפייני החובה של הלקוח/ה " +
+      "סוג, חדרים, מחיר). אין בהן טלפון ואין לפנות לבעלים. board_status none: " +
+      "כותבים את board_say בתוך התשובה. skipped_feature (מאפיין חובה): כותבים את " +
+      "board_say ולא אומרים שאין מודעות. unavailable: לא מזכירים את הלוחות. " +
+      "מאפייני החובה של הלקוח/ה " +
       "(ממ״ד, מעלית, חניה...) הם סינון קשיח על הנכסים: נכס בלי אחד מהם לא חוזר. " +
       "אם אין התאמות מלאות, חוזר without_required - כמה נכסים יש בלי כל מאפיין - " +
       "כדי לשאול את הסוכן/ת. במצב הזה אין board_listings.",
@@ -3364,7 +3370,7 @@ async function boardSection(
     waived?: readonly unknown[] | null;
   },
 ): Promise<Record<string, unknown>> {
-  if (!shouldAttachBoardListings(filters)) return {};
+  if (!shouldAttachBoardListings(filters)) return boardStatusFields("skipped_feature");
   const criteria = boardCriteria({
     askedCity: scope.askedCity,
     cityIds: scope.cityIds,
@@ -3377,16 +3383,24 @@ async function boardSection(
     minRooms: filters.minRooms,
     maxRooms: filters.maxRooms,
   });
+  if (!criteria) return boardStatusFields("unavailable");
   const fetched = await fetchBoardListings(ctx.supabase, criteria);
-  if (!fetched) return {};
+  if (!fetched) return boardStatusFields("unavailable");
+  if (!fetched.total) {
+    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria));
+    return boardStatusFields(boardSearchStatus({
+      filtered: 0,
+      cityStock: stock ? stock.total : null,
+    }));
+  }
   const presented = presentBoardListings(fetched.rows, fetched.total, {
     buttons: !!ctx.outbox,
   });
-  if (!presented) return {};
+  if (!presented) return boardStatusFields("unavailable");
   if (ctx.outbox && presented.message) {
     ctx.pendingBoard = { lines: presented.lines, message: presented.message, tool, logged: presented.logged };
   }
-  return boardToolFields(presented);
+  return { ...boardToolFields(presented), ...boardStatusFields("matches") };
 }
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
@@ -3417,10 +3431,12 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
             properties_without_it: loose.results.filter((p) => !has(p, f)).length,
           })).filter((b) => b.properties_without_it > 0),
         },
+        ...boardStatusFields("skipped_feature"),
         note:
           "אין אף נכס עם כל המאפיינים שנדרשו. **אל תציג/י נכסים.** אמור/אמרי זאת, ושאל/י " +
           "בשאלה אחת אם להציג גם נכסים בלי המאפיין, לפי by_feature. אחרי \"כן\" - " +
-          "search_properties שוב בלי המאפיינים שאושרו, וליד כל נכס כתוב/כתבי מה חסר בו.",
+          "search_properties שוב בלי המאפיינים שאושרו, וליד כל נכס כתוב/כתבי מה חסר בו. " +
+          "כתבי גם את board_say: הלוחות לא נבדקו.",
       };
     }
   }
@@ -3446,6 +3462,8 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
       "source: own = שלך, agency = של המשרד, shared = משרד אחר שיתף איתכם, market = מתווך/ת " +
       "אחר/ת באזור. ב-shared וב-market: שם המתווך/ת, המשרד והטלפון - לתיאום שת\"פ לפני " +
       "שמציעים ללקוח/ה. נכס market אינו נכנס למיניסייט עד שהמשרד שלו משתף אותו. " +
+      "board_status אומר מה לומר על הלוחות: none - את board_say בתוך התשובה; " +
+      "skipped_feature - את board_say, לא \"אין מודעות\"; unavailable - לא מזכירים. " +
       "board_listings, אם יש, הן מודעות מהלוחות ולא נכסים שלך - אחרי שלך ושל המשרד, בכותרת נפרדת." +
       (res.total > res.results.length ? ` מוצגים ${res.results.length} מתוך ${res.total}.` : ""),
   };
@@ -6227,16 +6245,15 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       ? "אין אף נכס שיש בו את כל מאפייני החובה של הלקוח/ה. **אל תציג/י נכסים.** אמור/אמרי " +
         "זאת, ושאל/י בשאלה אחת אם להציג גם נכסים בלי המאפיין, לפי by_feature (\"יש 3 בלי " +
         "מעלית ו-1 בלי ממ״ד - להציג?\"). אחרי \"כן\" - client_matches שוב עם waive_features " +
-        "של המאפיינים שאושרו בלבד."
+        "של המאפיינים שאושרו בלבד. כתבי גם את board_say: הלוחות לא נבדקו."
       : waive.length
       ? "הוצגו גם נכסים בלי המאפיינים שבוויתור. ליד כל נכס כזה כתוב/כתבי מה חסר בו " +
         "(missing_required), ואל תציג/י אותו כהתאמה מלאה."
       : required.length && !(data || []).length && !marketMatches.length
       ? "אין התאמות, גם בלי מאפייני החובה - הסינון הוא בשאר הדרישות (עיר, תקציב, חדרים)."
       : undefined,
-    ...(withoutRequired || !shouldAttachBoardListings({ required, waived: waive })
-      ? {}
-      : await boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
+    ...(shouldAttachBoardListings({ required, waived: waive })
+      ? await boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
         dealType: client.deal_type,
         propertyTypes: client.property_types,
         minPrice: client.min_price,
@@ -6245,7 +6262,8 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
         maxRooms: client.max_rooms,
         required,
         waived: waive,
-      })),
+      })
+      : boardStatusFields("skipped_feature")),
   };
 }
 
@@ -9680,8 +9698,10 @@ const SYSTEM_STATIC: string = (() => {
       "כשמציגים אותן כותבים את הכותרת, בלי כתובת אתר: הודעה אחת יוצאת אחרייך. " +
       "בלי הכותרת אין הודעה. אם board_more גדול מאפס - אמרי כמה מוצגות וכמה עוד יש. " +
       "אם properties ריק ויש board_listings - יש מודעות בלוחות, לא אפס. " +
-      "מאפיין חובה (ממ״ד, מעלית, חניה) או without_required: אין board_listings, " +
-      "ואל תציגי נכסים בלי המאפיין עד שהסוכן/ת אישר/ה.",
+      "board_status none: כתבי את board_say כמו שהוא בתוך התשובה, בלי הודעה נוספת. " +
+      "skipped_feature: כתבי את board_say, ואל תאמרי שאין מודעות בלוחות. " +
+      "unavailable: אל תזכירי את יד 2 ואת מדלן. " +
+      "מאפיין חובה או without_required: אין board_listings, ואל תציגי נכסים בלי המאפיין עד אישור.",
     "- **דרישה מפורשת היא חובה.** \"עם ממ״ד\", \"חייב מעלית\", \"עם חניה\" = features ב-search_properties " +
       "(mamad, elevator, parking...), ולעולם לא נכס בלי המאפיין כאילו הוא מתאים. אם חזר without_required - " +
       "אין נכס עם הכול: אמור/אמרי זאת ושאל/י אם להציג גם בלי המאפיין, לפי by_feature. בלי אישור לא מציגים.",
@@ -9810,6 +9830,8 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר board_listings - אחרי הנכסים שלך ושל המשרד, בכותרת נפרדת \"מודעות מהלוחות יד 2 / מדלן\". " +
       "אלה מודעות ציבוריות, לא נכסים שלך, בלי טלפון ובלי פנייה לבעלים, ובלי כתובת בטקסט. " +
       "הכותרת הזו היא מה שמוציא הודעה אחת אחרי התשובה. בלי הכותרת אין הודעה. " +
+      "board_status none: כתבי את board_say כמו שהוא בתוך התשובה. " +
+      "skipped_feature: כתבי את board_say, לא שאין מודעות. unavailable: אל תזכירי את הלוחות. " +
       "\"למי מתאים הנכס הזה\" = property_matches. " +
       "\"מה חדש בהתאמות\" = list_match_alerts.",
     "- **מאפייני החובה של הלקוח/ה (required_features) הם סינון קשיח** - client_matches לא מחזיר נכס " +
