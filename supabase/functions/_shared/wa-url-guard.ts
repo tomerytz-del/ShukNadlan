@@ -104,6 +104,8 @@ export function buttonLabelForUrl(url: string): string {
   if (full.includes("unsubscribe")) return "הפסקת עדכונים";
   if (full.includes("action=click") || path.includes("/project")) return "לצפייה בנכס";
   if (path.includes("/calc") || url.includes("#calc")) return "למחשבון";
+  if (host.endsWith("yad2.co.il")) return "פתיחה ביד2";
+  if (host.endsWith("madlan.co.il")) return "פתיחה במדלן";
   return "לפתיחה";
 }
 
