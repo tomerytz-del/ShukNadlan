@@ -1,4 +1,4 @@
--- supabase/migrations/20271112150000_city_price_table_refresh_on_change.sql
+-- supabase/migrations/20271112190000_city_price_table_refresh_on_change.sql
 --
 -- רענון תמונת מחירי הדירות (/prices) רק כשהמקור השתנה, ולא כל שעה.
 --
