@@ -13,6 +13,8 @@ on:
       - "supabase/functions/whatsapp-webhook/property-search.ts"
       - "supabase/functions/whatsapp-webhook/public-agent.ts"
       - "supabase/functions/whatsapp-webhook/agent.ts"
+      - "supabase/functions/whatsapp-webhook/board-listings.ts"
+      - "scripts/board_listings_test.ts"
       - ".github/workflows/city_groups.yml"
   push:
     branches: [main]
@@ -23,6 +25,8 @@ on:
       - "supabase/functions/whatsapp-webhook/property-search.ts"
       - "supabase/functions/whatsapp-webhook/public-agent.ts"
       - "supabase/functions/whatsapp-webhook/agent.ts"
+      - "supabase/functions/whatsapp-webhook/board-listings.ts"
+      - "scripts/board_listings_test.ts"
       - ".github/workflows/city_groups.yml"
   workflow_dispatch:
 
@@ -42,7 +46,9 @@ jobs:
           node-version: "22"
 
       - name: חיפוש גבריאלה בלי מסד
-        run: node --experimental-strip-types scripts/gabriela_search_test.ts
+        run: |
+          node --experimental-strip-types scripts/gabriela_search_test.ts
+          node --experimental-strip-types scripts/board_listings_test.ts
 
       - name: Postgres מקומי
         run: |

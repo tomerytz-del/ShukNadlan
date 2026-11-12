@@ -71,6 +71,21 @@ import {
   shouldLogSearchMiss,
 } from "./property-search.ts";
 import {
+  boardCityStockCriteria,
+  boardCriteria,
+  boardInteractiveForReply,
+  boardPresentationLog,
+  boardSearchStatus,
+  boardStatusFields,
+  boardToolFields,
+  fetchBoardListings,
+  presentBoardListings,
+  recordBoardPresentation,
+  shouldAttachBoardListings,
+  type BoardInteractive,
+  type BoardScope,
+} from "./board-listings.ts";
+import {
   capCities,
   CLIENT_CITY_CAP,
   clientColumnMissing,
@@ -700,10 +715,14 @@ const TOOLS: Anthropic.Tool[] = [
     name: "search_properties",
     description:
       "חיפוש נכס לפי דרישות ('דירת 4 חדרים בלב העמק עד 1.8 מיליון', 'משרד להשכרה " +
-      "100 מ\"ר'), **בלי** צורך בלקוח/ה בקובץ. מחפש בארבעה מאגרים בבת אחת: הנכסים של " +
-      "הסוכן/ת (own), של המשרד (agency), מה שמשרדים אחרים שיתפו עם המשרד (shared), " +
-      "וכל הנכסים הפעילים של המתווכים בשוק המקומי של המשרד (market). כל תוצאה חוזרת " +
-      "עם source ועם המתווך/ת המפרסם/ת והטלפון. שכונה בהתאמה סלחנית ('סי 1', 'ברובע').",
+      "100 מ\"ר'), **בלי** צורך בלקוח/ה בקובץ. מחפש בנכסים של הסוכן/ת (own), של המשרד " +
+      "(agency), במה שמשרדים אחרים שיתפו (shared), ובנכסים הפעילים של מתווכים אחרים " +
+      "בשוק המקומי (market). כל תוצאה כזו חוזרת עם source, ובשאינה שלך גם עם המתווך/ת " +
+      "והטלפון. בנוסף, בנפרד, board_listings: מודעות ציבוריות מיד2 וממדלן. הן אינן " +
+      "נכסים שלך. אין בהן טלפון. board_status: matches מציגים בכותרת בלי כתובת; " +
+      "none - כותבים את board_say בתוך התשובה; skipped_feature - כותבים את board_say " +
+      "ולא אומרים שאין מודעות; unavailable - לא מזכירים את הלוחות. " +
+      "שכונה בהתאמה סלחנית ('סי 1', 'ברובע').",
     input_schema: {
       type: "object",
       properties: {
@@ -1315,9 +1334,15 @@ const TOOLS: Anthropic.Tool[] = [
       "מה מתאים ללקוח/ה מסוים/ת. מצליב את הדרישות מול הנכסים של הסוכן/ת, נכסי " +
       "המשרד ומה שמשרדים אחרים שיתפו עם המשרד - כל התאמה עם ציון באחוזים ועם " +
       "הפערים. בנוסף מחזיר market_matches: נכסים של מתווכים אחרים באזור שמתאימים " +
-      "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון). מאפייני החובה של הלקוח/ה " +
-      "(ממ״ד, מעלית, חניה...) הם סינון קשיח: נכס בלי אחד מהם לא חוזר. אם אין התאמות " +
-      "מלאות, חוזר without_required - כמה נכסים יש בלי כל מאפיין - כדי לשאול את הסוכן/ת. " +
+      "ולא שותפו (אותו ציון, עם המתווך/ת, המשרד והטלפון). ואחריהם, בנפרד, " +
+      "board_listings: מודעות ציבוריות מיד2 וממדלן לפי אותן דרישות (עיר, עסקה, " +
+      "סוג, חדרים, מחיר). אין בהן טלפון ואין לפנות לבעלים. board_status none: " +
+      "כותבים את board_say בתוך התשובה. skipped_feature (מאפיין חובה): כותבים את " +
+      "board_say ולא אומרים שאין מודעות. unavailable: לא מזכירים את הלוחות. " +
+      "מאפייני החובה של הלקוח/ה " +
+      "(ממ״ד, מעלית, חניה...) הם סינון קשיח על הנכסים: נכס בלי אחד מהם לא חוזר. " +
+      "אם אין התאמות מלאות, חוזר without_required - כמה נכסים יש בלי כל מאפיין - " +
+      "כדי לשאול את הסוכן/ת. במצב הזה אין board_listings. " +
       "בראש התשובה needs: סיכום הדרישות השמורות, כולל שם השכונה.",
     input_schema: {
       type: "object",
@@ -1979,6 +2004,13 @@ interface ToolContext {
   listingCitySlot?: ListingCitySlot;
   /** הוויתור והחלון של client_matches בתור הזה, כדי ש-property_refs יראה את מה שהוצג. */
   matchWaive?: { clientId: string; features: string[]; limit: number };
+  /** מודעות לוח מהתור. נשלחות ונרשמות רק אם התשובה מציגה אותן. */
+  pendingBoard?: {
+    lines: string[];
+    message: BoardInteractive;
+    tool: "search_properties" | "client_matches";
+    logged: { id: string; source: "yad2" | "madlan" }[];
+  } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -3182,9 +3214,12 @@ async function agentPropertySearch(
   ctx: ToolContext,
   args: Record<string, unknown>,
   limit: number,
-): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown>; searched: boolean } | { ok: false; error: string }> {
+): Promise<{ ok: true; total: number; by_source: Record<string, number>; results: Record<string, unknown>[]; hint: Record<string, unknown>; searched: boolean; boardScope: BoardScope } | { ok: false; error: string }> {
   const pools = await searchPools(ctx);
   const uuid = /^[0-9a-f-]{36}$/i;
+  const emptyScope: BoardScope = {
+    askedCity: false, cityIds: [], cityNames: [], fallbackCityIds: pools.marketCityIds,
+  };
 
   const ors: string[] = [];
   ors.push(`agent_id.eq.${ctx.agent.id}`);
@@ -3193,11 +3228,14 @@ async function agentPropertySearch(
   if (shared.length) ors.push(`id.in.(${shared.join(",")})`);
   const cities = pools.marketCityIds.filter((id) => uuid.test(id));
   if (cities.length) ors.push(`city_id.in.(${cities.join(",")})`);
-  if (!ors.length) return { ok: true, total: 0, by_source: {}, results: [], hint: {}, searched: false };
+  if (!ors.length) {
+    return { ok: true, total: 0, by_source: {}, results: [], hint: {}, searched: false, boardScope: emptyScope };
+  }
 
   const area = typeof args.area === "string" ? args.area.trim().slice(0, 80) : "";
+  const askedCity = typeof args.city === "string" && args.city.trim().length > 0;
   let cityId: string | null = null;
-  if (typeof args.city === "string" && args.city.trim()) {
+  if (askedCity && typeof args.city === "string") {
     const raw = args.city.trim();
     const canon = await canonicalCity(ctx.supabase, raw);
     cityId = canon?.id || null;
@@ -3307,7 +3345,68 @@ async function agentPropertySearch(
       "lookup",
     );
   }
-  return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true };
+  const cityIds = Array.isArray(args.city_ids) ? args.city_ids.map((id) => String(id || "")) : [];
+  let cityNames = Array.isArray(args.member_names) ? args.member_names.map((n) => String(n || "")) : [];
+  if (askedCity && !cityIds.some((id) => uuid.test(id)) && !cityNames.some((n) => n.trim()) && typeof args.city === "string") {
+    cityNames = [args.city.trim()];
+  }
+  const boardScope: BoardScope = {
+    askedCity,
+    cityIds,
+    cityNames,
+    fallbackCityIds: pools.marketCityIds,
+  };
+  return { ok: true, total: tagged.length, by_source: bySource, results, hint, searched: true, boardScope };
+}
+
+/** מודעות יד2/מדלן. כשל או אפס שורות לא נכנסים לתשובה. */
+async function boardSection(
+  ctx: ToolContext,
+  scope: BoardScope,
+  tool: "search_properties" | "client_matches",
+  filters: {
+    dealType?: unknown;
+    propertyTypes?: unknown;
+    minPrice?: unknown;
+    maxPrice?: unknown;
+    minRooms?: unknown;
+    maxRooms?: unknown;
+    features?: readonly unknown[] | null;
+    required?: readonly unknown[] | null;
+    waived?: readonly unknown[] | null;
+  },
+): Promise<Record<string, unknown>> {
+  if (!shouldAttachBoardListings(filters)) return boardStatusFields("skipped_feature");
+  const criteria = boardCriteria({
+    askedCity: scope.askedCity,
+    cityIds: scope.cityIds,
+    cityNames: scope.cityNames,
+    fallbackCityIds: scope.fallbackCityIds,
+    dealType: filters.dealType,
+    propertyTypes: filters.propertyTypes,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    minRooms: filters.minRooms,
+    maxRooms: filters.maxRooms,
+  });
+  if (!criteria) return boardStatusFields("unavailable");
+  const fetched = await fetchBoardListings(ctx.supabase, criteria);
+  if (!fetched) return boardStatusFields("unavailable");
+  if (!fetched.total) {
+    const stock = await fetchBoardListings(ctx.supabase, boardCityStockCriteria(criteria));
+    return boardStatusFields(boardSearchStatus({
+      filtered: 0,
+      cityStock: stock ? stock.total : null,
+    }));
+  }
+  const presented = presentBoardListings(fetched.rows, fetched.total, {
+    buttons: !!ctx.outbox,
+  });
+  if (!presented) return boardStatusFields("unavailable");
+  if (ctx.outbox && presented.message) {
+    ctx.pendingBoard = { lines: presented.lines, message: presented.message, tool, logged: presented.logged };
+  }
+  return { ...boardToolFields(presented), ...boardStatusFields("matches") };
 }
 
 async function toolSearchProperties(ctx: ToolContext, input: Record<string, unknown>) {
@@ -3338,14 +3437,25 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
             properties_without_it: loose.results.filter((p) => !has(p, f)).length,
           })).filter((b) => b.properties_without_it > 0),
         },
+        ...boardStatusFields("skipped_feature"),
         note:
           "אין אף נכס עם כל המאפיינים שנדרשו. **אל תציג/י נכסים.** אמור/אמרי זאת, ושאל/י " +
           "בשאלה אחת אם להציג גם נכסים בלי המאפיין, לפי by_feature. אחרי \"כן\" - " +
-          "search_properties שוב בלי המאפיינים שאושרו, וליד כל נכס כתוב/כתבי מה חסר בו.",
+          "search_properties שוב בלי המאפיינים שאושרו, וליד כל נכס כתוב/כתבי מה חסר בו. " +
+          "כתבי גם את board_say: הלוחות לא נבדקו.",
       };
     }
   }
 
+  const board = await boardSection(ctx, res.boardScope, "search_properties", {
+    dealType: input.deal_type,
+    propertyTypes: input.property_types,
+    minPrice: input.min_price,
+    maxPrice: input.max_price,
+    minRooms: input.min_rooms,
+    maxRooms: input.max_rooms,
+    features: feats,
+  });
   return {
     ok: true,
     total: res.total,
@@ -3353,10 +3463,14 @@ async function toolSearchProperties(ctx: ToolContext, input: Record<string, unkn
     by_source: res.by_source,
     properties: res.results,
     ...res.hint,
+    ...board,
     note:
       "source: own = שלך, agency = של המשרד, shared = משרד אחר שיתף איתכם, market = מתווך/ת " +
       "אחר/ת באזור. ב-shared וב-market: שם המתווך/ת, המשרד והטלפון - לתיאום שת\"פ לפני " +
-      "שמציעים ללקוח/ה. נכס market אינו נכנס למיניסייט עד שהמשרד שלו משתף אותו." +
+      "שמציעים ללקוח/ה. נכס market אינו נכנס למיניסייט עד שהמשרד שלו משתף אותו. " +
+      "board_status אומר מה לומר על הלוחות: none - את board_say בתוך התשובה; " +
+      "skipped_feature - את board_say, לא \"אין מודעות\"; unavailable - לא מזכירים. " +
+      "board_listings, אם יש, הן מודעות מהלוחות ולא נכסים שלך - אחרי שלך ושל המשרד, בכותרת נפרדת." +
       (res.total > res.results.length ? ` מוצגים ${res.results.length} מתוך ${res.total}.` : ""),
   };
 }
@@ -5203,7 +5317,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
 async function ownedClient(ctx: ToolContext, clientId: string) {
   const { data } = await ctx.supabase
     .from("agent_clients")
-    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features, cities, notes, min_price, max_price")
+    .select("id, full_name, phone, status, client_kind, deal_type, category, required_features, property_types, cities, notes, min_price, max_price, min_rooms, max_rooms")
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
@@ -6241,14 +6355,49 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
       ? "אין אף נכס שיש בו את כל מאפייני החובה של הלקוח/ה. **אל תציג/י נכסים.** אמור/אמרי " +
         "זאת, ושאל/י בשאלה אחת אם להציג גם נכסים בלי המאפיין, לפי by_feature (\"יש 3 בלי " +
         "מעלית ו-1 בלי ממ״ד - להציג?\"). אחרי \"כן\" - client_matches שוב עם waive_features " +
-        "של המאפיינים שאושרו בלבד."
+        "של המאפיינים שאושרו בלבד. כתבי גם את board_say: הלוחות לא נבדקו."
       : waive.length
       ? "הוצגו גם נכסים בלי המאפיינים שבוויתור. ליד כל נכס כזה כתוב/כתבי מה חסר בו " +
         "(missing_required), ואל תציג/י אותו כהתאמה מלאה."
       : required.length && !(data || []).length && !marketMatches.length
       ? "אין התאמות, גם בלי מאפייני החובה - הסינון הוא בשאר הדרישות (עיר, תקציב, חדרים)."
       : undefined,
+    ...(shouldAttachBoardListings({ required, waived: waive })
+      ? await boardSection(ctx, await clientBoardScope(ctx, client), "client_matches", {
+        dealType: client.deal_type,
+        propertyTypes: client.property_types,
+        minPrice: client.min_price,
+        maxPrice: client.max_price,
+        minRooms: client.min_rooms,
+        maxRooms: client.max_rooms,
+        required,
+        waived: waive,
+      })
+      : boardStatusFields("skipped_feature")),
   };
+}
+
+/** ערי הלקוח/ה, כולל חבל תענך. בלי עיר בכרטיס - ערי השוק של המשרד. */
+async function clientBoardScope(
+  ctx: ToolContext,
+  client: { cities?: unknown },
+): Promise<BoardScope> {
+  const names = Array.isArray(client.cities) ? client.cities.map((n) => String(n || "").trim()).filter(Boolean) : [];
+  const cityIds: string[] = [];
+  const cityNames: string[] = [];
+  for (const raw of names.slice(0, 8)) {
+    const canon = await canonicalCity(ctx.supabase, raw);
+    if (!canon) continue;
+    for (const id of canon.ids) if (!cityIds.includes(id)) cityIds.push(id);
+    const labels = canon.memberNames.length ? canon.memberNames : [canon.name];
+    for (const label of labels) {
+      const name = String(label || "").trim();
+      if (name && !cityNames.includes(name)) cityNames.push(name);
+    }
+  }
+  const askedCity = names.length > 0;
+  const fallbackCityIds = askedCity ? [] : (await searchPools(ctx)).marketCityIds;
+  return { askedCity, cityIds, cityNames, fallbackCityIds };
 }
 
 // ---------------------------------------------------------------------------
@@ -9653,6 +9802,16 @@ const SYSTEM_STATIC: string = (() => {
       "search_properties**, גם בלי לקוח/ה בקובץ. הוא מחפש בנכסים שלך, של המשרד, במה ששותף איתכם " +
       "ובכל הנכסים של המתווכים באזור. **לעולם אל תענה/י \"אין לך נכסים\" על שאלת חיפוש** - " +
       "החיפוש אינו רק במלאי שלך. הצג/י לפי source: שלך, של המשרד, ושל מתווכים אחרים (שם, משרד וטלפון).",
+    "- **מודעות מהלוחות (יד2 ומדלן) הן מקור נפרד.** אם חזר board_listings, הציגי אותן " +
+      "אחרי הנכסים שלך ושל המשרד, בכותרת board_heading (\"מודעות מהלוחות יד 2 / מדלן\"), " +
+      "ולא כאילו הן מודעות שלך. אין בהן טלפון ואין לפנות לבעלים, ואין חיוב. " +
+      "כשמציגים אותן כותבים את הכותרת, בלי כתובת אתר: הודעה אחת יוצאת אחרייך. " +
+      "בלי הכותרת אין הודעה. אם board_more גדול מאפס - אמרי כמה מוצגות וכמה עוד יש. " +
+      "אם properties ריק ויש board_listings - יש מודעות בלוחות, לא אפס. " +
+      "board_status none: כתבי את board_say כמו שהוא בתוך התשובה, בלי הודעה נוספת. " +
+      "skipped_feature: כתבי את board_say, ואל תאמרי שאין מודעות בלוחות. " +
+      "unavailable: אל תזכירי את יד 2 ואת מדלן. " +
+      "מאפיין חובה או without_required: אין board_listings, ואל תציגי נכסים בלי המאפיין עד אישור.",
     "- **דרישה מפורשת היא חובה.** \"עם ממ״ד\", \"חייב מעלית\", \"עם חניה\" = features ב-search_properties " +
       "(mamad, elevator, parking...), ולעולם לא נכס בלי המאפיין כאילו הוא מתאים. אם חזר without_required - " +
       "אין נכס עם הכול: אמור/אמרי זאת ושאל/י אם להציג גם בלי המאפיין, לפי by_feature. בלי אישור לא מציגים.",
@@ -9783,6 +9942,11 @@ const SYSTEM_STATIC: string = (() => {
     "- אם create_client החזיר duplicate - אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
     "- \"מה יש ל<שם>\" = client_matches. הוא מחזיר גם market_matches - נכסים של מתווכים אחרים " +
       "באזור שלא שותפו עם המשרד. הצג/י אותם אחרי ההתאמות, עם שם המתווך/ת והטלפון; הם אינם נכנסים למיניסייט. " +
+      "ואם חזר board_listings - אחרי הנכסים שלך ושל המשרד, בכותרת נפרדת \"מודעות מהלוחות יד 2 / מדלן\". " +
+      "אלה מודעות ציבוריות, לא נכסים שלך, בלי טלפון ובלי פנייה לבעלים, ובלי כתובת בטקסט. " +
+      "הכותרת הזו היא מה שמוציא הודעה אחת אחרי התשובה. בלי הכותרת אין הודעה. " +
+      "board_status none: כתבי את board_say כמו שהוא בתוך התשובה. " +
+      "skipped_feature: כתבי את board_say, לא שאין מודעות. unavailable: אל תזכירי את הלוחות. " +
       "\"למי מתאים הנכס הזה\" = property_matches. " +
       "\"מה חדש בהתאמות\" = list_match_alerts.",
     "- **מאפייני החובה של הלקוח/ה (required_features) הם סינון קשיח** - client_matches לא מחזיר נכס " +
@@ -10402,6 +10566,21 @@ export async function runAgentTurn(opts: {
   if (opts.outbox && mutated) {
     const kept = dropLookupOnMutation(opts.outbox, true);
     opts.outbox.splice(0, opts.outbox.length, ...kept);
+  }
+  if (opts.outbox && ctx.pendingBoard) {
+    const message = boardInteractiveForReply(finalText, ctx.pendingBoard.lines, ctx.pendingBoard.message);
+    if (message) {
+      opts.outbox.push(message);
+      const row = boardPresentationLog({
+        agentId: ctx.agent.id,
+        tool: ctx.pendingBoard.tool,
+        reply: finalText,
+        lines: ctx.pendingBoard.lines,
+        message,
+        logged: ctx.pendingBoard.logged,
+      });
+      await recordBoardPresentation(ctx.supabase, row);
+    }
   }
 
   return finalText;

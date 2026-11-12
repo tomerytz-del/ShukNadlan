@@ -74,6 +74,7 @@ import {
   isReactionMessage,
 } from "./inbound-kind.ts";
 import { peelShownMatches, stampShownMatches } from "./lookup_turn.ts";
+import { boardButtonLabelForUrl, boardUrlFromRowId } from "./board-listings.ts";
 import {
   abortedTurnPlan,
   CAS_ATTEMPTS,
@@ -2652,6 +2653,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
           body: "נפתח כאן:",
           label: ctaLabel(navPath),
           url: absoluteUrl(SITE_BASE, navPath),
+        }], agent.id);
+        return;
+      }
+      const boardUrl = boardUrlFromRowId(buttonId);
+      if (boardUrl) {
+        await sendOutbox(from, [{
+          kind: "cta",
+          body: "המודעה בלוח:",
+          label: boardButtonLabelForUrl(boardUrl) || "למודעה",
+          url: boardUrl,
         }], agent.id);
         return;
       }

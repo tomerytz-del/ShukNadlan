@@ -95,6 +95,8 @@ check("תווית מיניסייט", buttonLabelForUrl("https://shuknadlan.co.il
 check("קישור קצר לנכס", buttonLabelForUrl("https://shuknadlan.co.il/p/1147") === "לדף הנכס");
 check("קישור קצר למיניסייט", buttonLabelForUrl("https://shuknadlan.co.il/m/ab") === "לעמוד האישי");
 check("תווית הסרה", buttonLabelForUrl("https://example.com/saved-search-manage?action=unsubscribe&token=1") === "הפסקת עדכונים");
+check("מודעת יד2", buttonLabelForUrl("https://www.yad2.co.il/realestate/item/abc") === "פתיחה ביד2");
+check("מודעת מדלן", buttonLabelForUrl("https://www.madlan.co.il/listings/abc") === "פתיחה במדלן");
 check("משפט בלי כפתור", WA_NO_BUTTON === "פרטים ב-CRM" && !WA_NO_BUTTON.includes("http"));
 
 const long = `${"א".repeat(1100)} https://shuknadlan.co.il/property?id=abc`;
