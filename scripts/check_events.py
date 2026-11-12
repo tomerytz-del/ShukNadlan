@@ -117,7 +117,7 @@ BOT_PHONES = _gabriela_phones()
 # נימוק בדיוק (docs/client-showcase.md). ‏meeting הוא דף הפגישה שהלקוח/ה מקבל/ת
 # אחרי שהסוכן/ת קבע/ה איתו/ה פגישה (docs/meeting-client-followup.md).
 # ‏plan הוא דף הבדיקה התכנונית שגבריאלה שולחת לסוכן/ת (docs/govmap.md) - כלי עבודה, לא גולשים.
-PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "professional-crm", "showcase", "meeting", "csm", "plan", "cma", "learn"}
+PRIVATE_PAGES = {"crm", "developer-crm", "professional-manage", "professional-crm", "showcase", "meeting", "csm", "plan", "cma", "owner-report", "learn"}
 
 EVENTS_JS = re.compile(r'<script[^>]+src="assets/events\.js"')
 

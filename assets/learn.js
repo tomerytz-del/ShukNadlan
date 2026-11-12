@@ -92,7 +92,11 @@
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
     return (h ? h + ':' : '') + (h ? ('0' + m).slice(-2) : m) + ':' + ('0' + sec).slice(-2);
   }
-  function render(html) { $('app').innerHTML = html; window.scrollTo(0, 0); }
+  function render(html) {
+    // סצנה שמתנגנת נעצרת עם כל מעבר מסך (קלף אחר, מפה, תשלום)
+    if (state && state.sceneCtl) { try { state.sceneCtl.destroy(); } catch (e) { /* כבר נסגרה */ } state.sceneCtl = null; }
+    $('app').innerHTML = html; window.scrollTo(0, 0);
+  }
 
   if (!window.supabase) {
     render('<div class="band"><div class="band-in"><div class="bar-row"><img class="logo" src="' + LOGO + '" alt=""><span class="brand">קורס ההכנה</span></div></div></div>' +
@@ -681,12 +685,12 @@
   }
 
   function stepLabel(st) {
-    return st.type === 'concept' ? 'רעיון' : st.type === 'example' ? 'סיפור מקרה' : st.type === 'check' ? 'בדיקה מהירה' : 'כרטיס זיכרון';
+    return st.type === 'concept' ? 'רעיון' : st.type === 'example' ? 'סיפור מקרה' : st.type === 'check' ? 'בדיקה מהירה' : st.type === 'scene' ? 'עצרו את התמונה' : 'כרטיס זיכרון';
   }
   function stepsAside(S) {
     var items = S.steps.map(function (st, i) {
       var cls = i < S.idx ? 'done' : (i === S.idx ? 'cur' : '');
-      var txt = st.type === 'check' ? 'בדיקה מהירה' : (st.title || (st.type === 'flash' ? 'כרטיס זיכרון' : stepLabel(st)));
+      var txt = st.type === 'check' ? 'בדיקה מהירה' : st.type === 'scene' ? 'עצרו את התמונה: ' + (st.title || '') : (st.title || (st.type === 'flash' ? 'כרטיס זיכרון' : stepLabel(st)));
       return '<li class="' + cls + '"><span class="k">' + (i < S.idx ? I.check18 : (i + 1)) + '</span><span>' + escapeHtml(txt) + '</span></li>';
     }).join('');
     return '<div class="aside"><div class="box"><h3>בשיעור הזה</h3><ol class="steplist">' + items + '</ol>' +
@@ -718,7 +722,8 @@
         '<p>' + escapeHtml(st.text) + '</p><p class="q">האם פעל כדין?</p></article>' +
         (S.lawOpen ? lawHtml(st) : '') + '</div>';
       foot = '<div class="foot">' + (S.lawOpen ? '' : '<button type="button" class="btn-o" id="lawBtn">' + I.scale + ' מה אומר החוק?</button>') + navBtns(true, 'הבא') + '</div>';
-    } else if (st.type === 'check') {
+    } else if (st.type === 'check' || st.type === 'scene') {
+      // סצנה היא צעד הבדיקה של השאלה שלה: אותה טעינה, אותו דילוג ואותה שגיאה
       var q = S.qmap[st.question];
       if (!q && (S.attempt || S.noQuestions || S.readOnly)) {
         // הניסיון כבר נפתח והשאלה אינה בו (למשל שאלה שהוסרה מהפרסום): מדלגים
@@ -746,6 +751,11 @@
         // מציירים שוב רק כשיש תוצאה (ניסיון או שגיאה); ensureAttempt שכבר רצה
         // מחזירה false מיד, וציור חוזר אז היה לולאה
         ensureAttempt().then(function () { if (state.steps === S && (S.attempt || S.noQuestions || S.startError)) renderStep(); });
+      } else if (st.type === 'scene') {
+        bandOpts.extra = sub + '<div class="q-band"><span class="pill gold" style="align-self:flex-start">עצרו את התמונה · קלף ' + (S.idx + 1) + '</span><h1>' + escapeHtml(st.title || '') + '</h1></div>';
+        bandOpts.cls = 'mid';
+        html = '<div class="scene-wrap"><div id="sceneHost"></div><section class="scene-panel" id="scenePanel" aria-live="polite" hidden></section></div>';
+        foot = '<div class="foot"><button type="button" class="btn-s" id="stepPrev"' + (S.idx === 0 ? ' disabled' : '') + '>הקודם</button></div>';
       } else {
         var ans = S.answers[q.id];
         bandOpts.extra = sub + '<div class="q-band"><span class="pill gold" style="align-self:flex-start">בדיקה מהירה · קלף ' + (S.idx + 1) + '</span><h1>' + escapeHtml(q.question) + '</h1></div>';
@@ -798,6 +808,7 @@
       on('fbNext2', 'click', advance);
     }
     if (st.type === 'concept') bindSwipe();
+    if (st.type === 'scene' && S.qmap[st.question]) mountScene(S, st, S.qmap[st.question], advance);
     function advance() {
       S.lawOpen = false; S.flipped = false; S.dir = 1;
       if (S.idx < total - 1) { S.idx++; renderStep(); } else finishSteps();
@@ -881,18 +892,100 @@
     (r.data.questions || []).forEach(function (q) { S.qmap[q.slug] = q; });
     return true;
   }
-  async function answerStep(q, choice) {
-    var S = state.steps;
+  // ---- "עצרו את התמונה": סצנה שקופאת ושואלת את שאלת הבדיקה ----
+  // הנגן (assets/course-scene.js) נטען רק כשיש סצנה. הסופים אינם בצעד: הם חוזרים
+  // מ-course_answer אחרי שהתשובה נרשמה, כי הסוף הנכון חושף את התשובה.
+  var sceneLib = null;
+  function loadSceneLib() {
+    if (window.CourseScene) return Promise.resolve(true);
+    if (!sceneLib) {
+      sceneLib = new Promise(function (res) {
+        var s = document.createElement('script'); s.src = '/assets/course-scene.js';
+        s.onload = function () { res(!!window.CourseScene); };
+        s.onerror = function () { sceneLib = null; res(false); };
+        document.head.appendChild(s);
+      });
+    }
+    return sceneLib;
+  }
+  function mountScene(S, st, q, advance) {
+    // אסימון לכל ציור: יציאה וחזרה לאותו קלף לפני שהנגן נטען היו יוצרות שני נגנים על אותה במה
+    var token = S.sceneMount = (S.sceneMount || 0) + 1;
+    loadSceneLib().then(function (ok) {
+      var host = $('sceneHost');
+      if (state.steps !== S || S.sceneMount !== token || !host) return;
+      if (!ok) { scenePanel(S, st, q, advance); return; }
+      state.sceneCtl = window.CourseScene.create(host, {
+        title: st.title, subtitle: st.subtitle, beats: st.beats || [], freeze: st.freeze, freeze_a: st.freeze_a,
+        onFreeze: function () { scenePanel(S, st, q, advance); }
+      });
+      // סצנה שכבר נענתה (חזרה אחורה): הפאנל עם התשובה פתוח, והסרט מחכה לצפייה חוזרת
+      if (S.answers[q.id]) { state.sceneCtl.showPoster('לצפות שוב'); scenePanel(S, st, q, advance); }
+    });
+  }
+  function scenePanel(S, st, q, advance) {
+    var el = $('scenePanel');
+    if (!el || state.steps !== S) return;
+    var ans = S.answers[q.id];
+    el.hidden = false;
+    el.innerHTML = '<span class="pill gold">המנטור עצר את הסרט</span><h2>' + escapeHtml(q.question) + '</h2>' +
+      '<div class="opts" role="radiogroup" aria-label="חלופות">' + optionsHtml(q, ans, false) + '</div>' +
+      (ans ? feedbackHtml(ans, false) : '') +
+      (ans && ans.scene && state.sceneCtl ? '<div class="scene-acts"><button type="button" class="btn-s" id="sceneEnd">' +
+        (ans.ok ? 'לראות איך זה נגמר' : 'לראות מה היה קורה') + '</button>' +
+        (ans.ok ? '' : '<button type="button" class="btn-s" id="sceneRight">⏪ להחזיר את הסרט ולראות את הסוף הנכון</button>') + '</div>' : '');
+    if (!ans) {
+      qa('#scenePanel .opt').forEach(function (b) { b.addEventListener('click', function () { sceneAnswer(S, st, q, advance, Number(b.getAttribute('data-i'))); }); });
+      if (el.scrollIntoView) setTimeout(function () { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 400);
+      return;
+    }
+    on('fbNext2', 'click', advance);
+    on('sceneEnd', 'click', function () { playSceneEnding(ans.ok ? 'right' : 'wrong'); });
+    on('sceneRight', 'click', function () {
+      var c = state.sceneCtl; if (!c) return;
+      var host = $('sceneHost'); if (host && host.scrollIntoView) host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      c.rewind().then(function () { playSceneEnding('right'); });
+    });
+    function playSceneEnding(which) {
+      var c = state.sceneCtl;
+      if (!c || !ans.scene || !ans.scene[which]) return;
+      watchEnding(c.playEnding(ans.scene[which]));
+    }
+  }
+  // הסוף מתנגן מעל הפאנל: גוללים אל הבמה, ובסוף חזרה לכפתורים שמתחת
+  function watchEnding(p) {
+    var host = $('sceneHost'), S = state.steps, idx = S && S.idx;
+    if (host && host.scrollIntoView) host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return Promise.resolve(p).then(function () {
+      var el = $('scenePanel');
+      if (state.steps === S && S && S.idx === idx && el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  async function sceneAnswer(S, st, q, advance, choice) {
     if (!S || S.answers[q.id]) return;
-    qa('.opt').forEach(function (b) { b.disabled = true; });
+    if (!(await recordAnswer(S, q, choice, '#scenePanel .opt')) || state.steps !== S) return;
+    scenePanel(S, st, q, advance);
+    // הסוף של הבחירה מתנגן מעצמו; מי שטעה רואה קודם מה היה קורה
+    var ans = S.answers[q.id];
+    if (ans.scene && state.sceneCtl) watchEnding(state.sceneCtl.playEnding(ans.scene[ans.ok ? 'right' : 'wrong']));
+  }
+
+  // רישום תשובה אחד לבדיקה ולסצנה: הקריאה, השגיאה, והאובייקט שנשמר
+  async function recordAnswer(S, q, choice, sel) {
+    qa(sel).forEach(function (b) { b.disabled = true; });
     var r = await rpc('course_answer', { p_attempt_id: S.attempt, p_question_id: q.id, p_choice: choice });
     if (r.error || !r.data || r.data.error) {
       toast(errText(r.error || { message: r.data && r.data.error }));
-      qa('.opt').forEach(function (b) { b.disabled = false; });
-      return;
+      qa(sel).forEach(function (b) { b.disabled = false; });
+      return null;
     }
-    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref };
-    renderStep();
+    S.answers[q.id] = { choice: choice, ok: r.data.ok, correct: r.data.correct, accepted: r.data.accepted || [], explanation: r.data.explanation, law_ref: r.data.law_ref, scene: r.data.scene || null };
+    return S.answers[q.id];
+  }
+  async function answerStep(q, choice) {
+    var S = state.steps;
+    if (!S || S.answers[q.id]) return;
+    if (await recordAnswer(S, q, choice, '.opt')) renderStep();
   }
   async function finishSteps() {
     var S = state.steps;

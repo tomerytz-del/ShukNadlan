@@ -177,12 +177,15 @@ create function public.notif_il_digest_open(p_window int) returns boolean langua
         fail("ליד מעל הגג נעצר")
 
     agent = "11111111-1111-4111-8111-111111111111"
+    # צהרי היום בישראל, לא now()-9 שעות: אחרי 21:00 UTC זה כבר היום הבא
+    # בירושלים, ושתי התבניות היו נופלות מהספירה היומית.
+    noon = "((now() at time zone 'Asia/Jerusalem')::date + time '12:00') at time zone 'Asia/Jerusalem'"
     psql(f"""
 insert into public.notification_push_log
   (agent_id, channel_mode, whatsapp_status, created_at, types) values
-  ('{agent}', 'template', 'sent', now() - interval '9 hours', array['new_lead']),
-  ('{agent}', 'template', 'sent', now() - interval '9 hours', array['new_lead']),
-  ('{agent}', 'text', 'sent', now(), array['template_cap_digest_reserved','open_demand']);
+  ('{agent}', 'template', 'sent', {noon}, array['new_lead']),
+  ('{agent}', 'template', 'sent', {noon}, array['new_lead']),
+  ('{agent}', 'text', 'sent', {noon}, array['template_cap_digest_reserved','open_demand']);
 """)
     if psql(f"select n from public.whatsapp_template_cap_usage('{agent}', null)") != "2":
         fail("טקסט חופשי נספר כתבנית")
@@ -191,7 +194,7 @@ insert into public.notification_push_log
     psql(f"""
 insert into public.notification_push_log
   (agent_id, channel_mode, whatsapp_status, created_at, types) values
-  ('{agent}', 'template', 'sent', now(), array['template_cap_digest_reserved','open_demand']);
+  ('{agent}', 'template', 'sent', {noon}, array['template_cap_digest_reserved','open_demand']);
 """)
     if psql(f"select public.whatsapp_template_cap_digest_reserved_used('{agent}', null)") != "1":
         fail("חריץ שמור שיצא אינו נספר")

@@ -1,0 +1,55 @@
+name: מלאי מודעות יד2
+
+# זריעה שקטה, ליד אחד למודעה חדשה, סימון ירידה, תמונה ריקה שלא מוחקת,
+# וליד יד2 שנפתח בלי חיוב.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
+      - "supabase/migrations/20270812090000_scraped_leads.sql"
+      - "scripts/listing_inventory_test.py"
+      - "scripts/listing_inventory_body_test.ts"
+      - "supabase/functions/listing-inventory-intake/body.ts"
+      - "supabase/functions/listing-inventory-intake/index.ts"
+      - ".github/workflows/listing_inventory.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
+      - "supabase/migrations/20270812090000_scraped_leads.sql"
+      - "scripts/listing_inventory_test.py"
+      - "scripts/listing_inventory_body_test.ts"
+      - "supabase/functions/listing-inventory-intake/body.ts"
+      - "supabase/functions/listing-inventory-intake/index.ts"
+      - ".github/workflows/listing_inventory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Postgres מקומי
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql
+          cluster="$(sudo pg_lsclusters --no-header | awk 'NR==1 {print $1, $2}')"
+          sudo pg_ctlcluster $cluster start || true
+          sudo -u postgres createuser --superuser "$USER" || true
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: בדיקת תקרת הבתים בקליטה
+        run: node --experimental-strip-types scripts/listing_inventory_body_test.ts
+
+      - name: בדיקת מלאי מודעות
+        run: python3 scripts/listing_inventory_test.py

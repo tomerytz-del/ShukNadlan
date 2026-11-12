@@ -18,8 +18,11 @@ const fromMicros = (v: unknown) => Number(v || 0) / 1_000_000;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ALLOWED_CURRENCY = new Set(["ILS", "USD"]);
 
+// מ-v23 (28.1.2026) campaign.start_date ו-campaign.end_date נמחקו.
+// ברירת המחדל כאן היא v25, וגם v26 משאיר את start_date_time.
+// הערך הוא "yyyy-MM-dd HH:mm:ss" בשעון הלקוח; ב-REST המפתח startDateTime.
 export const GOOGLE_CAMPAIGN_LIST_GAQL = `
-  SELECT campaign.id, campaign.name, campaign.status, campaign.start_date, customer.currency_code
+  SELECT campaign.id, campaign.name, campaign.status, campaign.start_date_time, customer.currency_code
     FROM campaign
    WHERE campaign.status != 'REMOVED'`;
 
@@ -148,9 +151,20 @@ function recordFrom(m: {
   };
 }
 
-// metrics גוברים על אפס. יום שלפני campaign.start_date לא מקבל אפס,
+// metrics גוברים על אפס. יום שלפני campaign.start_date_time לא מקבל אפס,
 // אבל שורת הוצאה שגוגל כן החזירה נשמרת. קמפיין חסר מהרשימה (או REMOVED)
 // לא ממולא, וההוצאה שלו נשמרת אם הגיעה בשאילתת הימים.
+//
+// משווים רק את היום. "2026-11-02" < "2026-11-02 00:00:00" ב-JS, ולכן
+// השוואה למחרוזת המלאה מדלגת גם על יום ההתחלה.
+function campaignStartDay(row: any): string | null {
+  const raw = text(row?.campaign?.startDateTime);
+  if (!raw || raw.length < 10) return null;
+  const day = raw.slice(0, 10);
+  const boundary = raw.length === 10 || raw[10] === " " || raw[10] === "T";
+  return boundary && DAY_RE.test(day) ? day : null;
+}
+
 export function googleChannelRecordsFromGaql(input: {
   metricRows: any[];
   campaignRows: any[];
@@ -185,11 +199,11 @@ export function googleChannelRecordsFromGaql(input: {
     const campaignId = String(row?.campaign?.id || "");
     const status = text(row?.campaign?.status);
     if (!campaignId || status === "REMOVED") continue;
-    const start = text(row?.campaign?.startDate);
+    const start = campaignStartDay(row);
     const currency = currencyOf(row?.customer?.currencyCode);
     const name = text(row?.campaign?.name);
     for (const day of days) {
-      if (start && DAY_RE.test(start) && day < start) continue;
+      if (start && day < start) continue;
       if (seen.has(`${campaignId}|${day}`)) continue;
       push(recordFrom({
         campaignId, name, status, currency, day,

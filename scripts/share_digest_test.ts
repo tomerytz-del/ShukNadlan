@@ -1,0 +1,95 @@
+/**
+ * סיכום שיתופים: דגל כבוי, בלי לשלוח שוב מה שכבר יצא, בלי תבנית.
+ *
+ *   node --experimental-strip-types scripts/share_digest_test.ts
+ */
+import { readFileSync } from "node:fs";
+import { shareDigestBody, shareDigestItems } from "../supabase/functions/_shared/share-digest.ts";
+
+const sql = readFileSync(
+  "supabase/migrations/20271112121000_share_digest.sql",
+  "utf8",
+);
+const push = readFileSync("supabase/functions/notification-push/index.ts", "utf8");
+const preview = readFileSync("scripts/share_digest_preview.sql", "utf8");
+const links = readFileSync("supabase/functions/_shared/agent-deep-link.ts", "utf8");
+
+let failed = 0;
+function check(name: string, ok: boolean) {
+  if (ok) console.log("ok  " + name);
+  else {
+    failed++;
+    console.log("FAIL " + name);
+  }
+}
+
+const build = sql.slice(
+  sql.indexOf("function public.share_digest_build"),
+  sql.indexOf("comment on function public.share_digest_build"),
+);
+const previewFn = sql.slice(
+  sql.indexOf("function public.share_digest_preview"),
+  sql.indexOf("comment on function public.share_digest_preview"),
+);
+
+check("הדגל דלוק", /share_digest_enabled', 1,/.test(sql));
+check("12:30", /share_digest_hhmm', 1230,/.test(sql));
+check("חלון חצי שעה", build.includes("v_delta >= 30"));
+check("שש משבצות", build.includes("mod(pg_catalog.hashtext(ag.id::text)::bigint, 6)") && build.includes("v_delta < v_slot * 5"));
+check("בלי יומן שליחה", sql.includes("n.id = any (l.notification_ids)") && sql.includes("not exists ("));
+check("אחרי חותמת ההדלקה", build.includes("n.created_at > v_since") && previewFn.includes("s.enabled_at is not null") && !sql.includes("date_trunc"));
+check("שיתוף בודד בפעמון", sql.includes("new.suppress_push := true") && sql.includes("new.title = 'נכס חדש שותף איתך'"));
+check("לא מחליף את פונקציית השיתוף", !/create or replace function public\.share_property_for_agent/.test(sql));
+check(
+  "לא מחליף את שלוש המוגנות",
+  !/create or replace function public\.notify_agent_on_new_lead/.test(sql) &&
+    !/create or replace function public\.notifications_apply_preferences/.test(sql) &&
+    !/create or replace function public\.notification_push_priority_types/.test(sql),
+);
+check("סוג חדש", sql.includes("notification_types_add(array['share_digest'])"));
+check("בלי תבנית", !sql.includes("channel_mode") && !sql.includes("folded_log_id") && build.includes("or not ag.in_window"));
+check("שישי עד 13:00", build.includes("notification_agent_send_quiet($1, $2, $3, $4, 1)") && build.includes("v_dow = 6"));
+check("יום שישי לא שקט שלם", !build.includes("agent_reminder_quiet_now(ag.quiet_from, ag.quiet_to, ag.quiet_days)"));
+check("שורות לפני ההכנסה", build.indexOf("jsonb_agg") < build.indexOf("insert into public.notifications"));
+check("גוף סופי בהכנסה", build.includes("v_body") && build.includes("v_path") && build.includes("action_path"));
+check("בלי מציין מקום", !build.includes("delete from public.notifications") && !/update public\.notifications/.test(build));
+check("דחיפה מכבדת suppress_push", sql.includes("if coalesce(new.suppress_push, false) then"));
+check("דחיפה לפי action_path", sql.includes("coalesce(btrim(new.action_path), '')"));
+check("השומר מכסה", sql.includes("notification_push_priority_types") && sql.includes("notification_push_less_kept_types"));
+check("free בלי וואטסאפ", sql.includes("ag.tier is distinct from 'mid' and ag.tier is distinct from 'premium'"));
+check("תצוגה בלי טלפון", sql.includes("agent_first_name text") && !/phone/.test(previewFn));
+check("קובץ יבש", preview.includes("select * from public.share_digest_preview()") && !/insert /i.test(preview));
+const expandAt = push.indexOf("await expandShareDigest(sb");
+const sendAt = push.indexOf("await sendWhatsapp(", expandAt);
+check("נפתח לפני הקיפול", expandAt > 0 && expandAt < push.indexOf("arrange(expanded)"));
+check(
+  "כשל שורות לא שולח מציין מקום",
+  push.includes("class ShareDigestLinesError") &&
+    push.includes("share digest lines failed, retry next cycle") &&
+    expandAt < sendAt &&
+    push.indexOf("share digest lines failed, retry next cycle") < sendAt &&
+    !push.includes("if (error || !Array.isArray(data) || data.length === 0) return items"),
+);
+check("בלי תבנית בשליחה", push.includes("share digest bell only, never a utility template"));
+check("לא system", push.includes('it.type === "system"'));
+check("הכול לשיתופים", links.includes('t === "share_digest"') && links.includes('"/crm?goto=accSharedWithMe"'));
+
+const lines = [
+  { sharer_first_name: "דנה כהן", property_type: "דירה", price_label: "1,500,000 ₪", property_id: "11111111-1111-1111-1111-111111111111" },
+  { sharer_first_name: "דנה כהן", property_type: "פנטהאוז", price_label: "3,200,000 ₪", property_id: "22222222-2222-2222-2222-222222222222" },
+  { sharer_first_name: "יוסי", property_type: "", price_label: "", property_id: "33333333-3333-3333-3333-333333333333" },
+];
+const body = shareDigestBody(lines);
+check("מקבץ לפי שם פרטי", body.startsWith("דנה כהן\nדירה · 1,500,000 ₪\nפנטהאוז · 3,200,000 ₪"));
+check("שם שני", body.includes("יוסי\nנכס · מחיר לא צוין"));
+check("בלי שם מלא בקבוצה השנייה", !body.includes("כהן\nנכס"));
+const items = shareDigestItems(lines);
+check("שלושה כפתורים", items.length === 3 && items.every((it) => it.type === "share_digest"));
+check("נתיב לנכס", items[0].action_path === "/crm?goto=accSharedWithMe&property=11111111-1111-1111-1111-111111111111");
+check("בלי טלפון בפריט", !JSON.stringify(items).includes("05") && !JSON.stringify(items).includes("+972"));
+
+if (failed) {
+  console.log("\n" + failed + " failed");
+  process.exit(1);
+}
+console.log("\nall ok");

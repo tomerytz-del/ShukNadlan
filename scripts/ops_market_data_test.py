@@ -21,10 +21,11 @@ sys.path.insert(0, str(ROOT))
 from ops_agent.probes.behavior import _market_data  # noqa: E402
 
 
-def city(market, name, deals, unpinned=0, hoods=0, no_boundary=0, days=45):
+def city(market, name, deals, unpinned=0, hoods=0, no_boundary=0, days=45, synced=None):
     return {"market_slug": market, "name": name, "hoods": hoods,
             "hoods_no_boundary": no_boundary, "deals": deals, "unpinned": unpinned,
-            "last_sold": "2026-08-12", "last_sold_days": days if deals else None}
+            "last_sold": "2026-08-12", "last_sold_days": days if deals else None,
+            "last_ok_sync_days": synced}
 
 
 KRAYOT = [
@@ -52,13 +53,14 @@ class _Db:
         self._c, self._u, self._has_col = cities, unmatched, has_col
 
     def has_table(self, name):
-        return True
+        return name not in getattr(self, "missing_tables", ())
 
     def has_column(self, table, column):
         return self._has_col
 
     def rows(self, sql, params=None):
         if "market_data:cities" in sql:
+            self.cities_sql = sql
             return self._c
         if "market_data:unmatched" in sql:
             return self._u
@@ -85,8 +87,12 @@ def check(name, ok):
         failed += 1
 
 
-def run(cities, unmatched=(), has_col=True):
-    return list(_market_data(_Ctx(cities, unmatched, has_col)))
+def run(cities, unmatched=(), has_col=True, missing_tables=()):
+    ctx = _Ctx(cities, unmatched, has_col)
+    ctx.db.missing_tables = missing_tables
+    out = list(_market_data(ctx))
+    run.last_db = ctx.db
+    return out
 
 
 def of(fs, code):
@@ -107,7 +113,32 @@ check("בלי פין: חיפה (31%) וקריית אתא (35%), לא נשר (13%
 
 check("עסקאות של 45 ימים - טריות, אין ממצא", not of(fs, "market_city_deals_stale"))
 stale = of(run([city("afula-emek", "עפולה", 1512, hoods=14, days=200)]), "market_city_deals_stale")
-check("עסקה אחרונה לפני 200 ימים - ממצא", len(stale) == 1 and stale[0].metric == 200)
+check("עסקה אחרונה לפני 200 ימים, בלי סנכרון ידוע - ממצא", len(stale) == 1 and stale[0].metric == 200)
+# ‏12.11.2026: מלאה - 27 עסקאות, האחרונה ב-2018, וסוכן הדפדפן סנכרן אותה אתמול.
+# זה כל מה שיש ב-GovMap על המושב, לא עדכון שלא רץ.
+check("עסקה אחרונה לפני 3,059 ימים אבל סונכרן לפני יום - אין ממצא",
+      not of(run([city("afula-emek", "מלאה", 27, days=3059, synced=1)]), "market_city_deals_stale"))
+old_sync = of(run([city("afula-emek", "גדעונה", 1, days=352, synced=90)]), "market_city_deals_stale")
+check("עסקה אחרונה לפני 352 ימים והסנכרון המוצלח האחרון לפני 90 - ממצא, עם הסנכרון בראיות",
+      len(old_sync) == 1 and old_sync[0].evidence["last_ok_sync_days"] == 90
+      and "90" in old_sync[0].detail)
+# עיר של ממש (500+ עסקאות) שסונכרנה אתמול ועדיין אין בה עסקה חמישה חודשים:
+# המקור כנראה מחזיר רשימה ריקה. הממצא נשאר, והפירוט אומר את זה.
+big = of(run([city("afula-emek", "עפולה", 1512, hoods=14, days=200, synced=1)]), "market_city_deals_stale")
+check("עיר עם 1,512 עסקאות שסונכרנה אתמול ובלי עסקה 200 ימים - ממצא, עם ההצעה לבדוק את המקור",
+      len(big) == 1 and "ריקה" in big[0].detail)
+check("אשלים: 4 שכונות אבל 2 עסקאות, סונכרנה לפני 22 ימים - יישוב, אין ממצא",
+      not of(run([city("dimona-arad", "אשלים", 2, hoods=4, days=247, synced=22)]), "market_city_deals_stale"))
+# בלי deal_settlements (מסד ישן) - השאילתה מבקשת null והממצא נשאר כפי שהיה.
+no_tbl = of(run([city("afula-emek", "מלאה", 27, days=3059)], missing_tables=("deal_settlements",)),
+            "market_city_deals_stale")
+check("בלי טבלת deal_settlements - ממצא כמו קודם, והשאילתה אינה פונה לטבלה",
+      len(no_tbl) == 1 and "null::int" in run.last_db.cities_sql
+      and "deal_settlements" not in run.last_db.cities_sql)
+with_tbl = run([city("afula-emek", "מלאה", 27, days=3059, synced=1)])
+check("עם הטבלה - השאילתה קוראת את last_synced_at בלי סינון לפי last_status",
+      "deal_settlements" in run.last_db.cities_sql and "last_synced_at" in run.last_db.cities_sql
+      and "last_status" not in run.last_db.cities_sql and "%" not in run.last_db.cities_sql)
 
 check("כל השכונות עם גבול - אין ממצא", not of(fs, "market_hoods_no_boundary"))
 nb = of(run([city("haifa", "חיפה", 1510, hoods=77, no_boundary=6),

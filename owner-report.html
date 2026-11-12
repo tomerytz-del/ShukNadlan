@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- ‏בלי GTM, בכוונה: הדף נפתח מקישור עם טוקן שבעל/ת הנכס קיבל/ה מהיועץ/ת,
+     ולא משיווק. תגיות שיווק לא רצות כאן, ו-owner-report פטור ב-check_gtm.py.
+     docs/owner-report.md -->
+<!-- ‏בלי assets/events.js, בכוונה - כמו המיניסייט ללקוח/ה: דף עם טוקן
+     שסוכן/ת מעביר/ה לבעל/ת הנכס שלו/ה, והחיוג מתוכו לסוכן/ת הוא שיחה עם בעלים
+     קיימ/ת ולא פנייה של גולש/ת. ‏owner-report ב-PRIVATE_PAGES של check_events.py.
+     docs/owner-report.md -->
+<script src="assets/esc.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>דוח שבועי לבעל הנכס | שוק נדל״ן</title>
+<link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
+<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" sizes="any">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js" data-no-auto></script>
+<!-- אימות הבעלות מול Google Search Console. הבלוק חוזר בכל דף מאותה
+     סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
+     docs/security-headers.md -->
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#1c3a5e; --brand-dark:#122840; --accent:#c0912f; --on-brand:#fff;
+    --ink:#1B1F26; --ink-2:#4a5260; --ink-3:#6b7280; --line:#e4e2dc; --soft:#f6f5f2;
+    --up:#1e7a4c; --down:#b3402f;
+    --sa-top:env(safe-area-inset-top,0px); --sa-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef0f4;color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
+  h1,h2{font-family:'Frank Ruhl Libre',serif;font-weight:700;margin:0}
+  .or-state{max-width:720px;margin:16px auto;background:#fff;border-radius:16px;padding:22px 20px;text-align:center;box-shadow:0 2px 10px rgba(18,40,64,.09)}
+  .or-state h1{font-size:1.25rem;color:var(--brand-dark);margin-bottom:6px}
+  .or-state .sub{color:var(--ink-3);font-size:.92rem;margin:0}
+  .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;margin:6px auto 10px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .or-wrap{max-width:720px;margin:0 auto;padding:calc(12px + var(--sa-top)) 12px calc(28px + var(--sa-bottom))}
+  .or-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .or-btn{display:flex;align-items:center;justify-content:center;min-height:46px;padding:0 14px;border-radius:12px;border:0;font:inherit;
+    font-weight:700;font-size:.92rem;cursor:pointer;background:#fff;color:var(--brand-dark);box-shadow:0 1px 4px rgba(18,40,64,.12)}
+  .or-btn.is-print{background:var(--brand-dark);color:#fff}
+  .or-msg{grid-column:1 / -1;margin:0;min-height:1em;font-size:.85rem;color:var(--up);text-align:center}
+  .or-sheet{background:#fff;border-radius:14px;padding:22px 20px;box-shadow:0 2px 10px rgba(18,40,64,.09);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .or-brandbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--brand);color:var(--on-brand);border-radius:14px;padding:14px 18px;margin-bottom:14px}
+  .or-brand-id{display:flex;align-items:center;gap:12px;min-width:0}
+  .or-logo{background:#fff;border-radius:10px;padding:6px 8px;display:flex;align-items:center;flex:none}
+  .or-logo img{height:34px;width:auto;max-width:120px;object-fit:contain;display:block}
+  .or-agency{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;line-height:1.2}
+  .or-doc-title{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:left}
+  .or-kicker{font-size:.8rem;font-weight:800;letter-spacing:.04em}
+  .or-date{font-size:.72rem;opacity:.85}
+  .or-hero h1{font-size:1.35rem;color:var(--brand-dark)}
+  .or-sub{font-size:.86rem;color:var(--ink-2);margin:2px 0 0}
+  .or-note{margin:16px 0 0;background:var(--soft);border-inline-start:4px solid var(--accent);border-radius:10px;padding:12px 14px}
+  .or-note b{display:block;font-size:.76rem;color:var(--ink-3);margin-bottom:3px}
+  .or-note p{margin:0;font-size:.92rem;white-space:pre-wrap;overflow-wrap:anywhere}
+  .or-sec{margin-top:22px;break-inside:avoid-page}
+  .or-h{font-size:.82rem;font-weight:800;color:var(--brand);letter-spacing:.03em;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent);display:inline-block}
+  .or-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .or-stat{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;text-align:right}
+  .or-stat .l{font-size:.72rem;color:var(--ink-3);font-weight:700}
+  .or-stat .n{font-size:2rem;font-weight:800;line-height:1.1;margin-top:2px;direction:ltr;text-align:right}
+  .or-stat .d{font-size:.72rem;color:var(--ink-2);margin-top:3px}
+  .or-stat .d.is-up{color:var(--up)} .or-stat .d.is-down{color:var(--down)}
+  @media(max-width:420px){.or-stat .n{font-size:1.6rem}}
+  .or-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:150px;padding-top:18px}
+  .or-bar{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+  .or-bar i{display:block;width:100%;max-width:38px;background:var(--brand);border-radius:6px 6px 2px 2px;min-height:3px}
+  .or-bar.is-zero i{background:var(--line)}
+  .or-bar b{font-size:.74rem;margin-bottom:3px;direction:ltr}
+  .or-bar span{font-size:.64rem;color:var(--ink-3);margin-top:4px;white-space:nowrap}
+  .or-cap{font-size:.75rem;color:var(--ink-3);margin:8px 0 0;line-height:1.5}
+  .or-market{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .or-market .big{font-size:1.9rem;font-weight:800;direction:ltr;display:inline-block}
+  .or-facts{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .or-facts>div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .or-facts dt{font-size:.66rem;color:var(--ink-3);font-weight:700}
+  .or-facts dd{margin:2px 0 0;font-size:.88rem;font-weight:600}
+  .or-agent{display:flex;align-items:center;gap:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+  .or-agent-photo{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--accent)}
+  .or-agent-photo.is-initial{display:flex;align-items:center;justify-content:center;background:var(--brand);color:var(--on-brand);font-weight:800;font-size:1.2rem}
+  .or-agent-name{font-weight:700;font-size:.92rem}
+  .or-agent-meta{font-size:.78rem;color:var(--ink-2);margin-top:2px}
+  .or-agent-meta a{color:inherit;text-decoration:none}
+  .or-foot{margin-top:16px;font-size:.68rem;color:var(--ink-3);line-height:1.6}
+  @media print{
+    body{background:#fff}
+    .or-actions,.or-state{display:none !important}
+    .or-wrap{padding:0;max-width:none}
+    .or-sheet{box-shadow:none;border-radius:0;padding:0}
+  }
+</style>
+</head>
+<body>
+
+<div class="or-state" id="orState"><div class="spin"></div><p>טוענים את הדוח…</p></div>
+<div class="or-wrap" id="orWrap" hidden>
+  <div class="or-actions">
+    <button type="button" class="or-btn is-print" id="orPrint">הדפסה / שמירה כ-PDF</button>
+    <button type="button" class="or-btn" id="orCopy">העתקת הקישור</button>
+    <p class="or-msg" id="orMsg" aria-live="polite"></p>
+  </div>
+  <div class="or-sheet" id="orBody"></div>
+</div>
+
+<script src="assets/owner-report.js"></script>
+</body>
+</html>

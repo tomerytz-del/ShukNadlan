@@ -1,8 +1,9 @@
 /* מיקום משוער - רכיב אחד לכל המפות.
 
    נכס באזור תעשייה בלי כתובת מדויקת מקבל במסד נקודה אקראית בתוך האזור
-   (location_precision = 'zone'), ונכס על חלקה גדולה - את מרכז החלקה
-   ('parcel'). הפין הזה **אינו** המיקום, ולכן כל מפה שמציגה אותו אומרת זאת:
+   (location_precision = 'zone'), נכס על חלקה גדולה - את מרכז החלקה
+   ('parcel'), ונכס בלי פין שיש לו רחוב - נקודה מהעסקאות שנסגרו ברחוב
+   ('street', מ-10.11.2026). הפין הזה **אינו** המיקום, ולכן כל מפה שמציגה אותו אומרת זאת:
    פין בעיצוב שונה, ובועית "המיקום של הנכס הזה מוערך". הנוסח יושב כאן ורק
    כאן, כדי שדף הבית, דף הנכס וה-CRM לא יתפצלו.
 
@@ -18,8 +19,9 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  var APPROX = { zone: 1, parcel: 1, street: 1, neighborhood: 1, city: 1 };
   function isApprox(p) {
-    return !!p && (p.location_precision === 'zone' || p.location_precision === 'parcel');
+    return !!p && !!APPROX[p.location_precision];
   }
 
   function zoneName(p) {
@@ -29,15 +31,25 @@
 
   /* הטקסט המלא - לבועית בדף הנכס */
   function text(p) {
-    var where = p && p.location_precision === 'zone'
+    var k = p ? p.location_precision : '';
+    var where = k === 'zone'
       ? 'הנכס נמצא ב' + (zoneName(p) || 'אזור התעשייה') + ', והנקודה על המפה מסמנת את האזור ולא את הכתובת המדויקת.'
+      : k === 'street'
+      ? 'הנקודה על המפה מסמנת את הרחוב ולא את הבניין המדויק.'
+      : k === 'neighborhood'
+      ? 'הנכס נמצא ב' + (zoneName(p) ? 'שכונת ' + zoneName(p) : 'השכונה') + ', והנקודה על המפה מסמנת את השכונה ולא את הכתובת המדויקת.'
+      : k === 'city'
+      ? 'הנקודה על המפה מסמנת את היישוב ולא את הכתובת המדויקת.'
       : 'הנקודה על המפה מסמנת את אזור החלקה ולא את הכתובת המדויקת.';
     return 'המיקום של הנכס הזה מוערך. ' + where + ' לפרטים מדויקים, פנו ליועץ הנדל״ן של הנכס.';
   }
 
   /* התווית הקצרה - לתגית, לבלון במפה ולכרטיס ב-CRM */
   function label(p) {
-    var z = p && p.location_precision === 'zone' ? zoneName(p) : '';
+    var k = p ? p.location_precision : '';
+    var z = k === 'zone' || k === 'neighborhood' ? zoneName(p)
+      : k === 'street' ? 'ברחוב'
+      : k === 'city' ? 'ביישוב' : '';
     return 'מיקום משוער' + (z ? ' - ' + z : '');
   }
 

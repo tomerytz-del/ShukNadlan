@@ -217,6 +217,9 @@ verify_jwt = false          # דף הבדיקה התכנונית (/plan?k=) לס
 [functions.cma-link]
 verify_jwt = false          # דף דוח ה-CMA (/cma?k=), גם ללקוח/ה: הקישור מגבריאלה הוא ההרשאה (32 תווים, 30 יום). קריאה בלבד, 401 על טוקן לא תקין
 
+[functions.owner-report-link]
+verify_jwt = false          # דף הדוח לבעל הנכס (/owner-report?k=): הקישור שהסוכן/ת שולח/ת הוא ההרשאה (32 תווים, 30 יום). מספרים בלבד, 401 על טוקן לא תקין
+
 # ---------------------------------------------------------------------------
 # מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
 # ---------------------------------------------------------------------------
@@ -370,6 +373,9 @@ verify_jwt = false          # מטא + חתימת X-Hub-Signature-256
 
 [functions.social-lead-intake]
 verify_jwt = false          # גבריאלה בפייסבוק/אינסטגרם (Zernio) - סוד משותף SOCIAL_LEAD_SECRET, fail-closed
+
+[functions.listing-inventory-intake]
+verify_jwt = false          # סורק מלאי יד2/מדלן - סוד משותף LISTING_INTAKE_SECRET ב-x-listing-intake-secret, fail-closed
 
 [functions.csp-report]
 verify_jwt = false          # הדפדפן שולח דיווחי CSP בלי כותרות שלנו; הגנה מהצפה בתקרה היומית במסד

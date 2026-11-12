@@ -214,6 +214,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .side-contact h2{font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:0;font-size:26px;color:#fff}
   .side-contact p{margin:0;font-size:15px;line-height:1.6;color:var(--on-dark)}
   .side-contact .side-note{font-size:13px;color:#b9c4e0}
+  .owner-note{margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft);text-align:center;padding:0 6px}
+  .owner-note a{color:var(--blue);text-decoration:underline}
+  .owner-note a:hover{color:var(--blue-dark)}
   .side-wa,.side-tel{display:flex;align-items:center;justify-content:center;gap:10px;border-radius:14px}
   .side-wa,.side-wa:hover{background:var(--wa);color:#fff;font-weight:700;font-size:17px;min-height:56px}
   .side-wa:hover{background:#156a3e}
@@ -419,6 +422,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p>עמוד כמו זה, עם כפתור וואטסאפ ישיר. הפרסום בחינם.</p>
         <a href="/professional-signup">לפרסום חינם באתר ←</a>
       </div>
+      <!-- בעל/ת העמוד שהגיע/ה לכאן מקישור ציבורי מחפש/ת "כניסה". אין כאן כניסה: העריכה
+           מהקישור האישי או מהאזור האישי, והשורה אומרת לאן ללכת (10.11.2026, אחרי שיועץ
+           כתב "זה מכניס אותי כאורח"). docs/professional-cards.md -->
+      <p class="owner-note">זה העמוד שלכם? העריכה נעשית מ<a href="/professional-crm">האזור האישי</a> (כניסה עם אימייל וסיסמה) או מקישור העריכה האישי. <a href="/professional-manage">איבדתם את הקישור?</a></p>
     </aside>
   </div>
 
@@ -605,7 +612,7 @@ function renderContact(p){
       `<p>ההודעה נפתחת בוואטסאפ עם פתיח מוכן. נשאר רק לכתוב מה צריך.</p>` +
       `<a class="side-wa" data-professional href="${wa}" target="_blank" rel="noopener">${icon('wa', 22, 1.9)}שליחת וואטסאפ</a>` +
       `<a class="side-tel" data-professional href="${tel}">${icon('tel', 20)}חיוג</a>` +
-      `<p class="side-note">הפנייה מגיעה ישירות לבעל המקצוע, בלי תיווך.</p>`;
+      `<p class="side-note">הפנייה מגיעה ישירות לבעל המקצוע.</p>`;
     el('sideContact').hidden = false;
 
     el('stickyBar').innerHTML =
@@ -1191,6 +1198,7 @@ function renderMeta(p){
           <a href="/for-brokers">פלטפורמה למתווכים</a>
           <a href="/course">קורס הכנה למבחן המתווכים</a>
           <a href="/ethics-code">הקוד האתי ותו האיכות</a>
+          <a href="/terms#t27">פרטי בית העסק</a>
           <a href="/crm">כניסת יועצי נדל״ן</a>
         </div>
       </details>

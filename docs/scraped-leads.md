@@ -1,6 +1,7 @@
 # לידים מפוסטים בפייסבוק - הסכמה, ליד, ביקוש פתוח
 
-סוכן AI חיצוני סורק קבוצות פייסבוק ומרקטפלייס (ובהמשך מקורות פתוחים נוספים),
+סוכן AI חיצוני סורק קבוצות פייסבוק ומרקטפלייס, ומודעות של בעלים פרטיים
+במדלן (ובהמשך מקורות פתוחים נוספים),
 ומוצא אנשים פרטיים שמחפשים לקנות או לשכור, או שרוצים למכור או להשכיר. פיילוט
 בעמקים, בעיקר בעפולה. המיגרציות: `20270812090000_scraped_leads.sql`, ותקופת
 ההשקה ב-`20270823090000_scraped_leads_launch.sql` (למטה, "תקופת ההשקה").
@@ -18,6 +19,11 @@
 כל שורה, בכל מצב, נמחקת 30 יום אחרי תאריך הפוסט (`scraped_leads_lifecycle`,
 cron כל שעה ב-‎:29).
 
+מחפש/ת מפייסבוק או מאינסטגרם (`kind=buyer`) נכנס/ת לכאן כ-`open_demand`
+בלי שם ובלי טלפון, רק אחרי insert חדש ל-`saved_searches`, כש-
+`social_buyer_open_demand_enabled` הוא 1 ויומן התקרה קיים. אין מילוי של
+חיפושים ישנים. המסלול: `docs/social-leads.md`, "מחפש/ת לביקוש הפתוח".
+
 ## הקריאות של הסוכן הסורק
 
 ההוראות לסוכן הסורק עצמו, בנוסח שאפשר להעביר לו: `docs/agent-skills/facebook-leads-scanner.md`.
@@ -30,7 +36,7 @@ cron כל שעה ב-‎:29).
 ```sql
 select public.scraped_lead_add('{
   "lead_type": "seeker_inbound",            -- או owner_inbound
-  "source": "facebook_group",               -- או facebook_marketplace
+  "source": "facebook_group",               -- או facebook_marketplace, או madlan, או yad2
   "source_detail": "דירות להשכרה בעפולה",   -- שם הקבוצה, עד 120 תווים
   "external_ref": "https://www.facebook.com/groups/123/posts/456/",
   "posted_at": "2026-10-24T09:12:00+03:00", -- עד 72 שעות אחורה
@@ -59,6 +65,8 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
 `{duplicate: 'post' | 'declined' | 'phone' | 'lead'}`, או `{error}`:
 `invalid_lead_type`, `invalid_source`, `missing_post_url`, `missing_city`,
 `missing_phone`, `missing_posted_at`, `post_too_old`, `invalid_deal_type`.
+`missing_posted_at` ו-`post_too_old` חלים על פייסבוק בלבד. במדלן אין תאריך
+פרסום, ו-`posted_at` נכתב כרגע הקליטה (ראו "מדלן" למטה).
 `city_known: false` אומר שהעיר לא זוהתה ב-`cities` (`city_id_for_name`). שורה
 כזו לא תנותב ולא תוצג לאיש, ולכן כדאי לתקן את שם העיר. "קיבוץ X", "מושב X"
 ושם בלי המציין של הלמ"ס ("אשדות יעקב") **כן** מזוהים (ראו
@@ -86,9 +94,78 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
    נמחק (7 ימים או הסכמה), ונמחק יחד עם השורה 30 יום אחרי תאריך הפוסט.
    בלי ה-hash, פוסט חוזר מהיום השמיני היה נקלט שוב. נשארת גם ההשוואה על
    `phone_tail9(raw_phone)` לשורה שעוד יש בה טלפון. ב-`leads` לפי `phone_tail9`.
+   **יוצא מן הכלל: מספר 073 של מדלן** (‏`073-XXXXXXX`, גם עם קידומת `972`).
+   זה מספר של המרכזיה, לא של אדם, ואותו מספר מופיע בכמה מודעות. הוא נשמר
+   ב-`raw_phone` כדי שאפשר יהיה להתקשר, אבל `phone_hash` נשאר ריק והוא לא
+   משתתף בכפילות. שתי מודעות עם אותו 073 נקלטות. פוסט בפייסבוק עם אותו 073
+   לא נחסם בגללן. מספר נייד אמיתי במודעת מדלן ממשיך לאחד אדם ל-30 יום.
    בלי אינדקס ייחודי: אותו אדם יכול להיות מחפש/ת היום ובעלים בעוד חודש.
    מילוי השורות הקיימות כותב רק את `phone_hash` ולא נוגע ב-`demand_notified_at`.
    פונקציה ש-`anon` או `authenticated` יכולים לקרוא לא מחזירה את ה-hash.
+
+## מדלן
+
+מודעות של בעלים פרטיים מ-`https://www.madlan.co.il/listings/<id>`. אין פניה
+לבעלים: לא בקשת הסכמה, לא הודעה ולא תזכורת. `scraped_lead_set_consent` על
+`requested` או `consented` מחזיר `no_owner_contact`.
+
+```sql
+select public.scraped_lead_add('{
+  "lead_type": "owner_inbound",
+  "source": "madlan",
+  "source_detail": "עפולה",
+  "external_ref": "https://www.madlan.co.il/listings/abc123",
+  "first_seen_at": "2026-11-11T12:00:00+02:00",
+  "date_known": false,
+  "raw_phone": "073-123-4567",
+  "city": "עפולה",
+  "deal_type": "sale", "property_type": "דירה",
+  "summary": "דירת 4 חדרים, בעלים פרטיים"
+}'::jsonb);
+```
+
+`first_seen_at` הוא מתי הסורק ראה את המודעה לראשונה. בסריקה הראשונה זה
+היום לכל המלאי, ולכן `date_known` חייב להיות `false`. בלי `date_known`
+אין דחיפת וואטסאפ, גם אם התאריך הוא היום. כש-`date_known` הוא `true`
+והתאריך בתוך חלון הטריות (14 יום), נדחפות עד `madlan_notify_daily_cap`
+מודעות ביום (ברירת מחדל 5). השאר נשארות באתר.
+
+אם `scraped_lead_matching_enabled` דלוק ויש התאמה, והשורה מותרת לדחיפה,
+נולד ליד פתוח לסוכן/ת אחד/ת עם `quota_source = madlan_free`. אחרת זו
+ביקוש פתוח, והטלפון מופיע בכרטיס. `claim_lead` על `source = madlan` לא
+נוגע בארנק ולא במכסה.
+
+אחרי 30 יום השורה נמחקת, ומותר לקלוט את אותה כתובת שוב. מספר `073` לא
+מאחד מודעות. לפייסבוק חלון 72 השעות לא משתנה.
+
+המזהה הקנוני הוא `madlan.co.il/listings/<id>`.
+
+בפרודקשן `scraped_lead_matching_enabled` הוא 1 (נבדק 11.11.2026). ההתאמה
+לא מסננת לפי `source`.
+
+## יד2
+
+אותם כללים כמו מדלן, למודעות בעלים פרטיים מ-`https://www.yad2.co.il/...`.
+אין פניה לבעלים: לא בקשת הסכמה, לא הודעה ולא תזכורת.
+`scraped_lead_set_consent` על `requested` או `consented` מחזיר
+`no_owner_contact`. הליד נפתח בלי חיוב (`quota_source = yad2_free`).
+`claim_lead` על `source = yad2` לא נוגע בארנק ולא במכסה.
+
+`date_known` ו-`push_site_only` כמו במדלן. תקרת הדחיפה היא אותה
+`madlan_notify_daily_cap`, ונספרות **יחד** מודעות מדלן ויד2, כדי ששני
+המקורות לא יכפילו את הוואטסאפ. מספר `073` נשאר חריג של מדלן בלבד: ביד2
+מספר אמיתי מאחד אדם ל-30 יום.
+
+אחרי 30 יום השורה נמחקת. מותר להציע את אותה מודעה שוב **רק אם היא עדיין
+חיה** במלאי (`listing_inventory.removed_at` ריק). מודעה שירדה לא נפתחת
+מחדש. המלאי עצמו: `docs/listing-inventory.md`.
+
+## מלאי מודעות
+
+`listing_inventory_sync` מקבל תמונה של מה שחי עכשיו בעיר, במדלן או ביד2.
+הסנכרון הראשון של עיר זורע בשקט. מודעה שמופיעה אחר כך נכנסת דרך
+`scraped_lead_add` עם `date_known = true`. תמונה ריקה או קטנה מדי לא
+מוחקת את המלאי. בטבלה אין טלפון ואין שם בעלים.
 
 ## אחרי הסכמה: ליד רגיל
 
@@ -98,13 +175,13 @@ select public.scraped_lead_set_consent('<id>', 'declined');   -- סירב/ה -> 
 | --- | --- |
 | `lead_type` | `owner_inbound` / `seeker_inbound` |
 | `status` | `masked`. ‏`quota_source` נשאר ריק, ו-`claim_lead` כותבת אותו בפתיחה |
-| `agent_id`, `agency_id` | סוכן/ת אחד/ת: עובד/ת בעיר ומתעסק/ת בסוג הנכס (ראו למטה). לליד בעלים רק `mid`/`premium`, כי `free` אינו רשאי לפתוח אותו. מי שקיבל/ה ליד מפייסבוק הכי מזמן קודם |
-| `source` | `facebook_group` / `facebook_marketplace`, ערוץ `social` בבקרת הלידים |
-| `source_detail` | "קבוצת פייסבוק · <שם הקבוצה>" |
+| `agent_id`, `agency_id` | סוכן/ת אחד/ת: עובד/ת בעיר ומתעסק/ת בסוג הנכס (ראו למטה). לליד בעלים רק `mid`/`premium`, כי `free` אינו רשאי לפתוח אותו. מי שקיבל/ה ליד מפייסבוק, ממדלן או מיד2 הכי מזמן קודם |
+| `source` | `facebook_group` / `facebook_marketplace` / `madlan` / `yad2`, ערוץ `social` בבקרת הלידים |
+| `source_detail` | "קבוצת פייסבוק · <שם הקבוצה>", "מרקטפלייס · ...", "מדלן · ...", או "יד2 · ..." |
 | `external_ref` | המזהה הקנוני |
 | `raw_message` | הטקסט, תאריך הפוסט והקישור. נחשף רק אחרי פתיחה, כי הקישור מזהה את האדם |
 
-**התמחור והמכסה הם של `claim_lead` כמו שהם:** ליד בעלים - ‏12 שעות בלעדיות,
+**התמחור והמכסה הם של `claim_lead` כמו שהם, חוץ מ-`source = madlan` או `yad2` שנפתח בלי חיוב:** ליד בעלים - ‏12 שעות בלעדיות,
 ‏Premium חינם, ‏Mid ‏₪50. ‏`seeker_inbound` נופל לאותו ענף של פנייה על נכס:
 רק מי שהליד שויך אליו/ה, ‏Mid/Premium בלי עלות, ‏Pay&GO במכסה ואחריה ₪25.
 

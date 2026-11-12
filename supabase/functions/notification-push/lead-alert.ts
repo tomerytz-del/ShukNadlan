@@ -41,6 +41,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   // ‏פוסט שהסוכן הסורק מצא, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
   facebook_group: "קבוצת פייסבוק",
   facebook_marketplace: "מרקטפלייס של פייסבוק",
+  madlan: "מדלן",
+  yad2: "יד2",
 };
 
 // הפונה לא פנה/תה אלינו: פרסם/ה פוסט, ואישר/ה שמתווך/ת יחזור/תחזור אליו/ה
@@ -154,6 +156,13 @@ export async function loadLeadInfo(sb: any, batch: Row[]): Promise<Map<string, L
 
 function intro(li: LeadInfo): string {
   const via = li.source ? ` דרך ${li.source}` : "";
+  if (li.source === "מדלן" || li.source === "יד2") {
+    const who = li.leadType === "owner_inbound" ? "בעל נכס" : "מחפש נכס";
+    const how = li.source === "מדלן"
+      ? "לרוב זה מספר 073 שמעביר את השיחה"
+      : "המערכת לא פונה לבעלים";
+    return `${li.name} - ${who} - מודעה ב${li.source}. אפשר להתקשר למספר שבליד. ${how}${li.what ? ":" : "."}`;
+  }
   if (li.fromPost) {
     const who = li.leadType === "owner_inbound" ? "בעל/ת נכס" : "מחפש/ת נכס";
     return `${li.name} - ${who} - פרסם/ה פוסט ב${li.source} ואישר/ה שנחזור${li.what ? ":" : "!"}`;
@@ -172,7 +181,9 @@ export function leadText(first: string, li: LeadInfo, _link: string | null, optO
     ...(li.excerpt ? ["", `💬 "${li.excerpt}"`] : []),
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
-    "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
+    li.source === "מדלן" || li.source === "יד2"
+      ? "⏱️ מי שמתקשר ראשון - סוגר."
+      : "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
     "",
     optOutLine,
   ];
@@ -184,7 +195,9 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
   const parts = [
     `🔥 ליד חם! ${intro(li)}${li.what ? ` 🏠 ${li.what}` : ""}`,
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
-    alone ? "⏱️ מי שחוזר ראשון - סוגר!" : "",
+    alone
+      ? (li.source === "מדלן" || li.source === "יד2" ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שחוזר ראשון - סוגר!")
+      : "",
   ];
   const line = parts.filter(Boolean).join(" · ");
   return url ? `${line} ${url}` : `${line} פרטים ב-CRM.`;

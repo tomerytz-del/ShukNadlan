@@ -24,14 +24,14 @@ const LEAD_SRC = {
   prop:  { label:'דף נכס',      tone:'accent', why:'פנייה מהאתר' },
   agent: { label:'דף הסוכן',    tone:'accent', why:'פנייה מהדף שלך' },
   site:  { label:'האתר',        tone:'accent', why:'פנייה מהאתר' },
-  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק או מאינסטגרם' },
+  social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק, מאינסטגרם, ממדלן או מיד2' },
 };
 const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['store', 'חנות הלידים']];
 const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',
-  // פוסט בקבוצה או במרקטפלייס, אחרי הסכמה (scraped_lead_set_consent, docs/scraped-leads.md)
-  'facebook_group', 'facebook_marketplace']);
+  // פוסט בקבוצה או במרקטפלייס אחרי הסכמה. מדלן ויד2: מתקשרים למספר, בלי פניה לבעלים מצד המערכת (docs/scraped-leads.md)
+  'facebook_group', 'facebook_marketplace', 'madlan', 'yad2']);
 /* ארבעה שלבים בפס (lead_work.stage). "לא רלוונטי" אינו בפס - הוא ארכוב */
 const LEAD_BAR = [['new', 'חדש'], ['contacted', 'יצרתי קשר'], ['meeting', 'פגישה'], ['won', 'נסגר']];
 const LEADS_STEP = 3;
@@ -103,6 +103,18 @@ function leadStageTagHtml(lead){
   const label = (typeof LEAD_STAGE_LABEL !== 'undefined' && LEAD_STAGE_LABEL[stage])
     || ({ new:'חדש', contacted:'נוצר קשר ראשוני', meeting:'בתיאום פגישה / סיור', not_relevant:'לא רלוונטי / לא ענה', won:'נסגר בהצלחה' })[stage];
   return `<span class="lp-st lp-st-${stage}">${esc(label)}</span>`;
+}
+
+/* הפונה הוא יועץ/ת רשום/ה (lead_agent_phone_flags): סימון בלבד, בליד פתוח בלבד.
+   "המספר שלך" = בדיקה של הסוכן/ת עצמו/ה. אחר = ייתכן שאינו פונה אמיתי/ת (סיבת broker
+   בדיווח על ליד לא תקין). המסד מחזיר רק ליד פתוח, והבדיקה כאן היא רשת שנייה. */
+function leadAgentPhoneTagHtml(lead){
+  if (!lead || lead.status !== 'unlocked' || typeof leadAgentPhoneOf === 'undefined' || !leadAgentPhoneOf.has(lead.id)) return '';
+  const self = leadAgentPhoneOf.get(lead.id);
+  return '<span class="ui-tag ui-tag--warn" title="' + (self
+    ? 'הטלפון בליד הוא הטלפון שלך. נראה שזו בדיקה שלך, לא פנייה של גולש/ת.'
+    : 'הטלפון בליד רשום אצלנו כיועץ/ת נדל״ן. ייתכן שזו פנייה מקצועית ולא של לקוח/ה.') + '">'
+    + (self ? 'בדיקה: המספר שלך' : 'הפונה רשום/ה כיועץ/ת') + '</span>';
 }
 
 /* מה זוהה בשיחה - extracted.facts מהסיכום (twilio-voice). שיחה שסוכמה לפני
@@ -324,6 +336,7 @@ function buildLeadPriorityCard(group, rank, agentId){
     + (phone ? `<div class="lp-phone"><bdi dir="auto">${esc(phone)}</bdi></div>` : '')
     + `<div class="lp-meta"><span class="ui-tag ui-tag--${meta.tone}">${esc(meta.label)}${detail ? ' · ' + esc(detail) : ''}</span>`
     + leadStageTagHtml(lead)
+    + leadAgentPhoneTagHtml(lead)
     + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
@@ -506,9 +519,9 @@ function openLeadUnified(id){
    פוסט בפייסבוק שבעליו לא ענה/תה לבקשת ההסכמה 7 ימים (scraped_leads_lifecycle,
    docs/scraped-leads.md), ובתקופת ההשקה - כל פוסט מרגע הקליטה, במקביל לבקשת
    ההסכמה (open_demand_list). אינו ליד: בלי שם, טלפון או טקסט, בלי מכסה ובלי
-   תשלום. הדרך היחידה לפנות היא הפוסט עצמו - ולכן אין כאן חיוג, וואטסאפ או
-   "הוספה כלקוח/ה". "אני פונה" (open_demand_claim) תופס את הביקוש לסוכן/ת
-   אחד/ת ופותח את הפוסט, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
+   תשלום. בפייסבוק הדרך לפנות היא הפוסט עצמו. מדלן: מתקשרים למספר, בלי פניה
+   לבעלים מצד המערכת, והטלפון בכרטיס. "אני פונה" (open_demand_claim) תופס את
+   הביקוש לסוכן/ת אחד/ת, עד תקרה יומית. נטען רק כשהלשונית נפתחת. */
 let openDemandRows = null;
 let openDemandStats = null;
 let openDemandLoading = false;
@@ -558,7 +571,7 @@ function syncDemandTab(){
 function openDemandWants(d){
   const owner = d.lead_type === 'owner_inbound';
   const rent = d.deal_type === 'rent';
-  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפש/ת לשכור' : 'מחפש/ת לקנות');
+  const who = owner ? (rent ? 'משכיר/ה' : 'מוכר/ת') : (rent ? 'מחפשים לשכור' : 'מחפשים לקנות');
   const hood = d.neighborhood_id && typeof allNeighborhoods !== 'undefined'
     ? (allNeighborhoods.find(n => n.id === d.neighborhood_id) || {}).name : '';
   return [who + ' ' + (d.property_type || 'נכס'), hood ? hood + ', ' + d.city : d.city,
@@ -585,22 +598,36 @@ function renderOpenDemand(listEl){
     loadOpenDemand();
     return;
   }
-  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שכתבו בפייסבוק מה הם מחפשים או מציעים, ולא השאירו פרטים.'
-    + ' "אני פונה" שומר את הביקוש לך בלבד ופותח את הפוסט.</span>'
-    + '<span><strong>' + OPEN_DEMAND_RULE + '</strong></span></p>';
+  const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק, במדלן או ביד2 מה הם מחפשים או מציעים.'
+    + ' "אני פונה" שומר את הביקוש לך בלבד.</span>'
+    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן וביד2 מתקשרים למספר שבכרטיס. במדלן לרוב זה מספר 073, והוא מעביר את השיחה. המערכת לא פונה לבעלים.</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
   }
   listEl.innerHTML = hint + openDemandRows.map(d => {
-    const src = d.source === 'facebook_marketplace' ? 'מרקטפלייס' : 'קבוצת פייסבוק';
+    const socialTalk = d.source === 'instagram_dm' || d.source === 'instagram_comment' || d.source === 'facebook_dm' || d.source === 'facebook_comment';
+    const src = socialTalk
+      ? (d.source.indexOf('instagram') === 0 ? 'אינסטגרם' : 'פייסבוק')
+      : d.source === 'facebook_marketplace' ? 'מרקטפלייס'
+      : d.source === 'madlan' ? 'מדלן'
+      : d.source === 'yad2' ? 'יד2' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
+    const rule = socialTalk && !url
+      ? 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
+      : (d.source === 'madlan'
+          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
+          : (d.source === 'yad2'
+              ? 'אפשר להתקשר למספר שבכרטיס. המערכת לא פונה לבעלים.'
+              : (nb ? nb.rule : OPEN_DEMAND_RULE)));
     const act = d.mine
-      ? (url ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>` : '')
+      ? (url
+          ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`
+          : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : ''))
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}">אני פונה - לפוסט ↗</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`
@@ -609,8 +636,8 @@ function renderOpenDemand(listEl){
       + (nb ? `<span class="ui-tag ui-tag--warn">${esc(nb.tag)}</span>` : '')
       + `<span class="ui-muted">${esc(leadAgo(d.posted_at))}</span></div></div></div>`
       + `<p class="lp-wants">${esc(openDemandWants(d))}</p>`
-      + (d.mine ? '' : `<p class="lp-why"><strong>חינם:</strong> לסוכן/ת הראשון/ה שלוחץ/ת "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
-      + `<p class="lp-why"><strong>${esc(nb ? nb.rule : OPEN_DEMAND_RULE)}</strong></p>`
+      + (d.mine ? '' : `<p class="lp-why"><strong>בלי עלות:</strong> הסוכן הראשון שלוחץ "אני פונה". אחרי הלחיצה הביקוש יורד מהרשימה של כל השאר.</p>`)
+      + `<p class="lp-why"><strong>${esc(rule)}</strong></p>`
       + `<div class="lp-acts">${act}</div>`
       + `</article>`;
   }).join('');
@@ -623,12 +650,16 @@ const OPEN_DEMAND_CLAIM_ERR = {
 };
 
 async function claimOpenDemand(id, btn){
-  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await
-  const win = window.open('', '_blank');
+  // החלון נפתח בתוך הלחיצה, אחרת חוסם החלונות של הדפדפן עוצר אותו אחרי ה-await.
+  // בלי פוסט (שיחה עם גבריאלה) אין לאן לפתוח, וחלון ריק רק מפריע.
+  const openPost = !!(btn && btn.getAttribute('data-open-post') === '1');
+  const win = openPost ? window.open('', '_blank') : null;
   if (btn) btn.disabled = true;
   const { data, error } = await sb.rpc('open_demand_claim', { p_id: id });
   const err = error ? heErr(error) : (data && data.error ? (OPEN_DEMAND_CLAIM_ERR[data.error] || heErr(data.error)) : '');
-  const url = !err && data && /^https:\/\//.test(data.post_url || '') ? data.post_url : '';
+  const posted = !err && data && (/^https:\/\//.test(data.post_url || '') ? data.post_url
+    : /^https:\/\//.test(data.source_post_url || '') ? data.source_post_url : '');
+  const url = posted || '';
   if (win){
     if (url){ win.opener = null; win.location.href = url; }
     else win.close();
@@ -698,14 +729,23 @@ function openLeadsDemand(opts){
     syncLeadsSettings();
   });
   // המתג של לידי הבעלים - אותו מתג של "ההגדרות שלי", מסונכרן
-  document.getElementById('leadsOwnerSwitch').addEventListener('input', e => {
+  document.getElementById('leadsOwnerSwitch').addEventListener('input', async e => {
     const main = document.getElementById('setOwnerSwitch');
+    if (!main) return;
     main.setAttribute('aria-pressed', e.currentTarget.getAttribute('aria-pressed'));
-    setOwnerLeadsActive(main);
+    if (typeof setOwnerLeadsActive !== 'function' && window.crmNeed) {
+      try { await crmNeed('settings'); } catch (err) {}
+    }
+    if (typeof setOwnerLeadsActive === 'function') setOwnerLeadsActive(main);
   });
-  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefs());
+  const openLeadPrefsGuarded = () => {
+    const run = () => { if (typeof openLeadPrefs === 'function') openLeadPrefs(); };
+    if (typeof openLeadPrefs === 'function' || !window.crmNeed) { run(); return; }
+    crmNeed('settings').then(run).catch(() => {});
+  };
+  document.getElementById('leadsEditPrefs').addEventListener('click', () => openLeadPrefsGuarded());
   const prefEdit = document.getElementById('leadsPrefEdit');
-  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefs());
+  if (prefEdit) prefEdit.addEventListener('click', () => openLeadPrefsGuarded());
   const sheetClose = document.getElementById('leadPrefsSheetClose');
   const sheetBackdrop = document.getElementById('leadPrefsSheetBackdrop');
   if (sheetClose) sheetClose.addEventListener('click', closeLeadPrefsSheet);
@@ -823,7 +863,8 @@ window.addEventListener('resize', () => {
   const sheet = document.getElementById('leadPrefsSheet');
   if (sheet && !sheet.hidden && !leadPrefsMobile()) closeLeadPrefsSheet();
 });
-document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', leadPrefsFromHash);
+else leadPrefsFromHash();
 
 /* שורת הסיכום והמתגים של "הגדרות לידים" */
 function syncLeadsSettings(){

@@ -152,6 +152,8 @@ function renderSettingsHub(){
 document.getElementById('accPrefs').addEventListener('toggle', e => {
   if (e.target.open) renderSettingsHub();
 });
+/* הקריאה כשהקטגוריה כבר פתוחה יושבת בסוף הקובץ: כאן let settingsMounted
+   עוד לא רץ, וקריאה עכשיו זורקת ReferenceError וקוטעת את שאר הקובץ. */
 
 /* ==========================================================================
    העדפות לידים מבעלי נכסים (agent_lead_preferences)
@@ -175,6 +177,7 @@ function leadHoodGroup(n){ return n.is_industrial ? 'ind' : n.is_planned ? 'plan
 let leadPrefsRow = null;        // השורה במסד, או null כשעוד לא הוגדרו העדפות
 let leadPrefsBar = null;
 let leadPrefsAutoOpened = false;
+let leadPrefsLoaded = false;   // השאילתה הסתיימה. לפני כן שמירה הייתה דורסת שורה אמיתית בטופס ריק
 
 async function loadPreferences(agentId){
   await loadAllNeighborhoods();
@@ -183,6 +186,7 @@ async function loadPreferences(agentId){
     .select('preferred_neighborhoods, preferred_property_types, preferred_deal_types, active')
     .eq('agent_id', agentId)
     .maybeSingle();
+  leadPrefsLoaded = !error;
   leadPrefsRow = error ? null : (data || null);
   renderLeadPrefs();
 }
@@ -197,6 +201,15 @@ function leadPrefsState(){
 
 function renderLeadPrefs(){
   ensureSettingsMounted();
+  const prefsBody = document.getElementById('setLeadPrefsBody');
+  if (prefsBody && leadPrefsLoaded) {
+    var gave = prefsBody.querySelector('[data-prefs-gave-up]');
+    if (gave) gave.remove();
+  }
+  if (prefsBody) {
+    if (leadPrefsLoaded) prefsBody.removeAttribute('data-ui-lock');
+    else prefsBody.setAttribute('data-ui-lock', '');
+  }
   const groupsEl = document.getElementById('setHoodGroups');
   if (!groupsEl) return;
   const row = leadPrefsRow;
@@ -247,6 +260,7 @@ function renderLeadPrefs(){
     });
   }
   leadPrefsBar.setBaseline();
+  if (leadPrefsBar.refresh) leadPrefsBar.refresh();
   syncLeadPrefsUi();
 
   // מי שעוד לא הגדיר/ה העדפות - החלק נפתח מעצמו, פעם אחת
@@ -291,6 +305,12 @@ function leadPrefsSummary(s){
 }
 
 async function saveLeadPrefs(s){
+  if (!leadPrefsLoaded) {
+    if (window.crmGaveUp && window.crmGaveUp('settings')) {
+      throw new Error('ההעדפות לא נטענו. רעננו את הדף ונסו שוב.');
+    }
+    throw new Error('ההעדפות עדיין נטענות. נסו שוב בעוד רגע.');
+  }
   if (!currentAgent) throw new Error('not_ready');
   const active = document.getElementById('setOwnerSwitch').getAttribute('aria-pressed') === 'true';
   const { error } = await sb.from('agent_lead_preferences').upsert({
@@ -305,7 +325,8 @@ async function saveLeadPrefs(s){
   leadPrefsRow = { preferred_neighborhoods: s.hoods, preferred_property_types: s.types, preferred_deal_types: s.deals, active };
   syncLeadPrefsUi();
   // צעד "העדפות לידים" במדריך ההתחלה נסגר בשמירה הזו
-  refreshOnboarding();
+  if (window.crmNeed) { try { await crmNeed('onboarding'); } catch (e) {} }
+  if (typeof refreshOnboarding === 'function') refreshOnboarding();
 }
 
 /* המתג בכותרת נשמר מיד ועובד גם כשהחלק סגור. מי שעוד אין לו/ה שורה -
@@ -475,7 +496,8 @@ function ensureSettingsMounted(){
   mountHubQuiet();
   wireNotifScreen();
 }
-document.addEventListener('DOMContentLoaded', ensureSettingsMounted);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureSettingsMounted);
+else ensureSettingsMounted();
 
 function mountHubQuiet(){
   const host = document.getElementById('setQuietEditor');
@@ -512,7 +534,7 @@ function mountHubQuiet(){
 const NOTIF_GROUPS = [
   { key:'leads',   title:'לידים ולקוחות', types:['new_lead', 'open_demand', 'showcase_meeting', 'showcase_activity', 'match_digest', 'retention_warning', 'client_match'] },
   { key:'agenda',  title:'יומן והמנטור', types:['agenda_reminder', 'coach_daily', '__reminders', 'onboarding_property', 'onboarding_client', 'onboarding_agreement', 'onboarding_lead', 'onboarding_license'] },
-  { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'listing_match', 'call_deleted_by_manager'] },
+  { key:'deals',   title:'עסקאות, הסכמים ונכסים', types:['agreement_signed', 'deal_closed', 'marketing_copy', 'system', 'share_digest', 'listing_match', 'call_deleted_by_manager'] },
   { key:'reviews', title:'ביקורות', types:['review_new', 'review_request'] },
   { key:'admin',   title:'ניהול הפלטפורמה', admin:true, types:['review_alert', 'lead_unrouted', 'platform_signup', 'deal_data_gap', 'deal_sync_summary', 'access_review', 'security_alert', 'platform_upgrade', 'improvement_suggestion'] },
 ];
@@ -546,7 +568,7 @@ const NOTIF_CADENCE_EXCLUDED = new Set([
   'ops_alert', 'security_alert', 'platform_signup', 'platform_upgrade',
   'deal_sync_summary', 'deal_data_gap', 'review_alert', 'lead_unrouted',
   'access_review', 'admin_overdue', 'market_nudge', 'budget_alert',
-  'improvement_suggestion', 'email_intake',
+  'improvement_suggestion', 'email_intake', 'share_digest',
 ]);
 const NOTIF_CADENCE_TYPE_GROUP = {
   new_lead: 'new_leads',
@@ -1260,3 +1282,6 @@ function wireNotifScreen(){
     if (g && e.detail.open) notifOpenGroup = g.dataset.group;
   });
 }
+
+/* אחרי כל ה-let. אם "ההגדרות שלי" כבר פתוחות כשהקובץ מגיע, מציירים עכשיו. */
+if (document.getElementById('accPrefs') && document.getElementById('accPrefs').open) renderSettingsHub();

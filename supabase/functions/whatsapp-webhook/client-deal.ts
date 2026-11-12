@@ -54,6 +54,37 @@ export function seekerDealAsk(
   return SEEKER_DEAL_ASK;
 }
 
+/**
+ * שמות שכונה משורת כרטיס. neighborhood_id לבדו הוא מזהה, והמודל לא רואה ממנו
+ * שם. השם מגיע מעמודה שכבר נפתרה, מרשימה, או מ-embed של neighborhoods.
+ */
+export function neighborhoodLabels(c: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const push = (value: unknown) => {
+    const name = String(value ?? "").replace(/\s+/g, " ").trim();
+    if (name && !out.includes(name)) out.push(name);
+  };
+  if (Array.isArray(c.neighborhood_names)) {
+    for (const name of c.neighborhood_names) push(name);
+  }
+  push(c.neighborhood_name);
+  const embed = c.neighborhoods;
+  const rows = Array.isArray(embed) ? embed : embed && typeof embed === "object" ? [embed] : [];
+  for (const row of rows) {
+    if (row && typeof row === "object") push((row as { name?: unknown }).name);
+  }
+  return out;
+}
+
+function placeParts(c: Record<string, unknown>): string[] {
+  const parts: string[] = [];
+  const cities = ((c.cities as string[]) || []).map((city) => String(city || "").trim()).filter(Boolean);
+  const hoods = neighborhoodLabels(c);
+  if (cities.length) parts.push(cities.join("/"));
+  if (hoods.length) parts.push(`שכונה: ${hoods.join(", ")}`);
+  return parts;
+}
+
 /** שורת הדרישות בעברית. צד שלא נאמר לא מוצג כמוכר/ת, משכיר/ה, קונה או שוכר/ת. */
 export function clientNeeds(c: Record<string, unknown>): string {
   const parts: string[] = [];
@@ -62,6 +93,7 @@ export function clientNeeds(c: Record<string, unknown>): string {
     else if (c.deal_type === "sale") parts.push("בעל/ת נכס - מוכר/ת");
     else parts.push("בעל/ת נכס");
     if (c.category === "commercial") parts.push("מסחרי");
+    parts.push(...placeParts(c));
     return parts.join(" · ");
   }
   if (c.deal_type === "rent") parts.push("מחפש/ת לשכור");
@@ -70,8 +102,7 @@ export function clientNeeds(c: Record<string, unknown>): string {
   if (c.category === "commercial") parts.push("מסחרי");
   const types = (c.property_types as string[]) || [];
   if (types.length) parts.push(types.join("/"));
-  const cities = (c.cities as string[]) || [];
-  if (cities.length) parts.push(cities.join("/"));
+  parts.push(...placeParts(c));
   if (c.min_rooms || c.max_rooms) {
     parts.push(`${c.min_rooms ?? ""}${c.min_rooms && c.max_rooms ? "-" : ""}${c.max_rooms ?? ""} חד׳`);
   }

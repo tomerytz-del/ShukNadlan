@@ -369,7 +369,10 @@ select net.http_post(
 
 `select count(*) from public.saved_search_pending_alerts(50)` שמחזיר 0 בזמן
 שיש שורות `pending` הוא כמעט תמיד אחד משלושה: שעות שקט, תקרה יומית, או נכס
-שכבר אינו `active`.
+שכבר אינו `active`. הסוכן התפעולי (`queue_blocked` על `saved_search_alerts`)
+מחריג מאז 11.11.2026 שורות של חיפוש שמיצה את התקרה היומית, באותה הגדרה
+של "נשלח היממה" (`QUEUE_EXPLAINED_ELSEWHERE` ב-`ops_agent/probes/database.py`):
+חיפוש שקיבל 8 התאמות בבת אחת שולח 5 וממתין עם 3 עד למחרת, וזו לא תקלה.
 
 ---
 

@@ -31,9 +31,11 @@
 mortgage_leads  status='new'
    ↓
 CRM → "מדף לידי משכנתאות" (רק ל-is_mortgage_advisor)
+  או professional-crm → מדף הלידים (חשבון בעל מקצוע mortgage_advisor עם shelf_enabled)
    מציג את mortgage_leads_public — סכומים בלבד, בלי שם/טלפון/אימייל
    ↓ "רכישה — ₪50" → mortgage-lead-purchase  [JWT]
-purchase_mortgage_lead()  ניכוי ארנק + status='sold' + יומן חיובים — טרנזקציה אחת
+purchase_mortgage_lead() / purchase_mortgage_lead_professional()
+   ניכוי ארנק + status='sold' + יומן חיובים — טרנזקציה אחת
    ↓
 פרטי הקשר נחשפים לקונה בלבד (policy "buyer reads purchased mortgage lead")
 ```
@@ -121,7 +123,28 @@ update public.agency_members
 > יועצ/ת משכנתאות היא בעל/ת מקצוע ולא סוכן/ת תיווך, אבל כל מנגנון הרכישה
 > (ארנק `credit_balance`, `current_agent_id()`, טריגר השדות הרגישים) בנוי סביב
 > `agency_members`. הדגל מאפשר לרכוב על הארנק הקיים במקום לשכפל ארנק שני.
-> אם בהמשך ייפתח מסלול הרשמה נפרד ליועצים — זו הנקודה שבה הוא מתחבר.
+
+### המסלול השני: חשבון בעל מקצוע (10.11.2026)
+
+יועץ/ת שנרשם/ה **בכרטיסייה** (`professional-signup`) ולא ל-CRM פותח/ת מדף העריכה
+חשבון בעל מקצוע (`professional_accounts`, `docs/professional-accounts.md`), ואחרי
+שמנהל/ת הפלטפורמה מאשר/ת לו/ה את המדף רואה את אותו מלאי ב-`/professional-crm`:
+
+```sql
+update public.professional_accounts set shelf_enabled = true where id = '<id>';
+select public.professional_credit_add('<id>', 100, 'טעינה ידנית');   -- ארנק, עד שתהיה סליקה
+```
+
+- `current_is_mortgage_advisor()` מכיר את שני הסוגים (`20271110130000`), ולכן ה-view
+  וה-`check_shelf_audience.py` לא השתנו.
+- הרכישה: `mortgage-lead-purchase` (`resolveBuyer`) בוחר חברות CRM **פעילה עם
+  `is_mortgage_advisor`**; אחרת חשבון בעל מקצוע **מאושר**, וקורא ל-`purchase_mortgage_lead_professional`
+  (אותה לוגיקה, על `professional_accounts.credit_balance`). חברות ישנה ולא פעילה אינה
+  חוסמת את החשבון. הקונה נרשם ב-`mortgage_leads.sold_to_professional_id`
+  וב-`mortgage_lead_purchases.professional_id` (`agent_id` כבר אינו חובה; CHECK על קונה אחד).
+- **מהארנק בלבד.** תשלום בכרטיס על ליד משכנתאות עוד לא נבנה (הזמנות הכרטיס הן של
+  `lawyer_leads`).
+- `lead_audience_size('mortgage_advisor')` סופר את שני הסוגים.
 
 ## שינוי המחיר
 

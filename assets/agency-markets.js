@@ -116,7 +116,9 @@
   function mount(box) {
     if (!box) return;
     if (g.ShukMarkets && g.ShukMarkets.list) { render(box); return; }
-    document.addEventListener('DOMContentLoaded', function () { render(box); });
+    var later = function () { if (g.ShukMarkets && g.ShukMarkets.list) render(box); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', later);
+    else later();
   }
 
   function value(box) {

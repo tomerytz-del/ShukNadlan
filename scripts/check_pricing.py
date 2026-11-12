@@ -60,6 +60,14 @@ PRICES = {
     # בניגוד לשאר המחירון. docs/exam-course.md
     'course_price_gross':                199,
     'course_access_months':              6,
+    # מחיר משרד ב-Elite (20271112125000): מחיר לכל סוכן/ת לפי גודל המשרד, בדף ב-#office, ב-tiers.js,
+    # בשאלות ובתקנון. המחיר ל-1 עד 2 סוכנים הוא מחיר המחירון, ונבדק ב-derived() למטה.
+    'office_price_tier1_min_agents':     3,
+    'office_price_tier1':                359,
+    'office_price_tier2_min_agents':     6,
+    'office_price_tier2':                339,
+    'office_price_tier3_min_agents':     11,
+    'office_price_tier3':                299,
 }
 
 # ------------------------------------------------------------- התצוגה
@@ -124,7 +132,59 @@ DISPLAY = [
     ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
     ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
     ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
+    # מחיר משרד: הטבלה ב-#office, השאלה הנפוצה (HTML ו-JSON-LD), שורת ההשוואה, הכרטיס ב-tiers.js והתקנון
+    ('pricing.html', r'data-office="min1">' + N,                        'office_price_tier1_min_agents'),
+    ('pricing.html', r'data-office="min2">' + N,                        'office_price_tier2_min_agents'),
+    ('pricing.html', r'data-office="min3">' + N,                        'office_price_tier3_min_agents'),
+    ('pricing.html', r'data-office="price1">' + N,                      'office_price_tier1'),
+    ('pricing.html', r'data-office="price2">' + N,                      'office_price_tier2'),
+    ('pricing.html', r'data-office="price3">' + N,                      'office_price_tier3'),
+    ('pricing.html', r'מחיר משרד לכל סוכן: ₪' + N + r' מ-\d+ סוכנים',       'office_price_tier1'),
+    ('pricing.html', r'מחיר משרד לכל סוכן: ₪\d+ מ-' + N + r' סוכנים',       'office_price_tier1_min_agents'),
+    ('pricing.html', r'סוכנים, ₪' + N + r' מ-\d+ סוכנים, ו-₪',             'office_price_tier2'),
+    ('pricing.html', r'סוכנים, ₪\d+ מ-' + N + r' סוכנים, ו-₪',             'office_price_tier2_min_agents'),
+    ('pricing.html', r'מ-\d+ סוכנים, ו-₪' + N + r' מ-\d+ סוכנים\.',        'office_price_tier3'),
+    ('pricing.html', r'ו-₪\d+ מ-' + N + r' סוכנים\.',                      'office_price_tier3_min_agents'),
+    ('pricing.html', r'מחיר משרד ב-Elite: ₪' + N + r' לכל סוכן',            'office_price_tier1'),
+    ('pricing.html', r'₪\d+ לכל סוכן מ-' + N + r' סוכנים, ₪',               'office_price_tier1_min_agents'),
+    ('pricing.html', r"סוכנים, ₪" + N + r" מ-\d+, ₪",                        'office_price_tier2'),
+    ('pricing.html', r"סוכנים, ₪\d+ מ-" + N + r", ₪",                        'office_price_tier2_min_agents'),
+    ('pricing.html', r"מ-\d+, ₪" + N + r" מ-\d+'",                          'office_price_tier3'),
+    ('pricing.html', r"₪\d+ מ-" + N + r"'",                                 'office_price_tier3_min_agents'),
+    ('assets/tiers.js', r'מחיר משרד: ₪' + N + r' לכל סוכן במשרד',          'office_price_tier1'),
+    ('assets/tiers.js', r'לכל סוכן במשרד עם ' + N + r' עד 5',               'office_price_tier1_min_agents'),
+    ('assets/tiers.js', r'ב-Elite, ₪' + N + r' מ-\d+ סוכנים, ו-₪',          'office_price_tier2'),
+    ('assets/tiers.js', r'ב-Elite, ₪\d+ מ-' + N + r' סוכנים, ו-₪',          'office_price_tier2_min_agents'),
+    ('assets/tiers.js', r'מ-\d+ סוכנים, ו-₪' + N + r' מ-\d+ סוכנים\'',      'office_price_tier3'),
+    ('assets/tiers.js', r'ו-₪\d+ מ-' + N + r' סוכנים\'',                    'office_price_tier3_min_agents'),
+    ('assets/tiers.js', r"text: ': ₪" + N + r" לכל סוכן מ-\d+ סוכנים ב-Elite", 'office_price_tier1'),
+    ('assets/tiers.js', r"לכל סוכן מ-" + N + r" סוכנים ב-Elite, ₪",           'office_price_tier1_min_agents'),
+    ('assets/tiers.js', r"ב-Elite, ₪" + N + r" מ-\d+, ₪",                    'office_price_tier2'),
+    ('assets/tiers.js', r"ב-Elite, ₪\d+ מ-" + N + r", ₪",                    'office_price_tier2_min_agents'),
+    ('assets/tiers.js', r"מ-\d+, ₪" + N + r" מ-\d+'",                       'office_price_tier3'),
+    ('assets/tiers.js', r"₪\d+ מ-" + N + r"'",                              'office_price_tier3_min_agents'),
+    ('for-brokers.html', r'מחיר משרד לכל סוכן: ₪' + N + r' מ-\d+ סוכנים',   'office_price_tier1'),
+    ('for-brokers.html', r'מחיר משרד לכל סוכן: ₪\d+ מ-' + N + r' סוכנים',   'office_price_tier1_min_agents'),
+    ('for-brokers.html', r'סוכנים, ₪' + N + r' מ-\d+ סוכנים, ו-₪',          'office_price_tier2'),
+    ('for-brokers.html', r'סוכנים, ₪\d+ מ-' + N + r' סוכנים, ו-₪',          'office_price_tier2_min_agents'),
+    ('for-brokers.html', r'מ-\d+ סוכנים, ו-₪' + N + r' מ-\d+ סוכנים\.',     'office_price_tier3'),
+    ('for-brokers.html', r'ו-₪\d+ מ-' + N + r' סוכנים\.',                   'office_price_tier3_min_agents'),
+    ('terms.html', r'<strong>₪' + N + r'</strong> כשיש במשרד שלושה',        'office_price_tier1'),
+    ('terms.html', r'<strong>₪' + N + r'</strong> כשיש שישה',               'office_price_tier2'),
+    ('terms.html', r'<strong>₪' + N + r'</strong> כשיש אחד עשר',            'office_price_tier3'),
 ]
+
+
+def derived(problems):
+    """שורת "1 עד 2" בטבלת המשרד היא מחיר המחירון של Elite (אין מחיר משרד מתחת לשלושה סוכנים).
+    היא כתובה בדף כמספר, ולכן נבדקת כאן: מי שמשנה את מחיר Elite חייב לעדכן אותה."""
+    elite = PRICES['tier_premium_monthly_price']
+    text = open(os.path.join(ROOT, 'pricing.html'), encoding='utf-8').read()
+    m = re.search(r'<th scope="row">1 עד 2</th><td>₪' + N + r'</td>', text)
+    if not m:
+        problems.append('pricing.html: שורת "1 עד 2" בטבלת המשרד לא נמצאה.')
+    elif num(m.group(1)) != elite:
+        problems.append(f'pricing.html: מחיר "1 עד 2" בטבלת המשרד הוא {num(m.group(1))}, ומחיר Elite הוא {elite}.')
 
 
 def num(s):
@@ -182,6 +242,8 @@ def main():
         for v in found:
             if num(v) != PRICES[key]:
                 problems.append(f'{path}: {key} מוצג {num(v)}, והמסד גובה {PRICES[key]}.')
+
+    derived(problems)
 
     if problems:
         print(f'✗ {len(problems)} פערים בין המחירים שמוצגים למחירים שנגבים:\n')
