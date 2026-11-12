@@ -88,37 +88,24 @@ function hasPhoto(p){
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 
-/* ‏כתובת תמונה בתוך url('…') שבתוך מאפיין ‏style="…" — שתי שכבות ציטוט,
-   ולכן encodeURI + ‎%27‎ ולא הדבקה ישירה: גרש בודד בשם הקובץ סוגר את ה-url
-   ומריץ CSS זר, וגרש כפול בורח מהמאפיין עצמו אל תוך ה-HTML. אותו טיפול
-   בדיוק כמו בתמונת הכתבה (ראו renderArticles). */
-function cssUrl(u){
-  return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
-}
-
 /* תמונת כרטיס מוקטנת (‏docs/image-sizes.md). התמונות נשמרות בגודל מלא (עד
    כמה MB), ובטלפון דף התוצאות הוריד כ-25MB. ‏render/image של Supabase מקטין
    לרוחב הכרטיס ומגיש WebP לדפדפן שמקבל אותו - אותה נקודה שתמונת השער בדף
    הנכס כבר עוברת בה (‏heroRenderUrl). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
 function cardImgUrl(url, w){
+  if (typeof ListingMedia !== 'undefined') return ListingMedia.renderUrl(url, w || 640);
   const s = String(url || '');
   const marker = '/storage/v1/object/public/';
   const at = s.indexOf(marker);
   if (at < 0) return s;
   const path = s.slice(at + marker.length).split(/[?#]/)[0];
   if (!path) return s;
-  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=70';
 }
 
-/* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
+/* התמונה הראשית של נכס היא images[0], כ-<img> עם alt. נכס בלי תמונות מקבל את
    thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
    במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
-function thumbStyle(p, i){
-  return hasPhoto(p)
-    ? `background-image:url('${cssUrl(cardImgUrl(p.images[0]))}');background-size:cover;background-position:center`
-    : '';
-}
-
 function thumbFallback(p){
   if (hasPhoto(p)) return '';
   // v10 (סבב 4 חלק 3): שורת תוצאה בלי תמונות - אווטאר ותג "אין תמונות" (assets/no-photo.js)
@@ -3177,7 +3164,7 @@ function mapPopupHtml(p, kind){
   // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
   const logo = !img && p.agency_logo ? p.agency_logo : '';
   return `<a class="map-pop" href="/property?id=${encodeURIComponent(p.id)}">` +
-    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 320))}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(cardImgUrl(img, 400))}" alt="${escAttr(typeof ListingMedia !== 'undefined' ? ListingMedia.alt(p) : '')}" width="400" height="250" loading="lazy" data-full="${escAttr(img)}" onerror="if(!this.dataset.tried&&this.dataset.full){this.dataset.tried='1';this.src=this.dataset.full;return}if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
     (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="if(!v10ImgFail(this,'map-pop-thumb'))this.remove()">` : '') +
     (!img && !logo && v10On() ? v10ImgFb('map-pop-thumb is-inline') : '') +
     `<span class="map-pop-body">` +
@@ -5792,7 +5779,12 @@ function buildSearchRow(p, i){
   row.dataset.propId = p.id;
   row.innerHTML = `
     <a class="pc-link" href="/property?id=${encodeURIComponent(p.id)}"><span class="pc-link-text">${escAttr(pcLinkText(p))}</span></a>
-    <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+    <div class="sr-thumb">${(hasPhoto(p) && typeof ListingMedia !== 'undefined')
+      ? ListingMedia.imgTag(p.images[0], p, {
+          className: 'pc-photo', widths: [400, 800, 1200], srcWidth: 800,
+          sizes: '(min-width:760px) 152px, 104px', width: 800, height: 500, lazy: true,
+        })
+      : (hasPhoto(p) ? `<img class="pc-photo" src="${escAttr(cardImgUrl(p.images[0], 800))}" alt="" width="800" height="500" loading="lazy">` : '')}${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
       <div class="sr-title">${escAttr(p.title)}</div>
       <div class="sr-meta"><span>${escAttr(locationLabel(p))}</span>${p.property_type ? `<span>${escAttr(p.property_type)}</span>` : ''}${p.agency_name ? `<span>${escAttr(p.agency_name)}</span>` : ''}</div>
@@ -6812,8 +6804,8 @@ function renderPropertyGrid(properties, isSearchResult){
 /* ‏newestFirst, אריח הנכס (‏propCard) והשורה הדחוסה (‏propRow) עברו
    ל-assets/prop-shelf.js: שלוש התצוגות שהשתמשו בהם — תיבת הנכסים כאן,
    הנכסים בדף המשרד והנכסים בדף הסוכן/ת — מצוירות היום מאותו מנוע.
-   ‏thumbStyle/thumbFallback נשארו כאן, כי שורות התוצאות ובלוני המפה
-   עדיין משתמשים בהם. */
+   ‏thumbFallback נשאר כאן לנכס בלי תמונה. שורת תוצאה ובלון המפה מציירים
+   <img> עם alt דרך ListingMedia, לא רקע CSS. */
 
 /* חזרה מתוצאות החיפוש אל כל הנכסים שבמאגר. בלי כפתור כזה אין דרך לבטל
    חיפוש חוץ מרענון העמוד: חיפוש ריק הוא עדיין חיפוש (הוא מסונן לפי סוג
@@ -9328,7 +9320,7 @@ function renderV10Fair(){
   const thumbs = live.filter(p => p.images && p.images[0]).slice(0, 2);
   while (thumbs.length < 2) thumbs.push({});
   const thumbHtml = thumbs.map(p => p.images
-    ? `<span class="v10-fair-th"><img src="${escapeHtml(p.images[0])}" alt="" loading="lazy" decoding="async" onerror="v10ImgFail(this)"></span>`
+    ? `<span class="v10-fair-th"><img src="${escapeHtml(cardImgUrl(p.images[0], 400))}" alt="${escapeHtml(typeof ListingMedia !== 'undefined' ? ListingMedia.alt(p) : '')}" width="400" height="250" loading="lazy" decoding="async" data-full="${escapeHtml(p.images[0])}" onerror="if(!this.dataset.tried&&this.dataset.full){this.dataset.tried='1';this.src=this.dataset.full;return}v10ImgFail(this)"></span>`
     : `<span class="v10-fair-th">${v10ImgFb()}</span>`).join('');
   host.innerHTML =
     `<a class="v10-fair" href="/open-house" data-fair-id="${escapeHtml(fairId)}">` +

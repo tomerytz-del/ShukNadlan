@@ -86,11 +86,21 @@
     return typeof img === 'string' && img.trim() !== '';
   }
 
-  function thumbStyle(p) {
-    return hasPhoto(p)
-      ? "background-image:url('" + escAttr(p.images[0]) +
-        "');background-size:cover;background-position:center"
-      : '';
+  function photoTag(p, sizes) {
+    if (!hasPhoto(p)) return '';
+    var LM = global.ListingMedia;
+    if (!LM) {
+      return '<img class="pc-photo" src="' + escAttr(p.images[0]) + '" alt="" width="800" height="500" loading="lazy" decoding="async">';
+    }
+    return LM.imgTag(p.images[0], p, {
+      className: 'pc-photo',
+      widths: LM.CARD_WIDTHS,
+      srcWidth: 800,
+      sizes: sizes || '(min-width:900px) 280px, (min-width:520px) 45vw, 100vw',
+      width: 800,
+      height: 500,
+      lazy: true,
+    });
   }
 
   /* ממלא־המקום של נכס בלי תמונות. בדף הבית הלוגו הוא של המשרד שהנכס שייך
@@ -323,7 +333,8 @@
       el.className = 'prop-card pc-cover';
       if (cfg.rowViz) el.dataset.pid = p.id;
       el.innerHTML =
-        '<div class="thumb' + (hasPhoto(p) ? '' : ' no-photo') + '" style="' + thumbStyle(p) + '">' +
+        '<div class="thumb' + (hasPhoto(p) ? '' : ' no-photo') + '">' +
+          photoTag(p) +
           fallback(p) +
           PropertyCard.coverVideoHtml(p) +
           (isPromoted(p) ? '<span class="ribbon">מקודם</span>' : '') +
@@ -416,7 +427,7 @@
            רוצה להוסיף על התמונונת (ספירת היריד בדף הבתים הפתוחים). בלעדיו
            הטלפון היה מציג את אותם נכסים בלי מה שמבדיל אותם, כי מ-520px
            ומטה כל האריחים מלבד הראשון הם שורות. */
-        '<span class="pr-thumb" style="' + thumbStyle(p) + '">' + fallback(p) +
+        '<span class="pr-thumb">' + photoTag(p, '74px') + fallback(p) +
           (isPromoted(p) ? '<span class="pr-promo">מקודם</span>' : '') +
           (cfg.rowExtra ? cfg.rowExtra(p) : '') + '</span>' +
         '<span class="pr-main">' +
@@ -482,7 +493,7 @@
       if (PropertyCard.motionAllowed()) el.setAttribute('data-reel', src);
       el.innerHTML =
         '<span class="pp-reel-media">' +
-          (poster ? '<img class="pp-reel-poster" src="' + escAttr(poster) + '" alt="" loading="lazy" decoding="async">' : '') +
+          (poster ? '<img class="pp-reel-poster" src="' + escAttr(poster) + '" alt="' + escAttr(global.ListingMedia ? global.ListingMedia.alt(p) : '') + '" loading="lazy" decoding="async">' : '') +
           '<span class="pp-reel-play" aria-hidden="true">' + REEL_ICON + '</span>' +
           '<span class="pp-reel-deal">' + (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
           // הצבע של "מקודם" מגיע מ-design-system.css (‏.promoted-flag); כאן רק המיקום

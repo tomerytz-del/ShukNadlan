@@ -61,6 +61,7 @@ try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
 if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <script src="assets/no-photo.js"></script>
 <script src="assets/property-card.js"></script>
+<script src="assets/listing-media.js"></script>
 <!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
      רק בנכס שכבר יש לו לפחות הדמיה אחת, ולכן loadVisualizations() הוא
      שקורא ל-AiShowcase.mountProperty() עם ההדמיות שכבר נשלפו. -->
@@ -754,6 +755,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .prop-card > .pc-link:focus-visible{outline:3px solid var(--gold,#c9a227);outline-offset:-3px}
   .pc-link-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   .prop-card .thumb{height:94px;background-size:cover;background-position:center;position:relative}
+  .prop-card .thumb > .pc-photo{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;display:block}
   /* אריח נכס בלי תמונות — אותה שפה כמו ב-index.html */
   .thumb-fallback{
     position:absolute;inset:0;z-index:0;

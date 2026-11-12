@@ -770,11 +770,16 @@
     var img = firstImage(p);
     var pic = HOUSE_ICON;
     if (img) {
-      var small = renderUrl(img, 400, 250);
-      var large = renderUrl(img, 800, 500);
-      var alt = escapeHtml(p.title || "");
-      if (small && large) {
-        pic = '<img src="' + escapeHtml(large) + '" srcset="' + escapeHtml(small) + ' 400w, ' + escapeHtml(large) + ' 800w"'
+      var LM = root.ListingMedia;
+      var small = LM ? LM.renderUrl(img, 400) : "";
+      var mid = LM ? LM.renderUrl(img, 800) : "";
+      var big = LM ? LM.renderUrl(img, 1200) : "";
+      var transformed = small.indexOf("/storage/v1/render/image/") >= 0
+        && mid.indexOf("/storage/v1/render/image/") >= 0
+        && big.indexOf("/storage/v1/render/image/") >= 0;
+      var alt = escapeHtml(LM ? LM.alt(p) : "");
+      if (transformed) {
+        pic = '<img src="' + escapeHtml(mid) + '" srcset="' + escapeHtml(small) + ' 400w, ' + escapeHtml(mid) + ' 800w, ' + escapeHtml(big) + ' 1200w"'
           + ' sizes="(min-width:900px) 360px, (min-width:520px) 50vw, 100vw" alt="' + alt + '"'
           + ' width="320" height="200" loading="lazy" decoding="async"'
           + ' data-full="' + escapeHtml(img) + '"'

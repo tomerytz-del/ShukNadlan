@@ -673,8 +673,8 @@ propHttp.push(
 );
 const ORIG = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/object/public/property-images/a.jpg?token=1";
 const PATH = "https://obookujgolazrwycsiyn.supabase.co/storage/v1/render/image/public/property-images/a.jpg";
-const R800 = `${PATH}?width=800&height=500&resize=cover&quality=60`;
-const R1200 = `${PATH}?width=1200&height=800&resize=cover&quality=60`;
+const R800 = `${PATH}?width=800&quality=70`;
+const RSET = [400, 800, 1200, 1600].map((w) => `${PATH}?width=${w}&quality=70 ${w}w`).join(", ");
 const amp = (s: string) => s.replace(/&/g, "&amp;");
 const stored = await visible({
   ...VISIBLE_ROW,
@@ -688,7 +688,8 @@ const storedReel = await visible({
 }, { display_name: "דנה כהן" });
 propHttp.push(
   ["שער מהאחסון: render 800, srcset 1200, והמקור ב-og", stored.includes(`src="${amp(R800)}"`)
-    && stored.includes(`srcset="${amp(`${R800} 800w, ${R1200} 1200w`)}"`)
+    && stored.includes(`srcset="${amp(RSET)}"`)
+    && stored.includes('alt="4 חדרים למכירה בגבעת המורה, עפולה, תמונה 1 מתוך 2"')
     && stored.includes('sizes="(min-width:640px) 640px, 100vw"')
     && stored.includes(`data-full="${amp(ORIG)}"`)
     && stored.includes("this.removeAttribute('srcset')")
