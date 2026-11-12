@@ -13,6 +13,7 @@ import {
 import {
   clientNeeds,
   dealNullRejected,
+  neighborhoodLabels,
   OWNER_DEAL_ASK,
   ownerDealWrite,
   SEEKER_DEAL_ASK,
@@ -504,7 +505,8 @@ const clientFields = {
     description:
       "שכונה. לא נשמרת כטקסט: הופכת ל-neighborhood_id. מחפשים אותה בכל הערים, לא רק בראשונה. " +
       "מחרוזת ריקה מוחקת. שינוי ערים מוחק שכונה שכבר לא שייכת לאף עיר. " +
-      "היא מסננת רק נכסים בעיר שלה, ולא מסתירה עיר אחרת.",
+      "היא מסננת רק נכסים בעיר שלה, ולא מסתירה עיר אחרת. " +
+      "השם שנשמר חוזר ב-needs (\"שכונה: ...\"), לא רק העיר.",
   },
   min_price: { type: "number", description: "תחתית התקציב בשקלים." },
   max_price: { type: "number", description: "תקרת התקציב בשקלים. שכירות = מחיר חודשי." },
@@ -1238,7 +1240,8 @@ const TOOLS: Anthropic.Tool[] = [
       "מחזיר את קובץ הלקוחות של הסוכן/ת עם הדרישות של כל אחד/ת, ולצד כל " +
       "לקוח/ה גם מספר ההתאמות הפתוחות וההתאמה החזקה ביותר. זה הכלי גם לשאלת " +
       "'כמה לקוחות יש לי' וגם למצוא את מזהה הלקוח/ה לפי שם. החיפוש סלחן " +
-      "לכתיב (כ/ק, ט/ת, ו/וו, י' חסרה) ולטלפון בלי קשר לקידומת.",
+      "לכתיב (כ/ק, ט/ת, ו/וו, י' חסרה) ולטלפון בלי קשר לקידומת. " +
+      "needs של כל לקוח/ה כולל את שם השכונה שנשמרה.",
     input_schema: {
       type: "object",
       properties: {
@@ -1271,7 +1274,8 @@ const TOOLS: Anthropic.Tool[] = [
       "התאמות. אל תשאל/י על שדות שלא נאמרו, ואל תמלאי עסקה, עיר, מחיר או איות שם " +
       "שלא נאמרו. בעל/ת נכס נכנס/ת עם client_kind owner ובלי שדות חיפוש - אחרת " +
       "הוא/היא נשמר/ת כקונה ומקבל/ת התאמות לכל נכס במאגר. בלי שנאמר מכירה או " +
-      "השכרה אל תשלחי deal_type: הכרטיס נשמר, ו-ask הוא \"מוכר או משכיר?\".",
+      "השכרה אל תשלחי deal_type: הכרטיס נשמר, ו-ask הוא \"מוכר או משכיר?\". " +
+      "needs שחוזר הוא סיכום הכרטיס שנשמר, וכולל את שם השכונה. שדה שב-needs נשמר.",
     input_schema: {
       type: "object",
       properties: {
@@ -1292,7 +1296,8 @@ const TOOLS: Anthropic.Tool[] = [
       "מעדכן פרטים או דרישות של לקוח/ה קיים/ת. שולחים רק את מה שמשתנה. " +
       "עדכון בלי הערות לא נוגע במאפיינים ולא שואל שוב על עסקה, עיר או תקציב. " +
       "הערות שנשלחות באותו עדכון שומרות מאפיינים כדירוג, לא כתנאי. " +
-      "לביטול דרישה שולחים מערך ריק (למשל cities: []).",
+      "לביטול דרישה שולחים מערך ריק (למשל cities: []). " +
+      "needs שחוזר הוא הסיכום אחרי השמירה, כולל שכונה. שדה שב-needs נשמר.",
     input_schema: {
       type: "object",
       properties: {
@@ -1337,7 +1342,8 @@ const TOOLS: Anthropic.Tool[] = [
       "מאפייני החובה של הלקוח/ה " +
       "(ממ״ד, מעלית, חניה...) הם סינון קשיח על הנכסים: נכס בלי אחד מהם לא חוזר. " +
       "אם אין התאמות מלאות, חוזר without_required - כמה נכסים יש בלי כל מאפיין - " +
-      "כדי לשאול את הסוכן/ת. במצב הזה אין board_listings.",
+      "כדי לשאול את הסוכן/ת. במצב הזה אין board_listings. " +
+      "בראש התשובה needs: סיכום הדרישות השמורות, כולל שם השכונה.",
     input_schema: {
       type: "object",
       properties: {
@@ -5357,31 +5363,109 @@ const LIST_CLIENTS_MAX = 200;
 const NOTES_FULL_WINDOW = 20;
 const NOTES_BROWSE_CHARS = 240;
 
+/** שדות הסיכום בלי שכונה. הניסיון השני, כשהעמודה עוד לא עלתה. */
+const CLIENT_CARD_FIELDS =
+  "client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features";
+/** שם השכונה מ-neighborhood_id, כדי שהסיכום לא יראה רק את העיר. */
+const CLIENT_CARD_HOOD = ", neighborhood_id, neighborhoods(name)";
+const LIST_CLIENT_COLUMNS =
+  "id, full_name, phone, email, notes, status, " + CLIENT_CARD_FIELDS + ", created_at";
+const LIST_CLIENT_COLUMNS_HOOD = LIST_CLIENT_COLUMNS.replace(
+  ", created_at",
+  CLIENT_CARD_HOOD + ", created_at",
+);
+
+type ClientCard = {
+  id?: string;
+  full_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
+  status?: string | null;
+  neighborhood_id?: string | null;
+  neighborhood_name?: string;
+  [key: string]: unknown;
+};
+
+function asCard(data: unknown): ClientCard | null {
+  if (!data || typeof data !== "object") return null;
+  return data as ClientCard;
+}
+
+function asCards(data: unknown): ClientCard[] {
+  return Array.isArray(data) ? data as ClientCard[] : [];
+}
+
+function savedNeighborhood(row: Record<string, unknown>): string | undefined {
+  const names = neighborhoodLabels(row);
+  return names.length ? names.join(", ") : undefined;
+}
+
+/** needs הוא הסיכום שהמודל רואה. שדה שבו נשמר, כולל שכונה. */
+function savedCard(row: Record<string, unknown>): { needs: string; neighborhood?: string } {
+  const neighborhood = savedNeighborhood(row);
+  return { needs: clientNeeds(row), ...(neighborhood ? { neighborhood } : {}) };
+}
+
+const SAVED_CARD_GUIDANCE =
+  "needs הוא הסיכום של מה שנשמר בכרטיס, כולל שכונה כשנשמרה. " +
+  "שדה שמופיע ב-needs נשמר. אל תאמרי שאולי לא נשמר, ואל תשמרי אותו שוב.";
+
+function withSavedCardGuidance(base: string | undefined): string {
+  return base ? `${base} ${SAVED_CARD_GUIDANCE}` : SAVED_CARD_GUIDANCE;
+}
+
+/** שורת הדרישות לסיכום, כולל שם השכונה. עמודה חסרה לא מפילה את הכלי. */
+async function clientDemandRow(ctx: ToolContext, clientId: string): Promise<Record<string, unknown> | null> {
+  const load = (columns: string) => ctx.supabase
+    .from("agent_clients")
+    .select(columns)
+    .eq("id", clientId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  const columns = "id, full_name, " + CLIENT_CARD_FIELDS;
+  let { data, error } = await load(columns + CLIENT_CARD_HOOD);
+  if (error && clientColumnMissing(error)) ({ data, error } = await load(columns));
+  if (error) {
+    if (!clientColumnMissing(error)) console.error("client demand row failed", error.code);
+    return null;
+  }
+  const row = asCard(data);
+  if (!row) return null;
+  await fillNeighborhoodNames(ctx, [row]);
+  return row;
+}
+
+/**
+ * כשה-embed לא החזיר שם אבל neighborhood_id שמור, השם נשלף מהטבלה.
+ * בלי זה הסיכום חוזר לעיר בלבד, והמודל מסיק שהשכונה לא נשמרה.
+ */
+async function fillNeighborhoodNames(ctx: ToolContext, rows: Array<Record<string, unknown>>): Promise<void> {
+  const missing = rows.filter((row) => row.neighborhood_id && !savedNeighborhood(row));
+  if (!missing.length) return;
+  const ids = [...new Set(missing.map((row) => String(row.neighborhood_id)))];
+  const { data, error } = await ctx.supabase.from("neighborhoods").select("id, name").in("id", ids);
+  if (error) {
+    console.warn("client neighborhood names failed", error.code);
+    return;
+  }
+  const byId = new Map<string, string>();
+  for (const row of data || []) {
+    const name = String(row.name || "").trim();
+    if (name) byId.set(String(row.id), name);
+  }
+  for (const row of missing) {
+    const name = byId.get(String(row.neighborhood_id));
+    if (name) row.neighborhood_name = name;
+  }
+}
+
 async function toolListClients(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_CLIENTS_MAX);
 
-  let query = ctx.supabase
-    .from("agent_clients")
-    .select("id, full_name, phone, email, notes, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features, created_at")
-    .eq("agent_id", ctx.agent.id)
-    .order("created_at", { ascending: false });
-
-  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
-  let counter = ctx.supabase
-    .from("agent_clients")
-    .select("id", { count: "exact", head: true })
-    .eq("agent_id", ctx.agent.id);
-
-  if (input.status) {
-    query = query.eq("status", String(input.status));
-    counter = counter.eq("status", String(input.status));
-  } else if (!input.all_statuses) {
-    query = query.eq("status", "active");
-    counter = counter.eq("status", "active");
-  }
-
   const q = String(input.query || "").trim();
-  if (q) {
+  const textOr = (() => {
+    if (!q) return "";
     // ‏escape על הפסיק והסוגריים: מחרוזת חיפוש עם פסיק הייתה נקראת כשני
     // תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
     const safe = q.replace(/[,()*]/g, " ").trim();
@@ -5391,44 +5475,61 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     // טלפון: גם הספרות כמו שהוקלדו וגם 9 האחרונות, כדי ש-050 ו-972 ייפגשו
     if (digits.length >= 7) parts.push(`phone.ilike.%${digits.slice(-9)}%`);
     else if (safe) parts.push(`phone.ilike.%${safe}%`);
-    if (parts.length) {
-      const or = parts.join(",");
-      query = query.or(or);
-      counter = counter.or(or);
-    }
-  }
+    return parts.join(",");
+  })();
+  const scoped = (columns: string, opts: { text: boolean; cap: number }) => {
+    let query = ctx.supabase
+      .from("agent_clients")
+      .select(columns)
+      .eq("agent_id", ctx.agent.id)
+      .order("created_at", { ascending: false });
+    if (input.status) query = query.eq("status", String(input.status));
+    else if (!input.all_statuses) query = query.eq("status", "active");
+    if (opts.text && textOr) query = query.or(textOr);
+    return query.limit(opts.cap);
+  };
 
-  const [{ data, error }, { count: totalMatching, error: matchCountErr }] = await Promise.all([
-    query.limit(limit),
+  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+  let counter = ctx.supabase
+    .from("agent_clients")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", ctx.agent.id);
+  if (input.status) counter = counter.eq("status", String(input.status));
+  else if (!input.all_statuses) counter = counter.eq("status", "active");
+  if (textOr) counter = counter.or(textOr);
+
+  let columns = LIST_CLIENT_COLUMNS_HOOD;
+  let [listed, counted] = await Promise.all([
+    scoped(columns, { text: true, cap: limit }),
     counter,
   ]);
-  if (error) return { ok: false, error: error.message };
+  if (listed.error && clientColumnMissing(listed.error)) {
+    columns = LIST_CLIENT_COLUMNS;
+    listed = await scoped(columns, { text: true, cap: limit });
+  }
+  const totalMatching = counted.count;
+  const matchCountErr = counted.error;
+  if (listed.error) return { ok: false, error: listed.error.message };
   if (matchCountErr) console.warn("client match count failed", matchCountErr.message);
 
   // ilike מפספס כ/ק וט/ת. אם החיפוש לא מילא את החלון, עוברים על הקובץ
   // (עד 500) ומוסיפים התאמה סלחנית. בלי query אין מה לסלוח.
-  let rows = data || [];
+  // הסריקה בלי ilike: אחרת שורה שהכתיב שלה קרוב לא מגיעה ל-clientMatchesQuery.
+  const rows = asCards(listed.data);
   let fuzzyAdded = 0;
   if (q && rows.length < limit) {
-    let poolQuery = ctx.supabase
-      .from("agent_clients")
-      .select("id, full_name, phone, email, notes, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features, created_at")
-      .eq("agent_id", ctx.agent.id)
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (input.status) poolQuery = poolQuery.eq("status", String(input.status));
-    else if (!input.all_statuses) poolQuery = poolQuery.eq("status", "active");
-    const { data: pool, error: poolErr } = await poolQuery;
+    const { data: pool, error: poolErr } = await scoped(columns, { text: false, cap: 500 });
     if (poolErr) console.warn("fuzzy client search failed", poolErr.message);
     const have = new Set(rows.map((c) => c.id));
-    for (const c of pool || []) {
-      if (have.has(c.id) || !clientMatchesQuery(q, c)) continue;
+    for (const c of asCards(pool)) {
+      if (!c.id || have.has(c.id) || !clientMatchesQuery(q, c)) continue;
       rows.push(c);
       have.add(c.id);
       fuzzyAdded++;
       if (rows.length >= limit) break;
     }
   }
+  await fillNeighborhoodNames(ctx, rows);
 
   // ספירת ההתאמות לכל לקוח/ה בקריאה אחת (ולא שאילתה לכל שורה). כשל כאן אינו
   // מפיל את הרשימה — הדרישות והטלפון הם עיקר התשובה, וההתאמות תוספת.
@@ -5481,11 +5582,11 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
         phone: c.phone,
         email: c.email,
         status: c.status,
-        needs: clientNeeds(c),
+        ...savedCard(c),
         notes: trim ? `${full.slice(0, NOTES_BROWSE_CHARS)}…` : (c.notes ?? null),
         notes_truncated: trim || undefined,
-        match_count: counts.get(c.id)?.n ?? null,
-        top_match: counts.get(c.id)?.top ?? null,
+        match_count: c.id ? counts.get(c.id)?.n ?? null : null,
+        top_match: c.id ? counts.get(c.id)?.top ?? null : null,
       };
     }),
     note: [
@@ -5745,10 +5846,11 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
   }
 
   let neighborhoodDeferred = false;
+  const createdSelect = "id, full_name, phone, status, " + CLIENT_CARD_FIELDS;
   let { data, error } = await ctx.supabase
     .from("agent_clients")
     .insert(payload)
-    .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+    .select(createdSelect + CLIENT_CARD_HOOD)
     .single();
   if (error && clientColumnMissing(error) && hasNewClientColumn(payload)) {
     neighborhoodDeferred = "neighborhood_id" in payload;
@@ -5756,7 +5858,7 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     ({ data, error } = await ctx.supabase
       .from("agent_clients")
       .insert(payload)
-      .select("id, full_name, phone, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+      .select(createdSelect)
       .single());
   }
   if (error && dealNullRejected(error)) {
@@ -5768,14 +5870,16 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
       error: "לא שמרתי את הכרטיס בלי סוג עסקה. " + ask,
     };
   }
-  if (error || !data) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
+  const saved = asCard(data);
+  if (error || !saved?.id) return { ok: false, error: "לא הצלחתי לשמור את הלקוח/ה. אפשר לנסות שוב." };
 
-  ctx.conv.last_client_id = data.id;
+  ctx.conv.last_client_id = saved.id;
+  if (!neighborhoodDeferred) await fillNeighborhoodNames(ctx, [saved]);
   return {
     ok: true,
-    client_id: data.id,
-    full_name: data.full_name,
-    needs: clientNeeds(data),
+    client_id: saved.id,
+    full_name: saved.full_name,
+    ...savedCard(saved),
     ask: ownerWrite ? [ownerWrite.ask] : planned.ask,
     suggested_features: planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
@@ -5785,10 +5889,10 @@ async function toolCreateClient(ctx: ToolContext, input: Record<string, unknown>
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: ownerSavedGuidance(
+    guidance: withSavedCardGuidance(ownerSavedGuidance(
       ownerWrite?.ask,
       clientWriteGuidance(ownerWrite ? { ...planned, ask: undefined } : planned, true),
-    ),
+    )),
   };
 }
 
@@ -5842,12 +5946,13 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
   payload.updated_at = new Date().toISOString();
 
   let neighborhoodDeferred = false;
+  const updatedSelect = "id, full_name, status, " + CLIENT_CARD_FIELDS;
   let { data, error } = await ctx.supabase
     .from("agent_clients")
     .update(payload)
     .eq("id", clientId)
     .eq("agent_id", ctx.agent.id)
-    .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+    .select(updatedSelect + CLIENT_CARD_HOOD)
     .single();
   if (error && clientColumnMissing(error) && hasNewClientColumn(payload)) {
     neighborhoodDeferred = "neighborhood_id" in payload;
@@ -5857,7 +5962,7 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
       .update(payload)
       .eq("id", clientId)
       .eq("agent_id", ctx.agent.id)
-      .select("id, full_name, status, client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features")
+      .select(updatedSelect)
       .single());
   }
   if (error && dealNullRejected(error)) {
@@ -5869,15 +5974,17 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
       error: "לא עדכנתי את הכרטיס בלי סוג עסקה. " + ask,
     };
   }
-  if (error || !data) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
+  const saved = asCard(data);
+  if (error || !saved) return { ok: false, error: "לא הצלחתי לעדכן את הלקוח/ה. אפשר לנסות שוב." };
 
   ctx.conv.last_client_id = clientId;
+  if (!neighborhoodDeferred) await fillNeighborhoodNames(ctx, [saved]);
   return {
     ok: true,
     client_id: clientId,
-    full_name: data.full_name,
+    full_name: saved.full_name,
     updated_fields: Object.keys(payload).filter((k) => k !== "updated_at" && !(k === "deal_type" && payload.deal_type == null)),
-    needs: clientNeeds(data),
+    ...savedCard(saved),
     ask: ownerWrite ? [ownerWrite.ask] : undefined,
     suggested_features: notesSent && planned.suggested.length ? planned.suggested : undefined,
     cities_note: citiesDropped
@@ -5887,10 +5994,10 @@ async function toolUpdateClient(ctx: ToolContext, input: Record<string, unknown>
     neighborhood_note: neighborhoodDeferred
       ? "השכונה לא נשמרה כי העדכון למסד עוד לא עלה. שאר הכרטיס נשמר."
       : undefined,
-    guidance: ownerSavedGuidance(
+    guidance: withSavedCardGuidance(ownerSavedGuidance(
       ownerWrite?.ask,
       notesSent && planned.suggested.length ? clientWriteGuidance(planned, false) : undefined,
-    ),
+    )),
   };
 }
 
@@ -6206,10 +6313,13 @@ async function toolClientMatches(ctx: ToolContext, input: Record<string, unknown
     }
   }
 
+  const card = await clientDemandRow(ctx, clientId);
+  const summary = card || client;
   return {
     ok: true,
     client_id: clientId,
     client_name: client.full_name,
+    ...savedCard(summary),
     ...matchCounts(cut, "client_matches"),
     required_features: required.length ? featureNames(required) : undefined,
     waived_features: waive.length ? featureNames(waive) : undefined,
@@ -9814,6 +9924,11 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "לקוחות והתאמות:",
     "- למצוא לקוח/ה לפי שם: list_clients עם query. הדרישות והתקציב חוזרים בשדה needs.",
+    "- **needs הוא מה שנשמר בכרטיס**, ב-create_client, ב-update_client, ב-list_clients " +
+      "ובראש client_matches. הוא כולל שכונה כשנשמרה (\"שכונה: גבעת המורה\"). " +
+      "שדה שמופיע ב-needs נשמר. אל תאמרי שהוא אולי לא נשמר, ואל תשמרי אותו שוב " +
+      "רק כי נדמה שהסיכום חסר אותו. neighborhood_note אומר במפורש כשהשכונה לא נשמרה; " +
+      "בלי ההערה, השכונה שב-needs היא זו שנשמרה.",
     "- **גם כאן: total_matching הוא כמה יש, returned הוא כמה הוחזרו.** אם חזר " +
       "notes_truncated על לקוח/ה שנשאלת עליו/ה - קרא/י שוב עם query על השם, " +
       "ואל תצטט/י הערה חתוכה כאילו היא מלאה.",

@@ -263,7 +263,8 @@ description: שני הבוטים בוואטסאפ של שוק נדל״ן (גבר
 בעל/ת נכס שנוצר/ה בלי הסימון הוא קונה בלי דרישות - מתאים/ה לכל נכס במאגר.
 ‏`client_matches` על בעל/ת נכס מחזירה הסבר (`owner: true`) ולא רשימה ריקה,
 ו-`clientNeeds()` כותבת את הצד במפורש ("מחפש/ת לקנות", לא "למכירה" - מודל קרא
-בזה מוכר/ת). הפרטים: הסקיל `client-matching`.
+בזה מוכר/ת) ואת שם השכונה מ-`neighborhood_id` (`שכונה: גבעת המורה`). בלי השם
+ב-`needs` המודל אומר שהשכונה אולי לא נשמרה ושומר שוב. הפרטים: הסקיל `client-matching`.
 
 ## המיניסייט מהשיחה: `create_showcase`, ‏`showcase_status` ו-`remove_from_showcase`
 
@@ -739,7 +740,7 @@ slug בעברית (`אדל-נכסים-פתרונות-נדלן`), ועברית ג
 
 ```sh
 python scripts/check_edge_types.py   # טיפוסים מול הרף; CI חוסם שגיאה חדשה
-deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts
+deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/client_deal_test.ts
 node --experimental-strip-types scripts/board_listings_test.ts   # אם נגעת ב-board-listings.ts
 node --experimental-strip-types scripts/gabriela_reply_style_test.ts
 python scripts/check_long_dash.py
