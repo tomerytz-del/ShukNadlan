@@ -131,6 +131,8 @@
     eli: { name: 'אלי, הקבלן', pitch: 250, skin: '#d8a07a', hair: '#2e2a26', style: 'short', top: '#e07b39', shirt: '#e07b39', pants: '#3a3f4b', beard: true },
     tal: { name: 'טל, הקונה השני', pitch: 330, skin: '#e9b892', hair: '#6b4a2b', style: 'short', top: '#2f7f6f', shirt: '#2f7f6f', pants: '#2c3550' },
     rina: { name: 'רינה, הדיירת', pitch: 470, skin: '#efc6a6', hair: '#d6d6d6', style: 'bob', top: '#5f8f6b', shirt: '#5f8f6b', pants: '#4a4f63', glasses: true },
+    gil: { name: 'גיל, הפיזיותרפיסט', pitch: 290, skin: '#e6b089', hair: '#1f1a17', style: 'short', top: '#4d8fd1', shirt: '#4d8fd1', pants: '#2c3550' },
+    orit: { name: 'אורית, מנהלת העיזבון', pitch: 540, skin: '#eabf9c', hair: '#7a3b1e', style: 'long', top: '#b5523b', shirt: '#b5523b', pants: '#3b3f58' },
     moshe: { name: 'משה, הבעלים', pitch: 230, skin: '#efc09a', hair: '#b9b9b9', style: 'bald', top: '#8a6d4b', shirt: '#8a6d4b', pants: '#4a3b2a', mus: true }
   };
   function charSvg(L) {
