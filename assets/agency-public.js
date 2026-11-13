@@ -185,9 +185,13 @@
         facts.push(Number(p.floor) === 0 ? 'קומת קרקע' : ('קומה ' + p.floor));
       }
       var price = money(p.price);
-      var img = thumbUrl(p.images && p.images[0]);
-      var thumb = img
-        ? '<img src="' + esc(img) + '" alt="" width="74" height="60">'
+      var raw = safeImg(p.images && p.images[0]);
+      var LM = root.ListingMedia;
+      var src = raw && LM ? LM.renderUrl(raw, 400) : (raw ? thumbUrl(raw) : '');
+      var set = raw && LM ? LM.srcset(raw, [400, 800]) : '';
+      var photoAlt = LM ? LM.alt(p) : '';
+      var thumb = src
+        ? '<img src="' + esc(src) + '"' + (set && set !== src ? ' srcset="' + esc(set) + '" sizes="74px" data-full="' + esc(raw) + '" onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')"' : '') + ' alt="' + esc(photoAlt) + '" width="74" height="60" loading="lazy">'
         : '';
       var priceHtml = price
         ? '<span class="pr-amt"><span class="pr-num">' + esc(price) + '</span>' +

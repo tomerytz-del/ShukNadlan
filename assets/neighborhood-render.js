@@ -178,14 +178,19 @@
     return { head: src.slice(0, cut).trim(), rest: src.slice(cut).trim() };
   }
 
-  function renderUrl(url, w, h) {
+  function renderUrl(url, w) {
+    var LM = root.ListingMedia;
+    if (LM) {
+      var out = LM.renderUrl(url, w);
+      return out && String(out).indexOf('/storage/v1/render/image/') >= 0 ? out : '';
+    }
     var marker = '/storage/v1/object/public/';
-    var at = url.indexOf(marker);
+    var s = String(url || '');
+    var at = s.indexOf(marker);
     if (at < 0) return '';
-    var p = url.slice(at + marker.length).split(/[?#]/)[0];
+    var p = s.slice(at + marker.length).split(/[?#]/)[0];
     if (!p) return '';
-    return url.slice(0, at) + '/storage/v1/render/image/public/' + p
-      + '?width=' + w + '&height=' + h + '&resize=cover&quality=60';
+    return s.slice(0, at) + '/storage/v1/render/image/public/' + p + '?width=' + w + '&quality=70';
   }
 
   function coverModel(d) {
@@ -236,7 +241,7 @@
       var img = props[i] && typeof props[i].image === 'string' && props[i].image.indexOf(IMG_HOST) === 0
         ? props[i].image : '';
       if (!img) continue;
-      return renderUrl(img, 800, 500) || img;
+      return renderUrl(img, 800) || img;
     }
     return '';
   }
@@ -263,16 +268,18 @@
       + '<path fill="currentColor" d="M12 4 3 11h2v8h6v-5h2v5h6v-8h2L12 4z"></path></svg>תמונת הנכס</span></span>';
     if (img) {
       var pri = eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"';
-      var small = renderUrl(img, 400, 250);
-      var large = renderUrl(img, 800, 500);
-      if (small && large) {
-        pic = '<img src="' + escapeHtml(large) + '" srcset="' + escapeHtml(small) + ' 400w, ' + escapeHtml(large) + ' 800w"'
-          + ' sizes="(min-width:900px) 320px, 50vw" alt="' + escapeHtml(p.title || '') + '"'
+      var small = renderUrl(img, 400);
+      var mid = renderUrl(img, 800);
+      var big = renderUrl(img, 1200);
+      var photoAlt = root.ListingMedia ? root.ListingMedia.alt(p) : '';
+      if (small && mid && big) {
+        pic = '<img src="' + escapeHtml(mid) + '" srcset="' + escapeHtml(small) + ' 400w, ' + escapeHtml(mid) + ' 800w, ' + escapeHtml(big) + ' 1200w"'
+          + ' sizes="(min-width:900px) 320px, 50vw" alt="' + escapeHtml(photoAlt) + '"'
           + ' width="320" height="200"' + pri
           + ' data-full="' + escapeHtml(img) + '"'
           + ' onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')">';
       } else {
-        pic = '<img src="' + escapeHtml(img) + '" alt="' + escapeHtml(p.title || '') + '" width="320" height="200"' + pri + '>';
+        pic = '<img src="' + escapeHtml(img) + '" alt="' + escapeHtml(photoAlt) + '" width="320" height="200"' + pri + '>';
       }
     }
     return '<li><a class="hood-prop" href="/property?id=' + encodeURIComponent(p.id) + '">'
@@ -589,12 +596,24 @@
     if (Array.isArray(d.listings) && d.listings.length) return d.listings;
     return Array.isArray(d.props) ? d.props : [];
   }
+  function placeOn(p, d) {
+    if (!p || typeof p !== 'object') return p;
+    var city = p.city || (d && d.city) || '';
+    var hood = p.neighborhood_name || p.sales_area || (d && d.name) || '';
+    if ((p.city || !city) && (p.neighborhood_name || p.sales_area || !hood)) return p;
+    var o = {};
+    for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k)) o[k] = p[k];
+    if (!o.city && city) o.city = city;
+    if (!o.neighborhood_name && !o.sales_area && hood) o.neighborhood_name = hood;
+    return o;
+  }
   function publicListing(p) {
     var row = {
       id: p.id, title: p.title || '', property_type: p.property_type || '', deal_type: p.deal_type || '',
       price: p.price == null ? null : p.price, price_unit: p.price_unit || null,
       rooms: p.rooms == null ? null : p.rooms, size_sqm: p.size_sqm == null ? null : p.size_sqm,
       built_size_sqm: p.built_size_sqm == null ? null : p.built_size_sqm,
+      city: p.city || '', neighborhood_name: p.neighborhood_name || '',
       image: typeof p.image === 'string' && p.image.indexOf(IMG_HOST) === 0 ? p.image : null,
       updated_at: p.updated_at || null, created_at: p.created_at || null,
     };
@@ -608,6 +627,7 @@
       id: d.id || null,
       city_id: d.city_id || null,
       city: d.city || '',
+      name: d.name || '',
       city_slug: d.city_slug || '',
       slug: d.slug || '',
     }).replace(/&/g, '\\u0026').replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
@@ -615,7 +635,7 @@
   }
 
   function render(d) {
-    var all = catalog(d);
+    var all = catalog(d).map(function (p) { return placeOn(p, d); });
     var cover = coverModel(d);
     var html = '<div class="hood-page">'
       + crumbs(d)

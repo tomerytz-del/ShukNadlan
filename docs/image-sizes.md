@@ -12,21 +12,14 @@
 (‏`heroRenderUrl` ב-`property.js` ו-`og-tags.ts`).
 
 ```
-/storage/v1/object/public/<path>  →  /storage/v1/render/image/public/<path>?width=640&quality=60
+/storage/v1/object/public/<path>  →  /storage/v1/render/image/public/<path>?width=W&quality=70
 ```
 
-| איפה | רוחב |
-| --- | --- |
-| שורות התוצאות ומדפי דף הבית (‏`thumbStyle` ב-`home.js`) | 640 |
-| בלון הפין במפה | 320 |
-| נכסים דומים בדף הנכס (‏`thumbStyle` ב-`property.js`) | 640 |
-| התאים הקטנים בגלריה בדף הנכס (לא השער) | 800, ובכשל - המקור (‏`data-full`) |
-| כרטיסי הנכסים בדף המשרד ובדף הסוכן/ת | 640 |
-
-הגלריה המלאה (‏`lbOpen`) נשארת בגודל מלא - שם רואים פרטים. כתובת שאינה
-מהאחסון שלנו (קישור חיצוני) עוברת כמו שהיא. הפונקציה משוכפלת בארבעה קבצים
-(‏`home.js`, ‏`property.js`, ‏`agency.js`, ‏`agent.html`) כי אין לאתר תבנית
-משותפת, והנוסחה זהה בכולם.
+הנוסחה ב-`assets/listing-media.js` (`renderUrl` / `srcset` / `imgTag`).
+כרטיס וגלריה מקבלים `srcset` ברוחבים 400, 800 ו-1200. שער הנכס מוסיף 1600,
+ו-`src` וה-`preload` נשארים על 800. הלייטבוקס הוא רוחב 1600, עם נפילה למקור.
+כתובת שאינה מהאחסון שלנו (קישור חיצוני) עוברת כמו שהיא. `og:image` נשאר
+על קובץ ה-JPEG המלא. `alt` נבנה שם מאותו קובץ (`alt`), משדות המודעה.
 
 ## מנות של 20
 

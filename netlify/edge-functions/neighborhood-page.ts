@@ -18,6 +18,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import "../../assets/listing-media.js";
 import "../../assets/neighborhood-render.js";
 import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";

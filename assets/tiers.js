@@ -282,6 +282,33 @@
     return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
   }
 
+  /* ‏JSON-LD של /pricing. המחיר הוא priceMonthly מהקטלוג, לפני מע״מ, בלי
+     הטבת ההשקה ובלי דירוג. pricing.html מחזיק עותק, והבדיקה משווה. */
+  function softwareApplicationLd() {
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'שוק נדל״ן',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      offers: CATALOG.map(function (t) {
+        return {
+          '@type': 'Offer',
+          name: t.name,
+          price: t.priceMonthly,
+          priceCurrency: 'ILS',
+          priceSpecification: {
+            '@type': 'UnitPriceSpecification',
+            price: t.priceMonthly,
+            priceCurrency: 'ILS',
+            unitCode: 'MON',
+            valueAddedTaxIncluded: false,
+          },
+        };
+      }),
+    };
+  }
+
   global.Tiers = {
     CATALOG: CATALOG,
     ORDER: ORDER,
@@ -297,5 +324,6 @@
     promoMonthsText: promoMonthsText,
     promoState: promoState,
     formatDate: formatDate,
+    softwareApplicationLd: softwareApplicationLd,
   };
 })(window);

@@ -137,13 +137,6 @@ function priceFlat(p){
   return parts.num + parts.suffix;
 }
 
-/* ‏כתובת תמונה בתוך url('…') שבתוך מאפיין ‏style="…" — שתי שכבות ציטוט,
-   ולכן encodeURI + ‎%27‎ ולא הדבקה ישירה: גרש בודד בשם הקובץ סוגר את ה-url
-   ומריץ CSS זר, וגרש כפול בורח מהמאפיין עצמו אל תוך ה-HTML. */
-function cssUrl(u){
-  return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
-}
-
 /* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות מקבל ממלא מקום עם לוגו
    המשרד שהנכס שייך אליו והבטחה שהתמונות בדרך — בדיוק כמו ב-index.html. */
 /* תמונת כרטיס מוקטנת (‏docs/image-sizes.md). התמונות נשמרות בגודל מלא (עד
@@ -151,21 +144,15 @@ function cssUrl(u){
    לרוחב הכרטיס ומגיש WebP לדפדפן שמקבל אותו - אותה נקודה שתמונת השער בדף
    הנכס כבר עוברת בה (‏heroRenderUrl, למטה). כתובת שאינה מהאחסון שלנו - כמו שהיא. */
 function cardImgUrl(url, w){
+  if (typeof ListingMedia !== 'undefined') return ListingMedia.renderUrl(url, w || 640);
   const s = String(url || '');
   const marker = '/storage/v1/object/public/';
   const at = s.indexOf(marker);
   if (at < 0) return s;
   const path = s.slice(at + marker.length).split(/[?#]/)[0];
   if (!path) return s;
-  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=60';
+  return s.slice(0, at) + '/storage/v1/render/image/public/' + path + '?width=' + (w || 640) + '&quality=70';
 }
-function thumbStyle(p, i){
-  const img = p.images && p.images[0];
-  return img
-    ? `background-image:url('${cssUrl(cardImgUrl(img))}');background-size:cover;background-position:center`
-    : '';
-}
-
 // שם המשרד והלוגו שלו מגיעים ב-embed‏ agencies(...) על הנכס
 function agencyLogoOf(p){ return (p && (p.agency_logo || (p.agencies && p.agencies.logo_url))) || ''; }
 function agencyNameOf(p){ return (p && (p.agency_name || (p.agencies && p.agencies.name))) || ''; }
@@ -353,20 +340,15 @@ function elWithClass(parent, cls){
   return null;
 }
 
-/* אותה נוסחה כמו heroRenderUrl ב-og-tags.ts. src של השער ו-preload
-   הם 800. סטייה מוחקת את צומת ה-SSR והדפדפן מוריד את הקובץ פעמיים. */
-function heroRenderUrl(url, w, h){
-  var marker = '/storage/v1/object/public/';
-  var s = String(url || '');
-  var at = s.indexOf(marker);
-  if (at < 0) return '';
-  var path = s.slice(at + marker.length).split(/[?#]/)[0];
-  if (!path) return '';
-  return s.slice(0, at) + '/storage/v1/render/image/public/' + path
-    + '?width=' + w + '&height=' + h + '&resize=cover&quality=60';
+/* אותה נוסחה כמו heroImg ב-og-tags.ts (ListingMedia.renderUrl). src של
+   השער ו-preload הם רוחב 800. סטייה מוחקת את צומת ה-SSR והדפדפן מוריד
+   את הקובץ פעמיים. כתובת שאינה מהאחסון נשארת כמו שהיא. */
+function heroRenderUrl(url, w){
+  var out = (typeof ListingMedia !== 'undefined') ? ListingMedia.renderUrl(url, w) : '';
+  return out && out.indexOf('/storage/v1/render/image/') >= 0 ? out : '';
 }
 function posterForHero(url){
-  return heroRenderUrl(url, 800, 500) || url || '';
+  return heroRenderUrl(url, 800) || url || '';
 }
 function isPlaceholderHero(img){
   if (!img || !img.getAttribute) return false;
@@ -387,10 +369,8 @@ function hasChildTag(parent, tag){
   return false;
 }
 function heroSrcset(url){
-  var small = heroRenderUrl(url, 800, 500);
-  var big = heroRenderUrl(url, 1200, 800);
-  if (!small || !big) return '';
-  return small + ' 800w, ' + big + ' 1200w';
+  if (typeof ListingMedia === 'undefined') return '';
+  return ListingMedia.srcset(url, ListingMedia.HERO_WIDTHS);
 }
 function heroImgExtra(original){
   var set = heroSrcset(original);
@@ -462,12 +442,13 @@ function attachHeroVideo(main, videoSrc, poster){
   heroVideoEl = v;
 }
 
-/* ‏alt לתמונת נכס: כותרת הנכס ומספר התמונה (1-based), אותו נוסח ש-og-tags.ts
-   כותב בשרת. תמונה בלי alt אינה מופיעה בחיפוש התמונות, וקורא מסך קורא
-   "תמונה" בלבד (ביקורת 5.11.2026). */
+/* ‏alt לתמונת נכס: סוג, חדרים, עסקה ומקום, ואז אינדקס בגלריה. אותו נוסח
+   ש-heroPaint ב-og-tags.ts כותב, מ-ListingMedia.alt. בלי כותרת חופשית
+   ובלי מה שרואים בתמונה. */
 function galleryAlt(p, index){
-  const base = String((p && p.title) || '').replace(/\s+/g, ' ').trim() || 'נכס';
-  return `${base} - תמונה ${index + 1}`;
+  const total = galleryImages.length || (p && p.images && p.images.length) || 0;
+  if (typeof ListingMedia !== 'undefined') return ListingMedia.alt(p, { index: index, total: total });
+  return '';
 }
 
 function renderGallery(p){
@@ -525,9 +506,14 @@ function renderGallery(p){
       // פוסטר של סרטון נשאר בלי alt: התא הוא aria-hidden.
       const imgAlt = videoSrc && hero ? '' : galleryAlt(p, index);
       open.innerHTML = hero
-        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="${escapeAttr(imgAlt)}" fetchpriority="high"${heroImgExtra(raw)}>`
-        // התאים הקטנים בגלריה - מוקטנים; הגלריה המלאה (‏lbOpen) נשארת בגודל מלא
-        : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="${escapeAttr(imgAlt)}" ${index ? 'loading="lazy"' : ''} data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
+        ? `<img data-lcp="1" src="${escapeAttr(posterForHero(raw))}" alt="${escapeAttr(imgAlt)}" width="800" height="500" fetchpriority="high"${heroImgExtra(raw)}>`
+        : (typeof ListingMedia !== 'undefined'
+          ? ListingMedia.imgTag(raw, p, {
+              index: index, total: galleryImages.length, className: '',
+              widths: ListingMedia.CARD_WIDTHS, srcWidth: 800,
+              sizes: '(min-width:640px) 240px, 45vw', width: 800, height: 500, lazy: true,
+            })
+          : `<img src="${escapeAttr(cardImgUrl(raw, 800))}" alt="${escapeAttr(imgAlt)}" loading="lazy" width="800" height="500" data-full="${escapeAttr(raw)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`);
       open.addEventListener('click', ()=> lbOpen(opensAt));
       cell.appendChild(open);
       return cell;
@@ -1148,7 +1134,21 @@ const lb = document.getElementById('lightbox');
 let lbIndex = 0;
 
 function lbRender(){
-  document.getElementById('lbImage').src = galleryImages[lbIndex] || '';
+  const img = document.getElementById('lbImage');
+  const raw = galleryImages[lbIndex] || '';
+  let src = raw;
+  if (raw && typeof ListingMedia !== 'undefined'){
+    const big = ListingMedia.renderUrl(raw, 1600);
+    if (big && big.indexOf('/storage/v1/render/image/') >= 0) src = big;
+  }
+  img.alt = galleryAlt(currentProperty, lbIndex);
+  img.setAttribute('data-full', raw);
+  img.onerror = function(){
+    this.onerror = null;
+    const full = this.getAttribute('data-full');
+    if (full) this.src = full;
+  };
+  img.src = src;
   document.getElementById('lbCount').textContent = `${lbIndex+1} / ${galleryImages.length}`;
   const strip = document.getElementById('lbStrip');
   strip.querySelectorAll('button').forEach((b, i)=> b.classList.toggle('active', i === lbIndex));
@@ -1165,7 +1165,8 @@ function lbOpen(index){
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('aria-label', `מעבר לתמונה ${i+1}`);
-      b.innerHTML = `<img src="${escapeAttr(url)}" alt="${escapeAttr(galleryAlt(currentProperty, i))}" loading="lazy">`;
+      const thumb = (typeof ListingMedia !== 'undefined') ? ListingMedia.renderUrl(url, 400) : url;
+      b.innerHTML = `<img src="${escapeAttr(thumb)}" alt="${escapeAttr(galleryAlt(currentProperty, i))}" loading="lazy" width="96" height="64" data-full="${escapeAttr(url)}" onerror="this.onerror=null;this.src=this.getAttribute('data-full')">`;
       b.addEventListener('click', ()=>{ lbIndex = i; lbRender(); });
       strip.appendChild(b);
     });
@@ -2413,7 +2414,13 @@ function renderSimilarProperties(list){
     // ‏A-SEO-2: קישור אמיתי שנמתח על האריח (‏.pc-link, ‏assets/prop-shelf.css) - לא ניווט ב-JS
     card.innerHTML = `
       <a class="pc-link" href="/property?id=${encodeURIComponent(sp.id)}"><span class="pc-link-text">${escapeHtml(similarLinkText(sp))}</span></a>
-      <div class="thumb" style="${thumbStyle(sp, i)}">
+      <div class="thumb">
+        ${(sp.images && sp.images[0] && typeof ListingMedia !== 'undefined')
+          ? ListingMedia.imgTag(sp.images[0], sp, {
+              className: 'pc-photo', widths: ListingMedia.CARD_WIDTHS, srcWidth: 800,
+              sizes: '(min-width:640px) 250px, 70vw', width: 800, height: 500, lazy: true,
+            })
+          : (sp.images && sp.images[0] ? `<img class="pc-photo" src="${escapeAttr(cardImgUrl(sp.images[0], 800))}" alt="" width="800" height="500" loading="lazy">` : '')}
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}
         ${PropertyCard.badgesHtml(sp, { photo: !!(sp.images && sp.images[0]) })}

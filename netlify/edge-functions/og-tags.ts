@@ -108,6 +108,7 @@ import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
 /* ‏גוף הכתבה ו"על המשרד": אותו קוד שהדפדפן מריץ, מיובא לתופעת הלוואי שלו
    (‏globalThis.ShukArticleBody / ShukAgencyAbout) - כך מה שהשרת כותב והטקסט
    שה-JS כותב אחריו אינם יכולים להתפצל. */
+import "../../assets/listing-media.js";
 import "../../assets/article-body.js";
 import "../../assets/agency-about.js";
 /* ‏עיר המשרד וכותרת הדף - אותו כלל ש-agency.js כותב אחרי הטעינה. */
@@ -826,12 +827,27 @@ function isFileVideo(raw: unknown): boolean {
   }
 }
 
-/* תמונת שער מהאחסון שלנו יורדת בגודל התא, לא כ-JPEG המלא.
-   הנוסחה זהה ל-posterForHero ב-assets/property.js: src ו-preload הם
-   800, ו-srcset מוסיף 1200. כתובת אחרת ב-JS מוחקת את הצומת וההורדה
-   מתחילה מחדש. כתובת שאינה object/public נשארת כמו שהיא. */
+/* תמונת שער מהאחסון שלנו יורדת ב-render/image, לא כ-JPEG המלא.
+   הנוסחה זהה ל-posterForHero ב-assets/property.js (ListingMedia): src
+   ו-preload הם רוחב 800 ואיכות 70, ו-srcset מוסיף 400, 1200 ו-1600.
+   כתובת אחרת ב-JS מוחקת את הצומת וההורדה מתחילה מחדש. כתובת שאינה
+   object/public נשארת כמו שהיא. og:image נשאר על הקובץ המלא.
+   כיסוי משרד (למטה) נשאר על heroRenderUrl עם גובה, לא על הנוסחה הזו. */
 const HERO_OBJECT = "/storage/v1/object/public/";
 const HERO_SIZES = "(min-width:640px) 640px, 100vw";
+
+type ListingMediaApi = {
+  renderUrl: (url: string, width: number, quality?: number) => string;
+  srcset: (url: string, widths?: number[], quality?: number) => string;
+  alt: (listing: Record<string, unknown>, opts?: { index?: number; total?: number }) => string;
+  imgTag: (url: string, listing: Record<string, unknown>, opts?: Record<string, unknown>) => string;
+  HERO_WIDTHS: number[];
+  CARD_WIDTHS: number[];
+};
+
+function listingMedia(): ListingMediaApi | undefined {
+  return (globalThis as { ListingMedia?: ListingMediaApi }).ListingMedia;
+}
 
 function heroRenderUrl(url: string, w: number, h: number): string {
   const at = url.indexOf(HERO_OBJECT);
@@ -842,22 +858,29 @@ function heroRenderUrl(url: string, w: number, h: number): string {
     + `?width=${w}&height=${h}&resize=cover&quality=60`;
 }
 
+function propertyRenderUrl(url: string, w: number): string {
+  const out = listingMedia()?.renderUrl(url, w) || "";
+  return out.includes("/storage/v1/render/image/") ? out : "";
+}
+
 /* ‏alt של תמונת השער הוא כותרת הנכס: תמונת ה-LCP היא התמונה שגוגל מציגה
    בחיפוש התמונות, ו-alt="" מחק אותה משם (ביקורת 5.11.2026, docs/seo-audits).
    פוסטר של סרטון נשאר aria-hidden, ולכן ה-alt שלו ריק. */
 function heroImg(original: string, video: boolean, alt = ""): { tag: string; lcp: string } {
-  const src800 = heroRenderUrl(original, 800, 500);
-  const src1200 = heroRenderUrl(original, 1200, 800);
-  const transformed = !!(src800 && src1200);
+  const src800 = propertyRenderUrl(original, 800);
+  const set = src800 ? (listingMedia()?.srcset(original, listingMedia()!.HERO_WIDTHS) || "") : "";
+  const transformed = !!(src800 && set);
   const src = transformed ? src800 : original;
   const bits = [
     video ? 'class="bento-video-bg"' : "",
     'data-lcp="1"',
     `src="${esc(src)}"`,
-    transformed ? `srcset="${esc(`${src800} 800w, ${src1200} 1200w`)}"` : "",
+    transformed ? `srcset="${esc(set)}"` : "",
     transformed ? `sizes="${HERO_SIZES}"` : "",
     transformed ? `data-full="${esc(original)}"` : "",
     `alt="${video ? "" : esc(alt)}"`,
+    'width="800"',
+    'height="500"',
     'fetchpriority="high"',
     video ? 'style="filter:none;transform:none"' : "",
     video ? 'aria-hidden="true"' : "",
@@ -915,25 +938,35 @@ function heroPaint(p: Record<string, unknown>): { count: number; html: string; l
       : `<div class="bento-cell bento-main bento-empty">${placeholderImg()}${emptyHeroInner(p)}</div>`;
     return { count: 1, html: cell, lcp: "", placeholder: true };
   }
-  /* ‏אותו alt ש-renderGallery ב-assets/property.js כותב: כותרת הנכס ומספר
-     התמונה. תמונות בלי שם הן תמונות בלי מילות מפתח. */
-  const altBase = String(p.title || "").replace(/\s+/g, " ").trim() || "נכס";
-  const altOf = (n: number) => `${altBase} - תמונה ${n}`;
-  const thumb = (src: string, last: boolean, n: number) =>
-    `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}"><img src="${esc(src)}" alt="${esc(altOf(n))}" loading="lazy"></div>`;
+  /* ‏אותו alt ש-galleryAlt ב-assets/property.js כותב, מ-ListingMedia. */
+  const total = images.length || (poster ? 1 : 0);
+  const altOf = (index: number) => listingMedia()?.alt(p, { index, total }) || "";
+  const thumb = (src: string, last: boolean, index: number) => {
+    const tag = listingMedia()?.imgTag(src, p, {
+      index,
+      total,
+      widths: listingMedia()!.CARD_WIDTHS,
+      srcWidth: 800,
+      sizes: "(min-width:640px) 240px, 45vw",
+      width: 800,
+      height: 500,
+      lazy: true,
+    }) || `<img src="${esc(src)}" alt="${esc(altOf(index))}" loading="lazy" width="800" height="500">`;
+    return `<div class="bento-cell bento-thumb${last ? " carries-count" : ""}">${tag}</div>`;
+  };
   if (video) {
     const thumbEnd = Math.max(0, Math.min(images.length, 2));
     const count = 1 + thumbEnd;
     const shot = heroImg(poster, true);
     const main = `<div class="bento-cell bento-main bento-video">${shot.tag}</div>`;
-    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1, i + 1)).join("");
+    const thumbs = images.slice(0, thumbEnd).map((src, i) => thumb(src, i === thumbEnd - 1, i)).join("");
     return { count, html: main + thumbs, lcp: shot.lcp };
   }
   const thumbEnd = Math.max(1, Math.min(images.length, 3));
-  const shot = heroImg(images[0], false, altOf(1));
+  const shot = heroImg(images[0], false, altOf(0));
   const main = `<div class="bento-cell bento-main">${shot.tag}</div>`;
   const extra = images.slice(1, thumbEnd);
-  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1, i + 2)).join("");
+  const thumbs = extra.map((src, i) => thumb(src, i === extra.length - 1, i + 1)).join("");
   return { count: thumbEnd, html: main + thumbs, lcp: shot.lcp };
 }
 

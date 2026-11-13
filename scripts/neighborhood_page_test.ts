@@ -88,7 +88,11 @@ function check(name: string, ok: boolean) {
   const first = imgs.find((t) => t.includes("property-images/a.jpg"));
   const second = imgs.find((t) => t.includes("property-images/b.jpg"));
   check("כרטיס ראשון eager ובגודל התא", !!first && first.includes('fetchpriority="high"')
-    && first.includes("/render/image/") && first.includes("width=800") && !first.includes('loading="lazy"'));
+    && first.includes("/render/image/") && first.includes("width=800") && first.includes("quality=70")
+    && !first.includes("height=500") && !first.includes('loading="lazy"'));
+  check("alt מנתוני המודעה, בלי כותרת ובלי ספירה", !!first
+    && first.includes('alt="דירת 4 חדרים למכירה בגבעת המורה, עפולה"')
+    && !first.includes("script"));
   check("שאר הכרטיסים lazy", !!second && second.includes('loading="lazy"') && !second.includes("fetchpriority"));
   check("בלי שער אין preload של כרטיס", !html.includes('rel="preload" as="image"'));
   const meta = html.match(/name="description" content="([^"]*)"/);

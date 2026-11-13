@@ -67,6 +67,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import "../../assets/listing-media.js";
 import "../../assets/silo-render.js";
 import { liveMarketSlugs } from "./lib/indexability.ts";
 import { decide, registry } from "./lib/markets.ts";
