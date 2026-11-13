@@ -95,7 +95,7 @@
     var place = hood || city;
     if (hood && city && hood !== city && hood.indexOf(city) < 0) place = hood + ", " + city;
     if (!place) return "";
-    if (place.charAt(0) === "ה") return "ב" + place.slice(1);
+    /* בלי להוריד ה' מהשם: "הרצליה" היא "בהרצליה", לא "ברצליה". */
     return "ב" + place;
   }
 

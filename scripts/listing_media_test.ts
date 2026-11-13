@@ -48,7 +48,14 @@ check("רק אינדקס", LM.alt({}, { index: 0, total: 2 }) === "תמונה 1 
 check("כרטיס בלי אינדקס אינו מונה תמונות", !LM.alt(full).includes("תמונה"));
 check("אין ספירת מודעות", !/נכסים/.test(LM.alt(full, { index: 0, total: 3 })));
 check("חדר אחד", LM.alt({ property_type: "דירה", rooms: 1, deal_type: "sale" }) === "דירת חדר אחד למכירה");
-check("4.5 חדרים", LM.alt({ rooms: 4.5, deal_type: "rent", sales_area: "המושבה" }) === "4.5 חדרים להשכרה במושבה");
+check("4.5 חדרים", LM.alt({ rooms: 4.5, deal_type: "rent", sales_area: "המושבה" }) === "4.5 חדרים להשכרה בהמושבה");
+check("הרצליה", LM.alt({ property_type: "דירה", rooms: 3, deal_type: "sale", city: "הרצליה" }) === "דירת 3 חדרים למכירה בהרצליה");
+check("הוד השרון", LM.alt({ deal_type: "rent", city: "הוד השרון" }) === "להשכרה בהוד השרון");
+check("היוגב", LM.alt({ property_type: "בית", city: "היוגב" }) === "בית בהיוגב");
+check("עפולה עלית", LM.alt({
+  property_type: "דירה", rooms: 4, deal_type: "sale",
+  neighborhoods: { name: "עפולה עלית" }, city: "עפולה",
+}) === "דירת 4 חדרים למכירה בעפולה עלית");
 
 check("המרת object ל-render", LM.renderUrl(ORIG, 400) === `${BASE}?width=400&quality=70`);
 check("איכות מפורשת", LM.renderUrl(ORIG, 800, 60) === `${BASE}?width=800&quality=60`);
