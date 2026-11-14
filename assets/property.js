@@ -249,8 +249,11 @@ async function loadProperty(){
     // ‏photo_url ו-license_number מזינים את כרטיס ההמרה: פנים ורישיון הופכים
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
-      const { data: agentRow } = await sb.from('agency_members_public')
-        .select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area').eq('id', data.agent_id).maybeSingle();
+      // license_verified: התג "✓ רישיון מאומת". אם העמודה עוד לא במסד - חוזרים לשאילתה הישנה.
+      const agentCols = 'id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area';
+      let agentRes = await sb.from('agency_members_public').select(agentCols + ', license_verified').eq('id', data.agent_id).maybeSingle();
+      if (agentRes.error) agentRes = await sb.from('agency_members_public').select(agentCols).eq('id', data.agent_id).maybeSingle();
+      const agentRow = agentRes.data;
       data.agency_members = agentRow || null;
     }
 

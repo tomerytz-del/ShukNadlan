@@ -738,12 +738,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     return fetch(REST + path, { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
       .then(function(r){ return r.ok ? r.json() : []; }, function(){ return []; });
   }
+  /* license_verified: התג "✓ רישיון מאומת". אם העמודה עוד לא במסד השאילתה נכשלת (get מחזיר []), ולכן חוזרים לשאילתה הישנה. */
+  function amPublic(build){
+    var base = 'id,slug,display_name,photo_url,photo_position,years_experience,agency_id,specialties,service_area,has_ethics_badge,phone_e164';
+    return get(build(base + ',license_verified')).then(function(l){ return Array.isArray(l) && l.length ? l : get(build(base)); });
+  }
   function initials(n){ return String(n || '').trim().split(/\s+/).slice(0, 2).map(function(w){ return w[0] || ''; }).join(''); }
   /* חשבון מנהל/ת הפלטפורמה (‏agency_members.is_platform_admin, שאינו ב-view הציבורי)
      אינו מוצג בשיווק של הפלטפורמה - לפי מזהה ולא לפי שם (‏P1-C) */
   var PLATFORM_ADMIN_IDS = ['2f552dcf-90d0-4578-9038-cc6e7b9e26a5'];
   function loadAgents(wiz){
-    get('agency_members_public?select=id,slug,display_name,photo_url,photo_position,years_experience,agency_id,specialties,service_area,has_ethics_badge,phone_e164&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40')
+    amPublic(function(cols){ return 'agency_members_public?select=' + cols + '&active=eq.true&is_active_agent=eq.true&service_markets=cs.%7Bafula-emek%7D&photo_url=not.is.null&slug=not.is.null&id=not.in.(' + PLATFORM_ADMIN_IDS.join(',') + ')&limit=40'; })
       .then(function(list){
         if (!Array.isArray(list) || !list.length) return;
         return get('agent_rankings?select=agent_id,composite_score&agent_id=in.(' + list.map(function(a){ return a.id; }).join(',') + ')')

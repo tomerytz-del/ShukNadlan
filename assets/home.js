@@ -1360,7 +1360,12 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge').limit(200),
+      // license_verified: התג "✓ רישיון מאומת" בכרטיס. אם העמודה עוד לא במסד - חוזרים לשאילתה הישנה.
+      (async () => {
+        const cols = 'id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge';
+        const r = await sb.from('agency_members_public').select(cols + ', license_verified').limit(200);
+        return r.error ? sb.from('agency_members_public').select(cols).limit(200) : r;
+      })(),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
       // כל הביקורות המפורסמות באתר (‏limit(2000)) רק כדי לחלק סכום במספר —
