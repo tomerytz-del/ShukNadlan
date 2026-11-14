@@ -86,7 +86,7 @@
       ['ניסיון', Number(a.years_experience) > 0 ? (Number(a.years_experience) === 1 ? 'שנה אחת' : a.years_experience + ' שנים') : ''],
       ['התמחות', specs[0] || ''],
       ['שפות', langs.length > 1 || (langs[0] && langs[0] !== 'he') ? langs.join(', ') : ''],
-      // מספר הרישיון כעובדה, לא "מאומת": שער הרישיון (ד-1) עוד לא רץ
+      // מספר הרישיון כעובדה; ה"מאומת" הוא התג (license_verified), לא השורה הזו
       ['רישיון', o.showLicense && a.license_number ? String(a.license_number) : '']
     ].concat(o.facts || []).filter(function (f) { return f[1]; });
     var wa = waNumber(a);

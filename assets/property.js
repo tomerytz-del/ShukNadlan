@@ -3047,7 +3047,7 @@ function renderAgentCard(p){
     const top = document.querySelector('.agent-top');
     const box = document.createElement('div');
     box.className = 'agent-agc';
-    // ‏N1: בלי "✓ רישיון מאומת" - אין עדיין אימות (שער הרישיון, ד-1); המספר מוצג כעובדה, כמו קודם
+    // התג "✓ רישיון מאומת" מגיע מ-license_verified ב-agency_members_public (verified או manual); המספר מוצג כעובדה לצידו
     box.innerHTML = AgentCard.html(agent, { agency: p.agencies?.name || '', actions: false, showLicense: true });
     top.hidden = true;
     top.after(box);
