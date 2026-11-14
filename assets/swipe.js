@@ -3792,6 +3792,12 @@
       btns: [['gab_list', 'sw-navy', 'שליחת המועדפים לגבריאלה'], ['later', 'sw-link', 'אחר כך']] },
     alert: { art: BELL_ART, title: 'רוצים שנעדכן כשנכס כזה ייכנס?', sub: 'נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.',
       body: function () { return alertBlock('bs'); }, btns: [['later', 'sw-link', 'לא עכשיו']] },
+    /* אחרי הלייק השלישי בביקור: אותו טופס התראה כמו ב-alert, עם הנוסח של מי ששמר/ה שלושה נכסים.
+       מי ששמר/ה שלושה הראה/תה כוונה. נמדד ב-swipe_nudge_view/click עם kind=alert3, והליד כמו תמיד
+       generate_lead swipe_end_alert. תיאום ביקור ושיתוף נשארים ככפתורים כמו ב-like3, ונמדדים ב-swipe_nudge_click עם kind=alert3 מול kind=like3 */
+    alert3: { art: BELL_ART, title: 'שמרתם 3 נכסים 👏', sub: 'רוצים שנעדכן כשנכס כזה ייכנס? נשמור את החיפוש ונשלח רק נכסים חדשים שמתאימים לו.',
+      body: function () { return alertBlock('bs'); },
+      btns: [['visit', 'sw-navy', 'תיאום ביקור'], ['share', 'sw-white', 'שיתוף המועדפים'], ['later', 'sw-link', 'לא עכשיו']] },
     tour_end: { art: HAND_ART, title: 'מוכנים? בואו נתחיל', sub: 'ימינה שומרים, שמאלה מדלגים, ולמעלה כל הפרטים. ✨ בנכסים עם הדמיה, התמונה האחרונה מראה איך הנכס יכול להיראות.',
       btns: [['start', 'sw-navy', 'התחלת החלקה'], ['gabriela', 'sw-link', 'שאלו את גבריאלה']], onClose: tourEndClose },
     help: { art: '', title: 'איך מחליקים', sub: '', body: helpBody,
@@ -3956,9 +3962,16 @@
 
   function maybeNudge() {
     if (sessionLikes >= 6 && !sessGet('sk_swipe_nudge6')) { sessSet('sk_swipe_nudge6'); bsOpen('like6'); return; }
-    if (sessionLikes >= 3 && !sessGet('sk_swipe_nudge3')) { sessSet('sk_swipe_nudge3'); bsOpen('like3'); return; }
+    if (sessionLikes >= 3 && !sessGet('sk_swipe_nudge3')) {
+      sessSet('sk_swipe_nudge3');
+      // מי שכבר נרשם/ה (או כבר ראה/תה את הצעת ההתראה בביקור) - הגיליון הרגיל, בלי טופס
+      if (alertEligible()) { sessSet('sk_swipe_alert_bs'); bsOpen('alert3'); } else bsOpen('like3');
+      return;
+    }
     if (!store('sk_swipe_nudge1')) { store('sk_swipe_nudge1', '1'); bsOpen('like1'); }
   }
+  /* הצעת ההתראה: פעם בביקור (ביקור = sessionStorage, כמו שאר המונים), ולא למי שכבר נרשם/ה */
+  function alertEligible() { return !sessGet('sk_swipe_alert_bs') && !store('sk_swipe_alert_sent'); }
   /* ‏alert: אחרי הכרטיס ה-12 שנצפה בביקור, פעם בביקור, ולא למי שכבר נרשם/ה */
   var seenThisSession = 0;
   function maybeAlertSheet() {

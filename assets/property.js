@@ -249,8 +249,11 @@ async function loadProperty(){
     // ‏photo_url ו-license_number מזינים את כרטיס ההמרה: פנים ורישיון הופכים
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
-      const { data: agentRow } = await sb.from('agency_members_public')
-        .select('id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area').eq('id', data.agent_id).maybeSingle();
+      // license_verified: התג "✓ רישיון מאומת". אם העמודה עוד לא במסד - חוזרים לשאילתה הישנה.
+      const agentCols = 'id, display_name, slug, phone_e164, photo_url, photo_position, cover_url, license_number, has_ethics_badge, years_experience, specialties, service_area';
+      let agentRes = await sb.from('agency_members_public').select(agentCols + ', license_verified').eq('id', data.agent_id).maybeSingle();
+      if (agentRes.error && /license_verified/.test(String(agentRes.error.message || ''))) agentRes = await sb.from('agency_members_public').select(agentCols).eq('id', data.agent_id).maybeSingle();
+      const agentRow = agentRes.data;
       data.agency_members = agentRow || null;
     }
 
@@ -3044,7 +3047,7 @@ function renderAgentCard(p){
     const top = document.querySelector('.agent-top');
     const box = document.createElement('div');
     box.className = 'agent-agc';
-    // ‏N1: בלי "✓ רישיון מאומת" - אין עדיין אימות (שער הרישיון, ד-1); המספר מוצג כעובדה, כמו קודם
+    // התג "✓ רישיון מאומת" מגיע מ-license_verified ב-agency_members_public (verified או manual); המספר מוצג כעובדה לצידו
     box.innerHTML = AgentCard.html(agent, { agency: p.agencies?.name || '', actions: false, showLicense: true });
     top.hidden = true;
     top.after(box);
