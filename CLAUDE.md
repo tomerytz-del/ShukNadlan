@@ -75,7 +75,7 @@
 
 1. **כל משימה מתחילה מהסקיל של הריפו** (הטבלה למעלה), לא מספריית הסקילים
    של קלוד. מהספרייה משמשים רק `govmap-deals-sync`, ‏`chrome-browser`,
-   ‏`seo-geo-aeo` ו-`skill-creator`. **לא** מוסיפים את `supabase/agent-skills`,
+   ‏`seo-geo-aeo`, ‏`skill-creator` ו-`marketing-psychology` (נוסף 14.11.2026, כידע בלבד ובכפוף לשורה שלו בטבלה). **לא** מוסיפים את `supabase/agent-skills`,
    כי הוא מכוון להחלת DDL ישירה (הכלל למטה).
 2. **PR שנוגע באתר, ב-`supabase/` או ב-`netlify/` עובר `/code-review`
    לפני בקשת המיזוג.** אין סביבת ביניים: האתר עולה תוך שניות והמיגרציה

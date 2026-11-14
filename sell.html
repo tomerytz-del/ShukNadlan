@@ -742,7 +742,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function amPublic(build){
     var base = 'id,slug,display_name,photo_url,photo_position,years_experience,agency_id,specialties,service_area,has_ethics_badge,phone_e164';
     return fetch(REST + build(base + ',license_verified'), { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
-      .then(function(r){ return r.ok ? r.json() : null; }, function(){ return null; })
+      .then(function(r){ return r.ok ? r.json().catch(function(){ return null; }) : null; }, function(){ return null; })
       .then(function(l){ return Array.isArray(l) ? l : get(build(base)); });
   }
   function initials(n){ return String(n || '').trim().split(/\s+/).slice(0, 2).map(function(w){ return w[0] || ''; }).join(''); }

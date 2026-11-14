@@ -1364,7 +1364,7 @@ async function loadLeadingAgents(){
       (async () => {
         const cols = 'id, display_name, slug, photo_url, photo_position, phone_e164, agency_id, has_ethics_badge';
         const r = await sb.from('agency_members_public').select(cols + ', license_verified').limit(200);
-        return r.error ? sb.from('agency_members_public').select(cols).limit(200) : r;
+        return r.error && /license_verified/.test(String(r.error.message || '')) ? sb.from('agency_members_public').select(cols).limit(200) : r;
       })(),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
@@ -9080,7 +9080,7 @@ function buildHoodMap(box, hoods){
    העסקאות ויועצי הנדל״ן מוסתרים. בלי שאילתה חדשה ובלי שגיאה בקונסול: הדגל
    הזה נדלק רק אחרי שהמיגרציה רצה. אף אריח אינו מציג 0 או מספר קבוע. */
 const SITE_STATS_READY = false;
-// ‏P1-T3: נדלק רק אחרי docs/proposals/license_verified_gate.sql (ד-1)
+// ‏P1-T3: מונה "מאומתים" מוסתר עד שמחברים אותו ל-license_verified (ב-agency_members_public מ-14.11.2026); הכיבוי הוא החלטה, לא היעדר נתון
 const LICENSE_GATE_LIVE = false;
 const dmStatsState = { source: 'client', cache: null, viewed: false, asked: false };
 function dmStatsMarket(){
