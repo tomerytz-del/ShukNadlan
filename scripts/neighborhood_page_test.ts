@@ -442,7 +442,8 @@ resetLastGood();
   const H = (globalThis as unknown as { ShukHood: { hoodHello: (n: string, c: string) => string } }).ShukHood;
   const botSrc = readFileSync(new URL("../assets/bot-link.js", import.meta.url), "utf8")
     .replace(/\(window\);\s*$/, "(globalThis); return globalThis.ShukBot;");
-  const ShukBot = new Function(botSrc)() as { link: (hello: string) => string };
+  const ShukBot = new Function(botSrc)() as { NUMBER: string; link: (hello: string) => string };
+  check("bot-link.js חושף את המספר הציבורי", /^\d{9,15}$/.test(String(ShukBot.NUMBER)));
   const phrases: [string, string][] = [["מדף הבית", "homepage"], ["חיפשתי באתר", "search_empty"], ["הגעתי מהאתר", "site"]];
   function entryOf(text: string): string {
     for (const [phrase, entry] of phrases) if (text.includes(phrase)) return entry;
@@ -463,7 +464,7 @@ resetLastGood();
     const text = new URL(url).searchParams.get("text");
     check("קידוד וואטסאפ: " + hood + " / " + city, msg === expected && entryOf(msg) === "site"
       && !msg.includes("מדף הבית")
-      && url.startsWith("https://wa.me/972532494740?text=")
+      && url.startsWith("https://wa.me/" + ShukBot.NUMBER + "?text=")
       && url.includes(encodeURIComponent(msg))
       && text === msg);
   }

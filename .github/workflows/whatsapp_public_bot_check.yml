@@ -1,18 +1,17 @@
-name: וואטסאפ — האם הגיע הזמן למספר שני
+name: וואטסאפ — התנועה הציבורית, פעם בחודש
 
-# שני הבוטים בוואטסאפ חולקים מספר אחד, והפיצול ביניהם נשען על היעדר שורה
-# ב-agency_members. זו התחלה מכוונת, לא מצב קבע — ו-docs/whatsapp-public-bot.md
-# מגדיר מתי עוברים למספר שני.
+# עד 10.11.2026 שני הבוטים חלקו מספר אחד, והבדיקה הזו ענתה על "האם הגיע
+# הזמן למספר שני" - ופתחה Issue כשהסף נחצה (1,000 הודעות בשבוע, או תקלה
+# חוצת-ענפים). המספר השני קיים (docs/whatsapp-public-bot.md, "שני מספרים"),
+# ולכן ההחלטה שהסף שירת כבר התקבלה: הבדיקה נשארת כסיכום חודשי של התנועה
+# הציבורית, בלי סף ובלי Issue.
 #
-# **הבעיה שה-workflow הזה פותר:** קריטריון שכתוב במסמך ואיש לא בודק אותו הוא
-# קריטריון שלא קיים. הנפח יגדל בהדרגה, אף יום לא יהיה היום שבו "פתאום יש
-# הרבה", וההחלטה תידחה עד שתקלה תכריח אותה.
+# "תקלה חוצת-ענפים" (תשובה בלי agent_id למספר של סוכן/ת) הוסרה: מאז הפיצול
+# סוכן/ת שכותב/ת למספר הציבורי מקבל/ת את הבוט הציבורי בכוונה, ואין ביומן
+# את המספר שההודעה הגיעה אליו - בלעדיו המדד מודד דבר אחר ממה שהכותרת
+# שלו טוענת (CLAUDE.md, "מדידה: לבדוק את היחידה לפני שמכווננים את הסף").
 #
-# לכן הבדיקה רצה פעם בחודש ומדברת רק כשיש מה לומר: חצה סף — נפתח Issue;
-# לא חצה — שורה בסיכום ההרצה וזהו. מייל חודשי ש"הכול בסדר" מפסיקים לקרוא
-# אחרי הפעם השלישית.
-#
-# קריאה בלבד. שני selects, אפס כתיבה — גם לא DDL (זה כלל ב-CLAUDE.md).
+# קריאה בלבד. select אחד, אפס כתיבה — גם לא DDL (זה כלל ב-CLAUDE.md).
 
 on:
   schedule:
@@ -22,7 +21,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   check:
@@ -34,7 +32,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: ספירת התנועה הציבורית
-        id: counts
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
@@ -61,45 +58,6 @@ jobs:
           MONTH=$(echo "$ROW" | cut -d'|' -f2)
           PEOPLE=$(echo "$ROW" | cut -d'|' -f3)
 
-          # תקלה חוצת-ענפים: ענינו בלי agent_id למספר שהיה רשום כסוכן/ת
-          # **באותו רגע** — כלומר סוכן/ת נפל/ה לענף הציבורי. בדיוק הדבר
-          # שההפרדה למספר שני מונעת.
-          #
-          # שני דברים שנראים כך ואינם תקלה, ושניהם הפעילו את Issue ‎#526‎:
-          # 1. ‏a.created_at < m.created_at — מי שדיבר/ה עם גבריאלה כגולש/ת
-          #    ונרשם/ה כסוכן/ת אחר כך. בספטמבר-אוקטובר 2026 אלה היו 63
-          #    הודעות של 9 אנשים, כולם בהפרש של דקות עד שעות מההרשמה.
-          # 2. התשובה ל"אימות חתימה" — נשלחת בכוונה בלי agent_id, לפני זיהוי
-          #    הסוכן/ת (handleWaSignVerify ב-index.ts), כי החותם/ת הוא/היא לקוח/ה.
-          #    מזוהה לפי ההודעה הנכנסת האחרונה מאותו מספר, כמו VERIFY_RE.
-          CROSS=$(psql "$SUPABASE_DB_URL" -X -t -A -v ON_ERROR_STOP=1 -c "
-            select count(*)
-              from public.whatsapp_messages m
-             where m.direction = 'out'
-               and m.agent_id is null
-               and m.created_at > now() - interval '30 days'
-               and exists (select 1 from public.agency_members a
-                            where a.phone_e164 = m.wa_phone
-                              and a.created_at < m.created_at)
-               and coalesce((select i.body ~ 'אימות\s*חתימה'
-                               from public.whatsapp_messages i
-                              where i.wa_phone = m.wa_phone
-                                and i.direction = 'in'
-                                and i.created_at <= m.created_at
-                              order by i.created_at desc
-                              limit 1), false) = false;")
-
-          echo "week=$WEEK"     >> "$GITHUB_OUTPUT"
-          echo "month=$MONTH"   >> "$GITHUB_OUTPUT"
-          echo "people=$PEOPLE" >> "$GITHUB_OUTPUT"
-          echo "cross=$CROSS"   >> "$GITHUB_OUTPUT"
-
-          if [ "$WEEK" -ge 1000 ] || [ "$CROSS" -gt 0 ]; then
-            echo "alert=yes" >> "$GITHUB_OUTPUT"
-          else
-            echo "alert=no"  >> "$GITHUB_OUTPUT"
-          fi
-
           {
             echo "### תנועה ציבורית בוואטסאפ"
             echo ""
@@ -108,65 +66,6 @@ jobs:
             echo "| הודעות נכנסות בשבוע | $WEEK |"
             echo "| הודעות נכנסות בחודש | $MONTH |"
             echo "| אנשים שונים בחודש | $PEOPLE |"
-            echo "| תקלות חוצות-ענפים | $CROSS |"
             echo ""
-            echo "הסף למספר שני: 1,000 בשבוע, או תקלה אחת חוצת-ענפים."
+            echo "מ-10.11.2026 יש מספר שני לבוט הציבורי; הסיכום להקשר בלבד, בלי סף ובלי Issue."
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: פתיחת Issue כשהסף נחצה
-        if: steps.counts.outputs.alert == 'yes'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          WEEK: ${{ steps.counts.outputs.week }}
-          MONTH: ${{ steps.counts.outputs.month }}
-          PEOPLE: ${{ steps.counts.outputs.people }}
-          CROSS: ${{ steps.counts.outputs.cross }}
-        run: |
-          set -euo pipefail
-          TITLE="וואטסאפ: הגיע הזמן למספר שני"
-
-          BODY=$(cat <<EOF
-          הבדיקה החודשית מצאה שהתנועה הציבורית בוואטסאפ חצתה את הסף שמוגדר
-          ב-\`docs/whatsapp-public-bot.md\` בפרק "מתי לעבור למספר שני".
-
-          | מדד | ערך |
-          |---|---|
-          | הודעות נכנסות בשבוע | $WEEK |
-          | הודעות נכנסות בחודש | $MONTH |
-          | אנשים שונים בחודש | $PEOPLE |
-          | תקלות חוצות-ענפים | $CROSS |
-
-          הסף: **1,000 הודעות בשבוע**, או **תקלה אחת** שבה סוכן/ת קיבל/ה תשובה
-          של הבוט הציבורי. \`תקלות חוצות-ענפים > 0\` פירושו שזה כבר קרה.
-
-          **מה צריך לעשות**
-
-          1. להוסיף מספר טלפון לWABA הקיים דרך WhatsApp Manager — לא WABA חדש,
-             לא אפליקציה ולא סים נוסף. המספר צריך לקבל קוד אימות פעם אחת
-             ברישום, ואחרי זה הוא חי רק מול ה-API.
-          2. לנתב לפי \`value.metadata.phone_number_id\` שמטא שולחת בכל הודעה,
-             במקום לפי היעדר שורה ב-\`agency_members\`.
-          3. להעביר \`phone_number_id\` כפרמטר ל-\`sendText\` ול-\`markReadAndTyping\`
-             ב-\`whatsapp.ts\`, שכרגע שולחות תמיד מ-\`WHATSAPP_PHONE_NUMBER_ID\`.
-             בלי זה הבוט הציבורי יענה לפונים מהמספר של הסוכנים.
-
-          ⚠️ מספר שנרשם ב-Cloud API אינו יכול לשמש במקביל באפליקציית וואטסאפ.
-          אין להשתמש במספר שמישהו עובד איתו היום.
-
-          ---
-          נפתח אוטומטית על ידי \`.github/workflows/whatsapp_public_bot_check.yml\`.
-          EOF
-          )
-
-          EXISTING=$(gh issue list --state open --limit 100 --json number,title \
-                       | jq -r --arg t "$TITLE" \
-                           '[.[] | select(.title == $t)] | .[0].number // empty')
-
-          # ‏Issue פתוח מחודש שעבר עדיין מתאר את אותה החלטה — תגובה עליו שומרת
-          # את הדיון במקום אחד, במקום ערימת Issues זהים.
-          if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
-            echo "עודכן Issue #$EXISTING"
-          else
-            gh issue create --title "$TITLE" --body "$BODY"
-          fi
