@@ -1090,7 +1090,7 @@ function agencyCardHtml(a, eager){
     ? `<span class="star" aria-hidden="true">★</span>
        <span class="score">${a.rating.toFixed(1).replace(/\.0$/, '')}</span>
        <span class="txt">(${a.reviews_count === 1 ? 'ביקורת אחת' : a.reviews_count + ' ביקורות'})</span>`
-    : '<span class="txt">טרם התקבלו ביקורות</span>';
+    : '';   // בלי ביקורות - לא מציגים היעדר (Social Proof הפוך); הדירוג מופיע רק כשיש
 
   // תחומי ההתמחות קודם, ואחריהם עד שני אזורים: התחום עונה על "מה הוא
   // עושה" והאזור על "איפה". חמישה צ'יפים הם התקרה שכרטיס בעמודה של
@@ -1122,7 +1122,7 @@ function agencyCardHtml(a, eager){
         <!-- נכתב תמיד, גם בלי מוטו: ה-min-height שלו הוא מה שמיישר את
              הדירוג, האזורים והצ׳יפים לאותו גובה בכל הכרטיסים ברשת -->
         <p class="ag-tagline">${a.tagline ? escapeHtml(a.tagline) : ''}</p>
-        <div class="ag-meta">${rating}</div>
+        ${rating ? `<div class="ag-meta">${rating}</div>` : ''}
         ${a.areas.length ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(a.areas.join(' · '))}</span></div>` : ''}
         ${chips ? `<div class="ag-chips">${chips}</div>` : ''}
       </div>

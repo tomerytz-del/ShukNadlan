@@ -1003,7 +1003,7 @@ function agentCardHtml(a, eager){
     ? `${starsHtml(a.rating)}
        <span class="score">${escapeHtml(fmtRating(a.rating))}</span>
        <span class="txt">(${a.reviews_count === 1 ? 'ביקורת אחת' : a.reviews_count + ' ביקורות'})</span>`
-    : `${starsHtml(0)}<span class="txt">טרם התקבלו ביקורות</span>`;
+    : '';   // בלי ביקורות - לא מציגים היעדר; ה-div נשאר (min-height) כדי שהכרטיסים יישארו באותו גובה
 
   // שם המשרד הוא קישור בפני עצמו כשיש למשרד עמוד — "אצל מי הוא עובד" היא
   // שאלה שממשיכה לעמוד המשרד, ולא לעמוד המתווך/ת שאליו מוביל הכפתור למטה.
