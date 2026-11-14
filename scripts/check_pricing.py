@@ -99,6 +99,10 @@ DISPLAY = [
     # ‏WITH_LINE - התא של היכולות שמגיעות עם המספר (במקום "עם המספר")
     ('pricing.html', r'בתוספת מספר וירטואלי \(₪' + N + r'\)',          'phone_line_monthly_price'),
     ('assets/tiers.js', r'₪' + N + r' לחודש \+ מע״מ',                  'phone_line_monthly_price'),
+    # call-tracking.html: דף היכולת (הקלטה, תמלול, סיכום), עם אותם מחירי מספר וירטואלי
+    ('call-tracking.html', r'₪' + N + r' לחודש \+ מע״מ',                 'phone_line_monthly_price'),
+    ('call-tracking.html', r'כולל ' + N + r' דקות שיחה',                  'phone_line_included_minutes'),
+    ('call-tracking.html', r'ומעבר\s+לזה ₪' + N + r' לדקה',               'phone_line_overage_per_min'),
     ('pricing.html', r"'" + N + r' בחודש, ואז ₪[\d.]+ לדקה',          'phone_line_included_minutes'),
     ('pricing.html', r'כולל ' + N + r' דקות שיחה',                     'phone_line_included_minutes'),
     ('pricing.html', r'ואז ₪' + N + r' לדקה',                          'phone_line_overage_per_min'),
