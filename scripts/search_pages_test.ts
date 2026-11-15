@@ -5,7 +5,9 @@
    שני מצבים שנראים בדפדפן **בדיוק אותו דבר**:
 
      ‏1. הפרמטרים הם צירוף מהרשימה  → כותרת, תיאור, H1 ו-canonical משלו.
-     ‏2. כל דבר אחר                 → הדף יוצא כמו שהוא, ומתאחד ל-/.
+     ‏2. סינון מכירה בלי דף משלו    → canonical של /afula/דירות-למכירה.
+     ‏3. מסחרי (וגם ptype) עם מלאי  → canonical המקודד של נדלן-מסחרי.
+     ‏4. כל דבר אחר                 → הדף יוצא כמו שהוא, ומתאחד ל-/.
 
    שני הכיוונים שקטים כשהם נשברים. בכיוון אחד עמוד תוצאות מצהיר על / ולא
    נכנס לאינדקס לעולם - הבעיה שהקובץ הזה נולד כדי לפתור. בכיוון השני **כל**
@@ -124,12 +126,39 @@ function canonOf(page: { query: string; landing?: string }): string {
   return page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`;
 }
 
-/* ‏1. כל צירוף שברשימה מקבל את הכתיב שלו עצמו, כותרת משלו, ותגית אחת */
+const SALE_CANON = `${SITE}/afula/דירות-למכירה`;
+const COMMERCIAL_CANON = `${SITE}/afula/${encodeURIComponent("נדלן-מסחרי")}`;
+
+/* כשיש מלאי מסחרי. בלי מלאי, מסחרי נשאר על הצירוף (canonOf). */
+function expectedCanon(page: { query: string; landing?: string }): string {
+  if (page.landing) return `${SITE}${page.landing}`;
+  if (page.query.startsWith("deal=sale")) return SALE_CANON;
+  if (page.query === "deal=commercial" || page.query.startsWith("deal=commercial&ptype=")) {
+    return COMMERCIAL_CANON;
+  }
+  return `${SITE}/?${page.query}`;
+}
+
+function mockFetch(commercial: "yes" | "no" | "down") {
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    if (commercial === "down") {
+      return new Response("down", { status: 500, headers: { "content-type": "application/json" } });
+    }
+    const target = String(input instanceof Request ? input.url : input);
+    const rows = commercial === "yes" && target.includes("category=eq.commercial") ? [{ id: "c1" }] : [];
+    return new Response(JSON.stringify(rows), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+}
+
+mockFetch("yes");
+
+/* ‏1. כל צירוף שברשימה מקבל כותרת משלו ותגית אחת. מכירה בלי דף משלו
+   מצביעה לדירות-למכירה, ומסחרי (יש מלאי במוק) לדף המקודד. */
 for (const page of SEARCH_PAGES) {
   const r = await serve("/?" + page.query);
   check(
     `‏${page.title}`,
-    r.canonical === canonOf(page) &&
+    r.canonical === expectedCanon(page) &&
       r.canonicalCount === 1 &&
       r.title === `${page.title} | שוק נדל״ן` &&
       r.heading === page.title &&
@@ -159,7 +188,7 @@ for (const [name, url, query] of SAME) {
   const page = SEARCH_PAGES.find((p) => p.query === query)!;
   check(
     name,
-    r.canonical === canonOf(page) && r.h1 === page.title && r.h1Count === 1,
+    r.canonical === expectedCanon(page) && r.h1 === page.title && r.h1Count === 1,
     JSON.stringify(r),
   );
 }
@@ -281,8 +310,16 @@ for (const [name, url, query] of SAME) {
       && extra.canonical === `${SITE}/n/afula/אזור-התעשייה-ע-עלית`,
     JSON.stringify({ rova: rova.canonical, extra: extra.canonical }),
   );
-  check("שכונה בלי מודעות נשארת מאוחדת לדף הבית", thin.untouched, thin.canonical || "");
-  check("טקסט חופשי שאינו שכונה נשאר מאוחד", unknown.untouched, unknown.canonical || "");
+  check(
+    "שכונה בלי מודעות מצביעה לדירות למכירה",
+    thin.canonical === SALE_CANON && thin.title === "שוק נדל״ן | עפולה והעמק",
+    thin.canonical || "",
+  );
+  check(
+    "טקסט חופשי שאינו שכונה מצביע לדירות למכירה",
+    unknown.canonical === SALE_CANON && unknown.title === "שוק נדל״ן | עפולה והעמק",
+    unknown.canonical || "",
+  );
   check(
     "אותו שם בעיר אחרת אינו מצביע לעפולה",
     sameName.canonical === `${SITE}/n/emek-yizrael/מרכז-העיר`
@@ -319,30 +356,65 @@ for (const [name, url, query] of SAME) {
     return new Response(JSON.stringify(rows), { status: 200, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
   const afulaCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
-  const emekCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("נהלל"));
+  const siloCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("מגדל העמק") + "&gclid=abc");
+  const nahalalCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("נהלל") + "&gclid=abc");
+  const fakeCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("אבגד") + "&gclid=abc");
   const broadCommercial = await serve("/?deal=commercial");
+  const officesLive = await serve("/?deal=commercial&ptype=" + encodeURIComponent("משרדים") + "&utm_source=google&gclid=abc");
+  const otherPtype = await serve("/?deal=commercial&ptype=" + encodeURIComponent("מחסן"));
+  const siloSelf = `${SITE}/?city=${encodeURIComponent("מגדל העמק")}&deal=commercial`;
   check(
-    "מסחרי בעפולה עם מלאי מצביע לדף",
-    afulaCommercial.canonical === `${SITE}/afula/נדלן-מסחרי`,
-    afulaCommercial.canonical || "",
+    "ה-canonical המסחרי הוא הנתיב המקודד של הדף",
+    COMMERCIAL_CANON === "https://shuknadlan.co.il/afula/%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99",
   );
   check(
-    "מסחרי בעמק אינו מצביע לדף עפולה",
-    emekCommercial.canonical === `${SITE}/?deal=commercial` && broadCommercial.canonical === `${SITE}/?deal=commercial`,
-    JSON.stringify({ emek: emekCommercial.canonical, broad: broadCommercial.canonical }),
+    "מסחרי בעפולה ועם ptype, כשיש מלאי, מצביע לדף",
+    afulaCommercial.canonical === COMMERCIAL_CANON
+      && broadCommercial.canonical === COMMERCIAL_CANON
+      && officesLive.canonical === COMMERCIAL_CANON
+      && otherPtype.canonical === COMMERCIAL_CANON
+      && !String(officesLive.canonical).includes("gclid")
+      && !String(officesLive.canonical).includes("utm"),
+    JSON.stringify({ afula: afulaCommercial.canonical, broad: broadCommercial.canonical, offices: officesLive.canonical, other: otherPtype.canonical }),
+  );
+  check(
+    "עיר מהרשימה שאינה עפולה נשארת על עצמה",
+    siloCommercial.canonical === siloSelf
+      && siloCommercial.h1 === "נכסים מסחריים במגדל העמק"
+      && !String(siloCommercial.canonical).includes("gclid"),
+    JSON.stringify({ silo: siloCommercial.canonical, h1: siloCommercial.h1 }),
+  );
+  check(
+    "עיר שאינה ברשימה נופלת לכתובת הצירוף",
+    nahalalCommercial.canonical === `${SITE}/?deal=commercial`
+      && fakeCommercial.canonical === `${SITE}/?deal=commercial`
+      && !String(nahalalCommercial.canonical).includes("gclid")
+      && !String(fakeCommercial.canonical).includes("אבגד"),
+    JSON.stringify({ nahalal: nahalalCommercial.canonical, fake: fakeCommercial.canonical }),
   );
   globalThis.fetch = (async () =>
     new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
   ) as typeof fetch;
   const emptyCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  const emptyBroad = await serve("/?deal=commercial");
+  const emptyPtype = await serve("/?deal=commercial&ptype=" + encodeURIComponent("משרדים"));
+  const emptyOther = await serve("/?deal=commercial&ptype=" + encodeURIComponent("מחסן"));
   globalThis.fetch = (async () =>
     new Response("down", { status: 500, headers: { "content-type": "application/json" } })
   ) as typeof fetch;
   const downCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
+  const downOther = await serve("/?deal=commercial&ptype=" + encodeURIComponent("מחסן"));
+  const officesQuery = SEARCH_PAGES.find((p) => p.query.startsWith("deal=commercial&ptype="))!;
   check(
     "מסחרי בלי מלאי או בכשל נשאר על הצירוף",
-    emptyCommercial.canonical === `${SITE}/?deal=commercial` && downCommercial.canonical === `${SITE}/?deal=commercial`,
-    JSON.stringify({ empty: emptyCommercial.canonical, down: downCommercial.canonical }),
+    emptyCommercial.canonical === `${SITE}/?deal=commercial`
+      && emptyBroad.canonical === `${SITE}/?deal=commercial`
+      && emptyPtype.canonical === `${SITE}/?${officesQuery.query}`
+      && emptyOther.canonical === `${SITE}/`
+      && downCommercial.canonical === `${SITE}/?deal=commercial`
+      && downOther.canonical === `${SITE}/`
+      && downOther.cdn === "no-store",
+    JSON.stringify({ empty: emptyCommercial.canonical, broad: emptyBroad.canonical, ptype: emptyPtype.canonical, other: emptyOther.canonical, down: downCommercial.canonical, downOther: downOther.canonical }),
   );
   check(
     "כשל מלאי אינו נשמר, ואין מלאי כן",
@@ -367,7 +439,11 @@ for (const [name, url, query] of SAME) {
   const only = await serve("/?city=" + encodeURIComponent("עפולה"));
   const extra = await serve("/?deal=sale&rooms=4&page=3&city=" + encodeURIComponent("עפולה"));
   check("עיר לבדה אינה עמוד באינדקס", only.untouched, JSON.stringify(only));
-  check("צירוף שאינו ברשימה נשאר כמו שהוא גם עם עיר", extra.untouched, JSON.stringify(extra));
+  check(
+    "מכירה עם עמוד ועוד פרמטר מצביעה לדירות למכירה",
+    extra.canonical === SALE_CANON && extra.title === "שוק נדל״ן | עפולה והעמק",
+    JSON.stringify(extra),
+  );
 }
 
 /* ‏3. מה שחייב לצאת כמו שהוא: הדף מצהיר על / ומתאחד אליו */
@@ -376,11 +452,7 @@ const UNTOUCHED: [string, string][] = [
   ["דף הבית עם src בלבד", "/?src=pwa"],
   ["‏gclid בלי תוכן", "/?gclid=test&utm_source=google"],
   ["השכרה בלי סינון נוסף", "/?deal=rent"],
-  ["צירוף שאינו ברשימה", "/?deal=sale&rooms=2"],
-  ["ערך חופשי שמישהו הקליד", "/?deal=sale&q=משהו אחר"],
-  ["מחיר שרירותי", "/?deal=sale&maxPrice=1317000"],
-  ["צירוף ברשימה ועוד פרמטר", "/?deal=sale&rooms=4&page=3"],
-  ["פרמטר סינון נוסף", "/?deal=sale&rooms=4&ai=1"],
+  ["השכרה עם חדרים שאינם ברשימה", "/?deal=rent&rooms=9"],
   /* דגל v10 (‏docs/home-page-sections.md): התצוגה החדשה אינה כתובת חדשה */
   ["דגל v10 בדף הבית", "/?beta=1"],
   ["כיבוי דגל v10", "/?beta=0"],
@@ -388,6 +460,43 @@ const UNTOUCHED: [string, string][] = [
 for (const [name, url] of UNTOUCHED) {
   const r = await serve(url);
   check(name + " - יוצא כמו שהוא", r.untouched, JSON.stringify(r));
+}
+
+/* סינון מכירה בלי דף משלו מצביע לאותה כתובת כמו /?deal=sale. utm ו-gclid לא נכנסים. */
+{
+  const bare = await serve("/?deal=sale");
+  const folded: [string, string][] = [
+    ["חדרים שאינם ברשימה", "/?deal=sale&rooms=2"],
+    ["4 חדרים", "/?deal=sale&rooms=4&utm_source=google&gclid=abc"],
+    ["5 חדרים", "/?deal=sale&rooms=5"],
+    ["מחיר מהרשימה", "/?deal=sale&maxPrice=1500000"],
+    ["מחיר שרירותי", "/?deal=sale&maxPrice=1317000"],
+    ["עמוד ועוד פרמטר", "/?deal=sale&rooms=4&page=3"],
+    ["פרמטר סינון נוסף", "/?deal=sale&rooms=4&ai=1"],
+    ["פנטהאוז בלי דף משלו", "/?deal=sale&ptype=" + encodeURIComponent("גג/פנטהאוז")],
+  ];
+  for (const [name, url] of folded) {
+    const r = await serve(url);
+    check(
+      name + " - canonical של דירות למכירה",
+      r.canonical === SALE_CANON && r.canonical === bare.canonical && !String(r.canonical).includes("gclid") && !String(r.canonical).includes("utm"),
+      JSON.stringify({ canonical: r.canonical, bare: bare.canonical }),
+    );
+  }
+  const rooms3 = await serve("/?deal=sale&rooms=3&gclid=abc&utm_source=google");
+  const garden = await serve("/?deal=sale&ptype=" + encodeURIComponent("דירת גן"));
+  check(
+    "3 חדרים ודירת גן נשארים על הדף שלהם",
+    rooms3.canonical === `${SITE}/afula/דירות-3-חדרים` && garden.canonical.endsWith("/afula/דירות-גן"),
+    JSON.stringify({ rooms3: rooms3.canonical, garden: garden.canonical }),
+  );
+  const rent = await serve("/?deal=rent&rooms=3&utm_source=google&gclid=abc");
+  const rentPage = SEARCH_PAGES.find((p) => p.query === "deal=rent&rooms=3")!;
+  check(
+    "השכרה עם utm נשארת על הצירוף",
+    rent.canonical === canonOf(rentPage) && !String(rent.canonical).includes("gclid"),
+    rent.canonical || "",
+  );
 }
 
 /* ‏4. הרשימה עצמה: כתיב קנוני יחיד לכל צירוף, וכותרות שונות זו מזו */
@@ -413,6 +522,7 @@ for (const [name, url] of UNTOUCHED) {
 /* ‏5. ה-HTML האמיתי של דף הבית: ה-H1 שגולש/ת מקבל/ת, ודף הבית בלי שינוי */
 {
   const offices = SEARCH_PAGES.find((p) => p.query.startsWith("deal=commercial&ptype="))!;
+  mockFetch("no");
   const live = await serve("/?" + offices.query, REAL);
   const home = await serve("/", REAL);
   check(
@@ -423,9 +533,16 @@ for (const [name, url] of UNTOUCHED) {
       live.marketButtonInH1 &&
       live.title === `${offices.title} | שוק נדל״ן` &&
       live.canonical === canonOf(offices),
-    JSON.stringify({ h1: live.h1, h1Count: live.h1Count, citySlot: live.citySlot, title: live.title }),
+    JSON.stringify({ h1: live.h1, h1Count: live.h1Count, citySlot: live.citySlot, title: live.title, canonical: live.canonical }),
   );
   check("דף הבית האמיתי יוצא כמו שהוא", home.untouched && home.h1 !== offices.title, `h1=${home.h1}`);
+  mockFetch("yes");
+  const withStock = await serve("/?" + offices.query, REAL);
+  check(
+    "משרדים ב-HTML האמיתי, עם מלאי, מצביעים לדף המקודד",
+    withStock.canonical === COMMERCIAL_CANON && withStock.h1 === offices.title,
+    withStock.canonical || "",
+  );
 }
 
 {
@@ -480,4 +597,4 @@ if (failed) {
   console.error(`\n✗ ${failed} מקרים התנהגו אחרת.`);
   process.exit(1);
 }
-console.log(`\n✓ ${SEARCH_PAGES.length} עמודי תוצאות מוזרקים, וכל צירוף אחר מתאחד לדף הבית.`);
+console.log(`\n✓ ${SEARCH_PAGES.length} עמודי תוצאות מוזרקים. סינון מכירה בלי דף משלו מצביע לדירות-למכירה, ומסחרי לדף שלו רק כשיש מלאי.`);
