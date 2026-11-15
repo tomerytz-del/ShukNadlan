@@ -114,8 +114,8 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
   .btn-block{width:100%}
   header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);--site-header-pad:14px;padding:14px 0}
-  .header-inner{display:flex;align-items:center;justify-content:space-between}
-  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;min-width:0}
+  .logo{display:flex;align-items:center;gap:10px;flex:0 0 auto;min-width:0}
   .logo-img{height:46px;width:auto;display:block;flex:0 0 auto}
   .logo-word{
     font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
@@ -127,15 +127,23 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     .logo-word{font-size:.95rem;white-space:nowrap}
   }
   .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
-  /* הניווט שבכותרת. ‏header.site בכל בורר: design-system.css נטען אחרי ה-style */
+  /* הניווט שבכותרת. ‏header.site בכל בורר: design-system.css נטען אחרי ה-style.
+     הלוגו לא מתכווץ - המילה "שוק הנדל״ן" נשארת שלמה ואינה נצבעת על הגלולה.
+     הגלולה היא מה שנחתך (‏min-width:0) אם אין מקום. תווית האזור לא מרחיבה
+     את הלוגו מעבר לשם: בלי זה שם שוק ארוך דוחף את הגלולה אל הלוגו. */
   header.site .header-inner{gap:14px;position:relative}
-  header.site .pn-links{display:none;gap:4px;align-items:center;margin-inline-start:auto}
-  header.site .pn-links a{padding:8px 10px;font-size:.92rem;font-weight:600;color:var(--ink);border-radius:var(--radius-sm,8px)}
+  header.site .logo{flex-shrink:0}
+  header.site .logo-word{min-width:0;overflow:hidden}
+  header.site .logo-word > [data-market-label]{width:0;min-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  header.site .pn-links{display:none;gap:4px;align-items:center;min-width:0;margin-inline-start:auto}
+  header.site .pn-links a{padding:8px 10px;font-size:.92rem;font-weight:600;color:var(--ink);border-radius:var(--radius-sm,8px);white-space:nowrap}
   header.site .pn-links a:hover{background:var(--teal-tint,#eef3fb);color:var(--teal)}
-  header.site .pn-actions{display:flex;align-items:center;gap:8px;flex:none}
-  header.site .pn-join{display:inline-flex;padding:9px 16px;border-radius:999px;border:1.5px solid var(--teal);color:var(--teal);font-size:.88rem;font-weight:700;white-space:nowrap}
+  header.site .pn-actions{display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0}
+  header.site .pn-join{display:inline-flex;align-items:center;min-width:0;max-width:100%;overflow:hidden;flex:0 1 auto;padding:9px 16px;border-radius:999px;border:1.5px solid var(--teal);color:var(--teal);font-size:.88rem;font-weight:700;white-space:nowrap}
+  header.site .pn-join-long,header.site .pn-join-short{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  header.site .pn-join-short{display:none}
   header.site .pn-join:hover{background:var(--teal);color:#fff}
-  header.site .pn-menu{position:static}
+  header.site .pn-menu{position:static;flex:0 0 auto}
   header.site .pn-menu summary{list-style:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;
     border:1px solid var(--line);border-radius:999px;font-size:.9rem;font-weight:700;color:var(--ink);background:var(--paper-raised)}
   header.site .pn-menu summary::-webkit-details-marker{display:none}
@@ -152,8 +160,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   header.site .pn-panel .pn-panel-cta{color:var(--teal);font-weight:800}
   @media(max-width:640px){header.site .pn-menu-word{display:none}
     header.site .pn-join{padding:8px 12px;font-size:.8rem}
+    header.site .pn-join-long{display:none}
+    header.site .pn-join-short{display:inline}
     header.site .pn-menu summary{padding:0 11px}}
-  @media(max-width:340px){header.site .pn-join{display:none}}
   /* הלב בכותרת: הרווח מגיע מ-gap של .pn-actions (‏.hdr-likes ב-design-system.css) */
   html.beta-hero header.site .pn-actions .hdr-likes:not([hidden]){margin-inline-end:0}
   /* עד 430px הלב והקישור "הצטרפות" יחד דוחקים את הלוגו - כשהלב מוצג, הקישור יורד (הוא גם בתפריט) */
@@ -1392,7 +1401,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 3 1.5-1.9 3-3 5.1-3 3.9 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg>
         <b aria-hidden="true">0</b>
       </button>
-      <a href="/agency-signup" class="pn-join">הצטרפות ליועצי הנדל״ן</a>
+      <a href="/agency-signup" class="pn-join" aria-label="הצטרפות ליועצי הנדל״ן"><span class="pn-join-long">הצטרפות ליועצי הנדל״ן</span><span class="pn-join-short">הצטרפות</span></a>
       <details class="pn-menu" id="pnMenu">
         <summary aria-label="תפריט"><span class="pn-burger" aria-hidden="true"></span><span class="pn-menu-word">תפריט</span></summary>
         <div class="pn-panel">
