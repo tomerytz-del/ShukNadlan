@@ -3089,6 +3089,10 @@ function renderOpenHouseBand(p){
 }
 
 function renderProperty(p){
+  try {
+    if (p && p.id) document.documentElement.setAttribute('data-property-id', String(p.id));
+    else document.documentElement.removeAttribute('data-property-id');
+  } catch (e) { /* מזהה חסר - הלחיצה נספרת בלי נכס */ }
   applyDistinctTitle(p);
   renderGallery(p);
   renderMediaButtons(p);
@@ -3316,8 +3320,14 @@ function renderContactButtons(p){
   const fairAttr = (channel) => fair && p.id
     ? ` data-fair-contact="${channel}" data-fair-property="${escapeAttr(p.id)}" data-fair-page="property"`
     : '';
+  const markPid = (el) => {
+    if (!el || !p.id) return;
+    el.setAttribute('data-property-id', p.id);
+  };
+  const pidAttr = p.id ? ` data-property-id="${escapeAttr(p.id)}"` : '';
   const markFair = (el, channel) => {
     if (!el) return;
+    markPid(el);
     if (fair && p.id){
       el.setAttribute('data-fair-contact', channel);
       el.setAttribute('data-fair-property', p.id);
@@ -3361,6 +3371,7 @@ function renderContactButtons(p){
   bubble.setAttribute('aria-label', waAria);
   document.getElementById('waBubbleLabel').textContent = agentName ? 'וואטסאפ · ' + agentName : 'וואטסאפ לסוכן';
   bubble.hidden = false;
+  markPid(bubble);
   markFair(bubble, 'whatsapp');
 
   // סרגל תחתון (מובייל)
@@ -3377,11 +3388,11 @@ function renderContactButtons(p){
   // כפתורים בכרטיס ההמרה, ושורת הגילוי: מי מקבל את הפרטים. privacy.html מבטיח את זה; כאן זה
   // נאמר במקום שבו לוחצים (ההשראה: "Request a Call" של Eretzly)
   document.getElementById('agentActions').innerHTML = `
-    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${fairAttr('whatsapp')}>
+    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}"${pidAttr}${fairAttr('whatsapp')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
       וואטסאפ מהיר
     </a>
-    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${fairAttr('call')}>
+    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן"${pidAttr}${fairAttr('call')}>
       ${ICON.call}<span>חייגו</span>
     </a>
     <p class="contact-note">הפנייה מגיעה ליועץ/ת הנדל״ן של הנכס בלבד. שוק נדל״ן אינו מעביר את הפרטים לאף גורם אחר.</p>`;
