@@ -545,6 +545,10 @@
       '<div class="hr"></div><b style="font-size:14px">פרטים לחשבונית</b>' +
       '<label class="field">שם מלא<input id="payName" type="text" autocomplete="name" maxlength="100" value="' + escapeHtml(name) + '"></label>' +
       '<label class="field">טלפון<input id="payPhone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" dir="ltr" style="text-align:right"></label>' +
+      '<fieldset class="inst"><legend>מספר תשלומים</legend>' +
+        '<label class="chk"><input type="radio" name="payN" value="1" checked><span>תשלום אחד</span></label>' +
+        '<label class="chk"><input type="radio" name="payN" value="3"><span>3 תשלומים שווים ללא ריבית <small id="payInst3"></small></span></label>' +
+      '</fieldset>' +
       '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. ' + (ext ? 'ההארכה ניתנת פעם אחת. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד תקופת ההארכה טרם החלה, ולקבל החזר מלא במייל shuknadlan@gmail.com.' : 'אפשר לבטל בתוך 14 ימים, כל עוד לא נפתח שיעור בתשלום או מבחן סימולציה, ולקבל החזר מלא במייל shuknadlan@gmail.com.') + '</span></label>' +
       '<button type="submit" class="btn-p" id="payBtn">' + I.lockS + ' לתשלום מאובטח</button>' +
       '<button type="button" class="btn-s" id="freeLessonBtn">לשיעור החינמי קודם</button>' +
@@ -555,6 +559,8 @@
       '</form></div>');
     bindBand();
     if (ext) { $('payAmount').textContent = state.offer.amount; $('payMonths').textContent = state.offer.months; }
+    function instHint() { var n = Number($('payAmount').textContent); $('payInst3').textContent = n > 0 ? '(' + Math.round(n / 3 * 100) / 100 + ' ₪ כל אחד)' : ''; }
+    instHint();
     on('freeLessonBtn', 'click', function () { renderMap(); });
     on('payForm', 'submit', submitPay);
     on('testEnrollBtn', 'click', async function () {
@@ -570,7 +576,7 @@
       var pr = await purchaseFetch('GET');
       var info = pr.data;
       if (pr.ok && $('payAmount')) {
-        if (!ext) { $('payAmount').textContent = info.amount; $('payMonths').textContent = info.months; }
+        if (!ext) { $('payAmount').textContent = info.amount; $('payMonths').textContent = info.months; instHint(); }
         $('testEnrollBtn').classList.toggle('hidden', !info.can_test);
         if (!info.configured) $('payErr').textContent = 'הסליקה אינה זמינה כרגע. אפשר להתחיל מהשיעור החינמי ולנסות שוב מאוחר יותר.';
       }
@@ -589,7 +595,7 @@
     try {
       var kind = state.payKind === 'extension' ? 'extension' : 'full';
       trackCheckout(kind);
-      var sp = await purchaseFetch('POST', { kind: kind, client_name: name, client_phone: $('payPhone').value.trim(), client_country: 'IL' });
+      var sp = await purchaseFetch('POST', { kind: kind, client_name: name, client_phone: $('payPhone').value.trim(), client_country: 'IL', payments: (document.querySelector('input[name=payN]:checked') || {}).value === '3' ? 3 : 1 });
       var data = sp.data;
       if (!sp.ok || !data.redirect_url) throw data;
       rememberOrder(data.order_id, kind, Number(data.amount));

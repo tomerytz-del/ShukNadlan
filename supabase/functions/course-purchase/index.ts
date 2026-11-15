@@ -141,9 +141,9 @@ Deno.serve(async (req: Request) => {
     description: kind === "extension"
       ? `הארכת קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`
       : `קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`,
-    // עד 3 תשלומים בכרטיס אשראי, גם בהארכה (₪99; החלטת תומר, 15.11.2026). הסכום הכולל זהה,
-    // ללא ריבית ללקוח/ה (תומר סופג ריבית אם תחול). התקרה במסוף מורנינג נקבעה ל-3.
-    maxPayments: 3,
+    // הלקוח/ה בוחר/ת באתר תשלום אחד או 3 תשלומים (גם בהארכה). עמוד התשלום מציג מספר קבוע לפי
+    // maxPayments, ולכן המספר נשלח כפי שנבחר ולא כתקרה. ללא ריבית ללקוח/ה (תומר סופג).
+    maxPayments: Number(body.payments) === 3 ? 3 : 1,
     ...client,
     clientEmail: user.email ?? null,
     successUrl: `${siteBaseUrl}/learn?order=success&order_id=${orderId}`,
