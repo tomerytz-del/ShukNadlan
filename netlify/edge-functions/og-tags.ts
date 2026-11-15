@@ -1880,14 +1880,23 @@ function fillHero(html: string, count: number, inner: string): string {
   });
 }
 
-/* הפלייסהולדר בלבד. תמונת שער אמיתית נשארת ב-preload של heroHead,
-   בסוף ה-head, ולא מקבלת את הקובץ הזה. */
+/* הפלייסהולדר בלבד, מיד אחרי charset. תמונת שער אמיתית נשארת
+   ב-preload של heroHead, גם הוא מיד אחרי charset, ולא מקבלת את הקובץ הזה. */
 function preloadPlaceholder(html: string): string {
   const tag = `<link rel="preload" as="image" href="${HERO_PLACEHOLDER}" fetchpriority="high">`;
   if (html.includes(`href="${HERO_PLACEHOLDER}"`)) return html;
   const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${tag}`);
   if (withCharset !== html) return withCharset;
   return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${tag}`);
+}
+
+/* מיד אחרי charset, לא בסוף ה-head: ה-preload יושב אחרי עשרות KB של
+   CSS, והדפדפן מגלה את תמונת ה-LCP רק אחרי שהם ירדו. */
+function insertAfterCharset(html: string, block: string): string {
+  if (!block) return html;
+  const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${block}`);
+  if (withCharset !== html) return withCharset;
+  return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${block}`);
 }
 
 function heroHead(lcp: string): string[] {
@@ -1970,7 +1979,12 @@ function inject(html: string, m: Meta): string {
     out = addBodyClass(out, "property-ready has-sticky-bar");
     if (m.paint.placeholder) out = preloadPlaceholder(out);
     if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
-    add.push(...heroHead(m.paint.lcp));
+    /* תמונה אמיתית: preconnect ו-preload לפני כל סקריפט וכל CSS.
+       בלי תמונה ה-preload של הפלייסהולדר כבר יושב מיד אחרי charset,
+       וה-preconnect נשאר עם שאר התגיות כדי לא להיכנס בינו לבין ה-charset. */
+    const head = heroHead(m.paint.lcp);
+    if (m.paint.lcp) out = insertAfterCharset(out, head.join("\n"));
+    else add.push(...head);
   }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח

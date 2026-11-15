@@ -1218,7 +1218,12 @@ document.addEventListener('keydown', (e)=>{
    בפתיחה הראשונה בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM
    בלי לאתחל אותה מחדש, ושכפול פשוט יותר מלנהל העברה.                     */
 
-/* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר. */
+/* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר.
+   Leaflet הוא ה-API (פין, עיגול, מחוות, מסך מלא). MapLibre נטען מתוך
+   MapTiles.addTo ורק אז, בשביל האריחים הווקטוריים והשמות בעברית.
+   אריחי ראסטר של OSM הם רשת הביטחון שם, לא התצוגה: הם מאבדים את הסגנון
+   ואת סדר השמות, והשרת הציבורי של OSM אינו היעד. לכן שניהם נשארים,
+   ושניהם יורדים רק כשהסקציה מתקרבת למסך. */
 const PROP_MAP_ZOOM = 16;
 const PROP_MAP_FULL_ZOOM = 17;
 // עיגול של עד ק"מ צריך להיכנס כולו למסגרת של 230px
@@ -1263,11 +1268,76 @@ async function propertyMapEnabled(id){
   }
 }
 
+/* Leaflet וה-CSS שלו אינם ב-<head>: הם חוסמים את הציור בשביל מפה
+   שמתחת לקיפול. אותם כתובת ו-integrity שהיו בתגית. */
+const LEAFLET_CSS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_JS = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+const LEAFLET_CSS_SRI = 'sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H';
+const LEAFLET_JS_SRI = 'sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH';
+let leafletLoading = null;
+
+function loadTagged(tag, attrs){
+  return new Promise((resolve, reject) => {
+    const el = document.createElement(tag);
+    /* src/href אחרונים: בקשת ה-SRI יוצאת ברגע שהכתובת נקבעת, ו-crossorigin
+       חייב להיות עליה לפני כן אחרת הדפדפן דוחה את הקובץ. */
+    const urlKey = attrs.src ? 'src' : 'href';
+    Object.keys(attrs).forEach(k => { if (k !== urlKey) el[k] = attrs[k]; });
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('לא נטען: ' + attrs[urlKey]));
+    el[urlKey] = attrs[urlKey];
+    document.head.appendChild(el);
+  });
+}
+
+function loadLeaflet(){
+  if (window.L && window.L.map) return Promise.resolve();
+  if (leafletLoading) return leafletLoading;
+  leafletLoading = Promise.all([
+    loadTagged('link', {
+      rel: 'stylesheet', href: LEAFLET_CSS, integrity: LEAFLET_CSS_SRI,
+      crossOrigin: 'anonymous', referrerPolicy: 'no-referrer',
+    }),
+    loadTagged('script', {
+      src: LEAFLET_JS, integrity: LEAFLET_JS_SRI,
+      crossOrigin: 'anonymous', referrerPolicy: 'no-referrer',
+    }),
+  ]).then(() => {
+    if (!window.L || !window.L.map) throw new Error('Leaflet לא נרשם');
+  });
+  leafletLoading.catch(() => {});
+  return leafletLoading;
+}
+
+/* #mapSection מוסתר עד שהמפה עולה, ואלמנט hidden אינו נחתך עם המסך.
+   #mapNear יושב במקומו בזרימה. 300px כדי שההורדה תתחיל לפני שהסקציה נכנסת. */
+function whenNearMap(){
+  const el = document.getElementById('mapNear') || document.getElementById('mapSection');
+  if (!el || !('IntersectionObserver' in window)) return Promise.resolve();
+  /* בלי מדידה סינכרונית: הורה עם display:none מחזיר מלבן 0,0, וזה נראה
+     כאילו הסקציה כבר על המסך. ה-observer מחכה לפריים שאחרי שהתוכן נפתח. */
+  return new Promise(resolve => {
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      io.disconnect();
+      resolve();
+    }, { rootMargin: '300px' });
+    io.observe(el);
+  });
+}
+
 async function initPropertyMap(p, addressText){
   const section = document.getElementById('mapSection');
-  // ‏Leaflet חסום/נכשל, או שאין קואורדינטות — אין מה להציג
-  if (!window.L || !window.supabase || !p.lat || !p.lng) return;
+  // אין קואורדינטות, או ש-supabase-js לא עלה — אין מה להציג
+  if (!window.supabase || !p.lat || !p.lng) return;
+  await whenNearMap();
   if (!await propertyMapEnabled(p.id)) return;
+  try { await loadLeaflet(); }
+  catch (e) {
+    console.warn('מפת הנכס לא נטענה:', e);
+    return;
+  }
+  if (!window.L) return;
 
   // חשיפת הסקציה לפני יצירת המפה: Leaflet מודד את גודל הקונטיינר ברגע
   // היצירה, ובתוך section[hidden] הוא היה מקבל 0×0 ומצייר אריחים אפורים
