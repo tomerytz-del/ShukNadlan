@@ -356,6 +356,11 @@ const hoodStatic =
   `  <url><loc>${HOOD}</loc></url>\n` +
   `  <url><loc>${HOOD}</loc></url>\n` +
   `  <url><loc>https://shuknadlan.co.il/?deal=sale&amp;q=${encodeURIComponent("גבעת המורה")}</loc></url>\n` +
+  `  <url><loc>https://shuknadlan.co.il/?deal=rent&amp;rooms=3</loc></url>\n` +
+  `  <url><loc>https://shuknadlan.co.il/?deal=sale&amp;rooms=4</loc></url>\n` +
+  `  <url><loc>https://shuknadlan.co.il/property?id=p1</loc></url>\n` +
+  `  <url><loc>https://shuknadlan.co.il/agency?slug=office</loc></url>\n` +
+  `  <url><loc>https://shuknadlan.co.il/agent?slug=ada</loc></url>\n` +
   `  <url><loc>${COMMERCIAL}</loc></url>\n` +
   `</urlset>\n`;
 
@@ -393,6 +398,8 @@ const hoodXml = await (await handler(new Request("https://shuknadlan.co.il/sitem
 const hoodCount = hoodXml.split(HOOD).length - 1;
 check("דף /n/ חי פעם אחת", hoodCount === 1, String(hoodCount));
 check("צירוף שכונה עם דף /n/ יורד מה-sitemap", !hoodXml.includes("q="));
+check("כל כתובת ?deal= יורדת, גם בלי דף נחיתה", !hoodXml.includes("deal="));
+check("נכס, משרד וסוכן נשארים", hoodXml.includes("property?id=p1") && hoodXml.includes("agency?slug=office") && hoodXml.includes("agent?slug=ada"));
 check("מסחרי עם מלאי נשאר ב-sitemap", hoodXml.includes(COMMERCIAL));
 
 installRouted([

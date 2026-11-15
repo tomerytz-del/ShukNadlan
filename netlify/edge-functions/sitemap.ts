@@ -470,6 +470,14 @@ function locPointsElsewhere(loc: string, hoods?: Set<string>): boolean {
   return !!hood && !!hoods && hoods.has(hood);
 }
 
+/* כל כתובת ?deal= יורדת. היא מצהירה על דף נחיתה או על /, ומתחרה בהם.
+   דף נחיתה, /n/, נכס, משרד וסוכן אינם נושאים את הפרמטר, ונשארים. */
+function isDealFilterLoc(loc: string): boolean {
+  let url: URL;
+  try { url = new URL(loc); } catch { return false; }
+  return url.searchParams.has("deal");
+}
+
 function unescapeXml(s: string): string {
   return s.replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
 }
@@ -609,7 +617,7 @@ async function polish(
   let out = body;
   const locs = [...out.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => unescapeXml(m[1]));
   for (const loc of locs) {
-    if (locPointsElsewhere(loc, hoods)) out = removeLoc(out, loc);
+    if (locPointsElsewhere(loc, hoods) || isDealFilterLoc(loc)) out = removeLoc(out, loc);
   }
 
   /* /projects נשאר גם כשאין פרויקט: יש בו מדריך קנייה, והוא ניתן לאינדוקס.
