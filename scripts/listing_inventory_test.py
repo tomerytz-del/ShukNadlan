@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
-PHONELESS = ROOT / "supabase/migrations/20271115100000_board_lead_without_phone.sql"
+PHONELESS = ROOT / "supabase/migrations/20271115130000_board_lead_without_phone.sql"
 REF_SQL = ROOT / "supabase/migrations/20270812090000_scraped_leads.sql"
 DB = os.environ.get("LISTING_INVENTORY_DB", "listing_inventory_test")
 CITY_ID = "11111111-1111-1111-1111-111111111111"
@@ -221,7 +221,29 @@ def sync_once(db, city, items):
     """)
 
 
+def board_listing_url_stays_on_the_card():
+    """העמודה היא כפתור ב-CRM. היא לא נכנסת לטקסט של התראה, וואטסאפ או מייל."""
+    mig = PHONELESS.read_text(encoding="utf-8")
+    notify = mig.split("create or replace function public.scraped_lead_notify_demand", 1)[1]
+    notify = notify.split("create or replace view public.leads_masked", 1)[0]
+    if "board_listing_url" in notify:
+        fail("scraped_lead_notify_demand מזכיר את board_listing_url")
+    add = mig.split("create or replace function public.scraped_lead_add", 1)[1]
+    add = add.split("create or replace function public.scraped_lead_notify_demand", 1)[0]
+    if "board_listing_url" in add:
+        fail("scraped_lead_add מזכיר את board_listing_url")
+    allowed = {ROOT / "assets" / "crm.js"}
+    for base in (ROOT / "supabase" / "functions", ROOT / "assets"):
+        for path in base.rglob("*"):
+            if path.suffix not in {".ts", ".js", ".mjs"} or path in allowed:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if "board_listing_url" in text:
+                fail(f"board_listing_url מחוץ לכרטיס הליד: {path.relative_to(ROOT)}")
+
+
 def main():
+    board_listing_url_stays_on_the_card()
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
     subprocess.check_call(["createdb", "--maintenance-db=postgres", DB])
     psql(DB, sql_text=SETUP)
@@ -244,12 +266,18 @@ def main():
               true, now() - interval '2 days');
     """)
     psql(DB, PHONELESS)
-    if psql(DB, sql_text="""
-      select coalesce(lead_skip_reason, '') || '|' || (lead_attempted_at is null)::text
-        from public.listing_inventory
-       where external_ref = 'yad2.co.il/realestate/item/skipped-phone'
-    """) != "|true":
-        fail("דחיית טלפון חסר לא אופסה")
+    backfill = psql(DB, sql_text="""
+      select (i.lead_skip_reason is null)::text
+             || '|' || s.push_site_only::text
+             || '|' || (select count(*)::text from public.notifications)
+             || '|' || (select count(*)::text from public.scraped_leads
+                         where external_ref = 'yad2.co.il/realestate/item/skipped-phone')
+        from public.listing_inventory i
+        join public.scraped_leads s on s.id = i.scraped_lead_id
+       where i.external_ref = 'yad2.co.il/realestate/item/skipped-phone'
+    """)
+    if backfill != "true|true|0|1":
+        fail(f"הדחייה הישנה לא נשארה רק באתר: {backfill}")
     if psql(DB, sql_text="""
       select (phone_hash is null)::text from public.scraped_leads
        where external_ref = 'madlan.co.il/listings/virt083'
@@ -374,7 +402,12 @@ def main():
     if caps != "1|0|true":
         fail(f"תקרה על מודעות חדשות: {caps}")
     note = psql(DB, sql_text="""
-      select count(*)::text || '|' || bool_and(body like '%המערכת לא פונה לבעלים%')::text
+      select count(*)::text || '|' ||
+             bool_and(
+               position('0501000001' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and position('http' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and coalesce(action_url, '') = 'https://www.yad2.co.il/realestate/item/a-new'
+             )::text
         from public.notifications where type = 'open_demand'
     """)
     if note != "1|true":
@@ -634,8 +667,11 @@ def main():
     """)
     note = psql(DB, sql_text="""
       select count(*)::text || '|' ||
-             bool_and(body like '%בכפתור%' and body like '%לא פונה לבעלים%'
-                      and body not like '%http%')::text
+             bool_and(
+               position('http' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and position('board_listing_url' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and coalesce(action_url, '') = 'https://www.yad2.co.il/realestate/item/r-new'
+             )::text
         from public.notifications where type = 'open_demand'
     """)
     if n_plain == "0" or note != f"{n_plain}|true":

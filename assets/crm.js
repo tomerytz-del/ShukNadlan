@@ -21499,7 +21499,7 @@ function buildLeadCard(lead, agentId, isArchived){
   const secondary = el.querySelector('.lc-secondary');
   const hint = el.querySelector('.lc-hint');
 
-  const boardUrl = boardListingHref(lead);
+  const boardUrl = leadCardListingHref(lead);
   const boardLabel = boardListingLabel(lead);
   if (!unlocked){
     const cost = claimCost(lead);
@@ -21533,7 +21533,7 @@ function buildLeadCard(lead, agentId, isArchived){
       addCardAction(primary, { label: boardLabel, cls:'btn-share', blank:true, href: boardUrl,
         title: 'המודעה המקורית. המערכת לא פונה לבעלים',
         onClick: () => markLeadResponded(lead) });
-      hint.textContent = 'אין מספר במודעה. פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים.';
+      hint.textContent = 'אין מספר במודעה. המודעה נפתחת מהכרטיס הזה. המערכת לא פונה לבעלים.';
     }
     if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead, isArchived);
 
@@ -21810,7 +21810,7 @@ function tagsHtml(items){
    לפעולה ראשית, btn-share לשת"פ), ‏act-wide מותח לרוחב מלא ברשת, ו-href
    הופך את הפעולה ל-<a> (חיוג / וואטסאפ / עמוד הנכס) בלי לשנות את המראה. */
 /* כפתור למודעה ציבורית ביד2 או במדלן. רק כתובת שהמסד כבר סינן. */
-function boardListingHref(lead){
+function leadCardListingHref(lead){
   const url = String(lead && lead.board_listing_url || '');
   return /^https:\/\/(yad2\.co\.il|madlan\.co\.il)\//.test(url) ? url : '';
 }

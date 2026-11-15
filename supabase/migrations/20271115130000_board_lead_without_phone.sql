@@ -1,29 +1,52 @@
 -- ============================================================================
 -- ליד ממודעת יד2 או מדלן בלי טלפון, ומספרי מרכזיה נוספים של מדלן
 --
+-- רץ אחרי 20271115120000 (PR #1268). הפונקציות כאן מתחילות מהגרסה
+-- של אותה מיגרציה: date_known בלי חותמת, גוף התראה בלי טלפון, והקישור
+-- ב-notifications.action_url. כאן נוסף רק מה שחסר שם.
+--
 -- ## הבעיה
 -- scraped_lead_add דוחה כל קליטה בלי טלפון (missing_phone). מודעות יד2
--- שמגיעות מ-listing-inventory-intake אין בהן טלפון בכוונה, ולכן כולן
--- נרשמות כדחייה ואין מהן ליד. במדלן כפילות הטלפון מכירה רק בקידומת 073
--- כמספר מרכזיה. 083, 093 ו-033 הם אותה מרכזיה, ומודעה שנייה עם אותו
--- מספר נדחית כאילו זה אותו אדם.
+-- שמגיעות מ-listing-inventory-intake אין בהן טלפון בכוונה. במדלן
+-- כפילות הטלפון מכירה רק בקידומת 073. 083, 093 ו-033 הם אותה מרכזיה.
+-- דחיות missing_phone שכבר נרשמו, אם רק מאפסים אותן, נדחפות בסנכרון
+-- הבא (תקרה 5 ביום, וגל עד 15 סוכנים).
 --
 -- ## ההחלטה
--- 1. בלי טלפון מותר רק ל-source yad2 ול-source madlan. שאר המקורות
---    נשארים עם missing_phone. אין פניה לבעלים, אין בקשת הסכמה, ואין
---    שינוי חיוב. הסוכן/ת מופנה/ית למודעה המקורית בכפתור. גוף ההתראה
---    אינו מכיל את הכתובת.
+-- 1. בלי טלפון מותר רק ל-yad2 ול-madlan. שאר המקורות נשארים עם
+--    missing_phone. אין פניה לבעלים, אין בקשת הסכמה, ואין שינוי חיוב.
+--    המודעה נפתחת מכרטיס ב-CRM. גוף ההתראה לא מכיל את הכתובת.
+--    board_listing_url אינו נכתב להתראה, לוואטסאפ או למייל.
 -- 2. madlan_switchboard_phone מכירה ב-073, 083, 093 ו-033 (גם עם 972).
---    רק במדלן המספר הזה אינו אדם: phone_hash נשאר ריק, ושתי מודעות
---    עם אותו מספר נקלטות. ביד2 מספר כזה נשאר מספר אמיתי ומאחד ל-30 יום.
---    שורות מדלן שכבר נשמרו עם hash ועוד יש בהן את הטלפון מתאפסות,
---    כדי שפוסט בפייסבוק לא ייחסם בגללן.
--- 3. דחיית missing_phone שכבר נרשמה במלאי מתאפסת. הסנכרון הבא יוכל
---    ליצור ליד. אין כאן שליחה לבעלים.
+--    רק במדלן המספר אינו אדם. ביד2 הוא נשאר מספר אמיתי.
+-- 3. דחיות missing_phone הקיימות נכנסות עכשיו כליד עם push_site_only,
+--    בלי התראה. רק מודעה חדשה אחרי המיגרציה יכולה להידחף.
 --
--- service_role בלבד על הפונקציה החדשה. docs/scraped-leads.md
--- docs/listing-inventory.md
+-- סדר מיזוג: קודם PR #1268, ואז את זה. docs/scraped-leads.md
 -- ============================================================================
+
+alter table public.notifications
+  add column if not exists action_url text;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'notifications_action_url_chk'
+  ) then
+    alter table public.notifications
+      add constraint notifications_action_url_chk
+      check (
+        action_url is null
+        or (
+          char_length(action_url) between 18 and 500
+          and action_url ~* '^https://([a-z0-9-]+\.)*(madlan\.co\.il|yad2\.co\.il)/'
+          and action_url !~ '[[:space:]@]'
+        )
+      );
+  end if;
+end $$;
+
+comment on column public.notifications.action_url is
+  'קישור ציבורי למודעת מדלן או יד2. כפתור בפעמון ובוואטסאפ, לא שורה בגוף ההתראה.';
 
 create or replace function public.madlan_switchboard_phone(p_phone text)
 returns boolean
@@ -117,6 +140,12 @@ begin
         v_seen := null;
       end if;
     end if;
+    -- date_known בלי חותמת: המודעה נקלטה עכשיו. היעדר first_seen_at
+    -- לבדו אינו מלאי ישן, ולכן לא משאיר אותה רק באתר. תאריך שנשלח
+    -- ולא נקרא, או date_known false, נשארים בלי דחיפה.
+    if v_known and v_seen is null and v_raw is null then
+      v_seen := now();
+    end if;
     -- Older than 30 days would be deleted on the next lifecycle run.
     if v_seen is not null and v_seen >= now() - interval '30 days' then
       v_posted := v_seen;
@@ -162,7 +191,7 @@ begin
   end if;
   v_tail := public.phone_tail9(v_phone);
   -- Yad2 and Madlan listings arrive without a phone on purpose. Every
-  -- other source still needs one.
+  -- other source still needs one. The date_known window above is unchanged.
   if v_tail is null and v_source not in ('madlan', 'yad2') then
     return jsonb_build_object('error', 'missing_phone');
   end if;
@@ -305,7 +334,7 @@ end $$;
 
 
 comment on function public.scraped_lead_add(jsonb) is
-  'קליטת פוסט מפייסבוק או מודעה ממדלן/יד2. בלי טלפון רק למדלן וליד2. כפילות לפי המודעה, ולפי phone_hash חוץ ממספר מרכזיה של מדלן (073, 083, 093, 033). docs/scraped-leads.md';
+  'קליטת פוסט מפייסבוק או מודעה ממדלן/יד2. בלוח, date_known בלי first_seen_at נחשב רגע הקליטה ולא מלאי ישן. date_known false נשאר באתר. בלי טלפון רק למדלן וליד2. מספר מרכזיה של מדלן (073, 083, 093, 033) לא משתתף בכפילות. docs/scraped-leads.md';
 revoke all on function public.scraped_lead_add(jsonb) from public, anon, authenticated;
 grant execute on function public.scraped_lead_add(jsonb) to service_role;
 
@@ -341,6 +370,11 @@ declare
   v_prooms numeric;
   v_social boolean := false;
   v_tpl    boolean := false;
+  v_link   text := null;
+  v_hood   text;
+  v_place  text;
+  v_size   text;
+  v_floor  text;
   rec      record;
 begin
   select * into r from public.scraped_leads where id = p_id for update;
@@ -387,35 +421,60 @@ begin
              (select value::int from public.pricing_config
                where key = 'open_demand_pull_lookback_days'), 14), 90));
 
-  v_title := 'ביקוש פתוח: '
-    || case when r.lead_type = 'owner_inbound'
-            then case r.deal_type when 'rent' then 'משכיר/ה' else 'מוכר/ת' end
-            else case r.deal_type when 'rent' then 'מחפשים לשכור' else 'מחפשים לקנות' end end
-    || ' ב' || r.city;
-  v_body := concat_ws(' · ', r.property_type,
-                      case when r.rooms is not null then trim_scale(r.rooms)::text || ' חדרים' end,
-                      case when r.budget is not null
-                           then case when r.lead_type = 'owner_inbound' then '₪' else 'עד ₪' end
-                                || to_char(r.budget, 'FM999,999,999') end,
-                      case when r.move_in is not null then 'כניסה: ' || r.move_in end,
-                      case when r.no_broker is not null then 'כתבו ללא תיווך' end)
-    || case
-         when v_social and public.social_post_host_ok(r.source_post_url)
-           then '. בלי עלות. הסוכן הראשון שלוחץ "אני פונה" מקבל קישור לפוסט.'
-         when v_social
-           then '. בלי עלות. הסוכן הראשון שלוחץ "אני פונה" מקבל את פרטי הקשר.'
-         else '. בלי עלות, למי שלוחץ ראשון על "אני פונה". '
-              || case
-                   when r.source in ('madlan', 'yad2') and r.raw_phone is null
-                     then 'אין מספר במודעה. פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים.'
-                   when r.source = 'madlan'
-                     then 'אפשר להתקשר ל-' || r.raw_phone
-                          || '. לרוב זה מספר של מדלן (073, 083, 093 או 033), והוא מעביר את השיחה.'
-                   when r.source = 'yad2'
-                     then 'אפשר להתקשר ל-' || r.raw_phone
-                          || '. המערכת לא פונה לבעלים.'
-                   else 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.' end
-       end;
+  if r.source in ('madlan', 'yad2') then
+    -- מודעת לוח: בלי טלפון, בלי חיוב ובלי פניה לבעלים.
+    -- מיקום, חדרים, שטח, קומה ומחיר. הקישור ב-action_url, לא בטקסט.
+    v_title := 'מודעה חדשה ב' || r.city;
+    v_hood := null;
+    if r.neighborhood_id is not null then
+      select n.name into v_hood from public.neighborhoods n where n.id = r.neighborhood_id;
+    end if;
+    v_place := case
+      when nullif(btrim(v_hood), '') is not null then btrim(v_hood) || ', ' || r.city
+      else r.city
+    end;
+    -- מ"ר, מ״ר, מ׳ר, מר או מטר. "מרפסות" ו"מרתף" אינם שטח:
+    -- אחרי היחידה חייב מפריד, לא אות.
+    v_size := substring(
+      coalesce(r.demand_summary, '') || ' '
+      from '([0-9]{1,4})[[:space:]]*(מ["״׳]ר|מטר|מר)[[:space:],.]'
+    );
+    v_floor := substring(coalesce(r.demand_summary, '') from '(קומה[[:space:]]*[0-9]{1,2}|קרקע)');
+    v_body := concat_ws(' · ',
+      v_place,
+      case when r.rooms is not null then trim_scale(r.rooms)::text || ' חדרים' end,
+      case when v_size is not null then v_size || ' מ״ר' end,
+      v_floor,
+      case when r.budget is not null then '₪' || to_char(r.budget, 'FM999,999,999') end);
+    v_link := null;
+    if r.post_url ~* '^https://([a-z0-9-]+\.)*(madlan\.co\.il|yad2\.co\.il)/'
+       and char_length(r.post_url) between 18 and 500
+       and r.post_url !~ '[[:space:]@]' then
+      v_link := r.post_url;
+    end if;
+  else
+    v_title := 'ביקוש פתוח: '
+      || case when r.lead_type = 'owner_inbound'
+              then case r.deal_type when 'rent' then 'משכיר/ה' else 'מוכר/ת' end
+              else case r.deal_type when 'rent' then 'מחפשים לשכור' else 'מחפשים לקנות' end end
+      || ' ב' || r.city;
+    v_body := concat_ws(' · ', r.property_type,
+                        case when r.rooms is not null then trim_scale(r.rooms)::text || ' חדרים' end,
+                        case when r.budget is not null
+                             then case when r.lead_type = 'owner_inbound' then '₪' else 'עד ₪' end
+                                  || to_char(r.budget, 'FM999,999,999') end,
+                        case when r.move_in is not null then 'כניסה: ' || r.move_in end,
+                        case when r.no_broker is not null then 'כתבו ללא תיווך' end)
+      || case
+           when v_social and public.social_post_host_ok(r.source_post_url)
+             then '. בלי עלות. הסוכן הראשון שלוחץ "אני פונה" מקבל קישור לפוסט.'
+           when v_social
+             then '. בלי עלות. הסוכן הראשון שלוחץ "אני פונה" מקבל את פרטי הקשר.'
+           else '. בלי עלות, למי שלוחץ ראשון על "אני פונה". '
+                || 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ.'
+         end;
+    v_link := null;
+  end if;
 
   -- התאמה רק כשהתקרה כבויה. תקרה דלוקה נשארת המסלול של 20271029220000.
   if v_match and not v_on and not v_social then
@@ -440,10 +499,11 @@ begin
          order by a.base_rn
       loop
         v_rn := v_rn + 1;
-        insert into public.notifications (agent_id, type, title, body, suppress_push)
+        insert into public.notifications (agent_id, type, title, body, suppress_push, action_url)
         values (
           rec.agent_id, 'open_demand', v_title, left(v_body, 500),
-          v_site or (v_fanout > 0 and v_rn > v_fanout)
+          v_site or (v_fanout > 0 and v_rn > v_fanout),
+          v_link
         )
         returning id into v_nid;
         insert into public.scraped_lead_match_dispatch
@@ -475,13 +535,14 @@ begin
           end if;
           v_line := public.scraped_lead_match_line(rec.match_kind, rec.exact, v_prooms, v_street);
           insert into public.notifications (
-            agent_id, type, title, body, suppress_push,
+            agent_id, type, title, body, suppress_push, action_url,
             match_score, match_kind, matched_client_ids, matched_property_ids
           )
           values (
             rec.agent_id, 'open_demand', v_title,
             left(v_body || coalesce(E'\n' || v_line, ''), 500),
             v_site or (v_fanout > 0 and v_rn > v_fanout),
+            v_link,
             rec.score, rec.match_kind, rec.matched_client_ids, rec.matched_property_ids
           )
           returning id into v_nid;
@@ -517,9 +578,10 @@ begin
     v_fanout := coalesce(
       (select value::int from public.pricing_config
         where key = 'notif_burst_demand_fanout'), 15);
-    insert into public.notifications (agent_id, type, title, body, suppress_push)
+    insert into public.notifications (agent_id, type, title, body, suppress_push, action_url)
     select s.id, 'open_demand', v_title, left(v_body, 500),
-           v_site or (v_fanout > 0 and (s.rn + v_prior) > v_fanout)
+           v_site or (v_fanout > 0 and (s.rn + v_prior) > v_fanout),
+           v_link
       from (
         select m.id,
                row_number() over (
@@ -603,8 +665,8 @@ begin
       select * from ranked where rk <= greatest(0, v_cap - v_prior)
     ),
     ins as (
-      insert into public.notifications (agent_id, type, title, body, suppress_push)
-      select p.agent_id, 'open_demand', v_title, left(v_body, 500), v_site
+      insert into public.notifications (agent_id, type, title, body, suppress_push, action_url)
+      select p.agent_id, 'open_demand', v_title, left(v_body, 500), v_site, v_link
         from picked p
       returning agent_id
     ),
@@ -627,7 +689,7 @@ begin
 end $$;
 
 comment on function public.scraped_lead_notify_demand(uuid) is
-  'התראת open_demand. מדלן, יד2 והתאמה כמו 20271111150000. מחפש/ת מהרשתות: עד התקרה, גם כשהדגל הגלובלי כבוי, ובלי וואטסאפ כשתקרת התבניות כבויה. אין מילוי של חיפושים ישנים.';
+  'התראת open_demand. במדלן וביד2 הגוף בלי טלפון ובלי כתובת, והקישור ב-action_url. פייסבוק נשאר כמו שהיה. מחפש/ת מהרשתות: עד התקרה, גם כשהדגל הגלובלי כבוי, ובלי וואטסאפ כשתקרת התבניות כבויה.';
 
 revoke all on function public.scraped_lead_notify_demand(uuid) from public, anon, authenticated;
 grant execute on function public.scraped_lead_notify_demand(uuid) to service_role;
@@ -681,22 +743,45 @@ with (security_invoker = true) as
    from public.leads l;
 
 comment on column public.leads_masked.board_listing_url is
-  'כפתור למודעה הציבורית ביד2 או במדלן. ריק לכל מקור אחר, גם אם יש external_ref. אין כאן טלפון.';
+  'כפתור בכרטיס הליד ב-CRM. לא נכתב להתראה, לוואטסאפ או למייל.';
 
 
 -- שורות שכבר נשמרו עם hash של מרכזיה, כל עוד הטלפון עוד בשורה.
--- אחרי שהטלפון נמחק אי אפשר לדעת שה-hash היה של מרכזיה, ולא נוגעים בו.
 update public.scraped_leads
    set phone_hash = null
  where source = 'madlan'
    and phone_hash is not null
    and public.madlan_switchboard_phone(raw_phone);
 
--- הדחיות שכבר נרשמו בגלל הטלפון החסר. הסנכרון הבא יוצר את הליד.
-update public.listing_inventory
-   set lead_skip_reason = null,
+-- הדחיות הישנות נכנסות בלי דחיפה. אין התראה ואין פניה לבעלים.
+insert into public.scraped_leads (
+  lead_type, source, source_detail, post_url, external_ref, posted_at,
+  city, city_id, deal_type, property_type, rooms, budget,
+  push_site_only, date_known
+)
+select 'owner_inbound', i.source, left(i.city, 120), i.url, i.external_ref, pg_catalog.now(),
+       i.city, i.city_id, i.deal_type, i.property_type, i.rooms, i.price,
+       true, true
+  from public.listing_inventory i
+ where i.source in ('yad2', 'madlan')
+   and i.lead_skip_reason = 'missing_phone'
+   and i.scraped_lead_id is null
+   and i.removed_at is null
+   and i.url ~ '^https://'
+   and not exists (
+     select 1 from public.scraped_leads s
+      where s.source = i.source and s.external_ref = i.external_ref
+   );
+
+update public.listing_inventory i
+   set scraped_lead_id = s.id,
+       lead_offered_at = coalesce(i.lead_offered_at, pg_catalog.now()),
+       lead_skip_reason = null,
        lead_attempted_at = null,
        lead_attempt_fingerprint = null
- where source in ('yad2', 'madlan')
-   and lead_skip_reason = 'missing_phone'
-   and scraped_lead_id is null;
+  from public.scraped_leads s
+ where s.source = i.source
+   and s.external_ref = i.external_ref
+   and i.source in ('yad2', 'madlan')
+   and i.lead_skip_reason = 'missing_phone'
+   and i.scraped_lead_id is null;

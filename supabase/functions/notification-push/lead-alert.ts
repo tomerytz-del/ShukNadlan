@@ -161,7 +161,7 @@ function intro(li: LeadInfo): string {
   if (li.source === "מדלן" || li.source === "יד2") {
     const who = li.leadType === "owner_inbound" ? "בעל נכס" : "מחפש נכס";
     if (!li.hasPhone) {
-      return `${li.name} - ${who} - מודעה ב${li.source}. אין מספר במודעה. פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים${li.what ? ":" : "."}`;
+      return `${li.name} - ${who} - מודעה ב${li.source}. אין מספר במודעה. המודעה נפתחת מכרטיס הליד ב-CRM${li.what ? ":" : "."}`;
     }
     const how = li.source === "מדלן"
       ? "לרוב זה מספר של מדלן (073, 083, 093 או 033) שמעביר את השיחה"
@@ -187,7 +187,7 @@ export function leadText(first: string, li: LeadInfo, _link: string | null, optO
     ...(li.masked ? ["", "🔒 שם הפונה ופרטיו יוצגו אחרי פתיחת הליד במערכת."] : []),
     "",
     li.source === "מדלן" || li.source === "יד2"
-      ? (li.hasPhone ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שפותח את המודעה ראשון - סוגר.")
+      ? (li.hasPhone ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ המודעה נמצאת בכרטיס הליד.")
       : "⏱️ מי שחוזר ראשון - סוגר. כדאי לחזור אליו עכשיו!",
     "",
     optOutLine,
@@ -202,7 +202,7 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
     li.excerpt ? `💬 "${clip(li.excerpt, 80)}"` : "",
     alone
       ? (li.source === "מדלן" || li.source === "יד2"
-          ? (li.hasPhone ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ מי שפותח את המודעה ראשון - סוגר.")
+          ? (li.hasPhone ? "⏱️ מי שמתקשר ראשון - סוגר." : "⏱️ המודעה נמצאת בכרטיס הליד.")
           : "⏱️ מי שחוזר ראשון - סוגר!")
       : "",
   ];
