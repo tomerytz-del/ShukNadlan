@@ -600,7 +600,7 @@ function renderOpenDemand(listEl){
   }
   const hint = '<p class="ui-hint lp-demand-hint"><span>אנשים פרטיים שפרסמו בפייסבוק, במדלן או ביד2 מה הם מחפשים או מציעים.'
     + ' "אני פונה" שומר את הביקוש לך בלבד.</span>'
-    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן וביד2 מתקשרים למספר שבכרטיס. במדלן לרוב זה מספר 073, והוא מעביר את השיחה. המערכת לא פונה לבעלים.</strong></span></p>';
+    + '<span><strong>בפייסבוק מגיבים בפוסט או בהודעה. במדלן וביד2, אם יש מספר בכרטיס מתקשרים אליו. במדלן לרוב זה מספר של המרכזיה (073, 083, 093 או 033), והוא מעביר את השיחה. בלי מספר פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים.</strong></span></p>';
   if (!openDemandRows.length){
     listEl.innerHTML = hint + '<div class="empty-state">אין כרגע ביקוש פתוח בעיר שלך.</div>';
     return;
@@ -613,21 +613,22 @@ function renderOpenDemand(listEl){
       : d.source === 'madlan' ? 'מדלן'
       : d.source === 'yad2' ? 'יד2' : 'קבוצת פייסבוק';
     const url = /^https:\/\//.test(d.post_url || '') ? d.post_url : '';
+    const boardLabel = d.source === 'yad2' ? 'פתיחה ביד2' : (d.source === 'madlan' ? 'פתיחה במדלן' : '');
     const nb = OPEN_DEMAND_NO_BROKER[d.no_broker];
     const rule = socialTalk && !url
       ? 'הפנייה הגיעה משיחה עם גבריאלה. אין כאן מספר, לא ב-SMS ולא בוואטסאפ.'
       : (d.source === 'madlan'
-          ? 'אפשר להתקשר למספר שבכרטיס. לרוב זה מספר 073 של מדלן, והוא מעביר את השיחה.'
+          ? 'אם יש מספר בכרטיס, אפשר להתקשר אליו. לרוב זה מספר של מדלן (073, 083, 093 או 033), והוא מעביר את השיחה. בלי מספר, פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים.'
           : (d.source === 'yad2'
-              ? 'אפשר להתקשר למספר שבכרטיס. המערכת לא פונה לבעלים.'
+              ? 'אם יש מספר בכרטיס, אפשר להתקשר אליו. בלי מספר, פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים.'
               : (nb ? nb.rule : OPEN_DEMAND_RULE)));
     const act = d.mine
       ? (url
-          ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">לפוסט המקורי ↗</a>`
+          ? `<a class="ui-btn ui-btn--secondary" href="${esc(url)}" target="_blank" rel="noopener">${boardLabel ? esc(boardLabel) : 'לפוסט המקורי ↗'}</a>`
           : (socialTalk ? '<span class="ui-muted">פרטי הקשר עדיין לא נמסרים כאן.</span>' : ''))
       : (left === 0
           ? '<span class="ui-muted">הגעת לתקרה היומית. מחר אפשר שוב.</span>'
-          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${url ? 'אני פונה בפוסט ↗' : 'אני פונה'}</button>`);
+          : `<button type="button" class="ui-btn" data-demand-claim="${esc(d.id)}"${url ? ' data-open-post="1"' : ''}>${boardLabel ? esc(boardLabel) : (url ? 'אני פונה בפוסט ↗' : 'אני פונה')}</button>`);
     return `<article class="ui-scope lp-card" data-demand-id="${esc(d.id)}">`
       + `<div class="lp-head"><span class="lp-avatar" aria-hidden="true">📣</span>`
       + `<div class="lp-who"><div class="lp-name">${esc(openDemandWants(d).split(' · ')[0])}</div>`

@@ -21499,6 +21499,8 @@ function buildLeadCard(lead, agentId, isArchived){
   const secondary = el.querySelector('.lc-secondary');
   const hint = el.querySelector('.lc-hint');
 
+  const boardUrl = boardListingHref(lead);
+  const boardLabel = boardListingLabel(lead);
   if (!unlocked){
     const cost = claimCost(lead);
     addCardAction(primary, {
@@ -21525,11 +21527,24 @@ function buildLeadCard(lead, agentId, isArchived){
       addCardAction(primary, { label:'📞 חיוג', cls:'lc-call', href:'tel:' + tel,
         onClick: () => markLeadResponded(lead) });
     }
+    // מודעת יד2 או מדלן בלי מספר: הדרך היחידה היא הכפתור למודעה.
+    // הכתובת לא נכתבת בטקסט. לחיצה נספרת כמענה, כמו חיוג.
+    if (boardUrl && boardLabel && !wa && tel.replace(/\D/g, '').length < 9){
+      addCardAction(primary, { label: boardLabel, cls:'btn-share', blank:true, href: boardUrl,
+        title: 'המודעה המקורית. המערכת לא פונה לבעלים',
+        onClick: () => markLeadResponded(lead) });
+      hint.textContent = 'אין מספר במודעה. פותחים את המודעה המקורית בכפתור. המערכת לא פונה לבעלים.';
+    }
     if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead, isArchived);
 
     // הליד פתוח - כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
     // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
     // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
+    if (boardUrl && boardLabel && (wa || tel.replace(/\D/g, '').length >= 9)){
+      addCardAction(secondary, { label: boardLabel, blank:true, href: boardUrl,
+        title: 'המודעה המקורית. המערכת לא פונה לבעלים',
+        onClick: () => markLeadResponded(lead) });
+    }
     if (wa){
       addCardAction(secondary, {
         label:'⭐ בקשת חוות דעת', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
@@ -21794,6 +21809,18 @@ function tagsHtml(items){
 /* כפתור פעולה בכרטיס. ‏cls בוחר את הגוון (btn-ghost ברירת מחדל, btn-gold
    לפעולה ראשית, btn-share לשת"פ), ‏act-wide מותח לרוחב מלא ברשת, ו-href
    הופך את הפעולה ל-<a> (חיוג / וואטסאפ / עמוד הנכס) בלי לשנות את המראה. */
+/* כפתור למודעה ציבורית ביד2 או במדלן. רק כתובת שהמסד כבר סינן. */
+function boardListingHref(lead){
+  const url = String(lead && lead.board_listing_url || '');
+  return /^https:\/\/(yad2\.co\.il|madlan\.co\.il)\//.test(url) ? url : '';
+}
+function boardListingLabel(lead){
+  if (!lead) return '';
+  if (lead.source === 'yad2') return 'פתיחה ביד2';
+  if (lead.source === 'madlan') return 'פתיחה במדלן';
+  return '';
+}
+
 function addCardAction(actions, opts){
   const el = document.createElement(opts.href ? 'a' : 'button');
   el.className = 'btn ' + (opts.cls || 'btn-ghost');
