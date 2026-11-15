@@ -692,7 +692,7 @@
       '<ul class="wl-plan">' +
       '<li><span class="mk done">' + tick + '</span><span>נכנסתם. הצעד הראשון כבר מאחוריכם.</span></li>' +
       '<li><span class="mk">1</span><span>' + (enrolled() ? 'השיעור הראשון' : 'שיעור ראשון, בחינם') + (entry ? ': ' + escapeHtml(entry.lesson.title) : '') + '</span></li>' +
-      '<li><span class="mk">2</span><span>שאלה קצרה בסוף כל שיעור, כדי שהידע ישב</span></li>' +
+      '<li><span class="mk">2</span><span>שאלה קצרה בסוף כל שיעור, ובחלק מהשיעורים סצנה מונפשת עם קול</span></li>' +
       '</ul>' +
       (need ? '<div class="wl-fact">הבחינה היא ' + q + ' שאלות, ומספיקות ' + need + ' תשובות נכונות כדי לעבור. זה אפשרי, ובדיוק על זה נתאמן.</div>' : '') +
       '<div class="wl-actions">' +
