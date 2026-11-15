@@ -581,7 +581,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 אישיים:** לא שם, לא טלפון ולא מייל. הדחיפה לא נורית פעמיים: מזהה ההזמנה נשמר ב-
 `localStorage` (`coursePurchaseSent:<id>`).
 
-**מה צריך ב-GTM (לא קיים עד שמייבאים):** `docs/gtm-course-purchase-import.json`
+**ב-GTM (יובא ופורסם ב-15.11.2026, גרסה 19; הייצוא ב-`gtm/container.json`):** `docs/gtm-course-purchase-import.json`
 (`Admin ← Import Container`, מצב `Merge`): שני טריגרים, תגיות GA4 לשני האירועים, ותגיות Meta
 (`meta pixel purchase`, `meta pixel initiatecheckout`, Custom HTML שנסקרו ב-
 `REVIEWED_HTML_TAGS`). אחרי פרסום הגרסה מייצאים מחדש ל-`gtm/container.json`
