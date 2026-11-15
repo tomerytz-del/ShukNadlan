@@ -36,8 +36,8 @@ export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 199, premium: 3
    ‏grant_launch_promo אידמפוטנטית ואינה מקצרת promo_ends_at קיים. */
 export const PROMO_TIER: Tier = "premium";
 export const PROMO_MONTHS = 2;
-/** חודש נוסף למי שרכש/ה את קורס ההכנה בתשלום ונרשם/ה כסוכן/ת עם אותו חשבון
- *  (תומר, 15.11.2026). "90 ימים" בדף הקורס הם PROMO_MONTHS + הערך הזה. */
+/** חודש נוסף על 60 ימי ה-Elite הקבועים, למי שרכש/ה את קורס ההכנה בתשלום ונרשם/ה
+ *  כסוכן/ת עם אותו חשבון (תומר, 15.11.2026; ‏60 הימים עצמם הם תמחור קבוע, לא הטבה). "90 ימים" בדף הקורס הם PROMO_MONTHS + הערך הזה. */
 export const COURSE_BUYER_BONUS_MONTHS = 1;
 /** הנוסח העברי של מספר החודשים ("חודשיים", לא "2 חודשים") - אותו כלל כמו Tiers.promoMonthsText ב-assets/tiers.js. */
 export function promoMonthsText(months: number = PROMO_MONTHS): string {
