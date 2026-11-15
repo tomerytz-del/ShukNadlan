@@ -213,7 +213,7 @@ function renderCcMarket(cc, report){
     + '</div>'
     + '<div class="cc-col"><div class="cc-col-head">כסף ' + ccTag(ccMoneyTag(cc, report)) + '</div>'
     + ccRow('מנויים בתשלום', ccInt(mk.paying))
-    + ccRow('בהטבת ההשקה', ccInt(mk.on_promo))
+    + ccRow('בתקופת ההתנסות', ccInt(mk.on_promo))
     + ccRow('סוכנים פעילים', ccInt(mk.agents_active))
     + '</div>';
 }

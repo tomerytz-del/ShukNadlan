@@ -137,13 +137,13 @@ function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: Pre
     const tierName = TIER_NAMES[prePaid.tier];
     const title = `${name}, המנוי שלך ל-${tierName} מוכן`;
     const html = shell(title, [
-      p(`הטבת ההשקה מסתיימת ב-<b>${esc(when)}</b>, ומאותו יום החשבון ממשיך ב-<b>${esc(tierName)}</b> ששילמת עליו - בלי הפסקה ובלי פעולה נוספת.`),
-      p(`ימי ההטבה שנותרו לא נגבו. התקופה ששולמה מתחילה בסוף ההטבה, ומשם המנוי מתחדש חודשית. אפשר לבטל את החידוש בכל עת ב-CRM, תחת "ארנק וחיובים".`),
+      p(`תקופת ההתנסות מסתיימת ב-<b>${esc(when)}</b>, ומאותו יום החשבון ממשיך ב-<b>${esc(tierName)}</b> ששילמת עליו - בלי הפסקה ובלי פעולה נוספת.`),
+      p(`ימי ההתנסות שנותרו לא נגבו. התקופה ששולמה מתחילה בסוף תקופת ההתנסות, ומשם המנוי מתחדש חודשית. אפשר לבטל את החידוש בכל עת ב-CRM, תחת "ארנק וחיובים".`),
     ].join(""), "לניהול המנוי", CRM_URL);
     const text = [
-      `${name}, הטבת ההשקה מסתיימת ב-${when}, ומאותו יום החשבון ממשיך ב-${tierName} ששילמת עליו.`,
+      `${name}, תקופת ההתנסות מסתיימת ב-${when}, ומאותו יום החשבון ממשיך ב-${tierName} ששילמת עליו.`,
       "",
-      "ימי ההטבה שנותרו לא נגבו. המנוי מתחדש חודשית, ואפשר לבטל את החידוש בכל עת ב-CRM.",
+      "ימי ההתנסות שנותרו לא נגבו. המנוי מתחדש חודשית, ואפשר לבטל את החידוש בכל עת ב-CRM.",
       "",
       `לניהול המנוי: ${CRM_URL}`,
     ].join("\n");
@@ -151,24 +151,24 @@ function noticeMail(name: string, endsAt: string, daysLeft: number, prePaid: Pre
   }
 
   const title = daysLeft > 20
-    ? `${name}, נשאר חודש להטבת ההשקה שלך`
-    : `${name}, עוד שבועיים - וההטבה מסתיימת`;
+    ? `${name}, נשאר חודש לתקופת ההתנסות שלך`
+    : `${name}, עוד שבועיים - ותקופת ההתנסות מסתיימת`;
   const block = usageBlock(usage);
   const html = shell(title, [
-    p(`מסלול <b>Elite</b> שקיבלת במתנה עם ההצטרפות מסתיים ב-<b>${esc(when)}</b>.`),
+    p(`מסלול <b>Elite</b> שקיבלת עם ההצטרפות מסתיים ב-<b>${esc(when)}</b>.`),
     ...(block ? [block.html] : []),
     p("עד אז הכול ממשיך כרגיל: לידי בעל-נכס ללא עלות, סרטונים שיווקיים, הדמיות AI, דוחות CMA ומידע תכנוני."),
-    p(`<b>להמשיך בלי הפסקה:</b> ${esc(priceLine("premium"))}, או ${esc(priceLine("mid"))}. התשלום כבר עכשיו אינו גובה דבר על ימי ההטבה שנותרו - החודש ששולם מתחיל ב-${esc(when)}, ומשם המנוי מתחדש חודשית וניתן לביטול בכל עת.`),
+    p(`<b>להמשיך בלי הפסקה:</b> ${esc(priceLine("premium"))}, או ${esc(priceLine("mid"))}. התשלום כבר עכשיו אינו גובה דבר על ימי ההתנסות שנותרו - החודש ששולם מתחיל ב-${esc(when)}, ומשם המנוי מתחדש חודשית וניתן לביטול בכל עת.`),
     p(`מי שלא בוחר/ת ממשיך/ה אוטומטית ב-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידים בחודש. הנכסים, הלידים והלקוחות נשארים במקומם בכל מקרה.`),
     p(`<a href="${esc(checkoutUrl("mid"))}" style="color:#0e2a6b">להמשיך ב-PROFESSIONAL</a> · <a href="${esc(PRICING_URL)}" style="color:#0e2a6b">השוואת המסלולים</a>`),
   ].join(""), "להמשיך ב-Elite", checkoutUrl("premium"));
 
   const text = [
-    `${name}, מסלול Elite שקיבלת במתנה מסתיים ב-${when}.`,
+    `${name}, מסלול Elite שקיבלת מסתיים ב-${when}.`,
     "",
     ...(block ? [block.text, ""] : []),
     `להמשיך בלי הפסקה: ${priceLine("premium")}, או ${priceLine("mid")}.`,
-    `התשלום עכשיו אינו גובה על ימי ההטבה שנותרו - החודש ששולם מתחיל ב-${when}, ומתחדש חודשית.`,
+    `התשלום עכשיו אינו גובה על ימי ההתנסות שנותרו - החודש ששולם מתחיל ב-${when}, ומתחדש חודשית.`,
     "מי שלא בוחר/ת ממשיך/ה ב-Pay&GO - בלי דמי מנוי, עם 10 לידים בחודש.",
     "",
     `להמשיך ב-Elite: ${checkoutUrl("premium")}`,
@@ -185,11 +185,11 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
     const tierName = TIER_NAMES[paidTier];
     const title = `${name}, המנוי שלך ל-${tierName} התחיל`;
     const body = [
-      p(`תקופת <b>Elite</b> במתנה הסתיימה, והחשבון ממשיך ב-<b>${esc(tierName)}</b> ששילמת עליו.`),
+      p(`תקופת ההתנסות ב-<b>Elite</b> הסתיימה, והחשבון ממשיך ב-<b>${esc(tierName)}</b> ששילמת עליו.`),
       p(`החודש ששולם בתוקף עד <b>${esc(hebDate(paidUntil))}</b>, ומשם המנוי מתחדש חודשית (${esc(priceLine(paidTier))}). אפשר לבטל את החידוש בכל עת ב-CRM, תחת "ארנק וחיובים".`),
     ].join("");
     const text = [
-      `${name}, הטבת ההשקה הסתיימה והחשבון ממשיך ב-${tierName} ששילמת עליו.`,
+      `${name}, תקופת ההתנסות הסתיימה והחשבון ממשיך ב-${tierName} ששילמת עליו.`,
       "",
       `החודש ששולם בתוקף עד ${hebDate(paidUntil)}, ומשם המנוי מתחדש חודשית. ביטול החידוש ב-CRM.`,
       "",
@@ -198,23 +198,23 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
     return { subject: title, html: shell(title, body, "לניהול המנוי", CRM_URL), text };
   }
 
-  const title = `${name}, תקופת ההטבה הסתיימה`;
+  const title = `${name}, תקופת ההתנסות הסתיימה`;
   const block = downgraded ? usageBlock(usage) : null;
   const body = downgraded
     ? [
-        p("תקופת <b>Elite</b> במתנה הסתיימה, והחשבון שלך עבר ל-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש ו-₪25 לליד נוסף."),
+        p("תקופת ההתנסות ב-<b>Elite</b> הסתיימה, והחשבון שלך עבר ל-<b>Pay&GO</b> - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש ו-₪25 לליד נוסף."),
         ...(block ? [block.html] : []),
         p("<b>שום דבר לא אבד:</b> הנכסים, הלידים, הלקוחות, דף הסוכן/ת ויתרת הארנק נשארו בדיוק כפי שהיו."),
         p(`מה שכן השתנה: לידי בעל-נכס, דוחות CMA, המידע התכנוני, הסרטונים וההדמיות זמינים במסלולים בתשלום (${esc(priceLine("mid"))}, ${esc(priceLine("premium"))}). אפשר לחזור אליהם בכל רגע.`),
       ].join("")
     : [
-        p("תקופת הטבת ההשקה הסתיימה, והמסלול שבחרת ממשיך כרגיל."),
+        p("תקופת ההתנסות הסתיימה, והמסלול שבחרת ממשיך כרגיל."),
         p("אפשר לעדכן אותו בכל עת בדף המסלולים."),
       ].join("");
 
   const text = downgraded
     ? [
-        `${name}, תקופת Elite במתנה הסתיימה והחשבון עבר ל-Pay&GO.`,
+        `${name}, תקופת ההתנסות ב-Elite הסתיימה והחשבון עבר ל-Pay&GO.`,
         "",
         ...(block ? [block.text, ""] : []),
         "הנכסים, הלידים, הלקוחות והארנק נשארו כמו שהם.",
@@ -223,7 +223,7 @@ function endedMail(name: string, downgraded: boolean, paidTier: Tier | null, pai
         `לחזור ל-Elite: ${checkoutUrl("premium")}`,
         `השוואת המסלולים: ${PRICING_URL}`,
       ].join("\n")
-    : [`${name}, תקופת ההטבה הסתיימה והמסלול שבחרת ממשיך כרגיל.`, "", `דף המסלולים: ${PRICING_URL}`].join("\n");
+    : [`${name}, תקופת ההתנסות הסתיימה והמסלול שבחרת ממשיך כרגיל.`, "", `דף המסלולים: ${PRICING_URL}`].join("\n");
 
   return {
     subject: title,
@@ -248,15 +248,15 @@ function noticeBell(agentId: string, endsAt: string, prePaid: PrePaid | null): B
   if (prePaid) {
     return {
       agent_id: agentId, type: "system",
-      title: `ההטבה מסתיימת ב-${when}, וה-${TIER_NAMES[prePaid.tier]} שלך ממשיך`,
-      body: "המנוי ששילמת עליו מתחיל בסוף ההטבה, בלי הפסקה. ניהול וביטול החידוש ב\"ארנק וחיובים\".",
+      title: `תקופת ההתנסות מסתיימת ב-${when}, וה-${TIER_NAMES[prePaid.tier]} שלך ממשיך`,
+      body: "המנוי ששילמת עליו מתחיל בסוף תקופת ההתנסות, בלי הפסקה. ניהול וביטול החידוש ב\"ארנק וחיובים\".",
     };
   }
   return {
     agent_id: agentId, type: "system",
     title: `הטבת ה-Elite מסתיימת ב-${when}`,
     body: `להמשיך בלי הפסקה: ${priceLine("premium")} או ${priceLine("mid")}, ` +
-      "והחודש ששולם מתחיל בסוף ההטבה. בלי בחירה - Pay&GO.\n" + checkoutUrl("premium"),
+      "והחודש ששולם מתחיל בסוף תקופת ההתנסות. בלי בחירה - Pay&GO.\n" + checkoutUrl("premium"),
   };
 }
 
@@ -277,8 +277,8 @@ function reminderBell(agentId: string, endsAt: string, prePaid: PrePaid | null):
   if (prePaid) {
     return {
       agent_id: agentId, type: "system",
-      title: `הטבת ההשקה מסתיימת ${words} - ה-${TIER_NAMES[prePaid.tier]} שלך ממשיך`,
-      body: "המנוי ששילמת עליו מתחיל בסוף ההטבה, בלי הפסקה ובלי פעולה נוספת.",
+      title: `תקופת ההתנסות מסתיימת ${words} - ה-${TIER_NAMES[prePaid.tier]} שלך ממשיך`,
+      body: "המנוי ששילמת עליו מתחיל בסוף תקופת ההתנסות, בלי הפסקה ובלי פעולה נוספת.",
     };
   }
   return {
@@ -294,13 +294,13 @@ function endedBell(agentId: string, downgraded: boolean, paidTier: Tier | null):
     return {
       agent_id: agentId, type: "system",
       title: `המנוי ל-${TIER_NAMES[paidTier]} התחיל`,
-      body: "הטבת ההשקה הסתיימה והחשבון ממשיך במסלול ששילמת עליו. המנוי מתחדש חודשית.",
+      body: "תקופת ההתנסות הסתיימה והחשבון ממשיך במסלול ששילמת עליו. המנוי מתחדש חודשית.",
     };
   }
   if (!downgraded) return null;
   return {
     agent_id: agentId, type: "system",
-    title: "הטבת ההשקה הסתיימה - החשבון עבר ל-Pay&GO",
+    title: "תקופת ההתנסות הסתיימה - החשבון עבר ל-Pay&GO",
       body: "הנכסים, הלידים והארנק נשארו. לחזור ל-Elite:\n" + checkoutUrl("premium"),
   };
 }

@@ -212,7 +212,7 @@ function growthFunnelHtml(g){
         }).join('') + '</div>';
   };
   const stuck = g.stuck_license || [];
-  return '<p class="gr-rule">"משלמים" הם מנוי בתשלום בתוקף. הטבת ההשקה אינה תשלום. "הוזמנו" אינו כאן: אין רישום של משרדים שהפלטפורמה הזמינה.</p>'
+  return '<p class="gr-rule">"משלמים" הם מנוי בתשלום בתוקף. תקופת ההתנסות אינה תשלום. "הוזמנו" אינו כאן: אין רישום של משרדים שהפלטפורמה הזמינה.</p>'
     + '<div class="gr-funnels">' + col('all', 'מאז ההשקה') + col('30d', 'נרשמו ב-30 הימים האחרונים') + '</div>'
     + '<h4 class="gr-h">נתקעו ברישיון' + (stuck.length ? ' (' + stuck.length + ')' : '') + '</h4>'
     + (stuck.length

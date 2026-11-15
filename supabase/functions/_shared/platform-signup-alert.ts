@@ -140,7 +140,7 @@ function tierLabel(row: MemberRow): string {
       month: "numeric",
       year: "numeric",
     });
-    return `${TIER_NAMES[tier] ?? tier} · הטבת השקה עד ${until}`;
+    return `${TIER_NAMES[tier] ?? tier} · תקופת התנסות עד ${until}`;
   }
 
   const tier = (row.tier || "free") as Tier;
