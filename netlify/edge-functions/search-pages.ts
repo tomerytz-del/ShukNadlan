@@ -24,10 +24,15 @@
 
    ## הרשימה סגורה, וזה העיקר
 
-   ‏**כל צירוף שאינו ברשימה יוצא כמו שהוא** — כלומר עם ה-‎canonical‎ של דף
-   הבית, ומתאחד אליו. זו ההגנה מפני הכשל ההפוך: ‎?deal=sale&rooms=4&page=3‎,
-   ‎?q=כל דבר שמישהו הקליד‎ ו-‎?minPrice=317000‎ הם אינסוף כתובות עם אותו
-   תוכן, ו-canonical עצמי לכל אחת מהן היה מציף את האינדקס במשוכפל.
+   ‏**כל צירוף שאינו ברשימה אינו מקבל canonical עצמי.** זו ההגנה מפני
+   הכשל ההפוך: אינסוף כתובות עם אותו תוכן. יעד ברירת המחדל הוא דף הבית.
+   יוצא מן הכלל, כדי שכתובת סינון לא תתחרה בדף נחיתה: ‎deal=sale‎ עם כל
+   סינון נוסף שאין לו דף משלו (חדרים, מחיר, וכל פרמטר אחר) מצהיר על
+   ‎/afula/דירות-למכירה‎, אותה כתובת ש-‎/?deal=sale‎ מצהיר עליה. צירוף
+   שכבר מצביע לדף מדויק (3 חדרים, דירת גן, בית פרטי, ‎/n/‎) נשאר עליו.
+   ‎deal=commercial‎ ו-‎deal=commercial&ptype=‎ (כל סוג) מצהירים על
+   ‎/afula/נדלן-מסחרי‎ רק כשיש מלאי מסחרי פעיל בעפולה. בלי מלאי, או כשהמסד
+   לא ענה, לא מצביעים אליו. ‎/?deal=rent‎ נשאר על ‎/‎.
 
    ‏**14 נבחרו כי מישהו כתב להן קישור** — הן מקושרות מהפוטר, יש להן ביקוש
    בחיפוש, והניסוח שלהן נבדק. ‎scripts/check_canonical.py‎ מוודא שהשלושה
@@ -77,8 +82,9 @@ const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
 
 export type SearchPage = {
-  /* הכתיב הקנוני של הפרמטרים. זו הכתובת שנכנסת ל-canonical ול-sitemap,
-     אלא אם יש landing: אז שתי צורות הקידוד של הסינון מצהירות על הדף ההוא. */
+  /* הכתיב הקנוני של הפרמטרים. בלי landing זו כתובת העמוד, אלא אם הסינון
+     מתקפל לדף נחיתה (מכירה אל דירות-למכירה, מסחרי כשיש מלאי). כתובת
+     ‎?deal=‎ אינה נכנסת ל-sitemap. */
   query: string;
   title: string;
   description: string;
@@ -91,9 +97,9 @@ export type SearchPage = {
 };
 
 /* ‏16 הצירופים שמקושרים מבלוק "חיפושים פופולריים" בפוטר. הוספה כאן מחייבת
-   קישור בפוטר ושורה ב-sitemap.xml — ‎check_canonical.py‎ חוסם אחרת.
-   ‏‎deal=sale‎ ו-‎deal=commercial‎ לבדם הם דפי הנחיתה הרחבים (דירות למכירה,
-   נכסים מסחריים). ‏‎deal=rent‎ לבדו אינו כאן: המלאי דל, והרשימה נשארת סגורה. */
+   קישור בפוטר. כתובת ‎?deal=‎ אינה שורה ב-sitemap.xml: היא מצהירה על דף
+   נחיתה, או (השכרה בלי דף) על ‎/‎. ‎check_canonical.py‎ חוסם שורה כזו.
+   ‏‎deal=rent‎ לבדו אינו כאן: המלאי דל, והרשימה נשארת סגורה. */
 export const SEARCH_PAGES: SearchPage[] = [
   {
     query: "deal=sale",
@@ -178,8 +184,8 @@ export const SEARCH_PAGES: SearchPage[] = [
     query: "deal=commercial",
     title: "נכסים מסחריים בעפולה והעמק",
     description: "כל הנכסים המסחריים שמוצעים היום בעפולה ובעמק יזרעאל, מכל משרדי התיווך באזור, עם מחיר, גודל ופרטי קשר ישירים.",
-    /* ה-canonical לדף עפולה נקבע בבקשה: רק city=עפולה, ורק כשיש מלאי.
-       בלי השדה, /?deal=commercial נשאר הכתובת של עפולה והעמק. */
+    /* ה-canonical לדף עפולה נקבע בבקשה, לא בשדה landing: גם בלי city וגם
+       עם ptype, ורק כשיש מלאי. בלי מלאי נשארת כתובת הצירוף. */
   },
   {
     query: "deal=commercial&ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D",
@@ -436,6 +442,53 @@ async function afulaCommercialHasInventory(): Promise<boolean | null> {
   }
 }
 
+/* אותה מחרוזת ש-/?deal=sale כבר כותב, ושהדף עצמו מצהיר עליה. */
+const SALE_LANDING_PATH = "/afula/דירות-למכירה";
+/* הדף המסחרי הוא collection, וה-canonical שלו מקודד. הסינון מצביע לאותה מחרוזת. */
+const COMMERCIAL_LANDING_PATH = "/afula/" + encodeURIComponent("נדלן-מסחרי");
+
+function saleCanonical(): string {
+  return `${SITE}${SALE_LANDING_PATH}`;
+}
+
+function commercialCanonical(): string {
+  return `${SITE}${COMMERCIAL_LANDING_PATH}`;
+}
+
+/* deal=commercial לבד, או עם ptype אחד ובלי פרמטר תוכן נוסף. */
+function commercialFamily(params: URLSearchParams): boolean {
+  const key = contentKey(params, CITY_PARAM);
+  return key === "deal=commercial" || /^deal=commercial&ptype=[^&]+$/.test(key);
+}
+
+function commercialCityOk(params: URLSearchParams): boolean {
+  const city = cityFromParams(params);
+  return !city || normHood(city) === normHood(DEFAULT_HOOD_CITY);
+}
+
+/* landing: הדף חי, ואין עיר אחרת. self: עיר שאינה עפולה כשהדף חי, כדי
+   שלא תיווצר שרשרת דרך /?deal=commercial. query: אין מלאי. unknown:
+   המסד לא ענה. unknown אינו "אין מלאי". */
+type CommercialDecision = "skip" | "unknown" | "landing" | "self" | "query";
+
+async function commercialDecision(params: URLSearchParams): Promise<CommercialDecision> {
+  if (!commercialFamily(params)) return "skip";
+  const has = await afulaCommercialHasInventory();
+  if (has === null) return "unknown";
+  if (!has) return "query";
+  if (!commercialCityOk(params)) return "self";
+  return "landing";
+}
+
+/* מכירה עם סינון. שכונה בעיר שאין לה את הדף אינה מתקפלת לעפולה. */
+function foldSaleFilters(params: URLSearchParams): boolean {
+  const key = contentKey(params, CITY_PARAM);
+  if (!/(?:^|&)deal=sale(?:&|$)/.test(key)) return false;
+  const city = cityFromParams(params);
+  if (saleHoodName(params) && city && normHood(city) !== normHood(DEFAULT_HOOD_CITY)) return false;
+  return true;
+}
+
 /* הכתובת עצמה, כולל city, בלי פרמטרי מעקב. כך אין שרשרת canonical. */
 function selfSearchUrl(params: URLSearchParams): string {
   const pairs: string[] = [];
@@ -469,6 +522,28 @@ function pointCanonical(html: string, url: string): string {
   return out.replace(/<\/head>/i, `<link rel="canonical" href="${esc(url)}">\n</head>`);
 }
 
+/* canonical בלבד, עם אותו מטמון כמו הזרקה מלאה. כישלון קריאה אינו נשמר. */
+async function replyPointed(res: Response, url: string, store: boolean): Promise<Response> {
+  const fallback = res.clone();
+  try {
+    const out = pointCanonical(await res.text(), url);
+    const headers = new Headers(fallback.headers);
+    if (store) setHomeCache(headers);
+    else markNoStore(headers);
+    fallback.body?.cancel();
+    return new Response(out, { status: res.status, headers });
+  } catch {
+    const headers = new Headers(fallback.headers);
+    headers.set("Netlify-Vary", HOME_VARY);
+    headers.set("Netlify-CDN-Cache-Control", "no-store");
+    return new Response(fallback.body, {
+      status: fallback.status,
+      statusText: fallback.statusText,
+      headers,
+    });
+  }
+}
+
 /* ‏מילוי ‎content‎ של תגית קיימת. מחזירה null כשאין תגית כזו, וכך הקורא
    יודע אם להוסיף אותה — בדיוק כמו ‎fillById‎ ב-og-tags.ts. */
 function fillMeta(html: string, selector: string, value: string): string | null {
@@ -483,8 +558,9 @@ function fillMeta(html: string, selector: string, value: string): string | null 
   return html.replace(re, tag);
 }
 
-function inject(html: string, page: SearchPage): string {
-  const canonical = page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`;
+function inject(html: string, page: SearchPage & { canonicalUrl?: string }): string {
+  const canonical = page.canonicalUrl
+    || (page.landing ? `${SITE}${page.landing}` : `${SITE}/?${page.query}`);
   const title = `${page.title} | ${SITE_NAME}`;
   let out = html;
   const add: string[] = [];
@@ -617,40 +693,33 @@ export default async function handler(request: Request, context: Context) {
     const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
     if (page !== "/" && page !== "/index") return withHomeVary(res);
 
-    // ‏דף הבית עצמו, וכל צירוף שאינו ברשימה: יוצאים בלי שנקרא את הגוף.
-    // city יורד רק מההתאמה: הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
+    // ‏דף הבית עצמו יוצא בלי שנקרא את הגוף. city יורד רק מההתאמה:
+    // הוא משכתב את כותרת העמוד המוכר, לא פותח עמוד חדש.
+    // סינון מכירה בלי דף משלו, ומסחרי כשיש מלאי, מצביעים לדף הנחיתה.
     const params = url.searchParams;
     const match = BY_KEY.get(contentKey(params, CITY_PARAM));
     const hoodName = saleHoodName(params);
     const hoodCity = hoodCityOf(params);
     let store = true;
     if (!match) {
-      if (!hoodName) return withHomeVary(res);
-      const hoods = await hoodMap();
-      if (!hoods.ok) store = false;
-      const path = hoods.map.get(hoodKey(hoodCity, hoodName));
-      if (!path) return store ? withHomeVary(res) : noStore(res);
-      const fallback = res.clone();
-      try {
-        const out = pointCanonical(await res.text(), `${SITE}${path}`);
-        const headers = new Headers(fallback.headers);
-        if (store) setHomeCache(headers);
-        else markNoStore(headers);
-        fallback.body?.cancel();
-        return new Response(out, { status: res.status, headers });
-      } catch {
-        const headers = new Headers(fallback.headers);
-        headers.set("Netlify-Vary", HOME_VARY);
-        headers.set("Netlify-CDN-Cache-Control", "no-store");
-        return new Response(fallback.body, {
-          status: fallback.status,
-          statusText: fallback.statusText,
-          headers,
-        });
+      if (hoodName) {
+        const hoods = await hoodMap();
+        if (!hoods.ok) store = false;
+        const path = hoods.map.get(hoodKey(hoodCity, hoodName));
+        if (path) return await replyPointed(res, `${SITE}${path}`, store);
+        /* שכונה שלא נמצאה. כשל מסד אינו "אין דף": לא שומרים קיפול למכירה. */
+        if (foldSaleFilters(params)) return await replyPointed(res, saleCanonical(), hoods.ok);
+        return store ? withHomeVary(res) : noStore(res);
       }
+      const commercial = await commercialDecision(params);
+      if (commercial === "unknown") return noStore(res);
+      if (commercial === "landing") return await replyPointed(res, commercialCanonical(), true);
+      /* self על צירוף שאינו ברשימה היה canonical עצמי אינסופי. נשאר מאוחד ל-/. */
+      if (foldSaleFilters(params)) return await replyPointed(res, saleCanonical(), true);
+      return withHomeVary(res);
     }
     const city = cityFromParams(params);
-    let pageForInject = city ? withCity(match, city) : match;
+    let pageForInject: SearchPage & { canonicalUrl?: string } = city ? withCity(match, city) : match;
     const landingCity = hoodLandingCity(pageForInject.landing);
     if (landingCity && normHood(landingCity) !== normHood(hoodCity)) {
       pageForInject = { ...pageForInject, landing: undefined };
@@ -682,21 +751,21 @@ export default async function handler(request: Request, context: Context) {
         }
       }
     }
-    /* מסחרי: דף עפולה רק כשהעיר היא עפולה והמסד אמר שיש מלאי.
-       null אינו "אין מלאי", והתשובה לא נשמרת. */
-    if (match.query === "deal=commercial" && city === DEFAULT_HOOD_CITY) {
-      const has = await afulaCommercialHasInventory();
-      if (has === null) {
-        store = false;
-        pageForInject = { ...pageForInject, landing: undefined };
-      } else {
-        pageForInject = {
-          ...pageForInject,
-          landing: has ? "/afula/נדלן-מסחרי" : undefined,
-        };
-      }
-    } else if (match.query === "deal=commercial") {
+    /* מסחרי: הדף רק כשיש מלאי, ובלי עיר או city=עפולה. null אינו "אין
+       מלאי", והתשובה לא נשמרת. עיר אחרת כשהדף חי נשארת על עצמה, כדי
+       לא לשרשר דרך /?deal=commercial שמצביע לדף. */
+    const commercial = await commercialDecision(params);
+    if (commercial === "unknown") {
+      store = false;
       pageForInject = { ...pageForInject, landing: undefined };
+    } else if (commercial === "landing") {
+      pageForInject = { ...pageForInject, landing: COMMERCIAL_LANDING_PATH };
+    } else if (commercial === "self") {
+      pageForInject = { ...pageForInject, landing: undefined, canonicalUrl: selfSearchUrl(params) };
+    } else if (commercial === "query") {
+      pageForInject = { ...pageForInject, landing: undefined };
+    } else if (!pageForInject.landing && foldSaleFilters(params)) {
+      pageForInject = { ...pageForInject, landing: SALE_LANDING_PATH };
     }
     /* clone לפני הקריאה: ב-catch הגוף המקורי כבר נעול, ומחזרים
        Response חדש עם כותרות חדשות ולא נוגעים בנעולות. */
