@@ -125,7 +125,7 @@ CMA. ב-9.11.2026 אלה היו 19 מתוך 33 הנכסים הפעילים מח�
 | רכיב | איפה |
 |---|---|
 | בדיקת זכאות | `public.property_map_enabled(uuid)`, מיגרציה `20260828160000_property_map_view.sql` |
-| טעינת המפה | `initPropertyMap()` ב-`assets/property.js`. Leaflet (JS ו-CSS) ו-MapLibre (מתוך `MapTiles.addTo`) יורדים רק כש-`#mapNear` נכנס ל-300px מהמסך. שני המנועים נשארים: Leaflet הוא הפין, העיגול והמחוות, MapLibre הוא האריח הווקטורי. |
+| טעינת המפה | `initPropertyMap()` ב-`assets/property.js`. Leaflet (JS ו-CSS) ו-MapLibre (מתוך `MapTiles.addTo`) יורדים רק כש-`#mapNear` נכנס ל-300px מהמסך, או מיד אם הכתובת מסתיימת ב-`#mapSection`. טעינה שנתקעת נדחית אחרי 8 שניות: Leaflet שנכשל משאיר את הסקציה מוסתרת, MapLibre שנכשל נופל לאריחי ראסטר. שני המנועים נשארים: Leaflet הוא הפין, העיגול והמחוות, MapLibre הוא האריח הווקטורי. |
 | מסך מלא | `mapFullOpen()` / `mapFullClose()`, שכבת `#mapFull` |
 | מחוות מגע | `assets/map-gestures.js` |
 | אריחים | `MapTiles.addTo` (OpenFreeMap וקטורי, וראסטר OSM רק בלי WebGL 2), כמו שאר המפות |

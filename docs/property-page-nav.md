@@ -17,8 +17,9 @@
 
 התפריט הוא `<details>` - נפתח בלי JS, ונסגר בלחיצה מחוצה לו וב-Escape (סקריפט
 קטן בסוף הדף). כל כלל ב-CSS נושא `header.site`, כי `design-system.css` נטען
-אחרי ה-`<style>`. הקישורים לעמודי תוצאות הם מתוך `SEARCH_PAGES`
-(‏`check_canonical.py`), ולכן "להשכרה" הוא `/?deal=rent&maxPrice=4000`.
+אחרי ה-`<style>`. "למכירה" מצביע אל `/afula/דירות-למכירה` ו"מסחרי" אל
+`/afula/נדלן-מסחרי` (הדף ב-sitemap). "להשכרה" נשאר `/?deal=rent&maxPrice=4000`
+מתוך `SEARCH_PAGES` (`check_canonical.py`).
 
 ## גודל טקסט, מרחק מהעיר, ועמודת צד דביקה (6.11.2026, PR B)
 
