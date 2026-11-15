@@ -10,6 +10,15 @@
    ============================================================ */
 (function () {
   'use strict';
+  /* נחיתה ממודעה ממומנת. עותק אחד: גבריאלה קוראת ל-window.ShukPaidSocial
+     (הבועית), וההחלקה לסינון. בלי סקריפט חדש ובלי שינוי סדר הטעינה. */
+  window.ShukPaidSocial = function () {
+    var q;
+    try { q = new URLSearchParams(location.search); } catch (e) { return false; }
+    var medium = (q.get('utm_medium') || '').toLowerCase();
+    var source = (q.get('utm_source') || '').toLowerCase();
+    return medium === 'paid' || source === 'facebook' || source === 'instagram' || source === 'fb' || source === 'ig' || q.has('fbclid');
+  };
   var H = document.documentElement;
   if (!H.classList.contains('beta-hero')) return;
 
@@ -778,11 +787,7 @@
        ובלי deal - מכירה. פרמטר מפורש בכתובת גובר. */
     if (paidSocial() && !params.has('type')) filter.residential = true;
   }
-  function paidSocial() {
-    var m = (params.get('utm_medium') || '').toLowerCase();
-    var s = (params.get('utm_source') || '').toLowerCase();
-    return m === 'paid' || s === 'facebook' || s === 'instagram' || s === 'fb' || s === 'ig' || params.has('fbclid');
-  }
+  function paidSocial() { return window.ShukPaidSocial(); }
   var BUDGETS = {
     sale: [0, 1500000, 2500000, 3500000],
     rent: [0, 4000, 6000, 8000],
@@ -2022,7 +2027,9 @@
     if (!src) return;
     var r = top.getBoundingClientRect();
     if (r.width < 20 || r.bottom <= 0 || r.top >= window.innerHeight) return;
-    v.preload = 'none';
+    /* אחרי שהתמונה החדה צוירה: metadata בלבד, כדי שהיחס יגיע גם כשהסרטון לא מתנגן
+       (גיליון פתוח, reduced-motion). הקובץ המלא עדיין לא מתחיל לפני play. */
+    v.preload = 'metadata';
     v.src = src;
   }
   function afterHeroPaint(top, cb) {
@@ -3076,6 +3083,9 @@
     opts = opts || {};
     if (!c || (c.slot !== 'property' && !(c.sponsor && (c.slot === 'spon_agency' || c.sponsor.mortgage)))) return;
     if (!$('swTour').hidden) endTour(false);
+    /* תיבת האישור הקודמת יושבת בפס, מחוץ לגוף הגיליון. בלי להסיר אותה,
+       innerHTML מוסיף תיבה שנייה עם אותו id והשליחה קוראת את הלא-מסומנת. */
+    releaseLeadConsent();
     sheetCard = c; sheetOpener = document.activeElement; formOpen = false; sent = false; answers = {};
     c.source = opts.source || '';   // ‏photo_request - בקשת תמונות (חלק 3 §5)
     var adv = c.p ? advertiser(c.p) : { type: 'agency', name: c.sponsor.name, sub: c.sponsor.kind === 'pro' ? c.sponsor.field : 'משרד תיווך',
@@ -3522,6 +3532,7 @@
   var ownBack = false;   // ‏history.back() שלנו - ה-popstate שלו לא סוגר גיליון שנפתח בינתיים
   function closeSheet(fromPop) {
     if ($('swSheet').hidden) return;
+    releaseLeadConsent();
     vizToken++;   // הפסקת ה-polling; העבודה עצמה ממשיכה בשרת
     st = null;
     document.body.classList.remove('sw-sheet-open');
@@ -3535,14 +3546,30 @@
     if (!$('swSheet').hidden) { sheetPushed = false; closeSheet(true); }
   });
 
+  /* האישור של הטופס הפתוח הוא תיבה אחת. סגירה או פתיחה מחדש מורידות
+     כל תיבה שנשארה בפס, כדי שהנכס הבא יתחיל עם תיבה חדשה ולא מסומנת. */
+  function releaseLeadConsent() {
+    var bar = $('swCtaBar');
+    if (bar) {
+      var nodes = bar.querySelectorAll('.sw-consent');
+      for (var i = nodes.length - 1; i >= 0; i--) nodes[i].remove();
+    }
+    var sheet = $('swSheet');
+    if (sheet) sheet.classList.remove('is-lead');
+    formOpen = false;
+  }
   function placeConsent(open) {
-    var box = document.querySelector('#leadForm .sw-consent, #swCtaBar .sw-consent');
     var bar = $('swCtaBar'), f = $('leadForm');
-    if (!box || !bar || !f) return;
-    if (open) bar.insertBefore(box, $('swCta'));
-    else {
+    if (!bar || !f) return;
+    var box = f.querySelector('.sw-consent') || bar.querySelector('.sw-consent');
+    if (!box) return;
+    if (open) {
+      var stale = bar.querySelectorAll('.sw-consent');
+      for (var i = stale.length - 1; i >= 0; i--) if (stale[i] !== box) stale[i].remove();
+      if (box.parentNode !== bar) bar.insertBefore(box, $('swCta'));
+    } else if (box.parentNode !== f) {
       var err = $('swLErr');
-      if (err) f.insertBefore(box, err); else f.appendChild(box);
+      if (err && err.parentNode === f) f.insertBefore(box, err); else f.appendChild(box);
     }
   }
   function scrollLeadIntoView() {
@@ -3563,9 +3590,16 @@
     b.querySelector('.sw-bn-caret').textContent = formOpen ? '▴' : '▾';
     syncCta();
   }
+  /* מה שמוצג: בטופס פתוח התיבה בפס. אחרת זו שבטופס. לא getElementById כשיש כפילות. */
+  function leadConsentInput() {
+    var barInput = document.querySelector('#swCtaBar .sw-consent input');
+    if (formOpen && barInput) return barInput;
+    return document.querySelector('#leadForm .sw-consent input') || barInput;
+  }
   function validLead() {
     var name = ($('swLName') || {}).value || '', phone = ($('swLPhone') || {}).value || '';
-    return { name: name.trim().length >= 2, phone: phone.replace(/\D/g, '').length >= 9, consent: !!($('swLConsent') && $('swLConsent').checked) };
+    var consent = leadConsentInput();
+    return { name: name.trim().length >= 2, phone: phone.replace(/\D/g, '').length >= 9, consent: !!(consent && consent.checked) };
   }
   function syncCta() {
     var v = validLead();
@@ -3596,7 +3630,7 @@
     if (!formOpen) toggleForm(true);
     var miss = !v.name ? 'swLName' : !v.phone ? 'swLPhone' : !v.consent ? 'swLConsent' : null;
     if (miss) {
-      var el = $(miss);
+      var el = miss === 'swLConsent' ? (leadConsentInput() || $(miss)) : $(miss);
       el.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
       el.focus({ preventScroll: true });
       if (formOpen && document.activeElement === el && (miss !== 'swLName' || $('swLName').value)) {

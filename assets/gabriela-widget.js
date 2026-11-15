@@ -903,14 +903,11 @@
       var q = new URLSearchParams(location.search);
       return RESULTS_PARAMS.some(function (k) { return q.get(k); });
     }
-    /* ב-/swipe שמגיע ממודעה ממומנת הבועית לא קופצת. הבועה עצמה נשארת. */
+    /* ב-/swipe שמגיע ממודעה ממומנת הבועית לא קופצת. הבועה עצמה נשארת.
+       הכלל עצמו ב-window.ShukPaidSocial (swipe.js), לא עותק שני. */
     function paidSwipeLanding() {
       if (!document.body || !document.body.classList.contains('sw-body')) return false;
-      var q;
-      try { q = new URLSearchParams(location.search); } catch (e) { return false; }
-      var medium = (q.get('utm_medium') || '').toLowerCase();
-      var source = (q.get('utm_source') || '').toLowerCase();
-      return medium === 'paid' || source === 'facebook' || source === 'instagram' || source === 'fb' || source === 'ig' || q.has('fbclid');
+      return typeof window.ShukPaidSocial === 'function' && window.ShukPaidSocial();
     }
     function maybeAuto() {
       if (!due || open || tipOn || storageGet(AUTO_KEY) || heroOn || avoidOn || typing) return;
