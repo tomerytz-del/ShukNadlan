@@ -752,11 +752,13 @@ for (const kind of ["agent", "team", "office"] as const) {
   check("קישור מהמנטור הופך לכפתור רק לכתובת שלנו (COACH_GO_RE)", ui.includes("https:\\/\\/shuknadlan\\.co\\.il\\/crm\\?goto="));
 }
 
-// אסימון שדלף לטקסט הופך לשם הפריט (Haiku 5.5 כתב "P1" ב-75% מהסיכומים)
-check("אסימון: 'את P1' -> 'את הנכס'", stripRefTokens("לבדוק את P1 מול דוח CMA") === "לבדוק את הנכס מול דוח CMA");
-check("אסימון: 'ל-L1 ומ-P2' -> 'לליד ומהנכס'", stripRefTokens("ל-L1 ומ-P2") === "לליד ומהנכס");
-check("אסימון: CMA ו-B2B נשארים", stripRefTokens("CMA ו-B2B") === "CMA ו-B2B");
-const leaked = cleanSummaryV2({ headline: "בוקר טוב", actions: [{ priority: "win", title: "לבדוק את P1", why: "P1 שקט 40 יום", impact: "+1", cta: null }] }, "agent", {});
+// אסימון שדלף לטקסט הופך לשם הפריט (Haiku 5.5 כתב "P1" ב-75% מהסיכומים) - רק אסימון שנמסר
+const tokRefs = { P1: { type: "property", id: "x" }, P2: { type: "property", id: "y" }, L1: { type: "lead", id: "z" } } as const;
+check("אסימון: 'את P1' -> 'את הנכס'", stripRefTokens("לבדוק את P1 מול דוח CMA", tokRefs as never) === "לבדוק את הנכס מול דוח CMA");
+check("אסימון: 'ל-L1 ומ-P2' -> 'לליד ומהנכס'", stripRefTokens("ל-L1 ומ-P2", tokRefs as never) === "לליד ומהנכס");
+check("אסימון: CMA ו-B2B נשארים", stripRefTokens("CMA ו-B2B", tokRefs as never) === "CMA ו-B2B");
+check("אסימון שלא נמסר נשאר ('דירה A2', 'P9')", stripRefTokens("דירה A2 ו-P9", tokRefs as never) === "דירה A2 ו-P9");
+const leaked = cleanSummaryV2({ headline: "בוקר טוב", actions: [{ priority: "win", title: "לבדוק את P1", why: "P1 שקט 40 יום", impact: "+1", cta: null }] }, "agent", tokRefs as never);
 check("cleanSummaryV2 מנקה אסימונים בכותרת ובנימוק", leaked?.actions[0].title === "לבדוק את הנכס" && leaked?.actions[0].why === "הנכס שקט 40 יום", leaked?.actions[0]);
 
 

@@ -177,15 +177,18 @@ export type CoachSummaryV2 = {
 const REF_NOUN: Record<string, [string, string]> = {
   P: ["הנכס", "נכס"], L: ["הליד", "ליד"], G: ["ההסכם", "הסכם"], A: ["הפריט", "פריט"], S: ["הסוכן/ת", "סוכן/ת"],
 };
-export function stripRefTokens(text: string): string {
-  return text.replace(/(?:([בלמושה])-)?(?<![A-Za-z0-9])([PLGAS])\d{1,3}(?![A-Za-z0-9])/g, (_m, pre: string | undefined, t: string) => {
+/* רק אסימון שנמסר למודל (‏refs) מוחלף - "דירה A2" או "מסלול S3" שהמודל כתב בכוונה
+   נשארים. בלי refs (קורא שאין לו מפה) אין מה להחליף. */
+export function stripRefTokens(text: string, refs: RefMap = {}): string {
+  return text.replace(/(?:([בלמושה])-)?(?<![A-Za-z0-9])([PLGAS])(\d{1,3})(?![A-Za-z0-9])/g, (m, pre: string | undefined, t: string, n: string) => {
+    if (!refs[t + n]) return m;
     const [full, bare] = REF_NOUN[t];
     if (!pre || pre === "ה") return full;
     return pre + (pre === "ב" || pre === "ל" ? bare : full);
   });
 }
-const txt = (s: unknown, max: number) =>
-  stripRefTokens(noLongDash(String(s ?? "").trim().replace(/\s+/g, " "))).slice(0, max);
+const txt = (s: unknown, max: number, refs: RefMap = {}) =>
+  stripRefTokens(noLongDash(String(s ?? "").trim().replace(/\s+/g, " ")), refs).slice(0, max);
 
 /* הניקוי לפני שמירה: מקף ארוך, אורכים, עד 3 צעדים, ‏cta.kind מהרשימה של
    המאמן הזה בלבד, ו-ref שהומר למזהה אמיתי. כפתור שלא עבר - הצעד נשאר בלי
@@ -200,27 +203,27 @@ export function cleanSummaryV2(raw: unknown, kind: SummaryKind, refs: RefMap = {
       const priority = (["high", "mid", "win"] as const).find((p) => p === a.priority) ?? "mid";
       return {
         priority,
-        title: txt(a.title, 120),
-        why: txt(a.why, 400),
-        impact: txt(a.impact, 120),
+        title: txt(a.title, 120, refs),
+        why: txt(a.why, 400, refs),
+        impact: txt(a.impact, 120, refs),
         cta: ctaFitsTitle(String(a.title), cleanCta(a.cta, allowed, refs)),
       };
     })
     .filter((a) => a.title && a.why)
     .slice(0, 3);
-  const headline = txt(r.headline, 160);
+  const headline = txt(r.headline, 160, refs);
   if (!headline || !actions.length) return null;
   const out: CoachSummaryV2 = {
     v: 2,
     headline,
-    summary: txt(r.summary, 400),
-    strength: txt(r.strength, 80),
-    focus: txt(r.focus, 80),
+    summary: txt(r.summary, 400, refs),
+    strength: txt(r.strength, 80, refs),
+    focus: txt(r.focus, 80, refs),
     actions,
-    questions: (Array.isArray(r.questions) ? r.questions : []).map((q) => txt(q, 80)).filter(Boolean).slice(0, 3),
+    questions: (Array.isArray(r.questions) ? r.questions : []).map((q) => txt(q, 80, refs)).filter(Boolean).slice(0, 3),
   };
   if (kind === "team") {
-    out.agenda = (Array.isArray(r.agenda) ? r.agenda : []).map((q) => txt(q, 160)).filter(Boolean).slice(0, 6);
+    out.agenda = (Array.isArray(r.agenda) ? r.agenda : []).map((q) => txt(q, 160, refs)).filter(Boolean).slice(0, 6);
   }
   return out;
 }
