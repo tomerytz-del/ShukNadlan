@@ -169,7 +169,23 @@ export type CoachSummaryV2 = {
   agenda?: string[];
 };
 
-const txt = (s: unknown, max: number) => noLongDash(String(s ?? "").trim().replace(/\s+/g, " ")).slice(0, max);
+/* אסימון שדלף לטקסט ("לבדוק את P1 מול דוח CMA") הופך לשם הפריט. הפרומפט אוסר
+   לכתוב אותו, ו-Sonnet 5.5 כמעט לא עשה זאת (1 מ-26), אבל Haiku 5.5 עשה זאת ב-75%
+   מהסיכומים בשבוע הראשון (9-15.11.2026) - ולסוכן/ת "P1" אינו אומר כלום. הכפתור
+   של הצעד עדיין פותח את הפריט הנכון. אות שימוש צמודה במקף ("ל-P1") מתמזגת:
+   ב/ל בלי ה' הידיעה ("לנכס"), ו/מ/ש עם ("מהנכס"). */
+const REF_NOUN: Record<string, [string, string]> = {
+  P: ["הנכס", "נכס"], L: ["הליד", "ליד"], G: ["ההסכם", "הסכם"], A: ["הפריט", "פריט"], S: ["הסוכן/ת", "סוכן/ת"],
+};
+export function stripRefTokens(text: string): string {
+  return text.replace(/(?:([בלמושה])-)?(?<![A-Za-z0-9])([PLGAS])\d{1,3}(?![A-Za-z0-9])/g, (_m, pre: string | undefined, t: string) => {
+    const [full, bare] = REF_NOUN[t];
+    if (!pre || pre === "ה") return full;
+    return pre + (pre === "ב" || pre === "ל" ? bare : full);
+  });
+}
+const txt = (s: unknown, max: number) =>
+  stripRefTokens(noLongDash(String(s ?? "").trim().replace(/\s+/g, " "))).slice(0, max);
 
 /* הניקוי לפני שמירה: מקף ארוך, אורכים, עד 3 צעדים, ‏cta.kind מהרשימה של
    המאמן הזה בלבד, ו-ref שהומר למזהה אמיתי. כפתור שלא עבר - הצעד נשאר בלי

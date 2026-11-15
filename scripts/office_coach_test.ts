@@ -22,6 +22,7 @@ import {
   addDays,
   coachNotification,
   splitGap,
+  stripRefTokens,
   agentFingerprintSource,
   cleanAnswer,
   cleanQuestion,
@@ -751,8 +752,14 @@ for (const kind of ["agent", "team", "office"] as const) {
   check("קישור מהמנטור הופך לכפתור רק לכתובת שלנו (COACH_GO_RE)", ui.includes("https:\\/\\/shuknadlan\\.co\\.il\\/crm\\?goto="));
 }
 
-// ---------------------------------------------------------------------------
-// תאריכים
+// אסימון שדלף לטקסט הופך לשם הפריט (Haiku 5.5 כתב "P1" ב-75% מהסיכומים)
+check("אסימון: 'את P1' -> 'את הנכס'", stripRefTokens("לבדוק את P1 מול דוח CMA") === "לבדוק את הנכס מול דוח CMA");
+check("אסימון: 'ל-L1 ומ-P2' -> 'לליד ומהנכס'", stripRefTokens("ל-L1 ומ-P2") === "לליד ומהנכס");
+check("אסימון: CMA ו-B2B נשארים", stripRefTokens("CMA ו-B2B") === "CMA ו-B2B");
+const leaked = cleanSummaryV2({ headline: "בוקר טוב", actions: [{ priority: "win", title: "לבדוק את P1", why: "P1 שקט 40 יום", impact: "+1", cta: null }] }, "agent", {});
+check("cleanSummaryV2 מנקה אסימונים בכותרת ובנימוק", leaked?.actions[0].title === "לבדוק את הנכס" && leaked?.actions[0].why === "הנכס שקט 40 יום", leaked?.actions[0]);
+
+
 // ---------------------------------------------------------------------------
 check("addDays חוצה חודש", addDays("2026-09-28", 7) === "2026-10-05");
 check("addDays אחורה", addDays("2026-10-04", -7) === "2026-09-27");
