@@ -419,3 +419,25 @@ python3 scripts/check_yoetz_copy.py       # דפי הקורס פטורים: "מ�
 python3 scripts/check_edge_types.py course-purchase
 python3 scripts/course_scene_audio.py --list   # משפט בסצנה בלי קובץ קול
 ```
+
+## מתנת הרכישה: חודש Elite נוסף
+
+החלטת תומר (15.11.2026): מי שרכש/ה את הקורס בתשלום ונרשם/ה בפלטפורמה כיועץ/ת
+נדל״ן **באותו חשבון Google** מקבל/ת 90 ימי Elite במקום חודשיים.
+
+- **זיהוי:** `course_orders.user_id` = `agency_members.user_id` (שניהם `auth.users`).
+  ‏`is_course_buyer(member_id)` (‏`20271115140000_course_buyer_promo.sql`, ‏`service_role` בלבד)
+  עונה אם יש הזמנה ב-`success` שאינה `test_mode`. גישה שנפתחה ב-`course_grant_access`
+  אינה הזמנה ולכן אינה מזכה.
+- **הענקה:** `grantLaunchPromo` (‏`_shared/launch-promo.ts`) מוסיפה
+  ‏`COURSE_BUYER_BONUS_MONTHS` (1) ל-`PROMO_MONTHS` ושולחת את הסכום ל-
+  ‏`grant_launch_promo` ב-`p_months`. הפונקציה עצמה לא שונתה: אותה אידמפוטנטיות
+  ואותו יומן (`tier_changes`). נקודות הכניסה: הזמנה, פתיחת משרד והרשמת משרד.
+- **תצוגה:** `Tiers.promoState` מחשב `months` מ-`promo_started_at`/`promo_ends_at`,
+  ו-`promoMonthsText(months)` כותב "3 חודשים" ולא "חודשיים" בשער המסלול ב-CRM.
+- **מה שלא נעשה, בכוונה:** (1) מי שנרשם/ה כסוכן/ת **לפני** שרכש/ה את הקורס אינו/ה
+  מקבל/ת את החודש הנוסף (ההטבה כבר ניתנה והיא אידמפוטנטית). (2) אין תאריך סיום
+  למתנה: הטבת ההשקה מסתיימת החל מ-9.3.2027 (`docs/pricing-and-tiers.md`), ולפני כן
+  צריך להחליט אם המתנה ממשיכה או נגמרת איתה. דף הקורס אומר "חודש נוסף על 60 ימי
+  ההתנסות" ולכן חייב להתעדכן באותו יום.
+- **הצגה בדף הקורס:** רק אחרי שהקוד הזה במסד ובפרודקשן.

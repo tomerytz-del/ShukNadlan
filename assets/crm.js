@@ -9288,7 +9288,7 @@ function renderTierGate(){
   if (promo.active){
     const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
     title.textContent = 'קיבלת ' + gift.name + ' במתנה';
-    sub.textContent = `${Tiers.promoMonthsText()} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
+    sub.textContent = `${Tiers.promoMonthsText(promo.months)} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
                       'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
   } else if (agent.tier_source === 'promo_expired'){
     title.textContent = 'תקופת ההטבה הסתיימה';
@@ -9330,7 +9330,7 @@ function renderTierGate(){
       .join('');
 
     card.innerHTML =
-      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText() + '</span>' : '') +
+      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText(promo.months) + '</span>' : '') +
       '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
       '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
       (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +

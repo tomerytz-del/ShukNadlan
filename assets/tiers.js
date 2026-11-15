@@ -232,8 +232,8 @@
 
   /** "חודשיים" ולא "2 חודשים": הנוסח העברי של מספר חודשי ההטבה, במקום אחד
    *  לדף המסלולים, ל-CRM ולכל מי שמציג את ההטבה. */
-  function promoMonthsText() {
-    var m = PROMO.months;
+  function promoMonthsText(months) {
+    var m = months || PROMO.months;
     if (m === 1) return 'חודש';
     if (m === 2) return 'חודשיים';
     return m + ' חודשים';
@@ -257,11 +257,18 @@
      שכל הממשקים קוראים ממנה, כדי שהחישוב "כמה ימים נשארו" לא ייכתב שלוש
      פעמים עם שלוש טעויות עיגול שונות. */
   function promoState(member) {
-    var out = { active: false, ended: false, endsAt: null, daysLeft: null, tier: null };
+    var out = { active: false, ended: false, endsAt: null, daysLeft: null, tier: null, months: PROMO.months };
     if (!member || !member.promo_ends_at) return out;
     var ends = new Date(member.promo_ends_at);
     if (isNaN(ends.getTime())) return out;
     out.endsAt = ends;
+    // מספר החודשים בפועל: רוכש/ת קורס מקבל/ת חודש נוסף, ומי שהצטרף/ה לפני
+    // הקיצור לחודשיים שומר/ת על שישה. הטקסט לא יכול להבטיח את הקבוע.
+    if (member.promo_started_at) {
+      var started = new Date(member.promo_started_at);
+      var m = Math.round((ends.getTime() - started.getTime()) / (30.44 * 86400000));
+      if (!isNaN(m) && m > 0) out.months = m;
+    }
     out.tier = member.promo_tier || PROMO.tier;
     var ms = ends.getTime() - Date.now();
     if (ms > 0 && !member.promo_ended_at) {
