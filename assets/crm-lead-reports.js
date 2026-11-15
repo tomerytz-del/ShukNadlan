@@ -147,6 +147,8 @@ function openLeadReport(lead, agentId){
   el.querySelector('#lrNote').textContent =
     (free ? 'הפנייה תחזור למכסה החינמית של החודש. ' : 'הסכום שנגבה על הליד יחזור לארנק. ')
     + 'הליד יעבור לארכיון ולא יחזור. מי שמדווח/ת על הרבה לידים בחודש עובר/ת לבדיקה של צוות הפלטפורמה.';
+  el.querySelector('#lrNote').style.color = '';
+  el.querySelector('#lrNote').style.fontWeight = '';
   const send = el.querySelector('#lrSend');
   const fresh = send.cloneNode(true);       // בלי הצטברות מאזינים מפתיחה קודמת
   send.replaceWith(fresh);
@@ -165,7 +167,13 @@ function openLeadReport(lead, agentId){
     fresh.disabled = false;
     fresh.textContent = 'שליחת הדיווח';
     if (error || !data || data.error){
-      showToast('הדיווח נכשל: ' + (LEAD_REPORT_ERRORS[data && data.error] || heErr(error || (data && data.error))), 6500);
+      // ההודעה בתוך החלון: ה-toast (z-index 260) יושב מתחת ל-pm-overlay (400) ולא נראה
+      const msg = 'הדיווח נכשל: ' + (LEAD_REPORT_ERRORS[data && data.error] || heErr(error || (data && data.error)));
+      const noteEl = el.querySelector('#lrNote');
+      noteEl.textContent = msg;
+      noteEl.style.color = '#b42318';
+      noteEl.style.fontWeight = '700';
+      showToast(msg, 6500);
       return;
     }
     el.style.display = 'none';
