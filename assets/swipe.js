@@ -2523,6 +2523,10 @@
     if (c.ss) cv.seen_state = c.ss;
     shukTrack('swipe_card_view', cv);
     // ‏R8: נכס נחשב "נצפה" אחרי שנייה למעלה (טיימר נפרד - impTimer משותף לכרטיסי ההזמנה)
+    try {
+      if (c.slot === 'property' && c.p && c.p.id) document.documentElement.setAttribute('data-property-id', String(c.p.id));
+      else document.documentElement.removeAttribute('data-property-id');
+    } catch (e) { /* מזהה חסר - הלחיצה נספרת בלי נכס */ }
     if (c.slot === 'property') seenTimer = setTimeout(function () { if (cur() === c) seenMark(c.p, 'v'); }, 1000);
     c.viewAt = Date.now();
     if (nofee && !sessGet('sk_nofee_seen_' + c.p.id)) { sessSet('sk_nofee_seen_' + c.p.id); shukTrack('nofee_badge_view', { property_id: c.p.id, position: c.pos }); }
@@ -2548,6 +2552,16 @@
     if (phone) {
       $('swCall').href = 'tel:+' + phone;
       $('swWa').href = waHref(p, phone);
+      if (p.id) {
+        $('swCall').setAttribute('data-property-id', String(p.id));
+        $('swWa').setAttribute('data-property-id', String(p.id));
+      } else {
+        $('swCall').removeAttribute('data-property-id');
+        $('swWa').removeAttribute('data-property-id');
+      }
+    } else {
+      $('swCall').removeAttribute('data-property-id');
+      $('swWa').removeAttribute('data-property-id');
     }
     markFairContact($('swCall'), 'call', phone ? p : null);
     markFairContact($('swWa'), 'whatsapp', phone ? p : null);
@@ -3982,10 +3996,11 @@
       onClose: function () { shukTrack('seller_sheet_close', { sent: sellerSent ? 1 : 0 }); } },
     // ‏Variant C: "יצירת קשר" במסילה, כשיש מספר - וואטסאפ או חיוג
     contact: { art: '', title: 'איך נוח לכם?', sub: '', btns: [], body: function () {
+      var c = cur(), pid = c && c.p && c.p.id ? ' data-property-id="' + esc(c.p.id) + '"' : '';
       return '<div class="sw-bs-row">' +
         '<button type="button" class="sw-gold sw-bs-lead" data-bs-lead>השארת פרטים</button>' +
-        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa"' + fairSheetAttr('whatsapp') + '>וואטסאפ</a>' +
-        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call"' + fairSheetAttr('call') + '>חיוג</a></div>';
+        '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa"' + pid + fairSheetAttr('whatsapp') + '>וואטסאפ</a>' +
+        '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call"' + pid + fairSheetAttr('call') + '>חיוג</a></div>';
     } },
     // §5b: חמש העצות של הקהל, ההסתייגות, והפנייה ליועץ הנדל״ן של הנכס
     advice: { art: '', title: 'קבלו עצה ממומחה', sub: '', btns: [], body: function (c) {

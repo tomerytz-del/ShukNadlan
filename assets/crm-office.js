@@ -41,9 +41,12 @@ async function officePreloadNames(rows){
 
 /* שורת ההסבר על הפנייה, בניסוח של מי שקורא/ת אותה:
    המנהל/ת רואה למי מסר/ה, והסוכן/ת רואה ממי קיבל/ה. */
-function referralNote(row){
+function referralNote(row, withTime){
   if (!row || !row.referred_by || !currentAgent) return '';
-  const when = row.referred_at ? ' · ' + new Date(row.referred_at).toLocaleDateString('he-IL') : '';
+  // withTime: כרטיס הליד אומר גם באיזו שעה, כי "מתי" הוא מה שמבדיל הפנייה של הבוקר מזו של אתמול
+  const when = row.referred_at ? ' · ' + (withTime
+    ? new Date(row.referred_at).toLocaleString('he-IL', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' })
+    : new Date(row.referred_at).toLocaleDateString('he-IL')) : '';
   if (row.referred_by === currentAgent.id){
     const who = officeMemberName(row.agent_id);
     return '🤝 בהפנייה ממך' + (who ? ' · בטיפול ' + who : '') + when;

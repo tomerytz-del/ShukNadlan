@@ -257,7 +257,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <p style="font-size:.85rem;color:var(--muted)">
-      שאלה לפני התשלום? <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a> ·
+      שאלה לפני התשלום, או בעיה בתשלום? <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a> ·
+      <a href="tel:+972546929991" data-site-contact>054-6929991</a> ·
       <a href="/pricing">חזרה למחירון</a>
     </p>
 
@@ -276,7 +277,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 /* **העמוד משרת שני מוצרים: טעינת ארנק, ומנוי למסלול.** המנוי היה סגור בין
    10.2026 ל-7.10.2026 (כל המצטרפים בהטבה), ונפתח מחדש עם חידוש חודשי
    (‏subscription-purchase, 20270307090000). הוא נפתח רק עם ‏?tier= תקין;
-   כל מוצר אחר מקבל הפניה ולא טופס. הזכאות (למשל: בתקופת ההטבה רק בחודש
+   כל מוצר אחר מקבל הפניה ולא טופס. הזכאות (למשל: בתקופת ההתנסות רק בחודש
    האחרון) נבדקת בשרת, לא כאן.
 
    **השער יושב לפני יצירת לקוח ה-Supabase בכוונה.** ה-SDK נטען מ-CDN, ואם
@@ -313,7 +314,7 @@ if (isSub){
     'שלב אחרון לפני המעבר לתשלום. בדקו את הפרטים, אשרו את התקנון, והמשיכו לעמוד הסליקה המאובטח.';
   document.getElementById('productName').textContent = 'מנוי ' + t.name + ' - חודש';
   document.getElementById('productDesc').textContent =
-    'המסלול נפתח מיד אחרי התשלום. בתקופת הטבת ההשקה הוא מתחיל בסוף ההטבה, ולא נגבים פעמיים על אותו חודש.';
+    'המסלול נפתח מיד אחרי התשלום. בתקופת ההתנסות הוא מתחיל בסופה, ולא נגבים פעמיים על אותו חודש.';
   document.getElementById('amountWrap').style.display = 'none';
   document.getElementById('subWrap').style.display = '';
   document.title = 'מנוי ' + t.name + ' | שוק נדל״ן';
@@ -714,7 +715,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
         : data.error === 'no_developer_account'
           ? 'החשבון אינו משויך לחברה יזמית. היכנסו דרך אזור היזמים ונסו שוב.'
         : data.error === 'promo_active'
-          ? 'את המנוי אפשר לחדש בחודש האחרון של הטבת ההשקה' +
+          ? 'את המנוי אפשר לחדש בחודש האחרון של תקופת ההתנסות' +
             (data.promo_ends_at ? ' (היא נגמרת ב-' + new Date(data.promo_ends_at).toLocaleDateString('he-IL') + ')' : '') +
             '. עד אז המסלול המלא פתוח לך בלי תשלום.'
         : data.error === 'downgrade_at_period_end'
