@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MIG = ROOT / "supabase/migrations/20271112130000_listing_inventory_yad2.sql"
+PHONELESS = ROOT / "supabase/migrations/20271115130000_board_lead_without_phone.sql"
 REF_SQL = ROOT / "supabase/migrations/20270812090000_scraped_leads.sql"
 DB = os.environ.get("LISTING_INVENTORY_DB", "listing_inventory_test")
 CITY_ID = "11111111-1111-1111-1111-111111111111"
@@ -84,6 +85,12 @@ create table public.leads (
   source text,
   source_detail text,
   external_ref text,
+  property_id uuid,
+  neighborhood_id uuid,
+  property_details text,
+  referred_by uuid,
+  referred_at timestamptz,
+  origin_id uuid,
   created_at timestamptz not null default now()
 );
 create table public.scraped_leads (
@@ -214,7 +221,67 @@ def sync_once(db, city, items):
     """)
 
 
+def board_listing_url_stays_on_the_card():
+    """העמודה היא כפתור ב-CRM. היא לא נכנסת לטקסט של התראה, וואטסאפ או מייל."""
+    mig = PHONELESS.read_text(encoding="utf-8")
+    notify = mig.split("create or replace function public.scraped_lead_notify_demand", 1)[1]
+    notify = notify.split("create or replace view public.leads_masked", 1)[0]
+    if "board_listing_url" in notify:
+        fail("scraped_lead_notify_demand מזכיר את board_listing_url")
+    add = mig.split("create or replace function public.scraped_lead_add", 1)[1]
+    add = add.split("create or replace function public.scraped_lead_notify_demand", 1)[0]
+    if "board_listing_url" in add:
+        fail("scraped_lead_add מזכיר את board_listing_url")
+    allowed = {ROOT / "assets" / "crm.js"}
+    for base in (ROOT / "supabase" / "functions", ROOT / "assets"):
+        for path in base.rglob("*"):
+            if path.suffix not in {".ts", ".js", ".mjs"} or path in allowed:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if "board_listing_url" in text:
+                fail(f"board_listing_url מחוץ לכרטיס הליד: {path.relative_to(ROOT)}")
+
+
+def whatsapp_template_line_has_no_board_url():
+    """שורת התבנית של מודעת לוח לא מקבלת action_url ולא board_listing_url."""
+    push = (ROOT / "supabase/functions/notification-push/index.ts").read_text(encoding="utf-8")
+    call = push.split("leadTemplateLine(", 1)[1].split(")", 1)[0]
+    if "action_url" in call or "board_listing_url" in call:
+        fail(f"leadTemplateLine מקבל כתובת של מודעה: {call}")
+    if "const url = !board && withUrls" not in push:
+        fail("תבנית הוואטסאפ עדיין מדביקה כתובת למודעת לוח")
+    script = r"""
+import { leadTemplateLine } from "./supabase/functions/notification-push/lead-alert.ts";
+const listing = "https://www.yad2.co.il/realestate/item/abc";
+const madlan = "https://www.madlan.co.il/listings/abc";
+const crm = "https://shuknadlan.co.il/crm?goto=accLeads&lead=1";
+const base = { masked: false, leadType: "owner_inbound", name: "מודעה", what: "דירה", excerpt: "", hasPhone: false };
+for (const [source, url] of [["יד2", listing], ["מדלן", madlan]]) {
+  for (const passed of [url, crm, null]) {
+    const line = leadTemplateLine({ ...base, source }, passed, true);
+    if (/https?:\/\//.test(line) || line.includes("yad2.co.il") || line.includes("madlan.co.il")) {
+      console.error(source, line);
+      process.exit(1);
+    }
+  }
+}
+const other = leadTemplateLine({ ...base, source: "קבוצת פייסבוק", hasPhone: true }, crm, true);
+if (!other.endsWith(crm)) process.exit(2);
+process.stdout.write("ok");
+"""
+    out = subprocess.check_output(
+        ["node", "--experimental-strip-types", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    if out.strip() != "ok":
+        fail(f"שורת התבנית: {out}")
+
+
 def main():
+    board_listing_url_stays_on_the_card()
+    whatsapp_template_line_has_no_board_url()
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
     subprocess.check_call(["createdb", "--maintenance-db=postgres", DB])
     psql(DB, sql_text=SETUP)
@@ -223,7 +290,38 @@ def main():
     ref_end = ref_sql.index("revoke all on function public.scraped_lead_ref", ref_start)
     psql(DB, sql_text=ref_sql[ref_start:ref_end])
     psql(DB, MIG)
-    psql(DB, MIG)
+    psql(DB, sql_text="""
+      insert into public.listing_inventory
+        (source, external_ref, city, url, from_seed, lead_skip_reason, lead_attempted_at, lead_attempt_fingerprint)
+      values ('yad2', 'yad2.co.il/realestate/item/skipped-phone', 'בדיקה',
+              'https://www.yad2.co.il/realestate/item/skipped-phone', false,
+              'missing_phone', now(), repeat('ab', 32));
+      insert into public.scraped_leads
+        (lead_type, source, post_url, external_ref, city, raw_phone, phone_hash,
+         push_site_only, created_at)
+      values ('owner_inbound', 'madlan', 'https://www.madlan.co.il/listings/virt083',
+              'madlan.co.il/listings/virt083', 'עפולה', '083-111-0001', 'deadbeef',
+              true, now() - interval '2 days');
+    """)
+    psql(DB, PHONELESS)
+    backfill = psql(DB, sql_text="""
+      select (i.lead_skip_reason is null)::text
+             || '|' || s.push_site_only::text
+             || '|' || (select count(*)::text from public.notifications)
+             || '|' || (select count(*)::text from public.scraped_leads
+                         where external_ref = 'yad2.co.il/realestate/item/skipped-phone')
+        from public.listing_inventory i
+        join public.scraped_leads s on s.id = i.scraped_lead_id
+       where i.external_ref = 'yad2.co.il/realestate/item/skipped-phone'
+    """)
+    if backfill != "true|true|0|1":
+        fail(f"הדחייה הישנה לא נשארה רק באתר: {backfill}")
+    if psql(DB, sql_text="""
+      select (phone_hash is null)::text from public.scraped_leads
+       where external_ref = 'madlan.co.il/listings/virt083'
+    """) != "true":
+        fail("hash של מרכזיה 083 לא אופס")
+    psql(DB, PHONELESS)
 
     leaked_fn = psql(DB, sql_text="""
       select has_function_privilege('anon', 'public.listing_inventory_sync(text,text,jsonb)', 'execute')::text
@@ -342,7 +440,12 @@ def main():
     if caps != "1|0|true":
         fail(f"תקרה על מודעות חדשות: {caps}")
     note = psql(DB, sql_text="""
-      select count(*)::text || '|' || bool_and(body like '%המערכת לא פונה לבעלים%')::text
+      select count(*)::text || '|' ||
+             bool_and(
+               position('0501000001' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and position('http' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and coalesce(action_url, '') = 'https://www.yad2.co.il/realestate/item/a-new'
+             )::text
         from public.notifications where type = 'open_demand'
     """)
     if note != "1|true":
@@ -562,48 +665,107 @@ def main():
     if late != "4|2|0|4|false|false":
         fail(f"אחרי חלון הזריעה היה צריך לידים: {late}")
 
-    # דחייה לא מנוסה שוב עד שינוי טלפון או מחיר, או 30 יום.
+    # מודעת יד2 בלי טלפון נפתחת פעם אחת. סנכרון שני לא פותח עוד ליד.
     ramla = [
         item("https://www.yad2.co.il/realestate/item/r1"),
         item("https://www.yad2.co.il/realestate/item/r2"),
         item("https://www.yad2.co.il/realestate/item/r3"),
     ]
     sync_once(DB, "רמלה", ramla)
-    missed = sync_once(DB, "רמלה", ramla + [
+    opened = sync_once(DB, "רמלה", ramla + [
         item("https://www.yad2.co.il/realestate/item/r-new", price=800000),
     ])
-    if not missed.endswith("|0|false|false"):
-        fail(f"בלי טלפון נפתח ליד: {missed}")
-    skip1 = psql(DB, sql_text="""
-      select lead_skip_reason || '|' || (lead_attempted_at is not null)::text
-        from public.listing_inventory
-       where external_ref = 'yad2.co.il/realestate/item/r-new'
-    """)
-    if skip1 != "missing_phone|true":
-        fail(f"דחיית טלפון חסר: {skip1}")
-    attempted = psql(DB, sql_text="""
-      select lead_attempted_at::text from public.listing_inventory
-       where external_ref = 'yad2.co.il/realestate/item/r-new'
-    """)
-    sync_once(DB, "רמלה", ramla + [
+    if not opened.endswith("|1|false|false"):
+        fail(f"בלי טלפון לא נפתח ליד: {opened}")
+    if psql(DB, sql_text="""
+      select (s.raw_phone is null)::text || '|' || (s.phone_hash is null)::text
+             || '|' || (i.lead_skip_reason is null)::text
+             || '|' || (i.scraped_lead_id is not null)::text
+        from public.listing_inventory i
+        join public.scraped_leads s on s.id = i.scraped_lead_id
+       where i.external_ref = 'yad2.co.il/realestate/item/r-new'
+    """) != "true|true|true|true":
+        fail("ליד בלי טלפון נשמר עם טלפון או בלי קשר למלאי")
+    again = sync_once(DB, "רמלה", ramla + [
         item("https://www.yad2.co.il/realestate/item/r-new", price=800000),
     ])
-    if psql(DB, sql_text="""
-      select lead_attempted_at::text from public.listing_inventory
-       where external_ref = 'yad2.co.il/realestate/item/r-new'
-    """) != attempted:
-        fail("דחייה זהה נוסתה שוב")
-    got_phone = sync_once(DB, "רמלה", ramla + [
-        item("https://www.yad2.co.il/realestate/item/r-new", "0504300001", 800000),
-    ])
-    if not got_phone.endswith("|1|false|false"):
-        fail(f"טלפון חדש לא ניסה שוב: {got_phone}")
-    if psql(DB, sql_text="""
-      select lead_skip_reason is null and scraped_lead_id is not null
-        from public.listing_inventory
-       where external_ref = 'yad2.co.il/realestate/item/r-new'
-    """) != "t":
-        fail("אחרי טלפון הדחייה נשארה")
+    if not again.endswith("|0|false|false"):
+        fail(f"מודעה בלי טלפון נפתחה שוב: {again}")
+    psql(DB, sql_text="""
+      update public.scraped_leads
+         set push_site_only = false, date_known = true, demand_notified_at = null,
+             city_id = '11111111-1111-1111-1111-111111111111'
+       where external_ref = 'yad2.co.il/realestate/item/r-new';
+      delete from public.notifications where type = 'open_demand';
+    """)
+    n_plain = psql(DB, sql_text="""
+      select public.scraped_lead_notify_demand(
+        (select id from public.scraped_leads
+          where external_ref = 'yad2.co.il/realestate/item/r-new'))
+    """)
+    note = psql(DB, sql_text="""
+      select count(*)::text || '|' ||
+             bool_and(
+               position('http' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and position('board_listing_url' in coalesce(title, '') || ' ' || coalesce(body, '')) = 0
+               and coalesce(action_url, '') = 'https://www.yad2.co.il/realestate/item/r-new'
+             )::text
+        from public.notifications where type = 'open_demand'
+    """)
+    if n_plain == "0" or note != f"{n_plain}|true":
+        fail(f"התראה בלי טלפון: {n_plain} {note}")
+    fb_none = psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'facebook_group',
+        'external_ref', 'https://facebook.com/groups/1/posts/1',
+        'posted_at', now(), 'city', 'עפולה')) ->> 'error'
+    """)
+    if fb_none != "missing_phone":
+        fail(f"פייסבוק בלי טלפון התקבל: {fb_none}")
+    for prefix in ("083", "093", "033"):
+        first = psql(DB, sql_text=f"""
+          select public.scraped_lead_add(jsonb_build_object(
+            'lead_type', 'owner_inbound', 'source', 'madlan',
+            'external_ref', 'https://www.madlan.co.il/listings/{prefix}a',
+            'city', 'עפולה', 'raw_phone', '{prefix}-111-0002',
+            'date_known', false)) ->> 'success'
+        """)
+        second = psql(DB, sql_text=f"""
+          select public.scraped_lead_add(jsonb_build_object(
+            'lead_type', 'owner_inbound', 'source', 'madlan',
+            'external_ref', 'https://www.madlan.co.il/listings/{prefix}b',
+            'city', 'עפולה', 'raw_phone', '{prefix}1110002',
+            'date_known', false)) ->> 'duplicate'
+        """)
+        if first != "true" or second:
+            fail(f"מרכזיה {prefix} לא נקלטה פעמיים: {first} {second}")
+    yad_switch = psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'yad2',
+        'external_ref', 'https://www.yad2.co.il/realestate/item/sw1',
+        'city', 'עפולה', 'raw_phone', '083-111-0003', 'date_known', false)) ->> 'success'
+    """)
+    yad_switch2 = psql(DB, sql_text="""
+      select public.scraped_lead_add(jsonb_build_object(
+        'lead_type', 'owner_inbound', 'source', 'yad2',
+        'external_ref', 'https://www.yad2.co.il/realestate/item/sw2',
+        'city', 'עפולה', 'raw_phone', '0831110003', 'date_known', false)) ->> 'duplicate'
+    """)
+    if yad_switch != "true" or yad_switch2 != "phone":
+        fail(f"083 ביד2 לא אוחד: {yad_switch} {yad_switch2}")
+    board = psql(DB, sql_text="""
+      insert into public.leads (lead_type, source, external_ref, status)
+      values
+        ('owner_inbound', 'yad2', 'yad2.co.il/realestate/item/r-new', 'unlocked'),
+        ('owner_inbound', 'facebook_group', 'facebook.com/groups/1/posts/1', 'unlocked');
+      select coalesce(string_agg(source || '=' || coalesce(board_listing_url, 'null'), ','
+                                 order by source, board_listing_url nulls first), '')
+        from public.leads_masked
+       where source = 'facebook_group'
+          or board_listing_url = 'https://yad2.co.il/realestate/item/r-new'
+    """)
+    if board != "facebook_group=null,yad2=https://yad2.co.il/realestate/item/r-new":
+        fail(f"כפתור המודעה: {board}")
 
     psql(DB, sql_text="""
       select public.scraped_lead_add(jsonb_build_object(

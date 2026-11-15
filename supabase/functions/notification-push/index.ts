@@ -519,6 +519,13 @@ function categoryFor(type: string): string | null {
  * היחיד בתבנית המאושרת הוא כיבוי הערוץ. כשהסוד מוגדר, withUrls הוא false
  * והכפתור הוא הנתיב של היעד.
  */
+/** מודעת יד2 או מדלן. הכתובת שלה לא נכנסת לטקסט של התבנית. */
+function boardActionUrl(it: Item): boolean {
+  const raw = String(it.action_url || "").trim();
+  return /^https:\/\/([a-z0-9-]+\.)*(?:madlan\.co\.il|yad2\.co\.il)\//i.test(raw)
+    && !/[\s@]/.test(raw);
+}
+
 function templateSummary(items: Item[], withUrls = true): string {
   const note = withUrls ? "" : " פרטים ב-CRM.";
   const cap = 900 - note.length;
@@ -530,12 +537,17 @@ function templateSummary(items: Item[], withUrls = true): string {
   }
   const raw = items
     .map((it) => {
+      const board = boardActionUrl(it);
       const path = itemPath(it);
-      const url = withUrls && path ? `${SITE_BASE}${path}` : null;
+      // action_url של מודעת לוח לא מועבר לכאן. גם נתיב ה-CRM לא מודבק
+      // לטקסט של מודעה כזו: הכפתור הוא המקום היחיד של הכתובת.
+      const url = !board && withUrls && path ? `${SITE_BASE}${path}` : null;
       if (it.type === "new_lead" && it.lead) {
         return `• ${leadTemplateLine(it.lead, url, items.length === 1)}`;
       }
-      return `• ${it.title}${it.body ? `: ${it.body}` : ""}${url ? ` ${url}` : ""}`;
+      let text = `${it.title}${it.body ? `: ${it.body}` : ""}`;
+      if (board) text = text.replace(/https?:\/\/\S+/g, "").replace(/ {2,}/g, " ").trim();
+      return `• ${text}${url ? ` ${url}` : ""}`;
     })
     .join(" ")
     // ‏replace לפני החיתוך: גוף התראה נכתב במסד ועשוי להכיל שורה חדשה בעצמו
