@@ -254,7 +254,7 @@ function noticeBell(agentId: string, endsAt: string, prePaid: PrePaid | null): B
   }
   return {
     agent_id: agentId, type: "system",
-    title: `הטבת ה-Elite מסתיימת ב-${when}`,
+    title: `תקופת ההתנסות ב-Elite מסתיימת ב-${when}`,
     body: `להמשיך בלי הפסקה: ${priceLine("premium")} או ${priceLine("mid")}, ` +
       "והחודש ששולם מתחיל בסוף תקופת ההתנסות. בלי בחירה - Pay&GO.\n" + checkoutUrl("premium"),
   };
@@ -283,7 +283,7 @@ function reminderBell(agentId: string, endsAt: string, prePaid: PrePaid | null):
   }
   return {
     agent_id: agentId, type: "system",
-    title: `הטבת ה-Elite מסתיימת ${words} (${hebDate(endsAt)})`,
+    title: `תקופת ההתנסות ב-Elite מסתיימת ${words} (${hebDate(endsAt)})`,
     body: `להמשיך בלי הפסקה: ${priceLine("premium")} או ${priceLine("mid")}. ` +
       "בלי בחירה החשבון עובר ל-Pay&GO.\n" + checkoutUrl("premium"),
   };

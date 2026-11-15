@@ -370,7 +370,7 @@
       '<div class="center"><div class="card">' +
       '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>נכנסים עם חשבון Google, וממשיכים מאיפה שעצרתם, מכל מכשיר.</div></div>' +
       '<h2>כניסה לקורס ההכנה</h2>' +
-      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לשישה חודשים ב-450 ₪ כולל מע״מ.</p>' +
+      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לארבעה חודשים ב-450 ₪ כולל מע״מ.</p>' +
       '<button type="button" class="gbtn" id="googleBtn">' + I.google + '<span class="gl-label">כניסה עם Google</span></button>' +
       '<div class="err" id="loginErr">' + escapeHtml(err || '') + '</div>' +
       '<p style="font-size:13.5px"><a href="/course">חזרה לדף הקורס</a></p>' +
@@ -397,9 +397,11 @@
 
   /* --------------------------------------------------------------- טעינה */
   async function loadAll() {
-    var r = await Promise.all([rpc('course_me'), rpc('course_catalog')]);
+    var r = await Promise.all([rpc('course_me'), rpc('course_catalog'), rpc('course_extension_offer')]);
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
+    // הצעת הארכה: כשל (למשל האתר עלה לפני המיגרציה) אומר רק שאין הצעה
+    state.offer = (r[2] && !r[2].error && r[2].data && r[2].data.available) ? r[2].data : null;
     state.me = r[0].data || {};
     state.catalog = r[1].data || { chapters: [] };
     state.lessons = {};
@@ -467,27 +469,90 @@
     }
     return r;
   }
+  /* ----------------------------------------------------------- מדידה
+     אירועי המסחר האלקטרוני של GA4 (begin_checkout, purchase) דרך dataLayer, ו-GTM
+     מעביר אותם ל-GA4 ול-Meta (docs/gtm-course-purchase-import.json). **בלי פרטים
+     אישיים:** רק מזהה הזמנה, סכום ופריט. הדף הזה פרטי ואינו טוען את events.js,
+     ולכן הדחיפה כאן ישירה. מדידה לא שוברת: הכול בתוך try. */
+  function ecomItem(kind, amount) {
+    return { item_id: kind === 'extension' ? 'course_extension' : 'course_exam_prep',
+             item_name: kind === 'extension' ? 'הארכת קורס הכנה למבחן המתווכים' : 'קורס הכנה למבחן המתווכים',
+             price: amount, quantity: 1 };
+  }
+  function pushEcom(event, payload) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null });
+      window.dataLayer.push({ event: event, ecommerce: payload });
+    } catch (e) { /* מדידה לא שוברת כפתור */ }
+  }
+  function trackCheckout(kind) {
+    var amount = kind === 'extension' ? (state.offer && Number(state.offer.amount)) : Number($('payAmount') && $('payAmount').textContent);
+    if (!amount) return;
+    pushEcom('begin_checkout', { currency: 'ILS', value: amount, items: [ecomItem(kind, amount)] });
+  }
+  /* הרכישה נרשמת בחזרה מהסליקה, לא בלחיצה: מזהה ההזמנה, הסוג והסכום נשמרים
+     ל-sessionStorage לפני המעבר, והאירוע נורה רק אחרי שהגישה נפתחה בפועל. */
+  function rememberOrder(orderId, kind, amount) {
+    try { if (orderId) sessionStorage.setItem('courseOrder', JSON.stringify({ id: orderId, kind: kind, amount: amount })); } catch (e) { /* מצב פרטי */ }
+  }
+  function trackPurchaseOnce(orderId) {
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('courseOrder') || 'null');
+      var id = orderId || (saved && saved.id);
+      if (!id || !saved || !saved.amount) return;
+      var key = 'coursePurchaseSent:' + id;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+      pushEcom('purchase', { transaction_id: id, currency: 'ILS', value: saved.amount, items: [ecomItem(saved.kind, saved.amount)] });
+      sessionStorage.removeItem('courseOrder');
+    } catch (e) { /* מדידה לא שוברת */ }
+  }
+  /* חזרה מהסליקה למי שכבר רשום/ה (הארכה): הגישה כבר פתוחה, ולכן ממתינים עד שאין
+     הזמנה בהמתנה, ורק אז נרשמת הרכישה. */
+  function confirmReturnPurchase() {
+    var tries = 0;
+    clearInterval(state.pollTimer2);
+    state.pollTimer2 = setInterval(async function () {
+      tries++;
+      // הרכישה נרשמת רק כשההזמנה עצמה בסטטוס success (לא רק "אין הזמנה בהמתנה"):
+      // הזמנה שנכשלה (למשל amount_mismatch) מנקה גם היא את ההמתנה, ואסור למדוד אותה.
+      var id = state.returnOrderId;
+      var o = id ? await withAuth(function () { return sb.from('course_orders').select('status').eq('id', id).maybeSingle(); }) : null;
+      var st = o && !o.error && o.data ? o.data.status : null;
+      if (st === 'success') {
+        clearInterval(state.pollTimer2);
+        refreshMe();
+        trackPurchaseOnce(id);
+      } else if (st === 'failed' || tries > 20) clearInterval(state.pollTimer2);
+    }, 3000);
+  }
   async function renderPay(opts) {
     opts = opts || {};
     var expired = state.me && state.me.expired;
+    // הארכה (₪99) רק למי שמציעים לו/ה אותה; כל מקרה אחר הוא הרכישה המלאה
+    var ext = !!(state.offer && (opts.kind === 'extension' || (expired && !opts.kind)));
+    state.payKind = ext ? 'extension' : 'full';
     var name = (state.user && state.user.user_metadata && state.user.user_metadata.full_name) || '';
     render(band({ title: 'שוק נדל״ן', exit: 'logout', cls: 'tall', extra: '<h1 style="padding:6px 6px 0;font-size:22px">קורס הכנה למבחן המתווכים</h1>' }) +
       '<div class="center" style="max-width:560px"><form class="card" id="payForm" novalidate>' +
-      (expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>טוב לראות אתכם שוב. תקופת הגישה נגמרה ב-' + escapeHtml(fmtDate(state.me.expires_at)) + ', וההתקדמות שלכם נשמרה.</div></div>' : '') +
+      (expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>טוב לראות אתכם שוב. תקופת הגישה נגמרה ב-' + escapeHtml(fmtDate(state.me.expires_at)) + ', וההתקדמות שלכם נשמרה.' + (ext ? ' אפשר להאריך בארבעה חודשים נוספים.' : '') + '</div></div>' : '') +
+      (ext && !expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>הגישה שלכם מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. אפשר להאריך בארבעה חודשים נוספים, והם יתווספו לסוף התקופה.</div></div>' : '') +
       '<div id="payVerify" class="hidden" style="text-align:center"><div class="spin"></div><p>מאמתים את התשלום מול חברת הסליקה...</p></div>' +
       '<div id="payBody">' +
-      '<div class="price-row"><div class="amt"><span id="payAmount">450</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">6</span> חודשים</span></div>' +
+      '<div class="price-row"><div class="amt"><span id="payAmount">450</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">4</span> חודשים</span></div>' +
       '<ul class="feat">' + ['כל השיעורים והחידונים', 'כל מבחני העבר עם ההסברים', 'סימולציות ללא הגבלה', 'חזרה על טעויות', 'מד התקדמות אישי', 'תכנים חדשים שנוספים בתקופה'].map(function (t) { return '<li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f9d55" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>' + t + '</li>'; }).join('') + '</ul>' +
       '<div class="hr"></div><b style="font-size:14px">פרטים לחשבונית</b>' +
       '<label class="field">שם מלא<input id="payName" type="text" autocomplete="name" maxlength="100" value="' + escapeHtml(name) + '"></label>' +
       '<label class="field">טלפון<input id="payPhone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" dir="ltr" style="text-align:right"></label>' +
-      '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. אפשר לבטל בתוך 14 ימים, כל עוד לא נפתח שיעור בתשלום או מבחן סימולציה, ולקבל החזר מלא במייל shuknadlan@gmail.com.</span></label>' +
+      '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. ' + (ext ? 'ההארכה ניתנת פעם אחת. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד תקופת ההארכה טרם החלה, ולקבל החזר מלא במייל shuknadlan@gmail.com.' : 'אפשר לבטל בתוך 14 ימים, כל עוד לא נפתח שיעור בתשלום או מבחן סימולציה, ולקבל החזר מלא במייל shuknadlan@gmail.com.') + '</span></label>' +
       '<button type="submit" class="btn-p" id="payBtn">' + I.lockS + ' לתשלום מאובטח</button>' +
       '<button type="button" class="btn-s" id="freeLessonBtn">לשיעור החינמי קודם</button>' +
       '<button type="button" class="btn-s hidden" id="testEnrollBtn">פתיחת גישה לבדיקה (צוות הניהול)</button>' +
       '<div class="err" id="payErr"></div>' +
       '</div></form></div>');
     bindBand();
+    if (ext) { $('payAmount').textContent = state.offer.amount; $('payMonths').textContent = state.offer.months; }
     on('freeLessonBtn', 'click', function () { renderMap(); });
     on('payForm', 'submit', submitPay);
     on('testEnrollBtn', 'click', async function () {
@@ -503,8 +568,7 @@
       var pr = await purchaseFetch('GET');
       var info = pr.data;
       if (pr.ok && $('payAmount')) {
-        $('payAmount').textContent = info.amount;
-        $('payMonths').textContent = info.months;
+        if (!ext) { $('payAmount').textContent = info.amount; $('payMonths').textContent = info.months; }
         $('testEnrollBtn').classList.toggle('hidden', !info.can_test);
         if (!info.configured) $('payErr').textContent = 'הסליקה אינה זמינה כרגע. אפשר להתחיל מהשיעור החינמי ולנסות שוב מאוחר יותר.';
       }
@@ -521,9 +585,12 @@
     var btn = $('payBtn');
     btn.disabled = true; btn.textContent = 'פותחים את עמוד התשלום...';
     try {
-      var sp = await purchaseFetch('POST', { client_name: name, client_phone: $('payPhone').value.trim(), client_country: 'IL' });
+      var kind = state.payKind === 'extension' ? 'extension' : 'full';
+      trackCheckout(kind);
+      var sp = await purchaseFetch('POST', { kind: kind, client_name: name, client_phone: $('payPhone').value.trim(), client_country: 'IL' });
       var data = sp.data;
       if (!sp.ok || !data.redirect_url) throw data;
+      rememberOrder(data.order_id, kind, Number(data.amount));
       window.location.href = data.redirect_url;
       return;
     } catch (e) { $('payErr').textContent = errText(e); }
@@ -543,6 +610,7 @@
       if (state.me.enrolled) {
         clearInterval(state.pollTimer);
         toast('התשלום אושר. ברוכים הבאים לקורס!');
+        trackPurchaseOnce(state.returnOrderId); // enrolled = נפתחה גישה, כלומר התשלום אושר
         renderMap();
         return;
       }
@@ -570,7 +638,9 @@
     var extra = '<div class="map-head">' +
       '<div class="title-row"><h1>המסלול שלך</h1><span class="count">' + done + ' מתוך ' + total + ' שיעורים</span></div>' +
       '<div class="map-track" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + done + '" aria-valuemin="0" aria-valuemax="' + total + '"><i style="width:' + (total ? Math.round(100 * done / total) : 0) + '%"></i></div>' +
-      '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div></div>';
+      '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div>' +
+      (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה של ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪</button></p></div>' : '') +
+      '</div>';
 
     var chapters = (state.catalog.chapters || []);
     var mapHtml = chapters.map(function (ch, ci) {
@@ -600,6 +670,7 @@
       '<button type="button" class="btn-p" id="examBtnM">' + I.clock + ' סימולציה' + (last != null ? ' <span class="badge gold">' + last + '</span>' : '') + '</button>' +
       '<button type="button" class="btn-s" id="reviewBtnM">חזרה על טעויות</button></nav>');
     bindBand();
+    on('extBtn', 'click', function () { renderPay({ kind: 'extension' }); });
     qa('.node').forEach(function (b) { b.addEventListener('click', function () { openLesson(b.getAttribute('data-lesson')); }); });
     ['examBtn', 'examBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('exam'); }); });
     ['reviewBtn', 'reviewBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('review'); }); });
@@ -630,7 +701,7 @@
   function renderLocked(entry) {
     render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
       '<div class="center"><div class="card">' +
-      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. תשלום אחד לשישה חודשים, וכל מה שכבר למדתם נשמר.</div></div>' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. תשלום אחד לארבעה חודשים, וכל מה שכבר למדתם נשמר.</div></div>' +
       '<h2>' + escapeHtml(entry.lesson.title) + '</h2>' +
       '<p>גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.</p>' +
       '<button type="button" class="btn-p" id="goPay">לפתיחת הקורס המלא</button>' +
@@ -1235,6 +1306,7 @@
     state.user = session.user;
     var params = new URLSearchParams(window.location.search);
     var order = params.get('order');
+    state.returnOrderId = order === 'success' ? params.get('order_id') : null;
     cleanAuthParams();
     if (order) {
       var u = new URL(window.location.href);
@@ -1243,6 +1315,7 @@
     }
     try { await loadAll(); } catch (e) { renderBoot(errText(e)); return; }
     if (order === 'success' && !state.me.enrolled) { renderPay({ verify: true }); return; }
+    if (order === 'success') confirmReturnPurchase();
     if (order === 'failure') { renderPay({ failure: true }); return; }
     renderMap();
   }

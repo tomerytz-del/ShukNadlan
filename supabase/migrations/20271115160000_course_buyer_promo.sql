@@ -37,6 +37,8 @@ as $$
          and m.user_id is not null
          and o.status = 'success'
          and o.test_mode = false
+         -- רכישה לפני ההצטרפות כסוכן/ת ("למצטרפים חדשים בלבד"), לא אחריה
+         and o.completed_at <= m.created_at
     )
     then coalesce((select floor(value)::int from public.pricing_config
                     where key = 'course_buyer_bonus_months'), 0)
