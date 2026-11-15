@@ -400,6 +400,35 @@
     var small = sized(u, w);
     return 'src="' + esc(small) + '"' + (small !== u ? ' data-orig="' + esc(u) + '"' : '');
   }
+  /* כרטיס ראשון: תמונה חדה מיד ב-400/800, בלי לחכות לטשטוש של 40px.
+     ‏SRCW ננעל לאותו רוחב כדי ש-warm לא יבקש כתובת שנייה. הטשטוש נשאר רק כרקע.
+     שאר הכרטיסים ממשיכים ב-warm (הסקיל swipe-photos). */
+  function heroW() { return lean() ? 400 : 800; }
+  function heroAttr(u) {
+    var w = heroW();
+    SRCW.set(u, w);
+    var src = sized(u, w), set = sized(u, 400) + ' 400w, ' + sized(u, 800) + ' 800w';
+    if (lean()) set = sized(u, 400) + ' 400w';
+    return 'src="' + esc(src) + '" srcset="' + esc(set) + '" sizes="100vw"' + (src !== u ? ' data-orig="' + esc(u) + '"' : '');
+  }
+  function preloadHero(u) {
+    if (!u) return;
+    var w = heroW(), href = sized(u, w);
+    var link = $('swHeroPre');
+    if (!link) {
+      link = document.createElement('link');
+      link.id = 'swHeroPre';
+      link.rel = 'preload';
+      link.as = 'image';
+      document.head.appendChild(link);
+    }
+    if (link.getAttribute('href') === href) return;
+    link.href = href;
+    link.setAttribute('imagesrcset', lean() ? (sized(u, 400) + ' 400w') : (sized(u, 400) + ' 400w, ' + sized(u, 800) + ' 800w'));
+    link.setAttribute('imagesizes', '100vw');
+    link.setAttribute('fetchpriority', 'high');
+    try { link.fetchPriority = 'high'; } catch (e) { /* דפדפן בלי המאפיין */ }
+  }
   function isComm(p) { return p.category === 'commercial'; }
   /* ---------- הדמיות AI בהחלקה (סבב 4, חלק 2) ----------
      ‏property_visualizations_recent ולא ‎_public‎: השני הוא סט הבסיס בלבד, ו-recent
@@ -639,7 +668,7 @@
   }
 
   /* ---------- 2. הסינון ---------- */
-  var filter = { deal: 'all', area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: photosOnlyPref() };
+  var filter = { deal: 'all', area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', residential: false, photos: photosOnlyPref() };
   /* ‏P0-3: סוג נכס - בחירה אחת. ‏sort אחד להחלקה, לרשימה ולמפה; "מומלצים" = סדר החפיסה */
   /* ‏R6 (‏A3-1): המפתחות והתוויות של FilterConfig.TYPES (‏assets/filter-config.js) - אותם סוגים כמו
      בצ'יפים מעל התוצאות ובחלון הסינון בדף הבית: דירות, בתים, משקים ונחלות (‏C3), מגרשים; ובמסחרי
@@ -664,6 +693,17 @@
     if (key === 'comm') return isComm(p);
     if (t[3]) return isComm(p) && t[2].test(p.property_type || '');
     return !isComm(p) && t[2].test(p.property_type || '');
+  }
+  /* מגורים למודעה: לא מסחרי, ולא משרד/חנות/תעשייה/מחסן/מרלו״ג לפי אותם ביטויים.
+     מגרש למגורים נשאר (הביטוי של מגרש מסחרי רחב מדי). */
+  var RES_SKIP = { office: 1, shop: 1, industry: 1, warehouse: 1, logistics: 1 };
+  function residentialOk(p) {
+    if (isComm(p)) return false;
+    var t = p.property_type || '';
+    for (var i = 0; i < TYPES.length; i++) {
+      if (RES_SKIP[TYPES[i][0]] && TYPES[i][2] && TYPES[i][2].test(t)) return false;
+    }
+    return true;
   }
   var SORTS = [['rec', 'מומלצים'], ['new', 'חדשים ביותר'], ['price_asc', 'מחיר: מהנמוך לגבוה'], ['price_desc', 'מחיר: מהגבוה לנמוך'], ['ppsqm', 'מחיר למ״ר'], ['size', 'שטח: מהגדול לקטן']];
   var sortKey = 'rec';
@@ -698,7 +738,10 @@
       if (view === 'list' && listLayout === 'rows') q.set('layout', 'rows');
       // התצוגה בכתובת (‏P1-L): "אחורה" מדף נכס חוזר לרשימה או למפה, ולא להחלקה
       if (view === 'list' || view === 'map' || view === 'likes') q.set('view', view);
+      // ‏utm_*, fbclid ושאר פרמטרי המודעה נשארים: מוחקים רק מפתחות הסינון.
+      // במודעה ממומנת גם "הכל" נכתב, כדי שרענון לא יחזיר את ברירת המחדל (מכירה)
       if (filter.deal !== 'all') q.set('deal', filter.deal);
+      else if (paidSocial()) q.set('deal', 'all');
       if (filter.deal === 'commercial' && filter.cdeal) q.set('cdeal', filter.cdeal);
       if (filter.area !== 'all' && !filter.near) q.set('area', filter.area);
       if (filter.rooms) q.set('rooms', String(filter.rooms));
@@ -716,6 +759,7 @@
   function readUrl() {
     var d = params.get('deal');
     if (d === 'rent' || d === 'sale' || d === 'commercial' || d === 'all') filter.deal = d;
+    else if (paidSocial()) filter.deal = 'sale';
     var a = params.get('area');
     if (a && (a === 'main' || a === 'around' || a.indexOf('city:') === 0)) filter.area = a;
     var r = Number(params.get('rooms')); if ([3, 4, 5].indexOf(r) >= 0) filter.rooms = r;
@@ -730,6 +774,14 @@
     if (params.get('photos') === '0') filter.photos = false;
     if (params.get('fair') === '1') filter.fair = true;
     var s_ = params.get('sort'); if (SORTS.some(function (x) { return x[0] === s_; })) sortKey = s_;
+    /* מודעה ממומנת (מטא): בלי type - מגורים (בלי מסחרי/משרד/חנות/תעשייה),
+       ובלי deal - מכירה. פרמטר מפורש בכתובת גובר. */
+    if (paidSocial() && !params.has('type')) filter.residential = true;
+  }
+  function paidSocial() {
+    var m = (params.get('utm_medium') || '').toLowerCase();
+    var s = (params.get('utm_source') || '').toLowerCase();
+    return m === 'paid' || s === 'facebook' || s === 'instagram' || s === 'fb' || s === 'ig' || params.has('fbclid');
   }
   var BUDGETS = {
     sale: [0, 1500000, 2500000, 3500000],
@@ -851,6 +903,7 @@
     if (f.viz && !vizMap.has(p.id)) return false;
     if (f.photos && !hasPhoto(p)) return false;
     if (f.type && !typeOk(p, f.type)) return false;
+    if (f.residential && !f.type && f.deal !== 'commercial' && !residentialOk(p)) return false;
     if (f.reel && !hasReel(p)) return false;
     if (f.near) { if (!p.lat || !p.lng || km(f.near[0], f.near[1], +p.lat, +p.lng) > 12) return false; }
     else if (!areaOk(p, f.area)) return false;
@@ -1098,9 +1151,22 @@
     renderSummary();
   }
   var fSrT = 0;
+  function summaryDeal() {
+    if (filter.deal === 'commercial') {
+      return 'מסחרי' + (filter.cdeal ? (filter.cdeal === 'rent' ? ' להשכרה' : ' למכירה') : '');
+    }
+    var typeLab = '';
+    if (filter.type) {
+      var row = TYPES.filter(function (x) { return x[0] === filter.type; })[0];
+      typeLab = row ? row[1] : '';
+    }
+    var noun = typeLab || (filter.residential ? 'דירות' : '');
+    if (filter.deal === 'sale') return noun ? noun + ' למכירה' : 'למכירה';
+    if (filter.deal === 'rent') return noun ? noun + ' להשכרה' : 'להשכרה';
+    return noun || 'כל הנכסים';
+  }
   function renderSummary() {
-    var deal = DEAL_LABEL[filter.deal] +
-      (filter.deal === 'commercial' && filter.cdeal ? (filter.cdeal === 'rent' ? ' להשכרה' : ' למכירה') : '');
+    var deal = summaryDeal();
     var area = filter.near ? 'לידי' : filter.area === 'all' ? marketLabel : filter.area === 'main' ? mainCity :
       filter.area === 'around' ? 'יישובי הסביבה' : filter.area.slice(5);
     $('swSumText').textContent = (filter.fair ? 'יריד הבתים הפתוחים · ' : '') + deal + ' · ' + area + (filter.viz ? ' · ✨ הדמיה' : '');
@@ -1212,7 +1278,7 @@
   $('swFReset').addEventListener('click', function () {
     ext = null; extQs = '';   // ‏"ניקוי הכול" - גם מה שהגיע מדף הבית
     // "ניקוי הכול": גם היריד, סוג הנכס והמיון; "רק עם תמונות" חוזר לדלוק
-    filter = { deal: filter.deal, area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', photos: true, fair: false, viz: false, reel: false };
+    filter = { deal: filter.deal, area: 'all', budget: 0, priceMin: 0, rooms: 0, near: null, type: '', residential: filter.residential, photos: true, fair: false, viz: false, reel: false };
     sortKey = 'rec'; syncSortBtn();
     store('sk_swipe_photos_only', null);
     shukTrack('swipe_filter_clear', { view: view });
@@ -1770,14 +1836,18 @@
       if (vr && dk.w) {
         var rf = reelFit(vr, dk.w, dk.h);
         fit = rf.vfit === 'land' ? 'window' : 'cover'; winH = rf.h; vlock = true;
-      } else if (base && sp !== 'ba') {
+      }       else if (base && sp !== 'ba') {
         if (rt && dk.w) { fit = fitMode(rt * 4000, 4000, dk.w, dk.h); if (fit === 'window') winH = windowH(rt * 4000, 4000, dk.w, dk.h); }
         else { fit = 'pending'; go = SRCW.has(base); }
       }
+      /* הכרטיס העליון: התמונה החדה יוצאת מיד (srcset 400/800), והטשטוש רק ברקע */
+      var heroNow = !!(top && base && sp !== 'ba');
+      if (heroNow) { go = true; preloadHero(base); }
       var img = ph.length ? '<img class="sw-cblur" aria-hidden="true" alt="" data-u="' + esc(base) + '" src="' + esc(sized(base, 40)) + '">' +
         '<img class="sw-cimg' + (fit === 'pending' ? ' sw-wait' : '') + '" draggable="false" data-fb="sw-cimg" data-u="' + esc(base) + '" ' +
-        (go ? imgSrc(base, sp === 'ba' ? cardW() : srcW(base)) : 'data-pend="1"') + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : '') + ' decoding="async">'
+        (heroNow ? heroAttr(base) : (go ? imgSrc(base, sp === 'ba' ? cardW() : srcW(base)) : 'data-pend="1"')) + ' alt="' + esc(title(p)) + '"' + (top ? ' fetchpriority="high"' : '') + ' decoding="async">'
         : np || imgFallback(title(p)).replace('sw-img-fb', 'sw-img-fb sw-cimg');
+      var gestureHint = (top && !gestured && idx === 0) ? '<p class="sw-gesture-hint">ימינה שומרים · שמאלה מדלגים</p>' : '';
       var bars = '<div class="sw-bars" aria-hidden="true">' + barsHtml(ph, at) + '</div>';
       var facts = [rooms(p) ? rooms(p) + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
       // ‏OpenHouse.live נבדק בכל ציור: חלון שנסגר בזמן שהדף פתוח מוריד את התג בכרטיס הבא
@@ -1785,7 +1855,7 @@
       return '<article class="sw-card' + (sp ? ' is-' + sp : '') + (np ? ' is-np' : '') + (hasReel(p) && VBAD.has(reelUrl(p)) ? ' reel-err' : '') + '" data-slot="property"' + (nofee ? ' data-nofee' : '') +
         (fit ? ' data-fit="' + fit + '"' : '') + (winH ? ' style="--win-h:' + winH + 'px"' : '') +
         (ru ? ' data-reel="' + esc(ru) + '"' : '') + (vlock ? ' data-vlock="1"' : '') +
-        ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img +
+        ' aria-label="' + esc((nofee ? NO_FEE + ', ' : '') + title(p) + ', ' + fmtPrice(p)) + '">' + img + gestureHint +
         '<div class="sw-vlayer">' + (sp ? layerHtml(p, sp) : '') + '</div>' + bars + dbg +
         '<div class="sw-ctop"><span class="sw-tag ' + (p.deal_type === 'rent' ? 'is-rent' : 'is-sale') + '">' + (isComm(p) ? 'מסחרי' : p.deal_type === 'rent' ? 'להשכרה' : 'למכירה') + '</span>' +
         (nofee ? nofeeTag() : '') +
@@ -1930,18 +2000,46 @@
   var reelSound = false;   // אחרי הפעלת קול פעם אחת - הרילסים הבאים בביקור מתחילים עם קול (אם הדפדפן מרשה)
   function reelLayer(p) {
     var poster = slideBase(p, '#reel'), dk = deckSize(), known = VRATIO.get(reelUrl(p)), rf = reelFit(known || reelGuess(poster), dk.w, dk.h);
+    var posterW = poster && SRCW.has(poster) ? SRCW.get(poster) : 800;
     return '<div class="sw-reel-wrap" data-vfit="' + rf.vfit + '"' + (rf.h ? ' style="--vwin-h:' + rf.h + 'px"' : '') + (!known && rf.vfit !== 'pending' ? ' data-vguess="1"' : '') + '>' +
-      '<video class="sw-reel" muted playsinline loop preload="metadata" draggable="false"' +
-      (poster ? ' poster="' + esc(sized(poster, cardW())) + '"' : '') + ' src="' + esc(p.video_url.trim()) + '"></video>' +
+      '<video class="sw-reel" muted playsinline loop preload="none" draggable="false"' +
+      (poster ? ' poster="' + esc(sized(poster, posterW)) + '"' : '') + ' data-src="' + esc(p.video_url.trim()) + '"></video>' +
       (reduceMotion ? '<button type="button" class="sw-reel-play" data-reel-play aria-label="הפעלת הסרטון">▶</button>' : '') +
       '<button type="button" class="sw-reel-snd" data-reel-snd' + (reelSound ? ' hidden' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>הפעילו קול לשמוע את הקריינות</button>' +
       '<button type="button" class="sw-reel-mute" data-reel-mute aria-label="השתקה" title="השתקה"' + (reelSound ? '' : ' hidden') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m23 9-6 6M17 9l6 6"/></svg></button></div>';
   }
+  /* הסרטון עולה רק אחרי שהתמונה החדה של הכרטיס כבר צוירה, והכרטיס על המסך.
+     עד אז אין src (preload=none), כדי שקובץ של כמה מגה לא יתחרה בתמונה. */
+  function heroReady(top) {
+    var im = top && top.querySelector('img.sw-cimg');
+    if (!im || im.tagName !== 'IMG') return true;
+    return !!(im.complete && im.naturalWidth > 0);
+  }
+  function armVisibleReel(top) {
+    var v = top && top.querySelector('video.sw-reel');
+    if (!v || v.getAttribute('src') || !heroReady(top) || view !== 'deck') return;
+    var src = v.getAttribute('data-src');
+    if (!src) return;
+    var r = top.getBoundingClientRect();
+    if (r.width < 20 || r.bottom <= 0 || r.top >= window.innerHeight) return;
+    v.preload = 'none';
+    v.src = src;
+  }
+  function afterHeroPaint(top, cb) {
+    var im = top && top.querySelector('img.sw-cimg');
+    var go = function () { requestAnimationFrame(function () { requestAnimationFrame(cb); }); };
+    if (!top || !top.isConnected) return;
+    if (!im || im.tagName !== 'IMG' || (im.complete && im.naturalWidth > 0)) { go(); return; }
+    im.addEventListener('load', go, { once: true });
+    im.addEventListener('error', go, { once: true });
+  }
   /* רק וידאו אחד מתנגן: של הכרטיס העליון, כשהשקופית שלו היא הרילס, בלי גיליון/הדרכה/תצוגה אחרת */
   function reelSync() {
-    var top = $('swTopCard'), v = top && top.querySelector('.sw-card.is-reel video.sw-reel');
+    var top = $('swTopCard');
+    if (top) armVisibleReel(top);
+    var v = top && top.querySelector('.sw-card.is-reel video.sw-reel');
     document.querySelectorAll('#swDeck video.sw-reel').forEach(function (x) { if (x !== v && !x.paused) x.pause(); });
-    if (!v) return;
+    if (!v || !v.getAttribute('src')) return;
     var ok = view === 'deck' && !openStack.length && $('swTour').hidden && !reduceMotion && !v.dataset.err;
     if (!ok) { if (!v.paused) v.pause(); return; }
     if (!v.paused) return;
@@ -2332,9 +2430,10 @@
       warm(firstImg(deck[idx + 3]));
       warmSecond(deck[idx + 1]);
       warmSecond(deck[idx + 2]);
+      warmReel(deck[idx + 1]);
+      warmReel(deck[idx + 2]);
     };
-    warmReel(deck[idx + 1]);
-    warmReel(deck[idx + 2]);
+    /* מטא-דאטה של הרילס הבא רק אחרי שהתמונה העליונה הגיעה, לא במקביל אליה */
     var im = top && top.querySelector('img.sw-cimg');
     if (!im || (im.complete && im.naturalWidth)) { setTimeout(run, 0); return; }
     var once = false, t = setTimeout(function () { if (!once) { once = true; run(); } }, 2500);
@@ -2388,11 +2487,11 @@
     var tc = top.querySelector('.sw-card.is-ba,.sw-card.is-invite');
     if (tc) { bindBa(tc.querySelector('.sw-ba'), true); vizSlideSeen(c, tc.classList.contains('is-ba') ? 'ba' : 'invite'); }
     bindReel(top, c);
-    setTimeout(reelSync, 0);
+    afterHeroPaint(top, function () { if (top.isConnected) reelSync(); });
     syncActions();
     onCardView(c);
     vizPrime();
-    if (tourPending && view === 'deck' && !openStack.length) maybeTour();
+    if (tourPending && !gestured && view === 'deck' && !openStack.length) maybeTour();
   }
   var impTimer = 0, seenTimer = 0;
   function onCardView(c) {
@@ -2543,7 +2642,15 @@
   });
 
   var deciding = false;   // הכרטיס עוד עף - לחיצה כפולה לא מדלגת על הנכס הבא
+  var gestured = false;
+  function noteGesture() {
+    if (gestured) return;
+    gestured = true;
+    tourPending = false;
+    document.querySelectorAll('.sw-gesture-hint').forEach(function (el) { el.remove(); });
+  }
   function decide(dir, via) {
+    noteGesture();
     var c = cur();
     if (deciding || !c || c.slot === 'end' || c.slot === 'seen_end') return;
     var top = $('swTopCard');
@@ -2786,7 +2893,7 @@
     card.addEventListener('pointercancel', end);
     card.addEventListener('click', function (e) {
       var c = cur();
-      if (e.target.closest('[data-up]')) { openSheetFor(c, sheetOpts(card)); return; }
+      if (e.target.closest('[data-up]')) { openSheetFor(c, { form: true }); return; }
       if (c && PROMO[c.slot]) {
         var wasTap = tapPromo; tapPromo = false;
         if (e.target.closest('[data-promo-go]')) { promoGo(c, 'button'); return; }
@@ -2951,10 +3058,10 @@
     return '<form class="sw-lead" id="leadForm" hidden novalidate>' +
       '<label class="sw-field"><span>שם</span><input id="swLName" autocomplete="name" required></label>' +
       '<label class="sw-field"><span>טלפון</span><input id="swLPhone" type="tel" inputmode="tel" autocomplete="tel" required></label>' +
+      '<label class="sw-consent"><input type="checkbox" id="swLConsent" form="leadForm" required> <span>מאשרים פנייה חוזרת מהמפרסם בנוגע לפנייה הזו, בהתאם ל<a href="/terms" target="_blank">תנאי השימוש</a> ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a>.</span></label>' +
+      '<p class="sw-ferr" id="swLErr" role="alert"></p>' +
       (p ? '<label class="sw-field"><span>הודעה</span><textarea id="swLMsg" rows="3">' + esc(msg) + '</textarea></label>' : '') +
-      (p ? qHtml(questionsFor(c)) : sponQHtml()) +
-      '<label class="sw-consent"><input type="checkbox" id="swLConsent"> <span>מאשרים פנייה חוזרת מהמפרסם בנוגע לפנייה הזו, בהתאם ל<a href="/terms" target="_blank">תנאי השימוש</a> ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a>.</span></label>' +
-      '<p class="sw-ferr" id="swLErr" role="alert"></p></form>' +
+      (p ? qHtml(questionsFor(c)) : sponQHtml()) + '</form>' +
       '<p class="sw-done" id="swLDone" hidden>✅ הפנייה נשלחה. הפרטים יועברו למפרסם המודעה.</p>';
   }
   /* "בקשו תמונות מהמפרסם": הגיליון נפתח עם הטופס וההודעה המלאה. שום דבר לא נשלח בלחיצה */
@@ -2995,6 +3102,7 @@
     // בלוק המחיר של הכרטיס מוסתר כל עוד הגיליון פתוח - אחרת הוא מציץ מעל הגיליון (תומר 6.11)
     document.body.classList.add('sw-sheet-open');
     openDialog($('swSheet'));
+    if (opts.form) setTimeout(scrollLeadIntoView, 70);
     // ‏own אחרי הפוקוס של openDialog (30ms על הכותרת), אחרת הכותרת לוקחת את הפוקוס מהשדה
     if (studio && opts.tab === 'viz') { setTab('viz', opts.from); if (opts.own) setTimeout(studioOwn, 80); }
     try { history.pushState({ swSheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
@@ -3427,11 +3535,30 @@
     if (!$('swSheet').hidden) { sheetPushed = false; closeSheet(true); }
   });
 
+  function placeConsent(open) {
+    var box = document.querySelector('#leadForm .sw-consent, #swCtaBar .sw-consent');
+    var bar = $('swCtaBar'), f = $('leadForm');
+    if (!box || !bar || !f) return;
+    if (open) bar.insertBefore(box, $('swCta'));
+    else {
+      var err = $('swLErr');
+      if (err) f.insertBefore(box, err); else f.appendChild(box);
+    }
+  }
+  function scrollLeadIntoView() {
+    var sc = $('swSheetBody'), n = $('swLName');
+    if (!sc || !n) return;
+    var label = n.closest ? (n.closest('.sw-field') || n) : n;
+    var top = label.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 8;
+    sc.scrollTop = Math.max(0, top);
+  }
   function toggleForm(open) {
     formOpen = open === undefined ? !formOpen : open;
     var f = $('leadForm'), b = $('swBanner');
     if (!f) return;
     f.hidden = !formOpen;
+    placeConsent(formOpen);
+    $('swSheet').classList.toggle('is-lead', !!formOpen);
     b.setAttribute('aria-expanded', String(formOpen));
     b.querySelector('.sw-bn-caret').textContent = formOpen ? '▴' : '▾';
     syncCta();
@@ -3822,6 +3949,7 @@
     // ‏Variant C: "יצירת קשר" במסילה, כשיש מספר - וואטסאפ או חיוג
     contact: { art: '', title: 'איך נוח לכם?', sub: '', btns: [], body: function () {
       return '<div class="sw-bs-row">' +
+        '<button type="button" class="sw-gold sw-bs-lead" data-bs-lead>השארת פרטים</button>' +
         '<a class="sw-wa-btn" href="' + esc($('swWa').href) + '" target="_blank" rel="noopener" data-contact="wa"' + fairSheetAttr('whatsapp') + '>וואטסאפ</a>' +
         '<a class="sw-white" href="' + esc($('swCall').href) + '" data-contact="call"' + fairSheetAttr('call') + '>חיוג</a></div>';
     } },
@@ -3897,6 +4025,14 @@
   $('swBsWrap').addEventListener('click', function (e) {
     var x = e.target.closest('[data-bs-close]');
     if (x) { bsClose(x.dataset.bsClose); return; }
+    var leadBtn = e.target.closest('[data-bs-lead]');
+    if (leadBtn) {
+      var lc = cur();
+      shukTrack('swipe_contact_click', { via: 'rail', method: 'form', property_id: lc && lc.p ? lc.p.id : '' });
+      bsClose();
+      if (lc && lc.slot === 'property') openSheetFor(lc, { form: true });
+      return;
+    }
     var ct = e.target.closest('[data-contact]');
     if (ct) {
       // הקישור עצמו ממשיך (וואטסאפ בלשונית חדשה, ‏tel:) - רק סוגרים את הגיליון
@@ -4513,6 +4649,7 @@
   var tourThisVisit = false;   // ביקור = טעינת דף; "התחילו להחליק" שוב באותו ביקור אינו ביקור חדש
   var tourWait = 0, tourT = 0;
   function maybeTour(force) {
+    if (!force && gestured) { tourPending = false; return; }
     var seen = Number(store(tourKey())) || 0;
     if (!force && (seen >= 1 || tourThisVisit)) return;
     if (!$('swTopCard')) return;
@@ -4674,6 +4811,7 @@
     try { var nav = performance.getEntriesByType('navigation')[0]; return !!nav && nav.type === 'back_forward'; } catch (e) { return false; }
   }
   readUrl();
+  renderSummary();
   // ‏A2-5: קישור ישן לרשימה של היריד (‏?fair=1&view=list) - ישר לדף היריד, בלי רשומה בהיסטוריה
   if (filter.fair && params.get('view') === 'list') { location.replace(fairListHref('swipe_list_link')); return; }
   syncSortBtn();
