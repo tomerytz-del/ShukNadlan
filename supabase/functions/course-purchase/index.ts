@@ -143,7 +143,7 @@ Deno.serve(async (req: Request) => {
       : `קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`,
     // הלקוח/ה בוחר/ת באתר תשלום אחד או 3 תשלומים (גם בהארכה). עמוד התשלום מציג מספר קבוע לפי
     // maxPayments, ולכן המספר נשלח כפי שנבחר ולא כתקרה. ללא ריבית ללקוח/ה (תומר סופג).
-    maxPayments: Number(body.payments) === 3 ? 3 : 1,
+    maxPayments: Number(body?.payments) === 3 ? 3 : 1,
     ...client,
     clientEmail: user.email ?? null,
     successUrl: `${siteBaseUrl}/learn?order=success&order_id=${orderId}`,
