@@ -3485,6 +3485,12 @@
     return qs.map(function (q, i) { return answers[i] ? (map[q[0]] || q[0]) + ': ' + answers[i] : ''; }).filter(Boolean).join(' · ');
   }
   function post(url, body) {
+    /* העטיפה ב-visit-attr.js מדביקה את אותו אובייקט לכל כתובת ברשימה.
+       כאן גם במפורש: ליד והתראה נושאים visit_attr גם אם העטיפה לא תפסה
+       את הקריאה. בלי הסקריפט השליחה נמשכת. */
+    try {
+      if (body && window.ShukVisitAttr && typeof window.ShukVisitAttr.stamp === 'function') body = window.ShukVisitAttr.stamp(body);
+    } catch (e) { /* ייחוס לא שובר שליחה */ }
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) {
         if (!r.ok || d.error) { var er = new Error(d.error || 'error'); er.code = d.error; er.limit = d.limit; throw er; }
