@@ -461,13 +461,16 @@ function commercialFamily(params: URLSearchParams): boolean {
   return key === "deal=commercial" || /^deal=commercial&ptype=[^&]+$/.test(key);
 }
 
-function commercialCityOk(params: URLSearchParams): boolean {
-  const city = cityFromParams(params);
-  return !city || normHood(city) === normHood(DEFAULT_HOOD_CITY);
+/* עיר שיש לה דף ב-silo-render. "אבגד" עובר את בדיקת העברית של
+   cityFromParams ואינו עיר. */
+function isSiloCity(city: string): boolean {
+  const key = normHood(city);
+  return siloCities().some((item) => normHood(item.name) === key);
 }
 
-/* landing: הדף חי, ואין עיר אחרת. self: עיר שאינה עפולה כשהדף חי, כדי
-   שלא תיווצר שרשרת דרך /?deal=commercial. query: אין מלאי. unknown:
+/* landing: הדף חי, ואין עיר או שהעיר עפולה. self: עיר אחרת מהרשימה,
+   כשהדף חי, כדי שלא תיווצר שרשרת דרך /?deal=commercial. query: אין מלאי,
+   או עיר שאינה ברשימה (נופלת לכתובת הצירוף, כמו בלי מלאי). unknown:
    המסד לא ענה. unknown אינו "אין מלאי". */
 type CommercialDecision = "skip" | "unknown" | "landing" | "self" | "query";
 
@@ -476,8 +479,10 @@ async function commercialDecision(params: URLSearchParams): Promise<CommercialDe
   const has = await afulaCommercialHasInventory();
   if (has === null) return "unknown";
   if (!has) return "query";
-  if (!commercialCityOk(params)) return "self";
-  return "landing";
+  const city = cityFromParams(params);
+  if (!city || normHood(city) === normHood(DEFAULT_HOOD_CITY)) return "landing";
+  if (isSiloCity(city)) return "self";
+  return "query";
 }
 
 /* מכירה עם סינון. שכונה בעיר שאין לה את הדף אינה מתקפלת לעפולה. */
@@ -752,8 +757,8 @@ export default async function handler(request: Request, context: Context) {
       }
     }
     /* מסחרי: הדף רק כשיש מלאי, ובלי עיר או city=עפולה. null אינו "אין
-       מלאי", והתשובה לא נשמרת. עיר אחרת כשהדף חי נשארת על עצמה, כדי
-       לא לשרשר דרך /?deal=commercial שמצביע לדף. */
+       מלאי", והתשובה לא נשמרת. עיר מהרשימה שאינה עפולה, כשהדף חי, נשארת
+       על עצמה כדי לא לשרשר. עיר שאינה ברשימה נופלת לכתובת הצירוף. */
     const commercial = await commercialDecision(params);
     if (commercial === "unknown") {
       store = false;

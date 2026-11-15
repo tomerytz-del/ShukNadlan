@@ -356,11 +356,13 @@ for (const [name, url, query] of SAME) {
     return new Response(JSON.stringify(rows), { status: 200, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
   const afulaCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("עפולה"));
-  const emekCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("נהלל") + "&gclid=abc");
+  const siloCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("מגדל העמק") + "&gclid=abc");
+  const nahalalCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("נהלל") + "&gclid=abc");
+  const fakeCommercial = await serve("/?deal=commercial&city=" + encodeURIComponent("אבגד") + "&gclid=abc");
   const broadCommercial = await serve("/?deal=commercial");
   const officesLive = await serve("/?deal=commercial&ptype=" + encodeURIComponent("משרדים") + "&utm_source=google&gclid=abc");
   const otherPtype = await serve("/?deal=commercial&ptype=" + encodeURIComponent("מחסן"));
-  const emekSelf = `${SITE}/?city=${encodeURIComponent("נהלל")}&deal=commercial`;
+  const siloSelf = `${SITE}/?city=${encodeURIComponent("מגדל העמק")}&deal=commercial`;
   check(
     "ה-canonical המסחרי הוא הנתיב המקודד של הדף",
     COMMERCIAL_CANON === "https://shuknadlan.co.il/afula/%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99",
@@ -376,11 +378,19 @@ for (const [name, url, query] of SAME) {
     JSON.stringify({ afula: afulaCommercial.canonical, broad: broadCommercial.canonical, offices: officesLive.canonical, other: otherPtype.canonical }),
   );
   check(
-    "מסחרי בעמק אינו מצביע לדף עפולה",
-    emekCommercial.canonical === emekSelf
-      && emekCommercial.h1 === "נכסים מסחריים בנהלל"
-      && !String(emekCommercial.canonical).includes("gclid"),
-    JSON.stringify({ emek: emekCommercial.canonical, h1: emekCommercial.h1 }),
+    "עיר מהרשימה שאינה עפולה נשארת על עצמה",
+    siloCommercial.canonical === siloSelf
+      && siloCommercial.h1 === "נכסים מסחריים במגדל העמק"
+      && !String(siloCommercial.canonical).includes("gclid"),
+    JSON.stringify({ silo: siloCommercial.canonical, h1: siloCommercial.h1 }),
+  );
+  check(
+    "עיר שאינה ברשימה נופלת לכתובת הצירוף",
+    nahalalCommercial.canonical === `${SITE}/?deal=commercial`
+      && fakeCommercial.canonical === `${SITE}/?deal=commercial`
+      && !String(nahalalCommercial.canonical).includes("gclid")
+      && !String(fakeCommercial.canonical).includes("אבגד"),
+    JSON.stringify({ nahalal: nahalalCommercial.canonical, fake: fakeCommercial.canonical }),
   );
   globalThis.fetch = (async () =>
     new Response("[]", { status: 200, headers: { "content-type": "application/json" } })
