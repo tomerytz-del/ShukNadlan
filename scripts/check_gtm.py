@@ -74,16 +74,17 @@ def check(path: Path) -> list[str]:
         return problems
 
     # ‏crm.html דוחה את gtm.js עד שהמסך היעד מצויר (assets/crm.js,
-    # shukArmTrackers). המכולה אותה מכולה, וה-noscript נשאר מיד אחרי body.
-    # שאר הדפים נשארים עם הקטע המלא: שם אין מסך כניסה של 10 שניות.
-    delayed_crm = (
-        path.name == "crm.html"
+    # shukArmTrackers). property.html דוחה עד אחרי תמונת ה-LCP, מאותן
+    # פונקציות, כדי ש-gtag והפיקסל לא יתחרו בשער. המכולה אותה מכולה,
+    # וה-noscript נשאר מיד אחרי body. שאר הדפים נשארים עם הקטע המלא.
+    delayed = (
+        path.name in {"crm.html", "property.html"}
         and "shukLoadTrackers" in head
         and "shukArmTrackers" in head
         and "gtm.js?id=" in head
         and CONTAINER_ID in head
     )
-    if HEAD_SNIPPET not in head and not delayed_crm:
+    if HEAD_SNIPPET not in head and not delayed:
         where = "מחוץ ל-‎<head>‎" if HEAD_SNIPPET in text else "חסר"
         problems.append("קטע ה-script %s" % where)
 
