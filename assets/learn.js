@@ -550,7 +550,9 @@
       '<button type="button" class="btn-s" id="freeLessonBtn">לשיעור החינמי קודם</button>' +
       '<button type="button" class="btn-s hidden" id="testEnrollBtn">פתיחת גישה לבדיקה (צוות הניהול)</button>' +
       '<div class="err" id="payErr"></div>' +
-      '</div></form></div>');
+      '</div>' +
+      '<p class="pay-support" style="margin:14px 0 0;font-size:13px;line-height:1.7;text-align:center;opacity:.85">נתקלתם בבעיה בתשלום? אנחנו כאן: <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a> · <a href="tel:+972546929991" data-site-contact>054-6929991</a></p>' +
+      '</form></div>');
     bindBand();
     if (ext) { $('payAmount').textContent = state.offer.amount; $('payMonths').textContent = state.offer.months; }
     on('freeLessonBtn', 'click', function () { renderMap(); });
