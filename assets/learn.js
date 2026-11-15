@@ -613,7 +613,7 @@
         clearInterval(state.pollTimer);
         toast('התשלום אושר. ברוכים הבאים לקורס!');
         trackPurchaseOnce(state.returnOrderId); // enrolled = נפתחה גישה, כלומר התשלום אושר
-        renderMap();
+        if (shouldWelcome()) renderWelcome(); else renderMap();
         return;
       }
       if (!state.me.pending_order || tries > 40) {
@@ -629,6 +629,87 @@
   }
 
   /* ------------------------------------------------------------ מפת הקורס */
+
+  /* ------------------------------------------------- דף ברוכים הבאים
+     המסך הראשון שלומד/ת פוגש/ת. לומד/ת לחוצ/ה צריכ/ה שאלה אחת, תשובה חמה ופעולה
+     אחת, לא מפה של 74 שיעורים. עקרונות (docs/exam-course.md, "ברוכים הבאים"):
+     פחות בחירות (Hick), הצעד הראשון כבר "נעשה" (Endowed Progress), בחירה קטנה
+     שמחייבת בעדינות (Commitment), הבחינה מפורקת למספר ממשי (Curse of Knowledge).
+     בלי דחיפות מזויפת ובלי נתון שאין לנו. מוצג פעם אחת למכשיר ובלי התקדמות. */
+  // לכל חשבון בנפרד, ונרשם ברגע שהמסך מוצג (לא רק בלחיצה): סגירה או רענון לא מחזירים אותו
+  function welcomeKey() { return 'learnWelcomeSeen:' + ((state.user && state.user.id) || ''); }
+  function welcomeSeen() { try { return !!localStorage.getItem(welcomeKey()); } catch (e) { return false; } }
+  function markWelcomeSeen(choice) { try { localStorage.setItem(welcomeKey(), choice || '1'); } catch (e) { /* מצב פרטי: יוצג שוב */ } }
+  // רק למי שאין לו/ה התקדמות, ורק כשיש שיעור שאפשר לפתוח (אחרת אין למה להבטיח "שיעור ראשון")
+  function shouldWelcome() { return !welcomeSeen() && !(state.me && state.me.progress && state.me.progress.length) && !!nextOpenLesson(); }
+  var WELCOME_CHOICES = [
+    { id: 'zero', t: 'מתחילים מאפס', s: 'בלי רקע בחוק. בקצב נוח.', d: 'M5 12l5 5L20 7' },
+    { id: 'some', t: 'למדתי קצת', s: 'רוצים לסדר ולתרגל.', d: 'M4 5h12a4 4 0 014 4v10H8a4 4 0 01-4-4z' },
+    { id: 'retake', t: 'כבר נבחנתי, ומתכוננים שוב', s: 'הפעם מכינים את זה כמו שצריך.', d: 'M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5' }
+  ];
+  var WELCOME_REPLIES = {
+    zero: 'מצוין. נלך בקצב נוח: שיעור קצר, שאלה אחת, וממשיכים. אין צורך להבין הכול בפעם הראשונה.',
+    some: 'יופי, יש על מה לבנות. נתרגל, והמערכת תראה לכם מה כבר יושב ומה עוד לא.',
+    retake: 'אין בזה בושה, וזה לא אומר עליכם כלום. כל שאלה שטעיתם בה חוזרת אליכם עד שהיא יושבת, כדי שהפעם לא תפספסו אותה.'
+  };
+  function firstName() {
+    var n = (state.user && state.user.user_metadata && (state.user.user_metadata.given_name || state.user.user_metadata.full_name)) || '';
+    return String(n).trim().split(/\s+/)[0] || '';
+  }
+  function renderWelcome(choice) {
+    var fn = firstName();
+    var head = band({ title: 'שוק נדל״ן', exit: 'logout', cls: 'tall' });
+    if (!choice) {
+      markWelcomeSeen('shown');
+      render(head + '<div class="center wl"><div class="card">' +
+        '<div class="wl-step">שלב 1 מתוך 2</div>' +
+        '<div class="wl-hero"><img src="' + MENTOR + '" alt="המנטור"><div class="wl-bubble"><b>המנטור</b>' +
+        'היי' + (fn ? ' ' + escapeHtml(fn) : '') + ', ברוכים הבאים. אני המנטור, ואהיה איתכם בכל שיעור.</div></div>' +
+        '<h2>איפה אתם היום?</h2>' +
+        '<div class="wl-choices" role="group" aria-label="איפה אתם היום">' +
+        WELCOME_CHOICES.map(function (c) {
+          return '<button type="button" class="wl-choice" data-c="' + c.id + '"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + c.d + '"/></svg></span>' +
+            '<span><b>' + escapeHtml(c.t) + '</b><span class="sub">' + escapeHtml(c.s) + '</span></span></button>';
+        }).join('') + '</div>' +
+        '<button type="button" class="wl-skip" id="wlSkip">לדלג למפת הקורס</button>' +
+        '</div></div>');
+      bindBand();
+      qa('.wl-choice').forEach(function (b) { b.addEventListener('click', function () { renderWelcome(b.getAttribute('data-c')); }); });
+      on('wlSkip', 'click', function () { markWelcomeSeen('skip'); renderMap(); });
+      return;
+    }
+    var firstId = nextOpenLesson();
+    var entry = firstId ? state.lessons[firstId] : null;
+    // הנתון רק כשהמסד החזיר אותו: בלי ברירת מחדל שנראית כעובדה
+    var q = state.me && state.me.exam_questions, pct = state.me && state.me.pass_pct;
+    var need = q && pct ? Math.ceil(q * pct / 100) : 0;
+    var tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+    render(head + '<div class="center wl"><div class="card">' +
+      '<div class="wl-step">שלב 2 מתוך 2</div>' +
+      '<div class="wl-hero"><img src="' + MENTOR + '" alt="המנטור"><div class="wl-bubble"><b>המנטור</b>' +
+      '<span class="wl-msg"><span class="wl-typing wl-dots" aria-hidden="true"><i></i><i></i><i></i></span>' +
+      '<span class="wl-reply">' + escapeHtml(WELCOME_REPLIES[choice] || WELCOME_REPLIES.zero) + '</span></span></div></div>' +
+      '<ul class="wl-plan">' +
+      '<li><span class="mk done">' + tick + '</span><span>נכנסתם. הצעד הראשון כבר מאחוריכם.</span></li>' +
+      '<li><span class="mk">1</span><span>' + (enrolled() ? 'השיעור הראשון' : 'שיעור ראשון, בחינם') + (entry ? ': ' + escapeHtml(entry.lesson.title) : '') + '</span></li>' +
+      '<li><span class="mk">2</span><span>שאלה קצרה בסוף כל שיעור, ובחלק מהשיעורים סרטון אנימציה אינטראקטיבי</span></li>' +
+      '</ul>' +
+      (need ? '<div class="wl-fact">הבחינה היא ' + q + ' שאלות, ומספיקות ' + need + ' תשובות נכונות כדי לעבור. זה אפשרי, ובדיוק על זה נתאמן.</div>' : '') +
+      '<div class="wl-actions">' +
+      '<button type="button" class="btn-p" id="wlStart">מתחילים בשיעור הראשון</button>' +
+      (enrolled()
+        ? '<button type="button" class="btn-s" id="wlMap">למפת הקורס</button>'
+        : '<button type="button" class="btn-s" id="wlBuy">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button>') +
+      '<button type="button" class="wl-skip" id="wlBack">שינוי התשובה</button>' +
+      '<p style="font-size:13px;text-align:center;margin:0">' + (enrolled() ? '' : 'אפשר לשלם עד 3 תשלומים ללא ריבית. ') + 'ההתקדמות נשמרת, ואפשר לעצור ולחזור מתי שנוח.</p>' +
+      '</div></div></div>');
+    bindBand();
+    on('wlStart', 'click', function () { markWelcomeSeen(choice); if (firstId) openLesson(firstId); else renderMap(); });
+    on('wlMap', 'click', function () { markWelcomeSeen(choice); renderMap(); });
+    on('wlBuy', 'click', function () { markWelcomeSeen(choice); renderPay(); });
+    on('wlBack', 'click', function () { renderWelcome(); });
+  }
+
   function renderMap() {
     clearInterval(state.timerId);
     state.steps = null; state.sim = null;
@@ -642,6 +723,8 @@
       '<div class="map-track" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + done + '" aria-valuemin="0" aria-valuemax="' + total + '"><i style="width:' + (total ? Math.round(100 * done / total) : 0) + '%"></i></div>' +
       '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div>' +
       (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה של ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪</button></p></div>' : '') +
+      // מי שעוד לא רכש/ה: השיעורים הראשונים פתוחים, והדרך לרכישה גלויה מהמפה (ולא רק מנעילת שיעור)
+      (!enrolled() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button></p></div>' : '') +
       '</div>';
 
     var chapters = (state.catalog.chapters || []);
@@ -673,6 +756,7 @@
       '<button type="button" class="btn-s" id="reviewBtnM">חזרה על טעויות</button></nav>');
     bindBand();
     on('extBtn', 'click', function () { renderPay({ kind: 'extension' }); });
+    on('buyBtn', 'click', function () { renderPay(); });
     qa('.node').forEach(function (b) { b.addEventListener('click', function () { openLesson(b.getAttribute('data-lesson')); }); });
     ['examBtn', 'examBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('exam'); }); });
     ['reviewBtn', 'reviewBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('review'); }); });
@@ -1319,7 +1403,7 @@
     if (order === 'success' && !state.me.enrolled) { renderPay({ verify: true }); return; }
     if (order === 'success') confirmReturnPurchase();
     if (order === 'failure') { renderPay({ failure: true }); return; }
-    renderMap();
+    if (shouldWelcome()) renderWelcome(); else renderMap();
   }
   (async function boot() {
     renderBoot();
