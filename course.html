@@ -41,19 +41,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="קורס הכנה למבחן המתווכים - אינטראקטיבי, עם מבחני עבר אמיתיים">
-<meta property="og:description" content="לומדים למבחן רשם המתווכים עם המנטור של שוק נדל״ן: שיעורים קצרים, חידון בסוף כל שיעור, מבחני עבר אמיתיים עם הסבר לכל שאלה, וסימולציות. 199 ₪ לשישה חודשים.">
+<meta property="og:description" content="לומדים למבחן רשם המתווכים עם המנטור של שוק נדל״ן: שיעורים קצרים, חידון בסוף כל שיעור, מבחני עבר אמיתיים עם הסבר לכל שאלה, וסימולציות. 450 ₪ לארבעה חודשים.">
 <meta property="og:url" content="https://shuknadlan.co.il/course">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="קורס הכנה אינטראקטיבי למבחן רשם המתווכים: שיעורים על חוק המתווכים ותקנות האתיקה, מבחני עבר אמיתיים עם הסבר לכל שאלה, סימולציות ומד התקדמות. 199 ₪ כולל מע״מ, גישה לשישה חודשים.">
+<meta name="description" content="קורס הכנה אינטראקטיבי למבחן רשם המתווכים: שיעורים על חוק המתווכים ותקנות האתיקה, מבחני עבר אמיתיים עם הסבר לכל שאלה, סימולציות ומד התקדמות. 450 ₪ כולל מע״מ, גישה לארבעה חודשים.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-/* עיצוב דף הקורס. design-system.css נטען אחרי הבלוק הזה (כמו בכל דף),
-   ולכן בוררים כאן נושאים מזהה או כיתה כפולה כשצריך לגבור. */
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',system-ui,sans-serif}
 .wrap{max-width:1080px;margin:0 auto;padding:0 18px}
@@ -65,43 +63,9 @@ header.site{background:var(--glass-strong);-webkit-backdrop-filter:blur(14px);ba
 .logo-img{height:42px;width:auto;display:block;flex:0 0 auto}
 .back-link{font-size:.88rem;font-weight:700;color:var(--sapphire);text-decoration:none;white-space:nowrap}
 
-/* ---- hero ---- */
-.hero{background:linear-gradient(170deg,#13235b,var(--sapphire-deep));color:#fff;padding:44px 0 0;overflow:hidden;position:relative}
-.hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:end}
-.hero .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;color:var(--brass-light);display:block;margin-bottom:10px}
-.hero h1{font-size:clamp(30px,5.4vw,48px);line-height:1.1;margin:0 0 14px;color:#fff;text-wrap:balance}
-.hero p.lead{font-size:18px;line-height:1.65;color:#c9d2ea;max-width:56ch;margin:0 0 22px}
-.hero-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:34px}
-.hero .btn-brass{border-radius:999px;font-size:1.02rem;padding:14px 28px;text-decoration:none}
-.hero .btn-ghost-light{display:inline-flex;align-items:center;border-radius:999px;border:1.5px solid rgba(255,255,255,.35);color:#fff;padding:13px 22px;font-weight:700;text-decoration:none}
-.hero .btn-ghost-light:hover{background:rgba(255,255,255,.08)}
-.hero-price{font-size:14px;color:#aab6d8}
-.hero-price b{color:#fff;font-size:18px}
-.mentor-wrap{position:relative;align-self:end;min-height:300px}
-.mentor-wrap::before{content:"";position:absolute;left:40%;bottom:0;width:300px;height:300px;margin-left:-150px;border-radius:50%;
-  background:radial-gradient(circle,rgba(226,195,90,.5) 0%,rgba(226,195,90,.12) 55%,rgba(226,195,90,0) 72%)}
-.mentor-wrap img{position:absolute;bottom:0;left:40%;transform:translateX(-50%);height:380px;width:auto;max-width:none;display:block;
-  filter:drop-shadow(0 18px 24px rgba(0,0,0,.45))}
-.mentor-bubble{position:absolute;top:0;right:0;max-width:260px;background:#fff;color:var(--ink);border-radius:18px 18px 4px 18px;padding:12px 14px;font-size:14.5px;line-height:1.5;
-  box-shadow:0 14px 30px -18px rgba(0,0,0,.6)}
-.mentor-bubble b{display:block;font-size:12px;color:var(--brass-ink);letter-spacing:.08em;margin-bottom:3px}
-@media(max-width:760px){
-  .hero-grid{grid-template-columns:1fr}
-  .mentor-wrap{min-height:260px;margin-top:6px}
-  .mentor-wrap img{height:300px}
-  .mentor-bubble{max-width:220px;top:-6px}
-}
-
-/* ---- sections ---- */
 section.block{padding:46px 0}
 section.block h2{font-size:clamp(24px,3.6vw,32px);margin:0 0 8px;color:var(--ink);text-wrap:balance}
 section.block p.sub{margin:0 0 26px;color:var(--ink-soft);font-size:17px;max-width:62ch}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:16px}
-.tile{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-xl);padding:20px 20px 22px}
-.tile .ico{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--brass-tint),var(--brass-light));display:grid;place-items:center;margin-bottom:12px;color:var(--sapphire-deep);font-size:22px}
-.tile b{display:block;font-size:17px;margin-bottom:4px}
-.tile span{display:block;font-size:14.5px;color:var(--ink-soft);line-height:1.55}
-
 .chapters{display:flex;flex-direction:column;gap:12px}
 .chapter{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-xl);padding:16px 18px}
 .chapter summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:12px;font-weight:800;font-size:17px}
@@ -115,19 +79,6 @@ section.block p.sub{margin:0 0 26px;color:var(--ink-soft);font-size:17px;max-wid
 .chapter li .q{margin-inline-start:auto;font-size:12.5px;color:var(--ink-muted)}
 #catalogNote{color:var(--ink-muted);font-size:14px}
 
-.pricing-card{background:linear-gradient(170deg,#13235b,var(--sapphire-deep));color:#fff;border-radius:var(--radius-2xl);padding:34px 28px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}
-.pricing-card h2{color:#fff;margin:0 0 8px}
-.pricing-card p{color:#c9d2ea;margin:0;font-size:16px}
-.pricing-card ul{margin:14px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px;font-size:15px;color:#e4e9f7}
-.pricing-card li::before{content:"✓ ";color:var(--brass-light);font-weight:900}
-.price-box{text-align:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius-xl);padding:22px 26px;min-width:220px}
-.price-box .amount{font-size:44px;font-weight:800;line-height:1;color:#fff}
-.price-box .amount small{font-size:18px;font-weight:600}
-.price-box .per{font-size:13.5px;color:#aab6d8;margin:6px 0 16px}
-.price-box .btn-brass{width:100%;border-radius:999px;text-decoration:none}
-.price-box .fine{font-size:12px;color:#aab6d8;margin-top:10px}
-@media(max-width:700px){.pricing-card{grid-template-columns:1fr}.price-box{min-width:0}}
-
 .faq{display:flex;flex-direction:column;gap:10px}
 .faq details{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-lg);padding:4px 18px}
 .faq summary{cursor:pointer;font-weight:700;font-size:16px;padding:12px 0;list-style:none;display:flex;justify-content:space-between;gap:12px}
@@ -137,6 +88,145 @@ section.block p.sub{margin:0 0 26px;color:var(--ink-soft);font-size:17px;max-wid
 .faq .a{padding:0 0 14px;color:var(--ink-soft);font-size:15.5px;line-height:1.7}
 .faq .a ul{margin:6px 0 0;padding-inline-start:18px}
 .disclaimer{font-size:13px;color:var(--ink-muted);margin-top:18px;max-width:70ch}
+/* ---- דף הנחיתה החדש (חלופה B, 15.11.2026). כל הבוררים נושאים lp- כדי שלא יתנגשו עם design-system.css ---- */
+:root{--lp-action:#2f6bff}
+html,body{overflow-x:hidden;max-width:100%}
+.lp-sec{padding:84px 0}
+.lp-in{max-width:1136px;margin:0 auto;padding:0 24px}
+.lp-eyebrow{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--lp-action);margin-bottom:10px}
+.lp-h2{margin:0 0 12px;font-weight:800;font-size:40px;line-height:1.15;color:var(--ink);text-wrap:balance}
+.lp-sub{margin:0 0 36px;font-size:18px;line-height:1.6;color:var(--ink-soft);max-width:60ch;text-wrap:pretty}
+.lp-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:16px}
+.lp-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px}
+.lp-card b{display:block;font-size:18px;margin-bottom:6px;color:var(--ink)}
+.lp-card span{font-size:15px;color:var(--ink-soft);line-height:1.6;text-wrap:pretty}
+.lp-ico{width:42px;height:42px;border-radius:12px;background:#e8efff;display:grid;place-items:center;margin-bottom:14px}
+.lp-ico svg{width:22px;height:22px;stroke:var(--lp-action);fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.lp-nw{white-space:nowrap}
+a.lp-cta{display:inline-flex;align-items:center;justify-content:center;background:var(--lp-action);color:#fff;font-weight:700;font-size:17px;padding:16px 30px;border-radius:14px;text-decoration:none;box-shadow:0 14px 30px -14px rgba(47,107,255,.8);transition:transform .15s,box-shadow .15s}
+a.lp-cta:hover{transform:translateY(-1px);box-shadow:0 18px 36px -14px rgba(47,107,255,.85)}
+a.lp-cta:focus-visible,.lp-tab:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+a.lp-link{color:var(--lp-action);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.lp-hero{position:relative;overflow:hidden;padding:44px 0 70px;background:var(--paper)}
+.lp-hero::before{content:"";position:absolute;top:-220px;left:-160px;width:620px;height:620px;border-radius:50%;background:radial-gradient(circle,rgba(47,107,255,.2),rgba(47,107,255,0) 68%)}
+.lp-hero-grid{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:40px}
+.lp-pill{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:600;color:var(--sapphire)}
+.lp-pill i{width:7px;height:7px;border-radius:50%;background:var(--lp-action)}
+.lp-hero h1{margin:20px 0 16px;font-weight:800;font-size:56px;line-height:1.1;color:var(--ink);text-wrap:balance}
+.lp-hero h1 em{font-style:normal;color:var(--lp-action)}
+.lp-lead{margin:0 0 24px;font-size:19px;line-height:1.65;color:var(--ink-soft);max-width:50ch;text-wrap:pretty}
+.lp-bens{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;max-width:560px;margin-bottom:28px}
+.lp-bens div{border-top:3px solid var(--brass);padding:10px 2px 0}
+.lp-bens b{display:block;font-size:15px;color:var(--ink)}
+.lp-bens span{font-size:13px;color:var(--ink-muted)}
+.lp-pricebox{display:inline-flex;flex-wrap:wrap;align-items:center;gap:22px;border:2px solid var(--sapphire);border-radius:24px;background:#fff;padding:18px 24px}
+.lp-pricebox .lp-amt{font-size:14px;color:var(--ink-soft)}
+.lp-pricebox .lp-amt b{font-size:54px;line-height:1;font-weight:800;color:var(--ink);margin-inline-end:6px}
+.lp-pricebox .lp-amt div{margin-top:4px}
+.lp-pricebox a.lp-cta{font-size:18px;padding:18px 32px}
+.lp-reassure{margin-top:12px;font-size:13.5px;color:var(--ink-muted)}
+.lp-giftbadge{margin-top:14px;display:inline-flex;align-items:center;gap:10px;background:#fff8e6;border:1px solid var(--brass-light);border-radius:14px;padding:10px 14px;font-size:14px;line-height:1.5;color:var(--ink)}
+.lp-giftbadge[hidden],[data-gift][hidden]{display:none!important}
+.lp-giftbadge svg{width:20px;height:20px;flex:none;stroke:var(--brass-ink);fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.lp-giftbadge a{color:var(--brass-ink);font-weight:700;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.lp-small{margin-top:10px;font-size:12px;line-height:1.6;color:var(--ink-muted);max-width:60ch}
+.lp-devices{flex:1 1 440px;min-width:0;display:flex;justify-content:center}
+.lp-dev{position:relative;width:500px;max-width:100%;height:520px}
+.lp-phone{position:absolute;top:0;right:50px;width:270px;background:#fff;border:8px solid var(--ink);border-radius:38px;padding:18px;box-shadow:0 40px 70px -34px rgba(13,27,61,.45)}
+.lp-phone .row{height:34px;border-radius:12px;background:#effaf5;margin-bottom:8px}
+.lp-phone .row.cur{background:#e8efff;border:1.5px solid var(--lp-action)}
+.lp-phone .row.todo{background:var(--paper)}
+.lp-bubble{position:absolute;top:60px;left:0;width:200px;background:var(--ink);color:#fff;border-radius:20px 20px 4px 20px;padding:14px 16px;box-shadow:0 30px 50px -24px rgba(13,27,61,.7);font-size:14px;line-height:1.55;color:#e4e9f7}
+.lp-bubble b{display:block;font-size:12px;letter-spacing:.08em;color:var(--brass-light);margin-bottom:4px}
+.lp-dev img{position:absolute;bottom:-10px;left:-20px;height:300px;width:auto;filter:drop-shadow(0 16px 20px rgba(13,27,61,.35))}
+.lp-band{background:#fff;border-block:1px solid var(--line)}
+.lp-problem .lp-card{background:var(--paper)}
+.lp-problem .lp-ico{background:#fff}
+.lp-problem .lp-ico svg{stroke:var(--sapphire)}
+.lp-mentor{display:flex;flex-wrap:wrap;align-items:center;gap:40px}
+.lp-mentor-img{flex:0 1 340px;min-width:0;display:flex;justify-content:center;position:relative}
+.lp-mentor-img::before{content:"";position:absolute;inset:auto 10% 0 10%;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(201,162,39,.35),rgba(201,162,39,0) 70%)}
+.lp-mentor-img img{position:relative;height:380px;width:auto;max-width:100%}
+.lp-mentor-txt{flex:1 1 460px;min-width:0}
+.lp-moments{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:16px}
+.lp-moments div{border-top:3px solid var(--brass);padding-top:12px}
+.lp-moments b{display:block;font-size:17px;margin-bottom:4px}
+.lp-moments span{font-size:15px;color:var(--ink-soft);line-height:1.6}
+.lp-say{margin-top:24px;background:var(--ink);border-radius:18px 18px 18px 4px;padding:16px 18px;max-width:440px;line-height:1.6;font-size:15px;color:#fff}
+.lp-say b{color:var(--brass-light);font-size:12px;letter-spacing:.08em;display:block;margin-bottom:4px}
+.lp-dark{background:var(--ink);color:#fff}
+.lp-dark .lp-h2{color:#fff}.lp-dark .lp-sub{color:#c9d2ea}.lp-dark .lp-eyebrow{color:var(--brass-light)}
+.lp-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.lp-tab{border:1.5px solid #cfd7ee;background:#fff;color:var(--sapphire);border-radius:999px;padding:9px 16px;font:600 14px 'Heebo',sans-serif;cursor:pointer;min-height:44px}
+.lp-tab:hover{border-color:var(--lp-action)}
+.lp-tab[aria-selected="true"]{background:var(--lp-action);color:#fff;border-color:var(--lp-action)}
+.lp-screen{background:#fff;color:var(--ink);border-radius:22px;padding:26px;min-height:300px;max-width:820px;margin:0 auto}
+.lp-screen-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.lp-screen-h span{font-size:12.5px;color:var(--ink-muted)}
+.lp-bar{height:8px;border-radius:99px;background:#e8efff;overflow:hidden;margin-bottom:18px}
+.lp-bar i{display:block;height:100%;background:var(--lp-action)}
+.lp-sk{height:11px;border-radius:6px;background:#e3e8f4;margin-bottom:8px}
+.lp-opt{border:1.5px solid var(--line);border-radius:12px;height:42px;margin-bottom:8px}
+.lp-opt.ok{border-color:#1f9d6b;background:#effaf5}
+.lp-key{background:var(--brass-tint);border-radius:12px;padding:14px;font-size:14px;color:var(--ink-soft)}
+.lp-key b{color:var(--brass-ink)}
+.lp-step{position:relative;padding-top:34px}
+.lp-step i{position:absolute;top:-18px;right:22px;width:40px;height:40px;border-radius:50%;background:var(--lp-action);color:#fff;display:grid;place-items:center;font-weight:800;font-size:18px;font-style:normal}
+.lp-cmp{border:1px solid var(--line);border-radius:20px;overflow:hidden;max-width:820px;background:#fff}
+.lp-cmp > div{display:grid;grid-template-columns:minmax(0,1.6fr) 1fr 1fr;border-top:1px solid var(--line);font-size:15px}
+.lp-cmp > div:first-child{border-top:0;background:var(--ink);color:#fff;font-weight:700;font-size:14px}
+.lp-cmp > div > *{padding:13px 8px;text-align:center}
+.lp-cmp > div > :first-child{padding-inline:18px;text-align:right}
+.lp-cmp > div:first-child > :nth-child(2){color:var(--brass-light)}
+.lp-yes{color:#1f9d6b;font-weight:800}.lp-no{color:var(--ink-faint)}
+.lp-buy{background:var(--ink);color:#fff;border-radius:28px;padding:44px 40px;display:flex;flex-wrap:wrap;gap:36px;align-items:center;position:relative;overflow:hidden}
+.lp-buy::before{content:"";position:absolute;top:-120px;left:-80px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(47,107,255,.35),rgba(47,107,255,0) 70%)}
+.lp-buy > *{position:relative}
+.lp-buy .lp-h2{color:#fff}
+.lp-buy-l{flex:1 1 360px;min-width:0}
+.lp-incl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 18px;margin:18px 0 0;padding:0;list-style:none}
+.lp-incl li{display:flex;gap:10px;align-items:center;font-size:15.5px;color:#e4e9f7}
+.lp-incl li::before{content:"✓";color:var(--brass-light);font-weight:800}
+.lp-gift{margin-top:18px;background:rgba(229,199,106,.12);border:1px solid rgba(229,199,106,.5);border-radius:16px;padding:16px 18px}
+.lp-gift .k{color:var(--brass-light);font-weight:700;font-size:13px;letter-spacing:.06em;margin-bottom:4px}
+.lp-gift .t{font-weight:800;font-size:20px;line-height:1.3;margin-bottom:4px}
+.lp-gift p{margin:0;font-size:14.5px;line-height:1.6;color:#e4e9f7}
+.lp-gift a{color:var(--brass-light);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.lp-gift .lp-small{color:#aab6d8}
+.lp-pc{flex:0 1 330px;min-width:0;width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:22px;padding:26px;text-align:center}
+.lp-pc .amount{font-size:56px;font-weight:800;line-height:1;color:#fff}
+.lp-pc .amount small{font-size:20px;font-weight:600}
+.lp-pc .per{font-size:14px;color:#aab6d8;margin:6px 0 4px}
+.lp-pc .one{font-size:14px;color:var(--brass-light);font-weight:600;margin-bottom:18px}
+.lp-pc a.lp-cta{width:100%;box-sizing:border-box}
+.lp-pc .fine{font-size:12.5px;color:#aab6d8;margin-top:12px;line-height:1.6}
+.lp-faq details{background:#fff;border:1px solid var(--line);border-radius:16px;padding:4px 20px;margin-bottom:10px}
+.lp-faq summary{cursor:pointer;font-weight:600;font-size:17px;padding:16px 0;list-style:none;display:flex;justify-content:space-between;gap:12px;min-height:44px}
+.lp-faq summary::-webkit-details-marker{display:none}
+.lp-faq summary::after{content:"+";color:var(--lp-action);font-weight:800;font-size:22px;line-height:1}
+.lp-faq details[open] summary::after{content:"-"}
+.lp-faq p{margin:0 0 16px;color:var(--ink-soft);line-height:1.7;font-size:16px;text-wrap:pretty}
+.lp-final{text-align:center;background:linear-gradient(135deg,#2f6bff,#0e2a6b);color:#fff;border-radius:28px;padding:56px 28px}
+.lp-final h2{color:#fff;margin:0 auto 12px;max-width:20ch;font-size:40px;line-height:1.15;font-weight:800;text-wrap:balance}
+.lp-final p{margin:0 auto 24px;font-size:18px;line-height:1.6;color:#dbe5ff;max-width:48ch}
+.lp-final a.lp-cta{background:#fff;color:var(--ink);box-shadow:0 14px 30px -14px rgba(0,0,0,.5)}
+.lp-final .lp-giftline{margin-top:16px;font-size:14.5px;color:#ffe9a8}
+.lp-final .lp-giftline a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.lp-stick{display:none}
+@media(max-width:700px){
+ .lp-sec{padding:52px 0}.lp-in{padding:0 20px}
+ .lp-h2,.lp-final h2{font-size:28px}.lp-sub{font-size:16px;margin-bottom:24px}
+ .lp-hero{padding-top:28px}.lp-hero h1{font-size:34px}
+ .lp-devices{display:none}
+ .lp-pricebox{padding:16px 18px;gap:14px}
+ .lp-buy{padding:28px 18px;border-radius:22px}
+ .lp-cmp > div{grid-template-columns:minmax(0,1fr) 84px 84px;font-size:14px}
+ .lp-stick{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid var(--line);align-items:center;gap:12px}
+ .lp-stick b{font-size:20px;line-height:1.1;color:var(--ink)}
+ .lp-stick small{display:block;font-size:11px;color:var(--ink-muted)}
+ .lp-stick a.lp-cta{flex:1;padding:14px;font-size:16px}
+ body{padding-bottom:76px}
+}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -148,7 +238,7 @@ section.block p.sub{margin:0 0 26px;color:var(--ink-soft);font-size:17px;max-wid
 <script defer src="assets/city-context.js"></script>
 <script defer src="assets/market-text.js"></script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Course","name":"קורס הכנה למבחן המתווכים","description":"קורס אינטראקטיבי להכנה לבחינת רשם המתווכים במקרקעין: שיעורים, חידונים, מבחני עבר אמיתיים וסימולציות.","provider":{"@type":"Organization","name":"שוק נדל״ן","url":"https://shuknadlan.co.il"},"offers":{"@type":"Offer","price":"199","priceCurrency":"ILS","url":"https://shuknadlan.co.il/course"},"hasCourseInstance":{"@type":"CourseInstance","courseMode":"online","courseWorkload":"PT20H"}}
+{"@context":"https://schema.org","@type":"Course","name":"קורס הכנה למבחן המתווכים","description":"קורס אינטראקטיבי להכנה לבחינת רשם המתווכים במקרקעין: שיעורים, חידונים, מבחני עבר אמיתיים וסימולציות.","provider":{"@type":"Organization","name":"שוק נדל״ן","url":"https://shuknadlan.co.il"},"offers":{"@type":"Offer","price":"450","priceCurrency":"ILS","url":"https://shuknadlan.co.il/course"},"hasCourseInstance":{"@type":"CourseInstance","courseMode":"online","courseWorkload":"PT20H"}}
 </script>
 </head>
 <body>
@@ -167,41 +257,152 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </header>
 
-<section class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <span class="kicker">קורס הכנה למבחן המתווכים</span>
-      <h1><span class="nw">עוברים את מבחן</span> <span class="nw">רשם המתווכים</span> <span class="nw">בפעם הראשונה</span></h1>
-      <p class="lead">שיעורים קצרים בשפה פשוטה, חידון בסוף כל שיעור, ומאגר של מבחני העבר האמיתיים עם הסבר לכל שאלה ולכל חלופה. המנטור של שוק נדל״ן מלווה אתכם משיעור לשיעור, ומד ההתקדמות מראה בדיוק מה נשאר.</p>
-      <div class="hero-cta">
-        <a href="/learn" class="btn btn-brass" id="ctaTop">להתחלת הקורס</a>
-        <a href="#chapters" class="btn-ghost-light">מה לומדים</a>
+<section class="lp-hero">
+  <div class="lp-in lp-hero-grid">
+    <div style="flex:1 1 460px;min-width:0">
+      <span class="lp-pill"><i></i>מערכת הכנה למבחן רשם המתווכים</span>
+      <h1>לא רק לומדים למבחן.<br><em>מתרגלים, מבינים ומגיעים מוכנים.</em></h1>
+      <p class="lp-lead">שיעורים קצרים בעברית פשוטה, מבחני עבר אמיתיים עם הסבר לכל חלופה, סימולציות וחזרה על הטעויות שלכם. והמנטור של שוק נדל״ן מלווה אתכם בכל הדרך ומכין אתכם לבחינה.</p>
+      <div class="lp-bens">
+        <div><b>שיעורים וסרטוני אנימציה</b><span>אינטראקטיביים, וחידון בסוף</span></div>
+        <div><b>מבחני עבר אמיתיים</b><span>הסבר לכל חלופה</span></div>
+        <div><b>סימולציה וחזרה</b><span>על הטעויות שלכם</span></div>
       </div>
-      <p class="hero-price"><b>199 ₪</b> כולל מע״מ · גישה לשישה חודשים · שיעור ראשון בחינם</p>
+      <div class="lp-pricebox">
+        <div class="lp-amt"><b>450 ₪</b> כולל מע״מ<div><span class="lp-nw">תשלום חד-פעמי</span> · <span class="lp-nw">ללא מנוי מתחדש</span> · <span class="lp-nw">4 חודשי גישה</span></div></div>
+        <a href="/learn" class="lp-cta" id="ctaTop">מתחילים ללמוד עכשיו</a>
+      </div>
+      <div class="lp-reassure">השיעור הראשון פתוח בחינם, לפני התשלום · החזר מלא תוך 14 ימים אם לא התחלתם ללמוד · עד 3 תשלומים ללא ריבית</div>
+      <div class="lp-giftbadge" data-gift hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 110-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 100-5C13 2 12 7 12 7z"/></svg><span><b>מתנה לרוכשי הקורס:</b> נרשמים אחר כך כיועצי נדל״ן עם אותו חשבון Google ומקבלים <span class="lp-nw">90 ימי Elite</span> בחינם, <span class="lp-nw">בשווי 1,197 ₪</span> · <a href="/pricing#plan-elite">פרטים על Elite</a></span></div>
+      <div class="lp-small" data-gift hidden>* ההטבה למצטרפים חדשים בלבד: 60 ימי Elite לכל מי שמצטרף כיועץ/ת נדל״ן לפלטפורמה, וחודש נוסף במתנה למי שרכש את הקורס ואחר כך נרשם כיועץ/ת נדל״ן עם אותו חשבון Google.</div>
     </div>
-    <div class="mentor-wrap" aria-hidden="true">
-      <div class="mentor-bubble"><b>המנטור</b>בשאלה 14 של יולי 2026 נפלו רוב הנבחנים על פרט אחד: בלעדיות היא מסמך נפרד. נלמד למה.</div>
-      <img src="assets/mentor-cutout.webp" alt="" width="432" height="545" decoding="async" fetchpriority="high">
-    </div>
-  </div>
-</section>
-
-<section class="block">
-  <div class="wrap">
-    <h2>למה דווקא הקורס הזה</h2>
-    <p class="sub">הבחינה היא 25 שאלות אמריקאיות שכל אחת מהן היא סיפור קצר. לא מספיק לזכור את החוק, צריך לזהות מהר איזה כלל חל. הקורס בנוי בדיוק לזה.</p>
-    <div class="tiles">
-      <div class="tile"><div class="ico">📚</div><b>שיעור לכל כלל</b><span>חוק המתווכים ותקנות האתיקה, שיעור אחרי שיעור, עם הסעיף המקורי לצד ההסבר ונקודות המפתח לזכירה.</span></div>
-      <div class="tile"><div class="ico">✅</div><b>חידון בסוף כל שיעור</b><span>תשובה שגויה מקבלת הסבר, עם הפניה לסעיף. שיעור נחשב "הושלם" רק כשעוברים את החידון.</span></div>
-      <div class="tile"><div class="ico">📝</div><b>מבחני העבר האמיתיים</b><span>השאלות כפי שהופיעו בבחינות הרשם, עם התשובה הרשמית והסבר למה כל חלופה אחרת שגויה.</span></div>
-      <div class="tile"><div class="ico">⏱️</div><b>סימולציה כמו בבחינה</b><span>25 שאלות בסדר אקראי מתוך המאגר, ציון בסוף, וסקירה מלאה של מה שטעיתם בו.</span></div>
-      <div class="tile"><div class="ico">🔁</div><b>חזרה על טעויות</b><span>כל שאלה שטעיתם בה חוזרת אליכם בתרגול ייעודי, עד שהיא יושבת.</span></div>
-      <div class="tile"><div class="ico">📊</div><b>מד התקדמות</b><span>בתוך כל שיעור ובקורס כולו. נכנסים עם חשבון Google מכל מכשיר וממשיכים מאיפה שעצרתם.</span></div>
+    <div class="lp-devices" aria-hidden="true">
+      <div class="lp-dev">
+        <div class="lp-phone">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px"><b style="font-size:14px">ההתקדמות שלי</b></div>
+          <div class="lp-bar"><i style="width:36%"></i></div>
+          <div class="row"></div><div class="row"></div><div class="row cur"></div><div class="row todo"></div>
+        </div>
+        <div class="lp-bubble"><b>המנטור</b>אני איתכם בכל שיעור. נלמד, נתרגל ונגיע מוכנים.</div>
+        <img src="assets/mentor-cutout.webp" alt="" width="432" height="545" decoding="async" fetchpriority="high">
+      </div>
     </div>
   </div>
 </section>
 
-<section class="block" id="chapters" style="padding-top:0">
+<section class="lp-sec lp-band lp-problem">
+  <div class="lp-in">
+    <div class="lp-eyebrow">למה זה לא פשוט</div>
+    <h2 class="lp-h2">מבחן המתווכים דורש יותר מסתם קריאת חומר לימוד</h2>
+    <p class="lp-sub">זה לא חולשה שלכם. זו בחינה שבנויה כך. הבשורה: אפשר להתכונן אליה בדרך שעובדת.</p>
+    <div class="lp-g">
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h12a4 4 0 014 4v10H8a4 4 0 01-4-4z"/></svg></div><b>חומר משפטי מורכב</b><span>חוקים ותקנות בשפה שלא נכתבה ללומדים.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><b>סעיפים ומושגים רבים</b><span>קל לבלבל בין כלל אחד למשנהו.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v.01M9.5 9a2.5 2.5 0 115 0c0 1.7-2.5 2-2.5 4"/></svg></div><b>שאלות שדורשות הבנה</b><span>כל שאלה היא סיפור קצר, ולא מספיק לשנן.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.3-4.3M11 18a7 7 0 100-14 7 7 0 000 14z"/></svg></div><b>קשה לדעת מה לא יודעים</b><span>בלי תרגול, החורים בידע נחשפים רק בבחינה.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></div><b>חוסר ביטחון לפני הבחינה</b><span>ובכל זאת, אפשר להגיע מוכנים יותר.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec">
+  <div class="lp-in">
+    <div class="lp-eyebrow">הפתרון</div>
+    <h2 class="lp-h2">כל כלי ההכנה למבחן - במקום אחד</h2>
+    <p class="lp-sub">הבחינה היא 25 שאלות אמריקאיות שכל אחת מהן היא סיפור קצר. לא מספיק לזכור את החוק, צריך לזהות מהר איזה כלל חל. הקורס בנוי בדיוק לזה.</p>
+    <div class="lp-g">
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h12a4 4 0 014 4v10H8a4 4 0 01-4-4z"/></svg></div><b>שיעורים קצרים וברורים</b><span>כל כלל חוק בשיעור משלו, בעברית פשוטה, עם הסעיף המקורי לצד ההסבר. ובחלק מהשיעורים: סרטוני אנימציה אינטראקטיביים עם דמויות וקול, ללמידה קלילה וכייפית, שמראים איך זה נראה בחיים.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></div><b>חידונים אינטראקטיביים</b><span>חידון בסוף כל שיעור. שיעור נחשב הושלם רק כשעוברים אותו.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v14H7zM15 3v4h4"/></svg></div><b>מבחני עבר</b><span>השאלות כפי שהופיעו בבחינות הרשם, עם התשובה הרשמית.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v.01M9.5 9a2.5 2.5 0 115 0c0 1.7-2.5 2-2.5 4"/></svg></div><b>הסבר לכל תשובה</b><span>לא רק למה זו הנכונה, אלא למה כל חלופה אחרת שגויה.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l3 2M9 3h6"/></svg></div><b>סימולציות ללא הגבלה</b><span>25 שאלות בסדר אקראי מהמאגר, ציון בסוף וסקירה של מה שטעיתם בו.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5"/></svg></div><b>חזרה על טעויות</b><span>כל שאלה שטעיתם בה חוזרת אליכם בתרגול ייעודי, עד שהיא יושבת.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div><b>מעקב התקדמות</b><span>מד התקדמות בכל שיעור ובקורס כולו, וממשיכים מאיפה שעצרתם.</span></div>
+      <div class="lp-card"><div class="lp-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 01-11.5 7.2L4 20l1.1-4.4A8 8 0 1121 12z"/></svg></div><b>מנטור שמלווה אתכם בכל הדרך</b><span>לומד איתכם משיעור לשיעור, מגיב לכל תשובה ומכין אתכם לבחינה.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec lp-band">
+  <div class="lp-in lp-mentor">
+    <div class="lp-mentor-img"><img src="assets/mentor-cutout.webp" alt="המנטור של שוק נדל״ן" width="432" height="545" loading="lazy" decoding="async"></div>
+    <div class="lp-mentor-txt">
+      <div class="lp-eyebrow">המנטור שלכם</div>
+      <h2 class="lp-h2">המנטור מלווה אתכם בכל הדרך, עד יום הבחינה</h2>
+      <p class="lp-sub" style="margin-bottom:24px">לא עוד ללמוד לבד מול חוברת. המנטור של שוק נדל״ן לומד איתכם משיעור לשיעור, מלמד, מתרגל ומכין אתכם לבחינה בצורה מקצועית.</p>
+      <div class="lp-moments">
+        <div><b>מלמד בכל שיעור</b><span>מציג את הכלל בעברית פשוטה ומוביל אתכם מהסעיף אל ההבנה.</span></div>
+        <div><b>מגיב לכל תשובה</b><span>כשטעיתם, הוא מסביר למה, ומפנה לסעיף.</span></div>
+        <div><b>מחזיר אתכם לטעויות</b><span>כל שאלה שטעיתם בה חוזרת אליכם, עד שהיא יושבת.</span></div>
+        <div><b>מכין אתכם לבחינה</b><span>סימולציות של 25 שאלות ומעקב שמראה כמה נשאר עד שאתם מוכנים.</span></div>
+      </div>
+      <div class="lp-say"><b>המנטור</b>בשאלה 14 של יולי 2026 נפלו רוב הנבחנים על פרט אחד: בלעדיות היא מסמך נפרד. נלמד למה.</div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec lp-dark">
+  <div class="lp-in">
+    <div class="lp-eyebrow">הצצה למערכת</div>
+    <h2 class="lp-h2">ככה נראית הלמידה מבפנים</h2>
+    <p class="lp-sub">בחרו מסך כדי לראות אותו. התצוגות הן המחשה של מבנה המסכים, והתוכן עצמו נפתח בשיעור הראשון, בחינם.</p>
+    <div class="lp-tabs" role="tablist" id="peekTabs">
+      <button class="lp-tab" role="tab" aria-selected="true" data-p="home">מסך הבית</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="lesson">שיעור</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="scene">סרטון אנימציה</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="question">שאלה</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="explain">הסבר לתשובה</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="sim">סימולציה</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="progress">התקדמות</button>
+      <button class="lp-tab" role="tab" aria-selected="false" data-p="mentor">המנטור</button>
+    </div>
+    <div class="lp-screen" role="tabpanel">
+      <div class="lp-screen-h"><b id="peekTitle">מסך הבית</b><span>המחשה</span></div>
+      <div data-pp="home"><div class="lp-g" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><div class="lp-key" style="height:90px"><b>המשך מאיפה שעצרתם</b></div><div class="lp-key" style="height:90px"><b>הפרקים</b></div><div class="lp-key" style="height:90px"><b>מבחני עבר</b></div></div></div>
+      <div data-pp="lesson" hidden><div class="lp-sk" style="height:14px;width:60%;margin-bottom:12px"></div><div class="lp-sk"></div><div class="lp-sk" style="width:90%"></div><div class="lp-sk" style="width:75%;margin-bottom:18px"></div><div class="lp-key"><b>נקודת מפתח</b> - בשיעור עצמו מוצג הסעיף המקורי לצד ההסבר.</div></div>
+      <div data-pp="scene" hidden><div style="border-radius:18px;background:linear-gradient(160deg,#13235b,#0d1b3d);aspect-ratio:16/9;max-width:520px;margin:0 auto 14px;display:grid;place-items:center;color:#fff;text-align:center;padding:16px"><div><div style="width:54px;height:54px;border-radius:50%;border:3px solid #e5c76a;margin:0 auto 10px;display:grid;place-items:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="#e5c76a" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></div><b style="font-size:20px">עצרו את התמונה</b><div style="font-size:13.5px;color:#c9d2ea;margin-top:4px">הסצנה קופאת ברגע ההחלטה</div></div></div><div class="lp-say" style="margin-top:0"><b>המנטור</b>מה היה צריך לעשות כאן? מי שטעה רואה מה היה קורה, ואז אפשר להחזיר את הסרט ולראות את הסוף הנכון.</div></div>
+      <div data-pp="question" hidden><div class="lp-sk" style="width:85%;margin-bottom:16px"></div><div class="lp-opt"></div><div class="lp-opt"></div><div class="lp-opt"></div><div class="lp-opt"></div></div>
+      <div data-pp="explain" hidden><div class="lp-opt ok"></div><div class="lp-opt" style="margin-bottom:14px"></div><div style="font-size:14.5px;color:var(--ink-soft);line-height:1.7"><b style="color:var(--ink)">למה זו התשובה הנכונה, ולמה כל חלופה אחרת שגויה</b> - הסבר לכל חלופה, עם הפניה לסעיף.</div></div>
+      <div data-pp="sim" hidden><div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:8px"><span>שאלה 14 מתוך 25</span><span style="color:var(--ink-soft)">ציון עובר: 60</span></div><div class="lp-bar"><i style="width:56%"></i></div><div class="lp-sk" style="width:80%;margin-bottom:14px"></div><div class="lp-opt"></div><div class="lp-opt"></div></div>
+      <div data-pp="progress" hidden><div style="display:flex;justify-content:space-between;margin-bottom:8px"><b style="font-size:15px">הקורס כולו</b><span style="font-weight:700;color:var(--lp-action)">36%</span></div><div class="lp-bar"><i style="width:36%"></i></div><div class="lp-opt ok" style="height:30px"></div><div class="lp-opt ok" style="height:30px"></div><div class="lp-opt" style="height:30px"></div></div>
+      <div data-pp="mentor" hidden><div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px"><img src="assets/mentor-cutout.webp" alt="" width="135" height="170" loading="lazy" style="height:170px;width:auto"><div class="lp-say" style="margin-top:0"><b>המנטור</b>בשאלה 14 של יולי 2026 נפלו רוב הנבחנים על פרט אחד: בלעדיות היא מסמך נפרד. נלמד למה.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec">
+  <div class="lp-in">
+    <div class="lp-eyebrow">איך זה עובד</div>
+    <h2 class="lp-h2">שלושה צעדים בדרך להכנה חכמה יותר</h2>
+    <p class="lp-sub">בלי הרשמות מסובכות. נכנסים עם חשבון Google וממשיכים מאיפה שעצרתם.</p>
+    <div class="lp-g" style="grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))">
+      <div class="lp-card lp-step"><i>1</i><b>נכנסים ומתחילים ללמוד</b><span>נכנסים עם חשבון Google ופותחים את השיעור הראשון, בחינם.</span></div>
+      <div class="lp-card lp-step"><i>2</i><b>מתרגלים שאלות וסימולציות</b><span>חידון בכל שיעור, מבחני עבר ומבחני סימולציה כמו בבחינה.</span></div>
+      <div class="lp-card lp-step"><i>3</i><b>מזהים טעויות ומשפרים</b><span>חוזרים על מה שטעיתם בו, ומעקב ההתקדמות מראה כמה נשאר.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec lp-band">
+  <div class="lp-in">
+    <div class="lp-eyebrow">למה דווקא שוק נדל״ן</div>
+    <h2 class="lp-h2">מערכת תרגול, לא רק חומר לקריאה</h2>
+    <p class="lp-sub">השוואה למי שמתכונן לבד מחומר כתוב בלבד. מה שמקבלים כאן, בקצרה.</p>
+    <div class="lp-cmp">
+      <div><span>מה מקבלים</span><span>שוק נדל״ן</span><span>חומר כתוב בלבד</span></div>
+      <div><span>שיעורים קצרים בעברית פשוטה</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>חידון בסוף כל שיעור</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>הסבר לכל חלופה</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>סימולציות של 25 שאלות</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>חזרה על טעויות</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>מעקב התקדמות אישי</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>מנטור שמלווה בכל הדרך</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+      <div><span>למידה מהטלפון</span><span class="lp-yes">✓</span><span class="lp-no">-</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="chapters" style="padding:84px 0 0">
   <div class="wrap">
     <h2>הפרקים</h2>
     <p class="sub">הקורס מתעדכן: כל מבחן חדש שהרשם מפרסם נכנס למאגר, וכל שיעור חדש נפתח למי שכבר רכשו בלי תוספת תשלום.</p>
@@ -210,27 +411,57 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </section>
 
-<section class="block" id="buy" style="padding-top:0">
-  <div class="wrap">
-    <div class="pricing-card">
-      <div>
-        <h2>גישה מלאה לשישה חודשים</h2>
-        <p>תשלום אחד, בלי מנוי ובלי חיוב חוזר. לאחר התשלום תקבלו גישה ואת החשבונית במייל.</p>
-        <ul>
+<section class="lp-sec" id="buy">
+  <div class="lp-in">
+    <div class="lp-buy">
+      <div class="lp-buy-l">
+        <div class="lp-eyebrow" style="color:var(--brass-light)">ההצעה</div>
+        <h2 class="lp-h2">גישה מלאה לארבעה חודשים, בתשלום אחד</h2>
+        <p style="margin:0;font-size:16px;color:#c9d2ea">בלי מנוי ובלי חיוב חוזר. לאחר התשלום תקבלו גישה ואת החשבונית במייל.</p>
+        <div class="lp-gift" data-gift hidden>
+          <div class="k">מתנה לכל מי שרוכש</div>
+          <div class="t">90 ימי שימוש בפלטפורמה <span class="lp-nw">במסלול Elite</span></div>
+          <p>60 ימי Elite הם נקודת ההתחלה של כל מצטרף חדש, וברכישת הקורס מקבלים עליהם חודש במתנה. שלושה חודשים <span class="lp-nw">בשווי 1,197 ₪</span> לפי מחירון Elite (<span class="lp-nw">399 ₪ לחודש</span>, לפני מע״מ). החודש מתקבל אוטומטית למי שנרשם כיועץ/ת נדל״ן אחרי הרכישה, עם אותו חשבון Google שבו רכש את הקורס.</p>
+          <p style="margin-top:10px"><a href="/pricing#plan-elite">לפרטים על מסלול Elite ←</a></p>
+          <div class="lp-small">* ההטבה למצטרפים חדשים בלבד: 60 ימי Elite לכל מי שמצטרף כיועץ/ת נדל״ן לפלטפורמה, וחודש נוסף במתנה למי שרכש את הקורס ואחר כך נרשם כיועץ/ת נדל״ן עם אותו חשבון Google.</div>
+        </div>
+        <ul class="lp-incl">
           <li>כל השיעורים והחידונים</li>
           <li>כל מבחני העבר עם ההסברים</li>
           <li>סימולציות ללא הגבלה</li>
           <li>חזרה על טעויות</li>
           <li>מד התקדמות אישי</li>
+          <li>מנטור שמלווה אתכם בכל הדרך</li>
           <li>תכנים חדשים שנוספים בתקופה</li>
         </ul>
       </div>
-      <div class="price-box">
-        <div class="amount">199 <small>₪</small></div>
-        <div class="per">כולל מע״מ · 6 חודשי גישה</div>
-        <a href="/learn" class="btn btn-brass" id="ctaBuy">להתחלת הקורס</a>
-        <div class="fine">כניסה עם חשבון Google. השיעור הראשון פתוח בחינם לפני התשלום.</div>
+      <div class="lp-pc">
+        <div class="amount">450 <small>₪</small></div>
+        <div class="per"><span class="lp-nw">כולל מע״מ</span> · <span class="lp-nw">4 חודשי גישה</span></div>
+        <div class="one"><span class="lp-nw">תשלום חד-פעמי</span> · <span class="lp-nw">ללא מנוי מתחדש</span></div>
+        <a href="/learn" class="lp-cta" id="ctaBuy">אני רוצה להתחיל ללמוד</a>
+        <div class="fine">כניסה עם חשבון Google. השיעור הראשון פתוח בחינם לפני התשלום.<br>ביטול והחזר מלא בתוך 14 ימים, כל עוד לא התחלתם ללמוד.<br>אפשר לשלם עד 3 תשלומים ללא ריבית, והארכה של 4 חודשים ב-99 ₪ (גם היא עד 3 תשלומים) למי שצריך.</div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" style="padding-top:0">
+  <div class="lp-in" style="max-width:820px">
+    <div class="lp-eyebrow">שאלות נפוצות</div>
+    <h2 class="lp-h2">לפני שמתחילים</h2>
+    <div class="lp-faq" style="margin-top:24px">
+      <details><summary>כמה זמן הקורס פתוח?</summary><p>ארבעה חודשים מרגע אישור התשלום.</p></details>
+      <details><summary>אפשר ללמוד מהטלפון?</summary><p>כן. אפשר ללמוד מהמחשב ומהטלפון, וההתקדמות נשמרת.</p></details>
+      <details><summary>יש מבחני עבר?</summary><p>כן. השאלות כפי שהופיעו בבחינות הרשם, עם התשובה הרשמית והסבר.</p></details>
+      <details><summary>יש סימולציות?</summary><p>כן, ללא הגבלה. כל סימולציה היא 25 שאלות בסדר אקראי מהמאגר, עם ציון וסקירה בסוף.</p></details>
+      <details><summary>יש סרטונים?</summary><p>כן. יש סרטוני אנימציה אינטראקטיביים ללמידה קלילה וכייפית, בחלק מהשיעורים. הסרטון קופא ברגע ההחלטה, המנטור שואל מה לעשות, ובוחרים. מי שטעה רואה מה היה קורה, ואז אפשר להחזיר את הסרט ולראות את הסוף הנכון. לא בכל שיעור יש סרטון, ובכל שיעור הלמידה מלווה בטקסט קצר, חידון והמנטור.</p></details>
+      <details><summary>יש הסברים לכל התשובות?</summary><p>כן, כולל הסבר למה כל חלופה אחרת שגויה.</p></details>
+      <details><summary>התשלום חד-פעמי?</summary><p>כן. תשלום אחד, בלי מנוי ובלי חיוב חוזר.</p></details>
+      <details><summary>אפשר לשלם בתשלומים?</summary><p>כן. אפשר לפרוס את התשלום בכרטיס אשראי עד 3 תשלומים שווים, ללא ריבית. הסכום הכולל נשאר 450 ₪, וגם ההארכה (99 ₪) אפשר לשלם עד 3 תשלומים. מספר התשלומים נבחר בעמוד התשלום המאובטח.</p></details>
+      <details><summary>מה אם לא עברתי את המבחן?</summary><p>מי שרכש את הקורס ולא עבר יכול להאריך את הגישה בעוד ארבעה חודשים ב-99 ₪ כולל מע״מ. ההארכה זמינה פעם אחת, מ-30 יום לפני סוף הגישה ועד 60 יום אחריו, והיא מתווספת לסוף התקופה. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד תקופת ההארכה טרם החלה.</p></details>
+      <details><summary>איך מקבלים גישה אחרי הרכישה?</summary><p>לאחר אישור התשלום נפתחת הגישה בחשבון Google שאיתו נכנסתם, והחשבונית נשלחת למייל.</p></details>
+      <details data-gift hidden><summary>מה כוללת המתנה לרוכשי הקורס?</summary><p>60 ימי Elite הם נקודת ההתחלה של כל מי שמצטרף כיועץ/ת נדל״ן לפלטפורמה. רוכשי הקורס מקבלים עליהם חודש במתנה, ובסך הכול 90 ימי Elite. לפי המחירון, Elite עולה 399 ₪ לחודש לפני מע״מ, ולכן שלושה חודשים שווים 1,197 ₪. החודש הנוסף מתקבל אוטומטית למי שרכש את הקורס ואחר כך נרשם כיועץ/ת נדל״ן עם אותו חשבון Google. ההטבה למצטרפים חדשים בלבד: מי שנרשם כיועץ/ת לפני הרכישה אינו זכאי לחודש הנוסף.</p><p><a class="lp-link" href="/pricing#plan-elite">לפרטים על מסלול Elite בדף המחירים ←</a></p></details>
     </div>
   </div>
 </section>
@@ -242,11 +473,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="faq">
       <details>
         <summary>מתי מתקיימת הבחינה הקרובה בדיני מתווכים?</summary>
-        <div class="a">מועדי הבחינות מתפרסמים באתר רשם המתווכים כמה חודשים מראש. בדרך כלל הבחינה מתקיימת ארבע פעמים בשנה, בערך בחודשים ינואר, אפריל-מאי, יולי ונובמבר. התאריך המדויק של כל מועד מתפרסם באתר הרשם.</div>
+        <div class="a">הבחינה מתקיימת ארבע פעמים בשנה. המועדים לפי אתר רשם המתווכים:<ul><li><b>חורף:</b> 17.2.2027 (י' באדר א' תשפ״ז), הרשמה 17.12.2026 עד 17.1.2027</li><li><b>אביב:</b> 9.5.2027, הרשמה 8.3.2027 עד 8.4.2027</li><li><b>קיץ:</b> 5.8.2027, הרשמה 1.6.2027 עד 1.7.2027</li><li><b>סתיו:</b> 11.11.2027, הרשמה 7.9.2027 עד 7.10.2027</li></ul>הפרטים המחייבים מתפרסמים באתר הרשם.</div>
       </details>
       <details>
         <summary>מתי ואיך נרשמים לבחינה?</summary>
-        <div class="a"><ul><li><b>פתיחת ההרשמה:</b> כחודשיים לפני מועד הבחינה.</li><li><b>סגירת ההרשמה:</b> כחודש לפני הבחינה, במועד מדויק. אחריו אי אפשר להירשם.</li><li><b>איך:</b> דרך האתר הרשמי של רשם המתווכים.</li><li><b>עלות:</b> אגרת בחינה של כמה מאות שקלים (כ-575 ₪). הסכום המעודכן מתפרסם באתר הרשם.</li></ul></div>
+        <div class="a"><ul><li><b>פתיחת ההרשמה:</b> כחודשיים לפני מועד הבחינה.</li><li><b>סגירת ההרשמה:</b> כחודש לפני הבחינה, במועד מדויק. אחריו אי אפשר להירשם.</li><li><b>איך:</b> דרך האתר הרשמי של רשם המתווכים.</li><li><b>עלות:</b> אגרת בחינה: 590 ₪, לבחינה ראשונה או חוזרת (לפי טבלת האגרות לשנת 2026 באתר הרשם). האגרות מתפרסמות לכל שנה בנפרד, והסכום העדכני מתפרסם באתר הרשם.</li></ul></div>
       </details>
       <details>
         <summary>איפה מתקיימת הבחינה?</summary>
@@ -266,11 +497,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
       <details>
         <summary>מה עושים אחרי שעוברים את הבחינה?</summary>
-        <div class="a">מגישים בקשה להנפקת רישיון תיווך דרך אתר רשם המתווכים, מצרפים צילום תעודת זהות ותמונת פספורט, ומשלמים אגרת רישיון שנתית. אחרי אישור הבקשה הרישיון מתקבל באופן מקוון. ומי שרוצה להתחיל לעבוד עם משרד באזור: <a href="/agencies">משרדי התיווך בפלטפורמה</a> מחפשים יועצי נדל״ן חדשים.</div>
+        <div class="a">מגישים בקשה להנפקת רישיון תיווך דרך אתר רשם המתווכים, מצרפים צילום תעודת זהות ותמונת פספורט, ומשלמים אגרות: לפי טבלת 2026, אגרה חד-פעמית של 1,151 ₪ בעד הרישיון הראשון והרישום בפנקס, ואגרה שנתית של 256 ₪ לחידוש הרישיון. אחרי אישור הבקשה הרישיון מתקבל באופן מקוון. ומי שרוצה להתחיל לעבוד עם משרד באזור: <a href="/agencies">משרדי התיווך בפלטפורמה</a> מחפשים יועצי נדל״ן חדשים.</div>
       </details>
       <details>
         <summary>מה קורה אחרי התשלום כאן?</summary>
-        <div class="a">לאחר אישור התשלום תקבלו גישה לקורס לשישה חודשים, בחשבון Google שאיתו נכנסתם. אפשר ללמוד מהמחשב ומהטלפון, וההתקדמות נשמרת. חשבונית מס נשלחת למייל. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד לא התחלתם ללמוד, ולקבל החזר מלא. "התחלתם ללמוד" פירושו שנפתח שיעור בתשלום או מבחן סימולציה; השיעור החינמי אינו נספר. הביטול במייל <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a>.</div>
+        <div class="a">לאחר אישור התשלום תקבלו גישה לקורס לארבעה חודשים, בחשבון Google שאיתו נכנסתם. אפשר ללמוד מהמחשב ומהטלפון, וההתקדמות נשמרת. חשבונית מס נשלחת למייל. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד לא התחלתם ללמוד, ולקבל החזר מלא. "התחלתם ללמוד" פירושו שנפתח שיעור בתשלום או מבחן סימולציה; השיעור החינמי אינו נספר. הביטול במייל <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a>.</div>
       </details>
     </div>
     <p class="disclaimer">הקורס הוא כלי הכנה ואינו מטעם רשם המתווכים. נוסח החוקים, מועדי הבחינה, האגרות ותנאי ההרשמה הם כפי שמפרסם הרשם, והם הקובעים. שאלות מבחני העבר הן פרסום רשמי של הרשם; ההסברים נכתבו בידי צוות הקורס.</p>
@@ -279,14 +510,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"מתי מתקיימת הבחינה הקרובה בדיני מתווכים?","acceptedAnswer":{"@type":"Answer","text":"מועדי הבחינות מתפרסמים באתר רשם המתווכים כמה חודשים מראש. בדרך כלל הבחינה מתקיימת ארבע פעמים בשנה."}},
-{"@type":"Question","name":"מתי ואיך נרשמים לבחינה?","acceptedAnswer":{"@type":"Answer","text":"ההרשמה נפתחת כחודשיים לפני מועד הבחינה ונסגרת כחודש לפני, דרך האתר הרשמי של רשם המתווכים, בתשלום אגרת בחינה."}},
+{"@type":"Question","name":"מתי מתקיימת הבחינה הקרובה בדיני מתווכים?","acceptedAnswer":{"@type":"Answer","text":"מועדי הבחינות מתפרסמים באתר רשם המתווכים כמה חודשים מראש. הבחינה מתקיימת ארבע פעמים בשנה. המועדים ב-2027: 17.2 (הרשמה 17.12.2026 עד 17.1.2027), 9.5 (הרשמה 8.3 עד 8.4), 5.8 (הרשמה 1.6 עד 1.7) ו-11.11 (הרשמה 7.9 עד 7.10)."}},
+{"@type":"Question","name":"מתי ואיך נרשמים לבחינה?","acceptedAnswer":{"@type":"Answer","text":"ההרשמה נפתחת כחודשיים לפני מועד הבחינה ונסגרת כחודש לפני, דרך האתר הרשמי של רשם המתווכים, בתשלום אגרת בחינה (590 ₪ לפי אגרות 2026)."}},
 {"@type":"Question","name":"איפה מתקיימת הבחינה?","acceptedAnswer":{"@type":"Answer","text":"במרכז הקונגרסים הבינלאומי, בנייני האומה בירושלים, שדרות שז״ר 1."}},
 {"@type":"Question","name":"כמה זמן נמשכת הבחינה ומה המבנה שלה?","acceptedAnswer":{"@type":"Answer","text":"שעתיים, 25 שאלות אמריקאיות, ציון עובר 60 (15 תשובות נכונות)."}},
 {"@type":"Question","name":"מתי מקבלים את תוצאות הבחינה?","acceptedAnswer":{"@type":"Answer","text":"לרוב בתוך כ-45 ימי עבודה ממועד הבחינה, באתר רשם המתווכים."}},
-{"@type":"Question","name":"מה עושים אחרי שעוברים את הבחינה?","acceptedAnswer":{"@type":"Answer","text":"מגישים בקשה להנפקת רישיון תיווך באתר רשם המתווכים, עם צילום תעודת זהות ותמונת פספורט, ומשלמים אגרת רישיון שנתית."}}
+{"@type":"Question","name":"מה עושים אחרי שעוברים את הבחינה?","acceptedAnswer":{"@type":"Answer","text":"מגישים בקשה להנפקת רישיון תיווך באתר רשם המתווכים, עם צילום תעודת זהות ותמונת פספורט, ומשלמים אגרות (לפי 2026: 1,151 ₪ חד-פעמית לרישיון הראשון ולרישום בפנקס, ו-256 ₪ לחידוש שנתי)."}}
 ]}
 </script>
+
+<section class="lp-sec" style="padding-top:0">
+  <div class="lp-in">
+    <div class="lp-final">
+      <h2>הצעד הראשון שלך בדרך לרישיון התיווך מתחיל כאן</h2>
+      <p>התחילו בשיעור הראשון בחינם, והמשיכו כשאתם מוכנים.</p>
+      <div style="font-size:15px;margin-bottom:20px"><b style="font-size:34px">450 ₪</b> לארבעה חודשים · תשלום חד-פעמי</div>
+      <a href="/learn" class="lp-cta" id="ctaFinal">מתחילים ללמוד עכשיו</a>
+      <div class="lp-giftline" data-gift hidden>ומתנה: נרשמים אחר כך כיועצי נדל״ן עם אותו חשבון Google ומקבלים <span class="lp-nw">90 ימי Elite</span>, <span class="lp-nw">בשווי 1,197 ₪</span><br><a href="/pricing#plan-elite">לפרטים על מסלול Elite ←</a></div>
+    </div>
+  </div>
+</section>
+
+<div class="lp-stick"><div><b>450 ₪</b><small>4 חודשים</small></div><a href="/learn" class="lp-cta" id="ctaSticky">מתחילים ללמוד עכשיו</a></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
@@ -301,6 +546,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var note = document.getElementById('catalogNote');
   sb.rpc('course_catalog').then(function(res){
     var cat = res.data;
+    if (cat && cat.buyer_bonus_months === 1){
+      document.querySelectorAll('[data-gift]').forEach(function(el){ el.hidden = false; });
+    }
     if (res.error || !cat || !cat.chapters || !cat.chapters.length){
       note.textContent = 'רשימת הפרקים נטענת מתוך הקורס עצמו.';
       return;
@@ -317,6 +565,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         }).join('') + '</ul></details>';
     }).join('');
     note.textContent = 'סך הכול ' + cat.lessons_total + ' שיעורים ו-' + cat.questions_total + ' שאלות, מתוכן ' + cat.exam_questions_total + ' ממבחני הרשם האמיתיים.';
+  });
+})();
+</script>
+
+<script>
+/* הצצה למערכת: לשוניות. בלי תלות ברשת, והלשונית הראשונה גלויה גם בלי JS. */
+(function(){
+  var tabs = document.querySelectorAll('#peekTabs .lp-tab');
+  var title = document.getElementById('peekTitle');
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      tabs.forEach(function(x){ x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+      document.querySelectorAll('[data-pp]').forEach(function(p){ p.hidden = p.getAttribute('data-pp') !== t.getAttribute('data-p'); });
+      title.textContent = t.textContent;
+    });
   });
 })();
 </script>
@@ -617,7 +880,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
-      <a href="/?deal=sale">דירות למכירה בעפולה</a>
+      <a href="/afula/דירות-למכירה">דירות למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
@@ -630,7 +893,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
-      <a href="/?deal=commercial">נכסים מסחריים בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נכסים מסחריים בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>

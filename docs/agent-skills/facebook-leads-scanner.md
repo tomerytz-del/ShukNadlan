@@ -77,7 +77,7 @@ select public.scraped_lead_enrich('<id>', '{
 - `{duplicate: 'post' | 'declined' | 'phone' | 'lead'}` - לא לשלוח שוב ולא לבקש
   הסכמה שוב.
 - `{error}`: `invalid_lead_type`, `invalid_source`, `missing_post_url`,
-  `missing_city`, `missing_phone`, `missing_posted_at`, `post_too_old`,
+  `missing_city`, `missing_phone` (פייסבוק בלבד; יד2 ומדלן רשאים בלי טלפון), `missing_posted_at`, `post_too_old`,
   `invalid_deal_type`.
 
 ## מה לא השתנה

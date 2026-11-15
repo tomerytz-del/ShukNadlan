@@ -109,6 +109,54 @@ export function buttonLabelForUrl(url: string): string {
   return "לפתיחה";
 }
 
+/** כפתור אחד למודעה ציבורית במדלן או ביד2. כמה כתובות, או כתובת אחרת, בלי כפתור. */
+export const BOARD_VIEW_LABEL = "לצפייה במודעה";
+
+function isBoardListingHost(host: string): boolean {
+  const name = host.toLowerCase();
+  return name === "madlan.co.il" || name.endsWith(".madlan.co.il")
+    || name === "yad2.co.il" || name.endsWith(".yad2.co.il");
+}
+
+export function boardViewCta(
+  urls: Array<string | null | undefined>,
+): { label: string; url: string } | null {
+  const seen = new Set<string>();
+  for (const raw of urls) {
+    const url = String(raw || "").trim();
+    if (!url.startsWith("https://") || url.length > 500 || /[\s@]/.test(url)) continue;
+    let host = "";
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      continue;
+    }
+    if (!isBoardListingHost(host)) continue;
+    seen.add(url);
+  }
+  if (seen.size !== 1) return null;
+  return { label: BOARD_VIEW_LABEL, url: [...seen][0] };
+}
+
+export type BoardAlertItem = { type?: string; action_url?: string | null };
+
+/**
+ * בתוך חלון 24 השעות, התראת לוח אחת היא ההודעה עצמה: כפתור "לצפייה במודעה".
+ * מחוץ לחלון (template), או כשיש עוד התראות בהודעה, null והשולח נשאר על המסלול הקיים.
+ */
+export function boardListingMessage(
+  to: string,
+  body: string,
+  items: BoardAlertItem[],
+  mode: string,
+): Record<string, unknown> | null {
+  if (mode === "template") return null;
+  if (items.length !== 1 || items[0]?.type !== "open_demand") return null;
+  const cta = boardViewCta([items[0].action_url]);
+  if (!cta) return null;
+  return ctaPayload(to, body, cta.label, cta.url);
+}
+
 export function planWaText(raw: string): WaTextPlan {
   const found: { index: number; raw: string; url: string }[] = [];
   const textIn = String(raw || "");

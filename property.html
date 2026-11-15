@@ -2,16 +2,82 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- Google Tag Manager. בדף נכס המכולה נטענת אחרי תמונת ה-LCP
+     (shukArmTrackers), כדי ש-gtm.js ומה שהוא מושך (gtag, פיקסל)
+     לא יתחרו בהורדה ובציור. אותו מזהה ואותו dataLayer: אירוע
+     שנדחף קודם נשאר בתור עד שהמכולה עולה. ה-noscript נשאר מיד
+     אחרי body. -->
+<script>
+window.dataLayer = window.dataLayer || [];
+window.shukLoadTrackers = function () {
+  if (window.__shukGtm) return;
+  window.__shukGtm = true;
+  (function (w, d, s, l, i) {
+    w[l] = w[l] || [];
+    w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+    var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+    j.async = true;
+    j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+    f.parentNode.insertBefore(j, f);
+  })(window, document, 'script', 'dataLayer', 'GTM-NZHD7ZHT');
+};
+window.shukArmTrackers = function () {
+  if (window.__shukGtmArm) return;
+  window.__shukGtmArm = true;
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { window.shukLoadTrackers(); });
+  });
+};
+/* אחרי שהשער (data-lcp) כבר צויר, או ב-load, ולא יאוחר מ-4 שניות.
+   לחיצה טוענת מיד: ה-dataLayer כבר מחזיק את האירוע, והמכולה מעבדת
+   אותו כשהיא עולה. דף שנשאר פתוח לא מאבד צפייה.
+   כניסה ממודעה (gclid, fbclid, gbraid, wbraid, utm_*) טוענת מיד,
+   כדי ש-Conversion Linker והפיקסל יתפסו את מזהה הקליק. */
+(function () {
+  var search = '';
+  try { search = location.search || ''; } catch (e) {}
+  if (/[?&](?:gclid|fbclid|gbraid|wbraid|utm_[a-z0-9_]+)=/i.test(search)) {
+    window.shukLoadTrackers();
+    return;
+  }
+  var armed = false;
+  function arm() {
+    if (armed) return;
+    armed = true;
+    var idle = window.requestIdleCallback || function (fn) { setTimeout(fn, 1); };
+    idle(function () { window.shukArmTrackers(); }, { timeout: 1500 });
+  }
+  function heroEntry(entry) {
+    var el = entry && entry.element;
+    return !!(el && el.getAttribute && el.getAttribute('data-lcp') != null);
+  }
+  try {
+    if ('PerformanceObserver' in window) {
+      var po = new PerformanceObserver(function (list) {
+        var entries = list.getEntries();
+        for (var i = 0; i < entries.length; i++) {
+          if (!heroEntry(entries[i])) continue;
+          try { po.disconnect(); } catch (e) {}
+          arm();
+          return;
+        }
+      });
+      po.observe({ type: 'largest-contentful-paint', buffered: true });
+    }
+  } catch (e) {}
+  window.addEventListener('pointerdown', function () { window.shukLoadTrackers(); }, { once: true, passive: true });
+  window.addEventListener('load', arm);
+  setTimeout(arm, 4000);
+})();
+</script>
 <!-- End Google Tag Manager -->
-<script src="assets/esc.js"></script>
-<script src="assets/events.js"></script>
-<script src="assets/likes-store.js"></script>
+<script defer src="assets/esc.js"></script>
+<!-- ייחוס ביקור ראשון. defer כמו שאר הסקריפטים כאן: לא חוסם את ציור תמונת השער,
+     ורץ לפני events.js ו-property.js כדי שהעטיפה על fetch תהיה במקום לפני שליחת ליד.
+     כשל בטעינה לא שובר את הדף. -->
+<script defer src="assets/visit-attr.js"></script>
+<script defer src="assets/events.js"></script>
+<script defer src="assets/likes-store.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>נכס | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -34,41 +100,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
-      crossorigin="anonymous" referrerpolicy="no-referrer">
-<!-- ‏Leaflet עצמו, ולא רק ה-CSS שלו: בלעדיו סקציית "מיקום וסביבה" נשארת
-     מוסתרת, כי אין מפה להציג. -->
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/map-tiles.js"></script>
-<script src="assets/approx-location.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+<!-- שלוש משפחות מגוגל חסמו את הציור (כ-770ms ב-Lighthouse). ה-CSS עולה
+     בלי לחסום; display=swap כבר בכתובת, והשער הוא תמונה ולא טקסט. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap"
+      media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap"></noscript>
+<!-- המפה (Leaflet וה-CSS, ו-MapLibre דרך MapTiles.addTo) נטענת רק כשסקציית
+     המיקום מתקרבת למסך. ראו loadLeaflet / whenNearMap ב-assets/property.js.
+     בלי זה שני המנועים רצים לפני הציור הראשון, בשביל מפה שמתחת לקיפול. -->
+<script defer src="assets/map-tiles.js"></script>
+<script defer src="assets/approx-location.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="assets/quality-badge.js"></script>
-<script src="assets/map-gestures.js"></script>
+<script defer src="assets/quality-badge.js"></script>
+<script defer src="assets/map-gestures.js"></script>
 <!-- יריד הבתים הפתוחים: הרצועה שמעל פרטי הנכס והתגית שעל התמונה.
      נטען לפני property-card.js — הוא זה שמוסיף את התגית לאריחי
      "נכסים דומים" שבתחתית העמוד. ראו docs/open-house-fair.md -->
-<script src="assets/open-house.js"></script>
+<script defer src="assets/open-house.js"></script>
 <!-- דגל v10, אותו קוד כמו בדף הבית (ברירת מחדל מ-31.10.2026, ‏?beta=0 מכבה ונשמר): כאן רק לנכס בלי תמונות (assets/no-photo.js) -->
 <script>(function(){var q=null,on=true;try{q=new URLSearchParams(location.search).get('beta');}catch(e){}
 if(q==='0')on=false;else if(q!=='1'){try{on=localStorage.getItem('sk_beta_hero')!=='0';}catch(e){}}
 try{if(q==='1'||q==='0')localStorage.setItem('sk_beta_hero',q);}catch(e){}
 if(on)document.documentElement.classList.add('beta-hero');})();</script>
-<script src="assets/no-photo.js"></script>
-<script src="assets/property-card.js"></script>
-<script src="assets/listing-media.js"></script>
+<script defer src="assets/no-photo.js"></script>
+<script defer src="assets/property-card.js"></script>
+<script defer src="assets/listing-media.js"></script>
 <!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
      רק בנכס שכבר יש לו לפחות הדמיה אחת, ולכן loadVisualizations() הוא
      שקורא ל-AiShowcase.mountProperty() עם ההדמיות שכבר נשלפו. -->
 <script defer src="assets/ai-showcase.js"></script>
 <!-- הרקע הזורם של האתר — אותו רקע של דף הבית ושל ה-CRM. דף הנכס אינו
      נצבע בערכת המשרד, ולכן הוא מקבל את הרקע מיד עם הטעינה. -->
-<script src="assets/page-bg.js" data-auto></script>
+<script defer src="assets/page-bg.js" data-auto></script>
 <style>
   :root{
     --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
@@ -568,6 +633,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
      ושורת הקרדיטים שלה נדבקת מעל כפתורי הניווט */
   .map-frame{position:relative;z-index:0;border-radius:0;overflow:hidden;border:1px solid var(--hair)}
   #propMap{height:230px}
+  /* נקודת התצפית של המפה. גובה אפס לא נספר כ-intersection בדפדפנים
+     מסוימים; פיקסל אחד לא מזיז את הסקציה. */
+  #mapNear{height:1px;margin:0;padding:0;border:0;overflow:hidden;pointer-events:none}
   @media(min-width:760px){#propMap{height:290px}}
   /* פינת ההגדלה יושבת בקצה העליון־חיצוני, כי התחתית שמורה לקרדיטים של
      Leaflet ופקדי הזום כבויים במפה הקטנה */
@@ -1339,10 +1407,26 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   #listingNo{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:13px;color:#6b7280}
   #listingNo[hidden]{display:none}
 </style>
+<!-- באנר המחפשים והיריד אינם במסך הראשון (היריד hidden עד שיש נכס
+     ביריד), ולכן ה-CSS שלהם אינו חוסם ציור. site-footer.css נשאר חוסם:
+     הקבוצות פתוחות ב-HTML ונסגרות רק כשהקובץ מגיע, וקובץ שמגיע אחרי
+     הציור הזיז את הפוטר (CLS סביב 1.46). design-system נשאר חוסם כי
+     הוא מעצב את הכותרת שבמסך הראשון. פירורי הלחם אחריו. -->
 <link rel="stylesheet" href="assets/site-footer.css">
-<link rel="stylesheet" href="assets/buyer-banner.css">
+<link rel="stylesheet" href="assets/buyer-banner.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="assets/buyer-banner.css"></noscript>
 <link rel="stylesheet" href="assets/design-system.css">
-<link rel="stylesheet" href="assets/open-house.css">
+<style>
+  /* פירורי הלחם. אחרי design-system.css, כדי שצבע הקישור לא יידרס. */
+  .prop-crumbs{margin:0 0 8px;font-size:.82rem;line-height:1.45}
+  .prop-crumbs ol{display:flex;flex-wrap:wrap;align-items:center;list-style:none;margin:0;padding:0}
+  .prop-crumbs li{display:inline-flex;align-items:center;color:var(--ink-soft,#4a5578)}
+  .prop-crumbs li+li::before{content:"/";margin-inline:6px;color:#c5cbe0}
+  .prop-crumbs a,.prop-crumbs a:hover{color:var(--teal,#0e2a6b);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+  .prop-crumbs [aria-current="page"]{color:var(--ink,#0d1b3d);font-weight:600}
+</style>
+<link rel="stylesheet" href="assets/open-house.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="assets/open-house.css"></noscript>
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/gabriela-widget.js" defer data-page="property"></script>
 <script src="assets/likes-bubble.js" defer></script>
@@ -1388,9 +1472,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          באתר, שאליו מגיעים מקישור ששותף, וגם מתווך/ת לא מצא/ה איך מצטרפים.
          בטלפון - ‏<details> בלי JS. docs/property-page-nav.md -->
     <nav class="pn-links" aria-label="ניווט ראשי">
-      <a href="/?deal=sale">למכירה</a>
+      <a href="/afula/דירות-למכירה">למכירה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">להשכרה</a>
-      <a href="/?deal=commercial">מסחרי</a>
+      <a href="/afula/נדלן-מסחרי">מסחרי</a>
       <a href="/projects">פרויקטים</a>
       <a href="/agencies">משרדי תיווך</a>
       <a href="/prices">מחירי דירות</a>
@@ -1406,9 +1490,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary aria-label="תפריט"><span class="pn-burger" aria-hidden="true"></span><span class="pn-menu-word">תפריט</span></summary>
         <div class="pn-panel">
           <a href="/">כל הנכסים</a>
-          <a href="/?deal=sale">נכסים למכירה</a>
+          <a href="/afula/דירות-למכירה">נכסים למכירה</a>
           <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה</a>
-          <a href="/?deal=commercial">נדל״ן מסחרי</a>
+          <a href="/afula/נדלן-מסחרי">נדל״ן מסחרי</a>
           <a href="/projects">פרויקטים חדשים</a>
           <a href="/open-house">יריד הבתים הפתוחים</a>
           <a href="/agencies">משרדי תיווך</a>
@@ -1469,6 +1553,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            בדיוק כמה שנקבע לו. -->
       <div class="content-col">
       <div class="main-col">
+        <nav class="prop-crumbs" id="propCrumbs" aria-label="פירורי לחם" hidden></nav>
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
         <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן.
@@ -1703,6 +1788,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="deals-fine">עסקאות שדווחו לרשות המיסים ב-24 החודשים האחרונים, ללא מספר בית. זה מידע, לא הערכת שווי ולא תחליף לשומה של שמאי/ת מקרקעין.</p>
       </section>
 
+      <div id="mapNear" aria-hidden="true"></div>
       <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
@@ -2286,13 +2372,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="toast" id="toast"></div>
 
-<script src="assets/viz-eligibility.js"></script>
-<script src="assets/agent-card.js"></script>
-<script src="assets/air-living.js"></script>
-<script src="assets/fair-contact.js"></script>
-<script src="assets/listing-title.js"></script>
-<script src="assets/purchase-costs.js"></script>
-<script src="assets/property.js"></script>
+<script defer src="assets/viz-eligibility.js"></script>
+<script defer src="assets/agent-card.js"></script>
+<script defer src="assets/air-living.js"></script>
+<script defer src="assets/fair-contact.js"></script>
+<script defer src="assets/listing-title.js"></script>
+<script defer src="assets/purchase-costs.js"></script>
+<script defer src="assets/property.js"></script>
 
 <footer class="site">
 
@@ -2399,7 +2485,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
-      <a href="/?deal=sale">דירות למכירה בעפולה</a>
+      <a href="/afula/דירות-למכירה">דירות למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
@@ -2412,7 +2498,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
-      <a href="/?deal=commercial">נכסים מסחריים בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נכסים מסחריים בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>

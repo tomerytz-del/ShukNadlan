@@ -59,10 +59,29 @@ true`. מחרוזת ה-UA אינה נשמרת. בדוח הם יוצאים מ-`cl
 
 ## ייחוס על ליד והרשמה
 
-`assets/visit-attr.js` נטען מדפי האתר (דרך `events.js`, ומדפי ההרשמה).
+`assets/visit-attr.js` נטען מדפי האתר. בדפי ההרשמה זו תגית רגילה.
+בהחלקה (`swipe.html`), בדף הנכס (`property.html`, גם `/p/{n}`), בדף
+הבית ובמחירון זו תגית `defer` ב-HTML, לפני הסקריפט ששולח את הליד.
+`defer` לא חוסם את ציור הדף (בדף הנכס, אחרי שהסקריפטים עברו ל-`defer`
+בשביל ה-LCP), והסדר במסמך מריץ אותו לפני `swipe.js` ו-`property.js`.
+כשל בטעינה לא שובר את הדף: אין לדף קוד שרץ רק אם הקובץ הגיע.
+
+`events.js` עדיין מזריק את הקובץ בדף ציבורי שאין בו תגית. הוא לא מזריק
+עותק שני כשהתגית כבר במסמך. בדף הנכס `events.js` עצמו הוא `defer`:
+כשהוא רץ, `document.readyState` כבר אינו `loading`, ו-`document.write`
+לא רץ. סקריפט שנוסף באותו רגע נטען באסינכרון ויכול לאחר את השליחה,
+ולכן התגית במסמך היא מה שמבטיח את הסדר.
+
 הוא אינו נטען ב-CRM, וגם אם נטען שם הוא לא שומר ולא מדביק `visit_attr`:
 ה-UTM בדפדפן של סוכן/ת הוא של הקמפיין שלו/ה, לא של ליד שנוצר מבפנים.
-הוא שומר ב-`localStorage` ל-90 יום את
+
+שליחת ליד והתראה מההחלקה (`post` ב-`assets/swipe.js`) שמה `visit_attr`
+גם במפורש, דרך `ShukVisitAttr.stamp`. הכתובות שההחלקה קוראת להן
+(`property-inquiry-intake`, `saved-search-intake`, `mortgage-lead-intake`,
+`owner-lead-intake`, `property-visualize`) כבר ברשימת העטיפה על `fetch`.
+בלי הסקריפט הגוף נשלח כמו שהוא.
+
+הקובץ שומר ב-`localStorage` ל-90 יום את
 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, ואת הקוד
 (`utm_content`). **ביקור ראשון מנצח.** אין שליחה ל-`dataLayer`.
 

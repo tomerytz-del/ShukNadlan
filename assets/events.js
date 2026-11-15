@@ -256,11 +256,23 @@
 })();
 
 /* ייחוס ביקור ראשון. נטען מכאן כי events.js כבר יושב בכל דף ציבורי,
-   בלי להוסיף תגית לכל דף. דף הרשמה בלי events.js טוען את הקובץ בעצמו. */
-if (document.readyState === "loading") {
-  document.write('<script src="/assets/visit-attr.js"><\/script>');
-} else {
-  var visitAttrScript = document.createElement("script");
-  visitAttrScript.src = "/assets/visit-attr.js";
-  document.head.appendChild(visitAttrScript);
+   בלי להוסיף תגית לכל דף. דף הרשמה בלי events.js טוען את הקובץ בעצמו.
+   דף שכבר שם תגית (החלקה, נכס, בית, מחירון) לא מקבל עותק שני:
+   document.write חוסם את הניתוח, וסקריפט שנוסף אחרי שהמסמך מוכן
+   (דף הנכס, events.js ב-defer) נטען באסינכרון ויכול לאחר את העטיפה על fetch. */
+function shukVisitAttrTagged() {
+  var list = document.getElementsByTagName("script");
+  for (var i = 0; i < list.length; i++) {
+    if ((list[i].getAttribute("src") || "").indexOf("visit-attr.js") !== -1) return true;
+  }
+  return false;
+}
+if (!shukVisitAttrTagged()) {
+  if (document.readyState === "loading") {
+    document.write('<script src="/assets/visit-attr.js"><\/script>');
+  } else {
+    var visitAttrScript = document.createElement("script");
+    visitAttrScript.src = "/assets/visit-attr.js";
+    document.head.appendChild(visitAttrScript);
+  }
 }

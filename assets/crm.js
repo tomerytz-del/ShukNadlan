@@ -6767,6 +6767,7 @@ const COST_SERVICES = [
   { key: 'github',              label: 'GitHub',         sub: 'קוד ו-Actions' },
   { key: 'anthropic_api',       label: 'Claude API',     sub: 'הבוטים, תיאורים, מבזקים, סיכומי שיחות' },
   { key: 'claude_subscription', label: 'מנוי Claude',    sub: 'Claude Code' },
+  { key: 'grok',                label: 'Grok (xAI)',     sub: 'סרטוני נכסים ומודלים של xAI' },
   { key: 'openai',              label: 'OpenAI',         sub: 'תמלול הקלטות (Whisper)' },
   { key: 'gemini',              label: 'Google Gemini',  sub: 'סיווג תמונות והדמיות' },
   { key: 'fal_ai',              label: 'fal.ai',         sub: 'סרטוני נכסים' },
@@ -8906,7 +8907,7 @@ function renderTierBadge(agent){
   badge.href = pricingUrl(agent);
   const promo = promoOf(agent);
   badge.title = promo.active
-    ? `מסלול ${name} · הטבת ההשקה פעילה עד ${Tiers.formatDate(promo.endsAt)}`
+    ? `מסלול ${name} · תקופת ההתנסות פעילה עד ${Tiers.formatDate(promo.endsAt)}`
     : `המסלול שלי (${name}) ואפשרויות השדרוג`;
 }
 
@@ -8953,7 +8954,7 @@ function renderPromoStrip(agent){
     strip.href = pricingUrl(agent);
     document.getElementById('promoStripTitle').textContent = 'הטבות ומסלולים';
     document.getElementById('promoStripSub').textContent = (P && P.active)
-      ? `הטבת ההשקה: ${P.headline} למצטרפים. לפירוט המסלולים ←`
+      ? `תקופת ההתנסות: ${P.headline} למצטרפים. לפירוט המסלולים ←`
       : 'לפירוט המסלולים ←';
     labelPromoGift(strip);
     strip.hidden = false;
@@ -8967,8 +8968,8 @@ function renderActivePromo(strip, promo, agent, preview){
   const urgent = promo.daysLeft <= 30;
   strip.href = pricingUrl(agent);
   document.getElementById('promoStripTitle').textContent = urgent
-    ? `הטבת ההשקה מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
-    : `${Tiers.label(promo.tier)} במתנה - עד ${Tiers.formatDate(promo.endsAt)}`;
+    ? `תקופת ההתנסות מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
+    : `${Tiers.label(promo.tier)} ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}`;
   // מי ששילם/ה מראש (paid_tier עד אחרי סוף ההטבה) אינו/ה צריך/ה תזכורת
   // לבחור - אותו כלל של promo-lifecycle, שמחליף שם את המייל באישור.
   const prePaid = agent && (agent.paid_tier === 'mid' || agent.paid_tier === 'premium')
@@ -9287,11 +9288,11 @@ function renderTierGate(){
 
   if (promo.active){
     const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
-    title.textContent = 'קיבלת ' + gift.name + ' במתנה';
-    sub.textContent = `${Tiers.promoMonthsText()} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
+    title.textContent = 'קיבלת ' + gift.name + ' ללא תשלום';
+    sub.textContent = `${Tiers.promoMonthsText(promo.months)} של המסלול המלא, ללא תשלום - עד ${Tiers.formatDate(promo.endsAt)}. ` +
                       'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
   } else if (agent.tier_source === 'promo_expired'){
-    title.textContent = 'תקופת ההטבה הסתיימה';
+    title.textContent = 'תקופת ההתנסות הסתיימה';
     sub.textContent = 'החשבון עבר ל-Pay&GO - בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש. ' +
                       'הנכסים, הלידים והלקוחות נשארו במקומם. אפשר להישאר כך, או לשדרג.';
   } else {
@@ -9330,7 +9331,7 @@ function renderTierGate(){
       .join('');
 
     card.innerHTML =
-      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.promoMonthsText() + '</span>' : '') +
+      (isGift ? '<span class="tg-gift">תקופת ההתנסות · ' + Tiers.promoMonthsText(promo.months) + '</span>' : '') +
       '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
       '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
       (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +
@@ -9340,7 +9341,7 @@ function renderTierGate(){
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-block ' + (isGift || (!promo.active && !isCurrent && tier.id !== 'free') ? 'btn-gold' : 'btn-ghost');
-    btn.textContent = locked ? (promo.active ? 'ייפתח בתום ההטבה' : 'המעבר נעשה מולנו')
+    btn.textContent = locked ? (promo.active ? 'ייפתח בתום תקופת ההתנסות' : 'המעבר נעשה מולנו')
       : isGift ? 'מתחילים'
       : isCurrent ? 'המסלול הנוכחי שלי - להמשיך'
       : 'בחירה ב-' + tier.name;
@@ -9410,8 +9411,8 @@ async function chooseTier(tierId, btn){
   const promo = promoOf(currentAgent);
   if (promo.active && tierId !== (promo.tier || Tiers.PROMO.tier)){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'בתקופת ההטבה אי אפשר לעבור מסלול. המעבר ייפתח ב-' +
-      Tiers.formatDate(promo.endsAt) + ', בתום ההטבה.';
+    feedback.textContent = 'בתקופת ההתנסות אי אפשר לעבור מסלול. המעבר ייפתח ב-' +
+      Tiers.formatDate(promo.endsAt) + ', בתום תקופת ההתנסות.';
     return;
   }
 
@@ -10176,7 +10177,7 @@ async function handleSubscriptionReturn(){
       const from = new Date(data.period_start);
       feedback.style.color = 'var(--blue)';
       feedback.textContent = from > new Date()
-        ? `המנוי ${name} נקבע, ויתחיל ב-${from.toLocaleDateString('he-IL')} - בסוף הטבת ההשקה.`
+        ? `המנוי ${name} נקבע, ויתחיל ב-${from.toLocaleDateString('he-IL')} - בסוף תקופת ההתנסות.`
         : `המסלול ${name} פעיל עד ${new Date(data.period_end).toLocaleDateString('he-IL')}.`;
       setTimeout(()=> location.reload(), 2500);
       return;
@@ -10962,7 +10963,7 @@ async function loadSubscriptionsAdmin(){
   const stats = [
     { key: 'pending',         n: ov.pending,         label: 'בקשות פתוחות', urgent: true },
     { key: 'promo_ending_30', n: ov.promo_ending_30, label: 'הטבות שנגמרות החודש', hot: true },
-    { key: 'promo_active',    n: ov.promo_active,    label: 'בתוך ההטבה' },
+    { key: 'promo_active',    n: ov.promo_active,    label: 'בתוך תקופת ההתנסות' },
     { key: 'premium',         n: ov.premium,         label: Tiers.label('premium') },
     { key: 'mid',             n: ov.mid,             label: Tiers.label('mid') },
     { key: 'free',            n: ov.free,            label: Tiers.label('free') },
@@ -11100,11 +11101,11 @@ async function loadSubscriptionsAdmin(){
 
   // ---- היומן ----
   const SRC_LABELS = {
-    launch_promo:           'הטבת השקה',
-    launch_promo_accepted:  'אישור ההטבה',
+    launch_promo:           'תקופת התנסות',
+    launch_promo_accepted:  'אישור תקופת ההתנסות',
     self:                   'בחירה עצמית',
     platform_admin:         'אישור הנהלה',
-    promo_expired:          'תום ההטבה',
+    promo_expired:          'תום ההתנסות',
     requested:              'בקשת שדרוג',
     request_rejected:       'בקשה נדחתה',
   };
@@ -11137,8 +11138,8 @@ const SUBS_BUCKET_WHAT = {
   free:            () => 'במסלול ' + Tiers.label('free'),
   mid:             () => 'במסלול ' + Tiers.label('mid'),
   premium:         () => 'במסלול ' + Tiers.label('premium'),
-  promo_active:    () => 'בתוך תקופת ההטבה',
-  promo_ending_30: () => 'שההטבה שלהם נגמרת החודש',
+  promo_active:    () => 'בתוך תקופת ההתנסות',
+  promo_ending_30: () => 'שתקופת ההתנסות שלהם נגמרת החודש',
 };
 
 function subsStatButtons(){
@@ -11195,7 +11196,7 @@ async function renderSubsDrill(bucket){
     const meta = [
       esc(r.agency_name || 'ללא משרד'),
       r.member_email ? '<span style="direction:ltr;display:inline-block">' + esc(r.member_email) + '</span>' : '',
-      r.promo_ends ? 'ההטבה נגמרת ב-' + esc(hebDate(r.promo_ends)) : '',
+      r.promo_ends ? 'תקופת ההתנסות נגמרת ב-' + esc(hebDate(r.promo_ends)) : '',
       r.wanted_tier ? 'ביקש/ה ' + esc(Tiers.label(r.wanted_tier)) : '',
       'יתרת ארנק ' + esc(shekel(r.wallet_balance || 0)),
     ].filter(Boolean).join(' · ');
@@ -21499,6 +21500,8 @@ function buildLeadCard(lead, agentId, isArchived){
   const secondary = el.querySelector('.lc-secondary');
   const hint = el.querySelector('.lc-hint');
 
+  const boardUrl = leadCardListingHref(lead);
+  const boardLabel = boardListingLabel(lead);
   if (!unlocked){
     const cost = claimCost(lead);
     addCardAction(primary, {
@@ -21525,11 +21528,24 @@ function buildLeadCard(lead, agentId, isArchived){
       addCardAction(primary, { label:'📞 חיוג', cls:'lc-call', href:'tel:' + tel,
         onClick: () => markLeadResponded(lead) });
     }
+    // מודעת יד2 או מדלן בלי מספר: הדרך היחידה היא הכפתור למודעה.
+    // הכתובת לא נכתבת בטקסט. לחיצה נספרת כמענה, כמו חיוג.
+    if (boardUrl && boardLabel && !wa && tel.replace(/\D/g, '').length < 9){
+      addCardAction(primary, { label: boardLabel, cls:'btn-share', blank:true, href: boardUrl,
+        title: 'המודעה המקורית. המערכת לא פונה לבעלים',
+        onClick: () => markLeadResponded(lead) });
+      hint.textContent = 'אין מספר במודעה. המודעה נפתחת מהכרטיס הזה. המערכת לא פונה לבעלים.';
+    }
     if (leadWorkReady) buildLeadWork(el.querySelector('.lc-work'), lead, isArchived);
 
     // הליד פתוח - כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
     // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
     // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
+    if (boardUrl && boardLabel && (wa || tel.replace(/\D/g, '').length >= 9)){
+      addCardAction(secondary, { label: boardLabel, blank:true, href: boardUrl,
+        title: 'המודעה המקורית. המערכת לא פונה לבעלים',
+        onClick: () => markLeadResponded(lead) });
+    }
     if (wa){
       addCardAction(secondary, {
         label:'⭐ בקשת חוות דעת', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
@@ -21794,6 +21810,18 @@ function tagsHtml(items){
 /* כפתור פעולה בכרטיס. ‏cls בוחר את הגוון (btn-ghost ברירת מחדל, btn-gold
    לפעולה ראשית, btn-share לשת"פ), ‏act-wide מותח לרוחב מלא ברשת, ו-href
    הופך את הפעולה ל-<a> (חיוג / וואטסאפ / עמוד הנכס) בלי לשנות את המראה. */
+/* כפתור למודעה ציבורית ביד2 או במדלן. רק כתובת שהמסד כבר סינן. */
+function leadCardListingHref(lead){
+  const url = String(lead && lead.board_listing_url || '');
+  return /^https:\/\/(yad2\.co\.il|madlan\.co\.il)\//.test(url) ? url : '';
+}
+function boardListingLabel(lead){
+  if (!lead) return '';
+  if (lead.source === 'yad2') return 'פתיחה ביד2';
+  if (lead.source === 'madlan') return 'פתיחה במדלן';
+  return '';
+}
+
 function addCardAction(actions, opts){
   const el = document.createElement(opts.href ? 'a' : 'button');
   el.className = 'btn ' + (opts.cls || 'btn-ghost');
@@ -26923,7 +26951,7 @@ const NOTIF_TYPES = [
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
-    sub:'סוכן/ת שעבר/ה למסלול בתשלום או שביקש/ה לעבור, ותשלום של בעל/ת מקצוע שהעלה כרטיסייה לאוויר. הטבת ההשקה אינה נספרת.',
+    sub:'סוכן/ת שעבר/ה למסלול בתשלום או שביקש/ה לעבור, ותשלום של בעל/ת מקצוע שהעלה כרטיסייה לאוויר. תקופת ההתנסות אינה נספרת.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
   /* הצעה לשיפור מהכפתור עם הזבוב (20270710090000, docs/improvement-suggestions.md).
@@ -26940,6 +26968,19 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
+
+/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+function boardListingHref(raw){
+  if (typeof raw !== 'string') return '';
+  const s = raw.trim();
+  if (!s.startsWith('https://') || s.length > 500 || /[\s@]/.test(s)) return '';
+  let host = '';
+  try { host = new URL(s).hostname.toLowerCase(); }
+  catch (e) { return ''; }
+  const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+  return ok ? s : '';
+}
 
 async function loadNotifications(agentId){
   /* המדריך לא חוסם את הפעמון. סוג שתלוי בו מצטרף כשהקובץ מגיע. */
@@ -26981,11 +27022,15 @@ async function loadNotifications(agentId){
     const meta = NOTIF_BY_TYPE.get(n.type);
     const el = document.createElement('div');
     el.className = 'notif-item' + (n.read ? '' : ' unread') + (meta && meta.tone ? ' ' + meta.tone : '');
+    const listing = boardListingHref(n.action_url);
     // ‏esc(): הגוף של ההתראה מכיל היום גם טקסט שנכתב בידי לקוח/ה (ציטוט
     // מביקורת) ושמות נכסים ממשרדים אחרים - תוכן שלא נוצר כאן ולכן לא נסמך
     el.innerHTML = `<div class="t">${esc(n.title)}</div>
       ${n.body ? `<div class="b">${esc(n.body)}</div>` : ''}
+      ${listing ? `<a class="notif-link" href="${esc(listing)}" target="_blank" rel="noopener">לצפייה במודעה</a>` : ''}
       <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
+    const listingLink = el.querySelector('.notif-link');
+    if (listingLink) listingLink.addEventListener('click', ev => ev.stopPropagation());
     el.addEventListener('click', async ()=>{
       if (!n.read){
         await sb.from('notifications').update({ read:true }).eq('id', n.id);

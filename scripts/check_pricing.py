@@ -58,8 +58,11 @@ PRICES = {
     'vat_rate':                          0.18,
     # קורס ההכנה למבחן המתווכים (20271106090000): מחיר לצרכן/ית, **כולל** מע"מ,
     # בניגוד לשאר המחירון. docs/exam-course.md
-    'course_price_gross':                199,
-    'course_access_months':              6,
+    'course_price_gross':                450,
+    'course_access_months':              4,
+    # הארכה (20271115180000): ₪99 כולל מע"מ, 4 חודשים, פעם אחת למי שרכש/ה את הקורס המלא.
+    'course_extension_price_gross':      99,
+    'course_extension_months':           4,
     # מחיר משרד ב-Elite (20271112125000): מחיר לכל סוכן/ת לפי גודל המשרד, בדף ב-#office, ב-tiers.js,
     # בשאלות ובתקנון. המחיר ל-1 עד 2 סוכנים הוא מחיר המחירון, ונבדק ב-derived() למטה.
     'office_price_tier1_min_agents':     3,
@@ -129,10 +132,14 @@ DISPLAY = [
     ('pricing.html', r'ליד ב-₪' + N,                                   'ppl_price_owner_free'),
     ('assets/tiers.js', r'ליד ב-₪' + N,                                'ppl_price_owner_free'),
     # קורס ההכנה למבחן המתווכים - דף המכירה ואזור הלמידה
+    # מחיר Elite בתיבת המתנה (399 לחודש): הערך 1,197 הוא 3 כפול הערך הזה, ומקודד ביד.
+    ('course.html', r'(?<![\d,])' + N + r' ₪ לחודש</span>, לפני מע״מ', 'tier_premium_monthly_price'),
+    ('course.html', r'הסכום הכולל נשאר ' + N + r' ₪',                    'course_price_gross'),
+    ('course.html', r'בעוד ארבעה חודשים ב-' + N + r' ₪ כולל מע״מ',        'course_extension_price_gross'),
     ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
     ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
     ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
-    ('course.html', r'וסימולציות\. ' + N + r' ₪ לשישה חודשים',           'course_price_gross'),
+    ('course.html', r'וסימולציות\. ' + N + r' ₪ לארבעה חודשים',           'course_price_gross'),
     ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
     ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
     ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),

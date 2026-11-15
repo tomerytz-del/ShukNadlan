@@ -11,7 +11,7 @@ import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
 import { shareDigestItems, type ShareDigestLine } from "../_shared/share-digest.ts";
-import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { boardListingMessage, ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import {
   absoluteUrl,
   categoryPath,
@@ -258,6 +258,8 @@ type Item = {
   source?: string | null;
   // notifications.action_path. חסר עד שהמיגרציה עלתה, ואז גובר על המיפוי.
   action_path?: string | null;
+  // קישור למודעת מדלן/יד2. חסר עד שהעמודה עלתה, ואז כפתור נפרד מהיעד ב-CRM.
+  action_url?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -517,6 +519,13 @@ function categoryFor(type: string): string | null {
  * היחיד בתבנית המאושרת הוא כיבוי הערוץ. כשהסוד מוגדר, withUrls הוא false
  * והכפתור הוא הנתיב של היעד.
  */
+/** מודעת יד2 או מדלן. הכתובת שלה לא נכנסת לטקסט של התבנית. */
+function boardActionUrl(it: Item): boolean {
+  const raw = String(it.action_url || "").trim();
+  return /^https:\/\/([a-z0-9-]+\.)*(?:madlan\.co\.il|yad2\.co\.il)\//i.test(raw)
+    && !/[\s@]/.test(raw);
+}
+
 function templateSummary(items: Item[], withUrls = true): string {
   const note = withUrls ? "" : " פרטים ב-CRM.";
   const cap = 900 - note.length;
@@ -528,12 +537,17 @@ function templateSummary(items: Item[], withUrls = true): string {
   }
   const raw = items
     .map((it) => {
+      const board = boardActionUrl(it);
       const path = itemPath(it);
-      const url = withUrls && path ? `${SITE_BASE}${path}` : null;
+      // action_url של מודעת לוח לא מועבר לכאן. גם נתיב ה-CRM לא מודבק
+      // לטקסט של מודעה כזו: הכפתור הוא המקום היחיד של הכתובת.
+      const url = !board && withUrls && path ? `${SITE_BASE}${path}` : null;
       if (it.type === "new_lead" && it.lead) {
         return `• ${leadTemplateLine(it.lead, url, items.length === 1)}`;
       }
-      return `• ${it.title}${it.body ? `: ${it.body}` : ""}${url ? ` ${url}` : ""}`;
+      let text = `${it.title}${it.body ? `: ${it.body}` : ""}`;
+      if (board) text = text.replace(/https?:\/\/\S+/g, "").replace(/ {2,}/g, " ").trim();
+      return `• ${text}${url ? ` ${url}` : ""}`;
     })
     .join(" ")
     // ‏replace לפני החיתוך: גוף התראה נכתב במסד ועשוי להכיל שורה חדשה בעצמו
@@ -586,6 +600,7 @@ async function sendWhatsapp(
   };
 
   let payload: Record<string, unknown>;
+  let soleBoard = false;
   const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
   const embedded: { label: string; url: string }[] = [];
@@ -775,7 +790,17 @@ async function sendWhatsapp(
       },
     };
   } else {
-    payload = inWindow() || linked();
+    // מודעת לוח אחת בתוך החלון: הודעה אחת, והכפתור הוא המודעה.
+    // מחוץ לחלון boardListingMessage מחזיר null והתבנית נשארת.
+    const text = fullBody();
+    const boardMsg = boardListingMessage(to, text.length > 1024 ? bare() : text, items, mode);
+    if (boardMsg) {
+      soleBoard = true;
+      tokens = [];
+      payload = boardMsg;
+    } else {
+      payload = inWindow() || linked();
+    }
   }
 
   return paceRecipient(to, async () => {
@@ -816,7 +841,7 @@ async function sendWhatsapp(
   try {
     id = (await res.json())?.messages?.[0]?.id ?? null;
   } catch { /* בלי wamid השורה נשארת sent */ }
-  if (mode !== "template") {
+  if (mode !== "template" && !soleBoard) {
     const follow = splitCta
       || (embedded.length === 1
         ? ctaPayload(to, embedded[0].label, embedded[0].label, withClickUrl(embedded[0].url, "cta"))
@@ -998,6 +1023,23 @@ async function sendLeadDigests(sb: CadenceSb): Promise<void> {
         .eq("outcome", "pending");
     }
   }
+}
+
+/** action_url של מודעת לוח. עמודה חסרה, או שגיאה, משאירות את ההודעה בלי הכפתור השני. */
+async function attachBoardActionUrls(
+  sb: { from: (table: string) => any },
+  items: Item[],
+): Promise<Item[]> {
+  const ids = items.map((it) => it.id).filter((id): id is string => !!id && UUID_RE.test(id));
+  if (!ids.length) return items;
+  const { data, error } = await sb.from("notifications").select("id, action_url").in("id", ids);
+  if (error || !Array.isArray(data)) return items;
+  const byId = new Map<string, string>();
+  for (const row of data as { id?: string; action_url?: string | null }[]) {
+    if (row.id && row.action_url) byId.set(row.id, row.action_url);
+  }
+  if (!byId.size) return items;
+  return items.map((it) => (it.id && byId.has(it.id) ? { ...it, action_url: byId.get(it.id) } : it));
 }
 
 /** מזהי מיניסייט על ההתראות שכבר נתפסו ביומן. null = לא הצלחנו לקרוא. */
@@ -1206,6 +1248,10 @@ Deno.serve(async (req: Request) => {
         }
         items = keep;
       }
+    }
+
+    if (items.some((it) => it.type === "open_demand" && it.id)) {
+      items = await attachBoardActionUrls(sb, items);
     }
 
     try {

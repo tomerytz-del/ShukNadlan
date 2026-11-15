@@ -595,6 +595,17 @@ const AFULA_HOODS: Record<string, string> = {
   "רובע יזרעאל": "רובע-יזרעאל",
 };
 
+/* מכירה בעפולה (לא מסחרי) מצביעה לדף הדירות. השכרה ומסחרי נשארים על /.
+   אותו נתיב ב-listingCrumbHtml וב-renderPropCrumbs ב-assets/property.js. */
+function cityCrumbPath(p: Record<string, unknown>): string {
+  const city = String(p.city || "").trim();
+  if (city !== "עפולה") return "";
+  if (String(p.deal_type || "") === "sale" && String(p.category || "") !== "commercial") {
+    return "/afula/דירות-למכירה";
+  }
+  return "/";
+}
+
 function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
   const city = String(p.city || "").trim();
   const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
@@ -603,7 +614,8 @@ function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
   ];
   if (city) {
     const cityItem: Record<string, unknown> = { "@type": "ListItem", position: items.length + 1, name: city };
-    if (city === "עפולה") cityItem.item = `${SITE}/`;
+    const path = cityCrumbPath(p);
+    if (path) cityItem.item = `${SITE}${path === "/" ? "/" : path}`;
     items.push(cityItem);
   }
   if (hood && hood !== city) {
@@ -614,6 +626,28 @@ function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
   }
   items.push({ "@type": "ListItem", position: items.length + 1, name: title, item: url });
   return items;
+}
+
+/* הפירור הגלוי. אותו סדר ואותם יעדים כמו listingCrumbs. #propCrumbs ריק
+   ב-property.html, ו-renderPropCrumbs כותב את אותו HTML כשהשרת לא הספיק. */
+function listingCrumbHtml(p: Record<string, unknown>, title: string): string {
+  const city = String(p.city || "").trim();
+  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const bits = [`<li><a href="/">${esc(SITE_NAME)}</a></li>`];
+  if (city) {
+    const path = cityCrumbPath(p);
+    bits.push(path
+      ? `<li><a href="${esc(path)}">${esc(city)}</a></li>`
+      : `<li><span>${esc(city)}</span></li>`);
+  }
+  if (hood && hood !== city) {
+    const slug = city === "עפולה" ? AFULA_HOODS[hood] : "";
+    bits.push(slug
+      ? `<li><a href="/n/afula/${esc(slug)}">${esc(hood)}</a></li>`
+      : `<li><span>${esc(hood)}</span></li>`);
+  }
+  bits.push(`<li aria-current="page"><span>${esc(title)}</span></li>`);
+  return `<ol>${bits.join("")}</ol>`;
 }
 
 function listingSubject(p: Record<string, unknown>, title: string, street: string) {
@@ -1118,8 +1152,12 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
       { id: "propDescription", text: body },
       ...(visible.fills || []),
     ],
-    reveal: [...(body ? ["descSection"] : []), ...(hoodHtml ? ["hoodCard"] : []), ...(visible.reveal || [])],
-    inner: [...(visible.inner || []), ...(hoodHtml ? [{ id: "hoodCard", html: hoodHtml }] : [])],
+    reveal: [...(body ? ["descSection"] : []), ...(hoodHtml ? ["hoodCard"] : []), "propCrumbs", ...(visible.reveal || [])],
+    inner: [
+      ...(visible.inner || []),
+      ...(hoodHtml ? [{ id: "hoodCard", html: hoodHtml }] : []),
+      { id: "propCrumbs", html: listingCrumbHtml(p, title) },
+    ],
     paint: heroPaint(p),
     noindex: offMarket,
     attrs: agencySlugOf(p)
@@ -1422,6 +1460,11 @@ async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> 
   if (eyebrow) {
     fills.push({ id: "brandEyebrow", text: eyebrow });
     reveal.push("brandEyebrow");
+  }
+  /* עוגן בשם הדף, רק למשרד שעיר המשרד שלו עפולה. אותו תג ש-renderAgencyBrokersLink כותב. */
+  if (city === "עפולה") {
+    inner.push({ id: "agencyBrokersLink", html: `<a href="/afula/מתווכים">מתווכים בעפולה</a>` });
+    reveal.push("agencyBrokersLink");
   }
   const ethics = !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at);
   if (pub) {
@@ -1880,14 +1923,23 @@ function fillHero(html: string, count: number, inner: string): string {
   });
 }
 
-/* הפלייסהולדר בלבד. תמונת שער אמיתית נשארת ב-preload של heroHead,
-   בסוף ה-head, ולא מקבלת את הקובץ הזה. */
+/* הפלייסהולדר בלבד, מיד אחרי charset. תמונת שער אמיתית נשארת
+   ב-preload של heroHead, גם הוא מיד אחרי charset, ולא מקבלת את הקובץ הזה. */
 function preloadPlaceholder(html: string): string {
   const tag = `<link rel="preload" as="image" href="${HERO_PLACEHOLDER}" fetchpriority="high">`;
   if (html.includes(`href="${HERO_PLACEHOLDER}"`)) return html;
   const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${tag}`);
   if (withCharset !== html) return withCharset;
   return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${tag}`);
+}
+
+/* מיד אחרי charset, לא בסוף ה-head: ה-preload יושב אחרי עשרות KB של
+   CSS, והדפדפן מגלה את תמונת ה-LCP רק אחרי שהם ירדו. */
+function insertAfterCharset(html: string, block: string): string {
+  if (!block) return html;
+  const withCharset = html.replace(/(<meta\b[^>]*\bcharset\b[^>]*>)/i, `$1\n${block}`);
+  if (withCharset !== html) return withCharset;
+  return html.replace(/<head\b[^>]*>/i, (open) => `${open}\n${block}`);
 }
 
 function heroHead(lcp: string): string[] {
@@ -1970,7 +2022,12 @@ function inject(html: string, m: Meta): string {
     out = addBodyClass(out, "property-ready has-sticky-bar");
     if (m.paint.placeholder) out = preloadPlaceholder(out);
     if (m.paint.html) out = fillHero(out, m.paint.count, m.paint.html);
-    add.push(...heroHead(m.paint.lcp));
+    /* תמונה אמיתית: preconnect ו-preload לפני כל סקריפט וכל CSS.
+       בלי תמונה ה-preload של הפלייסהולדר כבר יושב מיד אחרי charset,
+       וה-preconnect נשאר עם שאר התגיות כדי לא להיכנס בינו לבין ה-charset. */
+    const head = heroHead(m.paint.lcp);
+    if (m.paint.lcp) out = insertAfterCharset(out, head.join("\n"));
+    else add.push(...head);
   }
   if (m.jsonLd) {
     // ‏‎</script>‎ בתוך כותרת שסוכן/ת הקליד/ה היה סוגר את התגית - ולכן ‎<‎ מוברח

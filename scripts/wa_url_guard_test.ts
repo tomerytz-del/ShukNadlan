@@ -3,6 +3,9 @@
 //   node --experimental-strip-types scripts/wa_url_guard_test.ts
 
 import {
+  BOARD_VIEW_LABEL,
+  boardListingMessage,
+  boardViewCta,
   buttonLabelForUrl,
   countBeforeFollowups,
   deliverWaPayloads,
@@ -97,6 +100,33 @@ check("קישור קצר למיניסייט", buttonLabelForUrl("https://shuknad
 check("תווית הסרה", buttonLabelForUrl("https://example.com/saved-search-manage?action=unsubscribe&token=1") === "הפסקת עדכונים");
 check("מודעת יד2", buttonLabelForUrl("https://www.yad2.co.il/realestate/item/abc") === "פתיחה ביד2");
 check("מודעת מדלן", buttonLabelForUrl("https://www.madlan.co.il/listings/abc") === "פתיחה במדלן");
+const oneBoard = boardViewCta(["https://www.madlan.co.il/listings/abc", null, "https://evil.example/madlan.co.il/x"]);
+check("כפתור אחד למודעת לוח", oneBoard?.label === BOARD_VIEW_LABEL && oneBoard.url.includes("madlan.co.il/listings/abc") && !BOARD_VIEW_LABEL.includes("http"));
+check("שתי מודעות בלי כפתור יחיד", boardViewCta([
+  "https://www.madlan.co.il/listings/a",
+  "https://www.yad2.co.il/realestate/item/b",
+]) === null);
+check("טלפון אינו כפתור מודעה", boardViewCta(["052-111-2233", "אפשר להתקשר ל-052"]) === null);
+const listingUrl = "https://www.madlan.co.il/listings/one";
+const oneMsg = boardListingMessage("972500000000", "עפולה · 4 חדרים · 120 מ״ר", [
+  { type: "open_demand", action_url: listingUrl },
+], "session");
+const oneInteractive = oneMsg?.interactive as { type?: string; body?: { text?: string }; action?: { parameters?: { display_text?: string; url?: string } } } | undefined;
+check("מודעה אחת בתוך החלון היא הודעה אחת", oneMsg?.type === "interactive"
+  && oneInteractive?.type === "cta_url"
+  && oneInteractive.action?.parameters?.display_text === BOARD_VIEW_LABEL
+  && oneInteractive.action?.parameters?.url === listingUrl
+  && !String(oneInteractive.body?.text || "").includes("http"));
+check("מחוץ לחלון נשארת התבנית", boardListingMessage("972500000000", "עפולה", [
+  { type: "open_demand", action_url: listingUrl },
+], "template") === null);
+check("הודעה עם עוד התראה לא מוחלפת", boardListingMessage("972500000000", "עפולה", [
+  { type: "open_demand", action_url: listingUrl },
+  { type: "new_lead", action_url: null },
+], "session") === null);
+check("ביקוש בלי קישור לוח לא מוחלף", boardListingMessage("972500000000", "עפולה", [
+  { type: "open_demand", action_url: null },
+], "session") === null);
 check("משפט בלי כפתור", WA_NO_BUTTON === "פרטים ב-CRM" && !WA_NO_BUTTON.includes("http"));
 
 const long = `${"א".repeat(1100)} https://shuknadlan.co.il/property?id=abc`;
