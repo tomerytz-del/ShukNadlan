@@ -146,7 +146,8 @@ function bootAttr(search: string, existing: unknown) {
     decide: (stored: unknown, search: string, now: number) => { exp: number; attr_source: string | null; attr_code: string | null } | null;
     payload: (stored: unknown, now: number) => Record<string, string | null> | null;
     decorate: (input: string, init: { body?: string; method?: string } | undefined, attr: Record<string, string | null> | null) => { body?: string } | undefined;
-  }, data };
+    stamp: (body: Record<string, unknown>) => Record<string, unknown>;
+  }, data, fetch: sandbox.fetch as (input: string, init?: { body?: string; method?: string }) => Promise<unknown> };
 }
 
 const now = 1_700_000_000_000;
@@ -194,6 +195,106 @@ const crmBody = crmApi.decorate(
   { attr_source: "facebook", attr_medium: null, attr_campaign: null, attr_content: "seeker-e", attr_code: "seeker-e" },
 );
 ok("crm does not attach the agent utm", JSON.parse(crmBody?.body || "{}").visit_attr === undefined);
+
+const PAID = "?utm_source=meta&utm_medium=paid_social&utm_campaign=swipe_afula&utm_content=reel_a";
+const paid = bootAttr(PAID, null);
+const paidStored = JSON.parse(paid.data.shukVisitAttr);
+const paidAttr = paid.api.payload(paidStored, Date.now());
+ok("paid utm maps content to attr_content and attr_code",
+  paidAttr?.attr_source === "meta" && paidAttr?.attr_medium === "paid_social" &&
+  paidAttr?.attr_campaign === "swipe_afula" && paidAttr?.attr_content === "reel_a" && paidAttr?.attr_code === "reel_a");
+const stamped = paid.api.stamp({ property_id: "1", name: "a", phone: "050", source: "swipe" });
+const stampedAttr = stamped.visit_attr as { attr_content?: string; attr_code?: string; attr_source?: string };
+ok("stamp puts visit_attr on a swipe lead",
+  stamped.source === "swipe" && stamped.name === "a" && stampedAttr?.attr_content === "reel_a" &&
+  stampedAttr?.attr_code === "reel_a" && stampedAttr?.attr_source === "meta");
+ok("stamp leaves an existing visit_attr",
+  paid.api.stamp({ source: "swipe", visit_attr: { attr_content: "keep" } }).visit_attr !== undefined &&
+  (paid.api.stamp({ source: "swipe", visit_attr: { attr_content: "keep" } }).visit_attr as { attr_content: string }).attr_content === "keep");
+ok("stamp without a stored visit returns the body", bootAttr("", null).api.stamp({ source: "swipe" }).visit_attr === undefined);
+
+function intakeBody(path: string, body: Record<string, unknown>) {
+  const decorated = paid.api.decorate(
+    "https://obookujgolazrwycsiyn.supabase.co/functions/v1/" + path,
+    { method: "POST", body: JSON.stringify(body) },
+    paidAttr,
+  );
+  return JSON.parse(decorated?.body || "{}") as { source?: string; visit_attr?: { attr_content?: string; attr_code?: string } };
+}
+const inquiry = intakeBody("property-inquiry-intake", { property_id: "1", name: "a", phone: "050", source: "swipe" });
+ok("property inquiry wrapper carries reel_a", inquiry.source === "swipe" && inquiry.visit_attr?.attr_content === "reel_a" && inquiry.visit_attr?.attr_code === "reel_a");
+const alertBody = intakeBody("saved-search-intake", { full_name: "a", phone: "050", source: "swipe_end" });
+ok("saved search wrapper carries reel_a", alertBody.source === "swipe_end" && alertBody.visit_attr?.attr_content === "reel_a");
+for (const path of ["mortgage-lead-intake", "owner-lead-intake", "property-visualize"]) {
+  ok(path + " is an intake the wrapper covers", paid.api.decorate(
+    "https://obookujgolazrwycsiyn.supabase.co/functions/v1/" + path,
+    { body: JSON.stringify({ source: "swipe" }) },
+    paidAttr,
+  )?.body?.includes('"attr_content":"reel_a"') === true);
+}
+
+const swipeSrc = readFileSync(new URL("../assets/swipe.js", import.meta.url), "utf8");
+const postAt = swipeSrc.indexOf("function post(url, body)");
+const postFn = swipeSrc.slice(postAt, swipeSrc.indexOf("function errText", postAt));
+ok("swipe post stamps visit_attr before fetch", postAt > 0 && postFn.includes("ShukVisitAttr.stamp") && postFn.includes("JSON.stringify(body)"));
+
+function scriptTag(html: string, src: string) {
+  const re = new RegExp("<script\\b[^>]*\\bsrc=[\"']" + src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[\"'][^>]*>");
+  const m = re.exec(html);
+  return m ? { index: m.index, tag: m[0] } : null;
+}
+function pageHtml(name: string) {
+  return readFileSync(new URL("../" + name, import.meta.url), "utf8");
+}
+const pages: Array<[string, string]> = [
+  ["swipe.html", "assets/swipe.js"],
+  ["property.html", "assets/property.js"],
+  ["index.html", "assets/home.js"],
+  ["pricing.html", "assets/events.js"],
+];
+for (const [file, after] of pages) {
+  const html = pageHtml(file);
+  const attr = scriptTag(html, "assets/visit-attr.js");
+  const later = scriptTag(html, after);
+  ok(file + " defers visit-attr before " + after,
+    !!attr && !!later && attr.index < later.index && /\bdefer\b/.test(attr.tag) && !/\basync\b/.test(attr.tag));
+}
+const propertyHtml = pageHtml("property.html");
+const propertyAttr = scriptTag(propertyHtml, "assets/visit-attr.js");
+const propertyEvents = scriptTag(propertyHtml, "assets/events.js");
+ok("property visit-attr runs before deferred events.js",
+  !!propertyAttr && !!propertyEvents && propertyAttr.index < propertyEvents.index && /\bdefer\b/.test(propertyEvents.tag));
+
+const eventsSrc = readFileSync(new URL("../assets/events.js", import.meta.url), "utf8");
+const guardAt = eventsSrc.indexOf("function shukVisitAttrTagged");
+const writeAt = eventsSrc.lastIndexOf("document.write");
+ok("events.js checks for an existing tag before document.write", guardAt > 0 && writeAt > guardAt && eventsSrc.includes("if (!shukVisitAttrTagged())"));
+
+function runAttrLoader(srcs: Array<string | null>, readyState: string) {
+  const written: string[] = [];
+  const appended: string[] = [];
+  const start = eventsSrc.indexOf("function shukVisitAttrTagged");
+  const scripts = srcs.map((src) => ({ getAttribute: (name: string) => (name === "src" ? src : null) }));
+  const sandbox: Record<string, unknown> = {
+    document: {
+      readyState,
+      getElementsByTagName: () => scripts,
+      write: (html: string) => { written.push(html); },
+      createElement: () => ({ src: "" }),
+      head: { appendChild: (el: { src: string }) => { appended.push(el.src); } },
+    },
+  };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(eventsSrc.slice(start), sandbox);
+  return { written, appended };
+}
+const skipped = runAttrLoader(["assets/visit-attr.js"], "interactive");
+ok("a page that already tags visit-attr is not injected again", skipped.written.length === 0 && skipped.appended.length === 0);
+const parsing = runAttrLoader([], "loading");
+ok("a page without the tag still document.writes while parsing", parsing.written.length === 1 && parsing.written[0].includes("/assets/visit-attr.js") && parsing.appended.length === 0);
+const late = runAttrLoader([], "interactive");
+ok("a deferred events.js without the tag appends the script", late.written.length === 0 && late.appended[0] === "/assets/visit-attr.js");
 
 const mig = readFileSync(new URL("../supabase/migrations/20271031280000_visit_click_attribution.sql", import.meta.url), "utf8");
 ok("migration has no ip column", !/ip_address|user_agent|inet/i.test(mig));
