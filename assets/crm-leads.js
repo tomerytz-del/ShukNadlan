@@ -326,6 +326,11 @@ function buildLeadPriorityCard(group, rank, agentId){
   if (src === 'owner' && !excl) why = 'ליד בעלים';
   if (src === 'call' && call && call.status && call.status !== 'answered') why = 'התקשר/ה ולא נענה/תה';
   else if (src === 'call' && callCutOff(call)) why = 'השיחה לא הסתיימה - כדאי לחזור';
+  // ליד שמסרתי הלאה: הטיפול אצל מישהו/י אחר/ת, ו"למה עכשיו" של המקור היה מטעה
+  if (lead.referred_by && currentAgent && lead.referred_by === currentAgent.id && lead.agent_id !== currentAgent.id){
+    const handler = typeof officeMemberName === 'function' ? officeMemberName(lead.agent_id) : '';
+    why = 'הופנה לטיפול ' + (handler || 'סוכן/ת אחר/ת') + '. מעקב בלבד';
+  }
   const facts = src === 'call' ? leadCallFacts(call) : [];
   const wants = leadWants(lead, call);
 
