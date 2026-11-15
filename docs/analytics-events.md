@@ -565,3 +565,28 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | אירוע | מתי | פרמטרים |
 | --- | --- | --- |
 | `pricing_section_view` | סקשן בדף המסלולים הגיע לאמצע המסך, פעם אחת לטעינה | `section`: ‏`plans` \| `picker` \| `base` \| `cobroke` \| `marketplace` \| `team` \| `gabriela` \| `compare` \| `faq` \| `closer`, `n`: מיקום הסקשן בדף (1 עד 10) |
+
+## רכישת קורס ההכנה (begin_checkout, purchase)
+
+נוסף 15.11.2026, לקראת קמפיין לגוגל ולמטא. הדף `learn` פרטי ואינו טוען את
+`events.js`, ולכן `assets/learn.js` דוחף ל-`dataLayer` ישירות, בפורמט
+המסחר האלקטרוני של GA4 (`ecommerce`: `transaction_id`, `value`, `currency`, `items`):
+
+| אירוע | מתי | פרמטרים |
+| --- | --- | --- |
+| `begin_checkout` | לחיצה על "לתשלום מאובטח" | `value`, `currency` (ILS), `items` |
+| `purchase` | **אחרי שהגישה נפתחה בפועל** (לא לפי `?order=success` לבדו), פעם אחת לכל הזמנה | `transaction_id` (מזהה ההזמנה), `value`, `currency`, `items` |
+
+`items`: `course_exam_prep` (450 ₪, כולל מע״מ) או `course_extension` (99 ₪). **בלי פרטים
+אישיים:** לא שם, לא טלפון ולא מייל. הדחיפה לא נורית פעמיים: מזהה ההזמנה נשמר ב-
+`localStorage` (`coursePurchaseSent:<id>`).
+
+**מה צריך ב-GTM (לא קיים עד שמייבאים):** `docs/gtm-course-purchase-import.json`
+(`Admin ← Import Container`, מצב `Merge`): שני טריגרים, תגיות GA4 לשני האירועים, ותגיות Meta
+(`meta pixel purchase`, `meta pixel initiatecheckout`, Custom HTML שנסקרו ב-
+`REVIEWED_HTML_TAGS`). אחרי פרסום הגרסה מייצאים מחדש ל-`gtm/container.json`
+(`gtm/README.md`).
+
+**גוגל אדס:** ההמרה נוצרת בממשק של גוגל אדס, מ-GA4 (`Goals ← Conversions`, או ייבוא
+המרת `purchase`), ולא בקוד. אין לנו מזהה המרה בריפו.
+

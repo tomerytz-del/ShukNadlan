@@ -102,6 +102,9 @@ REVIEWED_HTML_TAGS: dict[str, str] = {
     # ‏מוצהר ב-privacy.html בסעיף נפרד ("פרסום ומיקוד מחדש") ולא בסעיף
     # העוגיות, כי מיקוד מחדש אינו מדידה — ראו docs/analytics-gtm.md.
     "meta pixel pageview": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
+    # ‏Purchase ו-InitiateCheckout של קורס ההכנה (docs/gtm-course-purchase-import.json): אותו פיקסל, בלי פרטים אישיים.
+    "meta pixel purchase": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
+    "meta pixel initiatecheckout": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
 }
 
 # ‏חתימות שמזהות מה תגית **עושה**, ולא איך היא נקראת. שם מתחלף, קריאה

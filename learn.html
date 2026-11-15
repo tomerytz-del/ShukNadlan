@@ -372,6 +372,47 @@ button,input{font-family:inherit}
   .sheet-m{display:none}
   .sheet-wrap{margin-top:16px}
 }
+
+/* ---- דף ברוכים הבאים: מסך ראשון רגוע, שאלה אחת ופעולה אחת ---- */
+.wl .card{gap:16px}
+.wl-hero{display:flex;gap:12px;align-items:flex-start}
+.wl-hero img{width:56px;height:56px;border-radius:50%;flex:none;border:2px solid #e5c76a;object-fit:cover}
+.wl-bubble{flex:1;background:#f4f7fe;border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:16px;line-height:1.55;color:#0d1b3d}
+.wl-bubble b{display:block;font-size:11.5px;letter-spacing:.08em;color:#8a6d10;margin-bottom:2px}
+.wl h2{font-size:21px;line-height:1.3}
+.wl-choices{display:flex;flex-direction:column;gap:10px}
+.wl-choice{display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:12px 16px;border:2px solid #e3e8f4;border-radius:18px;background:#fff;color:#0d1b3d;font:inherit;text-align:right;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.wl-choice:hover{border-color:#0e2a6b;background:#f7f9ff}
+.wl-choice:active{transform:scale(.98)}
+.wl-choice:focus-visible,.wl-skip:focus-visible{outline:3px solid #0e2a6b;outline-offset:2px}
+.wl-choice .ic{width:40px;height:40px;border-radius:12px;background:#e8efff;display:grid;place-items:center;flex:none}
+.wl-choice .ic svg{width:22px;height:22px;stroke:#0e2a6b;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.wl-choice b{display:block;font-size:16.5px}
+.wl-choice span.sub{display:block;font-size:13.5px;color:#4a5578;margin-top:1px}
+.wl-skip{align-self:center;background:none;border:0;color:#4a5578;font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:44px;padding:0 10px}
+.wl-dots{display:inline-flex;gap:5px;align-items:center;height:22px}
+.wl-dots i{width:7px;height:7px;border-radius:50%;background:#8b93b0;animation:wlBounce 1s infinite}
+.wl-dots i:nth-child(2){animation-delay:.15s}.wl-dots i:nth-child(3){animation-delay:.3s}
+.wl-msg{display:grid}.wl-msg>*{grid-area:1/1}
+.wl-typing{animation:wlHide 0s .8s forwards}
+.wl-reply{animation:wlIn .35s .8s both}
+.wl-plan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.wl-plan li{display:flex;gap:12px;align-items:center;font-size:15.5px;line-height:1.45;animation:wlIn .35s both}
+.wl-plan li:nth-child(1){animation-delay:1s}.wl-plan li:nth-child(2){animation-delay:1.15s}.wl-plan li:nth-child(3){animation-delay:1.3s}
+.wl-plan .mk{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;border:2px solid #cfd7ee;color:#0e2a6b;font-size:13px;font-weight:800}
+.wl-plan .mk.done{background:#1f9d6b;border-color:#1f9d6b}
+.wl-plan .mk svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.wl-fact{background:#fbf4dc;border-radius:14px;padding:11px 14px;font-size:14.5px;line-height:1.55;color:#0d1b3d;animation:wlIn .35s 1.45s both}
+.wl-actions{display:flex;flex-direction:column;gap:10px;animation:wlIn .35s 1.6s both}
+.wn-tick{width:64px;height:64px;border-radius:50%;background:#1f9d6b;margin:0 auto;display:grid;place-items:center;animation:wlIn .4s both}
+.wn-tick svg{width:32px;height:32px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.wn-bar{height:10px;border-radius:99px;background:#e8efff;overflow:hidden}
+.wn-bar i{display:block;height:100%;background:#0e2a6b;border-radius:99px}
+.wl-step{font-size:12.5px;font-weight:700;color:#4a5578;text-align:center;letter-spacing:.04em}
+@keyframes wlBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+@keyframes wlHide{to{opacity:0;visibility:hidden}}
+@keyframes wlIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.wl-typing{display:none}.wl-reply,.wl-plan li,.wl-fact,.wl-actions{animation:none}.wl-dots i{animation:none}.wl-choice{transition:none}}
 </style>
 <link rel="stylesheet" href="assets/design-system.css">
 </head>

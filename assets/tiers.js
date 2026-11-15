@@ -31,8 +31,9 @@
 
   /* ---------- הטבת ההשקה ----------
      כל מי שמצטרף/ת עכשיו מקבל/ת Elite חינם לחודשיים (עד 8.11.2026: חצי שנה), ובשלב הבחירה אין לו/ה
-     בכלל אפשרות לבחור מסלול נמוך יותר. זו החלטה שיווקית של תקופת ההשקה,
-     ולכן היא דגל אחד שאפשר לכבות — ולא התנהגות שמפוזרת בקוד.
+     בכלל אפשרות לבחור מסלול נמוך יותר. ‏15.11.2026 (תומר): ‏60 ימי Elite הם
+     התמחור הקבוע של הפלטפורמה, לא הטבה זמנית; השם "הטבת ההשקה" ו-launch_promo נשארים שם טכני בקוד. הטקסט לגולשים: "תקופת ההתנסות".
+     הצגתו נשלטת בדגל אחד — ולא בהתנהגות שמפוזרת בקוד.
 
      **המקור האמיתי הוא השרת.** הענקת ההטבה נעשית ב-‎grant_launch_promo‎ במסד
      (‏supabase/migrations/…_launch_promo_tiers.sql), וסיומה ב-‎promo-lifecycle‎.
@@ -47,8 +48,8 @@
     noticeDaysBefore: [30, 14],
     /* ועוד שתי תזכורות בוואטסאפ בלבד: שבוע ויום לפני (PROMO_WHATSAPP_DAYS). */
     whatsappDaysBefore: [7, 1],
-    headline: 'חודשיים Elite במתנה',
-    sub: 'לכל סוכן/ת שמצטרף/ת עכשיו - המסלול המלא, בלי תשלום ובלי כרטיס אשראי. בתום התקופה בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.',
+    headline: 'חודשיים Elite ללא תשלום',
+    sub: 'לכל סוכן/ת שמצטרף/ת - המסלול המלא, בלי תשלום ובלי כרטיס אשראי. בתום התקופה בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.',
   };
 
   /* ---------- מעבר בין מסלולים: סגור בשלב הזה ----------
@@ -232,8 +233,8 @@
 
   /** "חודשיים" ולא "2 חודשים": הנוסח העברי של מספר חודשי ההטבה, במקום אחד
    *  לדף המסלולים, ל-CRM ולכל מי שמציג את ההטבה. */
-  function promoMonthsText() {
-    var m = PROMO.months;
+  function promoMonthsText(months) {
+    var m = months || PROMO.months;
     if (m === 1) return 'חודש';
     if (m === 2) return 'חודשיים';
     return m + ' חודשים';
@@ -257,11 +258,18 @@
      שכל הממשקים קוראים ממנה, כדי שהחישוב "כמה ימים נשארו" לא ייכתב שלוש
      פעמים עם שלוש טעויות עיגול שונות. */
   function promoState(member) {
-    var out = { active: false, ended: false, endsAt: null, daysLeft: null, tier: null };
+    var out = { active: false, ended: false, endsAt: null, daysLeft: null, tier: null, months: PROMO.months };
     if (!member || !member.promo_ends_at) return out;
     var ends = new Date(member.promo_ends_at);
     if (isNaN(ends.getTime())) return out;
     out.endsAt = ends;
+    // מספר החודשים בפועל: רוכש/ת קורס מקבל/ת חודש נוסף, ומי שהצטרף/ה לפני
+    // הקיצור לחודשיים שומר/ת על שישה. הטקסט לא יכול להבטיח את הקבוע.
+    if (member.promo_started_at) {
+      var started = new Date(member.promo_started_at);
+      var m = Math.round((ends.getTime() - started.getTime()) / (30.44 * 86400000));
+      if (!isNaN(m) && m > 0) out.months = m;
+    }
     out.tier = member.promo_tier || PROMO.tier;
     var ms = ends.getTime() - Date.now();
     if (ms > 0 && !member.promo_ended_at) {
