@@ -630,6 +630,97 @@
 
   /* ------------------------------------------------------------ מפת הקורס */
 
+
+  /* ------------------------------------------------ "מה עכשיו?" בסוף פרק
+     הקורס אינו נעול לפי סדר: אחרי השיעור האחרון בפרק הלומד/ת בוחר/ת. כדי שחופש לא
+     יהפוך לבלבול (Hick), יש הצעה אחת מודגשת (הפרק הבא בסדר), חלופה אחת, ותרגול.
+     למי שלא רכש/ה: זה רגע ההמרה הטבעי, ולכן ההצעה היא לפתוח את הקורס המלא. */
+  function isChapterEnd(lessonId) {
+    var e = state.lessons[lessonId];
+    if (!e) return false;
+    var ls = e.chapter.lessons || [];
+    return !!ls.length && ls[ls.length - 1].id === lessonId;
+  }
+  function goAfterLesson(lessonId) {
+    if (isChapterEnd(lessonId)) { renderWhatNow(lessonId); return; }
+    var n = nextLessonId(lessonId);
+    if (n) openLesson(n); else renderMap();
+  }
+  function chapterTodo(ch) {
+    return (ch.lessons || []).filter(function (l) { var p = progressOf(l.id); return lessonAvailable(l) && !(p && p.completed_at); }).length;
+  }
+  // נעילה נגד לחיצה כפולה: הקריאה ל-course_me אסינכרונית, ומסך מאוחר לא ידרוס מסך אחר
+  async function renderWhatNow(lessonId) {
+    if (state.wnBusy) return;
+    state.wnBusy = true;
+    try { await renderWhatNowInner(lessonId); } finally { state.wnBusy = false; }
+  }
+  async function renderWhatNowInner(lessonId) {
+    var e = state.lessons[lessonId];
+    if (!e) { renderMap(); return; }
+    await refreshMe();
+    var chapters = state.catalog.chapters || [];
+    var ci = e.chapterIndex, ch = e.chapter;
+    var me = state.me || {};
+    var total = me.lessons_total || 0, done = me.lessons_done || 0;
+    var chDone = (ch.lessons || []).filter(function (l) { var p = progressOf(l.id); return p && p.completed_at; }).length;
+    // הקורס אינו נעול לפי סדר: אפשר לסיים את השיעור האחרון בפרק בלי השאר, ואז לא כותבים "הפרק הושלם"
+    var chComplete = chDone >= (ch.lessons || []).length;
+    // הפרק הבא בסדר שיש בו מה ללמוד; אם אין, הראשון שנשאר פתוח לפניו
+    var order = chapters.map(function (c, i) { return i; }).filter(function (i) { return i !== ci; });
+    var after = order.filter(function (i) { return i > ci; }), before = order.filter(function (i) { return i < ci; });
+    var todo = after.concat(before).filter(function (i) { return chapterTodo(chapters[i]) > 0; });
+    var rec = todo.length ? todo[0] : null;
+    var alt = !chComplete && chapterTodo(ch) > 0 ? ci : (todo.length > 1 ? todo[1] : null);
+    // למי שלא רכש/ה ואין מה ללמוד בחינם: ההמשך הוא הקורס המלא, לא "סיימתם הכול"
+    var lockedNext = !enrolled() && rec == null && flatLessons().some(function (l) { return !lessonAvailable(l); });
+    var pct = total ? Math.round(100 * done / total) : 0;
+    var tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+    function chBtn(i, label) {
+      var c = chapters[i], n = chapterTodo(c);
+      label = i === ci ? 'להשלים את פרק ' + (i + 1) + ': ' : label;
+      return '<button type="button" class="wl-choice" data-ch="' + i + '"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h12a4 4 0 014 4v10H8a4 4 0 01-4-4z"/></svg></span>' +
+        '<span><b>' + label + escapeHtml(c.title) + '</b><span class="sub">' + n + ' ' + (n === 1 ? 'שיעור' : 'שיעורים') + ' להשלמה</span></span></button>';
+    }
+    var primary;
+    if (lockedNext) primary = '<button type="button" class="btn-p" id="wnBuy">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button>';
+    else if (rec != null) primary = '<button type="button" class="btn-p" data-ch="' + rec + '">הפרק הבא: ' + escapeHtml(chapters[rec].title) + '</button>';
+    else primary = '<button type="button" class="btn-p" id="wnExam">לסימולציית בחינה</button>';
+    var msg = lockedNext
+      ? 'סיימתם את החלק החינמי. הפרקים הבאים נפתחים עם הגישה המלאה, ואפשר להמשיך מאותו מקום.'
+      : (rec == null ? (chComplete ? 'סיימתם את כל השיעורים. עכשיו הזמן לתרגל: סימולציה וחזרה על הטעויות.' : 'נשארו כמה שיעורים בפרק הזה. אפשר להשלים אותם, או לעבור לתרגול.') : (chComplete ? 'סיימתם את הפרק. הפרק הבא מחכה, אבל אתם בוחרים.' : 'אפשר להשלים את מה שנשאר בפרק, או להמשיך לפרק הבא. אתם בוחרים.'));
+    render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
+      '<div class="center wl"><div class="card">' +
+      '<div class="wn-tick">' + tick + '</div>' +
+      '<h2 style="text-align:center">' + (chComplete ? 'פרק ' + (ci + 1) + ' הושלם' : 'סיימתם שיעור בפרק ' + (ci + 1)) + '</h2>' +
+      '<p style="text-align:center;margin:0">' + escapeHtml(ch.title) + ' (' + chDone + ' מתוך ' + (ch.lessons || []).length + ((ch.lessons || []).length === 1 ? ' שיעור' : ' שיעורים') + ')</p>' +
+      '<div class="wn-bar" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="wl-step">' + done + ' מתוך ' + total + ' שיעורים בקורס</div>' +
+      '<div class="wl-hero"><img src="' + MENTOR + '" alt="המנטור"><div class="wl-bubble"><b>המנטור</b>' + escapeHtml(msg) + '</div></div>' +
+      '<h2>מה עכשיו?</h2>' +
+      primary +
+      '<div class="wl-choices" role="group" aria-label="אפשרויות נוספות">' +
+      (alt != null ? chBtn(alt, 'פרק ' + (alt + 1) + ': ') : '') +
+      (enrolled() ? '<button type="button" class="wl-choice" id="wnExamB"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l3 2M9 3h6"/></svg></span><span><b>סימולציית בחינה</b><span class="sub">' + ((me.exam_questions) ? me.exam_questions + ' שאלות, כמו בבחינה' : 'כמו בבחינה') + '</span></span></button>' +
+        '<button type="button" class="wl-choice" id="wnReview"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5"/></svg></span><span><b>חזרה על טעויות</b><span class="sub">מה שטעיתם בו חוזר עד שהוא יושב</span></span></button>' : '') +
+      '</div>' +
+      '<button type="button" class="wl-skip" id="wnMap">למפת הקורס, לבחירת כל שיעור</button>' +
+      '</div></div>');
+    bindBand();
+    qa('[data-ch]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var c = chapters[+b.getAttribute('data-ch')];
+        var l = (c.lessons || []).filter(function (x) { var p = progressOf(x.id); return lessonAvailable(x) && !(p && p.completed_at); })[0];
+        if (l) openLesson(l.id); else renderMap();
+      });
+    });
+    on('wnBuy', 'click', function () { renderPay(); });
+    on('wnExam', 'click', function () { startSim('exam'); });
+    on('wnExamB', 'click', function () { startSim('exam'); });
+    on('wnReview', 'click', function () { startSim('review'); });
+    on('wnMap', 'click', renderMap);
+  }
+
   /* ------------------------------------------------- דף ברוכים הבאים
      המסך הראשון שלומד/ת פוגש/ת. לומד/ת לחוצ/ה צריכ/ה שאלה אחת, תשובה חמה ופעולה
      אחת, לא מפה של 74 שיעורים. עקרונות (docs/exam-course.md, "ברוכים הבאים"):
@@ -823,12 +914,12 @@
       '</div></div><div class="aside"><div class="box"><h3>בשיעור הזה</h3><p style="margin:0;font-size:14px;color:#4a5578">' + (qn ? qn + ' שאלות' : 'אין שאלות') + (p && p.best_score != null ? ' · הציון הטוב ביותר ' + p.best_score : '') + '</p></div></div></div>' +
       '<div class="foot">' +
       (Array.isArray(lesson.steps) && lesson.steps.length ? '<button type="button" class="btn-s" id="toSteps">לגרסת הקלפים</button>' : '') +
-      (qn ? '<button type="button" class="btn-p" id="startQuiz">' + (p && p.completed_at ? 'לחידון שוב' : 'לחידון') + ' (' + qn + ')</button>' : '<button type="button" class="btn-p" id="nextLesson">לשיעור הבא</button>') +
+      (qn ? '<button type="button" class="btn-p" id="startQuiz">' + (p && p.completed_at ? 'לחידון שוב' : 'לחידון') + ' (' + qn + ')</button>' : '<button type="button" class="btn-p" id="nextLesson">' + (isChapterEnd(lesson.id) ? 'סיימתם את הפרק: מה עכשיו?' : 'לשיעור הבא') + '</button>') +
       '</div>');
     bindBand();
     on('toSteps', 'click', function () { startSteps(lesson, entry); });
     on('startQuiz', 'click', function () { startSim('quiz', lesson.id, lesson.title); });
-    on('nextLesson', 'click', function () { var n = nextLessonId(lesson.id); if (n) openLesson(n); else renderMap(); });
+    on('nextLesson', 'click', function () { goAfterLesson(lesson.id); });
   }
 
   /* ------------------------------------------------------------- הקלפים */
@@ -1233,14 +1324,14 @@
       '</section><div class="mrow"><img src="' + MENTOR + '" alt="המנטור"><p style="margin:0;flex:1;font-size:15px;line-height:1.5;font-weight:500">' + escapeHtml(msg) + '</p></div>' +
       (wrong ? '<ul class="review" id="reviewList">' + reviewItems(res.review || []) + '</ul>' : '') +
       '</div><div class="foot">' +
-      (pass ? '<button type="button" class="btn-p" id="nextLesson">' + (n ? 'לשיעור הבא' : 'למפת הקורס') + '</button>' : '<button type="button" class="btn-p" id="retry">לנסות שוב</button>') +
+      (pass ? '<button type="button" class="btn-p" id="nextLesson">' + (isChapterEnd(lesson.id) ? 'סיימתם את הפרק: מה עכשיו?' : (n ? 'לשיעור הבא' : 'למפת הקורס')) + '</button>' : '<button type="button" class="btn-p" id="retry">לנסות שוב</button>') +
       (wrong ? '<button type="button" class="btn-s" id="toReview">חזרה על מה שטעיתי (' + wrong + ')</button>' : (pass ? '' : '<button type="button" class="btn-s" id="nextLesson">לשיעור הבא בכל זאת</button>')) +
       (lesson.body_html ? '<button type="button" class="link" id="fullText">לקרוא את הטקסט המלא של השיעור</button>' : '') +
       '</div>');
     bindBand();
     bindReview();
     on('fullText', 'click', function () { openLesson(lesson.id, true); });
-    on('nextLesson', 'click', function () { if (n) openLesson(n); else renderMap(); });
+    on('nextLesson', 'click', function () { if (pass) goAfterLesson(lesson.id); else if (n) openLesson(n); else renderMap(); });
     on('retry', 'click', function () { openLesson(lesson.id); });
     on('toReview', 'click', function () { startSim('review'); });
   }
