@@ -36,6 +36,9 @@ export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 199, premium: 3
    ‏grant_launch_promo אידמפוטנטית ואינה מקצרת promo_ends_at קיים. */
 export const PROMO_TIER: Tier = "premium";
 export const PROMO_MONTHS = 2;
+/* חודשי הבונוס לרוכשי קורס ההכנה אינם קבוע כאן: הם ב-pricing_config
+   ('course_buyer_bonus_months', ‏0 = כבוי) ונקראים דרך course_buyer_bonus_months,
+   כדי שהדף וההענקה יידלקו יחד. 60 הימים עצמם הם תמחור קבוע (תומר, 15.11.2026). */
 /** הנוסח העברי של מספר החודשים ("חודשיים", לא "2 חודשים") - אותו כלל כמו Tiers.promoMonthsText ב-assets/tiers.js. */
 export function promoMonthsText(months: number = PROMO_MONTHS): string {
   if (months === 1) return "חודש";
@@ -65,10 +68,24 @@ export async function grantLaunchPromo(
   supabase: RpcCaller,
   memberId: string,
 ): Promise<PromoGrant | null> {
+  // רוכש/ת קורס בתשלום (אותו user_id) מקבל/ת חודשים נוספים לפי pricing_config.
+  // **כשל זמני בבדיקה לא מעניק 60 ימים**: ההענקה אידמפוטנטית ולא רצה שוב, ולכן
+  // רוכש/ת שהבדיקה שלו/ה נכשלה היה/הייתה מאבד/ת את החודש לתמיד. מחזירים null,
+  // וההענקה נתפסת בכניסה הבאה (כמו בכל כשל אחר כאן). חריג: הפונקציה עדיין אינה
+  // במסד (האתר והפונקציות עולים לפני המיגרציה). המתג כבוי עד שהמיגרציה רצה, ולכן
+  // אין אז מי שמגיע לו חודש, וממשיכים עם הבסיס.
+  let months = PROMO_MONTHS;
+  const bonus = await supabase.rpc("course_buyer_bonus_months", { p_member_id: memberId });
+  if (bonus.error) {
+    const missing = /could not find the function|does not exist|PGRST202|42883/i.test(bonus.error.message);
+    console.error("course_buyer_bonus_months failed", bonus.error.message);
+    if (!missing) return null;
+  } else if (typeof bonus.data === "number" && bonus.data > 0) months += bonus.data;
+
   const { data, error } = await supabase.rpc("grant_launch_promo", {
     p_member_id: memberId,
     p_tier: PROMO_TIER,
-    p_months: PROMO_MONTHS,
+    p_months: months,
   });
   if (error) {
     console.error("grant_launch_promo failed", error.message);
@@ -77,5 +94,5 @@ export async function grantLaunchPromo(
   const row = (Array.isArray(data) ? data[0] : data) as
     { granted?: boolean; result_tier?: string; ends_at?: string } | null;
   if (!row?.granted || !row.result_tier || !row.ends_at) return null;
-  return { tier: row.result_tier as Tier, ends_at: row.ends_at, months: PROMO_MONTHS };
+  return { tier: row.result_tier as Tier, ends_at: row.ends_at, months };
 }

@@ -370,7 +370,7 @@
       '<div class="center"><div class="card">' +
       '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>נכנסים עם חשבון Google, וממשיכים מאיפה שעצרתם, מכל מכשיר.</div></div>' +
       '<h2>כניסה לקורס ההכנה</h2>' +
-      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לשישה חודשים ב-199 ₪ כולל מע״מ.</p>' +
+      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לארבעה חודשים ב-450 ₪ כולל מע״מ.</p>' +
       '<button type="button" class="gbtn" id="googleBtn">' + I.google + '<span class="gl-label">כניסה עם Google</span></button>' +
       '<div class="err" id="loginErr">' + escapeHtml(err || '') + '</div>' +
       '<p style="font-size:13.5px"><a href="/course">חזרה לדף הקורס</a></p>' +
@@ -397,9 +397,11 @@
 
   /* --------------------------------------------------------------- טעינה */
   async function loadAll() {
-    var r = await Promise.all([rpc('course_me'), rpc('course_catalog')]);
+    var r = await Promise.all([rpc('course_me'), rpc('course_catalog'), rpc('course_extension_offer')]);
     if (r[0].error) throw r[0].error;
     if (r[1].error) throw r[1].error;
+    // הצעת הארכה: כשל (למשל האתר עלה לפני המיגרציה) אומר רק שאין הצעה
+    state.offer = (r[2] && !r[2].error && r[2].data && r[2].data.available) ? r[2].data : null;
     state.me = r[0].data || {};
     state.catalog = r[1].data || { chapters: [] };
     state.lessons = {};
@@ -467,27 +469,92 @@
     }
     return r;
   }
+  /* ----------------------------------------------------------- מדידה
+     אירועי המסחר האלקטרוני של GA4 (begin_checkout, purchase) דרך dataLayer, ו-GTM
+     מעביר אותם ל-GA4 ול-Meta (docs/gtm-course-purchase-import.json). **בלי פרטים
+     אישיים:** רק מזהה הזמנה, סכום ופריט. הדף הזה פרטי ואינו טוען את events.js,
+     ולכן הדחיפה כאן ישירה. מדידה לא שוברת: הכול בתוך try. */
+  function ecomItem(kind, amount) {
+    return { item_id: kind === 'extension' ? 'course_extension' : 'course_exam_prep',
+             item_name: kind === 'extension' ? 'הארכת קורס הכנה למבחן המתווכים' : 'קורס הכנה למבחן המתווכים',
+             price: amount, quantity: 1 };
+  }
+  function pushEcom(event, payload) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null });
+      window.dataLayer.push({ event: event, ecommerce: payload });
+    } catch (e) { /* מדידה לא שוברת כפתור */ }
+  }
+  function trackCheckout(kind) {
+    var amount = kind === 'extension' ? (state.offer && Number(state.offer.amount)) : Number($('payAmount') && $('payAmount').textContent);
+    if (!amount) return;
+    pushEcom('begin_checkout', { currency: 'ILS', value: amount, items: [ecomItem(kind, amount)] });
+  }
+  /* הרכישה נרשמת בחזרה מהסליקה, לא בלחיצה: מזהה ההזמנה, הסוג והסכום נשמרים
+     ל-sessionStorage לפני המעבר, והאירוע נורה רק אחרי שהגישה נפתחה בפועל. */
+  function rememberOrder(orderId, kind, amount) {
+    try { if (orderId) sessionStorage.setItem('courseOrder', JSON.stringify({ id: orderId, kind: kind, amount: amount })); } catch (e) { /* מצב פרטי */ }
+  }
+  function trackPurchaseOnce(orderId) {
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('courseOrder') || 'null');
+      var id = orderId || (saved && saved.id);
+      if (!id || !saved || !saved.amount) return;
+      var key = 'coursePurchaseSent:' + id;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+      pushEcom('purchase', { transaction_id: id, currency: 'ILS', value: saved.amount, items: [ecomItem(saved.kind, saved.amount)] });
+      sessionStorage.removeItem('courseOrder');
+    } catch (e) { /* מדידה לא שוברת */ }
+  }
+  /* חזרה מהסליקה למי שכבר רשום/ה (הארכה): הגישה כבר פתוחה, ולכן ממתינים עד שאין
+     הזמנה בהמתנה, ורק אז נרשמת הרכישה. */
+  function confirmReturnPurchase() {
+    var tries = 0;
+    clearInterval(state.pollTimer2);
+    state.pollTimer2 = setInterval(async function () {
+      tries++;
+      // הרכישה נרשמת רק כשההזמנה עצמה בסטטוס success (לא רק "אין הזמנה בהמתנה"):
+      // הזמנה שנכשלה (למשל amount_mismatch) מנקה גם היא את ההמתנה, ואסור למדוד אותה.
+      var id = state.returnOrderId;
+      var o = id ? await withAuth(function () { return sb.from('course_orders').select('status').eq('id', id).maybeSingle(); }) : null;
+      var st = o && !o.error && o.data ? o.data.status : null;
+      if (st === 'success') {
+        clearInterval(state.pollTimer2);
+        refreshMe();
+        trackPurchaseOnce(id);
+      } else if (st === 'failed' || tries > 20) clearInterval(state.pollTimer2);
+    }, 3000);
+  }
   async function renderPay(opts) {
     opts = opts || {};
     var expired = state.me && state.me.expired;
+    // הארכה (₪99) רק למי שמציעים לו/ה אותה; כל מקרה אחר הוא הרכישה המלאה
+    var ext = !!(state.offer && (opts.kind === 'extension' || (expired && !opts.kind)));
+    state.payKind = ext ? 'extension' : 'full';
     var name = (state.user && state.user.user_metadata && state.user.user_metadata.full_name) || '';
     render(band({ title: 'שוק נדל״ן', exit: 'logout', cls: 'tall', extra: '<h1 style="padding:6px 6px 0;font-size:22px">קורס הכנה למבחן המתווכים</h1>' }) +
       '<div class="center" style="max-width:560px"><form class="card" id="payForm" novalidate>' +
-      (expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>טוב לראות אתכם שוב. תקופת הגישה נגמרה ב-' + escapeHtml(fmtDate(state.me.expires_at)) + ', וההתקדמות שלכם נשמרה.</div></div>' : '') +
+      (expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>טוב לראות אתכם שוב. תקופת הגישה נגמרה ב-' + escapeHtml(fmtDate(state.me.expires_at)) + ', וההתקדמות שלכם נשמרה.' + (ext ? ' אפשר להאריך בארבעה חודשים נוספים.' : '') + '</div></div>' : '') +
+      (ext && !expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>הגישה שלכם מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. אפשר להאריך בארבעה חודשים נוספים, והם יתווספו לסוף התקופה.</div></div>' : '') +
       '<div id="payVerify" class="hidden" style="text-align:center"><div class="spin"></div><p>מאמתים את התשלום מול חברת הסליקה...</p></div>' +
       '<div id="payBody">' +
-      '<div class="price-row"><div class="amt"><span id="payAmount">199</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">6</span> חודשים</span></div>' +
+      '<div class="price-row"><div class="amt"><span id="payAmount">450</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">4</span> חודשים</span></div>' +
       '<ul class="feat">' + ['כל השיעורים והחידונים', 'כל מבחני העבר עם ההסברים', 'סימולציות ללא הגבלה', 'חזרה על טעויות', 'מד התקדמות אישי', 'תכנים חדשים שנוספים בתקופה'].map(function (t) { return '<li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f9d55" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>' + t + '</li>'; }).join('') + '</ul>' +
       '<div class="hr"></div><b style="font-size:14px">פרטים לחשבונית</b>' +
       '<label class="field">שם מלא<input id="payName" type="text" autocomplete="name" maxlength="100" value="' + escapeHtml(name) + '"></label>' +
       '<label class="field">טלפון<input id="payPhone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" dir="ltr" style="text-align:right"></label>' +
-      '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. אפשר לבטל בתוך 14 ימים, כל עוד לא נפתח שיעור בתשלום או מבחן סימולציה, ולקבל החזר מלא במייל shuknadlan@gmail.com.</span></label>' +
+      '<label class="chk"><input type="checkbox" id="payTerms"><span>קראתי ואישרתי את <a href="/terms" target="_blank" rel="noopener"><b>תנאי השימוש והתקנון</b></a>. המחיר כולל מע״מ. ' + (ext ? 'ההארכה ניתנת פעם אחת. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד תקופת ההארכה טרם החלה, ולקבל החזר מלא במייל shuknadlan@gmail.com.' : 'אפשר לבטל בתוך 14 ימים, כל עוד לא נפתח שיעור בתשלום או מבחן סימולציה, ולקבל החזר מלא במייל shuknadlan@gmail.com.') + '</span></label>' +
       '<button type="submit" class="btn-p" id="payBtn">' + I.lockS + ' לתשלום מאובטח</button>' +
       '<button type="button" class="btn-s" id="freeLessonBtn">לשיעור החינמי קודם</button>' +
       '<button type="button" class="btn-s hidden" id="testEnrollBtn">פתיחת גישה לבדיקה (צוות הניהול)</button>' +
       '<div class="err" id="payErr"></div>' +
-      '</div></form></div>');
+      '</div>' +
+      '<p class="pay-support" style="margin:14px 0 0;font-size:13px;line-height:1.7;text-align:center;opacity:.85">נתקלתם בבעיה בתשלום? אנחנו כאן: <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a> · <a href="tel:+972546929991" data-site-contact>054-6929991</a></p>' +
+      '</form></div>');
     bindBand();
+    if (ext) { $('payAmount').textContent = state.offer.amount; $('payMonths').textContent = state.offer.months; }
     on('freeLessonBtn', 'click', function () { renderMap(); });
     on('payForm', 'submit', submitPay);
     on('testEnrollBtn', 'click', async function () {
@@ -503,8 +570,7 @@
       var pr = await purchaseFetch('GET');
       var info = pr.data;
       if (pr.ok && $('payAmount')) {
-        $('payAmount').textContent = info.amount;
-        $('payMonths').textContent = info.months;
+        if (!ext) { $('payAmount').textContent = info.amount; $('payMonths').textContent = info.months; }
         $('testEnrollBtn').classList.toggle('hidden', !info.can_test);
         if (!info.configured) $('payErr').textContent = 'הסליקה אינה זמינה כרגע. אפשר להתחיל מהשיעור החינמי ולנסות שוב מאוחר יותר.';
       }
@@ -521,9 +587,12 @@
     var btn = $('payBtn');
     btn.disabled = true; btn.textContent = 'פותחים את עמוד התשלום...';
     try {
-      var sp = await purchaseFetch('POST', { client_name: name, client_phone: $('payPhone').value.trim(), client_country: 'IL' });
+      var kind = state.payKind === 'extension' ? 'extension' : 'full';
+      trackCheckout(kind);
+      var sp = await purchaseFetch('POST', { kind: kind, client_name: name, client_phone: $('payPhone').value.trim(), client_country: 'IL' });
       var data = sp.data;
       if (!sp.ok || !data.redirect_url) throw data;
+      rememberOrder(data.order_id, kind, Number(data.amount));
       window.location.href = data.redirect_url;
       return;
     } catch (e) { $('payErr').textContent = errText(e); }
@@ -543,7 +612,8 @@
       if (state.me.enrolled) {
         clearInterval(state.pollTimer);
         toast('התשלום אושר. ברוכים הבאים לקורס!');
-        renderMap();
+        trackPurchaseOnce(state.returnOrderId); // enrolled = נפתחה גישה, כלומר התשלום אושר
+        if (shouldWelcome()) renderWelcome(); else renderMap();
         return;
       }
       if (!state.me.pending_order || tries > 40) {
@@ -559,6 +629,178 @@
   }
 
   /* ------------------------------------------------------------ מפת הקורס */
+
+
+  /* ------------------------------------------------ "מה עכשיו?" בסוף פרק
+     הקורס אינו נעול לפי סדר: אחרי השיעור האחרון בפרק הלומד/ת בוחר/ת. כדי שחופש לא
+     יהפוך לבלבול (Hick), יש הצעה אחת מודגשת (הפרק הבא בסדר), חלופה אחת, ותרגול.
+     למי שלא רכש/ה: זה רגע ההמרה הטבעי, ולכן ההצעה היא לפתוח את הקורס המלא. */
+  function isChapterEnd(lessonId) {
+    var e = state.lessons[lessonId];
+    if (!e) return false;
+    var ls = e.chapter.lessons || [];
+    return !!ls.length && ls[ls.length - 1].id === lessonId;
+  }
+  function goAfterLesson(lessonId) {
+    if (isChapterEnd(lessonId)) { renderWhatNow(lessonId); return; }
+    var n = nextLessonId(lessonId);
+    if (n) openLesson(n); else renderMap();
+  }
+  function chapterTodo(ch) {
+    return (ch.lessons || []).filter(function (l) { var p = progressOf(l.id); return lessonAvailable(l) && !(p && p.completed_at); }).length;
+  }
+  // נעילה נגד לחיצה כפולה: הקריאה ל-course_me אסינכרונית, ומסך מאוחר לא ידרוס מסך אחר
+  async function renderWhatNow(lessonId) {
+    if (state.wnBusy) return;
+    state.wnBusy = true;
+    try { await renderWhatNowInner(lessonId); } finally { state.wnBusy = false; }
+  }
+  async function renderWhatNowInner(lessonId) {
+    var e = state.lessons[lessonId];
+    if (!e) { renderMap(); return; }
+    await refreshMe();
+    var chapters = state.catalog.chapters || [];
+    var ci = e.chapterIndex, ch = e.chapter;
+    var me = state.me || {};
+    var total = me.lessons_total || 0, done = me.lessons_done || 0;
+    var chDone = (ch.lessons || []).filter(function (l) { var p = progressOf(l.id); return p && p.completed_at; }).length;
+    // הקורס אינו נעול לפי סדר: אפשר לסיים את השיעור האחרון בפרק בלי השאר, ואז לא כותבים "הפרק הושלם"
+    var chComplete = chDone >= (ch.lessons || []).length;
+    // הפרק הבא בסדר שיש בו מה ללמוד; אם אין, הראשון שנשאר פתוח לפניו
+    var order = chapters.map(function (c, i) { return i; }).filter(function (i) { return i !== ci; });
+    var after = order.filter(function (i) { return i > ci; }), before = order.filter(function (i) { return i < ci; });
+    var todo = after.concat(before).filter(function (i) { return chapterTodo(chapters[i]) > 0; });
+    var rec = todo.length ? todo[0] : null;
+    var alt = !chComplete && chapterTodo(ch) > 0 ? ci : (todo.length > 1 ? todo[1] : null);
+    // למי שלא רכש/ה ואין מה ללמוד בחינם: ההמשך הוא הקורס המלא, לא "סיימתם הכול"
+    var lockedNext = !enrolled() && rec == null && flatLessons().some(function (l) { return !lessonAvailable(l); });
+    var pct = total ? Math.round(100 * done / total) : 0;
+    var tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+    function chBtn(i, label) {
+      var c = chapters[i], n = chapterTodo(c);
+      label = i === ci ? 'להשלים את פרק ' + (i + 1) + ': ' : label;
+      return '<button type="button" class="wl-choice" data-ch="' + i + '"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h12a4 4 0 014 4v10H8a4 4 0 01-4-4z"/></svg></span>' +
+        '<span><b>' + label + escapeHtml(c.title) + '</b><span class="sub">' + n + ' ' + (n === 1 ? 'שיעור' : 'שיעורים') + ' להשלמה</span></span></button>';
+    }
+    var primary;
+    if (lockedNext) primary = '<button type="button" class="btn-p" id="wnBuy">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button>';
+    else if (rec != null) primary = '<button type="button" class="btn-p" data-ch="' + rec + '">הפרק הבא: ' + escapeHtml(chapters[rec].title) + '</button>';
+    else primary = '<button type="button" class="btn-p" id="wnExam">לסימולציית בחינה</button>';
+    var msg = lockedNext
+      ? 'סיימתם את החלק החינמי. הפרקים הבאים נפתחים עם הגישה המלאה, ואפשר להמשיך מאותו מקום.'
+      : (rec == null ? (chComplete ? 'סיימתם את כל השיעורים. עכשיו הזמן לתרגל: סימולציה וחזרה על הטעויות.' : 'נשארו כמה שיעורים בפרק הזה. אפשר להשלים אותם, או לעבור לתרגול.') : (chComplete ? 'סיימתם את הפרק. הפרק הבא מחכה, אבל אתם בוחרים.' : 'אפשר להשלים את מה שנשאר בפרק, או להמשיך לפרק הבא. אתם בוחרים.'));
+    render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
+      '<div class="center wl"><div class="card">' +
+      '<div class="wn-tick">' + tick + '</div>' +
+      '<h2 style="text-align:center">' + (chComplete ? 'פרק ' + (ci + 1) + ' הושלם' : 'סיימתם שיעור בפרק ' + (ci + 1)) + '</h2>' +
+      '<p style="text-align:center;margin:0">' + escapeHtml(ch.title) + ' (' + chDone + ' מתוך ' + (ch.lessons || []).length + ((ch.lessons || []).length === 1 ? ' שיעור' : ' שיעורים') + ')</p>' +
+      '<div class="wn-bar" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="wl-step">' + done + ' מתוך ' + total + ' שיעורים בקורס</div>' +
+      '<div class="wl-hero"><img src="' + MENTOR + '" alt="המנטור"><div class="wl-bubble"><b>המנטור</b>' + escapeHtml(msg) + '</div></div>' +
+      '<h2>מה עכשיו?</h2>' +
+      primary +
+      '<div class="wl-choices" role="group" aria-label="אפשרויות נוספות">' +
+      (alt != null ? chBtn(alt, 'פרק ' + (alt + 1) + ': ') : '') +
+      (enrolled() ? '<button type="button" class="wl-choice" id="wnExamB"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l3 2M9 3h6"/></svg></span><span><b>סימולציית בחינה</b><span class="sub">' + ((me.exam_questions) ? me.exam_questions + ' שאלות, כמו בבחינה' : 'כמו בבחינה') + '</span></span></button>' +
+        '<button type="button" class="wl-choice" id="wnReview"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5"/></svg></span><span><b>חזרה על טעויות</b><span class="sub">מה שטעיתם בו חוזר עד שהוא יושב</span></span></button>' : '') +
+      '</div>' +
+      '<button type="button" class="wl-skip" id="wnMap">למפת הקורס, לבחירת כל שיעור</button>' +
+      '</div></div>');
+    bindBand();
+    qa('[data-ch]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var c = chapters[+b.getAttribute('data-ch')];
+        var l = (c.lessons || []).filter(function (x) { var p = progressOf(x.id); return lessonAvailable(x) && !(p && p.completed_at); })[0];
+        if (l) openLesson(l.id); else renderMap();
+      });
+    });
+    on('wnBuy', 'click', function () { renderPay(); });
+    on('wnExam', 'click', function () { startSim('exam'); });
+    on('wnExamB', 'click', function () { startSim('exam'); });
+    on('wnReview', 'click', function () { startSim('review'); });
+    on('wnMap', 'click', renderMap);
+  }
+
+  /* ------------------------------------------------- דף ברוכים הבאים
+     המסך הראשון שלומד/ת פוגש/ת. לומד/ת לחוצ/ה צריכ/ה שאלה אחת, תשובה חמה ופעולה
+     אחת, לא מפה של 74 שיעורים. עקרונות (docs/exam-course.md, "ברוכים הבאים"):
+     פחות בחירות (Hick), הצעד הראשון כבר "נעשה" (Endowed Progress), בחירה קטנה
+     שמחייבת בעדינות (Commitment), הבחינה מפורקת למספר ממשי (Curse of Knowledge).
+     בלי דחיפות מזויפת ובלי נתון שאין לנו. מוצג פעם אחת למכשיר ובלי התקדמות. */
+  // לכל חשבון בנפרד, ונרשם ברגע שהמסך מוצג (לא רק בלחיצה): סגירה או רענון לא מחזירים אותו
+  function welcomeKey() { return 'learnWelcomeSeen:' + ((state.user && state.user.id) || ''); }
+  function welcomeSeen() { try { return !!localStorage.getItem(welcomeKey()); } catch (e) { return false; } }
+  function markWelcomeSeen(choice) { try { localStorage.setItem(welcomeKey(), choice || '1'); } catch (e) { /* מצב פרטי: יוצג שוב */ } }
+  // רק למי שאין לו/ה התקדמות, ורק כשיש שיעור שאפשר לפתוח (אחרת אין למה להבטיח "שיעור ראשון")
+  function shouldWelcome() { return !welcomeSeen() && !(state.me && state.me.progress && state.me.progress.length) && !!nextOpenLesson(); }
+  var WELCOME_CHOICES = [
+    { id: 'zero', t: 'מתחילים מאפס', s: 'בלי רקע בחוק. בקצב נוח.', d: 'M5 12l5 5L20 7' },
+    { id: 'some', t: 'למדתי קצת', s: 'רוצים לסדר ולתרגל.', d: 'M4 5h12a4 4 0 014 4v10H8a4 4 0 01-4-4z' },
+    { id: 'retake', t: 'כבר נבחנתי, ומתכוננים שוב', s: 'הפעם מכינים את זה כמו שצריך.', d: 'M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5' }
+  ];
+  var WELCOME_REPLIES = {
+    zero: 'מצוין. נלך בקצב נוח: שיעור קצר, שאלה אחת, וממשיכים. אין צורך להבין הכול בפעם הראשונה.',
+    some: 'יופי, יש על מה לבנות. נתרגל, והמערכת תראה לכם מה כבר יושב ומה עוד לא.',
+    retake: 'אין בזה בושה, וזה לא אומר עליכם כלום. כל שאלה שטעיתם בה חוזרת אליכם עד שהיא יושבת, כדי שהפעם לא תפספסו אותה.'
+  };
+  function firstName() {
+    var n = (state.user && state.user.user_metadata && (state.user.user_metadata.given_name || state.user.user_metadata.full_name)) || '';
+    return String(n).trim().split(/\s+/)[0] || '';
+  }
+  function renderWelcome(choice) {
+    var fn = firstName();
+    var head = band({ title: 'שוק נדל״ן', exit: 'logout', cls: 'tall' });
+    if (!choice) {
+      markWelcomeSeen('shown');
+      render(head + '<div class="center wl"><div class="card">' +
+        '<div class="wl-step">שלב 1 מתוך 2</div>' +
+        '<div class="wl-hero"><img src="' + MENTOR + '" alt="המנטור"><div class="wl-bubble"><b>המנטור</b>' +
+        'היי' + (fn ? ' ' + escapeHtml(fn) : '') + ', ברוכים הבאים. אני המנטור, ואהיה איתכם בכל שיעור.</div></div>' +
+        '<h2>איפה אתם היום?</h2>' +
+        '<div class="wl-choices" role="group" aria-label="איפה אתם היום">' +
+        WELCOME_CHOICES.map(function (c) {
+          return '<button type="button" class="wl-choice" data-c="' + c.id + '"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + c.d + '"/></svg></span>' +
+            '<span><b>' + escapeHtml(c.t) + '</b><span class="sub">' + escapeHtml(c.s) + '</span></span></button>';
+        }).join('') + '</div>' +
+        '<button type="button" class="wl-skip" id="wlSkip">לדלג למפת הקורס</button>' +
+        '</div></div>');
+      bindBand();
+      qa('.wl-choice').forEach(function (b) { b.addEventListener('click', function () { renderWelcome(b.getAttribute('data-c')); }); });
+      on('wlSkip', 'click', function () { markWelcomeSeen('skip'); renderMap(); });
+      return;
+    }
+    var firstId = nextOpenLesson();
+    var entry = firstId ? state.lessons[firstId] : null;
+    // הנתון רק כשהמסד החזיר אותו: בלי ברירת מחדל שנראית כעובדה
+    var q = state.me && state.me.exam_questions, pct = state.me && state.me.pass_pct;
+    var need = q && pct ? Math.ceil(q * pct / 100) : 0;
+    var tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+    render(head + '<div class="center wl"><div class="card">' +
+      '<div class="wl-step">שלב 2 מתוך 2</div>' +
+      '<div class="wl-hero"><img src="' + MENTOR + '" alt="המנטור"><div class="wl-bubble"><b>המנטור</b>' +
+      '<span class="wl-msg"><span class="wl-typing wl-dots" aria-hidden="true"><i></i><i></i><i></i></span>' +
+      '<span class="wl-reply">' + escapeHtml(WELCOME_REPLIES[choice] || WELCOME_REPLIES.zero) + '</span></span></div></div>' +
+      '<ul class="wl-plan">' +
+      '<li><span class="mk done">' + tick + '</span><span>נכנסתם. הצעד הראשון כבר מאחוריכם.</span></li>' +
+      '<li><span class="mk">1</span><span>' + (enrolled() ? 'השיעור הראשון' : 'שיעור ראשון, בחינם') + (entry ? ': ' + escapeHtml(entry.lesson.title) : '') + '</span></li>' +
+      '<li><span class="mk">2</span><span>שאלה קצרה בסוף כל שיעור, ובחלק מהשיעורים סרטון אנימציה אינטראקטיבי</span></li>' +
+      '</ul>' +
+      (need ? '<div class="wl-fact">הבחינה היא ' + q + ' שאלות, ומספיקות ' + need + ' תשובות נכונות כדי לעבור. זה אפשרי, ובדיוק על זה נתאמן.</div>' : '') +
+      '<div class="wl-actions">' +
+      '<button type="button" class="btn-p" id="wlStart">מתחילים בשיעור הראשון</button>' +
+      (enrolled()
+        ? '<button type="button" class="btn-s" id="wlMap">למפת הקורס</button>'
+        : '<button type="button" class="btn-s" id="wlBuy">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button>') +
+      '<button type="button" class="wl-skip" id="wlBack">שינוי התשובה</button>' +
+      '<p style="font-size:13px;text-align:center;margin:0">' + (enrolled() ? '' : 'אפשר לשלם עד 3 תשלומים ללא ריבית. ') + 'ההתקדמות נשמרת, ואפשר לעצור ולחזור מתי שנוח.</p>' +
+      '</div></div></div>');
+    bindBand();
+    on('wlStart', 'click', function () { markWelcomeSeen(choice); if (firstId) openLesson(firstId); else renderMap(); });
+    on('wlMap', 'click', function () { markWelcomeSeen(choice); renderMap(); });
+    on('wlBuy', 'click', function () { markWelcomeSeen(choice); renderPay(); });
+    on('wlBack', 'click', function () { renderWelcome(); });
+  }
+
   function renderMap() {
     clearInterval(state.timerId);
     state.steps = null; state.sim = null;
@@ -570,7 +812,11 @@
     var extra = '<div class="map-head">' +
       '<div class="title-row"><h1>המסלול שלך</h1><span class="count">' + done + ' מתוך ' + total + ' שיעורים</span></div>' +
       '<div class="map-track" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + done + '" aria-valuemin="0" aria-valuemax="' + total + '"><i style="width:' + (total ? Math.round(100 * done / total) : 0) + '%"></i></div>' +
-      '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div></div>';
+      '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div>' +
+      (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה של ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪</button></p></div>' : '') +
+      // מי שעוד לא רכש/ה: השיעורים הראשונים פתוחים, והדרך לרכישה גלויה מהמפה (ולא רק מנעילת שיעור)
+      (!enrolled() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button></p></div>' : '') +
+      '</div>';
 
     var chapters = (state.catalog.chapters || []);
     var mapHtml = chapters.map(function (ch, ci) {
@@ -600,6 +846,8 @@
       '<button type="button" class="btn-p" id="examBtnM">' + I.clock + ' סימולציה' + (last != null ? ' <span class="badge gold">' + last + '</span>' : '') + '</button>' +
       '<button type="button" class="btn-s" id="reviewBtnM">חזרה על טעויות</button></nav>');
     bindBand();
+    on('extBtn', 'click', function () { renderPay({ kind: 'extension' }); });
+    on('buyBtn', 'click', function () { renderPay(); });
     qa('.node').forEach(function (b) { b.addEventListener('click', function () { openLesson(b.getAttribute('data-lesson')); }); });
     ['examBtn', 'examBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('exam'); }); });
     ['reviewBtn', 'reviewBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('review'); }); });
@@ -630,7 +878,7 @@
   function renderLocked(entry) {
     render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
       '<div class="center"><div class="card">' +
-      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. תשלום אחד לשישה חודשים, וכל מה שכבר למדתם נשמר.</div></div>' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. תשלום אחד לארבעה חודשים, וכל מה שכבר למדתם נשמר.</div></div>' +
       '<h2>' + escapeHtml(entry.lesson.title) + '</h2>' +
       '<p>גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.</p>' +
       '<button type="button" class="btn-p" id="goPay">לפתיחת הקורס המלא</button>' +
@@ -666,12 +914,12 @@
       '</div></div><div class="aside"><div class="box"><h3>בשיעור הזה</h3><p style="margin:0;font-size:14px;color:#4a5578">' + (qn ? qn + ' שאלות' : 'אין שאלות') + (p && p.best_score != null ? ' · הציון הטוב ביותר ' + p.best_score : '') + '</p></div></div></div>' +
       '<div class="foot">' +
       (Array.isArray(lesson.steps) && lesson.steps.length ? '<button type="button" class="btn-s" id="toSteps">לגרסת הקלפים</button>' : '') +
-      (qn ? '<button type="button" class="btn-p" id="startQuiz">' + (p && p.completed_at ? 'לחידון שוב' : 'לחידון') + ' (' + qn + ')</button>' : '<button type="button" class="btn-p" id="nextLesson">לשיעור הבא</button>') +
+      (qn ? '<button type="button" class="btn-p" id="startQuiz">' + (p && p.completed_at ? 'לחידון שוב' : 'לחידון') + ' (' + qn + ')</button>' : '<button type="button" class="btn-p" id="nextLesson">' + (isChapterEnd(lesson.id) ? 'סיימתם את הפרק: מה עכשיו?' : 'לשיעור הבא') + '</button>') +
       '</div>');
     bindBand();
     on('toSteps', 'click', function () { startSteps(lesson, entry); });
     on('startQuiz', 'click', function () { startSim('quiz', lesson.id, lesson.title); });
-    on('nextLesson', 'click', function () { var n = nextLessonId(lesson.id); if (n) openLesson(n); else renderMap(); });
+    on('nextLesson', 'click', function () { goAfterLesson(lesson.id); });
   }
 
   /* ------------------------------------------------------------- הקלפים */
@@ -1076,14 +1324,14 @@
       '</section><div class="mrow"><img src="' + MENTOR + '" alt="המנטור"><p style="margin:0;flex:1;font-size:15px;line-height:1.5;font-weight:500">' + escapeHtml(msg) + '</p></div>' +
       (wrong ? '<ul class="review" id="reviewList">' + reviewItems(res.review || []) + '</ul>' : '') +
       '</div><div class="foot">' +
-      (pass ? '<button type="button" class="btn-p" id="nextLesson">' + (n ? 'לשיעור הבא' : 'למפת הקורס') + '</button>' : '<button type="button" class="btn-p" id="retry">לנסות שוב</button>') +
+      (pass ? '<button type="button" class="btn-p" id="nextLesson">' + (isChapterEnd(lesson.id) ? 'סיימתם את הפרק: מה עכשיו?' : (n ? 'לשיעור הבא' : 'למפת הקורס')) + '</button>' : '<button type="button" class="btn-p" id="retry">לנסות שוב</button>') +
       (wrong ? '<button type="button" class="btn-s" id="toReview">חזרה על מה שטעיתי (' + wrong + ')</button>' : (pass ? '' : '<button type="button" class="btn-s" id="nextLesson">לשיעור הבא בכל זאת</button>')) +
       (lesson.body_html ? '<button type="button" class="link" id="fullText">לקרוא את הטקסט המלא של השיעור</button>' : '') +
       '</div>');
     bindBand();
     bindReview();
     on('fullText', 'click', function () { openLesson(lesson.id, true); });
-    on('nextLesson', 'click', function () { if (n) openLesson(n); else renderMap(); });
+    on('nextLesson', 'click', function () { if (pass) goAfterLesson(lesson.id); else if (n) openLesson(n); else renderMap(); });
     on('retry', 'click', function () { openLesson(lesson.id); });
     on('toReview', 'click', function () { startSim('review'); });
   }
@@ -1235,6 +1483,7 @@
     state.user = session.user;
     var params = new URLSearchParams(window.location.search);
     var order = params.get('order');
+    state.returnOrderId = order === 'success' ? params.get('order_id') : null;
     cleanAuthParams();
     if (order) {
       var u = new URL(window.location.href);
@@ -1243,8 +1492,9 @@
     }
     try { await loadAll(); } catch (e) { renderBoot(errText(e)); return; }
     if (order === 'success' && !state.me.enrolled) { renderPay({ verify: true }); return; }
+    if (order === 'success') confirmReturnPurchase();
     if (order === 'failure') { renderPay({ failure: true }); return; }
-    renderMap();
+    if (shouldWelcome()) renderWelcome(); else renderMap();
   }
   (async function boot() {
     renderBoot();

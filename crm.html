@@ -1243,7 +1243,7 @@ window.shukArmTrackers = function () {
   .imp-bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .25s}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   /* ההודעה יושבת מעל סרגל הניווט של המערכת ולא מאחוריו */
-  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:260;align-items:center;justify-content:space-between;gap:12px}
+  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:5000;align-items:center;justify-content:space-between;gap:12px}
   .toast-undo{min-height:44px;min-width:64px;padding:0 14px;border:0;border-radius:10px;background:#fff;color:var(--nv-ink,#0E1A33);font:inherit;font-size:14px;font-weight:800;cursor:pointer}
   @media (max-width:1023px){
     .toast{bottom:calc(76px + var(--sa-bottom))}
@@ -6820,6 +6820,7 @@ window.shukArmTrackers = function () {
   .lp-name{font-size:17px;font-weight:700;overflow-wrap:anywhere}
   .lp-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px}
   .lp-wants{margin:0;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+  .lp-referral{margin:0;font-size:13px}
   .lp-why{margin:0;font-size:14px;color:var(--nv-muted)}
   .lp-why strong{color:var(--nv-ink)}
   .lp-facts{display:flex;flex-wrap:wrap;gap:6px}
@@ -7459,7 +7460,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <li>ההרשמה לוקחת כמה דקות</li>
       </ul>
       <a href="/agency-signup" class="btn btn-block">להצטרפות ←</a>
-      <div class="auth-gift">🎁 <b>חודשיים במתנה</b> - ללא התחייבות וללא פרטי אשראי</div>
+      <div class="auth-gift">🎁 <b>חודשיים Elite ללא תשלום</b> - ללא התחייבות וללא פרטי אשראי</div>
     </section>
     <p class="auth-agent-note">סוכן/ת במשרד שכבר רשום אצלנו? אין צורך להירשם - נכנסים למעלה עם המייל שמנהל/ת המשרד רשם/ה, ונחבר אותך לכרטיס.</p>
     </div>
@@ -7618,7 +7619,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
          שדה נוסף למלא. -->
     <div id="caTierField" class="promo-tag">
-      🎁 <b>חודשיים במתנה עלינו</b> - ללא התחייבות וללא פרטי אשראי
+      🎁 <b>חודשיים Elite ללא תשלום</b> - ללא התחייבות וללא פרטי אשראי
     </div>
     <div class="ethics-consent" style="margin-bottom:12px">
       <input type="checkbox" id="caEthicsConsent">
@@ -7697,7 +7698,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        החליט/ה על ההוצאה של מישהו אחר; טופס ההזמנה כבר לא שואל את זה.
 
        בתקופת ההשקה אין כאן בחירה אמיתית אלא הודעה: כולם מקבלים Elite לחצי
-       שנה, והמסלולים האחרים מוצגים אפורים עם "ייפתח בתום ההטבה". בתום
+       שנה, והמסלולים האחרים מוצגים אפורים עם "ייפתח בתום תקופת ההתנסות". בתום
        התקופה אותו מסך בדיוק הופך לבחירה של ממש — ‎renderTierGate()‎ בונה את
        שניהם מאותו קטלוג.
 
@@ -7817,7 +7818,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- המתנה ותגית המסלול הן תגית אחת: המתנה יושבת בתוך הגלולה, בתחילתה,
                  ולחיצה על כל אחת מהן פותחת את חלונית ההטבה (wirePromoGift), שבה
                  הקישור לדף המסלולים. כל עוד המתנה מוסתרת (לפני הטעינה) התגית
-                 היא קישור רגיל. המתנה (הטבת ההשקה / בקשת שדרוג פתוחה / דף
+                 היא קישור רגיל. המתנה (תקופת ההתנסות / בקשת שדרוג פתוחה / דף
                  המסלולים) מוצגת תמיד אחרי הטעינה, ו-renderPromoStrip() מחליט
                  על הנוסח, שעובר ל-title ולטקסט הנסתר לקוראי מסך. -->
             <span class="tier-chip">
@@ -7860,7 +7861,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <b id="promoPopTitle"></b>
         </div>
         <p class="pp-sub" id="promoPopSub"></p>
-        <p class="pp-note" id="promoPopNote" hidden>תצוגה מקדימה - כך רואים את החלונית סוכנים בהטבת ההשקה.</p>
+        <p class="pp-note" id="promoPopNote" hidden>תצוגה מקדימה - כך רואים את החלונית סוכנים בתקופת ההתנסות.</p>
         <div class="pp-bar" id="promoPopBar" hidden><span id="promoPopFill"></span></div>
         <a class="pp-cta" id="promoPopLink" href="/pricing" target="_blank" rel="noopener">לפירוט המסלולים ←</a>
       </div>
@@ -10454,7 +10455,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              נבחר על ידו/ה בכניסה הראשונה — לא נקבע מראש בטופס של מישהו אחר.
              מה שכן מוצג כאן הוא מה שההזמנה שווה: חודשיים במסלול המלא. -->
         <div style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:11px 13px;font-size:.78rem;line-height:1.55">
-          🎁 <b>ההזמנה כוללת חודשיים Elite במתנה.</b>
+          🎁 <b>ההזמנה כוללת חודשיים Elite ללא תשלום.</b>
           הסוכן/ת נכנס/ת עם הקישור, מוסר/ת את מספר הרישיון ומאשר/ת את הקוד האתי במסך אחד,
           ומשויך/ת אוטומטית למשרד. המסלול שנבחר יופיע כאן ברשימת הצוות.
         </div>
