@@ -753,6 +753,13 @@ update public.scraped_leads
    and phone_hash is not null
    and public.madlan_switchboard_phone(raw_phone);
 
+-- yad2 מכיל ספרה. האילוץ הישן ^[a-z_]{3,40}$ דחה אותו לפני שהשורה
+-- נכתבה, וזה נשאר מוסתר כי missing_phone חזר קודם. בלי התיקון המילוי
+-- לא יכול להיכנס.
+alter table public.scraped_leads drop constraint if exists scraped_leads_source_check;
+alter table public.scraped_leads add constraint scraped_leads_source_check
+  check (source ~ '^[a-z0-9_]{3,40}$');
+
 -- הדחיות הישנות נכנסות בלי דחיפה. אין התראה ואין פניה לבעלים.
 insert into public.scraped_leads (
   lead_type, source, source_detail, post_url, external_ref, posted_at,
