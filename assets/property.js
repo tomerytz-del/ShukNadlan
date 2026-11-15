@@ -2785,6 +2785,57 @@ function publicAddressText(p){
     .filter(Boolean).join(', ');
 }
 
+/* שכונות עפולה שה-slug שלהן ידוע. אותו מילון כמו AFULA_HOODS ב-og-tags.ts.
+   בלי slug אין קישור, כדי לא להמציא כתובת /n/. */
+var AFULA_HOOD_SLUGS = {
+  'אזור התעשייה': 'אזור-התעשייה',
+  'גבעת המורה': 'גבעת-המורה',
+  'דרום העיר': 'דרום-העיר',
+  'השכונה הצפון מערבית': 'השכונה-הצפון-מערבית',
+  'לב העמק C1': 'לב-העמק-c1',
+  'מזרח העיר': 'מזרח-העיר',
+  'מערב העיר (שיכון גאולים)': 'מערב-העיר-שיכון-גאולים',
+  'מרכז העיר': 'מרכז-העיר',
+  'עפולה הירוקה': 'עפולה-הירוקה',
+  'עפולה עלית': 'עפולה-עלית',
+  'רובע יזרעאל': 'רובע-יזרעאל'
+};
+
+/* מכירה בעפולה (לא מסחרי) לדף הדירות. השאר, כולל השכרה, לדף הבית.
+   אותו כלל כמו cityCrumbPath ב-og-tags.ts. */
+function cityCrumbPath(p){
+  var city = String((p && p.city) || '').trim();
+  if (city !== 'עפולה') return '';
+  if (p.deal_type === 'sale' && p.category !== 'commercial') return '/afula/דירות-למכירה';
+  return '/';
+}
+
+/* פירור גלוי. אותו סדר כמו BreadcrumbList: האתר, העיר, השכונה, המודעה.
+   השרת ממלא את #propCrumbs; כאן אותו HTML כשהוא עוד ריק, או כשהנכס נטען מחדש. */
+function renderPropCrumbs(p){
+  var nav = document.getElementById('propCrumbs');
+  if (!nav || !p) return;
+  var city = String(p.city || '').trim();
+  var hoodName = (p.neighborhoods && p.neighborhoods.name) || '';
+  hoodName = String(hoodName || '').trim();
+  var bits = ['<li><a href="/">שוק נדל״ן</a></li>'];
+  if (city){
+    var path = cityCrumbPath(p);
+    bits.push(path
+      ? '<li><a href="' + escapeHtml(path) + '">' + escapeHtml(city) + '</a></li>'
+      : '<li><span>' + escapeHtml(city) + '</span></li>');
+  }
+  if (hoodName && hoodName !== city){
+    var slug = city === 'עפולה' ? AFULA_HOOD_SLUGS[hoodName] : '';
+    bits.push(slug
+      ? '<li><a href="/n/afula/' + escapeHtml(slug) + '">' + escapeHtml(hoodName) + '</a></li>'
+      : '<li><span>' + escapeHtml(hoodName) + '</span></li>');
+  }
+  bits.push('<li aria-current="page"><span>' + escapeHtml(publicTitle(p)) + '</span></li>');
+  nav.innerHTML = '<ol>' + bits.join('') + '</ol>';
+  nav.hidden = false;
+}
+
 /* כרטיס "רוצים לדעת עוד על השכונה?" - קישור לדף השכונה (‏/n/{עיר}/{שכונה},
    docs/neighborhood-pages.md), רק לשכונה שיש לה דף שנכנס לאינדקס: ‏neighborhood_pages_public
    (מודעה פעילה או חמש עסקאות) ושוק חי, כמו ‏hoodCard ב-netlify/edge-functions/og-tags.ts.
@@ -2976,6 +3027,7 @@ function renderProperty(p){
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
+  renderPropCrumbs(p);
   renderHoodCard(p);
   renderMarketDistance(p, addressEl);
   renderOpenHouseBand(p);

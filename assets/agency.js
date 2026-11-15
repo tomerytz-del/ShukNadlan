@@ -867,6 +867,24 @@ function syncAgencyDescription(){
   });
 }
 
+/* קישור לדף המתווכים בעפולה, רק כשעיר המשרד היא עפולה.
+   אותו תג ש-og-tags כותב ל-#agencyBrokersLink. העוגן הוא שם הדף. */
+function renderAgencyBrokersLink(agency){
+  var el = document.getElementById('agencyBrokersLink');
+  if (!el) return;
+  var place = window.ShukAgencyPlace;
+  var city = place && place.officeCity ? place.officeCity(agency) : '';
+  if (city !== 'עפולה'){
+    if (!place) return;
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  var html = '<a href="/afula/מתווכים">מתווכים בעפולה</a>';
+  if (el.innerHTML.trim() !== html) el.innerHTML = html;
+  el.hidden = false;
+}
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -897,6 +915,7 @@ async function loadAgency(){
       eyebrowEl.innerHTML = areas.length ? ICON.pin + escapeHtml(eyebrowText) : '';
     }
     if (eyebrowEl) eyebrowEl.hidden = !areas.length;
+    renderAgencyBrokersLink(agency);
     // התמחויות מוצהרות נכנסות מיד; משרד בלי הצהרה מקבל תגיות נגזרות אחרי
     // שהנכסים נטענים (loadActiveProperties קורא שוב עם הנכסים בידו)
     renderSpecialties(agency, null);
