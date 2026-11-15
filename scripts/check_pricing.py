@@ -129,6 +129,8 @@ DISPLAY = [
     ('pricing.html', r'ליד ב-₪' + N,                                   'ppl_price_owner_free'),
     ('assets/tiers.js', r'ליד ב-₪' + N,                                'ppl_price_owner_free'),
     # קורס ההכנה למבחן המתווכים - דף המכירה ואזור הלמידה
+    # מחיר Elite בתיבת המתנה (399 לחודש): הערך 1,197 הוא 3 כפול הערך הזה, ומקודד ביד.
+    ('course.html', r'(?<![\d,])' + N + r' ₪ לחודש</span>, לפני מע״מ', 'tier_premium_monthly_price'),
     ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
     ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
     ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),

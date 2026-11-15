@@ -36,9 +36,9 @@ export const TIER_PRICES: Record<Tier, number> = { free: 0, mid: 199, premium: 3
    ‏grant_launch_promo אידמפוטנטית ואינה מקצרת promo_ends_at קיים. */
 export const PROMO_TIER: Tier = "premium";
 export const PROMO_MONTHS = 2;
-/** חודש נוסף על 60 ימי ה-Elite הקבועים, למי שרכש/ה את קורס ההכנה בתשלום ונרשם/ה
- *  כסוכן/ת עם אותו חשבון (תומר, 15.11.2026; ‏60 הימים עצמם הם תמחור קבוע, לא הטבה). "90 ימים" בדף הקורס הם PROMO_MONTHS + הערך הזה. */
-export const COURSE_BUYER_BONUS_MONTHS = 1;
+/* חודשי הבונוס לרוכשי קורס ההכנה אינם קבוע כאן: הם ב-pricing_config
+   ('course_buyer_bonus_months', ‏0 = כבוי) ונקראים דרך course_buyer_bonus_months,
+   כדי שהדף וההענקה יידלקו יחד. 60 הימים עצמם הם תמחור קבוע (תומר, 15.11.2026). */
 /** הנוסח העברי של מספר החודשים ("חודשיים", לא "2 חודשים") - אותו כלל כמו Tiers.promoMonthsText ב-assets/tiers.js. */
 export function promoMonthsText(months: number = PROMO_MONTHS): string {
   if (months === 1) return "חודש";
@@ -68,13 +68,12 @@ export async function grantLaunchPromo(
   supabase: RpcCaller,
   memberId: string,
 ): Promise<PromoGrant | null> {
-  // רוכש/ת קורס בתשלום (אותו user_id) מקבל/ת חודש נוסף. כישלון בבדיקה אינו
-  // מכשיל את ההענקה: הטבה בסיסית עדיפה על אפס, והחודש הנוסף נתפס בקריאה
-  // הבאה רק אם הענקה עדיין לא נעשתה (grant_launch_promo אידמפוטנטית).
+  // רוכש/ת קורס בתשלום (אותו user_id) מקבל/ת חודשים נוספים לפי pricing_config.
+  // כישלון בבדיקה אינו מכשיל את ההענקה: הטבה בסיסית עדיפה על אפס.
   let months = PROMO_MONTHS;
-  const buyer = await supabase.rpc("is_course_buyer", { p_member_id: memberId });
-  if (buyer.error) console.error("is_course_buyer failed", buyer.error.message);
-  else if (buyer.data === true) months += COURSE_BUYER_BONUS_MONTHS;
+  const bonus = await supabase.rpc("course_buyer_bonus_months", { p_member_id: memberId });
+  if (bonus.error) console.error("course_buyer_bonus_months failed", bonus.error.message);
+  else if (typeof bonus.data === "number" && bonus.data > 0) months += bonus.data;
 
   const { data, error } = await supabase.rpc("grant_launch_promo", {
     p_member_id: memberId,
