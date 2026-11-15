@@ -146,6 +146,25 @@
     return payload(readStored(), Date.now());
   }
 
+  /* מוסיף visit_attr לגוף שנשלח ביד. לא נוגע בגוף שכבר נושא ייחוס,
+     ולא בדף ה-CRM. בלי ייחוס שמור מחזיר את הגוף כמו שהוא. */
+  function stamp(body) {
+    try {
+      if (onCrmPage()) return body;
+      if (!body || typeof body !== "object" || Array.isArray(body) || body.visit_attr) return body;
+      var attr = currentPayload();
+      if (!attr) return body;
+      var next = {};
+      for (var k in body) {
+        if (Object.prototype.hasOwnProperty.call(body, k)) next[k] = body[k];
+      }
+      next.visit_attr = attr;
+      return next;
+    } catch (e) {
+      return body;
+    }
+  }
+
   function boot() {
     if (typeof global.location === 'undefined') return;
     if (onCrmPage()) return;
@@ -171,6 +190,7 @@
     decide: decide,
     payload: payload,
     decorate: decorate,
+    stamp: stamp,
     isIntake: isIntake,
     onCrmPage: onCrmPage,
     fromSearch: fromSearch
