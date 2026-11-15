@@ -3,7 +3,7 @@
 --
 -- החלטת תומר (15.11.2026): מי שרכש/ה את קורס ההכנה ונרשם/ה בפלטפורמה כיועץ/ת
 -- נדל״ן באותו חשבון Google מקבל/ת 90 ימי Elite במקום 60 (60 הימים הם התמחור
--- הקבוע, לא הטבה זמנית). ההטבה למצטרפים חדשים בלבד. אין תאריך סיום.
+-- הקבוע, לא הטבה זמנית). ההטבה למצטרפים חדשים בלבד: מי שרכש/ה את הקורס **לפני** שהצטרף/ה כסוכן/ת. אין תאריך סיום.
 --
 -- הזיהוי הוא לפי `user_id`: `course_orders.user_id` ו-`agency_members.user_id`
 -- מצביעים שניהם ל-`auth.users`. "שולם" = הזמנה ב-`success` שאינה `test_mode`;
@@ -38,7 +38,7 @@ as $$
          and o.status = 'success'
          and o.test_mode = false
     )
-    then coalesce((select value::int from public.pricing_config
+    then coalesce((select floor(value)::int from public.pricing_config
                     where key = 'course_buyer_bonus_months'), 0)
     else 0
   end;
@@ -73,7 +73,7 @@ as $$
     'lessons_total', (select count(*) from public.course_lessons where published),
     'questions_total', (select count(*) from public.course_questions where published),
     'exam_questions_total', (select count(*) from public.course_questions where published and kind = 'exam'),
-    'buyer_bonus_months', coalesce((select value::int from public.pricing_config
+    'buyer_bonus_months', coalesce((select floor(value)::int from public.pricing_config
                                      where key = 'course_buyer_bonus_months'), 0)
   );
 $$;

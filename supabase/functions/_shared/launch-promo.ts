@@ -69,11 +69,18 @@ export async function grantLaunchPromo(
   memberId: string,
 ): Promise<PromoGrant | null> {
   // רוכש/ת קורס בתשלום (אותו user_id) מקבל/ת חודשים נוספים לפי pricing_config.
-  // כישלון בבדיקה אינו מכשיל את ההענקה: הטבה בסיסית עדיפה על אפס.
+  // **כשל זמני בבדיקה לא מעניק 60 ימים**: ההענקה אידמפוטנטית ולא רצה שוב, ולכן
+  // רוכש/ת שהבדיקה שלו/ה נכשלה היה/הייתה מאבד/ת את החודש לתמיד. מחזירים null,
+  // וההענקה נתפסת בכניסה הבאה (כמו בכל כשל אחר כאן). חריג: הפונקציה עדיין אינה
+  // במסד (האתר והפונקציות עולים לפני המיגרציה). המתג כבוי עד שהמיגרציה רצה, ולכן
+  // אין אז מי שמגיע לו חודש, וממשיכים עם הבסיס.
   let months = PROMO_MONTHS;
   const bonus = await supabase.rpc("course_buyer_bonus_months", { p_member_id: memberId });
-  if (bonus.error) console.error("course_buyer_bonus_months failed", bonus.error.message);
-  else if (typeof bonus.data === "number" && bonus.data > 0) months += bonus.data;
+  if (bonus.error) {
+    const missing = /could not find the function|does not exist|PGRST202|42883/i.test(bonus.error.message);
+    console.error("course_buyer_bonus_months failed", bonus.error.message);
+    if (!missing) return null;
+  } else if (typeof bonus.data === "number" && bonus.data > 0) months += bonus.data;
 
   const { data, error } = await supabase.rpc("grant_launch_promo", {
     p_member_id: memberId,
