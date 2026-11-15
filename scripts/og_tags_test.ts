@@ -147,6 +147,7 @@ for (const c of CASES) {
    הבית לא דולף לנתונים המובנים. */
 const PROP_PAGE =
   `<!doctype html><html><head><title>נכס | שוק נדל״ן</title></head><body>` +
+  `<nav class="prop-crumbs" id="propCrumbs" aria-label="פירורי לחם" hidden></nav>` +
   `<h1 class="prop-title" id="propTitle">-</h1>` +
   `<div class="prop-address" id="propAddress"></div>` +
   `<div class="desc-block" id="descSection" hidden>` +
@@ -191,9 +192,15 @@ checks.push(
     const crumbs = ld?.["@graph"]?.find((n: { "@type": string }) => n["@type"] === "BreadcrumbList");
     const names = (crumbs?.itemListElement || []).map((x: { name: string }) => x.name);
     const hood = (crumbs?.itemListElement || []).find((x: { name: string }) => x.name === "גבעת המורה");
+    const city = (crumbs?.itemListElement || []).find((x: { name: string }) => x.name === "עפולה");
     return names.join("|") === "שוק נדל״ן|עפולה|גבעת המורה|דירה 4 חד׳ בהרצל 12, עפולה"
-      && decodeURIComponent(hood?.item || "").includes("/n/afula/גבעת-המורה");
+      && decodeURIComponent(hood?.item || "").includes("/n/afula/גבעת-המורה")
+      && decodeURIComponent(city?.item || "") === "https://shuknadlan.co.il/afula/דירות-למכירה";
   }],
+  ["פירור גלוי: מכירה בעפולה אל דף הדירות", (h) =>
+    h.includes('id="propCrumbs"') && !/id="propCrumbs"[^>]*hidden/.test(h)
+    && h.includes('href="/afula/דירות-למכירה">עפולה</a>')
+    && h.includes('href="/n/afula/גבעת-המורה">גבעת המורה</a>')],
   ["רחוב ומספר בכתובת המובנית, בלי גוש", () =>
     listing?.about?.address?.streetAddress === "הרצל 12" &&
     listing?.about?.address?.addressLocality === "עפולה" &&
@@ -224,6 +231,22 @@ const shop = shopLd["@graph"][0].about;
 const shopPass = shop["@type"] === "Place" && shop.numberOfRooms === undefined;
 if (!shopPass) failed++;
 console.log(`${shopPass ? "✓" : "✗"} נכס מסחרי הוא Place בלי חדרים`);
+
+function cityCrumbItem(html: string): string {
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+  const crumbs = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "BreadcrumbList");
+  const city = (crumbs.itemListElement || []).find((x: { name: string }) => x.name === "עפולה");
+  return String(city?.item || "");
+}
+const rentCity = cityCrumbItem(await render({ ...RICH, deal_type: "rent" }));
+const rentPass = rentCity === "https://shuknadlan.co.il/"
+  && (await render({ ...RICH, deal_type: "rent" })).includes('href="/">עפולה</a>');
+if (!rentPass) failed++;
+console.log(`${rentPass ? "✓" : "✗"} השכרה בעפולה: הפירור נשאר על דף הבית`);
+const commCity = cityCrumbItem(await render({ ...RICH, category: "commercial" }));
+const commPass = commCity === "https://shuknadlan.co.il/";
+if (!commPass) failed++;
+console.log(`${commPass ? "✓" : "✗"} מסחרי בעפולה: הפירור אינו דף הדירות`);
 
 /* בלי תיאור: הבלוק נשאר מוסתר, כמו ב-JS */
 const bareHtml = await render({ ...RICH, description: null, marketing_description: null });
@@ -1028,6 +1051,8 @@ const richSeo: [string, boolean][] = [
   ["רשימת נכסים עם קישור למודעה", richList?.itemListElement?.[0]?.url === "https://shuknadlan.co.il/property?id=11111111-1111-4111-8111-111111111111"],
   ["יועץ ונכס ב-HTML, בלי משפטי החסר", officeHtml.includes('href="/agent?slug=dana"') && officeHtml.includes('href="/property?id=11111111-1111-4111-8111-111111111111"')
     && !officeHtml.includes("המשרד לא נמצא") && !officeHtml.includes("לא נמצאו נכסים") && officeHtml.includes("להתקשר למשרד")],
+  ["משרד בעפולה מקשר למתווכים בעפולה", officeHtml.includes('<a href="/afula/מתווכים">מתווכים בעפולה</a>')
+    && !/id="agencyBrokersLink"[^>]*\bhidden\b/.test(officeHtml)],
   ["כרטיס יועץ: השם הוא הקישור, והכפתורים אחים שלו", (() => {
     const nameAt = officeHtml.indexOf('class="team-name" href="/agent?slug=dana"');
     const nameEnd = nameAt < 0 ? -1 : officeHtml.indexOf("</a>", nameAt);

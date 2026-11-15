@@ -614,11 +614,22 @@ def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
     for key in sorted(in_sitemap - known):
         problems.append("‏/?%s ב-sitemap.xml ואינו ברשימה שבפונקציה — הוא יצהיר על / ולא יתאנדקס." % key)
 
+    # צירוף עם דף נחיתה נחשב מקושר גם כשהפוטר והניווט מצביעים אל הדף
+    # עצמו (‏/afula/דירות-למכירה) ולא אל ‎/?deal=sale‎. מסחרי הוא תנאי:
+    # הקישור לדף נספר רק כל עוד השורה שלו ב-sitemap (הדף חי).
+    targets = {key: landing for key, landing in entries if landing}
+    if (SITE + "/afula/נדלן-מסחרי") in set(locs):
+        targets.setdefault("deal=commercial", "/afula/נדלן-מסחרי")
     linked: set[str] = set()
+    via_landing: set[str] = set()
     for path in pages:
-        for query in FOOTER_LINK.findall(path.read_text(encoding="utf-8")):
+        text = path.read_text(encoding="utf-8")
+        for query in FOOTER_LINK.findall(text):
             linked.add(query_key(query))
-    for key in sorted(known - linked):
+        for key, landing in targets.items():
+            if 'href="%s"' % landing in text:
+                via_landing.add(key)
+    for key in sorted(known - linked - via_landing):
         problems.append("‏/?%s ברשימה שבפונקציה ואין אליו קישור באף דף — עמוד יתום." % key)
     for key in sorted(linked - known):
         problems.append(

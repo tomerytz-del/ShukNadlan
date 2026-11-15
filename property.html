@@ -1342,6 +1342,15 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
+<style>
+  /* פירורי הלחם. אחרי design-system.css, כדי שצבע הקישור לא יידרס. */
+  .prop-crumbs{margin:0 0 8px;font-size:.82rem;line-height:1.45}
+  .prop-crumbs ol{display:flex;flex-wrap:wrap;align-items:center;list-style:none;margin:0;padding:0}
+  .prop-crumbs li{display:inline-flex;align-items:center;color:var(--ink-soft,#4a5578)}
+  .prop-crumbs li+li::before{content:"/";margin-inline:6px;color:#c5cbe0}
+  .prop-crumbs a,.prop-crumbs a:hover{color:var(--teal,#0e2a6b);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+  .prop-crumbs [aria-current="page"]{color:var(--ink,#0d1b3d);font-weight:600}
+</style>
 <link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/gabriela-widget.js" defer data-page="property"></script>
@@ -1388,9 +1397,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          באתר, שאליו מגיעים מקישור ששותף, וגם מתווך/ת לא מצא/ה איך מצטרפים.
          בטלפון - ‏<details> בלי JS. docs/property-page-nav.md -->
     <nav class="pn-links" aria-label="ניווט ראשי">
-      <a href="/?deal=sale">למכירה</a>
+      <a href="/afula/דירות-למכירה">למכירה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">להשכרה</a>
-      <a href="/?deal=commercial">מסחרי</a>
+      <a href="/afula/נדלן-מסחרי">מסחרי</a>
       <a href="/projects">פרויקטים</a>
       <a href="/agencies">משרדי תיווך</a>
       <a href="/prices">מחירי דירות</a>
@@ -1406,9 +1415,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary aria-label="תפריט"><span class="pn-burger" aria-hidden="true"></span><span class="pn-menu-word">תפריט</span></summary>
         <div class="pn-panel">
           <a href="/">כל הנכסים</a>
-          <a href="/?deal=sale">נכסים למכירה</a>
+          <a href="/afula/דירות-למכירה">נכסים למכירה</a>
           <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה</a>
-          <a href="/?deal=commercial">נדל״ן מסחרי</a>
+          <a href="/afula/נדלן-מסחרי">נדל״ן מסחרי</a>
           <a href="/projects">פרויקטים חדשים</a>
           <a href="/open-house">יריד הבתים הפתוחים</a>
           <a href="/agencies">משרדי תיווך</a>
@@ -1469,6 +1478,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            בדיוק כמה שנקבע לו. -->
       <div class="content-col">
       <div class="main-col">
+        <nav class="prop-crumbs" id="propCrumbs" aria-label="פירורי לחם" hidden></nav>
         <h1 class="prop-title" id="propTitle">-</h1>
         <div class="prop-address" id="propAddress"></div>
         <!-- ‏P1-P: מספר המודעה - לחיפוש "מודעה 1316" בדף הבית ולשיחה עם יועץ הנדל״ן.
@@ -2399,7 +2409,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
-      <a href="/?deal=sale">דירות למכירה בעפולה</a>
+      <a href="/afula/דירות-למכירה">דירות למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
       <a href="/?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
@@ -2412,7 +2422,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
-      <a href="/?deal=commercial">נכסים מסחריים בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">נכסים מסחריים בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
       <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>

@@ -21,7 +21,8 @@
 
 JSON-LD: `WebPage`, `BreadcrumbList`, ו-`ItemList` של `LocalBusiness`
 ו-`RealEstateAgent`, ובנוסף `FAQPage` שתואם ל-`<details>` הגלויים.
-הקישור לדף יושב ב-`/about`, ב-`/agencies` ובפוטר.
+הקישור לדף יושב בפוטר (העוגן "מתווכים בעפולה"), ב-`/about` וב-`/agencies`
+ליד רשימת המשרדים, ובדף משרד שעיר המשרד שלו עפולה (`#agencyBrokersLink`).
 כותרת `/about` מתארת את הפלטפורמה, והגוף שלו לא נמחק.
 
 ה-H1 נשאר «מתווכים בעפולה». כפתור הגיבור הראשי הוא «לכל המשרדים»
