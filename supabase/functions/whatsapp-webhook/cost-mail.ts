@@ -46,6 +46,7 @@ const BY_DOMAIN: [string, string][] = [
   ["anthropic.com", "anthropic_api"],
   ["make.com", "make"],
   ["openai.com", "openai"],
+  ["x.ai", "grok"],
   ["twilio.com", "twilio"],
   ["facebookmail.com", "meta"],
   ["meta.com", "meta"],

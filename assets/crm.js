@@ -6767,6 +6767,7 @@ const COST_SERVICES = [
   { key: 'github',              label: 'GitHub',         sub: 'קוד ו-Actions' },
   { key: 'anthropic_api',       label: 'Claude API',     sub: 'הבוטים, תיאורים, מבזקים, סיכומי שיחות' },
   { key: 'claude_subscription', label: 'מנוי Claude',    sub: 'Claude Code' },
+  { key: 'grok',                label: 'Grok (xAI)',     sub: 'סרטוני נכסים ומודלים של xAI' },
   { key: 'openai',              label: 'OpenAI',         sub: 'תמלול הקלטות (Whisper)' },
   { key: 'gemini',              label: 'Google Gemini',  sub: 'סיווג תמונות והדמיות' },
   { key: 'fal_ai',              label: 'fal.ai',         sub: 'סרטוני נכסים' },
