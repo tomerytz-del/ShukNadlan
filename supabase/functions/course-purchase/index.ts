@@ -141,9 +141,9 @@ Deno.serve(async (req: Request) => {
     description: kind === "extension"
       ? `הארכת קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`
       : `קורס הכנה למבחן המתווכים - ${started.months} חודשי גישה - שוק נדל"ן`,
-    // עד 3 תשלומים בכרטיס אשראי לקורס המלא (הסכום הכולל זהה, בלי ריבית ללקוח/ה).
-    // ההארכה (₪99) בתשלום אחד. התקרה במסוף מורנינג נקבעה ל-3 ב-15.11.2026.
-    maxPayments: kind === "extension" ? 1 : 3,
+    // עד 3 תשלומים בכרטיס אשראי, גם בהארכה (₪99; החלטת תומר, 15.11.2026). הסכום הכולל זהה,
+    // ללא ריבית ללקוח/ה (תומר סופג ריבית אם תחול). התקרה במסוף מורנינג נקבעה ל-3.
+    maxPayments: 3,
     ...client,
     clientEmail: user.email ?? null,
     successUrl: `${siteBaseUrl}/learn?order=success&order_id=${orderId}`,
