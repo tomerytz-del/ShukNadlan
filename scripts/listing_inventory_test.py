@@ -130,6 +130,8 @@ create table public.scraped_leads (
   created_at timestamptz not null default now()
 );
 create unique index scraped_leads_source_ref_uq on public.scraped_leads (source, external_ref);
+alter table public.scraped_leads add constraint scraped_leads_source_check
+  check (source ~ '^[a-z_]{3,40}$');
 create table public.scraped_lead_blocks (
   ref_hash text primary key,
   expires_at timestamptz not null
