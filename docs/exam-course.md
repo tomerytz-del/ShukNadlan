@@ -1,7 +1,7 @@
 # קורס ההכנה למבחן המתווכים
 
 מוצר לצרכן/ית: קורס אינטראקטיבי להכנה לבחינת רשם המתווכים במקרקעין, נמכר
-ב-₪199 כולל מע״מ לגישה של שישה חודשים. הלומד/ת נכנס/ת עם Google, לומד/ת
+ב-₪450 כולל מע״מ לגישה של ארבעה חודשים (עד 15.11.2026: ₪199; הוחלט להעלות, כי אין רוכשים קיימים והמחיר הנמוך אינו מכסה עלות פרסום). הלומד/ת נכנס/ת עם Google, לומד/ת
 שיעור אחרי שיעור, עונה על חידון בסוף כל שיעור, עושה סימולציות של 25 שאלות
 מתוך מבחני העבר האמיתיים, וחוזר/ת על טעויות. המנטור של שוק נדל״ן מלווה
 את כל זה בבועות טקסט ובתגובה לכל תשובה.
@@ -412,10 +412,63 @@ select o.created_at as purchased,
 
 ```sh
 python3 scripts/course_content_sql.py --check
-python3 scripts/check_pricing.py          # 199 ו-6 ב-course.html וב-assets/learn.js מול pricing_config
+python3 scripts/check_pricing.py          # 450 ו-6 ב-course.html וב-assets/learn.js מול pricing_config
 python3 scripts/check_canonical.py        # /course ב-sitemap, /learn פרטי
 python3 scripts/check_events.py           # learn אינו טוען events.js
 python3 scripts/check_yoetz_copy.py       # דפי הקורס פטורים: "מתווך" הוא המונח של הבחינה (8.11.2026)
 python3 scripts/check_edge_types.py course-purchase
 python3 scripts/course_scene_audio.py --list   # משפט בסצנה בלי קובץ קול
 ```
+
+## מתנת הרכישה: חודש Elite נוסף
+
+החלטת תומר (15.11.2026): מי שרכש/ה את הקורס בתשלום ונרשם/ה בפלטפורמה כיועץ/ת
+נדל״ן **באותו חשבון Google** מקבל/ת 90 ימי Elite. **60 ימי Elite הם התמחור
+הקבוע** של כל מצטרף/ת חדש/ה (לא הטבה זמנית), והחודש הנוסף הוא המתנה.
+ההטבה **למצטרפים חדשים בלבד**, ואין לה תאריך סיום.
+
+- **המתג:** `pricing_config.course_buyer_bonus_months` (`20271115160000_course_buyer_promo.sql`),
+  **נוצר כבוי (0)**. הדף ההענקה נדלקים יחד בשורת data אחת, אחרי שהמיגרציה רצה בפרודקשן:
+  `update public.pricing_config set value = 1 where key = 'course_buyer_bonus_months';`
+  ולכבות: `value = 0`. זו כתיבת נתונים, לא DDL.
+- **הדף:** `course.html` קורא את `course_catalog().buyer_bonus_months`, ורק כשהוא
+  שווה בדיוק ל-1 מסיר את `hidden` מכל אלמנט עם `data-gift` (תג ה-Hero, תיבת ההצעה,
+  השאלה הנפוצה, הקריאה האחרונה והאותיות הקטנות). כשהמתג כבוי הדף נראה שלם בלי
+  המתנה. המספר "1,197 ₪" הוא 3 × מחיר Elite (399) ומקודד בדף: שינוי במחיר Elite
+  מחייב לעדכן אותו (`check_pricing.py` בודק את ה-399).
+- **זיהוי:** `course_orders.user_id` = `agency_members.user_id` (שניהם `auth.users`).
+  ‏`course_buyer_bonus_months(member_id)` (‏`service_role` בלבד) מחזירה את הערך מהמתג
+  אם יש הזמנה ב-`success` שאינה `test_mode`, ואחרת 0. גישה שנפתחה ב-
+  `course_grant_access` אינה הזמנה ולכן אינה מזכה.
+- **הענקה:** `grantLaunchPromo` (‏`_shared/launch-promo.ts`) מוסיפה את התוצאה ל-
+  `PROMO_MONTHS` ושולחת את הסכום ל-`grant_launch_promo` ב-`p_months`. הפונקציה עצמה
+  לא שונתה: אותה אידמפוטנטיות ואותו יומן (`tier_changes`). נקודות הכניסה: הזמנה,
+  פתיחת משרד והרשמת משרד.
+- **תצוגה ב-CRM:** `Tiers.promoState` מחשב `months` מ-`promo_started_at`/`promo_ends_at`,
+  ו-`promoMonthsText(months)` כותב "3 חודשים" ולא "חודשיים" בשער המסלול.
+- **מה שלא נעשה, בכוונה:** מי שנרשם/ה כסוכן/ת **לפני** שרכש/ה את הקורס אינו/ה
+  מקבל/ת את החודש הנוסף (60 הימים כבר ניתנו, וההענקה אידמפוטנטית).
+- **קישורים:** כל אזכור של המתנה בדף מקשר ל-`/pricing#plans`, כדי שהגולש יראה את
+  פרטי Elite. אין עוגן ייעודי ל-Elite (הכרטיסים נבנים ב-JS).
+- **מדידה:** ראו "ארבעה חודשים, הארכה ב-₪99 ותשלומים" למטה: `begin_checkout` ו-`purchase`, עם קובץ ייבוא ל-GTM.
+
+## ארבעה חודשים, הארכה ב-₪99 ותשלומים (15.11.2026)
+
+- **הגישה:** 4 חודשים (`course_access_months` = 4), ₪450 כולל מע״מ. ביטול והחזר מלא
+  בתוך 14 יום, כל עוד לא התחילו ללמוד.
+- **הארכה:** 4 חודשים ב-₪99 כולל מע״מ (`course_extension_price_gross`,
+  `course_extension_months`), `20271115180000_course_4_months_extension.sql`.
+  **אין לנו דרך לדעת מי נכשל, ולכן ההארכה על בסיס אמון**, עם שלושה חסמים ב-
+  `course_extension_check`: רק מי שרכש/ה בתשלום את הקורס המלא (`kind = 'full'`,
+  `success`, לא `test_mode`), פעם אחת, ובחלון מ-30 יום לפני סוף הגישה ועד 60 יום
+  אחריו. ההארכה מתווספת לסוף התקופה (`complete_course_order` כבר מצטבר מסוף הגישה).
+  ביטול: 14 יום מהרכישה כל עוד תקופת ההארכה טרם החלה (**לבדוק עם עו״ד**: ויתור על זכות ביטול
+  בהארכה אינו בטוח משפטית, ולכן לא נקבע). הזרימה: `course_extension_offer()` (הנגן) → `course-purchase`
+  עם `kind: 'extension'` → `start_course_order(…, p_kind)`.
+- **תשלומים:** `course-purchase` שולח `maxPayments: 3` לקורס המלא ולהארכה (₪99, החלטת תומר 15.11.2026). התקרה במסוף
+  מורנינג ("הגדרות תשלומים דיגיטליים ← מספר תשלומים מירבי") נקבעה ל-3. **לא נבדקה עסקה
+  אמיתית:** לפני השקה לעשות רכישת בדיקה בתשלומים ולוודא ש-`p_verified_amount` ב-
+  `complete_course_order` חוזר כסכום הכולל (450) ולא כתשלום בודד, אחרת ההזמנה תיכשל
+  ב-`amount_mismatch`, ושהחשבונית נפתחת על הסכום הכולל.
+- **מדידה:** `begin_checkout` ו-`purchase` (`docs/analytics-events.md`, "רכישת קורס ההכנה").
+
