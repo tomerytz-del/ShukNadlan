@@ -242,8 +242,46 @@ def board_listing_url_stays_on_the_card():
                 fail(f"board_listing_url מחוץ לכרטיס הליד: {path.relative_to(ROOT)}")
 
 
+def whatsapp_template_line_has_no_board_url():
+    """שורת התבנית של מודעת לוח לא מקבלת action_url ולא board_listing_url."""
+    push = (ROOT / "supabase/functions/notification-push/index.ts").read_text(encoding="utf-8")
+    call = push.split("leadTemplateLine(", 1)[1].split(")", 1)[0]
+    if "action_url" in call or "board_listing_url" in call:
+        fail(f"leadTemplateLine מקבל כתובת של מודעה: {call}")
+    if "const url = !board && withUrls" not in push:
+        fail("תבנית הוואטסאפ עדיין מדביקה כתובת למודעת לוח")
+    script = r"""
+import { leadTemplateLine } from "./supabase/functions/notification-push/lead-alert.ts";
+const listing = "https://www.yad2.co.il/realestate/item/abc";
+const madlan = "https://www.madlan.co.il/listings/abc";
+const crm = "https://shuknadlan.co.il/crm?goto=accLeads&lead=1";
+const base = { masked: false, leadType: "owner_inbound", name: "מודעה", what: "דירה", excerpt: "", hasPhone: false };
+for (const [source, url] of [["יד2", listing], ["מדלן", madlan]]) {
+  for (const passed of [url, crm, null]) {
+    const line = leadTemplateLine({ ...base, source }, passed, true);
+    if (/https?:\/\//.test(line) || line.includes("yad2.co.il") || line.includes("madlan.co.il")) {
+      console.error(source, line);
+      process.exit(1);
+    }
+  }
+}
+const other = leadTemplateLine({ ...base, source: "קבוצת פייסבוק", hasPhone: true }, crm, true);
+if (!other.endsWith(crm)) process.exit(2);
+process.stdout.write("ok");
+"""
+    out = subprocess.check_output(
+        ["node", "--experimental-strip-types", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    if out.strip() != "ok":
+        fail(f"שורת התבנית: {out}")
+
+
 def main():
     board_listing_url_stays_on_the_card()
+    whatsapp_template_line_has_no_board_url()
     subprocess.check_call(["dropdb", "--if-exists", "--maintenance-db=postgres", DB])
     subprocess.check_call(["createdb", "--maintenance-db=postgres", DB])
     psql(DB, sql_text=SETUP)

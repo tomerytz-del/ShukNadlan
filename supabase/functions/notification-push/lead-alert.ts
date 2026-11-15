@@ -207,6 +207,9 @@ export function leadTemplateLine(li: LeadInfo, url: string | null, alone: boolea
       : "",
   ];
   const line = parts.filter(Boolean).join(" · ");
+  // מודעת יד2 או מדלן: גם אם מישהו מעביר כתובת, היא לא נכנסת לטקסט.
+  // הקישור יוצא ככפתור, לא כשורה בוואטסאפ.
+  if (li.source === "מדלן" || li.source === "יד2") return `${line} פרטים ב-CRM.`;
   return url ? `${line} ${url}` : `${line} פרטים ב-CRM.`;
 }
 
