@@ -45,9 +45,17 @@ PR, אחרת הוא ייחסם בלי הודעה.**
 - `*.google-analytics.com`
 - `stats.g.doubleclick.net`
 - `www.google.com` ו-`www.google.co.il` (Google signals ומדידת המרות)
+- `ad.doubleclick.net` ו-`www.googleadservices.com` (נוספו 15.11.2026, ראו למטה)
 
 בלעדיהם האכיפה הייתה חוסמת **בשקט** את המדידה שהאתר בנוי סביבה. כ-11,000
 דיווחים בשבועיים, מ-51 דפים. הפיקסל של מטא כבר נוסף קודם, ב-#958.
+
+**נוסף ב-15.11.2026, לקראת קמפיין גוגל:** GTM הציג "Container diagnostics: Content
+Security Policy blocks tag resources", וגם `csp_violations` (14 יום): `connect-src
+https://ad.doubleclick.net` נחסם 978 פעמים ב-44 דפים, ו-`https://www.googleadservices.com`
+31 פעמים ב-9 דפים. אלה חיבורי המרות וריימרקטינג של גוגל (מ-GA4 ומ-Google signals), והם
+בדיוק מה שקמפיין עם המרת `purchase` צריך. נוספו ל-`connect-src` בלבד. לא נוספו דומיינים
+שלא נראו בנתונים (למשל `googleads.g.doubleclick.net`): אם יופיעו, מוסיפים באותה דרך.
 
 **מה נשאר חסום בכוונה:**
 
