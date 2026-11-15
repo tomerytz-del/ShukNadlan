@@ -3,6 +3,8 @@
 //   node --experimental-strip-types scripts/wa_url_guard_test.ts
 
 import {
+  BOARD_VIEW_LABEL,
+  boardViewCta,
   buttonLabelForUrl,
   countBeforeFollowups,
   deliverWaPayloads,
@@ -97,6 +99,13 @@ check("קישור קצר למיניסייט", buttonLabelForUrl("https://shuknad
 check("תווית הסרה", buttonLabelForUrl("https://example.com/saved-search-manage?action=unsubscribe&token=1") === "הפסקת עדכונים");
 check("מודעת יד2", buttonLabelForUrl("https://www.yad2.co.il/realestate/item/abc") === "פתיחה ביד2");
 check("מודעת מדלן", buttonLabelForUrl("https://www.madlan.co.il/listings/abc") === "פתיחה במדלן");
+const oneBoard = boardViewCta(["https://www.madlan.co.il/listings/abc", null, "https://evil.example/madlan.co.il/x"]);
+check("כפתור אחד למודעת לוח", oneBoard?.label === BOARD_VIEW_LABEL && oneBoard.url.includes("madlan.co.il/listings/abc") && !BOARD_VIEW_LABEL.includes("http"));
+check("שתי מודעות בלי כפתור יחיד", boardViewCta([
+  "https://www.madlan.co.il/listings/a",
+  "https://www.yad2.co.il/realestate/item/b",
+]) === null);
+check("טלפון אינו כפתור מודעה", boardViewCta(["052-111-2233", "אפשר להתקשר ל-052"]) === null);
 check("משפט בלי כפתור", WA_NO_BUTTON === "פרטים ב-CRM" && !WA_NO_BUTTON.includes("http"));
 
 const long = `${"א".repeat(1100)} https://shuknadlan.co.il/property?id=abc`;

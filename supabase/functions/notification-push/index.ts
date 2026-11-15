@@ -11,7 +11,7 @@ import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
 import { shareDigestItems, type ShareDigestLine } from "../_shared/share-digest.ts";
-import { ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { boardViewCta, ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import {
   absoluteUrl,
   categoryPath,
@@ -258,6 +258,8 @@ type Item = {
   source?: string | null;
   // notifications.action_path. חסר עד שהמיגרציה עלתה, ואז גובר על המיפוי.
   action_path?: string | null;
+  // קישור למודעת מדלן/יד2. חסר עד שהעמודה עלתה, ואז כפתור נפרד מהיעד ב-CRM.
+  action_url?: string | null;
 };
 
 /** הודעה שכולה ליד חדש אחד עם פרטים - מקבלת את הנוסח המלא (lead-alert.ts). */
@@ -823,11 +825,15 @@ async function sendWhatsapp(
         : embedded.length > 1
           ? ctaPayload(to, "לאתר", "לאתר", `${SITE_BASE}/`)
           : null);
+    // מודעת לוח: כפתור ה-CRM נשאר היעד של open_demand, והמודעה עצמה כפתור שני.
+    // מטא מתירה כתובת אחת להודעה, ולכן זה הודעה נפרדת. מחוץ לחלון נשארת התבנית.
+    const board = follow ? null : boardViewCta(items.map((it) => it.action_url));
+    const extra = follow || (board ? ctaPayload(to, board.label, board.label, board.url) : null);
     const dropped = splitCta ? embedded.length : Math.max(0, embedded.length - 1);
     if (dropped > 0) console.warn("wa-url-guard notification capped", dropped);
-    if (follow) {
+    if (extra) {
       try {
-        const followRes = await fetch(url, { method: "POST", headers, body: JSON.stringify(follow) });
+        const followRes = await fetch(url, { method: "POST", headers, body: JSON.stringify(extra) });
         if (!followRes.ok) {
           const raw = await followRes.text();
           console.error("wa-url-guard notification follow-up failed", followRes.status, raw.slice(0, 300));
@@ -998,6 +1004,23 @@ async function sendLeadDigests(sb: CadenceSb): Promise<void> {
         .eq("outcome", "pending");
     }
   }
+}
+
+/** action_url של מודעת לוח. עמודה חסרה, או שגיאה, משאירות את ההודעה בלי הכפתור השני. */
+async function attachBoardActionUrls(
+  sb: { from: (table: string) => any },
+  items: Item[],
+): Promise<Item[]> {
+  const ids = items.map((it) => it.id).filter((id): id is string => !!id && UUID_RE.test(id));
+  if (!ids.length) return items;
+  const { data, error } = await sb.from("notifications").select("id, action_url").in("id", ids);
+  if (error || !Array.isArray(data)) return items;
+  const byId = new Map<string, string>();
+  for (const row of data as { id?: string; action_url?: string | null }[]) {
+    if (row.id && row.action_url) byId.set(row.id, row.action_url);
+  }
+  if (!byId.size) return items;
+  return items.map((it) => (it.id && byId.has(it.id) ? { ...it, action_url: byId.get(it.id) } : it));
 }
 
 /** מזהי מיניסייט על ההתראות שכבר נתפסו ביומן. null = לא הצלחנו לקרוא. */
@@ -1206,6 +1229,10 @@ Deno.serve(async (req: Request) => {
         }
         items = keep;
       }
+    }
+
+    if (items.some((it) => it.type === "open_demand" && it.id)) {
+      items = await attachBoardActionUrls(sb, items);
     }
 
     try {
