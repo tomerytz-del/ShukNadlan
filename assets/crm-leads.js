@@ -525,7 +525,8 @@ function openLeadUnified(id){
 let openDemandRows = null;
 let openDemandStats = null;
 let openDemandLoading = false;
-// מופיע ליד כל ביקוש, וזהה לנוסח בהתראה (scraped_lead_notify_demand)
+// משפט פייסבוק, זהה לנוסח ההתראה על פוסט. מודעת מדלן/יד2: ההתראה בלי טלפון
+// ועם כפתור למודעה, והכרטיס כאן נשאר עם ההנחיה שלו.
 const OPEN_DEMAND_RULE = 'אפשר להגיב רק בפוסט או בהודעת פייסבוק, לא ב-SMS ולא בוואטסאפ';
 // "ללא תיווך": בפוסט - הצעה לשיווק; בשם הקבוצה - כלל של הקבוצה, ולכן רק בפרטי
 const OPEN_DEMAND_NO_BROKER = {

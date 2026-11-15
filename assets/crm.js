@@ -26968,6 +26968,19 @@ const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
 /* ההתראות שלא נקראו מתוך 20 האחרונות - המספר שעל הפעמון ועל "התראות" */
 let notifUnread = 0;
 
+/* קישור למודעה ציבורית במדלן או ביד2. כל כתובת אחרת נשארת בלי כפתור. */
+function boardListingHref(raw){
+  if (typeof raw !== 'string') return '';
+  const s = raw.trim();
+  if (!s.startsWith('https://') || s.length > 500 || /[\s@]/.test(s)) return '';
+  let host = '';
+  try { host = new URL(s).hostname.toLowerCase(); }
+  catch (e) { return ''; }
+  const ok = host === 'madlan.co.il' || host.endsWith('.madlan.co.il')
+    || host === 'yad2.co.il' || host.endsWith('.yad2.co.il');
+  return ok ? s : '';
+}
+
 async function loadNotifications(agentId){
   /* המדריך לא חוסם את הפעמון. סוג שתלוי בו מצטרף כשהקובץ מגיע. */
   if (window.crmNeed && typeof onboardingLive !== 'function') {
@@ -27008,11 +27021,15 @@ async function loadNotifications(agentId){
     const meta = NOTIF_BY_TYPE.get(n.type);
     const el = document.createElement('div');
     el.className = 'notif-item' + (n.read ? '' : ' unread') + (meta && meta.tone ? ' ' + meta.tone : '');
+    const listing = boardListingHref(n.action_url);
     // ‏esc(): הגוף של ההתראה מכיל היום גם טקסט שנכתב בידי לקוח/ה (ציטוט
     // מביקורת) ושמות נכסים ממשרדים אחרים - תוכן שלא נוצר כאן ולכן לא נסמך
     el.innerHTML = `<div class="t">${esc(n.title)}</div>
       ${n.body ? `<div class="b">${esc(n.body)}</div>` : ''}
+      ${listing ? `<a class="notif-link" href="${esc(listing)}" target="_blank" rel="noopener">לצפייה במודעה</a>` : ''}
       <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
+    const listingLink = el.querySelector('.notif-link');
+    if (listingLink) listingLink.addEventListener('click', ev => ev.stopPropagation());
     el.addEventListener('click', async ()=>{
       if (!n.read){
         await sb.from('notifications').update({ read:true }).eq('id', n.id);
