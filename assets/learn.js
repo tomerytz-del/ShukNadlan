@@ -531,7 +531,7 @@
     opts = opts || {};
     var expired = state.me && state.me.expired;
     // הארכה (₪99) רק למי שמציעים לו/ה אותה; כל מקרה אחר הוא הרכישה המלאה
-    var ext = !!(state.offer && (opts.kind === 'extension' || (expired && !opts.kind)));
+    var ext = !!(state.offer && opts.kind !== 'full');
     state.payKind = ext ? 'extension' : 'full';
     var name = (state.user && state.user.user_metadata && state.user.user_metadata.full_name) || '';
     render(band({ title: 'שוק נדל״ן', exit: 'logout', cls: 'tall', extra: '<h1 style="padding:6px 6px 0;font-size:22px">קורס הכנה למבחן המתווכים</h1>' }) +
