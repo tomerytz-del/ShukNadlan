@@ -763,10 +763,12 @@ propHttp.push(
     && /<meta charset="UTF-8">\s*<link rel="preload" as="image" href="\/assets\/property-placeholder\.jpg" fetchpriority="high">/.test(noPhoto)
     && preloadCount(noPhoto, PLACEHOLDER) === 1
     && !noPhoto.includes("<video")],
-  ["עם תמונה: אין preload של הפלייסהולדר",
+  ["עם תמונה: אין preload של הפלייסהולדר, וה-preload של השער מיד אחרי charset",
     !seen.includes("property-placeholder")
     && seen.includes('rel="preload" as="image" href="https://shuknadlan.co.il/a.jpg"')
-    && preloadCount(seen, PLACEHOLDER) === 0],
+    && preloadCount(seen, PLACEHOLDER) === 0
+    && /<meta charset="UTF-8">\s*<link rel="preconnect" href="https:\/\/obookujgolazrwycsiyn\.supabase\.co" crossorigin>[\s\S]*?<link rel="preload" as="image" href="https:\/\/shuknadlan\.co\.il\/a\.jpg" fetchpriority="high">/.test(seen)
+    && seen.indexOf('rel="preload" as="image" href="https://shuknadlan.co.il/a.jpg"') < seen.indexOf("<title>")],
   ["סרטון בלי פוסטר: הפלייסהולדר נשאר, בלי תגית video",
     videoBare.includes('class="bento-cell bento-main bento-video"')
     && videoBare.includes(`src="${PLACEHOLDER}"`)

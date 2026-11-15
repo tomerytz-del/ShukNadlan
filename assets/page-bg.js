@@ -227,8 +227,16 @@
     refresh: refresh,
   };
 
-  /* ‏data-auto על תגית ה-<script> — הרכבה מיידית, בלי שורת קוד בדף */
+  /* ‏data-auto על תגית ה-<script> — הרכבה מיידית, בלי שורת קוד בדף.
+     ‏defer משאיר את currentScript בזמן הריצה בדפדפנים הנוכחיים; החיפוש
+     הוא גיבוי אם הוא null, אחרת הרקע פשוט לא עולה ואין שגיאה. */
   var tag = document.currentScript;
+  if (!tag) {
+    var tags = document.querySelectorAll('script[src*="page-bg.js"]');
+    for (var i = 0; i < tags.length; i++) {
+      if (tags[i].hasAttribute('data-auto')) tag = tags[i];
+    }
+  }
   if (tag && tag.hasAttribute('data-auto')) {
     if (document.body) mount();
     else document.addEventListener('DOMContentLoaded', mount, { once: true });
