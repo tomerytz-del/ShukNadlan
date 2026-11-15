@@ -79,6 +79,7 @@ platform_costs  (source = 'mail')
 | `anthropic_api` | `mail.anthropic.com` | Stripe: `Amount paid $X`, ‏`Invoice number` |
 | `replicate` | `replicate.com` | Stripe: `Amount paid -$X` (במינוס; ה-`$0.00 Due` שבכותרת הוא היתרה) |
 | `make` | `make.com` | Stripe |
+| `grok` | `x.ai` | תבנית כללית → **ממתין** |
 | `openai` | `openai.com` | `We charged $X` (אין מספר חשבונית) |
 | `twilio` | `twilio.com` | `We charged the … Credit Card ( **** 3417 ) $X`, ‏`transaction CX…` כמספר |
 | `gemini` | `payments-noreply@google.com` (‏Google Cloud) | `התשלום שלך בסך X ₪`, ‏`סימוכין CLOUD …`, ‏`בתאריך 11 באוק׳ 2026` |
@@ -153,7 +154,7 @@ morning (למשל "קבלה - נייטס אנטרטיינמנט") נחסם גם 
 
 | קטגוריה | השירותים (`platform_cost_category`) |
 | --- | --- |
-| AI | `anthropic_api`, ‏`claude_subscription`, ‏`fal_ai`, ‏`openai`, ‏`replicate`, ‏`gemini` |
+| AI | `anthropic_api`, ‏`claude_subscription`, ‏`fal_ai`, ‏`grok`, ‏`openai`, ‏`replicate`, ‏`gemini` |
 | פרסום | ההוצאה בערוצים עצמם (למטה), ולא הקבלות של `meta` / ‏`google_ads` |
 | תשתית | כל השאר: Netlify, Supabase, Twilio, Make, הדומיין, morning |
 
