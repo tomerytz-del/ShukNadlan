@@ -300,6 +300,13 @@ function leadsSkeletonHtml(){
   return '<div class="lp-skel-wrap" role="status"><span class="sr-only">טוען לידים</span>' + bar + bar + bar + '</div>';
 }
 
+/* ליד שנמסר בהפנייה נשאר ברשימה של מי שמסר/ה (גלוי לו/ה בכוונה, docs/office-referrals.md),
+   ולכן הכרטיס אומר מפורשות למי, ממי ומתי. בלי השורה הזו הוא נראה כליד שעדיין שלך */
+function leadReferralLineHtml(lead){
+  const t = typeof referralNote === 'function' ? referralNote(lead, true) : '';
+  return t ? `<p class="lp-referral"><span class="ui-tag ui-tag--accent">${esc(t)}</span></p>` : '';
+}
+
 function buildLeadPriorityCard(group, rank, agentId){
   const lead = group[0];
   const src = leadSrcKey(lead);
@@ -339,6 +346,7 @@ function buildLeadPriorityCard(group, rank, agentId){
     + leadAgentPhoneTagHtml(lead)
     + `<span class="lp-time" title="${esc(when.title)}"${when.title ? ` aria-label="${esc(when.title)}"` : ''}>${esc(when.text)}</span></div></div>`
     + `</div>`
+    + leadReferralLineHtml(lead)
     + (wants ? `<p class="lp-wants">${esc(wants)}</p>` : '')
     + `<p class="lp-why"><strong>למה עכשיו:</strong> ${esc(why)}</p>`
     + (facts.length ? `<div class="lp-facts" aria-label="מה זוהה בשיחה">${facts.map(f => `<span class="ui-tag">${esc(f)}</span>`).join('')}</div>` : '')
