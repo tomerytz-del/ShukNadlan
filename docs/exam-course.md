@@ -1,7 +1,7 @@
 # קורס ההכנה למבחן המתווכים
 
 מוצר לצרכן/ית: קורס אינטראקטיבי להכנה לבחינת רשם המתווכים במקרקעין, נמכר
-ב-₪199 כולל מע״מ לגישה של שישה חודשים. הלומד/ת נכנס/ת עם Google, לומד/ת
+ב-₪450 כולל מע״מ לגישה של שישה חודשים (עד 15.11.2026: ₪199; הוחלט להעלות, כי אין רוכשים קיימים והמחיר הנמוך אינו מכסה עלות פרסום). הלומד/ת נכנס/ת עם Google, לומד/ת
 שיעור אחרי שיעור, עונה על חידון בסוף כל שיעור, עושה סימולציות של 25 שאלות
 מתוך מבחני העבר האמיתיים, וחוזר/ת על טעויות. המנטור של שוק נדל״ן מלווה
 את כל זה בבועות טקסט ובתגובה לכל תשובה.
@@ -412,7 +412,7 @@ select o.created_at as purchased,
 
 ```sh
 python3 scripts/course_content_sql.py --check
-python3 scripts/check_pricing.py          # 199 ו-6 ב-course.html וב-assets/learn.js מול pricing_config
+python3 scripts/check_pricing.py          # 450 ו-6 ב-course.html וב-assets/learn.js מול pricing_config
 python3 scripts/check_canonical.py        # /course ב-sitemap, /learn פרטי
 python3 scripts/check_events.py           # learn אינו טוען events.js
 python3 scripts/check_yoetz_copy.py       # דפי הקורס פטורים: "מתווך" הוא המונח של הבחינה (8.11.2026)

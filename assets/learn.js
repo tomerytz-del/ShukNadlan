@@ -370,7 +370,7 @@
       '<div class="center"><div class="card">' +
       '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>נכנסים עם חשבון Google, וממשיכים מאיפה שעצרתם, מכל מכשיר.</div></div>' +
       '<h2>כניסה לקורס ההכנה</h2>' +
-      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לשישה חודשים ב-199 ₪ כולל מע״מ.</p>' +
+      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לשישה חודשים ב-450 ₪ כולל מע״מ.</p>' +
       '<button type="button" class="gbtn" id="googleBtn">' + I.google + '<span class="gl-label">כניסה עם Google</span></button>' +
       '<div class="err" id="loginErr">' + escapeHtml(err || '') + '</div>' +
       '<p style="font-size:13.5px"><a href="/course">חזרה לדף הקורס</a></p>' +
@@ -476,7 +476,7 @@
       (expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>טוב לראות אתכם שוב. תקופת הגישה נגמרה ב-' + escapeHtml(fmtDate(state.me.expires_at)) + ', וההתקדמות שלכם נשמרה.</div></div>' : '') +
       '<div id="payVerify" class="hidden" style="text-align:center"><div class="spin"></div><p>מאמתים את התשלום מול חברת הסליקה...</p></div>' +
       '<div id="payBody">' +
-      '<div class="price-row"><div class="amt"><span id="payAmount">199</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">6</span> חודשים</span></div>' +
+      '<div class="price-row"><div class="amt"><span id="payAmount">450</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">6</span> חודשים</span></div>' +
       '<ul class="feat">' + ['כל השיעורים והחידונים', 'כל מבחני העבר עם ההסברים', 'סימולציות ללא הגבלה', 'חזרה על טעויות', 'מד התקדמות אישי', 'תכנים חדשים שנוספים בתקופה'].map(function (t) { return '<li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f9d55" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>' + t + '</li>'; }).join('') + '</ul>' +
       '<div class="hr"></div><b style="font-size:14px">פרטים לחשבונית</b>' +
       '<label class="field">שם מלא<input id="payName" type="text" autocomplete="name" maxlength="100" value="' + escapeHtml(name) + '"></label>' +
