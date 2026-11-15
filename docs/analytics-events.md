@@ -24,7 +24,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 
 | אירוע | מתי | פרמטרים ייחודיים |
 | --- | --- | --- |
-| `contact_agent` | לחיצה על `wa.me`, `tel:` או `mailto:` בדף שמוביל ל**סוכן/ת** | `method`: ‏`whatsapp` \| `phone` \| `email` |
+| `contact_agent` | לחיצה על `wa.me`, `api.whatsapp.com`, `tel:` או `mailto:` בדף שמוביל ל**סוכן/ת** | `method`: ‏`whatsapp` \| `phone` \| `email`. בהחלקה ובדף הנכס, על וואטסאפ וחיוג בלבד, גם `item_id` ו-`property_id` (מזהה הנכס) ו-`attr_source` / `attr_medium` / `attr_campaign` / `attr_content` מ-`shukVisitAttr` (`assets/contact-inquiry.js`). אין ליד ואין התראה. אם הפיקסל של Meta כבר עלה, אותה לחיצה שולחת גם `fbq('track', 'Contact')` עם `content_ids` ואותם שדות ייחוס. תגית ה-GA4 הקיימת מעבירה היום את `item_id`; שדות ה-`attr_` יושבים על האירוע ב-`dataLayer` ועל אירוע ה-Contact של Meta |
 | `contact_bot` | לחיצה על קישור שמוביל ל**עוזר הציבורי בוואטסאפ** | `entry`: נקודת הכניסה (`search_empty`, ובחלונית הצפה `widget_buy` \| `widget_rent` \| `widget_owner` \| `widget_fair` \| `widget_property` \| `widget_free`) |
 | `gab_widget_open` | נפתחה חלונית גבריאלה הצפה (‏`assets/gabriela-widget.js`) - הודעת הפתיחה האוטומטית, פעם בביקור, או לחיצה על הבועה | `trigger`: ‏`auto` \| `click` |
 | `contact_site` | לחיצה על המספר או המייל של **שוק נדל״ן עצמו** בבלוק הקשר | `method`: ‏`phone` \| `email` |
