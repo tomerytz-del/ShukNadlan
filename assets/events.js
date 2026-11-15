@@ -250,7 +250,19 @@
         return;
       }
 
-      shukTrack('contact_agent', { method: method });
+      /* בהחלקה ובדף הנכס: אותו contact_agent, עם מזהה הנכס וייחוס הביקור.
+         assets/contact-inquiry.js. בלי הקובץ נשארת הספירה כמו שהיתה. */
+      var contact = { method: method };
+      try {
+        if ((method === 'whatsapp' || method === 'phone') && window.ShukContactInquiry && typeof ShukContactInquiry.fields === 'function') {
+          var more = ShukContactInquiry.fields(link);
+          if (more) {
+            Object.assign(contact, more);
+            if (typeof ShukContactInquiry.pixel === 'function') ShukContactInquiry.pixel(method, more);
+          }
+        }
+      } catch (ignore) { /* ייחוס לא שובר מדידה */ }
+      shukTrack('contact_agent', contact);
     } catch(err){ /* מדידה לא שוברת אתר */ }
   }, true);
 })();
