@@ -642,6 +642,8 @@
       '<div class="map-track" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + done + '" aria-valuemin="0" aria-valuemax="' + total + '"><i style="width:' + (total ? Math.round(100 * done / total) : 0) + '%"></i></div>' +
       '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div>' +
       (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה של ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪</button></p></div>' : '') +
+      // מי שעוד לא רכש/ה: השיעורים הראשונים פתוחים, והדרך לרכישה גלויה מהמפה (ולא רק מנעילת שיעור)
+      (!enrolled() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא ב-450 ₪ כולל מע״מ</button></p></div>' : '') +
       '</div>';
 
     var chapters = (state.catalog.chapters || []);
@@ -673,6 +675,7 @@
       '<button type="button" class="btn-s" id="reviewBtnM">חזרה על טעויות</button></nav>');
     bindBand();
     on('extBtn', 'click', function () { renderPay({ kind: 'extension' }); });
+    on('buyBtn', 'click', function () { renderPay(); });
     qa('.node').forEach(function (b) { b.addEventListener('click', function () { openLesson(b.getAttribute('data-lesson')); }); });
     ['examBtn', 'examBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('exam'); }); });
     ['reviewBtn', 'reviewBtnM'].forEach(function (id) { on(id, 'click', function () { startSim('review'); }); });
