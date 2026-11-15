@@ -294,6 +294,39 @@ def main():
         if "קומה 2" not in ybody or "70 מ״ר" not in ybody or "₪2,100" not in ybody:
             fail(f"גוף יד2 חסר פרטים: {ybody}")
 
+        psql(DB, sql_text="update public.app_config set value = '20' where key = 'madlan_notify_daily_cap'")
+
+        def board_body(ref: str, summary: str, phone: str) -> str:
+            added = add(f"""jsonb_build_object(
+              'lead_type', 'owner_inbound', 'source', 'madlan',
+              'external_ref', 'https://www.madlan.co.il/listings/{ref}',
+              'first_seen_at', now(), 'date_known', true,
+              'city', 'עפולה', 'raw_phone', '{phone}',
+              'rooms', 3, 'budget', 500000,
+              'summary', '{summary}')""")
+            if "success" not in added:
+                fail(f"קליטת שטח {ref} נדחתה: {added}")
+            return psql(DB, sql_text=f"""
+              select coalesce(body, '') from public.notifications
+               where action_url = 'https://www.madlan.co.il/listings/{ref}'
+            """)
+
+        traps = board_body("traps", "2 מרפסות ו-1 מרתף", "0542002001")
+        if "מ״ר" in traps or "מרפסות" in traps or "מרתף" in traps:
+            fail(f"מרפסת או מרתף נקראו כשטח: {traps}")
+        quoted = board_body("quoted", '80 מ"ר ו-2 מרפסות', "0542002002")
+        if "80 מ״ר" not in quoted or "2 מ״ר" in quoted:
+            fail(f"מ\"ר לא בודד: {quoted}")
+        meters = board_body("meters", "90 מטר", "0542002003")
+        if "90 מ״ר" not in meters:
+            fail(f"מטר לא נקרא: {meters}")
+        bare = board_body("bare", "60 מר", "0542002004")
+        if "60 מ״ר" not in bare:
+            fail(f"מר לא נקרא: {bare}")
+        gershayim = board_body("gersh", "55 מ״ר", "0542002005")
+        if "55 מ״ר" not in gershayim:
+            fail(f"מ״ר לא נקרא: {gershayim}")
+
         before_fb = psql(DB, sql_text="select count(*) from public.notifications")
         fb = add("""jsonb_build_object(
           'lead_type', 'owner_inbound', 'source', 'facebook_group',

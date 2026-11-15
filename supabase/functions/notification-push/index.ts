@@ -11,7 +11,7 @@ import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
 import { shareDigestItems, type ShareDigestLine } from "../_shared/share-digest.ts";
-import { boardViewCta, ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
+import { boardListingMessage, ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import {
   absoluteUrl,
   categoryPath,
@@ -588,6 +588,7 @@ async function sendWhatsapp(
   };
 
   let payload: Record<string, unknown>;
+  let soleBoard = false;
   const nudgeBtns = mode === "template" ? null : nudgeReplyButtons(items);
 
   const embedded: { label: string; url: string }[] = [];
@@ -777,7 +778,17 @@ async function sendWhatsapp(
       },
     };
   } else {
-    payload = inWindow() || linked();
+    // מודעת לוח אחת בתוך החלון: הודעה אחת, והכפתור הוא המודעה.
+    // מחוץ לחלון boardListingMessage מחזיר null והתבנית נשארת.
+    const text = fullBody();
+    const boardMsg = boardListingMessage(to, text.length > 1024 ? bare() : text, items, mode);
+    if (boardMsg) {
+      soleBoard = true;
+      tokens = [];
+      payload = boardMsg;
+    } else {
+      payload = inWindow() || linked();
+    }
   }
 
   return paceRecipient(to, async () => {
@@ -818,22 +829,18 @@ async function sendWhatsapp(
   try {
     id = (await res.json())?.messages?.[0]?.id ?? null;
   } catch { /* בלי wamid השורה נשארת sent */ }
-  if (mode !== "template") {
+  if (mode !== "template" && !soleBoard) {
     const follow = splitCta
       || (embedded.length === 1
         ? ctaPayload(to, embedded[0].label, embedded[0].label, withClickUrl(embedded[0].url, "cta"))
         : embedded.length > 1
           ? ctaPayload(to, "לאתר", "לאתר", `${SITE_BASE}/`)
           : null);
-    // מודעת לוח: כפתור ה-CRM נשאר היעד של open_demand, והמודעה עצמה כפתור שני.
-    // מטא מתירה כתובת אחת להודעה, ולכן זה הודעה נפרדת. מחוץ לחלון נשארת התבנית.
-    const board = follow ? null : boardViewCta(items.map((it) => it.action_url));
-    const extra = follow || (board ? ctaPayload(to, board.label, board.label, board.url) : null);
     const dropped = splitCta ? embedded.length : Math.max(0, embedded.length - 1);
     if (dropped > 0) console.warn("wa-url-guard notification capped", dropped);
-    if (extra) {
+    if (follow) {
       try {
-        const followRes = await fetch(url, { method: "POST", headers, body: JSON.stringify(extra) });
+        const followRes = await fetch(url, { method: "POST", headers, body: JSON.stringify(follow) });
         if (!followRes.ok) {
           const raw = await followRes.text();
           console.error("wa-url-guard notification follow-up failed", followRes.status, raw.slice(0, 300));

@@ -4,6 +4,7 @@
 
 import {
   BOARD_VIEW_LABEL,
+  boardListingMessage,
   boardViewCta,
   buttonLabelForUrl,
   countBeforeFollowups,
@@ -106,6 +107,26 @@ check("שתי מודעות בלי כפתור יחיד", boardViewCta([
   "https://www.yad2.co.il/realestate/item/b",
 ]) === null);
 check("טלפון אינו כפתור מודעה", boardViewCta(["052-111-2233", "אפשר להתקשר ל-052"]) === null);
+const listingUrl = "https://www.madlan.co.il/listings/one";
+const oneMsg = boardListingMessage("972500000000", "עפולה · 4 חדרים · 120 מ״ר", [
+  { type: "open_demand", action_url: listingUrl },
+], "session");
+const oneInteractive = oneMsg?.interactive as { type?: string; body?: { text?: string }; action?: { parameters?: { display_text?: string; url?: string } } } | undefined;
+check("מודעה אחת בתוך החלון היא הודעה אחת", oneMsg?.type === "interactive"
+  && oneInteractive?.type === "cta_url"
+  && oneInteractive.action?.parameters?.display_text === BOARD_VIEW_LABEL
+  && oneInteractive.action?.parameters?.url === listingUrl
+  && !String(oneInteractive.body?.text || "").includes("http"));
+check("מחוץ לחלון נשארת התבנית", boardListingMessage("972500000000", "עפולה", [
+  { type: "open_demand", action_url: listingUrl },
+], "template") === null);
+check("הודעה עם עוד התראה לא מוחלפת", boardListingMessage("972500000000", "עפולה", [
+  { type: "open_demand", action_url: listingUrl },
+  { type: "new_lead", action_url: null },
+], "session") === null);
+check("ביקוש בלי קישור לוח לא מוחלף", boardListingMessage("972500000000", "עפולה", [
+  { type: "open_demand", action_url: null },
+], "session") === null);
 check("משפט בלי כפתור", WA_NO_BUTTON === "פרטים ב-CRM" && !WA_NO_BUTTON.includes("http"));
 
 const long = `${"א".repeat(1100)} https://shuknadlan.co.il/property?id=abc`;

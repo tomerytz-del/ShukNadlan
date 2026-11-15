@@ -138,6 +138,25 @@ export function boardViewCta(
   return { label: BOARD_VIEW_LABEL, url: [...seen][0] };
 }
 
+export type BoardAlertItem = { type?: string; action_url?: string | null };
+
+/**
+ * בתוך חלון 24 השעות, התראת לוח אחת היא ההודעה עצמה: כפתור "לצפייה במודעה".
+ * מחוץ לחלון (template), או כשיש עוד התראות בהודעה, null והשולח נשאר על המסלול הקיים.
+ */
+export function boardListingMessage(
+  to: string,
+  body: string,
+  items: BoardAlertItem[],
+  mode: string,
+): Record<string, unknown> | null {
+  if (mode === "template") return null;
+  if (items.length !== 1 || items[0]?.type !== "open_demand") return null;
+  const cta = boardViewCta([items[0].action_url]);
+  if (!cta) return null;
+  return ctaPayload(to, body, cta.label, cta.url);
+}
+
 export function planWaText(raw: string): WaTextPlan {
   const found: { index: number; raw: string; url: string }[] = [];
   const textIn = String(raw || "");

@@ -420,7 +420,12 @@ begin
       when nullif(btrim(v_hood), '') is not null then btrim(v_hood) || ', ' || r.city
       else r.city
     end;
-    v_size := substring(coalesce(r.demand_summary, '') from '([0-9]{1,4})[[:space:]]*מ.{0,2}ר');
+    -- מ"ר, מ״ר, מ׳ר, מר או מטר. "מרפסות" ו"מרתף" אינם שטח:
+    -- אחרי היחידה חייב מפריד, לא אות.
+    v_size := substring(
+      coalesce(r.demand_summary, '') || ' '
+      from '([0-9]{1,4})[[:space:]]*(מ["״׳]ר|מטר|מר)[[:space:],.]'
+    );
     v_floor := substring(coalesce(r.demand_summary, '') from '(קומה[[:space:]]*[0-9]{1,2}|קרקע)');
     v_body := concat_ws(' · ',
       v_place,
