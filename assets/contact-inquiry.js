@@ -20,6 +20,9 @@
       path = path.replace(/\.html$/, '');
       if (path.length > 1 && path.charAt(path.length - 1) === '/') path = path.slice(0, -1);
       if (path === '/swipe') return 'swipe';
+      /* ‏הדף המסחרי: wa.me ו-tel: בכרטיסים נושאים data-property-id. */
+      try { path = decodeURIComponent(path); } catch (e0) { /* נשאר כמו שהוא */ }
+      if (path === '/afula/נדלן-מסחרי') return 'commercial';
       if (path === '/property' || /^\/p\/\d{1,9}$/.test(path)) return 'property';
     } catch (e) { /* אין כתובת - אין ייחוס */ }
     return '';

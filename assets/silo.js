@@ -40,6 +40,16 @@
         if (Array.isArray(x.data)) extras.agencies = x.data;
       }).catch(function () {}),
     ];
+    var ids = [];
+    if (S.isCommercial && S.isCommercial(page)) {
+      rows.forEach(function (r) { if (r.agent_id && ids.indexOf(r.agent_id) < 0 && /^[0-9a-f-]{36}$/i.test(r.agent_id)) ids.push(r.agent_id); });
+      if (ids.length) tasks.push(get(SUPABASE_URL + "/rest/v1/agency_members_public?select=id,display_name,phone_e164&id=in.(" + ids.join(",") + ")").then(function (x) {
+        if (!Array.isArray(x.data)) return;
+        var map = {};
+        x.data.forEach(function (row) { if (row.id && row.phone_e164) map[row.id] = { name: row.display_name || "", phone: row.phone_e164 }; });
+        extras.contacts = map;
+      }).catch(function () {}));
+    }
     if (page.dynamicStock && S.stockQuery) {
       tasks.push(get(SUPABASE_URL + "/rest/v1/properties?" + S.stockQuery(page)).then(function (x) {
         if (Array.isArray(x.data)) extras.stock = x.data;
@@ -50,6 +60,10 @@
     var view = S.withStock ? S.withStock(page, packed.rows, packed.extras) : page;
     box.innerHTML = S.render(view, packed.rows, packed.extras);
     box.setAttribute("data-ssr", "0");
+    var heroSection = document.getElementById("landHero");
+    var compact = !!(S.isCommercial && S.isCommercial(page));
+    if (heroSection && compact) heroSection.classList.add("land-hero--compact");
+    if (compact) document.dispatchEvent(new CustomEvent("silo:rendered"));
     var h1 = document.getElementById("siloH1");
     var benefit = document.getElementById("siloBenefit");
     var crumb = document.getElementById("siloCrumb");
@@ -76,7 +90,7 @@
     }
     if (all) {
       all.setAttribute("href", S.allHref(view));
-      var n = packed.extras.counted ? packed.extras.total : (packed.rows.length < 24 ? packed.rows.length : 0);
+      var n = compact ? 0 : packed.extras.counted ? packed.extras.total : (packed.rows.length < 24 ? packed.rows.length : 0);
       all.setAttribute("data-count", String(n || 0));
     }
     document.title = S.fullTitle(view);

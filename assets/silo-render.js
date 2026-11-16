@@ -71,9 +71,9 @@
           what: "נדל״ן מסחרי",
           h1: "נדל״ן מסחרי בעפולה",
           label: "נדל״ן מסחרי בעפולה",
-          benefit: "נדל״ן מסחרי בעפולה ממשרדי התיווך באזור.",
-          description: "נדל״ן מסחרי בעפולה ממשרדי התיווך באזור.",
-          intro: "נדל״ן מסחרי בעפולה ממשרדי התיווך באזור. בכל מודעה מופיעים המחיר, הגודל והתמונות.",
+          benefit: "משרדים, חנויות, מחסנים וקליניקות · השכרה ומכירה",
+          description: "משרדים, חנויות, מחסנים ושטחי מסחר למכירה ולהשכרה בעפולה. מחפשים משרד או חנות להשכרה? כל המודעות הפעילות במקום אחד.",
+          intro: "מודעות נדל״ן מסחרי בעפולה ממשרדי התיווך באזור: משרדים, חנויות ושטחי מסחר, ולפי המלאי גם מחסנים ומגרשים. בכל מודעה מופיעים המחיר, הגודל והתמונות.",
           property_type: null,
           category: "commercial",
           anyDeal: true,
@@ -81,10 +81,17 @@
           collection: true,
           crumbName: "עפולה",
           crumbPath: "/afula/דירות-למכירה",
+          /* ‏בלי מספרים ובלי הבטחת מלאי. שלוש הראשונות היו כאן קודם; הראשונה
+             נכתבת מחדש ב-withStock לפי הסוגים שבמלאי. */
           faqs: [
             ["אילו נכסים כלולים בעמוד?", "העמוד מציג את מודעות הנדל״ן המסחרי הפעילות בעפולה."],
             ["מי מפרסם את הנכסים?", "משרדי תיווך שמפרסמים באתר. בדף של כל נכס מופיעים שם המשרד ופרטי הקשר שלו."],
             ["מה עושים אם אין כרגע מודעות?", "אפשר להשאיר התראה ולקבל עדכון כשעולה נכס שמתאים."],
+            ["איפה מוצאים משרד להשכרה בעפולה?", "בעמוד הזה, ברשימת המודעות. בוחרים השכרה ואז משרד, ומצמצמים לפי שטח, מחיר ושכונה. אזור התעשייה ומרכז העיר הם בין האזורים שבהם מפורסמים משרדים."],
+            ["יש חנויות או שטח מסחרי להשכרה?", "חנויות ושטחי מסחר מופיעים בעמוד כשמשרדי התיווך מפרסמים אותם, להשכרה ולמכירה. בוחרים חנות בשורת הסוגים. אם אין כרגע מה שמתאים, אפשר להשאיר התראה."],
+            ["מה לגבי מחסן או מבנה תעשייה?", "מחסנים ומבני תעשייה מופיעים לפי המודעות הפעילות באותו יום, ואין התחייבות למלאי. אפשר להשאיר התראה ולקבל עדכון כשעולה נכס כזה."],
+            ["אפשר גם לקנות?", "העמוד מציג גם נכסים מסחריים למכירה כשמפורסמות מודעות כאלה. מעבירים את המתג מהשכרה למכירה."],
+            ["מחפשים ביקנעם, במגדל העמק או בעמק?", "העמוד הזה מתמקד בעפולה. אפשר להשאיר התראה ולציין את האזור שמעניין, ונעדכן כשעולה נכס מתאים. אין התחייבות למלאי ביישובים אחרים."],
           ],
           rooms: null,
         },
@@ -279,6 +286,7 @@
         ["/afula/דירות-גן", "דירות גן למכירה בעפולה"],
         ["/afula/דירות-למכירה", "דירות למכירה בעפולה"],
         ["/afula/דירות-3-חדרים", "דירות 3 חדרים למכירה בעפולה"],
+        ["/afula/נדלן-מסחרי", "נדל״ן מסחרי בעפולה"],
         ["/afula/מתווכים", "מתווכים בעפולה"],
       ],
       types: [{
@@ -474,7 +482,13 @@
     return parts.join("&");
   }
 
+  function isCm(page) { return !!page && page.category === "commercial"; }
+
   function queryOf(page) {
+    /* ‏דף מסחרי מציג את כל המלאי (המסנן בדפדפן), ולכן גם רחוב, קומה והמפרסם. */
+    if (isCm(page)) {
+      return queryParts(page, "id,title,price,size_sqm,floor,street,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,agent_id,neighborhoods(name,is_planned)", 200);
+    }
     return queryParts(page, "id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name)", 24);
   }
 
@@ -658,6 +672,8 @@
   }
 
   function chipsHtml(page, rows, extras) {
+    /* ‏במסחרי אין מספר מודעות, חציון או טווח מחירים בכותרת. */
+    if (isCm(page)) return "";
     var bits = [];
     var active = activeCount(rows, extras);
     if (active > 0) bits.push("<li>" + countPhrase(active, "מודעה פעילה", "מודעות פעילות") + "</li>");
@@ -729,6 +745,7 @@
   }
 
   function heroHtml(page) {
+    if (isCm(page)) return "";
     var h = heroOf(page);
     /* בטלפון המקור בלי מתאר w, אחרת צפיפות המסך בוחרת את הקובץ הרחב. */
     return "<picture>"
@@ -739,6 +756,7 @@
   }
 
   function heroPreload(page) {
+    if (isCm(page)) return "";
     var h = heroOf(page);
     return '<link rel="preload" as="image" href="' + h.mobile + '" media="(max-width: 759px)" fetchpriority="high">\n'
       + '<link rel="preload" as="image" href="' + h.desktop + '" media="(min-width: 760px)" fetchpriority="high">';
@@ -1157,15 +1175,12 @@
       : facts.deals.sale ? "למכירה"
       : facts.deals.rent ? "להשכרה"
       : "";
-    var description = words + (how ? " " + how : "") + " בעפולה, ממשרדי התיווך באזור.";
     var name = "נדל״ן מסחרי בעפולה - " + words;
     copy.h1 = name;
     /* ‏ה-<title> נשאר קצר: עם רשימת הסוגים הוא הגיע ל-79 תווים ונחתך
        בתוצאה (ביקורת 5.11.2026). ה-H1 שומר את הרשימה. */
     copy.title = page.h1;
-    copy.description = description;
-    copy.intro = description;
-    copy.benefit = description;
+    /* ‏description, benefit ו-intro של המסחרי קבועים (בלי רשימת סוגים ובלי מספרים). */
     copy.label = name;
     var faqs = (page.faqs || []).map(function (row) { return [row[0], row[1]]; });
     if (faqs.length) faqs[0][1] = "בעמוד הזה: " + words + (how ? " " + how : "") + " בעפולה.";
@@ -1173,7 +1188,285 @@
     return copy;
   }
 
+  /* ==========================================================================
+     הדף המסחרי (/afula/נדלן-מסחרי). הכל מוצג ב-HTML הראשון, והמסנן רץ
+     בדפדפן (assets/silo-commercial.js) על data-* של הכרטיסים. בלי מספרים:
+     לא מספר מודעות, לא חציון ולא טווח מחירים (החלטה 16.11.2026).
+     ========================================================================== */
+  var CM_GROUPS = [
+    { key: "offices", chip: "משרד", list: "משרדים", none: "משרד", types: ["משרדים", "בניין משרדים", "חלל עבודה משותף"] },
+    { key: "shops", chip: "חנות", list: "חנויות ושטחי מסחר", none: "חנות", types: ["חנויות/שטח מסחרי"] },
+    { key: "warehouse", chip: "מחסן/תעשייה", list: "מחסנים ומבני תעשייה", none: "מחסן או מבנה תעשייה", types: ["מבני תעשייה", "מחסנים", "מרלו״ג/מרכז לוגיסטי", "אולמות"] },
+    { key: "clinic", chip: "קליניקה", list: "קליניקות", none: "קליניקה", types: ["קליניקות"] },
+    { key: "land", chip: "מגרש", list: "מגרשים", none: "מגרש", types: ["מגרשים"] },
+  ];
+  var CM_ONE = {
+    "משרדים": "משרד", "בניין משרדים": "בניין משרדים", "חלל עבודה משותף": "חלל עבודה משותף",
+    "חנויות/שטח מסחרי": "חנות או שטח מסחרי", "מבני תעשייה": "מבנה תעשייה", "מחסנים": "מחסן",
+    "מרלו״ג/מרכז לוגיסטי": "מרכז לוגיסטי", "אולמות": "אולם", "קליניקות": "קליניקה", "מגרשים": "מגרש",
+  };
+  var CM_SQM = [["0-50", "עד 50"], ["50-150", "50 עד 150"], ["150-500", "150 עד 500"], ["500-", "500+"]];
+  /* ‏התוויות נכתבות עם <bdi> סביב כל סכום, כדי ששני סכומים באותה תווית לא יתהפכו. */
+  function cmMoney(n) { return "<bdi>₪" + num(n) + "</bdi>"; }
+  var CM_PRICE = {
+    rent: [["0-3000", "עד " + cmMoney(3000)], ["3000-8000", cmMoney(3000) + " עד " + cmMoney(8000)], ["8000-20000", cmMoney(8000) + " עד " + cmMoney(20000)], ["20000-", "מעל " + cmMoney(20000)]],
+    sale: [["0-500000", "עד " + cmMoney(500000)], ["500000-1000000", cmMoney(500000) + " עד " + cmMoney(1000000)], ["1000000-2000000", cmMoney(1000000) + " עד " + cmMoney(2000000)], ["2000000-", "מעל " + cmMoney(2000000)]],
+  };
+  var CM_CONSENT = "מאשרים שיועץ/ת נדל״ן מהאזור ייצור איתי קשר בנוגע לנכס מסחרי שמתאים, ולקבל משוק נדל״ן הודעות וואטסאפ או SMS על נכסים חדשים. אפשר להפסיק בכל רגע.";
+
+  function cmGroupOf(type) {
+    for (var i = 0; i < CM_GROUPS.length; i++) if (CM_GROUPS[i].types.indexOf(type) >= 0) return CM_GROUPS[i].key;
+    return "";
+  }
+
+  /* ‏שכונה לתצוגה. "B1 אזור בתכנון" אינו שם שהגולש מכיר, ולכן במקומו הרחוב. */
+  function cmHood(p) {
+    var n = p && p.neighborhoods;
+    var name = n && typeof n === "object" && n.name ? String(n.name) : "";
+    var planned = !!(n && n.is_planned) || /בתכנון/.test(name);
+    if (name && !planned) return name;
+    if (!n && p && p.sales_area && !/בתכנון/.test(String(p.sales_area))) return String(p.sales_area);
+    return "";
+  }
+
+  function cmPlace(p) {
+    var hood = cmHood(p);
+    if (hood) return hood;
+    var street = String((p && p.street) || "").trim();
+    return street || "עפולה";
+  }
+
+  /* ‏בשכירות, מחיר מתחת ל-500 הוא מחיר למ"ר לחודש (כך מפרסמים מזינים אותו). */
+  function cmPrice(p) {
+    var v = Number(p && p.price);
+    if (!isFinite(v) || v <= 0) return { text: "מחיר לפי פנייה", total: 0, perSqm: false };
+    if (p.deal_type === "rent") {
+      if (v < 500) return { text: money(v) + " למ״ר לחודש", total: 0, perSqm: true };
+      return { text: money(v) + " לחודש", total: v, perSqm: false };
+    }
+    return { text: money(v), total: v, perSqm: false };
+  }
+
+  function cmSqmPrice(p, price) {
+    var given = Number(p && p.price_per_sqm);
+    if (isFinite(given) && given > 0) return Math.round(given);
+    var size = Number(p && p.size_sqm);
+    var v = Number(p && p.price);
+    if (price.perSqm) return Math.round(v);
+    if (isFinite(size) && size > 0 && isFinite(v) && v > 0) return Math.round(v / size);
+    return 0;
+  }
+
+  function cmContact(p, extras) {
+    var map = extras && extras.contacts;
+    var c = map && p && p.agent_id ? map[p.agent_id] : null;
+    var phone = c && String(c.phone || "").replace(/\D/g, "");
+    return phone && phone.length >= 9 ? { phone: phone, name: c.name || "" } : null;
+  }
+
+  var WA_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"/></svg>';
+  var CALL_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>';
+
+  function cmCard(p, extras, first) {
+    var price = cmPrice(p);
+    var one = CM_ONE[p.property_type] || "נכס מסחרי";
+    var place = cmPlace(p);
+    var rent = p.deal_type === "rent";
+    var img = firstImage(p);
+    var pic = HOUSE_ICON;
+    if (img) {
+      var LM = root.ListingMedia;
+      var small = LM ? LM.renderUrl(img, 400) : "";
+      var mid = LM ? LM.renderUrl(img, 800) : "";
+      var big = LM ? LM.renderUrl(img, 1200) : "";
+      var ok = small.indexOf("/storage/v1/render/image/") >= 0 && mid.indexOf("/storage/v1/render/image/") >= 0 && big.indexOf("/storage/v1/render/image/") >= 0;
+      var alt = escapeHtml(LM ? LM.alt(p) : "");
+      var load = first ? 'fetchpriority="high"' : 'loading="lazy"';
+      pic = ok
+        ? '<img src="' + escapeHtml(mid) + '" srcset="' + escapeHtml(small) + " 400w, " + escapeHtml(mid) + " 800w, " + escapeHtml(big) + ' 1200w"'
+          + ' sizes="(min-width:900px) 360px, (min-width:520px) 50vw, 100vw" alt="' + alt + '" width="320" height="240" ' + load + ' decoding="async"'
+          + ' data-full="' + escapeHtml(img) + '" onerror="this.onerror=null;this.removeAttribute(\'srcset\');this.src=this.getAttribute(\'data-full\')">'
+        : '<img src="' + escapeHtml(img) + '" alt="' + alt + '" width="320" height="240" ' + load + ' decoding="async">';
+    }
+    var size = Number(p.size_sqm);
+    var facts = [];
+    if (isFinite(size) && size > 0) facts.push(bdi(num(size)) + sp() + "מ״ר");
+    var per = cmSqmPrice(p, price);
+    if (per > 0) facts.push(bdi(escapeHtml(money(per))) + sp() + "למ״ר");
+    var fl = p.floor;
+    if (fl != null && fl !== "" && isFinite(Number(fl))) facts.push(Number(fl) === 0 ? "קומת קרקע" : "קומה" + sp() + bdi(String(Number(fl))));
+    var parking = featureList(p).indexOf("parking") >= 0;
+    if (parking) facts.push("חניה");
+    var total = price.total || (price.perSqm && size > 0 ? Math.round(Number(p.price) * size) : 0);
+    var contact = cmContact(p, extras);
+    var pid = ' data-property-id="' + escapeHtml(p.id) + '"';
+    var actions = "";
+    if (contact) {
+      var text = "היי, ראיתי בשוק נדל״ן את הנכס הזה ואשמח לקבל פרטים נוספים.\nhttps://shuknadlan.co.il/property?id=" + encodeURIComponent(p.id);
+      actions = '<div class="cm-actions">'
+        + '<a class="cm-act cm-act-wa" href="https://wa.me/' + contact.phone + "?text=" + encodeURIComponent(text) + '" target="_blank" rel="noopener noreferrer"' + pid
+        + ' aria-label="וואטסאפ למשרד המפרסם, נפתח בחלון חדש">' + WA_ICON + "<span>וואטסאפ</span></a>"
+        + '<a class="cm-act cm-act-call" href="tel:+' + contact.phone + '"' + pid + ' aria-label="חיוג למשרד המפרסם">' + CALL_ICON + "<span>חיוג</span></a></div>";
+    }
+    return '<li class="cm-item" data-deal="' + (rent ? "rent" : "sale") + '" data-group="' + cmGroupOf(p.property_type) + '"'
+      + ' data-sqm="' + (isFinite(size) && size > 0 ? Math.round(size) : 0) + '" data-total="' + total + '"'
+      + ' data-area="' + escapeHtml(cmHood(p)) + '" data-parking="' + (parking ? 1 : 0) + '">'
+      + '<article class="cm-card"><span class="cm-media">' + pic + '<span class="cm-tag cm-tag-' + (rent ? "rent" : "sale") + '">' + (rent ? "להשכרה" : "למכירה") + "</span></span>"
+      + '<div class="cm-body"><p class="cm-kind"><a class="cm-link" href="/property?id=' + encodeURIComponent(p.id) + '">'
+      + escapeHtml(one) + "</a> · " + escapeHtml(place) + "</p>"
+      + '<p class="cm-price">' + bdi(escapeHtml(price.text)) + "</p>"
+      + (facts.length ? '<p class="cm-facts">' + facts.join(" · ") + "</p>" : "")
+      + "</div>" + actions + "</article></li>";
+  }
+
+  function cmAreas(rows) {
+    var seen = {};
+    var out = [];
+    var list = listOf(rows);
+    for (var i = 0; i < list.length; i++) {
+      var h = cmHood(list[i]);
+      if (h && !seen[h]) { seen[h] = 1; out.push(h); }
+    }
+    return out.sort(function (a, b) { return a.localeCompare(b, "he"); });
+  }
+
+  function cmButtons(attr, rows) {
+    var html = "";
+    for (var i = 0; i < rows.length; i++) {
+      html += '<button type="button" class="cm-pill" ' + attr + '="' + rows[i][0] + '" aria-pressed="false">' + rows[i][1] + "</button>";
+    }
+    return html;
+  }
+
+  function cmControls() {
+    var chips = '<button type="button" class="cm-chip" data-cm-type="" aria-pressed="true">הכל</button>';
+    for (var i = 0; i < CM_GROUPS.length; i++) {
+      chips += '<button type="button" class="cm-chip" data-cm-type="' + CM_GROUPS[i].key + '" aria-pressed="false">' + escapeHtml(CM_GROUPS[i].chip) + "</button>";
+    }
+    return '<div class="cm-controls">'
+      + '<div class="cm-toggle" role="group" aria-label="סוג עסקה">'
+      + '<button type="button" class="cm-seg" data-cm-deal="rent" aria-pressed="true">השכרה</button>'
+      + '<button type="button" class="cm-seg" data-cm-deal="sale" aria-pressed="false">מכירה</button></div>'
+      + '<div class="cm-chips" role="group" aria-label="סוג נכס">' + chips + "</div>"
+      + '<div class="cm-bar"><button type="button" class="cm-filter-btn" data-cm-open="drawer" aria-haspopup="dialog">שטח ומחיר</button>'
+      + '<ul class="cm-active" id="cmActive" aria-label="מסננים פעילים"></ul></div></div>';
+  }
+
+  function cmDrawer(areas) {
+    var opts = '<option value="">כל השכונות</option>';
+    for (var i = 0; i < areas.length; i++) opts += '<option value="' + escapeHtml(areas[i]) + '">' + escapeHtml(areas[i]) + "</option>";
+    return '<div class="cm-sheet" id="cmDrawer" role="dialog" aria-modal="true" aria-labelledby="cmDrawerT" hidden>'
+      + '<div class="cm-sheet-card"><div class="cm-sheet-head"><h3 id="cmDrawerT">שטח ומחיר</h3>'
+      + '<button type="button" class="cm-x" data-cm-close aria-label="סגירה">✕</button></div>'
+      + '<fieldset class="cm-fs"><legend>שטח במ״ר</legend><div class="cm-pills" id="cmSqm">' + cmButtons("data-cm-sqm", CM_SQM) + "</div></fieldset>"
+      + '<fieldset class="cm-fs"><legend>מחיר</legend>'
+      + '<div class="cm-pills" data-cm-price-for="rent">' + cmButtons("data-cm-price", CM_PRICE.rent) + "</div>"
+      + '<div class="cm-pills" data-cm-price-for="sale" hidden>' + cmButtons("data-cm-price", CM_PRICE.sale) + "</div></fieldset>"
+      + '<label class="cm-fs cm-field"><span>שכונה</span><select id="cmArea">' + opts + "</select></label>"
+      + '<label class="cm-check"><input type="checkbox" id="cmParking"><span>חניה</span></label>'
+      + '<div class="cm-sheet-foot"><button type="button" class="cm-ghost" data-cm-clear>ניקוי הכל</button>'
+      + '<button type="button" class="cm-gold" data-cm-close>הצגת הנכסים</button></div></div></div>';
+  }
+
+  function cmLeadSheet() {
+    var types = '<option value="">לא משנה</option>';
+    for (var i = 0; i < CM_GROUPS.length; i++) types += '<option value="' + CM_GROUPS[i].key + '">' + escapeHtml(CM_GROUPS[i].chip) + "</option>";
+    var sizes = '<option value="">לא משנה</option>';
+    for (var j = 0; j < CM_SQM.length; j++) sizes += '<option value="' + CM_SQM[j][0] + '">' + escapeHtml(CM_SQM[j][1]) + " מ״ר</option>";
+    return '<div class="cm-sheet" id="cmLead" role="dialog" aria-modal="true" aria-labelledby="cmLeadT" hidden>'
+      + '<form class="cm-sheet-card" id="cmLeadForm" novalidate data-consent-text="' + escapeHtml(CM_CONSENT) + '">'
+      + '<div class="cm-sheet-head"><h3 id="cmLeadT">מחפשים נכס מסחרי? נמצא לכם</h3>'
+      + '<button type="button" class="cm-x" data-cm-close aria-label="סגירה">✕</button></div>'
+      + '<div class="cm-lead-fields">'
+      + '<label class="cm-field"><span>שם</span><input type="text" name="name" autocomplete="name" required></label>'
+      + '<label class="cm-field"><span>טלפון</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="050-0000000" required></label>'
+      + '<label class="cm-field"><span>סוג נכס</span><select name="type">' + types + "</select></label>"
+      + '<label class="cm-field"><span>שטח משוער</span><select name="sqm">' + sizes + "</select></label></div>"
+      + '<label class="cm-check cm-consent"><input type="checkbox" name="consent" required><span>' + escapeHtml(CM_CONSENT)
+      + ' <a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a> · <a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a></span></label>'
+      + '<p class="cm-err" id="cmLeadErr" role="alert"></p>'
+      + '<button type="submit" class="cm-gold cm-send">שליחה</button>'
+      + '<div class="cm-done" id="cmLeadDone" hidden><p><strong>קיבלנו, תודה.</strong></p><p>נעדכן אתכם כשיעלה נכס מסחרי שמתאים.</p>'
+      + '<button type="button" class="cm-ghost" data-cm-close>סגירה</button></div></form></div>';
+  }
+
+  function cmHasGroup(rows, extras, keys) {
+    var list = stockSource(rows, extras);
+    for (var i = 0; i < list.length; i++) if (keys.indexOf(cmGroupOf(list[i] && list[i].property_type)) >= 0) return true;
+    return false;
+  }
+
+  function cmSections(page, rows, extras) {
+    var c = cityOf(page);
+    var html = '<section class="land-seo" id="offices-section"><h2 id="offices">משרדים למכירה ולהשכרה</h2>'
+      + "<p>משרדים בעפולה מפורסמים בכמה אזורים בעיר, בהם אזור התעשייה ומרכז העיר. בוחרים משרד בשורת הסוגים שבראש הרשימה, ומצמצמים לפי שטח, מחיר ושכונה.</p></section>";
+    html += '<section class="land-seo"><h2>חנויות ושטחי מסחר</h2>'
+      + "<p>חנויות ושטחי מסחר מופיעים ברשימה כשמשרדי התיווך מפרסמים אותם, להשכרה ולמכירה. בכל כרטיס מופיעים סוג הנכס, המקום, המחיר והשטח.</p></section>";
+    if (cmHasGroup(rows, extras, ["warehouse", "land"])) {
+      html += '<section class="land-seo"><h2>מחסנים, מבני תעשייה ומגרשים</h2>'
+        + "<p>מחסנים, מבני תעשייה ומגרשים מופיעים לפי המודעות הפעילות באותו יום. אפשר לבחור מחסן/תעשייה או מגרש בשורת הסוגים.</p></section>";
+    }
+    html += cmHoods(page, extras);
+    html += '<section class="land-seo"><h2>על הרשימה</h2><p>' + escapeHtml(page.intro) + "</p>"
+      + "<p>המודעות מתפרסמות על ידי משרדי תיווך. המחיר והמפרט המלא נמצאים בדף של כל נכס. "
+      + "להשוואת עסקאות שדווחו לרשות המסים: " + dealsLink(c, escapeHtml(c.at)) + ".</p></section>";
+    return html;
+  }
+
+  /* ‏שכונות בלי ספירה, ואזור התעשייה ראשון ומודגש. */
+  function cmHoods(page, extras) {
+    var c = cityOf(page);
+    var items = c.hoods || [];
+    if (!items.length) return "";
+    var ordered = items.slice().sort(function (a, b) {
+      var ai = a[1] === "אזור-התעשייה" ? 0 : 1;
+      var bi = b[1] === "אזור-התעשייה" ? 0 : 1;
+      return ai - bi;
+    });
+    var html = '<section class="land-hoods-wrap"><h2>שכונות</h2>'
+      + '<p>אזור התעשייה הוא האזור המסחרי והתעשייתי של עפולה, ובו מפורסמים משרדים, חנויות ומבני תעשייה. '
+      + '<a href="/n/' + c.slug + '/' + encodeURIComponent("אזור-התעשייה") + '">לדף אזור התעשייה</a>.</p><ul class="land-hoods">';
+    for (var i = 0; i < ordered.length; i++) {
+      html += '<li><a class="land-hood" href="/n/' + c.slug + "/" + encodeURIComponent(ordered[i][1]) + '"><span>' + escapeHtml(ordered[i][0]) + "</span></a></li>";
+    }
+    return html + "</ul></section>";
+  }
+
+  function cmAlso(page) {
+    var c = cityOf(page);
+    var list = [
+      ["/n/" + c.slug + "/" + encodeURIComponent("אזור-התעשייה"), "אזור התעשייה בעפולה"],
+      ["/deals/" + c.slug, "עסקאות בעפולה"],
+      ["/afula/דירות-למכירה", "דירות למכירה בעפולה"],
+      ["/emek-yizrael/בתים-ומגרשים", "בתים ומגרשים בעמק יזרעאל"],
+      [brokersPath(c), "מתווכים בעפולה"],
+      [c.home, c.homeLabel],
+    ];
+    var html = '<section class="land-also"><h2>גם מעניין</h2><nav class="land-filters" aria-label="גם מעניין">';
+    for (var i = 0; i < list.length; i++) html += '<a href="' + escapeHtml(list[i][0]) + '">' + escapeHtml(list[i][1]) + "</a>";
+    return html + "</nav></section>";
+  }
+
+  function cmRender(page, rows, extras) {
+    var list = listOf(rows);
+    var cardsHtml = "";
+    for (var i = 0; i < list.length; i++) cardsHtml += cmCard(list[i], extras, i === 0);
+    var html = '<div class="cm" id="cmRoot" data-deal="rent" data-cm>' + cmControls()
+      + '<h2 class="cm-list-title" id="cmListTitle">מודעות פעילות</h2>'
+      + '<ul class="cm-grid" id="cmGrid">' + cardsHtml + "</ul>"
+      + '<div class="cm-empty" id="cmEmpty" hidden></div></div>';
+    html += cmSections(page, rows, extras);
+    html += faqHtml(page);
+    html += cmAlso(page);
+    html += '<section class="land-final"><h2>התראה</h2><p>נעדכן אתכם ברגע שיעלה נכס מסחרי שמתאים.</p>'
+      + '<button type="button" class="land-btn land-btn-primary" data-cm-alert>לקבלת התראה</button></section>';
+    html += cmDrawer(cmAreas(list)) + cmLeadSheet();
+    html += '<div class="cm-sticky" id="cmSticky"><button type="button" class="cm-sticky-btn" data-cm-lead>מחפשים נכס מסחרי? נמצא לכם</button></div>';
+    return html;
+  }
+
   function render(page, rows, extras) {
+    if (isCm(page)) return cmRender(page, rows, extras);
     var list = listOf(rows);
     var html = filters(page);
     html += list.length ? cards(list) : emptyState();
@@ -1253,6 +1546,8 @@
       numberOfItems: items.length,
       itemListElement: items,
     };
+    /* ‏במסחרי אין מספר נכסים בשום מקום, גם לא כאן. */
+    if (isCm(page)) delete itemList.numberOfItems;
     if (page.dynamicStock) itemList.itemListOrder = "https://schema.org/ItemListOrderDescending";
     return [graph, itemList];
   }
@@ -1319,6 +1614,7 @@
     cities: CITIES,
     cityOf: cityOf,
     brokersPath: brokersPath,
+    isCommercial: isCm,
     countedNeighborhoods: function (rows, page) { return neighborhoods(page, { hoods: rows }, true); },
     pageOf: pageOf,
     queryOf: queryOf,

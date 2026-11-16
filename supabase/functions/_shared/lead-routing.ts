@@ -163,6 +163,8 @@ const KNOWN_SOURCES = new Set([
   // כרטיס הסיום ב-/swipe ("עדכנו אותי על נכס חדש"). עד 27.10 נפל לברירת המחדל
   // של saved-search-intake ונרשם כסוכן החכם של דף הבית
   "swipe_end",
+  // הטופס בדף הנחיתה המסחרי (‏/afula/נדלן-מסחרי, ‏assets/silo-commercial.js)
+  "commercial_landing",
   // "בקשו תמונות מהמפרסם" בנכס בלי תמונות (‏assets/no-photo.js, ‏docs/no-photo.md):
   // פנייה על נכס לכל דבר, מגיליון ההחלקה או מטופס דף הנכס. התווית ב-CRM
   // "בקשת תמונות" (‏lead_source_label במסד, ‏LX_SOURCES ב-crm.js)

@@ -5717,6 +5717,7 @@ const LX_SOURCES = {
   swipe:                       'גלישה בהחלקה · פנייה על נכס',
   swipe_sponsored:             'גלישה בהחלקה · כרטיס ממומן',
   swipe_end:                   'החלקה · כרטיס סיום',
+  commercial_landing:          'דף נדל״ן מסחרי',
   swipe_seller:                'החלקה · חושבים למכור',
   swipe_fair:                  'החלקה · הרשמה ליריד',
   nocommission_fair:           'יריד הבתים הפתוחים · הרשמה',

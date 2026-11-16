@@ -617,6 +617,10 @@ def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
     targets = {key: landing for key, landing in entries if landing}
     if (SITE + "/afula/נדלן-מסחרי") in set(locs):
         targets.setdefault("deal=commercial", "/afula/נדלן-מסחרי")
+        # משרדים וחנויות בפוטר מקשרים מ-16.11.2026 ישר לדף המסחרי (לא ל-?deal=)
+        for key, _landing in entries:
+            if key.startswith("deal=commercial&ptype="):
+                targets.setdefault(key, "/afula/נדלן-מסחרי")
     linked: set[str] = set()
     via_landing: set[str] = set()
     for path in pages:

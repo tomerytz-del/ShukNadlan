@@ -483,19 +483,25 @@ function commFetch(listings: unknown, stock: unknown) {
   }) as typeof fetch;
 }
 
+const COMM_DESC = "משרדים, חנויות, מחסנים ושטחי מסחר למכירה ולהשכרה בעפולה. מחפשים משרד או חנות להשכרה? כל המודעות הפעילות במקום אחד.";
+const AGENT = "11111111-1111-4111-8111-111111111111";
+
+function h1Of(html: string): string {
+  return ((html.match(/<h1 id="siloH1">([\s\S]*?)<\/h1>/) || [])[1] || "");
+}
+function descOf(html: string): string {
+  return (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+}
+
 {
   commFetch([], []);
   const res = await handler(new Request(COMM), context());
   const html = await res.text();
-  const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
-  const blocks = ldBlocks(html);
-  const graph = blocks.flatMap((b) => Array.isArray(b["@graph"]) ? b["@graph"] as Record<string, unknown>[] : [b]);
-  const collection = graph.find((x) => x["@type"] === "CollectionPage") as { description?: string; name?: string } | undefined;
-  const copy = `${desc} ${collection?.description || ""} ${collection?.name || ""}`;
+  const graph = ldBlocks(html).flatMap((b) => Array.isArray(b["@graph"]) ? b["@graph"] as Record<string, unknown>[] : [b]);
+  const collection = graph.find((x) => x["@type"] === "CollectionPage") as { description?: string } | undefined;
   check("מסחרי ריק: 200 ו-noindex", res.status === 200 && html.includes("noindex"));
-  check("מסחרי ריק: התראה", html.includes("אין כרגע מודעות פעילות") && html.includes("קבלו התראה") && html.includes("data-land-alert"));
-  check("מסחרי ריק: בלי סוגים בתיאור וב-JSON-LD",
-    !copy.includes("משרדים") && !copy.includes("חנויות") && !copy.includes("למכירה") && !copy.includes("להשכרה"));
+  check("מסחרי ריק: התראה", html.includes('id="cmEmpty"') && html.includes("data-cm-alert") && html.includes("data-cm-lead"));
+  check("מסחרי ריק: התיאור קבוע", descOf(html) === COMM_DESC && collection?.description === COMM_DESC);
 }
 
 {
@@ -503,15 +509,9 @@ function commFetch(listings: unknown, stock: unknown) {
   commFetch([office], [{ property_type: "משרדים", deal_type: "rent" }, { property_type: "משרדים", deal_type: "rent" }]);
   const res = await handler(new Request(COMM), context());
   const html = await res.text();
-  const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
-  const blocks = ldBlocks(html);
-  const pageLd = blocks.find((b) => (b["@type"] === "CollectionPage") || (Array.isArray(b["@graph"]) && (b["@graph"] as { "@type": string }[]).some((x) => x["@type"] === "CollectionPage")));
-  const graph = pageLd && Array.isArray(pageLd["@graph"]) ? (pageLd["@graph"] as { "@type": string; description?: string; name?: string }[]) : [];
-  const collection = graph.find((x) => x["@type"] === "CollectionPage");
-  const text = `${desc} ${collection?.description || ""} ${collection?.name || ""}`;
   check("מסחרי עם מלאי: בלי noindex", res.status === 200 && !html.includes("noindex"));
-  check("מסחרי: רק סוג ועסקה שקיימים", text.includes("משרדים") && text.includes("להשכרה")
-    && !text.includes("חנויות") && !text.includes("מבני תעשייה") && !text.includes("למכירה"));
+  check("מסחרי: ה-H1 לפי הסוגים שבמלאי בלבד", h1Of(html).includes("משרדים") && !h1Of(html).includes("חנויות") && !h1Of(html).includes("מבני תעשייה"));
+  check("מסחרי: התיאור קבוע גם עם מלאי", descOf(html) === COMM_DESC);
   check("מסחרי: השאילתה אינה נועלת מכירה", urls.some((u) => u.includes("category=eq.commercial") && !u.includes("deal_type=eq.sale")));
   check("מסחרי: בלי שם ובלי רישיון", !html.includes("תומר") && !html.includes("3134355"));
 }
@@ -526,9 +526,81 @@ function commFetch(listings: unknown, stock: unknown) {
   commFetch(cards, rows);
   const res = await handler(new Request(COMM), context());
   const html = await res.text();
-  const desc = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
-  check("מסחרי: מכירה והשכרה כששתיהן קיימות", desc.includes("למכירה ולהשכרה") && desc.includes("משרדים") && desc.includes("חנויות ושטחי מסחר") && desc.includes("מבני תעשייה"));
-  check("מסחרי: בלי סוג שלא במלאי", !desc.includes("אולמות") && !desc.includes("מחסנים"));
+  const h1 = h1Of(html);
+  check("מסחרי: מכירה והשכרה ב-H1 לפי המלאי", h1.includes("משרדים") && h1.includes("חנויות ושטחי מסחר") && h1.includes("מבני תעשייה"));
+  check("מסחרי: בלי סוג שלא במלאי", !h1.includes("אולמות") && !h1.includes("מחסנים"));
+}
+
+/* ---- הכרטיסים, היחידות והמספרים ---- */
+{
+  const base = { city: "עפולה", created_at: RECENT, updated_at: RECENT, images: [], agent_id: AGENT };
+  const cards = [
+    { ...base, id: "a1", property_type: "משרדים", deal_type: "rent", price: 40, size_sqm: 300, floor: 2, features: ["parking"], street: "הבנים", neighborhoods: { name: "B1 אזור בתכנון", is_planned: true } },
+    { ...base, id: "a2", property_type: "משרדים", deal_type: "rent", price: 9000, size_sqm: 90, neighborhoods: { name: "אזור התעשייה", is_planned: false } },
+    { ...base, id: "a3", property_type: "חנויות/שטח מסחרי", deal_type: "sale", price: 1750000, size_sqm: 100, price_per_sqm: 0, neighborhoods: { name: "מרכז העיר", is_planned: false } },
+    { ...base, id: "a4", property_type: "מגרשים", deal_type: "sale", price: null, size_sqm: 500, neighborhoods: { name: "מזרח העיר", is_planned: false } },
+  ];
+  urls = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    urls.push(url);
+    let body: unknown = cards;
+    if (url.includes("agency_members_public")) body = [{ id: AGENT, display_name: "סוכן", phone_e164: "972521112222" }];
+    else if (url.includes("select=property_type%2Cdeal_type") || url.includes("select=property_type,deal_type")) body = cards;
+    else if (url.includes("agencies")) body = [];
+    return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json", "content-range": "0-3/4" } });
+  }) as typeof fetch;
+  const res = await handler(new Request(COMM), context());
+  const html = await res.text();
+  const flat = html.replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/g, " ");
+  check("כרטיס: מחיר למ״ר לחודש כשהמחיר נמוך מ-500", /₪40<\/bdi>[^<]*|₪40 למ״ר לחודש/.test(html) && html.includes("₪40 למ״ר לחודש"));
+  check("כרטיס: מחיר חודשי עם יחידה", html.includes("₪9,000 לחודש"));
+  check("כרטיס: מכירה בלי יחידה", html.includes(">₪1,750,000<"));
+  check("כרטיס: בלי מחיר - לפי פנייה", html.includes("מחיר לפי פנייה"));
+  check("כרטיס: תגיות להשכרה ולמכירה", html.includes(">להשכרה</span>") && html.includes(">למכירה</span>"));
+  check("כרטיס: כל המודעות ב-HTML", (html.match(/class="cm-item"/g) || []).length === 4);
+  check("כרטיס: B1 אזור בתכנון מוחלף ברחוב", !html.includes("B1 אזור בתכנון") && html.includes("הבנים"));
+  check("כרטיס: מחיר למ״ר מחושב רק כשחסר", html.includes("₪10,000") === false && html.includes("₪17,500"));
+  check("כרטיס: קומה וחניה", flat.includes("קומה") && flat.includes("חניה"));
+  check("כרטיס: וואטסאפ וחיוג עם data-property-id", html.includes('href="tel:+972521112222" data-property-id="a1"') && /href="https:\/\/wa\.me\/972521112222\?text=[^"]*" target="_blank" rel="noopener noreferrer" data-property-id="a1"/.test(html));
+  check("כרטיס: בלי מייל כטקסט בתוך הרשימה", !/cm-grid[\s\S]*?@[a-z]/.test(html.slice(html.indexOf('id="cmGrid"'), html.indexOf('id="cmEmpty"'))));
+
+  /* מספרים: לא בטקסט, לא בכותרות ולא ב-JSON-LD */
+  const lds = ldBlocks(html);
+  check("מסחרי: אין numberOfItems", !JSON.stringify(lds).includes("numberOfItems"));
+  check("מסחרי: אין מספר מודעות בטקסט", !/\d+\s*(מודעות פעילות|מודעה פעילה|נכסים)/.test(flat) && !/לכל\s*\d/.test(flat));
+  check("מסחרי: אין טווח מחירים בדף", !html.includes("₪35") && !/מחיר חציוני/.test(html) && !/המחיר נע/.test(html));
+  check("מסחרי: בלי data-count חיובי", !/data-count="[1-9]/.test(html));
+  check("מסחרי: ItemList נשאר", lds.some((b) => b["@type"] === "ItemList") && lds.some((b) => Array.isArray(b["@graph"]) && (b["@graph"] as { "@type": string }[]).some((x) => x["@type"] === "BreadcrumbList")));
+
+  /* FAQ 1:1 */
+  const faq = lds.flatMap((b) => Array.isArray(b["@graph"]) ? b["@graph"] as { "@type": string; mainEntity?: { name: string; acceptedAnswer: { text: string } }[] }[] : [])
+    .find((x) => x["@type"] === "FAQPage");
+  const summaries = [...html.matchAll(/<details><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p><\/details>/g)];
+  const unesc = (t: string) => t.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  check("FAQ: 8 שאלות, תואם 1:1 ל-JSON-LD",
+    summaries.length === 8 && !!faq && faq.mainEntity!.length === 8 &&
+    summaries.every((m, i) => unesc(m[1]) === faq.mainEntity![i].name && unesc(m[2]) === faq.mainEntity![i].acceptedAnswer.text));
+  const qs = summaries.map((m) => unesc(m[1]));
+  for (const q of ["איפה מוצאים משרד להשכרה בעפולה?", "יש חנויות או שטח מסחרי להשכרה?", "מה לגבי מחסן או מבנה תעשייה?", "אפשר גם לקנות?", "מחפשים ביקנעם, במגדל העמק או בעמק?"]) {
+    check("FAQ: " + q, qs.includes(q));
+  }
+
+  /* כותרות H2 לפי הסדר */
+  const h2s = [...html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  const want = ["מודעות פעילות", "משרדים למכירה ולהשכרה", "חנויות ושטחי מסחר", "מחסנים, מבני תעשייה ומגרשים", "שכונות", "על הרשימה", "שאלות נפוצות", "גם מעניין", "התראה"];
+  let at = -1;
+  const inOrder = want.every((w) => { const i = h2s.indexOf(w, at + 1); if (i < 0) return false; at = i; return true; });
+  check("H2: כל הכותרות לפי הסדר", inOrder);
+  check("H2: עוגן למשרדים", html.includes('<h2 id="offices">משרדים למכירה ולהשכרה</h2>'));
+  check("מבנה: מתג, צ'יפים, מגירה, כפתור קבוע וטופס", ["data-cm-deal=\"rent\"", "data-cm-type=\"offices\"", "data-cm-type=\"land\"", 'id="cmDrawer"', 'id="cmSticky"', 'id="cmLeadForm"', "מחפשים נכס מסחרי? נמצא לכם"].every((x) => html.includes(x)));
+  check("טופס: הסכמה מעל כפתור השליחה", html.indexOf('name="consent"') > 0 && html.indexOf('name="consent"') < html.indexOf('class="cm-gold cm-send"'));
+  check("כותרת קומפקטית בלי תמונת hero", html.includes('land-hero land-hero--compact') && !html.includes("<picture>"));
+  check("תת-כותרת מתחת ל-H1", html.includes("משרדים, חנויות, מחסנים וקליניקות · השכרה ומכירה"));
+  check("קישורים פנימיים מהדף", html.includes('href="/n/afula/%D7%90%D7%96%D7%95%D7%A8-%D7%94%D7%AA%D7%A2%D7%A9%D7%99%D7%99%D7%94"') && html.includes('href="/deals/afula"'));
+  check("canonical עצמי בלי query", html.includes(`<link rel="canonical" href="${COMM}">`));
+  const withQuery = await (await handler(new Request(COMM + "?type=offices&utm_source=g&gclid=x"), context())).text();
+  check("canonical עצמי גם עם type ו-utm", withQuery.includes(`<link rel="canonical" href="${COMM}">`) && h1Of(withQuery) === h1Of(html));
 }
 
 if (failed) {
