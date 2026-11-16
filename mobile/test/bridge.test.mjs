@@ -158,6 +158,45 @@ test('retry url stays on the site and skips the shell pages', () => {
   assert.equal(bridge.safeSiteRetry('https://notshuknadlan.co.il/crm'), '');
 });
 
+test('window.open() and window.open("") stay on the current page', () => {
+  const assigned = [];
+  const opened = [];
+  const win = {
+    open(url) { opened.push(url); return { closed: false }; },
+    location: {
+      href: 'https://shuknadlan.co.il/course',
+      pathname: '/course',
+      search: '',
+      hash: '',
+      assign(url) { assigned.push(url); },
+      replace() {},
+    },
+    document: {
+      readyState: 'complete',
+      documentElement: { style: {} },
+      addEventListener() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+      getElementById() { return null; },
+      createElement() {
+        return { style: {}, setAttribute() {}, appendChild() {}, addEventListener() {} };
+      },
+    },
+    navigator: {},
+    sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    localStorage: { getItem() { return null; }, setItem() {} },
+    history: { replaceState() {}, state: null },
+    setTimeout() { return 0; },
+    addEventListener() {},
+  };
+  bridge.install(win);
+  assert.deepEqual(win.open(), { closed: false });
+  assert.deepEqual(win.open(''), { closed: false });
+  assert.equal(win.open('https://shuknadlan.co.il/learn'), null);
+  assert.deepEqual(assigned, ['https://shuknadlan.co.il/learn']);
+  assert.deepEqual(opened, [undefined, '']);
+});
+
 test('callback cannot send the webview to another origin', () => {
   const dest = authReturnUrl(
     'il.co.shuknadlan.app://auth-callback?code=abc',

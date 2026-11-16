@@ -448,7 +448,8 @@
         return null;
       }
       // אותו אתר, כולל /course ו-/learn: לא חלון חדש ולא דפדפן חיצוני.
-      if (staysInAppUrl(url)) {
+      // בלי url, ‏window.open() ו-window.open('') היו נפתחים כדף הבית או כ-/undefined.
+      if (url && staysInAppUrl(url)) {
         try { win.location.assign(url); } catch (e) {}
         return null;
       }
