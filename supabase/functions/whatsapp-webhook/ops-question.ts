@@ -80,6 +80,17 @@ export const OPS_QUESTIONS: Record<string, OpsQuestion> = {
     allowedAgentIds: ["ad2b60a0-e2c1-4d1f-8a10-9bbea8026c19"],
     historyNote: OPS_PHOTO_HISTORY_NOTE,
   },
+  import_deal_ben_2026_11: {
+    body:
+      "היי בן, תיקנתי את הייבוא מקובץ. קובץ בלי סוג עסקה כבר לא נפסל כולו: שורות תקינות נכנסות, " +
+      "ובשורות שחסר בהן סוג עסקה אשאל אם הכל למכירה, הכל להשכרה, או לפי שורה. אפשר לשלוח לי את הקובץ שוב.",
+    buttons: ["הבנתי, אשלח", "תודה"],
+    followup: { body: "", buttons: [] },
+    allowedAgentIds: ["fe399fdc-912d-4b55-b79b-51a1b9d1fbff"],
+    historyNote:
+      "[הודעת מערכת, לא נכתבה בידי הסוכן/ת: נשלחה הודעה שהייבוא בלי סוג עסקה תוקן. " +
+      "לחיצה על כפתור אינה שולחת קובץ ואינה קולטת נכסים. הקליטה רק אחרי שהקובץ נשלח שוב.]",
+  },
   photo_check_1336_2026_10: {
     body: "היי, הנכסים 1336 (מגרש באומן) ו־1385 (חנות בקהילת ציון) עודכנו ביום חמישי בהפרש של שתי דקות. אפשר לוודא שהתמונות בכל אחד מהם נכונות? אם משהו התחלף, נעביר אותו לנכס הנכון.",
     buttons: [],
@@ -312,11 +323,11 @@ export function questionMessages(purpose: string): OpsOutboundMessage[] | null {
     id: opsButtonId(purpose, first.length + i),
     title,
   }));
-  const out: OpsOutboundMessage[] = [{ body: q.body, buttons: first, cta: null }];
-  if (q.followup.body.trim() || second.length > 0) {
-    out.push({ body: q.followup.body, buttons: second, cta: null });
+  const messages: OpsOutboundMessage[] = [{ body: q.body, buttons: first, cta: null }];
+  if (q.followup.body.trim() || second.length) {
+    messages.push({ body: q.followup.body, buttons: second, cta: null });
   }
-  return out;
+  return messages;
 }
 
 /** null כשזו אינה לחיצה על כפתור ops_q. כל מזהה עם הקידומת נתפס, גם שבור. */
