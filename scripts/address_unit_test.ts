@@ -124,7 +124,7 @@ check(
     && publishErrorText("duplicate key") !== UNIT_REQUIRED_MSG,
 );
 
-const sql = readFileSync(new URL("../supabase/migrations/20271116120000_property_unit_label.sql", import.meta.url), "utf8");
+const sql = readFileSync(new URL("../supabase/migrations/20271116133000_property_unit_label.sql", import.meta.url), "utf8");
 const elsewhereAt = sql.indexOf("duplicate_elsewhere");
 const unitRequiredAt = sql.indexOf("unit_required");
 check(
