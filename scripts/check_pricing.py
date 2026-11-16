@@ -56,9 +56,9 @@ PRICES = {
     'free_lead_quota_monthly':           10,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
-    # קורס ההכנה למבחן המתווכים (20271116090000): מחיר לצרכן/ית, **כולל** מע"מ,
-    # בניגוד לשאר המחירון. ₪399 לארבעה חודשים. docs/exam-course.md
-    'course_price_gross':                399,
+    # קורס ההכנה למבחן המתווכים (20271116110000): מחיר לצרכן/ית, **כולל** מע"מ,
+    # בניגוד לשאר המחירון. ₪450 לארבעה חודשים, עד 3 תשלומים שווים. docs/exam-course.md
+    'course_price_gross':                450,
     'course_access_months':              4,
     # הארכה (20271115180000): ₪99 כולל מע"מ, 4 חודשים, פעם אחת למי שרכש/ה את הקורס המלא.
     'course_extension_price_gross':      99,
@@ -190,6 +190,25 @@ DISPLAY = [
 ]
 
 
+def course_installments(problems):
+    """תשלום שווה בקורס הוא course_price_gross / 3, וכתוב בדף (לא רק מחושב במסך התשלום)."""
+    gross = PRICES['course_price_gross']
+    each = gross / 3
+    if each != int(each):
+        problems.append(f'course_price_gross {gross} אינו מתחלק ל-3 תשלומים שלמים.')
+        return
+    each = int(each)
+    pat = re.compile(r'3 תשלומים שווים של (\d+) ₪')
+    for path in ('course.html', 'assets/learn.js'):
+        text = open(os.path.join(ROOT, path), encoding='utf-8').read()
+        found = [int(v) for v in pat.findall(text)]
+        if not found:
+            problems.append(f'{path}: לא נמצא "3 תשלומים שווים של {each} ₪" (course_price_gross / 3).')
+        for v in found:
+            if v != each:
+                problems.append(f'{path}: תשלום שווה מוצג {v} ₪, ו-course_price_gross / 3 הוא {each}.')
+
+
 def derived(problems):
     """שורת "1 עד 2" בטבלת המשרד היא מחיר המחירון של Elite (אין מחיר משרד מתחת לשלושה סוכנים).
     היא כתובה בדף כמספר, ולכן נבדקת כאן: מי שמשנה את מחיר Elite חייב לעדכן אותה."""
@@ -259,6 +278,7 @@ def main():
                 problems.append(f'{path}: {key} מוצג {num(v)}, והמסד גובה {PRICES[key]}.')
 
     derived(problems)
+    course_installments(problems)
 
     if problems:
         print(f'✗ {len(problems)} פערים בין המחירים שמוצגים למחירים שנגבים:\n')
