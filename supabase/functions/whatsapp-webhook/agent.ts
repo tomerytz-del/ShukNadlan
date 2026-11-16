@@ -24,13 +24,13 @@ import {
   cleanUnitLabel,
   composeAddress,
   floorOrNull,
-  normUnit,
+  houseNumberPrefix,
+  sameHouseNumber,
   shareStop,
   sharedBuildingDecision,
-  UNIT_ASK_GUIDANCE,
-  UNIT_ASK_SAY,
   type ListedUnit,
   type ShareStop,
+  type UnitAddress,
 } from "./address-unit.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
@@ -2369,7 +2369,7 @@ async function resolvePropertyHood(
 }
 
 const OWNED_PROPERTY_COLS =
-  "id, title, images, street, house_number, city, floor, unit_label, status, agent_id, agency_id";
+  "id, title, images, street, house_number, city, floor, unit_label, rooms, deal_type, category, status, agent_id, agency_id";
 
 type OwnedProperty = {
   id: string;
@@ -2380,6 +2380,9 @@ type OwnedProperty = {
   city: string | null;
   floor: number | null;
   unit_label: string | null;
+  rooms: number | null;
+  deal_type: string | null;
+  category: string | null;
   status: string | null;
   agent_id: string;
   agency_id: string | null;
@@ -2468,24 +2471,26 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
 
   const sameAddress = (p: Record<string, unknown>) =>
     !!(street && house && normText(p.city) === city &&
-       normText(p.street) === street && normText(p.house_number) === house);
+       normText(p.street) === street && sameHouseNumber(p.house_number, house));
   const sameTitlePrice = (p: Record<string, unknown>) =>
     !!(title && normText(p.title) === title && Number(p.price) === Number(payload.price));
   const sameUnit = (p: Record<string, unknown>) => {
-    const incoming = {
+    const incoming: UnitAddress = {
       floor: floorOrNull(payload.floor),
       unit: payload.unit_label == null ? null : String(payload.unit_label),
+      rooms: payload.rooms == null || payload.rooms === "" ? null : Number(payload.rooms),
+      deal: payload.deal_type == null ? null : String(payload.deal_type),
+      commercial: payload.category === "commercial",
     };
-    const row = {
+    const row: ListedUnit = {
       floor: floorOrNull(p.floor),
       unit: p.unit_label == null ? null : String(p.unit_label),
+      rooms: p.rooms == null || p.rooms === "" ? null : Number(p.rooms),
+      deal: p.deal_type == null ? null : String(p.deal_type),
+      sameOffice: true,
     };
-    // בלי מספר בשני הצדדים זו עדיין אותה מודעה (גם בארכיון). מספר שונה אינו.
-    const unlabeled = incoming.floor === null && !normUnit(incoming.unit)
-      && row.floor === null && !normUnit(row.unit);
-    return numEq(p.rooms, payload.rooms) &&
-      (!p.deal_type || !payload.deal_type || p.deal_type === payload.deal_type) &&
-      (unlabeled || sharedBuildingDecision(incoming, [row]) === "block");
+    const decision = sharedBuildingDecision(incoming, [row]);
+    return decision === "block" || decision === "ask";
   };
 
   const matches = data.filter((p) => (sameAddress(p) && sameUnit(p)) || sameTitlePrice(p));
@@ -2516,12 +2521,14 @@ async function activeAtStreet(
   const streetKey = normText(street);
   const houseKey = normText(house);
   if (!cityKey || !streetKey || !houseKey) return [];
-  const cols = "id, listing_number, city, street, house_number, floor, unit_label, status";
+  const cols = "id, listing_number, city, street, house_number, floor, unit_label, rooms, deal_type, agency_id, status";
+  const prefix = houseNumberPrefix(house);
+  if (!prefix) return [];
   const run = (select: string) => ctx.supabase
     .from("properties")
     .select(select)
     .eq("status", "active")
-    .eq("house_number", String(house).trim())
+    .ilike("house_number", `${prefix}%`)
     .limit(200);
   const first = await run(cols);
   const second = listingCityColumnMissing(first.error)
@@ -2536,11 +2543,14 @@ async function activeAtStreet(
       if (excludeId && String(p.id) === excludeId) return false;
       return normText(p.city) === cityKey
         && normText(p.street) === streetKey
-        && normText(p.house_number) === houseKey;
+        && sameHouseNumber(p.house_number, house);
     })
     .map((p) => ({
       floor: floorOrNull(p.floor),
       unit: p.unit_label == null ? null : String(p.unit_label),
+      rooms: p.rooms == null || p.rooms === "" ? null : Number(p.rooms),
+      deal: p.deal_type == null ? null : String(p.deal_type),
+      sameOffice: !!ctx.agent.agency_id && String(p.agency_id || "") === ctx.agent.agency_id,
       listing_number: p.listing_number == null ? null : Number(p.listing_number),
     }));
 }
@@ -2553,12 +2563,21 @@ async function addressShareStop(
   house: unknown,
   floor: unknown,
   unit: unknown,
+  rooms: unknown,
+  deal: unknown,
+  commercial: boolean,
   excludeId: string | null,
 ): Promise<ShareStop | null> {
   const rows = await activeAtStreet(ctx, city, street, house, excludeId);
   if (!rows) return null;
   return shareStop(
-    { floor: floorOrNull(floor), unit: unit == null ? null : String(unit) },
+    {
+      floor: floorOrNull(floor),
+      unit: unit == null ? null : String(unit),
+      rooms: rooms == null || rooms === "" ? null : Number(rooms),
+      deal: deal == null ? null : String(deal),
+      commercial,
+    },
     rows,
   );
 }
@@ -2585,6 +2604,7 @@ async function elsewhereDraftNote(
       p_floor: floor != null && Number.isInteger(floor) ? floor : null,
       p_deal_type: payload.deal_type == null || payload.deal_type === "" ? null : String(payload.deal_type),
       p_unit: cleanUnitLabel(payload.unit_label),
+      p_commercial: payload.category === "commercial",
     });
     if (error) {
       if (!draftElsewhereMissing(error)) console.error("draft elsewhere check failed", error.code);
@@ -2725,9 +2745,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     }
   }
 
-  // אותו בניין: בלי קומה ובלי מספר משרד לא שומרים, ושואלים. force_new לא מדלג.
+  // רק כשמפתח הכפילות מתנגש. חדרים או עסקה שונים אינם שאלה. force_new לא מדלג על התנגשות אמיתית.
   const share = await addressShareStop(
-    ctx, payload.city, street, houseNumber, payload.floor, payload.unit_label, null,
+    ctx, payload.city, street, houseNumber, payload.floor, payload.unit_label,
+    payload.rooms, payload.deal_type, payload.category === "commercial", null,
   );
   if (share) return share;
 
@@ -2979,8 +3000,12 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   const houseNumber = (payload.house_number ?? existing.house_number) as string | undefined;
   const floor = payload.floor !== undefined ? payload.floor : existing.floor;
   const unit = payload.unit_label !== undefined ? payload.unit_label : existing.unit_label;
+  const rooms = payload.rooms !== undefined ? payload.rooms : existing.rooms;
+  const deal = payload.deal_type !== undefined ? payload.deal_type : existing.deal_type;
+  const commercial = (payload.category !== undefined ? payload.category : existing.category) === "commercial";
   const addressTouched = payload.street !== undefined || payload.house_number !== undefined
-    || payload.city !== undefined || payload.floor !== undefined || payload.unit_label !== undefined;
+    || payload.city !== undefined || payload.floor !== undefined || payload.unit_label !== undefined
+    || payload.rooms !== undefined || payload.deal_type !== undefined;
   if (addressTouched) {
     const share = await addressShareStop(
       ctx,
@@ -2989,6 +3014,9 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
       houseNumber,
       floor,
       unit,
+      rooms,
+      deal,
+      commercial,
       String(existing.id),
     );
     if (share) return share;
@@ -3017,21 +3045,9 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id);
   let { error } = await write();
-  // העמודה עוד לא עלתה: בלי unit_label אי אפשר להפריד, אז לא שומרים כתובת
-  // שההפרדה שלה היא רק המספר. קומה שמפרידה נשמרת גם בלי העמודה.
+  // העמודה עוד לא עלתה. המספר כבר נאמר: שומרים את הכתובת בלעדיו, לא שואלים שוב.
   if (listingCityColumnMissing(error) && Object.prototype.hasOwnProperty.call(payload, "unit_label")) {
-    const savedUnit = payload.unit_label;
     delete payload.unit_label;
-    const floorSeparates = floorOrNull(floor) !== null && normUnit(savedUnit) === null;
-    if (!floorSeparates && normUnit(savedUnit)) {
-      return {
-        ok: false,
-        needs_unit: true,
-        error: UNIT_ASK_SAY,
-        say: UNIT_ASK_SAY,
-        guidance: UNIT_ASK_GUIDANCE,
-      };
-    }
     ({ error } = await write());
   }
 
