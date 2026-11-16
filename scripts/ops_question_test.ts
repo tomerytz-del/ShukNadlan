@@ -350,6 +350,22 @@ for (const [purpose, item] of Object.entries(OPS_QUESTIONS)) {
   check(`${purpose} כותרות עד 20`, labels.length > 0 && labels.every((t) => t.length >= 1 && t.length <= 20));
 }
 
+const TAL_UNIT = "tal_office_unit_2026_11";
+const TAL = "8e5da176-ad0b-4a16-883d-036b0bb5596d";
+const tal = OPS_QUESTIONS[TAL_UNIT];
+const talMessages = questionMessages(TAL_UNIT);
+check(
+  "הודעה לטל: תיקון כתובת, בלי שליחה מהבדיקה",
+  tal.allowedAgentIds.length === 1 && tal.allowedAgentIds[0] === TAL
+    && tal.buttons.join("|") === "הבנתי"
+    && tal.body.includes("אפשר לנסות שוב")
+    && tal.body.includes("מספר הקומה או מספר המשרד")
+    && !/https?:\/\//.test(tal.body) && !tal.body.includes("shuknadlan") && !/0\d{8,}/.test(tal.body)
+    && talMessages?.length === 1
+    && talMessages[0].buttons.length === 1
+    && talMessages[0].cta === null,
+);
+
 type CtaSent = { to: string; body: string; label: string; url: string; logsBefore: number };
 
 async function runPhoto(purpose: string, agentId: string, opts?: { quiet?: boolean; lastInbound?: string | null; extra?: Record<string, unknown> }) {
