@@ -230,6 +230,7 @@
       'border-radius:12px;background:#e8efff;color:#1f5bf0;font:700 13px/1 inherit;text-decoration:none;white-space:nowrap}',
       'html.shuk-native .lp-pricebox,html.shuk-native .lp-reassure,html.shuk-native .lp-stick,html.shuk-native #buy,',
       'html.shuk-native .lp-offer,html.shuk-native .lp-final a.lp-cta,html.shuk-native [data-gift],html.shuk-native .lp-pay,html.shuk-native .lp-native-off,',
+      'html.shuk-native .chapter li .free{display:none !important}',
       'html.shuk-native a[href="/pricing"],html.shuk-native a[href^="/pricing"],html.shuk-native a[href^="/checkout"]{display:none !important}',
     ].join('');
     (doc.head || doc.documentElement).appendChild(style);
@@ -314,8 +315,14 @@
     var bits = doc.querySelectorAll('p, div, span, li');
     for (var b = 0; b < bits.length; b++) {
       var line = String(bits[b].textContent || '').replace(/\s+/g, ' ').trim();
-      if (isNativePitch(line)) hideEl(bits[b]);
+      if (isNativePitch(line) || isFreeLessonBadge(bits[b], line)) hideEl(bits[b]);
     }
+  }
+
+  /* תגית "חינם" ברשימת הפרקים (מחלקה free). תשובת מבחן עטופה ב-span בלי המחלקה נשארת. */
+  function isFreeLessonBadge(el, line) {
+    var classes = String(el.className || '').split(/\s+/);
+    return classes.indexOf('free') !== -1 && (line === 'חינם' || line === 'בחינם');
   }
 
   function isNativePitch(line) {
