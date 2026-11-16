@@ -9,6 +9,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script>
+/* באפליקציית החנות אין מחיר ואין רכישה (Apple 3.1.1). בדפדפן אין את
+   סוכן המשתמש, המחלקה לא נוספת, והדף נשאר כמו שהוא. */
+if (/ShukNadlanApp/i.test(navigator.userAgent || '')) document.documentElement.classList.add('shuk-native');
+</script>
 <script src="assets/esc.js"></script>
 <script src="assets/friendly-error.js"></script>
 <!-- ‏auth-return לפני supabase-js: חזרה מ-Google שנחתה כאן עם יעד שנשמר -->

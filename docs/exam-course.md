@@ -50,6 +50,11 @@ URLs** (‏Supabase → Authentication → URL Configuration). בלעדיה הכ
 `wallet-charges`): זה מחיר לצרכן/ית, והחוק מחייב להציג אותו כולל.
 ‏`amount_before_vat` נגזר ממנו לרישום. אין ארנק ואין קרדיט.
 
+**באפליקציית החנות אין מחיר ואין רכישה** (Apple 3.1.1). סוכן המשתמש
+`ShukNadlanApp` מסתיר ב-`/course` את המחיר, התשלומים וכפתורי הקנייה,
+וב-`/learn` אין מסך תשלום. מי שכבר רשום/ה נכנס/ת ללמידה. באתר בדפדפן
+המחיר והרכישה נשארים. הפרטים: `docs/native-apps.md`, "קורס ההכנה".
+
 **גישה בלי תשלום**: `course_grant_access(user_id, months, test_mode)` -
 ‏`service_role` בלבד. ‏`course-purchase` עם `test_mode: true` קורא לה
 למנהל/ת פלטפורמה (כפתור בדף התשלום), ולכל אדם אחר פותחים ידנית ב-SQL
