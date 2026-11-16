@@ -611,10 +611,12 @@ const TOOLS: Anthropic.Tool[] = [
       "באותה בדיקה של \"ייבוא מקובץ\" ב-CRM. מקבל את ה-job_id מהבלוק [ייבוא נכסים] שבהודעה עם הקובץ. " +
       "**רק אחרי שהסוכן/ת אישר/ה במפורש** את הקליטה. מודעה של יד2 שכבר אצל הסוכן/ת מתעדכנת " +
       "(מחיר, חזרה לפרסום, שדות ריקים) בלי לדרוס מה שמילא/ה; מודעה של עמית/ה במשרד נפסלת. " +
-      "ניחוש (מכירה/השכרה לפי מחיר, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
+      "ניחוש (מכירה/השכרה לפי מחיר כשהקובץ אומר מסחרי, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
       "לשאול קודם (\"78 מסחריים סווגו לפי מחיר - לאשר?\") ולהעביר את הסוגים שאושרו ב-accept_guesses. " +
       "בלי accept_guesses, כשיש ניחושים, לא נקלט כלום וחוזר needs_confirmation. " +
-      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות. " +
+      "שורה שהתא של סוג העסקה ריק אינה ניחוש ואינה פוסלת את הקובץ: התקינות נקלטו, " +
+      "והמערכת שולחת כפתורים (הכל למכירה, הכל להשכרה, לפי שורה). אין למלא סוג עסקה לבד, גם לא לפי מחיר. " +
+      "מחזיר summary בעברית: כמה נקלטו, כמה דולגו ולמה. " +
       "הסטטוס הוא מהקובץ, ובלי עמודה הנכס נקלט active. זה לא מסלול השאלה של create_property: " +
       "הסוכן/ת כבר אישר/ה את הקובץ, ואותה ליבה רצה באשף. מודעה של משרד אחר עדיין נחסמת בפרסום.",
     input_schema: {
@@ -2709,18 +2711,35 @@ async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, 
   const res = await runImportJob(ctx.supabase, ctx.agent, jobId,
     (city, street, house) => geocodeForProperty(ctx, city, street, house), accept);
   if (!res.ok) return res;
-  const fixUrl = SITE_BASE_URL && res.problems?.length
+  if (res.needs_deal) {
+    const buttons = res.send_buttons && Array.isArray(res.buttons) ? res.buttons : [];
+    if (buttons.length && ctx.outbox) {
+      ctx.outbox.push({ kind: "buttons", body: String(res.ask_body || ""), buttons });
+    }
+    return {
+      ok: true,
+      needs_deal: true,
+      waiting: res.waiting,
+      inserted: res.inserted,
+      updated: res.updated,
+      summary: res.summary,
+      buttons_sent: buttons.length > 0 && !!ctx.outbox,
+      note: buttons.length
+        ? "הכפתורים נשלחים עכשיו. משפט אחד: כמה נקלטו וכמה שורות ממתינות לסוג עסקה. " +
+          "אין לנחש מכירה או השכרה, גם לא לפי מחיר, ואין לכתוב כתובת או טלפון."
+        : "למסור את summary כמו שהוא. אין לנחש סוג עסקה, ואין לכתוב כתובת או טלפון.",
+    };
+  }
+  const fixUrl = SITE_BASE_URL && res.open_fix
     ? `${SITE_BASE_URL}/crm?goto=accProperties&import=${jobId}` : undefined;
   return {
     ...res,
-    note: "לסכם במספרים: נקלטו, עודכנו, ללא שינוי, נפסלו. לשורות שנפסלו - מספר השורה, הסיבה ומה לעשות " +
-      "(כמו שחזר כאן), עד חמש. שורות שחיכו לאישור ניחוש ולא אושרו (held_unconfirmed) - לומר כמה, ושהן " +
-      "בתיקון השורות. נכסים בלי תמונות - " +
-      "להזכיר שאפשר לשלוח תמונות כאן או להעלות ב-CRM.",
-    // כפתור אחד: תיקון כשיש מה לתקן, ואחרת הרשימה עצמה
+    note: "למסור את summary כמו שהוא: כמה נקלטו, כמה עודכנו, כמה דולגו ולמה. " +
+      "בלי כתובת ובלי טלפון. שורות שחיכו לאישור ניחוש ולא אושרו נשארות בתיקון השורות. " +
+      "נכסים בלי תמונות - להזכיר שאפשר לשלוח תמונות כאן או להעלות אחר כך.",
     ...(fixUrl
-      ? crmButton(ctx, fixUrl, "🛠️ תיקון השורות", "השורות שנפסלו פתוחות לתיקון באשף, מאותו קובץ:", "fix_link")
-      : crmButton(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accProperties` : undefined,
+      ? crmButton(ctx, fixUrl, "🛠️ תיקון השורות", "השורות שנשארו פתוחות לתיקון:", "fix_link")
+      : crmButton(ctx, SITE_BASE_URL && (res.inserted || res.updated) ? `${SITE_BASE_URL}/crm?goto=accProperties` : undefined,
         "🏠 הנכסים שלי", "לנכסים שנקלטו:", "properties_link")),
   };
 }
@@ -9762,6 +9781,7 @@ const SYSTEM_STATIC: string = (() => {
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
     "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
+      "קובץ בלי סוג עסקה: לא לפסול את כל השורות ולא לנחש לפי מחיר. אחרי האישור יוצאים כפתורים, ו-summary הוא התשובה. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
       "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +

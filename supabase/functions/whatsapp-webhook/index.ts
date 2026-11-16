@@ -14,7 +14,8 @@ import {
   WA_CUSTOMER_NOTE,
   type WaSent,
 } from "./whatsapp.ts";
-import { prepareImportJob } from "./property-import.ts";
+import { continueImportDeal, parseDealButtonId, prepareImportJob, type ImportDealOutcome } from "./property-import.ts";
+import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } from "./photo-target.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
 import { runCsmMentorTips, runCsmNotify } from "./csm-notify.ts";
@@ -629,6 +630,27 @@ async function replyButtons(
     error: sendError,
   });
   if (sendError) await reply(to, body, agentId);
+}
+
+function importGeocode() {
+  return (city: string, street: string, house: string) =>
+    city === "עפולה" ? geocodeAfula(street, house, supabase) : geocodeInCity(supabase, city, street, house);
+}
+
+/** תשובה על סוג עסקה חסר בייבוא. הטקסט בלי כתובת; הקישור רק בכפתור. */
+async function sendImportDeal(
+  from: string,
+  agentId: string,
+  conv: ConversationState,
+  outcome: ImportDealOutcome,
+): Promise<void> {
+  if (outcome.buttons?.length) await replyButtons(from, outcome.text, outcome.buttons, agentId);
+  else await reply(from, outcome.text, agentId);
+  if (outcome.ctaPath && outcome.ctaLabel && outcome.ctaBody) {
+    await replyCta(from, outcome.ctaBody, outcome.ctaLabel, absoluteUrl(SITE_BASE, outcome.ctaPath), agentId);
+  }
+  rememberListingAction(conv, outcome.text);
+  await saveConversation(agentId, from, conv);
 }
 
 async function restoreLessNotifs(to: string, agentId: string, type: string | null): Promise<void> {
@@ -2534,6 +2556,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         await restoreLessNotifs(from, agent.id, null);
         return;
       }
+      if (typed && !forwardedPrefix(msg)) {
+        const deal = await continueImportDeal(
+          supabase, { id: agent.id, agency_id: agent.agency_id },
+          { type: "reply", text: typed }, importGeocode(),
+        );
+        if (deal) {
+          await sendImportDeal(from, agent.id, conv, deal);
+          return;
+        }
+      }
       userText = forwardedPrefix(msg) + (msg.text?.body || "") +
         (await catalogLinksToText(String(msg.text?.body || ""), agent.id, from));
       break;
@@ -2646,6 +2678,18 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
     case "interactive": {
       const buttonId = String(msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || "");
+      const dealBtn = parseDealButtonId(buttonId);
+      if (dealBtn) {
+        const deal = await continueImportDeal(
+          supabase, { id: agent.id, agency_id: agent.agency_id },
+          dealBtn.key === "row"
+            ? { type: "per_row", jobId: dealBtn.jobId }
+            : { type: "all", deal: dealBtn.key, jobId: dealBtn.jobId },
+          importGeocode(),
+        );
+        if (deal) await sendImportDeal(from, agent.id, conv, deal);
+        return;
+      }
       const navPath = parseNavId(buttonId);
       if (navPath) {
         await sendOutbox(from, [{
