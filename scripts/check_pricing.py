@@ -56,9 +56,9 @@ PRICES = {
     'free_lead_quota_monthly':           10,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
-    # קורס ההכנה למבחן המתווכים (20271106090000): מחיר לצרכן/ית, **כולל** מע"מ,
-    # בניגוד לשאר המחירון. docs/exam-course.md
-    'course_price_gross':                450,
+    # קורס ההכנה למבחן המתווכים (20271116090000): מחיר לצרכן/ית, **כולל** מע"מ,
+    # בניגוד לשאר המחירון. ₪399 לארבעה חודשים. docs/exam-course.md
+    'course_price_gross':                399,
     'course_access_months':              4,
     # הארכה (20271115180000): ₪99 כולל מע"מ, 4 חודשים, פעם אחת למי שרכש/ה את הקורס המלא.
     'course_extension_price_gross':      99,
@@ -139,10 +139,14 @@ DISPLAY = [
     ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
     ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
     ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
-    ('course.html', r'וסימולציות\. ' + N + r' ₪ לארבעה חודשים',           'course_price_gross'),
+    ('course.html', r'וסימולציות\. ' + N + r' ₪ כולל מע״מ לארבעה חודשים', 'course_price_gross'),
+    ('course.html', r'' + N + r' ₪ כולל מע״מ, גישה לארבעה חודשים',       'course_price_gross'),
+    ('course.html', r'font-size:34px">' + N + r' ₪</b> כולל מע״מ',       'course_price_gross'),
+    ('course.html', r'<b>' + N + r' ₪</b><small>4 חודשים, כולל מע״מ',    'course_price_gross'),
     ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
     ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
     ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
+    ('assets/learn.js', r'הסכום הכולל נשאר ' + N + r' ₪ כולל מע״מ',       'course_price_gross'),
     # מחיר משרד: הטבלה ב-#office, השאלה הנפוצה (HTML ו-JSON-LD), שורת ההשוואה, הכרטיס ב-tiers.js והתקנון
     ('pricing.html', r'data-office="min1">' + N,                        'office_price_tier1_min_agents'),
     ('pricing.html', r'data-office="min2">' + N,                        'office_price_tier2_min_agents'),
