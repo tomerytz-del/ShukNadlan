@@ -2,7 +2,84 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import native from '../../assets/native-app.js';
 
-const { TABS, activeTab, isNativeApp, isPurchaseUrl, showTabs, staysInApp } = native;
+const { TABS, activeTab, applyCourseShield, isNativeApp, isPurchaseUrl, showTabs, staysInApp } = native;
+
+function fakeDoc(children) {
+  const all = [];
+  function make(spec, parent) {
+    const node = {
+      parentNode: parent,
+      nodeType: 1,
+      id: spec.id || '',
+      className: spec.className || '',
+      tagName: (spec.tag || 'div').toUpperCase(),
+      href: spec.href || '',
+      style: {},
+      attrs: Object.assign({}, spec.attrs),
+      _text: spec.text || '',
+      children: [],
+      get textContent() {
+        return this._text + this.children.map((c) => c.textContent).join('');
+      },
+      set textContent(value) {
+        this._text = value;
+        this.children = [];
+      },
+      getAttribute(name) {
+        if (name === 'href') return this.href || null;
+        return Object.prototype.hasOwnProperty.call(this.attrs, name) ? this.attrs[name] : null;
+      },
+      setAttribute(name, value) { this.attrs[name] = String(value); },
+      closest(sel) {
+        let current = this;
+        while (current) {
+          if (matches(current, sel)) return current;
+          current = current.parentNode;
+        }
+        return null;
+      },
+    };
+    (spec.children || []).forEach((child) => node.children.push(make(child, node)));
+    all.push(node);
+    return node;
+  }
+  make({ tag: 'body', children: children }, null);
+  function query(sel) {
+    const parts = sel.split(',').map((part) => part.trim());
+    return all.filter((node) => parts.some((part) => matches(node, part)));
+  }
+  return {
+    querySelectorAll: query,
+    querySelector(sel) { return query(sel)[0] || null; },
+  };
+}
+
+function classList(node) {
+  return (node.className || '').split(/\s+/).filter(Boolean);
+}
+
+function matches(node, sel) {
+  if (sel === 'a' || sel === 'button' || sel === 'p' || sel === 'label' || sel === 'span') {
+    return node.tagName === sel.toUpperCase();
+  }
+  if (sel === 'a[href]') return node.tagName === 'A' && !!node.href;
+  if (sel.startsWith('.') && !sel.includes(' ')) return classList(node).includes(sel.slice(1));
+  if (sel.startsWith('#')) return node.id === sel.slice(1);
+  if (sel === '[data-gift]') return node.getAttribute('data-gift') != null;
+  if (sel === '.lp-final a.lp-cta') {
+    return node.tagName === 'A' && classList(node).includes('lp-cta')
+      && !!node.closest('.lp-final') && node.closest('.lp-final') !== node;
+  }
+  if (sel === 'header .back-link') {
+    return classList(node).includes('back-link') && !!node.closest('header');
+  }
+  if (sel === 'header') return node.tagName === 'HEADER';
+  return false;
+}
+
+function visible(node) {
+  return node.getAttribute('data-shuk-native-hidden') !== '1' && node.style.display !== 'none';
+}
 
 test('the course tab sits with the other app destinations', () => {
   assert.deepEqual(TABS.map((tab) => tab.label), ['בית', 'לידים', 'משימות', 'משכנתא', 'קורס']);
@@ -45,4 +122,35 @@ test('course and learn stay in the webview, checkout does not', () => {
   assert.equal(isPurchaseUrl('https://shuknadlan.co.il/checkout'), true);
   assert.equal(isPurchaseUrl('https://app.greeninvoice.co.il/pay/abc'), true);
   assert.equal(staysInApp('https://wa.me/972501234567'), false);
+});
+
+test('a learn question that mentions shekels stays visible', () => {
+  const doc = fakeDoc([
+    { tag: 'p', text: 'הדירה נמכרה ב-200,000 ₪.' },
+    { tag: 'button', text: '200,000 ₪' },
+    { tag: 'button', text: 'לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ' },
+  ]);
+  applyCourseShield(doc, '/learn');
+  const question = doc.querySelectorAll('p')[0];
+  const option = doc.querySelectorAll('button')[0];
+  const buy = doc.querySelectorAll('button')[1];
+  assert.equal(visible(question), true);
+  assert.match(question.textContent, /200,000 ₪/);
+  assert.equal(visible(option), true);
+  assert.match(option.textContent, /200,000 ₪/);
+  assert.equal(visible(buy), false);
+});
+
+test('course shield hides the payment FAQ and keeps other shekel text', () => {
+  const doc = fakeDoc([
+    { tag: 'details', className: 'lp-pay', text: 'עד 3 תשלומים שווים של 150 ₪' },
+    { tag: 'label', text: 'תקציב (₪)' },
+    { tag: 'a', href: '/?deal=sale&maxPrice=1500000', text: 'נכסים בעפולה עד 1.5 מיליון ₪' },
+  ]);
+  applyCourseShield(doc, '/course');
+  assert.equal(visible(doc.querySelectorAll('.lp-pay')[0]), false);
+  assert.equal(visible(doc.querySelectorAll('label')[0]), true);
+  assert.match(doc.querySelectorAll('label')[0].textContent, /תקציב \(₪\)/);
+  assert.equal(visible(doc.querySelectorAll('a')[0]), true);
+  assert.match(doc.querySelectorAll('a')[0].textContent, /1\.5 מיליון ₪/);
 });

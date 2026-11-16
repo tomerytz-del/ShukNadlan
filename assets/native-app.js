@@ -46,7 +46,9 @@
   };
 
   var BUY_TEXT = /מתחילים ללמוד|אני רוצה להתחיל|לפתיחת הקורס|לתשלום מאובטח|לרכוש גישה|רכישת הקורס/;
-  var PAY_SUMMARY = /תשלום|תשלומים|אחרי הרכישה|מתנה לרוכש/;
+  /* בלוקי המכירה בדף הקורס בלבד. לא סורקים כל ₪: שאלת בחינה, "תקציב (₪)"
+     וקישור של נכס ("עד 1.5 מיליון ₪") אינם רכישה. */
+  var COURSE_SALE = '.lp-pricebox, .lp-reassure, .lp-stick, #buy, .lp-offer, .lp-final a.lp-cta, [data-gift], .lp-pay';
 
   function isNativeApp(ua, win) {
     if (/ShukNadlanApp/i.test(String(ua || ''))) return true;
@@ -222,7 +224,7 @@
       'a.shuk-crm-course{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 10px;',
       'border-radius:12px;background:#e8efff;color:#1f5bf0;font:700 13px/1 inherit;text-decoration:none;white-space:nowrap}',
       'html.shuk-native .lp-pricebox,html.shuk-native .lp-reassure,html.shuk-native .lp-stick,html.shuk-native #buy,',
-      'html.shuk-native .lp-offer,html.shuk-native .lp-final a.lp-cta,html.shuk-native [data-gift],',
+      'html.shuk-native .lp-offer,html.shuk-native .lp-final a.lp-cta,html.shuk-native [data-gift],html.shuk-native .lp-pay,',
       'html.shuk-native a[href="/pricing"],html.shuk-native a[href^="/pricing"],html.shuk-native a[href^="/checkout"]{display:none !important}',
     ].join('');
     (doc.head || doc.documentElement).appendChild(style);
@@ -274,26 +276,18 @@
     el.setAttribute('aria-hidden', 'true');
   }
 
-  function shieldCourse(win) {
-    var doc = win.document;
-    if (!doc || !doc.body) return;
-    var path = pagePath(win.location && win.location.pathname);
-    if (path !== '/course' && path !== '/learn') return;
-    ensureStyles(doc);
-    function pass() {
-      var blocks = doc.querySelectorAll('.lp-pricebox,.lp-reassure,.lp-stick,#buy,.lp-offer,.lp-final a.lp-cta,[data-gift],.lp-pay');
+  /* מסתיר רק בלוקי מכירה וכפתורי רכישה. ב-/learn לא נוגעים בטקסט שמכיל ₪:
+     שאלות הבחינה כוללות סכומים (150,000 ₪ וכדומה) והן חייבות להישאר. */
+  function applyCourseShield(doc, path) {
+    if (!doc || !doc.querySelectorAll) return;
+    path = pagePath(path);
+    var course = path === '/course';
+    var learn = path === '/learn';
+    if (!course && !learn) return;
+    if (course) {
+      var blocks = doc.querySelectorAll(COURSE_SALE);
       for (var i = 0; i < blocks.length; i++) hideEl(blocks[i]);
-      var anchors = doc.querySelectorAll('a[href]');
-      for (var a = 0; a < anchors.length; a++) {
-        var href = anchors[a].href || anchors[a].getAttribute('href') || '';
-        if (isPurchaseUrl(href)) hideEl(anchors[a]);
-      }
-      var controls = doc.querySelectorAll('a, button');
-      for (var c = 0; c < controls.length; c++) {
-        var text = String(controls[c].textContent || '').replace(/\s+/g, ' ').trim();
-        if (BUY_TEXT.test(text)) hideEl(controls[c]);
-      }
-      var back = doc.querySelector('header .back-link');
+      var back = doc.querySelector && doc.querySelector('header .back-link');
       if (back && /רכש/.test(back.textContent || '')) back.textContent = 'כניסה לקורס';
       var paras = doc.querySelectorAll('p');
       for (var p = 0; p < paras.length; p++) {
@@ -301,46 +295,41 @@
           paras[p].textContent = 'הקורס מתעדכן: כל מבחן חדש שהרשם מפרסם נכנס למאגר, וכל שיעור חדש נפתח למי שכבר לומדים בקורס.';
         }
       }
-      var details = doc.querySelectorAll('details');
-      for (var d = 0; d < details.length; d++) {
-        var summary = details[d].querySelector('summary');
-        var sum = summary ? String(summary.textContent || '') : '';
-        if (PAY_SUMMARY.test(sum) || (details[d].textContent || '').indexOf('₪') !== -1) hideEl(details[d]);
-      }
-      hideShekels(doc);
     }
-    function run() {
-      if (!doc.body) return;
-      if (doc.__shukShieldObs) doc.__shukShieldObs.disconnect();
-      pass();
-      if (!win.MutationObserver) return;
-      var obs = new win.MutationObserver(function () { run(); });
+    var anchors = doc.querySelectorAll('a[href]');
+    for (var a = 0; a < anchors.length; a++) {
+      var href = anchors[a].href || anchors[a].getAttribute('href') || '';
+      if (isPurchaseUrl(href)) hideEl(anchors[a]);
+    }
+    var controls = doc.querySelectorAll('a, button');
+    for (var c = 0; c < controls.length; c++) {
+      var text = String(controls[c].textContent || '').replace(/\s+/g, ' ').trim();
+      if (BUY_TEXT.test(text)) hideEl(controls[c]);
+    }
+  }
+
+  function shieldCourse(win) {
+    var doc = win.document;
+    if (!doc || !doc.body) return;
+    var path = pagePath(win.location && win.location.pathname);
+    if (path !== '/course' && path !== '/learn') return;
+    ensureStyles(doc);
+    var scheduled = false;
+    function schedule() {
+      if (scheduled) return;
+      scheduled = true;
+      var raf = win.requestAnimationFrame || function (fn) { return win.setTimeout(fn, 16); };
+      raf(function () {
+        scheduled = false;
+        if (doc.body) applyCourseShield(doc, path);
+      });
+    }
+    if (win.MutationObserver && !doc.__shukShieldObs) {
+      var obs = new win.MutationObserver(schedule);
       doc.__shukShieldObs = obs;
       obs.observe(doc.body, { childList: true, subtree: true });
     }
-    run();
-  }
-
-  function hideShekels(doc) {
-    var all = doc.body.querySelectorAll('a, p, li, span, small, b, div, button, label, strong');
-    var list = [];
-    for (var i = 0; i < all.length; i++) {
-      var el = all[i];
-      if (el.closest && (el.closest('#shukAppTabs') || el.closest('#shukCrmCourse'))) continue;
-      if (el.getAttribute('data-shuk-native-hidden') === '1') continue;
-      if ((el.textContent || '').indexOf('₪') === -1) continue;
-      list.push(el);
-    }
-    for (var j = 0; j < list.length; j++) {
-      var node = list[j];
-      var deeper = false;
-      for (var k = 0; k < list.length; k++) {
-        if (list[k] !== node && node.contains(list[k])) { deeper = true; break; }
-      }
-      if (deeper) continue;
-      if ((node.textContent || '').length > 700) continue;
-      hideEl(node);
-    }
+    applyCourseShield(doc, path);
   }
 
   return {
@@ -352,6 +341,7 @@
     isPurchaseUrl: isPurchaseUrl,
     showTabs: showTabs,
     activeTab: activeTab,
+    applyCourseShield: applyCourseShield,
     install: install,
   };
 });
