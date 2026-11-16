@@ -370,7 +370,7 @@
       '<div class="center"><div class="card">' +
       '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>נכנסים עם חשבון Google, וממשיכים מאיפה שעצרתם, מכל מכשיר.</div></div>' +
       '<h2>כניסה לקורס ההכנה</h2>' +
-      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לארבעה חודשים ב-399 ₪ כולל מע״מ.</p>' +
+      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לארבעה חודשים ב-450 ₪ כולל מע״מ.</p>' +
       '<button type="button" class="gbtn" id="googleBtn">' + I.google + '<span class="gl-label">כניסה עם Google</span></button>' +
       '<div class="err" id="loginErr">' + escapeHtml(err || '') + '</div>' +
       '<p style="font-size:13.5px"><a href="/course">חזרה לדף הקורס</a></p>' +
@@ -540,7 +540,7 @@
       (ext && !expired ? '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>הגישה שלכם מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. אפשר להאריך בארבעה חודשים נוספים, והם יתווספו לסוף התקופה.</div></div>' : '') +
       '<div id="payVerify" class="hidden" style="text-align:center"><div class="spin"></div><p>מאמתים את התשלום מול חברת הסליקה...</p></div>' +
       '<div id="payBody">' +
-      '<div class="price-row"><div class="amt"><span id="payAmount">399</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">4</span> חודשים</span></div>' +
+      '<div class="price-row"><div class="amt"><span id="payAmount">450</span> ₪<small>כולל מע״מ</small></div><span class="pill cream" style="font-size:13px"><span id="payMonths">4</span> חודשים</span></div>' +
       '<ul class="feat">' + ['כל השיעורים והחידונים', 'כל מבחני העבר עם ההסברים', 'סימולציות ללא הגבלה', 'חזרה על טעויות', 'מד התקדמות אישי', 'תכנים חדשים שנוספים בתקופה'].map(function (t) { return '<li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f9d55" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>' + t + '</li>'; }).join('') + '</ul>' +
       '<div class="hr"></div><b style="font-size:14px">פרטים לחשבונית</b>' +
       '<label class="field">שם מלא<input id="payName" type="text" autocomplete="name" maxlength="100" value="' + escapeHtml(name) + '"></label>' +
@@ -689,7 +689,7 @@
         '<span><b>' + label + escapeHtml(c.title) + '</b><span class="sub">' + n + ' ' + (n === 1 ? 'שיעור' : 'שיעורים') + ' להשלמה</span></span></button>';
     }
     var primary;
-    if (lockedNext) primary = '<button type="button" class="btn-p" id="wnBuy">לפתיחת הקורס המלא לארבעה חודשים ב-399 ₪ כולל מע״מ</button>';
+    if (lockedNext) primary = '<button type="button" class="btn-p" id="wnBuy">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>';
     else if (rec != null) primary = '<button type="button" class="btn-p" data-ch="' + rec + '">הפרק הבא: ' + escapeHtml(chapters[rec].title) + '</button>';
     else primary = '<button type="button" class="btn-p" id="wnExam">לסימולציית בחינה</button>';
     var msg = lockedNext
@@ -796,9 +796,9 @@
       '<button type="button" class="btn-p" id="wlStart">מתחילים בשיעור הראשון</button>' +
       (enrolled()
         ? '<button type="button" class="btn-s" id="wlMap">למפת הקורס</button>'
-        : '<button type="button" class="btn-s" id="wlBuy">לפתיחת הקורס המלא לארבעה חודשים ב-399 ₪ כולל מע״מ</button>') +
+        : '<button type="button" class="btn-s" id="wlBuy">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>') +
       '<button type="button" class="wl-skip" id="wlBack">שינוי התשובה</button>' +
-      '<p style="font-size:13px;text-align:center;margin:0">' + (enrolled() ? '' : 'אפשר לשלם עד 3 תשלומים שווים ללא ריבית. הסכום הכולל נשאר 399 ₪ כולל מע״מ. ') + 'ההתקדמות נשמרת, ואפשר לעצור ולחזור מתי שנוח.</p>' +
+      '<p style="font-size:13px;text-align:center;margin:0">' + (enrolled() ? '' : 'אפשר לשלם עד 3 תשלומים שווים של 150 ₪ ללא ריבית. הסכום הכולל נשאר 450 ₪ כולל מע״מ. ') + 'ההתקדמות נשמרת, ואפשר לעצור ולחזור מתי שנוח.</p>' +
       '</div></div></div>');
     bindBand();
     on('wlStart', 'click', function () { markWelcomeSeen(choice); if (firstId) openLesson(firstId); else renderMap(); });
@@ -821,7 +821,7 @@
       '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div>' +
       (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה: עוד ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪ כולל מע״מ</button></p></div>' : '') +
       // מי שעוד לא רכש/ה: השיעורים הראשונים פתוחים, והדרך לרכישה גלויה מהמפה (ולא רק מנעילת שיעור)
-      (!enrolled() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא לארבעה חודשים ב-399 ₪ כולל מע״מ</button></p></div>' : '') +
+      (!enrolled() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button></p></div>' : '') +
       '</div>';
 
     var chapters = (state.catalog.chapters || []);
@@ -884,10 +884,10 @@
   function renderLocked(entry) {
     render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
       '<div class="center"><div class="card">' +
-      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. ארבעה חודשים ב-399 ₪ כולל מע״מ, בתשלום אחד או ב-3 תשלומים שווים ללא ריבית. מה שכבר למדתם נשמר.</div></div>' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. ארבעה חודשים ב-450 ₪ כולל מע״מ, בתשלום אחד או ב-3 תשלומים שווים של 150 ₪ ללא ריבית. מה שכבר למדתם נשמר.</div></div>' +
       '<h2>' + escapeHtml(entry.lesson.title) + '</h2>' +
       '<p>גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.</p>' +
-      '<button type="button" class="btn-p" id="goPay">לפתיחת הקורס המלא לארבעה חודשים ב-399 ₪ כולל מע״מ</button>' +
+      '<button type="button" class="btn-p" id="goPay">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>' +
       '<button type="button" class="btn-s" id="backMap">למפת הקורס</button></div></div>');
     bindBand();
     on('goPay', 'click', function () { renderPay(); });

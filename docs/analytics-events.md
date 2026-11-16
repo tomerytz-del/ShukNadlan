@@ -577,7 +577,7 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | `begin_checkout` | לחיצה על "לתשלום מאובטח" | `value`, `currency` (ILS), `items` |
 | `purchase` | **אחרי שהגישה נפתחה בפועל** (לא לפי `?order=success` לבדו), פעם אחת לכל הזמנה | `transaction_id` (מזהה ההזמנה), `value`, `currency`, `items` |
 
-`items`: `course_exam_prep` (399 ₪, כולל מע״מ, לארבעה חודשים) או `course_extension` (99 ₪, כולל מע״מ, לעוד ארבעה חודשים). **בלי פרטים
+`items`: `course_exam_prep` (450 ₪, כולל מע״מ, לארבעה חודשים) או `course_extension` (99 ₪, כולל מע״מ, לעוד ארבעה חודשים). **בלי פרטים
 אישיים:** לא שם, לא טלפון ולא מייל. הדחיפה לא נורית פעמיים: מזהה ההזמנה נשמר ב-
 `localStorage` (`coursePurchaseSent:<id>`).
 
