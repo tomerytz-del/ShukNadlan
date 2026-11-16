@@ -420,8 +420,14 @@ export function redactPublishError(message: string | null | undefined): string |
   return null;
 }
 
+/** בלי קומה ובלי מספר משרד הטריגר מבקש את המספר, ולא שם של אדם. */
+export const UNIT_REQUIRED_MSG =
+  "כדי לפרסם יחידה נוספת באותו בניין צריך מספר קומה או מספר משרד. בלי המספר אי אפשר לפרסם.";
+
 /** הודעה מוכרת בלי שמות, וכל השאר משפט כללי. */
 export function publishErrorText(message: string | null | undefined): string {
+  const msg = String(message || "").replace(/[—–]/g, "-").trim();
+  if (msg.includes("צריך מספר קומה או מספר משרד")) return UNIT_REQUIRED_MSG;
   return redactPublishError(message) ?? PUBLISH_FAILED;
 }
 

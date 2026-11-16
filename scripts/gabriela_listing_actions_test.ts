@@ -41,6 +41,7 @@ import {
   draftElsewhereMissing,
   elsewhereDraftWarning,
   publishErrorText,
+  UNIT_REQUIRED_MSG,
   publishStoreBlocked,
   unpublishedAfterUnconfirmedPublish,
   publishWritesNow,
@@ -319,6 +320,10 @@ const sameOffice = "הנכס כבר מפורסם במשרד שלכם על ידי
 const sameSafe = publishErrorText(sameOffice);
 check("אותו משרד בלי שם עמית/ה", sameSafe.includes("מודעה #12") && !sameSafe.includes("רונית"));
 check("עברית לא מוכרת לא עוברת", publishErrorText("שלום דנה מהמשרד השני") === PUBLISH_FAILED);
+check(
+  "בלי מספר יחידה ההודעה מבקשת מספר, בלי שם",
+  publishErrorText(UNIT_REQUIRED_MSG) === UNIT_REQUIRED_MSG && !UNIT_REQUIRED_MSG.includes("http"),
+);
 check("שגיאה באנגלית לא עוברת", publishErrorText("duplicate key value violates unique constraint") === PUBLISH_FAILED);
 const longDash = String.fromCharCode(0x2014);
 check("מקף ארוך בשגיאה מוחלף", !publishErrorText(`הנכס ${longDash} באוויר`).includes(longDash));
