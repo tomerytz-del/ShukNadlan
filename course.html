@@ -9,6 +9,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script>
+/* באפליקציית החנות אין מחיר ואין רכישה (Apple 3.1.1). בדפדפן אין את
+   סוכן המשתמש, המחלקה לא נוספת, והדף נשאר כמו שהוא. */
+if (/ShukNadlanApp/i.test(navigator.userAgent || '')) document.documentElement.classList.add('shuk-native');
+</script>
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -227,6 +232,18 @@ a.lp-link{color:var(--lp-action);font-weight:700;text-decoration:underline;text-
  .lp-stick a.lp-cta{flex:1;padding:14px;font-size:16px}
  body{padding-bottom:76px}
 }
+/* רק באפליקציה (המחלקה נוספת מהסקריפט שבראש הדף). באתר אין את המחלקה. */
+html.shuk-native .lp-pricebox,
+html.shuk-native .lp-reassure,
+html.shuk-native .lp-stick,
+html.shuk-native #buy,
+html.shuk-native .lp-offer,
+html.shuk-native .lp-final a.lp-cta,
+html.shuk-native [data-gift],
+html.shuk-native a[href="/pricing"],
+html.shuk-native a[href^="/pricing"],
+html.shuk-native a[href^="/checkout"]{display:none !important}
+html.shuk-native body{padding-bottom:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -524,7 +541,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="lp-final">
       <h2>הצעד הראשון שלך בדרך לרישיון התיווך מתחיל כאן</h2>
       <p>התחילו בשיעור הראשון בחינם, והמשיכו כשאתם מוכנים.</p>
-      <div style="font-size:15px;margin-bottom:20px"><b style="font-size:34px">450 ₪</b> כולל מע״מ · לארבעה חודשים · תשלום חד-פעמי</div>
+      <div class="lp-offer" style="font-size:15px;margin-bottom:20px"><b style="font-size:34px">450 ₪</b> כולל מע״מ · לארבעה חודשים · תשלום חד-פעמי</div>
       <a href="/learn" class="lp-cta" id="ctaFinal">מתחילים ללמוד עכשיו</a>
       <div class="lp-giftline" data-gift hidden>ומתנה: נרשמים אחר כך כיועצי נדל״ן עם אותו חשבון Google ומקבלים <span class="lp-nw">90 ימי Elite</span>, <span class="lp-nw">בשווי 1,197 ₪</span><br><a href="/pricing#plan-elite">לפרטים על מסלול Elite ←</a></div>
     </div>
