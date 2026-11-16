@@ -124,6 +124,23 @@ test('course and learn stay in the webview, checkout does not', () => {
   assert.equal(staysInApp('https://wa.me/972501234567'), false);
 });
 
+test('signed-out learn pitches are hidden and exam wording stays', () => {
+  const doc = fakeDoc([
+    { tag: 'p', text: 'השיעורים הראשונים פתוחים בחינם.' },
+    { tag: 'p', text: 'גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.' },
+    { tag: 'button', text: 'לתת את הייעוץ בחינם ללקוחות תיווך, כי אסור לגבות עליו בנפרד.' },
+    { tag: 'p', text: 'הדירה נמכרה ב-200,000 ₪.' },
+  ]);
+  applyCourseShield(doc, '/learn');
+  const ps = doc.querySelectorAll('p');
+  assert.equal(visible(ps[0]), false);
+  assert.equal(visible(ps[1]), false);
+  assert.equal(visible(doc.querySelectorAll('button')[0]), true);
+  assert.match(doc.querySelectorAll('button')[0].textContent, /בחינם/);
+  assert.equal(visible(ps[2]), true);
+  assert.match(ps[2].textContent, /200,000 ₪/);
+});
+
 test('a learn question that mentions shekels stays visible', () => {
   const doc = fakeDoc([
     { tag: 'p', text: 'הדירה נמכרה ב-200,000 ₪.' },
@@ -146,9 +163,11 @@ test('course shield hides the payment FAQ and keeps other shekel text', () => {
     { tag: 'details', className: 'lp-pay', text: 'עד 3 תשלומים שווים של 150 ₪' },
     { tag: 'label', text: 'תקציב (₪)' },
     { tag: 'a', href: '/?deal=sale&maxPrice=1500000', text: 'נכסים בעפולה עד 1.5 מיליון ₪' },
+    { tag: 'p', className: 'lp-native-off', text: 'התחילו בשיעור הראשון בחינם, והמשיכו כשאתם מוכנים.' },
   ]);
   applyCourseShield(doc, '/course');
   assert.equal(visible(doc.querySelectorAll('.lp-pay')[0]), false);
+  assert.equal(visible(doc.querySelectorAll('.lp-native-off')[0]), false);
   assert.equal(visible(doc.querySelectorAll('label')[0]), true);
   assert.match(doc.querySelectorAll('label')[0].textContent, /תקציב \(₪\)/);
   assert.equal(visible(doc.querySelectorAll('a')[0]), true);

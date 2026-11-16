@@ -48,7 +48,12 @@
   var BUY_TEXT = /מתחילים ללמוד|אני רוצה להתחיל|לפתיחת הקורס|לתשלום מאובטח|לרכוש גישה|רכישת הקורס/;
   /* בלוקי המכירה בדף הקורס בלבד. לא סורקים כל ₪: שאלת בחינה, "תקציב (₪)"
      וקישור של נכס ("עד 1.5 מיליון ₪") אינם רכישה. */
-  var COURSE_SALE = '.lp-pricebox, .lp-reassure, .lp-stick, #buy, .lp-offer, .lp-final a.lp-cta, [data-gift], .lp-pay';
+  var COURSE_SALE = '.lp-pricebox, .lp-reassure, .lp-stick, #buy, .lp-offer, .lp-final a.lp-cta, [data-gift], .lp-pay, .lp-native-off';
+  /* שורות שיווק למי שאינו רשום. מוסתרות גם אם learn.js כבר לא מצייר אותן. */
+  var NATIVE_PITCH = [
+    'השיעורים הראשונים פתוחים בחינם.',
+    'גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.',
+  ];
 
   function isNativeApp(ua, win) {
     if (/ShukNadlanApp/i.test(String(ua || ''))) return true;
@@ -224,7 +229,7 @@
       'a.shuk-crm-course{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 10px;',
       'border-radius:12px;background:#e8efff;color:#1f5bf0;font:700 13px/1 inherit;text-decoration:none;white-space:nowrap}',
       'html.shuk-native .lp-pricebox,html.shuk-native .lp-reassure,html.shuk-native .lp-stick,html.shuk-native #buy,',
-      'html.shuk-native .lp-offer,html.shuk-native .lp-final a.lp-cta,html.shuk-native [data-gift],html.shuk-native .lp-pay,',
+      'html.shuk-native .lp-offer,html.shuk-native .lp-final a.lp-cta,html.shuk-native [data-gift],html.shuk-native .lp-pay,html.shuk-native .lp-native-off,',
       'html.shuk-native a[href="/pricing"],html.shuk-native a[href^="/pricing"],html.shuk-native a[href^="/checkout"]{display:none !important}',
     ].join('');
     (doc.head || doc.documentElement).appendChild(style);
@@ -292,7 +297,7 @@
       var paras = doc.querySelectorAll('p');
       for (var p = 0; p < paras.length; p++) {
         if ((paras[p].textContent || '').indexOf('תוספת תשלום') !== -1 && (paras[p].textContent || '').length < 400) {
-          paras[p].textContent = 'הקורס מתעדכן: כל מבחן חדש שהרשם מפרסם נכנס למאגר, וכל שיעור חדש נפתח למי שכבר לומדים בקורס.';
+          paras[p].textContent = 'הקורס מתעדכן: כל מבחן חדש שרשם המתווכים מפרסם נכנס למאגר, וכל שיעור חדש נפתח למי שכבר לומדים בקורס.';
         }
       }
     }
@@ -306,6 +311,18 @@
       var text = String(controls[c].textContent || '').replace(/\s+/g, ' ').trim();
       if (BUY_TEXT.test(text)) hideEl(controls[c]);
     }
+    var bits = doc.querySelectorAll('p, div, span, li');
+    for (var b = 0; b < bits.length; b++) {
+      var line = String(bits[b].textContent || '').replace(/\s+/g, ' ').trim();
+      if (isNativePitch(line)) hideEl(bits[b]);
+    }
+  }
+
+  function isNativePitch(line) {
+    for (var i = 0; i < NATIVE_PITCH.length; i++) {
+      if (line === NATIVE_PITCH[i]) return true;
+    }
+    return false;
   }
 
   function shieldCourse(win) {
