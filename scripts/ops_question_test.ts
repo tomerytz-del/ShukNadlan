@@ -531,6 +531,34 @@ check(
     partialSql.includes("grant execute on function public.whatsapp_ops_question_claim(uuid, text, text, text[], text, text[], boolean) to service_role"),
 );
 
+const DEAL_PURPOSE = "import_deal_ben_2026_11";
+const BEN = "fe399fdc-912d-4b55-b79b-51a1b9d1fbff";
+const DEAL_BODY =
+  "היי בן, תיקנתי את הייבוא מקובץ. קובץ בלי סוג עסקה כבר לא נפסל כולו: שורות תקינות נכנסות, " +
+  "ובשורות שחסר בהן סוג עסקה אשאל אם הכל למכירה, הכל להשכרה, או לפי שורה. אפשר לשלוח לי את הקובץ שוב.";
+const dealQ = OPS_QUESTIONS[DEAL_PURPOSE];
+check("הודעת הייבוא כלשונה", dealQ.body === DEAL_BODY && dealQ.followup.body === "" && dealQ.followup.buttons.length === 0);
+check("הודעת הייבוא לסוכן אחד", dealQ.allowedAgentIds.length === 1 && dealQ.allowedAgentIds[0] === BEN);
+check(
+  "הודעת הייבוא בלי כתובת ובלי טלפון",
+  !/https?:\/\/|shuknadlan|\+?972|05\d/.test(dealQ.body) && !dealQ.body.includes("—") && !dealQ.body.includes("–"),
+);
+check("כפתורי הייבוא", dealQ.buttons.join("|") === "הבנתי, אשלח|תודה" && dealQ.buttons.every((t) => t.length <= 20));
+const dealMsgs = questionMessages(DEAL_PURPOSE)!;
+check("הודעה אחת, לא שתיים", dealMsgs.length === 1 && dealMsgs[0].buttons.length === 2 && dealMsgs[0].cta === null);
+const dealMem = memory(paid(BEN));
+const dealSent = await runOpsQuestion({
+  db: dealMem.db,
+  input: { purpose: DEAL_PURPOSE, agent_member_id: BEN, body: "לא לשלוח", buttons: [{ title: "כן" }] },
+  sendButtons: await sender(dealMem),
+  now: NOW,
+});
+check(
+  "לא נשלח מהטקסט של הקורא",
+  dealSent.status === 200 && dealMem.sends.length === 1 && dealMem.sends[0].body === DEAL_BODY &&
+    dealMem.sends[0].titles.join("|") === "הבנתי, אשלח|תודה",
+);
+
 if (failed) {
   console.error(`נכשלו ${failed}`);
   process.exit(1);
