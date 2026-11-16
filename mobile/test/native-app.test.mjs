@@ -141,6 +141,25 @@ test('signed-out learn pitches are hidden and exam wording stays', () => {
   assert.match(ps[2].textContent, /200,000 ₪/);
 });
 
+test('a free-lesson badge is hidden and exam wording that says free stays', () => {
+  const doc = fakeDoc([
+    { tag: 'span', className: 'free', text: 'חינם' },
+    { tag: 'span', text: 'בחינם' },
+    { tag: 'button', text: 'לתת את הייעוץ בחינם ללקוחות תיווך, כי אסור לגבות עליו בנפרד.' },
+    { tag: 'p', text: 'הדירה נמכרה ב-200,000 ₪.' },
+  ]);
+  applyCourseShield(doc, '/course');
+  const spans = doc.querySelectorAll('span');
+  assert.equal(visible(spans[0]), false);
+  assert.equal(visible(spans[1]), false);
+  assert.equal(visible(doc.querySelectorAll('button')[0]), true);
+  assert.match(doc.querySelectorAll('button')[0].textContent, /בחינם/);
+  assert.equal(visible(doc.querySelectorAll('p')[0]), true);
+  const learn = fakeDoc([{ tag: 'span', className: 'free', text: 'חינם' }]);
+  applyCourseShield(learn, '/learn');
+  assert.equal(visible(learn.querySelectorAll('span')[0]), false);
+});
+
 test('a learn question that mentions shekels stays visible', () => {
   const doc = fakeDoc([
     { tag: 'p', text: 'הדירה נמכרה ב-200,000 ₪.' },

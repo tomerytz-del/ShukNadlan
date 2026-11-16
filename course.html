@@ -242,6 +242,7 @@ html.shuk-native .lp-final a.lp-cta,
 html.shuk-native [data-gift],
 html.shuk-native .lp-pay,
 html.shuk-native .lp-native-off,
+html.shuk-native .chapter li .free,
 html.shuk-native a[href="/pricing"],
 html.shuk-native a[href^="/pricing"],
 html.shuk-native a[href^="/checkout"]{display:none !important}
@@ -572,6 +573,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       note.textContent = 'רשימת הפרקים נטענת מתוך הקורס עצמו.';
       return;
     }
+    var inApp = document.documentElement.classList.contains('shuk-native');
     list.innerHTML = cat.chapters.map(function(ch, i){
       var lessons = ch.lessons || [];
       var qn = lessons.reduce(function(s, l){ return s + (l.questions || 0); }, 0);
@@ -579,7 +581,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         '<span class="meta">' + lessons.length + ' שיעורים · ' + qn + ' שאלות</span></summary>' +
         (ch.summary ? '<p class="sum">' + escapeHtml(ch.summary) + '</p>' : '') +
         '<ul>' + lessons.map(function(l){
-          return '<li><span>' + escapeHtml(l.title) + '</span>' + (l.is_free ? '<span class="free">חינם</span>' : '') +
+          return '<li><span>' + escapeHtml(l.title) + '</span>' + (l.is_free && !inApp ? '<span class="free">חינם</span>' : '') +
             (l.questions ? '<span class="q">' + l.questions + ' שאלות</span>' : '') + '</li>';
         }).join('') + '</ul></details>';
     }).join('');
