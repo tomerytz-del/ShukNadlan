@@ -749,6 +749,7 @@ python scripts/check_events.py       # אם נגעת בקישור לבוט
 python scripts/check_bot_entry.py    # אם נגעת בהודעת פתיחה או בקישור לבוט
 node --experimental-strip-types scripts/catalog_link_test.ts  # אם נגעת ב-catalog-link.ts
 node --experimental-strip-types scripts/ops_question_test.ts   # אם נגעת ב-ops-question.ts
+node --experimental-strip-types scripts/property_import_deal_test.ts  # אם נגעת בייבוא בלי סוג עסקה
 ```
 
 `deno` אינו מותקן בסביבה כברירת מחדל. `npm i -g deno` עובד מאחורי הפרוקסי,
