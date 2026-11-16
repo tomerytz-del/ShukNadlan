@@ -230,7 +230,7 @@
       'border-radius:12px;background:#e8efff;color:#1f5bf0;font:700 13px/1 inherit;text-decoration:none;white-space:nowrap}',
       'html.shuk-native .lp-pricebox,html.shuk-native .lp-reassure,html.shuk-native .lp-stick,html.shuk-native #buy,',
       'html.shuk-native .lp-offer,html.shuk-native .lp-final a.lp-cta,html.shuk-native [data-gift],html.shuk-native .lp-pay,html.shuk-native .lp-native-off,',
-      'html.shuk-native .chapter li .free,html.shuk-native span.free{display:none !important}',
+      'html.shuk-native .chapter li .free{display:none !important}',
       'html.shuk-native a[href="/pricing"],html.shuk-native a[href^="/pricing"],html.shuk-native a[href^="/checkout"]{display:none !important}',
     ].join('');
     (doc.head || doc.documentElement).appendChild(style);
@@ -319,12 +319,10 @@
     }
   }
 
-  /* תגית "חינם" על שיעור פתוח. לא משפט שמזכיר את המילה בתוך שאלת בחינה. */
+  /* תגית "חינם" ברשימת הפרקים (מחלקה free). תשובת מבחן עטופה ב-span בלי המחלקה נשארת. */
   function isFreeLessonBadge(el, line) {
     var classes = String(el.className || '').split(/\s+/);
-    if (classes.indexOf('free') !== -1 && (line === 'חינם' || line === 'בחינם')) return true;
-    var tag = String(el.tagName || '').toUpperCase();
-    return tag === 'SPAN' && (line === 'חינם' || line === 'בחינם');
+    return classes.indexOf('free') !== -1 && (line === 'חינם' || line === 'בחינם');
   }
 
   function isNativePitch(line) {
