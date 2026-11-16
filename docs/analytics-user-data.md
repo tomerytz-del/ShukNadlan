@@ -206,3 +206,39 @@ UPD:** התגית אינה מקבלת שם, טלפון או מייל, ו-`check_
 הגדרה באדמין של GA4. הוחלט ב-9.11.2026 להשאיר אותו מופעל, והוא מוצהר ב-`privacy.html` ("פרסום ומיקוד
 מחדש", "קהלים לפרסום ב-Google Ads"), ובסעיף "עוגיות" שם נאמר שנתוני Analytics משמשים גם לפרסום.
 **מי שמכבה את המתג מוחק את הפסקה; מי שמדליק תכונת פרסום נוספת ב-GA4 (‏Google Signals למשל) מוסיף לה שורה.**
+
+## כתובות פרטיות ב-GA4: `page_location` בלי פרמטרים
+
+**נמצא ב-16.11.2026:** תגית `GA4 - All Pages` מוגדרת רק עם מזהה המדידה, ולכן
+`page_view` שולח את הכתובת המלאה כולל ה-query. בדפים הפרטיים (אלה שב-
+`Disallow` ב-`robots.txt`) הכתובת נושאת הרשאה: `wc=` ו-`wt=` (קישורי
+התראות), `property=` / `lead=` / `client=` (מזהים אמיתיים), ‏`token=` ב-
+`professional-manage`, ו-`k=` ב-`/plan`, `/cma`. אלה נשמרו בנכס, והם לא
+נמחקים מעצמם.
+
+**למה הניקוי ב-`crm.js` לא הספיק:** ‏`history.replaceState` מנקה את הכתובת
+אחרי שה-GTM כבר נטען ו-`page_view` כבר נורה (או שנטען בעצלתיים, ואז
+התוצאה תלויה בסדר ובמרוץ). התיקון חייב להיות בתגית.
+
+**התיקון:** המשתנה `Page URL - private pages without query`
+(`docs/gtm-private-url-import.json`, סוג RegEx Table) מחזיר כתובת בלי query
+בדפים הפרטיים ו-`{{Page URL}}` כמו שהוא בכל השאר. **בכוונה לא בכל האתר:**
+בדפים הציבוריים הפרמטרים הם התוכן (`/?deal=sale&rooms=4`), ו-GA4 צריך
+להבדיל ביניהם.
+
+מה עושים, בסדר הזה:
+
+1. ב-GTM: `Admin - Import Container`, הקובץ הזה, במצב `Merge`.
+2. בתגית `GA4 - All Pages`: `Configuration settings` ← פרמטר `page_location`
+   בערך `{{Page URL - private pages without query}}`.
+3. `Preview` על `/crm?goto=accLeads&lead=x&wc=abc123abc123`: ב-`page_view`
+   ה-`page_location` חייב לצאת `https://shuknadlan.co.il/crm`.
+4. `Publish`, **ייצוא מחדש ל-`gtm/container.json` ו-PR באותו יום**
+   (`python scripts/check_gtm_container.py`).
+5. ב-GA4: `Admin - Data deletion requests` על הפרמטרים שכבר נשמרו. לפני
+   שמוחקים: `Explore` לפי `Page location` שמכיל `token=` או `wc=`, כדי
+   לדעת כמה נשמר.
+
+**מה לא נעשה כאן:** `page_referrer` לא מטופל (ההפניה מדף פרטי לדף ציבורי
+נושאת את הכתובת הפרטית). אם הסיפור הזה מופיע בנתונים - אותו משתנה,
+ופרמטר נוסף.
