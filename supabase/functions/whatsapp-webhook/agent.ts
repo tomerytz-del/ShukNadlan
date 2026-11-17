@@ -1724,6 +1724,35 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "add_lead",
+    description:
+      "מוסיף ליד ל\"הלידים שלי\" של הסוכן/ת - לא ללקוחות. **הודעה שפותחת ב\"ליד חדש\" " +
+      "(\"ליד חדש מוכרים\", \"ליד חדש מחפש\") היא תמיד add_lead ולא create_client**: " +
+      "כרטיס לקוח/ה לא יופיע בלידים. kind: owner = מוכר/ת או משכיר/ה נכס, seeker = מחפש/ת. " +
+      "שדות שלא נאמרו לא ממלאים ולא שואלים עליהם: שם או טלפון מספיקים. " +
+      "רצינות, קומה, כתובת והערות חופשיות נשמרים בכרטיס כפי שנאמרו. " +
+      "הליד נפתח מיד ואינו עולה כסף או מכסה. אם הוחזר duplicate - אל תיצור/י שני: אמור/אמרי " +
+      "שהליד כבר קיים (בשם שחזר), ואם הסוכן/ת מתעקש/ת על אדם אחר - שלח/י שוב עם force_new.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["owner", "seeker"], description: "owner = מוכר/ת או משכיר/ה, seeker = מחפש/ת." },
+        full_name: { type: "string" },
+        phone: { type: "string" },
+        deal_type: { type: "string", enum: ["sale", "rent"], description: "רק אם נאמר מכירה או השכרה." },
+        city: { type: "string" },
+        address: { type: "string", description: "כתובת הנכס כפי שנאמרה, למשל \"סביון 9 גן נר\"." },
+        floor: { type: "string", description: "קומה כפי שנאמרה (\"פרטי\", \"3\")." },
+        rooms: { type: "number" },
+        property_type: { type: "string" },
+        seriousness: { type: "string", description: "רצינות/דחיפות כפי שנאמרה, למשל \"כנראה בהמשך השנה\"." },
+        notes: { type: "string", description: "כל מה שנאמר ואינו שדה אחר." },
+        force_new: { type: "boolean", description: "רק אחרי שהסוכן/ת אישר/ה שזה אדם אחר." },
+      },
+      required: ["kind"],
+    },
+  },
+  {
     name: "open_demand_leads",
     description:
       "ביקוש פתוח שמתאים לסוכן/ת לפי ערי העבודה, אותה רשימה כמו לשונית ביקוש פתוח ב-CRM. " +
@@ -8822,6 +8851,50 @@ async function toolOpenDemandLeads(ctx: ToolContext, input: Record<string, unkno
   };
 }
 
+async function toolAddLead(ctx: ToolContext, input: Record<string, unknown>) {
+  const str = (k: string) => (typeof input[k] === "string" ? String(input[k]).trim() : "");
+  if (!str("full_name") && !str("phone")) {
+    return { ok: false, error: "חסר שם או טלפון של הליד." };
+  }
+  const { data, error } = await ctx.supabase.rpc("agent_lead_add", {
+    p_agent_id: ctx.agent.id,
+    p: {
+      kind: input.kind === "seeker" ? "seeker" : "owner",
+      full_name: str("full_name"),
+      phone: str("phone"),
+      deal_type: str("deal_type"),
+      city: str("city"),
+      address: str("address"),
+      floor: str("floor"),
+      rooms: input.rooms ?? null,
+      property_type: str("property_type"),
+      seriousness: str("seriousness"),
+      notes: str("notes"),
+      force_new: input.force_new === true,
+    },
+  });
+  if (error) return { ok: false, error: "לא הצלחתי לשמור את הליד. אפשר לנסות שוב." };
+  const r = (data || {}) as Record<string, unknown>;
+  if (r.duplicate) {
+    return {
+      ok: false,
+      duplicate: true,
+      lead_id: r.lead_id,
+      full_name: r.full_name,
+      error: "כבר יש ליד פתוח עם אותו טלפון ב-30 הימים האחרונים. לא נוצר שני.",
+    };
+  }
+  if (!r.success) return { ok: false, error: "לא הצלחתי לשמור את הליד. אפשר לנסות שוב." };
+  const path = `/crm?goto=accLeads&lead=${String(r.lead_id)}`;
+  return {
+    ok: true,
+    lead_id: r.lead_id,
+    saved_to: "הלידים שלי",
+    link: SITE_BASE_URL ? `${SITE_BASE_URL}${path}` : null,
+    guidance: "הליד נשמר ב\"הלידים שלי\" (לא בלקוחות). לאשר במשפט אחד עם השם והנכס. אל תציע/י כרטיס לקוח.",
+  };
+}
+
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
 
@@ -9925,6 +9998,7 @@ async function runTool(
       case "ask_mentor": return await toolAskMentor(ctx, input);
 
       // לידים והתראות
+      case "add_lead": return await toolAddLead(ctx, input);
       case "list_leads": return await toolListLeads(ctx, input);
       case "open_demand_leads": return await toolOpenDemandLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
@@ -10239,6 +10313,12 @@ const SYSTEM_STATIC: string = (() => {
     "  \"שלח חומר ללקוח\" = client_matches לנכסים שמתאימים, ואז create_showcase - הסוכן/ת " +
       "שולח/ת בכפתור שיוצא אחרי התשובה. נכס מסוים שדובר עליו - property_link. לקוח/ה שאינו/ה בקובץ - קודם create_client.",
     "  \"תזכורת לחזור\" = agenda_add עם kind call, כותרת \"לחזור ל<שם>\", ומועד אם נאמר (אחרת שאל/י מתי).",
+    "",
+    "ליד חדש:",
+    "- הודעה שפותחת ב\"ליד חדש\" (\"ליד חדש מוכרים\", \"ליד חדש מחפש\") = add_lead, שמכניס ל\"הלידים שלי\". " +
+      "לא create_client: לקוח/ה נשמר/ת בקובץ הלקוחות ואינו מופיע בלידים. שם, טלפון, כתובת, קומה, חדרים ורצינות " +
+      "נשמרים כפי שנאמרו, בלי לשאול על מה שחסר. מוכרים/משכירים = kind owner, מחפש/ת = kind seeker. " +
+      "אחרי השמירה אל תציע/י להוסיף לקוח/ה, אלא אם ביקשו.",
     "",
     "אנשי קשר ששותפו והודעות מועברות:",
     "- הודעה שמתחילה ב-[איש קשר ששותף] = הסוכן/ת שיתף/ה כרטיס מאנשי הקשר או מהשיחות " +
