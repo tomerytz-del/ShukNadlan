@@ -38,6 +38,7 @@ import {
 } from "./cost-mail.ts";
 import { docKind, documentToText, safe, transcribeMedia } from "./media-intake.ts";
 import { prepareImportJob } from "./property-import.ts";
+import { prepareLeadImportJob } from "./lead-import.ts";
 
 /* התיבה. ברירת המחדל היא תיבת הפלטפורמה שכבר שולחת את המייל
    (‏platform-mail), עם אותה סיסמת אפליקציה — אין סוד חדש להגדיר. תיבה נפרדת
@@ -436,7 +437,9 @@ export async function readAttachments(
     history.push(`${label}: ${name}\n${r.text.replace(/\n{2,}/g, "\n").slice(0, 800)}`);
 
     if (kind === "sheet" || (kind === "text" && /\.(csv|tsv)$/i.test(a.name))) {
-      const block = await prepareImportJob(sb, agent, a.bytes, a.name, "email");
+      // קובץ נכסים קודם; אחרת - רשימת אנשים עם טלפון (לידים), בלי כתיבה בתור הזה
+      const block = (await prepareImportJob(sb, agent, a.bytes, a.name, "email")) ||
+        (await prepareLeadImportJob(sb, agent, a.bytes, a.name, "email"));
       if (block) {
         sections.push(block);
         history.unshift(`${label}: ${name}\n${block}`);
@@ -499,6 +502,9 @@ export function buildEmailPrompt(mail: ParsedMail, attachments = ""): string {
           "נשמרות לנכס - כדי לצרף אותן צריך לשלוח אותן בוואטסאפ.",
         "   • רשימת לקוחות או אנשי קשר (Excel/CSV) - לא להוסיף בתור הזה: לומר כמה שורות, כמה כבר בקובץ " +
           "(list_clients), ולשאול. יותר מעשרה - להציע את הייבוא מאקסל בדשבורד.",
+        "   • רשימת לידים עם בלוק [ייבוא לידים] (אנשים עם טלפון) - למסור את הסיכום שבבלוק (כמה שלמות, כמה עם חסר), " +
+          "לשאול אם אלה לידים או לקוחות אם לא נאמר, ולשאול אם לקלוט. הקליטה אינה בתור הזה: אחרי שהסוכן/ת עונה כאן " +
+          "בוואטסאפ, import_leads_file מכניס אחד-אחד ל\"הלידים שלי\" וגבריאלה שואלת על כל שורה עם חסר.",
         "   • רשימת נכסים עם בלוק [ייבוא נכסים] - למסור את הסיכום שבבלוק (חדשים, עדכונים, בלי סוג עסקה, נפסלים ולמה), " +
           "לשאול על כל סוג ניחוש בנפרד עם המספר ודוגמה, ולשאול אם לקלוט. אין לנחש מכירה או השכרה כשהתא ריק. " +
           "הקליטה אינה בתור הזה: היא נעשית אחרי שהסוכן/ת עונה כאן בוואטסאפ, והכפתורים על סוג העסקה יוצאים שם.",

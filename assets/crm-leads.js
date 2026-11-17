@@ -27,7 +27,7 @@ const LEAD_SRC = {
   own:   { label:'הוזן על ידך',  tone:'accent', why:'הזנת אותו בעצמך' },
   social:{ label:'רשתות חברתיות', tone:'accent', why:'פנייה מפייסבוק, מאינסטגרם, ממדלן או מיד2' },
 };
-const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['own', 'הוזנו על ידי'], ['store', 'חנות הלידים']];
+const LEAD_SRC_FILTERS = [['all', 'כל המקורות'], ['owner', 'לידי בעלים'], ['call', 'שיחות'], ['prop', 'דפי נכסים'], ['agent', 'דף הסוכן'], ['social', 'רשתות חברתיות'], ['own', 'הוזנו על ידך'], ['store', 'חנות הלידים']];
 const LEAD_PRIO = { owner:0, store:1, call:2, prop:3, agent:3, site:3, social:3, own:3 };
 /* גבריאלה בפייסבוק ובאינסטגרם (social-lead-intake, docs/social-leads.md) */
 const LEAD_SOCIAL_SOURCES = new Set(['facebook_dm', 'facebook_comment', 'instagram_dm', 'instagram_comment',

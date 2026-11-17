@@ -284,6 +284,9 @@ export type ShowcaseRefs =
 
 const MUTATING_TOOLS = new Set([
   "create_property",
+  "add_lead",
+  "import_leads_file",
+  "lead_import_answer",
   "import_properties_file",
   "update_property",
   "set_property_status",

@@ -19,11 +19,19 @@
 --      כלל כמו שיחה שנענתה (docs/leads-unified.md).
 --      כפילות: אותו טלפון אצל אותו/ה סוכן/ת, אותו סוג, ב-30 הימים האחרונים,
 --      ליד שאינו בארכיון ולא נסגר - לא נוצר שני, והתשובה אומרת מי הקיים.
---   2. notify_agent_on_new_lead - על ליד שהסוכן/ת הזין/ה בעצמו/ה נכתבת
---      התראה בפעמון בלבד ("הליד נקלט", עם קישור לליד), עם suppress_push = true:
---      התשובה של גבריאלה כבר אישרה את זה בוואטסאפ, והודעה שנייה מיד אחריה
---      (בנוסח "ליד חדש: בעל נכס") נקראת כליד שהגיע מבחוץ. זה העתק מדויק של
---      הגוף שבפרודקשן (md5 1745fd22d26e883b738eb5f353e3b5b3) בתוספת ענף אחד.
+--   2. התראת פעמון "הליד נקלט" (סוג חדש lead_entered, suppress_push = true) נכתבת
+--      מתוך agent_lead_add ולא מהטריגר. התשובה של גבריאלה כבר אישרה בוואטסאפ,
+--      והודעה שנייה בנוסח "ליד חדש: בעל נכס" נקראת כליד שהגיע מבחוץ. סוג נפרד
+--      ולא new_lead, כי הטריגר notifications_agenda_new_lead (20270125090000)
+--      פותח משימה "לחזור לליד חדש" לכל התראה מסוג new_lead - משימה לחזור לאדם
+--      שהסוכן/ת הרגע הזין/ה. ‏notify_agent_on_new_lead (העתק מדויק של הגוף
+--      שבפרודקשן, md5 1745fd22d26e883b738eb5f353e3b5b3, בתוספת ענף אחד) מדלגת
+--      על agent_entered.
+--   3. lead_import_jobs - עותק של קובץ לידים (Excel/CSV) שהסוכן/ת שלח/ה, וסימון
+--      איזו שורה נקלטה, מחכה לתשובה או דולגה. אותו עיקרון כמו property_import_jobs:
+--      הקובץ לא נשאר בשיחה, ולכן השאלה על שורה 7 אחרי עשר הודעות חייבת מקום.
+--   4. נעילה נגד כפילות: שתי קריאות במקביל על אותו טלפון (הודעה שנמסרה פעמיים,
+--      ניסיון חוזר של המודל) נכנסו שתיהן לפני שהראשונה נכתבה.
 --
 -- ‏leads_lead_type_check אינו משתנה: שני הסוגים כבר ברשימה. ‏leads.source הוא
 -- טקסט חופשי, בלי אילוץ.
@@ -50,14 +58,9 @@ begin
   if new.lead_type in ('call', 'store') then
     return new;
   end if;
-  -- 20271117090000: הסוכן/ת הזין/ה את הליד בעצמו/ה - אישור בפעמון בלבד, בלי
-  -- דחיפה לוואטסאפ (גבריאלה כבר אישרה שם). הקישור פותח את הליד עצמו.
+  -- 20271117090000: הסוכן/ת הזין/ה את הליד בעצמו/ה. אישור הפעמון נכתב מתוך
+  -- agent_lead_add (סוג lead_entered), לא כאן: new_lead פותח משימת יומן.
   if new.source = 'agent_entered' then
-    insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
-    values (new.agent_id, 'new_lead', 'הליד נקלט',
-            left(concat_ws(' · ', nullif(new.raw_name, ''), nullif(new.property_details, ''),
-                           case new.deal_type when 'sale' then 'מכירה' when 'rent' then 'השכרה' end), 200),
-            new.id, true);
     return new;
   end if;
 
@@ -108,6 +111,7 @@ declare
   v_message  text := left(nullif(btrim(p ->> 'notes'), ''), 4000);
   v_dup      record;
   v_id       uuid;
+  v_notify   boolean := coalesce((p ->> 'notify')::boolean, true);
 begin
   select m.agency_id into v_agency
     from public.agency_members m
@@ -140,7 +144,11 @@ begin
       case when nullif(btrim(p ->> 'seriousness'), '') is not null then 'רצינות: ' || btrim(p ->> 'seriousness') end
     ), ''), 500);
 
-  -- כפילות: אותו טלפון, אותו סוג, 30 יום, לא בארכיון ולא נסגר
+  -- כפילות: אותו טלפון, אותו סוג, 30 יום, לא בארכיון ולא נסגר. הנעילה (לפי
+  -- סוכן/ת וטלפון, עד סוף הטרנזקציה) סוגרת את החלון בין הבדיקה לכתיבה.
+  if v_e164 is not null then
+    perform pg_advisory_xact_lock(hashtext(p_agent_id::text || ':' || v_e164));
+  end if;
   if v_e164 is not null and coalesce((p ->> 'force_new')::boolean, false) is not true then
     select l.id, l.raw_name, l.created_at into v_dup
       from public.leads l
@@ -173,6 +181,15 @@ begin
   )
   returning id into v_id;
 
+  -- אישור בפעמון בלבד: בייבוא של קובץ ההתראה היא אחת בסוף, לא אחת לשורה
+  if v_notify then
+    insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
+    values (p_agent_id, 'lead_entered', 'הליד נקלט',
+            left(concat_ws(' · ', v_name, v_details,
+                           case v_deal when 'sale' then 'מכירה' when 'rent' then 'השכרה' end), 200),
+            v_id, true);
+  end if;
+
   return jsonb_build_object('success', true, 'lead_id', v_id, 'lead_type', v_type);
 end;
 $$;
@@ -181,4 +198,59 @@ revoke all on function public.agent_lead_add(uuid, jsonb) from public, anon, aut
 grant execute on function public.agent_lead_add(uuid, jsonb) to service_role;
 
 comment on function public.agent_lead_add(uuid, jsonb) is
-  'ליד שהסוכן/ת הזין/ה בגבריאלה (וואטסאפ או מייל): שורה ב-leads, source agent_entered, פתוח ושל הסוכן/ת בלבד, בלי חיוב ובלי התראה. כפילות לפי טלפון ב-30 יום מחזירה duplicate. service_role בלבד. docs/leads-unified.md';
+  'ליד שהסוכן/ת הזין/ה בגבריאלה (וואטסאפ או מייל): שורה ב-leads, source agent_entered, פתוח ושל הסוכן/ת בלבד, בלי חיוב ובלי דחיפה (התראת פעמון lead_entered בלבד). כפילות לפי טלפון ב-30 יום מחזירה duplicate. service_role בלבד. docs/leads-unified.md';
+
+-- 3. סוג ההתראה (נוסף לרשימה הקיימת, לא נכתבת מחדש)
+select public.notification_types_add(array['lead_entered']);
+
+-- 4. עבודות ייבוא לידים
+create table if not exists public.lead_import_jobs (
+  id          uuid primary key default gen_random_uuid(),
+  agent_id    uuid not null references public.agency_members(id) on delete cascade,
+  source      text not null default 'whatsapp',
+  file_name   text,
+  headers     jsonb not null,
+  rows        jsonb not null,
+  state       jsonb not null default '{}'::jsonb,
+  status      text not null default 'pending',
+  created_at  timestamptz not null default now(),
+  finished_at timestamptz
+);
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'lead_import_jobs_status_check') then
+    alter table public.lead_import_jobs add constraint lead_import_jobs_status_check
+      check (status in ('pending', 'running', 'done'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'lead_import_jobs_source_check') then
+    alter table public.lead_import_jobs add constraint lead_import_jobs_source_check
+      check (source in ('whatsapp', 'email'));
+  end if;
+end $$;
+
+create index if not exists lead_import_jobs_agent_idx
+  on public.lead_import_jobs (agent_id, created_at desc);
+
+comment on table public.lead_import_jobs is
+  'קובץ לידים שסוכן/ת שלח/ה לגבריאלה: השורות, וב-state מה נקלט, מה מחכה לתשובה ומה דולג. נכתב רק מהשרת. נמחק אחרי 14 יום (lead_import_jobs_purge).';
+
+alter table public.lead_import_jobs enable row level security;
+revoke all on table public.lead_import_jobs from public, anon, authenticated;
+grant select, insert, update, delete on table public.lead_import_jobs to service_role;
+
+create or replace function public.lead_import_jobs_purge()
+returns integer
+language sql
+security definer
+set search_path = ''
+as $$
+  with gone as (
+    delete from public.lead_import_jobs
+     where created_at < now() - interval '14 days'
+    returning 1
+  )
+  select count(*)::integer from gone;
+$$;
+
+revoke all on function public.lead_import_jobs_purge() from public, anon, authenticated;
+grant execute on function public.lead_import_jobs_purge() to service_role;

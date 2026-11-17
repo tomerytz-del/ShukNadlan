@@ -161,6 +161,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   share_digest: "accProperties",
   // מייל שהועבר ולא טופל. הרשימה, לא לקוח/ה אחד/ת.
   email_intake: "accClients",
+  lead_entered: "accLeads",
   platform_signup: "accSubscriptions",
   // ‏פריט בתיבת המשימות של מנהל/ת הפלטפורמה שחרג מזמן היעד (docs/admin-inbox.md)
   admin_overdue: "accAdminInbox",

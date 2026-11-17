@@ -88,6 +88,11 @@ jobs:
       - name: בורר נכס ומיניסייט של גבריאלה
         run: deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/client_deal_test.ts
 
+      # ייבוא לידים מקובץ (lead-import.ts): טלפון, סוג, חסר ושאלה על כל שורה.
+      # מסד מדומה; --allow-env כי media-intake קורא משתני סביבה בטעינה.
+      - name: ייבוא לידים מקובץ
+        run: deno test --allow-read --allow-env supabase/functions/whatsapp-webhook/lead_import_test.ts
+
       # ‏קישור לפריט בקטלוג וואטסאפ (‏whatsapp-webhook/catalog-link.ts). הדף
       # מדומה - wa.me אינו זמין מ-CI - בצורה של הדף האמיתי.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
