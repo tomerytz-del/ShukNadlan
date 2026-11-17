@@ -19,10 +19,13 @@
 --
 -- ## הניקוי
 --
--- neighborhood_id מתאפס רק בשיוך למצולע הזה כשהדיוק אינו exact ואינו null,
--- חוץ ממודעות 1306, 1307, 1315, 1316. שאר העמודות לא נכתבות, חוץ ממונה
--- הגאוקוד של מי שיש לו רחוב ומספר בית (התור הקיים, geocode_backfill_queue)
--- וחוץ מטביעת התיאור, שהטריגר מחשב כי neighborhood_id הוא חלק ממנה.
+-- neighborhood_id מתאפס בשיוך למצולע הזה כשהדיוק אינו exact ואינו null.
+-- פין exact שנשאר על B1 מחושב מחדש: neighborhood_for_city_point, והשיוך
+-- הוא המצולע היחיד שהנקודה נופלת בו, או null. המלאכה 25 (1476) נופלת
+-- באזור התעשייה ולא ב-B1. חוץ ממודעות 1306, 1307, 1315, 1316. שאר
+-- העמודות לא נכתבות, חוץ ממונה הגאוקוד של מי שיש לו רחוב ומספר בית
+-- (התור הקיים, geocode_backfill_queue) וחוץ מטביעת התיאור, שהטריגר
+-- מחשב כי neighborhood_id הוא חלק ממנה.
 --
 -- הטריגרים של התראות חיפוש, התאמות, ומיקום משוער כבויים למשך העדכון.
 -- כיבוי טריגר הוא בתוך הטרנזקציה: כשל מחזיר אותם. אין שורת תור לתיאור
@@ -595,8 +598,22 @@ begin
   get diagnostics v_rows = row_count;
   raise notice 'שיוך B1 הוסר מ-% נכסים עם פין שאינו מדויק', v_rows;
 
-  -- נכס שנשאר על המצולע (פין exact) והנוסח כבר מצטט את השם: הטביעה זזה
-  -- כדי שהטריגר יסמן stale. הטקסט עצמו לא נמחק.
+  -- פין exact שעדיין על B1: הנקודה כבר לא המרכז העירוני. שיוך מחדש
+  -- למצולע היחיד, או null כשאין מצולע אחד. הטריגר של התיאור נשאר דולק,
+  -- אז שינוי השכונה מסמן marketing_description_stale. הפין לא זז.
+  update public.properties p
+     set neighborhood_id = public.neighborhood_for_city_point(
+           p.city_id, p.city, p.lat, p.lng)
+   where p.neighborhood_id = v_hood
+     and p.location_precision = 'exact'
+     and p.listing_number not in (1306, 1307, 1315, 1316)
+     and p.neighborhood_id is distinct from public.neighborhood_for_city_point(
+           p.city_id, p.city, p.lat, p.lng);
+  get diagnostics v_rows = row_count;
+  raise notice 'שיוך B1 חושב מחדש ל-% נכסים עם פין מדויק', v_rows;
+
+  -- פין exact שהמצולע היחיד שלו הוא עדיין B1, והנוסח מצטט את השם:
+  -- הטביעה זזה כדי שהטריגר יסמן stale. הטקסט עצמו לא נמחק.
   update public.properties p
      set marketing_description_fingerprint =
            md5(coalesce(p.marketing_description_fingerprint, '') || '|planned-hood')
@@ -623,6 +640,18 @@ begin
        and p.listing_number not in (1306, 1307, 1315, 1316)
   ) then
     raise exception 'נשארו נכסים עם פין שאינו מדויק על B1 אזור בתכנון';
+  end if;
+
+  if exists (
+    select 1
+      from public.properties p
+     where p.neighborhood_id = v_hood
+       and p.location_precision = 'exact'
+       and p.listing_number not in (1306, 1307, 1315, 1316)
+       and p.neighborhood_id is distinct from public.neighborhood_for_city_point(
+             p.city_id, p.city, p.lat, p.lng)
+  ) then
+    raise exception 'פין מדויק על B1 לא תואם את המצולע';
   end if;
 end $$;
 

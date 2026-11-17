@@ -41,6 +41,13 @@ check("public name in marketing facts", sql.includes("public.neighborhood_public
 check("no description queue", !sql.includes("queue_property_description"));
 const cleanup = sql.slice(sql.indexOf("ניקוי השיוך השגוי"), sql.indexOf("create or replace function public.share_digest_preview"));
 check("cleanup does not insert a notification", !cleanup.includes("insert into public.notifications"));
+const exactAt = cleanup.indexOf("p.location_precision = 'exact'");
+const enableAt = cleanup.indexOf("enable trigger properties_saved_search_alerts_upd");
+check("exact B1 pins are recomputed from the point", exactAt > 0
+  && cleanup.includes("neighborhood_for_city_point")
+  && exactAt < enableAt);
+check("exact recompute keeps the protected listings out",
+  cleanup.slice(exactAt, enableAt).includes("1306, 1307, 1315, 1316"));
 
 const property = read("assets/property.js");
 check("property page helper", property.includes("function publicNeighborhoodName(p)")
