@@ -93,9 +93,24 @@ SITE_PHONE = "+972546929991"
 # ש-mailto: לא נמדד בכלל — ראו ההערה ב-assets/events.js.
 SITE_EMAIL = "shuknadlan@gmail.com"
 
-# ‏המספר העסקי של העוזר הציבורי (assets/bot-link.js). קישור אליו מסומן
+# ‏המספר העסקי של העוזר הציבורי - נקרא מ-assets/bot-link.js (מקור האמת
+# היחיד; מ-10.11.2026 הוא נפרד מהמספר של הסוכנים). קישור אליו מסומן
 # ‏data-bot, ולכן הוא נבדק כאן רק כדי שלא ייחשב "מספר של סוכן/ת".
-BOT_PHONE = "972532494740"
+# ‏ושני המספרים של גבריאלה נבדקים, לא רק הציבורי: גם המספר של הסוכנים
+# (ASSISTANT_WA_NUMBER ב-crm.js) אינו "מספר של סוכן/ת", וקישור אליו בדף
+# ציבורי בלי data-bot היה נספר contact_agent ברגע ש-NUMBER מתחלף.
+def _gabriela_phones() -> frozenset[str]:
+    found: set[str] = set()
+    for rel, pattern in (("assets/bot-link.js", r"var NUMBER = '(\d{9,15})'"),
+                         ("assets/crm.js", r"const ASSISTANT_WA_NUMBER = '(\d{9,15})'")):
+        m = re.search(pattern, (ROOT / rel).read_text(encoding="utf-8"))
+        if not m:
+            sys.exit(f"{rel}: לא נמצא המספר של גבריאלה ({pattern}) - הבדיקה כבר אינה רואה אותו")
+        found.add(m.group(1))
+    return frozenset(found)
+
+
+BOT_PHONES = _gabriela_phones()
 
 # ‏דפי האזור האישי — אסור להם לטעון events.js. ‏showcase הוא המיניסייט שבין
 # סוכן/ת ללקוח/ה שלו/ה: חיוג משם הוא לקוח/ה קיים/ת ולא פנייה חדשה, מאותו
@@ -216,8 +231,8 @@ def classify(tag: str) -> str | None:
             "כתובת המייל של שוק נדל״ן עצמה, בלי data-site-contact — כל\n"
             "            לחיצה עליה נספרת כפנייה למתווך/ת"
         )
-    if BOT_PHONE in url:
-        return "המספר של העוזר הציבורי, בלי data-bot"
+    if any(p in url for p in BOT_PHONES):
+        return "המספר של גבריאלה, בלי data-bot"
     if WA_SHARE.search(url) or url in ("https://wa.me/", "https://wa.me"):
         return "קישור שיתוף (wa.me בלי מספר), בלי data-share"
     if MAIL_SHARE.search(url) or url == "mailto:":
