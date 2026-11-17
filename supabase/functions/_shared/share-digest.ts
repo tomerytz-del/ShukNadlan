@@ -129,6 +129,16 @@ export function textBodyHead(first: string | null, items: { type: string }[]): s
  * באצווה מעורבת אותו משפט, עם הקדמה כדי שיהיה ברור שזה שיתוף.
  * link הוא null כשאין כתובת בגוף (noLinks).
  */
+/** רווח בין נכסים כשההודעה כולה שיתופים. שורה אחת נשארת כמו שהיא. */
+export function separateShareEntries(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    if (out.length) out.push("");
+    out.push(line);
+  }
+  return out;
+}
+
 export function textBodyItemLine(
   it: NotifyLine,
   opts: { onlyShares: boolean; link: string | null },
