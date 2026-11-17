@@ -30,15 +30,21 @@
     {
       "id": "map",
       "narration": "מה אם כולם היו מחוברים? נכסים, לקוחות ושיתופי פעולה, במקום אחד.",
-      "treatment": "motion-graphic",
+      "treatment": "illustration",
       "onScreenText": [
         "מה אם כולם מחוברים?",
         "נכסים · לקוחות · שיתופי פעולה"
       ],
-      "imagePrompt": null,
+      "imagePrompt": "Modern residential towers and glass buildings seen from a low angle in bright daylight, clean light blue sky with soft white clouds, white and glass facades, airy premium real estate photograph, vertical composition, calm empty sky area, no text, no people",
       "clipPrompt": null,
       "shareable": false,
-      "imageTags": [],
+      "imageTags": [
+        "modern",
+        "towers",
+        "daylight",
+        "glass",
+        "real estate"
+      ],
       "userAssetIds": [
         "a-fa08a330"
       ],
@@ -47,15 +53,21 @@
     {
       "id": "helpers",
       "narration": "ומה אם הייתה לכם עוזרת אישית בוואטסאפ, ומנטור שמלווה אתכם?",
-      "treatment": "motion-graphic",
+      "treatment": "illustration",
       "onScreenText": [
         "גבריאלה",
         "מנטור AI"
       ],
-      "imagePrompt": null,
+      "imagePrompt": "Close-up of a contemporary glass and white apartment building facade with balconies in bright morning light, reflections of blue sky, clean premium architecture photograph, vertical composition, no text, no people",
       "clipPrompt": null,
       "shareable": false,
-      "imageTags": [],
+      "imageTags": [
+        "facade",
+        "glass",
+        "balconies",
+        "bright",
+        "architecture"
+      ],
       "userAssetIds": [
         "a-9b4790f8",
         "a-38baf7b6",
@@ -65,15 +77,21 @@
     },
     {
       "id": "close",
-      "narration": "ולכם נשאר רק לסגור עסקאות.",
-      "treatment": "motion-graphic",
+      "narration": "ככה ישאר לכם זמן לסגור יותר עסקאות.",
+      "treatment": "illustration",
       "onScreenText": [
-        "לכם נשאר רק לסגור עסקאות"
+        "ככה ישאר לכם זמן לסגור יותר עסקאות"
       ],
-      "imagePrompt": null,
+      "imagePrompt": "Aerial view of a new modern neighborhood with white residential towers, trees and wide streets in bright sunny daylight, soft light haze, clean premium real estate photograph, vertical composition, no text, no people",
       "clipPrompt": null,
       "shareable": false,
-      "imageTags": [],
+      "imageTags": [
+        "aerial",
+        "neighborhood",
+        "towers",
+        "sunny",
+        "city"
+      ],
       "userAssetIds": [],
       "notes": "A short hit: the word 'עסקאות' lands big in gold, the connected map glows behind."
     },
