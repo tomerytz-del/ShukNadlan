@@ -146,9 +146,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hero-inner{max-width:1240px;margin:0 auto;padding:64px 24px 200px;display:flex;flex-direction:column;
     align-items:center;text-align:center;gap:22px}
   @media(max-width:520px){.hero-inner{padding:44px 16px 190px;gap:18px}}
-  .hero-tag{display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(201,162,39,.45);
-    background:var(--brass-tint);color:var(--brass-ink);font-weight:700;font-size:15px;padding:7px 16px;border-radius:999px}
-  .hero-tag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold)}
   /* שתי שורות שלא נשברות. ה-clamp נמדד ב-360px: השורה הראשונה היא הרחבה,
      והמקדם נבחר כך שהיא נכנסת בלי גלילה אופקית. */
   .hero h1{margin:0;font-family:'Frank Ruhl Libre',serif;font-weight:900;color:var(--ink);
@@ -629,7 +626,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2C35A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>בלי התחייבות</span>
       <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2C35A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>הנכסים, הלקוחות והלידים נשארים שלכם</span>
       <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2C35A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>שתי דקות הרשמה</span>
-      <span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2C35A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>ההצטרפות מותנית ברישיון תיווך בתוקף</span>
+      <span id="trustLicense"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E2C35A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>ההצטרפות מותנית ברישיון תיווך בתוקף</span>
     </div>
     <a href="#compare" class="hero-sub-link">מה כלול בכל מסלול ↓</a>
   </div>
@@ -977,7 +974,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="kicker">למשרדים עם כמה סוכנים</span>
       <h2 id="officeTitle">בעל משרד תיווך? צרפו את כל הסוכנים שלכם בשתי דקות</h2>
       <p>פותחים משרד ושולחים לכל סוכן קישור הזמנה אישי. כל סוכן בוחר את המסלול שלו, ובמסלול Elite ככל שהצוות גדל, המחיר לכל סוכן יורד.</p>
-      <p><a href="/agency-signup?tier=premium" class="cta-gold">פותחים משרד</a></p>
+      <p id="officeCta"><a href="/agency-signup?tier=premium" class="cta-gold">פותחים משרד</a></p>
     </div>
     <div class="office-box">
       <table>
@@ -1170,6 +1167,8 @@ function ils(n){ return '₪' + Number(n).toLocaleString('he-IL'); }
   } else if (current){
     plainTitle('המסלול שלך, ומה אפשר לשדרג');
   }
+  /* מי שכבר הצטרף/ה (מסלול קיים או הזמנה) לא צריך/ה לשמוע על תנאי ההצטרפות. */
+  if (current || promoState.active || inviteTok) document.getElementById('trustLicense').hidden = true;
 
   /* מי שהגיע/ה מקישור הזמנה כבר יודע/ת לאיזה משרד — מה שהוא/היא לא יודע/ת זה
      למה עוצרים אותו/ה כאן לפני הכניסה. שורה אחת מסבירה: בוחרים מסלול, וממשיכים
@@ -1805,6 +1804,8 @@ document.getElementById('compareTable').innerHTML =
 
 /* ---------- הסיום, וקישורי החזרה ---------- */
 if (fromCrm || inviteTok){
+  /* מי שכבר בתוך משרד (הזמנה או חזרה מה-CRM) לא פותח משרד נוסף מהדף הזה. */
+  document.getElementById('officeCta').hidden = true;
   document.getElementById('closerTitle').textContent = 'חוזרים לאזור הסוכנים';
   document.getElementById('closerLead').textContent =
     'כל מה שכאן אפשר לשנות גם אחר כך - המסלול לא נועל אתכם.';
