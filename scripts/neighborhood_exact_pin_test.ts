@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { neighborhoodPublicName } from "../supabase/functions/_shared/neighborhood-public.ts";
+import { locationPrecisionFromHit } from "../supabase/functions/_shared/location-precision.ts";
 
 let failed = 0;
 function check(name: string, ok: boolean) {
@@ -48,6 +49,39 @@ check("exact B1 pins are recomputed from the point", exactAt > 0
   && exactAt < enableAt);
 check("exact recompute keeps the protected listings out",
   cleanup.slice(exactAt, enableAt).includes("1306, 1307, 1315, 1316"));
+check("backfill suppress is called before the neighborhood writes",
+  sql.indexOf("notification_push_suppress(true)") >= 0
+  && sql.indexOf("notification_push_suppress(true)") < sql.indexOf("set neighborhood_id"));
+check("geocode fill does not alert",
+  sql.includes("app.neighborhood_autofill")
+  && sql.includes("properties_saved_search_alerts_upd")
+  && sql.includes("properties_client_match_alerts_upd")
+  && !sql.includes("generate_saved_search_alerts")
+  && !sql.includes("generate_client_match_alerts"));
+const exactSet = cleanup.slice(cleanup.indexOf("set neighborhood_id = public.neighborhood_for_city_point"), exactAt);
+check("exact recompute does not rewrite the fingerprint",
+  !exactSet.includes("marketing_description_fingerprint"));
+
+function staleAfter(oldFingerprint: string | null, textChanged: boolean, computed: string, hasText: boolean) {
+  let fingerprint = oldFingerprint;
+  if (textChanged) fingerprint = hasText ? computed : null;
+  return hasText && fingerprint != null && fingerprint !== computed;
+}
+check("1476 stale survives the neighborhood move", staleAfter("fp-b1", false, "fp-industrial", true));
+check("rewriting the marketing text clears stale", !staleAfter("fp-b1", true, "fp-industrial", true));
+const copy = read("supabase/migrations/20260925090000_property_marketing_description.sql");
+check("fingerprint is rewritten only when the marketing text changes",
+  copy.includes("else new.marketing_description is distinct from old.marketing_description")
+  && copy.includes("if v_changed then"));
+
+check("rooftop with a house number is exact", locationPrecisionFromHit("rooftop", "25") === "exact");
+check("rooftop without a house number is not exact", locationPrecisionFromHit("rooftop", "") === null);
+check("city centroid is city", locationPrecisionFromHit("locality", "6") === "city");
+check("street midpoint is street", locationPrecisionFromHit("street", "6") === "street");
+check("missing precision is not exact", locationPrecisionFromHit(null, "25") === null);
+const crm = read("assets/crm.js");
+check("import uses the geocoder precision", crm.includes("function locationPrecisionFromHit")
+  && crm.includes("locationPrecisionFromHit(coords, row.payload.house_number)"));
 
 const property = read("assets/property.js");
 check("property page helper", property.includes("function publicNeighborhoodName(p)")

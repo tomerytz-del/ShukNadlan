@@ -22,7 +22,7 @@
 // ============================================================================
 
 import { municipalWfsProvider } from "./providers/municipal-wfs.ts";
-import type { GeoBox, GeoHit, GeocodeProvider, GeoSource } from "./types.ts";
+import type { GeoBox, GeoHit, GeoPrecision, GeocodeProvider, GeoSource } from "./types.ts";
 
 const PROVIDERS: Record<string, GeocodeProvider> = {
   municipal_wfs: municipalWfsProvider,
@@ -56,7 +56,7 @@ export async function geocodeAddress(
   street: string,
   houseNumber: string,
   officialStreet?: string | null,
-): Promise<{ lat: number; lng: number } | null> {
+): Promise<{ lat: number; lng: number; precision: GeoPrecision } | null> {
   const provider = PROVIDERS[source.kind];
   if (!provider) {
     // סוג ספק שאין לו מימוש הוא תקלת תצורה, לא "אין כתובת כזו".
@@ -84,7 +84,7 @@ export async function geocodeAddress(
     return null;
   }
 
-  return { lat: hit.lat, lng: hit.lng };
+  return { lat: hit.lat, lng: hit.lng, precision: hit.precision };
 }
 
 export { loadCitySource } from "./source.ts";

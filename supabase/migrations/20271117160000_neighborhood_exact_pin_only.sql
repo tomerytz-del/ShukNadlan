@@ -88,6 +88,13 @@ begin
   end if;
   new.neighborhood_id := public.neighborhood_for_city_point(
     new.city_id, new.city, new.lat, new.lng);
+  -- מילוי שכונה לנכס שכבר קיים אינו אירוע התאמה. הדגל נקרא בטריגרי
+  -- ההתראה של אותו update (גאוקוד שהצליח אחרי שהשיוך אופס).
+  if tg_op = 'UPDATE'
+     and old.neighborhood_id is null
+     and new.neighborhood_id is not null then
+    perform set_config('app.neighborhood_autofill', '1', true);
+  end if;
   return new;
 end $$;
 
@@ -95,6 +102,69 @@ comment on function public.properties_set_neighborhood() is
   'ממלא neighborhood_id חסר מהפין רק כשהדיוק exact או null, ורק במצולע אחד. אינו דורס שיוך קיים.';
 
 revoke all on function public.properties_set_neighborhood() from public, anon, authenticated;
+
+-- מילוי שכונה לנכס קיים (הגאוקוד החזיר exact והטריגר מילא neighborhood_id
+-- שהיה ריק) אינו נכס חדש. הטריגר לא נורה. שינוי משכונה אחרת, או שינוי
+-- מחיר באותו update, כן. הרשימה היא זו שרצה בפרודקשן, עם התנאי על השכונה.
+drop trigger if exists properties_saved_search_alerts_upd on public.properties;
+create trigger properties_saved_search_alerts_upd
+  after update on public.properties
+  for each row
+  when (
+    new.status = 'active'
+    and (
+      old.status is distinct from new.status
+      or old.price is distinct from new.price
+      or old.rooms is distinct from new.rooms
+      or old.size_sqm is distinct from new.size_sqm
+      or old.area_sqm is distinct from new.area_sqm
+      or old.floor is distinct from new.floor
+      or old.city is distinct from new.city
+      or old.property_type is distinct from new.property_type
+      or old.deal_type is distinct from new.deal_type
+      or old.category is distinct from new.category
+      or old.condition is distinct from new.condition
+      or old.features is distinct from new.features
+      or (
+        old.neighborhood_id is distinct from new.neighborhood_id
+        and not (
+          old.neighborhood_id is null
+          and new.neighborhood_id is not null
+          and pg_catalog.current_setting('app.neighborhood_autofill', true) = '1'
+        )
+      )
+    )
+  )
+  execute function public.properties_saved_search_alerts();
+
+drop trigger if exists properties_client_match_alerts_upd on public.properties;
+create trigger properties_client_match_alerts_upd
+  after update on public.properties
+  for each row
+  when (
+    new.status = 'active'
+    and (
+      old.status is distinct from new.status
+      or old.price is distinct from new.price
+      or old.rooms is distinct from new.rooms
+      or old.size_sqm is distinct from new.size_sqm
+      or old.floor is distinct from new.floor
+      or old.city is distinct from new.city
+      or old.property_type is distinct from new.property_type
+      or old.deal_type is distinct from new.deal_type
+      or old.category is distinct from new.category
+      or old.features is distinct from new.features
+      or (
+        old.neighborhood_id is distinct from new.neighborhood_id
+        and not (
+          old.neighborhood_id is null
+          and new.neighborhood_id is not null
+          and pg_catalog.current_setting('app.neighborhood_autofill', true) = '1'
+        )
+      )
+    )
+  )
+  execute function public.properties_client_match_alerts();
 
 -- ---------------------------------------------------------------------------
 -- הדוח וההחלה: פין משוער הוא approx_pin, ולא fill
@@ -159,6 +229,7 @@ declare
   v_fill    integer := 0;
   v_change  integer := 0;
 begin
+  perform public.notification_push_suppress(true);
   with r as (
     select report.property_id, report.computed_id
       from public.neighborhood_assignment_report(p_city) report
@@ -565,6 +636,8 @@ begin
     return;
   end if;
 
+  perform public.notification_push_suppress(true);
+
   -- התראה על שינוי שכונה, ומחיקת פין משוער כשהשכונה זזה.
   alter table public.properties disable trigger properties_saved_search_alerts_upd;
   alter table public.properties disable trigger properties_client_match_alerts_upd;
@@ -599,8 +672,11 @@ begin
   raise notice 'שיוך B1 הוסר מ-% נכסים עם פין שאינו מדויק', v_rows;
 
   -- פין exact שעדיין על B1: הנקודה כבר לא המרכז העירוני. שיוך מחדש
-  -- למצולע היחיד, או null כשאין מצולע אחד. הטריגר של התיאור נשאר דולק,
-  -- אז שינוי השכונה מסמן marketing_description_stale. הפין לא זז.
+  -- למצולע היחיד, או null כשאין מצולע אחד. הפין לא זז.
+  -- properties_track_marketing_copy לא משכתב את טביעת האצבע כשהטקסט
+  -- לא השתנה. הטביעה השמורה (עם B1) שונה מהטביעה החדשה (השכונה הנכונה),
+  -- ולכן marketing_description_stale נשאר דולק. לא כותבים את הדגל ביד:
+  -- הטריגר הוא מי שקובע אותו, ודריסה ידנית הייתה נמחקת באותו before.
   update public.properties p
      set neighborhood_id = public.neighborhood_for_city_point(
            p.city_id, p.city, p.lat, p.lng)
