@@ -489,7 +489,7 @@
     if (isCm(page)) {
       return queryParts(page, "id,title,price,price_per_sqm,size_sqm,floor,street,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,agent_id,neighborhoods(name,is_planned)", 200);
     }
-    return queryParts(page, "id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name)", 24);
+    return queryParts(page, "id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name,is_planned)", 24);
   }
 
   /* מלאי מלא לסוגים ולסוג העסקה. 24 הכרטיסים אינם המלאי: סוג שנדחק
@@ -500,7 +500,7 @@
 
   /* ספירת שכונות לאותו סוג בדיוק, לא לכל העיר. */
   function hoodCountQuery(page) {
-    return queryParts(page, "sales_area,neighborhoods(name)", 1000);
+    return queryParts(page, "sales_area,neighborhoods(name,is_planned)", 1000);
   }
 
   function renderUrl(url, w, h, resize) {

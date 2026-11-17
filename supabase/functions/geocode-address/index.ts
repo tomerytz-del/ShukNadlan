@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
     const official = await officialStreetFor(supabase, "עפולה", street);
     const coords = await afulaAddressToCoords(street, houseNumber, official);
     if (!coords) return json({ error: "address_not_found", detail: "לא נמצאה כתובת מתאימה בעפולה" }, 404);
-    return json({ success: true, lat: coords.lat, lng: coords.lng }, 200);
+    return json({ success: true, lat: coords.lat, lng: coords.lng, precision: coords.precision }, 200);
   } catch (err) {
     return json({ error: "wfs_error", detail: String((err && (err as Error).message) || err) }, 500);
   }

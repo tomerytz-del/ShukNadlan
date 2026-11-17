@@ -28,7 +28,7 @@
   var SAVED_SEARCH_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
   var COLS = 'id, price, price_unit, title, description, marketing_description, rooms, size_sqm, floor, city, city_id, street, address, house_number, ' +
     'property_type, deal_type, category, price_includes_vat, created_at, lat, lng, is_promoted, images, features, agent_id, agency_id, listing_number, ' +
-    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_url, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name), ' +
+    'neighborhood_id, sales_area, open_house, open_house_start, open_house_end, video_url, video_poster_url, agencies(name, slug, logo_url, cover_url), neighborhoods(name,is_planned), ' +
     /* ‏R5-5: הסינון המתקדם שמגיע מדף הבית (‏hf=) */
     'condition, project_status, move_in_soon, move_in_date, mamad_location, storage_location, restrooms_location';
   var PIN_SVG = '<img src="/assets/logo-shuknadlan.svg" alt="" width="27" height="32">';
@@ -583,7 +583,11 @@
     return t.replace(re, '$1').replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/^[\s,·-]+|[\s,·-]+$/g, '').trim();
   }
   function street(p) { return maskHouse(p.street || p.address || '', p.house_number).replace(/^רחוב\s+/, ''); }
-  function hood(p) { return (p.neighborhoods && p.neighborhoods.name) || p.sales_area || ''; }
+  function hood(p) {
+    var n = p && p.neighborhoods;
+    if (n && n.is_planned) return p.sales_area || '';
+    return (n && n.name) || p.sales_area || '';
+  }
   function where(p) { var h = hood(p); return [street(p), h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
   // ‏Variant C: שכונה ועיר על הכרטיס בטלפון, בלי רחוב ומספר בית (הגיליון נשאר עם where)
   function area(p) { var h = hood(p); return [h && h !== p.city ? h : '', p.city].filter(Boolean).join(', '); }
@@ -841,7 +845,11 @@
   function initExt(rows) {
     if (!extQs || !window.SentenceSearch) return;
     var Core = window.SentenceSearch.Core;
-    rows.forEach(function (p) { if (!p.neighborhood_name) p.neighborhood_name = (p.neighborhoods && p.neighborhoods.name) || ''; });
+    rows.forEach(function (p) {
+      if (p.neighborhood_name) return;
+      var n = p.neighborhoods;
+      p.neighborhood_name = (n && !n.is_planned && n.name) || '';
+    });
     var areas = Core.deriveAreas(rows);
     var qp = new URLSearchParams(extQs);
     var st = Core.resolveArea(Core.fromParams(qp), areas);
@@ -3877,7 +3885,7 @@
       var sel = $('swSHood'), city = $('swSCity').value;
       sel.innerHTML = '<option value="">בלי שכונה</option>';
       if (!sb) return;
-      sb.from('neighborhoods').select('id, name').eq('city', city).order('name').limit(200).then(function (r) {
+      sb.from('neighborhoods').select('id, name').eq('city', city).eq('is_planned', false).order('name').limit(200).then(function (r) {
         if ($('swSCity').value !== city) return;
         sel.innerHTML = '<option value="">בלי שכונה</option>' + ((r && r.data) || []).map(function (n_) { return '<option value="' + esc(n_.id) + '">' + esc(n_.name) + '</option>'; }).join('');
       }, function () {});

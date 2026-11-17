@@ -148,6 +148,21 @@ def ledger():
     return [json.loads(l) for l in open(LEDGER, encoding="utf-8") if l.strip()]
 
 
+def public_neighborhood(p):
+    """Neighborhood name for a public headline. is_planned polygons stay in the
+    database and never become the line on an image, story or caption."""
+    if not isinstance(p, dict):
+        return ""
+    if p.get("neighborhood_is_planned") or p.get("is_planned"):
+        return ""
+    raw = p.get("neighborhood")
+    if isinstance(raw, dict):
+        if raw.get("is_planned"):
+            return ""
+        raw = raw.get("name")
+    return (raw or "").strip()
+
+
 def nodash(t):
     """Platform copy rule: no long dashes anywhere."""
     if t is None:
@@ -706,7 +721,8 @@ def ad_html(p, disc):
     street = (p.get("street") or "").strip()
     city = (p.get("city") or "").strip()
     loc = f"רחוב {street}, {city}" if street and not street.startswith("רחוב") else ", ".join(x for x in (street, city) if x)
-    sub = f'<div class="sub">{e(p["neighborhood"])}</div>' if p.get("neighborhood") else ""
+    nb = public_neighborhood(p)
+    sub = f'<div class="sub">{e(nb)}</div>' if nb else ""
     num, suf = price_parts(p)
     price = (f'<div class="price"><span class="pnum">₪{num}</span>' + (f'<span class="psuf">{e(suf)}</span>' if suf else "") + "</div>") if num else "<div></div>"
     tpl = open(os.path.join(TOOLS, "ad_template.html"), encoding="utf-8").read()
@@ -810,7 +826,8 @@ def post_text(p, disc, platform="fb"):
     # the site name/link appears ONCE, in the closing listing line (closing_lines)
     addr = " ".join(x for x in (f"רחוב {street}" if street else "", p.get("house_number") or "") if x)
     loc = ", ".join(x for x in (addr, city) if x)
-    if p.get("neighborhood"): loc += f" | {p['neighborhood']}"
+    nb = public_neighborhood(p)
+    if nb: loc += f" | {nb}"
     if loc: L.append(f"📍 {loc}")
     if p["category"] == "residential" and not is_lot(p):
         bits = [f"{fmt_num(p['rooms'])} חדרים" if p.get("rooms") else None, f'{fmt_num(sz)} מ"ר' if sz else None]
@@ -880,7 +897,7 @@ def reel_caption(p, st, platform):
     IG has no link apart from the plain domain. No ethics line. Optional <no>/reel/caption_description.txt
     overrides the paragraph (hand-written copy)."""
     sz = size_of(p)
-    street, city, nb = (p.get("street") or "").strip(), (p.get("city") or "").strip(), p.get("neighborhood")
+    street, city, nb = (p.get("street") or "").strip(), (p.get("city") or "").strip(), public_neighborhood(p) or None
     num, suf = price_parts(p)
     head = f"🔥 {type_phrase(p)} {deal_word(p)}" + (f" ב{city}" if city else "")
     if num: head += f", {num} ₪" + (f" {suf}" if suf else "")

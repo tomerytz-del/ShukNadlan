@@ -31,6 +31,7 @@ import * as XLSX from "npm:xlsx@0.18.5";
 import "../_shared/property-import-core.js";
 import { SearchCore } from "./property-search.ts";
 import { FEATURE_LABELS } from "../_shared/marketing-copy.ts";
+import { locationPrecisionFromHit } from "../_shared/location-precision.ts";
 import { decodeText } from "./media-intake.ts";
 import {
   applyDealText,
@@ -598,7 +599,18 @@ export async function runImportJob(
       const p = r.payload;
       if (!r.hoodFallback || !p.street || !p.house_number || p.lat != null) continue;
       const c = await geocode(String(p.city), String(p.street), String(p.house_number));
-      if (c) { p.lat = c.lat; p.lng = c.lng; p.location_precision = "exact"; delete p.neighborhood_id; }
+      if (c) {
+        const precision = locationPrecisionFromHit(
+          (c as { precision?: string }).precision,
+          String(p.house_number || ""),
+        );
+        if (precision) {
+          p.lat = c.lat;
+          p.lng = c.lng;
+          p.location_precision = precision;
+          if (precision === "exact") delete p.neighborhood_id;
+        }
+      }
     }
 
     const inserted = await insertRows(supabase, toInsert, failed);

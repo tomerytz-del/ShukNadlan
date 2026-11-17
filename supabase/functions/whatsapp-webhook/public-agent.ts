@@ -1,5 +1,6 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { neighborhoodPublicName } from "../_shared/neighborhood-public.ts";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 import { anthropicRow, logAiUsage } from "../_shared/ai-usage.ts";
 import { historyWithBreakpoint, RollingMarks, trimHistory, withTurnContext } from "./prompt-cache.ts";
@@ -329,7 +330,8 @@ function maskPublicText(text: string | null, houseNumber: string | null): string
 
 // deno-lint-ignore no-explicit-any
 function publicWhere(p: any): string {
-  const hood = p.neighborhoods?.name || p.sales_area || "";
+  const nb = Array.isArray(p.neighborhoods) ? p.neighborhoods[0] : p.neighborhoods;
+  const hood = neighborhoodPublicName(nb) || p.sales_area || "";
   const street = maskPublicText(p.address || p.street || "", p.house_number);
   return [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");
@@ -349,7 +351,7 @@ const PROPERTY_FIELDS = [
   "street", "address", "house_number", "sales_area", "features", "condition",
   "project_status", "images", "listing_number", "is_promoted", "bumped_at",
   "created_at", "has_virtual_tour", "video_url", "open_house",
-  "open_house_start", "open_house_end", "neighborhood_id", "neighborhoods(name)",
+  "open_house_start", "open_house_end", "neighborhood_id", "neighborhoods(name,is_planned)",
 ].join(", ");
 
 /** בלי שתי העמודות החדשות. האתר עולה לפני המיגרציה, ו-select עליהן הוא 400. */
@@ -2032,7 +2034,7 @@ async function lookupNeighborhoodId(
   if (!area) return null;
   const canon = city ? await canonicalCity(ctx.supabase, city) : null;
   const scope = neighborhoodCityScope(canon, city);
-  let query = ctx.supabase.from("neighborhoods").select("id").ilike("name", likeSafe(area));
+  let query = ctx.supabase.from("neighborhoods").select("id").eq("is_planned", false).ilike("name", likeSafe(area));
   if (scope && "cities" in scope) query = query.in("city", scope.cities);
   else if (scope) query = query.ilike("city", likeSafe(scope.like));
   const { data } = await query.limit(1).maybeSingle();

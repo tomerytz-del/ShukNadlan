@@ -1,0 +1,41 @@
+name: שיוך שכונה מפין מדויק
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20271117160000_neighborhood_exact_pin_only.sql"
+      - "supabase/functions/_shared/neighborhood-public.ts"
+      - "assets/property.js"
+      - "assets/home.js"
+      - "netlify/edge-functions/og-tags.ts"
+      - "marketing/reel_worker/tools/queue.py"
+      - "scripts/neighborhood_exact_pin_test.ts"
+      - ".github/workflows/neighborhood_exact_pin.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20271117160000_neighborhood_exact_pin_only.sql"
+      - "supabase/functions/_shared/neighborhood-public.ts"
+      - "assets/property.js"
+      - "assets/home.js"
+      - "netlify/edge-functions/og-tags.ts"
+      - "marketing/reel_worker/tools/queue.py"
+      - "scripts/neighborhood_exact_pin_test.ts"
+      - ".github/workflows/neighborhood_exact_pin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: שיוך שכונה מפין מדויק
+        run: node --experimental-strip-types scripts/neighborhood_exact_pin_test.ts

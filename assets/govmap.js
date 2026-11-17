@@ -446,7 +446,7 @@
       if (!addr) return null;
       return projReady().then(function (proj4) {
         var ll = itmToWgs84(proj4, addr.x, addr.y);
-        return { lat: ll[1], lng: ll[0], matched: addr.matched };
+        return { lat: ll[1], lng: ll[0], matched: addr.matched, precision: addr.precision || null };
       });
     });
   }
