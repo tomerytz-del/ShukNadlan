@@ -68,6 +68,12 @@ const paid = {
 };
 const swipe = boot("/swipe", "", paid, { "data-property-id": PID });
 const swipeFields = swipe.api.fields(swipe.link);
+/* ‏הדף המסחרי: הנתיב מקודד כמו שהדפדפן שולח, והקליק נושא את מזהה הנכס */
+for (const path of ["/afula/נדלן-מסחרי", "/afula/%D7%A0%D7%93%D7%9C%D7%9F-%D7%9E%D7%A1%D7%97%D7%A8%D7%99"]) {
+  const comm = boot(path, "?type=offices", paid, { "data-property-id": PID });
+  const f = comm.api.fields(comm.link);
+  ok("commercial page " + path, comm.api.inquiryPage() === "commercial" && !!f && f.property_id === PID);
+}
 ok("swipe page", swipe.api.inquiryPage() === "swipe");
 ok("swipe click carries property and reel_a",
   !!swipeFields && swipeFields.property_id === PID && swipeFields.item_id === PID &&

@@ -542,6 +542,13 @@
       }).join('') + '</div></section>';
   }
 
+  /* ‏אזור התעשייה של עפולה הוא המקום שבו מפורסם רוב הנדל״ן המסחרי, ולכן קישור
+     לדף המסחרי (docs/search-landing-pages.md). שכונה אחרת לא מקבלת אותו. */
+  function commercialLink(d) {
+    if (d.city_slug !== 'afula' || d.slug !== 'אזור-התעשייה') return '';
+    return '<p class="hood-note hood-commercial"><a href="/afula/' + encodeURIComponent('נדלן-מסחרי') + '">משרדים, חנויות ומחסנים להשכרה ולמכירה בעפולה</a></p>';
+  }
+
   function mapBlock(d) {
     var lat = Number(d.lat);
     var lng = Number(d.lng);
@@ -654,6 +661,7 @@
       + agenciesBlock(d)
       + '</aside></div>'
       + nearby(d)
+      + commercialLink(d)
       + dataBlob(d, all)
       + '</div>';
     return html;
