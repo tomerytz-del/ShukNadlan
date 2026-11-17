@@ -10,7 +10,10 @@ import { unpublishedNudgeButtons } from "../whatsapp-webhook/listing-actions.ts"
 import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
-import { shareDigestItems, type ShareDigestLine } from "../_shared/share-digest.ts";
+import {
+  isShareOnlyBatch, shareDigestItems, textBodyHead, textBodyItemLine,
+  type ShareDigestLine,
+} from "../_shared/share-digest.ts";
 import { boardListingMessage, ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
 import {
   absoluteUrl,
@@ -449,10 +452,11 @@ function textBody(
     items.filter((it) => !itemPath(it)).map((it) => ACC_BY_TYPE[it.type] || MANAGE_ACC),
   )];
 
-  // תזכורת מהיומן אינה "מה שחדש" אלא "מה שקורה עכשיו", וכשזה כל מה שיש
-  // בהודעה - הכותרת אומרת את זה.
-  const onlyAgenda = items.every((it) => it.type === "agenda_reminder");
-  const head = onlyAgenda ? "תזכורת מהיומן:" : "מה שחדש אצלך:";
+  // תזכורת מהיומן אינה "מה שחדש" אלא "מה שקורה עכשיו". סיכום שיתופים
+  // בלבד אומר מה קרה ("נכס חדש שותף איתך"), כי "אביה · גג/פנטהאוז"
+  // נקרא כמקום. באצווה מעורבת אותו משפט עם הקדמה.
+  const onlyShares = isShareOnlyBatch(items);
+  const headLine = textBodyHead(first, items);
   let prevType: string | null = null;
   const itemLines: string[] = [];
   for (const it of items) {
@@ -463,13 +467,13 @@ function textBody(
     prevType = it.type;
     const raw = itemPath(it);
     const path = raw && stamp ? stamp(raw) : raw;
-    itemLines.push(
-      `${it.type === "agenda_reminder" ? "📅" : "🔔"} ${it.title}${it.body ? `\n   ${it.body}` : ""}` +
-        (path && !noLinks ? `\n   👈 ${SITE_BASE}${path}` : ""),
-    );
+    itemLines.push(textBodyItemLine(it, {
+      onlyShares,
+      link: path && !noLinks ? `${SITE_BASE}${path}` : null,
+    }));
   }
   const lines = [
-    first ? `${first}, ${head}` : head,
+    headLine,
     "",
     ...itemLines,
     "",

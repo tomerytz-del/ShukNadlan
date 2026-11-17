@@ -26837,7 +26837,7 @@ const NOTIF_TYPES = [
   { type:'share_digest',   tone:'',       goto:'accProperties', focus:'#sharedWithMeList',
     refresh: async () => { if (window.crmNeed) { try { await crmNeed('properties'); } catch (e) {} } if (typeof propOwnerTab === 'function') propOwnerTab('shared'); },
     title:'סיכום נכסים ששותפו איתך',
-    sub:'פעם ביום: מי שיתף נכס, הסוג והמחיר. כל נכס נפתח בלשונית השיתופים.' },
+    sub:'פעם ביום: סוג הנכס, העיר, החדרים והמחיר, ומי שיתף. כל נכס נפתח בלשונית השיתופים.' },
   { type:'review_alert',   tone:'alert',  goto:'accReviews',  focus:'#reviewModerationList',
     title:'הסלמת ביקורת כוכב אחד',
     sub:'ביקורת 1★ שנכנסה לפלטפורמה ומגיעה לבדיקת ההנהלה.',
