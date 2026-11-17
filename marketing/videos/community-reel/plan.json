@@ -29,11 +29,11 @@
     },
     {
       "id": "map",
-      "narration": "מה אם כולם היו מחוברים? נכסים, לקוחות ושיתופי פעולה, במקום אחד.",
+      "narration": "מה אם כולם היו מחוברים? מתווכים, נכסים, לקוחות ושיתופי פעולה, במקום אחד.",
       "treatment": "illustration",
       "onScreenText": [
         "מה אם כולם מחוברים?",
-        "נכסים · לקוחות · שיתופי פעולה"
+        "מתווכים · נכסים · לקוחות · שיתופי פעולה"
       ],
       "imagePrompt": "Wide view of a modern city skyline where every tower is completely visible from its base at the ground to its rooftop, none cropped by the frame edges, a cluster of white and glass residential towers of different heights with balconies and greenery, tree-lined boulevard in the foreground, warm late-afternoon light, soft haze, rich detail and depth, cinematic premium real estate photograph, vertical composition with open sky above, no text, no people",
       "clipPrompt": null,

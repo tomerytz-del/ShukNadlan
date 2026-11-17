@@ -259,6 +259,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const link = (k: number) => interpolate(f, [t0 + 4 + k * 3, t0 + 4 + k * 3 + 9], [0, 1], { ...clamp, easing: easeOut });
           const bright = interpolate(f, [0, 40], [0.3, 1], clamp);
           const slams = [
+            { text: "מתווכים", at: on(map, "מתווכים"), rot: 3 },
             { text: "נכסים", at: on(map, "נכסים"), rot: -4 },
             { text: "לקוחות", at: on(map, "לקוחות"), rot: 3 },
             { text: "שיתופי פעולה", at: on(map, "ושיתופי"), rot: -3 },
@@ -340,7 +341,8 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
         <Sfx src={urls[SFX.impact]} at={1} volume={0.3} />
         <Sfx src={urls[SFX.sparkle]} at={8} volume={0.2} />
         {NODES.slice(1, 9).map((_, i) => <Sfx key={i} src={urls[SFX.ping]} at={13 + i * 4} volume={0.06} />)}
-        <Sfx src={urls[SFX.whoosh]} at={on(map, "נכסים") - 2} volume={0.2} />
+        <Sfx src={urls[SFX.whoosh]} at={on(map, "מתווכים") - 2} volume={0.2} />
+        <Sfx src={urls[SFX.impact]} at={on(map, "מתווכים")} volume={0.24} />
         <Sfx src={urls[SFX.impact]} at={on(map, "נכסים")} volume={0.24} />
         <Sfx src={urls[SFX.impact]} at={on(map, "לקוחות")} volume={0.24} />
         <Sfx src={urls[SFX.impact]} at={on(map, "ושיתופי")} volume={0.24} />
