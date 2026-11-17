@@ -532,9 +532,10 @@ def facts(p):
     else:
         f["floor"] = f["floor_txt"] = f["floor_short"] = None
     street = " ".join(x for x in (p.get("street"), p.get("house_number")) if x)
-    parts = [x for x in (street, p.get("neighborhood"), p.get("city")) if x]
+    nb = Q.public_neighborhood(p) or None
+    parts = [x for x in (street, nb, p.get("city")) if x]
     f["address"] = ", ".join(dict.fromkeys(parts))
-    f["place"] = ", ".join(x for x in (p.get("neighborhood"), p.get("city")) if x)
+    f["place"] = ", ".join(x for x in (nb, p.get("city")) if x)
     pps = p.get("price_per_sqm")
     if not pps and p.get("price") and sz and p.get("category") == "commercial":
         pps = round(float(p["price"]) / float(sz))

@@ -10,6 +10,7 @@ import {
   rpcMissing,
   splitPendingForCreate,
 } from "./turn-lock.ts";
+import { neighborhoodPublicName } from "../_shared/neighborhood-public.ts";
 import {
   clientNeeds,
   dealNullRejected,
@@ -131,6 +132,11 @@ import {
   styleContext,
 } from "./reply-style.ts";
 import { pageLink, pageLinkTopics } from "./crm-pages.ts";
+import {
+  OFFICE_SHARE_BUTTON_GUIDANCE,
+  OFFICE_SHARE_MISS_GUIDANCE,
+  officeShareDecision,
+} from "./office-share.ts";
 import { ctaLabel, isSafeCrmPath, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
   agentToolMutates,
@@ -2074,8 +2080,9 @@ const TOOLS: Anthropic.Tool[] = [
       "topic: agreements (תצוגה מלאה של המסמך; ביטול ותיקון נעשים ב-cancel_agreement " +
       "וב-reissue_agreement), property, client, showcase, " +
       "agenda, google_calendar (חיבור יומן Google - אי אפשר מכאן), leads, " +
-      "notifications, marketing (פייסבוק/מודעה), import (יד2/אקסל), home. " +
-      "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא.",
+      "notifications, marketing (פייסבוק או מודעה של נכס, לא של דף המשרד), import (יד2/אקסל), home. " +
+      "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא. " +
+      "שיתוף דף המשרד בפייסבוק הוא office_page_link, לא topic marketing.",
     input_schema: {
       type: "object",
       properties: {
@@ -2087,6 +2094,16 @@ const TOOLS: Anthropic.Tool[] = [
       },
       required: ["topic"],
     },
+  },
+  {
+    name: "office_page_link",
+    description:
+      "כשסוכן/ת מבקש/ת לפרסם או לשתף את דף המשרד (כרטיס המשרד, הדף הציבורי) " +
+      "בפייסבוק: פרופיל אישי, דף פייסבוק או קבוצה. שולח כפתור שפותח את הדף " +
+      "הציבורי באתר. הסוכן/ת משתף/ת בעצמו/ה מהדף. את לא מפרסמת, ואין לומר " +
+      "שפרסמת או שאין אפשרות. לא לפרסום נכס (לנכס: page_link topic marketing). " +
+      "בלי משרד או בלי דף ציבורי חוזר say, ואין לנחש כתובת.",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
 ];
 
@@ -2424,7 +2441,7 @@ async function resolvePropertyHood(
   ctx: ToolContext, city: string, name: string,
 ): Promise<{ id: string; name: string } | { error: string; known: string[] }> {
   const { data } = await ctx.supabase
-    .from("neighborhoods").select("id, name").eq("city", city);
+    .from("neighborhoods").select("id, name, is_planned").eq("city", city).eq("is_planned", false);
   const rows = (data || []) as { id: string; name: string }[];
   const key = hoodKey(name);
   const exact = rows.filter((r) => hoodKey(r.name) === key);
@@ -3481,7 +3498,7 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 const AGENT_SEARCH_FIELDS =
   "id, listing_number, title, property_type, deal_type, category, price, price_unit, rooms, " +
   "size_sqm, floor, total_floors, city, street, house_number, sales_area, features, " +
-  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, city_id, neighborhoods(name), " +
+  "agent_id, agency_id, is_promoted, created_at, neighborhood_id, city_id, neighborhoods(name,is_planned), " +
   "agencies!properties_agency_id_fkey(name), agency_members!properties_agent_id_fkey(display_name, phone)";
 
 const SOURCE_ORDER: Record<string, number> = { own: 0, agency: 1, shared: 2, market: 3 };
@@ -3611,7 +3628,7 @@ async function agentPropertySearch(
 
   const results = tagged.slice(0, limit).map(({ p, source }) => {
     const member = one(p.agency_members);
-    const hood = one(p.neighborhoods)?.name || p.sales_area || null;
+    const hood = neighborhoodPublicName(one(p.neighborhoods)) || p.sales_area || null;
     // מספר בית - רק במה שהמשרד מחזיק או שותף איתו. נכס של משרד אחר שלא שיתף
     // מוצג כמו באתר: רחוב ושכונה.
     const showNumber = source !== "market";
@@ -4462,7 +4479,7 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
   const p = await visibleProperty(
     ctx,
     propertyId,
-    "id, agent_id, title, address, city, street, house_number, sales_area, neighborhoods(name), price, price_unit, rooms, " +
+    "id, agent_id, title, address, city, street, house_number, sales_area, neighborhoods(name,is_planned), price, price_unit, rooms, " +
       "size_sqm, built_size_sqm, deal_type, property_type, status, listing_number",
   );
   if (!p) return { ok: false, error: "לא נמצא נכס כזה." };
@@ -4482,9 +4499,9 @@ async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>
 
   const hoodRaw = p.neighborhoods;
   const hoodRow = Array.isArray(hoodRaw) ? hoodRaw[0] : hoodRaw;
-  const neighborhood = (hoodRow && typeof hoodRow === "object"
-    ? String((hoodRow as { name?: string }).name || "")
-    : "") || String(p.sales_area || "");
+  const neighborhood = neighborhoodPublicName(
+    hoodRow && typeof hoodRow === "object" ? hoodRow as { name?: string | null; is_planned?: boolean | null } : null,
+  ) || String(p.sales_area || "");
   const address = [p.street, neighborhood].filter(Boolean).join(", ");
   const facts = [
     p.rooms ? `${p.rooms} חדרים` : "",
@@ -5674,7 +5691,7 @@ const NOTES_BROWSE_CHARS = 240;
 const CLIENT_CARD_FIELDS =
   "client_kind, deal_type, category, property_types, cities, min_price, max_price, min_rooms, max_rooms, min_size_sqm, max_size_sqm, max_floor, required_features";
 /** שם השכונה מ-neighborhood_id, כדי שהסיכום לא יראה רק את העיר. */
-const CLIENT_CARD_HOOD = ", neighborhood_id, neighborhoods(name)";
+const CLIENT_CARD_HOOD = ", neighborhood_id, neighborhoods(name,is_planned)";
 const LIST_CLIENT_COLUMNS =
   "id, full_name, phone, email, notes, status, " + CLIENT_CARD_FIELDS + ", created_at";
 const LIST_CLIENT_COLUMNS_HOOD = LIST_CLIENT_COLUMNS.replace(
@@ -5751,14 +5768,14 @@ async function fillNeighborhoodNames(ctx: ToolContext, rows: Array<Record<string
   const missing = rows.filter((row) => row.neighborhood_id && !savedNeighborhood(row));
   if (!missing.length) return;
   const ids = [...new Set(missing.map((row) => String(row.neighborhood_id)))];
-  const { data, error } = await ctx.supabase.from("neighborhoods").select("id, name").in("id", ids);
+  const { data, error } = await ctx.supabase.from("neighborhoods").select("id, name, is_planned").in("id", ids);
   if (error) {
     console.warn("client neighborhood names failed", error.code);
     return;
   }
   const byId = new Map<string, string>();
   for (const row of data || []) {
-    const name = String(row.name || "").trim();
+    const name = neighborhoodPublicName(row);
     if (name) byId.set(String(row.id), name);
   }
   for (const row of missing) {
@@ -8835,8 +8852,11 @@ async function toolOpenDemandLeads(ctx: ToolContext, input: Record<string, unkno
   const hoodIds = [...new Set(rows.map((r) => r.neighborhood_id).filter(Boolean))] as string[];
   const hoods = new Map<string, string>();
   if (hoodIds.length) {
-    const { data: names } = await ctx.supabase.from("neighborhoods").select("id,name").in("id", hoodIds);
-    for (const n of names || []) hoods.set(String(n.id), String(n.name || ""));
+    const { data: names } = await ctx.supabase.from("neighborhoods").select("id,name,is_planned").in("id", hoodIds);
+    for (const n of names || []) {
+      const label = neighborhoodPublicName(n);
+      if (label) hoods.set(String(n.id), label);
+    }
   }
   const statsJson = (stats.data || {}) as { my_today?: number; daily_cap?: number };
   const capFull = Number(statsJson.my_today || 0) >= Number(statsJson.daily_cap || 0) && Number(statsJson.daily_cap || 0) > 0;
@@ -9996,6 +10016,51 @@ function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+/**
+ * דף המשרד לפייסבוק. לא פרסום: כפתור לדף הציבורי, והסוכן/ת משתף/ת.
+ * בלי משרד, בלי slug, או כשהדף לא באוויר (agency_is_live) - הסבר, בלי כתובת.
+ */
+async function toolOfficePageLink(ctx: ToolContext) {
+  const agencyId = typeof ctx.agent.agency_id === "string" ? ctx.agent.agency_id.trim() : "";
+  let slug: unknown = null;
+  let lookupFailed = false;
+  let live: boolean | "error" = false;
+  let officeName: unknown;
+  if (agencyId) {
+    const agency = await loadAgency(ctx.supabase, agencyId, "name, slug");
+    if (!agency) lookupFailed = true;
+    else {
+      slug = agency.slug;
+      officeName = agency.name;
+      if (String(agency.slug ?? "").trim()) {
+        const { data, error } = await ctx.supabase.rpc("agency_is_live", { p_agency: agencyId });
+        if (error) {
+          console.error("agency_is_live failed", error.message);
+          live = "error";
+        } else {
+          live = data === true;
+        }
+      }
+    }
+  }
+  const decision = officeShareDecision({ agencyId, slug, lookupFailed, live });
+  // ok: true גם בלי דף, כדי שהתשובה תהיה ההסבר ולא "אני לא יכולה".
+  if (decision.kind === "explain") {
+    return { ok: true, say: decision.say, reason: decision.reason, guidance: OFFICE_SHARE_MISS_GUIDANCE };
+  }
+  // בלי outbox (מייל) אין כפתור, והכתובת לא חוזרת למודל - כלל "כפתורים בלבד".
+  const linked = ctx.outbox
+    ? modelLink(ctx, decision.url, decision.label, decision.body, "page_url")
+    : {};
+  return {
+    ok: true,
+    office_name: officeName || undefined,
+    say: decision.body,
+    ...linked,
+    guidance: ctx.outbox ? OFFICE_SHARE_BUTTON_GUIDANCE : OFFICE_SHARE_MISS_GUIDANCE,
+  };
+}
+
 async function runTool(
   ctx: ToolContext,
   name: string,
@@ -10074,6 +10139,7 @@ async function runTool(
       case "profile_get": return await toolProfileGet(ctx);
       case "update_profile": return await toolUpdateProfile(ctx, input);
       case "page_link": return toolPageLink(ctx, input);
+      case "office_page_link": return await toolOfficePageLink(ctx);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
     }
   } catch (err) {
@@ -10134,7 +10200,12 @@ const SYSTEM_STATIC: string = (() => {
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. קובץ לידים (בלוק [ייבוא לידים]) = import_leads_file ואחריו lead_import_answer על כל שורה עם חסר. " +
       "קובץ בלי סוג עסקה: לא לפסול את כל השורות ולא לנחש לפי מחיר. אחרי האישור יוצאים כפתורים, ו-summary הוא התשובה. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
-      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
+      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query. " +
+      "שיתוף דף המשרד בפייסבוק (פרופיל אישי, דף או קבוצה) = office_page_link.",
+    "- **דף המשרד בפייסבוק:** office_page_link שולח כפתור לדף הציבורי. " +
+      "הסוכן/ת פותח/ת את הדף, לוחץ/ת שיתוף, ובוחר/ת פרופיל אישי, דף פייסבוק או קבוצה. " +
+      "את לא מפרסמת. אם חזר button_sent - משפט אחד בלי כתובת ובלי טלפון, ואל תאמרי שפרסמת. " +
+      "אם חזר say בלי כפתור - זה ההסבר, בלי לנחש דף. פרסום נכס = page_link עם topic marketing.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
       "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
       "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +

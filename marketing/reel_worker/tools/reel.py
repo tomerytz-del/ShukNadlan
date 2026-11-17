@@ -134,7 +134,7 @@ def plan(p):
         return json.load(open(sel_path, encoding="utf-8"))
     pick = select_photos(p)
     fq = facts(p)
-    city, nb = p.get("city") or "", p.get("neighborhood")
+    city, nb = p.get("city") or "", Q.public_neighborhood(p) or None
     slides = []
     for i, (u, kind) in enumerate(pick):
         if kind == "opener":
@@ -253,7 +253,7 @@ def slide_html(p, s, idx, mode, disc):
         price = (f'<div class="price"><span class="pn">₪{num}</span>' + (f'<span class="ps">{e(suf)}</span>' if suf else "") + "</div>") if num else ""
         inner = (f'<div class="cl"><div class="lockc"><img src="logo.png"><div class="bw">שוק הנדל״ן</div></div>'
                  f'<div class="ctag">{tag}</div><div class="loc">{e(Q.nodash(loc))}</div>'
-                 + (f'<div class="nb">{e(p["neighborhood"])}</div>' if p.get("neighborhood") else "")
+                 + (f'<div class="nb">{e(nb)}</div>' if (nb := Q.public_neighborhood(p)) else "")
                  + price + card_html(p, big=True)
                  + f'<div class="site">shuknadlan.co.il</div><div class="lnum">מודעה מס\' {p["listing_number"]}</div>'
                  # disc = Q.disclosure_for(p): Tomer's licence line only on his own listings. For other agents it is
@@ -709,7 +709,7 @@ def d_deal(p):
     second smaller line with a pin icon. City only when there is no neighbourhood."""
     e = H.escape
     main = Q.nodash(f"{Q.deal_word(p)} | {Q.type_phrase(p)}")
-    loc = ", ".join(x for x in (p.get("city"), p.get("neighborhood")) if x)
+    loc = ", ".join(x for x in (p.get("city"), Q.public_neighborhood(p)) if x)
     if not loc:
         return f'<div class="deal">{e(main)}</div>'
     if len(main) + len(loc) + 3 <= 30:
@@ -1242,7 +1242,7 @@ def join_and(items):
 
 def v3_script(p, slides):
     """Flowing natural sentences (facts only), one per slide; numbers as words."""
-    city, nb = p.get("city") or "", p.get("neighborhood")
+    city, nb = p.get("city") or "", Q.public_neighborhood(p) or None
     rs = spoken_rooms(p) if p["category"] == "residential" and not Q.is_lot(p) else None
     if p["category"] == "commercial":
         s1 = f"מחפשים {Q.type_phrase(p)} {Q.deal_word(p)} ב{city}?"

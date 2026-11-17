@@ -238,7 +238,7 @@ async function loadProperty(){
     const sb = sbClient();
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name)')
+      .select('*, agencies(name, slug, logo_url, colors, cover_url), neighborhoods(name,is_planned)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -533,7 +533,7 @@ function renderGallery(p){
       // v10 (סבב 4 חלק 3): התא הראשי מסביר שאין תמונות ומציע לבקש אותן מהמפרסם
       main.classList.add('bento-empty', 'np-host');
       const facts = [p.rooms ? p.rooms + ' חד׳' : '', p.size_sqm ? p.size_sqm + ' מ״ר' : '', p.floor != null && p.floor !== '' ? 'קומה ' + p.floor : ''].filter(Boolean).join(' · ');
-      const where = [p.neighborhoods?.name || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
+      const where = [publicNeighborhoodName(p) || p.sales_area || '', p.city || ''].filter(Boolean).join(', ');
       main.innerHTML = NoPhoto.html(p, { agent: p.agency_members || null, agency: p.agencies || null, private: !p.agent_id && !agencyNameOf(p) }, 'hero', { facts, where, title: p.title || '' });
       main.addEventListener('click', (e)=>{
         const ask = e.target.closest('[data-np-cta]');
@@ -2697,7 +2697,7 @@ function renderAgencyAvatar(agency){
    ואת המזהה שלו, ו-public-agent.ts טוען אותו לפי המזהה. הכותרת כאן ממוסכת:
    הדף עצמו מציג מספר בית, וההודעה שנפתחת בוואטסאפ לא. */
 function setGabWidgetContext(p){
-  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const hood = publicNeighborhoodName(p) || p.sales_area || '';
   window.gabWidgetContext = { property: {
     id: p.id,
     title: maskedListingTitle(p),
@@ -2827,7 +2827,14 @@ function maskHouseNumber(text, houseNumber){
 }
 
 /* השכונה מגיעה מטבלת ה-neighborhoods; ‏sales_area הוא הגיבוי כשלנכס לא
-   שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים. */
+   שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים.
+   אזור בתכנון (is_planned) אינו שם שאפשר להציג. */
+function publicNeighborhoodName(p){
+  var n = p && p.neighborhoods;
+  if (!n || n.is_planned) return '';
+  return n.name || '';
+}
+
 function roomsShort(n){
   if (n === null || n === undefined || String(n).trim() === '') return '';
   const v = Number(n);
@@ -2868,7 +2875,7 @@ function publicHeadline(p){
 }
 
 function publicAddressText(p){
-  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const hood = publicNeighborhoodName(p) || p.sales_area || '';
   const line = publicStreetLine(p);
   return [line, hood && hood !== p.city ? hood : '', p.city]
     .filter(Boolean).join(', ');
@@ -2905,7 +2912,7 @@ function renderPropCrumbs(p){
   var nav = document.getElementById('propCrumbs');
   if (!nav || !p) return;
   var city = String(p.city || '').trim();
-  var hoodName = (p.neighborhoods && p.neighborhoods.name) || '';
+  var hoodName = publicNeighborhoodName(p);
   hoodName = String(hoodName || '').trim();
   var bits = ['<li><a href="/">שוק נדל״ן</a></li>'];
   if (city){
@@ -2934,7 +2941,7 @@ function renderPropCrumbs(p){
    פשוט משאיר את הכרטיס מוסתר. המבנה זהה ל-hoodCardHtml בשרת (scripts/hood_card_test.ts). */
 function renderHoodCard(p){
   const card = document.getElementById('hoodCard');
-  const name = p.neighborhoods && p.neighborhoods.name;
+  const name = publicNeighborhoodName(p);
   if (!card || card.querySelector('[data-hood-card]')) return;
   if (!name || !p.city || name === p.city) return;
   // ‏GET עם סינון על תוצאת הפונקציה - שורה אחת ולא כל השכונות
@@ -3286,7 +3293,7 @@ let fairEndTimer = 0;
 function waShareText(p){
   const title = publicTitle(p) || 'נכס בשוק נדל״ן';
   const head = Number(p.price) > 0 ? title + ' · ' + priceFlat(p) : title;
-  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const hood = publicNeighborhoodName(p) || p.sales_area || '';
   const where = [hood && hood !== p.city ? hood : '', p.city || ''].filter(Boolean).join(', ');
   const utm = 'utm_source=whatsapp&utm_medium=share&utm_campaign=property_share';
   const url = p.listing_number

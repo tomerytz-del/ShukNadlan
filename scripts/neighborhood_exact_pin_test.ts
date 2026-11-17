@@ -1,0 +1,128 @@
+/* שיוך שכונה רק מפין מדויק, ושם של אזור בתכנון לא יוצא לציבור.
+   node --experimental-strip-types scripts/neighborhood_exact_pin_test.ts
+*/
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { neighborhoodPublicName } from "../supabase/functions/_shared/neighborhood-public.ts";
+import { locationPrecisionFromHit } from "../supabase/functions/_shared/location-precision.ts";
+
+let failed = 0;
+function check(name: string, ok: boolean) {
+  if (!ok) {
+    failed += 1;
+    console.error("FAIL", name);
+  } else {
+    console.log("ok", name);
+  }
+}
+
+const root = new URL("../", import.meta.url);
+const read = (path: string) => readFileSync(new URL(path, root), "utf8");
+
+check("planned name hidden", neighborhoodPublicName({ name: "B1 אזור בתכנון", is_planned: true }) === "");
+check("industrial name kept", neighborhoodPublicName({ name: "אזור התעשייה", is_planned: false }) === "אזור התעשייה");
+check("missing row", neighborhoodPublicName(null) === "");
+check("blank name", neighborhoodPublicName({ name: "  ", is_planned: false }) === "");
+
+const sql = read("supabase/migrations/20271117160000_neighborhood_exact_pin_only.sql");
+check("trigger skips non-exact", sql.includes("if not public.location_pin_is_exact(new.location_precision) then"));
+check("report verdict approx_pin", sql.includes("then 'approx_pin'"));
+check("apply still checks precision", sql.includes("and public.location_pin_is_exact(p.location_precision)"));
+for (const n of ["1306", "1307", "1315", "1316"]) {
+  check("protected listing " + n, sql.includes(n));
+}
+check("saved-search alerts paused", sql.includes("disable trigger properties_saved_search_alerts_upd"));
+check("match alerts paused", sql.includes("disable trigger properties_client_match_alerts_upd"));
+check("locate trigger paused", sql.includes("disable trigger properties_locate_street_trg"));
+check("alerts restored", sql.includes("enable trigger properties_saved_search_alerts_upd")
+  && sql.includes("enable trigger properties_client_match_alerts_upd"));
+check("geocode retry uses the existing counter", sql.includes("geocode_attempts = case")
+  && sql.includes("p.house_number"));
+check("public name in marketing facts", sql.includes("public.neighborhood_public_name(n.is_planned, n.name)"));
+check("no description queue", !sql.includes("queue_property_description"));
+const cleanup = sql.slice(sql.indexOf("ניקוי השיוך השגוי"), sql.indexOf("create or replace function public.share_digest_preview"));
+check("cleanup does not insert a notification", !cleanup.includes("insert into public.notifications"));
+const exactAt = cleanup.indexOf("p.location_precision = 'exact'");
+const enableAt = cleanup.indexOf("enable trigger properties_saved_search_alerts_upd");
+check("exact B1 pins are recomputed from the point", exactAt > 0
+  && cleanup.includes("neighborhood_for_city_point")
+  && exactAt < enableAt);
+check("exact recompute keeps the protected listings out",
+  cleanup.slice(exactAt, enableAt).includes("1306, 1307, 1315, 1316"));
+check("backfill suppress is called before the neighborhood writes",
+  sql.indexOf("notification_push_suppress(true)") >= 0
+  && sql.indexOf("notification_push_suppress(true)") < sql.indexOf("set neighborhood_id"));
+check("geocode fill does not alert",
+  sql.includes("app.neighborhood_autofill")
+  && sql.includes("properties_saved_search_alerts_upd")
+  && sql.includes("properties_client_match_alerts_upd")
+  && !sql.includes("generate_saved_search_alerts")
+  && !sql.includes("generate_client_match_alerts"));
+const exactSet = cleanup.slice(cleanup.indexOf("set neighborhood_id = public.neighborhood_for_city_point"), exactAt);
+check("exact recompute does not rewrite the fingerprint",
+  !exactSet.includes("marketing_description_fingerprint"));
+
+function staleAfter(oldFingerprint: string | null, textChanged: boolean, computed: string, hasText: boolean) {
+  let fingerprint = oldFingerprint;
+  if (textChanged) fingerprint = hasText ? computed : null;
+  return hasText && fingerprint != null && fingerprint !== computed;
+}
+check("1476 stale survives the neighborhood move", staleAfter("fp-b1", false, "fp-industrial", true));
+check("rewriting the marketing text clears stale", !staleAfter("fp-b1", true, "fp-industrial", true));
+const copy = read("supabase/migrations/20260925090000_property_marketing_description.sql");
+check("fingerprint is rewritten only when the marketing text changes",
+  copy.includes("else new.marketing_description is distinct from old.marketing_description")
+  && copy.includes("if v_changed then"));
+
+check("rooftop with a house number is exact", locationPrecisionFromHit("rooftop", "25") === "exact");
+check("rooftop without a house number is not exact", locationPrecisionFromHit("rooftop", "") === null);
+check("city centroid is city", locationPrecisionFromHit("locality", "6") === "city");
+check("street midpoint is street", locationPrecisionFromHit("street", "6") === "street");
+check("missing precision is not exact", locationPrecisionFromHit(null, "25") === null);
+const crm = read("assets/crm.js");
+check("import uses the geocoder precision", crm.includes("function locationPrecisionFromHit")
+  && crm.includes("locationPrecisionFromHit(coords, row.payload.house_number)"));
+
+const property = read("assets/property.js");
+check("property page helper", property.includes("function publicNeighborhoodName(p)")
+  && property.includes("if (!n || n.is_planned) return '';"));
+check("property select loads the flag", property.includes("neighborhoods(name,is_planned)"));
+
+const home = read("assets/home.js");
+check("home cards skip planned", home.includes("!p.neighborhoods.is_planned"));
+check("home filter hides planned with stock", home.includes("!h.is_planned ||")
+  && !home.includes("(hoodState.counts.get(h.id) || 0) > 0 ||"));
+
+const og = read("netlify/edge-functions/og-tags.ts");
+check("og tags use the shared helper", og.includes("neighborhoodPublicName")
+  && og.includes("neighborhoods(name,is_planned)"));
+
+const bot = read("supabase/functions/whatsapp-webhook/public-agent.ts");
+check("public whatsapp", bot.includes("neighborhoodPublicName(nb)")
+  && bot.includes("neighborhoods(name,is_planned)"));
+
+const reel = read("supabase/functions/reel-producer/index.ts");
+check("reel data omits planned name", reel.includes("nbRes.data?.is_planned ? null"));
+
+const py = spawnSync("python3", ["-c", `
+import importlib.util
+spec = importlib.util.spec_from_file_location("q", "marketing/reel_worker/tools/queue.py")
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+assert m.public_neighborhood({"neighborhood": "B1 אזור בתכנון", "is_planned": True}) == ""
+assert m.public_neighborhood({"neighborhood": "אזור התעשייה"}) == "אזור התעשייה"
+assert m.public_neighborhood({"neighborhood": {"name": "B1 אזור בתכנון", "is_planned": True}}) == ""
+print("ok python headline")
+`], { cwd: new URL(".", root) });
+if (py.status !== 0) {
+  failed += 1;
+  console.error(py.stderr?.toString() || py.stdout?.toString());
+} else {
+  process.stdout.write(py.stdout);
+}
+
+if (failed) {
+  console.error(failed + " failed");
+  process.exit(1);
+}
+console.log("neighborhood exact pin: ok");

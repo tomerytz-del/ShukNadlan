@@ -116,6 +116,7 @@ import "../../assets/markets.js";
 import "../../assets/agency-place.js";
 import "../../assets/specialties.js";
 import "../../assets/agency-public.js";
+import { neighborhoodPublicName } from "../../supabase/functions/_shared/neighborhood-public.ts";
 import { lastGoodKey, recall, remember, waitUntilOf } from "./lib/last-good.ts";
 import { liveMarketSlugs, neighborhoodIndexable } from "./lib/indexability.ts";
 import { registry } from "./lib/markets.ts";
@@ -492,8 +493,14 @@ function tailSentence(p: Record<string, unknown>, place: string): string {
   return `${noun} ${deal} ב${place}. תמונות, מפה ופנייה מהירה דרך האתר.`;
 }
 
+function propertyHoodName(p: Record<string, unknown>): string {
+  const raw = p.neighborhoods;
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  return neighborhoodPublicName(row as { name?: string | null; is_planned?: boolean | null } | null);
+}
+
 function listingPlace(p: Record<string, unknown>): string {
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const city = String(p.city || "").trim();
   if (hood && hood !== city) return hood;
   return city;
@@ -608,7 +615,7 @@ function cityCrumbPath(p: Record<string, unknown>): string {
 
 function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
   const city = String(p.city || "").trim();
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const items: Record<string, unknown>[] = [
     { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE}/` },
   ];
@@ -632,7 +639,7 @@ function listingCrumbs(p: Record<string, unknown>, title: string, url: string) {
    ב-property.html, ו-renderPropCrumbs כותב את אותו HTML כשהשרת לא הספיק. */
 function listingCrumbHtml(p: Record<string, unknown>, title: string): string {
   const city = String(p.city || "").trim();
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const bits = [`<li><a href="/">${esc(SITE_NAME)}</a></li>`];
   if (city) {
     const path = cityCrumbPath(p);
@@ -1057,7 +1064,7 @@ function hoodCardHtml(href: string, hood: string): string {
    פעילה או חמש עסקאות), ושוק חי - אותו ‏neighborhoodIndexable כמו ב-sitemap ובדף
    עצמו. כשל, timeout או "אין" - בלי כרטיס, והנכס יוצא כרגיל. */
 async function hoodCard(p: Record<string, unknown>): Promise<string> {
-  const hood = String((p.neighborhoods as { name?: string } | null)?.name || "").trim();
+  const hood = propertyHoodName(p);
   const city = String(p.city || "").trim();
   if (!hood || !city || hood === city) return "";
   const got = await sbFetch(
@@ -1079,7 +1086,7 @@ async function hoodCard(p: Record<string, unknown>): Promise<string> {
 async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
-    "rooms,size_sqm,status,neighborhoods(name)," +
+    "rooms,size_sqm,status,neighborhoods(name,is_planned)," +
     "description,marketing_description,marketing_description_stale,property_type,floor,updated_at," +
     "price_per_sqm,category,price_includes_vat,price_unit,total_floors,built_size_sqm,garden_sqm,condition," +
     "move_in_date,move_in_soon,project_status,furniture_details,maintenance_fee,arnona,features," +
@@ -1097,7 +1104,7 @@ async function propertyMeta(id: string, canonical: string): Promise<MetaResult> 
   const p = got.row;
 
   const title = publicHeadline(p);
-  const hood = (p.neighborhoods as { name?: string } | null)?.name || p.sales_area || "";
+  const hood = propertyHoodName(p) || p.sales_area || "";
   const street = publicStreetLine(p);
   const where = [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");

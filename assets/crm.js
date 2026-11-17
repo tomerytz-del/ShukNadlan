@@ -20316,10 +20316,13 @@ async function impLocateFallbackRows(queue, textEl){
       const row = todo.shift();
       if (textEl) textEl.textContent = `מאתר כתובות לשיוך שכונה… ${++n}`;
       const coords = await dealsLookupCoords(row.payload.city, row.payload.street, row.payload.house_number);
-      if (coords){
+      const precision = locationPrecisionFromHit(coords, row.payload.house_number);
+      if (coords && precision){
         row.payload.lat = coords.lat;
         row.payload.lng = coords.lng;
-        delete row.payload.neighborhood_id;
+        row.payload.location_precision = precision;
+        if (precision === 'exact') row.payload.location_radius_m = null;
+        if (precision === 'exact') delete row.payload.neighborhood_id;
       }
     }
   };
@@ -38187,6 +38190,26 @@ document.getElementById('accDealSettlements')?.addEventListener('toggle', functi
    רחוב - נחות, ומסומן ככזה בתשובה. */
 const DEALS_GEOCODE_CITY = 'עפולה';
 
+/* rooftop עם מספר בית הוא exact. רחוב בלי מספר, או מרכז יישוב, אינם exact.
+   אותו מיפוי כמו supabase/functions/_shared/location-precision.ts. */
+function locationPrecisionFromHit(hit, houseNumber){
+  var house = String(houseNumber || '').trim();
+  var p = hit && String(hit.precision || '').trim();
+  if (!house){
+    if (p === 'street') return 'street';
+    if (p === 'neighborhood') return 'neighborhood';
+    if (p === 'parcel') return 'parcel';
+    if (p === 'locality' || p === 'city') return 'city';
+    return null;
+  }
+  if (p === 'locality' || p === 'city') return 'city';
+  if (p === 'rooftop' || p === 'exact') return 'exact';
+  if (p === 'parcel') return 'parcel';
+  if (p === 'street') return 'street';
+  if (p === 'neighborhood') return 'neighborhood';
+  return null;
+}
+
 async function dealsLookupCoords(city, street, houseNumber){
   if (!street || !houseNumber) return null;
   if (city !== DEALS_GEOCODE_CITY){
@@ -38198,7 +38221,7 @@ async function dealsLookupCoords(city, street, houseNumber){
     if (!window.GovmapLookup) return null;
     try{
       const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
-      return hit ? { lat: hit.lat, lng: hit.lng } : null;
+      return hit ? { lat: hit.lat, lng: hit.lng, precision: hit.precision || null } : null;
     } catch(err){
       console.warn('deals lookup: GovMap geocode failed', err);
       return null;
@@ -38213,7 +38236,7 @@ async function dealsLookupCoords(city, street, houseNumber){
       body: JSON.stringify({ street, house_number: houseNumber }),
     });
     const data = await res.json();
-    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng } : null;
+    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng, precision: data.precision || null } : null;
   } catch(err){
     // כתובת שלא נמצאה ורשת שנפלה מובילות שתיהן לאותה נפילה לאחור, ולכן
     // אין כאן צורך בהבחנה. במסלול שמזין את geocode_attempts ההבחנה קדושה.

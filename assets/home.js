@@ -1053,7 +1053,7 @@ const PROPERTY_SELECT =
   'location_precision, location_radius_m, ' +
   /* ‏P1-U1: מי מפרסם את הנכס - לסינון משרדים ויועצי נדל״ן לפי התמחות ואזור */
   'agent_id, agency_id, ' +
-  'video_poster_url, agencies(name, logo_url, cover_url), neighborhoods(name)';
+  'video_poster_url, agencies(name, logo_url, cover_url), neighborhoods(name,is_planned)';
 
 const shapeProperty = p => ({
   ...p,
@@ -1062,7 +1062,7 @@ const shapeProperty = p => ({
   agency_logo: p.agencies?.logo_url || '',
   // v10: תמונת השער של המשרד - רמה A של נכס בלי תמונות (assets/no-photo.js)
   agency_cover: p.agencies?.cover_url || '',
-  neighborhood_name: p.neighborhoods?.name || '',
+  neighborhood_name: (p.neighborhoods && !p.neighborhoods.is_planned && p.neighborhoods.name) || '',
 });
 
 /* ---------- MARKET_FILTER: הנכסים של השוק שהדף מציג ----------
@@ -4837,16 +4837,11 @@ function hoodChoices(){
   // שאין נכסים בשאר. שכונה ריקה מוצגת עם 0 ומעומעמת (ראו renderHoodOptions) —
   // "אין כאן כרגע" היא תשובה, ורשימה חסרה אינה.
   //
-  // היוצא מן הכלל היחיד הוא אזור *בתכנון* (is_planned) שאין בו נכסים: שטח
-  // שטרם נבנה אינו "אין כאן כרגע" אלא מקום שאי אפשר לחפש בו דירה, והוא רק
-  // מאריך רשימה שממילא ארוכה. ברגע שייכנס בו נכס ראשון המונה יעלה והוא
-  // יופיע מעצמו, בלי שאיש יגע בהגדרה.
-  //
-  // הבדיקה מול selected ו-draft גם יחד אינה עודפת: קישור עמוק יכול לשאת
-  // מזהה של אזור כזה, והסתרתו הייתה משאירה בחירה פעילה שאי אפשר לבטל.
+  // אזור בתכנון (is_planned) אינו מוצג גם כשיש בו נכס. "B1 אזור בתכנון"
+  // הוא קוד תכנוני, ופין של מרכז העיר נפל בתוכו. selected ו-draft נשארים
+  // כדי שקישור עמוק לא ישאיר בחירה שאי אפשר לבטל.
   return hoodState.rows.slice().filter(h =>
     !h.is_planned ||
-    (hoodState.counts.get(h.id) || 0) > 0 ||
     hoodState.selected.has(h.id) ||
     hoodState.draft.has(h.id)
   ).sort((a, b)=>
@@ -6455,9 +6450,8 @@ function renderBuyerHoods(){
   }
 
   const list = hoodState.rows.filter(h => h.city === buyState.city
-      // אותו כלל כמו ב-hoodChoices: אזור בתכנון שאין בו נכסים אינו מוצג.
-      // "B1 אזור בתכנון" הוא קוד תכנוני פנימי, וגולש/ת אינו/ה יכול/ה לרצות אותו.
-      && (!h.is_planned || (hoodState.counts.get(h.id) || 0) > 0 || buyState.hoods.has(h.id)));
+      // אותו כלל כמו ב-hoodChoices: אזור בתכנון אינו מוצג, גם אם יש בו נכס.
+      && (!h.is_planned || buyState.hoods.has(h.id)));
   if (label) label.hidden = !list.length;
   list.slice()
     .sort((a,b)=> String(a.name).localeCompare(String(b.name), 'he'))
