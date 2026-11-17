@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "reelkit/frame";
-import { Captions, Grain, Icon, Music, SceneFrame, Sfx, Vignette, Voiceover, font, onWord, sceneById, wordFrame } from "reelkit/kit";
+import { Captions, Grain, Icon, Music, SceneFrame, Sfx, Vignette, Voiceover, font, onWord, onWordBeat, sceneById, wordFrame } from "reelkit/kit";
 import type { VideoProps } from "reelkit/kit";
 
 // v3: the same story as the first cut, edited like a native short-form video.
@@ -115,7 +115,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
   const close = sceneById(manifest, "close");
   const cta = sceneById(manifest, "cta");
   type S = typeof wolf;
-  const on = (s: S, w: string, o?: { nth?: number }) => onWord(s, w, o);
+  const on = (s: S, w: string, o?: { nth?: number }) => (manifest.music ? onWordBeat(s, w, manifest.music, { window: 8, ...o }) : onWord(s, w, o));
   const wf = (s: S, w: string, o?: { nth?: number }) => wordFrame(s, w, o);
 
   const voice = (s: S, captions = true) => (
@@ -367,7 +367,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 <Img src={urls[IMG.map]} style={{ width: "100%", height: "100%" }} />
               </div>
               <div style={{ position: "absolute", top: H * 0.18, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.004 }}>
-                <div style={shown(f, on(close, "ולך"), fps, H, 1.2)}><Line size={W * 0.09}>לך נשאר רק</Line></div>
+                <div style={shown(f, on(close, "ולכם"), fps, H, 1.2)}><Line size={W * 0.09}>לכם נשאר רק</Line></div>
                 <div style={shown(f, a1, fps, H, 1.25)}><Line size={W * 0.11}>לסגור</Line></div>
                 {f >= a2 ? <div style={enter(f, a2, fps, H, 1.5)}><Line size={W * 0.15} color={palette.accent} weight={900} style={{ textShadow: "0 0 40px rgba(201,162,39,0.55)" }}>עסקאות</Line></div> : null}
               </div>
@@ -423,16 +423,21 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 <div style={shown(f, on(cta, "מצטרפים"), fps, H, 1.06)}><Line size={W * 0.066} color={palette.ink}>מצטרפים לקהילה החכמה</Line></div>
                 <div style={shown(f, on(cta, "יועצי"), fps, H, 1.06)}><Line size={W * 0.05} weight={600} color={palette.hero}>של יועצי הנדל״ן של ישראל</Line></div>
               </div>
-              <div style={{ position: "absolute", top: H * 0.515, width: "100%", display: "flex", justifyContent: "center", gap: W * 0.03, direction: "rtl", alignItems: "center" }}>
-                {verbs.map((v, i) => (
-                  <React.Fragment key={v.t}>
-                    <div style={shown(f, v.at, fps, H, 1.1)}><Line size={W * 0.038} weight={600} color={"#6b7280"}>{v.t}</Line></div>
-                    {i < 2 ? <div style={{ ...shown(f, v.at, fps, H, 1.0), width: W * 0.012, height: W * 0.012, background: palette.accent, borderRadius: "50%" }} /> : null}
-                  </React.Fragment>
-                ))}
+              <div style={{ position: "absolute", top: H * 0.505, width: "100%", display: "flex", justifyContent: "center", gap: W * 0.035, direction: "rtl", alignItems: "flex-start" }}>
+                {verbs.map((v, i) => {
+                  const next = verbs[i + 1] ? verbs[i + 1].at : 1e9;
+                  const active = f >= v.at && f < next;
+                  const k = spring({ frame: f - v.at, fps, config: { damping: 9, stiffness: 190 } });
+                  return (
+                    <div key={v.t} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.004, opacity: f >= v.at ? interpolate(f - v.at, [0, 2], [0, 1], clamp) : 0, transform: `scale(${f >= v.at ? 0.7 + 0.3 * k + (active ? beat(f, v.at, 8) * 0.12 : 0) : 0.7})` }}>
+                      <Line size={W * 0.052} weight={900} color={i === 2 ? palette.accent : palette.hero}>{v.t}</Line>
+                      <div style={{ height: 4, width: `${Math.min(1, (f - v.at) / 8) * 100}%`, minWidth: 0, background: palette.accent, borderRadius: 2, opacity: f >= v.at ? 1 : 0, alignSelf: "stretch" }} />
+                    </div>
+                  );
+                })}
               </div>
               {f >= jAt ? (
-                <div style={{ position: "absolute", top: H * 0.565, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f - jAt, [0, 2], [0, 1], clamp), transform: `scale(${0.85 + 0.15 * jP})` }}>
+                <div style={{ position: "absolute", top: H * 0.585, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f - jAt, [0, 2], [0, 1], clamp), transform: `scale(${0.85 + 0.15 * jP})` }}>
                   <div style={{ background: palette.hero, borderRadius: W * 0.08, padding: `${H * 0.011}px ${W * 0.1}px`, boxShadow: "0 18px 44px rgba(14,42,107,0.32)", border: `2px solid ${palette.accent}` }}>
                     <Line size={W * 0.066} color={palette.accent}>הצטרפו עכשיו</Line>
                   </div>
@@ -455,7 +460,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
         {voice(cta, false)}
       </SceneFrame>
 
-      {manifest.music ? <Music src={urls[manifest.music.key]} duckTo={0.28} /> : null}
+      {manifest.music ? <Music src={urls[manifest.music.key]} volume={0.14} duckTo={0.05} /> : null}
       <Grain blend="multiply" opacity={0.04} />
       <Vignette strength={0.1} />
     </AbsoluteFill>

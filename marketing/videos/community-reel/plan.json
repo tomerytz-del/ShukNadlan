@@ -46,7 +46,7 @@
     },
     {
       "id": "helpers",
-      "narration": "ומה אם הייתה לך עוזרת אישית בוואטסאפ, ומנטור שמלווה אותך?",
+      "narration": "ומה אם הייתה לכם עוזרת אישית בוואטסאפ, ומנטור שמלווה אתכם?",
       "treatment": "motion-graphic",
       "onScreenText": [
         "גבריאלה",
@@ -65,10 +65,10 @@
     },
     {
       "id": "close",
-      "narration": "ולך נשאר רק לסגור עסקאות.",
+      "narration": "ולכם נשאר רק לסגור עסקאות.",
       "treatment": "motion-graphic",
       "onScreenText": [
-        "לך נשאר רק לסגור עסקאות"
+        "לכם נשאר רק לסגור עסקאות"
       ],
       "imagePrompt": null,
       "clipPrompt": null,
