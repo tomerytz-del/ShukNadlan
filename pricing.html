@@ -159,6 +159,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     -webkit-background-clip:text;background-clip:text;color:transparent}
   /* ‏heroTitle מוחלף ב-JS במצבי invite ו-current בטקסט רגיל, שכן נשבר. */
   .hero h1.is-plain{font-size:clamp(28px,4.4vw,52px)}
+  .plans-sec .plans-head{text-align:center;margin:0 0 22px}
+  .plans-sec .plans-head h2{margin:0;font-size:clamp(20px,2.4vw,30px);line-height:1.3}
+  .hero-slogan{margin:0;display:flex;gap:6px 14px;flex-wrap:wrap;justify-content:center;align-items:center;
+    font-weight:800;font-size:clamp(18px,2vw,26px);color:var(--ink)}
+  .hero-slogan i{font-style:normal;color:var(--brass);font-size:.7em}
   .hero .lead{margin:0;font-size:clamp(17px,1.6vw,21px);color:var(--ink-soft);max-width:760px}
   .hero-ctas{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px}
   .cta-gold{text-decoration:none;background:var(--gold-grad);color:var(--ink);font-weight:900;font-size:19px;
@@ -601,10 +606,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="hero-inner">
     <div class="hero-tag" id="heroTag" hidden>חודשיים Elite ב-₪0</div>
     <h1 id="heroTitle">
-      <span class="ln">אתם סוגרים עסקאות.</span>
-      <span class="ln gold">גבריאלה עושה את כל השאר.</span>
+      <span class="ln">מצטרפים לקהילה החכמה</span>
+      <span class="ln gold">של יועצי הנדל״ן של ישראל</span>
     </h1>
-    <p class="lead" id="heroLead">עוזרת בוואטסאפ שמבצעת, CRM שמסדר את היום, שת״פ עם כל המשרדים, סרטון שיווקי מהתמונות, ולידים מהרשתות ומהקבוצות. הכול במקום אחד.<span id="heroPromoLine" hidden> ובחודשיים הראשונים Elite ב-₪0.</span></p>
+    <p class="hero-slogan" id="heroSlogan"><span>מתחברים</span><i aria-hidden="true">▪</i><span>משתפים</span><i aria-hidden="true">▪</i><span>סוגרים עסקאות</span></p>
+    <p class="lead" id="heroLead">הנכסים והלקוחות שלכם נפגשים עם אלה של כל המשרדים, וגבריאלה בוואטסאפ, CRM ומנטור AI עובדים לצידכם. לא עובדים לבד: עובדים ביחד.<span id="heroPromoLine" hidden> ובחודשיים הראשונים Elite ב-₪0.</span></p>
     <span class="promo-ends" id="promoEnds" hidden></span>
     <div class="hero-ctas">
       <a href="/agency-signup?tier=premium" class="cta-gold" id="heroCta">
@@ -625,6 +631,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <main>
   <section class="wrap plans-sec" id="plans" aria-label="שלושת המסלולים">
+    <div class="sec-head plans-head">
+      <h2>הקהילה פתוחה ליועצי נדל״ן מורשים. בוחרים כמה כוח רוצים.</h2>
+    </div>
     <div class="plans" id="planCards"></div>
     <p class="office-jump"><a class="office-link" href="#office">מחירים למשרדי תיווך <span aria-hidden="true">↓</span></a></p>
     <p class="fineprint" id="finePrint">המחירים לחודש ואינם כוללים מע״מ · ללא התחייבות · המעבר בין מסלולים נכנס לתוקף בחודש העוקב</p>
@@ -639,6 +648,43 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       כל המחירים באתר לפני מע״מ. התשלום באתר הוא <a href="/checkout">טעינת ארנק</a> (המע״מ מתווסף בטעינה), שממנה נרכשים לידים והקפצת נכסים -
       מילוי פרטים, אישור <a href="/terms">התקנון</a> ומעבר לסליקה מאובטחת
     </p>
+  </section>
+
+  <!-- ‏כוח השת"פ בין המשרדים (תומר, 9.11.2026: "לא מוזכרת העוצמה של השת"פים"). כל משפט מגובה:
+       docs/property-sharing.md (נכס "פתוח לשת״פ" מופץ לכל המשרדים ברשימה, ומשרד חדש מקבל את
+       מה שכבר הופץ), docs/client-matching.md ("שלוש רמות שיתוף": לקוח/ה ברירת מחדל network,
+       המפרסם/ת שומע/ת בסיכום עם השם והטלפון של היועץ/ת, ושום פרט של הלקוח/ה), docs/client-showcase.md
+       (נכסי שת"פ במיניסייט בלי מיתוג, ומשימה לתאם אחרי "אהבתי"), docs/showing-coordination.md
+       (גבריאלה, ולכן PROFESSIONAL ומעלה - שורת COMPARE "תיאום ביקור"). השאר בכל המסלולים. -->
+  <section class="wrap sec" id="cobroke" aria-labelledby="cobrokeTitle">
+    <div class="sec-head">
+      <span class="pill green">כלול בכל מסלול · גם ב-Pay&amp;GO</span>
+      <h2 id="cobrokeTitle">לא עובדים לבד:<br>כל המשרדים עובדים גם בשבילך</h2>
+      <p>הקונה שמחפש את הנכס שלך יושב אולי במשרד אחר. בשוק הנדל״ן השת״פ בנוי לתוך המערכת: הנכסים והקונים של כל המשרדים נפגשים, ואת/ה בוחר/ת עם מי ומה לשתף.</p>
+    </div>
+    <div class="base-grid">
+      <div class="base-item">
+        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M10.8 7.2 6.3 15.8M13.2 7.2l4.5 8.6M7.5 18h9"/></svg></span>
+        <h3>נכס אחד, כל המשרדים</h3>
+        <p>מסמנים נכס "פתוח לשת״פ", והוא מופץ מיד לכל המשרדים ברשימת השת״פ שלך, עם הפרטים שלך ליצירת קשר. משרד שמצטרף מחר מקבל גם את מה שכבר הופץ.</p>
+      </div>
+      <div class="base-item">
+        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6l2-3 2 6 2-3h6"/><circle cx="12" cy="12" r="9.5"/></svg></span>
+        <h3>הקונה של משרד אחר, לנכס שלך</h3>
+        <p>כל לקוח/ה במערכת נבדק/ת מול הנכסים ברשת. כשלקוח/ה של יועץ/ת ממשרד אחר מתאים/ה לנכס שלך, תדע/י על זה בסיכום ההתאמות, עם השם והטלפון של היועץ/ת. פרטי הלקוח/ה עצמו/ה אינם נחשפים.</p>
+      </div>
+      <div class="base-item">
+        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h3M8 17h6"/></svg></span>
+        <h3>יותר נכסים ללקוח/ה שלך</h3>
+        <p>המיניסייט של הלקוח/ה מציג גם נכסים של משרדים אחרים, בלי מיתוג ובאותו עיצוב כמו שלך. אהב/ה נכס בשת״פ? מקבלים משימה לתאם מול היועץ/ת השני/ה.</p>
+      </div>
+      <div class="base-item">
+        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span>
+        <h3>גבריאלה מתאמת את הביקור</h3>
+        <p>לקוח/ה ביקש/ה סיור בכמה נכסים? באישור שלך גבריאלה שולחת לכל בעלים ולכל יועץ/ת שותף/ה בקשת ביקור בוואטסאפ, בכפתורים, וכל תשובה חוזרת אליך כהתראה.</p>
+        <span class="tier-note">ב-PROFESSIONAL וב-Elite</span>
+      </div>
+    </div>
   </section>
 
   <!-- בוחר המסלול: ארבע שאלות על הסוכן/ת (ותק, היקף, עוזרת, מה חסר), לא מחשבון. ההמלצה
@@ -726,42 +772,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <!-- ‏כוח השת"פ בין המשרדים (תומר, 9.11.2026: "לא מוזכרת העוצמה של השת"פים"). כל משפט מגובה:
-       docs/property-sharing.md (נכס "פתוח לשת״פ" מופץ לכל המשרדים ברשימה, ומשרד חדש מקבל את
-       מה שכבר הופץ), docs/client-matching.md ("שלוש רמות שיתוף": לקוח/ה ברירת מחדל network,
-       המפרסם/ת שומע/ת בסיכום עם השם והטלפון של היועץ/ת, ושום פרט של הלקוח/ה), docs/client-showcase.md
-       (נכסי שת"פ במיניסייט בלי מיתוג, ומשימה לתאם אחרי "אהבתי"), docs/showing-coordination.md
-       (גבריאלה, ולכן PROFESSIONAL ומעלה - שורת COMPARE "תיאום ביקור"). השאר בכל המסלולים. -->
-  <section class="wrap sec" id="cobroke" aria-labelledby="cobrokeTitle">
-    <div class="sec-head">
-      <span class="pill green">כלול בכל מסלול · גם ב-Pay&amp;GO</span>
-      <h2 id="cobrokeTitle">כוח השת״פ:<br>כל המשרדים עובדים גם בשבילך</h2>
-      <p>הקונה שמחפש את הנכס שלך יושב אולי במשרד אחר. בשוק הנדל״ן השת״פ בנוי לתוך המערכת: הנכסים והקונים של כל המשרדים נפגשים, ואת/ה בוחר/ת עם מי ומה לשתף.</p>
-    </div>
-    <div class="base-grid">
-      <div class="base-item">
-        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M10.8 7.2 6.3 15.8M13.2 7.2l4.5 8.6M7.5 18h9"/></svg></span>
-        <h3>נכס אחד, כל המשרדים</h3>
-        <p>מסמנים נכס "פתוח לשת״פ", והוא מופץ מיד לכל המשרדים ברשימת השת״פ שלך, עם הפרטים שלך ליצירת קשר. משרד שמצטרף מחר מקבל גם את מה שכבר הופץ.</p>
-      </div>
-      <div class="base-item">
-        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6l2-3 2 6 2-3h6"/><circle cx="12" cy="12" r="9.5"/></svg></span>
-        <h3>הקונה של משרד אחר, לנכס שלך</h3>
-        <p>כל לקוח/ה במערכת נבדק/ת מול הנכסים ברשת. כשלקוח/ה של יועץ/ת ממשרד אחר מתאים/ה לנכס שלך, תדע/י על זה בסיכום ההתאמות, עם השם והטלפון של היועץ/ת. פרטי הלקוח/ה עצמו/ה אינם נחשפים.</p>
-      </div>
-      <div class="base-item">
-        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h3M8 17h6"/></svg></span>
-        <h3>יותר נכסים ללקוח/ה שלך</h3>
-        <p>המיניסייט של הלקוח/ה מציג גם נכסים של משרדים אחרים, בלי מיתוג ובאותו עיצוב כמו שלך. אהב/ה נכס בשת״פ? מקבלים משימה לתאם מול היועץ/ת השני/ה.</p>
-      </div>
-      <div class="base-item">
-        <span class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span>
-        <h3>גבריאלה מתאמת את הביקור</h3>
-        <p>לקוח/ה ביקש/ה סיור בכמה נכסים? באישור שלך גבריאלה שולחת לכל בעלים ולכל יועץ/ת שותף/ה בקשת ביקור בוואטסאפ, בכפתורים, וכל תשובה חוזרת אליך כהתראה.</p>
-        <span class="tier-note">ב-PROFESSIONAL וב-Elite</span>
-      </div>
-    </div>
-  </section>
 
   <!-- ‏המרקטפלייס עובד בשבילך: מה הצד הציבורי של האתר נותן לכל מסלול. הדוגמאות
        מרחבי הארץ ולא מעפולה, כדי שיועצי נדל״ן מכל הארץ יתחברו (תומר, 9.11.2026),
@@ -1068,8 +1078,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        במצבי CRM והזמנה, ה-JS מחליף את closerTitle / closerLead / closerCta. -->
   <section class="wrap closer" id="closer">
     <div class="closer-panel">
-      <span class="kicker">שוק הנדל״ן לעסקים</span>
-      <h2 id="closerTitle"><span class="ln">חודשיים של Elite.</span><span class="ln">₪0. בלי כרטיס אשראי.</span></h2>
+      <span class="kicker">הקהילה החכמה של יועצי הנדל״ן של ישראל</span>
+      <h2 id="closerTitle"><span class="ln">הגיע הזמן להפסיק לעבוד לבד.</span><span class="ln">חודשיים של Elite, ₪0. בלי כרטיס אשראי.</span></h2>
       <p id="closerLead">שתי דקות הרשמה, והסוכנים שלכם מצטרפים בקישור אחד. בתום החודשיים בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי לאבד כלום.</p>
       <div class="hero-ctas"><a class="cta-gold" id="closerCta" href="/agency-signup?tier=premium">מתחילים Elite ב-₪0</a><a href="#picker" class="cta-line cta-gab"><span class="gab-ring" aria-hidden="true"><img src="/assets/gabriela-cutout-400.webp" alt="" width="400" height="695" loading="lazy" decoding="async"></span>לא בטוחים? גבריאלה תעזור לבחור</a></div>
       <!-- הקישור לטעינת ארנק יושב בשורה שמתחת לכרטיסים. הטעינה עצמה עדיין
@@ -1130,7 +1140,7 @@ function ils(n){ return '₪' + Number(n).toLocaleString('he-IL'); }
 (function renderHero(){
   const title = document.getElementById('heroTitle');
   const lead  = document.getElementById('heroLead');
-  function plainTitle(text){ title.textContent = text; title.classList.add('is-plain'); }
+  function plainTitle(text){ title.textContent = text; title.classList.add('is-plain'); document.getElementById('heroSlogan').hidden = true; }
 
   if (promoOpen){
     document.getElementById('heroTag').hidden = false;
