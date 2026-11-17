@@ -9,6 +9,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script>
+/* באפליקציית החנות אין מחיר ואין רכישה (Apple 3.1.1). בדפדפן אין את
+   סוכן המשתמש, המחלקה לא נוספת, והדף נשאר כמו שהוא. */
+if (/ShukNadlanApp/i.test(navigator.userAgent || '')) document.documentElement.classList.add('shuk-native');
+</script>
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -41,7 +46,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta property="og:site_name" content="שוק נדל״ן">
 <meta property="og:locale" content="he_IL">
 <meta property="og:title" content="קורס הכנה למבחן המתווכים - אינטראקטיבי, עם מבחני עבר אמיתיים">
-<meta property="og:description" content="לומדים למבחן רשם המתווכים עם המנטור של שוק נדל״ן: שיעורים קצרים, חידון בסוף כל שיעור, מבחני עבר אמיתיים עם הסבר לכל שאלה, וסימולציות. 450 ₪ לארבעה חודשים.">
+<meta property="og:description" content="לומדים למבחן רשם המתווכים עם המנטור של שוק נדל״ן: שיעורים קצרים, חידון בסוף כל שיעור, מבחני עבר אמיתיים עם הסבר לכל שאלה, וסימולציות. 450 ₪ כולל מע״מ לארבעה חודשים.">
 <meta property="og:url" content="https://shuknadlan.co.il/course">
 <meta property="og:image" content="https://shuknadlan.co.il/assets/og-default.png">
 <meta property="og:image:width" content="1200">
@@ -227,6 +232,21 @@ a.lp-link{color:var(--lp-action);font-weight:700;text-decoration:underline;text-
  .lp-stick a.lp-cta{flex:1;padding:14px;font-size:16px}
  body{padding-bottom:76px}
 }
+/* רק באפליקציה (המחלקה נוספת מהסקריפט שבראש הדף). באתר אין את המחלקה. */
+html.shuk-native .lp-pricebox,
+html.shuk-native .lp-reassure,
+html.shuk-native .lp-stick,
+html.shuk-native #buy,
+html.shuk-native .lp-offer,
+html.shuk-native .lp-final a.lp-cta,
+html.shuk-native [data-gift],
+html.shuk-native .lp-pay,
+html.shuk-native .lp-native-off,
+html.shuk-native .chapter li .free,
+html.shuk-native a[href="/pricing"],
+html.shuk-native a[href^="/pricing"],
+html.shuk-native a[href^="/checkout"]{display:none !important}
+html.shuk-native body{padding-bottom:0}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
@@ -272,7 +292,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="lp-amt"><b>450 ₪</b> כולל מע״מ<div><span class="lp-nw">תשלום חד-פעמי</span> · <span class="lp-nw">ללא מנוי מתחדש</span> · <span class="lp-nw">4 חודשי גישה</span></div></div>
         <a href="/learn" class="lp-cta" id="ctaTop">מתחילים ללמוד עכשיו</a>
       </div>
-      <div class="lp-reassure">השיעור הראשון פתוח בחינם, לפני התשלום · החזר מלא תוך 14 ימים אם לא התחלתם ללמוד · עד 3 תשלומים ללא ריבית</div>
+      <div class="lp-reassure">השיעור הראשון פתוח בחינם, לפני התשלום · החזר מלא תוך 14 ימים אם לא התחלתם ללמוד · עד 3 תשלומים שווים של 150 ₪ ללא ריבית</div>
       <div class="lp-giftbadge" data-gift hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 110-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 100-5C13 2 12 7 12 7z"/></svg><span><b>מתנה לרוכשי הקורס:</b> נרשמים אחר כך כיועצי נדל״ן עם אותו חשבון Google ומקבלים <span class="lp-nw">90 ימי Elite</span> בחינם, <span class="lp-nw">בשווי 1,197 ₪</span> · <a href="/pricing#plan-elite">פרטים על Elite</a></span></div>
       <div class="lp-small" data-gift hidden>* ההטבה למצטרפים חדשים בלבד: 60 ימי Elite לכל מי שמצטרף כיועץ/ת נדל״ן לפלטפורמה, וחודש נוסף במתנה למי שרכש את הקורס ואחר כך נרשם כיועץ/ת נדל״ן עם אותו חשבון Google.</div>
     </div>
@@ -345,7 +365,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="lp-in">
     <div class="lp-eyebrow">הצצה למערכת</div>
     <h2 class="lp-h2">ככה נראית הלמידה מבפנים</h2>
-    <p class="lp-sub">בחרו מסך כדי לראות אותו. התצוגות הן המחשה של מבנה המסכים, והתוכן עצמו נפתח בשיעור הראשון, בחינם.</p>
+    <p class="lp-sub">בחרו מסך כדי לראות אותו. התצוגות הן המחשה של מבנה המסכים, והתוכן עצמו נפתח בשיעור הראשון<span class="lp-native-off">, בחינם</span>.</p>
     <div class="lp-tabs" role="tablist" id="peekTabs">
       <button class="lp-tab" role="tab" aria-selected="true" data-p="home">מסך הבית</button>
       <button class="lp-tab" role="tab" aria-selected="false" data-p="lesson">שיעור</button>
@@ -376,7 +396,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <h2 class="lp-h2">שלושה צעדים בדרך להכנה חכמה יותר</h2>
     <p class="lp-sub">בלי הרשמות מסובכות. נכנסים עם חשבון Google וממשיכים מאיפה שעצרתם.</p>
     <div class="lp-g" style="grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))">
-      <div class="lp-card lp-step"><i>1</i><b>נכנסים ומתחילים ללמוד</b><span>נכנסים עם חשבון Google ופותחים את השיעור הראשון, בחינם.</span></div>
+      <div class="lp-card lp-step"><i>1</i><b>נכנסים ומתחילים ללמוד</b><span>נכנסים עם חשבון Google ופותחים את השיעור הראשון<span class="lp-native-off">, בחינם</span>.</span></div>
       <div class="lp-card lp-step"><i>2</i><b>מתרגלים שאלות וסימולציות</b><span>חידון בכל שיעור, מבחני עבר ומבחני סימולציה כמו בבחינה.</span></div>
       <div class="lp-card lp-step"><i>3</i><b>מזהים טעויות ומשפרים</b><span>חוזרים על מה שטעיתם בו, ומעקב ההתקדמות מראה כמה נשאר.</span></div>
     </div>
@@ -440,7 +460,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="per"><span class="lp-nw">כולל מע״מ</span> · <span class="lp-nw">4 חודשי גישה</span></div>
         <div class="one"><span class="lp-nw">תשלום חד-פעמי</span> · <span class="lp-nw">ללא מנוי מתחדש</span></div>
         <a href="/learn" class="lp-cta" id="ctaBuy">אני רוצה להתחיל ללמוד</a>
-        <div class="fine">כניסה עם חשבון Google. השיעור הראשון פתוח בחינם לפני התשלום.<br>ביטול והחזר מלא בתוך 14 ימים, כל עוד לא התחלתם ללמוד.<br>אפשר לשלם עד 3 תשלומים ללא ריבית, והארכה של 4 חודשים ב-99 ₪ (גם היא עד 3 תשלומים) למי שצריך.</div>
+        <div class="fine">כניסה עם חשבון Google. השיעור הראשון פתוח בחינם לפני התשלום.<br>ביטול והחזר מלא בתוך 14 ימים, כל עוד לא התחלתם ללמוד.<br>אפשר לשלם עד 3 תשלומים שווים של 150 ₪ ללא ריבית, והארכה של עוד 4 חודשים ב-99 ₪ כולל מע״מ (גם היא עד 3 תשלומים) למי שצריך.</div>
       </div>
     </div>
   </div>
@@ -457,10 +477,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details><summary>יש סימולציות?</summary><p>כן, ללא הגבלה. כל סימולציה היא 25 שאלות בסדר אקראי מהמאגר, עם ציון וסקירה בסוף.</p></details>
       <details><summary>יש סרטונים?</summary><p>כן. יש סרטוני אנימציה אינטראקטיביים ללמידה קלילה וכייפית, בחלק מהשיעורים. הסרטון קופא ברגע ההחלטה, המנטור שואל מה לעשות, ובוחרים. מי שטעה רואה מה היה קורה, ואז אפשר להחזיר את הסרט ולראות את הסוף הנכון. לא בכל שיעור יש סרטון, ובכל שיעור הלמידה מלווה בטקסט קצר, חידון והמנטור.</p></details>
       <details><summary>יש הסברים לכל התשובות?</summary><p>כן, כולל הסבר למה כל חלופה אחרת שגויה.</p></details>
-      <details><summary>התשלום חד-פעמי?</summary><p>כן. תשלום אחד, בלי מנוי ובלי חיוב חוזר.</p></details>
-      <details><summary>אפשר לשלם בתשלומים?</summary><p>כן. אפשר לפרוס את התשלום בכרטיס אשראי עד 3 תשלומים שווים, ללא ריבית. הסכום הכולל נשאר 450 ₪, וגם ההארכה (99 ₪) אפשר לשלם עד 3 תשלומים. מספר התשלומים נבחר בעמוד התשלום המאובטח.</p></details>
-      <details><summary>מה אם לא עברתי את המבחן?</summary><p>מי שרכש את הקורס ולא עבר יכול להאריך את הגישה בעוד ארבעה חודשים ב-99 ₪ כולל מע״מ. ההארכה זמינה פעם אחת, מ-30 יום לפני סוף הגישה ועד 60 יום אחריו, והיא מתווספת לסוף התקופה. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד תקופת ההארכה טרם החלה.</p></details>
-      <details><summary>איך מקבלים גישה אחרי הרכישה?</summary><p>לאחר אישור התשלום נפתחת הגישה בחשבון Google שאיתו נכנסתם, והחשבונית נשלחת למייל.</p></details>
+      <details class="lp-pay"><summary>התשלום חד-פעמי?</summary><p>כן. תשלום אחד, בלי מנוי ובלי חיוב חוזר.</p></details>
+      <details class="lp-pay"><summary>אפשר לשלם בתשלומים?</summary><p>כן. אפשר לפרוס את התשלום בכרטיס אשראי עד 3 תשלומים שווים של 150 ₪, ללא ריבית. הסכום הכולל נשאר 450 ₪ כולל מע״מ, וגם ההארכה (99 ₪ כולל מע״מ, עוד ארבעה חודשים) אפשר לשלם עד 3 תשלומים. מספר התשלומים נבחר בעמוד התשלום המאובטח.</p></details>
+      <details class="lp-pay"><summary>מה אם לא עברתי את המבחן?</summary><p>מי שרכש את הקורס ולא עבר יכול להאריך את הגישה בעוד ארבעה חודשים ב-99 ₪ כולל מע״מ. ההארכה זמינה פעם אחת, מ-30 יום לפני סוף הגישה ועד 60 יום אחריו, והיא מתווספת לסוף התקופה. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד תקופת ההארכה טרם החלה.</p></details>
+      <details class="lp-pay"><summary>איך מקבלים גישה אחרי הרכישה?</summary><p>לאחר אישור התשלום נפתחת הגישה בחשבון Google שאיתו נכנסתם, והחשבונית נשלחת למייל.</p></details>
       <details data-gift hidden><summary>מה כוללת המתנה לרוכשי הקורס?</summary><p>60 ימי Elite הם נקודת ההתחלה של כל מי שמצטרף כיועץ/ת נדל״ן לפלטפורמה. רוכשי הקורס מקבלים עליהם חודש במתנה, ובסך הכול 90 ימי Elite. לפי המחירון, Elite עולה 399 ₪ לחודש לפני מע״מ, ולכן שלושה חודשים שווים 1,197 ₪. החודש הנוסף מתקבל אוטומטית למי שרכש את הקורס ואחר כך נרשם כיועץ/ת נדל״ן עם אותו חשבון Google. ההטבה למצטרפים חדשים בלבד: מי שנרשם כיועץ/ת לפני הרכישה אינו זכאי לחודש הנוסף.</p><p><a class="lp-link" href="/pricing#plan-elite">לפרטים על מסלול Elite בדף המחירים ←</a></p></details>
     </div>
   </div>
@@ -499,7 +519,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary>מה עושים אחרי שעוברים את הבחינה?</summary>
         <div class="a">מגישים בקשה להנפקת רישיון תיווך דרך אתר רשם המתווכים, מצרפים צילום תעודת זהות ותמונת פספורט, ומשלמים אגרות: לפי טבלת 2026, אגרה חד-פעמית של 1,151 ₪ בעד הרישיון הראשון והרישום בפנקס, ואגרה שנתית של 256 ₪ לחידוש הרישיון. אחרי אישור הבקשה הרישיון מתקבל באופן מקוון. ומי שרוצה להתחיל לעבוד עם משרד באזור: <a href="/agencies">משרדי התיווך בפלטפורמה</a> מחפשים יועצי נדל״ן חדשים.</div>
       </details>
-      <details>
+      <details class="lp-pay">
         <summary>מה קורה אחרי התשלום כאן?</summary>
         <div class="a">לאחר אישור התשלום תקבלו גישה לקורס לארבעה חודשים, בחשבון Google שאיתו נכנסתם. אפשר ללמוד מהמחשב ומהטלפון, וההתקדמות נשמרת. חשבונית מס נשלחת למייל. אפשר לבטל בתוך 14 ימים מהרכישה, כל עוד לא התחלתם ללמוד, ולקבל החזר מלא. "התחלתם ללמוד" פירושו שנפתח שיעור בתשלום או מבחן סימולציה; השיעור החינמי אינו נספר. הביטול במייל <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a>.</div>
       </details>
@@ -523,15 +543,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="lp-in">
     <div class="lp-final">
       <h2>הצעד הראשון שלך בדרך לרישיון התיווך מתחיל כאן</h2>
-      <p>התחילו בשיעור הראשון בחינם, והמשיכו כשאתם מוכנים.</p>
-      <div style="font-size:15px;margin-bottom:20px"><b style="font-size:34px">450 ₪</b> לארבעה חודשים · תשלום חד-פעמי</div>
+      <p class="lp-native-off">התחילו בשיעור הראשון בחינם, והמשיכו כשאתם מוכנים.</p>
+      <div class="lp-offer" style="font-size:15px;margin-bottom:20px"><b style="font-size:34px">450 ₪</b> כולל מע״מ · לארבעה חודשים · תשלום חד-פעמי</div>
       <a href="/learn" class="lp-cta" id="ctaFinal">מתחילים ללמוד עכשיו</a>
       <div class="lp-giftline" data-gift hidden>ומתנה: נרשמים אחר כך כיועצי נדל״ן עם אותו חשבון Google ומקבלים <span class="lp-nw">90 ימי Elite</span>, <span class="lp-nw">בשווי 1,197 ₪</span><br><a href="/pricing#plan-elite">לפרטים על מסלול Elite ←</a></div>
     </div>
   </div>
 </section>
 
-<div class="lp-stick"><div><b>450 ₪</b><small>4 חודשים</small></div><a href="/learn" class="lp-cta" id="ctaSticky">מתחילים ללמוד עכשיו</a></div>
+<div class="lp-stick"><div><b>450 ₪</b><small>4 חודשים, כולל מע״מ</small></div><a href="/learn" class="lp-cta" id="ctaSticky">מתחילים ללמוד עכשיו</a></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
@@ -553,6 +573,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       note.textContent = 'רשימת הפרקים נטענת מתוך הקורס עצמו.';
       return;
     }
+    var inApp = document.documentElement.classList.contains('shuk-native');
     list.innerHTML = cat.chapters.map(function(ch, i){
       var lessons = ch.lessons || [];
       var qn = lessons.reduce(function(s, l){ return s + (l.questions || 0); }, 0);
@@ -560,7 +581,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         '<span class="meta">' + lessons.length + ' שיעורים · ' + qn + ' שאלות</span></summary>' +
         (ch.summary ? '<p class="sum">' + escapeHtml(ch.summary) + '</p>' : '') +
         '<ul>' + lessons.map(function(l){
-          return '<li><span>' + escapeHtml(l.title) + '</span>' + (l.is_free ? '<span class="free">חינם</span>' : '') +
+          return '<li><span>' + escapeHtml(l.title) + '</span>' + (l.is_free && !inApp ? '<span class="free">חינם</span>' : '') +
             (l.questions ? '<span class="q">' + l.questions + ' שאלות</span>' : '') + '</li>';
         }).join('') + '</ul></details>';
     }).join('');
@@ -894,8 +915,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
       <a href="/?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
       <a href="/afula/נדלן-מסחרי">נכסים מסחריים בעפולה</a>
-      <a href="/?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
-      <a href="/?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">משרדים להשכרה בעפולה</a>
+      <a href="/afula/נדלן-מסחרי">חנויות ושטחי מסחר בעפולה</a>
       <a href="/agencies">משרדי תיווך בעפולה</a>
       <a href="/afula/מתווכים">מתווכים בעפולה</a>
       <a href="/agents">יועצי נדל״ן בעפולה</a>

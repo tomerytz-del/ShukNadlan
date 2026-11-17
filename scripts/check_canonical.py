@@ -539,6 +539,14 @@ def check_sitemap(pages: set[str], locs: list[str]) -> list[str]:
     ]
 
 
+# שתי שורות SEARCH_PAGES של מסחרי שהפוטר מקשר עבורן ישר לדף הנחיתה (16.11.2026).
+# הפטור שמי: צירוף מסחרי חדש לא מקבל אותו בלי החלטה.
+COMMERCIAL_FOOTER_VIA_LANDING = {
+    "deal=commercial&ptype=משרדים",
+    "deal=commercial&ptype=חנויות/שטח מסחרי",
+}
+
+
 # ---------- עמודי התוצאות ----------
 #
 # ‏HTML אחד (‏index.html) מגיש אותם לפי הפרמטרים, ולכן אין להם קובץ משלהם
@@ -617,6 +625,10 @@ def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
     targets = {key: landing for key, landing in entries if landing}
     if (SITE + "/afula/נדלן-מסחרי") in set(locs):
         targets.setdefault("deal=commercial", "/afula/נדלן-מסחרי")
+        # משרדים וחנויות בפוטר מקשרים מ-16.11.2026 ישר לדף המסחרי (לא ל-?deal=)
+        for key, _landing in entries:
+            if key in COMMERCIAL_FOOTER_VIA_LANDING:
+                targets.setdefault(key, "/afula/נדלן-מסחרי")
     linked: set[str] = set()
     via_landing: set[str] = set()
     for path in pages:

@@ -56,8 +56,8 @@ PRICES = {
     'free_lead_quota_monthly':           10,
     # הארנק נטען לפני מע"מ (20270304090000): checkout.html מציג את הסכום לגבייה.
     'vat_rate':                          0.18,
-    # קורס ההכנה למבחן המתווכים (20271106090000): מחיר לצרכן/ית, **כולל** מע"מ,
-    # בניגוד לשאר המחירון. docs/exam-course.md
+    # קורס ההכנה למבחן המתווכים (20271116110000): מחיר לצרכן/ית, **כולל** מע"מ,
+    # בניגוד לשאר המחירון. ₪450 לארבעה חודשים, עד 3 תשלומים שווים. docs/exam-course.md
     'course_price_gross':                450,
     'course_access_months':              4,
     # הארכה (20271115180000): ₪99 כולל מע"מ, 4 חודשים, פעם אחת למי שרכש/ה את הקורס המלא.
@@ -139,10 +139,14 @@ DISPLAY = [
     ('course.html', r'<b>' + N + r' ₪</b> כולל מע״מ',                   'course_price_gross'),
     ('course.html', r'<div class="amount">' + N + r' <small>',          'course_price_gross'),
     ('course.html', r'"price":"' + N + '"',                            'course_price_gross'),
-    ('course.html', r'וסימולציות\. ' + N + r' ₪ לארבעה חודשים',           'course_price_gross'),
+    ('course.html', r'וסימולציות\. ' + N + r' ₪ כולל מע״מ לארבעה חודשים', 'course_price_gross'),
+    ('course.html', r'' + N + r' ₪ כולל מע״מ, גישה לארבעה חודשים',       'course_price_gross'),
+    ('course.html', r'font-size:34px">' + N + r' ₪</b> כולל מע״מ',       'course_price_gross'),
+    ('course.html', r'<b>' + N + r' ₪</b><small>4 חודשים, כולל מע״מ',    'course_price_gross'),
     ('assets/learn.js', r'id="payAmount">' + N + '<',                  'course_price_gross'),
     ('assets/learn.js', r'id="payMonths">' + N + '<',                  'course_access_months'),
     ('assets/learn.js', r'ב-' + N + r' ₪ כולל מע״מ',                    'course_price_gross'),
+    ('assets/learn.js', r'הסכום הכולל נשאר ' + N + r' ₪ כולל מע״מ',       'course_price_gross'),
     # מחיר משרד: הטבלה ב-#office, השאלה הנפוצה (HTML ו-JSON-LD), שורת ההשוואה, הכרטיס ב-tiers.js והתקנון
     ('pricing.html', r'data-office="min1">' + N,                        'office_price_tier1_min_agents'),
     ('pricing.html', r'data-office="min2">' + N,                        'office_price_tier2_min_agents'),
@@ -184,6 +188,25 @@ DISPLAY = [
     ('terms.html', r'<strong>₪' + N + r'</strong> כשיש שישה',               'office_price_tier2'),
     ('terms.html', r'<strong>₪' + N + r'</strong> כשיש אחד עשר',            'office_price_tier3'),
 ]
+
+
+def course_installments(problems):
+    """תשלום שווה בקורס הוא course_price_gross / 3, וכתוב בדף (לא רק מחושב במסך התשלום)."""
+    gross = PRICES['course_price_gross']
+    each = gross / 3
+    if each != int(each):
+        problems.append(f'course_price_gross {gross} אינו מתחלק ל-3 תשלומים שלמים.')
+        return
+    each = int(each)
+    pat = re.compile(r'3 תשלומים שווים של (\d+) ₪')
+    for path in ('course.html', 'assets/learn.js'):
+        text = open(os.path.join(ROOT, path), encoding='utf-8').read()
+        found = [int(v) for v in pat.findall(text)]
+        if not found:
+            problems.append(f'{path}: לא נמצא "3 תשלומים שווים של {each} ₪" (course_price_gross / 3).')
+        for v in found:
+            if v != each:
+                problems.append(f'{path}: תשלום שווה מוצג {v} ₪, ו-course_price_gross / 3 הוא {each}.')
 
 
 def derived(problems):
@@ -255,6 +278,7 @@ def main():
                 problems.append(f'{path}: {key} מוצג {num(v)}, והמסד גובה {PRICES[key]}.')
 
     derived(problems)
+    course_installments(problems)
 
     if problems:
         print(f'✗ {len(problems)} פערים בין המחירים שמוצגים למחירים שנגבים:\n')

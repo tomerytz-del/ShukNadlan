@@ -20,6 +20,18 @@ import {
   seekerDealAsk,
 } from "./client-deal.ts";
 import { developerSpeech, takeBuildingDeveloperAsk } from "./building-developer.ts";
+import {
+  cleanUnitLabel,
+  composeAddress,
+  floorOrNull,
+  houseNumberPrefix,
+  sameHouseNumber,
+  shareStop,
+  sharedBuildingDecision,
+  type ListedUnit,
+  type ShareStop,
+  type UnitAddress,
+} from "./address-unit.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
@@ -311,7 +323,7 @@ const CLIENT_STATUSES = ["active", "paused", "closed"];
 // is_promoted, bumped_at…) נקבע בשרת או לא ניתן לשינוי דרך וואטסאפ.
 const WRITABLE_FIELDS = [
   "title", "description", "category", "property_type", "deal_type", "price",
-  "rooms", "city", "street", "house_number", "floor", "size_sqm",
+  "rooms", "city", "street", "house_number", "floor", "unit_label", "size_sqm",
   "built_size_sqm", "condition", "project_status", "move_in_date",
   "move_in_soon", "features", "restrooms_location", "storage_location",
   "mamad_location", "price_unit", "air_directions", "living_room_sqm",
@@ -417,7 +429,16 @@ const propertyFields = {
       "שם השכונה או אזור התעשייה בעיר, רק כשהסוכן/ת אמר/ה אותו ('אזור התעשייה', 'גבעת המורה'). " +
       "נכס באזור תעשייה בלי רחוב ומספר בית מקבל מיקום משוער בתוך האזור, ובאתר כתוב שהמיקום מוערך.",
   },
-  floor: { type: "integer", description: "קומה." },
+  floor: {
+    type: "integer",
+    description: "קומה, רק אם הסוכן/ת אמר/ה אותה. 0 = קרקע. אל תנחשי ואל תמלאי קומה.",
+  },
+  unit_label: {
+    type: "string",
+    description:
+      "מספר משרד, חנות או יחידה בתוך הבניין, רק אם הסוכן/ת אמר/ה אותו. " +
+      "אל תמציאי מספר ואל תשימי 1. קומה היא floor, לא כאן.",
+  },
   size_sqm: { type: "number", description: 'שטח במ"ר.' },
   built_size_sqm: { type: "number", description: 'שטח בנוי במ"ר.' },
   air_directions: {
@@ -575,6 +596,7 @@ const TOOLS: Anthropic.Tool[] = [
       "כש-gabriela_ask_before_publish הוא 1 הנכס נשמר unpublished, " +
       "ובוואטסאפ יוצאת רשימת יעד (אתר, רשתות, מתווכים, או רק מאגר). הוא לא באתר עד לבחירה. " +
       "אם חזר elsewhere_warning - לאמרו כמו שהוא, בלי שם של מתווך/ת או משרד. הטיוטה נשמרה. " +
+      "אם חזר needs_unit: לא נוצר נכס ולא נשמרה כתובת. שאלי מספר קומה או מספר משרד, בלי לנחש, וקראי שוב. " +
       "בלי לחיצה הנכס נשאר unpublished. אין פרסום אוטומטי אחרי זמן. " +
       "אם התמונה הממתינה הוותיקה מלפני יותר מ-20 דקות, לא מצורפת אף תמונה. " +
       "include_waiting_images מצרף רק תמונות מהיממה האחרונה, ורק אחרי שהסוכן/ת אמר/ה שהן שייכות לנכס. " +
@@ -611,10 +633,12 @@ const TOOLS: Anthropic.Tool[] = [
       "באותה בדיקה של \"ייבוא מקובץ\" ב-CRM. מקבל את ה-job_id מהבלוק [ייבוא נכסים] שבהודעה עם הקובץ. " +
       "**רק אחרי שהסוכן/ת אישר/ה במפורש** את הקליטה. מודעה של יד2 שכבר אצל הסוכן/ת מתעדכנת " +
       "(מחיר, חזרה לפרסום, שדות ריקים) בלי לדרוס מה שמילא/ה; מודעה של עמית/ה במשרד נפסלת. " +
-      "ניחוש (מכירה/השכרה לפי מחיר, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
+      "ניחוש (מכירה/השכרה לפי מחיר כשהקובץ אומר מסחרי, מחיר למ\"ר, סוג נכס מהכותרת) נקלט רק אם הסוכן/ת אישר/ה את הסוג שלו: " +
       "לשאול קודם (\"78 מסחריים סווגו לפי מחיר - לאשר?\") ולהעביר את הסוגים שאושרו ב-accept_guesses. " +
       "בלי accept_guesses, כשיש ניחושים, לא נקלט כלום וחוזר needs_confirmation. " +
-      "מחזיר כמה נקלטו, עודכנו ונפסלו, ולכל שורה שנפסלה את הסיבה ומה לעשות. " +
+      "שורה שהתא של סוג העסקה ריק אינה ניחוש ואינה פוסלת את הקובץ: התקינות נקלטו, " +
+      "והמערכת שולחת כפתורים (הכל למכירה, הכל להשכרה, לפי שורה). אין למלא סוג עסקה לבד, גם לא לפי מחיר. " +
+      "מחזיר summary בעברית: כמה נקלטו, כמה דולגו ולמה. " +
       "הסטטוס הוא מהקובץ, ובלי עמודה הנכס נקלט active. זה לא מסלול השאלה של create_property: " +
       "הסוכן/ת כבר אישר/ה את הקובץ, ואותה ליבה רצה באשף. מודעה של משרד אחר עדיין נחסמת בפרסום.",
     input_schema: {
@@ -634,7 +658,10 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "update_property",
     description:
-      "מעדכן שדות בנכס קיים של הסוכן/ת. שולחים רק את השדות שמשתנים.",
+      "מעדכן שדות בנכס קיים של הסוכן/ת. שולחים רק את השדות שמשתנים. " +
+      "שינוי כתובת לרחוב שכבר יש בו מודעה, בלי קומה ובלי מספר משרד, לא נשמר: " +
+      "הכלי מחזיר needs_unit. אז שואלים את המספר וקוראים שוב עם floor או unit_label. " +
+      "אין לנחש מספר. אותו מספר של מודעה קיימת נחסם (same_unit).",
     input_schema: {
       type: "object",
       properties: {
@@ -2343,16 +2370,44 @@ async function resolvePropertyHood(
   };
 }
 
+const OWNED_PROPERTY_COLS =
+  "id, title, images, street, house_number, city, floor, unit_label, rooms, deal_type, category, status, agent_id, agency_id";
+
+type OwnedProperty = {
+  id: string;
+  title: string | null;
+  images: unknown;
+  street: string | null;
+  house_number: string | null;
+  city: string | null;
+  floor: number | null;
+  unit_label: string | null;
+  rooms: number | null;
+  deal_type: string | null;
+  category: string | null;
+  status: string | null;
+  agent_id: string;
+  agency_id: string | null;
+};
+
 /** מוודאת שהנכס באמת שייך לסוכן/ת לפני כל שינוי. */
-async function ownedProperty(ctx: ToolContext, propertyId: string) {
-  const { data } = await ctx.supabase
+async function ownedProperty(ctx: ToolContext, propertyId: string): Promise<OwnedProperty | null> {
+  const query = (cols: string) => ctx.supabase
     .from("properties")
-    .select("id, title, images, street, house_number, city, agent_id, agency_id")
+    .select(cols)
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id)
     .maybeSingle();
-  if (!data || !ownsRow(ctx.agent, data)) return null;
-  return data;
+  let { data, error } = await query(OWNED_PROPERTY_COLS);
+  // העמודה עלתה עם המיגרציה. בלי נפילה של כל עריכה עד אז.
+  if (listingCityColumnMissing(error)) {
+    ({ data, error } = await query(OWNED_PROPERTY_COLS.replace(", unit_label", "")));
+  }
+  if (error) console.error("owned property load failed", error.code);
+  const row = data as unknown as OwnedProperty | null;
+  if (!row || !ownsRow(ctx.agent, row)) return null;
+  if (row.unit_label === undefined) row.unit_label = null;
+  return row;
 }
 
 // ---------------------------------------------------------------------------
@@ -2384,21 +2439,61 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
   const title = normText(payload.title);
   if (!city || (!street && !title)) return null;
 
-  const { data, error } = await ctx.supabase
+  const cols =
+    "id, listing_number, title, price, rooms, floor, unit_label, deal_type, property_type, city, street, house_number, status, updated_at";
+  const first = await ctx.supabase
     .from("properties")
-    .select("id, listing_number, title, price, rooms, floor, deal_type, property_type, city, street, house_number, status, updated_at")
+    .select(cols)
     .eq("agent_id", ctx.agent.id)
     .limit(500);
-  if (error || !data) return null;
+  const second = listingCityColumnMissing(first.error)
+    ? await ctx.supabase
+      .from("properties")
+      .select(cols.replace(", unit_label", ""))
+      .eq("agent_id", ctx.agent.id)
+      .limit(500)
+    : first;
+  if (second.error || !second.data) return null;
+  const data = second.data as unknown as Array<{
+    id: string;
+    listing_number: number | null;
+    title: string | null;
+    price: number | null;
+    rooms: number | null;
+    floor: number | null;
+    unit_label: string | null;
+    deal_type: string | null;
+    property_type: string | null;
+    city: string | null;
+    street: string | null;
+    house_number: string | null;
+    status: string | null;
+    updated_at: string | null;
+  }>;
 
   const sameAddress = (p: Record<string, unknown>) =>
     !!(street && house && normText(p.city) === city &&
-       normText(p.street) === street && normText(p.house_number) === house);
+       normText(p.street) === street && sameHouseNumber(p.house_number, house));
   const sameTitlePrice = (p: Record<string, unknown>) =>
     !!(title && normText(p.title) === title && Number(p.price) === Number(payload.price));
-  const sameUnit = (p: Record<string, unknown>) =>
-    numEq(p.rooms, payload.rooms) && numEq(p.floor, payload.floor) &&
-    (!p.deal_type || !payload.deal_type || p.deal_type === payload.deal_type);
+  const sameUnit = (p: Record<string, unknown>) => {
+    const incoming: UnitAddress = {
+      floor: floorOrNull(payload.floor),
+      unit: payload.unit_label == null ? null : String(payload.unit_label),
+      rooms: payload.rooms == null || payload.rooms === "" ? null : Number(payload.rooms),
+      deal: payload.deal_type == null ? null : String(payload.deal_type),
+      commercial: payload.category === "commercial",
+    };
+    const row: ListedUnit = {
+      floor: floorOrNull(p.floor),
+      unit: p.unit_label == null ? null : String(p.unit_label),
+      rooms: p.rooms == null || p.rooms === "" ? null : Number(p.rooms),
+      deal: p.deal_type == null ? null : String(p.deal_type),
+      sameOffice: true,
+    };
+    const decision = sharedBuildingDecision(incoming, [row]);
+    return decision === "block" || decision === "ask";
+  };
 
   const matches = data.filter((p) => (sameAddress(p) && sameUnit(p)) || sameTitlePrice(p));
   if (!matches.length) return null;
@@ -2411,6 +2506,82 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
     return new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
   });
   return { match: matches[0], total: matches.length };
+}
+
+/**
+ * מודעות פעילות באותו רחוב ומספר בית, מכל המשרדים. null = הבדיקה נכשלה,
+ * והטריגר נשאר החסימה. לא מנחשים מספר.
+ */
+async function activeAtStreet(
+  ctx: ToolContext,
+  city: unknown,
+  street: unknown,
+  house: unknown,
+  excludeId: string | null,
+): Promise<ListedUnit[] | null> {
+  const cityKey = normText(city);
+  const streetKey = normText(street);
+  const houseKey = normText(house);
+  if (!cityKey || !streetKey || !houseKey) return [];
+  const cols = "id, listing_number, city, street, house_number, floor, unit_label, rooms, deal_type, agency_id, status";
+  const prefix = houseNumberPrefix(house);
+  if (!prefix) return [];
+  const run = (select: string) => ctx.supabase
+    .from("properties")
+    .select(select)
+    .eq("status", "active")
+    .ilike("house_number", `${prefix}%`)
+    .limit(200);
+  const first = await run(cols);
+  const second = listingCityColumnMissing(first.error)
+    ? await run(cols.replace(", unit_label", ""))
+    : first;
+  if (second.error || !second.data) {
+    console.error("address conflict lookup failed", second.error?.code);
+    return null;
+  }
+  return (second.data as unknown as Record<string, unknown>[])
+    .filter((p) => {
+      if (excludeId && String(p.id) === excludeId) return false;
+      return normText(p.city) === cityKey
+        && normText(p.street) === streetKey
+        && sameHouseNumber(p.house_number, house);
+    })
+    .map((p) => ({
+      floor: floorOrNull(p.floor),
+      unit: p.unit_label == null ? null : String(p.unit_label),
+      rooms: p.rooms == null || p.rooms === "" ? null : Number(p.rooms),
+      deal: p.deal_type == null ? null : String(p.deal_type),
+      sameOffice: !!ctx.agent.agency_id && String(p.agency_id || "") === ctx.agent.agency_id,
+      listing_number: p.listing_number == null ? null : Number(p.listing_number),
+    }));
+}
+
+/** חסימה או שאלה. null = אפשר לשמור. כשל בדיקה אינו חוסם כאן. */
+async function addressShareStop(
+  ctx: ToolContext,
+  city: unknown,
+  street: unknown,
+  house: unknown,
+  floor: unknown,
+  unit: unknown,
+  rooms: unknown,
+  deal: unknown,
+  commercial: boolean,
+  excludeId: string | null,
+): Promise<ShareStop | null> {
+  const rows = await activeAtStreet(ctx, city, street, house, excludeId);
+  if (!rows) return null;
+  return shareStop(
+    {
+      floor: floorOrNull(floor),
+      unit: unit == null ? null : String(unit),
+      rooms: rooms == null || rooms === "" ? null : Number(rooms),
+      deal: deal == null ? null : String(deal),
+      commercial,
+    },
+    rows,
+  );
 }
 
 /** אזהרה בלבד. כשל או פונקציה שטרם עלתה לא עוצרים את הטיוטה. */
@@ -2434,6 +2605,8 @@ async function elsewhereDraftNote(
       p_rooms: num(payload.rooms),
       p_floor: floor != null && Number.isInteger(floor) ? floor : null,
       p_deal_type: payload.deal_type == null || payload.deal_type === "" ? null : String(payload.deal_type),
+      p_unit: cleanUnitLabel(payload.unit_label),
+      p_commercial: payload.category === "commercial",
     });
     if (error) {
       if (!draftElsewhereMissing(error)) console.error("draft elsewhere check failed", error.code);
@@ -2550,8 +2723,9 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   // address נגזר משני השדות בדיוק כמו בטופס בדשבורד
   const street = payload.street as string | undefined;
   const houseNumber = payload.house_number as string | undefined;
+  if (payload.unit_label !== undefined) payload.unit_label = cleanUnitLabel(payload.unit_label);
   if (street || houseNumber) {
-    payload.address = [street, houseNumber].filter(Boolean).join(" ");
+    payload.address = composeAddress(street, houseNumber, payload.floor, payload.unit_label);
   }
 
   // שכונה או אזור תעשייה שנאמרו במפורש. לא נמצא - הנכס נוצר בלעדיה,
@@ -2572,6 +2746,13 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
       payload.location_precision = "exact";
     }
   }
+
+  // רק כשמפתח הכפילות מתנגש. חדרים או עסקה שונים אינם שאלה. force_new לא מדלג על התנגשות אמיתית.
+  const share = await addressShareStop(
+    ctx, payload.city, street, houseNumber, payload.floor, payload.unit_label,
+    payload.rooms, payload.deal_type, payload.category === "commercial", null,
+  );
+  if (share) return share;
 
   // כפילות: לא יוצרים, אלא מחזירים למודל את המודעה הקיימת כדי שישאל/תשאל
   // את הסוכן/ת. ‏force_new הוא האישור המפורש לעקוף.
@@ -2709,18 +2890,35 @@ async function toolImportPropertiesFile(ctx: ToolContext, input: Record<string, 
   const res = await runImportJob(ctx.supabase, ctx.agent, jobId,
     (city, street, house) => geocodeForProperty(ctx, city, street, house), accept);
   if (!res.ok) return res;
-  const fixUrl = SITE_BASE_URL && res.problems?.length
+  if (res.needs_deal) {
+    const buttons = res.send_buttons && Array.isArray(res.buttons) ? res.buttons : [];
+    if (buttons.length && ctx.outbox) {
+      ctx.outbox.push({ kind: "buttons", body: String(res.ask_body || ""), buttons });
+    }
+    return {
+      ok: true,
+      needs_deal: true,
+      waiting: res.waiting,
+      inserted: res.inserted,
+      updated: res.updated,
+      summary: res.summary,
+      buttons_sent: buttons.length > 0 && !!ctx.outbox,
+      note: buttons.length
+        ? "הכפתורים נשלחים עכשיו. משפט אחד: כמה נקלטו וכמה שורות ממתינות לסוג עסקה. " +
+          "אין לנחש מכירה או השכרה, גם לא לפי מחיר, ואין לכתוב כתובת או טלפון."
+        : "למסור את summary כמו שהוא. אין לנחש סוג עסקה, ואין לכתוב כתובת או טלפון.",
+    };
+  }
+  const fixUrl = SITE_BASE_URL && res.open_fix
     ? `${SITE_BASE_URL}/crm?goto=accProperties&import=${jobId}` : undefined;
   return {
     ...res,
-    note: "לסכם במספרים: נקלטו, עודכנו, ללא שינוי, נפסלו. לשורות שנפסלו - מספר השורה, הסיבה ומה לעשות " +
-      "(כמו שחזר כאן), עד חמש. שורות שחיכו לאישור ניחוש ולא אושרו (held_unconfirmed) - לומר כמה, ושהן " +
-      "בתיקון השורות. נכסים בלי תמונות - " +
-      "להזכיר שאפשר לשלוח תמונות כאן או להעלות ב-CRM.",
-    // כפתור אחד: תיקון כשיש מה לתקן, ואחרת הרשימה עצמה
+    note: "למסור את summary כמו שהוא: כמה נקלטו, כמה עודכנו, כמה דולגו ולמה. " +
+      "בלי כתובת ובלי טלפון. שורות שחיכו לאישור ניחוש ולא אושרו נשארות בתיקון השורות. " +
+      "נכסים בלי תמונות - להזכיר שאפשר לשלוח תמונות כאן או להעלות אחר כך.",
     ...(fixUrl
-      ? crmButton(ctx, fixUrl, "🛠️ תיקון השורות", "השורות שנפסלו פתוחות לתיקון באשף, מאותו קובץ:", "fix_link")
-      : crmButton(ctx, SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accProperties` : undefined,
+      ? crmButton(ctx, fixUrl, "🛠️ תיקון השורות", "השורות שנשארו פתוחות לתיקון:", "fix_link")
+      : crmButton(ctx, SITE_BASE_URL && (res.inserted || res.updated) ? `${SITE_BASE_URL}/crm?goto=accProperties` : undefined,
         "🏠 הנכסים שלי", "לנכסים שנקלטו:", "properties_link")),
   };
 }
@@ -2815,11 +3013,39 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
     return { ok: false, error: "לא נשלח אף שדה לעדכון." };
   }
 
-  // כשהכתובת משתנה — גם address וגם הפין על המפה צריכים להתעדכן איתה
+  // כשהכתובת משתנה, גם address וגם הפין על המפה צריכים להתעדכן איתה.
+  // קומה ומספר משרד נשמרים בכתובת רק אם נאמרו, לא כברירת מחדל.
   const street = (payload.street ?? existing.street) as string | undefined;
   const houseNumber = (payload.house_number ?? existing.house_number) as string | undefined;
+  const floor = payload.floor !== undefined ? payload.floor : existing.floor;
+  const unit = payload.unit_label !== undefined ? payload.unit_label : existing.unit_label;
+  const rooms = payload.rooms !== undefined ? payload.rooms : existing.rooms;
+  const deal = payload.deal_type !== undefined ? payload.deal_type : existing.deal_type;
+  const commercial = (payload.category !== undefined ? payload.category : existing.category) === "commercial";
+  const addressTouched = payload.street !== undefined || payload.house_number !== undefined
+    || payload.city !== undefined || payload.floor !== undefined || payload.unit_label !== undefined
+    || payload.rooms !== undefined || payload.deal_type !== undefined;
+  if (addressTouched) {
+    const share = await addressShareStop(
+      ctx,
+      payload.city ?? existing.city,
+      street,
+      houseNumber,
+      floor,
+      unit,
+      rooms,
+      deal,
+      commercial,
+      String(existing.id),
+    );
+    if (share) return share;
+  }
+  if (payload.unit_label !== undefined) payload.unit_label = cleanUnitLabel(payload.unit_label);
+  if (payload.street !== undefined || payload.house_number !== undefined
+    || payload.floor !== undefined || payload.unit_label !== undefined) {
+    payload.address = composeAddress(street, houseNumber, floor, unit);
+  }
   if (payload.street !== undefined || payload.house_number !== undefined) {
-    payload.address = [street, houseNumber].filter(Boolean).join(" ") || null;
     const city = (payload.city ?? existing.city) as string | undefined;
     if (city && street && houseNumber) {
       const coords = await geocodeForProperty(ctx, city, street, houseNumber);
@@ -2832,13 +3058,22 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   }
   payload.updated_at = new Date().toISOString();
 
-  const { error } = await ctx.supabase
+  const write = () => ctx.supabase
     .from("properties")
     .update(payload)
     .eq("id", propertyId)
     .eq("agent_id", ctx.agent.id);
+  let { error } = await write();
+  // העמודה עוד לא עלתה. המספר כבר נאמר: שומרים את הכתובת בלעדיו, לא שואלים שוב.
+  if (listingCityColumnMissing(error) && Object.prototype.hasOwnProperty.call(payload, "unit_label")) {
+    delete payload.unit_label;
+    ({ error } = await write());
+  }
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("update property blocked", error.code, error.message);
+    return { ok: false, error: publishErrorText(error.message) };
+  }
 
   ctx.conv.last_property_id = propertyId;
   const updated = {
@@ -9762,6 +9997,7 @@ const SYSTEM_STATIC: string = (() => {
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
     "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
+      "קובץ בלי סוג עסקה: לא לפסול את כל השורות ולא לנחש לפי מחיר. אחרי האישור יוצאים כפתורים, ו-summary הוא התשובה. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
       "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
@@ -9834,6 +10070,9 @@ const SYSTEM_STATIC: string = (() => {
     "- פרסום (set_property_status עם active) שולח את רשימת היעד והנכס לא עולה לפניה, " +
       "גם אם נשלח confirm. אל תאמרי שפורסם עד אחרי הבחירה. sold, rented ו-archived לא מחכים לרשימה. " +
       "confirm=true מפרסם לאתר רק כשאין רשימה (מייל) ואחרי אישור מפורש.",
+    "- אם create_property או update_property החזירו needs_unit: הכתובת לא נשמרה. " +
+      "אמרי את say כמו שהוא, ואל תמלאי קומה או מספר משרד בעצמך. אחרי התשובה קראי שוב עם floor או unit_label כמו שנאמר. " +
+      "אם חזר same_unit: אותה קומה ואותו מספר כבר מפורסמים, ו-force_new לא עוקף את זה. אין למסור טלפון.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
       "או לפרסם מודעה נוספת? להחזרה: update_property עם ה-property_id והפרטים החדשים, " +
