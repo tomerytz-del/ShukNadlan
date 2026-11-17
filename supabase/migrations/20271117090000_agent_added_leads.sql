@@ -254,3 +254,11 @@ $$;
 
 revoke all on function public.lead_import_jobs_purge() from public, anon, authenticated;
 grant execute on function public.lead_import_jobs_purge() to service_role;
+
+-- ניקוי יומי: עותק של קובץ (שמות וטלפונים של צדדים שלישיים) לא נשאר מעבר ל-14 יום
+do $$ begin
+  perform cron.unschedule('lead-import-jobs-purge')
+    where exists (select 1 from cron.job where jobname = 'lead-import-jobs-purge');
+  perform cron.schedule('lead-import-jobs-purge', '47 3 * * *',
+                        'select public.lead_import_jobs_purge()');
+end $$;

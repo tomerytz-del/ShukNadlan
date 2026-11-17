@@ -17,6 +17,9 @@ Deno.test("טלפון: אקסל מוריד אפס, +972, מקפים וכמה מ�
   assertEquals(normalizePhone("03-1234567"), "031234567");
   assertEquals(normalizePhone("123 / 050-1112233"), "0501112233");
   assertEquals(normalizePhone("12345"), "");
+  // שני מספרים בתא בלי מפריד, ותא מספרי עם שבר
+  assertEquals(normalizePhone("0501234567 0527654321"), "0501234567");
+  assertEquals(normalizePhone("501234567.0"), "0501234567");
   assertEquals(normalizePhone(""), "");
 });
 
@@ -29,6 +32,10 @@ Deno.test("סוג ועסקה מטקסט חופשי", () => {
   assertEquals(dealFromText("מחפש לשכור"), "rent");
   assertEquals(dealFromText("מוכר"), "sale");
   assertEquals(kindFromText("אולי"), "");
+  // "להשכרה" בתוך תיאור של מחפש/ת אינו הופך אותו לבעלים
+  assertEquals(kindFromText("מחפש דירה להשכרה"), "seeker");
+  assertEquals(kindFromText("מחפש 4 חדרים למכירה"), "seeker");
+  assertEquals(kindFromText("דירה להשכרה"), "owner");
 });
 
 Deno.test("כותרות: שם פרטי ומשפחה מתחברים, קובץ בלי טלפון אינו לידים", () => {
@@ -125,7 +132,7 @@ Deno.test("ייבוא: שלמות נכנסות אחת-אחת, חסרות נשא�
   assertEquals(inserted.length, 1);
   assertEquals(inserted[0].notify, false);
   assertEquals(inserted[0].kind, "owner");
-  assertEquals(notes.length, 1);
+  assertEquals(notes.length, 0); // ההתראה אחת לקובץ, כשהוא נסגר
 
   // טלפון שגוי: נשארת באותה שורה
   const bad = await answerLeadImport(db, agent, job.id, { phone: "abc" });
@@ -144,7 +151,9 @@ Deno.test("ייבוא: שלמות נכנסות אחת-אחת, חסרות נשא�
   assertEquals(skip.inserted, 2);
   assertEquals(skip.skipped, 2); // שורה ריקה + אבי
   assertEquals(job.status, "done");
-  assertEquals(notes.length, 2);
+  assertEquals(notes.length, 1);
+  assertEquals(notes[0].type, "lead_entered");
+  assertEquals(notes[0].title, "2 לידים נקלטו");
 });
 
 Deno.test("ייבוא: default_kind ממלא סוג לכל הקובץ, ו-skip_all סוגר", async () => {

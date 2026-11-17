@@ -99,24 +99,38 @@ export function looksLikeLeads(headers: string[]): boolean {
  * מחזיר "" כשאין מספר תקין.
  */
 export function normalizePhone(raw: unknown): string {
-  const text = String(raw ?? "").trim();
+  // תא מספרי באקסל מגיע לפעמים עם שבר ("501234567.0")
+  const text = String(raw ?? "").trim().replace(/\.0+(?=$|[^\d])/g, "");
   if (!text) return "";
-  for (const part of text.split(/[\/,;\n]|\s{2,}|\s+או\s+/)) {
-    let d = part.replace(/\D/g, "");
-    if (!d) continue;
+  const valid = (digits: string): string => {
+    let d = digits;
     if (d.startsWith("00972")) d = d.slice(5);
     else if (d.startsWith("972")) d = d.slice(3);
     if (!d.startsWith("0")) d = "0" + d;
-    // נייד: 05X + 7 ספרות. קווי: 0[2-4,8,9] + 7 ספרות
-    if (/^05\d{8}$/.test(d) || /^0[23489]\d{7}$/.test(d) || /^07\d{8}$/.test(d)) return d;
+    // נייד: 05X + 7 ספרות. קווי: 0[2-4,8,9] + 7 ספרות. 07X: 10 ספרות
+    return /^05\d{8}$/.test(d) || /^0[23489]\d{7}$/.test(d) || /^07\d{8}$/.test(d) ? d : "";
+  };
+  for (const part of text.split(/[\/,;\n]|\s+או\s+/)) {
+    const d = part.replace(/\D/g, "");
+    if (!d) continue;
+    const whole = valid(d);
+    if (whole) return whole;
+    // שני מספרים בתא בלי מפריד ("0501234567 0527654321"): הראשון התקין
+    for (const len of [14, 13, 12, 10, 9]) {
+      if (d.length > len) {
+        const first = valid(d.slice(0, len));
+        if (first) return first;
+      }
+    }
   }
   return "";
 }
 
 export function kindFromText(text: unknown): LeadKind | "" {
   const t = String(text ?? "");
-  if (/מוכר|משכיר|בעל\s?נכס|בעלים|בעלת|owner|seller|landlord|למכירה|להשכרה/i.test(t)) return "owner";
+  // מחפש/קונה/שוכר קודם: "מחפש דירה להשכרה" הוא מחפש/ת ולא בעלים, גם שיש בו "להשכרה"
   if (/קונה|קונים|מחפש|שוכר|רוכש|קנייה|קניה|seeker|buyer|tenant|renter/i.test(t)) return "seeker";
+  if (/מוכר|משכיר|בעל\s?נכס|בעלים|בעלת|owner|seller|landlord|למכירה|להשכרה/i.test(t)) return "owner";
   return "";
 }
 

@@ -36,8 +36,13 @@ import {
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
 
-/** אחרי זה הסיכום כבר לא מתאר את המצב, והקובץ נשלח מחדש */
+/** אחרי זה הסיכום כבר לא מתאר את המצב, והקובץ נשלח מחדש. חל רק על קובץ שעוד לא נקלט:
+ *  קובץ שהתחיל להיקלט ממשיך להיענות עד שהעותק נמחק (14 יום). */
 const JOB_TTL_MS = 24 * 60 * 60 * 1000;
+/** קליטה שנקטעה באמצע לא נועלת את הקובץ לנצח */
+const RUNNING_LEASE_MS = 3 * 60 * 1000;
+/** שמירת התקדמות כל כך הרבה שורות, כדי שקטיעה באמצע לא תאבד מה שכבר נכנס */
+const SAVE_EVERY = 20;
 
 type RowStatus = "inserted" | "duplicate" | "failed" | "skipped" | "pending";
 
@@ -46,6 +51,10 @@ interface JobState {
   /** שדות ששורה קיבלה בתשובות: גוברים על מה שבקובץ */
   fixes?: Record<string, LeadFields>;
   results?: Record<string, { s: RowStatus; lead_id?: string; why?: string }>;
+  /** התראת הפעמון נכתבה (אחת לקובץ) */
+  notified?: boolean;
+  /** הקליטה רצה כרגע (נגמר אחרי RUNNING_LEASE_MS) */
+  running_at?: number;
 }
 
 interface AgentLite { id: string; agency_id: string | null }
@@ -106,7 +115,8 @@ async function loadJob(supabase: SupabaseClient, agentId: string, jobId: string)
     .select("id, agent_id, source, file_name, headers, rows, state, status, created_at")
     .eq("id", jobId).eq("agent_id", agentId).maybeSingle();
   if (error || !data) return { error: "לא מצאתי את הקובץ הזה אצלך. אפשר לשלוח אותו שוב?" } as const;
-  if (Date.now() - new Date(String(data.created_at)).getTime() > JOB_TTL_MS && data.status === "pending") {
+  const started = Object.keys(((data.state || {}) as JobState).results || {}).length > 0;
+  if (!started && Date.now() - new Date(String(data.created_at)).getTime() > JOB_TTL_MS) {
     return { error: "הקובץ ישן מיום. אפשר לשלוח אותו שוב?" } as const;
   }
   return { job: data as Row };
@@ -156,22 +166,26 @@ async function insertOne(supabase: SupabaseClient, agentId: string, d: LeadDraft
   return { s: "inserted" as RowStatus, lead_id: String(r.lead_id) };
 }
 
-async function notifyDone(supabase: SupabaseClient, agentId: string, c: ReturnType<typeof counts>) {
-  if (!c.inserted) return;
+/** אחת לקובץ: כשהוא נסגר. קובץ שנשאר באמצע לא מייצר התראה שנייה כשהוא נסגר אחר כך. */
+async function notifyDone(supabase: SupabaseClient, agentId: string, state: JobState) {
+  const c = counts(state);
+  if (state.notified || !c.inserted || c.pending) return;
+  state.notified = true;
   const { error } = await supabase.from("notifications").insert({
     agent_id: agentId,
     type: "lead_entered",
     title: c.inserted === 1 ? "הליד נקלט" : `${c.inserted} לידים נקלטו`,
-    body: c.pending ? `מהקובץ שנשלח. ${c.pending} ממתינים לפרטים.` : "מהקובץ שנשלח.",
+    body: "מהקובץ שנשלח.",
     suppress_push: true,
   });
   if (error) console.error("lead import notification failed", error.message);
 }
 
 async function save(supabase: SupabaseClient, jobId: string, state: JobState, done: boolean) {
-  await supabase.from("lead_import_jobs").update({
+  const { error } = await supabase.from("lead_import_jobs").update({
     state, status: done ? "done" : "pending", ...(done ? { finished_at: new Date().toISOString() } : {}),
   }).eq("id", jobId);
+  if (error) console.error("lead import job save failed", jobId, error.message);
 }
 
 /** מה נשאר: סיכום, או השאלה הבאה */
@@ -214,9 +228,15 @@ export async function runLeadImport(
   if (job.status === "done") {
     return { ...outcome(currentDrafts(job), state), note: "הקובץ הזה כבר נקלט." };
   }
+  if (job.status === "running" && state.running_at && Date.now() - state.running_at < RUNNING_LEASE_MS) {
+    return { ok: false, error: "הקובץ הזה נקלט עכשיו. אפשר לבדוק בעוד רגע." };
+  }
+  state.running_at = Date.now();
+  await supabase.from("lead_import_jobs").update({ state, status: "running" }).eq("id", jobId);
 
   const drafts = currentDrafts({ ...job, state });
   // אחת-אחת: קריאה לכל ליד, כדי שכפילות, כשל וליד שנקלט יתועדו כל אחד לעצמו
+  let sinceSave = 0;
   for (const d of drafts) {
     const key = String(d.index);
     const prev = state.results[key]?.s;
@@ -224,11 +244,16 @@ export async function runLeadImport(
     if (d.blank) { state.results[key] = { s: "skipped", why: "שורה ריקה" }; continue; }
     if (d.missing.length) { state.results[key] = { s: "pending" }; continue; }
     state.results[key] = await insertOne(supabase, agent.id, d);
+    if (++sinceSave >= SAVE_EVERY) {
+      sinceSave = 0;
+      await supabase.from("lead_import_jobs").update({ state }).eq("id", jobId);
+    }
   }
 
+  delete state.running_at;
   const c = counts(state);
+  await notifyDone(supabase, agent.id, state);
   await save(supabase, jobId, state, c.pending === 0);
-  await notifyDone(supabase, agent.id, c);
   return outcome(drafts, state);
 }
 
@@ -268,7 +293,7 @@ export async function answerLeadImport(
   }
 
   const c = counts(state);
+  await notifyDone(supabase, agent.id, state);
   await save(supabase, jobId, state, c.pending === 0);
-  if (c.pending === 0) await notifyDone(supabase, agent.id, c);
   return outcome(drafts, state);
 }
