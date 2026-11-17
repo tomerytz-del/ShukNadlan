@@ -27,10 +27,27 @@ const GOTO_RE = /^acc[A-Za-z]{1,40}$/;
 
 function coarseIp(ip: string | undefined): string {
   if (!ip) return "";
-  if (ip.includes(":")) return ip.split(":").slice(0, 3).join(":") + "::/48";
-  const p = ip.split(".");
-  return p.length === 4 ? `${p[0]}.${p[1]}.${p[2]}.0/24` : "";
+  /* ‏IPv4, וגם IPv4 בתוך IPv6 (‏::ffff:1.2.3.4): /24 */
+  const v4 = ip.match(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/);
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}.0/24`;
+  if (!ip.includes(":")) return "";
+  /* ‏IPv6 דחוס (‏2001::1234:5678) נפרש לשמונה קבוצות לפני החיתוך ל-/48 */
+  const [head, tail] = ip.split("::");
+  const a = head ? head.split(":") : [];
+  const b = tail === undefined ? [] : tail ? tail.split(":") : [];
+  const groups = tail === undefined ? a : [...a, ...Array(Math.max(0, 8 - a.length - b.length)).fill("0"), ...b];
+  return groups.length === 8 ? groups.slice(0, 3).join(":") + "::/48" : "";
 }
+
+/* ‏שמות פרמטרים מוכרים של ה-CRM בלבד. שם אחר (‏מפתח בלי ערך שמכיל טוקן, למשל
+   ‏/crm?abc123) נרשם כ-"other", כדי שהיומן לא ידלוף מה שבתוך המפתח. */
+const KNOWN_PARAMS = new Set([
+  "goto", "client", "property", "lead", "focus", "agenda", "agreement", "review",
+  "filter", "status", "import", "tab", "demand", "mortgage", "plan_city",
+  "plan_street", "plan_num", "plan_gush", "plan_helka", "wc", "wt", "share",
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+  "gclid", "fbclid", "token",
+]);
 
 function refererHost(ref: string | null): string {
   if (!ref) return "";
@@ -48,7 +65,7 @@ function logHit(req: Request, context: Context, status: number): void {
       method: req.method,
       path: url.pathname,
       goto: GOTO_RE.test(goto) ? goto : goto ? "other" : "",
-      params: [...url.searchParams.keys()].slice(0, 12),
+      params: [...url.searchParams.keys()].slice(0, 12).map((k) => (KNOWN_PARAMS.has(k) ? k : "other")),
       status,
       ua: (h.get("user-agent") || "").slice(0, 200),
       ch_ua: (h.get("sec-ch-ua") || "").slice(0, 120),
@@ -69,10 +86,11 @@ function logHit(req: Request, context: Context, status: number): void {
 
 export default async (req: Request, context: Context) => {
   const res = await context.next();
-  logHit(req, context, res.status);
+  /* ‏מתג כיבוי בלי דיפלוי: משתנה הסביבה CRM_HIT_LOG=off ב-Netlify */
+  if (Deno.env.get("CRM_HIT_LOG") !== "off") logHit(req, context, res.status);
   return res;
 };
 
 export const config: Config = {
-  path: ["/crm", "/crm.html"],
+  path: ["/crm", "/crm/", "/crm.html"],
 };
