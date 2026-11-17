@@ -1,0 +1,98 @@
+{
+  "title": "הקהילה החכמה של יועצי הנדל״ן",
+  "aspect": "9:16",
+  "mode": "motion",
+  "voiceId": "HjnCa0x8VgfBjy158Gpj",
+  "pace": "normal",
+  "gap": "tight",
+  "captions": "phrase",
+  "scenes": [
+    {
+      "id": "wolf",
+      "narration": "אומרים שיועץ נדל״ן עובד כמו זאב בודד.",
+      "treatment": "illustration",
+      "onScreenText": [
+        "זאב בודד?"
+      ],
+      "imagePrompt": "A lone grey wolf howling at a huge full moon, standing on a dark rocky ridge at night, cinematic realistic photograph, deep blue tones, dramatic rim light, vertical composition, empty sky above the wolf",
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [
+        "wolf",
+        "howling",
+        "moon",
+        "night",
+        "lone"
+      ],
+      "userAssetIds": [],
+      "notes": "LOOK: deep navy night ground for the hook, then the series look (sapphire #0e2a6b, gold #c9a227, heebo, RTL). Hook: the generated wolf photo full frame with a slow push, a sticker 'זאב בודד?' bursts in on the word, with a shake and a riser. The sticker is a gold star-burst shape with dark ink."
+    },
+    {
+      "id": "map",
+      "narration": "מה אם כולם היו מחוברים? נכסים, לקוחות ושיתופי פעולה, במקום אחד.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מה אם כולם מחוברים?",
+        "נכסים · לקוחות · שיתופי פעולה"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-fa08a330"
+      ],
+      "notes": "The user's glowing Israel map on a dark plate, glowing nodes light up and lines connect them, small property cards run along the lines. No coverage claim in text."
+    },
+    {
+      "id": "helpers",
+      "narration": "ומה אם הייתה לך עוזרת אישית בוואטסאפ, ומנטור שמלווה אותך?",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "גבריאלה",
+        "מנטור AI"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-9b4790f8",
+        "a-38baf7b6"
+      ],
+      "notes": "Two characters from the product: Gabriela (circle portrait, WhatsApp logo from the kit) and the mentor (circle portrait, label מנטור AI). Each pops in on its word."
+    },
+    {
+      "id": "close",
+      "narration": "ולך נשאר רק לסגור עסקאות.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "לך נשאר רק לסגור עסקאות"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [],
+      "notes": "A short hit: the word 'עסקאות' lands big in gold, the connected map glows behind."
+    },
+    {
+      "id": "cta",
+      "narration": "מצטרפים לקהילה החכמה של יועצי הנדל״ן של ישראל. מתחברים, משתפים, סוגרים עסקאות. השאירו פרטים.",
+      "treatment": "motion-graphic",
+      "onScreenText": [
+        "מצטרפים לקהילה החכמה",
+        "מתחברים · משתפים · סוגרים עסקאות",
+        "shuknadlan.co.il"
+      ],
+      "imagePrompt": null,
+      "clipPrompt": null,
+      "shareable": false,
+      "imageTags": [],
+      "userAssetIds": [
+        "a-27a1649c"
+      ],
+      "notes": "Original logo untouched, then the line, the three verbs and the URL. Keep the key text inside the Reels safe zone (top 14 percent and bottom 35 percent are covered by the Meta UI)."
+    }
+  ]
+}
