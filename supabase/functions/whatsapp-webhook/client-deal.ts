@@ -1,3 +1,5 @@
+import { neighborhoodPublicName } from "../_shared/neighborhood-public.ts";
+
 // צד העסקה בכרטיס לקוח/ה.
 // בעל/ת נכס בלי sale/rent נשמר/ת בלי צד. לא אומרים מוכר/ת ולא משכיר/ה.
 
@@ -71,7 +73,9 @@ export function neighborhoodLabels(c: Record<string, unknown>): string[] {
   const embed = c.neighborhoods;
   const rows = Array.isArray(embed) ? embed : embed && typeof embed === "object" ? [embed] : [];
   for (const row of rows) {
-    if (row && typeof row === "object") push((row as { name?: unknown }).name);
+    if (row && typeof row === "object") {
+      push(neighborhoodPublicName(row as { name?: string | null; is_planned?: boolean | null }));
+    }
   }
   return out;
 }

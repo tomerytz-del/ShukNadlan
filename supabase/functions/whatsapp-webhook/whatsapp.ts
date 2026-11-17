@@ -25,6 +25,74 @@ const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 
+/* ---------------------------------------------------------------------------
+   שני מספרים ב-WABA אחד (10.11.2026)
+   ---------------------------------------------------------------------------
+   המספר של הסוכנים הוא ברירת המחדל: כל הודעה יזומה (התראות, תזכורות,
+   מיניסייט, cron) יוצאת ממנו, כמו תמיד. המספר הציבורי של גבריאלה לגולשים
+   הוא `WHATSAPP_PUBLIC_PHONE_NUMBER_ID`. הוובהוק אחד לשניהם, ו-Meta אומרת
+   בכל הודעה לאיזה מספר היא הגיעה (`value.metadata.phone_number_id`).
+
+   **התשובה יוצאת מאותו מספר שההודעה הגיעה אליו.** אחרת גולש/ת שכתב/ה למספר
+   הציבורי היה/הייתה מקבל/ת את התשובה מהמספר של הסוכנים - בשיחה אחרת, ממספר
+   שלא שמר/ה. ‏index.ts עוטף כל הודעה נכנסת ב-`withSender`, וכל יציאה כאן
+   (`postMessage`, ‏`markReadAndTyping`) קוראת את המספר מההקשר. שום חתימה של
+   פונקציית שליחה לא השתנתה, ולכן גם הקוראים האחרים (csm, property-offers,
+   showing-coord) ממשיכים לשלוח מהמספר של הסוכנים.
+
+   ‏AsyncLocalStorage ולא משתנה גלובלי: ה-isolate מטפל בכמה הודעות במקביל,
+   ומשתנה אחד היה שולח תשובה של גולש/ת מהמספר של הודעת סוכן/ת שנכנסה שנייה
+   אחריה. ואם המודול אינו זמין בסביבת הריצה - הכול יוצא מברירת המחדל, בקול
+   (שורת שגיאה ביומן), ולא נשבר. בלי `WHATSAPP_PUBLIC_PHONE_NUMBER_ID` אין
+   מספר ציבורי וההתנהגות זהה לזו של לפני. ‏docs/whatsapp-public-bot.md,
+   "שני מספרים". */
+const PUBLIC_PHONE_NUMBER_ID = (Deno.env.get("WHATSAPP_PUBLIC_PHONE_NUMBER_ID") || "").trim();
+
+type SenderStore = { run<T>(id: string, fn: () => T): T; getStore(): string | undefined };
+let senderStore: SenderStore | null = null;
+try {
+  const mod = await import("node:async_hooks");
+  senderStore = new mod.AsyncLocalStorage<string>();
+} catch (err) {
+  console.error("AsyncLocalStorage unavailable - every reply goes out from the default number", err);
+}
+
+/** מריצה את `fn` כך שכל שליחה בתוכה יוצאת מהמספר `phoneNumberId` (מזהה של Meta, לא המספר עצמו). */
+export function withSender<T>(phoneNumberId: unknown, fn: () => Promise<T>): Promise<T> {
+  const id = String(phoneNumberId || "").trim();
+  if (!id || !senderStore) return fn();
+  // גם המספר של הסוכנים נכנס להקשר, ולא "בלי הקשר": הקשר חיצוני (קריאה
+  // מקוננת, עטיפה עתידית של מנה שלמה) לא יזלוג פנימה.
+  return senderStore.run(id, fn);
+}
+
+/** המספר שההודעה היוצאת תצא ממנו: זה של ההודעה הנכנסת בתור הזה, ואחרת של הסוכנים. */
+function senderId(): string {
+  return senderStore?.getStore() || PHONE_NUMBER_ID;
+}
+
+/** המספר שההקשר הנוכחי שולח ממנו - לבדיקה (index.ts מאמת בתחילת התור, והבדיקה). */
+export function currentSenderId(): string {
+  return senderId();
+}
+
+/** האם ההודעה הגיעה למספר הציבורי של גבריאלה. ‏false כשאין מספר ציבורי מוגדר. */
+export function isPublicNumber(phoneNumberId: unknown): boolean {
+  const id = String(phoneNumberId || "").trim();
+  return !!PUBLIC_PHONE_NUMBER_ID && id === PUBLIC_PHONE_NUMBER_ID;
+}
+
+/** האם מוגדר מספר ציבורי נפרד (הסוד קיים), בלי קשר להודעה הנוכחית. */
+export function publicNumberConfigured(): boolean {
+  return !!PUBLIC_PHONE_NUMBER_ID;
+}
+
+if (PUBLIC_PHONE_NUMBER_ID && !senderStore) {
+  // המצב הגרוע: הניתוב ישלח גולשים לבוט הציבורי, והתשובה תצא מהמספר של
+  // הסוכנים. שורה שנייה, מפורשת, כדי שזה ייראה ביומן ליד השגיאה למעלה.
+  console.error("WHATSAPP_PUBLIC_PHONE_NUMBER_ID is set but AsyncLocalStorage is unavailable: replies to the public number will leave from the agents' number");
+}
+
 // מגבלת גוף הודעת טקסט ב-Cloud API. גזירה עדיפה על 400 מ-Meta ואפס תשובה לסוכן/ת.
 const MAX_TEXT_LEN = 4096;
 
@@ -81,7 +149,7 @@ async function messageIdFrom(res: Response): Promise<string | null> {
  */
 function postMessage(to: string, payload: unknown, failLabel: string): Promise<string | null> {
   return paceRecipient(to, async () => {
-    const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    const res = await fetch(`${GRAPH_BASE}/${senderId()}/messages`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
@@ -607,7 +675,7 @@ export async function sendNotifyTemplate(
  */
 export async function markReadAndTyping(messageId: string): Promise<void> {
   try {
-    await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    await fetch(`${GRAPH_BASE}/${senderId()}/messages`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({

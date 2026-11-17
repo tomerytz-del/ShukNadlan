@@ -23,6 +23,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/gabriela_showings_test.ts"
       - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
@@ -47,6 +48,7 @@ on:
       - "scripts/prompt_cache_test.ts"
       - "scripts/gabriela_showings_test.ts"
       - "scripts/gabriela_quick_wins_test.ts"
+      - "scripts/office_share_test.ts"
       - "scripts/gabriela_reply_style_test.ts"
       - "scripts/gabriela_notif_digest_test.ts"
       - "scripts/office_coach_test.ts"
@@ -86,7 +88,7 @@ jobs:
       # בורר נכס של גבריאלה: בלי כרטיס כפול, בלי רשימה בתור מיניסייט,
       # ו-property_refs רק מול ההתאמות של הלקוח/ה. בלי מסד ובלי וואטסאפ.
       - name: בורר נכס ומיניסייט של גבריאלה
-        run: deno test --allow-read supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/client_deal_test.ts
+        run: deno test --allow-read --allow-env supabase/functions/whatsapp-webhook/lookup_turn_test.ts supabase/functions/whatsapp-webhook/inbound_kind_test.ts supabase/functions/whatsapp-webhook/client_deal_test.ts supabase/functions/whatsapp-webhook/sender_context_test.ts
 
       # ייבוא לידים מקובץ (lead-import.ts): טלפון, סוג, חסר ושאלה על כל שורה.
       # מסד מדומה; --allow-env כי media-intake קורא משתני סביבה בטעינה.
@@ -123,6 +125,10 @@ jobs:
       # כתיב סלחני, קישור CRM, כשל מודל, ומרווח שליחה (בלי קריאה ל-Meta).
       - name: ניצחונות מהירים של גבריאלה
         run: node --experimental-strip-types scripts/gabriela_quick_wins_test.ts
+
+      # דף המשרד לפייסבוק: כפתור לדף הציבורי, בלי כתובת בגוף, ובלי דף מומצא.
+      - name: שיתוף דף המשרד בפייסבוק
+        run: node --experimental-strip-types scripts/office_share_test.ts
 
       # שאלה שכבר נענתה, תזכורת על נושא אחר, תפריט, והודעה קולית בלי מילים.
       - name: תשובות גבריאלה בלי עומס

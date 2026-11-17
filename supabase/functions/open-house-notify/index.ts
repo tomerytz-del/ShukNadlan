@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { neighborhoodPublicName } from "../_shared/neighborhood-public.ts";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 
@@ -74,7 +75,8 @@ function specLine(p: any): string {
 
 function placeLine(p: any): string {
   // ‏PostgREST מחזיר יחס אחד-לאחד כאובייקט או כמערך בן איבר אחד, לפי גרסה
-  const hood = Array.isArray(p.neighborhoods) ? p.neighborhoods[0]?.name : p.neighborhoods?.name;
+  const hoodRow = Array.isArray(p.neighborhoods) ? p.neighborhoods[0] : p.neighborhoods;
+  const hood = neighborhoodPublicName(hoodRow);
   return [hood, p.street, p.city].filter(Boolean).join(", ");
 }
 
@@ -222,7 +224,7 @@ Deno.serve(async (req: Request) => {
   const { data: properties, error: propsError } = await sb
     .from("properties")
     .select("id, title, price, rooms, size_sqm, floor, city, street, images, " +
-            "open_house_end, open_house_joined_at, neighborhoods(name)")
+            "open_house_end, open_house_joined_at, neighborhoods(name,is_planned)")
     .eq("status", "active")
     .eq("open_house", true)
     .lte("open_house_start", nowIso)

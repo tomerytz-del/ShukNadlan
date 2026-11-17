@@ -102,7 +102,9 @@ Dashboard → Project Settings → **Edge Functions → Secrets** (או `supabas
 | סוד | חובה? | מה זה |
 |---|---|---|
 | `WHATSAPP_TOKEN` | ✅ | טוקן הגישה הקבוע של ה-System User |
-| `WHATSAPP_PHONE_NUMBER_ID` | ✅ | מזהה המספר העסקי מ-API Setup |
+| `WHATSAPP_PHONE_NUMBER_ID` | ✅ | מזהה המספר העסקי מ-API Setup - **המספר של הסוכנים**, וממנו יוצאות כל ההודעות היזומות (התראות, תזכורות, מיניסייט) |
+| `WHATSAPP_PUBLIC_PHONE_NUMBER_ID` | ⬜ | מזהה **המספר הציבורי** של גבריאלה לגולשים (מ-10.11.2026), מספר שני באותו WABA. הודעה שמגיעה אליו מנותבת תמיד לבוט הציבורי, והתשובה יוצאת ממנו. ריק = מספר אחד, כמו לפני. ראו [`whatsapp-public-bot.md`](whatsapp-public-bot.md), "שני מספרים" |
+| `WHATSAPP_PUBLIC_DISPLAY_NUMBER` | ⬜ | המספר הציבורי עצמו (ספרות, `9725...`) - מה שכרטיס איש הקשר של גבריאלה נושא. אותו מספר כמו `NUMBER` ב-`assets/bot-link.js`: ‏`972533242100` (‏053-324-2100, הסים הוזמן ב-12.11.2026). ריק = `WHATSAPP_DISPLAY_NUMBER` |
 | `WHATSAPP_APP_SECRET` | ✅ | App Secret — משמש לאימות חתימת הוובהוק |
 | `WHATSAPP_VERIFY_TOKEN` | ✅ | מחרוזת אקראית שאתם ממציאים; חייבת להיות זהה למה שתזינו ב-Meta |
 | `ANTHROPIC_API_KEY` | ✅ | מפתח API מ-[console.anthropic.com](https://console.anthropic.com/) — מפעיל את הבוט |
@@ -516,6 +518,24 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 
 החסרים נכנסים גם להקשר של המודל (`sessionContext`), כדי ש"אני 12 שנה בתחום"
 אחרי התזכורת ייקרא כעדכון פרופיל ולא כשיחה.
+
+### שיתוף דף המשרד בפייסבוק
+
+| כלי | מה זה עושה |
+|---|---|
+| `office_page_link` | כפתור "🏢 דף המשרד" שפותח את הדף הציבורי (`/agency?slug=`). הסוכן/ת משתף/ת בעצמו/ה לפרופיל, לדף פייסבוק או לקבוצה |
+
+בקשה לפרסם את דף המשרד (כרטיס המשרד) בפייסבוק אינה "אני לא יכולה", ואינה
+פרסום נכס (`page_link` עם topic `marketing`). גבריאלה שולחת הודעה אינטראקטיבית
+אחת: גוף קצר בלי כתובת ובלי טלפון, וכפתור קישור. היא לא אומרת שפרסמה.
+
+הכתובת נבנית ב-`csmLinkFor("agency_page")` (slug מקודד), והכפתור יוצא דרך
+`modelLink` ל-`sendCtaUrl`. הדף נשלח רק כש-`agency_is_live` מחזיר true.
+בלי משרד, בלי slug, או כשהרישיון עדיין לא מעלה את הדף לאוויר - משפט הסבר,
+בלי לנחש כתובת. כשל בשאילתה הוא "אפשר לנסות שוב", לא דף מומצא.
+
+הכלי אינו ב-`EMAIL_TOOLS` וב-`MEDIA_TOOLS`: בתורים האלה אין כפתור, וכתובת
+בטקסט אסורה כאן. הבדיקה: `node --experimental-strip-types scripts/office_share_test.ts`.
 
 ### שת״פ בין משרדים
 

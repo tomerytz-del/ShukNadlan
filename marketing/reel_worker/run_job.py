@@ -90,7 +90,11 @@ def snapshot_property(d):
                         "room_type": t.get("room_type"), "has_branding": t.get("has_branding")}
                        for t in (d.get("image_tags") or []) if t.get("image_url")]
     # השכונה של נכס: neighborhood_id לפני sales_area (הסקיל search-core).
+    # אזור בתכנון לא נכנס לכותרת. reel-producer כבר מחזיר neighborhood ריק.
     p["neighborhood"] = d.get("neighborhood") or p.get("sales_area")
+    if d.get("neighborhood_is_planned"):
+        p["neighborhood"] = p.get("sales_area") or None
+        p["neighborhood_is_planned"] = True
     p["agent_id"] = agent.get("id") or p.get("agent_id")
     p["agent_name"] = agent.get("name")
     p["agent_phone"] = agent.get("phone")

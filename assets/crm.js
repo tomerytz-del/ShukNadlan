@@ -22,6 +22,23 @@ function heErr(e){
    וללחוץ. לפי הטקסט ולא לפי דגל: כ-150 קריאות כבר מנסחות "נכשל"/"שגיאה",
    ובלי זה כל אחת מהן הייתה צריכה שינוי משלה. */
 const TOAST_FAILURE = /נכשל|שגיאה|לא הצלחנו|השתבש|אין חיבור|אין הרשאה|החיבור פג/;
+
+/* יציאה מונפשת לטוסט ולפאנל ההתראות (הסקיל animate, "יוצאים כמו שנכנסו").
+   ‏display נשאר המקור לשאלה "האם פתוח", ולכן כל מי שקורא אותו ממשיך לעבוד.
+   ‏is-leaving מפעיל את אנימציית היציאה ב-CSS, ורק אחריה (טיימר, לא animationend,
+   כדי שגם תנועה מופחתת וטאב ברקע יסתיימו) מגיע ה-display:none. פתיחה באמצע
+   יציאה מבטלת אותה. */
+const LEAVE_MS = 200;
+function leaveAnimated(el, done){
+  if (el._leaveT) return;
+  el.classList.add('is-leaving');
+  el._leaveT = setTimeout(()=>{ el._leaveT = null; el.classList.remove('is-leaving'); done(); }, LEAVE_MS);
+}
+function cancelLeave(el){
+  clearTimeout(el._leaveT);
+  el._leaveT = null;
+  el.classList.remove('is-leaving');
+}
 function showToast(msg, ms=3200){
   const failure = TOAST_FAILURE.test(String(msg || ''));
   toastEl.classList.remove('is-undo');
@@ -37,9 +54,18 @@ function showToast(msg, ms=3200){
   } else {
     toastEl.textContent = msg;
   }
+  cancelLeave(toastEl);
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
+  showToast._t = setTimeout(hideToast, ms);
+}
+
+function hideToast(){
+  if (toastEl.style.display !== 'flex') return;
+  leaveAnimated(toastEl, ()=>{
+    toastEl.style.display = 'none';
+    toastEl.classList.remove('is-undo');
+  });
 }
 
 /* טוסט עם "ביטול" לכמה שניות. לחיצה מריצה את onUndo וסוגרת. טוסט חדש
@@ -58,17 +84,14 @@ function showUndoToast(msg, onUndo, ms=5000){
     if (done) return;
     done = true;
     clearTimeout(showToast._t);
-    toastEl.style.display = 'none';
-    toastEl.classList.remove('is-undo');
+    hideToast();
     onUndo();
   });
   toastEl.append(span, btn);
+  cancelLeave(toastEl);
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => {
-    toastEl.style.display = 'none';
-    toastEl.classList.remove('is-undo');
-  }, ms);
+  showToast._t = setTimeout(hideToast, ms);
 }
 
 /* ================= ערעור על חסימת רישיון תיווך =================
@@ -20293,10 +20316,13 @@ async function impLocateFallbackRows(queue, textEl){
       const row = todo.shift();
       if (textEl) textEl.textContent = `מאתר כתובות לשיוך שכונה… ${++n}`;
       const coords = await dealsLookupCoords(row.payload.city, row.payload.street, row.payload.house_number);
-      if (coords){
+      const precision = locationPrecisionFromHit(coords, row.payload.house_number);
+      if (coords && precision){
         row.payload.lat = coords.lat;
         row.payload.lng = coords.lng;
-        delete row.payload.neighborhood_id;
+        row.payload.location_precision = precision;
+        if (precision === 'exact') row.payload.location_radius_m = null;
+        if (precision === 'exact') delete row.payload.neighborhood_id;
       }
     }
   };
@@ -27090,23 +27116,31 @@ async function loadNotifications(agentId){
 function openBellPanel(){
   // תפריט הבורגר אינו שכבה, ואינו נסגר מהלחיצה שנעצרה בכפתור
   closeMenuPanel();
-  document.getElementById('bellPanel').style.display = 'block';
+  const panel = document.getElementById('bellPanel');
+  cancelLeave(panel);
+  panel.style.display = 'block';
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'true');
   if (currentAgent) loadNotifications(currentAgent.id);
   setNavLayer('bell');
 }
 
-function closeBellPanel(){
+/* "פתוח" = display:block ולא באמצע יציאה: לחיצה על הפעמון בזמן שהפאנל נסגר פותחת אותו מחדש */
+function bellIsOpen(){
   const panel = document.getElementById('bellPanel');
-  if (!panel || panel.style.display !== 'block') return;
-  panel.style.display = 'none';
+  return !!panel && panel.style.display === 'block' && !panel.classList.contains('is-leaving');
+}
+
+function closeBellPanel(){
+  if (!bellIsOpen()) return;
+  const panel = document.getElementById('bellPanel');
   document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
   if (navLayer === 'bell') setNavLayer(null);
+  leaveAnimated(panel, ()=>{ panel.style.display = 'none'; });
 }
 
 document.getElementById('bellBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
-  if (document.getElementById('bellPanel').style.display === 'block') closeBellPanel();
+  if (bellIsOpen()) closeBellPanel();
   else openNavLayer('bell');
 });
 
@@ -29360,6 +29394,7 @@ document.addEventListener('keydown', (e)=>{
       && !navOverlayOpen()){
     e.preventDefault();
     openNavLayer('create');
+    navLayerKeyboard('create');
   }
 });
 
@@ -33571,9 +33606,28 @@ document.addEventListener('keydown', (e)=>{
    ========================================================================== */
 const navLayerReturn = {};
 
+/* שכבות שיוצאות באנימציה. ‏hidden נקבע מיד, כך שכל מי שקורא את מצב השכבה
+   (‏closeNavLayers, ‏:not([hidden]), נעילת הגלילה) רואה אותה סגורה; ‏is-leaving
+   רק משאיר אותה מצוירת 200ms עם אנימציית היציאה (ה-CSS גובר על [hidden]).
+   ‏searchSheet אינו ברשימה: הוא נפתח ב-Ctrl+K ובלי תנועה. ‏leadPrefsSheet אינו
+   ברשימה: סגירתו מחזירה את התוכן למקומו, והיציאה הייתה מראה גיליון ריק. */
+const NAV_LAYER_LEAVES = new Set(['createSheet', 'coachSheet']);
+
+/* פתיחה או סגירה מהמקלדת (N, Escape) בלי תנועה: פעולה שחוזרת עשרות פעמים ביום
+   ויזומה מהמקלדת היא בדיוק מה שהסקיל animate פוטר מאנימציה. שני דגלים נפרדים, כי
+   הדרך שבה שכבה נפתחה אינה אומרת איך תיסגר: ‏kb-open (נקבע מיד אחרי הפתיחה, לפני
+   שהדפדפן מצייר) מבטל רק את הכניסה, ו-kb-close (נקבע מיד לפני הסגירה) מבטל רק את
+   היציאה. שניהם נמחקים ב-navLayerHide. החיפוש אינו צריך אותם: הוא אף פעם לא מונפש */
+function navLayerKeyboard(layer, closing){
+  const el = document.getElementById(layer === 'create' ? 'createSheet' : 'coachSheet');
+  if (el) el.classList.add(closing ? 'kb-close' : 'kb-open');
+}
+
 function navLayerShow(id, layer, focusSel){
   const el = document.getElementById(id);
   if (!el) return null;
+  // החלפת שכבה היא החלפה מיידית: שכבה שעוד יוצאת נעלמת ולא נערמת מתחת לחדשה
+  document.querySelectorAll('.nav-layer.is-leaving').forEach(l => { cancelLeave(l); l.inert = false; });
   navLayerReturn[id] = document.activeElement;
   el.hidden = false;
   document.body.classList.add('nav-layer-open');
@@ -33589,6 +33643,12 @@ function navLayerHide(id, layer){
   const el = document.getElementById(id);
   if (!el || el.hidden) return;
   el.hidden = true;
+  const instant = el.classList.contains('kb-close');
+  el.classList.remove('kb-open', 'kb-close');
+  if (!instant && NAV_LAYER_LEAVES.has(id)){
+    el.inert = true;
+    leaveAnimated(el, () => { el.inert = false; });
+  }
   if (!document.querySelector('.nav-layer:not([hidden])')) document.body.classList.remove('nav-layer-open');
   if (navLayer === layer) setNavLayer(null);
   const back = navLayerReturn[id];
@@ -33610,11 +33670,11 @@ document.addEventListener('click', async (e)=>{
 
 document.addEventListener('keydown', async (e)=>{
   if (e.key !== 'Escape') return;
-  if (navLayer === 'create'){ closeCreateSheet(); e.preventDefault(); }
+  if (navLayer === 'create'){ navLayerKeyboard('create', true); closeCreateSheet(); e.preventDefault(); }
   else if (navLayer === 'search'){ closeSearch(); e.preventDefault(); }
   else if (navLayer === 'coach'){
     if (window.crmNeed) { try { await crmNeed('coach'); } catch (err) {} }
-    if (typeof closeCoachLayer === 'function') closeCoachLayer();
+    if (typeof closeCoachLayer === 'function'){ navLayerKeyboard('coach', true); closeCoachLayer(); }
     e.preventDefault();
   }
 });
@@ -38130,6 +38190,26 @@ document.getElementById('accDealSettlements')?.addEventListener('toggle', functi
    רחוב - נחות, ומסומן ככזה בתשובה. */
 const DEALS_GEOCODE_CITY = 'עפולה';
 
+/* rooftop עם מספר בית הוא exact. רחוב בלי מספר, או מרכז יישוב, אינם exact.
+   אותו מיפוי כמו supabase/functions/_shared/location-precision.ts. */
+function locationPrecisionFromHit(hit, houseNumber){
+  var house = String(houseNumber || '').trim();
+  var p = hit && String(hit.precision || '').trim();
+  if (!house){
+    if (p === 'street') return 'street';
+    if (p === 'neighborhood') return 'neighborhood';
+    if (p === 'parcel') return 'parcel';
+    if (p === 'locality' || p === 'city') return 'city';
+    return null;
+  }
+  if (p === 'locality' || p === 'city') return 'city';
+  if (p === 'rooftop' || p === 'exact') return 'exact';
+  if (p === 'parcel') return 'parcel';
+  if (p === 'street') return 'street';
+  if (p === 'neighborhood') return 'neighborhood';
+  return null;
+}
+
 async function dealsLookupCoords(city, street, houseNumber){
   if (!street || !houseNumber) return null;
   if (city !== DEALS_GEOCODE_CITY){
@@ -38141,7 +38221,7 @@ async function dealsLookupCoords(city, street, houseNumber){
     if (!window.GovmapLookup) return null;
     try{
       const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
-      return hit ? { lat: hit.lat, lng: hit.lng } : null;
+      return hit ? { lat: hit.lat, lng: hit.lng, precision: hit.precision || null } : null;
     } catch(err){
       console.warn('deals lookup: GovMap geocode failed', err);
       return null;
@@ -38156,7 +38236,7 @@ async function dealsLookupCoords(city, street, houseNumber){
       body: JSON.stringify({ street, house_number: houseNumber }),
     });
     const data = await res.json();
-    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng } : null;
+    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng, precision: data.precision || null } : null;
   } catch(err){
     // כתובת שלא נמצאה ורשת שנפלה מובילות שתיהן לאותה נפילה לאחור, ולכן
     // אין כאן צורך בהבחנה. במסלול שמזין את geocode_attempts ההבחנה קדושה.
