@@ -219,7 +219,11 @@
     patchSavedSearch(win);
     schedulePurchaseShield(win);
     scheduleLocationPrompt(win);
-    whenCapacitor(win, function () { wireNative(win); });
+    var publishAudience = scheduleSupportAudience(win);
+    whenCapacitor(win, function () {
+      wireNative(win);
+      if (publishAudience) publishAudience();
+    });
   }
 
   function installTracking(win) {
@@ -1592,6 +1596,179 @@
     try { allow.focus(); } catch (e) {}
   }
 
+  /* מסך "אין רשת" נטען מ-https://localhost, בלי ה-localStorage של האתר.
+     בזמן שהאתר טעון שומרים דגל במכשיר (ShukShell.setSupportAudience).
+     מתווך/ת = סשן פעיל וגם crmAgencyId של אותו חשבון. ה-CRM כותב את
+     המפתח רק אחרי שנטענה שורת agency_members. בלי סשן, בלי המפתח, או
+     כשהקריאה נכשלת: גולש/ת. זה גם מה שהמסך עושה כשהדגל חסר.
+     לא רצים על localhost: אחסון ריק שם היה מוחק דגל של מתווך/ת. */
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+  }
+
+  function b64urlDecode(segment) {
+    var body = String(segment || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (body.length % 4) body += '=';
+    var binary = atob(body);
+    var encoded = '';
+    for (var i = 0; i < binary.length; i++) {
+      var hex = binary.charCodeAt(i).toString(16);
+      encoded += '%' + (hex.length < 2 ? '0' : '') + hex;
+    }
+    try { return decodeURIComponent(encoded); }
+    catch (e) { return binary; }
+  }
+
+  function jwtSub(token) {
+    var parts = String(token || '').split('.');
+    if (parts.length < 2) return '';
+    try {
+      var json = JSON.parse(b64urlDecode(parts[1]));
+      return json && isUuid(json.sub) ? String(json.sub).trim() : '';
+    } catch (e) { return ''; }
+  }
+
+  function authUserId(raw) {
+    if (!raw) return '';
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return ''; }
+    if (!parsed || typeof parsed !== 'object') return '';
+    var session = parsed.currentSession && typeof parsed.currentSession === 'object' ? parsed.currentSession : parsed;
+    var fromUser = session.user && session.user.id;
+    if (isUuid(fromUser)) return String(fromUser).trim();
+    return jwtSub(session.access_token);
+  }
+
+  function readAuthRaw(storage) {
+    if (!storage || !storage.getItem) return '';
+    try {
+      if (storage.key && typeof storage.length === 'number') {
+        for (var i = 0; i < storage.length; i++) {
+          var key = storage.key(i) || '';
+          if (key.indexOf('sb-') === 0 && key.indexOf('auth-token') !== -1) {
+            var found = storage.getItem(key) || '';
+            if (found) return found;
+          }
+        }
+      }
+    } catch (e) {}
+    try { return storage.getItem('sb-obookujgolazrwycsiyn-auth-token') || ''; }
+    catch (e2) { return ''; }
+  }
+
+  function supportAudience(storage) {
+    var userId = '';
+    try { userId = authUserId(readAuthRaw(storage)); } catch (e) { return 'visitor'; }
+    if (!userId || !storage || !storage.getItem) return 'visitor';
+    var agency = '';
+    try { agency = storage.getItem('crmAgencyId:' + userId) || ''; }
+    catch (e2) { return 'visitor'; }
+    return isUuid(agency) ? 'broker' : 'visitor';
+  }
+
+  /* ב-WebView השמה של setItem על אובייקט localStorage לא מחליפה את
+     המתודה. היא נשמרת כמפתח, עם קוד הפונקציה כערך, והעוטף לא רץ.
+     המתודות יושבות על Storage.prototype, והוא משותף גם ל-sessionStorage,
+     ולכן ההודעה יוצאת רק כש-this הוא ה-localStorage שנמסר. */
+  var SUPPORT_POLL_MS = 15000;
+
+  function wrapStorageMethod(owner, name, storage, onChange) {
+    var orig = owner[name];
+    if (typeof orig !== 'function') return;
+    owner[name] = function () {
+      var result = orig.apply(this, arguments);
+      try {
+        if (!storage || this === storage) onChange();
+      } catch (e) {}
+      return result;
+    };
+  }
+
+  function watchAuthStorage(storage, onChange) {
+    if (!storage) return;
+    var proto = Object.getPrototypeOf(storage);
+    var onProto = proto && proto !== Object.prototype
+      && typeof proto.setItem === 'function'
+      && typeof proto.removeItem === 'function'
+      && typeof proto.clear === 'function';
+    if (onProto) {
+      if (proto.__shukSupportWatch) return;
+      try {
+        ['setItem', 'removeItem', 'clear'].forEach(function (name) {
+          wrapStorageMethod(proto, name, storage, onChange);
+        });
+        Object.defineProperty(proto, '__shukSupportWatch', { value: true });
+      } catch (e) { /* נשארת הבדיקה המחזורית */ }
+      return;
+    }
+    ['setItem', 'removeItem', 'clear'].forEach(function (name) {
+      if (!Object.prototype.hasOwnProperty.call(storage, name)) return;
+      try { wrapStorageMethod(storage, name, null, onChange); }
+      catch (e2) {}
+    });
+  }
+
+  function scheduleSupportAudience(win) {
+    if (!win || !siteHost(win) || !win.localStorage) return null;
+    var last = null;
+    var inflight = null;
+    var timer = 0;
+    var armed = false;
+    function readAudience() {
+      var audience = 'visitor';
+      try { audience = supportAudience(win.localStorage); } catch (e) { audience = 'visitor'; }
+      return audience === 'broker' ? 'broker' : 'visitor';
+    }
+    function publish() {
+      var audience = readAudience();
+      var shell = pluginsOf(win).ShukShell;
+      if (!shell || !shell.setSupportAudience) return;
+      if (audience === last || audience === inflight) return;
+      var requested = audience;
+      inflight = requested;
+      try {
+        Promise.resolve(shell.setSupportAudience({ audience: requested })).then(function () {
+          if (inflight === requested) inflight = null;
+          if (readAudience() === requested) last = requested;
+          else publish();
+        }, function () {
+          if (inflight === requested) inflight = null;
+        });
+      } catch (e2) {
+        if (inflight === requested) inflight = null;
+      }
+    }
+    function hidden() {
+      return !!(win.document && win.document.hidden);
+    }
+    function disarm() {
+      if (!armed) return;
+      armed = false;
+      if (timer && win.clearInterval) win.clearInterval(timer);
+      timer = 0;
+    }
+    function arm() {
+      if (armed || hidden() || !win.setInterval) return;
+      armed = true;
+      timer = win.setInterval(publish, SUPPORT_POLL_MS);
+    }
+    watchAuthStorage(win.localStorage, publish);
+    publish();
+    if (win.addEventListener) {
+      win.addEventListener('storage', publish);
+      win.addEventListener('pagehide', publish);
+      win.addEventListener('visibilitychange', function () {
+        if (hidden()) disarm();
+        else {
+          publish();
+          arm();
+        }
+      });
+    }
+    arm();
+    return publish;
+  }
+
   function scheduleLocationPrompt(win) {
     if (!siteHost(win) || !win.document) return;
     var app = win.ShukNadlanApp || {};
@@ -1635,6 +1812,8 @@
     planFeatureLines: planFeatureLines,
     planSheetCards: planSheetCards,
     safeSiteRetry: safeSiteRetry,
+    supportAudience: supportAudience,
+    SUPPORT_POLL_MS: SUPPORT_POLL_MS,
     clickedHref: clickedHref,
     authReturnUrl: authReturnUrl,
     PIXEL_CONSENT_KEY: PIXEL_CONSENT_KEY,

@@ -95,7 +95,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-ghost{background:#fff;color:var(--teal-dark);border:1.5px solid var(--line)}
   .btn-ghost:hover{border-color:var(--teal)}
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
@@ -204,7 +204,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     color:var(--ink);min-height:120px;
     transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   }
-  .type-tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(14,42,107,.45)}
+  @media (hover:hover) and (pointer:fine){.type-tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(14,42,107,.45)}}
   .type-tile[aria-pressed="true"]{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal)}
   .type-tile[aria-pressed="true"]:hover{box-shadow:0 0 0 1px var(--teal),0 10px 24px -14px rgba(14,42,107,.45)}
   .tt-ico{width:40px;height:40px;border-radius:12px;background:var(--teal-tint);color:var(--teal);display:grid;place-items:center}
@@ -247,7 +247,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     display:flex;flex-direction:column;
     transition:box-shadow .2s ease, transform .2s ease;
   }
-  .pro-item:hover{box-shadow:0 18px 40px -18px rgba(6,20,34,.42);transform:translateY(-3px)}
+  @media (hover:hover) and (pointer:fine){.pro-item:hover{box-shadow:0 18px 40px -18px rgba(6,20,34,.42);transform:translateY(-3px)}}
   .pro-item:focus-within{border-color:var(--teal)}
   /* המדיה: ראשי התיבות ואייקון התחום יושבים תמיד מתחת לתמונה. תמונה שלא
      נטענה מסירה את עצמה, והכרטיס חוזר למצב "בלי תמונה" ולא לאייקון שבור. */

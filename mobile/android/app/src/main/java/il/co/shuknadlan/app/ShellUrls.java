@@ -123,12 +123,17 @@ public final class ShellUrls {
         return b.build().toString();
     }
 
-    /** מסך השגיאה של השלד, עם סיבה וכתובת חזרה רק אם היא באתר. */
-    public static String offlineFor(String why, String failed) {
+    /**
+     * מסך השגיאה של השלד, עם סיבה וכתובת חזרה רק אם היא באתר.
+     * aud=broker רק כשהדגל השמור הוא בדיוק broker. כל ערך אחר נשאר
+     * בלי הפרמטר, והמסך פותח את העוזרת הציבורית.
+     */
+    public static String offlineFor(String why, String failed, String audience) {
         StringBuilder b = new StringBuilder(OFFLINE);
         b.append("?why=").append("http".equals(why) ? "http" : "net");
         String retry = siteRetry(failed);
         if (!retry.isEmpty()) b.append("&retry=").append(Uri.encode(retry));
+        if ("broker".equals(audience)) b.append("&aud=broker");
         return b.toString();
     }
 

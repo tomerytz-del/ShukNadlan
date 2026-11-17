@@ -67,7 +67,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;font-weight:700;font-size:.9rem;border-radius:0;transition:transform .15s ease,box-shadow .15s ease}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
   .btn-ghost:hover{border-color:var(--teal)}
   .btn-wa{background:#25a55a;color:#fff}

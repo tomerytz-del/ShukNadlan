@@ -377,6 +377,12 @@ public class MainActivity extends BridgeActivity {
         return prefs().getString(ShukShellPlugin.OAUTH_RETURN, "");
     }
 
+    /** broker רק אם נשמר בדיוק הערך הזה. כל השאר, כולל מפתח חסר: visitor. */
+    String supportAudience() {
+        String value = prefs().getString(ShukShellPlugin.SUPPORT_AUDIENCE, "visitor");
+        return "broker".equals(value) ? "broker" : "visitor";
+    }
+
     private SharedPreferences prefs() {
         return getSharedPreferences(ShukShellPlugin.PREFS, MODE_PRIVATE);
     }
