@@ -1987,7 +1987,7 @@ select created_at, wa_phone, status, status_detail, left(body, 60)
 מה כבר מוגדר בחשבון, מה עוד חסום, ומה כבר נשלל בבדיקה. מי שממשיך את
 ההקמה מתחיל מכאן ולא מאפס.
 
-עודכן: 12/09/2026.
+עודכן: 17/11/2026 (המספר השני).
 
 ### המזהים של החשבון
 
@@ -1996,10 +1996,21 @@ select created_at, wa_phone, status, status_detail, left(body, 60)
 | Meta Business Portfolio | `שוק הנדל"ן של עפולה והעמק` — `1078455018265423` |
 | App ID | `1844258613237835` (`ShukNadlan`) |
 | WABA ID | `1414200433976496` |
-| Phone Number ID | `1378177102035520` |
-| המספר העסקי | `+972 53-249-4740` |
-| שם התצוגה | `שוק הנדל"ן` — `name_status: AVAILABLE_WITHOUT_REVIEW` |
+| Phone Number ID — **הסוכנים** | `1378177102035520` (`+972 53-249-4740`, `WHATSAPP_PHONE_NUMBER_ID`) |
+| Phone Number ID — **הציבורי** | `1463778813479349` (`+972 53-324-2100`, `WHATSAPP_PUBLIC_PHONE_NUMBER_ID`; נוסף 17.11.2026) |
+| שם התצוגה | `שוק הנדל"ן` — `name_status: AVAILABLE_WITHOUT_REVIEW`, **בשני המספרים** (אותו שם בדיוק, ולכן השני אושר בלי בדיקה) |
 | קטגוריה | Professional Services |
+| דף פייסבוק ואינסטגרם | מחוברים ל**מספר הציבורי** (כפתור הוואטסאפ בדף, Click-to-WhatsApp) |
+
+**המספר השני (17.11.2026), מה נלמד בדרך:** ה-WABA הזמני `Test WhatsApp
+Business Account` מופיע ראשון בבורר של WhatsApp Manager, והמספר חייב להתווסף
+ל-`שוק הנדל"ן`; "בהמתנה" אחרי אימות ה-SMS אומר מאומת ולא רשום, והרישום
+ל-Cloud API נעשה באתר המפתחים (Use cases → WhatsApp → Step 2. Production
+setup → Register your WhatsApp phone number); איש קשר חדש בטלפון מראה
+"הזמנה" עוד כמה דקות אחרי שהמספר כבר עונה, ולכן בודקים דרך `wa.me`; ודף
+פייסבוק וחשבון אינסטגרם מחוברים למספר אחד בלבד, ומנתקים מהישן לפני שמחברים
+לחדש. **אין לשנות את שם התצוגה** של אף מספר: שינוי פותח בדיקה ידנית של
+ימים, ובזמנה המספר עלול להיות מוגבל.
 
 > אלה **מזהים, לא סודות** — הם מופיעים בכל קריאה ל-Graph API וב-URL של
 > הדשבורד. הסודות עצמם (`WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`,
@@ -2023,6 +2034,10 @@ select created_at, wa_phone, status, status_detail, left(body, 60)
       `whatsapp_business_management` — נבדק מול Graph API ועובד
 - [x] `WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_PHONE_NUMBER_ID`,
       `WHATSAPP_VERIFY_TOKEN` הוזנו ב-Supabase Secrets
+- [x] המספר הציבורי (17.11.2026): נוסף ל-WABA, אומת ב-SMS, נרשם ל-Cloud API,
+      `WHATSAPP_PUBLIC_PHONE_NUMBER_ID` ו-`WHATSAPP_PUBLIC_DISPLAY_NUMBER`
+      ב-Secrets, PR ‎#1223 מוזג, והודעה למספר החדש מטלפון של סוכן חזרה
+      מהבוט הציבורי (ראו `whatsapp-public-bot.md`, "שני מספרים")
 - [x] `ANTHROPIC_API_KEY` כבר היה מוגדר בפרויקט (משותף עם התיאור השיווקי
       ומנוע המבזקים) — לא נגענו בו
 
