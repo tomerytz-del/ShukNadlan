@@ -70,7 +70,7 @@ button,input{font-family:inherit}
 .bar-row .brand{font-size:17px;font-weight:800;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-row .ctx{font-size:14px;color:#c9d3ee;white-space:nowrap;display:none}
 .track{flex:1 1 auto;height:12px;border-radius:99px;background:rgba(13,27,61,.55);padding:2px;min-width:40px}
-.track i{display:block;height:100%;border-radius:99px;background:#e5c76a;width:0;transition:width .4s ease}
+.track i{display:block;height:100%;border-radius:99px;background:#e5c76a;width:0;transition:width .4s var(--ease-out,cubic-bezier(0.23,1,0.32,1))}
 .frac{font-size:14px;font-weight:800;color:#e5c76a;white-space:nowrap;font-variant-numeric:tabular-nums}
 .av{width:32px;height:32px;border-radius:50%;background:#e5c76a;color:#0d1b3d;font-size:14px;font-weight:800;display:grid;place-items:center;overflow:hidden;flex:none}
 .av img{width:100%;height:100%;object-fit:cover}
@@ -208,9 +208,16 @@ button,input{font-family:inherit}
 .opt.right .l{background:#1f9d55;color:#fff}
 .opt.wrong{border-color:#d92d20;background:#fdecea;box-shadow:0 4px 0 #d92d20;color:#0d1b3d}
 .opt.wrong .l{background:#d92d20;color:#fff}
-.sheet{margin-top:auto;position:relative;background:#fff;border-top:3px solid #1f9d55;border-radius:24px 24px 0 0;padding:22px 20px calc(30px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;box-shadow:0 -10px 28px rgba(14,42,107,.1);animation:up .25s ease}
+.sheet{margin-top:auto;position:relative;background:#fff;border-top:3px solid #1f9d55;border-radius:24px 24px 0 0;padding:22px 20px calc(30px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;box-shadow:0 -10px 28px rgba(14,42,107,.1);animation:up .28s var(--ease-drawer,cubic-bezier(0.32,0.72,0,1))}
 .sheet.bad{border-top-color:#d92d20}
 @keyframes up{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+/* מענה על שאלה: הכרטיס שנבחר "נוחת" וצובע את עצמו, וההסבר נכנס בהדרגה (הסקיל animate, ‏30-80ms בין פריט לפריט) */
+@keyframes optSettle{from{transform:scale(.97);background-color:#fff;border-color:#e3e8f4}to{transform:none}}
+.opt.right,.opt.wrong,.opt.chosen{animation:optSettle .2s var(--ease-out,cubic-bezier(0.23,1,0.32,1))}
+.sheet>:not(img){animation:kin .24s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
+.sheet>:nth-child(3){animation-delay:40ms}.sheet>:nth-child(4){animation-delay:80ms}.sheet>:nth-child(n+5){animation-delay:120ms}
+@keyframes fadeOnly{from{opacity:0}}
+@media(prefers-reduced-motion:reduce){.opt.right,.opt.wrong,.opt.chosen{animation:none}.sheet{animation:fadeOnly .2s both}.sheet>:not(img){animation:fadeOnly .2s both}}
 .sheet img{position:absolute;top:-30px;left:20px;width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 4px 12px rgba(13,27,61,.2)}
 .sheet b.t{font-size:18px;font-weight:800;color:#146c3a}
 .sheet.bad b.t{color:#b42318}

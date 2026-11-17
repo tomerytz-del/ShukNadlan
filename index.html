@@ -145,9 +145,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .btn-gold{background:var(--gold);color:#fff}
-  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,162,39,.35)}
+  @media (hover:hover) and (pointer:fine){.btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,162,39,.35)}}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
   .card{background:rgba(255,255,255,.88);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
@@ -318,7 +318,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     font-family:inherit;line-height:1.25;
   }
   .hero-badge-ai{cursor:pointer;transition:background .15s ease,transform .15s ease}
-  .hero-badge-ai:hover{background:#fff;transform:translateY(-1px)}
+  @media (hover:hover) and (pointer:fine){.hero-badge-ai:hover{background:#fff;transform:translateY(-1px)}}
   .hero-badge-star{color:var(--brass,#c9a227);font-size:.72rem}
   .hero-badge-sep{opacity:.4;font-weight:400}
   .hero-badge-live{background:rgba(255,255,255,.78);border-color:rgba(14,42,107,.16);color:var(--ink-soft);font-weight:600}
@@ -945,7 +945,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     width:1px;background:var(--line);
   }
   .map-recenter-btn svg{width:14px;height:14px;display:block}
-  .map-recenter-btn:hover{color:#A81E22;transform:scale(1.08)}
+  @media (hover:hover) and (pointer:fine){.map-recenter-btn:hover{color:#A81E22;transform:scale(1.08)}}
   .map-recenter-btn:active{transform:scale(.94)}
   @media(max-width:379px){
     .map-expand-btn{margin-inline-start:0}
@@ -1284,7 +1284,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .buyer-banner .lead-teaser-go{background:#c9a227;color:#0d1b3d}
-  .lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 14px 26px rgba(0,0,0,.38)}
+  @media (hover:hover) and (pointer:fine){.lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 14px 26px rgba(0,0,0,.38)}}
   .lead-teaser-go-close{display:none}
   .lead-banner.is-open .lead-teaser-go-open{display:none}
   .lead-banner.is-open .lead-teaser-go-close{display:inline}
@@ -1447,7 +1447,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .lead-banner .lead-toggle button.active,
   .lead-banner .owner-toggle button.active{box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
   .lead-banner .btn-gold{font-weight:800;box-shadow:0 0 0 1.5px rgba(255,255,255,.35),0 10px 22px rgba(0,0,0,.28)}
-  .lead-banner .btn-gold:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}
+  @media (hover:hover) and (pointer:fine){.lead-banner .btn-gold:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}}
   .lead-banner .btn-gold[disabled],
   .lead-banner .btn-gold:disabled{box-shadow:none;transform:none}
   .lead-banner .wiz-input{box-shadow:inset 0 1px 3px rgba(13,27,61,.16)}
@@ -1791,8 +1791,8 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .dm-wa svg{width:21px;height:21px}
 
   @media(hover:hover) and (pointer:fine){
-    .dm-item:hover{transform:translateY(-4px);box-shadow:0 22px 40px -22px rgba(13,27,61,.55)}
-    .dm-item:hover .dm-cover img:not(.is-blur){transform:scale(1.06)}
+    @media (hover:hover) and (pointer:fine){.dm-item:hover{transform:translateY(-4px);box-shadow:0 22px 40px -22px rgba(13,27,61,.55)}}
+    @media (hover:hover) and (pointer:fine){.dm-item:hover .dm-cover img:not(.is-blur){transform:scale(1.06)}}
   }
   @media(prefers-reduced-motion:reduce){
     .dm-item,.dm-cover img{transition:none}
@@ -2063,7 +2063,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     color:#fff;font-weight:800;font-size:1rem;box-shadow:0 8px 20px rgba(14,42,107,.28);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(14,42,107,.34)}
+  @media (hover:hover) and (pointer:fine){.calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(14,42,107,.34)}}
   .calc-cta svg{width:22px;height:22px;flex:none}
   .calc-fine{font-size:.72rem;color:var(--ink-soft);margin:0;text-align:center}
 
@@ -2185,7 +2185,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     border:1px solid var(--line);border-radius:0;box-shadow:var(--shadow-sm);
     transition:transform .2s ease, box-shadow .2s ease;
   }
-  a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
+  @media (hover:hover) and (pointer:fine){a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}}
   @media(min-width:480px){.pros-grid{gap:14px}}
   @media(min-width:760px){
     .pros-grid{grid-template-columns:repeat(4,1fr);gap:16px}
@@ -2538,7 +2538,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
       box-shadow:0 8px 20px rgba(14,42,107,.28);cursor:pointer;
     }
     .ss-mic-hint{animation:ssMicHintIn .25s ease-out both}
-    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s ease-in both}
+    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
     .ss-mic-hint::before{
       content:"";position:absolute;bottom:100%;left:50%;margin-left:-6px;
       border:6px solid transparent;border-bottom-color:var(--sapphire);
@@ -2632,9 +2632,9 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     position:absolute;top:-5px;right:-6px;width:17px;height:17px;padding:0;box-sizing:border-box;
     border-radius:999px;background:#e53935;color:#fff;border:2px solid var(--wa-dark);
     font-size:10px;font-weight:800;line-height:13px;text-align:center;white-space:nowrap;
-    transform:scale(0);animation:gabBadgeIn .45s cubic-bezier(.3,1.6,.5,1) 1.8s forwards;
+    transform:scale(.6);opacity:0;animation:gabBadgeIn .45s cubic-bezier(.3,1.6,.5,1) 1.8s forwards;
   }
-  @keyframes gabBadgeIn{to{transform:scale(1)}}
+  @keyframes gabBadgeIn{to{transform:scale(1);opacity:1}}
   @media(max-width:374px){ .gab-cta-badge{right:-1px;top:-4px} }
   @media(prefers-reduced-motion:reduce){
     #gabCtaWrap .gab-cta:not(.is-agent),#gabCtaWrap .gab-cta:not(.is-agent) svg{animation:none}
@@ -2737,7 +2737,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .gab-typing i:nth-child(2){animation-delay:.15s}
   .gab-typing i:nth-child(3){animation-delay:.3s}
   .gab-bubble.is-in{animation:gabIn .38s cubic-bezier(.2,.9,.3,1.15) both}
-  .gab-chat.is-out .gab-bubble{animation:gabOut .3s ease-in both}
+  .gab-chat.is-out .gab-bubble{animation:gabOut .3s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
   @keyframes gabIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}
   @keyframes gabOut{to{opacity:0;transform:translateY(-12px)}}
   @keyframes gabDot{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-3px)}}
@@ -3870,13 +3870,13 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     /* הבועה של המיקרופון נפתחת לצידו, בתוך השדה - לא על הלשוניות ולא על הכפתור הזהב */
     html.beta-hero body .ss-mic-hint{top:50%;bottom:auto;right:auto;left:calc(100% + 10px);transform:translateY(-50%);
       animation:v10MicHintIn .25s ease-out both}
-    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s ease-in both}
+    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
     html.beta-hero body .ss-mic-hint::before{top:50%;bottom:auto;left:auto;right:100%;margin:-6px 0 0;border:6px solid transparent;border-right-color:var(--sapphire)}
     html.beta-hero.mic-hint-on .hs-q{visibility:visible}
     /* ‏P2-7: הבועה מעל הכרטיס (‏home.js מציב אותה), החץ למטה אל המיקרופון */
     html.beta-hero body .ss-mic-hint.is-above{top:auto;bottom:calc(100% + 8px);right:auto;transform:none;
       white-space:normal;max-width:min(260px,70vw);animation:v10MicHintAbove .25s ease-out both}
-    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s ease-in both}
+    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
     html.beta-hero body .ss-mic-hint.is-above::before{top:100%;bottom:auto;right:auto;left:var(--mh-arrow,50%);margin:0 0 0 -6px;
       border:6px solid transparent;border-top-color:var(--sapphire)}
   }

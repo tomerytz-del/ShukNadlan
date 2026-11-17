@@ -102,7 +102,7 @@
     '.cs-court h4{font-weight:800;font-size:1.5em;margin:.3em 0}.cs-court p{margin:.2em 0;color:#4a5578}',
     '.cs-court .verdict{display:inline-block;margin-top:.6em;font-weight:900;font-size:1.45em;color:#d92d20;border:3px solid #d92d20;border-radius:6px;padding:.05em .5em;transform:rotate(-6deg) scale(2);opacity:0}',
     '.cs-court.hit .verdict{animation:csStamp2 .35s cubic-bezier(.2,1.4,.4,1) forwards}@keyframes csStamp2{to{transform:rotate(-6deg) scale(1);opacity:1}}',
-    '.cs-badge{position:absolute;z-index:6;top:16%;left:50%;transform:translateX(-50%) scale(.8);opacity:0;background:#1f9d55;color:#fff;font-weight:800;font-size:clamp(13px,2.8cqw,22px);padding:.4em 1em;border-radius:99px;transition:all .4s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}',
+    '.cs-badge{position:absolute;z-index:6;top:16%;left:50%;transform:translateX(-50%) scale(.8);opacity:0;background:#1f9d55;color:#fff;font-weight:800;font-size:clamp(13px,2.8cqw,22px);padding:.4em 1em;border-radius:99px;transition:transform .4s cubic-bezier(.2,1.4,.4,1),opacity .4s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}',
     '.cs-badge.on{opacity:1;transform:translateX(-50%) scale(1)}',
     '.cs-bar{display:flex;align-items:center;gap:10px;padding:8px 4px 2px;color:#fff;direction:rtl}',
     '.cs-btn{width:40px;height:40px;border-radius:50%;border:0;background:#e5c76a;color:#0d1b3d;display:grid;place-items:center;cursor:pointer;flex:none}',
