@@ -2,8 +2,8 @@
   "title": "הקהילה החכמה של יועצי הנדל״ן",
   "aspect": "9:16",
   "mode": "motion",
-  "voiceId": "HjnCa0x8VgfBjy158Gpj",
-  "pace": "normal",
+  "voiceId": "TX3LPaxmHKxFdv7VOQHJ",
+  "pace": "fast",
   "gap": "tight",
   "captions": "phrase",
   "scenes": [
@@ -58,7 +58,8 @@
       "imageTags": [],
       "userAssetIds": [
         "a-9b4790f8",
-        "a-38baf7b6"
+        "a-38baf7b6",
+        "a-d97d4b5c"
       ],
       "notes": "Two characters from the product: Gabriela (circle portrait, WhatsApp logo from the kit) and the mentor (circle portrait, label מנטור AI). Each pops in on its word."
     },
@@ -78,7 +79,7 @@
     },
     {
       "id": "cta",
-      "narration": "מצטרפים לקהילה החכמה של יועצי הנדל״ן של ישראל. מתחברים, משתפים, סוגרים עסקאות. השאירו פרטים.",
+      "narration": "מצטרפים לקהילה החכמה של יועצי הנדל״ן של ישראל. מתחברים, משתפים, סוגרים עסקאות. הצטרפו עכשיו.",
       "treatment": "motion-graphic",
       "onScreenText": [
         "מצטרפים לקהילה החכמה",
