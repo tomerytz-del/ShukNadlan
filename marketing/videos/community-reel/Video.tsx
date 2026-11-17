@@ -208,6 +208,12 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
             <AbsoluteFill style={{ transform: `translate(${shakeX(f, bAt, 16)}px, ${shakeY(f, bAt, 10)}px)` }}>
               <Img src={urls[IMG.wolf]} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})`, transformOrigin: origin }} />
               <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(2,8,23,0.35), rgba(2,8,23,0) 30%, rgba(2,8,23,0) 55%, rgba(2,8,23,0.6))" }} />
+              {f < bAt ? (
+                <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.2, display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.006 }}>
+                  <Line size={W * 0.15} weight={900} style={{ textShadow: "0 6px 30px rgba(0,0,0,0.6)" }}>מתווכים<span style={{ color: palette.accent }}>?</span></Line>
+                  <Line size={W * 0.068} style={{ textShadow: "0 4px 20px rgba(0,0,0,0.7)" }}>גם אתם זאבים בודדים?</Line>
+                </div>
+              ) : null}
               {f >= bAt && !tight ? (
                 <div style={{ position: "absolute", left: W * 0.04, top: H * 0.3, width: W * 0.62, height: W * 0.62, transform: `rotate(${-9 + (1 - p) * 20}deg) scale(${0.2 + 0.85 * p})`, opacity: interpolate(f - bAt, [0, 2], [0, 1], clamp) }}>
                   <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, overflow: "visible", opacity: 1 - rays * 0.6 }}>
@@ -254,10 +260,10 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const first = tr(NODES[0]);
           const travel = interpolate(f, [0, 9], [0, 1], { ...clamp, easing: easeOut });
           const dotX = MOON.x + (first.x - MOON.x) * travel, dotY = MOON.y + (first.y - MOON.y) * travel;
-          const t0 = 9, per = 4;
+          const t0 = on(map, "מתווכים"), per = 2; // the dots light on "brokers": the dots are the brokers
           const lit = (i: number) => f >= t0 + i * per;
           const link = (k: number) => interpolate(f, [t0 + 4 + k * 3, t0 + 4 + k * 3 + 9], [0, 1], { ...clamp, easing: easeOut });
-          const bright = interpolate(f, [0, 40], [0.3, 1], clamp);
+          const bright = interpolate(f, [0, t0, t0 + 8], [0.3, 0.45, 1], clamp);
           const slams = [
             { text: "מתווכים", at: on(map, "מתווכים"), rot: 3 },
             { text: "נכסים", at: on(map, "נכסים"), rot: -4 },
@@ -340,7 +346,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
         })()}
         <Sfx src={urls[SFX.impact]} at={1} volume={0.3} />
         <Sfx src={urls[SFX.sparkle]} at={8} volume={0.2} />
-        {NODES.slice(1, 9).map((_, i) => <Sfx key={i} src={urls[SFX.ping]} at={13 + i * 4} volume={0.06} />)}
+        {NODES.slice(1, 9).map((_, i) => <Sfx key={i} src={urls[SFX.ping]} at={on(map, "מתווכים") + i * 2} volume={0.07} />)}
         <Sfx src={urls[SFX.whoosh]} at={on(map, "מתווכים") - 2} volume={0.2} />
         <Sfx src={urls[SFX.impact]} at={on(map, "מתווכים")} volume={0.24} />
         <Sfx src={urls[SFX.impact]} at={on(map, "נכסים")} volume={0.24} />
@@ -480,7 +486,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 <div style={{ ...shown(f, 8, fps, H, 1.0) }}><Line size={W * 0.052} weight={600} color={palette.accent} style={{ letterSpacing: W * 0.012 }}>שוק נדל״ן</Line></div>
                 <div style={{ ...hair(W * 0.32), opacity: interpolate(f, [8, 14], [0, 1], clamp) }} />
                 <div style={shown(f, on(cta, "מצטרפים"), fps, H, 1.06)}><Line size={W * 0.066} color={palette.ink}>מצטרפים לקהילה החכמה</Line></div>
-                <div style={shown(f, on(cta, "יועצי"), fps, H, 1.06)}><Line size={W * 0.05} weight={600} color={palette.hero}>של יועצי הנדל״ן של ישראל</Line></div>
+                <div style={shown(f, on(cta, "מתווכי"), fps, H, 1.06)}><Line size={W * 0.05} weight={600} color={palette.hero}>של מתווכי הנדל״ן של ישראל</Line></div>
               </div>
               <div style={{ position: "absolute", top: H * 0.525, width: "100%", display: "flex", justifyContent: "center", gap: W * 0.035, direction: "rtl", alignItems: "flex-start" }}>
                 {verbs.map((v, i) => {
