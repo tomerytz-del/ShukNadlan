@@ -5375,6 +5375,16 @@ window.shukArmTrackers = function () {
   .bell-panel.is-leaving{animation:crmPopUp .12s var(--ease-out) forwards}
   .toast.is-leaving{animation:crmSink .15s var(--ease-out) forwards}
   @media (prefers-reduced-motion:reduce){.bell-panel.is-leaving,.toast.is-leaving{animation:crmFadeOut .1s ease forwards}}
+  /* שכבות הניווט (יצירה ומנטור) יוצאות כמו שנכנסו. ‏[hidden] כבר קבוע, ו-is-leaving מחזיר את התצוגה ל-200ms בלי לקלוט לחיצות. החיפוש אינו יוצא באנימציה */
+  @keyframes crmSheetDown{to{opacity:0;transform:translateY(28px)}}
+  /* נפתחה ב-N: בלי כניסה. נסגרת ב-Escape: בלי יציאה (kb-close: ה-JS מדלג על is-leaving) */
+  .nav-layer.kb-open .nl-panel,.nav-layer.kb-open .nl-backdrop{animation:none}
+  /* ‏[hidden] בכוונה בבורר: זה מה שמעלה את הספציפיות מעל .nav-layer[hidden]{display:none}, כך שהיציאה לא תלויה בסדר הכללים */
+  .nav-layer.is-leaving[hidden]{display:flex;pointer-events:none}
+  .nav-layer.is-leaving .nl-backdrop{animation:crmFadeOut .15s var(--ease-out) forwards}
+  .nav-layer.is-leaving .nl-panel{animation:crmSheetDown .18s var(--ease-out) forwards}
+  @media(min-width:1024px){.nav-layer.is-leaving .nl-panel{animation:crmPopUp .12s var(--ease-out) forwards}}
+  @media (prefers-reduced-motion:reduce){.nav-layer.is-leaving .nl-panel{animation:crmFadeOut .1s ease forwards}}
   @media(min-width:1024px){
     .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
     .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;

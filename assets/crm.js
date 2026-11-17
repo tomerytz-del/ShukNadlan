@@ -29394,6 +29394,7 @@ document.addEventListener('keydown', (e)=>{
       && !navOverlayOpen()){
     e.preventDefault();
     openNavLayer('create');
+    navLayerKeyboard('create');
   }
 });
 
@@ -33605,9 +33606,28 @@ document.addEventListener('keydown', (e)=>{
    ========================================================================== */
 const navLayerReturn = {};
 
+/* שכבות שיוצאות באנימציה. ‏hidden נקבע מיד, כך שכל מי שקורא את מצב השכבה
+   (‏closeNavLayers, ‏:not([hidden]), נעילת הגלילה) רואה אותה סגורה; ‏is-leaving
+   רק משאיר אותה מצוירת 200ms עם אנימציית היציאה (ה-CSS גובר על [hidden]).
+   ‏searchSheet אינו ברשימה: הוא נפתח ב-Ctrl+K ובלי תנועה. ‏leadPrefsSheet אינו
+   ברשימה: סגירתו מחזירה את התוכן למקומו, והיציאה הייתה מראה גיליון ריק. */
+const NAV_LAYER_LEAVES = new Set(['createSheet', 'coachSheet']);
+
+/* פתיחה או סגירה מהמקלדת (N, Escape) בלי תנועה: פעולה שחוזרת עשרות פעמים ביום
+   ויזומה מהמקלדת היא בדיוק מה שהסקיל animate פוטר מאנימציה. שני דגלים נפרדים, כי
+   הדרך שבה שכבה נפתחה אינה אומרת איך תיסגר: ‏kb-open (נקבע מיד אחרי הפתיחה, לפני
+   שהדפדפן מצייר) מבטל רק את הכניסה, ו-kb-close (נקבע מיד לפני הסגירה) מבטל רק את
+   היציאה. שניהם נמחקים ב-navLayerHide. החיפוש אינו צריך אותם: הוא אף פעם לא מונפש */
+function navLayerKeyboard(layer, closing){
+  const el = document.getElementById(layer === 'create' ? 'createSheet' : 'coachSheet');
+  if (el) el.classList.add(closing ? 'kb-close' : 'kb-open');
+}
+
 function navLayerShow(id, layer, focusSel){
   const el = document.getElementById(id);
   if (!el) return null;
+  // החלפת שכבה היא החלפה מיידית: שכבה שעוד יוצאת נעלמת ולא נערמת מתחת לחדשה
+  document.querySelectorAll('.nav-layer.is-leaving').forEach(l => { cancelLeave(l); l.inert = false; });
   navLayerReturn[id] = document.activeElement;
   el.hidden = false;
   document.body.classList.add('nav-layer-open');
@@ -33623,6 +33643,12 @@ function navLayerHide(id, layer){
   const el = document.getElementById(id);
   if (!el || el.hidden) return;
   el.hidden = true;
+  const instant = el.classList.contains('kb-close');
+  el.classList.remove('kb-open', 'kb-close');
+  if (!instant && NAV_LAYER_LEAVES.has(id)){
+    el.inert = true;
+    leaveAnimated(el, () => { el.inert = false; });
+  }
   if (!document.querySelector('.nav-layer:not([hidden])')) document.body.classList.remove('nav-layer-open');
   if (navLayer === layer) setNavLayer(null);
   const back = navLayerReturn[id];
@@ -33644,11 +33670,11 @@ document.addEventListener('click', async (e)=>{
 
 document.addEventListener('keydown', async (e)=>{
   if (e.key !== 'Escape') return;
-  if (navLayer === 'create'){ closeCreateSheet(); e.preventDefault(); }
+  if (navLayer === 'create'){ navLayerKeyboard('create', true); closeCreateSheet(); e.preventDefault(); }
   else if (navLayer === 'search'){ closeSearch(); e.preventDefault(); }
   else if (navLayer === 'coach'){
     if (window.crmNeed) { try { await crmNeed('coach'); } catch (err) {} }
-    if (typeof closeCoachLayer === 'function') closeCoachLayer();
+    if (typeof closeCoachLayer === 'function'){ navLayerKeyboard('coach', true); closeCoachLayer(); }
     e.preventDefault();
   }
 });
