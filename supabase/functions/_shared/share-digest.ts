@@ -124,6 +124,16 @@ export function textBodyHead(first: string | null, items: { type: string }[]): s
   return who ? `${who}, ${head}` : head;
 }
 
+/** רווח בין נכסים כשההודעה כולה שיתופים. שורה אחת נשארת כמו שהיא. */
+export function separateShareEntries(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    if (out.length) out.push("");
+    out.push(line);
+  }
+  return out;
+}
+
 /**
  * שורת פריט אחת ב-textBody. בסיכום שיתופים בלבד הבית והשורה השנייה.
  * באצווה מעורבת אותו משפט, עם הקדמה כדי שיהיה ברור שזה שיתוף.
