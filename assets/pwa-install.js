@@ -69,13 +69,31 @@
   /* האפליקציה מהחנות כבר מותקנת. רצועת "הוספה למסך הבית" לא שייכת שם,
      וגם אין לספור את הביקור כמו ביקור בדפדפן. סוכן המשתמש הזה קיים רק
      ב-WebView (capacitor.config.js), לא בכרום. */
-  if (/ShukNadlanApp/i.test(navigator.userAgent || '')) {
+  if (/ShukNadlanApp/i.test(navigator.userAgent || '')
+      || window.ShukNadlanApp || window.__SHUK_NATIVE_BRIDGE__) {
     function hideInstallEntries() {
       var nodes = document.querySelectorAll('[data-pwa-install]');
       for (var i = 0; i < nodes.length; i++) nodes[i].hidden = true;
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideInstallEntries);
-    else hideInstallEntries();
+    /* הסרגל והסתרת הרכישה בקורס חיים ב-native-app.js, ורק כאן.
+       בדפדפן הבלוק הזה לא רץ, והקובץ לא יורד. */
+    function bootNativeApp() {
+      if (window.__SHUK_NATIVE_APP__ || window.__SHUK_NATIVE_APP_LOADING__) return;
+      window.__SHUK_NATIVE_APP_LOADING__ = true;
+      var s = document.createElement('script');
+      s.src = '/assets/native-app.js';
+      s.async = false;
+      document.head.appendChild(s);
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        hideInstallEntries();
+        bootNativeApp();
+      });
+    } else {
+      hideInstallEntries();
+      bootNativeApp();
+    }
     return;
   }
 

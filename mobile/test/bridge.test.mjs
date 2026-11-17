@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import bridge from '../www/native-bridge.js';
 
-const { AUTH_CALLBACK, OAUTH_CANCELLED, OAUTH_FAILED, PAY_NOTE, SITE_ORIGIN, authReturnUrl, clickedHref, isAuthCallback, isExternalUrl, isPurchaseUrl, rewriteAuthorizeUrl } = bridge;
+const { AUTH_CALLBACK, OAUTH_CANCELLED, OAUTH_FAILED, PAY_NOTE, SITE_ORIGIN, authReturnUrl, clickedHref, isAuthCallback, isExternalUrl, isPurchaseUrl, rewriteAuthorizeUrl, staysInAppUrl } = bridge;
 
 test('oauth authorize url is rewritten to the app callback', () => {
   const raw = 'https://obookujgolazrwycsiyn.supabase.co/auth/v1/authorize?provider=google&redirect_to='
@@ -84,6 +84,12 @@ test('pricing, checkout and morning are purchases, the catalog is not', () => {
   assert.equal(isPurchaseUrl('https://api.sandbox.morning.dev/x'), true);
   assert.equal(isPurchaseUrl('https://shuknadlan.co.il/prices'), false);
   assert.equal(isPurchaseUrl('https://shuknadlan.co.il/property?id=9'), false);
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/course'), false);
+  assert.equal(isPurchaseUrl('https://shuknadlan.co.il/learn'), false);
+  assert.equal(isExternalUrl('https://shuknadlan.co.il/course'), false);
+  assert.equal(staysInAppUrl('https://shuknadlan.co.il/course'), true);
+  assert.equal(staysInAppUrl('/learn?order=success'), true);
+  assert.equal(staysInAppUrl('https://www.facebook.com/share/x'), false);
   assert.equal(isPurchaseUrl('https://wa.me/972532494740'), false);
   assert.equal(isPurchaseUrl('https://localhost/purchase-note.html'), false);
   assert.equal(PAY_NOTE, 'ניהול המנוי מתבצע באתר');
@@ -124,7 +130,7 @@ test('plan cards follow the live catalog and leave out prices', () => {
   assert.equal(blob.includes('₪'), false);
   assert.equal(blob.includes('@'), false);
   assert.equal(blob.includes('הצטרפות'), false);
-  assert.equal(model.offer.headline, 'חודשיים Elite במתנה');
+  assert.equal(model.offer.headline, 'חודשיים Elite ללא תשלום');
   assert.match(model.offer.sub, /בלי תשלום ובלי כרטיס אשראי/);
   assert.equal(model.cards.length, 3);
   assert.equal(model.cards[0].heading, 'מה כלול');
@@ -150,6 +156,45 @@ test('retry url stays on the site and skips the shell pages', () => {
   assert.equal(bridge.safeSiteRetry('http://shuknadlan.co.il/crm'), '');
   assert.equal(bridge.safeSiteRetry('https://shuknadlan.co.il/offline.html'), '');
   assert.equal(bridge.safeSiteRetry('https://notshuknadlan.co.il/crm'), '');
+});
+
+test('window.open() and window.open("") stay on the current page', () => {
+  const assigned = [];
+  const opened = [];
+  const win = {
+    open(url) { opened.push(url); return { closed: false }; },
+    location: {
+      href: 'https://shuknadlan.co.il/course',
+      pathname: '/course',
+      search: '',
+      hash: '',
+      assign(url) { assigned.push(url); },
+      replace() {},
+    },
+    document: {
+      readyState: 'complete',
+      documentElement: { style: {} },
+      addEventListener() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+      getElementById() { return null; },
+      createElement() {
+        return { style: {}, setAttribute() {}, appendChild() {}, addEventListener() {} };
+      },
+    },
+    navigator: {},
+    sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    localStorage: { getItem() { return null; }, setItem() {} },
+    history: { replaceState() {}, state: null },
+    setTimeout() { return 0; },
+    addEventListener() {},
+  };
+  bridge.install(win);
+  assert.deepEqual(win.open(), { closed: false });
+  assert.deepEqual(win.open(''), { closed: false });
+  assert.equal(win.open('https://shuknadlan.co.il/learn'), null);
+  assert.deepEqual(assigned, ['https://shuknadlan.co.il/learn']);
+  assert.deepEqual(opened, [undefined, '']);
 });
 
 test('callback cannot send the webview to another origin', () => {

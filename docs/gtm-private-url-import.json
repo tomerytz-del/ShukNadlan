@@ -1,0 +1,88 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2026-11-16 12:00:00",
+  "containerVersion": {
+    "path": "accounts/0/containers/0/versions/0",
+    "accountId": "0",
+    "containerId": "0",
+    "containerVersionId": "0",
+    "name": "כתובת דף בלי פרמטרים בדפים פרטיים",
+    "description": "ייבוא חלקי: משתנה אחד. ראו docs/analytics-user-data.md, סעיף 'כתובות פרטיות ב-GA4'.",
+    "fingerprint": "0",
+    "container": {
+      "path": "accounts/0/containers/0",
+      "accountId": "0",
+      "containerId": "0",
+      "name": "shuknadlan.co.il",
+      "publicId": "GTM-NZHD7ZHT",
+      "usageContext": [
+        "WEB"
+      ],
+      "fingerprint": "0"
+    },
+    "variable": [
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "variableId": "200",
+        "name": "Page URL - private pages without query",
+        "type": "remm",
+        "fingerprint": "0",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "input",
+            "value": "{{Page Path}}"
+          },
+          {
+            "type": "LIST",
+            "key": "map",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "key",
+                    "value": "^/(crm|developer-crm|professional-manage|professional-crm|csm|sign|review-request|showcase|meeting|plan|cma|owner-report|learn|go|m)(\\.html)?(/.*)?$"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "https://{{Page Hostname}}{{Page Path}}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "fullMatch",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "replaceAfterMatch",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "ignoreCase",
+            "value": "true"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "defaultValue",
+            "value": "{{Page URL}}"
+          }
+        ],
+        "formatValue": {}
+      }
+    ]
+  }
+}

@@ -30,6 +30,15 @@
   var LETTERS = ['א', 'ב', 'ג', 'ד'];
   var EXAM_SECONDS = 2 * 60 * 60;   // שעתיים, כמו בבחינה
 
+  /* באפליקציית החנות אין מסך תשלום (Apple 3.1.1). בדפדפן אין את הסימן. */
+  function inNativeApp() {
+    try {
+      if (/ShukNadlanApp/i.test(navigator.userAgent || '')) return true;
+      if (window.ShukNadlanApp || window.__SHUK_NATIVE_BRIDGE__) return true;
+    } catch (e) {}
+    return false;
+  }
+
   var PRAISE = ['בדיוק.', 'נכון.', 'יפה.', 'מצוין.'];
   var PRAISE_SUB = ['ככה חושבים על זה.', 'שמתם לב למילה שהכריעה?', 'זו שאלה שהרבה נופלים בה.', 'הסעיף הזה יחזור בבחינה.'];
   var CONSOLE_T = ['כמעט', 'לא הפעם', 'קרוב'];
@@ -370,7 +379,9 @@
       '<div class="center"><div class="card">' +
       '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>נכנסים עם חשבון Google, וממשיכים מאיפה שעצרתם, מכל מכשיר.</div></div>' +
       '<h2>כניסה לקורס ההכנה</h2>' +
-      '<p>השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לארבעה חודשים ב-450 ₪ כולל מע״מ.</p>' +
+      '<p>' + (inNativeApp()
+        ? 'נכנסים עם חשבון Google וממשיכים מאיפה שעצרתם. השיעורים הראשונים פתוחים.'
+        : 'השיעור הראשון פתוח בחינם. אחרי הכניסה אפשר לרכוש גישה מלאה לארבעה חודשים ב-450 ₪ כולל מע״מ.') + '</p>' +
       '<button type="button" class="gbtn" id="googleBtn">' + I.google + '<span class="gl-label">כניסה עם Google</span></button>' +
       '<div class="err" id="loginErr">' + escapeHtml(err || '') + '</div>' +
       '<p style="font-size:13.5px"><a href="/course">חזרה לדף הקורס</a></p>' +
@@ -527,8 +538,21 @@
       } else if (st === 'failed' || tries > 20) clearInterval(state.pollTimer2);
     }, 3000);
   }
+  function renderNativeAccess() {
+    render(band({ title: 'קורס ההכנה למבחן המתווכים', exit: 'map', cls: 'tall' }) +
+      '<div class="center"><div class="card">' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעורים הפתוחים נשארים כאן. גישה מלאה מוצגת למי שכבר רשום לקורס.</div></div>' +
+      '<h2>הקורס באפליקציה</h2>' +
+      '<p>אפשר לעיין בפרקים וללמוד את השיעורים הפתוחים. מי שכבר רשום לקורס רואה את המסלול המלא אחרי הכניסה.</p>' +
+      '<button type="button" class="btn-p" id="backMap">למפת הקורס</button>' +
+      '<p style="font-size:13.5px"><a href="/course">חזרה לדף הקורס</a></p>' +
+      '</div></div>');
+    bindBand();
+    on('backMap', 'click', renderMap);
+  }
   async function renderPay(opts) {
     opts = opts || {};
+    if (inNativeApp()) { renderNativeAccess(); return; }
     var expired = state.me && state.me.expired;
     // הארכה (₪99) רק למי שמציעים לו/ה אותה; כל מקרה אחר הוא הרכישה המלאה
     var ext = !!(state.offer && opts.kind !== 'full');
@@ -586,6 +610,7 @@
   }
   async function submitPay(ev) {
     ev.preventDefault();
+    if (inNativeApp()) return;
     $('payErr').textContent = '';
     if (!$('payTerms').checked) { $('payErr').textContent = 'כדי להמשיך צריך לאשר את התקנון.'; return; }
     var name = $('payName').value.trim();
@@ -689,11 +714,14 @@
         '<span><b>' + label + escapeHtml(c.title) + '</b><span class="sub">' + n + ' ' + (n === 1 ? 'שיעור' : 'שיעורים') + ' להשלמה</span></span></button>';
     }
     var primary;
-    if (lockedNext) primary = '<button type="button" class="btn-p" id="wnBuy">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>';
+    if (lockedNext && !inNativeApp()) primary = '<button type="button" class="btn-p" id="wnBuy">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>';
+    else if (lockedNext) primary = '<p style="text-align:center;margin:0">הפרקים הבאים נפתחים עם הגישה המלאה לקורס.</p>';
     else if (rec != null) primary = '<button type="button" class="btn-p" data-ch="' + rec + '">הפרק הבא: ' + escapeHtml(chapters[rec].title) + '</button>';
     else primary = '<button type="button" class="btn-p" id="wnExam">לסימולציית בחינה</button>';
     var msg = lockedNext
-      ? 'סיימתם את החלק החינמי. הפרקים הבאים נפתחים עם הגישה המלאה, ואפשר להמשיך מאותו מקום.'
+      ? (inNativeApp()
+        ? 'סיימתם את השיעורים הפתוחים. הפרקים הבאים נפתחים עם הגישה המלאה, ואפשר להמשיך מאותו מקום.'
+        : 'סיימתם את החלק החינמי. הפרקים הבאים נפתחים עם הגישה המלאה, ואפשר להמשיך מאותו מקום.')
       : (rec == null ? (chComplete ? 'סיימתם את כל השיעורים. עכשיו הזמן לתרגל: סימולציה וחזרה על הטעויות.' : 'נשארו כמה שיעורים בפרק הזה. אפשר להשלים אותם, או לעבור לתרגול.') : (chComplete ? 'סיימתם את הפרק. הפרק הבא מחכה, אבל אתם בוחרים.' : 'אפשר להשלים את מה שנשאר בפרק, או להמשיך לפרק הבא. אתם בוחרים.'));
     render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
       '<div class="center wl"><div class="card">' +
@@ -788,7 +816,7 @@
       '<span class="wl-reply">' + escapeHtml(WELCOME_REPLIES[choice] || WELCOME_REPLIES.zero) + '</span></span></div></div>' +
       '<ul class="wl-plan">' +
       '<li><span class="mk done">' + tick + '</span><span>נכנסתם. הצעד הראשון כבר מאחוריכם.</span></li>' +
-      '<li><span class="mk">1</span><span>' + (enrolled() ? 'השיעור הראשון' : 'שיעור ראשון, בחינם') + (entry ? ': ' + escapeHtml(entry.lesson.title) : '') + '</span></li>' +
+      '<li><span class="mk">1</span><span>' + (enrolled() ? 'השיעור הראשון' : (inNativeApp() ? 'השיעורים הראשונים' : 'שיעור ראשון, בחינם')) + (entry ? ': ' + escapeHtml(entry.lesson.title) : '') + '</span></li>' +
       '<li><span class="mk">2</span><span>שאלה קצרה בסוף כל שיעור, ובחלק מהשיעורים סרטון אנימציה אינטראקטיבי</span></li>' +
       '</ul>' +
       (need ? '<div class="wl-fact">הבחינה היא ' + q + ' שאלות, ומספיקות ' + need + ' תשובות נכונות כדי לעבור. זה אפשרי, ובדיוק על זה נתאמן.</div>' : '') +
@@ -796,9 +824,9 @@
       '<button type="button" class="btn-p" id="wlStart">מתחילים בשיעור הראשון</button>' +
       (enrolled()
         ? '<button type="button" class="btn-s" id="wlMap">למפת הקורס</button>'
-        : '<button type="button" class="btn-s" id="wlBuy">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>') +
+        : (inNativeApp() ? '' : '<button type="button" class="btn-s" id="wlBuy">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>')) +
       '<button type="button" class="wl-skip" id="wlBack">שינוי התשובה</button>' +
-      '<p style="font-size:13px;text-align:center;margin:0">' + (enrolled() ? '' : 'אפשר לשלם עד 3 תשלומים שווים של 150 ₪ ללא ריבית. הסכום הכולל נשאר 450 ₪ כולל מע״מ. ') + 'ההתקדמות נשמרת, ואפשר לעצור ולחזור מתי שנוח.</p>' +
+      '<p style="font-size:13px;text-align:center;margin:0">' + (enrolled() || inNativeApp() ? '' : 'אפשר לשלם עד 3 תשלומים שווים של 150 ₪ ללא ריבית. הסכום הכולל נשאר 450 ₪ כולל מע״מ. ') + 'ההתקדמות נשמרת, ואפשר לעצור ולחזור מתי שנוח.</p>' +
       '</div></div></div>');
     bindBand();
     on('wlStart', 'click', function () { markWelcomeSeen(choice); if (firstId) openLesson(firstId); else renderMap(); });
@@ -819,9 +847,10 @@
       '<div class="title-row"><h1>המסלול שלך</h1><span class="count">' + done + ' מתוך ' + total + ' שיעורים</span></div>' +
       '<div class="map-track" role="progressbar" aria-label="התקדמות בקורס" aria-valuenow="' + done + '" aria-valuemin="0" aria-valuemax="' + total + '"><i style="width:' + (total ? Math.round(100 * done / total) : 0) + '%"></i></div>' +
       '<div class="mline"><img src="' + MENTOR + '" alt="המנטור"><p>' + escapeHtml(pick(MAP_TIPS)) + '</p></div>' +
-      (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '. <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה: עוד ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪ כולל מע״מ</button></p></div>' : '') +
-      // מי שעוד לא רכש/ה: השיעורים הראשונים פתוחים, והדרך לרכישה גלויה מהמפה (ולא רק מנעילת שיעור)
-      (!enrolled() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button></p></div>' : '') +
+      (state.offer ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>הגישה מסתיימת ב-' + escapeHtml(fmtDate(state.offer.expires_at)) + '.' + (inNativeApp() ? '' : ' <button type="button" class="btn-s" id="extBtn" style="width:auto;display:inline-block">הארכה: עוד ארבעה חודשים ב-' + escapeHtml(String(state.offer.amount)) + ' ₪ כולל מע״מ</button>') + '</p></div>' : '') +
+      // מי שעוד לא רכש/ה: השיעורים הראשונים פתוחים, והדרך לרכישה גלויה מהמפה (ולא רק מנעילת שיעור).
+      // באפליקציה אין כפתור רכישה ואין מחיר.
+      (!enrolled() && !inNativeApp() ? '<div class="mline"><img src="' + MENTOR + '" alt=""><p>השיעורים הראשונים פתוחים בחינם. <button type="button" class="btn-p" id="buyBtn" style="width:auto;display:inline-block">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button></p></div>' : '') +
       '</div>';
 
     var chapters = (state.catalog.chapters || []);
@@ -884,13 +913,15 @@
   function renderLocked(entry) {
     render(band({ title: 'שוק נדל״ן', exit: 'map', cls: 'tall' }) +
       '<div class="center"><div class="card">' +
-      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>השיעור הזה נפתח עם הגישה המלאה. ארבעה חודשים ב-450 ₪ כולל מע״מ, בתשלום אחד או ב-3 תשלומים שווים של 150 ₪ ללא ריבית. מה שכבר למדתם נשמר.</div></div>' +
+      '<div class="mrow"><img src="' + MENTOR + '" alt=""><div class="bubble"><b>המנטור</b><br>' + (inNativeApp()
+        ? 'השיעור הזה נפתח עם הגישה המלאה לקורס. מה שכבר למדתם נשמר.'
+        : 'השיעור הזה נפתח עם הגישה המלאה. ארבעה חודשים ב-450 ₪ כולל מע״מ, בתשלום אחד או ב-3 תשלומים שווים של 150 ₪ ללא ריבית. מה שכבר למדתם נשמר.') + '</div></div>' +
       '<h2>' + escapeHtml(entry.lesson.title) + '</h2>' +
-      '<p>גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.</p>' +
-      '<button type="button" class="btn-p" id="goPay">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>' +
+      (inNativeApp() ? '' : '<p>גישה מלאה לקורס: כל השיעורים, מבחני העבר, הסימולציות וחזרה על טעויות.</p>') +
+      (inNativeApp() ? '' : '<button type="button" class="btn-p" id="goPay">לפתיחת הקורס המלא לארבעה חודשים ב-450 ₪ כולל מע״מ</button>') +
       '<button type="button" class="btn-s" id="backMap">למפת הקורס</button></div></div>');
     bindBand();
-    on('goPay', 'click', function () { renderPay(); });
+    if (!inNativeApp()) on('goPay', 'click', function () { renderPay(); });
     on('backMap', 'click', renderMap);
   }
 

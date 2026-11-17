@@ -11,6 +11,10 @@
  * יכול/ה לייבא באמצע את אותו קובץ. לכן הקליטה בונה את המצב מחדש (מי כבר
  * במשרד, מה כבר אצלי) ולא סומכת על הסיכום.
  *
+ * שורה בלי סוג עסקה לא פוסלת את הקובץ. התקינות נקלטו, והיא נשמרת עד
+ * בחירה מפורשת (הכל למכירה / הכל להשכרה / לפי שורה). אין ניחוש ואין
+ * ברירת מחדל. "הכל" ממלא רק תאים ריקים. שורה שדילגו עליה לא נכנסת.
+ *
  * מה שהאשף עושה ו**לא** כאן:
  *   • רחוב שאינו ברשימת הרחובות נשמר כפי שהוקלד, בלי אזהרה (באשף יש
  *     אזהרה ותיקון ידני). רחוב שכן ברשימה, בכתיב אחר, נשמר בכתיב הרשמי -
@@ -28,6 +32,29 @@ import "../_shared/property-import-core.js";
 import { SearchCore } from "./property-search.ts";
 import { FEATURE_LABELS } from "../_shared/marketing-copy.ts";
 import { decodeText } from "./media-intake.ts";
+import {
+  applyDealText,
+  awaitingRows,
+  choiceOverrides,
+  dealAskBody,
+  dealButtons,
+  emptyHold,
+  fillEmptyDeals,
+  holdExpired,
+  holdExpiry,
+  importSummary,
+  parseDealButtonId,
+  perRowBody,
+  readHold,
+  rejectionWhy,
+  snapshotHeld,
+  isEmptyDealOnly,
+  type DealHold,
+  type ImportDealAction,
+} from "./property-import-deal.ts";
+
+export type { ImportDealAction };
+export { parseDealButtonId };
 
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
@@ -242,19 +269,44 @@ function guessDetails(parsed: Row[]): Row[] {
   }).filter((g) => g.count);
 }
 
-/** הסיכום שגבריאלה מקבלת - מספרים וסיבות, בלי שורות הקובץ עצמן */
-function summaryLines(sum: Row, parsed: Row[]): string[] {
+/** הסיכום שגבריאלה מקבלת - מספרים וסיבות, בלי שורות הקובץ עצמן.
+ *  שורה שהשדה היחיד שחסר בה הוא סוג עסקה אינה "הקובץ נפסל": היא נשמרת
+ *  ונשאלת. אין כאן ניחוש לפי מחיר. */
+function summaryLines(_sum: Row, parsed: Row[]): string[] {
+  const split = splitRows(parsed);
+  const count = (rows: Row[], mode: string) => rows.filter((r) => (r.mode || "insert") === mode).length;
   const lines = [
-    `${sum.total} שורות: ${sum.insert} חדשים, ${sum.update} כבר אצל הסוכן/ת ויעודכנו, ` +
-      `${sum.same} כבר אצלו/ה בלי שינוי, ${sum.rejected} ייפסלו.`,
+    `${parsed.length} שורות: ${count(split.ready, "insert")} חדשים מוכנים, ` +
+      `${count(split.ready, "update")} כבר אצל הסוכן/ת ויעודכנו, ` +
+      `${count(split.ready, "same")} כבר אצלו/ה בלי שינוי, ` +
+      `${split.hold.length} בלי סוג עסקה (נשמרות ונשאלות, לא פוסלות את הקובץ), ` +
+      `${split.rejected.length} ייפסלו מסיבה אחרת.`,
   ];
+  if (split.hold.length) {
+    const sample = split.hold.slice(0, 3).map((r) => {
+      const where = snapshotHeld(r).address;
+      return `שורה ${r.rowNumber}${where ? " " + where : ""}`;
+    });
+    lines.push(
+      `בלי סוג עסקה: ${sample.join("; ")}${split.hold.length > 3 ? "…" : ""}. ` +
+        `אין לנחש מכירה או השכרה, גם לא לפי מחיר.`,
+    );
+  }
   const guesses = guessDetails(parsed);
   if (guesses.length) {
     lines.push(`ניחושים שמחכים לאישור הסוכן/ת - בלי אישור, השורות האלה לא ייקלטו:`);
     guesses.forEach((g) => lines.push(`• ${g.kind} - ${g.count} שורות: ${g.label}. לדוגמה: ${g.examples.join("; ")}`));
   }
-  sum.reasons.slice(0, 5).forEach((r: Row) => lines.push(`נפסלו ${r.count}: ${clip(r.reason, 200)}`));
-  const noImages = parsed.filter((r) => !r.errors.length && r.mode === "insert" && !r.payload?.images?.length).length;
+  const reasons = new Map<string, number>();
+  for (const r of split.rejected) {
+    for (const e of r.errors || []) {
+      const k = String(e).split(". לתיקון: ")[0].replace(/"[^"]*"/g, '"…"');
+      reasons.set(k, (reasons.get(k) || 0) + 1);
+    }
+  }
+  [...reasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .forEach(([reason, n]) => lines.push(`נפסלו ${n}: ${clip(reason, 200)}`));
+  const noImages = split.ready.filter((r) => r.mode === "insert" && !r.payload?.images?.length).length;
   if (noImages) lines.push(`${noImages} נכסים חדשים בלי תמונות (בקובץ של יד2 אין תמונות) - צריך להעלות אחר כך.`);
   return lines;
 }
@@ -299,6 +351,12 @@ export async function prepareImportJob(
         ? [`לפני הקליטה לשאול על כל סוג ניחוש בנפרד אם לאשר (עם המספר והדוגמאות), ולהעביר ב-accept_guesses ` +
           `את הסוגים שאושרו בלבד ([] אם אף אחד). "כן" כללי לקליטה אינו אישור של הניחושים.`]
         : []),
+      ...(splitRows(parsed).hold.length
+        ? [`שורות בלי סוג עסקה לא פוסלות את הקובץ. אחרי אישור - import_properties_file. ` +
+          `המערכת שואלת בכפתורים: הכל למכירה, הכל להשכרה, לפי שורה. ` +
+          `אין למלא סוג עסקה לבד, גם לא לפי מחיר. "הכל" חל רק על תאים ריקים. ` +
+          `לפי שורה: מספר שורה או כתובת, או דילוג. שורה שדילגו עליה לא נכנסת.`]
+        : []),
       `[סוף ייבוא נכסים]`,
     ].join("\n");
   } catch (err) {
@@ -328,6 +386,70 @@ async function insertRows(supabase: SupabaseClient, rows: Row[], failed: Row[]):
   return inserted;
 }
 
+const JOB_COLS_OLD = "id, agent_id, status, created_at, headers, rows, file_name, result";
+const JOB_COLS = JOB_COLS_OLD + ", deal_hold";
+
+function missingDealColumn(error: { message?: string } | null): boolean {
+  return /deal_hold/.test(error?.message || "");
+}
+
+/** העמודה נוספת במיגרציה. עד שהיא רצה, השאילתה בלי העמודה והשמירה בלי השדה. */
+async function loadImportJob(supabase: SupabaseClient, agentId: string, jobId: string): Promise<
+  { job: Row; columnMissing: boolean } | { error: Row }
+> {
+  let columnMissing = false;
+  let res = await supabase.from("property_import_jobs").select(JOB_COLS)
+    .eq("id", jobId).eq("agent_id", agentId).maybeSingle();
+  if (res.error && missingDealColumn(res.error)) {
+    columnMissing = true;
+    res = await supabase.from("property_import_jobs").select(JOB_COLS_OLD)
+      .eq("id", jobId).eq("agent_id", agentId).maybeSingle();
+  }
+  if (res.error || !res.data) return { error: { ok: false, error: "לא מצאתי את הקובץ הזה. אפשר לשלוח את הקובץ שוב?" } };
+  return { job: res.data, columnMissing };
+}
+
+function holdOf(job: Row): DealHold | null {
+  return readHold(job.deal_hold) || readHold(job.result?.deal_hold);
+}
+
+/** שומר את הטיפוס של השורה המלאה. splitImportRows מצמצם ל-ParsedLike. */
+function splitRows(rows: Row[]): { ready: Row[]; hold: Row[]; rejected: Row[] } {
+  const ready: Row[] = [];
+  const hold: Row[] = [];
+  const rejected: Row[] = [];
+  for (const row of rows) {
+    if (!row.errors?.length) ready.push(row);
+    else if (isEmptyDealOnly(row)) hold.push(row);
+    else rejected.push(row);
+  }
+  return { ready, hold, rejected };
+}
+
+async function saveImportJob(supabase: SupabaseClient, jobId: string, patch: Row): Promise<boolean> {
+  const { error } = await supabase.from("property_import_jobs").update(patch).eq("id", jobId);
+  if (error && missingDealColumn(error) && "deal_hold" in patch) {
+    const rest = { ...patch };
+    delete rest.deal_hold;
+    const again = await supabase.from("property_import_jobs").update(rest).eq("id", jobId);
+    return !again.error;
+  }
+  if (error) console.error("import job save failed", error.message);
+  return !error;
+}
+
+function rememberSkip(hold: DealHold, row: number, why: string) {
+  if (!hold.skipped.includes(row)) hold.skipped.push(row);
+  delete hold.choices[String(row)];
+  if (!hold.skipped_reasons.some((s) => s.row === row)) hold.skipped_reasons.push({ row, why });
+}
+
+function doneNumbers(hold: DealHold): Set<number> {
+  return new Set([...hold.inserted, ...hold.updated, ...hold.unchanged]);
+}
+
+const SKIP_WHY = new Set(["ביקשת לדלג", "לא נבחר סוג עסקה", "עבר יום בלי בחירה"]);
+
 /**
  * הקליטה עצמה, אחרי אישור. ‏geocode: הפין של create_property (agent.ts) - כדי
  * ששכונה מכינוי ("שכון עובדים") תוכרע לפי הכתובת כשיש כתובת מלאה.
@@ -335,6 +457,9 @@ async function insertRows(supabase: SupabaseClient, rows: Row[], failed: Row[]):
  * מחוץ לשאלת הפרסום של create_property. הסטטוס מגיע מהקובץ, ובלי עמודה
  * הליבה כותבת active - אותו דבר באשף. הסוכן/ת כבר אישר/ה את הקובץ.
  * מודעה של משרד אחר עדיין נחסמת בטריגר במעבר ל-active.
+ *
+ * שורה שחסר בה רק סוג עסקה לא פוסלת את הקובץ: התקינות נקלטו, והיא נשמרת
+ * ב-deal_hold עד בחירה מפורשת. אין ניחוש.
  */
 export async function runImportJob(
   supabase: SupabaseClient,
@@ -343,53 +468,120 @@ export async function runImportJob(
   geocode: (city: string, street: string, house: string) => Promise<{ lat: number; lng: number } | null>,
   /** סוגי הניחוש שהסוכן/ת אישר/ה (‏GUESS_KINDS). ‏undefined - עוד לא נשאל/ה. */
   acceptGuesses?: string[] | null,
+  action?: ImportDealAction,
 ): Promise<Row> {
   if (!agent.agency_id) return { ok: false, error: "לסוכן/ת אין משרד משויך - צריך להשלים הרשמה בדשבורד." };
-  const { data: job } = await supabase.from("property_import_jobs")
-    .select("id, agent_id, status, created_at, headers, rows, file_name")
-    .eq("id", jobId).eq("agent_id", agent.id).maybeSingle();
-  if (!job) return { ok: false, error: "לא מצאתי את הקובץ הזה. אפשר לשלוח אותו שוב?" };
+  const loaded = await loadImportJob(supabase, agent.id, jobId);
+  if ("error" in loaded) return loaded.error;
+  const { job, columnMissing } = loaded;
   if (job.status === "done") return { ok: false, error: "הקובץ הזה כבר נקלט. כדי לעדכן - לשלוח אותו שוב." };
   if (Date.now() - new Date(job.created_at).getTime() > JOB_TTL_MS) {
-    return { ok: false, error: "עבר יותר מיום מאז שהקובץ נשלח, והמצב במשרד אולי השתנה. אפשר לשלוח אותו שוב?" };
+    return { ok: false, error: "עבר יותר מיום מאז שהקובץ נשלח, והמצב במשרד אולי השתנה. אפשר לשלוח את הקובץ שוב?" };
   }
-  // נעילה: שני "כן" ברצף לא יקלטו את הקובץ פעמיים
   const { data: locked } = await supabase.from("property_import_jobs")
     .update({ status: "running" }).eq("id", job.id).in("status", ["pending", "failed"]).select("id");
   if (!locked?.length) return { ok: false, error: "הקובץ הזה כבר בקליטה." };
 
+  const backTo = (patch: Row) => saveImportJob(supabase, job.id, patch);
+
   try {
+    let hold = holdOf(job);
+    const hadHold = !!hold;
+    if (hold && holdExpired(hold)) {
+      for (const row of awaitingRows(hold)) rememberSkip(hold, row.row, "עבר יום בלי בחירה");
+      const summary = importSummary({
+        inserted: hold.inserted.length, updated: hold.updated.length, unchanged: hold.unchanged.length,
+        skipped: hold.skipped_reasons,
+      });
+      await backTo({ status: "done", deal_hold: null, result: { summary }, finished_at: new Date().toISOString() });
+      return {
+        ok: false,
+        error: `${summary}\nעבר יותר מיום בלי בחירה, והשורות בלי סוג עסקה לא נקלטו. אפשר לשלוח את הקובץ שוב.`,
+      };
+    }
+    if (action && !hold) {
+      await backTo({ status: "pending" });
+      return { ok: false, error: "אין כרגע שורות שממתינות לסוג עסקה. אפשר לשלוח את הקובץ שוב?" };
+    }
+    if (action && columnMissing) {
+      await backTo({ status: "pending" });
+      return { ok: false, error: "עוד אי אפשר לשמור את הבחירה. אפשר לשלוח את הקובץ שוב בעוד כמה דקות." };
+    }
+
+    let clarify = "";
+    let perRow = action?.type === "per_row";
+    if (hold && action?.type === "all") hold = fillEmptyDeals(hold, action.deal);
+    if (hold && action?.type === "reply") {
+      const applied = applyDealText(hold, action.text);
+      if (!applied) {
+        await backTo({ status: "pending", deal_hold: hold, result: { deal_hold: hold } });
+        return { ok: false, error: "לא הבנתי את הבחירה. אפשר: הכל למכירה, הכל להשכרה, או שורה 3 מכירה." };
+      }
+      hold = applied.hold;
+      if (applied.perRow) perRow = true;
+      if (!applied.changed && applied.clarify && !applied.perRow) {
+        await backTo({ status: "pending", deal_hold: hold, result: { deal_hold: hold } });
+        return { ok: true, needs_deal: true, send_buttons: false, ask_body: applied.clarify, summary: applied.clarify };
+      }
+      clarify = applied.clarify || "";
+    }
+
     const S = await buildState(supabase, agent.id, agent.agency_id, job.headers, job.rows);
+    S.overrides = choiceOverrides(hold);
     const parsed: Row[] = PIC.parseAll(S);
     const guesses = guessDetails(parsed);
-    if (guesses.length && !Array.isArray(acceptGuesses)) {
-      // עוד לא נשאל/ה: לא קולטים כלום, והקובץ חוזר להמתנה
-      await supabase.from("property_import_jobs").update({ status: "pending" }).eq("id", job.id);
+    const decided = Array.isArray(acceptGuesses) ? acceptGuesses : (hold ? hold.accepted_guesses : undefined);
+    if (guesses.length && !Array.isArray(decided)) {
+      await backTo({ status: "pending", ...(hold ? { deal_hold: hold } : {}) });
       return {
         ok: false, needs_confirmation: true, guesses,
         error: "יש בקובץ ניחושים שהסוכן/ת עוד לא אישר/ה. לשאול על כל סוג (עם המספר והדוגמאות), " +
-          "ואז לקרוא שוב עם accept_guesses - הסוגים שאושרו, או [] אם אף אחד.",
+          "ואז לקרוא שוב עם accept_guesses - הסוגים שאושרו, או [] אם אף אחד. " +
+          "שורות בלי סוג עסקה אינן ניחוש, ואין למלא אותן לבד.",
       };
     }
-    const accepted = new Set((acceptGuesses || []).filter((k) => k in GUESS_KINDS));
-    // שורה עם ניחוש שלא אושר נשארת בחוץ - לתיקון באשף, כמו שורה שנפסלה
-    const held: Row[] = [];
-    const ready = parsed.filter((r) => {
-      if (r.errors.length) return false;
+    const accepted = new Set((decided || []).filter((k) => k in GUESS_KINDS));
+    const unconfirmed: Row[] = [];
+    const split = splitRows(parsed);
+    const ready = split.ready.filter((r) => {
       const open = writable(r) ? Object.keys(r.guessed || {}).filter((k) => !accepted.has(k)) : [];
       if (!open.length) return true;
-      held.push({
+      unconfirmed.push({
         row: r.rowNumber,
         message: open.map((k) => `${GUESS_KINDS[k] || k} - הניחוש לא אושר`).join(" · ") +
           ". לתיקון: לבחור את הערך בעצמכם בתיקון השורות, או לשלוח את הקובץ שוב ולאשר את הניחוש",
       });
       return false;
     });
-    const toInsert = ready.filter((r) => (r.mode || "insert") === "insert");
-    const toUpdate = ready.filter((r) => r.mode === "update");
-    const failed: Row[] = [...held];
 
-    // שכונה מכינוי/התאמה רכה: הכתובת מכריעה קודם (כמו impLocateFallbackRows)
+    if (!hold) hold = emptyHold(split.hold.map((r) => snapshotHeld(r)), holdExpiry(String(job.created_at)));
+    else if (!hold.rows.length && split.hold.length) hold.rows = split.hold.map((r) => snapshotHeld(r));
+    hold.accepted_guesses = [...accepted];
+
+    const skipped = new Set(hold.skipped);
+    const already = doneNumbers(hold);
+    for (const r of split.rejected) {
+      if (!hold.skipped_reasons.some((s) => s.row === r.rowNumber)) {
+        hold.skipped_reasons.push({ row: r.rowNumber, why: rejectionWhy(r.errors || []) });
+      }
+    }
+    for (const u of unconfirmed) {
+      if (!hold.skipped_reasons.some((s) => s.row === u.row)) hold.skipped_reasons.push({ row: u.row, why: rejectionWhy([u.message]) });
+    }
+    if (columnMissing) {
+      for (const r of split.hold) {
+        if (!hold.skipped_reasons.some((s) => s.row === r.rowNumber)) {
+          hold.skipped_reasons.push({ row: r.rowNumber, why: rejectionWhy(r.errors || []) });
+        }
+      }
+    }
+
+    const toWrite = (columnMissing ? ready : ready.filter((r) => !skipped.has(r.rowNumber)))
+      .filter((r) => !already.has(r.rowNumber));
+    const toInsert = toWrite.filter((r) => (r.mode || "insert") === "insert");
+    const toUpdate = toWrite.filter((r) => r.mode === "update");
+    const failed: Row[] = [];
+
     for (const r of toInsert) {
       const p = r.payload;
       if (!r.hoodFallback || !p.street || !p.house_number || p.lat != null) continue;
@@ -398,9 +590,9 @@ export async function runImportJob(
     }
 
     const inserted = await insertRows(supabase, toInsert, failed);
-    // ברירת המחדל של השכונה - רק מה שהפין לא הכריע
     const byHood = new Map<string, string[]>();
     inserted.forEach(({ row, got }) => {
+      hold.inserted.push(row.rowNumber);
       if (row.hoodFallback && got?.id && !got.neighborhood_id) {
         byHood.set(row.hoodFallback, [...(byHood.get(row.hoodFallback) || []), got.id]);
       }
@@ -408,34 +600,82 @@ export async function runImportJob(
     for (const [hood, ids] of byHood) {
       await supabase.from("properties").update({ neighborhood_id: hood }).in("id", ids);
     }
-    // בעלים (אם היו בקובץ) - אחרי שיש property_id
     const owners = inserted.filter(({ row, got }) => row.owner && got?.id)
       .map(({ row, got }) => ({ property_id: got.id, ...row.owner }));
     if (owners.length) {
       const { error } = await supabase.from("property_owners").insert(owners);
       if (error) console.error("import owners failed", error);
     }
-
-    let updated = 0;
     for (const r of toUpdate) {
       const { error } = await supabase.from("properties").update(r.patch).eq("id", r.targetId);
       if (error) failed.push({ row: r.rowNumber, message: PIC.insertErrorText(error) });
-      else updated++;
+      else hold.updated.push(r.rowNumber);
+    }
+    for (const r of toWrite) if (r.mode === "same") hold.unchanged.push(r.rowNumber);
+    for (const f of failed) {
+      if (!hold.skipped_reasons.some((s) => s.row === f.row)) {
+        hold.skipped_reasons.push({ row: f.row, why: rejectionWhy([String(f.message || "")]) });
+      }
+    }
+    const finished = doneNumbers(hold);
+    hold.skipped_reasons = hold.skipped_reasons.filter((s) => !finished.has(s.row));
+
+    const open = columnMissing ? [] : awaitingRows(hold);
+    const summary = importSummary({
+      inserted: hold.inserted.length,
+      updated: hold.updated.length,
+      unchanged: hold.unchanged.length,
+      skipped: hold.skipped_reasons,
+    });
+    const fixable = hold.skipped_reasons.some((s) => !SKIP_WHY.has(s.why));
+
+    if (open.length) {
+      hold.mode = perRow ? "per_row" : hold.mode;
+      await backTo({ status: "pending", deal_hold: hold, result: { deal_hold: hold } });
+      const ask = perRow ? perRowBody(open) : dealAskBody(open.length);
+      const lead = clarify ? `${clarify}\n` : "";
+      const progress = hold.inserted.length || hold.updated.length ? `${lead}${summary}\n${ask}` : `${lead}${ask}`;
+      return {
+        ok: true,
+        needs_deal: true,
+        send_buttons: !perRow && !hadHold,
+        ask_body: ask,
+        buttons: perRow ? [] : dealButtons(String(job.id)),
+        summary: progress,
+        job_id: job.id,
+        inserted: hold.inserted.length,
+        updated: hold.updated.length,
+        waiting: open.length,
+      };
     }
 
-    const rejected = parsed.filter((r) => r.errors.length)
-      .map((r) => ({ row: r.rowNumber, message: r.errors.join(" · ") }));
-    const result = {
-      inserted: inserted.length, updated, unchanged: ready.filter((r) => r.mode === "same").length,
-      rejected: rejected.length + failed.length - held.length,
-      held_unconfirmed: held.length,
-      guessed: ready.filter((r) => writable(r) && Object.keys(r.guessed || {}).length).length,
+    await backTo({
+      status: "done",
+      deal_hold: null,
+      result: {
+        inserted: hold.inserted.length,
+        updated: hold.updated.length,
+        unchanged: hold.unchanged.length,
+        skipped: hold.skipped_reasons.length,
+        summary,
+      },
+      finished_at: new Date().toISOString(),
+    });
+    return {
+      ok: true,
+      done: true,
+      summary,
+      inserted: hold.inserted.length,
+      updated: hold.updated.length,
+      unchanged: hold.unchanged.length,
+      rejected: hold.skipped_reasons.length,
+      held_unconfirmed: unconfirmed.length,
       no_images: inserted.filter(({ row }) => !row.payload?.images?.length).length,
-      problems: [...rejected, ...failed].sort((a, b) => a.row - b.row),
+      problems: hold.skipped_reasons.slice(0, 8).map((s) => ({ row: s.row, message: s.why })),
+      more_problems: Math.max(0, hold.skipped_reasons.length - 8),
+      open_fix: fixable,
+      job_id: job.id,
     };
-    await supabase.from("property_import_jobs")
-      .update({ status: "done", result, finished_at: new Date().toISOString() }).eq("id", job.id);
-    return { ok: true, ...result, problems: result.problems.slice(0, 8), more_problems: Math.max(0, result.problems.length - 8) };
   } catch (err) {
     console.error("runImportJob failed", err);
     await supabase.from("property_import_jobs").update({ status: "failed" }).eq("id", job.id);
@@ -445,4 +685,73 @@ export async function runImportJob(
         "מודעות של יד2 לא ייכנסו פעמיים, אבל שורות בלי מספר מודעה כן.",
     };
   }
+}
+
+export interface ImportDealOutcome {
+  text: string;
+  buttons?: { id: string; title: string }[];
+  /** נתיב יחסי לכפתור. הטקסט עצמו בלי כתובת. */
+  ctaPath?: string;
+  ctaLabel?: string;
+  ctaBody?: string;
+}
+
+/**
+ * לחיצה על כפתור, או טקסט שנראה כמענה, בזמן שיש שורות ממתינות.
+ * null כשאין מה לתפוס והמודל ממשיך. לא שולח הודעה.
+ */
+export async function continueImportDeal(
+  supabase: SupabaseClient,
+  agent: { id: string; agency_id: string | null },
+  action: ImportDealAction & { jobId?: string },
+  geocode: (city: string, street: string, house: string) => Promise<{ lat: number; lng: number } | null>,
+): Promise<ImportDealOutcome | null> {
+  const jobId = action.jobId || await latestHoldJob(supabase, agent.id);
+  if (!jobId) {
+    if (action.type === "reply") return null;
+    return { text: "השאלה על סוג העסקה כבר לא פתוחה. אפשר לשלוח את הקובץ שוב." };
+  }
+  if (action.type === "reply") {
+    const loaded = await loadImportJob(supabase, agent.id, jobId);
+    if ("error" in loaded || loaded.job.status === "done") return null;
+    const hold = readHold(loaded.job.deal_hold);
+    if (!hold || holdExpired(hold)) return null;
+    if (!applyDealText(hold, action.text)) return null;
+  }
+  const res = await runImportJob(supabase, agent, jobId, geocode, undefined, action);
+  if (!res.ok && !res.needs_deal) return { text: String(res.error || "לא הצלחתי להמשיך את הייבוא.") };
+  const text = String(res.summary || res.ask_body || res.error || "");
+  const buttons = res.send_buttons && Array.isArray(res.buttons) ? res.buttons : undefined;
+  return {
+    text,
+    ...(buttons?.length ? { buttons } : {}),
+    ...(res.done && res.open_fix
+      ? { ctaPath: `/crm?goto=accProperties&import=${jobId}`, ctaLabel: "🛠️ תיקון השורות", ctaBody: "השורות שנשארו פתוחות לתיקון:" }
+      : res.done && (res.inserted || res.updated)
+      ? { ctaPath: "/crm?goto=accProperties", ctaLabel: "🏠 הנכסים שלי", ctaBody: "לנכסים שנקלטו:" }
+      : {}),
+  };
+}
+
+async function latestHoldJob(supabase: SupabaseClient, agentId: string): Promise<string | null> {
+  const full = await supabase.from("property_import_jobs")
+    .select("id, deal_hold, result")
+    .eq("agent_id", agentId)
+    .in("status", ["pending", "failed"])
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const res = full.error && missingDealColumn(full.error)
+    ? await supabase.from("property_import_jobs")
+      .select("id, result")
+      .eq("agent_id", agentId)
+      .in("status", ["pending", "failed"])
+      .order("created_at", { ascending: false })
+      .limit(5)
+    : full;
+  if (res.error || !res.data?.length) return null;
+  for (const row of res.data) {
+    const hold = holdOf(row);
+    if (hold && !holdExpired(hold)) return String(row.id);
+  }
+  return null;
 }
