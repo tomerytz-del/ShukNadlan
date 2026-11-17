@@ -1175,7 +1175,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:0;font-size:.85rem;box-shadow:var(--shadow-lg);display:none;z-index:430}
   /* הטוסט נכנס מלמטה ויוצא למטה (הסקיל animate). ‏is-leaving מוסיף showToast ב-assets/property.js ומחכה 200ms לפני display:none */
   .toast{animation:dsRiseIn .2s var(--ease-out)}
-  .toast.is-leaving{animation:dsSink .15s var(--ease-out) forwards}
+  .toast.is-leaving{animation:dsSink .15s var(--ease-out) forwards;pointer-events:none}
   @media(prefers-reduced-motion:reduce){.toast{animation:dsFade .15s ease}.toast.is-leaving{animation:dsFadeOut .1s ease forwards}}
 
   /* ====== בועת וואטסאפ צפה לסוכן/ת המטפל/ת ======

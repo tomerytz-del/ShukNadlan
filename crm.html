@@ -5373,7 +5373,7 @@ window.shukArmTrackers = function () {
   @keyframes crmSink{to{opacity:0;transform:translateY(12px)}}
   @keyframes crmFadeOut{to{opacity:0}}
   .bell-panel.is-leaving{animation:crmPopUp .12s var(--ease-out) forwards}
-  .toast.is-leaving{animation:crmSink .15s var(--ease-out) forwards}
+  .toast.is-leaving{animation:crmSink .15s var(--ease-out) forwards;pointer-events:none}
   @media (prefers-reduced-motion:reduce){.bell-panel.is-leaving,.toast.is-leaving{animation:crmFadeOut .1s ease forwards}}
   /* שכבות הניווט (יצירה ומנטור) יוצאות כמו שנכנסו. ‏[hidden] כבר קבוע, ו-is-leaving מחזיר את התצוגה ל-200ms בלי לקלוט לחיצות. החיפוש אינו יוצא באנימציה */
   @keyframes crmSheetDown{to{opacity:0;transform:translateY(28px)}}

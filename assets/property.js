@@ -101,11 +101,14 @@ const CONDITION_HIGHLIGHTS = {
 
 function showToast(msg){
   const t = document.getElementById('toast');
-  // טוסט חדש באמצע יציאה מבטל אותה: הטוסט נשאר על המסך ומקבל את הנוסח החדש
+  // טוסט חדש באמצע יציאה מבטל אותה: הטוסט נשאר על המסך ומקבל את הנוסח החדש. הורדת is-leaving
+  // מחליפה את האנימציה בכניסה (dsRiseIn) והייתה מנגנת אותה מחדש מאפס, ולכן animation:none עד היציאה הבאה
+  if (t.classList.contains('is-leaving')) t.style.animation = 'none';
   clearTimeout(t._leaveT); t.classList.remove('is-leaving');
   t.textContent = msg; t.style.display = 'block';
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=>{
+    t.style.animation = '';
     t.classList.add('is-leaving');
     t._leaveT = setTimeout(()=>{ t.classList.remove('is-leaving'); t.style.display='none'; }, 200);
   }, 3500);
