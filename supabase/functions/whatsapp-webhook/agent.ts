@@ -209,6 +209,7 @@ import {
   GoogleRevokedError,
 } from "../_shared/google-calendar.ts";
 import { configureImportVocab, runImportJob } from "./property-import.ts";
+import { answerLeadImport, runLeadImport } from "./lead-import.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -651,6 +652,48 @@ const TOOLS: Anthropic.Tool[] = [
           description: "סוגי הניחוש שהסוכן/ת אישר/ה במפורש. [] - אף אחד (השורות עם ניחוש יחכו לתיקון באשף). " +
             "להשמיט רק כשאין בקובץ ניחושים.",
         },
+      },
+      required: ["job_id"],
+    },
+  },
+  {
+    name: "import_leads_file",
+    description:
+      "קולט קובץ לידים (Excel/CSV של אנשים עם טלפון) שהסוכן/ת שלח/ה, אחד-אחד, ל\"הלידים שלי\" - לא ללקוחות. " +
+      "מקבל את ה-job_id מהבלוק [ייבוא לידים]. **רק אחרי שהסוכן/ת אישר/ה** את הקליטה, ואחרי שנאמר שאלה לידים. " +
+      "שורה שלמה (טלפון, שם וסוג) נכנסת מיד; שורה עם חסר מחכה, והתשובה מחזירה next - השורה הראשונה לשאול עליה. " +
+      "default_kind: owner = מוכרים/משכירים, seeker = מחפשים - רק אם הסוכן/ת אמר/ה זאת על כל הקובץ. " +
+      "default_deal_type: sale/rent, רק אם נאמר. אין למלא סוג, טלפון או עסקה שלא נאמרו.",
+    input_schema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string", description: "המזהה מהבלוק [ייבוא לידים] (job_id)." },
+        default_kind: { type: "string", enum: ["owner", "seeker"] },
+        default_deal_type: { type: "string", enum: ["sale", "rent"] },
+      },
+      required: ["job_id"],
+    },
+  },
+  {
+    name: "lead_import_answer",
+    description:
+      "תשובת הסוכן/ת על השורה הראשונה שמחכה בקובץ לידים שנקלט (next של import_leads_file). " +
+      "שולחים רק מה שהסוכן/ת אמר/ה על השורה הזו: phone, full_name, kind (owner/seeker), deal_type, city, address, notes. " +
+      "השורה נכנסת ל\"הלידים שלי\" כשיש טלפון, שם וסוג. skip: true = לדלג על השורה, skip_all: true = לסגור את הקובץ " +
+      "ולדלג על כל מה שנשאר. מחזיר next עם השורה הבאה לשאול עליה, או null כשהקובץ נסגר.",
+    input_schema: {
+      type: "object",
+      properties: {
+        job_id: { type: "string" },
+        phone: { type: "string" },
+        full_name: { type: "string" },
+        kind: { type: "string", enum: ["owner", "seeker"] },
+        deal_type: { type: "string", enum: ["sale", "rent"] },
+        city: { type: "string" },
+        address: { type: "string" },
+        notes: { type: "string" },
+        skip: { type: "boolean" },
+        skip_all: { type: "boolean" },
       },
       required: ["job_id"],
     },
@@ -1721,6 +1764,35 @@ const TOOLS: Anthropic.Tool[] = [
         limit: { type: "integer", description: "ברירת מחדל 10." },
       },
       required: [],
+    },
+  },
+  {
+    name: "add_lead",
+    description:
+      "מוסיף ליד ל\"הלידים שלי\" של הסוכן/ת - לא ללקוחות. **הודעה שפותחת ב\"ליד חדש\" " +
+      "(\"ליד חדש מוכרים\", \"ליד חדש מחפש\") היא תמיד add_lead ולא create_client**: " +
+      "כרטיס לקוח/ה לא יופיע בלידים. kind: owner = מוכר/ת או משכיר/ה נכס, seeker = מחפש/ת. " +
+      "שדות שלא נאמרו לא ממלאים ולא שואלים עליהם: שם או טלפון מספיקים. " +
+      "רצינות, קומה, כתובת והערות חופשיות נשמרים בכרטיס כפי שנאמרו. " +
+      "הליד נפתח מיד ואינו עולה כסף או מכסה. אם הוחזר duplicate - אל תיצור/י שני: אמור/אמרי " +
+      "שהליד כבר קיים (בשם שחזר), ואם הסוכן/ת מתעקש/ת על אדם אחר - שלח/י שוב עם force_new.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["owner", "seeker"], description: "owner = מוכר/ת או משכיר/ה, seeker = מחפש/ת." },
+        full_name: { type: "string" },
+        phone: { type: "string" },
+        deal_type: { type: "string", enum: ["sale", "rent"], description: "רק אם נאמר מכירה או השכרה." },
+        city: { type: "string" },
+        address: { type: "string", description: "כתובת הנכס כפי שנאמרה, למשל \"סביון 9 גן נר\"." },
+        floor: { type: "string", description: "קומה כפי שנאמרה (\"פרטי\", \"3\")." },
+        rooms: { type: "number" },
+        property_type: { type: "string" },
+        seriousness: { type: "string", description: "רצינות/דחיפות כפי שנאמרה, למשל \"כנראה בהמשך השנה\"." },
+        notes: { type: "string", description: "כל מה שנאמר ואינו שדה אחר." },
+        force_new: { type: "boolean", description: "רק אחרי שהסוכן/ת אישר/ה שזה אדם אחר." },
+      },
+      required: ["kind"],
     },
   },
   {
@@ -8822,6 +8894,66 @@ async function toolOpenDemandLeads(ctx: ToolContext, input: Record<string, unkno
   };
 }
 
+/** קובץ לידים שהגיע בשיחה (‏lead-import.ts): אחד-אחד ל-leads, ושאלה על כל שורה עם חסר. */
+async function toolImportLeadsFile(ctx: ToolContext, input: Record<string, unknown>) {
+  const jobId = String(input.job_id || "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(jobId)) return { ok: false, error: "חסר job_id תקין מהבלוק [ייבוא לידים]." };
+  return await runLeadImport(ctx.supabase, ctx.agent, jobId,
+    { default_kind: input.default_kind, default_deal_type: input.default_deal_type });
+}
+
+async function toolLeadImportAnswer(ctx: ToolContext, input: Record<string, unknown>) {
+  const jobId = String(input.job_id || "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(jobId)) return { ok: false, error: "חסר job_id תקין." };
+  return await answerLeadImport(ctx.supabase, ctx.agent, jobId, input);
+}
+
+async function toolAddLead(ctx: ToolContext, input: Record<string, unknown>) {
+  const str = (k: string) => (typeof input[k] === "string" ? String(input[k]).trim() : "");
+  if (!str("full_name") && !str("phone")) {
+    return { ok: false, error: "חסר שם או טלפון של הליד." };
+  }
+  const { data, error } = await ctx.supabase.rpc("agent_lead_add", {
+    p_agent_id: ctx.agent.id,
+    p: {
+      kind: input.kind === "seeker" ? "seeker" : "owner",
+      full_name: str("full_name"),
+      phone: str("phone"),
+      deal_type: str("deal_type"),
+      city: str("city"),
+      address: str("address"),
+      floor: str("floor"),
+      rooms: input.rooms ?? null,
+      property_type: str("property_type"),
+      seriousness: str("seriousness"),
+      notes: str("notes"),
+      force_new: input.force_new === true,
+    },
+  });
+  if (error) return { ok: false, error: "לא הצלחתי לשמור את הליד. אפשר לנסות שוב." };
+  const r = (data || {}) as Record<string, unknown>;
+  if (r.duplicate) {
+    // ok: true - זו תוצאה נכונה ולא כישלון כלי (הלולאה סופרת ok:false ככישלון)
+    return {
+      ok: true,
+      saved: false,
+      duplicate: true,
+      lead_id: r.lead_id,
+      full_name: r.full_name,
+      note: "כבר יש ליד פתוח עם אותו טלפון ב-30 הימים האחרונים. לא נוצר שני. לומר זאת לסוכן/ת.",
+    };
+  }
+  if (!r.success) return { ok: false, error: "לא הצלחתי לשמור את הליד. אפשר לנסות שוב." };
+  const path = `/crm?goto=accLeads&lead=${String(r.lead_id)}`;
+  return {
+    ok: true,
+    lead_id: r.lead_id,
+    saved_to: "הלידים שלי",
+    link: SITE_BASE_URL ? `${SITE_BASE_URL}${path}` : null,
+    guidance: "הליד נשמר ב\"הלידים שלי\" (לא בלקוחות). לאשר במשפט אחד עם השם והנכס. אל תציע/י כרטיס לקוח.",
+  };
+}
+
 async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
 
@@ -9925,6 +10057,9 @@ async function runTool(
       case "ask_mentor": return await toolAskMentor(ctx, input);
 
       // לידים והתראות
+      case "add_lead": return await toolAddLead(ctx, input);
+      case "import_leads_file": return await toolImportLeadsFile(ctx, input);
+      case "lead_import_answer": return await toolLeadImportAnswer(ctx, input);
       case "list_leads": return await toolListLeads(ctx, input);
       case "open_demand_leads": return await toolOpenDemandLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
@@ -9996,7 +10131,7 @@ const SYSTEM_STATIC: string = (() => {
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
     "- **אל תאמרי \"אני לא יכולה\" / \"אין לי אפשרות\" כשיש כלי.** תמונות (סדר, ראשית, מחיקה) = manage_images. " +
-      "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. " +
+      "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. קובץ לידים (בלוק [ייבוא לידים]) = import_leads_file ואחריו lead_import_answer על כל שורה עם חסר. " +
       "קובץ בלי סוג עסקה: לא לפסול את כל השורות ולא לנחש לפי מחיר. אחרי האישור יוצאים כפתורים, ו-summary הוא התשובה. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
       "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
@@ -10239,6 +10374,12 @@ const SYSTEM_STATIC: string = (() => {
     "  \"שלח חומר ללקוח\" = client_matches לנכסים שמתאימים, ואז create_showcase - הסוכן/ת " +
       "שולח/ת בכפתור שיוצא אחרי התשובה. נכס מסוים שדובר עליו - property_link. לקוח/ה שאינו/ה בקובץ - קודם create_client.",
     "  \"תזכורת לחזור\" = agenda_add עם kind call, כותרת \"לחזור ל<שם>\", ומועד אם נאמר (אחרת שאל/י מתי).",
+    "",
+    "ליד חדש:",
+    "- הודעה שפותחת ב\"ליד חדש\" (\"ליד חדש מוכרים\", \"ליד חדש מחפש\") = add_lead, שמכניס ל\"הלידים שלי\". " +
+      "לא create_client: לקוח/ה נשמר/ת בקובץ הלקוחות ואינו מופיע בלידים. שם, טלפון, כתובת, קומה, חדרים ורצינות " +
+      "נשמרים כפי שנאמרו, בלי לשאול על מה שחסר. מוכרים/משכירים = kind owner, מחפש/ת = kind seeker. " +
+      "אחרי השמירה אל תציע/י להוסיף לקוח/ה, אלא אם ביקשו.",
     "",
     "אנשי קשר ששותפו והודעות מועברות:",
     "- הודעה שמתחילה ב-[איש קשר ששותף] = הסוכן/ת שיתף/ה כרטיס מאנשי הקשר או מהשיחות " +

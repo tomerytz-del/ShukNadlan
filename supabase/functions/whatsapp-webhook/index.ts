@@ -15,6 +15,7 @@ import {
   type WaSent,
 } from "./whatsapp.ts";
 import { continueImportDeal, parseDealButtonId, prepareImportJob, type ImportDealOutcome } from "./property-import.ts";
+import { prepareLeadImportJob } from "./lead-import.ts";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import { choosePhotoTarget, clipTitle, photoContextText, type PhotoCandidate } from "./photo-target.ts";
 import { handleCsmMessage } from "./csm-chat.ts";
@@ -2664,7 +2665,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         // של האשף ב-CRM. אחרי "כן" הקובץ כבר אינו בשיחה (ההיסטוריה שומרת ממנו
         // 2,500 תווים), ולכן הקליטה עצמה רצה מהעותק (property-import.ts).
         if (kind === "sheet" || (kind === "text" && /\.(csv|tsv)$/i.test(fileName))) {
-          const importBlock = await prepareImportJob(supabase, agent, file.bytes, fileName);
+          // קובץ נכסים קודם; אחרת - רשימת אנשים עם טלפון (לידים, lead-import.ts)
+          const importBlock = (await prepareImportJob(supabase, agent, file.bytes, fileName)) ||
+            (await prepareLeadImportJob(supabase, agent, file.bytes, fileName));
           if (importBlock) userText += "\n\n" + importBlock;
         }
       }

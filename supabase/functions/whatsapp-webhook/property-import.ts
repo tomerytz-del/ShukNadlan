@@ -89,7 +89,19 @@ function cellOut(v: unknown): unknown {
 }
 
 /** הגיליון הראשון כמו שהאשף קורא אותו: שורת כותרות, ושורות לא ריקות */
-export function readMatrix(bytes: Uint8Array, fileName: string): { headers: string[]; rows: unknown[][] } | null {
+type Matrix = { headers: string[]; rows: unknown[][] } | null;
+/** אותו קובץ נקרא פעמיים כשהוא אינו קובץ נכסים (נכסים ואז לידים): פענוח אחד, לפי אובייקט הבייטים. */
+const matrixCache = new WeakMap<Uint8Array, { fileName: string; m: Matrix }>();
+
+export function readMatrix(bytes: Uint8Array, fileName: string): Matrix {
+  const hit = matrixCache.get(bytes);
+  if (hit && hit.fileName === fileName) return hit.m;
+  const m = readMatrixUncached(bytes, fileName);
+  matrixCache.set(bytes, { fileName, m });
+  return m;
+}
+
+function readMatrixUncached(bytes: Uint8Array, fileName: string): Matrix {
   const csv = /\.(csv|txt|tsv)$/i.test(fileName);
   const wb = csv
     ? XLSX.read(decodeText(bytes), { type: "string", raw: false })

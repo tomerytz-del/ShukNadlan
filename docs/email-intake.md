@@ -112,6 +112,8 @@ pg_cron כל 2 דק׳  ──►  whatsapp-webhook?task=email-intake   (x-alert-
 | מותר | למה |
 |---|---|
 | `list_clients` · `create_client` · `update_client` | זה העיקר — לקוח/ה נכנס/ת לקובץ. רשומה פרטית, שום דבר לא מתפרסם |
+| `add_lead` | שורה שהסוכן/ת כתב/ה בעצמו/ה ופותחת ב"ליד חדש": נכנסת ל"הלידים שלי" ולא ללקוחות (`docs/leads-unified.md`). כתיבה לליד של הסוכן/ת עצמו/ה בלבד, פתוח ובלי חיוב |
+| (לא בתור המייל) `import_leads_file` · `lead_import_answer` | קובץ לידים מצורף: הבלוק `[ייבוא לידים]` בא עם הקובץ, וההכנסה אחד-אחד והשאלות על שורות עם חסר רצות בוואטסאפ אחרי "כן", כמו ייבוא נכסים (`docs/leads-unified.md`) |
 | `client_matches` · `property_matches` · `list_properties` · `property_link` | קריאה בלבד |
 
 **פתיחת נכס אינה ברשימה**, כי היא מפרסמת מודעה באתר. על נכס שמוצע העוזר
