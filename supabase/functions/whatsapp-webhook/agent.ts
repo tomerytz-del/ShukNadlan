@@ -131,6 +131,11 @@ import {
   styleContext,
 } from "./reply-style.ts";
 import { pageLink, pageLinkTopics } from "./crm-pages.ts";
+import {
+  OFFICE_SHARE_BUTTON_GUIDANCE,
+  OFFICE_SHARE_MISS_GUIDANCE,
+  officeShareDecision,
+} from "./office-share.ts";
 import { ctaLabel, isSafeCrmPath, type ScreenRef } from "../_shared/agent-deep-link.ts";
 import {
   agentToolMutates,
@@ -2074,8 +2079,9 @@ const TOOLS: Anthropic.Tool[] = [
       "topic: agreements (תצוגה מלאה של המסמך; ביטול ותיקון נעשים ב-cancel_agreement " +
       "וב-reissue_agreement), property, client, showcase, " +
       "agenda, google_calendar (חיבור יומן Google - אי אפשר מכאן), leads, " +
-      "notifications, marketing (פייסבוק/מודעה), import (יד2/אקסל), home. " +
-      "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא.",
+      "notifications, marketing (פייסבוק או מודעה של נכס, לא של דף המשרד), import (יד2/אקסל), home. " +
+      "אם יש מזהה - להעביר אותו. את השדה say מעתיקים לסוכן/ת כמו שהוא. " +
+      "שיתוף דף המשרד בפייסבוק הוא office_page_link, לא topic marketing.",
     input_schema: {
       type: "object",
       properties: {
@@ -2087,6 +2093,16 @@ const TOOLS: Anthropic.Tool[] = [
       },
       required: ["topic"],
     },
+  },
+  {
+    name: "office_page_link",
+    description:
+      "כשסוכן/ת מבקש/ת לפרסם או לשתף את דף המשרד (כרטיס המשרד, הדף הציבורי) " +
+      "בפייסבוק: פרופיל אישי, דף פייסבוק או קבוצה. שולח כפתור שפותח את הדף " +
+      "הציבורי באתר. הסוכן/ת משתף/ת בעצמו/ה מהדף. את לא מפרסמת, ואין לומר " +
+      "שפרסמת או שאין אפשרות. לא לפרסום נכס (לנכס: page_link topic marketing). " +
+      "בלי משרד או בלי דף ציבורי חוזר say, ואין לנחש כתובת.",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
 ];
 
@@ -9996,6 +10012,51 @@ function toolPageLink(ctx: ToolContext, input: Record<string, unknown>) {
   };
 }
 
+/**
+ * דף המשרד לפייסבוק. לא פרסום: כפתור לדף הציבורי, והסוכן/ת משתף/ת.
+ * בלי משרד, בלי slug, או כשהדף לא באוויר (agency_is_live) - הסבר, בלי כתובת.
+ */
+async function toolOfficePageLink(ctx: ToolContext) {
+  const agencyId = typeof ctx.agent.agency_id === "string" ? ctx.agent.agency_id.trim() : "";
+  let slug: unknown = null;
+  let lookupFailed = false;
+  let live: boolean | "error" = false;
+  let officeName: unknown;
+  if (agencyId) {
+    const agency = await loadAgency(ctx.supabase, agencyId, "name, slug");
+    if (!agency) lookupFailed = true;
+    else {
+      slug = agency.slug;
+      officeName = agency.name;
+      if (String(agency.slug ?? "").trim()) {
+        const { data, error } = await ctx.supabase.rpc("agency_is_live", { p_agency: agencyId });
+        if (error) {
+          console.error("agency_is_live failed", error.message);
+          live = "error";
+        } else {
+          live = data === true;
+        }
+      }
+    }
+  }
+  const decision = officeShareDecision({ agencyId, slug, lookupFailed, live });
+  // ok: true גם בלי דף, כדי שהתשובה תהיה ההסבר ולא "אני לא יכולה".
+  if (decision.kind === "explain") {
+    return { ok: true, say: decision.say, reason: decision.reason, guidance: OFFICE_SHARE_MISS_GUIDANCE };
+  }
+  // בלי outbox (מייל) אין כפתור, והכתובת לא חוזרת למודל - כלל "כפתורים בלבד".
+  const linked = ctx.outbox
+    ? modelLink(ctx, decision.url, decision.label, decision.body, "page_url")
+    : {};
+  return {
+    ok: true,
+    office_name: officeName || undefined,
+    say: decision.body,
+    ...linked,
+    guidance: ctx.outbox ? OFFICE_SHARE_BUTTON_GUIDANCE : OFFICE_SHARE_MISS_GUIDANCE,
+  };
+}
+
 async function runTool(
   ctx: ToolContext,
   name: string,
@@ -10074,6 +10135,7 @@ async function runTool(
       case "profile_get": return await toolProfileGet(ctx);
       case "update_profile": return await toolUpdateProfile(ctx, input);
       case "page_link": return toolPageLink(ctx, input);
+      case "office_page_link": return await toolOfficePageLink(ctx);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
     }
   } catch (err) {
@@ -10134,7 +10196,12 @@ const SYSTEM_STATIC: string = (() => {
       "מיניסייט = create_showcase / showcase_status / remove_from_showcase. ייבוא מיד2 = קובץ ואז import_properties_file. קובץ לידים (בלוק [ייבוא לידים]) = import_leads_file ואחריו lead_import_answer על כל שורה עם חסר. " +
       "קובץ בלי סוג עסקה: לא לפסול את כל השורות ולא לנחש לפי מחיר. אחרי האישור יוצאים כפתורים, ו-summary הוא התשובה. " +
       "מידע תכנוני בכל עיר בארץ (לא רק עפולה) = planning_lookup או planning_info. יומן ופגישות = agenda_add / agenda_list. " +
-      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query.",
+      "חיפוש לקוח/ה גם בכתיב שונה = list_clients עם query. " +
+      "שיתוף דף המשרד בפייסבוק (פרופיל אישי, דף או קבוצה) = office_page_link.",
+    "- **דף המשרד בפייסבוק:** office_page_link שולח כפתור לדף הציבורי. " +
+      "הסוכן/ת פותח/ת את הדף, לוחץ/ת שיתוף, ובוחר/ת פרופיל אישי, דף פייסבוק או קבוצה. " +
+      "את לא מפרסמת. אם חזר button_sent - משפט אחד בלי כתובת ובלי טלפון, ואל תאמרי שפרסמת. " +
+      "אם חזר say בלי כפתור - זה ההסבר, בלי לנחש דף. פרסום נכס = page_link עם topic marketing.",
     "- **כשבאמת אין כלי** (חיבור יומן Google, כיבוי התראות): " +
       "page_link. אם חזר crm_button_sent - כתוב/י את say בלי כתובת, הכפתור נשלח אחרייך. " +
       "בלי כפתור, את say מעתיקים כמו שהוא, משפט אחד והקישור המדויק. בלי \"היכנסו לדשבורד\" ובלי \"דרך ה-CRM\" בלי נתיב. " +
