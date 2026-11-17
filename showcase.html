@@ -180,6 +180,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   .toast{position:fixed;bottom:84px;inset-inline:14px;margin:0 auto;max-width:420px;background:var(--ink);color:#fff;border-radius:12px;padding:11px 14px;display:flex;justify-content:space-between;gap:12px;align-items:center;z-index:30;font-size:.92rem}
   .toast button{color:#ffd77a;font-weight:700}
+  /* כניסה לטוסט ולגיליון הקשר הצף (הסקיל animate). הדף אינו טוען את design-system.css, ולכן ה-keyframes כאן. הפתיחה היא הסרת hidden,
+     ולכן הם רצים בלי JS. היציאה מיידית. ‏transform ו-opacity בלבד, והגיליון נפתח מעל הכפתור: ‏transform-origin בתחתית */
+  @keyframes shRise{from{opacity:0;transform:translateY(12px)}}
+  @keyframes shPop{from{opacity:0;transform:translateY(6px) scale(.97)}}
+  @keyframes shFade{from{opacity:0}}
+  .toast{animation:shRise .2s cubic-bezier(0.23,1,0.32,1)}
+  .fab-sheet{transform-origin:bottom;animation:shPop .16s cubic-bezier(0.23,1,0.32,1)}
+  @media(prefers-reduced-motion:reduce){.toast,.fab-sheet{animation:shFade .15s ease}}
   .state{padding:40px 20px;text-align:center}
   .state h1{font-size:1.2rem;margin-bottom:6px}
   .foot{text-align:center;font-size:.78rem;color:var(--ink-soft);margin-top:20px}
