@@ -11,7 +11,7 @@ import { paceRecipient, setPairReserve } from "../_shared/wa-pair-pace.ts";
 import { isLessKeptType, LESS_TITLE, parseLessButton, topicBreak } from "./notif-digest.ts";
 import { burstText, collapseForSend, BURST_DIGEST_TYPE, guardEnabled } from "./burst-guard.ts";
 import {
-  isShareOnlyBatch, shareDigestItems, textBodyHead, textBodyItemLine,
+  isShareOnlyBatch, separateShareEntries, shareDigestItems, textBodyHead, textBodyItemLine,
   type ShareDigestLine,
 } from "../_shared/share-digest.ts";
 import { boardListingMessage, ctaPayload, logWaUrlGuard, planWaText, WA_NO_BUTTON } from "../_shared/wa-url-guard.ts";
@@ -474,7 +474,7 @@ function textBody(
   const lines = [
     headLine,
     "",
-    ...itemLines,
+    ...(onlyShares ? separateShareEntries(itemLines) : itemLines),
     "",
     ...accs.map((acc) => gotoUrl(acc)),
     ...(accs.length ? [""] : []),

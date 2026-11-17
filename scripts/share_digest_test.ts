@@ -8,6 +8,7 @@ import {
   isShareOnlyBatch,
   shareDigestBody,
   shareDigestItems,
+  separateShareEntries,
   textBodyHead,
   textBodyItemLine,
 } from "../supabase/functions/_shared/share-digest.ts";
@@ -88,6 +89,10 @@ check(
   "textBody בלי כתובת כש-noLinks",
   push.includes("textBodyItemLine(it, {") && push.includes("link: path && !noLinks ?"),
 );
+check(
+  "textBody מפריד שיתופים בלבד",
+  push.includes("onlyShares ? separateShareEntries(itemLines) : itemLines"),
+);
 
 const describe = wording.slice(
   wording.indexOf("function public.share_digest_describe"),
@@ -160,7 +165,17 @@ const two = shareDigestItems([
   { ...aviya, property_id: "55555555-5555-5555-5555-555555555555", property_type: "דירה", rooms: 3, price_label: "1,200,000 ₪", sharer_first_name: "יוסי" },
 ]);
 check("textBody כמה שיתופים", textBodyHead("תומר", two) === "תומר, 2 נכסים חדשים שותפו איתך:" && isShareOnlyBatch(two));
-check("שתי שורות בית", two.map((it) => textBodyItemLine(it, { onlyShares: true, link: null })).every((line) => line.startsWith("🏠 ") && line.includes("\n   שותף ע\"י ")));
+const twoLines = two.map((it) => textBodyItemLine(it, { onlyShares: true, link: null }));
+check("שתי שורות בית", twoLines.every((line) => line.startsWith("🏠 ") && line.includes("\n   שותף ע\"י ")));
+const twoBlock = [textBodyHead("תומר", two), "", ...separateShareEntries(twoLines)].join("\n");
+check(
+  "רווח בין נכסים בסיכום שיתופים",
+  twoBlock ===
+    "תומר, 2 נכסים חדשים שותפו איתך:\n\n" +
+    "🏠 גג/פנטהאוז למכירה בעפולה, 5 חדרים, 4,650,000 ₪\n   שותף ע\"י אביה\n\n" +
+    "🏠 דירה למכירה בעפולה, 3 חדרים, 1,200,000 ₪\n   שותף ע\"י יוסי",
+);
+check("שיתוף אחד בלי רווח מיותר", separateShareEntries(twoLines.slice(0, 1)).join("\n") === twoLines[0]);
 
 const mixed = [
   { type: "new_lead", title: "ליד חדש", body: "דירה בחיפה" },
@@ -173,6 +188,11 @@ check(
     "🔔 נכס ששותף איתך: גג/פנטהאוז למכירה בעפולה, 5 חדרים, 4,650,000 ₪ (שותף ע\"י אביה)",
 );
 check("הליד נשאר שורה רגילה", textBodyItemLine(mixed[0], { onlyShares: false, link: null }) === "🔔 ליד חדש\n   דירה בחיפה");
+check(
+  "אצווה מעורבת בלי רווח בין פריטים",
+  !isShareOnlyBatch(mixed) &&
+    mixed.map((it) => textBodyItemLine(it, { onlyShares: false, link: null })).join("\n").includes("\n\n") === false,
+);
 
 const sparse = shareDigestItems([{
   sharer_first_name: "אביה",
