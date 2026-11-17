@@ -203,6 +203,33 @@ comment on function public.agent_lead_add(uuid, jsonb) is
 -- 3. סוג ההתראה (נוסף לרשימה הקיימת, לא נכתבת מחדש)
 select public.notification_types_add(array['lead_entered']);
 
+-- 3א. מחזור ההתראות: lead_entered מוחרג מהסיכום (אישור בפעמון בלבד, אין מה לסכם עליו
+-- למחרת). העתק מדויק של הגוף שבפרודקשן (md5 193ad6e4fce5c99230c5eac12937d050,
+-- 20271112121000) בתוספת הסוג. notif_cadence_test.mjs דורש שהרשימה כאן ו-CADENCE_EXCLUDED
+-- (_shared/notif-cadence.ts, crm-settings.js) יהיו אותה רשימה.
+create or replace function public.notif_cadence_group(p_type text)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when p_type = any(array[
+      'ops_alert', 'security_alert', 'platform_signup', 'platform_upgrade',
+      'deal_sync_summary', 'deal_data_gap', 'review_alert', 'lead_unrouted',
+      'access_review', 'admin_overdue', 'market_nudge', 'budget_alert',
+      'improvement_suggestion', 'email_intake', 'lead_entered', 'share_digest'
+    ]::text[]) then null
+    else coalesce(
+      (select g.cadence_group from public.notif_cadence_group_map g where g.notif_type = p_type),
+      'system_mentor')
+  end;
+$$;
+
+revoke all on function public.notif_cadence_group(text) from public, anon, authenticated;
+grant execute on function public.notif_cadence_group(text) to service_role;
+
 -- 4. עבודות ייבוא לידים
 create table if not exists public.lead_import_jobs (
   id          uuid primary key default gen_random_uuid(),
