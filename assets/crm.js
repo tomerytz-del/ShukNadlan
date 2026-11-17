@@ -29215,7 +29215,7 @@ function openNavLayer(layer){
 function closeNavLayers(){
   closeCreateSheet();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   closeBellPanel();
   if (typeof closeCoachLayer === 'function') closeCoachLayer();
   // גיליון העדפות הלידים אינו יעד בסרגל (אין כפתור שמסומן), אבל הוא שכבה
@@ -32354,7 +32354,7 @@ document.getElementById('quickCustomChips')?.addEventListener('click', e => {
 function openPromotePicker(){
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('promote');
   navLayerShow('createSheet', 'create', '.cs-row');
 }
@@ -32373,7 +32373,7 @@ function syncQuickBadges(){
 function openCmaPicker(){
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('cma');
   navLayerShow('createSheet', 'create', '.cs-row');
 }
@@ -32384,7 +32384,7 @@ function openCmaAddress(){
   if (!currentAgent || currentAgent.tier !== 'premium'){ openCmaPicker(); return; }
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('cma-address');
   navLayerShow('createSheet', 'create', 'input[name=street]');
 }
@@ -33570,6 +33570,8 @@ function openProfilePanel(){
   closeMenuPanel();
   closeBellPanel();
   buildProfilePanel();
+  // פתיחה באמצע יציאה מבטלת אותה (המסך המלא והטשטוש של הכותרת נשארים כמו שהם)
+  cancelLeave(panel); panel.inert = false;
   panel.classList.add('is-open');
   // בנייד הפאנל הוא מסך מלא (position:fixed), וה-backdrop-filter של הכותרת
   // היה הופך אותה לבלוק המכיל שלו - ראו html.pp-open ב-CSS
@@ -33580,13 +33582,37 @@ function openProfilePanel(){
   if (first) first.focus({ preventScroll:true });
 }
 
+/* סגירה עם יציאה מונפשת (הסקיל animate). ‏is-open יורד מיד, כך שכל מי שקורא את מצב הפאנל
+   (כפתור האווטאר, Escape, ‏closeNavLayers) רואה אותו סגור, ו-is-leaving משאיר אותו מצויר 200ms.
+   ‏html.pp-open נשאר עד סוף היציאה: הוא מבטל את ה-backdrop-filter של הכותרת, ובלעדיו הפאנל המלא
+   בנייד (position:fixed בתוך הכותרת) היה מתכווץ לגובה הכותרת באמצע הדעיכה.
+   ‏no-exit = סגירה מיידית: Escape (מהמקלדת), וחילוף שכבה (closeProfilePanelNow). ‏closeProfilePanel
+   משמשת גם כמאזין לחיצה, ולכן אינה מקבלת פרמטרים. */
 function closeProfilePanel(){
   const panel = document.getElementById('profilePanel');
   if (!panel || !panel.classList.contains('is-open')) return;
   panel.classList.remove('is-open');
-  document.documentElement.classList.remove('pp-open');
   document.getElementById('avatarBtn').setAttribute('aria-expanded', 'false');
   if (navLayer === 'me') setNavLayer(null);
+  const instant = panel.classList.contains('no-exit');
+  panel.classList.remove('no-exit');
+  if (instant){ document.documentElement.classList.remove('pp-open'); return; }
+  panel.inert = true;
+  leaveAnimated(panel, ()=>{ panel.inert = false; document.documentElement.classList.remove('pp-open'); });
+}
+
+/* סגירה מיידית, למי שסוגר את הפרופיל כדי לפתוח שכבה אחרת: ההחלפה מיידית, והפאנל הדועך לא נערם
+   מתחת לחדש. אם הוא כבר באמצע יציאה, היציאה מסתיימת כאן */
+function closeProfilePanelNow(){
+  const panel = document.getElementById('profilePanel');
+  if (!panel) return;
+  if (panel.classList.contains('is-leaving')){
+    cancelLeave(panel); panel.inert = false;
+    document.documentElement.classList.remove('pp-open');
+    return;
+  }
+  if (panel.classList.contains('is-open')) panel.classList.add('no-exit');
+  closeProfilePanel();
 }
 
 document.getElementById('avatarBtn').addEventListener('click', (e)=>{
@@ -33601,7 +33627,7 @@ document.addEventListener('click', closeProfilePanel);
 document.addEventListener('keydown', (e)=>{
   if (e.key !== 'Escape') return;
   if (!document.getElementById('profilePanel').classList.contains('is-open')) return;
-  closeProfilePanel();
+  closeProfilePanelNow();
   document.getElementById('avatarBtn').focus({ preventScroll:true });
 });
 
@@ -33721,7 +33747,7 @@ function openCreateSheet(){
   if (navLayer === 'create') return;
   closeMenuPanel();
   closeSearch();
-  closeProfilePanel();
+  closeProfilePanelNow();
   renderCreateSheet('main');
   navLayerShow('createSheet', 'create', '.cs-item');
 }
@@ -33920,7 +33946,7 @@ function openSearch(scope){
   if (navLayer !== 'search'){
     closeMenuPanel();
     closeCreateSheet();
-    closeProfilePanel();
+    closeProfilePanelNow();
     navLayerShow('searchSheet', 'search', '#crmSearchInput');
   }
   setSearchScope(scope || searchScope);
