@@ -6,7 +6,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { inWindow, phoneE164 } from "../_shared/meeting-client.ts";
-import { sendText } from "./whatsapp.ts";
+import { sendText, senderStamp } from "./whatsapp.ts";
 import {
   CANCEL_SEARCH_LIMIT,
   cancelSearchBounds,
@@ -446,6 +446,7 @@ async function sendCancelNotices(
     try {
       const waId = await sendText(to, text);
       const { error: logErr } = await supabase.from("whatsapp_messages").insert({
+        ...senderStamp(),
         wa_message_id: waId,
         direction: "out",
         wa_phone: to,

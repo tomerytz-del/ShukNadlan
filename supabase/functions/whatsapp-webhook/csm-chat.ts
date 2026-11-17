@@ -18,7 +18,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { type BusyCheck, type SendToAgent, CSM_TOOLS, csmCapabilities, CSM_GREETING, isCapabilitiesQuestion, runCsmTool } from "./csm-tools.ts";
 import { accessTokenForStaff, freeBusy, GCAL_FREEBUSY_SCOPE } from "../_shared/google-calendar.ts";
 import { flattenTemplateParam } from "../_shared/wa-send.ts";
-import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText } from "./whatsapp.ts";
+import { formatForWhatsapp, notifyTemplateConfigured, sendNotifyTemplate, sendText, senderStamp } from "./whatsapp.ts";
 import { askCsmMentor } from "../_shared/coach/csm.ts";
 import { audioExtOf, processCsmCall } from "../_shared/csm-call.ts";
 import { callAnalysisText } from "../_shared/csm-call-format.ts";
@@ -119,6 +119,7 @@ export async function runCsmTurn(supabase: SupabaseClient, staff: CsmStaff, user
       error = String((err as Error)?.message || err).slice(0, 300);
     }
     await supabase.from("whatsapp_messages").insert({
+      ...senderStamp(),
       wa_message_id: waId, direction: "out", wa_phone: a.phone, agent_id: a.agentId,
       msg_type: a.inWindow ? "text" : "template", body: formatForWhatsapp(a.text),
       status: waId ? "sent" : null, error: error ?? null,
