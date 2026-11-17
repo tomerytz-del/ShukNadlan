@@ -63,7 +63,18 @@
     var heroSection = document.getElementById("landHero");
     var compact = !!(S.isCommercial && S.isCommercial(page));
     if (heroSection && compact) heroSection.classList.add("land-hero--compact");
-    if (compact) document.dispatchEvent(new CustomEvent("silo:rendered"));
+    if (compact) {
+      /* ‏בלי הפונקציה אין הזרקה בשרת: טוענים כאן את נכסי הדף המסחרי. הסקריפט מאתחל את עצמו כשהוא עולה. */
+      var css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "assets/silo-commercial.css";
+      document.head.appendChild(css);
+      ["silo-commercial", "visit-attr", "contact-inquiry"].forEach(function (name) {
+        var sc = document.createElement("script");
+        sc.src = "assets/" + name + ".js";
+        document.head.appendChild(sc);
+      });
+    }
     var h1 = document.getElementById("siloH1");
     var benefit = document.getElementById("siloBenefit");
     var crumb = document.getElementById("siloCrumb");

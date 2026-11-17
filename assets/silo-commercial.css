@@ -24,8 +24,8 @@ body:has(.cm-sticky) { padding-bottom: 76px; }
 .cm { margin-top: 12px; }
 .cm [hidden], .cm-sheet[hidden], .cm-sheet [hidden] { display: none !important; }
 /* ברירת מחדל השכרה כבר ב-HTML הראשון, לפני שה-JS רץ */
-.cm[data-deal="rent"] .cm-item[data-deal="sale"],
-.cm[data-deal="sale"] .cm-item[data-deal="rent"] { display: none; }
+.cm[data-deal="rent"] #cmGrid > .cm-item[data-deal="sale"],
+.cm[data-deal="sale"] #cmGrid > .cm-item[data-deal="rent"] { display: none; }
 
 .cm-controls { display: grid; gap: 10px; }
 .cm-toggle { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid #0e2a6b; border-radius: 12px; overflow: hidden; max-width: 360px; }

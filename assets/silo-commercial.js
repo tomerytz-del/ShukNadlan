@@ -21,13 +21,10 @@
   var SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
   var DEALS = ["rent", "sale"];
-  var GROUPS = {
-    offices: { list: "משרדים", none: "משרד", types: ["משרדים", "בניין משרדים", "חלל עבודה משותף"] },
-    shops: { list: "חנויות ושטחי מסחר", none: "חנות", types: ["חנויות/שטח מסחרי"] },
-    warehouse: { list: "מחסנים ומבני תעשייה", none: "מחסן או מבנה תעשייה", types: ["מבני תעשייה", "מחסנים", "מרלו״ג/מרכז לוגיסטי", "אולמות"] },
-    clinic: { list: "קליניקות", none: "קליניקה", types: ["קליניקות"] },
-    land: { list: "מגרשים", none: "מגרש", types: ["מגרשים"] },
-  };
+  /* ‏הקבוצות מ-silo-render.js (CM_GROUPS), עותק אחד: אותו מיפוי קובע את הצ'יפים
+     בשרת, את הכותרות כאן ואת property_types שנשלח לטופס. */
+  var GROUPS = {};
+  ((window.ShukSilo && window.ShukSilo.cmGroups) || []).forEach(function (g) { GROUPS[g.key] = g; });
   var DEAL_WORD = { rent: "להשכרה", sale: "למכירה" };
 
   var inited = false;
@@ -98,9 +95,9 @@
       if (d !== state.deal) miss.push("deal");
       if (state.type && el.getAttribute("data-group") !== state.type) miss.push("type");
       var sq = Number(el.getAttribute("data-sqm")) || 0;
-      if (state.sqm && (sq <= 0 || (state.sqm[0] != null && sq < state.sqm[0]) || (state.sqm[1] != null && sq >= state.sqm[1]))) miss.push("sqm");
+      if (state.sqm && (sq <= 0 || (state.sqm[0] != null && sq < state.sqm[0]) || (state.sqm[1] != null && sq > state.sqm[1]))) miss.push("sqm");
       var tot = Number(el.getAttribute("data-total")) || 0;
-      if (state.price && (tot <= 0 || (state.price[0] != null && tot < state.price[0]) || (state.price[1] != null && tot >= state.price[1]))) miss.push("price");
+      if (state.price && (tot <= 0 || (state.price[0] != null && tot < state.price[0]) || (state.price[1] != null && tot > state.price[1]))) miss.push("price");
       if (state.area && el.getAttribute("data-area") !== state.area) miss.push("area");
       if (state.parking && el.getAttribute("data-parking") !== "1") miss.push("parking");
       return miss;
@@ -115,16 +112,16 @@
 
     function sqmLabel() {
       var a = state.sqm[0], b = state.sqm[1];
-      if (a == null || a === 0) return "עד " + b + " מ״ר";
       if (b == null) return a + "+ מ״ר";
+      if (a == null || a === 0) return "עד " + b + " מ״ר";
       return a + " עד " + b + " מ״ר";
     }
     function priceLabel() {
       var a = state.price[0], b = state.price[1];
       /* ‏בידוד כיוון סביב כל סכום, כדי ששני סכומים באותו טקסט לא יתהפכו */
       var f = function (n) { return "\u2066₪" + Math.round(n).toLocaleString("en-US") + "\u2069"; };
-      if (a == null || a === 0) return "עד " + f(b);
       if (b == null) return "מעל " + f(a);
+      if (a == null || a === 0) return "עד " + f(b);
       return f(a) + " עד " + f(b);
     }
 

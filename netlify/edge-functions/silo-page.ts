@@ -29,6 +29,11 @@ const SITE = "https://shuknadlan.co.il";
 const SUPABASE_URL = "https://obookujgolazrwycsiyn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx";
 const FETCH_TIMEOUT_MS = 2500;
+/* ‏רק הדף המסחרי טוען אותם: שאר דפי התבנית לא משלמים בקשת CSS חוסמת ועוד סקריפטים. */
+const COMMERCIAL_ASSETS = '<link rel="stylesheet" href="assets/silo-commercial.css">\n'
+  + '<script defer src="assets/silo-commercial.js"></script>\n'
+  + '<script defer src="assets/visit-attr.js"></script>\n'
+  + '<script defer src="assets/contact-inquiry.js"></script>\n';
 const EXTRA_TIMEOUT_MS = 1500;
 
 type Page = {
@@ -314,7 +319,7 @@ export function inject(html: string, page: Page, rows: Row[], extras: Extras = {
     .replace(/(<meta property="og:image" content=")[^"]*(">)/, (_m, a, b) => `${a}${attr(SITE + "/" + og.src)}${b}`)
     .replace(/(<meta property="og:image:width" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.width}${b}`)
     .replace(/(<meta property="og:image:height" content=")[^"]*(">)/, (_m, a, b) => `${a}${og.height}${b}`)
-    .replace(/<\/head>/i, () => `${preload}\n${marketHint(city.home, view.market)}${S.scripts(view, rows, SITE)}\n</head>`);
+    .replace(/<\/head>/i, () => `${preload}\n${compact ? COMMERCIAL_ASSETS : ""}${marketHint(city.home, view.market)}${S.scripts(view, rows, SITE)}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {

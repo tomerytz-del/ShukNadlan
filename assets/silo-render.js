@@ -487,7 +487,7 @@
   function queryOf(page) {
     /* ‏דף מסחרי מציג את כל המלאי (המסנן בדפדפן), ולכן גם רחוב, קומה והמפרסם. */
     if (isCm(page)) {
-      return queryParts(page, "id,title,price,size_sqm,floor,street,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,agent_id,neighborhoods(name,is_planned)", 200);
+      return queryParts(page, "id,title,price,price_per_sqm,size_sqm,floor,street,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,agent_id,neighborhoods(name,is_planned)", 200);
     }
     return queryParts(page, "id,title,price,rooms,size_sqm,property_type,deal_type,images,city,created_at,updated_at,features,sales_area,neighborhoods(name)", 24);
   }
@@ -1241,7 +1241,8 @@
     var v = Number(p && p.price);
     if (!isFinite(v) || v <= 0) return { text: "מחיר לפי פנייה", total: 0, perSqm: false };
     if (p.deal_type === "rent") {
-      if (v < 500) return { text: money(v) + " למ״ר לחודש", total: 0, perSqm: true };
+      /* ‏בלי שטח אי אפשר לדעת אם זה מחיר למ״ר, ולכן מתחת ל-500 הוא למ״ר רק כשיש שטח. */
+      if (v < 500 && Number(p.size_sqm) > 0) return { text: money(v) + " למ״ר לחודש", total: 0, perSqm: true };
       return { text: money(v) + " לחודש", total: v, perSqm: false };
     }
     return { text: money(v), total: v, perSqm: false };
@@ -1264,8 +1265,12 @@
     return phone && phone.length >= 9 ? { phone: phone, name: c.name || "" } : null;
   }
 
-  var WA_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"/></svg>';
-  var CALL_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>';
+  var WA_PATH = '<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"/>';
+  var CALL_PATH = '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  /* ‏האייקונים פעם אחת בדף, ולא בכל כרטיס (עד 200 כרטיסים) */
+  var CM_SPRITE = '<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="cm-wa" viewBox="0 0 24 24" fill="currentColor">' + WA_PATH + '</symbol><symbol id="cm-call" viewBox="0 0 24 24">' + CALL_PATH + '</symbol></svg>';
+  var WA_ICON = '<svg width="18" height="18" aria-hidden="true"><use href="#cm-wa"/></svg>';
+  var CALL_ICON = '<svg width="18" height="18" aria-hidden="true"><use href="#cm-call"/></svg>';
 
   function cmCard(p, extras, first) {
     var price = cmPrice(p);
@@ -1291,7 +1296,7 @@
     var size = Number(p.size_sqm);
     var facts = [];
     if (isFinite(size) && size > 0) facts.push(bdi(num(size)) + sp() + "מ״ר");
-    var per = cmSqmPrice(p, price);
+    var per = price.perSqm ? 0 : cmSqmPrice(p, price);
     if (per > 0) facts.push(bdi(escapeHtml(money(per))) + sp() + "למ״ר");
     var fl = p.floor;
     if (fl != null && fl !== "" && isFinite(Number(fl))) facts.push(Number(fl) === 0 ? "קומת קרקע" : "קומה" + sp() + bdi(String(Number(fl))));
@@ -1450,8 +1455,11 @@
   function cmRender(page, rows, extras) {
     var list = listOf(rows);
     var cardsHtml = "";
-    for (var i = 0; i < list.length; i++) cardsHtml += cmCard(list[i], extras, i === 0);
-    var html = '<div class="cm" id="cmRoot" data-deal="rent" data-cm>' + cmControls()
+    /* ‏הכרטיס הראשון שגלוי בברירת המחדל (השכרה) הוא ה-LCP, לא בהכרח שורה 0 */
+    var firstAt = 0;
+    for (var f = 0; f < list.length; f++) if (list[f].deal_type === "rent") { firstAt = f; break; }
+    for (var i = 0; i < list.length; i++) cardsHtml += cmCard(list[i], extras, i === firstAt);
+    var html = CM_SPRITE + '<div class="cm" id="cmRoot" data-deal="rent" data-cm>' + cmControls()
       + '<h2 class="cm-list-title" id="cmListTitle">מודעות פעילות</h2>'
       + '<ul class="cm-grid" id="cmGrid">' + cardsHtml + "</ul>"
       + '<div class="cm-empty" id="cmEmpty" hidden></div></div>';
@@ -1615,6 +1623,7 @@
     cityOf: cityOf,
     brokersPath: brokersPath,
     isCommercial: isCm,
+    cmGroups: CM_GROUPS,
     countedNeighborhoods: function (rows, page) { return neighborhoods(page, { hoods: rows }, true); },
     pageOf: pageOf,
     queryOf: queryOf,
