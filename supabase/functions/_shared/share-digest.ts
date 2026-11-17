@@ -124,11 +124,6 @@ export function textBodyHead(first: string | null, items: { type: string }[]): s
   return who ? `${who}, ${head}` : head;
 }
 
-/**
- * שורת פריט אחת ב-textBody. בסיכום שיתופים בלבד הבית והשורה השנייה.
- * באצווה מעורבת אותו משפט, עם הקדמה כדי שיהיה ברור שזה שיתוף.
- * link הוא null כשאין כתובת בגוף (noLinks).
- */
 /** רווח בין נכסים כשההודעה כולה שיתופים. שורה אחת נשארת כמו שהיא. */
 export function separateShareEntries(lines: string[]): string[] {
   const out: string[] = [];
@@ -139,6 +134,11 @@ export function separateShareEntries(lines: string[]): string[] {
   return out;
 }
 
+/**
+ * שורת פריט אחת ב-textBody. בסיכום שיתופים בלבד הבית והשורה השנייה.
+ * באצווה מעורבת אותו משפט, עם הקדמה כדי שיהיה ברור שזה שיתוף.
+ * link הוא null כשאין כתובת בגוף (noLinks).
+ */
 export function textBodyItemLine(
   it: NotifyLine,
   opts: { onlyShares: boolean; link: string | null },
