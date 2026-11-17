@@ -105,6 +105,8 @@ REVIEWED_HTML_TAGS: dict[str, str] = {
     # ‏Purchase ו-InitiateCheckout של קורס ההכנה (docs/gtm-course-purchase-import.json): אותו פיקסל, בלי פרטים אישיים.
     "meta pixel purchase": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
     "meta pixel initiatecheckout": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
+    # ‏CompleteRegistration של הרשמת משרד (docs/gtm-signup-import.json): אותו פיקסל, בלי פרטים אישיים ובלי ערכים.
+    "meta pixel completeregistration": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
 }
 
 # ‏חתימות שמזהות מה תגית **עושה**, ולא איך היא נקראת. שם מתחלף, קריאה

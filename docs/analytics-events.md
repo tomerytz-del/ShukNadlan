@@ -33,6 +33,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `view_item` | נכס נטען בהצלחה בדף הנכס | `item_name`, `item_category`, `deal_type`, `city`, `value`, `currency` |
 | `share` | שיתוף שהושלם, או לחיצה על כפתור שיתוף בוואטסאפ/מייל | `method`: ‏`web_share` \| `copy_link` \| `whatsapp` \| `email` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
+| `sign_up` | הרשמת משרד חדש ב-`agency-signup` **אחרי שהשרת אישר** שהחשבון נפתח (לפני הכניסה וההפניה ל-`/crm`) | `method`: `agency` |
 | `search` | חיפוש שהתוצאות שלו חזרו | `search_term`, `deal_type`, `category`, `filter_count`, `result_count`, `search_source` |
 | `search_slot_open` | נפתח בורר של מילה בחיפוש במשפט, ביוזמת הגולש/ת. המעבר האוטומטי בין שלבים אינו נספר, ולכן מאז הוויזארד (‏`docs/sentence-search.md`, סעיף 1ב) `search_slot_select` גדול ממנו - וזה תקין | `slot`: ‏`deal` \| `type` \| `area` \| `rooms` \| `price` |
 | `search_slot_select` | נבחרה אפשרות בבורר | `slot`, `option` - מפתח של אפשרות (‏`sale`, `apt`, `3,4.5`); שכונה נשלחת כ-`area` |
@@ -565,6 +566,24 @@ contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
 | אירוע | מתי | פרמטרים |
 | --- | --- | --- |
 | `pricing_section_view` | סקשן בדף המסלולים הגיע לאמצע המסך, פעם אחת לטעינה | `section`: ‏`plans` \| `picker` \| `base` \| `cobroke` \| `marketplace` \| `team` \| `gabriela` \| `compare` \| `faq` \| `closer`, `n`: מיקום הסקשן בדף (1 עד 10) |
+
+## הרשמת משרד חדש (`sign_up`)
+
+נוסף 17.11.2026, כדי שקמפיין ממומן במטא יוכל להתייעל על הרשמות ולא רק על צפיות בדף.
+`agency-signup` טוען עכשיו את `assets/events.js`, ודוחף `sign_up` דרך `shukTrack` **רק אחרי
+ש-`agency-signup` (הפונקציה) החזירה `success`**: לא בלחיצה על "פתיחת משרד" ולא כשהרישיון נדחה.
+הדחיפה באה **לפני** הכניסה האוטומטית וההפניה ל-`/crm`; הכניסה לוקחת כמה מאות אלפיות שנייה,
+וזה מה שנותן ל-GTM לירות את התגיות לפני שהדף עוזב. **בלי פרטים אישיים:** רק `method`.
+
+**ב-GTM (עדיין לא יובא):** `docs/gtm-signup-import.json` (`Admin ← Import Container`, מצב `Merge`):
+טריגר `CE — sign_up`, תגית `GA4 — sign_up` (עם `method`, `page_type`, `src` מהמשתנים הקיימים), ותגית
+Custom HTML `meta pixel completeregistration` (נסקרה ב-`REVIEWED_HTML_TAGS`; `fbq('track',
+'CompleteRegistration', { content_name: 'agency_signup' })`, בלי ערך ובלי פרטים אישיים).
+**עד שמייבאים ומפרסמים גרסה, `check_gtm_container.py` נכשל בכוונה** - הבדיקה קוראת את הייצוא ולא
+את המכולה החיה (`gtm/README.md`). אחרי הפרסום מייצאים מחדש ל-`gtm/container.json`.
+
+**במטא:** אחרי שהאירוע מגיע, בקמפיין לדף ההצטרפות בוחרים יעד המרה `CompleteRegistration`
+(מטא צריכה לראות אותו כמה פעמים לפני שהיא מתייעלת עליו).
 
 ## רכישת קורס ההכנה (begin_checkout, purchase)
 

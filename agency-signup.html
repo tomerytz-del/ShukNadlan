@@ -9,6 +9,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<!-- מדידת אירועים (sign_up) - docs/analytics-events.md -->
+<script src="assets/events.js"></script>
 <!-- שגיאות בעברית וקישור עזרה בוואטסאפ - docs/friendly-errors.md -->
 <script src="assets/friendly-error.js"></script>
 <script src="/assets/visit-attr.js"></script>
@@ -568,6 +570,13 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       window.scrollTo(0,0);
       btn.disabled = false; btn.textContent = SUBMIT_LABEL;
       return;
+    }
+
+    // ‏sign_up: רק אחרי שהשרת אישר שהחשבון נפתח, ולפני הכניסה וההפניה ל-/crm - הכניסה
+    // לוקחת כמה מאות אלפיות שנייה, וזה מה שנותן ל-GTM לירות את התגיות לפני שהדף עוזב.
+    // בלי פרטים אישיים: רק method. התנאי על shukTrack חובה (חוסם פרסומות) - docs/analytics-events.md
+    if (res.ok && data.success){
+      try { if (window.shukTrack) shukTrack('sign_up', { method: 'agency' }); } catch(_){ /* מדידה לא שוברת הרשמה */ }
     }
 
     // ‏החשבון נפתח - נכנסים כבר עכשיו, כדי שכל כפתור "לאיזור הסוכנים" מכאן
