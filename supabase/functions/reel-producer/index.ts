@@ -107,7 +107,7 @@ async function renderData(supabase: Sb, propertyId: string) {
       .select("image_url, photo_type, space_role, room_type, has_branding")
       .eq("property_id", propertyId),
     property.neighborhood_id
-      ? supabase.from("neighborhoods").select("name").eq("id", property.neighborhood_id).maybeSingle()
+      ? supabase.from("neighborhoods").select("name, is_planned").eq("id", property.neighborhood_id).maybeSingle()
       : Promise.resolve({ data: null }),
     property.agency_id
       ? supabase.from("agencies").select("name, logo_url").eq("id", property.agency_id).maybeSingle()
@@ -139,7 +139,7 @@ async function renderData(supabase: Sb, propertyId: string) {
     property,
     images: Array.isArray(property.images) ? property.images.filter(Boolean) : [],
     image_tags: tagsRes.data ?? [],
-    neighborhood: nbRes.data?.name ?? null,
+    neighborhood: nbRes.data?.is_planned ? null : (nbRes.data?.name ?? null),
     agent: {
       id: property.agent_id,
       name: agent.display_name ?? null,

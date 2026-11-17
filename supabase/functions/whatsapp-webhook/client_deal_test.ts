@@ -93,6 +93,11 @@ Deno.test("סיכום הכרטיס כולל את שם השכונה, לא רק א
     neighborhoods: { name: "לב העמק" },
   });
   if (several.join(",") !== "גבעת המורה,לב העמק") fail(several.join(","));
+  const planned = neighborhoodLabels({
+    neighborhoods: { name: "B1 אזור בתכנון", is_planned: true },
+    neighborhood_name: "אזור התעשייה",
+  });
+  if (planned.join(",") !== "אזור התעשייה") fail(planned.join(","));
   const both = clientNeeds({ deal_type: "rent", cities: ["עפולה"], neighborhood_names: several });
   if (!both.includes("שכונה: גבעת המורה, לב העמק")) fail(both);
 
@@ -130,7 +135,7 @@ Deno.test("הכלים מחזירים את שם השכונה, וההנחיה סו
     if (!block.includes("savedCard(")) fail(`${name}: הסיכום לא עובר ב-savedCard`);
     if (!block.includes("fillNeighborhoodNames")) fail(`${name}: שם חסר לא מושלם מהטבלה`);
   }
-  if (!agent.includes('const CLIENT_CARD_HOOD = ", neighborhood_id, neighborhoods(name)"')) {
+  if (!agent.includes('const CLIENT_CARD_HOOD = ", neighborhood_id, neighborhoods(name,is_planned)"')) {
     fail("שם השכונה לא נשלף מ-neighborhood_id");
   }
   const list = agent.slice(agent.indexOf("async function toolListClients"), agent.indexOf("async function toolListCalls"));

@@ -20319,6 +20319,8 @@ async function impLocateFallbackRows(queue, textEl){
       if (coords){
         row.payload.lat = coords.lat;
         row.payload.lng = coords.lng;
+        row.payload.location_precision = 'exact';
+        row.payload.location_radius_m = null;
         delete row.payload.neighborhood_id;
       }
     }

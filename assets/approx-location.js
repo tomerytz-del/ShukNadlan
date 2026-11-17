@@ -26,7 +26,9 @@
 
   function zoneName(p) {
     if (!p) return '';
-    return p.neighborhood_name || (p.neighborhoods && p.neighborhoods.name) || '';
+    var n = p.neighborhoods;
+    if (n && n.is_planned) return '';
+    return p.neighborhood_name || (n && n.name) || '';
   }
 
   /* הטקסט המלא - לבועית בדף הנכס */
