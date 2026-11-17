@@ -15,11 +15,16 @@ enum ShellUrls {
     static let offline = "https://localhost/offline.html"
     static let purchaseNote = "https://localhost/purchase-note.html"
 
-    static func offlineFor(why: String, failed: URL?) -> URL? {
+    /// aud=broker רק כשהדגל השמור הוא בדיוק broker. כל ערך אחר נשאר בלי
+    /// הפרמטר, והמסך פותח את העוזרת הציבורית.
+    static func offlineFor(why: String, failed: URL?, audience: String = "visitor") -> URL? {
         var parts = URLComponents(string: offline)
         var items = [URLQueryItem(name: "why", value: why == "http" ? "http" : "net")]
         if let retry = siteRetry(failed) {
             items.append(URLQueryItem(name: "retry", value: retry))
+        }
+        if audience == "broker" {
+            items.append(URLQueryItem(name: "aud", value: "broker"))
         }
         parts?.queryItems = items
         return parts?.url
@@ -326,9 +331,11 @@ enum ExternalLinks {
 public class ShukShellPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "ShukShellPlugin"
     public let jsName = "ShukShell"
+    static let supportAudienceKey = "shuk_support_audience"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "openExternal", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "consumeOAuthReturn", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "consumeOAuthReturn", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setSupportAudience", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func openExternal(_ call: CAPPluginCall) {
@@ -346,6 +353,13 @@ public class ShukShellPlugin: CAPPlugin, CAPBridgedPlugin {
         let url = UserDefaults.standard.string(forKey: "shuk_oauth_return") ?? ""
         UserDefaults.standard.removeObject(forKey: "shuk_oauth_return")
         call.resolve(["url": url])
+    }
+
+    /// הדגל שמסך "אין רשת" קורא. רק broker או visitor, בלי מזהה משתמש.
+    @objc func setSupportAudience(_ call: CAPPluginCall) {
+        let audience = call.getString("audience") == "broker" ? "broker" : "visitor"
+        UserDefaults.standard.set(audience, forKey: ShukShellPlugin.supportAudienceKey)
+        call.resolve()
     }
 }
 
@@ -488,7 +502,9 @@ class ShukBridgeViewController: CAPBridgeViewController, ASWebAuthenticationPres
     private func loadOffline(_ webView: WKWebView, why: String, failed: URL?) {
         let current = webView.url?.absoluteString ?? ""
         if current.contains("offline.html") || current.contains("purchase-note") { return }
-        if let offline = ShellUrls.offlineFor(why: why, failed: failed) {
+        let stored = UserDefaults.standard.string(forKey: ShukShellPlugin.supportAudienceKey) ?? "visitor"
+        let audience = stored == "broker" ? "broker" : "visitor"
+        if let offline = ShellUrls.offlineFor(why: why, failed: failed, audience: audience) {
             webView.load(URLRequest(url: offline))
         }
     }

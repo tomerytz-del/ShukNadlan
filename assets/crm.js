@@ -54,14 +54,22 @@ function showToast(msg, ms=3200){
   } else {
     toastEl.textContent = msg;
   }
-  cancelLeave(toastEl);
+  toastReshow();
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
   showToast._t = setTimeout(hideToast, ms);
 }
 
+/* טוסט חדש באמצע יציאה מבטל אותה. הורדת is-leaving מחליפה את האנימציה בכניסה (crmRiseIn) והייתה
+   מנגנת אותה מחדש מאפס, ולכן animation:none עד היציאה הבאה (hideToast מנקה אותו) */
+function toastReshow(){
+  if (toastEl.classList.contains('is-leaving')) toastEl.style.animation = 'none';
+  cancelLeave(toastEl);
+}
+
 function hideToast(){
   if (toastEl.style.display !== 'flex') return;
+  toastEl.style.animation = '';
   leaveAnimated(toastEl, ()=>{
     toastEl.style.display = 'none';
     toastEl.classList.remove('is-undo');
@@ -88,7 +96,7 @@ function showUndoToast(msg, onUndo, ms=5000){
     onUndo();
   });
   toastEl.append(span, btn);
-  cancelLeave(toastEl);
+  toastReshow();
   toastEl.style.display = 'flex';
   clearTimeout(showToast._t);
   showToast._t = setTimeout(hideToast, ms);

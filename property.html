@@ -222,6 +222,9 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     display:flex;flex-direction:column;padding:8px;background:var(--paper-raised);border:1px solid var(--line);
     border-radius:var(--radius-lg,14px);box-shadow:0 18px 40px -12px rgba(14,42,107,.35)}
   header.site .pn-panel a{padding:11px 12px;font-size:.98rem;font-weight:600;color:var(--ink);border-radius:var(--radius-sm,8px)}
+  /* תפריט הכותרת נפתח בלחיצה על <details>: כניסה קצרה ועדינה, ‏120ms (הסקיל animate) */
+  header.site .pn-menu[open] .pn-panel{animation:dsMenuIn .12s var(--ease-out)}
+  @media(prefers-reduced-motion:reduce){header.site .pn-menu[open] .pn-panel{animation:dsFade .12s ease}}
   header.site .pn-panel a:hover{background:var(--teal-tint,#eef3fb)}
   header.site .pn-panel hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
   header.site .pn-panel .pn-panel-cta{color:var(--teal);font-weight:800}
@@ -906,7 +909,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
 
   /* ====== לייטבוקס גלריה ====== */
   .lb{position:fixed;inset:0;z-index:400;background:rgba(8,14,24,.97);display:none;flex-direction:column}
-  .lb.open{display:flex}
+  .lb.open{display:flex;animation:dsFade .16s var(--ease-out)}
   .lb-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff;flex:0 0 auto}
   .lb-count{font-size:.85rem;font-weight:700;opacity:.85}
   .lb-close{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center}
@@ -1143,6 +1146,11 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     .mlead-overlay{align-items:center}
     .mlead-panel{border-radius:var(--radius-xl);max-height:84vh}
   }
+  /* כניסה לחלון הפנייה (הסקיל animate): מתחת ל-520px גיליון שעולה מקצה המסך, ומ-520px חלון במרכז. ‏keyframes ב-design-system.css */
+  .mlead-overlay.open{animation:dsBackdropIn .18s var(--ease-out)}
+  .mlead-overlay.open .mlead-panel{animation:dsSheetRise .28s var(--ease-drawer)}
+  @media(min-width:520px){.mlead-overlay.open .mlead-panel{animation:dsModalIn .2s var(--ease-out)}}
+  @media(prefers-reduced-motion:reduce){.mlead-overlay.open .mlead-panel{animation:dsFade .15s ease}}
   .mlead-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--hair);flex:0 0 auto}
   .mlead-head h3{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--teal-dark);margin:0}
   .mlead-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
@@ -1165,6 +1173,10 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
   .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
 
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:0;font-size:.85rem;box-shadow:var(--shadow-lg);display:none;z-index:430}
+  /* הטוסט נכנס מלמטה ויוצא למטה (הסקיל animate). ‏is-leaving מוסיף showToast ב-assets/property.js ומחכה 200ms לפני display:none */
+  .toast{animation:dsRiseIn .2s var(--ease-out)}
+  .toast.is-leaving{animation:dsSink .15s var(--ease-out) forwards;pointer-events:none}
+  @media(prefers-reduced-motion:reduce){.toast{animation:dsFade .15s ease}.toast.is-leaving{animation:dsFadeOut .1s ease forwards}}
 
   /* ====== בועת וואטסאפ צפה לסוכן/ת המטפל/ת ======
      בדסקטופ בלבד, וגם שם רק כל עוד הסרגל התחתון סגור: שתי דרכים ירוקות
