@@ -2538,7 +2538,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
       box-shadow:0 8px 20px rgba(14,42,107,.28);cursor:pointer;
     }
     .ss-mic-hint{animation:ssMicHintIn .25s ease-out both}
-    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
+    .ss-mic-hint.is-leaving{animation:ssMicHintOut .25s var(--ease-out) both}
     .ss-mic-hint::before{
       content:"";position:absolute;bottom:100%;left:50%;margin-left:-6px;
       border:6px solid transparent;border-bottom-color:var(--sapphire);
@@ -2737,7 +2737,7 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
   .gab-typing i:nth-child(2){animation-delay:.15s}
   .gab-typing i:nth-child(3){animation-delay:.3s}
   .gab-bubble.is-in{animation:gabIn .38s cubic-bezier(.2,.9,.3,1.15) both}
-  .gab-chat.is-out .gab-bubble{animation:gabOut .3s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
+  .gab-chat.is-out .gab-bubble{animation:gabOut .3s var(--ease-out) both}
   @keyframes gabIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:none}}
   @keyframes gabOut{to{opacity:0;transform:translateY(-12px)}}
   @keyframes gabDot{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-3px)}}
@@ -3870,13 +3870,13 @@ var l=document.createElement('link');l.rel='preload';l.as='image';l.href=a[0];l.
     /* הבועה של המיקרופון נפתחת לצידו, בתוך השדה - לא על הלשוניות ולא על הכפתור הזהב */
     html.beta-hero body .ss-mic-hint{top:50%;bottom:auto;right:auto;left:calc(100% + 10px);transform:translateY(-50%);
       animation:v10MicHintIn .25s ease-out both}
-    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
+    html.beta-hero body .ss-mic-hint.is-leaving{animation:v10MicHintOut .25s var(--ease-out) both}
     html.beta-hero body .ss-mic-hint::before{top:50%;bottom:auto;left:auto;right:100%;margin:-6px 0 0;border:6px solid transparent;border-right-color:var(--sapphire)}
     html.beta-hero.mic-hint-on .hs-q{visibility:visible}
     /* ‏P2-7: הבועה מעל הכרטיס (‏home.js מציב אותה), החץ למטה אל המיקרופון */
     html.beta-hero body .ss-mic-hint.is-above{top:auto;bottom:calc(100% + 8px);right:auto;transform:none;
       white-space:normal;max-width:min(260px,70vw);animation:v10MicHintAbove .25s ease-out both}
-    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s var(--ease-out,cubic-bezier(0.23,1,0.32,1)) both}
+    html.beta-hero body .ss-mic-hint.is-above.is-leaving{animation:v10MicHintAboveOut .25s var(--ease-out) both}
     html.beta-hero body .ss-mic-hint.is-above::before{top:100%;bottom:auto;right:auto;left:var(--mh-arrow,50%);margin:0 0 0 -6px;
       border:6px solid transparent;border-top-color:var(--sapphire)}
   }

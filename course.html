@@ -16,6 +16,10 @@ if (/ShukNadlanApp/i.test(navigator.userAgent || '')) document.documentElement.c
 </script>
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<script>
+/* הכרטיסים מוסתרים לפני הגילוי בגלילה, ולכן הקלאס נקבע כאן ולא בסוף הדף: אחרת כרטיס שכבר במסך מצויר גלוי, נעלם ונכנס מחדש. אם הסקריפט שבסוף הדף לא רץ, הקלאס יורד אחרי 4 שניות והכרטיסים מופיעים */
+(function(){var d=document.documentElement;if(!('IntersectionObserver' in window))return;d.classList.add('lp-js');setTimeout(function(){if(!window.__lpOK)d.classList.remove('lp-js');},4000);})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>קורס הכנה למבחן המתווכים | שוק נדל״ן</title>
 <link rel="icon" href="/assets/favicon-192.png" type="image/png" sizes="192x192">
@@ -104,7 +108,7 @@ html,body{overflow-x:hidden;max-width:100%}
 .lp-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:16px}
 .lp-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px}
 /* גילוי הדרגתי של הכרטיסים בגלילה (הסקיל animate): transform ו-opacity, ‏50ms בין כרטיס לכרטיס. הקלאס lp-js נוסף ב-JS, ובלעדיו הכרטיסים גלויים */
-.lp-js .lp-card{opacity:0;transform:translateY(12px);transition:opacity .35s var(--ease-out,cubic-bezier(0.23,1,0.32,1)),transform .35s var(--ease-out,cubic-bezier(0.23,1,0.32,1));transition-delay:calc(var(--i,0)*50ms)}
+.lp-js .lp-card{opacity:0;transform:translateY(12px);transition:opacity .35s var(--ease-out),transform .35s var(--ease-out);transition-delay:calc(var(--i,0)*50ms)}
 .lp-js .lp-card.lp-in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.lp-js .lp-card{transform:none;transition:opacity .2s;transition-delay:0s}}
 .lp-card b{display:block;font-size:18px;margin-bottom:6px;color:var(--ink)}
@@ -954,7 +958,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 (function(){
   if(!('IntersectionObserver' in window)) return;
   var cards=document.querySelectorAll('.lp-card'); if(!cards.length) return;
-  document.documentElement.classList.add('lp-js');
+  document.documentElement.classList.add('lp-js'); window.__lpOK=1;
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('lp-in');io.unobserve(e.target);}});},{rootMargin:'0px 0px -8% 0px',threshold:.08});
   var grp=new Map();
   cards.forEach(function(c){var g=c.parentNode,n=grp.get(g)||0;c.style.setProperty('--i',Math.min(n,5));grp.set(g,n+1);io.observe(c);});

@@ -94,6 +94,7 @@ window.shukArmTrackers = function () {
      המסך שלהם (assets/crm-lazy.js), לא עם מסך הכניסה. -->
 <style>
   :root{
+    /* עותק של טוקני התנועה ב-assets/design-system.css: ה-CRM אינו טוען אותו, ושני המקומות חייבים להיות זהים */
     --ease-out:cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out:cubic-bezier(0.77, 0, 0.175, 1); --ease-drawer:cubic-bezier(0.32, 0.72, 0, 1);
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
     --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
@@ -5365,6 +5366,8 @@ window.shukArmTrackers = function () {
   .nl-panel{animation:crmSheetUp .26s var(--ease-drawer)}
   @media(min-width:1024px){.nl-panel{animation:crmPopDown .18s var(--ease-out)}}
   @media (prefers-reduced-motion:reduce){.bell-panel,.toast,.nl-panel{animation:crmFade .15s ease}}
+  /* החיפוש נפתח גם ב-Ctrl+K, פעולה מהמקלדת שחוזרת עשרות פעמים ביום: בלי תנועה, כדי שהתווים הראשונים לא ייפלו לפאנל שזז */
+  .nav-search .nl-panel,.nav-search .nl-backdrop{animation:none}
   @media(min-width:1024px){
     .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
     .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;
