@@ -3,8 +3,8 @@
   "aspect": "9:16",
   "mode": "motion",
   "voiceId": "TX3LPaxmHKxFdv7VOQHJ",
-  "pace": "fast",
-  "gap": "tight",
+  "pace": "normal",
+  "gap": "normal",
   "captions": "phrase",
   "scenes": [
     {
@@ -35,15 +35,15 @@
         "מה אם כולם מחוברים?",
         "נכסים · לקוחות · שיתופי פעולה"
       ],
-      "imagePrompt": "Modern residential towers and glass buildings seen from a low angle in bright daylight, clean light blue sky with soft white clouds, white and glass facades, airy premium real estate photograph, vertical composition, calm empty sky area, no text, no people",
+      "imagePrompt": "Wide view of a modern city skyline where every tower is completely visible from its base at the ground to its rooftop, none cropped by the frame edges, a cluster of white and glass residential towers of different heights with balconies and greenery, tree-lined boulevard in the foreground, warm late-afternoon light, soft haze, rich detail and depth, cinematic premium real estate photograph, vertical composition with open sky above, no text, no people",
       "clipPrompt": null,
       "shareable": false,
       "imageTags": [
-        "modern",
-        "towers",
-        "daylight",
-        "glass",
-        "real estate"
+        "skyline",
+        "full towers",
+        "golden hour",
+        "greenery",
+        "boulevard"
       ],
       "userAssetIds": [
         "a-fa08a330"
@@ -58,15 +58,15 @@
         "גבריאלה",
         "מנטור AI"
       ],
-      "imagePrompt": "Close-up of a contemporary glass and white apartment building facade with balconies in bright morning light, reflections of blue sky, clean premium architecture photograph, vertical composition, no text, no people",
+      "imagePrompt": "Three complete modern residential towers standing together, the entire buildings fully visible from the ground floor to the rooftop with space around them, seen across a green park at golden hour, glass facades reflecting warm sun and clouds, rich architectural detail, deep blue sky, cinematic premium real estate photograph, vertical composition, no text, no people",
       "clipPrompt": null,
       "shareable": false,
       "imageTags": [
-        "facade",
-        "glass",
-        "balconies",
-        "bright",
-        "architecture"
+        "towers",
+        "full buildings",
+        "park",
+        "golden hour",
+        "glass"
       ],
       "userAssetIds": [
         "a-9b4790f8",
@@ -77,20 +77,20 @@
     },
     {
       "id": "close",
-      "narration": "ככה ישאר לכם זמן לסגור יותר עסקאות.",
+      "narration": "ככה יישאר לכם זמן לסגור יותר עסקאות.",
       "treatment": "illustration",
       "onScreenText": [
-        "ככה ישאר לכם זמן לסגור יותר עסקאות"
+        "ככה יישאר לכם זמן לסגור יותר עסקאות"
       ],
-      "imagePrompt": "Aerial view of a new modern neighborhood with white residential towers, trees and wide streets in bright sunny daylight, soft light haze, clean premium real estate photograph, vertical composition, no text, no people",
+      "imagePrompt": "Wide cinematic view of a new modern residential district at sunrise, every building completely visible from its base to its top and not cropped, clusters of white towers, parks, a tree-lined pedestrian promenade, a bridge in the distance, soft pink and blue sky, rich detail and depth, premium real estate photograph, vertical composition with open sky, no text, no people",
       "clipPrompt": null,
       "shareable": false,
       "imageTags": [
-        "aerial",
-        "neighborhood",
-        "towers",
-        "sunny",
-        "city"
+        "district",
+        "sunrise",
+        "full towers",
+        "promenade",
+        "parks"
       ],
       "userAssetIds": [],
       "notes": "A short hit: the word 'עסקאות' lands big in gold, the connected map glows behind."

@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "reelkit/frame";
-import { Captions, Grain, Icon, Music, SceneFrame, Sfx, Vignette, Voiceover, font, onWord, onWordBeat, sceneById, wordFrame } from "reelkit/kit";
+import { Grain, Music, SceneFrame, Sfx, Vignette, Voiceover, font, onWord, onWordBeat, sceneById, wordFrame } from "reelkit/kit";
 import type { VideoProps } from "reelkit/kit";
 
 // v3: the same story as the first cut, edited like a native short-form video.
@@ -94,6 +94,55 @@ const Daylight: React.FC<{ src: string; veil?: number; zoom?: number }> = ({ src
   </AbsoluteFill>
 );
 
+// Captions written here (not the kit's): every spoken word is shown, in phrases of up to three words that end at punctuation,
+// so no word is skipped at the start of a scene. The word being spoken sits on a gold chip.
+const Cap: React.FC<{ words: { word: string; startSec: number; endSec: number }[]; bottom: number }> = ({ words, bottom }) => {
+  const frame = useCurrentFrame();
+  const { fps, width: W, height: H } = useVideoConfig();
+  const t = frame / fps;
+  const groups: number[][] = [];
+  let cur: number[] = [];
+  words.forEach((w, i) => {
+    cur.push(i);
+    if (/[,.?!]$/.test(w.word) || cur.length >= 3) { groups.push(cur); cur = []; }
+  });
+  if (cur.length) groups.push(cur);
+  const g = [...groups].reverse().find((gr) => t >= words[gr[0]].startSec - 0.02);
+  if (!g) return null;
+  const last = groups[groups.length - 1] === g;
+  if (last && t > words[g[g.length - 1]].endSec + 0.45) return null;
+  const spoken = g.filter((i) => t >= words[i].startSec - 0.02);
+  const now = spoken.length ? spoken[spoken.length - 1] : g[0];
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, bottom: H * bottom, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
+      <div style={{ display: "flex", flexDirection: "row", direction: "rtl", gap: W * 0.018, background: "rgba(8,16,40,0.62)", borderRadius: W * 0.04, padding: `${H * 0.008}px ${W * 0.035}px`, maxWidth: W * 0.92 }}>
+        {g.map((i) => (
+          <div key={i} style={{ fontFamily: heebo, fontWeight: 800, fontSize: W * 0.054, whiteSpace: "nowrap", lineHeight: 1.2, color: i === now ? palette.ink : "#ffffff", background: i === now ? palette.accent : "transparent", borderRadius: W * 0.02, padding: `0 ${W * 0.014}px` }}>{words[i].word}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// The mentor card, drawn in code (a replica of the one in the CRM, with the wording we want in the film).
+const MentorCard: React.FC<{ W: number; face: string }> = ({ W, face }) => (
+  <div style={{ boxSizing: "border-box", width: W * 0.88, borderRadius: W * 0.04, border: `${W * 0.007}px solid #c9a227`, background: "linear-gradient(160deg, #0e2250, #14284f)", boxShadow: "0 28px 70px rgba(13,27,61,0.5)", padding: `${W * 0.04}px ${W * 0.045}px`, direction: "rtl", display: "flex", flexDirection: "column", gap: W * 0.03 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: W * 0.03 }}>
+      <div style={{ fontFamily: heebo, fontWeight: 900, fontSize: W * 0.075, color: "#ffffff", whiteSpace: "nowrap" }}>המנטור שלך</div>
+      <div style={{ background: "#e0b84a", color: "#0d1b3d", fontFamily: heebo, fontWeight: 800, fontSize: W * 0.032, borderRadius: W * 0.04, padding: `${W * 0.006}px ${W * 0.03}px`, whiteSpace: "nowrap" }}>זמין עכשיו</div>
+    </div>
+    <div style={{ fontFamily: heebo, fontWeight: 500, fontSize: W * 0.036, color: "#c7d2ee", lineHeight: 1.5 }}>ניסיון של שנים בתיווך, תמיד בהישג יד. שאלה מקצועית, תסריט שיחה או החלטה על מחיר.</div>
+    <div style={{ display: "flex", alignItems: "center", gap: W * 0.025 }}>
+      <div style={{ width: W * 0.13, height: W * 0.13, borderRadius: "50%", overflow: "hidden", border: `${W * 0.006}px solid #e0b84a`, flex: "none", background: "#14284f" }}>
+        <Img src={face} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 15%" }} />
+      </div>
+      <div style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1.5px solid rgba(255,255,255,0.18)", borderRadius: W * 0.035, padding: `${W * 0.025}px ${W * 0.035}px`, fontFamily: heebo, fontWeight: 600, fontSize: W * 0.042, color: "#ffffff", whiteSpace: "nowrap" }}>איך חוזרים לליד שלא ענה?</div>
+      <div style={{ width: W * 0.13, height: W * 0.13, borderRadius: W * 0.035, background: "#e0b84a", color: "#0d1b3d", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: heebo, fontWeight: 900, fontSize: W * 0.06, flex: "none" }}>←</div>
+    </div>
+    <div style={{ fontFamily: heebo, fontWeight: 800, fontSize: W * 0.036, color: "#e0b84a" }}>הצעדים שהמנטור ממליץ להיום:</div>
+  </div>
+);
+
 // City nodes on the map plate (pixel positions in the 1080 x 1081 picture).
 const NODES = [
   { x: 579, y: 304 }, // the valley: the dot the moon turns into
@@ -131,7 +180,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
 
   const voice = (s: S, captions = true) => (
     <>
-      {captions ? <Captions words={s.words} group={manifest.captions} rtl face={heebo} highlight={palette.accent} mode="highlight" bottom={0.3} /> : null}
+      {captions ? <Cap words={s.words as any} bottom={0.3} /> : null}
       {s.voiceoverKey ? <Voiceover src={urls[s.voiceoverKey]} /> : null}
     </>
   );
@@ -176,7 +225,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </div>
               ) : null}
               {tight ? (
-                <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.16, display: "flex", justifyContent: "center", ...shown(f, cutAt, fps, H, 1.4) }}>
+                <div style={{ position: "absolute", left: 0, right: 0, top: H * 0.19, display: "flex", justifyContent: "center", ...shown(f, cutAt, fps, H, 1.4) }}>
                   <div style={{ background: palette.accent, borderRadius: W * 0.05, padding: `${H * 0.006}px ${W * 0.06}px`, transform: "rotate(-3deg)", boxShadow: "0 12px 30px rgba(0,0,0,0.45)" }}>
                     <Line size={W * 0.085} color={palette.ink} weight={900}>עובד לבד</Line>
                   </div>
@@ -199,7 +248,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
       <SceneFrame from={map.startFrame} durationInFrames={map.durationFrames} enter="cut" exit="cut">
         {(() => {
           const f = frame - map.startFrame;
-          const size = 0.92, top = 0.2;
+          const size = 0.7, top = 0.27;
           const sx = (W * size) / 1080, ox = (W * (1 - size)) / 2, oy = H * top;
           const tr = (n: { x: number; y: number }) => ({ x: ox + n.x * sx, y: oy + n.y * sx });
           const first = tr(NODES[0]);
@@ -220,12 +269,12 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const ring = interpolate(f - 9, [0, 26], [0, 1], { ...clamp, easing: easeOut });
           return (
             <AbsoluteFill style={{ transform: `translate(${slams.reduce((a, s) => a + shakeX(f, s.at, 9, 8), 0)}px, ${slams.reduce((a, s) => a + shakeY(f, s.at, 6, 8), 0)}px) scale(${1 + hit * 0.035})` }}>
-              <Daylight src={urls[IMG.bgMap]} veil={0.3} zoom={1 + f * 0.0006} />
+              <Daylight src={urls[IMG.bgMap]} veil={0.2} zoom={1 + f * 0.0006} />
               {/* the network lives in a dark glass panel, so the glow still reads on a bright day */}
               <div style={{ position: "absolute", left: W * (1 - size) / 2, top: H * top, width: W * size, height: W * size * (1081 / 1080), borderRadius: W * 0.05, overflow: "hidden", background: "#020817", boxShadow: "0 30px 70px rgba(13,27,61,0.35)", border: "2px solid rgba(255,255,255,0.7)", opacity: interpolate(f, [0, 3], [0, 1], clamp) }}>
                 <Img src={urls[IMG.map]} style={{ width: "100%", height: "100%", opacity: bright }} />
               </div>
-              <div style={{ position: "absolute", top: H * 0.135, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f, [8, 12], [0, 1], clamp) }}>
+              <div style={{ position: "absolute", top: H * 0.18, width: "100%", display: "flex", justifyContent: "center", opacity: interpolate(f, [8, 12], [0, 1], clamp) }}>
                 <Line size={W * 0.08} color={palette.hero} style={{ textShadow: "0 2px 14px rgba(255,255,255,0.8)" }}>מה אם כולם <span style={{ color: "#1d6fd1" }}>מחוברים?</span></Line>
               </div>
               <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
@@ -275,7 +324,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 })}
               </svg>
               {slam ? (
-                <div style={{ position: "absolute", top: H * 0.205, width: "100%", display: "flex", justifyContent: "center" }}>
+                <div style={{ position: "absolute", top: H * 0.235, width: "100%", display: "flex", justifyContent: "center" }}>
                   <div key={slam.text} style={{ ...enter(f, slam.at, fps, H, 1.7), transform: `rotate(${slam.rot}deg) scale(${1 + beat(f, slam.at, 6) * 0.3})` }}>
                     <div style={{ background: palette.accent, borderRadius: W * 0.04, padding: `${H * 0.008}px ${W * 0.07}px`, boxShadow: "0 14px 34px rgba(0,0,0,0.5)" }}>
                       <Line size={W * 0.095} color={palette.ink} weight={900}>{slam.text}</Line>
@@ -306,28 +355,27 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const gAt = 2; // the cut lands at the start of the scene; the sound still sits on the word
           const waAt = on(helpers, "בוואטסאפ");
           const mAt = on(helpers, "ומנטור");
-          const D = W * 0.62;
+          const D = W * 0.58;
           const showG = f < mAt;
           const gP = spring({ frame: f - gAt, fps, config: { damping: 11, stiffness: 150 } });
           const mP = spring({ frame: f - mAt, fps, config: { damping: 11, stiffness: 160 } });
           const dots = Math.floor(f / 4) % 3;
           return (
             <AbsoluteFill style={{ transform: `translate(${shakeX(f, gAt, 10, 8) + shakeX(f, mAt, 12, 8)}px, ${shakeY(f, mAt, 8, 8)}px)` }}>
-              <Daylight src={urls[IMG.bgHelpers]} veil={0.4} zoom={1 + f * 0.0007} />
+              <Daylight src={urls[IMG.bgHelpers]} veil={0.22} zoom={1 + f * 0.0007} />
               {showG ? (
                 <>
-                  <div style={{ position: "absolute", top: H * 0.16, width: "100%", display: "flex", justifyContent: "center", ...shown(f, gAt, fps, H, 1.4) }}>
+                  <div style={{ position: "absolute", top: H * 0.19, width: "100%", display: "flex", justifyContent: "center", ...shown(f, gAt, fps, H, 1.4) }}>
                     <Line size={W * 0.11} color={palette.hero}>עוזרת <span style={{ color: "#12a150" }}>אישית</span></Line>
                   </div>
-                  <div style={{ position: "absolute", left: (W - D) / 2, top: H * 0.27, width: D, height: D, borderRadius: "50%", overflow: "hidden", border: `${W * 0.012}px solid ${palette.accent}`, boxShadow: "0 24px 60px rgba(13,27,61,0.35)", background: "#14284f", opacity: interpolate(f - gAt, [0, 2], [0, 1], clamp), transform: `scale(${0.5 + 0.5 * gP})` }}>
+                  <div style={{ position: "absolute", left: (W - D) / 2, top: H * 0.3, width: D, height: D, borderRadius: "50%", overflow: "hidden", border: `${W * 0.012}px solid ${palette.accent}`, boxShadow: "0 24px 60px rgba(13,27,61,0.35)", background: "#14284f", opacity: interpolate(f - gAt, [0, 2], [0, 1], clamp), transform: `scale(${0.5 + 0.5 * gP})` }}>
                     <Img src={urls[IMG.gabriela]} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%" }} />
                   </div>
                   {f >= waAt ? (
-                    <div style={{ position: "absolute", left: W * 0.5, top: H * 0.5 + D * 0.0, ...enter(f, waAt, fps, H, 1.5) }}>
-                      <div style={{ position: "absolute", left: W * 0.05, top: -W * 0.04, display: "flex", alignItems: "center", gap: W * 0.025, background: "#ffffff", borderRadius: W * 0.06, padding: `${H * 0.01}px ${W * 0.04}px`, boxShadow: "0 14px 34px rgba(0,0,0,0.5)" }}>
-                        <Icon name="whatsapp" size={W * 0.085} color="brand" />
+                    <div style={{ position: "absolute", left: W * 0.5, top: H * 0.3 + D * 0.72, ...enter(f, waAt, fps, H, 1.5) }}>
+                      <div style={{ position: "absolute", left: W * 0.05, top: -W * 0.04, display: "flex", alignItems: "center", gap: W * 0.025, background: "#2fbf71", borderRadius: W * 0.06, padding: `${H * 0.012}px ${W * 0.05}px`, boxShadow: "0 14px 34px rgba(0,0,0,0.5)" }}>
                         <div style={{ display: "flex", gap: W * 0.012 }}>
-                          {[0, 1, 2].map((d) => <div key={d} style={{ width: W * 0.022, height: W * 0.022, borderRadius: "50%", background: "#8a94a6", opacity: dots === d ? 1 : 0.35 }} />)}
+                          {[0, 1, 2].map((d) => <div key={d} style={{ width: W * 0.022, height: W * 0.022, borderRadius: "50%", background: "#ffffff", opacity: dots === d ? 1 : 0.45 }} />)}
                         </div>
                       </div>
                     </div>
@@ -335,16 +383,11 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </>
               ) : (
                 <>
-                  <div style={{ position: "absolute", top: H * 0.16, width: "100%", display: "flex", justifyContent: "center", ...shown(f, mAt, fps, H, 1.4) }}>
+                  <div style={{ position: "absolute", top: H * 0.19, width: "100%", display: "flex", justifyContent: "center", ...shown(f, mAt, fps, H, 1.4) }}>
                     <Line size={W * 0.11} color={palette.hero}>מנטור <span style={{ color: "#a8841a" }}>AI</span></Line>
                   </div>
-                  <div style={{ position: "absolute", left: W * 0.06, width: W * 0.88, top: H * 0.27, opacity: interpolate(f - mAt, [0, 2], [0, 1], clamp), transform: `scale(${0.55 + 0.45 * mP}) rotate(${(1 - mP) * -4}deg)` }}>
-                    <div style={{ borderRadius: W * 0.04, overflow: "hidden", border: `${W * 0.007}px solid ${palette.accent}`, boxShadow: "0 28px 70px rgba(0,0,0,0.55)" }}>
-                      <Img src={urls[IMG.mentorCard]} style={{ width: "100%", display: "block" }} />
-                    </div>
-                  </div>
-                  <div style={{ position: "absolute", left: W * 0.05, top: H * 0.27 - W * 0.08, width: W * 0.2, height: W * 0.2, borderRadius: "50%", overflow: "hidden", border: `${W * 0.008}px solid ${palette.accent}`, background: "#14284f", opacity: interpolate(f - mAt, [3, 6], [0, 1], clamp) }}>
-                    <Img src={urls[IMG.mentor]} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 15%" }} />
+                  <div style={{ position: "absolute", left: W * 0.06, width: W * 0.88, top: H * 0.29, opacity: interpolate(f - mAt, [0, 2], [0, 1], clamp), transform: `scale(${0.55 + 0.45 * mP}) rotate(${(1 - mP) * -4}deg)` }}>
+                    <MentorCard W={W} face={urls[IMG.mentor]} />
                   </div>
                 </>
               )}
@@ -369,17 +412,17 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
           const a1 = on(close, "לסגור");
           const a2 = on(close, "עסקאות");
           const stamps = [
-            { at: a1 + 2, x: 0.3, y: 0.39, rot: -12, s: 0.9 },
-            { at: a2, x: 0.68, y: 0.44, rot: 9, s: 1.0 },
-            { at: a2 + 7, x: 0.45, y: 0.5, rot: -4, s: 1.15 },
+            { at: a1 + 2, x: 0.3, y: 0.41, rot: -12, s: 0.9 },
+            { at: a2, x: 0.68, y: 0.46, rot: 9, s: 1.0 },
+            { at: a2 + 7, x: 0.45, y: 0.52, rot: -4, s: 1.15 },
           ];
           const shake = stamps.reduce((a, s) => a + shakeX(f, s.at, 12, 8), 0);
           const shakeV = stamps.reduce((a, s) => a + shakeY(f, s.at, 10, 8), 0);
           return (
             <AbsoluteFill style={{ transform: `translate(${shake}px, ${shakeV}px)` }}>
-              <Daylight src={urls[IMG.bgClose]} veil={0.45} zoom={1.08 + f * 0.001} />
-              <div style={{ position: "absolute", top: H * 0.17, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.004 }}>
-                <div style={shown(f, on(close, "ככה"), fps, H, 1.2)}><Line size={W * 0.085} color={palette.ink}>ככה ישאר לכם זמן</Line></div>
+              <Daylight src={urls[IMG.bgClose]} veil={0.3} zoom={1.08 + f * 0.001} />
+              <div style={{ position: "absolute", top: H * 0.19, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: H * 0.004 }}>
+                <div style={shown(f, on(close, "ככה"), fps, H, 1.2)}><Line size={W * 0.085} color={palette.ink}>ככה יישאר לכם זמן</Line></div>
                 <div style={shown(f, a1, fps, H, 1.25)}>
                   <Line size={W * 0.11} color={palette.hero}>לסגור <span style={{ color: "#a8841a", opacity: f >= on(close, "יותר") ? 1 : 0 }}>יותר</span></Line>
                 </div>
@@ -458,7 +501,7 @@ export const Video: React.FC<VideoProps> = ({ manifest, urls }) => {
                 </div>
               ) : null}
               {/* the address, at the very bottom of the area Meta covers */}
-              <div style={{ position: "absolute", left: 0, right: 0, bottom: H * 0.045, display: "flex", justifyContent: "center", opacity: interpolate(f, [on(cta, "סוגרים") + 6, on(cta, "סוגרים") + 12], [0, 1], clamp) }}>
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: H * 0.18, display: "flex", justifyContent: "center", opacity: interpolate(f, [on(cta, "סוגרים") + 6, on(cta, "סוגרים") + 12], [0, 1], clamp) }}>
                 <div style={{ fontFamily: heebo, fontWeight: 600, fontSize: W * 0.038, color: palette.hero, direction: "ltr", letterSpacing: W * 0.004 }}>shuknadlan.co.il</div>
               </div>
             </AbsoluteFill>
