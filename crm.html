@@ -5385,6 +5385,23 @@ window.shukArmTrackers = function () {
   .nav-layer.is-leaving .nl-panel{animation:crmSheetDown .18s var(--ease-out) forwards}
   @media(min-width:1024px){.nav-layer.is-leaving .nl-panel{animation:crmPopUp .12s var(--ease-out) forwards}}
   @media (prefers-reduced-motion:reduce){.nav-layer.is-leaving .nl-panel{animation:crmFadeOut .1s ease forwards}}
+  /* מודלים, גיליונות ותפריטים נפתחים (הסקיל animate). כניסה בלבד ו-CSS בלבד: הפתיחה היא display:none להצגה או הוספה ל-DOM, ולכן
+     keyframes רצים בלי לגעת ב-JS. היציאה נשארת מיידית, כי מצב כל חלון נקבע ב-style.display בקוד של האשף שלו. מודל נכנס במרכז (בלי
+     transform-origin), גיליון תחתון עולה מלמטה ובמחשב נכנס כמו מודל, ותפריט נכנס מהכפתור: ‏125-200ms, ‏transform ו-opacity בלבד */
+  @keyframes crmModalIn{from{opacity:0;transform:scale(.96)}}
+  /* הרקע מונפש לבדו (background-color), לא ה-opacity של כל החלון: opacity מוכפל לאורך העץ, והכרטיס שבתוכו היה מקבל דהייה כפולה.
+     הגיליון התחתון עולה מקצה המסך (אחוז מגובהו שלו, לא פיקסלים קבועים) ועל עקומת ה-drawer; הדהייה היא של הרקע */
+  @keyframes crmBackdropIn{from{background-color:transparent}}
+  @keyframes crmSheetRise{from{transform:translateY(100%)}}
+  @keyframes crmMenuIn{from{opacity:0;transform:translateY(-4px)}}
+  .pm-overlay,.imp-overlay,.photo-sheet,.air-sheet{animation:crmBackdropIn .18s var(--ease-out)}
+  .pm-card,.imp-card{animation:crmModalIn .2s var(--ease-out)}
+  .photo-sheet-card,.air-sheet-card{animation:crmSheetRise .28s var(--ease-drawer)}
+  @media(min-width:760px){.photo-sheet-card,.air-sheet-card{animation:crmModalIn .2s var(--ease-out)}}
+  .menu-panel{animation:crmPopDown .16s var(--ease-out)}
+  .prop-more-menu{animation:crmMenuIn .12s var(--ease-out)}
+  .img-menu{animation:crmFade .1s var(--ease-out)}
+  @media (prefers-reduced-motion:reduce){.pm-card,.imp-card,.photo-sheet-card,.air-sheet-card,.menu-panel,.prop-more-menu{animation:crmFade .15s ease}}
   @media(min-width:1024px){
     .nav-layer{justify-content:flex-start;align-items:center;padding-top:9vh}
     .nl-panel{width:min(620px,calc(100vw - 48px));border-radius:22px;margin-bottom:0;
