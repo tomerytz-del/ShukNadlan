@@ -19,9 +19,11 @@
 --      כלל כמו שיחה שנענתה (docs/leads-unified.md).
 --      כפילות: אותו טלפון אצל אותו/ה סוכן/ת, אותו סוג, ב-30 הימים האחרונים,
 --      ליד שאינו בארכיון ולא נסגר - לא נוצר שני, והתשובה אומרת מי הקיים.
---   2. notify_agent_on_new_lead - לא מתריעה על ליד שהסוכן/ת הזין/ה בעצמו/ה
---      (התראה + דחיפה בוואטסאפ על מה שהוא/היא רק כתב/ה). זה העתק מדויק של
---      הגוף שבפרודקשן (md5 1745fd22d26e883b738eb5f353e3b5b3) בתוספת תנאי אחד.
+--   2. notify_agent_on_new_lead - על ליד שהסוכן/ת הזין/ה בעצמו/ה נכתבת
+--      התראה בפעמון בלבד ("הליד נקלט", עם קישור לליד), עם suppress_push = true:
+--      התשובה של גבריאלה כבר אישרה את זה בוואטסאפ, והודעה שנייה מיד אחריה
+--      (בנוסח "ליד חדש: בעל נכס") נקראת כליד שהגיע מבחוץ. זה העתק מדויק של
+--      הגוף שבפרודקשן (md5 1745fd22d26e883b738eb5f353e3b5b3) בתוספת ענף אחד.
 --
 -- ‏leads_lead_type_check אינו משתנה: שני הסוגים כבר ברשימה. ‏leads.source הוא
 -- טקסט חופשי, בלי אילוץ.
@@ -48,8 +50,14 @@ begin
   if new.lead_type in ('call', 'store') then
     return new;
   end if;
-  -- 20271117090000: הסוכן/ת הזין/ה את הליד בעצמו/ה - אין מה להתריע לו/ה עליו
+  -- 20271117090000: הסוכן/ת הזין/ה את הליד בעצמו/ה - אישור בפעמון בלבד, בלי
+  -- דחיפה לוואטסאפ (גבריאלה כבר אישרה שם). הקישור פותח את הליד עצמו.
   if new.source = 'agent_entered' then
+    insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
+    values (new.agent_id, 'new_lead', 'הליד נקלט',
+            left(concat_ws(' · ', nullif(new.raw_name, ''), nullif(new.property_details, ''),
+                           case new.deal_type when 'sale' then 'מכירה' when 'rent' then 'השכרה' end), 200),
+            new.id, true);
     return new;
   end if;
 
@@ -68,8 +76,10 @@ begin
     || case new.deal_type when 'sale' then ' · מכירה' when 'rent' then ' · השכרה' else '' end
     || case when new.status = 'unlocked' then ' · פתוח' else ' · ממתין לפתיחה' end;
 
-  insert into public.notifications (agent_id, type, title, body, related_lead_id)
-  values (new.agent_id, 'new_lead', v_title, v_body, new.id);
+  -- suppress_push מפורש (false): ליד מבחוץ חייב להגיע לוואטסאפ, וזה מה
+  -- ש-check_notification_backfill דורש מכל insert להצהיר עליו
+  insert into public.notifications (agent_id, type, title, body, related_lead_id, suppress_push)
+  values (new.agent_id, 'new_lead', v_title, v_body, new.id, false);
 
   return new;
 end;
