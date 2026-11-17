@@ -112,7 +112,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-ghost{background:#fff;color:var(--teal-dark);border:1.5px solid var(--line)}
   .btn-ghost:hover{border-color:var(--teal)}
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
@@ -226,7 +226,7 @@ if(on)document.documentElement.classList.add('beta-hero');})();</script>
     overflow:hidden;box-shadow:var(--shadow-sm);
     transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   }
-  .ag-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-color:#B9C6D4}
+  @media (hover:hover) and (pointer:fine){.ag-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-color:#B9C6D4}}
   .ag-card:focus-within{border-color:var(--teal)}
 
   /* ---- ראש הכרטיס: התמונה ---- */

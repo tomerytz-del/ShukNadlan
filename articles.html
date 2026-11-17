@@ -89,7 +89,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
   .skip-link:focus{right:0}
@@ -162,7 +162,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     overflow:hidden;display:flex;flex-direction:column;
     transition:border-color .15s ease, transform .15s ease, box-shadow .15s ease;
   }
-  .art-card:hover{border-color:var(--teal);transform:translateY(-3px);box-shadow:var(--shadow)}
+  @media (hover:hover) and (pointer:fine){.art-card:hover{border-color:var(--teal);transform:translateY(-3px);box-shadow:var(--shadow)}}
   .art-card .cover{height:168px;background-size:cover;background-position:center;background-color:var(--teal-tint)}
   .art-card .body{padding:15px 16px 17px;display:flex;flex-direction:column;gap:8px;flex:1}
   .art-card .kicker{

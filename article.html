@@ -78,9 +78,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .btn svg{width:18px;height:18px;flex:none}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-wa{background:var(--wa);color:#fff}
-  .btn-wa:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(31,143,95,.32)}
+  @media (hover:hover) and (pointer:fine){.btn-wa:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(31,143,95,.32)}}
   .btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
   .btn-ghost:hover{border-color:var(--teal)}
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
@@ -249,7 +249,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border:1px solid var(--line);border-radius:var(--radius-md);padding:12px;
     transition:border-color .15s ease, transform .15s ease;
   }
-  .pager a:hover{border-color:var(--teal);transform:translateY(-1px)}
+  @media (hover:hover) and (pointer:fine){.pager a:hover{border-color:var(--teal);transform:translateY(-1px)}}
   .pager .thumb{
     width:64px;height:64px;flex:none;border-radius:var(--radius-sm);
     background-size:cover;background-position:center;background-color:var(--teal-tint);
@@ -281,7 +281,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;
     transition:border-color .15s ease, transform .15s ease;
   }
-  .more-card:hover{border-color:var(--teal);transform:translateY(-2px)}
+  @media (hover:hover) and (pointer:fine){.more-card:hover{border-color:var(--teal);transform:translateY(-2px)}}
   .more-card .c{height:104px;background-size:cover;background-position:center;background-color:var(--teal-tint)}
   .more-card .b{padding:11px;display:flex;flex-direction:column;gap:6px;flex:1}
   .more-card .k{

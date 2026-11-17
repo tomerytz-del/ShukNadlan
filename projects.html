@@ -82,7 +82,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:0;font-weight:700;font-size:.9rem;transition:transform .15s ease,box-shadow .15s ease}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  @media (hover:hover) and (pointer:fine){.btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}}
   .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
   .btn-ghost:hover{border-color:var(--teal)}
   :focus-visible{outline:3px solid var(--brass);outline-offset:2px}
@@ -182,7 +182,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ====== רצועת היזמים ====== */
   .dev-rail{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
   .dev-tile{background:#fff;border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;transition:border-color .15s ease,transform .15s ease}
-  .dev-tile:hover{border-color:var(--teal);transform:translateY(-2px)}
+  @media (hover:hover) and (pointer:fine){.dev-tile:hover{border-color:var(--teal);transform:translateY(-2px)}}
   .dev-tile .mark{width:56px;height:56px;background:var(--teal-tint) center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--teal);font-size:1.2rem}
   .dev-tile b{font-size:.86rem;line-height:1.3}
   .dev-tile span{font-size:.72rem;color:var(--ink-muted)}
